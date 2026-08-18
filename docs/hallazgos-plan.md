@@ -1006,6 +1006,84 @@ En `bajar()` (app/plan/board/ExportarModal.tsx:101-103) la rama del formato se e
 
 ---
 
+## El header del tablero
+
+### Los botones se pisaban porque el header es de una sola línea y NADA se achica
+
+El `<header>` del board es `flexWrap: nowrap` a propósito —para que ningún control salte
+de renglón al cambiar de tab— y todos sus botones son `flex: 'none'` de 38px. Eso, junto,
+significa que cuando la ventana se angosta **no hay nada que ceda**: el grupo de la derecha
+se sale del contenedor y se dibuja ENCIMA de «Filtrar». Medido en Chrome a 700px de ancho:
+el header medía 617px y su último hijo llegaba hasta 904px, o sea **290px de desborde**; el
+grupo del medio (progreso + buscador + filtro) quedaba con `width: 0` mientras sus hijos
+seguían pintando afuera. Se reporta como «los botones se ponen uno sobre otro».
+
+La regla que queda: **cuántos controles hay es DINÁMICO, así que el corte se mide, no se
+clava en un `@media`.** El tablero del cliente no tiene los botones de Fathom, y ⚠ y ✦
+aparecen y desaparecen solos según el estado del plan: cualquier breakpoint fijo se
+equivoca en algún caso. Se mide el header (`scrollWidth > clientWidth`) con un
+`ResizeObserver`, y se pliegan las acciones detrás de un «+».
+
+**Y la vuelta atrás necesita histéresis o parpadea.** Al plegarse, el grupo pasa de ~250px
+a 38px y de golpe «entra» — así que la misma condición que lo plegó dice ahora que puede
+expandirse, se expande, no entra, y se vuelve a plegar. La condición de volver mide el
+hueco elástico del header (el `<span style={{flex:1}}>`, que es lo que sobra) y exige el
+ancho completo de lo que va a devolver **más margen**.
+
+Qué cede primero, cuando algo tiene que ceder: **el dato antes que el control.** El chip
+«27% · 4/15 del plan» se esconde; los botones se pliegan pero siguen a un click. Un botón
+hace algo; el chip solo informa.
+
+**Vive en:** app/plan/board/BoardShell.tsx (`BarraAcciones` + el `useEffect` que mide) ·
+*2026-08-18*
+
+### El `<main>` del board no compensaba la barra de agencia
+
+`[data-barra-agencia] body { padding-top: 50px }` (app/globals.css:907) empuja todo el
+documento cuando estás mirando el tablero de un cliente. La sidebar lo compensa
+explícitamente (`height: calc(100vh - var(--barra-agencia))`, :910); el `<main>` del board
+estaba clavado en `100vh` y era **el único que no**. Resultado: mirando a un cliente, el
+board mide 50px más que el hueco que le queda y se come la franja de abajo del kanban.
+Arreglado con la misma `var(--barra-agencia)`, que vale `0px` cuando no hay barra.
+
+**Vive en:** app/plan/board/BoardShell.tsx (el `<main>` del return) · *2026-08-18*
+
+### «El plan del cliente está vacío» — el orden de descarte, con los números
+
+Reporte: el tablero de un cliente nuevo (ws13, Codigo Inmobiliario) se veía en blanco
+debajo del toolbar. Lo que se midió, en el orden de AGENTS.md (datos → server → navegador):
+
+1. **Datos:** 15 tareas y 6 proyectos en `experimento_tareas` desde el 16/08, 4 en `hecho`.
+   El «27% · 4/15» del propio header sale de ahí: **si el header muestra el conteo, los
+   datos ya están en memoria del navegador** y todo el server queda descartado de una.
+2. **Server:** `curl` con la cookie devuelve el HTML con los títulos de las tareas adentro.
+3. **Navegador:** no se pudo reproducir. Chrome headless por CDP, con la sesión del admin
+   impersonando **y** con una sesión de rol `usuario` (para ver exactamente lo que ve el
+   cliente), a 1600 / 1280 / 1100 / 950 / 820 / 700 / 560: el kanban pintó sus 4 columnas
+   con las tarjetas en los siete anchos.
+
+Dos cosas que ahorran la próxima vez:
+
+- **El kanban dibuja sus 4 columnas SIEMPRE** (`PRIOS.map` sobre una constante, con su
+  «＋ Nueva tarea» y un «—» por columna vacía). O sea: un filtro que deja 0 tareas produce
+  4 columnas vacías, **jamás** un cuerpo en blanco. Si no hay ni columnas, el problema no
+  está en los datos ni en los filtros: o el subárbol no se montó, o su contenedor mide 0,
+  o algo lo está tapando/pintando del color del fondo.
+- **Ese síntoma ya tiene dueño y está en AGENTS.md** («Una herramienta de laboratorio
+  montada en el layout raíz…»): el taller de paletas aplicaba un tema claro sobre el
+  lienzo y dejaba todo dibujado y borrado a la vez. La captura de ese incidente trae los
+  MISMOS números («27% · 4/15»). Ya está cerrado por las dos puntas (`{esAdmin && …}` en
+  el layout, y el `BOOT` solo aplica el tema con `?ws=` del Cliente de Diseño y en
+  cualquier otra ruta **remueve** los atributos).
+- **Y lo que no se pudo cerrar desde acá:** un bug que vive en el estado del navegador del
+  dueño no se reproduce en otra máquina. Eso se pide, no se persigue — está escrito en
+  AGENTS.md y se volvió a pagar acá.
+
+**Vive en:** app/plan/board/BoardShell.tsx:1293 (las 4 columnas) + app/_components/TemaCandidato.tsx ·
+*2026-08-18 · kanban-vacio-y-toolbar*
+
+---
+
 ## Cómo se trabaja y se prueba en esta área
 
 Reglas de proceso que el dueño dictó mirando el resultado de corridas sobre `/plan`. No son estilo: cada una salió de algo que salió mal acá.

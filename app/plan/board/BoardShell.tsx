@@ -660,7 +660,12 @@ export function BoardShell({ board, scope }: {
   };
 
   return (
-    <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', fontFamily: SANS }}>
+    // `100vh` MENOS la barra de agencia: mirando el tablero de un cliente, con `100vh` a
+    // secas el board mide 50px más que el hueco que le queda —la barra empuja el body
+    // (globals.css: `[data-barra-agencia] body{padding-top:…}`)— y se come la franja de
+    // abajo del kanban. La sidebar ya lo compensaba; este `<main>` era el único que no.
+    // La variable vale 0px cuando no hay barra, así que fuera del modo agencia no cambia.
+    <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: 'calc(100vh - var(--barra-agencia, 0px))', overflow: 'hidden', fontFamily: SANS }}>
       {/* símbolos de marca (para el logo de Fathom del toolbar/modal) — una vez por página */}
       <BrandDefs />
       {/* UNA SOLA LÍNEA, siempre. Antes tenía flexWrap:'wrap' y los botones de acción se
