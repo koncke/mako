@@ -216,7 +216,30 @@ const main = async () => {
 
     // Los cuerpos, DESPUÉS: pedirlos en el evento devuelve «No resource with given
     // identifier found» porque la respuesta todavía se está recibiendo.
-    const datos = {};
+    // ⚠️ TAMAÑO ≠ CORRECCIÓN, Y ACÁ SE PAGÓ.
+    //
+    // La versión anterior se quedaba con la respuesta MÁS GRANDE de cada clave, con un
+    // comentario que decía «acá más grande sí es más correcta porque son la MISMA
+    // consulta». Es falso: la página llama al mismo endpoint ANTES y DESPUÉS de resolver
+    // la sesión, y las dos respuestas son distintas. `curso-recursos-vip.mjs` ya tenía
+    // esta regla escrita con su caso —la respuesta anónima venía llena de filas y vacía
+    // de lo que hace falta— y este script nació sin ella.
+    //
+    // El síntoma fue un CONTADOR INESTABLE: `100m-money-models` dio 74 lecciones en el
+    // barrido y 43 al recapturar, misma URL y misma sesión, y ninguna de las dos corridas
+    // dijo que había elegido entre respuestas que no coincidían. Un número que depende del
+    // timing envenena todo lo que se mida con él.
+    //
+    // Ahora se puntúa por UTILIDAD (filas que traen el campo que hace falta), el tamaño
+    // solo desempata, y —lo que de verdad arregla el problema— si dos candidatas no
+    // coinciden se DICE, con los dos números. Un empate silencioso es cómo esto volvió.
+    const CAMPO_UTIL = { recursos: 'title', modulos: 'title', lecciones: 'title', curso: 'id' };
+    const utiles = (j, clave) => {
+      const campo = CAMPO_UTIL[clave];
+      return campo ? j.filter((x) => x && x[campo]).length : j.length;
+    };
+
+    const cands = {};
     for (const [rid, info] of capturando) {
       let body = '';
       try {
@@ -225,12 +248,25 @@ const main = async () => {
       } catch { continue; }
       let j; try { j = JSON.parse(body); } catch { continue; }
       if (!Array.isArray(j) || !j.length) continue;
-      // Puede haber varias respuestas de la misma clave (reintentos, paginado): gana la
-      // más grande, que es la completa. Ojo: acá «más grande» sí es «más correcta»
-      // porque son la MISMA consulta, no dos consultas distintas.
-      if (!datos[info.clave] || j.length > datos[info.clave].length) datos[info.clave] = j;
+      (cands[info.clave] ??= []).push(j);
     }
     capturando = null;
+
+    const datos = {};
+    const discordias = [];
+    for (const [clave, lista] of Object.entries(cands)) {
+      const puntuadas = lista
+        .map((j) => ({ j, u: utiles(j, clave), n: j.length }))
+        .sort((a, b) => (b.u - a.u) || (b.n - a.n));
+      datos[clave] = puntuadas[0].j;
+      // Dos candidatas con distinta cantidad de filas ÚTILES es el caso peligroso: una de
+      // las dos está mal y elegir sin decirlo es lo que hacía el contador saltar.
+      const distintas = new Set(puntuadas.map((p) => p.u));
+      if (distintas.size > 1) {
+        discordias.push(`${clave}: ${puntuadas.length} respuestas con ${[...distintas].join(' vs ')} filas útiles → me quedo con ${puntuadas[0].u}`);
+      }
+    }
+    for (const d of discordias) console.log(`      ⚠ ${d}`);
 
     const recursos = datos.recursos ?? [];
     const modulos = datos.modulos ?? [];
@@ -252,6 +288,9 @@ const main = async () => {
     const inv = {
       slug: c.slug, pagina: c.pagina, cuando: new Date().toISOString(),
       capturaFallida: capturaVacia,
+      // Queda EN EL ARCHIVO, no solo en el log: si mañana un número no cuadra, esto dice
+      // si hubo que elegir entre respuestas que no coincidían.
+      discordias,
       lecciones: lecciones.length,
       recursos: recursos.length,
       tipos,
@@ -260,6 +299,16 @@ const main = async () => {
       // 0 propios tenga 16 abajo.
       arbolRaices: raices.map((m) => ({ titulo: m.title, propios: porModulo.get(m.id) ?? 0, subarbol: subtotal(m.id) })),
       recursosDetalle: recursos.map((r) => ({ titulo: r.title, tipo: r.file_type, bytes: r.file_size, modulo: r.module_id })),
+      // Los TÍTULOS de las lecciones, no solo cuántas. Sin esto el inventario contesta
+      // «la fuente tiene 40 y el portal 20» y no puede contestar la pregunta que sigue,
+      // que es la única que importa: ¿faltan 20, o la fuente trae cada una DOS VECES?
+      // El doc ya tiene el precedente de un curso cargado dos veces en la plataforma, y
+      // la señal era la duración idéntica — así que la duración viaja también.
+      leccionesDetalle: lecciones.map((l) => ({
+        titulo: l.title ?? l.titulo ?? null,
+        segundos: l.duration ?? l.duracion ?? l.seconds ?? null,
+        modulo: l.module_id ?? l.vip_module_id ?? null,
+      })),
     };
     const dir = join(RAIZ, c.slug);
     mkdirSync(dir, { recursive: true });
