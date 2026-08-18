@@ -39,81 +39,12 @@ const limpio = (s) => s.normalize('NFC').replace(/[<>:"/\\|?*\u0000-\u001f]/g, '
   .replace(/\s+/g, ' ').trim().replace(/[. ]+$/, '').slice(0, 120) || 'recurso';
 
 // ── Qué es un archivo descargable y cómo se llama ────────────────────────────
-// Se mira por FAMILIA, no por un mime puntual: el día que el curso sirva un .docx
-// o un .xlsx tiene que entrar solo, sin tocar el script. Lo que se excluye es lo
-// que compone la PÁGINA (html, css, js, json, fuentes, imágenes del layout).
-const MIME_EXT = {
-  'application/pdf': 'pdf',
-  'application/zip': 'zip',
-  'application/x-zip-compressed': 'zip',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
-  'application/msword': 'doc',
-  'application/vnd.ms-excel': 'xls',
-  'application/rtf': 'rtf',
-  'text/csv': 'csv',
-  'video/mp4': 'mp4',
-  'audio/mpeg': 'mp3',
-};
-const ES_PAGINA = /^(text\/(html|css|javascript)|application\/(javascript|json|manifest)|font\/|image\/(svg|x-icon|vnd))/i;
-
-// La extensión sale, en orden: del filename del Content-Disposition, del mime
-// conocido, y recién al final del path de la URL. La URL es lo MENOS confiable:
-// las de R2 terminan en un id sin extensión.
-const extDe = (url, mime, disp) => {
-  const m = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disp ?? '');
-  if (m) {
-    const e = /\.([a-z0-9]{2,5})$/i.exec(decodeURIComponent(m[1]).trim());
-    if (e) return e[1].toLowerCase();
-  }
-  const base = String(mime ?? '').split(';')[0].trim().toLowerCase();
-  if (MIME_EXT[base]) return MIME_EXT[base];
-  const e = /\.([a-z0-9]{2,5})(?:\?|$)/i.exec(url);
-  if (e) return e[1].toLowerCase();
-  return 'bin';
-};
-
-const nombreDisp = (disp) => {
-  const m = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disp ?? '');
-  if (!m) return null;
-  try { return decodeURIComponent(m[1]).trim().replace(/\.[a-z0-9]{2,5}$/i, ''); } catch { return null; }
-};
-
-// Validación por familia. Lo único que se rechaza SIEMPRE es una página de error
-// vestida de 200 — ya nos pasó con Drive: el archivo quedaba «bajado» y roto.
-const FIRMAS = {
-  pdf: (b) => b.subarray(0, 5).toString('latin1') === '%PDF-',
-  zip: (b) => b.subarray(0, 2).toString('latin1') === 'PK',
-  docx: (b) => b.subarray(0, 2).toString('latin1') === 'PK',
-  xlsx: (b) => b.subarray(0, 2).toString('latin1') === 'PK',
-  pptx: (b) => b.subarray(0, 2).toString('latin1') === 'PK',
-};
-const esHtml = (b) => /^\s*(<!doctype html|<html|<head|<body)/i.test(b.subarray(0, 200).toString('latin1'));
-const valido = (buf, ext) => {
-  if (buf.length < 64) return false;
-  const f = FIRMAS[ext];
-  if (f) return f(buf);
-  return !esHtml(buf);
-};
-
-const cuerpoCdp = async (cdp, rid, sessionId) => {
-  try {
-    const { body, base64Encoded } = await cdp.enviar('Network.getResponseBody', { requestId: rid }, sessionId);
-    return base64Encoded ? Buffer.from(body, 'base64') : Buffer.from(body, 'utf8');
-  } catch { return null; }
-};
-
-const cuerpoDirecto = async (url, referer, ua) => {
-  try {
-    const r = await fetch(url, {
-      headers: { ...(referer ? { referer } : {}), ...(ua ? { 'user-agent': ua } : {}) },
-      redirect: 'follow',
-    });
-    if (!r.ok) return null;
-    return Buffer.from(await r.arrayBuffer());
-  } catch { return null; }
-};
+// Cómo se baja un archivo y cómo se sabe si sirve vive en UN lugar: `curso-descarga.mjs`.
+// Estas seis funciones estaban acá y ahora las necesita también `curso-recursos-vip.mjs`
+// para el área /curso/. Copiarlas era garantizar que la segunda copia quedara vieja —
+// y las cuatro reglas que encierran (la extensión es un HECHO, el cuerpo vacío de CDP,
+// la página de error vestida de 200, excluir por familia) se pagaron con un bug cada una.
+import { MIME_EXT, ES_PAGINA, extDe, nombreDisp, valido, cuerpoCdp, cuerpoDirecto } from './curso-descarga.mjs';
 
 class Cdp {
   constructor(ws) {
