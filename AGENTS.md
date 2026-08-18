@@ -88,6 +88,23 @@ Reglas que salen de eso:
   en un client component rompe el bundle ENTERO: la página se ve perfecta (el HTML es
   del server) pero ningún botón responde. Antes de diagnosticar tu propio cambio, probá
   otra ruta cualquiera — si tampoco hidrata, no es tuyo.
+- **La sesión que ABRE lee dónde quedó la otra, y arranca por ahí.** El desfase de cuotas
+  no parte el trabajo en dos temas: Martín viene de trabajar en la otra cuenta y **lo
+  natural es que siga con lo último**. Así que lo último trabajado es el contexto por
+  defecto de tu sesión, no un dato de archivo. Se averigua en tres comandos: `git log
+  --oneline -20` (de qué se trató), `ls -lt docs/hallazgos-*.md` (qué ÁREA se tocó
+  último) y `ls -lt` sobre la carpeta de memoria. Recién ahí, abrí el
+  `docs/hallazgos-<área>.md` de esa área.
+- **Antes de tocar un área — y SIEMPRE antes de contestar «¿dónde quedamos?» — leé su
+  `docs/hallazgos-<área>.md`.** Es la contraparte de la cosecha de acá abajo, y sin ella
+  la regla funciona solo para el que escribe. **La asimetría que lo explica:** la memoria
+  se auto-carga al arrancar (y solo el ÍNDICE, no el contenido), pero `docs/hallazgos-*`
+  **no se carga nunca solo** — si no lo abrís, para vos no existe. Pasó el 18/08: a
+  «¿dónde quedamos?» contesté con lo que había hecho yo + `git log`, cuando lo último
+  (bienvenida + grafo, temas/paletas, portal de cursos) estaba escrito con detalle en
+  `hallazgos-second-brain.md`, `hallazgos-ui.md` y `hallazgos-conocimiento.md`. Nunca
+  contestes «dónde quedamos» desde lo que viviste vos: el 100% del trabajo intermedio es
+  de la otra sesión.
 - **La sesión que cierra deja escrito dónde quedó** — en `docs/hallazgos-<área>.md`, en
   el board `/plan` o en una memoria. Si la cuota corta a mitad de camino, eso es lo único
   que sobrevive.
