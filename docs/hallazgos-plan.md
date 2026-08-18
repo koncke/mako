@@ -1034,8 +1034,34 @@ Qué cede primero, cuando algo tiene que ceder: **el dato antes que el control.*
 «27% · 4/15 del plan» se esconde; los botones se pliegan pero siguen a un click. Un botón
 hace algo; el chip solo informa.
 
-**Vive en:** app/plan/board/BoardShell.tsx (`BarraAcciones` + el `useEffect` que mide) ·
-*2026-08-18*
+#### Y preguntarle al contenedor si desborda NO alcanza
+
+El primer arreglo midió el `<header>` (`scrollWidth > clientWidth`) y **no funcionó**: el
+dueño volvió con la misma captura. Medido en vivo, el header entraba perfecto —946 contra
+946— mientras el grupo de la vista (progreso + buscador + filtro) **necesitaba 237 y tenía
+150**. Los 87px que le faltaban se le salían por la derecha y se dibujaban encima de los
+botones.
+
+Pasa porque ese grupo es lo ÚNICO que puede achicarse (`minWidth: 0`): absorbe toda la
+falta de lugar, se comprime hasta donde haga falta, y el header **nunca se entera**. La
+regla general: **en un flex donde algo puede encogerse sin límite, el desborde no aparece
+en el contenedor — aparece adentro del hijo que cedió.** Hay que preguntarle a los dos.
+
+Dos corolarios más, del mismo día:
+
+- **El `ResizeObserver` sobre el header no ve un cambio de CONTENIDO.** Observa la caja, y
+  la caja no cambia cuando el grupo se llena (el chip de Prioridades es más ancho que el
+  de Kanban, y buscador+filtro solo existen en dos de las cuatro vistas). Por eso `view`
+  va en las dependencias y se vuelve a medir con `document.fonts.ready`: las tipografías
+  llegan después del primer layout y ensanchan todo.
+- **Cuando hay que ceder, el orden es dato → rótulo → control.** Cede primero el chip de
+  progreso (informa), después la palabra «Plan» del título (~110px, y el ícono queda) y la
+  palabra «Filtrar» (~55px, y el embudo queda). Los botones no desaparecen: se pliegan.
+  Con eso, medido: cero desborde y cero solapamientos de 589px a 1202px de header en
+  Prioridades, y de 855 a 1202 en Kanban (antes: 87px de contenido saliéndose a 946).
+
+**Vive en:** app/plan/board/BoardShell.tsx (`BarraAcciones`, el `useEffect` que mide y el
+`data-grupo-vista`) · *2026-08-18*
 
 ### El `<main>` del board no compensaba la barra de agencia
 

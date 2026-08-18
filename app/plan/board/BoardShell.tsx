@@ -406,18 +406,33 @@ export function BoardShell({ board, scope }: {
   useEffect(() => {
     const header = espacioRef.current?.closest('header');
     if (!header) return;
-    // Lo que hay que recuperar para volver atrás: los botones (38+12 c/u) y el chip de
-    // progreso. La vuelta pide MARGEN (histéresis): al plegarse sobra lugar de golpe, y
-    // sin margen se expandiría, no entraría y se volvería a plegar — un parpadeo por píxel.
-    const necesita = nAcciones * 50 + 210;
+    const grupo = header.querySelector<HTMLElement>('[data-grupo-vista]');
+    // ⚠ NO alcanza con preguntarle al header si desborda: MEDIDO, el header entra
+    // perfecto (946 = 946) mientras el grupo de la vista necesita 237 y tiene 150 — se
+    // le salen 87px de contenido que se dibujan ENCIMA de los botones. Pasa porque ese
+    // grupo es lo único que puede achicarse (`minWidth: 0`): absorbe toda la falta de
+    // lugar sin que el header se entere. Hay que preguntarle a los DOS.
+    const falta = () => (header.scrollWidth - header.clientWidth)
+      + (grupo ? grupo.scrollWidth - grupo.clientWidth : 0);
+    // Para volver: los botones (38+12 c/u) y el chip de progreso. Pide MARGEN
+    // (histéresis): al plegarse sobra lugar de golpe, y sin margen se expandiría, no
+    // entraría y se volvería a plegar — un parpadeo por cada píxel de resize.
+    const necesita = nAcciones * 50 + 260;
     const medir = () => setCompacto((prev) => (prev
       ? (espacioRef.current?.getBoundingClientRect().width ?? 0) < necesita
-      : header.scrollWidth - header.clientWidth > 1));
+      : falta() > 1));
     const ro = new ResizeObserver(medir);
     ro.observe(header);
+    if (grupo) ro.observe(grupo);
     medir();
+    // Las tipografías llegan DESPUÉS del primer layout y ensanchan todo: medir solo al
+    // montar da un veredicto sobre un header que todavía no es el definitivo.
+    document.fonts?.ready.then(medir).catch(() => {});
     return () => ro.disconnect();
-  }, [nAcciones]);
+    // `view` entra porque el grupo cambia de contenido con la vista (el chip de
+    // Prioridades es más ancho que el de Kanban, y buscador+filtro solo existen en dos
+    // de las cuatro): el header no cambia de tamaño, así que el observer no se entera.
+  }, [nAcciones, view]);
 
   const avg = tasks.length ? Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length) : 0;
   const hechas = tasks.filter((t) => t.progress >= 100).length;
@@ -677,7 +692,9 @@ export function BoardShell({ board, scope }: {
         {/* logo (checklist) + Plan — mismo ícono que la sidebar (feedback #2) */}
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12, flex: 'none' }}>
           <PlanIcon size={38} />
-          <span style={{ fontSize: 40, fontWeight: 600, color: 'var(--ink)', letterSpacing: '-0.025em', lineHeight: 1 }}>Plan</span>
+          {/* La PALABRA cede cuando no entra; el ícono no. Son ~110px que valen más como
+              buscador que como rótulo de una pantalla en la que ya estás. */}
+          {!compacto && <span style={{ fontSize: 40, fontWeight: 600, color: 'var(--ink)', letterSpacing: '-0.025em', lineHeight: 1 }}>Plan</span>}
         </div>
         {/* tabs */}
         <div style={{ display: 'inline-flex', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: 3 }}>
@@ -694,7 +711,10 @@ export function BoardShell({ board, scope }: {
         {/* El hueco elástico. Además de empujar, es el METRO: lo que mida acá es el
             lugar que hay para volver a desplegar los botones. */}
         <span ref={espacioRef} style={{ flex: 1 }} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+        {/* El grupo VARIABLE (progreso + buscador + filtro). Lleva marca porque es el que
+            se achica: el header entero puede entrar perfecto y ser ESTE el que se queda
+            sin lugar — su contenido se sale y se dibuja encima de los botones. */}
+        <div data-grupo-vista style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
         {/* El progreso es un DATO, no un control: cuando no entra todo, es lo primero que
             cede el lugar (los botones hacen algo; este solo informa). */}
         {!compacto && view === 'kanban' && <AvgChip avg={avg} hechas={hechas} total={tasks.length} label="del plan" />}
@@ -709,8 +729,8 @@ export function BoardShell({ board, scope }: {
             onLimpiarIA={() => setIa({ pensando: false, ids: null, explico: '' })}
           />
           {view === 'kanban'
-            ? <FilterMenu labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />
-            : <FilterMenu doneFilter={projFilter} setDoneFilter={setProjFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />}
+            ? <FilterMenu soloIcono={compacto} labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />
+            : <FilterMenu soloIcono={compacto} doneFilter={projFilter} setDoneFilter={setProjFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />}
         </>}
         </div>
         {/* Los botones de acción, PLEGABLES: cuando no entran se esconden detrás de un
@@ -1533,7 +1553,9 @@ const ORIGEN_OPS: Array<[string, string]> = [
   ['archivo', '📄 Archivos subidos'], ['mako', '✨ MaKo'], ['manual', '✍️ Manual'],
 ];
 type FiltroVista = 'root' | 'estado' | 'proyecto' | 'origen' | 'orden';
-function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, estadoLabels, fOrigen, setFOrigen, sortMode, setSortMode, sortDir, setSortDir }: {
+function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, estadoLabels, fOrigen, setFOrigen, sortMode, setSortMode, sortDir, setSortDir, soloIcono }: {
+  /** sin lugar: queda el embudo solo (la palabra son ~55px). */
+  soloIcono?: boolean;
   labels?: Label[]; fLabels?: Set<string>; setFLabels?: (s: Set<string>) => void;
   doneFilter: DoneFilter; setDoneFilter: (f: DoneFilter) => void; estadoLabels?: Array<[DoneFilter, string]>;
   fOrigen?: Set<string>; setFOrigen?: (s: Set<string>) => void;
@@ -1575,8 +1597,8 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
 
   return (
     <span style={{ position: 'relative' }}>
-      <button onClick={() => { setOpen((o) => !o); setVista('root'); }} style={{ position: 'relative', ...ghostBtn, display: 'inline-flex', alignItems: 'center', gap: 7, background: open ? 'var(--surface-2)' : 'var(--surface)', color: n > 0 ? 'var(--primary)' : 'var(--dim)', borderColor: n > 0 ? 'var(--primary-weak)' : 'var(--border-strong)' }}>
-        <FunnelIcon color="var(--primary)" />Filtrar
+      <button onClick={() => { setOpen((o) => !o); setVista('root'); }} aria-label="Filtrar" title="Filtrar" style={{ position: 'relative', ...ghostBtn, display: 'inline-flex', alignItems: 'center', gap: 7, background: open ? 'var(--surface-2)' : 'var(--surface)', color: n > 0 ? 'var(--primary)' : 'var(--dim)', borderColor: n > 0 ? 'var(--primary-weak)' : 'var(--border-strong)' }}>
+        <FunnelIcon color="var(--primary)" />{!soloIcono && 'Filtrar'}
         {n > 0 && <span onClick={(e) => { e.stopPropagation(); setFLabels?.(new Set()); setFOrigen?.(new Set()); setDoneFilter('all'); }} title="Limpiar" style={{ position: 'absolute', top: -7, right: -7, minWidth: 18, height: 18, padding: '0 4px', borderRadius: 999, background: 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg)' }}>{n}</span>}
       </button>
       {open && <>
