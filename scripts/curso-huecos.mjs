@@ -13,7 +13,12 @@
 // Es el cuarto contador de esta área que cuenta lo que hay en vez de lo que debería
 // haber (ver docs/hallazgos-conocimiento.md, «tercera vez que un contador miente»).
 //
-// Esto no arregla nada: dice qué falta bajar, que es lo que hoy nadie sabe.
+// ⚠️ UN HUECO NO PRUEBA QUE FALTE ALGO. Prueba que el autor no numera corrido, que es
+// otra cosa. Corrido sobre «Hackeando la Edición» dio «falta el Módulo 5 y las clases 10
+// y 28»; al volver a preguntarle a la plataforma, el origen tiene EXACTAMENTE lo mismo:
+// ese módulo está vacío allá y esas dos clases no existen. Esto SEÑALA dónde mirar; lo
+// que decide es `curso-plan-vip.mjs` contra la fuente, y el resultado se anota en
+// VERIFICADOS para no volver a investigar lo mismo.
 //
 //   node scripts/curso-huecos.mjs
 //   node scripts/curso-huecos.mjs --curso hackeando-la-edicion
@@ -46,6 +51,30 @@ function clasesDe(texto) {
     return { titulo: t[1].trim(), modulo: m ? Number(m[1]) : 0, grupo: g ? g[1].trim() : '' };
   }).filter(Boolean);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HUECOS YA VERIFICADOS CONTRA LA FUENTE
+// ─────────────────────────────────────────────────────────────────────────────
+// Un hueco en la numeración del autor NO prueba que nos falte algo: prueba que el
+// autor no numera corrido. La única forma de saberlo es volver a preguntarle a la
+// plataforma, y cuando se hace, el resultado es un HECHO que no se puede perder —
+// si no, el mismo curso se investiga de cero cada vez que alguien corre esto.
+//
+// Se verifica así: abrir el Chrome dedicado en la página del curso
+// (`scripts/curso-perfil.ps1 -Url <página>`) y correr `scripts/curso-plan-vip.mjs`,
+// que captura la respuesta del RPC que la propia página pidió. Si el plan nuevo
+// trae lo mismo que el viejo, el hueco es del origen.
+const VERIFICADOS = {
+  'hackeando-la-edicion': {
+    fecha: '2026-08-18',
+    // El RPC `get_vip_lessons_secure` devolvió 64 clases y «7 módulos raíz, 11 en
+    // total», con las mismas etiquetas 1,2,3,4,6,7. O sea: el Módulo 5 (Bonus 2)
+    // EXISTE en la plataforma y está VACÍO, y las clases 10 y 28 del Módulo 1 no
+    // existen — el autor saltea esos números. El plan nuevo salió idéntico al viejo:
+    // ninguna clase de más, ninguna de menos.
+    nota: 'el origen tiene exactamente lo mismo: el Módulo 5 está vacío en la plataforma y el autor saltea la 10 y la 28',
+  },
+};
 
 /** El número que le puso el AUTOR, del arranque del título. null si no numera. */
 function numDelAutor(titulo) {
@@ -124,6 +153,17 @@ for (const f of archivos) {
   // Un curso donde TODO quedó sin evaluar se imprime igual. Si no, el silencio se lee
   // como «está completo» — que es exactamente el error que este script vino a cazar: un
   // contador que se calla no está diciendo «no hay huecos», está diciendo «no miré».
+  // Ya verificado contra la fuente: se dice y se saca de la cuenta. Un curso que se fue a
+  // mirar y volvió limpio no puede seguir apareciendo como sospechoso, o el listado se
+  // vuelve una lista de cosas que nadie revisa.
+  const ok = VERIFICADOS[slug];
+  if (ok && lineas.length) {
+    console.log(`\n□ ${slug}   (${clases.length} clases cargadas)  — VERIFICADO ${ok.fecha}`);
+    for (const l of lineas) console.log(`  ·${l.replace(/^\s+⚠?\s*/, ' ')}`);
+    console.log(`  ✓ ${ok.nota}`);
+    continue;
+  }
+
   if (lineas.length || noEvaluables.length) {
     if (lineas.length) conProblemas++; else sinEvaluar++;
     console.log(`\n■ ${slug}   (${clases.length} clases cargadas)${lineas.length ? '' : '  — SIN EVALUAR'}`);

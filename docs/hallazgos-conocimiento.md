@@ -2366,8 +2366,8 @@ hay en vez de lo que debería haber.
 
 **Lo medido, 2026-08-18** — `node scripts/curso-huecos.mjs`, 23 cursos:
 
-- **hackeando-la-edicion** — falta el **Módulo 5 (Bonus 2) entero** y las clases **10 y 28**
-  del Módulo 1 (el autor numera hasta 30, hay 28).
+- **hackeando-la-edicion** — el verificador marcó el **Módulo 5** y las clases **10 y 28**.
+  **VERIFICADO CONTRA LA FUENTE y es un FALSO POSITIVO** — ver abajo.
 - **creator-club** — falta el **Módulo 2**. · **m5-95** — falta el **Módulo 8**.
 - **avatarhype** — falta el **Módulo 7** y 17 bloques con clases sueltas (las Sesiones
   Semanales son las más agujereadas).
@@ -2387,3 +2387,36 @@ dice «no miré»**, y esa confusión es la que trajo el problema de arriba.
 **Lo que queda SIN hacer:** bajar lo que falta. El módulo 5 de Guille y las dos clases
 salen con el pipeline que ya está (`curso-perfil.ps1` → `curso-plan.mjs` → `curso-bajar.mjs`);
 para los 5 sin evaluar hay que enumerar de nuevo contra la fuente, no contra el `.ts`.
+
+### ⚠️ Y el hueco del curso de Guille NO era nuestro: el diagnóstico obvio era el equivocado
+
+Escrito una hora después de la entrada de arriba, y la corrige.
+
+El verificador dijo «falta el Módulo 5 y las clases 10 y 28», y sonaba redondo: encajaba
+con lo que el dueño había visto a ojo y con una causa técnica real (nuestra renumeración).
+**Las dos cosas eran ciertas y la conclusión igual era falsa.**
+
+Se fue a preguntarle a la plataforma: Chrome dedicado (`curso-perfil.ps1`) sobre
+`https://cursoselite.com.mx/curso/hackeando-la-edici-n` y `curso-plan-vip.mjs`, que captura
+la respuesta del RPC `get_vip_lessons_secure` que la propia página pidió. El resultado:
+
+    Clases  : 64          ← las mismas 64
+    Módulos : 7 raíz · 11 en total
+    en el NUEVO y no en el viejo: ninguna
+    en el VIEJO y no en el nuevo: ninguna
+
+**El origen tiene exactamente lo mismo.** El Módulo 5 (Bonus 2) EXISTE en la plataforma y
+está **vacío** —por eso el RPC cuenta 7 raíz y solo 6 traen clases—, y las clases 10 y 28
+del Módulo 1 no existen: el autor saltea esos números. Nunca se perdió nada bajando.
+
+**La regla:** un hueco en la numeración del autor prueba que **el autor no numera corrido**,
+no que nos falte algo. Son dos afirmaciones distintas y la segunda cuesta una hora de
+descargas. El verificador SEÑALA dónde mirar; lo que decide es volver a la fuente.
+
+**Y el resultado de esa verificación es un HECHO que no se puede perder.** Vive en
+`VERIFICADOS`, adentro de `scripts/curso-huecos.mjs`: sin eso, el mismo curso se investiga
+de cero cada vez que alguien corre el script, y a la tercera vez nadie lo corre más.
+
+**Corolario para los otros cuatro** (creator-club Módulo 2, m5-95 Módulo 8, avatarhype
+Módulo 7, master-marca-personal clase 2): **están sin verificar**, y después de esto la
+apuesta razonable es que varios sean lo mismo. Antes de bajar nada, el RPC.
