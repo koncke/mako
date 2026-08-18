@@ -2459,3 +2459,50 @@ de buscar. En `VERIFICADOS` ahora dice explícitamente «ninguna clase de VIDEO 
 `scripts/curso-plan-vip.mjs` (leer `resources` del RPC), `scripts/curso-recursos-vip.mjs`
 (aceptar la pestaña `/curso/`, no solo `/watch`) y `scripts/curso-huecos.mjs` (contar también
 recursos, no solo clases).
+
+### El endpoint de los recursos de `/curso/`, y el árbol de TRES niveles que nadie había visto
+
+Capturado con `scripts/curso-api-sniff.mjs` sobre «Hackeando la Edición», 2026-08-18.
+El área `/curso/` no usa nada de lo que el pipeline conocía:
+
+| qué | endpoint |
+|---|---|
+| lecciones | `rest/v1/rpc/get_course_lessons_secure` (¡no el `_vip_`!) |
+| **recursos** | `rest/v1/course_resources?select=id,course_id,module_id,title,description,file_type,file_size,is_free,"order",created_at&course_id=eq.<uuid>` |
+| **módulos** | `rest/v1/modules?select=*&course_id=eq.<uuid>&is_deleted=eq.false&order=order.asc` |
+| ya descargados | `rest/v1/resource_downloads?select=resource_id&user_email=eq.<mail>` |
+| el `course_id` | `rest/v1/courses?select=*&slug=eq.<slug>&is_deleted=eq.false` |
+
+**Lo que devolvió para ese curso: 28 recursos.** 16 `.cube`, 4 `.txt`, 4 `.png`, 3 `.pdf`,
+1 `.zip`. En el portal tenemos **cero**.
+
+**Y el hallazgo estructural: `modules` tiene TRES niveles.** 7 raíz + 4 con
+`parent_module_id`, y de esos 4 hay tres que son nietos:
+
+    Módulo 5 - Bonus 2 - Mis LUTs        propios=0
+        └ LUTS                            propios=0
+            └ 2a Capa Color Guille        ← acá viven los .cube
+            └ Básicos Guille              ← y acá
+
+Por eso el módulo padre marca cero recursos **y también cero lecciones**: todo lo suyo está
+dos niveles más abajo. Sumando por módulo raíz solo aparecen 12 de los 28; los otros 16
+cuelgan de los nietos.
+
+**La regla:** contar los hijos de un nodo no es contar su subárbol. Cualquier chequeo de
+completitud sobre esta plataforma tiene que recorrer `parent_module_id` hasta el fondo —
+preguntar «¿este módulo tiene algo?» mirando un solo nivel contesta «no» sobre un módulo
+lleno, y eso es exactamente lo que pasó.
+
+**Dos gotchas del capturador, los dos ya resueltos en el script:**
+
+1. **`Network.getResponseBody` en el evento devuelve «No resource with given identifier
+   found»** — el cuerpo todavía se está recibiendo. Se piden todos DESPUÉS de la ventana de
+   captura. En la salida se ve clarísimo: la misma URL aparece dos veces, una con 53 bytes
+   de error y otra con los 8.627 reales.
+2. **Un acordeón cerrado no pide nada.** Sin desplegar los módulos, capturar «al cargar» es
+   el falso negativo garantizado de esta pantalla. El script hace cuatro rondas de clicks
+   —abrir un módulo revela submódulos que también hay que abrir— y espera 6 s antes de la
+   primera, porque un React que no montó todavía no tiene los handlers puestos y los clicks
+   se pierden sin ruido.
+
+**Vive en:** `scripts/curso-api-sniff.mjs`
