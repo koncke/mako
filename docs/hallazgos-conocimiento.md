@@ -2331,3 +2331,59 @@ Selector) · `app/compartido/[token]/PortalCompartido.tsx`.
 **Lo que quedo SIN hacer:** en 1280x720 la columna del video gasta el 40% de su alto
 (241 de 594 px) en los botones de navegacion y el titulo antes de llegar al reproductor.
 Vive en `.ugc-lecnav` + `.ugc-ltitle`, en la COLA de `scripts/avatarhype-css.mjs`.
+
+---
+
+## ⚠️ El portal renumera las clases, y con eso TAPA lo que no se bajó
+
+**Síntoma:** el dueño, mirando el portal a ojo: *«puede ser que en el de Guille falte el
+módulo 5»* y *«del primer módulo falta la clase 10 y 28»*. Tenía razón en las tres cosas.
+Nada en la app lo decía: la tarjeta anunciaba **«64 clases, 6 módulos»** y el número
+cerraba solo.
+
+**Causa:** `n` es una numeración PROPIA, corrida de 1 a N sobre lo que se logró bajar. De
+las 66 clases del origen entraron 64 y `n` igual fue 1..64 **sin un solo salto**. El hueco
+no se disimula: deja de existir.
+
+Y el campo `modulo` hace exactamente lo mismo. En `curso-hackeando-la-edicion.ts` va 1..6
+corrido mientras las ETIQUETAS dicen 1, 2, 3, 4, **6**, 7:
+
+| `modulo:` | `grupo:` |
+|---|---|
+| 4 | `Módulo 4 - Bonus 1 - Trucos para` |
+| 5 | `Módulo 6 - Bonus 3 - Checklist d` ← el 5 del autor no está |
+| 6 | `Módulo 7 - Bonus 4 - Sesiones Q&` |
+
+**El único testigo del origen es el TÍTULO**, que se guardó con el número del autor
+adentro («10. Cortes en J y L»). Es un accidente afortunado: nadie lo puso ahí para esto.
+
+**La regla que queda:** cuando se ingiere de una fuente ajena, **el identificador del
+origen se guarda como dato**, no se reemplaza por uno propio. Una numeración generada no
+puede detectar su propia pérdida — es el cuarto contador de esta área que cuenta lo que
+hay en vez de lo que debería haber.
+
+**Vive en:** `scripts/curso-huecos.mjs` (el verificador) · `app/conocimientos/curso-*.ts`
+
+**Lo medido, 2026-08-18** — `node scripts/curso-huecos.mjs`, 23 cursos:
+
+- **hackeando-la-edicion** — falta el **Módulo 5 (Bonus 2) entero** y las clases **10 y 28**
+  del Módulo 1 (el autor numera hasta 30, hay 28).
+- **creator-club** — falta el **Módulo 2**. · **m5-95** — falta el **Módulo 8**.
+- **avatarhype** — falta el **Módulo 7** y 17 bloques con clases sueltas (las Sesiones
+  Semanales son las más agujereadas).
+- **master-marca-personal-5-0** — falta la clase 2 de «Cómo hacer contenido viral».
+- **5 cursos NO SE PUEDEN EVALUAR** (100m-money-models, aumenta-tu-valor, instituto-de-
+  comunicacion, jaque-blue, vender-por-fb-e-ig-ads): anidan submódulos que reinician la
+  numeración y ese anidamiento no viaja en ningún campo que se pueda leer.
+
+**Y el gotcha del propio verificador, que es la mitad del valor:** la primera versión
+reportaba «REPETIDAS» y «faltan» en esos 5, dando **8 cursos con huecos inventados**.
+Números repetidos dentro de un grupo no son duplicados: son la prueba de que la agrupación
+es más gruesa que la del origen — y entonces sus «faltan» tampoco valen. Se saltea el grupo
+entero y se dice cuántos quedaron sin mirar. Un curso donde TODO quedó sin evaluar se
+imprime igual, con `— SIN EVALUAR`: **un contador que se calla no dice «no hay huecos»,
+dice «no miré»**, y esa confusión es la que trajo el problema de arriba.
+
+**Lo que queda SIN hacer:** bajar lo que falta. El módulo 5 de Guille y las dos clases
+salen con el pipeline que ya está (`curso-perfil.ps1` → `curso-plan.mjs` → `curso-bajar.mjs`);
+para los 5 sin evaluar hay que enumerar de nuevo contra la fuente, no contra el `.ts`.
