@@ -9,7 +9,7 @@
 // de MaKo + Change history (avatar + deshacer por entrada), editor de proyectos
 // con emoji, y el form bloqueante para tareas Alta sin deadline/checklist.
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode, useMemo } from 'react';
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { UndoToast } from '../../_components/UndoToast';
 import { ConfirmModal } from '../../_components/ConfirmModal';
@@ -119,6 +119,8 @@ export function BoardShell({ board, scope }: {
   // Borradores PENDIENTES (plan_propuestas): las tareas que MaKo sacó sola de tu última
   // reunión de equipo, o las que te mandó otra persona. Se muestran de a una.
   const [pendientes, setPendientes] = useState<PropuestaPendiente[]>([]);
+  /** El hueco elástico del header: es el METRO de cuánto lugar sobra. */
+  const espacioRef = useRef<HTMLSpanElement>(null);
   // Cerrar el modal con la ✕ NO descarta nada: solo lo esconde. Los borradores siguen
   // vivos y el botón de Fathom (que late) los vuelve a abrir.
   // (ya no hace falta un flag de "lo cerré": el modal solo se abre a pedido)
@@ -389,6 +391,34 @@ export function BoardShell({ board, scope }: {
   }, [hayWelcome]);
   const passes = (t: BoardTask) => (idsIA ? idsIA.has(t.id) : (!q || matchTarea(t, q, campos))) && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l))) && (fOrigen.size === 0 || fOrigen.has(fuenteEfectiva(t).tipo)) && pasaEstado(t.progress, doneFilter);
   const visibles = tasks.filter(passes);
+  // ── El header, cuando la ventana se angosta ──────────────────────────────────
+  // Es de UNA sola línea a propósito (que nada salte de renglón al cambiar de tab), y eso
+  // tiene un costo: sus botones miden 38px fijos y no se achican, así que en una ventana
+  // angosta terminaban DIBUJÁNDOSE ENCIMA de «Filtrar». Medido: a 700px de ancho el grupo
+  // de la derecha se salía 290px del contenedor.
+  //
+  // Se mide el HEADER, no un breakpoint de CSS: cuántos botones hay depende del tablero
+  // (el del cliente no tiene Fathom) y del momento (⚠ y ✦ aparecen y desaparecen solos),
+  // así que un `@media` con un número clavado se equivoca siempre en algún caso. Acá se
+  // pregunta lo único que importa: ¿entra o no entra?
+  const nAcciones = (faltantes.length > 0 ? 1 : 0) + (hayWelcome ? 1 : 0) + (repo.fathomExtract ? 2 : 0) + 1;
+  const [compacto, setCompacto] = useState(false);
+  useEffect(() => {
+    const header = espacioRef.current?.closest('header');
+    if (!header) return;
+    // Lo que hay que recuperar para volver atrás: los botones (38+12 c/u) y el chip de
+    // progreso. La vuelta pide MARGEN (histéresis): al plegarse sobra lugar de golpe, y
+    // sin margen se expandiría, no entraría y se volvería a plegar — un parpadeo por píxel.
+    const necesita = nAcciones * 50 + 210;
+    const medir = () => setCompacto((prev) => (prev
+      ? (espacioRef.current?.getBoundingClientRect().width ?? 0) < necesita
+      : header.scrollWidth - header.clientWidth > 1));
+    const ro = new ResizeObserver(medir);
+    ro.observe(header);
+    medir();
+    return () => ro.disconnect();
+  }, [nAcciones]);
+
   const avg = tasks.length ? Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length) : 0;
   const hechas = tasks.filter((t) => t.progress >= 100).length;
   // "En prioridad" = AUTOMÁTICO: las 3 tareas de mayor score del Objetivo Principal
@@ -656,11 +686,15 @@ export function BoardShell({ board, scope }: {
               mismo orden, así ningún botón se te mueve de lugar al cambiar de tab.
             Antes estaban todos mezclados: al pasar de Kanban a Prioridades desaparecían
             el buscador y el filtro y los cuatro botones saltaban 250px a la izquierda. */}
-        <span style={{ flex: 1 }} />
+        {/* El hueco elástico. Además de empujar, es el METRO: lo que mida acá es el
+            lugar que hay para volver a desplegar los botones. */}
+        <span ref={espacioRef} style={{ flex: 1 }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-        {view === 'kanban' && <AvgChip avg={avg} hechas={hechas} total={tasks.length} label="del plan" />}
-        {view === 'prioridades' && <AvgChip avg={prioAvg} hechas={enPrio.length} total={MAX_PRIORIDAD} label="en prioridad" />}
-        {view === 'proyectos' && <AvgChip avg={avgProj} hechas={hechosProj} total={labels.length} label="proyectos ✓" />}
+        {/* El progreso es un DATO, no un control: cuando no entra todo, es lo primero que
+            cede el lugar (los botones hacen algo; este solo informa). */}
+        {!compacto && view === 'kanban' && <AvgChip avg={avg} hechas={hechas} total={tasks.length} label="del plan" />}
+        {!compacto && view === 'prioridades' && <AvgChip avg={prioAvg} hechas={enPrio.length} total={MAX_PRIORIDAD} label="en prioridad" />}
+        {!compacto && view === 'proyectos' && <AvgChip avg={avgProj} hechas={hechosProj} total={labels.length} label="proyectos ✓" />}
         {(view === 'kanban' || view === 'proyectos') && <>
           <BuscadorTareas
             q={q} onQ={setQ}
@@ -674,28 +708,26 @@ export function BoardShell({ board, scope }: {
             : <FilterMenu doneFilter={projFilter} setDoneFilter={setProjFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />}
         </>}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 'none' }}>
-        {/* ⚠ en TODAS las vistas (no solo kanban) y también con "no volver a pedir todos"
-            activo: es el único modo de REABRIR el modal (lo promete el 2do pop-up). Cuando
-            está apagado no titila (queda gris), para no naguear. */}
-        {faltantes.length > 0 && (
+        {/* Los botones de acción, PLEGABLES: cuando no entran se esconden detrás de un
+            «+» que los despliega al costado. Antes se dibujaban encima de «Filtrar». */}
+        <BarraAcciones compacto={compacto} acciones={[
+          /* ⚠ en TODAS las vistas (no solo kanban) y también con "no volver a pedir todos"
+             activo: es el único modo de REABRIR el modal (lo promete el 2do pop-up). Cuando
+             está apagado no titila (queda gris), para no naguear. */
+          ...(faltantes.length > 0 ? [{ key: 'datos', nodo: (
           <button type="button" onClick={abrirDatosManual} title={`${faltantes.length} tarea${faltantes.length === 1 ? '' : 's'} con datos sin marcar (deadline / checklist)`} aria-label="Datos sin marcar"
             style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', cursor: 'pointer', flex: 'none', padding: 0 }}>
             <WarnMark title="" size={18} blink={!datosOff} />
           </button>
-        )}
-        {/* Botón ✨ para RE-ABRIR la bienvenida "MaKo cargó tareas" (punto 3: ya no se pierde
-            al tocar una tarea). Solo aparece si hay tareas nuevas de una fuente esta sesión. */}
-        {hayWelcome && (
+          ) }] : []),
+          ...(hayWelcome ? [{ key: 'welcome', nodo: (
           <button type="button" onClick={() => setWelcomeVisible(true)} title={`${welcomeTasks.length} tarea${welcomeTasks.length === 1 ? '' : 's'} que cargó MaKo — ver`} aria-label="Tareas que cargó MaKo"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 38, borderRadius: 9, border: '1px solid var(--primary-weak)', background: 'var(--surface)', cursor: 'pointer', flex: 'none', padding: '0 11px' }}>
             <MakoStar size={15} color="var(--primary)" />
             <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: 'var(--primary)' }}>{welcomeTasks.length}</span>
           </button>
-        )}
-        {/* Dos botones (feedback jul-18): el logo de Fathom (punto 6) abre la lista de
-            reuniones; al lado, subir un archivo (punto 7) con ícono propio. */}
-        {repo.fathomExtract && <>
+          ) }] : []),
+          ...(repo.fathomExtract ? [{ key: 'fathom', nodo: (<>
           {/* El botón ES el logo de Fathom (feedback jul-18): sin contenedor blanco. Mismo 38×38 que el de subir. */}
           {/* Con borradores esperando, este botón ABRE ESOS BORRADORES (y late para que
               se vea que hay algo). El selector de reuniones de siempre vuelve recién
@@ -730,11 +762,12 @@ export function BoardShell({ board, scope }: {
             onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--dim)'; }}>
             <UploadIcon />
           </button>
-        </>}
-        {/* Bajarse el tablero. Sale del estado que ya está en memoria, así que anda
-            igual en el tablero del dueño que en el del cliente, y baja al instante. */}
-        <ExportarBoton onAbrir={() => setExportar(true)} />
-        </div>
+          </>) }] : []),
+          /* Bajarse el tablero. Sale del estado que ya está en memoria, así que anda
+             igual en el tablero del dueño que en el del cliente, y baja al instante. */
+          { key: 'exportar', nodo: <ExportarBoton onAbrir={() => setExportar(true)} /> },
+        ]} />
+
       </header>
 
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -921,6 +954,54 @@ function FunnelIcon({ color = 'currentColor' }: { color?: string }) { return <sv
  * Ahora abre el mismo formulario que el resto de la app: una pregunta por pantalla
  * (qué · de qué proyectos · qué tareas · qué datos · qué formato) en ExportarModal.
  */
+/**
+ * BarraAcciones — los botones del header, plegados detrás de un «+» cuando no entran.
+ *
+ * El header es de UNA sola línea a propósito (que nada salte de renglón al cambiar de
+ * tab), y eso tiene un costo: cuando la ventana se angosta, el grupo de la derecha no
+ * se achica —sus botones son de 38px fijos— y termina DIBUJÁNDOSE ENCIMA de "Filtrar".
+ * Medido: a 700px de ancho, el grupo se salía 290px del contenedor.
+ *
+ * Quién decide es el header (mide si entra o no); acá solo se pinta. El «+» abre los
+ * mismos botones, hacia la izquierda —vive pegado al borde derecho, así que hacia el
+ * otro lado se irían de la pantalla.
+ */
+function BarraAcciones({ acciones, compacto }: {
+  acciones: Array<{ key: string; nodo: React.ReactNode }>;
+  /** no entran: se pliegan detrás del «+». Lo decide el header, que es quien mide. */
+  compacto: boolean;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const n = acciones.length;
+
+  // Al desplegarse la ventana, cerrar el panel: si no, queda flotando sobre el tablero.
+  useEffect(() => { if (!compacto) setAbierto(false); }, [compacto]);
+
+  if (!compacto) return <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 'none' }}>{acciones.map((a) => <Fragment key={a.key}>{a.nodo}</Fragment>)}</div>;
+
+  return (
+    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flex: 'none' }}>
+      {/* Se despliegan HACIA EL COSTADO (a la izquierda: el botón vive pegado al borde
+          derecho, así que abrir hacia afuera los mandaría fuera de la pantalla). */}
+      {abierto && (
+        <>
+          <div onClick={() => setAbierto(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+          <div style={{ position: 'absolute', right: 46, top: '50%', transform: 'translateY(-50%)', zIndex: 41, display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', boxShadow: '0 10px 30px rgba(18,21,27,.16)', animation: 'makoDesplegar .16s ease-out both' }}>
+            {acciones.map((a) => <Fragment key={a.key}>{a.nodo}</Fragment>)}
+          </div>
+          <style>{'@keyframes makoDesplegar{from{opacity:0;transform:translate(10px,-50%)}to{opacity:1;transform:translate(0,-50%)}}'}</style>
+        </>
+      )}
+      <button type="button" onClick={() => setAbierto((v) => !v)}
+        aria-label={abierto ? 'Cerrar las acciones' : `Ver las ${n} acciones del plan`} aria-expanded={abierto}
+        title={abierto ? 'Cerrar' : 'Acciones del plan'}
+        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 9, border: `1px solid ${abierto ? 'var(--primary)' : 'var(--border-strong)'}`, background: abierto ? 'var(--primary-bg)' : 'var(--surface)', color: abierto ? 'var(--primary)' : 'var(--dim)', cursor: 'pointer', flex: 'none', padding: 0, fontSize: 20, lineHeight: 1, fontFamily: SANS, transition: 'transform .16s' }}>
+        <span style={{ display: 'block', transform: abierto ? 'rotate(45deg)' : 'none', transition: 'transform .16s' }}>＋</span>
+      </button>
+    </div>
+  );
+}
+
 function ExportarBoton({ onAbrir }: { onAbrir: () => void }) {
   const [hover, setHover] = useState(false);
   return (

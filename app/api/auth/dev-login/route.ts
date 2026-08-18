@@ -32,7 +32,12 @@ export async function GET(req: NextRequest) {
   }
   const wsQ = Number(req.nextUrl.searchParams.get('ws'));
   const ws = Number.isInteger(wsQ) && wsQ > 0 ? wsQ : undefined;
-  const token = crearToken({ sub: 'dev', email: 'dev@local', nombre: 'Dev (local)', rol: 'admin', ws });
+  // `rol` para poder ver la app COMO LA VE UN CLIENTE (rol 'usuario'), que no es lo mismo
+  // que un admin impersonando: el admin arrastra su banner, su layout y sus permisos, y
+  // hay bugs que solo se ven del lado del cliente.
+  const rolQ = req.nextUrl.searchParams.get('rol');
+  const rol = rolQ === 'usuario' || rolQ === 'admin' ? rolQ : 'admin';
+  const token = crearToken({ sub: 'dev', email: 'dev@local', nombre: 'Dev (local)', rol, ws });
   if (!token) {
     return NextResponse.json({ ok: false, error: 'falta AUTH_SECRET en .env.local' }, { status: 500 });
   }
