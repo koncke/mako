@@ -242,8 +242,16 @@ const main = async () => {
     const tipos = {};
     for (const r of recursos) tipos[r.file_type ?? '?'] = (tipos[r.file_type ?? '?'] ?? 0) + 1;
 
+    // ⚠️ CERO NO ES «NO HAY»: puede ser «no pude ver». Si no llegó NI la lista de módulos
+    // ni la de lecciones, la captura falló —la página no cargó, la sesión venció, el
+    // acordeón no abrió— y reportar 0 es exactamente el error que este script vino a
+    // cazar. `instituto-de-comunicacion` salió 0/0/0 en la primera corrida teniendo 158
+    // clases en el portal, y en la tabla se leía igual que un curso vacío.
+    const capturaVacia = !modulos.length && !lecciones.length && !recursos.length;
+
     const inv = {
       slug: c.slug, pagina: c.pagina, cuando: new Date().toISOString(),
+      capturaFallida: capturaVacia,
       lecciones: lecciones.length,
       recursos: recursos.length,
       tipos,
