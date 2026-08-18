@@ -29,6 +29,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { FAMILIAS, MAKO_NAV, USER_NAV, ADMIN_FAMILIAS, itemsDe, type NavItem, type NavGrupo } from './nav';
+import { familiasDev } from '@/app/admin/dev/nav-dev';
 import { tabEnCapa } from '@/lib/capas';
 import { MakoLogo, MakoWord, MakoStar } from './MakoBrand';
 import { useNotifications } from './NotificationsProvider';
@@ -447,9 +448,26 @@ export function Sidebar() {
    *   herramientas. Pasarlas por el filtro sería atarlas a un catálogo comercial
    *   que no las contempla.
    */
-  const familias = adminShell
-    ? [...familiasProducto, ...ADMIN_FAMILIAS.map((f) => ({ ...f, grupos: f.grupos ?? [] }))]
-    : familiasProducto;
+  /**
+   * MODO DEV. `/admin/dev` no es una sección más de Admin: es otro modo, y la
+   * barra se reemplaza ENTERA por el mapa de las 122 áreas (`familiasDev`).
+   *
+   * Por qué un modo y no un desplegable: 122 áreas en ocho familias no entran
+   * en un flyout, y aunque entraran, mirarlas desde afuera no es lo que hacés
+   * ahí — entrás a recorrerlas. El desplegable te deja parado en Admin.
+   *
+   * La familia `dev` de ADMIN_FAMILIAS ya no se pinta como carpeta, pero SIGUE
+   * exportada: es de donde `ADMIN_NAV` saca sus keys y `lib/titulo-tab.ts` el
+   * título de esas rutas. Borrarla dejaría media docena de pantallas sin nombre.
+   */
+  const enDev = pathname.startsWith('/admin/dev');
+  const familias = enDev
+    //  es opcional en NavFamilia y obligatorio en la vista: se normaliza
+    // acá, igual que con las de admin, y no se afloja el tipo de la vista.
+    ? familiasDev().map((f) => ({ ...f, grupos: f.grupos ?? [] }))
+    : adminShell
+      ? [...familiasProducto, ...ADMIN_FAMILIAS.filter((f) => f.key !== 'dev').map((f) => ({ ...f, grupos: f.grupos ?? [] }))]
+      : familiasProducto;
 
   const todosDe = (f: typeof familias[number]) => [...f.bloques.flat(), ...f.grupos.flatMap((g) => g.items)];
 
@@ -600,6 +618,7 @@ export function Sidebar() {
     <aside style={{ width: RAIL, flex: 'none', alignSelf: 'stretch', position: 'sticky', top: 0, height: '100vh', overflow: 'visible', zIndex: 60 }}>
       <div
         ref={panelRef}
+        className={enDev ? 'mk-sidebar--dev' : undefined}
         onMouseEnter={onEnter}
         onMouseLeave={onLeave}
         // Fin de la animación de ancho: recién acá la barra tiene su medida
@@ -613,6 +632,28 @@ export function Sidebar() {
         }}
       >
         <Marca open={open} />
+
+        {/* La marca del modo. Va ARRIBA de todo y con su propio filete: la
+            pregunta que responde es «¿dónde estoy?», y esa se contesta antes de
+            leer un renglón. Plegada quedan el filete y las tres letras, que es
+            lo máximo que entra y alcanza para no confundirse de shell. */}
+        {enDev && (
+          <div style={{ flex: 'none', margin: open ? '2px 2px 10px' : '2px 0 10px' }}>
+            <div style={{ height: 2, background: 'var(--dev-line)', borderRadius: 2, marginBottom: 9 }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: open ? 'space-between' : 'center', gap: 8 }}>
+              <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.16em', color: 'var(--dev-line)', fontWeight: 700 }}>
+                {open ? 'MODO DEV' : 'DEV'}
+              </span>
+              {open && <a href="/admin" className="mk-dev-salir">← Regresar a Admin</a>}
+            </div>
+            {/* Plegada la salida no entra como texto: queda la flecha sola,
+                que es el mismo destino y sigue siendo alcanzable. */}
+            {!open && (
+              <a href="/admin" title="Regresar a Admin" aria-label="Regresar a Admin"
+                style={{ display: 'block', textAlign: 'center', marginTop: 6, color: 'var(--dev-line)', fontSize: 14, textDecoration: 'none' }}>←</a>
+            )}
+          </div>
+        )}
 
         {/* Navegación. Con una familia abierta puede pasarse de alto en pantallas
             bajas: scrollea acá adentro, nunca corta. */}

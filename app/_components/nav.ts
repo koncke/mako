@@ -328,6 +328,11 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
         // propia. «Plantillas» a secas no pasa el test de entenderse solo —
         // también se llaman así las de Meta—, así que va con su objeto.
         { key: 'mensajes', label: 'Mensajes de MaKo', href: '/mensajes', icon: 'mako', match: starts('/mensajes') },
+        // Dev es un MODO, no una carpeta: este link te lleva y allá la barra se
+        // reemplaza entera por la de desarrollo (ver Sidebar → familiasDev). Por
+        // eso es una fila y no un desplegable — un desplegable te deja mirando
+        // 122 áreas desde afuera; el modo te mete adentro.
+        { key: 'dev-entrar', label: 'Dev', href: '/admin/dev', icon: 'config', match: starts('/admin/dev') },
         // En qué trabaja cada cliente en SU Claude Code. Va en este bloque y no en el
         // del cerebro de MaKo porque es información de CLIENTES, no configuración de
         // la IA: se lee al lado de «Clientes», que es la pregunta que contesta.
