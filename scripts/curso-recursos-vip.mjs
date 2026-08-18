@@ -62,12 +62,31 @@ const main = async () => {
   try { lista = await fetch(`http://127.0.0.1:${PORT}/json/list`).then((r) => r.json()); }
   catch { console.error(`\n  ✖ No hay CDP en ${PORT}. Corré curso-perfil.ps1.\n`); process.exit(1); }
 
-  // ⚠️ Puede haber varias pestañas /watch (una por curso). Sin filtrar por el slug
+  // ⚠️ Puede haber varias pestañas abiertas (una por curso). Sin filtrar por el slug
   // del plan se capturan los recursos del curso EQUIVOCADO, y el error es silencioso.
-  const slugPagina = String(plan.pagina ?? '').split('/').filter(Boolean).slice(-2, -1)[0] ?? plan.slug;
-  const t = lista.find((x) => x.type === 'page' && /\/watch/.test(x.url) && x.url.includes(slugPagina));
+  //
+  // EL SLUG SE SACA DEL SEGMENTO QUE SIGUE AL ÁREA, no por posición desde el final. El
+  // `slice(-2, -1)` que había acá funcionaba de casualidad y solo en /vip/, donde la URL
+  // termina en `/watch`:
+  //
+  //     /vip/<slug>/watch    slice(-2,-1) → '<slug>'   ✔ por accidente
+  //     /curso/<slug>        slice(-2,-1) → 'curso'    ✖ el ÁREA, no el curso
+  //
+  // Y «curso» matchea CUALQUIER pestaña de /curso/, así que el filtro que existe para no
+  // confundir dos cursos hacía exactamente eso. Es el tercer `slice` negativo sobre una
+  // URL que muerde en esta área (ver docs/hallazgos-conocimiento.md).
+  const partes = String(plan.pagina ?? '').split('/').filter(Boolean);
+  const iArea = partes.findIndex((p) => p === 'curso' || p === 'vip');
+  const slugPagina = (iArea > -1 ? partes[iArea + 1] : '') || plan.slug || '';
+  if (!slugPagina) { console.error('\n  ✖ No pude sacar el slug de `pagina` ni del plan.\n'); process.exit(1); }
+
+  // Y se aceptan las DOS áreas. Este script se escribió para /vip/, donde la lección vive
+  // en `/watch`; el 84% de los cursos está en `/curso/`, donde no existe ese segmento —
+  // así que para 26 de 31 planes nunca pudo correr, y el síntoma era «necesito la pestaña
+  // /watch» sobre una pestaña que estaba abierta y era la correcta.
+  const t = lista.find((x) => x.type === 'page' && /\/(watch|curso|vip)\b/.test(x.url) && x.url.includes(slugPagina));
   if (!t) {
-    console.error(`\n  ✖ Necesito la pestaña /watch de ESTE curso abierta (busco "${slugPagina}").`);
+    console.error(`\n  ✖ Necesito la pestaña de ESTE curso abierta (busco "${slugPagina}").`);
     console.error(`    Abiertas:`);
     for (const x of lista.filter((y) => y.type === 'page')) console.error(`      ${x.url}`);
     process.exit(1);
@@ -82,13 +101,28 @@ const main = async () => {
   });
   const cdp = new Cdp(ws);
 
+  // ── LAS DOS ÁREAS USAN NOMBRES DISTINTOS PARA LO MISMO ──────────────────────
+  // Este script se escribió mirando /vip/. El área /curso/ —donde vive el 84% de los
+  // cursos— llama a las mismas tres cosas de otra forma, así que se aceptan los dos
+  // nombres. El `vip_` primero solo por historia; el orden no cambia nada porque cada
+  // patrón cae en su propia clave.
+  //
+  //   recursos   vip_course_resources   ·  course_resources
+  //   módulos    vip_modules            ·  modules
+  //   URLs       get_vip_resource_urls  ·  (no existe en /curso/: ver abajo)
+  //
+  // ⚠️ En /curso/ NO hay endpoint de URLs firmadas: el archivo se obtiene navegando a
+  // `/Reader?type=resource&id=<uuid>` y capturando la respuesta, que es lo que hace
+  // `curso-pdfs.mjs`. Esa rama todavía NO está acá — hoy un curso de /curso/ va a
+  // reportar todos sus recursos como «sin URL firmada», que es correcto y es visible.
+  // Se dice en el resumen del final para que no se lea como «no había nada».
   const cap = new Map();
   cdp.oye.push((m) => {
     if (m.method !== 'Network.responseReceived') return;
     const u = m.params.response.url;
-    if (/vip_course_resources/.test(u)) cap.set(m.params.requestId, 'meta');
+    if (/\/(vip_course_resources|course_resources)\?/.test(u)) cap.set(m.params.requestId, 'meta');
     else if (/get_vip_resource_urls/.test(u)) cap.set(m.params.requestId, 'urls');
-    else if (/vip_modules/.test(u)) cap.set(m.params.requestId, 'modules');
+    else if (/\/(vip_modules|modules)\?/.test(u)) cap.set(m.params.requestId, 'modules');
   });
 
   await cdp.enviar('Network.enable');
@@ -136,13 +170,20 @@ const main = async () => {
     process.exit(1);
   }
 
+  // Los mismos campos con otro nombre según el área. Se leen por acá y en ningún otro
+  // lado: un `r.vip_module_id` suelto en /curso/ da `undefined`, y `undefined` como id de
+  // módulo no falla — deja el recurso colgado del prefijo «00», que es un error que se ve
+  // recién en el nombre del archivo.
+  const moduloDe = (r) => r.vip_module_id ?? r.module_id ?? null;
+  const ordenDe = (x) => Number(x?.sort_order ?? x?.order ?? 0);
+
   const raizDe = (id) => {
     let c = mods.get(id), visto = new Set();
     while (c?.parent_module_id && mods.has(c.parent_module_id) && !visto.has(c.id)) { visto.add(c.id); c = mods.get(c.parent_module_id); }
     return c ?? null;
   };
   const raices = [...mods.values()].filter((m) => !m.parent_module_id || !mods.has(m.parent_module_id))
-    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+    .sort((a, b) => ordenDe(a) - ordenDe(b));
   const ordenRaiz = new Map(raices.map((m, i) => [m.id, i + 1]));
 
   mkdirSync(destino, { recursive: true });
@@ -163,8 +204,8 @@ const main = async () => {
     const t = limpio(r.title);
     for (const cand of [
       `${pref} - ${t}.${ext}`,
-      `${pref}.${String(r.sort_order ?? 0).padStart(2, '0')} - ${t}.${ext}`,
-      `${pref}.${String(r.sort_order ?? 0).padStart(2, '0')} - ${t} (${String(r.id).slice(0, 6)}).${ext}`,
+      `${pref}.${String(ordenDe(r)).padStart(2, '0')} - ${t}.${ext}`,
+      `${pref}.${String(ordenDe(r)).padStart(2, '0')} - ${t} (${String(r.id).slice(0, 6)}).${ext}`,
     ]) if (!usados.has(cand)) { usados.add(cand); return cand; }
     const forzado = `${pref} - ${t} (${String(r.id).slice(0, 12)}).${ext}`;
     usados.add(forzado);
@@ -172,7 +213,7 @@ const main = async () => {
   };
 
   for (const r of meta) {
-    const raiz = raizDe(r.vip_module_id);
+    const raiz = raizDe(moduloDe(r));
     const pref = raiz ? String(ordenRaiz.get(raiz.id) ?? 0).padStart(2, '0') : '00';
     const ext = String(r.file_type ?? 'bin').replace(/^\./, '').toLowerCase();
     const nombre = nombreUnico(r, pref, ext);
@@ -181,12 +222,12 @@ const main = async () => {
     // recurso de SUS clases y no de las 38 del módulo raíz. La plataforma asocia por
     // módulo (`vip_module_id`), nunca por lección, así que la hoja es lo más fino que
     // el dato permite — bajar de ahí sería inventarlo.
-    const hoja = mods.get(r.vip_module_id);
+    const hoja = mods.get(moduloDe(r));
     indice.push({
       nombre,
       modulo: raiz?.title ?? null,
       submodulo: hoja && hoja.id !== raiz?.id ? hoja.title : null,
-      moduloId: r.vip_module_id ?? null,
+      moduloId: moduloDe(r),
       bytes: r.file_size ?? null,
     });
 
