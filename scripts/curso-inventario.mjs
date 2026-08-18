@@ -265,21 +265,26 @@ const main = async () => {
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'inventario.json'), JSON.stringify(inv, null, 1), 'utf8');
 
-    console.log(`      lecciones=${inv.lecciones}  recursos=${inv.recursos}  modulos=${modulos.length} (${raices.length} raíz, ${niveles} nivel/es)  ${JSON.stringify(tipos)}`);
+    console.log(capturaVacia
+      ? `      ⚠ NO CAPTURÉ NADA — no es «vacío», es que no pude ver. Reintentá: --espera 20 --captura 25`
+      : `      lecciones=${inv.lecciones}  recursos=${inv.recursos}  modulos=${modulos.length} (${raices.length} raíz, ${niveles} nivel/es)  ${JSON.stringify(tipos)}`);
     filas.push(inv);
   }
 
   // ── Resumen ──
   console.log(`\n${'='.repeat(78)}\n  INVENTARIO DE LA FUENTE\n${'='.repeat(78)}`);
   console.log(`  ${'curso'.padEnd(38)} ${'lecc'.padStart(5)} ${'recursos'.padStart(9)} ${'niveles'.padStart(8)}`);
-  let totR = 0, sin = 0;
+  let totR = 0, sin = 0, fallidos = 0;
   for (const f of filas) {
     if (f.salteado) { console.log(`  ${f.slug.padEnd(38)}     —         —        —   (${f.salteado})`); continue; }
+    // Un curso que no se pudo capturar NO entra en la cuenta de «sin recursos»: mezclar
+    // «no hay» con «no miré» es cómo un barrido declara tranquila un área que no revisó.
+    if (f.capturaFallida) { fallidos++; console.log(`  ${f.slug.padEnd(38)}     ?         ?        ?   ⚠ NO SE PUDO CAPTURAR`); continue; }
     totR += f.recursos;
     if (!f.recursos) sin++;
     console.log(`  ${f.slug.padEnd(38)} ${String(f.lecciones).padStart(5)} ${String(f.recursos).padStart(9)} ${String(f.modulos.niveles).padStart(8)}`);
   }
-  console.log(`\n  ${totR} recursos en la fuente · ${sin} curso(s) sin ninguno`);
+  console.log(`\n  ${totR} recursos en la fuente · ${sin} curso(s) sin ninguno${fallidos ? ` · ⚠ ${fallidos} SIN CAPTURAR (que NO es lo mismo que sin recursos)` : ''}`);
   writeFileSync(join(RAIZ, 'inventario-resumen.json'), JSON.stringify(filas, null, 1), 'utf8');
   console.log(`  Resumen: ${join(RAIZ, 'inventario-resumen.json')}\n`);
   process.exit(0);
