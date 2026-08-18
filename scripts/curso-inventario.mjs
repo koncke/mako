@@ -100,18 +100,29 @@ function catalogo() {
     .map((f) => f.replace(/^curso-/, '').replace(/\.ts$/, ''));
   const out = [];
   for (const slug of slugs) {
-    // El plan puede estar con el slug o con el nombre largo «Curso - Autor».
+    // El plan puede estar en una carpeta con el slug, con el nombre largo «Curso - Autor»,
+    // o con un slug PARECIDO pero no igual.
+    //
+    // ⚠️ El match EXACTO sobre un identificador que dos lados escriben distinto ya falló en
+    // la primera corrida: el portal lo llama `claude-ai-rodrigo-rojo` y el plan
+    // `curso-de-claude-ai-rodrigo-rojo`, así que ese curso salió «SALTEADO (sin página en el
+    // plan)» —que se lee como «no hay nada que mirar»— teniendo 20 recursos. El exacto sigue
+    // ganando; el laxo solo entra si el exacto no encontró nada.
     const cands = existsSync(RAIZ) ? readdirSync(RAIZ) : [];
+    const norm = (s) => String(s ?? '').toLowerCase().replace(/^curso-(de-)?/, '').replace(/[^a-z0-9]+/g, '');
     let pagina = '';
+    let laxo = '';
     for (const d of [slug, ...cands]) {
       const p = join(RAIZ, d, 'plan.json');
       if (!existsSync(p)) continue;
       try {
         const j = JSON.parse(readFileSync(p, 'utf8').replace(/^\uFEFF/, ''));
-        if (j.slug === slug && j.pagina) { pagina = j.pagina; break; }
+        if (!j.pagina) continue;
+        if (j.slug === slug) { pagina = j.pagina; break; }
+        if (!laxo && norm(j.slug) === norm(slug)) laxo = j.pagina;
       } catch { /* plan roto: se ignora, queda sin página */ }
     }
-    out.push({ slug, pagina });
+    out.push({ slug, pagina: pagina || laxo });
   }
   return out;
 }
