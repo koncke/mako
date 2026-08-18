@@ -1,0 +1,251 @@
+// =============================================================================
+// Local Dev Environment — el registro de construcción del área
+// =============================================================================
+// Alcance: la máquina donde se escribe esta app. El `.env.local` que apunta a la
+// base de PRODUCCIÓN y el boot que le escribe, el `next dev` de este clon, la
+// puerta de verificación local (`/api/auth/dev-login`), el clon compartido por
+// DOS cuentas de Claude a la vez, y —la mitad que nadie declara como código— la
+// superficie que usan los propios agentes: `AGENTS.md`, `.claude/skills/`, los
+// generadores que mantienen vivas las copias, y las herramientas con las que un
+// agente lee y verifica.
+//
+// De dónde salió esto: los mensajes de commit de este repo son largos y explican
+// el porqué — de ahí salen la fecha, la hora, el `Claude-Cuenta:` y los números
+// de cada commit, nunca del recuerdo. El detalle técnico con las mediciones vive
+// en docs/hallazgos-infra.md → «Tests y entorno local», «Sesiones paralelas y las
+// dos cuentas» y «El equipo: cuando se cierra Claude Code y no es Claude Code»;
+// el protocolo entre cuentas, en docs/dos-cuentas.md; las reglas que gobiernan
+// código nuevo, en AGENTS.md. El `chat` va en «—» a propósito: docs/chats.md
+// llega hasta el 8 de agosto y estas tandas son posteriores — no se inventa.
+//
+// NO es un changelog. Lo que git ya guarda no se repite acá: va el motivo, la
+// trampa y —sobre todo— cuándo el diagnóstico obvio era el equivocado.
+//
+// ⚠️ El hilo que atraviesa TODA el área: **lo que ves en local no es lo que
+// corre**. El middleware no corre, el dev server no hidrata, la búsqueda te
+// devuelve otra cosa que la que dice el archivo, y el clon lo está editando
+// alguien más. Cada uno de esos cuatro produjo, por lo menos una vez, un
+// diagnóstico entero construido sobre evidencia falsa.
+
+import type { Hito, Parte } from '../_registro/tipos';
+
+export const PARTES: Parte[] = [
+  { titulo: 'El clon compartido por dos cuentas', detalle: 'Nunca `add -A`, y ni siquiera por ruta alcanza: se mira el HUNK · el `--amend` que reescribe el commit ajeno · staging por plumbing y worktrees para no tocarle el árbol a nadie', estado: 'hecha' },
+  { titulo: 'Verificar sin navegador', detalle: '`curl` + cookie jar contra /api/auth/dev-login · en producción esa ruta es 404 a propósito: ahí se firma la cookie a mano con el mismo secret, no se abre una puerta nueva', estado: 'hecha' },
+  { titulo: 'El entorno del agente: AGENTS.md y las skills', detalle: 'Lo único que comparten las dos cuentas es lo versionado — las memorias viven dentro del config dir y no viajan · el canal de traspaso son estos documentos', estado: 'hecha' },
+  { titulo: 'Las copias que se generan, no se escriben', detalle: 'Las skills son .md y no pueden importar: `sync-contrato-detalle`, `sync-gramatica-doc` y `generar-plugin` las escriben desde el módulo vivo, y el pre-push falla si quedaron viejas', estado: 'hecha' },
+  { titulo: 'Las trampas de la herramienta de búsqueda', detalle: 'Reescribe `/` como `\\` en el contenido que devuelve, y declara BINARIO cualquier archivo con un byte NUL · las dos ya produjeron un diagnóstico entero sobre texto que no existe', estado: 'hecha' },
+  { titulo: 'Probar una interacción de verdad', detalle: '`next dev` NO hidrata en este proyecto; `next build` + `next start` sí · la receta está escrita, la causa raíz no · y la URL es `localhost`, nunca `127.0.0.1`', estado: 'sigue' },
+  { titulo: 'La máquina: Claude Code se cierra solo', detalle: 'Bug de la app con ~10 issues abiertos, disparado por el navegador embebido (7 de 7 a menos de 41 s) · no hay cura, solo el paliativo de no abrirlo', estado: 'sigue' },
+  { titulo: 'Un entorno que no sea producción', detalle: 'El `.env.local` apunta a la base real y el boot le ESCRIBE la hidratación env→base · no hay staging ni base de desarrollo: toda prueba que salga hacia afuera va al mail y al teléfono del dueño', estado: 'cola' },
+  { titulo: 'El pre-push no se versiona', detalle: 'Vive en `.git/hooks`, así que un reclon lo borra en silencio y el único chequeo de tipos desaparece sin avisar · y no corre `npm test`, que hay que acordarse a mano', estado: 'cola' },
+];
+
+export const BITACORA: Hito[] = [
+  // ── 9 de agosto: la máquina y el dev server ────────────────────────────────
+  {
+    fecha: '9 ago', hora: '01:04', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'La sesión se cerraba sola cada 4 minutos, con la PC andando',
+    puntos: [
+      'Cuatro corridas con subagentes perdidas en una noche. El proceso GPU de Electron muere (`GPU process gone`, `exitCode 101457950`) y se lleva la app puesta **sin `onQuitCleanup`**: no se despide, así que desde adentro no hay nada que avise ni que guarde.',
+      '**Los tres diagnósticos obvios estaban equivocados, y los tres salieron de mirar el sistema antes que el log de la app** —que tenía la línea exacta desde el primer minuto—: memoria (había 3,8 GB libres), «Windows cierra la sesión» (pasó una vez, y fue el reinicio del instalador de drivers) y drivers viejos (se actualizaron y crasheó cuatro minutos después).',
+      'La regla del método: **un crash del proceso GPU no deja atribución en ningún log**. No se deduce, se reproduce y se mide — acá con tres cargas distintas, la última seis agentes concurrentes con navegador, que es la que antes lo mataba.',
+      '⚠️ Esta entrada envejeció mal a propósito y se dejó escrita al revés en `docs/hallazgos-infra.md`, con el título tachado: la causa que se concluyó acá (la gráfica híbrida) es falsa. Ver el 13 de agosto.',
+    ],
+    commits: [
+      { sha: '114817c0', msg: 'Cuando Claude Code se cierra solo y no es Claude Code', lineas: 67, archivos: 1 },
+    ],
+    archivos: ['docs/hallazgos-infra.md → «El equipo: cuando se cierra Claude Code y no es Claude Code»'],
+  },
+  {
+    fecha: '9 ago', hora: '03:54', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'Un solo `next dev` para dos sesiones, y el que arranca no hidrata',
+    puntos: [
+      '**El preview muere en silencio y las dos pistas obvias mienten.** `preview_start` contesta «Server started successfully» y un segundo después ese `serverId` ya no existe. La causa es que Next 16 detecta otro dev server sobre el MISMO directorio y se apaga solo; el mensaje existe pero se lo come la herramienta. No parece «puerto ocupado» —el 3000 está libre, el ajeno está en el 3100— ni «se cayó», porque la herramienta dijo que arrancó bien. La salida es correr `node_modules/.bin/next dev` una vez a mano para LEER el error, nunca reintentar.',
+      '**Y al server ajeno no se lo mata: sirve el mismo working tree**, así que tus ediciones ya están adentro por HMR y se verifica contra su puerto. Si la ruta está gateada, alcanza `curl` con un cookie jar contra `/api/auth/dev-login`.',
+      '**El hallazgo grande del día, que costó descartar cuatro cosas:** `next dev` **no hidrata en este proyecto** y `next build` + `next start` sí. Se descartó en este orden el server de la otra sesión, un worktree limpio con su propio `npm ci`, las páginas que nadie tocó (`/inicio`, `/plan`, `/vsl`) y producción. O sea que el worktree —que parecía la salida— sobra para probar una interacción: alcanza con levantar el build de producción en otro puerto.',
+      '`dev-login` devuelve **404 en producción a propósito** y esa guarda no se toca: contra el build local se firma la cookie a mano con el mismo secret (`crearToken`) y se la inyecta. Es exactamente lo que hace el dev-login, sin abrir una puerta nueva.',
+      'El chequeo de una línea que distingue «el DOM cambió» de «el handler de React corrió», y que evita creerle a una verificación que no vale: `Object.keys(el).filter(k => k.startsWith(\'__react\')).length` — si da 0, lo que midas ahí no prueba nada.',
+    ],
+    commits: [
+      { sha: '6c0e5a6c', msg: 'docs: el preview muere en silencio si la otra sesión ya tiene un next dev', lineas: 36, archivos: 1 },
+      { sha: '97690156', msg: 'Cosecha: el clic SÍ se pudo verificar, y la causa quedó acotada', lineas: 46, archivos: 3 },
+    ],
+    archivos: [
+      '.claude/launch.json — la entrada del preview, que arranca en 3000 igual aunque la apuntes a otro puerto',
+      'app/api/auth/dev-login/route.ts — la puerta de verificación local; 404 fuera de dev',
+    ],
+  },
+  {
+    fecha: '9 ago', hora: '19:55', chat: '—', cuenta: 'claude1',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La sesión que cierra deja escrito, y la skill lo hace sola',
+    puntos: [
+      'El motivo es del entorno, no de la feature: **hay varias sesiones trabajando este repo en paralelo**, tocando cosas que ya están en el plan y descubriendo otras nuevas. Si cada una espera a que le pidan anotar, el tablero miente — tareas cerradas que figuran abiertas y trabajo nuevo que solo existe en un chat que nadie va a releer.',
+      'Las dos skills pasan de «usame cuando te lo pidan» a **«esto es lo que hacés al cerrar cualquier trabajo sustancial, igual que correr los tests»**, con tres preguntas en orden: ¿cerré algo que estaba abierto? ¿aprendí algo sobre una que ya está? ¿apareció trabajo nuevo? Y las tres en UN borrador y UN link, para que el dueño revise una vez.',
+      '**Un paso manual en un tutorial es un paso que no se hace.** El reporte de sesiones eran cuatro gestos (bajar un archivo, ponerlo en su carpeta, fusionar un JSON en `settings.json`, correr un comando) y el pedido fue textual: «¿no puede estar directamente dentro de la skill? en lugar de que los usuarios tengan que hacer todo eso». Puede: la skill corre EN el proyecto y tiene acceso a los archivos, así que se instala el hook ella misma, idempotente y sin pedir permiso paso por paso.',
+    ],
+    commits: [
+      { sha: '9af34f0f', msg: 'La skill actúa sola al cerrar, y se instala el hook ella misma', lineas: 167, archivos: 4 },
+    ],
+    archivos: ['.claude/skills/plan-tareas/SKILL.md — la interna; la del cliente sale de lib/agente-skill.ts'],
+  },
+
+  // ── 10 de agosto: el árbol compartido y lo que miente en local ─────────────
+  {
+    fecha: '10 ago', hora: '16:32', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'El push rebota por trabajo ajeno, y tres formas nuevas de pisarse',
+    puntos: [
+      '**El `pre-push` mira el ÁRBOL DE TRABAJO, no lo que subís**, y eso ya estaba escrito — pero siempre en la dirección del falso VERDE. La contraria desorienta mucho más: **tu commit está impecable y el push se cae igual**, con un error que nombra archivos que ese commit no toca (la otra sesión había agregado un quinto canal a `CanalId` sin actualizar dos `Record`). Se reconoce en un segundo: los archivos del error **no** están en `git show --stat HEAD` y **sí** están en `git status`.',
+      'Cómo saber de quién es la rotura sin tocarle los archivos a nadie: un worktree suelto en tu commit con `node_modules` por junction (no pide admin, tarda un segundo) y el typecheck ahí. Y como el hook corre en el directorio desde el que pushás, **pushear desde el worktree valida exactamente lo que sube** — no es saltearse el hook, es correrlo contra el árbol correcto. `--no-verify` no.',
+      '⚠️ **El falso verde ya dejó rastro en `main`**: comprobado con un checkout pelado de `origin/main`, sin nada local, la copia de la skill estaba DESINCRONIZADA. Alguien pusheó con un `skills-lock.json` sin commitear que hacía pasar el chequeo local. Un clon limpio no se puede pushear hasta correr el sync y commitear el resultado.',
+      '**Y las tres formas nuevas de pisarse, las tres el mismo día:** (a) commitear «por rutas explícitas» no alcanza cuando el archivo lo tocaron las dos — se mira el HUNK, o el commit queda sin compilar; (b) un `--amend` después de que la otra sesión commitea **reescribe SU commit con tu mensaje** (se recupera con `reset --soft`, se evita con un `git log -1`); (c) un `export` a medias en un client component rompe el bundle ENTERO y la app deja de hidratar — se ve perfecta y no responde ningún botón, así que antes de culpar a tu cambio probá otra ruta cualquiera.',
+    ],
+    commits: [
+      { sha: '47257a82', msg: 'El pre-push que te bloquea por trabajo ajeno, y el main desincronizado', lineas: 40, archivos: 1 },
+      { sha: 'bb04d9f4', msg: 'AGENTS: las tres formas nuevas de pisarse entre sesiones', lineas: 16, archivos: 1 },
+    ],
+    archivos: [
+      'docs/hallazgos-infra.md → «Sesiones paralelas y las dos cuentas» — con el staging por plumbing, que mueve referencias sin tocarle el worktree a nadie',
+      'docs/dos-cuentas.md — el protocolo completo y las tres cosas que hay que recrear a mano en un worktree',
+    ],
+  },
+  {
+    fecha: '10 ago', hora: '16:43', chat: '—', cuenta: 'claude1',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'En local el middleware es no-op: meses de desarrollo por el único camino que no la ejercitaba',
+    puntos: [
+      'Una clienta instaló la skill y su Claude Code reportó «puede ser que el endpoint necesite un header adicional, o que el token sea de otro entorno». Ninguna de las dos: `/api/agente/*` no estaba en la lista de rutas públicas, así que `proxy.ts` cortaba con un 401 **antes** de que la ruta mirara el bearer. El token estaba bien; la puerta estaba cerrada.',
+      '**Por qué vivió meses sin que nadie lo viera, y es la trampa central de esta área: sin `AUTH_SECRET`, `gateConfigurado()` es false y el middleware hace no-op.** Contra `localhost` la integración anda perfecta y falla solo en producción — o sea que **todo el desarrollo pasó por el único camino que no la ejercitaba**. Todo lo que corre en el middleware es invisible en local: si lo que estás construyendo depende de él, en local no lo probaste.',
+      'La pista que sirve para cualquier ruta con auth propia: pegarle con una credencial inválida y **leer el TEXTO del 401**. «no autenticado» lo dice el middleware (la ruta ni corrió); el error propio lo dice la ruta. Los dos son 401 y desde afuera se ven iguales — sin distinguirlos se buscan headers y entornos que no tienen nada que ver, que es literalmente lo que propuso el agente de la clienta.',
+      'El segundo bug del mismo commit, con la forma clásica del entorno: **una env var con un nombre inventado**. `NEXT_PUBLIC_BASE_URL` no existe en ningún lado; en un lado caía al origin del request (correcto, sin síntoma) y en el otro salía vacía y la skill le pedía la URL al cliente. El error estaba en los dos lados y solo uno dolía.',
+    ],
+    commits: [
+      { sha: '4465e37f', msg: 'La integración con Claude nunca funcionó en producción: el proxy la cortaba', lineas: 266, archivos: 9 },
+    ],
+    archivos: ['docs/hallazgos-infra.md → «La integración con Claude nunca funcionó desde afuera» y «Una env var con un nombre inventado entrega un artefacto roto»'],
+  },
+  {
+    fecha: '10 ago', hora: '17:20', chat: '—', cuenta: 'claude1',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Lo que un .md copia se queda viejo: el generador y la guarda del pre-push',
+    puntos: [
+      '**Las skills son `.md` y no pueden importar nada**, así que la regla de «una cosa, un lugar» ahí no se cumple sola: el módulo se copia con un script y **el pre-push falla si la copia quedó vieja**. Esa guarda es lo único que impide que el problema vuelva, y el mismo día se probó a sí misma — un cambio en `MOLDE_ADVERTENCIA` dejó la copia desfasada y el hook lo atajó antes de pushear.',
+      'La copia PÚBLICA de la skill (`plugin/`) existe porque `/plugin marketplace add` exige un repo público, y eso era imposible mientras la skill llevara el token del cliente adentro. Las dos variantes salen de la **misma función**: son el mismo texto con cuatro líneas de diferencia, y copiadas se separan el día que la skill aprenda algo nuevo.',
+      '⚠️ **La guarda del generador va EN POSITIVO: se busca el patrón de una credencial** (`mkoag_`, `sk-ant-`, un JWT, un localhost) y se niega a escribir si encuentra algo. No se confía en que la función haga lo correcto, porque **un token en un repo público queda en el historial de git para siempre y rotarlo no lo borra**.',
+    ],
+    commits: [
+      { sha: 'cbfee521', msg: 'Sincronizar la skill con el molde actualizado', lineas: 1, archivos: 1 },
+      { sha: 'da749122', msg: 'El plugin público de MaKo, y los títulos del mapa clicables', lineas: 657, archivos: 9 },
+    ],
+    archivos: [
+      'scripts/generar-plugin.mjs — genera plugin/ desde lib/agente-skill.ts, con el escaneo de credenciales',
+      'scripts/sync-contrato-detalle.mjs — copia DOS cosas a las skills (el molde del `detalle` y la regla del nombre de proyecto); si agregás una skill que repite una regla, sumala a `DESTINOS`',
+      'skills-lock.json — lo que el pre-push compara; pushear con esto sin commitear es cómo `main` quedó desincronizado',
+    ],
+  },
+
+  // ── 11 al 13 de agosto: los documentos y la máquina ────────────────────────
+  {
+    fecha: '11 ago', hora: '21:09', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El documento se desfasó del código EN LA MISMA SESIÓN en que se escribió',
+    puntos: [
+      '**No tardó ni una hora.** El manual de marca se escribió a mano; una corrida de agentes sobre las fuentes reales encontró que la tabla de la gramática **ya** decía «el impacto» donde el módulo dice «el impacto esperado», y «decisión» con tilde donde el tipo vale `decision`. Nadie había tocado nada en el medio.',
+      'La consecuencia para esta área: **la regla de «una cosa, un lugar» vale para cualquier `.md` del repo que documente un catálogo**, no solo para las skills. Si un documento que los agentes leen repite un catálogo del código, se genera entre marcadores y el pre-push lo custodia.',
+      '⚠️ **Y si el módulo se puede importar, se importa**: acá su única dependencia es un `import type`, que tsx borra en runtime. **Parsear objetos anidados con regex es cómo se cuelan los desfases que el script viene a evitar** — es la diferencia con `sync-contrato-detalle`, que sí tiene que copiar texto.',
+      'Detalle de método que se paga barato: la guarda se probó **ensuciando el documento a propósito** para ver que `--check` devuelve 1. Un chequeo que solo se corrió contra el dato bueno demuestra que pasa, no que atrapa.',
+    ],
+    commits: [
+      { sha: '005233e6', msg: 'El manual de marca, ahora derivado del código en vez de copiado', lineas: 691, archivos: 7 },
+    ],
+    archivos: ['scripts/sync-gramatica-doc.mjs — escribe docs/branding-mako.md desde lib/mako-gramatica.ts, entre marcadores'],
+  },
+  {
+    fecha: '12 ago', hora: '22:39', chat: '—', cuenta: 'claude1',
+    actor: 'claude', tipo: 'cosecha',
+    titulo: '`127.0.0.1` no es `localhost`, y tus propias reglas te confirman lo falso',
+    puntos: [
+      'La página se ve entera: HTTP 200, el HTML completo, la consola sin un error, todas las requests en 200. Y **ningún click hace nada**. La causa es que Next 16 bloquea el acceso *cross-origin* a sus recursos de desarrollo: el server se anuncia en `localhost` y pedirle desde `127.0.0.1` es **otro origen**, así que los chunks se sirven y el arranque se corta.',
+      '**Lo que lo hace caro es que las dos explicaciones que ya tenés escritas en AGENTS.md parecen confirmarse**: «lo rompí yo» y «la otra sesión dejó un `export` a medias». Probar otra ruta **refuerza** la conclusión falsa, porque tampoco hidrata. Tres causas distintas dan exactamente el mismo síntoma, así que se descartan por causa y nunca por parecido.',
+      '**La única evidencia está en el stdout del dev server, no en el navegador.** La regla que generaliza: cuando la página se ve pero no reacciona, ahí es el primer lugar donde mirar — ese error no llega al cliente.',
+      'Gemelo del mismo entorno, medido esos días: **Turbopack cachea en disco un error de parseo que ya no existe**. Guardar el archivo arreglado no lo despierta, tocar el `mtime` tampoco (el hash es del contenido) y reiniciar el server tampoco, porque hereda el mismo `.next`. Lo único que lo arregla es borrar `.next`. La pista real es que **la línea que cita el error no se corresponde con lo que hay ahí**.',
+    ],
+    commits: [
+      { sha: '4286e307', msg: 'Cosecha: 127.0.0.1 no es localhost para el dev server', lineas: 45, archivos: 1 },
+    ],
+    archivos: ['docs/hallazgos-infra.md → «Tests y entorno local» — con el atajo de Playwright desde la caché de npx, que fue como se verificó sin panel'],
+  },
+  {
+    fecha: '13 ago', hora: '01:40', chat: '—', cuenta: 'claude1',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'Cuatro días midiendo la notebook, y la respuesta estaba en el bug tracker',
+    puntos: [
+      '**El arreglo del 9 de agosto no era la cura: aguantó cuatro días y volvió.** Y los cuatro días limpios no los produjo el pin a la gráfica integrada, sino no haber abierto el navegador embebido — se atribuyó la mejora al cambio hecho **sin controlar la variable que decidía**.',
+      '**El `exitCode` es una cadena de búsqueda, y eso va ANTES de instrumentar el hardware.** `101457950` es `0x060C201E` y tiene ~10 issues abiertos en el repo de la app, uno reproducido en una RTX 2080 de escritorio SIN gráfica Intel y otro en un ARM64 con GPU Adreno: eso falsa de una sola vez las dos hipótesis que sostenían todo (la híbrida y el driver). Es una regresión de la app, no de esta máquina.',
+      '⚠️ **Un monitor que hay que acordarse de arrancar mide una vez.** El que se escribió el 9 para cazar el próximo crash tenía el CSV vacío cuando el crash llegó. Va como tarea programada o no mide.',
+      '⚠️ **Un sensor congelado es peor que uno ausente: el ausente se nota, el congelado se cita.** La temperatura salía de la fuente que exige admin, que en este equipo devuelve 398 lecturas idénticas en tres horas — el veredicto «no fue térmico» iba a salir de un número que no medía nada.',
+      '⚠️ **En un evento que MATA al proceso, el estado que lo describe es el del tick ANTERIOR.** La fila del crash decía «carga 2%, RAM 5,3 GB, 0 procesos» y se leía como que había crasheado en reposo: los tres números eran correctos y tomados 20 s tarde, con la app ya muerta. El tick previo decía 80%, 2,2 GB y 18 procesos.',
+      'Lo que sí se sostuvo es la medición local: el disparador es el navegador embebido — **7 de 7 crashes dentro de los 41 s de un «Created browser preview»**. Nada de esto se borró del documento: la hipótesis equivocada queda escrita al lado de su refutación, que es lo que impide volver a recorrerla.',
+    ],
+    commits: [
+      { sha: 'e53a70eb', msg: 'El pin a la Intel no cerró el caso, y el sensor que exigía admin estaba congelado', lineas: 92, archivos: 1 },
+      { sha: 'eca4b201', msg: 'Lo que mata a Claude es el navegador embebido: 7 de 7, a menos de 41 segundos', lineas: 87, archivos: 1 },
+      { sha: '4469fc94', msg: 'No era el hardware: el crash es un bug conocido de la app, con 10 issues abiertos', lineas: 65, archivos: 1 },
+    ],
+  },
+
+  // ── 14 al 17 de agosto: la herramienta con la que el agente lee ────────────
+  {
+    fecha: '14 ago', hora: '23:15', chat: '—', cuenta: 'claude1',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La búsqueda devuelve otra cosa que la que dice el archivo: un bug vivo que nunca existió',
+    puntos: [
+      'Se reportó como **bug vivo en producción** que una línea del webhook tenía barras invertidas. El archivo siempre tuvo barras normales — `git log -L 175,175` muestra que nació así y nunca cambió de forma. La causa real: **la herramienta de búsqueda reescribe `/` como `\\` en el CONTENIDO que devuelve**. Un `//` que vuelve como `\\` es la firma, y solo pasa en los resultados cuyo path viene acortado a relativo, así que en el mismo bloque hay líneas sanas y líneas mangleadas.',
+      '**«Lo verifiqué ejecutándolo» no verifica nada si lo que ejecutás es tu transcripción.** Se pegó en node el string que había devuelto la búsqueda y node confirmó, con toda razón, la cadena mangleada. Una verificación que no vuelve a la FUENTE es una tautología — y vale igual para lo que devuelve un subagente: es prosa, no evidencia.',
+      'Las dos reglas que quedan: **`Grep` sirve para ENCONTRAR, no para CITAR** —antes de reportar un bug que depende de un carácter, releé la línea con `Read`—, y **antes de escribir «bug vivo en producción», `git log -L`**: si la línea nunca tuvo esa forma, el bug es del diagnóstico.',
+      'El mismo commit trae la contracara sana: el otro arreglo pedido **sí** era real (el webhook no miraba de qué canal venía el mensaje). De dos reportes del dueño, uno existía y el otro nunca; distinguirlos costó volver al archivo.',
+    ],
+    commits: [
+      { sha: '375768d7', msg: 'Chatwoot: filtrar por canal, y la autopsia del bug que no existía', lineas: 560, archivos: 7 },
+    ],
+    archivos: ['docs/hallazgos-comunicacion.md — la autopsia completa; la regla, en AGENTS.md → «Lo que devuelve la búsqueda NO es el archivo»'],
+  },
+  {
+    fecha: '16 ago', hora: '10:12', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Cinco archivos que la búsqueda declaraba binarios, y AGENTS.md se infectó escribiendo la regla',
+    puntos: [
+      '**Un solo byte NUL (0x00) hace que ripgrep conteste «Binary file matches» y no devuelva ni una línea.** Es peor que la trampa del `\\`: ahí queda una firma rara que delata el problema, acá **contesta vacío y el vacío parece una respuesta**. En una búsqueda de un archivo se nota; en una de veinte, el archivo se lee igual que si no tuviera lo que buscabas. Se descubrió buscando `extraFooter` en un componente y obteniendo cero líneas.',
+      'Eran cinco, todos con el byte crudo donde el código quería el escape (un separador, un centinela, dos clases de regex, un comentario). Todos pasan a `\\u0000`, **que significa exactamente lo mismo en una string, en una clase de regex y en un comentario** — no hay razón para escribir el byte.',
+      '⚠️ **Y la confirmación más literal posible: al escribir la regla en AGENTS.md, el ejemplo quedó con un NUL de verdad adentro.** El documento que explica que un archivo con NUL es invisible para la búsqueda pasó a ser invisible para la búsqueda. Lo delató `git commit`, anunciándolo como «Binary file AGENTS.md matches». Confirma lo que la regla dice: **no hay síntoma** — el archivo se ve y se lee perfecto, y lo único raro es que grep contesta vacío. Por eso la regla pide `file <ruta>` cuando una búsqueda no encuentra algo que jurabas que estaba.',
+      '**Sacar un NUL genera un diff de archivo entero y no se puede evitar**: con el byte adentro git guardaba el blob como binario (verbatim, sin normalizar) y al sacarlo pasa a texto, con lo cual `core.autocrlf` lo lleva a LF de una. El `git blame` de esos archivos queda apuntando a ese commit — vale la pena igual, pero va en un commit propio y avisado.',
+    ],
+    commits: [
+      { sha: 'f2ff187b', msg: 'Cinco archivos que la búsqueda no podía leer: un byte NUL crudo', lineas: 354, archivos: 5 },
+      { sha: '7f7e3cf2', msg: 'Le metí un byte NUL a AGENTS.md escribiendo la regla del byte NUL', lineas: 852, archivos: 1 },
+    ],
+  },
+  {
+    fecha: '17 ago', hora: '20:39', chat: '—', cuenta: 'claude1',
+    actor: 'claude', tipo: 'cosecha',
+    titulo: 'Una ruta escrita a mano que apunta a la nada, y el punto ciego que la tapaba',
+    puntos: [
+      '**Las rutas escritas a mano son el enganche de todo el sistema que leen los agentes** —el `Vive en:` de cada hallazgo, el `vive[]` de cada área, el `archivos[]` de cada hito— y **ninguna la mira el compilador**. Cuando una queda vieja no falla: **desaparece en silencio**, y se lleva con ella todo lo que colgaba de ahí.',
+      'Dos casos medidos. La regla de que **la sidebar no scrollea** estaba escrita y se violó igual, porque su `Vive en:` apuntaba a un archivo que no existe desde el rediseño: grepear la ruta real —el método que la casa manda usar— no devolvía nada, así que para cada sesión nueva esa regla no existía. Y el `vive[]` de Conocimientos omitía `public/` y los scripts del pipeline: su panel veía **11 de 68 commits**, y un barrido que preguntaba «qué se trabajó y no quedó anotado» declaró tranquila al área más movida del mes.',
+      '⚠️ **El punto ciego de la propia cosecha**, que es la parte que más vale: el cruce solo miró las 9 áreas que YA tenían bitácora, así que declaró tranquilas a las otras 113. Medido después: **29 áreas con 8 o más commits en 10 días y CERO registro, 696 commits en total**. Un inventario que solo recorre lo que ya está inventariado no encuentra nunca lo que falta.',
+      '`tests/dev-areas.test.ts` chequea contra el disco que cada ruta declarada exista, y cazó 30 rutas plausibles pero inexistentes. **Lo que NO puede chequear es la OMISIÓN:** una ruta que falta no da error, da un punto ciego. Por eso al declarar un área el `vive[]` tiene que cubrir dónde cae el trabajo de verdad —incluidos `public/`, `scripts/`, `docs/` y las migraciones—, no solo los componentes de la pantalla.',
+      'Y la contracara, la razón de existir de este archivo: **lo que aprende un subagente no vuelve solo.** Lo único que llega es el texto que devuelve; las transcripciones quedan en disco y nadie las abre. Lo que no se escribe en el repo, se pierde.',
+    ],
+    commits: [
+      { sha: '5e45e545', msg: 'Los 33 hitos que faltaban, y el punto ciego que los tapaba', lineas: 585, archivos: 9 },
+    ],
+    archivos: [
+      'app/admin/dev/areas.ts — el `vive[]` de las 121 áreas; el de ESTA se amplió el 17/08 porque declaraba 5 rutas y el trabajo caía en docs/ y scripts/',
+      'tests/dev-areas.test.ts — la red que chequea existencia, y que no puede ver lo que falta',
+    ],
+  },
+];

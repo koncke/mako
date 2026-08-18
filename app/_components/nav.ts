@@ -415,10 +415,69 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
           { key: 'dev-semaforo', label: 'El semáforo', href: '/admin/dev/semaforo', icon: 'graphics', match: starts('/admin/dev/semaforo') },
           { key: 'dev-products-offers', label: 'Products & Offers', href: '/admin/dev/products-offers', icon: 'crm', match: starts('/admin/dev/products-offers') },
           { key: 'dev-pricing', label: 'Pricing', href: '/admin/dev/pricing', icon: 'tag', match: starts('/admin/dev/pricing') },
+          // Va pegada a Pricing y no es lo mismo: aquélla decide QUÉ SE COBRA,
+          // ésta es el INSTRUMENTO que mide lo que se gastó (y si el número es
+          // cierto). Las dos leen la misma tabla, y confundirlas ya costó una
+          // premisa de pricing entera («el 99,9% del gasto es del ws1»).
+          { key: 'dev-ai-spend-cuotas', label: 'AI Spend & Cuotas', href: '/admin/dev/ai-spend-cuotas', icon: 'tag', match: starts('/admin/dev/ai-spend-cuotas') },
           // Se llamaba «cs-analyst» y era la mitad del asunto: el analista de riesgo
           // es UNA pieza de Customer Success. La ruta vieja redirige (ver
           // app/admin/dev/[area]/page.tsx), así que sigue matcheando.
           { key: 'dev-customer-success', label: 'Customer Success', href: '/admin/dev/customer-success', icon: 'cs', match: (p) => starts('/admin/dev/customer-success')(p) || starts('/admin/dev/cs-analyst')(p) },
+          { key: 'dev-build-deploy', label: 'Build & Deploy', href: '/admin/dev/build-deploy', icon: 'rayo', match: starts('/admin/dev/build-deploy') },
+          // Va pegada a Build & Deploy y es su otra punta: aquélla es cómo llega
+          // el código a producción, ésta es la máquina donde se escribe — el clon
+          // compartido por dos cuentas, el dev server, y lo que los agentes leen.
+          { key: 'dev-local-dev-environment', label: 'Local Dev Environment', href: '/admin/dev/local-dev-environment', icon: 'config', match: starts('/admin/dev/local-dev-environment') },
+          // La tercera punta de la misma familia: qué red hay entre lo que se
+          // escribe acá y lo que llega allá. Hoy esa red es un hook que vive en
+          // .git y que un reclon se lleva en silencio.
+          { key: 'dev-tests-qa', label: 'Tests & QA', href: '/admin/dev/tests-qa', icon: 'check', match: starts('/admin/dev/tests-qa') },
+          { key: 'dev-ai-runtime-cascada', label: "AI Runtime & Cascada", href: '/admin/dev/ai-runtime-cascada', icon: 'config', match: starts('/admin/dev/ai-runtime-cascada') },
+          { key: 'dev-carousels', label: "Carousels", href: '/admin/dev/carousels', icon: 'config', match: starts('/admin/dev/carousels') },
+          { key: 'dev-conocimientos', label: "Conocimientos", href: '/admin/dev/conocimientos', icon: 'config', match: starts('/admin/dev/conocimientos') },
+          { key: 'dev-crm', label: "CRM", href: '/admin/dev/crm', icon: 'config', match: starts('/admin/dev/crm') },
+          { key: 'dev-gtm-oferta-y-precios', label: "GTM: Oferta y precios", href: '/admin/dev/gtm-oferta-y-precios', icon: 'config', match: starts('/admin/dev/gtm-oferta-y-precios') },
+          { key: 'dev-instagram', label: "Instagram", href: '/admin/dev/instagram', icon: 'config', match: starts('/admin/dev/instagram') },
+          { key: 'dev-integraciones', label: "Integraciones", href: '/admin/dev/integraciones', icon: 'config', match: starts('/admin/dev/integraciones') },
+          { key: 'dev-mako-doer', label: "MaKo Doer", href: '/admin/dev/mako-doer', icon: 'config', match: starts('/admin/dev/mako-doer') },
+          { key: 'dev-plans-entitlements', label: "Plans & Entitlements", href: '/admin/dev/plans-entitlements', icon: 'config', match: starts('/admin/dev/plans-entitlements') },
+          { key: 'dev-rate-limiting', label: "Rate Limiting", href: '/admin/dev/rate-limiting', icon: 'config', match: starts('/admin/dev/rate-limiting') },
+          { key: 'dev-reels', label: "Reels", href: '/admin/dev/reels', icon: 'config', match: starts('/admin/dev/reels') },
+          { key: 'dev-self-healing-dev-agent', label: "Self-Healing Dev Agent", href: '/admin/dev/self-healing-dev-agent', icon: 'config', match: starts('/admin/dev/self-healing-dev-agent') },
+          { key: 'dev-second-brain', label: 'Second Brain', href: '/admin/dev/second-brain', icon: 'cerebro', match: starts('/admin/dev/second-brain') },
+          { key: 'dev-vsl-tracking', label: 'VSL Tracking', href: '/admin/dev/vsl-tracking', icon: 'graphics', match: starts('/admin/dev/vsl-tracking') },
+          // Las dos capas del sistema visual, y van juntas y en este orden:
+          // Design System son los tokens y la paleta (la capa de abajo), MaKo
+          // UX/UI es el catálogo que los muestra montados (/admin/ui).
+          { key: 'dev-design-system', label: 'Design System', href: '/admin/dev/design-system', icon: 'graphics', match: starts('/admin/dev/design-system') },
+          { key: 'dev-mako-ux-ui', label: 'MaKo UX/UI', href: '/admin/dev/mako-ux-ui', icon: 'graphics', match: starts('/admin/dev/mako-ux-ui') },
+          // Va pegada a VSL Tracking porque son las dos puntas del mismo bucle:
+          // aquélla MIDE dónde se cae la curva, ésta escribe el guion que se
+          // reescribe con ese dato. Hoy la pantalla es un ComingSoon; el registro
+          // existe igual, que es justamente para no volver a arrancar de cero.
+          { key: 'dev-vsl-generator', label: 'VSL Generator', href: '/admin/dev/vsl-generator', icon: 'video', match: starts('/admin/dev/vsl-generator') },
+          { key: 'dev-credentials-vault-byok', label: 'Credentials Vault (BYOK)', href: '/admin/dev/credentials-vault-byok', icon: 'config', match: starts('/admin/dev/credentials-vault-byok') },
+          // Los dos formatos de Content Machine con registro escrito. Stories ya
+          // está construida; Thumbnails sigue siendo un ComingSoon y su registro
+          // existe justamente por eso: sin código propio, el Change History
+          // automático solo muestra commits de nav.ts que no son del área.
+          { key: 'dev-stories', label: 'Stories', href: '/admin/dev/stories', icon: 'instagram', match: starts('/admin/dev/stories') },
+          { key: 'dev-thumbnails', label: 'Thumbnails', href: '/admin/dev/thumbnails', icon: 'youtube', match: starts('/admin/dev/thumbnails') },
+          // Las tres de Sales Machine que todavía son ComingSoon. Sus registros
+          // existen porque el trabajo del área SÍ pasó, en otro archivo: el lead
+          // magnet se define en el paso «Entregable» del onboarding, y el email de
+          // venta y el envío a la lista ya viven en /email. Sin la fila, el único
+          // lugar donde eso está escrito no se alcanza desde ningún lado.
+          { key: 'dev-lead-magnet-generator', label: 'Lead Magnet Generator', href: '/admin/dev/lead-magnet-generator', icon: 'leadmagnet', match: starts('/admin/dev/lead-magnet-generator') },
+          { key: 'dev-sales-email', label: 'Sales Email', href: '/admin/dev/sales-email', icon: 'salesemail', match: starts('/admin/dev/sales-email') },
+          { key: 'dev-newsletters', label: 'Newsletters', href: '/admin/dev/newsletters', icon: 'newsletter', match: starts('/admin/dev/newsletters') },
+          // Las otras dos que todavía son ComingSoon y ya tienen registro escrito.
+          // Mismo motivo que Thumbnails: su historia son DECISIONES —el lugar en el
+          // embudo, el precio ya medido, las preguntas sin contestar— y ninguna vive
+          // en el código, así que el Change History automático no la encuentra.
+          { key: 'dev-closing-script', label: 'Closing Script', href: '/admin/dev/closing-script', icon: 'closingscript', match: starts('/admin/dev/closing-script') },
+          { key: 'dev-youtube-writer', label: 'YouTube Writer', href: '/admin/dev/youtube-writer', icon: 'escribir', match: starts('/admin/dev/youtube-writer') },
         ],
       },
     ],

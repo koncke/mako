@@ -136,8 +136,10 @@ export const AREAS: AreaDev[] = [
     slug: 'crm', titulo: 'CRM', familia: 'Operate', grupo: 'CRM',
     estado: 'listo', verEnApp: '/crm',
     alcance: 'Los leads del negocio: kanban por etapa, tabla, worklist de datos sin marcar y la ficha.',
-    vive: ['app/crm/page.tsx', 'app/crm/CrmBoard.tsx', 'app/crm/CrmToolbar.tsx', 'app/crm/crm-map.ts', 'app/crm/actions.ts', 'lib/leads.ts', 'lib/pipeline.ts'],
+    vive: ['app/crm/page.tsx', 'app/crm/CrmBoard.tsx', 'app/crm/CrmToolbar.tsx', 'app/crm/crm-map.ts', 'app/crm/actions.ts', 'app/crm/LeadSheet.tsx', 'app/crm/StageMoveDialog.tsx', 'app/crm/ImportarLeadsModal.tsx', 'app/crm/TablaRevisionLeads.tsx', 'app/crm/leads-exportar.ts', 'app/crm/calendly-widget.ts', 'app/crm/[id]/page.tsx', 'app/crm/[id]/resumen/page.tsx', 'app/crm/lead-view/ComportamientoCard.tsx', 'app/crm/revisar/page.tsx', 'app/crm/revisar/[id]/RevisarLead.tsx', 'app/api/agente/lead/route.ts', 'app/api/track/optin/route.ts', 'lib/leads.ts', 'lib/pipeline.ts', 'lib/leads-duplicados.ts', 'lib/stage-requirements.ts', 'lib/propuestas.ts', 'lib/lead-resumen.ts', 'lib/closing-job-estado.ts', 'supabase/migrations/0128_propuestas.sql', 'supabase/migrations/0130_closing_jobs.sql'],
     proyectos: ['Feature: CRM'],
+    hallazgos: 'hallazgos-crm',
+    nota: 'El vive[] estaba recortado al tablero (7 archivos) y por eso el panel de historial no veía nada del trabajo de agosto, que cayó casi todo AL COSTADO: la ficha (app/crm/[id]), el resumen para el celular (app/crm/[id]/resumen), la bandeja de propuestas (app/crm/revisar) y el alta (lib/leads-duplicados.ts, app/api/track/optin). Ampliado el 17/08 por la regla «una ruta que apunta a la nada». OJO con el solape: app/crm/lead-view/GeneratedInsightCard.tsx pertenece a `lead-insights`, y app/crm/[id]/deal-actions.ts + DealDetailsCard a `contracts-receipts` — no se listan acá a propósito.',
   },
   {
     slug: 'lead-insights', titulo: 'Lead Insights', familia: 'Operate', grupo: 'CRM',
@@ -253,9 +255,9 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'instagram', titulo: 'Instagram', familia: 'Operate', grupo: 'Comunicación',
-    estado: 'por-construir', verEnApp: '/instagram',
-    alcance: 'Hoy es un ComingSoon con guard de rol. El alcance previsto: conectar la cuenta, leer DMs y publicar desde la app.',
-    vive: ['app/instagram/page.tsx', 'app/_components/ComingSoon.tsx', 'app/_components/nav.ts', 'lib/plan-proyectos-catalogo.ts'],
+    estado: 'parcial', verEnApp: '/instagram',
+    alcance: 'El canal de Instagram, construido el 15/08 sobre Zernio (que envuelve la Graph API): conectar la cuenta, bandeja de DMs que se contestan como borrador del Chat Agent, y publicaciones de feed/reel/story/carrusel con la programación nativa del proveedor. Falta el webhook para el cliente con key propia: hoy BYOK publica pero no recibe.',
+    vive: ['app/instagram/page.tsx', 'app/instagram/InstagramApp.tsx', 'app/instagram/InboxDms.tsx', 'app/instagram/Publicaciones.tsx', 'app/instagram/OnboardingInstagram.tsx', 'app/instagram/actions.ts', 'app/instagram/ig-datos.ts', 'lib/zernio.ts', 'lib/ig-chatbot.ts', 'lib/ig-contenido.ts', 'app/api/webhooks/zernio/route.ts', 'supabase/migrations/0136_instagram_zernio.sql', 'app/_components/nav.ts', 'lib/plan-proyectos-catalogo.ts'],
     proyectos: ['Feature: Instagram'],
   },
   {
@@ -306,7 +308,7 @@ export const AREAS: AreaDev[] = [
     slug: 'second-brain', titulo: 'Second Brain', familia: 'Analyze',
     estado: 'listo', verEnApp: '/second-brain',
     alcance: 'El hero de Analyze: hoy es el grafo del negocio + el mismo hub de 11 tabs del onboarding (lo que el cliente le cargó a MaKo); todavía no conecta señales ni saca conclusiones propias.',
-    vive: ['app/second-brain/page.tsx', 'app/second-brain/Grafo.tsx', 'app/second-brain/fisica.ts', 'lib/cerebro-grafo.ts', 'lib/cerebro-modelo.ts', 'lib/cerebro-layout.ts'],
+    vive: ['app/second-brain/page.tsx', 'app/second-brain/VistaCerebro.tsx', 'app/second-brain/Grafo.tsx', 'app/second-brain/fisica.ts', 'app/second-brain/AreasHub.tsx', 'app/second-brain/BuscadorCerebro.tsx', 'app/second-brain/FiltroMapa.tsx', 'app/second-brain/ExportarCerebro.tsx', 'app/second-brain/BotonExportar.tsx', 'app/second-brain/BotonClaude.tsx', 'app/api/second-brain/', 'lib/cerebro-grafo.ts', 'lib/cerebro-modelo.ts', 'lib/cerebro-layout.ts', 'lib/cerebro-filtro.ts', 'lib/buscar-cerebro.ts', 'lib/vault.ts', 'lib/vault-modelo.ts', 'lib/bienvenida-cerebro.ts', 'scripts/medir-grafo.mjs', 'scripts/probar-grafo.mjs', 'scripts/probar-solape.mjs'],
     proyectos: ['Feature: Second Brain'],
   },
   {
@@ -403,7 +405,27 @@ export const AREAS: AreaDev[] = [
     slug: 'vsl-tracking', titulo: 'VSL Tracking', familia: 'Analyze', grupo: 'Ingesta de datos',
     estado: 'parcial',
     alcance: 'El beacon público /api/track/vsl que recibe play, hitos y abandono desde la landing del cliente, la curva de retención que sale de vsl_events y el cron que avisa cuando una landing dejó de mandar.',
-    vive: ['app/api/track/vsl/route.ts', 'lib/vsl-retencion.ts', 'app/api/cron/tracking-vigilante/route.ts', 'lib/landing-token.ts', 'lib/panda.ts', 'supabase/migrations/0121_vsl_events_segundos.sql', 'tests/vsl-retencion.test.ts'],
+    // ⚠️ Este `vive` declaraba SIETE archivos y dejaba afuera casi todo el trabajo real
+    // del área: el opt-in, el snippet del Pixel visto desde la pantalla que lo entrega,
+    // la identidad de una página, los videos, Clarity y las cinco migraciones de agosto.
+    // Entre el 13 y el 16/08 hubo ~35 commits y la mitad caía en rutas invisibles para
+    // este panel. Es la regla de AGENTS.md «Una ruta que apunta a la nada»: el `vive`
+    // cubre dónde cae el trabajo de verdad, no solo el endpoint que le da nombre al área.
+    vive: [
+      'app/api/track/vsl/route.ts', 'app/api/track/optin/route.ts',
+      'lib/landing-token.ts', 'lib/landing-paginas.ts', 'lib/landing-videos.ts',
+      'lib/landing-analisis.ts', 'lib/landing-config.ts', 'lib/vsl-retencion.ts', 'lib/panda.ts', 'lib/clarity.ts',
+      'app/integraciones/ProbarTracking.tsx', 'app/integraciones/NombrarVideos.tsx',
+      'app/integraciones/escuchando/page.tsx', 'app/integraciones/landing-actions.ts',
+      'app/integraciones/landing-config-actions.ts', 'app/api/integraciones/landing/estado/route.ts',
+      'app/api/cron/tracking-vigilante/route.ts', 'app/api/cron/clarity-vigilante/route.ts',
+      'app/api/cron/prueba-grabacion/route.ts',
+      'supabase/migrations/0121_vsl_events_segundos.sql', 'supabase/migrations/0133_vsl_events_detalle.sql',
+      'supabase/migrations/0134_marcador_de_prueba.sql', 'supabase/migrations/0135_landing_visits_sv.sql',
+      'supabase/migrations/0136_vsl_events_auto.sql', 'supabase/migrations/0137_vsl_events_landing_url.sql',
+      'tests/vsl-retencion.test.ts', 'tests/landing-optin.test.ts',
+      'tests/landing-paginas.test.ts', 'tests/landing-videos.test.ts', 'tests/clarity.test.ts',
+    ],
     hallazgos: 'hallazgos-landing',
     nota: 'El beacon responde 200 aunque descarte el evento (falla en silencio por diseño) y el player de Panda no manda la duración en cada tick: el % se deriva server-side y un abandono sin % se guarda NULL, nunca 0. El vigilante NO puede usar correrPorWorkspace(\'landing\') porque «landing conectada» se define como «hay eventos recientes» — se excluiría justo al workspace roto; itera por landing_token.',
   },
@@ -434,35 +456,55 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'vsl-generator', titulo: 'VSL Generator', familia: 'Sales Machine',
     estado: 'por-construir', verEnApp: '/vsl-generator',
-    alcance: 'Escribir el guion de un VSL. Hoy es un ComingSoon puro; no hay lib ni API (lib/vsl-estructuras.ts existe pero lo consume el Landing Analyst, no esto).',
-    vive: ['app/vsl-generator/page.tsx', 'app/vsl-writer/page.tsx', 'app/_components/nav.ts'],
+    alcance: 'Escribir el guion de un VSL. La pantalla es un ComingSoon y no hay lib propia ni API, pero el cimiento SÍ existe: lib/vsl-estructuras.ts (5 estructuras de VSL largo) se escribió para esta tab —el commit que lo creó dice «arrancando el VSL Writer»— y hoy además lo consume el Landing Analyst.',
+    // ⚠️ Este `vive` eran tres archivos (page, redirect y nav) y dejaba afuera lo único
+    // que el área tiene construido, así que su historial derivado de git no veía nada.
+    vive: ['app/vsl-generator/page.tsx', 'app/vsl-writer/page.tsx', 'app/_components/nav.ts', 'lib/vsl-estructuras.ts', 'tests/vsl-estructuras.test.ts'],
     proyectos: ['Feature: VSL Generator'],
   },
   {
     slug: 'lead-magnet-generator', titulo: 'Lead Magnet Generator', familia: 'Sales Machine',
     estado: 'por-construir', verEnApp: '/lead-magnet-generator',
     alcance: 'Producir el lead magnet entregable. ComingSoon sin backend; el CONTENIDO del entregable ya se define en el onboarding (EntregableView), así que esta tab es la que lo materializa.',
-    vive: ['app/lead-magnet-generator/page.tsx', 'app/_components/nav.ts'],
+    // El trabajo real del lead magnet NO cae en la tab: cae en el paso «Entregable»
+    // del onboarding. Con solo page.tsx + nav.ts el historial del área eran commits
+    // del sidebar y ni uno del entregable — un área movida que se leía tranquila.
+    vive: ['app/lead-magnet-generator/page.tsx', 'app/_components/ComingSoon.tsx', 'app/_components/nav.ts', 'lib/entregable.ts', 'app/onboarding/EntregableView.tsx', 'app/api/onboarding/entregable/', 'lib/plan-proyectos-catalogo.ts', 'docs/modelo-oferta-producto-funnel.md'],
     proyectos: ['Feature: Lead Magnet Generator'],
   },
   {
     slug: 'sales-email', titulo: 'Sales Email', familia: 'Sales Machine',
     estado: 'por-construir', verEnApp: '/sales-email',
     alcance: 'Escribir los emails de venta. ComingSoon sin backend; distinto de /email (Operate), que es la bandeja de todos los días.',
-    vive: ['app/sales-email/page.tsx', 'app/_components/nav.ts'],
+    // La tab no tiene backend, pero el trabajo de «escribir el email de venta» SÍ
+    // existe y cae en el escritor del compositor y en el generador de nutrición.
+    // Sin esas rutas el historial del área eran commits del sidebar y ninguno de un email.
+    vive: ['app/sales-email/page.tsx', 'app/_components/ComingSoon.tsx', 'app/_components/nav.ts', 'app/api/email/generar', 'lib/nutricion-generator.ts', 'lib/plan-proyectos-catalogo.ts'],
     proyectos: ['Feature: Sales Email'],
+    nota: 'El copy de venta ya se escribe entero en el compositor de /email (app/api/email/generar) y en el generador de nutrición. Antes de construir esta tab hay que contestar qué hace que aquello no haga: dos lugares para lo mismo garantizan que uno quede viejo.',
   },
   {
     slug: 'newsletters', titulo: 'Newsletters', familia: 'Sales Machine',
     estado: 'por-construir', verEnApp: '/newsletters',
     alcance: 'Escribir newsletters recurrentes a la lista. ComingSoon sin backend.',
-    vive: ['app/newsletters/page.tsx', 'app/_components/nav.ts'],
+    // Una newsletter, mirada desde el código, es un broadcast que se repite: el envío
+    // a una lista, la baja y el dominio por cliente ya existen. Sin estas rutas el
+    // historial del área eran commits del sidebar y ninguno de un envío.
+    vive: ['app/newsletters/page.tsx', 'app/_components/ComingSoon.tsx', 'app/_components/nav.ts', 'app/api/email/broadcasts', 'lib/email-marketing.ts', 'lib/resend.ts', 'lib/plan-proyectos-catalogo.ts'],
+    nota: 'Es la única de las ocho tabs de Sales Machine sin proyecto propio en lib/plan-proyectos-catalogo.ts: la fila «Sales Email» dice que cubre «el generador de emails de venta y las newsletters para el cliente», así que una tarea de newsletter no tiene lugar propio donde rutearse.',
   },
   {
     slug: 'closing-script', titulo: 'Closing Script', familia: 'Sales Machine',
     estado: 'por-construir', verEnApp: '/closing-script',
     alcance: 'El guion que usa el closer en la llamada. ComingSoon; su contraparte de ANÁLISIS (/closing, Closing Analyst) sí existe y funciona, así que el bucle natural es que ésta se alimente de aquélla.',
-    vive: ['app/closing-script/page.tsx', 'app/_components/nav.ts'],
+    // ⚠️ Este `vive` eran dos rutas: el stub (UN commit en toda su vida) y nav.ts
+    // (68). El Change History automático mostraba 12 commits y ninguno hablaba del
+    // área. Es el gemelo de «Una ruta que apunta a la nada»: una que apunta a TODO
+    // tapa igual, y encima el panel parece lleno. Se amplió al escribir la bitácora
+    // con los lugares donde SÍ cayó el trabajo de un área que todavía no existe: el
+    // proyecto del catálogo, las preguntas que la definen, el mapa relevado y el
+    // precio ya medido.
+    vive: ['app/closing-script/page.tsx', 'app/_components/nav.ts', 'lib/plan-proyectos-catalogo.ts', 'docs/preguntas-para-llenar-proyectos.md', 'docs/dev-tabs-mapa.md', 'app/admin/dev/pricing/modelo.ts', 'app/admin/dev/closing-script/bitacora.ts'],
     proyectos: ['Feature: Closing Script'],
   },
   {
@@ -525,37 +567,75 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'reels', titulo: 'Reels', familia: 'Content Machine', grupo: 'Instagram',
-    estado: 'por-construir', verEnApp: '/reels',
-    alcance: 'Guion y formato de reel de Instagram. ComingSoon sin backend.',
-    vive: ['app/reels/page.tsx', 'app/_components/nav.ts'],
+    estado: 'parcial', verEnApp: '/reels',
+    alcance: 'El GUION del reel de Instagram, construido el 15/08: pedido (tema + objetivo + duración) → guion tipado (gancho con frase, título en pantalla y visual · escenas con locución e indicación de cámara · moraleja · CTA con palabra clave · caption) → borrador en /instagram. Falta historial durable y que los prompts sean editables desde /configuraciones.',
+    // ⚠️ Este `vive` declaraba DOS rutas y una de ellas era app/_components/nav.ts,
+    // que es de las más calientes del repo: el Change History derivado se queda con
+    // los últimos 12 commits, así que nav.ts se los comía TODOS. Medido el 17/08 en
+    // _historial.generado.ts: los 12 de `reels` son sha por sha los mismos que los de
+    // `carousels`, y ninguno habla de ninguna de las dos tabs. Un archivo compartido
+    // adentro de un `vive` no suma historia: DESPLAZA la propia.
+    vive: [
+      'app/reels/page.tsx', 'app/reels/ReelsApp.tsx', 'app/reels/actions.ts',
+      'app/reels/reel-pedido.ts', 'app/reels/reels-datos.ts',
+      'lib/ig-writer.ts', 'lib/ig-formatos.ts', 'lib/ig-contenido.ts',
+      'lib/model-catalogo.ts', 'lib/tab-onboarding-state.ts', 'app/_components/nav.ts',
+    ],
     proyectos: ['Feature: Reels'],
+    hallazgos: 'hallazgos-comunicacion',
+    nota: 'El motor NO vive acá: lib/ig-writer.ts lo comparten las tres tabs del grupo Instagram (Reels, Carousels, Stories) y lib/ig-formatos.ts es la fuente única de límites técnicos y metodología — tocar cualquiera de los dos impacta las tres. Dos trampas propias: el tag `reels-writer` tiene que existir idéntico en lib/model-catalogo.ts o la llamada queda VETADA (no hay modelo por default), y generarPieza corta el pedido a 4.000 caracteres EN SILENCIO, por eso reel-pedido.ts topea campo por campo antes de componer.',
   },
   {
     slug: 'carousels', titulo: 'Carousels', familia: 'Content Machine', grupo: 'Instagram',
-    estado: 'por-construir', verEnApp: '/carousels',
-    alcance: 'Armar carruseles de Instagram lámina por lámina. ComingSoon sin backend.',
-    vive: ['app/carousels/page.tsx', 'app/_components/nav.ts'],
+    estado: 'parcial', verEnApp: '/carousels',
+    alcance: 'El carrusel de Instagram lámina por lámina, construido el 15/08: pedido (tema + tipo educativo/storytelling/venta) → slides tipadas (texto dentro de la imagen + escena visual) + caption → borrador en /instagram. El historial se pierde al recargar y los prompts todavía no son editables.',
+    // ⚠️ Mismo caso que reels: el `vive` declaraba DOS rutas, una de ellas
+    // app/_components/nav.ts, y el Change History derivado (últimos 12 commits) se
+    // llenaba con commits de la barra. Medido el 17/08: el bloque `"carousels"` de
+    // _historial.generado.ts es idéntico al de `"reels"` y no habla de ninguna tab.
+    vive: [
+      'app/carousels/page.tsx', 'app/carousels/CarouselsApp.tsx',
+      'app/carousels/OnboardingCarousels.tsx', 'app/carousels/actions.ts',
+      'lib/ig-writer.ts', 'lib/ig-formatos.ts', 'lib/ig-contenido.ts',
+      'lib/model-catalogo.ts', 'lib/tab-onboarding-state.ts', 'app/_components/nav.ts',
+    ],
     proyectos: ['Feature: Carousels'],
+    hallazgos: 'hallazgos-comunicacion',
+    nota: 'El motor (lib/ig-writer.ts) y la metodología (lib/ig-formatos.ts) los comparte con Reels y Stories: tocarlos impacta las tres. Lo propio de esta tab: METODOLOGIA_CARRUSEL abre con un AVISO de que los cursos comprados casi no tienen material de carrusel —la taxonomía educativo/storytelling/venta de actions.ts es criterio general, NO doctrina de curso—; el saneo RECHAZA con menos de 2 slides y RECORTA con más de 10, a propósito y por motivos distintos; y quedan dos desvíos respecto de sus tabs hermanas: el paso `carousels_instagram` nunca se marca (reels y stories usan la key compartida `conectar`) y CarouselsApp.tsx importa solo Pagina y Button de app/_ui, estilando el resto a mano.',
   },
   {
     slug: 'stories', titulo: 'Stories', familia: 'Content Machine', grupo: 'Instagram',
-    estado: 'por-construir', verEnApp: '/stories',
-    alcance: 'Secuencias de historias de Instagram. ComingSoon sin backend.',
-    vive: ['app/stories/page.tsx', 'app/_components/nav.ts'],
+    estado: 'parcial', verEnApp: '/stories',
+    alcance: 'El DÍA de stories de Instagram: una sola idea, el objetivo (conexión / venta / interacción), el storyboard frame por frame con su indicación de producción, y cada frame como borrador en /instagram. Construida el 15/08 sobre el motor compartido con Reels y Carousels; sin historial durable (la secuencia vive en memoria de la página) y con los prompts todavía no editables.',
+    vive: [
+      'app/stories/page.tsx', 'app/stories/StoriesApp.tsx', 'app/stories/Storyboard.tsx',
+      'app/stories/actions.ts', 'app/stories/objetivos.ts', 'app/stories/OnboardingStories.tsx',
+      'lib/ig-formatos.ts', 'lib/ig-writer.ts', 'lib/ig-contenido.ts',
+      'app/_components/nav.ts',
+    ],
     proyectos: ['Feature: Stories'],
   },
   {
     slug: 'youtube-writer', titulo: 'YouTube Writer', familia: 'Content Machine', grupo: 'YouTube',
     estado: 'por-construir', verEnApp: '/youtube-writer',
     alcance: 'Escribir el guion de un video de YouTube. ComingSoon sin backend.',
-    vive: ['app/youtube-writer/page.tsx', 'app/_components/nav.ts'],
+    // ⚠️ Mismo caso que Closing Script: eran el stub (UN commit) y nav.ts (68), así
+    // que el Change History automático se llenaba con la barra del super admin y el
+    // área quedaba invisible. Se amplió con donde SÍ cayó su trabajo. Y ojo con el
+    // nombre: `lib/youtube*.ts` y el cron `youtube-daily` NO son esta área, son el
+    // canal propio de la agencia (`gtm-youtube`).
+    vive: ['app/youtube-writer/page.tsx', 'app/_components/nav.ts', 'lib/plan-proyectos-catalogo.ts', 'docs/preguntas-para-llenar-proyectos.md', 'docs/dev-tabs-mapa.md', 'app/admin/dev/pricing/modelo.ts', 'app/admin/dev/youtube-writer/bitacora.ts'],
     proyectos: ['Feature: YouTube Writer'],
   },
   {
     slug: 'thumbnails', titulo: 'Thumbnails', familia: 'Content Machine', grupo: 'YouTube',
     estado: 'por-construir', verEnApp: '/thumbnails',
-    alcance: 'Generar las miniaturas del video. ComingSoon sin backend.',
-    vive: ['app/thumbnails/page.tsx', 'app/_components/nav.ts'],
+    alcance: 'Generar las miniaturas del video. ComingSoon sin backend: la ruta son 8 líneas. Lo único decidido es el lugar (Content Machine · YouTube) y la economía — US$0,068 las 2 variantes, 160 MT, cobrado por INTENTO (app/admin/dev/pricing/modelo.ts). Los 12 thumbnails/mes del Growth son un supuesto sin medir.',
+    // ⚠️ El área NO tiene código propio más allá del ComingSoon, así que su Change
+    // History automático se llena de commits de `nav.ts` que no son suyos (12 medidos,
+    // ninguno del área). Lo que sí es suyo está en su bitácora escrita a mano — por eso
+    // va en `vive`, igual que Ideas / Image / Video Generator apuntan a la de ads-writer.
+    vive: ['app/thumbnails/page.tsx', 'app/admin/dev/thumbnails/bitacora.ts', 'app/_components/nav.ts'],
     proyectos: ['Feature: Thumbnails'],
   },
 
@@ -571,7 +651,7 @@ export const AREAS: AreaDev[] = [
     slug: 'mako-doer', titulo: 'MaKo Doer', familia: 'MaKo',
     estado: 'parcial', agente: true,
     alcance: 'El agente que ESCUCHA en los grupos de WhatsApp y actúa: decide si contesta (modo libre vs. ventana), muestra «escribiendo…», elige el tier del modelo por turno y corre el loop de tools. NO es el chat dentro de la app (eso es «Preguntale a MaKo»).',
-    vive: ['lib/mako-doer-in.ts', 'lib/mako-router.ts', 'app/api/webhooks/evolution/route.ts', 'app/api/admin/mako-doer/route.ts'],
+    vive: ['lib/mako-doer-in.ts', 'lib/mako-router.ts', 'lib/mako-intencion.ts', 'lib/mako-doer-acciones.ts', 'lib/mako-doer-buffer.ts', 'lib/mako-doer-conv.ts', 'lib/respuesta-doer.ts', 'lib/puntos-mensaje.ts', 'lib/vcard.ts', 'app/api/webhooks/evolution/route.ts', 'app/api/admin/mako-doer/route.ts', 'app/api/cron/doer-flush/route.ts'],
     proyectos: ['Agente: MaKo Doer'],
   },
   {
@@ -606,7 +686,7 @@ export const AREAS: AreaDev[] = [
     slug: 'ai-runtime-cascada', titulo: 'AI Runtime & Cascada', familia: 'MaKo',
     estado: 'listo',
     alcance: 'El motor que ejecuta toda llamada de IA: chatClaude y el loop de tool-use, la cascada de proveedores gratis antes de pagar, y el override de qué modelo usa cada feature desde /modelos-ia.',
-    vive: ['lib/anthropic.ts', 'lib/ai-cheap.ts', 'lib/model-registry.ts', 'lib/model-catalogo.ts', 'app/modelos-ia/ModelosIA.tsx', 'app/api/admin/modelos/route.ts'],
+    vive: ['lib/anthropic.ts', 'lib/ai-cheap.ts', 'lib/veto-claude.ts', 'lib/model-registry.ts', 'lib/model-catalogo.ts', 'lib/ia-keys.ts', 'lib/ia-keys-ws.ts', 'lib/ia-mensajes.ts', 'app/modelos-ia/ModelosIA.tsx', 'app/api/admin/modelos/route.ts', 'app/_components/ErrorIA.tsx', 'app/_components/ConectarIA.tsx', 'tests/veto-claude.test.ts', 'tests/model-registry.test.ts', 'tests/ia-mensajes.test.ts', 'tests/ia-keys.test.ts'],
     hallazgos: 'hallazgos-ia',
     nota: 'Las «916 líneas» son lib/anthropic.ts (301) + lib/ai-cheap.ts (615), verificado. Dos trampas: el override de /modelos-ia SOLO aplica si el caller no pasó `model` explícito (cualquier `chatClaude(..., { model })` se saltea el registro entero), y el catálogo vive aparte en lib/model-catalogo.ts —sin `server-only`, para poder testearlo— pero nadie lo importa directo: model-registry.ts lo re-exporta. El fallback pago está adentro de chatClaude, no en el registro: si toda la cascada gratis falla cae a claude-sonnet-5 y deja la nota visible en el historial.',
   },
@@ -614,7 +694,16 @@ export const AREAS: AreaDev[] = [
     slug: 'ai-spend-cuotas', titulo: 'AI Spend & Cuotas', familia: 'MaKo',
     estado: 'parcial',
     alcance: 'El medidor: una fila en anthropic_usage por llamada, el precio por modelo, el saldo cargado a mano y cuánto queda de cada free tier. Se ve en Integraciones › Costo de MaKo.',
-    vive: ['lib/anthropic-usage.ts', 'lib/ia-cuotas.ts', 'lib/costos-ia.ts', 'app/api/anthropic-usage/route.ts', 'app/api/costos-ia/route.ts', 'app/integraciones/IntegracionesBoard.tsx', 'app/_components/IaUsageToast.tsx', 'lib/ia-labels.ts'],
+    // ⚠️ Ampliado el 17/08 (regla «Una ruta que apunta a la nada»): el trabajo de
+    // agosto —rotación multi-cuenta, la cuota medida POR CUENTA, el veto de Claude
+    // y el mensaje que lee el que se quedó sin IA— cae casi todo en archivos que
+    // NO estaban acá ni en ningún otro `vive[]`, así que el panel de historial del
+    // área veía una fracción de sus commits. Se suman la maquinaria de keys por
+    // cuenta (`ia-keys*`), la migración que la sostiene (0132), el texto y la
+    // salida que ve el usuario (`ia-mensajes`, `ConectarIA`, `ErrorIA`) y la única
+    // puerta de gasto a Claude (`veto-claude`, que escribe su propia fila de US$0
+    // en el medidor).
+    vive: ['lib/anthropic-usage.ts', 'lib/ia-cuotas.ts', 'lib/costos-ia.ts', 'lib/ia-keys.ts', 'lib/ia-keys-ws.ts', 'lib/ia-mensajes.ts', 'lib/veto-claude.ts', 'app/api/anthropic-usage/route.ts', 'app/api/costos-ia/route.ts', 'app/api/ia/proveedores/route.ts', 'app/integraciones/IntegracionesBoard.tsx', 'app/_components/IaUsageToast.tsx', 'app/_components/ConectarIA.tsx', 'app/_components/ErrorIA.tsx', 'supabase/migrations/0132_uso_por_cuenta.sql', 'lib/ia-labels.ts'],
     hallazgos: 'hallazgos-ia',
     nota: 'El «cortarlo» del alcance NO existe todavía: `ordenarPorCuota` (lib/ia-cuotas.ts:86-93) reordena proveedores pero nunca saca ninguno, y todos los `recordUsage` son POSTERIORES a la llamada — el enforcement hay que escribirlo entero y pre-flight. Y el «por cliente» tampoco: getSaldo/setSaldo clavan `.eq(\'workspace_id\', OWNER_WS)` y getUsageSummary lee anthropic_usage sin filtro de workspace, aunque las keys ya sean BYOK. Ojo con el solape: el área `pricing` de /admin/dev ya declara lib/costos-ia.ts, lib/anthropic-usage.ts, lib/ia-cuotas.ts y app/api/costos-ia/ — pricing es el modelo de negocio, esta área es el medidor.',
   },
@@ -637,8 +726,10 @@ export const AREAS: AreaDev[] = [
     slug: 'plans-entitlements', titulo: 'Plans & Entitlements', familia: 'Business', grupo: 'Cobros y planes',
     estado: 'parcial',
     alcance: 'Free / Pro / Growth. La maquinaria YA corre con 3 capas hardcodeadas en lib/capas.ts y sin noción de plan.',
-    vive: ['lib/capas.ts', 'lib/tab-access.ts', 'lib/ws-tab.ts', 'app/_components/nav.ts', 'app/admin/AdminView.tsx', 'supabase/migrations/0092_workspace_capa.sql'],
+    vive: ['lib/capas.ts', 'lib/tab-access.ts', 'lib/ws-tab.ts', 'app/_components/nav.ts', 'app/admin/AdminView.tsx', 'app/api/admin/usuarios/route.ts', 'app/api/admin/workspaces/route.ts', 'lib/usuarios.ts', 'lib/invitaciones.ts', 'lib/invitacion-aviso.ts', 'app/equipo/EquipoView.tsx', 'app/api/equipo/route.ts', 'app/_ui/Estados.tsx', 'docs/costos-ia-y-planes.md', 'supabase/migrations/0092_workspace_capa.sql', 'supabase/migrations/0138_usuarios_invitacion_enviada.sql'],
     proyectos: ['Feature: Cobros y planes'],
+    hallazgos: 'hallazgos-ia',
+    nota: 'El vive[] listaba solo el gating y por eso el área se veía muerta: el trabajo de agosto cayó en el ALTA de una persona —lo único que hoy existe entre el pago y el primer login— y en el diseño de los planes (docs/costos-ia-y-planes.md). Ampliado el 17/08 por la regla «una ruta que apunta a la nada». Dos cosas que conviene saber antes de tocar: la capa hace de entitlement SIN saberlo (una categoría de integración que no está en capas.ts → categoriasIntegraciones no se ve, y ausencia y prohibición se ven igual), y PermissionState de app/_ui/Estados.tsx ya tiene el motivo «plan» que hoy NADIE emite, porque no hay estado de suscripción por workspace.',
   },
   {
     slug: 'payment-gateway', titulo: 'Payment Gateway', familia: 'Business', grupo: 'Cobros y planes',
@@ -721,7 +812,13 @@ export const AREAS: AreaDev[] = [
     slug: 'gtm-oferta-y-precios', titulo: 'GTM: Oferta y precios', familia: 'Business', grupo: 'Go-to-Market',
     estado: 'parcial',
     alcance: 'Qué vende MaKo y a cuánto: la escalera 1a1 US$4.000 / Grupal US$1.500 con ticket de US$2.000, los planes Free/Pro 47/Growth 97 con cupo de MaKo Tokens, y el «precio de fundador» de la landing.',
-    vive: ['app/vsl/estrategia/Estrategia.tsx', 'app/admin/dev/pricing/modelo.ts', 'app/admin/dev/pricing/Pricing.tsx', 'docs/costos-ia-y-planes.md', 'app/vsl/landing-html.ts'],
+    // ⚠️ Este `vive` declaraba cinco archivos y dejaba invisible justo dónde cayó
+    // el trabajo de agosto: docs/embudo-y-high-ticket.md (el modelo económico
+    // entero, 127 KB), Piezas.tsx (los gráficos de CAC por canal) y el test que
+    // guarda los números. Se amplió al escribir la bitácora — la regla de AGENTS.md
+    // «Una ruta que apunta a la nada»: el vive[] cubre dónde cae el trabajo de
+    // verdad, no solo los componentes de la pantalla.
+    vive: ['app/vsl/estrategia/Estrategia.tsx', 'app/vsl/estrategia/page.tsx', 'app/admin/dev/pricing/modelo.ts', 'app/admin/dev/pricing/Pricing.tsx', 'app/admin/dev/pricing/Piezas.tsx', 'tests/pricing-modelo.test.ts', 'docs/costos-ia-y-planes.md', 'docs/embudo-y-high-ticket.md', 'app/vsl/landing-html.ts'],
     proyectos: ['Vender MaKo: Oferta y precios'],
     hallazgos: 'hallazgos-landing',
     nota: 'Está partido en dos mitades que no se hablan, y es lo primero que hay que entender: (1) la oferta high-ticket con llamada vive en /vsl/estrategia —MIX, unit economics, la escalera para que «cualquier lead compre algo»—; (2) los planes de software con cupo de MaKo Tokens viven en app/admin/dev/pricing/modelo.ts, que ya tiene su propio registro en /admin/dev con slug `pricing` (app/admin/dev/areas.ts) — no duplicarlo. Regla del archivo modelo.ts: cada número declara si es `medido` (de anthropic_usage en prod), `publicado` (precio de lista con fecha) o `supuesto`; un número sin origen no se agrega. La única superficie pública de precio es el bloque «Precio de fundador» de app/vsl/landing-html.ts, que no da cifra.',
@@ -746,15 +843,42 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'integraciones', titulo: 'Integraciones', familia: 'Platform',
     estado: 'listo', verEnApp: '/integraciones',
-    alcance: 'El estado de los servicios conectados (medidor de salud, «Requiere tu atención», servicios por categoría), el Costo de MaKo por proveedor y proceso, y el historial de problemas de Meta.',
-    vive: ['app/integraciones/page.tsx', 'app/integraciones/IntegracionesBoard.tsx', 'app/integraciones/ServicioConfigForm.tsx', 'app/integraciones/ProbarTracking.tsx', 'app/api/integraciones/credencial/route.ts', 'app/api/anthropic-usage/route.ts', 'lib/metodo-catalogo.ts'],
+    alcance: 'El estado de los servicios conectados (medidor de salud, «Requiere tu atención», servicios por categoría), el Costo de MaKo por proveedor y proceso, el historial de problemas de Meta, y el Pixel de MaKo: instalarlo sobre la página elegida, activarle Clarity, nombrar sus videos y probarlo en vivo.',
+    // ⚠️ Este `vive` declaraba SIETE archivos y por eso el trabajo de agosto era
+    // medio invisible: todo el recorrido del Pixel (SelectorLanding, ConfigClarity,
+    // NombrarVideos, las server actions, la ventana de prueba) y sus libs
+    // (landing-analisis, landing-config, landing-paginas, landing-videos, clarity)
+    // no estaban en ninguna área. Es la regla de AGENTS.md «Una ruta que apunta a
+    // la nada»: la omisión no da error, da un punto ciego.
+    vive: ['app/integraciones/page.tsx', 'app/integraciones/IntegracionesBoard.tsx', 'app/integraciones/ServicioConfigForm.tsx', 'app/integraciones/ProbarTracking.tsx', 'app/integraciones/SelectorLanding.tsx', 'app/integraciones/ConfigClarity.tsx', 'app/integraciones/NombrarVideos.tsx', 'app/integraciones/landing-actions.ts', 'app/integraciones/landing-config-actions.ts', 'app/integraciones/escuchando/page.tsx', 'app/api/integraciones/credencial/route.ts', 'app/api/integraciones/landing', 'app/api/anthropic-usage/route.ts', 'app/api/cron/clarity-vigilante/route.ts', 'lib/metodo-catalogo.ts', 'lib/integraciones-catalogo.ts', 'lib/metodo-verificar.ts', 'lib/servicio-slides.ts', 'lib/clarity.ts', 'lib/landing-config.ts', 'lib/landing-paginas.ts', 'lib/landing-analisis.ts', 'lib/landing-videos.ts'],
     proyectos: ['Feature: Integraciones'],
   },
   {
     slug: 'conocimientos', titulo: 'Conocimientos', familia: 'Platform',
     estado: 'listo', verEnApp: '/conocimientos',
-    alcance: 'El portal de formación interna (curso AVATARHYPE y hermanos): hub multi-curso con navegación por URL, capa oscura autocontenida. Es fuente de RAG, no el /conocimiento del RAG.',
-    vive: ['app/conocimientos/page.tsx', 'app/conocimientos/Conocimientos.tsx', 'app/conocimientos/curso.ts', 'app/conocimientos/curso-vsl.ts', 'app/conocimientos/curso-producto-app.ts'],
+    alcance: 'El portal de formación interna (24 cursos) Y el pipeline que los mete: bajar, transcribir, subir a Drive y generar la ficha. El grueso del trabajo del área NO está en app/conocimientos/ sino en scripts/curso-* y en public/cono-*. Es fuente de RAG, no el /conocimiento del RAG.',
+    // ⚠️ Este `vive` declaraba CINCO archivos de app/conocimientos/ y por eso el panel
+    // de historial veía 11 commits de 68: todo el pipeline (scripts/), los assets
+    // generados (public/cono-*) y la vista del link compartido quedaban invisibles, y
+    // un barrido de «qué se trabajó y no quedó anotado» declaró tranquila el área más
+    // movida del mes. Es el caso testigo de «Una ruta que apunta a la nada» en AGENTS.md.
+    vive: [
+      'app/conocimientos/page.tsx', 'app/conocimientos/Conocimientos.tsx',
+      'app/conocimientos/CursoPortal.tsx', 'app/conocimientos/CursoReplica.tsx',
+      'app/conocimientos/catalogo.ts', 'app/conocimientos/curso.ts',
+      'app/conocimientos/curso-vsl.ts', 'app/conocimientos/curso-producto-app.ts',
+      'app/compartido/[token]/CursoCompartido.tsx',
+      'public/cono-tx', 'public/cono-doc', 'public/cono-ugc', 'public/cono-portadas',
+      'scripts/curso-comun.mjs', 'scripts/curso-perfil.ps1', 'scripts/curso-sniff.mjs',
+      'scripts/curso-abrir.mjs', 'scripts/curso-plan.mjs', 'scripts/curso-plan-vip.mjs',
+      'scripts/curso-bajar.mjs', 'scripts/curso-audio.mjs', 'scripts/curso-transcribir-sa.mjs',
+      'scripts/curso-a-drive.mjs', 'scripts/curso-drive-fusionar.mjs',
+      'scripts/curso-recursos-vip.mjs', 'scripts/curso-pdfs.mjs',
+      'scripts/curso-portada-manual.mjs', 'scripts/curso-a-portal.mjs', 'scripts/curso-pipeline.mjs',
+      'scripts/avatarhype-plan.mjs', 'scripts/avatarhype-css.mjs', 'scripts/avatarhype-doc.mjs',
+      'scripts/avatarhype-media.mjs', 'scripts/avatarhype-doc-portal.mjs',
+    ],
+    hallazgos: 'hallazgos-conocimiento',
     proyectos: ['Feature: Conocimientos'],
   },
   {
@@ -798,8 +922,17 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'design-system', titulo: 'Design System', familia: 'Platform',
     estado: 'parcial',
-    alcance: 'El programa de adopción: 2 de 9 partes, 7.680 estilos inline sueltos.',
-    vive: ['app/globals.css'],
+    alcance: 'El programa de adopción: 2 de 9 partes, y 8.906 estilos inline sueltos (medidos el 17/08 sobre app/**/*.tsx). Incluye los tokens, el dorado de la marca y la paleta del rebrand con sus dos modos.',
+    vive: [
+      'app/globals.css',
+      'app/_ui/LEEME.md',
+      'lib/temas-candidatos.ts',
+      'app/_components/TemaCandidato.tsx',
+      'app/_components/TemaOscuro.tsx',
+      'app/_components/InterruptorModo.tsx',
+      'app/_components/MakoBrand.tsx',
+    ],
+    hallazgos: 'hallazgos-ui',
     proyectos: ['Diseño de la app'],
   },
   {
@@ -812,7 +945,15 @@ export const AREAS: AreaDev[] = [
     slug: 'mako-ux-ui', titulo: 'MaKo UX/UI', familia: 'Platform', grupo: 'Dev',
     estado: 'listo', verEnApp: '/admin/ui',
     alcance: 'El sistema de diseño renderizado de verdad, en ocho sub-tabs: Roadmap, Sidebar, Íconos, Marca, Fundamentos, Piezas, Estados y Gramática de MaKo. /admin/rediseno redirige acá.',
-    vive: ['app/admin/ui/page.tsx', 'app/admin/ui/CatalogoUI.tsx', 'app/admin/ui/Barra.tsx', 'app/admin/ui/Gramatica.tsx', 'app/admin/ui/Marca.tsx', 'app/admin/ui/bitacora.ts', 'app/_ui/'],
+    vive: [
+      'app/admin/ui/page.tsx', 'app/admin/ui/CatalogoUI.tsx', 'app/admin/ui/Barra.tsx',
+      'app/admin/ui/Gramatica.tsx', 'app/admin/ui/Marca.tsx', 'app/admin/ui/Temas.tsx',
+      'app/admin/ui/bitacora.ts', 'app/_ui/',
+      // La pieza y su contrato: el catálogo dibuja lo que estos tres definen.
+      'app/_ui/Mako.tsx', 'app/_ui/Modal.tsx', 'app/_ui/ui.css',
+      'lib/mako-gramatica.ts', 'lib/mako-capacidades.ts',
+    ],
+    hallazgos: 'hallazgos-ui',
   },
   {
     slug: 'grafo', titulo: 'Grafo', familia: 'Platform', grupo: 'Dev',
@@ -830,7 +971,7 @@ export const AREAS: AreaDev[] = [
     slug: 'self-healing-dev-agent', titulo: 'Self-Healing Dev Agent', familia: 'Platform', grupo: 'Dev',
     estado: 'por-construir', agente: true,
     alcance: 'JUSTAMENTE el agente que esta sección viene a alimentar. Todavía no existe.',
-    vive: ['lib/cerrar-por-commits.ts', 'app/admin/dev/'],
+    vive: ['lib/cerrar-por-commits.ts', 'lib/github-commits.ts', 'app/api/cron/cerrar-por-commits/route.ts', 'app/admin/dev/', 'scripts/gen-dev-historial.mjs', 'tests/dev-areas.test.ts', 'docs/dev-areas.mjs', 'docs/dev-tabs-mapa.md'],
   },
 
   // ───────────────────────────────────────────────────────────── Infra
@@ -857,7 +998,11 @@ export const AREAS: AreaDev[] = [
     slug: 'credentials-vault-byok', titulo: 'Credentials Vault (BYOK)', familia: 'Infra', grupo: 'Seguridad',
     estado: 'parcial',
     alcance: 'Las llaves BYOK de cada cliente: cifrado AES-GCM con dos formatos vivos (gcm1 y gcm2 HKDF+AAD), hidratación env↔base en cada cold start, y el alta/borrado/prueba por campo desde /integraciones.',
-    vive: ['lib/credenciales.ts', 'lib/cripto-credenciales.ts', 'app/api/integraciones/credencial/route.ts', 'app/integraciones/ServicioConfigForm.tsx', 'lib/metodo-catalogo.ts', 'instrumentation.ts', 'scripts/recifrar-credenciales.mjs', 'supabase/migrations/0055_credenciales_por_workspace.sql'],
+    // ⚠️ Este `vive` no incluía las cuentas múltiples (lib/ia-keys*.ts), el segundo
+    // catálogo (lib/integraciones-catalogo.ts), la prueba por campo ni el otro camino
+    // de guardado (/metodo) — o sea que el trabajo de agosto sobre el vault caía casi
+    // entero fuera del panel. Regla «Una ruta que apunta a la nada» de AGENTS.md.
+    vive: ['lib/credenciales.ts', 'lib/cripto-credenciales.ts', 'lib/ia-keys.ts', 'lib/ia-keys-ws.ts', 'app/api/integraciones/credencial/route.ts', 'app/integraciones/ServicioConfigForm.tsx', 'lib/metodo-catalogo.ts', 'lib/integraciones-catalogo.ts', 'lib/metodo-verificar.ts', 'app/api/metodo/route.ts', 'instrumentation.ts', 'scripts/recifrar-credenciales.mjs', 'scripts/test-cripto.mjs', 'supabase/migrations/0055_credenciales_por_workspace.sql'],
     hallazgos: 'hallazgos-seguridad',
     nota: 'El cifrado vive aparte a propósito: lib/cripto-credenciales.ts NO importa \'server-only\' ni nada de Next, para poder correrlo suelto con scripts/test-cripto.mjs. El backfill v1→v2 (scripts/recifrar-credenciales.mjs) es seco por defecto y hace compare-and-swap con el criptograma viejo en el WHERE. Trampa del catálogo: el campo `env` de lib/metodo-catalogo.ts tiene que coincidir EXACTO con lo que lee cada lib, si no credWs devuelve null en silencio. Y ojo con instrumentation.ts: register() no se espera antes del primer request en Vercel, hay que leer por envCred()/credencialesListas().',
   },
@@ -865,7 +1010,12 @@ export const AREAS: AreaDev[] = [
     slug: 'rate-limiting', titulo: 'Rate Limiting', familia: 'Infra', grupo: 'Seguridad',
     estado: 'parcial',
     alcance: 'Limitador en memoria por instancia, que muere en cada cold start, usado en UNA sola ruta de toda la app: el beacon público del VSL. Ningún otro endpoint tiene techo.',
-    vive: ['lib/rate-limit.ts', 'app/api/track/vsl/route.ts'],
+    // `lib/landing-token.ts` está acá porque los ÚNICOS topes que se escribieron
+    // en agosto viven en el snippet (40 clicks por carga, 10 idas y vueltas), no
+    // en el limitador — sin esa ruta, el historial del área no ve ni un commit de
+    // los diez días en que se movió. `scripts/proponer-seguridad-legal.ts` es la
+    // parte en cola: el techo por workspace de las rutas que gastan IA.
+    vive: ['lib/rate-limit.ts', 'app/api/track/vsl/route.ts', 'lib/landing-token.ts', 'scripts/proponer-seguridad-legal.ts'],
     hallazgos: 'hallazgos-ia',
     nota: 'Grep verificado: `rateLimit`/`clientIp` se importan en un único archivo de todo el repo (app/api/track/vsl/route.ts:47), con dos cubetas — `vsl:<ip>` 300/min y `vslstamp:<ip>` 15/min. El propio módulo avisa que el estado no se comparte entre instancias: para un tope duro hace falta Upstash/Redis. NO confundir con el gasto de IA: lib/ia-cuotas.ts reordena proveedores pero nunca bloquea, y los presupuestos de closing.ts/ads-analyst.ts topean una corrida, no a un cliente.',
   },
@@ -908,8 +1058,21 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'build-deploy', titulo: 'Build & Deploy', familia: 'Infra', grupo: 'Entrega',
     estado: 'listo',
-    alcance: 'El typecheck fuera del build costó 109 horas de CPU en una semana.',
-    vive: ['next.config.ts', 'AGENTS.md', '.vercel/'],
+    alcance: 'Cómo se compila esta app y cómo llega a producción: el build de Next, el escaneo de Tailwind, el pre-push que es la única red de tipos, el enganche GitHub→Vercel, quién autoriza un deploy y la factura que todo eso genera.',
+    vive: [
+      'next.config.ts',
+      'app/globals.css',
+      'vercel.json',
+      '.vercel/',
+      'package.json',
+      '.git/hooks/pre-push',
+      'scripts/sync-contrato-detalle.mjs',
+      'scripts/sync-gramatica-doc.mjs',
+      'scripts/generar-plugin.mjs',
+      'AGENTS.md',
+      'docs/hallazgos-infra.md',
+    ],
+    hallazgos: 'hallazgos-infra',
     proyectos: ['Infraestructura y versionado'],
   },
   {
@@ -930,8 +1093,8 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'tests-qa', titulo: 'Tests & QA', familia: 'Infra', grupo: 'Entrega',
     estado: 'listo',
-    alcance: '45 archivos de test con node --test + tsx (npm test) y un pre-push en .git/hooks que corre el typecheck y el sync del contrato — pero no corre los tests, y no se versiona.',
-    vive: ['tests', 'package.json', '.git/hooks/pre-push', 'next.config.ts', 'scripts/sync-contrato-detalle.mjs', 'tests/tenant-tables-contract.test.ts', 'AGENTS.md'],
+    alcance: '96 archivos de test con node --test + tsx (npm test) y un pre-push en .git/hooks que corre CUATRO chequeos (tipos, contrato del detalle, gramática de marca, plugin público) — pero no corre los tests, y no se versiona.',
+    vive: ['tests', 'package.json', 'tsconfig.json', '.git/hooks/pre-push', 'next.config.ts', 'scripts/sync-contrato-detalle.mjs', 'scripts/sync-gramatica-doc.mjs', 'scripts/generar-plugin.mjs', 'scripts/ensayo-bucle-cs.ts', 'tests/tenant-tables-contract.test.ts', 'AGENTS.md'],
     hallazgos: 'hallazgos-infra',
     nota: 'El pre-push es la ÚNICA red de tipos (next.config.ts tiene typescript.ignoreBuildErrors: true para no pagar Build CPU en Vercel) y vive en .git/hooks, o sea que un reclon lo borra en silencio; el contenido para recrearlo está en AGENTS.md:20-42. Ese mismo AGENTS.md avisa que el hook NO corre `npm test`. Trampas del runner (docs/hallazgos-infra.md, «Tests y entorno local»): tsx no resuelve el alias @/ (imports relativos), \'server-only\' revienta al importarse y hay que parchear Module._load, y los guards de texto leen de más en Windows si no normalizás CRLF.',
   },
@@ -939,7 +1102,7 @@ export const AREAS: AreaDev[] = [
     slug: 'local-dev-environment', titulo: 'Local Dev Environment', familia: 'Infra', grupo: 'Entrega',
     estado: 'listo',
     alcance: 'El entorno local apunta a la base de PRODUCCION y el boot le escribe: es la fuente de accidentes mas silenciosa del proyecto, y ademas es la superficie que usan los propios agentes de desarrollo.',
-    vive: ['.env.local', 'instrumentation.ts', 'app/api/auth/dev-login/route.ts', 'AGENTS.md', '.claude/skills/'],
+    vive: ['.env.local', 'instrumentation.ts', 'app/api/auth/dev-login/route.ts', 'AGENTS.md', 'CLAUDE.md', '.claude/skills/', '.claude/CLAUDE.md', '.claude/launch.json', '.claude/settings.local.json', '.git/hooks/pre-push', 'skills-lock.json', 'plugin/', 'scripts/sync-contrato-detalle.mjs', 'scripts/sync-gramatica-doc.mjs', 'scripts/generar-plugin.mjs', 'docs/hallazgos-infra.md', 'docs/dos-cuentas.md', 'docs/chats.md', 'docs/corridas-multiagente.md'],
   },
   {
     slug: 'orphaned-ui-dead-routes', titulo: 'Orphaned UI & Dead Routes', familia: 'Infra', grupo: 'Entrega',
