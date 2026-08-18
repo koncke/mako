@@ -2420,3 +2420,42 @@ de cero cada vez que alguien corre el script, y a la tercera vez nadie lo corre 
 **Corolario para los otros cuatro** (creator-club Módulo 2, m5-95 Módulo 8, avatarhype
 Módulo 7, master-marca-personal clase 2): **están sin verificar**, y después de esto la
 apuesta razonable es que varios sean lo mismo. Antes de bajar nada, el RPC.
+
+### ⚠️⚠️ Y la corrección de la corrección: «el módulo está vacío» era mirar por el endpoint que no lo ve
+
+Lo escrito arriba —«el Módulo 5 EXISTE y está vacío»— **es falso**, y lo vio el dueño
+mandando una captura de la plataforma: el módulo se llama **«Bonus 2 - Mis LUTs»** y tiene
+**ocho archivos `.CUBE`** adentro (LUT Guille 1, 3, 4, 5, 6, 7, 8 y «65 Point Cube_2»).
+
+**Lo que no tiene son LECCIONES**, y el RPC contra el que verifiqué —`get_vip_lessons_secure`—
+devuelve lecciones. Contestó cero y lo leí como «no hay nada». **Un endpoint que no puede ver
+una cosa no es evidencia de que esa cosa no exista**, y esa frase es toda la lección: verifiqué
+con la herramienta equivocada y canté victoria con más confianza que la primera vez.
+
+**Y al ir a mirar por qué, el agujero es del tamaño de la videoteca entera:**
+
+`scripts/curso-plan-vip.mjs` —el que enumera los cursos con submódulos— **no lee `resources`
+en ninguna línea** (0 menciones en el archivo). Todo curso enumerado con él nace con
+`pdfs: []`, tenga el material que tenga. `curso-plan.mjs` sí los busca, pero solo los del DOM
+de la clase abierta (`a[href*="Reader?type=resource"]`), así que el material colgado de un
+MÓDULO —como los LUTs— tampoco entra por ahí.
+
+Y el bajador de recursos, `curso-recursos-vip.mjs`, exige una pestaña **`/watch`**, que es del
+área `/vip/`. Medido sobre los 31 planes de `C:\cursos`: **26 son de `/curso/`**, 4 de `/vip/`
+y 1 de Hotmart. Para el 84% de los cursos ese script nunca pudo correr.
+
+**El resultado, contado en el portal:** de 23 cursos, **19 tienen CERO recursos**. Los cuatro
+que tienen son ATV Advantage (71), Sell Your Knowledge (39), el de Claude de Rodrigo Rojo (20)
+e Inteligencia Viral (3) — los dos primeros de `/vip/`, los otros dos bajados por el camino de
+`curso-pdfs.mjs`.
+
+**La regla que queda:** «verificado contra la fuente» tiene que decir **contra qué fuente y qué
+puede ver esa fuente**. Un chequeo que solo mira una de las dos cosas que tiene un curso
+—video y material— y contesta «completo» es peor que no tener chequeo: da permiso para dejar
+de buscar. En `VERIFICADOS` ahora dice explícitamente «ninguna clase de VIDEO falta».
+
+**Lo que queda SIN hacer, y es lo grande:** enseñarle al pipeline a ver los recursos de
+`/curso/` y de MÓDULO, y después pasarlos por los 19 cursos. Vive en
+`scripts/curso-plan-vip.mjs` (leer `resources` del RPC), `scripts/curso-recursos-vip.mjs`
+(aceptar la pestaña `/curso/`, no solo `/watch`) y `scripts/curso-huecos.mjs` (contar también
+recursos, no solo clases).

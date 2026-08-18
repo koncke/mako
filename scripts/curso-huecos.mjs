@@ -64,15 +64,19 @@ function clasesDe(texto) {
 // (`scripts/curso-perfil.ps1 -Url <página>`) y correr `scripts/curso-plan-vip.mjs`,
 // que captura la respuesta del RPC que la propia página pidió. Si el plan nuevo
 // trae lo mismo que el viejo, el hueco es del origen.
+// ⚠️ «VERIFICADO» ACÁ SIGNIFICA SOLO «VERIFICADO EN CLASES DE VIDEO».
+// La primera versión de este mapa decía que el Módulo 5 de Guille estaba «vacío en la
+// plataforma». Era falso y lo vio el dueño: el módulo se llama «Bonus 2 - Mis LUTs» y
+// tiene ocho archivos .CUBE adentro. No tiene LECCIONES — y el RPC contra el que se
+// verificó devuelve lecciones, así que contestó cero y eso se leyó como «no hay nada».
+// Un endpoint que no puede ver una cosa no es evidencia de que esa cosa no exista.
 const VERIFICADOS = {
   'hackeando-la-edicion': {
     fecha: '2026-08-18',
-    // El RPC `get_vip_lessons_secure` devolvió 64 clases y «7 módulos raíz, 11 en
-    // total», con las mismas etiquetas 1,2,3,4,6,7. O sea: el Módulo 5 (Bonus 2)
-    // EXISTE en la plataforma y está VACÍO, y las clases 10 y 28 del Módulo 1 no
-    // existen — el autor saltea esos números. El plan nuevo salió idéntico al viejo:
-    // ninguna clase de más, ninguna de menos.
-    nota: 'el origen tiene exactamente lo mismo: el Módulo 5 está vacío en la plataforma y el autor saltea la 10 y la 28',
+    // El RPC `get_vip_lessons_secure` devolvió las mismas 64 clases, sin una de más ni
+    // de menos, así que POR EL LADO DEL VIDEO no falta nada: el Módulo 5 no tiene
+    // lecciones y el autor saltea la 10 y la 28 del Módulo 1.
+    nota: 'ninguna clase de VIDEO falta (RPC idéntico). Pero el Módulo 5 «Bonus 2 - Mis LUTs» tiene 8 archivos .CUBE que NO están bajados — los recursos son otro problema, ver hallazgos-conocimiento',
   },
 };
 
