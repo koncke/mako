@@ -789,13 +789,31 @@ async function sttGemini(p: Prov, base64: string, buf: Buffer, mime: string, opt
     headers: { 'x-goog-api-key': p.key, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: instruccion }, { inline_data: { mime_type: (mime || 'audio/ogg').split(';')[0].trim(), data: base64 } }] }],
-      generationConfig: { temperature: 0, maxOutputTokens: 2048 },
+      // ⚠️ ESTE TECHO CORTA LA TRANSCRIPCIÓN, Y ANTES LO HACÍA EN SILENCIO. Estaba en
+      // 2.048, que a ~0,75 palabras por token son ~1.500 palabras: unos DIEZ MINUTOS de
+      // habla. Alcanza de sobra para una nota de voz de WhatsApp —que es para lo que se
+      // escribió— pero `transcribirAudio` también la usa `lib/archivo-a-texto.ts`, o sea
+      // el importador de archivos al plan, donde entra un .mp3 o un .m4a de la duración
+      // que sea. Una grabación de 40 minutos volvía con los primeros 10 y MaKo armaba
+      // tareas con un cuarto de la reunión, sin que nada lo dijera.
+      generationConfig: { temperature: 0, maxOutputTokens: 8192 },
     }),
     cache: 'no-store',
     signal: AbortSignal.timeout(60000),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.error) throw new Error(`HTTP ${res.status}: ${data?.error?.message || 'sin detalle'}`);
+  // ⚠️ Y EL TECHO NUEVO TAMPOCO ALCANZA SIEMPRE: 8.192 tokens son ~40 minutos. Lo que
+  // cierra el agujero no es el número, es MIRAR SI SE CORTÓ. `finishReason` lo dice, y
+  // no había un solo chequeo de ese campo en todo el repo.
+  //
+  // Se lanza en vez de devolver el texto a medias, y eso es a propósito: hace caer la
+  // cascada a Whisper (Groq/OpenAI), que no tiene techo de salida y devuelve el audio
+  // entero. Media transcripción se lee igual que una completa —bien escrita, bien
+  // puntuada, termina antes— y nadie la revisa. Es la misma familia que se cerró en el
+  // pipeline de cursos: «decodifica» no es «está completo».
+  const fin = data.candidates?.[0]?.finishReason;
+  if (fin && fin !== 'STOP') throw new Error(`la transcripción se cortó (finishReason=${fin}) — la mando al que sigue`);
   const partes = (data.candidates?.[0]?.content?.parts ?? []) as Array<{ text?: string }>;
   const texto = partes.map((x) => x.text ?? '').join('').trim();
   const u = data.usageMetadata as { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } | undefined;
