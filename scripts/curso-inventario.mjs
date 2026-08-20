@@ -252,19 +252,48 @@ const main = async () => {
     }
     capturando = null;
 
+    // NO SE ELIGE: SE UNEN. Puntuar y quedarse con una candidata seguía dando un número
+    // inestable — el curso de inglés dio 201 lecciones en una corrida y 193 en otra, las
+    // dos SIN discordia, porque en cada una llegó UNA sola respuesta y eran distintas.
+    // Elegir la mejor de una no es elegir.
+    //
+    // La página pide estos endpoints varias veces (al cargar, al resolver la sesión, al
+    // desplegar cada módulo) y cada respuesta puede ser un SUBCONJUNTO. Unir por id no
+    // puede perder nada y elimina la pregunta de cuál gana.
+    //
+    // ⚠️ CON UN CANDADO: solo se unen filas del MISMO curso. Al navegar de un curso al
+    // siguiente pueden llegar respuestas tardías del anterior, y unirlas sin mirar
+    // `course_id` mezclaría dos cursos — que es peor que contar de menos, porque el
+    // número queda alto y creíble.
+    const idDe = (x) => x?.id ?? null;
+    const cursoDe = (x) => x?.course_id ?? x?.vip_course_id ?? null;
     const datos = {};
     const discordias = [];
     for (const [clave, lista] of Object.entries(cands)) {
-      const puntuadas = lista
-        .map((j) => ({ j, u: utiles(j, clave), n: j.length }))
-        .sort((a, b) => (b.u - a.u) || (b.n - a.n));
-      datos[clave] = puntuadas[0].j;
-      // Dos candidatas con distinta cantidad de filas ÚTILES es el caso peligroso: una de
-      // las dos está mal y elegir sin decirlo es lo que hacía el contador saltar.
-      const distintas = new Set(puntuadas.map((p) => p.u));
-      if (distintas.size > 1) {
-        discordias.push(`${clave}: ${puntuadas.length} respuestas con ${[...distintas].join(' vs ')} filas útiles → me quedo con ${puntuadas[0].u}`);
+      // El curso al que pertenece esta captura: el más frecuente entre todas las filas.
+      const votos = new Map();
+      for (const j of lista) for (const x of j) { const c = cursoDe(x); if (c) votos.set(c, (votos.get(c) ?? 0) + 1); }
+      const cursoEsperado = [...votos.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+
+      const porId = new Map();
+      let ajenas = 0;
+      let sinId = [];
+      for (const j of lista) for (const x of j) {
+        const c = cursoDe(x);
+        if (cursoEsperado && c && c !== cursoEsperado) { ajenas++; continue; }
+        const id = idDe(x);
+        if (id == null) sinId.push(x); else if (!porId.has(id)) porId.set(id, x);
       }
+      // Sin `id` no se puede deduplicar: se toma la respuesta más útil, como antes.
+      datos[clave] = porId.size
+        ? [...porId.values()]
+        : lista.map((j) => ({ j, u: utiles(j, clave) })).sort((a, b) => b.u - a.u)[0].j;
+
+      const tamanos = [...new Set(lista.map((j) => j.length))];
+      if (tamanos.length > 1 || (lista.length > 1 && porId.size > Math.max(...lista.map((j) => j.length)))) {
+        discordias.push(`${clave}: ${lista.length} respuestas (${tamanos.join(', ')} filas) → unidas en ${datos[clave].length}`);
+      }
+      if (ajenas) discordias.push(`${clave}: ${ajenas} fila(s) de OTRO curso descartadas`);
     }
     for (const d of discordias) console.log(`      ⚠ ${d}`);
 
