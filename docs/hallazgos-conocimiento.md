@@ -2843,3 +2843,125 @@ carpeta de Drive.
 academia avisa arriba de todo: *«🚧 ACTUALIZACIÓN COMPLETA EN CAMINO — estamos regrabando
 desde cero todo el apartado de Ads Animados»*. Ingerirlo ahora es trabajo que se tira.
 Queda anotado con su ruta para volver cuando el autor lo publique.
+
+---
+
+## BigSEO tenía 77 de 136 clases, y el chequeo que lo sabía salía con código 0
+
+**Síntoma:** el curso se ve completo en el portal. 77 clases, sus transcripciones, sus
+recursos. Nada roto. Le falta el **43 %** del contenido — los módulos 14 a 26 enteros.
+
+**Causa:** `curso-plan.mjs` **ya comparaba** el plan contra el total que declara la ficha
+del curso, y lo imprimía con el número exacto:
+
+    ⚠ LA FICHA DICE 136 LECCIONES Y EL PLAN TIENE 77.
+
+…y después `process.exit(faltan ? 3 : 0)`, donde `faltan` es **otra** variable. Salía 0.
+El curso se bajó, se transcribió, se subió a Drive y se publicó, con ese aviso impreso en
+una consola que nadie volvió a mirar. Es, textual, el «un `console.warn` no es un control»
+de `AGENTS.md`, cometido en el primer eslabón de la cadena — donde más caro sale, porque
+todo lo de abajo hereda el recorte.
+
+> **La regla:** un chequeo que compara contra la FUENTE tiene que poder **hacer fallar** al
+> script. Si solo imprime, es documentación de un problema, no un control.
+
+⚠️ **Lo que NO está probado:** que el tope de 8 rondas de acordeones fuera la causa. Al
+re-enumerar hoy la página vino con los 27 módulos desplegados desde la ronda 1. El tope
+subió a 40 y ahora avisa si se agota creciendo, pero la causa del recorte original quedó
+sin identificar. Lo único demostrado es que el chequeo no frenaba nada.
+
+### El barrido: a cuántos más les pasa
+
+Inventario (lo que dice la API) contra el plan, los 19 cursos con inventario:
+
+    bigseo-academy                   136 fuente →  77 plan   ⚠ faltan 59
+    jaque-blue-creacion-de-contenido  23 fuente →  20 plan   ⚠ faltan 3
+    (los otros 17)                    cuadran
+
+Donde el plan tiene **más** que la fuente (`vender-por-fb` 242 contra 170,
+`programa-raio` 201 contra 193) no falta nada: una lección puede venir en varias partes y
+el plan las aplana en una entrada por ARCHIVO. `instituto-de-comunicacion` tiene el
+inventario en 0 (la captura falló) y por lo tanto **no se puede afirmar nada de él**.
+
+### ⚠️ La plataforma REPUBLICA cursos enteros, con ids nuevos y el mismo contenido
+
+Al re-enumerar, los `videoId` de Vimeo pasaron de `1199xxxxxx` a `1219xxxxxx` con
+**intersección cero** — ni la clase 1 coincidía. La conclusión fácil («re-grabaron el
+curso, hay que bajar los 136 de nuevo») era la equivocada: **las duraciones son idénticas**
+clase por clase (la 1 dura 1:26 en las dos versiones, «Keywords» 21:35 en las dos). Es el
+mismo material resubido, más 13 módulos nuevos.
+
+Eso convierte «volver a correr el plan» en una operación peligrosa, porque el `n` es la
+clave de todo lo que ya se hizo:
+
+    drive.json            mapea n → videoId de Drive
+    video/ audio/ texto/  los archivos empiezan por «NN - »
+    public/cono-tx/       la transcripción vive bajo el videoId que sale de ese mapeo
+
+Pisar el plan con la numeración nueva no deja un curso incompleto: deja uno **MEZCLADO**,
+con la clase 50 apuntando al video de otra, y eso no se ve hasta que alguien escucha.
+
+### Qué hace que dos entradas sean la misma clase
+
+Se probaron cuatro criterios contra los datos reales, y tres fallan:
+
+| criterio | resultado |
+|---|---|
+| `videoId` | **0 de 77** — la republicación los cambió todos |
+| módulo + título | **38 de 77** — el plan viejo trae los encabezados concatenados de la clase 33 en adelante («Modulo 06 - Headings Modulo 07 - Contenidos») |
+| título solo | ambiguo — «Introducción» aparece una vez por módulo, 18 veces |
+| **título + duración** | **77 de 77** ✅ |
+
+La duración es la que hace el trabajo pesado: sobrevive al reformateo del título —el
+número de orden viene pegado adelante de forma inconsistente («01. Introducción»,
+«02Qué es el SEO», «03.Google»)— y sobrevive a la republicación.
+
+`scripts/curso-plan-ampliar.mjs` es eso: conserva `n` y `archivo` de la entrada vieja
+(el único enganche con el disco y con Drive), **refresca el `videoId` desde el plan
+nuevo** —el viejo ya no resuelve después de una republicación— y numera las nuevas
+después del máximo existente. Y si una clase vieja **no** aparece en el plan nuevo,
+**frena**: puede ser que el autor la sacó o puede ser que la enumeración nueva también
+salió corta, y esas dos cosas se ven igual.
+
+**Vive en:** `scripts/curso-plan.mjs` (`incompleto`, `topeAlcanzado`, el `process.exit`) ·
+`scripts/curso-plan-ampliar.mjs`
+
+---
+
+## El día que OpenAI se quedó sin crédito a mitad de un curso
+
+`transcribeMediaBuffer` (`lib/transcribe.ts`) era **una sola llamada a OpenAI, sin
+fallback**. En medio de re-transcribir las 62 clases de «Creator Club», la cuenta se
+quedó sin crédito y 7 quedaron sin transcripción — después de haber gastado el audio de
+las otras 55.
+
+Y el modo de falla es peor de lo que parece: **el `.md` viejo (truncado) seguía en disco**,
+así que republicar el curso habría publicado el texto cortado igual, sin ninguna señal.
+Lo único que lo evitó fue el chequeo de frescura por fecha que se había agregado horas
+antes.
+
+La cascada ahora es **gratis primero**: `whisper-large-v3-turbo` (Groq) y después
+`whisper-1`. No es una degradación —el de Groq es un modelo más grande— y es la misma
+regla que gobierna el chat: lo que cobra es el último recurso, no el segundo.
+
+> ⚠️ **Y el proveedor que escuchó se escribe en la cabecera del `.md`.** «Un fallback que
+> no cobra es una degradación silenciosa»: si mañana un proveedor transcribe peor, la
+> única forma de enterarse es que el artefacto diga quién lo hizo. Ya sirvió — la clase 64
+> dice `whisper-1` y las otras `whisper-large-v3-turbo`, que es un dato que antes no
+> existía.
+
+**Por qué no se usa la cascada de `lib/ai-cheap.ts`**, que sería «una cosa, un lugar»: ese
+módulo tiene `import 'server-only'`, resuelve credenciales por workspace (`credWs`) y
+registra uso en la base. Desde un script de línea de comandos son tres efectos que nadie
+pidió. Lo que sí se comparte es el criterio.
+
+**Lo que queda pendiente acá:** la cascada tiene DOS proveedores y hoy se agotaron los
+dos a la vez (OpenAI sin crédito + Groq en su tope de 7.200 s de audio por hora). Gemini
+está configurado y es gratis, pero su STT no habla el protocolo de `/audio/transcriptions`
+—va por `generateContent` con `inline_data`, con techo de 14 MB— así que sumarlo es
+escribir un camino nuevo. No se hizo hoy a propósito: un camino de STT sin probar que
+devuelve texto plausible y equivocado es exactamente la familia de bug que este documento
+viene cerrando.
+
+**Vive en:** `lib/transcribe.ts` (`STT_CASCADA`) · `scripts/curso-transcribir.ts` (la
+cabecera del `.md`)
