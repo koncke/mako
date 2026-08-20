@@ -82,7 +82,18 @@ for (const f of readdirSync(DIR).filter((x) => /^curso-.*\.ts$/.test(x))) {
 
   filas.push({
     slug,
-    lecFuente: srcLec.length, lecPortal: portTit.length, faltanLec: faltanLec.length,
+    lecFuente: srcLec.length, lecPortal: portTit.length,
+    // ⚠️ EL VEREDICTO ES POR CONTEO, NO POR TÍTULO. `faltanLec` sale de comparar títulos
+    // normalizados, y eso NO se puede sostener como afirmación: el pipeline los reescribe
+    // al ingerir, la plataforma los duplica con «Copy of» y cada captura lee un rótulo
+    // distinto para la misma clase («1- Pre INTRO» contra «PRE INTRO»). Medido acá:
+    // `social-funnel` decía «faltan 11» teniendo 13 en el portal y 11 en la fuente, o sea
+    // afirmaba una pérdida sobre un curso que tiene MÁS de lo que la fuente declara.
+    //
+    // Si el portal tiene al menos tantas como la fuente, no falta nada y punto. La lista
+    // por título sigue abajo, pero como PISTA para mirar a mano, no como número.
+    faltanLec: Math.max(0, srcLec.length - portTit.length) ? faltanLec.length : 0,
+    pistasTitulo: faltanLec.length,
     recFuente: uniRec, recPortal: portRec, faltanRec: Math.max(0, uniRec - portRec),
     truncado: !!j.truncado,
     ejemplos: faltanLec.slice(0, 3),
