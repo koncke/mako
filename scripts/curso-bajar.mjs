@@ -20,7 +20,7 @@
 //   node <abs>\scripts\curso-bajar.mjs --plan … --solo 3,7,12
 //   node <abs>\scripts\curso-bajar.mjs --plan … --listar
 
-import { readFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
@@ -112,6 +112,47 @@ if (!ffmpegOk) {
 
 mkdirSync(dirVideo, { recursive: true });
 const archivo = join(base, 'bajados.txt'); // el registro de reanudación de yt-dlp
+
+// ⚠️ EL REGISTRO SOBREVIVE A LOS ARCHIVOS, Y ESO SE VE COMO «YA ESTÁ». `--liberar` de
+// curso-a-drive.mjs borra los .mp4 locales cuando ya están en Drive —está bien, son
+// cientos de megas— pero `bajados.txt` sigue diciendo «esta clase ya se bajó». Reanudar
+// un curso liberado no baja NADA, `video/` queda vacío, y yt-dlp no lo reporta como
+// error: es su comportamiento correcto. El síntoma es «parece que ya está».
+//
+// Se detecta cruzando las tres fuentes: el registro dice que sí, el disco dice que no, y
+// Drive tampoco lo tiene. Solo cuando las TRES coinciden hay un problema — un archivo
+// liberado que SÍ está en Drive no es un problema, es el diseño.
+const idsRegistrados = (() => {
+  try {
+    return new Set(readFileSync(archivo, 'utf8').split(/\r?\n/)
+      .map((l) => l.trim().split(/\s+/).pop()).filter(Boolean));
+  } catch { return new Set(); }
+})();
+if (idsRegistrados.size) {
+  const enDrive = (() => {
+    try {
+      const d = JSON.parse(readFileSync(join(base, 'drive.json'), 'utf8').replace(/^﻿/, ''));
+      return new Set((d.clases ?? []).filter((x) => x.videoId).map((x) => Number(x.n)));
+    } catch { return new Set(); }
+  })();
+  const fantasmas = clases.filter((c) => idsRegistrados.has(String(c.videoId))
+    && !existsSync(join(dirVideo, `${c.archivo}.mp4`))
+    && !enDrive.has(Number(c.n)));
+  if (fantasmas.length) {
+    console.log(`\n  ⚠ ${fantasmas.length} clase(s) figuran en bajados.txt, NO están en video/ y TAMPOCO en Drive.`);
+    for (const c of fantasmas.slice(0, 6)) console.log(`      n=${c.n}  ${String(c.titulo).slice(0, 54)}`);
+    if (fantasmas.length > 6) console.log(`      … y ${fantasmas.length - 6} más`);
+    console.log(`    yt-dlp las va a saltear y video/ va a quedar sin ellas, sin dar error.`);
+    console.log(`    Para volver a bajarlas: sumá --rebajar (les saca la línea del registro).\n`);
+  }
+  if (tiene('rebajar') && fantasmas.length) {
+    const quitar = new Set(fantasmas.map((c) => String(c.videoId)));
+    const quedan = readFileSync(archivo, 'utf8').split(/\r?\n/)
+      .filter((l) => !quitar.has(l.trim().split(/\s+/).pop() ?? ''));
+    writeFileSync(archivo, quedan.join('\n'), 'utf8');
+    console.log(`  ✓ --rebajar: saqué ${fantasmas.length} línea(s) de bajados.txt.\n`);
+  }
+}
 
 const fallos = [];
 let ok = 0;

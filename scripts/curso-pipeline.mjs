@@ -104,7 +104,38 @@ while (Date.now() < hasta) {
   console.log(`  [${hora()}] ronda ${ronda}: video ${bajados()}/${total} · audio ${audios()} · texto ${ahora}/${total}`);
   for (const l of [...a.resumen, ...t.resumen, ...g.resumen]) if (l) console.log(`             ${l}`);
 
-  if (ahora >= total) { console.log(`\n  ✓ COMPLETO: ${ahora}/${total} clases transcriptas.\n`); process.exit(0); }
+  if (ahora >= total) {
+    console.log(`\n  ✓ ${ahora}/${total} clases transcriptas.`);
+    // ⚠️ «TRANSCRIPTO» NO ES «PUBLICADO», Y ACÁ SE LLAMABA «COMPLETO». La cadena termina
+    // en el portal, no en `texto/`: faltan resolver los ids de Drive y emitir la ficha.
+    // Sin esos dos pasos, `public/cono-tx/<videoId>.json` y `curso-<slug>.ts` se quedan
+    // con lo de la corrida anterior — y como nada falla, el curso se ve publicado.
+    //
+    // No es teórico: el arreglo de los 51 audios cortados de «Creator Club» rehizo los
+    // .md y el portal siguió sirviendo 49 transcripciones de media clase. Eran ~976.000
+    // caracteres que existían en disco y no estaban publicados, y la única razón fue que
+    // este script decía COMPLETO y se iba.
+    if (!DRIVE) {
+      console.log(`\n  ⚠ FALTA PUBLICAR, y no lo puedo hacer desde acá: corriste sin --drive.`);
+      console.log(`    Los videos no están en Drive, así que no hay id que resolver. Seguí con:`);
+      console.log(`      node scripts/curso-a-drive.mjs  --plan ${PLAN}`);
+      console.log(`      node scripts/curso-a-portal.mjs --plan ${PLAN}\n`);
+      process.exit(0);
+    }
+    console.log(`\n  → resolviendo ids de Drive…`);
+    const ids = correr('curso-a-drive.mjs', ['--plan', PLAN, '--solo-ids']);
+    for (const l of ids.resumen) if (l) console.log(`             ${l}`);
+    console.log(`  → publicando la ficha…`);
+    const pub = correr('curso-a-portal.mjs', ['--plan', PLAN]);
+    for (const l of pub.resumen) if (l) console.log(`             ${l}`);
+    if (pub.code !== 0) {
+      console.log(`\n  ⚠ La ficha NO se publicó (código ${pub.code}). Lo de arriba dice por qué.`);
+      console.log(`    Las clases están bajadas y transcriptas: lo que falta es este último paso.\n`);
+      process.exit(pub.code);
+    }
+    console.log(`\n  ✓ COMPLETO: bajado, transcripto y PUBLICADO.\n`);
+    process.exit(0);
+  }
 
   secas = ahora > antes ? 0 : secas + 1;
   if (secas >= SIN_PROGRESO_MAX && bajados() >= total) {
