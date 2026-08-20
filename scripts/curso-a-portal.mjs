@@ -121,8 +121,23 @@ const construirRecursos = (drive, planClases) => {
     // Notion» sobre un tablero de Miro, que sería mentira; y `pdf` abre un visor de
     // Drive, que para un link no existe.
     const tipo = esEnlace ? 'bank' : (TIPO_POR_EXT[ext] ?? 'file');
-    const slug = slugRecurso(r.archivo);
-    if (recursos.some((x) => x.slug === slug)) continue; // slug único, sin pisar
+    let slug = slugRecurso(r.archivo);
+    // ⚠️ UN SLUG REPETIDO SE DESAMBIGUA, NO SE DESCARTA. `slugRecurso` saca la extensión,
+    // así que «31. Exportar.png» y «31. Exportar.txt» —dos archivos DISTINTOS— caen en el
+    // mismo slug, y el `continue` que había acá tiraba el segundo sin decir nada: 56
+    // recursos en disco, 54 en la ficha, y el guard del final culpando a Drive por ids que
+    // no faltaban. Es el mismo problema que `nombreUnico` ya resolvió para los nombres de
+    // archivo, y se resuelve igual: de forma DETERMINISTA, para que dos corridas produzcan
+    // los mismos slugs y los links compartidos no se rompan.
+    if (recursos.some((x) => x.slug === slug)) {
+      const conExt = `${slug}-${ext}`;
+      if (!recursos.some((x) => x.slug === conExt)) slug = conExt;
+      else {
+        let i = 2;
+        while (recursos.some((x) => x.slug === `${conExt}-${i}`)) i++;
+        slug = `${conExt}-${i}`;
+      }
+    }
     // Un recurso de archivo SIN id de Drive no se emite (tarjeta que abre nada);
     // un enlace no necesita id, así que esa regla no le aplica.
     if (!esEnlace && !r.driveId) continue;

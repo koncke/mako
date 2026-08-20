@@ -234,7 +234,20 @@ if (!tiene('solo-ids')) {
   }
 }
 
-if (!esperados.length) { console.error('\n  ✖ No hay nada para mapear. ¿Corriste curso-bajar.mjs?\n'); process.exit(1); }
+// ⚠️ «NO HAY VIDEOS QUE MAPEAR» NO ES «NO HAY NADA QUE HACER». Los videos se liberan del
+// disco local después de subirlos (--liberar), así que en un curso ya procesado esta lista
+// SIEMPRE queda vacía — y abortar acá dejaba a los RECURSOS sin poder conseguir su id de
+// Drive, aunque estuvieran copiados y esperando del otro lado. Pasó con los 56 de
+// «Hackeando la Edición»: subidos a Drive, y el script cortaba antes de mapearlos.
+//
+// Se mira el DISCO y no `recursosLocales`, que se arma 60 líneas más abajo.
+const hayRecursosLocales = ['recursos', 'pdfs']
+  .some((sub) => existsSync(join(base, sub)) && readdirSync(join(base, sub)).length > 0);
+if (!esperados.length && !hayRecursosLocales) {
+  console.error('\n  ✖ No hay nada para mapear: ni videos en video/ ni archivos en recursos/ o pdfs/.\n');
+  process.exit(1);
+}
+if (!esperados.length) console.log('\n  (sin videos locales que mapear —ya se liberaron—: sigo con los recursos)');
 
 // ── 2. Esperar a que Drive registre y leer los ids ───────────────────────────
 console.log(`\n  Esperando a que Drive suba y registre (tope ${MINUTOS} min)…`);
@@ -338,10 +351,39 @@ if (recursosLocales.length) {
 
 if (enlaces.length) console.log(`  + ${enlaces.length} enlace(s) (no son archivos: van sin id de Drive)`);
 
+// ⚠️ SE FUSIONA CON EL drive.json QUE YA ESTÁ. NO SE PISA.
+//
+// Este archivo se arma desde lo que hay en el DISCO LOCAL, y los videos se liberan de
+// local en cuanto suben (--liberar). O sea: en un curso ya procesado, `clases` se
+// calcula vacío. Escribirlo tal cual borra los 64 videoId que costaron una noche de
+// descarga, sin decir nada — y el síntoma aparece dos pasos después, cuando el portal
+// no encuentra ningún video.
+//
+// Pasó HOY, subiendo los 56 recursos de «Hackeando la Edición»: el drive.json quedó con
+// 0 clases y 56 recursos. Se recuperó del backup, y por eso ahora se fusiona: una
+// entrada nueva pisa a la vieja del mismo `n`, pero una vieja que ya no está en local
+// SOBREVIVE. Un archivo que junta el trabajo de varias corridas no se puede escribir
+// desde una sola.
 const salida = join(base, 'drive.json');
+const previo = existsSync(salida)
+  ? (() => { try { return JSON.parse(readFileSync(salida, 'utf8').replace(/^﻿/, '')); } catch { return {}; } })()
+  : {};
+const fusionar = (viejas, nuevas, clave) => {
+  const m = new Map((viejas ?? []).map((x) => [String(x[clave]), x]));
+  for (const x of nuevas ?? []) m.set(String(x[clave]), x);   // lo nuevo gana
+  return [...m.values()];
+};
+const clasesFinal = fusionar(previo.clases, clases, 'n').sort((a, b) => Number(a.n) - Number(b.n));
+const recursosFinal = fusionar(previo.recursos, [...recursos, ...enlaces], 'archivo');
+const perdidas = (previo.clases ?? []).length - clasesFinal.length;
+if (perdidas > 0) console.log(`  ⚠ el drive.json previo tenía ${perdidas} clase(s) más: las conservo`);
+if ((previo.clases ?? []).length && !clases.length) {
+  console.log(`  (sin clases nuevas: conservo las ${clasesFinal.length} que ya estaban)`);
+}
+
 writeFileSync(salida, JSON.stringify({
-  curso: plan.curso, carpeta: dirCurso, clases,
-  recursos: [...recursos, ...enlaces],
+  curso: plan.curso, carpeta: dirCurso, clases: clasesFinal,
+  recursos: recursosFinal,
 }, null, 2), 'utf8');
 
 // ── 4. Liberar espacio local, SOLO con la subida confirmada ──────────────────
