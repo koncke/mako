@@ -90,6 +90,9 @@ for (const [clave, piezas] of [...grupos].sort()) {
   let segundos = 0;
   let idioma: string | null = null;
   let fallo: string | null = null;
+  // Qué proveedor escuchó de verdad. Se escribe en la cabecera del .md: un fallback
+  // que no se anota en ningún lado es una degradación silenciosa (ver STT_CASCADA).
+  const modelos = new Set<string>();
 
   for (const [i, f] of piezas.entries()) {
     const ruta = join(DE, f);
@@ -114,7 +117,8 @@ for (const [clave, piezas] of [...grupos].sort()) {
     partes.push(r.transcript.trim());
     segundos += r.duracion_s ?? 0;
     idioma ??= r.idioma;
-    console.log(`✓ ${hhmm(r.duracion_s)}`);
+    if (r.model) modelos.add(r.model);
+    console.log(`✓ ${hhmm(r.duracion_s)}${r.model && r.model !== 'whisper-1' ? `  (${r.model})` : ''}`);
   }
 
   if (fallo) {
@@ -127,7 +131,7 @@ for (const [clave, piezas] of [...grupos].sort()) {
   const cabecera = [
     `# ${clave}`,
     '',
-    `> ${hhmm(segundos)}${idioma ? ` · ${idioma}` : ''}${piezas.length > 1 ? ` · ${piezas.length} partes` : ''} · transcripción automática (whisper-1), sin corregir.`,
+    `> ${hhmm(segundos)}${idioma ? ` · ${idioma}` : ''}${piezas.length > 1 ? ` · ${piezas.length} partes` : ''} · transcripción automática (${modelos.size ? [...modelos].join(' + ') : 'desconocido'}), sin corregir.`,
     '>',
     '> Tus apuntes van acá arriba. Lo de abajo es materia prima para leer, no para',
     '> mandar al RAG tal cual.',

@@ -151,7 +151,38 @@ export type UploadTranscribeResult = {
   idioma: string | null;
   duracion_s: number | null;
   error: string | null;
+  /** Qué proveedor lo transcribió de verdad. Ver la nota de STT_CASCADA. */
+  model?: string | null;
 };
+
+// ── QUIÉN ESCUCHA, Y EN QUÉ ORDEN ────────────────────────────────────────────
+//
+// ⚠️ ESTO NO TENÍA FALLBACK, Y SE COBRÓ CARO. Era una sola llamada a OpenAI: el día
+// que la cuenta se quedó sin crédito, 7 clases de «Creator Club» quedaron SIN
+// transcripción en medio de una corrida de 62 —con el mensaje «You have no credits
+// remaining», que es clarísimo, pero llegó después de haber gastado el audio de las
+// otras 55—. Y peor: como el .md viejo (truncado) seguía en disco, republicar habría
+// publicado el texto cortado igual.
+//
+// El orden es GRATIS PRIMERO, y no es una degradación: `whisper-large-v3-turbo` de
+// Groq es un modelo MÁS grande que `whisper-1`. Es la misma regla que gobierna el
+// chat en AGENTS.md —lo que cobra es el último recurso, no el segundo— aplicada a
+// escuchar.
+//
+// ⚠️ Y EL PROVEEDOR QUE ESCUCHÓ SE DEVUELVE, no se calla. «Un fallback que no cobra
+// es una degradación silenciosa»: si mañana un proveedor transcribe peor, la única
+// forma de enterarse es que el artefacto diga quién lo hizo. `curso-transcribir.ts`
+// lo escribe en la cabecera del .md.
+//
+// No se usa la cascada de `lib/ai-cheap.ts` a propósito, y la diferencia es real: esa
+// arranca por Gemini, que manda el audio INLINE y topea en 14 MB, mientras que acá
+// entran archivos de hasta 25 MB; además resuelve credenciales por workspace y
+// registra uso, que en un script de línea de comandos son efectos que nadie pidió.
+// Lo que sí se comparte es el criterio: gratis primero, pago último, y se dice cuál.
+const STT_CASCADA: Array<{ nombre: string; base: string; modelo: string; envKey: string }> = [
+  { nombre: 'groq', base: 'https://api.groq.com/openai/v1', modelo: 'whisper-large-v3-turbo', envKey: 'GROQ_API_KEY' },
+  { nombre: 'openai', base: OAI, modelo: 'whisper-1', envKey: 'OPENAI_API_KEY' },
+];
 
 export async function transcribeMediaBuffer(
   bytes: ArrayBuffer,
@@ -161,22 +192,32 @@ export async function transcribeMediaBuffer(
 ): Promise<UploadTranscribeResult> {
   const buf = Buffer.from(bytes);
   if (buf.length > MAX_BYTES) {
-    return { status: 'muy_grande', transcript: null, idioma: null, duracion_s: null, error: `${(buf.length / 1048576).toFixed(1)} MB > 25 MB (límite de OpenAI). Subí solo el audio o recortá el video.` };
+    return { status: 'muy_grande', transcript: null, idioma: null, duracion_s: null, model: null, error: `${(buf.length / 1048576).toFixed(1)} MB > 25 MB (límite de OpenAI). Subí solo el audio o recortá el video.` };
   }
   await asegurarCreds();
-  try {
-    const oai = env('OPENAI_API_KEY');
-    const form = new FormData();
-    form.append('file', new Blob([new Uint8Array(buf)], { type: mime || 'application/octet-stream' }), filename || 'clase');
-    form.append('model', 'whisper-1');
-    form.append('response_format', 'verbose_json');
-    if (hint?.trim()) form.append('prompt', hint.trim()); // sesga ortografía/términos
-    const tr = await (await fetch(`${OAI}/audio/transcriptions`, { method: 'POST', headers: { Authorization: `Bearer ${oai}` }, body: form })).json();
-    if (tr.error) return { status: 'error', transcript: null, idioma: null, duracion_s: null, error: `whisper: ${tr.error.message}` };
-    return { status: 'ok', transcript: tr.text ?? '', idioma: tr.language ?? null, duracion_s: tr.duration ?? null, error: null };
-  } catch (e) {
-    return { status: 'error', transcript: null, idioma: null, duracion_s: null, error: e instanceof Error ? e.message : String(e) };
+
+  const errores: string[] = [];
+  for (const p of STT_CASCADA) {
+    let key = '';
+    try { key = env(p.envKey); } catch { /* sin key: se prueba el que sigue */ }
+    if (!key) { errores.push(`${p.nombre}: sin ${p.envKey}`); continue; }
+    try {
+      const form = new FormData();
+      form.append('file', new Blob([new Uint8Array(buf)], { type: mime || 'application/octet-stream' }), filename || 'clase');
+      form.append('model', p.modelo);
+      form.append('response_format', 'verbose_json');
+      if (hint?.trim()) form.append('prompt', hint.trim()); // sesga ortografía/términos
+      const tr = await (await fetch(`${p.base}/audio/transcriptions`, { method: 'POST', headers: { Authorization: `Bearer ${key}` }, body: form })).json();
+      if (tr.error) { errores.push(`${p.modelo}: ${tr.error.message}`); continue; }
+      // ⚠️ Un 200 con texto VACÍO no es un éxito ni un fallo del proveedor: puede ser
+      // un audio sin voz. Se devuelve como ok con el texto vacío y el que llama decide,
+      // pero NO se cae al siguiente proveedor —gastar dos veces por un silencio.
+      return { status: 'ok', transcript: tr.text ?? '', idioma: tr.language ?? null, duracion_s: tr.duration ?? null, model: p.modelo, error: null };
+    } catch (e) {
+      errores.push(`${p.modelo}: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
+  return { status: 'error', transcript: null, idioma: null, duracion_s: null, model: null, error: `ningún proveedor pudo transcribir — ${errores.join(' | ')}` };
 }
 
 /** Descarga la imagen y la devuelve como data URL base64 (OpenAI no puede bajar
