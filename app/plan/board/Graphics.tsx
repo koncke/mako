@@ -76,7 +76,7 @@ export function GraphicsView({ board }: { board: Board }) {
   const projShown = m.projMeta.filter((p) => (filtro === 'todos' ? true : filtro === 'completados' ? p.completo : !p.completo));
 
   return (
-    <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '18px 30px 44px', fontFamily: SANS }}>
+    <div style={{ flex: '1 0 auto', padding: '18px 30px 44px', fontFamily: SANS }}>
       <div style={{ maxWidth: 980, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 24 }}>
 
         {/* KPIs */}

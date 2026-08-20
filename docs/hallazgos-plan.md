@@ -1187,3 +1187,29 @@ alto que dé 0 es el que se comió la pantalla.** Pedirle a alguien la consola d
 es una opción real; pedirle que abra un link y saque una foto, sí.
 
 **Vive en:** app/plan/board/BoardShell.tsx (`Diagnostico`, el `<main>` en grid) · *2026-08-18*
+
+
+### El recorte que quedaba: cada vista se recortaba a sí misma
+
+Después de sacarle el `overflow: hidden` al `<main>` y al cuerpo, el tablero SEGUÍA
+pudiendo quedar invisible: cada vista tenía **su propio `overflowY: 'auto'`** con
+`flex: 1; min-height: 0`. `flex: 1` es `flex-basis: 0%`, y un porcentaje contra un padre
+sin alto definido es justo lo que cada motor resuelve distinto — si da 0, el `overflow`
+recorta el contenido a cero. Sacar el recorte de arriba no sirve si el de abajo sigue ahí.
+
+**La regla, más fuerte que la anterior:** en el camino del contenido principal no puede
+haber NINGÚN recorte, en ningún nivel. Las vistas van con `flex: '1 0 auto'` —crecen,
+nunca se achican por debajo de su contenido— y sin `overflow`. Si un alto colapsa, la
+página se hace larga y scrollea. Un tablero feo se arregla; uno invisible se reporta como
+«no me funciona» y nadie sabe por dónde empezar.
+
+Lo mismo con las columnas del Kanban: tenían `maxHeight: '100%'` (un porcentaje contra un
+alto indefinido) más su propio scroll. Fuera los dos.
+
+**Verificado** en WebKit y en Chrome, en las cuatro vistas, con el BUILD DE PRODUCCIÓN
+servido local y a la medida exacta de la ventana del cliente (1227x660): 68 elementos
+visibles en todos los casos, y en 12 combinaciones de motor × ajuste de accesibilidad
+(reduced-motion, oscuro, forced-colors, contraste alto, zoom 150%).
+
+**Vive en:** app/plan/board/BoardShell.tsx (Kanban, Prioridades, ProyectosView y la
+columna) · app/plan/board/Graphics.tsx · *2026-08-18*
