@@ -32,12 +32,28 @@ const PORT = Number(arg('port', 9333));
 const SEGUNDOS = Number(arg('segundos', 30));
 const FILTRO = arg('tab', 'cursoselite');
 const BUSCAR = arg('buscar', '');
+// Navegar antes de capturar. Sin esto hay que dejar la pestaña en la página correcta a
+// mano, y para recorrer N cursos eso no escala.
+const IR_A = arg('url', '');
 const RAIZ = arg('raiz', 'C:\\cursos');
 
 /** Lo que cuenta como «llamada a la API» y no un asset. */
 const ES_API = /\/rest\/v1\/|\/rpc\/|supabase|\/api\/|graphql/i;
 /** Ruido que sí matchea lo de arriba y no aporta. */
 const RUIDO = /\.(js|css|png|jpe?g|svg|woff2?|ico|mp4|m3u8|ts)(\?|$)/i;
+
+// ⚠️ ESTE FILTRO SOLO CONOCE LA PLATAFORMA QUE YA MIRAMOS. Se escribió contra Cursos
+// Élite, que habla Supabase por `/rest/v1/`. Apuntado a avatarhype devolvió CUATRO
+// llamadas y las cuatro eran de Sentry: no es que la página no pida datos, es que los
+// pide de otra forma (un Next.js que renderiza en el server manda su contenido en
+// payloads RSC, no en XHR a `/api/`).
+//
+// Un sniffer con lista blanca contesta «no hay API» sobre una plataforma que no conoce,
+// que es el mismo cero-ambiguo de siempre. `--todo` la apaga: se captura cualquier
+// respuesta que no sea un asset y se ordena por tamaño, que para DESCUBRIR es lo correcto
+// —lo que trae los datos casi siempre es lo más pesado que no es un video—.
+const TODO = tiene('todo');
+const ES_ASSET = /\.(js|mjs|css|png|jpe?g|gif|webp|svg|woff2?|ttf|ico|mp4|m4s|m3u8|mpd|wasm)(\?|$)/i;
 
 // ── CDP mínimo sobre WebSocket (mismo molde que curso-sniff.mjs) ──────────────
 class Cdp {
@@ -112,13 +128,14 @@ const main = async () => {
     if (m.method !== 'Network.responseReceived') return;
     const { response, requestId, type } = m.params;
     const url = response?.url ?? '';
-    if (!ES_API.test(url) || RUIDO.test(url)) return;
+    if (TODO ? ES_ASSET.test(url) : (!ES_API.test(url) || RUIDO.test(url))) return;
     vistos.set(requestId, { url, mime: response.mimeType, status: response.status, type });
   });
 
   await cdp.enviar('Network.enable', { maxTotalBufferSize: 64 * 1024 * 1024, maxResourceBufferSize: 32 * 1024 * 1024 });
   await cdp.enviar('Page.enable');
-  await cdp.enviar('Page.reload', { ignoreCache: false });
+  if (IR_A) { console.log(`  Navegando a ${IR_A}`); await cdp.enviar('Page.navigate', { url: IR_A }); }
+  else await cdp.enviar('Page.reload', { ignoreCache: false });
 
   // Se le da tiempo a hidratar antes de clickear: un React que todavía no montó no
   // tiene los handlers puestos y los clicks se pierden sin ruido.

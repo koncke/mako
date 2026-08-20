@@ -2567,3 +2567,45 @@ endpoints desde cero — su auditoría no está hecha.
 **Vive en:** `scripts/curso-inventario.mjs` · `scripts/curso-faltantes.mjs` ·
 `scripts/curso-huecos.mjs` · `C:\cursos\<slug>\inventario.json` ·
 `C:\cursos\catalogo-plataforma.json`
+
+---
+
+## Avatarhype: otra plataforma, sin API, y un curso ENTERO que el portal no tiene
+
+Medido el 2026-08-19 con el Chrome dedicado sobre `app.avatarhype.online`.
+
+**No hay API que capturar.** `curso-api-sniff.mjs` apuntado ahí devolvió CUATRO llamadas y
+las cuatro eran de Sentry. No es que la página no pida datos: es que es un **Next.js que
+renderiza en el server** y manda su contenido en el HTML (`self.__next_f`), no en XHR a
+`/api/`. El filtro del sniffer tenía una lista blanca escrita contra Cursos Élite
+(`/rest/v1/`, `/rpc/`, `supabase`) — y una lista blanca contesta **«no hay API»** sobre una
+plataforma que no conoce, que es el mismo cero-ambiguo de siempre. Por eso ahora tiene
+`--todo`, que la apaga y ordena por tamaño: lo que trae los datos casi siempre es lo más
+pesado que no es un asset. Con eso apareció el documento de 157 KB.
+
+**Pero ese documento es el diccionario de traducciones, no el curso.** El contenido real lo
+monta el cliente después de hidratar.
+
+**Lo que SÍ quedó verificado, leyendo el DOM:**
+
+- La academia tiene **DOS cursos**: `/academy/ugc` («Creativos UGC Realistas») y
+  `/academy/animados` («Creativos Animados»).
+- **`Creativos Animados` NO ESTÁ EN EL PORTAL.** Ni el curso, ni sus módulos, ni sus
+  recursos. Confirmado contra `app/conocimientos/`: los únicos parientes son
+  `curso-creativos-ugc-realistas.ts` (el otro curso) y `curso.ts` («Curso AVATARHYPE», la
+  estructura vieja de 447 clases).
+- De su estructura se alcanzó a ver: el módulo `sistema-8-prompts` («El curso completo de
+  Ads Animados»), la lección `bienvenida`, y que existe una ruta de recursos aparte,
+  `/academy/resources/<slug>?from=<curso>`.
+
+**Lo que NO se pudo medir, y es la mitad del trabajo:** el conteo de lecciones y recursos
+de los dos cursos. El cuerpo de la página se queda en «Cargando…» durante toda la sonda
+—incluidos 30 s de espera activa— así que del DOM solo se saca la cáscara del SSR:
+encabezados y los pocos links que ya vienen renderizados. **Sin ese número no se puede
+decir cuánto falta de avatarhype**, solo que falta un curso entero.
+
+Por dónde seguir, en orden de probabilidad: mirar por qué no hidrata (¿un chunk que no
+resuelve en un Chrome con CDP?, ¿un gate de suscripción?), o atacar el payload RSC
+(`self.__next_f`) parseándolo en vez de esperar al DOM — es el mismo dato, servido antes.
+
+**Vive en:** `scripts/curso-api-sniff.mjs` (`--todo`, `--url`)
