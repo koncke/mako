@@ -16,11 +16,11 @@ import type { Curso } from './curso';
 export const CURSO_MATEO_MAFFIA_BYF: Curso = {
   slug: 'mateo-maffia-byf',
   categoria: 'Orgánico',
-  cardDesc: '34 clases en 9 módulos.',
+  cardDesc: '33 clases en 9 módulos.',
   eyebrow: 'Curso externo',
   titulo: 'Mateo Maffia - BYF',
-  subtitulo: '34 clases, 9 módulos. Video, transcripción y tus apuntes en un solo lugar.',
-  volumen: '34 clases',
+  subtitulo: '33 clases, 9 módulos. Video, transcripción y tus apuntes en un solo lugar.',
+  volumen: '10,6 h',
   portada: '/cono-portadas/mateo-maffia-byf.png',
   recursos: [
 

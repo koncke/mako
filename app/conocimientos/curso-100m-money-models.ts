@@ -16,11 +16,11 @@ import type { Curso } from './curso';
 export const CURSO_100M_MONEY_MODELS: Curso = {
   slug: '100m-money-models',
   categoria: 'Negocios digitales',
-  cardDesc: '35 clases en 2 módulos.',
+  cardDesc: '33 clases en 2 módulos.',
   eyebrow: 'Curso externo',
   titulo: '100M money Models - Alex Hormozi',
-  subtitulo: '35 clases, 2 módulos. Video, transcripción y tus apuntes en un solo lugar.',
-  volumen: '35 clases',
+  subtitulo: '33 clases, 2 módulos. Video, transcripción y tus apuntes en un solo lugar.',
+  volumen: '11,0 h',
   portada: '/cono-portadas/100m-money-models.png',
   recursos: [
 

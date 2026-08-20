@@ -405,6 +405,12 @@ if (localRecursos.length && recursosPortal.length < localRecursos.length) {
   process.exit(4);
 }
 
+// ⚠️ EL CONTEO ANUNCIADO SALE DE LO QUE SE EMITE, NO DEL PLAN. `plan.clases.length`
+// cuenta lo que el plan pretendía; `clases` es lo que realmente entró a la ficha, y la
+// diferencia son las que se omiten por `sinFuente`. «Creator Club» anunciaba «64 clases»
+// sobre un array de 62 — verificado en el navegador, no en el JSON — y ese desfase es
+// justo el que hace que una pérdida real se lea como normal: si el título siempre dice
+// dos más, nadie nota el día que faltan tres.
 // ⚠️ `volumen` es un rótulo LIBRE al lado del conteo de clases, no el conteo otra vez.
 // Emitía `${plan.clases.length} clases` y el portal pinta «N clases · <volumen>», así que
 // la pantalla decía «30 CLASES · 30 CLASES». Acá va la duración total, que es el dato que
@@ -436,10 +442,10 @@ import type { Curso } from './curso';
 export const ${constante}: Curso = {
   slug: '${escSimple(slug)}',
   categoria: '${escSimple(CATEGORIA || categoriaPrevia || 'Cursos externos')}',
-  cardDesc: '${escSimple(`${plan.clases.length} clases en ${modulos.length} módulos.`)}',
+  cardDesc: '${escSimple(`${clases.length} clases en ${modulos.length} módulos.`)}',
   eyebrow: '${escSimple(EYEBROW)}',
   titulo: '${escSimple(tituloConAutor)}',
-  subtitulo: '${escSimple(`${plan.clases.length} clases, ${modulos.length} módulos. Video, transcripción y tus apuntes en un solo lugar.`)}',
+  subtitulo: '${escSimple(`${clases.length} clases, ${modulos.length} módulos. Video, transcripción y tus apuntes en un solo lugar.`)}',
   volumen: '${escSimple(volumen)}',${portada ? `\n  portada: '${escSimple(portada)}',` : ''}
   recursos: [
 ${recursosPortal.map((r) => `    {

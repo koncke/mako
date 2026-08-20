@@ -16,10 +16,10 @@ import type { Curso } from './curso';
 export const CURSO_CREATOR_CLUB: Curso = {
   slug: 'creator-club',
   categoria: 'Cursos externos',
-  cardDesc: '64 clases en 10 módulos.',
+  cardDesc: '62 clases en 10 módulos.',
   eyebrow: 'Curso externo',
   titulo: 'Creator Club - NXTGEN Academia',
-  subtitulo: '64 clases, 10 módulos. Video, transcripción y tus apuntes en un solo lugar.',
+  subtitulo: '62 clases, 10 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '31,6 h',
   portada: '/cono-portadas/creator-club.png',
   recursos: [

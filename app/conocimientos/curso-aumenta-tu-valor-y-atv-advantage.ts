@@ -16,10 +16,10 @@ import type { Curso } from './curso';
 export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
   slug: 'aumenta-tu-valor-y-atv-advantage',
   categoria: 'Negocios digitales',
-  cardDesc: '249 clases en 13 módulos.',
+  cardDesc: '247 clases en 13 módulos.',
   eyebrow: 'Curso externo',
   titulo: 'Aumenta tu valor y ATV ADVANTAGE - Juan Carrizo',
-  subtitulo: '249 clases, 13 módulos. Video, transcripción y tus apuntes en un solo lugar.',
+  subtitulo: '247 clases, 13 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '56,9 h',
   portada: '/cono-portadas/aumenta-tu-valor-y-atv-advantage.png',
   recursos: [
