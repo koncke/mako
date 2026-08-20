@@ -40,6 +40,22 @@ const limpio = (s) => String(s).normalize('NFC').replace(/[<>:"/\\|?*\u0000-\u00
   .replace(/\s+/g, ' ').trim().replace(/[. ]+$/, '').slice(0, 110) || 'recurso';
 const kb = (b) => `${(Number(b) / 1024).toFixed(0)} KB`;
 
+// Abre todo lo que parezca un módulo o submódulo: sin esto, los recursos de /curso/
+// nunca se piden. Mismo molde que curso-inventario.mjs.
+const ABRIR = `
+(() => {
+  let n = 0;
+  for (const el of document.querySelectorAll('button, summary, [role="button"], [aria-expanded]')) {
+    if (el.getAttribute('aria-expanded') === 'true') continue;
+    const t = (el.textContent || '').slice(0, 90);
+    const cerrado = el.getAttribute('aria-expanded') === 'false' || el.tagName === 'SUMMARY';
+    if (!cerrado && !/m[oó]dulo|bonus|fase|secci[oó]n|recurso|material|lut|clase|semana/i.test(t)) continue;
+    try { el.click(); n++; } catch (e) {}
+  }
+  return n;
+})();
+`;
+
 class Cdp {
   constructor(ws) {
     this.ws = ws; this.id = 0; this.pend = new Map(); this.oye = [];
@@ -149,7 +165,31 @@ const main = async () => {
   }
   console.log(`  Recargando y capturando (${SEGUNDOS}s)…`);
   await cdp.enviar('Page.reload', { ignoreCache: true });
-  await new Promise((r) => setTimeout(r, SEGUNDOS * 1000));
+
+  // ⚠️ UN ACORDEÓN CERRADO NO PIDE NADA. En /curso/ los recursos cuelgan de los módulos y
+  // la página los pide al ABRIRLOS, así que recargar y esperar devuelve cero y el script
+  // reportaba «no capturé course_resources · suele ser que salió de caché» — culpando al
+  // caché de algo que nunca se pidió. Es la misma lección que ya estaba en
+  // `curso-api-sniff.mjs`, en un archivo distinto: la copia se quedó vieja.
+  //
+  // Varias rondas porque abrir un módulo revela submódulos que todavía no estaban.
+  //
+  // ⚠️ Y SE ITERA HASTA QUE DEJE DE LLEGAR, no una cantidad fija de rondas. La página
+  // llama a estos endpoints ANTES de resolver la sesión —y ahí devuelven `[]`— y otra vez
+  // después. Con rondas fijas, «Mateo Maffia» capturaba solo la anónima y el script
+  // reportaba «no capturé course_resources · suele ser que salió de caché», culpando al
+  // caché de una respuesta que sí había llegado, vacía. Sus 2 PDF existen: el inventario
+  // los tenía, porque ÉL sí itera hasta converger.
+  await new Promise((r) => setTimeout(r, 5000));
+  let quietas = 0;
+  for (let ronda = 1; ronda <= 10 && quietas < 2; ronda++) {
+    const antes = cap.size;
+    await cdp.enviar('Runtime.evaluate', { expression: ABRIR, returnByValue: true }).catch(() => null);
+    await new Promise((r) => setTimeout(r, Math.max(3000, SEGUNDOS * 250)));
+    const nuevas = cap.size - antes;
+    quietas = nuevas > 0 ? 0 : quietas + 1;
+    if (nuevas) console.log(`  ronda ${ronda}: +${nuevas} respuesta(s)`);
+  }
 
   // ⚠️ Misma trampa que en curso-plan-vip.mjs: la página llama al mismo endpoint
   // antes y después de resolver la sesión, y quedarse con «la respuesta más
@@ -171,6 +211,8 @@ const main = async () => {
       const u = utiles(j, clave);
       const n = Array.isArray(j) ? j.length : 1;
       const prev = puntaje[clave];
+      // Una respuesta VACÍA nunca gana: `[]` es lo que devuelve la llamada anónima.
+      if (!n) continue;
       if (!prev || u > prev.u || (u === prev.u && n > prev.n)) { datos[clave] = j; puntaje[clave] = { u, n }; }
     } catch { /* el body pudo salir del buffer */ }
   }
