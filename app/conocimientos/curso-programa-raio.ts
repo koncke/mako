@@ -388,14 +388,14 @@ export const CURSO_PROGRAMA_RAIO: Curso = {
     },
     {
       slug: '03-story-17-don-t-fail-less-fail-faster',
-      label: '03 - Story 17 - Don't Fail Less, Fail Faster',
+      label: '03 - Story 17 - Don\'t Fail Less, Fail Faster',
       cardDesc: 'Material de «STORY 17»',
       tipo: 'pdf',
       driveId: '1su514blQZsIEvRrXBJXc0nlsDvKRQ432',
     },
     {
       slug: '03-story-17-don-t-fail-less-fail-faster-pdf',
-      label: '03 - Story 17 - Don't Fail Less, Fail Faster',
+      label: '03 - Story 17 - Don\'t Fail Less, Fail Faster',
       cardDesc: 'Material de «STORY 17»',
       tipo: 'pdf',
       driveId: '1_LoTObfnYQSX5vk-rs8uR2W8ioFLNU3U',

@@ -81,6 +81,24 @@ const leerMd = (ruta) => {
 
 const esc = (s) => String(s).replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
 
+// ⚠️ `esc` ES PARA TEMPLATE LITERALS, Y CASI TODO SE EMITE ENTRE COMILLAS SIMPLES.
+// Escapa la barra, el backtick y el `${`, que es exactamente lo que necesita el único
+// campo que sale entre backticks (`resumen`). Para los otros veinte, que salen como
+// `campo: '…'`, el carácter peligroso es el APÓSTROFO — y ese no lo tocaba nadie.
+//
+// Un recurso de «Programa RAIO» titulado «Story 17 - Don't Fail Less, Fail Faster»
+// generó `label: '03 - Story 17 - Don't Fail Less, Fail Faster',`: un .ts que no
+// compila. Y no falla al generar —el script termina con éxito y el archivo queda
+// escrito— sino en el typecheck del pre-push, a tres pasos de distancia y con un error
+// («':' expected») que no nombra ni el curso ni el apóstrofo.
+//
+// La regla: el escapado es del DELIMITADOR, no del texto. Un helper llamado `esc` a
+// secas invita a usarlo para la otra clase de comilla, que es lo que pasó.
+const escSimple = (s) => String(s)
+  .replace(/\\/g, '\\\\')
+  .replace(/'/g, "\\'")
+  .replace(/\r?\n/g, ' ');
+
 // ── Los recursos del portal (PDFs, planillas, links) ─────────────────────────
 // `CursoPortal` dibuja la sección «Recursos» solo si `curso.recursos.length > 0`, y
 // el detalle de una clase muestra los suyos por `recursoSlugs`. Con los dos vacíos,
@@ -399,26 +417,26 @@ const cuerpo = `// =============================================================
 import type { Curso } from './curso';
 
 export const ${constante}: Curso = {
-  slug: '${slug}',
-  categoria: '${esc(CATEGORIA || categoriaPrevia || 'Cursos externos')}',
-  cardDesc: '${esc(`${plan.clases.length} clases en ${modulos.length} módulos.`)}',
-  eyebrow: '${esc(EYEBROW)}',
-  titulo: '${esc(tituloConAutor)}',
-  subtitulo: '${esc(`${plan.clases.length} clases, ${modulos.length} módulos. Video, transcripción y tus apuntes en un solo lugar.`)}',
-  volumen: '${esc(volumen)}',${portada ? `\n  portada: '${portada}',` : ''}
+  slug: '${escSimple(slug)}',
+  categoria: '${escSimple(CATEGORIA || categoriaPrevia || 'Cursos externos')}',
+  cardDesc: '${escSimple(`${plan.clases.length} clases en ${modulos.length} módulos.`)}',
+  eyebrow: '${escSimple(EYEBROW)}',
+  titulo: '${escSimple(tituloConAutor)}',
+  subtitulo: '${escSimple(`${plan.clases.length} clases, ${modulos.length} módulos. Video, transcripción y tus apuntes en un solo lugar.`)}',
+  volumen: '${escSimple(volumen)}',${portada ? `\n  portada: '${escSimple(portada)}',` : ''}
   recursos: [
 ${recursosPortal.map((r) => `    {
-      slug: '${r.slug}',
-      label: '${esc(r.label)}',
-      cardDesc: '${esc(r.cardDesc)}',
-      tipo: '${r.tipo}',${r.tipo === 'file' && r.ext ? `\n      ext: '${esc(r.ext)}',` : ''}${r.driveId ? `\n      driveId: '${r.driveId}',` : ''}${r.items ? `\n      items: [${r.items.map((i) => `{ label: '${esc(i.label)}', url: '${esc(i.url)}' }`).join(', ')}],` : ''}${r.clases ? `\n      clases: [${r.clases.join(', ')}],` : ''}
+      slug: '${escSimple(r.slug)}',
+      label: '${escSimple(r.label)}',
+      cardDesc: '${escSimple(r.cardDesc)}',
+      tipo: '${escSimple(r.tipo)}',${r.tipo === 'file' && r.ext ? `\n      ext: '${escSimple(r.ext)}',` : ''}${r.driveId ? `\n      driveId: '${escSimple(r.driveId)}',` : ''}${r.items ? `\n      items: [${r.items.map((i) => `{ label: '${escSimple(i.label)}', url: '${escSimple(i.url)}' }`).join(', ')}],` : ''}${r.clases ? `\n      clases: [${r.clases.join(', ')}],` : ''}
     },`).join('\n')}
   ],
   clases: [
 ${clases.map((c) => `    {
-      n: ${c.n},${c.vn ? `\n      vn: ${c.vn},` : ''}${c.grupo ? `\n      grupo: '${esc(c.grupo)}',` : ''}${c.subgrupo ? `\n      subgrupo: '${esc(c.subgrupo)}',` : ''}${c.modulo ? `\n      modulo: ${c.modulo},` : ''}${c.hasDoc ? `\n      hasDoc: true,\n      docSlug: '${esc(c.docSlug)}',` : ''}${c.codigo ? `\n      codigo: '${esc(c.codigo)}',` : ''}${c.portadaClase ? `\n      portadaClase: '${esc(c.portadaClase)}',` : ''}
-      titulo: '${esc(c.titulo)}',
-      cardDesc: '${esc(c.cardDesc)}',
+      n: ${c.n},${c.vn ? `\n      vn: ${c.vn},` : ''}${c.grupo ? `\n      grupo: '${escSimple(c.grupo)}',` : ''}${c.subgrupo ? `\n      subgrupo: '${escSimple(c.subgrupo)}',` : ''}${c.modulo ? `\n      modulo: ${c.modulo},` : ''}${c.hasDoc ? `\n      hasDoc: true,\n      docSlug: '${escSimple(c.docSlug)}',` : ''}${c.codigo ? `\n      codigo: '${escSimple(c.codigo)}',` : ''}${c.portadaClase ? `\n      portadaClase: '${escSimple(c.portadaClase)}',` : ''}
+      titulo: '${escSimple(c.titulo)}',
+      cardDesc: '${escSimple(c.cardDesc)}',
       videoId: ${c.videoId ? `'${c.videoId}'` : 'null'},
       resumen: ${c.resumen ? `\`${esc(c.resumen)}\`` : `''`},
       transcripcion: [],${c.hasTx ? '\n      hasTx: true,' : ''}
