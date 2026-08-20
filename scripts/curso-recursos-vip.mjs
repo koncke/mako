@@ -17,6 +17,7 @@
 //   node <abs>\scripts\curso-recursos-vip.mjs --plan C:\cursos\<slug>\plan.json
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync, readdirSync, unlinkSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 // Cómo se baja un archivo y cómo se sabe si sirve: UN lugar, compartido con curso-pdfs.
 import { puedeSerArchivo, bajarCuerpo, valido } from './curso-descarga.mjs';
 // La metadata NO se captura: se PREGUNTA. Capturar la llamada correcta en el momento
@@ -281,10 +282,22 @@ const main = async () => {
       // por si el archivo real todavía viene en camino, pero no se agota la ventana.
       if (mejor && !bytesEsperados && Date.now() - t0 > 6000) break;
     }
-    if (mejor) {
-      if (bytesEsperados) descartes.push(`ninguno pesa los ${bytesEsperados}B declarados; me quedo con ${mejor.buf.length}B`);
-      return mejor;
-    }
+    // ⚠️ SI SE DECLARÓ UN TAMAÑO Y NINGÚN CANDIDATO LO TIENE, ESO ES UN FALLO.
+    // La versión anterior anotaba el desajuste en `descartes` —una variable que solo se
+    // lee en la rama de error— y devolvía `mejor` igual. O sea: detectaba el problema,
+    // escribía el motivo, y lo tiraba. Es el `console.warn` que no frena nada, sin
+    // siquiera llegar a un log.
+    //
+    // Lo que produjo: 45 archivos de «Programa RAIO» guardados con 45 nombres distintos
+    // y los 45 con el MISMO contenido de 17.576 B —un asset de la página— cuando la
+    // metadata declaraba 1.836. En disco se ven como 45 recursos bajados; al abrirlos no
+    // hay ninguno. Un archivo equivocado es peor que un archivo que falta: el que falta
+    // se vuelve a intentar, el equivocado se publica.
+    //
+    // `file_size` existe justamente para identificar cuál de los candidatos es el
+    // archivo. Ignorarlo cuando no coincide es tirar el único dato que lo distingue.
+    if (mejor && !bytesEsperados) return mejor;
+    if (mejor) descartes.push(`ninguno pesa los ${bytesEsperados}B declarados (el mejor traía ${mejor.buf.length}B)`);
     // Se dice QUÉ se descartó y por qué: «no encontré el archivo» a secas manda a buscar
     // en el lugar equivocado. Con esto se ve si llegó algo y no validó, o si no llegó nada.
     return { error: descartes.length ? `nada válido en ${ESPERA_LECTOR / 1000}s — ${descartes.slice(0, 2).join(' · ')}` : `no bajó nada en ${ESPERA_LECTOR / 1000}s` };
@@ -361,7 +374,24 @@ const main = async () => {
     return forzado;
   };
 
+  // ⚠️ LOS «._algo» SON BASURA DE macOS, NO RECURSOS. Cuando alguien sube una carpeta
+  // desde una Mac, el Finder mete un archivo hermano `._<nombre>` por cada archivo: es el
+  // resource fork (AppleDouble), pesa ~1,8 KB y no se abre con nada. La plataforma los
+  // ingirió como recursos más, así que la API los declara igual que a los buenos.
+  //
+  // En «Programa RAIO» son CIEN de los 283 — el 35% de la corrida, ~43 minutos bajando
+  // metadata de Finder— y en el portal serían cien filas en «Recursos» que al hacer clic
+  // no muestran nada. No es una optimización: publicarlos es publicar basura.
+  //
+  // Va acá y no en el portal a propósito: lo que no se baja no se sube a Drive, no se
+  // indexa y no se publica. Filtrar al final deja las tres primeras etapas trabajando de
+  // gusto.
+  const esFinderJunk = (t) => /^\._/.test(String(t ?? '').trim()) || /^\.DS_Store$/i.test(String(t ?? '').trim());
+  const junk = meta.filter((r) => esFinderJunk(r.title));
+  if (junk.length) console.log(`  (salteo ${junk.length} archivo/s «._…» de macOS: son resource forks del Finder, no material del curso)`);
+
   for (const r of meta) {
+    if (esFinderJunk(r.title)) continue;
     const raiz = raizDe(moduloDe(r));
     const pref = raiz ? String(ordenRaiz.get(raiz.id) ?? 0).padStart(2, '0') : '00';
     const ext = String(r.file_type ?? 'bin').replace(/^\./, '').toLowerCase();
@@ -459,7 +489,42 @@ const main = async () => {
 
   ws.close();   // recién acá: la descarga por lector necesitaba CDP vivo
 
-  writeFileSync(join(base, 'recursos.json'), JSON.stringify({ curso: plan.curso, total: meta.length, items: indice }, null, 2), 'utf8');
+  // ── EL MISMO ARCHIVO DOS VECES EN EL MISMO MÓDULO ───────────────────────────
+  //
+  // La plataforma tiene material cargado más de una vez: el mismo archivo aparece con
+  // dos `id` distintos, y a veces con cuatro. Medido: en «Vender por FB e IG Ads» el
+  // mismo .xlsx estaba SEIS veces en el módulo 3, y en «Programa RAIO» el mismo .txt de
+  // 464 B siete veces. Publicados, son seis filas que abren el mismo archivo.
+  //
+  // ⚠️ PERO REPETIDO NO ES SIEMPRE DUPLICADO, y por eso el criterio incluye el MÓDULO.
+  // «atajos apple.pdf» está colgado del módulo 0 y del 4 de Guille: eso lo hizo el autor
+  // a propósito y sacarlo del segundo le saca al lector el material de ese módulo.
+  // Deduplicar por contenido a secas —que es lo que parecía obvio— rompe justo el caso
+  // legítimo. Lo que sobra es la copia que cae en el MISMO lugar que otra.
+  //
+  // Se compara por hash y no por nombre porque los nombres NO coinciden: el numerito de
+  // orden («2.», «3.», «5.») viene de la plataforma y es distinto en cada copia.
+  const porLugar = new Map();
+  const sobran = [];
+  for (const it of indice) {
+    if (it.tipo === 'link') continue;
+    const p = join(destino, it.nombre);
+    if (!existsSync(p)) continue;
+    let hash;
+    try { hash = createHash('md5').update(readFileSync(p)).digest('hex'); } catch { continue; }
+    const clave = `${it.moduloId ?? it.modulo ?? '?'}|${hash}`;
+    if (!porLugar.has(clave)) { porLugar.set(clave, it); continue; }
+    sobran.push(it);
+  }
+  if (sobran.length) {
+    for (const it of sobran) {
+      try { unlinkSync(join(destino, it.nombre)); } catch {}
+      indice.splice(indice.indexOf(it), 1);
+    }
+    console.log(`  (saco ${sobran.length} copia/s del mismo archivo dentro del mismo módulo; las que están en otro módulo se quedan)`);
+  }
+
+  writeFileSync(join(base, 'recursos.json'), JSON.stringify({ curso: plan.curso, total: indice.length, items: indice }, null, 2), 'utf8');
 
   // El conteo se verifica contra el DISCO, no contra el bucle: la versión anterior
   // decía «71 bajado(s)» con 64 archivos, porque contaba intentos y no resultados.

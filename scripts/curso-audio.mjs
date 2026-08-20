@@ -75,6 +75,29 @@ const valido = (f) => {
   return p.status === 0 && !/moov atom not found|Invalid data found|error/i.test(`${p.stderr}`);
 };
 
+// ⚠️ «DECODIFICA» NO ES «ESTÁ COMPLETO», y confundirlos costó un curso entero. `valido`
+// de arriba contesta si el archivo se puede LEER; un audio de 4 minutos sacado de una
+// clase de 24 se lee perfecto. Con eso, la reanudación decía «ya estaba» para siempre y
+// la transcripción salía impecable —bien escrita, bien puntuada— de los primeros cinco
+// minutos de la clase. Medido en «Creator Club»: 50 de 62 audios cortados, uno al 2%
+// (1,7 min de habla para una clase de 69), y los 50 publicados en el portal.
+//
+// La causa de fondo del corte es una CARRERA: el audio se extrajo mientras yt-dlp
+// todavía estaba escribiendo el .mp4, así que ffmpeg copió lo que había hasta ahí. El
+// guard de `.part` cubre el caso en que el temporal existe; cuando no queda ninguno, la
+// única evidencia de que el audio quedó corto es su DURACIÓN.
+//
+// La regla: cuando un paso deriva un archivo de otro, lo que se verifica es que llegue
+// hasta el FINAL de la fuente. La integridad se mide contra el original, nunca contra
+// sí mismo.
+const TOLERANCIA = 0.97;   // el re-encode pierde fracciones de segundo, no minutos
+const completo = (f, durFuente) => {
+  if (!durFuente) return true;                 // sin fuente medible no se puede afirmar nada
+  const d = duracion(f);
+  if (d == null) return false;
+  return d >= durFuente * TOLERANCIA || durFuente - d <= 5;
+};
+
 // ⚠️ Esta carpeta la puede estar ESCRIBIENDO el descargador ahora mismo, y los
 // archivos intermedios de yt-dlp parecen videos terminados: para una clase a medio
 // bajar quedan «<titulo>.fhls-fastly_skyfire-598.mp4» (solo la pista de video, ya
@@ -156,20 +179,27 @@ for (const f of entradas) {
   const nombre = basename(f, extname(f));
   const dest = join(A, `${nombre}.m4a`);
 
+  // La duración de la FUENTE se mide primero: es la vara contra la que se decide si lo
+  // que ya está en disco sirve, y también el criterio de partido de más abajo.
+  const dur = duracion(src);
+
   // Reanudable: si ya existe la pieza (entera o la primera parte), no se rehace.
-  // Pero «existe» no alcanza: un .m4a truncado de una corrida interrumpida existe y
-  // es ilegible. Se valida el que ya estaba y, si no decodifica, se regenera.
+  // Pero «existe» no alcanza —un .m4a truncado de una corrida interrumpida existe y es
+  // ilegible— y «decodifica» tampoco: ver la nota de `completo`. Se piden las dos.
   if (existsSync(dest)) {
-    if (valido(dest)) { console.log(`  = ${nombre}  (ya estaba)`); saltados++; continue; }
-    console.log(`  ↻ ${nombre}  (el que estaba no decodifica — lo rehago)`);
+    if (valido(dest) && completo(dest, dur)) { console.log(`  = ${nombre}  (ya estaba)`); saltados++; continue; }
+    const d = duracion(dest);
+    const motivo = d != null && dur ? `quedó en ${Math.round(d / 60)} de ${Math.round(dur / 60)} min` : 'no decodifica';
+    console.log(`  ↻ ${nombre}  (el que estaba ${motivo} — lo rehago)`);
     unlinkSync(dest);
   } else if (existsSync(join(A, `${nombre}.parte00.m4a`))) {
-    console.log(`  = ${nombre}  (ya estaba, en partes)`);
-    saltados++;
-    continue;
+    const piezas = readdirSync(A).filter((x) => x.startsWith(`${nombre}.parte`));
+    const suma = piezas.reduce((s, x) => s + (duracion(join(A, x)) ?? 0), 0);
+    if (!dur || suma >= dur * TOLERANCIA) { console.log(`  = ${nombre}  (ya estaba, en partes)`); saltados++; continue; }
+    console.log(`  ↻ ${nombre}  (las partes suman ${Math.round(suma / 60)} de ${Math.round(dur / 60)} min — las rehago)`);
+    for (const x of piezas) { try { unlinkSync(join(A, x)); } catch {} }
   }
 
-  const dur = duracion(src);
   const base = ['-hide_banner', '-loglevel', 'error', '-i', src, '-vn', '-ac', '1', '-ar', '16000', '-c:a', 'aac', '-b:a', `${KBPS}k`];
 
   try {
@@ -177,6 +207,10 @@ for (const f of entradas) {
       correr([...base, '-f', 'segment', '-segment_time', String(SEG_MAX), '-reset_timestamps', '1', join(A, `${nombre}.parte%02d.m4a`)]);
       const piezas = readdirSync(A).filter((x) => x.startsWith(`${nombre}.parte`));
       const total = piezas.reduce((s, x) => s + statSync(join(A, x)).size, 0);
+      // La rama partida NO tenía ninguna verificación: si el corte pasaba, las piezas
+      // quedaban. Se exige lo mismo que a la entera — que entre todas cubran la fuente.
+      const suma = piezas.reduce((s, x) => s + (duracion(join(A, x)) ?? 0), 0);
+      if (suma < dur * TOLERANCIA) throw new Error(`las partes suman ${Math.round(suma / 60)} min de los ${Math.round(dur / 60)} de la fuente`);
       console.log(`  ✓ ${nombre}  →  ${piezas.length} partes, ${mb(total)} MB  (${Math.round(dur / 60)} min)`);
       partidos++;
     } else {
@@ -186,6 +220,11 @@ for (const f of entradas) {
       if (existsSync(tmp)) unlinkSync(tmp);
       correr([...base, '-f', 'mp4', tmp]);
       if (!valido(tmp)) { unlinkSync(tmp); throw new Error('el audio salió ilegible (no decodifica)'); }
+      if (!completo(tmp, dur)) {
+        const d = duracion(tmp);
+        unlinkSync(tmp);
+        throw new Error(`el audio quedó en ${Math.round((d ?? 0) / 60)} min de los ${Math.round(dur / 60)} de la fuente (¿el video todavía se está bajando?)`);
+      }
       renameSync(tmp, dest);
       const t = statSync(dest).size;
       // Red de seguridad: si igual se paso del tope real, avisar en vez de que
