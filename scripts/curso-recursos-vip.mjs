@@ -20,6 +20,9 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync, readdirSy
 import { createHash } from 'node:crypto';
 // Cómo se baja un archivo y cómo se sabe si sirve: UN lugar, compartido con curso-pdfs.
 import { puedeSerArchivo, bajarCuerpo, valido } from './curso-descarga.mjs';
+// El predicado del junk de macOS vive en curso-comun: lo necesitan tambien el
+// orquestador y el informe de faltantes (ver la nota de esFinderJunk alla).
+import { esFinderJunk } from './curso-comun.mjs';
 // La metadata NO se captura: se PREGUNTA. Capturar la llamada correcta en el momento
 // correcto no funciona (ver la cabecera de curso-api.mjs).
 import { preguntarCurso } from './curso-api.mjs';
@@ -386,7 +389,6 @@ const main = async () => {
   // Va acá y no en el portal a propósito: lo que no se baja no se sube a Drive, no se
   // indexa y no se publica. Filtrar al final deja las tres primeras etapas trabajando de
   // gusto.
-  const esFinderJunk = (t) => /^\._/.test(String(t ?? '').trim()) || /^\.DS_Store$/i.test(String(t ?? '').trim());
   const junk = meta.filter((r) => esFinderJunk(r.title));
   if (junk.length) console.log(`  (salteo ${junk.length} archivo/s «._…» de macOS: son resource forks del Finder, no material del curso)`);
 
@@ -531,7 +533,15 @@ const main = async () => {
   // El conteo se verifica contra el DISCO, no contra el bucle. Los enlaces NO son
   // archivos, así que se descuentan del total esperado: si no, «faltan 16».
   const enDisco = readdirSync(destino).length;
-  const esperadosEnDisco = meta.length - enlaces - sinUrl - fallos.length;
+  // ⚠️ LOS ESPERADOS SALEN DEL ÍNDICE, NO DE LA LISTA CRUDA DE LA API. `meta` trae
+  // TODO lo que declara la fuente, incluidos los `._` de macOS que se saltean y las
+  // copias que el dedup borra del destino unas líneas más arriba. Restando solo
+  // enlaces/sinUrl/fallos, el resumen decía «183 / 283 esperados · ⚠ FALTAN 100: hay
+  // nombres que se pisaron» sobre una corrida en la que no se pisó ni un nombre —y ese
+  // mensaje apunta a un bug ya arreglado, así que manda a re-diagnosticar lo que está
+  // sano. Una alarma que suena siempre deja de ser una alarma.
+  // `indice` ya refleja las dos operaciones: es lo que se escribe como `total`.
+  const esperadosEnDisco = indice.filter((x) => x.tipo !== 'link').length - fallos.length;
   console.log('\n' + '─'.repeat(70));
   console.log(`  ${ok} bajado(s) · ${ya} ya estaban · ${enlaces} enlace(s) · ${sinUrl} sin URL · ${fallos.length} con error`);
   console.log(`  archivos en disco: ${enDisco} / ${esperadosEnDisco} esperados  (${meta.length} recursos, ${enlaces} son links)`);

@@ -51,3 +51,28 @@ export const nDeArchivo = (f) => {
   const m = /^(\d{1,3})\s*-\s*/.exec(basename(String(f)));
   return m ? Number(m[1]) : null;
 };
+
+/**
+ * ¿Es basura del Finder de macOS y no material del curso?
+ *
+ * Cuando alguien sube una carpeta desde una Mac, el Finder mete un hermano `._<nombre>`
+ * por cada archivo —el resource fork, «AppleDouble»— que pesa ~1,8 KB y no abre con
+ * nada. La plataforma los ingirió como recursos más, así que la API los declara igual
+ * que a los buenos: mismo `file_type`, mismo módulo, su propio `file_size`.
+ *
+ * En «Programa RAIO» son CIEN de los 283. Publicados, serían cien filas en «Recursos»
+ * que al hacer clic no muestran nada.
+ *
+ * ⚠️ VIVE ACÁ Y NO EN EL BAJADOR PORQUE LO NECESITAN TRES. El filtro nació adentro de
+ * `curso-recursos-vip.mjs` y ese mismo día `curso-recursos-todos.mjs` y
+ * `curso-faltantes.mjs` empezaron a mentir: siguen contando los `._` como «lo que la
+ * fuente tiene», así que RAIO quedó con «80 faltan» PERMANENTE —un lote de cuatro pasos
+ * que vuelve a bajar, subir, esperar ids y republicar 183 recursos para terminar donde
+ * estaba— y el informe que mira el dueño lo afirmaba bajo el rótulo «y acá el número SÍ
+ * es duro». Un cambio de política que solo se aplica en un extremo de la cadena no es un
+ * filtro: es una discrepancia.
+ */
+export const esFinderJunk = (titulo) => {
+  const t = String(titulo ?? '').trim();
+  return /^\._/.test(t) || /^\.DS_Store$/i.test(t);
+};

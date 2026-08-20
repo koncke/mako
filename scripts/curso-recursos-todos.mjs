@@ -27,6 +27,7 @@
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { esFinderJunk } from './curso-comun.mjs';
 
 const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -59,7 +60,16 @@ function pendientes() {
     if (inv) {
       try {
         const j = JSON.parse(readFileSync(inv, 'utf8'));
-        enFuente = j.recursosUnicos ?? (j.recursosDetalle ?? []).length;
+        // ⚠️ `recursosUnicos` VIENE DE UNA FOTO TOMADA CON LA POLÍTICA VIEJA: cuenta los
+        // `._` de macOS, que el bajador ya no baja. Leerlo tal cual dejaba a «Programa
+        // RAIO» con «80 faltan» PERMANENTE — y con --aplicar el lote volvía a correr sus
+        // cuatro pasos (bajar 183, subir a Drive, esperar ids 10 min, republicar) para
+        // terminar exactamente donde estaba, corrida tras corrida. Un pendiente que no
+        // se puede completar nunca no es un pendiente: es ruido que tapa a los reales.
+        const det = j.recursosDetalle ?? [];
+        enFuente = det.length
+          ? det.filter((r) => !esFinderJunk(r.titulo ?? r.title)).length
+          : (j.recursosUnicos ?? 0);
       } catch { /* sin inventario utilizable */ }
     }
     const ts = join(REPO, 'app', 'conocimientos', `curso-${slug}.ts`);

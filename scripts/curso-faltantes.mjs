@@ -21,6 +21,7 @@
 // =============================================================================
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { esFinderJunk } from './curso-comun.mjs';
 
 const RAIZ = 'C:\\cursos';
 const DIR = join(process.cwd(), 'app', 'conocimientos');
@@ -72,7 +73,12 @@ for (const f of readdirSync(DIR).filter((x) => /^curso-.*\.ts$/.test(x))) {
   const enPortal = new Set(portTit.map(norm));
   const faltanLec = srcLec.filter((t) => !enPortal.has(norm(t)));
 
-  const uniRec = new Set((j.recursosDetalle ?? []).map((r) => `${r.titulo}\u0000${r.bytes}`)).size;
+  // ⚠️ Sin sacar la basura del Finder, este informe —el que rotula «RECURSOS: N faltan, y
+  // acá el número SÍ es duro»— afirma como hecho una pérdida que no existe: son los `._`
+  // de macOS que el bajador saltea a propósito. Ver `esFinderJunk` en curso-comun.mjs.
+  const uniRec = new Set((j.recursosDetalle ?? [])
+    .filter((r) => !esFinderJunk(r.titulo ?? r.title))
+    .map((r) => `${r.titulo}\u0000${r.bytes}`)).size;
 
   filas.push({
     slug,
