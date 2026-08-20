@@ -447,21 +447,33 @@ ${clases.map((c) => `    {
 };
 `;
 
-writeFileSync(salida, cuerpo, 'utf8');
-
-console.log(`\n  Curso : ${plan.curso}`);
-console.log(`  Clases: ${clases.length} · ${conTx} con transcripción · ${conApuntes} con apuntes tuyos`);
 // LAS HUÉRFANAS SE ABORTAN, NO SE AVISAN. El plan dice que la fuente SÍ tiene ese video,
 // así que no tenerlo es material perdido, no una clase inexistente. Un `console.log` acá
 // es un aviso que nadie lee (el generador imprime veinte líneas), y la ficha sale igual
 // con menos clases de las que el curso tiene. Se corta, como ya se corta con los recursos.
+//
+// ⚠️ Y VA ANTES DEL `writeFileSync`, QUE ES DONDE ESTE MISMO BLOQUE NO ESTABA. Vivía ocho
+// líneas DESPUÉS del write: imprimía «NO emito la ficha», salía con código 1… y el
+// archivo ya estaba escrito en disco, recortado —las huérfanas se sacan del array mucho
+// antes—, con su `subtitulo: '33 clases'` al lado de un array de 31. O sea que el mensaje
+// decía exactamente lo contrario de lo que había pasado. La guarda gemela, la de
+// recursos, sí corta antes de que `cuerpo` exista: se copió el mensaje y no la posición.
+//
+// La regla: una guarda que dice «no emito» corre ANTES de emitir. Si el chequeo depende
+// de datos que recién existen al final, se escribe a un temporal y se renombra al pasar.
 if (huerfanas.length) {
   console.error(`\n  ✖ NO emito la ficha: ${huerfanas.length} clase(s) tienen \`sinFuente: false\` —la plataforma SÍ las tiene— y no tienen id de Drive.`);
   for (const c of huerfanas) console.error(`      n=${c.n}  ${String(c.titulo).slice(0, 58)}`);
   console.error(`\n    Están bajadas y transcriptas, lo que falta es el id. Casi siempre alcanza con:`);
   console.error(`      node scripts/curso-a-drive.mjs --plan ${PLAN} --solo-ids\n`);
+  console.error(`    (La ficha anterior queda intacta: no se tocó.)\n`);
   process.exit(1);
 }
+
+writeFileSync(salida, cuerpo, 'utf8');
+
+console.log(`\n  Curso : ${plan.curso}`);
+console.log(`  Clases: ${clases.length} · ${conTx} con transcripción · ${conApuntes} con apuntes tuyos`);
 
 if (muertas.length) {
   console.log(`  ⚠ ${muertas.length} clase(s) del plan NO entran: \`sinFuente: true\`, la fuente no las tiene.`);

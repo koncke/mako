@@ -355,7 +355,19 @@ for (const l of lecciones) {
       parte: p.parte,
       guid: p.guid,
       libreria: p.libreria,
-      sinFuente: !p.guid,
+      // ⚠️ `sinFuente` SIGNIFICA «LA PLATAFORMA NO TIENE ESE VIDEO», y acá se estaba
+      // usando para decir «no le pude sacar el guid». Son cosas distintas, y la
+      // diferencia importa río abajo: `curso-bajar.mjs` saltea las `sinFuente` y
+      // `curso-a-portal.mjs` imprime «la fuente no las tiene» y publica sin ellas, con
+      // exit 0. O sea que una falla NUESTRA —el guid sale de olfatear la red esperando
+      // el embed, con 2 intentos de 8 s— quedaba archivada como un hecho sobre el curso
+      // ajeno, y nadie la volvía a mirar.
+      //
+      // Las lecciones que de verdad no tienen video se desvían antes (`sinVideo`, con
+      // `partes: []`), así que en ESTE generador `sinFuente` no puede ser true por esta
+      // vía. Lo que falta es el guid, y eso se dice con su propio nombre.
+      sinFuente: false,
+      guidNoResuelto: !p.guid,
       bytesEsperados: null,
       archivo: `${String(n).padStart(2, '0')} - ${limpio(`${l.titulo ?? l.slug}${sufijo}`)}`,
     });
@@ -381,7 +393,7 @@ writeFileSync(salida, JSON.stringify({
 }, null, 2), 'utf8');
 
 const horas = clases.reduce((t, c) => t + c.segundos, 0) / 3600;
-const sinFuente = clases.filter((c) => c.sinFuente);
+const sinGuid = clases.filter((c) => c.guidNoResuelto);
 const soloTexto = lecciones.filter((l) => l.sinVideo);
 console.log(`\n  Lecciones : ${lecciones.length}  (${soloTexto.length} sin video, solo texto)`);
 console.log(`  Clases    : ${clases.length}  (una por archivo de video)`);
@@ -391,8 +403,16 @@ console.log(`  Duración  : ${horas.toFixed(1)} h`);
 console.log(`  Clips del documento: ${new Set(lecciones.flatMap((l) => l.docMedia)).size} o más (lazy-load; NO se bajan acá)`);
 console.log(`  → ${salida}`);
 if (soloTexto.length) console.log(`\n  Sin video (es su forma, no una falla): ${soloTexto.map((l) => l.slug).join(', ')}`);
-if (sinFuente.length) {
-  console.log(`\n  ⚠ ${sinFuente.length} con reproductor pero SIN guid resuelto — eso sí es una falla:`);
-  for (const c of sinFuente.slice(0, 10)) console.log(`     · ${c.slug} (parte ${c.parte})`);
-}
 sock.close();
+// ⚠️ Y ESTO HACE FALLAR AL SCRIPT. Antes lo imprimía —con la palabra «falla» y todo— y
+// el archivo terminaba sin `process.exit`, o sea con código 0: el plan incompleto seguía
+// camino como si estuviera bien. Es el mismo «detecta, avisa y sigue» que ya se pagó en
+// curso-plan.mjs con las 59 clases de BigSEO.
+if (sinGuid.length) {
+  console.error(`\n  ✖ ${sinGuid.length} lección/es tienen reproductor y NO les pude sacar el guid.`);
+  for (const c of sinGuid.slice(0, 10)) console.error(`     · ${c.slug} (parte ${c.parte})`);
+  console.error(`\n    NO es que la plataforma no las tenga: es que no las capté. El guid sale de`);
+  console.error(`    olfatear la red esperando el embed, así que casi siempre alcanza con repetir`);
+  console.error(`    o darle más tiempo. El plan quedó escrito, pero INCOMPLETO.\n`);
+  process.exit(4);
+}

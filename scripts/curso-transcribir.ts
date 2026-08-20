@@ -86,6 +86,27 @@ for (const [clave, piezas] of [...grupos].sort()) {
     console.log(`  ↻ ${clave}  (el audio es más nuevo que la transcripción — la rehago)`);
   }
 
+  // ⚠️ LOS APUNTES SON EL ÚNICO DATO DE ESTE ARCHIVO QUE NO ES DERIVADO, Y NO TIENEN
+  // BACKUP: viven en C:\cursos, fuera del repo y fuera de git. La transcripción se
+  // puede volver a pedir; lo que escribió una persona, no.
+  //
+  // Hasta hoy el salteo era incondicional y este camino no existía. Al agregar el
+  // rehacer-por-fecha de acá arriba —que es correcto y hace falta— se abrió la puerta a
+  // pisarlos, y encima en TANDA: cada audio que `completo()` detecte cortado deja su
+  // .md por rehacer. Medido antes de que pasara: 0 de 1.649 .md tienen apuntes, así que
+  // no se perdió ninguno. La trampa quedaba armada para el primero que se escribiera.
+  const apuntesPrevios = (() => {
+    if (!existsSync(dest)) return '';
+    try {
+      const s = readFileSync(dest, 'utf8');
+      const a = s.indexOf('## Apuntes');
+      const t = s.indexOf('## Transcripción');
+      if (a < 0) return '';
+      return s.slice(a + '## Apuntes'.length, t > a ? t : undefined).trim();
+    } catch { return ''; }
+  })();
+  if (apuntesPrevios) console.log(`     (conservo tus ${apuntesPrevios.length} caracteres de apuntes)`);
+
   const partes: string[] = [];
   let segundos = 0;
   let idioma: string | null = null;
@@ -138,6 +159,7 @@ for (const [clave, piezas] of [...grupos].sort()) {
     '',
     '## Apuntes',
     '',
+    apuntesPrevios,          // ⚠️ lo escrito a mano NO se regenera: ver la nota de arriba
     '',
     '## Transcripción',
     '',
