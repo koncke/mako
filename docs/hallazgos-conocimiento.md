@@ -2506,3 +2506,64 @@ lleno, y eso es exactamente lo que pasó.
    se pierden sin ruido.
 
 **Vive en:** `scripts/curso-api-sniff.mjs`
+
+---
+
+## El deep research de «que no falte nada»: 401 recursos, 1 curso con clases perdidas, y cinco formas de contar mal
+
+**Disparador:** el dueño, a ojo: *«el curso de inglés le falta el módulo 1, 9 y 12»*. Es
+**PROGRAMA RAIO** y `curso-huecos.mjs` contestaba «los cursos revisados están completos».
+
+**El resultado, medido con `scripts/curso-inventario.mjs` + `scripts/curso-faltantes.mjs`:**
+
+    RECURSOS   401 faltan, en 10 cursos. RAIO solo tiene 263.
+    LECCIONES  1 curso con clases realmente perdidas: bigseo-academy (136 → 79).
+    CATÁLOGO   la plataforma tiene 82 cursos; el portal, 18.
+
+### Las CINCO formas de contar mal que hubo que cerrar para llegar a ese número
+
+Todas produjeron un número creíble y equivocado, y todas son la misma familia: **un
+chequeo que no puede ver lo que busca contesta «no hay» en vez de «no sé»**.
+
+1. **El regex del módulo exigía la palabra «módulo».** RAIO llama a los suyos «002.
+   INTRODUCTION», «003. CHAPTER 1». Sin la palabra, el chequeo se salteaba ENTERO y daba
+   verde. → leer también el número que abre la etiqueta.
+2. **Mirar entre el mínimo y el máximo no ve un hueco al principio**, y por construcción
+   nunca lo va a ver: si falta el 1, el mínimo pasa a ser 2. Arreglado (1), seguía sin ver
+   el módulo 001. → `huecos()` devuelve los del medio (hecho) y el arranque tardío
+   (sospecha), separados.
+3. **Elegir «la respuesta más grande»** entre varias del mismo endpoint. La página los
+   llama antes y después de resolver la sesión. → no se elige: se UNEN por id, con candado
+   de `course_id` para no mezclar cursos al navegar.
+4. **Rondas fijas de expansión.** La página pide las lecciones A MEDIDA que se despliegan
+   los módulos, así que 4 rondas fijas medían el reloj: el mismo curso dio 92, 0 y 30. → se
+   itera hasta CONVERGER (dos rondas sin respuestas nuevas), y si se toca el tope se dice
+   que el número es un PISO.
+5. **Contar filas donde la plataforma tiene el material DOS VECES.** Inflaba 634 contra 407
+   reales. El duplicado se marca de tres formas distintas —`(1)`, `Copy of`, `Copia de`— y
+   contemplar solo la primera daba 86 lecciones «faltantes» que están todas publicadas.
+
+### Y dos reglas que valen para cualquier inventario, no solo para éste
+
+**Una copia solo es copia si existe el original.** `social-funnel` tiene sus ONCE lecciones
+nombradas «Copy of …» —así las subió el autor— y el filtro las borraba todas, dejando el
+curso en 0 lecciones en la fuente. Se descarta la copia solo si su gemela sin marca está en
+la misma lista.
+
+**El veredicto se apoya en el CONTEO, no en los títulos.** El pipeline REESCRIBE los
+títulos al ingerir (limpia, corrige mayúsculas, saca prefijos), así que cruzar por título
+produce huecos que no existen: «AS BAJO LA MANGA» y «Haz Bajo La manga» son la misma clase.
+De ahí salían 86 faltantes. Si el portal tiene tantas o más que la fuente, no se perdió
+ninguna, digan lo que digan los títulos.
+
+### Lo que quedó SIN medir, y por qué importa decirlo
+
+`instituto-de-comunicacion` **no se pudo capturar** ni con esperas largas: su URL cae en el
+catálogo, no en el curso. Los otros cinco (`creativos-ugc-realistas`, `creator-club`,
+`producto-app`, `ugc-recursos`, `vsl`) no tienen `plan.json` con página, o están en otra
+plataforma. **`avatarhype` vive en `app.avatarhype.online`** y necesita capturar sus
+endpoints desde cero — su auditoría no está hecha.
+
+**Vive en:** `scripts/curso-inventario.mjs` · `scripts/curso-faltantes.mjs` ·
+`scripts/curso-huecos.mjs` · `C:\cursos\<slug>\inventario.json` ·
+`C:\cursos\catalogo-plataforma.json`
