@@ -2609,3 +2609,63 @@ resuelve en un Chrome con CDP?, ¿un gate de suscripción?), o atacar el payload
 (`self.__next_f`) parseándolo en vez de esperar al DOM — es el mismo dato, servido antes.
 
 **Vive en:** `scripts/curso-api-sniff.mjs` (`--todo`, `--url`)
+
+---
+
+## ⚠️ Las dos clases de Clonación estaban bajadas, transcriptas y SUBIDAS, y el portal publicaba 30 de 32
+
+**Síntoma:** el dueño, mirando el portal: *«no está toda la parte de clonación en MaKo»*.
+
+**La cadena, verificada eslabón por eslabón:**
+
+| paso | Clonación P1 y P2 |
+|---|---|
+| en el plan (`sinFuente: false`) | ✅ la plataforma las tiene |
+| `video/*.mp4` bajado | ✅ |
+| `audio/*.m4a` | ✅ |
+| `texto/*.md` transcripto | ✅ |
+| **subido a Drive** | ✅ (carpeta «Definir voz y clonación») |
+| **`drive.json`** | ❌ **solo tenía n=1..30** |
+| portal | ❌ 30 de 32 |
+
+**Todo el trabajo estaba hecho. Lo único que faltaba era el ID.** `drive.json` se había
+escrito antes de que Drive terminara de indexar esos dos —la «cola del final» que ya está
+documentada más arriba— y nunca se refrescó. Se arregla con
+`curso-a-drive.mjs --plan … --solo-ids`, que releyó los 32 sin re-copiar nada.
+
+**Y con la clase se iban sus otros insumos.** El `continue` que la descartaba corre ANTES
+de que el código pregunte por el documento replicado, así que
+`public/cono-doc/clonacion-parte-1.json` y `-2.json` estaban **commiteados en el repo y sin
+ninguna pantalla que los pudiera abrir**. Al republicar, sus `docSlug` volvieron solos.
+
+### La causa raíz: «no tiene id de Drive» ≠ «no existe del otro lado»
+
+El generador trataba las dos igual, y encima **afirmaba la causa que no había verificado**:
+imprimía «el video no existe del otro lado» sobre clases cuyo plan dice `sinFuente: false`.
+El campo que las distingue existe desde siempre y `curso-a-portal.mjs` **no lo leía en
+ninguna línea**.
+
+Ahora:
+
+- `sinFuente: true` → la fuente no lo tiene. Se omite y se dice, como antes.
+- `sinFuente: false` sin id → **se ABORTA la emisión**, con el comando para arreglarlo. No
+  es un aviso: un `console.log` entre veinte líneas no lo lee nadie, y la ficha salía igual
+  con menos clases de las que el curso tiene. Es la misma decisión que ya se había tomado
+  con los recursos.
+
+### Barrido: a cuántos más les pasa
+
+`plan.json` contra `drive.json`, los 32 cursos con plan:
+
+    100M money Models          35 → 33    n=1, n=35    sinFuente: true  → correcto
+    ATV ADVANTAGE             249 → 247   n=78, n=125  sinFuente: SIN DECLARAR → ⚠ sospecha
+    Creator Club               64 → 62    n=2, n=52    sinFuente: true  → correcto
+    Mateo Maffia BYF           34 → 33    n=30         sinFuente: true  → correcto
+    Creativos UGC Realistas    32 → 32    ✅ arreglado
+
+**5 de las 7 son legítimas** (links, packs de recursos, brutos sin publicar). **Las 2 de ATV
+Advantage quedan como sospecha real**: `sinFuente` sin declarar y sin copia local, así que
+no se puede afirmar ni que falten ni que no existan. Hay que mirarlas contra la fuente.
+
+**Vive en:** `scripts/curso-a-portal.mjs` · `scripts/curso-a-drive.mjs` (`--solo-ids`) ·
+`C:\cursos\<slug>\drive.json`

@@ -206,10 +206,25 @@ let conTx = 0, sinTx = 0, conApuntes = 0;
 //
 // No es lo mismo que «todavía no subió»: para eso está el guard de los recursos, que
 // aborta. Acá el material NO EXISTE del otro lado, y lo honesto es no listarlo.
+// ⚠️ «NO TIENE ID DE DRIVE» NO ES «NO EXISTE DEL OTRO LADO». Son dos cosas y el plan las
+// distingue con `sinFuente`, que este código no leía:
+//
+//     sinFuente: true   la plataforma NO tiene ese video (un link, un pack de recursos,
+//                       un bruto sin publicar). Omitirla es correcto.
+//     sinFuente: false  la plataforma SÍ lo tiene → si no hay id, FALTA SUBIRLO. Omitirla
+//                       en silencio es perder material que está bajado y transcripto.
+//
+// Pasó con «Clonación · Parte 1 y 2» de Creativos UGC Realistas: `sinFuente: false`, el
+// mp4 bajado, el audio hecho, la transcripción escrita y el video YA SUBIDO a Drive — lo
+// único que faltaba era que `drive.json` tuviera su id. El generador las descartó, publicó
+// 30 de 32 y encima imprimió «el video no existe del otro lado», que era falso. Con la
+// clase se fueron sus `docSlug`: los dos `public/cono-doc/clonacion-parte-*.json` quedaron
+// commiteados en el repo sin ninguna pantalla que los pudiera abrir. Lo vio el dueño.
 const muertas = [];
+const huerfanas = [];
 for (const c of plan.clases) {
   const videoId = idPorN.get(c.n) ?? null;
-  if (!videoId) { muertas.push(c); continue; }
+  if (!videoId) { (c.sinFuente === false ? huerfanas : muertas).push(c); continue; }
   const md = mdPorN.get(c.n);
   let hasTx = false;
   let apuntes = '';
@@ -387,8 +402,20 @@ writeFileSync(salida, cuerpo, 'utf8');
 
 console.log(`\n  Curso : ${plan.curso}`);
 console.log(`  Clases: ${clases.length} · ${conTx} con transcripción · ${conApuntes} con apuntes tuyos`);
+// LAS HUÉRFANAS SE ABORTAN, NO SE AVISAN. El plan dice que la fuente SÍ tiene ese video,
+// así que no tenerlo es material perdido, no una clase inexistente. Un `console.log` acá
+// es un aviso que nadie lee (el generador imprime veinte líneas), y la ficha sale igual
+// con menos clases de las que el curso tiene. Se corta, como ya se corta con los recursos.
+if (huerfanas.length) {
+  console.error(`\n  ✖ NO emito la ficha: ${huerfanas.length} clase(s) tienen \`sinFuente: false\` —la plataforma SÍ las tiene— y no tienen id de Drive.`);
+  for (const c of huerfanas) console.error(`      n=${c.n}  ${String(c.titulo).slice(0, 58)}`);
+  console.error(`\n    Están bajadas y transcriptas, lo que falta es el id. Casi siempre alcanza con:`);
+  console.error(`      node scripts/curso-a-drive.mjs --plan ${PLAN} --solo-ids\n`);
+  process.exit(1);
+}
+
 if (muertas.length) {
-  console.log(`  ⚠ ${muertas.length} clase(s) del plan NO entran: sin id de Drive (el video no existe del otro lado).`);
+  console.log(`  ⚠ ${muertas.length} clase(s) del plan NO entran: \`sinFuente: true\`, la fuente no las tiene.`);
   for (const c of muertas.slice(0, 5)) console.log(`      n=${c.n}  ${c.titulo.slice(0, 58)}`);
 }
 if (sinTx) console.log(`  ⚠ ${sinTx} sin transcripción todavía (volvé a correr esto cuando terminen)`);
