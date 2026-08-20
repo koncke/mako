@@ -99,13 +99,31 @@ for (const [i, c] of cursos.entries()) {
   // El paso «resolver ids» devuelve 0/5 y el de publicar aborta pidiendo justamente lo que
   // acaba de correr — un lote que se rinde ahí deja el curso a medias por esperar 40
   // segundos. Se reintenta hasta que todos tengan id, con un tope para no colgarse.
+  // ⚠️ SE VERIFICA EL ARCHIVO, NO EL LOG. La primera versión buscaba «N/M con id» en las
+  // últimas líneas de la salida y, si no lo encontraba, devolvía `r.ok` — o sea, asumía
+  // que estaba bien. Con cursos grandes esa línea queda fuera de las últimas cuatro, así
+  // que «resolver ids» decía ok y «publicar» abortaba pidiendo justo lo que acababa de
+  // correr: 5 de 8 cursos del lote murieron ahí. Es el mismo «el silencio se lee como
+  // éxito» que este trabajo viene cazando todo el día, cometido en la propia espera.
+  //
+  // Ahora la verdad sale de `drive.json`: cuántos recursos tienen `driveId`.
+  const idsListos = () => {
+    try {
+      const d = JSON.parse(readFileSync(join(RAIZ, c.dir, 'drive.json'), 'utf8').replace(/^﻿/, ''));
+      const r = d.recursos ?? [];
+      const archivos = r.filter((x) => x.tipo !== 'link');
+      const conId = archivos.filter((x) => x.driveId);
+      return { total: archivos.length, con: conId.length };
+    } catch { return { total: 0, con: 0 }; }
+  };
+
   const esperarIds = async () => {
-    for (let intento = 1; intento <= 30; intento++) {   // 30 x 20s = 10 min: Drive for Desktop tarda
-      const r = correr('curso-a-drive.mjs', ['--plan', c.planPath, '--solo-ids']);
-      const m = /(\d+)\/(\d+) con id/.exec(r.cola);
-      if (m && m[1] === m[2] && Number(m[2]) > 0) return true;
-      if (!m) return r.ok;                       // sin recursos: nada que esperar
-      process.stdout.write(`(${m[1]}/${m[2]}) `);
+    for (let intento = 1; intento <= 30; intento++) {   // 30 x 20s = 10 min
+      correr('curso-a-drive.mjs', ['--plan', c.planPath, '--solo-ids']);
+      const { total, con } = idsListos();
+      if (total > 0 && con === total) return true;
+      if (total === 0 && intento > 2) return true;      // curso sin recursos: nada que esperar
+      process.stdout.write(`(${con}/${total}) `);
       await new Promise((res) => setTimeout(res, 20000));
     }
     return false;

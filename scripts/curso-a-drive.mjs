@@ -337,16 +337,24 @@ if (recursosLocales.length) {
   console.log(`\n  Resolviendo id de ${recursosLocales.length} recurso(s)…`);
   const r = idsDeDrive(recursosLocales.map((x) => x.archivo));
   if (!r.error) {
+    // ⚠️ UN RECURSO SIN ID SE ANOTA IGUAL, con `driveId: null`. Descartarlo lo hacía
+    // DESAPARECER de drive.json, y como el archivo se fusiona con lo previo, la corrida
+    // siguiente tampoco tenía qué completar: el recurso quedaba en un limbo permanente —
+    // bajado en disco, copiado a Drive, y ausente del único índice que lo puede publicar.
+    // Medido: 5 de 8 cursos del lote quedaron así, con 129 archivos en disco y 0 anotados.
+    //
+    // Anotado con `driveId: null`, la próxima corrida lo encuentra y le pone el id cuando
+    // Drive termina. Y el generador del portal ya sabe ignorar los que no lo tienen.
     for (const x of recursosLocales) {
       const info = r.ids.get(x.archivo);
-      if (info?.id) recursos.push({
-        archivo: x.archivo, nivel: x.nivel, driveId: info.id,
+      recursos.push({
+        archivo: x.archivo, nivel: x.nivel, driveId: info?.id ?? null,
         modulo: x.modulo, submodulo: x.submodulo,
       });
     }
   }
-  const sin = recursosLocales.length - recursos.length;
-  console.log(`  ${recursos.length}/${recursosLocales.length} con id${sin ? ` · ⚠ ${sin} sin id (Drive sigue subiendo)` : ''}`);
+  const sin = recursos.filter((x) => !x.driveId).length;
+  console.log(`  ${recursos.length - sin}/${recursosLocales.length} con id${sin ? ` · ⚠ ${sin} sin id (Drive sigue subiendo; quedan anotados para la próxima)` : ''}`);
 }
 
 if (enlaces.length) console.log(`  + ${enlaces.length} enlace(s) (no son archivos: van sin id de Drive)`);
