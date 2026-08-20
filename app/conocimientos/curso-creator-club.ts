@@ -20,7 +20,7 @@ export const CURSO_CREATOR_CLUB: Curso = {
   eyebrow: 'Curso externo',
   titulo: 'Creator Club - NXTGEN Academia',
   subtitulo: '64 clases, 10 módulos. Video, transcripción y tus apuntes en un solo lugar.',
-  volumen: '64 clases',
+  volumen: '31,6 h',
   portada: '/cono-portadas/creator-club.png',
   recursos: [
 
