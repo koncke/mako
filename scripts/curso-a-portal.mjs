@@ -257,7 +257,14 @@ const muertas = [];
 const huerfanas = [];
 for (const c of plan.clases) {
   const videoId = idPorN.get(c.n) ?? null;
-  if (!videoId) { (c.sinFuente === false ? huerfanas : muertas).push(c); continue; }
+  // ⚠️ «SIN VIDEO» SON TRES COSAS DISTINTAS, Y ANTES ERAN DOS.
+  //   · `soloTexto`  → su forma ES un documento. Se emite igual, sin videoId: el portal
+  //                    pinta el marco solo si hay video y el documento va abajo como
+  //                    siempre. Descartarla hacía desaparecer la lección sin dejar hueco
+  //                    ni aviso — el mismo modo de falla que el módulo 2 de AvatarHype.
+  //   · `sinFuente`  → la plataforma NO lo tiene. Omitirla es correcto.
+  //   · lo que queda → está bajada y transcripta y le falta el id de Drive: eso aborta.
+  if (!videoId && !c.soloTexto) { (c.sinFuente === false ? huerfanas : muertas).push(c); continue; }
   const md = mdPorN.get(c.n);
   let hasTx = false;
   let apuntes = '';

@@ -330,8 +330,40 @@ for (let k = 0; k < TOPE; k++) {
 }
 
 // ── Aplanar a clases: UNA por ARCHIVO de video ───────────────────────────────
+//
+// ⚠️ Y UNA POR LECCIÓN QUE NO ES UN VIDEO. Aplanar solo por `partes` hace desaparecer del
+// portal a toda lección cuya forma es un DOCUMENTO: `partes` viene vacío, el for interno
+// no itera, y la lección no deja hueco ni aviso. Es el mismo modo de falla que el módulo 2
+// de «Creativos UGC Realistas» —una tabla que el enumerador de lecciones no veía— y que el
+// «Módulo 5 vacío» de Guille, que tenía 8 LUTs y ninguna clase.
+//
+// Medido acá: «Creativos Animados» tiene 2 lecciones y el portal salía con 1.
+//
+// `soloTexto` NO es `sinFuente`. `sinFuente` significa «la plataforma no tiene ese video»
+// y hace que río abajo la clase se omita; esto significa «la plataforma la tiene, y no es
+// un video». El portal ya sabe dibujarlas: `CursoReplica` pinta el marco solo si hay
+// `videoId` y si no cae a la portada, y el documento va abajo como en cualquier otra.
 const clases = [];
 for (const l of lecciones) {
+  if (l.sinVideo) {
+    const n = clases.length + 1;
+    clases.push({
+      n,
+      titulo: l.titulo ?? l.slug,
+      duracion: '', segundos: 0,
+      modulo: (l.codigo && MODULOS.get(l.codigo.split('.')[0])) || null,
+      submodulo: null,
+      codigo: l.codigo,
+      plataforma: 'avatarhype',
+      slug: l.slug,
+      videoId: null, parte: 1, guid: null, libreria: null,
+      sinFuente: false,
+      soloTexto: true,               // su forma es un documento, no una falta
+      bytesEsperados: null,
+      archivo: `${String(n).padStart(2, '0')} - ${limpio(l.titulo ?? l.slug)}`,
+    });
+    continue;
+  }
   for (const p of l.partes) {
     const n = clases.length + 1;
     const sufijo = l.partes.length > 1 && p.nombre ? ` · ${p.nombre}` : '';

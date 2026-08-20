@@ -39,6 +39,7 @@ import { CURSO_INSTITUTO_DE_COMUNICACION } from './curso-instituto-de-comunicaci
 import { CURSO_CREATOR_CLUB } from './curso-creator-club';
 import { CURSO_TRILOGIA_DE_BRIAN_TRACY } from './curso-trilogia-de-brian-tracy';
 import { CURSO_CREATIVOS_UGC_REALISTAS } from './curso-creativos-ugc-realistas';
+import { CURSO_CREATIVOS_ANIMADOS } from './curso-creativos-animados';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio';
 import { CURSO_BRANDING } from './BrandingMaKo';
@@ -185,6 +186,11 @@ export const CURSOS_TODOS: Curso[] = [
   // próxima. `replica` hace que el curso se vea con la pantalla de su plataforma de
   // origen en vez de con la grilla del portal — ver CursoReplica.tsx.
   { ...CURSO_CREATIVOS_UGC_REALISTAS, recursos: RECURSOS_UGC, replica: true },
+  // Mismo origen (AvatarHype) y misma pantalla de réplica. Su lección «bienvenida» no
+  // tiene video —su forma es un documento— y se publica igual: ver `soloTexto` en
+  // avatarhype-plan.mjs. La academia avisa que están regrabando todo el apartado, así
+  // que esto se vuelve a ingerir cuando lo publiquen.
+  { ...CURSO_CREATIVOS_ANIMADOS, replica: true },
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
