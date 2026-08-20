@@ -21,6 +21,8 @@ const arg = (n, d) => {
 };
 const PORT = Number(arg('port', 9333));
 const ESPERA = Number(arg('espera', 9)) * 1000; // tope para que cambie el iframe
+// Cuantas vueltas de desplegar acordeones. Se corta solo al CONVERGER; esto es la red.
+const RONDAS = Number(arg('rondas', 40));
 const RAIZ = arg('raiz', 'C:\\cursos');
 // El autor NO está en la página del curso, pero SÍ es parte del nombre de la carpeta
 // («<Curso> - <Autor>», que cumplen 36 de 39) y del título en el portal. Lo mismo que
@@ -180,8 +182,18 @@ const main = async () => {
 
   // Se extrae a una función porque hay que volver a llamarla DURANTE el recorrido:
   // ver la nota del acordeón que se cierra solo, más abajo.
-  const abrirAcordeones = async (rondas = 8, verboso = true) => {
+  // ⚠️ EL TOPE DE RONDAS NO PUEDE CORTAR EN SILENCIO. Con 8 rondas y 27 módulos,
+  // «BigSEO Academy» terminaba de desplegar hasta el módulo 13 y el script seguía como
+  // si nada: el plan salió con 77 de 136 lecciones —los módulos 14 a 26 enteros— y no
+  // hubo ni una línea que dijera que se había quedado a mitad. Un corte limpio en un
+  // número redondo de módulos es la firma de un tope, no de un curso que se terminó.
+  //
+  // Ahora el tope es alto y, si se llega a él CRECIENDO todavía, se avisa fuerte y
+  // `topeAlcanzado` queda en true para que el resumen final lo pueda hacer fallar.
+  let topeAlcanzado = false;
+  const abrirAcordeones = async (rondas = RONDAS, verboso = true) => {
   for (let ronda = 1; ronda <= rondas; ronda++) {
+    if (ronda === rondas) topeAlcanzado = true;
     const previo = await ev(contarBotones);
     const cabeceras = await ev(marcar);
     let abiertos = 0;
@@ -198,7 +210,12 @@ const main = async () => {
     await new Promise((r) => setTimeout(r, 400));
     const ahora = await ev(contarBotones);
     if (verboso) console.log(`  ronda ${ronda}: ${previo} → ${ahora} botones (${cabeceras} cabeceras, ${abiertos} abierta/s)`);
-    if (ahora === previo) break;
+    // Converger es la ÚNICA salida limpia: si el conteo dejó de crecer, se vio todo.
+    if (ahora === previo) { topeAlcanzado = false; break; }
+  }
+  if (topeAlcanzado && verboso) {
+    console.log(`  ⚠ ME QUEDÉ SIN RONDAS Y EL LISTADO TODAVÍA CRECÍA: hay módulos sin desplegar.`);
+    console.log(`    Volvé a correr con --rondas <n> más alto. El plan que salga está INCOMPLETO.`);
   }
   };
 
@@ -530,9 +547,21 @@ const main = async () => {
   // lección perdida: 10 clases + 1 cabecera dan 11, que es justo el total, y el
   // resumen imprime «10/10 clases con video» — un pleno perfecto al que le falta una.
   // Recién cuando se sabe cuáles eran cabeceras se puede comparar de verdad.
-  if (patron > 0 && plan.length < patron) {
-    console.log(`  ⚠ LA FICHA DICE ${patron} LECCIONES Y EL PLAN TIENE ${plan.length}.`);
+  //
+  // ⚠️ Y ESTE CHEQUEO TIENE QUE HACER FALLAR AL SCRIPT, NO IMPRIMIR UN ⚠️. Existía desde
+  // antes, detectaba el problema con el número exacto… y el `process.exit` de abajo solo
+  // miraba `faltan`, así que salía 0. «BigSEO Academy» se bajó, se transcribió y se
+  // publicó con 77 de 136 lecciones —43% del curso— con este aviso impreso en una
+  // consola que nadie volvió a mirar. Es, textual, el «console.warn no es un control»
+  // de AGENTS.md.
+  const incompleto = patron > 0 && plan.length < patron;
+  if (incompleto) {
+    console.log(`  ✖ LA FICHA DICE ${patron} LECCIONES Y EL PLAN TIENE ${plan.length}: FALTAN ${patron - plan.length}.`);
     console.log(`    «${plan.length}/${reales}» de arriba es contra lo que detecté, no contra el curso.`);
+    console.log(`    Casi siempre es que quedaron módulos sin desplegar: subí --rondas y repetí.`);
+  }
+  if (topeAlcanzado) {
+    console.log(`  ✖ LA APERTURA DE ACORDEONES SE QUEDÓ SIN RONDAS mientras seguía encontrando.`);
   }
   console.log(`  ${(pdfs ?? []).length} PDF(s) de resumen`);
   console.log(`  Plataforma: ${[...new Set(plan.map((p) => p.plataforma))].join(', ') || '—'}`);
@@ -547,7 +576,9 @@ const main = async () => {
   if (salida !== destino) console.log(`\n  ⚠ Ya había un plan.json: lo dejé como plan.nuevo.json para que compares.`);
   console.log(`\n  Siguiente:  node <abs>\\scripts\\curso-bajar.mjs --plan "${destino}"\n`);
   ws.close();
-  process.exit(faltan ? 3 : 0);
+  // Salir 0 con un plan al que le falta la mitad del curso es lo que dejó pasar los
+  // 59 de BigSEO. Cada motivo tiene su codigo para que el que llame sepa cual fue.
+  process.exit(incompleto || topeAlcanzado ? 4 : faltan ? 3 : 0);
 };
 
 main().catch((e) => { console.error(`\n  ✖ ${e.message}\n`); process.exit(1); });
