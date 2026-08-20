@@ -1213,3 +1213,28 @@ visibles en todos los casos, y en 12 combinaciones de motor × ajuste de accesib
 
 **Vive en:** app/plan/board/BoardShell.tsx (Kanban, Prioridades, ProyectosView y la
 columna) · app/plan/board/Graphics.tsx · *2026-08-18*
+
+
+### La causa raíz estaba en el layout de TODA la app, no en el tablero
+
+`app/layout.tsx` abría el contenedor raíz con `align-items: flex-start` —heredado de
+«réplica del rootStyle del prototipo», o sea copiado de un HTML suelto donde ninguna
+pantalla tenía que llenar el alto—. Con eso, la columna que envuelve al `<main>` se queda
+del alto de SU CONTENIDO, y **ahí nace la cadena indefinida**: ningún descendiente tiene
+un alto definido contra el cual resolver un `1fr`, un `100%` o un `flex-basis: 0%`.
+
+Chrome igual les da un alto usable; **WebKit viejo devuelve 0**, y ahí cualquier
+`overflow` recorta la pantalla entera. Las dos reglas del spec en juego —un `flex-basis`
+porcentual contra un contenedor indefinido debe tratarse como `content`, y un grid con
+`min-height` debe re-resolver las filas `fr` contra ese mínimo— Blink las implementa y
+WebKit las arregló recién en versiones recientes. **Por eso el WebKit 26 de Playwright no
+reproduce nada: el bug vive en las versiones que no puedo correr.**
+
+Con `align-items: stretch` la cadena queda definida desde arriba y el tablero deja de
+depender de que el motor haga esa re-resolución.
+
+**Barrido de no-regresión** (el cambio toca todas las pantallas), WebKit y Chrome:
+/plan 229 y 189 elementos visibles, /general 149, /crm 45, /marketing 194, /perfil 51.
+Ninguna quedó vacía ni con scroll horizontal.
+
+**Vive en:** app/layout.tsx (`rootStyle`) · *2026-08-18*

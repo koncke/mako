@@ -695,17 +695,16 @@ export function BoardShell({ board, scope }: {
     //     navegador decide distinto qué hacer con un hijo que quiere estirar.
     //   · `minHeight` en vez de `height`: si algo mide de menos, el tablero CRECE. Con
     //     `height` clavado, todo lo que no entraba quedaba fuera de la caja.
-    //   · `var(--barra-agencia)` SIN fallback en línea: el valor por defecto (0px) vive
-    //     en `:root` (globals.css). Un `var(x, 0px)` adentro de un `calc()` es de lo
-    //     primero que se rompe en motores viejos, y si el `calc` no parsea, la
-    //     declaración entera se cae — o sea, el alto desaparece.
+    //   · El `var()` va CON fallback (`, 0px`): si el token no resolviera, un `calc()`
+    //     con una variable vacía es inválido en tiempo de cómputo y se cae la
+    //     declaración entera — o sea, el alto desaparece. El fallback lo hace imposible.
     //   · SIN `overflow: hidden` acá: era lo que convertía «midió mal» en «no se ve
     //     nada». Sin él, en el peor caso la página scrollea, que es un defecto que se
     //     entiende y se puede contar por teléfono.
     //
     // La regla, corta: en el camino del contenido principal, nada de altos fijos con
     // recorte. Un layout puede quedar feo; no puede desaparecer.
-    <main style={{ flex: 1, minWidth: 0, display: 'grid', gridTemplateRows: 'auto 1fr', minHeight: 'calc(100vh - var(--barra-agencia))', fontFamily: SANS }}>
+    <main style={{ flex: 1, minWidth: 0, display: 'grid', gridTemplateRows: 'auto 1fr', minHeight: 'calc(100vh - var(--barra-agencia, 0px))', fontFamily: SANS }}>
       {/* símbolos de marca (para el logo de Fathom del toolbar/modal) — una vez por página */}
       <BrandDefs />
       {/* UNA SOLA LÍNEA, siempre. Antes tenía flexWrap:'wrap' y los botones de acción se

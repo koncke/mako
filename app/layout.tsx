@@ -35,14 +35,23 @@ export const metadata: Metadata = {
 export const viewport: Viewport = { themeColor: '#171511' };
 
 // Contenedor raíz: sidebar fijo + el <main> que aporta cada pantalla.
-// Réplica del rootStyle del prototipo (display:flex; align-items:flex-start).
+//
+// ⚠️ `alignItems: 'stretch'` (el default), NUNCA `flex-start`. Acá NACE la cadena de
+// altos de toda la app: con `flex-start` la columna que envuelve al <main> se queda del
+// alto de SU contenido, así que ningún descendiente tiene un alto definido contra el que
+// resolver un `1fr`, un `100%` o un `flex-basis: 0%`. Chrome igual les da un alto usable;
+// Safari viejo devuelve CERO — y ahí un `overflow` cualquiera recorta la pantalla entera.
+// Es la causa raíz de «el plan está vacío» reportado tres veces desde una Mac.
+//
+// Venía de la «réplica del rootStyle del prototipo», o sea copiado de un HTML suelto
+// donde no había ninguna pantalla que tuviera que llenar el alto.
 const rootStyle: CSSProperties = {
   minHeight: '100vh',
   background: 'var(--bg)',
   color: 'var(--ink)',
   fontFamily: "'Geist', system-ui, sans-serif",
   display: 'flex',
-  alignItems: 'flex-start',
+  alignItems: 'stretch',
 };
 
 export default async function RootLayout({
