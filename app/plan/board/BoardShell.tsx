@@ -795,7 +795,15 @@ export function BoardShell({ board, scope }: {
 
       </header>
 
-      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      {/* ⚠️ COLUMNA FLEX, no un bloque a secas. Las vistas colgaban de acá con
+          `height: 100%`, y eso en SAFARI da CERO: su padre saca el alto de `flex: 1`,
+          que para el motor es un alto INDEFINIDO, así que el porcentaje no resuelve
+          (Chrome sí lo resuelve, y por eso pasó meses sin verse). Con el `overflow:
+          hidden` de acá, cero de alto es una PANTALLA EN BLANCO: header dibujado y
+          debajo nada. Se reportó tres veces como «el plan está vacío» desde una Mac.
+          El patrón que sí funciona en los dos: el padre es columna y el hijo estira
+          con `flex: 1` + `minHeight: 0`. Ninguna vista vuelve a pedir `height: 100%`. */}
+      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} onOpen={setOpenId} onOpenProj={setOpenProj} />}
         {view === 'kanban' && <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} />}
         {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={projFilter} q={q} fOrigen={fOrigen} sortMode={sortMode} sortDir={sortDir} />}
@@ -1394,7 +1402,7 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, onOpen, onNew, 
   // dir = -1 → desc (mayor score / #num más alto = más nuevo, primero); +1 → asc (al revés).
   const dir = sortDir === 'asc' ? 1 : -1;
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14, padding: '18px 30px 30px', height: '100%', alignItems: 'flex-start' }} className="mako-board">
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14, padding: '18px 30px 30px', flex: 1, minHeight: 0, alignItems: 'flex-start' }} className="mako-board">
       <style>{`@media (max-width:1000px){.mako-board{grid-template-columns:repeat(2,1fr)!important}}@media (max-width:560px){.mako-board{grid-template-columns:1fr!important}}`}</style>
       {PRIOS.map((p) => {
         const items = tasks.filter((t) => displayPrio(t, topProjectId) === p).sort((a, b) => (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0) || (sortMode === 'creacion' ? dir * (a.num - b.num) : (dir * (a.score - b.score) || b.num - a.num)));
@@ -1439,7 +1447,7 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
     // una sola columna. Ahora las dos columnas son elásticas con un mínimo y el corte
     // lo hace el propio `flex-wrap` cuando de verdad no entran: acompaña cualquier zoom
     // sin escalones.
-    <div style={{ height: '100%', overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: 'clamp(12px,1.6vw,18px) clamp(14px,2.4vw,30px) 40px' }}>
+    <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: 'clamp(12px,1.6vw,18px) clamp(14px,2.4vw,30px) 40px' }}>
       <div className="mako-prio" style={{ width: '100%', maxWidth: 'min(1400px, 100%)', display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'stretch' }}>
         {/* IZQUIERDA — Objetivo Principal (card alto, clickeable) */}
         {/* El objetivo es UN PROYECTO, así que ocupa lo mismo que un proyecto: la grilla
@@ -1984,7 +1992,7 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOri
   const visibles = (verTodos || needle) ? shown : shown.slice(0, REALES);
   const resto = shown.length - visibles.length;
   return (
-    <div style={{ height: '100%', overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: '18px 30px 40px' }}>
+    <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: '18px 30px 40px' }}>
       <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
           {/* #1: "Crear proyecto" PRIMERO y del mismo tamaño que el resto (cuenta como 1 celda) */}

@@ -653,7 +653,23 @@ oculta por CSS, así que las últimas no daban ni una pista de existir.
 El scroll lateral sigue bien donde lo que se corre es **contenido** —una tabla, una
 fila de filtros, un bloque de código—: para eso está `.mk-scroll-x`.
 
-**3. Y una COLUMNA de navegación no scrollea, aunque una barra sí pueda envolver.** La
+**3. Una vista a pantalla completa ESTIRA con flex; `height: 100%` no existe acá.** El
+padre saca su alto de `flex: 1`, y eso para el motor es un alto **indefinido**: un
+porcentaje contra un alto indefinido no resuelve. Chrome lo resuelve igual (por eso pasa
+las revisiones), **Safari devuelve CERO** — y con el `overflow: hidden` que suele tener
+ese contenedor, cero de alto es una **pantalla en blanco**: el header dibujado y debajo
+nada. Un cliente lo reportó tres veces como «el plan está vacío» desde su Mac mientras
+desde una PC con Windows se veía perfecto, con los mismos datos y el mismo servidor.
+
+El patrón que funciona en los dos: el contenedor es `display: flex; flex-direction:
+column` y el hijo estira con `flex: 1; min-height: 0`. Si el hijo scrollea, el
+`overflow-y: auto` va en el hijo, no en el padre.
+
+⚠️ **Y esto NO lo caza ninguna prueba hecha en Chrome**, que es donde se prueba todo.
+Cuando algo se ve en blanco en un navegador y no en otro, con el header dibujado, es esto
+antes que cualquier otra cosa.
+
+**4. Y una COLUMNA de navegación no scrollea, aunque una barra sí pueda envolver.** La
 regla de arriba no cubre este caso y la diferencia es de eje: una barra horizontal que no
 entra baja de renglón y no pierde nada; una columna no puede envolver, así que si no entra
 o scrollea o corta. Por eso el eje vertical lleva la regla más dura, y el dueño ya la había

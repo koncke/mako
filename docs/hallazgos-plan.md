@@ -1121,3 +1121,37 @@ Reglas de proceso que el dueño dictó mirando el resultado de corridas sobre `/
 - **Terminá la feature en curso antes de saltar a otra** (2026-07-24). Y antes de construir algo grande, contale cómo lo vas a presentar para que lo apruebe (2026-07-10).
 - **En cada iteración grande, reflejá lo hecho en el board `/plan`** —creando las tareas que faltaban y marcándolas— por el riel del Perro, nunca a mano: «sino, el dashboard y gestor de tareas que hicimos queda en el olvido» (2026-07-15).
 - **La documentación se escribe para que la lea ÉL**, no solo otro agente: depurada, con títulos, ordenada y visible en super admin. El porqué es concreto: «si yo lo puedo entender fácil eso me habilita a darle mejores prompts al otro Claude» (2026-08-07). Este documento se lee con los ojos en `/admin/docs`.
+
+
+---
+
+## «El plan está vacío» era Safari devolviendo cero de alto
+
+**Síntoma:** un cliente ve el tablero VACÍO —header dibujado, debajo blanco— desde su Mac
+con Safari, y perfecto desde una PC con Windows. Misma cuenta, mismos datos, mismo
+servidor, y el chip del header mostrando bien «0% · 3/3 en prioridad», o sea que los datos
+estaban cargados en esa misma pantalla.
+
+**Causa:** el contenedor del cuerpo del board es `flex: 1; min-height: 0; overflow:
+hidden`, y las cuatro vistas (Prioridades, Kanban, Proyectos, Graphics) colgaban de él con
+`height: 100%`. Un porcentaje se resuelve contra el alto del padre, y el alto que sale de
+`flex: 1` es **indefinido**: Chrome lo resuelve igual, Safari devuelve **cero**. Con el
+`overflow: hidden` del padre, cero de alto no deja ni un pixel a la vista.
+
+**Lo que más tiempo costó, y la lección:** el diagnóstico obvio era el equivocado, tres
+veces. Se buscó en los filtros (todos arrancan permisivos), en el adaptador del board del
+cliente (el Kanban no deriva sus columnas de los datos), en el tema candidato, en una API
+que Safari no tuviera, en `localStorage` (todo ya estaba en `try/catch`) y hasta en una
+segunda cuenta. **Un agente descartó explícitamente «alto/overlay (CSS)» como hipótesis
+válida y nadie la persiguió, porque la única forma de verla era abrir Safari** — y toda la
+verificación se hacía en Chrome headless, donde el bug NO EXISTE.
+
+Las dos señales que lo identifican sin herramientas: (1) el header se dibuja y el cuerpo
+no, y (2) **no aparece ningún error** — no es JavaScript, es layout. Cuando esas dos se
+dan juntas y cambia según el navegador, es un alto que colapsó.
+
+**El patrón correcto:** el contenedor es columna flex y el hijo estira con `flex: 1;
+min-height: 0`. Ya está escrito como regla en AGENTS.md.
+
+**Vive en:** app/plan/board/BoardShell.tsx (el contenedor + Kanban, Prioridades,
+ProyectosView) · app/plan/board/Graphics.tsx · *2026-08-18*
