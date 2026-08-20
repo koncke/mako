@@ -17,6 +17,8 @@
 //   node <abs>\scripts\curso-recursos-vip.mjs --plan C:\cursos\<slug>\plan.json
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync, readdirSync, unlinkSync } from 'node:fs';
+// Cómo se baja un archivo y cómo se sabe si sirve: UN lugar, compartido con curso-pdfs.
+import { puedeSerArchivo, bajarCuerpo, valido } from './curso-descarga.mjs';
 import { join, dirname } from 'node:path';
 
 const arg = (n, d) => {
@@ -26,6 +28,8 @@ const arg = (n, d) => {
 const PLAN = arg('plan', '');
 const PORT = Number(arg('port', 9333));
 const SEGUNDOS = Number(arg('segundos', 20));
+// Cuánto se espera a que el lector entregue el archivo. 25s: los ZIP grandes tardan.
+const ESPERA_LECTOR = Number(arg('espera-lector', 25)) * 1000;
 
 if (!PLAN || !existsSync(PLAN)) { console.error('\n  ✖ Falta --plan <plan.json>\n'); process.exit(1); }
 const base = dirname(PLAN);
@@ -84,9 +88,21 @@ const main = async () => {
   // en `/watch`; el 84% de los cursos está en `/curso/`, donde no existe ese segmento —
   // así que para 26 de 31 planes nunca pudo correr, y el síntoma era «necesito la pestaña
   // /watch» sobre una pestaña que estaba abierta y era la correcta.
-  const t = lista.find((x) => x.type === 'page' && /\/(watch|curso|vip)\b/.test(x.url) && x.url.includes(slugPagina));
+  // ⚠️ Y SI NO ESTÁ EN LA PÁGINA CORRECTA, SE NAVEGA. La descarga por lector deja la
+  // pestaña en `/Reader?...`, así que una segunda corrida sobre el mismo curso no se
+  // encontraba a sí misma y abortaba con «necesito la pestaña de ESTE curso abierta»
+  // sobre el Chrome que ella misma había dejado ahí. Exigirle al usuario que deshaga lo
+  // que hizo el script es un bug de uso, no un requisito.
+  const origen = (() => { try { return new URL(plan.pagina).origin; } catch { return ''; } })();
+  let t = lista.find((x) => x.type === 'page' && /\/(watch|curso|vip)\b/.test(x.url) && x.url.includes(slugPagina));
+  let hayQueNavegar = false;
+  if (!t && origen) {
+    // Cualquier pestaña de la misma plataforma sirve: se la lleva a la página del curso.
+    t = lista.find((x) => x.type === 'page' && x.url.startsWith(origen));
+    hayQueNavegar = !!t;
+  }
   if (!t) {
-    console.error(`\n  ✖ Necesito la pestaña de ESTE curso abierta (busco "${slugPagina}").`);
+    console.error(`\n  ✖ No hay ninguna pestaña de ${origen || 'la plataforma'} abierta.`);
     console.error(`    Abiertas:`);
     for (const x of lista.filter((y) => y.type === 'page')) console.error(`      ${x.url}`);
     process.exit(1);
@@ -111,11 +127,10 @@ const main = async () => {
   //   módulos    vip_modules            ·  modules
   //   URLs       get_vip_resource_urls  ·  (no existe en /curso/: ver abajo)
   //
-  // ⚠️ En /curso/ NO hay endpoint de URLs firmadas: el archivo se obtiene navegando a
-  // `/Reader?type=resource&id=<uuid>` y capturando la respuesta, que es lo que hace
-  // `curso-pdfs.mjs`. Esa rama todavía NO está acá — hoy un curso de /curso/ va a
-  // reportar todos sus recursos como «sin URL firmada», que es correcto y es visible.
-  // Se dice en el resumen del final para que no se lea como «no había nada».
+  // ⚠️ En /curso/ NO hay endpoint de URLs firmadas: el archivo se obtiene NAVEGANDO a
+  // `/Reader?type=resource&id=<uuid>` y capturando lo que baja. Esa rama está más abajo
+  // (`porLector`), y es la que necesita que el socket de CDP siga vivo durante toda la
+  // descarga — por eso el `ws.close()` está al final y no acá.
   const cap = new Map();
   cdp.oye.push((m) => {
     if (m.method !== 'Network.responseReceived') return;
@@ -127,6 +142,11 @@ const main = async () => {
 
   await cdp.enviar('Network.enable');
   await cdp.enviar('Page.enable');
+  if (hayQueNavegar) {
+    console.log(`  La pestaña estaba en otra página: la llevo a ${plan.pagina}`);
+    await cdp.enviar('Page.navigate', { url: plan.pagina });
+    await new Promise((r) => setTimeout(r, 4000));
+  }
   console.log(`  Recargando y capturando (${SEGUNDOS}s)…`);
   await cdp.enviar('Page.reload', { ignoreCache: true });
   await new Promise((r) => setTimeout(r, SEGUNDOS * 1000));
@@ -154,7 +174,76 @@ const main = async () => {
       if (!prev || u > prev.u || (u === prev.u && n > prev.n)) { datos[clave] = j; puntaje[clave] = { u, n }; }
     } catch { /* el body pudo salir del buffer */ }
   }
-  ws.close();
+  // ⚠️ EL SOCKET NO SE CIERRA ACÁ. En /vip/ alcanzaba —las URLs firmadas se bajan con un
+  // `fetch` pelado— pero en /curso/ el archivo se obtiene NAVEGANDO la pestaña, así que CDP
+  // tiene que seguir vivo durante toda la descarga. Se cierra al final.
+
+  // ── El camino del área /curso/: navegar el lector y capturar lo que baja ────────
+  // El link del recurso es `/Reader?type=resource&id=<uuid>`, que es una PÁGINA. El
+  // archivo real vive detrás de la sesión, y la sesión ya está resuelta en esta pestaña.
+  const BASE_LECTOR = /\/curso\//.test(String(plan.pagina ?? ''))
+    ? new URL(plan.pagina).origin
+    : '';
+
+  // Candidatas que van llegando, alimentadas por el listener de abajo.
+  const cands = new Map();
+  let listos = [];
+  cdp.oye.push((m) => {
+    if (m.method === 'Network.responseReceived') {
+      const c = puedeSerArchivo(m.params.response);
+      if (c) cands.set(m.params.requestId, c);
+    }
+    if (m.method === 'Network.loadingFinished' && cands.has(m.params.requestId)) {
+      listos.push(m.params.requestId);
+    }
+  });
+
+  /**
+   * Baja UN recurso navegando su lector. `{buf, ext}` o `{error}`.
+   *
+   * ⚠️ NO SE TOMA LA PRIMERA RESPUESTA QUE PAREZCA UN ARCHIVO. La página del lector carga
+   * sus propios assets —un logo, una miniatura— y `puedeSerArchivo` los acepta porque la
+   * URL termina en `.jpg`. La primera versión bajó los 56 recursos de un curso y los 56
+   * eran la MISMA imagen de 17 KB, renombrada con el título de cada recurso. Un fallo
+   * que se presenta como éxito, y el conteo cerraba.
+   *
+   * El desempate es el TAMAÑO QUE YA CONOCEMOS: la metadata trae `file_size`. Se junta
+   * todo lo que llegó en la ventana y gana el que coincide; si ninguno coincide, el más
+   * grande que valide, que es lo mejor que se puede hacer sin el dato.
+   */
+  const porLector = async (id, bytesEsperados) => {
+    cands.clear(); listos = [];
+    const url = `${BASE_LECTOR}/Reader?type=resource&id=${encodeURIComponent(id)}`;
+    await cdp.enviar('Page.navigate', { url }).catch(() => {});
+    const t0 = Date.now();
+    const descartes = [];
+    const vistos = new Set();
+    let mejor = null;
+    while (Date.now() - t0 < ESPERA_LECTOR) {
+      await new Promise((r) => setTimeout(r, 400));
+      for (const rid of [...listos]) {
+        if (vistos.has(rid)) continue;
+        vistos.add(rid);
+        const c = cands.get(rid);
+        if (!c) continue;
+        const res = await bajarCuerpo({ cdp, rid, cand: c, referer: plan.referer, ua: plan.userAgent });
+        if (res.error) { descartes.push(res.error); continue; }
+        // Coincide con el tamaño declarado: es ESE archivo, no hay nada mejor que buscar.
+        if (bytesEsperados && res.buf.length === Number(bytesEsperados)) return res;
+        if (!mejor || res.buf.length > mejor.buf.length) mejor = res;
+      }
+      // Si ya hay un candidato y el tamaño esperado no existe, se le da un respiro más
+      // por si el archivo real todavía viene en camino, pero no se agota la ventana.
+      if (mejor && !bytesEsperados && Date.now() - t0 > 6000) break;
+    }
+    if (mejor) {
+      if (bytesEsperados) descartes.push(`ninguno pesa los ${bytesEsperados}B declarados; me quedo con ${mejor.buf.length}B`);
+      return mejor;
+    }
+    // Se dice QUÉ se descartó y por qué: «no encontré el archivo» a secas manda a buscar
+    // en el lugar equivocado. Con esto se ve si llegó algo y no validó, o si no llegó nada.
+    return { error: descartes.length ? `nada válido en ${ESPERA_LECTOR / 1000}s — ${descartes.slice(0, 2).join(' · ')}` : `no bajó nada en ${ESPERA_LECTOR / 1000}s` };
+  };
 
   for (const [clave, p] of Object.entries(puntaje)) {
     if (p.u < p.n) console.log(`  ⚠ ${clave}: me quedé con ${p.u}/${p.n} fila(s) útiles (${CAMPO_UTIL[clave] ?? 'sin campo clave'}).`);
@@ -252,7 +341,32 @@ const main = async () => {
       console.log(`  = ${nombre}`);
       ya++; continue;
     }
-    if (!url) { console.log(`  ⚠ ${nombre} — sin URL firmada`); sinUrl++; continue; }
+    // ── SIN URL FIRMADA: EL CAMINO DEL ÁREA /curso/ ─────────────────────────────
+    //
+    // /vip/ tiene un endpoint que devuelve URLs firmadas (`get_vip_resource_urls`).
+    // /curso/ NO tiene ninguno: el archivo se obtiene NAVEGANDO a
+    // `/Reader?type=resource&id=<uuid>` —que es una PÁGINA, no el archivo— y capturando
+    // lo que el navegador descarga. La sesión ya está resuelta en esta pestaña, así que
+    // no hay que pelearse con cookies. Es el mismo mecanismo de `curso-pdfs.mjs`.
+    //
+    // Sin esto, los 10 cursos de /curso/ con material reportaban «sin URL firmada» sobre
+    // 401 archivos que sí se podían bajar.
+    if (!url) {
+      if (!BASE_LECTOR) { console.log(`  ⚠ ${nombre} — sin URL firmada`); sinUrl++; continue; }
+      const bajado = await porLector(String(r.id), r.file_size);
+      if (bajado.error) {
+        console.error(`  ✖ ${nombre} — ${bajado.error}`);
+        fallos.push({ nombre, error: bajado.error });
+        continue;
+      }
+      // La extensión REAL puede no ser la que decía `file_type`: manda el archivo.
+      const nombreReal = nombre.replace(/\.[a-z0-9]+$/i, `.${bajado.ext}`);
+      writeFileSync(join(destino, nombreReal), bajado.buf);
+      indice[indice.length - 1].nombre = nombreReal;
+      console.log(`  ✓ ${nombreReal}  (${kb(bajado.buf.length)})  [lector]`);
+      ok++;
+      continue;
+    }
 
     try {
       const res = await fetch(url);
@@ -260,8 +374,8 @@ const main = async () => {
       const buf = Buffer.from(await res.arrayBuffer());
       // Un endpoint que contesta HTML con 200 dejaría un PDF roto "bajado": ya
       // pasó con Drive. Si dice PDF, tiene que empezar con %PDF-.
-      if (ext === 'pdf' && buf.subarray(0, 5).toString('latin1') !== '%PDF-') {
-        throw new Error(`no es un PDF (empieza con ${JSON.stringify(buf.subarray(0, 12).toString('latin1'))})`);
+      if (!valido(buf, ext)) {
+        throw new Error(`${buf.length}B no valida como .${ext} (¿página de error con 200?)`);
       }
       writeFileSync(salida, buf);
       console.log(`  ✓ ${nombre}  (${kb(buf.length)})`);
@@ -271,6 +385,8 @@ const main = async () => {
       fallos.push({ nombre, error: e.message });
     }
   }
+
+  ws.close();   // recién acá: la descarga por lector necesitaba CDP vivo
 
   writeFileSync(join(base, 'recursos.json'), JSON.stringify({ curso: plan.curso, total: meta.length, items: indice }, null, 2), 'utf8');
 
