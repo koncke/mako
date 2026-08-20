@@ -796,7 +796,10 @@ async function sttGemini(p: Prov, base64: string, buf: Buffer, mime: string, opt
       // el importador de archivos al plan, donde entra un .mp3 o un .m4a de la duración
       // que sea. Una grabación de 40 minutos volvía con los primeros 10 y MaKo armaba
       // tareas con un cuarto de la reunión, sin que nada lo dijera.
-      generationConfig: { temperature: 0, maxOutputTokens: 8192 },
+      // Medido: una clase de 52 minutos necesita 9.722 tokens de salida, así que 8.192
+      // tampoco alcanzaba. Se paga por lo que sale, no por el techo, así que ponerlo alto
+      // no cuesta nada — y el que de verdad cierra el agujero es el chequeo de abajo.
+      generationConfig: { temperature: 0, maxOutputTokens: 65536 },
     }),
     cache: 'no-store',
     signal: AbortSignal.timeout(60000),

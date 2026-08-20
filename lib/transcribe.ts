@@ -184,6 +184,55 @@ const STT_CASCADA: Array<{ nombre: string; base: string; modelo: string; envKey:
   { nombre: 'openai', base: OAI, modelo: 'whisper-1', envKey: 'OPENAI_API_KEY' },
 ];
 
+// ── El tercer proveedor, que no habla el mismo protocolo ─────────────────────
+//
+// Groq y OpenAI comparten `/audio/transcriptions`; Gemini no: manda el audio DENTRO del
+// request (`inline_data`) contra `generateContent`. Por eso está aparte y no en la tabla
+// de arriba.
+//
+// Hace falta porque una cascada de dos se agota entera: medido el 2026-08-20, la cuenta
+// de OpenAI sin crédito y Groq en su tope de 7.200 s de audio por hora, las dos al mismo
+// tiempo, con 48 clases sin transcribir esperando.
+//
+// ⚠️ Y TRAE UNA TRAMPA QUE WHISPER NO TIENE: un techo de tokens de SALIDA. Con el default
+// que usa `lib/ai-cheap.ts` para notas de voz (2.048) una clase de 20 minutos vuelve
+// cortada, bien escrita y sin ningún error — que es exactamente la falla que este
+// pipeline pasó el día entero sacando. Por eso acá el techo es alto Y se mira
+// `finishReason`: si no dice STOP, no es una transcripción, es media.
+const MAX_INLINE_GEMINI = 14 * 1024 * 1024;   // va dentro del request: hay techo de tamaño
+
+async function sttGemini(buf: Buffer, mime: string, key: string, hint?: string): Promise<{ texto: string; modelo: string }> {
+  if (buf.length > MAX_INLINE_GEMINI) throw new Error(`${(buf.length / 1048576).toFixed(1)} MB: no entra inline (tope 14 MB)`);
+  const modelo = process.env.GEMINI_STT_MODEL || process.env.GEMINI_MODEL || 'gemini-flash-latest';
+  const instruccion = [
+    'Transcribí este audio en español.',
+    'Devolvé SOLO la transcripción literal de lo que se dice: sin comillas, sin timestamps,',
+    'sin nombres de hablante, sin comentarios tuyos y sin describir el audio.',
+    'Transcribí el audio COMPLETO, de principio a fin, sin resumir ni abreviar.',
+    hint?.trim() ? `Contexto (nombres propios y jerga que pueden aparecer): ${hint.trim()}` : '',
+  ].filter(Boolean).join(' ');
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelo)}:generateContent`,
+    {
+      method: 'POST',
+      headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: instruccion }, { inline_data: { mime_type: (mime || 'audio/mp4').split(';')[0].trim(), data: buf.toString('base64') } }] }],
+        generationConfig: { temperature: 0, maxOutputTokens: 65536 },
+      }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(300000),
+    },
+  );
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.error) throw new Error(`HTTP ${res.status}: ${data?.error?.message || 'sin detalle'}`);
+  const fin = data.candidates?.[0]?.finishReason;
+  if (fin && fin !== 'STOP') throw new Error(`se cortó (finishReason=${fin}): no devuelvo media transcripción`);
+  const texto = (data.candidates?.[0]?.content?.parts ?? []).map((x: { text?: string }) => x.text ?? '').join('').trim();
+  if (!texto) throw new Error('devolvió vacío');
+  return { texto, modelo };
+}
+
 export async function transcribeMediaBuffer(
   bytes: ArrayBuffer,
   mime: string,
@@ -217,6 +266,23 @@ export async function transcribeMediaBuffer(
       errores.push(`${p.modelo}: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
+
+  // Gemini va ÚLTIMO entre los gratis y no primero: los dos Whisper devuelven además la
+  // duración y el idioma medidos del audio —que es lo que después permite comparar la
+  // transcripción contra la fuente— y Gemini no devuelve ninguno de los dos. Se usa
+  // cuando los otros no pueden, que es para lo que se sumó.
+  const kGemini = (() => { try { return env('GEMINI_API_KEY'); } catch { return ''; } })();
+  if (kGemini) {
+    try {
+      const { texto, modelo } = await sttGemini(buf, mime, kGemini, hint);
+      return { status: 'ok', transcript: texto, idioma: null, duracion_s: null, model: modelo, error: null };
+    } catch (e) {
+      errores.push(`gemini: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  } else {
+    errores.push('gemini: sin GEMINI_API_KEY');
+  }
+
   return { status: 'error', transcript: null, idioma: null, duracion_s: null, model: null, error: `ningún proveedor pudo transcribir — ${errores.join(' | ')}` };
 }
 
