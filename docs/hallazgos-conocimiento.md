@@ -3073,3 +3073,54 @@ el dato en disco, no MIRADOS — y la regla de este documento dice que un dato q
 mira en su JSON no está verificado. Y **no se verificó que los `driveId` EXISTAN** en Drive,
 solo que estén bien formados: un id sintácticamente perfecto que apunta a un archivo borrado
 pinta un iframe muerto sin tirar error.
+
+---
+
+## Ampliar un curso al que le faltaban clases: las tres trampas
+
+Cerrando los dos gaps de contenido —**BigSEO 77 → 136** y **Jaque Blue 20 → 23**, 62
+clases que existían del otro lado y el portal no tenía— aparecieron tres formas de
+romper un curso al ampliarlo. Las tres tienen la misma raíz: **`n` es la clave de todo lo
+que ya se hizo** (drive.json mapea `n → videoId` y los archivos empiezan por `NN - `), así
+que cualquier cosa que lo desalinee no deja un curso incompleto, deja uno **MEZCLADO** —la
+clase 50 apuntando al video de otra— y eso no se ve hasta que alguien escucha.
+
+**1. El `archivo` de una clase nueva hay que renumerarlo.** Viene del plan nuevo, donde la
+clase era la 16 de 23; al pasar a ser la 22 quedan **dos archivos «16 - …»** en la misma
+carpeta. Todo el pipeline lee el número del basename, así que el segundo «16» se atribuye
+a la clase 16. Se cazó porque los audios salieron numerados 13, 16 y 18 cuando debían ser
+21, 22 y 23. En BigSEO no había pasado **de casualidad**: sus 59 nuevas caían justo en las
+posiciones 78-136 del plan nuevo.
+
+**2. La identidad «título + duración» no generaliza.** En BigSEO alcanzaba con sacarle el
+número de orden al título; en Jaque Blue las dos capturas leyeron **rótulos distintos para
+la misma clase** —«1- Pre INTRO» contra «PRE INTRO», «3. Haz Bajo La manga» contra «AS
+BAJO LA MANGA»— y el match cayó a **2 de 20**: 18 clases ya bajadas se habrían vuelto a
+bajar y a transcribir. Ahora son dos pasadas: título+duración primero (la fuerte), y lo
+que quede por **duración sola** con tolerancia de 2 s, porque las dos fuentes redondean
+distinto (la misma clase figura con 812 s y con 813).
+
+> **La regla:** cuando dos capturas de la misma cosa no coinciden, la señal que vale es la
+> que ninguna de las dos **inventa**. Un título lo escribe alguien; una duración se mide.
+
+**3. `curso-bajar` no saltea lo ya bajado si la plataforma republicó.** El
+`--download-archive` guarda el id del video, y tras una republicación los ids son todos
+nuevos: pedirle el plan entero baja las 136, no las 59 que faltan — y peor, las 77
+re-bajadas dejan su audio más nuevo que su `.md`, así que el chequeo de frescura dispara
+**77 re-transcripciones** sobre una API con tope horario. Se corta con `--solo <n,n,n>`.
+
+**Vive en:** `scripts/curso-plan-ampliar.mjs`
+
+### El informe de faltantes afirmaba pérdidas por título
+
+`social-funnel` decía «faltan 11 lecciones» teniendo **13 en el portal y 11 en la fuente**.
+El número salía de comparar títulos normalizados, y eso no aguanta como afirmación por las
+mismas tres razones de arriba. Ahora el veredicto es por **conteo** y la lista por título
+queda como pista para mirar a mano.
+
+Con eso, el informe cierra en **CERO faltantes** en los 17 cursos con inventario, y los dos
+que no se pueden verificar —`instituto-de-comunicacion` y `mateo-maffia-byf`— salen como
+«NO SE PUDO CAPTURAR», que es lo correcto: el inventario **se negó a escribir un cero que
+no midió**, aun cuando eso deja una fila fea en el informe.
+
+**Vive en:** `scripts/curso-faltantes.mjs` · `scripts/curso-inventario.mjs`
