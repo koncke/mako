@@ -3124,3 +3124,64 @@ que no se pueden verificar —`instituto-de-comunicacion` y `mateo-maffia-byf`�
 no midió**, aun cuando eso deja una fila fea en el informe.
 
 **Vive en:** `scripts/curso-faltantes.mjs` · `scripts/curso-inventario.mjs`
+
+---
+
+## Publicar un curso pisaba el documento de otro
+
+**Síntoma:** ninguno en el momento. Se vio de casualidad, en un `git status` que mostró
+`public/cono-doc/bienvenida.json` como **MODIFICADO** al publicar un curso que no lo había
+tocado nunca.
+
+**Causa:** `public/cono-doc/` es un espacio de nombres **plano** —`<leccion>.json`— y el
+slug de una lección solo es único **dentro de su curso**. «Creativos UGC Realistas» y
+«Creativos Animados» tienen los dos una lección `bienvenida`, así que publicar el segundo
+reemplazó el documento del primero: esa lección de UGC pasó a mostrar el texto de
+Animados. Sin error, sin conflicto y sin nada que lo dijera.
+
+> **La regla:** un identificador que es único dentro de un contenedor **no** sirve como
+> nombre de archivo en un directorio compartido. El nombre lleva el contenedor adelante
+> (`<curso>__<leccion>.json`), o el segundo que llegue gana en silencio.
+
+Y el corolario que casi cuesta caro: **al borrar los planos viejos, el chequeo tiene que
+ser "¿alguien lo referencia?", no "¿tiene el formato nuevo?"**. Se verificó al revés
+también —28 `docSlug` referenciados, 28 archivos, 0 faltantes— porque un archivo de más
+es basura y uno de menos es una lección que no abre.
+
+**Vive en:** `scripts/avatarhype-doc-portal.mjs` (`docSlugDe`) · `scripts/curso-a-portal.mjs`
+
+## Una lección que NO es un video desaparecía del portal
+
+El aplanado a clases de `avatarhype-plan.mjs` iteraba `partes`, así que una lección cuya
+forma es un **documento** —`partes: []`— no producía ninguna clase. «Creativos Animados»
+tiene 2 lecciones y la ficha salía con 1, sin hueco ni aviso.
+
+Es la **tercera** aparición del mismo modo de falla en esta área, y por eso vale escribirlo
+como familia y no como caso:
+
+| lo que el enumerador contaba | lo que la lección era | cómo se veía |
+|---|---|---|
+| lecciones | una tabla (módulo 2 de UGC) | el módulo no existía: «1, 3, 4, 5» |
+| lecciones | 8 LUTs (módulo 5 de Guille) | «el módulo está vacío» |
+| partes de video | un documento (bienvenida) | la lección no existía |
+
+> **La regla:** antes de aplanar una colección por un campo, preguntá qué pasa con el
+> elemento que tiene ese campo **vacío**. Si la respuesta es «no produce nada», ese
+> elemento va a desaparecer sin dejar rastro — y lo que desaparece sin rastro no se
+> encuentra nunca por casualidad.
+
+`soloTexto` **no** es `sinFuente`: el primero dice «la plataforma la tiene y no es un
+video», el segundo «la plataforma no lo tiene». El portal ya sabía dibujarlas
+(`CursoReplica` pinta el marco solo si hay `videoId`), así que lo único que faltaba era
+emitirla.
+
+**Vive en:** `scripts/avatarhype-plan.mjs` (el aplanado) · `scripts/curso-a-portal.mjs`
+(las tres clases de «sin video»)
+
+### Gotcha del entorno: Git Bash convierte un argumento que empieza con `/`
+
+`--primera "/academy/animados/bienvenida"` llegó al script como
+`C:/Program Files/Git/academy/animados/bienvenida`, y el script reportó «no renderizó»
+sobre una URL que **nunca existió**. Se corta con `MSYS_NO_PATHCONV=1` adelante del
+comando. Es la misma familia que el `\` por `/` de la herramienta de búsqueda: el valor
+llega transformado y el error habla de otra cosa.
