@@ -140,6 +140,16 @@ for (const [i, c] of cursos.entries()) {
     const r = correr(script, args);
     console.log(r.ok ? 'ok' : `FALLÓ (${r.code})`);
     if (!r.ok) { console.log(`   ${r.cola}`); falla = nombre; break; }
+
+    // ⚠️ UN CURSO SIN RECURSOS NO ES UN CURSO FALLADO. La API es la que manda, y para
+    // «Mateo Maffia» dice CERO —el «2» del inventario era de otro curso—. Sin archivos
+    // en disco, los tres pasos que siguen no tienen nada que hacer y el de Drive aborta
+    // con un error que se lee como un problema del curso. Se corta acá y se dice.
+    if (nombre === 'bajar recursos') {
+      const dir = join(RAIZ, c.dir, 'recursos');
+      const n = existsSync(dir) ? readdirSync(dir).length : 0;
+      if (!n) { console.log('     (la fuente no tiene recursos para este curso: nada que subir ni publicar)'); falla = ''; break; }
+    }
   }
   resumen.push({ slug: c.slug, falla });
 }
