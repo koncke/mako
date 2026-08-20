@@ -2965,3 +2965,111 @@ viene cerrando.
 
 **Vive en:** `lib/transcribe.ts` (`STT_CASCADA`) · `scripts/curso-transcribir.ts` (la
 cabecera del `.md`)
+
+---
+
+# Barrido de 37 agentes sobre el pipeline — 2026-08-20
+
+Cinco lentes independientes (foto vieja · «no lo veo» = «no hay» · frescura de derivados ·
+detecta-y-sigue · integridad de lo publicado), cada hallazgo con un verificador que
+intentaba **refutarlo** leyendo el archivo real. 19 sobrevivieron.
+
+## Lo que se arregló, y la regla de cada uno
+
+**Rehacer una transcripción borraba los apuntes.** La cabecera del `.md` se arma de cero y
+el script nunca leía el destino. El camino de rehacer-por-fecha que se agregó ese mismo día
+—correcto y necesario— abrió la puerta a pisar el único dato del archivo que **no es
+derivado** y que vive fuera de git. Y en tanda: cada audio que `completo()` detecte cortado
+deja su `.md` por rehacer. Medido antes de que pasara: **0 de 1.649** `.md` tienen apuntes,
+así que no se perdió ninguno.
+
+> **La regla:** antes de agregar un camino que REESCRIBE un archivo que hasta entonces solo
+> se creaba, listá qué hay adentro que nadie pueda volver a generar.
+
+**La guarda de clases huérfanas escribía la ficha y después decía «NO emito la ficha».**
+`writeFileSync` estaba ocho líneas **antes** del `process.exit(1)`, y las huérfanas se sacan
+del array mucho antes: el `.ts` quedaba en disco recortado, con su `subtitulo: '33 clases'`
+al lado de un array de 31. El mensaje decía exactamente lo contrario de lo que había pasado.
+La guarda gemela —la de recursos, mismo espíritu y mismo texto— sí corta antes de que el
+cuerpo exista: **se había copiado el mensaje y no la posición.**
+
+> **La regla:** una guarda que dice «no emito» corre ANTES de emitir. Si el chequeo depende
+> de datos que recién existen al final, se escribe a un temporal y se renombra al pasar.
+
+**`sinFuente: !p.guid` convertía una falla nuestra en un hecho sobre el curso ajeno.**
+`sinFuente` significa «la plataforma no tiene ese video» —río abajo `curso-bajar` la saltea
+y `curso-a-portal` imprime «la fuente no las tiene» y publica sin ella, con exit 0— pero en
+avatarhype el guid sale de **olfatear la red** con 2 intentos de 8 s. O sea: «no lo pude
+capturar». Ahora es `guidNoResuelto` y hace salir 4.
+
+> **La regla:** un campo que describe la FUENTE no se puede calcular desde el resultado de
+> nuestra captura. Si el nombre del campo habla del mundo y el cálculo habla de nosotros,
+> ahí hay un hecho inventado.
+
+**El filtro de `._` se aplicaba en un extremo de la cadena y no en el otro.** El bajador
+dejó de bajar la basura del Finder, y los dos consumidores del inventario siguieron
+contándola como «lo que la fuente tiene»: «Programa RAIO» quedó con **«80 faltan»
+permanente** —y con `--aplicar`, un lote de cuatro pasos que volvía a bajar, subir, esperar
+ids 10 minutos y republicar 183 recursos para terminar donde estaba— y `curso-faltantes.mjs`
+lo afirmaba bajo el rótulo «y acá el número **SÍ es duro**». `esFinderJunk` se mudó a
+`curso-comun.mjs`.
+
+> **La regla:** un cambio de política que solo se aplica en un extremo de la cadena no es un
+> filtro, es una **discrepancia**. Y un pendiente que no se puede completar nunca no es un
+> pendiente: es ruido que tapa a los reales.
+
+**Un fix de generador solo vale para lo que se vuelve a generar.** Las 116 tarjetas de
+«M5 -95» arrancaban con un « · » colgando — el bug que este documento ya daba por cerrado, y
+que efectivamente está arreglado en `curso-a-portal.mjs` desde el 17/08. El archivo era del
+13 y nunca se había regenerado. La prueba de que el fix anda estaba al lado: el curso que lo
+motivó, regenerado, no lo tiene.
+
+## Lo que quedó abierto, con el archivo donde vive
+
+- **`bajados.txt` sobrevive a `--liberar`.** `curso-bajar.mjs` usa `--download-archive`;
+  cuando `curso-a-drive.mjs --liberar` borra los `.mp4` locales, el registro sigue diciendo
+  «ya bajado». Reanudar un curso liberado no baja nada y `video/` queda vacío **sin error**.
+  Sin caso medido, pero va en contra de todo lo de acá arriba.
+- **El `fusionar` de `drive.json` nunca borra una entrada** (`curso-a-drive.mjs`). Un recurso
+  que hoy se borra por dedup sobrevive ahí con su `driveId`, y `construirRecursos` lo vuelve
+  a emitir sin preguntar si el archivo sigue en disco. Hoy hay **0 fantasmas** en los 12
+  cursos con recursos. El colateral caro: esas entradas inflan el conteo y **desactivan el
+  guard** de «recurso sin id», porque un real sin id queda tapado por un fantasma con id.
+- **20 transcripciones huérfanas en `public/cono-tx`** (259 KB) que no están en ningún
+  `drive.json` (1.647 ids indexados) ni en ningún `curso-*.ts`. Antes de borrarlas hay que
+  saber de qué clases son. La pregunta hermana: un `cono-tx/<videoId>.json` queda huérfano
+  cada vez que un video se re-sube y Drive le da otro id.
+- **632 clases publican el nombre de su módulo cortado a 32 caracteres exactos**, en 14
+  cursos («Jaque Blue - Creacion de Conteni», «Modulo 06 - Headings Modulo 06 -»). **No es
+  nuestro**: `crudo.json` de bigseo ya trae el título cortado desde la API, y el mismo
+  endpoint devuelve títulos de 72 y 64 sin cortar para otros cursos. Del lado nuestro el
+  nombre completo **no existe en ninguna respuesta**. Lo que sí se puede es detectarlo.
+- **433 clases sin duración en la tarjeta**, las de los tres cursos que viven dentro del
+  auto-generado `curso.ts` (anteriores al pipeline, sin carpeta en `C:\cursos`). El
+  buscador y el módulo NO se ven afectados (eso lo afirmaba el hallazgo original y la
+  refutación lo tumbó): falta la duración, nada más.
+- **`mateo-maffia-byf` sigue listado con «2 recursos»** que la API dice que no existen: el
+  inventario quedó contaminado con filas de otro curso. Se cierra re-corriendo el inventario.
+
+## Lo que dio LIMPIO (para que nadie lo vuelva a auditar de cero)
+
+- `hasTx` → archivo: **2.078 de 2.078**, sin faltantes, sin JSON inválido, sin vacíos, y
+  tampoco el caso inverso.
+- `hasDoc`/`docSlug` → archivo: 33 de 33.
+- 0 recursos con slug repetido dentro de un curso · 0 clases con `n` repetido · 0
+  `recursoSlugs` apuntando a un recurso inexistente · 0 `videoId` repetido entre clases.
+- `catalogo.ts` ↔ archivos: los 24 `curso-*.ts` importados, no sobra ni falta ninguno.
+- `public/cono-ugc`: 84 archivos validados por firma mágica y, en los webp, por el largo
+  declarado en el header RIFF. 0 truncados.
+- `curso-a-drive.mjs` copia comparando TAMAÑO, no existencia: ése sí se entera de un
+  archivo rehecho.
+
+## Lo que el barrido NO pudo ver
+
+**Nada se ejecutó de punta a punta**: no arrancó Chrome, no se tocó la plataforma de origen
+y no se subió nada a Drive. Toda la etapa de plan y de descarga quedó leída, no ejercitada.
+**No se abrió el portal en el navegador**: los cinco hallazgos visuales están MEDIDOS sobre
+el dato en disco, no MIRADOS — y la regla de este documento dice que un dato que solo se
+mira en su JSON no está verificado. Y **no se verificó que los `driveId` EXISTAN** en Drive,
+solo que estén bien formados: un id sintácticamente perfecto que apunta a un archivo borrado
+pinta un iframe muerto sin tirar error.
