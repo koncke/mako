@@ -2669,3 +2669,118 @@ no se puede afirmar ni que falten ni que no existan. Hay que mirarlas contra la 
 
 **Vive en:** `scripts/curso-a-portal.mjs` · `scripts/curso-a-drive.mjs` (`--solo-ids`) ·
 `C:\cursos\<slug>\drive.json`
+
+---
+
+## ⚠️ La transcripción estaba impecable, y era media clase
+
+**Síntoma:** ninguno. La ficha del curso se ve completa, la clase tiene su transcripción,
+el texto está bien escrito y bien puntuado. Simplemente termina antes que la clase.
+
+Medido en **Creator Club: 50 de 62 audios cortados**, uno al **2 %** —1,7 minutos de habla
+para una clase de 69— y los 50 publicados en el portal. Cuatro clases más en **ATV
+Advantage** (167-170), que cortan a mitad de palabra: *«…yo puse si la persona me escribe
+de, de mensaje-»*.
+
+**Causa raíz — una carrera:** el audio se extrajo mientras `yt-dlp` todavía estaba
+escribiendo el `.mp4`, así que ffmpeg copió lo que había hasta ese momento. El guard de
+`.part` que existe en `curso-audio.mjs` cubre el caso en que el temporal sobrevive; cuando
+no queda ninguno, no hay nada que delate el corte.
+
+**Y por qué siguió pasando después de arreglarse solo:** `valido()` contesta si el archivo
+**decodifica**. Se lo estaba usando para contestar si está **completo**, que es otra
+pregunta. Un audio de 4 minutos de una clase de 24 decodifica perfecto, así que la
+reanudación decía «ya estaba» corrida tras corrida y el archivo malo era permanente.
+
+> **La regla:** cuando un paso deriva un archivo de otro, lo que se verifica es que llegue
+> hasta el **final de la fuente**. La integridad se mide contra el original, nunca contra
+> sí mismo. `valido()` (decodifica) y `completo()` (dura lo que tiene que durar) son dos
+> funciones a propósito.
+
+### La vara que funciona cuando el video ya no está
+
+`curso-audios-cortos.mjs` compara duraciones, pero **solo puede ver los cursos que todavía
+tienen el video en disco** — y el video se libera al subir a Drive. Barrió 3 de 18 cursos y
+decir «solo creator-club tiene el problema» habría sido, otra vez, un chequeo que no puede
+ver algo contestando «no hay».
+
+Lo que sí sobrevive es lo publicado: cada clase lleva su duración en `cardDesc` y su texto
+en `public/cono-tx/<videoId>.json`. Con eso se miden **palabras por minuto**, y el umbral se
+calibró contra las **1.306 clases** del portal:
+
+    curso sano            mediana 158-207 wpm     clases bajo 40 wpm: 0
+    creator-club          mediana  41 wpm         clases bajo 40 wpm: 31
+    ATV Advantage         mediana 181 wpm         clases bajo 40 wpm: 4  ← 167-170
+
+**Cero falsos positivos en 1.306 clases**, y los 4 de ATV se verificaron uno por uno: los
+tres leídos cortan a mitad de frase. El margen es enorme (40 contra una mediana sana de
+~170), pero es un proxy: una clase legítimamente callada —un screencast sin voz— caería
+adentro. Por eso el veredicto se confirma leyendo el final del texto, que es lo que
+distingue «clase callada» de «corte».
+
+**Vive en:** `scripts/curso-audio.mjs` (`completo`, `TOLERANCIA`) ·
+`scripts/curso-audios-cortos.mjs` · `public/cono-tx/<videoId>.json`
+
+---
+
+## Cien de los 283 recursos de RAIO eran metadata del Finder
+
+Cuando alguien sube una carpeta desde una Mac, el Finder mete un hermano `._<nombre>` por
+cada archivo: el *resource fork* (AppleDouble), ~1,8 KB, que no abre con nada. La
+plataforma los ingirió como recursos más, así que **la API los declara igual que a los
+buenos** — mismo `file_type`, mismo módulo, `file_size` propio.
+
+En «Programa RAIO» son **100 de 283**: el 35 % de la corrida (~43 minutos de descarga a 26
+s por archivo) y, publicados, cien filas en «Recursos» que al hacer clic no muestran nada.
+El filtro va en la **descarga**, no en el portal: lo que no se baja no se sube a Drive, no
+se indexa y no se publica.
+
+### Y el bug que los volvió peores: un tamaño que no matchea se guardaba igual
+
+Los 45 que alcanzaron a bajarse pesaban **todos exactamente 17.576 B** —un solo hash para
+los 45— cuando la metadata declaraba 1.836. Era el mismo asset de la página guardado 45
+veces con 45 nombres distintos.
+
+`porLector()` elige entre los candidatos que llegaron por el que coincide con el
+`file_size` declarado. Cuando ninguno coincidía, escribía el motivo en `descartes`
+—una variable que **solo se lee en la rama de error**— y devolvía el candidato igual:
+
+```js
+if (mejor) {
+  if (bytesEsperados) descartes.push(`ninguno pesa los ${bytesEsperados}B declarados…`);
+  return mejor;                                   // ⛔ detecta, anota, y sigue
+}
+```
+
+Es el `console.warn` que no frena nada de `AGENTS.md`, pero sin llegar siquiera a un log.
+
+> **La regla:** si se declaró un tamaño y ningún candidato lo tiene, **eso es un fallo**.
+> `file_size` existe justamente para identificar cuál de los candidatos es el archivo;
+> ignorarlo cuando no coincide es tirar el único dato que lo distingue. Y **un archivo
+> equivocado es peor que un archivo que falta**: el que falta se vuelve a intentar, el
+> equivocado se publica.
+
+### Repetido no es duplicado: el criterio incluye el MÓDULO
+
+La plataforma tiene material cargado más de una vez. El mismo `.xlsx` está **seis veces en
+el módulo 3** de «Vender por FB e IG Ads»; el mismo `.txt` de 464 B, **siete veces** en
+RAIO. Los nombres no coinciden —el numerito de orden («2.», «3.», «5.») lo pone la
+plataforma y es distinto en cada copia—, así que se compara por hash.
+
+**Pero deduplicar por contenido a secas rompe el caso legítimo:** `atajos apple.pdf` está
+colgado del módulo 0 **y** del 4 de Guille, y eso lo hizo el autor a propósito — sacarlo
+del segundo le saca al lector el material de ese módulo. Lo que sobra es la copia que cae
+en el **mismo lugar** que otra.
+
+**Vive en:** `scripts/curso-recursos-vip.mjs` (`esFinderJunk`, `porLector`, el bloque de
+dedup por `moduloId + hash`)
+
+### Lo que quedó pendiente de esto
+
+- **Las 4 clases de ATV Advantage (167-170)** hay que volver a bajarlas de la fuente: el
+  video local ya no está, así que no alcanza con re-extraer el audio.
+- **`curso-recursos-todos.mjs` sigue midiendo «lo que falta» con `recursosUnicos`**, que
+  cuenta los `._` y las copias intra-módulo. Después de esta limpieza el número de la
+  fuente siempre va a ser mayor que el del portal, así que el listado de pendientes marca
+  cursos que ya están completos. Es cosmético (las corridas ahora saltean lo que ya está),
+  pero el conteo miente.

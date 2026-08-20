@@ -67,10 +67,23 @@ const indice: string[] = [];
 for (const [clave, piezas] of [...grupos].sort()) {
   const dest = join(A, `${clave}.md`);
   if (existsSync(dest)) {
-    console.log(`  = ${clave}  (ya estaba)`);
-    saltadas++;
-    indice.push(`- [${clave}](${clave}.md)`);
-    continue;
+    // ⚠️ «EXISTE» NO ES «ESTÁ AL DÍA». Si el audio se rehizo —porque el anterior estaba
+    // cortado, que es justo lo que `curso-audio.mjs` ahora detecta— la transcripción
+    // vieja sigue en disco y este salteo la deja ahí para siempre. Pasó con «Creator
+    // Club»: 50 audios corregidos y 50 transcripciones de media clase publicadas, sin
+    // una línea que lo dijera.
+    //
+    // La misma regla que el audio contra el video: un derivado se compara con SU FUENTE.
+    // Acá la vara es la fecha, que es lo que hay cuando el contenido no se puede comparar.
+    const tDest = statSync(dest).mtimeMs;
+    const tFuente = Math.max(...piezas.map((f) => statSync(join(DE, f)).mtimeMs));
+    if (tDest >= tFuente) {
+      console.log(`  = ${clave}  (ya estaba)`);
+      saltadas++;
+      indice.push(`- [${clave}](${clave}.md)`);
+      continue;
+    }
+    console.log(`  ↻ ${clave}  (el audio es más nuevo que la transcripción — la rehago)`);
   }
 
   const partes: string[] = [];
