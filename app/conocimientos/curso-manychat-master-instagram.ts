@@ -20,10 +20,81 @@ export const CURSO_MANYCHAT_MASTER_INSTAGRAM: Curso = {
   eyebrow: 'Curso externo',
   titulo: 'ManyChat Master - Instagram - Andy Landa',
   subtitulo: '25 clases, 6 módulos. Video, transcripción y tus apuntes en un solo lugar.',
-  volumen: '25 clases',
+  volumen: '3,5 h',
   portada: '/cono-portadas/manychat-master-instagram.png',
   recursos: [
-
+    {
+      slug: '01-1-story-crack-de-manychat',
+      label: '01 - 1. STORY - Crack de ManyChat',
+      cardDesc: 'Material de «Módulo 1 - Empieza aquí»',
+      tipo: 'file',
+      ext: 'png',
+      driveId: '102Ey-v-JXiEGJDVKtLWiQ8z1V38Zd2ZB',
+      clases: [1],
+    },
+    {
+      slug: '02-1-dejemos-todo-listo',
+      label: '02 - 1. Dejemos todo listo',
+      cardDesc: 'Material de «Módulo 2 - Dejemos todo listo»',
+      tipo: 'pdf',
+      driveId: '1-uUTvXsgQ7DxL0XkLfxCkA4bE8HIIwU_',
+      clases: [2, 3],
+    },
+    {
+      slug: '02-2-que-cuentas-recomiendo',
+      label: '02 - 2. Que cuentas recomiendo',
+      cardDesc: 'Material de «Módulo 2 - Dejemos todo listo»',
+      tipo: 'pdf',
+      driveId: '1mAJhCxYwgDmSOTR90jg9SJxXVVDfRtGW',
+      clases: [2, 3],
+    },
+    {
+      slug: '03-2-diccionario-crack-de-manychat',
+      label: '03 - 2. Diccionario Crack de ManyChat',
+      cardDesc: 'Material de «Módulo 3 - Navega como Crack»',
+      tipo: 'pdf',
+      driveId: '1niqf9RJ09-qs1AHYYrmplwMd1C3r8gU6',
+      clases: [4, 5, 6],
+    },
+    {
+      slug: '03-3-app-de-manychat',
+      label: '03 - 3. APP de ManyChat',
+      cardDesc: 'Material de «Módulo 3 - Navega como Crack»',
+      tipo: 'file',
+      ext: 'jpg',
+      driveId: '1uCOi4DsDtLNN3hGc3XAwNfxInHhPb02C',
+      clases: [4, 5, 6],
+    },
+    {
+      slug: '05-1-omg-y-si-copias-mis-flows',
+      label: '05 - 1. OMG y si copias MIS flows',
+      cardDesc: 'Material de «Módulo 5 - Creamos tus Automatiz»',
+      tipo: 'pdf',
+      driveId: '1QdYLKC7gVyI9XdRnyQ9LTRwHrmlA8mg2',
+      clases: [15, 16, 17, 18, 19, 20, 21, 22, 23],
+    },
+    {
+      slug: '06-1-tu-diploma',
+      label: '06 - 1. Tu Diploma',
+      cardDesc: 'Material de «Módulo 6 - Ya eres un Crack de M»',
+      tipo: 'pdf',
+      driveId: '1erOJLjRjMBhn7lOgi0k-aSl0zWmxS9Wn',
+      clases: [24, 25],
+    },
+    {
+      slug: '07-1-comentarios-a-automatizaciones-crack-de-manychat',
+      label: '07 - 1. Comentarios a Automatizaciones Crack de ManyChat',
+      cardDesc: 'Material de «Módulo 7 - BONUS - Regalitos de»',
+      tipo: 'pdf',
+      driveId: '1rCGhtOah46W4cu1o_UgTUzctrG4wjL66',
+    },
+    {
+      slug: '07-2-botones-y-cta-crack-de-manychat',
+      label: '07 - 2. Botones y CTA Crack de ManyChat',
+      cardDesc: 'Material de «Módulo 7 - BONUS - Regalitos de»',
+      tipo: 'pdf',
+      driveId: '19SzfaH462m3uA7Ad6GJGwLOHf4oScZQh',
+    },
   ],
   clases: [
     {
@@ -37,7 +108,7 @@ export const CURSO_MANYCHAT_MASTER_INSTAGRAM: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['01-1-story-crack-de-manychat'],
       herramientas: [],
     },
     {
@@ -51,7 +122,7 @@ export const CURSO_MANYCHAT_MASTER_INSTAGRAM: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['02-1-dejemos-todo-listo', '02-2-que-cuentas-recomiendo'],
       herramientas: [],
     },
     {
@@ -65,7 +136,7 @@ export const CURSO_MANYCHAT_MASTER_INSTAGRAM: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['02-1-dejemos-todo-listo', '02-2-que-cuentas-recomiendo'],
       herramientas: [],
     },
     {
@@ -79,7 +150,7 @@ export const CURSO_MANYCHAT_MASTER_INSTAGRAM: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['03-2-diccionario-crack-de-manychat', '03-3-app-de-manychat'],
       herramientas: [],
     },
     {
@@ -93,7 +164,7 @@ export const CURSO_MANYCHAT_MASTER_INSTAGRAM: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['03-2-diccionario-crack-de-manychat', '03-3-app-de-manychat'],
       herramientas: [],
     },
     {
@@ -107,7 +178,7 @@ export const CURSO_MANYCHAT_MASTER_INSTAGRAM: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['03-2-diccionario-crack-de-manychat', '03-3-app-de-manychat'],
       herramientas: [],
     },
     {
@@ -233,7 +304,7 @@ export const CURSO_MANYCHAT_MASTER_INSTAGRAM: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['05-1-omg-y-si-copias-mis-flows'],
       herramientas: [],
     },
     {
@@ -247,7 +318,7 @@ export const CURSO_MANYCHAT_MASTER_INSTAGRAM: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['05-1-omg-y-si-copias-mis-flows'],
       herramientas: [],
     },
     {
@@ -261,7 +332,7 @@ export const CURSO_MANYCHAT_MASTER_INSTAGRAM: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['05-1-omg-y-si-copias-mis-flows'],
       herramientas: [],
     },
     {
@@ -275,7 +346,7 @@ export const CURSO_MANYCHAT_MASTER_INSTAGRAM: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['05-1-omg-y-si-copias-mis-flows'],
       herramientas: [],
     },
     {
@@ -289,7 +360,7 @@ export const CURSO_MANYCHAT_MASTER_INSTAGRAM: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['05-1-omg-y-si-copias-mis-flows'],
       herramientas: [],
     },
     {
@@ -303,7 +374,7 @@ export const CURSO_MANYCHAT_MASTER_INSTAGRAM: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['05-1-omg-y-si-copias-mis-flows'],
       herramientas: [],
     },
     {
@@ -317,7 +388,7 @@ export const CURSO_MANYCHAT_MASTER_INSTAGRAM: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['05-1-omg-y-si-copias-mis-flows'],
       herramientas: [],
     },
     {
@@ -331,7 +402,7 @@ export const CURSO_MANYCHAT_MASTER_INSTAGRAM: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['05-1-omg-y-si-copias-mis-flows'],
       herramientas: [],
     },
     {
@@ -345,7 +416,7 @@ export const CURSO_MANYCHAT_MASTER_INSTAGRAM: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['05-1-omg-y-si-copias-mis-flows'],
       herramientas: [],
     },
     {
@@ -359,7 +430,7 @@ export const CURSO_MANYCHAT_MASTER_INSTAGRAM: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['06-1-tu-diploma'],
       herramientas: [],
     },
     {
@@ -373,7 +444,7 @@ export const CURSO_MANYCHAT_MASTER_INSTAGRAM: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['06-1-tu-diploma'],
       herramientas: [],
     },
   ],

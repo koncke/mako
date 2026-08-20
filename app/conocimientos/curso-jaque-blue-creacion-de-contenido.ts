@@ -20,10 +20,48 @@ export const CURSO_JAQUE_BLUE_CREACION_DE_CONTENIDO: Curso = {
   eyebrow: 'Curso externo',
   titulo: 'Jaque Blue - Creacion de Contenido',
   subtitulo: '20 clases, 1 módulos. Video, transcripción y tus apuntes en un solo lugar.',
-  volumen: '20 clases',
+  volumen: '4,5 h',
   portada: '/cono-portadas/jaque-blue-creacion-de-contenido.jpg',
   recursos: [
-
+    {
+      slug: '02-05-ideazas',
+      label: '02 - (05) Ideazas',
+      cardDesc: 'Material de «(05) IDEAZAS»',
+      tipo: 'file',
+      ext: 'txt',
+      driveId: '1U_Y0f_WK6234_JjU21FnRwtPR8NIJWfm',
+    },
+    {
+      slug: '05-04-3-inteligencia-artificial',
+      label: '05 - (04.3) Inteligencia Artificial',
+      cardDesc: 'Material de «(04) SE EL MEJOR»',
+      tipo: 'file',
+      ext: 'txt',
+      driveId: '1tahQL1T6S9-AYwdt-GlD0arviS4WVRLH',
+    },
+    {
+      slug: '06-06-2-guion',
+      label: '06 - (06.2) Guion',
+      cardDesc: 'Material de «(06) VIDEAZOS»',
+      tipo: 'file',
+      ext: 'txt',
+      driveId: '16E8kyFDFEAG3hosWIljEgqxvqP3tmsYg',
+    },
+    {
+      slug: '09-as-bajo-la-manga',
+      label: '09 - As bajo la manga',
+      cardDesc: 'Material de «(17) AS BAJO LA MANGA»',
+      tipo: 'file',
+      ext: 'txt',
+      driveId: '1mwGizE1U8fawPGma1C8gv-0NC-A32KC0',
+    },
+    {
+      slug: '09-descripcion',
+      label: '09 - DESCRIPCION',
+      cardDesc: 'Material de «(17) AS BAJO LA MANGA»',
+      tipo: 'pdf',
+      driveId: '1ce1wX124NCxXu-HMQixsq57y2bs5Ip8S',
+    },
   ],
   clases: [
     {
