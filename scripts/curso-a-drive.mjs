@@ -103,9 +103,27 @@ const idsDeDrive = (nombres) => {
   const src = dbDeDrive();
   if (!src) return { error: `no encontré metadata_sqlite_db bajo ${DFS}` };
   // Copiar: Drive la tiene abierta y un open directo falla o lee a medias.
+  //
+  // ⚠️ HAY QUE COPIAR EL `-wal` TAMBIÉN, Y ESTO ERA LA CAUSA DE TODO EL «DRIVE TARDA
+  // EN REGISTRAR». La base de Drive está en modo WAL: lo que se escribió desde el
+  // último checkpoint vive en `metadata_sqlite_db-wal`, no en el archivo principal.
+  // Copiando solo el `.db` se lee una FOTO VIEJA — medido el 2026-08-20: el `.db`
+  // congelado a las 13:42 y el `-wal` de 46,9 MB escribiéndose a las 14:21. Un archivo
+  // subido a las 13:53 no existía para el script, y el `-wal` de 47 MB dice cuánto
+  // estado más estaba invisible.
+  //
+  // El síntoma no se parece a una lectura vieja: se parece a que Drive tarda. Por eso
+  // hay bucles de espera de 10 minutos en `curso-recursos-todos.mjs` y por eso «resolver
+  // ids» falla y «publicar» aborta pidiendo justo lo que acaba de correr. Se esperaba a
+  // que Drive checkpointeara el WAL, que puede tardar horas — no a que subiera el
+  // archivo, que ya estaba subido.
+  //
+  // Se copian los tres y se abre SIN `readOnly`: sobre la copia temporal, SQLite tiene
+  // que poder recuperar el WAL, y en readOnly no lo hace.
   const tmp = join(tmpdir(), `dfs-${process.pid}.db`);
-  copyFileSync(src, tmp);
-  const db = new DatabaseSync(tmp, { readOnly: true });
+  const sufijos = ['', '-wal', '-shm'];
+  for (const s of sufijos) if (existsSync(src + s)) copyFileSync(src + s, tmp + s);
+  const db = new DatabaseSync(tmp);
   const q = db.prepare(`SELECT id, local_title, file_size, trashed FROM items
                         WHERE local_title = ? AND is_folder = 0 AND trashed = 0`);
   const out = new Map();
@@ -118,7 +136,7 @@ const idsDeDrive = (nombres) => {
     else if (filas.length) enVuelo.set(n, filas[0].id); // hay fila, con id placeholder
   }
   db.close();
-  try { unlinkSync(tmp); } catch {}
+  for (const s of sufijos) { try { unlinkSync(tmp + s); } catch {} }
   return { ids: out, enVuelo };
 };
 
