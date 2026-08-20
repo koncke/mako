@@ -77,6 +77,21 @@ const segundos = (c) => {
 };
 const clave = (c) => `${norm(c.titulo)}|${segundos(c) ?? '?'}`;
 
+// ⚠️ Y EL TÍTULO NO SIEMPRE SIRVE NI COMO DESEMPATE. En BigSEO alcanzaba con sacarle el
+// número de orden; en «Jaque Blue» las dos capturas leyeron rótulos DISTINTOS para la
+// misma clase —«1- Pre INTRO» contra «PRE INTRO», «3. Haz Bajo La manga» contra «AS BAJO
+// LA MANGA»— y el match cayó a 2 de 20, o sea que 18 clases ya bajadas se habrían vuelto
+// a bajar y a transcribir. Las duraciones, en cambio, coincidían las 20.
+//
+// Así que el criterio es de DOS PASADAS: primero título+duración, que es el fuerte, y lo
+// que quede se resuelve por DURACIÓN sola. La duración no es única por diseño (acá hay
+// dos clases con 812 y 813 s), por eso va segunda y consumiendo de a una: lo que empareja
+// bien por nombre no entra nunca a la pasada floja.
+//
+// La tolerancia existe porque las dos fuentes redondean distinto: la misma clase figura
+// con 812 s en el inventario y 813 en el plan.
+const TOLERANCIA_S = 2;
+
 // Un mismo (módulo, título) puede repetirse de verdad: se consumen en orden.
 const porClave = new Map();
 for (const c of viejo.clases) {
@@ -89,11 +104,27 @@ let libre = Math.max(0, ...viejo.clases.map((c) => Number(c.n) || 0));
 const usados = new Set();
 const salida = [];
 const nuevas = [];
+
+// PASADA 1 (fuerte): título + duración. Se resuelve entera antes de tocar la floja, para
+// que una coincidencia de duración no le robe la entrada a un match por nombre.
+const empareja = new Map();
 for (const c of nuevo.clases) {
-  const k = clave(c);
-  const cola = porClave.get(k);
-  if (cola?.length) {
-    const previa = cola.shift();
+  const cola = porClave.get(clave(c));
+  if (cola?.length) empareja.set(c, cola.shift());
+}
+// PASADA 2 (floja): duración sola, con tolerancia, sobre lo que quedó sin emparejar.
+const libresViejas = viejo.clases.filter((v) => ![...empareja.values()].includes(v));
+for (const c of nuevo.clases) {
+  if (empareja.has(c)) continue;
+  const s = segundos(c);
+  if (s == null) continue;
+  const i = libresViejas.findIndex((v) => { const t = segundos(v); return t != null && Math.abs(t - s) <= TOLERANCIA_S; });
+  if (i > -1) empareja.set(c, libresViejas.splice(i, 1)[0]);
+}
+
+for (const c of nuevo.clases) {
+  const previa = empareja.get(c);
+  if (previa) {
     usados.add(previa);
     // ⚠️ SE CONSERVA `n` Y `archivo`, Y SE REFRESCA EL RESTO. Esos dos son el único
     // enganche con lo que ya existe en disco y en Drive («NN - Título.mp4», y
@@ -104,7 +135,15 @@ for (const c of nuevo.clases) {
     salida.push({ ...c, n: previa.n, archivo: previa.archivo, sinFuente: previa.sinFuente ?? c.sinFuente });
     continue;
   }
-  const conN = { ...c, n: ++libre };
+  // ⚠️ EL `archivo` DE UNA CLASE NUEVA HAY QUE RENUMERARLO. Viene del plan nuevo, donde
+  // esta clase era la 16 de 23; acá pasa a ser la 22, y si el nombre se deja como estaba
+  // quedan DOS archivos «16 - …» en la misma carpeta. Todo el pipeline aguas abajo lee el
+  // número del BASENAME (`nDe()` en curso-audio, el mapeo de curso-a-drive), así que el
+  // segundo «16» se atribuye a la clase 16 y el curso queda mezclado — que es justo lo
+  // que este script existe para evitar. Pasó con «Jaque Blue»: 13, 16 y 18 duplicados.
+  const n = ++libre;
+  const resto = String(c.archivo ?? c.titulo ?? '').replace(/^\d+\s*-\s*/, '');
+  const conN = { ...c, n, archivo: `${String(n).padStart(2, '0')} - ${resto}` };
   salida.push(conN);
   nuevas.push(conN);
 }
