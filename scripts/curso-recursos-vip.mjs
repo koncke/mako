@@ -397,8 +397,19 @@ const main = async () => {
       continue;
     }
 
-    if (existsSync(salida) && Number(r.file_size) && statSync(salida).size === Number(r.file_size)) {
-      console.log(`  = ${nombre}`);
+    // ⚠️ EL SKIP TIENE QUE BUSCAR CUALQUIER EXTENSIÓN. `nombre` se arma con el `file_type`
+    // que declara la metadata, pero la rama del lector guarda con la extensión REAL del
+    // archivo — y esas dos no siempre coinciden. Buscando solo `nombre`, un recurso ya
+    // bajado no se reconocía y se volvía a bajar en cada corrida: «Programa RAIO» avanzaba
+    // ~27 de sus 283 por pasada, rehaciendo el resto, y nunca terminaba.
+    const raizNombre = nombre.replace(/\.[a-z0-9]+$/i, '');
+    const yaBajado = readdirSync(destino).find((f) => {
+      if (f.replace(/\.[a-z0-9]+$/i, '') !== raizNombre) return false;
+      if (!Number(r.file_size)) return true;                 // sin tamaño declarado, alcanza el nombre
+      try { return statSync(join(destino, f)).size === Number(r.file_size); } catch { return false; }
+    });
+    if (yaBajado) {
+      console.log(`  = ${yaBajado}`);
       ya++; continue;
     }
     // ── SIN URL FIRMADA: EL CAMINO DEL ÁREA /curso/ ─────────────────────────────

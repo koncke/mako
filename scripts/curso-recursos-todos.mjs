@@ -73,7 +73,7 @@ function pendientes() {
 
 const correr = (script, args) => {
   const r = spawnSync(process.execPath, [join(REPO, 'scripts', script), ...args], {
-    encoding: 'utf8', timeout: 20 * 60 * 1000,
+    encoding: "utf8", timeout: Number(arg("tope-min", 20)) * 60 * 1000,
   });
   const salida = `${r.stdout ?? ''}${r.stderr ?? ''}`;
   return { ok: r.status === 0, code: r.status, cola: salida.trim().split('\n').slice(-4).join('\n   ') };
