@@ -20,12 +20,12 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
   eyebrow: 'Curso externo',
   titulo: 'Aumenta tu valor y ATV ADVANTAGE - Juan Carrizo',
   subtitulo: '249 clases, 13 módulos. Video, transcripción y tus apuntes en un solo lugar.',
-  volumen: '249 clases',
+  volumen: '56,9 h',
   portada: '/cono-portadas/aumenta-tu-valor-y-atv-advantage.png',
   recursos: [
     {
       slug: '01-cambiando-tu-realidad-construccion-sos-quien-pensas-que-s',
-      label: '01 - Cambiando tu realidad _ Construcción_ Sos quién pensas que sos',
+      label: '01 - Cambiando tu realidad Construcción Sos quién pensas que sos',
       cardDesc: 'Material de «2. CAMBIANDO TU REALIDAD»',
       tipo: 'pdf',
       driveId: '1PNmmGhoS7S1WC5vQApBY9fufdeknkaWi',
@@ -41,7 +41,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '03-copia-de-accion-pensar',
-      label: '03 - Copia de Acción _ Pensar',
+      label: '03 - Copia de Acción Pensar',
       cardDesc: 'Material de «1. Mentalidad Correcta»',
       tipo: 'pdf',
       driveId: '12KSgOcytuwIC5iQArDo4xD7lPzV116_m',
@@ -81,7 +81,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '03-copia-de-sop-entregable-comunicacion',
-      label: '03 - Copia de SOP ENTREGABLE_ COMUNICACIÓN',
+      label: '03 - Copia de SOP ENTREGABLE COMUNICACIÓN',
       cardDesc: 'Material de «5. Generación de leads»',
       tipo: 'pdf',
       driveId: '1TTq-egmNZI2bP3CvbBbtRWSHt0CcJgRj',
@@ -89,7 +89,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '03-copia-de-sop-aumentar-princing-de-oferta-1',
-      label: '03 - Copia de SOP_ AUMENTAR PRINCING DE OFERTA (1)',
+      label: '03 - Copia de SOP AUMENTAR PRINCING DE OFERTA (1)',
       cardDesc: 'Material de «2. Bases de negocio»',
       tipo: 'pdf',
       driveId: '1_4vXxwh1Su8MF9jv2J_me6xj5CoMox_l',
@@ -97,7 +97,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '03-copia-de-sop-aumentar-princing-de-oferta',
-      label: '03 - Copia de SOP_ AUMENTAR PRINCING DE OFERTA',
+      label: '03 - Copia de SOP AUMENTAR PRINCING DE OFERTA',
       cardDesc: 'Material de «2. Bases de negocio»',
       tipo: 'pdf',
       driveId: '133Qn58-R8C5-2EQzX9xZGdtijYXprqHf',
@@ -105,7 +105,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '03-copia-de-sop-como-crear-tu-comunicacion',
-      label: '03 - Copia de SOP_ Como crear tu Comunicación',
+      label: '03 - Copia de SOP Como crear tu Comunicación',
       cardDesc: 'Material de «5. Generación de leads»',
       tipo: 'pdf',
       driveId: '1wyF1lqLBRNRUJhlGdiphzvJNs5GDB8GN',
@@ -113,7 +113,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '03-copia-de-sop-creacion-de-producto-mvp',
-      label: '03 - Copia de SOP_ CREACION DE PRODUCTO MVP',
+      label: '03 - Copia de SOP CREACION DE PRODUCTO MVP',
       cardDesc: 'Material de «2. Bases de negocio»',
       tipo: 'pdf',
       driveId: '1SyAwEq6gXkYKXv-57rygWexu8xWd-3go',
@@ -121,7 +121,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '03-copia-de-sop-creacion-y-optimizacion-de-producto',
-      label: '03 - Copia de SOP_ CREACION Y OPTIMIZACION DE PRODUCTO',
+      label: '03 - Copia de SOP CREACION Y OPTIMIZACION DE PRODUCTO',
       cardDesc: 'Material de «6. Crecimiento»',
       tipo: 'pdf',
       driveId: '1r-5VM4pcqYmXHYnbdmwDxMkl4HskdTwL',
@@ -129,7 +129,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '03-copia-de-sop-diagnostico-de-capas-de-negocio',
-      label: '03 - Copia de SOP_ DIAGNÓSTICO DE CAPAS DE NEGOCIO',
+      label: '03 - Copia de SOP DIAGNÓSTICO DE CAPAS DE NEGOCIO',
       cardDesc: 'Material de «2. Bases de negocio»',
       tipo: 'pdf',
       driveId: '15L0vTb2Ow9GT-dOyzg8XsSqBPu3Xvqz4',
@@ -137,7 +137,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '03-copia-de-sop-diagnostico-y-accion-volumen-analisis-apalan',
-      label: '03 - Copia de SOP_ DIAGNÓSTICO Y ACCIÓN – VOLUMEN, ANÁLISIS, APALANCAMIENTO',
+      label: '03 - Copia de SOP DIAGNÓSTICO Y ACCIÓN – VOLUMEN, ANÁLISIS, APALANCAMIENTO',
       cardDesc: 'Material de «1. Mentalidad Correcta»',
       tipo: 'pdf',
       driveId: '1xcpo9TygOV6IIKx-AiYiYmBP8OUql6TX',
@@ -145,7 +145,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '03-copia-de-sop-estructura-de-llamada',
-      label: '03 - Copia de SOP_ ESTRUCTURA DE LLAMADA',
+      label: '03 - Copia de SOP ESTRUCTURA DE LLAMADA',
       cardDesc: 'Material de «5. Generación de leads»',
       tipo: 'pdf',
       driveId: '12XM3TojjtUgbpcG62d3Z5H5jlS3WlMCr',
@@ -153,7 +153,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '03-copia-de-sop-lectura-y-accion-en-ciclos-de-mercado',
-      label: '03 - Copia de SOP_ LECTURA Y ACCIÓN EN CICLOS DE MERCADO',
+      label: '03 - Copia de SOP LECTURA Y ACCIÓN EN CICLOS DE MERCADO',
       cardDesc: 'Material de «2. Bases de negocio»',
       tipo: 'pdf',
       driveId: '10gEdtckkzLsSoyZIxjePticlyZkIB_0e',
@@ -161,7 +161,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '03-copia-de-sop-metricas-ideales',
-      label: '03 - Copia de SOP_ METRICAS IDEALES',
+      label: '03 - Copia de SOP METRICAS IDEALES',
       cardDesc: 'Material de «3. Métricas»',
       tipo: 'pdf',
       driveId: '1qDZhZvdDuTEGXMssJLxVHyJ7T6n0mvwN',
@@ -169,7 +169,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '03-copia-de-sop-metricas',
-      label: '03 - Copia de SOP_ METRICAS',
+      label: '03 - Copia de SOP METRICAS',
       cardDesc: 'Material de «3. Métricas»',
       tipo: 'pdf',
       driveId: '1Nyondw_-4wpAxe99H-HUBvcehUie_5pC',
@@ -177,7 +177,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '03-copia-de-sop-resolucion-de-objeciones-estructura',
-      label: '03 - Copia de SOP_ RESOLUCIÓN DE OBJECIONES (ESTRUCTURA)',
+      label: '03 - Copia de SOP RESOLUCIÓN DE OBJECIONES (ESTRUCTURA)',
       cardDesc: 'Material de «5. Generación de leads»',
       tipo: 'pdf',
       driveId: '1_BbwrmAzcQsoR70L1CiGd2u1J8pdrAUw',
@@ -185,7 +185,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '03-copia-de-sop-sistemas-de-generacion-de-leads',
-      label: '03 - Copia de SOP_ SISTEMAS DE GENERACION DE LEADS',
+      label: '03 - Copia de SOP SISTEMAS DE GENERACION DE LEADS',
       cardDesc: 'Material de «5. Generación de leads»',
       tipo: 'pdf',
       driveId: '1byaymVtkcy6TVpszn8c1ZCcEB1ylJbnD',
@@ -193,7 +193,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '03-sop-auditoria-de-producto',
-      label: '03 - SOP_ AUDITORIA DE PRODUCTO',
+      label: '03 - SOP AUDITORIA DE PRODUCTO',
       cardDesc: 'Material de «6. Crecimiento»',
       tipo: 'pdf',
       driveId: '1bX5MQ_Q8mJ3m_cH8wpUSXJ7MTUDdWFsv',
@@ -201,7 +201,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '03-sop-cuando-hacer-lanzamientos',
-      label: '03 - SOP_ CUANDO HACER LANZAMIENTOS',
+      label: '03 - SOP CUANDO HACER LANZAMIENTOS',
       cardDesc: 'Material de «6. Crecimiento»',
       tipo: 'pdf',
       driveId: '1-Szd2Jtt7zOLb6ftD6MoEaqOdPeHbZi6',
@@ -209,7 +209,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '04-copia-de-sop-checklist-de-onboarding-atv',
-      label: '04 - Copia de SOP_ CHECKLIST DE ONBOARDING ATV',
+      label: '04 - Copia de SOP CHECKLIST DE ONBOARDING ATV',
       cardDesc: 'Material de «1. Equipo»',
       tipo: 'pdf',
       driveId: '1I5gsEMP_NSYV9YjZIsUdmz0YKLFVIWh0',
@@ -217,7 +217,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '04-copia-de-sop-contratacion-formularios-y-preguntas-clave-p',
-      label: '04 - Copia de SOP_ CONTRATACIÓN, FORMULARIOS Y PREGUNTAS CLAVE POR ROL',
+      label: '04 - Copia de SOP CONTRATACIÓN, FORMULARIOS Y PREGUNTAS CLAVE POR ROL',
       cardDesc: 'Material de «1. Equipo»',
       tipo: 'pdf',
       driveId: '11_b-CccXW6nM1C9zePlEpfRTx5zAStnG',
@@ -225,7 +225,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '04-copia-de-sop-como-gestionar-a-tu-equipo',
-      label: '04 - Copia de SOP_ CÓMO GESTIONAR A TU EQUIPO',
+      label: '04 - Copia de SOP CÓMO GESTIONAR A TU EQUIPO',
       cardDesc: 'Material de «1. Equipo»',
       tipo: 'pdf',
       driveId: '1LxcDpBfW-GiOa2Wz2mMxkXmQDTrjvb3y',
@@ -233,7 +233,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '04-copia-de-sop-como-onboardear-a-un-miembro-del-equipo-1',
-      label: '04 - Copia de SOP_ CÓMO ONBOARDEAR A UN MIEMBRO DEL EQUIPO (1)',
+      label: '04 - Copia de SOP CÓMO ONBOARDEAR A UN MIEMBRO DEL EQUIPO (1)',
       cardDesc: 'Material de «1. Equipo»',
       tipo: 'pdf',
       driveId: '1FFHhHNt0fCt9Mb-w6IUD760UChcXqHse',
@@ -241,7 +241,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '04-copia-de-sop-como-onboardear-a-un-miembro-del-equipo',
-      label: '04 - Copia de SOP_ CÓMO ONBOARDEAR A UN MIEMBRO DEL EQUIPO',
+      label: '04 - Copia de SOP CÓMO ONBOARDEAR A UN MIEMBRO DEL EQUIPO',
       cardDesc: 'Material de «1. Equipo»',
       tipo: 'pdf',
       driveId: '1bO8WFwUMgw5HJSXUSEQ0_qI1mXVameXW',
@@ -249,7 +249,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '04-copia-de-sop-reuniones-efectivas',
-      label: '04 - Copia de SOP_ REUNIONES EFECTIVAS',
+      label: '04 - Copia de SOP REUNIONES EFECTIVAS',
       cardDesc: 'Material de «1. Equipo»',
       tipo: 'pdf',
       driveId: '1EwrlMhNE9aKon414V0tEuFA1nVztdkx1',
@@ -257,7 +257,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '04-copia-de-sop-tipos-de-perfil-y-como-encontrarlo',
-      label: '04 - Copia de SOP_ TIPOS DE PERFIL Y COMO ENCONTRARLO',
+      label: '04 - Copia de SOP TIPOS DE PERFIL Y COMO ENCONTRARLO',
       cardDesc: 'Material de «1. Equipo»',
       tipo: 'pdf',
       driveId: '1_zaWrw2MMVTHIR6ApkV9pJ6xPrwhsJpk',
@@ -273,7 +273,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '05-sop-como-trabajar-con-un-editor',
-      label: '05 - SOP_ Como trabajar con un editor',
+      label: '05 - SOP Como trabajar con un editor',
       cardDesc: 'Material de «1. Contenido»',
       tipo: 'pdf',
       driveId: '1au3FZMiUymcn1RkGeA_gRxgcTElHiq_O',
@@ -289,7 +289,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '06-copia-de-entregable-clase-2-7-tips-para-ser-el-1-en-venta',
-      label: '06 - Copia de ENTREGABLE Clase 2_ 7 tips para ser el #1 en ventas en tu equipo',
+      label: '06 - Copia de ENTREGABLE Clase 2 7 tips para ser el #1 en ventas en tu equipo',
       cardDesc: 'Material de «3. Closing»',
       tipo: 'pdf',
       driveId: '1NGHUlP3GyF0xeCfe88d3vbO891Xx7SXz',
@@ -297,7 +297,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '06-copia-de-sop-aumentar-show-rate',
-      label: '06 - Copia de SOP_ AUMENTAR SHOW RATE',
+      label: '06 - Copia de SOP AUMENTAR SHOW RATE',
       cardDesc: 'Material de «1. Setting»',
       tipo: 'pdf',
       driveId: '1pp1rQeN3-GraurqVWp1g4miYvwULOj_T',
@@ -305,7 +305,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '06-copia-de-sop-clasificacion-de-avatar-1-pregunta',
-      label: '06 - Copia de SOP_ CLASIFICACION DE AVATAR 1 PREGUNTA',
+      label: '06 - Copia de SOP CLASIFICACION DE AVATAR 1 PREGUNTA',
       cardDesc: 'Material de «1. Setting»',
       tipo: 'pdf',
       driveId: '1rwyGadFDBMrU8o9EkNr0gcLg3sTi_kps',
@@ -313,7 +313,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '06-copia-de-sop-como-hacer-downsells-y-cuotas-sin-perder-aut',
-      label: '06 - Copia de SOP_ CÓMO HACER DOWNSELLS Y CUOTAS SIN PERDER AUTORIDAD',
+      label: '06 - Copia de SOP CÓMO HACER DOWNSELLS Y CUOTAS SIN PERDER AUTORIDAD',
       cardDesc: 'Material de «3. Closing»',
       tipo: 'pdf',
       driveId: '1tQxriIPU76AWQ-YAe-YywLQ6pvmrfgkE',
@@ -321,7 +321,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '06-copia-de-sop-como-manejar-leads-con-ego',
-      label: '06 - Copia de SOP_ CÓMO MANEJAR LEADS CON EGO',
+      label: '06 - Copia de SOP CÓMO MANEJAR LEADS CON EGO',
       cardDesc: 'Material de «3. Closing»',
       tipo: 'pdf',
       driveId: '1HjVPgI-mMw9CzYOskMw1yd_htUzxgbWO',
@@ -329,7 +329,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '06-copia-de-sop-estandar-de-tu-equipo-de-ventas',
-      label: '06 - Copia de SOP_ ESTANDAR DE TU EQUIPO DE VENTAS',
+      label: '06 - Copia de SOP ESTANDAR DE TU EQUIPO DE VENTAS',
       cardDesc: 'Material de «2. Director de ventas»',
       tipo: 'pdf',
       driveId: '1wQprUID_Gr0z9VDLOBeEYMVRL71Bi5DI',
@@ -337,7 +337,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '06-copia-de-sop-fase-de-descubrimiento',
-      label: '06 - Copia de SOP_ FASE DE DESCUBRIMIENTO',
+      label: '06 - Copia de SOP FASE DE DESCUBRIMIENTO',
       cardDesc: 'Material de «1. Setting»',
       tipo: 'pdf',
       driveId: '1jUqAVNbVxkFQf96KuJZPx1qxOmnNlKU2',
@@ -345,7 +345,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '06-copia-de-sop-follows-up',
-      label: '06 - Copia de SOP_ FOLLOWS UP',
+      label: '06 - Copia de SOP FOLLOWS UP',
       cardDesc: 'Material de «1. Setting»',
       tipo: 'pdf',
       driveId: '1stQtL4UXnh2UAA1y71ks3Djr7IJhwYP5',
@@ -353,7 +353,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '06-copia-de-sop-identificacion-de-dolores-closing',
-      label: '06 - Copia de SOP_ IDENTIFICACION DE DOLORES CLOSING',
+      label: '06 - Copia de SOP IDENTIFICACION DE DOLORES CLOSING',
       cardDesc: 'Material de «3. Closing»',
       tipo: 'pdf',
       driveId: '1_V5fiGaJAacfiVjvRB5nvEqtQO0czVw_',
@@ -361,7 +361,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '06-copia-de-sop-marco-de-identidad-closing',
-      label: '06 - Copia de SOP_ MARCO DE IDENTIDAD CLOSING',
+      label: '06 - Copia de SOP MARCO DE IDENTIDAD CLOSING',
       cardDesc: 'Material de «3. Closing»',
       tipo: 'pdf',
       driveId: '1qjyeDo3wheFqyLbTiVEnWKFSmQVPG9fA',
@@ -369,7 +369,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '06-copia-de-sop-onboarding-integrante-ventas',
-      label: '06 - Copia de SOP_ ONBOARDING INTEGRANTE VENTAS',
+      label: '06 - Copia de SOP ONBOARDING INTEGRANTE VENTAS',
       cardDesc: 'Material de «2. Director de ventas»',
       tipo: 'pdf',
       driveId: '1WVrOjHszxO-EgZJ0CsuXg_Eynkv5Qqz2',
@@ -377,7 +377,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '06-copia-de-sop-principios-de-ventas',
-      label: '06 - Copia de SOP_ PRINCIPIOS DE VENTAS',
+      label: '06 - Copia de SOP PRINCIPIOS DE VENTAS',
       cardDesc: 'Material de «3. Closing»',
       tipo: 'pdf',
       driveId: '12_cS43HkEIQ9TbQ6rS045ze64zSaq74I',
@@ -385,7 +385,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '06-copia-de-sop-reactivacion-de-leads-perdidos',
-      label: '06 - Copia de SOP_ REACTIVACION DE LEADS PERDIDOS',
+      label: '06 - Copia de SOP REACTIVACION DE LEADS PERDIDOS',
       cardDesc: 'Material de «1. Setting»',
       tipo: 'pdf',
       driveId: '1maQAKfGYs3W0DXx4_m6cFypAgnvu-H8e',
@@ -393,7 +393,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '06-copia-de-sop-reporte-de-calls',
-      label: '06 - Copia de SOP_ REPORTE DE CALLS',
+      label: '06 - Copia de SOP REPORTE DE CALLS',
       cardDesc: 'Material de «2. Director de ventas»',
       tipo: 'pdf',
       driveId: '1REpHDMFmWey7gs6nVN8OY6bFaVxajbj1',
@@ -450,7 +450,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
     },
     {
       slug: '09-copia-de-cambiando-tu-realidad-construccion-sos-quien-pen',
-      label: '09 - Copia de Cambiando tu realidad _ Construcción_ Sos quién pensas que sos',
+      label: '09 - Copia de Cambiando tu realidad Construcción Sos quién pensas que sos',
       cardDesc: 'Material de «2. Cambiando tu realidad»',
       tipo: 'pdf',
       driveId: '1eP8ek0D0jOcOAo0lSez--LKa1ALw4J46',
@@ -1742,20 +1742,6 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
       herramientas: [],
     },
     {
-      n: 78,
-      vn: 5,
-      grupo: '6. SALES',
-      subgrupo: 'Setting',
-      modulo: 6,
-      titulo: '5. Como hacer que se presenten todas tu llamadas',
-      cardDesc: '00:00 · 6. SALES',
-      videoId: null,
-      resumen: '',
-      transcripcion: [],
-      recursoSlugs: ['06-copia-de-copia-de-volumen-y-eficiencia', '06-copia-de-sop-aumentar-show-rate', '06-copia-de-sop-clasificacion-de-avatar-1-pregunta', '06-copia-de-sop-fase-de-descubrimiento', '06-copia-de-sop-follows-up', '06-copia-de-sop-reactivacion-de-leads-perdidos'],
-      herramientas: [],
-    },
-    {
       n: 79,
       vn: 6,
       grupo: '6. SALES',
@@ -2436,20 +2422,6 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
       transcripcion: [],
       hasTx: true,
       recursoSlugs: [],
-      herramientas: [],
-    },
-    {
-      n: 125,
-      vn: 3,
-      grupo: '9. PRIMERO LO PRIMERO',
-      subgrupo: 'Cambiando tu realidad',
-      modulo: 9,
-      titulo: '1. Cambiando tu realidad_ Destrucción',
-      cardDesc: '00:00 · 9. PRIMERO LO PRIMERO',
-      videoId: null,
-      resumen: '',
-      transcripcion: [],
-      recursoSlugs: ['09-copia-de-cambiando-tu-realidad-construccion-sos-quien-pen', '09-miro'],
       herramientas: [],
     },
     {

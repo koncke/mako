@@ -2784,3 +2784,62 @@ dedup por `moduloId + hash`)
   fuente siempre va a ser mayor que el del portal, así que el listado de pendientes marca
   cursos que ya están completos. Es cosmético (las corridas ahora saltean lo que ya está),
   pero el conteo miente.
+
+---
+
+## El módulo 2 de AvatarHype no era una ausencia: era una TABLA
+
+**El síntoma que reportó el dueño:** «¿por qué aparece módulo 1, 3, 4, 5? ¿Falta un 2?».
+
+No faltaba: el módulo 2 de «Creativos UGC Realistas» **no son vídeos-lección**, es el
+«Catálogo de modelos IA» — una tabla que la propia academia rotula `tabla` en vez de
+`n/m · min`. El pipeline enumera LECCIONES, así que un módulo sin lecciones no produce
+ninguna entrada y desaparece del portal sin dejar hueco. Es el mismo modo de falla que el
+«Módulo 5 vacío» de Guille (que tenía 8 `.CUBE` y ninguna clase): **un enumerador que solo
+sabe contar una clase de cosa reporta cero, no «hay algo que no sé leer»**.
+
+Y tenía **más** que la tabla: un vídeo de 2m56s detrás del botón «Ver el vídeo del
+catálogo», que no está en el DOM hasta que se hace clic.
+
+### Cómo se llega
+
+- El módulo vive en `?view=m2`, no en una ruta propia: `/academy/ugc?view=m2`.
+- El vídeo es un `iframe` de **Bunny Stream** (`iframe.mediadelivery.net/embed/683445/<guid>`)
+  que aparece recién al clickear `button.ugc-catsplit-poster`. Se baja igual que el resto
+  del curso: `https://vz-e3242c91-fe8.b-cdn.net/<guid>/playlist.m3u8` con
+  `Referer: https://iframe.mediadelivery.net/`.
+- La tabla es `.ugc-catalog`, dos bloques (`Modelos de generación de imagen` y
+  `Catálogo de modelos` de vídeo), y se guarda como documento en el mismo formato que las
+  otras 27 lecciones → `public/cono-doc/catalogo-modelos-ia.json`.
+
+### ⚠️ Al sitio se le CAEN LETRAS, y no es un bug de la captura
+
+Leyendo los links del menú volvió `Cur o`, `Propue ta`, `Editore  y creativo`; y la bajada
+del módulo, `Lo  modelo  que u amo  para imagen y vídeo`. **Falta la «s», siempre la «s».**
+
+No es encoding ni el `\`-por-`/` de la herramienta de búsqueda: es una **animación de
+revelado por carácter**, leída a mitad de camino. Un texto capturado así se ve como texto
+normal —bien puntuado, con sentido— y termina publicado con palabras mutiladas.
+
+> **La regla:** en esta plataforma, cualquier texto se lee DOS VECES y se comparan; si
+> difieren, la animación no terminó. Y ojo con el modo de falla contrario: un script que
+> lee la página actual **sin navegar** devuelve vacío cuando el navegador quedó en otra
+> ruta — y si escribe el resultado, pisa la captura buena con una vacía.
+
+**Cómo se numeran los módulos, que es lo que permitió arreglarlo barato:** `curso-a-portal`
+hace `modulos.indexOf(c.modulo) + 1` sobre el **orden de aparición en `plan.clases`**, no
+sobre `n`. Insertar la entrada del Catálogo en la posición 9 del array con `n: 33` deja la
+numeración en 1-2-3-4-5 —igual que la fuente— **sin tocar ningún `n` existente**.
+Renumerar habría obligado a renombrar 23 archivos en `video/`, `audio/`, `texto/` y en la
+carpeta de Drive.
+
+**Vive en:** `C:\cursos\creativos-ugc-realistas\plan.json` (clase `n: 33`, módulo
+«Catálogo de modelos IA») · `docs/catalogo-modelos-ia.json` · `scripts/avatarhype-*.mjs`
+
+### «Creativos Animados»: el curso que falta, y por qué conviene esperar
+
+`/academy/animados` existe y el portal no lo tiene: **1 módulo, 2 lecciones, 22 min**
+(`/academy/animados/bienvenida` y `/academy/animados/sistema-8-prompts`). Pero la propia
+academia avisa arriba de todo: *«🚧 ACTUALIZACIÓN COMPLETA EN CAMINO — estamos regrabando
+desde cero todo el apartado de Ads Animados»*. Ingerirlo ahora es trabajo que se tira.
+Queda anotado con su ruta para volver cuando el autor lo publique.
