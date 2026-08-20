@@ -15,7 +15,7 @@ import type { Curso } from './curso';
 
 export const CURSO_CREATIVOS_UGC_REALISTAS: Curso = {
   slug: 'creativos-ugc-realistas',
-  categoria: 'Cursos externos',
+  categoria: 'Inteligencia Artificial',
   cardDesc: '32 clases en 4 módulos.',
   eyebrow: 'Curso externo',
   titulo: 'Creativos UGC Realistas - Avatar Hype',

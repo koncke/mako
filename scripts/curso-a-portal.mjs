@@ -288,6 +288,22 @@ const slug = (plan.slug ?? slugDe(plan.curso)).replace(/^curso-(de-)?/, '');
 const constante = `CURSO_${slug.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '')}`;
 const salida = join(REPO, 'app', 'conocimientos', `curso-${slug}.ts`);
 
+// ⚠️ LA CATEGORÍA ES UNA DECISIÓN CURADA, Y REGENERAR NO PUEDE PISARLA. El default del
+// script es 'Cursos externos'; el dueño había puesto «Inteligencia Artificial» a mano en
+// el archivo. Al republicar el curso para recuperar las clases de Clonación, el curso se
+// mudó solo de sección en el portal — un cambio que nadie pidió, escondido adentro de un
+// arreglo de otra cosa. Lo vio el dueño.
+//
+// Un generador que reescribe un archivo tiene que distinguir lo que PRODUCE (las clases,
+// las transcripciones, los conteos) de lo que solo TRANSPORTA (dónde va el curso en el
+// menú). Lo segundo se lee del archivo que ya está y se devuelve intacto.
+const categoriaPrevia = (() => {
+  if (CATEGORIA || !existsSync(salida)) return '';
+  const m = /^\s*categoria:\s*'([^']*)'/m.exec(readFileSync(salida, 'utf8'));
+  return m ? m[1] : '';
+})();
+if (categoriaPrevia) console.log(`  Categoría: conservo la que ya tenía («${categoriaPrevia}»).`);
+
 // Contra las clases del PLAN, no contra las ya construidas: el plan es el que tiene
 // `modulo` y `submodulo` como texto, que es la clave del vínculo con los recursos.
 const { recursos: recursosPortal, porClase: slugsPorClase } = construirRecursos(drive, plan.clases);
@@ -369,7 +385,7 @@ import type { Curso } from './curso';
 
 export const ${constante}: Curso = {
   slug: '${slug}',
-  categoria: '${esc(CATEGORIA || 'Cursos externos')}',
+  categoria: '${esc(CATEGORIA || categoriaPrevia || 'Cursos externos')}',
   cardDesc: '${esc(`${plan.clases.length} clases en ${modulos.length} módulos.`)}',
   eyebrow: '${esc(EYEBROW)}',
   titulo: '${esc(tituloConAutor)}',
