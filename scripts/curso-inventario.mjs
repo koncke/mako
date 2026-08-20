@@ -42,6 +42,10 @@ const RAIZ = arg('raiz', 'C:\\cursos');
 const SOLO = arg('solo', '');
 const ESPERA = Number(arg('espera', 10)) * 1000;   // tras navegar, antes de clickear
 const CAPTURA = Number(arg('captura', 12)) * 1000; // tras desplegar, para que lleguen
+// Tope de rondas de expandir+esperar. Alto a propósito: el criterio de corte real es la
+// convergencia (dos rondas sin respuestas nuevas), no este número. Está solo para que un
+// curso que nunca converge no cuelgue el barrido, y cuando se toca SE DICE.
+const MAX_RONDAS = Number(arg('rondas', 12));
 
 // Los endpoints que importan, y qué son. El área /curso/ y el área /vip/ usan nombres
 // distintos para lo mismo — están los dos porque el portal tiene cursos de las dos.
@@ -201,15 +205,40 @@ const main = async () => {
     }
     console.log(`${cab} → ${c.pagina}`);
     capturando = new Map();
+    let truncado = false;
     try {
       await cdp.enviar('Page.navigate', { url: c.pagina });
       await dormir(ESPERA);
-      for (let r = 0; r < 4; r++) {
-        const ev = await cdp.enviar('Runtime.evaluate', { expression: ABRIR, returnByValue: true }).catch(() => null);
-        if (!Number(ev?.result?.value ?? 0)) break;
-        await dormir(2200);
+
+      // ── SE ITERA HASTA QUE DEJE DE CRECER, no una cantidad fija de rondas ────────
+      //
+      // ⚠️ ESTA ES LA DIFERENCIA ENTRE UN NÚMERO QUE MIDE Y UNO QUE SE MUEVE. Con cuatro
+      // rondas fijas, el mismo curso daba 92 lecciones en un barrido, 0 en el siguiente y
+      // 30 en el tercero — porque la página pide las lecciones A MEDIDA que se despliegan
+      // los módulos, así que el total dependía de cuánto llegó a expandir antes de que se
+      // acabara el reloj. Un inventario cuyo resultado depende del timing no sirve para
+      // contestar «¿falta algo?»: es exactamente el contador que no puede detectar su
+      // propia pérdida, que es el defecto que este script vino a cazar.
+      //
+      // El criterio de corte es la CONVERGENCIA: se sigue expandiendo y esperando mientras
+      // aparezcan respuestas nuevas, y se para cuando dos rondas seguidas no suman nada.
+      // Dos y no una: una ronda puede no abrir nada y la siguiente sí, porque desplegar un
+      // módulo revela submódulos que todavía no existían en el DOM.
+      let quietas = 0;
+      for (let r = 1; r <= MAX_RONDAS && quietas < 2; r++) {
+        const antes = capturando.size;
+        await cdp.enviar('Runtime.evaluate', { expression: ABRIR, returnByValue: true }).catch(() => null);
+        await dormir(CAPTURA);
+        const nuevas = capturando.size - antes;
+        quietas = nuevas > 0 ? 0 : quietas + 1;
+        if (nuevas > 0) console.log(`      ronda ${r}: +${nuevas} respuesta(s)`);
+        if (r === MAX_RONDAS && quietas < 2) {
+          // El tope se toca cuando el curso es enorme o la página va lenta. Decirlo importa:
+          // sin esto, «me quedé sin rondas» y «ya no había nada más» se ven idénticos.
+          console.log(`      ⚠ corté por el tope de ${MAX_RONDAS} rondas y TODAVÍA aparecían respuestas — el número puede estar corto`);
+          truncado = true;
+        }
       }
-      await dormir(CAPTURA);
     } catch (e) {
       console.log(`      ✖ ${e.message}`);
     }
@@ -317,11 +346,24 @@ const main = async () => {
     const inv = {
       slug: c.slug, pagina: c.pagina, cuando: new Date().toISOString(),
       capturaFallida: capturaVacia,
+      // Se corta por tope con respuestas todavía llegando: el número es un PISO, no el total.
+      truncado,
       // Queda EN EL ARCHIVO, no solo en el log: si mañana un número no cuadra, esto dice
       // si hubo que elegir entre respuestas que no coincidían.
       discordias,
       lecciones: lecciones.length,
       recursos: recursos.length,
+      // ⚠️ LA PLATAFORMA TIENE MATERIAL CARGADO DOS VECES. «Hackeando la Edición» devuelve
+      // 56 filas de recursos en UNA sola respuesta, con 56 ids distintos y solo 27 títulos:
+      // son ~28 archivos subidos dos veces. Lo mismo con las lecciones `(1)` de jaque-blue.
+      // Contar filas infla el total —634 contra 407 reales— y un número inflado en un
+      // informe de «qué falta» es peor que uno corto: manda a bajar el doble.
+      //
+      // Único = mismo título Y mismo tamaño. Dos archivos con el mismo nombre y distinto
+      // peso son cosas distintas; con el mismo peso, es el mismo cargado dos veces.
+      // Validado contra los cursos que YA están completos en el portal: `claude-ai` da 40
+      // filas → 20 únicos y el portal tiene 20; `sell-your-knowledge` 39 → 39 → 39.
+      recursosUnicos: new Set(recursos.map((r) => `${r.title} ${r.file_size}`)).size,
       tipos,
       modulos: { total: modulos.length, raices: raices.length, niveles },
       // El árbol con el subtotal de cada raíz: es lo que hace visible que un módulo con
@@ -343,6 +385,7 @@ const main = async () => {
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'inventario.json'), JSON.stringify(inv, null, 1), 'utf8');
 
+    if (truncado) console.log(`      ⚠ este curso NO convergió: lo que sigue es un PISO, no el total`);
     console.log(capturaVacia
       ? `      ⚠ NO CAPTURÉ NADA — no es «vacío», es que no pude ver. Reintentá: --espera 20 --captura 25`
       : `      lecciones=${inv.lecciones}  recursos=${inv.recursos}  modulos=${modulos.length} (${raices.length} raíz, ${niveles} nivel/es)  ${JSON.stringify(tipos)}`);
@@ -351,18 +394,18 @@ const main = async () => {
 
   // ── Resumen ──
   console.log(`\n${'='.repeat(78)}\n  INVENTARIO DE LA FUENTE\n${'='.repeat(78)}`);
-  console.log(`  ${'curso'.padEnd(38)} ${'lecc'.padStart(5)} ${'recursos'.padStart(9)} ${'niveles'.padStart(8)}`);
+  console.log(`  ${'curso'.padEnd(38)} ${'lecc'.padStart(5)} ${'recursos'.padStart(9)} ${'únicos'.padStart(7)} ${'niveles'.padStart(8)}`);
   let totR = 0, sin = 0, fallidos = 0;
   for (const f of filas) {
     if (f.salteado) { console.log(`  ${f.slug.padEnd(38)}     —         —        —   (${f.salteado})`); continue; }
     // Un curso que no se pudo capturar NO entra en la cuenta de «sin recursos»: mezclar
     // «no hay» con «no miré» es cómo un barrido declara tranquila un área que no revisó.
     if (f.capturaFallida) { fallidos++; console.log(`  ${f.slug.padEnd(38)}     ?         ?        ?   ⚠ NO SE PUDO CAPTURAR`); continue; }
-    totR += f.recursos;
+    totR += f.recursosUnicos ?? f.recursos;
     if (!f.recursos) sin++;
-    console.log(`  ${f.slug.padEnd(38)} ${String(f.lecciones).padStart(5)} ${String(f.recursos).padStart(9)} ${String(f.modulos.niveles).padStart(8)}`);
+    console.log(`  ${f.slug.padEnd(38)} ${String(f.lecciones).padStart(5)} ${String(f.recursos).padStart(9)} ${String(f.recursosUnicos ?? f.recursos).padStart(7)} ${String(f.modulos.niveles).padStart(8)}`);
   }
-  console.log(`\n  ${totR} recursos en la fuente · ${sin} curso(s) sin ninguno${fallidos ? ` · ⚠ ${fallidos} SIN CAPTURAR (que NO es lo mismo que sin recursos)` : ''}`);
+  console.log(`\n  ${totR} recursos ÚNICOS en la fuente · ${sin} curso(s) sin ninguno${fallidos ? ` · ⚠ ${fallidos} SIN CAPTURAR (que NO es lo mismo que sin recursos)` : ''}`);
   writeFileSync(join(RAIZ, 'inventario-resumen.json'), JSON.stringify(filas, null, 1), 'utf8');
   console.log(`  Resumen: ${join(RAIZ, 'inventario-resumen.json')}\n`);
   process.exit(0);
