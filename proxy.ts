@@ -292,5 +292,5 @@ function denegarRol(req: NextRequest, pathname: string) {
 // Son assets públicos de verdad: no llevan ningún dato de sesión, y el que tiene el
 // videoId ya tiene el video.
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|cono-tx/|cono-doc/|.*\\.(?:png|jpe?g|svg|webp|gif|ico|css|js|woff2?)$).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|cono-tx/|cono-doc/|.*\\.(?:png|jpe?g|svg|webp|gif|ico|css|js|woff2?|webmanifest)$).*)'],
 };

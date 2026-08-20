@@ -2772,3 +2772,54 @@ con el onboarding pendiente, o sea bloqueado. Para un workspace que existe PARA 
 es un paso manual cada vez.
 
 *Corrida del 16/08/2026 — 54 agentes, hallazgos verificados contra un escéptico por separado.*
+
+---
+
+## Una app sin error boundary no falla: desaparece
+
+**Síntoma:** un cliente reporta «no me salta el plan» / «está vacío» desde SU dispositivo,
+mientras desde otra máquina la misma cuenta lo ve perfecto. Mismos datos, mismo servidor.
+
+**Lo que estaba pasando por debajo:** la app no tenía **un solo** error boundary — ni
+`app/error.tsx`, ni `app/global-error.tsx`, ni un `componentDidCatch` en todo el repo. Con
+React eso no significa «no hay errores»: significa que ante cualquier error al dibujar, el
+árbol entero se desmonta y queda una **pantalla en blanco**, sin mensaje y sin nada que el
+usuario pueda contar.
+
+Y es la peor forma de fallar porque **depende del dispositivo**: una API que existe en un
+Chrome de Windows y no en un Safari viejo, el `localStorage` que tira excepción en modo
+privado, una extensión que inyecta algo. Todos rompen en una máquina y no en la otra, con
+los mismos datos y el mismo servidor — y los tres se ven igual: nada.
+
+**La regla:** el diagnóstico de un fallo así se hace **pidiendo**, no reproduciendo (ya
+está escrito en AGENTS.md), pero pedir no sirve si lo único que la persona puede contar es
+«está vacío». Lo que hace falta es que la app lo diga sola. Ahora hay dos boundaries y los
+dos muestran QUÉ se rompió, con el detalle técnico a la vista y un botón para copiarlo:
+**un texto que alguien pueda pegar en un WhatsApp es la única telemetría que no depende de
+que sepa abrir DevTools.**
+
+Los dos son deliberadamente tontos —estilos en línea, cero imports de la app—: un boundary
+que depende del código que puede estar roto no es un boundary.
+
+**Lo que se descartó CON EVIDENCIA antes de llegar acá** (sirve como orden para la próxima):
+los datos estaban (15 tareas, 4 hechas, desde hacía dos días); el server las mandaba en el
+HTML (`curl` con la cookie las trae); no había una segunda cuenta (un solo usuario en el
+workspace); no hay service worker que sirva un bundle viejo; los 28 `randomUUID` son todos
+`node:crypto` (servidor, no navegador); y todos los accesos a `localStorage` del board ya
+estaban en `try/catch`.
+
+**Vive en:** app/error.tsx · app/global-error.tsx · *2026-08-18*
+
+## El manifest de la app estaba detrás del login
+
+`/manifest.webmanifest` contestaba **307 a /login** en producción. El matcher de `proxy.ts`
+excluye los assets estáticos por extensión (`png|jpe?g|svg|webp|gif|ico|css|js|woff2?`) y
+`webmanifest` no estaba en la lista, así que el gate se lo comía.
+
+Se veía en la consola de CUALQUIER carga como `Manifest: Line: 1, column: 1, Syntax error`
+—el navegador recibía un redirect y trataba de parsearlo como JSON— y nadie lo miraba
+porque no rompe nada visible. Donde sí importa es en iOS: el manifest es lo que gobierna
+«Agregar a la pantalla de inicio», y uno que redirige al login deja la app instalada
+apuntando a una pantalla que no es la app.
+
+**Vive en:** proxy.ts (`config.matcher`) · *2026-08-18*
