@@ -401,6 +401,10 @@ export function BoardShell({ board, scope }: {
   // (el del cliente no tiene Fathom) y del momento (⚠ y ✦ aparecen y desaparecen solos),
   // así que un `@media` con un número clavado se equivoca siempre en algún caso. Acá se
   // pregunta lo único que importa: ¿entra o no entra?
+  // `?diag=1`: el tablero cuenta qué midió. Para los bugs que solo pasan en el navegador
+  // de otra persona y que no se pueden reproducir de este lado.
+  const [diag, setDiag] = useState(false);
+  useEffect(() => { try { setDiag(new URLSearchParams(window.location.search).get('diag') === '1'); } catch { /* no-op */ } }, []);
   const nAcciones = (faltantes.length > 0 ? 1 : 0) + (hayWelcome ? 1 : 0) + (repo.fathomExtract ? 2 : 0) + 1;
   const [compacto, setCompacto] = useState(false);
   useEffect(() => {
@@ -680,7 +684,24 @@ export function BoardShell({ board, scope }: {
     // (globals.css: `[data-barra-agencia] body{padding-top:…}`)— y se come la franja de
     // abajo del kanban. La sidebar ya lo compensaba; este `<main>` era el único que no.
     // La variable vale 0px cuando no hay barra, así que fuera del modo agencia no cambia.
-    <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: 'calc(100vh - var(--barra-agencia, 0px))', overflow: 'hidden', fontFamily: SANS }}>
+    // ⚠️ ESTE LAYOUT NO PUEDE DEJAR EL TABLERO INVISIBLE, y eso es un requisito, no un
+    // detalle: un cliente lo reportó tres veces como «el plan está vacío» desde Safari
+    // mientras en Chrome se veía perfecto, con los mismos datos y el mismo servidor.
+    //
+    // Tres decisiones, y las tres son para lo mismo:
+    //   · GRID con filas `auto 1fr` en vez de columna flex: la fila del cuerpo tiene un
+    //     alto DEFINIDO que cualquier motor resuelve igual. Con flex, ese alto sale de
+    //     `flex: 1` —indefinido para el modelo— y de ahí para abajo cada versión de cada
+    //     navegador decide distinto qué hacer con un hijo que quiere estirar.
+    //   · `minHeight` en vez de `height`: si algo mide de menos, el tablero CRECE. Con
+    //     `height` clavado, todo lo que no entraba quedaba fuera de la caja.
+    //   · SIN `overflow: hidden` acá: era lo que convertía «midió mal» en «no se ve
+    //     nada». Sin él, en el peor caso la página scrollea, que es un defecto que se
+    //     entiende y se puede contar por teléfono.
+    //
+    // La regla, corta: en el camino del contenido principal, nada de altos fijos con
+    // recorte. Un layout puede quedar feo; no puede desaparecer.
+    <main style={{ flex: 1, minWidth: 0, display: 'grid', gridTemplateRows: 'auto 1fr', minHeight: 'calc(100vh - var(--barra-agencia, 0px))', fontFamily: SANS }}>
       {/* símbolos de marca (para el logo de Fathom del toolbar/modal) — una vez por página */}
       <BrandDefs />
       {/* UNA SOLA LÍNEA, siempre. Antes tenía flexWrap:'wrap' y los botones de acción se
@@ -803,7 +824,7 @@ export function BoardShell({ board, scope }: {
           debajo nada. Se reportó tres veces como «el plan está vacío» desde una Mac.
           El patrón que sí funciona en los dos: el padre es columna y el hijo estira
           con `flex: 1` + `minHeight: 0`. Ninguna vista vuelve a pedir `height: 100%`. */}
-      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} onOpen={setOpenId} onOpenProj={setOpenProj} />}
         {view === 'kanban' && <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} />}
         {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={projFilter} q={q} fOrigen={fOrigen} sortMode={sortMode} sortDir={sortDir} />}
@@ -900,6 +921,7 @@ export function BoardShell({ board, scope }: {
       )}
       {importar && <ImportarModal onClose={() => setImportar(false)}
         onListo={(files) => { setImportar(false); setReunionArchivo(files); setExtraerReunion(true); }} />}
+      {diag && <Diagnostico />}
       {extraerReunion && <ReunionExtractModal catalogo={repo.catalogo} labels={labels} archivoInicial={reunionArchivo}
         // Los borradores que te MANDÓ otra persona no tienen una reunión tuya en la
         // lista de Fathom (esa grabación es de su cuenta), así que sin esta sección
@@ -2154,5 +2176,60 @@ function ColorDropdown({ color, onPick }: { color: string; onPick: (c: string) =
         </div>
       </>}
     </span>
+  );
+}
+
+/**
+ * `?diag=1` — el tablero contándote qué midió, en el navegador de quien lo está viendo.
+ *
+ * Existe porque hay una clase de bug que NO SE PUEDE reproducir del otro lado: depende
+ * de la versión del motor, de una extensión o de un ajuste del navegador de esa persona.
+ * Se perdieron dos días con «el plan está vacío» desde una Mac —header dibujado, cuerpo
+ * en blanco— probando en Chrome, donde nunca falló, y hasta con WebKit headless, que es
+ * varias versiones más nuevo que el Safari del cliente y tampoco lo reproduce.
+ *
+ * Pedirle a alguien la consola de su Mac no es una opción real. Esto sí: abre un link,
+ * saca una foto. Lo que hay que mirar es el primer alto que dé 0 — ese es el que se comió
+ * la pantalla.
+ */
+function Diagnostico() {
+  const [txt, setTxt] = useState('');
+  const [copiado, setCopiado] = useState(false);
+  useEffect(() => {
+    const medir = () => {
+      const de = (sel: string, el?: Element | null) => {
+        const e = el ?? document.querySelector(sel);
+        if (!e) return `${sel}: (no está)`;
+        const r = e.getBoundingClientRect();
+        const cs = getComputedStyle(e);
+        return `${sel}: alto=${Math.round(r.height)} ancho=${Math.round(r.width)} display=${cs.display} overflow=${cs.overflow} pos=${cs.position}`;
+      };
+      const main = document.querySelector('main');
+      const header = main?.querySelector('header');
+      const cuerpo = main ? [...main.children].find((e) => e !== header && e.tagName === 'DIV') : null;
+      setTxt([
+        `MaKo diag · ${new Date().toISOString().slice(0, 19)}`,
+        `UA: ${navigator.userAgent}`,
+        `ventana: ${window.innerWidth}x${window.innerHeight} · dpr=${window.devicePixelRatio} · zoom≈${Math.round((window.outerWidth / window.innerWidth) * 100) / 100}`,
+        de('html', document.documentElement), de('body', document.body), de('main', main),
+        de('header', header), de('cuerpo', cuerpo), de('vista', cuerpo?.firstElementChild),
+        `tema: ${document.documentElement.getAttribute('data-tema') || '(ninguno)'} · candidato: ${document.documentElement.getAttribute('data-tema-candidato') || '(ninguno)'}`,
+      ].join(String.fromCharCode(10)));
+    };
+    medir();
+    const t = setTimeout(medir, 1200);
+    window.addEventListener('resize', medir);
+    return () => { clearTimeout(t); window.removeEventListener('resize', medir); };
+  }, []);
+  return (
+    <div style={{ position: 'fixed', left: 12, bottom: 12, zIndex: 9999, maxWidth: 'min(92vw, 560px)', background: '#12151b', color: '#e8eaed', border: '1px solid #3a4150', borderRadius: 12, padding: 12, fontFamily: MONO, fontSize: 11, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', boxShadow: '0 18px 44px rgba(0,0,0,.35)' }}>
+      {txt}
+      <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+        <button type="button" onClick={() => { void navigator.clipboard?.writeText(txt).then(() => setCopiado(true)).catch(() => setCopiado(false)); }}
+          style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #3a4150', background: '#1b1f27', color: '#e8eaed', fontFamily: MONO, fontSize: 11, cursor: 'pointer' }}>
+          {copiado ? '✓ copiado' : 'copiar'}
+        </button>
+      </div>
+    </div>
   );
 }

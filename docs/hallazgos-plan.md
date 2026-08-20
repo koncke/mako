@@ -1155,3 +1155,35 @@ min-height: 0`. Ya está escrito como regla en AGENTS.md.
 
 **Vive en:** app/plan/board/BoardShell.tsx (el contenedor + Kanban, Prioridades,
 ProyectosView) · app/plan/board/Graphics.tsx · *2026-08-18*
+
+
+### Corrección: `height: 100%` NO era la causa, y así se supo
+
+La entrada de arriba dio por cerrado el caso con la teoría del porcentaje contra un padre
+`flex: 1`. **Era falsa**, y el error de método es el que importa: se dedujo de una regla
+conocida y se dio por verificada porque la regla existe, sin correr el caso en el motor
+que fallaba.
+
+Se corrió después. Playwright trae **WebKit** —el motor de Safari— y se instala en dos
+minutos: con el código VIEJO (`height: 100%`), WebKit pinta el tablero **perfecto**. O sea
+que ese arreglo fue higiene, no la cura.
+
+Dos cosas quedan de acá:
+
+1. **WebKit de Playwright ≠ el Safari del cliente.** El que corre local es varias versiones
+   más nuevo (Safari 26 contra el que tenga su Mac), así que **no reproducir no prueba
+   nada**: solo prueba que en la versión nueva no pasa. Sirve para descartar una teoría
+   (si el código viejo funciona ahí, la teoría estaba mal), nunca para dar por curado.
+2. **Cuando no se puede reproducir, se cambia el objetivo: que el defecto no pueda ser
+   invisible.** El tablero ahora usa grid con filas `auto 1fr`, `min-height` en vez de
+   `height`, y **sin `overflow: hidden`** en el camino del contenido. Si algo mide mal, la
+   página crece y scrollea — feo, contable por teléfono, y visible. Era el `overflow:
+   hidden` el que convertía «midió mal» en «no se ve nada».
+
+Y para lo que no se puede reproducir, se agregó `?diag=1` en el tablero: un panel que
+muestra el UA, el tamaño de ventana y el alto/display/overflow de cada eslabón
+(`html → body → main → header → cuerpo → vista`), con un botón para copiarlo. **El primer
+alto que dé 0 es el que se comió la pantalla.** Pedirle a alguien la consola de su Mac no
+es una opción real; pedirle que abra un link y saque una foto, sí.
+
+**Vive en:** app/plan/board/BoardShell.tsx (`Diagnostico`, el `<main>` en grid) · *2026-08-18*
