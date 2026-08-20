@@ -86,12 +86,30 @@ function numDelAutor(titulo) {
   return m ? Number(m[1]) : null;
 }
 
-/** Los enteros que faltan entre el mínimo y el máximo de la lista. */
+/**
+ * Los enteros que faltan en la secuencia.
+ *
+ * ⚠️ MIRAR SOLO ENTRE EL MÍNIMO Y EL MÁXIMO NO VE UN HUECO AL PRINCIPIO, y por
+ * construcción nunca lo va a ver: si falta el 1, el mínimo pasa a ser el 2 y el rango
+ * arranca ahí. El curso de inglés (PROGRAMA RAIO) empieza en «002.» y le falta el 001 —
+ * el dueño lo vio a ojo, el script decía «completo», y después de arreglar el regex
+ * seguía reportando solo el 9 y el 12.
+ *
+ * Por eso se devuelven DOS cosas y se dicen distinto: los huecos del medio, que son un
+ * hecho, y el arranque tardío, que es una SOSPECHA fuerte —una numeración que empieza en
+ * 2 casi siempre perdió el 1, pero hay autores que numeran desde 0 o desde 2 a propósito.
+ * Mezclarlas sería inventar certeza; callar la segunda es lo que dejó pasar esto.
+ */
 function huecos(nums) {
   const set = new Set(nums);
-  const falt = [];
-  for (let i = Math.min(...nums); i <= Math.max(...nums); i++) if (!set.has(i)) falt.push(i);
-  return falt;
+  const min = Math.min(...nums);
+  const max = Math.max(...nums);
+  const medio = [];
+  for (let i = min; i <= max; i++) if (!set.has(i)) medio.push(i);
+  // Solo si arranca en 2 o 3: de 4 para arriba es mucho más probable que el autor numere
+  // con otra lógica (un año, un código) a que se hayan perdido tres módulos seguidos.
+  const antes = min > 1 && min <= 3 ? Array.from({ length: min - 1 }, (_, i) => i + 1) : [];
+  return { medio, antes, todos: [...antes, ...medio] };
 }
 
 const archivos = readdirSync(DIR).filter((f) => /^curso-.*\.ts$/.test(f));
@@ -117,11 +135,30 @@ for (const f of archivos) {
   // Ese campo sufre la MISMA renumeración que `n`: en Hackeando la Edición va 1..6
   // corrido mientras las etiquetas dicen 1,2,3,4,6,7. Preguntarle al campo por un hueco
   // es preguntarle al que lo tapó.
-  const numDeGrupo = (g) => { const m = /m[oó]dulo\s*(\d{1,2})/i.exec(g || ''); return m ? Number(m[1]) : null; };
+  // ⚠️ EL NÚMERO DEL MÓDULO NO SIEMPRE VIENE DESPUÉS DE LA PALABRA «MÓDULO».
+  //
+  // La primera versión solo miraba /módulo N/, y el curso de inglés (PROGRAMA RAIO) llama
+  // a los suyos «002. INTRODUCTION TO THE RAIO», «003. CHAPTER 1»… Sin la palabra, el
+  // regex no matcheaba, el chequeo se salteaba entero y el script contestaba «los cursos
+  // revisados están completos» sobre un curso al que le faltan los módulos 1, 9 y 12 —
+  // que el dueño vio a ojo. Un falso «todo bien» es el peor resultado que puede dar un
+  // verificador: apaga la búsqueda.
+  //
+  // Ahora: primero «módulo N», y si no, el número que ABRE la etiqueta. Se exige un
+  // separador después (`002.`, `3 -`, `12)`) para no leer «2026 Trends» como el módulo
+  // 2026, y se topea en 3 dígitos.
+  const numDeGrupo = (g) => {
+    const s = String(g ?? '');
+    const conPalabra = /m[oó]dulo\s*(\d{1,3})/i.exec(s);
+    if (conPalabra) return Number(conPalabra[1]);
+    const alFrente = /^\s*(\d{1,3})\s*[.)\-]/.exec(s);
+    return alFrente ? Number(alFrente[1]) : null;
+  };
   const mods = [...new Set(clases.map((c) => numDeGrupo(c.grupo) ?? c.modulo).filter((m) => m > 0))].sort((a, b) => a - b);
   if (mods.length > 1) {
-    const faltan = huecos(mods);
-    if (faltan.length) lineas.push(`  ⚠ MÓDULO ${faltan.join(', ')} no está — hay: ${mods.join(', ')}`);
+    const { medio, antes } = huecos(mods);
+    if (medio.length) lineas.push(`  ⚠ MÓDULO ${medio.join(', ')} no está — hay: ${mods.join(', ')}`);
+    if (antes.length) lineas.push(`  ⚠ y la numeración ARRANCA EN ${Math.min(...mods)}: falta${antes.length > 1 ? 'n' : ''} el módulo ${antes.join(', ')} (o el autor no numera desde 1)`);
   }
 
   // ── Huecos de CLASE, por módulo, contra la numeración del autor.
@@ -150,8 +187,9 @@ for (const f of archivos) {
     // igual daba 8 cursos con huecos INVENTADOS. Callarse acá es lo que separa la señal
     // del ruido — un verificador con falsos positivos no lo mira nadie dos veces.
     if (nums.length !== new Set(nums).size) { noEvaluables.push(etiqueta); continue; }
-    const falt = huecos(nums);
-    if (falt.length) lineas.push(`  ${etiqueta}: faltan las clases ${falt.join(', ')}   (hay ${nums.length}, el autor numera hasta ${Math.max(...nums)})`);
+    const { medio, antes } = huecos(nums);
+    if (medio.length) lineas.push(`  ${etiqueta}: faltan las clases ${medio.join(', ')}   (hay ${nums.length}, el autor numera hasta ${Math.max(...nums)})`);
+    if (antes.length) lineas.push(`  ${etiqueta}: arranca en la ${Math.min(...nums)} — falta${antes.length > 1 ? 'n' : ''} la clase ${antes.join(', ')} (o el autor no numera desde 1)`);
   }
 
   // Un curso donde TODO quedó sin evaluar se imprime igual. Si no, el silencio se lee
