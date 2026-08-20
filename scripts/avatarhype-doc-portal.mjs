@@ -31,6 +31,13 @@ const REPO = arg('repo', 'C:\\Users\\marti\\OneDrive\\Escritorio\\dashboard-mark
 if (!PLAN || !existsSync(PLAN)) { console.error('\n  ✖ Falta --plan <plan.json>\n'); process.exit(1); }
 const dirDocs = join(dirname(PLAN), 'docs');
 const dirSalida = join(REPO, 'public', 'cono-doc');
+
+/** El nombre del archivo publicado: `<curso>__<leccion>`. Ver la nota del write. */
+const CURSO_SLUG = (() => {
+  try { return JSON.parse(readFileSync(PLAN, 'utf8').replace(/^﻿/, '')).slug || ''; } catch { return ''; }
+})();
+if (!CURSO_SLUG) { console.error('\n  ✖ El plan no trae `slug`, y sin eso el documento se publicaría con un nombre que puede pisar al de otro curso.\n'); process.exit(1); }
+const docSlugDe = (slugLeccion) => `${CURSO_SLUG}__${slugLeccion}`;
 const dirImg = join(REPO, 'public', 'cono-ugc');
 mkdirSync(dirSalida, { recursive: true });
 
@@ -93,7 +100,15 @@ for (const f of fichas) {
   }
   const doc = { slug: f.slug, codigo: f.codigo, titulo: f.titulo, tituloDocumento: f.tituloDocumento, paneles };
   const json = JSON.stringify(doc);
-  writeFileSync(join(dirSalida, `${f.slug}.json`), json, 'utf8');
+  // ⚠️ EL NOMBRE LLEVA EL CURSO ADELANTE. `public/cono-doc/` es un espacio de nombres
+  // PLANO y el slug de una lección solo es único DENTRO de su curso: «Creativos UGC
+  // Realistas» y «Creativos Animados» tienen los dos una lección `bienvenida`, así que
+  // publicar el segundo pisaba el documento del primero — sin error, sin conflicto, y la
+  // lección de UGC pasaba a mostrar el texto de Animados.
+  //
+  // Se cazó por casualidad, en un `git status` que mostró `bienvenida.json` como
+  // MODIFICADO al publicar un curso que no lo había tocado nunca.
+  writeFileSync(join(dirSalida, `${docSlugDe(f.slug)}.json`), json, 'utf8');
   totalKb += json.length / 1024;
   indice.push({ slug: f.slug, tabs: Object.keys(paneles), kb: Math.round(json.length / 1024) });
 }

@@ -289,7 +289,17 @@ for (const c of plan.clases) {
 
   // El documento replicado de la lección, si se capturó. Se pregunta por el ARCHIVO,
   // no por una bandera del plan: si el json no está, el portal dibujaría una tab vacía.
-  const docSlug = c.slug && existsSync(join(REPO, 'public', 'cono-doc', `${c.slug}.json`)) ? c.slug : null;
+  // El documento vive en `public/cono-doc/<curso>__<leccion>.json`: el slug de una
+  // lección solo es único dentro de su curso (dos cursos de AvatarHype tienen
+  // `bienvenida`). Se acepta el nombre viejo, sin prefijo, para los que todavía no se
+  // regeneraron — pero el nuevo gana.
+  const docSlug = (() => {
+    if (!c.slug) return null;
+    const conCurso = `${plan.slug}__${c.slug}`;
+    if (existsSync(join(REPO, 'public', 'cono-doc', `${conCurso}.json`))) return conCurso;
+    if (existsSync(join(REPO, 'public', 'cono-doc', `${c.slug}.json`))) return c.slug;
+    return null;
+  })();
   // La portada de la clase, si se replicó. Se pregunta por el ARCHIVO igual que el
   // documento: una ruta a una imagen que no está deja un hueco roto en la tarjeta.
   const portadaClase = c.codigo && existsSync(join(REPO, 'public', 'cono-ugc', `${c.codigo}.webp`))
