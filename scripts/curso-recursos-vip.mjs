@@ -19,6 +19,9 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync, readdirSync, unlinkSync } from 'node:fs';
 // Cómo se baja un archivo y cómo se sabe si sirve: UN lugar, compartido con curso-pdfs.
 import { puedeSerArchivo, bajarCuerpo, valido } from './curso-descarga.mjs';
+// La metadata NO se captura: se PREGUNTA. Capturar la llamada correcta en el momento
+// correcto no funciona (ver la cabecera de curso-api.mjs).
+import { preguntarCurso } from './curso-api.mjs';
 import { join, dirname } from 'node:path';
 
 const arg = (n, d) => {
@@ -291,14 +294,29 @@ const main = async () => {
     if (p.u < p.n) console.log(`  ⚠ ${clave}: me quedé con ${p.u}/${p.n} fila(s) útiles (${CAMPO_UTIL[clave] ?? 'sin campo clave'}).`);
   }
 
-  const meta = Array.isArray(datos.meta) ? datos.meta : [];
+  // ── LA METADATA SE PREGUNTA, NO SE CAPTURA ──────────────────────────────────
+  //
+  // ⚠️ Esto reemplaza a la captura, que era irrecuperable por diseño. La página pide
+  // `course_resources` ANTES de resolver la sesión —ahí devuelve `[]`— y otra vez
+  // después, y cuál de las dos cae en la ventana depende de la red y del caché. Medido
+  // sobre «Mateo Maffia»: `[]` corrida tras corrida, con la sesión viva y
+  // `check_course_access` en true. Ninguna cantidad de rondas arregla una carrera.
+  //
+  // `preguntarCurso` evalúa un `fetch` DENTRO de la página, que ya tiene la sesión. No
+  // hay ventana que errar. Y de paso corrigió un dato: el inventario le atribuía 2
+  // recursos a «Mateo Maffia» que eran de OTRO curso —respuestas tardías que llegaron
+  // mientras el barrido ya había navegado— y la API dice que tiene CERO.
+  console.log('  Preguntándole a la API qué recursos tiene…');
+  const api = await preguntarCurso(plan.slug || slugPagina, PORT);
+  const meta = api.recursos ?? [];
+  const mods = new Map((api.modulos ?? []).map((m) => [m.id, m]));
   const urls = new Map((Array.isArray(datos.urls) ? datos.urls : []).map((r) => [r.id, r.file_url]));
-  const mods = new Map((Array.isArray(datos.modules) ? datos.modules : []).map((m) => [m.id, m]));
+  console.log(`  ${api.curso}: ${meta.length} recurso(s) · ${mods.size} módulo(s)`);
 
   if (!meta.length) {
-    console.error(`\n  ✖ No capturé vip_course_resources.`);
-    console.error(`    Suele ser que salió de caché. Reintentá con --segundos 30.\n`);
-    process.exit(1);
+    console.log('\n  Este curso NO tiene recursos en la fuente. Nada que bajar.\n');
+    ws.close();
+    process.exit(0);
   }
 
   // Los mismos campos con otro nombre según el área. Se leen por acá y en ningún otro

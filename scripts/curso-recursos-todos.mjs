@@ -93,9 +93,32 @@ for (const [i, c] of cursos.entries()) {
     ['resolver ids', 'curso-a-drive.mjs', ['--plan', c.planPath, '--solo-ids']],
     ['publicar', 'curso-a-portal.mjs', ['--plan', c.planPath]],
   ];
+
+  // ⚠️ DRIVE TARDA EN REGISTRAR, Y ESO NO ES UN ERROR. Copiar a G: es instantáneo (es una
+  // carpeta local), pero el id solo existe cuando el archivo llegó DEL LADO DEL SERVIDOR.
+  // El paso «resolver ids» devuelve 0/5 y el de publicar aborta pidiendo justamente lo que
+  // acaba de correr — un lote que se rinde ahí deja el curso a medias por esperar 40
+  // segundos. Se reintenta hasta que todos tengan id, con un tope para no colgarse.
+  const esperarIds = async () => {
+    for (let intento = 1; intento <= 30; intento++) {   // 30 x 20s = 10 min: Drive for Desktop tarda
+      const r = correr('curso-a-drive.mjs', ['--plan', c.planPath, '--solo-ids']);
+      const m = /(\d+)\/(\d+) con id/.exec(r.cola);
+      if (m && m[1] === m[2] && Number(m[2]) > 0) return true;
+      if (!m) return r.ok;                       // sin recursos: nada que esperar
+      process.stdout.write(`(${m[1]}/${m[2]}) `);
+      await new Promise((res) => setTimeout(res, 20000));
+    }
+    return false;
+  };
   let falla = '';
   for (const [nombre, script, args] of pasos) {
     process.stdout.write(`  → ${nombre}… `);
+    if (nombre === 'resolver ids') {
+      const ok = await esperarIds();
+      console.log(ok ? 'ok' : 'FALLÓ (Drive no terminó de registrar)');
+      if (!ok) { falla = nombre; break; }
+      continue;
+    }
     const r = correr(script, args);
     console.log(r.ok ? 'ok' : `FALLÓ (${r.code})`);
     if (!r.ok) { console.log(`   ${r.cola}`); falla = nombre; break; }
