@@ -11,7 +11,7 @@
 import 'server-only';
 import { getTenantDb, runWithWorkspace, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 import type { BoardTask, Label, Prio, Actor, Check, Hist, Fuente, GuardPatch, GuardProjPatch, GuardResult } from '@/app/plan/board/types';
-import { scoreFromPrio, prioFromScore, curveTaskScores, scoreProyectoDerivado } from '@/app/plan/board/types';
+import { scoreFromPrio, prioFromScore, curveTaskScores, scoreProyectoDerivado, sanearHist } from '@/app/plan/board/types';
 import { puntuarNuevas, describirProyectosNuevos, asignarTareasAProyectos } from '@/lib/mako-guardian';
 import { checklistsParaTareas } from '@/lib/checklist-coach';
 import { CATALOGO_PROYECTOS, delCatalogo, canonNombre, nucleo } from '@/lib/plan-proyectos-catalogo';
@@ -50,7 +50,7 @@ function rowToTask(r: Row): BoardTask {
     impacto: optInt(r.impacto), esfuerzo: optInt(r.esfuerzo),
     progress: int(r.progress), deadline: str(r.deadline),
     labels: asArr<unknown>(r.labels).map(String), checklist: asArr<Check>(r.checklist),
-    historial: asArr<Hist>(r.historial), origen: str(r.origen, 'user') as Actor,
+    historial: sanearHist(r.historial), origen: str(r.origen, 'user') as Actor,
     fuente: optFuente(r.fuente), enPrioridad: !!r.en_prioridad,
   };
 }
@@ -71,7 +71,7 @@ function rowToLabel(r: Row): Label {
     name: str(r.name, 'Proyecto'), color: str(r.color, '#2F6FED'), score: int(r.score, 50),
     scoreRazon: r.score_razon ? str(r.score_razon) : undefined, impacto: optInt(r.impacto),
     esfuerzo: optInt(r.esfuerzo), deadline: r.deadline ? str(r.deadline) : undefined,
-    detalle: str(r.detalle), notas: str(r.notas), historial: asArr<Hist>(r.historial), fuente: optFuente(r.fuente),
+    detalle: str(r.detalle), notas: str(r.notas), historial: sanearHist(r.historial), fuente: optFuente(r.fuente),
   };
 }
 function labelToRow(l: Label, orden = 0): Row {
@@ -479,7 +479,7 @@ export async function ampliarTareasPlanOwner(items: AmpliarTareaPlan[], fuente?:
 
       if (detalleFinal === str(f.detalle) && checklist.length === checkPrevia.length) continue;
       const entrada: Hist = { id: genId('h'), ts: ahora, actor, text: `MaKo le sumó contexto (no la duplicó) — ${desde}`.slice(0, 220) };
-      const historial = [entrada, ...asArr<Hist>(f.historial)].slice(0, 40);
+      const historial = [entrada, ...sanearHist(f.historial)].slice(0, 40);
       const { error } = await db.from('plan_tareas').update({
         detalle: detalleFinal.slice(0, 6000), checklist, historial, updated_at: new Date().toISOString(),
       }).eq('id', it.id);
@@ -594,11 +594,13 @@ export async function recurvarProyectosOwner(): Promise<{ movidos: number; total
     const calculados = proyectos.map((p) => {
       const ts = (porProy.get(p.id) ?? []).slice().sort((a, b) => b.score - a.score);
       const nuevo = scoreProyectoDerivado(ts.map((t) => t.score));
-      if (!ts.length) return { ...p, nuevo, n: 0, razon: 'Sin tareas abiertas: no hay trabajo que priorizar acá.' };
+      // `null` = sin tareas abiertas = sin evidencia. Se queda con el score del Perro y no se
+      // toca: lo que le falta es TRABAJO, no prioridad. Ver `proyectosSinTareas`.
+      if (nuevo == null) return { ...p, nuevo: p.score, n: 0, razon: '' };
       return { ...p, nuevo, n: ts.length, razon: `Vale lo que su mejor tarea: «${ts[0].titulo}» (${ts[0].score}), con ${ts.length} pendiente${ts.length === 1 ? '' : 's'} adentro.` };
     });
 
-    const cambian = calculados.filter((p) => p.nuevo !== p.score);
+    const cambian = calculados.filter((p) => p.nuevo !== p.score && p.razon);
     const TANDA = 25;
     for (let i = 0; i < cambian.length; i += TANDA) {
       await Promise.all(cambian.slice(i, i + TANDA).map((p) =>
@@ -642,7 +644,7 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
       return {
         id: r.id, titulo: str(r.title, 'Tarea'), detalle: str(r.detalle), proyectoId: pid,
         proyecto: pid ? (nombreProy.get(pid) ?? pid) : undefined,
-        deadline: str(r.deadline), historial: asArr<Hist>(r.historial),
+        deadline: str(r.deadline), historial: sanearHist(r.historial),
       };
     });
     const existentesT = filasT.filter((r) => !idSet.has(r.id) && int(r.progress) < 100).map((r) => ({ titulo: str(r.title), score: int(r.score), deadline: str(r.deadline) }));

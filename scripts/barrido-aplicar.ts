@@ -25,6 +25,7 @@ import { readFileSync } from 'node:fs';
 import { runWithWorkspace, getTenantDb } from '../lib/workspace';
 import { setSetting } from '../lib/settings';
 import { evaluarDetalle } from '../lib/detalle-contrato';
+import { sanearHist, type Hist } from '../app/plan/board/types';
 
 const ARCHIVO = process.argv[2];
 const APLICAR = process.argv.includes('--apply');
@@ -70,9 +71,20 @@ async function main() {
         console.log(`  → ${str(fila.titulo ?? fila.title).slice(0, 60)}  ${viejo.length} → ${nuevo.length} chars · ${ev.partes.length}/4 partes`);
         if (!APLICAR) { ok++; continue; }
 
-        const hist = arr<Row>(fila.historial);
-        hist.push({ id: uid('h'), ts: new Date().toISOString(), actor: 'MaKo', text: 'MaKo reescribió el detalle con el contexto de la fuente' });
-        const { error: e2 } = await db.from(tabla).update({ detalle: nuevo, historial: hist.slice(-40) }).eq('id', it.id);
+        // ⚠️ La entrada va TIPADA y AL FRENTE. Las tres cosas de esta línea salieron mal la
+        // primera vez, y ninguna la vio el compilador porque `hist` era `Row[]`:
+        //   · `ts` iba como string ISO — el tipo dice `number`. La fecha se dibujaba bien
+        //     (new Date(string) parsea), así que no se notaba en pantalla: lo que rompía era
+        //     la aritmética, y `Math.max` con un string adentro da NaN en silencio.
+        //   · `actor: 'MaKo'` no existe en el union `Actor`. 'MaKo' es el NOMBRE de la IA en
+        //     pantalla (ACTOR_LABEL); el actor es 'ia'.
+        //   · `push` + `slice(-40)` iba contra la convención del resto del repo, que es
+        //     prepend + `slice(0, 40)`: dejaba la entrada nueva al final y podía tirar las
+        //     recientes al recortar.
+        // Se repararon 418 entradas con scripts/reparar-historial.mts.
+        const entrada: Hist = { id: uid('h'), ts: Date.now(), actor: 'ia', text: 'MaKo reescribió el detalle con el contexto de la fuente' };
+        const hist = [entrada, ...sanearHist(fila.historial)].slice(0, 40);
+        const { error: e2 } = await db.from(tabla).update({ detalle: nuevo, historial: hist }).eq('id', it.id);
         if (e2) { console.error(`  ✗ ${it.id}: ${e2.message}`); saltados++; continue; }
         ok++;
       }

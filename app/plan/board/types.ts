@@ -47,6 +47,48 @@ export type Check = { id: string; text: string; done: boolean };
 export type UndoInfo = { field: string; prev: unknown };
 export type Hist = { id: string; ts: number; actor: Actor; text: string; undo?: UndoInfo; kind?: 'task' };
 
+/**
+ * SANEA EL HISTORIAL QUE VIENE DE LA BASE. El tipo de arriba dice `ts: number` y `actor` de
+ * tres valores; la base tenía otra cosa, y el cast `asArr<Hist>(...)` la dejaba pasar entera.
+ *
+ * Medido el 21/8/2026 sobre el tablero real: **418 entradas con `ts` guardado como string ISO
+ * y `actor: 'MaKo'`**, un cuarto valor que no existe en el union. Las escribió
+ * `scripts/barrido-aplicar.ts`, que armaba la entrada sobre un `Row` (Record<string, unknown>)
+ * — y a un `Row` no lo mira el compilador. Un tipo que solo se declara en la lectura no
+ * protege la escritura.
+ *
+ * Cómo se veía: la fecha se dibujaba bien (`new Date(string)` parsea), así que el bug era
+ * INVISIBLE en pantalla salvo por el tooltip, que decía «hace NaN d». Lo que rompía de verdad
+ * era la ARITMÉTICA: `Math.max(...ts)` sobre una lista con un string da NaN, y NaN en una
+ * comparación es siempre `false`. La regla de «30 días sin tocar» se estaba calculando sobre
+ * 362 de 550 tareas con el resultado NaN, o sea silenciosamente sobre ninguna.
+ *
+ * Por eso el saneo va en la LECTURA y no solo en la reparación de los datos: cualquier
+ * script viejo, cualquier import, cualquier fila que quedó de antes vuelve a meter lo mismo, y
+ * el síntoma no se ve.
+ */
+export function sanearHist(v: unknown): Hist[] {
+  if (!Array.isArray(v)) return [];
+  const out: Hist[] = [];
+  for (const raw of v) {
+    if (!raw || typeof raw !== 'object') continue;
+    const h = raw as Record<string, unknown>;
+    // epoch, ISO string, o Date. Lo que no se puede fechar se descarta: una entrada sin
+    // fecha usable ordenaría mal el historial y envenenaría cualquier cuenta de días.
+    const t = typeof h.ts === 'number' ? h.ts : new Date(String(h.ts ?? '')).getTime();
+    if (!Number.isFinite(t)) continue;
+    // 'MaKo' es como se llama la IA en pantalla, no un actor: el actor de la IA es 'ia'.
+    const a = String(h.actor ?? 'ia');
+    const actor: Actor = a === 'user' || a === 'ia' || a === 'code' ? a : 'ia';
+    out.push({
+      id: String(h.id ?? ''), ts: t, actor, text: String(h.text ?? ''),
+      ...(h.undo && typeof h.undo === 'object' ? { undo: h.undo as UndoInfo } : {}),
+      ...(h.kind === 'task' ? { kind: 'task' as const } : {}),
+    });
+  }
+  return out;
+}
+
 export type BoardTask = {
   id: string;
   num: number;              // #n visible
@@ -218,11 +260,17 @@ export function spreadProjScores(items: Array<{ id: string; score: number }>): R
  * valen 0, así que una sola tarea no cobra bonus de más): entre dos proyectos que empatan
  * en su tarea top, gana el que tiene más trabajo importante detrás.
  *
- * Sin tareas abiertas devuelve 1. Un proyecto vacío no es una prioridad, es una intención —
- * había 8 ocupando de 50 a 80, uno de ellos por encima del único encargo con cliente vivo.
+ * ⚠️ SIN TAREAS ABIERTAS DEVUELVE `null`, y eso NO es lo mismo que devolver un número bajo.
+ * La primera versión los mandaba a 1 y el dueño lo rechazó con el argumento correcto: *«si se
+ * creó un proyecto es por algo… lo que se debe hacer es cargarle tareas»*. Un proyecto vacío
+ * no es poco importante: es DESCONOCIDO — no hay evidencia de la cual derivar nada, y fabricar
+ * un número donde no hay dato es exactamente el modo de falla que este módulo vino a cerrar.
+ * `null` significa «no lo toques»: se queda con el score que le puso el Perro y la acción que
+ * corresponde es llenarlo (ver `proyectosSinTareas`, lib/plan-board.ts). No puede secuestrar
+ * el norte del tablero igual, porque `objetivoPrincipal` exige pendientes.
  */
-export function scoreProyectoDerivado(scoresDesc: number[]): number {
-  if (!scoresDesc.length) return 1;
+export function scoreProyectoDerivado(scoresDesc: number[]): number | null {
+  if (!scoresDesc.length) return null;
   const densidad = Math.round(((scoresDesc[0] ?? 0) + (scoresDesc[1] ?? 0) + (scoresDesc[2] ?? 0)) / 50);
   return clampProj(Math.min(MAX_PROJ, scoresDesc[0] + densidad));
 }
