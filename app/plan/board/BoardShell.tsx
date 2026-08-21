@@ -41,6 +41,7 @@ import type { Board } from './useBoard';
 import { separarRepetidas, textoRepetidas } from '@/lib/tareas-dedup';
 import { type BoardTask, type Label, type Prio, type Check, type Actor, type Fuente, type FuenteTipo, ACTOR_LABEL, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, fechaHora, fuenteEfectiva, prioFromScore, displayPrio } from './types';
 import { resolverDeps, estaBloqueada, type EstadoDeps, type Dep } from './dependencias';
+import { ESCALERA } from './types';
 import { DependenciasBloque } from './DependenciasBloque';
 import { apiPlan } from './repo-plan';
 // El Link propio, NUNCA next/link: preserva el ?ws= de la pestaña (AGENTS.md).
@@ -374,9 +375,21 @@ export function BoardShell({ board, scope }: {
     const sigNow = sig ?? planSignature();
     if (lastReprioSig.current === sigNow) return; // ya se corrió para esta firma
     repriorizando.current = true;
-    const proyectos = labels.map((l) => ({ id: l.id, nombre: l.name }));
+    // ⚠️ LOS PROYECTOS NO VIAJAN ACÁ, y es a propósito. Los juzga `priorizarProyectosOwner`
+    // (server-side) con la metodología completa y con datos para juzgar. Mandarlos también
+    // desde acá —como `{ id, nombre }`, dos palabras— era el SEGUNDO productor del mismo
+    // número, y el que producía el peor: el modelo decidía si «Feature: Closing Analyst»
+    // mueve la aguja sin ver ni una de sus tareas.
+    const proyectos: Array<{ id: string; nombre: string }> = [];
     // scoreActual: el guardián mantiene el score previo salvo razón concreta (estabilidad).
-    const tareasIn = tasks.filter((t) => t.progress < 100).map((t) => ({ id: t.id, titulo: t.title, detalle: t.detalle, proyecto: board.labelById(t.labels[0])?.name ?? '', deadline: t.deadline, avance: t.progress, origen: t.origen, scoreActual: t.score }));
+    //
+    // ⚠️ EL `detalle` VA RECORTADO A 1500, igual que en `puntuarNuevas`. Sin el recorte este
+    // payload medía 990.903 caracteres ≈ 275.000 tokens sobre el tablero real (550 tareas ×
+    // detalle de hasta 6.000 chars, el 87% del total) — y el límite diario de una cuenta de
+    // Gemini son 250.000. O sea: una sola corrida se comía el día entero, y como esta feature
+    // tiene `fallback: []` la llamada no degradaba, FALLABA. Colgada de un setTimeout que
+    // dispara con solo tener el board abierto y cambiar una tarea.
+    const tareasIn = tasks.filter((t) => t.progress < 100).map((t) => ({ id: t.id, titulo: t.title, detalle: (t.detalle ?? '').slice(0, 1500), proyecto: board.labelById(t.labels[0])?.name ?? '', deadline: t.deadline, avance: t.progress, origen: t.origen, scoreActual: t.score }));
     if (tareasIn.length < 2) { repriorizando.current = false; return; }
     try {
       const j = await fetch('/api/mako-guardian', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ proyectos, tareas: tareasIn }) }).then((r) => r.json());
@@ -1634,6 +1647,31 @@ function ProyectoVacioBloque({ proj }: { proj: Label }) {
   );
 }
 
+/**
+ * EN QUÉ ESCALÓN DE LA ESCALERA DEL DINERO cae este proyecto (mig 0142).
+ *
+ * Es lo que contesta la pregunta del dueño —«¿en qué me acerca eso a lo que configuramos en
+ * el perro?»— sin tener que leer la razón entera: 1 cobrar · 2 traer una conversación nueva ·
+ * 3 no perder a un cliente que ya está adentro · 4 convertir mejor · 5 construir capacidad.
+ *
+ * Hasta que existió esta columna, el escalón se decidía en cada corrida, se escribía adentro
+ * de una frase y ahí moría. Ahora se ve, y por eso se puede discutir.
+ */
+function EscalonChip({ l }: { l: Label }) {
+  const e = l.escalon ? ESCALERA[l.escalon] : null;
+  if (!e) return null;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+      <span title={e.largo} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--mako-ink, var(--primary))', background: 'color-mix(in srgb, var(--primary) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--primary) 25%, transparent)', borderRadius: 5, padding: '2px 7px' }}>
+        💰 {l.escalon} · {e.corto}
+      </span>
+      {/* Un escalón 5 solo puede ganarle a los de arriba si dice A CUÁL habilita. Sin esa
+          frase no es una excepción justificada: es «construir» disfrazado de prioridad. */}
+      {l.escalon === 5 && l.desbloquea && <span style={{ fontSize: 11, color: 'var(--dim)' }}>desbloquea: {l.desbloquea}</span>}
+    </div>
+  );
+}
+
 /** La versión larga del `TiempoChip`, para el detalle: acá sí hay lugar para la frase. */
 function TiempoLinea({ t }: { t: BoardTask }) {
   const ahora = Date.now();
@@ -2264,6 +2302,7 @@ export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen }:
       <div style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3 }}>{l.name}</div>
       {isTop && <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.1em', textTransform: 'uppercase', color: l.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>}
       {verDetalle && l.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>{stripHtml(l.detalle)}</div>}
+      {verDetalle && <EscalonChip l={l} />}
       {verDetalle && l.scoreRazon && <div style={{ fontSize: 11.5, color: 'var(--faint)', fontStyle: 'italic', lineHeight: 1.45 }}>🐕 {l.scoreRazon}</div>}
       <span style={{ flex: 1 }} />
       {prog.total > 0 && <span style={{ display: 'block' }}><MiniBar v={prog.pct} /></span>}
@@ -2448,6 +2487,7 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, z 
                 <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Prioridad</span>
                 <ProjScore score={proj.score} color={proj.color} big />
               </div>
+              <EscalonChip l={proj} />
               {proj.scoreRazon && <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4, marginBottom: 8, fontStyle: 'italic' }}>“{proj.scoreRazon}”</div>}
               {(proj.impacto != null || proj.esfuerzo != null) && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 10 }}>

@@ -131,7 +131,23 @@ export type BoardTask = {
   enPrioridad: boolean;     // "En prioridad" (vista Prioridades, máx 3)
 };
 
-export type Label = { id: string; pid?: string; emoji: string; name: string; color: string; score: number; scoreRazon?: string; impacto?: number; esfuerzo?: number; deadline?: string; detalle: string; notas?: string; historial: Hist[]; fuente?: Fuente };
+export type Label = { id: string; pid?: string; emoji: string; name: string; color: string; score: number; scoreRazon?: string; impacto?: number; esfuerzo?: number; deadline?: string; detalle: string; notas?: string; historial: Hist[]; fuente?: Fuente; escalon?: number; desbloquea?: string };
+
+/**
+ * LA ESCALERA DEL DINERO (mig 0142). Es la regla que ORDENA toda la metodología del Perro,
+ * y hasta hoy vivía únicamente adentro de una frase en lenguaje natural: no se podía
+ * ordenar por ella, ni mostrarla, ni contar cuántas cosas del tablero caen en cada escalón.
+ *
+ * Los escalones 1 a 3 le ganan al 4, y el 4 le gana al 5, salvo que el 5 desbloquee
+ * explícitamente a uno de los otros — y ahí hay que nombrar a cuál (`desbloquea`).
+ */
+export const ESCALERA: Record<number, { corto: string; largo: string }> = {
+  1: { corto: 'Cobrar', largo: 'Cobrar lo que ya se vendió, o poder cobrar' },
+  2: { corto: 'Conversación', largo: 'Traer una conversación nueva con alguien que puede comprar' },
+  3: { corto: 'No perder', largo: 'No perder a un cliente que ya está adentro' },
+  4: { corto: 'Convertir', largo: 'Convertir mejor lo que ya entra' },
+  5: { corto: 'Construir', largo: 'Construir una capacidad que recién después hace alguna de las otras' },
+};
 // El id VISIBLE de un proyecto (P1, P2…): distinto del #num de las tareas a propósito,
 // para que de un vistazo se sepa si un id es de tarea o de proyecto. Estable por orden.
 export const pidDe = (l: { pid?: string }, i: number) => l.pid || `P${i + 1}`;

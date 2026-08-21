@@ -23,7 +23,7 @@
 
 import { NextResponse } from 'next/server';
 import { runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
-import { recurvarPlanOwner, limpiarDependenciasColgadas } from '@/lib/plan-board';
+import { recurvarPlanOwner, limpiarDependenciasColgadas, priorizarProyectosOwner } from '@/lib/plan-board';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -36,8 +36,14 @@ export async function GET() {
     if (!ws) return NextResponse.json({ ok: false, error: 'sin workspace de super-admin' }, { status: 200 });
     const t = await runWithWorkspace(ws, () => recurvarPlanOwner());
     const colgadas = await runWithWorkspace(ws, () => limpiarDependenciasColgadas()).catch(() => 0);
-    console.log(`[cron plan-recurvar] ws${ws} · ${t.movidas}/${t.total} tareas · ${t.conDeadline} por fecha · ${t.quietas} por quietud · ${t.frenadas} frenadas`);
-    return NextResponse.json({ ok: true, tareas: t, colgadas });
+    // Los proyectos los JUZGA el Perro (no una cuenta): el negocio cambia de fase, entran
+    // clientes y se termina media hoja de ruta, y un ranking de hace un mes ya no dice nada.
+    // `fallas` viaja en la respuesta a propósito — un cron que audita y se guarda el
+    // resultado es un cron que no auditó.
+    const p = await runWithWorkspace(ws, () => priorizarProyectosOwner('Repriorización diaria')).catch((e) => ({ movidos: 0, total: 0, norte: '', error: e instanceof Error ? e.message : String(e) } as Awaited<ReturnType<typeof priorizarProyectosOwner>>));
+    console.log(`[cron plan-recurvar] ws${ws} · ${t.movidas}/${t.total} tareas · ${t.conDeadline} por fecha · ${t.quietas} por quietud · ${t.frenadas} frenadas · proyectos ${p.movidos}/${p.total} · norte «${p.norte}»${p.fallas ? `
+${p.fallas}` : ''}`);
+    return NextResponse.json({ ok: true, tareas: t, proyectos: p, colgadas });
   } catch (err) {
     // Un cron que falla en silencio es un cron que nadie sabe que dejó de correr.
     console.error('[cron plan-recurvar]', err instanceof Error ? err.message : String(err));

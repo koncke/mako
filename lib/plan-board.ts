@@ -14,7 +14,8 @@ import type { BoardTask, Label, Prio, Actor, Check, Hist, Fuente, GuardPatch, Gu
 import { scoreFromPrio, prioFromScore, curveTaskScores, sanearHist } from '@/app/plan/board/types';
 import { sanearDep, puedeDepender, resolverDeps, estaBloqueada, type Dep, type EntidadDep, type ClaseDep } from '@/app/plan/board/dependencias';
 import { diasQuieta, diasAlDeadline, ajusteTemporal, empujeDeadline, castigoQuietud } from '@/app/plan/board/envejecer';
-import { puntuarNuevas, describirProyectosNuevos, asignarTareasAProyectos } from '@/lib/mako-guardian';
+import { puntuarNuevas, describirProyectosNuevos, asignarTareasAProyectos, puntuarProyectos, type ProyParaPuntuar } from '@/lib/mako-guardian';
+import { desempatar } from '@/app/plan/board/metodologia';
 import { checklistsParaTareas } from '@/lib/checklist-coach';
 import { CATALOGO_PROYECTOS, delCatalogo, canonNombre, nucleo } from '@/lib/plan-proyectos-catalogo';
 import { faseNegocioTexto } from '@/lib/fase-store';
@@ -77,6 +78,7 @@ function rowToLabel(r: Row): Label {
     scoreRazon: r.score_razon ? str(r.score_razon) : undefined, impacto: optInt(r.impacto),
     esfuerzo: optInt(r.esfuerzo), deadline: r.deadline ? str(r.deadline) : undefined,
     detalle: str(r.detalle), notas: str(r.notas), historial: sanearHist(r.historial), fuente: optFuente(r.fuente),
+    escalon: optInt(r.escalon), desbloquea: r.desbloquea ? str(r.desbloquea) : undefined,
   };
 }
 function labelToRow(l: Label, orden = 0): Row {
@@ -84,6 +86,7 @@ function labelToRow(l: Label, orden = 0): Row {
     id: l.id, pid: l.pid ?? null, emoji: l.emoji || '📁', name: l.name || 'Proyecto', color: l.color || '#2F6FED',
     score: int(l.score, 50), score_razon: l.scoreRazon ?? null, impacto: l.impacto ?? null, esfuerzo: l.esfuerzo ?? null,
     deadline: l.deadline || '', detalle: l.detalle || '', notas: l.notas ?? '', historial: l.historial ?? [], fuente: l.fuente ?? null,
+    escalon: l.escalon ?? null, desbloquea: l.desbloquea ?? null,
     orden, updated_at: new Date().toISOString(),
   };
 }
@@ -816,6 +819,12 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
     // sobre el tablero completo. Es la mitad que faltaba — el Perro ubicaba lo nuevo y
     // nadie volvía a mirar lo viejo.
     const recurva = await recurvarPlanOwner().catch((e) => { console.error('[plan-board] recurvar:', e instanceof Error ? e.message : String(e)); return { movidas: 0, total: 0 }; });
+    // Y el Perro vuelve a JUZGAR los proyectos, no solo los que acaban de nacer: entró
+    // trabajo nuevo, así que la comparación ENTRE proyectos cambió. Esto es lo que no
+    // existía —un proyecto se puntuaba el día que se creaba y nadie lo volvía a mirar
+    // nunca—, y por eso el ranking que el dueño veía era el de aquel día.
+    await priorizarProyectosOwner('Entraron tareas nuevas al plan')
+      .catch((e) => console.error('[plan-board] priorizar proyectos:', e instanceof Error ? e.message : String(e)));
 
     return { tareas: cuenta, proyectos: proyectosPatch.length, patches, proyectosPatch, sinPuntuar: scoreRes.faltantes.length, recurvadas: recurva.movidas };
   });
@@ -835,4 +844,142 @@ export async function guardarPlanBulk(tareas: BoardTask[], proyectos: Label[]): 
     }
     return { tareas: tareas.length, proyectos: proyectos.length };
   });
+}
+
+/**
+ * EL PERRO JUZGA TODOS LOS PROYECTOS. Es lo que reemplaza a la fórmula que se revirtió.
+ *
+ * Lo que cambia respecto de lo que había, y es todo lo que importa:
+ *
+ * 1. **Se juzgan los que YA EXISTEN, no solo los nuevos.** Antes un proyecto se puntuaba el
+ *    día que nacía y nadie lo volvía a mirar: el negocio cambiaba de fase, entraban clientes,
+ *    se terminaba media hoja de ruta, y el ranking seguía siendo el de aquel día.
+ * 2. **El modelo recibe con qué juzgar.** Antes veía `{ id, nombre }` — dos palabras. Ahora
+ *    le llega el resumen de qué es y qué le falta, cuánto trabajo abierto tiene, una muestra
+ *    PAREJA de sus tareas (no el top: el top hace pensar en el máximo, que es justo el error
+ *    anterior) y su score actual para la regla de estabilidad.
+ * 3. **Con la metodología COMPLETA.** El prompt viejo de proyectos no tenía la escalera del
+ *    dinero, ni impacto/esfuerzo en días, ni la regla de lo roto frente a un cliente, ni el
+ *    formato obligatorio de la razón. Ahora las interpola de `lib/mako-guardian.ts`, que es
+ *    la única copia.
+ * 4. **Y la salida se AUDITA antes de escribirse** (`auditarSalidaDelPerro`): empates, rango
+ *    amontonado, razones que no comparan, y la correlación con el tamaño. Si rompe una regla
+ *    dura, se le dice qué rompió y se reintenta una vez.
+ *
+ * ⚠️ El desempate es `desempatar`, NO `spreadProjScores`. Aquel reparte 100/99/97/96… y con
+ * eso el número guardado deja de ser el juicio y pasa a ser la posición en el ranking — la
+ * razón diría «95» y la pantalla mostraría otra cosa. Ver el comentario de `desempatar`.
+ */
+export async function priorizarProyectosOwner(motivo?: string): Promise<{
+  movidos: number; total: number; norte: string; fallas?: string; error?: string;
+}> {
+  return enPlan(async () => {
+    const db = await getTenantDb();
+    const [tRes, pRes] = await Promise.all([
+      db.from('plan_tareas').select('title, progress, score, labels'),
+      db.from('plan_proyectos').select('id, name, detalle, score, historial'),
+    ]);
+    const proyectos = (pRes.data ?? []).map((r) => ({
+      id: str((r as Row).id), name: str((r as Row).name, 'Proyecto'),
+      detalle: str((r as Row).detalle), score: int((r as Row).score),
+      historial: sanearHist((r as Row).historial),
+    }));
+    if (proyectos.length < 2) return { movidos: 0, total: proyectos.length, norte: '' };
+
+    const tareas = (tRes.data ?? []).map((r) => ({
+      titulo: str((r as Row).title), progress: int((r as Row).progress),
+      score: int((r as Row).score), labels: asArr<unknown>((r as Row).labels).map(String),
+    }));
+
+    const payload: ProyParaPuntuar[] = proyectos.map((p) => {
+      const suyas = tareas.filter((t) => t.labels.includes(p.id));
+      const abiertas = suyas.filter((t) => t.progress < 100);
+      // MUESTRA PAREJA, no el top. Mandar las 5 mejores le enseña al modelo a mirar el
+      // máximo — que es exactamente el sesgo que produjo el bug anterior. Salteado sobre el
+      // orden por score, ve de qué se trata el proyecto de punta a punta.
+      const orden = abiertas.slice().sort((a, b) => b.score - a.score);
+      const paso = Math.max(1, Math.ceil(orden.length / 5));
+      return {
+        id: p.id, nombre: p.name,
+        resumen: resumenDeProyecto(p.detalle),
+        abiertas: abiertas.length, hechas: suyas.length - abiertas.length,
+        tareas: orden.filter((_, i) => i % paso === 0).slice(0, 5).map((t) => t.titulo.slice(0, 120)),
+        scoreActual: p.score || undefined,
+        // Un score que el dueño le ganó al Perro discutiendo NO es un score cualquiera. Sin
+        // esta marca, la próxima corrida lo pisa sin saber que estaba pisando una decisión.
+        ...(p.historial.some((h) => h.actor === 'user' && /prioridad/i.test(h.text)) ? { loDecidioElDueno: true as const } : {}),
+      };
+    });
+
+    // El norte del negocio primero: sin eso el Perro ordena mirando solo el tablero, que es
+    // una referencia circular. El diagnóstico dice cuál es el cuello de HOY, y es lo que
+    // distingue «importante» de «importante AHORA».
+    const contexto = await faseNegocioTexto().catch(() => '');
+    const r = await puntuarProyectos(payload, contexto, motivo || 'Priorizar los proyectos del plan');
+    if (r.error || !r.proyectos.length) {
+      return { movidos: 0, total: proyectos.length, norte: '', error: r.error ?? 'El Perro no devolvió nada.' };
+    }
+
+    // ⚠️ EL DESEMPATE VA CONTRA TODOS LOS PROYECTOS, no solo contra los que el Perro
+    // devolvió. Si el modelo puntúa 66 de 71, los otros 5 conservan su score viejo — y un
+    // score nuevo puede caer justo encima de uno de esos. Medido en la primera corrida:
+    // 5 empates que `desempatar` no veía porque no estaban en la lista.
+    const sinTocar = proyectos.filter((p) => !r.proyectos.some((x) => x.id === p.id));
+    const limpio = desempatar([
+      ...r.proyectos.map((p) => ({ id: p.id, titulo: '', score: p.score })),
+      ...sinTocar.map((p) => ({ id: p.id, titulo: '', score: p.score })),
+    ]);
+    const ahora = new Date().toISOString();
+    const cambian = r.proyectos.filter((p) => (limpio[p.id] ?? p.score) !== (proyectos.find((x) => x.id === p.id)?.score ?? -1));
+
+    const TANDA = 20;
+    for (let i = 0; i < r.proyectos.length; i += TANDA) {
+      await Promise.all(r.proyectos.slice(i, i + TANDA).map((p) => {
+        const antes = proyectos.find((x) => x.id === p.id);
+        const score = limpio[p.id] ?? p.score;
+        // Historial SOLO cuando el número se movió, y con la razón adentro: es lo único que
+        // hace auditable un ranking que decidió una IA, y la regla de la casa dice que todo
+        // lo que toca la IA deja rastro. 71 entradas idénticas diciendo «no cambió» taparían
+        // justo el rastro que sirve.
+        const hist = antes && antes.score !== score
+          ? [{ id: genId('h'), ts: Date.now(), actor: 'ia' as Actor, text: `MaKo lo repriorizó — ${antes.score} → ${score} · ${p.razon.slice(0, 200)}` }, ...antes.historial].slice(0, 40)
+          : antes?.historial;
+        return db.from('plan_proyectos').update({
+          score, score_razon: p.razon || null, impacto: p.impacto ?? null, esfuerzo: p.esfuerzo ?? null,
+          escalon: p.escalon ?? null, desbloquea: p.desbloquea ?? null,
+          historial: hist, updated_at: ahora,
+        }).eq('id', p.id).then(() => undefined);
+      }));
+    }
+
+    // Y si el desempate movió a uno que el Perro NO tocó, ese también se escribe: si no, el
+    // empate que se acaba de resolver en memoria sigue vivo en la base.
+    await Promise.all(sinTocar.filter((p) => (limpio[p.id] ?? p.score) !== p.score).map((p) =>
+      db.from('plan_proyectos').update({ score: limpio[p.id], updated_at: ahora }).eq('id', p.id).then(() => undefined)));
+
+    const norteId = Object.entries(limpio).sort((a, b) => b[1] - a[1])[0]?.[0];
+    const nombreNorte = proyectos.find((x) => x.id === norteId)?.name ?? '';
+    console.log(`[plan-board] proyectos priorizados: ${cambian.length}/${proyectos.length} movidos · norte → «${nombreNorte}»${r.fallas ? `\n${r.fallas}` : ''}`);
+    return { movidos: cambian.length, total: proyectos.length, norte: nombreNorte, fallas: r.fallas };
+  });
+}
+
+/**
+ * De qué se trata un proyecto, en 400 caracteres.
+ *
+ * Se queda con «Qué falta» y «Por qué importa» del molde, que son las dos partes que dicen
+ * si esto mueve la aguja HOY. «Qué es» y «Qué ya está» describen el pasado y ocupan lugar.
+ * Si el detalle no tiene el molde (los «Cliente: NOMBRE» no lo tienen), va el arranque
+ * crudo: es mejor que nada, y nada es lo que el modelo tenía antes.
+ */
+function resumenDeProyecto(detalle: string): string | undefined {
+  const d = (detalle ?? '').trim();
+  if (!d) return undefined;
+  const partes: string[] = [];
+  for (const titulo of ['Qué falta', 'Por qué importa']) {
+    const re = new RegExp(`\\*\\*${titulo}\\*\\*\\s*([\\s\\S]*?)(?=\\n\\s*\\*\\*|$)`);
+    const m = d.match(re);
+    if (m?.[1]?.trim()) partes.push(`${titulo}: ${m[1].trim().replace(/\s+/g, ' ')}`);
+  }
+  return (partes.join(' · ') || d.replace(/\s+/g, ' ')).slice(0, 400);
 }

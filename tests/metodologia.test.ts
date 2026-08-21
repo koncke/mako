@@ -18,7 +18,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   normalizar, citasDe, razonCompara, sinEmpates, usaTodoElRango, piramideSana,
-  noRankeaPorTamano, auditarSalidaDelPerro, type Puntuado,
+  noRankeaPorTamano, auditarSalidaDelPerro, desempatar, type Puntuado,
 } from '../app/plan/board/metodologia';
 
 const P = (id: string, titulo: string, score: number, razon?: string): Puntuado => ({ id, titulo, score, razon });
@@ -174,8 +174,58 @@ test('auditar — las razones flojas se reportan AGRUPADAS, no una por una', () 
   assert.match(deRazon[0].detalle, /40 de 40/);
 });
 
+test('auditar — LA RAZÓN DE UN PROYECTO NO COMPARA CONTRA UNA TAREA SUYA', () => {
+  // Es el agujero exacto que tuvo la primera versión de este archivo: pasaba
+  // `[...proyectos, ...tareas]` como universo de los dos, así que la razón que originó todo
+  // el problema —«Vale lo que su mejor tarea: "…"»— PASABA la validación, porque esa tarea
+  // existe. Un validador que aprueba justo el caso que vino a cazar es peor que no tenerlo.
+  const a = auditarSalidaDelPerro({
+    proyectos: [P('p1', 'Feature: Cobros y planes', 98,
+      'Vale lo que su mejor tarea: «Integrar pasarela de pago automática con Stripe» (93), con 11 pendientes adentro.')],
+    tareas: [P('t1', 'Integrar pasarela de pago automática con Stripe', 93, 'Le gana a «Otra tarea» porque cobra.'),
+      P('t2', 'Otra tarea', 40, 'Pierde contra «Integrar pasarela de pago automática con Stripe» porque no cobra.')],
+  });
+  const deRazon = a.fallas.filter((f) => f.regla.startsWith('La razón'));
+  assert.equal(deRazon.length, 1, 'la razón del proyecto tiene que fallar');
+  assert.ok(deRazon[0].ids.includes('p1'));
+});
+
 test('auditar — sin nTareas no inventa la correlación', () => {
   const proyectos = Array.from({ length: 12 }, (_, i) => P(`p${i}`, `P${i}`, 100 - i * 8));
   const a = auditarSalidaDelPerro({ proyectos });
   assert.equal(a.fallas.some((f) => f.regla.includes('TAMAÑO')), false);
+});
+
+// ── Desempatar sin redistribuir ──────────────────────────────────────────────────────
+
+test('desempatar — conserva el juicio: el que no empata NO se mueve', () => {
+  // Es la diferencia con `spreadProjScores`, que reparte 100/99/97/96… y convierte el score
+  // en la POSICIÓN del ranking. Ahí la razón dice «95 → 34» y el número mostrado es otro.
+  const out = desempatar([P('a', 'A', 88), P('b', 'B', 40), P('c', 'C', 12)]);
+  assert.deepEqual(out, { a: 88, b: 40, c: 12 });
+});
+
+test('desempatar — la DISTANCIA entre proyectos sigue significando algo', () => {
+  // Con un reparto lineal, 97 y 12 quedan en posiciones contiguas y se pierde que uno vale
+  // ocho veces lo que el otro.
+  const out = desempatar([P('a', 'A', 97), P('b', 'B', 12)]);
+  assert.equal(out.a - out.b, 85);
+});
+
+test('desempatar — el empate se resuelve con el MÍNIMO movimiento', () => {
+  const out = desempatar([P('a', 'A', 90), P('b', 'B', 90), P('c', 'C', 90)]);
+  assert.deepEqual(new Set(Object.values(out)).size, 3);
+  assert.deepEqual(Object.values(out).sort((x, y) => y - x), [90, 89, 88]);
+});
+
+test('desempatar — su salida SIEMPRE pasa `sinEmpates`, que es la regla dura', () => {
+  const items = Array.from({ length: 40 }, (_, i) => P(`p${i}`, `P${i}`, 50));
+  const out = desempatar(items);
+  const puntuados = items.map((i) => ({ ...i, score: out[i.id] }));
+  assert.equal(sinEmpates(puntuados), null);
+});
+
+test('desempatar — es estable: la misma entrada da siempre lo mismo', () => {
+  const items = [P('a', 'A', 70), P('b', 'B', 70), P('c', 'C', 70)];
+  assert.deepEqual(desempatar(items), desempatar(items.slice()));
 });

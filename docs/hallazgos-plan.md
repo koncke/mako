@@ -1555,3 +1555,86 @@ entrar. `proyectosSinTareas()` ya devuelve la lista y está sin usar desde ahí.
 (`ProyectoVacioBloque`) · app/api/plan-board/route.ts (`proponer-tareas-proyecto`) ·
 app/plan/board/types.ts (`scoreProyectoDerivado` devuelve `null`) ·
 scripts/repuntuar-proyectos-vacios.mts · *2026-08-21*
+
+
+### El Perro dejó de juzgar los proyectos, y nadie lo notó hasta que el ranking fue absurdo
+
+Rechazo textual del dueño, mirando la pantalla: *«¿Cómo que "vale lo mismo que su tarea más
+alta"? Si quisiera hacer eso, ¿para qué me tomé el trabajo de meter IA? Para eso simplemente
+lo pongo con código. Pero justamente está el perro guardián, para asignar prioridades según
+lo que MUEVE LA AGUJA. Y hay una metodología para eso. […] "Feature: Closing Analyst" o
+"Feature: Customer Success"… ¿Qué carajos tiene que ver con lo que mueve la aguja?»*
+
+**La causa raíz no era la fórmula que se revirtió — era anterior, y medida:**
+
+| Lo que se creía | Lo que estaba pasando |
+|---|---|
+| El Perro puntúa los proyectos | Los puntúa **una sola vez, el día que nacen**, y nadie los vuelve a mirar nunca. `priorizarNuevasOwner` filtra los nuevos y le manda el resto con la instrucción textual «REFERENCIA, NO los re-puntúes» |
+| …con su metodología | Con una versión **recortada**: al prompt de proyectos le faltaba la ESCALERA DEL DINERO entera, la definición de impacto/esfuerzo en días, la regla de lo roto frente a un cliente, «el tamaño no es la prioridad», la disciplina de distribución y el FORMATO OBLIGATORIO de la razón |
+| …viendo de qué se trata | Viendo **`{ id, nombre }`**. Dos palabras. Medido: el detalle de 1.111 caracteres de ese proyecto no viajaba, ni sus tareas, ni su score actual. El modelo decidía si «Feature: Closing Analyst» mueve la aguja a partir de su título |
+
+**Y había una bomba de cuota encima.** `rePriorizar` (BoardShell) mandaba el plan entero con
+el `detalle` COMPLETO de cada tarea, sin recortar. Medido sobre el tablero real: **990.903
+caracteres ≈ 275.000 tokens en un solo prompt** (el detalle era el 87%), contra un límite
+diario de **250.000** por cuenta de Gemini — y como `mako-guardian` tiene `fallback: []`, la
+llamada no degradaba: **fallaba**. Colgada de un `setTimeout` de 2.500 ms que dispara con solo
+tener el board abierto y tocar una tarea. Ahora el detalle va a `.slice(0, 1500)`, igual que
+`puntuarNuevas`, y los proyectos ya no viajan por ahí.
+
+**Lo que reemplaza a la fórmula:** `puntuarProyectos` (lib/mako-guardian.ts) +
+`priorizarProyectosOwner` (lib/plan-board.ts). El Perro juzga TODOS los proyectos entre sí,
+con la metodología completa interpolada de un solo lugar (`MET_ESCALERA`,
+`MET_IMPACTO_ESFUERZO`, `MET_ROTO_CLIENTE`, `MET_TAMANO`, `MET_DISTRIBUCION`, `MET_RAZON` —
+la escalera estaba **copiada a mano dos veces** y ausente del único prompt que puntuaba
+proyectos), y recibiendo el resumen de qué es, cuánto trabajo abierto tiene, una muestra
+**pareja** de sus tareas y su score actual.
+
+⚠️ **La muestra es PAREJA, no el top.** Mandar las 5 mejores tareas le enseña al modelo a
+mirar el máximo — que es exactamente el sesgo de la fórmula que se revirtió.
+
+**El escalón pasó a ser un DATO** (mig 0142). Era la regla más pesada del prompt y la única
+verdaderamente imposible de verificar mientras viviera adentro de una frase: no se podía
+ordenar por ella, ni mostrarla, ni contar cuántas cosas caen en cada escalón. `escalon` no
+existía en ninguna parte del repo — ni columna, ni tipo, ni campo de JSON, ni chip.
+
+**Y la salida se AUDITA antes de escribirse** (`app/plan/board/metodologia.ts`). Lo que cazó
+en las corridas reales, que es la prueba de que hacía falta:
+
+- **54 de 66 razones no comparaban contra nada**: el modelo escribía «Le gana a «Feature:
+  Mindset»» adentro de la razón de «Feature: Mindset» — el formato copiado sin el contenido.
+  Con el reintento diciéndole exactamente eso, quedó en ~1.
+- **5 proyectos que el modelo no devolvió** se estaban quedando con el score y la razón
+  VIEJOS, mezclados entre los nuevos. Ahora se vuelven a pedir por nombre.
+- **5 empates** que el desempate no veía, porque solo miraba los que el Perro había devuelto
+  y no los que conservaban su score anterior.
+- Un título citado como «Feature: Configuración y equipo» cuando el proyecto real se llama
+  «Configuraciones» — plural. Una comparación contra un nombre parecido se lee igual de
+  convincente que una buena.
+
+⚠️ **`desempatar` reemplaza a `spreadProjScores`, y la diferencia importa.** Aquel reparte
+1..100 estrictamente decreciente: con 71 proyectos escribe 100, 99, 97, 96… 1, o sea **el
+número guardado deja de ser el juicio y pasa a ser la posición en el ranking**. El modelo
+decía «95» en la razón y la pantalla mostraba otra cosa — la razón y el número saliendo otra
+vez de dos mecanismos distintos. `desempatar` baja al empatado de a 1 hasta encontrar hueco:
+el que no empata no se mueve, y la DISTANCIA entre dos proyectos sigue significando algo.
+
+**Resultado sobre el tablero real (71 proyectos):**
+
+| | Antes | Después |
+|---|---|---|
+| Rango usado | 20-98, **12 proyectos entre 94 y 98** | 30-100 |
+| Empates | 5 | **0** |
+| Norte | «Feature: WhatsApp de MaKo» *(porque tenía dos tareas vencidas)* | **«Feature: Cobros y planes»**, escalón 1 — cobrar |
+| Razón del #1 | «Vale lo que su mejor tarea: "…" (93), con 7 pendientes adentro» | «Le gana a «Feature: Onboarding» porque cobra plata directamente con pasarela activa» |
+| «Feature: Closing Analyst» | 95, top 10 | fuera del top 15 |
+
+⚠️ **Lo que sigue sin cerrar:** el rango llega a 30 y la metodología pide que lo que puede
+esperar del todo vaya en 1-10. El modelo comprime el fondo y no lo corrige ni diciéndoselo.
+Queda como falla BLANDA visible en cada corrida — a propósito: forzarlo con una fórmula sería
+repetir exactamente el error que esta entrada documenta.
+
+**Vive en:** lib/mako-guardian.ts (`MET_*`, `puntuarProyectos`) · lib/plan-board.ts
+(`priorizarProyectosOwner`) · app/plan/board/metodologia.ts (la auditoría, `desempatar`) ·
+app/plan/board/types.ts (`ESCALERA`) · app/plan/board/BoardShell.tsx (`EscalonChip`, el
+recorte de `rePriorizar`) · supabase/migrations/0142_escalon_dinero.sql ·
+scripts/priorizar-proyectos.mts · *2026-08-21*

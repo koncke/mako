@@ -85,6 +85,12 @@ export function citasDe(razon: string): string[] {
  */
 export function razonCompara(item: Puntuado, universo: Array<{ titulo: string }>): Falla | null {
   const regla = 'La razón tiene que NOMBRAR otra cosa del plan entre comillas y comparar contra ella';
+  // ⚠️ EL `universo` TIENE QUE SER DEL MISMO NIVEL QUE EL ÍTEM: un proyecto se compara con
+  // otro PROYECTO, una tarea con otra TAREA. La primera versión de esto le pasaba
+  // `[...proyectos, ...tareas]` a los dos, y con eso la razón que originó todo el problema
+  // —«Vale lo que su mejor tarea: "Closing Analyst: la conclusión antes que la evidencia"»—
+  // PASABA la validación, porque esa tarea existe. Un validador que aprueba justo el caso
+  // que vino a cazar es peor que no tenerlo: da la tranquilidad sin dar la garantía.
   const razon = (item.razon ?? '').trim();
   if (!razon) return { regla, detalle: 'sin razón', ids: [item.id], peso: 'blanda' };
   const citas = citasDe(razon);
@@ -235,7 +241,6 @@ export function auditarSalidaDelPerro(entrada: {
   const fallas: Falla[] = [];
   const proyectos = entrada.proyectos ?? [];
   const tareas = entrada.tareas ?? [];
-  const universo = [...proyectos, ...tareas];
 
   if (proyectos.length) {
     const e = sinEmpates(proyectos); if (e) fallas.push(e);
@@ -248,13 +253,23 @@ export function auditarSalidaDelPerro(entrada: {
     const p = piramideSana(tareas); if (p) fallas.push(p);
   }
   // La razón se audita item por item, pero se REPORTA agrupada: 40 fallas idénticas no le
-  // dicen a nadie más que una que diga «40 de 71».
-  const sinComparar = universo.map((i) => razonCompara(i, universo)).filter((f): f is Falla => f != null);
+  // dicen a nadie más que una que diga «40 de 71». Y cada nivel contra SU nivel.
+  const sinComparar = [
+    ...proyectos.map((i) => razonCompara(i, proyectos)),
+    ...tareas.map((i) => razonCompara(i, tareas)),
+  ].filter((f): f is Falla => f != null);
   if (sinComparar.length) {
+    // ⚠️ SI LA MAYORÍA NO COMPARA, ES DURA. Una razón floja suelta se tolera; un ranking
+    // donde la mitad de las razones se comparan CONSIGO MISMAS («Le gana a "Feature:
+    // Mindset"» escrito adentro de «Feature: Mindset») no es un ranking auditable — es el
+    // formato copiado sin el contenido, y el dueño no tiene con qué discutirlo. Medido en la
+    // primera corrida real: 54 de 66. Con esto se reintenta diciéndole exactamente eso.
+    const masivo = sinComparar.length >= Math.max(5, (proyectos.length + tareas.length) * 0.5);
     fallas.push({
+      peso: masivo ? 'dura' : 'blanda',
       regla: sinComparar[0].regla,
-      detalle: `${sinComparar.length} de ${universo.length} no comparan contra nada del plan · ej: ${sinComparar.slice(0, 3).map((f) => f.detalle).join(' | ')}`,
-      ids: sinComparar.flatMap((f) => f.ids), peso: 'blanda',
+      detalle: `${sinComparar.length} de ${proyectos.length + tareas.length} no comparan contra nada del plan · ej: ${sinComparar.slice(0, 3).map((f) => f.detalle).join(' | ')}`,
+      ids: sinComparar.flatMap((f) => f.ids),
     });
   }
 
@@ -265,3 +280,36 @@ export function auditarSalidaDelPerro(entrada: {
 /** Una línea por falla, para el log y para la pantalla. */
 export const textoAuditoria = (a: Auditoria): string =>
   a.fallas.map((f) => `${f.peso === 'dura' ? '⛔' : '⚠️'} ${f.regla} → ${f.detalle}`).join('\n');
+
+/**
+ * Desempata SIN redistribuir: el mínimo movimiento que hace cumplir «PROHIBIDO empatar».
+ *
+ * ⚠️ ES EL REEMPLAZO DE `spreadProjScores`, Y LA DIFERENCIA ES TODA LA LECCIÓN DE ESTE
+ * ARCHIVO. Aquel reparte los proyectos en 1..100 estrictamente decreciente: con 71
+ * proyectos escribe 100, 99, 97, 96… 1, o sea **el score guardado deja de ser el juicio y
+ * pasa a ser la POSICIÓN en el ranking**. El efecto se ve en pantalla: el modelo dice «95 →
+ * 34» en la razón y el número que se muestra es otro, porque lo escribió el reparto. La
+ * razón y el número vuelven a salir de dos mecanismos distintos — la forma exacta del bug
+ * que este board acaba de pagar.
+ *
+ * Acá el juicio se conserva: al empatado se lo baja de a 1 hasta encontrar un hueco libre.
+ * Un proyecto en 88 sigue en 88 y su vecino queda en 87 — la DISTANCIA entre dos proyectos
+ * sigue significando algo (que es lo único que un reparto lineal borra), y si el modelo
+ * amontonó, eso lo dice `usaTodoElRango` en vez de taparlo.
+ *
+ * Estable: el orden de entrada decide quién se queda con el número original.
+ */
+export function desempatar(items: Puntuado[]): Record<string, number> {
+  const usados = new Set<number>();
+  const out: Record<string, number> = {};
+  for (const it of items.slice().sort((a, b) => b.score - a.score)) {
+    let v = Math.max(1, Math.min(100, it.score));
+    while (usados.has(v) && v > 1) v--;
+    // Si abajo no quedaba lugar (el 1 ocupado), se busca para arriba. Solo pasa con más de
+    // 100 proyectos, y ahí el problema es otro — pero no puede devolver un empate igual.
+    while (usados.has(v) && v < 100) v++;
+    usados.add(v);
+    out[it.id] = v;
+  }
+  return out;
+}
