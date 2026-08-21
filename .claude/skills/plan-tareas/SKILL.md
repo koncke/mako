@@ -162,6 +162,7 @@ acá sola: si cambia allá, cambia acá. No la edites a mano.
 > EL PREFIJO ES OBLIGATORIO y sale de UNA pregunta: ¿esto se CONSTRUYE, se EJECUTA SOLO, se VENDE, o CRUZA todo?
 > · «Feature: NOMBRE» → una PANTALLA o módulo del producto que el usuario abre y usa. «Feature: Facturación», igual que «Feature: CRM» o «Feature: Ads Manager». Los analistas y los generadores van acá aunque usen IA: los disparás vos.
 > · «${PREFIJO_AGENTE}NOMBRE» → una IA que TRABAJA SOLA, sin que se lo pidas, y cuyo trabajo es su CRITERIO (cómo decide, sus prompts, sus reglas). «${PREFIJO_AGENTE}Perro Guardián», «${PREFIJO_AGENTE}Chat Agent». La prueba: si corre solo, es agente; si lo abrís y lo usás, es feature.
+> · «Cliente: NOMBRE» → el trabajo que se hace PARA un cliente de la plataforma: su cuenta, su contenido, sus campañas, lo que se le entrega. «Cliente: Mauricio». La prueba: si el resultado lo usa SOLO ese cliente, es suyo; si lo van a tener todos, es producto y va a su tab.
 > · SIN prefijo → un área del negocio ("Legal y fiscal", "Soporte"), algo transversal ("Seguridad y multi-inquilino") o el trabajo de vender ("Vender MaKo: Ads").
 >
 > ⚠️ Ponerle «Feature:» a algo que no se programa es peor que no ponérselo: dice que hay que construirlo cuando hay que firmarlo o pagarlo.

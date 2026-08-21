@@ -25,7 +25,8 @@ import 'server-only';
 // plan de dos clientes a la vez y nadie se entera.
 // =============================================================================
 
-import { getTenantDb } from './workspace';
+import { getTenantDb, getWorkspaceActual, getWorkspace, listarWorkspaces } from './workspace';
+import { listarUsuarios } from './usuarios';
 import { listCategorias, crearCategoria } from './todo';
 import { PREFIJO_CLIENTE, NOMBRES_TODO } from './todo-proyectos-catalogo';
 
@@ -37,7 +38,7 @@ export type ClienteDeReunion = {
   empresa: string | null;
   /** email con el que se lo reconoció (para el rastro en el historial). */
   email: string;
-  via: 'email-invitado' | 'historial-reunion' | 'nombre-en-texto';
+  via: 'email-invitado' | 'historial-reunion' | 'nombre-en-texto' | 'workspace-cliente';
   confianza: 'alta' | 'media';
 };
 
@@ -102,7 +103,15 @@ export async function resolverClienteDeReunion(r: {
   // la agenda: Fathom devuelve como participante SOLO al que grabó en muchas
   // grabaciones, y ahí la única señal es que la reunión se llama "Baja Teriyaki -
   // Seguimiento". Es más débil que el email, por eso va última y nunca lo pisa.
-  if (!candidatos.length) return porTitulo(r.titulo);
+  if (!candidatos.length) return (await porWorkspaceCliente([])) ?? porTitulo(r.titulo);
+
+  // Los clientes del SUPER-ADMIN no están en su CRM: son los workspaces de la
+  // plataforma. Por eso este resolver —que busca en `leads`— nunca disparaba en su
+  // tablero y las tareas de una llamada con un cliente terminaban repartidas entre
+  // proyectos de producto. Va PRIMERO porque es el dato más duro que hay: una cuenta
+  // que existe, no un nombre parecido.
+  const porWs = await porWorkspaceCliente(candidatos);
+  if (porWs) return porWs;
 
   try {
     const db = await getTenantDb();
@@ -127,6 +136,46 @@ export async function resolverClienteDeReunion(r: {
       confianza: 'alta',
     };
   } catch (e) { console.error('[reunion-cliente] resolver', e); return null; }
+}
+
+/**
+ * El cliente cuando quien mira es el SUPER-ADMIN: sus clientes son los WORKSPACES de
+ * la plataforma, cada uno con sus usuarios. Si un invitado de la reunión es usuario de
+ * OTRO workspace, la reunión es con ese cliente — y eso es un hecho de la base, no una
+ * coincidencia de nombres.
+ *
+ * Tres guardas, y las tres importan:
+ *   · SOLO para la capa `superadmin`. En el tablero de un cliente, sus clientes son
+ *     leads del CRM; ahí este criterio diría cualquier cosa.
+ *   · Los usuarios del workspace PROPIO no cuentan: ese es el equipo, no un cliente.
+ *   · Con DOS workspaces distintos en la misma llamada no se elige, igual que con los
+ *     leads: archivar en el cliente equivocado ensucia dos tableros a la vez.
+ */
+async function porWorkspaceCliente(candidatos: string[]): Promise<ClienteDeReunion | null> {
+  try {
+    const wsActual = await getWorkspaceActual();
+    if (wsActual == null) return null;
+    if ((await getWorkspace(wsActual))?.capa !== 'superadmin') return null;
+    if (!candidatos.length) return null;
+    const emails = new Set(candidatos.map(norm));
+    // `usuarios` NO está scopeada por workspace (getSupabaseServer), así que acá se ve
+    // a los de todos los inquilinos — que es justo lo que hace falta.
+    const usuarios = await listarUsuarios().catch(() => []);
+    const wsDeInvitados = new Set(
+      usuarios
+        .filter((u) => u.email && emails.has(norm(u.email)) && u.workspace_id != null && u.workspace_id !== wsActual)
+        .map((u) => u.workspace_id as number),
+    );
+    if (wsDeInvitados.size !== 1) {
+      if (wsDeInvitados.size > 1) console.warn(`[reunion-cliente] ${wsDeInvitados.size} clientes (workspaces) en la misma reunión — no asigno`);
+      return null;
+    }
+    const id = [...wsDeInvitados][0];
+    const w = (await listarWorkspaces().catch(() => [])).find((x) => x.id === id) ?? (await getWorkspace(id));
+    const nombre = (w?.nombre ?? '').trim();
+    if (!nombre) return null;
+    return { leadId: 0, nombre, empresa: nombre, email: '', via: 'workspace-cliente', confianza: 'alta' };
+  } catch (e) { console.error('[reunion-cliente] porWorkspaceCliente', e); return null; }
 }
 
 /**

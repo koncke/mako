@@ -56,6 +56,16 @@ export type ProyectoCatalogo = {
  * estuviera copiado 28 veces, la entrada 29 se olvidaría de ponerlo.
  */
 export const PREFIJO_FEATURE = 'Feature: ';
+/**
+ * El trabajo que se hace PARA un cliente de la plataforma. Existe también en el catálogo
+ * de los clientes (`todo-proyectos-catalogo.ts`), donde sus clientes son leads del CRM;
+ * acá los clientes son los WORKSPACES, y quien los reconoce es `reunion-cliente.ts`.
+ *
+ * Lo trajo un caso real: 10 tareas de dos llamadas con clientes se archivaron en
+ * proyectos de producto («Feature: Video Generator» para clonar la voz de un cliente),
+ * porque el tablero del super-admin no tenía dónde ponerlas.
+ */
+export const PREFIJO_CLIENTE = 'Cliente: ';
 
 /**
  * Los que TRABAJAN SOLOS. Un agente no es una pantalla que abrís: es una IA que
@@ -258,6 +268,7 @@ export const REGLA_NOMBRE_PROYECTO = `El nombre se entiende SOLO, en 1 a 4 palab
 EL PREFIJO ES OBLIGATORIO y sale de UNA pregunta: ¿esto se CONSTRUYE, se EJECUTA SOLO, se VENDE, o CRUZA todo?
 · «${PREFIJO_FEATURE}NOMBRE» → una PANTALLA o módulo del producto que el usuario abre y usa. «${PREFIJO_FEATURE}Facturación», igual que «${PREFIJO_FEATURE}CRM» o «${PREFIJO_FEATURE}Ads Manager». Los analistas y los generadores van acá aunque usen IA: los disparás vos.
 · «${PREFIJO_AGENTE}NOMBRE» → una IA que TRABAJA SOLA, sin que se lo pidas, y cuyo trabajo es su CRITERIO (cómo decide, sus prompts, sus reglas). «${PREFIJO_AGENTE}Perro Guardián», «${PREFIJO_AGENTE}Chat Agent». La prueba: si corre solo, es agente; si lo abrís y lo usás, es feature.
+· «Cliente: NOMBRE» → el trabajo que se hace PARA un cliente de la plataforma: su cuenta, su contenido, sus campañas, lo que se le entrega. «Cliente: Mauricio». La prueba: si el resultado lo usa SOLO ese cliente, es suyo; si lo van a tener todos, es producto y va a su tab.
 · SIN prefijo → un área del negocio ("Legal y fiscal", "Soporte"), algo transversal ("Seguridad y multi-inquilino") o el trabajo de vender ("Vender MaKo: Ads").
 
 ⚠️ Ponerle «${PREFIJO_FEATURE.trim()}» a algo que no se programa es peor que no ponérselo: dice que hay que construirlo cuando hay que firmarlo o pagarlo.
