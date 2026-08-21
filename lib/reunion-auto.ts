@@ -72,7 +72,11 @@ type ReunionHecha = { titulo: string; fecha: string | null; conQuien: string; mi
  * ver en el botón "Agregar N al plan". Las de los demás se mencionan aparte y no se
  * suman: si no, el mensaje promete más de lo que la pantalla muestra.
  */
-function textoAviso(hechas: ReunionHecha[], tz: string): string {
+export type { ReunionHecha };
+/** Exportada para poder REENVIAR el aviso de una reunión ya leída sin re-analizarla
+ *  (scripts/reavisar-reunion.mts). El mensaje tiene que ser el MISMO que manda el cron:
+ *  copiarlo en el script sería la segunda copia que se queda vieja. */
+export function textoAviso(hechas: ReunionHecha[], tz: string): string {
   // EL LINK ABRE ESTA REUNIÓN, no el tablero. `/plan` a secas te deja parado en el
   // board y a esperar que salte solo el modal —que con varias reuniones esperando
   // muestra todas mezcladas, y si ya no te queda nada por confirmar no salta— así que
