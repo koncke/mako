@@ -42,6 +42,9 @@ import { separarRepetidas, textoRepetidas } from '@/lib/tareas-dedup';
 import { type BoardTask, type Label, type Prio, type Check, type Actor, type Fuente, type FuenteTipo, ACTOR_LABEL, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, fechaHora, fuenteEfectiva, prioFromScore, displayPrio } from './types';
 import { resolverDeps, estaBloqueada, type EstadoDeps, type Dep } from './dependencias';
 import { DependenciasBloque } from './DependenciasBloque';
+import { apiPlan } from './repo-plan';
+// El Link propio, NUNCA next/link: preserva el ?ws= de la pestaña (AGENTS.md).
+import Link from '@/app/_ui/Link';
 import { diasQuieta, diasAlDeadline, ajusteTemporal } from './envejecer';
 import { ExportarModal } from './ExportarModal';
 import { NotasLista } from './NotasLista';
@@ -1584,6 +1587,53 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj }: 
   );
 }
 
+/**
+ * El bloque de un proyecto sin tareas abiertas.
+ *
+ * La corrección del dueño fue de categoría: *«Un proyecto vacío NO debe tener una
+ * puntuación de 1. Todo lo contrario. Si se creó un proyecto es por algo… lo que se debe
+ * hacer es cargarle tareas»*. La primera versión los hundía, o sea trataba «no sé» como «no
+ * importa». Acá no se dice cuánto valen: se ofrece la única acción que los saca del limbo.
+ *
+ * ⚠️ No escribe ninguna tarea: deja un BORRADOR y devuelve el link para revisarlo, con el
+ * mismo form de preguntas que el resto del tablero. Un canal PROPONE, una persona confirma
+ * — y acá pesa doble, porque lo propuesto sale de una intuición sobre un nombre de proyecto.
+ */
+function ProyectoVacioBloque({ proj }: { proj: Label }) {
+  const [estado, setEstado] = useState<'quieto' | 'pensando' | 'listo' | 'error'>('quieto');
+  const [msg, setMsg] = useState('');
+  const [link, setLink] = useState('');
+  const pedir = async () => {
+    setEstado('pensando'); setMsg('');
+    const j = await apiPlan({ action: 'proponer-tareas-proyecto', id: proj.id }) as { ok: boolean; error?: string; propuestaId?: string; n?: number };
+    if (!j.ok || !j.propuestaId) { setEstado('error'); setMsg(j.error || 'No se pudo.'); return; }
+    setLink(`/plan/revisar/${j.propuestaId}`);
+    setMsg(`${j.n} ${j.n === 1 ? 'tarea propuesta' : 'tareas propuestas'} para revisar.`);
+    setEstado('listo');
+  };
+  return (
+    <div style={{ border: '1px solid var(--border-strong)', borderRadius: 12, padding: 14, background: 'var(--surface-2)', marginBottom: 4 }}>
+      <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>Este proyecto no tiene ninguna tarea abierta.</div>
+      <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 10 }}>
+        No es que valga poco: le falta el trabajo. MaKo puede intuir qué tareas tendría y dejártelas en un borrador para que las corrijas antes de que entren al plan.
+      </div>
+      {estado === 'listo' ? (
+        <div style={{ fontSize: 13, color: 'var(--ink)' }}>
+          ✓ {msg} <Link href={link} style={{ color: 'var(--primary)', fontWeight: 700 }}>Abrir la revisión →</Link>
+        </div>
+      ) : (
+        <>
+          <button onClick={() => void pedir()} disabled={estado === 'pensando'}
+            style={{ border: 'none', background: 'var(--primary)', color: '#fff', borderRadius: 9, padding: '8px 14px', cursor: estado === 'pensando' ? 'wait' : 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 700 }}>
+            {estado === 'pensando' ? 'MaKo está pensando…' : `Que MaKo proponga tareas para «${proj.name.slice(0, 28)}»`}
+          </button>
+          {estado === 'error' && <div style={{ fontSize: 12.5, color: 'var(--bad, #C0392B)', marginTop: 8 }}>{msg}</div>}
+        </>
+      )}
+    </div>
+  );
+}
+
 /** La versión larga del `TiempoChip`, para el detalle: acá sí hay lugar para la frase. */
 function TiempoLinea({ t }: { t: BoardTask }) {
   const ahora = Date.now();
@@ -2353,6 +2403,11 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, z 
                 </div>
               ))}
             </div>
+
+            {/* Un proyecto SIN tareas abiertas: lo que le falta es TRABAJO, no prioridad.
+                Va ARRIBA de todo en su detalle porque es la única acción que tiene sentido
+                acá — dejarlo como una fila más entre las notas y el historial es esconderlo. */}
+            {suyas.filter((t) => t.progress < 100).length === 0 && <ProyectoVacioBloque proj={proj} />}
 
             {/* Una dependencia de PROYECTO frena todas sus tareas abiertas de un saque: es
                 la escritura de mayor palanca del tablero, y por eso el radio se dice antes

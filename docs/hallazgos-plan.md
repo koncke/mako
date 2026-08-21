@@ -1507,3 +1507,51 @@ a fijar y eso reescribe `score_base`.
 lib/plan-board.ts (`recurvarPlanOwner`) · app/api/cron/plan-recurvar/route.ts · vercel.json ·
 supabase/migrations/0141_plan_score_base.sql · scripts/medir-envejecimiento.mts y
 scripts/simular-reparto.mts (los dry-run que produjeron los números) · *2026-08-21*
+
+
+### Un proyecto vacío no vale poco: está VACÍO. Y lo que le falta es trabajo, no puntaje
+
+Corrección del dueño, textual: *«Un proyecto vacío NO debe tener una puntuación de 1. Todo
+lo contrario. Si se creó un proyecto es por algo… Lo que se debe hacer es cargarle tareas.
+Y para ello, MaKo debería primero intuir posibles tareas y hacer el mismo form que ya
+usamos de preguntas cuando un proyecto esté vacío.»*
+
+**El error era de categoría, no de número.** La primera versión de `scoreProyectoDerivado`
+los mandaba a 1, o sea trataba **«no sé» como «no importa»**. Son cosas distintas: un
+proyecto sin tareas no es de baja prioridad, es DESCONOCIDO — no hay evidencia de la cual
+derivar nada, y fabricar un número donde no hay dato es exactamente el modo de falla que
+esa función vino a cerrar. Hoy devuelve `null` y el caller deja el score que puso el Perro.
+(Los 8 que quedaron aplanados no se pudieron recuperar: el score original ya estaba pisado,
+así que se lo volvió a pedir al Perro — `scripts/repuntuar-proyectos-vacios.mts`.)
+
+La acción que los saca del limbo es `proponerTareasParaProyecto`: MaKo intuye 3-8 tareas a
+partir del nombre y la descripción del proyecto, más el norte del negocio y una muestra
+salteada del plan para no repetirse. **No escribe ninguna tarea**: deja un borrador en
+`plan_propuestas` y devuelve el link a `/plan/revisar/<id>`, con el MISMO
+`preguntasParaCargar` del resto del tablero — no hay una segunda pantalla ni un segundo
+contrato de preguntas. `ref: proyecto-vacio:<id>` hace de candado: tocar el botón cinco
+veces devuelve el mismo borrador.
+
+**Dos cosas que salieron de probarlo contra el tablero real:**
+
+- **El modelo se inventaba una cita del dueño.** El molde del detalle pide «la frase TEXTUAL
+  entre « » con quién», y acá NADIE pidió nada: las tareas las intuye MaKo a partir de un
+  nombre. Salieron seis detalles diciendo *«El dueño necesita…»* entre comillas, que después
+  quedan en el tablero indistinguibles de un dato real. El prompt ahora lo prohíbe explícito.
+  **Corolario general: un molde que asume una FUENTE no se puede reusar en un generador que
+  no tiene fuente** — la ranura se llena igual, con algo inventado.
+- **Un test del repo lo cazó antes de que llegara a producción**
+  (`tests/ia-mensajes.test.ts`): si el vacío de la cascada se convierte en un MENSAJE para el
+  usuario, hay que pedir `erroresOut`. «MaKo no pudo contestar» y «no tenés ninguna IA
+  conectada» son dos problemas con dos soluciones distintas, y el mensaje genérico manda a
+  buscar al lugar equivocado. Es la mejor prueba de que la guarda vale: la escribió otra
+  corrida, para otra feature, y funcionó sola.
+
+⚠️ **Lo que quedó pendiente:** el bloque solo aparece cuando el dueño ABRE el proyecto vacío.
+Falta que el cron (`/api/cron/plan-recurvar`) los detecte y avise — hoy hay que acordarse de
+entrar. `proyectosSinTareas()` ya devuelve la lista y está sin usar desde ahí.
+
+**Vive en:** lib/plan-proyecto-vacio.ts · app/plan/board/BoardShell.tsx
+(`ProyectoVacioBloque`) · app/api/plan-board/route.ts (`proponer-tareas-proyecto`) ·
+app/plan/board/types.ts (`scoreProyectoDerivado` devuelve `null`) ·
+scripts/repuntuar-proyectos-vacios.mts · *2026-08-21*

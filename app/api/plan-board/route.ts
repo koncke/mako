@@ -18,6 +18,7 @@ import {
 } from '@/lib/plan-board';
 import type { BoardTask, Label, Fuente } from '@/app/plan/board/types';
 import type { EntidadDep, ClaseDep } from '@/app/plan/board/dependencias';
+import { proponerTareasParaProyecto } from '@/lib/plan-proyecto-vacio';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -44,6 +45,18 @@ export async function POST(req: NextRequest) {
   const action = String(body.action ?? '');
 
   try {
+    // Un proyecto VACÍO no es poco importante: le falta trabajo. MaKo intuye qué tareas
+    // tendría y deja un BORRADOR — nunca escribe tareas directo, que es la regla de la
+    // casa y acá pesa doble: lo propuesto sale de una intuición sobre un nombre.
+    if (action === 'proponer-tareas-proyecto') {
+      const id = String(body.id ?? '');
+      if (!id) return NextResponse.json({ ok: false, error: 'id requerido' }, { status: 400 });
+      const r = await proponerTareasParaProyecto(id);
+      return 'error' in r
+        ? NextResponse.json({ ok: false, error: r.error }, { status: 200 })
+        : NextResponse.json({ ok: true, propuestaId: r.id, n: r.n });
+    }
+
     // ── Dependencias (mig 0140) ──
     // El guard de ciclo corre en `agregarDependencia`, del lado del server, y NO solo en el
     // modal: esta ruta no es la única puerta (están /api/agente/plan, WhatsApp y los
