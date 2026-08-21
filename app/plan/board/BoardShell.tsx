@@ -950,7 +950,14 @@ export function BoardShell({ board, scope }: {
           board.showUndo(deadline ? `Fecha del #${snap.num} → ${deadline}` : `Le saqué la fecha al #${snap.num}`, () => { board.setDeadline(snap.id, snap.deadline, deadline); board.patch(snap.id, { deadlineRazon: snap.deadlineRazon ?? '' }); });
         }}
         onClose={() => setDebateFechaId(null)} />}
-      {debateProj && <ProyectoDebateModal proj={debateProj} otros={labels.filter((l) => l.id !== debateProj.id).map((l) => ({ id: l.id, name: l.name, emoji: l.emoji, color: l.color, score: l.score }))} onUsage={(u) => showUsage(u, 'prioridad de proyecto')} onApply={(score, razon) => { const snap = debateProj; board.patchLabelLog(debateProj.id, { score, scoreRazon: razon || debateProj.scoreRazon }, `El Perro Guardián ajustó la prioridad → ${score}/10`, 'ia'); board.showUndo('Prioridad del proyecto actualizada', () => board.patchLabel(snap.id, snap)); }} onClose={() => setDebateProjId(null)} />}
+      {debateProj && <ProyectoDebateModal proj={debateProj} otros={labels.filter((l) => l.id !== debateProj.id).map((l) => ({ id: l.id, name: l.name, emoji: l.emoji, color: l.color, score: l.score }))} onUsage={(u) => showUsage(u, 'prioridad de proyecto')} onApply={(score, razon) => {
+        const snap = debateProj;
+        // `scoreManual: true` — este número salió de una discusión que le ganaste al Perro,
+        // así que la corrida automática de mañana ya no lo pisa (mig 0143). Puede proponer
+        // moverlo: lo escribe en la razón, donde vos lo ves.
+        board.patchLabelLog(debateProj.id, { score, scoreManual: true, scoreRazon: razon || debateProj.scoreRazon }, `Fijaste la prioridad en ${score} debatiéndola`, 'user');
+        board.showUndo('Prioridad del proyecto actualizada', () => board.patchLabel(snap.id, snap));
+      }} onClose={() => setDebateProjId(null)} />}
       {nuevoProj && <CrearProyectoModal otros={labels.map((l) => ({ name: l.name, emoji: l.emoji, score: l.score, color: l.color }))} onCrear={crearProyecto} onClose={() => setNuevoProj(false)} />}
       {/* Lo que MaKo dejó esperando: tareas de una reunión tuya que leyó sola, o que te
           mandó otra persona. Nunca se crearon: se confirman acá. Van DESPUÉS de Datos

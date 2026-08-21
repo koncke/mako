@@ -131,7 +131,14 @@ export type BoardTask = {
   enPrioridad: boolean;     // "En prioridad" (vista Prioridades, máx 3)
 };
 
-export type Label = { id: string; pid?: string; emoji: string; name: string; color: string; score: number; scoreRazon?: string; impacto?: number; esfuerzo?: number; deadline?: string; detalle: string; notas?: string; historial: Hist[]; fuente?: Fuente; escalon?: number; desbloquea?: string };
+export type Label = { id: string; pid?: string; emoji: string; name: string; color: string; score: number; scoreRazon?: string; impacto?: number; esfuerzo?: number; deadline?: string; detalle: string; notas?: string; historial: Hist[]; fuente?: Fuente; escalon?: number; desbloquea?: string;
+  /**
+   * true = este score lo decidiste VOS discutiéndolo con el Perro (mig 0143). La corrida
+   * automática puede proponer moverlo —lo escribe en la razón— pero no lo pisa. Sin esta
+   * marca, un número que salió de una discusión que ganaste es indistinguible de uno que
+   * puso una corrida de las 9:10, y mañana se lo lleva puesto.
+   */
+  scoreManual?: boolean };
 
 /**
  * LA ESCALERA DEL DINERO (mig 0142). Es la regla que ORDENA toda la metodología del Perro,
@@ -251,7 +258,26 @@ export function curveTaskScores(items: Array<{ id: string; score: number }>): Re
   const out: Record<string, number> = {};
   const n = items.length;
   if (n === 0) return out;
-  if (n < 5) { items.forEach((x) => { out[x.id] = x.score; }); return out; }
+  // ⚠️ CON POCAS TAREAS NO SE CURVA NADA, Y EL UMBRAL NO ES 5 SINO 20.
+  //
+  // Esta función reparte por RANKING: mira el ORDEN y descarta los valores que puso el
+  // Perro. Con cientos de tareas eso es la disciplina que hace falta —el modelo infla y
+  // amontona, y la ley de los grandes números hace que la pirámide sea razonable—. Con
+  // pocas es destruir el único juicio que hay.
+  //
+  // Medido con el umbral viejo: con 5 tareas ya mandaba 2 a «A futuro» con score 2. O sea
+  // le decía a alguien que acaba de escribir cinco cosas que dos no importan, sin mirar
+  // qué había decidido el Perro sobre ellas. Y con 550 hacía exactamente lo mismo: la
+  // forma del reparto era independiente de cuántas cosas había que repartir, que es
+  // justo lo que el dueño señaló — *«si tengo pocas tareas no es lo mismo que si tengo
+  // muchas»*.
+  //
+  // Debajo de 20 gana el juicio: el prompt ya le pide la pirámide, y si igual infla lo
+  // dice `piramideSana` (app/plan/board/metodologia.ts) en vez de taparlo redistribuyendo.
+  // Se probaron dos alternativas antes de esta y las dos eran peores: comprimir el rango
+  // hacia el techo mete TODO en Alta, y bajar el piso con una curva exponencial es
+  // inventar un exponente sin nada que lo justifique.
+  if (n < 20) { items.forEach((x) => { out[x.id] = clampScore(x.score); }); return out; }
   const order = items.map((x, i) => ({ id: x.id, score: x.score, i })).sort((a, b) => b.score - a.score || a.i - b.i);
   order.forEach((o, k) => {
     const frac = k / (n - 1); // 0 = la más importante … 1 = la menos

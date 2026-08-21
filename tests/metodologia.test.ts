@@ -18,7 +18,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   normalizar, citasDe, razonCompara, sinEmpates, usaTodoElRango, piramideSana,
-  noRankeaPorTamano, auditarSalidaDelPerro, desempatar, type Puntuado,
+  noRankeaPorTamano, auditarSalidaDelPerro, desempatar, escalaEsperada, cuposDeDistribucion, type Puntuado,
 } from '../app/plan/board/metodologia';
 
 const P = (id: string, titulo: string, score: number, razon?: string): Puntuado => ({ id, titulo, score, razon });
@@ -87,7 +87,7 @@ test('usaTodoElRango — caza el AMONTONAMIENTO, que un promedio no delata', () 
   const amontonados = Array.from({ length: 12 }, (_, i) => P(`p${i}`, `P${i}`, 98 - (i % 4)));
   const f = usaTodoElRango(amontonados);
   assert.ok(f);
-  assert.match(f!.detalle, /por encima de 80/);
+  assert.match(f!.detalle, /tiene que llegar a 89 o menos/);
 });
 
 test('usaTodoElRango — un reparto sano no se queja', () => {
@@ -97,6 +97,22 @@ test('usaTodoElRango — un reparto sano no se queja', () => {
 
 test('usaTodoElRango — con pocos proyectos no opina: el rango no dice nada', () => {
   assert.equal(usaTodoElRango([P('a', 'A', 60), P('b', 'B', 55)]), null);
+});
+
+test('usaTodoElRango — EL PISO SALE DE LA CANTIDAD, no de una constante', () => {
+  // El ejemplo que dio el dueño mirando su tablero: *«está bien que haya llegado hasta el 30
+  // con 71 proyectos; si tuviera 100 debería llegar hasta el 1»*. La versión anterior exigía
+  // `min <= 15` para cualquier tablero — marcaba como falla el de 71 que estaba bien, y no
+  // habría marcado uno de 100 que se quedara en 20.
+  const con71 = Array.from({ length: 71 }, (_, i) => P(`p${i}`, `P${i}`, 100 - i));  // 100…30
+  assert.equal(usaTodoElRango(con71), null, 'con 71 proyectos, llegar a 30 es lo máximo que la aritmética permite');
+
+  const con100 = Array.from({ length: 100 }, (_, i) => P(`p${i}`, `P${i}`, 100 - i));  // 100…1
+  assert.equal(usaTodoElRango(con100), null, 'con 100 tiene que llegar a 1, y llega');
+
+  // El mismo tablero de 100 pero apretado arriba: ahora SÍ falla.
+  const apretado = Array.from({ length: 100 }, (_, i) => P(`p${i}`, `P${i}`, Math.max(20, 100 - i)));
+  assert.ok(usaTodoElRango(apretado), 'con 100 proyectos quedarse en 20 es amontonar');
 });
 
 test('piramideSana — 60% en Alta es inflar, y se mide ANTES de curvar', () => {
@@ -228,4 +244,59 @@ test('desempatar — su salida SIEMPRE pasa `sinEmpates`, que es la regla dura',
 test('desempatar — es estable: la misma entrada da siempre lo mismo', () => {
   const items = [P('a', 'A', 70), P('b', 'B', 70), P('c', 'C', 70)];
   assert.deepEqual(desempatar(items), desempatar(items.slice()));
+});
+
+// ── La escala se abre tanto como cosas haya ──────────────────────────────────────────
+
+test('escalaEsperada — es LITERAL el ejemplo que dio el dueño', () => {
+  // *«Está bien que ahora haya llegado hasta el 30 en el menor de los proyectos, porque yo
+  // tengo 71 proyectos. Pero si tuviera 100, debería llegar hasta el 1.»*
+  assert.equal(escalaEsperada(71, 'proyecto').piso, 30);
+  assert.equal(escalaEsperada(100, 'proyecto').piso, 1);
+  assert.equal(escalaEsperada(150, 'proyecto').piso, 1, 'no baja de 1 aunque haya más');
+});
+
+test('escalaEsperada — sale de juntar dos reglas que YA estaban escritas', () => {
+  // «el norte va en 95-100» + «PROHIBIDO empatar» ⟹ con n valores distintos y el techo en
+  // 100, el más bajo no puede estar arriba de 101-n. No es un umbral inventado: es la
+  // aritmética de las dos reglas.
+  for (const n of [5, 12, 40, 71, 99]) {
+    assert.equal(escalaEsperada(n, 'proyecto').piso, 101 - n);
+  }
+});
+
+test('escalaEsperada — con POCOS no exige un fondo que no existe', () => {
+  // Con 6 proyectos, pedirle al último que baje a 10 sería inventar una jerarquía.
+  assert.equal(escalaEsperada(6, 'proyecto').piso, 95);
+});
+
+test('cuposDeDistribucion — habla en NÚMEROS, no en porcentajes', () => {
+  // Un modelo respeta «de estos 71, el más bajo va en 30 o menos» mucho mejor que «usá toda
+  // la escala»: el porcentaje lo tiene que traducir él mientras hace otras diez cosas.
+  const c = cuposDeDistribucion(71, 'proyecto');
+  assert.equal(c.piso, 30);
+  assert.match(c.texto, /71 proyectos/);
+  assert.match(c.texto, /30 o menos/);
+});
+
+test('cuposDeDistribucion — a los PROYECTOS no se les pone cupo de Alta, y es a propósito', () => {
+  // Con 71 proyectos sin empatar y un rango de 70, los valores 81-100 se ocupan sí o sí:
+  // exigir «solo 11 arriba de 80» sería pedir algo imposible de cumplir. Una alarma que
+  // siempre suena es una alarma apagada. El 15% es disciplina de TAREAS, que sí empatan.
+  assert.equal(cuposDeDistribucion(71, 'proyecto').maxArriba, null);
+  assert.equal(cuposDeDistribucion(200, 'tarea').maxArriba, 30);
+});
+
+test('cuposDeDistribucion — con pocas TAREAS le dice explícitamente que no fuerce el fondo', () => {
+  const pocas = cuposDeDistribucion(12, 'tarea');
+  assert.match(pocas.texto, /NO fuerces el fondo/);
+  const muchas = cuposDeDistribucion(550, 'tarea');
+  assert.match(muchas.texto, /"A futuro"/);
+});
+
+test('piramideSana — el cupo se calcula sobre CUÁNTAS hay', () => {
+  const cien = Array.from({ length: 100 }, (_, i) => P(`t${i}`, `T${i}`, i < 20 ? 90 : 30));
+  const f = piramideSana(cien);
+  assert.ok(f, '20 de 100 en Alta pasa el cupo de 15');
+  assert.match(f!.detalle, /el cupo con 100 tareas es 15/);
 });

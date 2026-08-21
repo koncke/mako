@@ -145,20 +145,21 @@ export function sinEmpates(proyectos: Puntuado[]): Falla | null {
  * Se mide el rango REAL usado, no la varianza: la falla que se vio es exactamente
  * «amontonar» —12 proyectos entre 95 y 98—, y eso un promedio no lo delata.
  */
-export function usaTodoElRango(proyectos: Puntuado[], minimo = 6): Falla | null {
-  if (proyectos.length < minimo) return null;   // con 3 proyectos el rango no dice nada
+export function usaTodoElRango(proyectos: Puntuado[], minimo = 6, tipo: 'proyecto' | 'tarea' = 'proyecto'): Falla | null {
+  const n = proyectos.length;
+  if (n < minimo) return null;   // con 3 proyectos el rango no dice nada
   const scores = proyectos.map((p) => p.score);
   const max = Math.max(...scores), min = Math.min(...scores);
+  // ⚠️ EL PISO SALE DE LA CANTIDAD, no de una constante. La versión anterior exigía `min <=
+  // 15` para cualquier tablero: marcaba como falla uno de 71 proyectos que estaba bien
+  // (`min = 30`, que es lo máximo que la aritmética permite con 71 valores distintos) y no
+  // habría marcado uno de 100 que se quedara en 20. Ver `escalaEsperada`.
+  const { piso, techo } = escalaEsperada(n, tipo);
   const problemas: string[] = [];
-  if (max < 95) problemas.push(`el más alto es ${max} (el norte va en 95-100)`);
-  if (min > 15) problemas.push(`el más bajo es ${min} (lo que puede esperar va en 1-10)`);
-  // Amontonamiento: más de la mitad de los proyectos en un quinto de la escala.
-  const arriba = scores.filter((s) => s >= 80).length;
-  if (arriba > Math.max(2, Math.ceil(proyectos.length * 0.3))) {
-    problemas.push(`${arriba} de ${proyectos.length} por encima de 80`);
-  }
+  if (max < techo - 5) problemas.push(`el más alto es ${max} (el norte va en ${techo - 5}-${techo})`);
+  if (min > piso) problemas.push(`el más bajo es ${min} y con ${n} proyectos sin empatar tiene que llegar a ${piso} o menos`);
   if (!problemas.length) return null;
-  return { regla: 'Los proyectos van en TODA la escala 1-100, sin amontonar', detalle: problemas.join(' · '), ids: [], peso: 'blanda' };
+  return { regla: 'La escala se abre tanto como proyectos haya', detalle: problemas.join(' · '), ids: [], peso: 'blanda' };
 }
 
 /**
@@ -170,13 +171,14 @@ export function usaTodoElRango(proyectos: Puntuado[], minimo = 6): Falla | null 
  * única señal de que el juicio vino inflado.
  */
 export function piramideSana(tareas: Puntuado[], tope = 0.15): Falla | null {
-  if (tareas.length < 20) return null;
+  const n = tareas.length;
+  if (n < 20) return null;
   const altas = tareas.filter((t) => t.score >= 75).length;
-  const ratio = altas / tareas.length;
-  if (ratio <= tope) return null;
+  const cupo = Math.max(1, Math.round(n * tope));
+  if (altas <= cupo) return null;
   return {
     regla: 'Como mucho ~15% en Alta — si te salen más, estás inflando',
-    detalle: `${altas} de ${tareas.length} en Alta (${Math.round(ratio * 100)}%)`,
+    detalle: `${altas} de ${n} en Alta (${Math.round((altas / n) * 100)}%), y el cupo con ${n} tareas es ${cupo}`,
     ids: [], peso: 'blanda',
   };
 }
@@ -312,4 +314,81 @@ export function desempatar(items: Puntuado[]): Record<string, number> {
     out[it.id] = v;
   }
   return out;
+}
+
+// ── LA ESCALA SE ABRE TANTO COMO COSAS HAYA ──────────────────────────────────────────
+
+/**
+ * Hasta dónde tiene que llegar la escala con `n` ítems.
+ *
+ * La regla la dio el dueño mirando su tablero, y es aritmética, no gusto:
+ *
+ *   *«Está bien que ahora haya llegado hasta el 30 en el menor de los proyectos, porque yo
+ *   tengo 71 proyectos. Pero si tuviera 100, debería llegar hasta el 1. Lo mismo debería
+ *   pasar con las tareas: si tengo pocas no es lo mismo que si tengo muchas.»*
+ *
+ * Sale sola de juntar dos reglas que ya estaban escritas: «el norte va en 95-100» y
+ * «PROHIBIDO empatar». Si el más alto está en 100 y hay `n` valores distintos, el más bajo
+ * NO PUEDE estar por encima de `101 - n`. Con 71 proyectos eso da exactamente 30 — el número
+ * que él señaló como correcto — y con 100 da 1.
+ *
+ * Lo que la fórmula arregla en las DOS direcciones:
+ *  · Con MUCHOS ítems exige llegar al fondo. La validación fija que había antes («el más
+ *    bajo tiene que ser ≤ 15») marcaba como falla un tablero de 71 proyectos que estaba
+ *    bien, y no habría marcado uno de 100 que se quedara en 20.
+ *  · Con POCOS deja de exigir un fondo que no existe. `curveTaskScores` estiraba de 93 a 2
+ *    sin mirar cuántas tareas había: MEDIDO, con 5 tareas ya mandaba 2 a «A futuro» con
+ *    score 2. O sea le decía a un cliente que acaba de escribir cinco cosas que dos no
+ *    importan — y con 550 hacía exactamente lo mismo. La forma era idéntica; lo único que
+ *    cambiaba era cuántas caían en cada banda.
+ *
+ * ⚠️ POR QUÉ EL MISMO NÚMERO SIRVE PARA LOS DOS, aunque las razones sean distintas:
+ *  · En PROYECTOS es aritmética pura y no hay margen: no pueden empatar, así que `n` valores
+ *    distintos ocupan `n` escalones y el más bajo no puede estar más arriba de `101 - n`.
+ *  · En TAREAS sí pueden empatar, así que no hay obligación aritmética — pero la misma
+ *    cuenta expresa bien la idea de fondo: la escala se abre tantos escalones como cosas
+ *    haya, y recién con ~90 tareas tiene sentido que alguna toque el piso de «A futuro».
+ *    Debajo de 5 no se curva nada (`curveTaskScores` ya devuelve el juicio tal cual): con
+ *    tan pocas, cualquier distribución forzada es una invención.
+ */
+export function escalaEsperada(n: number, tipo: 'proyecto' | 'tarea' = 'proyecto'): { techo: number; piso: number } {
+  // El techo de las TAREAS es 93 y no 100: es donde arranca la pirámide de `curveTaskScores`
+  // (93→76 Alta · 72→51 Media · 48→26 Baja · 23→2 A futuro). Los 100 son para proyectos,
+  // que se comparan entre sí en su propia escala.
+  const techo = tipo === 'proyecto' ? 100 : 93;
+  return { techo, piso: Math.max(tipo === 'proyecto' ? 1 : 2, techo + 1 - Math.max(1, n)) };
+}
+
+/**
+ * Los CUPOS por banda, en números absolutos, para decírselos al modelo.
+ *
+ * Un modelo respeta «de estos 71, como mucho 11 pueden quedar por encima de 80» muchísimo
+ * mejor que «~15% en Alta». El porcentaje lo tiene que traducir él mientras hace otras diez
+ * cosas; el número ya está traducido, y además se puede CONTAR después — que es la mitad
+ * que faltaba.
+ *
+ * ⚠️ El cupo de arriba es `null` cuando la aritmética lo vuelve imposible, y esto importa:
+ * con 71 proyectos sin empatar y un rango de 70, los valores 81-100 se ocupan sí o sí, así
+ * que exigir «solo 11 arriba de 80» sería pedir algo que no se puede cumplir. La disciplina
+ * del 15% es de TAREAS —que empatan y son cientos—, no de proyectos. Aplicarla a los
+ * proyectos era generar una falla permanente que nadie podría arreglar nunca, y una alarma
+ * que siempre suena es una alarma apagada.
+ */
+export function cuposDeDistribucion(n: number, tipo: 'proyecto' | 'tarea'): {
+  n: number; piso: number; maxArriba: number | null; minAbajo: number; texto: string;
+} {
+  const { piso } = escalaEsperada(n, tipo);
+  if (tipo === 'proyecto') {
+    return {
+      n, piso, maxArriba: null,
+      minAbajo: Math.max(1, Math.round(n * 0.15)),
+      texto: `Son ${n} proyectos. El norte (uno solo) va en 95-100. Como NO podés empatar, el más bajo tiene que quedar en ${piso} o menos — con ${n} proyectos distintos no hay forma de que todos entren más arriba. Y al menos ${Math.max(1, Math.round(n * 0.15))} tienen que quedar en la parte de abajo de la escala: son los que pueden esperar del todo, y en un plan real siempre los hay.`,
+    };
+  }
+  const maxArriba = Math.max(1, Math.round(n * 0.15));
+  return {
+    n, piso, maxArriba,
+    minAbajo: Math.max(1, Math.round(n * 0.25)),
+    texto: `Son ${n} tareas. Como mucho ${maxArriba} pueden quedar en Alta (75-100) — si te salen más, estás inflando. ${n >= 90 ? `Al menos ${Math.max(1, Math.round(n * 0.25))} van en "A futuro" (1-24).` : `Con solo ${n} tareas NO fuerces el fondo de la escala: la más baja tiene que quedar alrededor de ${piso}, no en 2. Mandar a "A futuro" algo de un plan de ${n} tareas es decirle al dueño que lo que acaba de escribir no importa.`}`,
+  };
 }

@@ -79,6 +79,7 @@ function rowToLabel(r: Row): Label {
     esfuerzo: optInt(r.esfuerzo), deadline: r.deadline ? str(r.deadline) : undefined,
     detalle: str(r.detalle), notas: str(r.notas), historial: sanearHist(r.historial), fuente: optFuente(r.fuente),
     escalon: optInt(r.escalon), desbloquea: r.desbloquea ? str(r.desbloquea) : undefined,
+    scoreManual: !!r.score_manual,
   };
 }
 function labelToRow(l: Label, orden = 0): Row {
@@ -86,7 +87,7 @@ function labelToRow(l: Label, orden = 0): Row {
     id: l.id, pid: l.pid ?? null, emoji: l.emoji || '📁', name: l.name || 'Proyecto', color: l.color || '#2F6FED',
     score: int(l.score, 50), score_razon: l.scoreRazon ?? null, impacto: l.impacto ?? null, esfuerzo: l.esfuerzo ?? null,
     deadline: l.deadline || '', detalle: l.detalle || '', notas: l.notas ?? '', historial: l.historial ?? [], fuente: l.fuente ?? null,
-    escalon: l.escalon ?? null, desbloquea: l.desbloquea ?? null,
+    escalon: l.escalon ?? null, desbloquea: l.desbloquea ?? null, score_manual: !!l.scoreManual,
     orden, updated_at: new Date().toISOString(),
   };
 }
@@ -877,12 +878,13 @@ export async function priorizarProyectosOwner(motivo?: string): Promise<{
     const db = await getTenantDb();
     const [tRes, pRes] = await Promise.all([
       db.from('plan_tareas').select('title, progress, score, labels'),
-      db.from('plan_proyectos').select('id, name, detalle, score, historial'),
+      db.from('plan_proyectos').select('id, name, detalle, score, historial, score_manual'),
     ]);
     const proyectos = (pRes.data ?? []).map((r) => ({
       id: str((r as Row).id), name: str((r as Row).name, 'Proyecto'),
       detalle: str((r as Row).detalle), score: int((r as Row).score),
       historial: sanearHist((r as Row).historial),
+      manual: !!(r as Row).score_manual,
     }));
     if (proyectos.length < 2) return { movidos: 0, total: proyectos.length, norte: '' };
 
@@ -906,8 +908,9 @@ export async function priorizarProyectosOwner(motivo?: string): Promise<{
         tareas: orden.filter((_, i) => i % paso === 0).slice(0, 5).map((t) => t.titulo.slice(0, 120)),
         scoreActual: p.score || undefined,
         // Un score que el dueño le ganó al Perro discutiendo NO es un score cualquiera. Sin
-        // esta marca, la próxima corrida lo pisa sin saber que estaba pisando una decisión.
-        ...(p.historial.some((h) => h.actor === 'user' && /prioridad/i.test(h.text)) ? { loDecidioElDueno: true as const } : {}),
+        // esta marca, la corrida de mañana lo pisa sin saber que estaba pisando una decisión
+        // — y la regla de ESTABILIDAD del prompt es prosa, que ya sabemos cuánto vale sola.
+        ...(p.manual ? { loDecidioElDueno: true as const } : {}),
       };
     });
 
@@ -936,7 +939,13 @@ export async function priorizarProyectosOwner(motivo?: string): Promise<{
     for (let i = 0; i < r.proyectos.length; i += TANDA) {
       await Promise.all(r.proyectos.slice(i, i + TANDA).map((p) => {
         const antes = proyectos.find((x) => x.id === p.id);
-        const score = limpio[p.id] ?? p.score;
+        // ⛔ EL CANDADO: si el dueño fijó ese número discutiéndolo, el Perro puede PROPONER
+        // moverlo —queda en la razón, que él lee— pero no lo escribe. Es «un canal PROPONE,
+        // una persona confirma» aplicado al número que gobierna la pantalla entera.
+        const score = antes?.manual ? antes.score : (limpio[p.id] ?? p.score);
+        const razon = antes?.manual && p.score !== antes.score
+          ? `Lo fijaste vos en ${antes.score}. MaKo lo pondría en ${p.score}: ${p.razon}`
+          : p.razon;
         // Historial SOLO cuando el número se movió, y con la razón adentro: es lo único que
         // hace auditable un ranking que decidió una IA, y la regla de la casa dice que todo
         // lo que toca la IA deja rastro. 71 entradas idénticas diciendo «no cambió» taparían
@@ -945,7 +954,7 @@ export async function priorizarProyectosOwner(motivo?: string): Promise<{
           ? [{ id: genId('h'), ts: Date.now(), actor: 'ia' as Actor, text: `MaKo lo repriorizó — ${antes.score} → ${score} · ${p.razon.slice(0, 200)}` }, ...antes.historial].slice(0, 40)
           : antes?.historial;
         return db.from('plan_proyectos').update({
-          score, score_razon: p.razon || null, impacto: p.impacto ?? null, esfuerzo: p.esfuerzo ?? null,
+          score, score_razon: razon || null, impacto: p.impacto ?? null, esfuerzo: p.esfuerzo ?? null,
           escalon: p.escalon ?? null, desbloquea: p.desbloquea ?? null,
           historial: hist, updated_at: ahora,
         }).eq('id', p.id).then(() => undefined);
@@ -954,7 +963,7 @@ export async function priorizarProyectosOwner(motivo?: string): Promise<{
 
     // Y si el desempate movió a uno que el Perro NO tocó, ese también se escribe: si no, el
     // empate que se acaba de resolver en memoria sigue vivo en la base.
-    await Promise.all(sinTocar.filter((p) => (limpio[p.id] ?? p.score) !== p.score).map((p) =>
+    await Promise.all(sinTocar.filter((p) => !p.manual && (limpio[p.id] ?? p.score) !== p.score).map((p) =>
       db.from('plan_proyectos').update({ score: limpio[p.id], updated_at: ahora }).eq('id', p.id).then(() => undefined)));
 
     const norteId = Object.entries(limpio).sort((a, b) => b[1] - a[1])[0]?.[0];

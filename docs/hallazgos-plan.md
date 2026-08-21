@@ -1638,3 +1638,68 @@ repetir exactamente el error que esta entrada documenta.
 app/plan/board/types.ts (`ESCALERA`) · app/plan/board/BoardShell.tsx (`EscalonChip`, el
 recorte de `rePriorizar`) · supabase/migrations/0142_escalon_dinero.sql ·
 scripts/priorizar-proyectos.mts · *2026-08-21*
+
+
+### La escala se abre tanto como cosas haya — y el número que vos fijás no se pisa
+
+Dos cosas que quedaron abiertas de la corrida anterior, y el dueño las cerró con un ejemplo
+que vale más que cualquier fórmula:
+
+> *«Está bien que ahora haya llegado hasta el 30 en el menor de los proyectos, porque yo
+> tengo 71 proyectos. Pero si tuviera 100, debería llegar hasta el 1. Lo mismo debería pasar
+> con las tareas. Si tengo pocas tareas no es lo mismo si tengo muchas.»*
+
+**No era una preferencia: era aritmética que ya estaba escrita y nadie había juntado.** «El
+norte va en 95-100» + «PROHIBIDO empatar» ⟹ con `n` valores distintos y el techo en 100, el
+más bajo **no puede** estar por encima de `101 - n`. Con 71 da exactamente 30 — el número
+que él señaló — y con 100 da 1. `escalaEsperada` (app/plan/board/metodologia.ts).
+
+La validación que había era una **constante** (`min <= 15`) y estaba mal en las dos
+direcciones: marcaba como falla un tablero de 71 proyectos que estaba perfecto, y no habría
+marcado uno de 100 que se quedara en 20. Un umbral fijo sobre algo que depende de la
+cantidad es un umbral que miente de los dos lados.
+
+**Y a los proyectos no se les pone cupo de «Alta», a propósito.** Con 71 sin empatar y un
+rango de 70, los valores 81-100 se ocupan sí o sí: exigir «solo el 15% arriba de 80» sería
+pedir algo aritméticamente imposible. Una alarma que no se puede apagar nunca es una alarma
+apagada. El 15% es disciplina de TAREAS, que sí empatan y son cientos.
+
+**El lado de las tareas era otro problema, y peor.** `curveTaskScores` reparte por RANKING y
+descarta los valores que puso el Perro. Medido: **con 5 tareas ya mandaba 2 a «A futuro» con
+score 2** — le decía a alguien que acaba de escribir cinco cosas que dos no importan, sin
+mirar qué había decidido el Perro. Y con 550 hacía exactamente lo mismo: la forma del
+reparto era **independiente de cuántas cosas había que repartir**.
+
+Con cientos de tareas esa disciplina es correcta (el modelo infla, y la ley de los grandes
+números hace que la pirámide sea razonable). Con pocas es destruir el único juicio que hay.
+El umbral de «no curvar» pasó de 5 a **20**: debajo de eso gana el juicio del Perro, y si
+igual infla lo dice `piramideSana` en vez de taparlo redistribuyendo.
+
+⚠️ Se probaron dos alternativas antes y las dos eran peores, con la medición al lado:
+comprimir el rango hacia el techo mete **todo en Alta** (con 10 tareas quedaban las 10
+arriba de 84), y bajar el piso con una curva exponencial es inventar un exponente sin nada
+que lo justifique. Quedó anotado en el comentario de la función para que no se reintente.
+
+**Los cupos ahora se le dicen al modelo EN NÚMEROS.** «De estos 71, el más bajo tiene que
+quedar en 30 o menos» se respeta muchísimo mejor que «usá toda la escala»: el porcentaje lo
+tiene que traducir él mientras hace otras diez cosas, el número ya está traducido, y además
+se puede **contar** después — que es la otra mitad de la regla.
+
+**El candado del score que decidís vos** (mig 0143). `ProyectoDebateModal` es el único lugar
+donde el dueño le gana una discusión al Perro, y ese número se guardaba en la misma columna
+que todo lo demás: **indistinguible de uno que puso una corrida automática**. Con la
+re-priorización corriendo a diario, mañana a las 9:10 se lo llevaba puesto. `score_manual`
+lo marca, el Perro lo VE marcado, y el candado es de una sola dirección: puede **proponer**
+moverlo —queda escrito en la razón, «Lo fijaste vos en 34. MaKo lo pondría en 61: …»— pero
+no lo escribe. Verificado de punta a punta: la marca viaja de la base al board.
+
+**Resultado sobre el tablero real:** rango **30-100** (el máximo que 71 proyectos permiten),
+**0 empates**, **0 fallas** en la auditoría, y los escalones repartidos 1:1 · 2:8 · 3:16 ·
+4:20 · 5:26 — que es la forma de un producto en construcción con un solo camino de cobro
+abierto. La corrida es estable: casi todos los scores coinciden con los de la anterior, que
+es la regla de ESTABILIDAD funcionando.
+
+**Vive en:** app/plan/board/metodologia.ts (`escalaEsperada`, `cuposDeDistribucion`,
+`usaTodoElRango`, `piramideSana`) · app/plan/board/types.ts (`curveTaskScores`, el umbral de
+20) · lib/mako-guardian.ts (`{{cupos}}` en el user template) · lib/plan-board.ts (el candado
+de `score_manual`) · supabase/migrations/0143_score_manual.sql · *2026-08-21*
