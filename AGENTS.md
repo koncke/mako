@@ -454,6 +454,39 @@ falla cuando el margen se acaba: el catálogo crece, y el número que hoy tiene 
 mañana no. Un umbral sin esa red envejece en silencio, que es la peor forma de
 envejecer.
 
+# Dos números que se comparan no pueden salir de dos corridas distintas
+
+Si en la misma pantalla un número se lee CONTRA otro —el score de un proyecto y el de sus
+tareas, el presupuesto de una campaña y el de sus anuncios, el avance de un hito y el de
+sus pasos—, tienen que salir de **un solo cálculo**. Dos productores que nunca se miran
+divergen, y el usuario ve la contradicción antes que nosotros.
+
+El caso, del 21/8/2026: `describirProyectosNuevos` puntuaba proyectos y `puntuarNuevas`
+puntuaba tareas, en llamadas distintas y con prompts distintos. Medido sobre el tablero
+real: **154 de 550 tareas puntuaban por encima de su propio proyecto** —la peor, una en 81
+adentro de un proyecto en 7— y 8 proyectos sin una sola tarea abierta ocupaban de 50 a 80.
+El dueño lo reportó como *«en Prioridades me sale que el proyecto más importante es de
+ciberseguridad, pero en el kanban hay muchas tareas más importantes que eso»*.
+
+- **El contenedor se DERIVA de su contenido, no se pide aparte.** Un proyecto vale lo que
+  vale su mejor tarea (`scoreProyectoDerivado`, app/plan/board/types.ts). Con el piso en el
+  `max`, la inversión es imposible por construcción — no por suerte, y sin depender de que
+  un modelo acierte dos veces seguidas.
+- **No es el promedio.** Con el promedio, un contenedor de veinte cosas chicas le gana a
+  uno con una crítica: el error opuesto, igual de visible.
+- **Un contenedor VACÍO va al fondo, no al medio.** Sin contenido no hay nada que derivar,
+  y dejarlo con su último número es lo que ponía un proyecto sin tareas por encima del
+  único encargo con cliente vivo.
+- **Y ojo con la normalización que rompe la invariante:** repartir los contenedores en un
+  rango sin empates (`spreadProjScores`) es incompatible con «el contenedor ≥ su
+  contenido», y volvería a meter el bug por la puerta de al lado. Cuando dos empatan porque
+  su mejor contenido vale lo mismo, **el empate es el dato**; lo que hay que hacer explícito
+  es el DESEMPATE, y no puede ser el orden de creación.
+
+Y el corolario de siempre: la invariante va en un módulo **sin `server-only`** y con test
+—acá, sobre los 100 valores posibles de `max`—, porque una invariante que ningún test puede
+importar es una expresión de deseo.
+
 # Un total solo se puede sumar si el recurso se puede MOVER DE LUGAR
 
 Una clienta con tres cuentas de Gemini vio «240,6k / 750,0k» —le sobra el 68% del día— al

@@ -93,7 +93,11 @@ export type GuardProjPatch = { id: string; score: number; scoreRazon: string; im
 // viajar hasta la pantalla: el 5/8 entraron 20 tareas con el score de fábrica (62), sin
 // razón y sin fecha, porque el JSON del modelo se cortó — y nadie se enteró hasta
 // mirar la base a mano. Un fallo silencioso en el Perro envenena todo el tablero.
-export type GuardResult = { tareas: Record<Prio, number>; proyectos: number; patches: GuardPatch[]; proyectosPatch: GuardProjPatch[]; sinPuntuar?: number };
+// `recurvadas` / `proyectosMovidos` son el REPARTO que hace el server después de que el
+// Perro ubica lo nuevo (`recurvarPlanOwner` / `recurvarProyectosOwner`, lib/plan-board.ts):
+// no son decisiones del modelo, son la pirámide rehecha sobre el tablero entero. Van acá
+// para que la pantalla pueda decir cuántas cosas se movieron sin volver a consultar.
+export type GuardResult = { tareas: Record<Prio, number>; proyectos: number; patches: GuardPatch[]; proyectosPatch: GuardProjPatch[]; sinPuntuar?: number; recurvadas?: number; proyectosMovidos?: number };
 
 // Persistencia inyectada por cada parent. Todo async; useBoard es optimista.
 export type Repo = {
@@ -197,6 +201,32 @@ export function spreadProjScores(items: Array<{ id: string; score: number }>): R
   });
   return out;
 }
+/**
+ * EL SCORE DE UN PROYECTO SE DERIVA DE SUS TAREAS ABIERTAS.
+ *
+ * Recibe los scores YA ordenados de mayor a menor y devuelve el del proyecto. Vive acá —y
+ * no adentro de `lib/plan-board.ts`, que es `server-only`— para que un test lo pueda
+ * importar: es la invariante que cierra el bug de «un proyecto con prioridad baja y sus
+ * tareas muy altas», y una invariante sin test es una expresión de deseo.
+ *
+ * El piso es el MÁXIMO, así que por construcción ninguna tarea puede puntuar por encima de
+ * su propio proyecto. Medido sobre el tablero real antes de shippear: 154 de 550 tareas lo
+ * hacían; con esto, 0. No es el promedio a propósito — con el promedio, un proyecto de
+ * veinte tareas chicas le gana a uno con una crítica, que es el error opuesto.
+ *
+ * Encima del máximo va un bonus de densidad 0-6 sacado de las TRES mejores (las que faltan
+ * valen 0, así que una sola tarea no cobra bonus de más): entre dos proyectos que empatan
+ * en su tarea top, gana el que tiene más trabajo importante detrás.
+ *
+ * Sin tareas abiertas devuelve 1. Un proyecto vacío no es una prioridad, es una intención —
+ * había 8 ocupando de 50 a 80, uno de ellos por encima del único encargo con cliente vivo.
+ */
+export function scoreProyectoDerivado(scoresDesc: number[]): number {
+  if (!scoresDesc.length) return 1;
+  const densidad = Math.round(((scoresDesc[0] ?? 0) + (scoresDesc[1] ?? 0) + (scoresDesc[2] ?? 0)) / 50);
+  return clampProj(Math.min(MAX_PROJ, scoresDesc[0] + densidad));
+}
+
 export function prioFromScore(score: number): Prio {
   if (score >= 75) return 'alta';
   if (score >= 50) return 'media';

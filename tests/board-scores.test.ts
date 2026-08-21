@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  curveTaskScores, spreadProjScores, prioFromScore,
+  curveTaskScores, spreadProjScores, prioFromScore, scoreProyectoDerivado,
   clampScore, clampProj, clampPct, MAX_PROJ,
 } from '../app/plan/board/types';
 
@@ -79,4 +79,47 @@ test('spreadProjScores — n<=1 → MAX_PROJ; ranking por score preservado', () 
   // el de mayor score queda arriba, el menor abajo
   assert.ok(out.hi > out.mid && out.mid > out.lo);
   assert.equal(new Set([out.hi, out.mid, out.lo]).size, 3);
+});
+
+// ── El score del proyecto sale de sus tareas ─────────────────────────────────────────
+// El bug que cierran: «en Prioridades me sale que el proyecto más importante es de
+// ciberseguridad, pero en el kanban hay muchas tareas más importantes que eso». El score de
+// proyecto y el de tarea se producían en corridas distintas y nunca se reconciliaban: 154
+// de 550 tareas puntuaban por encima de su propio proyecto, y 8 proyectos SIN una sola
+// tarea abierta ocupaban de 50 a 80.
+
+test('scoreProyectoDerivado — NINGUNA tarea puede puntuar por encima de su proyecto', () => {
+  // Es LA invariante. Se prueba sobre todo el rango, no sobre un caso lindo.
+  for (let max = 1; max <= 100; max++) {
+    for (const cola of [[], [max - 1, max - 2], [1, 1], [max, max]]) {
+      const scores = [max, ...cola.filter((c) => c >= 1 && c <= max)];
+      assert.ok(scoreProyectoDerivado(scores) >= max, `max ${max} con cola ${cola} quedó por debajo`);
+    }
+  }
+});
+
+test('scoreProyectoDerivado — un proyecto vale por su MEJOR tarea, no por su promedio', () => {
+  const unaCritica = scoreProyectoDerivado([93, 10, 8]);
+  const veinteChicas = scoreProyectoDerivado(Array(20).fill(40));
+  assert.ok(unaCritica > veinteChicas, 'el promedio dejaría ganar al que tiene volumen de trabajo chico');
+});
+
+test('scoreProyectoDerivado — a igual tarea top, gana el que tiene más trabajo importante detrás', () => {
+  assert.ok(scoreProyectoDerivado([90, 88, 85]) > scoreProyectoDerivado([90]));
+});
+
+test('scoreProyectoDerivado — una sola tarea NO cobra bonus de tres', () => {
+  // Las que faltan valen 0: si contaran como el máximo, un proyecto de una tarea empataría
+  // con uno que tiene tres igual de importantes.
+  assert.ok(scoreProyectoDerivado([60]) < scoreProyectoDerivado([60, 60, 60]));
+});
+
+test('scoreProyectoDerivado — sin tareas abiertas va al fondo, no al medio', () => {
+  // Un proyecto vacío no es una prioridad: es una intención.
+  assert.equal(scoreProyectoDerivado([]), 1);
+});
+
+test('scoreProyectoDerivado — nunca se sale de 1..MAX_PROJ', () => {
+  assert.equal(scoreProyectoDerivado([100, 100, 100]), MAX_PROJ);
+  assert.ok(scoreProyectoDerivado([1]) >= 1);
 });

@@ -160,8 +160,16 @@ export function BoardShell({ board, scope }: {
   // clavado en un proyecto 100% hecho y la vista Prioridades se vaciaba en vez de
   // pasar al siguiente. Si ya está TODO hecho, se muestra igual el de mayor score
   // (para no dejar la card vacía), pero no hay nada que priorizar.
-  const porScore = labels.slice().sort((a, b) => b.score - a.score);
-  const tienePendientes = (id: string) => tasks.some((t) => t.progress < 100 && t.labels.includes(id));
+  //
+  // El score del proyecto lo DERIVA el Perro de sus tareas (`recurvarProyectosOwner`), así
+  // que dos proyectos empatan cuando su mejor trabajo vale lo mismo — y eso pasa seguido en
+  // la punta. El desempate NO puede quedar en `orden`, que es el orden en que se crearon:
+  // el norte del tablero cambiaría de proyecto por un motivo que no significa nada. Empata
+  // el que tiene MÁS trabajo abierto: si dos cosas importan igual, se ataca donde hay más.
+  const pendientesPorProy = new Map<string, number>();
+  for (const t of tasks) if (t.progress < 100) for (const id of t.labels) pendientesPorProy.set(id, (pendientesPorProy.get(id) ?? 0) + 1);
+  const porScore = labels.slice().sort((a, b) => b.score - a.score || (pendientesPorProy.get(b.id) ?? 0) - (pendientesPorProy.get(a.id) ?? 0));
+  const tienePendientes = (id: string) => (pendientesPorProy.get(id) ?? 0) > 0;
   const objetivoPrincipal = porScore.find((l) => tienePendientes(l.id)) ?? porScore[0] ?? null;
   const topProjectId = objetivoPrincipal?.id ?? null;
   // ── "Datos sin marcar" (feedback jul-19): deadline (opcional) + checklist (la ARMA

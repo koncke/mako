@@ -1310,3 +1310,69 @@ como ampliación a la vez.
 
 **Vive en:** app/plan/board/TareasRecibidasModal.tsx (`esAmpliarFila`, `etiquetaAccion`) ·
 lib/plan-propuesta.ts (la condición de éxito) · *2026-08-21*
+
+
+### El proyecto y sus tareas se puntuaban en corridas distintas, y nadie las reconciliaba
+
+Síntoma, textual: *«en Prioridades me sale que el proyecto más importante es de
+ciberseguridad. Pero en el kanban hay muchas tareas más importantes que eso»*. Y antes:
+*«aún aparece el caso de un proyecto con prioridad baja y sus tareas muy altas»*.
+
+**El diagnóstico obvio era el equivocado.** El primer arreglo fue `recurvarPlanOwner()`,
+que re-reparte la pirámide de las TAREAS sobre el tablero entero — correcto para lo que
+resolvía (el 96% conservaba el número del día que nació), pero **preserva el orden por
+diseño**, así que no podía mover ni un proyecto. Se shippeó como si cerrara el reclamo y no
+cerraba nada. Lo dijo él: *«no creo que se hayan aplicado los cambios»*.
+
+La causa real: hay **dos productores de score que nunca se hablan**.
+`describirProyectosNuevos` puntúa proyectos, `puntuarNuevas` puntúa tareas, corren en
+llamadas distintas con prompts distintos, y **ninguna de las dos mira el resultado de la
+otra**. Los dos números terminan en la misma pantalla, uno al lado del otro, comparándose.
+
+Medido sobre el tablero real antes de tocar nada (550 tareas abiertas, 71 proyectos):
+
+| | Antes | Después |
+|---|---|---|
+| Tareas que puntúan por encima de su propio proyecto | **154** (peor: una en 81 adentro de un proyecto en 7) | **0** |
+| Proyectos empatados en score | 23 | 19 (sobre 63 con trabajo abierto) |
+| Proyectos SIN una sola tarea abierta | 8, de **50 a 80** — uno por encima del único encargo con cliente vivo y entregables fechados | 8, todos en 1 |
+| Objetivo Principal | «Seguridad y multi-inquilino» (97, mejor tarea 90) | «Vender MaKo: Oferta y precios» (98, mejor tarea 93, 15 pendientes) |
+
+No era cosmético: `objetivoPrincipal` es el proyecto de mayor score con pendientes, la
+vista Prioridades arranca por SUS tareas y el resto del plan se ordena por `scoreProy`. Un
+score de proyecto que no mira sus tareas gobierna la pantalla entera.
+
+**La regla que queda: un CONTENEDOR vale lo que vale el mejor contenido que tiene adentro,
+y su número se DERIVA — no se pide dos veces.** El piso es el `max` de sus tareas abiertas,
+así que la inversión es imposible por construcción, no por suerte. No es el promedio a
+propósito: con el promedio, un proyecto de veinte tareas chicas le gana a uno con una
+crítica, que es el error opuesto. Encima del max va un bonus de densidad 0-6 sacado de las
+tres mejores (las que faltan valen 0, así que una sola tarea no cobra bonus de tres).
+
+Tres cosas que se decidieron en contra de lo que parecía obvio:
+
+- **Acá NO va `spreadProjScores`.** Repartir 1..100 sin empates es *incompatible* con la
+  invariante: los proyectos del medio caerían debajo de sus propias tareas y volvería
+  exactamente el síntoma. El empate entre dos proyectos cuya mejor tarea vale lo mismo no
+  es mushiness, **es el dato**.
+- **Pero el desempate no puede quedar en `orden`**, que es el orden en que se crearon: el
+  norte del tablero cambiaría de proyecto por un motivo que no significa nada. A igual
+  score gana el que tiene MÁS trabajo abierto, y el log del server usa el mismo criterio
+  que la pantalla — un log que desempata distinto es una pista falsa el día de la auditoría.
+- **Un proyecto vacío va a 1, no al medio.** No es una prioridad: es una intención.
+
+La función vive en `app/plan/board/types.ts` y no adentro del módulo `server-only` que la
+usa, por la regla de siempre: una invariante que ningún test puede importar es una
+expresión de deseo. `tests/board-scores.test.ts` la corre sobre los 100 valores de `max`.
+
+**Lo que NO cierra esto** (sigue abierto, y es la otra mitad del reclamo original): el
+Perro ubica lo nuevo contra el tablero pero **no re-rankea lo viejo entre sí**. El ejemplo
+que dio él —«Feature de Videos de IA 90» empatada con «Cerrar cliente Código Inmobiliario
+90»— es eso, y ninguna aritmética lo arregla: hace falta un criterio determinista que mueva
+tareas viejas sin llamar al modelo (envejecer lo que nadie tocó en N días, subir lo que
+tiene deadline cerca). Falta definir la ventana de días con el dueño.
+
+**Vive en:** app/plan/board/types.ts (`scoreProyectoDerivado`) · lib/plan-board.ts
+(`recurvarProyectosOwner`, llamada al final de `priorizarNuevasOwner`) ·
+app/plan/board/BoardShell.tsx (`porScore` y su desempate) · scripts/recurvar-plan.mts ·
+scripts/medir-proyectos-derivados.mts (el dry-run que produjo la tabla) · *2026-08-21*
