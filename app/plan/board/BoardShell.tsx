@@ -459,6 +459,14 @@ export function BoardShell({ board, scope }: {
   const projConTareas = projAgg.filter((p) => p.total > 0);
   const avgProj = projConTareas.length ? Math.round(projConTareas.reduce((s, p) => s + p.pct, 0) / projConTareas.length) : 0;
   const hechosProj = projAgg.filter((p) => p.total > 0 && p.done === p.total).length;
+
+  // El avance de LA VISTA que se está mirando, en un solo lugar. Los tres chips del
+  // header lo pintaban cada uno por su lado; cuando el header se pliega, este mismo dato
+  // es el que viaja al menú — copiarlo allá era garantizar que uno de los dos mintiera.
+  const progresoDeLaVista = view === 'kanban' ? { pct: avg, hechas, total: tasks.length, label: 'del plan' }
+    : view === 'prioridades' ? { pct: prioAvg, hechas: enPrio.length, total: MAX_PRIORIDAD, label: 'en prioridad' }
+      : view === 'proyectos' ? { pct: avgProj, hechas: hechosProj, total: labels.length, label: 'proyectos ✓' }
+        : undefined;
   const openTask = tasks.find((t) => t.id === openId) ?? null;
   const debateTask = tasks.find((t) => t.id === debateId) ?? null;
   const debateFechaTask = tasks.find((t) => t.id === debateFechaId) ?? null;
@@ -773,7 +781,9 @@ export function BoardShell({ board, scope }: {
         </div>
         {/* Los botones de acción, PLEGABLES: cuando no entran se esconden detrás de un
             «+» que los despliega al costado. Antes se dibujaban encima de «Filtrar». */}
-        <BarraAcciones compacto={compacto} acciones={[
+        {/* El progreso NO se pierde al plegarse: viaja al menú, arriba de todo. Un dato
+            que desaparece porque no hay lugar es esconder sin pista. */}
+        <BarraAcciones compacto={compacto} progreso={progresoDeLaVista} acciones={[
           /* ⚠ en TODAS las vistas (no solo kanban) y también con "no volver a pedir todos"
              activo: es el único modo de REABRIR el modal (lo promete el 2do pop-up). Cuando
              está apagado no titila (queda gris), para no naguear. */
@@ -782,14 +792,16 @@ export function BoardShell({ board, scope }: {
             style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', cursor: 'pointer', flex: 'none', padding: 0 }}>
             <WarnMark title="" size={18} blink={!datosOff} />
           </button>
-          ) }] : []),
+          ), menu: { icono: <WarnMark title="" size={15} blink={false} />, label: 'Datos sin marcar', badge: faltantes.length,
+            desc: 'Deadline y checklist que le faltan a tus tareas', onClick: abrirDatosManual } }] : []),
           ...(hayWelcome ? [{ key: 'welcome', nodo: (
           <button type="button" onClick={() => setWelcomeVisible(true)} title={`${welcomeTasks.length} tarea${welcomeTasks.length === 1 ? '' : 's'} que cargó MaKo — ver`} aria-label="Tareas que cargó MaKo"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 38, borderRadius: 9, border: '1px solid var(--primary-weak)', background: 'var(--surface)', cursor: 'pointer', flex: 'none', padding: '0 11px' }}>
             <MakoStar size={15} color="var(--primary)" />
             <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: 'var(--primary)' }}>{welcomeTasks.length}</span>
           </button>
-          ) }] : []),
+          ), menu: { icono: <MakoStar size={15} color="currentColor" />, label: 'Lo que cargó MaKo', badge: welcomeTasks.length,
+            desc: 'Las tareas que entraron solas, para revisarlas', onClick: () => setWelcomeVisible(true) } }] : []),
           ...(repo.fathomExtract ? [{ key: 'fathom', nodo: (<>
           {/* El botón ES el logo de Fathom (feedback jul-18): sin contenedor blanco. Mismo 38×38 que el de subir. */}
           {/* Con borradores esperando, este botón ABRE ESOS BORRADORES (y late para que
@@ -816,7 +828,9 @@ export function BoardShell({ board, scope }: {
             )}
           </button>
           {nPendientes > 0 && <style>{'@keyframes makoLatido{0%,100%{transform:scale(1);filter:drop-shadow(0 0 0 rgba(47,111,237,0))}50%{transform:scale(1.09);filter:drop-shadow(0 0 6px rgba(47,111,237,.65))}}'}</style>}
-          {/* Abre la BANDEJA, no el buscador de archivos del sistema. Elegir el
+          </>), menu: { icono: <SvcIcon k="fathom" size={15} box={20} radius={5} />, label: 'Tus reuniones', badge: nPendientes + nDeOtros,
+            desc: 'MaKo lee la grabación y saca los compromisos', onClick: () => { setReunionArchivo(null); setExtraerReunion(true); } } },
+          { key: 'importar', nodo: (<>          {/* Abre la BANDEJA, no el buscador de archivos del sistema. Elegir el
               archivo es el paso 2, no el 1: así se ve qué se está por mandar, entran
               varios y el que falla dice por qué sin llevarse a los otros. */}
           <button type="button" aria-label="Importar archivos al plan" title="Importar: notas, transcripciones, PDFs, capturas o audios — MaKo saca las tareas"
@@ -825,10 +839,13 @@ export function BoardShell({ board, scope }: {
             onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--dim)'; }}>
             <UploadIcon />
           </button>
-          </>) }] : []),
+          </>), menu: { icono: <UploadIcon />, label: 'Importar archivos',
+            desc: 'Notas, transcripciones, PDFs, capturas o audios', onClick: () => setImportar(true) } }] : []),
           /* Bajarse el tablero. Sale del estado que ya está en memoria, así que anda
              igual en el tablero del dueño que en el del cliente, y baja al instante. */
-          { key: 'exportar', nodo: <ExportarBoton onAbrir={() => setExportar(true)} /> },
+          { key: 'exportar', nodo: <ExportarBoton onAbrir={() => setExportar(true)} />,
+            menu: { icono: <DescargarIcon />, label: 'Exportar el tablero',
+              desc: 'Bajá las tareas y los proyectos a un archivo', onClick: () => setExportar(true) } },
         ]} />
 
       </header>
@@ -1019,7 +1036,7 @@ const selStyle: CSSProperties = { appearance: 'none', WebkitAppearance: 'none', 
 // botón "Cambiar prioridad/proyecto" — mismo diseño en toda la app: estrella de IA + texto azul
 const cambiarBtn: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', border: '1px solid var(--primary-weak)', background: 'var(--surface)', color: 'var(--primary)', fontWeight: 700, fontSize: 13, padding: '9px 12px', borderRadius: 9, cursor: 'pointer', fontFamily: SANS };
 
-function FunnelIcon({ color = 'currentColor' }: { color?: string }) { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" /></svg>; }
+function FunnelIcon({ color = 'currentColor', size = 17 }: { color?: string; size?: number }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" /></svg>; }
 /**
  * Exportar el tablero. Era un desplegable con tres salidas fijas —o te llevabas todo
  * o nada, y sin el P# del proyecto, sin la justificación de prioridad y sin las notas—.
@@ -1038,38 +1055,122 @@ function FunnelIcon({ color = 'currentColor' }: { color?: string }) { return <sv
  * mismos botones, hacia la izquierda —vive pegado al borde derecho, así que hacia el
  * otro lado se irían de la pantalla.
  */
-function BarraAcciones({ acciones, compacto }: {
-  acciones: Array<{ key: string; nodo: React.ReactNode }>;
-  /** no entran: se pliegan detrás del «+». Lo decide el header, que es quien mide. */
+/** Tres puntos: en esta app ES el simbolo de «hay mas acciones aca». Ya lo usa el CRM
+ *  (app/crm/CrmToolbar.tsx) con el mismo significado. */
+function KebabIcon({ size = 17 }: { size?: number }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden><circle cx="12" cy="5" r="1.9" /><circle cx="12" cy="12" r="1.9" /><circle cx="12" cy="19" r="1.9" /></svg>;
+}
+
+/** Una fila del menu plegado: icono, NOMBRE y una linea de que hace. */
+function FilaAccion({ icono, label, desc, badge, onClick }: {
+  icono: React.ReactNode; label: string; desc: string; badge?: number; onClick: () => void;
+}) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button type="button" role="menuitem" onClick={onClick}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+      style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left', padding: '9px 10px', borderRadius: 10, border: 'none', cursor: 'pointer', background: hover ? 'var(--surface-2)' : 'transparent', fontFamily: SANS }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, flex: 'none', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: hover ? 'var(--primary)' : 'var(--dim)' }}>{icono}</span>
+      <span style={{ minWidth: 0, flex: 1 }}>
+        <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{label}</span>
+        <span style={{ display: 'block', fontSize: 12, color: 'var(--faint)', lineHeight: 1.35, marginTop: 1 }}>{desc}</span>
+      </span>
+      {badge != null && badge > 0 && (
+        <span style={{ flex: 'none', minWidth: 20, height: 20, padding: '0 6px', borderRadius: 999, background: 'var(--primary)', color: '#fff', fontFamily: MONO, fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{badge}</span>
+      )}
+    </button>
+  );
+}
+
+/** Lo que hace falta saber de una accion cuando NO entra en la barra. */
+export type AccionPlegable = {
+  key: string;
+  /** el boton tal cual, para cuando SI entra */
+  nodo: React.ReactNode;
+  /** como se llama y que hace, para cuando hay que plegarla */
+  menu: { icono: React.ReactNode; label: string; desc: string; badge?: number; onClick: () => void };
+};
+
+/**
+ * Los botones de accion del header, plegables.
+ *
+ * TRES DECISIONES QUE NO SON DE GUSTO, y las tres salieron de que el dueño no entendiera
+ * la primera version («el boton de + no me gusta mucho, no se entiende que es un
+ * desplegable»):
+ *
+ *  1. TRES PUNTOS, NO «+». Un «+» significa CREAR en toda la industria y en esta misma
+ *     app; usarlo para «hay mas cosas» promete una tarea nueva y entrega un menu. Los
+ *     tres puntos son el simbolo de overflow, y el CRM ya lo usa asi
+ *     (app/crm/CrmToolbar.tsx): el precedente estaba en casa y esto lo ignoraba.
+ *  2. EL MENU ES VERTICAL Y CON TEXTO. La version anterior desplegaba los MISMOS iconos
+ *     mudos en una tira horizontal: cambiaba un icono ambiguo por cinco. Un menu se lee.
+ *  3. EL PROGRESO DEL PLAN VA ARRIBA DEL MENU. Es un DATO, no una accion: cuando no
+ *     entra en la barra tiene que seguir estando en algun lado. La regla de la casa es
+ *     «plegar si, esconder no», y un numero que desaparece es esconder.
+ */
+function BarraAcciones({ acciones, compacto, progreso }: {
+  acciones: AccionPlegable[];
+  /** no entran: se pliegan detras de los tres puntos. Lo decide el header, que es quien mide. */
   compacto: boolean;
+  /** el avance del plan, para que no desaparezca al plegarse */
+  progreso?: { pct: number; hechas: number; total: number; label: string };
 }) {
   const [abierto, setAbierto] = useState(false);
   const n = acciones.length;
+  const esperando = acciones.reduce((t, a) => t + (a.menu.badge ?? 0), 0);
 
   // Al desplegarse la ventana, cerrar el panel: si no, queda flotando sobre el tablero.
   useEffect(() => { if (!compacto) setAbierto(false); }, [compacto]);
+  // Escape cierra, como todo lo que se abre en esta app.
+  useEffect(() => {
+    if (!abierto) return;
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setAbierto(false); };
+    document.addEventListener('keydown', esc);
+    return () => document.removeEventListener('keydown', esc);
+  }, [abierto]);
 
   if (!compacto) return <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 'none' }}>{acciones.map((a) => <Fragment key={a.key}>{a.nodo}</Fragment>)}</div>;
 
   return (
     <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flex: 'none' }}>
-      {/* Se despliegan HACIA EL COSTADO (a la izquierda: el botón vive pegado al borde
-          derecho, así que abrir hacia afuera los mandaría fuera de la pantalla). */}
+      <button type="button" onClick={() => setAbierto((v) => !v)}
+        aria-label={abierto ? 'Cerrar las acciones' : 'Mas acciones del plan (' + n + ')'} aria-expanded={abierto} aria-haspopup="menu"
+        title="Mas acciones del plan"
+        style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 9, border: '1px solid ' + (abierto ? 'var(--primary)' : 'var(--border-strong)'), background: abierto ? 'var(--surface-2)' : 'var(--surface)', color: abierto ? 'var(--primary)' : 'var(--dim)', cursor: 'pointer', flex: 'none', padding: 0 }}>
+        <KebabIcon />
+        {/* Que hay algo esperando se ve SIN abrir: un menu cerrado que esconde sus avisos
+            es esconder sin pista, que es justo lo que la regla prohibe.
+            Un PUNTO, no un numero: sumar los badges de las acciones daba «507» —429 tareas
+            sin datos + 19 de MaKo + 59 de reuniones—, un total que no significa nada porque
+            no son la misma cosa. El numero de cada una vive en su fila, adentro. */}
+        {esperando > 0 && (
+          <span aria-hidden style={{ position: 'absolute', top: -2, right: -2, width: 9, height: 9, borderRadius: 999, background: 'var(--primary)', border: '2px solid var(--surface)' }} />
+        )}
+      </button>
       {abierto && (
         <>
           <div onClick={() => setAbierto(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
-          <div style={{ position: 'absolute', right: 46, top: '50%', transform: 'translateY(-50%)', zIndex: 41, display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', boxShadow: '0 10px 30px rgba(18,21,27,.16)', animation: 'makoDesplegar .16s ease-out both' }}>
-            {acciones.map((a) => <Fragment key={a.key}>{a.nodo}</Fragment>)}
+          <div role="menu" style={{ position: 'absolute', top: 44, right: 0, zIndex: 41, width: 312, maxWidth: 'calc(100vw - 32px)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 13, boxShadow: '0 16px 40px rgba(18,21,27,.18)', padding: 7, display: 'flex', flexDirection: 'column', gap: 2, animation: 'makoDesplegar .14s ease-out both' }}>
+            {progreso && (
+              <div style={{ padding: '8px 10px 10px' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+                  <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>{progreso.pct}%</span>
+                  <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>{progreso.hechas}/{progreso.total} {progreso.label}</span>
+                </div>
+                <span style={{ display: 'block', height: 4, borderRadius: 99, background: 'var(--surface-2)', overflow: 'hidden', marginTop: 6 }}>
+                  <span style={{ display: 'block', height: '100%', width: Math.min(100, progreso.pct) + '%', background: 'var(--primary)' }} />
+                </span>
+              </div>
+            )}
+            {progreso && <span style={{ height: 1, background: 'var(--border)', margin: '3px 6px 5px' }} />}
+            {acciones.map((a) => (
+              <FilaAccion key={a.key} icono={a.menu.icono} label={a.menu.label} desc={a.menu.desc} badge={a.menu.badge}
+                onClick={() => { setAbierto(false); a.menu.onClick(); }} />
+            ))}
           </div>
-          <style>{'@keyframes makoDesplegar{from{opacity:0;transform:translate(10px,-50%)}to{opacity:1;transform:translate(0,-50%)}}'}</style>
+          <style>{'@keyframes makoDesplegar{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}'}</style>
         </>
       )}
-      <button type="button" onClick={() => setAbierto((v) => !v)}
-        aria-label={abierto ? 'Cerrar las acciones' : `Ver las ${n} acciones del plan`} aria-expanded={abierto}
-        title={abierto ? 'Cerrar' : 'Acciones del plan'}
-        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 9, border: `1px solid ${abierto ? 'var(--primary)' : 'var(--border-strong)'}`, background: abierto ? 'var(--primary-bg)' : 'var(--surface)', color: abierto ? 'var(--primary)' : 'var(--dim)', cursor: 'pointer', flex: 'none', padding: 0, fontSize: 20, lineHeight: 1, fontFamily: SANS, transition: 'transform .16s' }}>
-        <span style={{ display: 'block', transform: abierto ? 'rotate(45deg)' : 'none', transition: 'transform .16s' }}>＋</span>
-      </button>
     </div>
   );
 }
@@ -1150,6 +1251,7 @@ function HaceloEnMaKo({ id }: { id?: string }) {
 function DownloadIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>; }
 
 // Ícono de subir archivo (bandeja + flecha hacia arriba) para el botón del toolbar (punto 7).
+function DescargarIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>; }
 function UploadIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M17 8l-5-5-5 5" /><path d="M12 3v12" /></svg>; }
 // Logo del Plan: checklist relleno (mismo motivo que el ícono de la sidebar). Los
 // checks/líneas usan --surface para invertir bien en claro/oscuro.
@@ -1644,7 +1746,11 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
 
   return (
     <span style={{ position: 'relative' }}>
-      <button onClick={() => { setOpen((o) => !o); setVista('root'); }} aria-label="Filtrar" title="Filtrar" style={{ position: 'relative', ...ghostBtn, display: 'inline-flex', alignItems: 'center', gap: 7, background: open ? 'var(--surface-2)' : 'var(--surface)', color: n > 0 ? 'var(--primary)' : 'var(--dim)', borderColor: n > 0 ? 'var(--primary-weak)' : 'var(--border-strong)' }}>
+      <button onClick={() => { setOpen((o) => !o); setVista('root'); }} aria-label="Filtrar" title="Filtrar" aria-expanded={open}
+        style={{ position: 'relative', ...ghostBtn, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+          // Sin la palabra, el alto lo fijaba el texto y el botón quedaba en 41x31 al lado
+          // de los de 38x38: tres alturas en la misma fila. La caja es la MISMA siempre.
+          height: 38, width: soloIcono ? 38 : undefined, padding: soloIcono ? 0 : undefined, flex: 'none', background: open ? 'var(--surface-2)' : 'var(--surface)', color: n > 0 ? 'var(--primary)' : 'var(--dim)', borderColor: n > 0 ? 'var(--primary-weak)' : 'var(--border-strong)' }}>
         <FunnelIcon color="var(--primary)" />{!soloIcono && 'Filtrar'}
         {n > 0 && <span onClick={(e) => { e.stopPropagation(); setFLabels?.(new Set()); setFOrigen?.(new Set()); setDoneFilter('all'); }} title="Limpiar" style={{ position: 'absolute', top: -7, right: -7, minWidth: 18, height: 18, padding: '0 4px', borderRadius: 999, background: 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg)' }}>{n}</span>}
       </button>

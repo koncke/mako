@@ -1238,3 +1238,41 @@ depender de que el motor haga esa re-resolución.
 Ninguna quedó vacía ni con scroll horizontal.
 
 **Vive en:** app/layout.tsx (`rootStyle`) · *2026-08-18*
+
+
+### El «+» prometía crear y entregaba un menú
+
+Tres reclamos del dueño sobre el toolbar plegado, y los tres tenían la misma raíz: la
+barra se resolvió de cero en vez de copiar lo que la casa ya tenía resuelto.
+
+1. **«El botón de filtro quedó aplastado».** Medido: es el ÚNICO control del header sin
+   alto propio (`ghostBtn` = padding, sin `height`). Con la palabra lo fijaba la caja de
+   texto → 35px; al quedar solo el ícono lo fija el svg de 13px → **41×31**, al lado de
+   botones de **38×38**. Tres alturas en la misma fila, y la más chica es justo la que se
+   quedó sin rótulo. Ahora la caja es 38×38 fija y el embudo mide 17 como el resto de la
+   app (el del CRM ya medía 17; el del plan era el ícono más chico del header).
+2. **«No se entiende que es un desplegable».** Un «+» significa CREAR en toda la industria
+   y en esta misma app: prometía una tarea nueva y entregaba un menú. Los tres puntos son
+   el símbolo de overflow y **el CRM ya lo usaba** (`app/crm/CrmToolbar.tsx` →
+   `KebabIcon`, con `aria-label="Más acciones del CRM"`). El precedente estaba en casa.
+   Peor: el panel desplegaba los MISMOS íconos mudos en una tira horizontal — cambiaba un
+   ícono ambiguo por cinco. Ahora es un menú vertical con nombre y una línea de qué hace
+   cada acción, igual que el del CRM.
+3. **«Cuando aparece el + desaparece la barra de progreso».** Era cierto y no tenía red:
+   `!compacto && <AvgChip/>`, sin versión reducida ni tooltip. Y ese número **no existe en
+   ningún otro lado** — el «Avance global» de Graphics es otra fórmula (promedio por
+   proyecto, no por tarea). Ahora el progreso de la vista viaja al menú, arriba de todo,
+   como dato y no como acción.
+
+**Dos cosas que aparecieron midiendo, y que nadie había reportado:**
+
+- El `aria-label` decía «Ver las 4 acciones» cuando detrás había **5 botones**: la entrada
+  `fathom` empaquetaba dos (Fathom + importar) en un solo `nodo`. Al plegarse también se
+  perdían **todos los avisos** que vivían en esos botones: el badge de reuniones
+  pendientes, el contador de MaKo, el latido y el parpadeo del ⚠.
+- El badge del disparador no puede ser la SUMA de los badges: daba «507» (429 tareas sin
+  datos + 19 de MaKo + 59 de reuniones), un total de cosas que no son la misma cosa. Va un
+  punto; el número de cada una vive en su fila.
+
+**Vive en:** app/plan/board/BoardShell.tsx (`BarraAcciones`, `FilaAccion`, `KebabIcon`,
+`FunnelIcon`, `progresoDeLaVista`) · *2026-08-21*
