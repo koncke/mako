@@ -454,38 +454,61 @@ falla cuando el margen se acaba: el catálogo crece, y el número que hoy tiene 
 mañana no. Un umbral sin esa red envejece en silencio, que es la peor forma de
 envejecer.
 
-# Dos números que se comparan no pueden salir de dos corridas distintas
+# Dos números que se comparan salen de UN juicio — no de una fórmula sobre el otro
 
 Si en la misma pantalla un número se lee CONTRA otro —el score de un proyecto y el de sus
-tareas, el presupuesto de una campaña y el de sus anuncios, el avance de un hito y el de
-sus pasos—, tienen que salir de **un solo cálculo**. Dos productores que nunca se miran
-divergen, y el usuario ve la contradicción antes que nosotros.
+tareas, el presupuesto de una campaña y el de sus anuncios—, la incoherencia entre los dos
+es real y hay que arreglarla. **Lo que NO se puede hacer es derivar uno del otro con una
+cuenta.** Esa salida parece la barata y es la que tira la parte cara del sistema.
 
-El caso, del 21/8/2026: `describirProyectosNuevos` puntuaba proyectos y `puntuarNuevas`
-puntuaba tareas, en llamadas distintas y con prompts distintos. Medido sobre el tablero
-real: **154 de 550 tareas puntuaban por encima de su propio proyecto** —la peor, una en 81
-adentro de un proyecto en 7— y 8 proyectos sin una sola tarea abierta ocupaban de 50 a 80.
-El dueño lo reportó como *«en Prioridades me sale que el proyecto más importante es de
-ciberseguridad, pero en el kanban hay muchas tareas más importantes que eso»*.
+Se cometieron los dos errores seguidos, con un día de diferencia, y conviene leer los dos.
 
-- **El contenedor se DERIVA de su contenido, no se pide aparte.** Un proyecto vale lo que
-  vale su mejor tarea (`scoreProyectoDerivado`, app/plan/board/types.ts). Con el piso en el
-  `max`, la inversión es imposible por construcción — no por suerte, y sin depender de que
-  un modelo acierte dos veces seguidas.
-- **No es el promedio.** Con el promedio, un contenedor de veinte cosas chicas le gana a
-  uno con una crítica: el error opuesto, igual de visible.
-- **Un contenedor VACÍO va al fondo, no al medio.** Sin contenido no hay nada que derivar,
-  y dejarlo con su último número es lo que ponía un proyecto sin tareas por encima del
-  único encargo con cliente vivo.
-- **Y ojo con la normalización que rompe la invariante:** repartir los contenedores en un
-  rango sin empates (`spreadProjScores`) es incompatible con «el contenedor ≥ su
-  contenido», y volvería a meter el bug por la puerta de al lado. Cuando dos empatan porque
-  su mejor contenido vale lo mismo, **el empate es el dato**; lo que hay que hacer explícito
-  es el DESEMPATE, y no puede ser el orden de creación.
+**El síntoma (21/8/2026).** `describirProyectosNuevos` puntuaba proyectos y `puntuarNuevas`
+puntuaba tareas, en llamadas distintas y con prompts distintos. Medido: **154 de 550 tareas
+puntuaban por encima de su propio proyecto** y 8 proyectos sin una sola tarea abierta
+ocupaban de 50 a 80. El dueño lo reportó como *«en Prioridades me sale que el proyecto más
+importante es de ciberseguridad, pero en el kanban hay muchas tareas más importantes»*.
 
-Y el corolario de siempre: la invariante va en un módulo **sin `server-only`** y con test
-—acá, sobre los 100 valores posibles de `max`—, porque una invariante que ningún test puede
-importar es una expresión de deseo.
+**El arreglo equivocado, el mismo día.** Se hizo `score(proyecto) = max(sus tareas) +
+densidad`. La invariante quedó garantizada por construcción, los tests pasaron, y el
+tablero quedó peor. El dueño lo rechazó al verlo:
+
+> *«¿Cómo que "vale lo mismo que su tarea más alta"? Si quisiera hacer eso, ¿para qué me
+> tomé el trabajo de meter IA? Para eso simplemente lo pongo con código. Pero justamente
+> está el perro guardián, para asignar prioridades según lo que MUEVE LA AGUJA. Y hay una
+> metodología para eso.»*
+
+Y no era una cuestión de gusto: la metodología del propio Perro **ya prohibía por escrito**
+las tres cosas que esa fórmula hacía — premiaba el TAMAÑO («uno con 30 tarjetas no es más
+norte que uno con 2»), amontonaba doce proyectos entre 95 y 98 con empates («EN TODA LA
+ESCALA, PROHIBIDO empatar»), y escribía una razón que describía el mecanismo («PROHIBIDO
+que la razón sea una paráfrasis»). Ninguna línea de código miraba nada de eso.
+
+**Las tres reglas que quedan:**
+
+1. **La cura de dos números incoherentes es que los produzca UN juicio, no que uno se
+   calcule del otro.** Si dos cosas se comparan en pantalla, se juzgan en la misma pasada,
+   con el mismo criterio y viéndose entre sí. Derivar es correcto solo cuando el segundo
+   número **no es un juicio** (un total, un porcentaje, un promedio de avance). En el
+   momento en que el número expresa una PRIORIDAD, una VALORACIÓN o un RIESGO, derivarlo es
+   apagar el sistema que lo produce.
+2. **Una invariante conseguida por construcción puede estar tapando el problema en vez de
+   resolverlo.** «Ninguna tarea puede quedar por encima de su proyecto» sonaba a invariante
+   y era un SÍNTOMA. La prueba de que estaba mal como invariante es un contraejemplo obvio:
+   un proyecto secundario con un bug en llamas adentro — la tarea DEBE estar arriba, y el
+   proyecto no. Antes de blindar una invariante, buscá el caso en que violarla es lo
+   correcto; si existe, lo que tenías era un indicador, no una ley.
+3. **Un test verde sobre la propiedad equivocada es la forma más cara de estar seguro.** Los
+   tests de esa fórmula pasaban y fijaban bien lo que fijaban. Lo que hay que testear de la
+   salida de un modelo no es la fórmula (no hay fórmula): es que **cumpla las reglas de su
+   propia metodología** — que no empate, que use todo el rango, que no infle, y que cada
+   razón compare contra algo que EXISTE. Eso vive en `app/plan/board/metodologia.ts`, sin
+   `server-only`, y es la segunda capa que «una regla en un prompt no es una regla» exige.
+
+**Y el olfato, para reconocerlo rápido:** si la razón que se muestra explica el MECANISMO
+(«vale lo que su mejor tarea», «es el promedio de sus hijos») en vez de comparar contra otra
+cosa del negocio, ya no hay juicio adentro — hay una cuenta con voz de juicio, que es peor
+que no tener nada porque se lee igual de convincente.
 
 # Un total solo se puede sumar si el recurso se puede MOVER DE LUGAR
 
