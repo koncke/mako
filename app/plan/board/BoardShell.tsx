@@ -471,9 +471,23 @@ export function BoardShell({ board, scope }: {
     try {
       const sp = new URLSearchParams(window.location.search);
       const tId = sp.get('tarea'); const pId = sp.get('proyecto');
+      // `?reunion=<recordingId>`: el link que manda MaKo por WhatsApp cuando leyó una
+      // reunión. Abre EL BORRADOR DE ESA REUNIÓN —pendiente o ya cargado—, en vez de
+      // dejarte parado en el tablero esperando que salte un modal que quizá no salta.
+      const rId = Number(sp.get('reunion'));
+      if (Number.isFinite(rId) && rId > 0) {
+        // El cartel de carga sin título todavía: el nombre de la reunión lo trae la
+        // respuesta, y hasta entonces dice «Abriendo lo que sacó MaKo…».
+        setCargandoBorrador({ titulo: '', fecha: null, n: 0 });
+        void fetch('/api/plan-propuesta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'por-reunion', recordingId: rId }) })
+          .then((r) => r.json())
+          .then((j) => { if (j?.ok && j.propuesta) setBorradorReunion(j.propuesta as PropuestaPendiente); })
+          .catch(() => { /* si falla, queda el tablero: nunca una pantalla trabada */ })
+          .finally(() => setCargandoBorrador(null));
+      }
       if (tId && tasks.some((t) => t.id === tId)) setOpenId(tId);
       else if (pId && labels.some((l) => l.id === pId)) setOpenProj(pId);
-      if (tId || pId) { sp.delete('tarea'); sp.delete('proyecto'); const qs = sp.toString(); window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : '')); }
+      if (tId || pId || sp.get('reunion')) { sp.delete('tarea'); sp.delete('proyecto'); sp.delete('reunion'); const qs = sp.toString(); window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : '')); }
     } catch { /* no-op */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

@@ -62,7 +62,7 @@ const TIPOS_AL_PLAN: readonly TipoReunion[] = ['equipo', 'entrega'];
 const KEY_VISTA = (recordingId: number): string => `mako.reunion.auto.${recordingId}`;
 
 /** Una reunión ya procesada en esta corrida (para redactar el aviso al final). */
-type ReunionHecha = { titulo: string; fecha: string | null; conQuien: string; mias: number; otras: number; partesFallidas?: number };
+type ReunionHecha = { titulo: string; fecha: string | null; conQuien: string; mias: number; otras: number; partesFallidas?: number; recordingId: number };
 
 /**
  * El mensaje al grupo. Dos formas: una reunión (frase suelta) o varias (viñetas con
@@ -73,7 +73,15 @@ type ReunionHecha = { titulo: string; fecha: string | null; conQuien: string; mi
  * suman: si no, el mensaje promete más de lo que la pantalla muestra.
  */
 function textoAviso(hechas: ReunionHecha[], tz: string): string {
-  const link = `${APP_URL}/plan`;
+  // EL LINK ABRE ESTA REUNIÓN, no el tablero. `/plan` a secas te deja parado en el
+  // board y a esperar que salte solo el modal —que con varias reuniones esperando
+  // muestra todas mezcladas, y si ya no te queda nada por confirmar no salta— así que
+  // el aviso decía «te las dejé para que las confirmes» y del otro lado no había nada
+  // que confirmar. Con `?reunion=` se abre el borrador DE ESA reunión, esté pendiente o
+  // ya cargado. Con varias, el tablero es el lugar correcto: se revisan juntas.
+  const link = hechas.length === 1
+    ? `${APP_URL}/plan?reunion=${hechas[0].recordingId}`
+    : `${APP_URL}/plan`;
   const totalMias = hechas.reduce((s, h) => s + h.mias, 0);
   const totalOtras = hechas.reduce((s, h) => s + h.otras, 0);
   const tuyas = `*${totalMias} ${totalMias === 1 ? 'tarea tuya' : 'tareas tuyas'}*`;
@@ -364,7 +372,7 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       }
       out.conTareas += 1;
       out.tareas += propuestas.length;
-      hechas.push({ titulo: r.titulo, fecha: r.fecha, conQuien, mias, otras: propuestas.length - mias, partesFallidas });
+      hechas.push({ titulo: r.titulo, fecha: r.fecha, conQuien, mias, otras: propuestas.length - mias, partesFallidas, recordingId: r.recordingId });
     } catch (e) {
       out.errores += 1;
       console.error(`[reunion-auto] ws=${ws} recording=${r.recordingId}: ${e instanceof Error ? e.message : String(e)}`);
