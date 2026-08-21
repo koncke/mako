@@ -100,6 +100,31 @@ for (const f of readdirSync(DIR).filter((x) => /^curso-.*\.ts$/.test(x))) {
   });
 }
 
+// ⚠️ ESTE INFORME COMPARA SOLO LO QUE TIENE FUENTE, Y ESO NO ES EL PORTAL.
+// `filas` sale de recorrer C:\cursos, o sea los cursos que ALGUNA VEZ se ingirieron.
+// Los que viven dentro del auto-generado `curso.ts` no tienen carpeta ni inventario, así
+// que nunca entran a la tabla — y su ausencia no se ve, porque una fila que no existe no
+// deja hueco. Leído así, el «0 faltan» del pie se entiende como «el portal está completo».
+//
+// No es teórico: se reportó «0 faltantes en 17 cursos» como si fuera el portal entero,
+// dejando afuera masteryhaus (194 clases), bluehacker (241) y anuncio-ganador (6). Y al
+// mirar bluehacker contra la plataforma aparecieron 168 lecciones que no estaban.
+//
+// Por eso el pie ahora ENUMERA lo que no pudo mirar, y dice por qué de cada uno.
+const CONO = DIR;
+const conFuente = new Set(filas.map((f) => f.slug));
+const sinFuenteAlguna = [];
+try {
+  for (const f of readdirSync(CONO).filter((x) => x.startsWith('curso-') && x.endsWith('.ts'))) {
+    const slug = f.replace(/^curso-|\.ts$/g, '');
+    if (!conFuente.has(slug)) sinFuenteAlguna.push(slug);
+  }
+  const auto = readFileSync(join(CONO, 'curso.ts'), 'utf8');
+  for (const m of auto.matchAll(/"slug":\s*"([a-z0-9-]+)"/g)) {
+    if (['masteryhaus', 'bluehacker', 'anuncio-ganador', 'avatarhype'].includes(m[1]) && !conFuente.has(m[1])) sinFuenteAlguna.push(m[1] + ' (dentro de curso.ts)');
+  }
+} catch { /* si no se puede listar, se dice abajo */ }
+
 const vivos = filas.filter((f) => !f.sin);
 const pad = (s, n) => String(s).padEnd(n);
 const num = (s, n) => String(s).padStart(n);
@@ -151,3 +176,17 @@ if (conLec.length) {
   console.log('\n  Ejemplos de lecciones que faltan:');
   for (const f of conLec) console.log(`    ${f.slug}: ${f.ejemplos.map((t) => t.slice(0, 44)).join(' · ')}`);
 }
+
+// ⚠️ EL PIE QUE IMPIDE LEER ESTE INFORME COMO «EL PORTAL ESTÁ COMPLETO».
+// Un curso sin fuente no aparece como fila con ceros: NO APARECE. Y lo que no aparece
+// se lee como que no existe, no como que no se miró.
+console.log(`\n  ${'─'.repeat(78)}`);
+console.log(`  ⚠ ESTO COMPARA ${vivos.length} CURSO(S), NO EL PORTAL.`);
+if (sinFuenteAlguna.length) {
+  console.log(`\n  ${sinFuenteAlguna.length} curso(s) del portal NO tienen fuente local y por lo tanto NO se compararon`);
+  console.log(`  con nada. Que no salgan acá arriba no significa que estén completos:`);
+  for (const s of sinFuenteAlguna) console.log(`    · ${s}`);
+}
+console.log(`\n  Y esto tampoco mira la PLATAFORMA: un curso que nunca se trajo no tiene`);
+console.log(`  carpeta, así que no puede faltar en una tabla que se arma desde las carpetas.`);
+console.log(`  Para eso está \`node scripts/curso-censo.mjs\`, que le pregunta a la API.\n`);
