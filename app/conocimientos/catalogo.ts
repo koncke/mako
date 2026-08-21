@@ -39,7 +39,6 @@ import { CURSO_INSTITUTO_DE_COMUNICACION } from './curso-instituto-de-comunicaci
 import { CURSO_CREATOR_CLUB } from './curso-creator-club';
 import { CURSO_TRILOGIA_DE_BRIAN_TRACY } from './curso-trilogia-de-brian-tracy';
 import { CURSO_CREATIVOS_UGC_REALISTAS } from './curso-creativos-ugc-realistas';
-import { CURSO_CREATIVOS_ANIMADOS } from './curso-creativos-animados';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio';
 import { CURSO_BRANDING } from './BrandingMaKo';
@@ -140,6 +139,26 @@ const PORTADA: Record<string, string> = {
  *
  * Los de la sección propia van sin autor: son de la casa.
  */
+/**
+ * El TÍTULO que se muestra, cuando el del pipeline no es el que corresponde.
+ *
+ * ⚠️ Va acá y no en la ficha por la misma razón que `CATEGORIA` y `AUTOR`:
+ * `curso-a-portal.mjs` REESCRIBE `curso-<slug>.ts` en cada corrida, y arma el título
+ * como «<curso del plan> - <autor>». Puesto allá, dura hasta la próxima publicación.
+ *
+ * Y el `curso` del plan NO se puede tocar para arreglarlo: es lo que nombra la carpeta
+ * de Drive (`<Curso> - <Autor>`), así que cambiarlo manda el pipeline a una carpeta que
+ * no existe y re-sube los 35 videos.
+ *
+ * AvatarHype es UN curso, no dos. Sus dos academias —«Creativos UGC Realistas» y
+ * «Creativos Animados»— se publicaban como dos tarjetas separadas, y son el mismo
+ * proveedor y el mismo material: ahora la segunda entra como un módulo más del curso
+ * (ver la fusión en el plan) y la grilla muestra una sola tarjeta con su nombre real.
+ */
+const TITULO: Record<string, string> = {
+  'creativos-ugc-realistas': 'AvatarHype',
+};
+
 const AUTOR: Record<string, string> = {
   masteryhaus: 'Sofía Contreras',
   bluehacker: 'Marcos Razzetti',
@@ -186,16 +205,11 @@ export const CURSOS_TODOS: Curso[] = [
   // próxima. `replica` hace que el curso se vea con la pantalla de su plataforma de
   // origen en vez de con la grilla del portal — ver CursoReplica.tsx.
   { ...CURSO_CREATIVOS_UGC_REALISTAS, recursos: RECURSOS_UGC, replica: true },
-  // Mismo origen (AvatarHype) y misma pantalla de réplica. Su lección «bienvenida» no
-  // tiene video —su forma es un documento— y se publica igual: ver `soloTexto` en
-  // avatarhype-plan.mjs. La academia avisa que están regrabando todo el apartado, así
-  // que esto se vuelve a ingerir cuando lo publiquen.
-  { ...CURSO_CREATIVOS_ANIMADOS, replica: true },
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
   portada: c.portada ?? PORTADA[c.slug],
-  titulo: conAutor(c.titulo, AUTOR[c.slug]),
+  titulo: TITULO[c.slug] ?? conAutor(c.titulo, AUTOR[c.slug]),
 }));
 
 export const buscarCurso = (slug: string | null | undefined): Curso | undefined =>
