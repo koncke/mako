@@ -97,6 +97,14 @@ export type BoardTask = {
   detalle: string;
   priority: Prio;           // DERIVADA del score (prioFromScore); no la fija el usuario
   score: number;            // 1-100 (MaKo perro guardián). 0 = sin puntuar
+  /**
+   * EL JUICIO, separado del número que se muestra (mig 0141). `score` se DERIVA de acá:
+   * `curva(scoreBase + deadline − quietud, dependencias)`. Lo escribe quien JUZGA (el
+   * Perro, o el dueño al debatir o arrastrar); el reparto determinista NUNCA lo toca.
+   * Sin esta separación, el ajuste de una corrida se sumaba a la de la anterior y no había
+   * de dónde recuperar el valor original — `curveTaskScores` reasigna por ranking.
+   */
+  scoreBase?: number;
   scoreRazon?: string;      // por qué el guardián le puso ese score (comparando con el resto)
   deadlineRazon?: string;   // por qué el guardián puso ESA fecha (se debate igual que el score)
   /** Notas libres del dueño. La IA nunca las escribe ni las pisa (mig 0114). */
@@ -111,6 +119,13 @@ export type BoardTask = {
   labels: string[];         // ids de Label
   checklist: Check[];
   historial: Hist[];
+  /**
+   * `created_at` en epoch. Viaja al navegador SOLO para que la pantalla pueda calcular el
+   * mismo envejecimiento que el servidor (`app/plan/board/envejecer.ts`) y explicar por qué
+   * una tarjeta se movió. Sin esto, el chip y el reparto usarían dos definiciones de «hace
+   * cuánto» y tarde o temprano dirían cosas distintas.
+   */
+  creadaEn?: number;
   origen: Actor;            // quién creó la tarjeta (user | ia=MaKo | code=Claude Code)
   fuente?: Fuente;          // DE DÓNDE salió (Fathom/WhatsApp/archivo/Claude Code…); si falta, se deriva del origen
   enPrioridad: boolean;     // "En prioridad" (vista Prioridades, máx 3)

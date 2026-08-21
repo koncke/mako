@@ -1443,3 +1443,67 @@ lib/plan-board.ts (`listDependencias`, `agregarDependencia`, `limpiarDependencia
 app/api/plan-board/route.ts (`dep-add` / `dep-del`, con el guard de ciclo server-side) ·
 supabase/migrations/0140_plan_dependencias.sql · tests/dependencias.test.ts (30 tests) ·
 *2026-08-21*
+
+
+### «30 días sin tocar baja, deadline a menos de 7 sube» — la señal era el problema, no la regla
+
+Pedido textual del dueño. Las dos reglas cuestan cero tokens: son dos restas. **Lo que casi
+las rompe es la señal de «sin tocar»**, que parecía trivial. Medido sobre las 550 tareas
+abiertas del tablero real, con tres definiciones:
+
+| Definición | Resultado |
+|---|---|
+| `historial` con `actor === 'user'` (el dueño editó la tarjeta) | **7 de 550**. El tablero lo alimentan MaKo y las reuniones, no la edición manual: el 99% queda como «nunca tocado» y la regla mide ANTIGÜEDAD, no abandono |
+| `updated_at` | **inservible**. Sin trigger de base, lo escribe el código, y tres de sus escritores son procesos (el Perro, MaKo ampliando, y el borrado de un proyecto que reescribe `labels` de decenas de tareas) |
+| `Math.max` sobre TODO el historial — lo que hace hoy la card «Estancadas» | también: una corrida del Perro deja la tarjeta como «tocada hoy» sin que nadie la haya mirado |
+
+La señal que SÍ discrimina es otra pregunta: **¿se volvió a hablar de esto?** Una tarea que
+MaKo amplió porque el dueño la mencionó de nuevo en una reunión está viva aunque él no haya
+tocado un botón. Con esa definición el tablero se reparte de 0 a 39 días y **101 de 550
+(18%) cruzan los 30** — un corte que separa de verdad. La lista de qué cuenta va en
+POSITIVO y cerrada (`TOQUES` en `envejecer.ts`): «todo menos lo del sistema» deja entrar
+como toque cualquier evento nuevo que alguien agregue después, sin que nada avise.
+
+**Y una mina que habría hecho mal la cuenta en silencio:** 418 entradas de historial en
+producción tenían `ts` guardado como **string ISO** (el tipo dice `number`) y `actor: 'MaKo'`
+(un cuarto valor que no existe en el union). `Math.max` con un string adentro da NaN, y NaN
+en una comparación es **siempre false** — o sea la regla se habría evaluado sobre 362 de 550
+tareas sin decirlo. Ver la entrada de `sanearHist` más arriba.
+
+**`score_base` (mig 0141) es lo que hace la regla reversible.** `curveTaskScores` reasigna
+por ranking a bandas fijas: restarle 15 puntos a algo y después querer devolvérselos era
+imposible, no quedaba de dónde. Ahora:
+
+    score = curva( score_base + empuje por deadline − castigo por quietud , dependencias )
+
+`score_base` lo escribe quien JUZGA (el Perro, o el dueño al debatir **o al arrastrar la
+tarjeta** — `setScore` lo escribe, y sin eso el reparto la devolvía a su lugar: arrastro,
+rebota, arrastro, rebota). El reparto nunca lo toca. **Verificado en producción: la segunda
+y la tercera corrida mueven 0 tareas.**
+
+⚠️ Esto NO es «dos productores del mismo número». Es lo contrario: un productor por número,
+con una derivación explícita entre los dos.
+
+**El cron que faltaba.** `recurvarPlanOwner` tenía UN llamador —dentro de
+`priorizarNuevasOwner`—, o sea que el tablero solo se re-repartía cuando entraban tareas
+nuevas. Dos reglas que dependen del calendario no se hubieran movido nunca solas: una fecha
+se vencía y el tablero no se enteraba hasta la próxima reunión. `/api/cron/plan-recurvar`
+corre a diario (9:10 UTC) y hace las tres cosas deterministas: reparte, deriva los proyectos
+de sus tareas, y barre las aristas colgadas.
+
+**Efecto medido de la primera corrida:** 511 de 550 tareas cambiaron de número, 76 de
+columna (38 arriba, 38 abajo). El top del tablero pasó a estar dominado por lo vencido
+—25 tareas, la más vieja hacía 13 días, y 7 de ellas ni siquiera estaban en Alta—, y lo que
+bajó fue todo «39 días sin que nadie la mencione».
+
+⚠️ **Lo que hay que mirar con el dueño:** entre lo que bajó está «Salvar los datos de Meta
+antes de que los borre (URGENTE)» (91→76) y «Que MaKo hable con tus números reales» (93→79).
+La regla no puede distinguir *«dejó de importar»* de *«importa y está abandonada»* — son el
+mismo dato. Por eso el castigo tiene **tope 20** (a los 50 días toca fondo y no sigue), la
+razón se **muestra** en la tarjeta y en el detalle, y se puede **debatir**: el Perro la vuelve
+a fijar y eso reescribe `score_base`.
+
+**Vive en:** app/plan/board/envejecer.ts (las funciones puras, sin `server-only`) ·
+lib/plan-board.ts (`recurvarPlanOwner`) · app/api/cron/plan-recurvar/route.ts · vercel.json ·
+supabase/migrations/0141_plan_score_base.sql · scripts/medir-envejecimiento.mts y
+scripts/simular-reparto.mts (los dry-run que produjeron los números) · *2026-08-21*

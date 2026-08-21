@@ -42,6 +42,7 @@ import { separarRepetidas, textoRepetidas } from '@/lib/tareas-dedup';
 import { type BoardTask, type Label, type Prio, type Check, type Actor, type Fuente, type FuenteTipo, ACTOR_LABEL, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, fechaHora, fuenteEfectiva, prioFromScore, displayPrio } from './types';
 import { resolverDeps, estaBloqueada, type EstadoDeps, type Dep } from './dependencias';
 import { DependenciasBloque } from './DependenciasBloque';
+import { diasQuieta, diasAlDeadline, ajusteTemporal } from './envejecer';
 import { ExportarModal } from './ExportarModal';
 import { NotasLista } from './NotasLista';
 import { capacidad } from '@/lib/mako-capacidades';
@@ -1557,6 +1558,7 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj }: 
             necesita sus dos líneas. El nombre de lo que la frena vive en el tooltip y en
             el detalle, que es donde hay lugar para decirlo entero. */}
         <BloqueoChip porQue={frenanA} compacto />
+        <TiempoChip t={t} />
         {warn && <WarnMark title={`Falta ${!t.deadline ? 'el deadline' : 'la checklist'}`} onClick={(e) => { e.stopPropagation(); onWarn(t.id); }} />}
         <ScoreBadge score={t.score} />
       </div>
@@ -1579,6 +1581,40 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj }: 
       {/* avance SIEMPRE derivado (feedback #17): con checklist sale de ella; sin ella, el toggle de arriba */}
       <MiniBar v={t.progress} />
     </div>
+  );
+}
+
+/** La versión larga del `TiempoChip`, para el detalle: acá sí hay lugar para la frase. */
+function TiempoLinea({ t }: { t: BoardTask }) {
+  const ahora = Date.now();
+  const aj = ajusteTemporal({ quieta: diasQuieta(t.historial, t.creadaEn, ahora), alDeadline: diasAlDeadline(t.deadline || undefined, ahora) });
+  if (aj.delta === 0) return null;
+  const sube = aj.delta > 0;
+  return (
+    <div style={{ fontSize: 11.5, color: sube ? 'var(--warn, #B4762A)' : 'var(--dim)', lineHeight: 1.4, marginBottom: 8 }}>
+      {sube ? '◷' : '💤'} {sube ? 'Subió' : 'Bajó'} de prioridad porque {aj.razon}. Si no corresponde, debatila y el Perro la vuelve a fijar.
+    </div>
+  );
+}
+
+/**
+ * Por qué el tiempo movió esta tarjeta. Sale de las MISMAS funciones puras que usa el
+ * reparto del servidor (`envejecer.ts`), no de una copia: un chip que dice una cosa y un
+ * ranking que hace otra es el bug que este tablero ya pagó dos veces.
+ *
+ * Existe porque un score que se mueve solo y no dice por qué es exactamente lo que el
+ * dueño reportó del tablero entero. Si baja, tiene que poder discutirlo.
+ */
+function TiempoChip({ t }: { t: BoardTask }) {
+  const ahora = Date.now();
+  const aj = ajusteTemporal({ quieta: diasQuieta(t.historial, t.creadaEn, ahora), alDeadline: diasAlDeadline(t.deadline || undefined, ahora) });
+  if (aj.delta === 0) return null;
+  const sube = aj.delta > 0;
+  return (
+    <span title={`${sube ? 'Subió' : 'Bajó'} de prioridad: ${aj.razon}`}
+      style={{ flex: 'none', fontFamily: MONO, fontSize: 10, fontWeight: 700, color: sube ? 'var(--warn, #B4762A)' : 'var(--faint)' }}>
+      {sube ? '◷' : '💤'}
+    </span>
   );
 }
 
@@ -2038,6 +2074,10 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, onDebat
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: 15, fontWeight: 700, color: PCOLOR[prioEfectiva] }}><ScoreIcon size={15} color={PCOLOR[prioEfectiva]} />{t.score}</span>
               </div>
               {t.scoreRazon && <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4, marginBottom: 8, fontStyle: 'italic' }}>“{t.scoreRazon}”</div>}
+              {/* El AJUSTE del tiempo va aparte de la razón del Perro, no mezclado: son dos
+                  juicios distintos y de dos autores distintos. El del Perro dice cuánto
+                  vale; éste dice qué le hizo el calendario. */}
+              <TiempoLinea t={t} />
               {(t.impacto != null || t.esfuerzo != null) && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 10 }}>
                   {t.impacto != null && <IEMeter label="Impacto" v={t.impacto} color="#1E9E57" />}

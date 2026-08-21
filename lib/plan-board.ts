@@ -12,7 +12,8 @@ import 'server-only';
 import { getTenantDb, runWithWorkspace, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 import type { BoardTask, Label, Prio, Actor, Check, Hist, Fuente, GuardPatch, GuardProjPatch, GuardResult } from '@/app/plan/board/types';
 import { scoreFromPrio, prioFromScore, curveTaskScores, scoreProyectoDerivado, sanearHist } from '@/app/plan/board/types';
-import { sanearDep, puedeDepender, type Dep, type EntidadDep, type ClaseDep } from '@/app/plan/board/dependencias';
+import { sanearDep, puedeDepender, resolverDeps, estaBloqueada, type Dep, type EntidadDep, type ClaseDep } from '@/app/plan/board/dependencias';
+import { diasQuieta, diasAlDeadline, ajusteTemporal, empujeDeadline, castigoQuietud } from '@/app/plan/board/envejecer';
 import { puntuarNuevas, describirProyectosNuevos, asignarTareasAProyectos } from '@/lib/mako-guardian';
 import { checklistsParaTareas } from '@/lib/checklist-coach';
 import { CATALOGO_PROYECTOS, delCatalogo, canonNombre, nucleo } from '@/lib/plan-proyectos-catalogo';
@@ -45,20 +46,23 @@ function rowToTask(r: Row): BoardTask {
   return {
     id: str(r.id), num: int(r.num), emoji: str(r.emoji, '📌'), title: str(r.title, 'Tarea'),
     detalle: str(r.detalle), priority: str(r.priority, 'media') as Prio,
-    score: int(r.score), scoreRazon: r.score_razon ? str(r.score_razon) : undefined,
+    score: int(r.score), scoreBase: optInt(r.score_base) ?? int(r.score), scoreRazon: r.score_razon ? str(r.score_razon) : undefined,
     deadlineRazon: r.deadline_razon ? str(r.deadline_razon) : undefined, notas: str(r.notas),
     haceloEn: r.hacelo_en ? str(r.hacelo_en) : undefined,
     impacto: optInt(r.impacto), esfuerzo: optInt(r.esfuerzo),
     progress: int(r.progress), deadline: str(r.deadline),
     labels: asArr<unknown>(r.labels).map(String), checklist: asArr<Check>(r.checklist),
     historial: sanearHist(r.historial), origen: str(r.origen, 'user') as Actor,
+    creadaEn: Date.parse(str(r.created_at)) || undefined,
     fuente: optFuente(r.fuente), enPrioridad: !!r.en_prioridad,
   };
 }
 function taskToRow(t: BoardTask): Row {
   return {
     id: t.id, num: t.num, emoji: t.emoji || '📌', title: t.title || 'Tarea', detalle: t.detalle || '',
-    priority: t.priority, score: int(t.score), score_razon: t.scoreRazon ?? null,
+    // `score_base` viaja SIEMPRE en el round-trip para que un guardado del navegador no
+    // lo borre. Cae al `score` solo cuando la fila todavía no lo tiene (tarea nueva).
+    priority: t.priority, score: int(t.score), score_base: int(t.scoreBase ?? t.score), score_razon: t.scoreRazon ?? null,
     deadline_razon: t.deadlineRazon ?? null, notas: t.notas ?? '', hacelo_en: t.haceloEn ?? null,
     impacto: t.impacto ?? null, esfuerzo: t.esfuerzo ?? null, progress: int(t.progress),
     deadline: t.deadline || '', labels: t.labels ?? [], checklist: t.checklist ?? [], historial: t.historial ?? [],
@@ -623,15 +627,38 @@ export async function ampliarTareasPlanOwner(items: AmpliarTareaPlan[], fuente?:
  * ⚠️ Y NO cambia el orden que decidió nadie: preserva el ranking tal cual está, incluida
  * cualquier corrección a mano del dueño. Solo mueve la regla de tres.
  */
-export async function recurvarPlanOwner(): Promise<{ movidas: number; total: number }> {
+export async function recurvarPlanOwner(): Promise<{ movidas: number; total: number; conDeadline: number; quietas: number; frenadas: number }> {
   return enPlan(async () => {
     const db = await getTenantDb();
-    const { data } = await db.from('plan_tareas').select('id, score, progress');
-    const abiertas = (data ?? []).filter((r) => int((r as Row).progress) < 100)
-      .map((r) => ({ id: str((r as Row).id), score: int((r as Row).score) }));
-    if (abiertas.length < 20) return { movidas: 0, total: abiertas.length };
-    const curva = curveTaskScores(abiertas);
-    const cambian = abiertas.filter((t) => curva[t.id] != null && curva[t.id] !== t.score);
+    const ahora = Date.now();
+    const [tRes, dRes] = await Promise.all([
+      db.from('plan_tareas').select('id, num, score, score_base, progress, labels, deadline, historial, created_at').order('num', { ascending: true }),
+      db.from('plan_dependencias').select('entidad, de_id, a_id, clase, razon, origen, confianza'),
+    ]);
+    const deps = (dRes.data ?? []).map(sanearDep).filter((x): x is Dep => x != null);
+    const filas = (tRes.data ?? []).filter((r) => int((r as Row).progress) < 100).map((r) => {
+      const row = r as Row;
+      // La BASE es el juicio, no el número que se muestra: leer `score` acá sería leer la
+      // salida de la corrida anterior y el ajuste se sumaría a sí mismo cada vez.
+      const base = optInt(row.score_base) ?? int(row.score);
+      const dl = diasAlDeadline(str(row.deadline) || undefined, ahora);
+      const q = diasQuieta(sanearHist(row.historial), str(row.created_at), ahora);
+      const aj = ajusteTemporal({ quieta: q, alDeadline: dl });
+      return {
+        id: str(row.id), num: int(row.num), score: Math.max(1, Math.min(100, base + aj.delta)),
+        progress: int(row.progress), labels: asArr<unknown>(row.labels).map(String),
+        mostrado: int(row.score), dl, quieta: q, razon: aj.razon,
+      };
+    });
+    if (filas.length < 20) return { movidas: 0, total: filas.length, conDeadline: 0, quietas: 0, frenadas: 0 };
+
+    // El ORDEN lo fija el grafo de dependencias sobre los scores ya ajustados por tiempo, y
+    // `curveTaskScores` solo reparte los números sobre ese orden. Importa que sea en este
+    // orden: la urgencia heredada tiene que mirar la prioridad REAL de hoy, no la de antes
+    // de que se venciera un deadline.
+    const est = resolverDeps({ tareas: filas, deps });
+    const curva = curveTaskScores(est.orden.map((t) => ({ id: t.id, score: est.urgencia[t.id] ?? t.score })));
+    const cambian = filas.filter((t) => curva[t.id] != null && curva[t.id] !== t.mostrado);
     // De a tandas: 550 updates sueltos en paralelo saturan el pool de conexiones.
     const TANDA = 40;
     for (let i = 0; i < cambian.length; i += TANDA) {
@@ -642,8 +669,11 @@ export async function recurvarPlanOwner(): Promise<{ movidas: number; total: num
     // Sin historial por tarjeta a propósito: son 500 entradas que dicen todas lo mismo y
     // taparían el rastro que sí importa (quién la movió y por qué). El reparto no cambia
     // el orden, así que no hay ninguna decisión nueva que auditar.
-    if (cambian.length) console.log(`[plan-board] recurvar: ${cambian.length}/${abiertas.length} tareas redistribuidas`);
-    return { movidas: cambian.length, total: abiertas.length };
+    const conDeadline = filas.filter((t) => empujeDeadline(t.dl) > 0).length;
+    const quietas = filas.filter((t) => castigoQuietud(t.quieta) > 0).length;
+    const frenadas = filas.filter((t) => estaBloqueada(t.id, est)).length;
+    if (cambian.length) console.log(`[plan-board] recurvar: ${cambian.length}/${filas.length} movidas · ${conDeadline} por fecha · ${quietas} por quietud · ${frenadas} frenadas`);
+    return { movidas: cambian.length, total: filas.length, conDeadline, quietas, frenadas };
   });
 }
 
@@ -781,7 +811,9 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
       if (g) {
         const prio = prioFromScore(g.score);
         cuenta[prio]++;
-        patch.score = g.score; patch.score_razon = g.razon || null; patch.impacto = g.impacto ?? null; patch.esfuerzo = g.esfuerzo ?? null; patch.priority = prio;
+        // `score_base` es EL JUICIO del Perro (mig 0141). `score` se pisa después en el
+        // reparto; la base no la toca nadie más.
+        patch.score = g.score; patch.score_base = g.score; patch.score_razon = g.razon || null; patch.impacto = g.impacto ?? null; patch.esfuerzo = g.esfuerzo ?? null; patch.priority = prio;
         Object.assign(out, { score: g.score, scoreRazon: g.razon || '', impacto: g.impacto, esfuerzo: g.esfuerzo, priority: prio });
         // LA FECHA la pone el Perro, pero NUNCA pisa una que ya esté: si la tarea vino
         // con deadline (lo dijo la reunión, lo puso el dueño), esa manda. Una prioridad

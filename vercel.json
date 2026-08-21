@@ -86,6 +86,10 @@
       "schedule": "55 13 * * *"
     },
     {
+      "path": "/api/cron/plan-recurvar",
+      "schedule": "10 9 * * *"
+    },
+    {
       "path": "/api/cron/prueba-grabacion",
       "schedule": "*/15 * * * *"
     }

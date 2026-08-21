@@ -7,6 +7,7 @@ import {
   curveTaskScores, spreadProjScores, prioFromScore, scoreProyectoDerivado, sanearHist,
   clampScore, clampProj, clampPct, MAX_PROJ,
 } from '../app/plan/board/types';
+import { empujeDeadline, castigoQuietud, esToque, diasQuieta, diasAlDeadline, ajusteTemporal } from '../app/plan/board/envejecer';
 
 test('prioFromScore — cortes en 75 / 50 / 25', () => {
   assert.equal(prioFromScore(100), 'alta');
@@ -182,4 +183,71 @@ test('sanearHist — conserva undo y kind, que son lo que hace deshacible una en
   const [h] = sanearHist([{ id: 'a', ts: 1, actor: 'user', text: 'x', undo: { field: 'score', prev: 32 }, kind: 'task' }]);
   assert.deepEqual(h.undo, { field: 'score', prev: 32 });
   assert.equal(h.kind, 'task');
+});
+
+// ── Envejecimiento: el tiempo mueve la prioridad ─────────────────────────────────────
+// Las dos reglas las pidió el dueño textual: «30 días sin tocar baja, deadline a menos de
+// 7 sube». Lo que la MEDICIÓN cambió del diseño está en el comentario de envejecer.ts.
+
+test('empujeDeadline — una VENCIDA pesa más que una que vence mañana', () => {
+  // Ya falló, y el tablero no lo decía en ningún lado: había 25 vencidas, la más vieja
+  // hacía 13 días, y 7 de ellas ni siquiera estaban en Alta.
+  assert.ok(empujeDeadline(-1) > empujeDeadline(1));
+  assert.ok(empujeDeadline(1) > empujeDeadline(5));
+  assert.ok(empujeDeadline(5) > empujeDeadline(10));
+  assert.equal(empujeDeadline(30), 0, 'una fecha lejana no empuja nada');
+  assert.equal(empujeDeadline(null), 0, 'y sin fecha no hay empuje: 425 de 550 tareas no tienen');
+});
+
+test('castigoQuietud — arranca en el día 30 y TIENE TOPE', () => {
+  assert.equal(castigoQuietud(29), 0, 'hasta el día 29 no pasa nada');
+  assert.equal(castigoQuietud(30), 1, 'y arranca de a poco, no de golpe');
+  assert.equal(castigoQuietud(60), 20);
+  assert.equal(castigoQuietud(3000), 20, 'el tope impide que la regla entierre sola algo importante');
+});
+
+test('esToque — lista CERRADA: lo que hace el SISTEMA no cuenta como toque', () => {
+  // Medido: con `actor === user` solo 7 de 550 tareas tenían señal, y `Math.max` sobre TODO
+  // el historial marca como «tocada hoy» cualquier tarjeta que el Perro acaba de puntuar.
+  const h = (actor: string, text: string) => ({ id: 'x', ts: 1, actor, text } as never);
+  assert.equal(esToque(h('user', 'Editó el título')), true);
+  assert.equal(esToque(h('ia', 'Creó la tarjeta — Fathom')), true, 'nació porque él lo dijo');
+  assert.equal(esToque(h('ia', 'MaKo le sumó contexto (no la duplicó) — Fathom')), true, 'volvió a hablar de esto');
+  assert.equal(esToque(h('ia', 'MaKo la priorizó — score 62')), false, 'el Perro puntuando no es un toque');
+  assert.equal(esToque(h('ia', 'MaKo la movió a «CRM» al reordenar el tablero')), false);
+  assert.equal(esToque(h('ia', 'MaKo reescribió el detalle con el contexto de la fuente')), false, 'un barrido de mantenimiento tampoco');
+});
+
+test('diasQuieta — un ts corrupto no envenena la cuenta', () => {
+  // Es la razón por la que hay un filtro de finitos antes del Math.max: había 418 entradas
+  // con `ts` en string ISO, y NaN en una comparación es siempre false.
+  const ahora = Date.parse('2026-08-21T12:00:00Z');
+  const hist = sanearHist([
+    { id: 'a', ts: 'no es fecha', actor: 'ia', text: 'Creó la tarjeta — Fathom' },
+    { id: 'b', ts: ahora - 5 * 86400000, actor: 'ia', text: 'Creó la tarjeta — Fathom' },
+  ]);
+  assert.equal(diasQuieta(hist, undefined, ahora), 5);
+});
+
+test('diasQuieta — sin ningún toque cuenta desde que nació', () => {
+  const ahora = Date.parse('2026-08-21T12:00:00Z');
+  assert.equal(diasQuieta([], ahora - 40 * 86400000, ahora), 40);
+});
+
+test('diasAlDeadline — el mediodía UTC evita que ±3 horas cambien el día', () => {
+  const ahora = Date.parse('2026-08-21T02:00:00Z');   // de madrugada en UTC
+  assert.equal(diasAlDeadline('2026-08-21', ahora), 1, 'hoy sigue contando como hoy');
+  assert.equal(diasAlDeadline('2026-08-14', ahora), -6);
+  assert.equal(diasAlDeadline('', ahora), null, 'la columna es NOT NULL con default vacío: nunca llega null');
+  assert.equal(diasAlDeadline(undefined, ahora), null);
+});
+
+test('ajusteTemporal — cuando las dos reglas chocan, se restan y la razón dice las dos', () => {
+  const aj = ajusteTemporal({ quieta: 40, alDeadline: 2 });
+  assert.equal(aj.delta, 20 - 11);
+  assert.ok(aj.razon.includes('vence en 2') && aj.razon.includes('40 días'));
+});
+
+test('ajusteTemporal — sin nada que decir, delta 0 y razón vacía (no se pinta ningún chip)', () => {
+  assert.deepEqual(ajusteTemporal({ quieta: 3, alDeadline: 90 }), { delta: 0, razon: '' });
 });

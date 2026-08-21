@@ -109,11 +109,16 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
   };
 
   // El SCORE es la fuente de verdad; la columna (priority) se DERIVA de él.
+  //
+  // ⚠️ Escribe TAMBIÉN `scoreBase` (mig 0141), y es lo que hace que arrastrar una tarjeta
+  // signifique algo. Sin esto, el reparto determinista la devolvía a su lugar en la
+  // siguiente corrida: arrastro, rebota, arrastro, rebota, sin nada que lo explique.
+  // Mover una tarjeta a mano ES un juicio, y un juicio se guarda donde viven los juicios.
   const setScore = (id: string, score: number, text: string, actor: Actor = 'user', razon?: string) => {
     const t = byId(id); if (!t) return;
     const s = clampScore(score);
     const entry = mkEntry(actor, text, 'score', t.score);
-    setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, score: s, priority: prioFromScore(s), scoreRazon: razon ?? x.scoreRazon, historial: [entry, ...x.historial].slice(0, HIST_CAP) } : x)));
+    setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, score: s, scoreBase: s, priority: prioFromScore(s), scoreRazon: razon ?? x.scoreRazon, historial: [entry, ...x.historial].slice(0, HIST_CAP) } : x)));
     markDirty(id);
   };
   const moveTo = (id: string, priority: Prio) => {
@@ -128,7 +133,7 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
       const g = tareas.find((t) => t.id === x.id); if (!g) return x;
       const s = clampScore(g.score);
       const entry = mkEntry('ia', `Priorizó · score ${s}`, 'score', x.score);
-      return { ...x, score: s, priority: prioFromScore(s), scoreRazon: g.razon, impacto: g.impacto ?? x.impacto, esfuerzo: g.esfuerzo ?? x.esfuerzo, historial: [entry, ...x.historial].slice(0, HIST_CAP) };
+      return { ...x, score: s, scoreBase: s, priority: prioFromScore(s), scoreRazon: g.razon, impacto: g.impacto ?? x.impacto, esfuerzo: g.esfuerzo ?? x.esfuerzo, historial: [entry, ...x.historial].slice(0, HIST_CAP) };
     }));
     tareas.forEach((t) => markDirty(t.id));
     setLabels((ls) => ls.map((l) => { const g = proyectos.find((p) => p.id === l.id); return g ? { ...l, score: clampProj(g.score), scoreRazon: g.razon || l.scoreRazon } : l; }));
