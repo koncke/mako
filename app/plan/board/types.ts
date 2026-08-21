@@ -267,37 +267,31 @@ export function spreadProjScores(items: Array<{ id: string; score: number }>): R
   return out;
 }
 /**
- * EL SCORE DE UN PROYECTO SE DERIVA DE SUS TAREAS ABIERTAS.
+ * ⛔ ACÁ VIVÍA `scoreProyectoDerivado`, Y SE BORRÓ. Léelo antes de volver a escribirlo.
  *
- * Recibe los scores YA ordenados de mayor a menor y devuelve el del proyecto. Vive acá —y
- * no adentro de `lib/plan-board.ts`, que es `server-only`— para que un test lo pueda
- * importar: es la invariante que cierra el bug de «un proyecto con prioridad baja y sus
- * tareas muy altas», y una invariante sin test es una expresión de deseo.
+ * Calculaba el score de un proyecto como `max(scores de sus tareas) + bonus de densidad`.
+ * El dueño lo rechazó con el argumento que cierra la discusión: *«¿Cómo que "vale lo mismo
+ * que su tarea más alta"? Si quisiera hacer eso, ¿para qué me tomé el trabajo de meter IA?
+ * Para eso simplemente lo pongo con código. Pero justamente está el Perro Guardián, para
+ * asignar prioridades según lo que MUEVE LA AGUJA. Y hay una metodología para eso.»*
  *
- * El piso es el MÁXIMO, así que por construcción ninguna tarea puede puntuar por encima de
- * su propio proyecto. Medido sobre el tablero real antes de shippear: 154 de 550 tareas lo
- * hacían; con esto, 0. No es el promedio a propósito — con el promedio, un proyecto de
- * veinte tareas chicas le gana a uno con una crítica, que es el error opuesto.
+ * Y no era discutible: la metodología del propio Perro (GUARDIAN_SYSTEM_TEMPLATE,
+ * lib/mako-guardian.ts) ya prohibía, textual, las tres cosas que esa fórmula hacía —
+ *   · «EL TAMAÑO DE UN PROYECTO NO ES SU PRIORIDAD» → el bonus de densidad premiaba tamaño;
+ *   · «EN TODA LA ESCALA 1-100, sin amontonar… PROHIBIDO empatar» → dejó 12 proyectos
+ *     entre 95 y 98, con empates;
+ *   · «PROHIBIDO que la razón sea una paráfrasis» → escribía «Vale lo que su mejor tarea:
+ *     "…"», que describe el mecanismo en vez de comparar contra otro proyecto.
  *
- * Encima del máximo va un bonus de densidad 0-6 sacado de las TRES mejores (las que faltan
- * valen 0, así que una sola tarea no cobra bonus de más): entre dos proyectos que empatan
- * en su tarea top, gana el que tiene más trabajo importante detrás.
+ * O sea: la regla existía, estaba escrita, y no había UNA SOLA LÍNEA DE CÓDIGO que la
+ * mirara. Es «una regla en un prompt no es una regla» (AGENTS.md) cobrada de nuevo.
  *
- * ⚠️ SIN TAREAS ABIERTAS DEVUELVE `null`, y eso NO es lo mismo que devolver un número bajo.
- * La primera versión los mandaba a 1 y el dueño lo rechazó con el argumento correcto: *«si se
- * creó un proyecto es por algo… lo que se debe hacer es cargarle tareas»*. Un proyecto vacío
- * no es poco importante: es DESCONOCIDO — no hay evidencia de la cual derivar nada, y fabricar
- * un número donde no hay dato es exactamente el modo de falla que este módulo vino a cerrar.
- * `null` significa «no lo toques»: se queda con el score que le puso el Perro y la acción que
- * corresponde es llenarlo (ver `proyectosSinTareas`, lib/plan-board.ts). No puede secuestrar
- * el norte del tablero igual, porque `objetivoPrincipal` exige pendientes.
+ * LA LECCIÓN, que es más grande que este archivo: **una invariante entre dos números no se
+ * arregla derivando uno del otro.** Que un proyecto quedara por debajo de sus tareas era un
+ * síntoma real; la causa era que los juzgaban dos corridas distintas, y la cura es que los
+ * juzgue UNA — no reemplazar el juicio por una cuenta, que es tirar la parte cara del
+ * sistema para tapar un síntoma barato.
  */
-export function scoreProyectoDerivado(scoresDesc: number[]): number | null {
-  if (!scoresDesc.length) return null;
-  const densidad = Math.round(((scoresDesc[0] ?? 0) + (scoresDesc[1] ?? 0) + (scoresDesc[2] ?? 0)) / 50);
-  return clampProj(Math.min(MAX_PROJ, scoresDesc[0] + densidad));
-}
-
 export function prioFromScore(score: number): Prio {
   if (score >= 75) return 'alta';
   if (score >= 50) return 'media';

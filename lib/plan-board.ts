@@ -11,7 +11,7 @@
 import 'server-only';
 import { getTenantDb, runWithWorkspace, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 import type { BoardTask, Label, Prio, Actor, Check, Hist, Fuente, GuardPatch, GuardProjPatch, GuardResult } from '@/app/plan/board/types';
-import { scoreFromPrio, prioFromScore, curveTaskScores, scoreProyectoDerivado, sanearHist } from '@/app/plan/board/types';
+import { scoreFromPrio, prioFromScore, curveTaskScores, sanearHist } from '@/app/plan/board/types';
 import { sanearDep, puedeDepender, resolverDeps, estaBloqueada, type Dep, type EntidadDep, type ClaseDep } from '@/app/plan/board/dependencias';
 import { diasQuieta, diasAlDeadline, ajusteTemporal, empujeDeadline, castigoQuietud } from '@/app/plan/board/envejecer';
 import { puntuarNuevas, describirProyectosNuevos, asignarTareasAProyectos } from '@/lib/mako-guardian';
@@ -677,78 +677,16 @@ export async function recurvarPlanOwner(): Promise<{ movidas: number; total: num
   });
 }
 
-/**
- * EL SCORE DE UN PROYECTO SE DERIVA DE SUS TAREAS. Cero tokens: es aritmética.
- *
- * El bug que cierra, reportado así: «en Prioridades me sale que el proyecto más importante
- * es de ciberseguridad, pero en el kanban hay muchas tareas más importantes que eso». No
- * era una impresión. El score de proyecto y el de tarea se producían en corridas DISTINTAS
- * —`describirProyectosNuevos` para uno, `puntuarNuevas` para el otro— y nunca se
- * reconciliaban. Medido sobre el tablero real: **169 de 550 tareas puntuaban por encima de
- * su propio proyecto** (la peor, +74: una tarea en 81 adentro de un proyecto en 7), y **8
- * proyectos sin una sola tarea abierta ocupaban de 63 a 80**, uno de ellos por encima del
- * único encargo con cliente vivo y entregables fechados.
- *
- * Y no es cosmético: `objetivoPrincipal` (BoardShell) es el proyecto de MAYOR score con
- * pendientes, la vista Prioridades arranca por SUS tareas, y el resto del plan se ordena
- * por `scoreProy`. Un score de proyecto que no mira sus tareas gobierna la pantalla entera.
- *
- * La regla —**un proyecto es un CONTENEDOR y vale lo que vale el mejor trabajo que tiene
- * adentro**— y su porqué viven en `scoreProyectoDerivado` (app/plan/board/types.ts), que va
- * ahí y no acá justamente para que un test la pueda importar. Este módulo solo la aplica.
- *
- * ⚠️ ACÁ NO VA `spreadProjScores`, y es a propósito. Repartir 1..100 sin empates es
- * incompatible con la invariante: los proyectos del medio caerían por debajo de sus propias
- * tareas y volvería exactamente el síntoma que esto arregla. El empate entre dos proyectos
- * que tienen su mejor tarea en el mismo escalón no es mushiness — es el dato. El desempate
- * lo hace el bonus de densidad, y donde igual empatan, `orden` (el sort del board es
- * estable).
- */
-export async function recurvarProyectosOwner(): Promise<{ movidos: number; total: number; norte: string }> {
-  return enPlan(async () => {
-    const db = await getTenantDb();
-    const [tRes, pRes] = await Promise.all([
-      db.from('plan_tareas').select('title, score, progress, labels'),
-      db.from('plan_proyectos').select('id, name, score'),
-    ]);
-    const proyectos = (pRes.data ?? []).map((r) => ({ id: str((r as Row).id), name: str((r as Row).name, 'Proyecto'), score: int((r as Row).score) }));
-    if (!proyectos.length) return { movidos: 0, total: 0, norte: '' };
-
-    // Una tarea puede vivir en más de un proyecto: cuenta en todos.
-    const porProy = new Map<string, Array<{ titulo: string; score: number }>>();
-    for (const r of tRes.data ?? []) {
-      const row = r as Row;
-      if (int(row.progress) >= 100) continue;
-      const t = { titulo: str(row.title, 'Tarea'), score: int(row.score) };
-      for (const pid of asArr<unknown>(row.labels).map(String)) {
-        const arr = porProy.get(pid); if (arr) arr.push(t); else porProy.set(pid, [t]);
-      }
-    }
-
-    const calculados = proyectos.map((p) => {
-      const ts = (porProy.get(p.id) ?? []).slice().sort((a, b) => b.score - a.score);
-      const nuevo = scoreProyectoDerivado(ts.map((t) => t.score));
-      // `null` = sin tareas abiertas = sin evidencia. Se queda con el score del Perro y no se
-      // toca: lo que le falta es TRABAJO, no prioridad. Ver `proyectosSinTareas`.
-      if (nuevo == null) return { ...p, nuevo: p.score, n: 0, razon: '' };
-      return { ...p, nuevo, n: ts.length, razon: `Vale lo que su mejor tarea: «${ts[0].titulo}» (${ts[0].score}), con ${ts.length} pendiente${ts.length === 1 ? '' : 's'} adentro.` };
-    });
-
-    const cambian = calculados.filter((p) => p.nuevo !== p.score && p.razon);
-    const TANDA = 25;
-    for (let i = 0; i < cambian.length; i += TANDA) {
-      await Promise.all(cambian.slice(i, i + TANDA).map((p) =>
-        db.from('plan_proyectos').update({ score: p.nuevo, score_razon: p.razon, updated_at: new Date().toISOString() }).eq('id', p.id).then(() => undefined),
-      ));
-    }
-    // El mismo desempate que usa la pantalla (BoardShell → `porScore`): a igual score, el
-    // que tiene más trabajo abierto. Si el log dijera otra cosa que la UI, sería una pista
-    // falsa el día que haya que auditar por qué el norte es ese y no otro.
-    const norte = calculados.slice().sort((a, b) => b.nuevo - a.nuevo || b.n - a.n)[0];
-    if (cambian.length) console.log(`[plan-board] proyectos derivados: ${cambian.length}/${proyectos.length} movidos · norte → «${norte?.name}» (${norte?.nuevo})`);
-    return { movidos: cambian.length, total: proyectos.length, norte: norte?.name ?? '' };
-  });
-}
+// ⛔ ACÁ VIVÍA `recurvarProyectosOwner`, y se BORRÓ junto con `scoreProyectoDerivado`
+// (app/plan/board/types.ts, donde está la autopsia completa). Derivaba el score de un
+// proyecto de sus tareas con `max + densidad`, o sea reemplazaba el juicio del Perro por una
+// cuenta — exactamente lo que la metodología del Perro prohíbe en tres reglas distintas.
+//
+// Lo que TIENE que ir en su lugar: una corrida del Perro que JUZGUE los proyectos con
+// GUARDIAN_SYSTEM_TEMPLATE (la escalera del dinero, la fase del negocio, la pirámide) y
+// escriba una razón que COMPARE contra otro proyecto nombrado. Mientras eso no exista, los
+// proyectos conservan el último score que les puso el Perro: quedarse quieto es peor que
+// estar al día, pero es infinitamente mejor que escribir un número inventado todos los días.
 
 export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] = [], contexto = ''): Promise<GuardResult | null> {
   return enPlan(async () => {
@@ -878,10 +816,8 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
     // sobre el tablero completo. Es la mitad que faltaba — el Perro ubicaba lo nuevo y
     // nadie volvía a mirar lo viejo.
     const recurva = await recurvarPlanOwner().catch((e) => { console.error('[plan-board] recurvar:', e instanceof Error ? e.message : String(e)); return { movidas: 0, total: 0 }; });
-    // Y RECIÉN AHÍ los proyectos, nunca antes: se derivan de las tareas ya repartidas.
-    const recurvaP = await recurvarProyectosOwner().catch((e) => { console.error('[plan-board] recurvar proyectos:', e instanceof Error ? e.message : String(e)); return { movidos: 0, total: 0, norte: '' }; });
 
-    return { tareas: cuenta, proyectos: proyectosPatch.length, patches, proyectosPatch, sinPuntuar: scoreRes.faltantes.length, recurvadas: recurva.movidas, proyectosMovidos: recurvaP.movidos };
+    return { tareas: cuenta, proyectos: proyectosPatch.length, patches, proyectosPatch, sinPuntuar: scoreRes.faltantes.length, recurvadas: recurva.movidas };
   });
 }
 

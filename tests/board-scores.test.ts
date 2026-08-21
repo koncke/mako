@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  curveTaskScores, spreadProjScores, prioFromScore, scoreProyectoDerivado, sanearHist,
+  curveTaskScores, spreadProjScores, prioFromScore, sanearHist,
   clampScore, clampProj, clampPct, MAX_PROJ,
 } from '../app/plan/board/types';
 import { empujeDeadline, castigoQuietud, esToque, diasQuieta, diasAlDeadline, ajusteTemporal } from '../app/plan/board/envejecer';
@@ -82,58 +82,20 @@ test('spreadProjScores — n<=1 → MAX_PROJ; ranking por score preservado', () 
   assert.equal(new Set([out.hi, out.mid, out.lo]).size, 3);
 });
 
-// ── El score del proyecto sale de sus tareas ─────────────────────────────────────────
-// El bug que cierran: «en Prioridades me sale que el proyecto más importante es de
-// ciberseguridad, pero en el kanban hay muchas tareas más importantes que eso». El score de
-// proyecto y el de tarea se producían en corridas distintas y nunca se reconciliaban: 154
-// de 550 tareas puntuaban por encima de su propio proyecto, y 8 proyectos SIN una sola
-// tarea abierta ocupaban de 50 a 80.
-
-// Helper: en los casos CON tareas nunca devuelve null, pero el tipo lo permite.
-const derivado = (ss: number[]): number => {
-  const v = scoreProyectoDerivado(ss);
-  assert.notEqual(v, null, 'con tareas abiertas siempre hay número');
-  return v as number;
-};
-
-test('scoreProyectoDerivado — NINGUNA tarea puede puntuar por encima de su proyecto', () => {
-  // Es LA invariante. Se prueba sobre todo el rango, no sobre un caso lindo.
-  for (let max = 1; max <= 100; max++) {
-    for (const cola of [[], [max - 1, max - 2], [1, 1], [max, max]]) {
-      const scores = [max, ...cola.filter((c) => c >= 1 && c <= max)];
-      assert.ok(derivado(scores) >= max, `max ${max} con cola ${cola} quedó por debajo`);
-    }
-  }
-});
-
-test('scoreProyectoDerivado — un proyecto vale por su MEJOR tarea, no por su promedio', () => {
-  const unaCritica = derivado([93, 10, 8]);
-  const veinteChicas = derivado(Array(20).fill(40));
-  assert.ok(unaCritica > veinteChicas, 'el promedio dejaría ganar al que tiene volumen de trabajo chico');
-});
-
-test('scoreProyectoDerivado — a igual tarea top, gana el que tiene más trabajo importante detrás', () => {
-  assert.ok(derivado([90, 88, 85]) > derivado([90]));
-});
-
-test('scoreProyectoDerivado — una sola tarea NO cobra bonus de tres', () => {
-  // Las que faltan valen 0: si contaran como el máximo, un proyecto de una tarea empataría
-  // con uno que tiene tres igual de importantes.
-  assert.ok(derivado([60]) < derivado([60, 60, 60]));
-});
-
-test('scoreProyectoDerivado — sin tareas abiertas devuelve null, NO un número bajo', () => {
-  // La corrección del dueño: «si se creó un proyecto es por algo… lo que se debe hacer es
-  // cargarle tareas». Un proyecto vacío no es poco importante, es DESCONOCIDO — y fabricar
-  // un número donde no hay evidencia es el modo de falla que este módulo vino a cerrar.
-  // `null` = «no lo toques»; el caller conserva el score que le puso el Perro.
-  assert.equal(scoreProyectoDerivado([]), null);
-});
-
-test('scoreProyectoDerivado — nunca se sale de 1..MAX_PROJ', () => {
-  assert.equal(derivado([100, 100, 100]), MAX_PROJ);
-  assert.ok(derivado([1]) >= 1);
-});
+// ⛔ ACÁ VIVÍAN LOS TESTS DE `scoreProyectoDerivado`, y se borraron con la función.
+//
+// Vale la pena que quede escrito por qué, porque los tests pasaban: fijaban la invariante
+// «ninguna tarea puede puntuar por encima de su propio proyecto» y la fijaban bien. El
+// problema no era el test — era que la invariante se había conseguido REEMPLAZANDO EL
+// JUICIO POR UNA CUENTA (`max` de las tareas), o sea apagando la parte del sistema que el
+// dueño paga. Un test verde sobre la propiedad equivocada es la forma más cara de estar
+// seguro de algo que está mal.
+//
+// Lo que hay que testear en su lugar NO es la fórmula (no hay fórmula): es que la SALIDA DEL
+// PERRO cumpla las reglas de su propia metodología — que no empate dos proyectos, que use
+// todo el rango, que no meta el 60% en Alta, y que cada razón compare contra otro proyecto
+// nombrado en vez de parafrasear el título. Eso es lo que no tenía una sola línea de código
+// que lo mirara, y es por donde entró este bug.
 
 // ── El historial que viene de la base ────────────────────────────────────────────────
 // 418 entradas reales tenían `ts` como string ISO y `actor: 'MaKo'` (un cuarto valor que no

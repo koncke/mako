@@ -13,16 +13,17 @@
 //   1. `recurvarPlanOwner` — reparte las tareas abiertas sobre score_base + tiempo +
 //      dependencias, y escribe `score`/`priority`. NUNCA toca `score_base`, así que es
 //      idempotente y correrlo dos veces da lo mismo.
-//   2. `recurvarProyectosOwner` — deriva el score de cada proyecto de sus tareas.
-//   3. `limpiarDependenciasColgadas` — barre las aristas que apuntan a algo borrado
+//   2. `limpiarDependenciasColgadas` — barre las aristas que apuntan a algo borrado
 //      (no hay FK posible: la PK de plan_tareas es compuesta).
 //
-// El orden importa: los proyectos se derivan de las tareas ya repartidas.
+// ⛔ ACÁ TAMBIÉN CORRÍA la derivación del score de los proyectos, y se sacó: reemplazaba el
+// juicio del Perro por `max(tareas) + densidad`. Los proyectos NO se tocan desde un cron
+// determinista — su prioridad es un juicio y sale del Perro. Ver app/plan/board/types.ts.
 // =============================================================================
 
 import { NextResponse } from 'next/server';
 import { runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
-import { recurvarPlanOwner, recurvarProyectosOwner, limpiarDependenciasColgadas } from '@/lib/plan-board';
+import { recurvarPlanOwner, limpiarDependenciasColgadas } from '@/lib/plan-board';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -34,10 +35,9 @@ export async function GET() {
     const ws = await wsSuperAdmin();
     if (!ws) return NextResponse.json({ ok: false, error: 'sin workspace de super-admin' }, { status: 200 });
     const t = await runWithWorkspace(ws, () => recurvarPlanOwner());
-    const p = await runWithWorkspace(ws, () => recurvarProyectosOwner());
     const colgadas = await runWithWorkspace(ws, () => limpiarDependenciasColgadas()).catch(() => 0);
-    console.log(`[cron plan-recurvar] ws${ws} · ${t.movidas}/${t.total} tareas · ${t.conDeadline} por fecha · ${t.quietas} por quietud · ${t.frenadas} frenadas · ${p.movidos}/${p.total} proyectos · norte «${p.norte}»`);
-    return NextResponse.json({ ok: true, tareas: t, proyectos: p, colgadas });
+    console.log(`[cron plan-recurvar] ws${ws} · ${t.movidas}/${t.total} tareas · ${t.conDeadline} por fecha · ${t.quietas} por quietud · ${t.frenadas} frenadas`);
+    return NextResponse.json({ ok: true, tareas: t, colgadas });
   } catch (err) {
     // Un cron que falla en silencio es un cron que nadie sabe que dejó de correr.
     console.error('[cron plan-recurvar]', err instanceof Error ? err.message : String(err));
