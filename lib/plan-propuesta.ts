@@ -660,7 +660,7 @@ export type LoteAplicar = {
    */
   restantes?: PropuestaTarea[];
 };
-export type ResultadoAplicar = { ok: boolean; ids: string[]; borradas: number; cerradas?: number; error?: string };
+export type ResultadoAplicar = { ok: boolean; ids: string[]; borradas: number; cerradas?: number; ampliadas?: number; error?: string };
 
 /** Aplica el borrador: crea las tareas y marca 'aplicada'. Dueño → plan_tareas + Perro;
  *  cliente → su board (lib/todo). `tareasEditadas` = lo que quedó en la revisión. */
@@ -890,7 +890,14 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
 
     if (!algunoExistia) return { ok: false, ids: [], borradas: 0, noExiste: true };
     if (!aplicados.length) return { ok: false, ids: [], borradas: 0, error: ultimoError || 'No se pudo aplicar.' };
-    if (!idsCreadas.length && !borradas && !cerradas) return { ok: false, ids: [], borradas: 0, error: 'No pude crear ninguna tarea.' };
+    // ⚠️ AMPLIAR ES UN RESULTADO, NO UN FALLO. Sin `ampliadas` en esta condición, un lote
+    // donde TODO era ampliación —una reunión que solo le suma contexto a tarjetas que ya
+    // existen— devolvía «No pude crear ninguna tarea»: el modal mostraba error, no se
+    // cerraba, el borrador NO se marcaba aplicado, y el dueño volvía a apretar. Cada
+    // intento AMPLIABA de nuevo. Lo reportó así: «le di a cargar al plan y no hizo nada…
+    // me preguntó varias veces lo mismo y le daba y no hacía nada». Sí hizo: amplió 7
+    // tarjetas y después dijo que había fallado.
+    if (!idsCreadas.length && !borradas && !cerradas && !ampliadas) return { ok: false, ids: [], borradas: 0, error: 'No pude crear ni ampliar ninguna tarea.' };
 
     // El borrador se marca APLICADO acá, ANTES del Perro. El Perro es una mejora
     // (prioridad + checklist), no parte del alta: si tarda o se cae, las tareas ya
@@ -946,7 +953,7 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
         }
       }
     }
-    return { ok: true, ids: idsCreadas, borradas, cerradas };
+    return { ok: true, ids: idsCreadas, borradas, cerradas, ampliadas };
   });
 }
 

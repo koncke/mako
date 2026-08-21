@@ -1276,3 +1276,37 @@ barra se resolvió de cero en vez de copiar lo que la casa ya tenía resuelto.
 
 **Vive en:** app/plan/board/BoardShell.tsx (`BarraAcciones`, `FilaAccion`, `KebabIcon`,
 `FunnelIcon`, `progresoDeLaVista`) · *2026-08-21*
+
+
+### «Cargar 16» sobre una reunión que no crea ninguna, y el click que no hacía nada
+
+Síntoma, textual: *«me dice "Cargar 16 tareas" cuando solo hay para ampliar, no para
+cargar nuevas. Le di a cargar al plan y no hizo nada… me preguntó varias veces lo mismo y
+le daba y no hacía nada»*. **Sí hizo**: amplió 7 tarjetas (quedó en su historial, «MaKo le
+sumó contexto (no la duplicó)») y después dijo que había fallado.
+
+Son DOS bugs encadenados, y el segundo es el que lo volvía un loop:
+
+1. **La cuenta.** `nIncluidas` contaba las filas con `incluir` sin descontar las que
+   AMPLÍAN, mientras `nAmpliar` las contaba aparte: la misma fila se contaba dos veces, y
+   el botón prometía 16 altas sobre una reunión que no creaba ninguna. El modal hermano
+   (la extracción manual) ya las descontaba — este se había quedado con la mitad del
+   arreglo, y el comentario que había al lado documentaba justamente el caso INVERSO.
+2. **El veredicto.** `aplicarPropuestas` cerraba con
+   `if (!idsCreadas.length && !borradas && !cerradas) → 'No pude crear ninguna tarea'`.
+   **`ampliadas` no estaba en la condición.** Un lote que solo amplía devolvía error: el
+   modal mostraba el error, no se cerraba, el borrador NO se marcaba aplicado, y cada
+   click volvía a ampliar. Ampliar es un RESULTADO, no un fallo.
+
+**La regla que queda: cuando una operación tiene más de un resultado posible, la condición
+de éxito los enumera a TODOS.** Un `if` de éxito que se escribió cuando solo existía
+«crear» se queda viejo el día que se agrega «ampliar», y falla en la dirección peor —
+diciendo que no pasó nada cuando sí pasó, e invitando a repetirlo.
+
+Y la de siempre, en su versión de cuentas: **dos definiciones para el mismo concepto
+divergen**. `esAmpliarFila` vive ahora fuera del componente, exportada, y
+`tests/ampliar-vs-crear.test.ts` fija la invariante: una fila no puede contarse como alta y
+como ampliación a la vez.
+
+**Vive en:** app/plan/board/TareasRecibidasModal.tsx (`esAmpliarFila`, `etiquetaAccion`) ·
+lib/plan-propuesta.ts (la condición de éxito) · *2026-08-21*

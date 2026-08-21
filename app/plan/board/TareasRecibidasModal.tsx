@@ -72,6 +72,31 @@ const recordingDeRef = (ref?: string): number | undefined => {
   return Number.isFinite(n) ? n : undefined;
 };
 
+/**
+ * ¿Esta fila AMPLÍA una tarjeta que ya existe, en vez de crear una nueva?
+ *
+ * `ampliar === false` es «no es la misma», dicho por el dueño: esa vuelve a ser candidata
+ * nueva. `omitir` es «no hagas nada con esto».
+ *
+ * Vive afuera del componente para que la cuenta de altas y la de ampliaciones salgan de
+ * la MISMA definición: cuando cada una tenía la suya, el botón prometía 16 altas sobre
+ * una reunión que no creaba ninguna.
+ */
+/** «3 para cargar · 16 para ampliar» — lo que va a pasar, en el título. */
+const resumenAccion = (nuevas: number, amplia: number): string =>
+  [nuevas ? `${nuevas} ${nuevas === 1 ? 'tarea' : 'tareas'} para cargar` : '',
+    amplia ? `${amplia} para ampliar` : ''].filter(Boolean).join(' · ') || 'nada para cargar';
+
+/** El botón NOMBRA lo que hace. Nunca «Cargar N» cuando no crea ninguna. */
+const etiquetaAccion = (nuevas: number, amplia: number): string =>
+  nuevas && amplia ? `Cargar ${nuevas} y ampliar ${amplia}`
+    : nuevas ? `Cargar ${nuevas} al plan`
+      : amplia ? `Ampliar ${amplia} que ya ${amplia === 1 ? 'está' : 'están'}`
+        : 'Cargar al plan';
+
+export const esAmpliarFila = (f: { enriquece?: { id: string }; ampliar?: boolean; esDeOtro?: boolean; omitir?: boolean }): boolean =>
+  !!f.enriquece?.id && f.ampliar !== false && !f.esDeOtro && !f.omitir;
+
 /** Fila con la marca de a qué borrador pertenece, para aplicar cada uno por separado. */
 /** `proyectoPropuesto` = el nombre que dijo MaKo, aunque ese proyecto no exista todavía. */
 type FilaConProp = FilaTarea & { propId: string; proyectoPropuesto?: string };
@@ -233,7 +258,13 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
   const [pieSlot, setPieSlot] = useState<HTMLDivElement | null>(null);
   const [err, setErr] = useState('');
   const nombreProyecto = (id: string | null) => labels.find((l) => l.id === id)?.name;
-  const nIncluidas = filas.filter((f) => f.incluir && !f.esDeOtro).length;
+  // ⚠️ LAS QUE AMPLÍAN NO SE CUENTAN ACÁ. Si no, el botón promete crear tareas que no va
+  // a crear: el dueño abrió una reunión donde las 16 filas eran ampliaciones y el botón
+  // decía «Cargar 16 al plan». Le dio, no apareció ninguna tarea nueva —correcto, no
+  // había— y el modal se lo volvió a preguntar. El otro modal (la extracción manual) ya
+  // las descontaba (`ReunionExtractModal` → `nIncluidas`); este se había quedado a mitad
+  // de camino: sumó `nAmpliar` para el rótulo y no lo restó de la cuenta de altas.
+  const nIncluidas = filas.filter((f) => f.incluir && !f.esDeOtro && !esAmpliarFila(f)).length;
   /**
    * Las que NO se crean pero SÍ se tocan: el cruce dijo que ya están en el plan y lo que
    * se hace es sumarles el contexto de la reunión a la tarjeta que ya existe.
@@ -246,8 +277,7 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
    * `ampliar === false` es «no es la misma»: esa vuelve arriba como candidata nueva y la
    * cuenta `nIncluidas`. `incluir === false` puesto a mano acá es «no le sumes nada».
    */
-  const esAmpliar = (f: FilaTarea): boolean => !!f.enriquece?.id && f.ampliar !== false && !f.esDeOtro && !f.omitir;
-  const nAmpliar = filas.filter(esAmpliar).length;
+  const nAmpliar = filas.filter(esAmpliarFila).length;
   const hayMias = filas.some((f) => !f.esDeOtro);
   const nOtras = filas.filter((f) => f.esDeOtro).length;
   // Las que ya entraron al plan en una pasada anterior (el borrador quedó abierto por
@@ -325,7 +355,7 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
       // ampliación tiene `incluir: false` por definición (no se crea, se le suma el
       // contexto a la tarjeta que ya está). O sea que la pantalla decía «se le suma a
       // esta tarea» y NO se le sumaba nada: la fila no llegaba nunca al server.
-      tareas: filas.filter((f) => f.propId === p.id && !f.esDeOtro && (f.incluir || esAmpliar(f)))
+      tareas: filas.filter((f) => f.propId === p.id && !f.esDeOtro && (f.incluir || esAmpliarFila(f)))
         // Si no matcheó ningún proyecto existente, viaja el NOMBRE propuesto: el server
         // crea la categoría si no la encuentra (lib/plan-propuesta.ts). Antes acá se
         // mandaba undefined y la tarea nacía suelta.
@@ -546,7 +576,7 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
     return (
       <div style={{ display: oculto ? 'none' : 'block' }}>
         <WizardShell
-          titulo={[props[0]?.fuenteTitulo, `${nIncluidas} ${nIncluidas === 1 ? 'tarea' : 'tareas'} para cargar`].filter(Boolean).join(' · ')}
+          titulo={[props[0]?.fuenteTitulo, resumenAccion(nIncluidas, nAmpliar)].filter(Boolean).join(' · ')}
           total={preguntasVivas.length} idx={qIdx}
           pregunta={qActual?.pregunta ?? ''}
           // De qué tarea habla + CÓMO se contesta. Lo segundo sale del tipo
@@ -558,7 +588,7 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
           ].filter(Boolean).join(' — ')}
           puedeAvanzar={!guardando}
           enUltimo={esUltimaQ}
-          confirmLabel={`Cargar ${nIncluidas} al plan`}
+          confirmLabel={etiquetaAccion(nIncluidas, nAmpliar)}
           pending={!!guardando}
           // El loader del aplicado tiene que estar ACÁ. El overlay lindo que dibuja este
           // modal (más abajo, con el spinner y el «no cierres ni refresques») vive en el
