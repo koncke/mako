@@ -955,9 +955,23 @@ const topeSalidaPerro = (n: number): number => Math.min(24000, 6000 + n * 400);
  */
 export async function puntuarNuevas(nuevas: GuardTaskIn[], existentes: Array<{ titulo: string; score: number; deadline?: string }>, contexto = '', usoMotivo?: string, opts: { conCapacidades?: boolean } = {}): Promise<{ tareas: GuardScore[]; faltantes: string[]; usage?: UsageInfo }> {
   if (!nuevas.length) return { tareas: [], faltantes: [] };
-  // Referencia: score | título de las abiertas, de mayor a menor, tope 120 (alcanza para
-  // que el modelo entienda la distribución sin reventar el prompt).
-  const ref = existentes.slice().sort((a, b) => b.score - a.score).slice(0, 120).map((e) => `[${e.score}] ${e.titulo}`).join('\n');
+  // ⚠️ LA REFERENCIA ES TODA LA ESCALERA, NO SU PUNTA. Antes iba `slice(0, 120)` sobre el
+  // orden descendente: con 550 tareas abiertas el Perro veía SOLO de 65 para arriba, y no
+  // tenía contra qué comparar para mandar algo ABAJO. Podía decir «se parece a las
+  // mejores»; nunca «esto va debajo de aquello». De ahí salen los dos síntomas que
+  // reportó el dueño: todo amontonado arriba, y cada lote nuevo anclado a la punta (la
+  // semana en curso promediaba 67 contra 40-47 de las cuatro anteriores).
+  //
+  // Ahora entran las MISMAS 120 líneas —mismo costo de prompt— pero muestreadas a lo
+  // largo de todo el rango: la punta entera, contra la que compite lo nuevo, y de ahí
+  // para abajo un salteo parejo hasta el fondo, para que el modelo vea qué vive en 40, en
+  // 20 y en 5, y tenga dónde apoyar algo que no es urgente.
+  const TOPE_REF = 120, PUNTA = 30;
+  const ordenadas = existentes.slice().sort((a, b) => b.score - a.score);
+  const resto = ordenadas.slice(PUNTA);
+  const paso = Math.max(1, Math.ceil(resto.length / Math.max(1, TOPE_REF - PUNTA)));
+  const muestra = [...ordenadas.slice(0, PUNTA), ...resto.filter((_, i) => i % paso === 0)];
+  const ref = muestra.map((e) => `[${e.score}] ${e.titulo}`).join('\n');
   // El detalle ENTRA recortado a 1500: el Perro estima impacto y esfuerzo, no necesita
   // las 6000 que puede tener la tarjeta, y 20 detalles completos hacen un prompt que
   // paga caro sin decidir mejor. El texto largo entero lo usa el checklist-coach.

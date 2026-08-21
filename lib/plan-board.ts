@@ -11,7 +11,7 @@
 import 'server-only';
 import { getTenantDb, runWithWorkspace, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 import type { BoardTask, Label, Prio, Actor, Check, Hist, Fuente, GuardPatch, GuardProjPatch, GuardResult } from '@/app/plan/board/types';
-import { scoreFromPrio, prioFromScore } from '@/app/plan/board/types';
+import { scoreFromPrio, prioFromScore, curveTaskScores } from '@/app/plan/board/types';
 import { puntuarNuevas, describirProyectosNuevos, asignarTareasAProyectos } from '@/lib/mako-guardian';
 import { checklistsParaTareas } from '@/lib/checklist-coach';
 import { CATALOGO_PROYECTOS, delCatalogo, canonNombre, nucleo } from '@/lib/plan-proyectos-catalogo';
@@ -496,6 +496,53 @@ export async function ampliarTareasPlanOwner(items: AmpliarTareaPlan[], fuente?:
  *  (2) a los proyectos nuevos les pone emoji + descripción + score distinto (antes
  *  quedaban 📁/50/sin detalle). NO re-puntúa el resto. Devuelve el conteo por columna +
  *  cuántos proyectos trabajó (o null). Queda en el historial de IA (feature mako-guardian). */
+/**
+ * RE-REPARTE EL TABLERO ENTERO. Cero tokens: es aritmética.
+ *
+ * El problema que resuelve, medido sobre el tablero real: de 550 tareas abiertas, solo 20
+ * tenían algún re-puntaje del Perro. El 96% conservaba el número del día que nació —
+ * comparado contra un tablero que ya no existe— y cada lote nuevo entraba anclado a la
+ * punta: la semana en curso promediaba 67 contra 40-47 de las anteriores. Con eso la
+ * vista Prioridades deja de ser fiel, que es exactamente como lo reportó el dueño.
+ *
+ * La idea: el modelo NO tiene que re-puntuar nada. Lo único que hace es UBICAR lo nuevo
+ * (eso ya lo hacía). El reparto de los números lo hace el servidor con `curveTaskScores`,
+ * que conserva el ORDEN y solo redistribuye la escala en la pirámide 93→76 / 72→51 /
+ * 48→26 / 23→2. Por eso re-priorizar 1.000 tareas cuesta lo mismo que re-priorizar 10:
+ * una query, un sort y un update. Lo caro es preguntarle a un modelo, no ordenar.
+ *
+ * ⚠️ NO deshace empates y no pretende hacerlo: con 550 tareas y ~92 valores posibles, los
+ * empates son inevitables y NO son el problema — el Perro empata a propósito cuando dos
+ * tarjetas son el mismo trabajo («Mismo trabajo que "Investigar competencia: X"», 5 de
+ * ellas en 62). Lo que esto arregla es la DISTRIBUCIÓN: que la pirámide tenga fondo.
+ *
+ * ⚠️ Y NO cambia el orden que decidió nadie: preserva el ranking tal cual está, incluida
+ * cualquier corrección a mano del dueño. Solo mueve la regla de tres.
+ */
+export async function recurvarPlanOwner(): Promise<{ movidas: number; total: number }> {
+  return enPlan(async () => {
+    const db = await getTenantDb();
+    const { data } = await db.from('plan_tareas').select('id, score, progress');
+    const abiertas = (data ?? []).filter((r) => int((r as Row).progress) < 100)
+      .map((r) => ({ id: str((r as Row).id), score: int((r as Row).score) }));
+    if (abiertas.length < 20) return { movidas: 0, total: abiertas.length };
+    const curva = curveTaskScores(abiertas);
+    const cambian = abiertas.filter((t) => curva[t.id] != null && curva[t.id] !== t.score);
+    // De a tandas: 550 updates sueltos en paralelo saturan el pool de conexiones.
+    const TANDA = 40;
+    for (let i = 0; i < cambian.length; i += TANDA) {
+      await Promise.all(cambian.slice(i, i + TANDA).map((t) =>
+        db.from('plan_tareas').update({ score: curva[t.id], priority: prioFromScore(curva[t.id]) }).eq('id', t.id).then(() => undefined),
+      ));
+    }
+    // Sin historial por tarjeta a propósito: son 500 entradas que dicen todas lo mismo y
+    // taparían el rastro que sí importa (quién la movió y por qué). El reparto no cambia
+    // el orden, así que no hay ninguna decisión nueva que auditar.
+    if (cambian.length) console.log(`[plan-board] recurvar: ${cambian.length}/${abiertas.length} tareas redistribuidas`);
+    return { movidas: cambian.length, total: abiertas.length };
+  });
+}
+
 export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] = [], contexto = ''): Promise<GuardResult | null> {
   return enPlan(async () => {
     if (!ids.length && !proyectoIds.length) return null;
@@ -618,7 +665,12 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
       db.from('plan_proyectos').update({ score: p.score, score_razon: p.scoreRazon || null, impacto: p.impacto ?? null, esfuerzo: p.esfuerzo ?? null, emoji: p.emoji, detalle: p.detalle, updated_at: new Date().toISOString() }).eq('id', p.id).then(() => undefined),
     ));
 
-    return { tareas: cuenta, proyectos: proyectosPatch.length, patches, proyectosPatch, sinPuntuar: scoreRes.faltantes.length };
+    // Y RECIÉN AHÍ, el reparto: lo nuevo ya está ubicado, así que la pirámide se rehace
+    // sobre el tablero completo. Es la mitad que faltaba — el Perro ubicaba lo nuevo y
+    // nadie volvía a mirar lo viejo.
+    const recurva = await recurvarPlanOwner().catch((e) => { console.error('[plan-board] recurvar:', e instanceof Error ? e.message : String(e)); return { movidas: 0, total: 0 }; });
+
+    return { tareas: cuenta, proyectos: proyectosPatch.length, patches, proyectosPatch, sinPuntuar: scoreRes.faltantes.length, recurvadas: recurva.movidas };
   });
 }
 
