@@ -14,6 +14,7 @@ import { credWs } from './credenciales';
 import { claveBaseDe } from './ia-keys';
 import { servicioMetodo } from './metodo-catalogo';
 import { esCanalWhatsapp } from './chatwoot-canales';
+import { normalizarCuentaMeta } from './meta-cuenta-id';
 
 type Valores = Record<string, string>;
 
@@ -55,7 +56,10 @@ function haceCuanto(iso: string | undefined): string | null {
 const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
   async meta(v) {
     const ver = process.env.META_API_VERSION || 'v24.0';
-    const cuenta = v.META_AD_ACCOUNT_ID.startsWith('act_') ? v.META_AD_ACCOUNT_ID : `act_${v.META_AD_ACCOUNT_ID}`;
+    // ⚠️ Normaliza IGUAL que el guardado (lib/meta-cuenta-id.ts), y esa igualdad
+    // es el punto: cuando cada lado normalizaba por su cuenta, este ping daba
+    // verde sobre `act_123…` mientras la base se quedaba con `123…`.
+    const cuenta = normalizarCuentaMeta(v.META_AD_ACCOUNT_ID);
     const url = new URL(`https://graph.facebook.com/${ver}/${cuenta}`);
     url.searchParams.set('fields', 'name,account_status');
     url.searchParams.set('access_token', v.META_ACCESS_TOKEN);

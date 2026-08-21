@@ -26,6 +26,7 @@ import { descubrirMeta, pixelesDeCuenta } from '@/lib/meta-descubrir';
 import { descubrirGithub } from '@/lib/github-descubrir';
 import { ayudaDeCampo, ENVS_METODO, servicioMetodo } from '@/lib/metodo-catalogo';
 import { normalizarProjectId } from '@/lib/clarity';
+import { normalizarCuentaMeta } from '@/lib/meta-cuenta-id';
 
 export const dynamic = 'force-dynamic';
 
@@ -184,6 +185,14 @@ export async function POST(req: NextRequest) {
           if (!pid) continue;
           v = pid;
         }
+        // ⚠️ Y la cuenta de Meta, por EXACTAMENTE el mismo motivo — el comentario
+        // de acá arriba describía este bug dos años antes de que pasara, sobre la
+        // otra credencial. Business Manager le muestra al cliente `1357728489…` y
+        // la Graph API solo entiende `act_1357728489…`; el ping de verificación
+        // normalizaba y el guardado no, así que la prueba daba verde sobre un
+        // valor que nunca se almacenó. Un cliente estuvo desde el 19/8 con la
+        // cuenta ilegible por esto. Ver lib/meta-cuenta-id.ts.
+        if (env === 'META_AD_ACCOUNT_ID') v = normalizarCuentaMeta(v);
         // Sin excepciones para el dueño: guardar SIEMPRE escribe en la base, y la
         // base manda (lib/credenciales.ts). Todo se configura desde la app.
         try {
@@ -316,7 +325,7 @@ export async function POST(req: NextRequest) {
       let conflicto: string | null = null;
       let pixeles: Array<{ id: string; nombre: string }> = [];
       if (tipo === 'cuenta') {
-        conflicto = await guardar('META_AD_ACCOUNT_ID', id.startsWith('act_') ? id : `act_${id}`);
+        conflicto = await guardar('META_AD_ACCOUNT_ID', normalizarCuentaMeta(id));
         // Los píxeles cuelgan de la cuenta: recién ahora se pueden listar.
         pixeles = await pixelesDeCuenta(token, id);
         if (pixeles.length === 1) await guardar('META_PIXEL_ID', pixeles[0].id);

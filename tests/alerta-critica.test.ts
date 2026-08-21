@@ -113,6 +113,66 @@ test('Solo insiste lo que cuesta plata AHORA', () => {
     'el filtro de qué es crítico cambió: si todo insiste, la insistencia deja de significar algo');
 });
 
+test('Y solo insiste lo que Meta CONFIRMÓ: no poder leer no es estar caída', () => {
+  // El 21/8/2026 un cliente recibió cuatro mensajes diciéndole que su cuenta no
+  // entregaba. Estaba Activa. El incidente decía «No se pudo leer el estado de
+  // Meta» —un error nuestro de lectura— y entraba como severidad rojo, así que
+  // la persecución no lo distinguía de una cuenta suspendida de verdad.
+  const src = sinComentarios(leer('../lib/alerta-critica.ts'));
+  assert.ok(/i\.confirmado\s*&&/.test(src),
+    'esCritico dejó de exigir que el estado esté CONFIRMADO: vuelve a perseguir por un error de lectura');
+  assert.ok(/select\([^)]*confirmado/.test(src),
+    'el incidente se lee sin la columna confirmado: el guard queda siempre en undefined');
+
+  // ⚠️ En POSITIVO. Descartar el statusLabel que hoy sabemos que salió mal
+  // protege ESTE caso y deja pasar todos los que todavía no pasaron.
+  assert.ok(!/No se pudo leer/.test(src),
+    'apareció un guard contra el texto del error: el próximo error de lectura dirá otra cosa y entra igual');
+
+  // Y lo que reconcilia tiene que ESCRIBIR el campo, o todo lo de arriba lee un default.
+  const hist = sinComentarios(leer('../lib/meta-health-history.ts'));
+  assert.ok(/confirmado: p\.confirmado/.test(hist), 'reconciliarIncidentes dejó de persistir `confirmado`');
+  assert.ok(/severidad: 'ambar'[\s\S]{0,400}?confirmado: false/.test(hist),
+    'el error de lectura volvió a registrarse como rojo confirmado');
+});
+
+test('El mensaje no afirma lo que Meta no confirmó', async () => {
+  const { textoAlerta, causaDe } = await import('../lib/alerta-critica-texto');
+
+  // 1. La ranura del titular solo acepta un ESTADO. Con un incidente sin
+  //    confirmar salía, textual: «Tu cuenta publicitaria está *NO SE PUDO LEER
+  //    EL ESTADO DE META*» — la gramática de la frase le prestaba autoridad a un
+  //    mensaje de error.
+  const sinConfirmar = {
+    statusLabel: 'No se pudo leer el estado de Meta',
+    disableReason: null,
+    entregaFrenada: false,
+    confirmado: false,
+  };
+  const c = causaDe(sinConfirmar);
+  assert.ok(!/está \*NO SE PUDO/.test(c.titular),
+    'el titular volvió a meter el mensaje de error en la ranura del estado');
+  assert.match(c.titular, /no puede leer el estado/i, 'el titular tiene que decir que el problema es la LECTURA');
+
+  // 2. Las afirmaciones sobre leads cuelgan de entrega_frenada, TODAS. La regla
+  //    estaba escrita en el módulo y aplicada a una sola de las cuatro.
+  const t = textoAlerta(sinConfirmar, 205, 3, 'https://x/integraciones');
+  assert.ok(!/SIN ENTREGAR/.test(t), 'el contador sigue afirmando que la cuenta no entrega');
+  assert.ok(!/sin recibir un solo lead/.test(t), 'sigue afirmando que no entran leads sin que Meta lo confirme');
+  assert.ok(!/leads perdido/.test(t), 'la escalada de las 6 h sigue afirmando leads perdidos');
+
+  const primero = textoAlerta(sinConfirmar, 20, 0, 'https://x/integraciones');
+  assert.ok(!/No entra \*ningún\* lead nuevo/.test(primero),
+    'el primer mensaje sigue afirmando que no entra ningún lead');
+
+  // 3. Y cuando Meta SÍ lo confirma, se sigue diciendo con todas las letras: el
+  //    arreglo no puede haber apagado la alerta que este módulo vino a hacer.
+  const frenada = { statusLabel: 'Saldo impago', disableReason: null, entregaFrenada: true, confirmado: true };
+  const tf = textoAlerta(frenada, 205, 3, 'https://x/integraciones');
+  assert.match(tf, /SIN ENTREGAR/, 'se perdió el contador de la cuenta realmente frenada');
+  assert.match(tf, /sin recibir un solo lead/, 'se perdió la consecuencia de la cuenta realmente frenada');
+});
+
 test('El mensaje dice la CAUSA, no el síntoma', async () => {
   const { textoAlerta } = await import('../lib/alerta-critica-texto');
   // Pedido del dueño: «que diga "tu cuenta publicitaria está SUSPENDIDA por

@@ -2553,3 +2553,115 @@ las 3 keys a los navKeys de la capa que corresponda.
 
 *Corrida del 15/08/2026 — fix onboarding + base (formatos/writer/contenido) + 3 tabs +
 integrador. Typecheck 0 errores, build OK (las 3 rutas), 915/915 tests.*
+
+---
+
+## MaKo le dijo cuatro veces a un cliente que su cuenta estaba caída. Estaba Activa
+
+**Vive en:** `lib/alerta-critica.ts` · `lib/alerta-critica-texto.ts` ·
+`lib/meta-health-history.ts` · `lib/meta-cuenta-id.ts` ·
+`app/api/integraciones/credencial/route.ts` · `supabase/migrations/0139_service_incidents_confirmado.sql`
+
+El 21/08/2026 el workspace 13 (`Codigo Inmobiliario`) recibió cuatro WhatsApps de MaKo, a
+las 21:15, 22:30, 23:31 y 00:40, con este texto:
+
+> 🚨⚠️ **3 H 25 MIN SIN ENTREGAR** ⚠️🚨
+> ⛔ Tu cuenta publicitaria está **NO SE PUDO LEER EL ESTADO DE META**.
+> 🔁 Es la **4ª vez** que te aviso y sigue igual.
+> 💸 Seguís sin recibir un solo lead.
+
+Su cuenta publicitaria estaba `account_status: 1` — **Activa**, `disable_reason: 0`, sin
+deuda, entregando. Las tres afirmaciones del mensaje eran falsas y la del medio ni siquiera
+era una oración.
+
+### La cadena: cinco eslabones, y cada uno bastaba para cortarla
+
+1. **La credencial se guardó con la forma equivocada.** Meta devuelve la misma cuenta con
+   dos nombres en la MISMA respuesta de `/me/adaccounts` — `id: "act_1357728489423123"` y
+   `account_id: "1357728489423123"` —; todo el repo consume la primera y Business Manager
+   le muestra al cliente la segunda, que es la que tiene a mano para copiar. Pegó el id
+   pelado. `GET /v24.0/1357728489423123` → **400 «Object with ID does not exist»**.
+
+   **Lo que lo hizo invisible es la parte que hay que recordar: la verificación
+   normalizaba y el guardado no.** El ping de `metodo-verificar.ts` hacía
+   `startsWith('act_') ? … : act_…` antes de pegarle a la API, así que el botón de
+   verificar daba **verde** sobre un valor que nunca se almacenó. El alta automática
+   (`route.ts:319`) también normalizaba. El guardado manual normalizaba `CLARITY_PROJECT_ID`
+   y nada más — con el comentario que describe exactamente este bug **pegado arriba**,
+   escrito sobre la otra credencial: *«verificar una cosa y guardar otra es cómo se llega a
+   una credencial que pasó la prueba y no funciona»*. La regla estaba escrita y le faltaba
+   este campo. Eran cuatro copias del mismo ternario y la que importaba no existía.
+
+2. **«No pude leer» se registró como `severidad: 'rojo'`.** `problemaMeta(null, metaError)`
+   abría un incidente rojo con `statusLabel: 'No se pudo leer el estado de Meta'`. Es la
+   regla de AGENTS.md «"No puedo hacer X con este dato" no es "este dato es falso"»,
+   cobrada en la pantalla de un cliente: un error de lectura NUESTRO se guardó como un
+   estado de SU cuenta.
+
+3. **`esCritico()` no podía distinguirlos.** `entrega_frenada || severidad === 'rojo'` —
+   nada exigía que Meta hubiera contestado. Un rojo nacido de una ignorancia entra igual
+   que una cuenta suspendida de verdad, y la alerta crítica está hecha, a propósito, para
+   **no parar nunca**: cada hora hasta que se resuelva.
+
+4. **`causaDe()` interpoló un mensaje de error en una ranura de estado.** El default
+   `Tu cuenta publicitaria está *${estado.toUpperCase()}*` estaba pensado para un
+   `account_status` que Meta agregue y acá no esté mapeado, y **asumía un TIPO que el dato
+   no siempre tiene**. Cualquier string que caiga ahí sale afirmado con la gramática de la
+   frase prestándole autoridad.
+
+5. **El mensaje afirmaba en cuatro lugares y la regla estaba aplicada en uno.** El módulo
+   tiene escrito, textual: *«"No corre un solo anuncio" es un HECHO verificado
+   (entrega_frenada), no una forma de decir. Si Meta no lo confirma, no se afirma»* — y
+   colgaba de `entregaFrenada` **solo la línea de al lado**. El titular del contador
+   («X SIN ENTREGAR»), «Seguís sin recibir un solo lead», «No entra *ningún* lead nuevo» y
+   la escalada de las 6 h salían siempre. **Una regla que se cumple en un lugar y en los
+   otros tres no, no está implementada: está documentada.**
+
+### Y el disparador no fue el cron: fue un RENDER
+
+`reconciliarIncidentes` tiene dos call-sites y el que abrió el incidente es
+`app/integraciones/page.tsx:47` — **abrir la pantalla escribe en la base**. El cron
+(`registrarEstadoMeta`) pasa `metaError = null` y por ese camino el incidente de lectura
+fallida no puede nacer. O sea: alguien abrió `/integraciones` del cliente a las 00:14:51 UTC
+y eso arrancó una persecución de una hora de cadencia que ya no dependía de nadie.
+
+Cuando busques quién abrió un incidente, **mirá los renders además de los crons**. Un cron
+se audita solo (corre siempre, deja log); una escritura colgada de un render depende de que
+alguien haya mirado, así que no hay ningún registro de por qué empezó ese día y no otro.
+
+### Qué quedó
+
+- **Migración 0139**: `service_incidents.confirmado`. `TRUE` = el servicio contestó y este
+  es su estado (un hecho). `FALSE` = no se pudo leer (una ignorancia): **se muestra en el
+  historial y nunca dispara la persecución por WhatsApp.** Es una COLUMNA y no una
+  convención sobre el texto de `status_label` para que el guard se pueda escribir en
+  positivo en vez de adivinar si una cadena parece un estado.
+- `esCritico()` = `confirmado && (entrega_frenada || severidad === 'rojo')`. **En positivo**
+  — descartar el `statusLabel` que hoy sabemos que salió mal protege este caso y deja pasar
+  los que todavía no pasaron: el próximo error de lectura dirá otra cosa.
+- `lib/meta-cuenta-id.ts`: `normalizarCuentaMeta()`, el único lugar donde vive la forma de
+  `META_AD_ACCOUNT_ID`, usado por los cuatro caminos. Toca solo dígitos pelados; lo que no
+  entiende **vuelve intacto** para que falle a la vista en la verificación en vez de
+  desaparecer en el saneo.
+- `getIncidentes` lee `r.confirmado !== false` y **no** `!!r.confirmado`: con la migración
+  sin aplicar la columna no viene, y degradar a «no confirmado» apagaría la alerta REAL —
+  el bug de 8/2026 al revés y peor, porque una cuenta suspendida de verdad dejaría de
+  avisar.
+
+### Lo que quedó SIN hacer
+
+- **`integracionConectada('meta')` mide que EXISTAN las filas de credenciales, no que la
+  conexión ande** (`lib/credenciales.ts:197`). ws13 daba `true` con una cuenta ilegible, y
+  por eso entraba en el loop del cron. Es «estado vivo, no recordado» sin resolver: no hay
+  ningún lado donde se guarde el resultado de la última verificación, así que nadie puede
+  distinguir «lo configuró» de «funciona». Vive en `lib/credenciales.ts` +
+  `lib/metodo-verificar.ts`.
+- **La escritura de incidentes colgada del render** sigue en `app/integraciones/page.tsx:47`.
+  Se dejó porque también es la que CIERRA los incidentes al recuperarse, y sacarla sin
+  mover ese cierre al cron dejaría incidentes colgados para siempre.
+- **Nadie le avisó al cliente que la alerta era falsa.** El motor sabe decir «ya está
+  entregando» (`textoRecuperada`) pero no sabe decir «lo que te dije no era cierto». Un
+  canal que insiste necesita las dos contracaras, y hoy tiene una.
+
+*Corrida del 21/08/2026 — incidente #101 cerrado a mano en prod, credencial de ws13
+corregida a `act_…`, mig 0139 aplicada. Typecheck 0 errores, 1030/1030 tests.*

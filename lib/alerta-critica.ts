@@ -75,17 +75,34 @@ type IncidenteAbierto = {
   balance_mxn: number | null;
   detalle: string | null;
   started_at: string;
+  confirmado: boolean;
 };
 
 /**
- * ¿Este incidente amerita perseguir al dueño?
+ * ¿Este incidente amerita perseguir al cliente?
  *
- * SOLO lo que le está costando plata AHORA. Un ámbar («cuenta en revisión»)
- * avisa una vez y se calla: si todo insistiera, la insistencia dejaría de
- * significar algo y el dueño terminaría silenciando el canal entero — que es el
- * peor resultado posible.
+ * DOS condiciones, y la primera se agregó pagando.
+ *
+ * 1. QUE SEA UN HECHO. `confirmado` (mig 0139) = Meta contestó y este es su
+ *    estado. Un incidente que dice «no se pudo leer el estado» NO es un estado:
+ *    es que nosotros no pudimos preguntar. Perseguir eso es anunciarle al cliente
+ *    una avería que no existe — el 21/8/2026 le salieron cuatro mensajes a un
+ *    cliente cuya cuenta estaba Activa y entregando, porque su
+ *    META_AD_ACCOUNT_ID estaba guardado sin `act_` y la Graph API devolvía 400.
+ *
+ *    ⚠️ El guard va EN POSITIVO —«solo lo confirmado»— y no descartando el
+ *    statusLabel que hoy sabemos que salió mal. La condición negativa protege un
+ *    caso y deja pasar todos los que todavía no pasaron: el próximo error de
+ *    lectura tendría otro texto y volvería a entrar sin que nada avise.
+ *
+ * 2. QUE CUESTE PLATA AHORA. Un ámbar («cuenta en revisión») avisa una vez y se
+ *    calla: si todo insistiera, la insistencia dejaría de significar algo y el
+ *    cliente terminaría silenciando el canal entero — el peor resultado posible.
+ *    Y ahora sabemos que no es hipotético: la confianza se pierde con UN mensaje
+ *    falso, no con veinte verdaderos.
  */
-const esCritico = (i: IncidenteAbierto): boolean => i.entrega_frenada || i.severidad === 'rojo';
+const esCritico = (i: IncidenteAbierto): boolean =>
+  i.confirmado && (i.entrega_frenada || i.severidad === 'rojo');
 
 export type ResultadoAlertas = {
   abiertos: number; criticos: number; avisados: number; resueltos: number; errores: number;
@@ -104,7 +121,7 @@ export async function insistirAlertasCriticas(
 
   const { data, error } = await db
     .from('service_incidents')
-    .select('id, service, severidad, status_label, disable_reason, entrega_frenada, balance_mxn, detalle, started_at')
+    .select('id, service, severidad, status_label, disable_reason, entrega_frenada, balance_mxn, detalle, started_at, confirmado')
     .is('resolved_at', null);
   if (error) {
     console.error(`[alerta-critica] ws=${ws} no se pudieron leer los incidentes: ${error.message}`);
@@ -203,10 +220,10 @@ ${textoRecuperada()}`,
         // El título del feed in-app dice la CAUSA, no el síntoma: es la misma
         // corrección que en el WhatsApp («suspendida por falta de pago» le dice
         // al dueño qué hacer; «dejó de entregar», no).
-        titulo: causaDe({ statusLabel: inc.status_label, disableReason: inc.disable_reason, entregaFrenada: inc.entrega_frenada })
+        titulo: causaDe({ statusLabel: inc.status_label, disableReason: inc.disable_reason, entregaFrenada: inc.entrega_frenada, confirmado: inc.confirmado })
           .titular.replace(/\*/g, ''),
         texto: `${encabezadoAviso('meta-cuenta-frenada')}\n${textoAlerta(
-          { statusLabel: inc.status_label, disableReason: inc.disable_reason, entregaFrenada: inc.entrega_frenada },
+          { statusLabel: inc.status_label, disableReason: inc.disable_reason, entregaFrenada: inc.entrega_frenada, confirmado: inc.confirmado },
           minAbierto, veces, `${APP_BASE_URL}/integraciones`,
         )}`,
         categoria: 'aviso',

@@ -393,6 +393,42 @@ usuarios se cayó, la lista vino vacía), se pierde la ACCIÓN y nunca el HECHO.
 hacia «entonces todo es mío» es exactamente el modo de falla de arriba, servido por el
 camino de error.
 
+# Un mensaje que sale solo no puede AFIRMAR lo que no verificó
+
+Un aviso automático llega con la autoridad del sistema: el que lo lee no tiene cómo
+chequearlo y no está en condiciones de dudar. Por eso cada afirmación de un mensaje que
+se manda sin que nadie lo lea antes tiene que colgar de un dato que se midió, y no del
+hecho de que el mensaje se esté mandando.
+
+El caso, del 21/8/2026. A un cliente le salieron cuatro WhatsApps: «⛔ Tu cuenta
+publicitaria está **NO SE PUDO LEER EL ESTADO DE META**. 🛑 3 H 25 MIN SIN ENTREGAR. 💸
+Seguís sin recibir un solo lead». Su cuenta estaba **Activa**, sin deuda y entregando.
+
+Tres formas distintas de afirmar de más, y las tres valen para cualquier mensaje:
+
+- **Una ranura de texto asume un TIPO.** `Tu cuenta publicitaria está *${estado}*` solo
+  acepta un estado; el día que le entra un mensaje de error, la gramática de la frase le
+  presta autoridad a un dato que no la tiene. Antes de interpolar, preguntá **de qué
+  conjunto** sale el valor — y si el conjunto no está cerrado, no hay ranura.
+- **No poder leer un dato no es un valor del dato.** Un error de lectura tiene que quedar
+  marcado como tal (acá: `service_incidents.confirmado`, mig 0139) y **nunca** puede
+  disparar la acción que dispara el hecho. Es «"No puedo hacer X con este dato" no es
+  "este dato es falso"» aplicada a la salida en vez de a la entrada.
+- **Una regla aplicada en un lugar de cuatro no está implementada, está documentada.**
+  `lib/alerta-critica-texto.ts` decía textual «si Meta no lo confirma, no se afirma» y
+  colgaba de `entrega_frenada` **solo la línea de al lado**; las otras tres afirmaciones
+  sobre leads salían siempre. Cuando escribas la regla en un comentario, contá cuántas
+  líneas del archivo deberían obedecerla.
+
+**Y el guard va en POSITIVO:** «solo se persigue lo que el proveedor CONFIRMÓ», nunca
+«todo menos el texto de error que ya conocemos» — el próximo error de lectura dirá otra
+cosa y entra igual.
+
+Corolario operativo: **buscá también los renders, no solo los crons.** Ese incidente no
+lo abrió el cron, lo abrió `app/integraciones/page.tsx` al dibujarse. Un cron corre
+siempre y deja log; una escritura colgada de un render depende de que alguien haya
+mirado, así que no queda ningún rastro de por qué empezó ese día y no otro.
+
 # Un umbral es un proxy, y el proxy hay que MEDIRLO contra los datos reales
 
 Un número en una condición (`>= 3 tareas`, `>= 2 destinos`, `>= 15 caracteres`) casi

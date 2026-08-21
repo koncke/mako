@@ -24,6 +24,15 @@ export type ProblemaActual = {
   entregaFrenada: boolean;
   balanceMxn: number | null;
   detalle: string;
+  /**
+   * ¿El servicio CONTESTÓ y este es su estado? (mig 0139)
+   *
+   * `false` = no se pudo leer. Es una IGNORANCIA, no un hecho, y la diferencia
+   * no es filosófica: `esCritico()` en lib/alerta-critica.ts solo persigue por
+   * WhatsApp lo confirmado. Sin esta distinción, «no pude preguntar» se le
+   * anunciaba al cliente como «tu cuenta está caída» — pasó el 21/8/2026.
+   */
+  confirmado: boolean;
 };
 
 // Un incidente ya registrado (para mostrar en el historial).
@@ -37,6 +46,8 @@ export type Incidente = {
   detalle: string | null;
   startedAt: string;
   resolvedAt: string | null;      // NULL = en curso
+  /** false = no se pudo leer el estado; el problema es la LECTURA, no la cuenta. */
+  confirmado: boolean;
 };
 
 /**
@@ -71,7 +82,8 @@ export async function reconciliarIncidentes(problemas: ProblemaActual[], scope: 
     for (const [service, p] of problemaPorSvc) {
       const fields = {
         severidad: p.severidad, status_label: p.statusLabel, disable_reason: p.disableReason,
-        entrega_frenada: p.entregaFrenada, balance_mxn: p.balanceMxn, detalle: p.detalle, updated_at: now,
+        entrega_frenada: p.entregaFrenada, balance_mxn: p.balanceMxn, detalle: p.detalle,
+        confirmado: p.confirmado, updated_at: now,
       };
       const id = abiertoPorSvc.get(service);
       try {
@@ -100,10 +112,32 @@ export function problemaMeta(h: MetaAccountHealth | null, metaError: string | nu
       entregaFrenada: h.entregaFrenada,
       balanceMxn: h.balanceMxn,
       detalle: h.entregaFrenada ? 'Entrega frenada' : (h.disableReasonLabel ?? h.statusLabel),
+      confirmado: true,        // Meta contestó: esto es un HECHO.
     };
   }
+  // ⚠️ NO PODER LEER EL ESTADO NO ES UN ESTADO. Sigue siendo un problema —hay algo
+  // que arreglar y la pantalla tiene que decirlo— pero es nuestro, no de la cuenta
+  // del cliente, y no se sabe nada sobre si entrega o no.
+  //
+  // Esto era `severidad: 'rojo'` y le costó a un cliente cuatro WhatsApps a las
+  // 21:15, 22:30, 23:31 y 00:40 diciéndole que su cuenta estaba caída y que no le
+  // entraba un solo lead. Su cuenta estaba Activa. Lo que fallaba era la lectura:
+  // su META_AD_ACCOUNT_ID se había guardado sin `act_` (ver lib/meta-cuenta-id.ts).
+  //
+  // Ámbar + `confirmado: false`, las dos cosas: el ámbar ya alcanza para que
+  // `esCritico()` no lo persiga, y `confirmado` es el guard EN POSITIVO que no
+  // depende de que nadie vuelva a mirar la severidad. Las dos capas de siempre.
   if (metaError) {
-    return { service: 'meta', severidad: 'rojo', statusLabel: 'No se pudo leer el estado de Meta', disableReason: null, entregaFrenada: false, balanceMxn: null, detalle: 'No se pudo leer el estado de Meta' };
+    return {
+      service: 'meta',
+      severidad: 'ambar',
+      statusLabel: 'No se pudo leer el estado de Meta',
+      disableReason: null,
+      entregaFrenada: false,
+      balanceMxn: null,
+      detalle: `No se pudo leer el estado de Meta: ${metaError}`,
+      confirmado: false,
+    };
   }
   return null;
 }
@@ -135,6 +169,11 @@ export async function getIncidentes(limit = 30): Promise<Incidente[]> {
       detalle: (r.detalle as string) ?? null,
       startedAt: String(r.started_at),
       resolvedAt: (r.resolved_at as string) ?? null,
+      // `!== false` y no `!!`: mientras la mig 0139 no esté aplicada la columna
+      // no viene, y un incidente viejo SÍ estaba confirmado. Un default que
+      // degrada a «no confirmado» apagaría la alerta real, que es el bug de 8/2026
+      // al revés y peor: se dejaría de avisar una cuenta suspendida de verdad.
+      confirmado: r.confirmado !== false,
     }));
   } catch (err) {
     console.error(`[incidentes] leer: ${err instanceof Error ? err.message : String(err)}`);

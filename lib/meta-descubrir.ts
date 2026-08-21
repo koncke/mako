@@ -20,6 +20,7 @@
 // Nada de esto escribe en Meta: son cuatro GET.
 
 import 'server-only';
+import { normalizarCuentaMeta } from './meta-cuenta-id';
 
 const GRAPH = 'https://graph.facebook.com';
 const ver = () => process.env.META_API_VERSION || 'v24.0';
@@ -141,7 +142,7 @@ export async function descubrirMeta(token: string): Promise<Descubrimiento> {
 
 /** Los píxeles de UNA cuenta (cuando el cliente eligió entre varias). */
 export async function pixelesDeCuenta(token: string, cuentaId: string): Promise<OpcionPixel[]> {
-  const id = cuentaId.startsWith('act_') ? cuentaId : `act_${cuentaId}`;
+  const id = normalizarCuentaMeta(cuentaId);
   const px = await get(`/${id}/adspixels`, token.trim(), { fields: 'id,name', limit: '50' });
   if (px.error) return [];
   return arr(px.body).map((p) => ({ id: s(p.id), nombre: s(p.name) || s(p.id) })).filter((p) => p.id);

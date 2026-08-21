@@ -30,6 +30,13 @@ export type IncidenteTexto = {
   /** `disableReasonLabel()`: por qué la deshabilitaron, cuando aplica. */
   disableReason: string | null;
   entregaFrenada: boolean;
+  /**
+   * ¿`statusLabel` es de verdad un ESTADO que contestó Meta? (mig 0139)
+   *
+   * Opcional para que un call-site que no lo sepa no pueda quedarse mudo, y
+   * `=== false` abajo para que el default sea el comportamiento de siempre.
+   */
+  confirmado?: boolean;
 };
 
 /**
@@ -76,6 +83,29 @@ const CAUSA: Record<string, { titular: string; queHacer: string }> = {
 export function causaDe(i: IncidenteTexto): { titular: string; queHacer: string | null } {
   const c = i.statusLabel ? CAUSA[i.statusLabel] : undefined;
   if (c) return c;
+
+  // ⚠️ «Tu cuenta publicitaria está *___*» ES UNA RANURA DE ESTADO, y solo acepta
+  // un estado. Cualquier string que se meta ahí sale afirmado como si Meta lo
+  // hubiera dicho, con la gramática de la frase prestándole autoridad.
+  //
+  // Así se produjo, textual, el WhatsApp del 21/8/2026:
+  //   «⛔ Tu cuenta publicitaria está *NO SE PUDO LEER EL ESTADO DE META*.»
+  // El `statusLabel` que llegó no era un estado: era el mensaje de un error de
+  // lectura nuestro. El default «decir el estado crudo» era correcto para lo que
+  // se pensó —un `account_status` nuevo que Meta agregue y acá no esté mapeado—
+  // y asumía un TIPO que el dato no siempre tiene.
+  //
+  // Es la segunda capa: `esCritico()` en lib/alerta-critica.ts ya no deja pasar un
+  // incidente sin confirmar hasta acá. Van las dos porque `causaDe` también le pone
+  // el título al feed in-app, y porque una regla que vive en un solo lado es una
+  // regla que se cumple casi siempre.
+  if (i.confirmado === false) {
+    return {
+      titular: 'MaKo *no puede leer el estado* de tu cuenta publicitaria',
+      queHacer: 'Revisá la conexión con Meta: puede ser el token o el ID de la cuenta.',
+    };
+  }
+
   const estado = i.statusLabel?.trim();
   return {
     titular: estado
@@ -120,8 +150,15 @@ export function textoAlerta(i: IncidenteTexto, minAbierto: number, veces: number
   const motivo = i.disableReason && i.disableReason !== i.statusLabel
     ? `⚠️ Motivo de Meta: *${i.disableReason}*.`
     : '';
-  // «No corre un solo anuncio» es un HECHO verificado (entrega_frenada), no una
+  // ⚠️ «No corre un solo anuncio» es un HECHO verificado (entrega_frenada), no una
   // forma de decir. Si Meta no lo confirma, no se afirma.
+  //
+  // Esa regla estaba escrita acá desde el primer día y aplicada a UNA de las
+  // CUATRO afirmaciones del mensaje. Las otras tres —el titular del contador,
+  // «Seguís sin recibir un solo lead» y «No entra ningún lead nuevo»— salían
+  // siempre. Un cliente que estaba recibiendo leads con normalidad leyó las tres.
+  // Cuando una regla se cumple en un lugar y en los otros tres no, no está
+  // implementada: está documentada.
   const consecuencia = i.entregaFrenada
     ? `🛑 Hace *${cuanto}* que no corre un solo anuncio.`
     : `🕐 Hace *${cuanto}* que está así.`;
@@ -130,7 +167,9 @@ export function textoAlerta(i: IncidenteTexto, minAbierto: number, veces: number
     return parrafos([
       ['🚨🚨🚨 *PARÁ TODO* 🚨🚨🚨'],
       [`⛔ ${titular}.`, consecuencia, motivo],
-      ['💸 *Cada minuto que pasa es plata tirada:*', '❌ No entra *ningún* lead nuevo.', '❌ El día perdido no se recupera.'],
+      i.entregaFrenada
+        ? ['💸 *Cada minuto que pasa es plata tirada:*', '❌ No entra *ningún* lead nuevo.', '❌ El día perdido no se recupera.']
+        : [],
       queHacer ? [`✅ *QUÉ HACER:* ${queHacer}`] : [],
       ['👉 *RESOLVELO YA:*', link],
       ['🔁 Te voy a seguir avisando hasta que esté arreglado. — MaKo'],
@@ -143,12 +182,18 @@ export function textoAlerta(i: IncidenteTexto, minAbierto: number, veces: number
     ? '🔁 Te lo repito porque sigue exactamente igual.'
     : `🔁 Es la *${veces + 1}ª vez* que te aviso y sigue igual.`;
   // La escalada aparece sola con el tiempo, sin tener que reescribir el texto.
-  const grave = minAbierto >= 6 * 60 ? '🆘 *Esto ya es medio día de leads perdido.*' : '';
+  // También cuelga de entrega_frenada: «medio día de leads perdido» es la misma
+  // afirmación que las otras, con otro sombrero.
+  const grave = i.entregaFrenada && minAbierto >= 6 * 60 ? '🆘 *Esto ya es medio día de leads perdido.*' : '';
 
   return parrafos([
-    [`🚨⚠️ *${cuanto.toUpperCase()} SIN ENTREGAR* ⚠️🚨`],
+    // El contador también AFIRMA: «3 H 25 MIN SIN ENTREGAR» es una medición de
+    // algo que solo sabemos cuando Meta confirmó que la entrega está frenada.
+    [i.entregaFrenada
+      ? `🚨⚠️ *${cuanto.toUpperCase()} SIN ENTREGAR* ⚠️🚨`
+      : `🚨⚠️ *${cuanto.toUpperCase()} SIN RESOLVER* ⚠️🚨`],
     [`⛔ ${titular}.`, motivo, insistencia, grave],
-    ['💸 Seguís sin recibir un solo lead.'],
+    i.entregaFrenada ? ['💸 Seguís sin recibir un solo lead.'] : [],
     queHacer ? [`✅ ${queHacer}`] : [],
     ['👉 ' + link],
     ['— MaKo'],
