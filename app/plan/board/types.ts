@@ -175,6 +175,14 @@ export type Repo = {
    * llamadas. Devuelve los patches para pintarlo sin recargar.
    */
   ampliarTareas?(items: Array<{ id: string; detalle: string }>, fuente?: Fuente): Promise<GuardPatch[]>;
+  /**
+   * Dependencias (mig 0140). OPCIONALES a propósito: un board que no las guarda es un
+   * board sin la columna, y la ausencia tiene que VERSE (el bloque no se dibuja) en vez
+   * de dibujarse y no guardar nada. La lista completa vuelve del server porque el guard
+   * de ciclo corre allá.
+   */
+  addDep?(d: { entidad: 'tarea' | 'proyecto'; deId: string; aId: string; clase?: 'bloquea' | 'ordena'; razon?: string }): Promise<{ ok: boolean; error?: string; camino?: string[]; deps?: import('./dependencias').Dep[] }>;
+  delDep?(entidad: 'tarea' | 'proyecto', deId: string, aId: string): Promise<{ ok: boolean; deps?: import('./dependencias').Dep[] }>;
 };
 
 export const PRIOS: Prio[] = ['alta', 'media', 'baja', 'futuro'];

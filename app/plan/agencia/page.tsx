@@ -25,6 +25,7 @@ import { getPerfil } from '@/lib/perfil';
 import { listPlanBoard } from '@/lib/plan-board';
 import type { BoardTask, Label } from '../board/types';
 import { PlanBoard } from '../PlanBoard';
+import type { Dep } from '../board/dependencias';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -41,8 +42,9 @@ export default async function PlanAgenciaPage() {
   // vacío = todavía no se migró desde localStorage → PlanBoard muestra el botón migrar.
   let tareas: BoardTask[] = [];
   let proyectos: Label[] = [];
-  try { const b = await listPlanBoard(); tareas = b.tareas; proyectos = b.proyectos; } catch (e) { console.error('[plan/agencia] listPlanBoard', e); }
+  let deps: Dep[] = [];
+  try { const b = await listPlanBoard(); tareas = b.tareas; proyectos = b.proyectos; deps = b.deps; } catch (e) { console.error('[plan/agencia] listPlanBoard', e); }
   const vacio = tareas.length === 0 && proyectos.length === 0;
 
-  return <PlanBoard user={user} tareas={tareas} proyectos={proyectos} vacio={vacio} />;
+  return <PlanBoard user={user} tareas={tareas} proyectos={proyectos} deps={deps} vacio={vacio} />;
 }

@@ -14,6 +14,7 @@ import { useBoard } from './board/useBoard';
 import { repoPlan, apiPlan } from './board/repo-plan';
 import { type BoardTask, type Label, type Repo, type BoardUser, type Hist, type Prio, type Fuente, type Actor, type GuardPatch, type GuardProjPatch, type GuardResult, prioFromScore, clampScore, pidDe, HIST_CAP, scoreFromPrio, uid } from './board/types';
 import { CATALOGO_PROYECTOS } from '@/lib/plan-proyectos-catalogo';
+import type { Dep } from './board/dependencias';
 
 const K9 = 'mako_plan_v9', K_PROJS = 'mako_plan_projs_v7';
 const SEED_TS = Date.parse('2026-07-13T12:00:00Z');
@@ -730,11 +731,11 @@ function construirInbox(items: TareaInboxRaw[], existentes: BoardTask[], labels:
   return { tasks, labels: [...labels, ...nuevos] };
 }
 
-export function PlanBoard({ user, tareas, proyectos, vacio }: { user: BoardUser; tareas: BoardTask[]; proyectos: Label[]; vacio: boolean }) {
+export function PlanBoard({ user, tareas, proyectos, deps = [], vacio }: { user: BoardUser; tareas: BoardTask[]; proyectos: Label[]; deps?: Dep[]; vacio: boolean }) {
   // El I/O vive en board/repo-plan.ts: lo comparte el roadmap de Customer
   // Success, que abre la MISMA tarjeta con el MISMO modal.
   const repo = repoPlan();
-  const board = useBoard(tareas, proyectos, user, repo);
+  const board = useBoard(tareas, proyectos, user, repo, deps);
   // DB vacía → el board todavía no se migró de localStorage: mostramos el botón migrar.
   if (vacio) return <MigrarPlan />;
   return <BoardShell board={board} scope="agencia" />;

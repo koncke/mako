@@ -12,6 +12,7 @@ import 'server-only';
 import { getTenantDb, runWithWorkspace, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 import type { BoardTask, Label, Prio, Actor, Check, Hist, Fuente, GuardPatch, GuardProjPatch, GuardResult } from '@/app/plan/board/types';
 import { scoreFromPrio, prioFromScore, curveTaskScores, scoreProyectoDerivado, sanearHist } from '@/app/plan/board/types';
+import { sanearDep, puedeDepender, type Dep, type EntidadDep, type ClaseDep } from '@/app/plan/board/dependencias';
 import { puntuarNuevas, describirProyectosNuevos, asignarTareasAProyectos } from '@/lib/mako-guardian';
 import { checklistsParaTareas } from '@/lib/checklist-coach';
 import { CATALOGO_PROYECTOS, delCatalogo, canonNombre, nucleo } from '@/lib/plan-proyectos-catalogo';
@@ -84,16 +85,105 @@ function labelToRow(l: Label, orden = 0): Row {
 }
 
 // ── carga ────────────────────────────────────────────────────────────────────
-export async function listPlanBoard(): Promise<{ tareas: BoardTask[]; proyectos: Label[] }> {
+export async function listPlanBoard(): Promise<{ tareas: BoardTask[]; proyectos: Label[]; deps: Dep[] }> {
   return enPlan(async () => {
     const db = await getTenantDb();
-    const [t, p] = await Promise.all([
+    const [t, p, d] = await Promise.all([
       db.from('plan_tareas').select('*').order('orden', { ascending: true }).order('num', { ascending: true }),
       db.from('plan_proyectos').select('*').order('orden', { ascending: true }),
+      db.from('plan_dependencias').select('entidad, de_id, a_id, clase, razon, origen, confianza'),
     ]);
     if (t.error) throw new Error(`listPlanBoard tareas: ${t.error.message}`);
     if (p.error) throw new Error(`listPlanBoard proyectos: ${p.error.message}`);
-    return { tareas: (t.data ?? []).map(rowToTask), proyectos: (p.data ?? []).map(rowToLabel) };
+    // Las aristas NO son un error fatal: si la tabla todavía no existe en un entorno, el
+    // tablero tiene que dibujarse igual. Lo que no puede es dibujarse con la mitad de las
+    // dependencias y no decirlo — por eso el error va al log, no a un catch mudo.
+    if (d.error) console.error(`[plan-board] dependencias: ${d.error.message}`);
+    return {
+      tareas: (t.data ?? []).map(rowToTask),
+      proyectos: (p.data ?? []).map(rowToLabel),
+      deps: (d.data ?? []).map(sanearDep).filter((x): x is Dep => x != null),
+    };
+  });
+}
+
+// ── Dependencias ─────────────────────────────────────────────────────────────
+// Viven en su propia tabla (mig 0140) y NO adentro de la fila de la tarea, por una razón
+// que ya costó caro en otro lado: `guardarPlanTarea` upsertea la FILA ENTERA desde el
+// estado del navegador en cada autosave. Un campo nuevo en la fila que una pestaña con
+// estado viejo no conozca se pisa solo, sin error y sin build roto.
+
+/** Todas las aristas del workspace, saneadas. */
+export async function listDependencias(): Promise<Dep[]> {
+  return enPlan(async () => {
+    const db = await getTenantDb();
+    const { data, error } = await db.from('plan_dependencias').select('entidad, de_id, a_id, clase, razon, origen, confianza');
+    if (error) throw new Error(`listDependencias: ${error.message}`);
+    return (data ?? []).map(sanearDep).filter((x): x is Dep => x != null);
+  });
+}
+
+/**
+ * Agrega «`deId` no puede empezar hasta que `aId` termine».
+ *
+ * ⚠️ EL GUARD DE CICLO CORRE ACÁ Y NO SOLO EN LA PANTALLA. El modal no es la única puerta:
+ * están /api/agente/plan, WhatsApp y los scripts. Un chequeo que vive únicamente en el
+ * componente es un chequeo que el próximo canal no tiene.
+ */
+export async function agregarDependencia(d: {
+  entidad: EntidadDep; deId: string; aId: string; clase?: ClaseDep; razon?: string; origen?: Actor; confianza?: 'alta' | 'media';
+}): Promise<{ ok: true } | { ok: false; error: string; camino?: string[] }> {
+  return enPlan(async () => {
+    const limpia = sanearDep(d);
+    if (!limpia) return { ok: false as const, error: 'Falta alguna de las dos puntas, o son la misma.' };
+    const previas = await listDependencias();
+    const ver = puedeDepender(previas, limpia.entidad, limpia.deId, limpia.aId);
+    if (!ver.ok) return { ok: false as const, error: 'Sería un círculo: eso ya espera a esto.', camino: ver.camino };
+    const db = await getTenantDb();
+    const { error } = await db.from('plan_dependencias').upsert({
+      entidad: limpia.entidad, de_id: limpia.deId, a_id: limpia.aId, clase: limpia.clase,
+      razon: limpia.razon, origen: limpia.origen, confianza: limpia.confianza ?? null,
+    }, { onConflict: 'workspace_id,entidad,de_id,a_id' });
+    if (error) return { ok: false as const, error: error.message };
+    return { ok: true as const };
+  });
+}
+
+export async function borrarDependencia(entidad: EntidadDep, deId: string, aId: string): Promise<void> {
+  return enPlan(async () => {
+    const db = await getTenantDb();
+    await db.from('plan_dependencias').delete().eq('entidad', entidad).eq('de_id', deId).eq('a_id', aId);
+  });
+}
+
+/**
+ * Barre las aristas que apuntan a algo que ya no existe.
+ *
+ * Existe porque NO hay foreign key posible: la PK de plan_tareas es compuesta y la tabla
+ * mezcla ids de dos tablas, así que no hay `on delete cascade`. El resolvedor ya ignora los
+ * punteros muertos —el tablero nunca se rompe—, pero dejarlos para siempre es acumular
+ * basura que después nadie sabe interpretar. Corre después de cada borrado.
+ */
+export async function limpiarDependenciasColgadas(): Promise<number> {
+  return enPlan(async () => {
+    const db = await getTenantDb();
+    const [t, p, d] = await Promise.all([
+      db.from('plan_tareas').select('id'),
+      db.from('plan_proyectos').select('id'),
+      db.from('plan_dependencias').select('entidad, de_id, a_id'),
+    ]);
+    const vivosT = new Set((t.data ?? []).map((r) => str((r as Row).id)));
+    const vivosP = new Set((p.data ?? []).map((r) => str((r as Row).id)));
+    const muertas = (d.data ?? []).filter((r) => {
+      const row = r as Row, vivos = str(row.entidad) === 'proyecto' ? vivosP : vivosT;
+      return !vivos.has(str(row.de_id)) || !vivos.has(str(row.a_id));
+    });
+    for (const m of muertas) {
+      const row = m as Row;
+      await db.from('plan_dependencias').delete().eq('entidad', str(row.entidad)).eq('de_id', str(row.de_id)).eq('a_id', str(row.a_id));
+    }
+    if (muertas.length) console.log(`[plan-board] dependencias colgadas barridas: ${muertas.length}`);
+    return muertas.length;
   });
 }
 
@@ -141,7 +231,20 @@ export async function borrarPlanTarea(id: string): Promise<void> {
     const db = await getTenantDb();
     const { error } = await db.from('plan_tareas').delete().eq('id', id);
     if (error) throw new Error(`borrarPlanTarea: ${error.message}`);
+    // Sin FK no hay cascade: las aristas que apuntaban acá quedan colgadas. El resolvedor
+    // las ignora, así que el tablero no se rompe — pero se barren igual para que nadie
+    // tenga que interpretar basura dentro de tres meses.
+    await borrarAristasDe('tarea', id);
   });
+}
+
+/** Borra TODA arista que entre o salga de un id. Se llama después de cada borrado. */
+async function borrarAristasDe(entidad: EntidadDep, id: string): Promise<void> {
+  const db = await getTenantDb();
+  await Promise.all([
+    db.from('plan_dependencias').delete().eq('entidad', entidad).eq('de_id', id),
+    db.from('plan_dependencias').delete().eq('entidad', entidad).eq('a_id', id),
+  ]);
 }
 
 // ── proyectos ────────────────────────────────────────────────────────────────
@@ -178,6 +281,7 @@ export async function borrarPlanProyecto(id: string): Promise<void> {
     }));
     const { error } = await db.from('plan_proyectos').delete().eq('id', id);
     if (error) throw new Error(`borrarPlanProyecto: ${error.message}`);
+    await borrarAristasDe('proyecto', id);
   });
 }
 

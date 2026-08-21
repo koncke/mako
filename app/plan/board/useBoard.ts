@@ -6,14 +6,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { useUndoToast } from '../../_components/UndoToast';
 import { type BoardTask, type Label, type BoardUser, type Repo, type Hist, type Actor, type Fuente, type Prio, type Check, type GuardPatch, type GuardProjPatch, PLABEL, MAX_PRIORIDAD, HIST_CAP, uid, clampPct, clampScore, clampProj, prioFromScore, scoreFromPrio } from './types';
+import { type Dep, type ClaseDep, type EntidadDep, puedeDepender } from './dependencias';
 
 export type GuardScore = { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number };
 
 const now = () => Date.now();
 
-export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user: BoardUser, repo: Repo) {
+export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user: BoardUser, repo: Repo, initialDeps: Dep[] = []) {
   const [tasks, setTasks] = useState<BoardTask[]>(initialTasks);
   const [labels, setLabels] = useState<Label[]>(initialLabels);
+  // Las dependencias NO viven adentro de la tarea (mig 0140: tabla propia). El autosave de
+  // acá abajo upsertea la FILA ENTERA desde el estado del navegador, así que un campo
+  // dentro de la tarea lo pisaría una pestaña con estado viejo, sin error y sin build roto.
+  // Con la relación afuera, ese modo de falla no existe.
+  const [deps, setDeps] = useState<Dep[]>(initialDeps);
   const { undo, show, clear } = useUndoToast();
 
   const byId = (id: string) => tasks.find((t) => t.id === id) ?? null;
@@ -280,8 +286,26 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
 
   const reset = (t: BoardTask[], l: Label[]) => { setTasks(t); setLabels(l); };
 
+  // ── Dependencias ──
+  // El estado local se actualiza con lo que devuelve el SERVER, no con lo que el cliente
+  // creía: el guard de ciclo corre allá (es la única puerta que comparten el modal,
+  // /api/agente/plan, WhatsApp y los scripts), así que la lista buena es siempre la suya.
+  const addDep = async (d: { entidad: EntidadDep; deId: string; aId: string; clase?: ClaseDep; razon?: string }): Promise<{ ok: boolean; error?: string; camino?: string[] }> => {
+    // Chequeo local ANTES de pegarle al server: es el que le permite a la pantalla
+    // deshabilitar la opción con el motivo al lado en vez de dejar clickear y fallar.
+    const ver = puedeDepender(deps, d.entidad, d.deId, d.aId);
+    if (!ver.ok) return { ok: false, error: 'Sería un círculo: eso ya espera a esto.', camino: ver.camino };
+    const r = await repo.addDep?.(d);
+    if (r?.ok && r.deps) setDeps(r.deps);
+    return r ?? { ok: false, error: 'Este tablero no guarda dependencias.' };
+  };
+  const delDep = async (entidad: EntidadDep, deId: string, aId: string) => {
+    const r = await repo.delDep?.(entidad, deId, aId);
+    if (r?.ok && r.deps) setDeps(r.deps);
+  };
+
   return {
-    tasks, labels, user, repo,
+    tasks, labels, user, repo, deps, addDep, delDep,
     labelById: (id: string) => labels.find((l) => l.id === id) ?? null,
     create, remove, removeSilent, patch, moveTo, setScore, applyGuardian, aplicarPerroServer, toggleEnPrioridad, setChecklist, replaceTask,
     setTitle, setDetalle, setProgress, toggleDone, setDeadline, setTaskLabels, undoHist,

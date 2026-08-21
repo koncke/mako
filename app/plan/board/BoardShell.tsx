@@ -40,6 +40,8 @@ import { RichText, stripHtml } from './RichText';
 import type { Board } from './useBoard';
 import { separarRepetidas, textoRepetidas } from '@/lib/tareas-dedup';
 import { type BoardTask, type Label, type Prio, type Check, type Actor, type Fuente, type FuenteTipo, ACTOR_LABEL, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, fechaHora, fuenteEfectiva, prioFromScore, displayPrio } from './types';
+import { resolverDeps, estaBloqueada, type EstadoDeps, type Dep } from './dependencias';
+import { DependenciasBloque } from './DependenciasBloque';
 import { ExportarModal } from './ExportarModal';
 import { NotasLista } from './NotasLista';
 import { capacidad } from '@/lib/mako-capacidades';
@@ -168,9 +170,36 @@ export function BoardShell({ board, scope }: {
   // el que tiene MÁS trabajo abierto: si dos cosas importan igual, se ataca donde hay más.
   const pendientesPorProy = new Map<string, number>();
   for (const t of tasks) if (t.progress < 100) for (const id of t.labels) pendientesPorProy.set(id, (pendientesPorProy.get(id) ?? 0) + 1);
+
+  // ── Dependencias (mig 0140) ──
+  // Se resuelven ACÁ, en el render, y NO se persiste ni un número. Es la decisión de
+  // diseño más importante de la feature: `curveTaskScores` reasigna los scores por ranking
+  // a bandas fijas, así que un orden horneado en la base es IRREVERSIBLE —borrar la arista
+  // no devuelve los scores viejos, que ya no existen—. Como lente, una arista equivocada
+  // se arregla borrándola y el tablero vuelve exacto al instante.
+  // El otro motivo es de cableado: `recurvarPlanOwner` tiene UN solo llamador (adentro de
+  // `priorizarNuevasOwner`), o sea que el tablero solo se re-reparte cuando ENTRAN TAREAS
+  // NUEVAS. Una propagación enchufada ahí sería invisible hasta la próxima reunión: el
+  // dueño declara la dependencia, no pasa nada, y parece que la feature no funciona.
+  const estDeps = useMemo(() => resolverDeps({ tareas: tasks, deps: board.deps }), [tasks, board.deps]);
+  const nombreDe = (id: string) => board.labelById(id)?.name ?? tasks.find((t) => t.id === id)?.title ?? id;
+  const frenanA = (id: string): string[] => [
+    ...(estDeps.bloqueantes[id] ?? []).map(nombreDe),
+    ...(estDeps.bloqueantesProy[id] ?? []).map(nombreDe),
+  ];
+
+  // Un proyecto está frenado cuando NINGUNA de sus tareas abiertas se puede empezar. Ojo
+  // con el matiz: alcanza con que UNA sea arrancable para que el proyecto lo sea, porque
+  // el norte del tablero tiene que ser algo en lo que hoy se puede poner una hora.
+  const proyArrancable = (id: string) => tasks.some((t) => t.progress < 100 && t.labels.includes(id) && !estaBloqueada(t.id, estDeps));
+
   const porScore = labels.slice().sort((a, b) => b.score - a.score || (pendientesPorProy.get(b.id) ?? 0) - (pendientesPorProy.get(a.id) ?? 0));
   const tienePendientes = (id: string) => (pendientesPorProy.get(id) ?? 0) > 0;
-  const objetivoPrincipal = porScore.find((l) => tienePendientes(l.id)) ?? porScore[0] ?? null;
+  // El Objetivo Principal exige trabajo ARRANCABLE, no solo pendiente: un norte en el que
+  // no se puede empezar nada hoy es un norte que no sirve. Si todo está frenado se cae al
+  // criterio de siempre en vez de dejar la card vacía — y ahí el tablero ya está diciendo
+  // otra cosa (que la cadena está trabada), que se ve en los candados.
+  const objetivoPrincipal = porScore.find((l) => proyArrancable(l.id)) ?? porScore.find((l) => tienePendientes(l.id)) ?? porScore[0] ?? null;
   const topProjectId = objetivoPrincipal?.id ?? null;
   // ── "Datos sin marcar" (feedback jul-19): deadline (opcional) + checklist (la ARMA
   // MaKo), en UN modal batch. Reemplaza al gauntlet card-by-card que auto-popeaba de a
@@ -455,12 +484,17 @@ export function BoardShell({ board, scope }: {
   // mostraba UNA sola tarjeta y el resto del plan quedaba invisible: el tablero decía
   // "no hay nada más que hacer" con 20 tareas abiertas.
   const scoreProy = (t: BoardTask) => Math.max(0, ...t.labels.map((id) => board.labelById(id)?.score ?? 0));
-  const pendientesTodas = tasks.filter((t) => t.progress < 100);
+  // ⚠️ Prioridades responde «¿qué hago AHORA?», así que lo BLOQUEADO no entra. No es que
+  // valga menos —su score no se toca, y en el Kanban sigue donde estaba—: es que hoy no se
+  // puede empezar, y una lista de «hacé esto» con cosas que no se pueden hacer es peor que
+  // una lista corta. Lo que sí sube es lo que las DESTRABA, por la urgencia heredada.
+  const pendientesTodas = tasks.filter((t) => t.progress < 100 && !estaBloqueada(t.id, estDeps));
   const delTop = topProjectId ? pendientesTodas.filter((t) => t.labels.includes(topProjectId)) : [];
   const resto = pendientesTodas
     .filter((t) => !topProjectId || !t.labels.includes(topProjectId))
-    .sort((a, b) => scoreProy(b) - scoreProy(a) || b.score - a.score);
-  const enPrio = [...delTop.sort((a, b) => b.score - a.score), ...resto].slice(0, MAX_PRIORIDAD);
+    .sort((a, b) => scoreProy(b) - scoreProy(a) || (estDeps.urgencia[b.id] ?? b.score) - (estDeps.urgencia[a.id] ?? a.score));
+  const enPrio = [...delTop.sort((a, b) => (estDeps.urgencia[b.id] ?? b.score) - (estDeps.urgencia[a.id] ?? a.score)), ...resto].slice(0, MAX_PRIORIDAD);
+  const bloqueadasN = tasks.filter((t) => t.progress < 100 && estaBloqueada(t.id, estDeps)).length;
   const prioAvg = enPrio.length ? Math.round(enPrio.reduce((s, t) => s + t.progress, 0) / enPrio.length) : 0;
   // agregado de proyectos (para el chip del header en la vista Proyectos)
   const projAgg = labels.map((l) => projProgress(tasks, l.id));
@@ -867,8 +901,8 @@ export function BoardShell({ board, scope }: {
           El patrón que sí funciona en los dos: el padre es columna y el hijo estira
           con `flex: 1` + `minHeight: 0`. Ninguna vista vuelve a pedir `height: 100%`. */}
       <div style={{ minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} onOpen={setOpenId} onOpenProj={setOpenProj} />}
-        {view === 'kanban' && <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} />}
+        {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} bloqueadas={bloqueadasN} onOpen={setOpenId} onOpenProj={setOpenProj} />}
+        {view === 'kanban' && <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} frenanA={frenanA} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} />}
         {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={projFilter} q={q} fOrigen={fOrigen} sortMode={sortMode} sortDir={sortDir} />}
         {view === 'graphics' && <GraphicsView board={board} />}
       </div>
@@ -1493,8 +1527,8 @@ function WarnMark({ title, onClick, size = 15, blink = true }: { title: string; 
 // Tarjeta de tarea: ALTURA FIJA para que todas midan igual (feedback jul-18). El
 // título se recorta a 2 líneas; el toggle de completar es compacto (inline), no una
 // píldora que agrandaba unas cards más que otras.
-function CardTile({ t, board, warn, onOpen, onWarn, onOpenProj }: {
-  t: BoardTask; board: Board; warn: boolean; onOpen: (id: string) => void; onWarn: (id: string) => void; onOpenProj?: (id: string) => void;
+function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj }: {
+  t: BoardTask; board: Board; warn: boolean; frenanA?: string[]; onOpen: (id: string) => void; onWarn: (id: string) => void; onOpenProj?: (id: string) => void;
 }) {
   const done = t.progress >= 100;
   const clDone = t.checklist.filter((c) => c.done).length;
@@ -1519,6 +1553,10 @@ function CardTile({ t, board, warn, onOpen, onWarn, onOpenProj }: {
           : <span style={{ fontSize: 17, lineHeight: 1, flex: 'none' }}>{emojiTarea(board, t)}</span>}
         <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', flex: 'none' }}>#{t.num}</span>
         <span style={{ flex: 1, minWidth: 0 }} />
+        {/* El candado va COMPACTO en la tarjeta: la card mide 138px fijos y el título
+            necesita sus dos líneas. El nombre de lo que la frena vive en el tooltip y en
+            el detalle, que es donde hay lugar para decirlo entero. */}
+        <BloqueoChip porQue={frenanA} compacto />
         {warn && <WarnMark title={`Falta ${!t.deadline ? 'el deadline' : 'la checklist'}`} onClick={(e) => { e.stopPropagation(); onWarn(t.id); }} />}
         <ScoreBadge score={t.score} />
       </div>
@@ -1544,9 +1582,27 @@ function CardTile({ t, board, warn, onOpen, onWarn, onOpenProj }: {
   );
 }
 
+/**
+ * El candado. UNA pieza, usada en la tarjeta del Kanban, en la fila de Prioridades y en el
+ * detalle — porque el chip y el ranking tienen que decir lo mismo, y cinco copias de un
+ * chip son cinco lugares donde eso deja de pasar.
+ *
+ * El `title` NOMBRA lo que frena. Un candado que solo dice «bloqueada» obliga a abrir la
+ * tarjeta para saber qué esperar, que es justo lo que el candado venía a evitar.
+ */
+function BloqueoChip({ porQue, compacto = false }: { porQue: string[]; compacto?: boolean }) {
+  if (!porQue.length) return null;
+  const t = porQue.length === 1 ? `Espera a «${porQue[0]}»` : `Espera a ${porQue.length} cosas: ${porQue.join(' · ')}`;
+  return (
+    <span title={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flex: 'none', fontFamily: MONO, fontSize: 10, fontWeight: 700, color: 'var(--warn, #B4762A)', background: 'color-mix(in srgb, var(--warn, #B4762A) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--warn, #B4762A) 30%, transparent)', borderRadius: 5, padding: '1px 5px', maxWidth: compacto ? 22 : 150, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+      🔒{compacto ? '' : ` ${porQue.length > 1 ? `${porQue.length} pendientes` : porQue[0]}`}
+    </span>
+  );
+}
+
 // ── vista Kanban (4 columnas por prioridad derivada del score; ancho completo) ──
-function Kanban({ tasks, board, topProjectId, sortMode, sortDir, onOpen, onNew, onWarn, onOpenProj }: {
-  tasks: BoardTask[]; board: Board; topProjectId: string | null; sortMode: 'score' | 'creacion'; sortDir: 'desc' | 'asc'; onOpen: (id: string) => void; onNew: (p?: Prio) => void; onWarn: (id: string) => void; onOpenProj: (id: string) => void;
+function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, onOpen, onNew, onWarn, onOpenProj }: {
+  tasks: BoardTask[]; board: Board; topProjectId: string | null; sortMode: 'score' | 'creacion'; sortDir: 'desc' | 'asc'; frenanA: (id: string) => string[]; onOpen: (id: string) => void; onNew: (p?: Prio) => void; onWarn: (id: string) => void; onOpenProj: (id: string) => void;
 }) {
   // dir = -1 → desc (mayor score / #num más alto = más nuevo, primero); +1 → asc (al revés).
   const dir = sortDir === 'asc' ? 1 : -1;
@@ -1563,7 +1619,7 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, onOpen, onNew, 
               <button onClick={() => onNew(p)} style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, border: '1.5px dashed var(--border-strong)', background: 'transparent', borderRadius: 10, padding: '9px 10px', cursor: 'pointer', color: 'var(--faint)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, opacity: 0.8, transition: 'border-color .12s, color .12s' }}
                 onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--faint)'; }}>＋ Nueva tarea</button>
               {items.length === 0 && <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', padding: '10px 0' }}>—</div>}
-              {items.map((t) => <CardTile key={t.id} t={t} board={board} warn={displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && (!t.deadline || t.checklist.length === 0)} onOpen={onOpen} onWarn={onWarn} onOpenProj={onOpenProj} />)}
+              {items.map((t) => <CardTile key={t.id} t={t} board={board} frenanA={frenanA(t.id)} warn={displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && (!t.deadline || t.checklist.length === 0)} onOpen={onOpen} onWarn={onWarn} onOpenProj={onOpenProj} />)}
             </div>
           </section>
         );
@@ -1585,7 +1641,7 @@ function ColHeader({ p, count }: { p: Prio; count: number }) {
 
 // ── vista Prioridades: Objetivo Principal a la IZQUIERDA (alto, clickeable) + las
 // 3 tareas a la DERECHA (feedback #11 y #3). ─────────────────────────────────────
-function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: BoardTask[]; board: Board; objetivo: Label | null; onOpen: (id: string) => void; onOpenProj: (id: string) => void }) {
+function Prioridades({ tasks, board, objetivo, bloqueadas = 0, onOpen, onOpenProj }: { tasks: BoardTask[]; board: Board; objetivo: Label | null; bloqueadas?: number; onOpen: (id: string) => void; onOpenProj: (id: string) => void }) {
   const [expand, setExpand] = useState<Set<string>>(new Set());
   const toggleExp = (id: string) => setExpand((s) => { const c = new Set(s); if (c.has(id)) c.delete(id); else c.add(id); return c; });
   return (
@@ -1611,7 +1667,14 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
         {/* DERECHA — las 3 tareas en prioridad. `flex: 2 1 380px`: crece el doble que
             el objetivo cuando sobra lugar y se va abajo sola cuando no entra. */}
         <div style={{ flex: '2 1 380px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700 }}>🎯 Tareas prioritarias · {tasks.length}/{MAX_PRIORIDAD}</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+            <div style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700 }}>🎯 Tareas prioritarias · {tasks.length}/{MAX_PRIORIDAD}</div>
+            {/* Una lista más corta de lo esperado sin explicación se lee como «no hay nada
+                más que hacer», que es lo contrario de lo que pasa. Si algo quedó afuera por
+                estar frenado, se dice acá — el número es el aviso de que la cadena está
+                trabada y de que lo que conviene atacar es lo que la destraba. */}
+            {bloqueadas > 0 && <span style={{ fontSize: 12, color: 'var(--dim)' }}>🔒 {bloqueadas} {bloqueadas === 1 ? 'frenada' : 'frenadas'} por otra cosa · no entran acá hasta que se destraben</span>}
+          </div>
           {tasks.length === 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, color: 'var(--faint)', textAlign: 'center', padding: '24px 20px', border: '1px dashed var(--border-strong)', borderRadius: 14 }}>
               {/* Acá SOLO se llega con el plan entero terminado: la lista se completa con
@@ -1945,6 +2008,18 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, onDebat
             {/* NOTAS y «se hace en MaKo» viven ACÁ, en la columna principal y ARRIBA del
                 historial. Estaban en la barra lateral, apretadas contra la prioridad y
                 el deadline: el cuaderno de la tarea es contenido, no metadata. */}
+            {/* Las dependencias van ARRIBA de las notas y del historial, en la columna
+                principal: «qué me frena» y «qué destrabo» son contenido de la tarea, no
+                metadata — cambian qué se hace hoy. */}
+            <Separador />
+            <DependenciasBloque
+              entidad="tarea" id={t.id} deps={board.deps}
+              candidatos={board.tasks.filter((x) => x.id !== t.id).map((x) => ({
+                id: x.id, titulo: `#${x.num} ${x.title}`,
+                sub: x.labels.map((l) => board.labelById(l)?.name).filter(Boolean).join(' · '),
+                terminado: x.progress >= 100,
+              }))}
+              onAdd={board.addDep} onDel={board.delDep} />
             <Separador />
             <NotasLista valor={t.notas ?? ''} onGuardar={(v) => board.patch(t.id, { notas: v })} />
 
@@ -2238,6 +2313,31 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, z 
                 </div>
               ))}
             </div>
+
+            {/* Una dependencia de PROYECTO frena todas sus tareas abiertas de un saque: es
+                la escritura de mayor palanca del tablero, y por eso el radio se dice antes
+                del click y no después. */}
+            <Separador />
+            <DependenciasBloque
+              entidad="proyecto" id={proj.id} deps={board.deps}
+              candidatos={board.labels.filter((l) => l.id !== proj.id).map((l) => {
+                const abiertas = board.tasks.filter((t) => t.progress < 100 && t.labels.includes(l.id)).length;
+                const total = board.tasks.filter((t) => t.labels.includes(l.id)).length;
+                return {
+                  id: l.id, titulo: `${l.emoji} ${l.name}`,
+                  sub: total === 0 ? 'todavía sin tareas cargadas' : `${abiertas} de ${total} abiertas`,
+                  // Un proyecto SIN tareas NO cuenta como terminado: tratar «vacío» como
+                  // «listo» destrabaría media cadena sin que nadie hiciera el trabajo.
+                  terminado: total > 0 && abiertas === 0,
+                };
+              })}
+              impacto={(aId) => {
+                const n = board.tasks.filter((t) => t.progress < 100 && t.labels.includes(proj.id)).length;
+                const otro = board.labelById(aId);
+                const sinTareas = board.tasks.filter((t) => t.labels.includes(aId)).length === 0;
+                return `Esto frena ${n === 1 ? 'la tarea abierta' : `las ${n} tareas abiertas`} de «${proj.name}» hasta que «${otro?.name ?? aId}» esté terminado.${sinTareas ? ' Y ojo: ese proyecto todavía no tiene ninguna tarea cargada, así que no se va a destrabar solo.' : ''}`;
+              }}
+              onAdd={board.addDep} onDel={board.delDep} />
 
             <Separador />
             <NotasLista valor={proj.notas ?? ''} onGuardar={(v) => board.patchLabelLog(proj.id, { notas: v }, 'Escribió una nota', 'user')} />

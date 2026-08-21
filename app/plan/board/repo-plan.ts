@@ -16,11 +16,12 @@
 // history y el undo siguen en `useBoard`.
 
 import { type BoardTask, type Label, type Repo, type GuardPatch, type GuardProjPatch, type GuardResult } from './types';
+import { sanearDep, type Dep } from './dependencias';
 import { CATALOGO_PROYECTOS } from '@/lib/plan-proyectos-catalogo';
 
 /** Pega a la API del board (DB). Devuelve la tarea/proyecto canónico cuando aplica.
  *  Exportada porque la migración one-shot de `PlanBoard` también la usa. */
-export async function apiPlan(body: Record<string, unknown>): Promise<{ ok: boolean; tarea?: BoardTask; proyecto?: Label; error?: string; patches?: GuardPatch[]; proyectosPatch?: GuardProjPatch[]; conteo?: GuardResult | null }> {
+export async function apiPlan(body: Record<string, unknown>): Promise<{ ok: boolean; tarea?: BoardTask; proyecto?: Label; error?: string; camino?: string[]; deps?: unknown[]; patches?: GuardPatch[]; proyectosPatch?: GuardProjPatch[]; conteo?: GuardResult | null }> {
   return fetch('/api/plan-board', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     .then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
 }
@@ -45,6 +46,17 @@ export function repoPlan(): Repo {
       const j = await apiPlan({ action: 'priorizar-nuevas', ids, proyectoIds: proyectoIds ?? [], contexto: contexto ?? '' });
       if (!j.ok) throw new Error(j.error || 'no se pudo priorizar');
       return { tareas: j.conteo?.tareas ?? { alta: 0, media: 0, baja: 0, futuro: 0 }, proyectos: j.conteo?.proyectos ?? 0, patches: j.patches ?? [], proyectosPatch: j.proyectosPatch ?? [] };
+    },
+    // El server devuelve la lista ENTERA de aristas, no un ok: es él quien corre el guard
+    // de ciclo y quien ve las escrituras de las otras puertas (WhatsApp, el agente, un
+    // script). Reconstruir la lista en el cliente sería el segundo productor del mismo dato.
+    addDep: async (d) => {
+      const j = await apiPlan({ action: 'dep-add', ...d });
+      return { ok: !!j.ok, error: j.error, camino: j.camino, deps: (j.deps ?? []).map(sanearDep).filter((x): x is Dep => x != null) };
+    },
+    delDep: async (entidad, deId, aId) => {
+      const j = await apiPlan({ action: 'dep-del', entidad, deId, aId });
+      return { ok: !!j.ok, deps: (j.deps ?? []).map(sanearDep).filter((x): x is Dep => x != null) };
     },
     ampliarTareas: async (items, fuente) => {
       const j = await apiPlan({ action: 'ampliar-tareas', items, fuente });

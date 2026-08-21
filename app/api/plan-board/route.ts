@@ -14,8 +14,10 @@ import {
   listPlanBoard, planVacio, crearPlanTarea, guardarPlanTarea, borrarPlanTarea,
   crearPlanProyecto, guardarPlanProyecto, borrarPlanProyecto, guardarPlanBulk,
   priorizarNuevasOwner, ampliarTareasPlanOwner,
+  agregarDependencia, borrarDependencia, listDependencias,
 } from '@/lib/plan-board';
 import type { BoardTask, Label, Fuente } from '@/app/plan/board/types';
+import type { EntidadDep, ClaseDep } from '@/app/plan/board/dependencias';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -28,8 +30,8 @@ export const maxDuration = 120;
 export async function GET() {
   if (!(await getSesionAdmin())) return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });
   try {
-    const [{ tareas, proyectos }, vacio] = await Promise.all([listPlanBoard(), planVacio()]);
-    return NextResponse.json({ ok: true, tareas, proyectos, vacio });
+    const [{ tareas, proyectos, deps }, vacio] = await Promise.all([listPlanBoard(), planVacio()]);
+    return NextResponse.json({ ok: true, tareas, proyectos, deps, vacio });
   } catch (err) {
     return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }
@@ -42,6 +44,30 @@ export async function POST(req: NextRequest) {
   const action = String(body.action ?? '');
 
   try {
+    // ── Dependencias (mig 0140) ──
+    // El guard de ciclo corre en `agregarDependencia`, del lado del server, y NO solo en el
+    // modal: esta ruta no es la única puerta (están /api/agente/plan, WhatsApp y los
+    // scripts), y un chequeo que vive en un componente es un chequeo que el próximo canal
+    // no tiene.
+    if (action === 'dep-add') {
+      const entidad = (String(body.entidad ?? 'tarea') === 'proyecto' ? 'proyecto' : 'tarea') as EntidadDep;
+      const deId = String(body.deId ?? ''), aId = String(body.aId ?? '');
+      if (!deId || !aId) return NextResponse.json({ ok: false, error: 'faltan las dos puntas' }, { status: 400 });
+      const r = await agregarDependencia({
+        entidad, deId, aId,
+        clase: (String(body.clase ?? 'bloquea') === 'ordena' ? 'ordena' : 'bloquea') as ClaseDep,
+        razon: String(body.razon ?? ''), origen: 'user',
+      });
+      // El rechazo viaja con el CAMINO: la pantalla puede decir la cadena entera en vez de
+      // un «no se puede» que obliga a adivinar.
+      return NextResponse.json(r.ok ? { ok: true, deps: await listDependencias() } : { ...r }, { status: r.ok ? 200 : 409 });
+    }
+    if (action === 'dep-del') {
+      const entidad = (String(body.entidad ?? 'tarea') === 'proyecto' ? 'proyecto' : 'tarea') as EntidadDep;
+      await borrarDependencia(entidad, String(body.deId ?? ''), String(body.aId ?? ''));
+      return NextResponse.json({ ok: true, deps: await listDependencias() });
+    }
+
     if (action === 'crear-tarea') {
       const t = body.tarea as BoardTask | undefined;
       if (!t?.title?.trim()) return NextResponse.json({ ok: false, error: 'falta el título' }, { status: 400 });

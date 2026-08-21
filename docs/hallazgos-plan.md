@@ -1376,3 +1376,70 @@ tiene deadline cerca). Falta definir la ventana de días con el dueño.
 (`recurvarProyectosOwner`, llamada al final de `priorizarNuevasOwner`) ·
 app/plan/board/BoardShell.tsx (`porScore` y su desempate) · scripts/recurvar-plan.mts ·
 scripts/medir-proyectos-derivados.mts (el dry-run que produjo la tabla) · *2026-08-21*
+
+
+### Dependencias: la urgencia sube por la cadena, la ejecutabilidad baja, y NO se escribe nada
+
+Pedido textual: *«Hay proyectos y tareas que DEPENDEN de otros. Puede que haya algunos que
+estén correlacionados, pero iniciar no depende del anterior. Pero otros sí, dependen
+absolutamente de que el anterior se termine. Como por ejemplo el de Cobros y Planes depende
+totalmente de que se termine la oferta y precios.»*
+
+Tres decisiones, y las tres salieron de medir el código, no de preferencia.
+
+**1. NO SE PERSISTE NINGÚN NÚMERO. Las dependencias se resuelven en el render.**
+Dos razones independientes, cualquiera de las dos alcanza:
+
+- `curveTaskScores` reasigna TODOS los scores por ranking a bandas fijas. Un orden horneado
+  en la base es **irreversible**: borrar la arista no devuelve los scores viejos porque ya
+  no existen. Como lente, una arista equivocada se arregla borrándola y el tablero vuelve
+  exacto al instante.
+- **`recurvarPlanOwner` tiene UN solo llamador en todo el repo** — adentro de
+  `priorizarNuevasOwner`. No hay endpoint, ni cron, ni botón. O sea: **el tablero solo se
+  re-reparte cuando entran tareas nuevas.** Una propagación enchufada ahí sería invisible
+  hasta la próxima reunión: el dueño declara la dependencia, no pasa nada, y parece que la
+  feature está rota. Es el gotcha que más caro salía y no lo vio ninguno de los tres
+  diseños que se generaron en paralelo.
+
+**2. Tabla propia, no una columna en `plan_tareas`.** `guardarPlanTarea` hace
+`upsert(taskToRow(t))` de la **fila entera** desde el estado del navegador en cada autosave.
+Un campo nuevo que una pestaña con estado viejo no conozca se pisa solo — sin error, sin
+build roto, con el síntoma «se me borran las dependencias a veces». Con la relación afuera
+ese modo de falla es imposible por construcción y no una cosa que haya que recordar.
+
+**3. La herencia sube por DELTA, no por máximo.** Ésta se descubrió corriéndola contra el
+tablero real, y la primera versión estaba mal: le daba a CADA tarea del proyecto la urgencia
+heredada entera. Resultado medido: las **14 tareas abiertas de «Oferta y precios» saltaron
+todas a 93 y coparon el top 12**, incluidas «Investigar competencia: Crush.ai» (score 15) y
+«Analizar embudo de GoMarz» (7), empujando abajo trabajo urgente de otros proyectos.
+Aplanar el orden INTERNO de un proyecto es cambiar una mentira por otra. La regla correcta:
+*el proyecto que va primero sube hasta el nivel del que lo espera, y sus tareas suben todas
+lo mismo*.
+
+**Las dos cosas que una dependencia cambia son DISTINTAS, y confundirlas es el error:**
+
+| | qué le pasa |
+|---|---|
+| **Importancia** | sube del bloqueado al bloqueante: `u(A) = max(score(A), u de lo que A destraba)`. Misma forma que `scoreProyectoDerivado`. |
+| **Ejecutabilidad** | baja, pero el **score NO se toca**. Un trabajo bloqueado sigue valiendo lo que vale; lo que no puede es entrar a la lista de «qué hago AHORA». Prioridades lo excluye y avisa cuántas quedaron afuera. |
+
+`clase: 'ordena'` (correlacionado) **no toca ningún número**: es la traducción literal de
+«iniciar no depende del anterior». Si moviera el ranking, las dos clases serían la misma con
+distinto nombre.
+
+**Lo que sigue abierto:** las aristas hoy las carga el dueño a mano. El Perro **todavía no
+puede** detectarlas: `puntuarNuevas` le manda `existentes` como `[score] titulo` **sin ids**,
+y filtra `progress < 100` — o sea el estado que DEFINE una dependencia («A ya terminó») es
+estructuralmente invisible, y un par de ids exactos transportado por un LLM es el
+antipatrón que este repo ya pagó. Cuando se cablee, va por `plan_propuestas.depende` (la
+columna ya existe, mig 0140) con los títulos adentro y confirmación humana.
+Y hay un regalo sin usar: **`DebateModal` ya le pregunta al dueño «Desbloquea (o frena)
+otras cosas» y le hace elegir una tarea REAL de una lista con ids — y después tira la
+respuesta.** Ese es el mejor punto de entrada que existe.
+
+**Vive en:** app/plan/board/dependencias.ts (el motor puro, sin `server-only`) ·
+app/plan/board/DependenciasBloque.tsx (el bloque del detalle, uno para los dos niveles) ·
+lib/plan-board.ts (`listDependencias`, `agregarDependencia`, `limpiarDependenciasColgadas`) ·
+app/api/plan-board/route.ts (`dep-add` / `dep-del`, con el guard de ciclo server-side) ·
+supabase/migrations/0140_plan_dependencias.sql · tests/dependencias.test.ts (30 tests) ·
+*2026-08-21*
