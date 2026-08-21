@@ -2665,3 +2665,51 @@ alguien haya mirado, así que no hay ningún registro de por qué empezó ese d�
 
 *Corrida del 21/08/2026 — incidente #101 cerrado a mano en prod, credencial de ws13
 corregida a `act_…`, mig 0139 aplicada. Typecheck 0 errores, 1030/1030 tests.*
+
+---
+
+## La mitad in-app de TODOS los avisos de MaKo nunca existió en producción
+
+**Vive en:** `lib/notificaciones.ts` · `lib/avisos.ts` ·
+`supabase/migrations/0048_notificaciones.sql` · `scripts/check-migrations.mjs`
+
+Encontrado el 21/08/2026 revisando el resto de los avisos después de la alerta falsa de
+Meta. **La tabla `notificaciones` no existe en la base de producción.** 77 tablas en
+`public`, ninguna es esa, y no hay sustituto — no fue renombrada, nunca se creó: la
+migración `0048_notificaciones.sql` jamás se aplicó.
+
+Consecuencias, todas silenciosas:
+
+- `emitirAviso()` es, por diseño, «feed in-app + WhatsApp». **Solo funcionó la mitad de
+  WhatsApp**, desde el día uno y para los 59 avisos del catálogo.
+- **La campanita del sidebar está vacía y siempre lo estuvo.** `listNotificaciones()` lee
+  la misma tabla.
+- `crearNotificacion()` hace `catch → console.error → return null`, y `emitirAviso`
+  devuelve `{ ok: true, feedId: null }`. **Nada río arriba se entera**: el `ok: true` es
+  cierto respecto de lo que salió por WhatsApp y falso respecto de lo que se prometió.
+
+**Por qué importa para la alerta falsa de al lado:** el único rastro de los cuatro
+mensajes que recibió el cliente fue su propio WhatsApp. No había ninguna pantalla donde
+mirar qué se le había mandado, ni cuándo, ni por qué — el registro durable que la 0048
+venía a dar es exactamente lo que hacía falta para diagnosticarlo. **Un aviso es un
+EVENTO; una bandeja es un ESTADO**, y acá se perdió el estado de todos los avisos.
+
+**Y lo que lo mantuvo invisible tres meses:** `scripts/check-migrations.mjs` —el script que
+existe precisamente para cazar esto— tiene la lista de migraciones **hardcodeada hasta la
+0022**, con el repo en la 0139. Reporta prolijamente 22 de 139 y da una sensación de
+cobertura que no tiene. Es un indicador que afirma la mitad verdadera: todo lo que mira
+está bien, y no mira el 84%.
+
+### Lo que quedó SIN hacer
+
+- **Aplicar la 0048** (`node scripts/apply-migration.mjs supabase/migrations/0048_notificaciones.sql`).
+  NO se aplicó en esta corrida a propósito: enciende la campanita para todos los clientes de
+  golpe, que es un cambio visible de producto y no una urgencia. Es aditivo y seguro de
+  re-ejecutar.
+- **Que `check-migrations.mjs` lea el directorio** en vez de una lista a mano, y contraste
+  contra el esquema. Mientras siga en 0022, la próxima migración olvidada tampoco se ve.
+- **Que `emitirAviso` no devuelva `ok: true` con `feedId: null`** cuando el feed era parte
+  del contrato. Hoy el éxito parcial se reporta como éxito.
+
+*Hallazgo del 21/08/2026, sin arreglar: el diagnóstico está completo, la decisión de
+encender el feed es de producto.*
