@@ -38,18 +38,23 @@ await runWithWorkspace(9, async () => {
   const { data: tareas } = await db.from('plan_tareas').select('id,num,title,labels,historial').in('num', Object.keys(MOVER).map(Number));
 
   const idDe = new Map<string, string>();
+  const nuevos: string[] = [];
   for (const cliente of [...new Set(Object.values(MOVER))]) {
     const nombre = `Cliente: ${cliente}`;
     const ya = porNombre.get(nombre.toLowerCase());
     if (ya) { idDe.set(cliente, ya); console.log(`· proyecto ya existe: ${nombre}`); continue; }
     if (!APLICAR) { idDe.set(cliente, `(nuevo) ${nombre}`); console.log(`+ crearía el proyecto: ${nombre}`); continue; }
     const p = await crearPlanProyecto({
-      id: '', emoji: '🤝', name: nombre, color: '#7C5CFF', score: 70, detalle:
+      // 50 es el PLACEHOLDER de la casa (agregarTareasPlanOwner hace lo mismo), no una
+      // prioridad: la pone el Perro en la línea de abajo. Un número puesto a mano acá es
+      // exactamente lo que la regla prohíbe — y ya pasó: estos dos nacieron en 70.
+      id: '', emoji: '🤝', name: nombre, color: '#7C5CFF', score: 50, detalle:
         `Todo lo que se hace PARA ${cliente} — su cuenta, su contenido, sus campañas y lo que se le entrega. No entra acá el producto: una feature que sale de una charla con ${cliente} igual la usan todos, y se archiva en su tab.`,
       historial: [{ id: 'h' + Date.now().toString(36), ts: Date.now(), actor: 'ia', text: 'Creó el proyecto — el trabajo de un cliente va a SU proyecto (regla del 2026-08-02)' }],
     });
     idDe.set(cliente, p.id);
-    console.log(`+ proyecto creado: ${nombre} (${p.pid})`);
+    console.log(`+ proyecto creado: ${nombre} (${p.pid}) — sin prioridad todavía`);
+    nuevos.push(p.id);
   }
 
   for (const t of tareas ?? []) {
