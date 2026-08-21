@@ -18,6 +18,7 @@ config({ path: resolve(process.cwd(), '.env.local') });
 
 import { readdirSync, readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from 'node:fs';
 import { join, extname, basename } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { transcribeMediaBuffer } from '../lib/transcribe';
 
 const arg = (n: string, d: string) => {
@@ -29,6 +30,9 @@ const DE = arg('de', 'C:\\cursos\\audio');
 const A = arg('a', 'C:\\cursos\\texto');
 const HINT = arg('hint', ''); // sesga ortografía de términos propios del curso
 
+// ffmpeg NO está en el PATH de esta máquina; misma ruta que usa curso-audio.mjs.
+const FFMPEG = arg('ffmpeg', join(process.env.LOCALAPPDATA ?? '', 'ffmpeg-full\\ffmpeg-master-latest-win64-gpl\\bin\\ffmpeg.exe'));
+
 const MIMES: Record<string, string> = {
   '.m4a': 'audio/mp4', '.mp3': 'audio/mpeg', '.wav': 'audio/wav',
   '.ogg': 'audio/ogg', '.oga': 'audio/ogg', '.opus': 'audio/ogg',
@@ -36,6 +40,36 @@ const MIMES: Record<string, string> = {
 };
 
 const mb = (b: number) => (b / 1048576).toFixed(1);
+
+// ── ¿ESTE AUDIO TIENE ALGO ADENTRO? ─────────────────────────────────────────
+//
+// ⚠️ UN AUDIO MUDO NO DEVUELVE VACÍO: DEVUELVE UNA INVENCIÓN. Dos clases de «Master
+// Marca Personal» tienen el video SIN pista de sonido (−91 dB, el piso digital). Sobre
+// ese silencio, Whisper devolvió «Thank you.» —su alucinación clásica— y Gemini se
+// inventó un noticiero entero: «Bienvenidos a una edición más de Noticias de Bolsillo,
+// yo soy Javier Pérez y hoy hablaremos sobre las energías renovables». Una clase sobre
+// Calendly. Y eso se publicó, redactado impecable, sin que nada fallara.
+//
+// Es la peor forma del problema que este pipeline viene cerrando todo el día: no es una
+// transcripción incompleta, es una COMPLETAMENTE FALSA, y se lee mejor que las buenas.
+//
+// La guarda va ANTES de gastar la llamada, y el criterio es el BITRATE EFECTIVO: el
+// audio se genera a 32 kbps, así que un archivo que no llega ni a un cuarto de eso no
+// tiene voz. Medido sobre las 92 clases del curso: las reales dan entre 29,9 y 33,3
+// kbps y las dos mudas 1,0 y 2,1 — un factor de 14 entre las dos poblaciones, así que
+// el umbral tiene todo el aire del mundo.
+const KBPS_MINIMO = Number(arg('kbps-minimo', '8'));
+const duracionSeg = (ruta: string): number | null => {
+  const p = spawnSync(FFMPEG, ['-i', ruta], { encoding: 'utf8' });
+  const m = /Duration:\s*(\d+):(\d+):(\d+)\.(\d+)/.exec(`${p.stderr}`);
+  return m ? +m[1] * 3600 + +m[2] * 60 + +m[3] + +m[4] / 100 : null;
+};
+/** kbps efectivos, o null si no se puede medir (y entonces no se afirma nada). */
+const kbpsDe = (ruta: string): number | null => {
+  const d = duracionSeg(ruta);
+  if (!d || d < 3) return null;   // un archivo de 2 segundos no dice nada del contenido
+  return (statSync(ruta).size * 8) / d / 1000;
+};
 const hhmm = (s: number | null) => (s == null ? '?' : `${Math.floor(s / 60)}m${String(Math.round(s % 60)).padStart(2, '0')}s`);
 
 if (!existsSync(DE)) { console.error(`\n  ✖ No existe ${DE}. Corré antes: node scripts/curso-audio.mjs\n`); process.exit(1); }
@@ -61,7 +95,7 @@ if (!grupos.size) { console.error(`\n  ✖ No hay audio en ${DE}\n`); process.ex
 
 console.log(`\n  ${grupos.size} clase(s) para transcribir · salida en ${A}\n`);
 
-let hechas = 0, saltadas = 0, fallidas = 0;
+let hechas = 0, saltadas = 0, fallidas = 0, mudas = 0;
 const indice: string[] = [];
 
 for (const [clave, piezas] of [...grupos].sort()) {
@@ -106,6 +140,14 @@ for (const [clave, piezas] of [...grupos].sort()) {
     } catch { return ''; }
   })();
   if (apuntesPrevios) console.log(`     (conservo tus ${apuntesPrevios.length} caracteres de apuntes)`);
+
+  // El audio mudo se descarta ANTES de gastar la llamada: ver la nota de kbpsDe.
+  const kbps = piezas.length === 1 ? kbpsDe(join(DE, piezas[0])) : null;
+  if (kbps !== null && kbps < KBPS_MINIMO) {
+    console.log(`  ⊘ ${clave}  (${kbps.toFixed(1)} kbps: el audio es SILENCIO, el video no trae pista de sonido — no lo mando a transcribir)`);
+    mudas++;
+    continue;
+  }
 
   const partes: string[] = [];
   let segundos = 0;
@@ -173,7 +215,9 @@ for (const [clave, piezas] of [...grupos].sort()) {
 
 writeFileSync(join(A, '_indice.md'), `# Clases transcriptas\n\n${indice.join('\n')}\n`, 'utf8');
 
-console.log(`\n  ${hechas} transcripta(s) · ${saltadas} ya estaban · ${fallidas} fallada(s)`);
+console.log(`
+  ${hechas} transcripta(s) · ${saltadas} ya estaban · ${fallidas} fallada(s)${mudas ? ` · ${mudas} MUDA(S)` : ''}`);
+if (mudas) console.log(`  ⊘ ${mudas} clase(s) tienen el video SIN pista de audio. NO se les inventa una transcripción.`);
 console.log(`  Índice: ${join(A, '_indice.md')}\n`);
 if (fallidas) console.log('  Las falladas se reintentan solas al volver a correr (no dejaron .md).\n');
 console.log('  Cuando tengas tu versión curada, entra por /conocimiento — esa puerta ya\n  existe y es la única que escribe en mako_knowledge.\n');

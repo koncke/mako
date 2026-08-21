@@ -3185,3 +3185,66 @@ emitirla.
 sobre una URL que **nunca existió**. Se corta con `MSYS_NO_PATHCONV=1` adelante del
 comando. Es la misma familia que el `\` por `/` de la herramienta de búsqueda: el valor
 llega transformado y el error habla de otra cosa.
+
+---
+
+## ⚠️ Un audio MUDO no devuelve vacío: devuelve una INVENCIÓN
+
+**Síntoma:** una clase sobre Calendly cuya transcripción publicada arranca así:
+
+> *«¡Buenas tardes! Bienvenidos a una edición más de Noticias de Bolsillo. Yo soy Javier
+> Pérez y el día de hoy estaremos hablando sobre las energías renovables y su impacto en
+> el futuro de nuestro país…»*
+
+Nada de eso existe. No hay un noticiero, no hay un Javier Pérez, y la clase es sobre
+Calendly. **Está redactado impecable**, con puntuación y cadencia de locutor, y se publicó
+sin que fallara absolutamente nada.
+
+**Causa:** dos clases de «Master Marca Personal» tienen el video **sin pista de audio**
+—medido con `volumedetect`: **−91 dB**, el piso digital, mean y max iguales—. Sobre ese
+silencio:
+
+| proveedor | qué devolvió |
+|---|---|
+| `whisper-large-v3-turbo` | «Thank you.» — su alucinación clásica sobre silencio |
+| `gemini-flash-latest` | **un noticiero entero, inventado de cero** |
+
+Y la mitad de Gemini es **culpa del prompt**, o sea mía: al escribir `sttGemini` en
+`lib/transcribe.ts` copié el de `lib/ai-cheap.ts` pero **dejé afuera su escape hatch**
+—«si no hay voz, devolvé exactamente (vacío)»— y encima agregué *«transcribí el audio
+COMPLETO, de principio a fin, sin resumir»*. Un modelo al que no le das forma de decir «acá
+no hay nada» y al que le exigís completitud, completa.
+
+> **La regla:** todo prompt que pida transcribir, extraer o leer tiene que darle al modelo
+> una forma EXPLÍCITA de decir «no hay nada». Sin esa salida, la instrucción de ser
+> completo se convierte en licencia para inventar. Y el pedido de completitud y el escape
+> hatch van **juntos**: el primero sin el segundo es peor que ninguno de los dos.
+
+Esta es la peor forma de todo lo que este documento viene cerrando. No es una
+transcripción incompleta ni vieja: es **completamente falsa**, y se lee **mejor** que las
+verdaderas.
+
+### La guarda: el bitrate efectivo, medido antes de elegirlo
+
+El audio se genera a 32 kbps, así que un archivo muy por debajo de eso no tiene voz. Contra
+las 92 clases del curso:
+
+    clases reales    29,9 – 33,3 kbps
+    las dos mudas     1,0 y 2,1 kbps
+
+Un factor de **14** entre las dos poblaciones, así que el umbral de 8 kbps tiene todo el
+aire del mundo. La guarda corre **antes** de gastar la llamada y la clase queda marcada
+como MUDA, sin `.md`.
+
+### El barrido: a cuántas más les pasó
+
+**1.818 audios de todos los cursos. Mudos: esos 2.** El daño estaba contenido, y ahora
+ninguno de los dos publica nada.
+
+⚠️ **Y el archivo inventado sobrevive a que la clase deje de pedirlo.** Al sacarle el
+`hasTx`, el portal deja de mostrarlo — pero `public/cono-tx/<videoId>.json` **sigue en
+disco y servido en una URL adivinable**. Borrar el `.md` no es borrar lo publicado; hay
+que sacar el JSON, comprobando antes que ninguna clase lo pida.
+
+**Vive en:** `scripts/curso-transcribir.ts` (`kbpsDe`, `KBPS_MINIMO`) ·
+`lib/transcribe.ts` (`sttGemini`)
