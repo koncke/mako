@@ -166,7 +166,7 @@ const main = async () => {
   // Se cuenta el TOTAL de botones: abrir un acordeón agrega nodos y cerrarlo los
   // saca, en cualquier curso y sin depender de cómo se rotule una lección.
   const contarBotones = `document.querySelectorAll('button').length`;
-  const contarClases = `[...document.querySelectorAll('button')].filter(b => { const t=(b.innerText||'').replace(/\\s+/g,' ').trim(); return /\\b\\d{1,2}:\\d{2}\\b/.test(t) && !/\\d+\\s*\\/\\s*\\d+/.test(t); }).length`;
+  const contarClases = `[...document.querySelectorAll('button')].filter(b => { const t=(b.innerText||'').replace(/\\s+/g,' ').trim(); return /\\b\\d{1,3}:\\d{2}(?::\\d{2})?\\b/.test(t) && !/\\d+\\s*\\/\\s*\\d+/.test(t); }).length`;
   const antes = await ev(contarClases);
 
   // El bucle vive en NODE, no en la página: meter N clicks con espera dentro de un
@@ -174,7 +174,7 @@ const main = async () => {
   // módulos (pasó con este, de 249 clases). Un click por llamada, cada una corta.
   const marcar = `(() => {
     const esCabecera = (b) => { const t=(b.innerText||'').replace(/\\s+/g,' ').trim();
-      return /\\d+\\s*\\/\\s*\\d+/.test(t) && !/\\b\\d{1,2}:\\d{2}\\b/.test(t) && t.length < 120; };
+      return /\\d+\\s*\\/\\s*\\d+/.test(t) && !/\\b\\d{1,3}:\\d{2}(?::\\d{2})?\\b/.test(t) && t.length < 120; };
     const hs = [...document.querySelectorAll('button')].filter(esCabecera);
     hs.forEach((b, i) => b.setAttribute('data-cxh', String(i)));
     return hs.length;
@@ -239,7 +239,7 @@ const main = async () => {
   // Medido acá: por padre directo entra ella sola; por abuelo se cuela «2.BONOS
   // EXCLUSIVOS», así que es padre directo y no más arriba.
   const visiblesAhora = `(() => {
-    const dur = /\\b(\\d{1,2}:\\d{2})\\b/;
+    const dur = /\\b(\\d{1,3}:\\d{2}(?::\\d{2})?)\\b/;
     const numerada = /^\\s*\\d{1,3}\\s*[.)]?\\s+\\S/;
     const btns = [...document.querySelectorAll('button')];
     const txtDe = (b) => (b.innerText || '').replace(/\\s+/g, ' ').trim();
@@ -291,7 +291,7 @@ const main = async () => {
     let n = 0;
     for (const b of document.querySelectorAll('button')) {
       const t = (b.innerText || '').replace(/\\s+/g, ' ').trim();
-      if (t.length >= 120 || /\\b\\d{1,2}:\\d{2}\\b/.test(t)) continue;
+      if (t.length >= 120 || /\\b\\d{1,3}:\\d{2}(?::\\d{2})?\\b/.test(t)) continue;
       const m = /(\\d+)\\s*\\/\\s*(\\d+)/.exec(t);
       if (m) n += Number(m[2]);
     }

@@ -3248,3 +3248,77 @@ que sacar el JSON, comprobando antes que ninguna clase lo pida.
 
 **Vive en:** `scripts/curso-transcribir.ts` (`kbpsDe`, `KBPS_MINIMO`) ·
 `lib/transcribe.ts` (`sttGemini`)
+
+---
+
+# Completar un curso a medias: el cruce es el trabajo, no la descarga
+
+**BlueHacker 2.0**: la plataforma tiene 401 lecciones y el portal 233. Antes de bajar
+113 horas hay que contestar *cuáles* — y esa pregunta costó cinco correcciones, cada una
+descubierta porque el número no cerraba.
+
+## La clave de identidad no es del proyecto: es del PAR de fuentes
+
+Hubo que cruzar **dos veces**, y cada cruce necesitó una clave distinta:
+
+| cruce | señal fuerte | por qué |
+|---|---|---|
+| API ↔ lo publicado | **número + título** | lo publicado no tiene duración (`cardDesc` vacío) |
+| API ↔ el plan | **título + duración** | el plan enumera clickeando y ahí los títulos NO llevan número |
+
+Usar la clave del primer cruce en el segundo dio **6 de 171**. El guard de «si no cierra
+exacto no bajo nada» fue lo único que impidió bajar 113 h de la mitad equivocada.
+
+> **La regla:** antes de elegir cómo emparejar dos listas, mirá qué campos existen **en
+> las dos**. La señal más fuerte de un cruce puede no existir en el otro.
+
+## Las cinco trampas, en orden de aparición
+
+**1. Entidades HTML.** `6. Secuencias &amp; Broadcast` contra `6. Secuencias & Broadcast`:
+2 lecciones que se habrían bajado repetidas.
+
+**2. El número de adelante a veces ES la clase.** «1. Conversión de desconocidos a
+clientes» (10:24) y «5. Conversión…» (12:04) son DOS lecciones distintas; lo mismo
+«10. 23-11-24 Ventas» (24:11) y «11. …» (21:46). Normalizando sin el número colapsan, y
+emparejar la nuestra con la equivocada **baja una que ya tenemos y saltea la que falta**
+— sin que ningún conteo lo delate, porque los totales dan igual.
+
+**3. El regex que saca el número se come la FECHA.** `^\d{1,3}\s*[.)\-]` convierte
+«23-07-21 Setters» en «07-21 Setters», mientras que la misma clase del otro lado
+(«6. 23-07-21 Setters») conserva la suya. **36 lecciones** dadas por ausentes. Solo se
+saca `N.` o `N - ` **con espacios**: una fecha no lleva espacios alrededor del guión.
+
+**4. La numeración tiene DOS niveles de un lado y uno del otro.** La API dice
+«5.2. Funnels y Copywriting» y el plan «2. Funnels y Copywriting» para la misma clase.
+Sacar un solo nivel deja «2funnels…» contra «funnels…». Se saca en bucle.
+
+**5. Y el bug que estaba en el pipeline, no en el cruce.** ⚠️ Ver abajo.
+
+## ⚠️ Una clase de más de 99 minutos perdía su duración, y se le pegaba al título
+
+`curso-plan.mjs` detectaba una clase por `\b\d{1,2}:\d{2}\b` en el texto del botón. Una
+duración de **tres dígitos de minutos** —«185:16», que en este curso son 58 de 401
+clases— no matchea ese patrón: la clase quedaba con `duracion: ''` y el título absorbía
+los dígitos sobrantes (`«Tráfico Pago 23-08-07 - Sesiones Semanales 185»`).
+
+No rompe nada visible: el plan sale con sus 401 clases y el conteo cierra. Lo que se
+pierde es **el dato con el que después se compara**, y encima el título queda contaminado
+para cualquier cruce futuro. El patrón ahora es `\d{1,3}:\d{2}(?::\d{2})?` en los cuatro
+lugares donde vivía, y con eso las 401 tienen duración y el cruce pasó de 153 a 168.
+
+> **La regla:** un cuantificador `{1,2}` sobre una unidad de tiempo es una apuesta a que
+> nada dure más de 99 de esa unidad. Las sesiones semanales duran tres horas.
+
+**Vive en:** `scripts/curso-plan.mjs` (`contarClases`, `esCabecera`, `dur`)
+
+## El cierre que habilita a bajar
+
+    401 de la plataforma
+    233 publicadas  =  230 que matchean  +  3 que el autor SACÓ del curso
+    171 a bajar
+    ──────────────────────────────────────
+    230 + 171 = 401  ✓
+
+Y de las 171, tres comparten título con una nuestra: las tres tienen **otra duración**
+(10:24 vs 12:04 · 16:17 vs 57:12 · 57:17 vs 19:47), o sea que son lecciones distintas y
+corresponde bajarlas.
