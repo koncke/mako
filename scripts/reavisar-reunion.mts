@@ -34,7 +34,7 @@ const salida = await runWithWorkspace(ws, async () => {
   return {
     texto: textoAviso([{
       titulo: String(row.fuente_titulo ?? ''), fecha: row.fuente_fecha ? String(row.fuente_fecha) : null,
-      conQuien, mias, otras, recordingId,
+      conQuien, mias, otras, recordingId, propId: String(row.id ?? ''),
     }], 'America/Montevideo'),
   };
 });

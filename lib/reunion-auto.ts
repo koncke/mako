@@ -62,7 +62,7 @@ const TIPOS_AL_PLAN: readonly TipoReunion[] = ['equipo', 'entrega'];
 const KEY_VISTA = (recordingId: number): string => `mako.reunion.auto.${recordingId}`;
 
 /** Una reunión ya procesada en esta corrida (para redactar el aviso al final). */
-type ReunionHecha = { titulo: string; fecha: string | null; conQuien: string; mias: number; otras: number; partesFallidas?: number; recordingId: number };
+type ReunionHecha = { titulo: string; fecha: string | null; conQuien: string; mias: number; otras: number; partesFallidas?: number; recordingId: number; propId: string };
 
 /**
  * El mensaje al grupo. Dos formas: una reunión (frase suelta) o varias (viñetas con
@@ -77,15 +77,14 @@ export type { ReunionHecha };
  *  (scripts/reavisar-reunion.mts). El mensaje tiene que ser el MISMO que manda el cron:
  *  copiarlo en el script sería la segunda copia que se queda vieja. */
 export function textoAviso(hechas: ReunionHecha[], tz: string): string {
-  // EL LINK ABRE ESTA REUNIÓN, no el tablero. `/plan` a secas te deja parado en el
-  // board y a esperar que salte solo el modal —que con varias reuniones esperando
-  // muestra todas mezcladas, y si ya no te queda nada por confirmar no salta— así que
-  // el aviso decía «te las dejé para que las confirmes» y del otro lado no había nada
-  // que confirmar. Con `?reunion=` se abre el borrador DE ESA reunión, esté pendiente o
-  // ya cargado. Con varias, el tablero es el lugar correcto: se revisan juntas.
-  const link = hechas.length === 1
-    ? `${APP_URL}/plan?reunion=${hechas[0].recordingId}`
-    : `${APP_URL}/plan`;
+  // EL LINK ES EL DE LA REVISIÓN DE ESE BORRADOR — `/plan/revisar/<id>`, el mismo
+  // formato con el que MaKo manda cualquier otro borrador. Antes iba a `/plan` a secas:
+  // del otro lado te dejaba parado en el tablero esperando que saltara solo un modal
+  // —que con varias reuniones las mezcla, y si ya no te queda nada tuyo no salta—, así
+  // que el mensaje prometía una revisión y el link no llevaba a ninguna. Con VARIAS,
+  // cada reunión lleva el suyo en su viñeta: son borradores distintos y cada uno se
+  // confirma por separado.
+  const linkDe = (h: ReunionHecha) => `${APP_URL}/plan/revisar/${h.propId}`;
   const totalMias = hechas.reduce((s, h) => s + h.mias, 0);
   const totalOtras = hechas.reduce((s, h) => s + h.otras, 0);
   const tuyas = `*${totalMias} ${totalMias === 1 ? 'tarea tuya' : 'tareas tuyas'}*`;
@@ -103,15 +102,15 @@ export function textoAviso(hechas: ReunionHecha[], tz: string): string {
   if (hechas.length === 1) {
     const h = hechas[0];
     const cuando = fechaHoraEnTz(h.fecha, tz);
-    return `📝 Leí tu reunión${h.conQuien ? ` con *${h.conQuien}*` : ''}${h.titulo ? ` — *${h.titulo}*` : ''}${cuando ? `\n🗓️ ${cuando}` : ''}\n\nSaqué ${tuyas}${deOtros} y te las dejé en el plan para que las confirmes:\n${link}${aviso}\n\nEntrás, revisás y con un toque quedan cargadas. — MaKo`;
+    return `📝 Leí tu reunión${h.conQuien ? ` con *${h.conQuien}*` : ''}${h.titulo ? ` — *${h.titulo}*` : ''}${cuando ? `\n🗓️ ${cuando}` : ''}\n\nSaqué ${tuyas}${deOtros} y te las dejé en el plan para que las confirmes:\n${linkDe(h)}${aviso}\n\nEntrás, revisás y con un toque quedan cargadas. — MaKo`;
   }
 
   const filas = hechas.slice(0, 4).map((h) => {
     const cuando = fechaHoraEnTz(h.fecha, tz);
-    return `• *${h.titulo || 'Reunión'}*${cuando ? ` — ${cuando}` : ''}\n   ${h.mias} ${h.mias === 1 ? 'tarea tuya' : 'tuyas'}${h.otras ? ` · ${h.otras} de otros` : ''}`;
+    return `• *${h.titulo || 'Reunión'}*${cuando ? ` — ${cuando}` : ''}\n   ${h.mias} ${h.mias === 1 ? 'tarea tuya' : 'tuyas'}${h.otras ? ` · ${h.otras} de otros` : ''}\n   ${linkDe(h)}`;
   });
   const resto = hechas.length > 4 ? `\n…y ${hechas.length - 4} ${hechas.length - 4 === 1 ? 'reunión más' : 'reuniones más'}.` : '';
-  return `📝 Leí tus *${hechas.length} reuniones* nuevas:\n\n${filas.join('\n')}${resto}\n\nEn total ${tuyas}${deOtros}, todas esperándote en la misma pantalla:\n${link}${aviso}\n\nEntrás una vez, revisás todo junto y con un toque quedan cargadas. — MaKo`;
+  return `📝 Leí tus *${hechas.length} reuniones* nuevas:\n\n${filas.join('\n\n')}${resto}\n\nEn total ${tuyas}${deOtros}. Cada una se revisa en su propio link, ahí arriba.${aviso}\n\nEntrás, revisás y con un toque quedan cargadas. — MaKo`;
 }
 
 export type ResultadoReunionesAuto = {
@@ -348,7 +347,7 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       // Preguntas CERRADAS de contexto: lo que la reunión no dejó claro y el Perro
       // necesita para priorizar bien. Se responden en el modal, antes de cargar.
       const { preguntas } = await preguntasDeContexto(tareas, r.titulo, 'Preguntas de contexto (reunión nueva)').catch(() => ({ preguntas: [] }));
-      await crearPropuesta({
+      const propId = await crearPropuesta({
         ws, ref, tareas: propuestas, preguntas, origen: 'fathom',
         fuenteTitulo: r.titulo, fuenteUrl: r.url ?? undefined, fuenteFecha: r.fecha ?? undefined,
         // El número que se promete es el de TUS compromisos, no el total: las de otras
@@ -376,7 +375,7 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       }
       out.conTareas += 1;
       out.tareas += propuestas.length;
-      hechas.push({ titulo: r.titulo, fecha: r.fecha, conQuien, mias, otras: propuestas.length - mias, partesFallidas, recordingId: r.recordingId });
+      hechas.push({ titulo: r.titulo, fecha: r.fecha, conQuien, mias, otras: propuestas.length - mias, partesFallidas, recordingId: r.recordingId, propId });
     } catch (e) {
       out.errores += 1;
       console.error(`[reunion-auto] ws=${ws} recording=${r.recordingId}: ${e instanceof Error ? e.message : String(e)}`);

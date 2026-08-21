@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 
-export default async function TodoPage() {
+export default async function TodoPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   // Nombre + foto del usuario logueado (para el change history del board).
   let user = { nombre: '', avatarUrl: '' };
   try { const p = await getPerfil(); user = { nombre: p.nombre, avatarUrl: p.avatarUrl }; } catch { /* fallback vacío */ }
@@ -31,7 +31,21 @@ export default async function TodoPage() {
   // Si un admin IMPERSONA a un cliente (incl. Mauricio/ws1), cae al tablero del
   // cliente — Mauricio es un cliente más, no el dueño.
   const sesion = await getUsuarioActual();
-  if (sesion?.rol === 'admin' && !(await estaImpersonando())) redirect(await rutaConWs('/plan/agencia'));
+  if (sesion?.rol === 'admin' && !(await estaImpersonando())) {
+    // ⚠️ EL QUERY VIAJA CON EL REDIRECT. Sin esto, un link de MaKo tipo
+    // `/plan?reunion=123` o `/plan?tarea=abc` funciona para un CLIENTE y para el
+    // super-admin no: rebota a /plan/agencia pelado y aterriza en el tablero general,
+    // sin nada abierto y sin ningún error — que es exactamente cómo se reportó
+    // («abrí el link y solo me lleva al plan»). Es el mismo modo de falla que el
+    // `?ws=` que se pierde en un redirect, ya documentado en AGENTS.md.
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(await searchParams)) {
+      if (typeof v === 'string') sp.set(k, v);
+      else if (Array.isArray(v) && v[0]) sp.set(k, v[0]);
+    }
+    const qs = sp.toString();
+    redirect(await rutaConWs(`/plan/agencia${qs ? `?${qs}` : ''}`));
+  }
 
   // Cliente (o admin impersonando un cliente): tablero de tareas del negocio.
   await requireCapa('todo');
