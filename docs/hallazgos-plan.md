@@ -1703,3 +1703,66 @@ es la regla de ESTABILIDAD funcionando.
 `usaTodoElRango`, `piramideSana`) · app/plan/board/types.ts (`curveTaskScores`, el umbral de
 20) · lib/mako-guardian.ts (`{{cupos}}` en el user template) · lib/plan-board.ts (el candado
 de `score_manual`) · supabase/migrations/0143_score_manual.sql · *2026-08-21*
+
+
+### La URL del board era un link de una sola vez, no el estado de la pantalla
+
+Dos reportes de la misma captura, y los dos tenían la misma forma: algo que se veía como
+un detalle de UI y era una decisión de arquitectura mal tomada.
+
+**1. «El botón de filtrar se ve feo.»** Estaba CORTADO por su propio borde, con la palabra
+«Filtrar» saliéndose. El `flex: none` estaba puesto en el `<button>`… y el flex item que ve
+el header es el `<span>` que lo envuelve. El grupo que los contiene tiene `minWidth: 0` para
+poder achicarse, así que el span absorbía toda la falta de lugar y recortaba al botón.
+
+⚠️ **`flex: none` en el hijo no protege al hijo: protege al hijo de que lo comprima SU
+padre.** Si el que se achica es el padre, el hijo se recorta igual. Cuando algo se ve
+cortado adentro de un flex, la pregunta no es qué tiene ese elemento — es cuál de sus
+ancestros puede encogerse. Con el `flex: none` en el span, el header vuelve a desbordar y
+el modo compacto (que ya existía) se activa: se pliega a solo-ícono en vez de recortarse.
+
+**2. «Cada vez que refresco me lleva a Prioridades.»** El board guardaba la vista en un
+`useState` y nunca la escribía a ningún lado. Y peor: el deep-link `?tarea=`/`?proyecto=`
+—que sí existía— **se borraba a sí mismo** apenas abría el modal (`sp.delete('tarea')`),
+porque estaba pensado como un link de una sola vez que manda MaKo por WhatsApp.
+
+**La regla que queda: si la pantalla tiene estado que sobrevive a un F5, ese estado es la
+URL.** Un `useState` es el estado de ESTA carga; la URL es el estado de la PANTALLA. La
+diferencia se nota exactamente en dos momentos —refrescar y copiar el link— y los dos son
+justo cuando más molesta.
+
+⚠️ Y hay una distinción que hay que hacer explícita, porque el mismo query string tenía las
+dos cosas mezcladas: **`?vista=`, `?tarea=` y `?proyecto=` son ESTADO** (se escriben, se
+leen y se conservan); **`?reunion=` es un EVENTO** (abrir un borrador) y se limpia después
+de usarlo. Un evento que se queda en la URL se vuelve a disparar en cada refresh.
+
+**Dos decisiones de implementación con su porqué:**
+
+- **La vista se lee EN EL SERVER** (`app/plan/agencia/page.tsx` y `app/plan/page.tsx`), que
+  es lo que ya pedía AGENTS.md. Acá se ve por qué: si el board arrancara en «prioridades» y
+  corrigiera después de hidratar, cada refresh sería un parpadeo *más* un aviso de
+  hidratación desalineada.
+- **Se escribe con `history.replaceState`, NO con `router.replace`**, apartándose de la
+  convención de tabs — y el motivo es medible: `router.replace` sobre la misma ruta con otro
+  query **es** una navegación, y esta página es `force-dynamic`, así que Next vuelve a pedir
+  el RSC. Serían **550 tareas y 71 proyectos por cada click en una tab**. Cuando la URL es un
+  destino, `router.replace`; cuando es un marcador para el próximo F5, `replaceState`.
+
+⚠️ La query se construye a partir de `window.location.search`, **nunca de cero**: armarla de
+cero es como se pierde el `?ws=` y terminás mirando otra cuenta (AGENTS.md → las cuatro
+formas de navegar).
+
+**Verificado en el navegador real contra producción**, que es lo único que cuenta para un
+bug visual: el filtro se dibuja entero, un click en una tab escribe `?vista=proyectos`,
+abrir un proyecto agrega `?proyecto=17`, y después de F5 la pantalla vuelve idéntica —
+misma tab, mismo modal abierto.
+
+⚠️ **Gotcha de verificación:** el primer screenshot después del F5 mostró la tab correcta
+pero SIN el modal, y parecía un bug. El board todavía estaba hidratando. Con un board de
+550 tareas hay varios segundos entre «el HTML llegó» y «React ya montó los efectos»: una
+captura sacada en el medio muestra media pantalla y se lee como una falla. Esperar y volver
+a mirar antes de diagnosticar.
+
+**Vive en:** app/plan/board/BoardShell.tsx (el efecto de la URL, `FilterMenu`) ·
+app/plan/agencia/page.tsx · app/plan/page.tsx · app/plan/PlanBoard.tsx ·
+app/plan/TodoBoard.tsx · *2026-08-21*
