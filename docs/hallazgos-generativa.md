@@ -129,18 +129,26 @@ tabla oficial de consumo lista solo modelos de video). Para producir a mano, la
 suscripción legítima de AI Pro a US$19,99 **le gana a la API por ~1,7x**: 1.000
 créditos son ~5,5 min de Omni, que por API saldrían US$33.
 
-**Lo que no:**
-- Son **3 meses, no 18**. El «18» existe pero es otra cosa: Google regaló 18 meses de
-  AI Pro a usuarios de Jio en India, y ese stock es la fuente probable de la reventa.
-- **No es una oferta de Google.** Es reventa de *activation links* en marketplaces de
-  claves grises. Los términos dicen textual «This Offer is non-transferable, cannot be
-  resold». Se apaga cualquier día, sin devolución.
+**Son 18 MESES, no 3 — corregido el 21/08/2026 con la pantalla de activación.**
+La primera versión de este hallazgo decía «3 meses» y que era reventa de *activation
+links* de mercado gris. **Las dos cosas eran falsas.** Martín activó el plan desde
+`one.google.com/activate-plan` y la pantalla dice textual: *«Activa tu plan Google AI Pro
+de Jio por ₹35.100 sin costo por 18 meses»*, con *«Oferta válida hasta octubre de 2026»* y
+*«No se requiere pago»*. Es la promo real de Jio, activada por el canal oficial de Google
+One, no un link revendido.
+
+Lo que quedó bien de la advertencia original: es una promo de un tercero (Jio) con fecha
+de corte, no un precio permanente de Google. Se apaga en octubre de 2026.
+
+**Lo que sí sigue siendo cierto:**
 - **«Ilimitado» no lo dice Google.** Los límites de Gemini son por cómputo, se reponen
   cada 5 horas, y la doc dice «Limits may change without notice».
 - **La cuenta del curso está inflada 2x**: los US$0,06 que cita por «clip de 10s» son
   15 créditos, y 15 créditos compran **4 segundos** con Omni Flash. Diez segundos son
   30 créditos. Y manda al modelo 3x más caro por defecto: Veo 3.1 Lite cuesta 10
   créditos por clip de hasta 8s contra los 30 de Omni.
+- En Flow las imágenes **no descuentan créditos** (la tabla oficial de consumo lista solo
+  modelos de video).
 
 **EL TAPÓN, y es de arquitectura:** Flow **no tiene API**, y la suscripción de
 consumidor **no cubre requests de API** — doc oficial textual: *«Google AI plan
