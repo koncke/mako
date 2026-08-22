@@ -819,3 +819,332 @@ abajo, el clon salió de material conversacional.
 sobre el mismo audio: dos con un tramo corrido 290-310 ms en el mismo punto (68 s), la tercera
 limpia (máximo 10 ms). **Verificar por correlación cruzada y repetir la corrida si aparece un
 tramo malo** — sale más barato que diagnosticarlo.
+
+---
+
+Corrida de 4 agentes, 2026-08-22: automatizar Google Flow con useapi.net para uso
+interno (Martín + Mauricio), cruzando los dos cursos con la doc de useapi y el
+estado del arte abierto de lip-sync / face swap.
+
+## El diagnóstico obvio era el equivocado: esto no es más barato que HeyGen
+
+La intuición —«nos salimos de HeyGen y ahorramos»— **da al revés**. HeyGen por API
+cuesta **US$1 por minuto** de avatar estándar
+(https://help.heygen.com/en/articles/10060327-heygen-api-pricing-explained). Flow
+vía useapi con el plan Pro da **1.000 créditos/mes ÷ 20 créditos por generación de
+8 s = 50 clips = 6,67 minutos de video al mes**
+(https://useapi.net/docs/api-google-flow-v1/post-google-flow-videos). Con los US$15
+de useapi eso es **US$2,25 por minuto**, con techo duro mensual.
+
+Peor: casi todas las alternativas de lip-sync por API están entre US$3 y US$7 el
+minuto (sync lipsync-2 US$3/min, OmniHuman 1.5 US$0,12/s = US$7,20/min).
+
+**Regla que queda:** este proyecto **no se justifica por ahorro**. El Norte se
+escribe como **«avatar que se MUEVE con voz propia»**, no como «HeyGen propio». Lo
+dice el propio curso: «*puedo andar, puedo saludarte, puedo dar una vuelta, puedo
+rascarme el ojo mientras hablo*» (`public/cono-tx/13A0RAHz8Rly5guwRVYpP9DkyPeqK3U_r.json:1`).
+Y al revés, SIM reconoce que **en lip-sync HeyGen gana**
+(`public/cono-tx/1bCgf1a7pC3ojQTwFUyab8enlU-L-R6xH.json:1`). Consecuencia de diseño:
+priorizar clips de acción sobre planos parlantes fijos. En plano parlante fijo no
+compitas: ya está resuelto y mejor.
+
+## La consistencia entre clips es estructural, no un prompt mejor
+
+**Síntoma:** la identidad del avatar deriva entre clip y clip y se intenta arreglar
+adjuntando más fotos de referencia o insistiendo en el prompt.
+
+**Causa real:** Veo acepta **hasta 3 imágenes de referencia** y clips de **máximo
+8 segundos** (https://ai.google.dev/gemini-api/docs/veo). La deriva es una propiedad
+del modelo, no un bug del prompt. Los dos cursos convergen en la misma solución
+mecánica: **el último frame de un clip es el primero del siguiente**.
+
+> AvatarHype: «cada uno de los vídeos que generan luego el anuncio completo **es una
+> transición animada entre dos de las imágenes consecutivas**»
+> (`public/cono-tx/1eeOFpwumZ869pa5wjMy1owhfEwSIqLVT.json:1`)
+> SIM: «podéis meter un star frame y un end frame… **vuestro video gira en torno a
+> esas dos fotos**» (`public/cono-tx/1rIlEGbkhAMSMb74SiFTjEPvo1VhwN3Nv.json:1`)
+
+**Y la API lo expone:** modo **I2V-FL**, parámetros `startImage` + `endImage`, ambos
+`mediaGenerationId`, **solo Veo**
+(https://useapi.net/docs/api-google-flow-v1/post-google-flow-videos).
+
+**Regla que queda:** el planificador produce **N+1 imágenes y N clips**, con
+`clip[i].startFrame = img[i]` y `clip[i].endFrame = img[i+1]`. La primitiva del
+wrapper no es `generarVideo(prompt)`, es
+`generarClip({startImage, endImage, prompt, model, aspectRatio})`.
+
+## Flow es el recurso escaso: gastarlo solo donde el avatar habla
+
+**Síntoma:** los créditos de Flow se agotan a mitad de mes.
+
+**Causa real:** los planos de corte y el B-roll consumen la misma cuota que los
+clips hablados, y ahí Flow no aporta nada. La regla del curso está escrita:
+«Avatar hablando → Omni / **Avatar sin hablar → Grok**… planos recurso y B-roll»
+(`public/cono-doc/creativos-ugc-realistas__catalogo-modelos-ia.json:1`).
+
+**Aritmética:** 50 generaciones/mes por cuenta ÷ 8 clips por anuncio de 60 s =
+**6 anuncios/mes por cuenta**. Con `veo-3.1-lite` (10 créditos) son 100 videos/mes.
+
+**Regla que queda:** router determinista en el generador —
+`if (clip.guion === '') → proveedor barato; else → Flow`. Y `lite` para iterar,
+`fast` solo para la toma final. El contador de créditos se lee de
+**`remainingCredits`, que viene en cada respuesta de `POST /videos`**: el saldo es
+observable por API, no hace falta scraping (lo contrario del problema de Anthropic).
+
+## La API de Flow tiene cuatro trampas que rompen silencioso
+
+Todo de https://useapi.net/docs/api-google-flow-v1/
+
+1. **Una respuesta exitosa puede venir SIN `videoUrl`.** Textual: «*A missing URL
+   means 'not yet', not 'failed'*». Se auto-resuelve re-consultando dentro de 24 h,
+   con gap mínimo de 60 s. Si `status == completed` y falta la URL, **no marcar la
+   fila como fallida**: reencolar. Es el mismo modo de falla del pipeline de
+   reuniones.
+2. **Las URLs son firmadas con `Expires`** y **los jobs se retienen 7 días** (después
+   `GET /jobs/{id}` da 410). Descargar el mp4 a Supabase en el mismo tick del
+   callback. Nunca guardar la `videoUrl` como permanente.
+3. **`aspectRatio` no acepta `'9:16'`** — hay que mandar el literal `'portrait'` o da
+   400. Y **`duration` 4/6 son Ultra-only en Veo**: con AI Pro el único valor válido
+   en Veo es **8**. Para clips cortos, `omni-flash` (4/6/8/10) o recortar con ffmpeg.
+4. **Las imágenes de referencia se suben aparte**, como **binario crudo** en el body
+   de `POST /assets/{email}` (no multipart, no base64, no FormData → 400), y lo que
+   se pasa a `POST /videos` es el `mediaGenerationId` devuelto.
+
+**Regla que queda:** todo el parseo de respuestas en **una sola función validada con
+zod**. El 15/06/2026 movieron `body.error.code` a `body.response.error.code` sin
+aviso, y el 11/05/2026 retiraron el modelo `veo-3.1-fast-relaxed` entero
+(https://useapi.net/docs/changelog). Un cambio de forma tiene que fallar ruidoso en
+un lugar, no propagar `undefined`.
+
+## Avatar y máxima calidad no coexisten en Veo
+
+**Síntoma esperable:** pedir `model: 'veo-3.1-quality'` con un character y recibir
+`400 Model 'veo-3.1-quality' does not support R2V mode`.
+
+**Causa real:** la tabla de compatibilidad de
+https://useapi.net/docs/api-google-flow-v1/post-google-flow-characters —
+Veo 3.1 Fast/Lite soporta characters **solo a 8 s**, Omni Flash soporta todas las
+duraciones, y **Veo 3.1 Quality no los soporta en absoluto**.
+
+**Regla que queda:** el camino a calidad con avatar es **Fast + `POST /videos/upscale`
+a 1080p, que cuesta 0 créditos** y tarda 30-60 s
+(https://useapi.net/docs/api-google-flow-v1/post-google-flow-videos-upscale). El
+upscale a 1080p es paso **obligatorio y automático** al final de toda generación: es
+gratis. El 4K cuesta 50 créditos y exige Ultra — no exponerlo.
+
+## La cuenta de Google conectada a useapi queda QUEMADA para uso humano
+
+**Síntoma futuro:** error **596 «Session refresh failed»** y todo el pipeline muerto,
+sin causa aparente.
+
+**Causa real:** entrar a esa cuenta por cualquier otra vía —AI Studio, la UI de Flow
+en el navegador, login manual— **invalida las cookies** que useapi está usando
+(https://useapi.net/docs/start-here/setup-google-flow).
+
+Precondiciones del setup que si no se cumplen rompen la sesión: **Gmail dedicada**
+(no personal), **2FA con Google Authenticator** marcando «Don't ask again on this
+device», navegador **Opera / Brave / Ungoogled Chromium (NO Chrome)**, cookies
+limpias antes y después, y las cookies se copian de **`accounts.google.com`**, no de
+labs.google.
+
+**Lo bueno:** useapi refresca la sesión solo, 1 hora antes de expirar. **No construir
+un cron propio de refresco de cookies.** Lo que sí hay que construir es la detección
+del 596 → aviso a Martín, porque exige re-pegar cookies a mano.
+
+**Regla que queda:** nadie abre esa cuenta «solo para mirar». Es el único paso manual
+del pipeline y el que va a costar horas de debug si alguien la toca.
+
+## El campo minado de licencias del lip-sync: Wav2Lip contagia
+
+**Síntoma:** adoptar un repo con licencia limpia y quedar igualmente en no-comercial.
+
+**Causa real:** **Wav2Lip es explícitamente no comercial** («*This repository can only
+be used for personal/research/non-commercial purposes*»,
+https://github.com/Rudrabha/Wav2Lip) y viene embebido en medio ecosistema: SadTalker
+lo usa aunque el repo pasó a Apache 2.0, FaceFusion lo lista. Lo mismo con
+**inswapper_128** (roop, ReActor — https://github.com/deepinsight/insightface) y con
+**CodeFormer** (NTU S-Lab 1.0). **FaceFusion dejó de ser MIT** en 2025 (OpenRAIL-AS,
+https://docs.facefusion.io/introduction/licenses). Los autores de Wav2Lip fundaron
+Sync Labs: el open source es el embudo de su producto pago.
+
+**Regla que queda:** antes de meter cualquier repo de video generativo,
+`grep -rE 'wav2lip|s3fd|syncnet|inswapper|codeformer'`. Si aparece, o se reemplaza el
+módulo o el pipeline entero queda no-comercial por contagio. Combinación limpia:
+**GHOST 2.0** (Apache 2.0, head swap one-shot), **LatentSync** (código Apache 2.0,
+pesos openrail++ — no es lo mismo), **GFPGAN / RestoreFormer** (Apache 2.0) y
+**Real-ESRGAN** (BSD-3). **LivePortrait es MIT pero hay que reemplazar los detectores
+de InsightFace** por YuNet o 2DFAN4 antes de usarlo.
+
+## El techo de hardware decide qué corre en casa
+
+Medido con `nvidia-smi` el 21/08/2026 en la máquina de Martín:
+**NVIDIA GeForce RTX 4060 Laptop GPU, 8.188 MiB, driver 610.88**.
+
+Entran en 8 GB: **LatentSync 1.5** (8 GB), **MuseTalk 1.5** (MIT y comercial, pero
+cara a 256×256 y «*identity details (mustache, lip features) not fully preserved*»),
+**LivePortrait** (~15 ms/frame en 4090).
+No entran: **LatentSync 1.6** (18 GB, el que arregla la borrosidad, entrenado a
+512×512), **EchoMimicV3** (12-24 GB), **Wan2.2-Animate** (80 GB oficial).
+
+**Regla que queda:** 8 GB es el filtro de entrada. Todo lo demás va a **RunPod
+(4090 community US$0,34/h)** o a **fal**. Y hay antecedente en este proyecto de que
+la GPU híbrida de esta máquina tumba procesos: cargarla con difusión de video por
+horas no es gratis.
+
+## El pipeline de montaje tiene cinco parámetros medidos que no estamos aplicando
+
+**Causa real:** están escritos en el curso con números exactos y el montador por
+ffmpeg los deja al ojo o directamente no los hace.
+
+| Qué | Valor | Fuente |
+|---|---|---|
+| Acelerar el habla | 1,12–1,20 hablado / 1,20–1,30 animado | `public/cono-tx/1ijpP-JkLljTnlNUTilZN41FbybgE_BX-.json:1`; `app/conocimientos/curso.ts:210` |
+| Mezcla | música −25/−30 dB, SFX −8, voz +5, crossfade 0,5–0,7 s | `app/conocimientos/curso.ts:210` |
+| Capa de realismo | temp −3, tinte 2, sat −6, exp −3, contraste 12, highlight −35, sombra 18, fade 6 | `app/conocimientos/curso.ts:145` |
+| L-cut / J-cut | audio desfasado 3-5 frames en **cada** empalme, con fade | `public/cono-tx/1pqlY_y-7wZIq9Et-wEEUURwbJ6NeLwRm.json:1` |
+| Rótulo persistente | texto fijo durante todo el video | `public/cono-tx/1DIV4ZogCOwwC1HngfLP7MoANDF1Af77m.json:1` |
+
+**Orden que importa:** acelerar va **antes** del reemplazo de voz con ElevenLabs STS,
+no después.
+
+**Regla que queda:** son constantes del montador, no criterio del editor. Y el
+rótulo es el de mejor relación esfuerzo/resultado: un `drawtext`, alimentado por el
+campo que El Estratega ya emite por clip.
+
+## El avatar perfecto es el que delata: la imperfección es invariante, no palanca
+
+**Síntoma:** un avatar impecable que igual «canta a IA».
+
+**Causa real** (solo AvatarHype la explica; SIM converge sin dar el porqué):
+«*por muy realista que sea la imagen de referencia que tú le estás dando, **el modelo
+añade una pequeña capa de textura en la piel**, que por muy sutil que sea, está ahí*»
+(`public/cono-tx/1oy9q2O1pWpIhCQfBzbcb-MOV5HLG9Q0V.json:1`). Esa capa se **suma** a lo
+que le mandaste: si la base ya era perfecta, el resultado queda de plástico.
+
+Corolario del mismo eje, contraintuitivo y medido: **la expresividad alta delata**.
+SIM baja el dial al mínimo siempre — «*he probado con normal y high, y exagera un
+montón e incluso a veces da hasta miedo*»
+(`public/cono-tx/1bCgf1a7pC3ojQTwFUyab8enlU-L-R6xH.json:1`). Y **ningún dial de
+parecido va al máximo**: en Omni Reference (0-1000) el punto útil es **300-600**; a
+1000 se bloquea la pose de la referencia y hasta cambia el tono de piel
+(`public/cono-tx/1ekN3TjDwU5vfhZeBLBxRX00TM-zmeaa8.json:1`).
+
+**Regla que queda:** el banco de identidad se construye **deliberadamente imperfecto**
+(poros, asimetría, tono desigual, ojeras leves) y la actuación se adjetiva **hacia
+abajo** por defecto (`calm`, `restrained`, `subtle`); la energía alta es opt-in del
+guion. Ningún parámetro de parecido se clava al máximo: se barren 3 valores en el
+primer lote de cada avatar y el ganador se guarda en la ficha.
+
+## Flow no reemplaza a ElevenLabs, y su propia doc lo dice
+
+`POST /voices` **no acepta subir audio de referencia** — textual: «*Reference Audio
+Upload: **Not supported.** This API does not accept custom audio uploads*»
+(https://useapi.net/docs/api-google-flow-v1/post-google-flow-voices). Solo genera
+voces derivadas de 30 presets del sistema a partir de texto.
+
+**Regla que queda:** el orden del pipeline es fijo —
+**Flow genera con voz preset → ElevenLabs STS pisa la voz → ffmpeg re-muxea.**
+Y aunque la voz se reemplace, **el bloque ACENTO sigue siendo obligatorio en el
+prompt de video** (el STS conserva la entonación del clip original, así que la boca
+tiene que estar articulando el idioma correcto), mientras que **el bloque VOZ
+—edad, género— deja de hacer falta**
+(`public/cono-tx/13A0RAHz8Rly5guwRVYpP9DkyPeqK3U_r.json:1`). Es una regla de código de
+una línea que evita re-renders caros. Elegir el preset de timbre más parecido al del
+cliente para que el STS tenga menos trabajo.
+
+## Automatizar Flow con Playwright está descartado
+
+El proyecto open source más maduro del rubro (**FlowKit**, MIT, 602★,
+https://github.com/crisng95/flowkit) **descartó Playwright/Puppeteer explícitamente**
+y eligió una extensión Chrome MV3 como puente, porque Flow exige **tokens reCAPTCHA
+v3 Enterprise en cada llamada**.
+
+**Regla que queda:** hacerlo nosotros implicaría igualmente pagar un proveedor de
+captcha (US$0,80–3,00 por 1.000 resoluciones) **más** mantener un navegador vivo 24/7.
+Los US$15/mes de useapi compran exactamente ese mantenimiento. Leer el código de
+FlowKit sí vale: es la **única documentación pública del protocolo interno de
+labs.google**.
+
+Y descartar también kie.ai / PiAPI / Apiframe para este objetivo: **no son wrappers de
+Flow**, son revendedores de la API oficial de Veo, y por eso **les faltan
+`characters`, `extend`, ingredients y el upscale gratis**. Sirven si algún día se
+ofrece generación de video al público de MaKo, no para replicar HeyGen.
+
+## No existe API oficial de Flow: diseñar para degradar
+
+`labs.google/fx/tools/flow` dirige a los desarrolladores a **Vertex AI y la Gemini
+API**, no a una API pública de Flow. Toda esta vía es **no oficial por construcción**.
+
+**Regla que queda:** el cliente vive detrás de una interfaz propia `generarVideo()`
+para que, si useapi cae o Google cierra el agujero, se cambie **una implementación y
+no todo el pipeline**. Y **nunca omitir el parámetro `email`**: con Martín y Mauricio
+en cuentas separadas hay que aislar las cuotas por workspace, o el video de un
+cliente se come los créditos del otro (omitirlo activa load balancing automático).
+
+## Lo que queda SIN hacer
+
+**Bloqueantes, en orden:**
+
+1. **Verificar si la salida por API trae la marca de agua visible**, y medir sus
+   coordenadas. El curso confirma que Flow con plan AI Pro **siempre** la pone
+   (`public/cono-tx/1JtIGH79K_OGBizAgRDN00oYATizL0RpH.json:1`) y que a veces cae sobre
+   fondo en movimiento, lo que exige inpaint por frames y no un `delogo` de caja fija
+   (`public/cono-tx/1UUGtgmmFcx2vuP2yyDDYen5D1TduSad0.json:1`). **Sin resolver esto,
+   todo lo que salga de la automatización es inusable como anuncio.** Es distinto de
+   SynthID, que es invisible.
+2. **Abrir la cuenta Gmail dedicada y leer el saldo de créditos real.** Nadie
+   verificó que la promo Jio (18 meses, hasta oct 2026) entregue el tier Pro de 1.000
+   créditos/mes y no uno recortado. Si el plan está atado a una cuenta personal que
+   Martín usa a diario, **es un bloqueante de arranque**, porque la cuenta queda
+   quemada para uso humano.
+3. **Probar que `POST /characters` sostiene la identidad de Mauricio** en 3
+   generaciones seguidas. La doc promete «*consistent identity*» pero es marketing del
+   vendor: cero mediciones.
+
+**El experimento más barato que puede cambiar la arquitectura entera** (US$5, una
+hora, se hace hoy sin useapi ni cuenta nueva): pasar **uno de los tres anuncios ya
+producidos a mano** por `fal-ai/wan/v2.2-14b/animate/replace` (US$0,04/s a 480p) con
+una foto de Mauricio, y por `fal-ai/latentsync` (US$0,005/s = US$0,30/min, **10x más
+barato que sync lipsync-2**). Si la corrección de identidad **encima** del video ya
+generado funciona, Flow pasa a ser solo un generador de movimiento y encuadre, y toda
+la ingeniería de `characters` y reference frames baja de prioridad. Si no funciona,
+el híbrido muere. Camino alternativo a «identidad horneada» de verdad: **un LoRA de
+Wan 2.2 en fal por US$4** (US$0,004/paso × 1000).
+
+**Ventana de reembolso:** useapi devuelve el 100% dentro de **14 días si hiciste
+menos de 50 generaciones exitosas**, y **solo si pagaste con Stripe** (cripto no es
+reembolsable). Todo el spike técnico entra ahí.
+
+**Material del curso sin bajar** — es materia prima del generador y hoy dependemos de
+una web ajena: la **biblioteca de 86 prompts** (29 imagen + 37 video + 20 formatos, en
+el repo solo están los conteos:
+`public/cono-doc/creativos-ugc-realistas__biblioteca-prompts.json:1`), los **tres
+skills .md** que el curso reparte (`avatarhype-6c-prompt-engine.md`, El Estratega,
+Ads Visual Architect) y el **diccionario de ~100 keywords de micro-realismo**
+(`C:/cursos/UGC SIM Academy de Mindshft/recursos/01 - Leccion_3_-_100_KEYWORDS_PARA_MEJORAR_TUS_PROMPTS.pdf`).
+
+**Decisión implícita que hay que fijar:** dónde se inserta el STS. AvatarHype lo
+aplica **una vez sobre el montaje final** (entonación coherente, pero rehacer un clip
+obliga a reconvertir todo); SIM lo aplica **por clip antes de montar** (N llamadas,
+pero permite parchear). Nadie lo midió. Medirlo con un anuncio real y dejarlo escrito.
+
+**Sin verificar, ordenado por lo que más duele:** el costo en créditos de `extend` y
+`concatenate` (no publicado); cuántas veces se puede encadenar `extend` (la doc dice
+explícitamente que no lo especifica); el formato del payload del webhook `replyUrl`
+(no hay página que documente el contrato del callback, ni si reintenta, ni si firma);
+el límite de concurrencia de **video** (el único número publicado, 3-20, es para
+imágenes); si el STS desincroniza labios sobre salidas de la **API** (la medición de
+0 ms de desfase fue sobre videos de Flow hechos a mano); si SynthID sobrevive a un
+face-swap encima y qué dicen los ToS de Google sobre modificar la salida de Flow; si
+**GHOST 2.0 usa ArcFace/InsightFace internamente** (si lo hace, el Apache 2.0 del repo
+no alcanza y vuelve la restricción no comercial por la puerta de atrás); y **todos los
+precios del curso** — el curso calcula **US$0,0133 por clip de 8 s** contra los
+**US$0,20-0,40** que sale de la aritmética publicada de useapi, 15-30x de diferencia.
+Ninguno de los dos es dato hasta leer el saldo real: un precio de un curso no es un
+precio.
+```
+
+**Línea para `docs/hallazgos.md`** (fila de Generación de imagen y video, agregar al final de la celda de resumen):
+
+```
+…y por qué **automatizar Flow con useapi NO es más barato que HeyGen** (US$2,25 vs US$1 el minuto: el Norte es movimiento, no ahorro), el contrato completo de la API (**I2V-FL con `startImage`+`endImage` resuelve la consistencia entre clips**, assets como binario crudo, `characters` incompatible con `veo-3.1-quality`, upscale 1080p gratis, y el **`videoUrl` ausente que significa «todavía no» y no «falló»**), la **cuenta de Google que queda quemada para uso humano** (error 596), el **campo minado de licencias donde Wav2Lip contagia** todo el pipeline, el techo de 8 GB de la 4060 que decide qué corre en casa, y el **experimento de US$5 sobre los anuncios ya hechos** que decide si la identidad se corrige encima o tiene que salir bien de Flow.
