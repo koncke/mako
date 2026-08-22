@@ -88,6 +88,14 @@ Google Drive. Lo único que aterriza acá son las **transcripciones**, como JSON
 abrir la clase para no meter 1,6 MB en el bundle.
 
 Y el catálogo es un archivo **auto-generado de 1,6 MB**: `app/conocimientos/curso.ts`
+
+> ⚠️ **CORRECCIÓN 22/08/2026: «auto-generado» es FALSO para `curso.ts`.** Ningún script
+> del repo lo escribe — la única escritura de `.ts` es `curso-a-portal.mjs`, con destino
+> `curso-<slug>.ts`, y `gen-curso.mjs` nunca existió (0 hits en 1755 commits). El archivo
+> **se edita a mano y las ediciones sobreviven**. La premisa importa porque GOBIERNA
+> decisiones: `PORTADA`, `AUTOR` y `REEMPLAZADOS` viven en `catalogo.ts` justificándose en
+> una regeneración que no ocurre. Para los `curso-<slug>.ts` la regeneración **sí** ocurre,
+> así que la corrección no se aplica con brocha ancha. Detalle al final del documento.
 exporta `CURSOS: Curso[]`, con `videoId: string | null`, `hasTx?: boolean` (que gatea el
 fetch a `/cono-tx`) y un `transcripcion: string[]` que va **vacío a propósito**. Los
 módulos escritos a mano viven aparte y se suman en `app/conocimientos/catalogo.ts`, que es
@@ -3429,3 +3437,214 @@ lugares donde vivía, y con eso las 401 tienen duración y el cruce pasó de 153
 Y de las 171, tres comparten título con una nuestra: las tres tienen **otra duración**
 (10:24 vs 12:04 · 16:17 vs 57:12 · 57:17 vs 19:47), o sea que son lecciones distintas y
 corresponde bajarlas.
+
+---
+
+# Auditoría de 43 agentes sobre el portal — 2026-08-22
+
+Ocho dimensiones en paralelo (cursos, transcripciones, truncado, documentos, catálogo,
+Drive vs portal, el legado de `curso.ts`, BlueHacker), cada hallazgo pasado por un
+verificador adversario cuyo trabajo era refutarlo. El informe completo quedó en
+`C:\cursos\auditoria-portal.md`; acá va lo que sobrevive al olvido.
+
+## El estado medido, con el universo que cubre cada número
+
+| Qué | Número | NO cubre |
+|---|---|---|
+| Cursos publicados | **29** (27 con clases, 2 con vista propia) | `avatarhype`, excluido por `REEMPLAZADOS` |
+| Clases totales | **2200** | las 6 de `avatarhype` |
+| — con `videoId` | **2143**, y **2143 únicos** | que el id resuelva en Drive: nadie llamó a la API |
+| — sin `videoId` | **57**, de las cuales 54 traen `resumen` y 3 traen documento → **clases huecas: 0** | — |
+| Con transcripción | **2141**, y las 2141 tienen su `.json` → **faltantes: 0** | la CALIDAD: se midió largo y wpm, no contenido |
+| Truncadas (por lo bajo) | **0** sobre **1933 clases medibles** (817,6 h) | 205 con transcripción y sin duración persistida |
+| Documentos | **30**, con **0 rotos, 0 huérfanos, 0 vacíos**; 187 `<img>`, las 187 existen | son de UN solo curso: 37 de 2200 clases = 1,68% |
+| Video en Drive | **4670** archivos en 58 carpetas | **2342 sin publicar (50,1%)** |
+
+**Lo que hay que retener del formato de esa tabla, más que de los números:** cada fila
+dice **qué universo cubre y cuál no**. Un conteo sin su universo es el error que ya se
+cometió acá dos veces —«0 faltantes» sobre los cursos que tenían carpeta local, y «todo
+verificado» sin haber mirado masteryhaus— y las dos veces lo cazó el dueño, no el chequeo.
+
+## ⚠️ Un link COMPARTIDO llevaba cinco días dando 404, y ninguna métrica lo iba a decir
+
+`REEMPLAZADOS` (`app/conocimientos/catalogo.ts`) era un `Set`. Sacar `avatarhype` de la
+grilla estaba bien y estaba razonado: el curso se rehízo, dejar los dos cortes hace que
+alguien abra el viejo creyendo que es el bueno. Lo que el `Set` no contesta es la otra
+pregunta: **¿y el que YA está apuntando ahí?**
+
+Medido contra la base de producción: **share id=4, ws 1, modo invitados, sin revocar, 13
+visitas**, apuntando a `avatarhype`. Roto desde el deploy del 17/08 17:11Z.
+
+**Y el contador de visitas nunca lo iba a delatar:** `registrarVisita()` corre **después**
+del `notFound()` en `app/compartido/[token]/page.tsx`, así que un golpe al 404 no suma.
+Las 13 visitas son todas anteriores al quiebre. **Un link roto y un link que nadie abrió
+se ven exactamente igual desde la métrica.** Cualquier instrumentación puesta después del
+early-return mide solo el camino feliz — es la misma forma que «un `console.warn` no es un
+control», aplicada a la observabilidad en vez de a la validación.
+
+**La regla: reemplazar es REDIRIGIR, no borrar.** El catálogo pasa a
+`Map<viejo, nuevo>` y `buscarCurso` resuelve el salto, en UN solo lugar — el único por el
+que pasan la grilla, el link compartido y el `?curso=` de la URL. Y el corolario
+operativo: **antes de sacar cualquier cosa que se pueda compartir, preguntá si hay un
+share apuntándole.** Ese chequeo no existe en ningún lado del repo; el script que lo
+contesta quedó en `scratchpad/shares.mjs`.
+
+## Un enumerador que fusiona cinco cursos en uno no solo no revisa: BORRA evidencia
+
+`scripts/curso-huecos.mjs` hacía `archivos.unshift('curso.ts')` y bautizaba `avatarhype` a
+los CINCO cursos que ese archivo tiene adentro. Dos consecuencias, y la segunda es peor:
+
+1. `--curso bluehacker`, `--curso masteryhaus`, `--curso anuncio-ganador` y
+   `--curso 100ads-analisis` contestaban los cuatro **«Los 0 cursos revisados están
+   completos»**. Cero revisados, y el texto decía «completos». El propio archivo advierte
+   veinte líneas más arriba que *«un falso "todo bien" es el peor resultado que puede dar
+   un verificador: apaga la búsqueda»* — y el enumerador lo servía igual. **La advertencia
+   estaba escrita en el archivo equivocado del archivo correcto.**
+2. Al concatenar los cinco, **los módulos de uno rellenan los huecos del otro**. bluehacker
+   acusa que le faltan los módulos 4 y 7; fusionado acusaba solo el 7, porque el módulo 4
+   de masteryhaus tapaba el agujero.
+
+**La regla: la unidad de un chequeo es la ENTIDAD, no el archivo que la contiene.** Y su
+identidad sale del CONTENIDO: el slug derivado del nombre de archivo no encontraba 7 de
+los 29 cursos (`curso-producto-app.ts` es `construir-app`, `curso-avatar-app.ts` es
+`avatares-que-se-parecen`). Además, pedir un curso que no existe ahora sale con código 2 y
+lista los válidos, en vez de contestar «0 revisados, todo completo».
+
+**Vive en:** `scripts/curso-huecos.mjs` · el mismo patrón está en
+`scripts/curso-faltantes.mjs`, que promete enumerar lo que no pudo mirar y omite 3 cursos
+reales mientras nombra uno que ya no está en el portal.
+
+## «`curso.ts` es AUTO-GENERADO» es una premisa FALSA que gobierna decisiones
+
+Ningún script del repo lo escribe. La única escritura de `.ts` es
+`scripts/curso-a-portal.mjs`, con destino `curso-<slug>.ts`. `gen-curso.mjs` nunca existió
+(`git log --all --diff-filter=A` sobre 1755 commits: cero). Y el archivo **se edita a mano
+y las ediciones sobreviven**: el commit `5804e12a` hizo un search & replace adentro de dos
+`resumen` y los strings siguen en HEAD.
+
+Importa porque la premisa **sostiene decisiones**: `PORTADA`, `AUTOR` y `REEMPLAZADOS`
+viven en `catalogo.ts` y no en `curso.ts` justificándose en que allá «se pierde en la
+próxima regeneración» — una regeneración que no ocurre. Está afirmada en
+`app/admin/docs/page.tsx`, en 21 de los 24 `curso-*.ts`, en
+`app/admin/dev/conocimientos/bitacora.ts` y —al revés— en este mismo documento
+(«Y no se edita curso.ts a mano: está generado»).
+
+⚠️ **Cuidado al corregirla:** para los `curso-<slug>.ts` la regeneración **sí ocurre**, en
+cada corrida. El mito es falso **solo** para `curso.ts`. Una corrección con la brocha
+demasiado ancha rompe la razón real por la que los cursos del pipeline no llevan datos
+escritos a mano.
+
+## Tres formas de contar mal el mismo pozo de Drive
+
+Los tres números de «videos sin publicar» que aparecieron —**2342 / 2343 / 2466**— son
+correctos y miden cosas distintas: por nombre de carpeta, según el censo de anoche, y
+archivo por archivo contra los títulos publicados. El tercero es más alto porque **hay
+video sin publicar DENTRO de carpetas que figuran como publicadas**: una carpeta con dueño
+no es una carpeta completa.
+
+Y el detector de duplicados falla **en las dos direcciones** (`curso-drive-censo.mjs`):
+compara nombres normalizados, y `norm` borra todo lo no alfanumérico, así que `1.mp4` y
+`8..mp4` emparejan cursos sin relación — de los 61 «archivos en común» que reporta, 42
+coinciden en bytes y **19 son ruido**. Al mismo tiempo se pierde entero el caso de
+«Seel Your Knowlegde», donde 4 archivos son la misma clase publicada con **0 nombres en
+común**. **Comparar por tamaño en bytes mata los 19 y conserva los 42**; comparar por
+duración con ffprobe acierta 4 de 4 en el caso del typo.
+
+Duplicación medida, y es un **piso**: 5,05 GiB (Otálora ↔ Fórmula Ventas Ilimitadas, 38/38
+idénticos, archivos separados que se pagan dos veces) + 1,40 GB + 2,10 GB.
+
+## Una transcripción puede estar INFLADA, y las dos guardas miran el lado equivocado
+
+`master-marca-personal-5-0` #84: **252 palabras sobre 43,4 segundos = 348 wpm**, único caso
+por encima de 260 en todo el portal (mediana 169,4). El video no está cortado: el plan
+declara 43 segundos. Medición acústica sobre las 25 clases cortas del curso: el ratio
+núcleos silábicos / sílabas tiene mediana 1,02 y mínimo 0,82 en las otras 24; la 84 da
+**0,66**. El audio soporta ~163 palabras y el `.json` publica 252. El proveedor, según la
+cabecera del `.md`: `gemini-flash-latest`.
+
+Es la falla de «un audio MUDO no devuelve vacío: devuelve una INVENCIÓN» en su forma
+**parcial**: no fabrica desde el silencio, **infla audio real**. Las dos guardas existentes
+no la ven — la de 8 kbps porque este audio tiene 32,6, y el umbral de 40 wpm porque
+**mira el lado bajo de la distribución**. Falta la guarda del lado alto: wpm por encima de
+~2 desvíos de la mediana del curso.
+
+**La regla: un umbral puesto contra un modo de falla protege de ese modo y de ninguno
+más.** Truncado e invención son la misma métrica en direcciones opuestas, y el chequeo
+nació mirando una sola.
+
+## Lo que dio LIMPIO — no volver a auditar
+
+Con el método, para que la próxima sesión no lo rehaga:
+
+- **`videoId` duplicados: 0** dentro de un curso y 0 entre cursos. Dos métodos
+  independientes (2143 publicados/2143 únicos; 2149 literales en disco/2149 únicos).
+- **`hasTx` sin archivo: 0** sobre 2141. `hasTx` con `videoId: null`: 0.
+- **Transcripciones vacías, inválidas o bajo 200 chars: 0** sobre 2146. **Huérfanas: 0**,
+  confirmado con AST **y** con las dos formas de comilla por separado — cubrir solo comilla
+  simple habría reportado **438** huérfanas y solo comilla doble **1708**, los dos
+  inventados. Es el mismo error que una vez casi borra 12 MB de transcripciones vivas.
+- **Truncado por lo bajo: 0** sobre 1933 clases medibles. Las 2 bajo 60 wpm se leyeron: son
+  falsos positivos, terminan con despedida.
+- **`docSlug` rotos: 0 · huérfanos: 0 · vacíos: 0.** 187 `<img>` embebidas, las 187
+  existen, 0 hotlinks. Documentos capturados que se perdieron camino al repo: **0**.
+- **`recursoSlugs`: 1837 usos, 557 recursos declarados, 0 referencias rotas.**
+- **Catálogo: 0 slugs duplicados, 0 títulos duplicados** (ni normalizando acentos), 24
+  archivos en disco y 24 importados, 23 portadas declaradas y 0 faltantes.
+- **20 de los 21 cursos con carpeta local dan diferencia CERO por videoId.** El único con
+  diferencia es bluehacker, que se está completando.
+
+Y **una hipótesis que se persiguió y es FALSA, para no volver a levantarla:** «el campo
+`modulo` renumera contiguo y borra la evidencia de un módulo perdido». El generador emite
+`grupo` con la etiqueta del autor verbatim en el mismo objeto (`modulo:8` → `grupo "Modulo
+9 FAST 5-95"`): **el testigo viaja en el campo hermano.**
+
+## Lo que quedó SIN hacer, con el archivo donde vive
+
+- **BlueHacker: 233 de 404 publicadas.** La ingesta está corriendo; el paso pendiente es
+  sacarlo de `app/conocimientos/curso.ts` a `curso-bluehacker.ts` (el generador se niega
+  explícitamente a escribir en `curso.ts`). ⚠️ **La regeneración ciega desde `drive.json`
+  es peligrosa**: 231 de sus 348 entradas declaran un `archivo` con el nombre NUEVO que no
+  existe en Drive, porque el proveedor reestructuró el curso y en la misma carpeta conviven
+  el árbol viejo (233 mp4, «N. Nombre») y el nuevo (118, «NN Nombre»). Ya hay 3 lecciones
+  duplicadas en Drive por eso, y 2 de ellas las publica hoy el portal con ids que ya no
+  están en `drive.json`.
+- **770 clases publicadas no muestran cuánto duran** (bluehacker 233, masteryhaus 194,
+  vender-por-fb 210, m5-95 116, trilogía 11, anuncio-ganador 6). Para 4 de los 6 el dato
+  está en disco y no se usa. La duración no es un campo: viaja embebida en `cardDesc`
+  (`scripts/curso-a-portal.mjs`).
+- **bluehacker y masteryhaus dibujan 38 y 26 acordeones para 9 y 10 módulos reales**:
+  meten la sección adentro de `grupo` con el separador ` · ` y dejan `subgrupo` vacío en
+  las 427 clases. El arreglo del segundo nivel (`CursoPortal.tsx`) existe justo para esto y
+  nunca se retropropagó al legado. Regenerar emite los dos niveles solo.
+- **Los 92 PDFs de bluehacker están en la carpeta que el pipeline no lee**
+  (`C:\cursos\growth-bluehackers-2-0\plan.json` dice `pdfs = 92`; el que la pipeline
+  consume dice `pdfs = 0`). Los 8 recursos que el portal publica hoy tienen `driveId` que
+  no aparecen en ningún archivo de `C:\cursos`: **no son reconstruibles.**
+- **Cero tests sobre el catálogo y sobre el invariante de transcripciones.** Ninguno de los
+  102 archivos de `tests/` importa `catalogo`, `curso` ni menciona `cono-tx`, y el pre-push
+  no mira conocimientos. Dos avisos para cuando se escriba: el invariante de `hasTx` es una
+  **inclusión, no una igualdad** (los 5 de `avatarhype` la rompen), y `CATEGORIA`/`PORTADA`
+  ya no tienen claves de `avatarhype` pero el `Map` de `REEMPLAZADOS` sí.
+- **`curso.ts` arrastra 351.457 bytes (21,27%) del curso que no se ve, y viajan
+  COMPILADOS**: el texto `You are AvatarHype Prompt Engine` aparece dos veces en cada chunk
+  de `.next/static`, y como `PortalCompartido.tsx` es `'use client'`, lo baja también un
+  visitante sin login.
+
+## Lo NO verificable — que no es «está bien», es «no se sabe»
+
+- **8 de los 29 cursos no tienen carpeta en `C:\cursos`**, así que su integridad no se
+  contrastó contra nada: masteryhaus (194), anuncio-ganador (6), 100ads-analisis (8),
+  vsl-landing (11), analisis-negocio, branding-mako, construir-app (12),
+  avatares-que-se-parecen (23). **masteryhaus y anuncio-ganador pueden tener el mismo
+  agujero que bluehacker y este chequeo no lo vería.** Matiz nuevo: sus videos **sí** están
+  en `G:`, así que duración y truncado sí son medibles con ffprobe — lo que falta es el
+  inventario contra el cual comparar.
+- **738 de las 2200 clases (33,5%) no tienen hoy ningún chequeo de módulo faltante**,
+  porque la numeración se reinicia adentro en submódulos que no viajan en ningún campo.
+- **Si los `videoId` resuelven.** Ni Drive ni Vimeo ni Panda fueron consultados: existen
+  como strings, no se probó que reproduzcan.
+- **La CALIDAD de las 2146 transcripciones.** Un `.json` de 12 KB alucinado, en el idioma
+  equivocado, o con el audio de otra clase, pasa los dos filtros que se corrieron. Quedan
+  **152 con un 8-grama repetido 5 o más veces** cuyo contenido no se leyó.
+- **El peso en GB del pozo de Drive**: se contaron archivos, no bytes. Y la premisa de que
+  `du` se cuelga puede estar vieja — el re-conteo completo tardó 3,3 s.

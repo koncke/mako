@@ -454,6 +454,82 @@ falla cuando el margen se acaba: el catálogo crece, y el número que hoy tiene 
 mañana no. Un umbral sin esa red envejece en silencio, que es la peor forma de
 envejecer.
 
+# Sacar algo de un catálogo no es borrarlo: hay gente APUNTÁNDOLE
+
+Un `Set` de exclusiones contesta «este id ya no va» y con eso alcanza para que no se
+dibuje. Lo que **no** contesta es la pregunta que rompe: *¿y el que YA está apuntando
+ahí?* Un recurso no vive solo en la grilla donde se lo elige — vive en cada **link
+compartido**, cada favorito, cada `?id=` que alguien mandó por WhatsApp y cada webhook
+configurado.
+
+El caso, del 22/8/2026. Se sacó un curso del catálogo por una razón correcta (se había
+rehecho, y dejar los dos cortes hace que alguien abra el viejo creyendo que es el bueno).
+La exclusión era un `Set` y `buscarCurso` dejó de resolver ese slug. Medido contra
+producción: un **share sin revocar, en modo invitados, con 13 visitas**, dando 404 desde
+hacía **cinco días**.
+
+**La regla: reemplazar es REDIRIGIR.** La exclusión va como `Map<viejo, nuevo>` y el salto
+se resuelve en el ÚNICO punto por el que pasan todos los caminos —el `buscarX` del
+catálogo—, nunca en cada pantalla: puesto en el llamador, la próxima pantalla que resuelva
+ese recurso nace sin él. Y antes de sacar cualquier cosa compartible, **preguntá si hay un
+share apuntándole**; es una query, no una intuición.
+
+## ⚠️ Y el corolario que más cuesta ver: la métrica puesta después del early-return no mide el fallo
+
+`registrarVisita()` corría **después** del `notFound()`, así que **un golpe al 404 no suma
+al contador**. Las 13 visitas eran todas anteriores al quiebre. **Un link roto y un link
+que nadie abrió se ven exactamente igual desde la métrica** — y el roto se ve *mejor*,
+porque su contador se congela en un número que parece sano.
+
+Es «un `console.warn` no es un control» aplicada a la observabilidad: si el registro vive
+en el camino feliz, mide **cuántas veces funcionó**, nunca cuántas falló. Cuando
+instrumentes un acceso, el contador va **antes** de las salidas tempranas, o hay dos
+contadores. Vale igual para un rate limit, un log de auditoría y cualquier «última vez
+usado».
+
+# Un chequeo enumera ENTIDADES, no archivos — y si no encuentra, lo dice
+
+Dos mitades del mismo bug, medidas el 22/8/2026 sobre el verificador de módulos faltantes
+del portal de cursos.
+
+**La unidad era el archivo, y un archivo tenía cinco cursos adentro.** El script hacía
+`archivos.unshift('curso.ts')` y bautizaba a los cinco con el nombre del primero. Con eso,
+pedir cualquiera de los otros cuatro contestaba **«Los 0 cursos revisados están
+completos»**. Cero revisados, y el texto decía completos.
+
+**Y la fusión no solo no revisaba: BORRABA evidencia.** Concatenados, los módulos de un
+curso rellenan los huecos del otro — uno acusaba que le faltaban los módulos 4 y 7, y
+fusionado acusaba solo el 7, porque el módulo 4 del vecino tapaba el agujero. Un chequeo
+que junta dos universos no da un resultado más pobre: da uno **más limpio de lo que la
+realidad justifica**, que es lo contrario de lo que un verificador tiene que hacer.
+
+Tres reglas:
+
+1. **La unidad de un chequeo es la ENTIDAD que le importa al usuario**, no el archivo, la
+   tabla o la request que la transporta. Si un contenedor trae N entidades, se abre.
+2. **La identidad sale del CONTENIDO, no del nombre.** El slug derivado del nombre de
+   archivo no encontraba 7 de 29 cursos, porque `curso-producto-app.ts` es
+   `construir-app`. Un nombre de archivo es una convención; el id es un dato.
+3. **«No encontré nada que revisar» y «revisé y está todo bien» son respuestas
+   DISTINTAS,** y el código tiene que poder decir la primera. Pedir algo inexistente ahora
+   sale con código distinto de 0 y lista lo que sí hay. Un verificador que contesta
+   «completo» sobre un universo vacío **apaga la búsqueda**, que es el daño más caro que
+   puede hacer.
+
+# Un umbral protege del modo de falla contra el que se escribió, y de ninguno más
+
+La guarda de transcripciones truncadas mira **palabras por minuto por debajo de** un piso.
+Correcta, y midió 0 truncadas sobre 1933 clases. Lo que no ve es la falla espejo: una clase
+con **348 wpm** sobre 43 segundos de audio — el modelo no fabricó desde el silencio,
+**infló audio real**. La otra guarda existente (bitrate mínimo, contra el audio mudo)
+tampoco la ve, porque ese audio tiene bitrate normal.
+
+**La regla: cuando escribas un umbral, preguntá cuál es la MISMA falla en la otra
+dirección.** Truncado e invención son la misma métrica con el signo cambiado, y el chequeo
+nació mirando una sola punta. Lo mismo vale para «demasiado lento / demasiado rápido»,
+«muy chico / muy grande», «cero resultados / demasiados resultados»: una distribución tiene
+dos colas, y la que no se mira es por donde entra.
+
 # Dos números que se comparan salen de UN juicio — no de una fórmula sobre el otro
 
 Si en la misma pantalla un número se lee CONTRA otro —el score de un proyecto y el de sus
