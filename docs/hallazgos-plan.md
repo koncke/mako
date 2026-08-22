@@ -395,6 +395,92 @@ La vista de super admin y la del cliente son **la misma pantalla**, y nunca se r
 
 ## El Perro Guardián
 
+## La audiencia: cuando el número lo pide el DUEÑO
+
+El pedido, textual: *«cambiar prioridad por el usuario también debería re-priorizar el resto. Y es por eso que el perro debe ser muy estricto y debe tener la capacidad de rechazar una re-priorización si los argumentos no son fuertes. Y claro que para eso tiene que hacer buenas preguntas.»* Son tres cosas encadenadas y el orden manda: **la cascada hace CARO aceptar, aceptar caro obliga a poder RECHAZAR, y rechazar bien obliga a PREGUNTAR.**
+
+### ⚠️ Un guard que impide MOVER el número no impide ESCRIBIRLO — y el rechazo ponía el candado
+
+El día anterior se arregló que un `veredicto: 'rechaza'` del Perro no moviera el score (`score: veredicto === 'rechaza' ? scoreActual : propuesto`, mako-guardian.ts). El arreglo era correcto y **no alcanzaba**, porque el que escribía era el navegador y no miraba el veredicto: `aceptar()` llamaba `onApply(ver.score, ver.razon)` en los dos modales, y para un proyecto eso era `patchLabelLog(id, { score, scoreManual: true, … }, 'Fijaste la prioridad en N debatiéndola', 'user')`. O sea **perder un debate le clavaba el candado de la mig 0143 al número que el propio Perro acababa de defender**: `priorizarProyectosOwner` no lo podía mover nunca más, y la razón que el dueño leía decía «Lo fijaste vos en 32» cuando él había perdido la discusión. Funcionaba «de casualidad» —el número era el correcto— así que ninguna pantalla lo delataba.
+
+**La regla: cuando un control decide que NO, contá cuántas escrituras cuelgan de esa rama, no cuántas variables.** El guard cuidaba el valor; la fila entera se escribía igual, con dos columnas más que nadie miró. Y el corolario que lo cierra de raíz: **si hay una decisión que el server toma, el server escribe.** El camino nuevo (`lib/plan-reprio.ts`) no le deja al navegador ningún camino a la columna `score` — un camino que no existe no se puede olvidar de cerrar.
+
+**Vive en:** lib/plan-reprio.ts · app/plan/board/AudienciaModal.tsx · *2026-08-22 · corrida de 11 agentes sobre el debate de prioridad*
+
+### `coerceVeredicto` tenía el bug INVERSO: una bajada concedida salía como rechazo
+
+`return subio ? 'acepta' : 'rechaza'` miraba solo el signo del delta contra el score actual, **sin saber qué se había pedido**. El dueño pedía bajar de 32 a 20, el Perro se lo concedía, y la etiqueta salía `'rechaza'` — con lo cual el guard de arriba le descartaba la concesión. El Perro decía que sí y el tablero no se movía. El otro agujero de la misma función: cualquier string fuera del enum colapsaba a uno de los dos, así que un `veredicto: "pregunta"` con el número subido se leía como **aceptación**.
+
+Lo reemplaza `veredictoDe(pedido, actual, final)`: la etiqueta no es un dato del modelo, es una lectura de lo que el modelo HIZO. Es «cuando dos señales se contradicen, gana la más cara de producir» — un `veredicto` es un token que se tira sin pensar, un score es la decisión.
+
+**Y el corolario que sale de acá:** por eso las PREGUNTAS del Perro no son un cuarto veredicto. Si el modelo pudiera devolver `veredicto: 'pregunta'`, cualquier versión del código que todavía no conozca esa constante la lee como aceptación — y una aceptación acá reordena el tablero entero. Las preguntas salen del código (`preguntaPorFaltante`), no de una etiqueta que hay que adivinar.
+
+**Vive en:** app/plan/board/metodologia.ts (`veredictoDe`) · lib/plan-prueba.ts · *2026-08-22*
+
+### El Perro no sabía que ya había dicho que no
+
+Cada «volver a intentar» era una llamada nueva y limpia: el veredicto vivía en un `useState` y moría al cerrar el modal. Insistir con el mismo argumento flojo era gratis, no dejaba rastro, y eventualmente funcionaba — que es exactamente lo contrario de «ser estricto». **Un rechazo que no se persiste dura lo que dura la ventana.**
+
+Con `plan_reprios` (mig 0144) los rechazos anteriores del MISMO ítem entran al prompt. Medido el mismo día: al segundo intento con un argumento parecido, la respuesta empezó con *«Mirá, me trajiste el mismo argumento de agosto»*.
+
+**Vive en:** supabase/migrations/0144_plan_reprios.sql · lib/plan-reprio.ts (los `antecedentes`) · *2026-08-22*
+
+### Un fallo de parseo se le mostraba al dueño como un VEREDICTO del Perro
+
+`catch { return { veredicto: 'rechaza', respuesta: 'No pude procesar el debate, probá de nuevo.' } }`. El sistema le atribuía al Perro una decisión que nunca tomó, con toda la autoridad de un veredicto y en la misma pantalla roja. Es [[«no puedo hacer X con este dato» no es «este dato es falso»]] aplicado a la salida: un error de lectura **nunca** puede disparar la acción que dispara el hecho.
+
+Y no era hipotético: **con `maxTokens: 2000` la respuesta se cortaba de verdad.** La cascada barata cae a `gemini-flash-lite`, que razona en voz alta antes del JSON, y terminaba por `"length"` — un JSON a la mitad. El techo estaba elegido pensando en otro modelo. Es la misma trampa que ya se pagó con las tareas del Perro: **el modelo que decide cuánto escribir no es el que estaba puesto cuando se eligió el número.**
+
+**Vive en:** lib/mako-guardian.ts → `dictarAudiencia` · *2026-08-22*
+
+### El candado de la mig 0143 nunca existió para las TAREAS
+
+La migración agregó `score_manual` a `plan_proyectos`, `plan_tareas` **y** `experimento_tareas`. Del lado del código, solo `Label` tenía el campo: `BoardTask` no lo declaraba y `rowToTask`/`taskToRow` no lo mapeaban. O sea la columna se creaba, quedaba en `false` para siempre, y **una tarea cuyo score el dueño ganó discutiendo se la llevaba puesta la recurva de las 9:10**, exactamente el problema que la migración vino a cerrar. Una regla aplicada en un lugar de dos no está implementada.
+
+**Vive en:** app/plan/board/types.ts (`BoardTask.scoreManual`) · lib/plan-board.ts:58 y :70 · *2026-08-22*
+
+### Renombrar un proyecto desde una pestaña vieja pisaba su score
+
+`guardarPlanProyecto` hacía `upsert(labelToRow(l))` — la fila ENTERA armada con el estado del navegador. Una pestaña abierta hace media hora que cambiaba el emoji escribía además el `score`, el `score_razon` y el `score_manual` que tenía en memoria, pisando la corrida de las 9:10 y un debate recién ganado. **No había ningún síntoma: el rename funcionaba perfecto.**
+
+**La regla: un upsert de fila entera armada en el cliente escribe TODAS las columnas, incluidas las que ese formulario no muestra.** Si una columna la decide el server, no puede viajar en el payload del navegador — no alcanza con que la UI no la edite.
+
+**Vive en:** lib/plan-board.ts → `guardarPlanProyecto` · *2026-08-22*
+
+### El tablero está SATURADO, y eso hace que cualquier ajuste manual corra a todos
+
+Medido en ws 9: **71 proyectos ocupando exactamente los valores 100 a 30, consecutivos, cero huecos** — `escalaEsperada(71,'proyecto')` da `{techo 100, piso 30}`, o sea el tablero está lleno por construcción. Eso NO es un bug: es la consecuencia aritmética de las dos reglas que el dueño pidió («el norte va en 95-100» + «prohibido empatar» + «con 100 proyectos la escala llega hasta el 1»). Pero tiene un corolario que hay que tener presente antes de tocar nada acá: **no hay lugar libre donde poner un número a mano.** Fijar el más bajo en 77 mueve 48 filas; fijarlo en 100 mueve 68.
+
+Lo que sostiene que eso siga siendo correcto y no un tablero nuevo cada semana son dos auditorías DURAS, no una explicación: `mismoOrdenRelativo` (dos ítems que el dueño no tocó no se pueden cruzar) y `noPisaManuales` (un score fijado a mano no se mueve «solo un punto» — 79 ya es otra cosa que 80). Sin ellas, «la cascada solo arregla la escala» es una afirmación sobre el código, no una propiedad verificada de la salida.
+
+**Vive en:** app/plan/board/metodologia.ts (`fijarYDesempatar`, `mismoOrdenRelativo`, `noPisaManuales`) · scripts/probar-cascada.mts · *2026-08-22*
+
+### `desempatar` metía al proyecto con candado en el reparto y después lo ignoraba
+
+`priorizarProyectosOwner` pasaba TODOS los proyectos a `desempatar` (incluidos los `score_manual`) y después escribía el manual con `antes.score`, ignorando lo que el desempate había decidido para él. Si el modelo le daba 100 a otro y ese aparecía primero en el array, quedaban **DOS proyectos en 100 en la base** — justo la falla dura que `sinEmpates` existe para cazar, escrita por el mismo código que la corre. `fijarYDesempatar` lo cierra reservando los valores fijados ANTES de repartir, en vez de confiar en que el orden de entrada alcance.
+
+**La regla: si una función tiene una noción de «esto no se mueve», tiene que ser un parámetro, no un truco de orden.** Un truco de orden se pierde en el próximo refactor y no deja test que lo delate.
+
+**Vive en:** app/plan/board/metodologia.ts:`fijarYDesempatar` · lib/plan-board.ts:931/945 · *2026-08-22*
+
+### El «argumento fuerte» tiene que ser un TIPO DE DATO, no un adjetivo en un prompt
+
+El pedido era que el Perro «rechace si los argumentos no son fuertes». Dejar eso en la prosa del prompt es la trampa de siempre: un modelo al que se le pide ser duro cede ante la insistencia, **y encima cobra tokens para ceder**. Lo que lo convierte en una regla de verdad es `exigenciaDe` + `cumpleLaCarga` (lib/plan-prueba.ts): la exigencia se calcula con aritmética (cuánto se sube, desde qué banda, si toca el norte) y se cumple con PRUEBAS tipadas que se resuelven contra la base antes de que el modelo vea nada.
+
+Lo que compra, medido: *«Es re importante, hace mucho que está ahí y me tiene cansado»* → rechazado en 2 segundos y **cero tokens**, con dos preguntas bien formadas. Ese es el rechazo más frecuente y no lo hace el modelo: es instantáneo, gratis, y no se puede negociar porque no hay nadie del otro lado a quien insistirle.
+
+Y la asimetría es deliberada: **BAJAR no se prueba.** El sesgo que el Perro existe para corregir es que todo parece urgente, así que sacar algo de arriba casi siempre es la decisión correcta. Lo que se paga es inflar. La única bajada cara es la del norte, porque bajar el norte sin nombrar el reemplazo deja un plan sin foco, no un plan con uno menos.
+
+**Vive en:** lib/plan-prueba.ts · tests/plan-debate.test.ts · *2026-08-22*
+
+### Lo que quedó SIN hacer
+
+- **La FECHA sigue con el camino viejo.** `debatirFecha` es el único debate sin la metodología `MET_*` interpolada y sin `veredictoDe`: su `veredicto` es un string libre que se pinta en pantalla. Vive en lib/mako-guardian.ts y app/plan/board/FechaDebateModal.tsx.
+- **El board del CLIENTE (`/todo`) no tiene audiencia.** `plan_reprios.tablero` ya contempla `'todo'` y la mig 0143 ya puso `score_manual` en `experimento_tareas`, pero `lib/plan-reprio.ts` escribe solo contra `plan_proyectos`/`plan_tareas`. Un cliente que quiera discutir una prioridad hoy no puede.
+- **El gasto de la audiencia no se registra.** `dictarAudiencia` pasa `onUsage` pero cuando la feature va ruteada a la cascada barata el callback no vuelve con datos: el modal muestra la corrida como si no hubiera costado nada. Pasa igual en los otros debates, así que es del camino de `chatClaude`, no de acá.
+- **Las preguntas del código no se re-mandan al modelo.** `preguntaPorFaltante` devuelve la pregunta y el modal la usa para pedir la prueba que falta, pero las RESPUESTAS todavía no vuelven en un segundo intento automático: el dueño tiene que volver a mandar. El campo `respuestas` del `Pedido` ya está cableado de punta a punta para cuando se haga.
+
+
 ### ⚠️ El Perro del board no puede VER una tarea al 100% ni NOMBRAR la que encontró
 
 Se pedía que el Perro frenara un duplicado al crear y el diagnóstico obvio («le falta un chequeo») era el equivocado: el chequeo era inejecutable. Dos límites, los dos vivos hoy. (1) Los nueve call-sites del guardián en BoardShell filtran `t.progress < 100`, así que una tarea completada es estructuralmente invisible: una tarjeta al 100% que dice «probado» y otra nueva que dice «no funciona» no se pueden contradecir, se llame cuando se llame. (2) `planResumen` se arma como `- [score] título (proyecto)` SIN ids y eso es lo que recibe la acción 'debatir' al crear: el modelo no tiene con qué señalar el duplicado. La única función que sí manda `[id] título — detalle` es `buscarDuplicados`, y tiene UN solo call-site: EliminarModal — el Perro busca duplicados cuando querés BORRAR, no cuando creás. Mismo patrón que [[ruteo-sin-detalle]]: chequeá QUÉ le llega a cada eslabón.

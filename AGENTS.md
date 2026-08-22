@@ -510,6 +510,46 @@ que la razón sea una paráfrasis»). Ninguna línea de código miraba nada de e
 cosa del negocio, ya no hay juicio adentro — hay una cuenta con voz de juicio, que es peor
 que no tener nada porque se lee igual de convincente.
 
+# Un guard que impide MOVER un valor no impide ESCRIBIRLO
+
+Cuando un control decide que NO, lo que hay que contar es **cuántas escrituras cuelgan de esa
+rama**, no cuántas variables. Es distinto de «el fallback es más débil que el camino feliz»:
+acá el control funciona, el valor es el correcto, y la escritura pasa igual con las columnas
+de al lado puestas.
+
+El caso, del 21-22/8/2026, y se cometió en dos días seguidos. Se arregló que un
+`veredicto: 'rechaza'` del Perro no moviera el score (`score: veredicto === 'rechaza' ?
+scoreActual : propuesto`). El arreglo era correcto **y no alcanzaba**, porque el que escribía
+era el navegador y no miraba el veredicto: `onApply(ver.score, ver.razon)` terminaba en
+`patchLabelLog(id, { score, scoreManual: true, … }, 'Fijaste la prioridad en N debatiéndola',
+'user')`. O sea **perder un debate le clavaba el candado de la mig 0143 al número que el
+propio Perro acababa de defender**: la corrida automática ya no lo podía mover nunca más, y
+la razón que el dueño leía decía «Lo fijaste vos en 32» cuando él había perdido. El número
+era el correcto, así que ninguna pantalla lo delataba.
+
+Tres reglas que salen de ahí, y las tres valen para cualquier decisión que tome un control:
+
+1. **Si la decisión la toma el server, el server escribe.** No «el server decide y el cliente
+   aplica»: eso son dos lugares donde la misma regla puede estar, y el segundo se queda viejo.
+   `lib/plan-reprio.ts` no le deja al navegador **ningún** camino a la columna `score` — un
+   camino que no existe no se puede olvidar de cerrar.
+2. **Un `upsert` de fila entera armada en el cliente escribe TODAS las columnas**, incluidas
+   las que ese formulario no muestra. `guardarPlanProyecto` hacía `upsert(labelToRow(l))`, así
+   que una pestaña vieja que cambiaba el emoji pisaba el score con lo que tenía en memoria. Si
+   una columna la decide el server, **no puede viajar en el payload del navegador**; no alcanza
+   con que la UI no la edite.
+3. **La etiqueta de una decisión se DERIVA de lo que se hizo, no se lee de lo que el modelo
+   dijo.** `coerceVeredicto` hacía `subio ? 'acepta' : 'rechaza'` sin saber qué se había
+   PEDIDO: una bajada que el dueño pidió y el Perro concedió salía etiquetada «rechaza», y el
+   guard le descartaba la concesión. Peor: cualquier string fuera del enum colapsaba a uno de
+   los dos, así que un `veredicto: "pregunta"` con el número subido se leía como ACEPTACIÓN.
+   Lo reemplaza `veredictoDe(pedido, actual, final)` (`app/plan/board/metodologia.ts`).
+
+**Y el corolario del enum, que es el que más cuesta ver:** por eso las preguntas del Perro
+**no son un cuarto veredicto**. Cualquier valor nuevo que un modelo pueda escribir en un campo
+que el código colapsa con un default es una decisión tomada por el default. Si hace falta un
+estado nuevo, lo pone el CÓDIGO —o va en otro campo—, nunca el modelo.
+
 # Un total solo se puede sumar si el recurso se puede MOVER DE LUGAR
 
 Una clienta con tres cuentas de Gemini vio «240,6k / 750,0k» —le sobra el 68% del día— al

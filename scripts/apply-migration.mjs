@@ -28,7 +28,7 @@ if (!conn) {
 
 const ddl = readFileSync(sqlFile, 'utf8');
 
-const sql = postgres(conn, { ssl: 'require', connect_timeout: 10, max: 1 });
+const sql = postgres(conn, { ssl: 'require', connect_timeout: 60, max: 1 });
 try {
   const [{ n }] = await sql`select count(*)::int as n from leads`;
   console.log(`Proyecto OK — leads=${n}`);

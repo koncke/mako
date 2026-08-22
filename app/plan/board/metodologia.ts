@@ -392,3 +392,138 @@ export function cuposDeDistribucion(n: number, tipo: 'proyecto' | 'tarea'): {
     texto: `Son ${n} tareas. Como mucho ${maxArriba} pueden quedar en Alta (75-100) — si te salen más, estás inflando. ${n >= 90 ? `Al menos ${Math.max(1, Math.round(n * 0.25))} van en "A futuro" (1-24).` : `Con solo ${n} tareas NO fuerces el fondo de la escala: la más baja tiene que quedar alrededor de ${piso}, no en 2. Mandar a "A futuro" algo de un plan de ${n} tareas es decirle al dueño que lo que acaba de escribir no importa.`}`,
   };
 }
+
+// ── EL DEBATE: CUANDO EL NÚMERO LO PIDE EL DUEÑO ─────────────────────────────────────
+
+export type Veredicto = 'acepta' | 'ajusta' | 'rechaza';
+
+/**
+ * El veredicto se DERIVA de los tres números. No se lee de la etiqueta que manda el modelo.
+ *
+ * Lo que reemplaza —`coerceVeredicto`, que hacía `return subio ? 'acepta' : 'rechaza'`— tenía
+ * dos agujeros y los dos se pagan en la pantalla del dueño:
+ *
+ *  1. Miraba SOLO el signo del delta contra el score actual, sin saber qué se había pedido.
+ *     Una BAJADA que el dueño pidió y el Perro concedió (32 → 20) salía etiquetada
+ *     «rechaza», y entonces el guard de «un rechazo no mueve el número» le descartaba la
+ *     concesión. El Perro decía que sí y el tablero no se enteraba.
+ *  2. Cualquier string fuera del enum colapsaba a uno de los dos. Un modelo que devuelva
+ *     `veredicto: "pregunta"` —o `"parcial"`, o vacío— con el número subido se lee como una
+ *     ACEPTACIÓN. Y una aceptación acá mueve el tablero entero.
+ *
+ * Con esto, la etiqueta no es un dato del modelo: es una lectura de lo que el modelo HIZO.
+ * El modelo devuelve un número y una razón; qué significa ese número lo decide el código.
+ * Es la misma regla de «cuando dos señales se contradicen, gana la más cara de producir»:
+ * un `veredicto` es un token que se tira sin pensar, un score es la decisión.
+ */
+export function veredictoDe(pedido: number, actual: number, final: number): Veredicto {
+  const pedida = Math.sign(pedido - actual);
+  const lograda = Math.sign(final - actual);
+  if (pedida === 0) return 'rechaza'; // no pidió nada: no hay nada que conceder
+  if (lograda !== pedida) return 'rechaza'; // no se movió, o se movió al revés
+  return final === pedido ? 'acepta' : 'ajusta';
+}
+
+/**
+ * Desempata RESERVANDO primero los valores que no se pueden mover.
+ *
+ * `desempatar` es estable por orden de entrada, así que «poner el fijado primero» ya
+ * alcanzaría — pero eso es un truco que se pierde en el próximo refactor y que además no
+ * cubre a los OTROS ítems con `score_manual`. Acá la reserva es explícita.
+ *
+ * ⚠️ CIERRA UN BUG VIVO. `priorizarProyectosOwner` mete al proyecto con `score_manual` en el
+ * array de `desempatar` con su score, y después lo escribe con `antes.score` ignorando lo que
+ * desempatar decidió. Si el modelo le daba 100 a otro proyecto y ese aparecía antes, quedaban
+ * DOS en 100 en la base — justo la falla dura que `sinEmpates` existe para cazar, escrita por
+ * el mismo código que la corre.
+ *
+ * Los fijados entre sí también se resuelven (si el dueño clavó dos en 80, uno tiene que
+ * bajar), pero en un orden determinista y ANTES que todo lo demás.
+ */
+export function fijarYDesempatar(items: Puntuado[], fijados: Record<string, number>): Record<string, number> {
+  const usados = new Set<number>();
+  const out: Record<string, number> = {};
+  const tomar = (id: string, deseado: number) => {
+    let v = Math.max(1, Math.min(100, Math.round(deseado)));
+    while (usados.has(v) && v > 1) v--;
+    while (usados.has(v) && v < 100) v++;
+    usados.add(v);
+    out[id] = v;
+  };
+  const esFijo = (id: string) => Object.prototype.hasOwnProperty.call(fijados, id);
+  const orden = (a: Puntuado, b: Puntuado) => b.score - a.score || (a.id < b.id ? -1 : 1);
+  for (const it of items.filter((i) => esFijo(i.id)).sort((a, b) => (fijados[b.id] ?? 0) - (fijados[a.id] ?? 0) || (a.id < b.id ? -1 : 1))) tomar(it.id, fijados[it.id]);
+  for (const it of items.filter((i) => !esFijo(i.id)).slice().sort(orden)) tomar(it.id, it.score);
+  return out;
+}
+
+/**
+ * La cascada movió números, pero NO puede haber reordenado nada.
+ *
+ * Es la propiedad que separa «arreglar la escala» de «volver a juzgar». Cuando el dueño fija
+ * un proyecto en 87, los que estaban abajo se corren de a uno para hacerle lugar: eso es
+ * aritmética de huecos y está bien. Lo que no puede pasar es que dos proyectos que él no
+ * tocó se crucen entre sí — ahí el tablero le cambió el criterio a algo que no discutió, y
+ * la próxima vez que mire no va a saber por qué.
+ *
+ * Falla DURA: si el orden relativo cambió, no se escribe una sola fila.
+ */
+export function mismoOrdenRelativo(antes: Puntuado[], despues: Record<string, number>, exceptoId: string): Falla | null {
+  const previo = new Map(antes.map((p) => [p.id, p.score]));
+  const otros = antes.filter((p) => p.id !== exceptoId && despues[p.id] != null).map((p) => p.id);
+  const cruces: string[] = [];
+  for (let i = 0; i < otros.length; i++) {
+    for (let j = i + 1; j < otros.length; j++) {
+      const a = otros[i], b = otros[j];
+      const antesSigno = Math.sign((previo.get(a) ?? 0) - (previo.get(b) ?? 0));
+      const despuesSigno = Math.sign(despues[a] - despues[b]);
+      if (antesSigno !== 0 && despuesSigno !== 0 && antesSigno !== despuesSigno) cruces.push(`${a}↔${b}`);
+    }
+  }
+  if (!cruces.length) return null;
+  return {
+    regla: 'Mover UNO no puede reordenar a los otros: la cascada arregla la escala, no vuelve a juzgar',
+    detalle: `${cruces.length} par${cruces.length === 1 ? '' : 'es'} de proyectos que el dueño no tocó se cruzaron entre sí (${cruces.slice(0, 4).join(', ')}${cruces.length > 4 ? '…' : ''})`,
+    ids: [...new Set(cruces.flatMap((c) => c.split('↔')))],
+    peso: 'dura',
+  };
+}
+
+/**
+ * Lo que el dueño fijó a mano no se mueve. Nunca, ni de a uno.
+ *
+ * El candado de `score_manual` existe para que la corrida automática de mañana no pise un
+ * número que se discutió. Una cascada que lo corre «solo un punto» lo apaga igual de bien:
+ * el dueño puso 80 porque 80 significaba algo contra el de al lado, y 79 ya es otra cosa.
+ */
+export function noPisaManuales(antes: Puntuado[], despues: Record<string, number>, manuales: string[], exceptoId?: string): Falla | null {
+  const fijos = new Set(manuales.filter((id) => id !== exceptoId));
+  const movidos = antes.filter((p) => fijos.has(p.id) && despues[p.id] != null && despues[p.id] !== p.score);
+  if (!movidos.length) return null;
+  return {
+    regla: 'Un score fijado a mano no lo mueve ninguna corrida automática (mig 0143)',
+    detalle: movidos.map((p) => `«${p.titulo}» ${p.score} → ${despues[p.id]}`).join(' · '),
+    ids: movidos.map((p) => p.id),
+    peso: 'dura',
+  };
+}
+
+/**
+ * El ítem que se debatió TIENE que estar en la salida, y su número tiene que haberse movido
+ * en la dirección que se pidió (o quedarse quieto, que es un rechazo válido).
+ *
+ * Que el modelo se olvide justo del que se estaba discutiendo es la falla más cara acá: el
+ * dueño argumentó, esperó, y el tablero no cambió nada sin decirle por qué.
+ */
+export function respetaElReclamo(r: { id: string; scorePedido: number; scoreActual: number }, despues: Record<string, number>): Falla | null {
+  const final = despues[r.id];
+  if (final == null) {
+    return { regla: 'El ítem que se debate no puede faltar en la salida', detalle: `se pidió mover «${r.id}» de ${r.scoreActual} a ${r.scorePedido} y no vino en la respuesta`, ids: [r.id], peso: 'dura' };
+  }
+  const pedida = Math.sign(r.scorePedido - r.scoreActual);
+  const lograda = Math.sign(final - r.scoreActual);
+  if (pedida !== 0 && lograda !== 0 && lograda !== pedida) {
+    return { regla: 'Conceder al revés de lo que se pidió no es un veredicto: es un error', detalle: `se pidió ${pedida > 0 ? 'subir' : 'bajar'} de ${r.scoreActual} a ${r.scorePedido} y quedó en ${final}`, ids: [r.id], peso: 'dura' };
+  }
+  return null;
+}

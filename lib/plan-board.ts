@@ -55,7 +55,7 @@ function rowToTask(r: Row): BoardTask {
     labels: asArr<unknown>(r.labels).map(String), checklist: asArr<Check>(r.checklist),
     historial: sanearHist(r.historial), origen: str(r.origen, 'user') as Actor,
     creadaEn: Date.parse(str(r.created_at)) || undefined,
-    fuente: optFuente(r.fuente), enPrioridad: !!r.en_prioridad,
+    fuente: optFuente(r.fuente), enPrioridad: !!r.en_prioridad, scoreManual: !!r.score_manual,
   };
 }
 function taskToRow(t: BoardTask): Row {
@@ -67,7 +67,7 @@ function taskToRow(t: BoardTask): Row {
     deadline_razon: t.deadlineRazon ?? null, notas: t.notas ?? '', hacelo_en: t.haceloEn ?? null,
     impacto: t.impacto ?? null, esfuerzo: t.esfuerzo ?? null, progress: int(t.progress),
     deadline: t.deadline || '', labels: t.labels ?? [], checklist: t.checklist ?? [], historial: t.historial ?? [],
-    origen: t.origen || 'user', fuente: t.fuente ?? null, en_prioridad: !!t.enPrioridad,
+    origen: t.origen || 'user', fuente: t.fuente ?? null, en_prioridad: !!t.enPrioridad, score_manual: !!t.scoreManual,
     orden: t.num, updated_at: new Date().toISOString(),
   };
 }
@@ -271,10 +271,26 @@ export async function crearPlanProyecto(draft: Label): Promise<Label> {
     return proj;
   });
 }
+/**
+ * Guardar un proyecto desde el navegador NO TOCA EL SCORE. Nunca.
+ *
+ * Esto era un upsert de la fila ENTERA armada con el estado de la pestaña, así que una
+ * pestaña abierta hace media hora que renombraba un proyecto o le cambiaba el emoji
+ * escribía además el `score`, el `score_razon` y el `score_manual` que tenía en memoria —
+ * pisando con datos viejos la corrida de las 9:10 y, peor, un debate que el dueño acababa
+ * de ganar. Nada de eso se veía: el rename funcionaba perfecto.
+ *
+ * Desde la mig 0144 el número lo escribe SIEMPRE el server (`lib/plan-reprio.ts` cuando el
+ * dueño lo discute, `priorizarProyectosOwner` cuando lo decide el Perro), y por columna
+ * puntual. El navegador ya no tiene por qué mandarlo, así que no se lo deja mandar: un
+ * camino que no existe no se puede olvidar de cerrar.
+ */
 export async function guardarPlanProyecto(l: Label): Promise<void> {
   return enPlan(async () => {
     const db = await getTenantDb();
-    const { error } = await db.from('plan_proyectos').upsert(labelToRow(l), { onConflict: 'workspace_id,id' });
+    const { score, score_razon, score_manual, impacto, esfuerzo, ...campos } = labelToRow(l);
+    void score; void score_razon; void score_manual; void impacto; void esfuerzo;
+    const { error } = await db.from('plan_proyectos').upsert(campos, { onConflict: 'workspace_id,id' });
     if (error) throw new Error(`guardarPlanProyecto: ${error.message}`);
   });
 }

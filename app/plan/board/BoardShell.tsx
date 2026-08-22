@@ -15,13 +15,12 @@ import { UndoToast } from '../../_components/UndoToast';
 import { ConfirmModal } from '../../_components/ConfirmModal';
 import { EmojiPickerMini } from './EmojiPicker';
 import { MakoChecklistModal } from './MakoChecklist';
-import { DebateModal } from './DebateModal';
 import { FechaDebateModal } from './FechaDebateModal';
 import { CrearTareaModal } from './CrearTareaModal';
 import { CrearProyectoModal } from './CrearProyecto';
 import { EliminarModal } from './EliminarModal';
 import { AsignarProyectoModal } from './AsignarProyecto';
-import { ProyectoDebateModal } from './ProyectoDebateModal';
+import { AudienciaModal } from './AudienciaModal';
 import { MakoProyectoModal } from './MakoProyecto';
 import { useVerMas } from './VerMas';
 import { useCapaModal } from '@/app/_components/pila-modales';
@@ -616,6 +615,16 @@ export function BoardShell({ board, scope, vistaInicial }: {
   const asignarTask = tasks.find((t) => t.id === asignarTaskId) ?? null;
   const debateProj = labels.find((l) => l.id === debateProjId) ?? null;
   const makoProj = labels.find((l) => l.id === makoProjId) ?? null;
+  /**
+   * Después de una cascada se RECARGA, no se parchea.
+   *
+   * La escritura la hizo el server sobre decenas de filas por id; el estado del navegador
+   * quedó viejo en todas ellas. Reconstruirlo a mano acá sería mantener una segunda copia
+   * de la misma decisión —y la que se quedaría vieja es la que se ve—. Recargar es barato
+   * y honesto, y desde que la vista, el proyecto y la tarea abiertos viajan en la URL, se
+   * vuelve exactamente a la misma pantalla.
+   */
+  const recargarTrasCascada = () => window.location.reload();
   const crearProyecto = (nombre: string, emoji: string, detalle: string, score = 5) => board.createLabel({ id: uid(), emoji: emoji || '🏷', name: nombre, color: SWATCHES[labels.length % SWATCHES.length], score, detalle, historial: [] });
   // resumen del plan para que el guardián compare al debatir/crear
   const planResumen = tasks.filter((t) => t.progress < 100).map((t) => `- [${t.score}] ${t.title} (${board.labelById(t.labels[0])?.name ?? 'sin proyecto'})`).join('\n');
@@ -983,10 +992,17 @@ export function BoardShell({ board, scope, vistaInicial }: {
         onOpenTask={(id) => { setPeekProjId(null); setOpenId(id); }} onNewTask={() => { setNuevaTareaProj(peekProj.id); setNuevaTarea(true); }}
         onDebatePrio={() => setDebateProjId(peekProj.id)} onMako={() => setMakoProjId(peekProj.id)} onDelete={() => setEliminarProjId(peekProj.id)}
         onClose={() => setPeekProjId(null)} />}
-      {debateTask && <DebateModal task={debateTask} planResumen={planResumen}
-        otras={tasks.filter((t) => t.id !== debateTask.id && t.progress < 100).map((t) => { const l = board.labelById(t.labels[0]); return { id: t.id, title: t.title, score: t.score, projId: l?.id, projName: l?.name, projColor: l?.color, projEmoji: l?.emoji }; })}
-        onUsage={(u) => showUsage(u, 'debate de prioridad')}
-        onApply={(score, razon) => { const snap = debateTask; board.setScore(debateTask.id, score, `Debate con el Perro Guardián · score ${score}`, 'ia', razon); board.showUndo('Prioridad actualizada', () => board.replaceTask(snap)); }} onClose={() => setDebateId(null)} />}
+      {/* LA AUDIENCIA. Reemplaza a `DebateModal` en el camino del SCORE (la FECHA se sigue
+          debatiendo aparte: es otra pregunta). Tres cosas cambian y las tres importan: la
+          exigencia se ve antes de argumentar, el rechazo NO escribe nada, y aceptar muestra
+          la cascada antes de tocar la base. */}
+      {debateTask && <AudienciaModal entidad="tarea"
+        item={{ id: debateTask.id, titulo: debateTask.title, score: debateTask.score, emoji: debateTask.emoji }}
+        otros={tasks.filter((t) => t.id !== debateTask.id && t.progress < 100).map((t) => ({ id: t.id, titulo: t.title, score: t.score, emoji: t.emoji }))}
+        tareas={[]}
+        onUsage={(u) => showUsage(u, 'prioridad de tarea')}
+        onAplicado={recargarTrasCascada}
+        onClose={() => setDebateId(null)} />}
       {nuevaTarea && <CrearTareaModal labels={labels} proyectoInicial={nuevaTareaProj} prioInicial={nuevaTareaPrio} ejemplos={tasks.filter((t) => t.progress < 100).map((t) => ({ title: t.title, score: t.score }))} onCrear={crearConGuardian} onDone={(id) => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); setOpenId(id); setMakoHintId(id); }} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); }} />}
       {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} taskAbierta={!!openTask}
         onBack={welcomeVisible ? () => setOpenProj(null) : undefined} backLabel="Volver"
@@ -1002,14 +1018,13 @@ export function BoardShell({ board, scope, vistaInicial }: {
           board.showUndo(deadline ? `Fecha del #${snap.num} → ${deadline}` : `Le saqué la fecha al #${snap.num}`, () => { board.setDeadline(snap.id, snap.deadline, deadline); board.patch(snap.id, { deadlineRazon: snap.deadlineRazon ?? '' }); });
         }}
         onClose={() => setDebateFechaId(null)} />}
-      {debateProj && <ProyectoDebateModal proj={debateProj} otros={labels.filter((l) => l.id !== debateProj.id).map((l) => ({ id: l.id, name: l.name, emoji: l.emoji, color: l.color, score: l.score }))} onUsage={(u) => showUsage(u, 'prioridad de proyecto')} onApply={(score, razon) => {
-        const snap = debateProj;
-        // `scoreManual: true` — este número salió de una discusión que le ganaste al Perro,
-        // así que la corrida automática de mañana ya no lo pisa (mig 0143). Puede proponer
-        // moverlo: lo escribe en la razón, donde vos lo ves.
-        board.patchLabelLog(debateProj.id, { score, scoreManual: true, scoreRazon: razon || debateProj.scoreRazon }, `Fijaste la prioridad en ${score} debatiéndola`, 'user');
-        board.showUndo('Prioridad del proyecto actualizada', () => board.patchLabel(snap.id, snap));
-      }} onClose={() => setDebateProjId(null)} />}
+      {debateProj && <AudienciaModal entidad="proyecto"
+        item={{ id: debateProj.id, titulo: debateProj.name, score: debateProj.score, emoji: debateProj.emoji }}
+        otros={labels.filter((l) => l.id !== debateProj.id).map((l) => ({ id: l.id, titulo: l.name, score: l.score, emoji: l.emoji }))}
+        tareas={tasks.filter((t) => t.progress < 100).slice().sort((a, b) => b.score - a.score).map((t) => ({ id: t.id, titulo: t.title, score: t.score, emoji: t.emoji }))}
+        onUsage={(u) => showUsage(u, 'prioridad de proyecto')}
+        onAplicado={recargarTrasCascada}
+        onClose={() => setDebateProjId(null)} />}
       {nuevoProj && <CrearProyectoModal otros={labels.map((l) => ({ name: l.name, emoji: l.emoji, score: l.score, color: l.color }))} onCrear={crearProyecto} onClose={() => setNuevoProj(false)} />}
       {/* Lo que MaKo dejó esperando: tareas de una reunión tuya que leyó sola, o que te
           mandó otra persona. Nunca se crearon: se confirman acá. Van DESPUÉS de Datos

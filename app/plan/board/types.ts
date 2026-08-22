@@ -129,6 +129,14 @@ export type BoardTask = {
   origen: Actor;            // quién creó la tarjeta (user | ia=MaKo | code=Claude Code)
   fuente?: Fuente;          // DE DÓNDE salió (Fathom/WhatsApp/archivo/Claude Code…); si falta, se deriva del origen
   enPrioridad: boolean;     // "En prioridad" (vista Prioridades, máx 3)
+  /**
+   * true = este score lo decidiste VOS discutiéndolo con el Perro (mig 0143), igual que en
+   * `Label`. La columna existía en `plan_tareas` desde esa migración y NADIE la leía: el
+   * candado que protegía a un proyecto debatido no protegía a una tarea debatida, y la
+   * recurva de las 9:10 se llevaba puesto el número. Una regla aplicada en un lugar de dos
+   * no está implementada.
+   */
+  scoreManual?: boolean;
 };
 
 export type Label = { id: string; pid?: string; emoji: string; name: string; color: string; score: number; scoreRazon?: string; impacto?: number; esfuerzo?: number; deadline?: string; detalle: string; notas?: string; historial: Hist[]; fuente?: Fuente; escalon?: number; desbloquea?: string;

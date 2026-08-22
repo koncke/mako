@@ -749,7 +749,7 @@ export const REGISTRY: Group[] = [
   {
     group: 'MaKo Perro Guardián (prioridades)',
     icon: '🛡️',
-    blurb: 'Cómo el guardián puntúa proyectos (1-5) y tareas (1-100) para decidir qué mueve la aguja.',
+    blurb: 'Cómo el guardián puntúa proyectos y tareas (los dos 1-100) para decidir qué mueve la aguja.',
     entries: [
       {
         key: 'guardian.puntuar.system', source: 'override',
@@ -784,12 +784,12 @@ export const REGISTRY: Group[] = [
         label: 'Debate de prioridad de proyecto (system)', kind: 'system', dynamic: true,
         variables: [v('jsonShape', 'forma EXACTA del JSON de salida')], scope: 'static-only', sensitive: true,
         default: GUARDIAN_PROJ_DEBATE_SYSTEM_TEMPLATE,
-        context: 'Cuando el usuario debate la prioridad (1-10) de un PROYECTO, MaKo compara contra los demás y decide (última palabra). No borres el slot {{jsonShape}} ni cambies el esquema.',
+        context: 'Cuando el usuario debate la prioridad (1-100) de un PROYECTO, MaKo compara contra los demás y decide (última palabra). No borres el slot {{jsonShape}} ni cambies el esquema.',
       },
       {
         key: 'guardian.proj-debate.user', source: 'override',
         label: 'Argumento del proyecto (user)', kind: 'user', dynamic: true,
-        variables: [v('scoreActual', 'prioridad actual 1-10'), v('proyecto', 'el proyecto'), v('plan', 'los demás proyectos'), v('argumento', 'lo que argumenta el usuario')], scope: 'full', sensitive: false,
+        variables: [v('scoreActual', 'prioridad actual 1-100'), v('proyecto', 'el proyecto'), v('plan', 'los demás proyectos'), v('argumento', 'lo que argumenta el usuario')], scope: 'full', sensitive: false,
         default: GUARDIAN_PROJ_DEBATE_USER_TEMPLATE,
         context: 'Le pasa el proyecto, los demás proyectos y el argumento. No borres los slots {{scoreActual}}/{{proyecto}}/{{plan}}/{{argumento}}.',
       },
