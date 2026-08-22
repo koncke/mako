@@ -36,6 +36,7 @@ import { CURSO_UGC_SIM_ACADEMY_DE_MINDSHFT } from './curso-ugc-sim-academy-de-mi
 import { CURSO_HACKEANDO_LA_EDICION } from './curso-hackeando-la-edicion';
 import { CURSO_PROGRAMA_RAIO } from './curso-programa-raio';
 import { CURSO_BIGSEO_ACADEMY } from './curso-bigseo-academy';
+import { CURSO_BLUEHACKER } from './curso-bluehacker';
 import { CURSO_INSTITUTO_DE_COMUNICACION } from './curso-instituto-de-comunicacion';
 import { CURSO_CREATOR_CLUB } from './curso-creator-club';
 import { CURSO_TRILOGIA_DE_BRIAN_TRACY } from './curso-trilogia-de-brian-tracy';
@@ -57,11 +58,19 @@ export const CATEGORIA_PROPIA = 'MaKo';
 /**
  * Cómo se agrupan los cursos en el selector, por slug.
  *
- * ⚠️ Vive ACÁ y no en cada curso porque cinco de ellos (`avatarhype`, `masteryhaus`,
- * `bluehacker`, `anuncio-ganador`, `100ads-analisis`) están dentro de `curso.ts`, que
- * es **auto-generado**: una categoría escrita ahí se pierde en la próxima
- * regeneración. Acá sobrevive, y de paso queda UN solo lugar donde se lee el mapa
- * completo de secciones en vez de nueve archivos.
+ * ⚠️ Vive ACÁ y no en cada curso porque CUATRO de ellos (`avatarhype`, `masteryhaus`,
+ * `anuncio-ganador`, `100ads-analisis`) están dentro de `curso.ts`, que no tiene
+ * generador propio: se mantiene a mano y no hay script que le vuelva a escribir la
+ * categoría. Acá queda además UN solo lugar donde se lee el mapa completo de secciones
+ * en vez de nueve archivos.
+ *
+ * ⚠️ Y NO pongas acá un curso que tenga archivo propio: el override de este mapa GANA
+ * sobre lo que el archivo declara, así que una regeneración con otra categoría no se
+ * vería. `bluehacker` salió de acá el 22/08/2026 al migrar a `curso-bluehacker.ts`.
+ *
+ * (El texto anterior decía que `curso.ts` es «auto-generado». Es FALSO: ningún script
+ * lo escribe. La razón real de que estos datos vivan acá es que no hay generador que
+ * los emita, no que se pierdan. Ver docs/hallazgos-conocimiento.md.)
  *
  * Un curso que no esté en el mapa conserva la categoría que trae — no se le inventa
  * una ni se lo manda a un cajón «Otros».
@@ -69,7 +78,6 @@ export const CATEGORIA_PROPIA = 'MaKo';
 const CATEGORIA: Record<string, string> = {
   // Cursos de terceros sobre el negocio digital
   masteryhaus: 'Negocios digitales',
-  bluehacker: 'Negocios digitales',
   'aumenta-tu-valor-y-atv-advantage': 'Negocios digitales',
   'sell-your-knowledge': 'Negocios digitales',
   // IA y generación de piezas
@@ -119,7 +127,6 @@ const CATEGORIA: Record<string, string> = {
  * Los cursos de la sección MaKo van a propósito SIN miniatura.
  */
 const PORTADA: Record<string, string> = {
-  bluehacker: '/cono-portadas/bluehacker.webp',
   masteryhaus: '/cono-portadas/masteryhaus.png',
   'anuncio-ganador': '/cono-portadas/anuncio-ganador.jpg',
 };
@@ -218,6 +225,7 @@ export const CURSOS_TODOS: Curso[] = [
   CURSO_MATEO_MAFFIA_BYF, CURSO_MASTER_MARCA_PERSONAL_5_0, CURSO_SOCIAL_FUNNEL,
   CURSO_UGC_SIM_ACADEMY_DE_MINDSHFT, CURSO_HACKEANDO_LA_EDICION,
   CURSO_PROGRAMA_RAIO, CURSO_BIGSEO_ACADEMY, CURSO_INSTITUTO_DE_COMUNICACION,
+  CURSO_BLUEHACKER,
   CURSO_CREATOR_CLUB, CURSO_TRILOGIA_DE_BRIAN_TRACY,
   // Los recursos y el modo réplica se inyectan acá porque el archivo del curso lo
   // REESCRIBE `curso-a-portal.mjs` en cada corrida: puestos allá, duran hasta la

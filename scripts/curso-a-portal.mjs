@@ -228,6 +228,25 @@ for (const rel of listarUnNivel(dirTexto)) {
 }
 
 const modulos = [...new Set(plan.clases.map((c) => c.modulo).filter(Boolean))];
+
+// ⚠️ QUITAR EL ORDINAL PUEDE FUNDIR DOS MÓDULOS DISTINTOS EN UNA SOLA CAJA.
+// El nombre que la plataforma da a un módulo viene con su ordinal («3. Ponencias
+// Especiales»), y el ordinal se reinicia en cada sección del curso. Sacarlo hace que
+// «3. Ponencias Especiales» (bajo Transmutación de Identidad) y «2. Ponencias
+// Especiales» (bajo Facebook Ads) pasen a llamarse igual — y el hub abre un <details>
+// por valor de `grupo`, así que las clases de las dos secciones caen adentro del mismo
+// acordeón. Medido en BlueHacker el 22/08/2026: el plan trae 40 módulos y el archivo
+// generado emitía 38.
+//
+// El síntoma no se parece a un bug: se ve un curso con dos módulos menos y un acordeón
+// un poco más largo. Nadie cuenta los acordeones.
+//
+// Así que el ordinal se quita SOLO cuando quitarlo no genera un choque. La alternativa
+// —dejarlo siempre— ensucia los 20 cursos que no lo necesitan.
+const sinOrdinal = (m) => String(m).replace(/^\d+\.\s*/, '');
+const choques = new Map();
+for (const m of modulos) choques.set(sinOrdinal(m), (choques.get(sinOrdinal(m)) ?? 0) + 1);
+const nombreGrupo = (m) => (m ? (choques.get(sinOrdinal(m)) > 1 ? String(m) : sinOrdinal(m)) : undefined);
 const clases = [];
 let conTx = 0, sinTx = 0, conApuntes = 0;
 
@@ -312,7 +331,7 @@ for (const c of plan.clases) {
     codigo: c.codigo ?? undefined,
     portadaClase: portadaClase ?? undefined,
     vn: vn || undefined,
-    grupo: c.modulo ? c.modulo.replace(/^\d+\.\s*/, '') : undefined,
+    grupo: nombreGrupo(c.modulo),
     // 2º nivel del hub: la SECCIÓN dentro del módulo. La plataforma la muestra y el
     // portal la tiraba, así que las 24 clases de un módulo salían en una lista plana.
     subgrupo: c.submodulo ? String(c.submodulo).replace(/^\d+\.\s*/, '') : undefined,
@@ -323,7 +342,7 @@ for (const c of plan.clases) {
     // plataforma no publica duración —«Trilogía de BRIAN TRACY» no la muestra— el
     // template dejaba el separador colgando y la tarjeta decía « · Parte 1», con el
     // punto abriendo la línea. Un separador es entre DOS cosas o no va.
-    cardDesc: [c.duracion, c.modulo ? String(c.modulo).replace(/^\d+\.\s*/, '') : '']
+    cardDesc: [c.duracion, nombreGrupo(c.modulo) ?? '']
       .filter((x) => x && String(x).trim()).join(' · '),
     videoId,
     resumen: apuntes,
