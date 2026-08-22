@@ -112,17 +112,69 @@ function huecos(nums) {
   return { medio, antes, todos: [...antes, ...medio] };
 }
 
-const archivos = readdirSync(DIR).filter((f) => /^curso-.*\.ts$/.test(f));
-archivos.unshift('curso.ts');
+// ⚠️ LA UNIDAD ES EL CURSO, NO EL ARCHIVO, Y CONFUNDIRLOS HACÍA MENTIR AL CHEQUEO.
+//
+// `curso.ts` tiene CINCO cursos adentro (avatarhype, masteryhaus, anuncio-ganador,
+// bluehacker, 100ads-analisis). La versión anterior hacía `archivos.unshift('curso.ts')`
+// y bautizaba a los cinco `avatarhype`, así que:
+//
+//   · `--curso bluehacker` (y masteryhaus, y anuncio-ganador, y 100ads-analisis)
+//     contestaba «Los 0 cursos revisados están completos». CERO revisados, y el texto
+//     decía «completos». Es el falso «todo bien» contra el que este mismo archivo
+//     advierte veinte líneas más arriba, servido por el enumerador.
+//   · Peor: al concatenar los cinco, los módulos de uno RELLENAN los huecos del otro.
+//     bluehacker solo acusa que le faltan los módulos 4 y 7; fusionado acusa el 7,
+//     porque el módulo 4 de masteryhaus tapa el agujero. La fusión no solo no revisa:
+//     BORRA evidencia que el chequeo sí tenía.
+//
+// Y el slug tampoco puede salir del nombre del archivo: `curso-vsl-landing.ts` es
+// `vsl-landing`, pero `curso-producto-app.ts` es `construir-app` y
+// `curso-avatar-app.ts` es `avatares-que-se-parecen`. Con el slug derivado del nombre,
+// `--curso` no encontraba 7 de los 29 cursos del portal. Sale del CONTENIDO.
+const RE_SLUG = /["']?slug["']?\s*:\s*["']([a-z0-9-]+)["']/;
+
+// Del legado se leen los cursos DE VERDAD: el array parsea como JSON (verificado), así
+// que no hay que adivinarlo con regex.
+function cursosDelLegado(texto) {
+  const m = /export const CURSOS[^=]*=\s*/.exec(texto);
+  if (!m) return [];
+  const i = texto.indexOf('[', m.index + m[0].length - 1);
+  const j = texto.lastIndexOf(']');
+  let arr;
+  try { arr = JSON.parse(texto.slice(i, j + 1)); } catch { return []; }
+  if (!Array.isArray(arr)) return [];
+  return arr.map((c) => ({
+    slug: c.slug,
+    // Mismo molde que devuelve clasesDe(), para que el resto del script no note la
+    // diferencia entre un curso parseado y uno leído con regex.
+    clases: (c.clases ?? []).map((x) => ({
+      titulo: String(x.titulo ?? '').trim(),
+      modulo: Number(x.modulo) || 0,
+      grupo: String(x.grupo ?? '').trim(),
+    })),
+  })).filter((c) => c.slug && c.clases.length);
+}
+
+const unidades = [];
+for (const f of readdirSync(DIR).filter((x) => /^curso-.*\.ts$/.test(x))) {
+  const texto = readFileSync(join(DIR, f), 'utf8');
+  const m = RE_SLUG.exec(texto);
+  unidades.push({ slug: m ? m[1] : f.replace(/^curso-/, '').replace(/\.ts$/, ''), clases: clasesDe(texto) });
+}
+unidades.unshift(...cursosDelLegado(readFileSync(join(DIR, 'curso.ts'), 'utf8')));
+
+// Si se pidió UN curso y no existe, se dice — nunca «0 revisados, todo completo».
+if (SOLO && !unidades.some((u) => u.slug === SOLO)) {
+  console.error(`\n  ✖ No hay ningún curso con slug «${SOLO}».\n    Los que hay: ${unidades.map((u) => u.slug).sort().join(', ')}\n`);
+  process.exit(2);
+}
 
 let conProblemas = 0;
 let sinEvaluar = 0;
 let revisados = 0;
 
-for (const f of archivos) {
-  const slug = f === 'curso.ts' ? 'avatarhype' : f.replace(/^curso-/, '').replace(/\.ts$/, '');
+for (const { slug, clases } of unidades) {
   if (SOLO && slug !== SOLO) continue;
-  const clases = clasesDe(readFileSync(join(DIR, f), 'utf8'));
   if (!clases.length) continue;
   revisados++;
 
