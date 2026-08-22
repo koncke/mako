@@ -26,7 +26,7 @@ const arg = (n, d) => {
 const DE = arg('de', 'C:\\cursos\\video');
 const A = arg('a', 'C:\\cursos\\audio');
 const KBPS = Number(arg('kbps', 32));
-const MB_OBJETIVO = Number(arg('mb', 20)); // margen contra el tope real de 25
+const MB_OBJETIVO = Number(arg('mb', 13)); // el tope MÁS CHICO de la cascada, no el primero
 const FFMPEG = arg('ffmpeg', join(
   process.env.LOCALAPPDATA ?? '',
   'ffmpeg-full\\ffmpeg-master-latest-win64-gpl\\bin\\ffmpeg.exe',
@@ -45,7 +45,17 @@ if (!existsSync(DE)) { console.error(`\n  ✖ No existe la carpeta de entrada: $
 mkdirSync(A, { recursive: true });
 
 // Segundos que caben en el objetivo con este bitrate. A 32 kbps -> 4.000 B/s,
-// asi que 20 MB son ~87 min: la mayoria de las clases nunca se parte.
+// asi que 13 MB son ~56 min: la mayoria de las clases nunca se parte.
+// ⚠️ 13 MB, NO 20: el número sale del tope MÁS CHICO de la cascada de STT, no del
+// primer proveedor. Groq y OpenAI aceptan 25 MB, pero el ÚLTIMO escalón es Gemini,
+// que manda el audio INLINE dentro del request y topea en 14. Con piezas de 20 MB
+// toda clase larga nacía sin fallback: Groq en su cuota horaria (7.200 s/h) + OpenAI
+// sin crédito = «ningún proveedor pudo transcribir», con Gemini disponible y excluido
+// por tamaño. Medido en BlueHacker el 22/08/2026: 32 clases falladas, las 32 con una
+// pieza por encima de 14 MB, y ninguna por otra causa.
+//
+// El corolario: un tope de tamaño elegido contra UN proveedor apaga a los demás en
+// silencio. Se elige contra el más restrictivo de todos los que se piensa usar.
 const SEG_MAX = Math.floor((MB_OBJETIVO * 1048576) / ((KBPS * 1000) / 8));
 
 const duracion = (f) => {
