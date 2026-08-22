@@ -3600,35 +3600,10 @@ Y **una hipótesis que se persiguió y es FALSA, para no volver a levantarla:** 
 
 ## Lo que quedó SIN hacer, con el archivo donde vive
 
-- **BlueHacker: 233 de 404 publicadas.** La ingesta está corriendo; el paso pendiente es
-  sacarlo de `app/conocimientos/curso.ts` a `curso-bluehacker.ts` (el generador se niega
-  explícitamente a escribir en `curso.ts`). ⚠️ **La regeneración ciega desde `drive.json`
-  es peligrosa**: 231 de sus 348 entradas declaran un `archivo` con el nombre NUEVO que no
-  existe en Drive, porque el proveedor reestructuró el curso y en la misma carpeta conviven
-  el árbol viejo (233 mp4, «N. Nombre») y el nuevo (118, «NN Nombre»). Ya hay 3 lecciones
-  duplicadas en Drive por eso, y 2 de ellas las publica hoy el portal con ids que ya no
-  están en `drive.json`.
-- **770 clases publicadas no muestran cuánto duran** (bluehacker 233, masteryhaus 194,
-  vender-por-fb 210, m5-95 116, trilogía 11, anuncio-ganador 6). Para 4 de los 6 el dato
-  está en disco y no se usa. La duración no es un campo: viaja embebida en `cardDesc`
-  (`scripts/curso-a-portal.mjs`).
-- **bluehacker y masteryhaus dibujan 38 y 26 acordeones para 9 y 10 módulos reales**:
-  meten la sección adentro de `grupo` con el separador ` · ` y dejan `subgrupo` vacío en
-  las 427 clases. El arreglo del segundo nivel (`CursoPortal.tsx`) existe justo para esto y
-  nunca se retropropagó al legado. Regenerar emite los dos niveles solo.
-- **Los 92 PDFs de bluehacker están en la carpeta que el pipeline no lee**
-  (`C:\cursos\growth-bluehackers-2-0\plan.json` dice `pdfs = 92`; el que la pipeline
-  consume dice `pdfs = 0`). Los 8 recursos que el portal publica hoy tienen `driveId` que
-  no aparecen en ningún archivo de `C:\cursos`: **no son reconstruibles.**
-- **Cero tests sobre el catálogo y sobre el invariante de transcripciones.** Ninguno de los
-  102 archivos de `tests/` importa `catalogo`, `curso` ni menciona `cono-tx`, y el pre-push
-  no mira conocimientos. Dos avisos para cuando se escriba: el invariante de `hasTx` es una
-  **inclusión, no una igualdad** (los 5 de `avatarhype` la rompen), y `CATEGORIA`/`PORTADA`
-  ya no tienen claves de `avatarhype` pero el `Map` de `REEMPLAZADOS` sí.
-- **`curso.ts` arrastra 351.457 bytes (21,27%) del curso que no se ve, y viajan
-  COMPILADOS**: el texto `You are AvatarHype Prompt Engine` aparece dos veces en cada chunk
-  de `.next/static`, y como `PortalCompartido.tsx` es `'use client'`, lo baja también un
-  visitante sin login.
+- ~~**BlueHacker: 233 de 404 publicadas.**~~ **HECHO el 22/08/2026**: las 404 están
+  publicadas en `curso-bluehacker.ts`. El detalle de las cuatro trampas del último paso,
+  al final de este documento. El riesgo de «regenerar a ciegas desde `drive.json`» se
+  cerró midiendo: eran **2** clases, no 231, y se resolvieron rescatando el id.
 
 ## Lo NO verificable — que no es «está bien», es «no se sabe»
 
@@ -3648,3 +3623,79 @@ Y **una hipótesis que se persiguió y es FALSA, para no volver a levantarla:** 
   **152 con un 8-grama repetido 5 o más veces** cuyo contenido no se leyó.
 - **El peso en GB del pozo de Drive**: se contaron archivos, no bytes. Y la premisa de que
   `du` se cuelga puede estar vieja — el re-conteo completo tardó 3,3 s.
+
+---
+
+## Publicar BlueHacker: las cuatro trampas del último paso
+
+De 233 a 404 clases. Bajar fue lo barato; **el cruce fue el trabajo**, otra vez.
+
+### 1. Dos clases ya estaban en Drive y el matcher no las veía
+
+`n=111` y `n=305` figuraban como «sin bajar» y estaban arriba desde hacía meses: el
+proveedor les cambió el **prefijo numérico del título** (`13.3. Funnels…` → `3. Funnels…`,
+`5. Conversión…` → `Conversión…`) y el matcher de la ampliación compara título.
+
+**Bajarlas de nuevo era el error caro**, y es silencioso en cadena: nace un duplicado en
+Drive → el id nuevo pisa al viejo en `drive.json` (una entrada por `n`) → la transcripción
+**ya publicada** bajo el id viejo queda huérfana → la clase se ve completa, con su visor
+funcionando, y sin texto.
+
+**Cómo se decide bien: por DURACIÓN, no por título.** El nombre del archivo sale de la
+SQLite de Drive por id, se lo encuentra montado en `G:` y se lo mide con `ffprobe`. Las dos
+dieron **0,2 s** de diferencia contra lo que declara el plan. «Los títulos se parecen» no
+es prueba; dos videos que duran lo mismo al décimo de segundo, sí. El script quedó en
+`scratchpad/bh-rescatar.mjs` y **verifica antes de escribir**.
+
+### 2. `curso-a-portal` pone `hasTx` SOLO si existe el `.md` local
+
+Las dos rescatadas nunca pasaron por el pipeline local, así que no tenían `.md` — y
+regenerar les habría **borrado la transcripción** a dos clases que ya la tenían publicada.
+Se recuperan de `public/cono-tx/<videoId>.json`, que es el mismo material del mismo lado
+del circuito.
+
+⚠️ **Y acá me comí una: el campo `archivo` de `drive.json` tiene DOS convenciones.** Las
+233 entradas viejas lo traen **con** la extensión (`01 - Proceso General.mp4`) y las de la
+ampliación **sin** ella (`305 - Conversión…`). Mi recuperador concatenó `.md` a secas y
+escribió **231 archivos `<nombre>.mp4.md`** que no sirven para nada. No pisó nada —solo
+escribía si el destino no existía— pero el conteo («recuperados: 233» cuando esperaba 2) es
+lo único que lo delató. **Cuando un script te devuelve un número dos órdenes de magnitud
+mayor que el esperado, es un bug, no un hallazgo.**
+
+### 3. Reescribir 233 transcripciones publicadas: verificar que el viaje no pierde nada
+
+Regenerar reescribe los `cono-tx` de las clases que ya estaban. El viaje es
+`.json → .md → .json`, y hay que probar que es idempotente **antes** de aceptarlo:
+comparar el texto plano de cada archivo contra `git show HEAD:<ruta>`, ignorando el corte
+de párrafos. Resultado: **8.878.852 caracteres antes y después, 0 archivos con texto
+distinto.** Sin esa medición, un diff de 233 archivos es imposible de revisar y se acepta
+a ciegas.
+
+### 4. ⚠️ El generador fundía dos módulos distintos en un solo acordeón
+
+`curso-a-portal.mjs` derivaba `grupo` quitándole el ordinal al módulo
+(`3. Ponencias Especiales` → `Ponencias Especiales`). **El ordinal se reinicia en cada
+sección del curso**, así que `3. Ponencias Especiales` (bajo Transmutación de Identidad) y
+`2. Ponencias Especiales` (bajo Facebook Ads) pasaban a llamarse igual — y el Hub abre un
+`<details>` por **valor** de `grupo`. Las clases de las dos secciones caían en la misma
+caja. El plan trae **40** módulos y el archivo emitía **38**.
+
+**El síntoma no se parece a un bug:** se ve un curso con dos módulos menos y un acordeón un
+poco más largo. **Nadie cuenta los acordeones.** Lo cazó comparar el conteo del origen
+contra el del destino, que es el único chequeo que lo puede ver.
+
+El arreglo: se quita el ordinal **solo cuando quitarlo no genera choque** (dejarlo siempre
+ensucia los 20 cursos que no lo necesitan). Vale para cualquier otro curso con la misma
+forma: si tenía el problema, se le arregla en su próxima regeneración.
+
+**Vive en:** `scripts/curso-a-portal.mjs` (`nombreGrupo` / `choques`)
+
+### Y el resultado, medido
+
+404 clases · **404 videoId únicos** · 404 transcripciones · 0 clases sin texto ·
+**0 `cono-tx` huérfanos en todo el portal** (2320 ids referenciados, 2317 archivos) ·
+40 acordeones para 40 módulos · `curso.ts` de 1,61 MB a 890 KB.
+
+Y lo que ya no aplica: la advertencia de que **regenerar desde `drive.json` es peligroso**
+se cerró midiendo — el impacto real eran **2** clases, no 231, y las dos se resolvieron
+rescatando el id en vez de re-bajando.
