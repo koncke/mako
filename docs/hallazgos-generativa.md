@@ -148,31 +148,39 @@ de corte, no un precio permanente de Google. Se apaga en octubre de 2026.
 - En Flow las imágenes **no descuentan créditos** (la tabla oficial de consumo lista solo
   modelos de video).
 
-## El costo en créditos depende de la RESOLUCIÓN, y la tabla que circula está mal
+## La tabla de créditos que circula está mal, y la resolución no tiene nada que ver
 
-Durante toda la producción se planificó con esta tabla, que es la que repiten todos los
-blogs de terceros: Omni Flash 4s=15, 6s=20, 8s=25, **10s=30** créditos.
+Toda la producción se planificó con la tabla que repiten los blogs de terceros: Omni Flash
+4s=15, 6s=20, 8s=25, **10s=30** créditos.
 
-**Es falsa, al menos a 720p.** La pantalla de generación de Flow, en la cuenta real, con
-Omni Flash · 9:16 · **10s** · x1 dice: *«La generación consumirá 15 puntos»*. La mitad de
-lo planificado.
+**Es falsa.** La pantalla de generación de Flow, en la cuenta real, con Omni Flash · 9:16 ·
+**10s** · x1 dice: *«La generación consumirá 15 puntos»*. La mitad de lo planificado.
 
 Y de paso invalida una acusación que este mismo documento le hacía al curso de AvatarHype
 («la cuenta está inflada 2x, los US$0,06 por clip de 10s son en realidad 4 segundos»). **El
 inflado era nuestro, no del curso.** Con 15 créditos por clip de 10s, su número cierra.
 
-**La variable que faltaba es la resolución.** La captura es de una generación a **720p**;
-todos los montajes de producción se hicieron a 1080p. La hipótesis es que 1080p duplica,
-que explicaría por qué la tabla de los blogs coincide con el doble.
+**La primera explicación que se intentó también estaba mal, y conviene que quede escrito.**
+Se supuso que la diferencia venía de la resolución: la captura era de 720p y los montajes
+se hacían «a 1080p». **Pero la resolución NO es un parámetro de generación en Flow.** El
+selector de la barra tiene modelo, relación de aspecto, duración y cantidad de variantes —
+nada más. Los 720p / 1080p / 4K aparecen recién en el menú de **descarga**, donde 720p
+figura como *«Tamaño original»* y 1080p y 4K como *«Mejora de resolución»* (el 4K además
+pide upgrade de plan).
 
-**La regla:** el costo en créditos NO se planifica desde una tabla de internet. Se lee
-**en la propia pantalla de Flow**, que lo muestra antes de generar y contempla modelo,
-duración, resolución y cantidad de variantes. Una tabla escrita en un documento envejece
-sin avisar; el contador de la UI, no.
+**Dos consecuencias:**
 
-**No verificado:** cuánto cuesta cada duración a 1080p, y si el resto de las duraciones
-(4s, 6s, 8s) también cuestan menos de lo tabulado a 720p. Se resuelve en diez segundos
-tocando las cuatro duraciones en la UI y anotando el número.
+1. Todo lo que se generó es **720p nativo**. Los archivos «1080p» del pipeline son ese
+   mismo material reescalado al bajarlo, no material generado en alta. Eso pone un techo
+   real a la calidad que ninguna capa de post levanta.
+2. El costo depende de **modelo × duración × variantes**, y de nada más.
+
+**La regla:** el costo en créditos NO se planifica desde una tabla de internet. Se lee **en
+la propia pantalla de Flow**, que lo muestra antes de generar. Una tabla escrita en un
+documento envejece sin avisar; el contador de la UI, no.
+
+**No verificado:** el costo real de 4s, 6s y 8s (solo está confirmado el de 10s), y si el
+reescalado de la descarga consume créditos — la hipótesis del dueño es que no.
 
 **EL TAPÓN, y es de arquitectura:** Flow **no tiene API**, y la suscripción de
 consumidor **no cubre requests de API** — doc oficial textual: *«Google AI plan
