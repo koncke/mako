@@ -136,7 +136,14 @@ export function DebateModal({ task, planResumen, otras, onApply, onUsage, onClos
         {fase === 'veredicto' && (
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '14px 22px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
             <button type="button" onClick={() => { setVer(null); setFase('form'); setIdx(1); }} style={ghostBtn}>← Volver a intentar</button>
-            <button type="button" onClick={aceptar} style={primaryBtn}>Aceptar veredicto →</button>
+            {/* El botón NOMBRA lo que va a pasar, que es la regla de la casa: «Aceptar
+                veredicto» decía lo mismo cuando el Perro te daba la razón y cuando te la
+                negaba, y en el segundo caso no aceptaba nada — el score no se mueve. */}
+            <button type="button" onClick={aceptar} style={primaryBtn}>
+              {vk === 'rechaza' || ver?.score === task.score
+                ? `Dejarla en ${task.score} →`
+                : `Aplicar ${task.score} → ${ver?.score} →`}
+            </button>
           </div>
         )}
       </Shell>

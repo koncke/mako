@@ -132,7 +132,13 @@ export function ProyectoDebateModal({ proj, otros, onApply, onUsage, onClose }: 
         {fase === 'veredicto' && (
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '14px 22px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
             <button type="button" onClick={() => { setVer(null); setFase('form'); setIdx(1); }} style={ghostBtn}>← Volver a intentar</button>
-            <button type="button" onClick={aceptar} style={primaryBtn}>Aceptar veredicto →</button>
+            {/* Mismo criterio que en el debate de una tarea: el botón nombra lo que hace.
+                «Aceptar veredicto» decía lo mismo cuando ganabas y cuando perdías. */}
+            <button type="button" onClick={aceptar} style={primaryBtn}>
+              {vk === 'rechaza' || ver?.score === proj.score
+                ? `Dejarlo en ${proj.score} →`
+                : `Aplicar ${proj.score} → ${ver?.score} →`}
+            </button>
           </div>
         )}
       </Shell>
