@@ -1081,6 +1081,147 @@ no todo el pipeline**. Y **nunca omitir el parámetro `email`**: con Martín y M
 en cuentas separadas hay que aislar las cuotas por workspace, o el video de un
 cliente se come los créditos del otro (omitirlo activa load balancing automático).
 
+## El 401 de ElevenLabs dice «key» y significa «factura impaga»
+
+**Síntoma (22/08/2026):** `GET /v1/voices` responde 200 y lista las cinco voces
+clonadas; `GET /v1/user/subscription` devuelve **401**. Leído así, el diagnóstico
+obvio es una API key con permisos acotados — que es exactamente lo que se concluyó
+primero, y es falso.
+
+**Causa real:** la suscripción tiene un pago fallido. El cuerpo lo dice, pero recién
+en la llamada que importa:
+
+```json
+{"detail":{"type":"payment_required","code":"payment_issue",
+ "message":"Your subscription has a failed or incomplete payment.
+ Complete the latest invoice to continue usage."}}
+```
+
+**Lo que lo vuelve caro** y es lo único que hay que recordar: **crear un clon SÍ
+funciona (`POST /v1/voices/add` → 200), convertir NO.** Un preflight que valide la
+credencial listando voces, o creando una voz de prueba, da verde sobre una cuenta
+que no puede generar un solo segundo de audio. La capacidad de escritura de metadatos
+y la de consumir cuota son dos permisos distintos y sólo una está cortada.
+
+**Regla que queda:** el preflight de un proveedor tiene que ejercitar **la operación
+que se va a usar**, no una barata del mismo dominio. Es la misma regla que
+`remitenteEsSandbox()` en `AGENTS.md` — chequear otra función y creerte cubierto — y
+acá el costo es un pipeline que aborta después de generar los clips, que es la parte
+que cuesta créditos.
+
+**Vive en:** `C:/Users/marti/OneDrive/Escritorio/Mauricio/VOZ/` (producción a mano;
+todavía no hay cliente de ElevenLabs en el repo).
+
+## El guion no se deduce: sale del audio del cliente contando ESE contenido
+
+**Lo que se venía haciendo:** medir las muletillas del cliente en material
+conversacional y **reinyectarlas por función** en un guion escrito en prosa. Funciona
+—es la lección «Los marcadores van por función, no por cuota»— pero es una
+reconstrucción.
+
+**Lo que apareció el 22/08:** Mauricio grabó cinco notas de voz contando **los mismos
+guiones**, en registro de anuncio y con CTA. Con eso el guion se **transcribe**, no se
+deduce. De un solo audio de 197 palabras salieron, textuales:
+
+| Del audio | Lo reemplaza |
+|---|---|
+| «pues ahí la llevamos» | «solo falta un detalle» |
+| «ponerlo ahí con un garrote» | «el gerente más exigente del mundo» a secas |
+| «Y esa es la trampa» | «Pero ahí está la trampa» |
+| «Dale click aquí abajo» | «Da click en el enlace» |
+| «Mira» ×2, «a ver» ×1 | marcadores que había que elegir por función |
+
+Ninguna se podía inventar. «Ponerlo ahí con un garrote» es la mejor línea del guion y
+no sale de ninguna lista de muletillas.
+
+**Regla que queda:** antes de escribir un guion para un avatar, pedir **una nota de
+voz del cliente contando ese guion**. No para usarla como pista —eso rompe el lip-sync
+gratis— sino como fuente del texto. Cambia el pedido de «grabame dos minutos hablando»
+a «contame este anuncio como se lo contarías a un cliente», que además produce material
+de clonación en el registro correcto. Un pedido, dos usos.
+
+**Vive en:** `Mauricio/VOZ/audios-22ago/`, `Mauricio/GUION-03.md`.
+
+## Un medidor de F0 propio no es comparable con el número histórico
+
+**Síntoma:** se midió el tono mediano de material nuevo para decidir si servía para
+clonar, y salió **152 Hz** sobre el archivo de referencia — el mismo del que la
+medición previa había reportado **139 Hz**. El porcentaje de picos de énfasis dio
+**1,4%** donde el histórico decía **9,5%**.
+
+**Causa real:** no hay un «tono mediano» absoluto. El número depende del umbral de
+energía que separa habla de pausa, del rango de búsqueda, del tamaño de ventana y del
+umbral de correlación. El de picos depende además de cómo se define «vecindario». Dos
+implementaciones razonables dan números distintos sobre el mismo audio, y ninguna está
+mal.
+
+**Lo que lo salva, y es barato:** medir **en la misma corrida y con el mismo
+instrumento** los materiales de referencia cuyo veredicto ya se conoce. Acá alcanzó con
+agregar el clon que gana y el que pierde:
+
+| | F0 | picos |
+|---|---|---|
+| Referencia (anuncio Meta 97 s) | 152 Hz | 1,4 % |
+| Clon que **gana** | 139 Hz | 2,6 % |
+| Clon del celular, que **pierde** | 119 Hz | 8,1 % |
+| Material nuevo (3 audios) | 134-142 Hz | 1,3-3,2 % |
+
+Con la escala completa el veredicto es inmediato aunque los números no coincidan con
+los viejos: el material nuevo cae en la banda del que gana. Sin los controles, 136 Hz
+no significa nada.
+
+**Regla que queda:** un número comparado contra otro medido con **otro código** no es
+una comparación. Cuando se reimplemente una métrica, la corrida incluye los casos
+conocidos como control, y el veredicto se lee en **relativo**. Es la contracara de «las
+trampas de medición»: ahí la métrica medía lo que no importaba; acá mide bien y el
+punto de comparación es el que no vale.
+
+## Dos audios con hash distinto pueden ser el mismo audio
+
+**Síntoma:** en un lote de seis notas de voz, dos tenían la misma duración **al
+microsegundo** (78,058667 s) y el mismo bitrate. `md5sum` las declaró distintas, así
+que se tomaron como dos materiales.
+
+**Causa real:** eran el mismo contenido re-encodeado o con metadatos distintos. La
+transcripción salió **idéntica palabra por palabra**. El hash detecta archivos iguales,
+no contenidos iguales — y en audio esa diferencia es la regla, no la excepción.
+
+**Y el otro lado del mismo lote:** **el nombre del archivo miente.** `Avenida Berlín
+56.m4a` no era una dirección: era el guion completo de «Todos dijeron que sí». El
+nombre había quedado de otra nota de voz. Un lote que se procesa por nombre habría
+tirado ese archivo o lo habría archivado en el tema equivocado.
+
+**Regla que queda:** en un lote de audio, la identidad de una pieza es **su
+transcripción**, no su hash ni su nombre. Transcribir primero cuesta centavos con Groq
+y es lo que ordena el lote. Duración idéntica al microsegundo con hashes distintos es
+la firma del duplicado re-encodeado.
+
+## `drawtext` de ffmpeg entrega el alfa PREMULTIPLICADO
+
+**Síntoma:** un PNG de texto blanco sobre fondo transparente, generado con
+`drawtext` sobre `color=black@0.0`, muestra un halo gris oscuro alrededor de cada letra
+al componerlo sobre cualquier fondo que no sea negro.
+
+**Causa real:** los píxeles de borde salen con el color **multiplicado por su propio
+alfa**. Medido sobre 17.514 píxeles de antialiasing: `color === alfa` **exacto** en
+todos (ratio 1,0000 en p05, mediana y p95). Es alfa premultiplicado, y casi todos los
+compositores esperan no premultiplicado.
+
+**El arreglo, que es exacto y no aproximado:** forzar el color a blanco puro dejando el
+canal alfa **intacto**. En premultiplicado eso ES la conversión a no-premultiplicado: el
+texto no engorda ni adelgaza un píxel.
+
+**Y la regla hermana, que vale para todo PNG con alfa:** poner el color también en los
+píxeles con `alfa = 0`. Dejarlos negros produce borde oscuro al escalar, porque el
+interpolador promedia el color de píxeles invisibles.
+
+**Cómo verificarlo en 10 líneas:** volcar a `rawvideo rgba` y mirar el ratio
+`color/alfa` de los píxeles con alfa parcial. Si es ~1,0 en todo el rango, está
+premultiplicado.
+
+**Vive en:** producción a mano; el scratchpad de la sesión. Si el montador de MaKo
+quema texto, va acá.
+
 ## Lo que queda SIN hacer
 
 **Bloqueantes, en orden:**
