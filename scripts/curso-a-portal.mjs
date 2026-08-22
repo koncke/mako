@@ -187,7 +187,13 @@ const construirRecursos = (drive, planClases) => {
       desc = `Material de «${r.modulo}»`;
     }
 
+    // ⚠️ Si el recurso trae su título REAL (el que declara la plataforma), gana. El
+    // nombre de archivo arrastra un prefijo «NNN - <clase> - » que puso el descargador,
+    // y para un recurso de MÓDULO esa clase no es la que lo muestra: el label terminaba
+    // nombrando una clase ajena («249 - Campaña de Nutrición Semanal - …») dentro del
+    // bloque de otra. Se ve prolijo y dice algo falso.
     let label = r.archivo.replace(/\.[^.]+$/, '');
+    if (r.tituloReal) label = String(r.tituloReal);
     if (claseDelPrefijo) {
       const pref = `${String(claseDelPrefijo.n).padStart(2, '0')} - ${claseDelPrefijo.titulo} - `;
       // Solo si queda algo: hay recursos cuyo nombre ES el de la clase, y dejarlos

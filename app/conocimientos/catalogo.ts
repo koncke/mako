@@ -37,7 +37,6 @@ import { CURSO_HACKEANDO_LA_EDICION } from './curso-hackeando-la-edicion';
 import { CURSO_PROGRAMA_RAIO } from './curso-programa-raio';
 import { CURSO_BIGSEO_ACADEMY } from './curso-bigseo-academy';
 import { CURSO_BLUEHACKER } from './curso-bluehacker';
-import { RECURSOS_BLUEHACKER } from './curso-bluehacker-recursos';
 import { CURSO_INSTITUTO_DE_COMUNICACION } from './curso-instituto-de-comunicacion';
 import { CURSO_CREATOR_CLUB } from './curso-creator-club';
 import { CURSO_TRILOGIA_DE_BRIAN_TRACY } from './curso-trilogia-de-brian-tracy';
@@ -262,12 +261,16 @@ export const CURSOS_TODOS: Curso[] = [
   CURSO_MATEO_MAFFIA_BYF, CURSO_MASTER_MARCA_PERSONAL_5_0, CURSO_SOCIAL_FUNNEL,
   CURSO_UGC_SIM_ACADEMY_DE_MINDSHFT, CURSO_HACKEANDO_LA_EDICION,
   CURSO_PROGRAMA_RAIO, CURSO_BIGSEO_ACADEMY, CURSO_INSTITUTO_DE_COMUNICACION,
-  // Los 8 recursos van INYECTADOS acá, no adentro de curso-bluehacker.ts: ese archivo
-  // lo reescribe entero el generador en cada corrida y sus PDFs no existen en la
-  // carpeta local (viven solo en Drive), así que emite `recursos: []`. El 22/08/2026
-  // eso borró los 8 de la ficha publicada y no lo cazó ningún chequeo. Mismo patrón
-  // que RECURSOS_UGC, unas líneas más abajo.
-  conRecursos(CURSO_BLUEHACKER, RECURSOS_BLUEHACKER),
+  // ⚠️ Este curso YA NO se inyecta, y el porqué vale para el próximo: la inyección era
+  // un parche sobre un diagnóstico incompleto. Se creyó que el problema era «la
+  // regeneración borró los 8 recursos publicados»; el problema real era que el curso
+  // tiene **92** en su plataforma y el portal publicaba 8. Restaurar los 8 dejaba el
+  // agujero de 84 tapado y con cara de arreglado.
+  //
+  // Ahora los 91 bajados salen del pipeline (plan.pdfs → curso-a-drive → curso-a-portal),
+  // que es donde tienen que estar: se regeneran solos y no hay una segunda lista que
+  // mantener. La lección: antes de restaurar lo que había, preguntá cuánto DEBERÍA haber.
+  CURSO_BLUEHACKER,
   CURSO_CREATOR_CLUB, CURSO_TRILOGIA_DE_BRIAN_TRACY,
   // Los recursos y el modo réplica se inyectan acá porque el archivo del curso lo
   // REESCRIBE `curso-a-portal.mjs` en cada corrida: puestos allá, duran hasta la

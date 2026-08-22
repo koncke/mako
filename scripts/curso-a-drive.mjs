@@ -123,8 +123,27 @@ const idsDeDrive = (nombres) => {
   // Se copian los tres y se abre SIN `readOnly`: sobre la copia temporal, SQLite tiene
   // que poder recuperar el WAL, y en readOnly no lo hace.
   const tmp = join(tmpdir(), `dfs-${process.pid}.db`);
-  const sufijos = ['', '-wal', '-shm'];
-  for (const s of sufijos) if (existsSync(src + s)) copyFileSync(src + s, tmp + s);
+  // ⚠️ LOS TRES NO SON IGUAL DE OBLIGATORIOS, Y TRATARLOS IGUAL ROMPE LA CORRIDA.
+  // El `.db` es imprescindible. El `-wal` trae lo no checkpointeado, o sea lo RECIÉN
+  // subido: sin él se lee una foto vieja (que es el bug que este bloque vino a arreglar).
+  // El `-shm` es solo el índice de memoria compartida y SQLite lo reconstruye del WAL.
+  //
+  // Pero Drive lo tiene abierto y lo lockea: `EBUSY: resource busy or locked`. Copiarlo
+  // dentro del mismo bucle hacía que un archivo PRESCINDIBLE tirara abajo la resolución
+  // de 91 ids después de subir los 91 archivos — el trabajo caro ya estaba hecho.
+  // Medido el 22/08/2026, y lo introduje yo esa misma mañana al sumar el `-wal`.
+  //
+  // La regla: cuando agregues un archivo opcional a una copia que ya funcionaba, su
+  // fallo tiene que ser opcional también.
+  const tmp2 = tmp; // (alias para leer mejor el bloque de abajo)
+  try { copyFileSync(src, tmp2); } catch (e) {
+    return { error: `no pude copiar la metadata de Drive: ${e.code ?? e.message}` };
+  }
+  for (const s of ['-wal', '-shm']) {
+    if (!existsSync(src + s)) continue;
+    try { copyFileSync(src + s, tmp2 + s); }
+    catch (e) { console.log(`  ⚠ no pude copiar ${s} (${e.code}); sigo sin él`); }
+  }
   const db = new DatabaseSync(tmp);
   const q = db.prepare(`SELECT id, local_title, file_size, trashed FROM items
                         WHERE local_title = ? AND is_folder = 0 AND trashed = 0`);
@@ -138,7 +157,7 @@ const idsDeDrive = (nombres) => {
     else if (filas.length) enVuelo.set(n, filas[0].id); // hay fila, con id placeholder
   }
   db.close();
-  for (const s of sufijos) { try { unlinkSync(tmp + s); } catch {} }
+  for (const s of ['', '-wal', '-shm']) { try { unlinkSync(tmp + s); } catch { /* puede no existir */ } }
   return { ids: out, enVuelo };
 };
 
