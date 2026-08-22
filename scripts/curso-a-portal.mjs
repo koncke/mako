@@ -497,6 +497,42 @@ ${clases.map((c) => `    {
 };
 `;
 
+// ⚠️ REGENERAR NO PUEDE VACIAR UNA LISTA DE RECURSOS QUE YA ESTABA PUBLICADA.
+//
+// El generador arma `recursos` mirando `drive.recursos`, o sea la carpeta LOCAL del
+// curso. Cuando esa carpeta no tiene nada —porque los archivos viven solo en Drive, o
+// porque el curso se bajó por otro camino— emite `recursos: []` y PISA lo que la ficha
+// publicaba. No falla, no avisa: la sección «Recursos» simplemente deja de dibujarse,
+// porque `CursoPortal` la muestra solo si `recursos.length > 0`.
+//
+// Pasó el 22/08/2026 con BlueHacker: migrarlo de 233 a 404 clases borró sus 8 PDFs de
+// la ficha. No lo cazó ningún test ni ningún chequeo del pipeline — lo vio el dueño,
+// mirando la pantalla, y el commit decía «404 clases publicadas» como si todo hubiera
+// salido bien. Una regeneración que AGREGA 171 clases y RESTA 8 recursos se lee como
+// una ganancia neta y no lo es.
+//
+// La guarda va en POSITIVO y corta: se emite la ficha solo si no se está perdiendo
+// nada. La salida es `--sin-recursos`, explícita, para el caso legítimo de que el
+// curso de verdad se haya quedado sin material.
+const fichaPrevia = existsSync(salida) ? readFileSync(salida, "utf8") : "";
+const recursosPrevios = fichaPrevia ? (fichaPrevia.match(/^\s{4}slug: '/gm) ?? []).length : 0;
+if (recursosPrevios > 0 && recursos.length === 0 && !tiene("sin-recursos")) {
+  console.error(`
+  ✖ NO emito la ficha: se perderían ${recursosPrevios} recurso(s) que ya están publicados.
+
+    La ficha actual (${basename(salida)}) declara ${recursosPrevios} recurso(s) y esta corrida
+    no encontró ninguno, porque no hay archivos en la carpeta local del curso.
+    Escribirla igual los borraría de la pantalla sin que nadie se entere.
+
+    Las dos salidas:
+      · Si los archivos viven SOLO en Drive, sacalos del archivo generado y pasalos a
+        un curso-<slug>-recursos.ts inyectado desde catalogo.ts (ver RECURSOS_UGC y
+        RECURSOS_BLUEHACKER). Ahí sobreviven a cualquier regeneración.
+      · Si de verdad ya no hay material: --sin-recursos
+`);
+  process.exit(4);
+}
+
 // LAS HUÉRFANAS SE ABORTAN, NO SE AVISAN. El plan dice que la fuente SÍ tiene ese video,
 // así que no tenerlo es material perdido, no una clase inexistente. Un `console.log` acá
 // es un aviso que nadie lee (el generador imprime veinte líneas), y la ficha sale igual

@@ -16,7 +16,7 @@
 //
 // ⚠️ Un curso nuevo se suma ACÁ y en ningún otro lado.
 
-import { CURSOS, type Curso } from './curso';
+import { CURSOS, type Curso, type Recurso } from './curso';
 import { CURSO_VSL } from './curso-vsl';
 import { CURSO_PRODUCTO_APP } from './curso-producto-app';
 import { CURSO_AVATAR_APP } from './curso-avatar-app';
@@ -37,6 +37,7 @@ import { CURSO_HACKEANDO_LA_EDICION } from './curso-hackeando-la-edicion';
 import { CURSO_PROGRAMA_RAIO } from './curso-programa-raio';
 import { CURSO_BIGSEO_ACADEMY } from './curso-bigseo-academy';
 import { CURSO_BLUEHACKER } from './curso-bluehacker';
+import { RECURSOS_BLUEHACKER } from './curso-bluehacker-recursos';
 import { CURSO_INSTITUTO_DE_COMUNICACION } from './curso-instituto-de-comunicacion';
 import { CURSO_CREATOR_CLUB } from './curso-creator-club';
 import { CURSO_TRILOGIA_DE_BRIAN_TRACY } from './curso-trilogia-de-brian-tracy';
@@ -215,6 +216,42 @@ const conAutor = (titulo: string, autor?: string) =>
  */
 const REEMPLAZADOS = new Map<string, string>([['avatarhype', 'creativos-ugc-realistas']]);
 
+/**
+ * Cuelga una lista de recursos de un curso generado, en las DOS puntas.
+ *
+ * ⚠️ SON DOS COSAS Y OLVIDARSE DE LA SEGUNDA NO ROMPE NADA VISIBLE. El portal dibuja
+ * los recursos en dos lugares distintos:
+ *   · la sección «Recursos» del curso, que sale de `curso.recursos` (CursoPortal:409);
+ *   · el bloque de cada clase, que sale de `clase.recursoSlugs` (CursoPortal:678).
+ * Inyectar solo `recursos` deja la sección del curso llena y TODAS las clases sin su
+ * material. No hay error, no hay hueco: hay un curso donde el PDF del módulo 3 existe
+ * y no aparece en ninguna de las 32 clases de ese módulo.
+ *
+ * El dato para reconstruir el segundo ya viaja en el primero: cada recurso trae
+ * `clases: [n, …]`. Acá se da vuelta ese índice.
+ *
+ * Pasó el 22/08/2026: regenerar BlueHacker de 233 a 404 clases borró sus 8 recursos Y
+ * los `recursoSlugs` de 56 clases. Lo vio el dueño en la pantalla; ningún chequeo lo
+ * miraba. Ver docs/hallazgos-conocimiento.md.
+ */
+const conRecursos = (curso: Curso, recursos: Recurso[]): Curso => {
+  const porClase = new Map<number, string[]>();
+  for (const r of recursos) {
+    for (const n of (r as { clases?: number[] }).clases ?? []) {
+      porClase.set(n, [...(porClase.get(n) ?? []), r.slug]);
+    }
+  }
+  return {
+    ...curso,
+    recursos,
+    // Se RESPETA lo que la ficha ya traiga: si el generador pudo colgar el recurso
+    // solo (porque el archivo estaba en la carpeta local), ese dato manda.
+    clases: curso.clases.map((c) => (c.recursoSlugs?.length || !porClase.has(c.n)
+      ? c
+      : { ...c, recursoSlugs: porClase.get(c.n) as string[] })),
+  };
+};
+
 export const CURSOS_TODOS: Curso[] = [
   ...CURSOS.filter((c) => !REEMPLAZADOS.has(c.slug)),
   CURSO_VSL, CURSO_ANALISIS, CURSO_BRANDING, CURSO_PRODUCTO_APP, CURSO_AVATAR_APP,
@@ -225,13 +262,18 @@ export const CURSOS_TODOS: Curso[] = [
   CURSO_MATEO_MAFFIA_BYF, CURSO_MASTER_MARCA_PERSONAL_5_0, CURSO_SOCIAL_FUNNEL,
   CURSO_UGC_SIM_ACADEMY_DE_MINDSHFT, CURSO_HACKEANDO_LA_EDICION,
   CURSO_PROGRAMA_RAIO, CURSO_BIGSEO_ACADEMY, CURSO_INSTITUTO_DE_COMUNICACION,
-  CURSO_BLUEHACKER,
+  // Los 8 recursos van INYECTADOS acá, no adentro de curso-bluehacker.ts: ese archivo
+  // lo reescribe entero el generador en cada corrida y sus PDFs no existen en la
+  // carpeta local (viven solo en Drive), así que emite `recursos: []`. El 22/08/2026
+  // eso borró los 8 de la ficha publicada y no lo cazó ningún chequeo. Mismo patrón
+  // que RECURSOS_UGC, unas líneas más abajo.
+  conRecursos(CURSO_BLUEHACKER, RECURSOS_BLUEHACKER),
   CURSO_CREATOR_CLUB, CURSO_TRILOGIA_DE_BRIAN_TRACY,
   // Los recursos y el modo réplica se inyectan acá porque el archivo del curso lo
   // REESCRIBE `curso-a-portal.mjs` en cada corrida: puestos allá, duran hasta la
   // próxima. `replica` hace que el curso se vea con la pantalla de su plataforma de
   // origen en vez de con la grilla del portal — ver CursoReplica.tsx.
-  { ...CURSO_CREATIVOS_UGC_REALISTAS, recursos: RECURSOS_UGC, replica: true },
+  { ...conRecursos(CURSO_CREATIVOS_UGC_REALISTAS, RECURSOS_UGC), replica: true },
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
