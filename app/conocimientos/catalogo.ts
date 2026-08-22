@@ -73,7 +73,6 @@ const CATEGORIA: Record<string, string> = {
   'aumenta-tu-valor-y-atv-advantage': 'Negocios digitales',
   'sell-your-knowledge': 'Negocios digitales',
   // IA y generación de piezas
-  avatarhype: 'Inteligencia Artificial',
   'claude-ai-rodrigo-rojo': 'Inteligencia Artificial',
   // Publicidad paga
   'anuncio-ganador': 'Anuncios',
@@ -107,7 +106,7 @@ const CATEGORIA: Record<string, string> = {
  * así que el dato se pierde si se escribe ahí. Los cursos del pipeline sí la declaran
  * solos (`curso-a-portal.mjs` la emite cuando el archivo existe).
  *
- * Las cuatro son las tapas REALES, que las pasó el dueño. Antes de eso hubo dos
+ * Las tres son las tapas REALES, que las pasó el dueño. Antes de eso hubo dos
  * intentos peores y conviene que quede escrito: la del catálogo de la plataforma
  * traía el logo del sitio en vez de la tapa, y para las que no existían en ningún
  * lado se generó una tipográfica con la marca de la casa — mejor que buscar en un
@@ -123,7 +122,6 @@ const PORTADA: Record<string, string> = {
   bluehacker: '/cono-portadas/bluehacker.webp',
   masteryhaus: '/cono-portadas/masteryhaus.png',
   'anuncio-ganador': '/cono-portadas/anuncio-ganador.jpg',
-  avatarhype: '/cono-portadas/avatarhype.jpg',
 };
 
 /**
@@ -188,8 +186,27 @@ const conAutor = (titulo: string, autor?: string) =>
  * curso nuevo unas líneas más abajo. Si se saca esta exclusión, vuelven a aparecer
  * DUPLICADOS —una vez en cada curso—, que es la razón de que estas dos decisiones
  * estén pegadas y no en dos lugares distintos.
+ * ⚠️ ES UN MAPA, NO UN CONJUNTO, Y ESO ES EL ARREGLO DE UN 404 QUE ESTUVO VIVO.
+ * Un `Set` contesta «este slug ya no va», y con eso alcanza para sacarlo de la grilla
+ * — pero NO contesta la otra pregunta, que es la que importa: «¿y el que YA está
+ * apuntando ahí?». Un curso no vive solo en la grilla: vive también en cada link
+ * compartido, cada favorito y cada `?curso=` que alguien mandó por WhatsApp.
+ *
+ * Medido el 2026-08-22 contra la base de producción: el share id=4 (ws 1, modo
+ * invitados, SIN revocar, 13 visitas) apunta a `avatarhype` y desde el deploy del
+ * 17/08 17:11Z devuelve 404. La persona que tenía el link vio una página de error
+ * durante cinco días.
+ *
+ * Y el contador de visitas NUNCA lo iba a delatar: `registrarVisita()` corre DESPUÉS
+ * del `notFound()` en `app/compartido/[token]/page.tsx`, así que un golpe al 404 no
+ * suma. Las 13 visitas son todas anteriores al quiebre. Un link roto y un link que
+ * nadie abrió se ven EXACTAMENTE IGUAL desde la métrica.
+ *
+ * Con el Map, `buscarCurso` resuelve el nombre viejo al nuevo: la grilla sigue
+ * mostrando uno solo (el filtro de abajo no cambió) y el link viejo aterriza donde
+ * corresponde. Reemplazar es REDIRIGIR, no borrar.
  */
-const REEMPLAZADOS = new Set(['avatarhype']);
+const REEMPLAZADOS = new Map<string, string>([['avatarhype', 'creativos-ugc-realistas']]);
 
 export const CURSOS_TODOS: Curso[] = [
   ...CURSOS.filter((c) => !REEMPLAZADOS.has(c.slug)),
@@ -214,8 +231,13 @@ export const CURSOS_TODOS: Curso[] = [
   titulo: TITULO[c.slug] ?? conAutor(c.titulo, AUTOR[c.slug]),
 }));
 
-export const buscarCurso = (slug: string | null | undefined): Curso | undefined =>
-  slug ? CURSOS_TODOS.find((c) => c.slug === slug) : undefined;
+export const buscarCurso = (slug: string | null | undefined): Curso | undefined => {
+  if (!slug) return undefined;
+  // El salto por REEMPLAZADOS va ACÁ y no en cada pantalla: es el único punto por el
+  // que pasan la grilla, el link compartido y el `?curso=` de la URL. Puesto en el
+  // llamador, la próxima pantalla que resuelva un curso nace sin él.
+  return CURSOS_TODOS.find((c) => c.slug === (REEMPLAZADOS.get(slug) ?? slug));
+};
 
 /**
  * Los dos cursos que NO se dibujan con `CursoPortal`: tienen vista propia.
