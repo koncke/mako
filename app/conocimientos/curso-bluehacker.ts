@@ -33,7 +33,7 @@ export const CURSO_BLUEHACKER: Curso = {
   recursos: [
     {
       slug: '01-proceso-general-onboarding-mira-esto-primero-2-plan-de-ac',
-      label: '2. Plan de Acción de 10K + Cash Rápido - docs.google.com',
+      label: '01 - Proceso General - Onboarding (Mira Esto Primero) - 2. Plan de Acción de 10K + Cash Rápido - docs.google.com',
       cardDesc: 'Material de «0. Onboarding (Mira Esto Primero)»',
       tipo: 'pdf',
       driveId: '1Y2W4Ix7exs95djwP0N3cR9eKTbb6FcZQ',
@@ -41,7 +41,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '02-success-tracker-kpis-y-workflow-2-success-tracker-bhm',
-      label: '2. Success Tracker BHM',
+      label: '02 - Success Tracker (KPIs y Workflow) - 2. Success Tracker BHM',
       cardDesc: 'Material de «0. Onboarding (Mira Esto Primero)»',
       tipo: 'pdf',
       driveId: '1x6NUxqb9wVT73GCQZo2DENGf3Qcv4DP3',
@@ -49,7 +49,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '116-ventas-23-09-15-sesiones-semanales-1-introduccion-y-estr',
-      label: '1. Introducción y estructura',
+      label: '116 - Ventas 23-09-15 - Sesiones Semanales - 1. Introducción y estructura',
       cardDesc: 'Material de «1. Introducción a tu Nicho y Oferta Ganadora»',
       tipo: 'pdf',
       driveId: '19TeMeZV9Puv4MhWw33P9dZMJlnNate4Z',
@@ -57,7 +57,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '123-variables-para-seleccionar-un-nicho-ganador-2-1-definici',
-      label: '2.1. Definición de Nicho y Cliente Ideal',
+      label: '123 - Variables Para Seleccionar un Nicho Ganador - 2.1. Definición de Nicho y Cliente Ideal',
       cardDesc: 'Material de «2. Definición de Nicho y Cliente Ideal»',
       tipo: 'pdf',
       driveId: '1dUAFCtCsSEfOkrpRdw7GKUP3l272rxw4',
@@ -65,7 +65,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '123-variables-para-seleccionar-un-nicho-ganador-2-2-definici',
-      label: '2.2. Definición de Nicho y Cliente Ideal',
+      label: '123 - Variables Para Seleccionar un Nicho Ganador - 2.2. Definición de Nicho y Cliente Ideal',
       cardDesc: 'Material de «2. Definición de Nicho y Cliente Ideal»',
       tipo: 'pdf',
       driveId: '1TfZ9rdCfNEMgm3wnHFiA8_Pz6ZY_e6PF',
@@ -73,7 +73,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '13-bonus-plan-paso-a-paso-de-6-cifras-cash-rapido-1-bonus-pr',
-      label: '1. BONUS. Productividad extrema',
+      label: '13 - BONUS. Plan Paso A Paso de 6 Cifras + Cash Rápido - 1. BONUS. Productividad extrema',
       cardDesc: 'Material de «2. Bonus Alto Rendimiento y Productividad»',
       tipo: 'pdf',
       driveId: '1eHmGos9cfNrckAnFLk8YIaUqCvbATbEP',
@@ -81,7 +81,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '130-chat-gpt-para-investigar-tu-mercado-hoja-de-avatar-clien',
-      label: 'Hoja de Avatar (Cliente Ideal)',
+      label: '130 - Chat GPT Para Investigar tu Mercado - Hoja de Avatar (Cliente Ideal)',
       cardDesc: 'Material de «2. Definición de Nicho y Cliente Ideal»',
       tipo: 'pdf',
       driveId: '1wxY9EMgaEQ26JzLH2ul6PuAOKo7m8zQQ',
@@ -89,7 +89,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '132-la-situacion-actual-y-deseada-3-definicion-de-transforma',
-      label: '3. Definición de Transformación High Ticket',
+      label: '132 - La situación actual y deseada - 3. Definición de Transformación High Ticket',
       cardDesc: 'Material de «3. Definición de Transformación High Ticket»',
       tipo: 'pdf',
       driveId: '1UA0f5CGOFz6BzR8Q57HIlivy0RfxayaR',
@@ -97,7 +97,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '134-analisis-competitivo-4-analizador-de-competidores',
-      label: '4. Analizador de competidores',
+      label: '134 - Análisis competitivo - 4. Analizador de competidores',
       cardDesc: 'Material de «3. Definición de Transformación High Ticket»',
       tipo: 'pdf',
       driveId: '1TACmpenifkHlq_PzpCmjVCi07vT9Rr4N',
@@ -105,7 +105,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '135-analisis-de-tus-ofertas-actuales-e-historicas-5-analizad',
-      label: '5. Analizador de ofertas',
+      label: '135 - Análisis de tus ofertas actuales e históricas - 5. Analizador de ofertas',
       cardDesc: 'Material de «3. Definición de Transformación High Ticket»',
       tipo: 'pdf',
       driveId: '1CH4cU0SXnQaZpTvusnMxtnwqXUxJMV5K',
@@ -113,7 +113,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '136-definiendo-tu-metrica-especifica-desarrollador-de-transf',
-      label: 'Desarrollador de Transformación',
+      label: '136 - Definiendo tu métrica específica - Desarrollador de Transformación',
       cardDesc: 'Material de «3. Definición de Transformación High Ticket»',
       tipo: 'pdf',
       driveId: '15OyJWlWYX8BDgsAezFANkIWaxgxVKxZQ',
@@ -121,7 +121,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '138-sobrepasa-tu-miedo-de-subir-el-precio-3-calculadora-de-p',
-      label: '3. Calculadora de precio',
+      label: '138 - Sobrepasa tu miedo de subir el precio - 3. Calculadora de precio',
       cardDesc: 'Material de «4. Definición de Precio High Ticket»',
       tipo: 'pdf',
       driveId: '1DZ3C8SpXeT5wPO2V9zmpROsrpwsMz9JP',
@@ -129,7 +129,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '139-definiendo-tu-precio-definicion-de-precio-high-ticket',
-      label: 'Definición de Precio High Ticket',
+      label: '139 - Definiendo tu Precio - Definición de Precio High Ticket',
       cardDesc: 'Material de «4. Definición de Precio High Ticket»',
       tipo: 'pdf',
       driveId: '1176c7hLnC2jPjd8CIxkC3GN8SRL_W90I',
@@ -137,7 +137,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '140-introduccion-al-vehiculo-azul-2-analisis-de-vehiculo',
-      label: '2. Análisis de vehículo',
+      label: '140 - Introducción al Vehículo Azul - 2. Análisis de vehículo',
       cardDesc: 'Material de «5. Definición de Vehículo Azul»',
       tipo: 'pdf',
       driveId: '1lEZIte3gvk0z0UCzMK2YC9sQgS35pqWk',
@@ -145,7 +145,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '141-entendiendo-la-diferenciacion-y-mecanismos-2-matriz-de-d',
-      label: '2. Matriz de Diferenciación de tu Vehículo Azul',
+      label: '141 - Entendiendo la Diferenciación y Mecanismos - 2. Matriz de Diferenciación de tu Vehículo Azul',
       cardDesc: 'Material de «5. Definición de Vehículo Azul»',
       tipo: 'file',
       ext: 'pptx',
@@ -154,7 +154,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '142-entendiendo-el-big-idea-4-desarrollador-de-vehiculo-azul',
-      label: '4. Desarrollador de Vehículo Azul',
+      label: '142 - Entendiendo el Big Idea - 4. Desarrollador de Vehículo Azul',
       cardDesc: 'Material de «5. Definición de Vehículo Azul»',
       tipo: 'pdf',
       driveId: '1O_y3proxREHsPedRLsrWFJiUHACDcMKH',
@@ -162,7 +162,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '145-creando-tu-comunidad-de-alta-interaccion-6-proceso-de-co',
-      label: '6. Proceso de Comunidad',
+      label: '145 - Creando tu Comunidad de Alta Interacción - 6. Proceso de Comunidad',
       cardDesc: 'Material de «5. Definición de Vehículo Azul»',
       tipo: 'pdf',
       driveId: '1Q1OD_ji0jRQcZrj_YFWDduX0xQDini-H',
@@ -170,7 +170,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '147-bonus-sistematiza-tu-oferta-definicion-de-vehiculo-azul',
-      label: 'Definición de Vehículo Azul',
+      label: '147 - BONUS. Sistematiza tu oferta - Definición de Vehículo Azul',
       cardDesc: 'Material de «5. Definición de Vehículo Azul»',
       tipo: 'pdf',
       driveId: '1vxQF0qayN4iqf9h46JHBXqckr1K4hqT8',
@@ -178,7 +178,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '148-introduccion-a-las-ofertas-hide-2-desarrollador-de-ofert',
-      label: '2. Desarrollador de Oferta Irresistible',
+      label: '148 - Introducción a las ofertas HIDE - 2. Desarrollador de Oferta Irresistible',
       cardDesc: 'Material de «6. Ensamblando tu Oferta HIDE»',
       tipo: 'pdf',
       driveId: '1ZkJUiN-vc2w6l_1lX4R0fYZYR56YW0uA',
@@ -186,7 +186,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '15-manual-paso-a-paso-de-gestion-de-tareas-3-introduccion-a-',
-      label: '3. Introducción a liberar tu tiempo',
+      label: '15 - Manual paso a paso de gestión de tareas - 3. Introducción a liberar tu tiempo',
       cardDesc: 'Material de «2. Bonus Alto Rendimiento y Productividad»',
       tipo: 'pdf',
       driveId: '1iaPqILoaB9srHP4d4SQNMY9IGVsh34my',
@@ -194,7 +194,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '154-nombre-8-presentacion-de-programa',
-      label: '8. Presentación de [PROGRAMA]',
+      label: '154 - Nombre - 8. Presentación de [PROGRAMA]',
       cardDesc: 'Material de «6. Ensamblando tu Oferta HIDE»',
       tipo: 'pdf',
       driveId: '1VJBkBeoRXBgVpH2JDDAoQq9pY59kJweq',
@@ -202,7 +202,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '156-validacion-iteracion-y-optimizacion-ensamblando-tu-ofert',
-      label: 'Ensamblando tu Oferta HIDE',
+      label: '156 - Validación, Iteración y Optimización - Ensamblando tu Oferta HIDE',
       cardDesc: 'Material de «6. Ensamblando tu Oferta HIDE»',
       tipo: 'pdf',
       driveId: '1YkwUnr3RiYk7UwATC9iaQ3xaH52dFuqJ',
@@ -210,7 +210,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '157-calculando-matematicamente-tu-exito-1-la-matematica-de-t',
-      label: '1. La matemática de tu éxito',
+      label: '157 - Calculando matemáticamente tu éxito - 1. La matemática de tu éxito',
       cardDesc: 'Material de «7. Proyecciones, Finanzas y Legalidad»',
       tipo: 'pdf',
       driveId: '1G2YA0SHc_t9UEfv9ndbbRoNXO3vjMgso',
@@ -218,7 +218,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '157-calculando-matematicamente-tu-exito-2-dashboard-de-finan',
-      label: '2. Dashboard de Finanzas',
+      label: '157 - Calculando matemáticamente tu éxito - 2. Dashboard de Finanzas',
       cardDesc: 'Material de «7. Proyecciones, Finanzas y Legalidad»',
       tipo: 'pdf',
       driveId: '1WCjp0A0_ga_7kkZPBFvlUz4UW0Lp9hXq',
@@ -226,7 +226,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '161-checklist-de-claridad-y-optimizacion-proyecciones-finanz',
-      label: 'Proyecciones, Finanzas y Legalidad',
+      label: '161 - Checklist de claridad y optimización - Proyecciones, Finanzas y Legalidad',
       cardDesc: 'Material de «7. Proyecciones, Finanzas y Legalidad»',
       tipo: 'pdf',
       driveId: '18okzZllcAkTMpe1oiWEKoBLOinJjCFaO',
@@ -234,7 +234,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '17-registra-optimiza-y-libera-tu-tiempo-con-ai-5-1-xds-revis',
-      label: '5.1. XDS Revisión de tiempo',
+      label: '17 - Registra, Optimiza y Libera Tu Tiempo Con AI - 5.1. XDS Revisión de tiempo',
       cardDesc: 'Material de «2. Bonus Alto Rendimiento y Productividad»',
       tipo: 'pdf',
       driveId: '1Lq71GEMdOxhOe3mrH-LMy3LeDAZ7Z0ts',
@@ -242,7 +242,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '22-data-y-toma-de-decisiones-5-agencia-masterclass',
-      label: '5. AGENCIA MASTERCLASS',
+      label: '22 - Data y toma de decisiones - 5. AGENCIA MASTERCLASS',
       cardDesc: 'Material de «2. Ponencias Especiales»',
       tipo: 'pdf',
       driveId: '12b-W-LK94l2AmxIcn-V2ULylL7mwchoL',
@@ -250,7 +250,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '220-conversion-de-desconocidos-a-clientes-5-conversion-de-de',
-      label: '5. Conversión de desconocidos a clientes - M3 Maestría de Ventas',
+      label: '220 - Conversión de desconocidos a clientes - 5. Conversión de desconocidos a clientes - M3 Maestría de Ventas',
       cardDesc: 'Material de «1. Maestría de Ventas High Ticket»',
       tipo: 'pdf',
       driveId: '1Mkrz0ZPx7iVBJHHs7YyDPAfA66hPtoxi',
@@ -258,7 +258,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '221-esfumando-objeciones-y-cerrando-la-venta-6-resolucion-av',
-      label: '6. Resolución avanzada de objeciones',
+      label: '221 - Esfumando objeciones y cerrando la venta - 6. Resolución avanzada de objeciones',
       cardDesc: 'Material de «1. Maestría de Ventas High Ticket»',
       tipo: 'pdf',
       driveId: '13nJ9kDAQ53PC5hHkqzoN-Racg54j-1Zx',
@@ -266,7 +266,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '221-esfumando-objeciones-y-cerrando-la-venta-7-gestion-de-pr',
-      label: '7. Gestión de prospectos',
+      label: '221 - Esfumando objeciones y cerrando la venta - 7. Gestión de prospectos',
       cardDesc: 'Material de «1. Maestría de Ventas High Ticket»',
       tipo: 'pdf',
       driveId: '11m7KHtgFY7XdoKbkuEkA2-sCvX43I0Cf',
@@ -274,7 +274,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '222-gestion-de-prospectos-1-bonus-ejemplos-de-ventas',
-      label: '1. Bonus- Ejemplos de ventas',
+      label: '222 - Gestión de prospectos - 1. Bonus- Ejemplos de ventas',
       cardDesc: 'Material de «2. Bonus - Maestría de Ventas High Ticket»',
       tipo: 'pdf',
       driveId: '1IEorydCuGF8F8AGxeI0pI2P2hv3bcEoF',
@@ -282,7 +282,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '226-guion-de-llamada-de-descubrimiento-outbound15min-3-proce',
-      label: '3. Proceso de Outbound Setting Llamada de Descubrimiento (VSL Funnel)',
+      label: '226 - Guion de llamada de descubrimiento outbound15min - 3. Proceso de Outbound Setting Llamada de Descubrimiento (VSL Funnel)',
       cardDesc: 'Material de «2. Ponencias Especiales»',
       tipo: 'pdf',
       driveId: '1KDfE_syMTpaVkFhbRRYqUdTmtUBf4Sh9',
@@ -290,7 +290,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '230-psicologia-y-anatomia-del-booking-funnel-3-psicologia-y-',
-      label: '3. Psicología y Anatomía del Booking Funnel Para Explotar Tu Calendario',
+      label: '230 - Psicología y Anatomía del Booking Funnel - 3. Psicología y Anatomía del Booking Funnel Para Explotar Tu Calendario',
       cardDesc: 'Material de «4. Booking Funnel Para Llenar Tu Calendario»',
       tipo: 'pdf',
       driveId: '1eEuEJ6_z0VHhe1oketJ3VrQMAqR8wAFo',
@@ -298,7 +298,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '231-copywriting-de-tu-booking-funnel-4-copywriting-de-tu-boo',
-      label: '4. Copywriting De Tu Booking Funnel',
+      label: '231 - Copywriting De Tu Booking Funnel - 4. Copywriting De Tu Booking Funnel',
       cardDesc: 'Material de «4. Booking Funnel Para Llenar Tu Calendario»',
       tipo: 'pdf',
       driveId: '1W9EIMgyeqh2P5L20Nywg-hfhug3qaUr3',
@@ -306,7 +306,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '231-copywriting-de-tu-booking-funnel-4-1-terminos-y-condicio',
-      label: '4.1. Términos y Condiciones',
+      label: '231 - Copywriting De Tu Booking Funnel - 4.1. Términos y Condiciones',
       cardDesc: 'Material de «4. Booking Funnel Para Llenar Tu Calendario»',
       tipo: 'pdf',
       driveId: '1WlslYI_-jTHzJdk4Vv-d9FZd1apf-Wph',
@@ -314,7 +314,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '231-copywriting-de-tu-booking-funnel-4-2-politicas-de-privac',
-      label: '4.2. Políticas de Privacidad',
+      label: '231 - Copywriting De Tu Booking Funnel - 4.2. Políticas de Privacidad',
       cardDesc: 'Material de «4. Booking Funnel Para Llenar Tu Calendario»',
       tipo: 'pdf',
       driveId: '1RPeN9E-F__5EhYK6j5V2ggDnkRPgDsx7',
@@ -322,7 +322,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '231-copywriting-de-tu-booking-funnel-5-creando-de-tu-booking',
-      label: '5. Creando de tu Booking Funnel Sin Conocimiento Técnico',
+      label: '231 - Copywriting De Tu Booking Funnel - 5. Creando de tu Booking Funnel Sin Conocimiento Técnico',
       cardDesc: 'Material de «4. Booking Funnel Para Llenar Tu Calendario»',
       tipo: 'pdf',
       driveId: '1LRH2SuxZnBK__xGAzK2J0MWHsgxH_1-Q',
@@ -330,7 +330,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '238-automatizacion-en-active-campaing-estructura-de-vsl-funn',
-      label: 'Estructura de VSL Funnel',
+      label: '238 - Automatización en Active Campaing - Estructura de VSL Funnel',
       cardDesc: 'Material de «1. VSL FUNNEL»',
       tipo: 'pdf',
       driveId: '1CiA39zEHVrj1sZily8_gFB7cl3x3kNYN',
@@ -338,7 +338,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '239-anatomia-de-un-correo-electronico-1-gbh-estrategia-email',
-      label: '1. GBH - Estrategia Email Marketing',
+      label: '239 - Anatomía de un correo electrónico - 1. GBH - Estrategia Email Marketing',
       cardDesc: 'Material de «2. Email Marketing»',
       tipo: 'pdf',
       driveId: '1xZxm24AY70xJgboMwkgYDddPJv-6rkv6',
@@ -346,7 +346,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '249-campana-de-nutricion-semanal-1-introduccion-a-los-shouto',
-      label: '1. Introducción a los shoutouts',
+      label: '249 - Campaña de Nutrición Semanal - 1. Introducción a los shoutouts',
       cardDesc: 'Material de «7. Aumento de seguidores y clientes»',
       tipo: 'pdf',
       driveId: '1DRXf3o5C3iiVR15TyYawCrcbDxSYpHPj',
@@ -354,7 +354,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '249-campana-de-nutricion-semanal-busco-10-a-10-personas',
-      label: 'Busco 10 a 10 personas',
+      label: '249 - Campaña de Nutrición Semanal - Busco 10 a 10 personas',
       cardDesc: 'Material de «2. Email Marketing»',
       tipo: 'pdf',
       driveId: '1oBaW0a6C_z2Vj0CWv4AoO1HAhTMZy5qT',
@@ -362,7 +362,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '249-campana-de-nutricion-semanal-gbh-email-marketing-hoja-av',
-      label: 'GBH - Email Marketing - HOJA AVATAR',
+      label: '249 - Campaña de Nutrición Semanal - GBH - Email Marketing - HOJA AVATAR',
       cardDesc: 'Material de «2. Email Marketing»',
       tipo: 'pdf',
       driveId: '1rsOIEZCKvWKT90h0SAh3wTmol-PaW15I',
@@ -370,7 +370,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '249-campana-de-nutricion-semanal-gbh-escribe-tu-secuencia-de',
-      label: 'GBH - Escribe tu secuencia de bienvenida',
+      label: '249 - Campaña de Nutrición Semanal - GBH - Escribe tu secuencia de bienvenida',
       cardDesc: 'Material de «2. Email Marketing»',
       tipo: 'pdf',
       driveId: '1Q1rrxbOGsqxtFBKNY4F9Y9Oaad0dGkRX',
@@ -378,7 +378,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '249-campana-de-nutricion-semanal-gbh-plantilla-de-reporte-de',
-      label: 'GBH - Plantilla de reporte de email marketing',
+      label: '249 - Campaña de Nutrición Semanal - GBH - Plantilla de reporte de email marketing',
       cardDesc: 'Material de «2. Email Marketing»',
       tipo: 'pdf',
       driveId: '12LlOGb_oQcnL7ceim-6r1HCIpKEwA5SF',
@@ -386,7 +386,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '249-campana-de-nutricion-semanal-gbh-plantilla-para-asuntos-',
-      label: 'GBH - Plantilla para Asuntos de correo',
+      label: '249 - Campaña de Nutrición Semanal - GBH - Plantilla para Asuntos de correo',
       cardDesc: 'Material de «2. Email Marketing»',
       tipo: 'pdf',
       driveId: '1n3Tm1VQOzi8hr2IHr8V-UIwgO2hjcCcI',
@@ -394,7 +394,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '249-campana-de-nutricion-semanal-mail-depurar-lista',
-      label: '[MAIL] - Depurar lista',
+      label: '249 - Campaña de Nutrición Semanal - [MAIL] - Depurar lista',
       cardDesc: 'Material de «2. Email Marketing»',
       tipo: 'pdf',
       driveId: '1LeERjFaYP0E2DismV3ASgUuEtl71UwYf',
@@ -402,7 +402,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '250-introduccion-a-los-shoutouts-2-encontrando-y-analizando-',
-      label: '2. Encontrando y analizando cuentas de calidad',
+      label: '250 - Introducción a los shoutouts - 2. Encontrando y analizando cuentas de calidad',
       cardDesc: 'Material de «7. Aumento de seguidores y clientes»',
       tipo: 'pdf',
       driveId: '1cJAg3fukAmgWAJpWvdVcl3PRYxKAyRzt',
@@ -410,7 +410,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '251-encontrando-y-analizando-cuentas-de-calidad-3-creacion-y',
-      label: '3. Creación y publicación de shoutouts',
+      label: '251 - Encontrando y analizando cuentas de calidad - 3. Creación y publicación de shoutouts',
       cardDesc: 'Material de «7. Aumento de seguidores y clientes»',
       tipo: 'pdf',
       driveId: '1pF2i9a09H6loahie6FAPyNXZTcFUc642',
@@ -418,7 +418,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '253-estrategia-de-escalado-de-shoutouts-4-estrategia-de-esca',
-      label: '4. Estratégia de escalado de Shoutouts',
+      label: '253 - Estratégia de escalado de Shoutouts - 4. Estratégia de escalado de Shoutouts',
       cardDesc: 'Material de «7. Aumento de seguidores y clientes»',
       tipo: 'pdf',
       driveId: '1RSZSmKNKygwdo8tDAvS4hr4FmYKe2UuZ',
@@ -426,7 +426,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '254-seguimiento-de-kpis-de-shoutouts-5-seguimiento-de-kpis-d',
-      label: '5. Seguimiento de KPIs de Shoutouts',
+      label: '254 - Seguimiento de KPIs de Shoutouts - 5. Seguimiento de KPIs de Shoutouts',
       cardDesc: 'Material de «7. Aumento de seguidores y clientes»',
       tipo: 'pdf',
       driveId: '12y5qO3NHG1Y_gL6csfKlXu2KzX5bH3w3',
@@ -434,7 +434,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '255-resolucion-de-problemas-de-shoutouts-6-resolucion-de-pro',
-      label: '6. Resolución de problemas de shoutouts',
+      label: '255 - Resolución de problemas de Shoutouts - 6. Resolución de problemas de shoutouts',
       cardDesc: 'Material de «7. Aumento de seguidores y clientes»',
       tipo: 'pdf',
       driveId: '1ADKvq_iL-ML8fGqpHhzxwSO9HCsXZNkK',
@@ -442,7 +442,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: '270-como-prospectar-en-frio-y-generar-conexiones-proceso-de-',
-      label: 'Proceso de Conversaciones (Setter)',
+      label: '270 - Cómo prospectar en frío y generar conexiones - Proceso de Conversaciones (Setter) (1)',
       cardDesc: 'Material de «5. Copywriting y gestión de mensajes»',
       tipo: 'pdf',
       driveId: '17Go15O-UTcZjaXoaZ_GiBiDGFgU-nFHJ',
@@ -458,7 +458,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-01',
-      label: '1. Proceso de Workflow (Flujo de Trabajo) - docs.google.com',
+      label: 'recurso-01',
       cardDesc: 'Material de «0. Onboarding (Mira Esto Primero)»',
       tipo: 'pdf',
       driveId: '1QHKUY8eb5Okt-0VC7cUDcltYLihKdWs4',
@@ -466,7 +466,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-47',
-      label: '1. Introducción a la Creación de Contenido',
+      label: 'recurso-47',
       cardDesc: 'Material de «Proceso General de Creación de Contenido»',
       tipo: 'pdf',
       driveId: '1SYWJokTcy6kXoxjEMXaQWad7G6_qbIfU',
@@ -474,7 +474,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-48',
-      label: '2. Creación del calendario de contenido',
+      label: 'recurso-48',
       cardDesc: 'Material de «Proceso General de Creación de Contenido»',
       tipo: 'pdf',
       driveId: '1Vjj4YVyW0nfEycvw_AEag-mypFDxFBJO',
@@ -482,7 +482,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-49',
-      label: '2.1. Dashboard de Contenido',
+      label: 'recurso-49',
       cardDesc: 'Material de «Proceso General de Creación de Contenido»',
       tipo: 'pdf',
       driveId: '1PsBKI-Ij1O4vBhXi1UvcKyUgdzsMlvDi',
@@ -490,7 +490,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-50',
-      label: '3. Desarrollo de ideas de contenido',
+      label: 'recurso-50',
       cardDesc: 'Material de «Proceso General de Creación de Contenido»',
       tipo: 'pdf',
       driveId: '1rC54J_UREpGA__2kiJrAmvKmojvu8e-4',
@@ -498,7 +498,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-51',
-      label: '3.1. Log - Ideas Inbound',
+      label: 'recurso-51',
       cardDesc: 'Material de «Proceso General de Creación de Contenido»',
       tipo: 'pdf',
       driveId: '1Sxr1npiL2ENgzzIecnHcG56U481kdC2K',
@@ -506,7 +506,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-52',
-      label: '4. Selección y calendarización de ideas',
+      label: 'recurso-52',
       cardDesc: 'Material de «Proceso General de Creación de Contenido»',
       tipo: 'pdf',
       driveId: '18gyzIrw6OotwsQZWBWT3Sh1yo-3fkETw',
@@ -514,7 +514,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-53',
-      label: '5. Pulida y copywriting de ideas de contenido',
+      label: 'recurso-53',
       cardDesc: 'Material de «Proceso General de Creación de Contenido»',
       tipo: 'pdf',
       driveId: '11FWQJcHmyLNo8gKC8ZmcF8AAe6-6KDg6',
@@ -522,7 +522,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-54',
-      label: '6. Proceso de Grabación de contenido',
+      label: 'recurso-54',
       cardDesc: 'Material de «Proceso General de Creación de Contenido»',
       tipo: 'pdf',
       driveId: '1pY1suaCyiFzz9wpnVlKUB4u2XAgTfrG5',
@@ -530,7 +530,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-55',
-      label: '7. Creando Un Post De Transformación Viral',
+      label: 'recurso-55',
       cardDesc: 'Material de «Proceso General de Creación de Contenido»',
       tipo: 'pdf',
       driveId: '1CqTjcsLp6VAwqssDLTTdMHRE09T-W3_f',
@@ -538,7 +538,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-56',
-      label: '8.1. Secuencia De Valor (2 Semanas)',
+      label: 'recurso-56',
       cardDesc: 'Material de «Proceso General de Creación de Contenido»',
       tipo: 'pdf',
       driveId: '143-5CgxwDnAzEj43b3dJGyqwyz6yCqu6',
@@ -546,7 +546,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-57',
-      label: '8.2. Secuencia de Venta (2-3 Semanas)',
+      label: 'recurso-57',
       cardDesc: 'Material de «Proceso General de Creación de Contenido»',
       tipo: 'pdf',
       driveId: '19cyYWhVoK99NJaVonU-tK38YhKDqgGfD',
@@ -554,7 +554,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-59',
-      label: '2. Estructura de llamada en frío',
+      label: 'recurso-59',
       cardDesc: 'Material de «2. Instagram Orgánico (Outbound & Inbound)»',
       tipo: 'pdf',
       driveId: '10q640-8RJDehA22NtlOSy89MEHKFUxwq',
@@ -562,7 +562,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-60',
-      label: '3. IG Story Marketing',
+      label: 'recurso-60',
       cardDesc: 'Material de «2. Instagram Orgánico (Outbound & Inbound)»',
       tipo: 'pdf',
       driveId: '18VoRqGBdER5j6y3clzo4lcsZ5W-ogokO',
@@ -570,7 +570,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-61',
-      label: '7. Estrategia Crecimiento De Seguidores Con ads2-2',
+      label: 'recurso-61',
       cardDesc: 'Material de «2. Instagram Orgánico (Outbound & Inbound)»',
       tipo: 'pdf',
       driveId: '14-8cm9nIWZV1AdAIt6OL079N2QPuuoo4',
@@ -578,7 +578,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-68',
-      label: '1. Formación FB Ads',
+      label: 'recurso-68',
       cardDesc: 'Material de «1. Facebook Ads Para High Ticket»',
       tipo: 'file',
       ext: 'pptx',
@@ -587,7 +587,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-69',
-      label: '6. Testing FB ADS',
+      label: 'recurso-69',
       cardDesc: 'Material de «1. Facebook Ads Para High Ticket»',
       tipo: 'pdf',
       driveId: '18gGeCBdKnsq-Vc2Nip_HcelK4sh3cEbr',
@@ -595,7 +595,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-70',
-      label: '7. MSN Métricas',
+      label: 'recurso-70',
       cardDesc: 'Material de «1. Facebook Ads Para High Ticket»',
       tipo: 'pdf',
       driveId: '1zOiOa2skJswRnbyifX1vNFojVw6f82IP',
@@ -603,7 +603,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-71',
-      label: '2. Anuncios ganadores (copia y pega)',
+      label: 'recurso-71',
       cardDesc: 'Material de «2. Ponencias Especiales»',
       tipo: 'pdf',
       driveId: '1vRnyBNPabK2tbCX62O3ZnfEzysH5KjZx',
@@ -611,7 +611,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-72',
-      label: '4. Check list',
+      label: 'recurso-72',
       cardDesc: 'Material de «2. Ponencias Especiales»',
       tipo: 'pdf',
       driveId: '19aU19_25YvtlcY6dCoCgQor7JPJww0C5',
@@ -619,7 +619,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-73',
-      label: 'Fundamentos y Estrategia',
+      label: 'recurso-73',
       cardDesc: 'Material de «1. Fundamentos y estrategia»',
       tipo: 'pdf',
       driveId: '1hASlkT5pzUQsFG4iKR-nq4RcnxOAbBNw',
@@ -627,7 +627,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-74',
-      label: 'Optimización de Perfil de LinkedIn',
+      label: 'recurso-74',
       cardDesc: 'Material de «2. Optimización del perfil de LinkedIn»',
       tipo: 'pdf',
       driveId: '1QfMivT6S7tklD0DA5WrytSO1fpnuyHfy',
@@ -635,7 +635,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-75',
-      label: 'Creación de Contenido',
+      label: 'recurso-75',
       cardDesc: 'Material de «3. Creación de contenido»',
       tipo: 'pdf',
       driveId: '1ctdb_X4EVxQ8A8SyvX4EPEo21hwQ4JpQ',
@@ -643,7 +643,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-76',
-      label: 'Estructura de compra de leads en Páginas de Freelancers',
+      label: 'recurso-76',
       cardDesc: 'Material de «4. Obtención de Leads»',
       tipo: 'pdf',
       driveId: '1U-4tor2oqtqdtzX9jsO4v-rBhs2pIVMW',
@@ -651,7 +651,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-77',
-      label: 'Obtención de Leads',
+      label: 'recurso-77',
       cardDesc: 'Material de «4. Obtención de Leads»',
       tipo: 'pdf',
       driveId: '1gB181wrZpDf5XPH1cX4I5qETSwWdHPLh',
@@ -659,7 +659,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-78',
-      label: 'Organizador y Planificador de LinkedIn Email Outbound',
+      label: 'recurso-78',
       cardDesc: 'Material de «4. Obtención de Leads»',
       tipo: 'pdf',
       driveId: '1BUrZZdHeLDkul7fJt6xAUDkGR4q3wU37',
@@ -667,7 +667,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-79',
-      label: 'Atracción con LinkedIn Orgánico - Templates de mensajes',
+      label: 'recurso-79',
       cardDesc: 'Material de «5. Copywriting y gestión de mensajes»',
       tipo: 'pdf',
       driveId: '1lr7NJqCZK42dw6NHErnWrvexJiCdU1Ls',
@@ -675,7 +675,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-80',
-      label: 'Copys de emails mensajes',
+      label: 'recurso-80',
       cardDesc: 'Material de «5. Copywriting y gestión de mensajes»',
       tipo: 'pdf',
       driveId: '1soXHThXt3ErsX8Sb5gh-d9X4E3gqO2Bi',
@@ -683,7 +683,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-81',
-      label: 'Copywriting y gestión de mensajes',
+      label: 'recurso-81',
       cardDesc: 'Material de «5. Copywriting y gestión de mensajes»',
       tipo: 'pdf',
       driveId: '1hyy4KClqiCi-fJQcffgWvRTgyoP1VsmN',
@@ -691,7 +691,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-82',
-      label: 'Copywriting y gestión de mensajes (1)',
+      label: 'recurso-82',
       cardDesc: 'Material de «5. Copywriting y gestión de mensajes»',
       tipo: 'pdf',
       driveId: '1R_e8ex_jUf7uEKvxSeVaLShpqX0nKZ3p',
@@ -699,7 +699,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-83',
-      label: 'Entrenamiento de Setter - Objeciones y FAQs',
+      label: 'recurso-83',
       cardDesc: 'Material de «5. Copywriting y gestión de mensajes»',
       tipo: 'pdf',
       driveId: '186_HKn9vhAsmB-MWUWlTmZyxzEgjdpvb',
@@ -707,7 +707,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-84',
-      label: 'Entrenamiento de Setter - Seguimiento',
+      label: 'recurso-84',
       cardDesc: 'Material de «5. Copywriting y gestión de mensajes»',
       tipo: 'pdf',
       driveId: '1ivgvT_8sSP0Lb_V20_t7-pP3iSVjjWyJ',
@@ -715,7 +715,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-85',
-      label: 'Log de Preguntas y Respuestas',
+      label: 'recurso-85',
       cardDesc: 'Material de «5. Copywriting y gestión de mensajes»',
       tipo: 'pdf',
       driveId: '1RKewSHwNIrvbsQQ9_ZsDYGo8V7G7ujb2',
@@ -723,7 +723,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-86',
-      label: 'Proceso de Conversaciones (Setter)',
+      label: 'recurso-86',
       cardDesc: 'Material de «5. Copywriting y gestión de mensajes»',
       tipo: 'pdf',
       driveId: '1fqlUFt-4SmWhev6VSX_2NxX9WMOr5cqT',
@@ -731,7 +731,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-87',
-      label: 'Atracción con LinkedIn Orgánico - Envío de mensajes',
+      label: 'recurso-87',
       cardDesc: 'Material de «6. Envío de mensajes»',
       tipo: 'pdf',
       driveId: '10m6hD4MrX24Fpto4oesrY_EHLv32-D_Z',
@@ -739,7 +739,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-88',
-      label: 'Atracción con LinkedIn Orgánico - CRM y Gestión de Leads',
+      label: 'recurso-88',
       cardDesc: 'Material de «7. CRM y gestión de Leads»',
       tipo: 'pdf',
       driveId: '1HFPH6mguaNXgPnm1NCEEDO2Vu4KHn4bD',
@@ -747,7 +747,7 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-89',
-      label: 'Atracción con LinkedIn Orgánico - Tracking y Optimización',
+      label: 'recurso-89',
       cardDesc: 'Material de «8. Tracking y Optimización»',
       tipo: 'pdf',
       driveId: '1tMQtZNizxatZI7mONbhf5lvxRCHiCbH9',
@@ -755,11 +755,20 @@ export const CURSO_BLUEHACKER: Curso = {
     },
     {
       slug: 'recurso-90',
-      label: 'Atracción con LinkedIn Orgánico - Planificación y Escalado',
+      label: 'recurso-90',
       cardDesc: 'Material de «9. Planificación y Escalado»',
       tipo: 'pdf',
       driveId: '1Pmu7qpl2b2VEgH8CDZkgDWXIavhlWOBU',
       clases: [398, 399, 400, 401],
+    },
+    {
+      slug: '1-fundamentos-de-la-atraccion-organica-44328446',
+      label: '1. Fundamentos de la atraccion organica - 44328446',
+      cardDesc: 'Material de «2. Instagram Orgánico (Outbound & Inbound)»',
+      tipo: 'file',
+      ext: 'png',
+      driveId: '1oj8KBC0ubLG2k2FsIce0cjlxIC0fIyqw',
+      clases: [338, 339, 340, 341, 342, 343],
     },
   ],
   clases: [
@@ -5492,7 +5501,7 @@ export const CURSO_BLUEHACKER: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-59', 'recurso-60', 'recurso-61'],
+      recursoSlugs: ['recurso-59', 'recurso-60', 'recurso-61', '1-fundamentos-de-la-atraccion-organica-44328446'],
       herramientas: [],
     },
     {
@@ -5506,7 +5515,7 @@ export const CURSO_BLUEHACKER: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-59', 'recurso-60', 'recurso-61'],
+      recursoSlugs: ['recurso-59', 'recurso-60', 'recurso-61', '1-fundamentos-de-la-atraccion-organica-44328446'],
       herramientas: [],
     },
     {
@@ -5520,7 +5529,7 @@ export const CURSO_BLUEHACKER: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-59', 'recurso-60', 'recurso-61'],
+      recursoSlugs: ['recurso-59', 'recurso-60', 'recurso-61', '1-fundamentos-de-la-atraccion-organica-44328446'],
       herramientas: [],
     },
     {
@@ -5534,7 +5543,7 @@ export const CURSO_BLUEHACKER: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-59', 'recurso-60', 'recurso-61'],
+      recursoSlugs: ['recurso-59', 'recurso-60', 'recurso-61', '1-fundamentos-de-la-atraccion-organica-44328446'],
       herramientas: [],
     },
     {
@@ -5548,7 +5557,7 @@ export const CURSO_BLUEHACKER: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-59', 'recurso-60', 'recurso-61'],
+      recursoSlugs: ['recurso-59', 'recurso-60', 'recurso-61', '1-fundamentos-de-la-atraccion-organica-44328446'],
       herramientas: [],
     },
     {
@@ -5562,7 +5571,7 @@ export const CURSO_BLUEHACKER: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-59', 'recurso-60', 'recurso-61'],
+      recursoSlugs: ['recurso-59', 'recurso-60', 'recurso-61', '1-fundamentos-de-la-atraccion-organica-44328446'],
       herramientas: [],
     },
     {

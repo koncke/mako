@@ -355,7 +355,14 @@ for (const [sub, nivel] of [['pdfs', 'clase'], ['recursos', 'modulo']]) {
   for (const f of readdirSync(d, { withFileTypes: true }).filter((e) => e.isFile())) {
     const meta = idxRecursos.get(f.name);
     recursosLocales.push({
-      archivo: f.name, sub, nivel,
+      archivo: f.name, sub,
+      // ⚠️ La CARPETA es el default del nivel, el ÍNDICE es el dato. Un curso puede tener
+      // sus archivos en pdfs/ y aun así ser material de MÓDULO — pasó con los 92 de
+      // BlueHacker: se bajaron ahí, el generador les buscó una clase por el prefijo
+      // numérico del nombre, y 51 de 53 quedaron colgados de la clase equivocada.
+      // Corregirlo a mano en drive.json no dura: la próxima corrida reconstruye la lista
+      // desde el disco y lo pisa. Con esto, el arreglo vive en recursos.json y sobrevive.
+      nivel: meta?.nivel ?? nivel,
       modulo: meta?.modulo ?? null,
       submodulo: meta?.submodulo ?? null,
     });
