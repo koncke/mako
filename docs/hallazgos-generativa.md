@@ -143,12 +143,36 @@ de corte, no un precio permanente de Google. Se apaga en octubre de 2026.
 **Lo que sí sigue siendo cierto:**
 - **«Ilimitado» no lo dice Google.** Los límites de Gemini son por cómputo, se reponen
   cada 5 horas, y la doc dice «Limits may change without notice».
-- **La cuenta del curso está inflada 2x**: los US$0,06 que cita por «clip de 10s» son
-  15 créditos, y 15 créditos compran **4 segundos** con Omni Flash. Diez segundos son
-  30 créditos. Y manda al modelo 3x más caro por defecto: Veo 3.1 Lite cuesta 10
-  créditos por clip de hasta 8s contra los 30 de Omni.
+- Manda al modelo más caro por defecto: **Veo 3.1 Lite cuesta 10 créditos** por clip de
+  hasta 8s, contra los 15+ de Omni Flash.
 - En Flow las imágenes **no descuentan créditos** (la tabla oficial de consumo lista solo
   modelos de video).
+
+## El costo en créditos depende de la RESOLUCIÓN, y la tabla que circula está mal
+
+Durante toda la producción se planificó con esta tabla, que es la que repiten todos los
+blogs de terceros: Omni Flash 4s=15, 6s=20, 8s=25, **10s=30** créditos.
+
+**Es falsa, al menos a 720p.** La pantalla de generación de Flow, en la cuenta real, con
+Omni Flash · 9:16 · **10s** · x1 dice: *«La generación consumirá 15 puntos»*. La mitad de
+lo planificado.
+
+Y de paso invalida una acusación que este mismo documento le hacía al curso de AvatarHype
+(«la cuenta está inflada 2x, los US$0,06 por clip de 10s son en realidad 4 segundos»). **El
+inflado era nuestro, no del curso.** Con 15 créditos por clip de 10s, su número cierra.
+
+**La variable que faltaba es la resolución.** La captura es de una generación a **720p**;
+todos los montajes de producción se hicieron a 1080p. La hipótesis es que 1080p duplica,
+que explicaría por qué la tabla de los blogs coincide con el doble.
+
+**La regla:** el costo en créditos NO se planifica desde una tabla de internet. Se lee
+**en la propia pantalla de Flow**, que lo muestra antes de generar y contempla modelo,
+duración, resolución y cantidad de variantes. Una tabla escrita en un documento envejece
+sin avisar; el contador de la UI, no.
+
+**No verificado:** cuánto cuesta cada duración a 1080p, y si el resto de las duraciones
+(4s, 6s, 8s) también cuestan menos de lo tabulado a 720p. Se resuelve en diez segundos
+tocando las cuatro duraciones en la UI y anotando el número.
 
 **EL TAPÓN, y es de arquitectura:** Flow **no tiene API**, y la suscripción de
 consumidor **no cubre requests de API** — doc oficial textual: *«Google AI plan
