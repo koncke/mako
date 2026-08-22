@@ -731,14 +731,14 @@ function construirInbox(items: TareaInboxRaw[], existentes: BoardTask[], labels:
   return { tasks, labels: [...labels, ...nuevos] };
 }
 
-export function PlanBoard({ user, tareas, proyectos, deps = [], vacio }: { user: BoardUser; tareas: BoardTask[]; proyectos: Label[]; deps?: Dep[]; vacio: boolean }) {
+export function PlanBoard({ user, tareas, proyectos, deps = [], vacio, vistaInicial }: { user: BoardUser; tareas: BoardTask[]; proyectos: Label[]; deps?: Dep[]; vacio: boolean; vistaInicial?: string }) {
   // El I/O vive en board/repo-plan.ts: lo comparte el roadmap de Customer
   // Success, que abre la MISMA tarjeta con el MISMO modal.
   const repo = repoPlan();
   const board = useBoard(tareas, proyectos, user, repo, deps);
   // DB vacía → el board todavía no se migró de localStorage: mostramos el botón migrar.
   if (vacio) return <MigrarPlan />;
-  return <BoardShell board={board} scope="agencia" />;
+  return <BoardShell board={board} scope="agencia" vistaInicial={vistaInicial} />;
 }
 
 // Migración one-shot (cero consola): lee el board de ESTE navegador (SEED + tus ediciones

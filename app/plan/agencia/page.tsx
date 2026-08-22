@@ -30,7 +30,15 @@ import type { Dep } from '../board/dependencias';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function PlanAgenciaPage() {
+/**
+ * ⚠️ LA VISTA SE LEE EN EL SERVER, no en un `useEffect` del board. Es la regla de la casa
+ * («la tab viaja en `?tab=` leída en el server», AGENTS.md) y acá el porqué se ve: si el
+ * board arranca en «prioridades» y corrige después de hidratar, cada refresh es un parpadeo
+ * —ves Prioridades y salta a Kanban— y encima React avisa por hidratación desalineada.
+ * Leyéndola acá, el primer HTML ya viene con la vista correcta.
+ */
+export default async function PlanAgenciaPage({ searchParams }: { searchParams: Promise<{ vista?: string }> }) {
+  const { vista } = await searchParams;
   const sesion = await getUsuarioActual();
   if (sesion?.rol !== 'admin' || (await estaImpersonando())) redirect(await rutaConWs('/plan'));
 
@@ -46,5 +54,5 @@ export default async function PlanAgenciaPage() {
   try { const b = await listPlanBoard(); tareas = b.tareas; proyectos = b.proyectos; deps = b.deps; } catch (e) { console.error('[plan/agencia] listPlanBoard', e); }
   const vacio = tareas.length === 0 && proyectos.length === 0;
 
-  return <PlanBoard user={user} tareas={tareas} proyectos={proyectos} deps={deps} vacio={vacio} />;
+  return <PlanBoard user={user} tareas={tareas} proyectos={proyectos} deps={deps} vacio={vacio} vistaInicial={vista} />;
 }

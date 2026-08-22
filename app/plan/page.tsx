@@ -85,5 +85,9 @@ export default async function TodoPage({ searchParams }: { searchParams: Promise
   const wsActual = await getWorkspaceActual().catch(() => null);
 
   // El BoardShell ya trae su propio header "Plan"; no envolvemos con subtítulo.
-  return <TodoBoard tareas={tareas} categorias={categorias} demo={demo} user={user} wsId={wsActual} />;
+  // La vista viaja en `?vista=` y se lee ACÁ, en el server: si el board la corrigiera
+  // después de hidratar, cada refresh sería un parpadeo de Prioridades. Mismo trato que el
+  // tablero del dueño — la persistencia de la pantalla no es una comodidad de super-admin.
+  const { vista } = await searchParams;
+  return <TodoBoard tareas={tareas} categorias={categorias} demo={demo} user={user} wsId={wsActual} vistaInicial={typeof vista === 'string' ? vista : undefined} />;
 }

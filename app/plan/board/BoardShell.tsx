@@ -54,15 +54,26 @@ import { capacidad } from '@/lib/mako-capacidades';
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 
-export function BoardShell({ board, scope }: {
+const VISTAS = ['prioridades', 'kanban', 'proyectos', 'graphics'] as const;
+type Vista = (typeof VISTAS)[number];
+const vistaValida = (v: unknown): Vista | null => (VISTAS as readonly string[]).includes(String(v)) ? (v as Vista) : null;
+
+export function BoardShell({ board, scope, vistaInicial }: {
   board: Board;
   /** scope de las preferencias locales (por workspace): no se mezclan entre impersonaciones. */
   scope?: string;
+  /**
+   * La vista con la que arranca, LEÍDA EN EL SERVER desde `?vista=` (app/plan/agencia/page.tsx).
+   * No se lee acá de `window`: el server renderiza «prioridades», el cliente corregiría después
+   * de hidratar, y eso son dos cosas malas a la vez — un parpadeo en cada refresh y un aviso
+   * de hidratación desalineada. Opcional porque el board del CLIENTE todavía no la pasa.
+   */
+  vistaInicial?: string;
 }) {
   
   // G1/G2 guardián: score→columna, restricción al proyecto top, debate.
   const { tasks, labels, repo } = board;
-  const [view, setView] = useState<'prioridades' | 'kanban' | 'proyectos' | 'graphics'>('prioridades');
+  const [view, setView] = useState<Vista>(vistaValida(vistaInicial) ?? 'prioridades');
   const [openProj, setOpenProj] = useState<string | null>(null);
   const [peekProjId, setPeekProjId] = useState<string | null>(null); // proyecto abierto DESDE una tarea (encima de ella; feedback jul-19)
   const [nuevoProj, setNuevoProj] = useState(false);
@@ -554,10 +565,51 @@ export function BoardShell({ board, scope }: {
       }
       if (tId && tasks.some((t) => t.id === tId)) setOpenId(tId);
       else if (pId && labels.some((l) => l.id === pId)) setOpenProj(pId);
-      if (tId || pId || sp.get('reunion')) { sp.delete('tarea'); sp.delete('proyecto'); sp.delete('reunion'); const qs = sp.toString(); window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : '')); }
+      // ⚠️ SOLO SE LIMPIA `?reunion=`. `?tarea=` y `?proyecto=` YA NO: dejaron de ser un
+      // link de una sola vez y pasaron a ser el ESTADO de la pantalla — si se borran, un
+      // refresh te deja el tablero pelado aunque tuvieras una tarjeta abierta. `reunion` sí
+      // se limpia porque es un EVENTO (abrir un borrador), no un estado que sobreviva.
+      if (sp.get('reunion')) { sp.delete('reunion'); const qs = sp.toString(); window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : '')); }
     } catch { /* no-op */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── LA URL ES EL ESTADO DE LA PANTALLA ───────────────────────────────────────
+  // Antes el board arrancaba SIEMPRE en Prioridades y el deep-link se borraba apenas abría
+  // el modal: refrescar te devolvía a otra tab, sin la tarjeta que estabas mirando. Con esto
+  // el link que copiás es la pantalla que estás viendo, y F5 no te mueve de lugar.
+  //
+  // No usa `push` para no llenar el historial: el Atrás tiene que sacarte del tablero, no
+  // recorrer las cuatro tabs que miraste.
+  //
+  // ⚠️ Y VA CON `history.replaceState`, NO con `router.replace`, apartándose de la
+  // convención de tabs de AGENTS.md — con el motivo escrito: `router.replace` sobre la misma
+  // ruta con otro query ES una navegación, y esta página es `force-dynamic`, así que Next
+  // vuelve a pedir el RSC. Serían 550 tareas y 71 proyectos por cada click en una tab. Acá
+  // la URL no es un destino: es un marcador para el próximo F5.
+  //
+  // El `?ws=` se conserva solo porque se parte de `window.location.search`, que ya lo trae.
+  // La query NO se arma de cero, justamente por eso: armarla de cero es como se pierde la
+  // pestaña del cliente y terminás mirando otra cuenta.
+  const urlEstado = `${view}|${openId ?? ''}|${openProj ?? ''}`;
+  const urlPrev = useRef<string | null>(null);
+  useEffect(() => {
+    if (urlPrev.current === urlEstado) return;
+    const primera = urlPrev.current === null;
+    urlPrev.current = urlEstado;
+    // El primer render solo fija la línea base: escribir en el montaje pisaría el `?tarea=`
+    // con el que acabás de entrar, justo antes de que el efecto de deep-link lo lea.
+    if (primera) return;
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      // «prioridades» es el default: no se escribe, para que la URL limpia siga andando.
+      if (view === 'prioridades') sp.delete('vista'); else sp.set('vista', view);
+      if (openId) sp.set('tarea', openId); else sp.delete('tarea');
+      if (openProj) sp.set('proyecto', openProj); else sp.delete('proyecto');
+      const qs = sp.toString();
+      window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : ''));
+    } catch { /* sin URL no se pierde nada: el estado vive en React igual */ }
+  }, [urlEstado, view, openId, openProj]);
 
   const eliminarTask = tasks.find((t) => t.id === eliminarTaskId) ?? null;
   const eliminarProj = labels.find((l) => l.id === eliminarProjId) ?? null;
@@ -803,7 +855,7 @@ export function BoardShell({ board, scope }: {
         </div>
         {/* tabs */}
         <div style={{ display: 'inline-flex', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: 3 }}>
-          {(['prioridades', 'kanban', 'proyectos', 'graphics'] as const).map((v) => (
+          {VISTAS.map((v) => (
             <button key={v} onClick={() => setView(v)} style={{ border: 'none', background: view === v ? 'var(--surface)' : 'transparent', color: view === v ? 'var(--ink)' : 'var(--dim)', fontWeight: view === v ? 600 : 500, fontSize: 13.5, padding: '7px 15px', borderRadius: 999, cursor: 'pointer', boxShadow: view === v ? '0 1px 2px rgba(18,21,27,.08)' : 'none', fontFamily: 'inherit', textTransform: 'capitalize' }}>{v === 'proyectos' ? repo.labelPlural : v}</button>
           ))}
         </div>
@@ -1947,12 +1999,17 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
   const backBtn: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '6px 6px 10px', border: 'none', borderBottom: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700, marginBottom: 4 };
 
   return (
-    <span style={{ position: 'relative' }}>
+    // ⚠️ `flex: none` VA ACÁ, no solo en el botón de adentro. Este span es el flex item que
+    // ve el header, y el grupo que lo contiene tiene `minWidth: 0` para poder achicarse: sin
+    // esto el span se comprimía y el botón quedaba CORTADO por su propio borde, con la
+    // palabra «Filtrar» saliéndose. Poner `flex: none` en el hijo no sirve — el que se
+    // achica es el padre.
+    <span style={{ position: 'relative', flex: 'none' }}>
       <button onClick={() => { setOpen((o) => !o); setVista('root'); }} aria-label="Filtrar" title="Filtrar" aria-expanded={open}
         style={{ position: 'relative', ...ghostBtn, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
           // Sin la palabra, el alto lo fijaba el texto y el botón quedaba en 41x31 al lado
           // de los de 38x38: tres alturas en la misma fila. La caja es la MISMA siempre.
-          height: 38, width: soloIcono ? 38 : undefined, padding: soloIcono ? 0 : undefined, flex: 'none', background: open ? 'var(--surface-2)' : 'var(--surface)', color: n > 0 ? 'var(--primary)' : 'var(--dim)', borderColor: n > 0 ? 'var(--primary-weak)' : 'var(--border-strong)' }}>
+          height: 38, width: soloIcono ? 38 : undefined, padding: soloIcono ? 0 : '0 13px', flex: 'none', whiteSpace: 'nowrap', background: open ? 'var(--surface-2)' : 'var(--surface)', color: n > 0 ? 'var(--primary)' : 'var(--dim)', borderColor: n > 0 ? 'var(--primary-weak)' : 'var(--border-strong)' }}>
         <FunnelIcon color="var(--primary)" />{!soloIcono && 'Filtrar'}
         {n > 0 && <span onClick={(e) => { e.stopPropagation(); setFLabels?.(new Set()); setFOrigen?.(new Set()); setDoneFilter('all'); }} title="Limpiar" style={{ position: 'absolute', top: -7, right: -7, minWidth: 18, height: 18, padding: '0 4px', borderRadius: 999, background: 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg)' }}>{n}</span>}
       </button>

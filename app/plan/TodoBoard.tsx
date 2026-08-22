@@ -49,7 +49,7 @@ const catsNum = (labels: string[], titulo: string): number[] => {
   return ok;
 };
 
-export function TodoBoard({ tareas, categorias, demo, user, wsId }: { tareas: Tarea[]; categorias: Categoria[]; demo: boolean; user: BoardUser; wsId?: number | null }) {
+export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial }: { tareas: Tarea[]; categorias: Categoria[]; demo: boolean; user: BoardUser; wsId?: number | null; vistaInicial?: string }) {
   const repo: Repo = {
     // MISMA config que el board del super-admin (PlanBoard): la única diferencia real
     // es la persistencia (DB vs localStorage). Proyectos 1-a-1, mismo naming.
@@ -106,5 +106,5 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId }: { tareas: Ta
   const board = useBoard(tareas.map(toBoard), categorias.map(toLabel), user, repo);
   // Scope del auto-load POR workspace: la preferencia del cliente X no se comparte con
   // el board de la agencia ni con otro workspace en la misma impersonación/origin.
-  return <BoardShell board={board} scope={wsId != null ? `ws:${wsId}` : undefined} />;
+  return <BoardShell board={board} scope={wsId != null ? `ws:${wsId}` : undefined} vistaInicial={vistaInicial} />;
 }
