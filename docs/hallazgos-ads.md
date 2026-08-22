@@ -815,3 +815,46 @@ se corren campañas de mensajes por Meta más prospección en frío por Instagra
 
 martinkoncke@gmail.com y +5493764673479. «prefiero que todas las pruebas siempre se hagan
 a:» *(2026-07-14)*.
+
+---
+
+## Meta dejó de devolver `source` de los videos — y lo hace en SILENCIO
+
+`getAdVideo` (`lib/transcribe.ts:67-89`) baja el video de un anuncio en dos saltos:
+`ad → creative.video_data.video_id`, y después `GET /{video_id}?fields=source`. El
+segundo salto **dejó de devolver `source`**.
+
+**El modo de falla es el peor posible: no hay error.** La respuesta llega 200 con el
+resto de los campos y `source` simplemente ausente:
+
+```
+GET /v21.0/1066305813011996?fields=source,length
+→ {"length":108.766,"status":{...},"id":"1066305813011996"}     ← sin "source"
+```
+
+El código hace `if (vb.error || !vb.source) return null;` — o sea que devuelve `null`,
+que el llamador lee como «este anuncio no tiene video». No como «no pude bajarlo».
+
+**Descartado con medición, no por intuición:**
+
+- No es rate limiting: `x-app-usage` daba `call_count: 9`.
+- No es el token: `debug_token` lo da `is_valid: true`, tipo `SYSTEM_USER`, con
+  `ads_management`, `ads_read`, `business_management`, `pages_read_engagement`.
+- No es la versión de la API: pasa igual en v21.0 y en v25.0 (la del env).
+- No es un video puntual: probado en 4 videos distintos, todos sin `source`.
+- **No es permanente ni fue siempre así:** ese mismo video se bajó con éxito por esta
+  misma ruta unas horas antes, el mismo día.
+
+**Qué significa para el producto:** cualquier función que dependa de bajar el video del
+anuncio (transcripción de creativos, Ads Analyst, Scripts Analyst) puede quedarse sin
+material sin que nada lo reporte. Los anuncios simplemente «no tienen video» y el
+análisis sale vacío o incompleto.
+
+**La regla:** `getAdVideo` devolviendo `null` NO puede seguir significando dos cosas
+distintas. Hay que separar «el creativo no tiene video» de «tiene video pero Meta no me
+dio la URL», y que el segundo caso quede registrado y visible. Un contador de creativos
+sin video que sube de golpe es la señal de que esto volvió a pasar.
+
+**No verificado:** por qué se cortó. Las hipótesis abiertas son un cambio de política de
+Meta sobre `source` (el campo viene siendo restringido hace tiempo), o que requiera token
+de Página en vez de System User. No se probó con token de Página.

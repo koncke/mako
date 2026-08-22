@@ -19,6 +19,7 @@
 import { CURSOS, type Curso } from './curso';
 import { CURSO_VSL } from './curso-vsl';
 import { CURSO_PRODUCTO_APP } from './curso-producto-app';
+import { CURSO_AVATAR_APP } from './curso-avatar-app';
 import { CURSO_CLAUDE_AI_RODRIGO_ROJO } from './curso-claude-ai-rodrigo-rojo';
 import { CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE } from './curso-aumenta-tu-valor-y-atv-advantage';
 import { CURSO_SELL_YOUR_KNOWLEDGE } from './curso-sell-your-knowledge';
@@ -96,6 +97,7 @@ const CATEGORIA: Record<string, string> = {
   'analisis-negocio': CATEGORIA_PROPIA,
   'branding-mako': CATEGORIA_PROPIA,
   'construir-app': CATEGORIA_PROPIA,
+  'avatares-que-se-parecen': CATEGORIA_PROPIA,
 };
 
 /**
@@ -191,7 +193,7 @@ const REEMPLAZADOS = new Set(['avatarhype']);
 
 export const CURSOS_TODOS: Curso[] = [
   ...CURSOS.filter((c) => !REEMPLAZADOS.has(c.slug)),
-  CURSO_VSL, CURSO_ANALISIS, CURSO_BRANDING, CURSO_PRODUCTO_APP,
+  CURSO_VSL, CURSO_ANALISIS, CURSO_BRANDING, CURSO_PRODUCTO_APP, CURSO_AVATAR_APP,
   CURSO_CLAUDE_AI_RODRIGO_ROJO, CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE,
   CURSO_SELL_YOUR_KNOWLEDGE, CURSO_INTELIGENCIA_VIRAL_2026, CURSO_M5_95,
   CURSO_VENDER_POR_FB_E_IG_ADS, CURSO_MANYCHAT_MASTER_INSTAGRAM,
