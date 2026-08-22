@@ -572,6 +572,30 @@ Y el corolario que se paga aparte: **rotar solo por error es pagar un peaje por 
 Si hay tres cuentas y la primera está muerta, cada llamada gasta un 429 antes de llegar a
 la que tiene nafta. Si el sistema puede saber cuál está gastada, empezá por la que no.
 
+## Y el corolario del tamaño: un tope elegido contra UN proveedor apaga a los demás
+
+La misma trampa, un escalón más abajo. Tres proveedores configurados no son tres
+proveedores **disponibles** si lo que se les manda solo le entra a uno.
+
+El caso, del 22/8/2026. La cascada de transcripción tiene tres escalones — Groq (25 MB),
+OpenAI (25 MB) y Gemini, que manda el audio INLINE dentro del request y topea en **14**.
+El script que parte el audio lo hacía en piezas de **20 MB**, un número elegido contra el
+tope de los dos primeros. Resultado: toda clase larga nacía **sin fallback**, y las largas
+son justo las que más chance tienen de encontrar a Groq en su cuota horaria. Medido: 32
+clases con «ningún proveedor pudo transcribir», **las 32** con una pieza por encima de 14
+MB, ninguna por otra causa. El arreglo fue una cifra —20 → 13— y ninguna línea de lógica.
+
+**La regla: un límite de formato (tamaño, duración, tokens, tipo de archivo) se elige
+contra el proveedor MÁS RESTRICTIVO de los que se piensa usar, no contra el primero de la
+lista.** Si no se puede, el escalón que no lo acepta **no está en la cascada** y hay que
+decirlo donde se lea, porque desde afuera la lista de fallbacks se ve completa.
+
+**Y cómo se detecta, que es lo que más ahorra:** el error decía los tres motivos, con el
+tamaño y el tope al lado, desde el primer día. Lo que faltaba era **contar**. 32 de 32 con
+la misma marca no es mala suerte con una cuota: es una condición. Cuando un fallo se
+repite, la pregunta no es «¿por qué falló éste?» sino **«¿qué comparten TODOS los que
+fallaron?»**.
+
 # Claude está VETADO salvo excepción escrita, y el veto vive en el `fetch`
 
 `lib/veto-claude.ts` es la única puerta a `api.anthropic.com/v1/messages`. Una feature

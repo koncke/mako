@@ -2955,18 +2955,125 @@ módulo tiene `import 'server-only'`, resuelve credenciales por workspace (`cred
 registra uso en la base. Desde un script de línea de comandos son tres efectos que nadie
 pidió. Lo que sí se comparte es el criterio.
 
-**Lo que queda pendiente acá:** la cascada tiene DOS proveedores y hoy se agotaron los
-dos a la vez (OpenAI sin crédito + Groq en su tope de 7.200 s de audio por hora). Gemini
-está configurado y es gratis, pero su STT no habla el protocolo de `/audio/transcriptions`
-—va por `generateContent` con `inline_data`, con techo de 14 MB— así que sumarlo es
-escribir un camino nuevo. No se hizo hoy a propósito: un camino de STT sin probar que
-devuelve texto plausible y equivocado es exactamente la familia de bug que este documento
-viene cerrando.
+**Lo que quedaba pendiente acá YA SE HIZO, y trajo su propio problema:** Gemini se sumó
+como tercer escalón (`sttGemini`, por `generateContent` con `inline_data`). Sirvió para
+lo que se esperaba y falló por donde nadie miró — el TAMAÑO de las piezas. Sigue abajo,
+en «La cascada tenía tres proveedores y para un archivo largo tenía UNO».
 
 **Vive en:** `lib/transcribe.ts` (`STT_CASCADA`) · `scripts/curso-transcribir.ts` (la
 cabecera del `.md`)
 
 ---
+
+---
+
+## La cascada tenía tres proveedores y para un archivo largo tenía UNO
+
+**Síntoma.** El bucle de transcripción de BlueHacker reportaba, corrida tras corrida,
+**32 clases falladas** con el mensaje `ningún proveedor pudo transcribir`. Los tres
+escalones contestaban a la vez:
+
+| Proveedor | Qué decía |
+|---|---|
+| Groq `whisper-large-v3-turbo` | `Rate limit … 7200 s de audio por hora, usados 5100, pedidos 5242` |
+| OpenAI `whisper-1` | `You have no credits remaining` |
+| Gemini | `20.6 MB: no entra inline (tope 14 MB)` |
+
+**El diagnóstico obvio era el equivocado.** Leído rápido, esto es «se acabaron los
+recursos, hay que esperar la cuota» — y la cuenta cerraba: 40 piezas de ~5.200 s contra
+7.200 s por hora son **28 horas de reloj**. La causa real no era la cuota: era que el
+tercer proveedor estaba **estructuralmente excluido** de exactamente los archivos que más
+lo necesitaban, y nada lo decía.
+
+**La causa.** `curso-audio.mjs` partía el audio a **20 MB**, un número elegido contra el
+tope de OpenAI y Groq (25 MB). Pero el ÚLTIMO escalón de la cascada es Gemini, que manda
+el audio **INLINE dentro del request** y topea en **14 MB**. Una pieza de 20 MB no puede
+llegar a Gemini nunca. Las clases cortas se partían solas por debajo del tope y tenían
+sus tres escalones; las **Sesiones Semanales** de 60 a 185 minutos, que son las que más
+chance tienen de encontrar a Groq sin cuota, nacían con **uno**.
+
+Medido: de las 32 falladas, **las 32** tenían una pieza por encima de 14 MB. **Ninguna**
+falló por otra causa. Y la comprobación al revés también dio limpio: clases sin texto
+cuyas piezas SÍ entraban en 14 MB, cero.
+
+**El arreglo son dos cifras y ninguna línea de lógica.** `MB_OBJETIVO` pasa de 20 a
+**13** (a 32 kbps, ~56 min por pieza), que entra en los tres proveedores. Las 32 de
+BlueHacker se re-partieron desde el `.m4a` que ya existía —el `.mp4` estaba liberado a
+Drive— con `-c copy`: en audio todo frame es keyframe, así que cortar sin recodificar no
+pierde nada. Verificando **antes de borrar el original** que la suma de las piezas nuevas
+duraba lo mismo y que ninguna pasaba los 14 MB. A los 90 segundos de relanzar, el log
+decía `✓ (gemini-flash-latest)`.
+
+**La regla que queda, y no es de este script:** *un tope de tamaño elegido contra UN
+proveedor apaga a los demás en silencio.* Se elige contra el **más restrictivo de todos
+los que se piensa usar**, no contra el primero de la lista. Es la misma familia que «un
+total solo se puede sumar si el recurso se puede MOVER DE LUGAR» de `AGENTS.md`: tener
+tres proveedores configurados no es tener tres proveedores disponibles, y el indicador
+—«la cascada tiene tres escalones»— afirmaba una capacidad que para media biblioteca no
+existía.
+
+**Y el corolario de cómo se detecta:** el mensaje de error estaba **completo y correcto**
+desde el primer día — decía los tres motivos, con el tamaño y el tope al lado. Lo que
+faltaba era que alguien **contara**: 32 de 32 con la misma marca no es una racha de mala
+suerte con la cuota, es una condición. Cuando un fallo se repite, la pregunta no es «¿por
+qué falló éste?» sino «¿qué comparten TODOS los que fallaron?».
+
+**Vive en:** `scripts/curso-audio.mjs` (`MB_OBJETIVO` / `SEG_MAX`) ·
+`lib/transcribe.ts` (`MAX_INLINE_GEMINI`, el tope de 14 MB) ·
+`scripts/curso-transcribir.ts` (agrupa las `.parteNN` en un solo `.md`)
+
+---
+
+## `--liberar` sabía si el video estaba a salvo, no si ya se había usado
+
+**Síntoma:** ninguno. Este no se rompió — se encontró leyendo el guard, y es el tipo de
+agujero que aparece meses después como «esta clase no tiene transcripción y no sé por qué».
+
+`curso-a-drive.mjs --liberar` borra el `.mp4` local y tenía cuatro condiciones, todas
+correctas y todas contestando **la misma pregunta**: ¿está a salvo del otro lado? (dentro
+de `video/`, con id de Drive, la copia coincide byte a byte, y Drive reporta ese mismo
+tamaño). Correcta para el video **como archivo**. Incompleta para el video **como
+insumo**: es la ENTRADA de `curso-audio.mjs`, y sin audio no hay transcripción nunca más.
+
+En BlueHacker no explotó por el **orden del circuito** (mover → audio → drive `--liberar`),
+no porque el guard lo supiera. Corriendo `--liberar` suelto —que es exactamente para lo
+que existe la bandera— las 105 clases liberadas se habrían ido sin audio. Y el modo de
+falla es silencioso: la clase se ve **completa** en el portal, con su visor de Drive
+funcionando; lo único que falta es el texto, que nadie mira hasta que lo busca.
+
+**La regla:** cuando un guard protege un borrado, enumerá **para qué sirve** lo que se
+borra, no solo **dónde está copiado**. Si algo es insumo de un paso posterior, «está
+respaldado» no alcanza: el respaldo no es la entrada del pipeline.
+
+Quinta condición, en positivo como manda `AGENTS.md`: existe `audio/<archivo>.m4a` o sus
+`.parteNN.m4a`.
+
+**Vive en:** `scripts/curso-a-drive.mjs` (el bloque `if (LIBERAR)`)
+
+---
+
+## El shell de este entorno se come las barras invertidas
+
+No es del proyecto, es de la herramienta, y costó tres intentos seguidos. Al pasar código
+por `node -e` o por un heredoc **incluso con el delimitador citado**, una barra invertida
+duplicada llega al archivo como una sola. En una regex eso convierte «un punto literal»
+en «cualquier carácter», que **casi siempre da el mismo resultado** y por eso pasa
+desapercibido. En un template literal, la barra sobreviviente se evapora del todo.
+
+Es primo de «lo que devuelve la búsqueda NO es el archivo» de `AGENTS.md`: el transporte
+mangló el contenido, y la verificación ingenua confirma la versión manglada.
+
+- **Verificá los bytes con `JSON.stringify` de la línea**, no con `sed` ni leyendo el eco
+  del comando.
+- **O escribí el código sin barras invertidas.** `nombre.slice(0, nombre.lastIndexOf('.'))`
+  dice lo mismo que la regex y no tiene nada que el shell pueda comerse; lo mismo
+  `String.fromCharCode(10)` en vez de un salto de línea escrito como escape.
+- Las palabras entre backticks dentro de un comentario **se ejecutan** (un
+  `command not found` en medio de la salida es la firma) y dejan un hueco en el texto.
+- Y un documento con tablas, backticks y comillas **no entra por heredoc**: se escribe
+  como archivo y se empalma.
+
+**Vive en:** cualquier edición hecha desde `Bash`; ya mordió en `scripts/curso-a-drive.mjs`
 
 # Barrido de 37 agentes sobre el pipeline — 2026-08-20
 
