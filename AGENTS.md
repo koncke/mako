@@ -454,6 +454,80 @@ falla cuando el margen se acaba: el catálogo crece, y el número que hoy tiene 
 mañana no. Un umbral sin esa red envejece en silencio, que es la peor forma de
 envejecer.
 
+# Antes de restaurar lo que había, preguntá cuánto DEBERÍA haber
+
+Cuando algo aparece incompleto y existe una versión anterior, la reacción es restaurarla.
+Eso solo es correcto si la versión anterior **era** correcta — y eso es una hipótesis, no
+un dato.
+
+El caso, del 22/8/2026. El dueño reportó «no veo ningún recurso» en un curso. Una
+regeneración había borrado los **8** que la ficha publicaba, así que se restauraron los 8,
+se verificó en pantalla que se vieran, y se cerró el tema con su commit. La plataforma de
+origen tiene **92**. El arreglo dejó el agujero de 84 tapado y **con cara de arreglado**,
+que es peor que no haberlo tocado: un síntoma resuelto apaga la búsqueda.
+
+**La regla: ante un faltante, la pregunta no es «¿qué había?» sino «¿cuánto hay en la
+fuente?».** Y la fuente es el sistema que produce el dato, no nuestra copia anterior de él.
+
+**Corolario del reporte:** cuando alguien dice «falta X», está describiendo lo que ve, no
+acotando el problema. «No veo ningún recurso» era literalmente cierto **y** el problema era
+diez veces más grande. Tomar el síntoma como especificación del alcance es cómo se entrega
+un arreglo parcial con confianza total.
+
+# Un número redondo es una hipótesis de truncamiento
+
+Un `limit=20000` que devuelve **exactamente 1000** no devolvió mil filas: devolvió el tope
+del servidor. PostgREST corta ahí por defecto y **no lo dice** — no hay error, no hay
+header que uno mire por reflejo, y la respuesta es indistinguible de un resultado completo
+salvo por el redondeo.
+
+Costó un censo entero: un curso que la consulta acotada mostraba con 92 recursos aparecía
+con **7**, y eso se leyó como un problema de permisos.
+
+- **Si un total sale redondo (1000, 100, 500), asumí que está cortado hasta probar lo
+  contrario.** Paginá y compará: el número real acá era 3107.
+- **La contradicción es la que delata.** El truncamiento se detectó porque el censo
+  contradecía una medición previa que se sabía buena. Sin ese segundo número, 1000 pasaba.
+  Cuando midas algo grande, medí también una parte por otro camino.
+
+# Contar filas no es contar cosas — cruzá por clave
+
+Dos conteos que no coinciden invitan a restar y llamar «faltante» a la diferencia. Casi
+siempre están contando universos distintos.
+
+Medido el 22/8/2026: el portal publicaba **183** archivos de un curso y la plataforma
+declaraba **283** recursos → «faltan 100». No faltaba **ninguno**: varias filas comparten
+título (el mismo material colgado de varios módulos), así que 183 archivos cubren 283
+filas. Se estuvo a un comando de bajar 100 archivos que ya estaban.
+
+Y el error espejo, el mismo día: otro curso figuraba con «39 faltantes» estando bajados,
+porque 39 archivos habían quedado con nombre genérico (`recurso-NN`) y ningún cruce por
+título los encuentra.
+
+**La regla: dos números sirven para SOSPECHAR, nunca para CONCLUIR.** Lo que decide es el
+cruce por una clave — un id, un uuid, un hash. **El id es una clave; el título es un
+parecido**, y un parecido inventa faltantes en las dos direcciones.
+
+# «No pasó nada» y «pasó y se murió» se ven iguales si mirás el resultado
+
+Cuando una acción no deja el efecto esperado, mirar solo el efecto no distingue entre *no
+arrancó*, *arrancó y falló* y *arrancó y lo cancelaron*. Son tres causas con tres arreglos
+distintos, y el resultado es idéntico.
+
+El caso: un botón de descarga que no dejaba archivo. Mirar la carpeta decía «no bajó» y
+mandó a buscar permisos que no faltaban. Escuchando los eventos del navegador
+(`Browser.downloadWillBegin` / `downloadProgress`) apareció la verdad: **arrancaba** —con
+nombre y bytes— y terminaba en `canceled`, porque era un *blob* y la automatización los
+cancela. La causa no tenía nada que ver con permisos.
+
+**La regla: instrumentá el PROCESO, no solo su resultado.** Si una operación puede fallar
+de varias maneras, el diagnóstico necesita ver los estados intermedios; si solo mirás el
+final, vas a arreglar la causa equivocada con seguridad y a veces vas a tener suerte.
+
+**Y un corolario para las APIs:** `permission denied for table X` y `column X does not
+exist` son respuestas DISTINTAS y la diferencia es información. La primera dice que la
+columna existe y no te la dan — o sea que el dato está y hay que buscar otra puerta.
+
 # Sacar algo de un catálogo no es borrarlo: hay gente APUNTÁNDOLE
 
 Un `Set` de exclusiones contesta «este id ya no va» y con eso alcanza para que no se

@@ -3699,3 +3699,133 @@ forma: si tenía el problema, se le arregla en su próxima regeneración.
 Y lo que ya no aplica: la advertencia de que **regenerar desde `drive.json` es peligroso**
 se cerró midiendo — el impacto real eran **2** clases, no 231, y las dos se resolvieron
 rescatando el id en vez de re-bajando.
+
+---
+
+# Los recursos de un curso — 2026-08-22
+
+El dueño lo reportó como «en el de bluehackers dentro de MaKo no veo ningún recurso», y
+detrás de esa frase había **cuatro** problemas distintos encadenados. Vale la pena el
+detalle porque cada uno se ve bien desde afuera.
+
+## ⚠️ El primer arreglo fue el equivocado: restaurar 8 cuando había 92
+
+Ante «no veo ningún recurso» el diagnóstico natural fue «mi regeneración borró los que
+estaban». Era cierto y era **incompleto**: la ficha publicaba 8, y la plataforma tiene
+**92**. Restaurar los 8 dejaba el agujero de 84 tapado y **con cara de arreglado** — con
+su commit, su verificación en pantalla y todo.
+
+**La regla: antes de restaurar lo que había, preguntá cuánto DEBERÍA haber.** Un arreglo
+que devuelve el estado anterior solo es correcto si el estado anterior era correcto, y eso
+es una hipótesis, no un dato.
+
+Medido por dos caminos independientes: el plan de origen declara 92 y la tabla
+`course_resources` devuelve 92, con los 92 ids coincidiendo uno a uno.
+
+## ⚠️ Un generador que emite `recursos: []` borra sin fallar
+
+`curso-a-portal.mjs` arma la lista de recursos mirando la carpeta LOCAL del curso. Cuando
+esa carpeta está vacía —porque los archivos viven solo en Drive— emite `recursos: []` y
+**pisa lo que la ficha publicaba**. No falla, no avisa: la sección «Recursos» deja de
+dibujarse, porque el portal la muestra solo si `recursos.length > 0`.
+
+Y se perdieron **dos** cosas, no una. La segunda es la que no se ve: los `recursoSlugs` de
+**56 clases**, o sea el link de cada clase a su material. Un curso puede tener la sección
+del curso llena y todas las clases sin nada.
+
+**Y lo que hace que nadie lo note:** el commit decía «404 clases publicadas» y era cierto.
+**Una regeneración que AGREGA 171 clases y RESTA 8 recursos se lee como una ganancia
+neta.** Ningún test ni ningún chequeo del pipeline miraba los recursos.
+
+Ahora el generador **aborta** (código 4) si va a escribir una ficha con cero recursos sobre
+una que tenía. Salida explícita: `--sin-recursos`. Se ganó el sueldo el mismo día: cuatro
+cursos abortaron con «hay 25 recursos en disco y solo 0 con id de Drive» en vez de publicar
+una ficha incompleta.
+
+## ⚠️ La carpeta decide el NIVEL, y equivocarse cuelga el material de la clase que no es
+
+`curso-a-drive.mjs` lee `pdfs/` como **nivel clase** y `recursos/` como **nivel módulo**.
+Para los de clase, `curso-a-portal.mjs` deduce a cuál por el prefijo `NN - ` del nombre de
+archivo.
+
+Se bajaron los 91 de BlueHacker a `pdfs/`. Resultado: se publicaron, aparecían en 53
+clases, y **51 de esas 53 estaban mal** — la clase 116 («Mentalidad 23-06-15») mostraba el
+material de «Ventas 23-09-15», porque ese `NN` venía de otra numeración.
+
+La causa de fondo no era el número: **estos recursos son de MÓDULO**. La plataforma los
+modela así (`course_resources.module_id`) y el pipeline ya tenía el camino. Se remapearon
+los 91 corrigiendo `drive.json` —no renombrando archivos: renombrar era volver a subir 133
+MB y duplicar los 91 en Drive—. Quedó en 173 clases con material.
+
+**El olfato:** si un recurso aparece en una clase y su nombre menciona OTRA clase, no es un
+detalle cosmético del label — es el mapeo. (Y el label también se arregló: ahora sale el
+título real de la plataforma, no el nombre de archivo.)
+
+## ⚠️ El censo casi miente dos veces, en direcciones opuestas
+
+**Por lo bajo — el tope de 1000 filas.** Pedir `course_resources?limit=20000` devolvió
+**exactamente 1000**. Un número redondo contradiciendo una medición que ya se sabía buena
+(92 para BlueHacker, que ahí aparecía con 7). Es el tope de PostgREST **cortando en
+silencio**. Paginado da **3107**. *Un número redondo es una hipótesis de truncamiento hasta
+que se demuestre lo contrario.*
+
+**Por lo alto — comparar cantidades en vez de cruzar por clave.** El censo decía «RAIO:
+portal 183, plataforma 283 → faltan 100». No falta ninguno: los 283 títulos están los 283
+entre los 183 archivos, porque varias filas comparten título (el mismo material colgado de
+varios módulos). **Contar filas no es contar archivos**, y casi se bajan 100 que ya
+estaban.
+
+Y el error espejo: BlueHacker figuraba con «39 faltantes» estando bajados, porque 39
+archivos se llaman `recurso-NN` (el descargador no pudo inferirles título) y ningún cruce
+por nombre los encuentra. **El id es una clave; el título es un parecido.**
+
+Números finales, cruzados por id: faltaban **37** recursos reales en 5 cursos, no 184.
+
+## El camino bueno para bajar: la URL pública de storage
+
+Las imágenes y los `.txt` no bajan por el lector. Tres diagnósticos descartados, en orden:
+
+1. **«Faltan permisos»** — no. `file_url` y `file_path` **existen** en la tabla y contestan
+   `permission denied` (a diferencia de una columna inexistente, que contesta otra cosa —
+   la diferencia entre los dos mensajes es el dato). Pero el archivo no está cerrado.
+2. **«El lector no previsualiza imágenes»** — cierto y da igual.
+3. **«El botón Descargar no funciona»** — el botón **sí** arranca la descarga: arma un
+   **blob** y Chrome la **cancela** bajo automatización (`Browser.downloadProgress:
+   canceled`). Mirar la carpeta de descargas y concluir «no bajó» tapaba esa distinción:
+   nunca se sabía si no arrancaba o si arrancaba y moría. **Escuchá el evento, no mires la
+   carpeta.**
+
+Lo que sí funciona: la página, **al cargar y sin tocar nada**, pide
+`storage/v1/object/public/media/course-resources/<uuid>`, y ese bucket es **PÚBLICO**. Se
+captura esa URL del tráfico y se baja con un `fetch` pelado. Sirve para todos los tipos.
+
+⚠️ El uuid de storage **no** es el id del recurso, así que no se puede construir: hay que
+verlo pasar. Por eso sigue haciendo falta el navegador, pero **solo para mirar**.
+
+**Vive en:** `scratchpad/ce-bajar2.mjs` (el patrón) · `scripts/curso-pdfs.mjs` (el camino
+viejo, que sirve para todo lo que no sea imagen ni txt)
+
+## Cómo se le pregunta a la plataforma
+
+La anon key de Supabase **no** está en `localStorage` ni en los dos scripts de nivel
+superior (vive en chunks importados). Buscarla en el bundle es una pérdida de tiempo: viaja
+en el header `apikey` de cada request, así que se le pide al navegador con
+`Network.requestWillBeSent` y se termina en veinte segundos.
+
+Con eso: `courses`, `course_resources` y `modules` se consultan directo, paginando de a
+1000. El token de sesión sale de `localStorage` (`sb-<ref>-auth-token`).
+
+## Lo que quedó SIN hacer
+
+- **1 recurso de BlueHacker** (un PNG de 179 KB, «1. Fundamentos de la atracción
+  orgánica»): se intentó por lector, por click y por gestor de descargas antes de encontrar
+  la ruta de storage. **Se puede recuperar con el método nuevo** y no se reintentó.
+- **3 de creator-club** declaran `file_size: 0` en la API: están vacíos en el origen.
+- **Los 8 recursos originales de BlueHacker quedaron DUPLICADOS en Drive** (mismo
+  contenido, id nuevo, nombre distinto). Son 8 archivos huérfanos; no se borraron.
+- **Los cursos del área `/vip/`** (`aumenta-tu-valor`, `hackeando-la-edicion`) usan
+  `vip_course_resources`, otra tabla: el censo de `course_resources` **no los cubre** y su
+  completitud sigue sin medirse.
+- **3 cursos publican recursos sin asociar a ninguna clase** (RAIO 183, master-marca 34,
+  bigseo 33). No es un bug: esa plataforma los cuelga del módulo y el dato de clase no
+  existe en el origen. Se ven en la sección del curso.
