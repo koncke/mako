@@ -4,8 +4,16 @@
 // GENERADO por scripts/curso-a-portal.mjs desde C:\cursos\m5-95\.
 // Regenerable: volver a correr el script sobreescribe este archivo.
 //
-// Va en archivo propio (y NO dentro de curso.ts) porque aquél es auto-generado
-// desde las transcripciones de AVATARHYPE: lo que se escriba ahí se pierde.
+// Va en archivo propio (y NO dentro de curso.ts) porque ESTE script se niega a escribir
+// en aquél: curso.ts es el LEGADO, se mantiene A MANO y todavía tiene varios cursos
+// adentro. Este archivo, en cambio, se reescribe entero en cada corrida.
+//
+// OJO: acá decía «porque aquél es auto-generado desde las transcripciones de
+// AVATARHYPE», y es FALSO. Ningún script escribe curso.ts — medido el 22/08/2026, la
+// única escritura de .ts del repo es la de este generador, y gen-curso.mjs nunca
+// existió en 1755 commits. El mito viajó a 21 de los 24 archivos generados porque
+// vivía en ESTA plantilla: una frase equivocada en un generador no se queda en un
+// archivo, se multiplica por cada corrida.
 //
 // El `resumen` de cada clase son TUS apuntes, tomados del bloque «## Apuntes» de
 // C:\cursos\m5-95\texto\<clase>.md. Escribí ahí y volvé a correr el script.
@@ -23,7 +31,194 @@ export const CURSO_M5_95: Curso = {
   volumen: '',
   portada: '/cono-portadas/m5-95.png',
   recursos: [
-
+    {
+      slug: 'recurso-06',
+      label: 'recurso-06',
+      cardDesc: 'Material del curso',
+      tipo: 'pdf',
+      driveId: '1HFSBrekX8V3N0hUYWOH34yXAYxTV9Ker',
+    },
+    {
+      slug: 'recurso-08',
+      label: 'recurso-08',
+      cardDesc: 'Material del curso',
+      tipo: 'pdf',
+      driveId: '1PDGY9Dxn1r5Zifwx-s-SoPLTaXVA2dGj',
+    },
+    {
+      slug: 'recurso-10',
+      label: 'recurso-10',
+      cardDesc: 'Material del curso',
+      tipo: 'pdf',
+      driveId: '1VAPK8ZeBzp9cK8mNLbm8lWiWFA-24nnS',
+    },
+    {
+      slug: 'recurso-14',
+      label: 'recurso-14',
+      cardDesc: 'Material del curso',
+      tipo: 'pdf',
+      driveId: '1tM7ts_nFbrdQv797WaWYuc3kjBaISlvp',
+    },
+    {
+      slug: 'recurso-15',
+      label: 'recurso-15',
+      cardDesc: 'Material del curso',
+      tipo: 'pdf',
+      driveId: '1mSuX56gF1sVZdaPT2G6HjzHjCC0pXDJd',
+    },
+    {
+      slug: 'recurso-16',
+      label: 'recurso-16',
+      cardDesc: 'Material del curso',
+      tipo: 'pdf',
+      driveId: '1lC-TnmyBoMV2J4L8rrDIAJdc3JAxOZ2_',
+    },
+    {
+      slug: 'recurso-18',
+      label: 'recurso-18',
+      cardDesc: 'Material del curso',
+      tipo: 'pdf',
+      driveId: '1ryeu1EXL5xXtuToAhN3baUiQZh7vbUMF',
+    },
+    {
+      slug: 'animales-35b7e9df',
+      label: 'ANIMALES - 35b7e9df',
+      cardDesc: 'Material de «ESTRUCTURA F»',
+      tipo: 'file',
+      ext: 'jpg',
+      driveId: '1QZ5NmvRnAG78nCnv7b12SjEjCi-KYMzj',
+    },
+    {
+      slug: 'beiens-raices-2a70b5c1',
+      label: 'BEIENS RAICES - 2a70b5c1',
+      cardDesc: 'Material de «ESTRUCTURA F»',
+      tipo: 'file',
+      ext: 'png',
+      driveId: '1FuDgceVnc0KCjFFYyXKycDoGGTX6SWrv',
+    },
+    {
+      slug: 'bienes-raices-fb0d2a41',
+      label: 'BIENES RAICES - fb0d2a41',
+      cardDesc: 'Material de «ESTRUCTURA CAPA»',
+      tipo: 'file',
+      ext: 'jpg',
+      driveId: '1SfO1Eehjgdzdtx2QBa0iAe1O-K-zJJ_G',
+    },
+    {
+      slug: 'check-list-antes-de-iniciar-66ca6cd2',
+      label: 'Check list antes de iniciar - 66ca6cd2',
+      cardDesc: 'Material de «Módulo 1 Preparación»',
+      tipo: 'file',
+      ext: 'jpg',
+      driveId: '1rJlQEk7GHqp2hgAAyr3x0JQaU3XCJz-z',
+      clases: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+    },
+    {
+      slug: 'enlaces-de-gpts-cf8bab50',
+      label: 'Enlaces de GPTS - cf8bab50',
+      cardDesc: 'Material de «BONO #4 - 5 GPT_s de Inteligencia Artificial»',
+      tipo: 'pdf',
+      driveId: '1ecsh8soHmBIPrvJ12vbx99tevuYZ8pGX',
+    },
+    {
+      slug: 'estetica-e04bb1ed',
+      label: 'ESTÉTICA - e04bb1ed',
+      cardDesc: 'Material de «ESTRUCTURA Z»',
+      tipo: 'file',
+      ext: 'jpg',
+      driveId: '1EET_MZnAlIhqyF0yLne5moXC7rHH6END',
+    },
+    {
+      slug: 'estetica-2-4080c23c',
+      label: 'ESTÉTICA 2 - 4080c23c',
+      cardDesc: 'Material de «ESTRUCTURA Z»',
+      tipo: 'file',
+      ext: 'jpg',
+      driveId: '1hTzyf7VSKAwBtiUpl-wGyrITT0K6KeqJ',
+    },
+    {
+      slug: 'glosario-2025-7825c30c',
+      label: 'GLOSARIO 2025 - 7825c30c',
+      cardDesc: 'Material de «Módulo 2Conceptos Básicos»',
+      tipo: 'pdf',
+      driveId: '1VpxcgeZgbC749pl0AwgMTl-rhKblupRg',
+    },
+    {
+      slug: 'maquillaje-19c5d4ee',
+      label: 'MAQUILLAJE - 19c5d4ee',
+      cardDesc: 'Material de «ESTRUCTURA F»',
+      tipo: 'file',
+      ext: 'jpg',
+      driveId: '1kZkeENkRaOocrc2p0420DtgK1CXX33_D',
+    },
+    {
+      slug: 'mascotas-51d6752b',
+      label: 'MASCOTAS - 51d6752b',
+      cardDesc: 'Material de «ESTRUCTURA Z»',
+      tipo: 'file',
+      ext: 'jpg',
+      driveId: '16UcR4KOj7gyD3sUvsycpkpWzxU_RMME2',
+    },
+    {
+      slug: 'modelo-negocio-curso-finanzas-a9811f57',
+      label: 'Modelo Negocio - Curso Finanzas - a9811f57',
+      cardDesc: 'Material de «BONO #5 - Construye tu modelo de negocio»',
+      tipo: 'pdf',
+      driveId: '1PTT4SZXIOdLea1vQ4kPmkraPtaVoKaUC',
+    },
+    {
+      slug: 'modelo-negocio-ensaladas-3-0-4577ec43',
+      label: 'Modelo Negocio - Ensaladas 3.0 - 4577ec43',
+      cardDesc: 'Material de «BONO #5 - Construye tu modelo de negocio»',
+      tipo: 'pdf',
+      driveId: '1pDg2RsDTmND9zUO5JsVEOt2FheWSPDt1',
+    },
+    {
+      slug: 'modelo-negocio-helados-caseros-b8c3afb2',
+      label: 'Modelo Negocio - Helados Caseros - b8c3afb2',
+      cardDesc: 'Material de «BONO #5 - Construye tu modelo de negocio»',
+      tipo: 'pdf',
+      driveId: '11LBkWRCthz-ggoZFcuN3W5i3pHmCNjZn',
+    },
+    {
+      slug: 'pendiente-75ae4e5f',
+      label: 'pendiente - 75ae4e5f',
+      cardDesc: 'Material de «BONO #1 - Digitaliza tu cuerpo y tu cerebro»',
+      tipo: 'file',
+      ext: 'jpg',
+      driveId: '1p81rWs691s5deoms6q2O_bhf3Emu4hVL',
+    },
+    {
+      slug: 'recurso-f3526743',
+      label: 'Recurso - f3526743',
+      cardDesc: 'Material del curso',
+      tipo: 'pdf',
+      driveId: '1owOwOZAHZPgcwtbqfoI-cS2FliqpmdtZ',
+    },
+    {
+      slug: 'recursos-e61a5426',
+      label: 'Recursos - e61a5426',
+      cardDesc: 'Material de «Módulo 6 Creativos con IA»',
+      tipo: 'pdf',
+      driveId: '1R0kqC5xCc-_dpWcxXXdT00Pgy_OelO_Q',
+      clases: [54, 55, 56, 57, 58, 59, 60, 61, 62],
+    },
+    {
+      slug: 'restaurante-63d4a6be',
+      label: 'RESTAURANTE - 63d4a6be',
+      cardDesc: 'Material de «ESTRUCTURA Z»',
+      tipo: 'file',
+      ext: 'jpg',
+      driveId: '1Ftirnn_cdEXDY2gNrwKSRnVGiLhVFyGT',
+    },
+    {
+      slug: 'restaurantes-c1645ae3',
+      label: 'RESTAURANTES - c1645ae3',
+      cardDesc: 'Material de «ESTRUCTURA F»',
+      tipo: 'file',
+      ext: 'jpg',
+      driveId: '1PwLgYod-sF4ANFAnyUPq_7xUBvivP7wk',
+    },
   ],
   clases: [
     {
@@ -37,7 +232,7 @@ export const CURSO_M5_95: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['check-list-antes-de-iniciar-66ca6cd2'],
       herramientas: [],
     },
     {
@@ -51,7 +246,7 @@ export const CURSO_M5_95: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['check-list-antes-de-iniciar-66ca6cd2'],
       herramientas: [],
     },
     {
@@ -65,7 +260,7 @@ export const CURSO_M5_95: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['check-list-antes-de-iniciar-66ca6cd2'],
       herramientas: [],
     },
     {
@@ -79,7 +274,7 @@ export const CURSO_M5_95: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['check-list-antes-de-iniciar-66ca6cd2'],
       herramientas: [],
     },
     {
@@ -93,7 +288,7 @@ export const CURSO_M5_95: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['check-list-antes-de-iniciar-66ca6cd2'],
       herramientas: [],
     },
     {
@@ -107,7 +302,7 @@ export const CURSO_M5_95: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['check-list-antes-de-iniciar-66ca6cd2'],
       herramientas: [],
     },
     {
@@ -121,7 +316,7 @@ export const CURSO_M5_95: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['check-list-antes-de-iniciar-66ca6cd2'],
       herramientas: [],
     },
     {
@@ -135,7 +330,7 @@ export const CURSO_M5_95: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['check-list-antes-de-iniciar-66ca6cd2'],
       herramientas: [],
     },
     {
@@ -149,7 +344,7 @@ export const CURSO_M5_95: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['check-list-antes-de-iniciar-66ca6cd2'],
       herramientas: [],
     },
     {
@@ -163,7 +358,7 @@ export const CURSO_M5_95: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['check-list-antes-de-iniciar-66ca6cd2'],
       herramientas: [],
     },
     {
@@ -177,7 +372,7 @@ export const CURSO_M5_95: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['check-list-antes-de-iniciar-66ca6cd2'],
       herramientas: [],
     },
     {
@@ -779,7 +974,7 @@ export const CURSO_M5_95: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['recursos-e61a5426'],
       herramientas: [],
     },
     {
@@ -793,7 +988,7 @@ export const CURSO_M5_95: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['recursos-e61a5426'],
       herramientas: [],
     },
     {
@@ -807,7 +1002,7 @@ export const CURSO_M5_95: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['recursos-e61a5426'],
       herramientas: [],
     },
     {
@@ -821,7 +1016,7 @@ export const CURSO_M5_95: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['recursos-e61a5426'],
       herramientas: [],
     },
     {
@@ -835,7 +1030,7 @@ export const CURSO_M5_95: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['recursos-e61a5426'],
       herramientas: [],
     },
     {
@@ -849,7 +1044,7 @@ export const CURSO_M5_95: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['recursos-e61a5426'],
       herramientas: [],
     },
     {
@@ -863,7 +1058,7 @@ export const CURSO_M5_95: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['recursos-e61a5426'],
       herramientas: [],
     },
     {
@@ -877,7 +1072,7 @@ export const CURSO_M5_95: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['recursos-e61a5426'],
       herramientas: [],
     },
     {
@@ -891,7 +1086,7 @@ export const CURSO_M5_95: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['recursos-e61a5426'],
       herramientas: [],
     },
     {

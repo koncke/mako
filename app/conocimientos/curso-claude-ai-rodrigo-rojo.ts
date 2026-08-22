@@ -4,8 +4,16 @@
 // GENERADO por scripts/curso-a-portal.mjs desde C:\cursos\claude-ai-rodrigo-rojo\.
 // Regenerable: volver a correr el script sobreescribe este archivo.
 //
-// Va en archivo propio (y NO dentro de curso.ts) porque aquél es auto-generado
-// desde las transcripciones de AVATARHYPE: lo que se escriba ahí se pierde.
+// Va en archivo propio (y NO dentro de curso.ts) porque ESTE script se niega a escribir
+// en aquél: curso.ts es el LEGADO, se mantiene A MANO y todavía tiene varios cursos
+// adentro. Este archivo, en cambio, se reescribe entero en cada corrida.
+//
+// OJO: acá decía «porque aquél es auto-generado desde las transcripciones de
+// AVATARHYPE», y es FALSO. Ningún script escribe curso.ts — medido el 22/08/2026, la
+// única escritura de .ts del repo es la de este generador, y gen-curso.mjs nunca
+// existió en 1755 commits. El mito viajó a 21 de los 24 archivos generados porque
+// vivía en ESTA plantilla: una frase equivocada en un generador no se queda en un
+// archivo, se multiplica por cada corrida.
 //
 // El `resumen` de cada clase son TUS apuntes, tomados del bloque «## Apuntes» de
 // C:\cursos\claude-ai-rodrigo-rojo\texto\<clase>.md. Escribí ahí y volvé a correr el script.
@@ -20,12 +28,12 @@ export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
   eyebrow: 'Curso externo',
   titulo: 'Curso de Claude AI - Rodrigo Rojo',
   subtitulo: '20 clases, 6 módulos. Video, transcripción y tus apuntes en un solo lugar.',
-  volumen: '20 clases',
+  volumen: '4,1 h',
   portada: '/cono-portadas/claude-ai-rodrigo-rojo.jpg',
   recursos: [
     {
       slug: '01-conoce-claude-ai-1-1-resumen-pdf',
-      label: '01 - Conoce Claude Ai - 1.1 Resumen PDF',
+      label: '1.1 Resumen PDF',
       cardDesc: 'Material de la clase 1',
       tipo: 'pdf',
       driveId: '1HidqsXsBa4zaDerK8_KwTw3vDZLxnauC',
@@ -33,7 +41,7 @@ export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
     },
     {
       slug: '02-que-es-claude-y-que-lo-hace-diferente-2-1-resumen-pdf',
-      label: '02 - Qué es Claude y qué lo hace diferente - 2.1 Resumen PDF',
+      label: '2.1 Resumen PDF',
       cardDesc: 'Material de la clase 2',
       tipo: 'pdf',
       driveId: '1dE_dZhX6NXGpmgxsOTmskMnyLAwSPu6q',
@@ -41,7 +49,7 @@ export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
     },
     {
       slug: '03-como-elegir-entre-haiku-sonnet-y-opus-en-claude-3-1-resum',
-      label: '03 - Cómo elegir entre Haiku, Sonnet y Opus en Claude - 3.1 Resumen PDF',
+      label: '3.1 Resumen PDF',
       cardDesc: 'Material de la clase 3',
       tipo: 'pdf',
       driveId: '1pcJUWAT2HvA3VU5maSl7VG54vynhhauW',
@@ -49,7 +57,7 @@ export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
     },
     {
       slug: '04-como-armar-prompts-efectivos-en-claude-4-1-resumen-pdf',
-      label: '04 - Cómo armar prompts efectivos en Claude - 4.1 Resumen PDF',
+      label: '4.1 Resumen PDF',
       cardDesc: 'Material de la clase 4',
       tipo: 'pdf',
       driveId: '11lV71R6GxTpGIdpHUAoKr2k69rMsGVGc',
@@ -57,7 +65,7 @@ export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
     },
     {
       slug: '05-como-activar-busqueda-web-en-claude-1-1-resumen-pdf',
-      label: '05 - Cómo activar búsqueda web en Claude - 1.1 Resumen PDF',
+      label: '1.1 Resumen PDF',
       cardDesc: 'Material de la clase 5',
       tipo: 'pdf',
       driveId: '1rHOeUTdjlgJB6PNBY5NJMB9NCToTKCiH',
@@ -65,7 +73,7 @@ export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
     },
     {
       slug: '06-pensamiento-extendido-de-claude-2-1-resumen-pdf',
-      label: '06 - Pensamiento extendido de Claude - 2.1 Resumen PDF',
+      label: '2.1 Resumen PDF',
       cardDesc: 'Material de la clase 6',
       tipo: 'pdf',
       driveId: '1tye6uzwukGtdM1Ixr6-ofne7dA2dRyNC',
@@ -73,7 +81,7 @@ export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
     },
     {
       slug: '07-deep-research-en-claude-3-1-resumen-pdf',
-      label: '07 - Deep research en Claude - 3.1 Resumen PDF',
+      label: '3.1 Resumen PDF',
       cardDesc: 'Material de la clase 7',
       tipo: 'pdf',
       driveId: '1vETt2cDoBhxh6Pb8VCeasJBretiUyuhC',
@@ -81,7 +89,7 @@ export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
     },
     {
       slug: '08-analisis-de-documentos-e-imagenes-con-claude-1-1-resumen-',
-      label: '08 - Análisis de documentos e imágenes con Claude - 1.1 Resumen PDF',
+      label: '1.1 Resumen PDF',
       cardDesc: 'Material de la clase 8',
       tipo: 'pdf',
       driveId: '1k7Z6u9-r2S0T896KzKU6cGpffiWBzTq3',
@@ -89,7 +97,7 @@ export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
     },
     {
       slug: '09-analisis-de-datos-con-claude-2-1-resumen-pdf',
-      label: '09 - Análisis de datos con Claude - 2.1 Resumen PDF',
+      label: '2.1 Resumen PDF',
       cardDesc: 'Material de la clase 9',
       tipo: 'pdf',
       driveId: '1T9lXRTkQmF-hgaCoBA5oIkfyrTx7YJkG',
@@ -97,7 +105,7 @@ export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
     },
     {
       slug: '10-crea-presentaciones-powerpoint-con-claude-3-1-resumen-pdf',
-      label: '10 - Crea Presentaciones PowerPoint con Claude - 3.1 Resumen PDF',
+      label: '3.1 Resumen PDF',
       cardDesc: 'Material de la clase 10',
       tipo: 'pdf',
       driveId: '15-VAf1Rw8PhH2m3n7sDiVlj5VqjUy-89',
@@ -105,7 +113,7 @@ export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
     },
     {
       slug: '11-artefactos-de-claude-crea-apps-web-con-ia-1-1-resumen-pdf',
-      label: '11 - Artefactos de Claude - crea apps web con IA - 1.1 Resumen PDF',
+      label: '1.1 Resumen PDF',
       cardDesc: 'Material de la clase 11',
       tipo: 'pdf',
       driveId: '18Ad2gfGIJYvsJoHECQz7_65r3W_UhWGH',
@@ -113,7 +121,7 @@ export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
     },
     {
       slug: '12-proyectos-en-claude-automatiza-tareas-repetitivas-2-1-res',
-      label: '12 - Proyectos en Claude - automatiza tareas repetitivas - 2.1 Resumen PDF',
+      label: '2.1 Resumen PDF',
       cardDesc: 'Material de la clase 12',
       tipo: 'pdf',
       driveId: '1sCtjzB5BghXECPosNEieqIQYQWjtLaAT',
@@ -121,7 +129,7 @@ export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
     },
     {
       slug: '13-estilos-de-escritura-personalizados-en-claude-1-1-resumen',
-      label: '13 - Estilos de escritura personalizados en Claude - 1.1 Resumen PDF',
+      label: '1.1 Resumen PDF',
       cardDesc: 'Material de la clase 13',
       tipo: 'pdf',
       driveId: '1qgRrNQhKtms6AqpePVy2Fa9X0tqjroty',
@@ -129,7 +137,7 @@ export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
     },
     {
       slug: '14-memoria-de-claude-como-funciona-y-cuando-activarla-2-1-re',
-      label: '14 - Memoria de Claude - cómo funciona y cuándo activarla - 2.1 Resumen PDF',
+      label: '2.1 Resumen PDF',
       cardDesc: 'Material de la clase 14',
       tipo: 'pdf',
       driveId: '1G7omauMF3PLfqzDzSXM6nUng2ixiAWMH',
@@ -137,7 +145,7 @@ export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
     },
     {
       slug: '15-conectores-mcp-integra-claude-con-tus-aplicaciones-3-1-re',
-      label: '15 - Conectores MCP - integra Claude con tus Aplicaciones - 3.1 Resumen PDF',
+      label: '3.1 Resumen PDF',
       cardDesc: 'Material de la clase 15',
       tipo: 'pdf',
       driveId: '1Fd6Ppfwkj84WnJhxy7YiU8cu9knWj4Vr',
@@ -145,7 +153,7 @@ export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
     },
     {
       slug: '16-como-crear-skills-personalizadas-en-claude-4-1-resumen-pd',
-      label: '16 - Cómo crear skills personalizadas en Claude - 4.1 Resumen PDF',
+      label: '4.1 Resumen PDF',
       cardDesc: 'Material de la clase 16',
       tipo: 'pdf',
       driveId: '1t0mOqy--XHiXaZ-6U3j_SMI62ML70fQ4',
@@ -153,7 +161,7 @@ export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
     },
     {
       slug: '17-como-funciona-cloud-code-de-claude-como-agente-1-1-resume',
-      label: '17 - Cómo funciona Cloud Code de Claude como agente - 1.1 Resumen PDF',
+      label: '1.1 Resumen PDF',
       cardDesc: 'Material de la clase 17',
       tipo: 'pdf',
       driveId: '1b_eTxW2RPKKlZOFRBC0WjJKW4x3SbTut',
@@ -161,7 +169,7 @@ export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
     },
     {
       slug: '18-claude-cowork-tu-agente-de-ai-personal-2-1-resumen-pdf',
-      label: '18 - Claude Cowork - Tu agente de Ai personal - 2.1 Resumen PDF',
+      label: '2.1 Resumen PDF',
       cardDesc: 'Material de la clase 18',
       tipo: 'pdf',
       driveId: '1XX0nac5QETfufY6N4cTnk8-grUPMPB5R',
@@ -169,7 +177,7 @@ export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
     },
     {
       slug: '19-proyecto-buenfit-crea-un-flujo-completo-de-reclutamiento-',
-      label: '19 - Proyecto BuenFit - crea un flujo completo de reclutamiento - 3.1 Resumen PDF',
+      label: '3.1 Resumen PDF',
       cardDesc: 'Material de la clase 19',
       tipo: 'pdf',
       driveId: '12iM6oAZSycjakFvE3HYS0hGC4AePEnc0',
@@ -177,11 +185,69 @@ export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
     },
     {
       slug: '20-la-clave-no-es-claude-eres-tu-4-1-resumen-pdf',
-      label: '20 - La clave no es Claude, eres tú - 4.1 Resumen PDF',
+      label: '4.1 Resumen PDF',
       cardDesc: 'Material de la clase 20',
       tipo: 'pdf',
       driveId: '1VCco2ImzV9TCURkRcNKyjm_e3Ja1mw4U',
       clases: [20],
+    },
+    {
+      slug: 'recurso-01',
+      label: 'recurso-01',
+      cardDesc: 'Material del curso',
+      tipo: 'pdf',
+      driveId: '1QHKUY8eb5Okt-0VC7cUDcltYLihKdWs4',
+    },
+    {
+      slug: 'recurso-02',
+      label: 'recurso-02',
+      cardDesc: 'Material del curso',
+      tipo: 'pdf',
+      driveId: '1XwrbQxqY2RP0U_TFZB_F9DixPY8t07Ga',
+    },
+    {
+      slug: 'recurso-03',
+      label: 'recurso-03',
+      cardDesc: 'Material del curso',
+      tipo: 'pdf',
+      driveId: '151wtJcL4-s222TpU3xz3pGFX1WCLen_6',
+    },
+    {
+      slug: 'recurso-04',
+      label: 'recurso-04',
+      cardDesc: 'Material del curso',
+      tipo: 'pdf',
+      driveId: '18E9K-tMgj-phZzawmmFOMCkb_wHZqdi7',
+    },
+    {
+      slug: '1-1-resumen-fcec2289',
+      label: '1.1 Resumen - fcec2289',
+      cardDesc: 'Material del curso',
+      tipo: 'pdf',
+      driveId: '1WBNQnLd5ko5C8bE0cs-mj4ClJlAVL0Q2',
+    },
+    {
+      slug: '2-1-resumen-f1877d76',
+      label: '2.1 Resumen - f1877d76',
+      cardDesc: 'Material de «1. Fundamentos de Claude»',
+      tipo: 'pdf',
+      driveId: '1JsqIkc3J4Ecq4Pogl7wFtcvzGkpSjjzO',
+      clases: [1, 2, 3, 4],
+    },
+    {
+      slug: '3-1-resumen-ef6b12b7',
+      label: '3.1 Resumen - ef6b12b7',
+      cardDesc: 'Material de «1. Fundamentos de Claude»',
+      tipo: 'pdf',
+      driveId: '1I2XKGWKgl5GT_k2yKDkQatAV7x_KqqJq',
+      clases: [1, 2, 3, 4],
+    },
+    {
+      slug: '4-1-resumen-8734edc6',
+      label: '4.1 Resumen - 8734edc6',
+      cardDesc: 'Material de «6. Claude como Asistente de Trabajo»',
+      tipo: 'pdf',
+      driveId: '16YOfgta7w_RIQyjZ0nN_yi3yDwtBjsIM',
     },
   ],
   clases: [
@@ -196,7 +262,7 @@ export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['01-conoce-claude-ai-1-1-resumen-pdf'],
+      recursoSlugs: ['01-conoce-claude-ai-1-1-resumen-pdf', '2-1-resumen-f1877d76', '3-1-resumen-ef6b12b7'],
       herramientas: [],
     },
     {
@@ -210,7 +276,7 @@ export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['02-que-es-claude-y-que-lo-hace-diferente-2-1-resumen-pdf'],
+      recursoSlugs: ['02-que-es-claude-y-que-lo-hace-diferente-2-1-resumen-pdf', '2-1-resumen-f1877d76', '3-1-resumen-ef6b12b7'],
       herramientas: [],
     },
     {
@@ -224,7 +290,7 @@ export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['03-como-elegir-entre-haiku-sonnet-y-opus-en-claude-3-1-resum'],
+      recursoSlugs: ['03-como-elegir-entre-haiku-sonnet-y-opus-en-claude-3-1-resum', '2-1-resumen-f1877d76', '3-1-resumen-ef6b12b7'],
       herramientas: [],
     },
     {
@@ -238,7 +304,7 @@ export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['04-como-armar-prompts-efectivos-en-claude-4-1-resumen-pdf'],
+      recursoSlugs: ['04-como-armar-prompts-efectivos-en-claude-4-1-resumen-pdf', '2-1-resumen-f1877d76', '3-1-resumen-ef6b12b7'],
       herramientas: [],
     },
     {

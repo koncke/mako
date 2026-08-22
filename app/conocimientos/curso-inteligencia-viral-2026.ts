@@ -4,8 +4,16 @@
 // GENERADO por scripts/curso-a-portal.mjs desde C:\cursos\inteligencia-viral-2026\.
 // Regenerable: volver a correr el script sobreescribe este archivo.
 //
-// Va en archivo propio (y NO dentro de curso.ts) porque aquél es auto-generado
-// desde las transcripciones de AVATARHYPE: lo que se escriba ahí se pierde.
+// Va en archivo propio (y NO dentro de curso.ts) porque ESTE script se niega a escribir
+// en aquél: curso.ts es el LEGADO, se mantiene A MANO y todavía tiene varios cursos
+// adentro. Este archivo, en cambio, se reescribe entero en cada corrida.
+//
+// OJO: acá decía «porque aquél es auto-generado desde las transcripciones de
+// AVATARHYPE», y es FALSO. Ningún script escribe curso.ts — medido el 22/08/2026, la
+// única escritura de .ts del repo es la de este generador, y gen-curso.mjs nunca
+// existió en 1755 commits. El mito viajó a 21 de los 24 archivos generados porque
+// vivía en ESTA plantilla: una frase equivocada en un generador no se queda en un
+// archivo, se multiplica por cada corrida.
 //
 // El `resumen` de cada clase son TUS apuntes, tomados del bloque «## Apuntes» de
 // C:\cursos\inteligencia-viral-2026\texto\<clase>.md. Escribí ahí y volvé a correr el script.
@@ -20,7 +28,7 @@ export const CURSO_INTELIGENCIA_VIRAL_2026: Curso = {
   eyebrow: 'Curso externo',
   titulo: 'Inteligencia Viral 2026 - Julian Alborna',
   subtitulo: '41 clases, 8 módulos. Video, transcripción y tus apuntes en un solo lugar.',
-  volumen: '41 clases',
+  volumen: '15,6 h',
   portada: '/cono-portadas/inteligencia-viral-2026.png',
   recursos: [
     {
@@ -49,6 +57,23 @@ export const CURSO_INTELIGENCIA_VIRAL_2026: Curso = {
       ext: 'zip',
       driveId: '1gaPW1LpzHNF_J5fN65t8ylR7fe6mWvDM',
       clases: [38],
+    },
+    {
+      slug: 'recurso-01',
+      label: 'recurso-01',
+      cardDesc: 'Material del curso',
+      tipo: 'file',
+      ext: 'zip',
+      driveId: '1gepcxmLPMxedDca7OPIP-QqU4uDlFika',
+    },
+    {
+      slug: 'leccion-1-descargable-prompts-que-la-ia-te-entienda-4a180e10',
+      label: 'Leccion 1 - descargable Prompts Que la IA te entienda - 4a180e10',
+      cardDesc: 'Material de «Modulo 7 Inteligencia Artificial»',
+      tipo: 'file',
+      ext: 'zip',
+      driveId: '1Zz-iu7TqwqCpcNCI46N6RlvEHfmOx4s1',
+      clases: [35, 36, 37, 38],
     },
   ],
   clases: [
@@ -539,7 +564,7 @@ export const CURSO_INTELIGENCIA_VIRAL_2026: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['leccion-1-descargable-prompts-que-la-ia-te-entienda-4a180e10'],
       herramientas: [],
     },
     {
@@ -553,7 +578,7 @@ export const CURSO_INTELIGENCIA_VIRAL_2026: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['leccion-1-descargable-prompts-que-la-ia-te-entienda-4a180e10'],
       herramientas: [],
     },
     {
@@ -567,7 +592,7 @@ export const CURSO_INTELIGENCIA_VIRAL_2026: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['leccion-1-descargable-prompts-que-la-ia-te-entienda-4a180e10'],
       herramientas: [],
     },
     {
@@ -581,7 +606,7 @@ export const CURSO_INTELIGENCIA_VIRAL_2026: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['38-leccion-4-como-construir-personajes-01-prompts'],
+      recursoSlugs: ['38-leccion-4-como-construir-personajes-01-prompts', 'leccion-1-descargable-prompts-que-la-ia-te-entienda-4a180e10'],
       herramientas: [],
     },
     {

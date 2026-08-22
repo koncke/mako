@@ -4,8 +4,16 @@
 // GENERADO por scripts/curso-a-portal.mjs desde C:\cursos\mateo-maffia-byf\.
 // Regenerable: volver a correr el script sobreescribe este archivo.
 //
-// Va en archivo propio (y NO dentro de curso.ts) porque aquél es auto-generado
-// desde las transcripciones de AVATARHYPE: lo que se escriba ahí se pierde.
+// Va en archivo propio (y NO dentro de curso.ts) porque ESTE script se niega a escribir
+// en aquél: curso.ts es el LEGADO, se mantiene A MANO y todavía tiene varios cursos
+// adentro. Este archivo, en cambio, se reescribe entero en cada corrida.
+//
+// OJO: acá decía «porque aquél es auto-generado desde las transcripciones de
+// AVATARHYPE», y es FALSO. Ningún script escribe curso.ts — medido el 22/08/2026, la
+// única escritura de .ts del repo es la de este generador, y gen-curso.mjs nunca
+// existió en 1755 commits. El mito viajó a 21 de los 24 archivos generados porque
+// vivía en ESTA plantilla: una frase equivocada en un generador no se queda en un
+// archivo, se multiplica por cada corrida.
 //
 // El `resumen` de cada clase son TUS apuntes, tomados del bloque «## Apuntes» de
 // C:\cursos\mateo-maffia-byf\texto\<clase>.md. Escribí ahí y volvé a correr el script.
@@ -23,7 +31,36 @@ export const CURSO_MATEO_MAFFIA_BYF: Curso = {
   volumen: '10,6 h',
   portada: '/cono-portadas/mateo-maffia-byf.png',
   recursos: [
-
+    {
+      slug: 'recurso-01',
+      label: 'recurso-01',
+      cardDesc: 'Material del curso',
+      tipo: 'pdf',
+      driveId: '1QHKUY8eb5Okt-0VC7cUDcltYLihKdWs4',
+    },
+    {
+      slug: 'recurso-02',
+      label: 'recurso-02',
+      cardDesc: 'Material del curso',
+      tipo: 'pdf',
+      driveId: '1XwrbQxqY2RP0U_TFZB_F9DixPY8t07Ga',
+    },
+    {
+      slug: 'blueprint-de-oferta-para-negocios-online-fc5b64b0',
+      label: 'Blueprint de Oferta para Negocios Online - fc5b64b0',
+      cardDesc: 'Material de «7 - Ofertas que te duplican»',
+      tipo: 'pdf',
+      driveId: '1chZ_W3L_oUWDckb6wShn-uikuRJyTiVQ',
+      clases: [27, 28, 29],
+    },
+    {
+      slug: 'blueprint-de-tu-oferta-de-productos-fisicos-31beb2f0',
+      label: 'Blueprint de tu Oferta de Productos Físicos - 31beb2f0',
+      cardDesc: 'Material de «7 - Ofertas que te duplican»',
+      tipo: 'pdf',
+      driveId: '17PDc0zk8m9YECVTr8BDgsjhzE2ZqtqxR',
+      clases: [27, 28, 29],
+    },
   ],
   clases: [
     {
@@ -401,7 +438,7 @@ export const CURSO_MATEO_MAFFIA_BYF: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['blueprint-de-oferta-para-negocios-online-fc5b64b0', 'blueprint-de-tu-oferta-de-productos-fisicos-31beb2f0'],
       herramientas: [],
     },
     {
@@ -415,7 +452,7 @@ export const CURSO_MATEO_MAFFIA_BYF: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['blueprint-de-oferta-para-negocios-online-fc5b64b0', 'blueprint-de-tu-oferta-de-productos-fisicos-31beb2f0'],
       herramientas: [],
     },
     {
@@ -429,7 +466,7 @@ export const CURSO_MATEO_MAFFIA_BYF: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: [],
+      recursoSlugs: ['blueprint-de-oferta-para-negocios-online-fc5b64b0', 'blueprint-de-tu-oferta-de-productos-fisicos-31beb2f0'],
       herramientas: [],
     },
     {

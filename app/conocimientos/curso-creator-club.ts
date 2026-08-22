@@ -4,8 +4,16 @@
 // GENERADO por scripts/curso-a-portal.mjs desde C:\cursos\creator-club\.
 // Regenerable: volver a correr el script sobreescribe este archivo.
 //
-// Va en archivo propio (y NO dentro de curso.ts) porque aquél es auto-generado
-// desde las transcripciones de AVATARHYPE: lo que se escriba ahí se pierde.
+// Va en archivo propio (y NO dentro de curso.ts) porque ESTE script se niega a escribir
+// en aquél: curso.ts es el LEGADO, se mantiene A MANO y todavía tiene varios cursos
+// adentro. Este archivo, en cambio, se reescribe entero en cada corrida.
+//
+// OJO: acá decía «porque aquél es auto-generado desde las transcripciones de
+// AVATARHYPE», y es FALSO. Ningún script escribe curso.ts — medido el 22/08/2026, la
+// única escritura de .ts del repo es la de este generador, y gen-curso.mjs nunca
+// existió en 1755 commits. El mito viajó a 21 de los 24 archivos generados porque
+// vivía en ESTA plantilla: una frase equivocada en un generador no se queda en un
+// archivo, se multiplica por cada corrida.
 //
 // El `resumen` de cada clase son TUS apuntes, tomados del bloque «## Apuntes» de
 // C:\cursos\creator-club\texto\<clase>.md. Escribí ahí y volvé a correr el script.
@@ -23,7 +31,78 @@ export const CURSO_CREATOR_CLUB: Curso = {
   volumen: '31,6 h',
   portada: '/cono-portadas/creator-club.png',
   recursos: [
-
+    {
+      slug: 'guia-mencionada-en-el-video-bf31d0ce',
+      label: 'Guia Mencionada en el Video - bf31d0ce',
+      cardDesc: 'Material de «Modulo 2 - Plugins para After Effects ahorra tiempo y edita más PRO»',
+      tipo: 'file',
+      ext: 'txt',
+      driveId: '1XIRWFE1z4cefagVfZrRvmMR6twgEQMDV',
+    },
+    {
+      slug: 'link-del-video-370b40f5',
+      label: 'Link del Video - 370b40f5',
+      cardDesc: 'Material de «CLASE 4 - Profundizando en motion graphics avanzados » CREATOR CLUB » Desarrollado por ThriveCart»',
+      tipo: 'file',
+      ext: 'txt',
+      driveId: '13GriSsiqIEgeEBt8Sx7-MEebxet25-Iq',
+    },
+    {
+      slug: 'nota-link-del-video-7c83e4ad',
+      label: 'Nota & Link del Video - 7c83e4ad',
+      cardDesc: 'Material de «CLASE 18 - Ganchos ultra-realistas con IA » CREATOR CLUB » Desarrollado por ThriveCart»',
+      tipo: 'file',
+      ext: 'txt',
+      driveId: '1op72aU6Rpnlsb-Wp2Bc49FG3T1jeFE-H',
+    },
+    {
+      slug: 'nota-links-del-video-ba45a24c',
+      label: 'Nota & Links del Video - ba45a24c',
+      cardDesc: 'Material de «CLASE 2 - Subtitulos keyframes y más funcionalidades básicas » CREATOR CLUB » Desarrollado por ThriveCart»',
+      tipo: 'file',
+      ext: 'txt',
+      driveId: '1oF3WlFGxoUbaaVRAWB_s8Y1ynDFyneCf',
+    },
+    {
+      slug: 'nota-de-video-ab647cc6',
+      label: 'Nota de Video - ab647cc6',
+      cardDesc: 'Material de «CLASE 1 - Domina Capcut desde cero controles subtitulado y animaciones » CREATOR CLUB » Desarrollado por ThriveCart»',
+      tipo: 'file',
+      ext: 'txt',
+      driveId: '1oqrkDUXYWgfyjRsd84-m9iad3ndD7z1h',
+    },
+    {
+      slug: 'nota-del-video-e5bfac6a',
+      label: 'Nota del Video - e5bfac6a',
+      cardDesc: 'Material de «CLASE 4 - Crea un reel avanzado animado desde 0 » CREATOR CLUB » Desarrollado por ThriveCart»',
+      tipo: 'file',
+      ext: 'txt',
+      driveId: '1z16ewzuvBsPgBdD6PUmLNSCAfqi50ale',
+    },
+    {
+      slug: 'notas-links-del-video-e6334c1d',
+      label: 'Notas & Links del Video - e6334c1d',
+      cardDesc: 'Material de «CLASE 19 - Animación estilo Iman Gadzhi en After Effects Plugins » CREATOR CLUB » Desarrollado por ThriveCart»',
+      tipo: 'file',
+      ext: 'txt',
+      driveId: '1CGbvXf_s2XzWcj-bNr3RsdvlXGguZeeC',
+    },
+    {
+      slug: 'notas-del-video-39afb7b0',
+      label: 'Notas del Video - 39afb7b0',
+      cardDesc: 'Material de «CLASE 11 - Animaciones con líneas estilo Iman Gazdhi » CREATOR CLUB » Desarrollado por ThriveCart»',
+      tipo: 'file',
+      ext: 'txt',
+      driveId: '1eICBTr-KcvcPE0m4uYxckDY5wKM5PkPG',
+    },
+    {
+      slug: 'packs-de-recursos-fdbc0b20',
+      label: 'Packs de Recursos - fdbc0b20',
+      cardDesc: 'Material de «Modulo 0 - COMUNIDAD Y PRIMEROS PASOS»',
+      tipo: 'file',
+      ext: 'txt',
+      driveId: '1ffLeBa5FsmM4hGPHAue-q8vyRpRXtGXH',
+    },
   ],
   clases: [
     {
