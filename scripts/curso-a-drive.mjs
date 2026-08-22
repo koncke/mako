@@ -16,10 +16,12 @@
 // A Drive va SIEMPRE el archivo tal cual se bajó (máxima calidad): no se recodifica
 // ni se baja de resolución en ningún punto.
 //
-// --liberar borra el original LOCAL, y solo el que cumple las cuatro condiciones:
-// está dentro de video/, tiene id de Drive, la copia en G: coincide byte a byte, y
-// el propio Drive reporta ese mismo tamaño (o sea: terminó de subir, no solo de
-// registrarse). Cualquier duda = se conserva. Y solo actúa si queda menos de
+// --liberar borra el original LOCAL, y solo el que cumple las CINCO condiciones:
+// está dentro de video/, tiene id de Drive, la copia en G: coincide byte a byte, el
+// propio Drive reporta ese mismo tamaño (o sea: terminó de subir, no solo de
+// registrarse), y YA SE LE EXTRAJO EL AUDIO —el video no es solo un archivo a
+// resguardar, es la ENTRADA de la transcripción—. Cualquier duda = se conserva. Y solo
+// actúa si queda menos de
 // --min-libre-gb libre, así que con espacio de sobra no borra nada.
 //
 //   node <abs>\scripts\curso-a-drive.mjs --plan C:\cursos\<slug>\plan.json
@@ -439,7 +441,30 @@ if (LIBERAR) {
       const r = resueltos.get(e.nombre);
       const razon = [];
 
-      // Las cuatro condiciones que habilitan el borrado, todas en positivo.
+      // Las CINCO condiciones que habilitan el borrado, todas en positivo.
+      //
+      // ⚠️ LA QUINTA ES EL AUDIO, Y FALTABA. Las otras cuatro contestan «¿está a salvo
+      // del otro lado?», que es la pregunta correcta para el VIDEO — pero el video es
+      // además la ENTRADA de la extracción de audio, y sin audio no hay transcripción.
+      // Borrarlo antes de extraerlo deja una clase que se ve completa en el portal
+      // (tiene su visor de Drive) y que no va a poder transcribirse nunca sin volver a
+      // bajar el archivo, o a traerlo de vuelta de Drive.
+      //
+      // No pasó de casualidad: en «BlueHacker» el circuito corría audio ANTES que esto,
+      // así que las 105 liberadas tenían su audio. Corriendo `--liberar` suelto —que es
+      // exactamente para lo que existe la bandera— no lo tendrían.
+      //
+      // El audio puede estar entero o partido en `.parteNN` (las clases de más de ~87
+      // min se trocean), así que se aceptan las dos formas.
+      const dirAudio = join(base, 'audio');
+      // La raíz sale del nombre del archivo LOCAL, que es de donde curso-audio.mjs saca
+      // el suyo. Usar el título de Drive daría lo mismo hoy —se copia con el mismo
+      // nombre— pero ata este guard a que eso no cambie nunca.
+      const nomLocal = e.src ? basename(e.src) : '';
+      const raizAudio = nomLocal.includes('.') ? nomLocal.slice(0, nomLocal.lastIndexOf('.')) : nomLocal;
+      const tieneAudio = !!raizAudio && existsSync(dirAudio) && readdirSync(dirAudio).some((f) =>
+        f === raizAudio + '.m4a' || f.startsWith(raizAudio + '.parte'));
+
       const dentroDelCurso = !!e.src && e.src.startsWith(join(base, 'video') + '\\');
       // esIdReal explícito: un 'local-*' significa que Drive NO subió nada todavía.
       const tieneId = esIdReal(r?.id) && !r?.ambiguo;
@@ -452,9 +477,10 @@ if (LIBERAR) {
       if (!tieneId) razon.push(r?.ambiguo ? 'id ambiguo' : 'sin id de Drive');
       if (!localOk) razon.push('ya no está local');
       if (!copiaOk) razon.push('la copia en G: no coincide en bytes');
+      if (!tieneAudio) razon.push('todavía no se le extrajo el audio');
       if (!driveOk && tieneId) razon.push(`Drive reporta ${r.size} B y el local ${tamLocal} B (sigue subiendo)`);
 
-      if (dentroDelCurso && tieneId && localOk && copiaOk && driveOk) {
+      if (dentroDelCurso && tieneId && localOk && copiaOk && driveOk && tieneAudio) {
         unlinkSync(e.src);
         borrados++; bytes += tamLocal;
         console.log(`  🗑 ${e.nombre}  (${mb(tamLocal)} MB liberados)`);
