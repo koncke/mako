@@ -251,7 +251,7 @@ export function AudienciaModal({ entidad, item, otros, tareas, onAplicado, onUsa
       confirmLabel="Que decida MaKo →"
       pending={fase === 'pensando'}
       cargando={fase === 'pensando' ? 'MaKo lo está pensando…' : null}
-      atrasLabel={idx === 0 ? 'Cancelar' : '← Atrás'}
+      atrasLabel={idx === 0 ? 'Cancelar' : 'Atrás'}
       onAtras={() => setIdx((i) => Math.max(0, i - 1))}
       onSiguiente={() => setIdx((i) => i + 1)}
       onConfirmar={preguntar}
