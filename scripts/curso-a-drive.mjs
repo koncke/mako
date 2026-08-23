@@ -176,7 +176,34 @@ const autorPlan = plan.autor?.trim() ?? '';
 const nombreCurso = autorPlan && !sinAcentos(plan.curso).includes(sinAcentos(autorPlan))
   ? `${limpio(plan.curso)} - ${limpio(autorPlan)}`
   : limpio(plan.curso);
-const dirCurso = join(DRIVE, nombreCurso);
+// ⚠️ SI YA EXISTE UNA CARPETA QUE ES LA MISMA SALVO ACENTOS, SE USA ESA.
+//
+// El nombre de la carpeta no es una etiqueta: es la CLAVE que decide dónde se escribe.
+// Y sale de concatenar dos campos de texto libre del plan, así que cualquier diferencia
+// invisible la parte en dos: un acento, un espacio doble, una forma Unicode distinta
+// (NFC vs NFD, que se ven idénticas en cualquier listado).
+//
+// Pasó el 23/8/2026 con MasteryHaus. La carpeta existente decía «Sofia Contreras» y el
+// plan traía «Sofía». Nació una SEGUNDA carpeta con 23 videos y 60 GB, para el mismo
+// curso, y no falló nada: ni un error, ni un aviso. Un destino equivocado no da 404 —
+// se crea solo y se llena, y todo el proceso reporta éxito.
+//
+// Por eso crear es la ÚLTIMA opción: primero se busca un destino que matchee sin
+// acentos y sin mayúsculas, y si aparece se usa ese, avisando del desvío.
+const igualSalvoAcentos = (a, b) => sinAcentos(a).replace(/\s+/g, " ").trim().toLowerCase()
+  === sinAcentos(b).replace(/\s+/g, " ").trim().toLowerCase();
+let dirCurso = join(DRIVE, nombreCurso);
+if (!existsSync(dirCurso) && existsSync(DRIVE)) {
+  const gemela = readdirSync(DRIVE, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && igualSalvoAcentos(d.name, nombreCurso))
+    .map((d) => d.name)[0];
+  if (gemela) {
+    console.log(`\n  ⚠ Ya existe «${gemela}», que es la misma carpeta salvo acentos.`);
+    console.log(`    Uso esa en vez de crear «${nombreCurso}»: dos carpetas para un curso`);
+    console.log(`    parten el material en dos sin que nada falle.`);
+    dirCurso = join(DRIVE, gemela);
+  }
+}
 if (!plan.autor?.trim()) {
   console.log(`\n  ⚠ El plan no trae autor, así que la carpeta va a quedar «${nombreCurso}»`);
   console.log(`    y sin el « - Autor» que usan las otras 36. Agregá "autor" al plan.json.`);

@@ -454,6 +454,60 @@ falla cuando el margen se acaba: el catálogo crece, y el número que hoy tiene 
 mañana no. Un umbral sin esa red envejece en silencio, que es la peor forma de
 envejecer.
 
+# Un nombre derivado de datos es una CLAVE, y un acento la parte en dos
+
+Cuando la ruta de un recurso se arma concatenando campos —`<curso> - <autor>`,
+`<cliente>/<proyecto>`, `<ws>_<slug>`— ese string dejó de ser una etiqueta: es la clave
+que decide dónde se escribe. Y una clave derivada de texto libre se rompe con cualquier
+diferencia invisible: un acento, un espacio doble, un guion largo, una mayúscula, una `ñ`
+normalizada distinto (NFC vs NFD).
+
+El caso, del 23/8/2026. La carpeta de un curso en Drive sale de `plan.curso` +
+`plan.autor`. La carpeta existente decía **«MasteryHaus - Sofia Contreras»** y el plan
+nuevo traía **«Sofía»** con tilde. Resultado: **una segunda carpeta**, con 23 videos y
+**60 GB**, para el mismo curso. No falló nada — ni un error, ni un aviso. El curso quedó
+partido en dos y se descubrió por casualidad, buscando por qué no se liberaba el disco.
+
+**La forma en que falla es la peor:** el destino nuevo se crea solo y todo el proceso
+reporta éxito. Un destino equivocado no da 404; da una carpeta vacía que se llena.
+
+Tres reglas:
+
+1. **Si un nombre se deriva de datos y decide DÓNDE se escribe, normalizalo antes de
+   usarlo** —`normalize('NFC')`, colapsar espacios, y comparar sin acentos ni
+   mayúsculas—, y buscá si ya existe un destino que matchee normalizado **antes** de crear
+   uno nuevo. Crear es la última opción, no la primera.
+2. **Nunca compares dos nombres «iguales» a ojo.** Los que difieren en un acento o en la
+   forma Unicode se ven idénticos en cualquier listado, en cualquier log y en cualquier
+   mensaje de error. Se comparan normalizados o no se comparan.
+3. **Y al buscar, buscá con el criterio flojo.** El script que fue a listar la carpeta
+   «Sofia» contestó «0 archivos» con los 23 ahí al lado, en «Sofía» — un cero perfectamente
+   correcto sobre la pregunta equivocada. Cualquier barrido sobre un destino derivado tiene
+   que mirar **todos** los que matcheen normalizado, no el que uno construyó.
+
+# Un guard puede ser correcto y aun así ser el problema
+
+`--liberar` no borra un video hasta que Drive confirma, del lado del SERVIDOR, que terminó
+de subirlo. Es la condición correcta y no hay que ablandarla en el script.
+
+Pero el 23/8/2026 esa condición dejó **60 GB** de video local esperando confirmación con
+**2,4 GB de disco libre**. El guard estaba haciendo exactamente su trabajo y el trabajo,
+en ese estado, iba a romper la máquina — incluido el propio Drive, que necesita disco para
+su caché. Un guard protege de un riesgo; que ese sea el riesgo MAYOR en ese momento es una
+hipótesis, no una constante.
+
+**La regla: cuando un guard bloquea y el bloqueo tiene su propio costo creciente, la salida
+es una excepción ACOTADA Y ESCRITA, no ablandar el guard.** En el caso: se liberó contra la
+copia en el montaje —que no es una copia local sino el sistema de archivos del proveedor,
+así que borrar la propia no cancela la subida—, manteniendo intacta la condición que sí era
+irreemplazable (**el audio ya extraído**). El script del repo quedó sin tocar; la excepción
+vivió en un script aparte que dice en su cabecera qué garantía se resigna y por qué.
+
+**Y el corolario:** antes de aflojar, enumerá qué se pierde exactamente. Acá se perdía «la
+certeza de que llegó al servidor» —recuperable rebajando un archivo— y no se perdía la
+transcripción, que era lo irrecuperable. Si no podés nombrar qué garantía estás resignando,
+no la resignes.
+
 # Antes de restaurar lo que había, preguntá cuánto DEBERÍA haber
 
 Cuando algo aparece incompleto y existe una versión anterior, la reacción es restaurarla.
