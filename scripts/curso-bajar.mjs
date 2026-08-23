@@ -164,6 +164,22 @@ for (const [i, c] of clases.entries()) {
     ...yt.pre,
     c.url,
     '--referer', plan.referer,
+    // ⚠️ VIMEO BLOQUEA POR HUELLA TLS, y el error no se parece a lo que es.
+    //
+    // 7 de las 227 clases de MasteryHaus fallaron con «This request has been blocked
+    // due to its TLS fingerprint». No es el referer, no es la sesión, no es la IP: es
+    // que el handshake de yt-dlp NO se parece al de un navegador, y algunos videos —no
+    // todos, los mismos 7 siempre— tienen esa protección encendida.
+    //
+    // `--impersonate` hace que el handshake sea el de Chrome. Necesita `curl_cffi` en el
+    // MISMO Python que corre yt-dlp, y además un yt-dlp reciente: con el de julio de
+    // 2026 los targets figuraban «unavailable» aun con curl_cffi instalado, y eso se lee
+    // como «falta la dependencia» cuando lo que faltaba era actualizar yt-dlp.
+    //
+    // Se manda SIEMPRE: si no hay soporte, yt-dlp lo ignora y sigue con el handshake de
+    // siempre. El costo de ponerlo es cero; el de no ponerlo son 7 videos que se
+    // reportan como error genérico.
+    '--impersonate', 'chrome',
     // Si el plan no trae UA, NO se manda el flag: `--user-agent ""` es peor que
     // omitirlo (yt-dlp arranca con User-Agent en blanco y algunos CDN invalidan
     // el token por eso). Omitirlo deja el default de yt-dlp, que funciona.
