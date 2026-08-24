@@ -196,6 +196,8 @@ export function DestinatariosModal({ inicial, onCerrar, onGuardado }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [noAgregados, setNoAgregados] = useState<Array<{ telefono: string; motivo: string }>>([]);
+  const [linkGrupo, setLinkGrupo] = useState<string | null>(null);
+  const [copiado, setCopiado] = useState(false);
   // Lo tipeado y NO agregado. Antes se perdía entero al guardar (ver la nota de
   // `Lista`): es la causa más probable del «le di a enviar y no pasó nada».
   const [borrTel, setBorrTel] = useState('');
@@ -227,7 +229,7 @@ export function DestinatariosModal({ inicial, onCerrar, onGuardado }: {
       return;
     }
     if (!dirty) { setError('No cambiaste nada todavía.'); return; }
-    setBusy(true); setError(null); setNoAgregados([]);
+    setBusy(true); setError(null); setNoAgregados([]); setLinkGrupo(null); setCopiado(false);
     try {
       const j = await (await fetch('/api/perfil/destinatarios', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -241,6 +243,7 @@ export function DestinatariosModal({ inicial, onCerrar, onGuardado }: {
       const fallidos = (j.noAgregados ?? []) as Array<{ telefono: string; motivo: string }>;
       if (fallidos.length) {
         setNoAgregados(fallidos);
+        setLinkGrupo((j.linkGrupo as string | null) ?? null);
         setTel((j.destinatarios as Destinatarios).telefonos);
         setMail((j.destinatarios as Destinatarios).emails);
         setBorrTel(''); setBorrMail('');
@@ -304,6 +307,31 @@ export function DestinatariosModal({ inicial, onCerrar, onGuardado }: {
                 <b>{paraLeer('tel', n.telefono)}</b> — <span style={{ color: 'var(--dim)' }}>{n.motivo}</span>
               </div>
             ))}
+
+            {/* La salida que faltaba. WhatsApp puede negarse a que agreguemos a
+                alguien (es SU configuración de privacidad, no un error nuestro),
+                pero el link del grupo siempre funciona: con esto se resuelve
+                desde acá en vez de quedar trabado. */}
+            {linkGrupo && (
+              <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 6 }}>
+                  Pasale este link y entra solo:
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <code style={{
+                    flex: 1, minWidth: 0, fontSize: 12, fontFamily: MONO, color: 'var(--ink)',
+                    background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8,
+                    padding: '7px 9px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>{linkGrupo}</code>
+                  <button
+                    type="button" style={{ ...btnGhost, flex: 'none' }}
+                    onClick={() => { void navigator.clipboard.writeText(linkGrupo).then(() => setCopiado(true)); }}
+                  >
+                    {copiado ? 'Copiado' : 'Copiar'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

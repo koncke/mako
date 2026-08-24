@@ -25,7 +25,7 @@
 import 'server-only';
 import { getSetting, setSetting } from './settings';
 import { getWorkspaceActual, runWithWorkspace, OWNER_WS } from './workspace';
-import { getNumeroDueno, setNumeroDuenoYSync, agregarParticipanteGrupo, getGrupoJidMaKo } from './mako-grupo';
+import { getNumeroDueno, setNumeroDuenoYSync, agregarParticipanteGrupo, getGrupoJidMaKo, numeroTieneWhatsApp, linkInvitacionGrupo } from './mako-grupo';
 import { normalizarDestinatarios, soloDigitos, type Destinatarios } from './notif-catalogo';
 
 const KEY_TELEFONOS = 'notif_telefonos';
@@ -109,6 +109,8 @@ export type ResultadoGuardar = {
    * nada, ni siquiera un mensaje de error», que es exactamente lo que pasaba.
    */
   noAgregados?: Array<{ telefono: string; motivo: string }>;
+  /** El link del grupo, para pasarlo a mano. Solo viene cuando algo falló. */
+  linkGrupo?: string | null;
 };
 
 /**
@@ -123,7 +125,25 @@ export type ResultadoGuardar = {
  */
 export async function setDestinatarios(d: Partial<Destinatarios>, nombreCliente: string): Promise<ResultadoGuardar> {
   const ws = (await getWorkspaceActual()) ?? OWNER_WS;
-  const dest = normalizarDestinatarios(d);
+  const pedido = normalizarDestinatarios(d);
+
+  // ⚠️ SE GUARDA LA FORMA QUE WHATSAPP RECONOCE, no la que se tipeó. La gente
+  // escribe su número como lo tiene agendado —con el 0 de tránsito, sin el 9 del
+  // móvil— y `whatsappNumbers` sabe traducirlo: las tres formas resuelven al
+  // mismo jid. Guardar el crudo dejaba `5402233550684` en la base, que después
+  // hace que `updateParticipant` conteste HTTP 400 y que la pantalla muestre un
+  // número que no existe. Un dato que entra torcido sale torcido en todas las
+  // pantallas que lo lean después.
+  //
+  // Fail-safe: si no se pudo consultar, se conserva lo que escribió la persona.
+  // Una caída de Evolution no puede perder el número de nadie.
+  const telefonos: string[] = [];
+  for (const t of pedido.telefonos) {
+    const c = await numeroTieneWhatsApp(t).catch(() => null);
+    const bueno = c?.consultado && c.existe && c.canonico ? c.canonico : t;
+    if (!telefonos.includes(bueno)) telefonos.push(bueno);
+  }
+  const dest: Destinatarios = { telefonos, emails: pedido.emails };
 
   await Promise.all([
     setSetting(KEY_TELEFONOS, JSON.stringify(dest.telefonos)),
@@ -140,7 +160,17 @@ export async function setDestinatarios(d: Partial<Destinatarios>, nombreCliente:
   const principal = dest.telefonos[0];
   const teniaGrupo = Boolean(await getGrupoJidMaKo(ws));
   const sync = await setNumeroDuenoYSync(ws, principal, nombreCliente);
-  if (!sync.ok) return { ok: false, destinatarios: dest, error: sync.error };
+
+  // ⚠️ Que el PRINCIPAL no haya podido entrar al grupo no borra el guardado: la
+  // lista ya se escribió unas líneas más arriba y esa persona va a recibir sus
+  // reportes igual. Devolver `ok:false` acá contaba una falla más grande que la
+  // real —«no se pudo guardar»— y encima se llevaba puesto el link de invitación,
+  // que es justo la salida que la pantalla necesita ofrecer. Va por el MISMO
+  // camino que los demás: se guardó, no entró al grupo, y esto es lo que se puede
+  // hacer al respecto.
+  const noAgregadosPrincipal = sync.ok
+    ? []
+    : [{ telefono: principal, motivo: sync.error ?? 'no se pudo sumar al grupo' }];
 
   // Los demás van como participantes. Es idempotente del lado de Evolution
   // (agregar a alguien que ya está contesta 409, que acá cuenta como hecho).
@@ -151,19 +181,26 @@ export async function setDestinatarios(d: Partial<Destinatarios>, nombreCliente:
   // pantalla PROMETE, así que cuando no se puede hay que decirlo — es la regla de
   // la casa: si el que se tiene que enterar es el usuario, el aviso va donde él
   // mira, nunca a un log.
-  const noAgregados: Array<{ telefono: string; motivo: string }> = [];
+  const noAgregados: Array<{ telefono: string; motivo: string }> = [...noAgregadosPrincipal];
+  let linkGrupo: string | null = null;
   for (const t of dest.telefonos.slice(1)) {
     const r = await agregarParticipanteGrupo(ws, t).catch((e) => ({
-      ok: false as const, error: e instanceof Error ? e.message : String(e),
+      ok: false as const, error: e instanceof Error ? e.message : String(e), link: null as string | null,
     }));
-    if (!r.ok) noAgregados.push({ telefono: t, motivo: r.error ?? 'no se pudo agregar al grupo' });
+    if (!r.ok) {
+      noAgregados.push({ telefono: t, motivo: r.error ?? 'no se pudo agregar al grupo' });
+      linkGrupo = linkGrupo ?? r.link ?? null;
+    }
   }
 
   return {
     ok: true,
     destinatarios: dest,
-    grupo: !teniaGrupo ? 'creado' : sync.accion === 'sin_cambios' && dest.telefonos.length === 1 ? 'sin_cambios' : 'actualizado',
+    grupo: !teniaGrupo ? 'creado' : sync.ok && sync.accion === 'sin_cambios' && dest.telefonos.length === 1 ? 'sin_cambios' : 'actualizado',
     noAgregados: noAgregados.length ? noAgregados : undefined,
+    // El link se ofrece SOLO cuando algo falló: es la salida manual, no un dato
+    // de la pantalla. Mostrarlo siempre invita a repartir el grupo por fuera.
+    linkGrupo: noAgregados.length ? (linkGrupo ?? await linkInvitacionGrupo(ws)) : undefined,
   };
 }
 

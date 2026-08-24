@@ -110,3 +110,60 @@ test('Ningún camino del modal rechaza sin decir por qué', () => {
   assert.ok(src.includes('onBorrador'),
     'el modal volvió a perder lo tipeado y no agregado al guardar');
 });
+
+test('Se ACTÚA con la forma del número que WhatsApp reconoce, no con la tipeada', () => {
+  // Medido el 24/8/2026: las tres formas del mismo teléfono resuelven al mismo
+  // jid en `whatsappNumbers`, que normaliza…
+  //     5402233550684 ┐
+  //      542233550684 ├→ 5492233550684@s.whatsapp.net  (exists: true)
+  //     5492233550684 ┘
+  // …y `updateParticipant` NO normaliza: con el crudo `5402233550684` contesta
+  // HTTP 400. Se verificaba con una forma y se actuaba con otra — el mismo bug
+  // que el prefijo `act_` de Meta, en otro proveedor.
+  const src = leer('../lib/mako-grupo.ts');
+  assert.ok(/canonico/.test(src), 'numeroTieneWhatsApp dejó de devolver la forma canónica del número');
+  assert.ok(/const num = chequeo\.canonico \?\? crudo/.test(src),
+    'el alta volvió a usar el número tipeado en vez del que WhatsApp reconoce');
+
+  // Y se GUARDA la canónica: un dato que entra torcido sale torcido en toda
+  // pantalla que lo lea después (el cliente veía «+54 02233550684»).
+  const dest = leer('../lib/notif-destinatarios.ts');
+  assert.ok(/numeroTieneWhatsApp\(t\)/.test(dest),
+    'setDestinatarios volvió a guardar el número crudo');
+  // ⚠️ Pero si no se pudo consultar, se conserva lo que escribió la persona: una
+  // caída de Evolution no puede perder el número de nadie.
+  assert.ok(/c\?\.consultado && c\.existe && c\.canonico \? c\.canonico : t/.test(dest),
+    'la canonicalización dejó de ser fail-safe: una caída borraría números');
+});
+
+test('No se afirma un envío que no ocurrió', () => {
+  const src = leer('../lib/mako-grupo.ts');
+  // El `add_request` que viene adentro del 403 de updateParticipant NO es un
+  // envío: es un token que WhatsApp ofrece. Se leyó como si lo fuera y la
+  // pantalla llegó a decirle a un cliente «le llegó una invitación» sin que MaKo
+  // hubiera mandado nada. El dueño lo cazó: «dice que MaKo le envió algo, y no
+  // envió nada».
+  // Solo el VALOR del 403, no la prosa de alrededor (el comentario de al lado
+  // explica justamente por qué ahí no se habla de invitaciones).
+  const msg403 = /^\s*'403':\s*'([^']*)'/m.exec(src)?.[1] ?? '';
+  assert.ok(msg403, 'no se pudo leer el mensaje del estado 403');
+  assert.ok(!/invitaci/i.test(msg403),
+    `el 403 volvió a afirmar un envío que no hizo: «${msg403}»`);
+
+  // La invitación se manda por su propio endpoint, y recién entonces se cuenta.
+  assert.ok(src.includes('/group/sendInvite/'), 'no existe el envío real de la invitación');
+  assert.ok(/envio\.ok\s*\n?\s*\?/.test(src) || /envio\.ok$/m.test(src),
+    'el mensaje de la invitación no depende de que el envío haya salido');
+});
+
+test('Cuando WhatsApp no deja agregar, la app ofrece el link del grupo', () => {
+  // La pregunta del dueño: «no entiendo cómo podemos crear grupos con personas
+  // pero luego no podemos invitar a nuevas». El link SIEMPRE funciona, así que
+  // que no se pueda agregar directo no puede dejar a nadie trabado.
+  const src = leer('../lib/mako-grupo.ts');
+  assert.ok(src.includes('/group/inviteCode/'), 'se perdió el link de invitación del grupo');
+
+  const modal = leer('../app/perfil/DestinatariosModal.tsx');
+  assert.ok(modal.includes('linkGrupo'), 'el modal no ofrece el link para pasarlo a mano');
+  assert.ok(/clipboard\.writeText/.test(modal), 'el link no se puede copiar');
+});

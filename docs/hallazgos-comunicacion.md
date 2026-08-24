@@ -2810,3 +2810,54 @@ que no pasó.
 
 *Corrida del 21/08/2026 — verificado en navegador (Playwright, los 5 caminos + cero errores
 de consola). Typecheck 0 errores, 1163/1163 tests.*
+
+### Segunda vuelta (24/08): el arreglo tenía adentro el mismo error que arreglaba
+
+El dueño probó lo de arriba y saltaron dos cosas. La segunda duele porque es, exactamente,
+la falla que esta misma corrida vino a cerrar — cometida al escribir el arreglo.
+
+**1. `whatsappNumbers` NORMALIZA, y el resultado se tiraba.** Medido: las tres formas del
+mismo teléfono resuelven al MISMO jid.
+
+```
+5402233550684 ┐
+ 542233550684 ├──→  5492233550684@s.whatsapp.net   exists: true
+5492233550684 ┘
+```
+
+La consulta le saca el `0` de tránsito y le pone el `9` de móvil argentino. **`updateParticipant`
+NO normaliza**: con el crudo `5402233550684` contesta **HTTP 400**. O sea que el chequeo ya
+sabía cuál era el número bueno y se descartaba, para después actuar con el que la persona
+había tipeado. Es **el mismo bug que el prefijo `act_` de Meta**, del mismo día, en otro
+proveedor: *verificar con una forma y actuar con otra*. La regla generaliza — **cuando una
+API te devuelve el identificador canónico de algo, ese es el que se usa y el que se guarda**;
+si lo tirás, ya tenés dos formas del mismo dato conviviendo.
+
+Se guardaba el crudo, así que el número roto quedó en la base (`notif_telefonos`,
+`user_telefono`, `mako.numero_dueno`) y la pantalla mostraba `+54 02233550684`. **Un dato que
+entra torcido sale torcido en toda pantalla que lo lea después.**
+
+**2. Se afirmó un envío que no ocurrió.** El 403 de `updateParticipant` trae adentro un
+`add_request` con un código. Se leyó como «WhatsApp mandó la invitación» y el mensaje al
+cliente decía «Le llegó una invitación para entrar al grupo». **No se había mandado nada:**
+`add_request` es un token que WhatsApp ofrece, y el envío real es otro endpoint
+(`/group/sendInvite`) que nadie llamaba. El dueño lo cazó al toque: *«dice que MaKo le envió
+algo, y no envió nada»*.
+
+Es la regla de `AGENTS.md` («un mensaje que sale solo no puede AFIRMAR lo que no verificó»)
+violada por el commit que la escribió. **Leer un campo en una respuesta no es haber hecho la
+acción que ese campo sugiere.** El 403 dice UNA cosa —esa persona restringió quién puede
+sumarla a grupos— y nada sobre invitaciones.
+
+**Y la pregunta del dueño que ordenó el arreglo:** *«no entiendo cómo podemos crear grupos con
+personas pero luego no podemos invitar a nuevas»*. La respuesta es que **sí se puede**, solo
+que por otro camino: `addressable: false` es la configuración de privacidad de esa persona y
+no se puede saltear, pero el **link de invitación del grupo** (`/group/inviteCode`) funciona
+siempre. Ahora, cuando el alta directa falla, se manda la invitación de verdad y además se
+muestra el link en la pantalla para pasarlo a mano. Que WhatsApp diga que no a un camino no
+puede dejar al usuario trabado.
+
+*Segunda vuelta del 24/08/2026 — número de ws13 corregido en prod a su forma canónica.
+Typecheck 0 errores, 1170/1170 tests. **Sin verificar:** que `sendInvite` entregue de verdad
+el mensaje (requiere mandar un WhatsApp real; el código solo afirma el envío si la API lo
+acepta, y siempre ofrece el link como salida).*

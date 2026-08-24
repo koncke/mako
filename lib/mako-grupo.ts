@@ -229,15 +229,66 @@ export async function asegurarGrupoMaKo(
  * existe», y quien llama tiene que poder intentar igual en vez de rechazar a
  * alguien por una caída nuestra.
  */
-export async function numeroTieneWhatsApp(numero: string): Promise<{ consultado: boolean; existe: boolean }> {
+export async function numeroTieneWhatsApp(
+  numero: string,
+): Promise<{ consultado: boolean; existe: boolean; canonico: string | null }> {
   const num = soloDigitos(numero);
-  if (!num) return { consultado: true, existe: false };
+  if (!num) return { consultado: true, existe: false, canonico: null };
   const r = await ev(`/chat/whatsappNumbers/${await instanciaVoz()}`, {
     method: 'POST', body: JSON.stringify({ numbers: [num] }),
   });
-  if (!r.ok || !Array.isArray(r.body)) return { consultado: false, existe: false };
-  const fila = (r.body as Array<{ exists?: boolean }>)[0];
-  return { consultado: true, existe: Boolean(fila?.exists) };
+  if (!r.ok || !Array.isArray(r.body)) return { consultado: false, existe: false, canonico: null };
+  const fila = (r.body as Array<{ exists?: boolean; jid?: string }>)[0];
+  // ⚠️ EL DATO QUE ESTA CONSULTA REGALA Y ANTES SE TIRABA: el jid con el que
+  // WhatsApp conoce de verdad a esa persona. Medido el 24/8/2026, las TRES formas
+  // del mismo teléfono resuelven al mismo jid:
+  //
+  //   5402233550684  ┐
+  //    542233550684  ├─→  5492233550684@s.whatsapp.net   (exists: true)
+  //   5492233550684  ┘
+  //
+  // `whatsappNumbers` normaliza (le saca el 0 de tránsito, le pone el 9 móvil de
+  // Argentina) y `updateParticipant` NO: mandarle el crudo `5402233550684`
+  // contesta HTTP 400. O sea que se verificaba con una forma y se actuaba con
+  // otra — exactamente el bug del prefijo `act_` de Meta, con otro proveedor.
+  const canonico = typeof fila?.jid === 'string' ? soloDigitos(fila.jid.split('@')[0]) : null;
+  return { consultado: true, existe: Boolean(fila?.exists), canonico: canonico || null };
+}
+
+/** El link `chat.whatsapp.com/…` del grupo de un workspace. null si no se pudo. */
+export async function linkInvitacionGrupo(ws: number): Promise<string | null> {
+  const jid = await getGrupoJidMaKo(ws);
+  if (!jid) return null;
+  const r = await ev(`/group/inviteCode/${await instanciaVoz()}?groupJid=${encodeURIComponent(jid)}`);
+  if (!r.ok) return null;
+  const b = r.body as { inviteUrl?: string; inviteCode?: string };
+  return b?.inviteUrl ?? (b?.inviteCode ? `https://chat.whatsapp.com/${b.inviteCode}` : null);
+}
+
+/**
+ * Le MANDA por WhatsApp el link de invitación al grupo.
+ *
+ * ⚠️ Esto es lo que hay que llamar para que a alguien «le llegue una invitación».
+ * El `add_request` que viene adentro del 403 de `updateParticipant` NO es un
+ * envío: es un token que WhatsApp ofrece por si querés usarlo. Se leyó como si
+ * fuera un envío y la pantalla llegó a decirle a un cliente «le llegó una
+ * invitación para entrar al grupo» cuando MaKo no había mandado nada. Afirmar un
+ * envío que no ocurrió es peor que no poder hacerlo: manda a esperar algo que no
+ * va a llegar.
+ */
+export async function enviarInvitacionGrupo(ws: number, numero: string): Promise<{ ok: boolean; error?: string }> {
+  const num = soloDigitos(numero);
+  const jid = await getGrupoJidMaKo(ws);
+  if (!num || !jid) return { ok: false, error: 'sin número o sin grupo' };
+  const r = await ev(`/group/sendInvite/${await instanciaVoz()}`, {
+    method: 'POST',
+    body: JSON.stringify({
+      groupJid: jid,
+      description: 'Te sumo al grupo donde MaKo deja los avisos de tu negocio.',
+      numbers: [num],
+    }),
+  });
+  return r.ok ? { ok: true } : { ok: false, error: `Evolution ${r.status}` };
 }
 
 /**
@@ -247,7 +298,11 @@ export async function numeroTieneWhatsApp(numero: string): Promise<{ consultado:
 const RESULTADO_PARTICIPANTE: Record<string, string> = {
   '200': '',
   '409': '',  // ya estaba adentro: el pedido igual se cumplió
-  '403': 'WhatsApp no deja agregarlo directo por su configuración de privacidad. Le llegó una invitación para entrar al grupo.',
+  // ⚠️ El 403 (`addressable: false`) NO dice nada sobre invitaciones: dice que
+  // esa persona tiene en «Quién puede agregarme a grupos» algo que nos excluye.
+  // Lo que se haga con eso lo decide quien llama (hoy: mandarle el link con
+  // `enviarInvitacionGrupo`), y recién ahí se puede afirmar que se mandó algo.
+  '403': 'WhatsApp no deja agregarlo directo: tiene restringido quién puede sumarlo a grupos.',
   '408': 'Ese número no está disponible en WhatsApp.',
   '401': 'Ese número bloqueó al WhatsApp de MaKo.',
   '404': 'Ese número no existe en WhatsApp.',
@@ -280,25 +335,52 @@ function leerResultadoParticipante(body: unknown): { ok: boolean; error?: string
   return { ok: false, error: motivo ?? `WhatsApp lo rechazó (código ${estado}).` };
 }
 
-export async function agregarParticipanteGrupo(ws: number, numero: string): Promise<{ ok: boolean; error?: string }> {
-  const num = soloDigitos(numero);
-  if (!num) return { ok: false, error: 'número inválido' };
+export type AltaParticipante = {
+  ok: boolean;
+  error?: string;
+  /** Se le mandó el link de invitación por WhatsApp (porque no se pudo agregar directo). */
+  invitado?: boolean;
+  /** El link del grupo, para poder pasárselo a mano si el envío tampoco salió. */
+  link?: string | null;
+};
+
+export async function agregarParticipanteGrupo(ws: number, numero: string): Promise<AltaParticipante> {
+  const crudo = soloDigitos(numero);
+  if (!crudo) return { ok: false, error: 'número inválido' };
   const jid = await getGrupoJidMaKo(ws);
   if (!jid) return { ok: false, error: 'este negocio todavía no tiene grupo de MaKo' };
 
   // Preguntar ANTES sale más barato que un intento que contesta 200 y no hace
   // nada, y sobre todo permite decir POR QUÉ. Si la consulta no se pudo hacer,
   // se intenta igual: no saber no es motivo para rechazar a nadie.
-  const chequeo = await numeroTieneWhatsApp(num);
+  const chequeo = await numeroTieneWhatsApp(crudo);
   if (chequeo.consultado && !chequeo.existe) {
     return { ok: false, error: 'Ese número no tiene WhatsApp. Revisá que esté con el código de país.' };
   }
+  // Se ACTÚA con la forma que WhatsApp reconoce, no con la que se tipeó.
+  const num = chequeo.canonico ?? crudo;
 
   const r = await ev(`/group/updateParticipant/${await instanciaVoz()}?groupJid=${encodeURIComponent(jid)}`, {
     method: 'POST', body: JSON.stringify({ action: 'add', participants: [num] }),
   });
   if (!r.ok) return { ok: false, error: `No se pudo hablar con WhatsApp (Evolution ${r.status}).` };
-  return leerResultadoParticipante(r.body);
+
+  const res = leerResultadoParticipante(r.body);
+  if (res.ok) return res;
+
+  // ── No se pudo agregar directo: entonces se INVITA de verdad ────────────────
+  // Que WhatsApp no nos deje sumarlo no significa que no se pueda hacer nada; lo
+  // que no se puede es hacerlo en silencio y contarlo como si hubiera pasado.
+  const envio = await enviarInvitacionGrupo(ws, num);
+  const link = await linkInvitacionGrupo(ws);
+  return {
+    ok: false,
+    invitado: envio.ok,
+    link,
+    error: envio.ok
+      ? `${res.error} Le mandé el link de invitación por WhatsApp.`
+      : `${res.error} Tampoco pude mandarle la invitación, así que pasale el link vos.`,
+  };
 }
 
 // ── Número del dueño por workspace (destinatario del grupo) ───────────────────
