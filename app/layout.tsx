@@ -11,6 +11,7 @@ import { TituloTab } from './_components/TituloTab';
 import { WsFetch } from './_components/WsFetch';
 import { TemaCandidato } from './_components/TemaCandidato';
 import { getSesionAdmin } from '@/lib/auth';
+import { APP_BASE_URL } from '@/lib/app-url';
 import { WsProvider } from './_ui/Link';
 
 // Título por defecto de las pantallas internas — es lo que se lee en la pestaña
@@ -24,6 +25,24 @@ import { WsProvider } from './_ui/Link';
 export const metadata: Metadata = {
   title: 'MaKo',
   description: 'Marketing, CRM y ventas en una sola app.',
+  // ⚠️ SIN `metadataBase` una imagen de OpenGraph declarada como ruta relativa NO SE
+  // MANDA: Next necesita un origen para volverla absoluta, y sin él la deja afuera del
+  // <head> con un warning en el build que nadie mira. Sale de APP_BASE_URL, que es la
+  // única fuente del dominio (lib/app-url.ts) — un literal acá se queda viejo el día de
+  // la próxima mudanza y las tarjetas apuntan a un host muerto.
+  metadataBase: new URL(APP_BASE_URL),
+  // La tarjeta que se ve al pegar un link de MaKo en un chat. No existía NINGUNA: no
+  // había un solo `openGraph` en todo app/, así que cualquier link —la landing incluida—
+  // se previsualizaba como texto pelado. Las pantallas que tienen algo mejor que mostrar
+  // (un curso compartido) pisan esto con su propio `generateMetadata`.
+  openGraph: {
+    type: 'website',
+    siteName: 'MaKo',
+    title: 'MaKo',
+    description: 'Marketing, CRM y ventas en una sola app.',
+    images: [{ url: '/og-mako.jpg', width: 1200, height: 630, alt: 'MaKo' }],
+  },
+  twitter: { card: 'summary_large_image', images: ['/og-mako.jpg'] },
   // Agregada a la pantalla de inicio del celular tiene que verse como una app, no
   // como un marcador: sin esto el sistema pone la inicial del título en un cuadrado
   // gris. `apple-web-app` además la abre SIN la barra del navegador en iOS.

@@ -9,6 +9,7 @@
 // noindex + no-store: un link compartido termina pegado en un chat o en una web.
 
 import type { Metadata } from 'next';
+import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import { listarAssetsDeWorkspace } from '@/lib/branding';
 import { resolverToken, filtrarPorShare, registrarVisita, puedeEditar } from '@/lib/shares';
@@ -25,14 +26,69 @@ export const revalidate = 0;
 
 // Sin nombre de la casa: el título de la pestaña es lo primero que ve —y lo que
 // copia al reenviar— quien recibe el link.
-export const metadata: Metadata = {
+const GENERICA: Metadata = {
   title: 'Material compartido',
   robots: { index: false, follow: false },
 };
 
+/**
+ * `resolverToken` memoizado POR REQUEST.
+ *
+ * `generateMetadata` y la page corren en la misma pasada y las dos necesitan el mismo
+ * acceso; sin esto son dos lecturas a Supabase (share_invitados + shares) por cada carga
+ * de un link. `cache()` de React las une en una.
+ */
+const resolver = cache(resolverToken);
+
+/**
+ * La tarjeta que se ve al pegar el link en un chat.
+ *
+ * ⚠️ SOLO LOS CURSOS SE NOMBRAN, y el porqué es de privacidad, no de prolijidad. Un link
+ * compartido termina pegado en un grupo de WhatsApp o en una web, y la tarjeta la arma el
+ * scraper de esa plataforma SIN que nadie haga click — `robots: noindex` no lo frena,
+ * porque no es un buscador. Así que lo que se ponga acá lo lee cualquiera que vea el
+ * mensaje:
+ *
+ *   · `curso`      → se nombra. Que el que recibe el link sepa qué curso es ANTES de
+ *                    abrirlo es justamente para lo que se manda.
+ *   · `tarea-cs`   → NO. El share apunta a un lead: el título llevaría el nombre de una
+ *                    persona a cada chat donde se reenvíe.
+ *   · `branding`   → NO. Es la galería privada de un workspace.
+ *   · lo que venga → NO, por default. Un `recurso` nuevo no se nombra hasta que alguien
+ *                    decida que se puede; la lista es blanca a propósito.
+ *
+ * El resto cae en la tarjeta de marca de `app/layout.tsx` (/og-mako.jpg), que no dice
+ * nada de nadie.
+ */
+export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
+  const { token } = await params;
+  const acceso = await resolver(token).catch(() => null);
+  if (!acceso || acceso.share.recurso !== 'curso') return GENERICA;
+  const slug = acceso.share.recurso_id;
+  // Branding se sirve por su propio recurso; como curso da 404 (ver más abajo). Y el
+  // Análisis de Negocio es material del método, no un curso que se nombre afuera.
+  if (slug === VISTA_PROPIA.branding || slug === VISTA_PROPIA.analisis) return GENERICA;
+  const curso = buscarCurso(slug ?? undefined);
+  if (!curso) return GENERICA;
+  return {
+    ...GENERICA,
+    title: curso.titulo,
+    description: curso.cardDesc,
+    openGraph: {
+      type: 'article',
+      title: curso.titulo,
+      description: curso.cardDesc,
+      // Sin `portada` NO se declara nada: así hereda la tarjeta de marca del layout, que
+      // es mejor que una imagen rota. Hoy los 26 cursos compartibles tienen la suya —los
+      // 6 que no son de la categoría propia de MaKo, que no se pueden compartir.
+      ...(curso.portada ? { images: [{ url: curso.portada, width: 1200, height: 676, alt: curso.titulo }] } : {}),
+    },
+  };
+}
+
 export default async function CompartidoPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const acceso = await resolverToken(token);
+  const acceso = await resolver(token);
   if (!acceso) notFound();
 
   // ── La TAB ENTERA de Conocimientos: el selector con todos los cursos ──
