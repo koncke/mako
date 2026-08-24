@@ -3968,3 +3968,74 @@ Los dos con el mismo síntoma: **la ficha sale bien y el material no aparece.**
 `mh-hash.mjs` (los hashes de Vimeo) · `scripts/curso-bajar.mjs` (`--impersonate`) ·
 `scripts/curso-a-drive.mjs` (carpeta sin acentos, `clases`, `nivel`) ·
 `scripts/curso-a-portal.mjs` (`clases` explícitas)
+
+---
+
+# Agregar un curso de cursoselite: la receta, y las tres trampas que trae siempre
+
+Tres cursos seguidos el 24/08/2026 —Stories Master (22), Claude Academy 2026 (18), Cursos
+HeyGen (14)— con el mismo método. Toma ~20 minutos por curso y las tres trampas aparecen
+**todas las veces**.
+
+## La receta
+
+1. **Ubicarlo**: `C:\cursos\cursoselite-recursos.json` tiene los 130 cursos con su slug y
+   su conteo de recursos.
+2. **Capturar el índice**: `scratchpad/sniff.mjs --url https://cursoselite.com.mx/curso/<slug>
+   --filtro "get_course_lessons_secure|course_resources|modules"`. Las tres respuestas que
+   hacen falta salen de una sola carga de página. **No se adivina el endpoint** — nueve
+   candidatas plausibles dieron 404 el día que lo intenté.
+3. **Armar el plan** desde esas tres respuestas (ver `scratchpad/sm-plan.mjs`).
+4. `curso-bajar` → `curso-pdfs` → `curso-audio` → `curso-transcribir` → `curso-a-drive` →
+   `curso-a-portal`, y sumarlo a `catalogo.ts`.
+
+El autor sale de `courses.instructor`, y es lo que nombra la carpeta de Drive.
+
+## ⚠️ Trampa 1: el RPC no devuelve las clases en orden
+
+Llegan Módulo 1, 7, 2, 8, 3… y **el portal numera por orden de aparición en el array**.
+Publicado tal cual, el curso queda con la secuencia hecha un desastre — y cada clase
+individual se ve perfecta, así que no hay nada que delate el problema hasta que alguien
+intenta seguirlo.
+
+Se ordena por `(orden del módulo, orden de la lección)`.
+
+## ⚠️ Trampa 2: el título de un recurso NO es una clave
+
+Tres variantes del mismo problema, una por curso:
+
+| Curso | Qué pasaba |
+|---|---|
+| BlueHacker | el prefijo `NN - ` del nombre venía de otra numeración → 51 de 53 en la clase equivocada |
+| MasteryHaus | el ingest viejo renombró todo → cruzando por título coincidían 57 de 264 |
+| Claude Academy | los 14 se llaman «N.1 Descripción» y **seis comparten el texto exacto** → seis archivos mapeados al mismo registro |
+
+**Lo que sí sirve, en orden de preferencia:** el **uuid** (cuando el nombre lo trae o la
+posición en `plan.pdfs` lo da), el **tamaño en bytes**, y la **duración** para videos. Los
+tres son claves; el título es un parecido.
+
+⚠️ Y antes de usar el tamaño como clave, **verificá que sea único** — el script lo chequea
+y avisa en vez de elegir por su cuenta.
+
+## ⚠️ Trampa 3: la duración viene en 00:00 y el video existe igual
+
+Pasó en 3 de 18 clases de Claude Academy y en 4 de 14 de HeyGen. La plataforma deja
+`duration: "00:00"` y `duration_seconds: null` en lecciones que **sí tienen video**. Sin
+duración la clase sale sin ese dato en la tarjeta **y queda fuera del chequeo de
+transcripción truncada**, que la necesita para calcular palabras por minuto.
+
+Se saca del archivo con `ffprobe` después de bajar.
+
+## Y lo que quedó CERRADO sobre los recursos
+
+Los recursos de esta plataforma se cuelgan de **MÓDULOS, nunca de lecciones**. Verificado
+por dos caminos en HeyGen: `course_resources` solo tiene `module_id` (no hay campo de
+lección), y el campo `resources` que traen las lecciones está **vacío en las 14**.
+
+O sea que el mapeo por módulo que se viene usando desde BlueHacker **no es una aproximación
+por falta de datos: es el único dato que existe.** No hay que volver a dudarlo ni buscar
+una asociación más fina que no está.
+
+**Vive en:** `scratchpad/sniff.mjs` · `sm-plan.mjs` (el molde del plan, se copia y se
+cambian tres rutas) · `ca-recursos2.mjs` (el cruce por bytes, con la verificación de
+unicidad)
