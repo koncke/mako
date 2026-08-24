@@ -1709,6 +1709,12 @@ invisible en local y con sesión. Al agregar un tipo de archivo a `public/`, pro
 
 ### ⚠️ La portada del curso no es la imagen más GRANDE de la tarjeta
 
+> ⚠️ **Este diagnóstico es correcto y la fuente era la equivocada.** Toda esta
+> heurística —frecuencia, proporción, área— existía para raspar la tarjeta del
+> catálogo, que sirve la miniatura de 456x256. La tapa real vive en la columna
+> `cover_image` de la tabla `courses`. Ver «Las miniaturas del portal — 2026-08-24» al
+> final de este documento.
+
 El seleccionador de portadas ordenaba por área y se trajo la **foto de perfil de Alex
 Hormozi** en vez de la tapa del curso. No fue un bug del slug: la tarjeta trae las dos
 imágenes y el avatar **gana por área** — 450×450 = 202.500 px contra 456×256 = 116.736
@@ -4039,3 +4045,198 @@ una asociación más fina que no está.
 **Vive en:** `scratchpad/sniff.mjs` · `sm-plan.mjs` (el molde del plan, se copia y se
 cambian tres rutas) · `ca-recursos2.mjs` (el cruce por bytes, con la verificación de
 unicidad)
+
+---
+
+# Las miniaturas del portal — 2026-08-24
+
+El dueño: *«Revisá bien las miniaturas de todo, no las estás trayendo»*. Auditoría de las
+cinco superficies del portal que dibujan una imagen (33 agentes, 13 hallazgos confirmados
+de 28 propuestos — casi la mitad se cayeron al verificarlos, y eso también se cuenta).
+
+## ⚠️ La tapa se estaba raspando de la GRILLA, teniendo la de verdad en una columna
+
+**Síntoma.** «No se están trayendo las miniaturas». Parecía que faltaban tres cursos.
+
+**Medido.** De los 21 cursos del portal que existen en cursoselite, **DIECIOCHO** tenían
+como portada la miniatura de la grilla, de **456x256** — contra los **1536x1024** que la
+plataforma servía al lado. **13,5 veces menos píxeles.** En la tarjeta chica no se nota;
+arriba del título, estirada a 1200 px, se ve el pixelado.
+
+**La causa NO era que faltara el paso.** `scripts/curso-portada.mjs` existía y corría. Lo
+que raspaba era el `<img>` de la tarjeta del catálogo. La tabla `courses` tiene una columna
+`cover_image` con la tapa real, poblada en las **130 filas**, en storage PÚBLICO: una sola
+request, sin navegador y sin sesión.
+
+**Y esto es lo que más cuesta ver: el camino equivocado estaba BIEN ARGUMENTADO.** El
+comentario que vivía en ese archivo decía, con toda la razón, que «la imagen más grande de
+la landing» sería una heurística que agarra cualquier cosa — y concluía que el `<img>` de
+la tarjeta cuyo `<a>` apunta a este curso era **«un dato»**. No lo es: es otra heurística,
+con **tres capas de desempate** encima (frecuencia para descartar el logo del sitio,
+proporción para descartar el avatar del autor, área para el resto). Cada capa se agregó
+arreglando una portada equivocada de verdad — la corona del sitio, la foto de Alex Hormozi
+(ver «La portada del curso no es la imagen más GRANDE de la tarjeta», más arriba: ese
+diagnóstico era correcto **dentro** de la fuente equivocada).
+
+> **La regla, y sirve para cualquier extracción: si hay que desempatar, todavía estás
+> adivinando.** Un dato es una columna con la URL adentro. Todo andamiaje de scoring sobre
+> el DOM de una página es la señal de que la fuente está mal elegida — y como cada capa
+> arregla un caso real, el andamiaje se siente cada vez más sólido mientras se aleja más
+> del dato.
+
+**Vive en:** `scripts/curso-portada.mjs` (ahora pregunta a la API y cae al catálogo solo si
+ahí no hay nada)
+
+## ⚠️ Quién decide si una tapa trae marca de agua es el BUCKET, no el curso
+
+Al traer las tapas buenas entró un problema nuevo: **el escudo dorado «CURSOS ELITE»**
+estampado en el pixel, que se ve en la grilla y viaja al link que se reparte a clientes.
+
+La correlación es perfecta, 22 de 22 sin una excepción:
+
+| Bucket del `cover_image` | Filas | Marca de agua |
+|---|---|---|
+| `storage/…/public/media/courses/` | 81 | **sí**, escudo + león en mosaico |
+| `storage/…/public/library/courses/` | 49 | no |
+
+Y `library/courses` tiene **141 objetos** cuando solo 49 están referenciados: los ~92
+sobrantes son **las gemelas limpias**, más grandes y sin estampar. Nadie las apunta desde
+`courses`.
+
+**Cómo se cruzan, que es la parte reutilizable.** No hay nombre: los objetos de `library`
+se llaman `0.6215427889678296.png`. Se cruza por la IMAGEN, con una firma de **12x12 en
+gris** sacada de la mitad derecha-inferior — o sea **tirando la esquina donde vive el
+escudo**. ⚠️ Comparar la imagen entera es lo natural y es exactamente lo que no funciona:
+el propio escudo separa a la marcada de su gemela, que es al revés de lo que se busca. Con
+la esquina afuera, la gemela verdadera queda en `d≈11-25` con el segundo candidato bien
+lejos; donde no hay gemela, el primero y el segundo empatan (`d=53,1` vs `53,1`) y eso
+mismo es la señal de que no hay que tocar nada.
+
+Dos métodos independientes (la firma, y un agente mirándolas de a una) dieron **los mismos
+7**. Igual se miraron una por una antes de aplicar: una portada equivocada es peor que una
+con marca de agua, y en este repo ya pasó dos veces.
+
+**Y el número honesto:** el escudo no lo introdujo la migración. De las 24 tapas
+anteriores, **5 ya lo tenían**. La corrida lo llevó de 5 a 15 y las gemelas lo bajaron a 8.
+Contar el «antes» antes de escribir el «después» es lo que evita reportar como regresión
+algo que ya estaba.
+
+**Vive en:** `scratchpad/gemelos-limpios.mjs` · `public/cono-portadas/`
+
+## ⚠️ `existsSync(<codigo>.webp)` no es un cruce: es una coincidencia de nombre
+
+**Síntoma.** En «Creativos UGC Realistas», la clase «Biblioteca de prompts» mostraba una
+placa que dice, con letras grandes, **«Introducción a las herramientas»**. «Quitar marca de
+agua» mostraba «La recomendación actual». «Agentes» mostraba «ApiMart». El título está
+escrito DENTRO de la imagen, así que no es un parecido: es otra clase.
+
+**Causa.** `curso-a-portal.mjs:345` engancha la portada con
+`existsSync(public/cono-ugc/${c.codigo}.webp)`. Los `.webp` se generaron con la numeración
+del ORIGEN (3er nivel `1.4.x` / `1.5.x`) y el curso usa `1.3.x` / `1.4.x`. El `existsSync`
+da **verdadero** y el desfase entra sin un solo ruido: 3 clases con la portada de otra y 5
+sin portada teniendo la suya en `public/` bajo el nombre corrido.
+
+Es «un nombre derivado de datos es una CLAVE» (AGENTS.md) en su forma más barata: acá el
+nombre de archivo no se compara con nada, **se pregunta si existe**. Una comprobación de
+existencia se lee como una validación y no valida nada.
+
+**Arreglado en la causa**, no en el síntoma: los 7 archivos se renombraron al código del
+CURSO, así que la próxima regeneración los vuelve a enganchar bien. `portadaClase` pasó de
+26 a 30 declaraciones, con 0 mal asignadas.
+
+**El desfase era SOLO del módulo 1** — se verificó módulo por módulo antes de renombrar
+nada, cruzando qué clases no tienen archivo contra qué archivos no tiene ninguna clase. Los
+otros módulos tienen huecos, pero huecos limpios: ningún archivo huérfano al lado.
+
+**Vive en:** `scripts/curso-a-portal.mjs:345` · `public/cono-ugc/`
+
+## ⚠️ Una URL que se CONSTRUYE nunca se comprueba
+
+`CursoReplica.tsx` arma la tapa de cada módulo como `` `/cono-ugc/m${n}.webp` ``. El módulo
+«Creativos Animados» sale con `n=6` —sus clases no tienen `codigo`, así que el número cae
+al índice del array— y **m6.webp nunca existió**: un 404 en CADA carga del índice del
+curso, dibujando el ícono de imagen rota del navegador.
+
+El generador ya tenía la regla escrita para la portada del curso: *«se declara SOLO si el
+archivo existe: un `portada` apuntando a un 404 pinta una tarjeta con la imagen rota, que
+es peor que una tarjeta sin imagen»*. Lo que faltaba era la mitad del navegador, que es
+donde se puede saber si la URL contestó.
+
+## ⚠️ Ninguna imagen tenía `onError`: «no está» y «está» se veían iguales
+
+Ni una de las 6 superficies. Un 404 no dejaba log, ni pantalla distinta, ni nada que un
+chequeo pudiera mirar — dejaba el ícono roto y listo. Nueva primitive
+`app/conocimientos/Miniatura.tsx`: si la imagen falla se saca del DOM, y `onFalta` avisa a
+quien la dibuja para que saque también el marco (`.al-portada` tiene borde, sombra y fondo
+propios: vacío pinta una caja de nada).
+
+## ⚠️ Y la trampa de MEDIRLO: 18 «rotas» que no estaban rotas
+
+Primera medición en el navegador: **26 portadas, 18 con `naturalWidth: 0`**. Cero de ellas
+estaba rota. Las 26 son `loading="lazy"` y las de abajo del pliegue **todavía no habían
+pedido su imagen**.
+
+> **La regla: antes de medir imágenes en una página, scrolleala entera y esperá los
+> `load`.** Un `naturalWidth` de 0 dice «no cargada», no «rota», y las dos cosas se ven
+> idénticas desde el script. Es la gemela de «verificalo SCROLLEANDO» que ya está escrita
+> para los `sticky`: con `scrollY = 0` media pantalla miente.
+
+## Lo que NO existía: la miniatura del link compartido
+
+Un link de un curso pegado en WhatsApp se previsualizaba con el título «Material
+compartido» —el mismo para los 32— y sin imagen. **No era un defecto de esa página: no
+había un solo `openGraph` en todo `app/`**, ni en la landing pública. Nunca existió.
+
+Dos cosas que no son obvias:
+
+- **Sin `metadataBase` una imagen declarada como ruta relativa NO SE MANDA.** Next la
+  necesita para volverla absoluta; sin ella la deja afuera del `<head>` con un warning de
+  build que nadie mira. Sale de `APP_BASE_URL`, nunca de un literal.
+- **El peso importa.** WhatsApp descarta previews grandes. La captura cruda a @2x pesaba
+  620 KB; la tarjeta final son 35 KB.
+
+**Y la regla de privacidad, que es lo que decide el alcance:** la tarjeta la arma el
+scraper de la plataforma **sin que nadie haga click**, y `robots: noindex` no lo frena
+porque no es un buscador. Así que lo que se declare ahí lo lee cualquiera que vea el
+mensaje. Solo `curso` se nombra; `tarea-cs` NO (el share apunta a un lead: el título
+llevaría el nombre de una persona a cada chat donde se reenvíe) y `branding` tampoco (es la
+galería privada de un workspace). **La lista es BLANCA**: un `recurso` nuevo no se nombra
+hasta que alguien lo decida.
+
+⚠️ Y el título genérico **no era un descuido**: está puesto a propósito y documentado dos
+veces («sin nombre de la casa: es lo primero que ve —y lo que copia al reenviar— quien
+recibe el link»). Lo que se agrega es el nombre del CURSO, que no es el nombre de la casa.
+Antes de «arreglar» algo que parece olvidado, buscá si hay un comentario defendiéndolo.
+
+**Vive en:** `app/layout.tsx` · `app/compartido/[token]/page.tsx` · `public/og-mako.jpg`
+
+## Lo que quedó CERRADO
+
+- **Las lecciones de cursoselite traen un campo `thumbnail` y está NULL siempre.** Medido
+  sobre **530 lecciones de 5 cursos** (BlueHacker 401, Fukuda 75, Stories Master 22, Claude
+  Academy 18, HeyGen 14): cero pobladas. No hay miniatura por clase para traer de ahí; la
+  única imagen que la plataforma tiene por curso es `cover_image`.
+- **Los 6 cursos sin portada son los 6 de la categoría propia de MaKo**, y esos **no son
+  compartibles** (`CURSOS_COMPARTIBLES` los filtra). O sea que los 26 que sí se comparten
+  tienen todos su tapa.
+
+## Lo que quedó SIN hacer
+
+- **8 tapas siguen con el escudo «CURSOS ELITE»** y no tienen gemela limpia en `library`
+  (se revisó el mejor candidato de cada una: en las 8 el arte es de otro curso). Son
+  claude-academy-2026, claude-ai-rodrigo-rojo, cursos-heygen, hackeando-la-edicion,
+  jaque-blue, master-marca-personal-5-0, social-funnel y stories-master. **De esas, 4 ya lo
+  tenían antes.** Las opciones son recortar la cuña superior izquierda (se pierde arte) o
+  pedir la tapa original. **Vive en:** `public/cono-portadas/`
+- **`creativos-ugc-realistas` usa el logo de AVATARHYPE en 225x225** como tapa de un
+  formato 16:9. Es la identidad correcta del curso y no hay una versión más grande en
+  ningún lado del repo. NO se reemplaza por una placa de clase: las 84 de `public/cono-ugc`
+  son títulos («Bienvenida · MÓDULO 1 · ONBOARDING»), o sea que servirían de portada
+  diciendo el nombre de otra cosa.
+- **`public/cono-portadas/avatarhype.jpg`** quedó huérfana (es la tapa del curso que
+  `REEMPLAZADOS` redirige). 6 KB, no molesta.
+- **7 clases de `creativos-ugc-realistas` siguen sin `portadaClase`** (1.4.3, 1.4.4, 2.1,
+  4.6, 5.2 y las dos sin código). Para 1.4.4 «Agentes» no existe la placa en ningún lado:
+  la que tenía era la de ApiMart.
+- **Los 6 cursos propios de MaKo no tienen tapa en la grilla.** No afecta al compartido
+  (no son compartibles), pero la tarjeta sale sin imagen. Habría que diseñarlas.

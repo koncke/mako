@@ -562,6 +562,46 @@ título los encuentra.
 cruce por una clave — un id, un uuid, un hash. **El id es una clave; el título es un
 parecido**, y un parecido inventa faltantes en las dos direcciones.
 
+## Y `existsSync(<nombre>)` no es un cruce: es una coincidencia de nombre
+
+Preguntar si existe un archivo llamado como el dato **se lee igual que una validación y no
+valida nada**. La portada de cada clase se enganchaba con
+`existsSync(public/cono-ugc/${c.codigo}.webp)`; los `.webp` se habían generado con la
+numeración del ORIGEN y el curso usa otra, así que el `existsSync` daba **verdadero** para
+el archivo equivocado. Resultado: tres clases mostrando la portada de otra —con el título
+de la otra escrito DENTRO de la imagen, o sea imposible de leer como un parecido— y cinco
+sin portada teniendo la suya al lado bajo el nombre corrido.
+
+Si el nombre de archivo es la única unión entre dos universos, **es una clave y hay que
+tratarla como tal**: se normaliza, se cruza en las dos direcciones (qué dato no tiene
+archivo Y qué archivo no tiene dato) y se arregla renombrando el archivo, no parcheando el
+lookup. Un huérfano de un lado y un faltante del otro casi siempre son la misma cosa
+corrida un lugar.
+
+# Si hay que desempatar, todavía estás adivinando
+
+Cuando una extracción necesita **scoring** para elegir entre candidatos —frecuencia,
+tamaño, proporción, «el más grande», «el que aparece una sola vez»— eso no es un dato: es
+una heurística, y la señal de que la fuente está mal elegida.
+
+El caso, del 24/8/2026. El bajador de portadas raspaba el `<img>` de la tarjeta del
+catálogo, con tres capas de desempate encima: frecuencia para no traer el logo del sitio,
+proporción para no traer el avatar del autor, área para el resto. **Cada capa se había
+agregado arreglando una portada equivocada de verdad**, así que el andamiaje se sentía cada
+vez más sólido — mientras se alejaba más del dato. La tapa real vivía en la columna
+`cover_image` de la tabla `courses`, poblada en las 130 filas, en storage público: una
+request, sin navegador. Lo que se venía publicando era la **miniatura de la grilla, de
+456x256**, contra los 1536x1024 que la API entregaba al lado: 13,5 veces menos píxeles, en
+18 de 21 cursos.
+
+⚠️ **Y el comentario que defendía el camino equivocado era CORRECTO.** Decía, con razón,
+que «la imagen más grande de la landing» sería una heurística que agarra cualquier cosa, y
+concluía que el `<img>` de la tarjeta era «un dato». Descartar bien una heurística no
+convierte a la que queda en un dato. Un dato es una columna con el valor adentro; si estás
+ordenando candidatos, seguís adivinando mejor.
+
+**Antes de escribir el segundo desempate, andá a buscar la tabla.**
+
 # «No pasó nada» y «pasó y se murió» se ven iguales si mirás el resultado
 
 Cuando una acción no deja el efecto esperado, mirar solo el efecto no distingue entre *no
