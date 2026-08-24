@@ -12,6 +12,15 @@ Lo que más muerde acá:
 - El botón «Probar» del Pixel nacía **deshabilitado para todo cliente nuevo** —y sin salida en
   pantalla— porque un `localStorage` vacío de ese navegador pisaba la landing ya elegida
   → [«Probar» nacía deshabilitado](#-probar-nacía-deshabilitado-para-todo-cliente-nuevo-un-localstorage-de-este-navegador-pisaba-la-landing-elegida).
+- Un cliente **se agendó en vivo y el lead se descartó en silencio**: 200 OK, cero filas, cero
+  logs, y la pantalla le dijo «no aplica»
+  → [El opt-in se descartaba en silencio](#-el-opt-in-se-descartaba-en-silencio-200-ok-cero-filas-cero-logs).
+- Un contador llamado `soloVsl` que en realidad contaba **«todo lo que no es pageview»** hacía
+  que un clic pasara por un video: chequeo de retención en ámbar sobre una página sin video
+  → [El chequeo de retención acusaba a una landing SIN video](#-el-chequeo-de-retención-acusaba-a-una-landing-sin-video-porque-solovsl-contaba-clics).
+- El snippet **le borraba todas las «s»** al texto de los botones desde la v6, y se leía como
+  un texto cortado del cliente
+  → [El snippet le borraba todas las «s»](#-el-snippet-le-borraba-todas-las-s-al-texto-de-los-botones-y-se-veía-como-un-texto-cortado).
 - La retención del VSL por lead sigue sin funcionar después de meses, y es un pedido
   explícito y repetido del dueño → [Retención del VSL](#retención-del-vsl).
 - Un `throw` nuevo tres niveles abajo se convirtió en un «sin datos de comportamiento»
@@ -956,6 +965,178 @@ apretar play no quiere que le contesten con una estadística del día — eso se
 negación de lo que acaba de hacer.
 
 **Vive en:** `lib/landing-token.ts` (el array `chequeos`, `enPrueba`)
+
+### ⚠️⚠️ El opt-in se descartaba en SILENCIO: 200 OK, cero filas, cero logs
+
+*2026-08-24*
+
+**Síntoma:** un cliente (ws13, Código Inmobiliario) se agendó en su propia landing
+**durante una prueba en vivo**, y el probador le contestó *«5. Deja sus datos — No aplica:
+este negocio no recibe leads por un formulario en la página»*. Ni evento, ni lead, ni
+propuesta, ni rastro.
+
+**Causa raíz, verificada en producción:** `app/api/track/optin/route.ts` tenía la puerta del
+funnel — si el workspace no declaró `landing` en `funnel_config.data.entradas`, el opt-in
+**se acepta y se tira**. La política es correcta y no cambió. Lo que estaba mal es que esa
+rama devolvía `ok({ ignorado })` y se iba: **sin insert, sin `console.warn`, sin contador**.
+Verificado: el `funnel_config` del ws13 tiene solo `pipeline` y `suppressed` — la clave
+`entradas` no existe, y `leads` y `propuestas` de ese workspace están vacías desde siempre.
+
+**Y el «No aplica» afirmaba un hecho que no sabemos.** `declarado` dice *«nadie marcó la
+casilla»*, no *«este negocio no capta por la página»*. Son dos cosas distintas y el texto
+elegía la que no era. Sobre el evento más importante del embudo de ese cliente.
+
+**Regla 1 — descartar en silencio es perder sin que nadie se entere.** Una política de
+ingesta puede rechazar; lo que no puede es no dejar huella. «No llegó» y «lo tiramos
+nosotros» son diagnósticos opuestos y se veían idénticos: desde la base, desde los logs y
+repitiendo la prueba. Ahora el bloqueo escribe un `optin_bloqueado` en `vsl_events` (sin
+nombre, mail ni teléfono: lo que se guarda es que PASÓ, no quién) y un `console.warn`.
+
+**Regla 2 — un `na` no puede afirmar un hecho del negocio si solo conoce su config.** El
+estado ahora se parte: si el analizador ve formulario o agenda —o si YA bloqueamos un
+opt-in, que es la señal más fuerte porque es un hecho medido— no es «no aplica», es una
+**puerta abierta sin conectar**, va en ámbar y lleva a `/funnel` con un link.
+
+**Regla 3 — medir la venta no es quedarse con la persona.** Desde la v15 una reserva manda
+dos cosas: el evento (que llega siempre) y el opt-in con quién reservó (que la puerta puede
+tirar). Con `hayAgendo ? 'ok'` el renglón daba verde mientras cada persona que agendaba se
+perdía. Un verde que cierra la pregunta sobre algo que se está perdiendo es peor que un rojo.
+
+**Vive en:** `app/api/track/optin/route.ts` (la puerta y el rastro) ·
+`lib/landing-token.ts` (`hayOptinBloqueado`, `puedeCaptar`, `paso5`) ·
+`app/integraciones/ProbarTracking.tsx` (`legible`, el renglón rojo del feed)
+
+### ⚠️ El chequeo de retención acusaba a una landing SIN video, porque `soloVsl` contaba clics
+
+*2026-08-24*
+
+**Síntoma:** en la misma prueba, el punto **3. Se mide el tiempo de retención** salió en
+**ámbar** diciendo *«Solo llega el inicio, no el avance»* — sobre una página que no tiene un
+solo video. Y el punto 2 le pedía reproducirlo.
+
+**Causa raíz:** `const soloVsl = eventos.filter((e) => e.tipo !== 'pageview').length`. El
+nombre decía la verdad el día que se escribió: entonces lo único que no era `pageview` era
+un evento del VSL. Desde la **v6** el snippet manda clics, y desde la **v14** también
+«se fue», «volvió» y «cerró». Con eso, **cualquiera que abra la página y haga un clic queda
+contado como si hubiera reproducido un video** — `tuvoVideoAlgunaVez` se vuelve `true` y el
+ternario cae directo a `'viejo'`.
+
+Medido: los 28 eventos de esa prueba fueron 3 pageviews + 9 clics + 8 «se fue» + 5 «volvió»
++ 3 «cerró». **Cero de video, en toda la historia del workspace.** El contador daba 25.
+
+**Regla — un contador que se llama «eventos de X» se filtra por los tipos de X, nunca por
+«todo menos Y».** La lista de lo que no es Y crece sola con cada evento nuevo, y crece en
+silencio: el que agrega el evento no tiene por qué saber que hay un contador definido por
+descarte a tres archivos de distancia.
+
+**Y los chequeos 2 y 3 no miraban las piezas EN ABSOLUTO.** `tieneBotones`,
+`tieneFormPropio` y `tieneAgenda` se leían del analizador; el video era el único que no. Y
+el helper para contestarlo —`tieneVideoMedible()` en `lib/landing-analisis.ts`— **existía
+desde hacía semanas sin un solo consumidor**. Ahora hay `tieneVideo`, con tres fuentes y en
+este orden: sin análisis → *no sé*, y no saber nunca apaga un chequeo · el analizador vio
+una pieza de video → sí · **llegó un evento de video de verdad → sí, y esto manda sobre lo
+anterior**. Lo último no es redundante: el analizador lee el HTML servido, que puede venir
+del cache del CDN (medido en esa landing: `X-Vercel-Cache: HIT` con `Age` de casi 4 h). Con
+esa tercera fuente, el día que el cliente suba su video los chequeos vuelven solos con el
+primer play, sin que nadie reanalice nada.
+
+**Vive en:** `lib/landing-token.ts` (`eventosDeVideo`, `tieneVideo`, chequeos `play` y
+`profundidad`)
+
+### ⚠️ La ventana de la prueba es la que el cliente MIRA, y era la que menos sabía
+
+*2026-08-24*
+
+`app/integraciones/escuchando/page.tsx` montaba `<ProbarTracking pruebaInicial={p} />` **sin
+`landingFija`**. Consecuencia en cadena: el efecto de análisis corta en
+`if (!landingFija) { setPiezas([]); return; }`, `traer()` arma la URL sin `&landing=` ni
+`&piezas=`, y el server responde con `piezas = null` → *«no sé nada de esta página,
+ofrecele todos los pasos»*.
+
+Y esa ventana **es la pantalla que la persona mira durante la prueba**: la tab queda atrás.
+O sea que la copia con MENOS contexto era la que hablaba. La tab de atrás, con todo el
+contexto, mostraba lo correcto y nadie la estaba viendo.
+
+**Regla — cuando una pantalla se reabre en otro lado, viaja el CONTEXTO, no solo el
+identificador.** Es la misma familia que
+[al ruteador no le llegaba el detalle](#un-botón-junto-al-código-pregunta-por-el-código-no-por-la-página):
+reusar el componente es correcto, pero reusarlo con la mitad de las props es una segunda
+pantalla que dice otra cosa. La landing ahora viaja en la URL (`?p=…&l=…`).
+
+**⚠️ Y AL PASARLA, CASI SE BORRA LA ÚNICA EVIDENCIA DEL AGENDADO.** `deEstaLanding` filtra
+los eventos por la landing elegida, y el recorrido de esa persona terminó en
+`/gracias?name=Codigo+Inmobiliario&email=…` — otra ruta. Activar el filtro lo habría sacado
+del feed, y esa fila de `landing_visits` era **lo único en toda la base** que probaba que
+llegó hasta el final. Con marcador de prueba el filtro por landing ahora no se aplica: el
+marcador ya aísla la prueba y es MÁS preciso (distingue tu visita de la de un desconocido
+que esté en la misma página), mientras que **una prueba recorre el SITIO, no una URL**.
+
+**Corolario del mismo día:** la instrucción de arriba del panel también era una lista fija
+—«reproduce el video, haz clic en tus botones y completa tu formulario»— y le pedía a ese
+cliente dos cosas que su página no tiene. No alcanza con apagar los pasos si el texto sigue
+mandando a hacer lo imposible. Ahora sale de los mismos chequeos, así que no hay una segunda
+lista que se quede vieja.
+
+**Vive en:** `app/integraciones/escuchando/page.tsx` · `app/integraciones/ProbarTracking.tsx`
+(`arrancar`, `QUE_HACER`) · `lib/landing-token.ts` (`deEstaLanding`)
+
+### ⚠️ El snippet le borraba todas las «s» al texto de los botones, y se veía como un texto cortado
+
+*2026-08-24*
+
+**Síntoma:** en el feed del probador, *«Hizo clic en: boton: ¿Qué pa a de pué de agendar
+una»*. Se lee como un texto truncado o mal tipeado por el cliente. No lo es.
+
+**Causa:** el snippet vive dentro de un **template literal**, y ahí `\s` **no es la clase
+«espacio»: es la letra `s`**. El fuente decía `.replace(/\s+/g, ' ')` y lo que se pegaba en
+la página del cliente era `.replace(/s+/g, ' ')`. Comprobado carácter por carácter:
+*«¿Qué pasa después de agendar una llamada?»* → *«¿Qué pa a de pué de agendar una llamada?»*,
+que es exactamente lo que se veía en pantalla. Vivo desde la **v6**.
+
+**Regla — dentro del template del snippet, toda clase de regex va con DOS barras.** Y el
+corolario que cuesta más: **el fuente y lo que se sirve no son el mismo texto**, así que
+leer el código no alcanza para revisar el snippet. Hay que **renderizarlo**.
+
+Eso ahora lo cuida `tests/landing-snippet-emitido.test.ts`, que reconstruye el snippet
+aplicando las reglas de escape del template y lo audita. Cubre tres cosas:
+1. ningún regex perdió su barra (`\s`, `\d`, `\w`…);
+2. **el snippet no se delata a sí mismo** — ver abajo;
+3. la agenda embebida sigue teniendo camino propio, y la versión sube con su renglón de
+   novedades.
+
+**⚠️ El snippet se delata a sí mismo, y lo volví a introducir mientras arreglaba esto.** Va
+pegado en la página del cliente, y el analizador busca marcas (`cal.com`, `pandavideo`,
+`<video`) para decidir qué chequeos pedirle a esa landing. Al documentar el soporte de
+agendas escribí el dominio en un comentario **del snippet**: con eso, toda landing con el
+Pixel puesto habría pasado a «tener» una agenda. Es el mismo bug por el que existe
+`sinRuido()`, repetido a los dos años. `sinRuido` cubre el HTML (borra los `<script>`) pero
+**no cubre el bundle**: `DEL_BUNDLE` corre sobre el JavaScript propio de la página sin
+filtrar nada. El test lo detecta ahora; el `pandavideo` del detector de Panda
+(`lib/landing-token.ts`, la línea de `/pandavideo/i.test(...)`) sigue siendo un falso
+positivo posible si un cliente copia el snippet dentro de su bundle — **queda pendiente**.
+
+### ⚠️ El analizador se comía la pieza que importaba por un tope de 3 scripts
+
+*2026-08-24*
+
+`bundlesDe()` bajaba como máximo **3** scripts propios. La landing del ws13 sirve **ocho**
+chunks, y el que monta su agenda es el **quinto**: con el corte en 3 no se bajaba nunca, así
+que el analizador informaba «no tiene agenda» sobre la página cuyo único CTA es agendar —
+y por eso el paso 5 caía en la rama «Deja sus datos» en vez de «Agenda una llamada».
+
+Medido A/B contra la landing real:
+
+| tope | piezas detectadas | paso 5 |
+|---|---|---|
+| 3 (antes) | `botones` | «Deja sus datos» → *No aplica* |
+| 8 (ahora) | `botones, embed-agenda` | **«Agenda una llamada»** |
+
+El costo que el tope creía cuidar no existe: los 8 chunks suman **621 KB**. Lo que de verdad
+acota esto es el corte de 3 MB por archivo y los 8 s de timeout, que ya estaban.
+
+**Regla — un tope que corta una lista ordenada por aparición decide por posición, no por
+relevancia.** Y cuando lo que se busca puede estar en cualquiera de los elementos, cortar
+por posición es tirar una moneda. Si hay que topear, hay que decir qué quedó afuera.
 
 ### Un botón junto al código pregunta por el código, no por la página
 

@@ -156,7 +156,11 @@ export function videosDeHtml(base: string, html: string): VideoEnPagina[] {
  * de una etiqueta se siguen leyendo únicamente del HTML.
  */
 const DEL_BUNDLE: Array<[PiezaLanding, RegExp]> = [
-  ['embed-agenda', /calendly\.com|typeform\.com|hubspot\.com\/meetings|savvycal\.com|cal\.com/i],
+  // `app.cal.com/embed` y `data-cal-link` van explícitos: son las marcas que deja
+  // @calcom/embed-react, que es como se embebe Cal.com de verdad en una app de
+  // React. `cal\.com` a secas las cubre, pero nombrarlas dice DÓNDE mirar cuando
+  // esto vuelva a fallar — y ya falló una vez, por el tope de scripts de arriba.
+  ['embed-agenda', /calendly\.com|typeform\.com|hubspot\.com\/meetings|savvycal\.com|cal\.com|data-cal-link|cal-inline/i],
   ['link-whatsapp', /wa\.me\/|api\.whatsapp\.com/i],
   ['video-panda', /pandavideo|player-vz-/i],
   ['video-youtube', /youtube\.com\/embed|youtu\.be\//i],
@@ -271,7 +275,14 @@ async function bundlesDe(url: string, html: string, fetchImpl: typeof fetch): Pr
     if (abs.origin !== base.origin) continue;
     if (!/\.[mc]?js(\?|$)/i.test(abs.pathname + abs.search)) continue;
     srcs.push(abs.toString());
-    if (srcs.length >= 3) break;
+    // ⚠️ ERAN 3, Y EL TOPE SE COMÍA JUSTO LA PIEZA QUE IMPORTABA. La landing del
+    // ws13 sirve OCHO chunks y el que monta su agenda de Cal.com es el quinto:
+    // con el corte en 3 no se bajaba nunca, así que el analizador informaba «no
+    // tiene agenda» sobre la página cuyo único CTA es agendar. El costo real de
+    // subirlo, medido en esa misma landing: los 8 chunks suman 621 KB — el tope
+    // estaba cuidando un gasto que no existe. Cada uno sigue cortado a 3 MB y con
+    // 8 s de timeout, que es lo que de verdad acota esto.
+    if (srcs.length >= 8) break;
   }
   if (!srcs.length) return '';
   const partes = await Promise.all(srcs.map(async (u) => {

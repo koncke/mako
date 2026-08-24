@@ -377,6 +377,60 @@ vacío y `B` gana.** Las dos reglas que quedan:
 2. **El fallback es más débil que el camino feliz, nunca más fuerte.** Si el camino
    normal exige aval y el degradado no, el degradado es la política real del sistema.
 
+# Una política puede RECHAZAR; no puede no dejar rastro
+
+Un endpoint que descarta algo y devuelve 200 sin escribir nada hace indistinguibles dos
+diagnósticos opuestos: **«no llegó» y «lo tiramos nosotros»**. Y el que investiga después
+—mirando la base, mirando los logs, repitiendo la prueba— va a llegar a la conclusión
+equivocada las tres veces, porque las tres muestran lo mismo: nada.
+
+El caso, del 24/08/2026: `/api/track/optin` tira el opt-in si el workspace no declaró la
+landing como entrada de leads en `/funnel`. La política es correcta —el mismo snippet se le
+da a todos, y a nadie se le llena el CRM de algo que no esperaba—, pero la rama devolvía
+`ok({ ignorado })` y se iba: sin insert, sin `console.warn`, sin contador. Un cliente se
+agendó en su propia landing **durante una prueba en vivo**, el lead se cayó por ahí, y la
+pantalla le contestó «no aplica».
+
+1. **Rechazar se registra.** Una fila, un contador, algo que se pueda consultar. Sin datos
+   personales: lo que se guarda es que PASÓ y por qué, no quién — el motivo del rechazo no
+   necesita saberlo, y una tabla de eventos no es lugar para el contacto de alguien que el
+   negocio decidió no ingestar.
+2. **Y el rechazo se muestra donde se lee la consecuencia.** El log es para depurar después.
+   El renglón que decía «no aplica» es el que tiene que decir «llegó, y NO entró».
+3. **Un `na` no puede afirmar un hecho del negocio si solo conoce su config.** «Nadie marcó
+   la casilla» y «este negocio no capta por ahí» son cosas distintas, y el texto elegía la
+   que no era. Si además sabés que la puerta existe —el analizador la vio, o ya bloqueaste
+   uno— no es «no aplica»: es **una puerta abierta sin conectar**, va en ámbar y lleva al
+   lugar donde se arregla.
+
+**Corolario: un verde que cierra la pregunta sobre algo que se está perdiendo es peor que un
+rojo.** Medir la reserva no es quedarse con la persona que reservó.
+
+# El fuente y lo que se sirve no son el mismo texto
+
+Todo lo que se genera dentro de un **template literal** —el snippet del Pixel es el caso
+grande— se lee bien en el editor y sale distinto por el otro lado. Leer el código no alcanza
+para revisarlo: **hay que renderizarlo**.
+
+Dos formas en que muerde, las dos medidas el 24/08/2026 en `lib/landing-token.ts`:
+
+1. **`\s` adentro de un template no es la clase «espacio»: es la letra `s`.** El fuente decía
+   `.replace(/\s+/g, ' ')` y en la página del cliente se pegaba `.replace(/s+/g, ' ')`, que
+   le borraba todas las eses al texto de los botones. «¿Qué pasa después de agendar una
+   llamada?» llegaba como «¿Qué pa a de pué de agendar una». Vivo desde la v6, a la vista en
+   el panel, leyéndose como un texto cortado del cliente. **Toda clase de regex va con DOS
+   barras.**
+2. **El código generado se DELATA ante quien lo lee después.** El snippet viaja pegado en la
+   página del cliente, y el analizador de piezas busca marcas ahí (`cal.com`, `pandavideo`,
+   `<video`) para decidir qué chequeos pedirle a esa landing. Una marca escrita en un
+   **comentario** del snippet convierte a toda página con el Pixel puesto en una página que
+   «tiene» algo que no tiene. Ya había pasado con `<video` y `<button` —por eso existe
+   `sinRuido()`— y volvió a pasar apenas se documentó el soporte de agendas.
+
+La guardia es `tests/landing-snippet-emitido.test.ts`: reconstruye el snippet aplicando las
+reglas de escape y lo audita contra los propios detectores. **Si escribís código generado,
+el test mira lo EMITIDO, no el fuente.**
+
 # «No puedo hacer X con este dato» no es «este dato es falso»
 
 Un control que descubre que no puede ACTUAR sobre algo tiene una sola salida honesta:
@@ -615,6 +669,19 @@ tratarla como tal**: se normaliza, se cruza en las dos direcciones (qué dato no
 archivo Y qué archivo no tiene dato) y se arregla renombrando el archivo, no parcheando el
 lookup. Un huérfano de un lado y un faltante del otro casi siempre son la misma cosa
 corrida un lugar.
+
+**Y un contador que se llama «eventos de X» se filtra por los TIPOS de X, nunca por «todo
+menos Y».** El 24/08/2026 el chequeo de retención acusaba a una landing que no tiene un solo
+video, con un ámbar que decía «solo llega el inicio, no el avance». La causa era
+`eventos.filter((e) => e.tipo !== 'pageview').length`, llamado `soloVsl`. El nombre decía la
+verdad el día que se escribió —entonces lo único que no era `pageview` era un evento del
+VSL—, pero después se sumaron los clics, y después «se fue», «volvió» y «cerró»: con eso,
+cualquiera que abra la página y haga un clic queda contado como si hubiera reproducido un
+video. Medido: 25 eventos contados, **cero de video en toda la historia de ese workspace**.
+
+La definición por descarte **crece sola con cada tipo nuevo, y crece en silencio**: el que
+agrega el evento no tiene por qué saber que hay un contador definido al revés a tres archivos
+de distancia, y nada falla — solo empieza a contestar otra cosa.
 
 # Si hay que desempatar, todavía estás adivinando
 

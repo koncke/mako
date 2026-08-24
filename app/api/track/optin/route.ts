@@ -32,7 +32,7 @@ import { LANDING_SERVICIO } from '@/lib/landing-token';
 import { wsPorIdentificador } from '@/lib/webhook-routing';
 import { createLead, duplicadosDeLead, getFunnel } from '@/lib/leads';
 import { textoDuplicado } from '@/lib/leads-duplicados';
-import { runWithWorkspace } from '@/lib/workspace';
+import { getTenantDb, runWithWorkspace } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -81,6 +81,40 @@ export async function POST(req: NextRequest) {
     .then((f) => f.entradas as string[])
     .catch(() => [] as string[]);
   if (!entradas.includes('landing')) {
+    // ⚠️⚠️ DESCARTAR EN SILENCIO ES PERDER UN LEAD SIN QUE NADIE SE ENTERE.
+    //
+    // Esta rama devolvía `ok:true` y se iba: ni una fila, ni un log, ni un
+    // contador. El 24/08/2026 un cliente se agendó en su propia landing durante
+    // una prueba EN VIVO, y la pantalla le contestó «no aplica» mientras el
+    // lead se caía por acá. No había forma de saberlo — ni mirando la base, ni
+    // mirando los logs, ni corriendo la prueba otra vez.
+    //
+    // La política no cambia: sin declarar la landing en /funnel, el contacto NO
+    // entra al CRM. Lo que cambia es que ahora deja HUELLA, y la huella es lo
+    // que convierte «esto no anda» en «te falta una casilla»:
+    //   · un evento, que el probador ya sabe leer y filtrar por marcador;
+    //   · un log, para poder contarlos sin abrir la base.
+    //
+    // ⚠️ SIN NOMBRE, MAIL NI TELÉFONO. Lo que se guarda es que PASÓ, no quién:
+    // una tabla de eventos no es lugar para datos de una persona que el negocio
+    // decidió no ingestar, y el motivo del bloqueo no necesita saber quién era.
+    try {
+      await runWithWorkspace(ws, async () => {
+        const db = await getTenantDb();
+        await db.from('vsl_events').insert({
+          visitor_id: txt(body.visitor_id) ?? 'desconocido',
+          event: 'optin_bloqueado',
+          tipo_evento: 'optin_bloqueado',
+          detalle: txt(body.origen_captura) === 'agenda' ? 'agenda' : 'formulario',
+          prueba: txt(body.prueba),
+          landing_url: txt(body.pagina),
+        });
+      });
+    } catch (e) {
+      // Nunca romper la página del cliente por no poder anotar el bloqueo.
+      console.error(`[track:optin] no se pudo anotar el bloqueo: ${e instanceof Error ? e.message : e}`);
+    }
+    console.warn(`[track:optin] ws ${ws}: opt-in BLOQUEADO — la landing no está declarada como entrada de leads en /funnel`);
     return ok({ ignorado: 'este negocio no tiene la landing declarada como entrada de leads' });
   }
 

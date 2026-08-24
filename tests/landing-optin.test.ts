@@ -55,8 +55,25 @@ test('solo ingesta si el negocio declaró la landing como entrada', () => {
   assert.ok(/entradas\.includes\('landing'\)/.test(src), 'falta la puerta: sin esto el mismo snippet le llena el CRM a cualquiera');
   // 200 y no 403: la página del cliente no puede mostrarle un error a SU visitante
   // por una config que le falta al dueño de la página.
+  // ⚠️ Se mira hasta el PRIMER return después de la puerta, no una ventana de N
+  // caracteres: con 400 fijos el test se rompía por agregar un comentario, que es
+  // la peor razón para que se rompa un test.
   const i = src.indexOf("entradas.includes('landing')");
-  assert.ok(/return ok\(/.test(src.slice(i, i + 400)), 'un negocio sin la landing declarada recibe 200, no un error');
+  const bloque = src.slice(i, src.indexOf('\n  }', i));
+  assert.ok(/return ok\(/.test(bloque), 'un negocio sin la landing declarada recibe 200, no un error');
+  assert.ok(!/status:\s*4\d\d/.test(bloque), 'la página del cliente no puede mostrarle un error a SU visitante por una config del dueño');
+
+  // ⚠️⚠️ Y NO SE DESCARTA EN SILENCIO. Esta rama devolvía 200 y se iba: ni fila,
+  // ni log, ni contador. El 24/08/2026 un cliente se agendó en su propia landing
+  // durante una prueba en vivo y el lead se cayó por acá sin dejar NADA — no
+  // había forma de saberlo mirando la base, ni los logs, ni repitiendo la prueba.
+  // La política no cambia (sin declarar, no entra al CRM); lo que no puede volver
+  // a pasar es que no quede huella.
+  assert.ok(/optin_bloqueado/.test(bloque), 'un opt-in que se descarta tiene que dejar un evento: si no, «no llegó» y «lo tiramos» se ven igual');
+  assert.ok(/console\.warn/.test(bloque), 'y un log, para poder contarlos sin abrir la base');
+  // Sin datos de la persona: una tabla de eventos no es lugar para el contacto de
+  // alguien que el negocio decidió no ingestar, y el motivo no necesita saber quién era.
+  assert.ok(!/body\.email|body\.nombre|body\.telefono/.test(bloque), 'el rastro del bloqueo no lleva nombre, mail ni teléfono');
 });
 
 test('es idempotente: dos submits del mismo formulario no son dos leads', () => {
@@ -505,8 +522,24 @@ test('el chequeo del formulario cuenta los que ESPERAN, no solo los que llegaron
   // texto para no volver a teñir de amarillo algo que funciona.
   // Y si el negocio no entra por formulario, es 'na': no es un problema por
   // resolver, es cómo vende. El ámbar queda para lo que SÍ hay que hacer.
-  assert.ok(/estado: !declarado \? 'na' : hayOptin \? 'ok' : 'falta'/.test(lib),
+  //
+  // ⚠️ CON UNA EXCEPCIÓN QUE COSTÓ UN LEAD REAL (24/08/2026). El 'na' venía con el
+  // texto «este negocio no recibe leads por un formulario en la página», y eso NO
+  // es lo que dice `declarado`: `declarado` dice que nadie marcó la casilla en
+  // /funnel. Un cliente se agendó de verdad en su landing y la pantalla le
+  // contestó «no aplica» sobre el evento más importante de su embudo. Si sabemos
+  // que la página SÍ tiene por dónde entrar un lead —o peor, si ya bloqueamos
+  // uno—, no es «no aplica»: es una puerta abierta sin conectar, y eso es una
+  // tarea con acción.
+  assert.ok(/estado: !declarado \? \(puedeCaptar \? 'falta' : 'na'\) : hayOptin \? 'ok' : 'falta'/.test(lib),
     'el chequeo mide si el formulario entra, no si quedó alguien por decidir');
+  assert.ok(/const hayOptinBloqueado = eventos\.some/.test(lib),
+    'un opt-in que ya bloqueamos es la prueba más fuerte de que esa página capta');
+  assert.ok(/const puedeCaptar = hayOptinBloqueado/.test(lib),
+    'el hecho medido tiene que pesar más que la lectura del HTML, que puede estar vieja');
+  // Y el 'falta' lleva a resolverlo: mandar a «Funnel → De dónde entran tus
+  // leads» en prosa, desde una ventana de 440 px, es mandarlo a buscarlo a mano.
+  assert.ok(/href: '\/funnel'/.test(lib), 'el chequeo tiene que llevar a la pantalla donde se arregla');
   assert.ok(lib.includes('Hay ${pendientes} pendiente'), 'los que coinciden se mencionan, no se esconden');
   // «Ver el pendiente», no «Revisar»: revisar sugiere que hay que aprobar cada
   // lead, y los leads entran solos. Lo único que espera es una decisión sobre un
@@ -782,7 +815,15 @@ test('la prueba abre una ventana de prueba de MaKo ENCIMA de la landing', () => 
   // La ventana de prueba reusa el MISMO componente: una segunda copia del panel es una
   // copia que se queda vieja.
   const pag = leer('../app/integraciones/escuchando/page.tsx');
-  assert.ok(/<ProbarTracking pruebaInicial=\{p\} \/>/.test(pag), 'la ventana de prueba tiene que reusar el panel, no copiarlo');
+  assert.ok(/<ProbarTracking pruebaInicial=\{p\}/.test(pag), 'la ventana de prueba tiene que reusar el panel, no copiarlo');
+  // ⚠️ Y CON LA LANDING. Montándola solo con el marcador, `ProbarTracking` no
+  // analiza la página y el server arma los chequeos sin saber qué piezas tiene:
+  // a una landing sin video le pedía «reproduce tu video» y le informaba un
+  // problema de retención (24/08/2026, ws13). Y esta ventana es la que el cliente
+  // MIRA durante la prueba — la tab queda atrás —, o sea que la pantalla con
+  // menos contexto era la que hablaba.
+  assert.ok(/landingFija=\{l/.test(pag), 'sin la landing, la ventana arma los chequeos a ciegas');
+  assert.ok(/escuchando\?p=\$\{id\}&l=\$\{encodeURIComponent/.test(panel), 'la tab tiene que pasarle la landing a la ventana');
   assert.ok(/requireRolWs\(\[\], \{ nav: 'integraciones' \}\)/.test(pag), 'una ventana sin chrome sigue siendo la misma pantalla: el permiso no se relaja');
   assert.ok(/if \(!p\) redirect/.test(pag), 'sin marcador no hay nada que escuchar');
 });
@@ -1117,8 +1158,18 @@ test('cada evento dice en CUÁL página pasó, no solo la visita', () => {
   // ⚠️ Y LOS VIEJOS PASAN. `deEstaLanding` devuelve true con NULL a propósito: no
   // se puede atribuir lo que no se sabe, y descartarlos pintaría en rojo el
   // chequeo de alguien que tiene el Pixel andando y solo lo tiene viejo.
-  assert.ok(/const deEstaLanding = \(u: string \| null \| undefined\) =>\s*!urlLanding \|\| !u \|\|/.test(lib),
+  assert.ok(/const deEstaLanding = \(u: string \| null \| undefined\) =>[\s\S]{0,40}!urlLanding \|\| !u \|\|/.test(lib),
     'un evento sin página no se puede descartar: castiga a quien no hizo nada mal');
+
+  // ⚠️ Y DURANTE UNA PRUEBA NO SE FILTRA POR PÁGINA. El marcador ya aísla la
+  // prueba, y es MÁS preciso que la URL: distingue tu visita de la de un
+  // desconocido que esté en la misma página en ese momento. Filtrar además por
+  // landing solo quita, porque una prueba recorre el SITIO, no una sola URL.
+  // El 24/08/2026 un cliente se agendó y terminó en `/gracias?name=…&email=…`:
+  // ese pageview es de otra ruta, así que el filtro lo habría sacado del feed —
+  // y era lo único en toda la base que probaba que llegó hasta el final.
+  assert.ok(/const deEstaLanding = \(u: string \| null \| undefined\) =>\s*!!prueba \|\|/.test(lib),
+    'con marcador de prueba no se filtra por página: la prueba recorre el sitio, no una URL');
 
   // La versión sube, o el aviso de «Pixel desactualizado» no le llega a nadie.
   // La versión sube en CADA cambio del snippet, o el aviso de «Pixel

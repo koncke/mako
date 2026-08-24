@@ -82,12 +82,15 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *       un video de 23 minutos el primer hito de 5% cae a los 71 segundos: hasta
  *       entonces no llegaba un solo avance, y quien miraba 40 segundos y se iba
  *       se registraba como si no hubiera visto nada (15/08/2026).
+ *  15 — AGENDÓ también con Cal.com, no solo con Calendly, y con el nombre y el
+ *       mail de quien reserva (24/08/2026). Y se arregla el texto de los clics:
+ *       el snippet servido borraba todas las eses («¿Qué pa a de pué…»).
  *  10 — se miden AGENDÓ (Calendly avisa al padre por postMessage) y el ciclo de
  *       vida del video: pausa, retoma y fin. Sin lo primero, el embudo de quien
  *       vende por llamada terminaba en «vio el video»; sin lo segundo, «vio 3
  *       minutos» no distinguía a quien miraba de quien lo dejó corriendo.
  */
-export const SNIPPET_VERSION = 14;
+export const SNIPPET_VERSION = 15;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
@@ -125,6 +128,7 @@ const NOVEDADES: Record<number, string> = {
   11: 'distinguir el video que ARRANCA SOLO del que alguien reproduce: con autoplay, hasta ahora contaba como si la persona hubiera querido verlo',
   12: 'saber en CUÁL de tus páginas pasó cada cosa: hasta ahora solo las visitas decían de dónde venían, así que con dos páginas los videos y los clics de las dos caían juntos',
   13: 'medir la pausa, el retomar y el final del video también en los reproductores de Panda: hasta ahora eso solo funcionaba con videos subidos directo a la página',
+  15: 'la reserva en tu agenda de Cal.com —hasta ahora solo se registraba la de Calendly, así que quien vende por llamada tenía el embudo cortado justo en la venta— y el nombre y el mail de quien reserva, que entran solos al CRM. Además, el texto de los botones en los que se hace clic ya no llega con las letras "s" borradas',
   14: 'saber cuando alguien se va de tu pagina a otra pestana y cuando vuelve, y cuando cierra: hasta ahora las tres cosas se veian igual',
   10: 'dos eventos que faltaban: cuando alguien AGENDA en tu Calendly embebido —que para vender por llamada es el evento más importante— y las pausas del video, que distinguen a quien lo mira de quien lo dejó corriendo',
   9: 'la medición de los primeros segundos de un video largo: hasta ahora, en un video de 20 minutos no se registraba ningún avance durante el primer minuto — y ahí es donde se pierde a la mayoría',
@@ -501,6 +505,16 @@ export type ChequeoDiag = {
   label: string;
   estado: 'ok' | 'falta' | 'viejo' | 'na';
   detalle: string;
+  /**
+   * Es un PASO DEL EMBUDO (llega → ve → clickea → deja sus datos), y por eso va
+   * numerado. «Pixel actualizado» y «Grabaciones» no lo son: acompañan.
+   *
+   * ⚠️ EL NÚMERO NO VIVE EN EL `label`. Estaba escrito a mano —«2. Reproduce tu
+   * video»— y eso hacía imposible esconder un paso que no aplica: sacando el 2 y
+   * el 3 quedaba «1, 4, 5» y la lista se leía rota. Se numeran los aplicables al
+   * pintarlos, así el que no aplica se puede sacar sin dejar un hueco.
+   */
+  paso?: boolean;
   /** Adónde ir a resolverlo. El href lo arma el server con el id real: un
    *  chequeo que dice «tenés 8 sin revisar» sin decir dónde no es accionable. */
   accion?: { texto: string; href: string };
@@ -593,8 +607,20 @@ export async function landingDiagnostico(
   // ⚠️ Los eventos de OTRAS páginas no cuentan. Con dos landings, «llegan las
   // visitas» daba verde por la que sí funciona mientras la elegida no mandaba
   // nada — que es exactamente el caso que este rediseño vino a cerrar.
+  //
+  // ⚠️⚠️ PERO DURANTE UNA PRUEBA NO SE FILTRA, y esto casi borra la única
+  // evidencia que quedó de un agendado real. El marcador YA aísla la prueba —es
+  // más preciso que la URL, porque distingue TU visita de la de un desconocido
+  // que esté en la misma página—, así que acá el filtro no agrega nada y sí
+  // quita: una prueba recorre el SITIO, no una sola URL. El 24/08/2026 el ws13
+  // se agendó y terminó en `/gracias?name=Codigo+Inmobiliario&email=…`; ese
+  // pageview es de otra ruta, así que filtrar por la landing elegida lo habría
+  // sacado del feed. Era lo único en toda la base que probaba que esa persona
+  // llegó hasta el final.
+  // (`!!prueba` y no `enPrueba`: esa constante se declara más abajo y acá sería
+  //  un uso antes de la declaración — `let`/`const` no se izan.)
   const deEstaLanding = (u: string | null | undefined) =>
-    !urlLanding || !u || normalizarUrl(u) === normalizarUrl(urlLanding);
+    !!prueba || !urlLanding || !u || normalizarUrl(u) === normalizarUrl(urlLanding);
 
   const eventos: EventoDiag[] = [
     ...((vsl.data ?? []) as Array<{ created_at: string; tipo_evento: string | null; porcentaje: number | null; segundos: number | null; vsl_titulo: string | null ; detalle: string | null; auto: boolean | null; landing_url: string | null; video_id: string | null; visitor_id: string | null }>)
@@ -669,13 +695,67 @@ export async function landingDiagnostico(
   // pedía «hace clic en tus botones» para siempre.
   const tieneBotones = !piezas || piezas.includes('botones') || piezas.includes('link-whatsapp');
   const tieneFormPropio = !piezas || piezas.includes('formulario');
-  const tieneAgenda = !!piezas?.includes('embed-agenda');
+  // ⚠️ La agenda también se deriva del EVENTO, no solo del analizador. El embed
+  // se inyecta por JavaScript en runtime (Cal.com se monta desde un chunk), así
+  // que el HTML servido puede no tener una sola mención de él. Si llegó un
+  // `agendo`, esa página tiene agenda: es un hecho medido, y un hecho medido
+  // gana contra una lectura de HTML que puede estar vieja o incompleta.
   const hayAgendo = eventos.some((e) => e.tipo === 'agendo');
+  const tieneAgenda = !!piezas?.includes('embed-agenda') || hayAgendo;
   // (Ya no se cuentan los eventos «con segundos»: la versión del código se
   // pregunta, no se infiere. Ver el chequeo 'version'.)
-  const soloVsl = eventos.filter((e) => e.tipo !== 'pageview').length;
-  const tuvoVideoAlgunaVez = hayPlay || soloVsl > 0;
+  //
+  // ⚠️ ESTO CONTABA CUALQUIER EVENTO QUE NO FUERA UN PAGEVIEW, y por eso el
+  // punto 3 salía en ÁMBAR —«solo llega el inicio, no el avance»— sobre landings
+  // que no tienen un solo video. Se llamaba `soloVsl` y el nombre decía la
+  // verdad el día que se escribió: entonces lo único que no era pageview era un
+  // evento del VSL. Desde la v6 el snippet manda clics, y desde la v14 también
+  // «se fue», «volvió» y «cerró»: con eso, cualquiera que abra la página y haga
+  // UN clic queda contado como si hubiera reproducido un video.
+  //
+  // Medido el 24/08/2026 sobre el ws13 (Código Inmobiliario, landing sin video):
+  // 28 eventos de su prueba —9 clics, 8 «se fue», 5 «volvió», 3 «cerró», 3
+  // pageviews— y CERO de video en toda la historia del workspace. El contador
+  // daba 25 y el chequeo le informaba un problema de retención de un video que
+  // no existe.
+  //
+  // La regla que queda: un contador que se llama «eventos de X» se filtra por
+  // los tipos de X, nunca por «todo menos Y». La lista de lo que no es Y crece
+  // sola con cada evento nuevo, y crece en silencio.
+  const ES_EVENTO_DE_VIDEO = /^(play|pausa|retoma|fin|exit|p\d+|s\d+)$/;
+  const eventosDeVideo = eventos.filter((e) => ES_EVENTO_DE_VIDEO.test(e.tipo)).length;
+  const tuvoVideoAlgunaVez = hayPlay || eventosDeVideo > 0;
   const hayProfundidad = eventos.some((e) => /^[ps]\d+$/.test(e.tipo));
+
+  // ⚠️ ¿ESTA PÁGINA TIENE VIDEO? La pregunta que los chequeos 2 y 3 nunca hacían.
+  //
+  // `tieneBotones`, `tieneFormPropio` y `tieneAgenda` ya se leían del analizador;
+  // el video era el único que no, así que a un negocio sin video se le pedían dos
+  // pasos que su página no puede cumplir nunca. Y el helper para contestarlo
+  // —`tieneVideoMedible()` en lib/landing-analisis.ts— existía desde hacía
+  // semanas sin un solo consumidor.
+  //
+  // Tres fuentes, y el orden importa:
+  //   · sin análisis (`!piezas`) → NO SÉ, y no saber nunca apaga un chequeo: se
+  //     ofrecen todos los pasos. Es la misma regla que el resto.
+  //   · el analizador vio una pieza de video → sí.
+  //   · llegó un evento de video de verdad → sí, y esto MANDA sobre lo anterior.
+  //
+  // Lo último no es redundante: el analizador lee el HTML servido, que puede
+  // venir del cache del CDN (medido en esta landing: `X-Vercel-Cache: HIT` con
+  // `Age` de casi 4 h) o no traer nada porque la página se monta por JavaScript.
+  // Con esta tercera fuente, el día que el cliente suba su video los chequeos
+  // vuelven SOLOS con el primer play, sin que nadie tenga que reanalizar nada.
+  const PIEZAS_DE_VIDEO = ['video-nativo', 'video-panda', 'video-youtube', 'video-vimeo'];
+  const tieneVideo = !piezas || piezas.some((p) => PIEZAS_DE_VIDEO.includes(p)) || tuvoVideoAlgunaVez;
+  // YouTube y Vimeo no emiten los eventos que escuchamos: hay video, y NO se
+  // puede medir. Callarlo deja esperando una retención que no va a llegar nunca.
+  const soloAjeno = !!piezas && !tuvoVideoAlgunaVez
+    && !piezas.includes('video-nativo') && !piezas.includes('video-panda');
+  const videoNoMedible: string | null = !soloAjeno ? null
+    : piezas!.includes('video-youtube') ? 'YouTube'
+    : piezas!.includes('video-vimeo') ? 'Vimeo'
+    : null;
 
   // ── ¿El formulario entra al CRM? ──────────────────────────────────────────
   // El chequeo que faltaba. El snippet captura el opt-in, pero eso pasa en el
@@ -749,30 +829,73 @@ export async function landingDiagnostico(
   // eso no es una tarea pendiente del sistema sino una decisión que solo puede
   // tomar una persona. Por eso el estado es 'ok' aunque haya pendientes: el
   // formulario ESTÁ entrando, que es lo que este renglón mide.
+  // ⚠️⚠️ Y EL 'na' DEJÓ DE AFIRMAR UN HECHO QUE NO SABEMOS.
+  //
+  // El texto decía «este negocio no recibe leads por un formulario en la
+  // página», y eso NO es lo que dice `declarado`: `declarado` dice que nadie
+  // marcó la casilla en /funnel, que es otra cosa. El 24/08/2026 el ws13 se
+  // agendó de verdad en su propia landing y la pantalla le contestó «no
+  // aplica» — sobre el evento más importante de su embudo.
+  //
+  // La distinción que faltaba: si el analizador VE que la página tiene por dónde
+  // entrar un lead (un formulario propio o una agenda embebida), entonces no es
+  // «no aplica»: es **una puerta abierta que no está conectada**, y eso es una
+  // tarea con acción. Sigue sin ser ámbar cuando de verdad no sabemos nada.
+  //
+  // ⚠️ Y la señal MÁS FUERTE no es el analizador: es que ya llegó un opt-in y lo
+  // bloqueamos nosotros. Eso no es una lectura de HTML que puede estar vieja —
+  // es una persona que completó algo en esa página. Si eso pasó, «no aplica» es
+  // directamente falso.
+  const hayOptinBloqueado = eventos.some((e) => e.tipo === 'optin_bloqueado');
+  const puedeCaptar = hayOptinBloqueado
+    || (!!piezas && (piezas.includes('formulario') || piezas.includes('embed-agenda')));
   const paso5: Omit<ChequeoDiag, 'id'> = tieneAgenda && !tieneFormPropio
     ? {
-        label: '5. Agenda una llamada',
-        estado: hayAgendo ? 'ok' : 'falta',
-        detalle: hayAgendo
+        label: 'Agenda una llamada',
+        paso: true,
+        // ⚠️ MEDIR LA RESERVA NO ES QUEDARSE CON EL CONTACTO, y en verde eso no se
+        // distinguía. Desde la v15 una reserva manda las dos cosas: el evento
+        // (que llega siempre) y el opt-in con quién reservó (que el gate del
+        // funnel puede tirar). Con `hayAgendo ? 'ok'` a secas, el renglón daba
+        // verde —«se registra cuando alguien reserva»— mientras cada persona que
+        // agendaba se perdía. Un verde que cierra la pregunta sobre algo que se
+        // está perdiendo es peor que un rojo.
+        estado: hayOptinBloqueado ? 'falta' : hayAgendo ? 'ok' : 'falta',
+        detalle: hayOptinBloqueado
+          ? 'Se registra la reserva, pero el contacto de quien reserva NO entra al CRM: falta marcar la landing como entrada de leads. Estás midiendo la venta y perdiendo a la persona.'
+          : hayAgendo
           ? 'Se registra cuando alguien reserva en tu calendario: es el final de tu embudo.'
           : enPrueba ? 'Aún no llega. Reserva un horario en tu propio calendario para probarlo.'
           : 'Aún no llega ninguna reserva. Se registra sola cuando alguien agenda.',
+        accion: hayOptinBloqueado ? { texto: 'Activar la landing como entrada de leads', href: '/funnel' } : undefined,
       }
     : {
-        label: '5. Deja sus datos',
-        // ⚠️ 'na', no ámbar. Que este negocio no reciba leads por formulario NO es
-        // un problema por resolver: es cómo vende. El ámbar queda para lo que SÍ
-        // hay que hacer; un aviso permanente entrena a ignorar la lista entera.
-        estado: !declarado ? 'na' : hayOptin ? 'ok' : 'falta',
+        label: 'Deja sus datos',
+        paso: true,
+        // ⚠️ 'na' SOLO cuando de verdad no aplica. Que este negocio no reciba
+        // leads por formulario NO es un problema por resolver: es cómo vende. El
+        // ámbar queda para lo que SÍ hay que hacer; un aviso permanente entrena
+        // a ignorar la lista entera. Pero si su página TIENE formulario o agenda,
+        // el problema existe y es de una sola casilla.
+        estado: !declarado ? (puedeCaptar ? 'falta' : 'na') : hayOptin ? 'ok' : 'falta',
         detalle: !declarado
-          ? 'No aplica: este negocio no recibe leads por un formulario en la página. Si quieres activarlo, márcalo en Funnel → De dónde entran tus leads.'
+          ? (hayOptinBloqueado
+            ? 'Alguien ya dejó sus datos en tu página y NO entró al CRM: falta marcar la landing como entrada de leads. Hasta que lo hagas, cada persona que lo complete se pierde.'
+            : puedeCaptar
+            ? `Tu página tiene ${piezas!.includes('formulario') ? 'un formulario' : 'una agenda'} y sus leads NO están entrando a MaKo: falta marcar la landing como entrada de leads. Hasta que lo hagas, cada persona que lo complete se pierde.`
+            : 'No aplica: no marcaste la landing como entrada de leads. Si tu página capta contactos, actívala en Funnel → De dónde entran tus leads.')
           : hayOptin
             ? `El formulario llega y la persona ingresa sola al CRM.${pendientes > 0 ? ` Hay ${pendientes} pendiente${pendientes === 1 ? '' : 's'}: ${pendientes === 1 ? 'coincide' : 'coinciden'} con un contacto que ya tienes, así que esa decisión es tuya.` : ''}`
             : enPrueba ? 'Aún no llega. Completa tu formulario en la pestaña que abrimos: ingresará solo al CRM.'
             : 'Aún no llega ninguno. Para probarlo, completa tu propio formulario: ingresa solo al CRM.',
         // El link solo si hay algo que decidir. Un botón permanente al lado de algo
         // que funciona lo convierte en una tarea que nunca se termina.
-        accion: pendientes > 0 ? { texto: pendientes === 1 ? 'Ver el pendiente' : `Ver los ${pendientes} pendientes`, href: '/crm/revisar' } : undefined,
+        // ⚠️ Y si la puerta está abierta sin conectar, el link ES la solución
+        // entera: el texto mandaba a «Funnel → De dónde entran tus leads» en
+        // prosa, o sea a buscarlo a mano desde una ventana de 440 px.
+        accion: pendientes > 0
+          ? { texto: pendientes === 1 ? 'Ver el pendiente' : `Ver los ${pendientes} pendientes`, href: '/crm/revisar' }
+          : !declarado && puedeCaptar ? { texto: 'Activar la landing como entrada de leads', href: '/funnel' } : undefined,
       };
 
   const chequeos: ChequeoDiag[] = [
@@ -781,33 +904,44 @@ export async function landingDiagnostico(
       detalle: instalada === 0 || !hayPageview ? 'Aún no llega ningún evento para saber qué versión del Pixel tienes instalada.'
         : codigoViejo ? `Tienes la versión ${instalada} y la actual es la ${SNIPPET_VERSION}. Copia el código de arriba y reemplázalo para sumar: ${novedadesDesde(instalada)}.`
         : 'Es la última versión.' },
-    { id: 'pageview', label: '1. Llega a tu página',
+    { id: 'pageview', label: 'Llega a tu página', paso: true,
       estado: hayPageview ? 'ok' : 'falta',
       detalle: hayPageview ? 'El Pixel está instalado y funciona.'
         : enPrueba ? 'Aún no llega la visita. Recarga la pestaña que abrimos.'
         : 'No llega ninguna visita desde hace 24 h. Revisa que el Pixel esté instalado y que la página esté publicada.' },
-    { id: 'play', label: '2. Reproduce tu video',
+    // ⚠️ LOS DOS PASOS DE VIDEO SE APAGAN CUANDO LA PÁGINA NO TIENE VIDEO, Y
+    // TAMBIÉN DURANTE LA PRUEBA. El `enPrueba` de acá los forzaba a 'falta'
+    // siempre: justo en la pantalla que el cliente MIRA, los dos pasos que su
+    // página no puede cumplir aparecían como pendientes. La prueba es cuando
+    // más importa no pedir lo imposible, no cuando menos.
+    { id: 'play', label: 'Reproduce tu video', paso: true,
       // Con SOLO plays automáticos el chequeo no está ni bien ni mal: el player
       // se detectó (que es la mitad técnica) pero nadie eligió ver el video, que
       // es lo que este punto pregunta. Va como 'falta' con el motivo escrito, no
       // como 'ok': un verde acá se lee «esto ya está» y cierra la pregunta.
-      estado: hayPlayManual ? 'ok' : enPrueba || tuvoVideoAlgunaVez ? 'falta' : 'na',
+      estado: hayPlayManual ? 'ok' : !tieneVideo ? 'na' : 'falta',
       detalle: hayPlayManual ? 'Detectamos tu reproductor de video.'
+        : !tieneVideo ? 'Tu página no tiene video, así que este paso no aplica.'
         : hayPlayAuto ? 'Tu video arranca solo, así que el reproductor ya se detectó. Dale play a mano para comprobar que también medimos cuando alguien decide verlo.'
         // ⚠️ EN UNA PRUEBA NO SE DICE «nadie en 24 h». La persona ACABA de apretar
         // play; contestarle con una estadística del día es contestarle otra cosa.
         : enPrueba ? 'Aún no llega. Reproduce tu video en la pestaña que abrimos.'
-        : 'Nadie reprodujo el video en las últimas 24 h. Si tu página no tiene video, ignora este punto.' },
-    { id: 'profundidad', label: '3. Se mide el tiempo de retención',
-      estado: hayProfundidad ? 'ok' : !tuvoVideoAlgunaVez && !enPrueba ? 'na' : soloVsl > 0 ? 'viejo' : 'falta',
+        : 'Nadie reprodujo el video en las últimas 24 h.' },
+    { id: 'profundidad', label: 'Se mide el tiempo de retención', paso: true,
+      // ⚠️ El ámbar sale de que lleguen eventos DE VIDEO sin avances. Antes salía
+      // de `soloVsl`, que contaba clics y cierres: por eso este renglón acusaba un
+      // problema de retención en una página sin un solo video.
+      estado: hayProfundidad ? 'ok' : !tieneVideo ? 'na' : videoNoMedible ? 'na' : eventosDeVideo > 0 ? 'viejo' : 'falta',
       detalle: hayProfundidad ? 'Llegan los avances: ya se puede calcular la retención de cada lead.'
-        : soloVsl > 0 ? 'Solo llega el inicio, no el avance. Con el Pixel actualizado aparece a los pocos segundos, aunque el video sea corto.'
+        : !tieneVideo ? 'Tu página no tiene video, así que este paso no aplica.'
+        : videoNoMedible ? `Tu video está en ${videoNoMedible}, y desde ahí no llegan los avances: la retención no se puede medir. Para medirla, súbelo a Panda o directo a tu página.`
+        : eventosDeVideo > 0 ? 'Solo llega el inicio, no el avance. Con el Pixel actualizado aparece a los pocos segundos, aunque el video sea corto.'
         : enPrueba ? 'Deja el video reproduciéndose unos segundos.'
         : 'Aún sin datos.' },
     // El click FALTABA, y para una landing cuyo CTA es un ancla (#registro) es el
     // único punto entre «vio» y «dejó sus datos». Sin él no se puede distinguir
     // una página que no convence de una que nadie mira.
-    { id: 'click', label: '4. Hace clic en tus botones',
+    { id: 'click', label: 'Hace clic en tus botones', paso: true,
       estado: hayClick ? 'ok' : !tieneBotones ? 'na' : 'falta',
       detalle: hayClick ? 'Se registran los clics: sabes qué botones y enlaces usa cada visitante.'
         // ⚠️ Se avisa del caso que NO podemos medir, en vez de dejarlo en rojo sin
@@ -1224,7 +1358,13 @@ export function landingSnippet(token: string, clarityProjectId: string | null = 
       var href = el.getAttribute ? (el.getAttribute('href') || '') : '';
       // El DESTINO manda sobre el texto: «Confirmar por WhatsApp» y «Escribinos»
       // pueden ser el mismo link, y lo que se quiere contar es adónde va la gente.
-      var texto = (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+      // ⚠️ \\s, CON DOS BARRAS. Esto vive adentro de un template literal, y ahí
+      // \\s NO es una barra seguida de ese, es la letra "s" sola: el snippet
+      // servido decía .replace(/s+/g, ' ') y le borraba TODAS las eses al texto
+      // de los botones. «¿Qué pasa después de agendar una llamada?» le llegaba
+      // al cliente como «¿Qué pa a de pué de agendar una». Estuvo a la vista en
+      // el panel desde la v6 y se leía como un texto cortado, no como un bug.
+      var texto = (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 80);
       var detalle = href ? (href.indexOf('#') === 0 ? 'ancla ' + href : href) : ('boton: ' + texto);
       if (!detalle) return;
       CLICKS++;
@@ -1240,16 +1380,74 @@ ${bloqueClarity(clarityProjectId)}
   // cuando alguien agenda, y eso sí lo podemos escuchar. Es la única forma de
   // cerrar el embudo de una landing cuyo llamado a la acción es una agenda
   // embebida, que hasta hoy terminaba en «vio el video» y nada más.
+  //
+  // ⚠️⚠️ Y NO SOLO CALENDLY. Esto entendía 'calendly.event_scheduled' y nada
+  // más — el primer guard era indexOf('calendly.') !== 0 —, así que el OTRO
+  // producto de agendas (el de Cal, que no es una variante de nombre sino otra
+  // empresa) moría en la primera línea: manda { originator: 'CAL', type:
+  // 'bookingSuccessful' }, sin campo 'event' y sin ese prefijo.
+  //
+  // Medido el 24/08/2026 en la landing del ws13: su sección «agenda» monta el
+  // embed oficial de ese producto y, al confirmar la reserva, redirige a su
+  // página de gracias con el nombre y el mail en la URL. La persona se agendó de
+  // verdad y MaKo no registró NADA — ni el evento ni el lead. Y no es que se
+  // rechazó: nunca se enteró. El formulario real vive adentro de un iframe de
+  // otro dominio, así que el capturador de opt-in de más abajo tampoco puede
+  // verlo: este handler es el ÚNICO camino que tiene una agenda embebida.
+  //
+  // De ahí se sacan además el nombre y el mail de quien reserva, que vienen en
+  // el payload: para quien vende por llamada, esa reserva ES el lead, y hasta
+  // hoy el CRM se quedaba sin él aunque el negocio tuviera todo bien conectado.
+  //
+  // ⚠️ Y ACÁ NO SE ESCRIBE EL DOMINIO DE ESE PRODUCTO, A PROPÓSITO. Este texto
+  // viaja pegado en la página del cliente, y el analizador de piezas busca
+  // justamente ese dominio para decidir si la landing tiene una agenda. Un
+  // comentario que nombra la marca que el detector persigue haría que TODA
+  // landing con el Pixel puesto pareciera tener una. Ya pasó exactamente eso
+  // con las etiquetas de video y de botón, que salían de los comentarios de
+  // este mismo snippet (ver \`sinRuido\` en lib/landing-analisis.ts).
   window.addEventListener('message', function (ev) {
     try {
       var d = ev.data;
-      var e = d && (typeof d === 'string' ? d : d.event);
-      if (typeof e !== 'string' || e.indexOf('calendly.') !== 0) return;
-      // Solo la reserva confirmada. Calendly emite varios eventos del ciclo
-      // (abrió, eligió fecha…) y contarlos todos convertiría «agendó» en «miró
-      // el calendario», que es justo la diferencia que importa.
-      if (e !== 'calendly.event_scheduled') return;
-      enviar({ tipo_evento: 'agendo', detalle: 'calendly' });
+      if (!d) return;
+
+      // ── Calendly ──────────────────────────────────────────────────────────
+      var e = typeof d === 'string' ? d : d.event;
+      if (typeof e === 'string' && e.indexOf('calendly.') === 0) {
+        // Solo la reserva confirmada. Calendly emite varios eventos del ciclo
+        // (abrió, eligió fecha…) y contarlos todos convertiría «agendó» en «miró
+        // el calendario», que es justo la diferencia que importa.
+        if (e !== 'calendly.event_scheduled') return;
+        enviar({ tipo_evento: 'agendo', detalle: 'calendly' });
+        // Calendly no manda los datos del invitado al padre: el evento se
+        // registra igual, y el lead entra por su webhook si está conectado.
+        return;
+      }
+
+      // ── El otro producto de agendas ───────────────────────────────────────
+      // Se acepta por \`originator\`, y el tipo se lee de \`type\` o de \`fullType\`
+      // ('CAL:bookingSuccessful'): el embed cambió esa forma entre versiones y
+      // atarse a una sola es volver a quedar ciego con la próxima.
+      if (d.originator !== 'CAL') return;
+      var t = String(d.type || d.fullType || '');
+      if (t.indexOf('bookingSuccessful') === -1) return;
+      // El detalle NO lleva el dominio, por lo mismo que el comentario de
+      // arriba: cualquier cadena que el analizador persiga y que viaje pegada en
+      // la pagina del cliente vuelve como una pieza que esa pagina no tiene.
+      enviar({ tipo_evento: 'agendo', detalle: 'agenda-cal' });
+      // El asistente viaja anidado y la forma varía según la versión del embed.
+      // Se busca en los dos lugares conocidos y se falla en silencio: el evento
+      // 'agendo' ya salió, así que peor caso es una reserva medida sin lead —
+      // nunca una reserva perdida.
+      var p = d.data || {};
+      var b = p.booking || p;
+      var a = (b.attendees && b.attendees[0]) || p.attendee || {};
+      mandarOptin({
+        nombre: a.name || b.name || null,
+        email: a.email || b.email || null,
+        telefono: (a.phoneNumber || a.phone || null),
+        origen: 'agenda'
+      });
     } catch (err) {}
   });
 
@@ -1317,6 +1515,29 @@ ${bloqueClarity(clarityProjectId)}
   // no esperaba: el código pegado en la página no decide nada.
   var OPTIN = '${APP_BASE_URL}/api/track/optin';
 
+  // El envío, UNA sola vez. Antes vivía inline adentro del listener de submit, y
+  // por eso la agenda embebida no tenía forma de usarlo: el único camino al CRM
+  // pasaba por un <form> del documento del cliente.
+  // keepalive para que sobreviva a la navegación: quien agenda se va a /gracias
+  // en el mismo instante.
+  function mandarOptin(d) {
+    try {
+      if (!d || (!d.email && !d.telefono)) return;
+      fetch(OPTIN, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: TOKEN, visitor_id: visitorId,
+          nombre: d.nombre || null, email: d.email || null,
+          telefono: d.telefono || null, empresa: d.empresa || null,
+          origen_captura: d.origen || 'formulario',
+          pagina: location.href, prueba: prueba
+        }),
+        keepalive: true
+      }).catch(function () {});
+    } catch (e) {}
+  }
+
   // Qué campo es cuál. Se mira el type, el name, el id, el autocomplete y el
   // placeholder: los constructores (Lovable, Framer, WordPress) nombran distinto
   // y el dueño de la página no tiene por qué renombrar nada para que ande.
@@ -1342,21 +1563,13 @@ ${bloqueClarity(clarityProjectId)}
       var email = campo(form, ['email', 'correo', 'mail'], ['email']);
       var telefono = campo(form, ['tel', 'phone', 'whats', 'celular', 'movil', 'móvil'], ['tel']);
       if (!email && !telefono) return; // no es un formulario de contacto
-      fetch(OPTIN, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: TOKEN,
-          visitor_id: visitorId,
-          nombre: campo(form, ['nombre', 'name', 'first', 'apellido']),
-          email: email,
-          telefono: telefono,
-          empresa: campo(form, ['empresa', 'company', 'negocio']),
-          pagina: location.href,
-          prueba: prueba
-        }),
-        keepalive: true
-      }).catch(function () {});
+      mandarOptin({
+        nombre: campo(form, ['nombre', 'name', 'first', 'apellido']),
+        email: email,
+        telefono: telefono,
+        empresa: campo(form, ['empresa', 'company', 'negocio']),
+        origen: 'formulario'
+      });
     } catch (e) { /* nunca romper el formulario del cliente */ }
   }, true);
 })();

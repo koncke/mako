@@ -27,7 +27,7 @@ const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
 type Evento = { ts: string; tipo: string; porcentaje: number | null; segundos: number | null; detalle: string | null; auto?: boolean };
-type Chequeo = { id: string; label: string; estado: 'ok' | 'falta' | 'viejo' | 'na'; detalle: string; accion?: { texto: string; href: string } };
+type Chequeo = { id: string; label: string; estado: 'ok' | 'falta' | 'viejo' | 'na'; detalle: string; paso?: boolean; accion?: { texto: string; href: string } };
 type Diag = {
   eventos: Evento[]; chequeos: Chequeo[]; veredicto: string; urls: string[]; codigoViejo: boolean; ultima: string | null;
   /** Los videos que el sistema VIO en los eventos, y los que el negocio nombró. */
@@ -72,6 +72,16 @@ function legible(e: Evento): { texto: string; color: string } {
   if (e.tipo === 'volvio') return { texto: e.segundos != null ? `Volvió a tu página (estuvo ${Math.round(e.segundos)}s afuera)` : 'Volvió a tu página', color: 'var(--primary)' };
   if (e.tipo === 'cierre') return { texto: e.segundos != null ? `Cerró la página (estuvo ${Math.round(e.segundos)}s)` : 'Cerró la página', color: 'var(--bad)' };
   if (e.tipo === 'optin') return { texto: e.detalle ? `Completó el formulario: ${e.detalle}` : 'Completó el formulario', color: 'var(--good)' };
+  // ⚠️ EL QUE NO EXISTÍA, Y ES EL QUE MÁS DUELE. Un opt-in que llega y se
+  // descarta porque el negocio no declaró la landing en /funnel no dejaba NADA:
+  // ni fila, ni log. Se veía igual que «no llegó», que es la conclusión
+  // exactamente opuesta a la verdadera. Va en rojo y nombra al culpable.
+  if (e.tipo === 'optin_bloqueado') return {
+    texto: e.detalle === 'agenda'
+      ? 'Agendó — pero NO entró al CRM: falta activar la landing en Funnel'
+      : 'Dejó sus datos — pero NO entraron al CRM: falta activar la landing en Funnel',
+    color: 'var(--bad)',
+  };
   // El click trae su destino en `detalle`, y eso es lo que hay que mostrar: «hizo
   // click» sin decir en qué no distingue el botón de WhatsApp del de arriba.
   if (e.tipo === 'click') return { texto: e.detalle ? `Hizo clic en: ${e.detalle}` : 'Hizo clic', color: 'var(--primary)' };
@@ -89,6 +99,21 @@ function legible(e: Evento): { texto: string; color: string } {
 // «todavía no» — que se lee como algo pendiente.
 const ICONO: Record<string, string> = { ok: '✓', falta: '○', viejo: '!', na: '–' };
 const COLOR: Record<string, string> = { ok: 'var(--good)', falta: 'var(--faint)', viejo: 'var(--warn)', na: 'var(--border-strong)' };
+
+/**
+ * Qué le pedimos a la persona por cada chequeo que todavía no está en verde.
+ *
+ * Es lo que convierte la lista de chequeos en una instrucción. `pageview` no está
+ * a propósito: la visita se registra sola al abrir la pestaña, así que pedirla
+ * sería pedir algo que ya pasó. `profundidad` tampoco: se cumple sola dejando el
+ * video corriendo, y nombrarla al lado de «reproduce el video» son dos frases
+ * para una sola acción. `optin` cambia de texto según cómo capte ese negocio, y
+ * por eso se resuelve aparte.
+ */
+const QUE_HACER: Record<string, string> = {
+  play: 'reproduce el video unos segundos',
+  click: 'haz clic en tus botones',
+};
 
 /** La landing elegida para probar. Se recuerda para no volver a tipearla. */
 const URL_KEY = 'mako.landing.url_prueba';
@@ -404,7 +429,9 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
     // Y como el foco se le devuelve al final, sigue quedando arriba.
     const alto = Math.min(760, Math.max(420, window.screen.availHeight - 120));
     const chico = window.open(
-      `/integraciones/escuchando?p=${id}`,
+      // La landing va con el marcador: sin ella la ventana arma los chequeos a
+      // ciegas. Ver el comentario en escuchando/page.tsx.
+      `/integraciones/escuchando?p=${id}&l=${encodeURIComponent(u)}`,
       'mako_prueba',
       `width=440,height=${alto},left=${Math.max(0, window.screen.availWidth - 470)},top=60,noopener=no`,
     );
@@ -648,10 +675,31 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
 
       {/* La instrucción cubre las DOS cosas que el código hace. Hasta el 14/08 solo
           hablaba del video, y para un negocio cuya landing es un formulario —el
-          caso que destapó esto— la prueba entera parecía no ser para él. */}
+          caso que destapó esto— la prueba entera parecía no ser para él.
+
+          ⚠️ Y AHORA PIDE SOLO LO QUE ESA PÁGINA TIENE. Era una lista fija —«reproduce
+          el video, haz clic en tus botones y completa tu formulario»— y al cliente
+          del 24/08 le pedía DOS cosas que su landing no tiene: no tiene video y no
+          tiene formulario, vende por una agenda embebida. Es la misma queja que
+          los chequeos 2 y 3, en el renglón de arriba: no alcanza con apagar los
+          pasos si la instrucción sigue mandando a hacer lo imposible.
+          Sale de los chequeos que el server ya calculó, así que no hay una segunda
+          lista que mantener al día — que es como esta se quedó vieja. */}
       <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55, marginBottom: 12 }}>
-        Abrimos tu página en otra pestaña. Prueba allí lo que uses: <b>reproduce el video</b> unos
-        segundos, <b>haz clic en tus botones</b> y <b>completa tu formulario</b>. Los eventos aparecen
+        Abrimos tu página en otra pestaña. {(() => {
+          const pedir = (diag?.chequeos ?? [])
+            .filter((c) => c.estado !== 'ok' && c.estado !== 'na')
+            .map((c) => QUE_HACER[c.id] ?? (c.id === 'optin' ? (/agenda/i.test(c.label) ? 'reserva un horario en tu calendario' : 'completa tu formulario') : null))
+            .filter((x): x is string => !!x);
+          // Sin diagnóstico todavía, o con todo en verde, va la lista completa: es
+          // mejor pedir de más que dejar la instrucción muda mientras carga.
+          const lista = pedir.length ? pedir : ['reproduce el video unos segundos', 'haz clic en tus botones', 'completa tu formulario'];
+          return (
+            <>Prueba allí {lista.length > 1 ? 'lo que uses' : 'esto'}: {lista.map((t, i) => (
+              <span key={t}>{i > 0 && (i === lista.length - 1 ? ' y ' : ', ')}<b>{t}</b></span>
+            ))}.</>
+          );
+        })()} Los eventos aparecen
         aquí en unos segundos, y <b>solo se muestran los de esta prueba</b>: no las visitas del día ni
         las de otras personas que estén en tu página ahora.
       </div>
@@ -659,13 +707,30 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
       {/* Los chequeos: qué anda y qué no, en criollo. El total lo dice el server
           (), no un número escrito acá: estuvo diciendo «de 4» cuando ya
           eran cinco. */}
-      {diag && (
+      {/* ⚠️ LOS QUE NO APLICAN SALEN DE LA LISTA. Estaban mezclados con los demás,
+          en gris y con su explicación entera, y eso convertía «esto no existe en
+          tu página» en un renglón del mismo peso que «esto está fallando». El
+          pedido fue textual: «su landing NO tiene video… que no aparezca el punto
+          2 y 3, de última en algún otro lugar el mensaje de "no hay video"».
+          Así que bajan a UN renglón al pie, que es donde va lo que no hay que
+          hacer: sigue estando —esconderlo del todo dejaría a alguien buscando por
+          qué su video no se mide— pero deja de ocupar el lugar de una tarea. */}
+      {diag && (() => {
+        const aplican = diag.chequeos.filter((c) => c.estado !== 'na');
+        const noAplican = diag.chequeos.filter((c) => c.estado === 'na');
+        // El número se pone acá y no en el label: sacando el 2 y el 3, un número
+        // escrito a mano dejaba la lista en «1, 4, 5». Se cuentan solo los pasos
+        // del embudo que de verdad se están pidiendo.
+        let n = 0;
+        return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 14 }}>
-          {diag.chequeos.map((c) => (
+          {aplican.map((c) => {
+            const num = c.paso ? ++n : null;
+            return (
             <div key={c.id} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
               <span aria-hidden style={{ flex: 'none', width: 18, height: 18, borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#fff', background: COLOR[c.estado] }}>{ICONO[c.estado]}</span>
               <span style={{ minWidth: 0 }}>
-                <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: c.estado === 'ok' ? 'var(--ink)' : 'var(--dim)' }}>{c.label}</span>
+                <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: c.estado === 'ok' ? 'var(--ink)' : 'var(--dim)' }}>{num ? `${num}. ` : ''}{c.label}</span>
                 <span style={{ display: 'block', fontSize: 12, color: 'var(--faint)', marginTop: 1, lineHeight: 1.45 }}>{c.detalle}</span>
                 {/* El href lo arma el SERVER con el id real de la propuesta. Un
                     chequeo que dice «tenés 8 sin revisar» y no lleva a ningún
@@ -675,9 +740,25 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
                 )}
               </span>
             </div>
-          ))}
+            );
+          })}
+
+          {noAplican.length > 0 && (
+            <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', marginTop: 3, paddingTop: 9, borderTop: '1px solid var(--border)' }}>
+              <span aria-hidden style={{ flex: 'none', width: 18, height: 18, borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: 'var(--faint)' }}>–</span>
+              <span style={{ minWidth: 0, fontSize: 12, color: 'var(--faint)', lineHeight: 1.45 }}>
+                No aplican a tu página: <b style={{ fontWeight: 650 }}>{noAplican.map((c) => c.label.toLowerCase()).join(' · ')}</b>.
+                {/* ⚠️ Los motivos van SIN REPETIR. Los dos pasos de video comparten
+                    razón —«tu página no tiene video»— y concatenados a secas la
+                    frase salía dos veces seguidas, palabra por palabra, que se lee
+                    como un error de la pantalla y no como una explicación. */}
+                {' '}{[...new Set(noAplican.map((c) => c.detalle))].join(' ')}
+              </span>
+            </div>
+          )}
         </div>
-      )}
+        );
+      })()}
 
       {/* Los eventos crudos, como el Test Events de Meta. */}
       <div style={{ border: '1px solid var(--border)', borderRadius: 11, background: 'var(--surface)', maxHeight: 260, overflowY: 'auto' }}>
