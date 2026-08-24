@@ -21,7 +21,7 @@ export const CURSO_INSTITUTO_DE_COMUNICACION: Curso = {
   titulo: 'Instituto de Comunicación - Adria Sola Pastor',
   subtitulo: '158 clases, 9 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '158 clases',
-  portada: '/cono-portadas/instituto-de-comunicacion.png',
+  portada: '/cono-portadas/instituto-de-comunicacion.webp',
   recursos: [
 
   ],

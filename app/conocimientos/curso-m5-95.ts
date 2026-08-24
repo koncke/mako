@@ -29,7 +29,7 @@ export const CURSO_M5_95: Curso = {
   titulo: 'M5 -95 - Juan ADS',
   subtitulo: '116 clases, 18 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '',
-  portada: '/cono-portadas/m5-95.png',
+  portada: '/cono-portadas/m5-95.webp',
   recursos: [
     {
       slug: 'recurso-06',

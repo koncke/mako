@@ -29,6 +29,7 @@ export const CURSO_CURSOS_HEYGEN: Curso = {
   titulo: 'Cursos HeyGen - Samuel Acosta',
   subtitulo: '14 clases, 3 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '1,5 h',
+  portada: '/cono-portadas/cursos-heygen.webp',
   recursos: [
     {
       slug: '01-como-crear-tu-primer-avatar-en-heygen-2-1-link',

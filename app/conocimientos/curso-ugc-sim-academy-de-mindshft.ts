@@ -21,7 +21,7 @@ export const CURSO_UGC_SIM_ACADEMY_DE_MINDSHFT: Curso = {
   titulo: 'UGC SIM Academy de Mindshft',
   subtitulo: '56 clases, 13 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '7,3 h',
-  portada: '/cono-portadas/ugc-sim-academy-de-mindshft.png',
+  portada: '/cono-portadas/ugc-sim-academy-de-mindshft.webp',
   recursos: [
     {
       slug: '00-leccion-1-plantillaclondemodelo',

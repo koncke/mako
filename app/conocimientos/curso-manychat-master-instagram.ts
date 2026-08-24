@@ -21,7 +21,7 @@ export const CURSO_MANYCHAT_MASTER_INSTAGRAM: Curso = {
   titulo: 'ManyChat Master - Instagram - Andy Landa',
   subtitulo: '25 clases, 6 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '3,5 h',
-  portada: '/cono-portadas/manychat-master-instagram.png',
+  portada: '/cono-portadas/manychat-master-instagram.webp',
   recursos: [
     {
       slug: '01-1-story-crack-de-manychat',

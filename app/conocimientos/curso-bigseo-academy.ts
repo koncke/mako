@@ -21,7 +21,7 @@ export const CURSO_BIGSEO_ACADEMY: Curso = {
   titulo: 'Bigseo Academy - Romuald Fons',
   subtitulo: '136 clases, 27 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '25,5 h',
-  portada: '/cono-portadas/bigseo-academy.png',
+  portada: '/cono-portadas/bigseo-academy.webp',
   recursos: [
     {
       slug: '00-01-arquitectura-web-pptx',

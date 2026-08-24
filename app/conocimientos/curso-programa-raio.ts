@@ -21,7 +21,7 @@ export const CURSO_PROGRAMA_RAIO: Curso = {
   titulo: 'PROGRAMA RAIO - Kale Anders',
   subtitulo: '201 clases, 13 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '54,4 h',
-  portada: '/cono-portadas/programa-raio.png',
+  portada: '/cono-portadas/programa-raio.webp',
   recursos: [
     {
       slug: '01-faq-frequently-asked-questions-portuguese',

@@ -5,13 +5,32 @@
 // la grilla de TODOS los cursos: una miniatura de Drive por tarjeta son N requests a
 // un dominio externo, y encima exige que cada archivo esté compartido.
 //
-// De dónde sale: de la tarjeta del catálogo, que es donde vive de forma determinista.
-// Buscar «la imagen más grande de la landing» sería una heurística que agarra
-// cualquier cosa; el <img> de la tarjeta cuyo <a> apunta a ESTE curso es un dato.
+// De dónde sale, EN ESTE ORDEN:
+//
+//   1. La columna `cover_image` de la tabla `courses` de la plataforma. Es la tapa de
+//      verdad —1200-1672 px de ancho—, la URL es de storage PÚBLICO y está poblada en
+//      las 130 filas. No hace falta ni navegador ni sesión: es una sola request.
+//   2. Y solo si eso no da nada, la tarjeta del catálogo, con el navegador.
+//
+// ⚠️ EL ORDEN ES EL ARREGLO, y estuvo al revés desde el primer día. El camino 2 era el
+// único, y lo que raspa de la tarjeta es la MINIATURA DE LA GRILLA: 456x256. Medido el
+// 24/08/2026 sobre los 21 cursos publicados que existen en la plataforma, DIECIOCHO
+// tenían esa miniatura de 456x256 como portada, contra los 1536x1024 que la API
+// entregaba gratis al lado — **13,5 veces menos píxeles**. En la tarjeta chica pasa
+// desapercibido; arriba del título, estirada a 1200 px de ancho, se ve el pixelado.
+//
+// Lo que más cuesta ver acá es que el camino equivocado estaba BIEN ARGUMENTADO. El
+// comentario que estaba en este lugar decía, con razón, que «la imagen más grande de la
+// landing» sería una heurística que agarra cualquier cosa — y concluía que el <img> de
+// la tarjeta era «un dato». No lo es: es otra heurística, con tres capas de desempate
+// encima (frecuencia, proporción, área) para no traer el logo del sitio ni el avatar del
+// autor. Todo ese andamiaje existe porque la fuente estaba mal elegida. Un dato es una
+// columna con la URL adentro; si hay que desempatar, todavía estás adivinando.
 //
 //   node <abs>\scripts\curso-portada.mjs --plan C:\cursos\<slug>\plan.json
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, unlinkSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 
 const arg = (n, d) => {
@@ -76,7 +95,41 @@ class Cdp {
   }
 }
 
-const main = async () => {
+// ── Camino 1: la columna `cover_image` de la plataforma ──────────────────────
+//
+// La anon key es la publishable de cursoselite: la misma que el navegador manda en el
+// header `apikey` en cada request de la página. Da lectura sobre `courses`, que es
+// justamente el catálogo público.
+const API = arg('api', 'https://wzdewdxwwkhtivichomf.supabase.co');
+const API_KEY = arg('apikey', 'sb_publishable_NNcx3usV32_QHC9hS3SAOA_diZD9aUR');
+
+const desdeLaApi = async () => {
+  const norm = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/gi, '').toLowerCase();
+  let filas;
+  try {
+    const r = await fetch(`${API}/rest/v1/courses?select=slug,title,cover_image&limit=1000`,
+      { headers: { apikey: API_KEY, authorization: `Bearer ${API_KEY}` } });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    filas = await r.json();
+  } catch (e) {
+    console.log(`  la API no contestó (${e.message}) — voy por el catálogo`);
+    return null;
+  }
+  // Por slug primero (exacto), y si no, por título: varios cursos se renombraron al
+  // publicarlos y el slug del portal ya no coincide con el de allá.
+  const hit = filas.find((c) => c.slug === slugPlataforma)
+    ?? filas.find((c) => c.slug === slugPortal)
+    ?? filas.find((c) => norm(c.title) === norm(nombreCurso))
+    ?? filas.find((c) => norm(c.title) === norm(String(nombreCurso).split(' - ')[0]));
+  if (!hit) { console.log(`  la API tiene ${filas.length} cursos y ninguno es éste — voy por el catálogo`); return null; }
+  if (!hit.cover_image) { console.log(`  «${String(hit.title).trim()}» existe pero sin cover_image — voy por el catálogo`); return null; }
+  console.log(`  ✓ cover_image de «${String(hit.title).trim()}»`);
+  return hit.cover_image;
+};
+
+// ── Camino 2: la tarjeta del catálogo, con el navegador ──────────────────────
+const desdeElCatalogo = async () => {
   let lista;
   try { lista = await fetch(`http://127.0.0.1:${PORT}/json/list`).then((r) => r.json()); }
   catch { console.error(`\n  ✖ No hay CDP en ${PORT}. Corré curso-perfil.ps1.\n`); process.exit(1); }
@@ -92,10 +145,6 @@ const main = async () => {
   await cdp.enviar('Runtime.enable');
   await cdp.enviar('Page.enable');
   const ev = async (expr) => (await cdp.enviar('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true })).result?.value;
-
-  console.log(`\n  Curso     : ${nombreCurso}`);
-  console.log(`  Plataforma: ${slugPlataforma}`);
-  console.log(`  Portal    : ${slugPortal}`);
 
   // ⚠️ Elegir «la primera imagen de la tarjeta» trae el LOGO del sitio: la primera
   // versión bajó la corona de Cursos Élite como portada del curso de Claude.
@@ -192,9 +241,19 @@ const main = async () => {
     console.log(`encontrada (única entre ${todas.length} imágenes)`);
   }
   ws.close();
+  return url;
+};
+
+const main = async () => {
+  console.log(`\n  Curso     : ${nombreCurso}`);
+  console.log(`  Plataforma: ${slugPlataforma}`);
+  console.log(`  Portal    : ${slugPortal}\n`);
+
+  let url = await desdeLaApi();
+  if (!url) url = await desdeElCatalogo();
 
   if (!url) {
-    console.error(`\n  ✖ No encontré la miniatura de este curso en el catálogo.`);
+    console.error(`\n  ✖ No encontré la miniatura de este curso ni en la API ni en el catálogo.`);
     console.error(`    Sin portada el portal muestra la tarjeta sin imagen (no se rompe nada).\n`);
     process.exit(3);
   }
@@ -219,15 +278,51 @@ const main = async () => {
 
   const dir = join(REPO, 'public', 'cono-portadas');
   mkdirSync(dir, { recursive: true });
-  // Una sola portada por curso: si había otra con distinta extensión, se reemplaza.
-  for (const f of readdirSync(dir)) {
-    if (f.replace(/\.[^.]+$/, '') === slugPortal && f !== `${slugPortal}.${ext}`) unlinkSync(join(dir, f));
-  }
-  const salida = join(dir, `${slugPortal}.${ext}`);
-  writeFileSync(salida, buf);
 
-  console.log(`\n  ✓ ${(buf.length / 1024).toFixed(0)} KB · ${ext}`);
-  console.log(`  → ${salida}`);
+  // ⚠️ La tapa NO va cruda. La grilla de /conocimientos pide la portada de TODOS los
+  // cursos de una: 31 tapas al peso de origen son 16 MB en una sola pantalla, y las de
+  // la plataforma llegan a 2,2 MB cada una. Se reescalan a 1200 px de ancho y se pasan
+  // a webp, que las deja en 35-145 KB sin perder nitidez a la vista.
+  //
+  // `min(1200,iw)` NUNCA agranda: una tapa que ya viene chica se queda como está, en vez
+  // de estirarse a 1200 y verse peor que el original.
+  const ANCHO = 1200;
+  const crudo = join(dir, `.tmp-${slugPortal}.${ext}`);
+  writeFileSync(crudo, buf);
+  const salida = join(dir, `${slugPortal}.webp`);
+  let convertida = false;
+  try {
+    execFileSync('ffmpeg', ['-y', '-v', 'error', '-i', crudo,
+      '-vf', `scale='min(${ANCHO},iw)':-2:flags=lanczos`,
+      '-c:v', 'libwebp', '-quality', '82', '-compression_level', '6', salida]);
+    convertida = existsSync(salida);
+  } catch (e) {
+    console.log(`  ⚠ no pude convertir (${e.message.slice(0, 60)}) — la dejo tal cual`);
+  }
+  unlinkSync(crudo);
+
+  // Si ffmpeg no está o falló, la tapa cruda es mejor que ninguna tapa.
+  const final = convertida ? salida : join(dir, `${slugPortal}.${ext}`);
+  if (!convertida) writeFileSync(final, buf);
+
+  // Una sola portada por curso: si había otra con distinta extensión, se reemplaza. Va
+  // DESPUÉS de escribir, y con el nombre final ya resuelto: `curso-a-portal.mjs` elige
+  // la portada con readdirSync().find(), o sea el PRIMER archivo cuyo nombre coincida —
+  // con dos extensiones conviviendo, cuál gana depende del orden del directorio.
+  for (const f of readdirSync(dir)) {
+    if (f.replace(/\.[^.]+$/, '') === slugPortal && join(dir, f) !== final) unlinkSync(join(dir, f));
+  }
+
+  const kb = (readFileSync(final).length / 1024).toFixed(0);
+  let dim = '';
+  try {
+    dim = ' · ' + execFileSync('ffprobe', ['-v', 'error', '-select_streams', 'v:0',
+      '-show_entries', 'stream=width,height', '-of', 'csv=p=0', final], { encoding: 'utf8' })
+      .trim().replace(',', 'x');
+  } catch { /* ffprobe es informativo: sin él la portada igual quedó escrita */ }
+
+  console.log(`\n  ✓ ${kb} KB${dim}  (venían ${(buf.length / 1024).toFixed(0)} KB de origen)`);
+  console.log(`  → ${final}`);
   console.log(`\n  Volvé a correr curso-a-portal.mjs para que la ficha la declare.\n`);
 };
 

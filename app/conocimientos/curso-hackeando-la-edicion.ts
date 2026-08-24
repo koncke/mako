@@ -21,7 +21,7 @@ export const CURSO_HACKEANDO_LA_EDICION: Curso = {
   titulo: 'Hackeando la Edición - Guille Collado',
   subtitulo: '64 clases, 6 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '10,3 h',
-  portada: '/cono-portadas/hackeando-la-edicion.jpg',
+  portada: '/cono-portadas/hackeando-la-edicion.webp',
   recursos: [
     {
       slug: '00-1-atajos-apple',

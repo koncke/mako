@@ -29,6 +29,7 @@ export const CURSO_STORIES_MASTER: Curso = {
   titulo: 'Stories Master - Insta Coach Andy',
   subtitulo: '22 clases, 9 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '4,7 h',
+  portada: '/cono-portadas/stories-master.webp',
   recursos: [
     {
       slug: '10-clase-3-la-estructura-perfecta-de-ventas-clase-3-1-cta-st',

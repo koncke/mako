@@ -29,7 +29,7 @@ export const CURSO_MATEO_MAFFIA_BYF: Curso = {
   titulo: 'Mateo Maffia - BYF',
   subtitulo: '33 clases, 9 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '10,6 h',
-  portada: '/cono-portadas/mateo-maffia-byf.png',
+  portada: '/cono-portadas/mateo-maffia-byf.webp',
   recursos: [
     {
       slug: 'recurso-01',

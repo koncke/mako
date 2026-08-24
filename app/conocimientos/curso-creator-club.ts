@@ -29,7 +29,7 @@ export const CURSO_CREATOR_CLUB: Curso = {
   titulo: 'Creator Club - NXTGEN Academia',
   subtitulo: '62 clases, 10 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '31,6 h',
-  portada: '/cono-portadas/creator-club.png',
+  portada: '/cono-portadas/creator-club.webp',
   recursos: [
     {
       slug: 'guia-mencionada-en-el-video-bf31d0ce',

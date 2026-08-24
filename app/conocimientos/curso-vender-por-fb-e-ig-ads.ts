@@ -21,7 +21,7 @@ export const CURSO_VENDER_POR_FB_E_IG_ADS: Curso = {
   titulo: 'Vender Por FB E IG ADS - Felipe Vergara',
   subtitulo: '242 clases, 12 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '6,7 h',
-  portada: '/cono-portadas/vender-por-fb-e-ig-ads.png',
+  portada: '/cono-portadas/vender-por-fb-e-ig-ads.webp',
   recursos: [
     {
       slug: '01-2-10-herramientas-para-investigar-a-tus-clientes',

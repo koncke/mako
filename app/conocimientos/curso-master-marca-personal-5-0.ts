@@ -21,7 +21,7 @@ export const CURSO_MASTER_MARCA_PERSONAL_5_0: Curso = {
   titulo: 'Master Marca Personal 5.0 - Victor Heras',
   subtitulo: '92 clases, 11 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '15,8 h',
-  portada: '/cono-portadas/master-marca-personal-5-0.jpg',
+  portada: '/cono-portadas/master-marca-personal-5-0.webp',
   recursos: [
     {
       slug: '00-1-1-enlace-para-contratar-hosting',

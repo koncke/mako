@@ -21,7 +21,7 @@ export const CURSO_TRILOGIA_DE_BRIAN_TRACY: Curso = {
   titulo: 'Trilogía de BRIAN TRACY',
   subtitulo: '11 clases, 7 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '',
-  portada: '/cono-portadas/trilogia-de-brian-tracy.png',
+  portada: '/cono-portadas/trilogia-de-brian-tracy.webp',
   recursos: [
 
   ],

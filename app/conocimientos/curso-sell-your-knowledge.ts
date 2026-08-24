@@ -21,7 +21,7 @@ export const CURSO_SELL_YOUR_KNOWLEDGE: Curso = {
   titulo: 'Sell Your Knowledge - Ramiro Cubria',
   subtitulo: '105 clases, 8 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '105 clases',
-  portada: '/cono-portadas/sell-your-knowledge.png',
+  portada: '/cono-portadas/sell-your-knowledge.webp',
   recursos: [
     {
       slug: '01-1-1-copia-de-syk-introduccion',

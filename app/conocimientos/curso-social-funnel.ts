@@ -21,7 +21,7 @@ export const CURSO_SOCIAL_FUNNEL: Curso = {
   titulo: 'Social Funnel - Emilio Puigrredón',
   subtitulo: '11 clases, 1 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '11 clases',
-  portada: '/cono-portadas/social-funnel.jpg',
+  portada: '/cono-portadas/social-funnel.webp',
   recursos: [
 
   ],

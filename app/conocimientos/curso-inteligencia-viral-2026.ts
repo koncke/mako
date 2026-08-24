@@ -29,7 +29,7 @@ export const CURSO_INTELIGENCIA_VIRAL_2026: Curso = {
   titulo: 'Inteligencia Viral 2026 - Julian Alborna',
   subtitulo: '41 clases, 8 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '15,6 h',
-  portada: '/cono-portadas/inteligencia-viral-2026.png',
+  portada: '/cono-portadas/inteligencia-viral-2026.webp',
   recursos: [
     {
       slug: '32-leccion-3-subtitulaje-avanzado-leccion-3-descargable-subt',

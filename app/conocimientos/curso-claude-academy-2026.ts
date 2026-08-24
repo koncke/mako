@@ -29,6 +29,7 @@ export const CURSO_CLAUDE_ACADEMY_2026: Curso = {
   titulo: 'Claude Academy 2026',
   subtitulo: '18 clases, 6 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '2,5 h',
+  portada: '/cono-portadas/claude-academy-2026.webp',
   recursos: [
     {
       slug: '01-bienvenido-1-1-descripcion',

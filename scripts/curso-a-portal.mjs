@@ -586,6 +586,22 @@ if (muertas.length) {
   console.log(`  ⚠ ${muertas.length} clase(s) del plan NO entran: \`sinFuente: true\`, la fuente no las tiene.`);
   for (const c of muertas.slice(0, 5)) console.log(`      n=${c.n}  ${c.titulo.slice(0, 58)}`);
 }
+
+// ⚠️ SIN PORTADA SE AVISA, aunque no sea un error.
+//
+// La ficha sin `portada` no rompe nada: la tarjeta sale sin imagen y el curso funciona.
+// Por eso pasaron TRES cursos seguidos (Stories Master, Claude Academy 2026 y Cursos
+// HeyGen) publicados, verificados en el navegador y commiteados sin tapa, sin que en
+// ningún momento nada lo dijera. El dueño lo vio antes que nosotros.
+//
+// Es el mismo modo de falla que persigue todo este archivo: el proceso reporta éxito y
+// el material no aparece. Un hueco que no se nombra es un hueco que se entrega.
+if (!portada) {
+  console.log(`\n  ⚠ ESTE CURSO NO TIENE PORTADA. La tarjeta va a salir sin imagen.`);
+  console.log(`    Se baja de la plataforma en una sola request (sin navegador):`);
+  console.log(`      node scripts/curso-portada.mjs --plan ${PLAN}`);
+  console.log(`    …y después volvé a correr ESTE script, que es el que la declara.`);
+}
 if (sinTx) console.log(`  ⚠ ${sinTx} sin transcripción todavía (volvé a correr esto cuando terminen)`);
 console.log(`\n  → ${salida}`);
 console.log(`  → ${dirTx}\\<videoId>.json  (${conTx} archivo/s)`);

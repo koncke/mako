@@ -21,7 +21,7 @@ export const CURSO_JAQUE_BLUE_CREACION_DE_CONTENIDO: Curso = {
   titulo: 'Jaque Blue - Creacion de Contenido',
   subtitulo: '23 clases, 9 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '5,3 h',
-  portada: '/cono-portadas/jaque-blue-creacion-de-contenido.jpg',
+  portada: '/cono-portadas/jaque-blue-creacion-de-contenido.webp',
   recursos: [
     {
       slug: '02-05-ideazas',
