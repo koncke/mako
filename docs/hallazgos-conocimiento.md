@@ -4240,3 +4240,159 @@ Antes de «arreglar» algo que parece olvidado, buscá si hay un comentario defe
   la que tenía era la de ApiMart.
 - **Los 6 cursos propios de MaKo no tienen tapa en la grilla.** No afecta al compartido
   (no son compartibles), pero la tarjeta sale sin imagen. Habría que diseñarlas.
+
+---
+
+# Iman Gadzhi: tres bugs del pipeline y un curso que no era el que decía — 2026-08-24
+
+Ingesta rutinaria de un curso más (26 clases, 9,2 h, 38 recursos) que destapó **material
+equivocado publicado en producción desde hacía semanas**. Vale por los bugs, no por el
+curso.
+
+## ⚠️ El id de Drive se buscaba por nombre GLOBAL: 4 recursos abrían el PDF de otro curso
+
+`curso-a-drive.mjs` resolvía el `driveId` de cada archivo así:
+
+```sql
+SELECT id, local_title, file_size FROM items
+WHERE local_title = ? AND is_folder = 0 AND trashed = 0
+```
+
+**Sin acotar por carpeta.** Y cuando la plataforma no da un título en el nombre, los
+recursos caen en `recurso-01.pdf` — un nombre que existe **cinco veces** en el Drive.
+
+El código incluso DETECTABA la ambigüedad (`if (reales.length > 1) out.set(n, { ambiguo:
+reales.length, id: reales[0].id })`) y se quedaba igual con el primero. Detectar y no
+actuar es lo mismo que no detectar, con la diferencia de que parece cubierto.
+
+**Medido sobre los 703 recursos con `driveId` de los 22 cursos publicados: CUATRO
+apuntaban a la carpeta de otro curso.** Tres de los cuatro al mismo archivo —el
+`recurso-01.pdf` de BlueHacker— colado en Curso de Claude AI, Mateo Maffia y Cursos HeyGen.
+
+> **Por qué nadie lo vio: no hay síntoma.** El recurso tiene su título correcto, su tamaño
+> plausible, y abre un PDF de verdad. Solo que es el de otro curso. No hay 404, no hay
+> imagen rota, no hay error. La única forma de encontrarlo es preguntar **de qué carpeta
+> cuelga el id**, que es una pregunta que a nadie se le ocurre hacer.
+
+**El arreglo:** la metadata de Drive tiene `stable_parents (item_stable_id,
+parent_stable_id)`. Con eso se camina desde la carpeta del curso hacia abajo y el match por
+nombre se hace **solo dentro de ese conjunto**. Los 3 de Iman que colisionaban pasan a
+resolver a un único candidato, y el tamaño coincide **al byte** con el archivo local: 38/38.
+
+⚠️ Y el filtro por carpeta va **antes** del de «id real», no después. Al revés, un homónimo
+de otro curso con id bueno le gana al propio con id placeholder — y el resultado es un
+recurso que apunta a otro lado, en vez de un «todavía subiendo» que la próxima corrida
+arregla sola.
+
+**Cómo verificarlo de nuevo:** `scratchpad/auditar-ids-v2.ts` recorre `CURSOS_TODOS`,
+resuelve de qué carpeta cuelga cada `driveId` y compara con la mayoritaria del curso.
+
+**Vive en:** `scripts/curso-a-drive.mjs` (`descendientesDe`, `idsDeDrive`)
+
+## ⚠️ El prompt de Gemini ordenaba TRADUCIR, y eso costó media clase
+
+`lib/transcribe.ts`, dentro de `sttGemini`, decía:
+
+```js
+'Transcribí este audio en español.',
+```
+
+Escrito cuando todos los cursos eran en español, donde no cambiaba nada. **El primer curso
+en inglés salió con 3 de sus 26 clases traducidas al español y 22 en inglés** — Gemini
+obedeció unas veces y no otras, así que es una moneda al aire y volver a correrlo no lo
+arregla.
+
+**Y no salió gratis en contenido.** Traducir y transcribir literal son dos tareas que
+compiten, y en la clase 020 el modelo resolvió el conflicto **resumiendo**:
+
+| | palabras | wpm |
+|---|---|---|
+| 020, con la orden de traducir | 3.162 | **95** |
+| mediana de las 23 en inglés | — | 215 |
+| 020, retranscripta sin la orden | **7.026** | 212 |
+
+Se había perdido **más de la mitad** de la clase. El principio y el final eran verbatim
+—o sea que ninguna guarda de truncado lo iba a ver— y el medio degeneraba en apuntes
+sueltos: «Formulario de admisión.», «Tamaños de audiencia.», «Intuición.». Nadie habla así.
+
+Es «un tope elegido contra UN proveedor apaga a los demás» (AGENTS.md) aplicada al
+**idioma**: un valor elegido cuando el universo era homogéneo pasa a gobernar al primero
+que no lo es, y nadie vuelve a mirarlo.
+
+**Vive en:** `lib/transcribe.ts` → `sttGemini`
+
+### Y el corolario para la guarda de wpm
+
+El chequeo de transcripción inflada/truncada mide palabras sobre **duración de pared**, y
+con eso no puede separar las dos poblaciones: una clase sana con 45% de silencio da 125
+wpm, y la clase comprimida daba 96. Cualquier piso que deje pasar a la primera deja pasar
+a la segunda. La métrica que sí las separa es **wpm sobre tiempo de VOZ** (`ffmpeg
+silencedetect`): ahí la sana sube a ~230 y la comprimida se queda en ~96.
+
+⚠️ Segundo corolario, del mismo chequeo: **el umbral tampoco sirve con denominadores
+chicos.** Dos clases de 30 segundos de Fukuda dieron 246 wpm y son habla real. Un piso de
+duración (~2 min) es obligatorio o marca clips cortos para siempre.
+
+## ⚠️ `tituloReal` no llegaba al generador: 38 recursos publicados como «recurso-01»
+
+`curso-a-drive.mjs` armaba cada recurso con `archivo, nivel, clases, driveId, modulo,
+submodulo` — y `tituloReal` no estaba en la lista. El generador ya tenía
+`if (r.tituloReal) label = r.tituloReal`, o sea que sabía qué hacer con él: lo que faltaba
+era que llegara.
+
+**Lo que hace que valga la pena escribirlo:** es la MISMA línea donde ese mismo día se
+habían agregado `nivel` y `clases`. Se arreglaron dos campos de la terna y el tercero quedó
+con el bug intacto — y con cara de arreglado, que es peor.
+
+> **La regla: cuando un dato tiene que cruzar tres archivos, agregar un campo al índice no
+> alcanza. Hay que seguirlo hasta el final.** El índice (`recursos.json`) tenía el título
+> desde el principio; el consumidor lo sabía usar; el transporte del medio lo tiraba.
+
+## ⚠️ El curso no era el que decía su nombre
+
+La plataforma lo publica como **«Agency Navigator»**. En los videos el propio Iman Gadzhi
+dice **«Agency Incubator»** — 34 veces, en 22 de las 26 clases. «Agency Navigator» no
+aparece **ni una vez**. Son dos productos distintos de la misma persona.
+
+**Y eso desarma un diagnóstico que yo ya había dado por cerrado.** La numeración del autor
+llega a ~40 y hay 26, con huecos sistemáticos al principio de cada módulo; yo lo verifiqué
+contra la tabla `lessons` (26 filas, `is_deleted = 0`) y concluí «la plataforma tiene el
+curso incompleto». La medición era correcta y la conclusión no: no es un Navigator
+mutilado, es **otro curso**.
+
+> Lo que faltaba era una pregunta que no cuesta nada: **¿qué dice el material de sí mismo?**
+> Un `grep` sobre las transcripciones lo contesta en un segundo, y ninguna consulta a la
+> base lo iba a contestar nunca — la base repite la etiqueta, no el contenido.
+
+Se publica con el nombre que dice el material (mapa `TITULO` de `catalogo.ts`). El slug se
+deja: es el de la plataforma y cambiarlo rompería cualquier link ya dado.
+
+## Un curso puede existir, dar acceso `true` y estar VACÍO
+
+«Hablar en público» (Fernando Miralles Coll, `hablar-en-publico`): la página carga, la
+sesión está viva, `rpc/check_course_access` devuelve **`true`**… y `get_course_lessons_secure`
+**nunca se llama**. Contra la base: **0 lecciones, 0 módulos, 0 recursos**, con
+`is_draft: true`.
+
+Es un cascarón: título, tapa e instructor, sin nada adentro. No figura tampoco en
+`course_lesson_counts` (un RPC que devuelve el conteo de los 155 cursos que sí tienen
+lecciones — buen atajo para saber si vale la pena abrir un curso antes de sniffearlo).
+
+> **La regla, que ya está escrita y volvió a pagar: «no encontré nada» y «no hay nada» son
+> respuestas distintas.** Cero capturas en el sniffer es una PREGUNTA, no un resultado.
+> Acá el camino fue: filtro amplio → ver qué pidió la página → notar la llamada que falta →
+> preguntarle a la tabla. Tres pasos, y el primero es no creerle al cero.
+
+## Lo que quedó SIN hacer
+
+- **4 de los 38 recursos de Iman son cáscaras**: capturas de pantalla (FireShot) de una
+  franja con un botón que linkea a un Google Drive ajeno. El material de verdad no se bajó.
+  **Vive en:** `C:/cursos/iman-agency-navigator/pdfs/`
+- **22 de los 26 PDFs de Iman traen la marca de agua de `getwsodo.com`**, que además se
+  cuela en el texto extraíble de las 81 páginas. Es marca de un tercero, igual que el
+  escudo «CURSOS ELITE» de las tapas.
+- **7 recursos que son de UNA clase se cuelgan de todas las clases de su módulo.** El
+  índice de recursos solo sabe de módulos; la asociación fina no está en la API.
+- **La guarda de wpm sigue midiendo sobre duración de pared**, sin piso de duración y sin
+  normalizar por tiempo de voz. Las dos correcciones están arriba y ninguna está escrita en
+  código. **Vive en:** el chequeo ad-hoc del pipeline, todavía sin script propio.

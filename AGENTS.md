@@ -739,6 +739,45 @@ ordenando candidatos, seguís adivinando mejor.
 
 **Antes de escribir el segundo desempate, andá a buscar la tabla.**
 
+## Y detectar la ambigüedad sin actuar es lo mismo que no detectarla
+
+Peor, en realidad: **parece cubierto**. La resolución del id de Drive de cada archivo era
+una búsqueda por nombre en TODO el Drive, y el código hacía esto:
+
+```js
+if (reales.length === 1) out.set(n, { id: reales[0].id });
+else if (reales.length > 1) out.set(n, { ambiguo: reales.length, id: reales[0].id });
+```
+
+La segunda rama sabe que hay varios candidatos, se lo anota en un campo que nadie mira, y
+**elige el primero igual**. Con nombres genéricos —`recurso-01.pdf` existe cinco veces— eso
+publicó, en tres cursos distintos, un recurso que abre el PDF de otro.
+
+Y no hay síntoma: el recurso tiene su título correcto, su tamaño plausible y abre un PDF de
+verdad. No hay 404, ni imagen rota, ni error. La única pregunta que lo encuentra —«¿de qué
+carpeta cuelga este id?»— no se le ocurre a nadie.
+
+**La regla: si una rama de tu código puede escribir «esto es ambiguo», esa rama no puede
+terminar en `[0]`.** O desambigua con un dato más (acá: el subárbol de la carpeta del
+curso), o se abstiene y lo dice donde alguien lo lea. Un `ambiguo: n` guardado al lado del
+valor elegido es documentación de un bug, no una salvaguarda.
+
+# Lo que un material dice DE SÍ MISMO le gana a la etiqueta que le puso el sistema
+
+Un curso venía titulado «Agency Navigator» en la plataforma, con ese slug, y bajo ese
+nombre se bajó y se planificó. En los videos, el autor dice **«Agency Incubator»** 34 veces
+en 22 de las 26 clases; «Agency Navigator» no aparece ni una. Son dos productos distintos.
+
+Lo caro no fue el nombre: fue que había un diagnóstico ya cerrado colgando de él. La
+numeración del autor llegaba a ~40 con 26 lecciones presentes, y la tabla `lessons`
+confirmaba 26 filas sin borrar — o sea «la plataforma tiene el curso incompleto». La
+medición era correcta, la conclusión no. **No era un curso mutilado: era otro curso.**
+
+**La regla: cuando el contenido es texto —transcripciones, documentos, copy—, preguntale al
+contenido qué es antes de razonar sobre su metadata.** Un `grep` lo contesta en un segundo y
+ninguna consulta a la base lo iba a contestar nunca: la base repite la etiqueta, no el
+material. Vale para cualquier ingesta de algo que otro sistema nombró.
+
 # «No pasó nada» y «pasó y se murió» se ven iguales si mirás el resultado
 
 Cuando una acción no deja el efecto esperado, mirar solo el efecto no distingue entre *no
