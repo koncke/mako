@@ -21,7 +21,7 @@ export const CURSO_AUMENTA_TU_VALOR_Y_ATV_ADVANTAGE: Curso = {
   titulo: 'Aumenta tu valor y ATV ADVANTAGE - Juan Carrizo',
   subtitulo: '247 clases, 13 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '56,9 h',
-  portada: '/cono-portadas/aumenta-tu-valor-y-atv-advantage.png',
+  portada: '/cono-portadas/aumenta-tu-valor-y-atv-advantage.webp',
   recursos: [
     {
       slug: '01-cambiando-tu-realidad-construccion-sos-quien-pensas-que-s',

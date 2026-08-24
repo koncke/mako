@@ -29,7 +29,7 @@ export const CURSO_MASTERYHAUS: Curso = {
   titulo: 'MasteryHaus - Sofia Contreras',
   subtitulo: '253 clases, 12 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '',
-  portada: '/cono-portadas/masteryhaus.png',
+  portada: '/cono-portadas/masteryhaus.webp',
   recursos: [
     {
       slug: 'alineando-las-expectativas-14jhe-j3',
