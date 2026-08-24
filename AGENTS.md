@@ -307,6 +307,21 @@ máquina: el estado que lo causa no viaja.** Se perdió media hora peleando con 
 headless y cookies de impersonación para ver en local una pantalla cuyo problema vivía en
 el Safari del dueño.
 
+**Y el reverso, que es el que muerde al escribir código nuevo: tu navegador tiene estado y el
+del cliente no.** Todo lo que se restaura de `localStorage` te anda a vos porque vos ya pasaste
+por el camino que lo escribe. Dos reglas:
+
+- **`localStorage` restaura una PREFERENCIA, nunca pisa una DECISIÓN.** Si la pantalla ya
+  recibió el dato por props o por la URL, lo del navegador no compite: no se lee. Restaurar «lo
+  último que usaste» encima de lo que la persona acaba de elegir arriba deja, en el mejor caso,
+  un control muerto; en el peor, mide otra cosa sin decirlo.
+- **Un `disabled` que se alimenta de un estado restaurado se prueba con la clave BORRADA.** Es
+  el único modo de ver lo que ve un cliente nuevo. Y si el control que arregla la condición no
+  está en esa pantalla, no es un botón deshabilitado: es una pantalla sin salida.
+
+El caso, del 24/08/2026: el botón «Probar» del Pixel nacía apagado para **todo cliente nuevo** —
+detalle completo en [docs/hallazgos-landing.md](docs/hallazgos-landing.md).
+
 # Una regla en un prompt no es una regla
 
 Si una regla sólo vive en la prosa de un prompt, **no se cumple**: se cumple casi

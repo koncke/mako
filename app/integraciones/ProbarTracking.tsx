@@ -259,8 +259,29 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
     // localStorage, cambiar de máquina o de sesión las perdería, y no serían
     // «mis páginas» sino «las páginas de esta compu».
     getPaginasAction().then(aplicar).catch(() => { /* sin lista, se puede agregar */ });
-    try { setUrl(localStorage.getItem(URL_KEY) ?? ''); } catch { /* sin storage */ }
   }, [activo, traer]);
+
+  // ⚠️ LA ÚLTIMA PÁGINA PROBADA SOLO SE RESTAURA CUANDO EL PANEL LA ELIGE.
+  //
+  // Con `landingFija` la página ya está decidida en el paso 1 y el desplegable ni
+  // se pinta. Restaurar acá lo que hubiera en ESTE navegador pisaba esa decisión:
+  // en toda cuenta que nunca usó el panel suelto —o sea, TODO cliente nuevo—
+  // `localStorage` está vacío, `url` quedaba en '' y «Probar» se deshabilita con
+  // `url` inválida. Botón muerto y NADA en pantalla para revivirlo, porque lo
+  // único que escribe `url` en este modo es el selector que está escondido.
+  // Del lado de acá no se notaba: quien ya había probado alguna vez tenía la
+  // clave puesta y el botón le andaba siempre.
+  //
+  // Y con una clave vieja era peor que muerto: el botón andaba y probaba OTRA
+  // página, sin decirlo, mientras el panel arriba nombra la landing correcta.
+  //
+  // Va en su PROPIO efecto y corre una sola vez: colgado del de arriba se
+  // relanzaba con cada identidad nueva de `traer` y le pisaba la elección a quien
+  // acababa de elegir en el desplegable.
+  useEffect(() => {
+    if (landingFija) return;
+    try { setUrl(localStorage.getItem(URL_KEY) ?? ''); } catch { /* sin storage */ }
+  }, [landingFija]);
 
   // ⚠️ EL ANÁLISIS VA SOLO, y depende ÚNICAMENTE de la landing. Colgado del
   // efecto de arriba se relanzaba a sí mismo para siempre: `piezas` es una

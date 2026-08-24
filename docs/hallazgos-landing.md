@@ -9,6 +9,9 @@ Lo que más muerde acá:
   baja y analiza el server, y quién paga la llamada a Opus → [Landing Analyst](#landing-analyst).
 - El semáforo pregunta «¿hubo eventos alguna vez?», así que el tracking estuvo **18 días
   muerto en verde** y nadie se enteró → [Tracking y beacon](#tracking-y-beacon).
+- El botón «Probar» del Pixel nacía **deshabilitado para todo cliente nuevo** —y sin salida en
+  pantalla— porque un `localStorage` vacío de ese navegador pisaba la landing ya elegida
+  → [«Probar» nacía deshabilitado](#-probar-nacía-deshabilitado-para-todo-cliente-nuevo-un-localstorage-de-este-navegador-pisaba-la-landing-elegida).
 - La retención del VSL por lead sigue sin funcionar después de meses, y es un pedido
   explícito y repetido del dueño → [Retención del VSL](#retención-del-vsl).
 - Un `throw` nuevo tres niveles abajo se convirtió en un «sin datos de comportamiento»
@@ -1008,6 +1011,52 @@ decisiones que conviene no revertir:
 
 **Vive en:** `app/integraciones/escuchando/page.tsx` · `app/integraciones/ProbarTracking.tsx`
 (`arrancar`, `enVentana`)
+
+### ⚠️ «Probar» nacía deshabilitado para todo cliente nuevo: un `localStorage` de ESTE navegador pisaba la landing elegida
+
+*2026-08-24*
+
+**Síntoma:** los clientes (inmobiliaria) abrían el paso 4 del Pixel, veían *«Probamos
+https://…»* con la landing correcta arriba, y el botón **Probar** apagado. Sin error, sin
+aviso, sin nada que tocar para revivirlo. Del lado de acá andaba siempre.
+
+**El diagnóstico obvio era el equivocado.** No era permiso, ni credencial, ni que el Pixel no
+estuviera conectado, ni el gate del código viejo — el aviso de código viejo se pinta, y no se
+pintaba nada. Era el `disabled={!urlValida}` del botón sobre un estado `url` que llegaba vacío.
+
+**Causa real:** con `landingFija` la página ya está decidida en el paso 1, así que `url`
+arranca en `landingFija` y el desplegable **ni se renderiza**. Pero el efecto de carga hacía,
+incondicionalmente, `setUrl(localStorage.getItem(URL_KEY) ?? '')`. En una cuenta que nunca usó
+el panel suelto —o sea, **todo cliente nuevo**— esa clave no existe: `url` volvía a `''`,
+`urlValida` daba `false` y el botón quedaba muerto. Y muerto sin salida, porque lo único que
+escribe `url` en este modo es el selector escondido.
+
+**Por qué no se veía desde acá:** quien ya probó alguna vez tiene la clave puesta, y el botón
+le anda siempre. La diferencia entre «mi navegador» y «un navegador nuevo» era todo el bug.
+
+**Y el caso peor era el que NO deshabilita nada:** con una clave vieja de otra landing, el
+botón anda y prueba **otra página**, en silencio, mientras el panel de arriba nombra la
+correcta.
+
+**Regla 1 — un botón deshabilitado necesita una salida en la misma pantalla.** Si la condición
+que lo apaga se alimenta de un control que está escondido en ese modo, no es un botón
+deshabilitado: es una pantalla sin salida. Es la misma familia que [los botones de editar y
+borrar gateados en «está guardada»](#-los-botones-de-editar-y-borrar-se-gateaban-en-está-guardada-y-nadie-tenía-guardadas):
+un gate que solo pasaba el que ya había hecho el camino largo.
+
+**Regla 2 — `localStorage` restaura una PREFERENCIA, nunca pisa una DECISIÓN.** Cuando la
+pantalla ya recibió el dato por props (acá `landingFija`, elegido en el paso 1), lo del
+navegador no compite: no se lee. Restaurar «lo último que usaste» sobre algo que la persona
+acaba de elegir arriba es, en el mejor caso, un botón muerto; en el peor, medir otra cosa.
+
+**Regla 3 — la restauración va en su propio efecto y corre una vez.** Colgada del efecto de
+carga (deps `[activo, traer]`) se relanzaba con cada identidad nueva de `traer` y le pisaba la
+elección a quien acababa de elegir en el desplegable. Es el primo del
+[`useEffect` que escribe una dependencia de su propia dependencia](#un-useeffect-que-escribe-una-dependencia-de-su-propia-dependencia-no-termina-nunca).
+
+**Vive en:** `app/integraciones/ProbarTracking.tsx` (el efecto de restauración y el
+`disabled={!urlValida}` del botón Probar) · `app/integraciones/IntegracionesBoard.tsx:1393`
+(quien pasa `landingFija`)
 
 ### Heatmaps: por qué NO integramos ninguno (y qué sí)
 
