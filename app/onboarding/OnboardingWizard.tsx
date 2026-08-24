@@ -42,8 +42,8 @@ import { FaseQuiz, FaseResultado, FaseIcono } from './FaseUI';
 import ServicioConfigForm from '../integraciones/ServicioConfigForm';
 import { RetroReport } from '../experimentos/RetroReport';
 import type { RetroReporte, RetroPlanItem, RetroStreamEvent } from '@/lib/retro-reporte';
-import { Dropdown } from '../components/Dropdown';
-import { PAISES, PAIS_DEFAULT, flagUrl } from '@/lib/paises';
+import { DIAL_DEFAULT, splitTelefono } from '@/lib/paises';
+import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
 import { esPostergable, type PasoOnboarding } from '@/lib/capas';
 import { Bienvenida } from './Bienvenida';
 import type { OnboardingStatus, PasoState } from '@/lib/onboarding-contrato';
@@ -109,16 +109,11 @@ const SLIDES_MAKO: Slide[] = [
   { t: 'Una Retro que mira todo', d: 'Cruza ads, leads, llamadas y plata en un solo informe, y cuando aceptás una idea te la crea de verdad en tu plan.' },
 ];
 
-// Separa un teléfono guardado (lada+número concatenados, sin separador) en sus
-// dos partes para hidratar el selector de país + el input del resto. Heurística:
-// la lada más LARGA que matchea primero (evita que "+1" gane sobre "+1809").
-function splitTelefono(telefono: string): { lada: string; resto: string } {
-  const t = (telefono || '').trim();
-  if (!t) return { lada: PAISES.find((p) => p.iso2 === PAIS_DEFAULT)!.dial, resto: '' };
-  const candidatos = [...PAISES].sort((a, b) => b.dial.length - a.dial.length);
-  const match = candidatos.find((p) => t.startsWith(p.dial));
-  return match ? { lada: match.dial, resto: t.slice(match.dial.length) } : { lada: PAISES.find((p) => p.iso2 === PAIS_DEFAULT)!.dial, resto: t.replace(/^\+/, '') };
-}
+// El separador de lada + número vive en lib/paises.ts, junto al catálogo de
+// países y sin `server-only`, para que lo compartan este wizard y el modal de
+// destinatarios — y para que un test lo pueda importar. La copia que vivía acá
+// comparaba con el `+` puesto y no matcheaba ningún número YA GUARDADO (que se
+// guardan en dígitos pelados): caía siempre al país por default.
 
 async function post(url: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
   try {
@@ -198,7 +193,7 @@ export function OnboardingWizard() {
   // teléfono (selector de país + resto del número); contacto.telefono es SIEMPRE
   // la concatenación de ambos (se sincroniza con un effect más abajo).
   const [contactoEtapa, setContactoEtapa] = useState<'form' | 'codigo' | 'listo'>('form');
-  const [lada, setLada] = useState(PAISES.find((p) => p.iso2 === PAIS_DEFAULT)!.dial);
+  const [lada, setLada] = useState(DIAL_DEFAULT);
   const [numeroLocal, setNumeroLocal] = useState('');
   const [codigoInput, setCodigoInput] = useState('');
   const [reenviando, setReenviando] = useState(false);
@@ -816,14 +811,10 @@ export function OnboardingWizard() {
                 <div><Label>Email</Label><input style={wizardInput} type="email" value={contacto.email} onChange={(e) => setContacto((c) => ({ ...c, email: e.target.value }))} /></div>
                 <div>
                   <Label>WhatsApp</Label>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {/* Bandera como IMAGEN vía el prop avatar del Dropdown: los emoji de
-                        bandera en Windows se ven como letras ("MX") — bug reportado. */}
-                    <Dropdown value={lada} onChange={setLada} width={128} ariaLabel="Código de país"
-                      options={PAISES.map((pais) => ({ value: pais.dial, label: pais.dial, sub: pais.nombre, avatar: flagUrl(pais.iso2), avatarCuadrado: true }))} />
-                    <input style={{ ...wizardInput, flex: 1 }} value={numeroLocal} placeholder="686 123 4567" inputMode="tel"
-                      onChange={(e) => setNumeroLocal(e.target.value.replace(/[^\d\s-]/g, ''))} />
-                  </div>
+                  <TelefonoConPais
+                    lada={lada} numero={numeroLocal} onLada={setLada} onNumero={setNumeroLocal}
+                    inputStyle={wizardInput} placeholder="686 123 4567"
+                  />
                   <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 6, lineHeight: 1.5 }}>Te mandamos un código por WhatsApp para confirmarlo — MaKo te va a escribir ahí.</div>
                 </div>
               </>

@@ -58,3 +58,34 @@ export const PAISES: Pais[] = [
 ];
 
 export const PAIS_DEFAULT = 'MX';
+
+/** La lada que arranca seleccionada cuando todavía no hay número. */
+export const DIAL_DEFAULT = PAISES.find((p) => p.iso2 === PAIS_DEFAULT)!.dial;
+
+/**
+ * Separa un teléfono guardado en (lada, resto) para hidratar el selector.
+ *
+ * Heurística: la lada más LARGA que matchea primero, o `+1` le gana a `+1809`.
+ *
+ * ⚠️ Compara sobre DÍGITOS, no sobre el texto con `+`. La versión que vivía
+ * suelta en OnboardingWizard.tsx hacía `t.startsWith(p.dial)` con el `+` puesto,
+ * y todo lo que este repo GUARDA son dígitos pelados (`542233550684`): o sea,
+ * para cualquier número ya guardado no matcheaba ninguna lada y caía al default
+ * — México, con el `54` argentino adentro del "resto". Se ve como un país mal
+ * elegido y un número imposible, y el que lo mira no tiene forma de saber por
+ * qué. Vive acá y no allá para que haya UN solo separador.
+ */
+export function splitTelefono(telefono: string): { lada: string; resto: string } {
+  const digitos = (telefono || '').replace(/\D/g, '');
+  if (!digitos) return { lada: DIAL_DEFAULT, resto: '' };
+  const candidatos = [...PAISES].sort((a, b) => b.dial.length - a.dial.length);
+  const match = candidatos.find((p) => digitos.startsWith(p.dial.slice(1)));
+  return match
+    ? { lada: match.dial, resto: digitos.slice(match.dial.length - 1) }
+    : { lada: DIAL_DEFAULT, resto: digitos };
+}
+
+/** La contracara: (lada, número local) → los dígitos que se guardan y se mandan. */
+export function unirTelefono(lada: string, local: string): string {
+  return `${lada}${local}`.replace(/\D/g, '');
+}

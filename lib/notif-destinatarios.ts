@@ -99,6 +99,16 @@ export type ResultadoGuardar = {
   /** qué pasó con el grupo de WhatsApp al sincronizar los números. */
   grupo?: 'creado' | 'actualizado' | 'sin_cambios' | 'sin_numeros';
   error?: string;
+  /**
+   * Los que se guardaron en la lista pero NO entraron al grupo de WhatsApp, con
+   * el motivo de cada uno.
+   *
+   * ⚠️ Existe porque acá había un `.catch(() => {})`. Sumar a alguien al grupo es
+   * LO QUE LA PANTALLA PROMETE —«el resto se suma a ese mismo grupo»— y fallaba
+   * sin decir una palabra. Un cliente lo reportó como «le di a enviar y no pasó
+   * nada, ni siquiera un mensaje de error», que es exactamente lo que pasaba.
+   */
+  noAgregados?: Array<{ telefono: string; motivo: string }>;
 };
 
 /**
@@ -133,14 +143,27 @@ export async function setDestinatarios(d: Partial<Destinatarios>, nombreCliente:
   if (!sync.ok) return { ok: false, destinatarios: dest, error: sync.error };
 
   // Los demás van como participantes. Es idempotente del lado de Evolution
-  // (agregar a alguien que ya está no hace nada), así que no hace falta llevar la
-  // cuenta de quién estaba.
-  for (const t of dest.telefonos.slice(1)) await agregarParticipanteGrupo(ws, t).catch(() => {});
+  // (agregar a alguien que ya está contesta 409, que acá cuenta como hecho).
+  //
+  // ⚠️ Antes esta línea terminaba en `.catch(() => {})` y descartaba el valor de
+  // retorno. Las dos mitades del mismo error: la excepción se tragaba y el
+  // `{ ok: false, error }` ni se miraba. Agregar a alguien al grupo es lo que la
+  // pantalla PROMETE, así que cuando no se puede hay que decirlo — es la regla de
+  // la casa: si el que se tiene que enterar es el usuario, el aviso va donde él
+  // mira, nunca a un log.
+  const noAgregados: Array<{ telefono: string; motivo: string }> = [];
+  for (const t of dest.telefonos.slice(1)) {
+    const r = await agregarParticipanteGrupo(ws, t).catch((e) => ({
+      ok: false as const, error: e instanceof Error ? e.message : String(e),
+    }));
+    if (!r.ok) noAgregados.push({ telefono: t, motivo: r.error ?? 'no se pudo agregar al grupo' });
+  }
 
   return {
     ok: true,
     destinatarios: dest,
     grupo: !teniaGrupo ? 'creado' : sync.accion === 'sin_cambios' && dest.telefonos.length === 1 ? 'sin_cambios' : 'actualizado',
+    noAgregados: noAgregados.length ? noAgregados : undefined,
   };
 }
 

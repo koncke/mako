@@ -2713,3 +2713,100 @@ está bien, y no mira el 84%.
 
 *Hallazgo del 21/08/2026, sin arreglar: el diagnóstico está completo, la decisión de
 encender el feed es de producto.*
+
+---
+
+## «Le di a enviar y no pasó nada, ni siquiera un mensaje de error»
+
+**Vive en:** `app/perfil/DestinatariosModal.tsx` · `app/_components/TelefonoConPais.tsx` ·
+`lib/mako-grupo.ts` · `lib/notif-destinatarios.ts` · `lib/paises.ts`
+
+Reportado el 21/08/2026: el cliente de Codigo Inmobiliario no podía sumar a nadie al grupo
+de MaKo desde Configuraciones › Notificaciones. Tenía razón en las dos mitades — no se
+podía, y no se enteraba. **Cinco caminos de rechazo, los cinco mudos.**
+
+### 1. `agregarParticipanteGrupo` informaba un éxito que no ocurría
+
+La más cara, y la que explica la frase exacta del reporte. Medido contra la API real
+pidiendo agregar un número inexistente:
+
+```
+HTTP 200
+{ "updateParticipants": [ { "status": "403", "jid": "…", "attrs": { "addressable": "false" } } ] }
+```
+
+**Evolution contesta 200 con el fallo adentro del body**, exactamente como Meta (la regla ya
+estaba en AGENTS.md, para el otro proveedor). El código hacía `return r.ok ? { ok: true } : …`
+→ devolvía éxito. No había ningún error que mostrar porque **el sistema creía que había
+funcionado**. Cuando el síntoma es «no pasa absolutamente nada», sospechá de un éxito
+falso antes que de un error tragado: un error tragado al menos deja un log.
+
+### 2. Y encima el resultado se descartaba dos veces
+
+`for (const t of …) await agregarParticipanteGrupo(ws, t).catch(() => {})` — el `.catch`
+vacío se comía la excepción **y** el `{ ok: false, error }` ni se miraba. Las dos mitades
+del mismo error. Sumar al grupo es lo que la pantalla PROMETE («el resto se suma a ese
+mismo grupo»), así que su fallo va donde el usuario mira, no a un log.
+
+### 3. El teléfono se pedía sin selector de país
+
+Medido, y es toda la historia en dos líneas:
+
+```
+542233550684 → exists: true          2233550684 → exists: false
+```
+
+El MISMO teléfono sin la lada **no existe** en WhatsApp. El onboarding ya tenía el selector
+con banderas; esta pantalla pedía el número con un input pelado y un placeholder, delegando
+en el usuario una regla que el sistema conoce mejor que él. La validación (`>= 8 dígitos`)
+lo aceptaba sin protestar.
+
+### 4. Lo escrito y no «Agregado» se perdía entero
+
+Escribir el número y tocar **Guardar** directo —sin tocar «Agregar»— dejaba la lista sin
+cambios, con lo cual el botón Guardar estaba **deshabilitado por `!dirty`** y no respondía
+ni explicaba. Es la hipótesis que mejor calza con el reporte, y no hace falta elegir entre
+las cinco: todas se arreglaron.
+
+### 5. Los descartes silenciosos del saneo
+
+`normalizarDestinatarios` tira lo que tiene menos de 8 dígitos y deduplica, las dos cosas
+sin decir nada. La persona agrega a alguien, la lista no cambia, y no sabe si funcionó.
+
+### La regla que queda
+
+**Un botón deshabilitado que no explica es indistinguible de uno roto.** Ahora «Agregar»
+nunca se apaga: contesta siempre, y cuando no puede dice por qué (vacío / incompleto / ya
+está). «Guardar» solo se apaga mientras guarda. Y si la lista se guardó pero alguien no
+entró al grupo, **el modal no se cierra**: cerrarlo sería volver a decir «listo» sobre algo
+que no pasó.
+
+### Dos gotchas del camino
+
+- **El menú del `Dropdown` se portalea a `document.body` con `zIndex: 1000`, y un modal de
+  esta app está en `3000`.** Sin pasarle `portalTo` con el nodo del modal, el desplegable de
+  países se abre POR DETRÁS — desde afuera, idéntico a un selector que no responde. Es
+  `position: fixed`, así que el `overflow` del modal no lo recorta.
+- **`splitTelefono` comparaba con el `+` puesto** (`t.startsWith('+54')`) y todo lo que este
+  repo GUARDA son dígitos pelados (`542233550684`): no matcheaba ninguna lada de un número ya
+  guardado y caía siempre al país por default, con el `54` adentro del "resto". Vivía suelto
+  en `OnboardingWizard.tsx`; se movió a `lib/paises.ts` (sin `server-only`, testeable) y ahora
+  lo comparten el wizard y el modal.
+- **Estados Unidos y Canadá comparten `+1`**, y el `PAISES.map` daba dos opciones con la
+  misma `value` → React tiraba «Encountered two children with the same key» (venía de antes,
+  en el onboarding) y con claves repetidas puede omitir o duplicar renglones. Se funden en un
+  renglón que nombra a los dos.
+
+### Lo que quedó SIN hacer
+
+- **`telefonoValido` sigue siendo «8 dígitos o más»** (`lib/notif-catalogo.ts`). Con el
+  selector el número siempre lleva lada, pero la función sola no lo garantiza: cualquier
+  otro call-site que la use sigue pudiendo aceptar un número inservible.
+- **La verificación real (`numeroTieneWhatsApp`) corre solo al sumar al GRUPO**, no al
+  agregar a la lista. Alguien puede quedar guardado como destinatario de reportes con un
+  número que no existe; se entera recién al guardar.
+- **Nadie revisó los otros usos de `normalizarDestinatarios`**: sigue descartando en
+  silencio para quien no pase por este modal.
+
+*Corrida del 21/08/2026 — verificado en navegador (Playwright, los 5 caminos + cero errores
+de consola). Typecheck 0 errores, 1163/1163 tests.*
