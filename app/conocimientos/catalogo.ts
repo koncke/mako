@@ -40,6 +40,7 @@ import { CURSO_BLUEHACKER } from './curso-bluehacker';
 import { CURSO_MASTERYHAUS } from './curso-masteryhaus';
 import { CURSO_STORIES_MASTER } from './curso-stories-master';
 import { CURSO_CLAUDE_ACADEMY_2026 } from './curso-claude-academy-2026';
+import { CURSO_CURSOS_HEYGEN } from './curso-cursos-heygen';
 import { CURSO_INSTITUTO_DE_COMUNICACION } from './curso-instituto-de-comunicacion';
 import { CURSO_CREATOR_CLUB } from './curso-creator-club';
 import { CURSO_TRILOGIA_DE_BRIAN_TRACY } from './curso-trilogia-de-brian-tracy';
@@ -275,6 +276,7 @@ export const CURSOS_TODOS: Curso[] = [
   CURSO_MASTERYHAUS,
   CURSO_STORIES_MASTER,
   CURSO_CLAUDE_ACADEMY_2026,
+  CURSO_CURSOS_HEYGEN,
   CURSO_CREATOR_CLUB, CURSO_TRILOGIA_DE_BRIAN_TRACY,
   // Los recursos y el modo réplica se inyectan acá porque el archivo del curso lo
   // REESCRIBE `curso-a-portal.mjs` en cada corrida: puestos allá, duran hasta la
