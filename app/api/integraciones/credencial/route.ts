@@ -20,7 +20,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { auditarCredencial, credWs, eliminarCredencial, estadoCampo, guardarCredencial, IdentificadorOcupadoError, KeyDePlataformaError } from '@/lib/credenciales';
-import { getRolWsEfectivo, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
+import { getRolWsEfectivo, getWorkspaceActual, OWNER_WS, wsSuperAdmin } from '@/lib/workspace';
 import { verificarServicio } from '@/lib/metodo-verificar';
 import { descubrirMeta, pixelesDeCuenta } from '@/lib/meta-descubrir';
 import { descubrirGithub } from '@/lib/github-descubrir';
@@ -32,7 +32,20 @@ export const dynamic = 'force-dynamic';
 
 const msg = (e: unknown) => String(e instanceof Error ? e.message : e);
 
-type Contexto = { ws: number; autor: string | null };
+type Contexto = {
+  ws: number;
+  autor: string | null;
+  /**
+   * El workspace OBJETIVO es el de la plataforma (no «quien mira es admin»).
+   *
+   * ⚠️ Son dos preguntas distintas y confundirlas es el bug de la casa. El super
+   * admin sigue siendo admin cuando entra al workspace de un cliente con `?ws=N`,
+   * así que un permiso derivado de la SESIÓN autoriza a tocar la credencial de la
+   * plataforma parado adentro del panel de un cliente — y `guardar` escribe con
+   * `ctx.ws`, o sea en la fila de ese cliente.
+   */
+  esPlataforma: boolean;
+};
 
 /**
  * Resuelve el workspace objetivo y valida el permiso. El ws SIEMPRE sale del
@@ -51,11 +64,16 @@ async function resolverContexto(): Promise<Contexto | { error: string; status: n
   const wsActual = await getWorkspaceActual();
   // ws null = admin sin impersonar: solo el super-admin cae al dueño; el resto
   // (p.ej. un admin-cliente sin workspace resuelto) → 403 fail-closed.
+  const wsPlataforma = await wsSuperAdmin().catch(() => -1);
   if (wsActual == null) {
     if (!esSuperAdmin) return { error: 'workspace no resuelto', status: 403 };
-    return { ws: OWNER_WS, autor: autorDe(sesion) };
+    // ⚠️ OWNER_WS (=1) es MAURICIO, un cliente — no la plataforma. Está escrito en
+    // AGENTS.md y ya mordió acá: cayendo a OWNER_WS, `esPlataforma` tiene que dar
+    // false, o el admin sin impersonar terminaría administrando el token del repo
+    // desde el workspace de un cliente.
+    return { ws: OWNER_WS, autor: autorDe(sesion), esPlataforma: OWNER_WS === wsPlataforma };
   }
-  return { ws: wsActual, autor: autorDe(sesion) };
+  return { ws: wsActual, autor: autorDe(sesion), esPlataforma: wsActual === wsPlataforma };
 }
 
 // La sesión legacy trae el email de una cookie no firmada (editable) → no lo
@@ -92,9 +110,42 @@ function puedeRevelar(sesion: NonNullable<Awaited<ReturnType<typeof getUsuarioAc
   return (sesion.rolWs ?? 'admin') === 'admin';
 }
 
+/**
+ * El servicio que este contexto TIENE DERECHO a resolver, o undefined.
+ *
+ * ⚠️⚠️ EL GUARD VA ACÁ, NO EN CADA HANDLER. `soloPlataforma` estaba declarado en el
+ * catálogo (lib/metodo-catalogo.ts) y esta ruta NUNCA lo consultaba: los cuatro
+ * caminos que resuelven un servicio —GET, `guardar`, `descubrir-github` y
+ * `verificar`— llamaban al accessor CRUDO. Medido con curl y una sesión de cliente
+ * sobre el ws13: `GET ?servicio=github` devolvía 200 con la ficha entera —el copy
+ * interno de la agencia, el tutorial de 5 pasos y los nombres GITHUB_TOKEN /
+ * GITHUB_REPO— y `guardar` le dejaba escribir esas claves en su propio workspace.
+ *
+ * `serviciosPara(esSuperAdmin)` existía en el catálogo justo para esto y NO LA
+ * LLAMABA NADIE: era código muerto. La regla vivía únicamente en la capa que dibuja
+ * la grilla, o sea protegía la PANTALLA y no la API.
+ *
+ * Y es por WORKSPACE, no por sesión: parado en `?ws=13`, ni el super admin puede
+ * tocar la credencial de la plataforma — porque `guardar` escribe con `ctx.ws` y la
+ * dejaría adentro de la fila de ese cliente, mientras `lib/github-commits.ts` la
+ * lee de `wsSuperAdmin()` y nunca la encontraría.
+ *
+ * Cerrar tres de los cuatro caminos es dejar el cuarto abierto, que es el patrón
+ * que AGENTS.md ya tiene escrito para el veto de Claude. Por eso: un solo resolvedor.
+ */
+function servicioDelContexto(key: string, ctx: Contexto) {
+  const s = servicioMetodo(key);
+  if (!s) return undefined;
+  // 404 y no 403: a quien no le corresponde, esta integración no existe. Un 403
+  // confirma que existe, y eso ya es contarle algo de la plataforma.
+  if (s.soloPlataforma && !ctx.esPlataforma) return undefined;
+  return s;
+}
+
 // Estado de un servicio (catálogo + estado por campo) para el ws objetivo.
-async function estadoServicio(servicioKey: string, ws: number) {
-  const s = servicioMetodo(servicioKey);
+async function estadoServicio(servicioKey: string, ctx: Contexto) {
+  const ws = ctx.ws;
+  const s = servicioDelContexto(servicioKey, ctx);
   if (!s) return null;
   const campos = await Promise.all(s.campos.map(async (c) => {
     let est: Awaited<ReturnType<typeof estadoCampo>>;
@@ -140,7 +191,7 @@ export async function GET(req: NextRequest) {
 
   const servicioKey = req.nextUrl.searchParams.get('servicio') ?? '';
   try {
-    const servicio = await estadoServicio(servicioKey, ctx.ws);
+    const servicio = await estadoServicio(servicioKey, ctx);
     if (!servicio) return NextResponse.json({ ok: false, error: 'servicio inválido' }, { status: 400 });
     return NextResponse.json({ ok: true, servicio });
   } catch (e) {
@@ -163,7 +214,7 @@ export async function POST(req: NextRequest) {
 
   try {
     if (body.action === 'guardar') {
-      const servicio = servicioMetodo(body.servicio ?? '');
+      const servicio = servicioDelContexto(body.servicio ?? '', ctx);
       if (!servicio || servicio.soloServidor) {
         return NextResponse.json({ ok: false, error: 'servicio inválido' }, { status: 400 });
       }
@@ -217,7 +268,7 @@ export async function POST(req: NextRequest) {
         await auditarCredencial(ctx.ws, env, 'guardar', ctx.autor);
         guardadas++;
       }
-      const estado = await estadoServicio(servicio.key, ctx.ws);
+      const estado = await estadoServicio(servicio.key, ctx);
       return NextResponse.json({ ok: true, guardadas, servicio: estado });
     }
 
@@ -230,7 +281,20 @@ export async function POST(req: NextRequest) {
     // sabe cuáles son. Pedirle al dueño que escriba «usuario/repo» a mano era pedirle que
     // adivine un dato que la API devuelve — y lo tuvo que adivinar.
     if (body.action === 'descubrir-github') {
-      const guardado = (await credWs('GITHUB_TOKEN')) ?? '';
+      // ⚠️ GITHUB ES DE LA PLATAFORMA: esta accion no existe fuera de su workspace.
+      // Sin este guard, un admin de workspace cliente podia pedirla — y peor: el
+      // `credWs('GITHUB_TOKEN')` de abajo iba SIN workspace, asi que caia en
+      // `wsDefault() = getWorkspaceActual() ?? OWNER_WS` y, para una sesion parada en
+      // OWNER_WS (=1, que es Mauricio, un CLIENTE), `lib/credenciales.ts` remata con
+      // `if (w === OWNER_WS && esValorReal(process.env[clave])) return process.env[clave]`.
+      // O sea que le habria prestado el token del repo de la AGENCIA para listarle
+      // los repos privados, y encima guardado GITHUB_REPO en la fila del cliente.
+      // Hoy `process.env.GITHUB_TOKEN` no esta cargado en produccion (verificado), asi
+      // que estaba latente y no vivo — pero el camino estaba abierto.
+      if (!ctx.esPlataforma) return NextResponse.json({ ok: false, error: 'servicio inválido' }, { status: 404 });
+      // Y el workspace va EXPLICITO: el token del repo vive en el de la plataforma y
+      // en ningun otro, que es de donde lo lee `lib/github-commits.ts`.
+      const guardado = (await credWs('GITHUB_TOKEN', await wsSuperAdmin())) ?? '';
       const pegado = typeof body.valores?.GITHUB_TOKEN === 'string' ? body.valores.GITHUB_TOKEN.trim() : '';
       const usar = pegado || guardado;
       if (!usar || usar.startsWith('PENDING')) {
@@ -239,7 +303,9 @@ export async function POST(req: NextRequest) {
       const d = await descubrirGithub(usar);
       if (!d.ok) return NextResponse.json({ ok: false, error: d.error }, { status: 422 });
       // Uno solo = no hay nada que preguntar: se guarda y listo.
-      if (d.repo) await guardarCredencial(ctx.ws, 'GITHUB_REPO', d.repo, 'github', ctx.autor);
+      // Se guarda donde se LEE. Con `ctx.ws` esto podia dejar el repo de la agencia
+      // adentro de un workspace de cliente y encima invisible para quien lo consume.
+      if (d.repo) await guardarCredencial(await wsSuperAdmin(), 'GITHUB_REPO', d.repo, 'github', ctx.autor);
       return NextResponse.json({ ok: true, repo: d.repo ?? '', opciones: d.opciones, mensaje: d.mensaje });
     }
 
@@ -281,7 +347,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      const estado = await estadoServicio('meta', ctx.ws);
+      const estado = await estadoServicio('meta', ctx);
       return NextResponse.json({
         ok: true,
         servicio: estado,
@@ -340,7 +406,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, error: 'tipo inválido' }, { status: 400 });
       }
 
-      const estado = await estadoServicio('meta', ctx.ws);
+      const estado = await estadoServicio('meta', ctx);
       return NextResponse.json({
         ok: true,
         servicio: estado,
@@ -378,7 +444,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (body.action === 'verificar') {
-      const servicio = servicioMetodo(body.servicio ?? '');
+      const servicio = servicioDelContexto(body.servicio ?? '', ctx);
       if (!servicio) return NextResponse.json({ ok: false, error: 'servicio inválido' }, { status: 400 });
       const valores = body.valores && typeof body.valores === 'object' ? body.valores : {};
       const resultado = await verificarServicio(servicio.key, valores);

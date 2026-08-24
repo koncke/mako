@@ -11,10 +11,8 @@ import { credWs } from './credenciales';
 import { landingRecibioEventos, LANDING_VENTANA_DIAS } from './landing-token';
 import { googleCalendarConectado, googleCalendarDueno } from './google-calendar';
 import { capaDef } from './capas';
-import { getCapaActual, getWorkspaceActual } from './workspace';
+import { getCapaActual, getWorkspaceActual, wsSuperAdmin } from './workspace';
 import { getAgenteToken } from './agente-token';
-// El super-admin es el único que administra las credenciales de la PLATAFORMA.
-import { getSesionAdmin } from './auth';
 
 export type EstadoIntegracion = 'conectada' | 'falta';
 
@@ -102,7 +100,34 @@ export async function getIntegraciones(): Promise<Integracion[]> {
   // Y el SUPER-ADMIN decide qué se ve de la plataforma. Una credencial como el token
   // del repo no es del negocio de nadie: mostrársela a un cliente es pedirle que
   // administre algo que no es suyo, y encima un campo secreto que no puede llenar.
-  const esSuper = !!(await getSesionAdmin().catch(() => null));
+  //
+  // ⚠️⚠️ LA PREGUNTA ES POR EL WORKSPACE, NO POR EL USUARIO. Esto era
+  // `!!(await getSesionAdmin())`, que contesta «¿quien mira es admin?» — y el
+  // super admin SIGUE siendo admin cuando entra al workspace de un cliente con
+  // `?ws=N`. Resultado, medido el 24/08/2026 pidiendo el HTML servido:
+  //
+  //     ws=13 (Codigo Inmobiliario) → «GitHub» ×12, `svc-github`, y el nombre
+  //                                    GITHUB_TOKEN ×2 en el HTML del cliente
+  //     ws=1  (Mauricio)            → lo mismo
+  //     ws=9  (la plataforma)       → correcto, ahi SÍ va
+  //
+  // O sea que la tarjeta del token del repo se dibujaba adentro del panel de dos
+  // clientes. Y no es solo cosmetico: ese modal GUARDA con `ctx.ws`, o sea en el
+  // workspace que se este mirando, mientras `lib/github-commits.ts` lo LEE con
+  // `credWs(..., await wsSuperAdmin())`. Cargarlo desde ahi habria dejado el token
+  // del repo de la agencia adentro de las credenciales de un cliente Y sin que la
+  // feature funcione, porque el que lo lee mira otro lado. (Verificado en prod: hoy
+  // GITHUB_TOKEN y GITHUB_REPO existen solo en el ws 9. No llegó a pasar.)
+  //
+  // ⚠️ Es el error que AGENTS.md ya tiene escrito con todas las letras —«OWNER_WS
+  // NO es la plataforma: es un cliente; lo de MaKo va en wsSuperAdmin()»— aplicado
+  // a la otra mitad: tampoco alcanza con «el que mira es admin».
+  //
+  // Fail-closed: sin workspace resuelto no se muestra. Esconder de mas es un
+  // renglon que falta; mostrar de mas es la credencial de la plataforma adentro
+  // del panel de un cliente.
+  const wsActual = await getWorkspaceActual().catch(() => null);
+  const esSuper = wsActual != null && wsActual === (await wsSuperAdmin().catch(() => -1));
 
   const defs = defsVisibles(DEFS, { cats, ocultas, esSuper });
   return Promise.all(defs.map(async (d) => {

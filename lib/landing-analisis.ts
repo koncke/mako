@@ -225,7 +225,11 @@ export function analizarHtml(url: string, html: string, bundle = ''): AnalisisLa
   // y su script, no siempre con un iframe a calendly.com. Buscar el dominio dejaba
   // fuera justo la forma más común de embeberlo — la que usa la landing que
   // destapó esto.
-  if (/calendly|cal\.com\/|hubspot|typeform|tally\.so/i.test(bajo)) add('embed-agenda');
+  // ⚠️ `data-cal-link` y `cal-inline` van en el detector de HTML, no solo en el del
+  // bundle: son las marcas que deja el embed de Cal en el propio markup, y sin
+  // ellas una landing que lo monta así solo se detectaba de casualidad —cuando el
+  // chunk que lo carga resulta ser del mismo origen y entra en los que se bajan.
+  if (/calendly|cal\.com\/|data-cal-link|cal-inline|hubspot|typeform|tally\.so/i.test(bajo)) add('embed-agenda');
   if (/wa\.me\/|api\.whatsapp\.com|web\.whatsapp\.com/i.test(bajo)) add('link-whatsapp');
 
   // Botones propios: se excluyen los que son parte del chrome del navegador o de

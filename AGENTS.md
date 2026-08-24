@@ -377,6 +377,38 @@ vacío y `B` gana.** Las dos reglas que quedan:
 2. **El fallback es más débil que el camino feliz, nunca más fuerte.** Si el camino
    normal exige aval y el degradado no, el degradado es la política real del sistema.
 
+# Un flag de visibilidad protege la PANTALLA; la API hay que cerrarla aparte
+
+`soloPlataforma`, `oculto`, `esSuper`: los flags que deciden qué se dibuja no protegen
+nada hasta que alguien los consulta, y el que los consulta casi siempre es la capa que
+pinta. El dato sigue saliendo por la API.
+
+El caso, del 24/08/2026. GitHub —el token del repo de la AGENCIA— estaba marcado
+`soloPlataforma: true`, la regla `defsVisibles()` lo respetaba y tenía test. La grilla de
+/integraciones filtraba bien. Y aun así `GET /api/integraciones/credencial?servicio=github`
+le devolvía **200 con la ficha entera** a un admin de workspace cliente: el copy interno de
+la agencia, el tutorial y los nombres de las envs. `serviciosPara(esSuperAdmin)` existía en
+el catálogo justo para eso y **no la llamaba nadie**: código muerto.
+
+1. **Un guard de visibilidad se prueba pidiéndole el dato al SERVER con una sesión de
+   cliente**, no mirando la pantalla. Si el JSON lo trae, está filtrado — aunque la UI no
+   lo pinte.
+2. **El guard va en el CHOKE POINT.** Ahí había cuatro caminos que resolvían un servicio
+   (`GET`, `guardar`, `descubrir-github`, `verificar`), todos llamando al accessor crudo.
+   Cerrar tres deja el cuarto: se pone UN resolvedor y todos pasan por él.
+3. **404, no 403.** Un 403 confirma que la integración existe, y eso ya es contar algo de
+   la plataforma. A quien no le corresponde, no existe.
+4. **La pregunta es por el WORKSPACE, no por el usuario.** `getSesionAdmin()` contesta
+   «¿quien mira es admin?», y el super admin lo sigue siendo dentro del workspace de un
+   cliente con `?ws=N` — por ahí la tarjeta del token del repo se dibujaba adentro del
+   panel de dos clientes. Va `wsActual === await wsSuperAdmin()`. Es la otra mitad de la
+   regla de `OWNER_WS` que ya está más arriba, y ya falló tres veces.
+
+**Y el corolario que decide dónde escribir:** se guarda DONDE SE LEE. Ese modal guardaba
+con `ctx.ws` mientras `lib/github-commits.ts` leía de `wsSuperAdmin()`: cargarlo desde el
+workspace de un cliente habría dejado el token de la agencia en la fila del cliente **y sin
+que la feature funcione**, porque el que lo consume mira otro lado.
+
 # Una política puede RECHAZAR; no puede no dejar rastro
 
 Un endpoint que descarta algo y devuelve 200 sin escribir nada hace indistinguibles dos

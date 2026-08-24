@@ -949,8 +949,11 @@ export async function landingDiagnostico(
         // Typeform), lo que la persona hace ahí adentro es de otro dominio y
         // ningún pixel del mundo lo ve. Decirlo evita que alguien pierda una
         // tarde buscando por qué no llega.
-        : enPrueba ? 'Aún no llega ninguno. Haz clic en un botón o enlace de tu página. Si tu llamado a la acción es un formulario embebido (Calendly, Typeform), lo que pase dentro de él no se puede medir: es de otro dominio.'
-        : 'Aún no llega ningún clic. Si tu página no tiene botones propios —por ejemplo, si es un Calendly embebido— es normal.' },
+        // ⚠️ El ejemplo NOMBRA una sola herramienta y a un cliente que usa otra le
+        // suena a que el aviso no es para él. «Una agenda embebida» es lo que de
+        // verdad describe el caso, y cubre a todas.
+        : enPrueba ? 'Aún no llega ninguno. Haz clic en un botón o enlace de tu página. Si tu llamado a la acción es una agenda o un formulario embebido, lo que pase dentro de él no se puede medir: es de otro dominio.'
+        : 'Aún no llega ningún clic. Si tu página no tiene botones propios —por ejemplo, si su llamado a la acción es una agenda embebida— es normal.' },
     // El paso 5 se arma arriba: es UNO solo con dos identidades.
     { id: 'optin', ...paso5 },
     // Clarity es opcional, así que sin conectar va 'na' y no 'falta': un punto en
@@ -1406,6 +1409,9 @@ ${bloqueClarity(clarityProjectId)}
   // landing con el Pixel puesto pareciera tener una. Ya pasó exactamente eso
   // con las etiquetas de video y de botón, que salían de los comentarios de
   // este mismo snippet (ver \`sinRuido\` en lib/landing-analisis.ts).
+  // Las reservas ya contadas en esta pagina. Ver el guard de mas abajo: el embed
+  // manda dos mensajes por la misma reserva.
+  var AGENDADOS = {};
   window.addEventListener('message', function (ev) {
     try {
       var d = ev.data;
@@ -1431,6 +1437,23 @@ ${bloqueClarity(clarityProjectId)}
       if (d.originator !== 'CAL') return;
       var t = String(d.type || d.fullType || '');
       if (t.indexOf('bookingSuccessful') === -1) return;
+      // ⚠️⚠️ DOS MENSAJES POR UNA MISMA RESERVA. Este embed dispara el evento
+      // viejo Y el nuevo ('...V2') por cada reserva, y el indexOf de arriba
+      // matchea los dos: sin este guard, cada agenda entraba DOS VECES —dos
+      // eventos y dos opt-ins— y el CRM veria el doble de reservas que las que
+      // hubo. Se deduplica por el identificador del booking, y si no viene, por
+      // la reserva a secas: una persona no reserva dos veces en el mismo instante.
+      //
+      // Se aceptan los DOS tipos a proposito, en vez de quedarse con uno: el que
+      // trae el nombre y el mail de quien reserva es justo el que esta marcado
+      // como deprecado en el codigo del proveedor, asi que atarse a el es quedar
+      // ciego el dia que lo apaguen — y atarse solo al nuevo es perder el lead
+      // hoy. Gana el primero que llegue, y el otro se descarta.
+      var pAgenda = d.data || {};
+      var bAgenda = pAgenda.booking || pAgenda;
+      var uidAgenda = String(bAgenda.uid || bAgenda.id || 'sin-uid');
+      if (AGENDADOS[uidAgenda]) return;
+      AGENDADOS[uidAgenda] = true;
       // El detalle NO lleva el dominio, por lo mismo que el comentario de
       // arriba: cualquier cadena que el analizador persiga y que viaje pegada en
       // la pagina del cliente vuelve como una pieza que esa pagina no tiene.
@@ -1439,12 +1462,10 @@ ${bloqueClarity(clarityProjectId)}
       // Se busca en los dos lugares conocidos y se falla en silencio: el evento
       // 'agendo' ya salió, así que peor caso es una reserva medida sin lead —
       // nunca una reserva perdida.
-      var p = d.data || {};
-      var b = p.booking || p;
-      var a = (b.attendees && b.attendees[0]) || p.attendee || {};
+      var a = (bAgenda.attendees && bAgenda.attendees[0]) || pAgenda.attendee || {};
       mandarOptin({
-        nombre: a.name || b.name || null,
-        email: a.email || b.email || null,
+        nombre: a.name || bAgenda.name || null,
+        email: a.email || bAgenda.email || null,
         telefono: (a.phoneNumber || a.phone || null),
         origen: 'agenda'
       });

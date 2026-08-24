@@ -612,6 +612,47 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       ],
     },
   },
+  // ⚠️ CAL.COM ES OTRO PRODUCTO, NO UNA VARIANTE DE CALENDLY. calendly.com y
+  // cal.com son dos empresas distintas, con API, firma y payload distintos. La
+  // confusión ya costó una conversión real: el 24/08/2026 un cliente (ws13) se
+  // agendó en su propia landing con una agenda de Cal.com embebida y MaKo no
+  // registró nada, porque no había por dónde entrar. Van SEPARADAS a propósito:
+  // fundirlas en una sola tarjeta «Agenda» obligaría a preguntar cuál usa, que es
+  // justo la pregunta que la tarjeta ya contesta con su nombre.
+  {
+    key: 'calcom',
+    nombre: 'Cal.com',
+    categoria: 'Reuniones',
+    paraQue: 'Cada reserva de tu calendario entra sola al CRM, con quién reservó y para cuándo — y si la cancelan, se marca sola.',
+    campos: [
+      { env: 'CALCOM_API_KEY', label: 'API key', secreto: true, opcional: true, placeholder: 'cal_live_…', nota: 'Solo hace falta para leer tu agenda (respaldos y backfills). Las reservas en vivo entran por el webhook.' },
+      { env: 'CALCOM_WEBHOOK_SECRET', label: 'Secret del webhook', secreto: true, nota: 'Es lo que prueba que la reserva vino de tu calendario y no la inventó otro. Sin esto NO entra ninguna: se rechaza.' },
+      { env: 'CALCOM_EVENT_TYPE_J1', label: 'Tipo de evento de R1', opcional: true, placeholder: 'llamada-de-auditoria', nota: 'El identificador o el nombre del tipo de evento de tu primera reunión. Es lo que rutea la reserva a TU workspace y la clasifica.' },
+      { env: 'CALCOM_EVENT_TYPE_J2', label: 'Tipo de evento de R2', opcional: true, placeholder: 'cierre', nota: 'Igual que el anterior, para la segunda reunión. Una R2 nunca crea un lead: completa el que ya existe.' },
+    ],
+    pasoExterno: {
+      titulo: 'Pegá esta dirección dentro de Cal.com',
+      porque: 'Es por donde Cal.com nos avisa apenas alguien reserva. Sin esto la reserva no llega nunca: quien agendó se queda afuera de tu CRM.',
+      valor: '{{APP_URL}}/api/webhooks/calcom',
+      donde: 'app.cal.com → Settings → Developer → Webhooks → "New".',
+      ojo: [
+        'Marcá al menos "Booking Created" y "Booking Cancelled". Sin la primera no entra ninguna reserva; sin la segunda, una cancelación deja la reunión en pie.',
+        'Cargá un "Secret" y pegá EL MISMO valor en el campo de arriba. Si lo dejás vacío, Cal.com manda la palabra «no-secret-provided» en vez de una firma y MaKo rechaza la reserva — es a propósito: sin firma, cualquiera podría inventarte reuniones.',
+        'El identificador del tipo de evento es lo último de la dirección de tu página de reservas (cal.com/tu-usuario/ESTO).',
+      ],
+    },
+    tutorial: {
+      url: 'https://app.cal.com/settings/developer/webhooks/new',
+      urlLabel: 'Cal.com → Webhooks',
+      pasos: [
+        'Para qué sirve: cuando alguien reserva en tu calendario, entra solo al CRM con su nombre, su mail y la fecha. Sin que toques nada.',
+        'Entrá a app.cal.com con la cuenta donde recibís las reservas.',
+        'Settings → Developer → Webhooks → "New".',
+        'Pegá la dirección de arriba, marcá los eventos y cargá un secret.',
+        'Opcional: si además querés que MaKo pueda LEER tu agenda, generá una API key en Settings → Developer → API keys.',
+      ],
+    },
+  },
   // Google NO va acá, por lo mismo que Supabase: GOOGLE_CLIENT_ID/SECRET son la
   // app OAuth de la AGENCIA (login + Google Calendar), infra compartida de la
   // plataforma. Un cliente jamás crea su propia app OAuth ni pisa estas

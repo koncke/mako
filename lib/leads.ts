@@ -398,7 +398,9 @@ export async function duplicadosDeLead(cand: CandidatoLead): Promise<Coincidenci
  * mirando— en una cola de decisiones, y el resultado sería el de los ocho leads
  * esperando. Se hace, y se cuenta.
  */
-async function avisarFusion(canal: 'Meta' | 'Calendly', lead: Lead, porQue: string): Promise<void> {
+// El canal es el NOMBRE VISIBLE del origen, no una key: va tal cual al aviso que
+// lee el dueño. La union se amplía cuando entra una agenda nueva.
+async function avisarFusion(canal: 'Meta' | 'Calendly' | 'Cal.com', lead: Lead, porQue: string): Promise<void> {
   try {
     const { emitirDelCatalogo } = await import('./avisos');
     const { APP_BASE_URL } = await import('./app-url');
@@ -1073,7 +1075,7 @@ export async function cancelarJuntaEnLead(
  *   email, fechas, empresa, telefono). NUNCA toca los campos manuales
  *   (asistio_j1, calificado, cerro, monto, fecha_cierre) ni los meta_*.
  * - UTMs y respuestas en UPDATE: solo sobrescribe si viene con valor.
- * - Si no existe: crea uno nuevo con origen_lead='calendly'.
+ * - Si no existe: crea uno nuevo con el `origen_lead` que le pasen (default 'calendly').
  *
  * @returns { created: true } si fue insert, { created: false } si fue update.
  */
@@ -1097,6 +1099,17 @@ export async function upsertLeadFromCalendly(
     respuesta_inversion?: string | null;
     respuesta_decisor?: string | null;
     visitor_id?: string | null;
+    /**
+     * De qué agenda vino. Default 'calendly' porque es quien llamaba a esto hasta
+     * hoy, y cambiarlo sin avisar re-etiquetaría leads históricos.
+     *
+     * ⚠️ NO ES COSMÉTICO. El 24/08/2026 la primera reserva que entró por Cal.com
+     * quedó guardada como `origen_lead: 'calendly'`: la ficha del lead decía
+     * «Calendly» y el reporte de origen le atribuía la venta a una herramienta que
+     * ese cliente no usa. Un origen inventado no se nota nunca y no se puede
+     * corregir después, porque nada distingue las filas mal etiquetadas.
+     */
+    origen_lead?: string;
   },
   opts?: {
     // Backfill histórico (Fase 2-bis): backdatea created_at del lead SOLO
@@ -1213,7 +1226,7 @@ export async function upsertLeadFromCalendly(
       .select('*')
       .single();
     if (error) throw new Error(`Error actualizando lead ${existing.id}: ${error.message}`);
-    await avisarFusion('Calendly', data as Lead, 'coincide el contacto');
+    await avisarFusion(input.origen_lead === 'calcom' ? 'Cal.com' : 'Calendly', data as Lead, 'coincide el contacto');
     return { created: false, lead: data as Lead };
   }
 
@@ -1222,7 +1235,7 @@ export async function upsertLeadFromCalendly(
   // INSERT: incluimos todo aunque sean null (lead nuevo, no hay nada que pisar)
   const insertPayload = {
     ...basePayload,
-    origen_lead:              'calendly',
+    origen_lead:              input.origen_lead ?? 'calendly',
     utm_source:               input.utm_source               ?? null,
     utm_medium:               input.utm_medium               ?? null,
     utm_campaign:             input.utm_campaign             ?? null,

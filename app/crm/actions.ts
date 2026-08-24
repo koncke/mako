@@ -900,6 +900,7 @@ function origenDeFila(l: FilaLead): string {
   const o = sTxt(l.origen_lead);
   if (o === 'instant_form') return 'Meta · sin campaña';
   if (o === 'calendly') return 'Calendly · sin campaña';
+  if (o === 'calcom') return 'Cal.com · sin campaña';
   return o ?? 'Directo / orgánico';
 }
 

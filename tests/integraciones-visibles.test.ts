@@ -18,6 +18,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { defsVisibles, DEFS_TEST } from '../lib/integraciones-catalogo';
 
 const CAPA_SUPERADMIN = ['Inteligencia', 'IA Generativa', 'Agentes', 'Reuniones', 'Datos'];
@@ -67,4 +68,57 @@ test('no se duplica ninguna: plataforma y negocio son conjuntos disjuntos', () =
 test('el catálogo declara al menos una de plataforma, y GitHub es una', () => {
   const plataforma = DEFS_TEST.filter((d) => d.soloPlataforma).map((d) => d.key);
   assert.ok(plataforma.includes('github'), 'GitHub tiene que estar marcada soloPlataforma');
+});
+
+// =============================================================================
+// ERROR 3 (24/08/2026): la regla estaba bien y QUIEN LA LLAMA contestaba otra cosa
+// =============================================================================
+// Los dos tests de arriba prueban `defsVisibles` con `esSuper` ya calculado, así que
+// pasaban en verde mientras la fuga estaba viva: el bug no estaba en la regla, estaba
+// en cómo se llenaba ese booleano.
+//
+// `lib/integraciones.ts` hacía `esSuper = !!(await getSesionAdmin())`, que contesta
+// **«¿quien mira es admin?»** — y el super admin SIGUE siendo admin cuando entra al
+// workspace de un cliente con `?ws=N`. Medido pidiendo el HTML servido:
+//
+//     ws=13 (Código Inmobiliario) → «GitHub» ×12, `svc-github`, GITHUB_TOKEN ×2
+//     ws=1  (Mauricio)            → lo mismo
+//
+// La pregunta correcta es por el WORKSPACE: `wsActual === await wsSuperAdmin()`. Es el
+// mismo error que AGENTS.md ya tiene escrito —«OWNER_WS no es la plataforma»— en su
+// otra mitad: tampoco alcanza con «el que mira es admin».
+//
+// Estos tests miran el FUENTE porque `getIntegraciones()` es `server-only` y arrastra
+// media app: lo que hay que cuidar es de dónde sale el booleano, y eso se lee.
+const FUENTE = () =>
+  readFileSync(new URL('../lib/integraciones.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+
+test('ERROR 3: `esSuper` se deriva del WORKSPACE, no de la sesión', () => {
+  const s = FUENTE();
+  assert.ok(
+    /const esSuper = [^\n]*wsSuperAdmin\(\)/.test(s),
+    'esSuper tiene que comparar el workspace actual contra wsSuperAdmin()',
+  );
+  assert.ok(
+    !/const esSuper = [^\n]*getSesionAdmin/.test(s),
+    'getSesionAdmin() contesta «¿el usuario es admin?», y el super admin lo sigue siendo ' +
+    'dentro del workspace de un cliente: por ahí se filtró GitHub a dos clientes',
+  );
+  // Fail-closed: sin workspace resuelto, no se muestra. Esconder de más es un renglón
+  // que falta; mostrar de más es la credencial de la plataforma en el panel de un cliente.
+  assert.ok(
+    /wsActual != null && wsActual ===/.test(s),
+    'sin workspace resuelto tiene que dar false, no colarse por un null',
+  );
+});
+
+test('ERROR 3 bis: y NO se confunde la plataforma con OWNER_WS', () => {
+  // OWNER_WS (=1) es un CLIENTE —Mauricio—, no la plataforma. Está documentado en
+  // AGENTS.md y ya mordió antes. Si alguien "arregla" esto comparando contra OWNER_WS,
+  // GitHub vuelve a aparecer justo en el workspace donde apareció la primera vez.
+  const s = FUENTE();
+  assert.ok(
+    !/const esSuper = [^\n]*OWNER_WS/.test(s),
+    'OWNER_WS es un cliente, no la plataforma: comparar contra él reabre la fuga',
+  );
 });

@@ -20,6 +20,8 @@ en [corridas-multiagente.md](corridas-multiagente.md).
 
 ## Lo que más muerde acá
 
+- **Cal.com no es Calendly**: otra empresa, otra firma, otro payload — y su embed manda dos mensajes
+  por la misma reserva → [Cal.com es OTRO producto](#-calcom-es-otro-producto-no-una-variante-de-calendly).
 - Un error de lectura se pinta como **"✓ Todo marcado"**: el peor bug del CRM porque no
   parece un bug. → [Un error de lectura terminaba en un tilde verde de todo al día](#un-error-de-lectura-terminaba-en-un-tilde-verde-de-todo-al-día)
 - La hora **se calculaba en el huso del navegador** y le llegaba mal al invitado por mail.
@@ -1462,6 +1464,85 @@ contrato**, no una optimización.
 **Vive en:** `lib/auto-reuniones.ts` · *2026-08-07 ~contexto-mako-md*
 
 ---
+
+### ⚠️ Cal.com es OTRO producto, no una variante de Calendly
+
+*2026-08-24*
+
+`calendly.com` y `cal.com` son **dos empresas distintas**, con API, firma y payload
+distintos. Lo único que comparten es la idea. Confundirlos costó una conversión real: el
+ws13 (Código Inmobiliario) vende por una agenda de Cal.com embebida en su landing, se
+agendó **durante una prueba en vivo** y MaKo no registró nada — ni el evento ni el lead.
+
+**Las cuatro diferencias que gobiernan el diseño** (traídas de la doc oficial y del fuente
+del propio Cal.com, no de memoria):
+
+| | Calendly | Cal.com |
+|---|---|---|
+| Firma | `Calendly-Webhook-Signature: t=…,v1=…`, se firma `${t}.${body}` → anti-replay gratis | `x-cal-signature-256`: hex pelado sobre el body. **Sin anti-replay por firma** |
+| Sobre | `{ event: 'invitee.created', payload }` | `{ triggerEvent: 'BOOKING_CREATED', payload }`, en MAYÚSCULAS |
+| Invitado | ES el payload | `payload.attendees[0]` — y el `organizer` es el CLIENTE |
+| API | v2 | **la v1 se apagó el 8/4/2026**; v2 exige el header `cal-api-version` |
+
+**La trampa propia de este proveedor: `no-secret-provided`.** Cuando el webhook se da de
+alta sin secreto, Cal.com **no omite el header**: manda esa cadena literal. Un guard escrito
+como `if (header) verificar()` la trata como si fuera una firma; uno escrito como
+`if (!secret) return` deja pasar el webhook **sin verificar nada**, y ahí cualquiera que
+descubra la URL puede inventar reservas y meterle leads al CRM de un cliente. Se nombra y
+se rechaza explícito, con un mensaje que dice qué hacer — porque el que lo va a leer es
+quien configuró el webhook.
+
+**⚠️ El invitado es `attendees[0]`, NUNCA el `organizer`.** En Calendly no hay forma de
+equivocarse porque el invitado ES el payload; acá las dos personas viven en el mismo objeto,
+y confundirlas crea un lead con los datos del propio negocio — un cliente «agendándose a sí
+mismo» en cada reserva.
+
+**Y el embed manda DOS postMessage por UNA reserva** (el evento viejo y el `…V2`), así que
+un filtro por `indexOf('bookingSuccessful')` cuenta cada agenda dos veces. Peor: el único
+de los dos que trae nombre y mail de quien reserva es justo el que Cal.com marca
+`@deprecated`. Se aceptan los dos y se deduplica por el uid del booking — atarse al viejo
+es quedar ciego el día que lo apaguen, y atarse al nuevo es perder el lead hoy.
+
+**Qué NO se duplicó, a propósito:** la lógica de negocio. El webhook normaliza la reserva y
+de ahí en adelante llama a las MISMAS funciones que Calendly (`upsertLeadFromCalendly`,
+`setFechaJunta2`, `cancelarJuntaEnLead`) y a la MISMA comparación de event types
+(`mismoEventType`). Dos caminos que escriben leads distinto son dos CRMs; y si cada
+proveedor clasificara R1/R2 con su propia comparación, la misma reunión sería R1 por un
+lado y R2 por el otro.
+
+**Lo que sí es propio y no se comparte: el espacio de nombres del ruteo.** Cal.com va bajo
+el servicio `calcom` en `webhook_routing`, no bajo `calendly`. Un slug como `cierre` o
+`llamada` es plausible en los dos, y compartir el índice haría que la reserva de un cliente
+se ruteara al workspace de otro.
+
+**Y nace SIN fallback a un secreto de plataforma**, a diferencia de Calendly. Allá ese
+fallback existe por compatibilidad y su propio comentario dice que mientras se use, dos
+inquilinos comparten secreto y la vía de forja sigue abierta para ellos. Esta integración
+no tiene historia que arrastrar: nace cerrada.
+
+**El origen del lead se PARAMETRIZÓ.** `upsertLeadFromCalendly` clavaba
+`origen_lead: 'calendly'`, así que la primera reserva de Cal.com quedó etiquetada como
+Calendly: la ficha lo decía y el reporte de origen le atribuía la venta a una herramienta
+que ese cliente no usa. Un origen inventado no se nota nunca y no se puede corregir
+después, porque nada distingue las filas mal etiquetadas.
+
+**Verificado de punta a punta** contra el ws3 (Cliente de Prueba), con limpieza: conectar
+desde /integraciones guarda las credenciales → el ruteo se espeja solo → la reserva firmada
+crea el lead con el nombre, mail y teléfono de **quien reservó** → la segunda vez actualiza
+y no duplica. Y los caminos cerrados: body no-JSON 400, `JSON.parse('null')` 400 (no 500 sin
+autenticar), sin header 401, `no-secret-provided` 401 con el mensaje útil, firma de otro
+secreto 401.
+
+**Vive en:** `lib/calcom.ts` · `app/api/webhooks/calcom/route.ts` ·
+`lib/webhook-routing.ts` (`ROUTING_CREDS`) · `lib/metodo-catalogo.ts` ·
+`lib/integraciones-catalogo.ts` · `lib/landing-token.ts` (el postMessage del embed) ·
+`tests/calcom-parsers.test.ts` · `tests/landing-agenda-embebida.test.ts`
+
+**Lo que quedó SIN hacer:** el barrido por API (leer la agenda para recuperar reservas cuyo
+webhook falló) — Calendly tampoco lo tiene. El registro programático del webhook: hay que
+darlo de alta a mano en Cal.com, igual que en Calendly (Chatwoot y Evolution sí lo
+registran solos). Y el widget del CRM para agendar DESDE MaKo, que hoy es solo de Calendly
+(`lib/calendly-agenda.ts`, `app/crm/calendly-widget.ts`).
 
 ## Historial, deshacer y confirmaciones
 

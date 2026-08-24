@@ -134,7 +134,14 @@ test('CABLEADO: un webhook que FUSIONA dos contactos lo avisa', () => {
   const leads = leer('../lib/leads.ts');
   assert.ok(/async function avisarFusion/.test(leads), 'una fusión silenciosa no se puede revisar');
   assert.ok(/avisarFusion\('Meta'/.test(leads), 'el webhook de Meta fusiona sin avisar');
-  assert.ok(/avisarFusion\('Calendly'/.test(leads), 'el webhook de Calendly fusiona sin avisar');
+  // ⚠️ El canal ya no es un literal: desde que hay DOS agendas (Calendly y
+  // Cal.com) el aviso nombra la que de verdad trajo al lead — decirle «Calendly»
+  // a quien usa Cal.com es contarle una fusión que nunca ocurrió en esa
+  // herramienta. Lo que este test cuida es que la fusión NO SEA SILENCIOSA, y
+  // eso se prueba en el punto donde se hace, no en la forma del argumento.
+  const upsertAgenda = leads.slice(leads.indexOf('export async function upsertLeadFromCalendly'));
+  assert.ok(/avisarFusion\(/.test(upsertAgenda), 'el webhook de agenda fusiona sin avisar');
+  assert.ok(/'Cal\.com' : 'Calendly'/.test(leads), 'el aviso tiene que nombrar la agenda real, no siempre Calendly');
   // NO se frena la fusión: frenarla convertiría un webhook —que corre sin nadie
   // mirando— en una cola de decisiones, y el resultado sería el de los ocho leads
   // esperando. Se hace, y se cuenta.

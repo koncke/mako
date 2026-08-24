@@ -34,6 +34,12 @@ export const ROUTING_CREDS: Record<string, string> = {
   FATHOM_HOST_EMAIL: 'fathom',
   CALENDLY_EVENT_TYPE_J1: 'calendly',
   CALENDLY_EVENT_TYPE_J2: 'calendly',
+  // Cal.com va bajo SU PROPIO servicio, no bajo 'calendly'. Son dos productos
+  // distintos y sus identificadores pueden colisionar: un slug como 'cierre' o
+  // 'llamada' es plausible en los dos, y compartir el espacio de nombres haría
+  // que la reserva de un cliente se ruteara al workspace de otro.
+  CALCOM_EVENT_TYPE_J1: 'calcom',
+  CALCOM_EVENT_TYPE_J2: 'calcom',
   META_PAGE_ID: 'meta',
   // 'zernio' NO va acá a propósito: su única credencial es la API key (secreta —
   // un secreto jamás se espeja en claro a webhook_routing) y el identificador de

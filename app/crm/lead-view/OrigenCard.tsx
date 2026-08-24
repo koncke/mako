@@ -27,6 +27,10 @@ function labelOrigen(origen: string | null): { texto: string; color: string } {
   switch (origen) {
     case 'instant_form': return { texto: 'Instant Form (Meta)', color: 'var(--accent)' };
     case 'calendly': return { texto: 'Calendly', color: 'var(--good)' };
+    // Cal.com es OTRO producto, no una variante de Calendly. Sin este renglón, un
+    // lead que reservó en Cal.com caía en «Orgánico / manual» — o sea, la ficha
+    // decía que llegó solo justo sobre el lead que agendó una llamada.
+    case 'calcom': return { texto: 'Cal.com', color: 'var(--good)' };
     default: return { texto: 'Orgánico / manual', color: 'var(--dim)' };
   }
 }

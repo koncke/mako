@@ -41,6 +41,13 @@ export const DEFS: Def[] = [
   { key: 'github', nombre: 'GitHub', categoria: 'Desarrollo', descripcion: 'Lee los commits de main para proponer cerrar las tareas de desarrollo ya hechas.', envs: ['GITHUB_TOKEN', 'GITHUB_REPO'], soloPlataforma: true },
   { key: 'fathom', nombre: 'Fathom', categoria: 'Reuniones', descripcion: 'Grabaciones y transcripciones de llamadas (Closing).', envs: ['FATHOM_API_KEY'] },
   { key: 'calendly', nombre: 'Calendly', categoria: 'Reuniones', descripcion: 'Agenda de reuniones (R1/R2) y asistencia.', envs: ['CALENDLY_API_TOKEN'] },
+  // ⚠️ Cal.com es OTRO producto, no una variante de Calendly: otra empresa, otra API,
+  // otra firma y otro payload. Un cliente que vende por Cal.com no tenía por dónde
+  // conectar, y sus reservas no llegaban (24/08/2026, ws13).
+  // El env que decide «conectada» es el SECRET del webhook, no la API key: la API key
+  // sirve para leer la agenda y es opcional, mientras que sin secret no entra una sola
+  // reserva. La tarjeta tiene que medir lo que hace funcionar la integración.
+  { key: 'calcom', nombre: 'Cal.com', categoria: 'Reuniones', descripcion: 'Cada reserva de tu calendario entra sola al CRM, y si la cancelan se marca sola.', envs: ['CALCOM_WEBHOOK_SECRET'] },
   // Google Calendar: no se mide por env — GOOGLE_CLIENT_ID/SECRET son la app
   // OAuth de la agencia (siempre puesta), así que chequearlos diría "conectada"
   // para todos sin que nadie haya autorizado su agenda. Se mide por señal REAL

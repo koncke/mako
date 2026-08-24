@@ -16,6 +16,8 @@ arregladas, y donde el rescate lo sabía, lo dice.
 
 ## Lo que más muerde acá
 
+- La credencial del repo de la agencia se le servía a los clientes por la API, y `serviciosPara()` —la
+  función escrita para evitarlo— no la llamaba nadie → [GitHub en el panel de un cliente](#la-credencial-de-la-plataforma-adentro-del-panel-de-un-cliente-github).
 - Los guards que suenan a «solo la agencia» no lo son: tres de cuatro los pasa cualquier admin-cliente, y el único que cierra de verdad es `getSesionAdmin()` → [Guards, roles y sesión](#guards-roles-y-sesión).
 - Cuando no hay cookie, el workspace efectivo es el del DUEÑO: por default del resolver y por 29 `?? OWNER_WS` escritos a mano en 19 libs → [Aislamiento multi-inquilino](#aislamiento-multi-inquilino).
 - `getTenantDb()` sobre una tabla que nadie registró no filtra nada y no avisa: el call-site cree estar aislado → [Aislamiento multi-inquilino](#aislamiento-multi-inquilino).
@@ -24,6 +26,107 @@ arregladas, y donde el rescate lo sabía, lo dice.
 - Una ruta de API que termina en `.png` queda fuera del gate, y meter un prefijo en `PUBLICOS` saca más cosas de las que parece → [Superficie expuesta](#superficie-expuesta).
 
 ---
+
+## La credencial de la PLATAFORMA adentro del panel de un cliente (GitHub)
+
+*2026-08-24 — pedido del dueño: «revisá MUY bien que GitHub NO debe estar en los
+workspace de clientes, solo de SuperAdmin». Existía, y por DOS caminos distintos.*
+
+GitHub es el token del repo de la agencia, no de ningún negocio. Ya estaba marcado
+`soloPlataforma: true` y ya había una regla con test (`defsVisibles`) que lo respetaba.
+Y aun así se filtraba, porque **el flag estaba puesto y quien lo consulta contestaba otra
+pregunta**.
+
+### ⚠️ Camino 1 — `esSuper` preguntaba por el USUARIO, no por el WORKSPACE
+
+`lib/integraciones.ts` hacía `const esSuper = !!(await getSesionAdmin())`. Eso contesta
+*«¿quien mira es admin?»*, y el super admin **sigue siendo admin cuando entra al workspace
+de un cliente con `?ws=N`**. Medido pidiendo el HTML servido:
+
+| workspace | antes | después |
+|---|---|---|
+| ws13 (Código Inmobiliario) | «GitHub» ×12, `svc-github`, `GITHUB_TOKEN` ×2 | 0 |
+| ws1 (Mauricio) | lo mismo | 0 |
+| ws9 (la plataforma) | correcto | sigue correcto |
+
+Y no era solo cosmético: ese modal **guarda con `ctx.ws`**, o sea en el workspace que se
+esté mirando, mientras `lib/github-commits.ts` lo **lee** con `credWs(…, wsSuperAdmin())`.
+Cargarlo desde ahí habría dejado el token del repo de la agencia adentro de las
+credenciales de un cliente **y sin que la feature funcione**, porque el que lo lee mira
+otro lado. (Verificado en prod: hoy `GITHUB_TOKEN`/`GITHUB_REPO` existen solo en el ws 9.
+No llegó a pasar.)
+
+### ⚠️⚠️ Camino 2 — la regla protegía la PANTALLA, no la API
+
+Este es el grande, y es el que el dueño sospechaba. `/api/integraciones/credencial`
+**nunca consultaba `soloPlataforma`**: sus cuatro caminos que resuelven un servicio —`GET`,
+`guardar`, `descubrir-github` y `verificar`— llamaban al accessor crudo `servicioMetodo()`.
+Verificado con curl y una sesión de **cliente** sobre el ws13:
+
+```
+GET /api/integraciones/credencial?servicio=github  →  200
+{ "servicio": { "nombre": "GitHub", "paraQue": "…aparecieron 62 de golpe",
+                "tutorial": {…5 pasos…}, "campos": [GITHUB_TOKEN, GITHUB_REPO] } }
+```
+
+No se filtraba el token (los campos vuelven `configurado:false`), pero sí la ficha entera:
+que la integración existe, el copy interno de la agencia, el tutorial y los nombres de las
+envs. Y `guardar` usaba el mismo accessor, así que el cliente podía **escribir**
+`GITHUB_TOKEN` en su propia fila.
+
+**Y `serviciosPara(esSuperAdmin)` —la función escrita exactamente para esto— NO LA LLAMABA
+NADIE**: era código muerto desde que se escribió.
+
+**El agravante, latente:** `descubrir-github` hacía `credWs('GITHUB_TOKEN')` **sin
+workspace**, y `wsDefault()` cae a `getWorkspaceActual() ?? OWNER_WS`. Para una sesión
+parada en OWNER_WS —que es *Mauricio, un cliente*— `lib/credenciales.ts` remata con
+`if (w === OWNER_WS && esValorReal(process.env[clave])) return process.env[clave]`. O sea
+que le habría prestado el token del repo de la agencia para listarle los repos privados.
+Hoy `process.env.GITHUB_TOKEN` no está cargado en producción, así que el camino estaba
+abierto y no vivo.
+
+### Las tres reglas que quedan
+
+1. **La pregunta es por el WORKSPACE, no por el usuario.** `wsActual === wsSuperAdmin()`,
+   nunca `getSesionAdmin()`. Es la otra mitad del error que AGENTS.md ya tenía escrito
+   («OWNER_WS no es la plataforma: es un cliente»). Parado en `?ws=13`, **ni el super
+   admin** puede tocar la credencial de la plataforma — porque escribiría en la fila
+   equivocada.
+2. **Un flag declarado en un catálogo no protege nada hasta que alguien lo consulta, y el
+   que lo consulta tiene que ser el CHOKE POINT.** Acá había cuatro ramas resolviendo
+   servicio: cerrar tres deja la cuarta. Se puso un único resolvedor
+   (`servicioDelContexto`) y las cuatro pasan por él. Devuelve **404, no 403**: un 403
+   confirma que la integración existe, y eso ya es contar algo de la plataforma.
+3. **Filtrar al PINTAR no alcanza si el dato ya viajó.** El filtro vivía en la capa de la
+   grilla, así que la UI estaba bien y la API abierta. Un guard de visibilidad se prueba
+   pidiéndole el dato al server con una sesión de cliente, no mirando la pantalla.
+
+**Verificado después del arreglo** (sesión de cliente y sesión de admin impersonando):
+
+```
+ws13 cliente (rol=usuario)   github=400 sin ficha   descubrir-github=404
+ws1  Mauricio (rol=usuario)  github=400 sin ficha   descubrir-github=404
+ws13 con sesión de ADMIN     github=400 sin ficha   descubrir-github=404
+ws9  la plataforma           github=200 FICHA(GITHUB_TOKEN|GITHUB_REPO)   descubrir-github=200
+```
+
+**Vive en:** `lib/integraciones.ts` (`esSuper`) ·
+`app/api/integraciones/credencial/route.ts` (`servicioDelContexto`, `esPlataforma`) ·
+`lib/metodo-catalogo.ts` (`serviciosPara`) · `tests/integraciones-visibles.test.ts`
+
+### ⚠️ PENDIENTE — el catálogo entero viaja en el bundle del navegador del cliente
+
+`lib/metodo-catalogo.ts` **no tiene `server-only`** y es isomórfico a propósito («Este
+módulo lo usa también la UI (client)»). Lo importan tres componentes `'use client'`:
+`IntegracionesBoard.tsx:30` y `OnboardingInstagram.tsx:22` (vía `servicioMetodo`, que
+cierra sobre el array entero) y `MetodoWizard.tsx:13` (`SERVICIOS_METODO` completo). Con
+eso, la entrada de GitHub —nombre, envs, tutorial y el copy interno de la agencia— **está
+en el JS que descarga cualquier cliente**. Verificado en los chunks del build.
+
+No es un secreto: es metadata. Pero es información interna de la agencia en el navegador
+de un cliente, y el arreglo no es de una línea — hay que pasar el catálogo ya filtrado por
+props desde los server components de `/metodo`, `/integraciones` e `/instagram`. **Queda
+sin hacer**, y se dice acá para que no se lea como «revisado y limpio».
 
 ## Aislamiento multi-inquilino
 

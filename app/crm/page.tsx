@@ -37,7 +37,10 @@ export default async function LeadsPage() {
   // Sin NINGUNA fuente de leads el Kanban es una bienvenida muerta, y encima es
   // la primera tab de todos los roles (FALLBACK de tab-access).
   const tabCrm = tabActivacion('crm');
-  if (tabCrm && !(await integracionConectada('calendly')) && !(await integracionConectada('meta'))) {
+  // ⚠️ Cal.com cuenta como fuente de leads. Sin esto, a un cliente que vende por
+  // Cal.com —y cuyas reservas SÍ entran al CRM— se le escondía el Kanban entero
+  // detrás de un panel de activación que le pedía conectar otra cosa.
+  if (tabCrm && !(await integracionConectada('calendly')) && !(await integracionConectada('calcom')) && !(await integracionConectada('meta'))) {
     return <PanelActivacion tab={tabCrm} />;
   }
   await guardOnboarding();
