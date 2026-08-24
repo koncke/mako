@@ -68,7 +68,7 @@ export const CURSO_CURSOS_HEYGEN: Curso = {
       label: 'recurso-01',
       cardDesc: 'Material de «1. Navegacion y Creación»',
       tipo: 'pdf',
-      driveId: '1QHKUY8eb5Okt-0VC7cUDcltYLihKdWs4',
+      driveId: '1n1rU2TH4b-grU8PIJrKm9k4bacIBivXj',
       clases: [1, 2, 3, 4, 5, 6, 7],
     },
   ],

@@ -204,8 +204,26 @@ const MAX_INLINE_GEMINI = 14 * 1024 * 1024;   // va dentro del request: hay tech
 async function sttGemini(buf: Buffer, mime: string, key: string, hint?: string): Promise<{ texto: string; modelo: string }> {
   if (buf.length > MAX_INLINE_GEMINI) throw new Error(`${(buf.length / 1048576).toFixed(1)} MB: no entra inline (tope 14 MB)`);
   const modelo = process.env.GEMINI_STT_MODEL || process.env.GEMINI_MODEL || 'gemini-flash-latest';
+  // ⚠️ «EN SU IDIOMA ORIGINAL» NO ES UNA PREFERENCIA: ACÁ DECÍA «en español» Y ESO ES UNA
+  // ORDEN DE TRADUCIR.
+  //
+  // Se escribió cuando todos los cursos eran en español, donde no cambiaba nada. El primer
+  // curso en inglés (Iman Gadzhi, 24/08/2026) salió con 3 de sus 26 clases TRADUCIDAS al
+  // español y 22 en inglés: Gemini obedeció la orden unas veces y la ignoró otras, así que
+  // el resultado es una moneda al aire y volver a correrlo no lo arregla.
+  //
+  // Y no salió gratis en contenido. Traducir compite con transcribir literal —son dos
+  // tareas, no una— y en la clase 020 el modelo resolvió el conflicto RESUMIENDO: 95
+  // palabras por minuto contra una mediana de 215 en las que quedaron en inglés, con el
+  // medio de la clase degenerado en apuntes sueltos («Formulario de admisión.», «Tamaños
+  // de audiencia.»). El pedido de traducir se llevó puesta la mitad del material.
+  //
+  // Es «un tope elegido contra UN proveedor apaga a los demás» (AGENTS.md) aplicada al
+  // IDIOMA: un valor elegido cuando el universo era homogéneo pasa a gobernar al primero
+  // que no lo es, y nadie vuelve a mirarlo.
   const instruccion = [
-    'Transcribí este audio en español.',
+    'Transcribí este audio EN SU IDIOMA ORIGINAL. NO traduzcas: si el audio está en inglés,',
+    'la transcripción va en inglés; si está en español, en español.',
     'Devolvé SOLO la transcripción literal de lo que se dice: sin comillas, sin timestamps,',
     'sin nombres de hablante, sin comentarios tuyos y sin describir el audio.',
     'Transcribí el audio COMPLETO, de principio a fin, sin resumir ni abreviar.',

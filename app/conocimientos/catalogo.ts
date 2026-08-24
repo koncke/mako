@@ -42,6 +42,7 @@ import { CURSO_STORIES_MASTER } from './curso-stories-master';
 import { CURSO_CLAUDE_ACADEMY_2026 } from './curso-claude-academy-2026';
 import { CURSO_CURSOS_HEYGEN } from './curso-cursos-heygen';
 import { CURSO_METODO_FUKUDA_PODER_ORGANICO } from './curso-metodo-fukuda-poder-organico';
+import { CURSO_IMAN_GADZHI_AGENCY_NAVIGATOR } from './curso-iman-gadzhi-agency-navigator';
 import { CURSO_INSTITUTO_DE_COMUNICACION } from './curso-instituto-de-comunicacion';
 import { CURSO_CREATOR_CLUB } from './curso-creator-club';
 import { CURSO_TRILOGIA_DE_BRIAN_TRACY } from './curso-trilogia-de-brian-tracy';
@@ -90,6 +91,10 @@ const CATEGORIA: Record<string, string> = {
   'anuncio-ganador': 'Anuncios',
   // Alcance sin pauta
   'inteligencia-viral-2026': 'Orgánico',
+  // Agency Incubator es armar y vender una agencia de servicios: prospección, ventas y
+  // entrega. Va con los otros dos de negocio y no en «Cursos externos», que agrupa por
+  // procedencia y no por lo que alguien viene a buscar.
+  'iman-gadzhi-agency-navigator': 'Negocios digitales',
   // El de Fukuda es de afiliación en Hotmart, pero lo que ENSEÑA —y lo que le da el
   // nombre— es tráfico orgánico: un módulo entero de introducción, otro de lanzamientos
   // orgánicos y los bonos de Instagram y YouTube. Va con Inteligencia Viral y no en una
@@ -173,6 +178,23 @@ const PORTADA: Record<string, string> = {
  */
 const TITULO: Record<string, string> = {
   'creativos-ugc-realistas': 'AvatarHype',
+  /**
+   * ⚠️ EL CURSO NO ES EL QUE DICE SU NOMBRE, y el portal tiene que decir lo que el
+   * material ES.
+   *
+   * La plataforma de origen lo publica como «Agency Navigator» y bajo ese slug se bajó.
+   * Pero en los videos el propio Iman Gadzhi dice **«Agency Incubator»** —34 veces, en 22
+   * de las 26 clases— y «Agency Navigator» no aparece NI UNA VEZ. Son dos productos
+   * distintos de la misma persona: Incubator es el anterior y más barato.
+   *
+   * Y eso explica de paso los «14 huecos»: la numeración del autor llega a ~40 y hay 26,
+   * lo que se lee como un Navigator incompleto. No lo es — es otro curso, completo o no,
+   * pero otro. El diagnóstico obvio (curso mutilado) era el equivocado.
+   *
+   * El slug se deja como está: es el de la plataforma y cambiarlo rompería el link de
+   * cualquiera que ya lo tenga. Lo que se corrige es lo que se LEE.
+   */
+  'iman-gadzhi-agency-navigator': 'Iman Gadzhi - Agency Incubator',
 };
 
 const AUTOR: Record<string, string> = {
@@ -285,6 +307,7 @@ export const CURSOS_TODOS: Curso[] = [
   CURSO_CLAUDE_ACADEMY_2026,
   CURSO_CURSOS_HEYGEN,
   CURSO_METODO_FUKUDA_PODER_ORGANICO,
+  CURSO_IMAN_GADZHI_AGENCY_NAVIGATOR,
   CURSO_CREATOR_CLUB, CURSO_TRILOGIA_DE_BRIAN_TRACY,
   // Los recursos y el modo réplica se inyectan acá porque el archivo del curso lo
   // REESCRIBE `curso-a-portal.mjs` en cada corrida: puestos allá, duran hasta la

@@ -101,7 +101,51 @@ const dbDeDrive = () => {
 const ID_REAL = /^[A-Za-z0-9_-]{20,}$/;
 const esIdReal = (id) => typeof id === 'string' && !id.startsWith('local-') && ID_REAL.test(id);
 
-const idsDeDrive = (nombres) => {
+/**
+ * El id de Drive de cada archivo, ACOTADO AL SUBÁRBOL DE LA CARPETA DEL CURSO.
+ *
+ * ⚠️ EL SCOPE NO ES UNA MEJORA: ES LA DIFERENCIA ENTRE PUBLICAR EL MATERIAL DE ESTE CURSO
+ * Y EL DE OTRO. La consulta era `WHERE local_title = ?` a secas, o sea una búsqueda
+ * GLOBAL por nombre de archivo en todo el Drive. Con nombres genéricos —y los recursos
+ * caen en `recurso-01.pdf` cada vez que la plataforma no da un título en el nombre— eso
+ * matchea el archivo de todos los cursos que bajaron igual.
+ *
+ * Medido el 24/08/2026 sobre Iman Gadzhi: `recurso-01.pdf` existe CINCO veces en el
+ * Drive, `recurso-03.pdf` y `recurso-04.pdf` dos veces cada uno. El código detectaba la
+ * ambigüedad (`ambiguo: n`) y aun así se quedaba con `reales[0]`, así que 3 de sus 38
+ * recursos apuntaban al PDF de otro curso. En la ficha eso no se ve: el recurso tiene su
+ * título correcto, su tamaño plausible y abre un PDF — solo que es el de otro.
+ *
+ * Con el scope, esos mismos 3 resuelven a un único candidato y el tamaño coincide al byte
+ * con el archivo local. 38 de 38.
+ *
+ * `stable_parents` (item_stable_id, parent_stable_id) es lo que permite caminar de la
+ * carpeta hacia abajo. Se recorre entera porque un curso tiene subcarpetas por módulo.
+ */
+const descendientesDe = (db, nombreCarpeta) => {
+  const carp = db.prepare(`SELECT stable_id FROM items
+                           WHERE local_title = ? AND is_folder = 1 AND trashed = 0`).all(nombreCarpeta);
+  if (!carp.length) return null;
+  const hijos = db.prepare(`SELECT item_stable_id FROM stable_parents WHERE parent_stable_id = ?`);
+  const dentro = new Set();
+  let frente = carp.map((c) => c.stable_id);
+  // El tope de vueltas es una red contra un ciclo en la metadata, no un límite real:
+  // la jerarquía de un curso son 2-3 niveles.
+  for (let i = 0; frente.length && i < 25; i++) {
+    const sig = [];
+    for (const p of frente) {
+      for (const h of hijos.all(p)) {
+        if (dentro.has(h.item_stable_id)) continue;
+        dentro.add(h.item_stable_id);
+        sig.push(h.item_stable_id);
+      }
+    }
+    frente = sig;
+  }
+  return dentro;
+};
+
+const idsDeDrive = (nombres, carpetaCurso = null) => {
   const src = dbDeDrive();
   if (!src) return { error: `no encontré metadata_sqlite_db bajo ${DFS}` };
   // Copiar: Drive la tiene abierta y un open directo falla o lee a medias.
@@ -145,16 +189,33 @@ const idsDeDrive = (nombres) => {
     catch (e) { console.log(`  ⚠ no pude copiar ${s} (${e.code}); sigo sin él`); }
   }
   const db = new DatabaseSync(tmp);
-  const q = db.prepare(`SELECT id, local_title, file_size, trashed FROM items
+  const q = db.prepare(`SELECT stable_id, id, local_title, file_size, trashed FROM items
                         WHERE local_title = ? AND is_folder = 0 AND trashed = 0`);
+  // El conjunto de stable_id que cuelgan de la carpeta del curso. Si no se pasó carpeta
+  // —o la carpeta todavía no está registrada en la metadata— se busca global, que es el
+  // comportamiento viejo: degradar a global es peor que acotar, pero es mejor que no
+  // resolver nada. Cuando pasa, se DICE.
+  const dentro = carpetaCurso ? descendientesDe(db, carpetaCurso) : null;
+  const sinScope = !!carpetaCurso && !dentro;
   const out = new Map();
   const enVuelo = new Map(); // registrado pero todavía subiendo
+  const colisiones = [];     // nombres que existen en varios cursos y el scope desempató
   for (const n of nombres) {
-    const filas = q.all(n);
+    const todas = q.all(n);
+    // ⚠️ El filtro por carpeta va ANTES del de id real: si no, un homónimo de otro curso
+    // con id bueno le gana al propio con id placeholder, y el resultado es un recurso que
+    // apunta a otro lado en vez de un «todavía subiendo» que la próxima corrida arregla.
+    const filas = dentro ? todas.filter((f) => dentro.has(f.stable_id)) : todas;
+    if (dentro && todas.length > filas.length) colisiones.push({ n, global: todas.length, propias: filas.length });
     const reales = filas.filter((f) => esIdReal(f.id));
     if (reales.length === 1) out.set(n, { id: reales[0].id, size: Number(reales[0].file_size ?? 0) });
     else if (reales.length > 1) out.set(n, { ambiguo: reales.length, id: reales[0].id, size: Number(reales[0].file_size ?? 0) });
     else if (filas.length) enVuelo.set(n, filas[0].id); // hay fila, con id placeholder
+  }
+  if (sinScope) console.log(`  ⚠ no encontré la carpeta «${carpetaCurso}» en la metadata de Drive: busco por nombre GLOBAL.`);
+  if (colisiones.length) {
+    console.log(`  · ${colisiones.length} nombre(s) existen en varios cursos y los desempató la carpeta:`);
+    for (const c of colisiones.slice(0, 6)) console.log(`      ${c.n}  ×${c.global} en el Drive → ${c.propias} en este curso`);
   }
   db.close();
   for (const s of ['', '-wal', '-shm']) { try { unlinkSync(tmp + s); } catch { /* puede no existir */ } }
@@ -325,7 +386,7 @@ const t0 = Date.now();
 
 let vuelta = 0;
 while (pendientes.size && Date.now() - t0 < MINUTOS * 60000) {
-  const r = idsDeDrive([...pendientes.keys()]);
+  const r = idsDeDrive([...pendientes.keys()], basename(dirCurso));
   if (r.error) { console.error(`  ✖ ${r.error}\n`); process.exit(1); }
   for (const [nombre, info] of r.ids) {
     if (info.ambiguo) {
@@ -395,6 +456,18 @@ for (const [sub, nivel] of [['pdfs', 'clase'], ['recursos', 'modulo']]) {
       // él la ficha sale con la sección «Recursos» llena y CERO clases con material —
       // que es como quedó MasteryHaus la primera vez: 62 recursos, 0 recursoSlugs.
       clases: meta?.clases ?? null,
+      // ⚠️ Y EL TÍTULO REAL TAMBIÉN, que es el tercero de la misma terna y se olvidó dos
+      // veces. El generador tiene `if (r.tituloReal) label = r.tituloReal`, o sea que ya
+      // sabía qué hacer con él — lo que faltaba era que llegara. Sin esto, un curso cuyos
+      // archivos quedaron con nombre genérico publica los 38 recursos llamados
+      // «recurso-01»…«recurso-38». Pasó con Iman Gadzhi: 38 de 38, con los títulos de
+      // verdad («Profit First», «The Culture Code») esperando en recursos.json.
+      //
+      // La lección, que es la que se repite: cuando un dato tiene que cruzar tres
+      // archivos, agregar UN campo al índice no alcanza — hay que seguirlo hasta el
+      // final. `nivel` y `clases` se arreglaron el 24/08 en esta misma línea y
+      // `tituloReal` quedó afuera, con el bug intacto y con cara de arreglado.
+      tituloReal: meta?.tituloReal ?? null,
       submodulo: meta?.submodulo ?? null,
     });
   }
@@ -412,7 +485,7 @@ const enlaces = [...idxRecursos.values()]
 const recursos = [];
 if (recursosLocales.length) {
   console.log(`\n  Resolviendo id de ${recursosLocales.length} recurso(s)…`);
-  const r = idsDeDrive(recursosLocales.map((x) => x.archivo));
+  const r = idsDeDrive(recursosLocales.map((x) => x.archivo), basename(dirCurso));
   if (!r.error) {
     // ⚠️ UN RECURSO SIN ID SE ANOTA IGUAL, con `driveId: null`. Descartarlo lo hacía
     // DESAPARECER de drive.json, y como el archivo se fusiona con lo previo, la corrida
@@ -426,6 +499,7 @@ if (recursosLocales.length) {
       const info = r.ids.get(x.archivo);
       recursos.push({
         archivo: x.archivo, nivel: x.nivel, clases: x.clases ?? undefined, driveId: info?.id ?? null,
+        tituloReal: x.tituloReal ?? undefined,
         modulo: x.modulo, submodulo: x.submodulo,
       });
     }

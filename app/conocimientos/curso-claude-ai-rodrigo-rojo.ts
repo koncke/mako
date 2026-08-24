@@ -196,14 +196,14 @@ export const CURSO_CLAUDE_AI_RODRIGO_ROJO: Curso = {
       label: 'recurso-01',
       cardDesc: 'Material del curso',
       tipo: 'pdf',
-      driveId: '1QHKUY8eb5Okt-0VC7cUDcltYLihKdWs4',
+      driveId: '1-i1Ra1gYkSkTXTNBCK371GRW-sjoW-dg',
     },
     {
       slug: 'recurso-02',
       label: 'recurso-02',
       cardDesc: 'Material del curso',
       tipo: 'pdf',
-      driveId: '1XwrbQxqY2RP0U_TFZB_F9DixPY8t07Ga',
+      driveId: '18jCWgxDLtTVf7AERfgm1kG4KNaz7XAUp',
     },
     {
       slug: 'recurso-03',

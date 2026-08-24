@@ -36,7 +36,7 @@ export const CURSO_MATEO_MAFFIA_BYF: Curso = {
       label: 'recurso-01',
       cardDesc: 'Material del curso',
       tipo: 'pdf',
-      driveId: '1QHKUY8eb5Okt-0VC7cUDcltYLihKdWs4',
+      driveId: '1VRsjuNTQ54GglQV7SRIZl1DbNpZj7lwT',
     },
     {
       slug: 'recurso-02',
