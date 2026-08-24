@@ -1077,8 +1077,17 @@ cliente dos cosas que su página no tiene. No alcanza con apagar los pasos si el
 mandando a hacer lo imposible. Ahora sale de los mismos chequeos, así que no hay una segunda
 lista que se quede vieja.
 
+**⚠️⚠️ Y LO MISMO CON EL `?ws=`, que es de AISLAMIENTO y no de comodidad.** La ventana se
+abría con `window.open('/integraciones/escuchando?p=…')` sin él, y el workspace de una
+pestaña viaja **únicamente por la URL** — no hay cookie que lo cubra, a propósito: una cookie
+es del navegador y le cambiaría el contexto a todas las pestañas abiertas (el porqué está en
+`lib/ws-tab.ts`). O sea que el super admin mirando a un cliente con `?ws=13` abría una
+ventana resuelta a SU propio workspace: **la prueba de un cliente mostrando los datos de
+otro**, y sin nada en pantalla que lo dijera. Es exactamente el flujo con el que se miran las
+pruebas de los clientes. Ahora se propaga con `conWs(..., wsDeBusqueda(location.search))`.
+
 **Vive en:** `app/integraciones/escuchando/page.tsx` · `app/integraciones/ProbarTracking.tsx`
-(`arrancar`, `QUE_HACER`) · `lib/landing-token.ts` (`deEstaLanding`)
+(`arrancar`, `QUE_HACER`) · `lib/landing-token.ts` (`deEstaLanding`) · `lib/ws-tab.ts`
 
 ### ⚠️ El snippet le borraba todas las «s» al texto de los botones, y se veía como un texto cortado
 

@@ -824,6 +824,13 @@ test('la prueba abre una ventana de prueba de MaKo ENCIMA de la landing', () => 
   // menos contexto era la que hablaba.
   assert.ok(/landingFija=\{l/.test(pag), 'sin la landing, la ventana arma los chequeos a ciegas');
   assert.ok(/escuchando\?p=\$\{id\}&l=\$\{encodeURIComponent/.test(panel), 'la tab tiene que pasarle la landing a la ventana');
+  // ⚠️ Y EL `?ws=`, que es de AISLAMIENTO, no de comodidad. El workspace de una
+  // pestaña viaja únicamente por la URL (lib/ws-tab.ts explica por qué no puede
+  // ser una cookie). Sin propagarlo, el super admin que mira a un cliente con
+  // `?ws=13` abre una ventana resuelta a SU propio workspace: la prueba de un
+  // cliente mostrando los datos de otro, y sin nada en pantalla que lo diga.
+  assert.ok(/conWs\(`\/integraciones\/escuchando/.test(panel) && /wsDeBusqueda\(window\.location\.search\)/.test(panel),
+    'la ventana de la prueba tiene que heredar el ?ws= de la pestaña que la abre');
   assert.ok(/requireRolWs\(\[\], \{ nav: 'integraciones' \}\)/.test(pag), 'una ventana sin chrome sigue siendo la misma pantalla: el permiso no se relaja');
   assert.ok(/if \(!p\) redirect/.test(pag), 'sin marcador no hay nada que escuchar');
 });

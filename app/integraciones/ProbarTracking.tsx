@@ -22,6 +22,7 @@ import { NombrarVideos, type VideoDetectado } from './NombrarVideos';
 import { borrarPaginaAction, getPaginasAction, guardarPaginaAction } from './landing-actions';
 import { analizarLandingAction } from './landing-config-actions';
 import { finPruebaAction } from './landing-actions';
+import { conWs, wsDeBusqueda } from '@/lib/ws-tab';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -431,7 +432,16 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
     const chico = window.open(
       // La landing va con el marcador: sin ella la ventana arma los chequeos a
       // ciegas. Ver el comentario en escuchando/page.tsx.
-      `/integraciones/escuchando?p=${id}&l=${encodeURIComponent(u)}`,
+      //
+      // ⚠️ Y EL `?ws=` TAMBIÉN, que faltaba. El workspace de una pestaña viaja
+      // ÚNICAMENTE por la URL —no hay cookie que lo cubra, a propósito: una
+      // cookie es del navegador y le cambiaría el contexto a todas las pestañas
+      // abiertas (ver lib/ws-tab.ts)—. Abriendo la ventana sin él, el super
+      // admin que está mirando a un cliente con `?ws=13` recibía una ventana
+      // resuelta a SU propio workspace: la prueba de un cliente, con los datos
+      // de otro, y sin nada que lo dijera. Es justo el flujo con el que se miran
+      // las pruebas de los clientes.
+      conWs(`/integraciones/escuchando?p=${id}&l=${encodeURIComponent(u)}`, wsDeBusqueda(window.location.search)),
       'mako_prueba',
       `width=440,height=${alto},left=${Math.max(0, window.screen.availWidth - 470)},top=60,noopener=no`,
     );
