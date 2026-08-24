@@ -41,6 +41,7 @@ import { CURSO_MASTERYHAUS } from './curso-masteryhaus';
 import { CURSO_STORIES_MASTER } from './curso-stories-master';
 import { CURSO_CLAUDE_ACADEMY_2026 } from './curso-claude-academy-2026';
 import { CURSO_CURSOS_HEYGEN } from './curso-cursos-heygen';
+import { CURSO_METODO_FUKUDA_PODER_ORGANICO } from './curso-metodo-fukuda-poder-organico';
 import { CURSO_INSTITUTO_DE_COMUNICACION } from './curso-instituto-de-comunicacion';
 import { CURSO_CREATOR_CLUB } from './curso-creator-club';
 import { CURSO_TRILOGIA_DE_BRIAN_TRACY } from './curso-trilogia-de-brian-tracy';
@@ -89,6 +90,12 @@ const CATEGORIA: Record<string, string> = {
   'anuncio-ganador': 'Anuncios',
   // Alcance sin pauta
   'inteligencia-viral-2026': 'Orgánico',
+  // El de Fukuda es de afiliación en Hotmart, pero lo que ENSEÑA —y lo que le da el
+  // nombre— es tráfico orgánico: un módulo entero de introducción, otro de lanzamientos
+  // orgánicos y los bonos de Instagram y YouTube. Va con Inteligencia Viral y no en una
+  // sección «Afiliados» propia: una sección de un solo curso agrupa por modelo de negocio
+  // y no por lo que alguien viene a buscar, que es el criterio de este mapa.
+  'metodo-fukuda-poder-organico': 'Orgánico',
   // Posicionamiento en buscadores. Sección propia y no «Orgánico»: las dos son tráfico
   // que no se paga por click, pero el que busca SEO busca SEO — la disciplina, sus
   // herramientas y su vocabulario— y no «lo que no es pauta». Decisión del dueño.
@@ -277,6 +284,7 @@ export const CURSOS_TODOS: Curso[] = [
   CURSO_STORIES_MASTER,
   CURSO_CLAUDE_ACADEMY_2026,
   CURSO_CURSOS_HEYGEN,
+  CURSO_METODO_FUKUDA_PODER_ORGANICO,
   CURSO_CREATOR_CLUB, CURSO_TRILOGIA_DE_BRIAN_TRACY,
   // Los recursos y el modo réplica se inyectan acá porque el archivo del curso lo
   // REESCRIBE `curso-a-portal.mjs` en cada corrida: puestos allá, duran hasta la
