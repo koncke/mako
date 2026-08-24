@@ -29,6 +29,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
+import { Miniatura } from './Miniatura';
 import type { Clase, Curso, Recurso } from './curso';
 
 const FLECHA_IZQ = '←';
@@ -256,7 +257,7 @@ function Indice({ curso, modulos, onAbrir, onModulo }: {
     <>
       {primera && (
         <button type="button" className="ugc-hero" onClick={() => onAbrir(primera)}>
-          {primera.portadaClase && <img className="ugc-hero-img" src={primera.portadaClase} alt="" aria-hidden />}
+          {primera.portadaClase && <Miniatura className="ugc-hero-img" src={primera.portadaClase} />}
           <span className="ugc-hero-shade" aria-hidden />
           <span className="ugc-hero-body">
             <span className="ugc-hero-eyebrow">Empeza aca{primera.codigo ? ` ${'·'} ${primera.codigo}` : ''}</span>
@@ -270,7 +271,13 @@ function Indice({ curso, modulos, onAbrir, onModulo }: {
         {modulos.map((m) => (
           <button key={m.nombre} type="button" className="ugc-modcard" onClick={() => onModulo(m)}>
             <span className="ugc-modcard-cover">
-              <img src={m.portada} alt="" aria-hidden />
+              {/* ⚠️ La portada del módulo se CONSTRUYE (`/cono-ugc/m${n}.webp`), no se
+                  comprueba. «Creativos Animados» sale con n=6 —sus clases no tienen
+                  código, así que el número cae al índice— y m6.webp nunca existió: era un
+                  404 en CADA carga del índice, dibujando el ícono de imagen rota. Con
+                  `Miniatura` la tarjeta se queda con el degradé y su número, que es lo
+                  que se ve cuando la tapa sí está. */}
+              <Miniatura src={m.portada} />
               <span className="shade" aria-hidden />
               <span className="ugc-modcard-n" aria-hidden>{m.n}</span>
             </span>
@@ -289,7 +296,7 @@ function TarjetaClase({ clase, onAbrir }: { clase: Clase; onAbrir: () => void })
   return (
     <button type="button" className="ugc-modcard" onClick={onAbrir}>
       <span className="ugc-modcard-cover">
-        {clase.portadaClase && <img src={clase.portadaClase} alt="" aria-hidden />}
+        {clase.portadaClase && <Miniatura src={clase.portadaClase} />}
         <span className="shade" aria-hidden />
         <span className="ugc-modcard-n" aria-hidden>{clase.codigo ?? clase.n}</span>
       </span>
@@ -401,18 +408,24 @@ function Leccion({ clase, curso, ir }: { clase: Clase; curso: Curso; ir: (v: Vis
           <span className="ugc-pill">{clase.grupo}{clase.codigo ? ` ${'·'} ${clase.codigo}` : ''}</span>
           <h1>{clase.titulo}</h1>
         </div>
-        <div className="ugc-vcard">
-          <div className="ugc-vframe" style={{ aspectRatio: '16 / 9', width: '100%' }}>
-            {clase.videoId ? (
-              <iframe src={`https://drive.google.com/file/d/${clase.videoId}/preview`}
-                allow="autoplay" title={clase.titulo}
-                style={{ width: '100%', height: '100%', border: 0, display: 'block' }} />
-            ) : clase.portadaClase ? (
-              <img src={clase.portadaClase} alt="" aria-hidden />
-            ) : null}
+        {/* Sin video Y sin portada NO se dibuja el marco. Antes salia igual: un rectangulo
+            16:9 negro con la barra debajo, o sea el hueco donde deberia haber un video —
+            para una clase que es solo documento (3 de 37: «Musica y efectos», «Agentes»,
+            «bienvenida») eso se lee como un reproductor roto, no como una clase de leer. */}
+        {(clase.videoId || clase.portadaClase) && (
+          <div className="ugc-vcard">
+            <div className="ugc-vframe" style={{ aspectRatio: '16 / 9', width: '100%' }}>
+              {clase.videoId ? (
+                <iframe src={`https://drive.google.com/file/d/${clase.videoId}/preview`}
+                  allow="autoplay" title={clase.titulo}
+                  style={{ width: '100%', height: '100%', border: 0, display: 'block' }} />
+              ) : (
+                <Miniatura src={clase.portadaClase!} />
+              )}
+            </div>
+            <div className="ugc-vbar"><span className="ugc-vbar-dur">{clase.cardDesc}</span></div>
           </div>
-          <div className="ugc-vbar"><span className="ugc-vbar-dur">{clase.cardDesc}</span></div>
-        </div>
+        )}
       </div>
 
       <div className="ugc-pcol">

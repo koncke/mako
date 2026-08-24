@@ -2532,3 +2532,10 @@ html:has(.ahdoc), body:has(.ahdoc) { overflow: hidden !important; height: 100% !
  * 150 px y rompe la fila. */
 .ahdoc .ugc .ugc-clip-drive, .ahdoc .ugc .ugc-media iframe { width: 100% !important; aspect-ratio: 9 / 16 !important; height: auto !important; border: 0; display: block; }
 .ahdoc .ugc .ugc-media { max-width: 220px !important; }
+/* La clase SIN video muestra su portada en el mismo marco, y el marco no la conocia.
+ * La regla del origen es `.ugc-vframe iframe, .ugc-vframe video` — sin `img`. Una clase
+ * sin video (`Agentes`) cae al <img> de CursoReplica y, sin posicionar ni escalar, la
+ * imagen se dibuja a su tamano natural (1280 px) y el `overflow: hidden` de .ugc-vcard
+ * la recorta: se ve un pedazo gigante de la esquina superior izquierda en vez de la
+ * portada. No es que falte la imagen — sobra tamano. */
+.ahdoc .ugc .ugc-vframe img { position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; object-fit: cover !important; display: block !important; }

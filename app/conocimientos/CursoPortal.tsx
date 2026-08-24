@@ -23,6 +23,7 @@ import CursoReplica from './CursoReplica';
 // tokens viven en `:root` de globals.css, que carga el layout raíz — o sea que
 // también funciona en /compartido/<token>, que va sin login.
 import { Dropdown } from '../components/Dropdown';
+import { Miniatura } from './Miniatura';
 
 export const DRIVE_PREVIEW = (id: string) => `https://drive.google.com/file/d/${id}/preview`;
 export const DRIVE_VIEW = (id: string) => `https://drive.google.com/file/d/${id}/view`;
@@ -122,12 +123,16 @@ export function DocContent({ text }: { text: string }) {
 // de una clase o un recurso sigue siendo la misma tarjeta sin imagen. Un componente
 // por caso los haría divergir en tres números, que es lo que ya pasó con `.mk-fila`.
 export function Card({ badge, nota, titulo, desc, onClick, ariaLabel, img }: { badge: string; nota?: string; titulo: string; desc: string; onClick: () => void; ariaLabel: string; img?: string }) {
+  // Si la miniatura da 404, la tarjeta vuelve a la variante SIN imagen — no se queda con
+  // el marco vacío. Por eso el estado vive acá y no adentro de `Miniatura`: el que decide
+  // el `className` es este componente.
+  const [sinImg, setSinImg] = useState(false);
+  const conImg = !!img && !sinImg;
   return (
-    <button type="button" className={img ? 'al-rescard al-rescard-img' : 'al-rescard'} onClick={onClick} aria-label={ariaLabel}>
-      {img && (
+    <button type="button" className={conImg ? 'al-rescard al-rescard-img' : 'al-rescard'} onClick={onClick} aria-label={ariaLabel}>
+      {conImg && (
         <span className="al-rescard-thumb">
-          {/* eslint-disable-next-line @next/next/no-img-element -- estática en public/, sin optimizar */}
-          <img src={img} alt="" loading="lazy" />
+          <Miniatura src={img!} onFalta={() => setSinImg(true)} />
         </span>
       )}
       <span className="al-rescard-top">
@@ -319,6 +324,10 @@ export function Selector({ cursos, enter, compartir, sinMarca, foco }: {
 // el destino es el listado de cursos, y un «Volver» pelado no lo dice — el dueño
 // leyó la pantalla como que no había salida, con el botón puesto.
 export function Hub({ curso, goClase, goRecurso, compartir, back, backLabel }: { curso: Curso; goClase: (n: number) => void; goRecurso: (slug: string) => void; compartir?: ReactNode; back?: () => void; backLabel?: string }) {
+  // Si la portada da 404 se saca el MARCO entero, no solo la imagen: `.al-portada` tiene
+  // borde, sombra y fondo propios, así que dejarlo vacío pinta una caja de 22 px de nada
+  // arriba del título.
+  const [portadaRota, setPortadaRota] = useState(false);
   // DOS niveles: módulo (`grupo`) → sección (`subgrupo`). Antes se agrupaba solo por
   // módulo y las 24 clases de uno caían en una lista plana, aunque la plataforma sí
   // las divide en secciones. El orden se toma del ORDEN DE LAS CLASES, no de un sort
@@ -353,10 +362,9 @@ export function Hub({ curso, goClase, goRecurso, compartir, back, backLabel }: {
           {compartir}
         </div>
         {/* La portada arriba de todo, antes del título: es la identidad del curso. */}
-        {curso.portada && (
+        {curso.portada && !portadaRota && (
           <div className="al-portada">
-            {/* eslint-disable-next-line @next/next/no-img-element -- estática en public/ */}
-            <img src={curso.portada} alt={`Portada de ${curso.titulo}`} />
+            <Miniatura src={curso.portada} alt={`Portada de ${curso.titulo}`} onFalta={() => setPortadaRota(true)} />
           </div>
         )}
         {/* El título del CURSO, no un rótulo genérico: «Tus recursos» estaba hardcodeado
