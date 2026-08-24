@@ -1222,6 +1222,122 @@ premultiplicado.
 **Vive en:** producción a mano; el scratchpad de la sesión. Si el montador de MaKo
 quema texto, va acá.
 
+## Composición e identidad se resuelven en DOS pasos, no en uno
+
+El hallazgo que destrabó la producción del cuarto anuncio, y lo encontró el cliente
+después de que el método fallara seis veces seguidas.
+
+**Lo que no funciona:** pedirle al modelo la escena completa —fondo correcto, pose
+correcta Y la cara de esta persona— en un solo prompt. Cuanto más se describe la
+escena, menos pesa la foto de referencia; y cuanto más se describe la cara, más
+compite con ella. Las dos mitades se pelean por la misma atención y ninguna sale bien.
+
+**El orden que sí funciona:**
+
+1. **Imagen, resolviendo SOLO composición.** Que el fondo sea el correcto y que el
+   personaje esté en el lugar y la pose correctos — **da igual si no se parece o si es
+   otra persona**. Ese es el punto: la identidad no se toca todavía.
+2. **Recién ahí, reemplazar el personaje** pasando una foto real de la persona y
+   pidiendo que sustituya al que está. **Siempre la misma foto**, en todas las
+   escenas: por eso el avatar sale idéntico entre clips sin ningún esfuerzo de
+   consistencia.
+3. **Y recién ahí, el video.**
+
+**Corolario que ahorra tandas enteras: todo cambio va en la IMAGEN, nunca en el
+video.** Si la foto tiene un objeto que estorba —una taza en la mano— se quita antes de
+generar. Corregirlo en video obliga al modelo a inventar la corrección cuadro a cuadro.
+
+**Y la parte que invalida lo anterior:** describir el aspecto con palabras es lo que
+ROMPÍA el parecido. Durante seis versiones se defendió un bloque de contra-deriva
+(«rounder jaw with a slight double chin, never square…») como corrección medida. Con la
+identidad resuelta por la imagen, ese texto la sobreescribe. **No se describe la cara.
+Nunca.** Es la regla de oro del método llevada a su conclusión.
+
+**Vive en:** `Mauricio/GUION-04-oficina-plano-secuencia.md`.
+
+## El fondo NO aluciona con la cámara en movimiento — la regla del auto no generaliza
+
+**Lo que decía el método:** *«solo estos dos bloques de cámara, cualquier movimiento
+hace alucinar el fondo»*.
+
+**Lo que se midió:** un clip de 10 s con la cámara retrocediendo por una oficina, sin un
+solo corte detectado ni a umbral 0,2, y el open space coherente de punta a punta. Y ocho
+clips más después, todos con movimiento, ninguno con el fondo hervido.
+
+**Por qué la regla vieja decía lo contrario:** se midió **dentro de un auto** — espacio
+chico, fondo corriendo por la ventanilla, el peor caso posible. En un espacio amplio con
+luz pareja, aguanta.
+
+**La regla que queda:** una restricción medida en un caso extremo no es una ley del
+modelo. Antes de aceptarla como límite, hay que preguntarse **en qué condiciones se
+midió** y si el caso nuevo se parece. Costó seis versiones de guion diseñadas alrededor
+de una prohibición que no aplicaba.
+
+## Con acción física, la densidad baja de 3 a 2,1 palabras por segundo
+
+**Medido:** 21 palabras en un clip de 10 s donde además estrecha la mano de un colega =
+**2,10 p/s**, sin tartamudeo y con las 21 palabras dichas.
+
+La regla de **3 p/s** vale para un clip donde habla de punta a punta. Cuando el clip
+lleva una acción física adentro —caminar, saludar, servirse un café— **la acción ocupa
+tiempo que el modelo no rellena con voz**, y la densidad real cae a ~2 p/s.
+
+**Consecuencia práctica:** un clip con acción admite **un tercio menos de texto** que
+uno estático de la misma duración. Y al revés — es la forma de llenar 10 s sin escribir
+más guion: se escribe la acción, no más palabras. Pero **la acción hay que escribirla en
+el prompt**: si no, el modelo rellena repitiendo sílabas.
+
+## La receta del ambiente NO es una constante: se calibra por pieza
+
+**Lo que dice el método:** filtrar el crudo por debajo de 120 Hz y mezclarlo con
+**ganancia 1,6**.
+
+**Lo que pasó en una oficina:** la ganancia óptima fue **3,2-4,0**, y en dos clips ni
+siquiera alcanzó el objetivo con el techo del barrido.
+
+**La causa:** la ganancia 1,6 se calibró contra un auto en movimiento, donde el crudo
+tenía **16,9 dB** de caída habla/huecos porque el motor suena todo el tiempo. Una
+oficina tranquila da **32-36 dB**: casi no hay fondo que devolver, así que hay que
+amplificar mucho más lo poco que hay.
+
+**La regla:** la ganancia se **barre** contra la caída del crudo de ESA pieza, no se
+copia. Y el número a igualar es la caída del crudo, que también cambia.
+
+**Y el corolario que evita aplicar la receta donde no va:** el STS suprimió acá **6 dB**
+de ambiente (de ~35 a ~41), contra los **16 dB** del auto. La corrección sigue valiendo,
+pero conviene medir los tres valores —crudo, STS puro, mezcla— antes de dar por hecho
+que hace falta.
+
+## TTS y STS del mismo clon se pueden mezclar en un montaje
+
+**El problema:** en un anuncio con clips donde la persona habla y clips mudos con voz en
+off, los primeros salen por **speech-to-speech** (hay audio de entrada) y los segundos
+por **text-to-speech** (no lo hay). Son dos motores distintos: el STS copia la prosodia
+del audio de entrada, el TTS la inventa.
+
+**Medido sobre el mismo clon:** STS 114-133 Hz, TTS 118-131 Hz. **Misma banda.** En el
+montaje no hay salto audible al pasar de un tipo de clip al otro.
+
+**Pero la voz en off tiene que ENTRAR en el clip, y eso hay que medirlo antes de
+montar.** Un texto de 26 palabras dio **10,22 s** de TTS para un clip de **8 s**: no
+entra, y no hay forma de arreglarlo en el montaje. Se recorta el texto y se regenera —
+son centavos. La velocidad del TTS de este clon es ~2,55 p/s, o sea **~20 palabras por
+cada 8 s** de clip.
+
+## «Gracias por ver el video» es la confirmación de que un clip está MUDO
+
+Ya estaba documentado que el transcriptor alucina sobre audio sin habla («¡Hipo!»,
+«Teresa», «Gracias»). Lo que no estaba dicho es que eso **sirve como verificación
+positiva**.
+
+En un anuncio con clips que deben quedar mudos a propósito, hay que confirmar que
+efectivamente lo estén antes de montarles la voz en off encima. Transcribir los ocho
+clips devolvió texto real en cinco y **«Gracias por ver el video» en dos de los tres
+mudos**. Esa alucinación no es ruido: es la firma de que ahí no habla nadie.
+
+Es más barato y más confiable que mirar los clips: una llamada al transcriptor contra
+ocho archivos y el mapa queda hecho.
+
 ## Lo que queda SIN hacer
 
 **Bloqueantes, en orden:**
