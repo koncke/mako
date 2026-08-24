@@ -37,6 +37,7 @@ import { CURSO_HACKEANDO_LA_EDICION } from './curso-hackeando-la-edicion';
 import { CURSO_PROGRAMA_RAIO } from './curso-programa-raio';
 import { CURSO_BIGSEO_ACADEMY } from './curso-bigseo-academy';
 import { CURSO_BLUEHACKER } from './curso-bluehacker';
+import { CURSO_MASTERYHAUS } from './curso-masteryhaus';
 import { CURSO_INSTITUTO_DE_COMUNICACION } from './curso-instituto-de-comunicacion';
 import { CURSO_CREATOR_CLUB } from './curso-creator-club';
 import { CURSO_TRILOGIA_DE_BRIAN_TRACY } from './curso-trilogia-de-brian-tracy';
@@ -77,7 +78,6 @@ export const CATEGORIA_PROPIA = 'MaKo';
  */
 const CATEGORIA: Record<string, string> = {
   // Cursos de terceros sobre el negocio digital
-  masteryhaus: 'Negocios digitales',
   'aumenta-tu-valor-y-atv-advantage': 'Negocios digitales',
   'sell-your-knowledge': 'Negocios digitales',
   // IA y generación de piezas
@@ -127,7 +127,6 @@ const CATEGORIA: Record<string, string> = {
  * Los cursos de la sección MaKo van a propósito SIN miniatura.
  */
 const PORTADA: Record<string, string> = {
-  masteryhaus: '/cono-portadas/masteryhaus.png',
   'anuncio-ganador': '/cono-portadas/anuncio-ganador.jpg',
 };
 
@@ -271,6 +270,7 @@ export const CURSOS_TODOS: Curso[] = [
   // que es donde tienen que estar: se regeneran solos y no hay una segunda lista que
   // mantener. La lección: antes de restaurar lo que había, preguntá cuánto DEBERÍA haber.
   CURSO_BLUEHACKER,
+  CURSO_MASTERYHAUS,
   CURSO_CREATOR_CLUB, CURSO_TRILOGIA_DE_BRIAN_TRACY,
   // Los recursos y el modo réplica se inyectan acá porque el archivo del curso lo
   // REESCRIBE `curso-a-portal.mjs` en cada corrida: puestos allá, duran hasta la

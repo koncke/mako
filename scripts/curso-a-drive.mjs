@@ -391,6 +391,10 @@ for (const [sub, nivel] of [['pdfs', 'clase'], ['recursos', 'modulo']]) {
       // desde el disco y lo pisa. Con esto, el arreglo vive en recursos.json y sobrevive.
       nivel: meta?.nivel ?? nivel,
       modulo: meta?.modulo ?? null,
+      // ⚠️  viaja TAMBIÉN. Es lo que cuelga cada recurso de sus lecciones, y sin
+      // él la ficha sale con la sección «Recursos» llena y CERO clases con material —
+      // que es como quedó MasteryHaus la primera vez: 62 recursos, 0 recursoSlugs.
+      clases: meta?.clases ?? null,
       submodulo: meta?.submodulo ?? null,
     });
   }
@@ -421,7 +425,7 @@ if (recursosLocales.length) {
     for (const x of recursosLocales) {
       const info = r.ids.get(x.archivo);
       recursos.push({
-        archivo: x.archivo, nivel: x.nivel, driveId: info?.id ?? null,
+        archivo: x.archivo, nivel: x.nivel, clases: x.clases ?? undefined, driveId: info?.id ?? null,
         modulo: x.modulo, submodulo: x.submodulo,
       });
     }

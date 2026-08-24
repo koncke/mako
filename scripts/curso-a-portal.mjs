@@ -171,7 +171,22 @@ const construirRecursos = (drive, planClases) => {
     // heurística de guiones — hay títulos que llevan « - » adentro.
     let claseDelPrefijo = null;
 
-    if (r.nivel === 'clase') {
+    // ⚠️ SI EL RECURSO YA SABE DE QUÉ CLASES ES, ESO MANDA SOBRE LA HEURÍSTICA.
+    //
+    // Para `nivel: clase` el generador deducía la clase del prefijo «NN - » del nombre
+    // de archivo. Es una heurística que solo funciona con los nombres que pone el
+    // descargador del repo. Cuando el material viene de otra plataforma —los de
+    // MasteryHaus son links de Google dentro del cuerpo de cada lección— el nombre no
+    // lleva prefijo, la heurística no encuentra nada, y la ficha sale con 62 recursos y
+    // CERO clases con material: la sección del curso llena y ninguna lección mostrando
+    // su PDF. No falla nada; simplemente no aparece.
+    //
+    // El dato explícito ya existe (`recursos.json` trae `clases: [n, …]`). Un dato le
+    // gana siempre a una heurística sobre el nombre de un archivo.
+    if (Array.isArray(r.clases) && r.clases.length) {
+      deClases = r.clases.filter((n) => planClases.some((c) => c.n === n));
+      desc = deClases.length === 1 ? `Material de la clase ${deClases[0]}` : `Material de ${deClases.length} clases`;
+    } else if (r.nivel === 'clase') {
       const n = Number(/^(\d{1,3})\s*-\s*/.exec(r.archivo)?.[1]);
       const clase = planClases.find((c) => c.n === n);
       if (Number.isFinite(n) && clase) {
