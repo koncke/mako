@@ -3829,3 +3829,142 @@ Con eso: `courses`, `course_resources` y `modules` se consultan directo, paginan
 - **3 cursos publican recursos sin asociar a ninguna clase** (RAIO 183, master-marca 34,
   bigseo 33). No es un bug: esa plataforma los cuelga del módulo y el dato de clase no
   existe en el origen. Se ven en la sección del curso.
+
+---
+
+# MasteryHaus: una plataforma nueva (Circle) — 2026-08-22/24
+
+El curso pasó de **194 clases y 24 recursos** a **253 y 62**. Pero lo que hay que guardar
+no es el número: es que MasteryHaus **no es un curso, son 30**, y que vive en una
+plataforma que el repo no conocía.
+
+## Cómo se le pregunta a Circle
+
+`circle.masteryhaus.com` es **Circle.so**. Su API interna es `/internal_api/` y responde
+con las cookies de sesión del navegador — no hace falta token ni reconstruir nada.
+
+| Qué | Dónde |
+|---|---|
+| Los cursos | `/internal_api/spaces` → los que tienen `post_type: "course"` |
+| El índice de un curso | `/internal_api/spaces/<id>` → trae `course_sections[].lessons[]` |
+| El contenido de una lección | `/internal_api/courses/<space>/sections/<sec>/lessons/<id>` |
+| Los archivos de una lección | `/internal_api/courses/<space>/lessons/<id>/files` |
+| Los posts de un space | `/internal_api/spaces/<id>/posts?per_page=100&page=N` |
+
+El video sale de `featured_media_embed` (Vimeo) y el texto de `rich_text_body`, que es un
+árbol ProseMirror y hay que caminarlo.
+
+⚠️ **Adivinar el endpoint no sirve: se sniffea.** Se probaron nueve rutas plausibles para
+el contenido de una lección y las nueve dieron 404. La buena apareció capturando lo que la
+propia página pide al abrir una lección. Media hora tirada por no empezar por ahí.
+
+## ⚠️ Filtrar por el tipo que uno espera deja material afuera sin avisar
+
+El censo filtró `post_type === 'course'` y con eso ignoró **11 spaces**, uno con el slug
+literal `recursos-referencias`. Adentro había **1.216 posts**.
+
+Medido después: casi no hay video ahí (1 Vimeo en 1.216) y de **334 URLs distintas solo 14
+son material** — el resto es conversación de foro (78 redes sociales, 69 videos sueltos,
+19 Spotify y **16 ubicaciones de Google Maps, que son los estacionamientos** de los eventos
+presenciales). O sea: la exclusión resultó casi inocua **y eso no se sabía al filtrar**.
+
+**La regla: un filtro por tipo es una hipótesis sobre dónde vive el contenido.** Se
+verifica mirando lo excluido una vez, no se asume.
+
+## ⚠️ «No tengo acceso» y «no hay» son cosas distintas, y hay que PROBARLAS
+
+De las 418 lecciones del catálogo, **154 devuelven HTTP 401** en 18 cursos (los grupos
+MASTERY U, GROWTH y OS). No se dedujo de un flag: el extractor **pide lección por lección
+y guarda el status**. Y hacía falta, porque el flag `policies.can_leave_space` sugería una
+cosa y **el sidebar mostraba varios de esos spaces como si fueran accesibles**.
+
+Corolario incómodo: **las 194 clases que el portal ya publicaba incluyen material que esta
+cuenta YA NO alcanza.** Cruzando por título solo 57 de 264 coinciden. El ingest anterior
+tenía más permisos que el de ahora.
+
+## ⚠️ Los recursos no estaban donde la plataforma los documenta
+
+El endpoint `/files` de Circle devuelve `count: 0` **de verdad** — la comunidad no lo usa.
+Los materiales viven como **links dentro del cuerpo** de cada lección: 871 apariciones, 70
+URLs únicas. Buscarlos solo en el lugar oficial habría dado un cero correcto sobre la
+pregunta equivocada.
+
+De esas 70: 32 se bajan con un GET simple y 8 daban 401. El diagnóstico obvio —«falta
+sesión de Google»— era el equivocado: **el dueño deshabilitó la descarga** en esos
+documentos, y eso no lo arregla ninguna cookie. Pero `/mobilebasic` los devuelve **enteros**
+(uno tiene 223.807 caracteres): lo que estaba cerrado era el botón, no el contenido.
+
+⚠️ En el medio se intentó imprimirlos a PDF con `Page.printToPDF` y salieron de **882
+bytes: una página en blanco** que pesaba, abría, y se habría publicado como si fuera el
+material. Lo cazó comparar el tamaño con lo que declaraba la API.
+
+## ⚠️ Vimeo: dos errores apilados, y el de arriba tapaba al de abajo
+
+7 de 227 clases fallaban con *«This request has been blocked due to its TLS fingerprint»*.
+No era el referer, ni la sesión, ni la IP: **el handshake de yt-dlp no se parece al de un
+navegador**. Se arregla con `--impersonate chrome`, que necesita `curl_cffi` **y un yt-dlp
+reciente** — con la librería instalada y el yt-dlp de julio los targets seguían figurando
+«unavailable», que se lee como «falta la dependencia» cuando lo que faltaba era actualizar.
+
+Resuelto eso aparecieron **403**: son videos **privados** y les faltaba el hash. Circle lo
+publica en DOS formas —`vimeo.com/<id>/<hash>` en `content` y `?h=<hash>` en el `html`— y
+el extractor reconocía solo la segunda. **24 clases lo tenían y se estaba perdiendo**, no
+las 7 que fallaron: las otras 17 funcionaron por casualidad porque no tenían la protección
+encendida. Se recuperaron releyendo el JSON crudo de cada lección, sin volver a pedirle
+nada a la plataforma — **por eso se guarda el crudo**.
+
+Quedaron 3 con 403 real: dan 403 también con `curl` y el referer correcto, y el navegador
+ni les pide el player. Están rotos en el origen.
+
+## ⚠️ La duración es la única clave de identidad que sobrevive a un renombre
+
+Los 194 videos publicados están en Drive con nombres del ingest anterior: «004 - Sesión
+Maestría - Mayo 2024» es **«Sesiones de Maestria Mastery Haus-03.mp4»**. Cruzar por título
+encuentra 57 de 264; cruzar por **duración** encontró los 7 duplicados entre los primeros
+30 bajados y evitó re-subir 5 GB.
+
+Es el mismo método que rescató `n=111` y `n=305` de BlueHacker. **Dos videos que duran lo
+mismo al décimo de segundo son el mismo video.**
+
+## El circuito no es una optimización: es lo que decide si se puede terminar
+
+Estos videos pesan de 0,5 a **11 GB**. La primera corrida acumuló **77 GB con 30 archivos**
+y el disco llegó a **2,4 GB libres** — se rompió todo y hubo que parar a apagar el
+incendio. La segunda, con el circuito (mover → audio → Drive → liberar) cada 4 minutos,
+bajó 190 videos más y **el disco terminó en 79 GB**.
+
+Y el orden importa: **el audio se extrae ANTES de liberar**, porque el audio es lo
+irrecuperable. Un video se puede volver a bajar; una transcripción sin su audio, no.
+
+## Lo que quedó SIN hacer
+
+- **23 videos en una carpeta de Drive duplicada por un acento** (`MasteryHaus - Sofía
+  Contreras` vs `- Sofia`). El bug está arreglado en `curso-a-drive.mjs`, pero mover esos
+  60 GB es una decisión del dueño.
+- **11 clases de las 264 no se publicaron**, y las 11 están explicadas: 7 «Sesión Maestría»
+  que **están vacías en la plataforma** (sin embed, cuerpo de 2 caracteres), 3 videos con
+  403 en el origen, 1 encuesta de feedback.
+- **154 lecciones en 18 cursos** siguen fuera por permisos (401).
+- **Los 14 recursos útiles de los spaces que no son cursos** no se publicaron: son 14
+  links ajenos al curso y ensucian más de lo que aportan. Están en
+  `C:\cursos\masteryhaus\urls-material.json`.
+- **Tres spaces contestaron vacío** (`Pack Negocios Sólidos`, `Sesiones Grupales`, `Clases
+  en vivo | Growth`) y no se distinguió si no tienen nada o no hay acceso.
+
+## Y dos del pipeline que este curso destapó
+
+Los dos con el mismo síntoma: **la ficha sale bien y el material no aparece.**
+
+1. `curso-a-drive` no arrastraba el campo `clases` del índice de recursos, así que el link
+   de cada recurso a sus lecciones se perdía en el camino.
+2. `curso-a-portal` **adivinaba** la clase de un recurso por el prefijo `NN - ` del nombre
+   de archivo. Es una heurística que solo funciona con los nombres que pone el descargador
+   del repo; el material de Circle son links de Google sin prefijo. Resultado: **62
+   recursos publicados y CERO clases con material**. Ahora el dato explícito le gana a la
+   heurística — **de 0 a 160 clases con material**.
+
+**Vive en:** `scratchpad/mh-api.mjs` (el cliente de Circle) · `mh-censo.mjs` ·
+`mh-plan2.mjs` (el extractor, guarda el crudo) · `mh-dedup.mjs` (cruce por duración) ·
+`mh-hash.mjs` (los hashes de Vimeo) · `scripts/curso-bajar.mjs` (`--impersonate`) ·
+`scripts/curso-a-drive.mjs` (carpeta sin acentos, `clases`, `nivel`) ·
+`scripts/curso-a-portal.mjs` (`clases` explícitas)
