@@ -408,6 +408,29 @@ usuarios se cayó, la lista vino vacía), se pierde la ACCIÓN y nunca el HECHO.
 hacia «entonces todo es mío» es exactamente el modo de falla de arriba, servido por el
 camino de error.
 
+# `res.ok` no es «salió bien»: los proveedores mandan el fallo ADENTRO del 200
+
+Ya mordió en dos, así que no es una rareza de uno:
+
+- **Meta** contesta 200 con `body.error` (incl. subcode 4841013, «Permisos»).
+- **Evolution/WhatsApp** contesta 200 con el estado POR PARTICIPANTE adentro:
+  `{ "updateParticipants": [ { "status": "403", … } ] }`.
+
+Un cliente reportó «le di a enviar y no pasó nada, ni siquiera un mensaje de error»
+justamente por esto: `agregarParticipanteGrupo` hacía `return r.ok ? { ok: true } : …`,
+así que informaba un éxito que no ocurría. **No había error que mostrar porque el sistema
+creía que había funcionado.**
+
+- **Cuando el síntoma es «no pasa absolutamente nada», sospechá de un éxito falso antes que
+  de un error tragado.** Un error tragado al menos deja un log y una excepción; un éxito
+  falso no deja nada, y encima envenena todo lo que viene después (se cierra el modal, se
+  marca el paso como hecho, se limpia el formulario).
+- Al escribir un cliente de una API nueva, **buscá en su respuesta 200 el campo donde vive
+  el fallo por-ítem** antes de dar el camino feliz por cerrado. Si mandás N cosas en una
+  llamada, la respuesta casi siempre trae N estados y el HTTP es uno solo.
+- Y **traducí ese estado a una frase**, no lo pases crudo: `403` no le dice nada a nadie
+  (ver `RESULTADO_PARTICIPANTE` en `lib/mako-grupo.ts`).
+
 # Un mensaje que sale solo no puede AFIRMAR lo que no verificó
 
 Un aviso automático llega con la autoridad del sistema: el que lo lee no tiene cómo
