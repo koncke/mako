@@ -14,6 +14,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { validarRespuestaDoer, esRutaPlan, mensajeBorrador, AVISO_NO_PUDE } from '../lib/respuesta-doer';
 
 /** El mensaje REAL del 9/8, recortado pero con su forma intacta. */
@@ -223,4 +224,44 @@ test('lo que escribe el código siempre pasa la compuerta', () => {
   for (const ruta of [RUTA_PLAN, 'mistral router:sonnet (dato/acción) «x»', 'groq router:lean (charla) «hola»']) {
     assert.deepEqual(validarRespuestaDoer(mensajeBorrador(link), { motivoRuta: ruta, linkBorrador: link }), { ok: true }, ruta);
   }
+});
+
+// =============================================================================
+// El error genérico que se presentaba como un error del plan
+// =============================================================================
+
+test('El aviso de «no pude» dice QUÉ falló, no la ruta que había a mano', async () => {
+  const { avisoNoPude, AVISO_NO_PUDE } = await import('../lib/respuesta-doer');
+  // Un turno que SÍ iba a crear un borrador: el texto de siempre.
+  assert.equal(avisoNoPude(true), AVISO_NO_PUDE);
+  // Un turno que no tenía nada que ver con el plan: NO puede hablar de borradores.
+  const otro = avisoNoPude(false);
+  assert.ok(!/borrador/i.test(otro),
+    `un saludo o una pregunta siguen recibiendo un mensaje sobre borradores: «${otro}»`);
+  assert.notEqual(otro, AVISO_NO_PUDE);
+});
+
+test('No se escala a Claude sin preguntar si el veto lo permite', () => {
+  // `mako-doer-in` NO está en CLAUDE_PERMITIDO y el veto vive en el fetch, así
+  // que la escalada tiraba SIEMPRE. Medido en anthropic_usage: 8 vetos entre el
+  // 17/8 y el 24/8, cada uno terminando en un «no pude» para un cliente, y
+  // ninguno visible. `evaluarPermiso` es puro: preguntar cuesta cero.
+  const src = readFileSync(new URL('../lib/mako-doer-in.ts', import.meta.url), 'utf8');
+  const iPermiso = src.indexOf('evaluarPermiso({ feature:');
+  const iEscalada = src.indexOf('escalado a Claude');
+  assert.ok(iPermiso > 0, 'la escalada dejó de consultar el veto: vuelve a tirar una excepción garantizada');
+  assert.ok(iEscalada > iPermiso,
+    'el veto se consulta DESPUÉS de escalar: no sirve de nada preguntar cuando ya se pagó el error');
+  assert.match(src, /if \(!permiso\.ok\)/, 'se perdió la rama que no escala cuando el veto dice que no');
+});
+
+test('mako-doer-in no está autorizado a pagar Claude, y eso es a propósito', async () => {
+  // Este test es un CENTINELA de la contradicción, no una preferencia. Si algún
+  // día se autoriza (una fila en CLAUDE_PERMITIDO con fecha y quién lo pidió),
+  // este test falla y obliga a mirar la escalada de lib/mako-doer-in.ts, que hoy
+  // está apagada por el veto. Las dos cosas tienen que moverse juntas.
+  const { evaluarPermiso } = await import('../lib/veto-claude');
+  const v = evaluarPermiso({ feature: 'mako-doer-in', model: 'claude-sonnet-5' });
+  assert.equal(v.ok, false,
+    'mako-doer-in quedó autorizado a pagar Claude: revisá la escalada de lib/mako-doer-in.ts, que se escribió cuando NO lo estaba');
 });

@@ -2861,3 +2861,102 @@ puede dejar al usuario trabado.
 Typecheck 0 errores, 1170/1170 tests. **Sin verificar:** que `sendInvite` entregue de verdad
 el mensaje (requiere mandar un WhatsApp real; el código solo afirma el envío si la API lo
 acepta, y siempre ofrece el link como salida).*
+
+---
+
+## «OPA» → «No pude armar el borrador con eso»: tres bugs encadenados
+
+**Vive en:** `lib/mako-intencion.ts` · `lib/mako-doer-in.ts` · `lib/respuesta-doer.ts` ·
+`lib/veto-claude.ts`
+
+El 24/08/2026 el cliente de Codigo Inmobiliario estrenó su grupo de MaKo. Escribió `OPA` y
+recibió *«No pude armar el borrador con eso»*. Más tarde preguntó cuál era su oferta y
+recibió lo mismo. El dueño lo reportó como «MaKo cree que todo hay que subirlo al plan» —
+lectura razonable, porque **eso es exactamente lo que el mensaje dice**. La causa real era
+otra, y el mensaje mandó a diagnosticar el lugar equivocado.
+
+### 1. La escalada a Claude es una puerta tapiada
+
+`lib/mako-doer-in.ts` escala a Claude cuando ninguna IA barata arma el borrador. Pero
+`mako-doer-in` **no está en `CLAUDE_PERMITIDO`** (`lib/veto-claude.ts`) y el veto vive en el
+`fetch`: la llamada tira **siempre**. Dos sistemas correctos —la escalada, escrita para no
+perder el trabajo del cliente; el veto, escrito para no pagar de más— que se contradicen, y
+ninguno de los dos sabe del otro.
+
+Medido en `anthropic_usage`: **8 vetos de `mako-doer-in` entre el 17/8 y el 24/8**, cada uno
+terminando en un «no pude» para un cliente. Ninguno visible en ningún lado. La forma de la
+falla: `catch (e3) { console.error(...) }` → `respuesta` queda vacía → `throw` → el `catch`
+de arriba escribe el mensaje genérico.
+
+**La regla:** cuando un camino de código depende de un PERMISO, hay que preguntar por el
+permiso, no descubrirlo con una excepción. `evaluarPermiso` es puro y síncrono — preguntar
+cuesta cero y convierte una excepción garantizada en un estado con nombre.
+
+Y el centinela: `tests/respuesta-doer.test.ts` afirma que `mako-doer-in` **NO** está
+autorizado. Si algún día se autoriza, ese test falla y obliga a mirar la escalada. Las dos
+cosas se mueven juntas o vuelven a divergir.
+
+### 2. El error genérico se presentaba como un error específico
+
+`AVISO_NO_PUDE` («No pude armar el borrador con eso») era la respuesta del `catch` genérico
+que atrapa CUALQUIER caída del modelo. Para un saludo o una pregunta sobre la oferta, es
+falso — y peor que falso: **manda a buscar el problema donde no está.** El dueño estuvo
+mirando el ruteo del plan, que no tenía nada roto.
+
+**La regla: el mensaje de error describe lo que falló, no la ruta que el código tenía más a
+mano.** Hoy son dos (`avisoNoPude(eraDePlan)`).
+
+### 3. Una adivinanza obligaba a llamar la herramienta
+
+El clasificador tiene un default explícito y bien pensado: ante la duda, `capturar`, porque
+«anotar de más cuesta un click y contestar de más PIERDE EL MATERIAL». Correcto. Lo que no
+está bien es que `capturar` trae `forzarTool: true`, así que a un mensaje que **no se pudo
+clasificar** se le exigía al modelo llamar `proponer_tareas_plan` sí o sí. Con `OPA` (tres
+letras) el pedido era parir una tarea de la nada.
+
+**`dudosa: true` significa «no sé». Forzar sobre un «no sé» es hacer la suposición MÁS
+fuerte que la certeza** — «el fallback es más débil que el camino feliz, nunca más fuerte»
+(AGENTS.md), dado vuelta. Ahora `forzarTool` exige `!intencion.dudosa`.
+
+Y la razón por la que `OPA` llegó al default: **la regla de saludo ya existía** (paso 3 del
+clasificador, con tope de 80 chars y sin links) y solo le faltaban las aperturas
+rioplatenses («opa», «che», «ola») y las palabras con las que alguien PRUEBA un canal nuevo
+(«test», «prueba», «probando», «ping»). Se amplió esa regla en vez de escribir otra al lado.
+
+⚠️ **El umbral está medido, no elegido a ojo.** La captura legítima más corta de toda la
+base son **69 caracteres** («Investigar: <link> Sobre todo sus ads»); todo lo más corto que
+sí era material —pregunta, confirmación, contacto, adjunto— ya lo agarra una regla anterior.
+
+### Y la pregunta de fondo: ¿MaKo en WhatsApp ve TODA la info?
+
+Medido generando el system prompt real de ws13 (7.060 chars, ~1.765 tokens):
+
+| | |
+|---|---|
+| ✅ Oferta | completa: nombre, ticket, promesa, entregables, garantía |
+| ✅ Funnel | `Lead (Instant form) → Agenda R1 → Ganado` + nutriciones + descartados |
+| ✅ Fase del negocio, perfil, avatar (texto), tabs sin configurar | |
+| ❌ **Imágenes del cliente** | no hay `avatar`/`imagen`/`foto` en el prompt ni tool que las lea |
+| ⚠️ RAG (`TU METODOLOGÍA`) y experimentos | VACÍOS para este workspace |
+
+O sea: **la oferta y el funnel los tenía desde siempre.** No contestó porque la llamada
+nunca llegó al modelo. Cuando MaKo diga «no tengo ese dato», antes de sumar contexto hay que
+verificar que la llamada haya ocurrido — el contexto faltante y la llamada caída se ven
+exactamente igual desde afuera.
+
+### Lo que quedó SIN hacer
+
+- **ws13 tiene UNA sola key de IA** (`GEMINI_API_KEY`). La cascada es
+  `[gemini, groq, cerebras, mistral, openai]` y los otros cuatro no tienen key: si Gemini
+  falla un segundo, fallan los cinco y no hay red. **Cero redundancia para cualquier cliente
+  con una sola key.** Vive en `lib/ia-keys.ts` + el onboarding de IA.
+- **Decidir si `mako-doer-in` se autoriza a pagar Claude.** Hoy la escalada está apagada por
+  el veto: cuando las gratis fallan, el cliente recibe un «no pude» en vez de una respuesta.
+  Es una decisión de plata del dueño, no de código.
+- **Las imágenes del cliente no son accesibles desde WhatsApp.** No hay tool; si se quiere,
+  es una tool de lectura sobre el bucket de avatares.
+- **El aviso de que MaKo falló no le llega a nadie.** 8 veces en una semana y se supo por un
+  cliente. Un fallo de MaKo debería avisarle al SuperAdmin, no al cliente.
+
+*Corrida del 24/08/2026 — clasificación verificada contra los 4 mensajes reales del cliente;
+prompt de contexto medido sobre ws13. Typecheck 0 errores, 1176/1176 tests.*

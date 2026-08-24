@@ -146,7 +146,17 @@ const cuentaLinks = (s: string): number => (s.match(/https?:\/\/\S+/g) ?? []).le
 // acentuado no matchea, así que justo ahí el guard no protege.
 const CONFIRMACION = /^[\s¡!¿?]*(s[ií]|dale|ok(ey)?|listo|perfecto|obvio|claro|va|hacelo|cargalo|carg[áa]lo|agregalo|agreg[áa]lo|confirmo|adelante|de una|correcto|exacto|as[ií] es|no|nop|cancela|cancel[áa])(?![a-záéíóúñ])/i;
 
-const SALUDO = /^[\s¡!¿?]*(hola|buenas|buen[oa]s|hey|ey|qu[eé] tal|c[oó]mo (and|est|va)|todo bien|gracias|mil gracias|genial|joya|b[aá]rbaro|buen[ií]simo|jaja|abrazo|saludos|chau|nos vemos|buen finde)(?![a-záéíóúñ])/i;
+
+// ⚠️ La lista se AMPLÍA, no se reescribe. Le faltaban las aperturas rioplatenses
+// («opa», «che», «ola») y las palabras con las que alguien PRUEBA un canal nuevo
+// («test», «prueba», «probando», «ping»).
+//
+// EL CASO (2026-08-24): un cliente estrenó su grupo escribiendo «OPA». No matcheó
+// acá, así que cayó al default de más abajo —`capturar`, con la tool OBLIGATORIA—
+// y MaKo le contestó «No pude armar el borrador con eso». Se le estaba pidiendo
+// parir una tarea de un saludo de tres letras. La regla existía y le faltaba una
+// palabra: por eso se suma acá y no se escribe una regla nueva al lado.
+const SALUDO = /^[\s¡!¿?]*(hola|ola|holis|opa|buenas|buen[oa]s|buen d[ií]a|hey|ey|che|qu[eé] tal|c[oó]mo (and|est|va)|todo bien|gracias|mil gracias|genial|joya|b[aá]rbaro|buen[ií]simo|jaja|abrazo|saludos|chau|nos vemos|buen finde|test|prueba|probando|ping)(?![a-záéíóúñ])/i;
 const SOLO_EMOJI = /^[\s\p{Emoji_Presentation}\p{Extended_Pictographic}!?.]+$/u;
 
 // Interrogativos: al ARRANQUE («¿cuántos leads…?») o después de un imperativo

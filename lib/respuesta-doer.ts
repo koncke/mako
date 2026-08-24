@@ -46,9 +46,36 @@ const LINK_REVISAR = /\/plan\/revisar\/[A-Za-z0-9_-]+/;
 
 /** Lo que MaKo contesta cuando bloqueamos su respuesta. Honesto y corto: decir «no
  *  pude» es infinitamente mejor que mandar el payload y que el dueño tenga que
- *  adivinar qué pasó. */
+ *  adivinar qué pasó.
+ *
+ *  ⚠️ SOLO para turnos que de verdad iban a crear un borrador. Ver `avisoNoPude`. */
 export const AVISO_NO_PUDE =
   'No pude armar el borrador con eso. Reintentá en un momento y si vuelve a pasar, avisame.';
+
+/** El mismo aviso para un turno que NO tenía nada que ver con el plan. */
+export const AVISO_NO_PUDE_CHARLA =
+  'Se me cayó la conexión con el modelo y no pude contestarte. Reintentá en un momento y si vuelve a pasar, avisame.';
+
+/**
+ * El aviso de «no pude», ELEGIDO SEGÚN LO QUE EL TURNO ERA.
+ *
+ * EL CASO (2026-08-24). Un cliente escribió «OPA» para probar el canal y después
+ * preguntó cuál era su oferta. Las dos veces le llegó «No pude armar el borrador
+ * con eso» — un mensaje sobre borradores, para mensajes que no tenían nada que ver
+ * con el plan. El dueño lo leyó como que MaKo creía que todo era una tarea, y era
+ * una lectura razonable: **eso es exactamente lo que el mensaje dice.**
+ *
+ * La falla real no tenía nada que ver: la llamada al modelo se cayó (Claude está
+ * vetado para esta feature) y el `catch` genérico contestaba con el texto de la
+ * ruta de plan, la única que existía. Un error genérico que se presenta como un
+ * error específico manda a diagnosticar el lugar equivocado — el dueño estuvo
+ * mirando el ruteo del plan, que no tenía nada roto.
+ *
+ * La regla: **el mensaje de error describe lo que falló, no la ruta que el código
+ * tenía más a mano.**
+ */
+export const avisoNoPude = (eraDePlan: boolean): string =>
+  eraDePlan ? AVISO_NO_PUDE : AVISO_NO_PUDE_CHARLA;
 
 /**
  * La respuesta cuando el borrador SÍ se creó. Vive acá y no suelta en el prompt

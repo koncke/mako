@@ -16,7 +16,8 @@
 import 'server-only';
 import { chatClaudeTools, type RichMsg } from '@/lib/anthropic';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
-import { validarRespuestaDoer, esRutaPlan, mensajeBorrador, EJEMPLO_BORRADOR, AVISO_NO_PUDE, mensajeLeadPropuesto, EJEMPLO_LEAD } from '@/lib/respuesta-doer';
+import { validarRespuestaDoer, esRutaPlan, mensajeBorrador, EJEMPLO_BORRADOR, AVISO_NO_PUDE, avisoNoPude, mensajeLeadPropuesto, EJEMPLO_LEAD } from '@/lib/respuesta-doer';
+import { evaluarPermiso } from '@/lib/veto-claude';
 import { avisoDePuntos, puntosDelMensaje } from '@/lib/puntos-mensaje';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/mako-doer-acciones';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
@@ -861,7 +862,21 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
             // La obligación sale del CONTRATO de la intención. `esCargaDePlan` se
             // mantiene como red: cubre el «anotá esto» explícito aunque el
             // clasificador cambie.
-            const forzarTool = CONTRATO[intencion.intencion].forzarTool || esCargaDePlan(texto);
+            // ⚠️ UNA ADIVINANZA NO OBLIGA. `dudosa: true` significa, textual, «sin
+            // señal clara»; el default de ese caso es `capturar`, que tiene
+            // `forzarTool: true` — o sea que a un mensaje que NO se pudo clasificar
+            // se le exigía al modelo llamar `proponer_tareas_plan` sí o sí.
+            //
+            // El 24/8/2026 un cliente escribió «OPA» para probar el canal y eso
+            // terminó en «No pude armar el borrador con eso»: se le estaba pidiendo
+            // parir una tarea de un saludo de tres letras. Forzar sobre una
+            // suposición es más fuerte que el camino seguro, que es justo al revés
+            // de como tiene que ser (AGENTS.md: «el fallback es más débil que el
+            // camino feliz, nunca más fuerte»).
+            //
+            // `esCargaDePlan` sigue mandando aparte: mira el TEXTO y cuando dice que
+            // sí, no es una adivinanza.
+            const forzarTool = (CONTRATO[intencion.intencion].forzarTool && !intencion.dudosa) || esCargaDePlan(texto);
             const cands = [pin.provider, 'groq', 'cerebras', 'mistral', 'openai'].filter((p, i, a) => a.indexOf(p) === i);
             const orden = await ordenarPorCuota(cands).catch(() => cands);
             let ultErr: unknown = null;
@@ -925,15 +940,33 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
             // alternativa a pagar dos centavos es mandarle prosa al dueño y que el
             // trabajo se pierda — que es exactamente lo que pasó dos veces seguidas.
             // AGENTS.md dice «el ÚLTIMO recurso, no el segundo»: éste es el último.
+            // ⚠️ ANTES DE ESCALAR, PREGUNTAR SI LA PUERTA ESTÁ ABIERTA.
+            //
+            // Esta escalada se escribió dando por sentado que Claude estaba
+            // disponible, y NO lo está: `mako-doer-in` no figura en
+            // `CLAUDE_PERMITIDO` (lib/veto-claude.ts) y el veto vive en el `fetch`,
+            // así que la llamada tira SIEMPRE. Medido en `anthropic_usage`: **8
+            // vetos entre el 17/8 y el 24/8**, cada uno terminando en un «No pude
+            // armar el borrador» para un cliente, y ninguno visible en ningún lado.
+            //
+            // Dos sistemas correctos que se contradicen, y el único síntoma era un
+            // mensaje raro en el WhatsApp de un cliente. `evaluarPermiso` es puro y
+            // síncrono: preguntar cuesta nada y convierte una excepción garantizada
+            // en un estado conocido — y en un log que dice QUÉ decidir.
+            const permiso = evaluarPermiso({ feature: 'mako-doer-in', model: 'claude-sonnet-5' });
             if ((esRutaPlan(ruta.motivo) || esCargaDePlan(texto) || quisoBorrador) && !linkBorrador) {
-              console.error(`[mako-doer-in] ninguna IA barata armó el borrador (${orden.join(', ')}) → escalando a Claude`);
-              try {
-                const { text } = await chatClaudeTools(system, msgs, tools, runTool, {
-                  feature: 'mako-doer-in', maxSteps: 8, model: 'claude-sonnet-5',
-                  toolChoice: 'any', motivo: `⚠ escalado a Claude: las gratis no armaron el borrador · ${ruta.motivo} «${recorte}»`,
-                });
-                if (text?.trim()) respuesta = text.trim();
-              } catch (e3) { console.error('[mako-doer-in] Claude tampoco pudo:', e3 instanceof Error ? e3.message : String(e3)); }
+              if (!permiso.ok) {
+                console.error(`[mako-doer-in] ninguna IA barata armó el borrador (${orden.join(', ')}) y NO se puede escalar: ${permiso.razon}`);
+              } else {
+                console.error(`[mako-doer-in] ninguna IA barata armó el borrador (${orden.join(', ')}) → escalando a Claude`);
+                try {
+                  const { text } = await chatClaudeTools(system, msgs, tools, runTool, {
+                    feature: 'mako-doer-in', maxSteps: 8, model: 'claude-sonnet-5',
+                    toolChoice: 'any', motivo: `⚠ escalado a Claude: las gratis no armaron el borrador · ${ruta.motivo} «${recorte}»`,
+                  });
+                  if (text?.trim()) respuesta = text.trim();
+                } catch (e3) { console.error('[mako-doer-in] Claude tampoco pudo:', e3 instanceof Error ? e3.message : String(e3)); }
+              }
             }
             if (!respuesta) throw ultErr ?? new Error('todas las IA baratas fallaron');
           } else {
@@ -954,7 +987,12 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
           // aparece es el ÚLTIMO que reventó, que puede no tener nada que ver con la
           // causa — los anteriores se descartaron por otra razón y su error quedó
           // pisado. Afuera va lo único que le sirve: si su trabajo se guardó o no.
-          respuesta = AVISO_NO_PUDE;
+          //
+          // ⚠️ Y el texto depende de QUÉ era el turno. Este catch atrapa cualquier
+          // caída del modelo, y contestar «no pude armar el borrador» a quien
+          // saludó o preguntó por su oferta manda a buscar el problema al lugar
+          // equivocado. Ver `avisoNoPude` en lib/respuesta-doer.ts.
+          respuesta = avisoNoPude(esRutaPlan(ruta.motivo) || esCargaDePlan(texto));
         }
       }
     }

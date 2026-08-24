@@ -119,3 +119,48 @@ test('CABLEADO: el historial entra MARCADO como contexto, no como pedido', () =>
   assert.ok(horas > 0 && horas <= 24,
     `la ventana de contexto volvió a ${horas} h: con 48 h MaKo contestó un pedido con material de anteayer`);
 });
+
+// =============================================================================
+// El cliente que escribió «OPA» y recibió «No pude armar el borrador con eso»
+// =============================================================================
+// 2026-08-24. Un cliente estrenó su grupo de MaKo con un saludo de tres letras y
+// después preguntó cuál era su oferta. Las dos veces le llegó un mensaje sobre
+// borradores del plan. El dueño lo leyó como que MaKo creía que todo era una
+// tarea — y tenía razón a medias: eso hacía el clasificador, y encima el texto
+// del error lo confirmaba.
+
+test('Un saludo o una prueba del canal NO es material para el plan', () => {
+  // «OPA» caía al default (`capturar`, con la tool OBLIGATORIA): se le pedía al
+  // modelo parir una tarea de un saludo. La regla de saludo YA existía —solo le
+  // faltaban las aperturas rioplatenses y las palabras con las que alguien
+  // prueba un canal nuevo—, así que se amplió esa en vez de escribir otra.
+  for (const s of ['OPA', 'opa!', 'Ola', 'che', 'holis', 'test', 'prueba', 'probando', 'ping', 'Hola']) {
+    const i = clasificarIntencion(s, { hayMedia: false, hayPendientes: false, hayContacto: false });
+    assert.equal(i.intencion, 'charlar', `«${s}» volvió a clasificarse como ${i.intencion}`);
+  }
+});
+
+test('Un saludo que ADEMÁS trae material sigue siendo material', () => {
+  // El tope de largo existe justamente por esto: «hola, anotá esto» empieza
+  // igual que «hola». Si el saludo se comiera al pedido, el arreglo de arriba
+  // habría cambiado un bug por otro peor — perder trabajo en vez de sobrar una
+  // tarea.
+  const i = clasificarIntencion(
+    'Hola MaKo, anotá esto para el plan: rehacer los creativos de la campaña de captación y medir el CPL',
+    { hayMedia: false, hayPendientes: false, hayContacto: false },
+  );
+  assert.equal(i.intencion, 'capturar', 'un pedido explícito con saludo adelante dejó de capturarse');
+});
+
+test('Una clasificación DUDOSA no puede obligar a llamar la herramienta', () => {
+  // `dudosa: true` significa, textual, «sin señal clara». El default de ese caso
+  // es `capturar`, que tiene forzarTool: true — o sea que una ADIVINANZA era más
+  // fuerte que una clasificación segura. Es «el fallback es más débil que el
+  // camino feliz, nunca más fuerte» (AGENTS.md) dado vuelta.
+  const src = readFileSync(new URL('../lib/mako-doer-in.ts', import.meta.url), 'utf8');
+  assert.match(
+    src,
+    /CONTRATO\[intencion\.intencion\]\.forzarTool && !intencion\.dudosa/,
+    'una intención dudosa volvió a forzar la tool: se le pide al modelo inventar una tarea de cualquier cosa',
+  );
+});
