@@ -38,6 +38,7 @@ import { CURSO_PROGRAMA_RAIO } from './curso-programa-raio';
 import { CURSO_BIGSEO_ACADEMY } from './curso-bigseo-academy';
 import { CURSO_BLUEHACKER } from './curso-bluehacker';
 import { CURSO_MASTERYHAUS } from './curso-masteryhaus';
+import { CURSO_STORIES_MASTER } from './curso-stories-master';
 import { CURSO_INSTITUTO_DE_COMUNICACION } from './curso-instituto-de-comunicacion';
 import { CURSO_CREATOR_CLUB } from './curso-creator-club';
 import { CURSO_TRILOGIA_DE_BRIAN_TRACY } from './curso-trilogia-de-brian-tracy';
@@ -271,6 +272,7 @@ export const CURSOS_TODOS: Curso[] = [
   // mantener. La lección: antes de restaurar lo que había, preguntá cuánto DEBERÍA haber.
   CURSO_BLUEHACKER,
   CURSO_MASTERYHAUS,
+  CURSO_STORIES_MASTER,
   CURSO_CREATOR_CLUB, CURSO_TRILOGIA_DE_BRIAN_TRACY,
   // Los recursos y el modo réplica se inyectan acá porque el archivo del curso lo
   // REESCRIBE `curso-a-portal.mjs` en cada corrida: puestos allá, duran hasta la
