@@ -1544,6 +1544,53 @@ darlo de alta a mano en Cal.com, igual que en Calendly (Chatwoot y Evolution sí
 registran solos). Y el widget del CRM para agendar DESDE MaKo, que hoy es solo de Calendly
 (`lib/calendly-agenda.ts`, `app/crm/calendly-widget.ts`).
 
+### ⚠️ «Falta activar la landing»: pedirle al cliente que declare lo que ya declaró
+
+*2026-08-25 — el dueño: «¿cómo que falta activar la landing? ¿qué sentido tiene?»*
+
+Ninguno. Un cliente conectó Cal.com —pegó el webhook, inventó el secret, cargó el tipo
+de evento—, alguien reservó, y el panel le contestó que el contacto no entraba al CRM
+porque le faltaba marcar una casilla llamada **«landing»** en otra pantalla. Encima el
+nombre miente: esa reserva no vino de su landing, vino de su **agenda**.
+
+**El razonamiento detrás de la puerta era correcto, y su alcance no.** `entradas` del
+funnel existe porque el **Pixel se le da a TODOS por defecto**: sin esa puerta, a
+cualquiera que lo pegue se le empieza a llenar el CRM de contactos que no pidió. Ese
+argumento no aplica a una integración que el negocio **conectó a propósito**:
+conectarla ES el acto de declararla. Pedir además la casilla es burocracia que solo
+existe por cómo está partido el código.
+
+Ahora un opt-in de `origen_captura: 'agenda'` pasa si el workspace tiene Cal.com o
+Calendly conectados. Medido en el ws3, con el mismo opt-in en los dos escenarios:
+
+| | resultado |
+|---|---|
+| sin la agenda conectada | bloqueado, con su rastro — correcto, ahí la puerta sirve |
+| con Cal.com conectado | `lead: 2312, creado: true`, **sin tocar nada en Funnel** |
+
+**Regla — una configuración que el sistema puede DEDUCIR no se pregunta.** Y el test
+para saber si sobra: ¿existe algún caso donde el cliente conecte la integración y NO
+quiera esos leads? Si no existe, la pregunta es de la arquitectura, no del negocio.
+
+**Vive en:** `app/api/track/optin/route.ts` (`deAgendaConectada`)
+
+### ⚠️ El «?» de todos los campos abría el mismo texto
+
+*2026-08-25 — reportado por el cliente: «la guía de cada cosa aparece siempre el mismo»*
+
+El componente hace `ayuda={c.ayuda ?? servicio.tutorial}`. Un campo **sin** entrada en
+`AYUDA_CAMPO` abre el tutorial entero del servicio, así que en Cal.com (4 campos),
+Clarity, Whop y GitHub (2 cada uno) **todos abrían lo mismo**: quien tocaba el «?» de
+«API key» recibía, desde el paso 1, cómo crear el webhook.
+
+Con un solo campo está bien —el tutorial ES la ayuda de ese campo—. Con dos o más, el
+«?» deja de contestar la pregunta del que lo tocó.
+
+**La regla:** el tutorial del **servicio** contesta *«cómo conecto esto»*; el del
+**campo**, *«qué pongo AQUÍ»*, que es la pregunta de quien tiene el cursor adentro del
+input. Lo cuida `tests/tutoriales-legibles.test.ts`: un servicio con varios campos no
+puede tenerlos todos sin ayuda propia.
+
 ## Historial, deshacer y confirmaciones
 
 ### Deshacer no es historia

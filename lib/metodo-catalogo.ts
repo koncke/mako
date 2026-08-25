@@ -1410,6 +1410,97 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   // paso 1, cómo crear el webhook. La ayuda del servicio contesta «cómo conecto
   // esto»; la del campo contesta «qué pongo ACÁ», que es la pregunta que se hace
   // quien tiene el cursor adentro del input.
+  // ⚠️ SIN ENTRADA ACA, EL «?» DE CADA CAMPO ABRE EL MISMO TEXTO. En clarity,
+  // whop y github los dos campos no tenian ayuda propia, asi que los dos abrian
+  // el tutorial entero del servicio — el cliente lo reporto como «la guia de cada
+  // cosa aparece siempre el mismo». La del servicio contesta «como conecto esto»;
+  // la del campo, «que pongo ACA», que es la pregunta de quien tiene el cursor
+  // adentro del input.
+  CLARITY_PROJECT_ID: {
+    pasos: [
+      'Para qué sirve: identifica cuál de tus sitios es el tuyo dentro de Clarity. Es el primero de los dos datos que hacen falta.',
+      'Entra a clarity.microsoft.com e inicia sesión con tu cuenta de Microsoft, de Google o de Facebook. Es gratis y sin límite de visitas.',
+      'Si todavía no tienes un proyecto, toca "New project", escribe el nombre de tu negocio y la dirección de tu página, y créalo. Un "proyecto" es la carpeta donde Clarity guarda las grabaciones de ese sitio.',
+      'Abre tu proyecto.',
+      'Mira la dirección de la página: dice algo como clarity.microsoft.com/projects/view/abc123xyz/dashboard',
+      'El ID es ese código corto que va después de "view": en el ejemplo, abc123xyz.',
+      'Pégalo en el campo "ID del proyecto". También puedes pegar la dirección completa: MaKo se queda con la parte que necesita.',
+      'No hace falta que pegues ningún código en tu página: el Pixel de MaKo ya lleva el de Clarity adentro cuando este campo está lleno.',
+    ],
+    url: 'https://clarity.microsoft.com',
+    urlLabel: 'Microsoft Clarity',
+  },
+  CLARITY_API_TOKEN: {
+    pasos: [
+      'Para qué sirve: es lo que deja a MaKo traer el resumen de lo que pasó en tu página. Hace falta: sin esto, la conexión queda a medias.',
+      'Entra a clarity.microsoft.com y abre tu proyecto, el mismo del campo de arriba.',
+      'Arriba a la derecha toca el engranaje de "Settings".',
+      'En el menú de la izquierda entra a "Data export".',
+      'Toca "Generate new API token".',
+      'Ponle un nombre al token: entre 4 y 32 caracteres, sin espacios (por ejemplo MaKo). Clarity rechaza los espacios.',
+      'Toca "Generate".',
+      'Copia el token y pégalo en el campo "Token de Data Export". Se muestra UNA sola vez: si cierras esa ventana, tienes que generar otro.',
+      'Ten en cuenta que Clarity solo deja pedir ese resumen 10 veces por día. MaKo lo pide una vez al día, así que no lo vas a notar.',
+      'Y ojo con esto, porque no avisa: Clarity borra las grabaciones a los 30 días. Con este token puesto, MaKo te avisa antes de que una grabación se venza.',
+    ],
+    url: 'https://clarity.microsoft.com',
+    urlLabel: 'Microsoft Clarity → Settings',
+  },
+  WHOP_API_KEY: {
+    pasos: [
+      'Para qué sirve: es lo que deja a MaKo ver quién compró, quién sigue pagando y quién se dio de baja, sin que entres a Whop.',
+      'Entra a whop.com/dashboard con la cuenta donde vendes.',
+      'Abre el menú (en el celular es el botón de las tres rayitas, arriba) y busca la sección "Developer".',
+      'Entra a "API keys".',
+      'Toca "Create API key".',
+      'Ponle un nombre para reconocerla después, por ejemplo MaKo.',
+      'Copia la key en ese momento: se muestra UNA sola vez.',
+      'Pégala en el campo "API key". Si la perdiste, bórrala de la lista en Whop y crea otra.',
+    ],
+    url: 'https://whop.com/dashboard',
+    urlLabel: 'Whop → Developer → API keys',
+  },
+  WHOP_WEBHOOK_SECRET: {
+    pasos: [
+      'Para qué sirve: es lo que hace que una compra entre AL INSTANTE y no varias horas después. Con la "API key" sola los datos igual llegan, pero tarde.',
+      'Un webhook es un aviso automático: hace que Whop le avise a MaKo apenas alguien compra, en vez de que MaKo tenga que salir a preguntar cada tanto.',
+      'Más abajo en esta pantalla hay un recuadro que dice "Pega esta dirección dentro de Whop", con un botón para copiarla. Tócalo.',
+      'Entra a whop.com/dashboard, abre el menú y busca "Developer".',
+      'Entra a "Webhooks" y toca "Create webhook".',
+      'Pega ahí la dirección que copiaste.',
+      'Marca los avisos de pago: los que hablan de "payment" y de "membership". Sin esos, la compra no llega.',
+      'Guarda. Whop te muestra entonces un código que empieza con ws_: ese es el secret.',
+      'Cópialo y pégalo en el campo "Secret del webhook".',
+    ],
+    url: 'https://whop.com/dashboard',
+    urlLabel: 'Whop → Developer → Webhooks',
+  },
+  GITHUB_TOKEN: {
+    pasos: [
+      'Para qué sirve: MaKo lee los commits que entran a main y propone cerrar las tareas de desarrollo que ya están hechas.',
+      'Entra a github.com/settings/personal-access-tokens/new (por el menú es "Settings" → "Developer settings" → "Personal access tokens" → "Fine-grained tokens" → "Generate new token").',
+      'Ponle un nombre —por ejemplo "MaKo — cerrar tareas"— y una fecha de expiración. Anota esa fecha: cuando venza, MaKo deja de proponer cierres y no avisa solo.',
+      'En "Resource owner" elige al dueño del repo. Si el repo es de una organización y no la ves en la lista, es que tu cuenta no tiene permiso para pedir tokens ahí.',
+      'En "Repository access" elige "Only select repositories" y marca SOLO el repo del producto.',
+      'En "Permissions" → "Repository permissions" → "Contents", elige "Read-only". Nada más: con eso alcanza y el token no puede escribir.',
+      'Toca "Generate token".',
+      'Copia el token y pégalo en el campo "Token de acceso". Se muestra UNA sola vez.',
+      'El repositorio NO hace falta escribirlo: MaKo lo saca del token.',
+      'Si el repo es de una organización, el token queda en "Pending" hasta que un owner de la org lo apruebe. Hasta entonces la API contesta 404 y no 403, así que el síntoma es «el repo no existe» aunque el token esté perfecto.',
+    ],
+    url: 'https://github.com/settings/personal-access-tokens/new',
+    urlLabel: 'GitHub → Fine-grained tokens',
+  },
+  GITHUB_REPO: {
+    pasos: [
+      'Para qué sirve: es opcional y casi siempre se completa solo. Al guardar el token, MaKo pregunta a GitHub a qué repos da acceso y, si es uno solo, lo completa solo, sin que hagas nada.',
+      'Llénalo a mano únicamente si el token da acceso a varios repos y MaKo te pide elegir cuál.',
+      'El formato es usuario/repositorio, tal cual aparece en la dirección de GitHub: en github.com/mbustos-digital/dashboard-marketing, va mbustos-digital/dashboard-marketing.',
+      'Si te equivocaste de repo, cámbialo en este campo: MaKo pasa a leer los commits del nuevo.',
+    ],
+    url: 'https://github.com/settings/personal-access-tokens',
+    urlLabel: 'GitHub → Fine-grained tokens',
+  },
   CALCOM_WEBHOOK_SECRET: {
     pasos: [
       'Para qué sirve: es lo que hace que cada reserva de tu calendario entre sola al CRM. Sin esta contraseña no entra ninguna: MaKo las rechaza.',

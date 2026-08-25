@@ -33,6 +33,7 @@ import { wsPorIdentificador } from '@/lib/webhook-routing';
 import { createLead, duplicadosDeLead, getFunnel } from '@/lib/leads';
 import { textoDuplicado } from '@/lib/leads-duplicados';
 import { getTenantDb, runWithWorkspace } from '@/lib/workspace';
+import { integracionConectada } from '@/lib/credenciales';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -80,7 +81,25 @@ export async function POST(req: NextRequest) {
   const entradas = await runWithWorkspace(ws, () => getFunnel())
     .then((f) => f.entradas as string[])
     .catch(() => [] as string[]);
-  if (!entradas.includes('landing')) {
+  // ⚠️⚠️ CONECTAR UNA AGENDA ES DECLARAR LA ENTRADA. No hace falta pedirlo dos veces.
+  //
+  // El caso, del 24/08/2026, y el dueño lo dijo con todas las letras: «¿cómo que
+  // falta activar la landing? ¿qué sentido tiene?». Ninguno. Un cliente conectó
+  // Cal.com —pegó el webhook, inventó el secret, cargó el tipo de evento—, alguien
+  // reservó, y la pantalla le contestó que el contacto no entraba porque le faltaba
+  // marcar una casilla llamada «landing» en OTRA pantalla. Encima el nombre miente:
+  // esa reserva no vino de su landing, vino de su AGENDA.
+  //
+  // La puerta del funnel existe porque el Pixel se le da a TODOS por defecto: sin
+  // ella, a cualquiera que lo pegue se le empieza a llenar el CRM de contactos que
+  // no pidió. Ese razonamiento NO aplica a una integración que el negocio conectó a
+  // propósito: conectarla ES el acto de declararla. Pedir además la casilla es
+  // burocracia que solo existe por cómo está partido el código.
+  const deAgendaConectada = txt(body.origen_captura) === 'agenda'
+    && await runWithWorkspace(ws, async () =>
+      (await integracionConectada('calcom')) || (await integracionConectada('calendly')));
+
+  if (!entradas.includes('landing') && !deAgendaConectada) {
     // ⚠️⚠️ DESCARTAR EN SILENCIO ES PERDER UN LEAD SIN QUE NADIE SE ENTERE.
     //
     // Esta rama devolvía `ok:true` y se iba: ni una fila, ni un log, ni un
