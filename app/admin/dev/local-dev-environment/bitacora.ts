@@ -248,4 +248,111 @@ export const BITACORA: Hito[] = [
       'tests/dev-areas.test.ts — la red que chequea existencia, y que no puede ver lo que falta',
     ],
   },
+  {
+    fecha: '25 ago', hora: '16:50', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: '¿De verdad no podés saber en qué cuenta estamos?',
+    pedido: 'El useremail no es ese, realmente no tienes acceso a saber en que cuenta estamos?\n\n[y después] No quiero decirtelo, lo debes saber... En que email estoy logeado? No lo sabes?\n\n[y después] No tienes que buscar en ningún archivo ni nada de eso... Solo revisar en que cuenta esta logueado esta sesión de claude, con que email.',
+    puntos: [
+      'Yo había contestado «claude2» con confianza apoyándome en el `userEmail` del contexto. **Daba el resultado correcto por el camino equivocado**, y Martín lo detectó en un mensaje.',
+      '⚠️ **El `userEmail` que el harness inyecta ES `~/.claude.json` → `oauthAccount.emailAddress`.** No es una lectura viva de la sesión: es ese archivo, y se escribe al *loguearse*, no al abrir sesión. La memoria decía lo contrario —que el `userEmail` era la fuente confiable **y el archivo el que mentía**— cuando son la misma cosa.',
+      'Las cuatro señales, medidas: el `userEmail` decía `mbustos@elevate.com.mx` (la cuenta 1) con la sesión corriendo en la 2; `.credentials.json` tenía mtime del 21 de julio **y su refresh token venció el 17 de agosto**, o sea muerto hace 8 días; `~/.claude-martin` nunca tuvo credenciales; y el Local Storage de la app de escritorio trae un solo email desde julio de 2025, así que no discrimina.',
+      'Callejón ya recorrido, para que nadie lo repita: buscando emails en `%APPDATA%\\Claude` aparece `evan.exe@gmail.com` 33 veces. Es Evan Wallace, el de esbuild, dentro de un `rootfs.vhdx` con metadata de npm.',
+      'Y el intento de mirar la pantalla está **prohibido por diseño**: no se puede dar control de la ventana de Claude a Claude. No es una limitación de hoy, es permanente.',
+      'De paso explicó un corte: las cuatro sesiones del día murieron entre 15:44 y 16:38 con «Your organization has disabled Claude subscription access for Claude Code». Esa organización es la de `mbustos@elevate.com.mx` — la cuenta 1 — y de ahí el pase a la 2.',
+    ],
+    commits: [
+      { sha: '502b4494', msg: 'cosecha: no hay forma de saber del disco en qué cuenta corre la sesión', lineas: 35, archivos: 1 },
+    ],
+    archivos: ['docs/dos-cuentas.md — las cuatro señales medidas y por qué ninguna sirve'],
+  },
+  {
+    fecha: '25 ago', hora: '17:11', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La cuenta se declara en un archivo, y un hook la lee al abrir',
+    puntos: [
+      'Como ninguna señal de la máquina sirve, la fuente de verdad pasa a ser **declarada**: `~/.claude/cuenta-activa.txt` con una línea, y un hook `SessionStart` que la inyecta al contexto **con la fecha en que se anotó**, para que se note cuando quedó vieja.',
+      'Probado en tres pasos, porque el escapeo del comando adentro del JSON es donde esto se rompe en silencio: el comando suelto devuelve JSON válido, el `settings.json` conserva sus seis claves, y el comando **releído desde el JSON** produce la misma salida.',
+      '⚠️ El hook dispara **fuera del turno que lo escribe**, así que eso no se puede verificar en la misma sesión. Se confirma recién al abrir la siguiente.',
+    ],
+    commits: [
+      { sha: 'f5448137', msg: 'La cuenta activa se declara en un archivo y la lee un hook', lineas: 20, archivos: 1 },
+    ],
+    archivos: [
+      '~/.claude/cuenta-activa.txt — la fuente de verdad, la declara Martín',
+      '~/.claude/settings.json — el hook SessionStart',
+    ],
+  },
+  {
+    fecha: '25 ago', hora: '17:20', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Quién es cada cuenta es fijo, y no se deduce del email',
+    pedido: 'La cuenta 1 SIEMPRE es de Mauricio y la cuenta 2 SIEMPRE es de Leandro...\n\n[y después, cuando dije que no tenía el email de Leandro] Si tienes el email de leandro, me lo haz dicho antes...',
+    puntos: [
+      'Lo que faltaba no era un dato suelto sino **la regla de titularidad**: `claude1` = Mauricio Bustos, `claude2` = Leandro Tejado, y no cambia. No es una ventana de cuota ni un rótulo de cliente.',
+      '⚠️ Yo tenía el email de Leandro delante —`tejadomartin@gmail.com`— y lo descarté **por una memoria equivocada**: `quien-es-quien` afirmaba que ese email y `martinkoncke@gmail.com` «son la misma persona». Con esa línea encima, cada vez que veía el mail de Leandro lo leía como el de Martín. Le contesté a Martín su propio mail personal cuando preguntaba por la cuenta de Claude.',
+      '**La regla general, que es lo que queda:** el nombre adentro de un email no dice de quién es la cuenta. `tejadomartin@` se leía como «Martín» y es de **Tejado**; `mbustos@` es de Mauricio Bustos, que no es quien desarrolla. El titular se pregunta, no se infiere del string.',
+      'Se destraba algo de atrás: la sesión del 18/08 corría con `tejadomartin@gmail.com`, o sea que **era la cuenta 2**. Ese día firmé un commit `claude2`, Martín dijo que estaba mal y lo di por error mío. Estaba bien; lo que estaba mal era la tabla que consulté después.',
+    ],
+  },
+  {
+    fecha: '25 ago', hora: '17:23', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Si armamos un mecanismo para anotar todo, ¿cómo no tenés el contexto?',
+    pedido: 'Pero como es posible que no tengas el contexto si justamente armamos contigo y con la otra cuenta un mecanismo para ir anotando tooodo lo que haciamos...',
+    puntos: [
+      'La objeción era correcta y el error mío. Yo había leído **los deltas de las últimas 48 horas** —los commits y lo que se le agregó a los `hallazgos-*` esos dos días— y había declarado huecos. Leí **lo que cambió**, no **lo que sabemos**: son cosas distintas.',
+      'El corpus son 42 documentos y 2,6 MB. Se leyeron enteros con 19 lectores en paralelo y salió `docs/estado-del-arte.md`.',
+      '**Lo que ningún documento por área podía dar, porque solo aparece al cruzarlos: los 8 modos de falla que mordieron en MÁS DE UN área.** Un modo de falla que se repite en dos lados es una propiedad del sistema, no una anécdota. El primero: el fallback a `OWNER_WS` es la fuga estructural del producto —29 `?? OWNER_WS` a mano en 19 libs— y el agravante es que **`OWNER_WS = 1` no es la plataforma, es Mauricio, un cliente**; la plataforma es el ws9.',
+      '⚠️ El documento se marca a sí mismo como **material de segunda mano**: sale del corpus, que a su vez sale de 261 corridas multi-agente, no de releer el árbol de hoy. Antes de actuar sobre cualquier agujero de seguridad de ahí, verificar contra el código.',
+    ],
+    commits: [
+      { sha: '4cc733ad', msg: 'Estado del arte: el corpus leído entero, y los 8 modos de falla que se repiten', lineas: 329, archivos: 2 },
+    ],
+    archivos: ['docs/estado-del-arte.md — 67 KB, con su fila en docs/hallazgos.md'],
+  },
+  {
+    fecha: '25 ago', hora: '17:41', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'Había otra sesión trabajando al mismo tiempo, y ninguna lo sabía',
+    puntos: [
+      'Al commitear aparecieron **~160 archivos sin commitear que no estaban una hora antes**. Primero sospeché de mis propios agentes: se descartó revisando sus transcripts —cero escrituras a esas rutas, cero comandos `node`—.',
+      'Era **otra sesión de Claude corriendo en paralelo** sobre el mismo clon, abierta 25 minutos antes, a la que Martín le había pedido terminar la bajada del curso que yo acababa de reportar como pendiente.',
+      '⚠️ **El corpus documenta bien el pasado; nadie documenta el presente concurrente.** Por eso «¿tengo todo el contexto?» no tiene respuesta estable: cambia mientras se contesta. Mi reporte de «quedó a mitad» era cierto a las 16:38 y falso a las 17:41.',
+      'No hubo daño porque commiteé **por ruta explícita**. Con `git add -A` me habría llevado sus 160 archivos a medio hacer adentro de mi commit.',
+      '⚠️ Y una corrección al modelo mental: las dos sesiones **comparten el mismo clon**, no dos copias. Mismo `.git`, mismo índice.',
+    ],
+  },
+  {
+    fecha: '25 ago', hora: '18:50', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que se guarde todo, y en el sistema que ya existe',
+    pedido: 'Bueno, asegurate de guardar bien la info desde a partir de ahora, independientemente de la cuenta en la que esté\n\n[y después] Y es importante que se vayan guardando todos MIS prompts y el resumen de las cosas realizadas... Para eso ya teniemos todo el sistema en SuperAdmin en la sección de "dev"',
+    puntos: [
+      'El disparador fue una pregunta que no se pudo contestar: «¿desde qué fecha a qué fecha estuve en la cuenta 2?».',
+      '⚠️ **Los trailers `Claude-Cuenta` anteriores al 25/08 no son confiables.** Al graficarlos, la firma alterna entre `claude1` y `claude2` **cada dos o cuatro minutos** sobre trabajo continuo, y los commits del medio son features normales, no otra clase de tarea. Nadie cambia de cuenta cuatro veces en media hora: el trailer registraba **la adivinanza**, no la cuenta. Y no existe antes del 11/08 16:38 — hay 39 commits sin firma.',
+      'Los bloques **largos** sí son creíbles, porque cientos de commits seguidos no se explican por ruido: 97 commits del 16 al 17/08, 68 del 13 al 14, 39 del 15 al 16.',
+      'La segunda mitad del pedido es la que importa más: **no construir nada nuevo**, usar el registro de `/admin/dev` que ya existía y ya tenía el campo `pedido` para el texto literal.',
+    ],
+  },
+  {
+    fecha: '25 ago', hora: '18:55', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La cuenta y la sesión se registran solas, en vez de adivinarse',
+    puntos: [
+      'Tres archivos, todos **fuera del repo** porque tienen que sobrevivir a re-clonar: `cuenta-activa.txt` (la declara Martín), `bitacora-sesion.sh` (el script, comentado con el porqué) y `bitacora-sesiones.tsv` (fecha, acción, cuenta e id, por cada apertura y cierre). Ese TSV es lo que contesta «desde qué fecha a qué fecha».',
+      'Dos hooks: `SessionStart` inyecta la cuenta con su titular y **avisa si hay otra sesión viva**; `SessionEnd` registra el cierre.',
+      '⚠️ **Detectar la sesión paralela por `mtime` da falsos: dio 3 donde había 1.** Un reindexado de Claude Code tocó nueve transcripts a la vez y todos quedaron con la misma hora. Lo que no miente es el último `timestamp` escrito ADENTRO del `.jsonl`. Leer la cola de todos tardaba 4,9 s en el arranque; con el `mtime` de prefiltro baja a 1,1 s.',
+      '⚠️ Y me tropecé con una trampa **ya documentada**: escribí un script por heredoc, el bash se comió las barras, `\\b` entró como byte de control 0x08 y quedó incrustado en un archivo de memoria. La memoria `heredoc-come-backslash` decía exactamente esto. Se detectó escaneando bytes de control y se reparó con Write. **Que la trampa esté escrita no impide pisarla — los scripts van con Write, nunca por heredoc.**',
+    ],
+    commits: [
+      { sha: '35625add', msg: 'La cuenta y la sesión se registran solas, en vez de adivinarse', lineas: 58, archivos: 2 },
+    ],
+    archivos: [
+      '~/.claude/bitacora-sesion.sh — el script que leen los dos hooks',
+      '~/.claude/bitacora-sesiones.tsv — una línea por apertura y por cierre',
+      'AGENTS.md — la regla: la cuenta no se deduce, y mirá si hay otra sesión antes de tocar git',
+      'docs/dos-cuentas.md — las tres piezas y por qué el mtime no alcanza',
+    ],
+  },
 ];
