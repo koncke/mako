@@ -267,3 +267,30 @@ export function accionDeTrigger(trigger: string | undefined): 'agenda' | 'cancel
       return null;
   }
 }
+
+/**
+ * La zona horaria que el cliente eligió en Cal.com. null si no está conectado.
+ *
+ * ⚠️ ES EL DATO QUE ARREGLA EL CASO REAL. El ws13 (Argentina) agendó una reunión
+ * preseteada en horario de México, y no porque el dato no existiera: `GET /me`
+ * contesta `timeZone: "America/Buenos_Aires"` con la key que ya tenía cargada.
+ * Se defaulteaba a `America/Tijuana` teniendo la respuesta a una llamada.
+ *
+ * Va acá y no en `lib/timezone.ts` para no meterle a ese módulo una dependencia
+ * de cada proveedor: allá se ORQUESTA, acá se sabe hablar con Cal.com.
+ */
+export async function tzDeCalcom(apiKey: string): Promise<string | null> {
+  try {
+    const r = await fetch(`${CALCOM_API.base}/me`, {
+      headers: calcomHeaders(apiKey),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!r.ok) return null;
+    const b = (await r.json()) as { data?: { timeZone?: string }; timeZone?: string };
+    const tz = b?.data?.timeZone ?? b?.timeZone;
+    return typeof tz === 'string' && tz.includes('/') ? tz : null;
+  } catch {
+    return null;
+  }
+}

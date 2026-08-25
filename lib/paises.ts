@@ -89,3 +89,53 @@ export function splitTelefono(telefono: string): { lada: string; resto: string }
 export function unirTelefono(lada: string, local: string): string {
   return `${lada}${local}`.replace(/\D/g, '');
 }
+
+/**
+ * Zona horaria por código de país — SOLO para los países que tienen UNA sola.
+ *
+ * ⚠️ La lista es corta a propósito y lo que NO está es lo importante. Estados
+ * Unidos (+1) tiene seis zonas, México cuatro, Brasil cuatro, Chile dos (más
+ * Pascua): para esos, la lada no dice la hora y adivinar es peor que no saber —
+ * un cliente de Tijuana y uno de Cancún tienen el mismo +52 y tres horas de
+ * diferencia. Cuando no se puede afirmar, se devuelve null y decide quien llama.
+ *
+ * Es el ÚLTIMO recurso: primero se pregunta a Cal.com y a Google Calendar, que
+ * saben la zona porque el usuario la eligió. Esto solo cubre al cliente que no
+ * conectó ninguna de las dos.
+ */
+const TZ_POR_LADA: Record<string, string> = {
+  '+54': 'America/Argentina/Buenos_Aires',
+  '+598': 'America/Montevideo',
+  '+595': 'America/Asuncion',
+  '+591': 'America/La_Paz',
+  '+51': 'America/Lima',
+  '+593': 'America/Guayaquil',
+  '+57': 'America/Bogota',
+  '+58': 'America/Caracas',
+  '+506': 'America/Costa_Rica',
+  '+507': 'America/Panama',
+  '+502': 'America/Guatemala',
+  '+504': 'America/Tegucigalpa',
+  '+503': 'America/El_Salvador',
+  '+505': 'America/Managua',
+  '+1809': 'America/Santo_Domingo',
+  '+1787': 'America/Puerto_Rico',
+  '+53': 'America/Havana',
+  '+34': 'Europe/Madrid',
+  '+351': 'Europe/Lisbon',
+  '+33': 'Europe/Paris',
+  '+49': 'Europe/Berlin',
+  '+39': 'Europe/Rome',
+  '+31': 'Europe/Amsterdam',
+  '+41': 'Europe/Zurich',
+  '+353': 'Europe/Dublin',
+  '+44': 'Europe/London',
+  '+971': 'Asia/Dubai',
+};
+
+/** `542233550684` → `America/Argentina/Buenos_Aires`. null si la lada es ambigua. */
+export function tzDeTelefono(telefono: string | null | undefined): string | null {
+  const { lada } = splitTelefono(telefono ?? '');
+  if (!telefono) return null;
+  return TZ_POR_LADA[lada] ?? null;
+}

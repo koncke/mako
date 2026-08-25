@@ -3158,3 +3158,87 @@ pantalla para que busque. Un link a la home es la mitad de un link.
 
 *Corrida del 25/08/2026. La regla quedó en AGENTS.md → «Un mensaje de error dice DE QUIÉN
 fue y QUÉ HACER». Typecheck 0 errores, 1215/1215 tests.*
+
+---
+
+## La reunión en horario de México para un cliente argentino
+
+**Vive en:** `lib/timezone.ts` · `lib/calcom.ts` · `lib/google-calendar.ts` · `lib/paises.ts`
+
+25/08/2026. El dueño: *«Se agendó una reunión y se preseteó al horario de MEX, cuando ese
+cliente es de otro país. Y es MUY fácil que obtengas esa info si se tiene conexión a Google
+Calendar»*.
+
+### La causa no era un cálculo: era un setter sin call-site
+
+`setTimezoneWorkspace()` existe desde que el producto se hizo multi-inquilino, y **no tenía
+un solo call-site**. Nadie fijaba nunca la zona de un workspace, así que TODOS caían al
+default — `America/Tijuana`, donde vive el primer cliente — y **no había forma de cambiarlo
+desde la app**. Medido: de 8 workspaces, uno solo tenía zona, y estaba puesta a mano en la
+base.
+
+Es el mismo patrón que la cara de marca dos entradas más arriba: **una función correcta que
+nadie llama.** Y su forma de fallar es peor que un error, porque el resultado *es*
+plausible: una hora, bien formateada, en la zona equivocada.
+
+**La regla: un setter sin call-site es un DEFAULT disfrazado de configuración** — y el peor
+tipo de default, porque el código sugiere que se puede cambiar y nadie audita algo que
+«ya está resuelto».
+
+### El dato estaba a una llamada, en dos lugares
+
+| Fuente | Qué contesta | Estado antes |
+|---|---|---|
+| **Cal.com** `GET /me` | `timeZone: "America/Buenos_Aires"` | nunca se pedía |
+| **Google Calendar** `calendars/primary` | `timeZone` | **se pedía y se descartaba** — `emailDelCalendario` leía el `id` del MISMO objeto |
+
+⚠️ El caso real no era Google: **ws13 usa Cal.com**, no Calendar. La intuición del dueño era
+correcta y la fuente era otra — por eso se cablearon las dos, y no solo la que él nombró.
+
+### Tres fuentes, en orden de autoridad
+
+`tzDeWorkspace(ws)` ahora, cuando la zona no está guardada, la AVERIGUA y la guarda:
+
+1. **Cal.com** — el cliente la eligió ahí.
+2. **Google Calendar** — ídem.
+3. **El teléfono**, y solo para países de UNA sola zona.
+
+⚠️ **Lo que NO está en la tabla del teléfono es lo importante.** México tiene cuatro zonas y
+Estados Unidos seis: un cliente de Tijuana y uno de Cancún comparten el `+52` y tienen tres
+horas de diferencia. Ahí se devuelve `null` y gana el default, porque **adivinar es peor que
+no saber: se guarda, y nadie lo vuelve a mirar.**
+
+### Tres cosas que salieron de medirlo
+
+- **Memo por proceso + persistencia.** `tzDeWorkspace` se llama en caminos calientes (el
+  resumen de un lead, cada acción del doer); sin memo, cada uno se comería una llamada de red.
+- **Techo de 4 s.** Un workspace sin Cal.com tardaba **3,9 s** en caer al default, y son dos
+  fuentes con 5 s cada una. Un proveedor colgado no puede frenar el render de nadie.
+- **Un default que no se pudo verificar NO se guarda.** Guardarlo convierte «no pude
+  averiguarlo» en «esta es su zona» y ya no se reintenta nunca. Es la regla de la casa —«no
+  poder leer un dato no es un valor del dato»— aplicada acá.
+
+### Resultado, corrido contra los workspaces reales
+
+```
+ws13  → America/Buenos_Aires              (de Cal.com)   ← el caso reportado
+ws10  → America/Argentina/Buenos_Aires    (del teléfono)
+ws11  → America/Tijuana                   (clienta mexicana: +52 es ambiguo, gana el default)
+ws1   → America/Tijuana                   (correcto)
+```
+
+Y un test cazó una fila muerta de la tabla nueva: `+809` no la produce nunca
+`splitTelefono`, porque el catálogo tiene `+1809`. Una fila inalcanzable parece cobertura y
+no lo es.
+
+### Lo que quedó SIN hacer
+
+- **No hay pantalla para elegir la zona.** Se resuelve sola, pero un cliente mexicano de
+  Cancún —o cualquiera con lada ambigua y sin agenda conectada— sigue sin poder corregirla.
+  El setter ya existe (`setTimezoneWorkspace`); falta el campo en /configuraciones.
+- **`hoyEnTijuana()` sigue anclado en el resto del repo** (crm-auto, closing, calendly,
+  campaign-structurer). Ya estaba anotado en `lib/timezone.ts` como «otra tarea» y sigue
+  abierto: esas pantallas calculan «hoy» en México para todos.
+
+*Corrida del 25/08/2026 — zonas resueltas y persistidas en prod para ws13 y ws10. Typecheck
+0 errores, 1226/1226 tests.*

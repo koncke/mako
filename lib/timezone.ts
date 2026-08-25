@@ -18,10 +18,100 @@ import { hoyEnTz, TZ_TIJUANA } from '@/lib/date-utils';
 export const TZ_DEFAULT = TZ_TIJUANA;
 export const KEY_TIMEZONE = 'mako.timezone';
 
-/** Zona horaria del workspace (setting mako.timezone) con fallback al default. */
+/**
+ * Zona horaria del workspace. Si no está guardada, SE AVERIGUA y se guarda.
+ *
+ * ⚠️ EL CASO (2026-08-25). Un cliente argentino agendó una reunión y le quedó
+ * preseteada en horario de México. La causa no era un cálculo mal hecho: era que
+ * `setTimezoneWorkspace` —que existe desde que se hizo multi-inquilino— **no tenía
+ * un solo call-site**. Nadie fijaba nunca la zona, así que TODOS los clientes
+ * caían al default (`America/Tijuana`, donde vive el primer cliente) y no había
+ * forma de cambiarlo desde la app. Medido: de 8 workspaces, uno solo tenía zona, y
+ * estaba puesta a mano en la base.
+ *
+ * Es el mismo patrón que ya mordió con la cara de marca: una función correcta que
+ * nadie llama. **Un setter sin call-site es un default disfrazado de configuración**
+ * — y el peor tipo de default, porque la pantalla sugiere que se puede cambiar.
+ *
+ * El arreglo va ACÁ, en el resolvedor, y no en los doce lugares que calendarizan:
+ * así el que consulta la zona la obtiene bien sin tener que enterarse.
+ */
 export async function tzDeWorkspace(ws: number): Promise<string> {
   const tz = await runWithWorkspace(ws, () => getSetting(KEY_TIMEZONE));
-  return tz && esTzValida(tz) ? tz : TZ_DEFAULT;
+  if (tz && esTzValida(tz)) return tz;
+  return await resolverYGuardarTz(ws);
+}
+
+/**
+ * El intento de averiguar la zona, UNA vez por proceso y por workspace.
+ *
+ * El memo no es una optimización de lujo: `tzDeWorkspace` se llama en caminos
+ * calientes (el resumen de un lead, cada acción del doer) y sin él cada uno se
+ * comería una llamada de red. Con el memo, el costo es un intento por arranque en
+ * frío — y en cuanto se resuelve queda en la base, así que ni eso.
+ */
+const enCurso = new Map<number, Promise<string>>();
+
+async function resolverYGuardarTz(ws: number): Promise<string> {
+  const yaVa = enCurso.get(ws);
+  if (yaVa) return yaVa;
+  const p = (async () => {
+    // ⚠️ CON TECHO. `tzDeWorkspace` se llama adentro de renders y de turnos de
+    // WhatsApp: un proveedor colgado no puede frenar la pantalla de nadie por
+    // averiguar una zona horaria. Medido antes de esto: un workspace sin Cal.com
+    // tardaba 3,9 s en caer al default, y son dos fuentes con 5 s cada una.
+    //
+    // Si no llega a tiempo se devuelve el default SIN GUARDARLO: guardar un
+    // default que no se pudo verificar es convertir «no pude averiguarlo» en «esta
+    // es su zona», y eso ya no se vuelve a intentar nunca. Sin guardar, el próximo
+    // arranque en frío reintenta.
+    const hallada = await Promise.race([
+      averiguarTz(ws).catch(() => null),
+      new Promise<null>((r) => setTimeout(() => r(null), 4000)),
+    ]);
+    if (!hallada) return TZ_DEFAULT;
+    // Se GUARDA: la próxima lectura no vuelve a salir a la red, y sobre todo queda
+    // visible en la base para quien audite por qué un cliente calendariza así.
+    await setTimezoneWorkspace(ws, hallada).catch(() => {});
+    console.log(`[timezone] ws=${ws} zona resuelta a ${hallada} (estaba sin fijar)`);
+    return hallada;
+  })();
+  enCurso.set(ws, p);
+  return p;
+}
+
+/**
+ * Las fuentes, EN ORDEN DE AUTORIDAD.
+ *
+ * Las dos primeras son lo que el cliente ELIGIÓ en su propia herramienta de
+ * agenda: no hay nada más confiable que eso. El teléfono es una inferencia y va
+ * último, con la lista de países de una sola zona (ver `tzDeTelefono`): para +52 o
+ * +1 la lada no dice la hora y adivinar sería peor que el default.
+ */
+async function averiguarTz(ws: number): Promise<string | null> {
+  const { credWs } = await import('./credenciales');
+
+  // 1. Cal.com — `GET /me` trae `timeZone`.
+  const calKey = await runWithWorkspace(ws, () => credWs('CALCOM_API_KEY', ws)).catch(() => null);
+  if (calKey) {
+    const { tzDeCalcom } = await import('./calcom');
+    const tz = await tzDeCalcom(calKey);
+    if (tz && esTzValida(tz)) return tz;
+  }
+
+  // 2. Google Calendar — el `timeZone` de `calendars/primary`.
+  const { tzDelCalendarioGoogle } = await import('./google-calendar');
+  const tzG = await runWithWorkspace(ws, () => tzDelCalendarioGoogle()).catch(() => null);
+  if (tzG && esTzValida(tzG)) return tzG;
+
+  // 3. El teléfono de los avisos, solo si su país tiene UNA sola zona.
+  const { getDestinatariosDe } = await import('./notif-destinatarios');
+  const dest = await getDestinatariosDe(ws).catch(() => null);
+  const { tzDeTelefono } = await import('./paises');
+  const tzT = tzDeTelefono(dest?.telefonos[0] ?? null);
+  if (tzT && esTzValida(tzT)) return tzT;
+
+  return null;
 }
 
 /** Zona del workspace ACTUAL. Nunca lanza: una zona rota no puede tirar la página. */

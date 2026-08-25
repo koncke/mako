@@ -114,6 +114,32 @@ export async function emailDelCalendario(accessToken: string): Promise<string | 
     return null;
   }
 }
+
+/**
+ * La zona horaria del calendario del cliente. null si no está conectado o falla.
+ *
+ * ⚠️ Sale del MISMO endpoint que `emailDelCalendario` y del MISMO objeto: el
+ * `timeZone` de `calendars/primary` viajaba en cada una de esas respuestas y se
+ * descartaba. Mientras tanto, todo el producto calendarizaba en `America/Tijuana`
+ * —el default— para clientes de otros países. El dueño lo dijo así: «es MUY fácil
+ * que obtengas esa info si se tiene conexión a Google Calendar». Tenía razón: era
+ * un campo que ya estábamos pidiendo.
+ */
+export async function tzDelCalendarioGoogle(): Promise<string | null> {
+  try {
+    const at = await accessTokenGoogle();
+    if (!at) return null;
+    const r = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary', {
+      headers: { Authorization: `Bearer ${at}` },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5000),
+    });
+    const j = (await r.json()) as { timeZone?: string };
+    return typeof j.timeZone === 'string' && j.timeZone.includes('/') ? j.timeZone : null;
+  } catch {
+    return null;
+  }
+}
 /**
  * Conectada = el token existe Y SE PUEDE ABRIR. Chequear solo que no esté vacío
  * dejaba que el semáforo mintiera: si el token quedaba ilegible (rotación de
