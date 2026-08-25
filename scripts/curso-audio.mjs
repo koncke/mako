@@ -183,11 +183,44 @@ console.log(`\n  ${entradas.length} video(s) · ${KBPS} kbps mono 16 kHz · obje
 
 let hechos = 0, saltados = 0, fallados = 0, partidos = 0;
 
+/**
+ * ¿El video trae pista de audio? Un `false` acá NO es un error: es una clase muda.
+ *
+ * ⚠️ Existe porque una sola clase sin audio ABORTABA LA TANDA ENTERA. El «Diccionario de
+ * Marketing Digital» de la Certificación son 11 segundos de placa de título, sin sonido;
+ * ffmpeg contesta «Output file does not contain any stream», el script lo contaba como
+ * FALLADO, y con `fallados && !hechos` salía con código 1 — así que el circuito de la
+ * corrida leía «la etapa no corrió» y frenaba las 153.
+ *
+ * Y contarla como fallada tampoco servía: una clase sin pista de audio no va a convertir
+ * NUNCA, así que cada reintento la vuelve a chocar. Un fallo que no puede dejar de fallar
+ * no es un fallo, es una característica del material — y va contada aparte, para que
+ * «fallados» siga significando «reintentá esto».
+ */
+const tieneAudio = (src) => {
+  // Mismo camino que `duracion`: `ffmpeg -i` escupe los streams por stderr. No se usa
+  // ffprobe porque este script nunca lo necesitó y su ruta no está resuelta acá.
+  const p = spawnSync(FFMPEG, ['-i', src], { encoding: 'utf8' });
+  const txt = `${p.stderr}`;
+  // Si ni siquiera listó streams, no se puede afirmar nada: se intenta igual y que el
+  // error de verdad lo dé ffmpeg. «No pude averiguarlo» no es «no tiene».
+  if (!/Stream #\d+:\d+/.test(txt)) return true;
+  return /Stream #\d+:\d+.*: Audio:/i.test(txt);
+};
+
+let mudos = 0;
+
 for (const f of entradas) {
   const src = join(DE, f);
   // `f` puede venir con subcarpeta de módulo; el audio SIEMPRE sale plano en A.
   const nombre = basename(f, extname(f));
   const dest = join(A, `${nombre}.m4a`);
+
+  if (!tieneAudio(src)) {
+    console.log(`  ○ ${nombre}  (SIN PISTA DE AUDIO — es una placa muda, no hay nada que transcribir)`);
+    mudos++;
+    continue;
+  }
 
   // La duración de la FUENTE se mide primero: es la vara contra la que se decide si lo
   // que ya está en disco sirve, y también el criterio de partido de más abajo.
@@ -255,7 +288,11 @@ for (const f of entradas) {
   }
 }
 
-console.log(`\n  ${hechos} convertido(s)${partidos ? ` (${partidos} partido/s)` : ''} · ${saltados} ya estaban · ${fallados} fallado(s)`);
+console.log(`\n  ${hechos} convertido(s)${partidos ? ` (${partidos} partido/s)` : ''} · ${saltados} ya estaban · ${fallados} fallado(s)${mudos ? ` · ${mudos} sin pista de audio` : ''}`);
 console.log(`  Salida: ${A}\n`);
 if (fallados) console.log('  Los fallados se pueden reintentar: los que salieron bien se saltean solos.\n');
+if (mudos) console.log(`  Los ${mudos} mudos NO se reintentan: no tienen audio y nunca lo van a tener.\n`);
+// ⚠️ Los mudos NO cuentan para el código de salida. Son material sin audio, no un fallo
+// que se pueda reintentar: si contaran, un curso con una placa muda saldría con 1 para
+// siempre y el circuito de la corrida lo leería como «la etapa no corrió».
 process.exit(fallados && !hechos ? 1 : 0);

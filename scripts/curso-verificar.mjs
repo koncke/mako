@@ -111,10 +111,28 @@ if (sueltos.length) problemas.push(`${sueltos.length} intermedio(s) de yt-dlp si
 const PISO_SEG = 120;   // debajo de 2 min la métrica es ruido: 30 s de habla rápida da 246 wpm
 const WPM_MIN = 70;     // truncada
 const WPM_MAX = 300;    // inflada / alucinada
-let conTx = 0, medidas = 0, cortas = 0, sinArchivo = 0;
+// Una clase sin PISTA DE AUDIO no puede tener transcripción, y eso no es un problema: hay
+// cursos con placas mudas de 11 segundos. Se detecta con el mismo `ffmpeg -i` que usa
+// curso-audio.mjs, y se cuenta aparte.
+const mudo = (f) => {
+  if (!existsSync(f)) return false;
+  const txt = String(spawnSync('ffmpeg', ['-hide_banner', '-i', f], { encoding: 'utf8' }).stderr ?? '');
+  if (!/Stream #\d+:\d+/.test(txt)) return false;
+  return !/Stream #\d+:\d+.*: Audio:/i.test(txt);
+};
+
+let conTx = 0, medidas = 0, cortas = 0, sinArchivo = 0, mudas = 0;
 for (const c of plan.clases) {
   const t = join(dirT, `${c.archivo}.md`);
-  if (!existsSync(t)) { problemas.push(`n=${c.n} SIN TRANSCRIPCIÓN — ${String(c.titulo).slice(0, 44)}`); continue; }
+  if (!existsSync(t)) {
+    if (mudo(join(dirV, `${c.archivo}.mp4`))) {
+      mudas++;
+      avisos.push(`n=${c.n} sin transcripción porque el video NO TIENE AUDIO — ${String(c.titulo).slice(0, 40)}`);
+      continue;
+    }
+    problemas.push(`n=${c.n} SIN TRANSCRIPCIÓN — ${String(c.titulo).slice(0, 44)}`);
+    continue;
+  }
   conTx++;
   const md = readFileSync(t, 'utf8');
   // La cabecera son notas del pipeline (líneas con «> »), no habla.
@@ -139,6 +157,7 @@ const detalle = [
   `${medidas} medidas por wpm`,
   cortas ? `${cortas} clip(s) de menos de ${PISO_SEG}s` : '',
   sinArchivo ? `${sinArchivo} sin video local que medir` : '',
+  mudas ? `${mudas} sin pista de audio` : '',
 ].filter(Boolean).join(' · ');
 console.log(`  ${pad('transcripciones', 26)}${conTx}/${plan.clases.length}   (${detalle})`);
 
