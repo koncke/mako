@@ -4396,3 +4396,87 @@ lecciones — buen atajo para saber si vale la pena abrir un curso antes de snif
 - **La guarda de wpm sigue midiendo sobre duración de pared**, sin piso de duración y sin
   normalizar por tiempo de voz. Las dos correcciones están arriba y ninguna está escrita en
   código. **Vive en:** el chequeo ad-hoc del pipeline, todavía sin script propio.
+
+## Un control que tarda una tarde es un control que no se corre
+
+**2026-08-25.** Al cerrar la Certificación en Marketing Digital (153 clases) aparecieron
+tres cosas del pipeline mismo, y ninguna fallaba: las tres terminaban en verde.
+
+### 1. `curso-verificar` tardaba 5,6 horas y podía tardar 5 minutos
+
+Le pasaba el **video** a ffmpeg para medir el tiempo de voz:
+
+    ffmpeg -hide_banner -i <clase.mp4> -af silencedetect=… -f null -
+
+Sin `-vn`, ffmpeg **decodifica el stream de video entero para tirarlo**. Medido sobre una
+clase de 28:55 en 1080p: **159 s sin `-vn` contra 2 s con él, con el resultado idéntico**
+—los mismos 12 tramos de silencio—. Sobre las 153 clases del curso, 5,6 h contra 301 s.
+
+**Y el costo no son las horas.** Este script existe porque los cinco controles se venían
+haciendo a mano y salteándose; dejarlo a 5,6 h garantizaba que se siguiera salteando, con
+el agravante de que ahora *parece* que hay red. Cuando escribas un gate, medí cuánto tarda
+la primera corrida real: si no entra en el ritmo de trabajo de quien lo tiene que correr,
+no es un gate, es un adorno.
+
+**Vive en:** `scripts/curso-verificar.mjs` → `segundosDeVoz`.
+
+### 2. Los recursos se publican con nombre genérico y la corrida no falla
+
+`curso-pdfs.mjs` nombra cada archivo con lo que lee del **DOM del curso**, y para eso
+necesita una pestaña abierta EN la página con los módulos desplegados. Si no está —o está
+con los acordeones cerrados— la asociación sale vacía, el script avisa
+«Asocié 0 archivo(s) a su clase» **y sigue**: los 130 caen al nombre de respaldo,
+`recurso-01`…`recurso-130`. Termina en verde y el curso se publica numerado.
+
+Ya había pasado con los 38 de Iman Gadzhi. Las dos veces los títulos de verdad estaban a
+mano todo el tiempo, en el volcado de la API que el propio pipeline guarda al lado
+(`recursos-api.json`, con `title`, `module_id` y `file_size`).
+
+**`scripts/curso-recursos-indice.mjs`** los cruza y emite el `recursos.json` que
+`curso-a-drive` y `curso-a-portal` ya sabían consumir. **El cruce no se adivina, se
+verifica:** `recurso-NN` codifica la POSICIÓN en `plan.pdfs` y la API declara el
+`file_size`, así que se exige que el tamaño en disco coincida. En este curso dieron 106 de
+106. Un índice que mezcla dos recursos es peor que uno incompleto — el archivo se abre y el
+título dice otra cosa, y eso no lo audita nadie después.
+
+**El aviso que ya existía no alcanzaba.** «Asocié 0 archivo(s)» se imprime al ARRANQUE de
+una corrida de 130 descargas: para cuando termina, está a 130 líneas de scroll de distancia.
+Un aviso que no frena nada y que además queda sepultado es un aviso que no existe.
+
+### 3. Medir densidad de transcripción sobre el reloj da falsos positivos, y me lo comí
+
+Corrí mi propio chequeo de palabras por minuto **de reloj** sobre las 153 clases y marqué
+una como transcripción resumida: 28:55 con 1712 palabras = 59 ppm contra una mediana de 173.
+
+Era falso. Esa clase tiene **66% de silencio**: 584 s de voz sobre 1735 de reloj. Sobre
+tiempo de voz da **181 ppm**, que es sano. Lo confirmó una segunda transcripción con otro
+modelo (whisper) que devolvió el mismo conteo y cortó en el mismo punto — más 38 «Thank
+you» alucinados sobre el silencio final, que es el otro modo de falla y por eso se conservó
+la primera.
+
+Lo importante: **el propio `curso-verificar.mjs` tiene escrito, en un comentario de nueve
+líneas, exactamente por qué la medida es sobre VOZ y no sobre reloj**, y aun así rehíce el
+chequeo por el camino equivocado. La regla ya estaba; lo que faltó fue leerla antes de
+escribir el atajo. Si vas a medir densidad de transcripción, la fórmula es
+`palabras / minutos_de_voz`, y el silencio se mide con `silencedetect` — nunca contra la
+duración del archivo.
+
+### Lo que quedó SIN hacer
+
+**24 de los 130 recursos (11,7 MB) siguen sin bajar.** No es un bug del pipeline: la sesión
+de `cursoselite.com.mx` caducó y el servidor contesta
+`permission denied for function get_document_url`. Necesita un login a mano, UNA vez, en el
+Chrome del perfil `C:\cursos\perfil`; después alcanza con
+`curso-pdfs` → `curso-recursos-indice --escribir` → `curso-a-drive --solo-ids` →
+`curso-a-portal`, que son idempotentes.
+
+⚠️ **Y ojo con cómo se comprueba si la sesión vive.** Mi primer chequeo dio «sesión viva» en
+falso: buscaba /iniciar|login|acceder/ en el `innerText` del body, el body todavía estaba
+VACÍO, el regex no encontró nada y el vacío se leyó como buena señal. Un chequeo de estado
+tiene que exigir la señal POSITIVA —el nombre del usuario, un 200 del endpoint— y no la
+ausencia de la negativa.
+
+**Y el backlog de fondo:** `C:\cursos\_nunca-bajados.json` lista **99 cursos vivos con
+8.300 clases** que nunca se bajaron. Los cuatro más grandes son TikTok Ads Génesis (508),
+NUEVO Organic Ecom 3.0 (453), Organic Ecom (319) y Libertad Inmobiliaria (313 clases + 384
+recursos).
