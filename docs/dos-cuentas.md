@@ -47,10 +47,22 @@ cuenta.
 `evan.exe@gmail.com` 33 veces. Es **Evan Wallace, el de esbuild**, dentro de
 `vm_bundles\claudevm.bundle\rootfs.vhdx` (metadata de npm cacheada). No es una cuenta.
 
-**Así que se pregunta.** Lo que diga Martín gana sobre cualquier cosa del disco, y si nadie
-lo dijo la respuesta es «no lo puedo saber, ¿cuál es?» — no una deducción. Automatizarlo de
-verdad pide un archivo que Martín actualice al cambiar, del tipo
-`~\.claude\cuenta-activa.txt` con `claude1` o `claude2`; propuesto el 25/08, sin definir.
+### La solución: un marcador que Martín escribe, un hook que lo lee
+
+Puesto y probado el 2026-08-25. Como ninguna señal de la máquina sirve, la fuente de verdad
+es **declarada**, no deducida:
+
+| Pieza | Qué hace |
+|---|---|
+| `~\.claude\cuenta-activa.txt` | Una línea: `claude1` o `claude2`. Lo actualiza Martín (o Claude, apenas Martín lo diga) al cambiar de cuenta |
+| Hook `SessionStart` en `~\.claude\settings.json` | Lo lee y lo inyecta al contexto por `hookSpecificOutput.additionalContext`, **con la fecha en que se anotó** para que se note si quedó viejo |
+
+Así la cuenta llega sola al abrir y no hay que preguntar. **Si el mensaje no aparece, el
+hook no corrió: entonces se pregunta — nunca se deduce.** Y si la fecha es de hace varios
+días y hubo un cambio en el medio, el archivo miente: se confirma y se reescribe. Nada en
+la máquina lo actualiza solo, porque nada en la máquina sabe qué cuenta es.
+
+Lo que diga Martín gana siempre sobre el archivo, y el archivo gana siempre sobre el disco.
 
 ℹ️ De paso, esto explica un corte: el 2026-08-25 a las 16:35:50 las cuatro sesiones del
 día murieron casi juntas con «Your organization has disabled Claude subscription access for
