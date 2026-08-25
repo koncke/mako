@@ -377,6 +377,34 @@ vacío y `B` gana.** Las dos reglas que quedan:
 2. **El fallback es más débil que el camino feliz, nunca más fuerte.** Si el camino
    normal exige aval y el degradado no, el degradado es la política real del sistema.
 
+# `'use client'` es una frontera de DATOS, no solo de interactividad
+
+Un `import` en un componente cliente no trae la funcion que pediste: **trae el modulo
+entero, y todo lo que ese modulo importa**, al navegador de quien abre la pagina.
+TypeScript no avisa, el lint no avisa, y la pantalla se ve igual.
+
+El caso, del 25/08/2026: `lib/metodo-catalogo.ts` son 145 KB —los tutoriales de las 20
+integraciones, los nombres de TODAS las envs y el copy interno de la agencia, incluida
+la entrada de GitHub, que es una credencial de PLATAFORMA— y lo importaban tres
+componentes `'use client'`. De todo eso usaban: **dos campos, un tutorial y una lista**.
+
+Y lo que mas duele: existia `serviciosPara()`, la funcion escrita justo para no
+mostrarle al cliente lo que no es suyo. No servia de nada. **Filtrar al PINTAR no sirve
+si el dato ya viajo.**
+
+1. **Lo que el cliente necesita se resuelve en el SERVER y baja por props**, ya
+   filtrado. Si el componente necesita dos campos de un catalogo de 20 entradas, bajan
+   los dos campos — no el catalogo.
+2. **El guard es `import 'server-only'` en el modulo, no la disciplina.** Con el puesto,
+   importar un VALOR desde un `'use client'` rompe el build; sin el, el proximo que
+   necesite un dato de ahi lo importa y nadie se entera. Los TIPOS siguen viajando
+   gratis con `import type`, que se borra en compilacion.
+3. **Un tipo copiado a mano para no importar del server es la senal de que falta esta
+   frontera.** Ese componente tenia el suyo escrito al lado, y por eso al sumarle dos
+   campos en el server la copia se quedo vieja sin que nada fallara.
+4. **Se comprueba mirando el bundle, no el codigo**: `grep` de una cadena distintiva del
+   modulo sobre `.next/static/chunks/*.js`. Si aparece, viajo.
+
 # Una integracion son TRES registros, y ninguno falla ruidoso
 
 Agregar una integracion no es agregarla a un lugar. Son tres archivos distintos, y el

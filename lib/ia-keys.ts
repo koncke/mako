@@ -11,10 +11,13 @@
 // `GEMINI_API_KEY_3`. Sin migración, sin tabla nueva y sin tocar el cifrado: para
 // `credenciales` son tres filas más, con la misma auditoría y el mismo aislamiento.
 //
-// Vive SIN `server-only` a propósito (misma razón que `lib/model-catalogo.ts`): el
-// catálogo lo consumen el server (ai-cheap, ia-cuotas), la UI (metodo-catalogo llega
-// al bundle del cliente) y los tests. Un `server-only` acá dejaría sin red la parte
-// que decide qué keys existen.
+// Vive SIN `server-only` a propósito (misma razón que `lib/model-catalogo.ts`): lo
+// consumen el server (ai-cheap, ia-cuotas) y los tests, que lo importan sueltos.
+//
+// ⚠️ Acá decía además «la UI (metodo-catalogo llega al bundle del cliente)», y eso
+// dejó de ser cierto el 25/08/2026: metodo-catalogo es `server-only` y ya no viaja
+// al navegador. Hoy NINGÚN componente cliente importa este módulo (verificado). Si
+// alguna vez hiciera falta cerrarlo, el camino está libre.
 
 /** Los proveedores GRATIS que admiten varias cuentas. Anthropic y OpenAI quedan
  *  afuera a propósito: cobran por token, así que una segunda cuenta no suma cuota

@@ -25,11 +25,26 @@ export type Integracion = {
   detalle: string;
   /** true si tiene una vista de detalle propia (hoy: Meta) */
   tieneDetalle?: boolean;
+  /**
+   * Lo ÚNICO que la grilla necesitaba del catálogo de /metodo, resuelto acá.
+   *
+   * ⚠️ Antes el componente hacía `servicioMetodo(i.key)` del lado del CLIENTE, y
+   * eso arrastraba `lib/metodo-catalogo.ts` ENTERO al bundle: 145 KB con los
+   * tutoriales de las 20 integraciones, los nombres de todas las envs y el copy
+   * interno de la agencia — incluida la entrada de GitHub, que es una credencial
+   * de plataforma que ningún cliente tiene por qué ver.
+   *
+   * De ese catálogo la grilla usaba DOS campos. Se resuelven en el server, viajan
+   * como dos strings, y el catálogo se queda del lado del server.
+   */
+  soloServidor?: boolean;
+  paraQue?: string;
 };
 
 // El catálogo y la regla de visibilidad viven aparte, sin `server-only`, para poder
 // testearlos. Se re-exportan para no romper a quien los importaba desde acá.
 import { DEFS, defsVisibles, type Def } from './integraciones-catalogo';
+import { servicioMetodo } from './metodo-catalogo';
 export { DEFS_TEST, defsVisibles } from './integraciones-catalogo';
 export type { Def } from './integraciones-catalogo';
 
@@ -88,6 +103,19 @@ async function estadoAgente(): Promise<Pick<Integracion, 'estado' | 'detalle'>> 
     console.error(`[integraciones] chequeo del agente falló: ${e instanceof Error ? e.message : String(e)}`);
   }
   return { estado: 'falta', detalle: 'Generá tu token e instalá la skill en Claude.' };
+}
+
+/**
+ * Los dos campos del catálogo de /metodo que la grilla necesita.
+ *
+ * Se importa acá —que es `server-only`— y no en el componente: es lo que mantiene
+ * el catálogo fuera del bundle del navegador. Si alguna vez hace falta un tercer
+ * campo, se suma a esta función; el día que se importe el catálogo desde un
+ * `'use client'`, vuelven los 145 KB.
+ */
+function delMetodo(key: string): { soloServidor?: boolean; paraQue?: string } {
+  const s = servicioMetodo(key);
+  return s ? { soloServidor: !!s.soloServidor, paraQue: s.paraQue } : {};
 }
 
 export async function getIntegraciones(): Promise<Integracion[]> {
@@ -155,6 +183,7 @@ export async function getIntegraciones(): Promise<Integracion[]> {
       estado: (faltan.length ? 'falta' : 'conectada') as EstadoIntegracion,
       detalle: faltan.length ? `Falta configurar: ${faltan.join(', ')}` : 'Conectada y operativa.',
       tieneDetalle: d.tieneDetalle,
+      ...delMetodo(d.key),
     };
   }));
 }

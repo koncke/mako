@@ -8,7 +8,8 @@
 import { redirect } from 'next/navigation';
 import { getSesionAdmin } from '@/lib/auth';
 import { MetodoWizard } from './MetodoWizard';
-import { rutaConWs } from '@/lib/workspace';
+import { rutaConWs, getWorkspaceActual, wsSuperAdmin } from '@/lib/workspace';
+import { serviciosPara } from '@/lib/metodo-catalogo';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -16,5 +17,14 @@ export const revalidate = 0;
 export default async function MetodoPage() {
   const admin = await getSesionAdmin();
   if (!admin) redirect(await rutaConWs('/inicio'));
-  return <MetodoWizard />;
+  // El catálogo se resuelve ACÁ (server) y viaja por props, ya filtrado: un cliente
+  // no tiene por qué recibir las credenciales de la plataforma ni siquiera en el
+  // JSON. Ver el comentario en MetodoWizard.
+  //
+  // La pregunta es por el WORKSPACE, no por el usuario: el super admin sigue siendo
+  // admin dentro del workspace de un cliente, y ahí `soloPlataforma` no le
+  // corresponde — es la misma regla que en lib/integraciones.ts.
+  const ws = await getWorkspaceActual().catch(() => null);
+  const esPlataforma = ws != null && ws === (await wsSuperAdmin().catch(() => -1));
+  return <MetodoWizard servicios={serviciosPara(esPlataforma)} />;
 }

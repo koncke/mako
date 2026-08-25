@@ -7,8 +7,15 @@ import 'server-only';
 // por proveedor). Esto dice cuáles están CARGADAS, que es otra pregunta y solo la
 // puede contestar la base.
 //
-// Vive en su propio módulo por eso: `ia-keys` NO tiene `server-only` a propósito
-// —llega al bundle del cliente vía metodo-catalogo— así que no puede consultar nada.
+// Vive en su propio módulo por eso: `ia-keys` es un catálogo PURO (qué nombres de
+// clave existen) y no consulta nada.
+//
+// ⚠️ El motivo que estaba escrito acá —«llega al bundle del cliente vía
+// metodo-catalogo»— dejó de ser cierto el 25/08/2026: metodo-catalogo pasó a ser
+// `server-only` y ya no viaja al navegador. La separación sigue valiendo por lo de
+// arriba, pero no por eso. Se corrige porque un comentario que justifica una
+// decisión con un hecho vencido es peor que ninguno: el próximo que lo lea va a
+// esquivar una restricción que ya no existe.
 //
 // ⚠️ POR QUÉ EXISTE. Al subir MAX_KEYS de 3 a 10, los dos lugares que resolvían las
 // cuentas con un `credWs` POR SLOT pasaban de 3 SELECT a 10 por proveedor: hasta 50

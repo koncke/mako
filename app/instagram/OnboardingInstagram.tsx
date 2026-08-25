@@ -19,7 +19,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { WizardShell } from '../_components/WizardShell';
 import { Button, Spinner } from '@/app/_ui';
 import { Icon } from '../_components/icons';
-import { servicioMetodo } from '@/lib/metodo-catalogo';
+import type { ServicioMetodo } from '@/lib/metodo-catalogo';
 import { InstagramApp } from './InstagramApp';
 import type { EstadoConexionIg } from './ig-datos';
 import {
@@ -34,7 +34,15 @@ type Paso = (typeof PASOS)[number];
 
 // El tutorial de «cómo consigo mi API key» sale del catálogo (una cosa, un
 // lugar): el mismo que muestra la card de Zernio en /integraciones.
-const TUTORIAL_ZERNIO = servicioMetodo('zernio')?.tutorial ?? null;
+/**
+ * El tutorial de Zernio, que ahora LLEGA POR PROPS.
+ *
+ * ⚠️ Acá se hacía `servicioMetodo('zernio')?.tutorial`, y este archivo es
+ * `'use client'`: eso metía lib/metodo-catalogo.ts entero —145 KB, las 20
+ * integraciones con sus tutoriales y sus envs— en el bundle de quien abre
+ * /instagram, para usar UN tutorial. `import type` no arrastra nada en runtime.
+ */
+type TutorialZernio = ServicioMetodo['tutorial'] | null;
 
 /** Caja de contexto del paso (molde de la skill: surface-2 + eyebrow mono). */
 function Contexto({ eyebrow, children }: { eyebrow: string; children: React.ReactNode }) {
@@ -48,7 +56,7 @@ function Contexto({ eyebrow, children }: { eyebrow: string; children: React.Reac
   );
 }
 
-export function OnboardingInstagram({ conexionInicial }: { conexionInicial: EstadoConexionIg }) {
+export function OnboardingInstagram({ conexionInicial, tutorialZernio: TUTORIAL_ZERNIO }: { conexionInicial: EstadoConexionIg; tutorialZernio: TutorialZernio }) {
   // Estado de CLIENTE y no router.refresh(): refrescar re-corre el guard del
   // server y devuelve el mismo wizard — «Lo configuro después» y la ✕ tienen
   // que llevar a la tab de verdad (mismo porqué que OnboardingCanalWhatsApp).

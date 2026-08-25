@@ -27,7 +27,6 @@ import { SLIDES, type Slide } from '@/lib/servicio-slides';
 import type { MetaHealth } from '@/lib/meta-health-ui';
 import { procesoLegible, proveedorLegible, modeloLegible, motivoLegible, ordenIA, IA_ORDEN, esIAdePago } from '@/lib/ia-labels';
 import type { CuotaProv } from '@/lib/ia-cuotas';
-import { servicioMetodo } from '@/lib/metodo-catalogo';
 import { TutorialAgente, CODE } from '../_components/TutorialAgente';
 import { ModalShell } from '../_components/ModalShell';
 import { Dropdown } from '../components/Dropdown';
@@ -40,7 +39,13 @@ import { ProbarTracking } from './ProbarTracking';
 const MONO = "'Geist Mono', monospace";
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
-type Integracion = { key: string; nombre: string; categoria: string; descripcion: string; estado: 'conectada' | 'falta'; detalle: string; tieneDetalle?: boolean };
+// ⚠️ EL TIPO SE IMPORTA, NO SE COPIA. Estaba escrito a mano acá, y por eso al
+// sumarle dos campos en el server esta copia se quedó vieja sin que nada fallara
+// hasta el typecheck. `import type` lo BORRA en compilación —no queda ni un
+// require en el bundle— así que traerlo de un módulo `server-only` es seguro y no
+// arrastra nada. Lo que NO se puede es importar de ahí un valor: eso rompe el
+// build del cliente, que es exactamente el guard que queremos.
+import type { Integracion } from '@/lib/integraciones';
 // Incidente con período: startedAt → resolvedAt (null = en curso). Viene del server.
 type Incidente = { id: number; service: string; severidad: string; statusLabel: string; disableReason: string | null; entregaFrenada: boolean; detalle: string | null; startedAt: string; resolvedAt: string | null };
 
@@ -1253,12 +1258,18 @@ function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota
   // BYOK: si el servicio está en el catálogo de /metodo y NO es soloServidor,
   // embebemos el form de pegar/guardar/probar (reemplaza la lista de envs crudos).
   // Los servicios sin catálogo (p.ej. la landing) quedan informativos.
-  const catalogo = servicioMetodo(i.key);
-  const mostrarForm = !!catalogo && !catalogo.soloServidor;
+  // ⚠️ ESTOS DOS DATOS VIENEN DEL SERVER, y no es un detalle de estilo. Acá se
+  // hacía `servicioMetodo(i.key)`, y este archivo es `'use client'`: eso arrastraba
+  // lib/metodo-catalogo.ts ENTERO al bundle del navegador —145 KB con los
+  // tutoriales de las 20 integraciones, los nombres de todas las envs y el copy
+  // interno de la agencia, incluida la entrada de GitHub, que es de plataforma—.
+  // De todo eso se usaban DOS campos. Ahora los resuelve lib/integraciones.ts, que
+  // es server-only, y viajan dentro de cada `Integracion`.
+  const mostrarForm = i.soloServidor === false;
 
   // El carrusel manda la copy. Si un servicio todavía no tiene slides propias,
   // cae al `paraQue` del catálogo — nunca inventamos una promesa para llenar.
-  const slides: Slide[] = SLIDES[i.key] ?? (catalogo?.paraQue ? [{ t: `Qué hace ${i.nombre}`, d: catalogo.paraQue }] : []);
+  const slides: Slide[] = SLIDES[i.key] ?? (i.paraQue ? [{ t: `Qué hace ${i.nombre}`, d: i.paraQue }] : []);
 
   // Estado EN VIVO (no descripción): solo Meta tiene algo que decir acá.
   let alerta: string | null = null;

@@ -3,18 +3,34 @@
 // =============================================================================
 // Fuente de verdad del flujo /metodo (y del resumen en /admin): por servicio,
 // qué env vars lo componen, cuáles son secretas/opcionales y el tutorial paso a
-// paso para que un usuario nuevo consiga cada token SIN ayuda. Este módulo lo
-// usa también la UI (client) — acá no hay valores, solo definiciones. Los
-// valores viven cifrados en la tabla credenciales (lib/credenciales.ts).
+// paso para que un usuario nuevo consiga cada token SIN ayuda. Acá no hay valores,
+// solo definiciones: los valores viven cifrados en la tabla credenciales
+// (lib/credenciales.ts).
+//
+// ⚠️⚠️ ES SERVER-ONLY, Y NO SIEMPRE LO FUE. Este módulo decía «lo usa también la
+// UI (client)», y tres componentes `'use client'` lo importaban: eso metía las 145
+// KB del catálogo ENTERO en el bundle de cualquier cliente — los tutoriales de las
+// 20 integraciones, los nombres de todas las envs y el copy interno de la agencia,
+// incluida la entrada de GitHub, que es una credencial de PLATAFORMA que ningún
+// cliente tiene por qué ver. No era un secreto, pero era información interna
+// viajando al navegador de un cliente, y el filtro `serviciosPara()` que existe
+// para eso no servía de nada: filtrar al PINTAR no sirve si el dato ya viajó.
+//
+// De todo el catálogo, esos tres componentes usaban: dos campos por servicio, un
+// tutorial y la lista completa. Ahora los tres lo reciben POR PROPS desde su server
+// component, que además puede pasarlo YA FILTRADO.
+//
+// El `import 'server-only'` de abajo es lo que impide que vuelva: importar un VALOR
+// de este módulo desde un `'use client'` ahora rompe el build. Los TIPOS se pueden
+// seguir importando con `import type`, que se borra en compilación y no arrastra
+// nada.
 //
 // El campo `env` es a la vez la clave de la tabla credenciales y la env var
 // que hidratamos a process.env: tiene que coincidir EXACTO con lo que leen las
 // libs (lib/integraciones.ts, lib/meta-ads.ts, etc.).
 
-// Seguro de importar acá aunque el módulo llegue al bundle del cliente:
-// lib/app-url no tiene `server-only` y, sin APP_BASE_URL (que es server-side),
-// cae a NEXT_PUBLIC_APP_URL, que Next inlinea en el build. Se usa para escribir
-// la URL real en los pasos que la piden (ver ayudaDeCampo).
+import 'server-only';
+// Se usa para escribir la URL real en los pasos que la piden (ver ayudaDeCampo).
 import { APP_BASE_URL } from './app-url';
 import { claveBaseDe, claveCuentaDe, clavesDe, slotDe } from './ia-keys';
 

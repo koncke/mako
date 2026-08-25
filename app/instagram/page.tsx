@@ -10,6 +10,7 @@ import { getWorkspaceActual } from '@/lib/workspace';
 import { onboardingTabPendiente } from '@/lib/tab-onboarding-state';
 import { estadoConexionIg, type EstadoConexionIg } from './ig-datos';
 import { OnboardingInstagram } from './OnboardingInstagram';
+import { servicioMetodo } from '@/lib/metodo-catalogo';
 import { InstagramApp } from './InstagramApp';
 
 export const dynamic = 'force-dynamic';
@@ -28,6 +29,9 @@ export default async function InstagramPage() {
   // La tab abre en su onboarding mientras no esté hecho, pero NO reemplaza la
   // app para siempre: el wizard tiene su salida («Lo configuro después»).
   const faltaOnboarding = await onboardingTabPendiente('instagram');
-  if (faltaOnboarding) return <OnboardingInstagram conexionInicial={conexion} />;
+  // El tutorial se resuelve ACA (server) y viaja por props: importarlo del lado
+  // del cliente arrastraba el catalogo entero al bundle. Ver el comentario en
+  // OnboardingInstagram.
+  if (faltaOnboarding) return <OnboardingInstagram conexionInicial={conexion} tutorialZernio={servicioMetodo('zernio')?.tutorial ?? null} />;
   return <InstagramApp conexionInicial={conexion} />;
 }

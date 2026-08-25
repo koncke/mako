@@ -114,7 +114,29 @@ ws9  la plataforma           github=200 FICHA(GITHUB_TOKEN|GITHUB_REPO)   descub
 `app/api/integraciones/credencial/route.ts` (`servicioDelContexto`, `esPlataforma`) ·
 `lib/metodo-catalogo.ts` (`serviciosPara`) · `tests/integraciones-visibles.test.ts`
 
-### ⚠️ PENDIENTE — el catálogo entero viaja en el bundle del navegador del cliente
+### ~~PENDIENTE~~ RESUELTO — el catálogo entero viajaba en el bundle del cliente
+
+*Cerrado el 25/08/2026.* Los tres componentes `'use client'` que lo importaban
+—`IntegracionesBoard`, `OnboardingInstagram` y `MetodoWizard`— ahora lo reciben **por
+props** desde su server component, y `/metodo` lo pasa **ya filtrado** con
+`serviciosPara()`. De las 145 KB usaban dos campos, un tutorial y una lista.
+
+El candado es `import 'server-only'` en el módulo: importar un VALOR desde un
+`'use client'` rompe el build. Los tipos siguen viajando con `import type`, que se
+borra en compilación.
+
+De paso salió un antipatrón que lo explicaba: `IntegracionesBoard` tenía el tipo
+`Integracion` **copiado a mano** para no importar del server — y por eso, al sumarle
+dos campos del lado del server, la copia se quedó vieja sin que nada fallara. Un tipo
+duplicado para esquivar una frontera es la señal de que la frontera falta.
+
+Lo cuida `tests/catalogo-fuera-del-bundle.test.ts`, que chequea las dos mitades: que el
+`server-only` siga puesto, y que ningún componente cliente lo importe como valor.
+
+**La regla quedó en AGENTS.md**: «`'use client'` es una frontera de DATOS, no solo de
+interactividad» — y su corolario, *filtrar al pintar no sirve si el dato ya viajó*.
+
+<details><summary>El diagnóstico original</summary>
 
 `lib/metodo-catalogo.ts` **no tiene `server-only`** y es isomórfico a propósito («Este
 módulo lo usa también la UI (client)»). Lo importan tres componentes `'use client'`:
@@ -124,9 +146,9 @@ eso, la entrada de GitHub —nombre, envs, tutorial y el copy interno de la agen
 en el JS que descarga cualquier cliente**. Verificado en los chunks del build.
 
 No es un secreto: es metadata. Pero es información interna de la agencia en el navegador
-de un cliente, y el arreglo no es de una línea — hay que pasar el catálogo ya filtrado por
-props desde los server components de `/metodo`, `/integraciones` e `/instagram`. **Queda
-sin hacer**, y se dice acá para que no se lea como «revisado y limpio».
+de un cliente.
+
+</details>
 
 ## Aislamiento multi-inquilino
 

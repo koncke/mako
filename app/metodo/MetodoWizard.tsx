@@ -10,7 +10,7 @@
 import Link from '@/app/_ui/Link';
 import { useEffect, useState, type CSSProperties } from 'react';
 import { MakoLogo } from '../_components/MakoBrand';
-import { SERVICIOS_METODO, type ServicioMetodo } from '@/lib/metodo-catalogo';
+import type { ServicioMetodo } from '@/lib/metodo-catalogo';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -34,7 +34,20 @@ function Chip({ texto, tono }: { texto: string; tono: 'good' | 'warn' }) {
   return <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 11px', borderRadius: 999, fontSize: 12, fontWeight: 600, fontFamily: SANS, ...tonos[tono] }}>{texto}</span>;
 }
 
-export function MetodoWizard() {
+/**
+ * ⚠️ EL CATALOGO LLEGA POR PROPS, no se importa acá.
+ *
+ * Este archivo es `'use client'` y hacía `import { SERVICIOS_METODO }`: eso metía
+ * lib/metodo-catalogo.ts ENTERO en el bundle del navegador — 145 KB con los
+ * tutoriales de las 20 integraciones, los nombres de todas las envs y el copy
+ * interno de la agencia, incluida la entrada de GitHub, que es una credencial de
+ * plataforma. `import type` no arrastra nada: se borra en compilación.
+ *
+ * Y hay una segunda razón, que es la que importa de verdad: recibiéndolo por props,
+ * la página puede pasarlo YA FILTRADO con `serviciosPara()`. Importado acá, el
+ * cliente se llevaba el catálogo completo aunque la pantalla no lo pintara.
+ */
+export function MetodoWizard({ servicios: SERVICIOS_METODO }: { servicios: ServicioMetodo[] }) {
   const [estado, setEstado] = useState<Record<string, ServicioEstado>>({});
   const [cargando, setCargando] = useState(true);
   const [step, setStep] = useState(0);
