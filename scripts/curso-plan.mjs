@@ -36,6 +36,34 @@ const slug = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 const limpio = (s) => s.normalize('NFC').replace(/[<>:"/\\|?*\u0000-\u001f]/g, '')
   .replace(/\s+/g, ' ').trim().replace(/[. ]+$/, '').slice(0, 120) || 'sin-titulo';
 
+/**
+ * El titulo tal cual lo guarda la plataforma, sin el nombre del ARCHIVO que subieron.
+ *
+ * Varias plataformas usan el filename del video como titulo de la leccion cuando el
+ * creador no puso uno. Eso arrastra la extension —con el punto convertido en `_`, porque
+ * el que subio ya habia saneado el nombre— y a veces la firma del encoder. En «NUEVO
+ * Organic Ecom 3.0» son 111 de 453: «1_ Bienvenida_mp4», «3 - Creación de logo - Organic
+ * Ecom - 1920x1080 459K_ts».
+ *
+ * ⚠️ Se limpia ACA y no al publicar, porque el nombre del archivo en disco se DERIVA del
+ * titulo: limpiarlo despues obliga a renombrar cientos de archivos que ya viajaron a
+ * Drive, y a rehacer el cruce de todo lo que los referencia.
+ *
+ * Conservador a proposito — solo tres formas, todas ANCLADAS a un extremo:
+ *   · la extension al final, y solo al final;
+ *   · la cola del encoder «… - 1920x1080 564K», con su guion;
+ *   · el «N_ » inicial, que es un «N. » con el punto saneado.
+ * Un `_` en medio de una frase NO se toca: puede ser parte del titulo de verdad.
+ */
+const tituloLimpio = (s) => {
+  let t = String(s ?? '').trim();
+  t = t.replace(/_(mp4|ts|mov|m4v|webm|mkv)$/i, '');
+  t = t.replace(/\s*-\s*\d{3,4}x\d{3,4}\s*\d+\s*[KMkm]$/i, '');
+  t = t.replace(/^(\d{1,3})_\s+/, '$1. ');
+  const fin = t.replace(/\s+/g, ' ').replace(/[\s_-]+$/, '').trim();
+  return fin || String(s ?? '').trim();
+};
+
 class Cdp {
   constructor(ws) {
     this.ws = ws; this.id = 0; this.pend = new Map(); this.oye = [];
@@ -515,9 +543,16 @@ const main = async () => {
   // resultaron no ser clases, así que quedaban huecos —este curso arrancaba en «02»
   // y terminaba en «12» para 11 clases—. El número es el nombre del archivo y el
   // orden con que se lee el curso, así que va contiguo desde 1.
+  // ⚠️ EL RELLENO SALE DEL TOTAL, no de un 2 fijo. Con `padStart(2)` un curso de 453
+  // clases numera 01…99 y después 100…453, y CUALQUIER listado por nombre —Drive, el
+  // Explorador, un `readdirSync`— pone la 100 antes que la 99. El pipeline no se entera
+  // (`nDeArchivo` parsea el número igual), así que el daño es sólo visual… en Drive, que
+  // es justo donde una persona recorre el curso. Medido en «NUEVO Organic Ecom 3.0».
+  const ancho = String(plan.length).length;
   plan.forEach((p, i) => {
     p.n = i + 1;
-    p.archivo = `${String(i + 1).padStart(2, '0')} - ${limpio(p.titulo)}`;
+    p.titulo = tituloLimpio(p.titulo);
+    p.archivo = `${String(i + 1).padStart(ancho, '0')} - ${limpio(p.titulo)}`;
   });
 
   // 5. PDFs de resumen que cuelgan de las clases.
