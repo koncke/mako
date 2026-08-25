@@ -18,6 +18,8 @@ import { chatClaudeTools, type RichMsg } from '@/lib/anthropic';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import { validarRespuestaDoer, esRutaPlan, mensajeBorrador, EJEMPLO_BORRADOR, AVISO_NO_PUDE, avisoNoPude, mensajeLeadPropuesto, EJEMPLO_LEAD } from '@/lib/respuesta-doer';
 import { evaluarPermiso } from '@/lib/veto-claude';
+import { causaDelFallo, textoFalloIA, linkKeysIA } from '@/lib/fallo-ia-texto';
+import { clavesCargadas } from '@/lib/ia-keys-ws';
 import { avisoDePuntos, puntosDelMensaje } from '@/lib/puntos-mensaje';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/mako-doer-acciones';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
@@ -266,6 +268,21 @@ const DEEP_LINKS = `LINKS A LA APP: cuando el detalle completo vive en una tab, 
 - Plan / tareas: ${APP_URL}/plan · Nutrición y email: ${APP_URL}/email
 - Salud de la cuenta de Meta: ${APP_URL}/integraciones
 Ej: "Con Jesús la R1 se ve floja en el cierre. El análisis completo lo tenés acá → ${APP_URL}/closing".`;
+
+/**
+ * Cuántas API keys de IA tiene cargadas ESTE workspace.
+ *
+ * Es el dato que separa «se cayó el proveedor» de «se cayó el proveedor Y no
+ * tenías respaldo»: el hecho técnico es el mismo, y lo que el cliente puede hacer
+ * al respecto no. Con 0 no hay IA; con 1 no hay cascada.
+ */
+async function contarKeysIA(): Promise<number> {
+  let n = 0;
+  for (const prov of ['gemini', 'groq', 'cerebras', 'mistral', 'openrouter']) {
+    n += (await clavesCargadas(prov).catch(() => [])).length;
+  }
+  return n;
+}
 
 export type ResultadoDoer = { engaged: boolean; reply?: string; skip?: string };
 
@@ -630,8 +647,17 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       // pasaba nada, indistinguible de que te estuviera ignorando.
       try { texto = (await transcribirAudio(b64, audio.mime, { language: 'es', feature: 'MaKo · nota de voz', motivo: 'Transcribir nota de voz del grupo' })).trim(); }
       catch (e) {
-        console.error('[mako-doer-in] STT:', e instanceof Error ? e.message : String(e));
-        const aviso = 'Me llegó tu audio pero no lo pude escuchar (se me cayó la transcripción). ¿Me lo escribís o me mandás otra nota de voz?';
+        const detalle = e instanceof Error ? e.message : String(e);
+        console.error('[mako-doer-in] STT:', detalle);
+        // ⚠️ ACÁ MaKo DECÍA «se me cayó la transcripción» — se comía una culpa que
+        // muy seguido no era suya: el cliente tenía UNA sola key y estaba agotada.
+        // Un mensaje que se echa la culpa además NO DICE QUÉ HACER, y la solución
+        // estaba a dos clics. Ver lib/fallo-ia-texto.ts.
+        const aviso = `Me llegó tu audio pero no lo pude escuchar.\n\n${textoFalloIA(
+          causaDelFallo([detalle], await contarKeysIA()),
+          linkKeysIA(APP_URL),
+          'escuchar tu audio',
+        )}`;
         const env = await enviarAGrupoJid(jid, aviso);
         if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
         return { engaged: true, reply: aviso };
@@ -880,6 +906,12 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
             const cands = [pin.provider, 'groq', 'cerebras', 'mistral', 'openai'].filter((p, i, a) => a.indexOf(p) === i);
             const orden = await ordenarPorCuota(cands).catch(() => cands);
             let ultErr: unknown = null;
+            // ⚠️ TODOS los errores, no solo el último. `ultErr` alcanza para tirar,
+            // pero para DECIDIR DE QUIÉN FUE LA CULPA hace falta el conjunto: el
+            // último suele ser «falta OPENAI_API_KEY» —el quinto casillero vacío—
+            // cuando lo que de verdad pasó fue el 429 del primero. Contar solo el
+            // último manda al cliente a cargar la key equivocada.
+            const erroresIA: string[] = [];
             // Lo pone el reintento de arriba: alguna IA escribió un link de borrador, o
             // sea que ENTENDIÓ que este turno cargaba tareas aunque el router no.
             let quisoBorrador = false;
@@ -932,7 +964,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 }
                 respuesta = texto2.trim();
                 break;
-              } catch (e2) { ultErr = e2; console.warn(`[mako-doer-in] ${prov} falló: ${e2 instanceof Error ? e2.message : String(e2)}`); }
+              } catch (e2) { ultErr = e2; erroresIA.push(e2 instanceof Error ? e2.message : String(e2)); console.warn(`[mako-doer-in] ${prov} falló: ${e2 instanceof Error ? e2.message : String(e2)}`); }
             }
             // CLAUDE ES EL ÚLTIMO RECURSO, PERO ES UN RECURSO. El comentario de arriba
             // decía «NUNCA caemos a Claude» y para la charla está bien. Pero si la ruta
@@ -994,7 +1026,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                     if (vr.ok || vr.razon === 'sin-borrador' || linkBorrador) { respuesta = rp.text.trim(); break; }
                   }
                 } catch (e4) {
-                  console.warn(`[mako-doer-in] red de plataforma ${r.provider} falló: ${e4 instanceof Error ? e4.message : String(e4)}`);
+                  const m4 = e4 instanceof Error ? e4.message : String(e4);
+                  erroresIA.push(`plataforma/${r.provider}: ${m4}`);
+                  console.warn(`[mako-doer-in] red de plataforma ${r.provider} falló: ${m4}`);
                 }
               }
               if (respuesta) console.error(`[mako-doer-in] ws=${wsData} respondió con la RED DE PLATAFORMA: sus propias keys no contestaron`);
@@ -1028,7 +1062,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 } catch (e3) { console.error('[mako-doer-in] Claude tampoco pudo:', e3 instanceof Error ? e3.message : String(e3)); }
               }
             }
-            if (!respuesta) throw ultErr ?? new Error('todas las IA baratas fallaron');
+            if (!respuesta) {
+              const err = (ultErr instanceof Error ? ultErr : new Error('todas las IA baratas fallaron')) as Error & { erroresIA?: string[] };
+              err.erroresIA = erroresIA;
+              throw err;
+            }
           } else {
             const { text } = await chatClaudeTools(system, msgs, tools, runTool, {
               feature: 'mako-doer-in', maxSteps: 8,
@@ -1052,13 +1090,23 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
           // caída del modelo, y contestar «no pude armar el borrador» a quien
           // saludó o preguntó por su oferta manda a buscar el problema al lugar
           // equivocado. Ver `avisoNoPude` en lib/respuesta-doer.ts.
-          // ⚠️ Y «era de plan» tiene que ser una CERTEZA, no la adivinanza. El
-          // 25/8 el cliente escribió «soy mako obvio que puedo responderte» y le
-          // volvió «No pude armar el borrador con eso»: `esRutaPlan` da true para
-          // `→ capturar`, y `capturar` es justo el default de «sin señal clara».
-          // O sea que la suposición decidía el texto del error. El arreglo anterior
-          // partió el mensaje en dos y dejó la MISMA señal dudosa eligiendo cuál.
-          respuesta = avisoNoPude(esCargaDePlan(texto) || (esRutaPlan(ruta.motivo) && !intencion.dudosa));
+          // ⚠️ DE QUIÉN FUE LA CULPA. Pedido del dueño, y es de fondo: «si la culpa
+          // es DEL CLIENTE porque no cargó sus key, el mensaje tiene que reflejar
+          // eso; no un "he fallado en la transcripción", ahí MaKo queda como el
+          // culpable». Y además de injusto era INÚTIL: «reintentá en un momento»
+          // sobre una cuota agotada manda a repetir algo que va a fallar igual,
+          // mientras la solución está a dos clics y el cliente no se entera.
+          //
+          // Solo cuando el fallo NO se puede atribuir —o es genuinamente de los
+          // proveedores— se cae al aviso genérico de antes.
+          const errsIA = (e as Error & { erroresIA?: string[] })?.erroresIA ?? [msg];
+          const nKeys = await contarKeysIA().catch(() => 1);
+          const causa = causaDelFallo(errsIA, nKeys);
+          const eraDePlan = esCargaDePlan(texto) || (esRutaPlan(ruta.motivo) && !intencion.dudosa);
+          respuesta = causa === 'proveedor_caido'
+            ? avisoNoPude(eraDePlan)
+            : textoFalloIA(causa, linkKeysIA(APP_URL), eraDePlan ? 'armar el borrador' : 'contestar');
+          console.error(`[mako-doer-in] ws=${wsData} fallo de IA (${causa}, ${nKeys} keys): ${errsIA.join(' · ').slice(0, 400)}`);
         }
       }
     }

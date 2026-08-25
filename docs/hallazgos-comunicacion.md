@@ -3100,3 +3100,61 @@ el mensaje en dos y dejó la misma señal dudosa decidiendo cuál de los dos: me
 *Corrida del 25/08/2026 — red de plataforma verificada desde ws13 con Gemini caído (429 en
 la key 1, 503 en las otras tres): Groq contestó en 1,1 s. Typecheck 0 errores, 1207/1207
 tests.*
+
+
+---
+
+## MaKo se comía la culpa de la cuota del cliente
+
+**Vive en:** `lib/fallo-ia-texto.ts` · `lib/mako-doer-in.ts`
+
+Cierre del hilo de las tres fallas del ws13. Con la red de plataforma puesta, el dueño marcó
+lo que faltaba y es lo más importante de todo el hilo:
+
+> *«Si la culpa es DEL CLIENTE, porque no cargó sus key, el mensaje tiene que reflejar eso.
+> No un "He fallado en la transcripción"… Ahí MaKo queda mal, queda como el culpable. Tiene
+> que decir "Te quedaste sin Tokens, cargá tus otras key aquí" y enviar el link.»*
+
+El mensaje que había era, literal: **«Me llegó tu audio pero no lo pude escuchar (se me cayó
+la transcripción)»** — cuando lo que pasaba era que el cliente tenía UNA sola key y estaba
+agotada.
+
+### El daño no es la injusticia, es la información escondida
+
+Que el producto quede como el roto es feo. Lo caro es lo otro: **«reintentá en un momento»
+sobre una cuota agotada manda a repetir algo que va a fallar igual**, mientras la solución
+está a dos clics y el cliente no tiene forma de enterarse. Un mensaje que se echa la culpa
+tampoco dice qué hacer — son la misma omisión.
+
+### Cuatro causas, cuatro mensajes
+
+`causaDelFallo(errores, keysDelCliente)` clasifica, y `keysDelCliente` es el dato que hacía
+falta: separa «se cayó el proveedor» de «se cayó el proveedor Y no tenías respaldo». El
+hecho técnico es idéntico y lo que el cliente puede hacer, no.
+
+| Causa | Qué dice | Link |
+|---|---|---|
+| `sin_keys` | «todavía no cargaste ninguna API key» | sí |
+| `sin_cuota` | «te quedaste sin cuota; cargá otra y sigo funcionando *ahora*» | sí |
+| `sin_respaldo` | «tu proveedor se cayó y tenés *una sola* key» | sí |
+| `proveedor_caido` | «**no es nada tuyo, tus keys están bien**» | **no** |
+
+⚠️ **La última fila es tan importante como las otras tres.** Culpar al cliente por un bache
+ajeno es el mismo error con el signo cambiado y se paga peor: lo manda a tocar algo que está
+bien. Por eso `proveedor_caido` no lleva link.
+
+### Dos detalles que costaron un test cada uno
+
+- **La causa se decide con TODOS los errores, no con el último.** El último suele ser el
+  casillero vacío del final de la cascada («falta OPENAI_API_KEY») cuando lo que de verdad
+  pasó fue el 429 del primero. Clasificar por el último manda al cliente a cargar la key
+  equivocada.
+- **El `429` se busca con borde de palabra.** Sin eso, un id o un timestamp que contenga
+  «429» clasifica un bache de red como cuota agotada, y el cliente sale a resolver un
+  problema que no tiene.
+
+El link es `?abrir=gemini`, el deep-link real del board: cae con el modal abierto, no en la
+pantalla para que busque. Un link a la home es la mitad de un link.
+
+*Corrida del 25/08/2026. La regla quedó en AGENTS.md → «Un mensaje de error dice DE QUIÉN
+fue y QUÉ HACER». Typecheck 0 errores, 1215/1215 tests.*

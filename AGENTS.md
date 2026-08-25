@@ -517,6 +517,39 @@ creía que había funcionado.**
 - Y **traducí ese estado a una frase**, no lo pases crudo: `403` no le dice nada a nadie
   (ver `RESULTADO_PARTICIPANTE` en `lib/mako-grupo.ts`).
 
+# Un mensaje de error dice DE QUIÉN fue y QUÉ HACER, o no sirve
+
+Cuando algo falla del lado del usuario —su cuota, su credencial, su configuración—
+el mensaje tiene que decirlo y linkear a dónde se arregla. Comerse una culpa ajena
+no es humildad: **es esconder la única información accionable que hay.**
+
+El pedido del dueño, textual (25/8/2026): *«Si la culpa es DEL CLIENTE, porque no
+cargó sus key, el mensaje tiene que reflejar eso. No un "He fallado en la
+transcripción"… ahí MaKo queda como el culpable. Tiene que decir "Te quedaste sin
+tokens, cargá tus otras key aquí" y enviar el link.»*
+
+MaKo le decía a un cliente «se me cayó la transcripción» cuando lo que pasaba era
+que tenía UNA sola API key y estaba agotada. Dos daños, y el segundo es el caro:
+
+1. El producto queda como el roto cuando no lo está.
+2. **«Reintentá en un momento» sobre una cuota agotada manda a repetir algo que va
+   a fallar igual**, mientras la solución está a dos clics y el cliente no se entera.
+
+Las cuatro reglas, que valen para cualquier error que llegue a un usuario:
+
+- **Clasificá la causa antes de redactar.** No hay un mensaje de error, hay uno por
+  causa. Ver `lib/fallo-ia-texto.ts`: sin keys / sin cuota / sin respaldo /
+  proveedor caído son cuatro frases distintas porque son cuatro acciones distintas.
+- **Mirá TODOS los errores, no el último.** El último suele ser el casillero vacío
+  del final de la cascada («falta OPENAI_API_KEY») cuando lo que pasó fue el 429 del
+  primero. Clasificar por el último manda a arreglar lo que no era.
+- **Si hay algo que hacer, va el LINK a la pantalla exacta** —con su deep-link, no
+  la home— dentro del mismo mensaje.
+- ⚠️ **Y LA CONTRACARA: cuando NO es del usuario, decilo con todas las letras.**
+  Culpar al cliente por un bache ajeno es el mismo error con el signo cambiado y se
+  paga peor, porque lo manda a tocar algo que está bien. `proveedor_caido` dice «no
+  es nada tuyo, tus keys están bien» y **no** lleva link.
+
 # Un mensaje que sale solo no puede AFIRMAR lo que no verificó
 
 Un aviso automático llega con la autoridad del sistema: el que lo lee no tiene cómo

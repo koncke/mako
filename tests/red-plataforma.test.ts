@@ -78,6 +78,9 @@ test('El aviso de error no puede apoyarse en una clasificación DUDOSA', () => {
   // de «sin señal clara»— y `esRutaPlan` da true para `→ capturar`, así que la
   // suposición elegía el texto del error y salía «No pude armar el borrador».
   const doer = leer('../lib/mako-doer-in.ts');
-  assert.match(doer, /avisoNoPude\(esCargaDePlan\(texto\) \|\| \(esRutaPlan\(ruta\.motivo\) && !intencion\.dudosa\)\)/,
+  // Lo que se afirma es la REGLA, no una línea literal: «era de plan» tiene que
+  // exigir que la clasificación NO sea dudosa, esté escrito donde esté.
+  assert.match(doer, /const eraDePlan = esCargaDePlan\(texto\) \|\| \(esRutaPlan\(ruta\.motivo\) && !intencion\.dudosa\)/,
     'el texto del error volvió a decidirse con la adivinanza del clasificador');
+  assert.match(doer, /avisoNoPude\(eraDePlan\)/, 'se desconectó `eraDePlan` del aviso');
 });
