@@ -28,10 +28,10 @@ import { buildSystemPrompt } from '@/lib/mako-context';
 import { enviarAGrupoJid, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN } from '@/lib/mako-grupo';
 import { enviarPresencia, fetchMediaBase64EnInstancia } from '@/lib/evolution';
 import { getSetting, setSetting } from '@/lib/settings';
-import { runWithWorkspace, OWNER_WS } from '@/lib/workspace';
+import { wsSuperAdmin, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
 import { getSupabaseServer } from '@/lib/supabase';
 import { APP_BASE_URL as APP_URL } from '@/lib/app-url';
-import { transcribirAudio, chatCheap, chatCheapTools, cheapDisponible } from '@/lib/ai-cheap';
+import { provsGratisDePlataforma, transcribirAudio, chatCheap, chatCheapTools, cheapDisponible } from '@/lib/ai-cheap';
 // El MISMO lector que usa el importador del tablero. Que WhatsApp tenga su propia idea
 // de qué formatos existen es cómo un .txt terminó rebotando (ver AGENTS.md, "Una cosa,
 // un lugar").
@@ -940,6 +940,66 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
             // alternativa a pagar dos centavos es mandarle prosa al dueño y que el
             // trabajo se pierda — que es exactamente lo que pasó dos veces seguidas.
             // AGENTS.md dice «el ÚLTIMO recurso, no el segundo»: éste es el último.
+            // ── LA RED DE PLATAFORMA ────────────────────────────────────────────
+            //
+            // Si NINGUNA key del cliente contestó, se prueban las GRATIS de la
+            // agencia antes de darse por vencido. No es generosidad: un cliente con
+            // una sola key cargada no tiene cascada. El ws13 tiene solo
+            // `GEMINI_API_KEY`, así que los cinco casilleros de `orden` son en los
+            // hechos UN intento — Gemini tuvo un bache de 74 segundos el 25/8 y el
+            // cliente recibió un error en su primer día de prueba.
+            //
+            // Solo se llega acá con `!respuesta`, o sea cuando lo del cliente ya
+            // falló. Y solo proveedores GRATIS: pagar por él es otra decisión.
+            if (!respuesta) {
+              const red = await provsGratisDePlataforma().catch(() => []);
+              // ⚠️ CON PRESUPUESTO DE TIEMPO. La agencia tiene 11 keys gratis
+              // cargadas y probarlas todas puede ser un minuto largo: del otro lado
+              // hay alguien mirando el chat, y a los 40 s ya no importa si la
+              // respuesta llega — el cliente se fue. Se prueba lo que entre en el
+              // presupuesto y se corta; el que no entró se registra en el log.
+              const limite = Date.now() + 25_000;
+              let probados = 0;
+              // ⚠️ EMPEZAR POR OTRO PROVEEDOR, no por el mismo que acaba de fallar.
+              // Si el cliente corre en Gemini y Gemini está saturado, la Gemini de la
+              // agencia lo está igual: es el MISMO servicio del otro lado. Probar
+              // primero sus tres keys es quemar el presupuesto de tiempo en la única
+              // apuesta que ya sabemos perdida — pasó en la verificación de este
+              // arreglo, con dos keys de Gemini comiéndose los 25 s enteros.
+              const distintoPrimero = [
+                ...red.filter((r) => r.provider !== pin.provider),
+                ...red.filter((r) => r.provider === pin.provider),
+              ];
+              for (const r of distintoPrimero) {
+                if (Date.now() > limite) {
+                  console.error(`[mako-doer-in] red de plataforma cortada por tiempo: ${probados}/${red.length} probados`);
+                  break;
+                }
+                probados++;
+                try {
+                  const rp = await chatCheapTools(system, msgs, tools, runTool, {
+                    provider: r.provider, clave: r.clave, wsKey: await wsSuperAdmin(),
+                    // 10 s por proveedor: con 25 s de presupuesto entran al menos
+                    // dos intentos reales aunque uno quede colgado.
+                    timeoutMs: 10_000,
+                    feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500,
+                    toolChoicePrimerPaso: forzarTool ? 'required' : undefined,
+                    // El motivo lo deja VISIBLE en el Saldo de IA: un respaldo que se
+                    // vuelve permanente tiene que poder verse, o el cliente que
+                    // necesita cargar su key nunca se entera.
+                    motivo: `⚠ red de plataforma (${r.provider}) — el cliente no tiene key que conteste · ${ruta.motivo} «${recorte}»`,
+                  });
+                  if (rp.text && !rp.text.startsWith('(')) {
+                    const vr = validarRespuestaDoer(rp.text, { motivoRuta: ruta.motivo, linkBorrador });
+                    if (vr.ok || vr.razon === 'sin-borrador' || linkBorrador) { respuesta = rp.text.trim(); break; }
+                  }
+                } catch (e4) {
+                  console.warn(`[mako-doer-in] red de plataforma ${r.provider} falló: ${e4 instanceof Error ? e4.message : String(e4)}`);
+                }
+              }
+              if (respuesta) console.error(`[mako-doer-in] ws=${wsData} respondió con la RED DE PLATAFORMA: sus propias keys no contestaron`);
+            }
+
             // ⚠️ ANTES DE ESCALAR, PREGUNTAR SI LA PUERTA ESTÁ ABIERTA.
             //
             // Esta escalada se escribió dando por sentado que Claude estaba
@@ -992,7 +1052,13 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
           // caída del modelo, y contestar «no pude armar el borrador» a quien
           // saludó o preguntó por su oferta manda a buscar el problema al lugar
           // equivocado. Ver `avisoNoPude` en lib/respuesta-doer.ts.
-          respuesta = avisoNoPude(esRutaPlan(ruta.motivo) || esCargaDePlan(texto));
+          // ⚠️ Y «era de plan» tiene que ser una CERTEZA, no la adivinanza. El
+          // 25/8 el cliente escribió «soy mako obvio que puedo responderte» y le
+          // volvió «No pude armar el borrador con eso»: `esRutaPlan` da true para
+          // `→ capturar`, y `capturar` es justo el default de «sin señal clara».
+          // O sea que la suposición decidía el texto del error. El arreglo anterior
+          // partió el mensaje en dos y dejó la MISMA señal dudosa eligiendo cuál.
+          respuesta = avisoNoPude(esCargaDePlan(texto) || (esRutaPlan(ruta.motivo) && !intencion.dudosa));
         }
       }
     }

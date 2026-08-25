@@ -3023,3 +3023,80 @@ Gemini contestaron 429/503 mientras corría la prueba. ws13 tiene una sola key: 
 se cae, se cae MaKo entero para ese cliente.
 
 *Corrección del 24/08/2026. Typecheck 0 errores, 1202/1202 tests.*
+
+---
+
+## Un cliente con UNA sola key no tiene cascada
+
+**Vive en:** `lib/ai-cheap.ts` · `lib/mako-doer-in.ts`
+
+25/08/2026, 02:45 UTC. Tercera vez que el mismo cliente recibe un error probando el canal,
+esta vez con los arreglos anteriores YA desplegados (3,5 h antes). La evidencia que lo
+resolvió está en lo que NO hay: **ni una sola llamada en `anthropic_usage` en ese minuto**,
+y la misma consulta funcionando perfecto **74 segundos después**.
+
+### La cascada de cinco era un intento de uno
+
+El ws13 tiene cargada `GEMINI_API_KEY` y nada más. El doer prueba
+`[gemini, groq, cerebras, mistral, openai]`, y `provDe` devuelve `null` al instante para las
+cuatro que no tienen key — por diseño, con la regla escrita en el módulo:
+
+> «un cliente sin fila propia → null, **nunca la del dueño** (aislamiento)»
+
+La regla es correcta para el camino normal (cada uno gasta en SU cuenta) y tenía un costo
+que nadie había medido: **cinco casilleros, un solo intento real.** Gemini tosió y el
+cliente se quedó sin MaKo.
+
+**La regla que queda: una cascada no vale por su LARGO, vale por cuántos de sus escalones
+existen para ESTE inquilino.** Cinco proveedores en el código y una key cargada son un
+punto único de falla con aspecto de redundancia — que es peor que no tenerla, porque nadie
+la audita.
+
+### Y el reintento existía… en la otra mitad del módulo
+
+`chatCheapCascade` reintenta los fallos transitorios con backoff desde hace meses.
+`chatCheapTools` —el camino del **tool-use**, o sea el que usa MaKo en WhatsApp— pegaba UNA
+vez y tiraba. La misma política, escrita, aplicada a una de las dos mitades.
+
+Al portarla hubo que afinar dos cosas que la verificación mostró:
+
+- **El 429 NO se reintenta.** Es la CUOTA de esa cuenta: volver a pegarle en un segundo es
+  pedirle otra vez a quien ya dijo que no. Lo que se reintenta es la SATURACIÓN (5xx,
+  timeout), que es un bache de segundos — exactamente lo del 25/8.
+- **Nunca después de que una tool tocó datos** (`toolsUsados === 0`). Reintentar después de
+  que una tool creó un borrador crea DOS. El módulo ya tenía la regla escrita para la
+  cascada; acá se respeta igual.
+
+### La red de plataforma, con sus tres límites
+
+Cuando ninguna key del cliente contesta, se prueban las **gratis de la agencia**.
+`provsGratisDePlataforma()` devolvió **11** en la medición: ws13 pasa de 1 intento real a 12.
+
+1. **Solo GRATIS** — `openai` y `anthropic` quedan afuera: ahí una llamada de más es una
+   factura de más, y eso es una decisión de plata que no toma el código.
+2. **Solo último recurso** — mientras el cliente tenga con qué, gasta lo suyo.
+3. **Se REGISTRA** — el motivo dice «⚠ red de plataforma», así que en el Saldo de IA se ve
+   cuánto se apoya cada cliente en la agencia. Un respaldo que se vuelve permanente y no se
+   ve es indistinguible de uno que nunca se usó, y el que tiene que cargar su key nunca se
+   entera.
+
+Dos cosas más que salieron de MEDIRLO, no de pensarlo:
+
+- **Presupuesto de tiempo (25 s).** Probar 11 keys sin tope es un minuto largo y del otro
+  lado hay alguien mirando el chat. A los 40 s ya no importa si la respuesta llega.
+- **No arrancar por el proveedor que acaba de fallar.** Si el cliente corre en Gemini y
+  Gemini está saturado, la Gemini de la agencia lo está igual: es el mismo servicio del otro
+  lado. En la primera verificación, dos keys de Gemini se comieron los 25 s enteros. Con el
+  orden corregido, **Groq contestó en 1,1 s** con la oferta y la descripción física
+  completas, con Gemini caído en las cuatro keys.
+
+### Y el error seguía apoyándose en una adivinanza
+
+«soy mako obvio que puedo responderte» cayó en `capturar (dudosa)` —el default de «sin señal
+clara»— y `esRutaPlan` da true para `→ capturar`. O sea que **la suposición elegía el texto
+del error** y volvía a salir «No pude armar el borrador con eso». El arreglo anterior partió
+el mensaje en dos y dejó la misma señal dudosa decidiendo cuál de los dos: media corrección.
+
+*Corrida del 25/08/2026 — red de plataforma verificada desde ws13 con Gemini caído (429 en
+la key 1, 503 en las otras tres): Groq contestó en 1,1 s. Typecheck 0 errores, 1207/1207
+tests.*

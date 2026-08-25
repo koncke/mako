@@ -90,9 +90,11 @@ const clavesProv = (nombre: ProvName): string[] => {
 // el DUEÑO el env queda de respaldo. Así cada cliente usa SU propia key (BYOK real)
 // y su gasto corre contra SU cuenta; un cliente sin fila propia → null, nunca la
 // del dueño (aislamiento). Antes se leía process.env directo → pagaba la agencia.
-async function provDe(nombre: ProvName, clave?: string): Promise<Prov | null> {
+async function provDe(nombre: ProvName, clave?: string, wsKey?: number): Promise<Prov | null> {
   const cl = clave ?? clavesProv(nombre)[0];
-  const key = await credWs(cl);
+  // `wsKey` SOLO lo pasa la red de plataforma (ver `provsGratisDePlataforma`).
+  // Sin él se comporta igual que siempre: la fila del workspace en curso.
+  const key = await credWs(cl, wsKey);
   if (!key) return null;
   return { ...cfgDe(nombre), key, clave: cl };
 }
@@ -138,9 +140,50 @@ const nroCuenta = (p: Prov): number => Math.max(1, clavesProv(p.nombre).indexOf(
 /** Proveedor barato para CHAT. `pref` (del registro de modelos) fuerza uno; si no
  *  está, cae a groq→openai. Gemini SOLO sale si lo pide `pref` explícito: necesita
  *  la key del cliente y no entra en el fallback por default. null si ninguno. */
-async function proveedor(pref?: ProvName, clave?: string): Promise<Prov | null> {
-  if (pref) { const p = await provDe(pref, clave); if (p) return p; }
-  return (await provDe('groq')) ?? (await provDe('openai'));
+async function proveedor(pref?: ProvName, clave?: string, wsKey?: number): Promise<Prov | null> {
+  if (pref) { const p = await provDe(pref, clave, wsKey); if (p) return p; }
+  return (await provDe('groq', undefined, wsKey)) ?? (await provDe('openai', undefined, wsKey));
+}
+
+/**
+ * Los proveedores GRATIS de la PLATAFORMA, como última red de un cliente.
+ *
+ * ⚠️ Esto rompe a propósito —y SOLO en un sentido— el aislamiento que declara
+ * `provDe`: «un cliente sin fila propia → null, nunca la del dueño». Esa regla es
+ * correcta para el camino normal (cada uno gasta en SU cuenta) y tiene un costo
+ * que nadie había medido: **un cliente con UNA sola key no tiene cascada.**
+ *
+ * EL CASO (2026-08-25). El ws13 tiene cargada `GEMINI_API_KEY` y nada más. La
+ * cascada del doer prueba [gemini, groq, cerebras, mistral, openai] y las últimas
+ * cuatro devuelven `null` al instante por falta de key: cinco casilleros, un solo
+ * intento real. Gemini tuvo un bache de 74 segundos y el cliente recibió un error
+ * en su primer día de prueba. Medido: cero llamadas en `anthropic_usage` ese
+ * minuto, y la misma consulta andando perfecto un minuto después.
+ *
+ * Tres límites, y los tres importan:
+ *
+ *  1. **Solo GRATIS.** `openai` y `anthropic` quedan afuera: ahí una llamada de más
+ *     es una factura de más, y eso es una decisión de plata que no toma el código.
+ *     Estos consumen cuota gratis de la agencia, que se repone sola cada día.
+ *  2. **Solo ÚLTIMO RECURSO.** Se usa cuando las keys del propio cliente ya
+ *     fallaron. Mientras el cliente tenga con qué, gasta lo suyo.
+ *  3. **Se REGISTRA.** El `motivo` dice «⚠ red de plataforma», así que en el Saldo
+ *     de IA se ve cuánto se está apoyando cada cliente en la agencia. Sin eso, un
+ *     respaldo que se vuelve permanente es indistinguible de uno que nunca se usó
+ *     — y el que hay que cargar su key nunca se entera.
+ */
+export async function provsGratisDePlataforma(): Promise<Array<{ provider: ProvName; clave: string }>> {
+  const { wsSuperAdmin } = await import('./workspace');
+  const ws = await wsSuperAdmin().catch(() => null);
+  if (ws == null) return [];
+  const out: Array<{ provider: ProvName; clave: string }> = [];
+  for (const prov of ['gemini', 'groq', 'cerebras', 'mistral'] as const) {
+    for (const clave of clavesProv(prov)) {
+      const k = await credWs(clave, ws).catch(() => null);
+      if (k) out.push({ provider: prov, clave });
+    }
+  }
+  return out;
 }
 
 // Orden de la transcripción (STT). Gemini primero: es la key gratis y generosa que
@@ -598,6 +641,13 @@ export async function chatCheapTools(
   opts: {
     maxSteps?: number; maxTokens?: number; feature?: string; motivo?: string;
     provider?: ProvName; model?: string;
+    /** De qué workspace sale la KEY. Solo lo usa la red de plataforma; sin esto,
+     *  la del workspace en curso, que es el BYOK de siempre. */
+    wsKey?: number;
+    /** Techo de espera por request. Default 45 s, que está bien para un cron. En un
+     *  chat en vivo hay que bajarlo: un proveedor colgado se come el turno entero y
+     *  deja al cliente esperando por alguien que no va a contestar. */
+    timeoutMs?: number;
     /** Cuál CUENTA del proveedor (GEMINI_API_KEY vs _2). La pone quien rota. */
     clave?: string;
     /**
@@ -614,7 +664,7 @@ export async function chatCheapTools(
     toolChoicePrimerPaso?: 'required';
   } = {},
 ): Promise<CheapToolsResult> {
-  const p = await proveedor(opts.provider, opts.clave);
+  const p = await proveedor(opts.provider, opts.clave, opts.wsKey);
   if (!p) throw new Error('Sin proveedor de IA barata (falta GROQ_API_KEY u OPENAI_API_KEY).');
   const model = opts.model || p.chatModel;
   const esGemini = p.nombre === 'gemini';
@@ -637,17 +687,56 @@ export async function chatCheapTools(
   const maxSteps = opts.maxSteps ?? 6;
   let toolsUsados = 0;
   for (let step = 0; step < maxSteps; step++) {
-    const res = await fetch(`${p.base}/chat/completions`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${p.key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, messages: msgs, tools: oaiTools, tool_choice: step === 0 && opts.toolChoicePrimerPaso ? opts.toolChoicePrimerPaso : 'auto', max_tokens: opts.maxTokens ?? 1400, temperature: 0.2 }),
-      cache: 'no-store',
-      signal: AbortSignal.timeout(45000),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || data.error) {
-      const extra = p.nombre === 'gemini' && res.status === 404 ? await modelosDisponibles(p) : '';
-      throw new Error(`chatCheapTools(${rotulo(p)}): ${data?.error?.message || `HTTP ${res.status}`}${extra}`);
+    // ⚠️ EL REINTENTO QUE FALTABA ACÁ, y que el módulo ya tenía escrito para la
+    // otra mitad (`chatCheapCascade`). Este camino —el del tool-use, o sea el que
+    // usa MaKo en WhatsApp— pegaba UNA vez y tiraba: un 503 de saturación mataba
+    // el turno entero.
+    //
+    // EL CASO (2026-08-25, 02:45 UTC). Un cliente escribió y MaKo le contestó con
+    // un error. En `anthropic_usage` no hay NI UNA llamada de ese minuto, y 74
+    // segundos después la misma consulta funcionó perfecto. Gemini había tenido un
+    // bache. Ese cliente tiene UNA sola key cargada, así que la cascada de cinco
+    // proveedores es en los hechos un solo intento: si ese falla, no hay red.
+    //
+    // ⚠️ SOLO MIENTRAS NO SE HAYA TOCADO NADA. Es la regla que el propio módulo ya
+    // dice para la cascada: «reintentar después de una acción a medias es
+    // duplicarla». Un reintento después de que una tool creó un borrador crea DOS.
+    // Por eso la ventana es `toolsUsados === 0`: ahí no se escribió nada todavía, y
+    // ahí es justo donde caen los 429 y los 503 — en el primer request.
+    let res: Response | null = null;
+    let data: any = {};
+    for (let intento = 0; ; intento++) {
+      res = await fetch(`${p.base}/chat/completions`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${p.key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, messages: msgs, tools: oaiTools, tool_choice: step === 0 && opts.toolChoicePrimerPaso ? opts.toolChoicePrimerPaso : 'auto', max_tokens: opts.maxTokens ?? 1400, temperature: 0.2 }),
+        cache: 'no-store',
+        signal: AbortSignal.timeout(opts.timeoutMs ?? 45000),
+      });
+      data = await res.json().catch(() => ({}));
+      const err = !res.ok || (data as { error?: unknown }).error;
+      if (!err) break;
+      const detalle = String((data as { error?: { message?: string } })?.error?.message || `HTTP ${res.status}`);
+      // ⚠️ EL 429 NO SE REINTENTA, y esa distinción es la que hace que esto sirva.
+      // Un 429 es la CUOTA de esa cuenta: volver a pegarle en un segundo es pedirle
+      // otra vez a quien ya dijo que no. Quien llama rota a otra cuenta o a otro
+      // proveedor, que es la respuesta correcta — lo dice el propio módulo más
+      // arriba. Lo que SÍ se reintenta es la SATURACIÓN (5xx, timeout), que es un
+      // bache de segundos: es exactamente lo que mató el turno del 25/8, con la
+      // misma consulta funcionando perfecto 74 s después.
+      //
+      // Un 404 (modelo retirado) o un 401 (key mala) tampoco: no van a volver.
+      const saturacion = /\b5\d\d\b|timeout|abort|ETIMEDOUT|fetch failed|ECONNRESET|unavailable|overloaded|high demand/i.test(detalle)
+        || (res.status >= 500 && res.status <= 599);
+      // UN solo reintento, y corto: del otro lado hay alguien mirando el chat. Si
+      // con 1,2 s no se destrabó, rotar es mejor que seguir esperando.
+      if (!saturacion || toolsUsados > 0 || intento >= 1) break;
+      console.warn(`[ai-cheap] chatCheapTools(${rotulo(p)}) ${detalle} → reintento`);
+      await new Promise((r) => setTimeout(r, 1200));
+    }
+    if (!res!.ok || (data as { error?: unknown }).error) {
+      const extra = p.nombre === 'gemini' && res!.status === 404 ? await modelosDisponibles(p) : '';
+      throw new Error(`chatCheapTools(${rotulo(p)}): ${(data as { error?: { message?: string } })?.error?.message || `HTTP ${res!.status}`}${extra}`);
     }
     void recordUsage(opts.feature || 'ia-barata-tools', model, data.usage, opts.motivo, p.nombre, nroCuenta(p));
     const msg = data.choices?.[0]?.message as { content?: string; tool_calls?: Array<{ id: string; function?: { name?: string; arguments?: string } }> } | undefined;
