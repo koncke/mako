@@ -3437,3 +3437,96 @@ juzgarlo — y el test lo exige, junto con que NO diga «oficial» ni «garantiz
 *Corrida del 25/08/2026 — probado con la pregunta textual: la tool se llama sola y devuelve
 «Como instalar el Pixel de Meta directamente en la Landing Page» (2025). Typecheck 0 errores,
 1253/1253 tests.*
+
+---
+
+## Todas las previews de WhatsApp eran la misma tarjeta
+
+**Vive en:** `lib/preview-links.ts` · `app/login/page.tsx` · `app/api/og/route.tsx` ·
+`lib/rutas-publicas.ts`
+
+El dueño mirando el grupo de un cliente: *«revisá los mensajes con link y preview que envía
+MaKo… deberíamos hacer diferentes preview para cada cosa, porque son todos iguales y
+confunde»*.
+
+Medido contra producción con el user-agent de WhatsApp — un borrador del plan, el resumen de
+un lead, una integración y el plan — los cuatro devuelven **exactamente lo mismo**:
+
+```
+og:title        MaKo
+og:description  Marketing, CRM y ventas en una sola app.
+og:image        /og-mako.jpg
+```
+
+### La causa no estaba en las páginas
+
+**El crawler de WhatsApp no tiene sesión**, así que `proxy.ts` lo corta ANTES de que la
+página exista: `307 → /login?next=%2Fplan%2Frevisar%2F…`. La tarjeta que se veía nunca fue la
+de la pantalla: **era el metadata raíz del login**, idéntico para todo.
+
+Por eso poner `generateMetadata` en cada pantalla no habría servido de nada — no se ejecutan.
+Cuando una preview sale mal, lo primero es preguntar **qué HTML recibe el crawler**, no qué
+metadata declara la página. Son dos cosas distintas cuando hay un middleware en el medio.
+
+### El arreglo no le abre ninguna ruta a nadie
+
+El destino viaja en el `next=` del redirect, que **ya es público** (está en el link que la
+persona recibió). `/login` deriva la tarjeta de ese path con `previewDeDestino()`.
+
+⚠️ **LA TARJETA SALE DE LA RUTA, NUNCA DEL DATO.** «Borrador de tareas», no «3 tareas para el
+proyecto X»; «Resumen del lead», no el nombre del lead. Quien resuelve el OpenGraph es un
+servidor de WhatsApp, sin sesión y sin permiso: **una preview que leyera la base convertiría
+un link en una filtración.** Lo que se muestra es de qué TIPO de cosa se trata, que es
+exactamente lo que hacía falta para no confundirse. El test lo exige (`preview-links` no
+puede tener un `await` ni tocar Supabase).
+
+Y la imagen se genera al vuelo (`/api/og?tipo=`) en vez de subir doce archivos: el catálogo de
+tipos es uno solo y agregar uno no obliga a abrir un editor de imágenes. Solo acepta `tipo`,
+que es una clave de un conjunto CERRADO — un texto libre ahí sería dejar que cualquiera
+dibuje lo que quiera en una tarjeta con la marca.
+
+⚠️ **`/api/og` va en `lib/rutas-publicas.ts` o no existe**: con el 401 del middleware el
+crawler se queda sin imagen y volvemos al problema original. Es la regla que AGENTS.md ya
+tiene escrita, y acá se cumplió al revés de lo habitual — la ruta es genuinamente pública
+(no lee nada), no «se autentica sola».
+
+**Gotcha del camino:** en local dio 401 igual. Era el dev server con el middleware VIEJO
+—Next no lo recarga en caliente y ese proceso llevaba horas—, no un problema de la lista. La
+verificación buena fue llamar a `esPublica('/api/og')` directo, que es determinista.
+
+---
+
+## Que MaKo acuse recibo: reacciones a stickers, emojis y peticiones
+
+**Vive en:** `lib/reaccion-emoji.ts` · `lib/mako-grupo.ts` · `lib/mako-doer-in.ts`
+
+Pedido del dueño, en dos partes: risa o corazón a todo sticker/emoji/gif («corazón si
+amerita, como un sticker de gracias»), y un 👍 a cada petición «para afirmar que la recibió».
+
+**Hasta hoy un sticker no producía NADA.** Sin texto, sin audio y sin adjunto, caía en el
+skip de «sin texto ni audio ni adjunto» y MaKo quedaba muda — indistinguible de estar caída,
+que es justamente la sensación que este cliente ya tuvo tres veces esta semana. Por eso la
+reacción va **antes** de ese skip, y el test verifica el ORDEN.
+
+Una reacción es el acuse más barato que existe: no ocupa un renglón del chat, no interrumpe y
+se ve al instante.
+
+⚠️ **El único error caro acá es reírse de un «gracias»**: queda como burla. Como el default es
+risa, la lista del corazón se mira PRIMERO — emojis de agradecer/celebrar/querer y las
+palabras («gracias», «crack», «genio», «felicit…»).
+
+Y «solo emoji» es solo emoji: «jaja 😂» es un mensaje y se contesta. El 👍 va `void` +
+`.catch`: fallar en el acuse no puede costar la respuesta.
+
+Endpoint: `POST /message/sendReaction/{instancia}` con `{ key, reaction }` — verificado
+mandando un payload vacío a propósito, que contesta 400 con el contrato en vez de 404. Probar
+que una ruta existe sin disparar su efecto es más barato que deshacer el efecto.
+
+### Lo que quedó SIN hacer
+
+- **El acuse ahora está DUPLICADO**: MaKo ya mandaba «Recibido 👍 dame un momento y te
+  contesto» como TEXTO. Con la reacción, ese renglón sobra — una reacción dice lo mismo sin
+  ocupar el chat. No se sacó porque el dueño no lo pidió y es un cambio visible; es borrar
+  una línea cuando lo decida.
+
+*Corrida del 25/08/2026. Typecheck 0 errores, build OK, 1279/1279 tests.*

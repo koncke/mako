@@ -20,6 +20,7 @@ import { validarRespuestaDoer, esRutaPlan, mensajeBorrador, EJEMPLO_BORRADOR, AV
 import { evaluarPermiso } from '@/lib/veto-claude';
 import { causaDelFallo, textoFalloIA, linkKeysIA } from '@/lib/fallo-ia-texto';
 import { LARGO_WHATSAPP } from '@/lib/hechos-mako';
+import { reaccionPara, esSoloEmoji, EMOJI_RECIBIDO } from '@/lib/reaccion-emoji';
 import { clavesCargadas } from '@/lib/ia-keys-ws';
 import { avisoDePuntos, puntosDelMensaje } from '@/lib/puntos-mensaje';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/mako-doer-acciones';
@@ -28,7 +29,7 @@ import { guardarTurno, historialGrupo } from '@/lib/mako-doer-conv';
 import { clasificarIntencion, CONTRATO, avisoDeDuda, type Intencion } from '@/lib/mako-intencion';
 import { contactosDelMensaje, textoDeContactos } from '@/lib/vcard';
 import { buildSystemPrompt } from '@/lib/mako-context';
-import { enviarAGrupoJid, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN } from '@/lib/mako-grupo';
+import { reaccionarMensaje, enviarAGrupoJid, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN } from '@/lib/mako-grupo';
 import { enviarPresencia, fetchMediaBase64EnInstancia } from '@/lib/evolution';
 import { getSetting, setSetting } from '@/lib/settings';
 import { wsSuperAdmin, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
@@ -391,7 +392,37 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
   const audio = audioDe(data);
   const adjunto = adjuntoDe(data);
   const texto = textoDe(data).trim();
+  // ── REACCIONES ───────────────────────────────────────────────────────────
+  //
+  // Pedido del dueño (25/8/2026): risa o corazón a los stickers, y un 👍 a cada
+  // petición «para afirmar que la recibió».
+  //
+  // ⚠️ VA ANTES DEL SKIP DE ABAJO, que es donde el sticker moría. Un sticker no
+  // trae texto, ni audio, ni adjunto: caía en «sin texto ni audio ni adjunto» y
+  // MaKo no hacía absolutamente nada — indistinguible de estar caída, que es la
+  // sensación que este cliente ya tuvo tres veces esta semana.
+  const stickerRaw = (data.message as Record<string, unknown> | undefined)?.stickerMessage as
+    { accessibilityLabel?: string; emoji?: string } | undefined;
+  const esGif = Boolean((data.message as Record<string, unknown> | undefined)?.videoMessage
+    && ((data.message as Record<string, unknown>).videoMessage as { gifPlayback?: boolean })?.gifPlayback);
+  const soloEmoji = esSoloEmoji(texto);
+
+  if (stickerRaw || esGif || soloEmoji) {
+    // La pista sale de lo que haya: el emoji tipeado, o la etiqueta que algunos
+    // stickers traen. Sin pista → risa, que es el default que pidió el dueño.
+    const pista = soloEmoji ? texto : (stickerRaw?.emoji ?? stickerRaw?.accessibilityLabel ?? '');
+    await reaccionarMensaje(jid, data.key, reaccionPara(pista)).catch(() => false);
+    // Un sticker no se contesta con palabras: la reacción ES la respuesta. Si
+    // además traía texto (un emoji suelto no), sigue el camino normal.
+    if (!soloEmoji || !texto) return { engaged: true, skip: 'sticker/gif: reaccionado' };
+    return { engaged: true, skip: 'emoji suelto: reaccionado' };
+  }
+
   if (!texto && !audio && !adjunto) return { engaged: false, skip: 'sin texto ni audio ni adjunto' };
+
+  // El 👍 del acuse: MaKo va a procesar esto, y que se sepa YA. Best-effort y sin
+  // await bloqueante en el camino feliz — si la reacción falla, el turno sigue.
+  void reaccionarMensaje(jid, data.key, EMOJI_RECIBIDO).catch(() => false);
 
   // El eco de nuestra propia respuesta no entra a la cola (si no, MaKo se contesta sola).
   if (data.key?.fromMe && msgId && (await idsEnviados(OWNER_WS, jid)).includes(msgId)) {

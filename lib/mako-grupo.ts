@@ -572,3 +572,30 @@ export async function enviarAlGrupoMaKo(ws: number, texto: string): Promise<Envi
   const id = (r.body as { key?: { id?: string } })?.key?.id ?? '';
   return { ok: true, id };
 }
+
+/**
+ * Reacciona a un mensaje del grupo con un emoji.
+ *
+ * Pedido del dueño (25/8/2026): risa o corazón a los stickers, y un 👍 a cada
+ * petición «para afirmar que la recibió». Una reacción es el acuse más barato que
+ * hay — no ocupa un renglón del chat, no interrumpe y se ve al instante.
+ *
+ * Best-effort a propósito: si la reacción no sale, el turno sigue igual. Fallar en
+ * el acuse no puede costar la respuesta.
+ */
+export async function reaccionarMensaje(
+  jid: string,
+  key: { id?: string; fromMe?: boolean; remoteJid?: string } | undefined,
+  emoji: string,
+): Promise<boolean> {
+  if (!jid || !key?.id) return false;
+  const r = await ev(`/message/sendReaction/${await instanciaVoz()}`, {
+    method: 'POST',
+    body: JSON.stringify({
+      key: { remoteJid: key.remoteJid ?? jid, fromMe: Boolean(key.fromMe), id: key.id },
+      reaction: emoji,
+    }),
+  });
+  if (!r.ok) console.warn(`[mako-grupo] reacción ${emoji} falló: Evolution ${r.status}`);
+  return r.ok;
+}

@@ -36,6 +36,14 @@ export const PUBLICOS = [
   '/api/email/unsubscribe',
   '/login',
   '/api/auth',
+  // La IMAGEN de la tarjeta de WhatsApp. Tiene que ser pública porque quien la
+  // pide es un crawler sin sesión — con el 401 del middleware, la preview se
+  // quedaría sin imagen y volveríamos al problema que vino a resolver.
+  //
+  // Es segura por CONSTRUCCIÓN, no por confianza: solo acepta `?tipo=`, que es una
+  // clave de un conjunto cerrado (lib/preview-links.ts), no lee la base y un tipo
+  // desconocido cae al default. No hay ningún dato que pueda filtrar.
+  '/api/og',
   '/vsl',
   '/vsl-assets',
   '/compartido',

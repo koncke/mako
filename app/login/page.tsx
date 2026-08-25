@@ -14,12 +14,45 @@
 // dinámico. Es una pantalla de baja frecuencia, así que el costo es despreciable.
 // =============================================================================
 
+import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { LoginForm } from './LoginForm';
 import { YaLogueado } from './YaLogueado';
 import { getUsuarioActual } from '@/lib/auth';
+import { previewDeDestino } from '@/lib/preview-links';
+import { APP_BASE_URL } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * LA TARJETA DE WHATSAPP SE DECIDE ACÁ, y no es un lugar raro: es donde el
+ * crawler ATERRIZA. Sin sesión, `proxy.ts` corta cualquier ruta interna con un
+ * 307 a `/login?next=<destino>`, así que la preview que se veía nunca fue la de
+ * la pantalla — era el metadata raíz, idéntico para todo. Medido en producción:
+ * un borrador, un resumen de lead, una integración y el plan devolvían los mismos
+ * tres tags.
+ *
+ * El destino viaja en `next=`, que ya es público (está en el link que la persona
+ * recibió), así que esto no le abre nada a nadie. Ver lib/preview-links.ts.
+ */
+export async function generateMetadata(
+  { searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> },
+): Promise<Metadata> {
+  const sp = await searchParams;
+  const next = Array.isArray(sp.next) ? sp.next[0] : sp.next;
+  const p = previewDeDestino(next);
+  const imagen = `${APP_BASE_URL}/api/og?tipo=${encodeURIComponent(p.tipo)}`;
+  return {
+    title: p.titulo,
+    description: p.descripcion,
+    openGraph: {
+      type: 'website', siteName: 'MaKo',
+      title: p.titulo, description: p.descripcion,
+      images: [{ url: imagen, width: 1200, height: 630 }],
+    },
+    twitter: { card: 'summary_large_image', title: p.titulo, description: p.descripcion, images: [imagen] },
+  };
+}
 
 export default async function LoginPage() {
   const sesion = await getUsuarioActual();
