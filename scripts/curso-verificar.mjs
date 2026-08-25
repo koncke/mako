@@ -45,8 +45,17 @@ const duracionReal = (f) => {
 // código 0. Con execFileSync eso significa que el `try` devuelve stdout —vacío— y el
 // `catch` que parsea nunca corre: el chequeo daría siempre «sin silencio» y por lo tanto
 // nunca marcaría nada. Un verificador que no puede fallar es peor que no tenerlo.
+// ⚠️ `-vn` ANTES del `-i`, y no es cosmético: sin él ffmpeg decodifica el stream de VIDEO
+// entero para tirarlo, cuando lo único que se mira es el audio. Medido sobre una clase de
+// 28:55 en 1080p: 159 s sin `-vn` contra 2 s con él, con el resultado IDÉNTICO (los mismos
+// 12 tramos de silencio). Sobre las 153 clases de la Certificación eso es la diferencia
+// entre ~5,6 horas y ~5 minutos.
+//
+// Y el costo real no son las horas: es que un chequeo que tarda una tarde no se corre. Este
+// script existe justamente porque los cinco controles se venían salteando — dejarlo a 5,6 h
+// garantizaba que se siguiera salteando, con el agravante de que ahora parece que hay red.
 const segundosDeVoz = (f, total) => {
-  const r = spawnSync('ffmpeg', ['-hide_banner', '-i', f, '-af', 'silencedetect=n=-35dB:d=0.6', '-f', 'null', '-'],
+  const r = spawnSync('ffmpeg', ['-hide_banner', '-vn', '-i', f, '-af', 'silencedetect=n=-35dB:d=0.6', '-f', 'null', '-'],
     { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   const txt = String(r.stderr ?? '');
   const silencio = [...txt.matchAll(/silence_duration:\s*([\d.]+)/g)].reduce((s, m) => s + Number(m[1]), 0);
