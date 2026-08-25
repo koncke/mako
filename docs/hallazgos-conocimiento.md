@@ -4463,7 +4463,7 @@ duración del archivo.
 
 ### Lo que quedó SIN hacer
 
-**24 de los 130 recursos (11,7 MB) siguen sin bajar.** No es un bug del pipeline: la sesión
+**CERRADO el 2026-08-25: los 130 están.** (Lo que sigue se conserva porque el diagnóstico era el equivocado y eso es lo que ahorra tiempo después.) Se creía que faltaban 24 por la sesión: No es un bug del pipeline: la sesión
 de `cursoselite.com.mx` caducó y el servidor contesta
 `permission denied for function get_document_url`. Necesita un login a mano, UNA vez, en el
 Chrome del perfil `C:\cursos\perfil`; después alcanza con
@@ -4480,3 +4480,80 @@ ausencia de la negativa.
 8.300 clases** que nunca se bajaron. Los cuatro más grandes son TikTok Ads Génesis (508),
 NUEVO Organic Ecom 3.0 (453), Organic Ecom (319) y Libertad Inmobiliaria (313 clases + 384
 recursos).
+
+## Los dos recursos que no eran un problema de sesión
+
+**2026-08-25, cierre de la Certificación.** De los 130 recursos, 24 no bajaban. El error
+decía «nada descargable en 25s» y el servidor contestaba `permission denied for function
+get_document_url`, así que se persiguió la sesión durante una tanda entera. La sesión ERA
+un problema —caducó dos veces— pero no era EL problema.
+
+### La copia inline que se quedó vieja, con la advertencia escrita al lado
+
+`curso-pdfs.mjs` tenía una copia inline de `puedeSerArchivo`. La cabecera del propio
+archivo explica que esas funciones se movieron a `curso-descarga.mjs` justo para que no
+hubiera una segunda copia — y la copia se quedó igual. La compartida fue sumando
+extensiones (`png`, `jpe?g`, `cube`, `txt`) y la inline se quedó con la lista del día que
+se escribió.
+
+Resultado: **los dos únicos recursos de imagen del curso no se bajaron nunca.** Y el modo
+de falla es el peor posible — «nada descargable» sobre archivos que SÍ estaban pasando por
+la red, que es exactamente el síntoma que la misma cabecera describe para el caso de los
+ZIP de «Inteligencia Viral». El mismo bug, la misma frase, dos años de distancia.
+
+**La señal para reconocerlo:** cuando falla un subconjunto pequeño y homogéneo —2 de 130—
+la pregunta no es «¿por qué falla?» sino **«¿qué comparten los que fallan?»**. Bastó mirar
+su `file_type` en la API: eran los dos únicos `jpg`/`png`.
+
+### Y aceptar imágenes abrió la trampa de al lado
+
+Con las imágenes aceptadas, los dos bajaron… **con la miniatura de la portada del curso**:
+19.424 B los dos, mime `image/webp`, cuando la API declaraba 118.052 y 92.839. Se ve como
+un éxito —tilde verde, un JPG que abre— y sólo lo delata cruzar el peso.
+
+Es «si hay que desempatar, todavía estás adivinando» en su versión de red: **una página
+trae decenas de respuestas que pasan el filtro de “esto puede ser un archivo”, empezando
+por las portadas, que son imágenes de verdad.** Quedarse con la primera es elegir por orden
+de llegada.
+
+Ahora **el peso declarado decide**: `curso-pdfs.mjs` lee `recursos-api.json` y descarta
+cualquier candidato cuyo tamaño no coincida. Con eso los dos entraron con su tamaño exacto.
+Y el desempate no cuesta nada donde no hay dato: sin `recursos-api.json` el script se
+comporta como antes.
+
+### El script se muere sola, en puntos distintos
+
+`curso-pdfs.mjs` terminó sin error y sin código en el 13, en el 28 y en el 114 de la misma
+tanda. No es un recurso concreto: es que en algún momento se le cae el WebSocket de CDP y el
+proceso sale en silencio.
+
+**No se diagnosticó: se hizo idempotente y se insiste.** Con el salto arreglado, cada ronda
+arranca donde murió la anterior; el bucle corta al llegar al total o tras dos rondas sin
+sumar nada — sin ese segundo freno, un recurso que la plataforma nunca sirve deja el bucle
+girando para siempre. Fueron 3 rondas para 119 → 128.
+
+### Cómo se comprueba una sesión, y cómo NO
+
+Tres chequeos, dos malos:
+
+| Chequeo | Veredicto |
+|---|---|
+| Buscar «Iniciar Sesión» en el `innerText` | ✖ dio VERDE con el body todavía vacío |
+| Que el título de la página cargue | ✖ la portada del curso es pública |
+| `localStorage` → `sb-*-auth-token` | ✓ está o no está |
+
+**Un chequeo de estado exige la señal POSITIVA, no la ausencia de la negativa.** Y el
+control que separó de verdad las causas fue **probar un recurso QUE YA HABÍA BAJADO**: al
+fallar también, quedó descartado que fueran esos 24 en particular.
+
+⚠️ **Y la trampa del perfil:** los scripts usan un Chrome aparte (`C:\cursos\perfil`, ver
+`scripts/curso-perfil.ps1`). Entrar en el Chrome de siempre **no sirve**: es otro perfil y
+no comparte sesión. La forma de verlo sin ambigüedad es el token, no la pantalla.
+
+**Vive en:** `scripts/curso-pdfs.mjs` · `scripts/curso-descarga.mjs` (`puedeSerArchivo`,
+el único lugar donde se decide qué respuesta es un archivo) · `scripts/curso-recursos-indice.mjs`.
+
+**Estado final:** `curso-verificar` da «TODO BIEN, el curso se puede publicar». 153/153
+videos, 152/153 transcripciones (la restante es una placa muda de 11,6 s sin pista de
+audio), 130/130 recursos con el peso exacto que declara la API y con su título real, y los
+dos que costaron renderizando en producción.
