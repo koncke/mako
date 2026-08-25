@@ -377,6 +377,41 @@ vacío y `B` gana.** Las dos reglas que quedan:
 2. **El fallback es más débil que el camino feliz, nunca más fuerte.** Si el camino
    normal exige aval y el degradado no, el degradado es la política real del sistema.
 
+# Una integracion son TRES registros, y ninguno falla ruidoso
+
+Agregar una integracion no es agregarla a un lugar. Son tres archivos distintos, y el
+compilador no ve ninguno:
+
+  1. `lib/integraciones-catalogo.ts`  → la TARJETA (existe, en que categoria)
+  2. `lib/metodo-catalogo.ts`         → los CAMPOS (que se le pide, y su tutorial)
+  3. `lib/metodo-verificar.ts`        → el PING (como se comprueba)
+  +  `app/_components/ServicioVisual.tsx` → el LOGO
+
+Cada uno falla distinto, y ninguno grita:
+
+- **Sin el PING**, el tilde de cada campo contesta «servicio invalido» — y como el tilde
+  verifica ANTES de guardar, el cliente **no puede guardar nada**. Le paso a un cliente
+  con Cal.com el 24/08/2026, en produccion: el mensaje culpa al servicio que el acababa
+  de elegir bien. `lib/metodo-verificar.ts` YA tenia el aviso escrito («SIN ESTO LA BARRA
+  DICE "servicio invalido"… es el TERCER registro») y aun asi volvio a pasar. **Un
+  comentario no es un control**; por eso ahora hay test.
+- **Sin el LOGO**, el fallback dibujaba el de OTRA MARCA (Supabase). La tarjeta de una
+  agenda salio con el logo de una base de datos y se reporto como «el logo esta mal». No
+  estaba mal: era de otro producto. **Un logo ajeno es peor que uno inventado**: no se lee
+  como un error nuestro, se lee como que la app se confundio de servicio. El fallback es
+  un letter-mark, feo a proposito.
+
+Y hay un CUARTO registro que no es obligatorio y cambia lo que la gente lee: `AYUDA_CAMPO`
+(en `metodo-catalogo.ts`). El componente hace `ayuda={c.ayuda ?? servicio.tutorial}`, asi
+que **si un campo tiene ayuda propia, el tutorial del servicio no se ve nunca para ese
+campo**. Escribir uno y no el otro deja dos textos que se contradicen, y el que gana es el
+que nadie reviso.
+
+**La regla del tutorial de un campo**: el del servicio contesta «como conecto esto»; el
+del campo contesta **«que pongo ACA»**, que es la pregunta de quien tiene el cursor
+adentro del input. Si los cuatro campos abren el mismo texto de 20 pasos, tres de esos
+cuatro estan contestando otra cosa.
+
 # Un flag de visibilidad protege la PANTALLA; la API hay que cerrarla aparte
 
 `soloPlataforma`, `oculto`, `esSuper`: los flags que deciden qué se dibuja no protegen
