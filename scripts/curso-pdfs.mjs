@@ -19,13 +19,14 @@
 //   node <abs>\scripts\curso-pdfs.mjs --plan C:\cursos\<slug>\plan.json
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, basename } from 'node:path';
 
 const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
   return i > -1 && process.argv[i + 1] ? process.argv[i + 1] : d;
 };
 const PORT = Number(arg('port', 9333));
+const POR_POSICION = process.argv.includes('--por-posicion');
 const PLAN = arg('plan', '');
 const ESPERA = Number(arg('espera', 25)) * 1000;
 
@@ -159,14 +160,28 @@ const main = async () => {
     const meta = etiquetas.get(id);
     // El nombre se arma SIN extensión y se completa cuando se sabe qué llegó: la
     // extensión es un HECHO del archivo, no una suposición del script.
-    const raizNombre = meta?.clase
+    //
+    // ⚠️ `--por-posicion` FUERZA el nombre de respaldo aunque la pestaña del curso esté
+    // abierta. Es para RETOMAR una tanda a medias: si los que ya se bajaron quedaron como
+    // `recurso-NN` —porque esa vez no había pestaña— y ahora sí la hay, los que faltan
+    // saldrían con el nombre bueno y el lote quedaría con DOS esquemas de nombre a la vez.
+    // Eso rompe el cruce por posición de `curso-recursos-indice.mjs` y deja media tanda
+    // huérfana en Drive. Consistencia con lo ya publicado le gana a un nombre más lindo.
+    const raizNombre = (!POR_POSICION && meta?.clase)
       ? `${String(meta.n).padStart(2, '0')} - ${limpio(meta.clase)}${meta.label ? ` - ${limpio(meta.label)}` : ''}`
       : null;
 
     // Si ya está bajado con cualquier extensión, se saltea.
-    const yaEsta = raizNombre && ['pdf', 'zip', 'docx', 'xlsx', 'pptx', 'doc', 'xls', 'csv', 'rtf', 'bin']
-      .map((e) => join(destino, `${raizNombre}.${e}`)).find((p) => existsSync(p));
-    if (yaEsta) { console.log(`  = ${raizNombre}`); ok++; bajados.push(yaEsta); continue; }
+    //
+    // ⚠️ Se prueban LOS DOS nombres, no solo el que toca hoy. Antes el `yaEsta` exigía
+    // `raizNombre`, así que cuando la asociación con las clases salía vacía —el caso
+    // «Asocié 0 archivo(s)»— la guarda se apagaba entera y cada corrida volvía a bajar
+    // los 130 desde cero. Reanudable en el papel y no en los hechos.
+    const posicional = `recurso-${String(i + 1).padStart(2, '0')}`;
+    const yaEsta = [raizNombre, posicional].filter(Boolean).flatMap((r) =>
+      ['pdf', 'zip', 'docx', 'xlsx', 'pptx', 'doc', 'xls', 'csv', 'rtf', 'jpg', 'png', 'bin']
+        .map((e) => join(destino, `${r}.${e}`))).find((p) => existsSync(p));
+    if (yaEsta) { console.log(`  = ${basename(yaEsta)}`); ok++; bajados.push(yaEsta); continue; }
 
     cands.clear(); listos = [];
     await raiz.enviar('Page.navigate', { url }, sessionId).catch(() => {});
