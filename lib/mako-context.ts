@@ -122,6 +122,18 @@ export async function buildSystemPrompt(opts: { chartKey: string; titulo: string
   const caraTxt = await resumenCaraDeMarca().catch(() => '');
   if (caraTxt) base += `\n\n${caraTxt}`;
 
+  // LOS HECHOS DE MAKO SOBRE SÍ MISMA. Van en TODAS las superficies y no solo en
+  // WhatsApp: el prompt traía el negocio del cliente (oferta, funnel, fase) y CERO
+  // sobre cómo funciona la herramienta, así que preguntada por su propio producto
+  // la IA rellenaba. El 25/8 le dijo a un cliente que Clarity necesita el pixel de
+  // Meta —falso: Clarity viaja adentro del propio snippet de MaKo— y le dictó un
+  // <script> con un id de juguete. Ver lib/hechos-mako.ts.
+  // La base del link la pone el CÓDIGO: en la primera prueba el modelo contestó
+  // bien y linkeó a `https://tu-dashboard.com/…`, un dominio inventado.
+  const { hechosMako } = await import('./hechos-mako');
+  const { APP_BASE_URL } = await import('./app-url');
+  base += `\n\n${hechosMako(APP_BASE_URL)}`;
+
   // Tabs cuyo onboarding no está terminado (regla: toda tab tiene onboarding —
   // ver .claude/skills/tab-onboarding). Sin esta señal MaKo propone optimizar lo
   // que el cliente nunca configuró.

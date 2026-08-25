@@ -3242,3 +3242,72 @@ no lo es.
 
 *Corrida del 25/08/2026 — zonas resueltas y persistidas en prod para ws13 y ws10. Typecheck
 0 errores, 1226/1226 tests.*
+
+---
+
+## MaKo inventando cómo funciona MaKo
+
+**Vive en:** `lib/hechos-mako.ts` · `lib/mako-context.ts` · `lib/mako-doer-in.ts`
+
+25/08/2026, tres problemas en la misma conversación con el cliente de prueba.
+
+### 1. Inventó hechos sobre su propio producto (el grave)
+
+El cliente preguntó si Clarity necesitaba el pixel de Meta. MaKo contestó, textual:
+
+> «Clarity usa el **Pixel de Meta** para grabar eventos y mapas de calor»
+> «Si querés datos reales de tu landing, el Pixel de Meta es **obligatorio**»
+
+**Las dos son falsas.** Clarity es de Microsoft y **viaja adentro del propio snippet de MaKo**
+(`bloqueClarity`, lib/landing-token.ts:1378). Después le dictó el `<script>` de Meta con un
+id de juguete (`1234567890123456`) y le dijo que una env var en Vercel «ya instala el Pixel»
+— que tampoco: una variable no instala nada si el código no la lee.
+
+Lo peor: **hora y media antes MaKo le había dado el diagnóstico CORRECTO** («el código que
+tenés instalado es de una versión vieja, repegalo») y lo reemplazó por uno inventado.
+
+**Por qué pasó, y no fue el modelo teniendo un mal día:** el prompt trae el negocio del
+cliente —oferta, funnel, fase, avatar— y **cero sobre cómo funciona MaKo**.
+`buscar_conocimiento` busca en la base del CLIENTE, vacía para uno nuevo. Preguntado sobre su
+propia herramienta, el modelo hizo lo único que podía: rellenar.
+
+**La regla: un modelo sin los hechos VA a inventar los hechos.** Y prohibirle inventar sin
+darle qué contestar es pedirle que se calle sobre su propio producto, que tampoco sirve. Van
+las dos capas: `hechosMako(base)` con lo verificado contra el código, y las prohibiciones
+duras (no dictar código de terceros con ids de ejemplo, no afirmar que algo «quedó
+instalado», no inventar rutas ni variables).
+
+⚠️ Va en `buildSystemPrompt`, no en el preámbulo del doer: la IA inventa sobre el producto en
+el chat de la app igual que en WhatsApp.
+
+⚠️ Y **la base del link la pone el código**. En la primera prueba MaKo contestó bien el
+contenido y linkeó a `https://tu-dashboard.com/integraciones`: un dominio inventado. Es el
+corolario de siempre — un dato exacto que pasa por un LLM deja de ser exacto.
+
+### 2. Un tutorial de 60 líneas adentro de un WhatsApp
+
+El preámbulo ya pedía «2-5 líneas» y el modelo escribió un manual con bloques de código y
+encabezados markdown. **Una instrucción de estilo suelta no gana contra un contenido que
+"pide" ser largo.** Por eso `LARGO_WHATSAPP` no repite el pedido: le da la SALIDA (el link de
+la tarjeta de /integraciones, que ya trae el tutorial oficial escrito por el equipo).
+**Prohibir sin ofrecer alternativa no cambia el comportamiento.**
+
+### 3. Tres borradores de plan que nadie pidió
+
+«ahí hice la prueba», «hay un problema chiquito con el botón de prueba del pixel», «probá de
+vuelta, ya agregué otra api key» → tres «Listo, te armé el borrador» con un link a revisar un
+plan que el cliente nunca pidió. El dueño: *«¿qué sentido tiene?»*.
+
+Los tres son `capturar (dudosa)`, el default de «sin señal clara». El arreglo del día
+anterior le quitó la OBLIGACIÓN de llamar la tool, y el modelo la llamó igual porque la
+tenía sobre la mesa.
+
+**Ahora una intención dudosa no VE `proponer_tareas_plan`.** Y el default del clasificador
+NO se toca: ante la duda, capturar sigue siendo correcto para el dueño volcando ideas. Lo que
+se corrige es que **la duda no EJECUTE** — el material no se pierde (sigue en la
+conversación) y el preámbulo le pide a MaKo que OFREZCA anotarlo. Es «un canal PROPONE, una
+persona confirma» aplicado a su propio criterio: crear un borrador que nadie pidió es hacer.
+
+*Corrida del 25/08/2026 — la respuesta al caso real verificada contra el modelo: «Clarity no
+necesita el pixel de Meta; solo el script de MaKo es suficiente», con el link correcto.
+Typecheck 0 errores, 1240/1240 tests.*

@@ -19,6 +19,7 @@ import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import { validarRespuestaDoer, esRutaPlan, mensajeBorrador, EJEMPLO_BORRADOR, AVISO_NO_PUDE, avisoNoPude, mensajeLeadPropuesto, EJEMPLO_LEAD } from '@/lib/respuesta-doer';
 import { evaluarPermiso } from '@/lib/veto-claude';
 import { causaDelFallo, textoFalloIA, linkKeysIA } from '@/lib/fallo-ia-texto';
+import { LARGO_WHATSAPP } from '@/lib/hechos-mako';
 import { clavesCargadas } from '@/lib/ia-keys-ws';
 import { avisoDePuntos, puntosDelMensaje } from '@/lib/puntos-mensaje';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/mako-doer-acciones';
@@ -224,6 +225,8 @@ function saneaHistorial(turnos: Array<{ role: 'user' | 'assistant'; content: str
 // ── preámbulo del doer en el grupo de WhatsApp ────────────────────────────────
 const DOER_WA_PREAMBLE = `CONTEXTO: estás en un grupo de WhatsApp con el dueño del negocio (y a veces su equipo). Te escriben a vos. Ves el HISTORIAL de la conversación: usalo, no arranques de cero ni pidas datos que ya te dieron antes. Respondé como MaKo: breve, humano, estilo WhatsApp (2-5 líneas, sin volcar JSON ni tecnicismos).
 
+SI NO ENTENDISTE SI TE ESTÁN PIDIENDO ALGO O SOLO CONTÁNDOTE ALGO: contestá como en una charla y, si te parece que hay algo para anotar en el plan, PREGUNTÁ ("¿te lo anoto como tarea?"). ⛔ No crees un borrador que no te pidieron: al cliente le llega un link a revisar un plan que no pidió y no entiende de dónde salió.
+
 HERRAMIENTAS DE LECTURA: buscar_leads, ficha_lead, historial_whatsapp, reuniones_lead, buscar_conocimiento, estado_experimentos, ver_funnel, listar_secuencias_nutricion, listar_campanas_meta, listar_horarios_reunion. Usalas para responder con datos reales; nunca inventes nombres, números ni fechas. Si te preguntan por un lead/reunión/campaña, BUSCALO con las tools antes de decir que no lo tenés.
 
 CUANDO TE PIDEN ACCIONES (cambiar la etapa de un lead, agendar una reunión, activar/pausar una nutrición, renombrar/pausar/ajustar el presupuesto de una campaña de Meta): NO ejecutás directo. Usás la tool 'proponer_*' correspondiente —que deja la acción PENDIENTE— y en tu respuesta explicás en una línea qué vas a hacer y pedís que confirmen con un "sí". Conseguí primero los ids con las tools de lectura.
@@ -323,10 +326,30 @@ async function wsDeGrupoJid(jid: string): Promise<number | null> {
  * recibía las veinte tools y ninguna obligación — y el mismo mensaje terminaba
  * en un borrador o en un ensayo según el día. Ver lib/mako-intencion.ts.
  */
-function toolsParaIntencion<T extends { name: string }>(intencion: Intencion, todas: T[]): T[] {
+function toolsParaIntencion<T extends { name: string }>(intencion: Intencion, todas: T[], dudosa = false): T[] {
   const permitidas = CONTRATO[intencion].tools;
-  if (permitidas === null) return todas;
-  return todas.filter((t) => permitidas.includes(t.name));
+  const base = permitidas === null ? todas : todas.filter((t) => permitidas.includes(t.name));
+
+  // ⚠️ UNA ADIVINANZA NO PUEDE CREAR NADA. `dudosa: true` significa, textual, «sin
+  // señal clara», y el default de ese caso es `capturar` — o sea que un mensaje que
+  // NO se pudo clasificar llegaba con `proponer_tareas_plan` sobre la mesa.
+  //
+  // EL CASO (2026-08-25). El cliente escribió tres cosas conversacionales —«ahí
+  // hice la prueba», «hay un problema chiquito, que cuando le das a prueba del
+  // pixel no se abre la landing», «probá de vuelta, ya agregué otra api key»— y
+  // recibió tres «Listo, te armé el borrador» con un link a revisar un plan que
+  // nunca pidió. El dueño: «¿qué sentido tiene?».
+  //
+  // Sacarle la tool NO pierde el material: el mensaje sigue en la conversación y
+  // el preámbulo le pide a MaKo que OFREZCA anotarlo. Es la diferencia entre
+  // preguntar y hacer, que es toda la doctrina de la casa: «un canal PROPONE, una
+  // persona confirma». Crear un borrador que nadie pidió es hacer.
+  //
+  // ⛔ Y no se toca el default del clasificador: ante la duda, seguir capturando es
+  // correcto para el dueño volcando ideas. Lo que se corrige es que la duda no
+  // EJECUTE.
+  if (!dudosa) return base;
+  return base.filter((t) => t.name !== 'proponer_tareas_plan');
 }
 
 export async function manejarEntranteDoer(instance: string, data: MsgIn): Promise<ResultadoDoer> {
@@ -752,13 +775,13 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // fue el techo de tokens: gastó 933 de 2500. Resumió. Contar no se le pide a un
     // modelo, se le pasa hecho. Ver lib/puntos-mensaje.ts.
     const ctxPuntos = avisoDePuntos(texto);
-    const system = `${base}\n\n${DOER_WA_PREAMBLE}\n\n${DEEP_LINKS}${ctxPend}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}`;
+    const system = `${base}\n\n${DOER_WA_PREAMBLE}\n\n${LARGO_WHATSAPP}\n\n${DEEP_LINKS}${ctxPend}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}`;
 
     // Tools por ruta (feedback jul-19, costo): 20 tools con schema pesan varios miles de
     // tokens de INPUT en CADA llamada. Los turnos claros (cargar tareas, confirmar) usan
     // un subset chico → mucho más barato en Claude (y entran mejor en Groq). Los turnos
     // abiertos (dato/acción/razonamiento) mandan todas, para no quedarse sin una tool.
-    const tools = toolsParaIntencion(intencion.intencion, [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS]);
+    const tools = toolsParaIntencion(intencion.intencion, [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS], intencion.dudosa);
     // turnStart bloquea el auto-confirm en el mismo turno; el texto del mensaje va para
     // que las acciones puedan negarse a inventar tareas cuando lo único que dijo el
     // dueño es "sí, dale" (ver pareceConfirmacion en mako-doer-acciones).
