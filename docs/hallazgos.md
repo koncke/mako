@@ -37,6 +37,7 @@ antes que todo lo demás:
 
 | Documento | Para qué |
 |---|---|
+| [estado-del-arte.md](estado-del-arte.md) | El **corte transversal** de todo este corpus, hecho el 25/08/2026 leyendo los 42 documentos enteros: lo que esta vivo y roto ordenado por lo que muerde (primero lo que expone datos de un cliente a otro, despues lo que le miente al dueno con un verde falso), el mapa de las 19 areas, los patrones de falla que se repiten en mas de un area — que es lo mas valioso, porque un modo de falla que mordio en dos lados es una regla del sistema y no una anecdota —, los pendientes ordenados por riesgo y lo que le falta al mapa. Se lee para **tener el contexto**; para tocar codigo se va igual al `hallazgos-<area>.md`, que es la fuente. Ojo: es material de segunda mano, hay que verificar contra el arbol antes de actuar |
 | [mapa-del-proyecto.md](mapa-del-proyecto.md) | Qué es MaKo, cómo está armado y en qué estado está cada pieza. Lo que una sesión nueva necesita saber y no está en el código |
 | [dos-cuentas.md](dos-cuentas.md) | El protocolo de las dos cuentas de Claude sobre este clon: qué comparten, los dos modos de trabajo y el traspaso |
 | [conectores.md](conectores.md) | Qué conectores tiene la cuenta de Claude, cuáles se usan de verdad y en qué orden conectarlos al cambiar de cuenta |
