@@ -174,6 +174,10 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   { feature: 'reels-writer', label: 'Escribir guion de Reel (Instagram)', grupo: 'Copywriting', def: GEMINI(), nota: 'Guion completo (hook, escenas, moraleja, CTA) con la metodología de los cursos. Sin PII.' },
   { feature: 'carousels-writer', label: 'Escribir carrusel de Instagram', grupo: 'Copywriting', def: GEMINI(), nota: 'Slides 2-10 (portada-gancho → historia → CTA) con la metodología de los cursos. Sin PII.' },
   { feature: 'stories-writer', label: 'Escribir arco de Stories (Instagram)', grupo: 'Copywriting', def: GEMINI(), nota: 'El día entero de stories (una idea, gancho → contexto → CTA) con la metodología de los cursos. Sin PII.' },
+  // El plan de clips de un anuncio con avatar (lib/video-planner.ts). Escribe el
+  // guion Y los prompts de video, así que carga más estructura que un writer de
+  // copy, pero sigue siendo brief público sin PII → default GRATIS.
+  { feature: 'video-planner', label: 'Planificar anuncio en video (Video Generator)', grupo: 'Copywriting', def: GEMINI(), nota: 'De un tema a un plan de clips: qué dice cada uno, qué se ve, la cámara y el prompt listo para pegar. El ritmo y el tope de palabras los fija la puesta en escena, no el modelo. Sin PII.' },
   { feature: 'wa-advisor', label: 'Asesor de WhatsApp — sugerir respuesta a un lead', grupo: 'Copywriting', def: GEMINI(), pii: true, nota: 'Analiza la charla real y propone el próximo mensaje (datos del cliente).' },
   { feature: 'wa-advisor-chat', label: 'Asesor de WhatsApp — conversar con MaKo sobre el lead', grupo: 'Copywriting', def: GEMINI(), pii: true, nota: 'Ida y vuelta de preguntas sobre el lead (datos del cliente).' },
   { feature: 'wa-template', label: 'Generar plantilla de WhatsApp (asesor)', grupo: 'Copywriting', def: GEMINI() },

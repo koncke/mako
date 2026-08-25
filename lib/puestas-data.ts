@@ -1,0 +1,402 @@
+// =============================================================================
+// puestas-data — el catálogo de PUESTAS EN ESCENA (data pura, sin server-only)
+// =============================================================================
+// El SEGUNDO eje del creativo, y no es el mismo que `angulos-data.ts`. Conviene
+// tenerlo claro antes de tocar cualquiera de los dos, porque el vocabulario se
+// pisa y ya costó una discusión:
+//
+//   ÁNGULO  (lib/angulos-data.ts) = QUÉ se cuenta.  «Comparación», «Hook de
+//           problema», «Mini-VSL». Es el eje de marketing.
+//   PUESTA  (este archivo)        = CÓMO se filma.  «Podcast», «Plano secuencia»,
+//           «Voz en off». Es el eje de producción.
+//
+// Son ORTOGONALES: elegir «Hook de problema» no dice si se filma en un auto o
+// caminando por una oficina. El creativo final es el cruce de los dos, y por eso
+// el cliente elige uno de cada lado — que es el pedido de «formatos a la carta».
+//
+// ⚠️ Este archivo NO importa ni modifica `angulos-data.ts`. Ese eje ya tiene
+// cuatro consumidores vivos (`api/onboarding/formatos`, `api/onboarding/razones`,
+// `MatrizView`, `cerebro-grafo`) y MatrizView es uno de los dos archivos que las
+// dos cuentas de Claude tocan a la vez — ya rompió el build en prod el 16/08.
+// Los ejes conviven; no se fusionan.
+//
+// De dónde salen los números: `confianza` lo dice en cada ficha y no es
+// decorativo. `medido` = salió de producir un anuncio real y contarlo;
+// `curso` = lo dice AvatarHype y todavía nadie lo verificó acá. Un parámetro de
+// curso puede estar mal (la tabla de créditos de Flow lo estaba), así que antes
+// de apoyar una promesa al cliente en uno, se mide.
+// =============================================================================
+
+/** Cómo se comporta la cámara durante el clip. */
+export type Camara =
+  | 'estatica'      // trípode. Podcast, Dualcast, producto en mano.
+  | 'mano'          // alguien filma con el teléfono: temblor, encuadre descentrado.
+  | 'selfie'        // brazo estirado, la persona se filma a sí misma.
+  | 'seguimiento';  // la cámara acompaña el desplazamiento (retrocede, orbita, sigue).
+
+/** Si el avatar habla en cámara, nunca, o se alterna clip a clip. */
+export type Habla = 'siempre' | 'nunca' | 'mixto';
+
+/** De dónde sale cada número de la ficha. */
+export type Confianza = 'medido' | 'curso';
+
+export type Puesta = {
+  id: string;
+  nombre: string;
+  /** Una línea para la tarjeta. Sin subtítulo debajo. */
+  descripcion: string;
+  /** El criterio de elección: cuándo conviene ESTE y no otro. */
+  cuando: string;
+  personas: 1 | 2;
+  /** Rango de clips [min, max] de un anuncio típico con esta puesta. */
+  clips: [number, number];
+  /** Rango de segundos por clip. */
+  segundosClip: [number, number];
+  camara: Camara;
+  habla: Habla;
+  /**
+   * El patrón de alternancia, solo cuando `habla === 'mixto'`. H = habla en
+   * cámara, O = voz en off. Se lee de izquierda a derecha, un carácter por clip.
+   */
+  ritmo?: string;
+  /**
+   * Palabras por segundo que entran en el clip. NO es preferencia de estilo: es
+   * cuánto texto acepta el modelo antes de tartamudear o de sobrarle tiempo.
+   */
+  densidad: number;
+  /** ¿Hay que generar imágenes ANTES de animar, o se anima sobre fotos reales? */
+  imagenesPrevias: boolean;
+  /** ¿Necesita character sheet además de la foto real? */
+  characterSheet: boolean;
+  /** Las que rompen el formato si se ignoran. Van a la tarjeta y al prompt. */
+  reglas: string[];
+  /** Dónde está documentado, para poder volver a la fuente. */
+  fuente: string;
+  confianza: Confianza;
+};
+
+// ── EL CATÁLOGO ──────────────────────────────────────────────────────────────
+// Orden: primero las dos que produjimos nosotros y están medidas, después las
+// del curso. No es ranking de calidad: es ranking de cuánto sabemos.
+
+export const CATALOGO_PUESTAS: Puesta[] = [
+  {
+    id: 'plano-secuencia',
+    nombre: 'Plano secuencia',
+    descripcion:
+      'La persona recorre un espacio real mientras cuenta la historia: camina, saluda, se sirve un café.',
+    cuando:
+      'Cuando la historia dura más de un minuto y un plano fijo la vuelve pesada. Es el formato que mejor disimula que el video es generado, porque el movimiento continuo distrae del avatar.',
+    personas: 1,
+    clips: [7, 9],
+    segundosClip: [8, 10],
+    camara: 'seguimiento',
+    habla: 'mixto',
+    ritmo: 'H O H O H O H H',
+    densidad: 2.1,
+    imagenesPrevias: false,
+    characterSheet: false,
+    reglas: [
+      'Lo que se ve NO ilustra la frase. El fondo es contexto, no subtítulo.',
+      'En los clips de voz en off la persona sigue en cuadro: solo no habla.',
+      'Nunca dos clips de voz en off seguidos.',
+      'La acción se escribe en el prompt. Si no se escribe, el modelo rellena repitiendo sílabas.',
+      'El corte de escenario llega temprano, para no repetir el mismo rincón dos veces.',
+      'No se describe la cara. La identidad la resuelve la foto real, siempre la misma.',
+    ],
+    fuente: 'Mauricio/GUION-04-oficina-plano-secuencia.md · anuncio 4 producido 24/08/2026',
+    confianza: 'medido',
+  },
+  {
+    id: 'selfie-movimiento',
+    nombre: 'Selfie en movimiento',
+    descripcion:
+      'Plano cerrado, brazo estirado, la persona habla a cámara mientras se mueve o va en un vehículo.',
+    cuando:
+      'Cuando el mensaje es directo y personal, y quieres máxima cercanía. Es el más barato de producir: no hay que generar imágenes de escenario.',
+    personas: 1,
+    clips: [7, 12],
+    segundosClip: [8, 10],
+    camara: 'selfie',
+    habla: 'siempre',
+    densidad: 3,
+    imagenesPrevias: false,
+    characterSheet: false,
+    reglas: [
+      'Una sola foto real como referencia. El escenario lo pone el prompt.',
+      'En espacios chicos con fondo corriendo por una ventanilla el fondo alucina. En espacios amplios con luz pareja, aguanta.',
+      'Los ojos no miran fijo a cámara todo el tiempo: mientras piensa mira a otro lado y vuelve.',
+      'Un clip de 10 s admite entre 26 y 30 palabras. Menos de 26 tartamudea, más de 30 no entra.',
+    ],
+    fuente: 'Mauricio/GUION-01-v4.md, GUION-02.md, GUION-03.md · anuncios 1 a 3',
+    confianza: 'medido',
+  },
+  {
+    id: 'podcast',
+    nombre: 'Podcast',
+    descripcion:
+      'Dos personas conversando en un set de podcast, cada una filmada por separado, con micrófonos de brazo.',
+    cuando:
+      'Cuando el mensaje gana si alguien lo pregunta y otro lo responde. Sirve para instalar una objeción y contestarla sin que suene a discurso.',
+    personas: 2,
+    clips: [4, 8],
+    segundosClip: [6, 8],
+    camara: 'estatica',
+    habla: 'siempre',
+    densidad: 3,
+    imagenesPrevias: true,
+    characterSheet: false,
+    reglas: [
+      'Dos imágenes de referencia, una por persona, cada una a un lado del set.',
+      'El fondo de la segunda es la MISMA habitación pero no idéntico. Voltear la primera en espejo queda raro.',
+      'La cámara no se mueve.',
+      'Cada clip lleva una microacción: asiente, reacciona, confirma.',
+      'Solo en el primer clip alguien mira el teléfono. Después miran a la otra persona.',
+    ],
+    fuente: 'AvatarHype · Formato Podcast · Producción y Edición',
+    confianza: 'curso',
+  },
+  {
+    id: 'dualcast',
+    nombre: 'Dualcast',
+    descripcion:
+      'Dos personas juntas en el mismo cuadro, hablando entre ellas y a la audiencia.',
+    cuando:
+      'Cuando quieres el efecto conversación sin el costo del podcast: no hay que generar imágenes nuevas, se pasa directo a los clips.',
+    personas: 2,
+    clips: [4, 8],
+    segundosClip: [4, 6],
+    camara: 'estatica',
+    habla: 'siempre',
+    densidad: 3,
+    imagenesPrevias: false,
+    characterSheet: false,
+    reglas: [
+      'La cámara no se mueve. En el prompt se indica cuál de las dos habla en ese clip.',
+      'Sirve para cualquier escena con dos personas en cámara, incluida la entrevista en la calle.',
+      'La duración se saca del largo del guion, con un margen: si entra en 4 s, se pide 6.',
+      'Se refuerza en edición con imágenes de lo que están diciendo.',
+    ],
+    fuente: 'AvatarHype · Formato Dualcast',
+    confianza: 'curso',
+  },
+  {
+    id: 'voz-en-off',
+    nombre: 'Voz en off',
+    descripcion:
+      'Muchos clips cortos de la persona haciendo cosas, sin hablar, con la narración por encima.',
+    cuando:
+      'Cuando el mensaje es una rutina o un recorrido —«un día conmigo»— y la publicidad entra de costado. Es el más barato de animar: los clips mudos no necesitan el modelo caro.',
+    personas: 1,
+    clips: [6, 12],
+    segundosClip: [4, 8],
+    camara: 'mano',
+    habla: 'nunca',
+    densidad: 2.55,
+    imagenesPrevias: true,
+    characterSheet: true,
+    reglas: [
+      'El prompt lleva «no talking» siempre. Sin eso el modelo la hace hablar aunque no le des guion.',
+      'El character sheet en esta puesta SÍ hace falta: la imagen de avatar sola no define bien los rasgos.',
+      'Primero se generan todas las imágenes, después se anima cada una.',
+      'La narración tiene que ENTRAR en el clip. A 2,55 palabras por segundo son unas 20 palabras por cada 8 s.',
+      'El prompt de animación es siempre el mismo molde: esta imagen, sin cambiar nada de la persona, haciendo esta acción.',
+    ],
+    fuente: 'AvatarHype · Formato Voz en off · Producción y Edición',
+    confianza: 'curso',
+  },
+  {
+    id: 'ugc-con-producto',
+    nombre: 'UGC con producto',
+    descripcion:
+      'La persona habla a cámara mientras usa el producto: lo prepara, lo toma, lo guarda.',
+    cuando:
+      'Cuando hay algo físico que mostrar y la demostración es el argumento. No sirve para servicios.',
+    personas: 1,
+    clips: [3, 5],
+    segundosClip: [8, 8],
+    camara: 'estatica',
+    habla: 'siempre',
+    densidad: 3,
+    imagenesPrevias: true,
+    characterSheet: false,
+    reglas: [
+      'Una imagen por momento del producto: preparándolo, con el vaso en la mano, guardándolo, el primer plano final.',
+      'La cámara no se mueve.',
+      'La acción pasa MIENTRAS habla. En el prompt va explícito, no como gesto suelto.',
+      'Aunque esté guardando el producto, mira a cámara.',
+    ],
+    fuente: 'AvatarHype · UGC con producto · Producción y Edición',
+    confianza: 'curso',
+  },
+  {
+    id: 'ugc-sin-producto',
+    nombre: 'UGC sin producto',
+    descripcion:
+      'La persona habla a cámara contando su antes y después, con imágenes de apoyo superpuestas.',
+    cuando:
+      'Cuando lo que se vende es un resultado y no un objeto: un servicio, un método, una transformación.',
+    personas: 1,
+    clips: [4, 8],
+    segundosClip: [6, 10],
+    camara: 'mano',
+    habla: 'siempre',
+    densidad: 3,
+    imagenesPrevias: true,
+    characterSheet: false,
+    reglas: [
+      'Hacen falta las imágenes del antes y del después, además del avatar base.',
+      'La referencia sale de una captura real de una red, no de una imagen generada.',
+      'Las imágenes de apoyo se superponen en edición, no se generan como clip.',
+    ],
+    fuente: 'AvatarHype · UGC sin producto · Producción y Edición',
+    confianza: 'curso',
+  },
+  {
+    id: 'trends-virales',
+    nombre: 'Trends virales',
+    descripcion:
+      'Se toma un video que ya funciona como base, se le conserva la música, y encima van los clips propios.',
+    cuando:
+      'Cuando el formato lo pone el algoritmo y no tú. Es el de menos control creativo y el de más alcance orgánico.',
+    personas: 1,
+    clips: [4, 8],
+    segundosClip: [4, 8],
+    camara: 'mano',
+    habla: 'nunca',
+    densidad: 2.55,
+    imagenesPrevias: true,
+    characterSheet: false,
+    reglas: [
+      'Se produce igual que Voz en off: primero las imágenes, después se anima cada una.',
+      'La música y el ritmo salen del video base. Los clips propios se acomodan a esos cortes.',
+      'El texto en pantalla va por encima, traducido al idioma del mercado.',
+      'El último clip es el del producto: es el que convierte el trend en anuncio.',
+      'La música del video base es de un tercero. Antes de pautar hay que resolver de dónde sale la pista.',
+    ],
+    fuente: 'AvatarHype · Formato Trends virales · Producción y Edición',
+    confianza: 'curso',
+  },
+];
+
+export function puestaPorId(id: string): Puesta | undefined {
+  return CATALOGO_PUESTAS.find((p) => p.id === id);
+}
+
+/**
+ * El router de proveedor, por CLIP y no por puesta.
+ *
+ * La regla del curso: avatar hablando va al modelo caro, avatar sin hablar va al
+ * barato — un plano de recurso consume la misma cuota y no aporta nada. Con
+ * `habla: 'mixto'` la decisión cambia clip a clip, así que no puede vivir como
+ * campo de la ficha.
+ */
+export function proveedorDeClip(hablaEnEsteClip: boolean): 'caro' | 'barato' {
+  return hablaEnEsteClip ? 'caro' : 'barato';
+}
+
+/**
+ * Cuántas palabras entran en un clip de esta puesta.
+ *
+ * Redondea hacia abajo: pasarse no se arregla en el montaje —hay que regenerar—
+ * mientras que quedarse corto solo deja aire, que sí se recorta.
+ */
+export function palabrasQueEntran(puesta: Puesta, segundos: number): number {
+  return Math.floor(puesta.densidad * segundos);
+}
+
+/**
+ * Cuenta palabras del texto hablado de un clip.
+ *
+ * Vive acá y no en `video-planner.ts` por la misma razón que
+ * `exigirClienteDePrueba` vive fuera del módulo que hace el trabajo sucio: es la
+ * SEGUNDA capa de la regla de densidad —la que atrapa al modelo cuando el prompt
+ * no alcanza— y adentro de un módulo con `server-only` ningún test la puede
+ * importar. Una guarda sin test se degrada sin que nadie se entere.
+ *
+ * Saca lo que no se pronuncia —los asteriscos con que el modelo marca el énfasis
+ * y la puntuación suelta— porque si no, `**palabra**` contaría como tres cosas y
+ * el aviso saltaría sobre un texto que sí entra.
+ */
+export function contarPalabras(texto: string): number {
+  return texto
+    .replace(/\*+/g, ' ')
+    .split(/\s+/)
+    .filter((p) => /[\p{L}\p{N}]/u.test(p))
+    .length;
+}
+
+/**
+ * Reparte la duración objetivo entre los clips, dentro del rango de la puesta.
+ *
+ * Prefiere clips largos: menos clips es menos deriva de identidad entre saltos y
+ * menos llamadas que pagar. El sobrante se reparte de a un segundo desde el
+ * primero, que es donde el espectador todavía está decidiendo si se queda.
+ *
+ * ⚠️ Si todos los clips llegan al techo y todavía sobra tiempo, devuelve lo que
+ * SÍ entra en vez de estirar fuera de rango: una puesta con piso de 7 clips de
+ * 8 s no puede entregar un anuncio de 30 s, y fingir que sí es mentirle a quien
+ * lo pidió. La pantalla lee esa diferencia y la avisa.
+ */
+export function repartirDuracion(puesta: Puesta, cantidad: number, totalSeg: number): number[] {
+  const [minSeg, maxSeg] = puesta.segundosClip;
+  const base = Math.min(maxSeg, Math.max(minSeg, Math.floor(totalSeg / cantidad)));
+  const segundos = Array.from({ length: cantidad }, () => base);
+  let resto = totalSeg - base * cantidad;
+  for (let i = 0; resto > 0 && i < cantidad; i++) {
+    if (segundos[i] < maxSeg) { segundos[i] += 1; resto -= 1; }
+  }
+  return segundos;
+}
+
+/**
+ * Las marcas de voseo rioplatense que NO pueden aparecer en el guion de un
+ * cliente mexicano.
+ *
+ * Existe porque el prompt solo no alcanza: la voz de MaKo es rioplatense y se
+ * cuela en lo que escribe PARA el cliente si nadie la corta. Ya pasó —el primer
+ * plan generado salió con «sos vos», «¿y vos qué vas a hacer?» y «Tocá el botón»
+ * para un cliente norteño de México— y `lib/campaign-structurer.ts:83` tenía la
+ * prohibición escrita desde antes, en otro writer. Una regla aplicada en un
+ * lugar de dos no está implementada, está documentada.
+ *
+ * Solo formas VERBALES y pronominales inequívocas: nada de palabras que existen
+ * en las dos variedades. `mirá`/`dale` quedan afuera a propósito — «dale» es
+ * común en México y `mirá` sin tilde es `mira`.
+ */
+// ⚠️ NO usar `\b`: en JavaScript el límite de palabra es ASCII, así que después
+// de una vocal acentuada NO hay boundary y `tocá`, `andá`, `mirá` o `dejá` se
+// escapan del detector en silencio — justo las formas de imperativo, que son las
+// que aparecen en todo CTA. Se comprobó con `Tocá el botón`: `\b` daba cero
+// coincidencias. Los límites van por Unicode, con lookarounds sobre `\p{L}`.
+const VOSEO = /(?<!\p{L})(vos|sos|tenés|querés|podés|sabés|hacés|venís|decís|ponés|elegís|andá|tocá|mandá|fijate|acordate|dejá|mirá|escuchá|contame|acá)(?!\p{L})/giu;
+
+/**
+ * Devuelve las marcas de voseo encontradas en un texto, sin repetir.
+ *
+ * Vacío = limpio. No corrige: el guion se marca y se pide rehacer, porque
+ * reemplazar formas verbales a mano rompe la prosodia que el guion venía a
+ * cuidar.
+ */
+export function marcasDeVoseo(texto: string): string[] {
+  const hallado = texto.match(VOSEO) ?? [];
+  return [...new Set(hallado.map((m) => m.toLowerCase()))];
+}
+
+/**
+ * El patrón habla/off expandido a un array por clip.
+ *
+ * Devuelve `true` donde la persona habla en cámara. Si la puesta no es mixta, el
+ * patrón es uniforme. Si el ritmo declarado no cubre todos los clips pedidos, se
+ * repite cíclicamente en vez de cortar: un anuncio más largo mantiene la
+ * alternancia en lugar de quedarse mudo al final.
+ */
+export function ritmoDeClips(puesta: Puesta, cantidadClips: number): boolean[] {
+  if (puesta.habla !== 'mixto' || !puesta.ritmo) {
+    const hablaSiempre = puesta.habla === 'siempre';
+    return Array.from({ length: cantidadClips }, () => hablaSiempre);
+  }
+  const patron = puesta.ritmo.replace(/\s+/g, '').toUpperCase().split('');
+  if (patron.length === 0) return Array.from({ length: cantidadClips }, () => true);
+  return Array.from({ length: cantidadClips }, (_, i) => patron[i % patron.length] === 'H');
+}

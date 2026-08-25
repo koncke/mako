@@ -1338,6 +1338,156 @@ mudos**. Esa alucinación no es ruido: es la firma de que ahí no habla nadie.
 Es más barato y más confiable que mirar los clips: una llamada al transcriptor contra
 ocho archivos y el mapa queda hecho.
 
+---
+
+Corrida del 25/08/2026: construir el Video Generator, con el pedido de presentar los
+formatos **«a la carta»** para que el cliente elija cómo quiere su video.
+
+## «Formato» significaba DOS cosas, y estaban mezcladas en un solo catálogo
+
+**Síntoma:** el pedido era «que la persona elija el formato», y el repo ya tenía un
+catálogo llamado `BIBLIOTECA_ANGULOS` cuyo comentario dice *«un ÁNGULO = el FORMATO del
+creativo»*. Parecía cubierto y no lo estaba.
+
+**Causa real:** son **dos ejes ortogonales** con el mismo nombre.
+
+| | Qué contesta | Ejemplos |
+|---|---|---|
+| `lib/angulos-data.ts` (ya existía) | **QUÉ se cuenta** — el eje de marketing | Comparación, Hook de problema, Mini-VSL |
+| `lib/puestas-data.ts` (nuevo) | **CÓMO se filma** — el eje de producción | Podcast, Plano secuencia, Voz en off |
+
+Elegir «Hook de problema» no dice si se filma en un auto o caminando por una oficina. El
+creativo es el **cruce** de los dos, y lo que faltaba era el segundo entero.
+
+**Regla que queda:** los ejes **conviven, no se fusionan**. `angulos-data.ts` no se tocó
+—tiene cuatro consumidores vivos y uno es `MatrizView`, que las dos cuentas tocan a la vez
+y ya rompió el build en prod el 16/08. Y cuando un catálogo «parece cubrir» un pedido,
+comparar lo que CONTESTA cada uno antes que sus nombres.
+
+## Los dos formatos que mejor funcionan no estaban en ningún catálogo
+
+**Plano secuencia** (recorrer un espacio) y **Selfie en movimiento** salieron de producir
+los cuatro anuncios a mano, y vivían solo en los `.md` de
+`C:/Users/marti/OneDrive/Escritorio/Mauricio/`. Ninguno de los siete formatos del curso
+los describe.
+
+El de la oficina ya estaba completamente especificado en `GUION-04` y **es una receta
+reutilizable, no un guion suelto**: 8 clips, ritmo `H O H O H O H H`, en los clips de voz
+en off el avatar sigue en cuadro, lo que se ve no ilustra la frase, y **no necesita
+generar ninguna imagen**.
+
+**Regla que queda:** cuando una producción manual funciona, sus **parámetros** son el
+entregable —ritmo, densidad, cámara, si pide imágenes previas—, no el guion. Un guion se
+usa una vez; los parámetros se usan siempre.
+
+**Y el campo `confianza` no es decoración:** `medido` = salió de producir un anuncio real
+y contarlo; `curso` = lo dice AvatarHype y nadie lo verificó acá. La tabla de créditos de
+Flow que decía el curso estaba mal por 2x, así que la distinción se paga sola.
+
+## Una puesta con piso alto NO puede entregar la duración que se le pide
+
+**Síntoma:** elegir Plano secuencia + «30 segundos» devolvía un anuncio de 56 s sin decir
+nada.
+
+**Causa real:** el piso de esa puesta son 7 clips de 8 s. Ninguna aritmética de reparto
+baja de ahí, y el selector ofrecía 30 igual.
+
+**Regla que queda:** cuando un catálogo impone un mínimo estructural, la pantalla muestra
+**lo que realmente va a salir**, no lo que se pidió, y avisa cuando difieren. Es el mismo
+modo de falla que «un verde que cierra la pregunta sobre algo que se está perdiendo».
+`duracionReal()` en `app/video-generator/video-pedido.ts`, con un test que la ata a lo que
+reparte el motor: si se separan, el aviso mentiría.
+
+## La densidad se MIDE, no se le pide al modelo
+
+El tope de palabras por clip es LA regla de este formato —pasarse hace que el modelo corte
+la frase o acelere— y estaba solo en la prosa del prompt. Ahora `sanearPlan` cuenta las
+palabras de cada clip y la tarjeta muestra «21 palabras, entran 18» en ámbar.
+
+No se recorta el texto: cortar una frase a la mitad es peor que un clip largo. Se marca y
+se pide rehacer **ese** clip, no todo el plan.
+
+**Detalle que importa:** `contarPalabras` saca los asteriscos del énfasis. Sin eso,
+`**palabra**` contaba como tres y el aviso saltaba sobre texto que sí entraba.
+
+**Y dónde vive la función importa tanto como qué hace:** `contarPalabras` y
+`repartirDuracion` están en `puestas-data.ts` (sin `server-only`) y `video-planner.ts` las
+re-exporta. Adentro del módulo con `server-only` ningún test las puede importar, que es el
+mismo criterio de `exigirClienteDePrueba`.
+
+## La voz de MaKo se filtra al guion DEL CLIENTE, y la regla ya estaba escrita en otro writer
+
+**Síntoma:** el primer plan que generó la tab, para un cliente **norteño de México**, salió
+así: *«el cuello de botella **sos vos**»*, *«**¿y vos qué vas a hacer?**»*, *«**Tocá** el
+botón abajo y **completá** el formulario»*, y los siete prompts de video pedían
+`Argentine (Rioplatense) accent`.
+
+**Causa real:** `brandSystem()` antepone `getActivePersona()` —la voz de MaKo, que es
+rioplatense— a **todo** prompt que lo use. Eso está bien para lo que MaKo le dice a Martín,
+y está mal para lo que MaKo escribe **para** el cliente.
+
+**Y lo que lo vuelve caro: la prohibición ya existía, textual, en otro writer.**
+`lib/campaign-structurer.ts:83` dice desde antes:
+
+> «IDIOMA DEL COPY (IMPORTANTE): el texto de los anuncios es para la AUDIENCIA del cliente,
+> que es de MÉXICO […] NUNCA "vos / tenés / querés / podés / mirá / che". Tu voz rioplatense
+> va SOLO en el "rationale" […] JAMÁS en los textos del anuncio.»
+
+Es el patrón que `AGENTS.md` llama por su nombre: **una regla aplicada en un lugar de dos no
+está implementada, está documentada.** El writer nuevo nació sin ella y nada avisó.
+
+**Regla que queda:** todo prompt que pase por `brandSystem()` y produzca texto que va a leer
+o decir el CLIENTE lleva su bloque de idioma explícito. La pregunta al escribir un writer
+nuevo no es «¿qué le pido al modelo?» sino **«¿de quién es la voz de lo que sale?»**.
+
+**Y la segunda capa, porque el prompt solo no alcanza:** `marcasDeVoseo()` en
+`lib/puestas-data.ts` mide la salida y la pantalla marca el clip en ámbar. No corrige el
+texto —reemplazar formas verbales a mano rompe la prosodia que el guion venía a cuidar—:
+avisa y se pide rehacer.
+
+**El acento pasó a ser un CAMPO, no un default.** No se puede adivinar y equivocarlo ya
+costó seis versiones de guion en este proyecto. El texto de cada opción viaja literal al
+prompt de video (`ACENTOS` en `app/video-generator/video-pedido.ts`).
+
+## `\b` de JavaScript es ASCII: un detector de español pierde todo lo acentuado
+
+**Síntoma:** el detector de voseo encontraba `vos`, `sos`, `sabés` y `podés`, y **no**
+encontraba `Tocá el botón`. Cero coincidencias, sin error.
+
+**Causa real:** `\b` en JS se define sobre `[A-Za-z0-9_]` **incluso con el flag `u`**. En
+`tocá`, entre la `á` y el espacio no hay borde de palabra, porque `á` no es un carácter de
+palabra ASCII. Las formas que terminan en `s` funcionaban (`podés`, `tenés`) y por eso el
+detector parecía andar.
+
+**Lo que se escapaba es justo lo que más aparece:** los imperativos —`tocá`, `andá`,
+`mandá`, `dejá`, `mirá`, `escuchá`— que son la forma de todo CTA.
+
+**Regla que queda:** en cualquier regex sobre español, los límites de palabra van por
+Unicode: `(?<!\p{L})(…)(?!\p{L})` con flag `u`, nunca `\b`. Y el test que lo caza tiene que
+incluir **una palabra terminada en vocal acentuada**: con solo probar las que terminan en
+`s`, el bug pasa verde.
+
+## Lo que quedó SIN hacer de esta corrida
+
+- **`lib/flow.ts` no existe todavía.** La tab llega hasta el plan y los prompts; generar
+  por useapi es el paso siguiente y sigue gateado por dos bloqueantes que solo puede
+  cerrar Martín: la marca de agua de Flow sin verificar y la cuenta Gmail dedicada sin
+  abrir.
+- **El Image Generator sigue en `ComingSoon`,** y su catálogo «a la carta» ya está
+  identificado: las ~12 placas del módulo *Imágenes estáticas* del curso (conversación,
+  testimonio, ticket, búsqueda, foro tipo Reddit, comparación, progresión, presupuesto
+  tipo Excel, antes/después). Vive en
+  `public/cono-tx/15aXb_YhsA0moFYNv0pxK4mVLjYQGWHDQ.json`.
+- **El eje ÁNGULO no está cableado a la tab.** `PedidoVideo` ya lleva `anguloId` y el plan
+  lo guarda, pero la pantalla todavía no lo ofrece: hoy se elige solo la puesta.
+- **Las `reglas` de cada puesta no se muestran en la tarjeta.** Viajan al prompt del
+  modelo, que es donde más pesan, pero el usuario no las ve.
+- **`docs/guia-produccion-mauricio.md` estaba sin commitear** al empezar esta corrida y se
+  dejó donde estaba (puede ser de la otra sesión).
+
+**Vive en:** `lib/puestas-data.ts`, `lib/video-planner.ts`, `app/video-generator/`,
+`tests/video-puestas.test.ts`, `lib/model-catalogo.ts` (feature `video-planner`).
+
 ## Lo que queda SIN hacer
 
 **Bloqueantes, en orden:**

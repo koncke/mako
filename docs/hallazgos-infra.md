@@ -1923,6 +1923,69 @@ bloque `new Set([…])`. Testear el proxy `getTenantDb` en sí requiere extraer
 
 ---
 
+## Verificar una tab NUEVA en local: las tres trampas, en el orden en que muerden
+
+Del 25/08/2026, construyendo `/video-generator`. Ninguna de las tres da un error que
+apunte al lugar correcto, y las tres juntas cuestan una hora.
+
+### 1. El dev server de Next 16 se chequea por DIRECTORIO, no por puerto
+
+`npm run dev` con otro server ya corriendo sobre el mismo clon **arranca igual**: elige
+otro puerto, imprime `✓ Ready in 15.1s`, y **recién después se muere** con
+`⨯ Another next dev server is already running`. Si solo se mira que arrancó, se navega a
+un puerto que ya no existe.
+
+El mensaje trae el dato que sirve: el **puerto real** del server vivo (3111 en ese
+momento) y su PID. **No se mata**: puede ser la sesión de la otra cuenta trabajando. Se
+usa el que ya está.
+
+### 2. `?ws=3` NO sirve para verificar una tab nueva: el onboarding la tapa
+
+El Cliente de Prueba tiene el onboarding **pendiente**, así que `guardOnboarding()`
+redirige cualquier tab a `/onboarding` antes de que se dibuje. La memoria de trabajo dice
+«probar en ws 3, no en ws1» y para esto es exactamente al revés: **ws 1 está exento del
+wizard**, así que es el único donde una tab nueva se puede ver.
+
+⚠️ **Y el síntoma no se parece a un redirect.** La respuesta es **200 con 58 KB de HTML**
+y, de texto visible, `MaKo MB` — el layout y el avatar, y nada más. Se lee igual que «mi
+página renderiza vacía» y manda a depurar el componente propio, que está bien. Lo que lo
+delata es grepear el HTML crudo:
+
+```bash
+grep -c "NEXT_REDIRECT" pagina.html   # 5 → no renderizó: redirigió
+grep -c "onboarding" pagina.html      # 3 → y ahí es a dónde
+```
+
+**Regla:** cuando una página propia sale «vacía» con 200, buscar `NEXT_REDIRECT` en el
+HTML **antes** de mirar el componente. Un redirect de guard y un render vacío se ven
+idénticos desde afuera.
+
+### 3. El Chrome real puede no alcanzar el dev server, y el error no lo dice
+
+`mcp__claude-in-chrome__computer` devolvió `Error capturing screenshot: Frame with ID 0 is
+showing error page` contra `localhost:3111` y contra `127.0.0.1:3111`, en dos tabs
+distintos, **mientras `curl` contra la misma URL devolvía 200 en la misma máquina y al
+mismo tiempo**. El error no distingue «la página cargó y falló» de «nunca hubo conexión».
+
+**Regla:** si el Chrome no alcanza el server local, no se abandona la verificación — se
+baja al paso 2 de «cuando algo no aparece»: `curl` con la cookie y grepear marcas del
+contenido en el HTML. El auto-login sirve igual, en dos pasos y con el cookie jar en las
+dos puntas:
+
+```bash
+curl -s -c ck.txt -o /dev/null "http://localhost:PUERTO/api/auth/dev-login?ws=1&next=/tab"
+curl -s -b ck.txt -o pagina.html "http://localhost:PUERTO/tab?ws=1"
+```
+
+⚠️ **Con `-L` y sin `-c`+`-b` la cookie se pierde en el redirect** y lo que vuelve es la
+pantalla de login (`Entrá al dashboard · Continuar con Google`), que es un tercer falso
+negativo encima de los otros dos.
+
+Eso confirma que el server renderiza el contenido; **lo que no confirma es cómo se ve**.
+Para lo visual hay que pedirle la pantalla a Martín o desplegar.
+
+**Vive en:** `app/api/auth/dev-login/route.ts`, y la memoria `verificar-en-navegador`.
+
 ## Sesiones paralelas y las dos cuentas
 
 Hay **dos cuentas** de Claude Code sobre este mismo clon (`claude1`/`claude2` en el `$PROFILE`),

@@ -638,6 +638,40 @@ Las cuatro reglas, que valen para cualquier error que llegue a un usuario:
   paga peor, porque lo manda a tocar algo que está bien. `proveedor_caido` dice «no
   es nada tuyo, tus keys están bien» y **no** lleva link.
 
+# La voz de MaKo es rioplatense, y el texto DEL CLIENTE no
+
+`brandSystem()` antepone `getActivePersona()` —la voz de MaKo— a todo prompt que lo use.
+Eso es correcto para lo que MaKo le dice a Martín, y **se filtra** a lo que MaKo escribe
+*para* el cliente si nadie lo corta.
+
+Pasó el 25/08/2026 con `lib/video-planner.ts`: el primer guion generado para un cliente
+**norteño de México** decía «el cuello de botella **sos vos**», «**¿y vos qué vas a
+hacer?**» y «**Tocá** el botón», con los siete prompts pidiendo acento
+`Argentine (Rioplatense)`.
+
+**Y la prohibición ya existía, textual, en otro writer** — `lib/campaign-structurer.ts:83`:
+*«Tu voz rioplatense va SOLO en el "rationale" […] JAMÁS en los textos del anuncio.»* Es
+«una regla aplicada en un lugar de dos no está implementada, está documentada», otra vez.
+
+- **Todo prompt que pase por `brandSystem()` y produzca texto que el CLIENTE va a leer o
+  decir lleva su bloque de idioma explícito.** La pregunta al escribir un writer nuevo no
+  es «¿qué le pido al modelo?» sino **«¿de quién es la voz de lo que sale?»**.
+- **Y la segunda capa mide la salida**, porque el prompt solo no alcanza: `marcasDeVoseo()`
+  (`lib/puestas-data.ts`, sin `server-only` para que se pueda testear) marca el texto y la
+  pantalla lo muestra. No corrige —reemplazar formas verbales a mano rompe la prosodia—:
+  avisa y se rehace.
+- **Cuando el texto lo va a DECIR una persona, el acento es un campo, no un default.** No
+  se puede adivinar, y equivocarlo no se nota al leer: se nota cuando alguien lo dice en
+  voz alta. Ya costó seis versiones de guion.
+
+⚠️ **Y el detector: `\b` de JavaScript es ASCII, incluso con el flag `u`.** En `tocá` no
+hay borde de palabra entre la `á` y el espacio, así que `\b(tocá)\b` da **cero
+coincidencias, sin error** — y lo que se escapa son justo los imperativos (`tocá`, `andá`,
+`mandá`, `dejá`, `mirá`), que son la forma de todo CTA. En cualquier regex sobre español
+los límites van por Unicode: `(?<!\p{L})(…)(?!\p{L})`. El test que lo caza **tiene que
+incluir una palabra terminada en vocal acentuada**: probando solo las que terminan en `s`,
+el bug pasa verde.
+
 # Un mensaje que sale solo no puede AFIRMAR lo que no verificó
 
 Un aviso automático llega con la autoridad del sistema: el que lo lee no tiene cómo

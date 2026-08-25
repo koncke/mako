@@ -1,0 +1,100 @@
+// =============================================================================
+// video-datos — historial de planes y estado del contexto de la tab
+// =============================================================================
+// Mismo molde que app/reels/reels-datos.ts: el historial vive como JSON en
+// app_settings (getSetting/setSetting ya scopean por workspace) en vez de una
+// migración nueva, que colisiona con la numeración de otras corridas.
+//
+// Tope de 10 a propósito: app_settings guarda texto y el historial es para
+// «recuperar el de ayer», no un archivo eterno. Si hace falta más, eso es una
+// tabla con migración, no subir este número.
+//
+// ⚠️ Escritura read-modify-write sin lock: dos generaciones EXACTAMENTE
+// simultáneas pueden perder una entrada del historial (no el plan en pantalla).
+// Aceptado: es un historial de conveniencia, no la fuente de verdad de nada.
+
+import 'server-only';
+import { getSetting, setSetting } from '@/lib/settings';
+import { getPersona } from '@/lib/persona';
+import { getSchema, getAnswers } from '@/lib/onboarding';
+import type { PlanVideo } from '@/lib/video-planner';
+
+export const KEY_HISTORIAL_VIDEO = 'video-generator.historial';
+const MAX_HISTORIAL = 10;
+
+export type PlanGuardado = {
+  id: string;
+  /** El tema que pidió el usuario (para el rótulo del historial). */
+  pedido: string;
+  plan: PlanVideo;
+  at: string;
+};
+
+const esEntrada = (e: unknown): e is PlanGuardado => {
+  if (!e || typeof e !== 'object') return false;
+  const o = e as Record<string, unknown>;
+  return typeof o.id === 'string' && typeof o.at === 'string' && !!o.plan && typeof o.plan === 'object';
+};
+
+/** Historial del workspace (tolerante: basura o shape viejo → vacío). */
+export async function leerHistorial(): Promise<PlanGuardado[]> {
+  try {
+    const raw = await getSetting(KEY_HISTORIAL_VIDEO);
+    if (!raw) return [];
+    const arr = JSON.parse(raw) as unknown;
+    return Array.isArray(arr) ? arr.filter(esEntrada).slice(0, MAX_HISTORIAL) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Agrega (o reemplaza por id) y recorta al tope. Devuelve el historial nuevo. */
+export async function guardarEnHistorial(item: PlanGuardado): Promise<PlanGuardado[]> {
+  const actual = await leerHistorial();
+  const nuevo = [item, ...actual.filter((e) => e.id !== item.id)].slice(0, MAX_HISTORIAL);
+  await setSetting(KEY_HISTORIAL_VIDEO, JSON.stringify(nuevo));
+  return nuevo;
+}
+
+// ── Estado del contexto de la tab ────────────────────────────────────────────
+// Dos requisitos, y son distintos: sin PERFIL el anuncio se escribe sobre nada;
+// sin FOTO cada clip inventa una cara. El segundo es bloqueante de verdad y el
+// motor lo corta con error propio — acá se lee para poder avisarlo ANTES, en la
+// pantalla, en vez de dejar que el usuario escriba un tema y recién ahí falle.
+//
+// Estado VIVO, no recordado: se lee el estado de AHORA en cada carga. Si el
+// cliente borra sus fotos, el aviso vuelve solo.
+
+export type EstadoContextoVideo = {
+  tieneFotos: boolean;
+  cantidadFotos: number;
+  perfilListo: boolean;
+  faltanDelPerfil: string[];
+};
+
+export async function estadoContextoVideo(): Promise<EstadoContextoVideo> {
+  const [persona, perfil] = await Promise.all([
+    getPersona().catch(() => null),
+    (async () => {
+      try {
+        const [schema, answers] = await Promise.all([getSchema(), getAnswers()]);
+        const faltan = schema
+          .filter((g) => !g.fields.some((f) => (answers[f.key] ?? '').trim()))
+          .map((g) => g.label);
+        return { listo: faltan.length < schema.length, faltan };
+      } catch {
+        // Consulta caída ≠ perfil vacío, pero acá el estado solo pinta un aviso
+        // suave (nunca bloquea): degradar a "no listo" es lo conservador.
+        return { listo: false, faltan: [] as string[] };
+      }
+    })(),
+  ]);
+
+  const fotos = persona?.fotos.length ?? 0;
+  return {
+    tieneFotos: fotos > 0,
+    cantidadFotos: fotos,
+    perfilListo: perfil.listo,
+    faltanDelPerfil: perfil.faltan,
+  };
+}
