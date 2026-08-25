@@ -43,10 +43,17 @@ export async function GET(req: Request) {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-          <div style={{
-            width: 56, height: 56, borderRadius: 14, background: DORADO, display: 'flex',
-            alignItems: 'center', justifyContent: 'center', fontSize: 34, color: TINTA, fontWeight: 800,
-          }}>✦</div>
+          {/* ⚠️ LA ESTRELLA VA COMO VECTOR, NO COMO GLIFO. Con el carácter `✦`
+              (U+2726) la primera versión salió con un CUADRITO: la fuente por
+              defecto del renderer de edge no lo tiene, y un tofu en el logo de la
+              marca es peor que no poner logo. Es el mismo path que
+              lib/mako-grupo.ts usa para la foto del grupo. */}
+          <svg width="56" height="56" viewBox="-16 -16 32 32" style={{ borderRadius: 14, background: DORADO }}>
+            <path
+              d="M0 -11 C1 -4 4 -1 11 0 C4 1 1 4 0 11 C-1 4 -4 1 -11 0 C-4 -1 -1 -4 0 -11 Z"
+              fill={TINTA}
+            />
+          </svg>
           <div style={{ fontSize: 30, color: DORADO, fontWeight: 700, letterSpacing: 1 }}>MaKo</div>
         </div>
 
