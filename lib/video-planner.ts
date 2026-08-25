@@ -29,7 +29,7 @@ import { brandSystem, parseJsonObject } from './campaign-structurer';
 import { renderTemplate, contenidoNoConfiable } from './prompt-render-pure';
 import {
   puestaPorId, ritmoDeClips, palabrasQueEntran, contarPalabras, repartirDuracion,
-  marcasDeVoseo, type Puesta,
+  marcasDeVoseo, conAcento, type Puesta,
 } from './puestas-data';
 
 // Se re-exportan porque son parte del contrato del motor, pero VIVEN en
@@ -104,7 +104,7 @@ Reglas de esta puesta. No son estilo: romperlas rompe el formato.
 
 El guion lo va a decir una persona real frente a una cámara, a SU audiencia. No es un texto tuyo.
 
-**Acento y variedad del español: {{acento}}.** Escribe el guion en esa variedad y ponla en el bloque de acento de cada prompt de video, con esas palabras.
+**Acento y variedad del español: {{acento}}.** Escribe el guion en esa variedad. En el prompt de video NO lo escribas: lo pone el sistema.
 
 ⚠️ **Tu voz rioplatense NO entra acá. Jamás.** Nada de «vos», «tenés», «querés», «podés», «mirá», «dale», «acá», «che». Si la variedad pedida es mexicana o neutra, va «tú / tienes / quieres / puedes / mira / aquí». Un anuncio con el voseo de MaKo adentro suena a que lo escribió otra persona, porque lo escribió otra persona.
 
@@ -126,7 +126,9 @@ Tres bloques, en este orden y siempre en inglés salvo el guion:
 
 1. **Cámara.** Qué hace el teléfono que filma. Con precisión: "retrocede frente a él" y "visto desde el asiento del acompañante" son tomas opuestas, y si no lo dices el modelo elige la que no es. Cuando la puesta pide cámara estática, se dice explícitamente que no se mueve.
 2. **Acción.** Qué hace la persona, físicamente. Va siempre, incluso si es "está quieto": si no se escribe, el modelo rellena.
-3. **Guion y acento.** El texto entre comillas, tal cual, y después el acento en una frase.
+3. **Guion.** El texto entre comillas, tal cual.
+
+**NO escribas el acento ni el idioma en el prompt.** Lo agrega el sistema al final, con las palabras exactas que eligió el cliente. Si lo escribes vos, se borra.
 
 **NUNCA describas la cara, el pelo, la edad ni el cuerpo de la persona.** Ni una palabra. La identidad la resuelve la foto de referencia que se adjunta, y cualquier descripción compite con ella: el modelo prefiere el texto y devuelve a alguien que cumple la descripción sin ser la persona. Esta es la regla que más caro se paga romper.
 
@@ -215,7 +217,7 @@ async function briefDelNegocio(): Promise<string> {
 
 const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 
-function sanearPlan(raw: Record<string, unknown>, puesta: Puesta, segundos: number[]): PlanVideo {
+function sanearPlan(raw: Record<string, unknown>, puesta: Puesta, segundos: number[], acento: string): PlanVideo {
   const habla = ritmoDeClips(puesta, segundos.length);
   const crudos = Array.isArray(raw.clips) ? raw.clips : [];
   if (crudos.length === 0) throw new Error('el plan volvió sin clips');
@@ -243,7 +245,7 @@ function sanearPlan(raw: Record<string, unknown>, puesta: Puesta, segundos: numb
       queSeVe: str(o.queSeVe),
       camara: str(o.camara),
       imagenAdjunta: puesta.imagenesPrevias && adjunta ? adjunta : undefined,
-      prompt: str(o.prompt),
+      prompt: conAcento(str(o.prompt), acento),
       palabras: contarPalabras(voz),
       tope: palabrasQueEntran(puesta, segundos[i]),
       voseo: marcasDeVoseo(voz),
@@ -345,7 +347,7 @@ export async function generarPlan(ws: number, pedido: PedidoPlan): Promise<Gener
       motivo: `Planificar anuncio en video (${puesta.nombre})`,
     });
 
-    return { ok: true, plan: { ...sanearPlan(parseJsonObject(salida), puesta, segundos), anguloId: pedido.anguloId } };
+    return { ok: true, plan: { ...sanearPlan(parseJsonObject(salida), puesta, segundos, pedido.acentoPrompt), anguloId: pedido.anguloId } };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, error: `No se pudo armar el plan: ${msg}` };

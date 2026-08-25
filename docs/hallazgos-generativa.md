@@ -1467,6 +1467,65 @@ Unicode: `(?<!\p{L})(…)(?!\p{L})` con flag `u`, nunca `\b`. Y el test que lo c
 incluir **una palabra terminada en vocal acentuada**: con solo probar las que terminan en
 `s`, el bug pasa verde.
 
+## Un formato se elige VIENDO, no leyendo — y la primera pantalla se rehízo entera
+
+**Síntoma:** la primera versión del Video Generator puso las **ocho** puestas en escena
+como tarjetas —nombre, descripción, cuándo usarlo, tres chips— todas a la vez, al lado del
+formulario del pedido. El dueño la rechazó de una: *«se ve horrible todo junto, la
+experiencia del usuario es 0»*.
+
+**Causa real, y es de diseño, no de estilo:** describir un formato de video con texto es
+pedirle a alguien que imagine el resultado. Los cuatro anuncios ya estaban producidos —el
+material para mostrarlo existía desde hacía dos días— y la pantalla igual explicaba con
+párrafos.
+
+**Las tres reglas que quedan:**
+
+1. **El ejemplo es el anuncio real, no la descripción.** Diez segundos en loop contestan
+   «cómo se ve» mejor que cualquier texto, y de paso prueban que el formato existe.
+2. **Solo se ofrece lo que tiene ejemplo.** El campo `ejemplo` de la ficha es lo que
+   habilita a una puesta a aparecer (`puestasOfrecidas()`); el catálogo entero sigue vivo
+   porque el motor sabe planificar las ocho y porque es el orden de trabajo de lo que falta
+   producir. Hoy se ofrecen **dos**. Se suman de a una, cuando hay un anuncio nuevo que
+   mostrar. Ofrecer un formato que nadie produjo es prometer sin haber medido.
+3. **Una pregunta por pantalla.** El molde ya existía en el repo (`WizardShell` fullscreen
+   embebido, el de los onboardings de tab) y no se usó. Son cuatro pasos: formato → tema →
+   duración → acento.
+
+**El costo del ejemplo es despreciable y conviene tenerlo escrito:** 10 s recortados del
+anuncio original (2160×3840 a 24 Mbps) escalados a 360×640 con `-crf 30 -preset slow` y sin
+audio dan **entre 310 y 380 KB**, más un poster de ~25 KB. Van en `public/formatos/`. Sin
+audio a propósito: lo que se juzga al elegir es cómo se mueve la cámara, y `muted` +
+`playsInline` es lo que el navegador exige para dejar autoplay.
+
+**El test que lo sostiene** verifica contra el disco que el video y el poster de cada
+ejemplo existan. Una ruta que apunta a la nada no rompe nada: deja un cuadro negro donde
+tenía que estar el ejemplo.
+
+## El acento no lo transporta el modelo: lo pone el código
+
+**Síntoma:** con el campo de acento ya cableado y el prompt pidiéndolo, se eligió
+**México — norteño** y los **siete** clips salieron con
+`Spoken in neutral Latin American Spanish`.
+
+**Causa real:** no lo parafraseó — lo **ignoró**. El valor pedido
+(`Mexican Spanish with a northern (norteño) accent`) no aparece en ninguna parte de la
+salida. Es la regla de `AGENTS.md` sobre datos exactos, aplicada a un campo que no parece
+un id: *si tiene que llegar intacto, no lo transporta el modelo*.
+
+**Regla que queda:** el prompt le dice al modelo que escriba el guion en esa variedad y que
+**NO escriba el acento** en el prompt de video; `conAcento()` lo agrega al final de cada
+clip con el texto literal del catálogo.
+
+**Y borra el que haya escrito el modelo, no solo agrega el nuestro.** Dos frases de acento
+contradictorias en el mismo prompt son peor que una equivocada: el modelo de video elige una
+y no hay forma de saber cuál. La limpieza cubre las tres formas con que cierra el prompt —
+`Spoken in X.`, `Spoken naturally with an X accent.`, `Accent: X.`
+
+**Cómo se detecta, que es lo que más ahorra:** no se mira si el prompt «tiene acento», se
+busca **el string exacto que se pidió**. Un prompt con un acento plausible adentro pasa
+cualquier revisión a ojo — y era el equivocado en los siete clips.
+
 ## Lo que quedó SIN hacer de esta corrida
 
 - **`lib/flow.ts` no existe todavía.** La tab llega hasta el plan y los prompts; generar
@@ -1480,8 +1539,11 @@ incluir **una palabra terminada en vocal acentuada**: con solo probar las que te
   `public/cono-tx/15aXb_YhsA0moFYNv0pxK4mVLjYQGWHDQ.json`.
 - **El eje ÁNGULO no está cableado a la tab.** `PedidoVideo` ya lleva `anguloId` y el plan
   lo guarda, pero la pantalla todavía no lo ofrece: hoy se elige solo la puesta.
-- **Las `reglas` de cada puesta no se muestran en la tarjeta.** Viajan al prompt del
+- **Las `reglas` de cada puesta no se muestran en ningún lado.** Viajan al prompt del
   modelo, que es donde más pesan, pero el usuario no las ve.
+- **Faltan seis ejemplos en video.** Podcast, Dualcast, Voz en off, UGC con y sin producto y
+  Trends virales están en el catálogo y NO se ofrecen, porque nadie produjo un anuncio con
+  ellos. Cada uno entra al menú el día que exista el anuncio para mostrar.
 - **`docs/guia-produccion-mauricio.md` estaba sin commitear** al empezar esta corrida y se
   dejó donde estaba (puede ser de la otra sesión).
 

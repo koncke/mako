@@ -14,17 +14,22 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 // Todo sale de módulos SIN `server-only`. `lib/video-planner.ts` las re-exporta
 // para quien use el motor, pero importarlas de ahí arrastra el server-only y el
 // test no arranca — que es exactamente el motivo por el que viven separadas.
 import {
   CATALOGO_PUESTAS, puestaPorId, ritmoDeClips, palabrasQueEntran, proveedorDeClip,
-  contarPalabras, repartirDuracion, marcasDeVoseo,
+  contarPalabras, repartirDuracion, marcasDeVoseo, puestasOfrecidas, conAcento,
 } from '../lib/puestas-data';
 import {
   duracionReal, clipsParaDuracion, segundosDe, DURACIONES_VIDEO,
   ACENTOS, acentoPrompt, acentoEsVoseante,
 } from '../app/video-generator/video-pedido';
+
+const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 // ── El catálogo ──────────────────────────────────────────────────────────────
 
@@ -71,6 +76,47 @@ test('el copy visible del catálogo no tiene voseo', () => {
       assert.ok(!VOSEO.test(r), `${p.id}.reglas: «${r}»`);
     }
   }
+});
+
+// ── Lo que se OFRECE: solo lo que tiene un anuncio real para mostrar ─────────
+// Un formato elegido desde una descripción es un formato elegido a ciegas. Y una
+// ruta a un archivo que no está no rompe nada: deja un cuadro negro donde tenía
+// que haber un ejemplo, que es peor que no ofrecerlo.
+
+test('solo se ofrecen las puestas que tienen ejemplo en video', () => {
+  for (const p of puestasOfrecidas()) {
+    assert.ok(p.ejemplo, `${p.id} se ofrece sin ejemplo`);
+  }
+  const sinEjemplo = CATALOGO_PUESTAS.filter((p) => !p.ejemplo).map((p) => p.id);
+  const ofrecidas = puestasOfrecidas().map((p) => p.id);
+  for (const id of sinEjemplo) {
+    assert.ok(!ofrecidas.includes(id), `${id} no tiene ejemplo y se está ofreciendo`);
+  }
+});
+
+test('se ofrece al menos una: un menú vacío deja la tab sin entrada', () => {
+  assert.ok(puestasOfrecidas().length >= 1);
+});
+
+test('toda puesta con ejemplo es una MEDIDA, no una del curso', () => {
+  // El ejemplo es el anuncio que se produjo con ella: si existe, se produjo.
+  for (const p of puestasOfrecidas()) {
+    assert.equal(p.confianza, 'medido', `${p.id} tiene ejemplo pero dice confianza «${p.confianza}»`);
+  }
+});
+
+test('EL PEDIDO: el video y el poster de cada ejemplo existen en disco', () => {
+  const faltan: string[] = [];
+  for (const p of CATALOGO_PUESTAS) {
+    if (!p.ejemplo) continue;
+    for (const ruta of [p.ejemplo.video, p.ejemplo.poster]) {
+      // Las rutas son públicas («/formatos/x.mp4») y se sirven desde public/.
+      if (!existsSync(resolve(RAIZ, 'public', ruta.replace(/^\//, '')))) {
+        faltan.push(`${p.id} → ${ruta}`);
+      }
+    }
+  }
+  assert.deepEqual(faltan, [], `ejemplos que apuntan a la nada:\n${faltan.join('\n')}`);
 });
 
 // ── El ritmo habla/off ───────────────────────────────────────────────────────
@@ -216,6 +262,64 @@ test('un acento desconocido cae en México neutro, no en vacío', () => {
   // La audiencia del negocio es de México: el default no puede ser un string vacío
   // que deje al modelo eligiendo el acento por su cuenta.
   assert.equal(acentoPrompt('no-existe'), acentoPrompt('mx-neutro'));
+});
+
+// ── El acento lo pone el CÓDIGO ──────────────────────────────────────────────
+// Medido el 25/08/2026: se pidió `Mexican Spanish with a northern (norteño)
+// accent` y los SIETE clips salieron con «Spoken in neutral Latin American
+// Spanish». El modelo no lo parafraseó: lo ignoró. Es la regla de AGENTS.md
+// sobre datos exactos — si tiene que llegar intacto, no lo transporta el modelo.
+
+const NORTE = 'Mexican Spanish with a northern (norteño) accent';
+
+test('EL CASO REAL: reemplaza el acento que el modelo puso por su cuenta', () => {
+  const delModelo =
+    'Camera tracks backwards. The person walks toward the camera.\n' +
+    'Dialogue: "A ver, el otro día visité la planta." Spoken in neutral Latin American Spanish.';
+  const out = conAcento(delModelo, NORTE);
+  assert.ok(out.includes(NORTE), out);
+  assert.ok(!out.includes('neutral Latin American Spanish'), out);
+});
+
+test('borra las tres formas con que el modelo cierra el prompt', () => {
+  for (const cola of [
+    'Spoken in Argentine (Rioplatense) accent.',
+    'Spoken naturally with an authentic Argentine accent.',
+    'Accent: Neutral Latin American Spanish.',
+  ]) {
+    const out = conAcento(`Camera is static. Dialogue: "Hola." ${cola}`, NORTE);
+    assert.ok(!/Argentine|Rioplatense|Neutral Latin/i.test(out), `quedó: ${out}`);
+    assert.ok(out.includes(NORTE), out);
+  }
+});
+
+test('un prompt sin acento igual sale con el acento puesto', () => {
+  const out = conAcento('Static camera. The person does not speak.', NORTE);
+  assert.equal(out, `Static camera. The person does not speak.\nSpoken in ${NORTE}.`);
+});
+
+test('no se acumulan dos acentos al pasarlo dos veces', () => {
+  const una = conAcento('Camera is static. Dialogue: "Hola."', NORTE);
+  const dos = conAcento(una, NORTE);
+  assert.equal(dos, una);
+  assert.equal(dos.match(/Spoken in/g)?.length, 1);
+});
+
+test('no se come el guion ni la acción al limpiar', () => {
+  const out = conAcento(
+    'Camera moves backwards smoothly. The person walks forward.\nDialogue: "El cuello de botella eres tú." Spoken in neutral Spanish.',
+    NORTE,
+  );
+  assert.ok(out.includes('El cuello de botella eres tú'), out);
+  assert.ok(out.includes('The person walks forward'), out);
+});
+
+test('todo acento del catálogo sobrevive intacto al inyectarse', () => {
+  // Los paréntesis y los acentos de «(norteño)» no pueden perderse por el camino.
+  for (const a of ACENTOS) {
+    const p = acentoPrompt(a.value);
+    assert.ok(conAcento('Static camera.', p).includes(p), `${a.value}: ${p}`);
+  }
 });
 
 // ── El router de proveedor ───────────────────────────────────────────────────

@@ -11,9 +11,9 @@
 // (cuánto dura, cuántos clips) y no de la puesta.
 
 import type { PlanVideo } from '@/lib/video-planner';
-import { CATALOGO_PUESTAS, puestaPorId, type Puesta } from '@/lib/puestas-data';
+import { CATALOGO_PUESTAS, puestaPorId, puestasOfrecidas, type Puesta } from '@/lib/puestas-data';
 
-export { CATALOGO_PUESTAS, puestaPorId };
+export { CATALOGO_PUESTAS, puestaPorId, puestasOfrecidas };
 export type { Puesta };
 
 // ── Catálogo del pedido (opciones cerradas, nunca un campo libre de más) ─────

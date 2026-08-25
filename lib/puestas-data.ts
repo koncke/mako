@@ -73,6 +73,19 @@ export type Puesta = {
   /** Dónde está documentado, para poder volver a la fuente. */
   fuente: string;
   confianza: Confianza;
+  /**
+   * El anuncio REAL que se produjo con esta puesta, recortado y comprimido para
+   * mostrarlo al elegir.
+   *
+   * Es lo que decide si la puesta se OFRECE o no. Un formato descrito con tres
+   * párrafos no se elige: se lee. Diez segundos de video contestan «cómo se ve»
+   * mejor que cualquier texto, y encima prueban que el formato existe.
+   *
+   * Para sumar una puesta al menú: se produce un anuncio con ella, se recorta el
+   * ejemplo y se agrega acá. Sin ejemplo no entra — no por prolijidad, sino
+   * porque ofrecer un formato que nadie produjo es prometer sin haber medido.
+   */
+  ejemplo?: { video: string; poster: string };
 };
 
 // ── EL CATÁLOGO ──────────────────────────────────────────────────────────────
@@ -106,6 +119,7 @@ export const CATALOGO_PUESTAS: Puesta[] = [
     ],
     fuente: 'Mauricio/GUION-04-oficina-plano-secuencia.md · anuncio 4 producido 24/08/2026',
     confianza: 'medido',
+    ejemplo: { video: '/formatos/plano-secuencia.mp4', poster: '/formatos/plano-secuencia.jpg' },
   },
   {
     id: 'selfie-movimiento',
@@ -130,6 +144,7 @@ export const CATALOGO_PUESTAS: Puesta[] = [
     ],
     fuente: 'Mauricio/GUION-01-v4.md, GUION-02.md, GUION-03.md · anuncios 1 a 3',
     confianza: 'medido',
+    ejemplo: { video: '/formatos/selfie-movimiento.mp4', poster: '/formatos/selfie-movimiento.jpg' },
   },
   {
     id: 'podcast',
@@ -279,6 +294,21 @@ export const CATALOGO_PUESTAS: Puesta[] = [
   },
 ];
 
+/**
+ * Las puestas que se le OFRECEN al cliente: las que tienen un anuncio real para
+ * mostrar.
+ *
+ * El catálogo entero sigue existiendo porque el motor sabe planificar las ocho, y
+ * porque son el orden de trabajo de lo que falta producir. Lo que no se ofrece es
+ * lo que nadie hizo todavía: un formato elegido desde una descripción es un
+ * formato elegido a ciegas, y el cliente se entera al ver el resultado.
+ *
+ * Hoy son dos. Se suman de a una, cada vez que se produce un anuncio nuevo.
+ */
+export function puestasOfrecidas(): Puesta[] {
+  return CATALOGO_PUESTAS.filter((p) => p.ejemplo);
+}
+
 export function puestaPorId(id: string): Puesta | undefined {
   return CATALOGO_PUESTAS.find((p) => p.id === id);
 }
@@ -381,6 +411,31 @@ const VOSEO = /(?<!\p{L})(vos|sos|tenés|querés|podés|sabés|hacés|venís|dec
 export function marcasDeVoseo(texto: string): string[] {
   const hallado = texto.match(VOSEO) ?? [];
   return [...new Set(hallado.map((m) => m.toLowerCase()))];
+}
+
+/**
+ * Pone el acento en el prompt de un clip, sacando primero el que haya escrito el
+ * modelo.
+ *
+ * **El acento no lo transporta el modelo.** Medido el 25/08/2026: se pidió
+ * `Mexican Spanish with a northern (norteño) accent` y los siete clips salieron
+ * con `Spoken in neutral Latin American Spanish` — no lo parafraseó, lo ignoró.
+ * Es la regla de AGENTS.md sobre datos exactos: si tiene que llegar intacto, lo
+ * pone el código.
+ *
+ * Y por qué además se BORRA lo que escribió el modelo en vez de solo agregar el
+ * nuestro: dos frases de acento contradictorias en el mismo prompt son peor que
+ * una equivocada — el modelo de video elige una y no hay forma de saber cuál.
+ */
+export function conAcento(prompt: string, acento: string): string {
+  const limpio = prompt
+    // «Spoken in X.» / «Spoken with a X accent.» / «Accent: X.» — las tres formas
+    // que el modelo usa para cerrar el prompt. Sin la `m`, `$` no corta por línea.
+    .replace(/(?:^|\s)(?:spoken\s+(?:in|with|naturally\s+with|clearly\s+with)|accent\s*:)[^.\n]*\.?/gim, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/ +\n/g, '\n')
+    .trim();
+  return `${limpio}\nSpoken in ${acento}.`;
 }
 
 /**
