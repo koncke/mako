@@ -66,6 +66,35 @@ export type Retencion = {
   sinMedicion: number;
 };
 
+/**
+ * Los tipos de evento que hablan del VIDEO. Todo lo demás habla de la PÁGINA.
+ *
+ * ⚠️ ESTA CONSTANTE ES LA FRONTERA, y vive acá porque acá es donde se cruza. El
+ * snippet manda por el mismo canal y a la misma columna `segundos` dos cosas que
+ * no se parecen en nada: los hitos del video (`p5`…`p100`, `s3`…`s1200`, play,
+ * pausa, retoma, fin, exit) y el tiempo en la PÁGINA (`salio`, `volvio`,
+ * `cierre`, desde la v14). Los segundos de un `salio` son cuánto estuvo la
+ * pestaña abierta — dividirlos por la duración del video produce un porcentaje
+ * de retención de algo que la persona nunca reprodujo.
+ *
+ * Medido sobre producción el 25/08/2026, antes de este filtro: 3.416 filas
+ * producían un avance inventado, y el ws13 —cuya landing NO TIENE VIDEO, tiene
+ * el hueco con el cartel «Video próximamente»— reportaba 30 personas que
+ * «reprodujeron el video». Ese número entra al prompt del Landing Analyst, así
+ * que la IA venía razonando sobre reproducciones fantasma.
+ *
+ * La regla, que este repo ya se había escrito a sí mismo en landing-token.ts:
+ * un contador que se llama «eventos de X» se filtra por los tipos de X, nunca
+ * por «todo menos Y». La lista de lo que no es Y crece sola con cada evento
+ * nuevo, y crece en silencio — que es exactamente como llegó este bug: el filtro
+ * `!== 'play'` era correcto en la v5 y quedó viejo sin que nadie lo tocara.
+ */
+export const ES_EVENTO_DE_VIDEO = /^(play|pausa|retoma|fin|exit|p\d+|s\d+)$/;
+
+/** ¿Este evento habla del video, o de la página que lo contiene? */
+export const esEventoDeVideo = (tipo: string | null | undefined): boolean =>
+  ES_EVENTO_DE_VIDEO.test((tipo ?? '').trim());
+
 const CORTES: number[] = Array.from({ length: 20 }, (_, i) => (i + 1) * 5); // 5..100
 
 const clampPct = (n: number): number => Math.max(0, Math.min(100, n));
@@ -79,6 +108,12 @@ const clampPct = (n: number): number => Math.max(0, Math.min(100, n));
  * distinto de cero.
  */
 export function avanceDe(ev: EventoVsl, duracionS: number | null): number | null {
+  // ⚠️ EL CORTE VA ACÁ, en el choke point, y no en cada consumidor. Filtrar en
+  // los tres llamadores deja la regla escrita tres veces y rompible la cuarta —
+  // que es como se rompió: `getVslEngagement` y `getVslEngagementMap` excluían
+  // `play` y nada más, así que `salio`, `volvio` y `cierre` entraban acá con sus
+  // segundos de PÁGINA y salían convertidos en porcentaje de VIDEO.
+  if (!esEventoDeVideo(ev.tipo_evento)) return null;
   if (typeof ev.porcentaje === 'number' && Number.isFinite(ev.porcentaje) && ev.porcentaje > 0) {
     return clampPct(ev.porcentaje);
   }
@@ -113,6 +148,13 @@ export function avancePorPersona(
   for (const ev of eventos) {
     // Dos videos distintos no se promedian: son dos curvas, no una.
     if (videoId && ev.video_id && ev.video_id !== videoId) continue;
+    // ⚠️ Y ACÁ EL CORTE ES POR OTRA RAZÓN que la de `avanceDe`: no alcanza con
+    // que el avance dé null, porque la persona entra al mapa IGUAL (con valor
+    // null) y `porPersona.size` es lo que lib/landing-analyst.ts cuenta como
+    // «personas que reprodujeron el video». Sin este `continue`, una landing sin
+    // video sigue reportando espectadores: cualquiera que abra la página y se
+    // vaya deja un `salio` y queda contado como uno.
+    if (!esEventoDeVideo(ev.tipo_evento)) continue;
     const id = (ev.visitor_id ?? '').trim();
     if (!id) continue;
     const avance = avanceDe(ev, duracionS);

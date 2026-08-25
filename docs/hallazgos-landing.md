@@ -1607,6 +1607,157 @@ una landing sale en 1-2 horas, un mini-VSL en 6-10.
 
 Hoy solo se puede descargar el video entero. Pedido del dueño el 2026-07-27, sin hacer.
 
+### ⚠️⚠️ El tiempo en la PÁGINA se estaba convirtiendo en retención del VIDEO
+
+*2026-08-25 — el mismo linaje que el hallazgo de arriba, un año-luz más caro.*
+
+**Síntoma:** el ws13 —landing **sin video**, con el hueco y el cartel «Video próximamente»—
+reportaba **30 personas que reprodujeron el video**. Y un lead de ws1 sin un solo `play`
+mostraba **11,698379140239605 %** de retención del VSL en su ficha.
+
+**Causa raíz:** desde la v14 el snippet manda por el mismo canal, y **a la misma columna
+`segundos`**, dos cosas que no se parecen en nada: los hitos del video (`p5`…`p100`,
+`s3`…`s1200`, play, pausa, retoma, fin, exit) y el tiempo en la **página** (`salio`,
+`volvio`, `cierre`). `avanceDe()` divide `segundos` por la duración del video. Los dos
+consumidores filtraban **`!== 'play'`** y nada más, así que un `salio` con 166 s entraba y
+salía convertido en 11,7 % de un video de 1419 s. Con la pestaña abierta más de 23,6 min,
+clampaba en **100 %**.
+
+**Medido antes del arreglo, en producción (19.641 filas):** 3.707 filas se colaban y
+**3.416 producían un porcentaje**. Personas contadas como espectadores: ws13 **30 → 0**,
+ws11 16 → 2, ws1 3122 → 2823.
+
+**Lo que lo hace peor que un número feo en una pantalla:** ese conteo alimenta el prompt del
+Landing Analyst (`lib/landing-analyst.ts:187`, `plays = porPersona.size`), o sea que **la IA
+venía razonando sobre reproducciones fantasma**; y `max_pct` rutea cohortes de nutrición
+(`lib/nutricion.ts:340/358`, umbral 50) y decide `vsl_estado='vio'`. Hoy ningún lead cruza
+el umbral por esta vía, pero el mecanismo estaba armado.
+
+**El diagnóstico obvio era el equivocado.** Este bug ya se había «arreglado» el 24/08 en
+`landing-token.ts` con la lista blanca `ES_EVENTO_DE_VIDEO`, y **la regla quedó escrita en un
+comentario de 12 líneas** que decía exactamente qué hacer. Pero se aplicó en el contador de
+los chequeos y **no en el que produce el número**, tres archivos más allá. Escribir la regla
+no la aplica.
+
+**Regla — el filtro va en el CHOKE POINT, no en cada consumidor.** Ahora
+`ES_EVENTO_DE_VIDEO` se exporta desde `lib/vsl-retencion.ts` y el corte está adentro de
+`avanceDe()`: cubre `getVslEngagement`, `getVslEngagementMap`, `curvaRetencion`,
+`histogramaAbandono` **y al próximo llamador que alguien escriba**. Filtrar en los tres
+consumidores deja la regla escrita tres veces y rompible la cuarta — que es literalmente
+cómo se rompió.
+
+**Y el segundo corte, en `avancePorPersona`, es por otra razón.** No alcanza con que el
+avance dé `null`: la persona entra al mapa **igual**, con valor null, y `porPersona.size` es
+lo que se cuenta como «espectadores». Sin ese `continue` aparte, una landing sin video sigue
+reportando gente que vio un video que no existe.
+
+**Trampa de medición, aparte:** `.limit(60000)` sobre `vsl_events` devolvió **1000 filas sin
+un solo error**. PostgREST corta en su `max-rows` y no avisa. Cualquier conteo sobre esta
+tabla se pagina con `.range()` o miente por defecto — y miente *hacia abajo*, que es la
+dirección en la que nadie sospecha.
+
+**Vive en:** `lib/vsl-retencion.ts` (`ES_EVENTO_DE_VIDEO`, `esEventoDeVideo`, los dos cortes)
+· `lib/leads.ts:1483` y `:1537` · `lib/landing-analyst.ts:187` · `tests/vsl-retencion.test.ts`
+
+**Ojo al desplegar:** el `!== 'play'` de `leads.ts` **no** queda redundante — `play` está
+dentro de la lista blanca, y su porcentaje 0 es el centinela de «arrancó», no una medición.
+
+### ⚠️ MaKo no tenía un «antes» de la landing, así que no podía saber que cambió
+
+*2026-08-25 — pedido del dueño: «es MUY importante que el Pixel escuche SIEMPRE los cambios
+en la landing… una landing puede NO tener VSL en un principio y luego que los dueños le
+agreguen un VSL, MaKo debería en todo momento saber eso».*
+
+**Lo que ya funcionaba, y era la mitad riesgosa del pedido.** El snippet **ya engancha un
+`<video>` que se monta después de cargar**: hay un `MutationObserver`
+(`lib/landing-token.ts:1240`) con guarda de idempotencia por expando (`if (el.__mko)
+continue`). Verificado empíricamente con la página real servida en local y el snippet
+emitido: sin video al cargar → `["pageview"]`; se inyecta un `<video>` → queda enganchado;
+play → llega; y tras 5 mutaciones más del DOM y otro play, **plays contados = 1** (el
+segundo es `retoma`, correcto). Panda ni siquiera depende del DOM: su listener de `message`
+es global. Clics, formularios y agendas van **delegados en captura** sobre `document`.
+
+Eso importa porque **el snippet queda congelado en la página del cliente el día que lo
+pegó**: tocarlo obliga a repegarlo. No hizo falta.
+
+**Lo que faltaba era la memoria.** `analizarLandingAction` tenía **un solo llamador** (un
+efecto de React) y **el resultado no se guardaba en ningún lado**. Sin un «antes», la frase
+«desde tu última prueba agregaste un video» era literalmente incalculable, y nadie se
+enteraba de nada salvo que abriera la pantalla de la prueba.
+
+**LA REGLA QUE GOBIERNA TODO ESTO — una lectura fallida es «no sé», jamás «lo sacaron».** El
+analizador se queda mudo por media docena de motivos ajenos al cliente: el CDN sirve
+cacheado (medido en esa landing: `X-Vercel-Cache: HIT` con `Age` de casi 4 h), un chunk del
+bundle pasa el timeout de 8 s, el host contesta 403 a un user-agent que no conoce. De ahí la
+**asimetría**, que es el corazón del módulo:
+
+| | qué hace falta | por qué |
+|---|---|---|
+| **aparece** una pieza | **una** lectura buena | un `<video>` no se alucina; si se equivocara, se corrige solo |
+| **desaparece** una pieza | **dos** lecturas buenas seguidas | «te sacaron el video» por un chunk lento es el aviso que enseña a ignorar todos los demás |
+| la lectura **falla** | no se escribe **nada** | el snapshot anterior queda intacto y no se anuncia nada |
+
+Mientras una pieza está en el purgatorio (`dudosas`) **sigue contando como presente**, así
+que los chequeos no se apagan por un parpadeo.
+
+**Verificado contra la página real y la base real** (los cuatro casos): aparece → anunciado
+en una lectura · desaparece 1.ª → no se anuncia y va a `dudosas` · desaparece 2.ª → anunciado
+y sale de `piezas` · falla → `cambios` vacío y el snapshot **byte a byte idéntico**.
+
+**Por qué NO va adentro de `landing.config`,** que era el lugar obvio: esa clave la escribe
+la persona desde el modal con read-modify-write del JSON **entero**. El cron escribe sin
+sesión y en otro momento. Compartiendo clave, un cron que corre mientras alguien borra una
+landing **le devuelve la landing borrada** o le pisa el `clarityProjectId` recién cargado.
+Dos escritores con dos ritmos son dos claves. Va en `landing.snapshot`, keyeada por la URL
+normalizada **con la misma `normalizarUrl` que `landing.config`** — un mapa keyeado por un
+dato derivado solo sirve si las dos puntas derivan igual, o el snapshot queda huérfano y se
+ve como «esta landing nunca se analizó» sobre una que se analiza a diario.
+
+**Qué se avisa y qué no.** El aviso `landing-cambio` habla **solo de video, formulario y
+agenda**. `botones` y `link-whatsapp` se prenden con cualquier `wa.me` en un pie de página y
+no cambian nada de lo que se mide. `pixel` tampoco: el detector lo busca **solo en el HTML
+crudo**, así que una landing que lo inyecta desde un bundle «pierde el pixel» en cada
+lectura — y la pregunta de verdad, *¿siguen llegando mis datos?*, ya la contesta
+`tracking-apagado`, que la **mide** en vez de inferirla. **El panel sí los muestra:** el
+panel es *pull* (la persona vino a mirar), el aviso es *push* (MaKo interrumpe).
+
+**El chequeo de cambios corre ANTES de las ramas del cron, y a propósito.** «¿Cambió la
+página?» es independiente de si el tracking está vivo, viejo o apagado. Metido dentro del
+`if (horas < HORAS_APAGADO)` —que es donde entraba más cómodo— justo los workspaces con algo
+roto se quedaban sin enterarse.
+
+**Vive en:** `lib/landing-snapshot.ts` (puro, testeado: la asimetría y el saneo) ·
+`lib/landing-vigilancia.ts` (`mirarLanding`, el único punto de entrada, con la puerta del
+`!ok`) · `app/integraciones/landing-config-actions.ts` · `app/api/cron/tracking-vigilante/route.ts`
+· `app/integraciones/ProbarTracking.tsx` (el renglón) · `tests/landing-snapshot.test.ts`
+
+**Lo que quedó SIN hacer, con el archivo donde vive:**
+
+- **SSRF en `analizarLanding`.** `lib/landing-analisis.ts:303` usa `fetch` pelado con
+  `redirect: 'follow'`, sin pasar por `validarDestino()` (`lib/landing-fetch.ts:133`), que ya
+  existe y ya clava el DNS contra rebinding. **No se arregló acá a propósito:** el camino ya
+  probado (`bajarHtml`) filtra por content-type HTML, y los chunks del bundle son
+  `application/javascript` — enchufarlo tal cual **apaga el análisis de SPAs**, que es
+  justamente lo que hace analizable la landing del ws13. Hace falta un `fetchSeguro` que
+  acepte los dos content-types y pase a `redirect: 'manual'`. Severidad real acotada: lo
+  dispara un usuario autenticado con rol de `integraciones` y lo que devuelve es una lista de
+  nombres de piezas.
+- **El id posicional de video (`'v:pos' + i`, `lib/landing-token.ts:1172`).** Un agente lo
+  reportó como colisión segura; **no lo es**: `idDeVideo` prefiere `el.id` y después el `src`,
+  así que la posición es el último recurso y hace falta que **dos** videos no tengan ninguno
+  de los dos. Angosto, pero si pasa el síntoma es que el VSL nuevo hereda el `play:true` del
+  viejo y su primera reproducción sale como `retoma`. Sin verificar.
+- **El conteo por lead sigue en 5,6 %** (76 de 1358 con `visitor_id`). El cuello está en la
+  **identificación**, no en el análisis. `scripts/diag-tracking.mjs` ya existe.
+- **`app/api/track/optin/route.ts:124` inserta `visitor_id: 'desconocido'`** como string
+  literal, así que todos los opt-ins bloqueados de un workspace colapsan en **una** persona en
+  cualquier conteo por visitante.
+- **Un video embebido de Google Drive es inmedible**, con observer o sin él: Drive no publica
+  ningún postMessage al padre. Los tres testimonios de esa landing son iframes de Drive. Si el
+  VSL se publica así, MaKo va a decir «no llega ningún play» sobre un video que la gente está
+  mirando. `lib/landing-analisis.ts:158-165` **no tiene marca para `drive.google.com`**, así
+  que hoy ni siquiera puede decir «tiene un video que no puedo medir».
+
 ---
 
 ## Reglas de la casa que también gobiernan esta área

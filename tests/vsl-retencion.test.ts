@@ -14,6 +14,7 @@ import {
   curvaRetencion,
   histogramaAbandono,
   corteDeSegundo,
+  esEventoDeVideo,
   type EventoVsl,
 } from '../lib/vsl-retencion';
 
@@ -24,6 +25,69 @@ const ev = (o: Partial<EventoVsl>): EventoVsl => ({
   segundos: null,
   video_id: null,
   ...o,
+});
+
+// ── La frontera entre el VIDEO y la PÁGINA ──────────────────────────────────
+// Desde la v14 el snippet manda por el mismo canal, y a la misma columna
+// `segundos`, el tiempo en la PÁGINA: 'salio', 'volvio', 'cierre'. Como los
+// consumidores filtraban «todo menos play», esos segundos se dividían por la
+// duración del video y salían convertidos en retención.
+//
+// Medido en producción el 25/08/2026, antes del filtro: 3.416 filas producían un
+// avance inventado, y el ws13 —landing SIN video, con el cartel «Video
+// próximamente»— reportaba 30 personas que reprodujeron el video.
+
+test('el tiempo en la PÁGINA no es avance del VIDEO', () => {
+  // 166 s con la pestaña abierta, sobre un video de 1419 s, daba 11,7%.
+  for (const t of ['salio', 'volvio', 'cierre']) {
+    assert.equal(avanceDe(ev({ tipo_evento: t, segundos: 166 }), 1419), null, t);
+  }
+});
+
+test('un clic, un agendo o un opt-in bloqueado tampoco son avance', () => {
+  for (const t of ['click', 'agendo', 'optin_bloqueado', 'desconocido', null]) {
+    assert.equal(avanceDe(ev({ tipo_evento: t, segundos: 300, porcentaje: 42 }), 1419), null, String(t));
+  }
+});
+
+test('los hitos de video siguen midiendo igual', () => {
+  assert.equal(avanceDe(ev({ tipo_evento: 'p50', porcentaje: 50 }), 1419), 50);
+  assert.equal(avanceDe(ev({ tipo_evento: 's300', segundos: 300 }), 600), 50);
+  assert.equal(avanceDe(ev({ tipo_evento: 'exit', segundos: 300 }), 600), 50);
+  assert.equal(avanceDe(ev({ tipo_evento: 'fin', porcentaje: 100 }), 1419), 100);
+  assert.equal(avanceDe(ev({ tipo_evento: 'retoma', segundos: 150 }), 600), 25);
+});
+
+test('quien solo estuvo en la página NO entra al conteo de espectadores', () => {
+  // Es el bug del ws13: `porPersona.size` alimenta «personas que reprodujeron el
+  // video» en lib/landing-analyst.ts. Sin el corte, la persona entra al mapa con
+  // valor null y suma igual — así una landing sin video reportaba 30 espectadores.
+  const soloPagina = avancePorPersona([
+    ev({ visitor_id: 'a', tipo_evento: 'salio', segundos: 90 }),
+    ev({ visitor_id: 'b', tipo_evento: 'click', segundos: 5 }),
+    ev({ visitor_id: 'c', tipo_evento: 'cierre', segundos: 200 }),
+  ], 1419);
+  assert.equal(soloPagina.size, 0);
+
+  // Y quien SÍ dio play sigue contando, con su avance intacto.
+  const mixto = avancePorPersona([
+    ev({ visitor_id: 'a', tipo_evento: 'salio', segundos: 90 }),
+    ev({ visitor_id: 'b', tipo_evento: 'play' }),
+    ev({ visitor_id: 'b', tipo_evento: 'p40', porcentaje: 40 }),
+  ], 1419);
+  assert.deepEqual([...mixto], [['b', 40]]);
+});
+
+test('esEventoDeVideo: la lista es blanca, no una lista de excepciones', () => {
+  for (const t of ['play', 'pausa', 'retoma', 'fin', 'exit', 'p5', 'p100', 's3', 's1200']) {
+    assert.equal(esEventoDeVideo(t), true, t);
+  }
+  // Lo importante no es que estos den false, es que CUALQUIER tipo nuevo lo dé:
+  // el día que el snippet emita un evento de página más, no hay que acordarse
+  // de sumarlo a ninguna lista de exclusión.
+  for (const t of ['salio', 'volvio', 'cierre', 'click', 'agendo', 'pageview', 'inventado_manana', '', null, undefined]) {
+    assert.equal(esEventoDeVideo(t), false, String(t));
+  }
 });
 
 // ── El cero medido vs. el cero por no medir ─────────────────────────────────

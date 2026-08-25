@@ -124,6 +124,7 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
 
   'tracking-apagado': 'landing', 'tracking-desactualizado': 'landing', 'lead-de-landing': 'landing',
   'clarity-grabacion-por-vencer': 'landing', 'prueba-grabada': 'landing',
+  'landing-cambio': 'landing',
   'prueba-recibida': 'landing',
   'wa-desconectado': 'sistema',
   'plantilla-estado': 'sistema', 'nutricion-frenada': 'sistema',
@@ -299,6 +300,27 @@ https://hola-mako.com/integraciones
     // receptor responde 200 aunque descarte. Este cron es la ÚNICA señal.
     disparador: 'Cron diario: un workspace con landing_token acuñado no registra visitas hace más de 48h.',
     ejemplo: `🔴 Tu landing *dejó de mandarme datos* hace 3 días. Los anuncios siguen corriendo, así que no lo vas a notar en los leads: lo que se pierde es saber de dónde vienen. Suele ser que el Pixel quedó apuntando a una dirección vieja. — MaKo`,
+  },
+  {
+    id: 'landing-cambio', titulo: 'Tu landing cambió y ajusté lo que mido', categoria: 'aviso',
+    prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
+    // El pedido del dueño, textual: «una landing puede NO tener VSL en un
+    // principio y luego que los dueños le agreguen un VSL, MaKo o el Pixel
+    // debería en todo momento saber eso, y actualizar por lo tanto los datos que
+    // mide».
+    //
+    // Antes de esto, MaKo se enteraba SOLO si alguien abría la pantalla de la
+    // prueba: el análisis corría en un efecto de React y el resultado se tiraba.
+    // Una landing a la que le suben el VSL un martes podía pasar meses sin que
+    // nadie supiera que ahora hay retención para mirar.
+    //
+    // ⚠️ EL AVISO SOLO HABLA DE VIDEO, FORMULARIO Y AGENDA. Botones y links de
+    // WhatsApp cambian por cualquier cosa (un `wa.me` nuevo en un pie de página
+    // ya cuenta) y no cambian NADA de lo que se mide: avisarlos sería el ruido
+    // que enseña a ignorar los avisos. Se ven igual en el panel de la prueba,
+    // que es pull — ahí la persona vino a mirar; acá MaKo interrumpe.
+    disparador: 'Cron diario: el análisis de una landing declarada trae una pieza que antes no estaba, o deja de traer una que estaba en DOS lecturas buenas seguidas.',
+    ejemplo: `🟡 Le agregaste *un video* a tu landing — lo vi hoy y ya lo estoy midiendo. A partir de ahora vas a tener la curva de retención: en qué minuto se te cae la gente. Mirala acá 👉 https://hola-mako.com/integraciones?abrir=landing — MaKo`,
   },
   {
     id: 'lead-fusionado', titulo: 'Junté un contacto con uno que ya tenías', categoria: 'aviso',

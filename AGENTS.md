@@ -1720,6 +1720,69 @@ el índice.
 Los mismos documentos se leen con los ojos en `/admin/docs`, que los renderiza desde el
 repo (no tiene copia propia, por la regla de arriba).
 
+# Un filtro escrito en un comentario no filtra nada: va en el choke point
+
+El 24/08/2026 se arregló un contador que trataba **cualquier evento que no fuera `pageview`**
+como evento de video, y la corrida dejó escrita la regla en un comentario de 12 líneas:
+*«un contador que se llama "eventos de X" se filtra por los tipos de X, nunca por todo menos
+Y»*. Con lista blanca, con el caso medido, con todo.
+
+El 25/08 el **mismo bug** apareció tres archivos más allá, produciendo el número que de
+verdad se muestra: `avanceDe()` convertía los `segundos` de `salio`/`volvio`/`cierre` —tiempo
+en la **página**— en porcentaje de retención del **video**. Medido en producción: 3.416 filas
+con un avance inventado, un lead con `11,698379140239605 %` sin un solo `play`, y una landing
+**sin video** reportando 30 espectadores a un prompt de Claude.
+
+La regla estaba escrita. No estaba **aplicada donde se cruza la frontera**.
+
+**Regla — cuando dos clases de dato viajan por el mismo canal y a la misma columna, el corte
+va en la función por la que pasan las dos, no en cada consumidor.** Filtrar en los tres
+llamadores deja la regla escrita tres veces y rompible la cuarta; y el que agrega el evento
+nuevo no tiene por qué saber que hay un contador definido por descarte a tres archivos de
+distancia. Un `!== 'play'` era correcto el día que se escribió y quedó viejo sin que nadie lo
+tocara: **una lista de exclusiones crece sola y crece en silencio.**
+
+Corolario al aplicarlo: revisá si el corte alcanza. En `avancePorPersona` no bastaba con que
+el avance diera `null` — la persona entraba al mapa igual, y `.size` era lo que se contaba
+como «espectadores». **Un valor nulo y una clave ausente no son lo mismo.**
+
+# «No pude leer» es un tercer estado, y confundirlo con «no tiene» le miente al cliente
+
+Todo lo que se afirma sobre una página ajena sale de bajarla por HTTP, y eso falla por
+motivos que no tienen nada que ver con el cliente: el CDN sirve una copia vieja (medido:
+`X-Vercel-Cache: HIT` con `Age` de casi 4 h), un chunk pasa el timeout, el host contesta 403
+a un user-agent que no reconoce. **Un análisis vacío por un timeout es idéntico, en memoria,
+a un análisis vacío porque la página está vacía.**
+
+**Regla — al comparar el estado de algo que no controlamos, la lectura fallida no escribe ni
+anuncia nada,** y la comparación es **asimétrica**:
+
+- **Aparece algo → se cree a la primera.** Un `<video>` no se alucina, y si se equivocara se
+  corrige solo en la lectura siguiente.
+- **Desaparece algo → hacen falta dos lecturas buenas seguidas,** y mientras tanto sigue
+  contando como presente.
+- **La lectura falló → no se toca el estado guardado.**
+
+No es prolijidad: «te sacaron el video de tu landing» disparado por un chunk lento no es un
+aviso equivocado, es **el aviso que le enseña al cliente a ignorar todos los demás**.
+
+# Dos escritores con dos ritmos son dos claves
+
+`landing.config` la escribe la persona desde un modal con read-modify-write del JSON
+**entero**. Guardar ahí el snapshot que escribe un cron —el lugar obvio, porque el dato
+«pertenece» a la landing— hace que un cron corriendo mientras alguien borra una página **le
+devuelva la página borrada**, o le pise el `clarityProjectId` que acaba de cargar.
+
+**Regla — antes de sumar un campo a una estructura que ya se persiste, preguntá quién más la
+escribe y con qué frecuencia.** Si las respuestas no coinciden, va en su propia clave. El
+costo de la clave nueva es un módulo de saneo; el de compartirla es perder datos del usuario
+en una carrera que nadie va a poder reproducir.
+
+Y si la clave nueva es un mapa keyeado por un dato derivado (una URL normalizada, un slug),
+**las dos puntas tienen que derivarlo con la MISMA función**. Con dos normalizaciones el
+cruce falla en silencio y se ve como «esto nunca se analizó» sobre algo que se analiza todos
+los días.
+
 # Una ruta que apunta a la nada no rompe nada, y por eso es cara
 
 Las rutas escritas a mano son el enganche de todo el sistema: el `**Vive en:**` de cada

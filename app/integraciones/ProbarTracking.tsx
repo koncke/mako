@@ -13,6 +13,7 @@
 // pega una vez y queda congelado ahí para siempre).
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { enumerar, haceCuanto, nombresDe, type Cambios } from '@/lib/landing-snapshot';
 import { Button, Input, Select } from '@/app/_ui';
 import { IconBtn } from './ServicioConfigForm';
 import { Icon } from '@/app/_components/icons';
@@ -163,6 +164,12 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
   // consulta: bajar el HTML del cliente en cada refresco del poll sería una
   // request a su página cada 3 segundos.
   const [piezas, setPiezas] = useState<string[]>([]);
+  // ⚠️ QUÉ CAMBIÓ EN LA PÁGINA desde la última vez que la miramos. Lo calcula el
+  // server (mirarLanding), no el cliente: acá no hay «antes» —el componente se
+  // monta de cero en cada apertura— y la ventana de la prueba es un montaje
+  // nuevo cada vez. Viene vacío cuando no hay con qué comparar Y cuando la
+  // lectura falló, así que este renglón no puede mentir por un timeout.
+  const [cambios, setCambios] = useState<Cambios | null>(null);
   // Los videos que la PÁGINA tiene, con su URL. Salen del mismo análisis y son lo
   // que permite mostrar un video que todavía nadie reprodujo.
   const [videosPagina, setVideosPagina] = useState<Array<{ id: string; url: string }>>([]);
@@ -316,14 +323,14 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
   // referencia nunca corta. Se veía como la página del cliente pidiéndose sola
   // varias veces por segundo.
   useEffect(() => {
-    if (!landingFija) { setPiezas([]); setVideosPagina([]); return; }
+    if (!landingFija) { setPiezas([]); setVideosPagina([]); setCambios(null); return; }
     let vivo = true;
     // Falla hacia «no sé» —lista vacía— y entonces se ofrecen TODOS los pasos:
     // esconder un chequeo porque no se pudo leer el HTML es peor que mostrarlo
     // de más, porque el que falta no deja rastro de que faltó.
     analizarLandingAction(landingFija)
-      .then((a) => { if (vivo) { setPiezas(a.piezas); setVideosPagina(a.videos ?? []); } })
-      .catch(() => { if (vivo) { setPiezas([]); setVideosPagina([]); } });
+      .then((a) => { if (vivo) { setPiezas(a.piezas); setVideosPagina(a.videos ?? []); setCambios(a.cambios ?? null); } })
+      .catch(() => { if (vivo) { setPiezas([]); setVideosPagina([]); setCambios(null); } });
     return () => { vivo = false; };
   }, [landingFija]);
 
@@ -682,6 +689,38 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
         }}>Terminar</Button>
       </div>
       <style>{'@keyframes pt-latido{0%,100%{opacity:1}50%{opacity:.25}}'}</style>
+
+      {/* ⚠️ QUÉ CAMBIÓ DESDE LA ÚLTIMA VEZ. El pedido del dueño fue textual: «una
+          landing puede NO tener VSL en un principio y luego que los dueños le
+          agreguen un VSL, MaKo debería en todo momento saber eso… y también al
+          iniciar una prueba medir los nuevos datos o incluso dejar de medir
+          datos que se sacaron».
+
+          Sin esto, los chequeos cambiaban solos entre una prueba y la siguiente
+          y nadie decía por qué: aparecían dos pasos nuevos, o desaparecían, y la
+          persona quedaba pensando que el panel es inestable. Lo que cambió es
+          una NOTICIA, y las noticias se cuentan.
+
+          La frase de «sacaste» es asimétrica a propósito: aclara que los leads
+          que ya entraron por ahí siguen estando. Sacar una pieza de la página no
+          borra lo que esa pieza produjo, y sin esa línea el mensaje se lee como
+          una amenaza. */}
+      {cambios && (cambios.nuevas.length > 0 || cambios.sacadas.length > 0) && (() => {
+        const nuevas = nombresDe(cambios.nuevas);
+        const sacadas = nombresDe(cambios.sacadas);
+        if (!nuevas.length && !sacadas.length) return null;
+        const cuando = haceCuanto(cambios.desde);
+        return (
+          <div style={{
+            fontSize: 12.5, lineHeight: 1.55, marginBottom: 12, padding: '10px 12px',
+            borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-3, var(--surface-2))',
+          }}>
+            <b>Tu página cambió{cuando ? ` desde que la miré ${cuando}` : ''}.</b>{' '}
+            {nuevas.length > 0 && <>Le agregaste <b>{enumerar(nuevas)}</b>, así que ya lo estoy midiendo{sacadas.length > 0 ? '. ' : '.'}</>}
+            {sacadas.length > 0 && <>Sacaste <b>{enumerar(sacadas)}</b>, así que dejo de pedírtelo — lo que ya se registró por ahí sigue en tu CRM.</>}
+          </div>
+        );
+      })()}
 
       {/* La instrucción cubre las DOS cosas que el código hace. Hasta el 14/08 solo
           hablaba del video, y para un negocio cuya landing es un formulario —el

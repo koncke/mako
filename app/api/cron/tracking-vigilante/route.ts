@@ -41,6 +41,8 @@ async function paginasDelWorkspace(): Promise<string[]> {
 }
 import { APP_BASE_URL } from '@/lib/app-url';
 import { emitirDelCatalogo } from '@/lib/avisos';
+import { mirarLanding } from '@/lib/landing-vigilancia';
+import { enumerar, hayCambios, nombresDe } from '@/lib/landing-snapshot';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -54,7 +56,62 @@ const HORAS_APAGADO = 48;
 /** Que no repita el mismo aviso todos los días mientras dura el apagón. */
 const DEDUP_MIN = 60 * 24 * 3;
 
-type Estado = { ws: number; ultima: string | null; horas: number | null; aviso: boolean; snippet?: number };
+type Estado = { ws: number; ultima: string | null; horas: number | null; aviso: boolean; snippet?: number; cambios?: number };
+
+/**
+ * Las piezas cuyo cambio se AVISA. Botones y links de WhatsApp quedan afuera: se
+ * prenden con cualquier `wa.me` en un pie de página y no cambian nada de lo que
+ * se mide. El panel de la prueba sí los muestra — ahí la persona vino a mirar;
+ * un aviso interrumpe, y un aviso que interrumpe por nada se deja de leer.
+ *
+ * `pixel` tampoco: el detector lo busca solo en el HTML crudo, así que una
+ * landing que lo inyecta desde un bundle lo «pierde» en cada lectura. Y la
+ * pregunta de verdad —¿siguen llegando mis datos?— ya la contesta el aviso
+ * `tracking-apagado`, que la MIDE en vez de inferirla de un HTML.
+ */
+const PIEZAS_QUE_IMPORTAN = ['video-nativo', 'video-panda', 'video-youtube', 'video-vimeo', 'formulario', 'embed-agenda'];
+
+/**
+ * Revisa las páginas del workspace y avisa lo que cambió.
+ *
+ * ⚠️ Corre DENTRO de `runWithWorkspace`, y eso no es opcional: `mirarLanding`
+ * escribe el snapshot con `setSetting`, que sin contexto de workspace cae a
+ * OWNER_WS en silencio (lib/settings.ts:17) — o sea que el snapshot de cada
+ * cliente terminaría escrito en el workspace de Mauricio, pisándose entre todos.
+ */
+async function revisarCambios(ws: number, suyas: string[]): Promise<number> {
+  let n = 0;
+  // Tope de páginas por vuelta: cada una son varios pedidos HTTP (el HTML más
+  // hasta 8 chunks del bundle) y el cron tiene `maxDuration = 60`. Es el mismo
+  // tope que ya usa el chequeo de versión de acá arriba.
+  for (const url of suyas.slice(0, 8)) {
+    const { cambios } = await mirarLanding(url, suyas).catch(() => ({ cambios: null }));
+    if (!cambios || !hayCambios(cambios)) continue;
+    const nuevas = nombresDe(cambios.nuevas.filter((p) => PIEZAS_QUE_IMPORTAN.includes(p)));
+    const sacadas = nombresDe(cambios.sacadas.filter((p) => PIEZAS_QUE_IMPORTAN.includes(p)));
+    if (!nuevas.length && !sacadas.length) continue;
+    n++;
+
+    const frases: string[] = [];
+    if (nuevas.length) frases.push(`Le agregaste *${enumerar(nuevas)}* a tu página *${url}*. Ya lo estoy midiendo.`);
+    // ⚠️ La frase de «sacaste» aclara que lo ya registrado sigue estando. Sacar
+    // una pieza no borra lo que produjo, y sin esa aclaración el mensaje se lee
+    // como que se perdieron los datos.
+    if (sacadas.length) frases.push(`Sacaste *${enumerar(sacadas)}* de tu página *${url}*, así que dejo de pedírtelo en las pruebas. Lo que ya se registró por ahí sigue en tu CRM.`);
+
+    // Va `texto` y no `contexto` por la regla de la casa: acá viaja una URL y un
+    // link exactos, y un dato exacto que pasa por un LLM deja de ser exacto.
+    await emitirDelCatalogo('landing-cambio', {
+      ws,
+      // Un cambio se cuenta UNA vez. La dedup va por página y por lo que cambió:
+      // si mañana cambia otra cosa, ese sí es un aviso nuevo.
+      dedupKey: `landing-cambio:${url}:${[...cambios.nuevas, ...cambios.sacadas].sort().join(',')}`,
+      dedupTtlMin: DEDUP_MIN,
+      texto: [...frases, '', LINK_LANDING].join(NL),
+    });
+  }
+  return n;
+}
 
 /**
  * El link EXACTO que abre la pantalla, scrollea a la tarjeta y abre su modal.
@@ -96,11 +153,24 @@ export async function GET(req: NextRequest) {
           .order('created_at', { ascending: false }).limit(1);
         if (error) throw new Error(error.message);
 
+        // ⚠️ ESTO VA ANTES DE CUALQUIER RAMA, y a propósito. La pregunta «¿cambió
+        // la página?» es INDEPENDIENTE de si el tracking está vivo, viejo o
+        // apagado: si el cliente le subió el VSL a una landing cuyo Pixel está
+        // apagado, las dos cosas son ciertas y las dos hay que decirlas. Metido
+        // adentro del `if (horas < HORAS_APAGADO)` —que es donde entraba más
+        // cómodo— justo los workspaces con algo roto se quedaban sin enterarse.
+        //
+        // Es también lo único de este cron que corre para un workspace que
+        // todavía no pegó el código: ahí no hay eventos que vigilar, pero la
+        // página existe y puede cambiar.
+        const suyas = await paginasDelWorkspace().catch(() => [] as string[]);
+        const cambios = suyas.length ? await revisarCambios(w.id, suyas).catch(() => 0) : 0;
+
         const ultima = (data?.[0]?.created_at as string | undefined) ?? null;
         // Token acuñado pero CERO eventos en la historia: todavía no pegó el código.
         // Eso no es un apagón, es un onboarding a medias — lo dice el semáforo de
         // /integraciones, no una alarma roja.
-        if (!ultima) return { ws: w.id, ultima: null, horas: null, aviso: false };
+        if (!ultima) return { ws: w.id, ultima: null, horas: null, aviso: false, cambios };
 
         const horas = (Date.now() - new Date(ultima).getTime()) / 3_600_000;
         if (horas < HORAS_APAGADO) {
@@ -121,7 +191,6 @@ export async function GET(req: NextRequest) {
             // por página) y se nombran solo las que de verdad quedaron atrás.
             // Si ninguna se puede evaluar, el mensaje sigue siendo el genérico:
             // callarse porque no se sabe cuál sería perder el aviso entero.
-            const suyas = await paginasDelWorkspace();
             const atrasadas: string[] = [];
             for (const u of suyas.slice(0, 8)) {
               const v = await verificarPagina(u).catch(() => null);
@@ -152,7 +221,7 @@ export async function GET(req: NextRequest) {
               ].join('\n'),
             });
           }
-          return { ws: w.id, ultima, horas, aviso: false, snippet: instalada };
+          return { ws: w.id, ultima, horas, aviso: false, snippet: instalada, cambios };
         }
 
         const dias = Math.floor(horas / 24);
@@ -161,7 +230,7 @@ export async function GET(req: NextRequest) {
           dedupTtlMin: DEDUP_MIN,
           contexto: `La landing no registra visitas desde hace ${dias} día(s) (última: ${ultima}). Los anuncios pueden seguir corriendo: lo que se pierde es la atribución. Causa típica: el Pixel de MaKo quedó apuntando a una dirección vieja — se copia con la URL congelada y no se entera de un cambio de dominio.`,
         });
-        return { ws: w.id, ultima, horas, aviso: true };
+        return { ws: w.id, ultima, horas, aviso: true, cambios };
       });
       if (estado) revisados.push(estado);
     } catch (e) {
@@ -173,10 +242,11 @@ export async function GET(req: NextRequest) {
 
   const ms = Date.now() - tStart;
   const avisados = revisados.filter((r) => r.aviso).length;
-  console.log(`[cron:tracking-vigilante] revisados=${revisados.length} avisados=${avisados} errores=${errores.length} ms=${ms}`);
+  const cambios = revisados.reduce((n, r) => n + (r.cambios ?? 0), 0);
+  console.log(`[cron:tracking-vigilante] revisados=${revisados.length} avisados=${avisados} cambios=${cambios} errores=${errores.length} ms=${ms}`);
 
   // 500 solo si NINGUNO se pudo revisar: es un vigilante, tiene que gritar cuando
   // es él el que está ciego.
   const ok = errores.length === 0 || revisados.length > 0;
-  return Response.json({ ok, revisados, avisados, errores, ms }, { status: ok ? 200 : 500 });
+  return Response.json({ ok, revisados, avisados, cambios, errores, ms }, { status: ok ? 200 : 500 });
 }

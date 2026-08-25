@@ -11,7 +11,9 @@ import { revalidatePath } from 'next/cache';
 import { getSetting, setSetting } from '@/lib/settings';
 import { requireRolWs } from '@/lib/tab-access';
 import { CONFIG_KEY, conLanding, landingDe, parsearConfig, sinLanding, type LandingConfig } from '@/lib/landing-config';
-import { analizarLanding, type AnalisisLanding } from '@/lib/landing-analisis';
+import { mirarLanding } from '@/lib/landing-vigilancia';
+import { urlsDe } from '@/lib/landing-config';
+import { type Cambios } from '@/lib/landing-snapshot';
 import { PAGINAS_KEY, parsearPaginas } from '@/lib/landing-paginas';
 import { getOrCreateLandingToken, landingSnippet } from '@/lib/landing-token';
 import { clarityProjectId } from '@/lib/clarity';
@@ -74,6 +76,14 @@ export type AnalisisResult = {
   /** Los videos que la PÁGINA tiene, con su URL. Es lo que permite verlos sin
    *  esperar a que un visitante reproduzca uno. */
   videos: Array<{ id: string; url: string; tipo: string }>;
+  /**
+   * Qué cambió en la página desde la última vez que la miramos.
+   *
+   * Viene vacío cuando no hay con qué comparar (primera lectura) y TAMBIÉN
+   * cuando esta lectura falló: un timeout no puede producir «te sacaron el
+   * video». La decisión vive en `mirarLanding`, no acá.
+   */
+  cambios: Cambios;
 };
 
 /**
@@ -86,7 +96,14 @@ export type AnalisisResult = {
 export async function analizarLandingAction(url: string): Promise<AnalisisResult> {
   await requireRolWs([], { nav: 'integraciones' });
   const guardadas = await leer().catch(() => [] as LandingConfig[]);
-  const a: AnalisisLanding = await analizarLanding(url);
+  // ⚠️ ACÁ SE RECUERDA LO QUE SE VIO, y por eso el análisis pasa por
+  // `mirarLanding` y no por `analizarLanding` a secas. Es el único momento en
+  // que alguien mira la página a pedido; si el resultado se tira, MaKo no tiene
+  // con qué contestar «desde tu última prueba agregaste un video».
+  //
+  // La poda va con las URLs que el workspace declara HOY: una landing que el
+  // cliente borró no tiene por qué seguir ocupando lugar en el snapshot.
+  const { analisis: a, cambios } = await mirarLanding(url, urlsDe(guardadas));
   return {
     ok: a.ok,
     error: a.error,
@@ -96,6 +113,7 @@ export async function analizarLandingAction(url: string): Promise<AnalisisResult
     clarityProjectId: a.clarityProjectId,
     clarityGuardado: landingDe(guardadas, url)?.clarityProjectId ?? null,
     videos: a.videos.map((v) => ({ id: v.id, url: v.url, tipo: v.tipo })),
+    cambios,
   };
 }
 

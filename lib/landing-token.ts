@@ -34,6 +34,7 @@ import { esPreviewDeEditor, normalizarUrl } from './landing-paginas';
 import { clarityProjectId } from './clarity';
 import { catalogoPanda } from './panda';
 import { bloqueClarity } from './clarity';
+import { esEventoDeVideo } from './vsl-retencion';
 
 /** Key en app_settings. setSetting la espeja a webhook_routing('landing', …). */
 export const LANDING_TOKEN_KEY = 'landing_token';
@@ -722,8 +723,10 @@ export async function landingDiagnostico(
   // La regla que queda: un contador que se llama «eventos de X» se filtra por
   // los tipos de X, nunca por «todo menos Y». La lista de lo que no es Y crece
   // sola con cada evento nuevo, y crece en silencio.
-  const ES_EVENTO_DE_VIDEO = /^(play|pausa|retoma|fin|exit|p\d+|s\d+)$/;
-  const eventosDeVideo = eventos.filter((e) => ES_EVENTO_DE_VIDEO.test(e.tipo)).length;
+  // La lista vive en lib/vsl-retencion.ts, que es donde también la aplica
+  // `avanceDe()`. Tenerla en dos lados garantiza que un día se agregue un tipo
+  // nuevo en uno solo y los dos contadores dejen de coincidir sin que nadie lo note.
+  const eventosDeVideo = eventos.filter((e) => esEventoDeVideo(e.tipo)).length;
   const tuvoVideoAlgunaVez = hayPlay || eventosDeVideo > 0;
   const hayProfundidad = eventos.some((e) => /^[ps]\d+$/.test(e.tipo));
 
