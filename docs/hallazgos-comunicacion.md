@@ -3378,3 +3378,62 @@ número, así que un quinto emisor nuevo también lo obliga.
   volumen crezca.
 
 *Corrida del 25/08/2026. Typecheck 0 errores, 1243/1243 tests.*
+
+---
+
+## «Cómo agregar mi pixel de Meta a mi landing»: la landing del cliente NO es MaKo
+
+**Vive en:** `lib/tutorial-video.ts` · `lib/tutorial-video-texto.ts` · `lib/mako-tools.ts` ·
+`lib/hechos-mako.ts` · `lib/mako-doer-in.ts`
+
+Corrección de la entrada anterior. Ahí leí la queja del pixel como «MaKo inventó que Clarity
+necesita el pixel de Meta» —que era cierto y estaba mal— y **me perdí la pregunta que el
+dueño estaba señalando**, que era otra y literal: *«decime cómo agregar mi pixel de meta a mi
+landing page»*.
+
+Mi arreglo mandaba eso a `/integraciones?abrir=meta`. **Contesta otra pregunta.** Ahí se pega
+el token DENTRO de MaKo; el cliente preguntaba cómo instalar el píxel en SU Vercel.
+
+### La distinción que faltaba
+
+| La pregunta | Dónde vive | Qué corresponde |
+|---|---|---|
+| «¿cómo hago X **en MaKo**?» | la herramienta | la tarjeta de /integraciones, con el tutorial oficial del equipo |
+| «¿cómo hago X **en mi sitio / mi cuenta de otra herramienta**?» | el stack del cliente | **MaKo no lo sabe y no tiene por qué**: video |
+
+Confundirlas es lo que produjo las sesenta líneas con el `<script>` de Meta y el id de
+juguete `1234567890123456`. **Se le pidió a MaKo que explicara algo que está fuera de su
+producto, y explicó igual** — que es la misma raíz que la entrada anterior (un modelo sin los
+hechos rellena), pero con un remedio distinto: acá no hay hechos que darle, porque no es su
+producto.
+
+**Y por eso la propuesta del dueño era la correcta y yo la desaconsejé:** para lo de MaKo, la
+tarjeta propia es mejor que un video ajeno; para lo de afuera, un video es mejor que un texto
+largo inventado. No era «video sí o no», era **de quién es la herramienta**.
+
+### La tool
+
+`buscar_tutorial(tema)` → YouTube Data API, en español, embebibles, **acotado a los últimos 3
+años** (en un tutorial de configuración la antigüedad no es un detalle: las pantallas de Meta
+y Vercel cambian, y un video de 2021 manda a buscar un botón que ya no existe — peor que no
+contestar, porque el que lo mira cree que está haciendo algo mal). Si no hay nada reciente se
+afloja el filtro antes que quedarse mudo.
+
+Key: la del cliente si la cargó, si no la de la plataforma. Buscar un video no es un dato del
+cliente ni le gasta cuota que le sirva para otra cosa — la free tier son ~100 búsquedas
+diarias.
+
+### Y el link lo manda el CÓDIGO
+
+En la primera prueba el modelo llamó bien a la tool y después escribió *«ahí tenés el video
+paso a paso»* **sin el link**: se comió los 11 caracteres del id de YouTube. Mismo patrón que
+`mensajeBorrador`, misma razón, tercera vez esta semana. Lo del modelo se antepone (suele ser
+la aclaración útil de «esto es en tu sitio, no en MaKo») y el video va abajo, íntegro.
+
+⚠️ **El mensaje lleva canal y año.** No es decoración: MaKo no vio ese video y no puede
+presentarlo como oficial. Decir de quién es y de cuándo le deja a la persona con qué
+juzgarlo — y el test lo exige, junto con que NO diga «oficial» ni «garantizado».
+
+*Corrida del 25/08/2026 — probado con la pregunta textual: la tool se llama sola y devuelve
+«Como instalar el Pixel de Meta directamente en la Landing Page» (2025). Typecheck 0 errores,
+1253/1253 tests.*

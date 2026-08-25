@@ -794,6 +794,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // —peor— uno que resolvía a un borrador real pero equivocado.
     // Ver lib/link-borrador.ts.
     let linkBorrador: string | null = null;
+    // El texto del tutorial en video, cuando la tool corrió. Lo manda el CÓDIGO
+    // por la misma razón que el mensaje del borrador: en la primera prueba el
+    // modelo llamó bien a `buscar_tutorial` y después escribió «ahí tenés el video
+    // paso a paso» SIN EL LINK — se comió los 11 caracteres del id de YouTube.
+    let textoTutorialSalida: string | null = null;
     // Lo mismo que `linkBorrador` pero para el alta de un lead: el mensaje lo
     // escribe el CÓDIGO. Ver mensajeLeadPropuesto en lib/respuesta-doer.ts.
     let linkLead: string | null = null;
@@ -801,6 +806,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     let tareasCreadas = 0;
     const runTool = async (name: string, input: Record<string, unknown>) => {
       const out = await (NOMBRES_ACCION.has(name) ? runnerAcciones(name, input) : runMakoTool(name, input));
+      if (name === 'buscar_tutorial' && typeof out === 'string') textoTutorialSalida = out;
       if (typeof out === 'string' && out.includes('/plan/revisar/')) {
         try {
           const j = JSON.parse(out) as { link?: unknown };
@@ -1149,6 +1155,18 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     //
     // El trabajo del modelo termina cuando llama la tool. Lo que sale por WhatsApp es
     // de `mensajeBorrador`, la misma función que el prompt usa como ejemplo.
+    // ⚠️ EL TUTORIAL LO MANDA EL CÓDIGO. Mismo caso que el borrador y misma razón:
+    // el link de un video de YouTube son 11 caracteres al azar y el modelo los
+    // resume, los reescribe o los pierde. Se antepone lo que el modelo dijo (que
+    // suele ser la aclaración útil de «esto es en tu sitio, no en MaKo») y abajo
+    // va el video íntegro, tal como lo armó `textoTutorial`.
+    if (textoTutorialSalida) {
+      const suyo = (respuesta ?? '').trim();
+      // Si el modelo ya pegó el link, no se duplica.
+      const yaTieneLink = suyo.includes('youtu.be/') || suyo.includes('youtube.com/');
+      respuesta = yaTieneLink ? suyo : [suyo, textoTutorialSalida].filter(Boolean).join('\n\n');
+    }
+
     if (linkBorrador) {
       if (respuesta && respuesta !== mensajeBorrador(linkBorrador)) {
         // No es un error —el modelo no tiene por qué acertar una frase exacta— pero

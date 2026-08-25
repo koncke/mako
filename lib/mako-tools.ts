@@ -106,6 +106,15 @@ export const MAKO_TOOLS: ToolDef[] = [
     },
   },
   {
+    name: 'buscar_tutorial',
+    description: 'Busca un tutorial EN VIDEO (YouTube) sobre algo que está FUERA de MaKo: instalar el píxel de Meta en su propia web, configurar Vercel/WordPress, crear un Business Manager, etc. Usala SIEMPRE que te pidan un "cómo se hace" de una herramienta de terceros, en vez de escribir el paso a paso vos. Devuelve título, canal, año y link — pasáselos tal cual, no reescribas el link.',
+    input_schema: {
+      type: 'object',
+      properties: { tema: { type: 'string', description: 'Qué tutorial buscar, en español y concreto. Ej: "instalar pixel de meta en landing page".' } },
+      required: ['tema'],
+    },
+  },
+  {
     name: 'buscar_conocimiento',
     description: 'Busca en la metodología y el conocimiento cargado de MaKo (RAG). Úsalo antes de dar una recomendación para apoyarte en el método real del negocio, no en generalidades.',
     input_schema: {
@@ -197,6 +206,18 @@ export const runMakoTool: ToolRunner = async (name, input) => {
       } catch { /* noop */ }
       if (!r && !analisis.length) return `No pude buscar reuniones para ${lead.nombre} en este momento.`;
       return JSON.stringify({ ...(r ?? {}), analisis_llamadas: analisis });
+    }
+
+    case 'buscar_tutorial': {
+      const tema = str(input, 'tema').trim();
+      if (!tema) return 'Pasá el tema del tutorial.';
+      const { buscarTutorial, textoTutorial } = await import('./tutorial-video');
+      const vids = await buscarTutorial(tema);
+      // El texto lo arma el CÓDIGO: el link de un video son 11 caracteres al azar
+      // y ya sabemos cómo termina un dato exacto que pasa por un modelo. Va con
+      // canal y año a propósito — MaKo no vio ese video y no puede presentarlo
+      // como oficial; decir de quién es le deja al cliente con qué juzgarlo.
+      return textoTutorial(vids, tema);
     }
 
     case 'buscar_conocimiento': {
