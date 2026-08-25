@@ -624,9 +624,14 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     nombre: 'Cal.com',
     categoria: 'Reuniones',
     paraQue: 'Cada reserva de tu calendario entra sola al CRM, con quién reservó y para cuándo — y si la cancelan, se marca sola.',
+    // ⚠️ EL ORDEN NO ES COSMÉTICO: el primer campo es por donde la gente empieza, y
+    // la validación exige los OBLIGATORIOS antes de dejar guardar nada. Con la API
+    // key —que es opcional— arriba, el cliente pegaba eso primero y le rebotaba
+    // «Falta completar: Secret del webhook» sobre el campo que acababa de llenar
+    // bien. Primero va lo que hace funcionar la integración; lo opcional, después.
     campos: [
-      { env: 'CALCOM_API_KEY', label: 'API key', secreto: true, opcional: true, placeholder: 'cal_live_…', nota: 'Solo hace falta para leer tu agenda (respaldos y backfills). Las reservas en vivo entran por el webhook.' },
-      { env: 'CALCOM_WEBHOOK_SECRET', label: 'Secret del webhook', secreto: true, nota: 'Es lo que prueba que la reserva vino de tu calendario y no la inventó otro. Sin esto NO entra ninguna: se rechaza.' },
+      { env: 'CALCOM_WEBHOOK_SECRET', label: 'Contraseña del webhook', secreto: true, nota: 'La inventás vos: cualquier texto largo sirve. Va igual acá y en Cal.com, y es lo que prueba que la reserva vino de tu calendario. Sin esto no entra ninguna.' },
+      { env: 'CALCOM_API_KEY', label: 'API key', secreto: true, opcional: true, placeholder: 'cal_live_…', nota: 'Solo hace falta para leer tu agenda (respaldos y backfills). Las reservas en vivo entran igual sin esto.' },
       { env: 'CALCOM_EVENT_TYPE_J1', label: 'Tipo de evento de R1', opcional: true, placeholder: 'llamada-de-auditoria', nota: 'El identificador o el nombre del tipo de evento de tu primera reunión. Es lo que rutea la reserva a TU workspace y la clasifica.' },
       { env: 'CALCOM_EVENT_TYPE_J2', label: 'Tipo de evento de R2', opcional: true, placeholder: 'cierre', nota: 'Igual que el anterior, para la segunda reunión. Una R2 nunca crea un lead: completa el que ya existe.' },
     ],

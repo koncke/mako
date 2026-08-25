@@ -36,6 +36,14 @@ export const ICON: Record<string, IconDef> = {
   elevenlabs: { sym: 'ic-elevenlabs', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
   fathom: { sym: 'ic-fathom', bg: '#000000' },     // fathom.video: mark celeste sobre negro
   calendly: { sym: 'ic-calendly', bg: '#006BFF' },
+  // ⚠️ CAL.COM NO ES CALENDLY, y sin esta entrada caía en el FALLBACK de `iconFor`
+  // —que es Supabase— así que la tarjeta de la agenda de un cliente mostraba el
+  // logo de una base de datos. Un logo ajeno es peor que ninguno: no se lee como
+  // «falta el ícono», se lee como que la app se confundió de servicio.
+  // Su mark oficial es la palabra «cal» en #292929 pensada para fondo claro, así
+  // que va tile blanco con borde — el mismo tratamiento que google, panda,
+  // elevenlabs y mistral, por el mismo motivo.
+  calcom: { sym: 'ic-calcom', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
   google: { sym: 'ic-google', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
   // Panda: su logo es oscuro sobre claro y trae blancos macizos → tile blanco con
   // borde (igual que google). Con un bg de color el logo se rompe.
@@ -45,6 +53,13 @@ export const ICON: Record<string, IconDef> = {
   // GitHub: el mark oficial en blanco sobre su negro de marca (#181717).
   github: { sym: 'ic-github', bg: '#181717' },
   landing: { sym: 'ic-landing', bg: '#7C5CFF' },
+  // Zernio y Clarity no tenían entrada y caían en el fallback — que hasta hoy era el
+  // logo de Supabase, o sea el de otra marca. No conseguimos sus vectores oficiales,
+  // así que van letter-mark sobre su color: la regla de arriba, la misma que Whop.
+  // Zernio: su producto acá es Instagram, pero la credencial es de Zernio y el
+  // letter-mark tiene que decir de quién es la cuenta que se está conectando.
+  zernio: { letter: 'Z', bg: '#6D4AFF' },
+  clarity: { letter: 'C', bg: '#0078D4' },   // Clarity es de Microsoft: su azul.
   // Whop: no tenemos su vector oficial, así que va letter-mark sobre su naranja
   // de marca (#FF6243). La regla de arriba: una inicial honesta antes que un
   // logo inventado.
@@ -56,7 +71,22 @@ export const ICON: Record<string, IconDef> = {
   // Code» y mostraba el logo de la empresa.
   agente: { sym: 'ic-claude', bg: '#181818' },
 };
-export const iconFor = (k: string): IconDef => ICON[k] ?? { sym: 'ic-supabase', bg: '#1F2937' };
+/**
+ * El ícono de un servicio, o un letter-mark honesto.
+ *
+ * ⚠️⚠️ EL FALLBACK ERA EL LOGO DE SUPABASE. Cualquier servicio nuevo sin entrada en
+ * `ICON` no se veía como «falta el ícono»: se veía como **otra marca**. El
+ * 24/08/2026 la tarjeta de Cal.com —una agenda— salió con el logo de una base de
+ * datos, y el dueño lo reportó como que el logo estaba mal. No estaba mal: era de
+ * otro producto.
+ *
+ * Un logo AJENO es peor todavía que uno inventado, que es lo que la regla de arriba
+ * ya prohíbe: no se lee como un error nuestro, se lee como que la app se confundió
+ * de servicio. Ahora cae en la inicial sobre un gris neutro — feo a propósito, para
+ * que se note que falta, y sin decir nada falso.
+ */
+export const iconFor = (k: string): IconDef =>
+  ICON[k] ?? { letter: (k.trim()[0] ?? '?').toUpperCase(), bg: '#4A5160' };
 
 export function SvcIcon({ k, size = 21, box = 34, radius = 9 }: { k: string; size?: number; box?: number; radius?: number }) {
   const ic = iconFor(k);
@@ -126,6 +156,11 @@ export function BrandDefs() {
         </g>
       </symbol>
       {/* Calendly — logo oficial (simple-icons `calendly`, fuente https://calendly.com/newsroom). */}
+      {/* Cal.com — mark oficial, bajado de cal.com/api/logo?type=icon y pegado tal
+          cual, con su color de marca. El viewBox está encuadrado al contenido (el
+          original es 56×56 con mucho aire y en un tile de 34 px se veía diminuto);
+          es el mismo recorte que ya lleva ic-panda. */}
+      <symbol id="ic-calcom" viewBox="8.9 9.1 38 38"><path fill="#292929" d="M18.628 36.781c2.846 0 4.946-1.096 6.183-2.59l-2.38-2.03c-.957 1.05-2.147 1.587-3.733 1.587-3.22 0-5.204-2.427-5.204-5.413 0-2.987 1.984-5.46 5.134-5.46 1.47 0 2.683.513 3.663 1.54l2.31-2.007c-1.47-1.75-3.313-2.567-5.973-2.567-5.04 0-8.517 3.803-8.517 8.493 0 4.667 3.663 8.447 8.517 8.447ZM31.69 36.781c2.17 0 3.267-.91 3.92-2.286v1.983h3.057V24.344H35.54v1.914c-.653-1.307-1.75-2.17-3.85-2.17-3.337 0-5.997 2.87-5.997 6.37s2.66 6.323 5.997 6.323Zm-2.847-6.346c0-1.89 1.354-3.5 3.36-3.5 2.077 0 3.407 1.633 3.407 3.523 0 1.89-1.33 3.477-3.407 3.477-2.006 0-3.36-1.657-3.36-3.5ZM41.472 36.478h3.15V19.444h-3.15v17.034Z" /></symbol>
       <symbol id="ic-calendly" viewBox="0 0 24 24"><path fill="#fff" d="M19.655 14.262c.281 0 .557.023.828.064 0 .005-.005.01-.005.014-.105.267-.234.534-.381.786l-1.219 2.106c-1.112 1.936-3.177 3.127-5.411 3.127h-2.432c-2.23 0-4.294-1.191-5.412-3.127l-1.218-2.106a6.251 6.251 0 0 1 0-6.252l1.218-2.106C6.736 4.832 8.8 3.641 11.035 3.641h2.432c2.23 0 4.294 1.191 5.411 3.127l1.219 2.106c.147.252.271.519.381.786 0 .004.005.009.005.014-.267.041-.543.064-.828.064-1.816 0-2.501-.607-3.291-1.306-.764-.676-1.711-1.517-3.44-1.517h-1.029c-1.251 0-2.387.455-3.2 1.278-.796.805-1.233 1.904-1.233 3.099v1.411c0 1.196.437 2.295 1.233 3.099.813.823 1.949 1.278 3.2 1.278h1.034c1.729 0 2.676-.841 3.439-1.517.791-.703 1.471-1.306 3.287-1.301Zm.005-3.237c.399 0 .794-.036 1.179-.11-.002-.004-.002-.01-.002-.014-.073-.414-.193-.823-.349-1.218.731-.12 1.407-.396 1.986-.819 0-.004-.005-.013-.005-.018-.331-1.085-.832-2.101-1.489-3.03-.649-.915-1.435-1.719-2.331-2.395-1.867-1.398-4.088-2.138-6.428-2.138-1.448 0-2.855.28-4.175.841-1.273.543-2.423 1.315-3.407 2.299S2.878 6.552 2.341 7.83c-.557 1.324-.842 2.726-.842 4.175 0 1.448.281 2.855.842 4.174.542 1.274 1.314 2.423 2.298 3.407s2.129 1.761 3.407 2.299c1.324.556 2.727.841 4.175.841 2.34 0 4.561-.74 6.428-2.137a10.815 10.815 0 0 0 2.331-2.396c.652-.929 1.158-1.949 1.489-3.03 0-.004.005-.014.005-.018-.579-.423-1.255-.699-1.986-.819.161-.395.276-.804.349-1.218.005-.009.005-.014.005-.023.869.166 1.692.506 2.404 1.035.685.505.552 1.075.446 1.416C22.184 20.437 17.619 24 12.221 24c-6.625 0-12-5.375-12-12s5.37-12 12-12c5.398 0 9.963 3.563 11.471 8.464.106.341.239.915-.446 1.421-.717.529-1.535.873-2.404 1.034.128.716.128 1.45 0 2.166-.387-.074-.782-.11-1.182-.11-4.184 0-3.968 2.823-6.736 2.823h-1.029c-1.899 0-3.15-1.357-3.15-3.095v-1.411c0-1.738 1.251-3.094 3.15-3.094h1.034c2.768 0 2.552 2.823 6.731 2.827Z" /></symbol>
       <symbol id="ic-youtube" viewBox="0 0 24 24"><path fill="#fff" d="M21.6 7.2c-.2-.9-.9-1.6-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.8.4c-.9.2-1.6.9-1.8 1.8C2 8.8 2 12 2 12s0 3.2.4 4.8c.2.9.9 1.6 1.8 1.8C5.8 19 12 19 12 19s6.2 0 7.8-.4c.9-.2 1.6-.9 1.8-1.8.4-1.6.4-4.8.4-4.8s0-3.2-.4-4.8zM10 15V9l5 3z" /></symbol>
       <symbol id="ic-google" viewBox="0 0 24 24"><path fill="#4285F4" d="M21.6 12.23c0-.63-.06-1.25-.16-1.84H12v3.48h5.4a4.6 4.6 0 0 1-2 3.02v2.5h3.23c1.89-1.74 2.97-4.3 2.97-7.16z" /><path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.62-2.42l-3.23-2.5c-.9.6-2.05.95-3.39.95-2.6 0-4.8-1.76-5.59-4.12H3.07v2.58A10 10 0 0 0 12 22z" /><path fill="#FBBC05" d="M6.41 13.91a5.99 5.99 0 0 1 0-3.82V7.51H3.07a10 10 0 0 0 0 8.98z" /><path fill="#EA4335" d="M12 6.58c1.47 0 2.79.5 3.83 1.5l2.86-2.87A9.96 9.96 0 0 0 12 2 10 10 0 0 0 3.07 7.51l3.34 2.58C7.2 8.34 9.4 6.58 12 6.58z" /></symbol>

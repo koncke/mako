@@ -10,6 +10,7 @@
 
 import 'server-only';
 import { normalizarProjectId } from './clarity';
+import { CALCOM_API, calcomHeaders } from './calcom';
 import { credWs } from './credenciales';
 import { claveBaseDe } from './ia-keys';
 import { servicioMetodo } from './metodo-catalogo';
@@ -428,6 +429,80 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     if (r?.email) facts.push({ k: 'Cuenta', v: r.email });
     if (r?.scheduling_url) facts.push({ k: 'Tu agenda', v: r.scheduling_url.replace(/^https?:\/\//, '') });
     return { ok: true, detalle: r?.name ? `Conectado como ${r.name}.` : 'Token válido.', facts };
+  },
+
+  // ⚠️ ZERNIO TAMPOCO TENÍA PING, y el bug ya estaba vivo: quien intentara conectar
+  // Instagram veía «servicio inválido No la guardé» y no podía guardar la key. Lo
+  // encontró el test de los tres registros (tests/integracion-tres-registros.test.ts),
+  // escrito a raíz del mismo problema en Cal.com.
+  async zernio(v) {
+    const key = (v.ZERNIO_API_KEY ?? '').trim();
+    // ⚠️ La key es OPCIONAL a propósito: sin key propia, lib/zernio.ts cae a la de
+    // plataforma y el aislamiento lo da el profile por workspace. Así que «sin key»
+    // NO es un error — es el modo normal, y decirle que falta algo sería mentirle.
+    if (!key) {
+      return { ok: true, detalle: 'Sin key propia: Instagram funciona con la cuenta de la agencia.',
+        facts: [{ k: 'Cuenta', v: 'La de la agencia (compartida)' }] };
+    }
+    const { status, body } = await fetchJson('https://zernio.com/api/v1/profiles', {
+      headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+    });
+    if (status === 401 || status === 403) return { ok: false, error: 'Esa API key no es válida. Copiala de nuevo desde tu panel de Zernio.' };
+    if (status >= 400) return { ok: false, error: `Zernio respondió ${status}.` };
+    const perfiles = (body.profiles as Array<{ name?: string }> | undefined) ?? [];
+    return {
+      ok: true,
+      detalle: 'Key válida — Zernio accesible.',
+      facts: perfiles.length
+        ? [{ k: 'Perfiles en tu cuenta', v: perfiles.map((x) => x.name).filter(Boolean).join(' · ') || String(perfiles.length), c: 'var(--good)' }]
+        : [{ k: 'Perfiles en tu cuenta', v: 'Ninguno todavía', c: 'var(--warn)' }],
+    };
+  },
+
+  // ⚠️ ESTE ES EL TERCER REGISTRO, Y ME LO SALTEÉ. El aviso de más arriba lo dice
+  // con todas las letras y aun así la integración de Cal.com salió a producción con
+  // el catálogo y los campos puestos y SIN verificador: el tilde de cada campo
+  // prueba antes de guardar, así que el cliente no podía guardar NADA y lo único
+  // que veía era «servicio inválido No la guardé» — un mensaje que culpa al
+  // servicio que él acaba de elegir bien.
+  async calcom(v) {
+    const key = (v.CALCOM_API_KEY ?? '').trim();
+    const secret = (v.CALCOM_WEBHOOK_SECRET ?? '').trim();
+
+    // ⚠️ EL SECRET NO SE PUEDE COMPROBAR CONTRA NADIE, y está bien que así sea: lo
+    // ELIGE el cliente y se pega en los dos lados. No hay a quién preguntarle si es
+    // correcto hasta que llegue la primera reserva. Rechazarlo por no poder
+    // comprobarlo sería impedirle guardar justo el campo del que depende TODO —
+    // sin secret no entra una sola reserva.
+    if (!key) {
+      if (!secret) return { ok: false, error: 'Falta el secret del webhook: sin eso no entra ninguna reserva.' };
+      return {
+        ok: true,
+        // ⚠️ El detalle describe el ESTADO del servicio, no la acción que se acaba de
+        // hacer: este mismo ping corre al guardar CUALQUIER campo, así que un
+        // «secret guardado» aparecía también al guardar el tipo de evento.
+        detalle: 'Tu contraseña está guardada. Las reservas empiezan a entrar en cuanto pegues la dirección dentro de Cal.com.',
+        facts: [{ k: 'Reservas en vivo', v: 'Listas, cuando pegues la dirección en Cal.com', c: 'var(--good)' }],
+      };
+    }
+
+    // Con API key sí hay a quién preguntarle. v2 obligatoria: la v1 se apagó el
+    // 8/4/2026, así que una key válida contra v1 hoy devolvería 404 igual.
+    const { status, body } = await fetchJson(`${CALCOM_API.base}/me`, { headers: calcomHeaders(key) });
+    if (status === 401 || status === 403) return { ok: false, error: 'Esa API key no es válida. Copiala de nuevo desde Settings → Developer → API keys.' };
+    if (status >= 400) return { ok: false, error: `Cal.com respondió ${status}.` };
+    // La forma de la respuesta cambió entre versiones: puede venir plana o
+    // envuelta en `data`. Se prueban las dos antes de decir que no vino nada.
+    const d = (body.data ?? body) as { username?: string; email?: string; name?: string } | undefined;
+    const facts: Fact[] = [];
+    const quien = d?.name || d?.username;
+    if (quien) facts.push({ k: 'Conectado como', v: quien, c: 'var(--good)' });
+    if (d?.email) facts.push({ k: 'Cuenta', v: d.email });
+    if (d?.username) facts.push({ k: 'Tu agenda', v: `cal.com/${d.username}` });
+    facts.push(secret
+      ? { k: 'Reservas en vivo', v: 'Listas, cuando pegues la dirección en Cal.com', c: 'var(--good)' }
+      : { k: 'Reservas en vivo', v: 'Falta el secret del webhook', c: 'var(--warn)' });
+    return { ok: true, detalle: quien ? `Conectado como ${quien}.` : 'API key válida.', facts };
   },
 
   // google: NO tiene ping. Salió del catálogo (es la app OAuth de la agencia,
