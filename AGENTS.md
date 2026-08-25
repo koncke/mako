@@ -116,6 +116,31 @@ Reglas que salen de eso:
   `/admin/docs` (la ficha de cada documento) y el Change History de `/admin/ui`; donde
   falta muestran «—», que es lo correcto: no se inventa.
 
+  ⚠️ **La cuenta NO se deduce: se lee de `~/.claude/cuenta-activa.txt`**, que trae
+  `claude1` o `claude2` y lo declara Martín. Un hook de `SessionStart` la inyecta a tu
+  contexto al abrir, junto con el titular. **No la infieras de ninguna otra cosa**: el
+  `userEmail` de tu contexto sale de `~/.claude.json`, se actualiza al *loguearse* y no
+  al abrir sesión, así que va con retraso y miente después de cada cambio. Tampoco sirven
+  el día de la semana, el config dir ni el nombre que trae el email adentro. Si el mensaje
+  del hook no aparece, **preguntá** — nunca firmes adivinando. Por qué esto es tan
+  terminante: hasta el 25/08/2026 se firmaba adivinando, y la firma alterna cada 2-4
+  minutos sobre trabajo continuo. **Los trailers anteriores a esa fecha no son
+  confiables**, y por eso no se puede reconstruir quién hizo qué antes del 25/08.
+
+- **Fijate si hay otra sesión viva antes de tocar git.** El mismo hook cuenta las sesiones
+  con actividad en los últimos 20 minutos sobre este clon y te avisa. Cuando hay otra:
+  `git status` primero, commitea **por ruta explícita** (nunca `git add -A`, te llevás su
+  trabajo a medio hacer dentro de tu commit) y `git pull --rebase` antes de pushear.
+  El 25/08 dos sesiones trabajaron en paralelo y una reportó como «pendiente» un curso
+  que la otra estaba terminando en ese mismo momento: el corpus documenta bien el pasado,
+  pero **nadie documenta el presente concurrente**.
+
+- **Cada apertura y cierre de sesión queda en `~/.claude/bitacora-sesiones.tsv`** (fecha,
+  acción, cuenta, id de sesión), que lo escriben los hooks `SessionStart` y `SessionEnd`.
+  Vive fuera del repo a propósito: no ensucia el árbol ni se pisa entre sesiones
+  paralelas. Es la respuesta a «¿desde qué fecha a qué fecha estuve en tal cuenta?», que
+  antes no se podía contestar.
+
 El protocolo completo —qué comparten las dos cuentas y qué no, cuándo usar worktrees y
 las tres cosas que hay que recrear a mano en uno— está en
 [docs/dos-cuentas.md](docs/dos-cuentas.md).

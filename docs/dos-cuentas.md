@@ -64,6 +64,39 @@ la máquina lo actualiza solo, porque nada en la máquina sabe qué cuenta es.
 
 Lo que diga Martín gana siempre sobre el archivo, y el archivo gana siempre sobre el disco.
 
+### Las tres piezas, y dónde vive cada una
+
+Todo esto vive **fuera del repo**, en el config de Claude, porque tiene que funcionar
+aunque el clon se borre y se vuelva a clonar:
+
+| Archivo | Qué es |
+|---|---|
+| `~/.claude/cuenta-activa.txt` | Una línea: `claude1` o `claude2`. La declara Martín. **Es la fuente de verdad** |
+| `~/.claude/bitacora-sesion.sh` | El script que leen los hooks. Está comentado con el porqué de cada decisión |
+| `~/.claude/bitacora-sesiones.tsv` | Una línea por apertura y por cierre: fecha, acción, cuenta, id de sesión |
+
+Los hooks son dos, los dos en `~/.claude/settings.json`: `SessionStart` (registra la
+apertura, inyecta la cuenta al contexto y avisa si hay otra sesión viva) y `SessionEnd`
+(registra el cierre).
+
+### Detectar la sesión paralela: por qué el `mtime` no alcanza
+
+El hook cuenta las sesiones con actividad reciente sobre este clon. La primera versión
+miraba el `mtime` de los `.jsonl` y **daba 3 donde había 1**: un reindexado de Claude Code
+tocó nueve transcripts a la vez el 25/08 y todos quedaron con la misma hora. Lo que no
+miente es el **último `timestamp` escrito adentro** del archivo. La versión final usa el
+`mtime` como prefiltro barato —descarta rápido las decenas de sesiones viejas— y confirma
+con la cola del archivo: leer los 4 KB finales de todos los `.jsonl` tardaba 4,9 s en el
+arranque, y con el prefiltro baja a 1,1 s.
+
+⚠️ **Los trailers `Claude-Cuenta` anteriores al 25/08/2026 no son confiables.** Hasta ese
+día se firmaba adivinando: en los bloques del 11/08 la firma alterna entre `claude1` y
+`claude2` **cada dos o cuatro minutos**, sobre trabajo continuo, y los commits del medio
+son features normales y no otra clase de tarea. El trailer registraba la adivinanza. Los
+bloques **largos** (97 commits del 16 al 17/08, 68 del 13 al 14) sí son creíbles, porque
+cientos de commits seguidos no se explican por ruido. Y la firma **no existe antes del
+11/08 16:38**: hay 39 commits sin ella.
+
 ℹ️ De paso, esto explica un corte: el 2026-08-25 a las 16:35:50 las cuatro sesiones del
 día murieron casi juntas con «Your organization has disabled Claude subscription access for
 Claude Code». Esa organización es la de `mbustos@elevate.com.mx` — la cuenta 1 — y de ahí
