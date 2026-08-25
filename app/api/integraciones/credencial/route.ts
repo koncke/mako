@@ -24,7 +24,7 @@ import { getRolWsEfectivo, getWorkspaceActual, OWNER_WS, wsSuperAdmin } from '@/
 import { verificarServicio } from '@/lib/metodo-verificar';
 import { descubrirMeta, pixelesDeCuenta } from '@/lib/meta-descubrir';
 import { descubrirGithub } from '@/lib/github-descubrir';
-import { ayudaDeCampo, ENVS_METODO, servicioMetodo } from '@/lib/metodo-catalogo';
+import { ayudaDeCampo, ENVS_METODO, servicioDeEnv, servicioMetodo } from '@/lib/metodo-catalogo';
 import { normalizarProjectId } from '@/lib/clarity';
 import { normalizarCuentaMeta } from '@/lib/meta-cuenta-id';
 
@@ -133,6 +133,31 @@ function puedeRevelar(sesion: NonNullable<Awaited<ReturnType<typeof getUsuarioAc
  * Cerrar tres de los cuatro caminos es dejar el cuarto abierto, que es el patrón
  * que AGENTS.md ya tiene escrito para el veto de Claude. Por eso: un solo resolvedor.
  */
+/**
+ * El guard, para las acciones que hablan de un ENV y no de un servicio.
+ *
+ * ⚠️⚠️ `revelar` y `borrar` eran el QUINTO y SEXTO camino, y se me pasaron. Ayer puse
+ * `servicioDelContexto()` en los cuatro que resuelven un servicio (GET, guardar,
+ * descubrir-github, verificar) y escribí que cerrar tres deja el cuarto abierto —
+ * y dejé estos dos, que no toman `servicio` sino `env`, con su única validación
+ * `ENVS_METODO.has(env)`.
+ *
+ * Y esa whitelist NO filtra plataforma: `ENVS_METODO` se arma con `!s.soloServidor`
+ * (una bandera que hoy no usa ningún servicio), así que GITHUB_TOKEN está adentro.
+ * Un admin de otro workspace no podía leer la fila del ws9 —`puedeRevelar` exige ser
+ * dueño del workspace donde vive— pero la puerta estaba sin el cartel de los demás,
+ * y `borrar` no tenía ni siquiera esa comprobación de rol.
+ *
+ * La lección que queda: **un guard se pone en el punto donde se resuelve el
+ * PERMISO, no en cada handler**. Acá hay dos formas de nombrar lo mismo (por
+ * servicio y por env) y hacen falta las dos.
+ */
+function envDelContexto(env: string, ctx: Contexto): boolean {
+  if (!ENVS_METODO.has(env)) return false;
+  const key = servicioDeEnv(env);
+  return !!key && !!servicioDelContexto(key, ctx);
+}
+
 function servicioDelContexto(key: string, ctx: Contexto) {
   const s = servicioMetodo(key);
   if (!s) return undefined;
@@ -417,7 +442,9 @@ export async function POST(req: NextRequest) {
 
     if (body.action === 'borrar') {
       const env = body.env ?? '';
-      if (!ENVS_METODO.has(env)) return NextResponse.json({ ok: false, error: 'clave inválida' }, { status: 400 });
+      // 400 y no 404 como en el resolvedor por servicio: acá el cliente pregunta por
+      // una CLAVE, y «esa clave no existe para vos» no confirma nada de la plataforma.
+      if (!envDelContexto(env, ctx)) return NextResponse.json({ ok: false, error: 'clave inválida' }, { status: 400 });
       await eliminarCredencial(ctx.ws, env);
       await auditarCredencial(ctx.ws, env, 'borrar', ctx.autor);
       return NextResponse.json({ ok: true });
@@ -429,7 +456,9 @@ export async function POST(req: NextRequest) {
     // credWs scopea al ws del contexto: nunca se lee la credencial de otro.
     if (body.action === 'revelar') {
       const env = body.env ?? '';
-      if (!ENVS_METODO.has(env)) return NextResponse.json({ ok: false, error: 'clave inválida' }, { status: 400 });
+      // 400 y no 404 como en el resolvedor por servicio: acá el cliente pregunta por
+      // una CLAVE, y «esa clave no existe para vos» no confirma nada de la plataforma.
+      if (!envDelContexto(env, ctx)) return NextResponse.json({ ok: false, error: 'clave inválida' }, { status: 400 });
       // getUsuarioActual está cacheada por request: volver a pedirla no cuesta.
       const sesion = await getUsuarioActual();
       if (!sesion || !puedeRevelar(sesion, ctx.ws)) {

@@ -76,6 +76,33 @@ test('ningún componente cliente importa un VALOR del catálogo', () => {
   );
 });
 
+test('la rama de GitHub no viaja en el form genérico', () => {
+  // ServicioConfigForm se monta para CUALQUIER integración, así que todo lo que
+  // tenga adentro lo descarga quien abre el modal de Calendly o de Groq. Los
+  // literales 'GITHUB_TOKEN', 'GITHUB_REPO' y 'descubrir-github' estaban ahí:
+  // medido sobre el build de producción, 4 chunks.
+  //
+  // Lo que viajaba era el NOMBRE de la env, no el valor del token — el valor vive
+  // cifrado y solo lo lee el server. Pero el nombre de la credencial de la
+  // plataforma no tiene por qué estar en el navegador de un cliente: la superficie
+  // que no se entrega es la que no hay que defender.
+  //
+  // ⚠️ ESTO NO ES EL GUARD DE SEGURIDAD. El guard es `servicioDelContexto()` en
+  // app/api/integraciones/credencial/route.ts, que devuelve 404 a quien no le
+  // corresponde. Esto es la capa de arriba.
+  const form = leer(join(RAIZ, 'app', 'integraciones', 'ServicioConfigForm.tsx'));
+  // Sin los comentarios: el de arriba nombra las tres cadenas para explicar el
+  // porqué, y no viaja a ningún lado (el build los borra).
+  const codigo = form.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  for (const s of ['GITHUB_TOKEN', 'GITHUB_REPO', 'descubrir-github']) {
+    assert.ok(!codigo.includes(s), `«${s}» volvió al form genérico: eso lo mete en el bundle de todas las integraciones`);
+  }
+  // Y sigue funcionando, cargado aparte.
+  assert.ok(/dynamic\(\(\) => import\('\.\/GithubRepoPicker'\)/.test(form),
+    'el picker tiene que cargarse con next/dynamic: un import estático lo devuelve al bundle común');
+  assert.ok(/ssr: false/.test(form), 'sin ssr:false el componente se renderiza en el server y su código vuelve');
+});
+
 test('los tres que lo importaban lo reciben por props', () => {
   // No alcanza con que no importen: hay que comprobar que el dato SIGUE llegando,
   // o el arreglo habría sido borrar la funcionalidad.

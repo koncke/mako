@@ -150,6 +150,91 @@ de un cliente.
 
 </details>
 
+### El token de GitHub: qué se auditó y qué NO alcanza con código
+
+*2026-08-25 — pedido del dueño: «metele ciberseguridad. Alguien que pueda acceder a
+ese token puede robar toda la app».*
+
+**Primero la distinción que cambia la prioridad, porque es fácil confundirla:** lo que
+viajaba en 4 chunks del bundle era **el NOMBRE de la env** (`"GITHUB_TOKEN"`), no el
+valor. El valor vive cifrado (gcm2, HKDF por `(ws, clave)` con AAD) y solo lo lee el
+server. Igual se sacó —la superficie que no se entrega es la que no hay que defender—
+pero no era por donde se roba nada.
+
+**¿Se puede robar el token hoy? NO.** Cinco frentes lo atacaron con curl desde sesiones
+reales de ws1 y ws13 y todos rebotaron. Lo que se auditó y **cierra**: `puedeRevelar`
+exige ser dueño del workspace donde vive la fila · la impersonación no da lectura ajena
+(`proxy.ts` borra el header interno y solo lo repone para rol global admin) · el
+cifrado v2 ata cada criptograma a su fila, así que copiarla a otro ws no abre · la
+auditoría no guarda el valor · ningún `console.*` lo imprime · la tabla no es
+alcanzable con la anon key (RLS sin policies) · no se publican sourcemaps · el cron de
+commits es fail-closed (verificado contra producción: `Unauthorized`) · ninguna tool
+del chat toca GitHub · y las credenciales más peligrosas (`CRON_SECRET`,
+`SUPABASE_SERVICE_ROLE_KEY`, `CREDENCIALES_SECRET`, `AUTH_SECRET`…) están **fuera del
+catálogo**, así que ninguna ruta de credenciales las puede leer.
+
+### ⚠️ Lo que sí estaba abierto: el guard cubría 4 de 6 caminos
+
+El 24/08 se puso `servicioDelContexto()` en los cuatro caminos que resuelven un
+**servicio** (GET, `guardar`, `descubrir-github`, `verificar`), y en el mismo
+comentario quedó escrito que *«cerrar tres deja el cuarto abierto»*. Quedaron dos:
+`revelar` y `borrar`, que no toman `servicio` sino **`env`**, con su única validación
+`ENVS_METODO.has(env)`.
+
+Esa whitelist **no filtra plataforma**: se arma con `!s.soloServidor`, una bandera que
+hoy no usa ningún servicio, así que `GITHUB_TOKEN` está adentro. `puedeRevelar` igual
+lo frenaba —exige ser dueño del workspace donde está la fila, y la fila solo vive en el
+ws9— pero la puerta estaba sin el cartel de las demás, y `borrar` no tenía ni esa
+comprobación de rol.
+
+**La regla que queda: un guard va donde se resuelve el PERMISO, y si el mismo recurso
+se nombra de dos formas (por servicio y por env), hacen falta las dos puertas.** Ahora
+existe `envDelContexto()`. Verificado con curl:
+
+| workspace | `revelar GITHUB_TOKEN` |
+|---|---|
+| ws13 (cliente) | `400 clave inválida` |
+| ws1 (Mauricio, OWNER_WS) | `400 clave inválida` |
+| ws9 (la plataforma) | `200` — correcto, es su credencial |
+
+### ⚠️⚠️ Y LO QUE NO SE ARREGLA CON CÓDIGO: el token vale mucho más de lo que la app promete
+
+Comprobado contra `api.github.com` **solo con GET**, descifrando la fila de producción:
+es un `github_pat_` fine-grained que **ve 15 repos, 13 de ellos privados —incluidos
+codebases de otros clientes de la agencia—** y tiene al menos un permiso de
+**escritura** (`codespaces_secrets`).
+
+Mientras tanto el catálogo le promete al dueño *«Contents: Read-only sobre este repo,
+no puede escribir nada»*. **El tutorial describe un token que no es el que está
+puesto.**
+
+Lo que sí acota el daño (verificado): no puede borrar ni transferir repos ni cambiar la
+visibilidad (`administration` no lo tiene), y la cuenta no tiene secretos de CI que
+robar (`actions/secrets` → 0), así que **no es un puente hacia las credenciales de
+Vercel o Supabase**.
+
+**La acción de mayor impacto de toda esta auditoría no es tocar código: es rotar ese
+token** con el alcance que el propio tutorial promete —un repo, Contents: read-only— y
+con expiración. Reduce el daño de cualquier filtración futura pase lo que pase con los
+demás caminos. **Queda para el dueño: no se puede hacer desde el repo.**
+
+### ⚠️ Lo que quedó SIN verificar y hay que mirar a mano
+
+`vercel env ls production` **no es el inventario completo del entorno**: no lista
+`GITHUB_TOKEN`, pero tampoco `AUTH_SECRET` ni `CREDENCIALES_SECRET` — y sin esas dos la
+app no firma sesiones ni descifra una sola credencial, y producción funciona. Lo más
+probable es que haya variables compartidas a nivel de equipo que el CLI no enumera.
+
+Importa porque **el fallback `if (w === OWNER_WS && process.env[clave])` de
+`lib/credenciales.ts` sigue anclado a OWNER_WS, que es un CLIENTE (Mauricio), no la
+plataforma.** Hoy el conjunto que filtra es vacío *por accidente de configuración*, no
+por diseño: el día que alguien ponga una clave de plataforma en las env vars de Vercel,
+esa línea se vuelve una fuga viva sin que nadie toque código. **Pendiente:** anclarlo a
+`wsSuperAdmin()` en `credWs`, `estadoCampo` y `envCred`.
+
+**Y una fuga que ya ocurrió:** el ws1 (un cliente) tiene la **misma `ANTHROPIC_API_KEY`
+que la agencia**, sembrada por `migrarEnvACredenciales()`. Rotarla también.
+
 ## Aislamiento multi-inquilino
 
 La regla del dueño, textual: «los Workspace JAMÁS deberían compartir información con
