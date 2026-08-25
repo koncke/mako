@@ -104,10 +104,26 @@ const esPrincipal = import.meta.url === pathToFileURL(process.argv[1] ?? "").hre
 if (esPrincipal) {
   const SLUG = process.argv[2];
   const JSON_CRUDO = process.argv.includes('--json');
+  // ⚠️ `--volcar <dir>` no es una comodidad: `modulos-api.json` y `recursos-api.json` los
+  // consumen TRES scripts —`curso-recursos-indice`, `curso-pdfs` y `curso-verificar`— y
+  // hasta hoy no los escribía ninguno. Se habían hecho a mano para un curso, así que el
+  // siguiente arrancaba sin ellos y sin que nada lo dijera: los recursos salían con nombre
+  // genérico y el verificador se saltaba entero el chequeo de peso. Lo que tres consumidores
+  // necesitan lo produce un productor, no la memoria de quien pasó por acá antes.
+  const VOLCAR = (() => { const i = process.argv.indexOf('--volcar'); return i > -1 ? process.argv[i + 1] : null; })();
   if (!SLUG || SLUG.startsWith('--')) { console.error('\n  ✖ Falta el slug del curso.\n'); process.exit(1); }
   try {
     const d = await preguntarCurso(SLUG, PORT);
     if (JSON_CRUDO) { console.log(JSON.stringify(d, null, 1)); process.exit(0); }
+    if (VOLCAR) {
+      const { writeFileSync, mkdirSync } = await import('node:fs');
+      const { join } = await import('node:path');
+      mkdirSync(VOLCAR, { recursive: true });
+      writeFileSync(join(VOLCAR, 'modulos-api.json'), JSON.stringify(d.modulos, null, 1), 'utf8');
+      writeFileSync(join(VOLCAR, 'recursos-api.json'), JSON.stringify(d.recursos, null, 1), 'utf8');
+      console.log(`\n  → ${join(VOLCAR, 'modulos-api.json')}  (${d.modulos.length})`);
+      console.log(`  → ${join(VOLCAR, 'recursos-api.json')}  (${d.recursos.length})`);
+    }
     console.log(`\n  ${d.curso}`);
     console.log(`  sesión: ${d.conToken ? 'con token' : 'SIN token (solo anon)'}`);
     console.log(`  módulos: ${d.modulos.length} · recursos: ${d.recursos.length}`);
