@@ -189,6 +189,10 @@ export async function POST(request: NextRequest) {
             await saveLeadRespuestas(lead.id, 'R2', payload.questions_and_answers, fechaJ2);
             // Aviso al dueño: el lead agendó su R2 (best-effort, no bloquea).
             await emitirDelCatalogo('reunion-nuevo-agendado', {
+              // ⚠️ Dedup POR RESERVA — los webhooks se reentregan. El `uri` del
+              // scheduled_event es único por reserva; el horario va en la clave
+              // para que un REAGENDADO (que sí hay que avisar) no quede tapado.
+              dedupTtlMin: 180, dedupKey: `calendly:${payload.scheduled_event?.uri ?? emailJ2}|${startTimeIso}`,
               texto: `🎯 *Nuevo agendado*: ${lead.nombre} reservó una *R2 para el ${fmtFechaHoraLocal(startTimeIso, tzWs)}*.\n\n👉 Mirá el resumen del lead:\n${linkResumenLead(lead.id)}\n\n— MaKo`,
             });
             // Flujos configurados por el dueño: disparar 'lead.agendo' (R2).
@@ -329,6 +333,8 @@ export async function POST(request: NextRequest) {
         // Aviso al dueño: nuevo lead que agendó una R1 (best-effort, no bloquea).
         const anuncio = utm_campaign ? ` Vino del anuncio "${utm_campaign}".` : '';
         await emitirDelCatalogo('reunion-nuevo-agendado', {
+          // Ver la nota de la R2: dedup por reserva + horario.
+          dedupTtlMin: 180, dedupKey: `calendly:${payload.scheduled_event?.uri ?? email}|${startTimeIso}`,
           texto: `🎯 *Nuevo agendado*: ${nombre} reservó una *R1 para el ${fmtFechaHoraLocal(startTimeIso, tzWs)}*.${anuncio}\n\n👉 Mirá el resumen del lead:\n${linkResumenLead(lead.id)}\n\n— MaKo`,
         });
         // Flujos configurados por el dueño: disparar 'lead.agendo' (R1).

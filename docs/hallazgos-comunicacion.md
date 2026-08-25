@@ -3311,3 +3311,70 @@ persona confirma» aplicado a su propio criterio: crear un borrador que nadie pi
 *Corrida del 25/08/2026 — la respuesta al caso real verificada contra el modelo: «Clarity no
 necesita el pixel de Meta; solo el script de MaKo es suficiente», con el link correcto.
 Typecheck 0 errores, 1240/1240 tests.*
+
+---
+
+## «Nuevo agendado» saliendo 2 y 3 veces
+
+**Vive en:** `lib/avisos.ts` · `app/api/webhooks/calcom/route.ts` · `app/api/webhooks/calendly/route.ts`
+
+El dueño: *«repite los mensajes… el de nueva reunión lo manda varias veces con algunos leads,
+con otros lo manda 1 sola vez»*.
+
+### Lo que dijeron los datos
+
+Medido sobre 10 días de conversación de ws1 y ws13, el patrón es nítido y descarta media
+docena de hipótesis de una:
+
+- Los duplicados son **SIEMPRE «Nuevo agendado»**. Nunca los recordatorios de 30 min, nunca
+  los «Terminó la R1».
+- Siempre **dentro del mismo minuto**: 9 s, 25 s, 38 s y 41 s de diferencia.
+- En los **DOS** proveedores (Calendly en ws1, Cal.com en ws13).
+
+Eso no es un bug de lógica: es **el mismo webhook entregado varias veces**. Los proveedores
+reentregan, y el handler no tenía idempotencia.
+
+**El «con algunos leads sí y con otros no» que desconcertaba al dueño es exactamente lo que
+se espera de un reintento:** el proveedor reentrega cuando la primera respuesta tarda o falla,
+o sea de forma irregular. Cuando un síntoma es intermitente sin patrón por-entidad, el
+sospechoso no es la entidad — es el transporte.
+
+### La causa: la clave del dedup contestaba una sola pregunta
+
+`keyLast(tipo)` deduplicaba **solo por tipo**. Con eso, poner `dedupTtlMin` en un aviso
+por-entidad se tragaba el agendado de OTRO lead — así que los avisos de reunión se cablearon
+**sin dedup**, y con el comentario puesto:
+
+> «Todos con `emitirDelCatalogo` best-effort, sin `dedupTtlMin` (el dedup es por-tipo global
+> → tragaría eventos de otros leads)»
+
+O sea: la decisión estaba razonada y era correcta *dada la herramienta*. **La herramienta era
+la que estaba mal.** «¿Ya avisé de ESTO?» y «¿ya avisé de ESTE TIPO de cosa?» son dos
+preguntas distintas y la clave tenía una sola.
+
+### Qué queda
+
+`dedupKey` opcional en `emitirAviso`/`emitirDelCatalogo`: sin él, el comportamiento de
+siempre (por tipo, correcto para un aviso global como «tu cuenta de Meta está frenada»); con
+él, la ventana se acota a esa entidad. El id ajeno se **hashea** — un URI de Calendly son ~80
+caracteres y la clave de `app_settings` no es lugar para meterlo entero.
+
+⚠️ **La clave lleva el HORARIO además del id de la reserva**
+(`calcom:${uid}|${inicio}`). Un reintento trae los dos iguales; un **reagendado** cambia el
+horario, así que ese sí avisa. Con solo el id, mover una reunión quedaba tapado por el dedup
+— y mover una reunión es justo lo que hay que avisar.
+
+Y son **CUATRO** emisores del mismo aviso (2 en Cal.com, 2 en Calendly): arreglar tres deja
+el cuarto duplicando. El test cuenta emisores contra emisores-con-dedup en vez de afirmar un
+número, así que un quinto emisor nuevo también lo obliga.
+
+### Lo que quedó SIN hacer
+
+- **Los otros avisos por-entidad siguen sin dedup**: `reunion-cancelada`,
+  `lead-formulario-meta`, `wa-mensaje-entrante`. La herramienta ya existe; falta pasarles su
+  `dedupKey`. Mismo riesgo, mismo arreglo de una línea.
+- **Las marcas se acumulan**: una fila de `app_settings` por reserva. Con ~10 agendados/día
+  son ~3.600 filas al año por workspace. No molesta hoy y conviene un barrido cuando el
+  volumen crezca.
+
+*Corrida del 25/08/2026. Typecheck 0 errores, 1243/1243 tests.*

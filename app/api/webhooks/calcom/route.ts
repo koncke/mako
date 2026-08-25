@@ -170,6 +170,11 @@ export async function POST(request: NextRequest) {
         }
         await setFechaJunta2(lead.id, fechaReunion, reserva.inicio);
         await emitirDelCatalogo('reunion-nuevo-agendado', {
+          // ⚠️ Dedup POR RESERVA. Los webhooks se reentregan y el mismo agendado
+          // salía 2 y 3 veces (medido: 9 s, 25 s, 38 s y 41 s de diferencia). La
+          // clave lleva el HORARIO además del uid: un reintento trae los dos
+          // iguales, y un REAGENDADO cambia el horario — o sea que ese sí avisa.
+          dedupTtlMin: 180, dedupKey: `calcom:${reserva.uid ?? reserva.email}|${reserva.inicio}`,
           texto: `🎯 *Nuevo agendado*: ${lead.nombre} reservó una *R2 para el ${fmtFechaHoraLocal(reserva.inicio, tz)}*.\n\n👉 Mirá el resumen del lead:\n${linkResumenLead(lead.id)}\n\n— MaKo`,
         });
         await dispararEvento('lead.agendo', { leadId: lead.id, leadNombre: lead.nombre, reunion: 'R2' });
@@ -203,6 +208,8 @@ export async function POST(request: NextRequest) {
       });
 
       await emitirDelCatalogo('reunion-nuevo-agendado', {
+        // Ver la nota de la R2: dedup por reserva + horario.
+        dedupTtlMin: 180, dedupKey: `calcom:${reserva.uid ?? reserva.email}|${reserva.inicio}`,
         texto: `🎯 *Nuevo agendado*: ${reserva.nombre ?? reserva.email} reservó una *R1 para el ${fmtFechaHoraLocal(reserva.inicio, tz)}*.\n\n👉 Mirá el resumen del lead:\n${linkResumenLead(lead.id)}\n\n— MaKo`,
       });
       await dispararEvento('lead.agendo', { leadId: lead.id, leadNombre: reserva.nombre ?? reserva.email, reunion: 'R1' });

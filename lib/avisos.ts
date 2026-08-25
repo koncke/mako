@@ -11,6 +11,7 @@
 // existen (crearNotificacion, grupos de mako-grupo) y agrega estado+dedup.
 
 import 'server-only';
+import { createHash } from 'node:crypto';
 import { crearNotificacion, type NotifSeveridad } from './notificaciones';
 import { enviarAlGrupoSuperAdmin, enviarAlGrupoMaKo, getGrupoJidMaKo, getGrupoSuperAdminJid } from './mako-grupo';
 import { getSetting, setSetting } from './settings';
@@ -35,6 +36,20 @@ export type EmitirAvisoInput = {
   /** no repetir el mismo `tipo` dentro de esta ventana (minutos). */
   dedupTtlMin?: number;
   /**
+   * QUÉ entidad es esta (el id de la reserva, del lead, de la campaña).
+   *
+   * ⚠️ ES LO QUE HACE USABLE AL DEDUP. Sin esto la clave es solo el `tipo`, así que
+   * poner `dedupTtlMin` en un aviso por-entidad se tragaba el evento de OTRO lead
+   * — y por eso los avisos de reunión se cablearon SIN dedup, con el comentario
+   * puesto. Resultado: el mismo agendado salió 2 y 3 veces (medido: 25 s, 41 s,
+   * 38 s y 9 s de diferencia), porque los webhooks se reentregan.
+   *
+   * Con `dedupKey`, dos leads distintos agendando en la misma hora salen los dos, y
+   * la misma reserva entregada tres veces sale UNA. Son dos preguntas distintas y
+   * la clave tenía una sola.
+   */
+  dedupKey?: string;
+  /**
    * Workspace del aviso. Si no se pasa, se toma el del contexto en el que ya se
    * está corriendo, y recién si no hay ninguno se cae al dueño.
    */
@@ -52,17 +67,29 @@ export type EmitirAvisoResult = {
   apagado?: boolean;
 };
 
-const keyLast = (tipo: string) => `mako.aviso.last.${tipo}`;
+/**
+ * La clave del dedup. Con `dedupKey` se acota a ESA entidad; sin él se comporta
+ * igual que siempre (por tipo), que es lo correcto para un aviso global como
+ * «tu cuenta de Meta está frenada».
+ *
+ * El id se HASHEA: un URI de Calendly son ~80 caracteres y la clave de
+ * `app_settings` no es lugar para meter un identificador ajeno entero.
+ */
+const keyLast = (tipo: string, dedupKey?: string) => {
+  if (!dedupKey) return `mako.aviso.last.${tipo}`;
+  const h = createHash('sha1').update(dedupKey).digest('base64url').slice(0, 12);
+  return `mako.aviso.last.${tipo}:${h}`;
+};
 
-async function avisadoReciente(ws: number, tipo: string, ttlMin: number): Promise<boolean> {
-  const raw = await runWithWorkspace(ws, () => getSetting(keyLast(tipo)));
+async function avisadoReciente(ws: number, tipo: string, ttlMin: number, dedupKey?: string): Promise<boolean> {
+  const raw = await runWithWorkspace(ws, () => getSetting(keyLast(tipo, dedupKey)));
   if (!raw) return false;
   const t = Date.parse(raw);
   if (Number.isNaN(t)) return false;
   return Date.now() - t < ttlMin * 60_000;
 }
-async function marcarAvisado(ws: number, tipo: string): Promise<void> {
-  await runWithWorkspace(ws, () => setSetting(keyLast(tipo), new Date().toISOString()));
+async function marcarAvisado(ws: number, tipo: string, dedupKey?: string): Promise<void> {
+  await runWithWorkspace(ws, () => setSetting(keyLast(tipo, dedupKey), new Date().toISOString()));
 }
 
 /**
@@ -84,7 +111,7 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
   // Cae al dueño solo cuando de verdad no hay contexto (crons, sistema).
   const ws = a.ws ?? (await getWorkspaceActual()) ?? OWNER_WS;
   try {
-    if (a.dedupTtlMin && (await avisadoReciente(ws, a.tipo, a.dedupTtlMin))) {
+    if (a.dedupTtlMin && (await avisadoReciente(ws, a.tipo, a.dedupTtlMin, a.dedupKey))) {
       return { ok: true, feedId: null, wa: false, deduped: true };
     }
     const feedId = await crearNotificacion({
@@ -138,7 +165,7 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
       // sobre un mensaje que nadie leyó.
       if (jid) await guardarTurno(ws, jid, 'assistant', texto, env.id).catch(() => {});
     }
-    if (a.dedupTtlMin) await marcarAvisado(ws, a.tipo);
+    if (a.dedupTtlMin) await marcarAvisado(ws, a.tipo, a.dedupKey);
     return { ok: true, feedId, wa: env.ok, deduped: false, waError: env.ok ? undefined : env.error };
   } catch (e) {
     console.error(`[avisos] emitirAviso(${a.tipo}) falló:`, e);
@@ -162,7 +189,7 @@ export function avisoDelCatalogo(id: string): AvisoCatalogo | undefined {
  * cual. Si no, cae a la referencia literal. Respeta activar/desactivar la plantilla.
  */
 export async function emitirDelCatalogo(
-  id: string, opts: { texto?: string; contexto?: string; ws?: number; dedupTtlMin?: number; alDueno?: boolean } = {},
+  id: string, opts: { texto?: string; contexto?: string; ws?: number; dedupTtlMin?: number; dedupKey?: string; alDueno?: boolean } = {},
 ): Promise<EmitirAvisoResult> {
   const cat = avisoDelCatalogo(id);
   if (!cat) return { ok: false, feedId: null, wa: false, deduped: false };
@@ -173,6 +200,6 @@ export async function emitirDelCatalogo(
   return emitirAviso({
     tipo: cat.id, titulo: cat.titulo, texto,
     categoria: cat.categoria, semaforo: cat.semaforo,
-    ws: opts.ws, dedupTtlMin: opts.dedupTtlMin, alDueno: opts.alDueno,
+    ws: opts.ws, dedupTtlMin: opts.dedupTtlMin, dedupKey: opts.dedupKey, alDueno: opts.alDueno,
   });
 }
