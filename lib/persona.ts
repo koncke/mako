@@ -42,6 +42,44 @@ async function setPersona(p: PersonaData): Promise<void> {
   await setSetting(KEY, JSON.stringify(p));
 }
 
+/**
+ * La cara de marca, lista para meter en un prompt. `''` si no hay nada cargado.
+ *
+ * ⚠️ OJO CON EL NOMBRE, que ya costó caro. En este repo conviven DOS «personas»:
+ *
+ *   · `getActivePersona()` (lib/mako-prompts.ts) → la VOZ de MaKo. Ya iba en todos
+ *     los prompts.
+ *   · `getPersona()` (este módulo) → la CARA DE MARCA del cliente: sus fotos y la
+ *     descripción física que MaKo redacta a partir de ellas.
+ *
+ * Como la primera estaba en el contexto, parecía que la persona ya estaba cubierta.
+ * EL CASO (2026-08-24): un cliente probó el WhatsApp de MaKo con «tenés unas
+ * imágenes cargadas de mí, decime cómo soy físicamente» y no obtuvo respuesta.
+ * Tenía 5 fotos y 1.166 caracteres describiéndolo —ojos, cabello, complexión,
+ * hasta una curita en el puente nasal— cargados en su propio onboarding.
+ *
+ * Y el hallazgo de fondo, más grande que WhatsApp: hasta este cambio `getPersona()`
+ * tenía DOS consumidores, el grafo del cerebro y su propia ruta de onboarding.
+ * **Ninguna IA la leía.** La tab dice «subí fotos de la persona que aparece en tus
+ * creativos» y ningún generador de creativos la usaba: era un dato que se pedía,
+ * se procesaba con IA, y moría en la base.
+ */
+export async function resumenCaraDeMarca(): Promise<string> {
+  const p = await getPersona().catch(() => null);
+  const desc = str(p?.descripcion);
+  if (!desc && !p?.fotos.length) return '';
+  const fotos = p?.fotos.length ?? 0;
+  // Se dice de QUIÉN es esta descripción sin afirmar de más: es la cara de los
+  // creativos del negocio, que MUY seguido es el dueño pero no necesariamente.
+  // Afirmar «así es quien te habla» sería inventar un dato que nadie cargó.
+  return [
+    'LA CARA DE MARCA DEL NEGOCIO (la persona que aparece en sus creativos; casi',
+    'siempre es el dueño, pero eso no está confirmado en ningún lado — no lo afirmes).',
+    fotos ? `Tiene ${fotos} foto${fotos === 1 ? '' : 's'} cargadas en su onboarding.` : '',
+    desc ? `\n${desc}` : '',
+  ].filter(Boolean).join('\n');
+}
+
 export async function setPersonaDescripcion(texto: string): Promise<void> {
   const p = await getPersona();
   await setPersona({ ...p, descripcion: str(texto) });

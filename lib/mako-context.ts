@@ -113,6 +113,15 @@ export async function buildSystemPrompt(opts: { chartKey: string; titulo: string
   const funnelTxt = await resumenFunnel().catch(() => '');
   if (funnelTxt) base += `\n\nEL FUNNEL / PROCESO COMERCIAL DEL NEGOCIO (fuente de verdad, editable en /funnel):\n${funnelTxt}`;
 
+  // LA CARA DE MARCA: las fotos y la descripción física que el cliente cargó en
+  // /onboarding › Persona. Hasta el 24/8/2026 ese dato no lo leía NINGUNA IA —
+  // solo el grafo del cerebro— así que MaKo no podía contestar sobre la persona
+  // de los creativos aunque el cliente hubiera cargado cinco fotos y MaKo mismo
+  // hubiera escrito la descripción. Ver el comentario de `resumenCaraDeMarca`.
+  const { resumenCaraDeMarca } = await import('./persona');
+  const caraTxt = await resumenCaraDeMarca().catch(() => '');
+  if (caraTxt) base += `\n\n${caraTxt}`;
+
   // Tabs cuyo onboarding no está terminado (regla: toda tab tiene onboarding —
   // ver .claude/skills/tab-onboarding). Sin esta señal MaKo propone optimizar lo
   // que el cliente nunca configuró.

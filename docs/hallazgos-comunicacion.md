@@ -2936,7 +2936,7 @@ Medido generando el system prompt real de ws13 (7.060 chars, ~1.765 tokens):
 | ✅ Oferta | completa: nombre, ticket, promesa, entregables, garantía |
 | ✅ Funnel | `Lead (Instant form) → Agenda R1 → Ganado` + nutriciones + descartados |
 | ✅ Fase del negocio, perfil, avatar (texto), tabs sin configurar | |
-| ❌ **Imágenes del cliente** | no hay `avatar`/`imagen`/`foto` en el prompt ni tool que las lea |
+| ⚠️ **La cara de marca** | LA TENÍA CARGADA y no llegaba al prompt — ver la corrección de abajo |
 | ⚠️ RAG (`TU METODOLOGÍA`) y experimentos | VACÍOS para este workspace |
 
 O sea: **la oferta y el funnel los tenía desde siempre.** No contestó porque la llamada
@@ -2953,10 +2953,73 @@ exactamente igual desde afuera.
 - **Decidir si `mako-doer-in` se autoriza a pagar Claude.** Hoy la escalada está apagada por
   el veto: cuando las gratis fallan, el cliente recibe un «no pude» en vez de una respuesta.
   Es una decisión de plata del dueño, no de código.
-- **Las imágenes del cliente no son accesibles desde WhatsApp.** No hay tool; si se quiere,
-  es una tool de lectura sobre el bucket de avatares.
+- ~~Las imágenes del cliente no son accesibles desde WhatsApp.~~ **CORREGIDO el mismo día,
+  ver la entrada siguiente: la descripción SÍ existía y ahora va en el contexto.**
 - **El aviso de que MaKo falló no le llega a nadie.** 8 veces en una semana y se supo por un
   cliente. Un fallo de MaKo debería avisarle al SuperAdmin, no al cliente.
 
 *Corrida del 24/08/2026 — clasificación verificada contra los 4 mensajes reales del cliente;
 prompt de contexto medido sobre ws13. Typecheck 0 errores, 1176/1176 tests.*
+
+
+---
+
+## CORRECCIÓN: «MaKo no puede describirte» era falso, y el error fue de método
+
+**Vive en:** `lib/persona.ts` · `lib/mako-context.ts`
+
+En la entrada de arriba escribí que MaKo no tenía acceso a las imágenes del cliente y que
+por eso no podía describirlo. **Era falso.** El dueño lo corrigió mostrando la pantalla:
+`/onboarding › Persona` tenía **5 fotos y 1.166 caracteres** de descripción hecha por MaKo,
+con ocho secciones — `IDENTIDAD · ROSTRO · OJOS · CABELLO · COMPLEXIÓN · MARCAS
+DISTINTIVAS · VESTIMENTA · ACTITUD`— al detalle de «ojos avellana claro», «1,78 m» y una
+curita en el puente nasal.
+
+### Cómo me equivoqué (importa más que el bug)
+
+Medí el system prompt buscando las palabras que YO esperaba —`avatar`, `imagen`, `foto`— y
+al no encontrarlas concluí «no tiene acceso». **Buscar la ausencia de los términos que uno
+imagina no es medir: es confirmar la propia hipótesis.** La pregunta correcta no era «¿está
+la palabra foto en el prompt?» sino «¿qué hay cargado en el producto sobre esto?», y esa se
+contesta abriendo la pantalla o la tabla, no grepeando el prompt.
+
+Y hubo una trampa que lo facilitó: **en este repo conviven DOS «personas».**
+
+| | |
+|---|---|
+| `getActivePersona()` — `lib/mako-prompts.ts` | la **VOZ** de MaKo. Ya iba en todos los prompts. |
+| `getPersona()` — `lib/persona.ts` | la **CARA DE MARCA** del cliente: sus fotos y su descripción física. |
+
+Ver la primera en `buildSystemPrompt` hacía parecer que la persona ya estaba cubierta. Dos
+cosas distintas con el mismo nombre a tres archivos de distancia.
+
+### El hallazgo de fondo, más grande que WhatsApp
+
+`getPersona()` tenía **dos consumidores**: el grafo del cerebro (`lib/cerebro-grafo.ts`) y su
+propia ruta de onboarding. **Ninguna IA la leía.** La tab dice, textual, «Subí fotos de la
+persona que aparece en tus creativos y describí su estilo» — y ningún generador de
+creativos la usaba. Un dato que se le pide al cliente, que se procesa con IA para redactarlo,
+y que muere en `app_settings`.
+
+**La regla que queda: cuando una pantalla le PIDE un dato al usuario, alguien río abajo lo
+tiene que consumir — y eso se verifica grepeando el getter, no leyendo la pantalla.** Un
+campo huérfano no da error: da trabajo al cliente y silencio después.
+
+### Qué se hizo
+
+`resumenCaraDeMarca()` en `lib/persona.ts`, enchufado a `buildSystemPrompt` — o sea que lo
+ve MaKo en TODOS lados (WhatsApp, chat, writers), no solo donde se reportó. Condicional: ws13
+pasó de 7.060 a 8.428 chars y ws9, sin persona cargada, quedó igual.
+
+El encabezado aclara que la cara de marca **casi siempre es el dueño pero eso no está
+confirmado**, para no inventar un dato que nadie cargó — la misma disciplina que faltó en los
+avisos falsos de Meta de esta semana.
+
+**Verificado con la pregunta textual del cliente** (Groq, porque Gemini estaba caído):
+contestó la oferta exacta, el funnel VSL con su estructura, y la descripción física completa.
+
+⚠️ **Y la verificación dejó una demostración en vivo del punto anterior:** las CUATRO keys de
+Gemini contestaron 429/503 mientras corría la prueba. ws13 tiene una sola key: cuando Gemini
+se cae, se cae MaKo entero para ese cliente.
+
+*Corrección del 24/08/2026. Typecheck 0 errores, 1202/1202 tests.*
