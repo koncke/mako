@@ -36,6 +36,18 @@ if (!PLAN || !existsSync(PLAN)) { console.error('\n  ✖ Falta --plan <plan.json
 const plan = JSON.parse(readFileSync(PLAN, 'utf8').replace(/^\uFEFF/, ''));
 const destino = join(dirname(PLAN), 'pdfs');
 
+// El peso que la plataforma declara para cada recurso, si el pipeline lo guard\u00F3 al lado.
+// Es lo que despu\u00E9s desempata entre las decenas de respuestas que pasan por la red.
+const tamPorId = new Map();
+{
+  const f = join(dirname(PLAN), 'recursos-api.json');
+  if (existsSync(f)) {
+    for (const r of JSON.parse(readFileSync(f, 'utf8').replace(/^\uFEFF/, ''))) {
+      if (r?.id && r?.file_size) tamPorId.set(r.id, r.file_size);
+    }
+  }
+}
+
 const limpio = (s) => s.normalize('NFC').replace(/[<>:"/\\|?*\u0000-\u001f]/g, '')
   .replace(/\s+/g, ' ').trim().replace(/[. ]+$/, '').slice(0, 120) || 'recurso';
 
@@ -45,7 +57,7 @@ const limpio = (s) => s.normalize('NFC').replace(/[<>:"/\\|?*\u0000-\u001f]/g, '
 // para el área /curso/. Copiarlas era garantizar que la segunda copia quedara vieja —
 // y las cuatro reglas que encierran (la extensión es un HECHO, el cuerpo vacío de CDP,
 // la página de error vestida de 200, excluir por familia) se pagaron con un bug cada una.
-import { MIME_EXT, ES_PAGINA, extDe, nombreDisp, valido, cuerpoCdp, cuerpoDirecto } from './curso-descarga.mjs';
+import { extDe, nombreDisp, valido, puedeSerArchivo, cuerpoCdp, cuerpoDirecto } from './curso-descarga.mjs';
 
 class Cdp {
   constructor(ws) {
@@ -127,19 +139,19 @@ const main = async () => {
   let listos = [];
   raiz.oye.push((m) => {
     if (m.sessionId !== sessionId) return;
+    // ⚠️ ACÁ HABÍA UNA COPIA INLINE de `puedeSerArchivo`, y se quedó vieja exactamente
+    // como la cabecera de este archivo advertía que iba a pasar. La compartida fue
+    // sumando extensiones —`png`, `jpe?g`, `cube`, `txt`— y la copia se quedó con la
+    // lista del día que se escribió.
+    //
+    // Lo que costó: los DOS únicos recursos de imagen de la Certificación en Marketing
+    // Digital («2.2 Mapa mental - Email Marketing» .jpg y «2.2 Mind Map» .png) no se
+    // bajaron NUNCA. Y el modo de falla es el peor: el mensaje decía «nada descargable
+    // en 25s» sobre un archivo que estaba pasando por la red, así que se leyó como un
+    // problema de sesión y se persiguió por ahí durante toda una tanda.
     if (m.method === 'Network.responseReceived') {
-      const { response, requestId } = m.params;
-      const mime = String(response.mimeType ?? '');
-      if (ES_PAGINA.test(mime)) return;
-      const h = response.headers ?? {};
-      const disp = h['content-disposition'] ?? h['Content-Disposition'] ?? '';
-      const adjunto = /attachment/i.test(disp);
-      const conocido = !!MIME_EXT[mime.split(';')[0].trim().toLowerCase()];
-      const generico = /octet-stream/i.test(mime);
-      const porUrl = /\.(pdf|zip|docx?|xlsx?|pptx?|csv|rtf|mp4|mp3)(\?|$)/i.test(response.url);
-      if (adjunto || conocido || generico || porUrl) {
-        cands.set(requestId, { url: response.url, mime, disp });
-      }
+      const c = puedeSerArchivo(m.params.response);
+      if (c) cands.set(m.params.requestId, c);
     }
     if (m.method === 'Network.loadingFinished' && cands.has(m.params.requestId)) {
       listos.push(m.params.requestId);
@@ -183,6 +195,8 @@ const main = async () => {
         .map((e) => join(destino, `${r}.${e}`))).find((p) => existsSync(p));
     if (yaEsta) { console.log(`  = ${basename(yaEsta)}`); ok++; bajados.push(yaEsta); continue; }
 
+    const esperado = tamPorId.get(id) ?? null;
+
     cands.clear(); listos = [];
     await raiz.enviar('Page.navigate', { url }, sessionId).catch(() => {});
 
@@ -204,6 +218,20 @@ const main = async () => {
           let buf = await cuerpoCdp(raiz, rid, sessionId);
           if (!buf || buf.length < 64) buf = await cuerpoDirecto(c.url, plan.referer, plan.userAgent);
           if (!buf) continue;
+          // ⚠️ EL TAMAÑO DECLARADO DECIDE, cuando lo sabemos. Una página trae DECENAS de
+          // respuestas que pasan el filtro de «esto puede ser un archivo» —empezando por
+          // las portadas de cursos, que son imágenes de verdad— y quedarse con la primera
+          // es elegir por orden de llegada.
+          //
+          // Costó dos archivos: al aceptar imágenes, los dos recursos .jpg/.png de este
+          // curso se guardaron con la MINIATURA de la portada, 19.424 B los dos, mientras
+          // la API declaraba 118.052 y 92.839. Se ve como un éxito —✓ verde, un JPG que
+          // abre— y sólo lo delata cruzar el peso. Es la misma trampa del `[0]` sobre una
+          // lista ambigua que ya está escrita en AGENTS.md.
+          if (esperado && Math.abs(buf.length - esperado) > 2) {
+            descartes.push(`${c.mime || '?'} ${buf.length}B → la API declara ${esperado}B`);
+            continue;
+          }
           const ext = extDe(c.url, c.mime, c.disp);
           if (!valido(buf, ext)) { descartes.push(`${c.mime || '?'} ${buf.length}B → no valida como .${ext}`); continue; }
           const nombre = `${raizNombre ?? limpio(nombreDisp(c.disp) ?? `recurso-${String(i + 1).padStart(2, '0')}`)}.${ext}`;

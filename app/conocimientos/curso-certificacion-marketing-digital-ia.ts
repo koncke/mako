@@ -878,6 +878,201 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       driveId: '1JX6HbBB4ue8SlfIwbbbjEoHi_-sowD6m',
       clases: [51, 52],
     },
+    {
+      slug: 'recurso-109',
+      label: '15.2 Plantilla control de gasto para herramientas',
+      cardDesc: 'Material de «8. Funnels de conversión»',
+      tipo: 'pdf',
+      driveId: '1dfFrz1qowoo8BbaSqrFatBnpIu07fXxG',
+      clases: [53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66],
+    },
+    {
+      slug: 'recurso-110',
+      label: '21. Social Listening',
+      cardDesc: 'Material de «5. Social Media Marketing»',
+      tipo: 'pdf',
+      driveId: '1HsLPhgZMwssxpMwLOQK7XHuoGjnxXK7d',
+      clases: [32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49],
+    },
+    {
+      slug: 'recurso-111',
+      label: '21.3 Ejercicio Social Listening',
+      cardDesc: 'Material de «5. Social Media Marketing»',
+      tipo: 'pdf',
+      driveId: '1EwNcsN_qnDn8MRcXw_LzV8n06s83WSB9',
+      clases: [32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49],
+    },
+    {
+      slug: 'recurso-112',
+      label: '10. Formatos de anuncios',
+      cardDesc: 'Material de «9. Publicidad Online»',
+      tipo: 'pdf',
+      driveId: '1rPgKXa8JTs1Ph8Bzva-bAbWZLC0xK0Sv',
+      clases: [67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95],
+    },
+    {
+      slug: 'recurso-113',
+      label: '22. Metodología DM para crear un plan contenidos',
+      cardDesc: 'Material de «5. Social Media Marketing»',
+      tipo: 'pdf',
+      driveId: '1hLlsZNuAVVgxZuXoAE92TsOu3Ya305D9',
+      clases: [32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49],
+    },
+    {
+      slug: 'recurso-114',
+      label: '11. Cómo crear anuncios que conviertan',
+      cardDesc: 'Material de «9. Publicidad Online»',
+      tipo: 'pdf',
+      driveId: '11R06gOE62HT3fCg87BWFvV-zf4Rpn_tj',
+      clases: [67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95],
+    },
+    {
+      slug: 'recurso-115',
+      label: '16.1 Descuentos según cada tipo de cliente',
+      cardDesc: 'Material de «10. Ventas Digitales»',
+      tipo: 'pdf',
+      driveId: '1FwK_VeMlT5MuZNR3zpq7MuW2KKB70fYh',
+      clases: [96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127],
+    },
+    {
+      slug: 'recurso-116',
+      label: '22.2 Ejercicio de metodología - Divide y multiplica',
+      cardDesc: 'Material de «5. Social Media Marketing»',
+      tipo: 'pdf',
+      driveId: '1ffMVCMjxPj637Y9kJRzWZSR6GwnoycAT',
+      clases: [32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49],
+    },
+    {
+      slug: 'recurso-117',
+      label: '22.4 Plantilla de plan de contenidos',
+      cardDesc: 'Material de «5. Social Media Marketing»',
+      tipo: 'file',
+      ext: 'pptx',
+      driveId: '1esrIL3QEWpIcmE3y5rkA8fVg0_kX_FIY',
+      clases: [32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49],
+    },
+    {
+      slug: 'recurso-118',
+      label: '22.5 Plantilla Curso CM - Plan de Contenido',
+      cardDesc: 'Material de «5. Social Media Marketing»',
+      tipo: 'pdf',
+      driveId: '1lQ0CG7lv280BAqBbVT-3SOMwSqZ45muD',
+      clases: [32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49],
+    },
+    {
+      slug: 'recurso-119',
+      label: '23. Creación de contenidos con IA',
+      cardDesc: 'Material de «5. Social Media Marketing»',
+      tipo: 'pdf',
+      driveId: '1O2vr_RS7BR8C3hbXu4KIb8rXfjL6MKh6',
+      clases: [32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49],
+    },
+    {
+      slug: 'recurso-120',
+      label: '14. Métricas y Reportes',
+      cardDesc: 'Material de «9. Publicidad Online»',
+      tipo: 'pdf',
+      driveId: '1OVh2SjJplISjae9uSgjYV5w5NO-jX0A1',
+      clases: [67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95],
+    },
+    {
+      slug: 'recurso-121',
+      label: '24.1 Plnatilla datos completo',
+      cardDesc: 'Material de «5. Social Media Marketing»',
+      tipo: 'pdf',
+      driveId: '186O-GMpd6Rty5Us7EmRHU3bP2F6yah_0',
+      clases: [32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49],
+    },
+    {
+      slug: 'recurso-122',
+      label: '24.2 Copy of Plantilla dashboard redes sociales basico',
+      cardDesc: 'Material de «5. Social Media Marketing»',
+      tipo: 'pdf',
+      driveId: '15EqP2VTO3NG4eWCqO2Rg4aHiO5ucG0G5',
+      clases: [32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49],
+    },
+    {
+      slug: 'recurso-123',
+      label: '25. Gestión de redes sociales con ChatGPT',
+      cardDesc: 'Material de «5. Social Media Marketing»',
+      tipo: 'pdf',
+      driveId: '11u77GqkM76isQqaF-IlWTKFs9_E8YzGc',
+      clases: [32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49],
+    },
+    {
+      slug: 'recurso-124',
+      label: '16. Herramientas con y sin IA para Publicidad Online',
+      cardDesc: 'Material de «9. Publicidad Online»',
+      tipo: 'pdf',
+      driveId: '13McRf4KlZLt4Qm2ecViyPErIUno23pT7',
+      clases: [67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95],
+    },
+    {
+      slug: 'recurso-125',
+      label: '26. Herramientas con y sin IA para Social Media Marketing',
+      cardDesc: 'Material de «5. Social Media Marketing»',
+      tipo: 'pdf',
+      driveId: '178kmuwsMhQc-NfXNhdseX25-yjNCmOg_',
+      clases: [32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49],
+    },
+    {
+      slug: 'recurso-126',
+      label: '24.1 Preguntas sobre objetivos',
+      cardDesc: 'Material de «10. Ventas Digitales»',
+      tipo: 'pdf',
+      driveId: '1tPGCfa4e83htUt47pZJHkCerH51hH2Mg',
+      clases: [96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127],
+    },
+    {
+      slug: 'recurso-127',
+      label: '24.2 Plantilla - Auditoria de Instrucciones',
+      cardDesc: 'Material de «10. Ventas Digitales»',
+      tipo: 'pdf',
+      driveId: '18HZ-S5G0I9VvPBdZoWHPOgCQG5fXEtTn',
+      clases: [96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127],
+    },
+    {
+      slug: 'recurso-128',
+      label: '26. Pipeline de ventas',
+      cardDesc: 'Material de «10. Ventas Digitales»',
+      tipo: 'pdf',
+      driveId: '1iWyM58yhDki_-IjFnKX7z1VnLMnNN8_f',
+      clases: [96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127],
+    },
+    {
+      slug: 'recurso-129',
+      label: '26.2 Demo pipeline Google Sheets',
+      cardDesc: 'Material de «10. Ventas Digitales»',
+      tipo: 'pdf',
+      driveId: '1E9ydSViNKCddU5Vccr39h_y2oLx2eYwR',
+      clases: [96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127],
+    },
+    {
+      slug: 'recurso-130',
+      label: '28. Herramientas con y sin IA para Ventas Digitales',
+      cardDesc: 'Material de «10. Ventas Digitales»',
+      tipo: 'pdf',
+      driveId: '1A6j2LwDyB45TD5WpFqjRMRXEGMYe73Xh',
+      clases: [96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127],
+    },
+    {
+      slug: 'recurso-14',
+      label: '2.2 Mapa mental - Email Marketing',
+      cardDesc: 'Material de «7. Email Marketing»',
+      tipo: 'file',
+      ext: 'jpg',
+      driveId: '1KQWgyxgE7viiD-GWQ5pIJJUkZsqG29ir',
+      clases: [51, 52],
+    },
+    {
+      slug: 'recurso-29',
+      label: '2.2 Mind Map',
+      cardDesc: 'Material de «9. Publicidad Online»',
+      tipo: 'file',
+      ext: 'png',
+      driveId: '1HEKYB5pSaAUk3hOFvAx4yREYKLef_3ak',
+      clases: [67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95],
+    },
   ],
   clases: [
     {
@@ -1324,7 +1519,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92'],
+      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92', 'recurso-110', 'recurso-111', 'recurso-113', 'recurso-116', 'recurso-117', 'recurso-118', 'recurso-119', 'recurso-121', 'recurso-122', 'recurso-123', 'recurso-125'],
       herramientas: [],
     },
     {
@@ -1338,7 +1533,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92'],
+      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92', 'recurso-110', 'recurso-111', 'recurso-113', 'recurso-116', 'recurso-117', 'recurso-118', 'recurso-119', 'recurso-121', 'recurso-122', 'recurso-123', 'recurso-125'],
       herramientas: [],
     },
     {
@@ -1352,7 +1547,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92'],
+      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92', 'recurso-110', 'recurso-111', 'recurso-113', 'recurso-116', 'recurso-117', 'recurso-118', 'recurso-119', 'recurso-121', 'recurso-122', 'recurso-123', 'recurso-125'],
       herramientas: [],
     },
     {
@@ -1366,7 +1561,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92'],
+      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92', 'recurso-110', 'recurso-111', 'recurso-113', 'recurso-116', 'recurso-117', 'recurso-118', 'recurso-119', 'recurso-121', 'recurso-122', 'recurso-123', 'recurso-125'],
       herramientas: [],
     },
     {
@@ -1380,7 +1575,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92'],
+      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92', 'recurso-110', 'recurso-111', 'recurso-113', 'recurso-116', 'recurso-117', 'recurso-118', 'recurso-119', 'recurso-121', 'recurso-122', 'recurso-123', 'recurso-125'],
       herramientas: [],
     },
     {
@@ -1394,7 +1589,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92'],
+      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92', 'recurso-110', 'recurso-111', 'recurso-113', 'recurso-116', 'recurso-117', 'recurso-118', 'recurso-119', 'recurso-121', 'recurso-122', 'recurso-123', 'recurso-125'],
       herramientas: [],
     },
     {
@@ -1408,7 +1603,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92'],
+      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92', 'recurso-110', 'recurso-111', 'recurso-113', 'recurso-116', 'recurso-117', 'recurso-118', 'recurso-119', 'recurso-121', 'recurso-122', 'recurso-123', 'recurso-125'],
       herramientas: [],
     },
     {
@@ -1422,7 +1617,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92'],
+      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92', 'recurso-110', 'recurso-111', 'recurso-113', 'recurso-116', 'recurso-117', 'recurso-118', 'recurso-119', 'recurso-121', 'recurso-122', 'recurso-123', 'recurso-125'],
       herramientas: [],
     },
     {
@@ -1436,7 +1631,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92'],
+      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92', 'recurso-110', 'recurso-111', 'recurso-113', 'recurso-116', 'recurso-117', 'recurso-118', 'recurso-119', 'recurso-121', 'recurso-122', 'recurso-123', 'recurso-125'],
       herramientas: [],
     },
     {
@@ -1450,7 +1645,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92'],
+      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92', 'recurso-110', 'recurso-111', 'recurso-113', 'recurso-116', 'recurso-117', 'recurso-118', 'recurso-119', 'recurso-121', 'recurso-122', 'recurso-123', 'recurso-125'],
       herramientas: [],
     },
     {
@@ -1464,7 +1659,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92'],
+      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92', 'recurso-110', 'recurso-111', 'recurso-113', 'recurso-116', 'recurso-117', 'recurso-118', 'recurso-119', 'recurso-121', 'recurso-122', 'recurso-123', 'recurso-125'],
       herramientas: [],
     },
     {
@@ -1478,7 +1673,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92'],
+      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92', 'recurso-110', 'recurso-111', 'recurso-113', 'recurso-116', 'recurso-117', 'recurso-118', 'recurso-119', 'recurso-121', 'recurso-122', 'recurso-123', 'recurso-125'],
       herramientas: [],
     },
     {
@@ -1492,7 +1687,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92'],
+      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92', 'recurso-110', 'recurso-111', 'recurso-113', 'recurso-116', 'recurso-117', 'recurso-118', 'recurso-119', 'recurso-121', 'recurso-122', 'recurso-123', 'recurso-125'],
       herramientas: [],
     },
     {
@@ -1506,7 +1701,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92'],
+      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92', 'recurso-110', 'recurso-111', 'recurso-113', 'recurso-116', 'recurso-117', 'recurso-118', 'recurso-119', 'recurso-121', 'recurso-122', 'recurso-123', 'recurso-125'],
       herramientas: [],
     },
     {
@@ -1520,7 +1715,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92'],
+      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92', 'recurso-110', 'recurso-111', 'recurso-113', 'recurso-116', 'recurso-117', 'recurso-118', 'recurso-119', 'recurso-121', 'recurso-122', 'recurso-123', 'recurso-125'],
       herramientas: [],
     },
     {
@@ -1534,7 +1729,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92'],
+      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92', 'recurso-110', 'recurso-111', 'recurso-113', 'recurso-116', 'recurso-117', 'recurso-118', 'recurso-119', 'recurso-121', 'recurso-122', 'recurso-123', 'recurso-125'],
       herramientas: [],
     },
     {
@@ -1548,7 +1743,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92'],
+      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92', 'recurso-110', 'recurso-111', 'recurso-113', 'recurso-116', 'recurso-117', 'recurso-118', 'recurso-119', 'recurso-121', 'recurso-122', 'recurso-123', 'recurso-125'],
       herramientas: [],
     },
     {
@@ -1562,7 +1757,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92'],
+      recursoSlugs: ['recurso-03', 'recurso-28', 'recurso-41', 'recurso-44', 'recurso-49', 'recurso-58', 'recurso-64', 'recurso-73', 'recurso-79', 'recurso-85', 'recurso-90', 'recurso-92', 'recurso-110', 'recurso-111', 'recurso-113', 'recurso-116', 'recurso-117', 'recurso-118', 'recurso-119', 'recurso-121', 'recurso-122', 'recurso-123', 'recurso-125'],
       herramientas: [],
     },
     {
@@ -1590,7 +1785,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-09', 'recurso-101', 'recurso-27', 'recurso-35', 'recurso-39', 'recurso-45', 'recurso-52', 'recurso-55', 'recurso-62', 'recurso-68', 'recurso-74', 'recurso-78', 'recurso-80', 'recurso-82', 'recurso-87', 'recurso-93', 'recurso-95', 'recurso-99'],
+      recursoSlugs: ['recurso-09', 'recurso-101', 'recurso-27', 'recurso-35', 'recurso-39', 'recurso-45', 'recurso-52', 'recurso-55', 'recurso-62', 'recurso-68', 'recurso-74', 'recurso-78', 'recurso-80', 'recurso-82', 'recurso-87', 'recurso-93', 'recurso-95', 'recurso-99', 'recurso-14'],
       herramientas: [],
     },
     {
@@ -1604,7 +1799,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-09', 'recurso-101', 'recurso-27', 'recurso-35', 'recurso-39', 'recurso-45', 'recurso-52', 'recurso-55', 'recurso-62', 'recurso-68', 'recurso-74', 'recurso-78', 'recurso-80', 'recurso-82', 'recurso-87', 'recurso-93', 'recurso-95', 'recurso-99'],
+      recursoSlugs: ['recurso-09', 'recurso-101', 'recurso-27', 'recurso-35', 'recurso-39', 'recurso-45', 'recurso-52', 'recurso-55', 'recurso-62', 'recurso-68', 'recurso-74', 'recurso-78', 'recurso-80', 'recurso-82', 'recurso-87', 'recurso-93', 'recurso-95', 'recurso-99', 'recurso-14'],
       herramientas: [],
     },
     {
@@ -1618,7 +1813,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98'],
+      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98', 'recurso-109'],
       herramientas: [],
     },
     {
@@ -1632,7 +1827,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98'],
+      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98', 'recurso-109'],
       herramientas: [],
     },
     {
@@ -1646,7 +1841,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98'],
+      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98', 'recurso-109'],
       herramientas: [],
     },
     {
@@ -1660,7 +1855,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98'],
+      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98', 'recurso-109'],
       herramientas: [],
     },
     {
@@ -1674,7 +1869,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98'],
+      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98', 'recurso-109'],
       herramientas: [],
     },
     {
@@ -1688,7 +1883,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98'],
+      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98', 'recurso-109'],
       herramientas: [],
     },
     {
@@ -1702,7 +1897,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98'],
+      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98', 'recurso-109'],
       herramientas: [],
     },
     {
@@ -1716,7 +1911,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98'],
+      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98', 'recurso-109'],
       herramientas: [],
     },
     {
@@ -1730,7 +1925,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98'],
+      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98', 'recurso-109'],
       herramientas: [],
     },
     {
@@ -1744,7 +1939,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98'],
+      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98', 'recurso-109'],
       herramientas: [],
     },
     {
@@ -1758,7 +1953,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98'],
+      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98', 'recurso-109'],
       herramientas: [],
     },
     {
@@ -1772,7 +1967,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98'],
+      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98', 'recurso-109'],
       herramientas: [],
     },
     {
@@ -1786,7 +1981,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98'],
+      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98', 'recurso-109'],
       herramientas: [],
     },
     {
@@ -1800,7 +1995,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98'],
+      recursoSlugs: ['recurso-02', 'recurso-105', 'recurso-107', 'recurso-15', 'recurso-21', 'recurso-34', 'recurso-63', 'recurso-72', 'recurso-88', 'recurso-94', 'recurso-98', 'recurso-109'],
       herramientas: [],
     },
     {
@@ -1814,7 +2009,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -1828,7 +2023,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -1842,7 +2037,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -1856,7 +2051,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -1870,7 +2065,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -1884,7 +2079,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -1898,7 +2093,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -1912,7 +2107,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -1926,7 +2121,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -1940,7 +2135,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -1954,7 +2149,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -1968,7 +2163,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -1982,7 +2177,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -1996,7 +2191,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -2010,7 +2205,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -2024,7 +2219,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -2038,7 +2233,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -2052,7 +2247,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -2066,7 +2261,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -2080,7 +2275,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -2094,7 +2289,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -2108,7 +2303,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -2122,7 +2317,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -2136,7 +2331,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -2150,7 +2345,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -2164,7 +2359,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -2178,7 +2373,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -2192,7 +2387,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -2206,7 +2401,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96'],
+      recursoSlugs: ['recurso-108', 'recurso-16', 'recurso-32', 'recurso-67', 'recurso-81', 'recurso-96', 'recurso-112', 'recurso-114', 'recurso-120', 'recurso-124', 'recurso-29'],
       herramientas: [],
     },
     {
@@ -2220,7 +2415,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2234,7 +2429,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2248,7 +2443,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2262,7 +2457,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2276,7 +2471,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2290,7 +2485,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2304,7 +2499,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2318,7 +2513,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2332,7 +2527,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2346,7 +2541,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2360,7 +2555,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2374,7 +2569,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2388,7 +2583,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2402,7 +2597,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2416,7 +2611,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2430,7 +2625,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2444,7 +2639,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2458,7 +2653,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2472,7 +2667,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2486,7 +2681,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2500,7 +2695,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2514,7 +2709,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2528,7 +2723,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2542,7 +2737,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2556,7 +2751,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2570,7 +2765,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2584,7 +2779,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2598,7 +2793,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2612,7 +2807,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2626,7 +2821,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2640,7 +2835,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
@@ -2654,7 +2849,7 @@ export const CURSO_CERTIFICACION_MARKETING_DIGITAL_IA: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97'],
+      recursoSlugs: ['recurso-07', 'recurso-100', 'recurso-103', 'recurso-18', 'recurso-22', 'recurso-57', 'recurso-69', 'recurso-75', 'recurso-77', 'recurso-84', 'recurso-97', 'recurso-115', 'recurso-126', 'recurso-127', 'recurso-128', 'recurso-129', 'recurso-130'],
       herramientas: [],
     },
     {
