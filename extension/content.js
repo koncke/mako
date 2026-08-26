@@ -62,9 +62,18 @@ chrome.runtime.onMessage.addListener((msg, _sender, responder) => {
     // para siempre.
     pedirALaPagina(
       'MAKO_FETCH_PIDO', 'MAKO_FETCH_OK',
-      { url: msg.url, cuerpo: msg.cuerpo, bearer: msg.bearer }, 60000, 'FETCH_TIMEOUT',
+      { clase: msg.clase, url: msg.url, cuerpo: msg.cuerpo, bearer: msg.bearer },
+      60000, 'FETCH_TIMEOUT',
       (d) => responder(d),
     );
+    return true;
+  }
+
+  if (msg?.tipo === 'VER_ESPIA') {
+    // Qué pedidos vio la página. Es lo que permite diagnosticar sin pedirle otra
+    // captura de pantalla a nadie.
+    pedirALaPagina('MAKO_ESPIA_PIDO', 'MAKO_ESPIA_OK', {}, 5000, 'ESPIA_TIMEOUT',
+      (d) => responder(d));
     return true;
   }
 

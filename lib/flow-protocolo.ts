@@ -282,6 +282,18 @@ export function clasificarFallaDelNavegador(
     };
   }
 
+  // La extensión no reconstruye los pedidos: los calca del último que hizo la
+  // propia app de Flow (ver extension/injected.js). Si nunca vio uno de esa clase,
+  // NO inventa uno — que es lo que no funcionó — y avisa que falta.
+  if (/^SIN_PLANTILLA:/i.test(m)) {
+    const clase = m.split(':')[1] || '';
+    return {
+      motivo: 'puente_dormido',
+      error: `Todavía no vimos a Google Flow hacer este pedido${clase ? ` (${clase})` : ''}. Abre Flow, genera algo una vez, y vuelve a intentar.`,
+      reintentable: false,
+    };
+  }
+
   if (m === 'NO_FLOW_TAB') {
     return {
       motivo: 'sin_sesion',

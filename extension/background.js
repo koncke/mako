@@ -128,19 +128,25 @@ async function ejecutar(trabajo) {
     recaptchaContext: { token: captcha },
   };
 
-  // ⚠️ EL PEDIDO NO SALE DE ACÁ: lo hace la PÁGINA de Flow. Un `fetch` desde el
-  // service worker viaja con `Origin: chrome-extension://<id>`, sin las cookies
-  // del sitio y sin los headers de la app real — y Google le contesta su página
-  // de bloqueo mientras la misma persona, en la misma pestaña y con la misma
-  // cuenta, genera videos a mano sin ningún problema. La sesión no está marcada:
-  // lo que rechaza es ESE pedido, que tiene la forma de un token robado.
+  // ⚠️ EL PEDIDO NO SALE DE ACÁ, Y NO LO ARMAMOS NOSOTROS.
   //
-  // Desde la página **es** un pedido de la página. Ver extension/injected.js.
-  // La `key` va en el query, como la manda Flow. Sin ella el pedido llega sin
-  // proyecto atribuido y Google contesta su página de bloqueo.
+  // Lo hace la PÁGINA de Flow, calcado del último pedido de la misma clase que la
+  // propia app hizo (ver extension/injected.js). Dos razones, y las dos costaron:
+  //
+  //   1. Un `fetch` desde el service worker viaja con `Origin:
+  //      chrome-extension://<id>` y sin las cookies del sitio. Google le contesta
+  //      su página de bloqueo mientras la misma persona genera a mano sin problema:
+  //      lo que rechaza tiene la forma exacta de un token robado.
+  //   2. Reconstruir el pedido a mano es adivinar. El contrato salió de la doc de
+  //      un tercero y le faltaba el `?key=` del proyecto; los headers que NO
+  //      sabemos que faltan son peores, porque no hay a quién preguntarle.
+  //
+  // Con la plantilla se manda lo mismo que manda Flow. La `clase` es cómo se
+  // encuentra: sale del último tramo del path (`/v1/credits` → `credits`).
+  const clase = path.split('?')[0].split('/').filter(Boolean).pop() || '';
   const url = `${FLOW_BASE}${path}${apiKey ? `${path.includes('?') ? '&' : '?'}key=${apiKey}` : ''}`;
   const r = await chrome.tabs.sendMessage(tab.id, {
-    tipo: 'HACER_FETCH', url, cuerpo, bearer,
+    tipo: 'HACER_FETCH', clase, url, cuerpo, bearer,
   });
   if (!r || r.error) throw new Error(r?.error || 'FETCH_FALLO');
 
@@ -182,6 +188,16 @@ async function ciclo() {
       // reportarse como «listo»: sería un verde sobre algo que va a fallar.
       estado = 'sin_sesion';
       detalle = 'Recarga la pestaña de Google Flow para completar la conexión.';
+    }
+
+    // Qué pedidos vio la página. Viaja en `detalle` para que un fallo se pueda
+    // diagnosticar mirando la base, sin pedirle a nadie otra captura de pantalla.
+    if (estado === 'listo') {
+      try {
+        const tab = await pestanaDeFlow();
+        const espia = await chrome.tabs.sendMessage(tab.id, { tipo: 'VER_ESPIA' });
+        if (espia && espia.visto) detalle = JSON.stringify(espia.visto).slice(0, 1500);
+      } catch { /* si no se puede espiar, no es motivo para no trabajar */ }
     }
 
     const pendientes = (await chrome.storage.local.get('pendientes')).pendientes || [];

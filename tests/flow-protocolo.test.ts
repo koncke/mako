@@ -234,3 +234,13 @@ test('el timeout del fetch desde la página también manda a recargar', () => {
   }
 });
 
+test('sin plantilla NO se inventa el pedido: se dice qué falta', () => {
+  // La extensión calca el pedido del que hace la propia app de Flow. Si nunca vio
+  // uno de esa clase, reconstruirlo a mano es exactamente lo que no funcionó.
+  const r = clasificarFallaDelNavegador('SIN_PLANTILLA:credits');
+  assert.equal(r?.motivo, 'puente_dormido');
+  assert.equal(r?.reintentable, false);
+  assert.match(r!.error, /credits/, 'tiene que decir QUÉ pedido falta');
+  assert.match(r!.error, /genera algo/i, 'y qué hacer para que aparezca');
+});
+
