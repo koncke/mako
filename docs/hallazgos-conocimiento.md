@@ -5046,3 +5046,58 @@ una mancha gris, y no se pueden derivar de `{n, título}` sin mentir. Es la dife
 queda al comparar. Y no hay test que fije las invariantes de la lámina (que el sticker no
 pise el texto, que toda lámina lleve decoración, que el título no desborde): la
 verificación de esta corrida fue por render, y un render no falla en CI.
+
+## Elegir una pestaña por `.find()` es elegir un curso al azar
+
+**2026-08-26, arrancando los tres cursos de «Auto Youtube».** Se pidió el plan de
+**Automatizatube** y el script enumeró **AMORir**: 60 clases, 8 PDFs, escrito con el autor
+equivocado —«AMORir - Carlotta Sabina»— y anunciando éxito. Nada falló.
+
+La causa: `curso-plan.mjs` elegía la pestaña haciendo `.find(t => /\/curso\//.test(t.url))`
+sobre las abiertas. Con tres pestañas de cursoselite arriba, se quedó con la primera. Y
+`curso-abrir.mjs` había cargado la correcta en OTRA — nada garantiza que sea la misma.
+
+**Lo que lo salvó fue una guarda ajena:** el propio script no pisa un `plan.json` que ya
+existe, lo deja como `plan.nuevo.json`. Si AMORir no hubiera estado bajado, el plan bueno
+quedaba reemplazado por el de otro curso, y eso se descubre con 2 GB bajados.
+
+Es «si una rama de tu código puede escribir *esto es ambiguo*, esa rama no puede terminar
+en `[0]`» —ya escrita para el id de Drive— aplicada a elegir una pestaña. Ahora: con UNA
+pestaña de curso se sigue sin preguntar (el caso normal), con varias se corta y se listan.
+El que las abrió sabe cuál quiere; el script no.
+
+### Dos trampas del entorno que van con esto
+
+**`✖ fetch failed` significa «puerto equivocado», y no lo dice.** Los ocho scripts que
+hablan por CDP declaran `const PORT = Number(arg('port', 9333))` y el Chrome dedicado de
+esta máquina escucha en **9444**. Sin `--port 9444` el error es literalmente `✖ fetch
+failed`, que se lee como «la API del origen está caída» y manda a mirar la sesión. Es una
+ruta escrita a mano que apunta a la nada: no rompe, desaparece en silencio.
+
+**Y Git Bash convierte `/curso/x` en `C:/Program Files/Git/curso/x`.** Pasar
+`--url "/curso/automatizatube"` llega al script como una ruta de Windows y no matchea
+nada; el mensaje de error lo delata porque imprime el filtro recibido. Los filtros de URL
+van SIN barra inicial (`--url automatizatube`).
+
+**Vive en:** `scripts/curso-plan.mjs` (la selección de pestaña) · `scripts/curso-api.mjs`,
+`curso-abrir.mjs`, `curso-pdfs.mjs` y compañía (el `--port`).
+
+**Estado de los tres cursos de «Auto Youtube»** (la categoría es de la plataforma; buscar
+por palabra clave en el backlog se perdía uno):
+
+| curso | autor | clases | recursos API | linkeados en la página |
+|---|---|---|---|---|
+| MonetizaTube | Mari Fuentes | 49/49 | 14 | 14 |
+| Automatizatube | Carlotta Sabina | 74/74 | 5 | 5 |
+| Automatización y monetización de YouTobe | Veloz Redes | 81/81 | **41** | **37** |
+
+Los 60 recursos bajados, incluidos los **4 que la página de YouTobe no linkea** — la misma
+trampa que ya está escrita más arriba («el scrape de la página no es el inventario»).
+Planes de los tres escritos; los videos van en cola.
+
+⚠️ **El disco es la restricción, no la banda.** Al armar la cola quedaban **14 GB libres
+(98 % usado)** con 15 seminarios de Cardona esperando que su pipeline los suba a Drive y
+los libere. Por eso los tres cursos van de a UNO —se baja, se publica (que es lo que
+libera), y recién ahí el siguiente— y antes de cada uno se mira el disco: por debajo de
+12 GB la cola PARA y lo dice, en vez de llenarlo y descubrirlo cuando ya no se puede ni
+escribir el log. El guard de `--liberar` no se ablanda; lo que se ordena es el caudal.

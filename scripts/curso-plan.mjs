@@ -126,9 +126,30 @@ const main = async () => {
   // que alguien abre la carpeta. Por eso `--url <parte-de-la-url>`: cuando se pasa, se
   // exige esa pestaña y se corta si no está, en vez de adivinar.
   const FILTRO = arg('url', '');
+  // ⚠️ SIN `--url`, VARIAS PESTANAS DE CURSO SON UNA AMBIGUEDAD, NO UNA LISTA ORDENADA.
+  //    Esto hacia `.find(...)` sobre las pestanas abiertas y se quedaba con la PRIMERA que
+  //    tuviera `/curso/` en la URL. El 26/08/2026, con tres pestanas de cursoselite
+  //    abiertas, se pidio el plan de «Automatizatube» y el script enumero AMORir: 60
+  //    clases, 8 PDFs, y lo escribio con el autor equivocado —«AMORir - Carlotta
+  //    Sabina»— anunciando exito. Nada fallo. Si el plan.json de AMORir no hubiera
+  //    existido ya (lo salvo su propia guarda, que dejo el nuevo como `plan.nuevo.json`),
+  //    el curso bueno quedaba pisado por otro.
+  //
+  //    Es la regla que ya esta escrita para el id de Drive —«si una rama de tu codigo
+  //    puede escribir "esto es ambiguo", esa rama no puede terminar en [0]»— aplicada a
+  //    elegir una pestana. Con UNA sola pestana de curso se sigue sin preguntar, que es
+  //    el caso normal; con varias se corta y se listan, porque el que las abrio sabe cual
+  //    quiere y el script no.
+  const candidatos = pag.filter((t) => /\/(curso|course)\//i.test(t.url));
+  if (!FILTRO && candidatos.length > 1) {
+    console.error(`\n  ✖ Hay ${candidatos.length} pestanas de curso abiertas y no voy a adivinar cual.`);
+    for (const t of candidatos) console.error(`      · ${t.url.slice(0, 110)}`);
+    console.error('\n    Elegi con --url <parte-de-la-url>. Un curso equivocado se descubre con 2 GB bajados.\n');
+    process.exit(1);
+  }
   const obj = FILTRO
     ? pag.find((t) => t.url.toLowerCase().includes(FILTRO.toLowerCase()))
-    : pag.find((t) => /\/(curso|course)\//i.test(t.url)) ?? pag.find((t) => t.url !== 'about:blank');
+    : candidatos[0] ?? pag.find((t) => t.url !== 'about:blank');
   if (!obj) {
     if (FILTRO) {
       console.error(`\n  ✖ No hay ninguna pestaña cuya URL contenga «${FILTRO}».`);
