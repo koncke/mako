@@ -26,7 +26,7 @@ import {
 } from '../lib/puestas-data';
 import {
   duracionReal, clipsParaDuracion, segundosDe, DURACIONES_VIDEO,
-  ACENTOS, acentoPrompt, acentoEsVoseante,
+  ACENTOS, acentoPrompt, acentoEsVoseante, guionATexto,
 } from '../app/video-generator/video-pedido';
 
 const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -320,6 +320,52 @@ test('todo acento del catálogo sobrevive intacto al inyectarse', () => {
     const p = acentoPrompt(a.value);
     assert.ok(conAcento('Static camera.', p).includes(p), `${a.value}: ${p}`);
   }
+});
+
+// ── El PROMPT no sale a pantalla, nunca ──────────────────────────────────────
+// «Jamás debe ver prompts»: el prompt es cómo MaKo fabrica el video, del mismo
+// orden que la query SQL detrás de una tabla. El cliente compró que le hagan el
+// anuncio, no instrucciones para pegar en otra herramienta.
+
+test('el guion que copia el cliente no lleva una sola línea del prompt', () => {
+  const plan = {
+    puestaId: 'plano-secuencia',
+    titulo: 'El incendio del lunes',
+    duracionTotalSeg: 16,
+    ritmo: 'H O',
+    deCorrido: 'A ver, el otro día. Nadie avisó.',
+    imagenesNecesarias: [],
+    clips: [
+      {
+        n: 1, segundos: 8, habla: true, voz: 'A ver, **el otro día**.',
+        queSeVe: 'Camina por un pasillo', camara: 'Retrocede frente a él',
+        prompt: 'Handheld camera tracks backward. Spoken in Mexican Spanish.',
+        palabras: 4, tope: 16, voseo: [],
+      },
+      {
+        n: 2, segundos: 8, habla: false, voz: 'Nadie avisó.',
+        queSeVe: 'Se sirve un café', camara: 'Orbita de lado a frente',
+        prompt: 'Static camera. The person does not speak.',
+        palabras: 2, tope: 16, voseo: [],
+      },
+    ],
+  };
+
+  const texto = guionATexto(plan as Parameters<typeof guionATexto>[0]);
+
+  // Lo que SÍ tiene: el título y lo que se dice.
+  assert.ok(texto.includes('El incendio del lunes'));
+  assert.ok(texto.includes('el otro día'));
+  assert.ok(texto.includes('Nadie avisó'));
+
+  // Lo que NO puede tener, ni una palabra.
+  for (const fuga of ['Handheld', 'camera', 'Spoken', 'Static', 'Retrocede frente', 'Orbita', 'Camina por un pasillo']) {
+    assert.ok(!texto.includes(fuga), `se filtró «${fuga}» al guion del cliente:\n${texto}`);
+  }
+
+  // Y los asteriscos del énfasis se van: en pantalla van en negrita, copiados
+  // son ruido.
+  assert.ok(!texto.includes('**'), texto);
 });
 
 // ── El router de proveedor ───────────────────────────────────────────────────

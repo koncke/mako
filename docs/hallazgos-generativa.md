@@ -1558,6 +1558,60 @@ avatar levanta— y la pantalla lo pintaba literal, con los asteriscos a la vist
 renderiza en negrita en la UI y se deja **crudo en el prompt**, que es donde el modelo de
 video sí los tiene que leer.
 
+## La corrección que valía más que las otras dos: el cliente NUNCA ve un prompt
+
+**Tres rechazos seguidos de la misma pantalla, y los dos primeros arreglaron el síntoma
+equivocado.** Vale escrito el orden completo, porque es el patrón:
+
+| # | Lo que dijo el dueño | Lo que arreglé | ¿Era eso? |
+|---|---|---|---|
+| 1 | «Se ve horrible todo junto, la UX es 0» | 8 formatos de texto → 2 con video, wizard de 4 pasos | Parcial |
+| 2 | «Aún se ve complejo y lleno de texto» | Saqué el guion duplicado y cerré los prompts | Parcial |
+| 3 | «No tiene sentido que entre y vea prompts y guiones. **Jamás debe ver prompts.** Lo PRIMERO tiene que ser el CATÁLOGO» | La lógica entera | **Sí** |
+
+**La causa real, y es de producto:** yo había construido la herramienta que YO usaba para
+producir los cuatro anuncios a mano —plan de clips, prompts, indicaciones de cámara— y le
+había puesto una pantalla encima. Pero el cliente no produce nada: compró que MaKo le haga
+el anuncio. **El prompt es cómo se fabrica el video, del mismo orden que la query SQL detrás
+de una tabla.** Mostrárselo no es transparencia, es filtrar la implementación.
+
+Las dos primeras correcciones bajaron el ruido de esa pantalla equivocada — de 3.107 px a
+1.008 — sin tocar la premisa. Por eso volvió.
+
+**Las dos reglas que quedan:**
+
+1. **El prompt no sale a pantalla, nunca.** Se genera, se guarda y lo consume la producción.
+   `guionATexto()` es lo que copia el cliente —solo lo que se dice, sin cámara, sin acción,
+   sin inglés— y `planATexto()` queda para producir, sin call-site en la UI. Con test que
+   falla si se filtra una palabra del prompt al guion.
+2. **La home de una tab es donde se EMPIEZA, no lo último que se hizo.** Se entra a crear un
+   anuncio nuevo, así que lo primero es el catálogo de plantillas; lo ya hecho va abajo. Se
+   estaba abriendo en el último plan porque «ya hay algo que mostrar», que es razonar desde
+   el dato y no desde para qué entra la persona.
+
+**Y la pregunta que me habría ahorrado los tres intentos:** antes de diseñar la pantalla,
+*¿qué compró el que la abre?* Si la respuesta es «que se lo hagan», todo lo que se parezca a
+una instrucción para que lo haga él está de más — por prolijo que se vea.
+
+## Dos trampas de esta pantalla que el compilador no ve
+
+**`<Icon>` con un nombre que no existe dibuja un PUNTO.** Está tipado `name: string` (sin
+unión) y resuelve `PATHS[name] ?? PATHS.dot`, así que `arrow-left` —que no está en el set—
+compila, pasa el typecheck y pinta un puntito gris donde iba una flecha. Antes de usar un
+ícono, verificar que la clave exista en `app/_components/icons.tsx`.
+
+**Un `<button>` dentro de otro `<button>` es un error de HIDRATACIÓN, no de estilo.** La
+tarjeta de plantilla era clickeable entera y adentro tenía un `<Button>` de «Usar esta
+plantilla»: React lo reporta como *hydration mismatch* con la lista genérica de causas
+(`Date.now()`, locale, extensiones del navegador) y ninguna es la real — la real está en la
+última línea, «Invalid HTML tag nesting». Si la tarjeta entera ya es el botón, lo de adentro
+es un `<span>` estilado.
+
+**Y un `{/* comentario */}` dentro de una prop-expresión rompe el parseo** (`Expected '</',
+got 'ident'`). Ahí el comentario va como `//` de JavaScript, arriba de la prop. Lo peor del
+caso: el typecheck había pasado **antes** de ese edit, así que la pantalla quedó en 500 con
+el tsc en verde. **Correr el typecheck después de CADA edit, no al final de la tanda.**
+
 ## Lo que quedó SIN hacer de esta corrida
 
 - **`lib/flow.ts` no existe todavía.** La tab llega hasta el plan y los prompts; generar

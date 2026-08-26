@@ -128,10 +128,27 @@ export function componerTema(input: PedidoVideo, anterior?: PlanVideo): string {
   return partes.join('\n\n');
 }
 
+/**
+ * El guion, y nada más que el guion. Es lo que copia el CLIENTE.
+ *
+ * Sin prompts, sin indicaciones de cámara, sin acción: eso es cómo MaKo fabrica
+ * el video, del mismo orden que la query SQL detrás de una tabla. El cliente
+ * compró que le hagan el anuncio, no instrucciones para pegar en otra
+ * herramienta. Los asteriscos del énfasis se van también — en pantalla se pintan
+ * en negrita, y en un texto copiado son ruido.
+ */
+export function guionATexto(plan: PlanVideo): string {
+  const lineas = [plan.titulo, ''];
+  plan.clips.forEach((c) => {
+    lineas.push(`${c.segundos}s · ${c.voz.replace(/\*\*/g, '')}`);
+  });
+  return lineas.join('\n').trim();
+}
+
 // ── El plan como texto plano ─────────────────────────────────────────────────
-// Para LEER PRODUCIENDO: un bloque por clip, el prompt aparte y listo para
-// copiar. Es el molde de los cuatro anuncios que se produjeron a mano — el que
-// ya se sabe que funciona sentado frente al generador de video.
+// Para PRODUCIR: un bloque por clip, con el prompt. NO se le muestra al cliente
+// (para eso está `guionATexto`) — es el molde de los cuatro anuncios que se
+// hicieron a mano y lo consume la producción, que hoy todavía es manual.
 
 export function planATexto(plan: PlanVideo, nombrePuesta: string): string {
   const lineas: string[] = [
