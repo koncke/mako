@@ -93,7 +93,14 @@ export async function POST(req: NextRequest) {
       // El cuerpo va como venga: si Google contestó HTML en vez de JSON, el texto
       // crudo es justamente lo que delata el bloqueo.
       const f = clasificarFalla(status, r.data ?? str(r.error));
-      await fallar(ws, id, f.motivo, f.error, f.reintentable);
+      // ⚠️ El mensaje traducido NO puede reemplazar al original. Traducir y tirar
+      // el crudo deja al que investiga con la INTERPRETACIÓN de quien escribió el
+      // clasificador y sin la evidencia — y si la interpretación es la equivocada,
+      // no hay forma de saberlo. Ya costó dos vueltas hoy: el error decía «Google
+      // bloqueó la sesión» sobre un caso donde la misma persona generaba videos a
+      // mano sin problema.
+      const crudo = `HTTP ${status} · ${str(r.error).slice(0, 200)}`;
+      await fallar(ws, id, f.motivo, `${f.error}\n[crudo] ${crudo}`, f.reintentable);
       continue;
     }
     const motivo = MOTIVOS.includes(str(r.motivo) as MotivoFalla) ? (str(r.motivo) as MotivoFalla) : 'transitorio';
