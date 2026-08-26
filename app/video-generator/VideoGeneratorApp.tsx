@@ -150,75 +150,108 @@ function Opciones({
   );
 }
 
-// ── Un clip del plan ─────────────────────────────────────────────────────────
+/**
+ * Pinta el `**énfasis**` del guion en negrita.
+ *
+ * El modelo lo marca en markdown porque es la instrucción que mejor obedece —y
+ * el énfasis importa: es la palabra que el avatar levanta—, pero los asteriscos
+ * crudos en pantalla se leen como un error. En el PROMPT quedan tal cual: ahí sí
+ * los tiene que ver el modelo de video.
+ */
+function Enfasis({ texto }: { texto: string }) {
+  // Índices impares = lo que estaba entre asteriscos. Un asterisco suelto deja
+  // su tramo sin negrita en vez de romper el texto, que es lo conservador.
+  const partes = texto.split(/\*\*/);
+  return (
+    <>
+      {partes.map((t, i) => (i % 2 === 1 ? <strong key={i}>{t}</strong> : <span key={i}>{t}</span>))}
+    </>
+  );
+}
 
-function ClipCard({
+// ── Un clip del plan: fila compacta que se abre ─────────────────────────────
+// Cerrada muestra lo único que hace falta para ubicarlo: qué dice. Lo técnico
+// —qué se ve, cámara, el prompt en inglés— vive adentro, porque es material de
+// producción y no de revisión: al aprobar un guion nadie lee inglés técnico.
+
+function ClipFila({
   n, segundos, habla, voz, queSeVe, camara, imagenAdjunta, prompt, palabras, tope, voseo,
 }: {
   n: number; segundos: number; habla: boolean; voz: string;
   queSeVe: string; camara: string; imagenAdjunta?: string; prompt: string;
   palabras: number; tope: number; voseo: string[];
 }) {
+  const [abierto, setAbierto] = useState(false);
   const [copiado, setCopiado] = useState(false);
+
   const copiar = useCallback(() => {
     navigator.clipboard.writeText(prompt).then(
       () => { setCopiado(true); window.setTimeout(() => setCopiado(false), 1600); },
-      () => { /* sin portapapeles: el prompt igual está en pantalla para seleccionarlo */ },
+      () => { /* sin portapapeles: se puede abrir la fila y seleccionarlo a mano */ },
     );
   }, [prompt]);
 
+  const alerta = palabras > tope || voseo.length > 0;
+
   return (
-    <div style={{ ...card, padding: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-        <Eyebrow>Clip {n}</Eyebrow>
-        <Status tono={habla ? 'info' : 'neutral'}>{habla ? 'Habla' : 'Voz en off'}</Status>
-        <Tag>{segundos} s</Tag>
-        {palabras > tope && <Status tono="warn">{palabras} palabras, entran {tope}</Status>}
-        {voseo.length > 0 && <Status tono="warn">Voseo</Status>}
+    <div style={{
+      border: `1px solid ${alerta ? 'var(--warn)' : 'var(--border)'}`,
+      borderRadius: 'var(--r-md)', background: 'var(--surface)', overflow: 'hidden',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px' }}>
+        <button
+          type="button"
+          onClick={() => setAbierto((v) => !v)}
+          aria-expanded={abierto}
+          style={{
+            flex: 1, minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 10,
+            background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
+            textAlign: 'left', fontFamily: 'inherit',
+          }}
+        >
+          <span style={{
+            flex: 'none', fontFamily: MONO, fontSize: 11, color: 'var(--faint)',
+            minWidth: 44, paddingTop: 2,
+          }}>
+            {n} · {segundos}s
+          </span>
+          <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--fs-md)', color: 'var(--ink)', lineHeight: 1.55 }}>
+            {habla ? <Enfasis texto={voz} /> : <em style={{ color: 'var(--dim)' }}><Enfasis texto={voz} /></em>}
+          </span>
+        </button>
+        <Button
+          size="sm"
+          variant="tertiary"
+          onClick={copiar}
+          icon={<Icon name={copiado ? 'check' : 'copy'} size={13} />}
+        >
+          {copiado ? 'Listo' : 'Prompt'}
+        </Button>
       </div>
 
-      <div style={{ fontSize: 'var(--fs-md)', color: 'var(--ink)', lineHeight: 1.6 }}>{voz}</div>
-
-      {palabras > tope && (
-        <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--warn)', lineHeight: 1.55, marginTop: 6 }}>
-          Este texto no entra en {segundos} segundos: el modelo va a cortar la frase o
-          acelerar. Pide rehacer el plan indicando que acorte este clip.
+      {alerta && (
+        <div style={{ padding: '0 12px 10px 66px', fontSize: 'var(--fs-sm)', color: 'var(--warn)', lineHeight: 1.5 }}>
+          {palabras > tope && <div>No entra en {segundos} s: {palabras} palabras y entran {tope}.</div>}
+          {voseo.length > 0 && <div>Tiene voseo ({voseo.join(', ')}) y el acento elegido no lo usa.</div>}
         </div>
       )}
 
-      {voseo.length > 0 && (
-        <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--warn)', lineHeight: 1.55, marginTop: 6 }}>
-          Este clip tiene voseo rioplatense ({voseo.join(', ')}) y el acento elegido no lo
-          usa. Pide rehacer el plan: cambiarlo a mano rompe el ritmo de la frase.
+      {abierto && (
+        <div style={{ padding: '0 12px 12px 66px', borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+          <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.55 }}>
+            <div><strong style={{ color: 'var(--faint)', fontWeight: 600 }}>Qué se ve:</strong> {queSeVe}</div>
+            <div><strong style={{ color: 'var(--faint)', fontWeight: 600 }}>Cámara:</strong> {camara}</div>
+            {imagenAdjunta && (
+              <div><strong style={{ color: 'var(--faint)', fontWeight: 600 }}>Adjuntar:</strong> {imagenAdjunta}</div>
+            )}
+          </div>
+          <div style={{
+            fontFamily: MONO, fontSize: 'var(--fs-xs)', color: 'var(--dim)',
+            background: 'var(--surface-2)', borderRadius: 'var(--r-sm)', padding: 10,
+            whiteSpace: 'pre-wrap', lineHeight: 1.55, marginTop: 8,
+          }}>{prompt}</div>
         </div>
       )}
-
-      <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.55, marginTop: 8 }}>
-        <div><strong style={{ color: 'var(--faint)', fontWeight: 600 }}>Qué se ve:</strong> {queSeVe}</div>
-        <div><strong style={{ color: 'var(--faint)', fontWeight: 600 }}>Cámara:</strong> {camara}</div>
-        {imagenAdjunta && (
-          <div><strong style={{ color: 'var(--faint)', fontWeight: 600 }}>Adjuntar:</strong> {imagenAdjunta}</div>
-        )}
-      </div>
-
-      <div style={{ marginTop: 10, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
-          <Eyebrow>Prompt</Eyebrow>
-          <Button
-            size="sm"
-            variant="tertiary"
-            onClick={copiar}
-            icon={<Icon name={copiado ? 'check' : 'copy'} size={13} />}
-          >
-            {copiado ? 'Copiado' : 'Copiar'}
-          </Button>
-        </div>
-        <div style={{
-          fontFamily: MONO, fontSize: 'var(--fs-xs)', color: 'var(--dim)',
-          background: 'var(--surface-2)', borderRadius: 'var(--r-sm)', padding: 10,
-          whiteSpace: 'pre-wrap', lineHeight: 1.55,
-        }}>{prompt}</div>
-      </div>
     </div>
   );
 }
@@ -411,8 +444,10 @@ export function VideoGeneratorApp({
       {error && <Alert tono="bad">{error}</Alert>}
 
       {actual && puestaActual && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 260px', gap: 'var(--gap)', alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 240px', gap: 'var(--gap)', alignItems: 'start' }}>
           <div style={{ display: 'grid', gap: 'var(--gap)' }}>
+            {/* EL GUION, una sola vez y en grande. Es lo único que se juzga para
+                aprobar el anuncio, así que es lo único que se lee de entrada. */}
             <Section
               titulo={actual.plan.titulo}
               accion={
@@ -422,55 +457,52 @@ export function VideoGeneratorApp({
                   onClick={copiarGuion}
                   icon={<Icon name="copy" size={13} />}
                 >
-                  Copiar el guion
+                  Copiar todo
                 </Button>
               }
             >
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
                 <Tag>{puestaActual.nombre}</Tag>
                 <Tag>{actual.plan.clips.length} clips</Tag>
                 <Tag>{actual.plan.duracionTotalSeg} s</Tag>
-                <Tag>Ritmo {actual.plan.ritmo}</Tag>
-              </div>
-
-              {actual.plan.imagenesNecesarias.length > 0 && (
-                <Alert tono="info">
-                  <strong>Genera estas imágenes antes de animar:</strong>
-                  <ol style={{ margin: '6px 0 0', paddingLeft: 18, lineHeight: 1.6 }}>
-                    {actual.plan.imagenesNecesarias.map((img, i) => <li key={i}>{img}</li>)}
-                  </ol>
-                </Alert>
-              )}
-
-              <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.7, marginTop: 10 }}>
-                {actual.plan.deCorrido}
               </div>
             </Section>
 
-            <div style={{ display: 'grid', gap: 10 }}>
-              {actual.plan.clips.map((c) => (
-                <ClipCard
-                  key={c.n}
-                  n={c.n}
-                  segundos={c.segundos}
-                  habla={c.habla}
-                  voz={c.voz}
-                  queSeVe={c.queSeVe}
-                  camara={c.camara}
-                  imagenAdjunta={c.imagenAdjunta}
-                  prompt={c.prompt}
-                  // Un plan guardado ANTES de que existieran estos campos no los
-                  // trae: el historial vive en app_settings y no migra.
-                  palabras={c.palabras ?? 0}
-                  tope={c.tope ?? 0}
-                  voseo={acentoEsVoseante(acento) ? [] : (c.voseo ?? [])}
-                />
-              ))}
-            </div>
+            {actual.plan.imagenesNecesarias.length > 0 && (
+              <Alert tono="info">
+                <strong>Genera estas imágenes antes de animar:</strong>
+                <ol style={{ margin: '6px 0 0', paddingLeft: 18, lineHeight: 1.6 }}>
+                  {actual.plan.imagenesNecesarias.map((img, i) => <li key={i}>{img}</li>)}
+                </ol>
+              </Alert>
+            )}
 
-            <Section titulo="Ajustar">
+            <Section titulo="El guion" nota="Abre un clip para ver la toma y el prompt">
+              <div style={{ display: 'grid', gap: 6 }}>
+                {actual.plan.clips.map((c) => (
+                  <ClipFila
+                    key={c.n}
+                    n={c.n}
+                    segundos={c.segundos}
+                    habla={c.habla}
+                    voz={c.voz}
+                    queSeVe={c.queSeVe}
+                    camara={c.camara}
+                    imagenAdjunta={c.imagenAdjunta}
+                    prompt={c.prompt}
+                    // Un plan guardado ANTES de que existieran estos campos no los
+                    // trae: el historial vive en app_settings y no migra.
+                    palabras={c.palabras ?? 0}
+                    tope={c.tope ?? 0}
+                    voseo={acentoEsVoseante(acento) ? [] : (c.voseo ?? [])}
+                  />
+                ))}
+              </div>
+            </Section>
+
+            <Section titulo="¿Le cambiamos algo?">
               <Textarea
-                rows={3}
+                rows={2}
                 value={feedback}
                 onChange={(e) => setFeedback(e.target.value)}
                 placeholder="El cierre no convence, el clip 3 dice lo mismo que el 2..."
@@ -490,7 +522,7 @@ export function VideoGeneratorApp({
 
           {historial.length > 1 && (
             <Section titulo="Anteriores">
-              <div style={{ display: 'grid', gap: 6 }}>
+              <div style={{ display: 'grid', gap: 4 }}>
                 {historial.map((h) => (
                   <button
                     key={h.id}
@@ -499,13 +531,19 @@ export function VideoGeneratorApp({
                     style={{
                       display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
                       background: h.id === actual.id ? 'var(--surface-2)' : 'transparent',
-                      border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', padding: '8px 10px',
+                      border: 'none', borderRadius: 'var(--r-sm)', padding: '7px 9px',
                       fontFamily: 'inherit',
                     }}
                   >
-                    <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--ink)', fontWeight: 600 }}>{h.plan.titulo}</div>
-                    <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--faint)', marginTop: 2 }}>
-                      {h.plan.clips.length} clips · {h.plan.duracionTotalSeg} s · {fechaCorta(h.at)}
+                    <div style={{
+                      fontSize: 'var(--fs-sm)', color: 'var(--ink)',
+                      fontWeight: h.id === actual.id ? 650 : 500,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
+                      {h.plan.titulo}
+                    </div>
+                    <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--faint)', marginTop: 1 }}>
+                      {fechaCorta(h.at)}
                     </div>
                   </button>
                 ))}

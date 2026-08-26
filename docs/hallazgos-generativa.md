@@ -1526,6 +1526,38 @@ y no hay forma de saber cuál. La limpieza cubre las tres formas con que cierra 
 busca **el string exacto que se pidió**. Un prompt con un acento plausible adentro pasa
 cualquier revisión a ojo — y era el equivocado en los siete clips.
 
+## El mismo texto dos veces, y el detalle de producción abierto en la pantalla de aprobar
+
+**Síntoma:** con el wizard ya rehecho, el dueño rechazó la pantalla del PLAN con lo mismo:
+*«Aún se ve increíblemente complejo y lleno de texto»*. Medida: **3.107 px** de alto para un
+anuncio de 7 clips.
+
+**Dos causas, y las dos son de contenido, no de estilo.**
+
+**1. El guion estaba escrito dos veces en la misma pantalla.** Arriba iba `deCorrido` —el
+texto seguido— y abajo el mismo texto partido clip por clip. Ninguna de las dos versiones
+era «de más» mirada sola; juntas eran el doble de palabras. Las filas dicen lo mismo MÁS
+dónde corta cada clip, así que el de corrido es el que sobra. (El botón «Copiar todo» sigue
+entregando el guion seguido: es lo que hacía falta de él.)
+
+**2. El prompt en inglés estaba abierto en los siete clips a la vez.** Seis líneas de
+inglés técnico por clip, en monospace, en la pantalla donde lo único que se hace es leer el
+guion y decidir si gusta.
+
+**La regla que queda, y vale para cualquier pantalla de aprobar:** separar **lo que se
+juzga** de **lo que se ejecuta**. El guion se juzga; el prompt, la cámara y la acción se
+ejecutan después, frente al generador de video, de a un clip por vez. Lo segundo va cerrado
+y se abre solo. El botón de copiar el prompt vive afuera —no hace falta abrir para copiar—,
+que es lo que hace que cerrarlo no cueste nada.
+
+**Resultado medido: 3.107 px → 1.008 px** con la misma información disponible.
+
+**Y el detalle que se leía como un error:** el modelo marca el énfasis con `**markdown**`
+—porque es la instrucción que mejor obedece, y el énfasis importa: es la palabra que el
+avatar levanta— y la pantalla lo pintaba literal, con los asteriscos a la vista. Se
+renderiza en negrita en la UI y se deja **crudo en el prompt**, que es donde el modelo de
+video sí los tiene que leer.
+
 ## Lo que quedó SIN hacer de esta corrida
 
 - **`lib/flow.ts` no existe todavía.** La tab llega hasta el plan y los prompts; generar
