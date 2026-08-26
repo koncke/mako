@@ -11,6 +11,7 @@
 import { requireRolWs } from '@/lib/tab-access';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { estadoContextoVideo, leerHistorial } from './video-datos';
+import { estadoPuente } from '@/lib/flow-cola';
 import { VideoGeneratorApp } from './VideoGeneratorApp';
 
 export const dynamic = 'force-dynamic';
@@ -22,12 +23,15 @@ export default async function Page() {
   const ws = await getWorkspaceActual();
   // Agencia sin impersonar: no hay workspace del que leer. La vista igual se
   // sirve (las actions cortan con su propio error si intenta operar).
-  if (ws == null) return <VideoGeneratorApp historialInicial={[]} contexto={null} />;
+  if (ws == null) return <VideoGeneratorApp historialInicial={[]} contexto={null} puente={null} />;
 
-  const [historial, contexto] = await Promise.all([
+  const [historial, contexto, puente] = await Promise.all([
     leerHistorial(),
     estadoContextoVideo(),
+    // Estado VIVO: si el cliente desconecta el navegador, el panel lo dice sola
+    // la próxima vez que entra.
+    estadoPuente().catch(() => null),
   ]);
 
-  return <VideoGeneratorApp historialInicial={historial} contexto={contexto} />;
+  return <VideoGeneratorApp historialInicial={historial} contexto={contexto} puente={puente} />;
 }

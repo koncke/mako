@@ -39,6 +39,8 @@ import {
   puestaPorId, puestasOfrecidas, segundosDe, type Puesta,
 } from './video-pedido';
 import { generarPlanAction } from './actions';
+import { PuentePanel } from './PuentePanel';
+import type { Puente } from '@/lib/flow-cola';
 
 type Vista = 'catalogo' | 'wizard' | 'anuncio';
 
@@ -241,10 +243,11 @@ function LineaGuion({
 // ── La app ───────────────────────────────────────────────────────────────────
 
 export function VideoGeneratorApp({
-  historialInicial, contexto,
+  historialInicial, contexto, puente,
 }: {
   historialInicial: PlanGuardado[];
   contexto: EstadoContextoVideo | null;
+  puente: Puente | null;
 }) {
   const PLANTILLAS = useMemo(() => puestasOfrecidas(), []);
 
@@ -605,6 +608,12 @@ export function VideoGeneratorApp({
           />
         ))}
       </div>
+
+      {puente && (
+        <div style={{ marginTop: 'var(--gap)', maxWidth: 780 }}>
+          <PuentePanel inicial={puente} />
+        </div>
+      )}
 
       {detalle && (
         <DetalleFormato
