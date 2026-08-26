@@ -77,7 +77,7 @@ const minutosDe = (cs: Clase[]) => {
   return seg ? `${Math.round(seg / 60)} min` : '';
 };
 
-type Modulo = { n: number; nombre: string; clases: Clase[]; portada: string };
+type Modulo = { n: number; nombre: string; clases: Clase[]; portada: string | null };
 type Vista = { clase?: number; recursos?: boolean };
 
 export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir?: () => void }) {
@@ -139,9 +139,15 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
     // indice corria todas las portadas un lugar.
     return [...m.entries()].map(([nombre, clases], i) => {
       const n = Number((clases[0]?.codigo ?? '').split('.')[0]) || i + 1;
-      return { n, nombre, clases, portada: `/cono-ugc/m${n}.webp` };
+      // La tapa del módulo sale del CURSO, no de una ruta escrita acá: ver
+      // `portadasModulo` en curso.ts. Sin ella, la de su primera clase; sin ninguna, el
+      // degradé con el número, que es el diseño para cuando no hay tapa.
+      const portada = curso.portadasModulo
+        ? `${curso.portadasModulo}${n}.webp`
+        : (clases.find((c) => c.portadaClase)?.portadaClase ?? null);
+      return { n, nombre, clases, portada };
     });
-  }, [curso.clases]);
+  }, [curso.clases, curso.portadasModulo]);
 
   const filtradas = useMemo(() => {
     const t = q.trim().toLowerCase();
@@ -277,7 +283,7 @@ function Indice({ curso, modulos, onAbrir, onModulo }: {
                   404 en CADA carga del índice, dibujando el ícono de imagen rota. Con
                   `Miniatura` la tarjeta se queda con el degradé y su número, que es lo
                   que se ve cuando la tapa sí está. */}
-              <Miniatura src={m.portada} />
+              {m.portada && <Miniatura src={m.portada} />}
               <span className="shade" aria-hidden />
               <span className="ugc-modcard-n" aria-hidden>{m.n}</span>
             </span>

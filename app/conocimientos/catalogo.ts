@@ -315,16 +315,21 @@ export const CURSOS_TODOS: Curso[] = [
   CURSO_NUEVO_ORGANIC_ECOM_3_0_JUNIO_2026,
   CURSO_AMORIR,
   CURSO_CREATOR_CLUB, CURSO_TRILOGIA_DE_BRIAN_TRACY,
-  // Los recursos y el modo réplica se inyectan acá porque el archivo del curso lo
+  // Los recursos y las portadas de módulo se inyectan acá porque el archivo del curso lo
   // REESCRIBE `curso-a-portal.mjs` en cada corrida: puestos allá, duran hasta la
-  // próxima. `replica` hace que el curso se vea con la pantalla de su plataforma de
-  // origen en vez de con la grilla del portal — ver CursoReplica.tsx.
-  { ...conRecursos(CURSO_CREATIVOS_UGC_REALISTAS, RECURSOS_UGC), replica: true },
+  // próxima. `portadasModulo` es el prefijo de las tapas por MÓDULO (`m1.webp`,
+  // `m2.webp`…): solo este curso las tiene bajadas, y sin el prefijo la réplica pide
+  // portadas que no existen. Ver CursoReplica.tsx.
+  { ...conRecursos(CURSO_CREATIVOS_UGC_REALISTAS, RECURSOS_UGC), portadasModulo: '/cono-ugc/m' },
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
   portada: c.portada ?? PORTADA[c.slug],
   titulo: TITULO[c.slug] ?? conAutor(c.titulo, AUTOR[c.slug]),
+  // La réplica es la vista de TODOS los cursos, no un modo de uno. Se pone acá y no
+  // curso por curso porque un flag que hay que acordarse de poner deja al próximo curso
+  // naciendo con la vista vieja — y nadie se entera hasta que lo abre alguien.
+  replica: true,
 }));
 
 export const buscarCurso = (slug: string | null | undefined): Curso | undefined => {

@@ -70,6 +70,19 @@ export type Curso = {
    * es auto-generado). Ver `CursoReplica.tsx` para el porqué.
    */
   replica?: boolean;
+  /**
+   * PREFIJO de las portadas de módulo: la del módulo N es `${portadasModulo}${N}.webp`.
+   *
+   * ⚠️ Es un dato del curso y no una ruta escrita en la vista. Estaba fija en
+   * `/cono-ugc/m${n}.webp` —las tapas del origen de Avatar Hype— y mientras la réplica
+   * fue de UN curso eso alcanzaba. Con la réplica en todos, un curso de 47 módulos pide
+   * 47 archivos que nunca existieron: `Miniatura` los esconde, así que no se ve nada
+   * roto, pero son 47 respuestas 404 en cada carga del índice.
+   *
+   * Sin este campo el módulo cae a la portada de su PRIMERA clase, y si tampoco hay, a
+   * la tarjeta con degradé y número — que es el diseño previsto para cuando no hay tapa.
+   */
+  portadasModulo?: string;
   clases: Clase[]; recursos: Recurso[];
 };
 
