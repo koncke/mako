@@ -259,11 +259,15 @@ function Indice({ curso, modulos, onAbrir, onModulo }: {
   curso: Curso; modulos: Modulo[]; onAbrir: (c: Clase) => void; onModulo: (m: Modulo) => void;
 }) {
   const primera = curso.clases[0];
+  // El hero es el bloque mas grande del indice, y sin imagen queda un rectangulo negro
+  // vacio. La tapa de la clase la tiene un curso solo; la del CURSO la tienen todos, asi
+  // que es la que evita que la pantalla nazca vacia en los otros veintipico.
+  const tapaHero = primera?.portadaClase ?? curso.portada;
   return (
     <>
       {primera && (
         <button type="button" className="ugc-hero" onClick={() => onAbrir(primera)}>
-          {primera.portadaClase && <Miniatura className="ugc-hero-img" src={primera.portadaClase} />}
+          {tapaHero && <Miniatura className="ugc-hero-img" src={tapaHero} />}
           <span className="ugc-hero-shade" aria-hidden />
           <span className="ugc-hero-body">
             <span className="ugc-hero-eyebrow">Empeza aca{primera.codigo ? ` ${'·'} ${primera.codigo}` : ''}</span>
