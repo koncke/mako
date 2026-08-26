@@ -67,11 +67,32 @@ const bytesVideo = () => {
 const audios = () => cuenta('audio', (f) => /\.m4a$/i.test(f));
 const textos = () => cuenta('texto', (f) => f.endsWith('.md') && f !== '_indice.md');
 
-const correr = (script, args) => {
-  const p = spawnSync(process.execPath, [join(SCRIPTS, script), ...args], { encoding: 'utf8' });
+// `tsx` para los `.ts`: node solo no los sabe correr, y sin el flag el fallo es un
+// SyntaxError críptico en vez de «falta el loader».
+const correr = (script, args, ts = false) => {
+  const argv = ts ? ['--import', 'tsx', join(SCRIPTS, script), ...args] : [join(SCRIPTS, script), ...args];
+  const p = spawnSync(process.execPath, argv, { encoding: 'utf8' });
   const out = `${p.stdout ?? ''}${p.stderr ?? ''}`;
   // Solo la última línea útil: el log de una corrida de 12 h tiene que ser legible.
   const resumen = out.split('\n').map((l) => l.trim()).filter((l) => /convertido|transcripta|fallad|✖/.test(l)).slice(-2);
+
+  // ⚠️ UNA ETAPA QUE REVIENTA TIENE QUE GRITAR. El filtro de arriba busca palabras que
+  // sólo aparecen cuando el script TERMINA bien; un stack trace no dice «convertido» ni
+  // «fallado», así que el resumen salía VACÍO y la ronda se imprimía como si no hubiera
+  // habido nada que hacer. El `code` se devolvía y no lo miraba nadie.
+  //
+  // Costó una noche entera: la transcripción moría con `401 Authentication error` de
+  // ScreenApp en las 135 rondas, el log decía `texto 0/453` ronda tras ronda, y eso se
+  // lee igual que «todavía no hay audio listo». 452 videos bajados y cero texto.
+  //
+  // Es la regla de siempre —un aviso que no llega adonde alguien mira no existe— pero en
+  // su forma más cara: acá el aviso EXISTÍA, en el stderr del hijo, y el padre lo filtró.
+  if (p.status !== 0) {
+    const causa = out.split('\n').map((l) => l.trim())
+      .filter((l) => /error|Error|✖|401|403|429|ENOENT|no autenticado/i.test(l)).slice(0, 2);
+    resumen.push(`✖ ${script} salió con código ${p.status}${p.error ? ` (${p.error.message})` : ''}`);
+    for (const c of causa) resumen.push(`   ${c.slice(0, 150)}`);
+  }
   return { code: p.status, resumen };
 };
 
@@ -90,9 +111,25 @@ while (Date.now() < hasta) {
   const antes = textos();
 
   const a = correr('curso-audio.mjs', ['--plan', PLAN, '--de', join(base, 'video'), '--a', join(base, 'audio')]);
-  const t = audios() > textos()
+  // Se anota ANTES de correr: despues de transcribir, audios()>textos() ya no dice si habia trabajo.
+  const habiaQueTranscribir = audios() > textos();
+  // ScreenApp primero —es gratis y sus `segments[]` dan párrafos de la fuente en vez de
+  // una heurística—, y si revienta, el RESPALDO que su propia cabecera nombra.
+  //
+  // ⚠️ El respaldo se anuncia, no se toma en silencio. Es la regla de «un fallback que no
+  // cobra es una degradación silenciosa»: los dos caminos producen un .md que se ve igual,
+  // así que si nadie lo dice, el curso queda transcripto por el camino B y el próximo que
+  // mire los timestamps no entiende por qué son distintos a los del curso de al lado.
+  //
+  // Y existía de nombre nomás: al morir ScreenApp con 401, el circuito no probaba el
+  // respaldo — hacía 135 rondas anunciando `texto 0/453`.
+  let t = habiaQueTranscribir
     ? correr('curso-transcribir-sa.mjs', ['--plan', PLAN, '--paralelo', PARALELO])
     : { code: 0, resumen: ['(nada nuevo para transcribir)'] };
+  if (habiaQueTranscribir && t.code !== 0) {
+    const b = correr('curso-transcribir.ts', ['--de', join(base, 'audio'), '--a', join(base, 'texto')], true);
+    t = { code: b.code, resumen: [...t.resumen, '↳ ScreenApp falló: sigo por el respaldo (cascada barata)', ...b.resumen] };
+  }
   // --drive: ir copiando a Drive en cada ronda, sin esperar los ids. Aprovecha que
   // subida y descarga usan capacidades distintas en una conexión asimétrica, así
   // que no se pelean. Los ids se resuelven al final, en una sola pasada.
@@ -104,7 +141,28 @@ while (Date.now() < hasta) {
   console.log(`  [${hora()}] ronda ${ronda}: video ${bajados()}/${total} · audio ${audios()} · texto ${ahora}/${total}`);
   for (const l of [...a.resumen, ...t.resumen, ...g.resumen]) if (l) console.log(`             ${l}`);
 
-  if (ahora >= total) {
+  // ⚠️ SE TERMINA CUANDO ESTÁ TODO LO QUE SE PUEDE, NO TODO EL PLAN.
+  //
+  // `ahora >= total` no se cumple nunca si una clase del origen no se puede bajar, y
+  // entonces este bucle gira hasta el tope de horas SIN PUBLICAR — con el curso entero
+  // bajado y transcripto al lado. Pasó con «NUEVO Organic Ecom 3.0»: la clase 240 apunta
+  // a un video de Vimeo que devuelve 500 (tres veces, y su vecino 200), o sea que la
+  // plataforma tampoco lo puede servir. 452 de 453, y la condición pedía 453.
+  //
+  // El alcanzable es lo BAJADO. Y no se declara victoria en silencio sobre el hueco: se
+  // nombran las clases que faltan, para que el que lea sepa que el curso sale con 452 y
+  // por qué. Un total que se alcanza escondiendo lo que falta es peor que uno que no se
+  // alcanza.
+  const alcanzable = bajados();
+  const descargaViva = bytesVideo() > bytesPrevios;
+  if (ahora < total && ahora >= alcanzable && !descargaViva && secas >= 2) {
+    const sinVideo = plan.clases.filter((c) => !existsSync(join(base, 'video', `${c.archivo}.mp4`)));
+    console.log(`\n  ⚠ ${total - alcanzable} clase(s) del plan NO se pudieron bajar del origen:`);
+    for (const c of sinVideo.slice(0, 10)) console.log(`      n=${c.n}  ${c.titulo}`);
+    console.log(`    Todo lo demás (${ahora}/${alcanzable}) está transcripto: sigo y publico con eso.\n`);
+  }
+
+  if (ahora >= total || (ahora >= alcanzable && ahora < total && !descargaViva && secas >= 2)) {
     console.log(`\n  ✓ ${ahora}/${total} clases transcriptas.`);
     // ⚠️ «TRANSCRIPTO» NO ES «PUBLICADO», Y ACÁ SE LLAMABA «COMPLETO». La cadena termina
     // en el portal, no en `texto/`: faltan resolver los ids de Drive y emitir la ficha.
@@ -138,6 +196,24 @@ while (Date.now() < hasta) {
   }
 
   secas = ahora > antes ? 0 : secas + 1;
+
+  // ⚠️ HABÍA TRABAJO Y NO SALIÓ NADA: eso es una etapa rota, no una espera.
+  //
+  // El guard de abajo exige `bajados() >= total`, así que mientras la descarga sigue —y
+  // en un curso de 453 clases eso es toda la noche— NUNCA se dispara. Con la
+  // transcripción muerta, el circuito hizo 135 rondas escribiendo `texto 0/453`, que se
+  // lee exactamente igual que «todavía no hay audio listo».
+  //
+  // La distinción que faltaba: `audios() > textos()` dice que HABÍA material esperando.
+  // Si con material esperando el contador no se movió en N rondas, el problema no es el
+  // ritmo — es que la etapa no funciona, y hay que decirlo aunque la descarga siga.
+  if (habiaQueTranscribir && secas === SIN_PROGRESO_MAX) {
+    console.log(`\n  ⚠ ${secas} rondas con audio esperando y CERO transcripciones nuevas.`);
+    console.log(`    Eso no es lentitud: la etapa de transcripción no está funcionando.`);
+    console.log(`    Probala sola para ver el error entero:`);
+    console.log(`      node scripts/curso-transcribir-sa.mjs --plan ${PLAN} --paralelo 1\n`);
+  }
+
   if (secas >= SIN_PROGRESO_MAX && bajados() >= total) {
     console.log(`\n  ⚠ Sin progreso ${secas} rondas y la descarga ya terminó (${bajados()}/${total}).`);
     console.log(`    Quedan ${total - ahora} clase(s) sin transcribir. Mirá los errores de arriba.\n`);
