@@ -4842,3 +4842,89 @@ dice **«?»** en vez de un número. Un total que no se pudo calcular no se afir
 duración REAL medida aparte (`58:19` en el caso peor)—, así que es cosmético y acotado al
 archivo de trabajo. Si se quieren reparar, el número correcto ya está publicado en el
 `cardDesc` de cada clase: el cruce es por `videoId`.
+
+## Si la señal de vida la puede borrar el que la mira, no es una señal de vida
+
+**2026-08-26, bajando «Seminarios Alejandro Cardona» (17 clases).** El pipeline publicó
+la ficha declarando **«10 clases, 3 módulos»** con el descargador todavía en la clase 11.
+Salió con código 0 y el mensaje **«✓ COMPLETO: bajado, transcripto y PUBLICADO»**.
+
+La guarda contra esto YA EXISTÍA y estaba bien pensada:
+
+```js
+const descargaViva = bytesVideo() > bytesPrevios;   // ⛔
+```
+
+con su comentario al lado: *«un `.part` que engorda es un proceso sano»*. Correcto. El
+problema es **qué mide**: `bytesVideo()` suma la carpeta `video/`, y **esta misma corrida
+la encoge** — cuando Drive confirma un video, `--liberar` lo borra. En cuanto la
+liberación le gana a la descarga, los bytes BAJAN, la señal dice «no hay descarga viva»,
+`alcanzable = bajados()` se mide sobre una foto parcial, y se publica.
+
+**La regla: una señal de liveness tiene que ser MONÓTONA, o instantánea.** Si es una
+cantidad que algo puede reducir —y peor, que la reduce el mismo proceso que la
+consulta—, entonces «no creció» no significa «se terminó»: significa «alguien restó más
+de lo que se sumó». Antes de usar un contador como prueba de que otro proceso sigue vivo,
+preguntá quién más lo escribe **y quién lo baja**.
+
+Lo que quedó: `bajados.txt` es append-only y `curso-bajar.mjs` le agrega una línea por
+descarga terminada; y un `.part` es una descarga en vuelo AHORA. Van las tres en OR con
+la de bytes — cualquiera que diga «todavía estoy bajando» alcanza para no publicar. **En
+OR y no en AND a propósito:** una condición que exige que las tres lo afirmen se apaga con
+que una se rompa, que es exactamente lo que acaba de pasar.
+
+⚠️ **Y el corolario del reporte, que es la parte cara:** el fallo no dejó ningún rastro
+que lo delatara. El log de esa corrida quedó VACÍO (se había lanzado sin redirección), el
+proceso salió 0, y la única evidencia era la frase «10 clases, 3 módulos» adentro de un
+archivo generado que nadie mira. **Un pipeline que puede terminar antes de tiempo tiene
+que decir contra qué midió que estaba completo**, no sólo que lo estaba.
+
+**Vive en:** `scripts/curso-pipeline.mjs` (`descargaViva`, `lineasBajados`, `hayParte`).
+
+## `?? 0` en una suma: la duración que decía «0m00s», y sus DOS colas
+
+**2026-08-26, medido sobre las 2428 transcripciones locales.** Ampliación del hallazgo
+anterior (*«una pieza que nadie midió sumaba cero»*): el barrido bueno da **1055 rotas**,
+no 23.
+
+**Por qué el primer número estaba mal, que es lo que hay que recordar.** El detector
+inicial buscaba cabeceras con palabras-por-minuto implícitas absurdas, y traía dentro un
+guard de higiene: `if (min < 0.5 || palabras < 50) continue`. Ese guard —puesto para no
+dividir por cero— **descartaba exactamente la población peor**: las que declaran
+`0m00s`, que son el 48 % del corpus. El detector reportó 23 con toda confianza.
+
+Un filtro de saneo puesto al principio de un contador **es parte de la definición de lo
+que se cuenta**, aunque se haya escrito pensando en otra cosa. Si un umbral descarta
+entradas, hay que mirar qué hay del otro lado del descarte antes de creerle al total.
+
+**Las dos colas de la misma falla.** `0m00s` es cuando NINGUNA pieza reportó su duración.
+Si reportó una de tres, la cabecera declara una **fracción** —«19m03s» sobre una clase de
+4550 s— y eso se ve perfectamente creíble: no tiene nada de raro, y por eso es la más
+difícil de encontrar después. Las dos se reconocen sin el audio, con el mismo corte de
+260 wpm.
+
+**La reparación, y por qué el cruce era el riesgo.** La duración real ya está publicada en
+el `cardDesc` de cada clase (la midió `curso-a-portal.mjs` con ffprobe sobre el video).
+Pero el cruce es **por título**, que es un parecido y no una clave, así que el script
+tiene tres frenos y el primero cazó un error propio: la carpeta `masteryhaus` ganaba con
+`curso-bigseo-academy.ts` reconociendo **1 título de 170** (0,6 %) y con eso iba a
+escribirle la duración de otro curso. «El que más matchea» no es un match: es el ganador
+de una comparación que puede no tener ningún candidato bueno. Los pisos (5 títulos y
+30 %) salen de correrlo contra los 14 cursos reales — los aciertos dan 46/97/99/100 % y
+los errores 0,6/13 %.
+
+Y la **post-condición** es la que cierra: después de reparar, el ritmo de habla que queda
+tiene que caer en el rango del castellano. Dio **p10=150 · mediana=189 · p90=221 wpm**. Si
+un par estuviera mal, ese número se iría a 400 o a 40 y la clase no se toca.
+
+**Vive en:** `scripts/curso-tx-duracion.mjs` · `scripts/curso-transcribir.ts`.
+
+**Estado:** 850 reparadas. Las **228** que quedan están nombradas por el script y NO se
+tocan: 202 sin par en el catálogo publicado (clases que nunca se publicaron), 23 ambiguas
+(el título matchea dos clases con duraciones distintas) y 3 que la post-condición rechazó.
+
+⚠️ **Lo que quedó SIN hacer:** las **173** de `masteryhaus` no tienen catálogo que las
+reconozca —sus títulos en el portal no se parecen a los de la carpeta, probablemente por
+cómo los nombró la ingesta de Circle— y las **20** de `Jaque Blue` matchean sólo 3. Para
+esas dos carpetas hace falta un cruce por otra clave (el `videoId`, o el orden), no un
+piso más flojo.
