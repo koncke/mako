@@ -52,6 +52,33 @@
     return out;
   }
 
+  /** El cuerpo de la plantilla como objeto. Si no era JSON, se ignora. */
+  function base(texto) {
+    try { const o = JSON.parse(texto); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; }
+    catch { return {}; }
+  }
+
+  /**
+   * Funde `nuevo` sobre `viejo`, hacia adentro.
+   *
+   * Tiene que ser profundo: un `{clientContext:{recaptchaContext:…}}` a nivel
+   * superficial se lleva puesto el `projectId`, el `tool` y el `userPaygateTier`
+   * que venían de Flow — que es exactamente el bug que esto viene a arreglar.
+   *
+   * Los arrays se reemplazan enteros a propósito: fundir dos listas elemento por
+   * elemento produce mezclas que ninguna de las dos partes pidió.
+   */
+  function fundir(viejo, nuevo) {
+    const out = { ...viejo };
+    for (const [k, v] of Object.entries(nuevo || {})) {
+      const antes = out[k];
+      const los2SonObjetos = v && typeof v === 'object' && !Array.isArray(v)
+        && antes && typeof antes === 'object' && !Array.isArray(antes);
+      out[k] = los2SonObjetos ? fundir(antes, v) : v;
+    }
+    return out;
+  }
+
   const fetchOriginal = window.fetch;
 
   window.fetch = function (entrada, init) {
@@ -126,7 +153,12 @@
         url: p.url.replace(/key=[^&]+/, 'key=<oculta>'),
         headers: Object.keys(p.headers).sort(),
         tieneCuerpo: p.cuerpo != null,
-        cuerpoMuestra: p.cuerpo ? p.cuerpo.slice(0, 1200) : null,
+        // De los pedidos que GENERAN va el cuerpo entero: es el contrato que hay
+        // que replicar, y una muestra cortada esconde justo el campo que falta.
+        // Del resto alcanza con saber que existen.
+        cuerpoMuestra: p.cuerpo
+          ? p.cuerpo.slice(0, /generate|Generate/.test(clase) ? 4000 : 200)
+          : null,
         edadMs: Date.now() - p.cuando,
       };
     }
@@ -182,6 +214,16 @@
       const llevaCuerpo = metodo !== 'GET' && metodo !== 'HEAD';
       if (!llevaCuerpo) delete headers['content-type'];
 
+      // ── El cuerpo se FUNDE con el de la plantilla ──────────────────────────
+      // Medido: el `clientContext` que manda Flow trae `userPaygateTier` y más
+      // campos que nosotros ni sabíamos que existían. Mandar el nuestro PISABA
+      // todo eso — o sea que el espejo copiaba el sobre y tiraba la carta.
+      //
+      // Ahora la base es lo que manda la app y encima va solo lo que cambia: el
+      // prompt y el token del captcha. Lo que no sabemos que existe viaja igual,
+      // que es el punto entero de copiar en vez de reconstruir.
+      const cuerpoFinal = llevaCuerpo ? fundir(base(plantilla.cuerpo), cuerpo || {}) : null;
+
       const res = await fetchOriginal.call(window, url.toString(), {
         method: metodo,
         headers,
@@ -189,7 +231,7 @@
         // navegador acepta la respuesta, así que es justo el campo que no se puede
         // suponer.
         credentials: plantilla.credenciales || 'include',
-        ...(llevaCuerpo ? { body: JSON.stringify(cuerpo || {}) } : {}),
+        ...(llevaCuerpo ? { body: JSON.stringify(cuerpoFinal) } : {}),
       });
       // El texto crudo viaja tal cual: si Google contesta HTML en vez de JSON, eso
       // ES el dato — es lo que delata un bloqueo, y parsearlo acá lo perdería.

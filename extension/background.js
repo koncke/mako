@@ -217,7 +217,15 @@ async function ciclo() {
       try {
         const tab = await pestanaDeFlow();
         const espia = await chrome.tabs.sendMessage(tab.id, { tipo: 'VER_ESPIA' });
-        if (espia && espia.visto) detalle = JSON.stringify(espia.visto).slice(0, 3800);
+        if (espia && espia.visto) {
+          // Ordenado con lo que GENERA primero: el detalle se corta al guardarse, y
+          // lo que se pierde tiene que ser lo que ya conocemos, no el contrato que
+          // estamos tratando de leer.
+          const orden = Object.entries(espia.visto).sort(
+            (a, b) => (/generate/i.test(b[0]) ? 1 : 0) - (/generate/i.test(a[0]) ? 1 : 0),
+          );
+          detalle = JSON.stringify(Object.fromEntries(orden)).slice(0, 7500);
+        }
       } catch { /* si no se puede espiar, no es motivo para no trabajar */ }
     }
 

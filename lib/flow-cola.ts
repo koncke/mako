@@ -135,7 +135,7 @@ export async function marcarVisto(ws: number, projectId: string, estado: EstadoP
     estado,
     // La columna es `text` sin límite (mig 0145). El recorte a 300 era nuestro y
     // mutilaba justo lo que sirve para diagnosticar sin molestar a nadie.
-    estado_detalle: detalle.slice(0, 4000),
+    estado_detalle: detalle.slice(0, 8000),
   };
   if (projectId) patch.project_id = projectId;
 
