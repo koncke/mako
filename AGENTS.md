@@ -44,12 +44,21 @@ Reglas para cualquier agente que trabaje acá:
   cuando haya algo que probar, no después de cada paso interno — lo que se ahorra es el
   deploy entero, nunca segundos.
 
-⚠️ El hook hace CUATRO chequeos: los tipos, que las skills tengan el contrato del
+⚠️ El hook hace CINCO chequeos: los tipos, que las skills tengan el contrato del
 `detalle` al día (`node scripts/sync-contrato-detalle.mjs --check`), que el manual de
 marca tenga la gramática de MaKo al día
-(`node --import tsx scripts/sync-gramatica-doc.mjs --check`) y que `plugin/` —la copia
+(`node --import tsx scripts/sync-gramatica-doc.mjs --check`), que `plugin/` —la copia
 PÚBLICA de la skill de Claude— esté generada de la versión viva
-(`node --import tsx scripts/generar-plugin.mjs --check`). Si lo recreás, poné los cuatro.
+(`node --import tsx scripts/generar-plugin.mjs --check`) y que el zip que el cliente
+descarga desde /video-generator no haya quedado viejo respecto de `extension/`
+(`node scripts/zip-extension.mjs --check`). Si lo recreás, poné los cinco.
+
+El del zip existe por la misma razón que el de `plugin/`: **el artefacto que se
+distribuye no es el fuente**. `public/mako-puente.zip` se commitea para que Vercel lo
+sirva estático, así que una extensión arreglada y un zip sin regenerar dejan al cliente
+instalando la versión vieja — sin error, sin síntoma, y con el bug que se acaba de
+arreglar todavía adentro. La huella se calcula sobre el CONTENIDO de los archivos y no
+sobre el zip, porque un zip trae timestamps y no es reproducible byte a byte.
 
 ⚠️ **Lo que el hook NO hace es correr los tests** (`npm test`), y por eso hay que acordarse
 a mano. Un renombre pasa el typecheck perfecto y rompe una aserción sin que nada avise: al
