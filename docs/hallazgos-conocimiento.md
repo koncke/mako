@@ -4928,3 +4928,121 @@ reconozca —sus títulos en el portal no se parecen a los de la carpeta, probab
 cómo los nombró la ingesta de Circle— y las **20** de `Jaque Blue` matchean sólo 3. Para
 esas dos carpetas hace falta un cruce por otra clave (el `videoId`, o el orden), no un
 piso más flojo.
+
+## La lámina de módulo: lo que costó, y las cuatro trampas de dibujarla
+
+**2026-08-26.** Los 368 módulos sin tapa propia caían a un degradé negro con un número;
+ahora dibujan una hoja de cuaderno en SVG (`app/conocimientos/PortadaModulo.tsx`). Lo que
+sigue no es el changelog —está en el commit— sino lo que hay que saber antes de tocarla.
+
+### 1. Un banco de pruebas que no carga las fuentes del destino mide OTRO dibujo
+
+Se hicieron tres rondas de juicio visual —incluida una comparación lado a lado contra las
+cinco referencias— **con la tipografía equivocada**. Los bancos arman su HTML a mano y no
+llevaban `@import`, así que `Archivo` caía al fallback genérico. En producción la hoja del
+origen SÍ la carga (19 referencias a Archivo en `ugc.css`).
+
+El daño no fue estético: sobre esos renders se dictaminó que el número era «más chico que
+la referencia» y que la composición estaba «centrada cuando debía ser asimétrica». Las dos
+cosas resultaron falsas al medirlas con PIL sobre los .webp — el número ya estaba MÁS
+grande (0,46-0,54 H contra 0,40-0,52) y la referencia está centrada (centro del número en
+161,8 de media sobre un lienzo de 320).
+
+**La regla: un banco de pruebas reproduce las FUENTES y la HOJA del destino, o no está
+midiendo el destino.** Y el screenshot espera a `document.fonts.ready`: disparar antes sale
+con el fallback y se ve exactamente igual de plausible. El banco bueno —el que terminó
+decidiendo— es el que carga `public/cono-doc/ugc.css` entera y arma el markup real de la
+tarjeta (`scratchpad/rail-real.mjs`): ahí aparecieron los dos bugs que ningún juez vio.
+
+### 2. Un `<svg>` no matchea un selector `img`, y eso rompe el revelado
+
+`.ugc-modcard-cover img` le pone `filter: saturate(.8) brightness(.92)` a toda tapa real, y
+`.shade` le pone encima un degradé de 12 % a 55 % de negro. Ese es el revelado de la casa y
+es lo que hace que el riel se lea de un solo tono.
+
+La lámina hereda el `.shade` sola —está adentro del mismo contenedor— pero **no el filtro**,
+porque aquella regla es un selector de ELEMENTO. Medido dentro de la tarjeta:
+
+| | arriba | medio | abajo |
+|---|---|---|---|
+| referencia (m1..m5) | (190,188,180) | (159,158,151) | (124,123,115) |
+| lámina sin la regla | (244,243,231) | (244,243,231) | (244,243,231) |
+| lámina con la regla | (189,188,181) | (159,158,151) | (123,122,115) |
+
+Sin esa línea, en el único curso donde conviven —AvatarHype, 5 tapas reales y 1 dibujada—
+se ve una tarjeta que brilla al lado de cinco apagadas.
+
+**Y el corolario de la decisión:** había dos caminos que igualaban (revelar la lámina, o
+aclarar el `.shade` de la tapa real). Se eligió el que toca **368 tarjetas que hoy están
+mal y CERO de las que están bien**. Cuando dos arreglos producen el mismo resultado, gana
+el que no le cambia la cara a lo que ya funciona.
+
+### 3. La rama que sabe que no hay lugar no puede elegir uno igual
+
+El sticker tenía tres guardas de colisión y, después, esto:
+
+```js
+if (!slots.length) slots.push([250, 124]);   // ⛔
+```
+
+O sea: cuando las tres guardas dicen que ningún lugar está libre, se pone igual. En el
+riel real eso se vio como **«Creativos Animado▮»** y **«Instagram Reel▮»**, con el papelito
+apoyado sobre la última letra. Es la misma forma de «detectar la ambigüedad sin actuar»
+que ya está en `AGENTS.md` para el id de Drive, aplicada al layout.
+
+Y las guardas además miraban el `x1` del **último** renglón: con dos renglones el sticker
+podía chocar contra el primero sin que el último lo supiera. Ahora la ubicación se decide
+contra la ocupación REAL (la caja del número y la de TODOS los renglones) y **si no hay
+hueco no hay sticker** — la decoración obligatoria son los destellos.
+
+### 4. El número del módulo salía de la POSICIÓN y contradecía al título
+
+`n = i + 1` en 95 de 374 módulos decía algo distinto de lo que dice el propio título:
+`m5-95` llama a los suyos «Módulo 9»… «Módulo 19» y la posición daba 8..18. En la tarjeta
+conviven **tres** números —el chip, el gigante de la lámina y el título completo escrito
+abajo en `.ugc-modcard-t`—, así que el que mira leía «10» dos veces y «Módulo 11» debajo.
+La lámina no creó el problema: lo hizo grande.
+
+Ahora gana la numeración propia del curso, con dos condiciones y **una que a propósito NO
+está**:
+
+- se adopta sólo si **todos** los grupos traen su ordinal y ninguno tiene parte decimal
+  (hay cursos con «Módulo 1.1 / 1.2 / 1.3», donde el 1 es el padre y tomarlo dejaría tres
+  módulos numerados 1). Si falla, el curso entero se queda con la posición: nunca una
+  mezcla.
+- **no se exige que los números sean únicos**, aunque el reflejo diga que sí.
+  `nuevo-organic-ecom` tiene dos módulos «Módulo 12 - Guionizar Los Videos Antes De
+  Grabar» porque la plataforma de origen los tiene duplicados. Con la guarda de unicidad,
+  ESE curso —47 módulos— se caía entero a la posición y los otros 46 pasaban a
+  contradecir su título, **para tapar un duplicado que existe de verdad**. Mostrar 12 en
+  los dos es fiel; mostrar 12 y 13 es inventar.
+
+De 95 discrepancias quedan 9, todas del curso con decimales, y 0 números repetidos que no
+estén repetidos en la fuente.
+
+### Y dos notas de implementación que valen para cualquier SVG del portal
+
+- **`height: 100%` al lado de `inset: 0` NO es redundante en un `<svg>`**, aunque
+  `AGENTS.md` marque el patrón. Un `<svg>` es un elemento REEMPLAZADO: con `height: auto`
+  el alto sale de su relación intrínseca (el viewBox) y no de la restricción top/bottom.
+  Medido: con la caja en `aspect-ratio: 16/9` el hueco es 0,00 px, pero con alto fijo de
+  170 px asoman 3,50 px del degradé negro por abajo.
+- **Un `id` de `<defs>` es global al documento.** Dos láminas en la misma página con el
+  mismo `id` de máscara se pisan, y el síntoma es invisible: las dos dibujan lo mismo. El
+  `uid` sale del hash de `n + titulo` y no de `useId()`, que obligaría a `'use client'`.
+
+**Vive en:** `app/conocimientos/PortadaModulo.tsx` · `app/conocimientos/CursoReplica.tsx`
+(el memo de `modulos` y la tarjeta) · `scripts/avatarhype-css.mjs` (la cola) ·
+`public/cono-doc/ugc.css`.
+
+⚠️ **La regla del CSS hay que escribirla en DOS lados y no es duplicación evitable.** El
+generador escribe `public/cono-doc/ugc.css`, pero exige `--css <captura del origen>` y esa
+captura **no está en el repo**: hoy la hoja no se puede regenerar. La cola de
+`avatarhype-css.mjs` es para el día que se pueda; el `.css` es para que funcione ahora.
+
+⚠️ **Lo que quedó SIN hacer:** los doodles ilustrados de la referencia (el libro, el
+micrófono, la claqueta) no se reproducen — a 296 px un dibujo lineal de 1 px de trazo es
+una mancha gris, y no se pueden derivar de `{n, título}` sin mentir. Es la diferencia que
+queda al comparar. Y no hay test que fije las invariantes de la lámina (que el sticker no
+pise el texto, que toda lámina lleve decoración, que el título no desborde): la
+verificación de esta corrida fue por render, y un render no falla en CI.
