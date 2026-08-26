@@ -2074,3 +2074,164 @@ app es `creditos` (`app/video-generator/puente-actions.ts:60`). `TipoTrabajo` de
 todavía**. El puente entero existe, por ahora, para contestar una consulta de saldo — así
 que nadie está perdiendo videos, y el copy no puede prometer generación que aún no existe.
 
+## El puente a Flow FUNCIONA: 1.012 créditos leídos de una cuenta real
+
+26/08/2026, después de un día entero. El circuito completo —MaKo encola, la
+extensión toma, le pega a Google con la sesión del cliente, devuelve— cerró con:
+
+```json
+{"sku":"WS_FREEMIUM","credits":1012,"serviceTier":"SERVICE_TIER_ENTRY",
+ "userPaygateTier":"PAYGATE_TIER_NOT_PAID","subscriptionCredits":1012}
+```
+
+**Eso cierra uno de los dos bloqueos que estaban abiertos hace semanas** (leer el
+saldo real). Y trae un dato de negocio que no teníamos: la cuenta de Mauricio es
+**freemium, no de pago**.
+
+⚠️ **Lo que NO se puede afirmar todavía: cuántos videos son 1.012 créditos.** El
+costo por clip que circula en el corpus (20 por 8 s) sale de la documentación de
+useapi y **no está medido**. Se sabrá mirando el saldo antes y después del primer
+video, y no antes. `leerSaldo()` no hace esa conversión a propósito.
+
+### El contrato REAL, capturado del tráfico de Flow
+
+| Pedido | Método | Autenticación | ¿`?key=`? |
+|---|---|---|---|
+| `/v1/credits` | **GET** | header `Authorization` | **sí** |
+| `/v1:checkAppAvailability` | POST | header **`X-goog-api-key`** | no |
+| `/v1:fetchUserRecommendations` | POST | `Authorization` + `Accept-Language` | no |
+| `/v1/flow:batchLogFrontendEvents` | POST | `Authorization` | no |
+
+Tres cosas que se creían y eran falsas: que **todo era POST** (créditos es GET),
+que **el `?key=` iba en todos los pedidos** (va solo en créditos), y que la
+autenticación era siempre el bearer (`checkAppAvailability` usa `X-goog-api-key`,
+que es otra cosa).
+
+## Los cuatro diagnósticos obvios que fueron el equivocado, en orden
+
+Esto es lo que más tiempo ahorra la próxima vez. **Cada arreglo era correcto y
+ninguno era la causa**, y en cada paso el error cambiaba, lo que hacía parecer que
+íbamos bien.
+
+1. **«Recargá la pestaña»** — cierto: el content script no se inyecta hacia atrás
+   en pestañas ya abiertas. Arregló el `Receiving end does not exist` y destapó el
+   siguiente.
+2. **«La CSP bloquea la inyección»** — cierto: meter `injected.js` con un
+   `<script src="chrome-extension://…">` no funciona en labs.google. Va con
+   `world: MAIN` en el manifest. Destapó el siguiente.
+3. **«Google bloqueó la sesión»** — **FALSO, y es el que más costó.** Lo dijo
+   nuestro propio mensaje de error con toda autoridad mientras el dueño generaba
+   videos a mano, en la misma pestaña, con la misma cuenta y la misma IP. La
+   página «Sorry» de Google **no significa que la cuenta esté marcada**: significa
+   que ESE pedido no fue atribuido a ningún proyecto.
+4. **«Falta la API key»** — cierto y necesario, y **tampoco alcanzaba**. La causa
+   final era el MÉTODO: `GET`, no `POST`.
+
+**La regla que queda: cuando el usuario dice que a mano funciona, eso NO es
+información de color — es el dato que descarta media hipótesis.** Si la misma
+sesión, misma cuenta y misma IP funcionan por un camino y fallan por el otro, el
+problema está en la diferencia entre los dos caminos, nunca en la cuenta. Se
+perdieron horas tratando ese reporte como ruido.
+
+## Un pedido a una API privada de Google no se RECONSTRUYE: se COPIA
+
+Todo el contrato salía de la documentación de un tercero (useapi). Cuando se
+comparó contra el tráfico real aparecieron el `?key=` faltante y el método
+equivocado — y esos son los que sabíamos buscar. Los headers que uno **no sabe que
+le faltan** no se encuentran adivinando.
+
+La solución es un espejo: `extension/injected.js` corre en `world: MAIN`, envuelve
+el `fetch` de la página y guarda el último pedido de cada clase como **plantilla**
+(método, URL, headers, cuerpo). Nuestros pedidos salen calcados. No hay nada que
+adivinar, y si Google cambia el contrato la plantilla cambia sola.
+
+Tres reglas del espejo, todas pagadas:
+
+- **El envoltorio no puede romper la app.** Todo en `try/catch` y la promesa
+  original se devuelve intacta siempre. Si la captura falla, Flow sigue andando y
+  nosotros nos quedamos sin plantilla — ese es el orden correcto.
+- **Sin plantilla NO se inventa el pedido.** Se dice qué falta y qué hacer para que
+  aparezca. Inventarlo es exactamente lo que no funcionó.
+- **Una lectura que la app acaba de hacer se contesta con SU respuesta.** Cero
+  tráfico nuestro: el pedido que la produjo lo hizo Flow.
+
+⚠️ Y la primera versión del espejo **no copiaba la URL**: `urlPedida ||
+plantilla.url`, con `urlPedida` siempre seteada. Copiaba método y headers y seguía
+mandando el path armado a mano. El bug estaba justo en la línea que era el punto
+de todo el cambio. Lo cazó una auditoría, no una prueba.
+
+## Un `fetch` de extensión no es un `fetch` de la página
+
+Desde el service worker viaja con `Origin: chrome-extension://<id>`, sin las
+cookies del sitio y sin los headers de la app. Para Google tiene **la forma exacta
+de un bearer de Flow usado por un tercero** — o sea, la forma de un token robado.
+
+Y esto explica por qué useapi necesita su `sendTelemetry()` que fabrica eventos
+falsos: **piden desde afuera del contexto y tienen que fingir que son la página.**
+Nosotros no fingimos nada porque el pedido sale realmente de la página del
+usuario. La decisión de no replicar esa telemetría no costó nada: solo había que
+pedir desde el lugar correcto.
+
+## Reintentar contra un bloqueo es lo que causa el bloqueo
+
+El `catch` de la extensión clasificaba por descarte —todo lo que no fuera
+`NO_FLOW_TAB` era «transitorio y reintentable»— y el endpoint nunca miraba el
+`status` HTTP. Resultado medido: **25 pedidos automáticos contra la página de
+bloqueo de Google**, 5 por trabajo. Muy probablemente el bug de clasificación es
+lo que produjo el bloqueo que después diagnosticamos como «te marcaron».
+
+Y el freno que existía para eso **nunca enganchó**: `fallar()` escribía `marcada` y
+el auto-reporte de la extensión lo pisaba con `listo` **dos líneas después, en el
+mismo request**. El guard de `tomarTrabajos` era inalcanzable y `pausado` siempre
+`false`. La regla: **un estado de contención no se levanta con un ciclo automático
+— se sale de ahí con una acción de la persona.**
+
+## El mensaje traducido no puede reemplazar al error original
+
+Cuando el clasificador dice «Google bloqueó la sesión» y tira el HTML que lo
+motivó, el que investiga se queda con la INTERPRETACIÓN y sin la evidencia. Si la
+interpretación es la equivocada —lo fue— no hay forma de enterarse. Ahora el crudo
+va al lado del mensaje.
+
+## El cliente estaba corriendo una versión de dos horas antes
+
+**El error de método más caro del día.** Se le descomprimió el zip en una carpeta
+suelta del Escritorio, y Chrome quedó leyendo esa copia. Cada arreglo salía a
+producción, el dueño le daba a «recargar» —correctamente— y Chrome recargaba con
+total fidelidad el código viejo. Se diagnosticaron durante horas los síntomas de
+una versión que no existía: `world: MAIN`, el fetch desde la página, la API key y
+el método GET **nunca se ejecutaron ni una vez**.
+
+Y no había forma de notarlo porque nada mostraba la VERSIÓN: «sigue igual» era
+indistinguible de «no llegó el cambio».
+
+- **Un artefacto que se distribuye COPIADO se desincroniza el mismo día.** Vale
+  para un zip descomprimido, un `dist/` bajado, un binario en el Escritorio.
+- **Toda pieza que se instala aparte muestra su versión donde el usuario mira.**
+  El content script ya la escribía en el DOM y la tirábamos con `hasAttribute()`.
+- **Y para encontrar la carpeta se lee el PERFIL de Chrome, no se supone.** El
+  script (`scripts/sync-extension-local.mjs`) saca las rutas de `Secure
+  Preferences` filtrando por `location: 4` (UNPACKED). Filtrar por «parece una
+  ruta absoluta» no sirve: el visor de PDF y el web_store de fábrica también la
+  tienen.
+
+**Vive en:** `extension/`, `scripts/sync-extension-local.mjs`,
+`lib/flow-protocolo.ts`, `app/api/flow/puente/route.ts`, `lib/flow-cola.ts`,
+`app/video-generator/PuentePanel.tsx`.
+
+## Lo que sigue, ahora que el circuito funciona
+
+1. **Medir cuántos créditos cuesta un video de verdad**: mirar el saldo, generar
+   un clip, mirar el saldo. Es el número que decide la economía del plan y el
+   único que hoy no tenemos.
+2. **Verificar la marca de agua** en la salida por API. Sigue siendo el otro
+   bloqueo abierto, y si la trae, todo lo generado es inusable como anuncio.
+3. **`tomarTrabajos` no es atómico** (`lib/flow-cola.ts`): el `SELECT` y el
+   `UPDATE` son dos operaciones. Dos consumidores toman el mismo trabajo y se
+   generan clips duplicados con los créditos del cliente. Se arregla con un RPC
+   con `FOR UPDATE SKIP LOCKED`.
+4. **El paso 4 no se persiste**: `prueba` arranca en `null` y no se hidrata, así
+   que un workspace configurado ve los cuatro pasos otra vez cada vez que entra.
+5. **El cooldown de 10 s con 5 concurrentes** no está medido contra una cuenta
+   real. Se mide generando, no antes.
+

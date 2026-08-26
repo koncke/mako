@@ -305,3 +305,42 @@ export function clasificarFallaDelNavegador(
   return null;
 }
 
+
+/** Lo que se puede afirmar del saldo de una cuenta de Flow. */
+export type SaldoFlow = {
+  /** Créditos disponibles. `null` si la respuesta no los trae. */
+  creditos: number | null;
+  /** Cómo mostrarlo en una línea. Nunca inventa lo que no vino. */
+  etiqueta: string;
+  /** true SOLO si Google lo dice explícitamente. */
+  esGratuito: boolean;
+};
+
+/**
+ * Interpreta la respuesta de `GET /v1/credits`.
+ *
+ * Medido el 26/08/2026 contra una cuenta real:
+ *   {"sku":"WS_FREEMIUM","credits":1012,"serviceTier":"SERVICE_TIER_ENTRY",
+ *    "userPaygateTier":"PAYGATE_TIER_NOT_PAID","subscriptionCredits":1012}
+ *
+ * ⚠️ NO convierte créditos a «videos que te quedan», y es a propósito. El costo
+ * por clip que circula en el corpus (20 créditos por 8 s) sale de la
+ * documentación de un tercero y **no está medido** — y hoy se pagó un día entero
+ * por tratar un dato de esa misma fuente como si fuera un hecho. El número sale
+ * el día que se genere el primer video y se mire el saldo antes y después.
+ */
+export function leerSaldo(data: unknown): SaldoFlow {
+  const d = obj(data);
+  const n = typeof d.credits === 'number' ? d.credits : null;
+  const sku = str(d.sku);
+  const paygate = str(d.userPaygateTier);
+
+  // En POSITIVO: se afirma «gratuito» solo con la marca explícita de Google. Lo
+  // que no matchea no se declara «de pago» — se muestra tal cual vino.
+  const esGratuito = paygate === 'PAYGATE_TIER_NOT_PAID' || sku === 'WS_FREEMIUM';
+
+  const plan = esGratuito ? 'plan gratuito' : sku ? `plan ${sku}` : '';
+  const cuantos = n == null ? 'saldo no informado' : `${n.toLocaleString('es-MX')} créditos`;
+
+  return { creditos: n, esGratuito, etiqueta: plan ? `${cuantos} · ${plan}` : cuantos };
+}

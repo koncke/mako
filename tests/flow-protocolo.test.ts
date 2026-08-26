@@ -18,7 +18,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { clasificarFalla, clasificarFallaDelNavegador, extraerMediaId, LIMITES, MODELOS, RECAPTCHA_SITE_KEY } from '../lib/flow-protocolo';
+import { clasificarFalla, clasificarFallaDelNavegador, leerSaldo, extraerMediaId, LIMITES, MODELOS, RECAPTCHA_SITE_KEY } from '../lib/flow-protocolo';
 
 // ── Clasificar el fallo ──────────────────────────────────────────────────────
 
@@ -242,5 +242,41 @@ test('sin plantilla NO se inventa el pedido: se dice qué falta', () => {
   assert.equal(r?.reintentable, false);
   assert.match(r!.error, /credits/, 'tiene que decir QUÉ pedido falta');
   assert.match(r!.error, /genera algo/i, 'y qué hacer para que aparezca');
+});
+
+// ── El saldo, medido contra una cuenta real el 26/08/2026 ───────────────────
+const SALDO_REAL = {
+  sku: 'WS_FREEMIUM', credits: 1012, serviceTier: 'SERVICE_TIER_ENTRY',
+  userPaygateTier: 'PAYGATE_TIER_NOT_PAID', subscriptionCredits: 1012,
+};
+
+test('lee el saldo de una cuenta gratuita', () => {
+  const s = leerSaldo(SALDO_REAL);
+  assert.equal(s.creditos, 1012);
+  assert.equal(s.esGratuito, true);
+  assert.match(s.etiqueta, /1.012 créditos/);
+  assert.match(s.etiqueta, /gratuito/);
+});
+
+test('«gratuito» se afirma solo con la marca de Google, nunca por descarte', () => {
+  // Lo que no matchea no se declara «de pago»: se muestra el sku tal cual vino.
+  const pago = leerSaldo({ sku: 'WS_PRO', credits: 12500, userPaygateTier: 'PAYGATE_TIER_PAID' });
+  assert.equal(pago.esGratuito, false);
+  assert.match(pago.etiqueta, /WS_PRO/);
+  assert.doesNotMatch(pago.etiqueta, /gratuito/);
+});
+
+test('una respuesta sin créditos lo DICE, no inventa un cero', () => {
+  // Un cero afirmaría que la cuenta está sin saldo, que es otra cosa.
+  const s = leerSaldo({});
+  assert.equal(s.creditos, null);
+  assert.match(s.etiqueta, /no informado/);
+});
+
+test('NO convierte créditos a videos', () => {
+  // El costo por clip que circula en el corpus sale de la doc de un tercero y no
+  // está medido. Tratar ese dato como un hecho ya costó un día entero.
+  const s = leerSaldo(SALDO_REAL);
+  assert.doesNotMatch(s.etiqueta, /video|clip/i);
 });
 

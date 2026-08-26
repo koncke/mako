@@ -37,6 +37,7 @@ import {
   EXTENSION_EN_TIENDA, EXTENSION_URL_TIENDA, EXTENSION_URL_ZIP,
 } from '@/lib/extension-tienda';
 import { puedeInstalarExtension, type PuedeInstalar } from '@/lib/navegador';
+import { leerSaldo } from '@/lib/flow-protocolo';
 
 const FLOW_URL = 'https://labs.google/fx/tools/flow';
 
@@ -256,12 +257,19 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
 
   // Con todo listo, esto deja de ser un instructivo y pasa a ser una línea.
   if (listo) {
+    // El SALDO es el dato, y esta vista se lo estaba comiendo: decía «listo para
+    // generar» sobre una prueba que había vuelto con el número de créditos de la
+    // cuenta adentro. Un tilde verde no es una recompensa; el saldo real sí, y es
+    // además la única forma de saber cuánto se puede producir antes de empezar.
+    const saldo = leerSaldo(prueba?.resultado);
     return (
       <Section titulo="Tu navegador">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <Status tono="good">Listo para generar</Status>
           <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>
-            Los videos se generan en tu navegador, con tu cuenta de Google Flow.
+            {saldo.creditos != null
+              ? <>Tu cuenta de Google Flow tiene <strong>{saldo.etiqueta}</strong>.</>
+              : 'Los videos se generan en tu navegador, con tu cuenta de Google Flow.'}
           </span>
           <Button size="sm" variant="tertiary" onClick={() => void probar()} loading={busyPrueba}>
             Volver a probar
@@ -448,12 +456,20 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
           <div style={{ marginTop: 10 }}>
             {prueba.estado === 'listo' ? (
               <Alert tono="good">
-                <strong>Todo funciona.</strong> Tu navegador le preguntó a Google y respondió:
-                <div style={{
-                  fontFamily: MONO, fontSize: 'var(--fs-meta)', marginTop: 8, padding: 10,
-                  background: 'var(--surface-2)', borderRadius: 'var(--r-sm)',
-                  whiteSpace: 'pre-wrap', wordBreak: 'break-all',
-                }}>{JSON.stringify(prueba.resultado, null, 2)}</div>
+                <strong>Todo funciona.</strong> Tu navegador le preguntó a Google:{' '}
+                tu cuenta tiene <strong>{leerSaldo(prueba.resultado).etiqueta}</strong>.
+                {/* El JSON crudo queda a mano pero no de entrada: el dato es el
+                    saldo, no la estructura de la respuesta. */}
+                <details style={{ marginTop: 8 }}>
+                  <summary style={{ cursor: 'pointer', fontSize: 'var(--fs-meta)', color: 'var(--dim)' }}>
+                    Ver la respuesta completa
+                  </summary>
+                  <div style={{
+                    fontFamily: MONO, fontSize: 'var(--fs-meta)', marginTop: 8, padding: 10,
+                    background: 'var(--surface-2)', borderRadius: 'var(--r-sm)',
+                    whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+                  }}>{JSON.stringify(prueba.resultado, null, 2)}</div>
+                </details>
               </Alert>
             ) : prueba.estado === 'fallido' ? (
               <Alert tono="bad">
