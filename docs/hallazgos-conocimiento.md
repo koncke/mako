@@ -4557,3 +4557,114 @@ el único lugar donde se decide qué respuesta es un archivo) · `scripts/curso-
 videos, 152/153 transcripciones (la restante es una placa muda de 11,6 s sin pista de
 audio), 130/130 recursos con el peso exacto que declara la API y con su título real, y los
 dos que costaron renderizando en producción.
+
+## Una noche entera sin transcribir, y el aviso estaba en el stderr del hijo
+
+**2026-08-26, bajando «NUEVO Organic Ecom 3.0» (453 clases).** La descarga terminó bien y
+la transcripción no produjo NADA en 135 rondas. Todo lo de abajo salió de esa noche.
+
+### El filtro del resumen tapaba los crashes
+
+`curso-pipeline.mjs` resume la salida de cada etapa quedándose con las líneas que
+matchean `/convertido|transcripta|fallad|✖/`. Son palabras que **sólo existen cuando el
+script termina bien**. Un stack trace no tiene ninguna, así que el resumen salía vacío y la
+ronda se imprimía como `texto 0/453` — indistinguible de «todavía no hay audio listo». El
+código de salida se devolvía y no lo miraba nadie.
+
+Abajo, ScreenApp contestaba `401 Authentication error` en cada una de las 135 rondas.
+
+**La regla: un aviso que no llega adonde alguien mira no existe** — pero acá en su forma
+más cara, porque **el aviso EXISTÍA** y lo filtró el padre. Cuando resumas la salida de un
+proceso hijo, el filtro es para el camino feliz; el código de salida distinto de cero se
+imprime SIEMPRE, con las primeras líneas de causa.
+
+### El respaldo existía sólo de nombre
+
+La cabecera de `curso-transcribir-sa.mjs` dice, textual, que `curso-transcribir.ts` «queda
+como respaldo». Nunca se usaba: nadie miraba el fallo, así que no había desde dónde caer.
+Cableado el fallback, la transcripción pasó de **67 a 452 en dos rondas**.
+
+Y se **anuncia**: los dos caminos producen un `.md` que se ve igual, así que un respaldo
+silencioso deja el curso transcripto por el camino B y al próximo que compare timestamps
+con el curso de al lado no le cierra nada.
+
+### Una condición de fin que no se puede cumplir deja el bucle girando
+
+`if (ahora >= total)` no se cumple nunca si el ORIGEN no puede servir una clase. La 240
+apunta a un Vimeo que devuelve **500 tres veces, con su vecino en 200** — o sea que la
+plataforma tampoco la puede reproducir. Con la condición vieja el circuito iba a girar
+hasta el tope de 20 h **sin publicar**, con el curso entero bajado y transcripto al lado.
+
+Ahora el alcanzable es lo BAJADO, y el hueco **se nombra**: se listan las clases que no
+entran y por qué. Un total que se alcanza escondiendo lo que falta es peor que uno que no
+se alcanza.
+
+⚠️ **Y para descartar una clase hay que ir a la fuente, no al plan.** El id del plan era el
+MISMO que sirve la plataforma hoy (verificado clickeando la clase y leyendo el iframe), así
+que no era un id viejo del enumerador. Sin ese chequeo, «no baja» se lee como bug propio.
+
+### El gate cazó una transcripción inventada, y el barrido cerró la pregunta
+
+`curso-verificar` marcó **n=116 con 449 palabras por minuto de VOZ**; un hispanohablante
+rápido llega a ~230. Medido: el **73% de sus ventanas de 12 palabras estaban repetidas** —el
+texto entero dos veces— y además el modelo había copiado el propio prompt adentro de la
+transcripción («Transcribe literally everything…»). Rehecha: 2327 palabras contra 4792, 0%
+duplicado, 213 wpm.
+
+**Lo que convierte el hallazgo en una respuesta es el barrido.** Se pasaron las 452 buscando
+las DOS marcas —prompt copiado y duplicación por encima del 35%— y era la única. Sin eso,
+arreglar la que el gate señaló deja abierta la pregunta de cuántas más hay por debajo del
+umbral. Es la contracara de «un umbral protege del modo de falla contra el que se escribió»:
+el umbral encuentra UNA, el barrido cuenta TODAS.
+
+### Tres cosas del descargador de recursos
+
+- **El piso de 64 bytes de `valido()` rechaza archivos legítimamente diminutos.** El recurso
+  «4- enlace» son **32 bytes** con una URL adentro: existe, la API declara sus 32 bytes, y el
+  script lo informaba como «nada descargable en 30s». Ahora, si la plataforma DECLARA el
+  tamaño y el buffer coincide exacto, eso le gana al piso — **un dato le gana a una
+  heurística**, que es la misma regla de «si hay que desempatar, todavía estás adivinando».
+- **El salto de «ya está bajado» no cubría `txt`** (ni jpeg/gif/webp/mp4/mp3), así que cada
+  corrida rebajaba los .txt. Reanudable a medias es no reanudable.
+- **`curso-a-portal` sin `--categoria` cae al bucket genérico.** El pipeline lo llama sin
+  categoría, así que el curso publicado por el circuito siempre sale como «Cursos externos»
+  hasta que alguien la pasa a mano.
+
+### Y dos del enumerador
+
+- **El relleno del número salía de un 2 fijo.** Con 453 clases eso numera `01…99` y después
+  `100…453`, y todo listado por nombre pone la 100 antes que la 99. El pipeline no se entera
+  —`nDeArchivo` parsea igual—, así que el daño es **sólo visual, en Drive**, que es justo
+  donde una persona recorre el curso. Sale del total.
+- **111 de 453 títulos eran el nombre del archivo subido** («1_ Bienvenida_mp4», «3 -
+  Creación de logo - Organic Ecom - 1920x1080 459K_ts»). Varias plataformas usan el filename
+  como título cuando el creador no puso uno. Se limpia en el ENUMERADOR y no al publicar,
+  porque el nombre en disco se deriva del título: limpiarlo después obliga a renombrar
+  cientos de archivos que ya viajaron a Drive.
+
+  `tituloLimpio` es conservador a propósito: tres formas, las tres ancladas a un extremo, y
+  un `_` en medio de una frase NO se toca. Medido antes de aplicarlo: 112 títulos cambiados,
+  cero que pierdan más del 60% de su largo, y los 453 nombres siguen únicos.
+
+### Lo que producía nadie
+
+`modulos-api.json` y `recursos-api.json` los leen **tres** scripts —`curso-recursos-indice`,
+`curso-pdfs` y `curso-verificar`— y no los escribía ninguno: existían porque alguien los
+armó a mano para un curso. El siguiente arrancaba sin ellos y **sin que nada lo dijera**:
+los recursos salen con nombre genérico, el desempate por peso no puede correr, y el
+verificador se saltea entero su chequeo de recursos. Todo en verde.
+
+Ahora los produce `curso-api --volcar <dir>`. **Lo que tres consumidores necesitan lo
+produce un productor, no la memoria de quien pasó por acá antes.**
+
+**Vive en:** `scripts/curso-pipeline.mjs` · `scripts/curso-plan.mjs` (`tituloLimpio`, el
+relleno) · `scripts/curso-descarga.mjs` (`valido`) · `scripts/curso-pdfs.mjs` ·
+`scripts/curso-api.mjs` (`--volcar`).
+
+**Estado:** 452/453 clases publicadas, 19/19 recursos con su título real y su peso exacto,
+portada puesta, categoría «Orgánico». Verificado en la página desplegada.
+
+**Lo que quedó SIN hacer:** la credencial de ScreenApp está caída (401). Se transcribe por
+la cascada, que es gratis igual, pero pierde los `segments[]` con timestamps naturales — los
+párrafos salen de una heurística en vez de la fuente. Vive en
+`scripts/curso-transcribir-sa.mjs`.
