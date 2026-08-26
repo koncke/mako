@@ -149,7 +149,7 @@ function VistaGuion({ item, onEnviar, enviando }: {
 
       {/* GANCHO — el 80% del esfuerzo del video */}
       <BloqueGuion rotulo="Gancho · primeros 3 segundos">
-        <p style={{ margin: 0, fontSize: 'var(--fs-lg)', fontWeight: 650, letterSpacing: '-0.015em', lineHeight: 1.35, color: 'var(--ink)' }}>
+        <p style={{ margin: 0, fontSize: 'var(--fs-card)', fontWeight: 650, letterSpacing: '-0.015em', lineHeight: 1.35, color: 'var(--ink)' }}>
           «{p.hook.frase}»
         </p>
         <dl style={{ margin: '10px 0 0', display: 'grid', gap: 6 }}>

@@ -1947,3 +1947,130 @@ que editar antes de cada subida se sube sin editar la vez que hay apuro.
 **Vive en:** `lib/extension-tienda.ts`, `extension/manifest.json`,
 `scripts/zip-extension.mjs`, `app/privacidad/extension/page.tsx`,
 `app/video-generator/PuentePanel.tsx`.
+
+## El navegador que no puede: por qué el guard mira el MOTOR y no la marca
+
+Un usuario de Safari entraba al Video Generator, veía «Descargar la extensión» y un
+instructivo que le decía que abriera `chrome://extensions` — que en su navegador no
+existe. La única señal que recibía era muda: a los 1,5 s el botón «Conectar» del paso 2
+se apagaba solo, sin decir por qué.
+
+**La trampa está del lado positivo, no del negativo.** La regla del repo pide guards en
+positivo, y acá la forma obvia de cumplirla —una lista de marcas permitidas, `['Google
+Chrome', 'Microsoft Edge', 'Brave', 'Arc'…]`— **rompe exactamente lo que quiere
+proteger**: Brave no pone su nombre en `navigator.userAgentData.brands` (lo omite a
+propósito, es anti-fingerprinting) y Arc tampoco (es un Chromium re-skinneado). Los dos
+dicen «Google Chrome», y los dos instalan de la Chrome Web Store sin problema. Una lista
+de marcas le niega la función a dos navegadores que la tienen.
+
+La condición correcta mira el **motor**: todo build de Chromium emite `Chromium` en
+`brands`. Vive en `lib/navegador.ts`, sin `server-only` para que se pueda testear con
+objetos literales, y devuelve **tres** valores.
+
+**Por qué tres y no un booleano.** `navigator.userAgentData` es **secure-context-only**:
+en `http://` que no sea `localhost` es `undefined` incluso en un Chrome real. Abrir el
+dev server por IP de LAN (`http://192.168.x.x:3000`, probar desde el celular) es
+exactamente ese caso — y es donde más se prueba esta pantalla. Con un booleano, ahí le
+diríamos «tu navegador no sirve» a un Chrome.
+
+**Y `no-se-sabe` NO pinta el aviso, porque los dos errores no cuestan lo mismo.** No
+avisarle a un Safari le cuesta medio minuto y **es el comportamiento de hoy**, así que
+equivocarse hacia ahí no es una regresión. Avisarle de más a un Chrome le niega la
+función, contradice un hecho que la propia pantalla puede observar un segundo después, y
+no tiene recuperación: la persona cierra la pestaña.
+
+**El hecho le gana a la corazonada, y el orden de la condición lo dice:** se pinta con
+`instalada === false && puedeInstalar === 'no'`. Si el content script ya puso
+`data-mako-puente` en el `<html>`, la extensión ESTÁ instalada y el navegador ES Chromium
+— ningún sniff puede contradecir eso. Es «estado vivo, no recordado» aplicado literal: el
+atributo es el hecho, la inferencia es la corazonada.
+
+**Tres trampas más del user-agent, todas medidas:**
+
+- **`\b` no sirve, pero tampoco sirve lo obvio:** Chrome, Edge, Brave y Opera meten
+  `Safari/537.36` y `AppleWebKit` en su cadena. Buscar `Safari` a secas matchea Chrome —
+  es el bug de sniffing más viejo que existe.
+- **Los tokens de iOS son un «no», no una excepción.** `CriOS/` (Chrome), `EdgiOS/`,
+  `FxiOS/`: Apple obliga a WebKit en el iPhone, así que «Chrome» en iOS es Safari con otro
+  ícono y no instala nada. Excluirlos de la confirmación —que fue el primer intento— los
+  dejaba en «no se sabe» siendo un «no» seguro. **Lo cazó el test, no la revisión.**
+- **`brands` trae basura DELIBERADA.** Chromium inyecta una entrada cuyo nombre cambia
+  entre versiones (`Not;A=Brand`, `Not_A Brand`, `Not.A/Brand`…) y en orden aleatorio,
+  justamente para romper al que asuma una lista fija. Nunca indexar por posición, nunca
+  mirar el largo.
+
+**No existe ninguna API que conteste la pregunta.** `chrome.webstore.install()` y
+`chrome.app.isInstalled` murieron con el inline install en 2018. Todo es inferencia, y
+conviene que esté escrito para que nadie la busque de nuevo.
+
+**Verificado en los dos motores**, no razonado: WebKit de Playwright ve el aviso, Chromium
+no lo ve. Para este caso puntual el WebKit de Playwright SÍ sirve —aunque no sirva para
+bugs de layout de Safari—, porque lo que se prueba es la ausencia de `userAgentData`, que
+es igual en todas sus versiones.
+
+**Vive en:** `lib/navegador.ts`, `tests/navegador.test.ts`,
+`app/video-generator/PuentePanel.tsx`, `tests/puente-panel-copy.test.ts`.
+
+## Un `var(--token)` inexistente no falla: hereda
+
+`var(--fs-xs)` y `var(--fs-lg)` **no existen** — `app/globals.css` define `meta / sm / md
+/ card / sect / page / kpi` y nada más. Un token inventado no da error ni warning: el
+texto hereda el tamaño del padre y queda *casi* bien, que es la peor forma de estar mal.
+Es el mismo modo de falla que `<Icon name="warning">`, que dibuja un punto gris en
+silencio porque `name` es `string` pelado y hace `PATHS[name] ?? PATHS.dot`.
+
+Se habían colado dos, en cuatro lugares. Ahora hay un test que barre **el repo entero**
+con `git grep` y no una lista de archivos: un guard que cubre dos pantallas deja pasar la
+tercera, y el que la escribe no tiene por qué saber que el test existe.
+
+**Vive en:** `tests/puente-panel-copy.test.ts`, `app/globals.css:168`,
+`app/_components/icons.tsx:265`.
+
+## Lo que el reconocimiento encontró de paso y NO se arregló
+
+Nada de esto es del aviso de navegador; salió de mirar el terreno alrededor. Ordenado por
+lo que más cuesta:
+
+1. **`tomarTrabajos` no es atómico** (`lib/flow-cola.ts`). El `SELECT` de los pendientes y
+   el `UPDATE` que los marca `tomado` son dos operaciones separadas; el comentario dice
+   «en el mismo tick» y esa es la intención, pero hay ventana. Dos consumidores a la vez
+   —dos pestañas de MaKo, o la extensión de desarrollo conviviendo con la de la tienda—
+   toman el mismo trabajo. No cuesta un registro duplicado: cuesta **generar el mismo clip
+   dos veces y gastarle los créditos de Google al cliente**. El arreglo es un RPC con
+   `FOR UPDATE SKIP LOCKED`.
+2. **El paso 4 nunca se persiste.** `prueba` arranca en `null` y no se hidrata del server,
+   así que `listo` es SIEMPRE `false` en una carga fresca: un workspace enteramente
+   configurado ve los cuatro pasos otra vez, con el 4 en gris, cada vez que entra. El
+   early return de la línea 230 es código muerto al cargar.
+3. **`crearTokenPuente` ROTA el token** (`onConflict: 'workspace_id'`). Apretar «Volver a
+   conectar» desde otro navegador mata el puente que andaba. El `disabled={instalada ===
+   false}` del paso 2 está protegiendo eso, no siendo tonto — no tocarlo.
+4. **Un puente por workspace.** Una agencia no puede tener los puentes de cinco clientes
+   en el mismo Chrome: `flow_puentes` tiene una fila por `workspace_id` y `popup.js` guarda
+   un único token.
+5. **El content script solo matchea `hola-mako.com` y localhost.** En un preview de Vercel
+   o en `www.hola-mako.com`, `useExtensionInstalada()` devuelve `false` aunque la extensión
+   esté instalada — y se va a diagnosticar como un bug del aviso, no del manifest.
+6. **`app/integraciones/ProbarTracking.tsx:493` tiene el mismo problema en otra tab**: da
+   la instrucción literal de la UI de Chrome para desbloquear pop-ups («el ícono con la
+   ventanita tachada»). Peor de detectar, porque ese copy solo aparece DESPUÉS de que el
+   navegador bloqueó el pop-up: lo ve únicamente quien ya está en la peor situación.
+7. **La tab no está en `TAB_ONBOARDINGS`** aunque el panel dice aplicar la skill
+   `tab-onboarding`. Consecuencia: `resumenOnboardingTabs` alimenta a MaKo con qué tabs
+   están sin configurar, y el Video Generator es **invisible** para ese resumen. Ojo al
+   registrarla: las keys van namespaced (`video_*`) o colisionan vía
+   `KEY_PASOS_COMPARTIDOS`, y agregar un paso no opcional devuelve a «pendiente» a todo el
+   que ya la tenía cerrada.
+8. **`app/admin/dev/areas.ts:562` dice `estado: 'por-construir'`** y su `vive` nombra dos
+   archivos: quien busque dónde tocar por el mapa de dev no encuentra `PuentePanel.tsx`,
+   `puente-actions.ts`, `lib/flow-cola.ts` ni `lib/extension-tienda.ts`.
+9. **`tests/rutas-publicas.test.ts` no asegura que `/privacidad` siga en `PUBLICOS`.**
+   Sacarla por error deja la política de privacidad detrás del login, que es motivo de
+   rechazo de la Chrome Web Store.
+
+**Y el dato que cambia la urgencia de todo lo anterior:** hoy el único `encolar()` de la
+app es `creditos` (`app/video-generator/puente-actions.ts:60`). `TipoTrabajo` declara
+`generar_clip` y `background.js` ya lo sabe mapear, pero **ningún código encola un clip
+todavía**. El puente entero existe, por ahora, para contestar una consulta de saldo — así
+que nadie está perdiendo videos, y el copy no puede prometer generación que aún no existe.
+

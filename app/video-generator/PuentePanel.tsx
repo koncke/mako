@@ -36,6 +36,7 @@ import {
 import {
   EXTENSION_EN_TIENDA, EXTENSION_URL_TIENDA, EXTENSION_URL_ZIP,
 } from '@/lib/extension-tienda';
+import { puedeInstalarExtension, type PuedeInstalar } from '@/lib/navegador';
 
 const FLOW_URL = 'https://labs.google/fx/tools/flow';
 
@@ -68,6 +69,24 @@ function useExtensionInstalada(): boolean | null {
   }, []);
 
   return instalada;
+}
+
+/**
+ * ¿Este navegador puede instalar la extensión?
+ *
+ * Es una CORAZONADA, no un hecho: no existe ninguna API que lo conteste (ver
+ * lib/navegador.ts). Por eso vale menos que `useExtensionInstalada`, que observa
+ * un hecho — y por eso el aviso que cuelga de acá va subordinado a aquél.
+ *
+ * Va en `useEffect` y no en el render por la misma razón que el otro: el server
+ * no tiene `navigator`, así que decidir una rama durante la hidratación produce
+ * un mismatch. El primer pintado es el del server, y en el del server esto es
+ * `null` y no dibuja nada.
+ */
+function usePuedeInstalar(): PuedeInstalar | null {
+  const [puede, setPuede] = useState<PuedeInstalar | null>(null);
+  useEffect(() => { setPuede(puedeInstalarExtension(navigator)); }, []);
+  return puede;
 }
 
 /**
@@ -139,6 +158,7 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
   const [token, setToken] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
   const instalada = useExtensionInstalada();
+  const puedeInstalar = usePuedeInstalar();
   const [trabajoId, setTrabajoId] = useState<number | null>(null);
   const [prueba, setPrueba] = useState<EstadoPruebaOut['prueba']>(null);
   const [busyCodigo, setBusyCodigo] = useState(false);
@@ -271,6 +291,29 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
         produce. Se configura una vez.
       </div>
 
+      {/*
+        El HECHO le gana a la corazonada, y por eso el orden de esta condición no
+        es decorativo: si la extensión contestó que está instalada, este navegador
+        la pudo instalar — no importa lo que infiera el sniff. Solo queda la
+        ventana en que ya sabemos que NO está y además sabemos que no puede estar.
+
+        Y se pinta únicamente con la certeza `'no'`: ni con `'no-se-sabe'`, ni con
+        `null`. Decirle «tu navegador no sirve» a un Chrome de verdad —pasa en
+        `http://` por IP de LAN, donde `userAgentData` no existe— le niega la
+        función a quien la tiene y no tiene vuelta atrás dentro de la pantalla. No
+        avisarle a un Safari le cuesta medio minuto, y es lo que ya pasa hoy.
+      */}
+      {instalada === false && puedeInstalar === 'no' && (
+        <div style={{ marginBottom: 12 }}>
+          <Alert tono="warn">
+            <strong>Este navegador no puede instalar la extensión.</strong> Abre MaKo en
+            Chrome, Edge, Brave u Opera y completa ahí estos cuatro pasos. Después puedes
+            seguir usando MaKo en este navegador: la extensión trabaja desde donde la
+            instalaste, no desde donde escribes.
+          </Alert>
+        </div>
+      )}
+
       <Paso
         n={1}
         titulo="Instala la extensión de MaKo"
@@ -397,7 +440,7 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
               <Alert tono="good">
                 <strong>Todo funciona.</strong> Tu navegador le preguntó a Google y respondió:
                 <div style={{
-                  fontFamily: MONO, fontSize: 'var(--fs-xs)', marginTop: 8, padding: 10,
+                  fontFamily: MONO, fontSize: 'var(--fs-meta)', marginTop: 8, padding: 10,
                   background: 'var(--surface-2)', borderRadius: 'var(--r-sm)',
                   whiteSpace: 'pre-wrap', wordBreak: 'break-all',
                 }}>{JSON.stringify(prueba.resultado, null, 2)}</div>

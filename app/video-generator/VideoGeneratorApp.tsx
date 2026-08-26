@@ -114,7 +114,7 @@ function Plantilla({
           <div style={{
             position: 'absolute', inset: 'auto 0 0 0', padding: '30px 12px 11px',
             background: 'linear-gradient(to top, rgba(0,0,0,.75), transparent)',
-            color: '#fff', fontSize: 'var(--fs-lg)', fontWeight: 650, lineHeight: 1.25,
+            color: '#fff', fontSize: 'var(--fs-card)', fontWeight: 650, lineHeight: 1.25,
             textAlign: 'left',
           }}>
             {nombre}
@@ -388,7 +388,7 @@ export function VideoGeneratorApp({
                         }}>
                           {h.plan.titulo}
                         </span>
-                        <span style={{ flex: 'none', fontSize: 'var(--fs-xs)', color: 'var(--faint)' }}>
+                        <span style={{ flex: 'none', fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>
                           {h.plan.duracionTotalSeg}s
                         </span>
                       </button>
