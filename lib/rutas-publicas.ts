@@ -48,6 +48,10 @@ export const PUBLICOS = [
   // (hasheado en flow_puentes) y no mira la cookie para nada. Es la ruta EXACTA,
   // no el prefijo `/api/flow`: ahí van a convivir rutas de la app con sesión.
   '/api/flow/puente',
+  // La política de privacidad de la extensión. La Chrome Web Store la EXIGE como
+  // URL pública y su revisor la abre sin cuenta de MaKo: detrás del login se lee
+  // como que no existe, y eso es motivo de rechazo.
+  '/privacidad',
   '/api/og',
   '/vsl',
   '/vsl-assets',
