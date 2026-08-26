@@ -1,37 +1,72 @@
 // Puente entre el service worker y la PÁGINA de Flow.
 //
-// El grecaptcha vive en el `window` de la página, y este script corre en un
-// mundo aislado que no lo ve. El que sí lo ve es `injected.js`, declarado en el
-// manifest con `world: MAIN`; acá solo se habla con él por CustomEvent.
+// Este script corre en un mundo aislado: ve el DOM pero no el `window` de la
+// página. El que sí lo ve es `injected.js`, declarado en el manifest con
+// `world: MAIN`. Acá solo se traduce entre los dos canales:
+//
+//   service worker  ──chrome.runtime.sendMessage──▶  este script
+//   este script     ──CustomEvent──▶  injected.js (mundo de la página)
 //
 // ⚠️ Antes `injected.js` se metía creando un <script src="chrome-extension://…">
 // en el DOM. **La CSP de labs.google lo bloquea**, y falla de la peor manera: sin
 // error visible acá, sin nadie escuchando del otro lado, y con el síntoma
 // apareciendo 25 s más tarde como un CAPTCHA_TIMEOUT — que hace buscar el
 // problema en el captcha cuando estaba en la inyección. La pista que lo delata es
-// que el error sea el timeout del content script y NO `SIN_GRECAPTCHA`: si el
-// script del mundo principal estuviera vivo, contestaría algo a los 10 s.
+// que el error sea el timeout de este script y NO `SIN_GRECAPTCHA`: si el script
+// del mundo principal estuviera vivo, contestaría algo a los 10 s.
+
+/**
+ * Manda un pedido al mundo de la página y espera SU respuesta.
+ *
+ * El `id` no es decorativo: los eventos son globales, así que sin él dos pedidos
+ * en vuelo se resuelven con la respuesta del otro. Y el timeout tampoco — sin
+ * cortar, un `injected.js` que no contesta deja el trabajo tomado y la cola
+ * bloqueada hasta que el rescate de 10 minutos lo suelte.
+ */
+function pedirALaPagina(evPido, evOk, detalle, ms, errorTimeout, responder) {
+  const id = `m${Date.now()}${Math.random()}`;
+  let cerrado = false;
+
+  const alRecibir = (ev) => {
+    if (ev.detail?.id !== id || cerrado) return;
+    cerrado = true;
+    window.removeEventListener(evOk, alRecibir);
+    clearTimeout(reloj);
+    responder(ev.detail);
+  };
+
+  const reloj = setTimeout(() => {
+    if (cerrado) return;
+    cerrado = true;
+    window.removeEventListener(evOk, alRecibir);
+    responder({ error: errorTimeout });
+  }, ms);
+
+  window.addEventListener(evOk, alRecibir);
+  window.dispatchEvent(new CustomEvent(evPido, { detail: { id, ...detalle } }));
+}
 
 chrome.runtime.onMessage.addListener((msg, _sender, responder) => {
-  if (msg?.tipo !== 'GET_CAPTCHA') return false;
+  if (msg?.tipo === 'GET_CAPTCHA') {
+    pedirALaPagina(
+      'MAKO_CAPTCHA_PIDO', 'MAKO_CAPTCHA_OK',
+      { action: msg.action, siteKey: msg.siteKey }, 25000, 'CAPTCHA_TIMEOUT',
+      (d) => responder({ token: d.token, error: d.error }),
+    );
+    return true; // respuesta asíncrona
+  }
 
-  const id = `c${Date.now()}${Math.random()}`;
-  const alRecibir = (ev) => {
-    if (ev.detail?.id !== id) return;
-    window.removeEventListener('MAKO_CAPTCHA_OK', alRecibir);
-    responder({ token: ev.detail.token, error: ev.detail.error });
-  };
-  window.addEventListener('MAKO_CAPTCHA_OK', alRecibir);
-  window.dispatchEvent(new CustomEvent('MAKO_CAPTCHA_PIDO', {
-    detail: { id, action: msg.action, siteKey: msg.siteKey },
-  }));
+  if (msg?.tipo === 'HACER_FETCH') {
+    // Los pedidos de Flow son asíncronos (devuelven un id de operación, no el
+    // video), así que 60 s es holgado. Lo que no puede pasar es quedarse esperando
+    // para siempre.
+    pedirALaPagina(
+      'MAKO_FETCH_PIDO', 'MAKO_FETCH_OK',
+      { url: msg.url, cuerpo: msg.cuerpo, bearer: msg.bearer }, 60000, 'FETCH_TIMEOUT',
+      (d) => responder(d),
+    );
+    return true;
+  }
 
-  // Sin este corte, un grecaptcha que nunca contesta deja el trabajo tomado y
-  // la cola bloqueada hasta que el rescate de 10 minutos lo suelte.
-  setTimeout(() => {
-    window.removeEventListener('MAKO_CAPTCHA_OK', alRecibir);
-    responder({ error: 'CAPTCHA_TIMEOUT' });
-  }, 25000);
-
-  return true; // respuesta asíncrona
+  return false;
 });

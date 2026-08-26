@@ -69,10 +69,18 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
 // sesión, y si el comportamiento parece automatizado devuelve 403 — que es
 // exactamente lo que tiene que pasar.
 
-async function pedirCaptcha(action) {
-  const [tab] = await chrome.tabs.query({ url: 'https://labs.google/fx/*tools/flow*' });
+async function pestanaDeFlow() {
+  // `discarded: false` importa: Chrome duerme las pestañas que no se miran, y una
+  // pestaña dormida sigue apareciendo en `query` con su URL pero sin ningún script
+  // vivo adentro. Sin este filtro se elige una pestaña muerta habiendo otra sana.
+  const abiertas = await chrome.tabs.query({ url: 'https://labs.google/fx/*tools/flow*', discarded: false });
+  const tab = abiertas.find((t) => t.status === 'complete') || abiertas[0];
   if (!tab) throw new Error('NO_FLOW_TAB');
-  const res = await chrome.tabs.sendMessage(tab.id, { tipo: 'GET_CAPTCHA', action, siteKey: SITE_KEY });
+  return tab;
+}
+
+async function pedirCaptcha(tabId, action) {
+  const res = await chrome.tabs.sendMessage(tabId, { tipo: 'GET_CAPTCHA', action, siteKey: SITE_KEY });
   if (!res || !res.token) throw new Error(res?.error || 'CAPTCHA_FALLO');
   return res.token;
 }
@@ -92,7 +100,8 @@ async function ejecutar(trabajo) {
     return { id: trabajo.id, ok: false, motivo: 'transitorio', error: 'pedido sin path válido', reintentable: false };
   }
 
-  const captcha = await pedirCaptcha(ACCION[trabajo.tipo] || 'generate');
+  const tab = await pestanaDeFlow();
+  const captcha = await pedirCaptcha(tab.id, ACCION[trabajo.tipo] || 'generate');
   const cuerpo = { ...(body || {}) };
   cuerpo.clientContext = {
     projectId,
@@ -101,14 +110,21 @@ async function ejecutar(trabajo) {
     recaptchaContext: { token: captcha },
   };
 
-  const res = await fetch(`${FLOW_BASE}${path}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${bearer}` },
-    credentials: 'include',
-    body: JSON.stringify(cuerpo),
+  // ⚠️ EL PEDIDO NO SALE DE ACÁ: lo hace la PÁGINA de Flow. Un `fetch` desde el
+  // service worker viaja con `Origin: chrome-extension://<id>`, sin las cookies
+  // del sitio y sin los headers de la app real — y Google le contesta su página
+  // de bloqueo mientras la misma persona, en la misma pestaña y con la misma
+  // cuenta, genera videos a mano sin ningún problema. La sesión no está marcada:
+  // lo que rechaza es ESE pedido, que tiene la forma de un token robado.
+  //
+  // Desde la página **es** un pedido de la página. Ver extension/injected.js.
+  const r = await chrome.tabs.sendMessage(tab.id, {
+    tipo: 'HACER_FETCH', url: `${FLOW_BASE}${path}`, cuerpo, bearer,
   });
+  if (!r || r.error) throw new Error(r?.error || 'FETCH_FALLO');
 
-  const texto = await res.text();
+  const texto = String(r.texto || '');
+  const res = { ok: r.status >= 200 && r.status < 300, status: r.status };
   let data = null;
   try { data = texto ? JSON.parse(texto) : null; } catch { /* lo trata el server */ }
 

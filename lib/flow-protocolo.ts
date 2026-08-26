@@ -272,6 +272,16 @@ export function clasificarFallaDelNavegador(
     };
   }
 
+  // El pedido lo hace la PÁGINA de Flow (ver extension/injected.js). Si no
+  // contesta en 60 s, la pestaña quedó en un estado del que no sale sola.
+  if (/FETCH_TIMEOUT|FETCH_FALLO/i.test(m)) {
+    return {
+      motivo: 'puente_dormido',
+      error: 'La pestaña de Google Flow no respondió al pedido. Recárgala (F5) y vuelve a intentar.',
+      reintentable: false,
+    };
+  }
+
   if (m === 'NO_FLOW_TAB') {
     return {
       motivo: 'sin_sesion',

@@ -222,3 +222,15 @@ test('un HTML cualquiera NO es un bloqueo: solo lo es el que lo dice', () => {
   assert.equal(r.motivo, 'transitorio');
   assert.equal(r.reintentable, true);
 });
+
+test('el timeout del fetch desde la página también manda a recargar', () => {
+  // El pedido lo hace la página de Flow, no el service worker: si no contesta,
+  // la pestaña quedó en un estado del que no sale sola. Y NO se reintenta.
+  for (const msg of ['FETCH_TIMEOUT', 'FETCH_FALLO']) {
+    const r = clasificarFallaDelNavegador(msg);
+    assert.equal(r?.motivo, 'puente_dormido', msg);
+    assert.equal(r?.reintentable, false, msg);
+    assert.doesNotMatch(r!.error, /captcha|seguridad/i, 'no puede mandar a mirar el captcha: es otra cosa');
+  }
+});
+
