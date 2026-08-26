@@ -1,4 +1,5 @@
-// Repara la duración de la cabecera de las transcripciones que dicen «0m00s».
+// Repara la duración de la cabecera de las transcripciones que la declaran MAL:
+// las que dicen «0m00s» y las que declaran una FRACCIÓN de la clase.
 //
 // EL DAÑO. `curso-transcribir.ts` sumaba `r.duracion_s ?? 0`: cuando el proveedor no
 // devolvía la duración —Gemini casi nunca la devuelve—, la pieza aportaba CERO y la
@@ -115,8 +116,26 @@ for (const carpeta of readdirSync(CURSOS)) {
     mirados++;
     const ruta = join(dir, f);
     const s = readFileSync(ruta, 'utf8');
-    const m = /^(>\s*)(\?|0m00s)(\s*(?:·|\u00b7))/m.exec(s);
-    if (!m) continue;                        // la cabecera ya dice algo plausible
+    // ⚠️ LAS DOS COLAS DE LA MISMA FALLA. `0m00s` es el caso en que NINGUNA pieza reportó
+    // su duración; pero si reportó UNA sola de tres, la cabecera declara una fracción y se
+    // ve perfectamente creíble. Medido: «19m03s» sobre una clase de 4550 s — 19m03s es
+    // justo lo que duraba la última pieza. Un detector que sólo mira el cero deja pasar
+    // ésa, que es la más difícil de descubrir después porque no tiene nada de raro.
+    //
+    // La fracción se reconoce sin el audio: las palabras por minuto IMPLÍCITAS se
+    // disparan. El corte en 260 wpm es el mismo que usa la post-condición de abajo, y sale
+    // del habla en castellano (130-200); sobre las 2195 cabeceras marca 23 y ninguna de
+    // ellas resulta ser un texto legítimo.
+    const m = /^(>\s*)(\?|0m00s|\d+h\d+m|\d+m\d+s)(\s*(?:·|\u00b7))/m.exec(s);
+    if (!m) continue;
+    if (m[2] !== '?' && m[2] !== '0m00s') {
+      const decl = /^(?:(\d+)h)?(\d+)m(?:(\d+)s)?$/.exec(m[2]);
+      if (!decl) continue;
+      const segDecl = (decl[1] ? +decl[1] * 3600 : 0) + +decl[2] * 60 + (decl[3] ? +decl[3] : 0);
+      const palDecl = s.split('\n').filter((l) => !l.startsWith('>') && !l.startsWith('#')).join(' ').split(/\s+/).filter(Boolean).length;
+      if (segDecl <= 0 || palDecl < 50) continue;
+      if (palDecl / (segDecl / 60) <= 260) continue;   // ritmo plausible: la cabecera está bien
+    }
     rotos++; rotosAca++;
     if (!mejor) { sinMatch++; sinAca++; continue; }
     const seg = mejor.porTitulo.get(clave(f.replace(/\.md$/, '').replace(/^\d+\s*-\s*/, '')));
