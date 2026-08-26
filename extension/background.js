@@ -105,6 +105,12 @@ async function pedirCaptcha(tabId, action) {
 
 // ── Ejecutar un trabajo contra Flow ──────────────────────────────────────────
 
+/**
+ * Los trabajos que solo LEEN. No llevan cuerpo, no llevan captcha, y si la página
+ * ya preguntó lo mismo hace poco se contestan con su respuesta, sin tráfico.
+ */
+const SOLO_LECTURA = new Set(['creditos', 'estado_clips']);
+
 const ACCION = {
   subir_imagen: 'uploadImage',
   generar_clip: 'batchAsyncGenerateVideo',
@@ -119,14 +125,25 @@ async function ejecutar(trabajo) {
   }
 
   const tab = await pestanaDeFlow();
-  const captcha = await pedirCaptcha(tab.id, ACCION[trabajo.tipo] || 'generate');
-  const cuerpo = { ...(body || {}) };
-  cuerpo.clientContext = {
-    projectId,
-    tool: 'PINHOLE',
-    ...(cuerpo.clientContext || {}),
-    recaptchaContext: { token: captcha },
-  };
+
+  // Los pedidos de LECTURA no llevan cuerpo, así que no llevan `recaptchaContext`
+  // — y por lo tanto no hay que minar un token para ellos. Medido: `/v1/credits`
+  // es un GET pelado. Pedir un `grecaptcha.execute()` cada 15 s sin que nadie
+  // toque nada es, además, una señal de automatización por sí sola; hacerlo para
+  // algo que ni siquiera lo usa era gratis en riesgo y caro en score.
+  const soloLectura = SOLO_LECTURA.has(trabajo.tipo);
+
+  let cuerpo = null;
+  if (!soloLectura) {
+    const captcha = await pedirCaptcha(tab.id, ACCION[trabajo.tipo] || 'generate');
+    cuerpo = { ...(body || {}) };
+    cuerpo.clientContext = {
+      projectId,
+      tool: 'PINHOLE',
+      ...(cuerpo.clientContext || {}),
+      recaptchaContext: { token: captcha },
+    };
+  }
 
   // ⚠️ EL PEDIDO NO SALE DE ACÁ, Y NO LO ARMAMOS NOSOTROS.
   //
@@ -143,10 +160,13 @@ async function ejecutar(trabajo) {
   //
   // Con la plantilla se manda lo mismo que manda Flow. La `clase` es cómo se
   // encuentra: sale del último tramo del path (`/v1/credits` → `credits`).
+  // ⚠️ Ya NO se arma la URL acá. La arma injected.js a partir de la plantilla: de
+  // ahí salen el origen, el query (`?key=` incluido, y solo donde Flow lo manda) y
+  // el método. Armarla acá y pasarla hecha fue el agujero de la primera versión
+  // del espejo: se copiaba todo menos lo único que importaba.
   const clase = path.split('?')[0].split('/').filter(Boolean).pop() || '';
-  const url = `${FLOW_BASE}${path}${apiKey ? `${path.includes('?') ? '&' : '?'}key=${apiKey}` : ''}`;
   const r = await chrome.tabs.sendMessage(tab.id, {
-    tipo: 'HACER_FETCH', clase, url, cuerpo, bearer,
+    tipo: 'HACER_FETCH', clase, path: path.split('?')[0], cuerpo, soloLectura, bearer,
   });
   if (!r || r.error) throw new Error(r?.error || 'FETCH_FALLO');
 

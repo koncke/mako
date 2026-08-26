@@ -49,20 +49,28 @@ const FLOW_URL = 'https://labs.google/fx/tools/flow';
  * Web Store: Google asigna el suyo. Por el DOM funciona igual instalada a mano o
  * desde la tienda.
  */
-function useExtensionInstalada(): boolean | null {
+function useExtensionInstalada(): string | false | null {
   // null = todavía no se sabe. Importa: mostrar «no la tenés» durante un
   // instante a alguien que sí la tiene es peor que no mostrar nada.
-  const [instalada, setInstalada] = useState<boolean | null>(null);
+  //
+  // Devuelve la VERSIÓN y no un booleano, porque el content script ya la escribe
+  // en el atributo y tirarla costó caro: al arreglar un bug de la extensión no
+  // había forma de saber si el cliente estaba corriendo el arreglo o la versión
+  // vieja, así que «sigue igual» era indistinguible de «no lo recargaste». Se
+  // diagnosticó a ciegas tres veces.
+  const [instalada, setInstalada] = useState<string | false | null>(null);
 
   useEffect(() => {
-    const mirar = () => document.documentElement.hasAttribute('data-mako-puente');
-    if (mirar()) { setInstalada(true); return; }
+    const mirar = () => document.documentElement.getAttribute('data-mako-puente');
+    const v = mirar();
+    if (v) { setInstalada(v); return; }
     // El content script corre en `document_start`, pero una recarga con la
     // extensión recién instalada puede llegar tarde: se mira un rato antes de
     // afirmar que no está.
     let n = 0;
     const t = window.setInterval(() => {
-      if (mirar()) { setInstalada(true); window.clearInterval(t); return; }
+      const w = mirar();
+      if (w) { setInstalada(w); window.clearInterval(t); return; }
       if (++n >= 6) { setInstalada(false); window.clearInterval(t); }
     }, 250);
     return () => window.clearInterval(t);
@@ -317,8 +325,8 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
       <Paso
         n={1}
         titulo="Instala la extensión de MaKo"
-        hecho={instalada === true}
-        activo={instalada !== true}
+        hecho={!!instalada}
+        activo={!instalada}
         contexto={
           EXTENSION_EN_TIENDA ? (
             <>
@@ -338,8 +346,10 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
           )
         }
       >
-        {instalada === true ? (
-          <Status tono="good">Ya está instalada en este navegador</Status>
+        {instalada ? (
+          <Status tono="good">
+            Ya está instalada en este navegador{typeof instalada === 'string' ? ` (v${instalada})` : ''}
+          </Status>
         ) : EXTENSION_EN_TIENDA ? (
           <Button
             variant="secondary"
@@ -363,7 +373,7 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
         n={2}
         titulo="Conecta la extensión con tu cuenta"
         hecho={llamo}
-        activo={instalada === true && !llamo}
+        activo={!!instalada && !llamo}
         contexto="Un clic y listo: MaKo le pasa la llave a la extensión sin que tengas que copiar nada. Si algo falla, aparece el código para pegarlo a mano."
       >
         {token ? (

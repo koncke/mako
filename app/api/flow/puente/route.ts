@@ -18,7 +18,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import {
-  workspaceDeToken, marcarVisto, tomarTrabajos, resolver, fallar,
+  workspaceDeToken, marcarVisto, tomarTrabajos, resolver, fallar, estadoGuardado,
   type EstadoPuente,
 } from '@/lib/flow-cola';
 import { LIMITES, clasificarFalla, clasificarFallaDelNavegador, type MotivoFalla } from '@/lib/flow-protocolo';
@@ -115,7 +115,12 @@ export async function POST(req: NextRequest) {
   // `tomarTrabajos` devuelve vacío si la sesión está MARCADA: ahí hay que parar,
   // no seguir pidiendo. El puente lo ve por `pausado` y espacia el polling.
   const cuantos = Math.max(1, Math.min(Number(body.cuantos) || 1, LIMITES.concurrencia));
-  const trabajos = estado === 'listo' ? await tomarTrabajos(ws, cuantos) : [];
+  // ⚠️ `tomarTrabajos` es el que sabe si el puente está MARCADO: lo lee de la base
+  // y devuelve vacío. Preguntarle acá al `estado` que reportó la extensión sería
+  // preguntarle al que no puede saberlo — la extensión solo dice `listo` o
+  // `sin_sesion`, nunca `marcada`.
+  const trabajos = estado === 'sin_sesion' ? [] : await tomarTrabajos(ws, cuantos);
+  const guardado = await estadoGuardado(ws);
 
   return NextResponse.json({
     ok: true,
@@ -125,6 +130,9 @@ export async function POST(req: NextRequest) {
     // una persona, no hay nada que disimular. Que el número viaje en cada
     // respuesta permite bajarlo sin que el cliente actualice la extensión.
     cooldownMs: LIMITES.cooldownMs,
-    pausado: estado === 'marcada',
+    // Sale de lo GUARDADO y no del auto-reporte: `estado` lo escribe la extensión,
+    // que nunca dice `marcada`, así que esto era siempre false y el puente jamás
+    // se enteraba de que había que parar.
+    pausado: guardado === 'marcada',
   });
 }

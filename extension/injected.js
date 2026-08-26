@@ -68,7 +68,8 @@
       // stream tiene costo y puede alterar el pedido de la app.
       const cuerpo = init && typeof init.body === 'string' ? init.body : null;
 
-      plantillas.set(clase, { url, metodo, headers, cuerpo, cuando: Date.now() });
+      const credenciales = (init && init.credentials) || (esRequest && entrada.credentials) || undefined;
+      plantillas.set(clase, { url, metodo, headers, cuerpo, credenciales, cuando: Date.now() });
 
       // La RESPUESTA se guarda clonada, y solo de lo que es una lectura barata:
       // con esto una consulta de créditos no necesita un pedido nuestro.
@@ -121,6 +122,7 @@
       // credencial a ningún lado.
       visto[clase] = {
         metodo: p.metodo,
+        hayRespuesta: respuestas.has(clase),
         url: p.url.replace(/key=[^&]+/, 'key=<oculta>'),
         headers: Object.keys(p.headers).sort(),
         tieneCuerpo: p.cuerpo != null,
@@ -133,39 +135,67 @@
 
   // ── Nuestro pedido, calcado de la plantilla ───────────────────────────────
   window.addEventListener('MAKO_FETCH_PIDO', async (ev) => {
-    const { id, clase, cuerpo, url: urlPedida, bearer } = ev.detail || {};
+    const { id, clase, cuerpo, path, soloLectura, bearer } = ev.detail || {};
     try {
-      const plantilla = plantillas.get(clase);
-
-      // Si Flow acaba de pedir esto mismo y no cambiamos nada, se devuelve SU
-      // respuesta. Cero tráfico extra, cero riesgo: el pedido que la produjo lo
-      // hizo la app, no nosotros.
+      // ── Lectura: si Flow ya lo preguntó, se usa SU respuesta ───────────────
+      // Cero tráfico nuestro. El pedido que la produjo lo hizo la app.
+      //
+      // ⚠️ La condición es `soloLectura` y NO `!cuerpo`: `cuerpo` SIEMPRE llega
+      // con algo (el `clientContext` que le agrega el service worker), así que
+      // preguntar por él dejaba esta rama muerta sin que nada avisara.
       const cache = respuestas.get(clase);
-      if (!cuerpo && cache && Date.now() - cache.cuando < 120000) {
-        return responder('MAKO_FETCH_OK', id, { status: cache.status, texto: cache.texto, deCache: true });
+      if (soloLectura && cache && Date.now() - cache.cuando < 120000) {
+        return responder('MAKO_FETCH_OK', id, {
+          status: cache.status, texto: cache.texto, deCache: true, metodo: 'CACHE',
+        });
       }
 
+      const plantilla = plantillas.get(clase);
       if (!plantilla) {
         // Sin plantilla no se inventa: se dice que falta. Reconstruir el pedido a
-        // mano es exactamente lo que no funcionó.
+        // mano es exactamente lo que no funcionó cinco veces.
         return responder('MAKO_FETCH_OK', id, { error: `SIN_PLANTILLA:${clase}` });
       }
 
+      // ── La URL sale de la PLANTILLA, no de nosotros ────────────────────────
+      // Este era el agujero: se recibía una url ya armada y le ganaba a la real,
+      // con lo cual «copiar el pedido» copiaba todo menos lo único que importaba.
+      //
+      // De la plantilla se toma el ORIGEN y el QUERY (ahí viven `?key=` y lo que
+      // Flow mande el día que agregue algo). El path se reemplaza SOLO si este
+      // pedido apunta a otro recurso — un `credits` se pide igualito, un
+      // `video:batchAsyncGenerateVideo` cambia de path pero conserva el query.
+      //
+      // Y el `?key=` deja de pegarse a todo: medido, Flow lo manda ÚNICAMENTE en
+      // `credits`; `checkAppAvailability`, `fetchUserRecommendations` y
+      // `batchLogFrontendEvents` viajan sin él. Agregarlo donde la app no lo pone
+      // es volver a inventar.
+      const url = new URL(plantilla.url);
+      if (path && !plantilla.url.includes(path)) url.pathname = path;
+
       const headers = { ...plantilla.headers };
       if (bearer) headers.authorization = `Bearer ${bearer}`;
+
+      // El VERBO también sale de la plantilla. Acá estaba la causa medida del 403:
+      // `/v1/credits` es un GET y le mandábamos POST.
       const metodo = plantilla.metodo;
       const llevaCuerpo = metodo !== 'GET' && metodo !== 'HEAD';
+      if (!llevaCuerpo) delete headers['content-type'];
 
-      const res = await fetchOriginal.call(window, urlPedida || plantilla.url, {
+      const res = await fetchOriginal.call(window, url.toString(), {
         method: metodo,
         headers,
-        credentials: 'include',
+        // Se copia de la plantilla en vez de clavarlo: `credentials` decide si el
+        // navegador acepta la respuesta, así que es justo el campo que no se puede
+        // suponer.
+        credentials: plantilla.credenciales || 'include',
         ...(llevaCuerpo ? { body: JSON.stringify(cuerpo || {}) } : {}),
       });
       // El texto crudo viaja tal cual: si Google contesta HTML en vez de JSON, eso
       // ES el dato — es lo que delata un bloqueo, y parsearlo acá lo perdería.
       responder('MAKO_FETCH_OK', id, {
-        status: res.status, texto: (await res.text()).slice(0, 20000), metodo,
+        status: res.status, texto: (await res.text()).slice(0, 20000),
+        metodo, urlUsada: url.pathname + url.search.replace(/key=[^&]+/, 'key=<oculta>'),
       });
     } catch (e) {
       responder('MAKO_FETCH_OK', id, { error: String(e?.message || e) });

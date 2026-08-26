@@ -133,9 +133,36 @@ export async function marcarVisto(ws: number, projectId: string, estado: EstadoP
   const patch: Record<string, unknown> = {
     ultimo_visto: new Date().toISOString(),
     estado,
-    estado_detalle: detalle.slice(0, 300),
+    // La columna es `text` sin límite (mig 0145). El recorte a 300 era nuestro y
+    // mutilaba justo lo que sirve para diagnosticar sin molestar a nadie.
+    estado_detalle: detalle.slice(0, 4000),
   };
   if (projectId) patch.project_id = projectId;
+
+  // ⚠️ EL AUTO-REPORTE NO PUEDE LEVANTAR UNA MARCA.
+  //
+  // La extensión reporta su estado en cada ciclo, y solo sabe decir `listo` o
+  // `sin_sesion`: no tiene forma de saber que Google la marcó, porque eso lo
+  // descubre el SERVER al clasificar una falla. Sin este guard, la secuencia de un
+  // mismo request era: `fallar()` escribe `marcada` → el auto-reporte de dos
+  // líneas más abajo lo pisa con `listo` → `tomarTrabajos` lee `listo` y reparte
+  // trabajo igual. El freno existía, tenía su guard escrito y era **inalcanzable**.
+  //
+  // Sale de `marcada` una acción explícita de la persona (reconectar el puente),
+  // no un ciclo automático. Un estado de contención que se levanta solo no
+  // contiene nada.
+  if (estado !== 'marcada') {
+    const { data } = await db.from('flow_puentes').select('estado').eq('workspace_id', ws).maybeSingle();
+    if (data?.estado === 'marcada') {
+      // Se registra que sigue viva —eso es cierto y sirve— pero no se le devuelve
+      // el estado bueno.
+      await db.from('flow_puentes')
+        .update({ ultimo_visto: patch.ultimo_visto, ...(projectId ? { project_id: projectId } : {}) })
+        .eq('workspace_id', ws);
+      return;
+    }
+  }
+
   await db.from('flow_puentes').update(patch).eq('workspace_id', ws);
 }
 
@@ -253,3 +280,16 @@ export async function marcarMedioGuardado(ws: number, id: number): Promise<void>
   const db = await runWithWorkspace(ws, () => getTenantDb());
   await db.from('flow_trabajos').update({ medio_guardado: true }).eq('workspace_id', ws).eq('id', id);
 }
+
+/**
+ * El estado REAL del puente, el que decide si hay que frenar.
+ *
+ * Existe porque el que responde el endpoint no puede usar el estado que reportó la
+ * extensión: ese lo escribe quien no puede saber que Google lo marcó.
+ */
+export async function estadoGuardado(ws: number): Promise<EstadoPuente | null> {
+  const db = await runWithWorkspace(ws, () => getTenantDb());
+  const { data } = await db.from('flow_puentes').select('estado').eq('workspace_id', ws).maybeSingle();
+  return (data?.estado as EstadoPuente) ?? null;
+}
+
