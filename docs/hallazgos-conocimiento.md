@@ -4789,3 +4789,56 @@ aparecer (`ugc-pcol` con una clase larga abierta, `ugc-nav` con 47 módulos).
 módulo caen todas al degradé con su número. Es el fallback previsto y se ve deliberado,
 pero si se quiere la pantalla de AvatarHype completa, lo que falta es **bajar las tapas de
 módulo**, no tocar el componente.
+
+## `?? 0` sobre una duración: una pieza que nadie midió sumaba cero
+
+**2026-08-26, bajando «Seminarios Alejandro Cardona».** La cabecera de cada transcripción
+decía **«19m03s»** sobre clases que duran **4550 s (75m50s)**. No era un redondeo: 19m03s
+es exactamente lo que dura la ÚLTIMA pieza de audio de esa clase — la única cuyo proveedor
+devolvió `duracion_s`.
+
+```ts
+segundos += r.duracion_s ?? 0;   // ⛔ «no lo pude leer» convertido en «duró cero»
+```
+
+Es «no poder leer un dato no es un valor del dato», en la forma más barata de cometerla: un
+`?? 0` dentro de una suma. Y la suma **no puede fallar** — devuelve un número corto,
+redondo y perfectamente creíble, con la cabecera afirmándolo en primera persona.
+
+**Lo que lo delata sin tocar el audio:** las palabras por minuto IMPLÍCITAS de la cabecera.
+El español hablado va entre 130 y 200 wpm; si la cabecera declara una fracción de la clase,
+el cociente se dispara. Es el espejo exacto de la guarda de truncamiento que ya existe —
+ésa mira la cola de abajo, ésta la de arriba, y son la misma métrica.
+
+Barrido sobre las **2193** transcripciones locales con el corte en 260 wpm: **23** mienten
+(1 %), repartidas en 7 cursos, con la peor en `amorir/05 - Emprender, tu don…` declarando
+**1,5 min para 11.704 palabras** — 7633 wpm.
+
+### Y el diagnóstico obvio era el equivocado: los cuatro videos NO eran el mismo
+
+Antes de llegar a la cabecera, el dato que saltó fue que los cuatro seminarios bajados
+declaraban **exactamente 4550,000000 s y 136500 frames**, y hasta el último paquete de
+video caía en el mismo `pts_time`. Cuatro archivos distintos con la misma duración al
+frame se lee como «yt-dlp bajó el mismo video cuatro veces».
+
+No era eso. Los md5 diferían, y **el contenido lo contestó en un renglón**: parte 1 abre
+con «Muy buenos días a todos», la 2 va por la mitad hablando de comprar plata, la 3 de
+propósito y la 4 de reglas. Son cuatro partes reales de la misma sesión, publicadas todas
+con la misma longitud de contenedor.
+
+Es otra vez «preguntale al CONTENIDO qué es antes de razonar sobre su metadata»: un `head`
+de cada transcripción cerró en dos segundos una hipótesis que iba a costar rebajar y volver
+a bajar 4 GB.
+
+**Vive en:** `scripts/curso-transcribir.ts` (la suma y la cabecera).
+
+**Arreglado:** cuando el proveedor no dice la duración se mide el audio local con ffmpeg
+—`duracionSeg()` ya estaba en el mismo archivo—, y si tampoco se puede medir la cabecera
+dice **«?»** en vez de un número. Un total que no se pudo calcular no se afirma.
+
+⚠️ **Lo que quedó SIN hacer:** las 23 cabeceras viejas siguen con el número corto en
+`C:\cursos\<curso>\texto\*.md` y en su copia de Drive. **No llegan al portal** —el JSON de
+`public/cono-tx/` es un array de párrafos sin cabecera, y el `cardDesc` de la ficha trae la
+duración REAL medida aparte (`58:19` en el caso peor)—, así que es cosmético y acotado al
+archivo de trabajo. Si se quieren reparar, el número correcto ya está publicado en el
+`cardDesc` de cada clase: el cruce es por `videoId`.

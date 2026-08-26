@@ -151,6 +151,9 @@ for (const [clave, piezas] of [...grupos].sort()) {
 
   const partes: string[] = [];
   let segundos = 0;
+  // Si de alguna pieza no se pudo saber cuánto duraba, el total NO se afirma. Ver el
+  // porqué abajo, en el `?? 0` que estaba acá y mentía.
+  let duracionIncierta = false;
   let idioma: string | null = null;
   let fallo: string | null = null;
   // Qué proveedor escuchó de verdad. Se escribe en la cabecera del .md: un fallback
@@ -178,10 +181,20 @@ for (const [clave, piezas] of [...grupos].sort()) {
       break;
     }
     partes.push(r.transcript.trim());
-    segundos += r.duracion_s ?? 0;
+    // ⚠️ Acá decía `segundos += r.duracion_s ?? 0`, que es «no pude leer el dato»
+    // convertido en un VALOR del dato. Un proveedor que no devuelve `duracion_s` hacía
+    // que su pieza sumara cero, y la cabecera afirmaba el total con toda confianza.
+    // Medido el 26/08/2026 en «Seminarios Alejandro Cardona»: clases de 4550 s
+    // publicadas como «19m03s» — exactamente lo que duraba la ÚLTIMA pieza, la única
+    // cuyo proveedor contestó. No hay error, no hay hueco: un número corto y creíble.
+    // El audio está acá al lado, así que se mide; y si tampoco se puede medir, no se
+    // afirma nada y la cabecera dice «?».
+    const dur = r.duracion_s ?? duracionSeg(ruta);
+    if (dur == null) duracionIncierta = true;
+    else segundos += dur;
     idioma ??= r.idioma;
     if (r.model) modelos.add(r.model);
-    console.log(`✓ ${hhmm(r.duracion_s)}${r.model && r.model !== 'whisper-1' ? `  (${r.model})` : ''}`);
+    console.log(`✓ ${hhmm(dur)}${r.model && r.model !== 'whisper-1' ? `  (${r.model})` : ''}`);
   }
 
   if (fallo) {
@@ -194,7 +207,7 @@ for (const [clave, piezas] of [...grupos].sort()) {
   const cabecera = [
     `# ${clave}`,
     '',
-    `> ${hhmm(segundos)}${idioma ? ` · ${idioma}` : ''}${piezas.length > 1 ? ` · ${piezas.length} partes` : ''} · transcripción automática (${modelos.size ? [...modelos].join(' + ') : 'desconocido'}), sin corregir.`,
+    `> ${hhmm(duracionIncierta ? null : segundos)}${idioma ? ` · ${idioma}` : ''}${piezas.length > 1 ? ` · ${piezas.length} partes` : ''} · transcripción automática (${modelos.size ? [...modelos].join(' + ') : 'desconocido'}), sin corregir.`,
     '>',
     '> Tus apuntes van acá arriba. Lo de abajo es materia prima para leer, no para',
     '> mandar al RAG tal cual.',
