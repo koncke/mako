@@ -58,6 +58,7 @@ const limpio = (s) => s.normalize('NFC').replace(/[<>:"/\\|?*\u0000-\u001f]/g, '
 // y las cuatro reglas que encierran (la extensión es un HECHO, el cuerpo vacío de CDP,
 // la página de error vestida de 200, excluir por familia) se pagaron con un bug cada una.
 import { extDe, nombreDisp, valido, puedeSerArchivo, cuerpoCdp, cuerpoDirecto } from './curso-descarga.mjs';
+import { enlacesDeRecursos } from './curso-comun.mjs';
 
 class Cdp {
   constructor(ws) {
@@ -162,7 +163,10 @@ const main = async () => {
   await raiz.enviar('Page.enable', {}, sessionId);
   mkdirSync(destino, { recursive: true });
 
-  const enlaces = (plan.pdfs ?? []);
+  // La lista sale de `enlacesDeRecursos`, NO de `plan.pdfs`: la página puede linkear menos
+  // de los que la plataforma declara, y el que numera por posición tiene que ser el mismo
+  // que usa `curso-recursos-indice`. Ver el porqué en curso-comun.mjs.
+  const enlaces = enlacesDeRecursos(plan, dirname(PLAN));
   let ok = 0;
   const fallos = [];
   const bajados = [];

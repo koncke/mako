@@ -25,6 +25,7 @@
 
 import { readFileSync, writeFileSync, existsSync, statSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+import { enlacesDeRecursos } from './curso-comun.mjs';
 
 const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -59,7 +60,7 @@ const sinArchivo = [];
 const noCuadra = [];
 const sinMeta = [];
 
-(plan.pdfs ?? []).forEach((url, i) => {
+enlacesDeRecursos(plan, base).forEach((url, i) => {
   let id = null;
   try { id = new URL(url).searchParams.get('id'); } catch { /* una URL rota no es un recurso */ }
   const meta = id ? porId.get(id) : null;

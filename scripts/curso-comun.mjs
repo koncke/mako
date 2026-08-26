@@ -5,7 +5,8 @@
 // de AGENTS.md «una cosa, un lugar»: la copia no divergió, pero arreglarla exigía
 // acordarse de los tres, y el que se olvidara habría dejado el bug vivo en su camino.
 
-import { basename } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { basename, join } from 'node:path';
 
 const EXT_VIDEO = /^(mp4|mkv|webm|m4v)$/i;
 
@@ -75,4 +76,43 @@ export const nDeArchivo = (f) => {
 export const esFinderJunk = (titulo) => {
   const t = String(titulo ?? '').trim();
   return /^\._/.test(t) || /^\.DS_Store$/i.test(t);
+};
+
+/**
+ * La lista de recursos de un curso: la de la PÁGINA, completada con la de la API.
+ *
+ * `plan.pdfs` sale de raspar los `a[href*="Reader?type=resource"]` del curso, así que
+ * depende de que cada módulo esté desplegado y de que la plataforma renderice el link.
+ * La API, en cambio, DECLARA los que existen.
+ *
+ * ⚠️ No es teórico: en «AMORir» la página linkea 8 y la API declara 9 — falta
+ * «2.Una ingeniería emocional del cuerpo». Iterando solo la página ese recurso no se
+ * baja NUNCA, y como el descargador termina sin errores, el curso se publica con 8 de 9
+ * y nada lo dice. Es «antes de restaurar lo que había, preguntá cuánto DEBERÍA haber»
+ * aplicado a la ingesta: la fuente es el sistema que produce el dato, no nuestro scrape.
+ *
+ * ⚠️ Y VIVE ACÁ porque la usan DOS: el que baja (`curso-pdfs`) y el que arma el índice
+ * (`curso-recursos-indice`). Los dos numeran por POSICIÓN en esta lista, así que si cada
+ * uno la derivara por su cuenta, `recurso-09` sería un archivo distinto en cada script y
+ * el cruce quedaría corrido sin que nada falle.
+ *
+ * El orden es estable a propósito: primero los de la página, en su orden; después los que
+ * solo conoce la API, en el suyo. Así el número de un recurso no cambia entre corridas.
+ */
+export const enlacesDeRecursos = (plan, base) => {
+  const urls = [...(plan?.pdfs ?? [])];
+  const idDe = (u) => { try { return new URL(u).searchParams.get('id'); } catch { return null; } };
+  const ya = new Set(urls.map(idDe).filter(Boolean));
+  const f = join(String(base ?? ''), 'recursos-api.json');
+  if (!existsSync(f)) return urls;
+  let api = [];
+  // Un volcado ilegible no puede TIRAR la lista de la página: se sigue con lo que hay.
+  try { api = JSON.parse(readFileSync(f, 'utf8').replace(/^\uFEFF/, '')); } catch { return urls; }
+  const origen = new URL(plan?.pagina ?? 'https://cursoselite.com.mx/').origin;
+  for (const r of api) {
+    if (!r?.id || ya.has(r.id)) continue;
+    urls.push(origen + `/Reader?type=resource&id=${r.id}`);
+    ya.add(r.id);
+  }
+  return urls;
 };
