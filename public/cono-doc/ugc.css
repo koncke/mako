@@ -2539,3 +2539,27 @@ html:has(.ahdoc), body:has(.ahdoc) { overflow: hidden !important; height: 100% !
  * la recorta: se ve un pedazo gigante de la esquina superior izquierda en vez de la
  * portada. No es que falte la imagen — sobra tamano. */
 .ahdoc .ugc .ugc-vframe img { position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; object-fit: cover !important; display: block !important; }
+
+/* ── LA LAMINA DIBUJADA PASA POR EL MISMO REVELADO QUE UNA TAPA DE VERDAD ──────────
+ * A toda tapa real el origen le pone `filter: saturate(.8) brightness(.92)` (la regla
+ * `.ugc-modcard-cover img`) y encima el `.shade`, un degrade de 12% a 55% de negro. Ese
+ * es el revelado de la casa y es lo que hace que el riel se lea de un solo tono.
+ *
+ * La lamina en SVG hereda el `.shade` sola —esta adentro del mismo contenedor y antes de
+ * el— pero NO el filtro: aquella regla es un selector de ELEMENTO y un <svg> no matchea
+ * `img`. Medido con PIL, el papel dentro de la tarjeta a tres alturas:
+ *     referencia (m1..m5)      (190,188,180) · (159,158,151) · (124,123,115)
+ *     lamina sin esta regla    (244,243,231) · (244,243,231) · (244,243,231)
+ *     lamina con esta regla    (189,188,181) · (159,158,151) · (123,122,115)
+ *
+ * Sin la linea, en el unico curso donde conviven —AvatarHype: 5 tapas reales y 1
+ * dibujada— se ve como una tarjeta que brilla al lado de cinco apagadas.
+ *
+ * Se eligio revelar la LAMINA y no aclarar el `.shade` de la tapa real: aclarar el shade
+ * le cambia la cara a las 5 tapas que hoy estan BIEN y le saca contraste al chip
+ * `.ugc-modcard-n`. Este camino toca 368 tarjetas que hoy muestran un degrade negro con
+ * un numero, y CERO de las que hoy estan bien.
+ *
+ * Va sobre la CLASE y no sobre `svg` para que no alcance a ningun otro svg que entre a
+ * la tarjeta despues. */
+.ahdoc .ugc .ugc-modcard-cover .ugc-lamina { filter: saturate(.8) brightness(.92); }

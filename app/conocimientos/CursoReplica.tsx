@@ -30,6 +30,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Miniatura } from './Miniatura';
+import { PortadaModulo } from './PortadaModulo';
 import type { Clase, Curso, Recurso } from './curso';
 
 const FLECHA_IZQ = '←';
@@ -134,11 +135,44 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
       if (!m.has(g)) m.set(g, []);
       m.get(g)!.push(c);
     }
+    const grupos = [...m.entries()];
+
+    /**
+     * ⚠️ CUANDO EL MODULO DICE COMO SE LLAMA, GANA EL.
+     *
+     * `n` salia de la posicion en la lista, y eso contradice al propio contenido: en
+     * `m5-95` los modulos se llaman «Modulo 9», «Modulo 10»… «Modulo 19» y la posicion
+     * daba 8..18. Medido sobre los 374 modulos del portal: 134 traen su ordinal escrito y
+     * **95 discrepan**. No es un detalle interno — en la tarjeta conviven TRES numeros: el
+     * chip, el numero gigante de la lamina y el titulo completo escrito abajo. Con la
+     * posicion, el que mira lee «10» dos veces y «Modulo 11» debajo.
+     *
+     * Pero el ordinal del titulo NO se toma a ciegas, porque no siempre es el numero del
+     * modulo: `ugc-sim-academy` los llama «Modulo 1.1», «1.2», «1.3», donde el 1 es el
+     * PADRE y tomarlo dejaria tres modulos numerados 1. Por eso la regla es por CURSO y
+     * exige coherencia: se adopta la numeracion propia solo si TODOS los grupos la traen y
+     * ninguna tiene parte decimal. Si algo de eso falla, el curso entero se queda con la
+     * posicion — nunca una mezcla, que seria la peor de las dos.
+     *
+     * ⚠️ Y NO se exige que los numeros sean UNICOS, aunque el reflejo diga que si. Un
+     * ordinal repetido no es un error nuestro: es lo que dice la fuente. `nuevo-organic-
+     * ecom` tiene dos modulos llamados «Modulo 12 - Guionizar Los Videos Antes De Grabar»
+     * (el segundo con un «(1)» pegado) porque la plataforma de origen lo tiene duplicado.
+     * Con la guarda de unicidad puesta, ESE curso —47 modulos— se caia entero a la
+     * posicion y los otros 46 pasaban a contradecir su propio titulo, para tapar un
+     * duplicado que existe de verdad. Mostrar 12 en los dos es fiel; mostrar 12 y 13 es
+     * inventar. El `key` del render va por NOMBRE, asi que un `n` repetido no rompe nada.
+     */
+    const ORDINAL_PROPIO = /^\s*[([]?\s*(?:m[oó]dulo|semana|unidad|secci[oó]n|bloque|cap[ií]tulo)\s*[)\]]?\s*(\d{1,3})(\.\d+)?\b/iu;
+    const propios = grupos.map(([nombre]) => ORDINAL_PROPIO.exec(nombre));
+    const numerosPropios = propios.every((o) => o && !o[2]) ? propios.map((o) => Number(o![1])) : null;
+    const propiaSirve = numerosPropios != null;
+
     // El numero del modulo sale del CODIGO de la leccion, no de su posicion: el origen
     // tiene 5 modulos y aca hay 4 -el 2 es una tabla sin lecciones- asi que numerar por
     // indice corria todas las portadas un lugar.
-    return [...m.entries()].map(([nombre, clases], i) => {
-      const n = Number((clases[0]?.codigo ?? '').split('.')[0]) || i + 1;
+    return grupos.map(([nombre, clases], i) => {
+      const n = propiaSirve ? numerosPropios![i] : (Number((clases[0]?.codigo ?? '').split('.')[0]) || i + 1);
       // La tapa del módulo sale del CURSO, no de una ruta escrita acá: ver
       // `portadasModulo` en curso.ts. Sin ella, la de su primera clase; sin ninguna, el
       // degradé con el número, que es el diseño para cuando no hay tapa.
@@ -281,14 +315,20 @@ function Indice({ curso, modulos, onAbrir, onModulo }: {
         {modulos.map((m) => (
           <button key={m.nombre} type="button" className="ugc-modcard" onClick={() => onModulo(m)}>
             <span className="ugc-modcard-cover">
-              {/* ⚠️ La portada del módulo se CONSTRUYE (`/cono-ugc/m${n}.webp`), no se
-                  comprueba. «Creativos Animados» sale con n=6 —sus clases no tienen
-                  código, así que el número cae al índice— y m6.webp nunca existió: era un
-                  404 en CADA carga del índice, dibujando el ícono de imagen rota. Con
-                  `Miniatura` la tarjeta se queda con el degradé y su número, que es lo
-                  que se ve cuando la tapa sí está. */}
+              {/* ⚠️ LA LÁMINA VA SIEMPRE Y VA PRIMERA, sin ninguna condición sobre
+                  `m.portada`. La razón es que `m.portada` es una ruta CONSTRUIDA
+                  (`${portadasModulo}${n}.webp`) y no comprobada: «Creativos Animados» sale
+                  con n=6 y m6.webp nunca existió, así que preguntarle a `m.portada` si hay
+                  tapa devuelve que sí sobre un 404. Dibujada abajo, la tapa real la tapa
+                  entera cuando carga (inset:0 + object-fit:cover, opaca) y cuando no carga
+                  la lámina ya estaba. Cero estado, cero segundo render, cero parpadeo — y
+                  el módulo 6, que hasta hoy era un rectángulo negro, queda cubierto. */}
+              <PortadaModulo n={m.n} titulo={m.nombre} />
               {m.portada && <Miniatura src={m.portada} />}
               <span className="shade" aria-hidden />
+              {/* El chip se queda: la lámina dibuja el número en HUECO y el chip es macizo
+                  sobre lima, así que no compiten — y sobre una tapa REAL sigue siendo la
+                  única forma de saber de qué módulo es. Es lo que ya hacía AvatarHype. */}
               <span className="ugc-modcard-n" aria-hidden>{m.n}</span>
             </span>
             <span className="ugc-modcard-body">
