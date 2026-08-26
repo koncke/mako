@@ -113,6 +113,7 @@ const SOLO_LECTURA = new Set(['creditos', 'estado_clips']);
 
 const ACCION = {
   subir_imagen: 'uploadImage',
+  generar_imagen: 'batchGenerateImages',
   generar_clip: 'batchAsyncGenerateVideo',
   estado_clips: 'batchCheckAsyncVideoGenerationStatus',
   creditos: 'getCredits',
@@ -216,7 +217,7 @@ async function ciclo() {
       try {
         const tab = await pestanaDeFlow();
         const espia = await chrome.tabs.sendMessage(tab.id, { tipo: 'VER_ESPIA' });
-        if (espia && espia.visto) detalle = JSON.stringify(espia.visto).slice(0, 1500);
+        if (espia && espia.visto) detalle = JSON.stringify(espia.visto).slice(0, 3800);
       } catch { /* si no se puede espiar, no es motivo para no trabajar */ }
     }
 

@@ -126,7 +126,7 @@
         url: p.url.replace(/key=[^&]+/, 'key=<oculta>'),
         headers: Object.keys(p.headers).sort(),
         tieneCuerpo: p.cuerpo != null,
-        cuerpoMuestra: p.cuerpo ? p.cuerpo.slice(0, 400) : null,
+        cuerpoMuestra: p.cuerpo ? p.cuerpo.slice(0, 1200) : null,
         edadMs: Date.now() - p.cuando,
       };
     }

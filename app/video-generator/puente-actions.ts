@@ -101,3 +101,37 @@ export async function estadoPruebaAction(trabajoId: number | null): Promise<Esta
       : null,
   };
 }
+
+/**
+ * La segunda prueba: generar una IMAGEN de verdad.
+ *
+ * `creditos` prueba que el puente puede LEER. Esto prueba que puede ESCRIBIR, que
+ * es lo que el producto necesita — y un circuito que solo lee no demuestra nada
+ * sobre el que genera.
+ *
+ * Se eligió una imagen y no un clip porque en Flow las imágenes no consumen
+ * créditos de video: la prueba de escritura sale gratis.
+ *
+ * ⚠️ El `body` va VACÍO a propósito. El cuerpo real lo arma la extensión copiando
+ * el último `batchGenerateImages` que hizo la propia app de Flow y reemplazándole
+ * el prompt. Armarlo acá sería volver a inventar un contrato de terceros, que es
+ * lo que costó el 26/08 entero.
+ */
+export async function probarImagenAction(
+  prompt: string,
+): Promise<{ ok: true; trabajoId: number } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  const texto = prompt.trim();
+  if (texto.length < 3) return { ok: false, error: 'Escribe qué imagen quieres generar.' };
+
+  try {
+    const id = await encolar('generar_imagen', { body: { prompt: texto.slice(0, 500) } });
+    if (id == null) return { ok: false, error: 'No se pudo encolar la prueba.' };
+    return { ok: true, trabajoId: id };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'falló al encolar' };
+  }
+}
+

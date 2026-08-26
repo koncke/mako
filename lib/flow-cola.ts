@@ -30,7 +30,7 @@ import { getSupabaseServer } from './supabase';
 import type { MotivoFalla } from './flow-protocolo';
 
 /** Tipos de trabajo que la extensión sabe ejecutar. */
-export type TipoTrabajo = 'subir_imagen' | 'generar_clip' | 'estado_clips' | 'creditos';
+export type TipoTrabajo = 'subir_imagen' | 'generar_imagen' | 'generar_clip' | 'estado_clips' | 'creditos';
 
 export type EstadoPuente = 'sin_conectar' | 'listo' | 'sin_sesion' | 'marcada';
 
