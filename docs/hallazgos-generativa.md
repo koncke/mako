@@ -1612,6 +1612,64 @@ got 'ident'`). Ahí el comentario va como `//` de JavaScript, arriba de la prop.
 caso: el typecheck había pasado **antes** de ese edit, así que la pantalla quedó en 500 con
 el tsc en verde. **Correr el typecheck después de CADA edit, no al final de la tanda.**
 
+## Un guion listo no es un anuncio, y por eso no va en la portada
+
+**Síntoma:** la home listaba «Tus anuncios» con los guiones generados y un chip «Guion
+listo». El dueño: *«Que un guion esté listo no significa que tiene que salir allí abajo. Sí
+deberían salir "Tus anuncios" pero cuando ya haya VIDEOS creados... y lo haremos en otra
+tab, así que no lo pongas allí.»*
+
+**Causa real:** el guion es un **paso intermedio** del proceso, no el entregable. Llamar
+«Tus anuncios» a una lista de guiones promete algo que todavía no existe, y la primera vez
+que alguien haga click esperando un video se va a encontrar con texto.
+
+**Regla que queda:** una lista se nombra por lo que la persona **recibe**, no por la fila
+que hay en la base. Si el nombre correcto todavía no aplica, la lista no va.
+
+**Y dónde SÍ va lo intermedio:** adentro del proceso que lo produce. Los guiones ya escritos
+viven en el primer paso del wizard —el del tema—, que es el momento exacto en que sirven:
+estás por escribir de qué habla el anuncio y quizá ya escribiste uno sobre eso. En la
+portada no servían para nada, porque ahí se viene a empezar.
+
+## La tarjeta se SELECCIONA; el botón que dispara es uno solo
+
+Cada tarjeta tenía su «Usar esta plantilla», así que había tantas formas de empezar como
+plantillas y ninguna se leía como la principal. El dueño pidió volver al patrón anterior:
+click = marco azul + tilde, y **un** botón arriba.
+
+**Regla que queda:** en una grilla de opciones, la tarjeta cambia el ESTADO y la acción vive
+afuera, una sola vez. Un botón por tarjeta convierte cada opción en un disparador y hace
+imposible mostrar la acción apagada mientras no hay nada elegido — que es lo que le dice a
+alguien que primero tiene que elegir.
+
+**Detalle que no es detalle:** nada nace preseleccionado. Con una plantilla marcada de
+entrada, el marco azul afirma «ya elegiste» sin que nadie haya elegido, y el botón nace
+encendido sin decisión detrás.
+
+## El nombre de una plantilla no es su término técnico
+
+«Plano secuencia» y «Selfie en movimiento» describen **cómo se filma**, que es vocabulario
+de producción. El dueño los rebautizó **The Office** y **Car Talks**: nombres que se
+entienden solos y se recuerdan.
+
+El término técnico no se tira —quien abre el detalle quiere saber cómo se filma, y es la
+palabra con la que va a encontrar material afuera—: baja al campo `tecnico` y se muestra
+como encabezado del detalle. En la tarjeta va el nombre y nada más; el video ya dice cómo se
+ve.
+
+## El detalle es donde el formato se juzga de verdad: con AUDIO
+
+La tarjeta muestra 10 s mudos en loop, que contestan «cómo se mueve». Lo que no contesta es
+cómo SUENA, y en un anuncio con avatar la voz es la mitad del producto.
+
+Por eso el detalle («Ver más detalles», o doble click en la tarjeta) abre el **anuncio
+entero con audio y controles**, más la descripción, cuándo conviene y los números del
+formato. Todo lo que se sacó de la tarjeta vive ahí.
+
+**Costo, medido:** el anuncio completo a 540×960, `-crf 30 -preset slow` con AAC 96k da
+**3,5 MB** para 56 s y **6,6 MB** para 92 s. Bajar a 480×854 con CRF 33 ahorra un 40% y se
+nota: para el material que PRUEBA el producto, esa es la compresión equivocada.
+
 ## Lo que quedó SIN hacer de esta corrida
 
 - **`lib/flow.ts` no existe todavía.** La tab llega hasta el plan y los prompts; generar

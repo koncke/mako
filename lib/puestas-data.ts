@@ -42,7 +42,16 @@ export type Confianza = 'medido' | 'curso';
 
 export type Puesta = {
   id: string;
+  /** El nombre de la plantilla, en inglés y entendible solo: «The Office». */
   nombre: string;
+  /**
+   * Cómo se llama esta puesta en la jerga de producción («plano secuencia»).
+   *
+   * No se muestra en la tarjeta —ahí el nombre alcanza— pero sí en el detalle:
+   * quien abre el detalle quiere saber CÓMO se filma, y ese es el término con el
+   * que va a encontrar material afuera.
+   */
+  tecnico: string;
   /** Una línea para la tarjeta. Sin subtítulo debajo. */
   descripcion: string;
   /** El criterio de elección: cuándo conviene ESTE y no otro. */
@@ -85,7 +94,15 @@ export type Puesta = {
    * ejemplo y se agrega acá. Sin ejemplo no entra — no por prolijidad, sino
    * porque ofrecer un formato que nadie produjo es prometer sin haber medido.
    */
-  ejemplo?: { video: string; poster: string };
+  ejemplo?: {
+    /** 10 s mudos en loop, para la tarjeta. */
+    video: string;
+    poster: string;
+    /** El anuncio ENTERO, con audio, para el detalle. */
+    completo: string;
+    /** Cuánto dura el anuncio entero, en segundos. */
+    duracionSeg: number;
+  };
 };
 
 // ── EL CATÁLOGO ──────────────────────────────────────────────────────────────
@@ -95,7 +112,8 @@ export type Puesta = {
 export const CATALOGO_PUESTAS: Puesta[] = [
   {
     id: 'plano-secuencia',
-    nombre: 'Plano secuencia',
+    nombre: 'The Office',
+    tecnico: 'Plano secuencia',
     descripcion:
       'La persona recorre un espacio real mientras cuenta la historia: camina, saluda, se sirve un café.',
     cuando:
@@ -119,11 +137,17 @@ export const CATALOGO_PUESTAS: Puesta[] = [
     ],
     fuente: 'Mauricio/GUION-04-oficina-plano-secuencia.md · anuncio 4 producido 24/08/2026',
     confianza: 'medido',
-    ejemplo: { video: '/formatos/plano-secuencia.mp4', poster: '/formatos/plano-secuencia.jpg' },
+    ejemplo: {
+      video: '/formatos/plano-secuencia.mp4',
+      poster: '/formatos/plano-secuencia.jpg',
+      completo: '/formatos/plano-secuencia-full.mp4',
+      duracionSeg: 56,
+    },
   },
   {
     id: 'selfie-movimiento',
-    nombre: 'Selfie en movimiento',
+    nombre: 'Car Talks',
+    tecnico: 'Selfie en movimiento',
     descripcion:
       'Plano cerrado, brazo estirado, la persona habla a cámara mientras se mueve o va en un vehículo.',
     cuando:
@@ -144,11 +168,17 @@ export const CATALOGO_PUESTAS: Puesta[] = [
     ],
     fuente: 'Mauricio/GUION-01-v4.md, GUION-02.md, GUION-03.md · anuncios 1 a 3',
     confianza: 'medido',
-    ejemplo: { video: '/formatos/selfie-movimiento.mp4', poster: '/formatos/selfie-movimiento.jpg' },
+    ejemplo: {
+      video: '/formatos/selfie-movimiento.mp4',
+      poster: '/formatos/selfie-movimiento.jpg',
+      completo: '/formatos/selfie-movimiento-full.mp4',
+      duracionSeg: 92,
+    },
   },
   {
     id: 'podcast',
-    nombre: 'Podcast',
+    nombre: 'The Podcast',
+    tecnico: 'Podcast a dos cámaras',
     descripcion:
       'Dos personas conversando en un set de podcast, cada una filmada por separado, con micrófonos de brazo.',
     cuando:
@@ -173,7 +203,8 @@ export const CATALOGO_PUESTAS: Puesta[] = [
   },
   {
     id: 'dualcast',
-    nombre: 'Dualcast',
+    nombre: 'Duo Cam',
+    tecnico: 'Dualcast',
     descripcion:
       'Dos personas juntas en el mismo cuadro, hablando entre ellas y a la audiencia.',
     cuando:
@@ -197,7 +228,8 @@ export const CATALOGO_PUESTAS: Puesta[] = [
   },
   {
     id: 'voz-en-off',
-    nombre: 'Voz en off',
+    nombre: 'Day in My Life',
+    tecnico: 'Voz en off',
     descripcion:
       'Muchos clips cortos de la persona haciendo cosas, sin hablar, con la narración por encima.',
     cuando:
@@ -222,7 +254,8 @@ export const CATALOGO_PUESTAS: Puesta[] = [
   },
   {
     id: 'ugc-con-producto',
-    nombre: 'UGC con producto',
+    nombre: 'Product in Hand',
+    tecnico: 'UGC con producto',
     descripcion:
       'La persona habla a cámara mientras usa el producto: lo prepara, lo toma, lo guarda.',
     cuando:
@@ -246,7 +279,8 @@ export const CATALOGO_PUESTAS: Puesta[] = [
   },
   {
     id: 'ugc-sin-producto',
-    nombre: 'UGC sin producto',
+    nombre: 'Before & After',
+    tecnico: 'UGC sin producto',
     descripcion:
       'La persona habla a cámara contando su antes y después, con imágenes de apoyo superpuestas.',
     cuando:
@@ -269,7 +303,8 @@ export const CATALOGO_PUESTAS: Puesta[] = [
   },
   {
     id: 'trends-virales',
-    nombre: 'Trends virales',
+    nombre: 'Trend Jack',
+    tecnico: 'Trends virales',
     descripcion:
       'Se toma un video que ya funciona como base, se le conserva la música, y encima van los clips propios.',
     cuando:

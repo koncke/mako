@@ -29,14 +29,14 @@
 import { useCallback, useMemo, useState } from 'react';
 import Link from '@/app/_ui/Link';
 import {
-  Pagina, PageHeader, Section, Button, Textarea, Alert, Tag, Status, MONO,
+  Pagina, PageHeader, Section, Button, Textarea, Alert, Tag, Modal, MONO,
 } from '@/app/_ui';
 import { WizardShell } from '../_components/WizardShell';
 import { Icon } from '../_components/icons';
 import type { PlanGuardado, EstadoContextoVideo } from './video-datos';
 import {
   ACENTOS, DURACIONES_VIDEO, acentoEsVoseante, duracionReal, guionATexto,
-  puestaPorId, puestasOfrecidas, segundosDe,
+  puestaPorId, puestasOfrecidas, segundosDe, type Puesta,
 } from './video-pedido';
 import { generarPlanAction } from './actions';
 
@@ -50,11 +50,6 @@ const PREGUNTA: Record<Paso, string> = {
   duracion: '¿Cuánto tiene que durar?',
   acento: '¿Con qué acento habla?',
 };
-
-function fechaCorta(iso: string): string {
-  try { return new Date(iso).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }); }
-  catch { return ''; }
-}
 
 /**
  * Pinta el `**énfasis**` del guion en negrita.
@@ -75,59 +70,134 @@ function Enfasis({ texto }: { texto: string }) {
 }
 
 // ── El catálogo: la plantilla es el video ────────────────────────────────────
+// Un click SELECCIONA (marco azul + tilde) — no dispara el flujo. Quien dispara
+// es el botón «Crear» de arriba, que es el único de la pantalla. Con un botón por
+// tarjeta había tres formas de empezar y ninguna se leía como la principal.
+//
+// La descripción no está acá: vive en el detalle. En la tarjeta, el video ya dice
+// cómo se ve y el nombre alcanza para nombrarlo.
 
 function Plantilla({
-  nombre, descripcion, video, poster, onElegir,
+  nombre, video, poster, elegida, onElegir, onDetalle,
 }: {
-  nombre: string; descripcion: string; video: string; poster: string;
-  onElegir: () => void;
+  nombre: string; video: string; poster: string;
+  elegida: boolean; onElegir: () => void; onDetalle: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onElegir}
-      style={{
-        display: 'block', width: 230, cursor: 'pointer', textAlign: 'left',
-        background: 'transparent', border: 'none', padding: 0, fontFamily: 'inherit',
-      }}
+    <div style={{ width: 220 }}>
+      <button
+        type="button"
+        onClick={onElegir}
+        onDoubleClick={onDetalle}
+        aria-pressed={elegida}
+        style={{
+          display: 'block', width: '100%', padding: 0, cursor: 'pointer',
+          background: 'transparent', border: 'none', fontFamily: 'inherit',
+          borderRadius: 'var(--r-md)',
+          outline: elegida ? '2px solid var(--primary)' : '1px solid var(--border)',
+          outlineOffset: elegida ? 2 : 0,
+        }}
+      >
+        <div style={{ position: 'relative', borderRadius: 'var(--r-md)', overflow: 'hidden', lineHeight: 0 }}>
+          {/* Muted + playsInline: sin las dos, el navegador no deja autoplay. */}
+          <video
+            src={video}
+            poster={poster}
+            autoPlay
+            loop
+            muted
+            playsInline
+            style={{ width: '100%', display: 'block', aspectRatio: '9 / 16', objectFit: 'cover' }}
+          />
+          <div style={{
+            position: 'absolute', inset: 'auto 0 0 0', padding: '30px 12px 11px',
+            background: 'linear-gradient(to top, rgba(0,0,0,.75), transparent)',
+            color: '#fff', fontSize: 'var(--fs-lg)', fontWeight: 650, lineHeight: 1.25,
+            textAlign: 'left',
+          }}>
+            {nombre}
+          </div>
+          {elegida && (
+            <div style={{
+              position: 'absolute', top: 9, right: 9, width: 26, height: 26, borderRadius: 999,
+              background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center',
+              boxShadow: '0 1px 6px rgba(0,0,0,.35)',
+            }}>
+              <Icon name="check" size={15} />
+            </div>
+          )}
+        </div>
+      </button>
+
+      <button
+        type="button"
+        onClick={onDetalle}
+        style={{
+          display: 'block', width: '100%', marginTop: 7, padding: '5px 0',
+          background: 'transparent', border: 'none', cursor: 'pointer',
+          fontFamily: 'inherit', fontSize: 'var(--fs-sm)', color: 'var(--dim)',
+          textDecoration: 'underline', textUnderlineOffset: 3,
+        }}
+      >
+        Ver más detalles
+      </button>
+    </div>
+  );
+}
+
+// ── El detalle: el anuncio entero, con audio ────────────────────────────────
+// Acá vive todo lo que se sacó de la tarjeta. Y el anuncio completo con sonido,
+// que es la única forma de juzgar de verdad un formato de video: en la tarjeta se
+// ve cómo se mueve, acá se escucha cómo suena.
+
+function DetalleFormato({
+  puesta, onCerrar, onUsar,
+}: {
+  puesta: Puesta; onCerrar: () => void; onUsar: () => void;
+}) {
+  const ej = puesta.ejemplo!;
+  return (
+    <Modal
+      titulo={puesta.nombre}
+      encabezado={puesta.tecnico}
+      onCerrar={onCerrar}
+      ancho={720}
+      pie={<Button variant="mako" onClick={onUsar} icon={<Icon name="mako" size={14} />}>Crear con este formato</Button>}
     >
-      <div style={{
-        position: 'relative', borderRadius: 'var(--r-md)', overflow: 'hidden',
-        border: '1px solid var(--border)', lineHeight: 0,
-      }}>
-        {/* Muted + playsInline: sin las dos, el navegador no deja autoplay. */}
+      <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <video
-          src={video}
-          poster={poster}
-          autoPlay
-          loop
-          muted
+          src={ej.completo}
+          poster={ej.poster}
+          controls
           playsInline
-          style={{ width: '100%', display: 'block', aspectRatio: '9 / 16', objectFit: 'cover' }}
+          style={{ width: 260, flex: 'none', borderRadius: 'var(--r-md)', display: 'block', background: '#000' }}
         />
-        <div style={{
-          position: 'absolute', inset: 'auto 0 0 0', padding: '26px 12px 10px',
-          background: 'linear-gradient(to top, rgba(0,0,0,.72), transparent)',
-          color: '#fff', fontSize: 'var(--fs-md)', fontWeight: 650, lineHeight: 1.3,
-        }}>
-          {nombre}
+        <div style={{ flex: 1, minWidth: 240 }}>
+          <div style={{ fontSize: 'var(--fs-md)', color: 'var(--ink)', lineHeight: 1.6 }}>
+            {puesta.descripcion}
+          </div>
+          <div style={{ fontSize: 'var(--fs-md)', color: 'var(--dim)', lineHeight: 1.6, marginTop: 10 }}>
+            {puesta.cuando}
+          </div>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 14 }}>
+            <Tag>{puesta.clips[0]}-{puesta.clips[1]} tomas</Tag>
+            <Tag>{puesta.segundosClip[0]}-{puesta.segundosClip[1]} s por toma</Tag>
+            <Tag>
+              {puesta.habla === 'siempre' ? 'Habla a cámara'
+                : puesta.habla === 'nunca' ? 'Voz en off'
+                  : 'Alterna habla y voz en off'}
+            </Tag>
+            {puesta.personas === 2 && <Tag>Dos personas</Tag>}
+          </div>
+
+          <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--faint)', marginTop: 14, lineHeight: 1.6 }}>
+            El video de arriba es un anuncio real de {Math.round(ej.duracionSeg)} segundos hecho
+            con este formato.
+          </div>
         </div>
       </div>
-      <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.5, marginTop: 8 }}>
-        {descripcion}
-      </div>
-      {/* Un <span> y no un <Button>: la tarjeta ENTERA ya es el botón, y un
-          <button> dentro de otro es HTML inválido — React lo reporta como
-          mismatch de hidratación, que se lee como un bug de datos y no lo es. */}
-      <span style={{
-        display: 'block', marginTop: 10, textAlign: 'center',
-        padding: '8px 12px', borderRadius: 'var(--r-sm)',
-        background: 'var(--surface-2)', border: '1px solid var(--border-strong)',
-        fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--ink)',
-      }}>
-        Usar esta plantilla
-      </span>
-    </button>
+    </Modal>
   );
 }
 
@@ -183,13 +253,19 @@ export function VideoGeneratorApp({
   // Siempre se entra al catálogo, aunque haya anuncios hechos: se viene a crear
   // uno nuevo, no a releer el anterior.
   const [vista, setVista] = useState<Vista>('catalogo');
+  /** La plantilla abierta en el detalle. null = modal cerrado. */
+  const [detalle, setDetalle] = useState<Puesta | null>(null);
   const [paso, setPaso] = useState<Paso>('tema');
 
-  const [puestaId, setPuestaId] = useState<string>(PLANTILLAS[0]?.id ?? '');
+  // Vacío a propósito: el botón «Crear» nace apagado y se enciende al elegir.
+  // Con una preseleccionada, el marco azul dice «ya elegiste» sin que nadie
+  // haya elegido.
+  const [puestaId, setPuestaId] = useState<string>('');
   const [tema, setTema] = useState('');
   const [duracion, setDuracion] = useState<string>(DURACIONES_VIDEO[1].value);
   const [acento, setAcento] = useState<string>(ACENTOS[0].value);
   const [feedback, setFeedback] = useState('');
+  const [verGuiones, setVerGuiones] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -273,6 +349,51 @@ export function VideoGeneratorApp({
             <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--faint)', marginTop: 10, textAlign: 'left' }}>
               No hace falta que esté prolijo ni que sea corto. Con un caso concreto alcanza.
             </div>
+
+            {historial.length > 0 && (
+              <div style={{ marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 12, textAlign: 'left' }}>
+                <button
+                  type="button"
+                  onClick={() => setVerGuiones((v) => !v)}
+                  aria-expanded={verGuiones}
+                  style={{
+                    background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
+                    fontFamily: 'inherit', fontSize: 'var(--fs-sm)', color: 'var(--dim)',
+                    textDecoration: 'underline', textUnderlineOffset: 3,
+                  }}
+                >
+                  {verGuiones ? 'Ocultar' : `Ya escribiste ${historial.length} ${historial.length === 1 ? 'guion' : 'guiones'}`}
+                </button>
+
+                {verGuiones && (
+                  <div style={{ display: 'grid', gap: 2, marginTop: 10 }}>
+                    {historial.map((h) => (
+                      <button
+                        key={h.id}
+                        type="button"
+                        onClick={() => { setActual(h); setVista('anuncio'); }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                          textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
+                          background: 'transparent', border: 'none', padding: '7px 2px',
+                          borderBottom: '1px solid var(--border)',
+                        }}
+                      >
+                        <span style={{
+                          flex: 1, minWidth: 0, fontSize: 'var(--fs-sm)', color: 'var(--ink)',
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>
+                          {h.plan.titulo}
+                        </span>
+                        <span style={{ flex: 'none', fontSize: 'var(--fs-xs)', color: 'var(--faint)' }}>
+                          {h.plan.duracionTotalSeg}s
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
 
@@ -430,10 +551,14 @@ export function VideoGeneratorApp({
   }
 
   // ── El catálogo, que es la home ────────────────────────────────────────────
+  // Sin «Tus anuncios»: un guion listo NO es un anuncio, y esa lista va a existir
+  // cuando existan videos, en su propia tab. Los guiones ya escritos se retoman
+  // desde adentro del proceso de crear (primer paso del wizard), que es donde
+  // sirven — no en la portada.
+  const puedeCrear = !!puestaId;
+
   return (
     <Pagina>
-      <PageHeader titulo="Video Generator" />
-
       {error && <Alert tono="bad">{error}</Alert>}
 
       {contexto && !contexto.tieneFotos && (
@@ -444,49 +569,49 @@ export function VideoGeneratorApp({
         </Alert>
       )}
 
-      <Section titulo="Elige el estilo de tu anuncio">
-        <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-          {PLANTILLAS.map((p) => (
-            <Plantilla
-              key={p.id}
-              nombre={p.nombre}
-              descripcion={p.descripcion}
-              video={p.ejemplo!.video}
-              poster={p.ejemplo!.poster}
-              onElegir={() => empezar(p.id)}
-            />
-          ))}
-        </div>
-      </Section>
+      {/* El título es el protagonista de la pantalla y el botón vive a su lado:
+          es la única acción, así que se lee junto a lo que hay que hacer antes. */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: 16, flexWrap: 'wrap', marginBottom: 22,
+      }}>
+        <h1 style={{
+          margin: 0, fontSize: 'clamp(26px, 3.2vw, 34px)', fontWeight: 700,
+          letterSpacing: '-.02em', color: 'var(--ink)', lineHeight: 1.15,
+        }}>
+          Elige el formato
+        </h1>
+        <Button
+          variant="mako"
+          size="lg"
+          disabled={!puedeCrear}
+          onClick={() => puestaId && empezar(puestaId)}
+          icon={<Icon name="mako" size={16} />}
+        >
+          Crear
+        </Button>
+      </div>
 
-      {historial.length > 0 && (
-        <div style={{ marginTop: 'var(--gap)' }}>
-          <Section titulo="Tus anuncios">
-            <div style={{ display: 'grid', gap: 4 }}>
-              {historial.map((h) => (
-                <button
-                  key={h.id}
-                  type="button"
-                  onClick={() => { setActual(h); setVista('anuncio'); }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-                    textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
-                    background: 'transparent', border: 'none',
-                    borderBottom: '1px solid var(--border)', padding: '9px 2px',
-                  }}
-                >
-                  <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--fs-md)', color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {h.plan.titulo}
-                  </span>
-                  <Status tono="neutral">Guion listo</Status>
-                  <span style={{ flex: 'none', fontSize: 'var(--fs-xs)', color: 'var(--faint)' }}>
-                    {fechaCorta(h.at)}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </Section>
-        </div>
+      <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap' }}>
+        {PLANTILLAS.map((p) => (
+          <Plantilla
+            key={p.id}
+            nombre={p.nombre}
+            video={p.ejemplo!.video}
+            poster={p.ejemplo!.poster}
+            elegida={p.id === puestaId}
+            onElegir={() => setPuestaId(p.id)}
+            onDetalle={() => setDetalle(p)}
+          />
+        ))}
+      </div>
+
+      {detalle && (
+        <DetalleFormato
+          puesta={detalle}
+          onCerrar={() => setDetalle(null)}
+          onUsar={() => { const id = detalle.id; setDetalle(null); empezar(id); }}
+        />
       )}
     </Pagina>
   );
