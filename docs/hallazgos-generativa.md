@@ -1059,11 +1059,14 @@ https://github.com/crisng95/flowkit) **descartó Playwright/Puppeteer explícita
 y eligió una extensión Chrome MV3 como puente, porque Flow exige **tokens reCAPTCHA
 v3 Enterprise en cada llamada**.
 
-**Regla que queda:** hacerlo nosotros implicaría igualmente pagar un proveedor de
-captcha (US$0,80–3,00 por 1.000 resoluciones) **más** mantener un navegador vivo 24/7.
-Los US$15/mes de useapi compran exactamente ese mantenimiento. Leer el código de
-FlowKit sí vale: es la **única documentación pública del protocolo interno de
-labs.google**.
+⚠️ **CORREGIDO el 25/08/2026 leyendo el código de FlowKit.** Este párrafo decía que
+hacerlo nosotros «implicaría igualmente pagar un proveedor de captcha (US$0,80-3,00 por
+1.000 resoluciones)». **Es falso: no hay proveedor que pagar.** La extensión ejecuta
+`grecaptcha.enterprise.execute()` en la propia página, con la sesión del usuario — es el
+mecanismo, no una evasión. Lo que sí cuesta es mantener un Chrome vivo, y los US$15/mes
+de useapi compran exactamente eso. El detalle completo, con la auditoría de la extensión y
+la línea que NO hay que cruzar (el simulador de actividad humana), está más abajo en
+«Replicar useapi: qué hace de verdad».
 
 Y descartar también kie.ai / PiAPI / Apiframe para este objetivo: **no son wrappers de
 Flow**, son revendedores de la API oficial de Veo, y por eso **les faltan
@@ -1669,6 +1672,138 @@ formato. Todo lo que se sacó de la tarjeta vive ahí.
 **Costo, medido:** el anuncio completo a 540×960, `-crf 30 -preset slow` con AAC 96k da
 **3,5 MB** para 56 s y **6,6 MB** para 92 s. Bajar a 480×854 con CRF 33 ahorra un 40% y se
 nota: para el material que PRUEBA el producto, esa es la compresión equivocada.
+
+## Replicar useapi: qué hace de verdad, y las dos cosas que teníamos mal
+
+Análisis del 25/08/2026 sobre `github.com/useapi/google-flow-api`, la doc de setup de
+useapi y el código de **FlowKit** (`github.com/crisng95/flowkit`, MIT, 607★, último push
+18/08/2026 — vivo).
+
+### El repo que parece la respuesta no la tiene
+
+`useapi/google-flow-api` **no es el código de useapi**: son ejemplos de cliente contra su
+API hospedada (`veo-video/`, `images/`, `omni-flash/`, un `prompts.json` y llamadas REST
+con un token de useapi). No habla con Google en ninguna línea. Leerlo no dice nada de cómo
+funciona por detrás.
+
+### Lo que useapi hace de verdad, según su propia doc de setup
+
+No es una API: es **una sesión de navegador prestada**. Le pedís al usuario que:
+
+- copie **todas las cookies de `accounts.google.com`** desde las DevTools;
+- use **Opera, Brave o Ungoogled Chromium** — textual: *«Do NOT use Google Chrome. Google's
+  integration with Chrome will interfere with cookie extraction»*;
+- active 2FA con Authenticator y marque **«Don't ask again on this device»**;
+- y no vuelva a entrar nunca a esa cuenta: *«Using the same account through both the API and
+  direct access will break the session and require you to redo this entire setup»*.
+
+Los **US$15/mes no compran capacidad**: los créditos los pone tu propia suscripción de
+Google. Compran que ellos mantengan viva esa sesión.
+
+### FlowKit ya es la replicación, es MIT y corre local
+
+Tres piezas: un agente Python (FastAPI + SQLite, puerto 8100), una extensión Chrome MV3, y
+un WebSocket entre las dos (`ws://127.0.0.1:9222`).
+
+- **El token** se captura con `chrome.webRequest.onBeforeSendHeaders` sobre
+  `aisandbox-pa.googleapis.com` y `labs.google`, tomando el `Authorization: Bearer ya29.…`
+  que **la propia página ya manda**. Dura 24-48 h y la extensión lo recaptura sola.
+- **El backend real de Flow es `aisandbox-pa.googleapis.com`** (no `labs.google`, que es
+  solo la UI). Ese es el dato que faltaba para entender la superficie.
+- **Los medios expiran a ~1 h** en el storage de Google: hay que descargar en el mismo tick.
+
+**Auditoría de seguridad de la extensión — limpia en lo que importa:** el `manifest.json`
+pide `labs.google/*`, `aisandbox-pa.googleapis.com/*`, `flow-content.google/*` y
+`127.0.0.1:8100`. **No pide `accounts.google.com` ni `*.google.com`**, así que no puede
+tocar Gmail ni las cookies de sesión global. No tiene `externally_connectable`, así que
+ninguna web puede manejarla. Y el token **solo viaja a `127.0.0.1`** — no hay un solo host
+remoto que lo reciba, ni carga de código remoto, ni config externa.
+
+### Lo que el corpus tenía MAL (1): no hay bypass de reCAPTCHA, ni proveedor que pagar
+
+Este documento decía que automatizar Flow «implicaría igualmente pagar un proveedor de
+captcha (US$0,80–3,00 por 1.000 resoluciones)» y que useapi *«resuelve el reCAPTCHA por vos,
+o sea bypassing our protective measures»*.
+
+**Las dos cosas son falsas.** `extension/injected.js` corre en el contexto de la página y
+hace:
+
+```js
+window.grecaptcha.enterprise.execute('6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV', { action })
+```
+
+Es **el mismo widget que la página ya carga**, invocado desde la propia sesión del usuario.
+reCAPTCHA v3 Enterprise no plantea un desafío que se «resuelva»: emite un **score de riesgo**
+que calcula Google. Nadie lo evade — si tu comportamiento parece automatizado, Google
+devuelve `403 PUBLIC_ERROR_UNUSUAL_ACTIVITY` («reCAPTCHA evaluation failed»), que es
+justamente el error que FlowKit documenta como **no auto-recuperable**.
+
+Corolario económico: **el captcha no cuesta nada**. Ese renglón sale del presupuesto.
+
+### Lo que el corpus tenía MAL (2): useapi no cuesta US$2,25 por minuto
+
+El cálculo era: «1.000 créditos ÷ 20 por clip de 8 s = 50 clips = 6,67 min ÷ US$15 =
+US$2,25/min, contra US$1 de HeyGen». **Está mal atribuido**: esos 1.000 créditos son de TU
+plan de Google, no de useapi. Los US$15 son el fee del servicio, y los pagás igual generes 1
+clip o 50.
+
+Con FlowKit el costo marginal es **solo tu suscripción de Google**. Los US$15/mes de useapi
+son exactamente lo que se ahorra: **US$180/año**, a cambio de mantener un Chrome vivo.
+
+La conclusión de «esto no se justifica por ahorro» **sigue en pie por otro motivo**: el
+Norte es «avatar que se MUEVE», no reemplazar HeyGen. Pero el número que la sostenía estaba
+mal y no hay que volver a usarlo.
+
+### ⚠️ La línea: FlowKit fabrica actividad humana falsa, y eso SÍ es evasión
+
+`background.js` tiene una función `sendTelemetry()` con este comentario textual:
+
+> *«Periodically send tracking events to Google's analytics endpoints to mimic normal browser
+> behavior.»*
+
+Cada 45–120 segundos manda a `/v1:batchLog` y `/v1/flow:batchLogFrontendEvents` eventos
+**inventados** —`FLOW_IMAGE_LATENCY`, `GRID_SCROLL_DEPTH`, `FLOW_PROJECT_OPEN`,
+`FLOW_SCENE_VIEW`— con latencias y scroll fabricados, y rota el session id cada 25–35
+minutos.
+
+**Esa pieza no es «usar el mecanismo»: es fabricar señales para que el antifraude de Google
+no detecte la automatización.** Es una cosa distinta de ejecutar el grecaptcha de la propia
+página, y conviene no mezclarlas al decidir.
+
+**Y es separable.** Existe para poder ir **más rápido de lo que iría una persona**. El propio
+FlowKit documenta los límites que hacen innecesario fingir: **10 s de cooldown** entre
+requests, **≤5 concurrentes**, **≥1 s** entre envíos. A ese ritmo no hay nada que disimular,
+porque el ritmo ya es humano.
+
+**La regla que queda:** si se replica esto, se replica el transporte —token de la sesión
+real, grecaptcha de la página real, ritmo humano— y **no** el simulador de actividad. Un
+sistema que necesita mentirle a la detección para funcionar es un sistema que ya sabe que
+está haciendo algo que el proveedor no quiere, y el día que lo detecten se cae la cuenta con
+todo adentro.
+
+### Lo que NO se puede verificar sin la cuenta abierta
+
+FlowKit afirma que `veo_3_1_i2v_lite_low_priority` es **«the true 0-credit Low Priority»**
+para cuentas `PAYGATE_TIER_TWO`, y da una tabla propia (imagen ~0,5 créditos; video i2v
+5–10 por clip de 8 s; upscale 4K ~15). **Ninguno de esos números está verificado**, y la
+búsqueda pública devuelve cifras que no coinciden entre sí (50 créditos/día gratis para no
+suscriptores, ~100/mes en AI Pro).
+
+Es exactamente el caso de la regla que ya está escrita más arriba: **el costo en créditos no
+se planifica desde una tabla de internet — se lee en la pantalla de Flow, que lo muestra
+antes de generar.** Si el «0 créditos» fuera cierto cambia la economía entera del pipeline,
+así que es lo primero que hay que mirar al abrir la cuenta.
+
+### Y lo que no cambia: esto no sirve para el SaaS
+
+FlowKit necesita **un Chrome abierto, con sesión iniciada, en una máquina**. Sirve para uso
+interno (Martín + Mauricio, que es el alcance declarado) y **no** para que MaKo le genere
+videos a un cliente cualquiera: cada inquilino necesitaría su propia sesión de Google viva,
+y los créditos son por cuenta. Para el producto multi-inquilino sigue valiendo lo de siempre
+— Vertex/fal con tarifa por segundo, y la tarifa **muda** de Veo, que es la mitad.
+
+**Vive en:** todavía nada en el repo — `lib/flow.ts` no existe. Este análisis es el paso
+previo a escribirlo.
 
 ## Lo que quedó SIN hacer de esta corrida
 
