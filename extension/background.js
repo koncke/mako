@@ -28,11 +28,13 @@ const SITE_KEY = '6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV';
 let cooldownMs = 10000;
 let bearer = null;
 let projectId = '';
+let apiKey = '';
 let corriendo = false;
 
-chrome.storage.local.get(['bearer', 'projectId'], (v) => {
+chrome.storage.local.get(['bearer', 'projectId', 'apiKey'], (v) => {
   bearer = v.bearer || null;
   projectId = v.projectId || '';
+  apiKey = v.apiKey || '';
 });
 
 // ── Capturar el token de la sesión ───────────────────────────────────────────
@@ -57,6 +59,22 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
     if (m && m[1] && m[1] !== projectId) {
       projectId = m[1];
       chrome.storage.local.set({ projectId });
+    }
+
+    // La API key del proyecto de Google, que Flow manda en el query de CADA
+    // llamada (`?key=AIza…`). No es un secreto —viaja en la URL de una app web y
+    // se ve en cualquier DevTools—, pero es OBLIGATORIA: sin ella `googleapis.com`
+    // no sabe a qué proyecto atribuir el pedido y lo manda al bucket de tráfico no
+    // identificado, que contesta la página de bloqueo. Ese fue el bug: se llamaba
+    // a `/v1/credits` pelado porque el path salió de la documentación de useapi y
+    // nunca se comparó contra el tráfico REAL de Flow.
+    //
+    // Se lee al pasar en vez de hardcodearla: si Google la rota, el que la tiene
+    // al día es el navegador del cliente, no nuestro código.
+    const k = det.url.match(/[?&]key=(AIza[A-Za-z0-9_-]{20,})/);
+    if (k && k[1] && k[1] !== apiKey) {
+      apiKey = k[1];
+      chrome.storage.local.set({ apiKey });
     }
   },
   { urls: ['https://aisandbox-pa.googleapis.com/*', 'https://labs.google/*'] },
@@ -118,8 +136,11 @@ async function ejecutar(trabajo) {
   // lo que rechaza es ESE pedido, que tiene la forma de un token robado.
   //
   // Desde la página **es** un pedido de la página. Ver extension/injected.js.
+  // La `key` va en el query, como la manda Flow. Sin ella el pedido llega sin
+  // proyecto atribuido y Google contesta su página de bloqueo.
+  const url = `${FLOW_BASE}${path}${apiKey ? `${path.includes('?') ? '&' : '?'}key=${apiKey}` : ''}`;
   const r = await chrome.tabs.sendMessage(tab.id, {
-    tipo: 'HACER_FETCH', url: `${FLOW_BASE}${path}`, cuerpo, bearer,
+    tipo: 'HACER_FETCH', url, cuerpo, bearer,
   });
   if (!r || r.error) throw new Error(r?.error || 'FETCH_FALLO');
 
@@ -153,6 +174,14 @@ async function ciclo() {
       // No es un error: es que el usuario todavía no abrió Flow en esta sesión.
       estado = 'sin_sesion';
       detalle = 'Abre labs.google/fx/tools/flow e inicia sesión.';
+    } else if (!apiKey) {
+      // El bearer se ve en la PRIMERA llamada; la `key` también, pero si la
+      // sesión venía guardada de antes y el usuario no volvió a navegar Flow,
+      // puede haber bearer sin key. Sin key el pedido llega sin proyecto
+      // atribuido y Google contesta su página de bloqueo — así que esto NO puede
+      // reportarse como «listo»: sería un verde sobre algo que va a fallar.
+      estado = 'sin_sesion';
+      detalle = 'Recarga la pestaña de Google Flow para completar la conexión.';
     }
 
     const pendientes = (await chrome.storage.local.get('pendientes')).pendientes || [];
