@@ -4668,3 +4668,58 @@ portada puesta, categoría «Orgánico». Verificado en la página desplegada.
 la cascada, que es gratis igual, pero pierde los `segments[]` con timestamps naturales — los
 párrafos salen de una heurística en vez de la fuente. Vive en
 `scripts/curso-transcribir-sa.mjs`.
+
+## La lista de recursos sale de la API, y 503 no es 500
+
+**2026-08-26, bajando «AMORir» (60 clases, 9 recursos).** Dos cosas cortas y las dos
+valen para cualquier ingesta.
+
+### El scrape de la página no es el inventario
+
+`plan.pdfs` se arma raspando los `a[href*="Reader?type=resource"]` del curso, así que
+depende de que cada módulo esté desplegado y de que la plataforma renderice el enlace. La
+API, en cambio, **declara** los que existen.
+
+En AMORir la página linkea **8** y la API declara **9**: falta «2.Una ingeniería emocional
+del cuerpo». Iterando solo la página ese recurso no se baja nunca, y como el descargador
+termina sin errores, el curso se publica con 8 de 9 **y nada lo dice**. Es «antes de
+restaurar lo que había, preguntá cuánto DEBERÍA haber» aplicado a la ingesta.
+
+⚠️ **Y por eso `enlacesDeRecursos` vive en `curso-comun.mjs`:** la usan DOS scripts —el que
+baja y el que arma el índice— y **los dos numeran por POSICIÓN en esa lista**. Si cada uno
+la derivara por su cuenta, `recurso-09` sería un archivo distinto en cada script y el cruce
+quedaría corrido sin que nada falle. El orden es estable a propósito: primero los de la
+página en su orden, después los que solo conoce la API.
+
+### 503 y 500 son respuestas distintas, y la diferencia es información
+
+Dos clases fallaron con **HTTP 503** de Vimeo. El reflejo, después del caso de Organic Ecom
+—donde un **500** resultó ser un video que la fuente no puede servir— es darlas por
+perdidas. Son cosas distintas: 503 es sobrecarga pasajera.
+
+**El chequeo cuesta dos segundos y decide el diagnóstico:** pedir el mismo id un par de
+veces con `curl`. Los dos de AMORir devolvieron **200** y entraron al reintentar sin tocar
+nada; el de Organic Ecom devolvió **500 tres veces con su vecino en 200**, y ése sí es del
+origen.
+
+Es el mismo criterio que ya está escrito para las APIs —`permission denied` no es
+`column does not exist`— aplicado al HTTP: **antes de anotar algo como «la fuente no lo
+tiene», preguntale a la fuente otra vez.**
+
+**Vive en:** `scripts/curso-comun.mjs` (`enlacesDeRecursos`) · `scripts/curso-pdfs.mjs` ·
+`scripts/curso-recursos-indice.mjs`.
+
+**Estado:** AMORir publicado con 60/60 clases, 60/60 transcripciones y 9/9 recursos con el
+peso exacto que declara la API. `curso-verificar` pasó limpio a la primera.
+
+### Y el chequeo de sesión daba un falso NEGATIVO
+
+El vigía lee el token de Supabase del `localStorage`, y **para eso necesita una pestaña
+abierta en ese origen**. Con el Chrome dedicado cerrado no hay ninguna, así que reportaba
+«sin token» sobre una sesión perfectamente sana — y con eso se pidió un login que no hacía
+falta.
+
+**Un chequeo que necesita un contexto para poder leer el dato tiene que CREAR ese contexto
+antes de concluir**, o su respuesta negativa no distingue «no está» de «no pude mirar». Es
+el mismo tercer estado de «no pude leer» que ya está escrito para las páginas ajenas. Vive
+en `scratchpad/esperar-login.mjs` (abrir la home del origen antes de leer).
