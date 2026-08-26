@@ -13,8 +13,8 @@
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'Privacidad · MaKo Puente de video',
-  description: 'Qué datos usa la extensión MaKo Puente de video, y cuáles no.',
+  title: 'Privacidad · MaKo',
+  description: 'Qué datos usa la extensión de MaKo, y cuáles no.',
 };
 
 const ACTUALIZADO = '26 de agosto de 2026';
@@ -30,7 +30,7 @@ export default function Page() {
       fontFamily: 'system-ui, sans-serif', color: '#1a1a1a', lineHeight: 1.7, fontSize: 15.5,
     }}>
       <h1 style={{ fontSize: 28, fontWeight: 700, margin: '0 0 6px' }}>
-        Política de privacidad — MaKo · Puente de video
+        Política de privacidad — Extensión de MaKo
       </h1>
       <p style={{ color: '#666', fontSize: 14, margin: 0 }}>Actualizada el {ACTUALIZADO}</p>
 
