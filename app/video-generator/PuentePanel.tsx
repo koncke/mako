@@ -33,6 +33,9 @@ import {
   conectarPuenteAction, probarPuenteAction, estadoPruebaAction,
   type EstadoPruebaOut,
 } from './puente-actions';
+import {
+  EXTENSION_EN_TIENDA, EXTENSION_URL_TIENDA, EXTENSION_URL_ZIP,
+} from '@/lib/extension-tienda';
 
 const FLOW_URL = 'https://labs.google/fx/tools/flow';
 
@@ -274,23 +277,38 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
         hecho={instalada === true}
         activo={instalada !== true}
         contexto={
-          <>
-            Descarga el archivo y descomprímelo en una carpeta. Después abre{' '}
-            <code style={{ fontFamily: MONO, fontSize: 12 }}>chrome://extensions</code>, activa
-            el <strong>Modo de desarrollador</strong> arriba a la derecha, y usa{' '}
-            <strong>Cargar descomprimida</strong> apuntando a esa carpeta.
-            <div style={{ marginTop: 6 }}>
-              Funciona en Chrome, Edge, Brave y Opera.
-            </div>
-          </>
+          EXTENSION_EN_TIENDA ? (
+            <>
+              Se instala desde la tienda de Chrome con un clic. Funciona en Chrome, Edge,
+              Brave y Opera.
+            </>
+          ) : (
+            <>
+              Descarga el archivo y descomprímelo en una carpeta. Después abre{' '}
+              <code style={{ fontFamily: MONO, fontSize: 12 }}>chrome://extensions</code>, activa
+              el <strong>Modo de desarrollador</strong> arriba a la derecha, y usa{' '}
+              <strong>Cargar descomprimida</strong> apuntando a esa carpeta.
+              <div style={{ marginTop: 6 }}>
+                Funciona en Chrome, Edge, Brave y Opera.
+              </div>
+            </>
+          )
         }
       >
         {instalada === true ? (
           <Status tono="good">Ya está instalada en este navegador</Status>
+        ) : EXTENSION_EN_TIENDA ? (
+          <Button
+            variant="secondary"
+            onClick={() => window.open(EXTENSION_URL_TIENDA, '_blank', 'noopener')}
+            icon={<Icon name="descargar" size={14} />}
+          >
+            Añadir a Chrome
+          </Button>
         ) : (
           <Button
             variant="secondary"
-            onClick={() => { window.location.href = '/mako-puente.zip'; }}
+            onClick={() => { window.location.href = EXTENSION_URL_ZIP; }}
             icon={<Icon name="descargar" size={14} />}
           >
             Descargar la extensión

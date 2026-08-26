@@ -836,6 +836,12 @@ vía useapi con el plan Pro da **1.000 créditos/mes ÷ 20 créditos por generac
 (https://useapi.net/docs/api-google-flow-v1/post-google-flow-videos). Con los US$15
 de useapi eso es **US$2,25 por minuto**, con techo duro mensual.
 
+> ⚠️ **Ese número está MAL y se corrige más abajo** — ver «Lo que el corpus tenía MAL
+> (2)». Los 1.000 créditos son de TU cuenta de Google, no de useapi: los US$15 compran
+> el transporte, no los créditos. La conclusión de la sección (esto no se justifica por
+> ahorro) **sigue siendo cierta** y por eso la sección queda; lo que no vale es la
+> aritmética que la sostenía.
+
 Peor: casi todas las alternativas de lip-sync por API están entre US$3 y US$7 el
 minuto (sync lipsync-2 US$3/min, OmniHuman 1.5 US$0,12/s = US$7,20/min).
 
@@ -1890,9 +1896,54 @@ precios del curso** — el curso calcula **US$0,0133 por clip de 8 s** contra lo
 **US$0,20-0,40** que sale de la aritmética publicada de useapi, 15-30x de diferencia.
 Ninguno de los dos es dato hasta leer el saldo real: un precio de un curso no es un
 precio.
-```
 
-**Línea para `docs/hallazgos.md`** (fila de Generación de imagen y video, agregar al final de la celda de resumen):
+## Publicar la extensión: lo que la Chrome Web Store mira de verdad
 
-```
-…y por qué **automatizar Flow con useapi NO es más barato que HeyGen** (US$2,25 vs US$1 el minuto: el Norte es movimiento, no ahorro), el contrato completo de la API (**I2V-FL con `startImage`+`endImage` resuelve la consistencia entre clips**, assets como binario crudo, `characters` incompatible con `veo-3.1-quality`, upscale 1080p gratis, y el **`videoUrl` ausente que significa «todavía no» y no «falló»**), la **cuenta de Google que queda quemada para uso humano** (error 596), el **campo minado de licencias donde Wav2Lip contagia** todo el pipeline, el techo de 8 GB de la 4060 que decide qué corre en casa, y el **experimento de US$5 sobre los anuncios ya hechos** que decide si la identidad se corrige encima o tiene que salir bien de Flow.
+Enviada a revisión el 26/08/2026. El id que asigna la tienda —
+`gapbemdaaghomjbnggechglkpmbgplle` — sale **al subir el paquete, antes de aprobar**, así
+que el link de instalación se puede cablear el mismo día. Lo que no se puede es
+mostrarlo: **da 404 hasta que la revisión termina**. Por eso `lib/extension-tienda.ts`
+tiene un booleano a mano y no una detección — preguntarle a Google si ya aprobó exige
+scrapear su HTML, que se rompe en silencio el día que cambian la página.
+
+**«Gratis» no es «Non-trader».** Fue la duda al llenar el formulario y la respuesta no es
+la intuitiva: la declaración de *trader* no pregunta si el ítem se cobra, pregunta si
+quien publica actúa **con fines comerciales**. La extensión es la puerta de entrada a un
+SaaS que cobra, así que es *trader* aunque la extensión sea gratis y aunque haya plan
+free. Declarar *Non-trader* para ahorrarse subir el documento de identidad es declarar
+algo falso sobre un dato que la tienda verifica contra la dirección y la factura.
+
+**`injected.js` NO es remote code.** Se inyecta en la página, pero **viaja dentro del
+paquete** (`web_accessible_resources`). *Remote code* es JS o WASM que se descarga en
+tiempo de ejecución. Contestar «sí» por las dudas abre una revisión de algo que no se
+hace y no tiene cómo terminar bien.
+
+**Hay que declarar «Authentication information», y tienta no hacerlo.** La extensión lee
+el header `Authorization` que el navegador ya manda a Flow y lo guarda en
+`chrome.storage.local`; no lo transmite a ningún lado, ni siquiera a MaKo. Es cierto que
+no sale del equipo, y por eso da ganas de marcar «no recolecta nada». **Lo que la
+revisión compara es la declaración contra el `manifest.json`**: `webRequest` + un host de
+Google + «no recolecto datos» es una contradicción visible en treinta segundos, y hunde
+la credibilidad de todo el resto del formulario — incluido lo que sí era cierto.
+
+**Unlisted no es un atajo.** Pasa exactamente la misma revisión que Public; lo único que
+cambia es que no aparece en búsquedas. Elegirlo para «evitar la revisión» no evita nada.
+
+**Y el paquete que se sube no es la carpeta de desarrollo.** El `localhost` de
+`content_scripts.matches` sirve para probar contra el server local y no tiene ningún uso
+para un cliente: un permiso sin uso visible es de los motivos más comunes de rechazo. Se
+filtra **al empaquetar** (`scripts/zip-extension.mjs`), nunca a mano — un manifest que hay
+que editar antes de cada subida se sube sin editar la vez que hay apuro.
+
+**Lo que queda pendiente del trámite:**
+
+- **Poner `EXTENSION_EN_TIENDA = true`** en `lib/extension-tienda.ts` cuando aprueben. Es
+  el único cambio: la pantalla pasa sola de «descargar el zip» a «añadir a Chrome» y el
+  instructivo de modo desarrollador desaparece.
+- **Si rechazan**, el motivo llega por mail con el ítem concreto del formulario. Casi
+  siempre es una justificación de permiso que no explica el *para qué* del usuario: se
+  reescribe ese campo y se reenvía, sin resubir el paquete.
+
+**Vive en:** `lib/extension-tienda.ts`, `extension/manifest.json`,
+`scripts/zip-extension.mjs`, `app/privacidad/extension/page.tsx`,
+`app/video-generator/PuentePanel.tsx`.
