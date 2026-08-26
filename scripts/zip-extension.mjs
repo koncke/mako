@@ -37,8 +37,28 @@ if (process.argv.includes('--check')) {
   process.exit(0);
 }
 
+/**
+ * El manifest del PAQUETE, que no es el de desarrollo.
+ *
+ * Saca los matches de `localhost`: existen para probar contra el server local y
+ * no tienen ningún uso para un cliente. Un permiso sin uso visible es de los
+ * motivos más comunes de rechazo en la revisión de la Chrome Web Store, y acá
+ * además sería cierto que no se usa.
+ */
+function manifestParaPaquete(crudo) {
+  const m = JSON.parse(crudo);
+  for (const cs of m.content_scripts ?? []) {
+    cs.matches = (cs.matches ?? []).filter((x) => !x.includes('localhost'));
+  }
+  m.content_scripts = (m.content_scripts ?? []).filter((cs) => cs.matches.length > 0);
+  return JSON.stringify(m, null, 2) + '\n';
+}
+
 const zip = new JSZip();
-for (const f of archivos) zip.file(f, readFileSync(resolve(ORIGEN, f)));
+for (const f of archivos) {
+  const buf = readFileSync(resolve(ORIGEN, f));
+  zip.file(f, f === 'manifest.json' ? manifestParaPaquete(buf.toString('utf8')) : buf);
+}
 const buf = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 writeFileSync(ZIP, buf);
 writeFileSync(HUELLA, `${huella}\n`);
