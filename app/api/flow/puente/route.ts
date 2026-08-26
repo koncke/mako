@@ -21,13 +21,13 @@ import {
   workspaceDeToken, marcarVisto, tomarTrabajos, resolver, fallar,
   type EstadoPuente,
 } from '@/lib/flow-cola';
-import { LIMITES, type MotivoFalla } from '@/lib/flow-protocolo';
+import { LIMITES, clasificarFallaDelNavegador, type MotivoFalla } from '@/lib/flow-protocolo';
 
 export const dynamic = 'force-dynamic';
 
 const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 const ESTADOS: EstadoPuente[] = ['sin_conectar', 'listo', 'sin_sesion', 'marcada'];
-const MOTIVOS: MotivoFalla[] = ['contenido', 'cuota', 'modelo', 'medio_vencido', 'sesion_marcada', 'transitorio', 'sin_sesion'];
+const MOTIVOS: MotivoFalla[] = ['contenido', 'cuota', 'modelo', 'medio_vencido', 'sesion_marcada', 'transitorio', 'sin_sesion', 'puente_dormido'];
 
 type ResultadoEntrante = {
   id: number;
@@ -69,6 +69,15 @@ export async function POST(req: NextRequest) {
     // El motivo lo clasifica el server, no el navegador: se acepta solo del
     // enum conocido. Un motivo inventado que cayera en «reintentable» sería
     // el navegador decidiendo cuántas veces le pegamos a Google.
+    // El texto del error gana sobre la etiqueta que le puso el navegador: su
+    // `catch` clasifica por descarte y manda «transitorio, reintentable» para
+    // todo lo que no reconoce, así que una falla permanente se reintentaría cinco
+    // veces sin decir jamás qué hay que hacer.
+    const delNavegador = clasificarFallaDelNavegador(str(r.error));
+    if (delNavegador) {
+      await fallar(ws, id, delNavegador.motivo, delNavegador.error, delNavegador.reintentable);
+      continue;
+    }
     const motivo = MOTIVOS.includes(str(r.motivo) as MotivoFalla) ? (str(r.motivo) as MotivoFalla) : 'transitorio';
     await fallar(ws, id, motivo, str(r.error) || 'sin detalle', r.reintentable !== false);
   }

@@ -18,7 +18,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { clasificarFalla, extraerMediaId, LIMITES, MODELOS, RECAPTCHA_SITE_KEY } from '../lib/flow-protocolo';
+import { clasificarFalla, clasificarFallaDelNavegador, extraerMediaId, LIMITES, MODELOS, RECAPTCHA_SITE_KEY } from '../lib/flow-protocolo';
 
 // ── Clasificar el fallo ──────────────────────────────────────────────────────
 
@@ -141,5 +141,47 @@ test('la site key del captcha es la de Flow y no un placeholder', () => {
 test('los modelos son ids literales, no descripciones', () => {
   for (const [k, v] of Object.entries(MODELOS)) {
     assert.match(v, /^[a-zA-Z0-9_]+$/, `${k}: «${v}»`);
+  }
+});
+
+// ── Las fallas que NO vienen de la API sino del navegador ────────────────────
+// El `catch` de la extensión clasifica por descarte: todo lo que no reconoce sale
+// como «transitorio, reintentable». Con eso, un problema permanente se reintenta
+// cinco veces y muere igual sin decir nunca qué había que hacer — pasó, con tres
+// trabajos consecutivos quemados contra lo mismo.
+
+test('la pestaña de Flow sin content script NO se reintenta: se recarga', () => {
+  const r = clasificarFallaDelNavegador('Could not establish connection. Receiving end does not exist.');
+  assert.equal(r?.motivo, 'puente_dormido');
+  assert.equal(r?.reintentable, false);
+  assert.match(r!.error, /Recárgala|recarga/i, 'el mensaje tiene que decir QUÉ hacer');
+});
+
+test('el captcha que no contesta tampoco se reintenta', () => {
+  for (const msg of ['CAPTCHA_TIMEOUT', 'SIN_GRECAPTCHA']) {
+    const r = clasificarFallaDelNavegador(msg);
+    assert.equal(r?.motivo, 'puente_dormido', msg);
+    assert.equal(r?.reintentable, false, msg);
+  }
+});
+
+test('sin pestaña de Flow es sin_sesion, no puente_dormido', () => {
+  // Son cosas distintas y llevan a acciones distintas: abrir Flow vs. recargarlo.
+  const r = clasificarFallaDelNavegador('NO_FLOW_TAB');
+  assert.equal(r?.motivo, 'sin_sesion');
+  assert.equal(r?.reintentable, false);
+});
+
+test('un error que no reconoce devuelve null y NO pisa la clasificación previa', () => {
+  // Devolver un default acá sería el mismo error por descarte, movido de lugar.
+  assert.equal(clasificarFallaDelNavegador('HTTP 500'), null);
+  assert.equal(clasificarFallaDelNavegador(''), null);
+});
+
+test('ningún motivo del navegador es reintentable: los tres piden una acción', () => {
+  // El contrato completo. Si mañana se agrega uno reintentable, que este test lo
+  // haga explícito en vez de que se cuele.
+  for (const msg of ['Receiving end does not exist', 'CAPTCHA_TIMEOUT', 'SIN_GRECAPTCHA', 'NO_FLOW_TAB']) {
+    assert.equal(clasificarFallaDelNavegador(msg)?.reintentable, false, msg);
   }
 });

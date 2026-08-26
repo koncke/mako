@@ -451,8 +451,16 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
               </Alert>
             ) : (
               <Alert tono="info">
-                Esperando a tu navegador. Revisa que la extensión esté instalada, que tenga el
-                código pegado, y que la pestaña de Google Flow esté abierta.
+                {/*
+                  Este texto NO puede enumerar posibles causas. La versión anterior
+                  mandaba a revisar tres cosas —extensión instalada, código pegado,
+                  pestaña de Flow abierta— y en el caso real que lo puso a prueba las
+                  tres estaban bien: la falla era otra, y el mensaje mandó a buscar
+                  donde no era. Cuando el trabajo falla de verdad, el motivo llega
+                  clasificado y se muestra arriba, en la rama `fallido`.
+                */}
+                Esperando a tu navegador. Deja abierta la pestaña de Google Flow; la respuesta
+                aparece acá en unos segundos.
               </Alert>
             )}
           </div>

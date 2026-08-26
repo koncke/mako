@@ -114,7 +114,12 @@ export type MotivoFalla =
   /** 500 del backend. Reintentar con backoff. */
   | 'transitorio'
   /** El token venció o el puente no está. Se recaptura y se reencola. */
-  | 'sin_sesion';
+  | 'sin_sesion'
+  /**
+   * La pestaña de Flow está abierta pero no responde: le falta el content
+   * script. NO se reintenta — hace falta que una persona la recargue.
+   */
+  | 'puente_dormido';
 
 export type FlowOut<T> =
   | { ok: true; data: T }
@@ -197,5 +202,57 @@ export function clasificarFalla(status: number, cuerpo: unknown): { motivo: Moti
     return { motivo: 'sin_sesion', error: 'El token de Flow venció. Hay que recapturarlo desde el navegador.', reintentable: true };
   }
   return { motivo: 'transitorio', error: mensaje.slice(0, 300), reintentable: true };
+}
+
+/**
+ * Clasifica las fallas que NO vienen de la API de Flow sino del NAVEGADOR.
+ *
+ * Existe porque el `catch` de la extensión clasifica por descarte —todo lo que no
+ * sea `NO_FLOW_TAB` es «transitorio y reintentable»— y eso hace que un problema
+ * permanente se reintente cinco veces y muera igual, sin decir nunca qué había
+ * que hacer. Medido: tres trabajos consecutivos quemados contra lo mismo.
+ *
+ * Se resuelve en el SERVER a propósito: mejorar la clasificación no puede exigir
+ * que cada cliente reinstale la extensión. El navegador manda el error crudo; qué
+ * significa lo decide acá.
+ *
+ * Devuelve `null` cuando no reconoce el error, para no pisar lo que ya clasificó
+ * bien el que lo generó.
+ */
+export function clasificarFallaDelNavegador(
+  mensaje: string,
+): { motivo: MotivoFalla; error: string; reintentable: boolean } | null {
+  const m = mensaje.trim();
+
+  // Chrome cuando `tabs.sendMessage` no encuentra receptor: la pestaña de Flow
+  // existe, pero su content script no. Pasa siempre que la pestaña se cargó ANTES
+  // de instalar la extensión —Chrome no inyecta hacia atrás— y también cuando
+  // Chrome la descartó por inactividad.
+  if (/Receiving end does not exist|Could not establish connection/i.test(m)) {
+    return {
+      motivo: 'puente_dormido',
+      error: 'La pestaña de Google Flow está abierta pero no responde. Recárgala (F5) y vuelve a intentar.',
+      reintentable: false,
+    };
+  }
+
+  // El widget de reCAPTCHA no contestó. Recargar la pestaña lo vuelve a cargar.
+  if (/CAPTCHA_TIMEOUT|SIN_GRECAPTCHA/i.test(m)) {
+    return {
+      motivo: 'puente_dormido',
+      error: 'Google Flow no entregó el permiso de seguridad. Recarga la pestaña de Flow (F5) y vuelve a intentar.',
+      reintentable: false,
+    };
+  }
+
+  if (m === 'NO_FLOW_TAB') {
+    return {
+      motivo: 'sin_sesion',
+      error: 'No hay ninguna pestaña de Google Flow abierta en este navegador.',
+      reintentable: false,
+    };
+  }
+
+  return null;
 }
 
