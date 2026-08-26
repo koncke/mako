@@ -64,6 +64,36 @@ const bytesVideo = () => {
   for (const f of readdirSync(d)) { try { t += statSync(join(d, f)).size; } catch { /* se lo llevaron entre el listado y el stat */ } }
   return t;
 };
+/**
+ * ⚠️ SI LA SEÑAL DE VIDA LA PUEDE BORRAR EL QUE LA MIRA, NO ES UNA SEÑAL DE VIDA.
+ *
+ * `bytesVideo()` mide la carpeta `video/`, y esta misma corrida la ENCOGE: cuando un
+ * video ya está confirmado en Drive, `--liberar` lo borra. Con eso `bytesVideo() >
+ * bytesPrevios` da false mientras el descargador sigue bajando a pleno, porque la
+ * liberación le gana a la descarga. El pipeline concluye «no hay descarga viva», mide
+ * `alcanzable = bajados()` sobre una foto parcial, y PUBLICA con lo que había.
+ *
+ * Pasó el 26/08/2026 con «Seminarios Alejandro Cardona»: el descargador estaba en la
+ * clase 11 de 17 y la ficha salió declarando «10 clases, 3 módulos». No falló nada —
+ * salió con código 0 y el mensaje «✓ COMPLETO: bajado, transcripto y PUBLICADO».
+ *
+ * Las dos señales de acá abajo son MONÓTONAS o INSTANTÁNEAS, así que nada las puede
+ * deshacer:
+ *   · `bajados.txt` lo escribe `curso-bajar.mjs` de a una línea por descarga terminada,
+ *     y nunca borra. Si creció, hubo una descarga nueva.
+ *   · un `.part` es una descarga EN VUELO ahora mismo. Cubre el hueco de una descarga
+ *     larga que todavía no terminó y por eso no escribió su línea.
+ */
+const lineasBajados = () => {
+  try { return readFileSync(join(base, 'bajados.txt'), 'utf8').split('\n').filter((l) => l.trim()).length; }
+  catch { return 0; }
+};
+const hayParte = () => {
+  const d = join(base, 'video');
+  if (!existsSync(d)) return false;
+  try { return readdirSync(d).some((f) => /\.(part|ytdl)$/i.test(f)); } catch { return false; }
+};
+
 const audios = () => cuenta('audio', (f) => /\.m4a$/i.test(f));
 const textos = () => cuenta('texto', (f) => f.endsWith('.md') && f !== '_indice.md');
 
@@ -97,7 +127,7 @@ const correr = (script, args, ts = false) => {
 };
 
 const hasta = Date.now() + TOPE_H * 3600000;
-let secas = 0, ronda = 0, bytesPrevios = 0;
+let secas = 0, ronda = 0, bytesPrevios = 0, bajadosPrevios = lineasBajados();
 // Hora LOCAL, no UTC. Con toISOString() el log marcaba 3 h menos que todo lo demás
 // que se mira (procesos, archivos), y un hueco por la máquina dormida se leyó como
 // «la descarga se colgó». Ver docs/hallazgos-conocimiento.md.
@@ -154,7 +184,11 @@ while (Date.now() < hasta) {
   // por qué. Un total que se alcanza escondiendo lo que falta es peor que uno que no se
   // alcanza.
   const alcanzable = bajados();
-  const descargaViva = bytesVideo() > bytesPrevios;
+  // Las tres señales en OR, y no en AND: cualquiera que diga «todavía estoy bajando»
+  // alcanza para no publicar. Una condición que exige que las tres lo digan es una
+  // condición que se apaga con que una se rompa — y la de los bytes ya se rompió.
+  const bajadosAhora = lineasBajados();
+  const descargaViva = bytesVideo() > bytesPrevios || bajadosAhora > bajadosPrevios || hayParte();
   if (ahora < total && ahora >= alcanzable && !descargaViva && secas >= 2) {
     const sinVideo = plan.clases.filter((c) => !existsSync(join(base, 'video', `${c.archivo}.mp4`)));
     console.log(`\n  ⚠ ${total - alcanzable} clase(s) del plan NO se pudieron bajar del origen:`);
@@ -223,9 +257,14 @@ while (Date.now() < hasta) {
     // Antes de declararlo muerto: ¿engordó video/ desde la ronda anterior? Si sí,
     // está bajando una clase larga y hay que esperarla, no cortar.
     const bytesAhora = bytesVideo();
-    if (bytesAhora > bytesPrevios) {
-      console.log(`             (descargador VIVO: video/ creció ${((bytesAhora - bytesPrevios) / 1048576).toFixed(0)} MB — sigo esperando)`);
+    const bajAhora = lineasBajados();
+    if (bytesAhora > bytesPrevios || bajAhora > bajadosPrevios || hayParte()) {
+      const porque = bajAhora > bajadosPrevios ? `bajados.txt pasó de ${bajadosPrevios} a ${bajAhora}`
+        : hayParte() ? 'hay un .part en vuelo'
+          : `video/ creció ${((bytesAhora - bytesPrevios) / 1048576).toFixed(0)} MB`;
+      console.log(`             (descargador VIVO: ${porque} — sigo esperando)`);
       bytesPrevios = bytesAhora;
+      bajadosPrevios = bajAhora;
       secas = SIN_PROGRESO_MAX; // se le devuelve margen, no se reinicia del todo
     } else {
       console.log(`\n  ⚠ Sin progreso ${secas} rondas, la descarga sigue en ${bajados()}/${total}`);
@@ -235,6 +274,7 @@ while (Date.now() < hasta) {
     }
   }
   bytesPrevios = bytesVideo();
+  bajadosPrevios = lineasBajados();
 
   await new Promise((r) => setTimeout(r, PAUSA_S * 1000));
 }
