@@ -3,24 +3,52 @@
   "name": "MaKo · Puente de video",
   "version": "0.1.0",
   "description": "Genera los anuncios de MaKo con tu propia cuenta de Google Flow, desde tu navegador.",
-  "permissions": ["storage", "alarms", "webRequest"],
+  "permissions": [
+    "storage",
+    "alarms",
+    "webRequest"
+  ],
   "host_permissions": [
     "https://labs.google/*",
     "https://aisandbox-pa.googleapis.com/*"
   ],
-  "background": { "service_worker": "background.js" },
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
-      "matches": ["https://labs.google/fx/tools/flow*", "https://labs.google/fx/*/tools/flow*"],
-      "js": ["content.js"],
+      "matches": [
+        "https://labs.google/fx/tools/flow*",
+        "https://labs.google/fx/*/tools/flow*"
+      ],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://hola-mako.com/*",
+        "http://localhost/*",
+        "http://localhost:*/*"
+      ],
+      "js": [
+        "mako-puente.js"
+      ],
+      "run_at": "document_start"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["injected.js"],
-      "matches": ["https://labs.google/*"]
+      "resources": [
+        "injected.js"
+      ],
+      "matches": [
+        "https://labs.google/*"
+      ]
     }
   ],
-  "action": { "default_popup": "popup.html" }
+  "action": {
+    "default_popup": "popup.html"
+  }
 }

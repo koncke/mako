@@ -36,6 +36,55 @@ import {
 
 const FLOW_URL = 'https://labs.google/fx/tools/flow';
 
+/**
+ * ¿Está la extensión instalada en ESTE navegador?
+ *
+ * Lo dice el atributo que su content script pone en `<html>` al cargar la página.
+ * No se usa `externally_connectable` —que sería lo obvio— porque ese mecanismo
+ * necesita el ID de la extensión, y el ID CAMBIA cuando se publica en la Chrome
+ * Web Store: Google asigna el suyo. Por el DOM funciona igual instalada a mano o
+ * desde la tienda.
+ */
+function useExtensionInstalada(): boolean | null {
+  // null = todavía no se sabe. Importa: mostrar «no la tenés» durante un
+  // instante a alguien que sí la tiene es peor que no mostrar nada.
+  const [instalada, setInstalada] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const mirar = () => document.documentElement.hasAttribute('data-mako-puente');
+    if (mirar()) { setInstalada(true); return; }
+    // El content script corre en `document_start`, pero una recarga con la
+    // extensión recién instalada puede llegar tarde: se mira un rato antes de
+    // afirmar que no está.
+    let n = 0;
+    const t = window.setInterval(() => {
+      if (mirar()) { setInstalada(true); window.clearInterval(t); return; }
+      if (++n >= 6) { setInstalada(false); window.clearInterval(t); }
+    }, 250);
+    return () => window.clearInterval(t);
+  }, []);
+
+  return instalada;
+}
+
+/**
+ * Le pasa el token a la extensión y espera el acuse.
+ *
+ * Sin el acuse no se puede distinguir «lo guardó» de «no escuchó», y la pantalla
+ * terminaría afirmando que conectó sobre algo que no pasó.
+ */
+function entregarToken(token: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const ok = () => { window.removeEventListener('MAKO_PUENTE_TOKEN_OK', ok); resolve(true); };
+    window.addEventListener('MAKO_PUENTE_TOKEN_OK', ok);
+    window.dispatchEvent(new CustomEvent('MAKO_PUENTE_TOKEN', { detail: { token } }));
+    window.setTimeout(() => {
+      window.removeEventListener('MAKO_PUENTE_TOKEN_OK', ok);
+      resolve(false);
+    }, 3000);
+  });
+}
+
 function Paso({
   n, titulo, hecho, activo, children, contexto,
 }: {
@@ -86,6 +135,7 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
   const [puente, setPuente] = useState(inicial);
   const [token, setToken] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
+  const instalada = useExtensionInstalada();
   const [trabajoId, setTrabajoId] = useState<number | null>(null);
   const [prueba, setPrueba] = useState<EstadoPruebaOut['prueba']>(null);
   const [busyCodigo, setBusyCodigo] = useState(false);
@@ -106,14 +156,22 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
   const probado = prueba?.estado === 'listo';
   const listo = llamo && conSesion && probado;
 
-  const generarCodigo = useCallback(async () => {
+  const conectar = useCallback(async () => {
     setBusyCodigo(true); setError(null);
     try {
       const out = await conectarPuenteAction('Mi navegador');
       if (!out.ok) { setError(out.error); return; }
+      // Con la extensión presente, el token se le entrega solo. El código en
+      // pantalla queda como salida de emergencia: si el apretón de manos falla
+      // —una versión vieja de la extensión, un content script que no cargó—,
+      // todavía se puede pegar a mano en vez de quedar sin camino.
+      if (instalada && (await entregarToken(out.token))) {
+        setCiclos(0);
+        return;
+      }
       setToken(out.token);
     } finally { setBusyCodigo(false); }
-  }, []);
+  }, [instalada]);
 
   const copiar = useCallback(() => {
     if (!token) return;
@@ -213,8 +271,8 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
       <Paso
         n={1}
         titulo="Instala la extensión de MaKo"
-        hecho={llamo}
-        activo={!llamo}
+        hecho={instalada === true}
+        activo={instalada !== true}
         contexto={
           <>
             Descarga el archivo y descomprímelo en una carpeta. Después abre{' '}
@@ -227,24 +285,34 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
           </>
         }
       >
-        <Button
-          variant="secondary"
-          onClick={() => { window.location.href = '/mako-puente.zip'; }}
-          icon={<Icon name="descargar" size={14} />}
-        >
-          Descargar la extensión
-        </Button>
+        {instalada === true ? (
+          <Status tono="good">Ya está instalada en este navegador</Status>
+        ) : (
+          <Button
+            variant="secondary"
+            onClick={() => { window.location.href = '/mako-puente.zip'; }}
+            icon={<Icon name="descargar" size={14} />}
+          >
+            Descargar la extensión
+          </Button>
+        )}
       </Paso>
 
       <Paso
         n={2}
         titulo="Conecta la extensión con tu cuenta"
         hecho={llamo}
-        activo={!llamo}
-        contexto="Genera el código, cópialo, y pégalo en la extensión: haz clic en su ícono, arriba a la derecha del navegador. El código se muestra una sola vez; si lo pierdes, genera otro."
+        activo={instalada === true && !llamo}
+        contexto="Un clic y listo: MaKo le pasa la llave a la extensión sin que tengas que copiar nada. Si algo falla, aparece el código para pegarlo a mano."
       >
         {token ? (
+          // Salida de emergencia: el apretón de manos no funcionó (extensión
+          // vieja, content script que no cargó). Se puede pegar a mano.
           <>
+            <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginBottom: 8 }}>
+              No pude pasárselo solo. Copia este código y pégalo en la extensión, haciendo
+              clic en su ícono.
+            </div>
             <div style={{
               fontFamily: MONO, fontSize: 12.5, padding: 10, wordBreak: 'break-all',
               background: 'var(--surface-2)', border: '1px solid var(--border)',
@@ -262,8 +330,13 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
             </div>
           </>
         ) : (
-          <Button variant="secondary" onClick={() => void generarCodigo()} loading={busyCodigo}>
-            {puente.emparejado ? 'Generar un código nuevo' : 'Generar mi código'}
+          <Button
+            variant="secondary"
+            onClick={() => void conectar()}
+            loading={busyCodigo}
+            disabled={instalada === false}
+          >
+            {llamo ? 'Volver a conectar' : 'Conectar'}
           </Button>
         )}
       </Paso>
