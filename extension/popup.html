@@ -1,0 +1,15 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  body { font: 13px/1.5 system-ui, sans-serif; width: 300px; padding: 14px; margin: 0; }
+  h1 { font-size: 15px; margin: 0 0 10px; }
+  input { width: 100%; box-sizing: border-box; padding: 7px; font: inherit; }
+  button { margin-top: 8px; padding: 7px 12px; font: inherit; cursor: pointer; }
+  .estado { margin-top: 12px; padding: 9px; border-radius: 6px; background: #f2f3f5; }
+  .ok { color: #0a7d33; } .falta { color: #9a6700; }
+</style>
+<h1>MaKo · Puente de video</h1>
+<label>Código de conexión<br><input id="token" placeholder="flow_…"></label>
+<button id="guardar">Conectar</button>
+<div class="estado" id="estado">…</div>
+<script src="popup.js"></script>

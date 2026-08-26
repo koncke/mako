@@ -1,0 +1,255 @@
+// =============================================================================
+// flow-cola — el puente entre MaKo y el navegador del cliente
+// =============================================================================
+// Flow no tiene API pública: lo único que autoriza una llamada es el bearer que
+// la propia web manda desde una sesión iniciada. El que genera, entonces, no es
+// Vercel — es el NAVEGADOR DEL CLIENTE, con su cuenta de Google y sus créditos.
+//
+// Dos consecuencias que valen más que el código:
+//
+// 1. **Los medios salen del presupuesto de MaKo.** Eran el 90% del costo del
+//    plan Growth (`mediosUsd: 24,58` contra `textoUsd: 2,82` en modelo.ts) y
+//    pasan a la suscripción que el cliente ya paga.
+// 2. **No hay una cuenta central que quemar.** Cada workspace corre sobre la
+//    suya, así que un cliente que se pasa de ritmo no se lleva puestos a los
+//    demás.
+//
+// MaKo no puede empujarle trabajo a un navegador que está detrás de un NAT, así
+// que el navegador VIENE A BUSCARLO: la extensión hace polling con un token de
+// emparejamiento, ejecuta contra Google y devuelve el resultado.
+//
+// ⚠️ EL BEARER DE GOOGLE NO SE GUARDA. Vive en la extensión, en la máquina del
+// cliente, y muere ahí. Lo único que viaja de vuelta es el resultado. Custodiar
+// el token de sesión de Google de un tercero es un riesgo que no hace falta
+// asumir para nada.
+
+import 'server-only';
+import { createHash, randomBytes } from 'node:crypto';
+import { getTenantDb, runWithWorkspace } from './workspace';
+import { getSupabaseServer } from './supabase';
+import type { MotivoFalla } from './flow-protocolo';
+
+/** Tipos de trabajo que la extensión sabe ejecutar. */
+export type TipoTrabajo = 'subir_imagen' | 'generar_clip' | 'estado_clips' | 'creditos';
+
+export type EstadoPuente = 'sin_conectar' | 'listo' | 'sin_sesion' | 'marcada';
+
+export type Trabajo = {
+  id: number;
+  tipo: TipoTrabajo;
+  pedido: Record<string, unknown>;
+  intentos: number;
+};
+
+/**
+ * Un trabajo `tomado` que nadie devolvió se da por colgado pasado esto.
+ *
+ * Pasa solo: el cliente cierra el navegador a mitad de una generación. Sin este
+ * rescate, ese trabajo bloquea su lugar en la cola para siempre y el cliente ve
+ * «generando…» hasta que alguien mire la base.
+ */
+const COLGADO_MS = 10 * 60 * 1000;
+
+const hash = (token: string) => createHash('sha256').update(token).digest('hex');
+
+// ── El emparejamiento ────────────────────────────────────────────────────────
+
+/**
+ * Crea (o rota) el token del puente y lo devuelve EN CLARO una sola vez.
+ *
+ * Se guarda hasheado: si la base se filtra, no alcanza para hacerse pasar por el
+ * navegador de un cliente. Y por eso mismo no hay forma de volver a leerlo — si
+ * el cliente lo pierde, se rota, que es lo correcto.
+ */
+export async function crearTokenPuente(etiqueta = ''): Promise<{ token: string }> {
+  const db = await getTenantDb();
+  const token = `flow_${randomBytes(24).toString('base64url')}`;
+  await db.from('flow_puentes').upsert(
+    {
+      token_hash: hash(token),
+      etiqueta: etiqueta.slice(0, 80),
+      estado: 'sin_conectar',
+      estado_detalle: '',
+    },
+    { onConflict: 'workspace_id' },
+  );
+  return { token };
+}
+
+export type Puente = {
+  estado: EstadoPuente;
+  detalle: string;
+  etiqueta: string;
+  projectId: string;
+  ultimoVisto: string | null;
+  /** true = hay un token creado (aunque el navegador nunca se haya conectado). */
+  emparejado: boolean;
+};
+
+/** El estado del puente para la pantalla. Nunca devuelve el token. */
+export async function estadoPuente(): Promise<Puente> {
+  const db = await getTenantDb();
+  const { data } = await db.from('flow_puentes').select('*').maybeSingle();
+  if (!data) {
+    return { estado: 'sin_conectar', detalle: '', etiqueta: '', projectId: '', ultimoVisto: null, emparejado: false };
+  }
+  return {
+    estado: (data.estado ?? 'sin_conectar') as EstadoPuente,
+    detalle: data.estado_detalle ?? '',
+    etiqueta: data.etiqueta ?? '',
+    projectId: data.project_id ?? '',
+    ultimoVisto: data.ultimo_visto ?? null,
+    emparejado: true,
+  };
+}
+
+/**
+ * Resuelve qué workspace es el dueño de un token de puente.
+ *
+ * ⚠️ Esta es la ÚNICA función del módulo que NO puede usar `getTenantDb`: la
+ * llama la extensión, que todavía no tiene sesión ni `?ws=` — el token ES la
+ * credencial y lo que devuelve es de quién es. Por eso busca por `token_hash`
+ * sobre la tabla entera y **devuelve el workspace_id**, que el caller usa para
+ * scopear todo lo demás. Nunca acepta un workspace por parámetro: eso sería
+ * dejar que quien llama elija a qué cliente le escribe.
+ */
+export async function workspaceDeToken(token: string): Promise<number | null> {
+  if (!token || !token.startsWith('flow_')) return null;
+  // Cliente CRUDO, sin el proxy que scopea: acá todavía no se sabe el workspace
+  // —es justo lo que se está preguntando—. Es el único lugar del módulo que lo
+  // usa, y devuelve un id, nunca datos del cliente.
+  const { data } = await getSupabaseServer()
+    .from('flow_puentes')
+    .select('workspace_id')
+    .eq('token_hash', hash(token))
+    .maybeSingle();
+  const ws = Number(data?.workspace_id);
+  return Number.isInteger(ws) && ws > 0 ? ws : null;
+}
+
+/** El puente reporta que está vivo, y con qué proyecto de Flow trabaja. */
+export async function marcarVisto(ws: number, projectId: string, estado: EstadoPuente, detalle = ''): Promise<void> {
+  const db = await runWithWorkspace(ws, () => getTenantDb());
+  const patch: Record<string, unknown> = {
+    ultimo_visto: new Date().toISOString(),
+    estado,
+    estado_detalle: detalle.slice(0, 300),
+  };
+  if (projectId) patch.project_id = projectId;
+  await db.from('flow_puentes').update(patch).eq('workspace_id', ws);
+}
+
+// ── La cola ──────────────────────────────────────────────────────────────────
+
+/** Encola un trabajo y devuelve su id, para poder seguirlo. */
+export async function encolar(tipo: TipoTrabajo, pedido: Record<string, unknown>): Promise<number | null> {
+  const db = await getTenantDb();
+  const { data } = await db
+    .from('flow_trabajos')
+    .insert({ tipo, pedido, estado: 'pendiente' })
+    .select('id')
+    .maybeSingle();
+  const id = Number(data?.id);
+  return Number.isInteger(id) ? id : null;
+}
+
+/**
+ * Lo que el puente viene a buscar.
+ *
+ * Antes de servir, rescata los que quedaron `tomado` sin respuesta: el navegador
+ * se cierra a mitad más seguido de lo que uno cree, y un trabajo colgado bloquea
+ * su lugar para siempre.
+ *
+ * ⚠️ Si la sesión del cliente está MARCADA, no se entrega nada. Seguir generando
+ * con una sesión que Google ya señaló es lo que la termina de quemar: el estado
+ * lo levanta el cliente volviendo a entrar a Flow, no reintentando.
+ */
+export async function tomarTrabajos(ws: number, cuantos: number): Promise<Trabajo[]> {
+  const db = await runWithWorkspace(ws, () => getTenantDb());
+
+  const { data: puente } = await db.from('flow_puentes').select('estado').eq('workspace_id', ws).maybeSingle();
+  if (puente?.estado === 'marcada') return [];
+
+  const limite = new Date(Date.now() - COLGADO_MS).toISOString();
+  await db
+    .from('flow_trabajos')
+    .update({ estado: 'pendiente', tomado_at: null })
+    .eq('workspace_id', ws)
+    .eq('estado', 'tomado')
+    .lt('tomado_at', limite);
+
+  const { data } = await db
+    .from('flow_trabajos')
+    .select('id, tipo, pedido, intentos')
+    .eq('workspace_id', ws)
+    .eq('estado', 'pendiente')
+    .order('created_at', { ascending: true })
+    .limit(Math.max(1, Math.min(cuantos, 5)));
+
+  const trabajos = (data ?? []) as Trabajo[];
+  if (trabajos.length === 0) return [];
+
+  // Marcarlos tomados en el mismo tick: dos pestañas del cliente con la
+  // extensión puesta pedirían lo mismo dos veces.
+  await db
+    .from('flow_trabajos')
+    .update({ estado: 'tomado', tomado_at: new Date().toISOString() })
+    .eq('workspace_id', ws)
+    .in('id', trabajos.map((t) => t.id));
+
+  return trabajos;
+}
+
+/** El puente devuelve un resultado bueno. */
+export async function resolver(ws: number, id: number, resultado: unknown): Promise<void> {
+  const db = await runWithWorkspace(ws, () => getTenantDb());
+  await db
+    .from('flow_trabajos')
+    .update({ estado: 'listo', resultado, listo_at: new Date().toISOString(), motivo: '', error: '' })
+    .eq('workspace_id', ws)
+    .eq('id', id);
+}
+
+/**
+ * El puente devuelve un fallo, ya clasificado.
+ *
+ * Los terminales no se reintentan: reintentar un filtro de contenido o una cuota
+ * agotada quema cuota sin cambiar nada. Y `sesion_marcada` además **apaga el
+ * puente entero**, porque el problema no es este trabajo: es la sesión.
+ */
+export async function fallar(
+  ws: number,
+  id: number,
+  motivo: MotivoFalla,
+  error: string,
+  reintentable: boolean,
+): Promise<void> {
+  const db = await runWithWorkspace(ws, () => getTenantDb());
+
+  if (motivo === 'sesion_marcada') {
+    await marcarVisto(ws, '', 'marcada', error);
+  }
+
+  const { data } = await db.from('flow_trabajos').select('intentos').eq('workspace_id', ws).eq('id', id).maybeSingle();
+  const intentos = Number(data?.intentos ?? 0) + 1;
+  const seguir = reintentable && intentos < 5 && motivo !== 'sesion_marcada';
+
+  await db
+    .from('flow_trabajos')
+    .update({
+      estado: seguir ? 'pendiente' : 'fallido',
+      intentos,
+      motivo,
+      error: error.slice(0, 500),
+      tomado_at: null,
+      ...(seguir ? {} : { listo_at: new Date().toISOString() }),
+    })
+    .eq('workspace_id', ws)
+    .eq('id', id);
+}
+
+/** Marca que el medio ya se bajó a storage propio, antes de que venza en Google. */
+export async function marcarMedioGuardado(ws: number, id: number): Promise<void> {
+  const db = await runWithWorkspace(ws, () => getTenantDb());
+  await db.from('flow_trabajos').update({ medio_guardado: true }).eq('workspace_id', ws).eq('id', id);
+}

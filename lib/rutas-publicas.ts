@@ -43,6 +43,11 @@ export const PUBLICOS = [
   // Es segura por CONSTRUCCIÓN, no por confianza: solo acepta `?tipo=`, que es una
   // clave de un conjunto cerrado (lib/preview-links.ts), no lee la base y un tipo
   // desconocido cae al default. No hay ningún dato que pueda filtrar.
+  // El puente de Google Flow: lo llama la EXTENSIÓN desde el navegador del
+  // cliente, que no tiene sesión de MaKo. Se autentica con el token del puente
+  // (hasheado en flow_puentes) y no mira la cookie para nada. Es la ruta EXACTA,
+  // no el prefijo `/api/flow`: ahí van a convivir rutas de la app con sesión.
+  '/api/flow/puente',
   '/api/og',
   '/vsl',
   '/vsl-assets',
