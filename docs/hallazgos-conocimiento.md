@@ -4723,3 +4723,69 @@ falta.
 antes de concluir**, o su respuesta negativa no distingue «no está» de «no pude mirar». Es
 el mismo tercer estado de «no pude leer» que ya está escrito para las páginas ajenas. Vive
 en `scratchpad/esperar-login.mjs` (abrir la home del origen antes de leer).
+
+## La misma vista vive en DOS rutas y cada una la direcciona distinto
+
+**2026-08-26, poniendo la réplica en todos los cursos.** `CursoReplica` se monta desde dos
+lados, y por eso el curso NO viaja igual en los dos:
+
+| Ruta | Cómo se elige el curso |
+|---|---|
+| `/conocimientos` | `?curso=<slug>` — query, leída por `Conocimientos.tsx` |
+| `/compartido/<token>` | `#curso=<slug>` — hash, leído por `PortalCompartido.tsx` |
+
+Y adentro de la vista, la CLASE viaja siempre en el hash (`#clase=N`), porque es lo único
+que no depende de cuál de las dos rutas la montó.
+
+**Lo caro no fue el dato: fue lo que reportó el chequeo.** Un script de verificación que
+navegaba a `/conocimientos#curso=amorir` se quedaba en la grilla —el hash ahí no lo lee
+nadie, y no hay error— y su `waitFor('.ahdoc .ugc-side')` vencía. La salida decía, sobre
+los cuatro cursos: **«⛔ la réplica NUNCA se dibujó»**. La app estaba perfecta.
+
+**La regla: un chequeo que espera un elemento y no lo encuentra sabe UNA cosa —que no
+apareció—, y no puede afirmar por qué.** «No se dibujó» es una conclusión; el dato es «no
+apareció en N segundos». Cuando el timeout venza, el mensaje tiene que traer **dónde estaba
+parado** (la URL final y las primeras palabras del `innerText`): con eso, «me quedé en la
+grilla» se distingue de «entré y la vista está rota» a la primera lectura en vez de a la
+tercera. Un verificador que colapsa las dos en la misma frase manda a arreglar la pantalla
+que funciona.
+
+### Y el dev server local puede renderizar y NO hidratar, sin decir nada
+
+Mismo día, cazado persiguiendo lo de arriba: en `localhost:3000` la réplica se quedaba
+para siempre en «Abriendo el curso…» —el estado de `useCssDelOrigen` mientras la hoja no
+cargó—, con la hoja contestando **200 en 21 ms** por `curl`. La causa no era la hoja: era
+que **el `useEffect` no corría**, porque la página nunca hidrató.
+
+Cómo se mide, que es lo que sirve la próxima vez:
+
+```js
+[...document.querySelectorAll('body *')]
+  .filter((el) => Object.keys(el).some((k) => k.startsWith('__reactFiber$'))).length
+```
+
+Cero fibras con los chunks de Next cargados y la consola limpia = el HTML lo pintó el
+server y el navegador nunca lo tomó. **La firma es un componente que RENDERIZA su estado
+inicial y nunca sale de él**: cualquier estado que dependa de un efecto queda congelado en
+su valor de arranque, y desde afuera se lee como «mi feature está rota».
+
+Ya está en `AGENTS.md` que un `export` a medias de la otra sesión rompe el bundle entero;
+lo que faltaba era **cómo se comprueba en 5 segundos** y que el síntoma puede ser un
+spinner eterno y no una pantalla muerta. El camino que sí cerró la verificación fue
+producción — que es lo que ya dice la memoria `verificar-en-navegador`.
+
+**Vive en:** `app/conocimientos/Conocimientos.tsx` · `app/compartido/[token]/PortalCompartido.tsx` ·
+`app/conocimientos/CursoReplica.tsx`.
+
+**Estado:** la réplica es la vista de TODOS los cursos desde `098d66c4`. Verificado en
+producción sobre cuatro formas —con documentos y tapas de módulo (AvatarHype), sin ninguna
+de las dos (AMORir), 47 módulos (Organic Ecom) y 153 clases con 130 recursos
+(Certificación)—: la página no scrollea en ninguna, la sidebar mide 900/900, el módulo
+activo se pinta, no hay barra horizontal, y el scroll propio aparece donde tiene que
+aparecer (`ugc-pcol` con una clase larga abierta, `ugc-nav` con 47 módulos).
+
+⚠️ **Lo que NO se resolvió y hay que mirar:** las tapas por módulo las tiene un solo curso
+(`portadasModulo`, y `portadaClase` igual), así que en los otros veintipico las tarjetas de
+módulo caen todas al degradé con su número. Es el fallback previsto y se ve deliberado,
+pero si se quiere la pantalla de AvatarHype completa, lo que falta es **bajar las tapas de
+módulo**, no tocar el componente.
