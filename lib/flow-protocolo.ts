@@ -169,6 +169,26 @@ export function extraerMediaId(fuente: unknown): string | null {
  * un proveedor cambia sin aviso; el enum, mucho menos.
  */
 export function clasificarFalla(status: number, cuerpo: unknown): { motivo: MotivoFalla; error: string; reintentable: boolean } {
+  // ⚠️ El cuerpo NO siempre es JSON. Cuando Google decide que el tráfico es
+  // automatizado no contesta un error de la API: sirve su página HTML de bloqueo
+  // («Sorry… our systems have detected unusual traffic»). Con `obj()` eso da un
+  // objeto vacío, el mensaje queda en `HTTP <status>` y todo cae al `transitorio`
+  // del final — que es REINTENTABLE.
+  //
+  // El costo de esa ruta no es un trabajo perdido: cada reintento contra el
+  // bloqueo empeora el score de la sesión. Medido en producción el 26/08/2026:
+  // 25 pedidos consecutivos contra la página de bloqueo, todos automáticos, sin
+  // que nada frenara. El propio comentario de `sesion_marcada`, tres ramas más
+  // abajo, ya decía «frenar, no reintentar» — pero solo miraba el JSON.
+  const crudo = typeof cuerpo === 'string' ? cuerpo : '';
+  if (/unusual traffic|<title>\s*Sorry|\/sorry\/index/i.test(crudo)) {
+    return {
+      motivo: 'sesion_marcada',
+      error: 'Google bloqueó la sesión por «tráfico inusual». Hay que parar un rato, entrar a Flow a mano y comprobar que la cuenta no pida un captcha.',
+      reintentable: false,
+    };
+  }
+
   const raiz = obj(cuerpo);
   const err = obj(raiz.error ?? obj(raiz.data).error);
   const mensaje = str(err.message) || str(raiz.message) || `HTTP ${status}`;
@@ -197,6 +217,13 @@ export function clasificarFalla(status: number, cuerpo: unknown): { motivo: Moti
   // El medio subido vive ~1 h. No es un fallo del pedido: hay que resubir.
   if (/requested entity was not found|not found/i.test(texto)) {
     return { motivo: 'medio_vencido', error: 'La imagen de referencia venció en el storage de Google.', reintentable: true };
+  }
+  if (status === 429) {
+    return {
+      motivo: 'cuota',
+      error: 'Google está limitando el ritmo de esta cuenta. Hay que esperar antes de volver a intentar.',
+      reintentable: false,
+    };
   }
   if (status === 401 || /invalid.*credential|unauthenticated/i.test(texto)) {
     return { motivo: 'sin_sesion', error: 'El token de Flow venció. Hay que recapturarlo desde el navegador.', reintentable: true };

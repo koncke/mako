@@ -21,7 +21,7 @@ import {
   workspaceDeToken, marcarVisto, tomarTrabajos, resolver, fallar,
   type EstadoPuente,
 } from '@/lib/flow-cola';
-import { LIMITES, clasificarFallaDelNavegador, type MotivoFalla } from '@/lib/flow-protocolo';
+import { LIMITES, clasificarFalla, clasificarFallaDelNavegador, type MotivoFalla } from '@/lib/flow-protocolo';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +32,8 @@ const MOTIVOS: MotivoFalla[] = ['contenido', 'cuota', 'modelo', 'medio_vencido',
 type ResultadoEntrante = {
   id: number;
   ok: boolean;
+  /** El status HTTP que devolvió Google, cuando el pedido llegó a viajar. */
+  status?: number;
   data?: unknown;
   motivo?: string;
   error?: string;
@@ -66,16 +68,32 @@ export async function POST(req: NextRequest) {
       await resolver(ws, id, r.data ?? null);
       continue;
     }
-    // El motivo lo clasifica el server, no el navegador: se acepta solo del
-    // enum conocido. Un motivo inventado que cayera en «reintentable» sería
-    // el navegador decidiendo cuántas veces le pegamos a Google.
-    // El texto del error gana sobre la etiqueta que le puso el navegador: su
-    // `catch` clasifica por descarte y manda «transitorio, reintentable» para
-    // todo lo que no reconoce, así que una falla permanente se reintentaría cinco
-    // veces sin decir jamás qué hay que hacer.
+    // Quién clasifica una falla: el SERVER, en tres pasos y en este orden. El
+    // navegador nunca decide cuántas veces le pegamos a Google — su `catch` manda
+    // «transitorio, reintentable» para todo lo que no reconoce, y eso ya costó 25
+    // pedidos automáticos contra la página de bloqueo de Google.
+    //
+    //   1. ¿Es una falla del PUENTE? (la pestaña no responde, el captcha no vino)
+    //   2. ¿Llegó a Google y volvió con un status de error? → clasificarFalla
+    //   3. Recién ahí, la etiqueta del navegador, y solo si está en el enum.
     const delNavegador = clasificarFallaDelNavegador(str(r.error));
     if (delNavegador) {
       await fallar(ws, id, delNavegador.motivo, delNavegador.error, delNavegador.reintentable);
+      continue;
+    }
+
+    // Si el pedido LLEGÓ a Google, lo clasifica el mismo módulo que clasifica el
+    // camino server-side. Antes no pasaba por acá: el navegador no manda `motivo`
+    // en esta rama, así que un 429 o la página de bloqueo caían en el
+    // «transitorio» de más abajo y se reintentaban cinco veces. Es la misma regla
+    // que ya está escrita para el resto del repo — el guard va en el choke point,
+    // no en cada llamador.
+    const status = Number(r.status);
+    if (Number.isInteger(status) && status >= 400) {
+      // El cuerpo va como venga: si Google contestó HTML en vez de JSON, el texto
+      // crudo es justamente lo que delata el bloqueo.
+      const f = clasificarFalla(status, r.data ?? str(r.error));
+      await fallar(ws, id, f.motivo, f.error, f.reintentable);
       continue;
     }
     const motivo = MOTIVOS.includes(str(r.motivo) as MotivoFalla) ? (str(r.motivo) as MotivoFalla) : 'transitorio';

@@ -185,3 +185,40 @@ test('ningún motivo del navegador es reintentable: los tres piden una acción',
     assert.equal(clasificarFallaDelNavegador(msg)?.reintentable, false, msg);
   }
 });
+
+// ── El cuerpo no siempre es JSON ─────────────────────────────────────────────
+// Google no contesta un error de la API cuando decide que el tráfico es
+// automatizado: sirve su página HTML de bloqueo. Sin este caso, todo eso caía en
+// «transitorio» y se REINTENTABA — y cada reintento empeora el score.
+// Medido en producción el 26/08/2026: 25 pedidos consecutivos contra el bloqueo.
+
+const SORRY = '<html><head><meta http-equiv="content-type" content="text/html; charset=utf-8"/>'
+  + '<title>Sorry...</title></head><body>Our systems have detected unusual traffic'
+  + ' from your computer network.</body></html>';
+
+test('la página de bloqueo de Google FRENA, no se reintenta', () => {
+  const r = clasificarFalla(429, SORRY);
+  assert.equal(r.motivo, 'sesion_marcada');
+  assert.equal(r.reintentable, false, 'reintentar contra el bloqueo empeora el score');
+});
+
+test('el bloqueo se detecta aunque el status sea 200', () => {
+  // «res.ok no es salió bien»: el fallo puede venir con cualquier status.
+  assert.equal(clasificarFalla(200, SORRY).motivo, 'sesion_marcada');
+});
+
+test('un 429 sin la página de bloqueo tampoco se reintenta', () => {
+  // No hay backoff largo en la cola: volver antes de tiempo es lo que convierte
+  // un límite pasajero en una sesión marcada.
+  const r = clasificarFalla(429, { error: { message: 'Too Many Requests' } });
+  assert.equal(r.reintentable, false);
+});
+
+test('un HTML cualquiera NO es un bloqueo: solo lo es el que lo dice', () => {
+  // El guard va en positivo: se afirma el bloqueo por su marca, no por «vino algo
+  // que no era JSON». Un 500 con una página de error genérica sigue siendo
+  // transitorio y sí se reintenta.
+  const r = clasificarFalla(500, '<html><body>Internal Server Error</body></html>');
+  assert.equal(r.motivo, 'transitorio');
+  assert.equal(r.reintentable, true);
+});
