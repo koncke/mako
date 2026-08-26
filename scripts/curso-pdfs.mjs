@@ -191,7 +191,7 @@ const main = async () => {
     // los 130 desde cero. Reanudable en el papel y no en los hechos.
     const posicional = `recurso-${String(i + 1).padStart(2, '0')}`;
     const yaEsta = [raizNombre, posicional].filter(Boolean).flatMap((r) =>
-      ['pdf', 'zip', 'docx', 'xlsx', 'pptx', 'doc', 'xls', 'csv', 'rtf', 'jpg', 'png', 'bin']
+      ['pdf', 'zip', 'docx', 'xlsx', 'pptx', 'doc', 'xls', 'csv', 'rtf', 'txt', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mp3', 'bin']
         .map((e) => join(destino, `${r}.${e}`))).find((p) => existsSync(p));
     if (yaEsta) { console.log(`  = ${basename(yaEsta)}`); ok++; bajados.push(yaEsta); continue; }
 
@@ -233,7 +233,7 @@ const main = async () => {
             continue;
           }
           const ext = extDe(c.url, c.mime, c.disp);
-          if (!valido(buf, ext)) { descartes.push(`${c.mime || '?'} ${buf.length}B → no valida como .${ext}`); continue; }
+          if (!valido(buf, ext, esperado)) { descartes.push(`${c.mime || '?'} ${buf.length}B → no valida como .${ext}`); continue; }
           const nombre = `${raizNombre ?? limpio(nombreDisp(c.disp) ?? `recurso-${String(i + 1).padStart(2, '0')}`)}.${ext}`;
           const salida = join(destino, nombre);
           writeFileSync(salida, buf);

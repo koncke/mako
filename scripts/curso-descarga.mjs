@@ -78,8 +78,23 @@ const FIRMAS = {
 const esHtml = (b) => /^\s*(<!doctype html|<html|<head|<body)/i.test(b.subarray(0, 200).toString('latin1'));
 
 /** ¿Lo que llegó es de verdad un archivo de ese tipo, o una página de error de 200? */
-export const valido = (buf, ext) => {
-  if (!buf || buf.length < 64) return false;
+/**
+ * ¿Lo que llegó es de verdad un archivo de ese tipo, o una página de error de 200?
+ *
+ * ⚠️ El piso de 64 bytes es una HEURÍSTICA para detectar respuestas vacías, y como toda
+ * heurística tiene falsos positivos: rechaza un archivo que de verdad pesa menos. Pasó con
+ * «4- enlace» de Organic Ecom, un .txt de **32 bytes** con una URL adentro — el recurso
+ * existe, la API declara sus 32 bytes, y el descargador lo informaba como «nada
+ * descargable en 30s».
+ *
+ * Por eso `esperado`: cuando la plataforma DECLARA el tamaño y el buffer coincide exacto,
+ * eso es una prueba más fuerte que cualquier piso, y el piso no se aplica. Es la misma
+ * regla de siempre — un dato le gana a un desempate.
+ */
+export const valido = (buf, ext, esperado = null) => {
+  if (!buf) return false;
+  const declarado = esperado != null && Math.abs(buf.length - esperado) <= 2;
+  if (!declarado && buf.length < 64) return false;
   const f = FIRMAS[ext];
   if (f) return f(buf);
   return !esHtml(buf);

@@ -44,6 +44,7 @@ import { CURSO_CURSOS_HEYGEN } from './curso-cursos-heygen';
 import { CURSO_METODO_FUKUDA_PODER_ORGANICO } from './curso-metodo-fukuda-poder-organico';
 import { CURSO_IMAN_GADZHI_AGENCY_NAVIGATOR } from './curso-iman-gadzhi-agency-navigator';
 import { CURSO_CERTIFICACION_MARKETING_DIGITAL_IA } from './curso-certificacion-marketing-digital-ia';
+import { CURSO_NUEVO_ORGANIC_ECOM_3_0_JUNIO_2026 } from './curso-nuevo-organic-ecom-3-0-junio-2026';
 import { CURSO_INSTITUTO_DE_COMUNICACION } from './curso-instituto-de-comunicacion';
 import { CURSO_CREATOR_CLUB } from './curso-creator-club';
 import { CURSO_TRILOGIA_DE_BRIAN_TRACY } from './curso-trilogia-de-brian-tracy';
@@ -310,6 +311,7 @@ export const CURSOS_TODOS: Curso[] = [
   CURSO_METODO_FUKUDA_PODER_ORGANICO,
   CURSO_IMAN_GADZHI_AGENCY_NAVIGATOR,
   CURSO_CERTIFICACION_MARKETING_DIGITAL_IA,
+  CURSO_NUEVO_ORGANIC_ECOM_3_0_JUNIO_2026,
   CURSO_CREATOR_CLUB, CURSO_TRILOGIA_DE_BRIAN_TRACY,
   // Los recursos y el modo réplica se inyectan acá porque el archivo del curso lo
   // REESCRIBE `curso-a-portal.mjs` en cada corrida: puestos allá, duran hasta la
