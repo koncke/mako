@@ -5101,3 +5101,58 @@ los libere. Por eso los tres cursos van de a UNO —se baja, se publica (que es 
 libera), y recién ahí el siguiente— y antes de cada uno se mira el disco: por debajo de
 12 GB la cola PARA y lo dice, en vez de llenarlo y descubrirlo cuando ya no se puede ni
 escribir el log. El guard de `--liberar` no se ablanda; lo que se ordena es el caudal.
+
+## El merge de yt-dlp pide el DOBLE, y por eso una sola clase llenó el disco
+
+**2026-08-26.** El disco llegó a **0 GB libres**. El reflejo era culpar al volumen —tres
+cursos nuevos encolados, 204 clases— y estaba equivocado: los tres cursos de YouTube ni
+habían empezado a bajar. Lo que llenó el disco fue **una clase**.
+
+```
+13,33 GB  16 - DIA 1 - SEMINARIO CREANDO RIQUEZA.fhls-fastly_skyfire-306…   ← video
+ 0,90 GB  16 - DIA 1 - SEMINARIO CREANDO RIQUEZA.fhls-fastly_skyfire-aud…   ← audio
+10,09 GB  16 - DIA 1 - SEMINARIO CREANDO RIQUEZA.temp.mp4                   ← el merge, a medias
+```
+
+**yt-dlp baja los streams por separado y los une en un `.temp.mp4` SIN borrar las fuentes
+hasta terminar.** O sea que cerrar esa clase necesita ~**28 GB libres**: el doble de lo que
+la clase va a pesar. Murió a los 10 GB del merge, el bajador salió con **código 1** y el
+log **vacío** (se había lanzado sin redirección), así que desde afuera se veía igual que
+«no arrancó».
+
+**La regla: el pico de disco de una descarga no es lo que pesa el archivo, es lo que pesa
+DURANTE.** Cualquier guarda de espacio que compare contra el tamaño final se queda corta
+justo en las clases grandes, que son las únicas donde importa. Y las clases grandes no se
+anuncian: en este curso 15 de 17 pesan menos de 2 GB y una pesa 13.
+
+Tres cosas que quedaron:
+
+1. **Los pisos son dos, no uno.** Bajar una clase corta necesita unos GB; CERRAR una
+   grande necesita el doble de lo que pesa. La cola (`scratchpad/cola.sh`) mira el disco
+   antes de cada paso y para diciendo cuál piso no alcanzó.
+2. **Lo que libera espacio es PUBLICAR**, no borrar: el pipeline sube a Drive y recién ahí
+   borra la copia local. Con el pipeline detenido, todo lo bajado se queda ocupando.
+   Encolar una descarga detrás de otra sin publicar en el medio es acumular.
+3. **Un `.temp.mp4` y un `.part` son basura recuperable**, y son lo primero que se borra
+   en una emergencia de disco: la descarga se rehace. Lo que NO se toca es el audio ya
+   extraído, que es lo irrecuperable — mismo criterio que el hallazgo de `--liberar`.
+
+### Y el corolario que le falta a la guarda de «descarga viva»
+
+El arreglo de más arriba —`bajados.txt` + `.part` en vez de los bytes de `video/`— hace que
+el pipeline no publique mientras el descargador trabaja. Pero cuando el descargador MUERE
+por falta de disco, las dos señales se apagan y el pipeline concluye que las clases que
+faltan **no se pueden bajar del origen**. Es falso: el origen las tiene, lo que faltaba era
+lugar.
+
+No es silencioso —el pipeline nombra las clases que quedaron afuera, así que se ve—, pero
+el motivo que reporta es el equivocado, y el que lea «no se pudieron bajar del origen» va a
+buscar el problema en Vimeo. **Distinguirlas necesita un dato que hoy no se guarda: por qué
+salió el descargador.** Queda anotado acá y sin hacer.
+
+**Vive en:** `scripts/curso-pipeline.mjs` (`descargaViva`) · `scripts/curso-bajar.mjs` ·
+`scratchpad/cola.sh` (la cola con los dos pisos).
+
+**Estado:** Cardona quedó en 15/17. Las dos que faltan —la 16 (13,3 GB) y la 17— están en
+la cola, detrás de que el pipeline libere subiendo a Drive. Los tres cursos de Auto
+Youtube tienen su plan y sus 60 recursos bajados, y los videos van después.
