@@ -67,11 +67,19 @@ const bytesVideo = () => {
 /**
  * ⚠️ SI LA SEÑAL DE VIDA LA PUEDE BORRAR EL QUE LA MIRA, NO ES UNA SEÑAL DE VIDA.
  *
- * `bytesVideo()` mide la carpeta `video/`, y esta misma corrida la ENCOGE: cuando un
- * video ya está confirmado en Drive, `--liberar` lo borra. Con eso `bytesVideo() >
- * bytesPrevios` da false mientras el descargador sigue bajando a pleno, porque la
- * liberación le gana a la descarga. El pipeline concluye «no hay descarga viva», mide
+ * `bytesVideo()` mide la carpeta `video/`, que NO crece de forma monótona: la libera
+ * `curso-a-drive --liberar` en cuanto Drive confirma. Con eso `bytesVideo() >
+ * bytesPrevios` puede dar false mientras el descargador sigue bajando a pleno, porque lo
+ * borrado le gana a lo bajado. El pipeline concluye «no hay descarga viva», mide
  * `alcanzable = bajados()` sobre una foto parcial, y PUBLICA con lo que había.
+ *
+ * ⚠️ CORRECCION DEL 26/08/2026: cuando esto se escribio, esa liberacion NO ocurria —
+ * el bucle llamaba a `curso-a-drive` SIN `--liberar`, asi que `video/` solo crecia. O
+ * sea que el arreglo era correcto y la causa que se dio, no. Lo que de verdad apagaba
+ * la senal era otra cosa (un `.part` que se borra, un merge que falla), y por eso la
+ * regla que queda vale igual: **una senal de liveness tiene que ser MONOTONA**, no
+ * depender de que nadie reste. Ahora la bandera SI se pasa, asi que la causa descrita
+ * arriba pasa a ser real ademas de posible.
  *
  * Pasó el 26/08/2026 con «Seminarios Alejandro Cardona»: el descargador estaba en la
  * clase 11 de 17 y la ficha salió declarando «10 clases, 3 módulos». No falló nada —
@@ -163,8 +171,19 @@ while (Date.now() < hasta) {
   // --drive: ir copiando a Drive en cada ronda, sin esperar los ids. Aprovecha que
   // subida y descarga usan capacidades distintas en una conexión asimétrica, así
   // que no se pelean. Los ids se resuelven al final, en una sola pasada.
+  // ⚠️ `--liberar` VA SIEMPRE, y es lo que le faltaba a este bucle. Sin el, el pipeline
+  //    COPIA a Drive y no borra nada local: un curso grande se baja entero contra el
+  //    disco y no lo suelta nunca. El 26/08/2026 eso llevo la maquina a 0 GB libres con
+  //    Cardona ocupando 35,5 GB ya subidos y confirmados — 21,8 GB se recuperaron a mano
+  //    corriendo este mismo script con la bandera.
+  //
+  //    Pasarla siempre es seguro porque el que decide NO es esta linea: `curso-a-drive`
+  //    solo borra si quedan menos de `--min-libre-gb` (25 por defecto) Y el archivo cumple
+  //    las CINCO condiciones —esta en video/, tiene id de Drive, la copia en G: coincide
+  //    byte a byte, el propio Drive reporta ese tamano, y YA se le extrajo el audio—.
+  //    Con espacio de sobra no toca nada. El guard no se ablanda: se ENCIENDE.
   const g = DRIVE
-    ? correr('curso-a-drive.mjs', ['--plan', PLAN, '--solo-copiar'])
+    ? correr('curso-a-drive.mjs', ['--plan', PLAN, '--solo-copiar', '--liberar'])
     : { code: 0, resumen: [] };
 
   const ahora = textos();
