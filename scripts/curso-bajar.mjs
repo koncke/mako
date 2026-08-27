@@ -197,11 +197,18 @@ for (const [i, c] of clases.entries()) {
     '--fragment-retries', '10',
     '--sleep-requests', PAUSA,
     '--no-warnings',
-    // ⚠️ El progreso SOLO si hay terminal. yt-dlp repinta la linea con retorno de
-    //    carro, y cuando la salida va a un archivo (toda corrida desatendida) cada
-    //    repintado se escribe ENTERO: la cola del 26/08 dejo un log de 15 MB del que no
-    //    se podia leer nada, ni los errores. Sin terminal: una linea por descarga.
-    ...(process.stdout.isTTY ? ['--progress'] : ['--no-progress']),
+    // ⚠️ El progreso, en un archivo, hay que ACOTARLO. yt-dlp repinta la linea con
+    //    retorno de carro: en una terminal se ve como una sola linea que cambia, pero
+    //    cuando la salida va a un archivo cada repintado se escribe ENTERO. La cola del
+    //    26/08 dejo un log de 15 MB en el que el error quedaba enterrado.
+    //
+    //    Apagarlo del todo tampoco sirve: sin velocidad en el log no se puede saber si
+    //    una descarga avanza o esta colgada, y medir los bytes desde afuera engania —
+    //    las descargas van a rafagas y una ventana corta cae justo en el hueco entre
+    //    dos streams y parece frenada. Una linea cada 30s da las dos cosas.
+    ...(process.stdout.isTTY
+      ? ['--progress']
+      : ['--progress', '--newline', '--progress-delta', '30']),
   ];
 
   const p = spawnSync(yt.cmd, args, { stdio: 'inherit' });
