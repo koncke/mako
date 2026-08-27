@@ -96,10 +96,30 @@ const lineasBajados = () => {
   try { return readFileSync(join(base, 'bajados.txt'), 'utf8').split('\n').filter((l) => l.trim()).length; }
   catch { return 0; }
 };
+// Un `.part` prueba que hay una descarga viva SOLO si ademas esta CRECIENDO. Un `.part`
+// huerfano —el que deja un yt-dlp que murio— se queda ahi para siempre, y sin esta edad
+// maxima el pipeline lo lee como «descargador vivo» y espera eternamente.
+//
+// No es teorico: el 27/08/2026 tres `.part` de una clase que habia fallado 16 HORAS antes
+// tuvieron al pipeline dando 155 rondas en falso durante 5,5 h —«nada nuevo para
+// transcribir», una y otra vez— con el curso entero transcripto y sin publicar. Lo unico
+// que lo iba a cortar era el tope de 12 h.
+//
+// La version anterior de este chequeo miraba si `video/` CRECIA, y fallaba al reves (daba
+// muerto un descargador vivo). Las dos formas ingenuas fallan, cada una para su lado: la
+// senal correcta no es «existe» ni «crecio», es SE TOCO RECIEN.
+const PARTE_FRESCA_MIN = 10;
 const hayParte = () => {
   const d = join(base, 'video');
   if (!existsSync(d)) return false;
-  try { return readdirSync(d).some((f) => /\.(part|ytdl)$/i.test(f)); } catch { return false; }
+  try {
+    const limite = Date.now() - PARTE_FRESCA_MIN * 60_000;
+    return readdirSync(d)
+      .filter((f) => /\.(part|ytdl)$/i.test(f))
+      .some((f) => {
+        try { return statSync(join(d, f)).mtimeMs > limite; } catch { return false; }
+      });
+  } catch { return false; }
 };
 
 const audios = () => cuenta('audio', (f) => /\.m4a$/i.test(f));

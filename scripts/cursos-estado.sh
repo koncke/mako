@@ -16,9 +16,14 @@
 #  2. Medir bytes en una ventana corta MIENTE. Las descargas van a ráfagas: yt-dlp baja
 #     el stream de video, para, arranca el de audio, une. Una ventana de 40s que cae en
 #     ese hueco reporta «3 KB/s, prácticamente frenado» sobre una descarga que estaba
-#     perfecta. La señal de vida buena es el MTIME del archivo más reciente: si algo se
-#     tocó hace menos de dos minutos, está trabajando. Los bytes van como dato de color,
-#     nunca como veredicto.
+#     perfecta. Los bytes van como dato de color, nunca como veredicto.
+#
+#  3. El mtime de video/audio/texto TAMPOCO alcanza, y esta fue la segunda falsa
+#     alarma: el pipeline pasa horas en fases que no tocan ninguna de esas carpetas
+#     (subiendo a Drive, esperando a ScreenApp, dando rondas). Este script llegó a
+#     decir «nada se toca hace 306 minutos» sobre un pipeline que estaba vivo y
+#     escribiendo. Lo único que se mueve en TODAS las fases es el LOG: esa es la
+#     señal de vida primaria, y las carpetas son el detalle de qué está haciendo.
 
 CURSOS="monetizatube automatizatube automatizacion-y-monetizacion-de-youtobe"
 
@@ -57,15 +62,18 @@ recientes.sort(reverse=True)
 ahora=time.time()
 for m,s,sub,name in recientes[:3]:
     print('     %8.1f MB  hace %5.0fs  [%s] %s' % (s/2**20, ahora-m, sub, name[:44]))
-if recientes:
-    edad=ahora-recientes[0][0]
-    print('')
-    if edad < 120:
-        print('     OK SI, esta trabajando: algo se toco hace %.0f segundos.' % edad)
-    else:
-        print('     ATENCION: nada se toca hace %.0f minutos.' % (edad/60))
-        print('        Si ademas no hay proceso vivo arriba, la cola murio. Retoma sola:')
-        print('          schtasks /run /tn \"cursos-cola\"')
+print('')
+try: edad_log=(ahora-os.path.getmtime('C:/cursos/cola.log'))
+except OSError: edad_log=None
+if edad_log is None:
+    print('     No hay log todavia.')
+elif edad_log < 300:
+    print('     OK SI, esta trabajando: el log se escribio hace %.0f segundos.' % edad_log)
+else:
+    print('     ATENCION: el log no se mueve hace %.0f minutos.' % (edad_log/60))
+    print('        Si ademas no hay proceso vivo arriba, la cola murio. Retoma sola')
+    print('        (no rebaja nada, sigue donde quedo):')
+    print('          schtasks /run /tn \"cursos-cola\"')
 " 2>/dev/null
 
 echo ""
