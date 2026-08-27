@@ -5211,3 +5211,62 @@ legible por el que llega tres dias despues a ver que paso.
 **Vive en:** `scripts/cursos-cola.sh` (la cola, con el piso de disco) ·
 `scripts/cursos-cola-instalar.cmd` (la tarea programada) · `scripts/curso-bajar.mjs`
 (el progreso condicionado).
+
+
+## Las dos formas ingenuas de preguntar «¿sigue vivo?» fallan, cada una para su lado
+
+**2026-08-27.** El pipeline estuvo **5,5 horas dando 155 rondas en falso** —«nada nuevo para
+transcribir», una y otra vez— con el curso entero transcripto y sin publicar. Lo único que
+lo iba a cortar era el tope de 12 h.
+
+La causa: `hayParte()` daba «descargador vivo» por la **sola existencia** de un `.part`.
+Había tres, de una clase que había fallado **16 horas antes**. Un `.part` huérfano no se va
+nunca, así que el pipeline esperaba a un descargador que ya no existía.
+
+Lo que hace este hallazgo caro es que **la versión anterior fallaba al revés**: miraba si
+`video/` crecía, y `--liberar` encoge la carpeta mientras se baja, así que daba por muerto a
+un descargador vivo. Se cambió un falso negativo por un falso positivo, sobre la misma
+pregunta, en el mismo mes.
+
+**La regla: una señal de vida no es «existe» ni «creció». Es SE TOCÓ RECIÉN.** Cualquier
+artefacto que sobreviva a su productor —un `.part`, un lock, un PID, un archivo temporal—
+prueba que algo *empezó*, jamás que sigue. La prueba es la marca de tiempo, con edad máxima
+(acá: `PARTE_FRESCA_MIN = 10`).
+
+Es la regla de AGENTS.md sobre umbrales —«preguntá cuál es la MISMA falla en la otra
+dirección»— aplicada a un booleano en vez de a un número. Las dos direcciones estaban
+disponibles desde el principio y se recorrieron de a una, pagando cada una por separado.
+
+### Y el corolario del monitor: el LOG es lo único que se mueve en todas las fases
+
+El script que contesta «¿está avanzando?» dio **dos veredictos falsos seguidos**, y los dos
+por mirar el lugar equivocado:
+
+1. **Bytes en una ventana corta.** Las descargas van a ráfagas —stream de video, pausa,
+   stream de audio, merge—, así que una ventana de 40 s que cae en el hueco reporta
+   «3 KB/s, prácticamente frenado» sobre una descarga sana.
+2. **El mtime de `video/`, `audio/` y `texto/`.** El pipeline pasa horas subiendo a Drive,
+   esperando a ScreenApp o dando rondas **sin tocar ninguna de esas carpetas**. El script
+   llegó a decir «nada se toca hace 306 minutos» sobre un proceso vivo y escribiendo.
+
+**Lo único que se mueve en TODAS las fases de un proceso por etapas es su log.** Esa es la
+señal de vida primaria; las carpetas contestan otra pregunta —*qué* está haciendo—, y son
+un detalle, nunca el veredicto.
+
+### Un fallo que se lee como permanente y es transitorio
+
+Las 2 clases que faltaban habían fallado con `Could not copy Chrome cookie database`: el
+flag `--cookies` con el Chrome dedicado abierto. El mensaje suena a configuración rota —algo
+que hay que ir a arreglar— y era una ventana abierta. Reintentadas con `--solo 22,41`
+salieron **2/2 a la primera**, sin tocar nada.
+
+El script ya imprimía el comando de reintento y la explicación al lado del error. Eso es lo
+que lo hizo barato: **un error que trae su propio comando de reintento se resuelve en un
+minuto; el mismo error sin esa línea manda a diagnosticar el flag.**
+
+**Vive en:** `scripts/curso-pipeline.mjs` (`hayParte`, `PARTE_FRESCA_MIN`) ·
+`scripts/cursos-estado.sh` (el monitor, con las tres trampas escritas) ·
+`scripts/curso-bajar.mjs` (el reintento puntual y su mensaje).
+
+**Estado al cierre:** Cardona 17/17 y MonetizaTube 49/49, los dos publicados y liberados.
+Quedan AutomatizaTube (74) y Automatización y Monetización de YouTube (81), en la cola.
