@@ -5156,3 +5156,58 @@ salió el descargador.** Queda anotado acá y sin hacer.
 **Estado:** Cardona quedó en 15/17. Las dos que faltan —la 16 (13,3 GB) y la 17— están en
 la cola, detrás de que el pipeline libere subiendo a Drive. Los tres cursos de Auto
 Youtube tienen su plan y sus 60 recursos bajados, y los videos van después.
+
+
+## Una cola larga NO puede vivir en una tarea de fondo de Claude
+
+**2026-08-27.** La cola de cursos murio a mitad de monetizatube: **22 de 49 clases bajadas,
+0 transcriptas**, y en el log **ni un solo error**. El sintoma invita a buscar el bug en el
+descargador, y no habia bug.
+
+La cola colgaba de una tarea de fondo del harness. **El harness mata el grupo de procesos
+cuando la sesion termina.** La sesion anterior cerro 10:31 y se llevo la cola puesta, a
+mitad de una descarga, sin escribir nada.
+
+**La regla: si el trabajo dura mas que la sesion, no puede colgar de la sesion.** Y aca la
+desproporcion era obvia de antemano —204 clases, 10+ horas— asi que el error fue de
+encuadre, no de implementacion. `nohup` tampoco alcanza (ya estaba anotado): el harness
+mata el grupo igual.
+
+Lo que si sobrevive en Windows es una **tarea programada**, que corre bajo el servicio y
+fuera del arbol de procesos:
+
+    scripts/cursos-cola-instalar.cmd     # registrarla, una sola vez
+    schtasks /run   /tn "cursos-cola"    # lanzarla
+    schtasks /query /tn "cursos-cola"    # ver si corre
+    schtasks /end   /tn "cursos-cola"    # frenarla
+
+Sobrevive a que se cierre Claude, a que se cierre la terminal y a un cambio de sesion.
+Mismo criterio —y misma razon— que el monitor de la GPU.
+
+**Ojo con la variante silenciosa:** una tarea programada corre en la sesion del usuario
+solo si el usuario esta logueado. Si algun dia la cola tiene que correr con la sesion
+cerrada, `G:` (Google Drive) **no va a estar montada** y el paso de subida va a fallar por
+una razon que no tiene nada que ver con Drive.
+
+## El `--progress` de yt-dlp hace ilegible cualquier log
+
+Misma corrida: el log quedo en **15 MB** y no se podia leer nada, ni los errores. yt-dlp
+repinta la linea de progreso con retorno de carro; en una terminal eso se ve como una sola
+linea que cambia, pero **cuando la salida va a un archivo cada repintado se escribe
+ENTERO**. Una sola clase deja miles de lineas de `[download] 2.3% of ~ 174.71MiB`.
+
+Lo grave no es el tamano, es que **el error se entierra**: para encontrar por que murio la
+cola hubo que filtrar el log con un grep de hitos.
+
+**La regla: el progreso es para la terminal, nunca para el archivo.** Queda condicionado en
+`scripts/curso-bajar.mjs`:
+
+    ...(process.stdout.isTTY ? ['--progress'] : ['--no-progress']),
+
+Aplica a cualquier herramienta que repinte —`--progress` de rsync, las barras de pip, los
+spinners—: si `stdout` no es una terminal, se apagan. El log desatendido tiene que ser
+legible por el que llega tres dias despues a ver que paso.
+
+**Vive en:** `scripts/cursos-cola.sh` (la cola, con el piso de disco) ·
+`scripts/cursos-cola-instalar.cmd` (la tarea programada) · `scripts/curso-bajar.mjs`
+(el progreso condicionado).

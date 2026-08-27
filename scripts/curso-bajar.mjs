@@ -197,7 +197,11 @@ for (const [i, c] of clases.entries()) {
     '--fragment-retries', '10',
     '--sleep-requests', PAUSA,
     '--no-warnings',
-    '--progress',
+    // ⚠️ El progreso SOLO si hay terminal. yt-dlp repinta la linea con retorno de
+    //    carro, y cuando la salida va a un archivo (toda corrida desatendida) cada
+    //    repintado se escribe ENTERO: la cola del 26/08 dejo un log de 15 MB del que no
+    //    se podia leer nada, ni los errores. Sin terminal: una linea por descarga.
+    ...(process.stdout.isTTY ? ['--progress'] : ['--no-progress']),
   ];
 
   const p = spawnSync(yt.cmd, args, { stdio: 'inherit' });
