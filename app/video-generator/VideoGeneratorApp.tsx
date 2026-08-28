@@ -403,11 +403,43 @@ export function VideoGeneratorApp({
               // No es un estado vacío decorativo: dice DÓNDE se arregla. Sin
               // guiones esta tab no tiene nada que grabar, y el lugar donde se
               // escriben es otra pantalla.
-              <Alert tono="warn" accion={{ label: 'Ir a Ads Writer', href: '/ads-writer' }}>
-                <strong>Todavía no tienes guiones escritos.</strong> Los anuncios de video se
-                graban a partir de un guion que MaKo escribe en Ads Writer, con tu ángulo y
-                tu avatar. Escribe uno ahí y vuelve.
-              </Alert>
+              // Sin guiones, el vacío no puede ser solo un aviso: tiene que
+              // ofrecer las DOS salidas reales —que MaKo escriba uno, o cargar el
+              // propio— porque un estado vacío que solo explica deja igual de
+              // trabado que uno que no dice nada.
+              <div>
+                <Alert tono="warn" accion={{ label: 'Ir a Ads Writer', href: '/ads-writer' }}>
+                  <strong>Todavía no tienes guiones escritos.</strong> Los anuncios de video se
+                  graban a partir de un guion. MaKo puede escribirte uno en Ads Writer, con tu
+                  ángulo y tu avatar — o carga el tuyo acá abajo.
+                </Alert>
+                <button
+                  type="button"
+                  onClick={() => setCargando(true)}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    justifyContent: 'center', gap: 7, width: '100%', marginTop: 14,
+                    padding: '28px 15px', borderRadius: 12, cursor: 'pointer',
+                    fontFamily: 'inherit', background: 'transparent',
+                    border: '1.5px dashed var(--border-strong)',
+                    color: 'var(--faint)', transition: 'border-color .12s, color .12s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--primary)';
+                    e.currentTarget.style.color = 'var(--primary)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-strong)';
+                    e.currentTarget.style.color = 'var(--faint)';
+                  }}
+                >
+                  <span style={{ fontSize: 26, lineHeight: 1 }}>＋</span>
+                  <span style={{ fontSize: 'var(--fs-md)', fontWeight: 650 }}>Cargar un guion mío</span>
+                  <span style={{ fontSize: 'var(--fs-meta)', lineHeight: 1.5, textAlign: 'center' }}>
+                    Escríbelo, sube un archivo o pega un link.<br />Si trae varios, los separo.
+                  </span>
+                </button>
+              </div>
             ) : (
               <div style={{ display: 'grid', gap: 10 }}>
                 {guiones.map((g) => {
@@ -470,6 +502,42 @@ export function VideoGeneratorApp({
                     </button>
                   );
                 })}
+
+                {/*
+                  El placeholder va DENTRO de la lista y del mismo tamaño que una
+                  card, no como un botón aparte: cargar un guion propio es una
+                  opción más entre los guiones, no una acción de otra categoría.
+                  Es el molde de «Crear nuevo proyecto» del board.
+
+                  Punteado y no sólido porque no hay nada adentro todavía: el
+                  borde dice «acá va a haber uno» sin fingir que ya lo hay.
+                */}
+                <button
+                  type="button"
+                  onClick={() => setCargando(true)}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    justifyContent: 'center', gap: 7, width: '100%',
+                    padding: '20px 15px', borderRadius: 12, cursor: 'pointer',
+                    fontFamily: 'inherit', background: 'transparent',
+                    border: '1.5px dashed var(--border-strong)',
+                    color: 'var(--faint)', transition: 'border-color .12s, color .12s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--primary)';
+                    e.currentTarget.style.color = 'var(--primary)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-strong)';
+                    e.currentTarget.style.color = 'var(--faint)';
+                  }}
+                >
+                  <span style={{ fontSize: 24, lineHeight: 1 }}>＋</span>
+                  <span style={{ fontSize: 'var(--fs-md)', fontWeight: 650 }}>Cargar un guion mío</span>
+                  <span style={{ fontSize: 'var(--fs-meta)', lineHeight: 1.5, textAlign: 'center' }}>
+                    Escríbelo, sube un archivo o pega un link.<br />Si trae varios, los separo.
+                  </span>
+                </button>
               </div>
             )}
 
@@ -479,24 +547,6 @@ export function VideoGeneratorApp({
               nadie. Y no bloquea — el dueño puede querer grabarlo igual y editar
               después; lo que no puede pasar es que se recorte sin decirlo.
             */}
-            {/*
-              La salida para el que no encuentra el suyo en la lista. Va abajo y
-              no arriba: lo esperable es elegir uno de los que MaKo ya escribió, y
-              cargar los propios es el camino de excepción — por ahora, además,
-              uno que se saltea la revisión.
-            */}
-            <div style={{
-              marginTop: 16, paddingTop: 13, borderTop: '1px solid var(--border)',
-              display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
-            }}>
-              <Button variant="tertiary" size="sm" onClick={() => setCargando(true)}>
-                Cargar guiones míos
-              </Button>
-              <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>
-                Pega el texto como lo tengas: si trae varios, los separo.
-              </span>
-            </div>
-
             {cabida?.desborda && (
               <div style={{ marginTop: 14 }}>
                 <Alert tono="warn">

@@ -109,6 +109,10 @@ export function CargarGuiones({ onCerrar, onCargado }: {
     <Modal
       onCerrar={onCerrar}
       titulo={previo ? 'Esto encontré' : 'Cargar mis guiones'}
+      // Más ancho que el default de 600: con tres pestañas arriba y un textarea
+      // de doce filas, el modal por defecto aprieta el contenido contra los
+      // bordes y las pestañas quedan amontonadas.
+      ancho={720}
     >
       {error && <Alert tono="bad">{error}</Alert>}
 
