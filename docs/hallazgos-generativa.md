@@ -2235,3 +2235,63 @@ indistinguible de «no llegó el cambio».
 5. **El cooldown de 10 s con 5 concurrentes** no está medido contra una cuenta
    real. Se mide generando, no antes.
 
+## La extensión se aprobó, y lo que cambia no es el botón
+
+28/08/2026. `EXTENSION_EN_TIENDA = true`, verificado antes de tocarlo: la ficha
+devuelve 200 y redirige a `/detail/mako/<id>`. La URL va con el slug canónico —
+sin él resuelve igual pero con un redirect, y un link que rebota es uno que a
+veces no llega.
+
+**Lo que de verdad cambia es DÓNDE ocurre la instalación.** Con el zip era un
+desvío por `chrome://extensions` que terminaba en una recarga, así que al volver
+la pantalla ya sabía. Desde la tienda el camino es «clic → pestaña nueva →
+instalar → volver», y al volver la respuesta seguía siendo la de hace un minuto:
+**el content script no se inyecta hacia atrás en una página que ya estaba
+abierta**, así que el atributo tampoco aparece solo.
+
+Se re-mira en cada `visibilitychange`, y si sigue sin estar aparece un botón «Ya
+la instalé» que recarga. **Lo único honesto que se puede hacer al detectar el
+regreso es ofrecer la recarga, no simularla** — no hay forma de que el atributo
+aparezca sin recargar.
+
+**Y el camino del zip no se borra.** Si Google baja la extensión, el flag vuelve a
+`false` y la pantalla lo recupera sola. Un camino alternativo que se borra el día
+que deja de usarse hay que reescribirlo el día que vuelve a hacer falta.
+
+**Vive en:** `lib/extension-tienda.ts`, `app/video-generator/PuentePanel.tsx`.
+
+## La aprobación convirtió una carrera teórica en el escenario normal
+
+`tomarTrabajos` hacía un `SELECT` de los pendientes y **después** un `UPDATE` que
+los marcaba. El comentario decía «en el mismo tick» — esa era la intención, no el
+efecto: entre las dos operaciones hay una ventana donde dos consumidores leen el
+mismo trabajo.
+
+Vivió meses sin morder porque había un navegador por cliente. **La aprobación lo
+cambia**: tener la de la tienda y la desempaquetada conviviendo pasa a ser lo
+normal, y dos pestañas de MaKo abiertas ya lo era antes.
+
+Y lo que costaba no era una fila duplicada: era **generar el mismo clip dos veces
+con los créditos del cliente**.
+
+Ahora es un RPC con `FOR UPDATE SKIP LOCKED` (mig 0147). **Medido contra la base
+con dos consumidores simultáneos: 6 trabajos, 3 y 3, cero entregados dos veces** —
+la prueba que la versión de dos queries no podía pasar.
+
+Tres decisiones que valen para cualquier cola:
+
+- **El guard de `marcada` y el rescate de colgados viven ADENTRO del RPC.** Afuera
+  eran dos `if` que el segundo call-site podía olvidarse de copiar.
+- **Si el RPC falla NO se degrada al camino viejo.** Volver a las dos queries
+  devolvería la carrera justo cuando algo ya anda mal. Sin trabajos, el puente
+  vuelve a preguntar en el próximo ciclo y no pasa nada.
+- **El `interval` del rescate quedó en dos lugares** (el RPC y `COLGADO_MS`), y
+  está dicho en el comentario cuál manda. Un valor duplicado sin esa línea es el
+  que se queda viejo.
+
+**La regla que generaliza: una carrera que «no muerde» está esperando el cambio de
+contexto que la vuelve probable.** Acá el cambio fue una aprobación de la Chrome
+Web Store — nada del código se tocó.
+
+**Vive en:** `supabase/migrations/0147_flow_tomar_atomico.sql`, `lib/flow-cola.ts`.
+
