@@ -62,11 +62,12 @@ type Vista = 'catalogo' | 'wizard' | 'anuncio';
 //     workspace (lib/acento-workspace.ts) y su lugar es el onboarding de la tab.
 //
 // La regla que queda: **esta tab no pregunta nada que el sistema ya sepa.**
-const PASOS = ['guion'] as const;
+const PASOS = ['guion', 'revisar'] as const;
 type Paso = (typeof PASOS)[number];
 
 const PREGUNTA: Record<Paso, string> = {
   guion: '¿Cuál de tus guiones quieres grabar?',
+  revisar: 'Revisa antes de generar',
 };
 
 /**
@@ -178,6 +179,17 @@ function Plantilla({
  * son la estructura del guion, no ruido: quien lo va a grabar necesita ver dónde
  * abre y dónde cierra.
  */
+/** Una fila «rótulo: valor» del paso de revisión. */
+function Fila({ k, v, nota }: { k: string; v: string; nota?: string }) {
+  return (
+    <div style={{ display: 'flex', gap: 10, alignItems: 'baseline', flexWrap: 'wrap' }}>
+      <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--faint)', minWidth: 86 }}>{k}</span>
+      <span style={{ fontSize: 'var(--fs-md)', color: 'var(--ink)', fontWeight: 600 }}>{v}</span>
+      {nota && <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>({nota})</span>}
+    </div>
+  );
+}
+
 function DetalleGuion({
   guion, puesta, onCerrar, onUsar,
 }: {
@@ -386,7 +398,7 @@ export function VideoGeneratorApp({
   );
 
   const idx = PASOS.indexOf(paso);
-  const puedeAvanzar = !!guionId;
+  const puedeAvanzar = paso === 'guion' ? !!guionId : true;
 
   const empezar = useCallback((id: string) => {
     setPuestaId(id);
@@ -437,8 +449,8 @@ export function VideoGeneratorApp({
         pregunta={PREGUNTA[paso]}
         error={error}
         puedeAvanzar={puedeAvanzar}
-        enUltimo
-        confirmLabel="Crear mi anuncio"
+        enUltimo={paso === 'revisar'}
+        confirmLabel="Generar anuncio"
         pending={busy}
         cargando={busy ? 'MaKo está escribiendo tu anuncio…' : null}
         atrasLabel={idx === 0 ? 'Cambiar plantilla' : 'Atrás'}
@@ -637,6 +649,88 @@ export function VideoGeneratorApp({
           </div>
         )}
 
+
+        {paso === 'revisar' && (
+          <div style={{ textAlign: 'left', display: 'grid', gap: 14 }}>
+            {/*
+              Lo que se revisa NO es un resumen de lo que elegiste: es lo que el
+              sistema puso SOLO y vos nunca viste. El formato y el guion los
+              acabás de elegir; la cara, la duración y el acento los decidió MaKo,
+              y son justo los que se notan recién en el video terminado.
+            */}
+
+            {/* La CARA. Va primero y va como IMAGEN: la pregunta que contesta es
+                «¿es esta persona?», y un «3 fotos cargadas» se lee igual con las
+                fotos correctas que con las de otro. */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 14,
+              padding: '13px 15px', borderRadius: 12,
+              background: 'var(--surface)', border: '1px solid var(--border)',
+            }}>
+              {contexto?.fotoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={contexto.fotoUrl}
+                  alt="Tu cara de marca"
+                  style={{ width: 62, height: 62, borderRadius: 10, objectFit: 'cover', flex: 'none' }}
+                />
+              ) : (
+                <div style={{
+                  width: 62, height: 62, borderRadius: 10, flex: 'none', display: 'grid',
+                  placeItems: 'center', background: 'var(--surface-2)', color: 'var(--faint)',
+                }}>
+                  <Icon name="perfil" size={26} />
+                </div>
+              )}
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 'var(--fs-md)', fontWeight: 650, color: 'var(--ink)' }}>
+                  {contexto?.tieneFotos ? 'Esta es la cara del avatar' : 'Todavía no cargaste tu cara'}
+                </div>
+                <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>
+                  {contexto?.tieneFotos
+                    ? <>Si no eres tú, cámbiala en <Link href="/onboarding">Onboarding → Persona</Link>.</>
+                    : <>Sin una foto tuya, cada toma sale con una persona distinta. Cárgala en <Link href="/onboarding">Onboarding → Persona</Link>.</>}
+                </div>
+              </div>
+            </div>
+
+            {/* Lo que MaKo derivó y nadie eligió. */}
+            <div style={{
+              padding: '13px 15px', borderRadius: 12,
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              display: 'grid', gap: 9,
+            }}>
+              <Fila k="Formato" v={puesta?.nombre ?? '—'} />
+              <Fila k="Guion" v={guion?.angulo || 'Sin título'} />
+              <Fila
+                k="Va a durar"
+                v={cabida ? `${cabida.segundosReales} segundos en ${cabida.clips} tomas` : '—'}
+              />
+              <Fila k="Acento" v={contexto?.acento.etiqueta ?? "—"} nota={contexto?.acento.seguro ? undefined : 'lo deduje de tu zona horaria'} />
+            </div>
+
+            {cabida?.desborda && (
+              <Alert tono="warn">
+                El guion es más largo de lo que <strong>{puesta?.nombre}</strong> puede contar:
+                sobran {cabida.palabrasDeMas} palabras y el final va a quedar afuera.
+              </Alert>
+            )}
+
+            {/*
+              Qué pasa al apretar, PEGADO al botón y en tinta normal.
+              //
+              Y dice lo que NO pasa: acá se escribe el plan —cómo se reparte el
+              guion en tomas—, no se genera el video. Sin esa línea, «Generar
+              anuncio» promete un video y devuelve un texto, que es la forma más
+              barata de que alguien crea que algo se rompió.
+            */}
+            <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.6 }}>
+              MaKo va a repartir tu guion en {cabida?.clips ?? '—'} tomas y escribir cómo se
+              filma cada una. <strong>Todavía no se genera ningún video</strong> ni se gastan
+              créditos de tu cuenta de Google.
+            </div>
+          </div>
+        )}
       </WizardShell>
     );
   }

@@ -15,7 +15,10 @@
 
 import 'server-only';
 import { getSetting, setSetting } from '@/lib/settings';
-import { getPersona } from '@/lib/persona';
+import { getPersona, personaEstado } from '@/lib/persona';
+import { resolverAcento } from '@/lib/acento-workspace';
+import { tzDeWorkspace } from '@/lib/timezone';
+import { getWorkspaceActual } from '@/lib/workspace';
 import { getSchema, getAnswers } from '@/lib/onboarding';
 import type { PlanVideo } from '@/lib/video-planner';
 
@@ -77,6 +80,24 @@ export async function guardarEnHistorial(item: PlanGuardado): Promise<PlanGuarda
 export type EstadoContextoVideo = {
   tieneFotos: boolean;
   cantidadFotos: number;
+  /**
+   * La primera foto de la cara de marca, firmada.
+   *
+   * Se trae la IMAGEN y no solo el conteo porque el paso de revisión tiene que
+   * poder contestar «¿es esta persona?», y un número no lo contesta: «3 fotos»
+   * se lee igual con las fotos correctas que con las de otro. Un parecido se
+   * juzga mirando.
+   */
+  fotoUrl: string | null;
+  /**
+   * El acento que el server va a usar, ya resuelto.
+   *
+   * Baja resuelto y no como zona horaria a propósito: si el cliente lo dedujera
+   * por su cuenta, la regla viviría en dos lugares y la previa podría mostrar un
+   * acento distinto del que se termina usando. Una previa que difiere del
+   * resultado es peor que no tener previa.
+   */
+  acento: { etiqueta: string; seguro: boolean };
   perfilListo: boolean;
   faltanDelPerfil: string[];
 };
@@ -100,9 +121,22 @@ export async function estadoContextoVideo(): Promise<EstadoContextoVideo> {
   ]);
 
   const fotos = persona?.fotos.length ?? 0;
+  // La URL firmada se pide solo si hay foto, y su fallo no tumba la pantalla: sin
+  // imagen el paso muestra el aviso, que es peor que verla pero mucho mejor que
+  // un error.
+  let fotoUrl: string | null = null;
+  if (fotos > 0) {
+    try { fotoUrl = (await personaEstado()).fotos[0]?.url ?? null; } catch { fotoUrl = null; }
+  }
+
+  const ws = await getWorkspaceActual();
+  const acento = resolverAcento(null, ws != null ? await tzDeWorkspace(ws).catch(() => null) : null);
+
   return {
     tieneFotos: fotos > 0,
     cantidadFotos: fotos,
+    fotoUrl,
+    acento: { etiqueta: acento.etiqueta, seguro: acento.seguro },
     perfilListo: perfil.listo,
     faltanDelPerfil: perfil.faltan,
   };
