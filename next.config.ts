@@ -1,5 +1,5 @@
 import type { NextConfig } from "next";
-import { EXTENSION_URL_TIENDA } from "./lib/extension-tienda";
+import { EXTENSION_EN_TIENDA, EXTENSION_URL_TIENDA, EXTENSION_URL_ZIP } from "./lib/extension-tienda";
 
 const nextConfig: NextConfig = {
   // El chequeo de tipos NO corre en el build: es ~65 de los ~99 segundos de cada
@@ -85,7 +85,17 @@ const nextConfig: NextConfig = {
       // ANTES del proxy (doc de Next, «Execution order»), así que el gate de auth
       // ni se entera. Es lo correcto — este link se comparte con gente que no
       // tiene cuenta.
-      { source: '/extension', destination: EXTENSION_URL_TIENDA, permanent: false },
+      //
+      // ⚠️ El destino SIGUE AL FLAG, no es la tienda a secas. Mientras se itera, la
+      // tienda tiene una versión vieja —cada subida pasa por revisión— y este link
+      // se comparte por mail y por WhatsApp: si apuntara siempre a la tienda,
+      // sería el único camino que lleva a la rota, y encima el que no se puede
+      // corregir después de mandado.
+      {
+        source: '/extension',
+        destination: EXTENSION_EN_TIENDA ? EXTENSION_URL_TIENDA : EXTENSION_URL_ZIP,
+        permanent: false,
+      },
     ];
   },
   // Cabeceras de seguridad globales (defense-in-depth). Subset SEGURO: no toca

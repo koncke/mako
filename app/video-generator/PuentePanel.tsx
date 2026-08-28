@@ -38,6 +38,7 @@ import {
 } from '@/lib/extension-tienda';
 import { puedeInstalarExtension, type PuedeInstalar } from '@/lib/navegador';
 import { leerSaldo } from '@/lib/flow-protocolo';
+import { EXTENSION_VERSION } from '@/lib/extension-version';
 
 const FLOW_URL = 'https://labs.google/fx/tools/flow';
 
@@ -429,6 +430,33 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
         función a quien la tiene y no tiene vuelta atrás dentro de la pantalla. No
         avisarle a un Safari le cuesta medio minuto, y es lo que ya pasa hoy.
       */}
+      {/*
+        La extensión instalada quedó vieja.
+        //
+        Esto existe por un día entero perdido: el dueño tenía una copia del zip en
+        una carpeta suelta, Chrome la recargaba con total fidelidad, y cada arreglo
+        se desplegaba sin llegar nunca a su navegador. «Sigue igual» era
+        indistinguible de «no llegó el cambio», y se diagnosticaron durante horas
+        los síntomas de una versión que ya no existía.
+        //
+        La comparación es de IGUALDAD y no «menor que»: no hay que ordenar dos
+        versiones para saber que son distintas, y un orderer de semver mal escrito
+        callaría justo el caso raro. Si difieren, hay algo que hacer.
+      */}
+      {typeof instalada === 'string' && instalada !== EXTENSION_VERSION && (
+        <div style={{ marginBottom: 12 }}>
+          <Alert
+            tono="warn"
+            accion={{ label: 'Descargar la nueva', href: EXTENSION_URL_ZIP }}
+          >
+            <strong>Tu extensión quedó vieja.</strong> Tienes la <code>{instalada}</code> y
+            la actual es la <code>{EXTENSION_VERSION}</code>. Descárgala, descomprímela
+            sobre la misma carpeta y usa el botón de recargar (↻) en{' '}
+            <code style={{ fontFamily: MONO, fontSize: 12 }}>chrome://extensions</code>.
+          </Alert>
+        </div>
+      )}
+
       {instalada === false && puedeInstalar === 'no' && (
         <div style={{ marginBottom: 12 }}>
           <Alert tono="warn">

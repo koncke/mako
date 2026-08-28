@@ -13,6 +13,23 @@ const RAIZ = process.cwd();
 const ORIGEN = resolve(RAIZ, 'extension');
 const ZIP = resolve(RAIZ, 'public/mako-puente.zip');
 const HUELLA = resolve(RAIZ, 'public/mako-puente.sha');
+// La versión que se está sirviendo, como módulo importable desde la app. Se
+// GENERA acá y no se escribe a mano: copiada, se queda vieja el día que alguien
+// suba el manifest y no la toque, y el síntoma sería un aviso de «hay versión
+// nueva» que no se apaga nunca (o peor: uno que nunca aparece).
+const VERSION_TS = resolve(RAIZ, 'lib/extension-version.ts');
+
+const version = JSON.parse(readFileSync(resolve(ORIGEN, 'manifest.json'), 'utf8')).version;
+
+const moduloVersion = `// GENERADO por scripts/zip-extension.mjs — no editar a mano.
+//
+// La versión que hay dentro de public/mako-puente.zip, o sea la que un cliente se
+// lleva si lo descarga hoy. La pantalla la compara con la que el navegador tiene
+// instalada para avisar cuando quedó vieja.
+//
+// Sin \`server-only\`: la lee un client component.
+export const EXTENSION_VERSION = '${version}';
+`;
 
 const archivos = readdirSync(ORIGEN).filter((f) => !f.startsWith('.')).sort();
 
@@ -30,6 +47,12 @@ if (process.argv.includes('--check')) {
   const guardada = existsSync(HUELLA) ? readFileSync(HUELLA, 'utf8').trim() : '';
   if (guardada !== huella) {
     console.error('\n  ✖ public/mako-puente.zip quedó viejo: la extensión cambió.');
+    console.error('    Corré: node scripts/zip-extension.mjs\n');
+    process.exit(1);
+  }
+  const tsGuardado = existsSync(VERSION_TS) ? readFileSync(VERSION_TS, 'utf8') : '';
+  if (tsGuardado !== moduloVersion) {
+    console.error('\n  ✖ lib/extension-version.ts no coincide con el manifest.');
     console.error('    Corré: node scripts/zip-extension.mjs\n');
     process.exit(1);
   }
@@ -62,4 +85,5 @@ for (const f of archivos) {
 const buf = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 writeFileSync(ZIP, buf);
 writeFileSync(HUELLA, `${huella}\n`);
+writeFileSync(VERSION_TS, moduloVersion);
 console.log(`✅ public/mako-puente.zip (${archivos.length} archivos, ${(buf.length / 1024).toFixed(1)} KB)`);

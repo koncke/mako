@@ -22,14 +22,24 @@
 export const EXTENSION_ID = 'gapbemdaaghomjbnggechglkpmbgplle';
 
 /**
- * APROBADA Y PUBLICADA el 28/08/2026. Verificado: la ficha devuelve 200 y trae
- * el botón de instalar.
+ * ⚠️ EN `false` A PROPÓSITO, aunque la extensión SÍ esté aprobada y pública.
  *
- * Queda en `true` y no se toca. Si alguna vez Google baja la extensión, esto
- * vuelve a `false` y la pantalla recupera sola el camino del zip — por eso el
- * camino viejo sigue en el código en vez de borrarse.
+ * Aprobada el 28/08/2026 (verificado: la ficha devuelve 200 y trae el botón de
+ * instalar). Y aun así el camino que se ofrece es el zip, porque **cada versión
+ * nueva pasa por revisión** y esto todavía se está descubriendo: en un solo día
+ * la extensión fue de 0.1.0 a 0.5.0, y cuatro de esos cinco cambios eran la
+ * diferencia entre funcionar y no.
+ *
+ * El zip NO tiene ese problema: `scripts/zip-extension.mjs` lo regenera y el
+ * pre-push falla si quedó viejo, así que lo que Vercel sirve es siempre lo último
+ * que se pusheó. La tienda, mientras tanto, tiene la versión del día que se
+ * aprobó — que hoy es la 0.1.0, o sea la que fallaba TODO.
+ *
+ * **Cuándo pasarlo a `true`:** cuando una versión aguante unos días sin cambios y
+ * se suba ESA a la tienda. La ventaja de la tienda es real (se instala con un
+ * clic y se actualiza sola); solo que llega después de la estabilidad, no antes.
  */
-export const EXTENSION_EN_TIENDA = true;
+export const EXTENSION_EN_TIENDA = false;
 
 /**
  * La URL canónica, con el slug que le puso Google.
