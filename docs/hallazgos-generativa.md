@@ -2295,3 +2295,60 @@ Web Store — nada del código se tocó.
 
 **Vive en:** `supabase/migrations/0147_flow_tomar_atomico.sql`, `lib/flow-cola.ts`.
 
+## El primer clip no es un clip: es el ancla
+
+Decisión del 28/08/2026, tomada ANTES de construir el pipeline de video.
+
+**Un clip por vez, con OK entre cada uno.** El dueño lo planteó como economía —
+«es un gasto de tokens impresionante si los hizo todo mal»— y al detallarlo eligió
+la versión estricta: aprobación en CADA clip, no solo en el primero.
+
+Los números, medidos en su cuenta: 1.012 créditos, y Car Talks son 7-12 tomas. Si
+el costo por clip fuera el que circula (~20 créditos, **sin verificar**), un
+anuncio entero son 140-240: entre 4 y 7 anuncios con todo el saldo. Generar los 7
+de una y descubrir que el avatar no se parece cuesta un anuncio entero; generar 1
+y mirarlo cuesta 20.
+
+**Pero la razón que más importa no es la plata.** El clip 1 fija la cara que los
+siguientes encadenan por `startImage`/`endImage`. El corpus ya midió que
+«referenciar IA con IA pierde la identidad» y que la foto real es el ancla: si el
+primero sale con otra cara, los seis que vienen salen **consistentemente** mal —
+que es peor que salir mal cada uno a su manera, porque parece deliberado.
+
+Aprobar el clip 1 no es aprobar un clip. Es aprobar el ancla.
+
+**Y cuando uno no convence, se EDITA SU PROMPT** — no un botón de «otra vez» a
+ciegas.
+
+⚠️ Eso choca de frente con una regla ya escrita: «el cliente JAMÁS ve prompts». No
+es contradicción: esa regla protege de que le entreguen instrucciones en vez de un
+anuncio. Acá el prompt se abre porque el dueño está DEPURANDO una toma que salió
+mal. Va detrás de un «no me convence», nunca en el camino feliz.
+
+**La regla que generaliza: un paso caro e irreversible se aprueba de a uno, y el
+primero se aprueba distinto que el resto** — porque es el que condiciona a todos
+los demás.
+
+**Vive en:** `app/video-generator/`, `lib/flow-cola.ts`, `extension/background.js`.
+
+## «Generar anuncio» no genera un video, y hay que decirlo
+
+Hoy el botón produce el PLAN: reparte el guion en tomas y escribe cómo se filma
+cada una. Una llamada de texto, centavos, segundos. El video es otro paso.
+
+Un botón que promete un anuncio y devuelve un texto es **la forma más barata de
+que alguien crea que algo se rompió**. Por eso el paso de revisión lo dice con
+todas las letras: «todavía no se genera ningún video ni se gastan créditos».
+
+**Y lo que se revisa NO es un resumen de lo que el usuario eligió.** El formato y
+el guion los acaba de elegir; mostrárselos otra vez es hacerle leer lo que ya
+sabe. Lo que se revisa es lo que el SISTEMA puso solo y nadie vio: la cara, la
+duración derivada y el acento inferido — justo los tres que se notan recién en el
+video terminado.
+
+La cara va como IMAGEN y no como conteo: «3 fotos cargadas» se lee exactamente
+igual con las fotos correctas que con las de otra persona. Un parecido se juzga
+mirando.
+
+**Vive en:** `app/video-generator/VideoGeneratorApp.tsx`, `video-datos.ts`.
+
