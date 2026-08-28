@@ -43,6 +43,7 @@ import { PuentePanel } from './PuentePanel';
 import type { Puente } from '@/lib/flow-cola';
 import { cabidaDeGuion } from '@/lib/puestas-data';
 import type { GuionDisponible } from './guiones-datos';
+import { CargarGuiones } from './CargarGuiones';
 
 type Vista = 'catalogo' | 'wizard' | 'anuncio';
 
@@ -289,6 +290,8 @@ export function VideoGeneratorApp({
   const [puestaId, setPuestaId] = useState<string>('');
   /** El guion de MaKo elegido. Es lo ÚNICO que el wizard pide. */
   const [guionId, setGuionId] = useState<string>('');
+  /** El modal de pegar guiones propios. */
+  const [cargando, setCargando] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [verGuiones, setVerGuiones] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -382,6 +385,20 @@ export function VideoGeneratorApp({
       >
         {paso === 'guion' && (
           <div style={{ textAlign: 'left' }}>
+            {cargando && (
+              <CargarGuiones
+                onCerrar={() => setCargando(false)}
+                onCargado={() => {
+                  setCargando(false);
+                  // Se recarga la página en vez de empujar los nuevos al estado
+                  // local: los guiones bajan del server como props, así que
+                  // agregarlos a mano acá crearía una segunda copia que se
+                  // desincroniza en cuanto alguien los toque desde /ads-writer.
+                  window.location.reload();
+                }}
+              />
+            )}
+
             {guiones.length === 0 ? (
               // No es un estado vacío decorativo: dice DÓNDE se arregla. Sin
               // guiones esta tab no tiene nada que grabar, y el lugar donde se
@@ -462,6 +479,24 @@ export function VideoGeneratorApp({
               nadie. Y no bloquea — el dueño puede querer grabarlo igual y editar
               después; lo que no puede pasar es que se recorte sin decirlo.
             */}
+            {/*
+              La salida para el que no encuentra el suyo en la lista. Va abajo y
+              no arriba: lo esperable es elegir uno de los que MaKo ya escribió, y
+              cargar los propios es el camino de excepción — por ahora, además,
+              uno que se saltea la revisión.
+            */}
+            <div style={{
+              marginTop: 16, paddingTop: 13, borderTop: '1px solid var(--border)',
+              display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+            }}>
+              <Button variant="tertiary" size="sm" onClick={() => setCargando(true)}>
+                Cargar guiones míos
+              </Button>
+              <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>
+                Pega el texto como lo tengas: si trae varios, los separo.
+              </span>
+            </div>
+
             {cabida?.desborda && (
               <div style={{ marginTop: 14 }}>
                 <Alert tono="warn">
