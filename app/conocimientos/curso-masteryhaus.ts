@@ -67,18 +67,16 @@ export const CURSO_MASTERYHAUS: Curso = {
       slug: 'configuracion-mental-1ix5p-nh',
       label: 'MB | Libro de Mentalidad Mastery',
       cardDesc: 'Material de 9 clases',
-      tipo: 'file',
-      ext: 'html',
-      driveId: '19Ak3IV44M4NB-niscMSxEtmHOMElcFNW',
+      tipo: 'pdf',
+      driveId: '1WxAh8IHL3Hh8bGQBU4lTY4mbI8ukX5_m',
       clases: [68, 69, 70, 71, 72, 73, 74, 75, 76],
     },
     {
       slug: 'configurando-tu-temporada-de-no-10gy36p9',
       label: 'MB | Libro Nicho Dorado',
       cardDesc: 'Material de 8 clases',
-      tipo: 'file',
-      ext: 'html',
-      driveId: '1KurTAFhuPKJQA_dOuYq7HJ7c0sIEJjCQ',
+      tipo: 'pdf',
+      driveId: '11ogEobHJqAri9LpQy7_nwVTGgYW1xyO6',
       clases: [79, 80, 81, 82, 83, 84, 85, 86],
     },
     {
@@ -101,9 +99,8 @@ export const CURSO_MASTERYHAUS: Curso = {
       slug: 'oferta-especializada-1spfmul1',
       label: 'MB | Libro Oferta Irresistible 2026',
       cardDesc: 'Material de 19 clases',
-      tipo: 'file',
-      ext: 'html',
-      driveId: '1Eo1MMFL4mPi4yQMyaY4daDKRCgB2rPxD',
+      tipo: 'pdf',
+      driveId: '1KmSDZpO-Bh9Aa5leAlGissPbVcJNzNkX',
       clases: [90, 92, 93, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110],
     },
     {
@@ -126,18 +123,16 @@ export const CURSO_MASTERYHAUS: Curso = {
       slug: 'negocio-de-alto-valor-componentes-1nqvhmtg',
       label: 'MH | Libro de Validación 2026',
       cardDesc: 'Material de 3 clases',
-      tipo: 'file',
-      ext: 'html',
-      driveId: '1BodTKfNOyRybzUV1Tr6Aw2pygeTOKrAr',
+      tipo: 'pdf',
+      driveId: '1pY4UNgAfRVIqXHgp4_NxPRNJzaLfiEbL',
       clases: [112, 114, 115],
     },
     {
       slug: 'lanzamiento-semilla-1occfian',
       label: 'MH | Lanzamiento Semilla',
       cardDesc: 'Material de la clase 117',
-      tipo: 'file',
-      ext: 'html',
-      driveId: '1sXhbX5n5845ELYvQI5bgPkIQvQfnuxYv',
+      tipo: 'pdf',
+      driveId: '14EMI_m1gtd3v53_gNgEeCWGNEJvHjQpq',
       clases: [117],
     },
     {
@@ -248,9 +243,8 @@ export const CURSO_MASTERYHAUS: Curso = {
       slug: 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu',
       label: 'MB | Libro Marketing Perpetuo',
       cardDesc: 'Material de 79 clases',
-      tipo: 'file',
-      ext: 'html',
-      driveId: '16SYpgAg2TZq7Gp7mXEjMu42xM5fFyqAh',
+      tipo: 'pdf',
+      driveId: '174xh_h7Doj8fepZ15JSMbVL_XtPAXcCk',
       clases: [157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235],
     },
     {
@@ -1940,7 +1934,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -1955,7 +1949,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -1970,7 +1964,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -1985,7 +1979,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2000,7 +1994,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2015,7 +2009,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2030,7 +2024,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2045,7 +2039,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2060,7 +2054,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2075,7 +2069,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2090,7 +2084,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2105,7 +2099,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2120,7 +2114,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2135,7 +2129,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2150,7 +2144,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2165,7 +2159,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['master-copy-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['master-copy-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2180,7 +2174,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2195,7 +2189,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2210,7 +2204,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2225,7 +2219,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6'],
+      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2240,7 +2234,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6'],
+      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2255,7 +2249,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6'],
+      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2270,7 +2264,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6'],
+      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2285,7 +2279,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6'],
+      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2300,7 +2294,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6'],
+      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2315,7 +2309,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6'],
+      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2330,7 +2324,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6'],
+      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2345,7 +2339,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6'],
+      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2360,7 +2354,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6'],
+      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2375,7 +2369,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6'],
+      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2390,7 +2384,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6'],
+      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2405,7 +2399,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6'],
+      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2420,7 +2414,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6'],
+      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2435,7 +2429,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6'],
+      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2450,7 +2444,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6'],
+      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2465,7 +2459,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6'],
+      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2480,7 +2474,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6'],
+      recursoSlugs: ['del-contenido-largo-al-contenido-corto-1w0ltcwq', 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2495,7 +2489,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2510,7 +2504,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2525,7 +2519,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2540,7 +2534,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2555,7 +2549,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2570,7 +2564,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2585,7 +2579,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2600,7 +2594,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2615,7 +2609,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2630,7 +2624,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2645,7 +2639,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2660,7 +2654,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2675,7 +2669,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2690,7 +2684,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2705,7 +2699,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2720,7 +2714,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2735,7 +2729,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2750,7 +2744,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2765,7 +2759,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2780,7 +2774,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['estrategias-de-contenido-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['estrategias-de-contenido-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2795,7 +2789,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['estrategias-de-contenido-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['estrategias-de-contenido-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2810,7 +2804,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2825,7 +2819,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2840,7 +2834,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2855,7 +2849,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2870,7 +2864,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2885,7 +2879,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2900,7 +2894,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2915,7 +2909,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2930,7 +2924,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2945,7 +2939,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2960,7 +2954,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2975,7 +2969,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -2990,7 +2984,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -3005,7 +2999,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -3020,7 +3014,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -3035,7 +3029,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -3050,7 +3044,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -3065,7 +3059,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -3080,7 +3074,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
@@ -3095,7 +3089,7 @@ export const CURSO_MASTERYHAUS: Curso = {
       resumen: '',
       transcripcion: [],
       hasTx: true,
-      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w'],
+      recursoSlugs: ['por-que-hablamos-de-marketing-perpetuo-10odyeyi', 'por-que-hablamos-de-marketing-perpetuo-19eckojr', 'por-que-hablamos-de-marketing-perpetuo-1dqtue6', 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w', 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu'],
       herramientas: [],
     },
     {
