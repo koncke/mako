@@ -5317,3 +5317,64 @@ nadie.
 **Sin hacer:** `avatar-mastery` quedó en 15/16 con el bajador en código 1 y el pipeline en
 3 — no publicó. Vuelve a entrar solo la próxima vez que corra
 `scripts/cursos-cola-armar.mjs`, porque el armador lista lo que no está publicado.
+
+
+## Un recurso tiene TRES nombres, y los dos que usábamos eran de otra cosa
+
+**2026-08-28.** Martín: *«los recursos de MasteryHaus están todos mal»*. Lo estaban, y el
+arreglo obvio —el que hice primero— también estaba mal.
+
+Un material descargado llega con tres nombres distintos:
+
+| | de dónde sale | ejemplo |
+|---|---|---|
+| **nombre de archivo** | lo fabricó el bajador | `Oferta Especializada - 1BsAB3OL.pdf` |
+| **label del manifiesto** | la SECCIÓN donde cuelga | `Oferta Especializada` |
+| **título interno** | lo dice el archivo | `MB | Psicologia de ventas` |
+
+**Capa 1.** El portal publicaba el primero. El sufijo son los **8 primeros caracteres del
+id del Google Doc**, que el bajador pega para que dos materiales homónimos no se pisen en
+disco — un nombre de archivo correcto, y un título horrible: los 38 salían con basura.
+
+**Capa 2, y es la que importa.** Leer el `label` del manifiesto parece el arreglo y **no lo
+es**: ese label es el nombre de la sección, no del material. Con los títulos «limpios»
+quedaban **siete recursos distintos** —tamaños y hashes distintos— publicados los siete
+como «Por qué hablamos de G. del Tiempo», con la misma descripción («Material de 27
+clases»). Antes al menos el sufijo los diferenciaba **por accidente**; limpiarlo los volvía
+indistinguibles. Doce grupos así.
+
+Los siete eran, de verdad: `ACTIVIDAD #2`, `3. Futuro poco feliz`, `7. Tracker extra`,
+`4. Profundiza en tus prioridades`, `Define tus no negociables`, `5. Define tu sistema`,
+`6. Tarjeta Adueñate de tu Tiempo`.
+
+**La regla —ya escrita en AGENTS.md, acá aplicada al NOMBRE— es que lo que un material dice
+de sí mismo le gana a la etiqueta que le puso el sistema.** Lo nuevo es el corolario:
+**cuando hay dos etiquetas del sistema, la segunda no es «la buena» por no ser la
+primera.** Descartar bien una fuente no convierte en dato a la que queda — es el mismo
+razonamiento que el de las portadas, un año de distancia y el mismo pozo.
+
+**Cómo se reconoce sin mirar el contenido:** si al arreglar un nombre aparecen **grupos con
+título Y descripción idénticos**, la fuente nueva describe al CONTENEDOR, no al ítem. Un
+duplicado exacto en una lista de cosas distintas es la firma.
+
+### El UTF-16 del PDF, que pasa cualquier revisión visual
+
+El `/Title` de un PDF es una cadena de texto PDF: **UTF-16BE con BOM `FE FF`**. Leída como
+bytes se ve con un espacio entre cada letra —`5 .   D e f i n e   t u   s i s t e m a`— y
+eso **se lee como un título raro pero plausible**, así que no dispara ninguna alarma y llega
+a la pantalla tal cual. El extractor lo decodifica; el XMP (`dc:title`) se intenta primero
+porque va en UTF-8 y no tiene esta trampa.
+
+**Y los 11 que no declaran título se quedan con el label de la sección, y el script los
+LISTA.** Inventarles un nombre sería peor: son mayormente `.xlsx`, que guarda su título
+dentro de un zip y hoy no se abre. Queda anotado como lo que falta, no tapado.
+
+**Vive en:** `scripts/curso-recursos-titulos.mjs` (el extractor) ·
+`scripts/curso-a-portal.mjs` (`titulosDelManifiesto`, que prefiere `tituloReal` sobre
+`label`).
+
+**Medido:** 55 títulos únicos donde había 12 grupos indistinguibles · 0 con sufijo de id ·
+los mismos 253 `videoId` y 38 `driveId` que antes, o sea ninguna otra cosa se movió.
+
+**Sin hacer:** los 11 `.xlsx`/`.pdf` sin título interno. Se resuelven leyendo
+`docProps/core.xml` del zip (xlsx/docx son zips); hoy el extractor no abre zips.
