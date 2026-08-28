@@ -27,7 +27,7 @@ import 'server-only';
 import { createHash, randomBytes } from 'node:crypto';
 import { getTenantDb, runWithWorkspace } from './workspace';
 import { getSupabaseServer } from './supabase';
-import type { MotivoFalla } from './flow-protocolo';
+import { perfilDeTrabajo, type MotivoFalla } from './flow-protocolo';
 
 /** Tipos de trabajo que la extensión sabe ejecutar. */
 export type TipoTrabajo = 'subir_imagen' | 'generar_imagen' | 'generar_clip' | 'estado_clips' | 'creditos';
@@ -178,9 +178,13 @@ export async function marcarVisto(ws: number, projectId: string, estado: EstadoP
 /** Encola un trabajo y devuelve su id, para poder seguirlo. */
 export async function encolar(tipo: TipoTrabajo, pedido: Record<string, unknown>): Promise<number | null> {
   const db = await getTenantDb();
+  // El PERFIL viaja adentro del pedido para que la extensión no tenga que
+  // conocerlo. Cada cosa que la extensión sabe de memoria es una versión nueva —y
+  // una revisión de la Chrome Web Store— el día que cambie.
+  const { accion, soloLectura } = perfilDeTrabajo(tipo);
   const { data } = await db
     .from('flow_trabajos')
-    .insert({ tipo, pedido, estado: 'pendiente' })
+    .insert({ tipo, pedido: { ...pedido, accion, soloLectura }, estado: 'pendiente' })
     .select('id')
     .maybeSingle();
   const id = Number(data?.id);

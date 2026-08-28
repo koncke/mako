@@ -344,3 +344,56 @@ export function leerSaldo(data: unknown): SaldoFlow {
 
   return { creditos: n, esGratuito, etiqueta: plan ? `${cuantos} · ${plan}` : cuantos };
 }
+
+// ── Qué necesita cada clase de trabajo ──────────────────────────────────────
+//
+// ⚠️ Esto vive en el SERVER a propósito, y viaja DENTRO del pedido.
+//
+// El motivo es el ritmo de las actualizaciones: cada versión de la extensión
+// pasa por revisión de la Chrome Web Store, y en un solo día esto fue de 0.1.0 a
+// 0.5.0. Dos de esos cambios —agregar `generar_imagen` al mapa de acciones y
+// marcar qué tipos solo leen— eran TABLAS, no lógica: si hubieran viajado en el
+// pedido, esas dos versiones no habrían existido.
+//
+// La regla que queda: **lo que es una tabla se manda; lo que es una capacidad se
+// instala.** Un tipo de trabajo nuevo no le da a la extensión ningún poder que no
+// tuviera — le dice qué hacer con el que ya tiene. Cambiar el `world`, los
+// permisos o los hosts sí es una capacidad, y eso no hay forma de mandarlo.
+//
+// ⚠️ Y NO es «remote code», que Google prohíbe: no se descarga ni se ejecuta
+// JavaScript. Viajan parámetros —una acción de captcha, un booleano— igual que
+// los manda cualquier cliente de una API. La extensión no gana nada nuevo.
+
+export type PerfilTrabajo = {
+  /**
+   * La `action` del reCAPTCHA. Google la evalúa contra la que el sitio registra,
+   * así que tiene que ser la del método real de Flow, no una inventada.
+   */
+  accion: string;
+  /**
+   * Un trabajo que solo LEE: no lleva cuerpo, no necesita captcha, y si la página
+   * ya preguntó lo mismo hace poco se contesta con su respuesta, sin tráfico.
+   */
+  soloLectura: boolean;
+};
+
+const PERFILES: Record<string, PerfilTrabajo> = {
+  creditos: { accion: 'getCredits', soloLectura: true },
+  estado_clips: { accion: 'batchCheckAsyncVideoGenerationStatus', soloLectura: true },
+  subir_imagen: { accion: 'uploadImage', soloLectura: false },
+  generar_imagen: { accion: 'batchGenerateImages', soloLectura: false },
+  generar_clip: { accion: 'batchAsyncGenerateVideo', soloLectura: false },
+};
+
+/**
+ * El perfil de un tipo de trabajo.
+ *
+ * El default es el MÁS restrictivo —lleva captcha y lleva cuerpo— porque un tipo
+ * que nadie registró no puede terminar salteándose el captcha por omisión. Es la
+ * misma regla de siempre: el fallback es más débil que el camino feliz, nunca más
+ * fuerte.
+ */
+export function perfilDeTrabajo(tipo: string): PerfilTrabajo {
+  return PERFILES[tipo] ?? { accion: 'generate', soloLectura: false };
+}
+
