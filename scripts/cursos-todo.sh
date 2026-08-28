@@ -24,6 +24,12 @@ if [ $# -gt 0 ]; then
   CATS="$*"
 else
   # Las categorías salen del propio catálogo: si mañana aparece una nueva, entra sola.
+  # ⚠️ El `tr -d` NO es de mas: python en Windows imprime CRLF, y sin el la categoria
+  # queda como "Trading\r". El filtro `c.category === CAT` no matchea NADA y el sondeo
+  # contesta «ENTRA: 0 · REBOTA: 0» sobre una categoria con 5 cursos: un cero
+  # perfectamente correcto sobre la pregunta equivocada, que es la forma mas cara de
+  # equivocarse porque se lee como un resultado. TERCERA vez en el dia que un \r de
+  # Windows rompe algo distinto: la cola, el panel de estado, y esto.
   CATS=$(python -c "
 import json,io,collections
 d=json.load(io.open(r'$CAT_JSON',encoding='utf-8'))
@@ -31,7 +37,7 @@ c=collections.Counter((x.get('category') or '').strip() for x in d)
 # de mayor a menor: las categorias grandes primero rinden mas por corrida
 for k,_ in c.most_common():
     if k: print(k)
-" | tr '\n' '|')
+" | tr -d '\r' | tr '\n' '|')
 fi
 
 di ""

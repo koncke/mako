@@ -1878,3 +1878,38 @@ migraciones—, no solo los componentes de la pantalla.
 cazó 30 rutas plausibles pero inexistentes. Lo que NO puede chequear es la OMISIÓN: una
 ruta que falta no da error, da un punto ciego.
 
+# En Windows, TODO texto que cruza de una herramienta a otra trae `\r`
+
+Un `\r` al final de una línea es **invisible en cualquier listado, en cualquier log y en
+cualquier mensaje de error**, y no rompe: hace que la comparación dé false. El síntoma no
+es una excepción, es **un cero perfectamente correcto sobre la pregunta equivocada** — que
+es la forma más cara de equivocarse, porque se lee como un resultado.
+
+El 27/08/2026 mordió **tres veces en el mismo día**, en tres lugares que no se parecen:
+
+| Dónde | Qué pasó |
+|---|---|
+| La cola de cursos leyendo su lista | `C:/cursos/<curso>\r/plan.json` no existe → salteó los 12 cursos **en un segundo y salió con éxito** |
+| El panel de estado | mismo archivo, misma lista rota |
+| El barrido por categorías | `python` imprime CRLF → la categoría quedó `"Trading\r"` → «ENTRA: 0 · REBOTA: 0» sobre una categoría con 5 cursos |
+
+**La regla: si un valor cruza de un proceso a otro por texto —un archivo de lista, la
+salida de `python`/`node` leída por `sh`, un `read` de un `.txt`, una variable de entorno—
+se limpia el `\r` EN EL QUE LEE, no en el que escribe.** El que escribe puede ser el
+próximo script que alguien edite en el Bloc de notas, y ahí ya no controlás la punta.
+
+```sh
+d=$(printf %s "$d" | tr -d '\r')          # en un while read
+CATS=$(python -c "…" | tr -d '\r' | tr '\n' '|')
+```
+
+Y al ESCRIBIR una lista que va a leer un `sh`, forzá LF: `writeFileSync` con `\n` explícito
+o `io.open(..., newline='\n')` en python — el modo texto por defecto de python **traduce
+`\n` a CRLF en Windows** aunque vos hayas escrito `\n`.
+
+**Y el corolario que hizo que se encontrara rápido las tres veces:** los tres lugares
+**avisaban**. «no tiene plan.json — lo salto», «ENTRA: 0», la lista vacía en pantalla. Un
+proceso que no encuentra nada y termina con éxito tiene que decir **por qué** no encontró
+nada: sin esa línea, «no había nada que hacer» y «no supe leer la entrada» son el mismo
+log. Es la misma regla que «"No encontré nada que revisar" y "revisé y está todo bien" son
+respuestas DISTINTAS», aplicada a la entrada en vez de a la salida.
