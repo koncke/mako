@@ -5270,3 +5270,50 @@ minuto; el mismo error sin esa línea manda a diagnosticar el flag.**
 
 **Estado al cierre:** Cardona 17/17 y MonetizaTube 49/49, los dos publicados y liberados.
 Quedan AutomatizaTube (74) y Automatización y Monetización de YouTube (81), en la cola.
+
+
+## Una firma que vence a mitad de la descarga: el 410 que costó 7 horas
+
+**2026-08-28.** La cola llevaba **siete horas en una sola clase** de un curso de seis, con
+los otros 77 cursos esperando detrás. El log, ya legible gracias al progreso acotado:
+
+```
+[download] Got error: HTTP Error 410: Gone. Retrying fragment 519 (10/10)...
+[download] fragment not found; Skipping fragment 519 ...
+[download] Got error: HTTP Error 410: Gone. Retrying fragment 520 (1/10)...
+```
+
+**Las URLs de los segmentos del CDN vienen FIRMADAS y vencen.** En un video largo —éste
+era de 62 minutos— el vencimiento cae **a mitad de la descarga**, y a partir de ahí *todos*
+los fragmentos que quedan dan 410. yt-dlp reintentaba cada uno 5-10 veces y después lo
+salteaba, así que iba a moler miles de fragmentos muertos para escribir, al final, un
+archivo con agujeros que igual no sirve.
+
+**La regla: reintentar contra una credencial vencida no puede funcionar, por definición.**
+Un 401/403/410 que aparece *de golpe y en todo* después de que algo venía andando no es un
+error transitorio: es una firma que caducó. La política correcta es **fallar rápido y
+rehacer la sesión** —acá, un manifiesto nuevo—, nunca insistir. Y distinguirlo es fácil si
+se mira el patrón en vez del código de error: **transitorio es uno suelto; vencimiento es
+todos a partir de un punto.**
+
+Quedan dos capas, porque una sola no alcanzaba:
+
+1. **`--abort-on-unavailable-fragment`** en `scripts/curso-bajar.mjs`. Sin él, «saltear» el
+   fragmento convierte un fallo rápido en una molienda de horas — y encima produce un
+   archivo corrupto, que es lo peor de los dos mundos: tarda **y** no sirve.
+2. **Un tope de reloj por curso (4 h) en la cola.** Con 78 cursos en fila, uno colgado se
+   queda con la cola entera; el `--abort` ataca esta causa, el tope cubre la próxima forma
+   de colgarse, que todavía no conocemos. Lo cortado se retoma solo: el `--download-archive`
+   no repite lo que ya está.
+
+**Y el corolario de por qué se vio:** el arreglo de ayer —el progreso de yt-dlp acotado a
+una línea cada 30 s en vez de apagado— es lo que hizo que estas líneas fueran legibles. Con
+el log de 15 MB de barras de progreso, «410 Gone» estaba ahí adentro y no lo encontraba
+nadie.
+
+**Vive en:** `scripts/curso-bajar.mjs` (`--abort-on-unavailable-fragment`) ·
+`scripts/cursos-cola.sh` (`TOPE_BAJADOR`).
+
+**Sin hacer:** `avatar-mastery` quedó en 15/16 con el bajador en código 1 y el pipeline en
+3 — no publicó. Vuelve a entrar solo la próxima vez que corra
+`scripts/cursos-cola-armar.mjs`, porque el armador lista lo que no está publicado.
