@@ -25,6 +25,9 @@ import { randomUUID } from 'node:crypto';
 import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
 import { getRazones, setRazones, type RazonCelda } from '@/lib/razones';
 import { separarGuiones, type GuionSeparado } from '@/lib/guiones-separar';
+import { archivoATexto, puedeLeerse, porQueNoPuedo, MAX_ARCHIVO_BYTES } from '@/lib/archivo-a-texto';
+import { resolverLink, htmlATexto, pareceLogin } from '@/lib/texto-de-link';
+import { validarDestino } from '@/lib/landing-fetch';
 
 /** La celda donde caen los guiones que el cliente trajo. */
 const CELDA_PROPIOS = 'guiones-propios';
@@ -140,3 +143,98 @@ export async function cargarGuionesAction(crudo: string, indices: number[]): Pro
   await setRazones(celdas);
   return { ok: true, cargados: items.length, salteados: elegidos.length - items.length };
 }
+
+// ── Las otras dos puertas: un archivo y un link ─────────────────────────────
+//
+// Las tres entradas terminan en el MISMO lugar —un string de texto que pasa por
+// `separarGuiones`— y eso es deliberado: si cada una tuviera su propio camino de
+// separación, la que menos se use sería la que se queda vieja.
+
+/**
+ * Lee un archivo que subió el usuario y devuelve su texto.
+ *
+ * Reusa `archivoATexto` del repo, que ya sabe leer .md, .txt, .docx, .pdf y
+ * planillas, y que ya tiene el catálogo de qué se puede leer y qué no
+ * (`lib/formatos-archivo.ts`). Escribir un lector propio acá sería un segundo
+ * lugar con la misma lista de formatos, y el segundo se queda viejo.
+ */
+export async function textoDeArchivoAction(form: FormData): Promise<{ ok: true; texto: string; nota?: string } | { ok: false; error: string }> {
+  const c = await ctx();
+  if (!c.ok) return c;
+
+  const file = form.get('archivo');
+  if (!(file instanceof File) || file.size === 0) return { ok: false, error: 'No llegó ningún archivo.' };
+  if (file.size > MAX_ARCHIVO_BYTES) {
+    return { ok: false, error: `El archivo pesa más de ${Math.round(MAX_ARCHIVO_BYTES / 1024 / 1024)} MB.` };
+  }
+  // El mensaje sale del catálogo y nombra el formato: «no puedo leer .key» le
+  // dice al usuario qué hacer, «formato no soportado» no.
+  if (!puedeLeerse(file.name, file.type)) return { ok: false, error: porQueNoPuedo(file.name) };
+
+  try {
+    const { texto, warning } = await archivoATexto(file);
+    if (!texto.trim()) {
+      return { ok: false, error: 'El archivo no tiene texto que pueda leer. ¿Está escaneado como imagen?' };
+    }
+    return { ok: true, texto, nota: warning };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No pude leer el archivo.' };
+  }
+}
+
+/**
+ * Baja el texto que hay detrás de un link.
+ *
+ * ⚠️ La URL la escribe el USUARIO, así que pasa sí o sí por `validarDestino`
+ * (lib/landing-fetch.ts): bloquea loopback, redes privadas, link-local y CGNAT.
+ * Sin eso, pegar `http://169.254.169.254/…` convierte esta acción en la puerta al
+ * metadata service de la nube.
+ */
+export async function textoDeLinkAction(crudo: string): Promise<{ ok: true; texto: string; nota?: string } | { ok: false; error: string }> {
+  const c = await ctx();
+  if (!c.ok) return c;
+
+  const link = (crudo || '').trim();
+  if (!link) return { ok: false, error: 'Pegá el link primero.' };
+
+  const { url, tipo, nota } = resolverLink(link);
+
+  const chequeo = await validarDestino(url);
+  if (!chequeo.ok) return { ok: false, error: chequeo.error };
+
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MaKoBot/1.0)', Accept: 'text/plain,text/html,*/*' },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) {
+      return { ok: false, error: `El link respondió ${res.status}. ${nota ?? ''}`.trim() };
+    }
+
+    // Tope de 3 MB: un guion no pesa más, y sin tope una página cualquiera puede
+    // traer decenas de megas a la memoria del server.
+    const crudoTexto = Buffer.from((await res.arrayBuffer()).slice(0, 3 * 1024 * 1024)).toString('utf8');
+
+    const esHtml = /^\s*<(?:!doctype|html)/i.test(crudoTexto) || /<body[\s>]/i.test(crudoTexto);
+    const texto = tipo === 'texto-plano' && !esHtml ? crudoTexto : (esHtml ? htmlATexto(crudoTexto) : crudoTexto);
+
+    // Un Doc privado NO devuelve 403: devuelve 200 con la pantalla de acceso. Sin
+    // esto, el usuario vería «lo cargué» sobre el HTML de un login.
+    if (pareceLogin(texto, tipo)) {
+      return {
+        ok: false,
+        error: 'Ese documento pide permiso para abrirse. Compartilo como «cualquiera con el enlace» y volvé a pegarlo.',
+      };
+    }
+
+    if (texto.trim().length < 40) {
+      return { ok: false, error: 'El link no trajo texto suficiente. ¿Es la dirección correcta?' };
+    }
+
+    return { ok: true, texto, nota };
+  } catch (e) {
+    return { ok: false, error: `No pude abrir el link: ${e instanceof Error ? e.message : 'falló la conexión'}` };
+  }
+}
+
