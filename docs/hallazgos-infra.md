@@ -2583,6 +2583,89 @@ distintas y se confunden fácil.
 
 **Vive en:** *2026-08-09*
 
+### ⚠️ «Se cerró Claude y no abría más» puede ser una AUTOACTUALIZACIÓN, no un crash
+
+28/08/2026. Síntoma: la app desaparece mientras corría un chat pesado, y al reabrirla sale
+`C:\Program Files\WindowsApps\Claude_1.40609.0.0_…` → **«Another program is currently using
+this file»**. Volvió a abrir sola **al cerrar Chrome**.
+
+El log no deja lugar a dudas, y **no hay ningún `GPU process gone`**:
+
+```
+11:32:32 [stealth-update] Triggering stealth update after idle timeout
+11:32:33 beforeQuitForUpdate handler fired, going down for update
+   … 14 minutos sin poder abrirla …
+11:46:42 Starting app
+11:46:42 [updater] Version changed since last launch: 1.37937.3 → 1.40609.0
+```
+
+**La app se cierra SOLA para autoactualizarse** cuando se considera inactiva. Lo que falla
+es el reemplazo del paquete MSIX: la extensión de Claude en Chrome mantiene vivo su
+**native messaging host**, y ese proceso bloquea el archivo. Se ve en el arranque:
+
+```
+[Chrome Extension MCP] Copied native host binary to <home>\AppData\Roaming\Claude\ChromeNativeHost\chrome-native-host.exe
+[Chrome Extension MCP] Registering native host for Chrome in Windows registry
+```
+
+El manifiesto vive en `HKCU\Software\Google\Chrome\NativeMessagingHosts\com.anthropic.claude_browser_extension`.
+Mientras Chrome tenga la extensión conectada, ese `.exe` corre y la actualización espera.
+
+**Qué hacer:** si la app no abre y el error nombra un archivo de `WindowsApps`, **cerrar
+Chrome** (o al menos la extensión) y reintentar. Es más rápido que el `Repair` del paquete,
+y no hace falta tocar nada más.
+
+**Y la trampa de lectura:** «se cerró sola» + «no abre» se parece muchísimo al crash de GPU
+del 13/08, que es otra cosa con otra causa. **Lo que los separa es una sola línea del log**:
+si hay `beforeQuitForUpdate`, fue voluntario; si hay `GPU process gone`, murió.
+
+**Vive en:** `%LOCALAPPDATA%\Claude\Logs\main.log` · *2026-08-28*
+
+### ⚠️ El monitor quedó CIEGO ocho días sin dar una sola señal, y convirtió 5 updates en «crashes»
+
+El mismo día salieron dos fallas del monitor, y las dos son del tipo que no avisa.
+
+**1. La ruta del log se mudó y nadie se enteró.** Con una actualización de la app, los logs
+pasaron de `%APPDATA%\Claude\logs\` a **`%LOCALAPPDATA%\Claude\Logs\`**. El monitor tenía la
+ruta vieja escrita fija: siguió corriendo, siguió midiendo la térmica y siguió anotando
+eventos, pero **desde el 20/08 leía un archivo congelado**. Ocho días ciego, con cero
+errores en pantalla.
+
+> **Un archivo que no cambia se ve exactamente igual que una app que no crashea.** Todo
+> monitor que siga un archivo ajeno necesita, o descubrir su ruta, o gritar cuando la
+> fuente lleva demasiado tiempo sin cambiar. Ahora `RutasDeLog` mira las dos ubicaciones y
+> se queda con la escrita más recientemente.
+
+**2. Una salida limpia que no estaba en la lista se contó como muerte.** El monitor
+reconocía `beforeQuit: handler fired`, pero la autoactualización sale por
+**`beforeQuitForUpdate handler fired`** — sin los dos puntos, otro literal. Resultado: **las
+5 actualizaciones del 18, 20, 21, 26 y 28 de agosto quedaron anotadas como `MUERTE_SUBITA`**,
+y se leyeron como que el problema seguía vivo. Verificado una por una contra el log: las
+cinco dicen `stealth update after idle timeout`.
+
+Con eso corregido, el registro real es otro: **2 crashes de GPU (13/08 y 17/08) y ningún
+otro desde entonces.**
+
+> **Un monitor con falsos positivos es peor que no medir.** No medir se nota; un falso
+> positivo se cree, y gasta la credibilidad que el monitor va a necesitar el día que pase
+> algo de verdad. Cuando un detector clasifica por «ausencia de la marca buena», la lista de
+> marcas buenas tiene que estar completa — y hay que asumir que va a quedar incompleta.
+
+Se agregó el evento propio `ACTUALIZACION`, y las 5 filas se reclasificaron dejando el
+original en `~\crashes-gpu.csv.antes-de-reclasificar-20260828`.
+
+**Dos cosas menores del mismo día, que cuestan tiempo:**
+
+- **Un filtro por `CommandLine` se mata a sí mismo.** `Get-CimInstance Win32_Process | Where
+  CommandLine -like '*diagnostico-gpu*'` matchea **el proceso que está corriendo ese mismo
+  comando**, porque la cadena aparece en su propia línea de comandos. Hay que excluir `$PID`.
+- **Sin admin, `CommandLine` viene vacío para procesos elevados.** El monitor corre elevado:
+  «no aparece en la lista de procesos» NO es «no está corriendo». La prueba buena es el
+  `LastWriteTime` de lo que escribe.
+
+**Vive en:** `C:\Users\marti\diagnostico-gpu.ps1` → `RutasDeLog`, `EventosNuevos` ·
+*2026-08-28*
+
 ## La integración con Claude nunca funcionó desde afuera
 
 **Vive en:** `lib/rutas-publicas.ts` · `proxy.ts` · `tests/rutas-publicas.test.ts`
