@@ -299,22 +299,25 @@ const construirRecursos = (drive, planClases, titulos = new Map()) => {
     });
     for (const n of deClases) colgar(n, slug);
   }
-  // ⚠️ LOS RECURSOS SE LEEN EN EL ORDEN DEL CURSO, NO EN EL DEL DISCO.
+  // ⚠️ LOS RECURSOS SE ORDENAN POR MÓDULO, Y EL MÓDULO SALE DE LA POSICIÓN EN
+  //    PANTALLA — NO DEL NÚMERO DE CLASE.
   //
-  // Venían en el orden de `drive.recursos`, que es como los lista el sistema de
-  // archivos: alfabético por NOMBRE. Con eso «Alineando las expectativas» (clase 61)
-  // salía primero y «Bot AI…» (clase 87) segundo, mezclado con material de la clase 250:
-  // una lista que no sigue ningún hilo y en la que no se puede buscar nada.
+  //    El `n` de una clase es su id en la plataforma, y desde que `ordenModulos` reordena
+  //    los módulos ya no tiene nada que ver con dónde se ve. Medido en MasteryHaus: la
+  //    clase n=21 se dibuja en la POSICIÓN 225. Ordenar por `min(clases)` ponía su
+  //    material primero de todo, y el resto igual de mezclado: una lista sin ningún hilo.
   //
-  // El orden es la PRIMERA clase a la que pertenece cada recurso —o sea, cuándo aparece
-  // en el curso—. Los que no cuelgan de ninguna clase (material del curso entero) van
-  // primero: son la portada del bloque, no una nota al pie.
-  // Sin clase = material del curso entero (los enlaces). Va al FINAL: son 24 y puestos
-  // adelante forman un muro de links antes del primer material de la clase 1.
-  const primeraClase = (r) => (r.clases && r.clases.length ? Math.min(...r.clases) : Infinity);
+  //    Ordenando por la posición, los recursos quedan agrupados por módulo SOLOS — las
+  //    clases de un módulo son contiguas en pantalla —, que es lo que se pidió. No hace
+  //    falta agrupar a mano ni guardar el módulo en cada recurso.
+  const posDe = new Map(planClases.map((c, i) => [c.n, i]));
+  const primeraClase = (r) => {
+    if (!r.clases || !r.clases.length) return Infinity;   // material del curso entero: al final
+    const ps = r.clases.map((n) => posDe.get(n)).filter((p) => p !== undefined);
+    return ps.length ? Math.min(...ps) : Infinity;
+  };
   recursos.sort((a, b) => primeraClase(a) - primeraClase(b)
     || String(a.label).localeCompare(String(b.label), 'es'));
-
   return { recursos, porClase };
 };
 const slugDe = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')

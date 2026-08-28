@@ -29,7 +29,22 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
+import { TIPO_BADGE } from './CursoPortal';
 import { Miniatura } from './Miniatura';
+
+/**
+ * La miniatura que Drive genera para CUALQUIER archivo suyo: el primer fotograma de un
+ * video, la primera página de un PDF.
+ *
+ * ⚠️ Es pública y no se genera ni se guarda NADA. Antes de esto había 3.444 clases y
+ *    solo 30 con `portadaClase`: hacer una tapa por clase a mano no escala, y
+ *    generarlas con ffmpeg exigía tener el video en disco — que justamente se BORRA
+ *    cuando Drive confirma la subida (`--liberar`). El endpoint resuelve las dos cosas.
+ *
+ *    `Miniatura` ya se hace cargo del 404: si un archivo no tiene thumbnail, la imagen
+ *    desaparece y queda la tarjeta sin tapa, que es lo que había.
+ */
+const DRIVE_THUMB = (id: string, w = 800) => `https://drive.google.com/thumbnail?id=${id}&sz=w${w}`;
 import { PortadaModulo } from './PortadaModulo';
 import type { Clase, Curso, Recurso } from './curso';
 
@@ -346,9 +361,16 @@ function TarjetaClase({ clase, onAbrir }: { clase: Clase; onAbrir: () => void })
   return (
     <button type="button" className="ugc-modcard" onClick={onAbrir}>
       <span className="ugc-modcard-cover">
-        {clase.portadaClase && <Miniatura src={clase.portadaClase} />}
+        {/* La tapa hecha a mano gana; si no hay, el FOTOGRAMA del video. Sin esto la
+            tarjeta era un rectángulo negro en 3.414 de 3.444 clases. */}
+        {clase.portadaClase
+          ? <Miniatura src={clase.portadaClase} />
+          : clase.videoId && <Miniatura src={DRIVE_THUMB(clase.videoId)} />}
         <span className="shade" aria-hidden />
         <span className="ugc-modcard-n" aria-hidden>{clase.codigo ?? clase.n}</span>
+        {/* El triángulo dice que es un VIDEO. Sobre un fotograma real hace falta: sin
+            él, la tapa se lee como una imagen suelta y no como algo que se reproduce. */}
+        {clase.videoId && <span className="ugc-modcard-play" aria-hidden>{'\u25B6'}</span>}
       </span>
       <span className="ugc-modcard-body">
         <span className="ugc-modcard-t">{clase.titulo}</span>
@@ -427,6 +449,16 @@ function Recursos({ curso }: { curso: Curso }) {
       <div className="ugc-rail">
         {curso.recursos.map((r) => (
           <button key={r.slug} type="button" className="ugc-modcard" onClick={() => setAbierto(r)}>
+            {/* La PRIMERA PÁGINA del PDF como tapa. Un recurso sin tapa es una fila de
+                texto, y con 62 en una grilla no hay forma de reconocer ninguno de un
+                vistazo. Los enlaces no tienen archivo, así que no llevan tapa. */}
+            {r.driveId && (
+              <span className="ugc-modcard-cover">
+                <Miniatura src={DRIVE_THUMB(r.driveId)} />
+                <span className="shade" aria-hidden />
+                <span className="ugc-modcard-n" aria-hidden>{TIPO_BADGE[r.tipo] ?? r.tipo}</span>
+              </span>
+            )}
             <span className="ugc-modcard-body">
               <span className="ugc-modcard-t">{r.label}</span>
               <span className="ugc-modcard-meta">{r.cardDesc}</span>
