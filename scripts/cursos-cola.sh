@@ -43,6 +43,7 @@ REPO="C:/Users/marti/OneDrive/Escritorio/dashboard-marketing-main/dashboard-mark
 LOG="C:/cursos/cola.log"
 LISTA="C:/cursos/_cola.txt"
 PISO=14          # GB para arrancar un curso
+TOPE_BAJADOR=4h  # ningún curso puede quedarse con la cola (ver el porqué más abajo)
 
 cd "$REPO" || exit 1
 libres() { df -k /c | tail -1 | awk '{printf "%d", $4/1048576}'; }
@@ -85,8 +86,17 @@ while IFS= read -r d; do
     break
   fi
 
-  node scripts/curso-bajar.mjs --plan "$PLAN" >> "$LOG" 2>&1
-  di "  -- bajador salió con $? · $(libres) GB libres --"
+  # ⚠️ TOPE DE RELOJ. Con 78 cursos en fila, UN curso que se cuelga se queda con la
+  #    cola entera. El 28/08/2026 pasó exactamente eso: las URLs firmadas de los
+  #    segmentos vencieron a mitad de un video de 62 min, todos los fragmentos siguientes
+  #    dieron 410, y yt-dlp los reintentó y salteó uno por uno durante SIETE HORAS con
+  #    los otros 77 cursos esperando. El `--abort-on-unavailable-fragment` de
+  #    curso-bajar.mjs ataca la causa; esto es la red por si aparece otra forma de
+  #    colgarse. Lo que quede a medias se retoma solo: el --download-archive no repite.
+  timeout "$TOPE_BAJADOR" node scripts/curso-bajar.mjs --plan "$PLAN" >> "$LOG" 2>&1
+  COD=$?
+  [ "$COD" = "124" ] && di "  ⏰ el bajador pasó el tope de $TOPE_BAJADOR y lo corté — sigo con lo bajado."
+  di "  -- bajador salió con $COD · $(libres) GB libres --"
 
   node scripts/curso-pipeline.mjs --plan "$PLAN" --drive --tope-horas 12 >> "$LOG" 2>&1
   di "  -- pipeline salió con $? · $(libres) GB libres --"

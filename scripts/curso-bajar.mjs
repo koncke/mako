@@ -194,7 +194,20 @@ for (const [i, c] of clases.entries()) {
     '--no-overwrites',
     '--no-playlist',
     '--retries', '5',
-    '--fragment-retries', '10',
+    '--fragment-retries', '5',
+    // ⚠️ ABORTAR en vez de saltear el fragmento que no está. Las URLs de los segmentos
+    //    del CDN vienen FIRMADAS y vencen; en un video largo eso pasa A MITAD de la
+    //    descarga y a partir de ahí TODOS los fragmentos dan 410 Gone.
+    //
+    //    Sin este flag yt-dlp reintenta cada fragmento y después lo SALTEA, así que
+    //    muele miles de fragmentos muertos durante horas y al final escribe un archivo
+    //    con agujeros que igual no sirve. El 28/08/2026 se comió 7 HORAS en una sola
+    //    clase de 62 min, con la cola entera detrás esperando.
+    //
+    //    Con el flag, el 410 mata el intento en segundos. La clase queda como fallida y
+    //    se rebaja después con un manifiesto nuevo, que es lo único que la arregla:
+    //    reintentar con la MISMA firma vencida no puede funcionar por definición.
+    '--abort-on-unavailable-fragment',
     '--sleep-requests', PAUSA,
     '--no-warnings',
     // ⚠️ El progreso, en un archivo, hay que ACOTARLO. yt-dlp repinta la linea con
