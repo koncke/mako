@@ -22,14 +22,22 @@
 export const EXTENSION_ID = 'gapbemdaaghomjbnggechglkpmbgplle';
 
 /**
- * ⚠️ PONER EN `true` CUANDO LA REVISIÓN APRUEBE, y no antes.
+ * APROBADA Y PUBLICADA el 28/08/2026. Verificado: la ficha devuelve 200 y trae
+ * el botón de instalar.
  *
- * Es el único cambio que hace falta: la pantalla pasa sola de «descargar el zip»
- * a «añadir a Chrome», y el instructivo de instalación manual desaparece.
+ * Queda en `true` y no se toca. Si alguna vez Google baja la extensión, esto
+ * vuelve a `false` y la pantalla recupera sola el camino del zip — por eso el
+ * camino viejo sigue en el código en vez de borrarse.
  */
-export const EXTENSION_EN_TIENDA = false;
+export const EXTENSION_EN_TIENDA = true;
 
-export const EXTENSION_URL_TIENDA = `https://chromewebstore.google.com/detail/${EXTENSION_ID}`;
+/**
+ * La URL canónica, con el slug que le puso Google.
+ *
+ * Sin el slug también resuelve, pero con un redirect de por medio: un link que
+ * rebota es un link que a veces no llega. Este es el que muestra la tienda.
+ */
+export const EXTENSION_URL_TIENDA = `https://chromewebstore.google.com/detail/mako/${EXTENSION_ID}`;
 
 /** El zip que sirve Vercel, para instalar a mano mientras la tienda no esté. */
 export const EXTENSION_URL_ZIP = '/mako-puente.zip';

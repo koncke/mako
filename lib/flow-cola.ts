@@ -48,6 +48,13 @@ export type Trabajo = {
  * rescate, ese trabajo bloquea su lugar en la cola para siempre y el cliente ve
  * «generando…» hasta que alguien mire la base.
  */
+/**
+ * Cuánto puede estar un trabajo `tomado` antes de volver a la cola.
+ *
+ * ⚠️ El valor que MANDA vive en el RPC `flow_tomar_trabajos` (mig 0147), como
+ * `interval '10 minutes'`. Esta constante quedó para el que lee de acá — si se
+ * cambia una, hay que cambiar la otra.
+ */
 const COLGADO_MS = 10 * 60 * 1000;
 
 const hash = (token: string) => createHash('sha256').update(token).digest('hex');
@@ -194,37 +201,36 @@ export async function encolar(tipo: TipoTrabajo, pedido: Record<string, unknown>
 export async function tomarTrabajos(ws: number, cuantos: number): Promise<Trabajo[]> {
   const db = await runWithWorkspace(ws, () => getTenantDb());
 
-  const { data: puente } = await db.from('flow_puentes').select('estado').eq('workspace_id', ws).maybeSingle();
-  if (puente?.estado === 'marcada') return [];
+  // ⚠️ Todo el trabajo vive en el RPC (mig 0147), y NO se puede volver a hacer
+  // con dos queries desde acá.
+  //
+  // La versión anterior hacía un SELECT de los pendientes y después un UPDATE que
+  // los marcaba. El comentario decía «en el mismo tick» y esa era la intención,
+  // pero entre las dos hay una ventana: dos consumidores que preguntan a la vez
+  // leen el mismo trabajo antes de que ninguno lo marque. Con `FOR UPDATE SKIP
+  // LOCKED` el segundo saltea lo que el primero ya tomó y se lleva lo siguiente.
+  //
+  // Dejó de ser teórico el 28/08/2026: con la extensión aprobada en la Chrome Web
+  // Store, tener la de la tienda y la desempaquetada a la vez es el escenario
+  // normal — y dos pestañas de MaKo abiertas ya lo era antes. Lo que cuesta la
+  // carrera no es una fila duplicada: es generar el mismo clip dos veces con los
+  // créditos del cliente.
+  //
+  // El guard de `marcada` y el rescate de colgados también viven adentro: afuera
+  // eran dos `if` que el segundo call-site podía olvidarse de copiar.
+  const { data, error } = await db.rpc('flow_tomar_trabajos', { p_ws: ws, p_cuantos: cuantos });
 
-  const limite = new Date(Date.now() - COLGADO_MS).toISOString();
-  await db
-    .from('flow_trabajos')
-    .update({ estado: 'pendiente', tomado_at: null })
-    .eq('workspace_id', ws)
-    .eq('estado', 'tomado')
-    .lt('tomado_at', limite);
+  if (error) {
+    // No se degrada al camino viejo: hacerlo devolvería la carrera justo cuando
+    // algo ya anda mal. Sin trabajos, el puente vuelve a preguntar en el próximo
+    // ciclo y no pasa nada.
+    console.error('[flow] tomarTrabajos:', error.message);
+    return [];
+  }
 
-  const { data } = await db
-    .from('flow_trabajos')
-    .select('id, tipo, pedido, intentos')
-    .eq('workspace_id', ws)
-    .eq('estado', 'pendiente')
-    .order('created_at', { ascending: true })
-    .limit(Math.max(1, Math.min(cuantos, 5)));
-
-  const trabajos = (data ?? []) as Trabajo[];
-  if (trabajos.length === 0) return [];
-
-  // Marcarlos tomados en el mismo tick: dos pestañas del cliente con la
-  // extensión puesta pedirían lo mismo dos veces.
-  await db
-    .from('flow_trabajos')
-    .update({ estado: 'tomado', tomado_at: new Date().toISOString() })
-    .eq('workspace_id', ws)
-    .in('id', trabajos.map((t) => t.id));
-
-  return trabajos;
+  return ((data ?? []) as Trabajo[]).map((t) => ({
+    id: t.id, tipo: t.tipo, pedido: t.pedido, intentos: t.intentos,
+  }));
 }
 
 /** El puente devuelve un resultado bueno. */

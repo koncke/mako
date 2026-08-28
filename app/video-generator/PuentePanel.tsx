@@ -74,7 +74,28 @@ function useExtensionInstalada(): string | false | null {
       if (w) { setInstalada(w); window.clearInterval(t); return; }
       if (++n >= 6) { setInstalada(false); window.clearInterval(t); }
     }, 250);
-    return () => window.clearInterval(t);
+
+    // Y se vuelve a mirar cuando la pestaña recupera el foco.
+    //
+    // Con el zip esto no hacía falta: instalar era un desvío por
+    // `chrome://extensions` que terminaba en una recarga. Desde la tienda el
+    // camino natural es «clic → pestaña nueva → instalar → volver acá», y al
+    // volver la respuesta seguía siendo la de hace un minuto. El content script
+    // NO se inyecta hacia atrás en pestañas ya abiertas, así que el atributo
+    // tampoco aparece solo: lo único honesto que se puede hacer al detectar el
+    // regreso es ofrecer la recarga, no simularla.
+    const alVolver = () => {
+      if (document.visibilityState !== 'visible') return;
+      const w = mirar();
+      if (w) setInstalada(w);
+      else setInstalada((antes) => (antes === false ? false : antes));
+    };
+    document.addEventListener('visibilitychange', alVolver);
+
+    return () => {
+      window.clearInterval(t);
+      document.removeEventListener('visibilitychange', alVolver);
+    };
   }, []);
 
   return instalada;
@@ -359,13 +380,27 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
             Ya está instalada en este navegador{typeof instalada === 'string' ? ` (v${instalada})` : ''}
           </Status>
         ) : EXTENSION_EN_TIENDA ? (
-          <Button
-            variant="secondary"
-            onClick={() => window.open(EXTENSION_URL_TIENDA, '_blank', 'noopener')}
-            icon={<Icon name="descargar" size={14} />}
-          >
-            Añadir a Chrome
-          </Button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <Button
+              variant="secondary"
+              onClick={() => window.open(EXTENSION_URL_TIENDA, '_blank', 'noopener')}
+              icon={<Icon name="descargar" size={14} />}
+            >
+              Añadir a Chrome
+            </Button>
+            {/*
+              La instalación pasa en OTRA pestaña, y al volver acá el content
+              script no está: Chrome no lo inyecta hacia atrás en una página que
+              ya estaba abierta. Sin este botón el paso queda trabado diciendo que
+              no está instalada sobre algo que sí lo está — y el usuario no tiene
+              cómo saber que lo único que falta es un F5.
+            */}
+            {instalada === false && (
+              <Button variant="tertiary" size="sm" onClick={() => window.location.reload()}>
+                Ya la instalé
+              </Button>
+            )}
+          </div>
         ) : (
           <Button
             variant="secondary"
