@@ -26,7 +26,7 @@
 //
 // El flujo: catálogo → tres preguntas → el anuncio.
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from '@/app/_ui/Link';
 import {
   Pagina, PageHeader, Section, Button, Textarea, Alert, Tag, Modal, MONO,
@@ -256,6 +256,16 @@ export function VideoGeneratorApp({
   // Siempre se entra al catálogo, aunque haya anuncios hechos: se viene a crear
   // uno nuevo, no a releer el anterior.
   const [vista, setVista] = useState<Vista>('catalogo');
+
+  // El reloj que permite que «el puente anda» se apague solo. Arranca en `null`
+  // para no decidir una rama con dos relojes distintos —el del server y el del
+  // navegador— durante la hidratación.
+  const [ahoraTick, setAhoraTick] = useState<number | null>(null);
+  useEffect(() => {
+    setAhoraTick(Date.now());
+    const t = window.setInterval(() => setAhoraTick(Date.now()), 30000);
+    return () => window.clearInterval(t);
+  }, []);
   /** La plantilla abierta en el detalle. null = modal cerrado. */
   const [detalle, setDetalle] = useState<Puesta | null>(null);
   const [paso, setPaso] = useState<Paso>('tema');
@@ -560,6 +570,13 @@ export function VideoGeneratorApp({
   // sirven — no en la portada.
   const puedeCrear = !!puestaId;
 
+  // ¿El puente está andando AHORA? Se mira la FRESCURA de la última señal, no su
+  // existencia: `ultimoVisto` es un campo con fecha, y usarlo como booleano ya
+  // dejó los pasos en verde con una señal de 35 horas antes.
+  const puenteAnda = puente?.estado === 'listo'
+    && !!puente.ultimoVisto
+    && (ahoraTick == null || ahoraTick - new Date(puente.ultimoVisto).getTime() < 2 * 60 * 1000);
+
   return (
     <Pagina>
       {error && <Alert tono="bad">{error}</Alert>}
@@ -584,14 +601,20 @@ export function VideoGeneratorApp({
         }}>
           Elige el formato
         </h1>
+        {/*
+          El botón es la ÚNICA acción de la pantalla, así que pesa como tal: más
+          alto, más aire a los lados y el texto más grande que un botón normal.
+          Un `size="lg"` del kit lo dejaba del tamaño de cualquier otro y se leía
+          como un control más entre varios — y acá no hay varios.
+        */}
         <Button
           variant="mako"
-          size="lg"
+          size="xl"
           disabled={!puedeCrear}
           onClick={() => puestaId && empezar(puestaId)}
-          icon={<Icon name="mako" size={16} />}
+          icon={<Icon name="ia" size={19} />}
         >
-          Crear
+          Crear mi anuncio
         </Button>
       </div>
 
@@ -609,7 +632,18 @@ export function VideoGeneratorApp({
         ))}
       </div>
 
-      {puente && (
+      {/*
+        El puente SOLO se muestra cuando hay algo que hacer con él.
+
+        Es un paso previo, no una sección de esta pantalla: una vez que anda, el
+        dueño no tiene por qué volver a leer cuatro pasos de instalación cada vez
+        que entra a hacer un anuncio. «Ya comprobó que funcionaba, ya no debe
+        aparecer.»
+
+        Vivo y no recordado: un puente que dejó de llamar vuelve a mostrarse solo,
+        que es exactamente cuando hay algo que hacer otra vez.
+      */}
+      {puente && !puenteAnda && (
         <div style={{ marginTop: 'var(--gap)', maxWidth: 780 }}>
           <PuentePanel inicial={puente} />
         </div>

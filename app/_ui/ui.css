@@ -57,6 +57,11 @@
 .mk-btn--sm { min-height: calc(var(--touch) - 8px); padding: 0 12px; font-size: var(--fs-sm); }
 .mk-btn--md { min-height: var(--touch); padding: 0 16px; font-size: var(--fs-md); }
 .mk-btn--lg { min-height: calc(var(--touch) + 8px); padding: 0 22px; font-size: var(--fs-card); }
+/* Para la ÚNICA acción de una pantalla, donde no hay otra con la que competir.
+   No es «lg pero un poco más»: es la diferencia entre un control más entre varios
+   y el lugar al que la vista te está mandando. Si en una pantalla hay dos `xl`,
+   uno de los dos está mal. */
+.mk-btn--xl { min-height: calc(var(--touch) + 16px); padding: 0 30px; font-size: var(--fs-card); font-weight: 700; letter-spacing: -.01em; }
 .mk-btn--full { width: 100%; }
 
 .mk-btn--primary { background: var(--primary); color: #fff; font-weight: 700; }

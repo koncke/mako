@@ -21,6 +21,25 @@ const PATHS: Record<string, ReactNode> = {
   whatsapp: (<path d="M21 11.5a8 8 0 0 1-11.7 7.1L4 20l1.5-5.2A8 8 0 1 1 21 11.5Z" />),
   email: (<><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3.5 7 8.5 6 8.5-6" /></>),
   mako: (<><path d="M12 3v4M12 17v4M3 12h4M17 12h4" /><path d="M12 8.5 13.3 11 16 12l-2.7 1L12 15.5 10.7 13 8 12l2.7-1Z" /></>),
+  /**
+   * El sparkle de IA — el que va en un botón que dispara a MaKo.
+   *
+   * ⚠️ NO usar `mako` para eso. Sus cuatro destellos (`M12 3v4M12 17v4M3 12h4M17
+   * 12h4`) son líneas rectas que a 16 px se leen como una CRUZ, y la estrellita
+   * del centro se pierde: el botón «Crear» parecía decir «+ Crear». El dueño lo
+   * cazó al verlo — «la estrella que tiene no es la de IA».
+   *
+   * Este va RELLENO y no de trazo, que es la excepción del set: a este tamaño una
+   * estrella de contorno es un garabato, y el relleno es lo que la hace leerse. La
+   * segunda punta, chica, es lo que la distingue de una estrella cualquiera y la
+   * convierte en el gesto de «generado con IA» que ya es convención.
+   */
+  ia: (
+    <>
+      <path d="M12 2.6c.5 4 1.3 5.6 3.4 6.6 1 .5 2.3.7 3.9.8-1.6.1-2.9.3-3.9.8-2.1 1-2.9 2.6-3.4 6.6-.5-4-1.3-5.6-3.4-6.6-1-.5-2.3-.7-3.9-.8 1.6-.1 2.9-.3 3.9-.8C10.7 8.2 11.5 6.6 12 2.6Z" fill="currentColor" stroke="none" />
+      <path d="M18.4 15.2c.25 1.9.65 2.7 1.7 3.2.5.25 1.15.35 1.9.4-.75.05-1.4.15-1.9.4-1.05.5-1.45 1.3-1.7 3.2-.25-1.9-.65-2.7-1.7-3.2-.5-.25-1.15-.35-1.9-.4.75-.05 1.4-.15 1.9-.4 1.05-.5 1.45-1.3 1.7-3.2Z" fill="currentColor" stroke="none" />
+    </>
+  ),
   perfil: (<><circle cx="12" cy="8" r="3.6" /><path d="M5 20a7 7 0 0 1 14 0" /></>),
   admin: (<><path d="M12 3 5 6v5c0 4.6 3 8 7 9.4 4-1.4 7-4.8 7-9.4V6l-7-3Z" /><path d="m9.2 12 2 2 3.6-4" /></>),
   integraciones: (<><path d="M9 2v5M15 2v5" /><path d="M7 7h10v3.5a5 5 0 0 1-10 0V7Z" /><path d="M12 15.5V22" /></>),

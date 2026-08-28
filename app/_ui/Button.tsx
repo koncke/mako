@@ -41,7 +41,7 @@ export function useOkFlash(ms = 1600) {
 }
 
 export type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'danger' | 'mako';
-export type ButtonSize = 'sm' | 'md' | 'lg';
+export type ButtonSize = 'sm' | 'md' | 'lg' | 'xl';
 
 type Base = {
   children?: ReactNode;
@@ -69,7 +69,7 @@ type Base = {
 };
 
 /** Alto del spinner según el tamaño del botón. */
-const SPIN: Record<ButtonSize, number> = { sm: 12, md: 14, lg: 16 };
+const SPIN: Record<ButtonSize, number> = { sm: 12, md: 14, lg: 16, xl: 18 };
 
 function inner({ children, icon, iconRight, loading, ok, okLabel, size }: Base) {
   const s = SPIN[size ?? 'md'];
