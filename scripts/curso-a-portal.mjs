@@ -125,7 +125,42 @@ const slugRecurso = (nombre) => nombre.replace(/\.[^.]+$/, '')
 //
 // Bajar de ahí —adivinar UNA clase dentro del módulo— sería inventar el dato, y es
 // justamente lo que no se hace.
-const construirRecursos = (drive, planClases) => {
+// ⚠️ EL TÍTULO DE UN RECURSO ES UN DATO, NO EL NOMBRE DE SU ARCHIVO.
+//
+// `recursos-manifiesto.json` guarda el `label` que declara la plataforma. El nombre de
+// archivo, en cambio, lo fabricó el descargador pegando los primeros 8 caracteres del id
+// del Google Doc para que dos materiales homonimos no se pisaran en disco:
+//
+//     label    (plataforma)  →  «Conecta tu Dominio»
+//     archivo  (disco)       →  «Conecta tu Dominio - 1w3cpy9_.pdf»
+//
+// Sin este join el portal publicaba el segundo, y los 38 recursos de MasteryHaus se veían
+// con un sufijo de basura pegado al título. Lo reportó Martín como «están todos mal».
+//
+// ⚠️ Y NO se arregla recortando el sufijo con una regex: hay títulos REALES que llevan
+//    « - » adentro («Sesión Maestría - Diciembre 2025», «Sesión Maestría - Febrero 2025 Las
+//    5 leyes…», 2 de los 38). Cortar por el separador les come media frase. El dato está
+//    guardado; se lee, no se adivina — es «si hay que desempatar, todavía estás
+//    adivinando» aplicada al nombre.
+const titulosDelManifiesto = (base) => {
+  const m = new Map();
+  const p = join(base, 'recursos-manifiesto.json');
+  if (!existsSync(p)) return m;
+  try {
+    for (const x of JSON.parse(readFileSync(p, 'utf8'))) {
+      // `tituloReal` es lo que el ARCHIVO dice de si mismo (lo escribe
+      // curso-recursos-titulos.mjs); `label` es el nombre de la SECCION donde cuelga.
+      // Gana el primero: en MasteryHaus siete archivos distintos -- ACTIVIDAD #2,
+      // 3. Futuro poco feliz, 7. Tracker extra... -- compartian UNA sola seccion, y los
+      // siete se publicaban con el mismo nombre y la misma descripcion.
+      const t = x && (x.tituloReal || x.label);
+      if (x && x.archivo && t) m.set(String(x.archivo), String(t));
+    }
+  } catch { /* un manifiesto roto no frena la publicación: se cae al nombre de archivo */ }
+  return m;
+};
+
+const construirRecursos = (drive, planClases, titulos = new Map()) => {
   const recursos = [];
   const porClase = new Map();
   const colgar = (n, slug) => porClase.set(n, [...(porClase.get(n) ?? []), slug]);
@@ -208,6 +243,8 @@ const construirRecursos = (drive, planClases) => {
     // nombrando una clase ajena («249 - Campaña de Nutrición Semanal - …») dentro del
     // bloque de otra. Se ve prolijo y dice algo falso.
     let label = r.archivo.replace(/\.[^.]+$/, '');
+    const delManifiesto = titulos.get(String(r.archivo ?? ''));
+    if (delManifiesto) label = delManifiesto;
     if (r.tituloReal) label = String(r.tituloReal);
     if (claseDelPrefijo) {
       const pref = `${String(claseDelPrefijo.n).padStart(2, '0')} - ${claseDelPrefijo.titulo} - `;
@@ -396,7 +433,7 @@ if (categoriaPrevia) console.log(`  Categoría: conservo la que ya tenía («${c
 
 // Contra las clases del PLAN, no contra las ya construidas: el plan es el que tiene
 // `modulo` y `submodulo` como texto, que es la clave del vínculo con los recursos.
-const { recursos: recursosPortal, porClase: slugsPorClase } = construirRecursos(drive, plan.clases);
+const { recursos: recursosPortal, porClase: slugsPorClase } = construirRecursos(drive, plan.clases, titulosDelManifiesto(base));
 
 // El título lleva el AUTOR, igual que la carpeta de Drive: «<Curso> - <Autor>». Si el
 // título de la plataforma ya lo trae —«Curso de Claude AI - Rodrigo Rojo»— no se

@@ -33,7 +33,7 @@ export const CURSO_MASTERYHAUS: Curso = {
   recursos: [
     {
       slug: 'alineando-las-expectativas-14jhe-j3',
-      label: 'Alineando las expectativas - 14jHe j3',
+      label: 'Alineando las expectativas',
       cardDesc: 'Material de 3 clases',
       tipo: 'pdf',
       driveId: '1YNOiH8XYJ-j3TIg5LP0jsEuXHZsSryM8',
@@ -41,7 +41,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'aprendizajes-y-recomendaciones-1x6yedlm',
-      label: 'Aprendizajes y recomendaciones - 1x6yeDLm',
+      label: 'MH | Recupero de servicio',
       cardDesc: 'Material de la clase 126',
       tipo: 'pdf',
       driveId: '1n-ebVRx-2yvJ-wvC4kn7DepNS-u4sXng',
@@ -49,7 +49,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'bot-ai-copys-landings-vsl-1oleejvj',
-      label: 'Bot AI Copys Landings VSL - 1OLeEjVJ',
+      label: 'Bot AI Copys Landings VSL',
       cardDesc: 'Material de la clase 121',
       tipo: 'pdf',
       driveId: '1PZCJYZYWQO4sOwuBs77YO-eLsZaa8Apy',
@@ -57,7 +57,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'bot-ai-desarrollador-de-nicho-dorado-1xxz7hoa',
-      label: 'BOT AI Desarrollador de Nicho Dorado - 1XxZ7HOA',
+      label: 'MB | Bot Nicho Dorado',
       cardDesc: 'Material de la clase 87',
       tipo: 'pdf',
       driveId: '1gFrNeYWM0l03D0DazbXk0hcA5PyM0Dr_',
@@ -65,7 +65,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'bot-ai-para-crear-tu-oferta-irresistible-1lme-3dc',
-      label: 'Bot AI para Crear tu Oferta Irresistible - 1Lme 3Dc',
+      label: 'MU | Bot Oferta Irresistible',
       cardDesc: 'Material de la clase 95',
       tipo: 'pdf',
       driveId: '1BU4C4uWw9T5T_HPwBLyvsZEC9at0JVRQ',
@@ -73,7 +73,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'conecta-tu-dominio-1w3cpy9',
-      label: 'Conecta tu Dominio - 1w3cpy9',
+      label: 'Conecta tu Dominio',
       cardDesc: 'Material de la clase 48',
       tipo: 'pdf',
       driveId: '11rCTq92BZDpqnsXzgXhnb4QdcMUCoB94',
@@ -81,7 +81,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'configuracion-mental-1ix5p-nh',
-      label: 'Configuración mental - 1Ix5P-nH',
+      label: 'MB | Libro de Mentalidad Mastery',
       cardDesc: 'Material de 9 clases',
       tipo: 'file',
       ext: 'html',
@@ -90,7 +90,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'configurando-tu-temporada-de-no-10gy36p9',
-      label: 'Configurando tu Temporada de No - 10gY36p9',
+      label: 'MB | Libro Nicho Dorado',
       cardDesc: 'Material de 8 clases',
       tipo: 'file',
       ext: 'html',
@@ -99,7 +99,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'del-contenido-largo-al-contenido-corto-1w0ltcwq',
-      label: 'Del contenido largo al contenido corto - 1W0ltCwQ',
+      label: 'Del contenido largo al contenido corto',
       cardDesc: 'Material de 18 clases',
       tipo: 'pdf',
       driveId: '1dMYL7ILbnMDjvShm8G6WlWygkyRmvjJ8',
@@ -107,7 +107,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'estrategias-de-contenido-19eckojr',
-      label: 'Estrategias de Contenido - 19EckOjR',
+      label: 'Estrategias de Contenido',
       cardDesc: 'Material de 2 clases',
       tipo: 'pdf',
       driveId: '1XURcN1SVLRzmg4n-dcuxU-bMSsup3lkR',
@@ -115,7 +115,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'funnel-calido-individual-a-llamada-no-tienes-comunidad-1aywj',
-      label: 'Funnel Cálido Individual a Llamada (No tienes comunidad) - 1ayWJdn',
+      label: 'MB | Estrategia Sniper',
       cardDesc: 'Material de 2 clases',
       tipo: 'pdf',
       driveId: '1dtWDCMlx4hmVn3td3bZOCUjqPSTSx2Eg',
@@ -123,7 +123,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'funnel-calido-individual-a-llamada-no-tienes-comunidad-1bvla',
-      label: 'Funnel Cálido Individual a Llamada (No tienes comunidad) - 1bVlaKZK',
+      label: 'MB | Estrategia Farming de Leads',
       cardDesc: 'Material de 2 clases',
       tipo: 'pdf',
       driveId: '1T2zpv4xhmggNd4j7_a5XLIUx_ukozOR6',
@@ -131,7 +131,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'funnel-calido-individual-a-llamada-no-tienes-comunidad-1r9z1',
-      label: 'Funnel Cálido Individual a Llamada (No tienes comunidad) - 1r9Z1syw',
+      label: 'MB | Funnel Individual a Llamada',
       cardDesc: 'Material de la clase 122',
       tipo: 'pdf',
       driveId: '1meimGGS4m_EHt0rr-JaZZHdq9gjdFM82',
@@ -139,7 +139,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'funnel-calido-masivo-a-aplicacion-ya-tienes-una-comunidad-1i',
-      label: 'Funnel Cálido Masivo a Aplicación (Ya tienes una comunidad) - 1ilbjvsG',
+      label: 'Funnel Cálido Masivo a Aplicación (Ya tienes una comunidad)',
       cardDesc: 'Material de la clase 118',
       tipo: 'pdf',
       driveId: '1XTFrOwQ9mXoRl5fLKKq8E0cz43PJDC78',
@@ -147,7 +147,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'lanzamiento-semilla-1occfian',
-      label: 'Lanzamiento Semilla - 1ocCfian',
+      label: 'MH | Lanzamiento Semilla',
       cardDesc: 'Material de la clase 117',
       tipo: 'file',
       ext: 'html',
@@ -156,7 +156,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'master-copy-10odyeyi',
-      label: 'Master Copy - 10OdYeyI',
+      label: 'MB | Desarrollador de Master Copy',
       cardDesc: 'Material de la clase 172',
       tipo: 'pdf',
       driveId: '1_VVXN79oOAcaOfHhG0xaSu4nfOmxPlqC',
@@ -164,7 +164,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'negocio-de-alto-valor-componentes-1nqvhmtg',
-      label: 'Negocio de Alto Valor Componentes - 1nQvHmTg',
+      label: 'MH | Libro de Validación 2026',
       cardDesc: 'Material de 3 clases',
       tipo: 'file',
       ext: 'html',
@@ -173,7 +173,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'oferta-especializada-1bsab3ol',
-      label: 'Oferta Especializada - 1BsAB3OL',
+      label: 'MB | Psicologia de ventas',
       cardDesc: 'Material de 19 clases',
       tipo: 'pdf',
       driveId: '1QXOk_tMx6lziote5VcnIAv9evIaUnp7Q',
@@ -181,7 +181,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'oferta-especializada-1coijzih',
-      label: 'Oferta Especializada - 1COijziH',
+      label: 'MB | Libro de Precio',
       cardDesc: 'Material de 19 clases',
       tipo: 'pdf',
       driveId: '13X4sI_jbuVGqgLqPlDRM2tV99fUbMUO0',
@@ -189,7 +189,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'oferta-especializada-1spfmul1',
-      label: 'Oferta Especializada - 1spfMUL1',
+      label: 'MB | Libro Oferta Irresistible 2026',
       cardDesc: 'Material de 19 clases',
       tipo: 'file',
       ext: 'html',
@@ -198,7 +198,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'onboarding-de-clientes-1e-ttvy',
-      label: 'Onboarding de Clientes - 1E-tTVy',
+      label: 'MB | Desarrollador de Onboarding',
       cardDesc: 'Material de la clase 142',
       tipo: 'pdf',
       driveId: '1Q2CmDKV-fJxCsq7wsUGDQbx1a-NzycEc',
@@ -206,7 +206,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'onboarding-de-clientes-1hcxa0ab',
-      label: 'Onboarding de Clientes - 1HcxA0AB',
+      label: 'MB | Proceso de Onboarding de Clientes',
       cardDesc: 'Material de la clase 142',
       tipo: 'pdf',
       driveId: '1IxkEbrLPl8hoE6QvlfAuK3scDABCxDvk',
@@ -214,7 +214,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'plataforma-principal-de-marketing-perpetuo-1hxfuhmr',
-      label: 'Plataforma Principal de Marketing Perpetuo - 1HxFuHMR',
+      label: 'Plataforma Principal de Marketing Perpetuo',
       cardDesc: 'Material de 15 clases',
       tipo: 'pdf',
       driveId: '1CtT6bNo3RRsngSz2s5AURKBLhvclUodQ',
@@ -222,7 +222,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'por-que-hablamos-de-g-del-tiempo-11akhwpi',
-      label: 'Por qué hablamos de G. del Tiempo - 11aKHwpi',
+      label: '4. Profundiza en tus prioridades',
       cardDesc: 'Material de 27 clases',
       tipo: 'file',
       ext: 'bin',
@@ -231,7 +231,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'por-que-hablamos-de-g-del-tiempo-1bgb2snq',
-      label: 'Por qué hablamos de G. del Tiempo - 1bgB2snQ',
+      label: '3. Futuro poco feliz',
       cardDesc: 'Material de 27 clases',
       tipo: 'file',
       ext: 'bin',
@@ -240,7 +240,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'por-que-hablamos-de-g-del-tiempo-1ncocv7j',
-      label: 'Por qué hablamos de G. del Tiempo - 1ncocV7J',
+      label: '6. Tarjeta Adueñate de tu Tiempo',
       cardDesc: 'Material de 27 clases',
       tipo: 'file',
       ext: 'bin',
@@ -249,7 +249,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'por-que-hablamos-de-g-del-tiempo-1thnkire',
-      label: 'Por qué hablamos de G. del Tiempo - 1ThnkIRE',
+      label: 'ACTIVIDAD #2',
       cardDesc: 'Material de 27 clases',
       tipo: 'file',
       ext: 'bin',
@@ -258,7 +258,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'por-que-hablamos-de-g-del-tiempo-1vavbq3d',
-      label: 'Por qué hablamos de G. del Tiempo - 1VAvBQ3D',
+      label: '5. Define tu sistema',
       cardDesc: 'Material de 27 clases',
       tipo: 'file',
       ext: 'bin',
@@ -267,7 +267,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'por-que-hablamos-de-g-del-tiempo-1vrh4jqw',
-      label: 'Por qué hablamos de G. del Tiempo - 1Vrh4JQw',
+      label: '7. Tracker extra',
       cardDesc: 'Material de 27 clases',
       tipo: 'file',
       ext: 'bin',
@@ -276,7 +276,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'por-que-hablamos-de-g-del-tiempo-1wgllexm',
-      label: 'Por qué hablamos de G. del Tiempo - 1WGLLeXm',
+      label: '1-. Define tus no negociables',
       cardDesc: 'Material de 27 clases',
       tipo: 'file',
       ext: 'bin',
@@ -285,7 +285,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'script-de-ventas-1lxok-ta',
-      label: 'Script de Ventas - 1lxOK tA',
+      label: 'MB | Script de Ventas Infalible',
       cardDesc: 'Material de la clase 129',
       tipo: 'pdf',
       driveId: '1xQ79htUbv0TNi0MrdShdwxg6PWUXxF0g',
@@ -293,7 +293,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'sesion-maestria-diciembre-2025-17f8acgu',
-      label: 'Sesión Maestría - Diciembre 2025 - 17F8aCGU',
+      label: 'Sesión Maestría - Diciembre 2025',
       cardDesc: 'Material de la clase 21',
       tipo: 'pdf',
       driveId: '1FRiWHerUqnF0Shx_KnN6khfkVYAqf7jK',
@@ -301,7 +301,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'sesion-maestria-febrero-2025-las-5-leyes-fundamentales-para-',
-      label: 'Sesión Maestría - Febrero 2025 Las 5 leyes fundamentales para liderar - 1r-UfNQx',
+      label: 'Sesión Maestría - Febrero 2025 Las 5 leyes fundamentales para liderar',
       cardDesc: 'Material de la clase 11',
       tipo: 'pdf',
       driveId: '1_F8FntkDyNY_wv0CvvHizPTPncw4yczG',
@@ -309,7 +309,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'por-que-hablamos-de-marketing-perpetuo-10odyeyi',
-      label: '¿Por qué hablamos de Marketing Perpetuo - 10OdYeyI',
+      label: 'MB | Desarrollador de Master Copy',
       cardDesc: 'Material de 79 clases',
       tipo: 'pdf',
       driveId: '1cgAsOkIDHHB0ykFGyIAhr88t5W6TUR_4',
@@ -317,7 +317,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'por-que-hablamos-de-marketing-perpetuo-19eckojr',
-      label: '¿Por qué hablamos de Marketing Perpetuo - 19EckOjR',
+      label: '¿Por qué hablamos de Marketing Perpetuo',
       cardDesc: 'Material de 79 clases',
       tipo: 'pdf',
       driveId: '1gIl9QyX7nZh9AEGjFuyoEfGRhkjq-ku7',
@@ -325,7 +325,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'por-que-hablamos-de-marketing-perpetuo-1bdeuwzu',
-      label: '¿Por qué hablamos de Marketing Perpetuo - 1bdeuWZU',
+      label: 'MB | Libro Marketing Perpetuo',
       cardDesc: 'Material de 79 clases',
       tipo: 'file',
       ext: 'html',
@@ -334,7 +334,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'por-que-hablamos-de-marketing-perpetuo-1dqtue6',
-      label: '¿Por qué hablamos de Marketing Perpetuo - 1dQtUE6',
+      label: 'MB | Desarrollador de Personaje Legendario',
       cardDesc: 'Material de 79 clases',
       tipo: 'pdf',
       driveId: '18vPqNfNIjdZNTYzRZCnSPKVm0ahy_4qw',
@@ -342,7 +342,7 @@ export const CURSO_MASTERYHAUS: Curso = {
     },
     {
       slug: 'por-que-hablamos-de-marketing-perpetuo-1g3sug0w',
-      label: '¿Por qué hablamos de Marketing Perpetuo - 1G3sUG0w',
+      label: '¿Por qué hablamos de Marketing Perpetuo',
       cardDesc: 'Material de 60 clases',
       tipo: 'pdf',
       driveId: '1QI-CW0h_2_oDT6n6hrOiu5rX4zZUDpZu',
