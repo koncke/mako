@@ -168,6 +168,70 @@ function Plantilla({
 // que es la única forma de juzgar de verdad un formato de video: en la tarjeta se
 // ve cómo se mueve, acá se escucha cómo suena.
 
+/**
+ * El guion entero, con lo que la card ya no muestra.
+ *
+ * La card quedó con el título solo porque para ELEGIR alcanza con el nombre. Lo
+ * que se sacó no se perdió: vive acá, que es donde se mira cuando se duda.
+ *
+ * El texto va con sus rótulos de sección visibles —GANCHO, HISTORIA, CTA— porque
+ * son la estructura del guion, no ruido: quien lo va a grabar necesita ver dónde
+ * abre y dónde cierra.
+ */
+function DetalleGuion({
+  guion, puesta, onCerrar, onUsar,
+}: {
+  guion: GuionDisponible;
+  puesta?: Puesta;
+  onCerrar: () => void;
+  onUsar: () => void;
+}) {
+  const cab = puesta ? cabidaDeGuion(puesta, guion.hablado) : null;
+  return (
+    <Modal
+      titulo={guion.angulo || 'Sin título'}
+      encabezado={guion.estructura || undefined}
+      onCerrar={onCerrar}
+      ancho={720}
+      pie={
+        <Button variant="mako" onClick={onUsar} icon={<Icon name="ia" size={15} />}>
+          Usar este guion
+        </Button>
+      }
+    >
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+        fontSize: 'var(--fs-meta)', color: 'var(--faint)', marginBottom: 14,
+      }}>
+        <span>{guion.palabras} palabras</span>
+        {cab && (
+          <>
+            <span>·</span>
+            <span>{cab.segundosReales}s en {cab.clips} tomas{puesta ? ` con ${puesta.nombre}` : ''}</span>
+          </>
+        )}
+        {guion.yaUsado && <Tag color="var(--faint)">Ya lo grabaste</Tag>}
+      </div>
+
+      {cab?.desborda && (
+        <div style={{ marginBottom: 14 }}>
+          <Alert tono="warn">
+            No entra en <strong>{puesta?.nombre}</strong>: sobran {cab.palabrasDeMas} palabras.
+            El final quedaría afuera.
+          </Alert>
+        </div>
+      )}
+
+      <div style={{
+        whiteSpace: 'pre-wrap', fontSize: 'var(--fs-md)', lineHeight: 1.7,
+        color: 'var(--ink)', maxHeight: '52vh', overflowY: 'auto',
+      }}>
+        {guion.texto}
+      </div>
+    </Modal>
+  );
+}
+
 function DetalleFormato({
   puesta, onCerrar, onUsar,
 }: {
@@ -292,6 +356,8 @@ export function VideoGeneratorApp({
   const [guionId, setGuionId] = useState<string>('');
   /** El modal de pegar guiones propios. */
   const [cargando, setCargando] = useState(false);
+  /** El guion abierto en el detalle. null = cerrado. */
+  const [verGuion, setVerGuion] = useState<GuionDisponible | null>(null);
   const [feedback, setFeedback] = useState('');
   const [verGuiones, setVerGuiones] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -385,6 +451,15 @@ export function VideoGeneratorApp({
       >
         {paso === 'guion' && (
           <div style={{ textAlign: 'left' }}>
+            {verGuion && (
+              <DetalleGuion
+                guion={verGuion}
+                puesta={puesta}
+                onCerrar={() => setVerGuion(null)}
+                onUsar={() => { setGuionId(verGuion.id); setVerGuion(null); }}
+              />
+            )}
+
             {cargando && (
               <CargarGuiones
                 onCerrar={() => setCargando(false)}
@@ -417,9 +492,9 @@ export function VideoGeneratorApp({
                   type="button"
                   onClick={() => setCargando(true)}
                   style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center',
-                    justifyContent: 'center', gap: 7, width: '100%', marginTop: 14,
-                    padding: '28px 15px', borderRadius: 12, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    gap: 8, width: '100%', marginTop: 14,
+                    padding: '15px', borderRadius: 12, cursor: 'pointer',
                     fontFamily: 'inherit', background: 'transparent',
                     border: '1.5px dashed var(--border-strong)',
                     color: 'var(--faint)', transition: 'border-color .12s, color .12s',
@@ -433,11 +508,8 @@ export function VideoGeneratorApp({
                     e.currentTarget.style.color = 'var(--faint)';
                   }}
                 >
-                  <span style={{ fontSize: 26, lineHeight: 1 }}>＋</span>
-                  <span style={{ fontSize: 'var(--fs-md)', fontWeight: 650 }}>Cargar un guion mío</span>
-                  <span style={{ fontSize: 'var(--fs-meta)', lineHeight: 1.5, textAlign: 'center' }}>
-                    Escríbelo, sube un archivo o pega un link.<br />Si trae varios, los separo.
-                  </span>
+                  <span style={{ fontSize: 18, lineHeight: 1 }}>＋</span>
+                  <span style={{ fontSize: 'var(--fs-md)', fontWeight: 650 }}>Nuevo guion</span>
                 </button>
               </div>
             ) : (
@@ -461,9 +533,9 @@ export function VideoGeneratorApp({
                   type="button"
                   onClick={() => setCargando(true)}
                   style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center',
-                    justifyContent: 'center', gap: 7, width: '100%',
-                    padding: '20px 15px', borderRadius: 12, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    gap: 8, width: '100%',
+                    padding: '13px 15px', borderRadius: 12, cursor: 'pointer',
                     fontFamily: 'inherit', background: 'transparent',
                     border: '1.5px dashed var(--border-strong)',
                     color: 'var(--faint)', transition: 'border-color .12s, color .12s',
@@ -477,71 +549,68 @@ export function VideoGeneratorApp({
                     e.currentTarget.style.color = 'var(--faint)';
                   }}
                 >
-                  <span style={{ fontSize: 24, lineHeight: 1 }}>＋</span>
-                  <span style={{ fontSize: 'var(--fs-md)', fontWeight: 650 }}>Cargar un guion mío</span>
-                  <span style={{ fontSize: 'var(--fs-meta)', lineHeight: 1.5, textAlign: 'center' }}>
-                    Escríbelo, sube un archivo o pega un link.<br />Si trae varios, los separo.
-                  </span>
+                  <span style={{ fontSize: 18, lineHeight: 1 }}>＋</span>
+                  <span style={{ fontSize: 'var(--fs-md)', fontWeight: 650 }}>Nuevo guion</span>
                 </button>
 
                 {guiones.map((g) => {
                   const elegido = g.id === guionId;
                   const cab = puesta ? cabidaDeGuion(puesta, g.hablado) : null;
                   return (
-                    <button
+                    <div
                       key={g.id}
-                      type="button"
-                      onClick={() => setGuionId(g.id)}
+                      role="button"
+                      tabIndex={0}
                       aria-pressed={elegido}
+                      onClick={() => setGuionId(g.id)}
+                      // Doble click abre el detalle, como en las plantillas de la
+                      // portada. El gesto ya existe en esta pantalla: repetirlo
+                      // acá es gratis y no repetirlo obliga a aprender dos.
+                      onDoubleClick={() => setVerGuion(g)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setGuionId(g.id); }
+                      }}
                       style={{
-                        display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
-                        fontFamily: 'inherit', padding: '13px 15px', borderRadius: 12,
+                        display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                        cursor: 'pointer', padding: '13px 15px', borderRadius: 12,
                         background: elegido ? 'var(--primary-bg)' : 'var(--surface)',
                         border: `1.5px solid ${elegido ? 'var(--primary)' : 'var(--border)'}`,
                       }}
                     >
-                      <div style={{
-                        display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
-                        marginBottom: 6,
+                      {/*
+                        SOLO el título. Las palabras, la duración y el texto se
+                        fueron al detalle: una lista donde cada fila trae cinco
+                        datos no se lee, se escanea — y para ELEGIR entre guiones
+                        alcanza con el nombre. Lo demás se mira cuando se duda, y
+                        para eso está «Abrir».
+                      */}
+                      <span style={{
+                        flex: 1, minWidth: 0, fontSize: 'var(--fs-md)', fontWeight: 650,
+                        color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
                       }}>
-                        <span style={{ fontSize: 'var(--fs-md)', fontWeight: 650, color: 'var(--ink)' }}>
-                          {g.angulo || 'Sin ángulo'}
-                        </span>
-                        {g.estructura && <Tag>{g.estructura}</Tag>}
-                        {/*
-                          «Detectar si alguno ya fue creado con esta
-                          funcionalidad» — pedido textual. No lo bloquea: grabar
-                          otra versión del mismo guion es legítimo. Solo lo dice.
-                        */}
-                        {g.yaUsado && <Tag color="var(--faint)">Ya lo grabaste</Tag>}
-                      </div>
+                        {g.angulo || 'Sin título'}
+                      </span>
 
-                      <div style={{
-                        fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.55,
-                      }}>
-                        {g.primeraLinea}…
-                      </div>
+                      {/* Lo único que sobrevive al lado del título es lo que
+                          cambia una DECISIÓN: que ya lo grabaste, y que no entra
+                          en este formato. Los dos hacen elegir distinto. */}
+                      {g.yaUsado && <Tag color="var(--faint)">Ya lo grabaste</Tag>}
+                      {cab?.desborda && <Tag color="var(--warn)">No entra</Tag>}
 
-                      {/* La duración DERIVADA, que es lo que reemplaza al paso que
-                          preguntaba cuánto tenía que durar. */}
-                      <div style={{
-                        display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
-                        marginTop: 8, fontSize: 'var(--fs-meta)', color: 'var(--faint)',
-                      }}>
-                        <span>{g.palabras} palabras</span>
-                        {cab && (
-                          <>
-                            <span>·</span>
-                            <span>{cab.segundosReales}s en {cab.clips} tomas</span>
-                            {cab.desborda && (
-                              <span style={{ color: 'var(--warn)', fontWeight: 650 }}>
-                                · No entra en este formato: sobran {cab.palabrasDeMas} palabras
-                              </span>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setVerGuion(g); }}
+                        style={{
+                          flex: 'none', background: 'transparent', border: 'none',
+                          padding: '3px 6px', cursor: 'pointer', fontFamily: 'inherit',
+                          fontSize: 'var(--fs-meta)', color: 'var(--dim)',
+                          textDecoration: 'underline', textUnderlineOffset: 3,
+                        }}
+                      >
+                        Abrir
+                      </button>
+                    </div>
                   );
                 })}
 
