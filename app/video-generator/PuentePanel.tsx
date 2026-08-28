@@ -120,6 +120,35 @@ function usePuedeInstalar(): PuedeInstalar | null {
 }
 
 /**
+ * Cuánto vale la última señal del puente antes de dejar de creerle.
+ *
+ * La extensión llama cada 15 s (`chrome.alarms` con `periodInMinutes: 0.25`), así
+ * que dos minutos son ocho ciclos: si en todo eso no llamó, no está.
+ */
+const VIVO_MS = 2 * 60 * 1000;
+
+/**
+ * Un reloj que avanza, para que «hace cuánto» se pueda evaluar sin recargar.
+ *
+ * Sin esto, `Date.now()` queda congelado en el momento del render: una pantalla
+ * abierta dice «conectado» para siempre, porque la comparación que lo desmiente
+ * nunca se vuelve a hacer.
+ *
+ * Arranca en `null` y NO en `Date.now()`: el server no tiene el mismo reloj que el
+ * navegador, y una rama decidida en el primer render con dos relojes distintos es
+ * un mismatch de hidratación. Mientras es `null` no se afirma nada.
+ */
+function useAhora(cadaMs = 15000): number | null {
+  const [ahora, setAhora] = useState<number | null>(null);
+  useEffect(() => {
+    setAhora(Date.now());
+    const t = window.setInterval(() => setAhora(Date.now()), cadaMs);
+    return () => window.clearInterval(t);
+  }, [cadaMs]);
+  return ahora;
+}
+
+/**
  * Le pasa el token a la extensión y espera el acuse.
  *
  * Sin el acuse no se puede distinguir «lo guardó» de «no escuchó», y la pantalla
@@ -189,6 +218,7 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
   const [copiado, setCopiado] = useState(false);
   const instalada = useExtensionInstalada();
   const puedeInstalar = usePuedeInstalar();
+  const ahora = useAhora();
   const [trabajoId, setTrabajoId] = useState<number | null>(null);
   const [prueba, setPrueba] = useState<EstadoPruebaOut['prueba']>(null);
   const [busyCodigo, setBusyCodigo] = useState(false);
@@ -203,11 +233,70 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
   // Al llegar al tope se para y aparece un botón para volver a mirar.
   const TOPE_CICLOS = 40; // 2 minutos
 
-  // Hechos, no checkboxes.
-  const llamo = !!puente.ultimoVisto;
-  const conSesion = puente.estado === 'listo';
+  // Hechos, no checkboxes — y hechos CON FECHA.
+  //
+  // ⚠️ Esto era `!!puente.ultimoVisto`, o sea «alguna vez llamó». El dueño
+  // desinstaló la extensión y los pasos 2 y 3 siguieron en verde con una última
+  // señal de **35 horas antes**: el paso 1 hablaba del navegador de ahora y los
+  // otros dos de un navegador que ya no existía. Un campo con fecha usado como
+  // booleano deja de medir el presente y pasa a medir el pasado.
+  //
+  // El plazo no vuelve al puente menos capaz: si sigue vivo en OTRO navegador
+  // —que es un caso legítimo, la extensión trabaja desde donde se instaló— llamó
+  // hace 15 segundos y esto sigue en verde. Lo único que se apaga es lo que dejó
+  // de dar señales.
+  const desdeUltima = ahora != null && puente.ultimoVisto
+    ? ahora - new Date(puente.ultimoVisto).getTime()
+    : null;
+  // Mientras no se sabe (primer render, sin reloj todavía) se conserva lo que el
+  // server trajo: parpadear a «desconectado» durante un instante es peor que
+  // esperar 100 ms.
+  const vivo = desdeUltima == null ? !!puente.ultimoVisto : desdeUltima < VIVO_MS;
+
+  const llamo = vivo;
+  const conSesion = vivo && puente.estado === 'listo';
   const probado = prueba?.estado === 'listo';
   const listo = llamo && conSesion && probado;
+
+  // ── Volver a preguntar mientras alguien está mirando ──────────────────────
+  // El reloj de `useAhora` hace que la señal vieja se apague, pero `ultimoVisto`
+  // llega en un snapshot del server: sin refrescarlo, a los dos minutos TODO se
+  // apagaría aunque el puente esté llamando cada 15 s. Las dos piezas van juntas
+  // o la frescura se convierte en un temporizador que miente al revés.
+  //
+  // Tres límites, y los tres salen de un poll que ya se fue de las manos una vez
+  // en este mismo archivo:
+  //   · Solo con la pestaña VISIBLE. Nadie necesita esto de fondo.
+  //   · Cada 15 s, el mismo pulso que la extensión. Más rápido no informa más.
+  //   · Se corta al ocultarse, y se pregunta una vez al volver — que es cuando la
+  //     respuesta de verdad cambió.
+  useEffect(() => {
+    let vivo = true;
+    let t: number | undefined;
+
+    const preguntar = async () => {
+      if (!vivo || document.visibilityState !== 'visible') return;
+      try {
+        const out = await estadoPruebaAction(null);
+        if (vivo && out?.puente) setPuente(out.puente);
+      } catch { /* la próxima vuelta reintenta */ }
+    };
+
+    const arrancar = () => {
+      window.clearInterval(t);
+      if (document.visibilityState !== 'visible') return;
+      void preguntar();
+      t = window.setInterval(() => void preguntar(), 15000);
+    };
+
+    arrancar();
+    document.addEventListener('visibilitychange', arrancar);
+    return () => {
+      vivo = false;
+      window.clearInterval(t);
+      document.removeEventListener('visibilitychange', arrancar);
+    };
+  }, []);
 
   const conectar = useCallback(async () => {
     setBusyCodigo(true); setError(null);
