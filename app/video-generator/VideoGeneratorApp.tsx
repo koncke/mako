@@ -442,6 +442,48 @@ export function VideoGeneratorApp({
               </div>
             ) : (
               <div style={{ display: 'grid', gap: 10 }}>
+                {/*
+                  PRIMERA de la lista, no última.
+                  //
+                  Cargar el propio no es lo que se hace cuando no encontrás
+                  ninguno: es una de las formas de arrancar, y ponerla al final la
+                  convierte en el premio consuelo de haber revisado todo lo demás.
+                  Arriba se ve sin scrollear y sin leer los otros.
+                  //
+                  Va DENTRO de la misma grilla y del mismo ancho que una card de
+                  guion: es una opción más entre guiones, no una acción de otra
+                  categoría. Es el molde de «Crear nuevo proyecto» del board.
+                  //
+                  Punteada y no sólida porque no hay nada adentro todavía: el
+                  borde dice «acá va a haber uno» sin fingir que ya lo hay.
+                */}
+                <button
+                  type="button"
+                  onClick={() => setCargando(true)}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    justifyContent: 'center', gap: 7, width: '100%',
+                    padding: '20px 15px', borderRadius: 12, cursor: 'pointer',
+                    fontFamily: 'inherit', background: 'transparent',
+                    border: '1.5px dashed var(--border-strong)',
+                    color: 'var(--faint)', transition: 'border-color .12s, color .12s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--primary)';
+                    e.currentTarget.style.color = 'var(--primary)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-strong)';
+                    e.currentTarget.style.color = 'var(--faint)';
+                  }}
+                >
+                  <span style={{ fontSize: 24, lineHeight: 1 }}>＋</span>
+                  <span style={{ fontSize: 'var(--fs-md)', fontWeight: 650 }}>Cargar un guion mío</span>
+                  <span style={{ fontSize: 'var(--fs-meta)', lineHeight: 1.5, textAlign: 'center' }}>
+                    Escríbelo, sube un archivo o pega un link.<br />Si trae varios, los separo.
+                  </span>
+                </button>
+
                 {guiones.map((g) => {
                   const elegido = g.id === guionId;
                   const cab = puesta ? cabidaDeGuion(puesta, g.hablado) : null;
@@ -503,41 +545,7 @@ export function VideoGeneratorApp({
                   );
                 })}
 
-                {/*
-                  El placeholder va DENTRO de la lista y del mismo tamaño que una
-                  card, no como un botón aparte: cargar un guion propio es una
-                  opción más entre los guiones, no una acción de otra categoría.
-                  Es el molde de «Crear nuevo proyecto» del board.
 
-                  Punteado y no sólido porque no hay nada adentro todavía: el
-                  borde dice «acá va a haber uno» sin fingir que ya lo hay.
-                */}
-                <button
-                  type="button"
-                  onClick={() => setCargando(true)}
-                  style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center',
-                    justifyContent: 'center', gap: 7, width: '100%',
-                    padding: '20px 15px', borderRadius: 12, cursor: 'pointer',
-                    fontFamily: 'inherit', background: 'transparent',
-                    border: '1.5px dashed var(--border-strong)',
-                    color: 'var(--faint)', transition: 'border-color .12s, color .12s',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--primary)';
-                    e.currentTarget.style.color = 'var(--primary)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--border-strong)';
-                    e.currentTarget.style.color = 'var(--faint)';
-                  }}
-                >
-                  <span style={{ fontSize: 24, lineHeight: 1 }}>＋</span>
-                  <span style={{ fontSize: 'var(--fs-md)', fontWeight: 650 }}>Cargar un guion mío</span>
-                  <span style={{ fontSize: 'var(--fs-meta)', lineHeight: 1.5, textAlign: 'center' }}>
-                    Escríbelo, sube un archivo o pega un link.<br />Si trae varios, los separo.
-                  </span>
-                </button>
               </div>
             )}
 

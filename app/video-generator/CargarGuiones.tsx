@@ -1,23 +1,35 @@
 'use client';
 
 // =============================================================================
-// Pegar guiones propios — se MIRA antes de guardar
+// Cargar guiones propios — elegir cómo, traerlos, confirmar
 // =============================================================================
-// Dos pasos y no uno: pegar → ver qué encontró → confirmar. Pegar un archivo
-// entero y que aparezcan siete guiones sin haberlos visto es cómo se llena el
-// banco de basura que después nadie borra.
+// TRES pasos, no una pantalla con todo junto. Es el molde de los formularios del
+// repo: una pregunta por pantalla, y la primera es «¿cómo los traés?».
 //
-// Y lo que se muestra en el medio no es un «¿confirmás?»: es CADA guion con su
-// título, sus palabras y una marca si está repetido, con su casilla. El momento
-// de mirarlo es el momento de poder sacarlo.
+// La versión anterior eran tres pestañas arriba de un campo. Metía las tres
+// entradas en la misma vista y obligaba a leerlas todas para elegir una; con tres
+// opciones grandes se elige mirando, que es más rápido que leyendo.
+//
+// Y el último paso NO es un «¿confirmás?»: es CADA guion con su título, sus
+// palabras y una marca si está repetido, con su casilla. El momento de mirarlo es
+// el momento de poder sacarlo.
 
 import { useCallback, useRef, useState } from 'react';
-import { Modal, Button, Alert, Textarea, Tabs } from '@/app/_ui';
-import { ACCEPT_IMPORTAR, formatosLegibles } from '@/lib/formatos-archivo';
+import { Modal, Button, Alert, Textarea } from '@/app/_ui';
+import { Icon } from '../_components/icons';
+import { ACCEPT_IMPORTAR } from '@/lib/formatos-archivo';
 import {
   previoCargaAction, cargarGuionesAction, textoDeArchivoAction, textoDeLinkAction,
   type PrevioCarga,
 } from './cargar-guiones-action';
+
+type Via = 'escribir' | 'archivo' | 'link';
+
+const OPCIONES: { via: Via; icono: string; titulo: string }[] = [
+  { via: 'escribir', icono: 'escribir', titulo: 'Escribir o pegar' },
+  { via: 'archivo', icono: 'descargar', titulo: 'Subir un archivo' },
+  { via: 'link', icono: 'web', titulo: 'Pegar un link' },
+];
 
 export function CargarGuiones({ onCerrar, onCargado }: {
   onCerrar: () => void;
@@ -26,25 +38,23 @@ export function CargarGuiones({ onCerrar, onCargado }: {
   /**
    * Las tres puertas terminan en el MISMO string.
    *
-   * `crudo` es lo que se va a separar, venga de donde venga: se escribe, se lee de
-   * un archivo o se baja de un link. Tener un texto por entrada obligaría a
-   * decidir cuál gana cuando hay dos, y esa decisión no existe — lo último que
-   * cargaste es lo que querés cargar.
+   * `crudo` es lo que se va a separar, venga de donde venga. Tener un texto por
+   * entrada obligaría a decidir cuál gana cuando hay dos, y esa decisión no
+   * existe: lo último que trajiste es lo que querés cargar.
    */
   const [crudo, setCrudo] = useState('');
-  const [via, setVia] = useState<'escribir' | 'archivo' | 'link'>('escribir');
+  const [via, setVia] = useState<Via | null>(null);
   const [link, setLink] = useState('');
-  const [nota, setNota] = useState<string | null>(null);
-  const inputArchivo = useRef<HTMLInputElement | null>(null);
   const [previo, setPrevio] = useState<PrevioCarga | null>(null);
   const [elegidos, setElegidos] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inputArchivo = useRef<HTMLInputElement | null>(null);
 
-  const mirar = useCallback(async () => {
+  const mirar = useCallback(async (texto: string) => {
     setBusy(true); setError(null);
     try {
-      const out = await previoCargaAction(crudo);
+      const out = await previoCargaAction(texto);
       if (!out.ok) { setError(out.error); return; }
       setPrevio(out.previo);
       // Vienen todos tildados MENOS los repetidos: lo más probable es que quiera
@@ -55,42 +65,40 @@ export function CargarGuiones({ onCerrar, onCargado }: {
     } finally {
       setBusy(false);
     }
-  }, [crudo]);
+  }, []);
 
   const traerDeArchivo = useCallback(async (file: File) => {
-    setBusy(true); setError(null); setNota(null);
+    setBusy(true); setError(null);
     try {
       const form = new FormData();
       form.set('archivo', file);
       const out = await textoDeArchivoAction(form);
       if (!out.ok) { setError(out.error); return; }
       setCrudo(out.texto);
-      // Se muestra el texto en vez de saltar directo al previo: el usuario acaba
-      // de subir un archivo a ciegas y lo primero que necesita es ver que lo leí
-      // bien. Un pdf mal extraído se nota mirándolo, no contando guiones.
-      setVia('escribir');
-      setNota(out.nota ?? `Leí «${file.name}». Revisá que esté completo y seguí.`);
+      // Del archivo se salta DIRECTO al previo. Mostrarle el texto extraído para
+      // que apriete otro botón es un paso que no decide nada: si la extracción
+      // salió mal se ve igual en la lista de guiones, y desde ahí puede volver.
+      await mirar(out.texto);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No pude leer el archivo.');
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [mirar]);
 
   const traerDeLink = useCallback(async () => {
-    setBusy(true); setError(null); setNota(null);
+    setBusy(true); setError(null);
     try {
       const out = await textoDeLinkAction(link);
       if (!out.ok) { setError(out.error); return; }
       setCrudo(out.texto);
-      setVia('escribir');
-      setNota(out.nota ?? 'Bajé el texto del link. Revisá que esté completo y seguí.');
+      await mirar(out.texto);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No pude abrir el link.');
     } finally {
       setBusy(false);
     }
-  }, [link]);
+  }, [link, mirar]);
 
   const guardar = useCallback(async () => {
     setBusy(true); setError(null);
@@ -105,118 +113,117 @@ export function CargarGuiones({ onCerrar, onCargado }: {
     }
   }, [crudo, elegidos, onCargado]);
 
+  const atras = useCallback(() => {
+    if (previo) { setPrevio(null); return; }
+    setVia(null); setError(null);
+  }, [previo]);
+
+  const titulo = previo
+    ? 'Esto encontré'
+    : via
+      ? OPCIONES.find((o) => o.via === via)!.titulo
+      : '¿Cómo quieres traerlos?';
+
   return (
-    <Modal
-      onCerrar={onCerrar}
-      titulo={previo ? 'Esto encontré' : 'Cargar mis guiones'}
-      // Más ancho que el default de 600: con tres pestañas arriba y un textarea
-      // de doce filas, el modal por defecto aprieta el contenido contra los
-      // bordes y las pestañas quedan amontonadas.
-      ancho={720}
-    >
+    <Modal onCerrar={onCerrar} titulo={titulo} ancho={640}>
       {error && <Alert tono="bad">{error}</Alert>}
 
-      {!previo ? (
+      {/* ── Paso 1: cómo ─────────────────────────────────────────────────── */}
+      {!via && !previo && (
+        <div style={{ display: 'grid', gap: 12, padding: '4px 0' }}>
+          {OPCIONES.map((o) => (
+            <button
+              key={o.via}
+              type="button"
+              onClick={() => setVia(o.via)}
+              style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                justifyContent: 'center', gap: 10, width: '100%',
+                padding: '28px 18px', borderRadius: 14, cursor: 'pointer',
+                fontFamily: 'inherit', background: 'var(--surface)',
+                border: '1.5px solid var(--border)', color: 'var(--ink)',
+                transition: 'border-color .12s, background .12s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--primary)';
+                e.currentTarget.style.background = 'var(--primary-bg)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border)';
+                e.currentTarget.style.background = 'var(--surface)';
+              }}
+            >
+              <Icon name={o.icono} size={26} />
+              <span style={{ fontSize: 'var(--fs-card)', fontWeight: 650 }}>{o.titulo}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ── Paso 2: traerlos ─────────────────────────────────────────────── */}
+      {via === 'escribir' && !previo && (
         <>
-          <Tabs
-            tabs={[
-              { id: 'escribir', label: 'Escribir o pegar' },
-              { id: 'archivo', label: 'Subir un archivo' },
-              { id: 'link', label: 'Pegar un link' },
-            ]}
-            activa={via}
-            onCambio={(k: string) => setVia(k as typeof via)}
+          <Textarea
+            rows={12}
+            value={crudo}
+            onChange={(e) => setCrudo(e.target.value)}
+            placeholder={'Pega acá tus guiones, como los tengas.\n\nSi hay varios en el mismo texto, los separo yo.'}
           />
-
-          <div style={{ marginTop: 14 }}>
-            {via === 'escribir' && (
-              <>
-                <Textarea
-                  rows={12}
-                  value={crudo}
-                  onChange={(e) => { setCrudo(e.target.value); setNota(null); }}
-                  placeholder={'Pega acá tus guiones, como los tengas.\n\nSi hay varios en el mismo texto, los separo yo.'}
-                />
-                <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--faint)', marginTop: 10 }}>
-                  No hace falta que estén prolijos ni separados. Si el texto trae varios, los
-                  reconozco por sus títulos y te muestro cada uno antes de guardar nada.
-                </div>
-              </>
-            )}
-
-            {via === 'archivo' && (
-              <div style={{ textAlign: 'center', padding: '18px 0' }}>
-                <input
-                  ref={inputArchivo}
-                  type="file"
-                  accept={ACCEPT_IMPORTAR}
-                  style={{ display: 'none' }}
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    // El value se limpia para que subir DOS VECES el mismo archivo
-                    // dispare el evento la segunda: sin esto, corregir el archivo y
-                    // volver a elegirlo no hace nada y parece que la app se colgó.
-                    e.target.value = '';
-                    if (f) void traerDeArchivo(f);
-                  }}
-                />
-                <Button variant="secondary" onClick={() => inputArchivo.current?.click()} loading={busy}>
-                  Elegir archivo
-                </Button>
-                <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--faint)', marginTop: 12, lineHeight: 1.6 }}>
-                  {/* Los formatos salen del catálogo del repo, no de una lista escrita
-                      acá: una copia se queda vieja el día que se soporte uno más. */}
-                  Puedo leer {formatosLegibles()}.
-                </div>
-              </div>
-            )}
-
-            {via === 'link' && (
-              <div style={{ padding: '6px 0' }}>
-                <input
-                  type="url"
-                  value={link}
-                  onChange={(e) => setLink(e.target.value)}
-                  placeholder="https://docs.google.com/document/d/…"
-                  className="mk-input"
-                  style={{ width: '100%' }}
-                />
-                <div style={{ marginTop: 12 }}>
-                  <Button variant="secondary" onClick={() => void traerDeLink()} loading={busy} disabled={link.trim().length < 8}>
-                    Traer el texto
-                  </Button>
-                </div>
-                <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--faint)', marginTop: 12, lineHeight: 1.6 }}>
-                  Anda con Google Docs, Drive y cualquier página pública. Si es un
-                  documento de Google, tiene que estar compartido como{' '}
-                  <strong>«cualquiera con el enlace»</strong> — si no, lo que me llega es la
-                  pantalla de acceso y no tu guion.
-                </div>
-              </div>
-            )}
-          </div>
-
-          {nota && (
-            <div style={{ marginTop: 12 }}>
-              <Alert tono="good">{nota}</Alert>
-            </div>
-          )}
-
-          {/*
-            Se dice lo que NO hace. Un guion que entra sin revisión entra sin
-            alinearse al negocio, y el caso típico es invisible al leerlo: el CTA
-            de la competencia manda a un webinar y el tuyo a tu VSL. Callarlo sería
-            dejar creer que MaKo lo revisó.
-          */}
-          <div style={{ marginTop: 14 }}>
-            <Alert tono="info">
-              Estos guiones entran <strong>sin revisión</strong>: los guardo tal cual, sin
-              mirar si encajan con tu oferta, tu avatar o tu embudo. Ojo con los que copiaste
-              de otro lado — el llamado a la acción suele ser el que no aplica.
-            </Alert>
+          <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+            <Button variant="primary" onClick={() => void mirar(crudo)} loading={busy} disabled={crudo.trim().length < 30}>
+              Continuar
+            </Button>
+            <Button variant="tertiary" onClick={atras}>Atrás</Button>
           </div>
         </>
-      ) : (
+      )}
+
+      {via === 'archivo' && !previo && (
+        <div style={{ textAlign: 'center', padding: '28px 0 8px' }}>
+          <input
+            ref={inputArchivo}
+            type="file"
+            accept={ACCEPT_IMPORTAR}
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              // El value se limpia para que subir DOS VECES el mismo archivo
+              // dispare el evento la segunda: sin esto, corregirlo y volver a
+              // elegirlo no hace nada y parece que la app se colgó.
+              e.target.value = '';
+              if (f) void traerDeArchivo(f);
+            }}
+          />
+          <Button variant="primary" size="lg" onClick={() => inputArchivo.current?.click()} loading={busy}>
+            Elegir archivo
+          </Button>
+          <div style={{ marginTop: 20 }}>
+            <Button variant="tertiary" onClick={atras}>Atrás</Button>
+          </div>
+        </div>
+      )}
+
+      {via === 'link' && !previo && (
+        <div style={{ padding: '12px 0 0' }}>
+          <input
+            type="url"
+            value={link}
+            onChange={(e) => setLink(e.target.value)}
+            placeholder="https://docs.google.com/document/d/…"
+            className="mk-input"
+            style={{ width: '100%' }}
+          />
+          <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+            <Button variant="primary" onClick={() => void traerDeLink()} loading={busy} disabled={link.trim().length < 8}>
+              Continuar
+            </Button>
+            <Button variant="tertiary" onClick={atras}>Atrás</Button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Paso 3: qué encontró ─────────────────────────────────────────── */}
+      {previo && (
         <>
           <div style={{ display: 'grid', gap: 8 }}>
             {previo.guiones.map((g, i) => {
@@ -270,26 +277,13 @@ export function CargarGuiones({ onCerrar, onCargado }: {
             </div>
           )}
 
-          {/* La consecuencia va PEGADA al botón, en tinta normal: es lo que pasa al
-              apretar, y arriba y en gris no lo lee nadie. */}
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 16 }}>
             <Button variant="primary" onClick={() => void guardar()} loading={busy} disabled={elegidos.size === 0}>
               {elegidos.size === 1 ? 'Guardar 1 guion' : `Guardar ${elegidos.size} guiones`}
             </Button>
-            <Button variant="tertiary" onClick={() => setPrevio(null)}>Volver a pegar</Button>
+            <Button variant="tertiary" onClick={atras}>Atrás</Button>
           </div>
         </>
-      )}
-
-      {/* El avance vive fuera de las pestañas: las tres terminan en el mismo
-          texto, así que el botón que lo separa es UNO. Aparece recién cuando hay
-          algo que separar. */}
-      {!previo && crudo.trim().length >= 30 && (
-        <div style={{ marginTop: 16 }}>
-          <Button variant="primary" onClick={() => void mirar()} loading={busy}>
-            Ver qué encontré
-          </Button>
-        </div>
       )}
     </Modal>
   );
