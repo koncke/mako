@@ -57,7 +57,13 @@ fi
 di ""
 di "════════ cola arrancada $(date) · $(libres) GB libres · $(grep -c . "$LISTA") curso(s) ════════"
 
+# ⚠️ El `tr -d` no es cosmético: `_cola.txt` se edita en Windows y vuelve con CRLF.
+# El \r se pega al nombre de la carpeta, `C:/cursos/<curso>\r/plan.json` no existe, y la
+# cola saltea los 12 cursos en un segundo. Pasó el 27/08/2026 en el primer lanzamiento.
+# Se encontró rápido sólo porque el skip AVISA en el log en vez de callarse: una cola que
+# no encuentra nada y termina 0 tiene que decir por qué, no salir con éxito.
 while IFS= read -r d; do
+  d=$(printf %s "$d" | tr -d "\r")
   [ -z "$d" ] && continue
   case "$d" in \#*) continue ;; esac
 

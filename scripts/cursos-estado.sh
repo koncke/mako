@@ -25,7 +25,12 @@
 #     escribiendo. Lo único que se mueve en TODAS las fases es el LOG: esa es la
 #     señal de vida primaria, y las carpetas son el detalle de qué está haciendo.
 
-CURSOS="monetizatube automatizatube automatizacion-y-monetizacion-de-youtobe"
+# ⚠️ La lista sale del MISMO archivo que usa la cola. Cuando estaba escrita acá
+#    adentro, el estado seguía mostrando la tanda anterior —todo al 100%— mientras la
+#    cola trabajaba en otra: un panel verde sobre cursos que ya no eran los de la cola.
+LISTA="C:/cursos/_cola.txt"
+CURSOS=$(tr -d "\r" < "$LISTA" 2>/dev/null | grep -v "^#" | grep . | tr "\n" " ")
+[ -z "$CURSOS" ] && CURSOS="(vacía)"
 
 echo ""
 echo "  ── la tarea ──────────────────────────────────────────────────────"
