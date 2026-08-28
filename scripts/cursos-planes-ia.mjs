@@ -80,10 +80,28 @@ const cat = JSON.parse(readFileSync(CATALOGO, 'utf8'));
 let cursos = cat.filter((c) => (c.category || '') === CAT);
 if (SOLO.length) cursos = cursos.filter((c) => SOLO.some((s) => norm(c.slug).includes(norm(s))));
 
-const faltan = cursos.filter((c) => !yaEsta(c) && !existsSync(join(RAIZ, c.slug, 'plan.json')));
+// ⚠️ Los que la cuenta NO tiene REBOTAN al catálogo desde el navegador, y por HTTP
+// contestan 200 igual. Sin este filtro cada uno se descubre gastando una pestaña y un
+// mensaje de error que apunta a otro lado («No encontré ninguna clase»). El sondeo
+// (scripts/cursos-sondear.mjs) los separa de una; acá solo se leen.
+const sondeo = join(RAIZ, `_sondeo-${CAT.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.json`);
+const sinAcceso = new Set();
+if (existsSync(sondeo)) {
+  try {
+    for (const r of (JSON.parse(readFileSync(sondeo, 'utf8')).rebota || [])) sinAcceso.add(norm(r.slug));
+  } catch { /* un sondeo roto no frena la corrida: se intenta con todos */ }
+} else {
+  console.log(`  (sin sondeo previo — corré antes: node scripts/cursos-sondear.mjs --categoria ${CAT})`);
+}
+
+const faltan = cursos.filter((c) => !yaEsta(c)
+  && !existsSync(join(RAIZ, c.slug, 'plan.json'))
+  && !sinAcceso.has(norm(c.slug)));
 const hechos = cursos.length - faltan.length;
 
-console.log(`\n  Categoría «${CAT}»: ${cursos.length} cursos · ${hechos} ya con plan o publicados · ${faltan.length} por enumerar\n`);
+console.log(`\n  Categoría «${CAT}»: ${cursos.length} cursos · ${hechos} ya con plan/publicados o sin acceso · ${faltan.length} por enumerar`);
+if (sinAcceso.size) console.log(`  (${sinAcceso.size} rebotan al catálogo: la cuenta no los incluye)`);
+console.log('');
 if (!faltan.length) { console.log('  Nada que hacer.\n'); process.exit(0); }
 
 // ── una pestaña por curso, abrir → plan → cerrar ─────────────────────────────────────
