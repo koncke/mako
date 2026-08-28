@@ -425,7 +425,7 @@ export function Hub({ curso, goClase, goRecurso, compartir, back, backLabel }: {
           </summary>
           <div className="al-grid">
             {curso.recursos.map((r) => (
-              <Card key={r.slug} badge={TIPO_BADGE[r.tipo]} nota={claseTag(r.clases)} titulo={r.label} desc={r.cardDesc}
+              <Card key={r.slug} badge={r.badge ?? TIPO_BADGE[r.tipo]} nota={claseTag(r.clases)} titulo={r.label} desc={r.cardDesc}
                 ariaLabel={`Abrir ${r.label}`} onClick={() => goRecurso(r.slug)} />
             ))}
           </div>

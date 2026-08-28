@@ -159,6 +159,44 @@ const slugRecurso = (nombre) => nombre.replace(/\.[^.]+$/, '')
 //
 // Bajar de ahí —adivinar UNA clase dentro del módulo— sería inventar el dato, y es
 // justamente lo que no se hace.
+// ⚠️ QUÉ ES un recurso sale de su URL DE ORIGEN, que es un dato — no del `tipo`, que
+//    es el molde con el que lo dibuja el portal.
+//
+//    `tipo: 'pdf'` es «esto se ve en el visor», y bajo ese molde caen un Google Doc
+//    exportado, una planilla y un PDF suelto. Con la etiqueta atada al tipo, los 32
+//    archivos de MasteryHaus decían «Catálogo» — una palabra que no distingue nada y que
+//    además no describe a ninguno.
+//
+//    La URL de origen SÍ distingue: `/document/` es un Doc, `/spreadsheets/` una planilla,
+//    `/forms/` un formulario. Medido acá: 25 Doc, 6 Sheet, 7 archivos sueltos de Drive y
+//    28 links externos.
+//
+//    ⚠️ La ÚNICA que sale del nombre es «Bot de IA», y es a propósito: un bot es un Google
+//    Doc con un prompt adentro, o sea INDISTINGUIBLE de cualquier otro Doc por la URL. Lo
+//    que lo declara es el material sobre sí mismo («Bot Nicho Dorado», «BOT AI
+//    Desarrollador…»). Se exige la palabra COMPLETA (`\bbot\b`) para que no entre un
+//    «robot» ni un «botella»: si el nombre no lo dice, queda «Doc», que nunca es falso.
+const etiquetaDe = (x) => {
+  const u = String((x && x.url) || '');
+  const nombre = String((x && (x.tituloReal || x.label)) || '');
+  const esBot = /(^|[^a-záéíóúñ])bot([^a-záéíóúñ]|$)/i.test(nombre);
+  // El bot gana ANTES que el origen: un bot puede ser un Doc o un link externo, y en los
+  // dos casos lo util para el que mira es que es un BOT, no de que plataforma salio.
+  if (esBot) return 'Bot de IA';
+  if (/\/forms\//.test(u)) return 'Form';
+  if (/\/spreadsheets\//.test(u)) return 'Sheet';
+  if (/\/presentation\//.test(u)) return 'Slides';
+  if (/\/document\//.test(u)) return esBot ? 'Bot de IA' : 'Doc';
+  if (x && x.tipo === 'link') return 'Link';
+  const ext = /\.([a-z0-9]+)$/i.exec(String((x && x.archivo) || ''));
+  const e = ext ? ext[1].toLowerCase() : '';
+  if (e === 'xlsx' || e === 'csv') return 'Sheet';
+  if (e === 'docx') return 'Doc';
+  if (e === 'pptx') return 'Slides';
+  if (e === 'pdf') return esBot ? 'Bot de IA' : 'PDF';
+  return null;   // sin dato: gana el molde (TIPO_BADGE), que es lo que había
+};
+
 // ⚠️ EL TÍTULO DE UN RECURSO ES UN DATO, NO EL NOMBRE DE SU ARCHIVO.
 //
 // `recursos-manifiesto.json` guarda el `label` que declara la plataforma. El nombre de
@@ -188,7 +226,10 @@ const titulosDelManifiesto = (base) => {
       // 3. Futuro poco feliz, 7. Tracker extra... -- compartian UNA sola seccion, y los
       // siete se publicaban con el mismo nombre y la misma descripcion.
       const t = x && (x.tituloReal || x.label);
-      if (x && x.archivo && t) m.set(String(x.archivo), String(t));
+      // Un ENLACE no tiene archivo: se indexa por su label, que es lo que despues llega
+      // como . Sin esto un bot que es un link quedaba como "Link" a secas.
+      const clave = String((x && (x.archivo || x.label)) || '');
+      if (clave && t) m.set(clave, { titulo: String(t), etiqueta: etiquetaDe(x) });
     }
   } catch { /* un manifiesto roto no frena la publicación: se cae al nombre de archivo */ }
   return m;
@@ -278,7 +319,7 @@ const construirRecursos = (drive, planClases, titulos = new Map()) => {
     // bloque de otra. Se ve prolijo y dice algo falso.
     let label = r.archivo.replace(/\.[^.]+$/, '');
     const delManifiesto = titulos.get(String(r.archivo ?? ''));
-    if (delManifiesto) label = delManifiesto;
+    if (delManifiesto && delManifiesto.titulo) label = delManifiesto.titulo;
     if (r.tituloReal) label = String(r.tituloReal);
     if (claseDelPrefijo) {
       const pref = `${String(claseDelPrefijo.n).padStart(2, '0')} - ${claseDelPrefijo.titulo} - `;
@@ -291,6 +332,7 @@ const construirRecursos = (drive, planClases, titulos = new Map()) => {
     label = label.replace(/_+/g, ' ').replace(/\s+/g, ' ').trim();
     recursos.push({
       slug, tipo, ext: esEnlace ? null : ext,
+      badge: (delManifiesto && delManifiesto.etiqueta) || (esEnlace ? 'Link' : null) || undefined,
       driveId: esEnlace ? null : r.driveId,
       items: esEnlace ? [{ label: `Abrir ${label}`, url: r.url }] : null,
       label,
@@ -590,7 +632,7 @@ ${recursosPortal.map((r) => `    {
       slug: '${escSimple(r.slug)}',
       label: '${escSimple(r.label)}',
       cardDesc: '${escSimple(r.cardDesc)}',
-      tipo: '${escSimple(r.tipo)}',${r.tipo === 'file' && r.ext ? `\n      ext: '${escSimple(r.ext)}',` : ''}${r.driveId ? `\n      driveId: '${escSimple(r.driveId)}',` : ''}${r.items ? `\n      items: [${r.items.map((i) => `{ label: '${escSimple(i.label)}', url: '${escSimple(i.url)}' }`).join(', ')}],` : ''}${r.clases ? `\n      clases: [${r.clases.join(', ')}],` : ''}
+      tipo: '${escSimple(r.tipo)}',${r.badge ? `\n      badge: '${escSimple(r.badge)}',` : ''}${r.tipo === 'file' && r.ext ? `\n      ext: '${escSimple(r.ext)}',` : ''}${r.driveId ? `\n      driveId: '${escSimple(r.driveId)}',` : ''}${r.items ? `\n      items: [${r.items.map((i) => `{ label: '${escSimple(i.label)}', url: '${escSimple(i.url)}' }`).join(', ')}],` : ''}${r.clases ? `\n      clases: [${r.clases.join(', ')}],` : ''}
     },`).join('\n')}
   ],
   clases: [

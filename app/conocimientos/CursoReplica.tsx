@@ -456,7 +456,7 @@ function Recursos({ curso }: { curso: Curso }) {
               <span className="ugc-modcard-cover">
                 <Miniatura src={DRIVE_THUMB(r.driveId)} />
                 <span className="shade" aria-hidden />
-                <span className="ugc-modcard-n" aria-hidden>{TIPO_BADGE[r.tipo] ?? r.tipo}</span>
+                <span className="ugc-modcard-n" aria-hidden>{r.badge ?? TIPO_BADGE[r.tipo]}</span>
               </span>
             )}
             <span className="ugc-modcard-body">

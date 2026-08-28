@@ -14,6 +14,11 @@ export type Recurso = {
   // vista previa», así que se dibuja como descarga y no como visor. La diferencia
   // no es cosmética — los descargables de «Inteligencia Viral 2026» son los tres ZIP.
   tipo: 'gpt' | 'notion' | 'pdf' | 'bank' | 'file';
+  // QUE ES el recurso, para la etiqueta de la tarjeta: Doc, Sheet, Slides, Form, PDF,
+  // Link, Bot de IA. Sale de la URL de ORIGEN (dato), no del  -que es el molde con
+  // el que se dibuja-. Sin esto los 32 archivos decian "Catalogo", que no distingue nada.
+  // Lo escribe scripts/curso-a-portal.mjs; si falta, gana TIPO_BADGE.
+  badge?: string;
   intro?: string;          // explicación self-contained (qué es, para qué, cómo se usa)
   clases?: number[];       // clases a las que pertenece (chip en el hub)
   texto?: string;          // gpt | notion (contenido copiable, formateado)
