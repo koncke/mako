@@ -369,6 +369,45 @@ function Recursos({ curso }: { curso: Curso }) {
         <p className="ugc-doc-p">{abierto.cardDesc}</p>
         {abierto.intro && <p className="ugc-doc-p">{abierto.intro}</p>}
         {abierto.texto && <pre className="ugc-pre">{abierto.texto}</pre>}
+
+        {/* ⚠️ EL ARCHIVO. Esto FALTABA, y es el 90% de los recursos de un curso.
+            Este detalle pintaba `label`, `cardDesc`, `intro`, `texto`, `notionUrl` e
+            `items` — y nunca `driveId`. O sea que todo recurso que es un ARCHIVO (un PDF,
+            una planilla) mostraba el título, la descripción y DEBAJO NADA. Los únicos que
+            se veían eran los enlaces, porque usan `items`.
+
+            Martin lo reportó tres veces como «adentro de los recursos no hay NADA», y las
+            tres busqué del lado de los DATOS: el formato del archivo, el id de Drive, el
+            título, los permisos. Los datos estaban bien las tres veces. Lo que faltaba era
+            el <iframe>, en el componente del portal COMPARTIDO — `CursoPortal` sí lo
+            tenía, y por eso mirar ese archivo confirmaba que «el código está bien».
+
+            La lección: cuando el reporte es «no se ve», el ÚLTIMO eslabón —quién pinta,
+            EN LA RUTA QUE EL USUARIO ABRIÓ— se mira PRIMERO, no al final. Dos rutas que
+            comparten datos no comparten vista. */}
+        {abierto.driveId && (
+          <div className="ugc-vcard">
+            <div className="ugc-vframe" style={{ aspectRatio: '3 / 4', width: '100%' }}>
+              <iframe
+                src={`https://drive.google.com/file/d/${abierto.driveId}/preview`}
+                title={abierto.label}
+                loading="lazy"
+                allowFullScreen
+                style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
+              />
+            </div>
+            <div className="ugc-vbar">
+              <a
+                className="ugc-vbar-dur"
+                href={`https://drive.google.com/file/d/${abierto.driveId}/view`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Abrir en Drive {FLECHA_DER}
+              </a>
+            </div>
+          </div>
+        )}
         {abierto.notionUrl && (
           <p className="ugc-doc-p">
             <a href={abierto.notionUrl} target="_blank" rel="noopener noreferrer">Abrir en Notion {FLECHA_DER}</a>
