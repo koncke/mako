@@ -36,6 +36,8 @@ const SOLO = arg('solo', '');
 const FFDIR = arg('ffmpeg', join(process.env.LOCALAPPDATA ?? '', 'ffmpeg-full\\ffmpeg-master-latest-win64-gpl\\bin'));
 const FORMATO = arg('formato', 'bv*+ba/b');
 const PAUSA = arg('pausa', '1');
+// Fragmentos en paralelo. Ver el porqué (y por qué 4) junto al flag.
+const CONCURRENTES = arg('concurrentes', '4');
 
 if (!PLAN || !existsSync(PLAN)) {
   console.error('\n  ✖ Falta --plan <ruta a plan.json>. Lo produce curso-plan.mjs.\n');
@@ -193,6 +195,14 @@ for (const [i, c] of clases.entries()) {
     '--download-archive', archivo,
     '--no-overwrites',
     '--no-playlist',
+    // ⚠️ SIN ESTO yt-dlp baja UN FRAGMENTO POR VEZ. Un HLS de una clase de 40 min son
+    //    ~1.500 fragmentos, y medido el 28/08/2026 cada conexión da 600-800 KB/s: la clase
+    //    tarda 10-13 min aunque pese 214 MB. Con 5.000 clases en la cola eso son SEMANAS.
+    //
+    //    El límite es POR CONEXIÓN, no de la línea —por eso abrir 4 multiplica y no reparte—.
+    //    4 y no 16: en este mismo curso el CDN ya venia devolviendo 503 de a ratos, y un
+    //    503 en la mitad de un HLS no se recupera bien. Se sube cuando se mida que aguanta.
+    '--concurrent-fragments', CONCURRENTES,
     '--retries', '5',
     '--fragment-retries', '5',
     // ⚠️ ABORTAR en vez de saltear el fragmento que no está. Las URLs de los segmentos
