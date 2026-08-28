@@ -14,100 +14,67 @@ import type { PlanVideo } from '@/lib/video-planner';
 import { CATALOGO_PUESTAS, puestaPorId, puestasOfrecidas, type Puesta } from '@/lib/puestas-data';
 
 export { CATALOGO_PUESTAS, puestaPorId, puestasOfrecidas };
+
+// ⚠️ ACÁ VIVÍAN `DURACIONES_VIDEO`, `ACENTOS`, `acentoPrompt`, `acentoEsVoseante`,
+// `segundosDe`, `clipsParaDuracion` y `duracionReal`. Se borraron el 28/08/2026 y
+// conviene saber por qué antes de reescribirlas.
+//
+// Eran el andamiaje de dos pasos del wizard que el dueño sacó: «¿cuánto tiene que
+// durar?» y «¿con qué acento habla?». Los dos preguntaban algo que el sistema ya
+// sabe — la duración sale del largo del guion, y el acento es del cliente, no del
+// anuncio.
+//
+// Lo que las reemplaza:
+//   · la duración → `cabidaDeGuion()` en lib/puestas-data.ts, que invierte la
+//     aritmética (palabras ÷ densidad en vez de segundos × densidad) y además
+//     avisa cuando el guion NO entra, que antes se recortaba en silencio.
+//   · el acento   → `resolverAcento()` en lib/acento-workspace.ts, por workspace.
+//
+// Y no eran código muerto cualquiera: **las sostenían sus propios tests**. Siete
+// funciones que nadie llamaba, con cobertura verde encima. Un test sobre código
+// que no corre no mide nada y hace parecer cubierto lo que ya no existe.
 export type { Puesta };
 
-// ── Catálogo del pedido (opciones cerradas, nunca un campo libre de más) ─────
+// ⚠️ ACÁ VIVÍAN `DURACIONES_VIDEO`, `ACENTOS`, `acentoPrompt`, `acentoEsVoseante`,
+// `segundosDe`, `clipsParaDuracion` y `duracionReal`. Se borraron el 28/08/2026 y
+// conviene saber por qué antes de reescribirlas.
+//
+// Eran el andamiaje de dos pasos del wizard que el dueño sacó: «¿cuánto tiene que
+// durar?» y «¿con qué acento habla?». Los dos preguntaban algo que el sistema ya
+// sabe — la duración sale del largo del guion, y el acento es del cliente y no
+// del anuncio.
+//
+// Lo que las reemplaza:
+//   · la duración → `cabidaDeGuion()` en lib/puestas-data.ts, que invierte la
+//     aritmética (palabras ÷ densidad, en vez de segundos × densidad) y además
+//     AVISA cuando el guion no entra, que antes se recortaba en silencio.
+//   · el acento   → `resolverAcento()` en lib/acento-workspace.ts, por workspace.
+//
+// Y no era código muerto cualquiera: **lo sostenían sus propios tests**. Siete
+// funciones que no llamaba nadie, con cobertura verde encima. Un test sobre
+// código que no corre no mide nada, y hace parecer cubierto lo que ya no existe.
 
-export const DURACIONES_VIDEO = [
-  { value: '30', label: '30 segundos', hint: 'Una sola idea, sin desarrollo' },
-  { value: '60', label: '60 segundos', hint: 'El estándar de un anuncio con historia' },
-  { value: '90', label: '90 segundos', hint: 'Solo si cada segundo aporta' },
-] as const;
-
-export type DuracionVideo = (typeof DURACIONES_VIDEO)[number]['value'];
-
-/**
- * El acento del guion. Es un CAMPO, no un default, porque no se puede adivinar y
- * equivocarlo cuesta caro: el corpus tiene seis versiones de guion escritas con
- * el acento equivocado —se pedía Ciudad de México y el cliente es norteño— y no
- * se nota al leer, se nota cuando alguien lo dice en voz alta.
- *
- * El texto de cada opción viaja LITERAL al prompt de video, así que dice la
- * variedad como la entiende el modelo, no como la diría un formulario.
- */
-export const ACENTOS = [
-  { value: 'mx-neutro', label: 'México — neutro', prompt: 'Mexican Spanish, neutral accent' },
-  { value: 'mx-norte', label: 'México — norteño', prompt: 'Mexican Spanish with a northern (norteño) accent' },
-  { value: 'mx-cdmx', label: 'México — Ciudad de México', prompt: 'Mexican Spanish with a Mexico City accent' },
-  { value: 'es-neutro', label: 'Español neutro (Latinoamérica)', prompt: 'Neutral Latin American Spanish' },
-  { value: 'co', label: 'Colombia', prompt: 'Colombian Spanish' },
-  { value: 'ar', label: 'Argentina — rioplatense', prompt: 'Argentine (Rioplatense) Spanish' },
-  { value: 'es', label: 'España', prompt: 'Spanish from Spain (Castilian)' },
-] as const;
-
-export type AcentoVideo = (typeof ACENTOS)[number]['value'];
-
-/** El texto que viaja al prompt. Default México neutro: la audiencia es de México. */
-export function acentoPrompt(value: string): string {
-  return (ACENTOS.find((a) => a.value === value) ?? ACENTOS[0]).prompt;
-}
-
-/** Las variedades donde el voseo SÍ es correcto y no hay que marcarlo. */
-export function acentoEsVoseante(value: string): boolean {
-  return value === 'ar';
-}
-
+/** Lo que la pantalla le pide al server para armar un anuncio. */
 export type PedidoVideo = {
   puestaId: string;
   anguloId?: string;
-  tema: string;
-  duracion: string;
-  acento: string;
+  /**
+   * El guion de MaKo que se va a grabar.
+   *
+   * Reemplaza a los tres campos que había antes —`tema`, `duracion`, `acento`—
+   * porque los tres eran preguntas que el sistema ya sabía contestar: el tema lo
+   * escribió MaKo en Ads Writer, la duración sale del largo del guion, y el
+   * acento es del cliente y no del anuncio.
+   */
+  guionId: string;
+  /** El texto completo CON sus rótulos: el modelo los usa para saber qué es qué. */
+  guionTexto: string;
   /** Feedback sobre el plan anterior (regenerar). */
   feedback?: string;
 };
 
 /**
- * Cuántos clips salen de una duración con esta puesta.
- *
- * Se calcula acá (y no en el motor) porque la UI tiene que mostrarlo ANTES de
- * generar: es el número que le dice al usuario cuánto va a costar. Prefiere
- * clips largos —menos saltos es menos deriva de identidad y menos créditos— y
- * queda siempre dentro del rango de la puesta.
- */
-export function clipsParaDuracion(puesta: Puesta, totalSeg: number): number {
-  const [minClips, maxClips] = puesta.clips;
-  const [, maxSeg] = puesta.segundosClip;
-  const ideal = Math.ceil(totalSeg / maxSeg);
-  return Math.min(maxClips, Math.max(minClips, ideal));
-}
 
-/** Los segundos que pidió el usuario, saneados contra el catálogo. */
-export function segundosDe(duracion: string): number {
-  const d = DURACIONES_VIDEO.find((o) => o.value === duracion) ?? DURACIONES_VIDEO[1];
-  return Number(d.value);
-}
-
-/**
- * Lo que REALMENTE va a durar el anuncio con esta puesta.
- *
- * No siempre coincide con lo pedido, y esconderlo sería mentir: Plano secuencia
- * tiene un piso de 7 clips de 8 s = 56 s, así que pedirle 30 segundos devuelve
- * 56 igual. La UI muestra este número, no el del selector, y avisa cuando la
- * diferencia pasa de 5 segundos.
- *
- * Es la misma aritmética que `repartirDuracion` del motor, en su forma mínima:
- * acá solo hace falta el total, no el reparto clip a clip.
- */
-export function duracionReal(puesta: Puesta, totalSeg: number): { clips: number; segundos: number } {
-  const clips = clipsParaDuracion(puesta, totalSeg);
-  const [minSeg, maxSeg] = puesta.segundosClip;
-  const base = Math.min(maxSeg, Math.max(minSeg, Math.floor(totalSeg / clips)));
-  const sobra = Math.max(0, totalSeg - base * clips);
-  // El reparto solo puede subir clips que no llegaron al techo, de a un segundo.
-  const margen = Math.min(sobra, clips * (maxSeg - base));
-  return { clips, segundos: base * clips + margen };
-}
 
 /**
  * Compone el texto del pedido que consume generarPlan(). Los topes por campo
@@ -115,7 +82,12 @@ export function duracionReal(puesta: Puesta, totalSeg: number): { clips: number;
  * cada parte que perder el final del feedback sin aviso.
  */
 export function componerTema(input: PedidoVideo, anterior?: PlanVideo): string {
-  const partes = [`TEMA / HISTORIA DEL ANUNCIO: ${input.tema.trim().slice(0, 3000)}`];
+  // El guion viaja ENTERO, con sus rótulos de sección (GANCHO, HISTORIA, CTA…):
+  // el modelo los usa para saber qué parte abre y qué parte cierra, y esa
+  // estructura es justamente lo que MaKo ya decidió en Ads Writer. Lo que se hace
+  // acá NO es pedirle que invente un guion: es pedirle que reparta ESTE en tomas.
+  const partes = [`GUION A GRABAR — respeta su contenido, su orden y su cierre:
+${input.guionTexto.trim().slice(0, 4000)}`];
   const feedback = input.feedback?.trim();
   if (anterior && feedback) {
     partes.push([

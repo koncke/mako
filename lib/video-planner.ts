@@ -77,6 +77,18 @@ export type PlanVideo = {
   deCorrido: string;
   /** Qué imágenes hay que tener ANTES de animar. Vacío si la puesta no las pide. */
   imagenesNecesarias: string[];
+  /**
+   * `true` si el acento del cliente ES rioplatense.
+   *
+   * Lo decide el SERVER al generar y viaja CON el plan, porque la pantalla que lo
+   * muestra ya no pregunta el acento — es un atributo del cliente, no del
+   * anuncio. Sin esto, las marcas de voseo se pintarían como una filtración de la
+   * voz de MaKo en un guion donde «tenés» es, simplemente, el idioma del cliente.
+   *
+   * Opcional: los planes guardados antes de este cambio no lo tienen, y ausente
+   * se lee como «no sé», que es la verdad.
+   */
+  acentoEsVoseante?: boolean;
 };
 
 export type GenerarPlanOut =
@@ -325,6 +337,18 @@ export async function generarPlan(ws: number, pedido: PedidoPlan): Promise<Gener
       puestaNombre: puesta.nombre,
       puestaDescripcion: puesta.descripcion,
       puestaReglas: puesta.reglas.map((r) => `- ${r}`).join('\n'),
+      // ⚠️ Este slot EXISTÍA en el template y NO SE LLENABA NUNCA.
+      //
+      // `renderTemplate` deja los desconocidos literales (`k in vars ? vars[k] : m`),
+      // así que al modelo le llegaba la cadena cruda «{{acento}}» y el guion se
+      // escribía sin saber en qué variedad de español habla el cliente. No rompía
+      // nada visible: el texto salía en un español plausible, y que la variedad no
+      // fuera la pedida solo se nota al oírlo en voz alta.
+      //
+      // Es la trampa de un motor de plantillas permisivo: un slot mal escrito y
+      // uno sin llenar se ven IGUAL desde afuera —el template renderiza en los dos
+      // casos— y el único síntoma vive en la calidad de lo que sale.
+      acento: pedido.acentoPrompt,
       estructura: `${estructuraDeClips(puesta, cantidad, segundos)}\n\nFORMA DEL JSON:\n${JSON_SHAPE}`,
     }));
 

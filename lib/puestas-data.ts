@@ -490,3 +490,92 @@ export function ritmoDeClips(puesta: Puesta, cantidadClips: number): boolean[] {
   if (patron.length === 0) return Array.from({ length: cantidadClips }, () => true);
   return Array.from({ length: cantidadClips }, (_, i) => patron[i % patron.length] === 'H');
 }
+
+/**
+ * De un guion de MaKo, solo lo que se DICE a cámara.
+ *
+ * Los guiones vienen con sus bloques rotulados —GANCHO, HISTORIA, CTA…— porque el
+ * prompt que los escribe se lo exige: «No cambies el nombre, el orden ni el
+ * formato: la app las usa para separar el guion en tarjetas». Esos rótulos no se
+ * pronuncian.
+ *
+ * ⚠️ Y contarlos NO es un detalle estético: la duración del video sale de las
+ * palabras, así que cada etiqueta que se cuela infla el largo y puede hacer que un
+ * guion que entra en el formato parezca que no. Un aviso de «esto no entra» sobre
+ * algo que entra es peor que no avisar: manda a recortar un texto que estaba bien.
+ *
+ * Vive acá y no junto a quien lee los guiones porque aquel módulo tiene
+ * `server-only` y esto necesita test — es el mismo criterio que
+ * `exigirClienteDePrueba`.
+ *
+ * Una línea es rótulo si está SOLA, es corta y va toda en mayúsculas. Se le exige
+ * al menos una letra para no confundir una línea de guiones, números o signos con
+ * un rótulo.
+ */
+export function soloHablado(texto: string): string {
+  return texto
+    .split('\n')
+    .filter((l) => {
+      const t = l.trim();
+      if (!t) return false;
+      const esRotulo = t.length <= 24 && /\p{L}/u.test(t) && t === t.toUpperCase();
+      return !esRotulo;
+    })
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// ── La duración sale del GUION, no de un menú ────────────────────────────────
+
+/** Qué se puede decir sobre cuánto va a durar un guion en una puesta. */
+export type CabidaGuion = {
+  palabras: number;
+  /** Los segundos que ese texto necesita a la densidad de esta puesta. */
+  segundosNecesarios: number;
+  /** Los segundos que la puesta puede entregar, ya acotados a su rango. */
+  segundosReales: number;
+  clips: number;
+  /** `true` cuando el guion NO entra: hay que acortarlo o cambiar de formato. */
+  desborda: boolean;
+  /** Cuántas palabras sobran. `0` si entra. */
+  palabrasDeMas: number;
+};
+
+/**
+ * Cuánto dura un guion en una puesta, y si entra.
+ *
+ * Invierte la aritmética que el resto del módulo hace al derecho: donde
+ * `palabrasQueEntran` va de segundos a palabras, esto va de palabras a segundos.
+ *
+ * ⚠️ Existe porque preguntarle la duración a alguien no tiene sentido: un guion
+ * dura lo que dura. Y porque hasta ahora, cuando el texto no entraba en el
+ * formato, `repartirDuracion` devolvía el techo **sin decir nada** — el guion se
+ * grababa cortado y el único aviso vivía en un paso del wizard.
+ *
+ * Una puesta impone un rango DURO: The Office son 7-9 clips de 8-10 s (56-90 s), y
+ * a 2,1 palabras por segundo eso son 117-189 palabras. Un guion de 400 no entra, y
+ * el sistema tiene que decirlo en vez de recortarlo.
+ */
+export function cabidaDeGuion(puesta: Puesta, texto: string): CabidaGuion {
+  const palabras = contarPalabras(texto);
+  const segundosNecesarios = Math.ceil(palabras / puesta.densidad);
+
+  const [minClips, maxClips] = puesta.clips;
+  const [minSeg, maxSeg] = puesta.segundosClip;
+  const pisoSeg = minClips * minSeg;
+  const techoSeg = maxClips * maxSeg;
+
+  const segundosReales = Math.min(techoSeg, Math.max(pisoSeg, segundosNecesarios));
+
+  // La cantidad de clips sale de los segundos que de verdad se van a usar, con el
+  // largo medio de un clip — y se acota al rango de la puesta, que es lo que el
+  // saneo del plan va a exigir después.
+  const medio = (minSeg + maxSeg) / 2;
+  const clips = Math.min(maxClips, Math.max(minClips, Math.round(segundosReales / medio)));
+
+  const desborda = segundosNecesarios > techoSeg;
+  const palabrasDeMas = desborda ? palabras - Math.floor(puesta.densidad * techoSeg) : 0;
+
+  return { palabras, segundosNecesarios, segundosReales, clips, desborda, palabrasDeMas };
+}

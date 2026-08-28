@@ -10,12 +10,14 @@
 
 import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
 import { generarPlan } from '@/lib/video-planner';
-import { puestaPorId } from '@/lib/puestas-data';
+import { resolverAcento } from '@/lib/acento-workspace';
+import { tzDeWorkspace } from '@/lib/timezone';
+import { puestaPorId, cabidaDeGuion, soloHablado } from '@/lib/puestas-data';
 import {
   guardarEnHistorial, leerHistorial, type PlanGuardado,
 } from './video-datos';
 import {
-  acentoPrompt, clipsParaDuracion, componerTema, segundosDe, type PedidoVideo,
+  componerTema, type PedidoVideo,
 } from './video-pedido';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -49,30 +51,45 @@ export async function generarPlanAction(
   const puesta = puestaPorId(input.puestaId);
   if (!puesta) return { ok: false, error: 'Elige una puesta en escena antes de generar.' };
 
-  const tema = (input.tema ?? '').trim();
-  if (!tema) return { ok: false, error: 'Escribe el tema o la historia del anuncio primero.' };
+  const guionTexto = (input.guionTexto ?? '').trim();
+  if (!guionTexto) return { ok: false, error: 'Elige uno de tus guiones antes de generar.' };
 
   try {
     const anterior = input.anteriorId
       ? (await leerHistorial()).find((e) => e.id === input.anteriorId)?.plan
       : undefined;
 
-    const totalSeg = segundosDe(input.duracion);
+    // ── Lo que el wizard dejó de preguntar, DERIVADO ──────────────────────────
+    //
+    // La duración sale del guion: palabras habladas ÷ densidad de la puesta. Los
+    // rótulos de sección no se cuentan porque no se pronuncian — contarlos
+    // inflaría el largo y haría que un guion que entra parezca que no.
+    const cabida = cabidaDeGuion(puesta, soloHablado(guionTexto));
+
+    // Y el acento sale del CLIENTE, no del anuncio. Hoy se infiere de su zona
+    // horaria; cuando el onboarding de la tab lo pregunte, ese valor gana.
+    const acento = resolverAcento(null, await tzDeWorkspace(ctx.ws));
+
     const out = await generarPlan(ctx.ws, {
       puestaId: puesta.id,
       anguloId: input.anguloId,
-      acentoPrompt: acentoPrompt(input.acento),
-      tema: componerTema({ ...input, tema }, anterior),
-      cantidadClips: clipsParaDuracion(puesta, totalSeg),
-      duracionTotalSeg: totalSeg,
+      acentoPrompt: acento.prompt,
+      tema: componerTema({ ...input, guionTexto }, anterior),
+      cantidadClips: cabida.clips,
+      duracionTotalSeg: cabida.segundosReales,
       feedback: input.feedback,
     });
     if (!out.ok) return out;
 
     const item: PlanGuardado = {
       id: crypto.randomUUID(),
-      pedido: tema.slice(0, 200),
-      plan: out.plan,
+      // El rótulo del historial son las primeras palabras HABLADAS: un rótulo que
+      // empieza con «GANCHO» no distingue un anuncio de otro.
+      pedido: soloHablado(guionTexto).slice(0, 200),
+      // Con qué guion se hizo. Es lo que después contesta «¿este ya lo grabé?»
+      // sin comparar textos: un id es una clave, un texto parecido es un parecido.
+      guionId: input.guionId || undefined,
+      plan: { ...out.plan, acentoEsVoseante: acento.id === 'ar' },
       at: new Date().toISOString(),
     };
     const historial = await guardarEnHistorial(item);

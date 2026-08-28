@@ -35,22 +35,37 @@ import { WizardShell } from '../_components/WizardShell';
 import { Icon } from '../_components/icons';
 import type { PlanGuardado, EstadoContextoVideo } from './video-datos';
 import {
-  ACENTOS, DURACIONES_VIDEO, acentoEsVoseante, duracionReal, guionATexto,
-  puestaPorId, puestasOfrecidas, segundosDe, type Puesta,
+  guionATexto,
+  puestaPorId, puestasOfrecidas, type Puesta,
 } from './video-pedido';
 import { generarPlanAction } from './actions';
 import { PuentePanel } from './PuentePanel';
 import type { Puente } from '@/lib/flow-cola';
+import { cabidaDeGuion } from '@/lib/puestas-data';
+import type { GuionDisponible } from './guiones-datos';
 
 type Vista = 'catalogo' | 'wizard' | 'anuncio';
 
-const PASOS = ['tema', 'duracion', 'acento'] as const;
+// ⚠️ UN SOLO PASO, y los otros dos no se «simplificaron»: no debían existir.
+//
+// El dueño sacó los tres originales, cada uno por su motivo:
+//
+//   · «¿De qué habla tu anuncio?» — «jamás me debe preguntar eso, para eso ya
+//     existen guiones creados dentro de MaKo, debe traer esos». Escribir el tema
+//     de nuevo era pedirle que reescriba a mano lo que MaKo ya le escribió.
+//   · «¿Cuánto tiene que durar?» — «no tiene sentido. Durará lo que dure el
+//     guion. Punto.» Y es literal: `cabidaDeGuion` lo calcula con la densidad de
+//     palabras por segundo de la puesta.
+//   · «¿Con qué acento habla?» — es un atributo del CLIENTE, no del anuncio.
+//     Nadie graba uno en norteño y el siguiente en rioplatense. Sale del
+//     workspace (lib/acento-workspace.ts) y su lugar es el onboarding de la tab.
+//
+// La regla que queda: **esta tab no pregunta nada que el sistema ya sepa.**
+const PASOS = ['guion'] as const;
 type Paso = (typeof PASOS)[number];
 
 const PREGUNTA: Record<Paso, string> = {
-  tema: '¿De qué habla tu anuncio?',
-  duracion: '¿Cuánto tiene que durar?',
-  acento: '¿Con qué acento habla?',
+  guion: '¿Cuál de tus guiones quieres grabar?',
 };
 
 /**
@@ -243,12 +258,10 @@ function LineaGuion({
 // ── La app ───────────────────────────────────────────────────────────────────
 
 export function VideoGeneratorApp({
-  historialInicial, contexto, puente,
-}: {
+  historialInicial, contexto, puente, guiones }: {
   historialInicial: PlanGuardado[];
   contexto: EstadoContextoVideo | null;
-  puente: Puente | null;
-}) {
+  puente: Puente | null; guiones: GuionDisponible[] }) {
   const PLANTILLAS = useMemo(() => puestasOfrecidas(), []);
 
   const [historial, setHistorial] = useState<PlanGuardado[]>(historialInicial);
@@ -268,15 +281,14 @@ export function VideoGeneratorApp({
   }, []);
   /** La plantilla abierta en el detalle. null = modal cerrado. */
   const [detalle, setDetalle] = useState<Puesta | null>(null);
-  const [paso, setPaso] = useState<Paso>('tema');
+  const [paso, setPaso] = useState<Paso>('guion');
 
   // Vacío a propósito: el botón «Crear» nace apagado y se enciende al elegir.
   // Con una preseleccionada, el marco azul dice «ya elegiste» sin que nadie
   // haya elegido.
   const [puestaId, setPuestaId] = useState<string>('');
-  const [tema, setTema] = useState('');
-  const [duracion, setDuracion] = useState<string>(DURACIONES_VIDEO[1].value);
-  const [acento, setAcento] = useState<string>(ACENTOS[0].value);
+  /** El guion de MaKo elegido. Es lo ÚNICO que el wizard pide. */
+  const [guionId, setGuionId] = useState<string>('');
   const [feedback, setFeedback] = useState('');
   const [verGuiones, setVerGuiones] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -287,19 +299,30 @@ export function VideoGeneratorApp({
     () => (actual ? puestaPorId(actual.plan.puestaId) : undefined),
     [actual],
   );
-  const real = useMemo(
-    () => (puesta ? duracionReal(puesta, segundosDe(duracion)) : null),
-    [puesta, duracion],
+  const guion = useMemo(
+    () => guiones.find((g) => g.id === guionId),
+    [guiones, guionId],
   );
-  const desvia = real ? Math.abs(real.segundos - segundosDe(duracion)) > 5 : false;
+
+  /**
+   * Cuánto va a durar ESTE guion en ESTE formato, y si entra.
+   *
+   * Reemplaza al paso «¿cuánto tiene que durar?»: el número se deriva del texto
+   * (palabras ÷ densidad de la puesta) en vez de elegirse de un menú. Y avisa
+   * cuando no entra, que antes se recortaba en silencio.
+   */
+  const cabida = useMemo(
+    () => (puesta && guion ? cabidaDeGuion(puesta, guion.hablado) : null),
+    [puesta, guion],
+  );
 
   const idx = PASOS.indexOf(paso);
-  const puedeAvanzar = paso === 'tema' ? tema.trim().length > 0 : true;
+  const puedeAvanzar = !!guionId;
 
   const empezar = useCallback((id: string) => {
     setPuestaId(id);
-    setTema('');
-    setPaso('tema');
+    setGuionId('');
+    setPaso('guion');
     setError(null);
     setVista('wizard');
   }, []);
@@ -308,8 +331,14 @@ export function VideoGeneratorApp({
     setBusy(true); setError(null);
     try {
       const out = await generarPlanAction({
-        puestaId, tema, duracion, acento,
-        feedback: conFeedback ? feedback : undefined,
+        puestaId,
+        // Se manda el guion ENTERO, con sus rótulos: el modelo los usa para saber
+        // qué parte es el gancho y qué parte el cierre. Lo que se le sacan los
+        // rótulos es solo a la cuenta de palabras (`hablado`), porque eso mide
+        // cuánto se TARDA en decirlo.
+        guionId: guion?.id ?? '',
+        guionTexto: guion?.texto ?? '',
+        feedback,
         anteriorId: conFeedback ? actual?.id : undefined,
       });
       if (!out.ok) { setError(out.error); return; }
@@ -320,7 +349,7 @@ export function VideoGeneratorApp({
     } finally {
       setBusy(false);
     }
-  }, [puestaId, tema, duracion, acento, feedback, actual]);
+  }, [puestaId, guion, feedback, actual]);
 
   const copiarGuion = useCallback(() => {
     if (!actual) return;
@@ -339,7 +368,7 @@ export function VideoGeneratorApp({
         pregunta={PREGUNTA[paso]}
         error={error}
         puedeAvanzar={puedeAvanzar}
-        enUltimo={paso === 'acento'}
+        enUltimo
         confirmLabel="Crear mi anuncio"
         pending={busy}
         cargando={busy ? 'MaKo está escribiendo tu anuncio…' : null}
@@ -351,130 +380,101 @@ export function VideoGeneratorApp({
         fullscreen
         embebido
       >
-        {paso === 'tema' && (
-          <>
-            <Textarea
-              rows={7}
-              value={tema}
-              onChange={(e) => setTema(e.target.value)}
-              placeholder="Cuéntalo como se lo contarías a un cliente: qué pasó, a quién, y qué cambió."
-            />
-            <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--faint)', marginTop: 10, textAlign: 'left' }}>
-              No hace falta que esté prolijo ni que sea corto. Con un caso concreto alcanza.
-            </div>
-
-            {historial.length > 0 && (
-              <div style={{ marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 12, textAlign: 'left' }}>
-                <button
-                  type="button"
-                  onClick={() => setVerGuiones((v) => !v)}
-                  aria-expanded={verGuiones}
-                  style={{
-                    background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
-                    fontFamily: 'inherit', fontSize: 'var(--fs-sm)', color: 'var(--dim)',
-                    textDecoration: 'underline', textUnderlineOffset: 3,
-                  }}
-                >
-                  {verGuiones ? 'Ocultar' : `Ya escribiste ${historial.length} ${historial.length === 1 ? 'guion' : 'guiones'}`}
-                </button>
-
-                {verGuiones && (
-                  <div style={{ display: 'grid', gap: 2, marginTop: 10 }}>
-                    {historial.map((h) => (
-                      <button
-                        key={h.id}
-                        type="button"
-                        onClick={() => { setActual(h); setVista('anuncio'); }}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-                          textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
-                          background: 'transparent', border: 'none', padding: '7px 2px',
-                          borderBottom: '1px solid var(--border)',
-                        }}
-                      >
-                        <span style={{
-                          flex: 1, minWidth: 0, fontSize: 'var(--fs-sm)', color: 'var(--ink)',
-                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                        }}>
-                          {h.plan.titulo}
+        {paso === 'guion' && (
+          <div style={{ textAlign: 'left' }}>
+            {guiones.length === 0 ? (
+              // No es un estado vacío decorativo: dice DÓNDE se arregla. Sin
+              // guiones esta tab no tiene nada que grabar, y el lugar donde se
+              // escriben es otra pantalla.
+              <Alert tono="warn" accion={{ label: 'Ir a Ads Writer', href: '/ads-writer' }}>
+                <strong>Todavía no tienes guiones escritos.</strong> Los anuncios de video se
+                graban a partir de un guion que MaKo escribe en Ads Writer, con tu ángulo y
+                tu avatar. Escribe uno ahí y vuelve.
+              </Alert>
+            ) : (
+              <div style={{ display: 'grid', gap: 10 }}>
+                {guiones.map((g) => {
+                  const elegido = g.id === guionId;
+                  const cab = puesta ? cabidaDeGuion(puesta, g.hablado) : null;
+                  return (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => setGuionId(g.id)}
+                      aria-pressed={elegido}
+                      style={{
+                        display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
+                        fontFamily: 'inherit', padding: '13px 15px', borderRadius: 12,
+                        background: elegido ? 'var(--primary-bg)' : 'var(--surface)',
+                        border: `1.5px solid ${elegido ? 'var(--primary)' : 'var(--border)'}`,
+                      }}
+                    >
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+                        marginBottom: 6,
+                      }}>
+                        <span style={{ fontSize: 'var(--fs-md)', fontWeight: 650, color: 'var(--ink)' }}>
+                          {g.angulo || 'Sin ángulo'}
                         </span>
-                        <span style={{ flex: 'none', fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>
-                          {h.plan.duracionTotalSeg}s
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
+                        {g.estructura && <Tag>{g.estructura}</Tag>}
+                        {/*
+                          «Detectar si alguno ya fue creado con esta
+                          funcionalidad» — pedido textual. No lo bloquea: grabar
+                          otra versión del mismo guion es legítimo. Solo lo dice.
+                        */}
+                        {g.yaUsado && <Tag color="var(--faint)">Ya lo grabaste</Tag>}
+                      </div>
+
+                      <div style={{
+                        fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.55,
+                      }}>
+                        {g.primeraLinea}…
+                      </div>
+
+                      {/* La duración DERIVADA, que es lo que reemplaza al paso que
+                          preguntaba cuánto tenía que durar. */}
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+                        marginTop: 8, fontSize: 'var(--fs-meta)', color: 'var(--faint)',
+                      }}>
+                        <span>{g.palabras} palabras</span>
+                        {cab && (
+                          <>
+                            <span>·</span>
+                            <span>{cab.segundosReales}s en {cab.clips} tomas</span>
+                            {cab.desborda && (
+                              <span style={{ color: 'var(--warn)', fontWeight: 650 }}>
+                                · No entra en este formato: sobran {cab.palabrasDeMas} palabras
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
-          </>
-        )}
 
-        {paso === 'duracion' && (
-          <>
-            <div style={{ display: 'grid', gap: 8 }}>
-              {DURACIONES_VIDEO.map((o) => {
-                const on = o.value === duracion;
-                return (
-                  <button
-                    key={o.value}
-                    type="button"
-                    onClick={() => setDuracion(o.value)}
-                    aria-pressed={on}
-                    style={{
-                      display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
-                      padding: '11px 14px', borderRadius: 'var(--r-md)', fontFamily: 'inherit',
-                      background: on ? 'var(--primary-bg)' : 'var(--surface)',
-                      border: `1px solid ${on ? 'var(--primary)' : 'var(--border)'}`,
-                    }}
-                  >
-                    <div style={{ fontSize: 'var(--fs-md)', fontWeight: on ? 650 : 500, color: 'var(--ink)' }}>{o.label}</div>
-                    <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginTop: 2 }}>{o.hint}</div>
-                  </button>
-                );
-              })}
-            </div>
-            {real && desvia && (
-              <div style={{ marginTop: 10 }}>
+            {/*
+              El aviso del desborde va PEGADO al botón que dispara, no arriba de
+              todo: es la consecuencia de apretar, y arriba en gris no la lee
+              nadie. Y no bloquea — el dueño puede querer grabarlo igual y editar
+              después; lo que no puede pasar es que se recorte sin decirlo.
+            */}
+            {cabida?.desborda && (
+              <div style={{ marginTop: 14 }}>
                 <Alert tono="warn">
-                  Esta plantilla trabaja con tomas de {puesta?.segundosClip[0]} a{' '}
-                  {puesta?.segundosClip[1]} segundos, así que tu anuncio va a durar{' '}
-                  {real.segundos} y no {segundosDe(duracion)}.
+                  Este guion es más largo de lo que <strong>{puesta?.nombre}</strong> puede
+                  contar: entran {cabida.palabras - cabida.palabrasDeMas} palabras y tiene{' '}
+                  {cabida.palabras}. Si sigues, el final va a quedar afuera. Prueba con otro
+                  formato o recorta el guion en Ads Writer.
                 </Alert>
               </div>
             )}
-          </>
+          </div>
         )}
 
-        {paso === 'acento' && (
-          <>
-            <div style={{ display: 'grid', gap: 8 }}>
-              {ACENTOS.map((o) => {
-                const on = o.value === acento;
-                return (
-                  <button
-                    key={o.value}
-                    type="button"
-                    onClick={() => setAcento(o.value)}
-                    aria-pressed={on}
-                    style={{
-                      display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
-                      padding: '10px 14px', borderRadius: 'var(--r-md)', fontFamily: 'inherit',
-                      background: on ? 'var(--primary-bg)' : 'var(--surface)',
-                      border: `1px solid ${on ? 'var(--primary)' : 'var(--border)'}`,
-                      fontSize: 'var(--fs-md)', fontWeight: on ? 650 : 500, color: 'var(--ink)',
-                    }}
-                  >
-                    {o.label}
-                  </button>
-                );
-              })}
-            </div>
-            <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--faint)', marginTop: 12, textAlign: 'left' }}>
-              Es el acento con el que va a hablar tu avatar.
-            </div>
-          </>
-        )}
       </WizardShell>
     );
   }
@@ -532,7 +532,11 @@ export function VideoGeneratorApp({
                   // los trae: el historial vive en app_settings y no migra.
                   palabras={c.palabras ?? 0}
                   tope={c.tope ?? 0}
-                  voseo={acentoEsVoseante(acento) ? [] : (c.voseo ?? [])}
+                  // Las marcas de voseo solo importan si el acento NO es rioplatense: en
+                  // uno que sí lo es, «tenés» no es una filtración, es el idioma.
+                  // El acento sale del PLAN —lo escribió el server al generarlo— y
+                  // no de un estado de esta pantalla, que ya no lo pregunta.
+                  voseo={actual.plan.acentoEsVoseante ? [] : (c.voseo ?? [])}
                 />
               ))}
             </div>

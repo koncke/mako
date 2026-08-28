@@ -13,6 +13,7 @@
 // =============================================================================
 
 import { test } from 'node:test';
+import { ACENTOS_ES, resolverAcento } from '../lib/acento-workspace';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -25,8 +26,7 @@ import {
   contarPalabras, repartirDuracion, marcasDeVoseo, puestasOfrecidas, conAcento,
 } from '../lib/puestas-data';
 import {
-  duracionReal, clipsParaDuracion, segundosDe, DURACIONES_VIDEO,
-  ACENTOS, acentoPrompt, acentoEsVoseante, guionATexto,
+  guionATexto,
 } from '../app/video-generator/video-pedido';
 
 const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -172,49 +172,14 @@ test('contarPalabras ignora los asteriscos del énfasis y la puntuación suelta'
 });
 
 // ── El reparto de duración ───────────────────────────────────────────────────
-
-test('el reparto nunca produce un clip fuera del rango de la puesta', () => {
-  for (const p of CATALOGO_PUESTAS) {
-    for (const d of DURACIONES_VIDEO) {
-      const total = segundosDe(d.value);
-      const clips = clipsParaDuracion(p, total);
-      for (const seg of repartirDuracion(p, clips, total)) {
-        assert.ok(
-          seg >= p.segundosClip[0] && seg <= p.segundosClip[1],
-          `${p.id} @${total}s → clip de ${seg}s, rango [${p.segundosClip}]`,
-        );
-      }
-    }
-  }
-});
-
-test('la cantidad de clips nunca sale del rango de la puesta', () => {
-  for (const p of CATALOGO_PUESTAS) {
-    for (const d of DURACIONES_VIDEO) {
-      const n = clipsParaDuracion(p, segundosDe(d.value));
-      assert.ok(n >= p.clips[0] && n <= p.clips[1], `${p.id} @${d.value}s → ${n} clips`);
-    }
-  }
-});
-
-// La pantalla muestra la duración REAL, no la del selector, y avisa cuando difiere.
-// Si `duracionReal` dejara de coincidir con lo que reparte el motor, el aviso
-// mentiría — que es peor que no tenerlo.
-test('la duración que anuncia la pantalla es la que reparte el motor', () => {
-  for (const p of CATALOGO_PUESTAS) {
-    for (const d of DURACIONES_VIDEO) {
-      const total = segundosDe(d.value);
-      const anunciada = duracionReal(p, total);
-      const repartida = repartirDuracion(p, anunciada.clips, total).reduce((a, b) => a + b, 0);
-      assert.equal(anunciada.segundos, repartida, `${p.id} @${total}s`);
-    }
-  }
-});
-
-test('una puesta con piso alto NO finge que entrega una duración corta', () => {
-  const p = puestaPorId('plano-secuencia')!; // 7 clips × 8 s = 56 s de piso
-  assert.ok(duracionReal(p, 30).segundos > 30);
-});
+//
+// ⚠️ Acá había cuatro tests más —del reparto por duración elegida, de la cantidad
+// de clips y de `duracionReal`— y se borraron con las funciones que probaban
+// (28/08/2026). Probaban el flujo viejo, donde la duración se elegía de un menú
+// de 30/60/90; hoy sale del guion. Lo que los reemplaza son los de
+// `cabidaDeGuion`, más abajo, que verifican lo mismo desde la otra punta: que la
+// cantidad de clips caiga en el rango de la puesta y que un guion que no entra lo
+// DIGA.
 
 // ── El voseo, que es la segunda capa de una regla del PROMPT ─────────────────
 // El primer plan que generó esta tab salió con «sos vos», «¿y vos qué vas a
@@ -243,25 +208,6 @@ test('no marca palabras que existen en las dos variedades', () => {
 
 test('no repite la misma marca y no distingue mayúsculas', () => {
   assert.deepEqual(marcasDeVoseo('Vos sabés que vos podés'), ['vos', 'sabés', 'podés']);
-});
-
-test('el acento argentino es el ÚNICO donde el voseo no se marca', () => {
-  const voseantes = ACENTOS.filter((a) => acentoEsVoseante(a.value)).map((a) => a.value);
-  assert.deepEqual(voseantes, ['ar']);
-});
-
-test('cada acento del catálogo lleva su texto para el prompt, en inglés', () => {
-  for (const a of ACENTOS) {
-    const p = acentoPrompt(a.value);
-    assert.ok(p.length > 8, `${a.value}: «${p}»`);
-    assert.match(p, /Spanish/, `${a.value} no nombra el idioma: «${p}»`);
-  }
-});
-
-test('un acento desconocido cae en México neutro, no en vacío', () => {
-  // La audiencia del negocio es de México: el default no puede ser un string vacío
-  // que deje al modelo eligiendo el acento por su cuenta.
-  assert.equal(acentoPrompt('no-existe'), acentoPrompt('mx-neutro'));
 });
 
 // ── El acento lo pone el CÓDIGO ──────────────────────────────────────────────
@@ -315,11 +261,36 @@ test('no se come el guion ni la acción al limpiar', () => {
 });
 
 test('todo acento del catálogo sobrevive intacto al inyectarse', () => {
-  // Los paréntesis y los acentos de «(norteño)» no pueden perderse por el camino.
-  for (const a of ACENTOS) {
-    const p = acentoPrompt(a.value);
-    assert.ok(conAcento('Static camera.', p).includes(p), `${a.value}: ${p}`);
+  // Los paréntesis y los acentos de «(Baja California, Sonora…)» no pueden
+  // perderse por el camino. El catálogo se mudó a lib/acento-workspace.ts cuando
+  // el acento dejó de ser una pregunta del wizard y pasó a ser un atributo del
+  // cliente; este test lo sigue.
+  for (const [id, prompt] of Object.entries(ACENTOS_ES)) {
+    assert.ok(conAcento('Static camera.', prompt).includes(prompt), `${id}: ${prompt}`);
   }
+});
+
+test('el acento de un workspace se RESUELVE, y dice si lo está adivinando', () => {
+  // Mauricio está en Tijuana: norte de México. Sale de su zona horaria, que se
+  // resuelve sola contra su calendario — o sea que es una inferencia, y el tipo
+  // lo dice. Un dato inferido presentado como declarado es cómo se cuela un error
+  // que nadie audita.
+  const tijuana = resolverAcento(null, 'America/Tijuana');
+  assert.equal(tijuana.id, 'mx-norte');
+  assert.equal(tijuana.seguro, false);
+  assert.equal(tijuana.origen, 'zona-horaria');
+
+  // Lo declarado GANA siempre: un dato que alguien escribió le gana a cualquier
+  // inferencia nuestra, por buena que sea.
+  const declarado = resolverAcento('ar', 'America/Tijuana');
+  assert.equal(declarado.id, 'ar');
+  assert.equal(declarado.seguro, true);
+
+  // Y una zona que no está en la tabla NO cae en «entonces es mexicano»: cae en
+  // el neutro, marcado como lo que es. El guard va en positivo.
+  const raro = resolverAcento(null, 'Asia/Tokyo');
+  assert.equal(raro.id, 'latam');
+  assert.equal(raro.seguro, false);
 });
 
 // ── El PROMPT no sale a pantalla, nunca ──────────────────────────────────────
@@ -374,4 +345,84 @@ test('el clip mudo va al proveedor barato y el hablado al caro', () => {
   // La regla del curso: un plano de recurso consume la misma cuota y no aporta nada.
   assert.equal(proveedorDeClip(false), 'barato');
   assert.equal(proveedorDeClip(true), 'caro');
+});
+
+// ── La duración sale del guion ───────────────────────────────────────────────
+// El dueño: «Tampoco tiene que preguntar cuanto debe durar, no tiene sentido.
+// Durará lo que dure el guion. Punto.»
+
+import { cabidaDeGuion, soloHablado } from '../lib/puestas-data';
+
+const CIEN = Array.from({ length: 100 }, (_, i) => `palabra${i}`).join(' ');
+
+test('un guion corto NO estira: la puesta impone su piso', () => {
+  // Sin piso, tres palabras darían un video de dos segundos. La puesta tiene un
+  // mínimo de clips y eso manda.
+  const p = puestaPorId('plano-secuencia')!;
+  const c = cabidaDeGuion(p, 'Hola, mira esto.');
+  assert.equal(c.desborda, false);
+  assert.ok(c.segundosReales >= p.clips[0] * p.segundosClip[0], 'respeta el piso de la puesta');
+  assert.ok(c.clips >= p.clips[0], 'y el piso de clips');
+});
+
+test('un guion que NO entra lo DICE, no se recorta en silencio', () => {
+  // Era el modo de falla viejo: repartirDuracion devolvía el techo sin avisar y
+  // el guion se grababa cortado.
+  const p = puestaPorId('plano-secuencia')!;
+  const enorme = Array.from({ length: 900 }, (_, i) => `palabra${i}`).join(' ');
+  const c = cabidaDeGuion(p, enorme);
+  assert.equal(c.desborda, true);
+  assert.ok(c.palabrasDeMas > 0, 'dice CUÁNTAS sobran, que es lo accionable');
+  assert.ok(c.segundosReales <= p.clips[1] * p.segundosClip[1], 'nunca promete más de lo que la puesta da');
+});
+
+test('la cantidad de clips SIEMPRE cae dentro del rango de la puesta', () => {
+  // El saneo del plan tira error si el modelo devuelve otra cantidad, así que un
+  // número fuera de rango acá rompe la generación entera más adelante.
+  for (const p of puestasOfrecidas()) {
+    for (const texto of ['Hola.', CIEN, CIEN + ' ' + CIEN + ' ' + CIEN]) {
+      const c = cabidaDeGuion(p, texto);
+      assert.ok(c.clips >= p.clips[0] && c.clips <= p.clips[1], `${p.id}: ${c.clips} fuera de ${p.clips}`);
+      assert.ok(Number.isInteger(c.clips), `${p.id}: clips no entero`);
+    }
+  }
+});
+
+test('más palabras nunca dan MENOS segundos', () => {
+  // Una monotonía que suena obvia y que un redondeo mal puesto rompe.
+  const p = puestaPorId('selfie-movimiento')!;
+  let previo = 0;
+  for (const n of [10, 50, 120, 250, 400]) {
+    const t = Array.from({ length: n }, (_, i) => `p${i}`).join(' ');
+    const c = cabidaDeGuion(p, t);
+    assert.ok(c.segundosReales >= previo, `${n} palabras dio menos que el anterior`);
+    previo = c.segundosReales;
+  }
+});
+
+test('soloHablado saca los rótulos, que no se pronuncian', () => {
+  // Si se cuelan, inflan el largo y un guion que entra parece que no — y un aviso
+  // de «esto no entra» sobre algo que entra manda a recortar lo que estaba bien.
+  const guion = [
+    'GANCHO', 'Si tu negocio factura pero no te deja dormir, mira esto.',
+    '', 'HISTORIA', 'El año pasado un cliente me dijo lo mismo.',
+    '', 'CTA', 'Entra al enlace.',
+  ].join('\n');
+  const h = soloHablado(guion);
+  assert.doesNotMatch(h, /GANCHO|HISTORIA|CTA/, 'no puede quedar ningún rótulo');
+  assert.match(h, /factura pero no te deja dormir/);
+  assert.equal(h.split(/\s+/).filter(Boolean).length, 23);
+});
+
+test('una frase corta en mayúsculas DENTRO del texto no es un rótulo', () => {
+  // El corte es por línea sola, no por «está en mayúsculas»: una línea hablada
+  // que grita algo sigue siendo hablada.
+  const h = soloHablado('GANCHO\nY ahí me dijo: BASTA, no puedo más con esto.');
+  assert.match(h, /BASTA/);
+  assert.doesNotMatch(h, /^GANCHO/);
+});
+
+test('un guion sin rótulos pasa entero', () => {
+  const t = 'Hola, te cuento algo que me pasó la semana pasada con un cliente.';
+  assert.equal(soloHablado(t), t);
 });

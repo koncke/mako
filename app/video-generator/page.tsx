@@ -12,6 +12,7 @@ import { requireRolWs } from '@/lib/tab-access';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { estadoContextoVideo, leerHistorial } from './video-datos';
 import { estadoPuente } from '@/lib/flow-cola';
+import { guionesDisponibles } from './guiones-datos';
 import { VideoGeneratorApp } from './VideoGeneratorApp';
 
 export const dynamic = 'force-dynamic';
@@ -23,15 +24,26 @@ export default async function Page() {
   const ws = await getWorkspaceActual();
   // Agencia sin impersonar: no hay workspace del que leer. La vista igual se
   // sirve (las actions cortan con su propio error si intenta operar).
-  if (ws == null) return <VideoGeneratorApp historialInicial={[]} contexto={null} puente={null} />;
+  if (ws == null) return <VideoGeneratorApp historialInicial={[]} contexto={null} puente={null} guiones={[]} />;
 
-  const [historial, contexto, puente] = await Promise.all([
+  const [historial, contexto, puente, guiones] = await Promise.all([
     leerHistorial(),
     estadoContextoVideo(),
     // Estado VIVO: si el cliente desconecta el navegador, el panel lo dice sola
     // la próxima vez que entra.
     estadoPuente().catch(() => null),
+    // Los guiones que MaKo ya escribió. Con `catch` porque su ausencia no puede
+    // tumbar la pantalla: sin guiones la tab se abre igual y el wizard dice
+    // dónde escribirlos.
+    guionesDisponibles().catch(() => []),
   ]);
 
-  return <VideoGeneratorApp historialInicial={historial} contexto={contexto} puente={puente} />;
+  return (
+    <VideoGeneratorApp
+      historialInicial={historial}
+      contexto={contexto}
+      puente={puente}
+      guiones={guiones}
+    />
+  );
 }

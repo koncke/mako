@@ -26,6 +26,15 @@ export type PlanGuardado = {
   id: string;
   /** El tema que pidió el usuario (para el rótulo del historial). */
   pedido: string;
+  /**
+   * El guion de MaKo del que salió, cuando salió de uno.
+   *
+   * Es lo que permite contestar «¿este guion ya lo grabé?» sin comparar textos:
+   * un id es una clave, un texto parecido es un parecido. Opcional porque las
+   * entradas viejas del historial no lo tienen — y un campo ausente se lee como
+   * «no sé», que es la verdad.
+   */
+  guionId?: string;
   plan: PlanVideo;
   at: string;
 };
