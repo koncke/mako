@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { EXTENSION_URL_TIENDA } from "./lib/extension-tienda";
 
 const nextConfig: NextConfig = {
   // El chequeo de tipos NO corre en el build: es ~65 de los ~99 segundos de cada
@@ -64,6 +65,27 @@ const nextConfig: NextConfig = {
       // de acción, notificaciones, bookmarks) siguen andando con este redirect.
       { source: '/leads', destination: '/crm', permanent: false },
       { source: '/leads/:path*', destination: '/crm/:path*', permanent: false },
+      // hola-mako.com/extension → la ficha en la Chrome Web Store.
+      //
+      // El link de Google no se puede acortar: el id (`gapbem…`) es un hash de la
+      // clave pública que asigna al publicar y es INMUTABLE — cambiarlo sería
+      // publicar otra extensión, con otro id, perdiendo instalados y reseñas.
+      //
+      // Así que el link corto es NUESTRO, y de paso deja de ser un dato ajeno
+      // pegado en mails y mensajes: el día que Google cambie la forma de sus URLs,
+      // o que haya que mandar a otro lado, se toca acá y todo lo ya compartido
+      // sigue funcionando.
+      //
+      // ⚠️ `permanent: false` (307) y NO 308. Un permanente lo cachea el navegador
+      // para siempre: quien lo abrió una vez nunca volvería a preguntar, y el
+      // control que este redirect existe para tener se pierde justo con la gente
+      // que ya lo usó.
+      //
+      // No hace falta sumarlo a `PUBLICOS`: los redirects de next.config corren
+      // ANTES del proxy (doc de Next, «Execution order»), así que el gate de auth
+      // ni se entera. Es lo correcto — este link se comparte con gente que no
+      // tiene cuenta.
+      { source: '/extension', destination: EXTENSION_URL_TIENDA, permanent: false },
     ];
   },
   // Cabeceras de seguridad globales (defense-in-depth). Subset SEGURO: no toca
