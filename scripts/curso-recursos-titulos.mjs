@@ -27,6 +27,7 @@
 //    válido, así que pasan cualquier revisión visual y llegan a la pantalla así.
 
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
+import { inflateRawSync } from 'node:zlib';
 import { join, dirname, extname } from 'node:path';
 
 const arg = (n, d) => { const i = process.argv.indexOf(`--${n}`); return i > -1 && process.argv[i + 1] ? process.argv[i + 1] : d; };
@@ -50,11 +51,54 @@ const limpiar = (s) => String(s || '')
   .replace(/\s+/g, ' ')
   .trim();
 
+// ⚠️ xlsx/docx/pptx son ZIPS, y su título vive en `docProps/core.xml`. Node no trae
+//    lector de zip, y por UN archivo XML no vale la pena una dependencia: se lee el
+//    directorio central a mano y se infla la entrada con `inflateRawSync`.
+//
+//    Sin esto, los 6 .xlsx de MasteryHaus se publicaban con el nombre de su SECCIÓN
+//    —dos de ellos como «¿Por qué hablamos de Marketing Perpetuo», idénticos entre sí—.
+const entradaZip = (buf, nombre) => {
+  // Fin del directorio central (EOCD): se busca desde el final, la firma es PK\x05\x06.
+  let eocd = -1;
+  for (let i = buf.length - 22; i >= 0 && i > buf.length - 66000; i--) {
+    if (buf.readUInt32LE(i) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) return null;
+  let p = buf.readUInt32LE(eocd + 16);          // offset del directorio central
+  const n = buf.readUInt16LE(eocd + 10);        // cuántas entradas
+  for (let k = 0; k < n; k++) {
+    if (buf.readUInt32LE(p) !== 0x02014b50) return null;
+    const metodo = buf.readUInt16LE(p + 10);
+    const comp = buf.readUInt32LE(p + 20);
+    const lenN = buf.readUInt16LE(p + 28);
+    const lenE = buf.readUInt16LE(p + 30);
+    const lenC = buf.readUInt16LE(p + 32);
+    const off = buf.readUInt32LE(p + 42);
+    const nom = buf.subarray(p + 46, p + 46 + lenN).toString('latin1');
+    if (nom === nombre) {
+      // La cabecera local repite los largos: hay que saltearla para llegar a los datos.
+      const lN = buf.readUInt16LE(off + 26);
+      const lE = buf.readUInt16LE(off + 28);
+      const datos = buf.subarray(off + 30 + lN + lE, off + 30 + lN + lE + comp);
+      try { return metodo === 0 ? datos : inflateRawSync(datos); } catch { return null; }
+    }
+    p += 46 + lenN + lenE + lenC;
+  }
+  return null;
+};
+
 /** El título que el archivo declara de sí mismo, o null si no declara ninguno. */
 const tituloInterno = (ruta) => {
   let b;
   try { b = readFileSync(ruta); } catch { return null; }
   const ext = extname(ruta).toLowerCase();
+
+  if (ext === '.xlsx' || ext === '.docx' || ext === '.pptx') {
+    const core = entradaZip(b, 'docProps/core.xml');
+    if (!core) return null;
+    const m = /<dc:title>([\s\S]*?)<\/dc:title>/i.exec(core.toString('utf8'));
+    return m ? (limpiar(m[1]) || null) : null;
+  }
 
   if (ext === '.html' || ext === '.htm') {
     const m = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(b.toString('utf8'));
