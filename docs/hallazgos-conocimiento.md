@@ -5378,3 +5378,72 @@ los mismos 253 `videoId` y 38 `driveId` que antes, o sea ninguna otra cosa se mo
 
 **Sin hacer:** los 11 `.xlsx`/`.pdf` sin título interno. Se resuelven leyendo
 `docProps/core.xml` del zip (xlsx/docx son zips); hoy el extractor no abre zips.
+
+
+## El FORMATO decide si un recurso se ve, y el bajador no lo elige: lo hereda
+
+**2026-08-28.** «Dentro de los recursos no hay NADA». Los archivos estaban, los ids eran
+correctos (38/38 verificados contra la SQLite de Drive Desktop) y el portal los dibujaba
+sin error. Lo que fallaba era **de qué formato eran**:
+
+| formato | qué hace Drive | cuántos |
+|---|---|---|
+| `.bin` | no previsualiza → link de descarga | 7 (¡y eran PDFs!) |
+| `.html` | no previsualiza → link de descarga | 6 |
+| `.pdf` / `.xlsx` | **visor embebido** | 25 |
+
+**Los 7 `.bin` eran PDFs** — magic bytes `%PDF`. El bajador les puso `.bin` porque no
+reconoció el `Content-Type`, y con esa extensión el portal los publica honestamente como
+«archivo para bajar». Desde el lado del alumno: clic, y no pasa nada visible.
+
+**Los 6 `.html` eran exportaciones de Google Docs**, o sea documentos para LEER que
+llegaban como un archivo que hay que descargar y abrir a mano.
+
+**Las dos reglas:**
+
+1. **El tipo de un archivo sale de sus BYTES, no de su extensión ni del `Content-Type`.**
+   Un `.bin` que empieza con `%PDF` es un PDF, y renombrarlo cambia lo que el usuario ve.
+   Cualquier bajador que confíe en el header de un servidor va a producir esto tarde o
+   temprano — el servidor no sabe (ni le importa) cómo lo vas a publicar.
+2. **Si el destino no previsualiza un formato, el arreglo es CONVERTIR, no explicar mejor.**
+   `scripts/curso-recursos-a-pdf.mjs` imprime los `.html` a PDF con el Chrome dedicado
+   (`Page.printToPDF` por CDP). El portal ya tenía el tipo `file` con su link — correcto y
+   honesto, y aun así el material quedaba a tres clics en vez de uno.
+
+### El renombre rompe los índices, y cada uno rompe una cosa distinta
+
+Renombrar un recurso —`.bin` → `.pdf`, `.html` → `.pdf`— deja **dos** índices apuntando al
+nombre viejo, y cada uno falla distinto:
+
+- `recursos.json` guarda `nivel`, `clases`, `modulo` y `tituloReal`. Sin actualizarlo, el
+  recurso pierde su vínculo con las clases y se publica como «Material del curso».
+- `drive.json` guarda el `driveId`. Sin actualizarlo, quedan las entradas viejas Y las
+  nuevas: 62 recursos se convirtieron en 69, con siete duplicados.
+
+Por eso el conversor actualiza los dos, y por eso hay que borrar de `drive.json` lo que ya
+no existe en disco **antes** de re-resolver. Y ojo con el filtro: los ENLACES no tienen
+archivo, así que «borro lo que no está en disco» se lleva los 24 enlaces puestos si no se
+los exceptúa.
+
+### Y una espera que no se puede saltear: Drive tarda en dar el id
+
+Un archivo recién copiado al montaje **existe en disco y todavía no tiene id**. Republicar
+en ese momento deja el curso con 56 recursos en vez de 62 — o sea peor que antes de tocar
+nada, y sin ningún error. La espera va con techo y **no republica a medias**:
+`scratchpad/esperar-drive.sh` reintenta hasta que los 38 tengan id y, si no llegan, lo dice.
+
+**Vive en:** `scripts/curso-recursos-a-pdf.mjs` · `scripts/curso-recursos-titulos.mjs`
+(que ahora abre zips para el `docProps/core.xml` de docx/xlsx) · `scripts/curso-a-drive.mjs`.
+
+**Medido al cerrar:** los 38 archivos con `tipo=pdf` (visor embebido), 0 `.html`, 0 `.bin`,
+y las mismas 253 clases y 38 `driveId` que antes.
+
+**Sin hacer:**
+
+- **12 de 38 muestran el nombre de la SECCIÓN como título** porque el archivo no declara
+  ninguno. Seis son `.xlsx` exportados de Google Sheets: **no traen `docProps/core.xml`** —
+  verificado abriendo el zip, el campo no existe. No hay de dónde sacarlo sin abrir el
+  contenido y adivinar, que es exactamente lo que este hallazgo vino a corregir.
+- **Un duplicado real**: el mismo PDF (mismo sha1) publicado bajo «Master Copy» y bajo
+  «¿Por qué hablamos de Marketing Perpetuo». Cuelga de dos secciones, así que puede ser
+  correcto — pero en la lista se ve como dos cosas distintas con el mismo nombre.
