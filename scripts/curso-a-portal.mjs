@@ -38,6 +38,40 @@ const base = dirname(PLAN);
 // Ver la nota del BOM en curso-bajar.mjs: PowerShell 5.1 lo mete y JSON.parse muere.
 const plan = JSON.parse(readFileSync(PLAN, 'utf8').replace(/^﻿/, ''));
 
+// ⚠️ EL ORDEN DE LOS MÓDULOS ES UN DATO DEL CURSO, NO EL DE LA PLATAFORMA.
+//
+// El orden de `plan.clases` es el que devolvió la plataforma, y no tiene por qué ser el
+// orden en que se estudia. En MasteryHaus la plataforma devolvía primero «Sesiones de
+// Maestría», «MasteryClub» y «Mastery Machine» —que son material SUELTO, sesiones
+// grabadas y extras— y recién cuarto «Introducción a la Fórmula», que es por donde se
+// empieza. El alumno abría el curso y lo primero que veía era el anexo.
+//
+// La numeración del AUTOR existe y está en las carpetas de su Drive («1. Introduccion a
+// la Formula…», «2. Mentalidad & Foco»…). Eso es el dato; el orden del feed es un
+// accidente de cómo la plataforma arma su respuesta.
+//
+// `plan.ordenModulos` lo fija a mano. Se compara SIN ordinal ni acentos —«6. Marketing
+// Perpetuo» y «MKT Perpetuo» son el mismo módulo— y lo que no esté en la lista queda
+// DESPUÉS, en el orden que tenía: una lista incompleta no puede esconder un módulo.
+if (Array.isArray(plan.ordenModulos) && plan.ordenModulos.length) {
+  const llave = (x) => String(x ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/^\d+[.\-)\s]+/, '').replace(/[^a-z0-9]+/g, '');
+  const rango = new Map(plan.ordenModulos.map((m, i) => [llave(m), i]));
+  const orig = new Map(plan.clases.map((c, i) => [c, i]));
+  const puesto = (c) => {
+    const r = rango.get(llave(c.modulo));
+    return r === undefined ? rango.size : r;
+  };
+  plan.clases = [...plan.clases].sort((a, b) => puesto(a) - puesto(b) || orig.get(a) - orig.get(b));
+
+  const sinRango = [...new Set(plan.clases.filter((c) => rango.get(llave(c.modulo)) === undefined)
+    .map((c) => c.modulo).filter(Boolean))];
+  if (sinRango.length) {
+    console.log(`\n  ⚠ ${sinRango.length} módulo(s) fuera de ordenModulos — van al final:`);
+    for (const m of sinRango) console.log(`      · ${m}`);
+  }
+}
+
 const driveJson = join(base, 'drive.json');
 if (!existsSync(driveJson)) {
   console.error('\n  ✖ Falta drive.json. Corré antes curso-a-drive.mjs: sin el videoId real');
@@ -265,6 +299,22 @@ const construirRecursos = (drive, planClases, titulos = new Map()) => {
     });
     for (const n of deClases) colgar(n, slug);
   }
+  // ⚠️ LOS RECURSOS SE LEEN EN EL ORDEN DEL CURSO, NO EN EL DEL DISCO.
+  //
+  // Venían en el orden de `drive.recursos`, que es como los lista el sistema de
+  // archivos: alfabético por NOMBRE. Con eso «Alineando las expectativas» (clase 61)
+  // salía primero y «Bot AI…» (clase 87) segundo, mezclado con material de la clase 250:
+  // una lista que no sigue ningún hilo y en la que no se puede buscar nada.
+  //
+  // El orden es la PRIMERA clase a la que pertenece cada recurso —o sea, cuándo aparece
+  // en el curso—. Los que no cuelgan de ninguna clase (material del curso entero) van
+  // primero: son la portada del bloque, no una nota al pie.
+  // Sin clase = material del curso entero (los enlaces). Va al FINAL: son 24 y puestos
+  // adelante forman un muro de links antes del primer material de la clase 1.
+  const primeraClase = (r) => (r.clases && r.clases.length ? Math.min(...r.clases) : Infinity);
+  recursos.sort((a, b) => primeraClase(a) - primeraClase(b)
+    || String(a.label).localeCompare(String(b.label), 'es'));
+
   return { recursos, porClase };
 };
 const slugDe = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
