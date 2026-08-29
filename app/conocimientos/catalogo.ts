@@ -88,6 +88,8 @@ import { CURSO_EDITA_COMO_UN_PRO } from './curso-edita-como-un-pro';
 import { CURSO_EXPERTO_EN_CHATGPT } from './curso-experto-en-chatgpt';
 import { CURSO_HACKEANDO_EL_ALGORITMO } from './curso-hackeando-el-algoritmo';
 import { CURSO_TU_1_MILLON } from './curso-tu-1-millon';
+import { CURSO_COMPLETO_VIDEOS_IA } from './curso-completo-videos-ia';
+import { CURSO_360_MARCA_PERSONAL } from './curso-360-marca-personal';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio';
 import { CURSO_BRANDING } from './BrandingMaKo';
@@ -266,6 +268,10 @@ const CATEGORIA: Record<string, string> = {
   // plataforma. El comentario al lado es la categoría de origen.
   'tu-1-millon': 'Finanzas',               // Finanzas / Inversiones
 
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  '360-marca-personal': 'Marca personal',  // Marca Personal
+
 };
 
 /**
@@ -345,6 +351,10 @@ const PORTADA: Record<string, string> = {
   // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
   // pero la ficha se había emitido antes de que existiera.
   'tu-1-millon': '/cono-portadas/tu-1-millon.jpg',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  '360-marca-personal': '/cono-portadas/360-marca-personal.png',
 
 };
 
@@ -628,6 +638,12 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_TU_1_MILLON,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_COMPLETO_VIDEOS_IA,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_360_MARCA_PERSONAL,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
