@@ -2392,16 +2392,38 @@ que `tema` pasó de ser un tema a ser un guion.
 **Y el arreglo no fue un prompt mejor.** Un prompt que pide no reescribir funciona
 *casi siempre*, y «casi siempre» sobre el CTA de un anuncio es un modo de falla
 silencioso: el texto sale bien escrito, suena natural y solo se nota comparando
-contra el original — o cuando nadie llega al embudo. El reparto del guion en tomas
-se calcula en código (`lib/guion-reparto.ts`, determinista y con test) y
-`sanearPlan` **pisa** el campo `voz` que devuelve el modelo. El modelo ya no puede
-tocar las palabras aunque quiera; sigue escribiendo lo suyo —cámara, acción, prompt
-de video—, que es donde aporta.
+contra el original — o cuando nadie llega al embudo.
 
-Medido de punta a punta contra el guion real: 140 palabras entran, 140 salen,
-idénticas, y el cierre es el del cliente.
+**Pero el primer arreglo se pasó de largo**, y la corrección del dueño es el
+hallazgo de verdad: *«si me gusta que le puso el acento de Mauricio y sus
+muletillas, eso sí está muy bien, pero que le cambie el CTA, para nada»*. Dejar el
+guion 100 % literal mataba una feature — un guion escrito como se escribe suena
+LEÍDO; dicho con los conectores con los que arranca la persona, suena dicho.
 
-**Vive en:** `lib/guion-reparto.ts`, `lib/video-planner.ts`,
+**La línea no está entre «tocar» y «no tocar», sino entre FORMA y FONDO** — y
+dentro del fondo hay una parte que no admite ni un matiz. El contrato quedó así:
+
+| | |
+|---|---|
+| la forma | se adapta: conectores, variedad del español, largo al tope del clip |
+| el fondo | no se toca: ni un dato, ni un número, ni el orden de las ideas |
+| **el cierre** | **se PISA con el literal** — ahí vive a dónde manda el anuncio |
+
+`lib/guion-cierre.ts` decide dónde empieza el cierre: por el rótulo `CTA` si el
+guion pasó por MaKo, o por las últimas frases si no. Y lo que no se puede
+prohibir, se **mide**: `fidelidad()` compara las palabras con CONTENIDO —ignorando
+las vacías, porque sumar «mira» o «pues» es justamente la adaptación buscada— y
+por debajo de 0,45 la pantalla lo dice al lado de la toma, con lo que decía el
+guion. No se descarta: se hace visible.
+
+**Regla que queda:** cuando un modelo se pasa de la raya, la pregunta no es «¿cómo
+lo freno?» sino «¿qué parte exactamente no puede tocar?». Prohibir todo es tan
+caro como no prohibir nada — solo que el costo se paga en calidad y no se ve.
+
+Medido de punta a punta contra el guion real: volvió el «Mira,» del arranque y el
+cierre salió palabra por palabra como lo escribió el cliente.
+
+**Vive en:** `lib/guion-reparto.ts`, `lib/guion-cierre.ts`, `lib/video-planner.ts`,
 `app/video-generator/actions.ts`, `app/video-generator/video-pedido.ts`.
 
 ## Un catálogo puede documentar una producción que nunca ocurrió
