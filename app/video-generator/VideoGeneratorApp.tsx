@@ -49,6 +49,7 @@ import {
   SeccionCard, parsearSecciones, reconstruirSecciones, EditarTexto, ICONO_SECCION_GUION,
 } from '../components/SeccionCard';
 import { editarGuionAction } from './cargar-guiones-action';
+import { generarTomaAction, estadoTomaAction } from './video-action';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 
@@ -441,9 +442,14 @@ function DetalleFormato({
 // Solo lo que se DICE y cuánto dura. Nada de cámara, acción ni prompt: eso es
 // cómo se fabrica, y el cliente no fabrica nada.
 
+/** Lo generado de una toma, si hay algo. */
+function videoDe(item: PlanGuardado | null, n: number) {
+  return item?.video?.[String(n)];
+}
+
 function LineaGuion({
   n, segundos, habla, voz, palabras, tope, voseo, literal, ctaInventado, original,
-  onEditar, onPedir, guardando,
+  onEditar, onPedir, guardando, video, enCurso, onGenerar,
 }: {
   n: number; segundos: number; habla: boolean; voz: string;
   palabras: number; tope: number; voseo: string[];
@@ -458,6 +464,10 @@ function LineaGuion({
   /** Pedirle a MaKo que cambie ESTA toma. */
   onPedir: (instruccion: string) => Promise<void>;
   guardando: boolean;
+  /** El video de esta toma, cuando existe o se está haciendo. */
+  video?: { url?: string; error?: string; operacion?: string; trabajoId?: number };
+  enCurso: boolean;
+  onGenerar: () => void;
 }) {
   const alerta = palabras > tope || voseo.length > 0;
   // El campo de instrucción arranca cerrado: siete campos abiertos a la vez es
@@ -566,6 +576,43 @@ function LineaGuion({
           </div>
         )}
 
+        {/* ── El clip de esta toma ──────────────────────────────────────── */}
+        {video?.url && (
+          <video
+            src={video.url}
+            controls
+            playsInline
+            preload="metadata"
+            style={{
+              display: 'block', width: 190, marginTop: 10, borderRadius: 11,
+              aspectRatio: '9 / 16', objectFit: 'cover', background: '#000',
+            }}
+          />
+        )}
+        {enCurso && !video?.url && (
+          <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginTop: 7 }}>
+            Generando esta toma… tarda un par de minutos. Deja Flow abierto.
+          </div>
+        )}
+        {video?.error && (
+          <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--bad)', marginTop: 7 }}>
+            {video.error}
+          </div>
+        )}
+        {!video?.url && !enCurso && (
+          <button
+            type="button"
+            onClick={onGenerar}
+            style={{
+              marginTop: 8, background: 'transparent', border: 'none', padding: 0,
+              cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--fs-sm)',
+              color: 'var(--dim)', textDecoration: 'underline', textUnderlineOffset: 3,
+            }}
+          >
+            Generar esta toma
+          </button>
+        )}
+
         {pidiendo && (
           <div style={{ marginTop: 9, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
             <input
@@ -603,6 +650,8 @@ export function VideoGeneratorApp({
   const [historial, setHistorial] = useState<PlanGuardado[]>(historialInicial);
   const [actual, setActual] = useState<PlanGuardado | null>(null);
   const [editandoLinea, setEditandoLinea] = useState(false);
+  /** La toma que se está generando ahora. null = ninguna. */
+  const [generando, setGenerando] = useState<number | null>(null);
   // Siempre se entra al catálogo, aunque haya anuncios hechos: se viene a crear
   // uno nuevo, no a releer el anterior.
   const [vista, setVista] = useState<Vista>('catalogo');
@@ -712,6 +761,50 @@ export function VideoGeneratorApp({
       setError(e instanceof Error ? e.message : 'No se pudo cambiar la toma.');
     }
   }, [actual]);
+
+  /**
+   * Manda a generar UNA toma.
+   *
+   * Una, y no las siete. La regla es del dueño y es económica: si el avatar no se
+   * parece, descubrirlo cuesta un clip y no un anuncio entero. Y el primero es
+   * además el que fija la cara que los siguientes heredan.
+   */
+  const generarToma = useCallback(async (n: number) => {
+    if (!actual) return;
+    setError(null);
+    const out = await generarTomaAction(actual.id, n);
+    if (!out.ok) { setError(out.error); return; }
+    setActual(out.item);
+    setGenerando(n);
+  }, [actual]);
+
+  /**
+   * El latido que pregunta cómo va.
+   *
+   * Cada vuelta hace UN paso del lado del server —sacar el nombre de la
+   * operación, o preguntar por el video— y nunca espera adentro: una action que
+   * se queda esperando un minuto muere en el timeout de la plataforma.
+   *
+   * Se apaga solo cuando la toma queda lista o falla. Un intervalo que sigue
+   * latiendo con la pestaña abierta y nada que esperar es tráfico contra Flow por
+   * nada, y contra Flow el tráfico de más se paga en score.
+   */
+  useEffect(() => {
+    if (generando == null || !actual) return;
+    let vivo = true;
+    const tick = async () => {
+      const out = await estadoTomaAction(actual.id, generando).catch(() => null);
+      if (!vivo || !out || !out.ok) return;
+      setActual(out.item);
+      if (out.estado.fase === 'listo' || out.estado.fase === 'error') {
+        setGenerando(null);
+        if (out.estado.fase === 'error') setError(out.estado.error);
+      }
+    };
+    void tick();
+    const id = setInterval(() => void tick(), 6000);
+    return () => { vivo = false; clearInterval(id); };
+  }, [generando, actual?.id]);
 
   const empezar = useCallback((id: string) => {
     setPuestaId(id);
@@ -1099,17 +1192,15 @@ export function VideoGeneratorApp({
           accion={
             <Button
               variant="mako"
-              disabled
-              // ⚠️ El título decía que esto «se enciende cuando termine la
-              // conexión con el generador», y era MENTIRA: el puente ya está
-              // conectado y responde. Lo que no existe todavía es la generación.
-              //
-              // Un botón apagado que culpa a algo que sí funciona manda al dueño a
-              // revisar su navegador durante media hora. Un aviso que dice qué
-              // falta cuesta lo mismo y no le hace perder el tiempo.
-              title="Todavía no está construida la generación del video. El plan de tomas ya está listo para producir a mano."
+              icon={<Icon name="ia" size={16} />}
+              loading={generando === 1}
+              disabled={generando != null || !!videoDe(actual, 1)?.url}
+              onClick={() => void generarToma(1)}
+              // Genera LA PRIMERA, no las siete. El texto lo dice para que nadie
+              // apriete esperando el anuncio entero y crea que se colgó.
+              title="Genera la primera toma. Si te convence, sigues con las demás."
             >
-              Generar el video
+              {videoDe(actual, 1)?.url ? 'Primera toma lista' : 'Generar la primera toma'}
             </Button>
           }
         />
@@ -1168,6 +1259,9 @@ export function VideoGeneratorApp({
                   guardando={editandoLinea}
                   onEditar={(v) => void editarLinea(c.n, v)}
                   onPedir={(i) => pedirCambio(c.n, i)}
+                  video={videoDe(actual, c.n)}
+                  enCurso={generando === c.n}
+                  onGenerar={() => void generarToma(c.n)}
                 />
               ))}
             </div>

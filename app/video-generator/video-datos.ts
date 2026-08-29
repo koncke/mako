@@ -40,6 +40,23 @@ export type PlanGuardado = {
   guionId?: string;
   plan: PlanVideo;
   at: string;
+  /**
+   * Lo generado por toma, indexado por su número: el trabajo encolado, la
+   * operación de Flow, y la URL del video cuando llega.
+   *
+   * Vive en el PLAN y no en una tabla porque es el mismo dato de conveniencia
+   * que el resto del historial. ⚠️ Y hereda su tope de 10: un anuncio que se
+   * recorta se lleva los enlaces a sus clips. Por eso el video hay que BAJARLO a
+   * storage propio antes de que venza el TTL de Google (~1 h) — mientras eso no
+   * exista, esto es un puntero con fecha de vencimiento, no un archivo.
+   */
+  video?: Record<string, {
+    trabajoId?: number;
+    operacion?: string;
+    url?: string;
+    mediaId?: string;
+    error?: string;
+  }>;
 };
 
 const esEntrada = (e: unknown): e is PlanGuardado => {
