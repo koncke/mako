@@ -16,7 +16,7 @@
 // =============================================================================
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { SeccionCard, parsearSecciones, type Seccion } from '../components/SeccionCard';
+import { SeccionCard, parsearSecciones, ICONO_SECCION_GUION, type Seccion } from '../components/SeccionCard';
 import { Button, IconButton, Tag } from '../_ui';
 import { EstadoChip } from '../onboarding/EstadoChip';
 import { fechaGuion, type EstadoGuion, type GuionItem } from '../onboarding/guion-ui';
@@ -24,13 +24,7 @@ import { fechaGuion, type EstadoGuion, type GuionItem } from '../onboarding/guio
 const MONO = "'Geist Mono', monospace";
 
 // Ícono por sección. Las etiquetas salen de las estructuras del catálogo.
-const ICONO: Record<string, string> = {
-  GANCHO: '🎣', HISTORIA: '📖', VALOR: '🎓', PROPUESTA: '💥', CTA: '👉',
-  PROBLEMA: '😖', AGITACION: '🔥', SOLUCION: '💡',
-  ATENCION: '🧲', INTERES: '👀', DESEO: '✨',
-  ANTES: '⏮️', DESPUES: '⏭️', PUENTE: '🌉',
-  PROMESA: '🤝', PINTURA: '🖼️', PRUEBA: '✅',
-};
+const ICONO = ICONO_SECCION_GUION;
 
 /** Rearma el guion completo tras editar UNA sección: las tarjetas son
  *  independientes pero el campo guardado sigue siendo un solo string. */
@@ -121,7 +115,7 @@ export function GuionLector({ g, celdaNombre, avatarNombre, anguloEmoji, onCerra
         {/* Pie con jerarquía: copiar es lo que se hace de verdad; borrar, lo último */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 22px', borderTop: '1px solid var(--border)', flexWrap: 'wrap' }}>
           <Button variant="primary" onClick={copiar} ok={copiado} okLabel="Copiado">Copiar el guion</Button>
-          {errCopia && <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--bad)' }}>El navegador no dejó copiar — seleccioná el texto a mano.</span>}
+          {errCopia && <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--bad)' }}>El navegador no dejó copiar — selecciona el texto a mano.</span>}
           <Button variant="secondary" onClick={onDescargar}>Descargar .md</Button>
           {irAlAnuncio && <Button variant="tertiary" onClick={irAlAnuncio}>Ver el anuncio</Button>}
           <span style={{ flex: 1 }} />

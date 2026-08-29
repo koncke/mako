@@ -49,6 +49,26 @@ export function parsearSecciones(text: string, tituloSinSub?: string, maxLenSub 
   return out;
 }
 
+/**
+ * El emoji de cada bloque de un guion.
+ *
+ * Vive junto al parser y no en cada pantalla porque el mapa YA estaba escrito
+ * dos veces —el lector de /ads-writer y la matriz del onboarding— con las
+ * mismas 17 entradas. Una tercera copia en el Video Generator garantizaba que
+ * el dia que se agregue una estructura nueva, dos pantallas la muestren y una
+ * la dibuje con el generico.
+ *
+ * Las claves son las `etiquetas` de lib/guion-estructuras.ts, que ya son
+ * CONTRATO con este parser.
+ */
+export const ICONO_SECCION_GUION: Record<string, string> = {
+  GANCHO: '\u{1F3A3}', HISTORIA: '\u{1F4D6}', VALOR: '\u{1F393}', PROPUESTA: '\u{1F4A5}', CTA: '\u{1F449}',
+  PROBLEMA: '\u{1F616}', AGITACION: '\u{1F525}', SOLUCION: '\u{1F4A1}',
+  ATENCION: '\u{1F9F2}', INTERES: '\u{1F440}', DESEO: '\u{2728}',
+  ANTES: '\u{23EE}\u{FE0F}', DESPUES: '\u{23ED}\u{FE0F}', PUENTE: '\u{1F309}',
+  PROMESA: '\u{1F91D}', PINTURA: '\u{1F5BC}\u{FE0F}', PRUEBA: '\u{2705}',
+};
+
 const TAMANOS = {
   sm: { pad: '13px 16px', icon: 30, iconFont: 14, tituloFont: 13.5, bodyPad: '0 16px 14px 58px', bodyFont: 13.5 },
   md: { pad: '15px 18px', icon: 32, iconFont: 15, tituloFont: 15, bodyPad: '2px 18px 18px 62px', bodyFont: 14.5 },

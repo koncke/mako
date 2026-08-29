@@ -13,6 +13,7 @@ import { getWorkspaceActual } from '@/lib/workspace';
 import { estadoContextoVideo, leerHistorial } from './video-datos';
 import { estadoPuente } from '@/lib/flow-cola';
 import { guionesDisponibles } from './guiones-datos';
+import { leerAnuncios } from './anuncios-datos';
 import { VideoGeneratorApp } from './VideoGeneratorApp';
 
 export const dynamic = 'force-dynamic';
@@ -24,9 +25,9 @@ export default async function Page() {
   const ws = await getWorkspaceActual();
   // Agencia sin impersonar: no hay workspace del que leer. La vista igual se
   // sirve (las actions cortan con su propio error si intenta operar).
-  if (ws == null) return <VideoGeneratorApp historialInicial={[]} contexto={null} puente={null} guiones={[]} />;
+  if (ws == null) return <VideoGeneratorApp historialInicial={[]} contexto={null} puente={null} guiones={[]} anuncios={[]} />;
 
-  const [historial, contexto, puente, guiones] = await Promise.all([
+  const [historial, contexto, puente, guiones, anuncios] = await Promise.all([
     leerHistorial(),
     estadoContextoVideo(),
     // Estado VIVO: si el cliente desconecta el navegador, el panel lo dice sola
@@ -36,6 +37,9 @@ export default async function Page() {
     // tumbar la pantalla: sin guiones la tab se abre igual y el wizard dice
     // dónde escribirlos.
     guionesDisponibles().catch(() => []),
+    // Los anuncios ya terminados. Mismo criterio que los guiones: su ausencia no
+    // puede tumbar la pantalla, porque la tab sirve igual sin ellos.
+    leerAnuncios().catch(() => []),
   ]);
 
   return (
@@ -44,6 +48,7 @@ export default async function Page() {
       contexto={contexto}
       puente={puente}
       guiones={guiones}
+      anuncios={anuncios}
     />
   );
 }

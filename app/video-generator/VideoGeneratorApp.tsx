@@ -43,7 +43,9 @@ import { PuentePanel } from './PuentePanel';
 import type { Puente } from '@/lib/flow-cola';
 import { cabidaDeGuion } from '@/lib/puestas-data';
 import type { GuionDisponible } from './guiones-datos';
+import type { AnuncioHecho } from './anuncios-datos';
 import { CargarGuiones } from './CargarGuiones';
+import { SeccionCard, parsearSecciones, ICONO_SECCION_GUION } from '../components/SeccionCard';
 import { useRouter } from 'next/navigation';
 
 type Vista = 'catalogo' | 'wizard' | 'anuncio';
@@ -200,6 +202,7 @@ function DetalleGuion({
   onUsar: () => void;
 }) {
   const cab = puesta ? cabidaDeGuion(puesta, guion.hablado) : null;
+  const secciones = parsearSecciones(guion.texto, undefined, 20);
   return (
     <Modal
       titulo={guion.angulo || 'Sin título'}
@@ -223,9 +226,11 @@ function DetalleGuion({
             <span>{cab.segundosReales}s en {cab.clips} tomas{puesta ? ` con ${puesta.nombre}` : ''}</span>
           </>
         )}
-        {guion.grabadoEn.length > 0
-          ? <Tag color="var(--faint)">Ya lo grabaste en {guion.grabadoEn.join(' y ')}</Tag>
-          : guion.yaUsado && <Tag color="var(--faint)">Ya lo grabaste</Tag>}
+        {guion.yaUsado && (
+          <Tag color="var(--good)" icon={<Icon name="check" size={12} />}>
+            Generado{guion.grabadoEn.length > 0 ? ` en ${guion.grabadoEn.join(' y ')}` : ''}
+          </Tag>
+        )}
       </div>
 
       {cab?.desborda && (
@@ -237,13 +242,87 @@ function DetalleGuion({
         </div>
       )}
 
-      <div style={{
-        whiteSpace: 'pre-wrap', fontSize: 'var(--fs-md)', lineHeight: 1.7,
-        color: 'var(--ink)', maxHeight: '52vh', overflowY: 'auto',
-      }}>
-        {guion.texto}
-      </div>
+      {/*
+        El guion se lee por BLOQUES, con el mismo template desplegable que el
+        lector de /ads-writer y la matriz del onboarding. Un guion es texto
+        largo, y un muro de texto largo dentro de un modal con scroll propio no
+        se lee: se hojea.
+
+        El primero abierto y el resto cerrados: el GANCHO son los 3-5 segundos
+        que deciden si el anuncio funciona, y es lo unico que hace falta ver
+        para reconocer un guion sin leerlo entero.
+
+        Si el guion no tiene rotulos —los cargados antes de que MaKo los
+        ordenara, o uno donde el modelo no pudo— `parsearSecciones` devuelve
+        vacio y se cae al texto plano. Un guion sin bloques se sigue leyendo.
+      */}
+      {secciones.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 9, maxHeight: '52vh', overflowY: 'auto' }}>
+          {secciones.map((s, i) => (
+            <SeccionCard
+              key={s.titulo + i}
+              s={s}
+              abiertoDefault={i === 0}
+              icono={ICONO_SECCION_GUION[s.titulo] ?? '\u{1F3AC}'}
+              size="sm"
+            />
+          ))}
+        </div>
+      ) : (
+        <div style={{
+          whiteSpace: 'pre-wrap', fontSize: 'var(--fs-md)', lineHeight: 1.7,
+          color: 'var(--ink)', maxHeight: '52vh', overflowY: 'auto',
+        }}>
+          {guion.texto}
+        </div>
+      )}
     </Modal>
+  );
+}
+
+/**
+ * Un anuncio terminado.
+ *
+ * Se reproduce ACÁ, con controles, en vez de abrir un modal: un anuncio de un
+ * minuto se mira, no se explora, y meterle un paso de por medio a algo que ya
+ * está hecho no agrega nada. Sin `autoPlay` y sin `loop` — cuatro videos
+ * arrancando solos al abrir la pantalla es lo contrario de una galería.
+ */
+function AnuncioCard({ a }: { a: AnuncioHecho }) {
+  const puesta = puestaPorId(a.puestaId);
+  const mm = Math.floor(a.duracionSeg / 60);
+  const ss = String(Math.round(a.duracionSeg % 60)).padStart(2, '0');
+
+  return (
+    <div style={{
+      width: 240, borderRadius: 14, overflow: 'hidden',
+      background: 'var(--surface)', border: '1px solid var(--border)',
+    }}>
+      {/* 9:16, que es como se producen y como se ven en el feed. */}
+      <video
+        src={a.url}
+        poster={a.poster}
+        controls
+        preload="metadata"
+        playsInline
+        style={{ display: 'block', width: '100%', aspectRatio: '9 / 16', objectFit: 'cover', background: '#000' }}
+      />
+      <div style={{ padding: '11px 13px 13px' }}>
+        <div style={{
+          fontSize: 'var(--fs-md)', fontWeight: 650, color: 'var(--ink)', lineHeight: 1.35,
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+        }}>
+          {a.titulo}
+        </div>
+        <div style={{
+          fontSize: 'var(--fs-meta)', color: 'var(--faint)', marginTop: 5,
+          display: 'flex', gap: 7, flexWrap: 'wrap',
+        }}>
+          <span>{mm}:{ss}</span>
+          {puesta && <><span>·</span><span>{puesta.nombre}</span></>}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -338,10 +417,10 @@ function LineaGuion({
 // ── La app ───────────────────────────────────────────────────────────────────
 
 export function VideoGeneratorApp({
-  historialInicial, contexto, puente, guiones }: {
+  historialInicial, contexto, puente, guiones, anuncios }: {
   historialInicial: PlanGuardado[];
   contexto: EstadoContextoVideo | null;
-  puente: Puente | null; guiones: GuionDisponible[] }) {
+  puente: Puente | null; guiones: GuionDisponible[]; anuncios: AnuncioHecho[] }) {
   const PLANTILLAS = useMemo(() => puestasOfrecidas(), []);
 
   const [historial, setHistorial] = useState<PlanGuardado[]>(historialInicial);
@@ -625,9 +704,9 @@ export function VideoGeneratorApp({
                           que suele pasar es que se quiera el mismo guion en otro
                           formato — es exactamente lo que hizo el dueño con su
                           primer anuncio, grabado en Car Talks y en The Office. */}
-                      {g.grabadoEn.length > 0
-                        ? <Tag color="var(--faint)">Ya en {g.grabadoEn.length > 1 ? `${g.grabadoEn.length} formatos` : g.grabadoEn[0]}</Tag>
-                        : g.yaUsado && <Tag color="var(--faint)">Ya lo grabaste</Tag>}
+                      {g.yaUsado && (
+                        <Tag color="var(--good)" icon={<Icon name="check" size={12} />}>Generado</Tag>
+                      )}
                       {cab?.desborda && <Tag color="var(--warn)">No entra</Tag>}
 
                       <button
@@ -911,6 +990,42 @@ export function VideoGeneratorApp({
           />
         ))}
       </div>
+
+      {/*
+        Los anuncios TERMINADOS, abajo de las plantillas.
+
+        Va abajo y no arriba porque a esta pantalla se viene a crear uno nuevo:
+        lo hecho es referencia, no destino. Y va acá y no en su propia tab porque
+        el dueño lo pidió así — «por ahora los tendremos allí, luego lo
+        mudaremos».
+
+        Si no hay ninguno NO se muestra un vacío decorativo: una sección que dice
+        «todavía no hay nada» en una pantalla donde todavía no puede haber nada
+        es ruido. Aparece cuando hay algo que mirar.
+      */}
+      {anuncios.length > 0 && (
+        <div style={{ marginTop: 'calc(var(--gap) * 1.4)' }}>
+          <div style={{
+            display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 14,
+          }}>
+            <h2 style={{
+              margin: 0, fontSize: 'var(--fs-sect)', fontWeight: 700,
+              letterSpacing: '-.01em', color: 'var(--ink)',
+            }}>
+              Anuncios terminados
+            </h2>
+            <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>
+              {anuncios.length}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+            {anuncios.map((a) => (
+              <AnuncioCard key={a.id} a={a} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/*
         El puente SOLO se muestra cuando hay algo que hacer con él.

@@ -136,7 +136,36 @@ const CATEGORIA: Record<string, string> = {
   'analisis-negocio': CATEGORIA_PROPIA,
   'branding-mako': CATEGORIA_PROPIA,
   'construir-app': CATEGORIA_PROPIA,
-  'avatares-que-se-parecen': CATEGORIA_PROPIA,
+  'avatares-que-se-parecen': CATEGORIA_PROPIA,
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  '100m-money-models': 'Ventas',           // Ventas
+  '21-tecnicas-para-invertir-en-bienes-raices': 'Finanzas', // Finanzas / Inversiones
+  'amorir': 'Desarrollo personal',         // Desarrollo personal
+  'automatizacion-y-monetizacion-de-youtobe': 'Orgánico', // Auto Youtube
+  'automatizatube': 'Orgánico',            // Auto Youtube
+  'bootcamp-de-cierre-de-ventas-ia': 'Ventas', // Ventas
+  'claude-academy-2026': 'Inteligencia Artificial', // IA
+  'codigo-genio': 'Desarrollo personal',   // Desarrollo personal
+  'cursos-heygen': 'Inteligencia Artificial', // IA
+  'desarrolla-tu-influencer-virtual': 'Inteligencia Artificial', // IA
+  'hackeando-la-edicion': 'Edición',       // Edición de Video
+  'iman-gadzhi-8-figure-personal-brand': 'Lanzamientos', // Lanzamientos
+  'jaque-blue-creacion-de-contenido': 'Orgánico', // Redes Sociales
+  'm5-95': 'Anuncios',                     // ADS
+  'manychat-master-instagram': 'Orgánico', // Redes Sociales
+  'master-marca-personal-5-0': 'Marca personal', // Marca Personal
+  'mateo-maffia-byf': 'Orgánico',          // Redes Sociales
+  'monetizatube': 'Orgánico',              // Auto Youtube
+  'nuevo-organic-ecom-3-0-junio-2026': 'Ecommerce', // Ecommerce
+  'seminarios-alejandro-cardona': 'Negocios digitales', // Hustlers
+  'social-funnel': 'Marketing',            // Marketing
+  'stories-master': 'Marketing',           // Marketing
+  'the-real-world': 'Negocios digitales',  // Agencias
+  'trilogia-de-brian-tracy': 'Negocios digitales', // Hustlers
+  'ugc-sim-academy-de-mindshft': 'Inteligencia Artificial', // IA
+  'vender-por-fb-e-ig-ads': 'Anuncios',    // ADS
+
 };
 
 /**
@@ -159,7 +188,21 @@ const CATEGORIA: Record<string, string> = {
  * Los cursos de la sección MaKo van a propósito SIN miniatura.
  */
 const PORTADA: Record<string, string> = {
-  'anuncio-ganador': '/cono-portadas/anuncio-ganador.jpg',
+  'anuncio-ganador': '/cono-portadas/anuncio-ganador.jpg',
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  '21-tecnicas-para-invertir-en-bienes-raices': '/cono-portadas/21-tecnicas-para-invertir-en-bienes-raices.jpg',
+  'automatizacion-y-monetizacion-de-youtobe': '/cono-portadas/automatizacion-y-monetizacion-de-youtobe.png',
+  'automatizatube': '/cono-portadas/automatizatube.png',
+  'bootcamp-de-cierre-de-ventas-ia': '/cono-portadas/bootcamp-de-cierre-de-ventas-ia.jpg',
+  'codigo-genio': '/cono-portadas/codigo-genio.jpg',
+  'desarrolla-tu-influencer-virtual': '/cono-portadas/desarrolla-tu-influencer-virtual.jpg',
+  'iman-gadzhi-8-figure-personal-brand': '/cono-portadas/iman-gadzhi-8-figure-personal-brand.png',
+  'legalmente-emprendedor': '/cono-portadas/legalmente-emprendedor.png',
+  'megadata-de-un-joven-emprededor': '/cono-portadas/megadata-de-un-joven-emprededor.png',
+  'monetizatube': '/cono-portadas/monetizatube.png',
+  'the-real-world': '/cono-portadas/the-real-world.png',
+
 };
 
 /**

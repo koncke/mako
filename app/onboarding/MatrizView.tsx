@@ -24,7 +24,7 @@
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { formatoPorId, type Medio } from '@/lib/angulos-data';
-import { SeccionCard, parsearSecciones, type Seccion } from '../components/SeccionCard';
+import { SeccionCard, parsearSecciones, ICONO_SECCION_GUION, type Seccion } from '../components/SeccionCard';
 import ErrorIA from '../_components/ErrorIA';
 import { fechaGuion, estadoMasAvanzado, ESTADO_GUION_LABEL, TONO_ESTADO_GUION, type GuionItem, type EstadoGuion } from './guion-ui';
 import { EstadoChip } from './EstadoChip';
@@ -57,13 +57,7 @@ const celdaBase: CSSProperties = {
 };
 
 // Ícono por sección del guion (las etiquetas salen de las estructuras del catálogo).
-const ICONO_GUION: Record<string, string> = {
-  GANCHO: '🎣', HISTORIA: '📖', VALOR: '🎓', PROPUESTA: '💥', CTA: '👉',
-  PROBLEMA: '😖', AGITACION: '🔥', SOLUCION: '💡',
-  ATENCION: '🧲', INTERES: '👀', DESEO: '✨',
-  ANTES: '⏮️', DESPUES: '⏭️', PUENTE: '🌉',
-  PROMESA: '🤝', PINTURA: '🖼️', PRUEBA: '✅',
-};
+const ICONO_GUION = ICONO_SECCION_GUION;
 // Reconstruye el guion completo tras editar UNA sección (las tarjetas son
 // independientes; el campo guardado sigue siendo un solo string con etiquetas).
 const reconstruirGuion = (secciones: Seccion[]) => secciones.map((s) => `${s.titulo}\n${s.texto}`).join('\n\n');
@@ -445,7 +439,7 @@ export function MatrizView({ onListo, abrirCeldaId, onAbrioCelda, recargarToken,
                     onBorrarGuion={(guionId) => editar(celda.id, 'guiones', celda.guiones.filter((g) => g.id !== guionId))}
                     onEstado={(guionId, estado) => editar(celda.id, 'guiones', celda.guiones.map((g) => (g.id === guionId ? { ...g, estado } : g)))}
                     onRetrocederEstado={async (guionId) => {
-                      const ok = await confirm('Este guion figura como publicado. Volverlo a borrador no toca el anuncio en Meta, solo cómo se ve acá.', {
+                      const ok = await confirm('Este guion figura como publicado. Volverlo a borrador no toca el anuncio en Meta, solo cómo se ve aquí.', {
                         title: '¿Volver a borrador?', confirmLabel: 'Volver a borrador', danger: false,
                       });
                       if (ok) editar(celda.id, 'guiones', celda.guiones.map((g) => (g.id === guionId ? { ...g, estado: 'borrador' as const } : g)));
@@ -457,12 +451,12 @@ export function MatrizView({ onListo, abrirCeldaId, onAbrioCelda, recargarToken,
                 {tabModal === 'imagen' && (
                   <AnguloTab medio="imagen" formatoId={celda.anguloImagen} cargando={genAngulo === 'imagen'}
                     onElegir={() => elegirAngulo(celda.id, 'imagen')}
-                    nota="Con este formato y la persona de marca, acá vas a generar la imagen del anuncio (próximamente)." />
+                    nota="Con este formato y la persona de marca, aquí vas a generar la imagen del anuncio (próximamente)." />
                 )}
                 {tabModal === 'video' && (
                   <AnguloTab medio="video" formatoId={celda.anguloVideo} cargando={genAngulo === 'video'}
                     onElegir={() => elegirAngulo(celda.id, 'video')}
-                    nota="Cada guion de la tab Guiones sigue este formato. Con eso, acá vas a generar el video (próximamente)." />
+                    nota="Cada guion de la tab Guiones sigue este formato. Con eso, aquí vas a generar el video (próximamente)." />
                 )}
                 {/* Si lo que falló fue la IA (sin key, cuota agotada, key vencida), el
                     arreglo se hace ACÁ, embebido: mandarlo a /integraciones en medio del
