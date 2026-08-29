@@ -530,6 +530,33 @@ if (categoriaPrevia) console.log(`  Categoría: conservo la que ya tenía («${c
 // `modulo` y `submodulo` como texto, que es la clave del vínculo con los recursos.
 const { recursos: recursosPortal, porClase: slugsPorClase } = construirRecursos(drive, plan.clases, titulosDelManifiesto(base));
 
+// ⚠️ UNA CLASE SIN NADA ADENTRO NO ES UNA CLASE.
+//
+// La plataforma mezcla en la misma lista las lecciones y los posts de comunidad. Un
+// «Deja tu feedback aquí» llega como lección y se dibuja como una: ocupa una tarjeta,
+// gasta un número del módulo, y al abrirla no hay absolutamente nada.
+//
+// ⚠️ Lo que las separa es un DATO, no el título. Medido en MasteryHaus, de 29 clases
+//    sin video:
+//      «Deja tu Feedback Aquí»  → videoId: null, recursoSlugs: []        — vacía del todo
+//      «BOT AI: Desarrollador»  → videoId: null, recursoSlugs: ['bot-…']  — tiene material
+//
+//    Filtrar por el título se llevaría puestos los bots, que SÍ son contenido. Lo que
+//    decide es si queda algo que mostrar: video, transcripción, documento o recursos.
+//
+// Y se DICE cuántas se sacaron: una política puede rechazar, pero no en silencio.
+const conAlgo = (c) => Boolean(c.videoId) || c.hasTx || c.hasDoc
+  || (slugsPorClase.get(c.n) ?? []).length > 0;
+const vacias = clases.filter((c) => !conAlgo(c));
+if (vacias.length) {
+  console.log(`\n  ⚠ ${vacias.length} «clase(s)» sin video, sin texto y sin material — fuera de la ficha:`);
+  for (const c of vacias.slice(0, 8)) console.log(`      n=${c.n}  ${c.titulo}`);
+  if (vacias.length > 8) console.log(`      … y ${vacias.length - 8} más`);
+}
+// Se filtra EN EL LUGAR: todo lo que viene despues (el conteo anunciado, el emisor, el
+// hub) ya lee `clases`, y renombrar en cada uso es la forma de que uno se quede afuera.
+clases.splice(0, clases.length, ...clases.filter(conAlgo));
+
 // El título lleva el AUTOR, igual que la carpeta de Drive: «<Curso> - <Autor>». Si el
 // título de la plataforma ya lo trae —«Curso de Claude AI - Rodrigo Rojo»— no se
 // duplica. La comparación es sin acentos y sin mayúsculas: «Rodrigo Rojo» y «rodrigo

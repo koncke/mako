@@ -367,7 +367,12 @@ function TarjetaClase({ clase, onAbrir }: { clase: Clase; onAbrir: () => void })
           ? <Miniatura src={clase.portadaClase} />
           : clase.videoId && <Miniatura src={DRIVE_THUMB(clase.videoId)} />}
         <span className="shade" aria-hidden />
-        <span className="ugc-modcard-n" aria-hidden>{clase.codigo ?? clase.n}</span>
+        {/* El numero es el de la clase DENTRO de su modulo (`vn`), no el `n` global.
+            `n` es el id de la plataforma: el modulo 1 arrancaba en 61 y el usuario veia
+            "1 Introduccion a la Formula" con las clases 61..67. Con vn arranca en 1 y
+            reinicia en cada modulo, que es la unica numeracion que le sirve a quien
+            estudia: ya sabe en que modulo esta. El dato YA existia y no lo usaba nadie. */}
+        <span className="ugc-modcard-n" aria-hidden>{clase.vn ?? clase.codigo ?? clase.n}</span>
         {/* El triángulo dice que es un VIDEO. Sobre un fotograma real hace falta: sin
             él, la tapa se lee como una imagen suelta y no como algo que se reproduce. */}
         {clase.videoId && <span className="ugc-modcard-play" aria-hidden>{'\u25B6'}</span>}
