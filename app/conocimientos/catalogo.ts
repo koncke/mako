@@ -87,6 +87,7 @@ import { CURSO_MENTORIA_4K } from './curso-mentoria-4k';
 import { CURSO_EDITA_COMO_UN_PRO } from './curso-edita-como-un-pro';
 import { CURSO_EXPERTO_EN_CHATGPT } from './curso-experto-en-chatgpt';
 import { CURSO_HACKEANDO_EL_ALGORITMO } from './curso-hackeando-el-algoritmo';
+import { CURSO_TU_1_MILLON } from './curso-tu-1-millon';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio';
 import { CURSO_BRANDING } from './BrandingMaKo';
@@ -176,7 +177,10 @@ const CATEGORIA: Record<string, string> = {
   'cursos-heygen': 'Inteligencia Artificial', // IA
   'desarrolla-tu-influencer-virtual': 'Inteligencia Artificial', // IA
   'hackeando-la-edicion': 'Edición',       // Edición de Video
-  'iman-gadzhi-8-figure-personal-brand': 'Lanzamientos', // Lanzamientos
+  // ⚠️ «Lanzamientos» YA NO EXISTE como sección: decisión de Martín (29/08). Sus dos
+  //    cursos pasan a «Orgánico», que es donde vive lo de construir audiencia y alcance
+  //    sin pauta. Si alguien la vuelve a crear, que sea con más de un curso adentro.
+  'iman-gadzhi-8-figure-personal-brand': 'Orgánico', // era Lanzamientos
   'jaque-blue-creacion-de-contenido': 'Orgánico', // Redes Sociales
   'm5-95': 'Anuncios',                     // ADS
   'manychat-master-instagram': 'Orgánico', // Redes Sociales
@@ -256,7 +260,11 @@ const CATEGORIA: Record<string, string> = {
 
   // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
   // plataforma. El comentario al lado es la categoría de origen.
-  'hackeando-el-algoritmo': 'Lanzamientos', // Lanzamientos
+  'hackeando-el-algoritmo': 'Orgánico',    // era Lanzamientos (ver arriba)
+
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'tu-1-millon': 'Finanzas',               // Finanzas / Inversiones
 
 };
 
@@ -334,6 +342,10 @@ const PORTADA: Record<string, string> = {
   // pero la ficha se había emitido antes de que existiera.
   'hackeando-el-algoritmo': '/cono-portadas/hackeando-el-algoritmo.png',
 
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'tu-1-millon': '/cono-portadas/tu-1-millon.jpg',
+
 };
 
 /**
@@ -410,6 +422,28 @@ const AUTOR: Record<string, string> = {
 // Sin acentos y en minúsculas, para que «Sofia» no se sume a un título que ya dice
 // «Sofía». Comparar en crudo daría un «X - Autor» duplicado y nadie lo miraría dos veces.
 const sinAcentos = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+/**
+ * La tapa de último recurso: el primer frame del propio curso.
+ *
+ * ⚠️ ES UN FALLBACK, NO LA FORMA DE PONER UNA PORTADA. Una tapa de verdad —la de la
+ * plataforma o la que pasa el dueño— siempre gana, porque está compuesta para vender el
+ * curso; un frame es lo que había en el segundo cero de la clase 1.
+ *
+ * Pero un rectángulo negro no dice nada de nada, y eso era lo que se veía. Martín lo
+ * reportó el 29/08/2026 («AVATAR MASTERY no tiene portada… hay muchos que no tienen»):
+ * eran 4 cursos que la plataforma de origen no conoce, así que no hay `cover_image` que
+ * bajar y no la va a haber nunca.
+ *
+ * Se elige ESTO y no una imagen buscada afuera ni una tipográfica generada por dos
+ * razones: sale del propio material (no se inventa nada ni se atribuye una imagen ajena
+ * al curso), y **se arregla solo para todo curso futuro** — que era el pedido real, «hay
+ * muchos, revisalo». Bajar cuatro archivos deja el problema abierto para el quinto.
+ */
+const primerFrame = (c: Curso): string | undefined => {
+  const id = c.clases?.find((k) => k.videoId)?.videoId;
+  return id ? `https://drive.google.com/thumbnail?id=${id}&sz=w800` : undefined;
+};
+
 const conAutor = (titulo: string, autor?: string) =>
   autor && !sinAcentos(titulo).includes(sinAcentos(autor)) ? `${titulo} - ${autor}` : titulo;
 
@@ -591,10 +625,13 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_HACKEANDO_EL_ALGORITMO,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_TU_1_MILLON,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
-  portada: c.portada ?? PORTADA[c.slug],
+  portada: c.portada ?? PORTADA[c.slug] ?? primerFrame(c),
   titulo: TITULO[c.slug] ?? conAutor(c.titulo, AUTOR[c.slug]),
   // La réplica es la vista de TODOS los cursos, no un modo de uno. Se pone acá y no
   // curso por curso porque un flag que hay que acordarse de poner deja al próximo curso

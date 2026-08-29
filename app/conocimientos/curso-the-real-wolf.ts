@@ -24,10 +24,10 @@ import type { Curso } from './curso';
 export const CURSO_THE_REAL_WOLF: Curso = {
   slug: 'the-real-wolf',
   categoria: 'Cursos externos',
-  cardDesc: '10 clases en 0 módulos.',
+  cardDesc: '10 clases en 1 módulo.',
   eyebrow: 'Curso externo',
   titulo: 'The Real WOLF - Jordan Belfort',
-  subtitulo: '10 clases, 0 módulos. Video, transcripción y tus apuntes en un solo lugar.',
+  subtitulo: '10 clases, 1 módulo. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '9,6 h',
   portada: '/cono-portadas/the-real-wolf.png',
   recursos: [

@@ -24,10 +24,10 @@ import type { Curso } from './curso';
 export const CURSO_CODIGO_GENIO: Curso = {
   slug: 'codigo-genio',
   categoria: 'Cursos externos',
-  cardDesc: '9 clases en 0 módulos.',
+  cardDesc: '9 clases en 1 módulo.',
   eyebrow: 'Curso externo',
   titulo: 'Código Genio - Omar Villalobos',
-  subtitulo: '9 clases, 0 módulos. Video, transcripción y tus apuntes en un solo lugar.',
+  subtitulo: '9 clases, 1 módulo. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '1,2 h',
   portada: '/cono-portadas/codigo-genio.jpg',
   recursos: [

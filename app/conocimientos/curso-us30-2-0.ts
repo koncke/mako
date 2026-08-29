@@ -24,10 +24,10 @@ import type { Curso } from './curso';
 export const CURSO_US30_2_0: Curso = {
   slug: 'us30-2-0',
   categoria: 'Cursos externos',
-  cardDesc: '6 clases en 0 módulos.',
+  cardDesc: '6 clases en 1 módulo.',
   eyebrow: 'Curso externo',
   titulo: 'Curso US30 2.0 - Gregory Trejo',
-  subtitulo: '6 clases, 0 módulos. Video, transcripción y tus apuntes en un solo lugar.',
+  subtitulo: '6 clases, 1 módulo. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '16,1 h',
   recursos: [
 

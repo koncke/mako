@@ -24,10 +24,10 @@ import type { Curso } from './curso';
 export const CURSO_MENTORIA_D60: Curso = {
   slug: 'mentoria-d60',
   categoria: 'Cursos externos',
-  cardDesc: '8 clases en 0 módulos.',
+  cardDesc: '8 clases en 1 módulo.',
   eyebrow: 'Curso externo',
   titulo: 'Mentoría D60 - Woker',
-  subtitulo: '8 clases, 0 módulos. Video, transcripción y tus apuntes en un solo lugar.',
+  subtitulo: '8 clases, 1 módulo. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '12,7 h',
   portada: '/cono-portadas/mentoria-d60.jpg',
   recursos: [

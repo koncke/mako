@@ -15,7 +15,7 @@
 // la navegación por URL, los dos cursos que no son de texto, y los botones de
 // Compartir (que se inyectan por prop, así ese código no llega al invitado).
 
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { CURSOS_TODOS as TODOS, CURSOS_COMPARTIBLES, CATEGORIA_PROPIA, buscarCurso, VISTA_PROPIA } from './catalogo';
@@ -57,6 +57,41 @@ export default function Conocimientos() {
     if (o?.reemplazar) router.replace(destino, { scroll: false });
     else router.push(destino, { scroll: false });
   };
+
+  /**
+   * ⚠️ AL ENTRAR DIRECTO A UN CURSO NO HAY GRILLA DEBAJO, Y EL ATRÁS SE VA DEL SITIO.
+   *
+   * Navegando desde la grilla, `nav()` hace `router.push` y el Atrás funciona: clase →
+   * curso → grilla. Pero cuando se ATERRIZA en `?curso=X` —un link compartido, un
+   * marcador, o simplemente recargar la página estando adentro— esa entrada nunca
+   * existió, así que el Atrás salta a lo que hubiera antes: otro sitio.
+   *
+   * Martín lo reportó dos veces (29/08/2026): «al entrar a un curso, si le doy atrás me
+   * sigue redirigiendo fuera, no me lleva a todos los cursos». La primera vez lo busqué
+   * en el camino equivocado —arreglé el `replaceState` de la vista de curso, que era un
+   * bug REAL pero otro— y lo di por cerrado porque el recorrido que probé (grilla →
+   * curso → atrás) andaba. **El recorrido que falla es el que no pasa por la grilla.**
+   *
+   * Se siembra la entrada que falta: la grilla ES el nivel de arriba de un curso, así
+   * que le corresponde estar debajo en el historial. Es la misma regla que ya rige a los
+   * botones «Volver» acá — el destino es una propiedad de la PANTALLA, no del camino.
+   *
+   * Solo en el primer render de la pestaña y solo si se llegó con un curso puesto: si el
+   * usuario ya navegó por adentro, su historial es suyo y no se toca.
+   */
+  const sembrado = useRef(false);
+  useEffect(() => {
+    if (sembrado.current) return;
+    sembrado.current = true;
+    if (!cursoSlug) return;
+    try {
+      const actual = window.location.pathname + window.location.search + window.location.hash;
+      // Se conserva el `state` del router en las dos entradas: es su contabilidad interna
+      // y pisarlo con `null` le rompe el Atrás de una forma mucho peor que el bug.
+      window.history.replaceState(window.history.state, '', '/conocimientos');
+      window.history.pushState(window.history.state, '', actual);
+    } catch { /* noop */ }
+  }, [cursoSlug]);
 
   // Al cambiar de vista (incluye Atrás del navegador y "Volver"): restaurar el
   // scroll guardado de esa vista, o ir arriba si es una vista nueva.

@@ -24,10 +24,10 @@ import type { Curso } from './curso';
 export const CURSO_TERMUX_HACKING_PARA_PRINCIPIANTES_2026: Curso = {
   slug: 'termux-hacking-para-principiantes-2026',
   categoria: 'Cursos externos',
-  cardDesc: '17 clases en 0 módulos.',
+  cardDesc: '17 clases en 1 módulo.',
   eyebrow: 'Curso externo',
   titulo: 'Termux hacking para principiantes 2026 - TreekNow',
-  subtitulo: '17 clases, 0 módulos. Video, transcripción y tus apuntes en un solo lugar.',
+  subtitulo: '17 clases, 1 módulo. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '2,1 h',
   portada: '/cono-portadas/termux-hacking-para-principiantes-2026.jpg',
   recursos: [

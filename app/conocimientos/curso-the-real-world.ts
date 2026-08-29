@@ -24,10 +24,10 @@ import type { Curso } from './curso';
 export const CURSO_THE_REAL_WORLD: Curso = {
   slug: 'the-real-world',
   categoria: 'Cursos externos',
-  cardDesc: '4 clases en 0 módulos.',
+  cardDesc: '4 clases en 1 módulo.',
   eyebrow: 'Curso externo',
   titulo: 'The Real World - Andrew Tate',
-  subtitulo: '4 clases, 0 módulos. Video, transcripción y tus apuntes en un solo lugar.',
+  subtitulo: '4 clases, 1 módulo. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '2,0 h',
   portada: '/cono-portadas/the-real-world.png',
   recursos: [

@@ -24,10 +24,10 @@ import type { Curso } from './curso';
 export const CURSO_CREATIVOS_ANIMADOS: Curso = {
   slug: 'creativos-animados',
   categoria: 'Cursos externos',
-  cardDesc: '1 clases en 0 módulos.',
+  cardDesc: '1 clase en 1 módulo.',
   eyebrow: 'Curso externo',
   titulo: 'Creativos Animados - Avatar Hype',
-  subtitulo: '1 clases, 0 módulos. Video, transcripción y tus apuntes en un solo lugar.',
+  subtitulo: '1 clase, 1 módulo. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '20 min',
   recursos: [
 

@@ -24,10 +24,10 @@ import type { Curso } from './curso';
 export const CURSO_IMAN_GADZHI_8_FIGURE_PERSONAL_BRAND: Curso = {
   slug: 'iman-gadzhi-8-figure-personal-brand',
   categoria: 'Cursos externos',
-  cardDesc: '2 clases en 0 módulos.',
+  cardDesc: '2 clases en 1 módulo.',
   eyebrow: 'Curso externo',
   titulo: 'IMAN GADZHI – 8 FIGURE PERSONAL BRAND',
-  subtitulo: '2 clases, 0 módulos. Video, transcripción y tus apuntes en un solo lugar.',
+  subtitulo: '2 clases, 1 módulo. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '2,3 h',
   portada: '/cono-portadas/iman-gadzhi-8-figure-personal-brand.png',
   recursos: [

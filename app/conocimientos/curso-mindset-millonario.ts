@@ -24,10 +24,10 @@ import type { Curso } from './curso';
 export const CURSO_MINDSET_MILLONARIO: Curso = {
   slug: 'mindset-millonario',
   categoria: 'Cursos externos',
-  cardDesc: '14 clases en 0 módulos.',
+  cardDesc: '14 clases en 1 módulo.',
   eyebrow: 'Curso externo',
   titulo: 'Mindset Millonario - Amadeo Llados',
-  subtitulo: '14 clases, 0 módulos. Video, transcripción y tus apuntes en un solo lugar.',
+  subtitulo: '14 clases, 1 módulo. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '5,2 h',
   portada: '/cono-portadas/mindset-millonario.jpg',
   recursos: [

@@ -24,10 +24,10 @@ import type { Curso } from './curso';
 export const CURSO_TRADING_CLUTIFX: Curso = {
   slug: 'trading-clutifx',
   categoria: 'Cursos externos',
-  cardDesc: '11 clases en 0 módulos.',
+  cardDesc: '11 clases en 1 módulo.',
   eyebrow: 'Curso externo',
   titulo: 'Curso de Trading ClutiFX - Carles Clotet',
-  subtitulo: '11 clases, 0 módulos. Video, transcripción y tus apuntes en un solo lugar.',
+  subtitulo: '11 clases, 1 módulo. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '5,0 h',
   recursos: [
 

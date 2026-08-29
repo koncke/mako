@@ -382,6 +382,22 @@ for (const rel of listarUnNivel(dirTexto)) {
 
 const modulos = [...new Set(plan.clases.map((c) => c.modulo).filter(Boolean))];
 
+/**
+ * ⚠️ UN CURSO CON CLASES TIENE AL MENOS UN MODULO. «0 módulos» es un conteo correcto de
+ * una pregunta equivocada: cuenta los módulos que el ORIGEN NOMBRA, no los que el curso
+ * tiene. Cuando ninguna clase declara `modulo`, sus clases no dejan de estar agrupadas —
+ * están todas en uno solo, sin nombre, que el portal dibuja como «Clases».
+ *
+ * Reportado por Martín el 29/08/2026 sobre 9 cursos (termux 17 clases, mindset-millonario
+ * 14, trading-clutifx 11, the-real-wolf 10, codigo-genio 9, mentoria-d60 8, us30 6,
+ * the-real-world 4, iman-gadzhi 2): la tarjeta decía «17 clases, 0 módulos», que se lee
+ * como un curso roto y no como uno sin secciones.
+ */
+const nModulos = Math.max(1, modulos.length);
+
+// Y la concordancia va con el número: «1 módulos» delata que nadie miró el caso de uno.
+const plural = (n, singular, sufijo = 's') => `${n} ${singular}${n === 1 ? '' : sufijo}`;
+
 // ⚠️ QUITAR EL ORDINAL PUEDE FUNDIR DOS MÓDULOS DISTINTOS EN UNA SOLA CAJA.
 // El nombre que la plataforma da a un módulo viene con su ordinal («3. Ponencias
 // Especiales»), y el ordinal se reinicia en cada sección del curso. Sacarlo hace que
@@ -649,10 +665,10 @@ import type { Curso } from './curso';
 export const ${constante}: Curso = {
   slug: '${escSimple(slug)}',
   categoria: '${escSimple(CATEGORIA || categoriaPrevia || 'Cursos externos')}',
-  cardDesc: '${escSimple(`${clases.length} clases en ${modulos.length} módulos.`)}',
+  cardDesc: '${escSimple(`${plural(clases.length, 'clase')} en ${plural(nModulos, 'módulo')}.`)}',
   eyebrow: '${escSimple(EYEBROW)}',
   titulo: '${escSimple(tituloConAutor)}',
-  subtitulo: '${escSimple(`${clases.length} clases, ${modulos.length} módulos. Video, transcripción y tus apuntes en un solo lugar.`)}',
+  subtitulo: '${escSimple(`${plural(clases.length, 'clase')}, ${plural(nModulos, 'módulo')}. Video, transcripción y tus apuntes en un solo lugar.`)}',
   volumen: '${escSimple(volumen)}',${portada ? `\n  portada: '${escSimple(portada)}',` : ''}
   recursos: [
 ${recursosPortal.map((r) => `    {
