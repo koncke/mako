@@ -24,15 +24,29 @@ import type { Curso } from './curso';
 export const CURSO_21_TECNICAS_PARA_INVERTIR_EN_BIENES_RAICES: Curso = {
   slug: '21-tecnicas-para-invertir-en-bienes-raices',
   categoria: 'Cursos externos',
-  cardDesc: '5 clases en 5 módulos.',
+  cardDesc: '6 clases en 5 módulos.',
   eyebrow: 'Curso externo',
   titulo: '21 Tecnicas para Invertir en Bienes Raíces - Jorge Gil',
-  subtitulo: '5 clases, 5 módulos. Video, transcripción y tus apuntes en un solo lugar.',
+  subtitulo: '6 clases, 5 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '3,4 h',
   recursos: [
 
   ],
   clases: [
+    {
+      n: 1,
+      vn: 1,
+      grupo: 'Como Captar Capital',
+      modulo: 1,
+      titulo: 'Como Captar Capital',
+      cardDesc: '62:42 · Como Captar Capital',
+      videoId: '1I9KOCglFczZ92N5Y9kReWMgPg0ciijlp',
+      resumen: '',
+      transcripcion: [],
+      hasTx: true,
+      recursoSlugs: [],
+      herramientas: [],
+    },
     {
       n: 2,
       vn: 1,
