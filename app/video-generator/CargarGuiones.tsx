@@ -50,6 +50,8 @@ export function CargarGuiones({ onCerrar, onCargado }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputArchivo = useRef<HTMLInputElement | null>(null);
+  /** true mientras hay un archivo encima de la zona. Solo pinta el borde. */
+  const [sobre, setSobre] = useState(false);
 
   const mirar = useCallback(async (texto: string) => {
     setBusy(true); setError(null);
@@ -179,28 +181,67 @@ export function CargarGuiones({ onCerrar, onCargado }: {
       )}
 
       {via === 'archivo' && !previo && (
-        <div style={{ textAlign: 'center', padding: '28px 0 8px' }}>
-          <input
-            ref={inputArchivo}
-            type="file"
-            accept={ACCEPT_IMPORTAR}
-            style={{ display: 'none' }}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              // El value se limpia para que subir DOS VECES el mismo archivo
-              // dispare el evento la segunda: sin esto, corregirlo y volver a
-              // elegirlo no hace nada y parece que la app se colgó.
-              e.target.value = '';
+        <>
+          {/*
+            La zona de soltar ES el botón: click abre el buscador de archivos.
+            Es el molde de ImportarModal del board — el mismo gesto en los dos
+            lados, porque una app donde el mismo elemento se comporta distinto
+            según la pantalla obliga a probar antes de confiar.
+
+            El borde cambia con `sobre` y no con `:hover`: lo que hay que decirle
+            a alguien que viene arrastrando un archivo es «acá lo podés soltar»,
+            y eso el hover no lo distingue de pasar el mouse por al lado.
+          */}
+          <div
+            onDragOver={(e) => { e.preventDefault(); setSobre(true); }}
+            onDragLeave={() => setSobre(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setSobre(false);
+              const f = e.dataTransfer?.files?.[0];
               if (f) void traerDeArchivo(f);
             }}
-          />
-          <Button variant="primary" size="lg" onClick={() => inputArchivo.current?.click()} loading={busy}>
-            Elegir archivo
-          </Button>
-          <div style={{ marginTop: 20 }}>
+            onClick={() => inputArchivo.current?.click()}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inputArchivo.current?.click(); }
+            }}
+            style={{
+              border: `1.5px dashed ${sobre ? 'var(--primary)' : 'var(--border-strong)'}`,
+              background: sobre ? 'color-mix(in srgb, var(--primary) 7%, transparent)' : 'var(--surface-2)',
+              borderRadius: 13, padding: '38px 20px', textAlign: 'center', cursor: 'pointer',
+              transition: 'border-color .15s, background .15s',
+            }}
+          >
+            <div style={{ color: 'var(--faint)', marginBottom: 10 }}>
+              <Icon name="descargar" size={30} />
+            </div>
+            <div style={{ fontSize: 'var(--fs-card)', fontWeight: 650, color: 'var(--ink)' }}>
+              {busy ? 'Leyendo…' : 'Arrastra tu archivo acá'}
+            </div>
+            <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginTop: 5 }}>
+              o haz clic para buscarlo
+            </div>
+            <input
+              ref={inputArchivo}
+              type="file"
+              accept={ACCEPT_IMPORTAR}
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                // El value se limpia para que subir DOS VECES el mismo archivo
+                // dispare el evento la segunda: sin esto, corregirlo y volver a
+                // elegirlo no hace nada y parece que la app se colgó.
+                e.target.value = '';
+                if (f) void traerDeArchivo(f);
+              }}
+            />
+          </div>
+          <div style={{ marginTop: 16 }}>
             <Button variant="tertiary" onClick={atras}>Atrás</Button>
           </div>
-        </div>
+        </>
       )}
 
       {via === 'link' && !previo && (
