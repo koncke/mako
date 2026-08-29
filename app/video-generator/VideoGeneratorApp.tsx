@@ -44,6 +44,7 @@ import type { Puente } from '@/lib/flow-cola';
 import { cabidaDeGuion } from '@/lib/puestas-data';
 import type { GuionDisponible } from './guiones-datos';
 import { CargarGuiones } from './CargarGuiones';
+import { useRouter } from 'next/navigation';
 
 type Vista = 'catalogo' | 'wizard' | 'anuncio';
 
@@ -222,7 +223,9 @@ function DetalleGuion({
             <span>{cab.segundosReales}s en {cab.clips} tomas{puesta ? ` con ${puesta.nombre}` : ''}</span>
           </>
         )}
-        {guion.yaUsado && <Tag color="var(--faint)">Ya lo grabaste</Tag>}
+        {guion.grabadoEn.length > 0
+          ? <Tag color="var(--faint)">Ya lo grabaste en {guion.grabadoEn.join(' y ')}</Tag>
+          : guion.yaUsado && <Tag color="var(--faint)">Ya lo grabaste</Tag>}
       </div>
 
       {cab?.desborda && (
@@ -358,6 +361,7 @@ export function VideoGeneratorApp({
   }, []);
   /** La plantilla abierta en el detalle. null = modal cerrado. */
   const [detalle, setDetalle] = useState<Puesta | null>(null);
+  const router = useRouter();
   const [paso, setPaso] = useState<Paso>('guion');
 
   // Vacío a propósito: el botón «Crear» nace apagado y se enciende al elegir.
@@ -477,11 +481,19 @@ export function VideoGeneratorApp({
                 onCerrar={() => setCargando(false)}
                 onCargado={() => {
                   setCargando(false);
-                  // Se recarga la página en vez de empujar los nuevos al estado
-                  // local: los guiones bajan del server como props, así que
-                  // agregarlos a mano acá crearía una segunda copia que se
-                  // desincroniza en cuanto alguien los toque desde /ads-writer.
-                  window.location.reload();
+                  // `router.refresh()` y NO `window.location.reload()`.
+                  //
+                  // Los guiones bajan del server como props, así que hay que
+                  // volver a pedirlos —agregarlos a mano al estado local crearía
+                  // una segunda copia que se desincroniza en cuanto alguien los
+                  // toque desde /ads-writer—. Pero recargar la página entera
+                  // tiraba también el estado del cliente, y el estado del cliente
+                  // es EN QUÉ PASO ESTABA: terminabas de cargar tus guiones y la
+                  // app te devolvía a elegir la plantilla, con todo perdido.
+                  //
+                  // refresh() vuelve a correr el server component y deja el
+                  // wizard donde estaba. Es el mismo dato, sin perder el lugar.
+                  router.refresh();
                 }}
               />
             )}
@@ -606,8 +618,16 @@ export function VideoGeneratorApp({
 
                       {/* Lo único que sobrevive al lado del título es lo que
                           cambia una DECISIÓN: que ya lo grabaste, y que no entra
-                          en este formato. Los dos hacen elegir distinto. */}
-                      {g.yaUsado && <Tag color="var(--faint)">Ya lo grabaste</Tag>}
+                          en este formato. Los dos hacen elegir distinto.
+
+                          Y cuando se sabe CON QUÉ formato se grabó, se nombra:
+                          «ya lo grabaste» a secas suena a callejón, cuando lo
+                          que suele pasar es que se quiera el mismo guion en otro
+                          formato — es exactamente lo que hizo el dueño con su
+                          primer anuncio, grabado en Car Talks y en The Office. */}
+                      {g.grabadoEn.length > 0
+                        ? <Tag color="var(--faint)">Ya en {g.grabadoEn.length > 1 ? `${g.grabadoEn.length} formatos` : g.grabadoEn[0]}</Tag>
+                        : g.yaUsado && <Tag color="var(--faint)">Ya lo grabaste</Tag>}
                       {cab?.desborda && <Tag color="var(--warn)">No entra</Tag>}
 
                       <button

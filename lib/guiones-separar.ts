@@ -11,11 +11,22 @@
 // usuario puede hacer eso, cargar algo así de desordenado, MaKo lo tiene que
 // ordenar y separar los guiones».
 //
+// ── Separar y LIMPIAR son dos cosas, y las dos pasan aquí ────────────────────
+// Cortar el pegote en guiones no alcanza: cada pedazo sale con el formato del
+// archivo del que vino —`**negrita**`, viñetas, una línea en blanco entre cada
+// frase—. Se limpia con `normalizarGuion` (lib/guiones-normalizar.ts), que vive
+// aparte porque son dos preguntas distintas, pero se aplica aquí para que las
+// tres puertas de entrada —escribir, subir un archivo, pegar un link— entreguen
+// lo mismo. Una sola de las tres limpiando sería la peor versión: la que
+// funciona bien casi siempre.
+//
 // ⚠️ Esto NO usa IA a propósito. Separar por encabezados es determinista, se
 // testea, y no puede alucinar un guion que no estaba ni perder uno que sí. Un
 // modelo haría lo mismo peor, más lento y sin garantías — y para lo único donde
 // un modelo sí aportaría (juzgar si el guion le sirve al negocio) está el camino
 // de REVISIÓN, que es otra cosa y todavía no existe.
+
+import { normalizarGuion } from './guiones-normalizar';
 
 /** Un guion encontrado adentro del pegote. */
 export type GuionSeparado = {
@@ -96,7 +107,7 @@ export function separarGuiones(crudo: string, minPalabras = 25): GuionSeparado[]
 
   // Sin cortes: todo el pegote es UN guion.
   if (cortes.length === 0) {
-    const t = texto.trim();
+    const t = normalizarGuion(texto);
     return contar(t) >= minPalabras
       ? [{ titulo: '', texto: t, palabras: contar(t), duplicado: false }]
       : [];
@@ -114,7 +125,11 @@ export function separarGuiones(crudo: string, minPalabras = 25): GuionSeparado[]
     const hasta = k + 1 < inicios.length ? inicios[k + 1] : lineas.length;
 
     // La línea del encabezado no va en el cuerpo; la de un separador tampoco.
-    const cuerpo = lineas.slice(desde + 1, hasta).join('\n').trim();
+    //
+    // Y se limpia AQUÍ, después de cortar y no antes: la separación se apoya en
+    // los encabezados de markdown (`# Guion 2`), así que limpiar primero le
+    // sacaría al texto justamente las marcas por las que hay que cortarlo.
+    const cuerpo = normalizarGuion(lineas.slice(desde + 1, hasta).join('\n'));
     if (!cuerpo) continue;
 
     const palabras = contar(cuerpo);

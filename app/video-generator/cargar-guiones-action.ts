@@ -25,6 +25,8 @@ import { randomUUID } from 'node:crypto';
 import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
 import { getRazones, setRazones, type RazonCelda } from '@/lib/razones';
 import { separarGuiones, type GuionSeparado } from '@/lib/guiones-separar';
+import { huellaGuion } from '@/lib/guiones-normalizar';
+import { estructurarGuion } from '@/lib/guion-estructurar';
 import { archivoATexto, puedeLeerse, porQueNoPuedo, MAX_ARCHIVO_BYTES } from '@/lib/archivo-a-texto';
 import { resolverLink, htmlATexto, pareceLogin } from '@/lib/texto-de-link';
 import { validarDestino } from '@/lib/landing-fetch';
@@ -50,11 +52,16 @@ async function ctx(): Promise<{ ok: true } | { ok: false; error: string }> {
   return { ok: true };
 }
 
-/** Normaliza para COMPARAR con lo ya guardado. Nunca para escribir. */
-function huella(t: string): string {
-  return t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
-}
+/**
+ * Normaliza para COMPARAR con lo ya guardado. Nunca para escribir.
+ *
+ * Es la MISMA huella que usa el resto del flujo (`huellaGuion`), y eso importa:
+ * ignora los rótulos de sección. Cuando MaKo ordena un guion le agrega GANCHO /
+ * HISTORIA / CTA, así que con una huella que los contara, volver a cargar el
+ * mismo archivo lo guardaría de nuevo como si fuera otro — y el banco de guiones
+ * se llenaría de copias del mismo texto con distinto formato.
+ */
+const huella = huellaGuion;
 
 /**
  * Qué se va a cargar, ANTES de cargarlo.
@@ -109,17 +116,35 @@ export async function cargarGuionesAction(crudo: string, indices: number[]): Pro
   const nuevos = elegidos.filter((g) => !existentes.has(huella(g.texto)));
   const ahora = Date.now();
 
-  const items = nuevos.map((g) => ({
+  // ── MaKo los ORDENA antes de guardarlos ───────────────────────────────────
+  // El texto ya viene limpio de `separarGuiones` (sin markdown, sin líneas en
+  // blanco de más). Lo que falta es la estructura: los rótulos GANCHO / HISTORIA
+  // / CTA en su propia línea, que es el contrato con el que el resto de la app
+  // lee un guion — la UI lo corta en tarjetas por esas líneas y el planificador
+  // de tomas las usa para saber qué parte es el gancho.
+  //
+  // Va en PARALELO porque son llamadas independientes y un archivo con cinco
+  // guiones esperaría cinco veces de más si fueran en fila.
+  //
+  // Y si el modelo no contesta, o contesta algo que no pasa la validación, el
+  // guion se guarda igual sin rótulos: `estructurarGuion` devuelve null y no
+  // lanza. Cargar los guiones propios no puede depender de que haya IA
+  // disponible — sería cambiar «entran sin revisión» por «entran si hay cuota».
+  const ordenados = await Promise.all(
+    nuevos.map(async (g) => ({ g, orden: await estructurarGuion(g.texto).catch(() => null) })),
+  );
+
+  const items = ordenados.map(({ g, orden }) => ({
     id: randomUUID(),
     anguloId: '',
     // El título que traía el archivo. Es lo que después distingue un guion de otro
     // en la lista, así que si no traía uno se dice — no se inventa.
     anguloNombre: g.titulo || 'Cargado por mí',
-    texto: g.texto,
+    texto: orden?.texto ?? g.texto,
     creadoEn: ahora,
     estado: 'borrador' as const,
-    estructuraId: '',
-    estructuraNombre: '',
+    estructuraId: orden?.estructuraId ?? '',
+    estructuraNombre: orden?.estructuraNombre ?? '',
   }));
 
   const iCelda = celdas.findIndex((x) => x.id === CELDA_PROPIOS);

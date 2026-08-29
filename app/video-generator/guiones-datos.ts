@@ -25,7 +25,7 @@ import 'server-only';
 import { getRazones } from '@/lib/razones';
 // `soloHablado` vive en puestas-data —sin `server-only`— porque decide cuántas
 // palabras tiene un guion, y de ahí sale la duración: necesita test.
-import { soloHablado } from '@/lib/puestas-data';
+import { soloHablado, puestaPorId } from '@/lib/puestas-data';
 import { leerHistorial } from './video-datos';
 
 export type GuionDisponible = {
@@ -48,18 +48,42 @@ export type GuionDisponible = {
   primeraLinea: string;
   /** Palabras HABLADAS: sin las etiquetas de sección. */
   palabras: number;
-  /** `true` si ya se generó un anuncio con este guion en esta tab. */
+  /** `true` si este guion ya se usó: se grabó, o se planificó en esta tab. */
   yaUsado: boolean;
+  /**
+   * Los formatos con los que YA se grabó, por nombre («Car Talks», «The
+   * Office»). Vacío no significa «no se grabó»: significa que no consta.
+   *
+   * Se muestra en vez de un tilde porque «ya lo usaste» no alcanza para decidir:
+   * el mismo guion grabado en Car Talks se puede querer grabar en The Office —
+   * es lo que hizo el dueño con su primer anuncio— y para eso hay que saber
+   * cuál de los dos falta.
+   */
+  grabadoEn: string[];
 };
 
 /**
  * Los guiones del workspace, del más nuevo al más viejo.
  *
- * ⚠️ `yaUsado` se cruza contra el HISTORIAL de esta tab, que hoy guarda 10
- * entradas como máximo. O sea que un guion usado hace mucho puede figurar como no
- * usado: el dato es «no lo encontré», no «no pasó». Se marca de menos y nunca de
- * más — decirle a alguien que ya usó un guion que no usó lo manda a buscar un
- * anuncio que no existe, mientras que lo contrario solo repite un aviso.
+ * ── De dónde sale «este ya lo usé» ─────────────────────────────────────────
+ * De TRES lugares, y hacen falta los tres:
+ *
+ *  1. `grabadoComo` del guion — los formatos con los que ya se grabó. Es el
+ *     único que no caduca, y el único que sabe de anuncios producidos FUERA de
+ *     esta tab. Los cuatro primeros anuncios de Mauricio son eso: existen, son
+ *     los ejemplos del catálogo de plantillas, y hasta hoy figuraban como si
+ *     nunca se hubieran grabado.
+ *  2. El `estado` del guion en el pipeline (`grabado` / `publicado`), que es lo
+ *     que marca el resto de la app desde /ads-writer.
+ *  3. El HISTORIAL de esta tab, que guarda 10 entradas y se recorta solo.
+ *
+ * El historial quedó de último a propósito: por sí solo miente por omisión —un
+ * guion planificado hace mucho vuelve a figurar como nuevo—, y esa era la razón
+ * por la que un guion ya grabado se ofrecía como si estuviera fresco.
+ *
+ * ⚠️ Se sigue marcando de menos y nunca de más. Decirle a alguien que ya grabó
+ * un guion que no grabó lo manda a buscar un anuncio que no existe; lo contrario
+ * solo repite un aviso.
  */
 export async function guionesDisponibles(): Promise<GuionDisponible[]> {
   const [razones, historial] = await Promise.all([getRazones(), leerHistorial()]);
@@ -74,17 +98,31 @@ export async function guionesDisponibles(): Promise<GuionDisponible[]> {
       const texto = String(g.texto ?? '').trim();
       if (!texto) continue;
       const hablado = soloHablado(texto);
+
+      // Los formatos con los que ya se grabó, por NOMBRE. Un id de puesta que no
+      // está en el catálogo se descarta en vez de mostrarse crudo: «grabado como
+      // selfie-movimiento» no le dice nada a nadie.
+      const grabadoEn = (Array.isArray(g.grabadoComo) ? g.grabadoComo : [])
+        .map((id) => puestaPorId(String(id))?.nombre)
+        .filter((v): v is string => !!v);
+
+      const estado = String(g.estado ?? 'borrador');
+
       out.push({
         id: String(g.id ?? ''),
         angulo: String(g.anguloNombre ?? celda.nombre ?? '').trim(),
         estructura: String(g.estructuraNombre ?? '').trim(),
-        estado: String(g.estado ?? 'borrador'),
+        estado,
         creadoEn: Number(g.creadoEn ?? 0),
         texto,
         hablado,
         primeraLinea: hablado.slice(0, 160),
         palabras: hablado.split(/\s+/).filter(Boolean).length,
-        yaUsado: usados.has(String(g.id ?? '')),
+        grabadoEn,
+        yaUsado:
+          grabadoEn.length > 0
+          || estado === 'grabado' || estado === 'publicado'
+          || usados.has(String(g.id ?? '')),
       });
     }
   }

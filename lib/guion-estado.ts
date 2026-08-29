@@ -55,6 +55,21 @@ export const esEstadoGuion = (v: unknown): v is EstadoGuion => (ESTADOS_GUION as
 export type GuionItem = {
   id: string; anguloId: string; anguloNombre: string; texto: string;
   creadoEn: number; estado: EstadoGuion; estructuraId: string; estructuraNombre: string;
+  /**
+   * Los formatos con los que este guion YA se grabó, por id de puesta
+   * (lib/puestas-data.ts). Ausente = no se grabó, o se grabó antes de que este
+   * campo existiera.
+   *
+   * Va aquí y no en el historial del Video Generator porque el historial guarda
+   * 10 entradas y se recorta solo: sirve para «recuperar el de ayer», no para
+   * contestar «¿este guion ya lo grabé?». Un guion grabado hace tres meses tiene
+   * que seguir figurando como grabado.
+   *
+   * Un mismo guion puede tener VARIOS: el primer anuncio de Mauricio se grabó dos
+   * veces, en Car Talks y en The Office, y son dos anuncios distintos con el
+   * mismo texto.
+   */
+  grabadoComo?: string[];
 };
 
 /** La fecha de un guion, lista para mostrar. Los guiones viejos no tienen: se
