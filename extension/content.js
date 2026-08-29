@@ -51,7 +51,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, responder) => {
     pedirALaPagina(
       'MAKO_CAPTCHA_PIDO', 'MAKO_CAPTCHA_OK',
       { action: msg.action, siteKey: msg.siteKey }, 25000, 'CAPTCHA_TIMEOUT',
-      (d) => responder({ token: d.token, error: d.error }),
+      (d) => responder({ token: d.token, error: d.error, siteKeyUsado: d.siteKeyUsado, deLaPagina: d.deLaPagina }),
     );
     return true; // respuesta asíncrona
   }

@@ -128,12 +128,40 @@
   const responder = (evento, id, detail) =>
     window.dispatchEvent(new CustomEvent(evento, { detail: { id, ...detail } }));
 
+  /**
+   * El site key que la PAGINA esta usando de verdad.
+   *
+   * ⚠️ Estaba hardcodeado en dos lugares (extension/background.js y
+   * lib/flow-protocolo.ts), y eso es exactamente lo que el espejo existe para no
+   * hacer: suponer un dato que la pagina tiene delante. Un token acunado contra
+   * un site key que no es el de la app se rechaza con «reCAPTCHA evaluation
+   * failed» — el mismo error que da un token con la accion equivocada, y por eso
+   * cuesta distinguirlos.
+   *
+   * Sale del script de reCAPTCHA que la propia pagina cargo: su `src` trae
+   * `?render=<sitekey>`. Si por lo que sea no esta, se cae al que mando el service
+   * worker, que es lo que habia antes.
+   */
+  function siteKeyDeLaPagina() {
+    try {
+      for (const el of document.querySelectorAll('script[src*="recaptcha"]')) {
+        const m = /[?&]render=([^&]+)/.exec(el.src || '');
+        if (m && m[1] && m[1] !== 'explicit') return decodeURIComponent(m[1]);
+      }
+    } catch { /* si el DOM no colabora, manda el de siempre */ }
+    return null;
+  }
+
   window.addEventListener('MAKO_CAPTCHA_PIDO', async (ev) => {
     const { id, action, siteKey } = ev.detail || {};
     try {
       const g = await esperarGrecaptcha(10000);
       if (!g) return responder('MAKO_CAPTCHA_OK', id, { error: 'SIN_GRECAPTCHA' });
-      responder('MAKO_CAPTCHA_OK', id, { token: await g.execute(siteKey, { action: action || 'generate' }) });
+      const clave = siteKeyDeLaPagina() || siteKey;
+      const token = await g.execute(clave, { action: action || 'generate' });
+      // La clave usada viaja de vuelta para poder DIAGNOSTICAR: si la de la pagina
+      // no es la que teniamos escrita, eso explica el 403 sin tener que adivinar.
+      responder('MAKO_CAPTCHA_OK', id, { token, siteKeyUsado: clave, deLaPagina: !!siteKeyDeLaPagina() });
     } catch (e) {
       responder('MAKO_CAPTCHA_OK', id, { error: String(e?.message || e) });
     }

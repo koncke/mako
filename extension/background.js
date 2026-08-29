@@ -100,6 +100,11 @@ async function pestanaDeFlow() {
 async function pedirCaptcha(tabId, action) {
   const res = await chrome.tabs.sendMessage(tabId, { tipo: 'GET_CAPTCHA', action, siteKey: SITE_KEY });
   if (!res || !res.token) throw new Error(res?.error || 'CAPTCHA_FALLO');
+  // Queda en la consola de la extension: si la clave de la pagina NO es la que
+  // tenemos escrita, es la explicacion del 403 y hay que verla, no deducirla.
+  if (res.siteKeyUsado && res.siteKeyUsado !== SITE_KEY) {
+    console.warn(`[mako] el site key de la pagina es ${res.siteKeyUsado}, el nuestro era ${SITE_KEY}`);
+  }
   return res.token;
 }
 
