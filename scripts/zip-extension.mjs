@@ -6,6 +6,7 @@
 // extensión cambió y nadie regeneró el zip, igual que la guarda de plugin/.
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { execSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import JSZip from 'jszip';
 
@@ -56,6 +57,26 @@ if (process.argv.includes('--check')) {
     console.error('    Corré: node scripts/zip-extension.mjs\n');
     process.exit(1);
   }
+  // ⚠️ Y que esté al día EN DISCO no alcanza: lo que se despliega es el COMMIT.
+  //
+  // Costó una tarde: `lib/extension-version.ts` lo genera este script, quedó
+  // correcto en disco —así que este chequeo pasaba— pero nunca se agregó a
+  // ningún commit. Producción siguió sirviendo `0.6.0` mientras el cliente tenía
+  // `0.10.0`, y la pantalla le decía «tu extensión quedó vieja: tienes la 0.10.0
+  // y la actual es la 0.6.0». Un aviso absurdo que además hace desconfiar de
+  // todos los demás avisos.
+  //
+  // Es el mismo modo de falla que el catálogo de cursos: un guard que mira el
+  // ÁRBOL cuando lo que se publica es el commit.
+  const sinCommitear = execSync('git status --porcelain lib/extension-version.ts public/mako-puente.zip public/mako-puente.sha', { encoding: 'utf8' }).trim();
+  if (sinCommitear) {
+    console.error('\n  ✖ Lo generado de la extensión NO está en el commit:');
+    for (const l of sinCommitear.split('\n')) console.error(`      ${l.trim()}`);
+    console.error('\n    Se despliega el COMMIT, no el disco. Agregalos:');
+    console.error('      git add lib/extension-version.ts public/mako-puente.zip public/mako-puente.sha\n');
+    process.exit(1);
+  }
+
   console.log('  ✓ public/mako-puente.zip al día');
   process.exit(0);
 }

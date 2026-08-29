@@ -1146,7 +1146,7 @@ export function VideoGeneratorApp({
                       {g.yaUsado ? (
                         <Tag color="var(--good)" icon={<Icon name="check" size={12} />}>Generado</Tag>
                       ) : g.conPlan ? (
-                        <Tag color="var(--primary)">Con plan</Tag>
+                        <Tag color="var(--primary)">Borrador</Tag>
                       ) : null}
                       {cab?.desborda && <Tag color="var(--warn)">No entra</Tag>}
 

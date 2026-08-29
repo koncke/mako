@@ -85,11 +85,28 @@ export async function generarTomaAction(
   if (!clip) return { ok: false, error: 'Esa toma no existe en el plan.' };
 
   // ── Estado VIVO del puente, no recordado ─────────────────────────────────
+  // ⚠️ Cada estado dice LO SUYO. Antes todo lo que no fuera `listo` contestaba
+  // «tu navegador no está conectado», y eso era falso y contradecía a la pantalla
+  // de al lado, que en la misma carga decía «ya está instalada» y «conectada».
+  // Un aviso que contradice a otro no confunde solo sobre ese punto: hace
+  // desconfiar de todos los demás.
   const puente = await estadoPuente().catch(() => null);
-  if (!puente || puente.estado !== 'listo') {
+  if (!puente || puente.estado === 'sin_conectar') {
     return {
       ok: false,
-      error: 'Tu navegador no está conectado al generador. Abre Flow en la pestaña con la extensión de MaKo.',
+      error: 'Todavía no conectaste tu navegador. Configúralo abajo, en «Prepara tu navegador».',
+    };
+  }
+  if (puente.estado === 'marcada') {
+    return {
+      ok: false,
+      error: 'Google marcó esta sesión y dejó de aceptar generaciones. Abajo, en «Prepara tu navegador», está qué hacer y el botón para volver a habilitarla.',
+    };
+  }
+  if (puente.estado === 'sin_sesion') {
+    return {
+      ok: false,
+      error: 'Tu sesión de Google Flow venció. Abre Flow, inicia sesión, y vuelve a intentar.',
     };
   }
 

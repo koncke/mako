@@ -135,3 +135,32 @@ export async function probarImagenAction(
   }
 }
 
+
+/**
+ * Vuelve a habilitar un puente que quedó `marcada`.
+ *
+ * El estado es de CONTENCIÓN y no se levanta solo, a propósito: un freno que se
+ * suelta con un ciclo automático no frena nada. Pero hasta acá tampoco se
+ * levantaba con NADA — el aviso decía «espera, borra las cookies, vuelve a
+ * entrar» y después no había forma de decir «ya lo hice». La tab quedaba muerta
+ * aunque el problema estuviera resuelto, y la única salida era que alguien
+ * tocara la base.
+ *
+ * Esta es la acción explícita de la persona que el diseño ya pedía.
+ */
+export async function rehabilitarPuenteAction(): Promise<{ ok: true } | { ok: false; error: string }> {
+  if ((await getRolWsEfectivo()) !== 'admin') {
+    return { ok: false, error: 'Solo el administrador del workspace puede hacer esto.' };
+  }
+  const ws = await getWorkspaceActual();
+  if (ws == null) return { ok: false, error: 'Sin workspace activo.' };
+
+  const db = await getTenantDb();
+  await db.from('flow_puentes').update({ estado: 'listo', estado_detalle: '' }).eq('workspace_id', ws);
+
+  // Y los trabajos que murieron por la marca se sacan de en medio: quedaron
+  // fallidos por algo que ya se resolvió, y verlos en rojo al volver hace pensar
+  // que sigue roto.
+  await db.from('flow_trabajos').delete().eq('workspace_id', ws).eq('estado', 'fallido');
+  return { ok: true };
+}

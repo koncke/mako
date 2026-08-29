@@ -39,6 +39,25 @@ import {
 import { puedeInstalarExtension, type PuedeInstalar } from '@/lib/navegador';
 import { leerSaldo } from '@/lib/flow-protocolo';
 import { EXTENSION_VERSION } from '@/lib/extension-version';
+import { rehabilitarPuenteAction } from './puente-actions';
+
+/**
+ * ¿`a` es una versión anterior a `b`?
+ *
+ * Compara número por número, no como texto: `'0.10.0' < '0.6.0'` es TRUE en
+ * orden alfabético, que es justo el error que hace falta evitar cuando la
+ * segunda cifra pasa de un dígito a dos.
+ */
+function esMasVieja(a: string, b: string): boolean {
+  const na = a.split('.').map((n) => Number(n) || 0);
+  const nb = b.split('.').map((n) => Number(n) || 0);
+  for (let i = 0; i < Math.max(na.length, nb.length); i++) {
+    const x = na[i] ?? 0;
+    const y = nb[i] ?? 0;
+    if (x !== y) return x < y;
+  }
+  return false;
+}
 
 const FLOW_URL = 'https://labs.google/fx/tools/flow';
 
@@ -364,6 +383,19 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
     };
   }, [hayQueEsperar, agotado, trabajoId]);
 
+  const [rehabilitando, setRehabilitando] = useState(false);
+
+  /** «Ya hice lo que decía el aviso»: la salida explícita del estado de contención. */
+  const rehabilitar = useCallback(async () => {
+    setRehabilitando(true);
+    try {
+      const out = await rehabilitarPuenteAction();
+      if (out.ok) window.location.reload();
+    } finally {
+      setRehabilitando(false);
+    }
+  }, []);
+
   const volverAMirar = useCallback(() => { setCiclos(0); }, []);
 
   // Con todo listo, esto deja de ser un instructivo y pasa a ser una línea.
@@ -404,11 +436,24 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
         </Alert>
       )}
 
+      {/*
+        La sesión marcada es un estado de CONTENCIÓN: no se levanta solo, a
+        propósito. Pero hasta acá tampoco se levantaba con nada — el aviso decía
+        qué hacer y después no había forma de decir «ya lo hice», así que la tab
+        quedaba muerta aunque el problema estuviera resuelto.
+
+        El botón es la salida explícita que el diseño pedía y nunca existió.
+      */}
       {puente.estado === 'marcada' && (
         <Alert tono="bad">
           Google marcó esta sesión como automatizada y dejó de aceptar generaciones. Espera un
           rato, borra las cookies de google.com y labs.google, y vuelve a entrar a Flow.
           Reintentar sin hacer eso solo empeora la marca.
+          <div style={{ marginTop: 9 }}>
+            <Button size="sm" variant="secondary" onClick={rehabilitar} loading={rehabilitando}>
+              Ya lo hice, volver a habilitar
+            </Button>
+          </div>
         </Alert>
       )}
 
@@ -439,11 +484,17 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
         indistinguible de «no llegó el cambio», y se diagnosticaron durante horas
         los síntomas de una versión que ya no existía.
         //
-        La comparación es de IGUALDAD y no «menor que»: no hay que ordenar dos
-        versiones para saber que son distintas, y un orderer de semver mal escrito
-        callaría justo el caso raro. Si difieren, hay algo que hacer.
+        ⚠️ La comparación ERA de igualdad, con el argumento de que «si difieren,
+        hay algo que hacer». Es falso en un caso que pasa todos los días mientras
+        se desarrolla: la instalada es MÁS NUEVA que el zip publicado. Ahí el
+        aviso decía «tu extensión quedó vieja: tienes la 0.10.0 y la actual es la
+        0.6.0», que además de inútil es la clase de mensaje que hace desconfiar
+        de todos los demás avisos de la pantalla.
+
+        Ahora se ordenan de verdad. Si la instalada va ADELANTE, no se dice nada:
+        no hay nada que hacer.
       */}
-      {typeof instalada === 'string' && instalada !== EXTENSION_VERSION && (
+      {typeof instalada === 'string' && esMasVieja(instalada, EXTENSION_VERSION) && (
         <div style={{ marginBottom: 12 }}>
           <Alert
             tono="warn"
