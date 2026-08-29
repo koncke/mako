@@ -86,6 +86,7 @@ import { CURSO_ESCUELA_TU_PRIMER_MILLON } from './curso-escuela-tu-primer-millon
 import { CURSO_MENTORIA_4K } from './curso-mentoria-4k';
 import { CURSO_EDITA_COMO_UN_PRO } from './curso-edita-como-un-pro';
 import { CURSO_EXPERTO_EN_CHATGPT } from './curso-experto-en-chatgpt';
+import { CURSO_HACKEANDO_EL_ALGORITMO } from './curso-hackeando-el-algoritmo';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio';
 import { CURSO_BRANDING } from './BrandingMaKo';
@@ -253,6 +254,10 @@ const CATEGORIA: Record<string, string> = {
   // plataforma. El comentario al lado es la categoría de origen.
   'experto-en-chatgpt': 'Inteligencia Artificial', // IA
 
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'hackeando-el-algoritmo': 'Lanzamientos', // Lanzamientos
+
 };
 
 /**
@@ -324,6 +329,10 @@ const PORTADA: Record<string, string> = {
   // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
   // pero la ficha se había emitido antes de que existiera.
   'experto-en-chatgpt': '/cono-portadas/experto-en-chatgpt.jpg',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'hackeando-el-algoritmo': '/cono-portadas/hackeando-el-algoritmo.png',
 
 };
 
@@ -579,6 +588,9 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_EXPERTO_EN_CHATGPT,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_HACKEANDO_EL_ALGORITMO,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,

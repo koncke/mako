@@ -19,18 +19,32 @@
 // después de publicar cada curso, así que CADA curso nuevo agrega un import por su cuenta.
 // La automatización que arregló el olvido de importar creó un olvido nuevo, más silencioso.
 
-import { readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 
+// ⚠️ SE PREGUNTA POR EL COMMIT (HEAD), NO POR EL ARBOL DE TRABAJO.
+//
+//    La primera versión leía el `catalogo.ts` del disco y lo cruzaba contra `git ls-files`.
+//    Eso mide una mezcla de dos cosas —lo que está escrito ahora y lo que está commiteado—
+//    y con DOS SESIONES sobre el mismo clon deja un bloqueo cruzado: la cola le agrega un
+//    import al catálogo del disco, la ficha todavía no está commiteada, y a partir de ahí
+//    **ninguna de las dos sesiones puede pushear**, ni siquiera la que solo toca `docs/`.
+//    Pasó a la hora de instalarlo: la otra sesión tenía un commit de documentación esperando
+//    y esta guarda se lo trababa por un archivo que no era suyo.
+//
+//    Lo que se pushea es HEAD. Un archivo sin commitear no va a romper ningún build, así
+//    que no tiene por qué frenar a nadie. Un guard que bloquea por algo que no se publica
+//    no protege: estorba, y lo que se aprende es a saltearlo.
+const enHead = (ruta) => execSync(`git show HEAD:${ruta}`, { encoding: 'utf8' });
+
 const CAT = 'app/conocimientos/catalogo.ts';
-const cat = readFileSync(CAT, 'utf8');
+const cat = enHead(CAT);
 
 // Todo import relativo del catálogo, no solo los `curso-*`: un `./AnalisisNegocio` sin
 // commitear rompe el build igual.
 const imports = [...cat.matchAll(/from '\.\/([^']+)'/g)].map((m) => m[1]);
 
 const trackeados = new Set(
-  execSync('git ls-files app/conocimientos', { encoding: 'utf8' })
+  execSync('git ls-tree --name-only HEAD app/conocimientos/', { encoding: 'utf8' })
     .split('\n')
     .map((s) => s.trim())
     .filter(Boolean)
@@ -40,13 +54,14 @@ const trackeados = new Set(
 const faltan = imports.filter((i) => !trackeados.has(i));
 
 if (!faltan.length) {
-  console.log(`  ✓ las ${imports.length} fichas que importa el catálogo están en git.`);
+  console.log(`  ✓ las ${imports.length} fichas que importa el catálogo commiteado existen en el commit.`);
   process.exit(0);
 }
 
-console.error(`\n  ✖ EL CATALOGO IMPORTA ${faltan.length} ARCHIVO(S) QUE NO ESTAN EN GIT.`);
+console.error(`\n  ✖ EL CATALOGO COMMITEADO IMPORTA ${faltan.length} ARCHIVO(S) QUE NO ESTAN EN EL COMMIT.`);
 console.error('    El build de Vercel va a morir con «Module not found» y el push sale con 0.\n');
 for (const f of faltan) console.error(`      · app/conocimientos/${f}.ts`);
-console.error('\n    Se arregla agregándolos:');
-console.error(`      git add ${faltan.map((f) => `app/conocimientos/${f}.ts`).join(' ')}\n`);
+console.error('\n    Se arregla commiteándolos (por ruta explícita, que acá hay dos sesiones):');
+console.error(`      git add ${faltan.map((f) => `app/conocimientos/${f}.ts`).join(' ')}`);
+console.error('      git commit\n');
 process.exit(1);
