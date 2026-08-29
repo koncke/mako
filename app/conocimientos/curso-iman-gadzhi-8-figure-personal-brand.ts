@@ -29,6 +29,7 @@ export const CURSO_IMAN_GADZHI_8_FIGURE_PERSONAL_BRAND: Curso = {
   titulo: 'IMAN GADZHI – 8 FIGURE PERSONAL BRAND',
   subtitulo: '2 clases, 0 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '2,3 h',
+  portada: '/cono-portadas/iman-gadzhi-8-figure-personal-brand.png',
   recursos: [
 
   ],

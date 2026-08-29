@@ -29,6 +29,7 @@ export const CURSO_MEGADATA_DE_UN_JOVEN_EMPREDEDOR: Curso = {
   titulo: 'Megadata De Un Joven Emprededor - Lathos Club',
   subtitulo: '7 clases, 1 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '1,0 h',
+  portada: '/cono-portadas/megadata-de-un-joven-emprededor.png',
   recursos: [
 
   ],

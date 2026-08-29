@@ -29,6 +29,7 @@ export const CURSO_LEGALMENTE_EMPRENDEDOR: Curso = {
   titulo: 'Legalmente Emprendedor - Lathos club',
   subtitulo: '7 clases, 1 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '2,5 h',
+  portada: '/cono-portadas/legalmente-emprendedor.png',
   recursos: [
 
   ],

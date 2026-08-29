@@ -29,6 +29,7 @@ export const CURSO_BOOTCAMP_DE_CIERRE_DE_VENTAS_IA: Curso = {
   titulo: 'Bootcamp de Cierre de Ventas + IA - Alfonso Bastida y Christian Helmut',
   subtitulo: '3 clases, 2 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '8,7 h',
+  portada: '/cono-portadas/bootcamp-de-cierre-de-ventas-ia.jpg',
   recursos: [
 
   ],

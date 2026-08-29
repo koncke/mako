@@ -29,6 +29,7 @@ export const CURSO_21_TECNICAS_PARA_INVERTIR_EN_BIENES_RAICES: Curso = {
   titulo: '21 Tecnicas para Invertir en Bienes Raíces - Jorge Gil',
   subtitulo: '6 clases, 5 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '3,4 h',
+  portada: '/cono-portadas/21-tecnicas-para-invertir-en-bienes-raices.jpg',
   recursos: [
 
   ],

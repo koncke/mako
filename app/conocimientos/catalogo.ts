@@ -82,6 +82,10 @@ import { CURSO_TERMUX_HACKING_PARA_PRINCIPIANTES_2026 } from './curso-termux-hac
 import { CURSO_THE_REAL_WOLF } from './curso-the-real-wolf';
 import { CURSO_TRADING_CLUTIFX } from './curso-trading-clutifx';
 import { CURSO_VIVE_VENDIENDO } from './curso-vive-vendiendo';
+import { CURSO_TRADING_ARELIS_RODRIGUEZ_2025 } from './curso-trading-arelis-rodriguez-2025';
+import { CURSO_ESCUELA_TU_PRIMER_MILLON } from './curso-escuela-tu-primer-millon';
+import { CURSO_MENTORIA_4K } from './curso-mentoria-4k';
+import { CURSO_EDITA_COMO_UN_PRO } from './curso-edita-como-un-pro';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio';
 import { CURSO_BRANDING } from './BrandingMaKo';
@@ -229,6 +233,18 @@ const CATEGORIA: Record<string, string> = {
   'como-vender-como-un-gladiador-romano': 'Ventas', // «¿Qué es la Venta», «Ventas Como Modo De Vida»
   'mentoria-d60': 'Desarrollo personal',   // «claridad mental», «domina tus hábitos», «RutiMax»
   'trading-clutifx': 'Finanzas',           // «BIAS», «entradas», «time»
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'escuela-tu-primer-millon': 'Negocios digitales', // Hustlers
+
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'mentoria-4k': 'Ecommerce',              // Ecommerce
+
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'edita-como-un-pro': 'Edición',          // Edición de Video
+
 };
 
 /**
@@ -284,6 +300,18 @@ const PORTADA: Record<string, string> = {
   'termux-hacking-para-principiantes-2026': '/cono-portadas/termux-hacking-para-principiantes-2026.jpg',
   'the-real-wolf': '/cono-portadas/the-real-wolf.png',
   'vive-vendiendo': '/cono-portadas/vive-vendiendo.jpg',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'escuela-tu-primer-millon': '/cono-portadas/escuela-tu-primer-millon.jpg',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'mentoria-4k': '/cono-portadas/mentoria-4k.png',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'edita-como-un-pro': '/cono-portadas/edita-como-un-pro.jpg',
 
 };
 
@@ -496,6 +524,18 @@ export const CURSOS_TODOS: Curso[] = [
   CURSO_THE_REAL_WOLF,
   CURSO_TRADING_CLUTIFX,
   CURSO_VIVE_VENDIENDO,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_TRADING_ARELIS_RODRIGUEZ_2025,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_ESCUELA_TU_PRIMER_MILLON,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_MENTORIA_4K,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_EDITA_COMO_UN_PRO,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,

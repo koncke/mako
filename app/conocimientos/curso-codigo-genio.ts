@@ -29,6 +29,7 @@ export const CURSO_CODIGO_GENIO: Curso = {
   titulo: 'Código Genio - Omar Villalobos',
   subtitulo: '9 clases, 0 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '1,2 h',
+  portada: '/cono-portadas/codigo-genio.jpg',
   recursos: [
 
   ],

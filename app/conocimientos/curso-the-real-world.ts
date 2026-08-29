@@ -29,6 +29,7 @@ export const CURSO_THE_REAL_WORLD: Curso = {
   titulo: 'The Real World - Andrew Tate',
   subtitulo: '4 clases, 0 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '2,0 h',
+  portada: '/cono-portadas/the-real-world.png',
   recursos: [
 
   ],
