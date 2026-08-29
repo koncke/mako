@@ -161,7 +161,16 @@
       if (cuerpo) {
         try {
           const o = JSON.parse(cuerpo);
-          if (o && o.clientContext && o.clientContext.recaptchaContext) delete o.clientContext.recaptchaContext;
+          if (o && o.clientContext) {
+            // El token de reCAPTCHA se acuña en el momento: guardado vence.
+            delete o.clientContext.recaptchaContext;
+            // ⚠️ Y el `sessionId` también se va. Es de la sesión que lo generó, y
+            // mandar el de ayer con un token de hoy es justo la clase de
+            // incoherencia que un antifraude puntúa como automatización. Lo pone
+            // fresco el `fundir` con lo que mande la página de ahora; si no hay,
+            // viaja sin él, que es preferible a viajar con uno viejo.
+            delete o.clientContext.sessionId;
+          }
           cuerpo = JSON.stringify(o);
         } catch { /* si no era JSON, va como vino */ }
       }

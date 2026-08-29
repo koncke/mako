@@ -1116,8 +1116,16 @@ export function VideoGeneratorApp({
                           que suele pasar es que se quiera el mismo guion en otro
                           formato — es exactamente lo que hizo el dueño con su
                           primer anuncio, grabado en Car Talks y en The Office. */}
-                      {g.yaUsado && (
+                      {/*
+                        Los DOS estados se nombran. Antes, «sin generar» era la
+                        ausencia de etiqueta, y una ausencia no se lee como un
+                        estado: se lee como que falta algo por cargar. El dueño:
+                        «no veo lo que te pedí como borrador».
+                      */}
+                      {g.yaUsado ? (
                         <Tag color="var(--good)" icon={<Icon name="check" size={12} />}>Generado</Tag>
+                      ) : (
+                        <Tag>Borrador</Tag>
                       )}
                       {cab?.desborda && <Tag color="var(--warn)">No entra</Tag>}
 
