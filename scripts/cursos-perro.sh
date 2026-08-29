@@ -1,0 +1,91 @@
+#!/bin/sh
+# EL PERRO DE LA COLA: mira cada 15 minutos que la cola siga viva, y si murió la levanta.
+#
+#   Instalar (una sola vez):  scripts/cursos-perro-instalar.cmd
+#   Ver qué hizo:             tail -30 C:/cursos/perro.log
+#   Apagarlo:                 schtasks /end /tn "cursos-perro"  &&  schtasks /delete /tn "cursos-perro" /f
+#
+# ─────────────────────────────────────────────────────────────────────────────────────
+# ⚠️ POR QUÉ EXISTE, Y POR QUÉ NO ALCANZABA CON LA TAREA PROGRAMADA
+#
+# La cola ya corre como tarea programada, que la hace sobrevivir al cierre de la sesión de
+# Claude. Pero eso la protege de UNA sola causa de muerte. El 28/08/2026 se murió igual —
+# el bajador salió con 0, el pipeline arrancó y no escribió nunca su línea de salida— y
+# nadie se enteró durante **7 horas y media**. Antes había pasado lo mismo con otra causa.
+#
+# El patrón: cada vez que se murió fue por un motivo distinto, y las tres veces el costo no
+# fue la muerte sino el TIEMPO HASTA QUE ALGUIEN MIRÓ. Arreglar causas de a una no cierra
+# eso; lo que lo cierra es que algo mire solo.
+#
+# ⚠️ LA SEÑAL DE VIDA ES EL LOG, no los procesos. Ya se falló al revés dos veces: el panel
+#    de estado contaba `yt-dlp` y dio «0 procesos» sobre una cola sana que estaba justo
+#    entre dos clases. El log, en cambio, se escribe en TODAS las fases —bajando,
+#    transcribiendo, subiendo, dando rondas—. 20 minutos de silencio son mucho más que
+#    cualquier hueco normal (las rondas del pipeline escriben cada ~2 min).
+#
+# ⚠️ Y NO REVIVE LO QUE TERMINÓ BIEN. Si el log cierra con «cola terminada» no hay nada que
+#    hacer; y si cerró con «⛔ PARO» es por DISCO, y levantarla otra vez sólo repetiría el
+#    mismo paro cada 15 minutos. En los dos casos se anota y se sale.
+# ─────────────────────────────────────────────────────────────────────────────────────
+
+REPO="C:/Users/marti/OneDrive/Escritorio/dashboard-marketing-main/dashboard-marketing"
+LOG="C:/cursos/cola.log"
+MIO="C:/cursos/perro.log"
+SILENCIO=20          # minutos sin escribir = sospechosa (si además no hay procesos, muerta)
+COLGADA=45           # minutos sin escribir = colgada, aunque haya procesos vivos
+
+cd "$REPO" || exit 1
+di() { echo "$(date '+%Y-%m-%d %H:%M') $1" >> "$MIO"; }
+
+[ -f "$LOG" ] || { di "no hay cola.log todavia — no hago nada"; exit 0; }
+
+# ¿Hace cuánto que no escribe?
+MIN=$(python -c "
+import os,time
+print(int((time.time()-os.path.getmtime(r'$LOG'))/60))
+" 2>/dev/null)
+[ -z "$MIN" ] && { di "no pude leer la fecha del log"; exit 0; }
+
+if [ "$MIN" -lt "$SILENCIO" ]; then
+  exit 0                      # viva: ni una línea, para que el log del perro sea legible
+fi
+
+# Silenciosa. ¿Termino bien, o la cortaron?
+COLA=$(grep -aE "cola terminada|⛔ PARO" "$LOG" | tail -1)
+case "$COLA" in
+  *"⛔ PARO"*)
+    di "silencio de ${MIN}min, pero la cola PARO por disco. No la levanto: hay que liberar."
+    di "   node scripts/curso-a-drive.mjs --plan C:/cursos/<slug>/plan.json --liberar"
+    exit 0 ;;
+esac
+
+ULTIMA=$(tail -1 "$LOG")
+case "$ULTIMA" in
+  *"cola terminada"*)
+    exit 0 ;;                 # termino sola y no hay nada pendiente
+esac
+
+# ⚠️ SOLO los `node.exe` del pipeline. Sin el filtro por nombre, la consulta se cuenta A
+#    SÍ MISMA: la línea de comandos del shell que la ejecuta contiene el patrón que busca,
+#    así que el perro veía «1 proceso vivo» sobre una cola muerta hacía 7 horas y le daba
+#    más tiempo, para siempre. Pasó en la primera corrida, con el perro recién instalado.
+VIVOS=$(powershell -NoProfile -Command "@(Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { \$_.CommandLine -match 'curso-bajar|curso-pipeline|curso-a-drive' }).Count" 2>/dev/null | tr -d '\r')
+# ⚠️ UN PROCESO VIVO NO ES PROGRESO. Se le da UNA gracia —puede estar subiendo a Drive o
+#    esperando a un proveedor— pero no infinita: pasados los $COLGADA minutos sin escribir
+#    una sola línea, está colgado y se lo mata. Es la misma trampa que el 410 del CDN, que
+#    tuvo a yt-dlp «trabajando» SIETE HORAS sobre fragmentos muertos.
+if [ "${VIVOS:-0}" -gt 0 ] && [ "$MIN" -lt "$COLGADA" ]; then
+  di "silencio de ${MIN}min con ${VIVOS} proceso(s) vivo(s) — le doy hasta los ${COLGADA}min."
+  exit 0
+fi
+
+if [ "${VIVOS:-0}" -gt 0 ]; then
+  di "COLGADA: ${MIN}min sin escribir con ${VIVOS} proceso(s) vivo(s). Los mato."
+  powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='node.exe' OR Name='yt-dlp.exe' OR Name='ffmpeg.exe'\" | Where-Object { \$_.CommandLine -match 'curso-bajar|curso-pipeline|curso-a-drive|cursos' } | ForEach-Object { Stop-Process -Id \$_.ProcessId -Force -ErrorAction SilentlyContinue }" >/dev/null 2>&1
+fi
+
+di "LA LEVANTO: ${MIN}min sin escribir."
+di "   ultima linea: $(echo "$ULTIMA" | cut -c1-90)"
+schtasks //end //tn "cursos-cola" >/dev/null 2>&1
+schtasks //run //tn "cursos-cola" >/dev/null 2>&1
+di "   lanzada. Lo bajado no se repite (--download-archive)."
