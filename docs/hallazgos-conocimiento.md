@@ -5650,3 +5650,98 @@ sobre una cola **completamente muerta**, y las tres veces eran mis propios shell
 
 **Un conteo de procesos se mira como LISTA, con la línea de comandos al lado**, nunca como
 número. Y se filtra por nombre de binario **y** excluyendo las invocaciones `-c`.
+
+## `CursoPortal` es CÓDIGO MUERTO: el portal entero corre por la réplica
+
+**Vive en:** `app/conocimientos/catalogo.ts:507` (`replica: true`) ·
+`app/conocimientos/CursoPortal.tsx:925` (el cortocircuito) ·
+`app/conocimientos/CursoReplica.tsx` (la vista que de verdad se usa)
+
+`catalogo.ts` le pone `replica: true` a **todos** los cursos con un `.map()`, y
+`CursoPortal.tsx:925` hace `if (curso.replica) return <CursoReplica …>`. O sea que
+`CursoPortal` no dibuja **ningún** curso — tampoco para el admin en `/conocimientos`, no
+solo en `/compartido`. Todo lo que vive en su `ClaseDetail` y su `Hub` es código muerto.
+
+Esto convierte «son dos componentes para la misma pantalla» (que ya costó tres rondas con
+los recursos) en algo peor: **el componente que se lee como el principal es el que no
+corre**. Mirar `CursoPortal` y ver el campo dibujado confirma que «el código está bien»
+mientras la pantalla no lo muestra.
+
+Medido el 29/08/2026 sobre las 66 fichas, campos que el generador EMITE y la réplica no
+dibujaba:
+
+| Campo | Qué se perdía | Volumen |
+|---|---|---|
+| `recursoSlugs` | qué PDF va con qué clase | **5.284 vínculos** en 23 cursos |
+| `subgrupo` | la sección dentro del módulo | **785 clases** (MasteryHaus 230, ATV 240) |
+| `resumen` | el único contenido de una clase sin video ni doc | **11 clases**, 17.894 chars |
+
+- **Antes de agregar un campo a la ficha, preguntá qué componente lo va a dibujar** — y
+  compruébalo con `grep <campo> app/conocimientos/CursoReplica.tsx`, no leyendo el que
+  parece principal.
+- **Y el arreglo de fondo pendiente es UNO:** o `CursoPortal` se borra, o `replica` deja de
+  ser universal. Mientras las dos vistas existan y una esté muerta, cada campo nuevo nace
+  invisible. Queda anotado como deuda: hoy se arreglaron los tres campos, no la causa.
+
+## Abrir un módulo no filtraba por módulo: escribía su nombre en el buscador
+
+**Vive en:** `app/conocimientos/CursoReplica.tsx` (`filtradas`, `SIN_MODULO`)
+
+El click hacía `setQ(m.nombre)` y el filtro era un `includes` de texto sobre
+`titulo + grupo + codigo`. Un buscador con cara de filtro, y falla en las dos direcciones:
+
+- **De menos:** cuando ninguna clase trae `grupo`, el agrupado inventa el módulo
+  «Sin modulo» — un nombre que **no está escrito en ninguna clase**. Buscarlo da cero.
+  Medido: **82 clases de 10 cursos** inalcanzables por ese camino (termux 17,
+  mindset-millonario 14, trading-clutifx 11, the-real-wolf 10, codigo-genio 9, mentoria-d60
+  8, us30 6, the-real-world 4, iman-gadzhi 2, creativos-animados 1). El usuario ve
+  «0 de 17» y una grilla vacía.
+- **De más:** un nombre de módulo contenido en otro arrastra clases ajenas adentro.
+
+**Un módulo es una IDENTIDAD, no un texto.** Se compara por igualdad, y el nombre sintético
+sale de UNA constante que comparten el agrupado y el filtro: si se desincronizan, el módulo
+se dibuja en la barra y al abrirlo la grilla sale vacía, sin ningún error.
+
+Verificado en el navegador (no deducido): «Sin modulo» pasó de 0 tarjetas a
+**«Sin modulo · 17 lecciones»** con 17 tarjetas.
+
+## Un hallazgo de subagente trae el número inflado: verificá la MAGNITUD, no solo el hecho
+
+La auditoría reportó «**54 clases** literalmente vacías, **88.835 caracteres** de texto
+invisible». El hecho era cierto y la magnitud no: son **11 clases y 17.894 caracteres**,
+todas del curso VSL. El agente había contado con un `grep` cuyo escape del backtick estaba
+roto, así que midió otra cosa.
+
+Los otros dos números del mismo reporte (5.296 vínculos → medí 5.284; 785 clases →
+idéntico) eran correctos. **Un reporte no es «confiable» o «no confiable» en bloque: cada
+número se vuelve a medir por separado.** El barato de comprobar es el que más rinde — acá,
+tres scripts de diez líneas.
+
+⚠️ **Y la trampa al medir sobre estas fichas:** trocearlas asumiendo que cada clase entra
+en UNA línea (`split(/\{ n: /)`) devuelve **0 en todo**, y el cero se lee como respuesta.
+Las clases son objetos multilínea; hay que trocear por la POSICIÓN de cada `n: <num>`.
+
+## Lo que la auditoría dejó pendiente (no está arreglado)
+
+Del mismo barrido del 29/08/2026, verificado pero SIN hacer:
+
+- **`subgrupo` sigue sin dibujarse:** 785 clases pierden su sección dentro del módulo.
+  MasteryHaus «MKT Perpetuo» son 78 clases en una tira sin sus 11 secciones.
+  Vive en `CursoReplica.tsx` (el agrupado de `modulos`).
+- **`vender-por-fb-e-ig-ads` tiene el scope de Drive apuntando a una carpeta con CERO
+  videos.** Los 242 `videoId` publicados viven en otra carpeta («ADS - Felipe Vergara»).
+  Hoy la ficha está bien; **una regeneración resuelve 0 candidatos y tira las 242 clases
+  sin un solo error**. Vive en `C:/cursos/<slug>/drive.json` y `curso-a-portal.mjs:439`.
+  Es un curso partido en dos carpetas con nombres distintos, caso que no contempla nadie.
+- **`Mateo Maffia - BYF` tiene en su `drive.json` el PDF de onboarding de BlueHacker**
+  (`recurso-01.pdf` → un id que cuelga de la carpeta de BlueHacker). La ficha publicada
+  está bien; regenerarla la rompe. El arreglo del scope se verificó sobre las fichas y
+  **nunca reescribió el input**.
+- **46 recursos `.zip`/`.cube` abren un iframe de Drive que dice «sin vista previa»**
+  (`CursoReplica.tsx`, no mira `tipo` ni `ext`) mientras la tarjeta promete «Descarga».
+  `CursoPortal` ya lo tenía resuelto — otra vez, el fix va en la réplica.
+- **El armador de la cola da por publicado todo curso con archivo `.ts`, sin contar
+  clases** (`cursos-cola-armar.mjs:41-43`): avatar-mastery (15 de 16) y masteryhaus no
+  vuelven a entrar nunca.
+- **El log corta la causa del fallo de transcripción a 150 caracteres**
+  (`curso-pipeline.mjs:152`) y se lleva puestas las razones de OpenAI y Gemini.

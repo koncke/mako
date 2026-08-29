@@ -52,6 +52,16 @@ const FLECHA_IZQ = '←';
 const FLECHA_DER = '→';
 
 /**
+ * El nombre del modulo que se INVENTA cuando las clases no traen `grupo`.
+ *
+ * Vive en una constante y no como literal repetido porque lo usan DOS lugares que tienen
+ * que coincidir exactamente: el que agrupa las clases en modulos y el que filtra al hacer
+ * click en uno. Si se desincronizan, el modulo se dibuja en la barra y al abrirlo la
+ * grilla sale vacia — sin ningun error. Es «una cosa, un lugar» aplicada a un nombre.
+ */
+const SIN_MODULO = 'Sin modulo';
+
+/**
  * Carga la hoja del origen y avisa CUANDO ESTA. Las dos mitades importan.
  *
  * ⚠️ Sin esperar el `load`, hay varios segundos de contenido crudo apilado. Medido a
@@ -146,7 +156,7 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
   const modulos: Modulo[] = useMemo(() => {
     const m = new Map<string, Clase[]>();
     for (const c of curso.clases) {
-      const g = c.grupo || 'Sin modulo';
+      const g = c.grupo || SIN_MODULO;
       if (!m.has(g)) m.set(g, []);
       m.get(g)!.push(c);
     }
@@ -198,11 +208,33 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
     });
   }, [curso.clases, curso.portadasModulo]);
 
+  /**
+   * ⚠️ ABRIR UN MODULO ES FILTRAR POR MODULO, NO BUSCAR SU NOMBRE.
+   *
+   * Antes el click hacia `setQ(m.nombre)` y el filtro era un `includes` de texto sobre
+   * `titulo + grupo + codigo`. Un buscador con cara de filtro, y falla en las dos
+   * direcciones:
+   *
+   *  · DE MENOS: cuando ninguna clase trae `grupo`, el agrupado inventa el modulo
+   *    «Sin modulo» — un nombre que no esta escrito en NINGUNA clase. Buscarlo da cero.
+   *    Medido el 29/08/2026: **82 clases de 10 cursos** quedaban inalcanzables por ese
+   *    camino (termux 17, mindset-millonario 14, trading-clutifx 11, the-real-wolf 10,
+   *    codigo-genio 9, mentoria-d60 8, us30 6, the-real-world 4, iman-gadzhi 2,
+   *    creativos-animados 1). El usuario ve «0 de 17» y una grilla vacia.
+   *  · DE MAS: un nombre de modulo contenido en otro, o en el titulo de una clase de otro
+   *    modulo, arrastra clases ajenas adentro.
+   *
+   * El modulo es una IDENTIDAD, no un texto: se compara por igualdad y con la MISMA
+   * expresion que arma el agrupado de arriba, para que el sintetico «Sin modulo» matchee.
+   */
+  const [mod, setMod] = useState<string | null>(null);
+
   const filtradas = useMemo(() => {
+    if (mod) return curso.clases.filter((c) => (c.grupo || SIN_MODULO) === mod);
     const t = q.trim().toLowerCase();
     if (!t) return null;
     return curso.clases.filter((c) => `${c.titulo} ${c.grupo ?? ''} ${c.codigo ?? ''}`.toLowerCase().includes(t));
-  }, [q, curso.clases]);
+  }, [q, mod, curso.clases]);
 
   const clase = vista.clase ? curso.clases.find((c) => c.n === vista.clase) : undefined;
 
@@ -236,13 +268,13 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
               {/* El `!q` no sobra: sin el, «Inicio del curso» seguia marcado mientras un
                   modulo estaba filtrando, y quedaban DOS renglones en verde. Una barra que
                   marca dos lugares a la vez no dice donde estas: dice menos que ninguno. */}
-              <button type="button" className={`ugc-nav-item${!clase && !vista.recursos && !q ? ' on' : ''}`}
-                onClick={() => { setQ(''); ir({}); }}>
+              <button type="button" className={`ugc-nav-item${!clase && !vista.recursos && !q && !mod ? ' on' : ''}`}
+                onClick={() => { setQ(''); setMod(null); ir({}); }}>
                 <span className="ugc-nav-label">Inicio del curso</span>
               </button>
               {curso.recursos.length > 0 && (
                 <button type="button" className={`ugc-nav-item${vista.recursos ? ' on' : ''}`}
-                  onClick={() => { setQ(''); ir({ recursos: true }); }}>
+                  onClick={() => { setQ(''); setMod(null); ir({ recursos: true }); }}>
                   <span className="ugc-nav-label">Recursos del curso</span>
                   <span className="ugc-nav-count">{curso.recursos.length}</span>
                 </button>
@@ -254,8 +286,8 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
                   justo cuando mas se necesita saber de que modulo es lo que estas viendo. */}
               {modulos.map((m) => (
                 <button key={m.nombre} type="button"
-                  className={`ugc-nav-item${(clase ? clase.grupo === m.nombre : q === m.nombre) ? ' on' : ''}`}
-                  onClick={() => { ir({}); setQ(m.nombre); }} title={m.nombre}>
+                  className={`ugc-nav-item${(clase ? (clase.grupo || SIN_MODULO) === m.nombre : mod === m.nombre) ? ' on' : ''}`}
+                  onClick={() => { ir({}); setQ(''); setMod(m.nombre); }} title={m.nombre}>
                   <span className="ugc-nav-num">{m.n}</span>
                   <span className="ugc-nav-label">{m.nombre}</span>
                   <span className="ugc-nav-count">{m.clases.length} {'·'} {minutosDe(m.clases)}</span>
@@ -267,7 +299,7 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
           <div className="ugc-main">
             <div className="ugc-topbar">
               <div className="ugc-search">
-                <input value={q} onChange={(e) => { setQ(e.target.value); if (e.target.value) ir({}); }}
+                <input value={q} onChange={(e) => { setQ(e.target.value); setMod(null); if (e.target.value) ir({}); }}
                   placeholder="Buscar leccion, modelo, formato" aria-label="Buscar en el curso" />
               </div>
             </div>
@@ -279,14 +311,18 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
                 <Recursos curso={curso} />
               ) : filtradas ? (
                 <>
-                  <div className="ugc-rail-head"><h2>{filtradas.length} de {curso.clases.length}</h2></div>
+                  {/* Filtrando por modulo, el titulo dice DE QUE modulo: «12 de 404» no
+                      dice donde estas parado, y era lo unico que se veia al abrir uno. */}
+                  <div className="ugc-rail-head">
+                    <h2>{mod ? `${mod} ${'·'} ${filtradas.length} ${filtradas.length === 1 ? 'leccion' : 'lecciones'}` : `${filtradas.length} de ${curso.clases.length}`}</h2>
+                  </div>
                   <div className="ugc-rail">
                     {filtradas.map((c) => <TarjetaClase key={c.n} clase={c} onAbrir={() => ir({ clase: c.n })} />)}
                   </div>
                 </>
               ) : (
                 <Indice curso={curso} modulos={modulos} onAbrir={(c) => ir({ clase: c.n })}
-                  onModulo={(m) => { ir({}); setQ(m.nombre); }} />
+                  onModulo={(m) => { ir({}); setQ(''); setMod(m.nombre); }} />
               )}
             </div>
           </div>
@@ -486,6 +522,13 @@ function Leccion({ clase, curso, ir }: { clase: Clase; curso: Curso; ir: (v: Vis
   const prev = i > 0 ? curso.clases[i - 1] : null;
   const next = i >= 0 && i < curso.clases.length - 1 ? curso.clases[i + 1] : null;
 
+  // El cruce va por SLUG contra los recursos del curso: un slug que no resuelve se
+  // descarta en silencio y no dibuja una tarjeta vacia (pasa cuando la ficha se regenera
+  // con menos recursos de los que sus clases todavia nombran).
+  const material = (clase.recursoSlugs ?? [])
+    .map((s) => curso.recursos.find((r) => r.slug === s))
+    .filter((r): r is Recurso => Boolean(r));
+
   useEffect(() => {
     setDoc(null); setTab(null); setTx(null);
     if (clase.hasDoc && clase.docSlug) {
@@ -599,8 +642,47 @@ function Leccion({ clase, curso, ir }: { clase: Clase; curso: Curso; ir: (v: Vis
           <div className="ugc-paper" onClick={alClick}
             dangerouslySetInnerHTML={{ __html: doc.paneles[activa] }} />
         ) : !tabs.length && estado === 'idle' ? (
-          <div className="ugc-paper">Esta clase no trae documento.</div>
+          /* ⚠️ EL `resumen` NO SE PINTABA EN NINGUN LADO. Es el unico contenido de las
+             clases que no tienen video ni documento —las de los cursos de la casa—, asi
+             que la pantalla les decia «Esta clase no trae documento» teniendo el texto
+             adentro de la ficha. Medido el 29/08/2026: 11 clases, 17.894 caracteres.
+             `CursoPortal` si lo dibujaba, pero es codigo muerto (ver el bloque de
+             `material` aca abajo). */
+          clase.resumen?.trim()
+            ? <div className="ugc-paper">{clase.resumen.split(/\n{2,}/).map((p, k) => <p className="ugc-doc-p" key={k}>{p}</p>)}</div>
+            : <div className="ugc-paper">Esta clase no trae documento.</div>
         ) : null}
+
+        {/* ⚠️ EL MATERIAL DE LA CLASE, que tampoco se dibujaba.
+            `recursoSlugs` dice que PDF va con que clase, y esta vista tenia CERO
+            referencias al campo: 5.284 vinculos clase→recurso invisibles en 23 cursos. El
+            archivo seguia estando en la lista general del curso, pero desde la clase no
+            habia forma de saber cual le tocaba — ni desde el recurso, cual era su clase.
+
+            ⚠️ Y LA CAUSA DE FONDO, que vale para el proximo campo que se agregue:
+            `catalogo.ts` pone `replica: true` a TODOS los cursos con un `.map()`, asi que
+            `CursoPortal` cortocircuita a esta vista SIEMPRE — tambien para el admin. O sea
+            que `CursoPortal` es codigo muerto y todo lo que dibuja y esta no, no se ve en
+            ninguna parte. Son «dos componentes para la misma pantalla»: lo que se agrega a
+            uno no aparece en el otro, y hoy el que manda es este. */}
+        {material.length > 0 && (
+          <div className="ugc-paper">
+            <h3 className="ugc-paper-title">Material de esta clase</h3>
+            {material.map((r) => {
+              const href = r.driveId ? `https://drive.google.com/file/d/${r.driveId}/view` : r.notionUrl;
+              const etiqueta = `${r.badge ? `${r.badge} ${'·'} ` : ''}${r.label}`;
+              return href ? (
+                <a key={r.slug} className="ugc-btn" href={href} target="_blank" rel="noreferrer"
+                   style={{ display: 'block', marginTop: 8 }}>{etiqueta} {FLECHA_DER}</a>
+              ) : (
+                /* Un recurso sin archivo ni link (un prompt, un banco) vive en la pestaña
+                   «Recursos del curso»: se NOMBRA, y no se finge un boton que no lleva a
+                   ningun lado. Un boton muerto es peor que no tenerlo. */
+                <p className="ugc-doc-p" key={r.slug} style={{ marginTop: 8 }}>{etiqueta}</p>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
