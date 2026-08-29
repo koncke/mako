@@ -2650,10 +2650,17 @@ html:has(.ahdoc), body:has(.ahdoc) { overflow: hidden !important; height: 100% !
 }
 
 /* ── Anterior / siguiente, DEBAJO del video ─────────────────────────────────────────── */
+/* Anterior a la IZQUIERDA, siguiente a la DERECHA, cada uno pegado a su extremo del
+   video: el gesto coincide con la direccion. Juntos en el medio se leian como dos
+   opciones de lo mismo. Pedido de Martin. */
 .ahdoc .ugc .ugc-lecnav-pie {
   margin-top: 14px;
   display: flex; flex-wrap: wrap; gap: 10px;
+  justify-content: space-between; align-items: center;
 }
+/* Si NO hay anterior (la clase 1), el siguiente igual se va a la derecha: sin esto
+   quedaria solo a la izquierda, que es justo el lado que significa «volver». */
+.ahdoc .ugc .ugc-lecnav-pie > :only-child { margin-left: auto; }
 
 /* ── «Material de esta clase»: una sección a lo ANCHO, abajo de todo ─────────────────
    Vivía adentro de la columna del papel, al final de una transcripción de 6.000 px:
@@ -2671,3 +2678,36 @@ html:has(.ahdoc), body:has(.ahdoc) { overflow: hidden !important; height: 100% !
 /* Los links del material en fila, no apilados a lo largo: son pocos y cortos. */
 .ahdoc .ugc .ugc-material-lista { display: flex; flex-wrap: wrap; gap: 10px; }
 .ahdoc .ugc .ugc-material-lista > * { margin-top: 0 !important; display: inline-block !important; }
+
+/* -- UN SOLO SCROLL EN LA LECCION ------------------------------------------------
+   La leccion venia partida en dos columnas con scroll PROPIO y alto fijo, asi que
+   `.ugc-content` no scrolleaba: cualquier cosa puesta debajo del split quedaba
+   CORTADA por el borde de la pantalla. Es lo que le pasaba a «Material de esta
+   clase» — existia, ocupaba el ancho completo, y no habia forma de llegar.
+
+   Ahora scrollea el contenedor y adentro todo fluye: video, papel y material en la
+   misma tirada. Pedido de Martin: «deberia vivir en el mismo scroll, y si quiero
+   acceder lo hago scrolleando».
+
+   Efecto lateral bueno: la memoria de scroll vuelve a tener UN solo carril
+   (`.ugc-content`), que es el que `posicion.ts` guarda. Los dos carriles que habia
+   antes eran justamente lo que no se pudo recordar bien. -- */
+/* ⚠️ VAN CON `!important` PORQUE LA REGLA DEL ORIGEN LO USA (linea ~2475).
+   Con la MISMA especificidad, un `!important` le gana a cualquier regla normal por
+   tarde que este. Estar al final de la hoja solo desempata entre iguales — y el
+   sintoma de no verlo es «escribi la regla, esta cargada, y no pasa nada». */
+.ahdoc .ugc .ugc-content > .ugc-split {
+  flex: 0 0 auto !important;
+  min-height: 0 !important;
+  align-items: flex-start !important;   /* sin esto las columnas se estiran */
+}
+.ahdoc .ugc .ugc-content > .ugc-split > .ugc-vcol,
+.ahdoc .ugc .ugc-content > .ugc-split > .ugc-pcol {
+  overflow: visible !important;
+  height: auto !important;
+  max-height: none !important;
+  /* La columna del video era `position: sticky` para acompañar al papel largo; con un
+     solo scroll eso la dejaria flotando sobre el material. */
+  position: static !important;
+}
+
