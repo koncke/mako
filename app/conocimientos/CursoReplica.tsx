@@ -274,10 +274,27 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
                 busca «dónde estoy parado» en cualquier sitio, y desde acá se vuelve al
                 catálogo. El nombre del curso se fue al otro extremo de la barra de
                 arriba. Pedido de Martin. */}
-            <div className="ugc-side-brand">
-              <span className="ugc-side-name">Conocimientos</span>
-              <span className="ugc-side-sub">Formación</span>
-            </div>
+            {/* ⚠️ EL LOGO, Y ES UN BOTON: lleva a todos los cursos.
+                La marca de arriba a la izquierda es donde todo el mundo hace click para
+                volver al principio — si ahí no se puede clickear, la pantalla se lee como
+                sin salida aunque la salida esté abajo. El corte del color es el de la
+                casa: la segunda mitad de la palabra en lima, igual que en el resto del
+                portal (`.b span { color: var(--lime) }`). */}
+            {/* ⚠️ Solo es BOTON si hay a dónde ir. En un share de UN curso suelto no existe
+                el catálogo arriba, y un botón que no lleva a ningún lado es peor que no
+                tenerlo: promete una salida que no está. Ahí queda como rótulo. */}
+            {onSalir ? (
+              <button type="button" className="ugc-side-brand ugc-side-brand-btn"
+                onClick={onSalir} aria-label="Ir a todos los cursos">
+                <span className="ugc-side-name">Cono<span>cimientos</span></span>
+                <span className="ugc-side-sub">Formación</span>
+              </button>
+            ) : (
+              <div className="ugc-side-brand">
+                <span className="ugc-side-name">Cono<span>cimientos</span></span>
+                <span className="ugc-side-sub">Formación</span>
+              </div>
+            )}
             {/*
               ⚠️ UN SOLO BOTON EN ESTE LUGAR, y cambia segun donde estes.
                  Fuera de una clase lleva al catálogo; adentro, al listado del que saliste

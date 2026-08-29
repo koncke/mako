@@ -2624,10 +2624,24 @@ html:has(.ahdoc), body:has(.ahdoc) { overflow: hidden !important; height: 100% !
 .ahdoc .ugc .ugc-side *::-webkit-scrollbar-thumb:hover { background-color: rgba(255, 255, 255, .44); }
 
 /* ── El curso, al extremo derecho de la barra de arriba ─────────────────────────────── */
-.ahdoc .ugc .ugc-topbar { display: flex; align-items: center; gap: 16px; }
+/* La barra de arriba venia con un fondo propio que TAPA la textura de hoja del
+   fondo: un rectangulo liso cruzando la pantalla, justo donde el diseño quiere que
+   se vea el papel. Se saca — el buscador ya tiene su propia caja y no necesita que
+   la barra entera se pinte para separarse. Pedido de Martin. */
+.ahdoc .ugc .ugc-topbar {
+  display: flex; align-items: center; gap: 16px;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
 .ahdoc .ugc .ugc-topbar .ugc-search { flex: 1 1 auto; min-width: 0; }
 .ahdoc .ugc .ugc-topbar-curso {
   flex: 0 0 auto;
+  /* `margin-left: auto` y no confiar en que el buscador empuje: si el buscador deja
+     de crecer —o le ponen un ancho— el titulo se queda en el medio. Esto lo pega al
+     borde derecho pase lo que pase con el vecino. */
+  margin-left: auto;
   display: flex; flex-direction: column; align-items: flex-end;
   gap: 2px; text-align: right; min-width: 0;
 }
@@ -2701,13 +2715,52 @@ html:has(.ahdoc), body:has(.ahdoc) { overflow: hidden !important; height: 100% !
   min-height: 0 !important;
   align-items: flex-start !important;   /* sin esto las columnas se estiran */
 }
-.ahdoc .ugc .ugc-content > .ugc-split > .ugc-vcol,
-.ahdoc .ugc .ugc-content > .ugc-split > .ugc-pcol {
+/* ⚠️ LA TRANSCRIPCION CONSERVA SU PROPIO SCROLL, y eso NO es lo contrario de lo de
+   arriba: son dos scrolls con trabajos distintos.
+
+     · el del CONTENEDOR mueve la PAGINA: video, papel y material. Es corto —lo
+       justo para llegar al material— porque el papel no lo estira.
+     · el del PAPEL mueve la TRANSCRIPCION adentro de su caja, que puede medir 6.000 px.
+
+   Primero le saque el scroll al papel para que todo fuera una sola tirada, y quedo
+   peor: para llegar al material habia que atravesar la transcripcion ENTERA. Que es
+   exactamente lo que se venia a arreglar. La transcripcion es contenido de REFERENCIA
+   —se busca dentro, no se lee de corrido— y por eso vive en una caja acotada.
+
+   El tope es del alto de la ventana: la caja llena la pantalla y el material queda
+   justo abajo, a un scroll corto. `dvh` y no `vh` por el navegador del celular, donde
+   la barra de direcciones aparece y desaparece. */
+.ahdoc .ugc .ugc-content > .ugc-split > .ugc-vcol {
   overflow: visible !important;
   height: auto !important;
   max-height: none !important;
+}
+.ahdoc .ugc .ugc-content > .ugc-split > .ugc-pcol {
+  overflow-y: auto !important;
+  height: auto !important;
+  max-height: calc(100dvh - 190px) !important;
   /* La columna del video era `position: sticky` para acompañar al papel largo; con un
      solo scroll eso la dejaria flotando sobre el material. */
   position: static !important;
 }
 
+
+/* -- El LOGO de la barra lateral -------------------------------------------------
+   Corte de color de la casa: la segunda mitad de la palabra en lima, igual que en el
+   resto del portal. Como boton no lleva NADA de chrome: la marca no se lee como un
+   control, se lee como la marca — y se descubre que es clickeable con el cursor. -- */
+.ahdoc .ugc .ugc-side-name > span { color: var(--lime); }
+.ahdoc .ugc .ugc-side-brand-btn {
+  background: none; border: 0; padding: 0; margin: 0;
+  font: inherit; color: inherit; text-align: left;
+  cursor: pointer;
+  /* La barra lo ordena en columna igual que al <div> que reemplaza. */
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  width: 100%;
+}
+.ahdoc .ugc .ugc-side-brand-btn:hover .ugc-side-name { opacity: .85; }
+/* El foco por teclado TIENE que verse: es la unica pista para quien no usa mouse, y
+   sacarlo es de las cosas que rompen una pantalla sin que nadie lo note. */
+.ahdoc .ugc .ugc-side-brand-btn:focus-visible {
+  outline: 2px solid var(--lime); outline-offset: 4px; border-radius: 4px;
+}
