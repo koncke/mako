@@ -30,6 +30,7 @@
 
 REPO="C:/Users/marti/OneDrive/Escritorio/dashboard-marketing-main/dashboard-marketing"
 LOG="C:/cursos/cola.log"
+LOG_BAJA="C:/cursos/bajador.log"   # el otro escritor; ver por qué, abajo en MIN
 MIO="C:/cursos/perro.log"
 SILENCIO=20          # minutos sin escribir = sospechosa (si además no hay procesos, muerta)
 COLGADA=45           # minutos sin escribir = colgada, aunque haya procesos vivos
@@ -39,12 +40,19 @@ di() { echo "$(date '+%Y-%m-%d %H:%M') $1" >> "$MIO"; }
 
 [ -f "$LOG" ] || { di "no hay cola.log todavia — no hago nada"; exit 0; }
 
-# ¿Hace cuánto que no escribe?
+# ⚠️ LA VIDA SE MIDE POR EL MÁS RECIENTE DE LOS **DOS** LOGS, y esto no es un detalle:
+#    desde el 29/08/2026 el bajador escribe en su propio archivo (dos escritores sobre el
+#    mismo se comían el 10% de las líneas). Mirando solo `cola.log`, una descarga larga
+#    —que puede tardar una hora sin que la cola escriba una sola línea— se vería como una
+#    cola muerta, y este perro MATARÍA una cola perfectamente sana cada 45 minutos.
+#    Separar los logs arregló un problema y creaba otro peor en el vigilante.
 MIN=$(python -c "
 import os,time
-print(int((time.time()-os.path.getmtime(r'$LOG'))/60))
-" 2>/dev/null)
-[ -z "$MIN" ] && { di "no pude leer la fecha del log"; exit 0; }
+archivos = [r'$LOG', r'$LOG_BAJA']
+ultimo = max((os.path.getmtime(f) for f in archivos if os.path.exists(f)), default=0)
+print(int((time.time()-ultimo)/60))
+" 2>/dev/null | tr -d '\r')
+[ -z "$MIN" ] && { di "no pude leer la fecha de los logs"; exit 0; }
 
 if [ "$MIN" -lt "$SILENCIO" ]; then
   exit 0                      # viva: ni una línea, para que el log del perro sea legible

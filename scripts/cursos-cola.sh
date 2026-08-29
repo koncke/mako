@@ -41,6 +41,24 @@
 
 REPO="C:/Users/marti/OneDrive/Escritorio/dashboard-marketing-main/dashboard-marketing"
 LOG="C:/cursos/cola.log"
+# ⚠️ EL BAJADOR ESCRIBE EN SU PROPIO ARCHIVO, Y NO ES PROLIJIDAD: DOS ESCRITORES
+#    CONCURRENTES SE COMEN LÍNEAS.
+#
+#    Desde que el bajador corre con `&`, él y el pipeline escribían al MISMO `cola.log` a la
+#    vez. Medido el 29/08/2026 reproduciéndolo: con escrituras grandes —que es lo que hace
+#    `node`, no `echo`— **se perdieron 315 de 3000 líneas, un 10,5%**. En el log real
+#    quedaron 1.471 líneas con UTF-8 roto (escrituras cortadas a mitad de carácter) y
+#    líneas de dos procesos fundidas en una sola.
+#
+#    El daño no es cosmético: `-- pipeline (1a pasada) salió` aparecía **5 veces sobre 23
+#    rondas**, y es justo la única línea que se escribe MIENTRAS el bajador escribe. Con
+#    eso, cualquier medición sobre este log mide el ruido. Se quemaron cuatro métodos de
+#    medición antes de encontrarlo, y el síntoma parecía un bug de la cola.
+#
+#    ⚠️ La primera prueba que hice NO lo reprodujo: dos `echo` de sh escribiendo líneas
+#       cortas dan 8000 de 8000. Hace falta que uno de los dos escriba en chunks grandes.
+#       Una prueba de concurrencia que no imita el TAMAÑO de escritura no prueba nada.
+LOG_BAJA="C:/cursos/bajador.log"
 LISTA="C:/cursos/_cola.txt"
 PISO=14          # GB para arrancar un curso
 TOPE_BAJADOR=4h  # ningún curso puede quedarse con la cola (ver el porqué más abajo)
@@ -137,8 +155,10 @@ while IFS= read -r d; do
   #    El pipeline YA estaba escrito para esto: su `descargaViva` mira si `bajados.txt`
   #    crece o si hay un `.part` FRESCO, y no publica mientras el bajador trabaje. Esa
   #    lógica existía y nunca se había usado, porque la cola los corría en serie.
-  di "  ▶ bajando y transcribiendo A LA VEZ · $(date +%H:%M:%S)"
-  timeout "$TOPE_BAJADOR" node scripts/curso-bajar.mjs --plan "$PLAN" >> "$LOG" 2>&1 &
+  di "  ▶ bajando y transcribiendo A LA VEZ · $(date +%H:%M:%S)  (la bajada, en $LOG_BAJA)"
+  echo "" >> "$LOG_BAJA"
+  echo "════ $d · $(date) ════" >> "$LOG_BAJA"
+  timeout "$TOPE_BAJADOR" node scripts/curso-bajar.mjs --plan "$PLAN" >> "$LOG_BAJA" 2>&1 &
   PID_BAJADOR=$!
 
   node scripts/curso-pipeline.mjs --plan "$PLAN" --drive --tope-horas 12 >> "$LOG" 2>&1

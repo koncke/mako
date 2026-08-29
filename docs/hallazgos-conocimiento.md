@@ -5579,3 +5579,74 @@ la cola» desde una herramienta de shell, el resultado dio 4 con una sola cola v
 otros tres eran **mis propios shells**, cuya línea de comandos contenía los patrones que
 estaba buscando. Un conteo así hay que mirarlo como LISTA, con la línea de comandos al
 lado, antes de sacar cualquier conclusión de él.
+
+## Dos procesos escribiendo el mismo log se comen el 10% de las líneas
+
+**Vive en:** `scripts/cursos-cola.sh` (`LOG_BAJA`) · `scripts/cursos-perro.sh` (el cálculo
+de `MIN`)
+
+Desde que el bajador corre con `&`, él y el pipeline escribían al MISMO `C:/cursos/cola.log`
+a la vez. **Medido reproduciéndolo el 29/08/2026: se perdieron 315 de 3.000 líneas, un
+10,5%.** En el log real quedaron **1.471 líneas con UTF-8 roto** —escrituras cortadas a
+mitad de carácter— y líneas de dos procesos fundidas en una sola, así:
+
+```
+✖ No hay [download] 1219961323: has already been recorded in the archive
+   └ del pipeline ┘ └──────────── del bajador ────────────┘
+```
+
+**El daño no es cosmético, y la forma en que se manifiesta es la peor:** la línea
+`-- pipeline (1a pasada) salió` aparecía **5 veces sobre 23 rondas**. No es azar — es
+justo la única línea que se escribe MIENTRAS el bajador escribe: las otras tres van
+después del `wait`, sin competencia. O sea que **lo que el log pierde no es aleatorio: es
+exactamente lo que pasó durante la concurrencia**, que es lo único que uno quiere medir.
+
+Se quemaron **cuatro métodos de medición** contra este log antes de encontrarlo, y el
+síntoma parecía un bug de la cola («el pipeline no corre»). El pipeline corría: su salida
+estaba ahí, era el `di` el que faltaba.
+
+⚠️ **La primera prueba NO lo reprodujo, y por poco se declara inexistente.** Dos `echo` de
+sh escribiendo líneas cortas al mismo archivo dan **8.000 de 8.000**: ni una pérdida. Hace
+falta que uno de los dos escriba en **chunks grandes**, como hace `node`. Una prueba de
+concurrencia que no imita el TAMAÑO de escritura del caso real no prueba nada — y da un
+verde que apaga la búsqueda.
+
+- **Un archivo de log tiene UN escritor.** Si hay dos procesos, hay dos archivos. El que
+  quiera la película completa los mira con dos `tail`.
+- **Y separar los logs le rompe la vista al vigilante:** la vida se medía por la fecha de
+  `cola.log`, que durante una descarga larga la mantenía fresca el bajador. Con los logs
+  separados, una descarga de una hora se vería como una cola muerta y el perro **mataría
+  una cola sana cada 45 minutos**. Arreglar un problema creó otro peor; la vida ahora se
+  mide por el **más reciente de los dos** archivos.
+
+## Cuatro cambios juntos no son un experimento
+
+La pregunta era «¿bajar y transcribir a la vez aceleró la cola?». No se puede contestar con
+este log, y **no por falta de muestra: el cambio del 28/08 21:55 no fue uno, fueron cuatro
+a la vez** — el paralelismo, `--abort-on-unavailable-fragment`, el `timeout 4h` del bajador
+y `--concurrent-fragments` de 4 a 8.
+
+Ese último solo ya vale 1,6x en la bajada, y en el log se ve el salto: la velocidad de
+transferencia por curso pasa de ~0,5-1,5 MiB/s a 4-15 MiB/s. **Pero el salto arranca a las
+11:57 del 28/08, casi diez horas ANTES de que existiera el modo paralelo.** Cualquier
+comparación «ventana serie vs ventana paralela» mide los flags de yt-dlp y le atribuye el
+resultado al scheduler. Los cuatro métodos midieron eso, con precisión, sin saberlo.
+
+- **Nunca compares dos ventanas de tiempo si el código cambió entre medio.** Lo que
+  contesta es un A/B con el MISMO código de bajada, alternando el modo curso por curso
+  (par/impar), que además controla la deriva de la red y del CDN.
+- **Y el lado viejo está muerto para siempre:** el formato anterior escribía
+  `-- bajador salió con N --` **sin hora**, así que el instante en que terminó la bajada
+  no existe en el archivo. No es un cálculo mal hecho, es un dato que nunca se guardó.
+  Cuando agregues una fase a un proceso largo, la hora va desde el día uno: sin ella, el
+  pasado no se puede medir ni con el mejor análisis.
+
+## Contar procesos «de la cola» desde el shell se cuenta a sí mismo — tres veces en un día
+
+Ya está escrito para el vigilante, pero muerde igual al DIAGNOSTICAR a mano: una consulta
+por línea de comandos matchea **la propia consulta**, porque el `bash -c "…"` que la
+ejecuta contiene los patrones buscados. El 29/08 dio «4 procesos vivos» tres veces seguidas
+sobre una cola **completamente muerta**, y las tres veces eran mis propios shells.
+
+**Un conteo de procesos se mira como LISTA, con la línea de comandos al lado**, nunca como
+número. Y se filtra por nombre de binario **y** excluyendo las invocaciones `-c`.

@@ -1975,3 +1975,29 @@ otra escribe**. No hay síntoma: el log avanza y los cursos salen.
 - **Y la firma para reconocerlo: dos formatos de log en el mismo archivo son dos procesos.**
   Acá se descubrió de rebote, porque un parser encontró 8 rondas y **cero cronometradas**:
   el log mezclaba el formato viejo con el nuevo, que es imposible con un solo escritor.
+
+⚠️ **UN ARCHIVO DE LOG TIENE UN SOLO ESCRITOR.** Ni siquiera con `>>`: al correr el bajador
+con `&`, él y el pipeline escribían al mismo `cola.log` y **se perdió el 10,5% de las
+líneas** (315 de 3.000, medido reproduciéndolo), más 1.471 líneas con UTF-8 roto y líneas
+de dos procesos fundidas en una. Si hay dos procesos, hay dos archivos.
+
+- **Lo que se pierde NO es aleatorio: es justo lo que pasó durante la concurrencia.** La
+  línea `pipeline (1a pasada) salió` sobrevivió 5 de 23 veces —es la única que se escribe
+  mientras el otro escribe—, o sea que el log borra exactamente lo único que uno quería
+  medir. Se quemaron cuatro métodos de medición contra ese log antes de encontrarlo.
+- ⚠️ **Una prueba de concurrencia que no imita el TAMAÑO de escritura no prueba nada.** Dos
+  `echo` de sh con líneas cortas dan 8.000 de 8.000 y el bug se declara inexistente; hace
+  falta que uno escriba en chunks grandes, como `node`. Un verde así apaga la búsqueda.
+- **Y separar los logs le rompe la vista al vigilante:** si la señal de vida era la fecha
+  de un archivo que mantenía fresco el OTRO proceso, ahora hay que mirar **el más reciente
+  de los dos**. Sin eso, una descarga larga se ve como una cola muerta y el perro mata una
+  cola sana. Arreglar un problema creó otro peor.
+
+⚠️ **Y no compares dos ventanas de tiempo si el código cambió entre medio.** «¿El
+paralelismo aceleró la cola?» no se pudo contestar, y no por falta de muestra: en el mismo
+commit entraron cuatro cambios, y uno de ellos —`--concurrent-fragments` de 4 a 8— vale
+1,6x él solo. Peor: el salto de velocidad empieza **diez horas antes** de que existiera el
+modo paralelo. Todo número serie-vs-paralelo medía los flags de yt-dlp y se lo atribuía al
+scheduler. Lo que contesta es un A/B con el mismo código, alternando el modo ítem por ítem.
+Y **la hora de cada fase se escribe desde el día uno**: el formato viejo no la tenía, así
+que ese pasado no se puede medir ni con el mejor análisis.
