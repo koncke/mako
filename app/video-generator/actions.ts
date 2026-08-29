@@ -75,6 +75,10 @@ export async function generarPlanAction(
       anguloId: input.anguloId,
       acentoPrompt: acento.prompt,
       tema: componerTema({ ...input, guionTexto }, anterior),
+      // El guion, PALABRA POR PALABRA. Con esto el motor lo reparte en tomas en
+      // vez de pedirle al modelo que lo escriba — que es lo que venia pasando y
+      // por lo que un anuncio salio con un CTA que el cliente nunca escribio.
+      guionLiteral: guionTexto,
       cantidadClips: cabida.clips,
       duracionTotalSeg: cabida.segundosReales,
       feedback: input.feedback,

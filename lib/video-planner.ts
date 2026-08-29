@@ -29,8 +29,9 @@ import { brandSystem, parseJsonObject } from './campaign-structurer';
 import { renderTemplate, contenidoNoConfiable } from './prompt-render-pure';
 import {
   puestaPorId, ritmoDeClips, palabrasQueEntran, contarPalabras, repartirDuracion,
-  marcasDeVoseo, conAcento, type Puesta,
+  marcasDeVoseo, conAcento, soloHablado, type Puesta,
 } from './puestas-data';
+import { repartirGuion } from './guion-reparto';
 
 // Se re-exportan porque son parte del contrato del motor, pero VIVEN en
 // puestas-data: sin `server-only` ahí, los tests las pueden importar.
@@ -122,7 +123,7 @@ El guion lo va a decir una persona real frente a una cámara, a SU audiencia. No
 
 Esto ya costó seis versiones de guion en este proyecto: el acento equivocado no se nota al leer y se nota apenas alguien lo dice en voz alta.
 
-## CÓMO SE ESCRIBE EL TEXTO HABLADO
+{{guionLiteral}}## CÓMO SE ESCRIBE EL TEXTO HABLADO
 
 **La densidad manda.** Cada clip admite un número exacto de palabras y está indicado arriba, clip por clip. Menos palabras y el modelo alarga sílabas o repite; más y la frase se corta a la mitad. Cuenta las palabras de cada línea antes de darla por buena.
 
@@ -153,6 +154,38 @@ Cuando la persona no habla en un clip, el prompt dice explícitamente que no dic
 El fondo es contexto, no subtítulo. Si la frase habla de una junta, no hace falta que se vea una junta. La imagen sostiene la atención; el texto lleva el argumento.
 
 Responde SOLO con el objeto JSON, sin texto alrededor y sin cercas de código.`;
+
+
+/**
+ * El apartado que se le agrega al system cuando el cliente trajo SU guion.
+ *
+ * Existe aunque la voz se pise después: sin él, el modelo escribe la cámara y la
+ * acción para un texto que cree que él eligió, y el prompt de video termina
+ * describiendo otra escena que la que se va a decir.
+ */
+const BLOQUE_GUION_LITERAL = `## EL GUION YA ESTÁ ESCRITO — NO ES TUYO
+
+El cliente eligió un guion suyo y **ya está repartido en tomas**. Cada clip de la
+estructura de abajo trae su línea de VOZ literal.
+
+**No la reescribas. No la acortes. No la "mejores". No cambies el cierre.** Ni una
+palabra, ni el orden, ni la puntuación. Esas son las palabras del cliente y las
+va a decir él frente a una cámara.
+
+Esto ya falló una vez: sobre un guion que cerraba con «en el video del enlace te
+explico cómo construir ese sistema», el plan devolvió «toca el botón aquí abajo,
+deja tus datos en el formulario». Un CTA cambiado manda a la gente a un paso del
+embudo que puede no existir, y no se nota leyendo: se nota cuando nadie llega.
+
+Tu trabajo acá es el OTRO: para cada toma, con esa voz ya dada, escribir qué se
+ve, qué hace la cámara y el prompt de video. El campo "voz" del JSON lo devuelves
+copiando la línea literal que te dieron.
+
+La sección de abajo sobre cómo se escribe el texto hablado **no aplica a este
+pedido**: describe cómo se escribiría un guion desde cero, y acá no hay que
+escribir ninguno.
+
+`;
 
 const USER_TEMPLATE = `## EL PEDIDO
 
@@ -187,13 +220,23 @@ const JSON_SHAPE = `{
  * es una propiedad de la puesta (no una decisión creativa) y el conteo de
  * palabras es aritmética, que es justo lo que un modelo de lenguaje hace peor.
  */
-function estructuraDeClips(puesta: Puesta, cantidad: number, segundos: number[]): string {
+function estructuraDeClips(
+  puesta: Puesta,
+  cantidad: number,
+  segundos: number[],
+  /** El texto de cada clip cuando ya está decidido. */
+  reparto: { voz: string }[] | null,
+): string {
   const habla = ritmoDeClips(puesta, cantidad);
   const filas = habla.map((h, i) => {
     const seg = segundos[i];
     const tope = palabrasQueEntran(puesta, seg);
     const modo = h ? 'HABLA en cámara' : 'NO habla: está en cuadro, la voz va en OFF';
-    return `- Clip ${i + 1}: ${seg} s · ${modo} · máximo ${tope} palabras`;
+    const base = `- Clip ${i + 1}: ${seg} s · ${modo} · máximo ${tope} palabras`;
+    // Con el guion del cliente, la línea trae LO QUE SE DICE. El modelo no lo
+    // elige ni lo ajusta: lo lee para poder escribir la acción y la cámara que
+    // acompañan a esa frase.
+    return reparto ? `${base}\n  VOZ (literal, no la cambies): "${reparto[i]?.voz ?? ''}"` : base;
   });
   return [
     `Son ${cantidad} clips, en este orden y con estas restricciones:`,
@@ -229,7 +272,14 @@ async function briefDelNegocio(): Promise<string> {
 
 const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 
-function sanearPlan(raw: Record<string, unknown>, puesta: Puesta, segundos: number[], acento: string): PlanVideo {
+function sanearPlan(
+  raw: Record<string, unknown>,
+  puesta: Puesta,
+  segundos: number[],
+  acento: string,
+  /** El reparto del guion del cliente. Presente = manda ÉL, no lo que devolvió el modelo. */
+  reparto: { voz: string }[] | null,
+): PlanVideo {
   const habla = ritmoDeClips(puesta, segundos.length);
   const crudos = Array.isArray(raw.clips) ? raw.clips : [];
   if (crudos.length === 0) throw new Error('el plan volvió sin clips');
@@ -248,7 +298,11 @@ function sanearPlan(raw: Record<string, unknown>, puesta: Puesta, segundos: numb
   const clips: ClipPlan[] = crudos.map((c, i) => {
     const o = (c ?? {}) as Record<string, unknown>;
     const adjunta = str(o.imagenAdjunta);
-    const voz = str(o.voz);
+    // ⚠️ Cuando el cliente eligió un guion suyo, la voz NO sale del modelo: sale
+    // del reparto determinista. Es lo único que garantiza que el anuncio diga lo
+    // que el cliente escribió — un prompt que pide no reescribir funciona casi
+    // siempre, y «casi siempre» sobre un CTA es un modo de falla silencioso.
+    const voz = reparto ? (reparto[i]?.voz ?? '') : str(o.voz);
     return {
       n: i + 1,
       segundos: segundos[i],
@@ -288,6 +342,18 @@ export type PedidoPlan = {
   acentoPrompt: string;
   /** El tema, la historia o el guion que el usuario ya tiene. */
   tema: string;
+  /**
+   * El guion del cliente, PALABRA POR PALABRA, cuando eligió uno suyo.
+   *
+   * Presente = el texto hablado ya está decidido y el modelo no lo escribe: se
+   * reparte acá (lib/guion-reparto.ts) y él solo pone cámara, acción y prompt.
+   * Ausente = el flujo viejo, donde `tema` es un tema y el modelo sí escribe.
+   *
+   * La diferencia no es de estilo. Cuando el modelo escribía sobre un guion ya
+   * hecho, cambiaba el CTA — y un CTA cambiado manda a la gente a un paso del
+   * embudo que puede no existir.
+   */
+  guionLiteral?: string;
   cantidadClips: number;
   duracionTotalSeg: number;
   /** Feedback sobre un plan anterior (regenerar). */
@@ -331,6 +397,15 @@ export async function generarPlan(ws: number, pedido: PedidoPlan): Promise<Gener
 
   const segundos = repartirDuracion(puesta, cantidad, pedido.duracionTotalSeg);
 
+  // ── El reparto del guion del cliente ──────────────────────────────────────
+  // Se calcula ANTES de llamar al modelo y no se le delega. Los rótulos de
+  // sección se sacan con `soloHablado` porque no se pronuncian: dejarlos haría
+  // que «GANCHO» termine dicho a cámara.
+  const hablado = pedido.guionLiteral ? soloHablado(pedido.guionLiteral).trim() : '';
+  const reparto = hablado
+    ? repartirGuion(hablado, segundos.map((sg) => palabrasQueEntran(puesta, sg)))
+    : null;
+
   try {
     const contexto = await briefDelNegocio();
     const system = await brandSystem(renderTemplate(SYSTEM_TEMPLATE, {
@@ -349,7 +424,8 @@ export async function generarPlan(ws: number, pedido: PedidoPlan): Promise<Gener
       // uno sin llenar se ven IGUAL desde afuera —el template renderiza en los dos
       // casos— y el único síntoma vive en la calidad de lo que sale.
       acento: pedido.acentoPrompt,
-      estructura: `${estructuraDeClips(puesta, cantidad, segundos)}\n\nFORMA DEL JSON:\n${JSON_SHAPE}`,
+      guionLiteral: reparto ? BLOQUE_GUION_LITERAL : '',
+      estructura: `${estructuraDeClips(puesta, cantidad, segundos, reparto)}\n\nFORMA DEL JSON:\n${JSON_SHAPE}`,
     }));
 
     const feedback = pedido.feedback?.trim();
@@ -371,7 +447,7 @@ export async function generarPlan(ws: number, pedido: PedidoPlan): Promise<Gener
       motivo: `Planificar anuncio en video (${puesta.nombre})`,
     });
 
-    return { ok: true, plan: { ...sanearPlan(parseJsonObject(salida), puesta, segundos, pedido.acentoPrompt), anguloId: pedido.anguloId } };
+    return { ok: true, plan: { ...sanearPlan(parseJsonObject(salida), puesta, segundos, pedido.acentoPrompt, reparto), anguloId: pedido.anguloId } };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, error: `No se pudo armar el plan: ${msg}` };
