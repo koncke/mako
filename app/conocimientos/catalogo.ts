@@ -50,6 +50,20 @@ import { CURSO_INSTITUTO_DE_COMUNICACION } from './curso-instituto-de-comunicaci
 import { CURSO_CREATOR_CLUB } from './curso-creator-club';
 import { CURSO_TRILOGIA_DE_BRIAN_TRACY } from './curso-trilogia-de-brian-tracy';
 import { CURSO_CREATIVOS_UGC_REALISTAS } from './curso-creativos-ugc-realistas';
+import { CURSO_21_TECNICAS_PARA_INVERTIR_EN_BIENES_RAICES } from './curso-21-tecnicas-para-invertir-en-bienes-raices';
+import { CURSO_AUTOMATIZACION_Y_MONETIZACION_DE_YOUTOBE } from './curso-automatizacion-y-monetizacion-de-youtobe';
+import { CURSO_AUTOMATIZATUBE } from './curso-automatizatube';
+import { CURSO_BOOTCAMP_DE_CIERRE_DE_VENTAS_IA } from './curso-bootcamp-de-cierre-de-ventas-ia';
+import { CURSO_CODIGO_GENIO } from './curso-codigo-genio';
+import { CURSO_CREATIVOS_ANIMADOS } from './curso-creativos-animados';
+import { CURSO_DESARROLLA_TU_INFLUENCER_VIRTUAL } from './curso-desarrolla-tu-influencer-virtual';
+import { CURSO_IMAN_GADZHI_8_FIGURE_PERSONAL_BRAND } from './curso-iman-gadzhi-8-figure-personal-brand';
+import { CURSO_LEGALMENTE_EMPRENDEDOR } from './curso-legalmente-emprendedor';
+import { CURSO_MEGADATA_DE_UN_JOVEN_EMPREDEDOR } from './curso-megadata-de-un-joven-emprededor';
+import { CURSO_MONETIZATUBE } from './curso-monetizatube';
+import { CURSO_SEMINARIOS_ALEJANDRO_CARDONA } from './curso-seminarios-alejandro-cardona';
+import { CURSO_THE_REAL_WORLD } from './curso-the-real-world';
+import { CURSO_US30_2_0 } from './curso-us30-2-0';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio';
 import { CURSO_BRANDING } from './BrandingMaKo';
@@ -321,6 +335,22 @@ export const CURSOS_TODOS: Curso[] = [
   // `m2.webp`…): solo este curso las tiene bajadas, y sin el prefijo la réplica pide
   // portadas que no existen. Ver CursoReplica.tsx.
   { ...conRecursos(CURSO_CREATIVOS_UGC_REALISTAS, RECURSOS_UGC), portadasModulo: '/cono-ugc/m' },
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_21_TECNICAS_PARA_INVERTIR_EN_BIENES_RAICES,
+  CURSO_AUTOMATIZACION_Y_MONETIZACION_DE_YOUTOBE,
+  CURSO_AUTOMATIZATUBE,
+  CURSO_BOOTCAMP_DE_CIERRE_DE_VENTAS_IA,
+  CURSO_CODIGO_GENIO,
+  CURSO_CREATIVOS_ANIMADOS,
+  CURSO_DESARROLLA_TU_INFLUENCER_VIRTUAL,
+  CURSO_IMAN_GADZHI_8_FIGURE_PERSONAL_BRAND,
+  CURSO_LEGALMENTE_EMPRENDEDOR,
+  CURSO_MEGADATA_DE_UN_JOVEN_EMPREDEDOR,
+  CURSO_MONETIZATUBE,
+  CURSO_SEMINARIOS_ALEJANDRO_CARDONA,
+  CURSO_THE_REAL_WORLD,
+  CURSO_US30_2_0,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
