@@ -38,7 +38,7 @@ import {
   guionATexto,
   puestaPorId, puestasOfrecidas, type Puesta,
 } from './video-pedido';
-import { generarPlanAction } from './actions';
+import { generarPlanAction, editarLineaPlanAction } from './actions';
 import { PuentePanel } from './PuentePanel';
 import type { Puente } from '@/lib/flow-cola';
 import { cabidaDeGuion, soloHablado } from '@/lib/puestas-data';
@@ -49,6 +49,7 @@ import {
   SeccionCard, parsearSecciones, reconstruirSecciones, EditarTexto, ICONO_SECCION_GUION,
 } from '../components/SeccionCard';
 import { editarGuionAction } from './cargar-guiones-action';
+import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 
 type Vista = 'catalogo' | 'wizard' | 'anuncio';
@@ -441,16 +442,19 @@ function DetalleFormato({
 // cómo se fabrica, y el cliente no fabrica nada.
 
 function LineaGuion({
-  n, segundos, habla, voz, palabras, tope, voseo, literal, seAlejo, original,
+  n, segundos, habla, voz, palabras, tope, voseo, literal, ctaInventado, original, onEditar, guardando,
 }: {
   n: number; segundos: number; habla: boolean; voz: string;
   palabras: number; tope: number; voseo: string[];
   /** Es el cierre del guion: va palabra por palabra como lo escribió el cliente. */
   literal?: boolean;
-  /** La adaptación conservó menos de la mitad del contenido del original. */
-  seAlejo?: boolean;
-  /** Lo que decía el guion, cuando MaKo lo dijo de otra forma. */
+  /** Palabras de llamado a la acción que MaKo metió y el guion no tenía. */
+  ctaInventado?: string[];
+  /** Lo que decía el guion, cuando MaKo lo dijo con otras palabras. */
   original?: string;
+  /** Guardar el texto corregido a mano. */
+  onEditar: (voz: string) => void;
+  guardando: boolean;
 }) {
   const alerta = palabras > tope || voseo.length > 0;
   return (
@@ -465,9 +469,27 @@ function LineaGuion({
         {segundos}s
       </span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 'var(--fs-md)', color: 'var(--ink)', lineHeight: 1.6 }}>
-          {habla ? <Enfasis texto={voz} /> : <em style={{ color: 'var(--dim)' }}><Enfasis texto={voz} /></em>}
-        </div>
+        {/*
+          Se edita ACÁ, escribiendo encima. Antes, para cambiar una palabra había
+          que pedirle a MaKo que rehiciera el plan entero: caro, lento, y con el
+          riesgo de que las otras seis tomas también cambiaran. Corregir una
+          palabra tiene que costar una palabra.
+
+          Se pierde el `**énfasis**` en negrita mientras se escribe —el campo
+          muestra el texto crudo— y vuelve al guardar. Es el precio de editar en
+          el mismo lugar donde se lee, y es más barato que un modal.
+        */}
+        <EditarTexto
+          valor={voz}
+          multiline
+          disabled={guardando}
+          onSave={onEditar}
+          style={{
+            fontSize: 'var(--fs-md)', lineHeight: 1.6,
+            color: habla ? 'var(--ink)' : 'var(--dim)',
+            fontStyle: habla ? 'normal' : 'italic',
+          }}
+        />
         {alerta && (
           <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--warn)', lineHeight: 1.5, marginTop: 4 }}>
             {palabras > tope && <div>Es muy largo para {segundos} segundos. Pide acortarlo.</div>}
@@ -486,9 +508,10 @@ function LineaGuion({
             Cierre — va tal cual lo escribiste.
           </div>
         )}
-        {seAlejo && original && (
+        {ctaInventado && ctaInventado.length > 0 && (
           <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--warn)', lineHeight: 1.5, marginTop: 4 }}>
-            MaKo se alejó del guion en esta toma. Decía: «{original}»
+            MaKo nombró algo que tu guion no dice ({ctaInventado.join(', ')}). Tu guion decía:
+            «{original}»
           </div>
         )}
       </div>
@@ -507,6 +530,7 @@ export function VideoGeneratorApp({
 
   const [historial, setHistorial] = useState<PlanGuardado[]>(historialInicial);
   const [actual, setActual] = useState<PlanGuardado | null>(null);
+  const [editandoLinea, setEditandoLinea] = useState(false);
   // Siempre se entra al catálogo, aunque haya anuncios hechos: se viene a crear
   // uno nuevo, no a releer el anterior.
   const [vista, setVista] = useState<Vista>('catalogo');
@@ -562,8 +586,47 @@ export function VideoGeneratorApp({
     [puesta, guion],
   );
 
+  // ── Retomar el anuncio que estaba abierto ────────────────────────────────
+  // Si la URL trae un `?plan=`, se abre ese. Es lo que hace que refrescar deje
+  // al dueño donde estaba en vez de mandarlo al catálogo.
+  //
+  // Se busca en el historial que bajó del server, así que un plan que ya se
+  // recortó del tope de 10 no vuelve: en ese caso se entra al catálogo, que es
+  // la caída correcta —mejor la home que una pantalla vacía.
+  const params = useSearchParams();
+  useEffect(() => {
+    const id = params.get('plan');
+    if (!id || actual) return;
+    const guardado = historial.find((e) => e.id === id);
+    if (guardado) { setActual(guardado); setVista('anuncio'); }
+    // Solo al montar: después manda el estado, no la URL.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const idx = PASOS.indexOf(paso);
   const puedeAvanzar = paso === 'guion' ? !!guionId : true;
+
+  /**
+   * Guarda una toma corregida a mano.
+   *
+   * El plan vuelve del server ya recalculado —palabras, tope y marcas de voseo
+   * son MEDIDAS, no declaraciones— así que el estado local se reemplaza entero
+   * con lo que devolvió, en vez de parchear el clip que se tocó.
+   */
+  const editarLinea = useCallback(async (n: number, voz: string) => {
+    if (!actual) return;
+    setEditandoLinea(true); setError(null);
+    try {
+      const out = await editarLineaPlanAction(actual.id, n, voz);
+      if (!out.ok) { setError(out.error); return; }
+      setActual(out.item);
+      setHistorial((h) => h.map((e) => (e.id === out.item.id ? out.item : e)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo guardar la toma.');
+    } finally {
+      setEditandoLinea(false);
+    }
+  }, [actual]);
 
   const empezar = useCallback((id: string) => {
     setPuestaId(id);
@@ -592,6 +655,10 @@ export function VideoGeneratorApp({
       setActual(out.item);
       setFeedback('');
       setVista('anuncio');
+      // El anuncio abierto queda en la URL. Sin esto, refrescar la página lo
+      // perdía y devolvía al catálogo: el plan vive en el server pero la vista
+      // vivía solo en el estado del cliente, y un F5 se lo lleva.
+      window.history.replaceState(null, '', `?plan=${out.item.id}`);
     } finally {
       setBusy(false);
     }
@@ -926,7 +993,15 @@ export function VideoGeneratorApp({
           // Sin ícono: `arrow-left` no existe en el set y `<Icon>` no falla con
           // un nombre desconocido — cae a `dot` y dibuja un puntito.
           acciones={
-            <Button variant="secondary" onClick={() => setVista('catalogo')}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setVista('catalogo');
+                // Y se limpia el `?plan=`: si quedara, refrescar reabriría el
+                // anuncio que el dueño acaba de cerrar.
+                window.history.replaceState(null, '', window.location.pathname);
+              }}
+            >
               Volver al catálogo
             </Button>
           }
@@ -976,8 +1051,10 @@ export function VideoGeneratorApp({
                   // no de un estado de esta pantalla, que ya no lo pregunta.
                   voseo={actual.plan.acentoEsVoseante ? [] : (c.voseo ?? [])}
                   literal={c.literal}
-                  seAlejo={c.seAlejo}
+                  ctaInventado={c.ctaInventado}
                   original={c.original}
+                  guardando={editandoLinea}
+                  onEditar={(v) => void editarLinea(c.n, v)}
                 />
               ))}
             </div>

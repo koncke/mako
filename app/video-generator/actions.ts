@@ -12,7 +12,9 @@ import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
 import { generarPlan } from '@/lib/video-planner';
 import { resolverAcento } from '@/lib/acento-workspace';
 import { tzDeWorkspace } from '@/lib/timezone';
-import { puestaPorId, cabidaDeGuion, soloHablado } from '@/lib/puestas-data';
+import {
+  puestaPorId, cabidaDeGuion, soloHablado, contarPalabras, marcasDeVoseo, palabrasQueEntran,
+} from '@/lib/puestas-data';
 import {
   guardarEnHistorial, leerHistorial, type PlanGuardado,
 } from './video-datos';
@@ -101,4 +103,64 @@ export async function generarPlanAction(
   } catch (e) {
     return { ok: false, error: msg(e) };
   }
+}
+
+/**
+ * Reescribe lo que dice UNA toma del plan.
+ *
+ * El dueño, mirando el plan ya generado: «llegado a ese punto, ya no me deja
+ * editar escribiendo, debería dejarme». Y tiene razón: hasta acá el único camino
+ * para cambiar una frase era pedirle a MaKo que rehiciera el plan entero —caro,
+ * lento, y con el riesgo de que las otras seis tomas también cambien—. Corregir
+ * una palabra tiene que costar una palabra.
+ *
+ * Se recalculan `palabras`, `voseo` y `deCorrido` en el server y no se confía en
+ * lo que manda el cliente: son medidas, no declaraciones, y la pantalla las usa
+ * para avisar que una toma no entra.
+ */
+export async function editarLineaPlanAction(
+  planId: string,
+  n: number,
+  voz: string,
+): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  const limpio = (voz ?? '').trim();
+  if (!limpio) return { ok: false, error: 'La toma no puede quedar sin texto.' };
+  if (limpio.length > 1200) return { ok: false, error: 'Eso es demasiado largo para una sola toma.' };
+
+  const historial = await leerHistorial();
+  const item = historial.find((e) => e.id === planId);
+  if (!item) return { ok: false, error: 'Ese anuncio ya no está en el historial. Vuelve a generarlo.' };
+
+  const puesta = puestaPorId(item.plan.puestaId);
+
+  const clips = item.plan.clips.map((c) => (
+    c.n !== n ? c : {
+      ...c,
+      voz: limpio,
+      palabras: contarPalabras(limpio),
+      voseo: marcasDeVoseo(limpio),
+      // Editada a mano deja de ser «el cierre literal» y deja de ser «MaKo metió
+      // un CTA»: las dos marcas hablan de lo que hizo MaKo, y esto lo hizo el
+      // dueño. Dejarlas sería atribuirle a MaKo un texto que no escribió.
+      literal: undefined,
+      ctaInventado: undefined,
+      original: undefined,
+      tope: puesta ? palabrasQueEntran(puesta, c.segundos) : c.tope,
+    }
+  ));
+
+  const actualizado: PlanGuardado = {
+    ...item,
+    plan: {
+      ...item.plan,
+      clips,
+      deCorrido: clips.map((c) => c.voz).filter(Boolean).join(' '),
+    },
+  };
+
+  await guardarEnHistorial(actualizado);
+  return { ok: true, item: actualizado };
 }

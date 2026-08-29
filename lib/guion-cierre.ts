@@ -125,3 +125,49 @@ export function fidelidad(original: string, adaptada: string): number {
   for (const w of A) if (B.has(w)) juntas++;
   return juntas / A.size;
 }
+
+/**
+ * Vocabulario de LLAMADO A LA ACCIÓN. Si aparece en la adaptación y no estaba en
+ * el guion, MaKo se inventó a dónde mandar a la gente.
+ *
+ * Esta lista es la guarda PRECISA, y reemplaza a medir «cuánto se parece». Medir
+ * parecido castiga justo lo que se quiere: decir la misma idea con otras
+ * palabras —«tienes que darle la cara al cliente» por «estás hablando con el
+ * cliente para explicar por qué no llegaron»— pierde casi todos los sustantivos
+ * del original y es exactamente la adaptación buscada.
+ *
+ * Lo que de verdad no puede pasar es otra cosa, y es puntual: que aparezca un
+ * mecanismo que el negocio no tiene. Un formulario donde había un video, un
+ * WhatsApp donde había un enlace.
+ */
+const PALABRAS_CTA = [
+  'formulario', 'formularios', 'regístrate', 'registrate', 'registrarte',
+  'suscríbete', 'suscribete', 'link en bio', 'linkinbio', 'bio',
+  'whatsapp', 'wasap', 'dm', 'mensaje directo', 'inbox',
+  'agenda', 'agendar', 'agéndate', 'llamada', 'reunión', 'reunion',
+  'descarga', 'descargar', 'descárgalo', 'descargalo',
+  'cupón', 'cupon', 'descuento', 'promoción', 'promocion',
+  'comenta', 'comentario', 'escríbeme', 'escribeme', 'contáctame', 'contactame',
+  'deja tus datos', 'déjanos tus datos', 'tus datos',
+];
+
+const sinAcentos = (t: string) => t.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
+
+/**
+ * Las palabras de llamado a la acción que la adaptación METIÓ y el guion no
+ * tenía. Vacío = no inventó ningún mecanismo.
+ *
+ * Se compara contra el guion ENTERO y no contra la toma: una frase puede
+ * adelantar algo que el guion dice más adelante, y eso no es inventar.
+ */
+export function ctaInventado(guionEntero: string, adaptada: string): string[] {
+  const guion = sinAcentos(guionEntero);
+  const texto = sinAcentos(adaptada);
+  return PALABRAS_CTA.filter((p) => {
+    // Con bordes de letra para no cazar «bio» dentro de «biología». Sin `\b`,
+    // que en JavaScript es ASCII y no funciona pegado a una vocal acentuada.
+    const t = sinAcentos(p).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(`(?<!\\p{L})${t}(?!\\p{L})`, 'u');
+    return re.test(texto) && !re.test(guion);
+  });
+}

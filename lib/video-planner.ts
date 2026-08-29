@@ -32,7 +32,7 @@ import {
   marcasDeVoseo, conAcento, soloHablado, type Puesta,
 } from './puestas-data';
 import { repartirGuion, contarPalabrasReparto } from './guion-reparto';
-import { cierreDeGuion, tomasDelCierre, fidelidad } from './guion-cierre';
+import { cierreDeGuion, tomasDelCierre, ctaInventado } from './guion-cierre';
 
 // Se re-exportan porque son parte del contrato del motor, pero VIVEN en
 // puestas-data: sin `server-only` ahí, los tests las pueden importar.
@@ -65,8 +65,8 @@ export type ClipPlan = {
   tope: number;
   /** true = es el CIERRE del guion y va palabra por palabra como lo escribió el cliente. */
   literal?: boolean;
-  /** true = la adaptación conservó menos de la mitad del contenido del original. */
-  seAlejo?: boolean;
+  /** Palabras de llamado a la acción que MaKo metió y el guion no tenía. */
+  ctaInventado?: string[];
   /** Lo que decía el guion, cuando el modelo lo dijo de otra forma. */
   original?: string;
   /** Marcas de voseo encontradas en `voz`. Vacío = limpio. */
@@ -170,31 +170,53 @@ Responde SOLO con el objeto JSON, sin texto alrededor y sin cercas de código.`;
  * acción para un texto que cree que él eligió, y el prompt de video termina
  * describiendo otra escena que la que se va a decir.
  */
-const BLOQUE_GUION_LITERAL = `## EL GUION YA ESTÁ ESCRITO — ADAPTAS LA FORMA, NO EL FONDO
+const BLOQUE_GUION_LITERAL = `## EL GUION YA ESTÁ ESCRITO — TU TRABAJO ES DECIRLO COMO ÉL
 
-El cliente eligió un guion suyo y **ya está repartido en tomas**. Cada clip de la
-estructura de abajo trae su línea de VOZ.
+El cliente eligió un guion suyo y ya está repartido en tomas. Cada clip trae la
+IDEA que le toca decir.
 
-**Lo que SÍ tienes que hacer con esas líneas:** decirlas como las diría él. Meter
-sus conectores de arranque —"a ver", "mira", "pues", "entonces", "la verdad"—,
-usar las palabras de su variedad del español, y ajustar el largo al tope del clip.
-Un guion escrito como se escribe suena leído; escrito como se habla, suena dicho.
+**Eso está escrito, no dicho.** Tu trabajo es volver a decirlo como lo diría él
+frente a la cámara. Eso NO es ponerle un "mira" adelante y dejar la frase igual:
+es reescribir la frase con sus palabras.
 
-**Lo que NO puedes cambiar, nunca:**
-- Lo que la frase DICE. Ni un dato, ni un número, ni una consecuencia, ni el
-  orden de las ideas. Cambias cómo suena, no qué afirma.
-- **El CIERRE. Va LITERAL, palabra por palabra.** Las tomas marcadas
-  \`CIERRE — LITERAL\` se copian tal cual: ni una palabra distinta, ni una de más.
+Tienes permiso —y se espera que lo uses— para:
+- **cambiar las palabras por las suyas**: "un problema" puede ser "una bronca",
+  "un detalle" puede ser "un detallito", "necesito alguien" puede ser "ocupas
+  alguien";
+- **condensar**: si la idea se dice más corta y más fuerte, se dice más corta;
+- **cortar y unir frases** para que el ritmo hablado funcione;
+- **arrancar con conector**: "a ver", "mira", "pues", "entonces", "la verdad";
+- **traer media frase de la toma de al lado** si el corte queda mejor ahí — sin
+  perder nada y sin cambiar el orden.
 
-Por qué el cierre es distinto del resto: ahí está a dónde manda el anuncio. Ya
-falló una vez — un guion que cerraba con «en el video del enlace te explico cómo
-construir ese sistema» volvió como «toca el botón aquí abajo, deja tus datos en el
-formulario». Eso no es un cambio de estilo: es mandar a la gente a un paso del
-embudo que puede no existir, y no se nota leyendo. Se nota cuando nadie llega.
+Así se ve bien hecho:
+  escrito : "Y el viernes estás tú hablando con el cliente para explicar por qué no llegaron."
+  dicho   : "Y el viernes tú tienes que darle la cara al cliente."
 
-La sección de abajo sobre cómo se escribe el texto hablado te sirve para el TONO.
-No la uses para inventar contenido: acá no hay que escribir un guion, hay que
-decir el que ya está.
+  escrito : "Entonces piensas: 'Necesito alguien más duro que los haga cumplir.'"
+  dicho   : "Entonces piensas que ocupas un gerente más duro."
+
+  escrito : "Era una forma de saber desde el lunes quién podía incumplir el viernes."
+  dicho   : "Faltaba un sistema para saber desde el lunes quién iba a fallar."
+
+**Los DOS límites, y son los únicos:**
+
+1. **Los HECHOS no cambian.** Ni un número, ni un plazo, ni quién le hace qué a
+   quién, ni el orden en que se cuenta. Cambias cómo suena y con qué palabras, no
+   qué pasó.
+
+2. **El CIERRE va LITERAL.** Las tomas marcadas \`CIERRE — LITERAL\` se copian
+   palabra por palabra: ni una distinta, ni una de más. Y en ninguna otra toma
+   puedes inventar un mecanismo que el guion no nombra —un formulario, un
+   WhatsApp, un registro, una llamada—: si el guion manda a un video en un enlace,
+   el anuncio manda a un video en un enlace.
+
+Por qué el cierre es distinto: ahí está a dónde va la gente. Ya falló una vez —un
+guion que cerraba con "en el video del enlace te explico cómo construir ese
+sistema" volvió como "toca el botón aquí abajo, deja tus datos en el formulario".
+Eso manda a la gente a un paso del embudo que puede no existir, y no se nota
+leyendo: se nota cuando nadie llega.
+
 `;
 
 const USER_TEMPLATE = `## EL PEDIDO
@@ -252,7 +274,7 @@ function estructuraDeClips(
     const texto = reparto[i]?.voz ?? '';
     return literales.has(i)
       ? `${base}\n  CIERRE — LITERAL, cópiala tal cual: "${texto}"`
-      : `${base}\n  VOZ: "${texto}"  (dila como él la diría, sin cambiar lo que afirma)`;
+      : `${base}\n  IDEA A DECIR: "${texto}"\n    (dila con SUS palabras, no la copies)`;
   });
   return [
     `Son ${cantidad} clips, en este orden y con estas restricciones:`,
@@ -297,6 +319,8 @@ function sanearPlan(
   reparto: { voz: string }[] | null,
   /** Las tomas del cierre: ahí manda el reparto y no el modelo. */
   literales: Set<number>,
+  /** El guion del cliente, entero. Es contra esto que se mide un CTA inventado. */
+  guionCompleto: string,
 ): PlanVideo {
   const habla = ritmoDeClips(puesta, segundos.length);
   const crudos = Array.isArray(raw.clips) ? raw.clips : [];
@@ -332,9 +356,19 @@ function sanearPlan(
       ? (esCierre ? original : (delModelo || original))
       : delModelo;
 
-    // Cuánto se alejó de lo que decía el guion. Solo palabras con contenido:
-    // sumar «mira» o «pues» es la adaptación buscada, no un desvío.
-    const fiel = reparto && !esCierre && delModelo ? fidelidad(original, delModelo) : 1;
+    // ── La guarda, y por qué NO mide parecido ────────────────────────────────
+    // Medir «cuánto se parece al original» castiga justo lo que se quiere: decir
+    // la misma idea con otras palabras —«tienes que darle la cara al cliente» por
+    // «estás hablando con el cliente para explicar por qué no llegaron»— pierde
+    // casi todos los sustantivos y ES la adaptación buscada. El dueño lo dijo
+    // mirando las dos versiones: «me gusta mucho más la naturalidad que hizo el
+    // anterior, ahora como que se limitó bastante».
+    //
+    // Lo que de verdad no puede pasar es puntual: que aparezca un mecanismo que
+    // el negocio no tiene. Eso sí se detecta sin falsos positivos.
+    const inventado = reparto && !esCierre && delModelo
+      ? ctaInventado(guionCompleto, delModelo)
+      : [];
 
     return {
       n: i + 1,
@@ -349,11 +383,11 @@ function sanearPlan(
       tope: palabrasQueEntran(puesta, segundos[i]),
       voseo: marcasDeVoseo(voz),
       literal: esCierre && !!reparto,
-      // Debajo de 0,45 ya no es «lo mismo dicho de otra forma»: quedó menos de la
-      // mitad de los sustantivos y verbos del original. No se descarta —puede ser
-      // una condensación legítima— pero la pantalla lo dice, que es la diferencia
-      // entre un cambio y un cambio silencioso.
-      seAlejo: fiel < 0.45,
+      // No se descarta: se MUESTRA. La pantalla lo dice al lado de la toma con lo
+      // que decía el guion, que es la diferencia entre un cambio y un cambio
+      // silencioso. Descartarlo automáticamente devolvería el texto plano y
+      // perdería la adaptación buena de esa misma toma.
+      ctaInventado: inventado.length ? inventado : undefined,
       original: reparto && !esCierre && delModelo && delModelo !== original ? original : undefined,
     };
   });
@@ -494,7 +528,7 @@ export async function generarPlan(ws: number, pedido: PedidoPlan): Promise<Gener
       motivo: `Planificar anuncio en video (${puesta.nombre})`,
     });
 
-    return { ok: true, plan: { ...sanearPlan(parseJsonObject(salida), puesta, segundos, pedido.acentoPrompt, reparto, literales), anguloId: pedido.anguloId } };
+    return { ok: true, plan: { ...sanearPlan(parseJsonObject(salida), puesta, segundos, pedido.acentoPrompt, reparto, literales, hablado), anguloId: pedido.anguloId } };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, error: `No se pudo armar el plan: ${msg}` };
