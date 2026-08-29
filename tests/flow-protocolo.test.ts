@@ -46,16 +46,37 @@ test('el modelo no disponible es TERMINAL: se baja de modelo, no se insiste', ()
 
 // El peor de todos: si la sesión quedó marcada, cada llamada nueva empeora el
 // score. Un `reintentable: true` acá es lo que termina de quemar la cuenta.
-test('la sesión marcada NO se reintenta, ni por reason ni por texto', () => {
-  for (const cuerpo of [
-    conReason('PUBLIC_ERROR_UNUSUAL_ACTIVITY'),
-    { error: { message: 'reCAPTCHA evaluation failed' } },
-  ]) {
-    const r = clasificarFalla(403, cuerpo);
-    assert.equal(r.motivo, 'sesion_marcada', JSON.stringify(cuerpo));
-    assert.equal(r.reintentable, false);
-    assert.match(r.error, /parar/i);
-  }
+test('la sesión marcada NO se reintenta', () => {
+  const r = clasificarFalla(403, conReason('PUBLIC_ERROR_UNUSUAL_ACTIVITY'));
+  assert.equal(r.motivo, 'sesion_marcada');
+  assert.equal(r.reintentable, false);
+  assert.match(r.error, /parar/i);
+});
+
+/**
+ * ⚠️ Este test AFIRMABA LO CONTRARIO, y estaba mal.
+ *
+ * «reCAPTCHA evaluation failed» estaba metido en la misma rama que la sesión
+ * marcada, y eso apagaba el PUENTE ENTERO además de decirle al dueño que
+ * limpiara sus cookies. El 29/08 se midió qué lo disparaba de verdad: el token
+ * se acuñaba con un nombre de acción distinto del endpoint que se llamaba
+ * (reCAPTCHA Enterprise ata el token a la acción). El problema era NUESTRO.
+ *
+ * Los dos 403 se parecen y significan cosas opuestas: uno dice «esta cuenta está
+ * quemada», el otro «este token no servía». El segundo se arregla acuñando otro.
+ */
+test('un token de reCAPTCHA rechazado NO es una sesión quemada', () => {
+  const r = clasificarFalla(403, { error: { message: 'reCAPTCHA evaluation failed' } });
+  assert.equal(r.motivo, 'transitorio');
+  assert.equal(r.reintentable, true, 'el siguiente intento acuña un token nuevo');
+  assert.doesNotMatch(r.error, /cookies/i, 'no se le pide al dueño que limpie nada: el problema no es suyo');
+});
+
+test('pero la página de bloqueo SIGUE frenando, aunque el 403 hable de reCAPTCHA', () => {
+  // La red de abajo: si de verdad la sesión está marcada, el reintento cae acá.
+  const r = clasificarFalla(403, '<html><head><title>Sorry...</title></head><body>unusual traffic</body></html>');
+  assert.equal(r.motivo, 'sesion_marcada');
+  assert.equal(r.reintentable, false);
 });
 
 test('el medio vencido SÍ se reintenta: se resube y sigue', () => {

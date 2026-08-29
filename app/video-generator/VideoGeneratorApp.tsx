@@ -442,6 +442,90 @@ function DetalleFormato({
 // Solo lo que se DICE y cuánto dura. Nada de cámara, acción ni prompt: eso es
 // cómo se fabrica, y el cliente no fabrica nada.
 
+/**
+ * El lugar del clip: vacío, generándose o con el video.
+ *
+ * Ocupa el MISMO espacio en los tres estados. Es lo que hace que la espera se
+ * sienta como algo que está pasando y no como una pantalla rota: el hueco del
+ * video ya está ahí, del tamaño que va a tener, desde el primer segundo.
+ */
+function Lienzo({ url, cargando, error, onGenerar, n }: {
+  url?: string;
+  cargando: boolean;
+  error?: string;
+  onGenerar: () => void;
+  n: number;
+}) {
+  const ANCHO = 176;
+
+  if (url) {
+    return (
+      <video
+        src={url}
+        controls
+        playsInline
+        preload="metadata"
+        style={{
+          display: 'block', width: ANCHO, marginTop: 11, borderRadius: 13,
+          aspectRatio: '9 / 16', objectFit: 'cover', background: '#000',
+          border: '1px solid var(--border)',
+        }}
+      />
+    );
+  }
+
+  if (cargando) {
+    return (
+      <div
+        className="mk-lienzo"
+        style={{ width: ANCHO, aspectRatio: '9 / 16', marginTop: 11, display: 'grid', placeItems: 'center' }}
+        role="status"
+        aria-label={`Generando la toma ${n}`}
+      >
+        <div style={{ textAlign: 'center', padding: '0 14px' }}>
+          <div style={{ color: '#fff', opacity: .95, marginBottom: 8 }}>
+            <Icon name="ia" size={22} />
+          </div>
+          <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 650, color: '#fff', textShadow: '0 1px 6px rgba(0,0,0,.45)' }}>
+            Filmando la toma {n}
+          </div>
+          <div style={{ fontSize: 'var(--fs-meta)', color: 'rgba(255,255,255,.85)', marginTop: 3, textShadow: '0 1px 6px rgba(0,0,0,.45)' }}>
+            un par de minutos
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onGenerar}
+      style={{
+        width: ANCHO, aspectRatio: '9 / 16', marginTop: 11, cursor: 'pointer',
+        borderRadius: 13, background: 'var(--surface-2)', fontFamily: 'inherit',
+        border: `1.5px dashed ${error ? 'var(--bad)' : 'var(--border-strong)'}`,
+        display: 'grid', placeItems: 'center', padding: '0 14px',
+        transition: 'border-color .15s, background .15s',
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.borderColor = error ? 'var(--bad)' : 'var(--border-strong)'; }}
+    >
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ color: 'var(--faint)', marginBottom: 7 }}><Icon name="ia" size={20} /></div>
+        <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 650, color: 'var(--ink)' }}>
+          {error ? 'Volver a intentar' : 'Filmar esta toma'}
+        </div>
+        {error && (
+          <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--bad)', marginTop: 5, lineHeight: 1.4 }}>
+            {error.slice(0, 90)}
+          </div>
+        )}
+      </div>
+    </button>
+  );
+}
+
 /** Lo generado de una toma, si hay algo. */
 function videoDe(item: PlanGuardado | null, n: number) {
   return item?.video?.[String(n)];
@@ -576,42 +660,13 @@ function LineaGuion({
           </div>
         )}
 
-        {/* ── El clip de esta toma ──────────────────────────────────────── */}
-        {video?.url && (
-          <video
-            src={video.url}
-            controls
-            playsInline
-            preload="metadata"
-            style={{
-              display: 'block', width: 190, marginTop: 10, borderRadius: 11,
-              aspectRatio: '9 / 16', objectFit: 'cover', background: '#000',
-            }}
-          />
-        )}
-        {enCurso && !video?.url && (
-          <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginTop: 7 }}>
-            Generando esta toma… tarda un par de minutos. Deja Flow abierto.
-          </div>
-        )}
-        {video?.error && (
-          <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--bad)', marginTop: 7 }}>
-            {video.error}
-          </div>
-        )}
-        {!video?.url && !enCurso && (
-          <button
-            type="button"
-            onClick={onGenerar}
-            style={{
-              marginTop: 8, background: 'transparent', border: 'none', padding: 0,
-              cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--fs-sm)',
-              color: 'var(--dim)', textDecoration: 'underline', textUnderlineOffset: 3,
-            }}
-          >
-            Generar esta toma
-          </button>
-        )}
+        <Lienzo
+          n={n}
+          url={video?.url}
+          cargando={enCurso && !video?.url}
+          error={video?.error}
+          onGenerar={onGenerar}
+        />
 
         {pidiendo && (
           <div style={{ marginTop: 9, display: 'flex', gap: 8, alignItems: 'flex-start' }}>

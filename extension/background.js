@@ -111,13 +111,29 @@ async function pedirCaptcha(tabId, action) {
  */
 const SOLO_LECTURA = new Set(['creditos', 'estado_clips']);
 
-const ACCION = {
-  subir_imagen: 'uploadImage',
-  generar_imagen: 'batchGenerateImages',
-  generar_clip: 'batchAsyncGenerateVideo',
-  estado_clips: 'batchCheckAsyncVideoGenerationStatus',
-  creditos: 'getCredits',
-};
+/**
+ * El nombre de la accion con la que se acuna el token de reCAPTCHA.
+ *
+ * ⚠️ NO es decorativo y NO es libre: reCAPTCHA Enterprise ATA el token a la
+ * accion. Si Flow acuna el suyo con `batchAsyncGenerateVideoReferenceImages` y
+ * nosotros mandamos uno acunado con `batchAsyncGenerateVideo`, Google contesta
+ * 403 «reCAPTCHA evaluation failed» — y ese error se lee como sesion quemada
+ * cuando en realidad es un nombre mal puesto de nuestro lado. Paso el 29/08 con
+ * el primer clip del Video Generator.
+ *
+ * Por eso ya NO sale de una tabla por TIPO de trabajo: sale del ENDPOINT que se
+ * va a llamar. Un tipo de trabajo puede pegarle a varios endpoints —generar un
+ * clip desde referencias no es lo mismo que encadenarlo por frames— y la tabla
+ * por tipo solo podia acertarle a uno.
+ */
+function accionDeCaptcha(path) {
+  // De `/v1/video:batchAsyncGenerateVideoReferenceImages` sale
+  // `batchAsyncGenerateVideoReferenceImages`: el metodo, sin la version ni el
+  // recurso. Es exactamente lo que la app pone en su propio `execute()`.
+  const ultimo = String(path || '').split('?')[0].split('/').filter(Boolean).pop() || '';
+  const metodo = ultimo.includes(':') ? ultimo.split(':').pop() : ultimo;
+  return metodo || 'generate';
+}
 
 async function ejecutar(trabajo) {
   const { path, body } = trabajo.pedido || {};
@@ -136,7 +152,7 @@ async function ejecutar(trabajo) {
 
   let cuerpo = null;
   if (!soloLectura) {
-    const captcha = await pedirCaptcha(tab.id, ACCION[trabajo.tipo] || 'generate');
+    const captcha = await pedirCaptcha(tab.id, accionDeCaptcha(path));
     cuerpo = { ...(body || {}) };
     cuerpo.clientContext = {
       projectId,

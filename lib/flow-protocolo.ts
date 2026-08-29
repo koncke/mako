@@ -207,11 +207,31 @@ export function clasificarFalla(status: number, cuerpo: unknown): { motivo: Moti
   }
   // 403 + este reason = la sesión quedó marcada como bot. Frenar, no reintentar:
   // el ritmo o la IP la delataron y seguir empeora el score.
-  if (reason === 'PUBLIC_ERROR_UNUSUAL_ACTIVITY' || /recaptcha evaluation failed/i.test(texto)) {
+  if (reason === 'PUBLIC_ERROR_UNUSUAL_ACTIVITY') {
     return {
       motivo: 'sesion_marcada',
       error: 'Google marcó la sesión como automatizada. Hay que parar, limpiar cookies de google.com y labs.google, y volver a entrar a Flow.',
       reintentable: false,
+    };
+  }
+  // ⚠️ «reCAPTCHA evaluation failed» NO es lo mismo, y meterlos en la misma rama
+  // costó caro: apagaba el PUENTE ENTERO y le decía al dueño que limpiara sus
+  // cookies, cuando el problema estaba de este lado.
+  //
+  // Lo que dice ese 403 es que el TOKEN no sirvió, y la causa más común es
+  // nuestra: acuñarlo con un nombre de acción distinto del endpoint que se llama
+  // (reCAPTCHA Enterprise ata el token a la acción). Un token también vence solo
+  // por quedarse en la cola. Ninguna de las dos cosas se arregla limpiando
+  // cookies, y ninguna justifica apagar el puente.
+  //
+  // Reintentable: el siguiente intento acuña un token nuevo. Si el problema fuera
+  // de verdad la sesión, el reintento cae en la rama de arriba —la página de
+  // bloqueo— y ahí sí se frena.
+  if (/recaptcha evaluation failed/i.test(texto)) {
+    return {
+      motivo: 'transitorio',
+      error: 'Google rechazó el token de reCAPTCHA de este pedido. Se reintenta con uno nuevo.',
+      reintentable: true,
     };
   }
   // El medio subido vive ~1 h. No es un fallo del pedido: hay que resubir.

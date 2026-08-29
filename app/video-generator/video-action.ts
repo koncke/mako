@@ -151,7 +151,11 @@ export async function estadoTomaAction(
       .maybeSingle();
 
     const estado = str(data?.estado);
-    if (estado === 'error') {
+    // ⚠️ `fallido`, que es lo que escribe la cola (lib/flow-cola.ts). Con `error`
+    // —el nombre que uno supone— un trabajo caído se leía como «todavía no
+    // terminó» y la pantalla giraba para siempre. El dueño lo vio antes que
+    // nosotros: «se quedó pensando eternamente».
+    if (estado === 'fallido') {
       item = await guardarMarca(item, n, { error: str(data?.error) || 'Flow rechazó el pedido.' });
       return { ok: true, item, estado: { fase: 'error', error: str(data?.error) || 'Flow rechazó el pedido.' } };
     }
