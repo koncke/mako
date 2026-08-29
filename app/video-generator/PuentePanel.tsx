@@ -638,7 +638,7 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
                   clasificado y se muestra arriba, en la rama `fallido`.
                 */}
                 Esperando a tu navegador. Deja abierta la pestaña de Google Flow; la respuesta
-                aparece acá en unos segundos.
+                aparece aquí en unos segundos.
               </Alert>
             )}
           </div>

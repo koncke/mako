@@ -169,7 +169,7 @@ export function CargarGuiones({ onCerrar, onCargado }: {
             rows={12}
             value={crudo}
             onChange={(e) => setCrudo(e.target.value)}
-            placeholder={'Pega acá tus guiones, como los tengas.\n\nSi hay varios en el mismo texto, los separo yo.'}
+            placeholder={'Pega aquí tus guiones, como los tengas.\n\nSi hay varios en el mismo texto, los separo yo.'}
           />
           <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
             <Button variant="primary" onClick={() => void mirar(crudo)} loading={busy} disabled={crudo.trim().length < 30}>
@@ -189,7 +189,7 @@ export function CargarGuiones({ onCerrar, onCargado }: {
             según la pantalla obliga a probar antes de confiar.
 
             El borde cambia con `sobre` y no con `:hover`: lo que hay que decirle
-            a alguien que viene arrastrando un archivo es «acá lo podés soltar»,
+            a alguien que viene arrastrando un archivo es «aquí lo puedes soltar»,
             y eso el hover no lo distingue de pasar el mouse por al lado.
           */}
           <div
@@ -214,11 +214,18 @@ export function CargarGuiones({ onCerrar, onCargado }: {
               transition: 'border-color .15s, background .15s',
             }}
           >
-            <div style={{ color: 'var(--faint)', marginBottom: 10 }}>
+            {/*
+              El icono se centra con FLEX, no con el `textAlign: 'center'` del
+              padre. El preflight de Tailwind pone `svg { display: block }`
+              (node_modules/tailwindcss/preflight.css), y a un bloque el
+              text-align no lo mueve: quedaba pegado a la izquierda mientras los
+              dos textos de abajo salian centrados.
+            */}
+            <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--faint)', marginBottom: 10 }}>
               <Icon name="descargar" size={30} />
             </div>
             <div style={{ fontSize: 'var(--fs-card)', fontWeight: 650, color: 'var(--ink)' }}>
-              {busy ? 'Leyendo…' : 'Arrastra tu archivo acá'}
+              {busy ? 'Leyendo…' : 'Arrastra tu archivo aquí'}
             </div>
             <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginTop: 5 }}>
               o haz clic para buscarlo

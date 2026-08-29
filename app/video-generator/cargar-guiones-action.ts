@@ -130,7 +130,7 @@ export async function cargarGuionesAction(crudo: string, indices: number[]): Pro
       id: CELDA_PROPIOS,
       avatarId: '',
       nombre: 'Guiones propios',
-      descripcion: 'Los que cargaste vos, sin pasar por la revisión de MaKo.',
+      descripcion: 'Los que cargaste tú, sin pasar por la revisión de MaKo.',
       copy: '',
       guiones: items,
       imagenUrl: '',
@@ -195,7 +195,7 @@ export async function textoDeLinkAction(crudo: string): Promise<{ ok: true; text
   if (!c.ok) return c;
 
   const link = (crudo || '').trim();
-  if (!link) return { ok: false, error: 'Pegá el link primero.' };
+  if (!link) return { ok: false, error: 'Pega el link primero.' };
 
   const { url, tipo, nota } = resolverLink(link);
 
@@ -224,7 +224,7 @@ export async function textoDeLinkAction(crudo: string): Promise<{ ok: true; text
     if (pareceLogin(texto, tipo)) {
       return {
         ok: false,
-        error: 'Ese documento pide permiso para abrirse. Compartilo como «cualquiera con el enlace» y volvé a pegarlo.',
+        error: 'Ese documento pide permiso para abrirse. Compártelo como «cualquiera con el enlace» y vuelve a pegarlo.',
       };
     }
 

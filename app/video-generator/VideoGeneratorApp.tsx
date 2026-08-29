@@ -498,7 +498,7 @@ export function VideoGeneratorApp({
                 <Alert tono="warn" accion={{ label: 'Ir a Ads Writer', href: '/ads-writer' }}>
                   <strong>Todavía no tienes guiones escritos.</strong> Los anuncios de video se
                   graban a partir de un guion. MaKo puede escribirte uno en Ads Writer, con tu
-                  ángulo y tu avatar — o carga el tuyo acá abajo.
+                  ángulo y tu avatar — o carga el tuyo aquí abajo.
                 </Alert>
                 <button
                   type="button"
