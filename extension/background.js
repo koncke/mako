@@ -250,7 +250,17 @@ async function ciclo() {
     const res = await fetch(`${MAKO}/api/flow/puente`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-flow-token': token },
-      body: JSON.stringify({ token, projectId, estado, detalle, resultados: pendientes, cuantos: 1 }),
+      // ⚠️ `version` NO es telemetria: es la respuesta a «¿que codigo esta
+      // corriendo alla?», que ya costo horas una vez —el cliente estuvo toda una
+      // tarde con una copia vieja y nada lo mostraba— y volvio a costar hoy, al
+      // no poder saber desde el server si el arreglo del captcha estaba puesto.
+      //
+      // Un artefacto que se distribuye COPIADO se desincroniza el mismo dia. Si
+      // no dice su version, cada diagnostico arranca preguntando.
+      body: JSON.stringify({
+        token, projectId, estado, detalle, resultados: pendientes, cuantos: 1,
+        version: chrome.runtime.getManifest().version,
+      }),
     });
     if (!res.ok) return;
 

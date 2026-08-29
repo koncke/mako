@@ -84,6 +84,8 @@ export async function crearTokenPuente(etiqueta = ''): Promise<{ token: string }
 }
 
 export type Puente = {
+  /** La versión de la extensión que reportó el último latido. '' = no la dice. */
+  version?: string;
   estado: EstadoPuente;
   detalle: string;
   etiqueta: string;
@@ -98,7 +100,7 @@ export async function estadoPuente(): Promise<Puente> {
   const db = await getTenantDb();
   const { data } = await db.from('flow_puentes').select('*').maybeSingle();
   if (!data) {
-    return { estado: 'sin_conectar', detalle: '', etiqueta: '', projectId: '', ultimoVisto: null, emparejado: false };
+    return { estado: 'sin_conectar', detalle: '', etiqueta: '', projectId: '', ultimoVisto: null, emparejado: false, version: '' };
   }
   return {
     estado: (data.estado ?? 'sin_conectar') as EstadoPuente,
@@ -107,6 +109,7 @@ export async function estadoPuente(): Promise<Puente> {
     projectId: data.project_id ?? '',
     ultimoVisto: data.ultimo_visto ?? null,
     emparejado: true,
+    version: data.version ?? '',
   };
 }
 
@@ -135,7 +138,7 @@ export async function workspaceDeToken(token: string): Promise<number | null> {
 }
 
 /** El puente reporta que está vivo, y con qué proyecto de Flow trabaja. */
-export async function marcarVisto(ws: number, projectId: string, estado: EstadoPuente, detalle = ''): Promise<void> {
+export async function marcarVisto(ws: number, projectId: string, estado: EstadoPuente, detalle = '', version = ''): Promise<void> {
   const db = await runWithWorkspace(ws, () => getTenantDb());
   const patch: Record<string, unknown> = {
     ultimo_visto: new Date().toISOString(),
@@ -145,6 +148,9 @@ export async function marcarVisto(ws: number, projectId: string, estado: EstadoP
     estado_detalle: detalle.slice(0, 8000),
   };
   if (projectId) patch.project_id = projectId;
+  // Solo si vino: una extensión vieja no la manda, y pisar con '' borraría el
+  // único dato que dice que hay una copia sin actualizar dando vueltas.
+  if (version) patch.version = version.slice(0, 20);
 
   // ⚠️ EL AUTO-REPORTE NO PUEDE LEVANTAR UNA MARCA.
   //

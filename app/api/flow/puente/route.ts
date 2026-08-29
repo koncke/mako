@@ -99,7 +99,12 @@ export async function POST(req: NextRequest) {
       // no hay forma de saberlo. Ya costó dos vueltas hoy: el error decía «Google
       // bloqueó la sesión» sobre un caso donde la misma persona generaba videos a
       // mano sin problema.
-      const crudo = `HTTP ${status} · ${str(r.error).slice(0, 200)}`;
+      // 200 caracteres cortaban EXACTAMENTE donde empieza `details`, que es
+      // donde vive el `reason` — el único campo que distingue «esta cuenta está
+      // quemada» de «este token no servía». El comentario de arriba pedía guardar
+      // la evidencia y el límite se la comía: una regla escrita que el código no
+      // cumplía. 1.500 alcanza para el error entero de Google.
+      const crudo = `HTTP ${status} · ${str(r.error).slice(0, 1500)}`;
       await fallar(ws, id, f.motivo, `${f.error}\n[crudo] ${crudo}`, f.reintentable);
       continue;
     }
@@ -109,7 +114,7 @@ export async function POST(req: NextRequest) {
 
   // ── 2. El puente reporta que está vivo ────────────────────────────────────
   const estado = ESTADOS.includes(str(body.estado) as EstadoPuente) ? (str(body.estado) as EstadoPuente) : 'listo';
-  await marcarVisto(ws, str(body.projectId), estado, str(body.detalle));
+  await marcarVisto(ws, str(body.projectId), estado, str(body.detalle), str(body.version));
 
   // ── 3. Y se lleva lo que sigue ────────────────────────────────────────────
   // `tomarTrabajos` devuelve vacío si la sesión está MARCADA: ahí hay que parar,
