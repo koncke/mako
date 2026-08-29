@@ -361,7 +361,7 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
     const j = await fetch('/api/plan-fathom', { method: 'POST', body: fd, signal: AbortSignal.timeout(60_000) })
       .then((r) => r.json())
       .catch((e) => ({ ok: false, error: e instanceof Error && e.name === 'TimeoutError'
-        ? 'No pude subir los archivos (la conexión tardó demasiado). Probá de nuevo.'
+        ? 'No pude subir los archivos (la conexión tardó demasiado). Prueba de nuevo.'
         : String(e) }));
 
     if (!j.ok || !j.borradorId) { setErr(j.error || 'No pude leer los archivos.'); volverALista(); return; }
@@ -531,9 +531,9 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', marginTop: 2 }}>
               {/* El título dice lo que está pasando DE VERDAD: decir «Leyendo la reunión»
                   mientras alguien sube un .md es mentirle sobre lo que la app está haciendo. */}
-              {fase === 'lista' ? 'Elegí una reunión'
+              {fase === 'lista' ? 'Elige una reunión'
                 : fase === 'extrayendo' ? (archivosSubiendo.length ? (archivosSubiendo.length > 1 ? `Leyendo ${archivosSubiendo.length} archivos…` : 'Leyendo tu archivo…') : 'Leyendo la reunión…')
-                : fase === 'validar' ? 'Antes de seguir, aclarame esto'
+                : fase === 'validar' ? 'Antes de seguir, aclárame esto'
                 : `Tareas · ${(elegida?.titulo ?? archivoNombre).slice(0, 40)}`}
             </div>
           </div>
@@ -591,7 +591,7 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                         </button>
                       ) : (
                         <div style={{ fontSize: 12.5, color: 'var(--faint)', textAlign: 'center' }}>
-                          {q ? `Ya miré todas tus reuniones de Fathom y ninguna coincide con «${q.slice(0, 24)}».` : 'Esas son todas las reuniones que tenés en Fathom.'}
+                          {q ? `Ya miré todas tus reuniones de Fathom y ninguna coincide con «${q.slice(0, 24)}».` : 'Esas son todas las reuniones que tienes en Fathom.'}
                         </div>
                       )}
                     </div>
@@ -697,7 +697,7 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                           no está no se sienta como que el botón dejó de funcionar. */}
                       {!cursor && (reuniones?.length ?? 0) > 0 && (
                         <div style={{ alignSelf: 'center', marginTop: 4, fontSize: 12.5, color: 'var(--faint)' }}>
-                          {q ? `No hay más reuniones con «${q.slice(0, 20)}» en Fathom.` : 'Esas son todas las reuniones que tenés en Fathom.'}
+                          {q ? `No hay más reuniones con «${q.slice(0, 20)}» en Fathom.` : 'Esas son todas las reuniones que tienes en Fathom.'}
                         </div>
                       )}
                     </>}
@@ -727,7 +727,7 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                       la lectura corre del lado del server. Cerrar no cancela nada. */}
                   <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', marginTop: 6, lineHeight: 1.5 }}>
                     {enSegundoPlano
-                      ? 'Puede tardar un par de minutos. Podés cerrar: MaKo lo sigue leyendo y te deja el borrador en la lista de pendientes.'
+                      ? 'Puede tardar un par de minutos. Puedes cerrar: MaKo lo sigue leyendo y te deja el borrador en la lista de pendientes.'
                       : 'Subiendo…'}
                   </div>
                 </div>
@@ -784,8 +784,8 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                     <span style={{ fontSize: 15, flex: 'none' }}>{cliente ? '🤝' : '📁'}</span>
                     <div style={{ minWidth: 0, fontSize: 12.5, lineHeight: 1.5, color: 'var(--dim)' }}>
                       {cliente
-                        ? <>Es una reunión con <b style={{ color: 'var(--ink)' }}>{cliente.nombre}</b>: todas estas tareas van a <b style={{ color: 'var(--ink)' }}>«{cliente.proyecto}»</b>.{' '}<span style={{ color: 'var(--faint)' }}>Si alguna no es de este cliente, cambiásela abajo.</span></>
-                        : <>No es de un cliente: <b style={{ color: 'var(--ink)' }}>las dejo donde MaKo propuso</b>. Si alguna sí lo es, elegí su proyecto abajo.</>}
+                        ? <>Es una reunión con <b style={{ color: 'var(--ink)' }}>{cliente.nombre}</b>: todas estas tareas van a <b style={{ color: 'var(--ink)' }}>«{cliente.proyecto}»</b>.{' '}<span style={{ color: 'var(--faint)' }}>Si alguna no es de este cliente, cámbiasela abajo.</span></>
+                        : <>No es de un cliente: <b style={{ color: 'var(--ink)' }}>las dejo donde MaKo propuso</b>. Si alguna sí lo es, elige su proyecto abajo.</>}
                     </div>
                   </div>
                   {/* Freno del Perro por tipo de reunión (punto 8): ventas/entrega no son del plan */}
@@ -803,7 +803,7 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                     labels={labels}
                     onFila={setFila}
                     reunion={{ recordingId: elegida?.recordingId, titulo: elegida?.titulo ?? archivoNombre, fecha: elegida?.fecha ?? null, url: elegida?.url ?? null }}
-                    cabecera="Elegí cuáles agregar a TU plan. El perro les pone la prioridad final."
+                    cabecera="Elige cuáles agregar a TU plan. El perro les pone la prioridad final."
                     pieAcciones={pieSlot}
                     onPersonaActiva={setPersonaActiva}
                   />
@@ -846,7 +846,7 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                       {nIncluidas && nAmpliar ? `Agregar ${nIncluidas} y ampliar ${nAmpliar} →`
                         : nIncluidas ? `Agregar ${nIncluidas} al plan →`
                           : nAmpliar ? `Ampliar ${nAmpliar} que ya ${nAmpliar === 1 ? 'está' : 'están'} →`
-                            : 'Elegí al menos una'}
+                            : 'Elige al menos una'}
                     </button>
                   : <button type="button" onClick={onClose}
                       style={{ padding: '12px 24px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>

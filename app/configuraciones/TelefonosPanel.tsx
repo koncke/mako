@@ -69,7 +69,7 @@ export function TelefonosPanel() {
     <section style={{ marginTop: 4 }}>
       <h2 style={{ fontSize: 19, fontWeight: 600, color: 'var(--ink)', margin: '0 0 6px' }}>Teléfonos</h2>
       <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: '0 0 14px', lineHeight: 1.55, maxWidth: 620 }}>
-        Los números desde los que contactás a tus leads. MaKo detecta la fuente: si tenés Chatwoot conectado, el número nuevo arranca como «Chatwoot». Asigná los setters que atienden cada línea.
+        Los números desde los que contactas a tus leads. MaKo detecta la fuente: si tienes Chatwoot conectado, el número nuevo arranca como «Chatwoot». Asigna los setters que atienden cada línea.
       </p>
 
       {data && (

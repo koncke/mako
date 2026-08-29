@@ -65,7 +65,7 @@ async function estadoLanding(): Promise<Pick<Integracion, 'estado' | 'detalle'>>
         // llegó nada hay que pegar el código; si dejó de llegar, hay que ir a ver
         // qué se rompió (típico: el snippet quedó con una URL vieja al mudar el
         // dominio — se copia congelado y no se entera de nada).
-        detalle: `Sin eventos en los últimos ${LANDING_VENTANA_DIAS} días. Si ya pegaste el código, revisá que el snippet siga apuntando acá.`,
+        detalle: `Sin eventos en los últimos ${LANDING_VENTANA_DIAS} días. Si ya pegaste el código, revisa que el snippet siga apuntando aquí.`,
       };
 }
 
@@ -84,7 +84,7 @@ async function estadoGoogleCalendar(): Promise<Pick<Integracion, 'estado' | 'det
   } catch (e) {
     console.error(`[integraciones] chequeo de Google Calendar falló: ${e instanceof Error ? e.message : String(e)}`);
   }
-  return { estado: 'falta', detalle: 'Entrá con Google para conectar tu agenda.' };
+  return { estado: 'falta', detalle: 'Entra con Google para conectar tu agenda.' };
 }
 
 // Agente (Claude Code): no hay env ni credencial cifrada que chequear (la skill
@@ -102,7 +102,7 @@ async function estadoAgente(): Promise<Pick<Integracion, 'estado' | 'detalle'>> 
   } catch (e) {
     console.error(`[integraciones] chequeo del agente falló: ${e instanceof Error ? e.message : String(e)}`);
   }
-  return { estado: 'falta', detalle: 'Generá tu token e instalá la skill en Claude.' };
+  return { estado: 'falta', detalle: 'Genera tu token e instala la skill en Claude.' };
 }
 
 /**

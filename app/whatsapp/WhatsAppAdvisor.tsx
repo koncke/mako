@@ -154,7 +154,7 @@ export function WhatsAppAdvisor({
           {!rec && !analizando && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
-                {ultimoEntrante ? 'El lead escribió último. Pedile a MaKo qué responder, con la metodología Levanta Muertos.' : 'MaKo lee esta conversación y te sugiere qué escribirle para reactivarlo, sin sonar a seguimiento.'}
+                {ultimoEntrante ? 'El lead escribió último. Pídele a MaKo qué responder, con la metodología Levanta Muertos.' : 'MaKo lee esta conversación y te sugiere qué escribirle para reactivarlo, sin sonar a seguimiento.'}
               </div>
               <button onClick={analizar} style={{ ...btnDark, width: '100%' }}>✨ Analizar conversación</button>
             </div>
@@ -226,7 +226,7 @@ export function WhatsAppAdvisor({
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           <div ref={chatScrollRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 9, paddingRight: 2 }}>
             {chat.length === 0 && !pensando && (
-              <div style={{ fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.5 }}>Preguntale a MaKo sobre este lead: cómo responderle, cómo manejar una objeción, o pedile una versión distinta de un mensaje.</div>
+              <div style={{ fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.5 }}>Pregúntale a MaKo sobre este lead: cómo responderle, cómo manejar una objeción, o pídele una versión distinta de un mensaje.</div>
             )}
             {chat.map((m, i) => (
               <div key={i} style={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '92%', background: m.role === 'user' ? 'var(--accent-soft)' : 'var(--surface-2)', color: m.role === 'user' ? '#14161B' : 'var(--ink)', border: m.role === 'user' ? 'none' : '1px solid var(--border)', borderRadius: 12, padding: '9px 11px', fontSize: 12.5, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
@@ -247,7 +247,7 @@ export function WhatsAppAdvisor({
               {SUGS_CHAT.map((s) => <button key={s} onClick={() => enviarChat(s)} disabled={pensando} style={{ flex: 'none', whiteSpace: 'nowrap', padding: '5px 10px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 11.5, cursor: pensando ? 'default' : 'pointer', opacity: pensando ? 0.55 : 1 }}>{s}</button>)}
             </div>
             <div style={{ display: 'flex', gap: 7 }}>
-              <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void enviarChat(); } }} rows={1} placeholder="Preguntale a MaKo…" disabled={pensando} style={{ flex: 1, padding: '9px 11px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, outline: 'none', resize: 'none', minHeight: 40, maxHeight: 110, lineHeight: 1.4 }} />
+              <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void enviarChat(); } }} rows={1} placeholder="Pregúntale a MaKo…" disabled={pensando} style={{ flex: 1, padding: '9px 11px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, outline: 'none', resize: 'none', minHeight: 40, maxHeight: 110, lineHeight: 1.4 }} />
               <button onClick={() => void enviarChat()} disabled={pensando || !input.trim()} style={{ ...btnDark, opacity: pensando || !input.trim() ? 0.5 : 1 }}>▲</button>
             </div>
           </div>

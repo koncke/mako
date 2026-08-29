@@ -241,12 +241,12 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota }: {
                 {correo && !correo.listo && (
                   <p className="cmp-aviso">
                     <b>El correo todavía no está verificado.</b> Los invitados quedan creados y con acceso,
-                    pero el mail no les llega: copiales el link con el botón de cada uno y pasáselo vos.
+                    pero el mail no les llega: cópiales el link con el botón de cada uno y pásaselo tú.
                   </p>
                 )}
                 <textarea className="cmp-mails" rows={2} value={emails} onChange={(e) => setEmails(e.target.value)}
                   placeholder={'Martín Tejado <martin@gmail.com>, otro@empresa.com'} />
-                <p className="cmp-tip">Poné el nombre adelante para reconocerlo en la lista. Uno por línea o separados por coma.</p>
+                <p className="cmp-tip">Pon el nombre adelante para reconocerlo en la lista. Uno por línea o separados por coma.</p>
               </>
             )}
 
@@ -258,7 +258,7 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota }: {
                   <>
                     {/* Decía "se muestra una sola vez". Desde la mig 0131 es falso: el
                         link se guarda cifrado y «Copiar link» de la lista lo devuelve. */}
-                    <p className="cmp-nuevo-t">Listo. Podés volver a copiarlo cuando quieras desde <b>Copiar link</b>, acá abajo:</p>
+                    <p className="cmp-nuevo-t">Listo. Puedes volver a copiarlo cuando quieras desde <b>Copiar link</b>, aquí abajo:</p>
                     <div className="cmp-linkrow">
                       <input className="cmp-link" readOnly value={nuevo.enlace} onFocus={(e) => e.currentTarget.select()} />
                       <button type="button" className="cmp-copy" onClick={() => copiar(nuevo.enlace!, 'nuevo')}>{copiado === 'nuevo' ? '✓' : 'Copiar'}</button>

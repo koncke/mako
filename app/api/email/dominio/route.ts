@@ -121,10 +121,10 @@ export async function POST(req: NextRequest) {
   try {
     if (body.action === 'crear') {
       const dominio = normalizarDominio(String(body.dominio ?? ''));
-      if (!dominio) return Response.json({ ok: false, error: 'Dominio inválido. Poné solo el dominio (ej: minegocio.com), sin https:// ni @.' }, { status: 400 });
+      if (!dominio) return Response.json({ ok: false, error: 'Dominio inválido. Pon solo el dominio (ej: minegocio.com), sin https:// ni @.' }, { status: 400 });
       // Anti-spoofing: un dominio reclamado por otro workspace no se puede adoptar.
       if (await reclamadoPorOtroWs(dominio, g.ws)) {
-        return Response.json({ ok: false, error: `Ese dominio ya está conectado en otro workspace. Si es tuyo, escribinos a ${EMAIL_MAKO}.` }, { status: 403 });
+        return Response.json({ ok: false, error: `Ese dominio ya está conectado en otro workspace. Si es tuyo, escríbenos a ${EMAIL_MAKO}.` }, { status: 403 });
       }
       const r = await createResendDomain(dominio, 'sa-east-1');
       if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 502 });
@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
 
     if (body.action === 'verificar') {
       const id = (await getSetting('resend_domain_id'))?.trim();
-      if (!id) return Response.json({ ok: false, error: 'Primero agregá tu dominio.' }, { status: 400 });
+      if (!id) return Response.json({ ok: false, error: 'Primero agrega tu dominio.' }, { status: 400 });
       const v = await verifyResendDomain(id);
       if (!v.ok) return Response.json({ ok: false, error: v.error }, { status: 502 });
       return Response.json({ ok: true, ...(await estadoActual()) });
@@ -144,18 +144,18 @@ export async function POST(req: NextRequest) {
     if (body.action === 'remitente') {
       const dominio = (await getSetting('resend_domain'))?.trim();
       const dominioId = (await getSetting('resend_domain_id'))?.trim();
-      if (!dominio || !dominioId) return Response.json({ ok: false, error: 'Primero verificá tu dominio.' }, { status: 400 });
+      if (!dominio || !dominioId) return Response.json({ ok: false, error: 'Primero verifica tu dominio.' }, { status: 400 });
       // El remitente exige el dominio VERIFICADO en vivo (no alcanza con tenerlo cargado).
       const vivo = await getResendDomain(dominioId);
       if (!vivo.ok || vivo.domain.status !== 'verified') {
-        return Response.json({ ok: false, error: 'Tu dominio todavía no está verificado. Cargá los registros DNS y tocá Verificar.' }, { status: 400 });
+        return Response.json({ ok: false, error: 'Tu dominio todavía no está verificado. Carga los registros DNS y toca Verificar.' }, { status: 400 });
       }
       const local = String(body.local ?? '').trim().toLowerCase();
       // Saneo del display name: sin control chars, ángulos, comillas ni separadores
       // de direcciones (coma/;) — evita inyección de headers o From inválido.
       const nombre = String(body.nombre ?? '').replace(/[\r\n\t<>",;]/g, '').replace(/\s+/g, ' ').trim();
       if (!/^[a-z0-9._%+-]+$/.test(local)) return Response.json({ ok: false, error: 'La parte antes del @ solo puede tener letras, números y . _ -' }, { status: 400 });
-      if (!nombre) return Response.json({ ok: false, error: 'Poné el nombre que van a ver tus leads.' }, { status: 400 });
+      if (!nombre) return Response.json({ ok: false, error: 'Pon el nombre que van a ver tus leads.' }, { status: 400 });
       await setSetting('resend_from', `${nombre} <${local}@${dominio}>`);
       return Response.json({ ok: true, ...(await estadoActual()) });
     }
@@ -164,7 +164,7 @@ export async function POST(req: NextRequest) {
       // Prender el envío real exige email conectado (dominio propio verificado,
       // o el remitente heredado del env en el caso del dueño). Apagar siempre se puede.
       if (body.on === true && !(await emailConectado())) {
-        return Response.json({ ok: false, error: 'Primero verificá tu dominio y configurá el remitente.' }, { status: 400 });
+        return Response.json({ ok: false, error: 'Primero verifica tu dominio y configura el remitente.' }, { status: 400 });
       }
       await setEnvioEmail(body.on === true);
       return Response.json({ ok: true, ...(await estadoActual()) });

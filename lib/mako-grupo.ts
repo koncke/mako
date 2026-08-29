@@ -82,9 +82,9 @@ async function estrellaPngBase64(v: VarianteEstrella = 'gold'): Promise<string> 
 export function descripcionGrupoMaKo(nombreCliente: string): string {
   const quien = nombreCliente?.trim() ? ` con ${nombreCliente.trim()}` : '';
   return (
-    `Soy MaKo, tu copiloto de marketing${quien}. Acá te dejo los recordatorios de ` +
+    `Soy MaKo, tu copiloto de marketing${quien}. Aquí te dejo los recordatorios de ` +
     `reuniones, el pulso del día, las alertas y todo lo que necesites saber para no ` +
-    `perderte nada. Escribime cuando quieras.`
+    `perderte nada. Escríbeme cuando quieras.`
   );
 }
 
@@ -95,12 +95,12 @@ export function mensajeBienvenidaMaKo(nombreCliente: string): string {
     `¡Hola${quien}! 🌟 Soy MaKo, tu copiloto de marketing. Desde este grupo te voy a ` +
     `dejar los recordatorios de tus reuniones, el pulso del día, las alertas de tus ` +
     `anuncios y todo lo importante para que no se te escape nada. Cuando te avise algo, ` +
-    `me podés responder acá mismo. ¡Arrancamos! 🚀`
+    `me puedes responder aquí mismo. ¡Arrancamos! 🚀`
   );
 }
 
 const DESC_SUPERADMIN =
-  'Panel del dueño de la agencia. Acá MaKo te resume el estado de todos tus clientes, ' +
+  'Panel del dueño de la agencia. Aquí MaKo te resume el estado de todos tus clientes, ' +
   'te avisa lo urgente (semáforo en rojo, cuotas, fatiga de ads) y te deja tus pendientes. ' +
   'Es tu vista de comando: lo importante de toda la operación, en un solo lugar.';
 
@@ -355,7 +355,7 @@ export async function agregarParticipanteGrupo(ws: number, numero: string): Prom
   // se intenta igual: no saber no es motivo para rechazar a nadie.
   const chequeo = await numeroTieneWhatsApp(crudo);
   if (chequeo.consultado && !chequeo.existe) {
-    return { ok: false, error: 'Ese número no tiene WhatsApp. Revisá que esté con el código de país.' };
+    return { ok: false, error: 'Ese número no tiene WhatsApp. Revisa que esté con el código de país.' };
   }
   // Se ACTÚA con la forma que WhatsApp reconoce, no con la que se tipeó.
   const num = chequeo.canonico ?? crudo;
@@ -379,7 +379,7 @@ export async function agregarParticipanteGrupo(ws: number, numero: string): Prom
     link,
     error: envio.ok
       ? `${res.error} Le mandé el link de invitación por WhatsApp.`
-      : `${res.error} Tampoco pude mandarle la invitación, así que pasale el link vos.`,
+      : `${res.error} Tampoco pude mandarle la invitación, así que pásale el link tú.`,
   };
 }
 

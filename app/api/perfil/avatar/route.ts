@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     const buf = Buffer.from(await file.arrayBuffer());
     // La verdad es el contenido, no el header del cliente: sniff de magic bytes.
     const tipo = sniffImagen(buf);
-    if (!tipo) return Response.json({ ok: false, error: 'Formato no permitido. Usá JPG, PNG, WEBP o GIF.' }, { status: 400 });
+    if (!tipo) return Response.json({ ok: false, error: 'Formato no permitido. Usa JPG, PNG, WEBP o GIF.' }, { status: 400 });
 
     const supabase = getSupabaseServer();
     try { await supabase.storage.createBucket(BUCKET, { public: true }); } catch { /* ya existe */ }

@@ -19,8 +19,8 @@ export const maxDuration = 120;
 
 const MAX_BYTES = 20 * 1024 * 1024;
 
-const PROMPT = `Sos un extractor de datos fiscales. Te paso un documento fiscal (constancia de situación fiscal de México/RFC, comprobante de CUIT de Argentina, RUT, NIT, EIN, o similar) de la EMPRESA que factura. Extraé sus datos de facturación.
-Devolvé SOLO un objeto JSON con estas claves (usá null si el dato no aparece):
+const PROMPT = `Eres un extractor de datos fiscales. Te paso un documento fiscal (constancia de situación fiscal de México/RFC, comprobante de CUIT de Argentina, RUT, NIT, EIN, o similar) de la EMPRESA que factura. Extrae sus datos de facturación.
+Devuelve SOLO un objeto JSON con estas claves (usa null si el dato no aparece):
 {
   "razon": "razón social / nombre completo",
   "id_fiscal": "el identificador fiscal (RFC, CUIT, NIT, EIN…) tal cual figura",

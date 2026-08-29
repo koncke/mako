@@ -143,6 +143,6 @@ export async function clonarConfigDelDueno(destino: number): Promise<ResultadoCl
     }
   }
 
-  avisos.push('No se copiaron el teléfono, el email ni los grupos de WhatsApp del dueño: las pruebas tienen que llegarte a VOS, no a él.');
+  avisos.push('No se copiaron el teléfono, el email ni los grupos de WhatsApp del dueño: las pruebas tienen que llegarte a TI, no a él.');
   return { settings: filas.length, tablas, avisos };
 }

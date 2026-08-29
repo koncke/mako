@@ -239,7 +239,7 @@ export const GRAMATICA: Record<EstadoMako, DefEstado> = {
     rotulo: 'Hecho',
     forma: 'aviso',
     tono: 'good',
-    comunica: 'Terminó. Si la acción se puede desandar, acá va el Deshacer.',
+    comunica: 'Terminó. Si la acción se puede desandar, aquí va el Deshacer.',
     exige: ['el resultado', 'los cambios', 'el próximo control'],
   },
   vigila: {
@@ -308,7 +308,7 @@ export const DESCRIPCIONES = {
 export const MARCA = 'MaKo';
 
 /** La regla, para los prompts. Va dentro de MAKO_NUCLEO, que lo lee toda la IA. */
-export const REGLA_MARCA = `CÓMO SE ESCRIBE LA MARCA: **MaKo** — M mayúscula, K MAYÚSCULA en el medio. Nunca "Maco", "Mako", "MAKO" ni "Macko". Si te llega escrito de otra forma (una transcripción de audio suele dejar "Maco"), corregilo al escribirlo vos.`;
+export const REGLA_MARCA = `CÓMO SE ESCRIBE LA MARCA: **MaKo** — M mayúscula, K MAYÚSCULA en el medio. Nunca "Maco", "Mako", "MAKO" ni "Macko". Si te llega escrito de otra forma (una transcripción de audio suele dejar "Maco"), corrígelo al escribirlo tú.`;
 
 /**
  * Corrige las variantes del nombre en un texto. Palabra completa y sin importar

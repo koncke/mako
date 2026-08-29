@@ -111,7 +111,10 @@ test('una ruta sin entrada en el menú igual queda legible', () => {
 
 test('la marca no se repite cuando ya está en el nombre de la sección', () => {
   // "MaKo - WhatsApp de MaKo" se leía dos veces el producto.
-  assert.equal(tituloDe('/mako'), 'Preguntale a MaKo');
+  // El rótulo de la tab se pasó a neutro («Pregúntale»). El NOMBRE del proyecto en
+  // lib/plan-proyectos-catalogo.ts sigue siendo «Feature: Preguntale a MaKo»: ese es
+  // una CLAVE guardada en la base, no copy, y renombrarlo huérfana las tarjetas.
+  assert.equal(tituloDe('/mako'), 'Pregúntale a MaKo');
   assert.equal(tituloDe('/agencia'), 'WhatsApp de MaKo');
 });
 

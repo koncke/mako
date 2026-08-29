@@ -21,14 +21,14 @@ export function frenoDeScope(tipo: TipoReunion): FrenoScope {
     return {
       frena: true,
       titulo: 'Esto parece una llamada de VENTAS',
-      detalle: 'De una llamada de ventas suelen salir tareas de seguimiento del lead (mandar la propuesta, agendar la R2), no tareas de tu plan de ejecución. ¿Seguro querés cargarlas acá? Revisá que sean tuyas de verdad.',
+      detalle: 'De una llamada de ventas suelen salir tareas de seguimiento del lead (mandar la propuesta, agendar la R2), no tareas de tu plan de ejecución. ¿Seguro quieres cargarlas aquí? Revisa que sean tuyas de verdad.',
     };
   }
   if (tipo === 'entrega') {
     return {
       frena: true,
       titulo: 'Esto parece una llamada de ENTREGA de servicio',
-      detalle: 'De una llamada de entrega salen tareas para ESE cliente (customer success), no para tu plan. ¿Seguro querés cargarlas a tu tablero? Ojo con mezclar el trabajo de un cliente con tu ejecución.',
+      detalle: 'De una llamada de entrega salen tareas para ESE cliente (customer success), no para tu plan. ¿Seguro quieres cargarlas a tu tablero? Ojo con mezclar el trabajo de un cliente con tu ejecución.',
     };
   }
   return null; // equipo / otra: no frena

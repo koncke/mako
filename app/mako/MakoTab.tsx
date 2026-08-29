@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// MakoTab — "Preguntale a MaKo": chat general + navegar todos los chats
+// MakoTab — "Pregúntale a MaKo": chat general + navegar todos los chats
 // =============================================================================
 // Izquierda: chat general nuevo + lista de TODAS las conversaciones (de cada
 // gráfico). Derecha: el chat seleccionado (MakoChat).
@@ -65,7 +65,7 @@ export function MakoTab() {
       {intro && <MakoIntro />}
       <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flex: 'none' }}>
         <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="mako" size={34} /></span>
-        <h1 style={{ fontWeight: 600, fontSize: 38, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Preguntale a MaKo</h1>
+        <h1 style={{ fontWeight: 600, fontSize: 38, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Pregúntale a MaKo</h1>
       </header>
 
       <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '290px 1fr', gap: 16 }}>
@@ -78,7 +78,7 @@ export function MakoTab() {
             {cargando ? (
               <div style={{ padding: '14px', fontSize: 13, color: 'var(--faint)', fontFamily: MONO }}>Cargando…</div>
             ) : sessions.length === 0 ? (
-              <div style={{ padding: '14px', fontSize: 13, color: 'var(--faint)' }}>Todavía no hay chats. Empezá uno o abrí el botón de MaKo de cualquier gráfico.</div>
+              <div style={{ padding: '14px', fontSize: 13, color: 'var(--faint)' }}>Todavía no hay chats. Empieza uno o abre el botón de MaKo de cualquier gráfico.</div>
             ) : (
               sessions.map((s) => {
                 const activo = sel.kind === 'session' && sel.session.id === s.id;
@@ -121,7 +121,7 @@ export function MakoTab() {
         {/* chat */}
         <section style={{ minHeight: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
           {sel.kind === 'general' ? (
-            <MakoChat key="general" chartKey="mako-general" titulo="Preguntale a MaKo" sugerencias={SUGERENCIAS_GENERAL} />
+            <MakoChat key="general" chartKey="mako-general" titulo="Pregúntale a MaKo" sugerencias={SUGERENCIAS_GENERAL} />
           ) : (
             <MakoChat key={sel.session.id} chartKey={sel.session.chart_key} titulo={chartLabel(sel.session.chart_key)} initialSessionId={sel.session.id} />
           )}

@@ -20,9 +20,9 @@ const NOUN: Record<string, string> = { campaign: 'campañas', adset: 'conjuntos 
 const VAR_DESC: Record<string, string> = {
   objetivo: 'objetivo del aviso en 1-2 palabras Title Case (ej. Leads, Ventas, Webinar, Registro, Retargeting, Tráfico). Inferilo del nombre/jerarquía.',
   angulo: 'ángulo o tema del mensaje, corto (ej. Dolor, Autoridad, Caso de éxito, Demo, Oferta). Inferilo del nombre.',
-  audiencia: 'público objetivo, corto (ej. Dueños de clínica, Frío, Retargeting, Lookalike). Si no se deduce, dejá "".',
-  mes: 'mes en español Title Case (Enero…Diciembre). Si el nombre menciona un mes/fecha, usá ESE; si no, usá el mes de creación que te paso.',
-  anio: 'año con 4 dígitos. Si el nombre menciona un año, usá ESE; si no, usá el año de creación que te paso.',
+  audiencia: 'público objetivo, corto (ej. Dueños de clínica, Frío, Retargeting, Lookalike). Si no se deduce, deja "".',
+  mes: 'mes en español Title Case (Enero…Diciembre). Si el nombre menciona un mes/fecha, usa ESE; si no, usa el mes de creación que te paso.',
+  anio: 'año con 4 dígitos. Si el nombre menciona un año, usa ESE; si no, usa el año de creación que te paso.',
 };
 
 function parseJsonObject(text: string): Record<string, unknown> {
@@ -45,17 +45,17 @@ export async function POST(req: NextRequest) {
 
   const noun = NOUN[level];
   const varSpec = vars.map((v) => `  - "${v}": ${VAR_DESC[v] ?? `valor de "${v}", corto, inferido del nombre.`}`).join('\n');
-  const system = `Sos MaKo, el copiloto de marketing de Mauricio Bustos. Te paso los ${noun} de una cuenta de Meta Ads con nombres DESORDENADOS. NO armes el nombre final: tu única tarea es EXTRAER/INFERIR, para cada uno, el valor de estas variables (cortas, fieles a lo que dice el nombre; no inventes datos que no estén):
+  const system = `Eres MaKo, el copiloto de marketing de Mauricio Bustos. Te paso los ${noun} de una cuenta de Meta Ads con nombres DESORDENADOS. NO armes el nombre final: tu única tarea es EXTRAER/INFERIR, para cada uno, el valor de estas variables (cortas, fieles a lo que dice el nombre; no inventes datos que no estén):
 ${varSpec}
 
 Reglas:
-- Devolvé un valor por CADA variable pedida y por CADA id, usando los id TAL CUAL.
-- Procesá TODAS las entidades que te paso. NO filtres, NO omitas, NO dejes valores en blanco "para descartar": qué renombrar ya lo decidió el usuario por fecha, no es tu tarea.
-- "objetivo" y "angulo" SIEMPRE deben tener un valor inferido (todo aviso tiene un objetivo y un ángulo). Devolvé "" solo si de verdad es imposible deducirlo.
+- Devuelve un valor por CADA variable pedida y por CADA id, usando los id TAL CUAL.
+- Procesa TODAS las entidades que te paso. NO filtres, NO omitas, NO dejes valores en blanco "para descartar": qué renombrar ya lo decidió el usuario por fecha, no es tu tarea.
+- "objetivo" y "angulo" SIEMPRE deben tener un valor inferido (todo aviso tiene un objetivo y un ángulo). Devuelve "" solo si de verdad es imposible deducirlo.
 - Valores CORTOS y consistentes entre todos (mismo estilo).
 ${body.notas?.trim() ? `- Estilo/preferencias del usuario para CÓMO nombrar (no es un filtro): ${body.notas.trim()}` : ''}
 
-Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin markdown):
+Devuelve EXCLUSIVAMENTE un objeto JSON válido (sin markdown):
 {"valores":[{"id":"<id>","vars":{${vars.map((v) => `"${v}":"…"`).join(',')}}}]}`;
 
   const lista = entities.map((e, i) => {

@@ -51,10 +51,10 @@ export function NoEsTuyo({ existe, deQuien, wsDestino, otros = [] }: {
         <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 8, lineHeight: 1.55 }}>
           {existe
             ? (puedeIr && deQuien
-              ? `El borrador es de ${deQuien}. Cada plan vive en su propia cuenta, así que desde acá no te lo puedo mostrar.`
-              : 'El borrador es de otra cuenta. Cada plan vive en la suya, así que desde acá no te lo puedo mostrar.')
+              ? `El borrador es de ${deQuien}. Cada plan vive en su propia cuenta, así que desde aquí no te lo puedo mostrar.`
+              : 'El borrador es de otra cuenta. Cada plan vive en la suya, así que desde aquí no te lo puedo mostrar.')
             : otros.length
-              ? 'Ese link no lleva a ningún lado — puede haber llegado con un carácter cambiado. Estos son los borradores que tenés esperando:'
+              ? 'Ese link no lleva a ningún lado — puede haber llegado con un carácter cambiado. Estos son los borradores que tienes esperando:'
               : 'Puede que se haya aplicado hace tiempo o que el link esté mal copiado.'}
         </div>
         {!existe && otros.length > 0 && (

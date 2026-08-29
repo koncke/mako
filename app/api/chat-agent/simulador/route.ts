@@ -39,10 +39,10 @@ export async function POST(req: NextRequest) {
     if (typeof body.audioBase64 === 'string' && body.audioBase64) {
       if (body.audioBase64.length > 8_000_000) return Response.json({ ok: false, error: 'El audio es muy largo para el simulador.' }, { status: 400 });
       transcript = (await transcribirAudio(body.audioBase64, typeof body.audioMime === 'string' && body.audioMime ? body.audioMime : 'audio/mpeg')).trim();
-      if (!transcript) return Response.json({ ok: false, error: 'No entendí el audio — probá de nuevo o escribilo.' }, { status: 400 });
+      if (!transcript) return Response.json({ ok: false, error: 'No entendí el audio — prueba de nuevo o escríbelo.' }, { status: 400 });
       historial.push({ de: 'lead', texto: transcript });
     }
-    if (!historial.length) return Response.json({ ok: false, error: 'Escribí un mensaje como el lead primero.' }, { status: 400 });
+    if (!historial.length) return Response.json({ ok: false, error: 'Escribe un mensaje como el lead primero.' }, { status: 400 });
 
     const r = await responderSimulador(id, historial);
     if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 400 });

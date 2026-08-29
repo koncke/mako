@@ -51,7 +51,7 @@ function CalIcon() {
 function CtaBand() {
   return (
     <div className="mk-cta">
-      <div className="mk-cta-h">¿Lo querés andando en tu negocio?</div>
+      <div className="mk-cta-h">¿Lo quieres andando en tu negocio?</div>
       <p className="mk-cta-p">Agenda una llamada y te mostramos MaKo con tus propios números.</p>
       <a href={CALENDLY} className="mk-btn-lg"><CalIcon />Agenda tu llamada</a>
     </div>

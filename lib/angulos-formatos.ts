@@ -55,23 +55,23 @@ const tieneRecom = (t: string): boolean => {
 };
 
 // ── Prompt (editable) ─────────────────────────────────────────────────────────
-export const FORMATOS_SYSTEM_TEMPLATE = `Sos MaKo, eligiendo los mejores FORMATOS de creativo para los anuncios de un negocio. Tenés una BIBLIOTECA FIJA de formatos (imagen y video); NO inventes formatos nuevos: solo ELEGÍS de la biblioteca los que mejor le sirven a ESTE negocio, según sus razones de compra y su gancho tangible.
+export const FORMATOS_SYSTEM_TEMPLATE = `Eres MaKo, eligiendo los mejores FORMATOS de creativo para los anuncios de un negocio. Tienes una BIBLIOTECA FIJA de formatos (imagen y video); NO inventes formatos nuevos: solo ELIGES de la biblioteca los que mejor le sirven a ESTE negocio, según sus razones de compra y su gancho tangible.
 
 Para cada recomendación:
 - "formatoId": EXACTAMENTE uno de los IDs de la biblioteca que te paso (no otro).
 - "para": a qué caso del negocio le sirve — el avatar y/o la razón de compra (ej: "Avatar 'Dueño de retail', razón Dolor").
-- "porque": 1 frase concreta de por qué ese formato encaja con ese caso y este negocio (usá el gancho si aplica).
+- "porque": 1 frase concreta de por qué ese formato encaja con ese caso y este negocio (usa el gancho si aplica).
 
-Elegí entre 4 y 6 recomendaciones, MEZCLANDO imagen y video, cubriendo distintos avatares/razones. Priorizá los formatos que aprovechen el GANCHO tangible del negocio (ej: si hay un dashboard, "screenshot-resultado" o "demo-walkthrough" lucen).
+Elige entre 4 y 6 recomendaciones, MEZCLANDO imagen y video, cubriendo distintos avatares/razones. Prioriza los formatos que aprovechen el GANCHO tangible del negocio (ej: si hay un dashboard, "screenshot-resultado" o "demo-walkthrough" lucen).
 
 REGLAS:
-- Usá SOLO IDs de la biblioteca. Aterrizá el "para"/"porque" en el negocio real.
+- Usa SOLO IDs de la biblioteca. Aterriza el "para"/"porque" en el negocio real.
 - IDIOMA: español NEUTRO/MEXICANO, de "tú", SIN voseo argentino.
 
 Devolvé EXCLUSIVAMENTE un objeto JSON válido con esta forma EXACTA:
 {"recomendaciones":[{"formatoId":"","para":"","porque":""}]}`;
 
-export const FORMATOS_USER_TEMPLATE = `BIBLIOTECA DE FORMATOS (elegí SOLO de estos IDs):
+export const FORMATOS_USER_TEMPLATE = `BIBLIOTECA DE FORMATOS (elige SOLO de estos IDs):
 {{biblioteca}}
 
 NEGOCIO:
@@ -79,7 +79,7 @@ NEGOCIO:
 {{gancho}}RAZONES DE COMPRA (la matriz avatar × razón):
 {{razones}}
 
-Elegí los mejores formatos de la biblioteca para este negocio. Devolvé solo el JSON.`;
+Elige los mejores formatos de la biblioteca para este negocio. Devuelve solo el JSON.`;
 
 // ── Parseo ────────────────────────────────────────────────────────────────────
 export function parseRecomendaciones(text: string): Recomendacion[] {
@@ -147,13 +147,13 @@ export async function elegirAngulo(celdaId: string, medio: Medio, timeoutMs?: nu
     const av = avatares.find((a) => a.id === celda.avatarId);
 
     const biblioteca = opciones.map((f) => `- ${f.id} — ${f.nombre}: ${f.descripcion}`).join('\n');
-    const sys = `Sos MaKo, eligiendo el MEJOR FORMATO de ${medio === 'imagen' ? 'IMAGEN' : 'VIDEO'} para UN anuncio concreto (metodología de Jan). Tenés una biblioteca FIJA de formatos de ${medio}; elegí EXACTAMENTE UNO, el que mejor ejecuta ESTE anuncio para ESTE avatar y ESTA motivación de compra, aprovechando el entregable tangible si aplica. NO inventes formatos.
+    const sys = `Eres MaKo, eligiendo el MEJOR FORMATO de ${medio === 'imagen' ? 'IMAGEN' : 'VIDEO'} para UN anuncio concreto (metodología de Jan). Tienes una biblioteca FIJA de formatos de ${medio}; elige EXACTAMENTE UNO, el que mejor ejecuta ESTE anuncio para ESTE avatar y ESTA motivación de compra, aprovechando el entregable tangible si aplica. NO inventes formatos.
 Devolvé EXCLUSIVAMENTE un JSON: {"formatoId":"<uno de los ids>","porque":"<1 frase>"}`;
     const user = `AVATAR: ${av ? `${av.nombre} — ${av.segmento}. Dolor: ${av.dolor}` : '(sin avatar)'}
 MOTIVACIÓN DE COMPRA: ${celda.nombre} — ${celda.descripcion}
 COPY/HOOK: ${celda.copy || '(sin copy)'}
 ${entregables.length ? `ENTREGABLE TANGIBLE: ${entregablesTexto(entregables)}\n` : ''}
-FORMATOS DE ${medio.toUpperCase()} (elegí SOLO uno de estos ids):
+FORMATOS DE ${medio.toUpperCase()} (elige SOLO uno de estos ids):
 ${biblioteca}
 
 Devolvé solo el JSON.`;

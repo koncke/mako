@@ -68,7 +68,10 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, ejemplos
           {fase === 'puntuando'
             ? <div style={{ padding: '30px 0', color: 'var(--dim)', fontSize: 14 }}>El Perro Guardián está priorizando la tarea…</div>
             : res && <>
-                <GuardianIcon size={52} />
+                {/* Se centra con FLEX, no con el `textAlign: 'center'` del padre: el preflight
+                    de Tailwind pone `svg { display: block }` y a un bloque el text-align no lo
+                    mueve — el icono quedaba pegado a la izquierda. */}
+                <div style={{ display: 'flex', justifyContent: 'center' }}><GuardianIcon size={52} /></div>
                 <div style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--ink)', margin: '12px 0 10px' }}>{title}</div>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: MONO, fontWeight: 700, fontSize: 16, color: PCOLOR[res.prio], marginBottom: 12 }}><ScoreIcon size={15} color={PCOLOR[res.prio]} />{res.score} · {PLABEL[res.prio]}</div>
                 <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.55, textAlign: 'left', background: 'var(--primary-bg)', border: '1px solid var(--primary-weak)', borderRadius: 12, padding: '13px 15px' }}>{res.respuesta}</div>
@@ -86,8 +89,8 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, ejemplos
 
   const banda = prioFromScore(userScore);
   const cercanos = ejemplos.slice().sort((a, b) => Math.abs(a.score - userScore) - Math.abs(b.score - userScore)).slice(0, 3);
-  const preguntas = ['Hola, soy el Perro Guardián MaKo', '¿Qué hay que hacer?', '¿En qué proyecto(s) va?', '¿Qué prioridad le pondrías?', '¿Por qué importa?', 'Contame un poco más (opcional)'];
-  const subs: (string | undefined)[] = [undefined, undefined, 'Podés elegir más de uno, o ninguno.', 'Poné tu puntaje; yo lo reviso y decido el final. Mirá cómo puntúan otras.', 'Con esto ajusto la prioridad. Elegí o escribí.', 'Detalle, contexto, criterio de "listo". Podés saltearlo.'];
+  const preguntas = ['Hola, soy el Perro Guardián MaKo', '¿Qué hay que hacer?', '¿En qué proyecto(s) va?', '¿Qué prioridad le pondrías?', '¿Por qué importa?', 'Cuéntame un poco más (opcional)'];
+  const subs: (string | undefined)[] = [undefined, undefined, 'Puedes elegir más de uno, o ninguno.', 'Pon tu puntaje; yo lo reviso y decido el final. Mira cómo puntúan otras.', 'Con esto ajusto la prioridad. Elige o escribe.', 'Detalle, contexto, criterio de "listo". Puedes saltarlo.'];
   const nuevoOk = motivoNinguno === 'Ese proyecto todavía no existe' ? nuevoProy.trim() !== '' : true;
   const puedeAvanzar = idx === 1 ? title.trim() !== ''
     : idx === 2 ? ((sel.length > 0 || motivoNinguno !== '') && nuevoOk)
@@ -107,7 +110,7 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, ejemplos
       onConfirmar={crear}
     >
       {idx === 0 && <IntroBody que="crear una tarea nueva" />}
-      {idx === 1 && <input value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && title.trim()) setIdx(2); }} autoFocus placeholder="Escribí la tarea…" style={{ ...wizardInput }} />}
+      {idx === 1 && <input value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && title.trim()) setIdx(2); }} autoFocus placeholder="Escribe la tarea…" style={{ ...wizardInput }} />}
       {idx === 2 && (
         <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 8 }}>
           {labels.map((l) => {

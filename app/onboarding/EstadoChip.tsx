@@ -36,7 +36,7 @@ export function EstadoChip({ estado, onChange, onRetroceder, disabled = false }:
     : siguiente
       ? `Marcar como ${ESTADO_GUION_LABEL[siguiente]}`
       : onRetroceder
-        ? 'Ya está publicado · tocá para cambiarlo'
+        ? 'Ya está publicado · toca para cambiarlo'
         : 'Publicado';
 
   return (

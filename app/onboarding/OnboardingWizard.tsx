@@ -102,11 +102,11 @@ const JOB_LABELS: Record<string, string> = {
 // cierre). Misma regla dura que lib/servicio-slides.ts: solo lo que la app HACE.
 const SLIDES_MAKO: Slide[] = [
   // lib/mako-context.ts — el perfil del negocio entra en cada respuesta
-  { t: 'MaKo trabaja con TU negocio', d: 'Lo que contestás acá entra en cada análisis y cada respuesta: deja de darte consejos de manual y te habla de lo tuyo.' },
+  { t: 'MaKo trabaja con TU negocio', d: 'Lo que contestas aquí entra en cada análisis y cada respuesta: deja de darte consejos de manual y te habla de lo tuyo.' },
   // lib/mako-guardian.ts — puntúa 1-100 comparando contra todo el backlog
-  { t: 'Prioriza y te lo discute', d: 'El Perro Guardián compara cada tarea contra todo el resto, le pone un puntaje con su razón, y si no estás de acuerdo se lo debatís.' },
+  { t: 'Prioriza y te lo discute', d: 'El Perro Guardián compara cada tarea contra todo el resto, le pone un puntaje con su razón, y si no estás de acuerdo se lo debates.' },
   // lib/retro-pipeline.ts — 8 fases sobre todas las áreas conectadas
-  { t: 'Una Retro que mira todo', d: 'Cruza ads, leads, llamadas y plata en un solo informe, y cuando aceptás una idea te la crea de verdad en tu plan.' },
+  { t: 'Una Retro que mira todo', d: 'Cruza ads, leads, llamadas y dinero en un solo informe, y cuando aceptas una idea te la crea de verdad en tu plan.' },
 ];
 
 // El separador de lada + número vive en lib/paises.ts, junto al catálogo de
@@ -335,7 +335,7 @@ export function OnboardingWizard() {
         pantallas.push({
           // `exige` es lo que bloquea. Solo acá: estas SON las pantallas de conectar.
           key: `int:${key}`, paso, servicio: key, exige: key, nombre: s.nombre,
-          pregunta: `Conectá ${s.nombre}`,
+          pregunta: `Conecta ${s.nombre}`,
           slides: SLIDES[key] ?? SLIDES_MAKO,
         });
       }
@@ -468,7 +468,7 @@ export function OnboardingWizard() {
         // Si el server no pudo cerrar el paso, NO se avanza. Antes solo se miraba
         // `estado.status`, así que un 500 dejaba el paso sin marcar y el cliente
         // volvía a aterrizar acá para siempre, sin ver un solo error.
-        if (!j || j.ok === false) { setError(String(j?.error ?? 'No se pudo guardar el avance. Probá de nuevo.')); return; }
+        if (!j || j.ok === false) { setError(String(j?.error ?? 'No se pudo guardar el avance. Prueba de nuevo.')); return; }
         destino = await salidaTrasCerrar(j.estado?.status);
       }
       if (enUltimo) { window.location.href = destino; return; }
@@ -493,7 +493,7 @@ export function OnboardingWizard() {
     try {
       const j = await post('/api/onboarding', { action: 'paso', step: p.paso, postergar: true }) as
         { ok?: boolean; error?: string; estado?: { status?: string } } | null;
-      if (!j || j.ok === false) { setError(String(j?.error ?? 'No se pudo guardar. Probá de nuevo.')); return; }
+      if (!j || j.ok === false) { setError(String(j?.error ?? 'No se pudo guardar. Prueba de nuevo.')); return; }
       const siguiente = pantallas.findIndex((x, i) => i > idx && x.paso !== p.paso);
       if (siguiente < 0) { window.location.href = await salidaTrasCerrar(j.estado?.status); return; }
       setIdx(siguiente);
@@ -742,10 +742,10 @@ export function OnboardingWizard() {
             />
             {!conectadas[p.exige] && (
               servicioReq
-                ? <div style={{ fontSize: 12.5, color: 'var(--warn)', marginTop: 12 }}>Conectala para seguir.</div>
+                ? <div style={{ fontSize: 12.5, color: 'var(--warn)', marginTop: 12 }}>Conéctala para seguir.</div>
                 // Ya dijo «seguir sin esto». Repetirle que la conecte sería desdecirse;
                 // lo que corresponde es confirmarle que puede seguir y que queda anotado.
-                : <div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 12 }}>La dejaste para después — podés seguir. Te queda pendiente en tu panel.</div>
+                : <div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 12 }}>La dejaste para después — puedes seguir. Te queda pendiente en tu panel.</div>
             )}
           </div>
         )}
@@ -822,7 +822,7 @@ export function OnboardingWizard() {
             {contactoEtapa === 'codigo' && (
               <div style={{ textAlign: 'center', padding: '8px 0' }}>
                 <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6, marginBottom: 16 }}>
-                  Te escribimos por WhatsApp a <b style={{ color: 'var(--ink)' }}>{lada} {numeroLocal}</b> con un código de 6 dígitos. Cargalo acá para confirmar tu número.
+                  Te escribimos por WhatsApp a <b style={{ color: 'var(--ink)' }}>{lada} {numeroLocal}</b> con un código de 6 dígitos. Cárgalo aquí para confirmar tu número.
                 </div>
                 <input style={{ ...wizardInput, textAlign: 'center', fontSize: 24, letterSpacing: '0.35em', fontWeight: 700, padding: '14px 12px 14px 24px' }}
                   value={codigoInput} onChange={(e) => setCodigoInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -1019,9 +1019,9 @@ function FaseLoopAnimado() {
 
 function CierreGuardian() {
   const puntos: Array<[string, string]> = [
-    ['Vos cargás, él prioriza', 'Compara cada tarea contra todo el resto y le pone un puntaje con su razón.'],
+    ['Tú cargas, él prioriza', 'Compara cada tarea contra todo el resto y le pone un puntaje con su razón.'],
     ['Un solo objetivo a la vez', 'El proyecto más importante manda. Los demás no se cuelan en Alta salvo una emergencia real.'],
-    ['Te lo discute', 'Si creés que se equivocó, se lo debatís. Te va a pedir argumentos — y tiene la última palabra.'],
+    ['Te lo discute', 'Si crees que se equivocó, se lo debates. Te va a pedir argumentos — y tiene la última palabra.'],
   ];
   return (
     <div>

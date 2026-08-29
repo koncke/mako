@@ -126,10 +126,10 @@ export function FechaDebateModal({ task, otras, onApply, onUsage, onClose }: {
     );
   }
 
-  const preguntas = ['¿Qué querés hacer con la fecha?', pideFecha ? '¿Para cuándo?' : '¿Por qué?', '¿Por qué?'];
+  const preguntas = ['¿Qué quieres hacer con la fecha?', pideFecha ? '¿Para cuándo?' : '¿Por qué?', '¿Por qué?'];
   const subs = [
-    `Hoy vence ${fmt(task.deadline)} · prioridad ${task.score}/100. La decide el Perro: vos decís qué querés y por qué.`,
-    pideFecha ? 'Elegí el día. Después te va a pedir el motivo.' : 'El motivo es lo único que puede mover una fecha.',
+    `Hoy vence ${fmt(task.deadline)} · prioridad ${task.score}/100. La decide el Perro: tú dices qué quieres y por qué.`,
+    pideFecha ? 'Elige el día. Después te va a pedir el motivo.' : 'El motivo es lo único que puede mover una fecha.',
     'Con esto decide. Un "la quiero ya" lo va a rechazar, y está bien que lo haga.',
   ];
   const puedeAvanzar = idx === 0 ? !!que : idx === 1 ? (pideFecha ? !!cuando : !!porque) : !!porque;

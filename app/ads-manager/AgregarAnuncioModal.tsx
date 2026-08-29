@@ -119,11 +119,11 @@ export function AgregarAnuncioModal({ adsetId, defaultName, senales, onClose, on
               {/* copy — solo si es creativo subido (el ganador reusa su propio copy) */}
               {tray?.kind === 'upload' && (
                 <>
-                  <label><span style={lbl}>Texto principal</span><textarea value={primary} onChange={(e) => setPrimary(e.target.value)} rows={4} style={{ ...field, resize: 'vertical', lineHeight: 1.5 }} placeholder="Escribí el texto del anuncio…" /></label>
+                  <label><span style={lbl}>Texto principal</span><textarea value={primary} onChange={(e) => setPrimary(e.target.value)} rows={4} style={{ ...field, resize: 'vertical', lineHeight: 1.5 }} placeholder="Escribe el texto del anuncio…" /></label>
                   <label><span style={lbl}>Título</span><input value={headline} onChange={(e) => setHeadline(e.target.value)} style={field} placeholder="Título corto" /></label>
                   <div><span style={lbl}>Botón (CTA)</span><Dropdown value={cta} options={CTA_OPCIONES.map((o) => ({ value: o.value as string, label: o.label }))} onChange={setCta} width="100%" /></div>
                   {info.needsForm ? (
-                    <div><span style={lbl}>Formulario instantáneo</span><Dropdown value={leadFormId} placeholder={leadForms === null ? 'Cargando…' : leadForms.length ? 'Elegí un formulario…' : 'Sin formularios'} options={(leadForms ?? []).map((f) => ({ value: f.id, label: f.name }))} onChange={setLeadFormId} width="100%" /></div>
+                    <div><span style={lbl}>Formulario instantáneo</span><Dropdown value={leadFormId} placeholder={leadForms === null ? 'Cargando…' : leadForms.length ? 'Elige un formulario…' : 'Sin formularios'} options={(leadForms ?? []).map((f) => ({ value: f.id, label: f.name }))} onChange={setLeadFormId} width="100%" /></div>
                   ) : (
                     <label><span style={lbl}>Destino (URL)</span><input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://tu-landing/vsl" style={field} /></label>
                   )}

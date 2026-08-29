@@ -11,7 +11,7 @@ export const SLIDES: Record<string, Slide[]> = {
     // lib/meta-ads.ts (fetchMetaInsights, level=ad) + app/api/cron/meta-daily
     { t: 'Cada anuncio, todos los días', d: 'Gasto, CTR, CPC, leads y retención por cuartiles de cada anuncio. Entra solo, todos los días.' },
     // lib/meta-health.ts (semáforo + recomendaciones fuente:'mako')
-    { t: 'El semáforo de la cuenta', d: 'Si Meta te frenó la entrega, te rechazó un anuncio o algo quedó en aprendizaje, lo ves acá — y MaKo te dice qué tocar.' },
+    { t: 'El semáforo de la cuenta', d: 'Si Meta te frenó la entrega, te rechazó un anuncio o algo quedó en aprendizaje, lo ves aquí — y MaKo te dice qué tocar.' },
     // app/api/webhooks/meta-leads + lib/meta-leads.ts (poll de respaldo)
     { t: 'Los leads entran solos', d: 'Cada Lead Ad cae en el CRM en el momento, con su hilo de WhatsApp ya abierto.' },
     // lib/meta-capi.ts, disparado desde lib/leads.ts y el webhook de Calendly
@@ -19,13 +19,13 @@ export const SLIDES: Record<string, Slide[]> = {
   ],
   whatsapp: [
     // app/whatsapp/WhatsAppApp.tsx + lib/chatwoot.ts
-    { t: 'El inbox, acá adentro', d: 'Leé y contestá WhatsApp sin salir de MaKo: un hilo por lead, con adjuntos.' },
+    { t: 'El inbox, aquí adentro', d: 'Lee y contesta WhatsApp sin salir de MaKo: un hilo por lead, con adjuntos.' },
     // lib/template-validator.ts + lib/meta-templates.ts (explicarRechazo)
     { t: 'Plantillas que no te rechazan', d: 'MaKo las valida contra las reglas de Meta antes de mandarlas. Si igual te rechazan, te explica por qué en español.' },
     // lib/nutricion.ts (ventana horaria, tope diario, 1 msg/lead cada 20h)
     { t: 'Nutrición que cuida tu número', d: 'Ventana horaria, tope diario y un mensaje por lead cada 20 horas. Nada de ráfagas.' },
     // app/api/webhooks/chatwoot → lib/nutricion.ts (pausarPorRespuesta)
-    { t: 'Contesta el lead, se corta sola', d: 'En cuanto responde, la secuencia se pausa: nunca le escribís encima a alguien que ya está hablando.' },
+    { t: 'Contesta el lead, se corta sola', d: 'En cuanto responde, la secuencia se pausa: nunca le escribes encima a alguien que ya está hablando.' },
   ],
   email: [
     // lib/nutricion.ts (mismo motor que WhatsApp, canal email)
@@ -33,7 +33,7 @@ export const SLIDES: Record<string, Slide[]> = {
     // lib/email-marketing.ts (enviarBroadcast, prueba, programados)
     { t: 'Broadcasts a un segmento', d: 'Borrador, envío de prueba y programado. Sin pegar direcciones a mano.' },
     // lib/resend.ts (createResendDomain/verifyResendDomain) + DominioSetup
-    { t: 'Tu dominio, verificado desde acá', d: 'MaKo te da los registros DNS y chequea solo hasta que quede verificado. Sin dominio propio no sale nada.' },
+    { t: 'Tu dominio, verificado desde aquí', d: 'MaKo te da los registros DNS y chequea solo hasta que quede verificado. Sin dominio propio no sale nada.' },
     // app/api/webhooks/resend (aperturas/clicks/rebotes + supresión)
     { t: 'Quién abrió y quién clickeó', d: 'Aperturas, clicks y rebotes por paso. El que rebota duro se suprime solo y la baja es de un click.' },
   ],
@@ -42,7 +42,7 @@ export const SLIDES: Record<string, Slide[]> = {
     // lib/closing.ts (SPIN, objeciones, recomendaciones)
     { t: 'Analiza tus llamadas', d: 'El Closing Analyst puntúa cada llamada de venta por SPIN, marca las objeciones y te deja recomendaciones.' },
     // lib/model-registry.ts (modeloDeFeature, editable en /modelos-ia)
-    { t: 'Vos elegís el modelo', d: 'Opus para el análisis pesado, Sonnet para lo conversacional. Se cambia por tarea, sin tocar código.' },
+    { t: 'Tú eliges el modelo', d: 'Opus para el análisis pesado, Sonnet para lo conversacional. Se cambia por tarea, sin tocar código.' },
     // recordUsage → /api/anthropic-usage (Costo de MaKo)
     { t: 'Cada peso, a la vista', d: 'Qué proceso gastó cuánto, con qué modelo y cuándo. Sin sorpresas a fin de mes.' },
   ],
@@ -50,26 +50,26 @@ export const SLIDES: Record<string, Slide[]> = {
     // lib/transcribe.ts (whisper-1 + gpt-4o-mini) → alimenta lib/ads-analyst.ts
     { t: 'Escucha tus creativos', d: 'Transcribe el video de cada anuncio y lo parte en secciones. Eso es lo que después lee el Ads Analyst.' },
     // lib/transcribe.ts (transcribeMediaBuffer) → /conocimiento
-    { t: 'Tus clases, en texto', d: 'Subís la grabación de un curso y queda como conocimiento consultable de MaKo.' },
+    { t: 'Tus clases, en texto', d: 'Subes la grabación de un curso y queda como conocimiento consultable de MaKo.' },
     // lib/ai-cheap.ts: provDe('groq') ?? provDe('openai')
-    { t: 'El suplente de lo barato', d: 'Cuando no hay Groq, las tareas simples caen acá en vez de gastar Claude.' },
+    { t: 'El suplente de lo barato', d: 'Cuando no hay Groq, las tareas simples caen aquí en vez de gastar Claude.' },
   ],
   groq: [
     // lib/ai-cheap.ts (Groq gana si hay llave) + lib/model-registry.ts
     { t: 'IA gratis para lo simple', d: 'Clasificar, extraer, titular. MaKo la prefiere sobre OpenAI cuando hay llave.' },
     // lib/mako-doer-in.ts → transcribirAudio (whisper-large-v3-turbo)
-    { t: 'Tus notas de voz, en texto', d: 'Le mandás un audio a "Hola MaKo" por WhatsApp y lo entiende.' },
+    { t: 'Tus notas de voz, en texto', d: 'Le mandas un audio a "Hola MaKo" por WhatsApp y lo entiende.' },
     { t: 'Se mide en tokens, no en plata', d: 'El plan gratis limita por tokens/día y reinicia cada día. No hay saldo que se vacíe.' },
   ],
   fathom: [
     // lib/closing.ts (triage barato → Claude: venta vs entrega, SPIN, objeciones)
     { t: 'Cada llamada, puntuada', d: 'El Closing Analyst separa venta de entrega, puntúa por SPIN y marca las objeciones que aparecieron.' },
     // app/closing/ClosingBrowser.tsx (iframe + transcript con deep-link al segundo)
-    { t: 'El video y el transcript, juntos', d: 'Player embebido y transcript clickeable: tocás una línea y el video salta a ese segundo.' },
+    { t: 'El video y el transcript, juntos', d: 'Player embebido y transcript clickeable: tocas una línea y el video salta a ese segundo.' },
     // app/api/webhooks/fathom (inviteeSpoke → asistencia real) + lib/fathom-auto.ts
     { t: 'La reunión se marca sola', d: 'Llega la grabación y el lead avanza: R1 o R2, y la asistencia se confirma según si el lead realmente habló.' },
     // lib/closing.ts (reviseAnalysis / reviseWithMako, con edit_history)
-    { t: 'La última palabra es tuya', d: 'Corregís un puntaje a mano o le pedís a MaKo que re-analice con tu nota. Queda el historial.' },
+    { t: 'La última palabra es tuya', d: 'Corriges un puntaje a mano o le pides a MaKo que re-analice con tu nota. Queda el historial.' },
   ],
   calendly: [
     // app/api/webhooks/calendly (respuestas por frase, UTMs, visitor_id de la landing)
@@ -115,8 +115,8 @@ export const SLIDES: Record<string, Slide[]> = {
   // es que Claude arranque sabiendo a qué te dedicás, a quién le vendés y cómo suena tu
   // marca. Eso va primero.
   agente: [
-    { t: 'Arranca sabiendo de tu negocio', d: 'Tu oferta, tu cliente ideal, tus avatares, tus razones de compra y cómo suena tu marca. No se lo tenés que contar de nuevo en cada chat.' },
+    { t: 'Arranca sabiendo de tu negocio', d: 'Tu oferta, tu cliente ideal, tus avatares, tus razones de compra y cómo suena tu marca. No se lo tienes que contar de nuevo en cada chat.' },
     { t: 'Mira tu plan antes de proponerte nada', d: 'Lee tus tareas y proyectos abiertos, así no te propone algo que ya está anotado y te avisa si hay algo urgente o vencido.' },
-    { t: 'Te propone, no decide', d: 'Cuando encuentra algo para anotar, deja un borrador con preguntas y te pasa el link. Vos respondés y el Perro Guardián le pone la prioridad — el mismo camino que MaKo por WhatsApp.' },
+    { t: 'Te propone, no decide', d: 'Cuando encuentra algo para anotar, deja un borrador con preguntas y te pasa el link. Tú respondes y el Perro Guardián le pone la prioridad — el mismo camino que MaKo por WhatsApp.' },
   ],
 };

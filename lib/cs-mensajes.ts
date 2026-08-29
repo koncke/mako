@@ -61,7 +61,7 @@ export async function borradorHayQueAprobar(input: {
   const texto = [
     `Hola ${primerNombre(input.nombre)}, te dejé ${uno ? 'mejorada la respuesta' : 'mejoradas las respuestas'} de lo que hablamos en la sesión:`,
     lista,
-    `Entrá al mismo link de siempre, comparalas con lo que habías escrito y quedate con la que prefieras. Si te gusta cómo quedó, aprobala y ese bloque queda cerrado.`,
+    `Entra al mismo link de siempre, compáralas con lo que habías escrito y quédate con la que prefieras. Si te gusta cómo quedó, apruébala y ese bloque queda cerrado.`,
   ].join('\n\n');
 
   await crearBorrador({ leadId: input.leadId, telefono: tel, texto, origen: 'mako' });
@@ -86,7 +86,7 @@ export async function borradorVioYNoContesto(input: {
     `Hola ${primerNombre(input.nombre)}, vi que ${uno ? 'miraste la clase' : 'miraste las clases'}:`,
     input.clases.map(id => `• ${rotuloDe(id)}`).join('\n'),
     `${uno ? 'La tarea' : 'Las tareas'} todavía ${uno ? 'está' : 'están'} sin contestar. Es la parte que hace que la sesión sirva: sin eso llegamos a debatir sobre nada.`,
-    `Está en el mismo link de siempre. Si algo no lo tenés, escribí «no lo tengo» y quién debería tenerlo — un hueco identificado vale más que una cifra inventada.`,
+    `Está en el mismo link de siempre. Si algo no lo tienes, escribe «no lo tengo» y quién debería tenerlo — un hueco identificado vale más que una cifra inventada.`,
   ].join('\n\n');
 
   await crearBorrador({ leadId: input.leadId, telefono: tel, texto, origen: 'mako' });
@@ -111,10 +111,10 @@ export async function mandarElLink(input: {
   if (!tel) return { ok: false, error: SIN_TEL };
 
   const texto = [
-    `Hola ${primerNombre(input.nombre)}, acá va tu link para las tareas del programa:`,
+    `Hola ${primerNombre(input.nombre)}, aquí va tu link para las tareas del programa:`,
     `${APP_BASE_URL}/compartido/${input.token}`,
-    `No hace falta usuario ni contraseña, se abre directo. Guardalo: es el mismo para todo el programa.`,
-    `Cada bloque tiene un video y una tarea. Dejá la tarea contestada antes de la sesión: ahí la debatimos y la afinamos.`,
+    `No hace falta usuario ni contraseña, se abre directo. Guárdalo: es el mismo para todo el programa.`,
+    `Cada bloque tiene un video y una tarea. Deja la tarea contestada antes de la sesión: ahí la debatimos y la afinamos.`,
   ].join('\n\n');
 
   const { enviarYEspejar } = await import('./evolution-envio');

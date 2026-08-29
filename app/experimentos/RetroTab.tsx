@@ -130,7 +130,7 @@ export function RetroTab({
       {confirmNode}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <p style={{ margin: 0, fontSize: 14.5, color: 'var(--dim)', maxWidth: 560, lineHeight: 1.55 }}>
-          MaKo navega todas tus tabs, cruza los datos y te deja <b>una tesis con su plan</b>. Vos aceptás, posponés o descartás cada recomendación.
+          MaKo navega todas tus tabs, cruza los datos y te deja <b>una tesis con su plan</b>. Tú aceptas, pospones o descartas cada recomendación.
         </p>
         <button type="button" onClick={() => setWizard(true)} style={{ ...btnPrimary, padding: '13px 22px', fontSize: 15, boxShadow: '0 8px 22px rgba(47,111,237,.28)' }}>
           <MakoStar size={15} color="#fff" /> Nueva Retro
@@ -319,9 +319,9 @@ function NuevaRetroModal({ onClose, onGenerada, notify, demo }: {
       }
       // Última línea sin newline (residuo del buffer).
       if (procesar(buf.trim())) return;
-      setErr('El servidor cortó la generación antes de terminar (posible límite de tiempo). Reintentá; si pasa seguido, elegí menos áreas o un período más corto.');
+      setErr('El servidor cortó la generación antes de terminar (posible límite de tiempo). Reintenta; si pasa seguido, elige menos áreas o un período más corto.');
     } catch (e) {
-      if ((e as Error)?.name !== 'AbortError') setErr('Se cortó la conexión. Probá de nuevo.');
+      if ((e as Error)?.name !== 'AbortError') setErr('Se cortó la conexión. Prueba de nuevo.');
     }
   };
 
@@ -343,7 +343,7 @@ function NuevaRetroModal({ onClose, onGenerada, notify, demo }: {
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           {step === 'alcance' && (
             <div style={{ padding: '28px 30px 12px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ textAlign: 'center' }}><h2 style={pregunta}>¿Qué querés que analice?</h2><p style={{ ...ayuda, margin: '8px auto 0' }}>Siempre a fondo. Todo el negocio, o elegí áreas. (Tus experimentos van siempre.)</p></div>
+              <div style={{ textAlign: 'center' }}><h2 style={pregunta}>¿Qué quieres que analice?</h2><p style={{ ...ayuda, margin: '8px auto 0' }}>Siempre a fondo. Todo el negocio, o elige áreas. (Tus experimentos van siempre.)</p></div>
               <button type="button" onClick={() => { setModoTodo(true); setAreasSel([]); }}
                 style={{ padding: '14px 18px', borderRadius: 14, border: `1.5px solid ${modoTodo ? 'var(--primary)' : 'var(--border)'}`, background: modoTodo ? 'var(--primary-bg)' : 'var(--surface)', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={{ fontSize: 22 }}>🧭</span>
@@ -383,7 +383,7 @@ function NuevaRetroModal({ onClose, onGenerada, notify, demo }: {
 
           {step === 'perspectiva' && (
             <div style={{ padding: '30px 30px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
-              <div><h2 style={pregunta}>¿Tu lectura del período?</h2><p style={ayuda}>Opcional. Qué venís observando o qué te preocupa.</p></div>
+              <div><h2 style={pregunta}>¿Tu lectura del período?</h2><p style={ayuda}>Opcional. Qué vienes observando o qué te preocupa.</p></div>
               <textarea value={perspectiva} autoFocus onChange={(e) => setPerspectiva(e.target.value)} rows={4} placeholder="Ej.: siento que los leads vienen menos calificados desde que subimos el presupuesto…"
                 style={{ width: '100%', maxWidth: 500, padding: '14px 16px', borderRadius: 14, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none', resize: 'vertical', lineHeight: 1.5 }} />
               <div style={{ maxWidth: 500, fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.5, textAlign: 'center' }}>⚖️ MaKo la toma como <b>tu hipótesis</b>, no como un hecho: la contrasta con el dato y puede darte la contraria.</div>
@@ -402,7 +402,7 @@ function NuevaRetroModal({ onClose, onGenerada, notify, demo }: {
               const bloqueado = step === 'alcance' && !modoTodo && areasSel.length === 0;
               return (
                 <button type="button" disabled={bloqueado} onClick={() => { if (!bloqueado) setStep(inputSteps[idx + 1]); }} style={{ ...btnPrimary, opacity: bloqueado ? 0.5 : 1, cursor: bloqueado ? 'default' : 'pointer' }}>
-                  {bloqueado ? 'Elegí un área o "Todo"' : 'Siguiente →'}
+                  {bloqueado ? 'Elige un área o "Todo"' : 'Siguiente →'}
                 </button>
               );
             })()}

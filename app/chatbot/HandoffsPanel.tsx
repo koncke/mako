@@ -68,7 +68,7 @@ export function HandoffsPanel({ handoffs, onCambio }: { handoffs: Handoff[]; onC
         {handoffs.length === 1 ? 'Un lead escribió algo que no supe manejar' : `${handoffs.length} leads escribieron algo que no supe manejar`}
       </div>
       <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55, marginBottom: 12 }}>
-        No les contesté nada: prefiero no improvisar con alguien real. Contéstales tú, y si es un caso que se va a repetir, enséñamelo acá.
+        No les contesté nada: prefiero no improvisar con alguien real. Contéstales tú, y si es un caso que se va a repetir, enséñamelo aquí.
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

@@ -453,20 +453,20 @@ export async function listPropuestasPendientes(limite = 8): Promise<Propuesta[]>
 // 0-3 preguntas de SEGUIMIENTO que profundizan el CONTEXTO para que el PERRO decida —
 // NUNCA la prioridad. IA barata (nunca Claude), formatos variados. Si no hay nada que
 // profundizar, devuelve lista vacía y el wizard sigue de largo.
-const PROFUNDIZAR_SYSTEM = `Sos MaKo, cargando tareas al plan de un negocio. El dueño ya respondió unas preguntas de contexto. Tu trabajo: decidir si hace falta PROFUNDIZAR con PREGUNTAS DE SEGUIMIENTO para que EL PERRO GUARDIÁN pueda decidir la prioridad con buen criterio.
-VOS decidís cuántas: pueden ser NINGUNA (si lo respondido ya alcanza), una, o las que de verdad hagan falta. No inventes por inventar ni te cortes por miedo a preguntar de más.
-⛔ REGLA DURA: NUNCA preguntes qué prioridad poner ni qué le urge — eso lo decide el Perro (el dueño exagera y no sabe priorizar). Preguntá HECHOS que una respuesta previa recién abrió: un deadline que apareció (tipo "fecha"), una dependencia o bloqueo, un alcance ambiguo, qué sería "listo".
-⛔ REGLA DURA: la pregunta tiene que salir DE ESTAS TAREAS, no de un formulario de consultoría. Antes de escribirla, releé la tarea de la que hablás y preguntate si el dueño podría contestarla mirando SU trabajo. Si la pregunta le serviría igual a cualquier negocio del mundo, está mal.
-  MAL (pasó de verdad): sobre «Capacitar al equipo en la nueva estructura de funnels», preguntar "¿Cuál es el presupuesto asignado para la capacitación del equipo?" con opciones de plata. Es el equipo propio y la capacita él mismo: no hay ningún presupuesto, y la pregunta suena a plantilla.
-  De PLATA preguntá solo cuando la plata es REAL y del negocio —lo que factura un cliente, lo que se le paga a un proveedor, cuánto se va a invertir en pauta—, nunca un presupuesto interno que nadie asignó.
+const PROFUNDIZAR_SYSTEM = `Eres MaKo, cargando tareas al plan de un negocio. El dueño ya respondió unas preguntas de contexto. Tu trabajo: decidir si hace falta PROFUNDIZAR con PREGUNTAS DE SEGUIMIENTO para que EL PERRO GUARDIÁN pueda decidir la prioridad con buen criterio.
+TÚ decides cuántas: pueden ser NINGUNA (si lo respondido ya alcanza), una, o las que de verdad hagan falta. No inventes por inventar ni te cortes por miedo a preguntar de más.
+⛔ REGLA DURA: NUNCA preguntes qué prioridad poner ni qué le urge — eso lo decide el Perro (el dueño exagera y no sabe priorizar). Pregunta HECHOS que una respuesta previa recién abrió: un deadline que apareció (tipo "fecha"), una dependencia o bloqueo, un alcance ambiguo, qué sería "listo".
+⛔ REGLA DURA: la pregunta tiene que salir DE ESTAS TAREAS, no de un formulario de consultoría. Antes de escribirla, relee la tarea de la que hablas y pregúntate si el dueño podría contestarla mirando SU trabajo. Si la pregunta le serviría igual a cualquier negocio del mundo, está mal.
+  MAL (pasó de verdad): sobre «Capacitar al equipo en la nueva estructura de funnels», preguntar "¿Cuál es el presupuesto asignado para la capacitación del equipo?" con opciones de dinero. Es el equipo propio y la capacita él mismo: no hay ningún presupuesto, y la pregunta suena a plantilla.
+  De DINERO pregunta solo cuando el dinero es REAL y del negocio —lo que factura un cliente, lo que se le paga a un proveedor, cuánto se va a invertir en pauta—, nunca un presupuesto interno que nadie asignó.
 CRITERIO — cada pregunta tiene que TENER SENTIDO y sumar: si la respuesta es obvia, se contradice con lo ya dicho, o no cambia nada para el Perro, NO la hagas.
-CRITERIO — MEJOR NINGUNA QUE UNA DE RELLENO. Estas preguntas son EXTRA: el dueño ya contestó las de contexto. Si lo que respondió no abrió nada nuevo, devolvé { "preguntas": [] } y listo. No hay ninguna cuota que cumplir.
+CRITERIO — MEJOR NINGUNA QUE UNA DE RELLENO. Estas preguntas son EXTRA: el dueño ya contestó las de contexto. Si lo que respondió no abrió nada nuevo, devuelve { "preguntas": [] } y listo. No hay ninguna cuota que cumplir.
 
 ${CONTRATO_TIPOS_PREGUNTA}
 
 "sobre" = el título EXACTO de la tarea (o hasta 4) de la que habla la pregunta, tal cual te lo pasé. Es lo que le muestra al dueño de qué le estás hablando: sin eso, una pregunta correcta sobre la tarea 14 de 20 se lee como una pregunta al azar.
 ${JSON_PREGUNTAS}
-Español rioplatense.`;
+Español neutro (tuteo).`;
 
 export async function profundizarPropuesta(id: string, respuestas: Array<{ pregunta: string; respuesta: string }>): Promise<PropuestaPregunta[]> {
   const prop = await getPropuesta(id);
@@ -474,7 +474,7 @@ export async function profundizarPropuesta(id: string, respuestas: Array<{ pregu
   const respStr = (respuestas || []).filter((r) => r?.respuesta?.trim()).map((r) => `P: ${r.pregunta}\nR: ${r.respuesta}`).join('\n\n');
   if (!respStr.trim()) return []; // sin respuestas, no hay de dónde profundizar
   const tareasStr = prop.tareas.map((t, i) => `${i + 1}. ${t.titulo}${t.proyecto ? ` [${t.proyecto}]` : ''}${t.detalle ? ` — ${paraPrompt(t.detalle)}` : ''}`).join('\n');
-  const user = `TAREAS QUE SE ESTÁN CARGANDO:\n${tareasStr}\n\nRESPUESTAS DE CONTEXTO YA DADAS:\n${respStr}\n\nGenerá 0-3 preguntas de SEGUIMIENTO (solo si una respuesta abre algo que vale aclarar). JSON.`;
+  const user = `TAREAS QUE SE ESTÁN CARGANDO:\n${tareasStr}\n\nRESPUESTAS DE CONTEXTO YA DADAS:\n${respStr}\n\nGenera 0-3 preguntas de SEGUIMIENTO (solo si una respuesta abre algo que vale aclarar). JSON.`;
   // maxTokens amplio: la IA decide cuántas preguntas hacen falta (no la limitamos a un
   // número). El slice(0, 40) es solo un tope de SEGURIDAD (respuesta rota), no un límite real.
   const raw = await chatCheapCascade({ system: PROFUNDIZAR_SYSTEM, user, maxTokens: 3000, feature: 'mako-doer-in', motivo: 'Profundizar borrador (preguntas dinámicas)' }).catch(() => '');
@@ -511,31 +511,31 @@ export async function profundizarPropuesta(id: string, respuestas: Array<{ pregu
 //
 // Nada se crea solo: lo que devuelve esto se muestra en el último paso del wizard, con
 // checkbox y con el contexto editable, igual que las tareas de una reunión.
-const TAREAS_EXTRA_SYSTEM = `Sos el Perro Guardián de MaKo. El dueño está por cargar unas tareas al plan y acaba de contestar unas preguntas de contexto. Tu trabajo: decidir si de esas respuestas SALE TRABAJO QUE NO ESTÁ EN LA LISTA.
+const TAREAS_EXTRA_SYSTEM = `Eres el Perro Guardián de MaKo. El dueño está por cargar unas tareas al plan y acaba de contestar unas preguntas de contexto. Tu trabajo: decidir si de esas respuestas SALE TRABAJO QUE NO ESTÁ EN LA LISTA.
 
-VOS decidís cuántas: pueden ser NINGUNA, una, o siete. No hay cuota. El caso típico es que lo que entró como UNA idea suelta sea en realidad un proyecto entero, y ahí faltan los pasos.
+TÚ decides cuántas: pueden ser NINGUNA, una, o siete. No hay cuota. El caso típico es que lo que entró como UNA idea suelta sea en realidad un proyecto entero, y ahí faltan los pasos.
 
-⛔ NO REPITAS lo que ya está. Te paso las tareas que se van a cargar: si lo que ibas a proponer ya está escrito ahí —aunque sea con otras palabras— no lo propongas. Un duplicado acá es peor que una tarea de menos, porque el dueño ya revisó esa lista.
-⛔ NO INVENTES. Cada tarea nueva tiene que SALIR de algo que él dijo en las respuestas. Si no podés señalar la frase de la que sale, no la propongas.
+⛔ NO REPITAS lo que ya está. Te paso las tareas que se van a cargar: si lo que ibas a proponer ya está escrito ahí —aunque sea con otras palabras— no lo propongas. Un duplicado aquí es peor que una tarea de menos, porque el dueño ya revisó esa lista.
+⛔ NO INVENTES. Cada tarea nueva tiene que SALIR de algo que él dijo en las respuestas. Si no puedes señalar la frase de la que sale, no la propongas.
 ⛔ NADA de tareas de relleno tipo «revisar», «hacer seguimiento», «documentar el proceso» o «definir la estrategia». Una tarea es algo que alguien HACE y que se puede dar por terminado.
 
 QUÉ SÍ proponer:
 · El paso que la respuesta reveló que falta ANTES o DESPUÉS de lo que ya está («no puedo grabar hasta tener el guion» → falta el guion).
 · El bloqueo que nombró y que nadie va a resolver solo.
 · Lo que dijo al pasar como si fuera obvio y no está anotado en ninguna parte.
-· Cuando una tarea de la lista es en realidad TRES: proponé las que faltan, sin repetir la original.
+· Cuando una tarea de la lista es en realidad TRES: propón las que faltan, sin repetir la original.
 
 CÓMO SE ESCRIBE CADA UNA:
 · "titulo": el trabajo concreto, arranca con un verbo, sin jerga. Se entiende sin leer nada más.
 · "detalle": con el molde de abajo. En «Por qué» va la FRASE TEXTUAL del dueño entre « » de la que sale la tarea — es lo que le deja verificar de un vistazo que no la inventaste.
 · "porQue": una línea, para la pantalla: de qué respuesta salió.
-⛔ El "proyecto" NO lo elegís vos: lo decide el ruteo del Perro al aplicar. No lo mandes.
+⛔ El "proyecto" NO lo eliges tú: lo decide el ruteo del Perro al aplicar. No lo mandes.
 
 {{molde}}
 
-Devolvé EXCLUSIVAMENTE un objeto JSON (sin markdown):
+Devuelve EXCLUSIVAMENTE un objeto JSON (sin markdown):
 { "tareas": [ { "titulo": "<con un verbo>", "detalle": "<con el molde>", "porQue": "<de qué respuesta sale>" } ] }
-Español rioplatense. Si de las respuestas no sale nada nuevo, { "tareas": [] } — y es la respuesta más común.`;
+Español neutro (tuteo). Si de las respuestas no sale nada nuevo, { "tareas": [] } — y es la respuesta más común.`;
 
 export type TareaExtra = { titulo: string; detalle: string; porQue: string };
 
@@ -582,9 +582,9 @@ export async function tareasDesdeRespuestas(
 // destilda la mitad y le pasa otras a un colaborador. Preguntarle entonces por trabajo
 // que no va a cargar (o que ya no es suyo) es hacerle perder el tiempo con preguntas
 // que además salen genéricas, porque hablan de un montón de cosas a la vez.
-const PREGUNTAS_SYSTEM = `Sos MaKo, cargando tareas al plan de un negocio. Te paso LAS TAREAS QUE EL DUEÑO ELIGIÓ CARGAR (ya destildó lo que no va y repartió lo de otros). Tu trabajo: las preguntas de contexto que EL PERRO GUARDIÁN necesita para priorizarlas bien.
+const PREGUNTAS_SYSTEM = `Eres MaKo, cargando tareas al plan de un negocio. Te paso LAS TAREAS QUE EL DUEÑO ELIGIÓ CARGAR (ya destildó lo que no va y repartió lo de otros). Tu trabajo: las preguntas de contexto que EL PERRO GUARDIÁN necesita para priorizarlas bien.
 
-CUÁNTAS — ESCALA CON EL TAMAÑO DEL LOTE. No es lo mismo cargar 2 tareas que 20: si son 20 y hacés 4 preguntas, 16 tareas entran a ciegas y el Perro las puntúa adivinando. La regla es aproximadamente UNA pregunta cada TRES tareas:
+CUÁNTAS — ESCALA CON EL TAMAÑO DEL LOTE. No es lo mismo cargar 2 tareas que 20: si son 20 y haces 4 preguntas, 16 tareas entran a ciegas y el Perro las puntúa adivinando. La regla es aproximadamente UNA pregunta cada TRES tareas:
 · 1 a 3 tareas → 1 o 2 preguntas
 · 4 a 8 → 2 a 4
 · 9 a 15 → 4 a 6
@@ -593,18 +593,18 @@ CUÁNTAS — ESCALA CON EL TAMAÑO DEL LOTE. No es lo mismo cargar 2 tareas que 
 · más de 40 → 12 a 16
 Es una guía, no una cuota: si de verdad no hay nada que preguntar sobre un bloque de tareas, no inventes. Pero si quedan tareas grandes sobre las que no preguntaste nada, te faltaron preguntas.
 
-COBERTURA: repartí las preguntas por TODO el lote, no las amontones en las primeras tres tareas. Cuando son muchas, agrupá por proyecto o por tema y hacé una pregunta por grupo: una respuesta que sirve para cinco tareas del mismo proyecto vale por cinco. Podés hacer DOS preguntas sobre la misma tarea solo si es grande y las dos cambian cosas distintas.
+COBERTURA: reparte las preguntas por TODO el lote, no las amontones en las primeras tres tareas. Cuando son muchas, agrupa por proyecto o por tema y haz una pregunta por grupo: una respuesta que sirve para cinco tareas del mismo proyecto vale por cinco. Puedes hacer DOS preguntas sobre la misma tarea solo si es grande y las dos cambian cosas distintas.
 
-⛔ REGLA DURA: NUNCA preguntes qué prioridad poner ni qué le urge — eso lo decide el Perro (el dueño exagera y no sabe priorizar). Preguntá HECHOS: un deadline (tipo "fecha"), una dependencia o bloqueo, un número de plata, un alcance ambiguo, quién lo hace, qué sería "listo".
+⛔ REGLA DURA: NUNCA preguntes qué prioridad poner ni qué le urge — eso lo decide el Perro (el dueño exagera y no sabe priorizar). Pregunta HECHOS: un deadline (tipo "fecha"), una dependencia o bloqueo, un número de dinero, un alcance ambiguo, quién lo hace, qué sería "listo".
 ⛔ REGLA DURA: NADA de preguntas ABIERTAS. Siempre con un campo concreto para tocar (opciones, o el calendario de "fecha").
-CRITERIO — CADA PREGUNTA TIENE QUE SER CONCRETA Y DE ESTAS TAREAS. Nombralas: "¿Para cuándo tiene que estar el filtro por fecha del tablero de guiones?" (tipo "fecha") y NO "¿qué impacto tienen estas correcciones?". Si una pregunta sirve igual para cualquier reunión, está mal.
+CRITERIO — CADA PREGUNTA TIENE QUE SER CONCRETA Y DE ESTAS TAREAS. Nómbralas: "¿Para cuándo tiene que estar el filtro por fecha del tablero de guiones?" (tipo "fecha") y NO "¿qué impacto tienen estas correcciones?". Si una pregunta sirve igual para cualquier reunión, está mal.
 CRITERIO — que sume: si la respuesta es obvia, ya está dicha en el detalle de la tarea, o no cambia NADA de lo que el Perro va a decidir, no la hagas. Una pregunta que no cambia nada es peor que ninguna: quema la paciencia del dueño y hace que conteste las que sí importan de cualquier manera.
 
 ${CONTRATO_TIPOS_PREGUNTA}
 
 "sobre" = SOLO los títulos, tal cual te los pasé, sin el detalle ni el número (1-4 títulos).
 ${JSON_PREGUNTAS}
-Español rioplatense.`;
+Español neutro (tuteo).`;
 
 /**
  * Las preguntas de contexto para EXACTAMENTE las tareas que el dueño está por cargar.
@@ -619,7 +619,7 @@ export async function preguntasParaCargar(titulosYDetalles: Array<{ titulo: stri
   // número concreto mucho mejor que un rango, y con 40 tareas la diferencia entre 6 y 16
   // preguntas es la diferencia entre priorizar con datos y priorizar adivinando.
   const techo = topePreguntas(tareas.length);
-  const user = `TAREAS QUE EL DUEÑO ELIGIÓ CARGAR (${tareas.length}):\n${lista}\n\nSon ${tareas.length} tareas: hacé hasta ${techo} preguntas, repartidas por todo el lote (no solo sobre las primeras). Generá las preguntas de contexto que le hagan falta al Perro para priorizar ESTAS. JSON.`;
+  const user = `TAREAS QUE EL DUEÑO ELIGIÓ CARGAR (${tareas.length}):\n${lista}\n\nSon ${tareas.length} tareas: haz hasta ${techo} preguntas, repartidas por todo el lote (no solo sobre las primeras). Genera las preguntas de contexto que le hagan falta al Perro para priorizar ESTAS. JSON.`;
   const raw = await chatCheapCascade({ system: PREGUNTAS_SYSTEM, user, maxTokens: 8000, feature: 'mako-doer-in', motivo: 'Preguntas de contexto (lo que se va a cargar)' }).catch(() => '');
   if (!raw) return [];
   let obj: Record<string, unknown>; try { obj = parseJsonObject(raw); } catch { return []; }

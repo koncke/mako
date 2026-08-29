@@ -43,7 +43,7 @@ function str(input: Record<string, unknown>, key: string): string {
 
 async function requireLead(input: Record<string, unknown>): Promise<Lead> {
   const id = num(input, 'leadId');
-  if (id == null) throw new Error('Falta leadId (número). Primero usá buscar_leads para ubicarlo.');
+  if (id == null) throw new Error('Falta leadId (número). Primero usa buscar_leads para ubicarlo.');
   const lead = await getLead(id);
   if (!lead) throw new Error(`No existe un lead con id ${id} en este workspace.`);
   return lead;
@@ -68,7 +68,7 @@ function resumenLead(l: Lead) {
 export const MAKO_TOOLS: ToolDef[] = [
   {
     name: 'buscar_leads',
-    description: 'Busca leads del negocio por nombre, teléfono, email o empresa. Devuelve una lista compacta (id, nombre, estado, etapa). Usá el id que devuelve con las otras herramientas.',
+    description: 'Busca leads del negocio por nombre, teléfono, email o empresa. Devuelve una lista compacta (id, nombre, estado, etapa). Usa el id que devuelve con las otras herramientas.',
     input_schema: {
       type: 'object',
       properties: { texto: { type: 'string', description: 'Texto a buscar en nombre / teléfono / email / empresa.' } },
@@ -107,7 +107,7 @@ export const MAKO_TOOLS: ToolDef[] = [
   },
   {
     name: 'buscar_tutorial',
-    description: 'Busca un tutorial EN VIDEO (YouTube) sobre algo que está FUERA de MaKo: instalar el píxel de Meta en su propia web, configurar Vercel/WordPress, crear un Business Manager, etc. Usala SIEMPRE que te pidan un "cómo se hace" de una herramienta de terceros, en vez de escribir el paso a paso vos. Devuelve título, canal, año y link — pasáselos tal cual, no reescribas el link.',
+    description: 'Busca un tutorial EN VIDEO (YouTube) sobre algo que está FUERA de MaKo: instalar el píxel de Meta en su propia web, configurar Vercel/WordPress, crear un Business Manager, etc. Úsala SIEMPRE que te pidan un "cómo se hace" de una herramienta de terceros, en vez de escribir el paso a paso tú. Devuelve título, canal, año y link — pásaselos tal cual, no reescribas el link.',
     input_schema: {
       type: 'object',
       properties: { tema: { type: 'string', description: 'Qué tutorial buscar, en español y concreto. Ej: "instalar pixel de meta en landing page".' } },
@@ -138,7 +138,7 @@ export const MAKO_TOOLS: ToolDef[] = [
   },
   {
     name: 'reuniones_recientes',
-    description: 'Las reuniones (R1/R2) más recientes del negocio, ordenadas por fecha, con el lead, si asistió y si ya tiene la grabación de Fathom cargada. Úsalo cuando te pregunten por "la última llamada/reunión" o "cómo me fue" SIN darte un nombre: identificás la reunión, sacás el leadId y después mirás el detalle con ficha_lead / reuniones_lead. También sirve para ver qué reunión pasada le falta cargar el Fathom.',
+    description: 'Las reuniones (R1/R2) más recientes del negocio, ordenadas por fecha, con el lead, si asistió y si ya tiene la grabación de Fathom cargada. Úsalo cuando te pregunten por "la última llamada/reunión" o "cómo me fue" SIN darte un nombre: identificas la reunión, sacas el leadId y después miras el detalle con ficha_lead / reuniones_lead. También sirve para ver qué reunión pasada le falta cargar el Fathom.',
     input_schema: {
       type: 'object',
       properties: { dias: { type: 'number', description: 'ventana hacia atrás en días (default 21, máx 90).' } },
@@ -146,7 +146,7 @@ export const MAKO_TOOLS: ToolDef[] = [
   },
   {
     name: 'ver_plan',
-    description: 'Muestra el PLAN/tablero del negocio: los proyectos y las tareas ABIERTAS (con su id). Usalo ANTES de agregar tareas al plan (proponer_tareas_plan) para: (1) asignar cada tarea a un proyecto que YA existe en vez de preguntar; (2) crear un proyecto nuevo solo si de verdad no encaja ninguno; (3) DETECTAR si una tarea que te piden YA existe (título parecido) → NO la dupliques: avisá que ya está, pasá su id y ofrecé enriquecerla. No requiere parámetros.',
+    description: 'Muestra el PLAN/tablero del negocio: los proyectos y las tareas ABIERTAS (con su id). Úsalo ANTES de agregar tareas al plan (proponer_tareas_plan) para: (1) asignar cada tarea a un proyecto que YA existe en vez de preguntar; (2) crear un proyecto nuevo solo si de verdad no encaja ninguno; (3) DETECTAR si una tarea que te piden YA existe (título parecido) → NO la dupliques: avisa que ya está, pasa su id y ofrece enriquecerla. No requiere parámetros.',
     input_schema: { type: 'object', properties: {} },
   },
 ];
@@ -157,7 +157,7 @@ export const runMakoTool: ToolRunner = async (name, input) => {
   switch (name) {
     case 'buscar_leads': {
       const q = str(input, 'texto').trim().toLowerCase();
-      if (!q) return 'Pasá un texto para buscar.';
+      if (!q) return 'Pasa un texto para buscar.';
       const leads = await listLeads();
       const hits = leads
         .filter((l) => `${l.nombre ?? ''} ${l.email ?? ''} ${l.empresa ?? ''} ${l.telefono ?? ''} ${l.telefono_normalizado ?? ''}`.toLowerCase().includes(q))
@@ -210,7 +210,7 @@ export const runMakoTool: ToolRunner = async (name, input) => {
 
     case 'buscar_tutorial': {
       const tema = str(input, 'tema').trim();
-      if (!tema) return 'Pasá el tema del tutorial.';
+      if (!tema) return 'Pasa el tema del tutorial.';
       const { buscarTutorial, textoTutorial } = await import('./tutorial-video');
       const vids = await buscarTutorial(tema);
       // El texto lo arma el CÓDIGO: el link de un video son 11 caracteres al azar
@@ -222,7 +222,7 @@ export const runMakoTool: ToolRunner = async (name, input) => {
 
     case 'buscar_conocimiento': {
       const query = str(input, 'query').trim();
-      if (!query) return 'Pasá una consulta.';
+      if (!query) return 'Pasa una consulta.';
       const area = str(input, 'area').trim();
       const items = await searchKnowledge(query, 5, area ? { area } : {});
       return formatKnowledge(items) || 'No encontré nada relevante en el conocimiento cargado.';
@@ -294,7 +294,7 @@ export const runMakoTool: ToolRunner = async (name, input) => {
         const { listPlanBoard } = await import('@/lib/plan-board');
         const b = await listPlanBoard();
         const abiertas = b.tareas.filter((t) => t.progress < 100);
-        if (!b.proyectos.length && !abiertas.length) return 'El plan del dueño está vacío todavía. No veo proyectos: proponé uno y creá la tarea ahí.';
+        if (!b.proyectos.length && !abiertas.length) return 'El plan del dueño está vacío todavía. No veo proyectos: propón uno y crea la tarea ahí.';
         const nombreProy = new Map(b.proyectos.map((p) => [p.id, p.name]));
         return JSON.stringify({
           proyectos: b.proyectos.map((p) => ({ id: p.id, nombre: p.name, link: linkProy(p.id) })),

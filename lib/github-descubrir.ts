@@ -60,14 +60,14 @@ export async function descubrirGithub(token: string): Promise<DescubrimientoGith
     if (!opciones.length) {
       return {
         ok: false,
-        error: 'El token es válido pero no da acceso a ningún repo. Revisá que en «Repository access» hayas seleccionado el repo.',
+        error: 'El token es válido pero no da acceso a ningún repo. Revisa que en «Repository access» hayas seleccionado el repo.',
         opciones: [], mensaje: '',
       };
     }
     if (opciones.length === 1) {
       return { ok: true, repo: opciones[0].value, opciones: [], mensaje: `Listo: ${opciones[0].value}.` };
     }
-    return { ok: true, opciones, mensaje: `El token ve ${opciones.length} repos. Elegí cuál es el de MaKo.` };
+    return { ok: true, opciones, mensaje: `El token ve ${opciones.length} repos. Elige cuál es el de MaKo.` };
   } catch (e) {
     return { ok: false, error: msg(e), opciones: [], mensaje: '' };
   }

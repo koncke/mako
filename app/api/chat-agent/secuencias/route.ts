@@ -37,7 +37,7 @@ export async function GET() {
   const [ws, rol] = await Promise.all([getWorkspaceActual(), getRolWsEfectivo()]);
   if (ws == null && rol === 'admin') {
     // Admin de agencia sin impersonar: no hay workspace del que leer secuencias.
-    return Response.json({ ok: false, error: 'Entrá al workspace de un cliente (impersonando) para ver su Setting.' }, { status: 400 });
+    return Response.json({ ok: false, error: 'Entra al workspace de un cliente (impersonando) para ver su Setting.' }, { status: 400 });
   }
   if (ws == null || (rol !== 'admin' && rol !== 'setter')) {
     return Response.json({ ok: false, error: 'Sin acceso a Setting en este workspace.' }, { status: 403 });
@@ -75,7 +75,7 @@ async function sugerir(template: string, key: string, objetivo: string, etapa: s
   // Cascada y no `chatCheap`: un 429 del único proveedor dejaba la pantalla sin
   // sugerencias (y tiraba 500) con otras cuatro IA gratis conectadas sin usar.
   const raw = await chatCheapCascade({
-    system: 'Sos MaKo. Devolvé EXCLUSIVAMENTE un objeto JSON {"sugerencias": [...strings]} en el español neutro del negocio. Sin markdown ni texto alrededor.',
+    system: 'Eres MaKo. Devuelve EXCLUSIVAMENTE un objeto JSON {"sugerencias": [...strings]} en el español neutro del negocio. Sin markdown ni texto alrededor.',
     user, json: true, feature: 'setting-sugerencias', maxTokens: 600,
   });
   try {
@@ -165,7 +165,7 @@ export async function POST(req: NextRequest) {
       // (Groq tampoco valida este JSON). Parseo tolerante: si viene con prosa
       // alrededor, igual rescatamos el objeto.
       const raw = await chatClaude(
-        'Sos MaKo. Devolvés EXCLUSIVAMENTE un objeto JSON {"califica":[...],"descalifica":[...]} con strings en español. Sin markdown ni texto alrededor.',
+        'Eres MaKo. Devuelves EXCLUSIVAMENTE un objeto JSON {"califica":[...],"descalifica":[...]} con strings en español. Sin markdown ni texto alrededor.',
         [{ role: 'user', content: user }],
         { effort: 'medium', maxTokens: 900, feature: 'setting-criterio' },
       );

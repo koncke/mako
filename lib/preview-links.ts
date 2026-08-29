@@ -59,7 +59,7 @@ const RUTAS: Array<{ re: RegExp; p: PreviewLink }> = [
     p: {
       tipo: 'borrador',
       titulo: 'Borrador de tareas',
-      descripcion: 'MaKo anotó lo que le pasaste. Revisalo y confirmá qué entra a tu plan.',
+      descripcion: 'MaKo anotó lo que le pasaste. Revísalo y confirma qué entra a tu plan.',
       icono: '📝',
     },
   },
@@ -68,7 +68,7 @@ const RUTAS: Array<{ re: RegExp; p: PreviewLink }> = [
     p: {
       tipo: 'lead-propuesto',
       titulo: 'Lead para confirmar',
-      descripcion: 'Todavía no está en el CRM. Revisá los datos y confirmá para que entre.',
+      descripcion: 'Todavía no está en el CRM. Revisa los datos y confirma para que entre.',
       icono: '👤',
     },
   },
@@ -83,14 +83,14 @@ const RUTAS: Array<{ re: RegExp; p: PreviewLink }> = [
   },
   { re: /^\/crm/, p: { tipo: 'crm', titulo: 'Tu CRM', descripcion: 'Tus leads, su etapa y qué sigue con cada uno.', icono: '👥' } },
   { re: /^\/plan/, p: { tipo: 'plan', titulo: 'Tu plan', descripcion: 'En qué estás trabajando y qué sigue, priorizado.', icono: '📋' } },
-  { re: /^\/integraciones/, p: { tipo: 'integraciones', titulo: 'Tus integraciones', descripcion: 'Conectá tus herramientas y mirá el estado de cada una.', icono: '🔌' } },
+  { re: /^\/integraciones/, p: { tipo: 'integraciones', titulo: 'Tus integraciones', descripcion: 'Conecta tus herramientas y mira el estado de cada una.', icono: '🔌' } },
   { re: /^\/(marketing|dashboard|ads-manager)/, p: { tipo: 'ads', titulo: 'Tus anuncios', descripcion: 'Gasto, resultados y salud de tus campañas.', icono: '📊' } },
   { re: /^\/closing/, p: { tipo: 'closing', titulo: 'Análisis de llamadas', descripcion: 'Qué pasó en tus llamadas de venta y dónde se cae el cierre.', icono: '🎧' } },
   { re: /^\/experimentos/, p: { tipo: 'experimentos', titulo: 'Tus experimentos', descripcion: 'Lo que ya está validado y lo que sigue en prueba.', icono: '🧪' } },
   { re: /^\/(email|whatsapp|chatbot|chat-agent)/, p: { tipo: 'mensajes', titulo: 'Tus mensajes', descripcion: 'Conversaciones, nutrición y secuencias.', icono: '💬' } },
   { re: /^\/(conocimiento|conocimientos)/, p: { tipo: 'conocimiento', titulo: 'Tu conocimiento', descripcion: 'El material y la metodología cargados en MaKo.', icono: '📚' } },
   { re: /^\/(configuraciones|perfil)/, p: { tipo: 'config', titulo: 'Configuración', descripcion: 'Quién recibe qué, y cómo te avisa MaKo.', icono: '⚙️' } },
-  { re: /^\/onboarding/, p: { tipo: 'onboarding', titulo: 'Terminá de configurar MaKo', descripcion: 'Los datos que le faltan a MaKo para trabajar con vos.', icono: '🚀' } },
+  { re: /^\/onboarding/, p: { tipo: 'onboarding', titulo: 'Termina de configurar MaKo', descripcion: 'Los datos que le faltan a MaKo para trabajar contigo.', icono: '🚀' } },
 ];
 
 /**

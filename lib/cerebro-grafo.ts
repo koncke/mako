@@ -334,7 +334,7 @@ export async function construirCerebro(): Promise<Cerebro> {
       id: `doc:${f.id}`,
       area: 'documentos',
       etiqueta: corto(f.nombre, 30),
-      detalle: limpio(f.razonamiento) || 'Lo leí, pero no pude sacar campos concretos de acá.',
+      detalle: limpio(f.razonamiento) || 'Lo leí, pero no pude sacar campos concretos de aquí.',
       fuente: aporto === 1 ? 'aportó 1 dato' : `aportó ${aporto} datos`,
       autoria: 'mako',
       // El mime viaja para que el panel pueda PREVISUALIZARLO. La etiqueta va recortada
@@ -622,7 +622,7 @@ export async function construirCerebro(): Promise<Cerebro> {
         // Kanban y no entran: el grafo tiene su propia paleta.
         detalle: [
           BAND_LABEL[e.band ?? 'pipeline'],
-          salidas.length ? `Desde acá: ${salidas.join(' · ')}.` : '',
+          salidas.length ? `Desde aquí: ${salidas.join(' · ')}.` : '',
         ].filter(Boolean).join(' — '),
         // La fila «Activo» es la que el cliente edita en /funnel; las de nutrición las
         // deriva `generateFunnel` sola. Eso es literalmente cierto hoy, y es lo único
@@ -729,7 +729,7 @@ export async function construirCerebro(): Promise<Cerebro> {
     // ⚠️ NUNCA 'etapa:lead' literal: `lead` es la clave del catálogo por defecto y un
     // funnel armado a mano puede no tenerla. La primera etapa del pipeline SIEMPRE existe.
     if (primeraEtapa && enElMapa.has(primeraEtapa)) {
-      unir(idLand, primeraEtapa, 'Acá caen los leads que entran por esta página');
+      unir(idLand, primeraEtapa, 'Aquí caen los leads que entran por esta página');
     }
   }
 
@@ -740,8 +740,8 @@ export async function construirCerebro(): Promise<Cerebro> {
       id: `audio:${a.id}`,
       area: 'voz',
       etiqueta: a.titulo,
-      detalle: a.duracion_s ? `Audio de ${Math.round(a.duracion_s)} segundos.` : 'Un audio grabado por vos.',
-      fuente: 'lo grabaste vos',
+      detalle: a.duracion_s ? `Audio de ${Math.round(a.duracion_s)} segundos.` : 'Un audio grabado por ti.',
+      fuente: 'lo grabaste tú',
       autoria: 'usuario',
     });
     if (enElMapa.has('voz')) unir(idAudio, 'voz', 'Es tu voz grabada, la que suena en la nutrición');
@@ -758,7 +758,7 @@ export async function construirCerebro(): Promise<Cerebro> {
       detalle: convsVoz
         ? `MaKo leyó ${convsVoz} ${convsVoz === 1 ? 'conversación tuya' : 'conversaciones tuyas'} de venta para sacar tu forma de escribir.`
         : 'Lo que anotaste sobre tu forma de escribir vendiendo.',
-      fuente: convsVoz ? 'MaKo lo sacó de tus conversaciones' : 'lo escribiste vos',
+      fuente: convsVoz ? 'MaKo lo sacó de tus conversaciones' : 'lo escribiste tú',
       autoria: convsVoz ? 'mako' : 'usuario',
     });
     if (enElMapa.has('voz')) unir(idVozCom, 'voz', 'Cómo dijiste que hablas, y cómo hablas de verdad en tus chats');
@@ -780,7 +780,7 @@ export async function construirCerebro(): Promise<Cerebro> {
       autoria: 'usuario',
     });
     if (etapaCierre && enElMapa.has(`etapa:${etapaCierre.key}`)) {
-      unir(idObj, `etapa:${etapaCierre.key}`, 'Un cierre se cuenta cuando un lead llega acá');
+      unir(idObj, `etapa:${etapaCierre.key}`, 'Un cierre se cuenta cuando un lead llega aquí');
     }
   }
 

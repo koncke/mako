@@ -83,7 +83,7 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
       },
       {
         "type": "diffCard",
-        "title": "Movés una etapa",
+        "title": "Mueves una etapa",
         "rows": [
           {
             "field": "Etapa",
@@ -200,7 +200,7 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
           },
           {
             "from": "out",
-            "text": "Dale, arranquemos"
+            "text": "Listo, arranquemos"
           },
           {
             "from": "in",
@@ -252,7 +252,7 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
         "type": "makoAnswer",
         "q": "¿Apago este anuncio o lo escalo?",
         "a": "Escalá, aguanta ROAS",
-        "detail": "CPA por debajo del target y VSL reteniendo. Subí 20% el presupuesto y mirá 48h."
+        "detail": "CPA por debajo del target y VSL reteniendo. Sube 20% el presupuesto y mira 48h."
       },
       {
         "type": "funnel",
@@ -512,7 +512,7 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
         "nodes": [
           {
             "label": "Creativo",
-            "sub": "subís",
+            "sub": "subes",
             "tone": "blue"
           },
           {
@@ -693,7 +693,7 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
         "title": "Qué hacer con cada guion",
         "tiers": [
           {
-            "label": "Plata quemada · pausá",
+            "label": "Plata quemada · pausa",
             "tone": "red"
           },
           {
@@ -710,7 +710,7 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
         "type": "makoAnswer",
         "q": "¿Produzco este guion?",
         "a": "Mejorá el gancho",
-        "detail": "Se parece a tus ejemplares medios. Validá barato con $300, 8k impresiones y 3 días."
+        "detail": "Se parece a tus ejemplares medios. Valida barato con $300, 8k impresiones y 3 días."
       },
       {
         "type": "diffCard",
@@ -922,7 +922,7 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
           },
           {
             "from": "in",
-            "text": "Dale, mañana"
+            "text": "Listo, mañana"
           }
         ]
       },
@@ -1300,7 +1300,7 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
         "type": "makoAnswer",
         "q": "¿Filtro más el formulario?",
         "a": "Experimento listo",
-        "detail": "Métrica cp_form, dirección baja, ventana 14 días, objetivo -20%. Confirmás antes de arrancar."
+        "detail": "Métrica cp_form, dirección baja, ventana 14 días, objetivo -20%. Confirmas antes de arrancar."
       },
       {
         "type": "rcArea",
@@ -1796,12 +1796,12 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
         "type": "makoAnswer",
         "q": "¿Qué le respondo?",
         "a": "Reactivá con prueba social",
-        "detail": "Está en No Show hace tres días. Mandá un caso parecido al suyo y proponé nuevo horario."
+        "detail": "Está en No Show hace tres días. Manda un caso parecido al suyo y propón nuevo horario."
       },
       {
         "type": "semaphore",
         "lit": "amber",
-        "verdict": "Riesgo medio: revisá categoría"
+        "verdict": "Riesgo medio: revisa categoría"
       },
       {
         "type": "kanban",
@@ -1921,7 +1921,7 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
         "right": "Texto listo",
         "loading": [
           "Transcribiendo con Whisper",
-          "Indexando al toque"
+          "Indexando de inmediato"
         ]
       },
       {
@@ -2018,7 +2018,7 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
       "type": "makoAnswer",
       "q": "¿Apago la campaña VSL Dolor?",
       "a": "No. Escalá presupuesto",
-      "detail": "Trae ROAS 4.2x y 6 cierres esta semana. Subí 20% y validalo como experimento antes de tocar el resto."
+      "detail": "Trae ROAS 4.2x y 6 cierres esta semana. Sube 20% y valídalo como experimento antes de tocar el resto."
     },
     "groups": [
       {

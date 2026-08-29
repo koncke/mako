@@ -67,7 +67,7 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     const { body } = await fetchJson(url.toString());
     const err = body.error as { code?: number; message?: string } | undefined;
     if (err) {
-      if (err.code === 190) return { ok: false, error: 'Token inválido o expirado. Generá uno nuevo de usuario de sistema.' };
+      if (err.code === 190) return { ok: false, error: 'Token inválido o expirado. Genera uno nuevo de usuario de sistema.' };
       return { ok: false, error: `Meta: ${err.message ?? 'error desconocido'}` };
     }
     // account_status 1 = activa; 3 = con restricción de pago (lib/meta-health).
@@ -141,7 +141,7 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
       headers: { api_access_token: v.CHATWOOT_API_TOKEN, 'Content-Type': 'application/json' },
     });
     if (status === 401) return { ok: false, error: 'Access token inválido.' };
-    if (status === 404) return { ok: false, error: 'Cuenta no encontrada — revisá la URL base y el ID de cuenta.' };
+    if (status === 404) return { ok: false, error: 'Cuenta no encontrada — revisa la URL base y el ID de cuenta.' };
     if (status >= 400) return { ok: false, error: `Chatwoot respondió ${status}.` };
     const inboxes = (body.payload as Array<{ name?: string; channel_type?: string; phone_number?: string }> | undefined) ?? [];
     // El de WhatsApp es el que importa: es el que va a espejar los chats.
@@ -264,7 +264,7 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
       });
       if (r.status === 401) return { ok: false, error: 'El token no es válido o venció.' };
       if (r.status === 403) return { ok: false, error: 'El token es válido pero no tiene permiso de lectura sobre ese repo.' };
-      if (r.status === 404) return { ok: false, error: `No encuentro el repo «${repo}». Revisá el nombre y que el token lo tenga seleccionado.` };
+      if (r.status === 404) return { ok: false, error: `No encuentro el repo «${repo}». Revisa el nombre y que el token lo tenga seleccionado.` };
       if (!r.ok) return { ok: false, error: `GitHub respondió ${r.status}.` };
       const j = await r.json() as Array<{ sha?: string; commit?: { message?: string; author?: { date?: string } } }>;
       const c = j[0];
@@ -359,7 +359,7 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     const pid = normalizarProjectId(v.CLARITY_PROJECT_ID);
     if (!pid) {
       return { ok: false, error: (v.CLARITY_PROJECT_ID ?? '').trim()
-        ? 'No reconozco ese ID. Pegá el código corto o la dirección completa del panel de Clarity.'
+        ? 'No reconozco ese ID. Pega el código corto o la dirección completa del panel de Clarity.'
         : 'Falta el ID del proyecto.' };
     }
     const token = (v.CLARITY_API_TOKEN ?? '').trim();
@@ -412,7 +412,7 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     if (status >= 400) return { ok: false, error: `YouTube respondió ${status}.` };
     const items = (body.items as unknown[] | undefined) ?? [];
     if (v.YOUTUBE_VSL_VIDEO_ID && items.length === 0) {
-      return { ok: false, error: 'Key válida, pero el video no se encontró — revisá el ID.' };
+      return { ok: false, error: 'Key válida, pero el video no se encontró — revisa el ID.' };
     }
     return { ok: true, detalle: 'Key válida.' };
   },
@@ -447,7 +447,7 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     const { status, body } = await fetchJson('https://zernio.com/api/v1/profiles', {
       headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
     });
-    if (status === 401 || status === 403) return { ok: false, error: 'Esa API key no es válida. Copiala de nuevo desde tu panel de Zernio.' };
+    if (status === 401 || status === 403) return { ok: false, error: 'Esa API key no es válida. Cópiala de nuevo desde tu panel de Zernio.' };
     if (status >= 400) return { ok: false, error: `Zernio respondió ${status}.` };
     const perfiles = (body.profiles as Array<{ name?: string }> | undefined) ?? [];
     return {
@@ -489,7 +489,7 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     // Con API key sí hay a quién preguntarle. v2 obligatoria: la v1 se apagó el
     // 8/4/2026, así que una key válida contra v1 hoy devolvería 404 igual.
     const { status, body } = await fetchJson(`${CALCOM_API.base}/me`, { headers: calcomHeaders(key) });
-    if (status === 401 || status === 403) return { ok: false, error: 'Esa API key no es válida. Copiala de nuevo desde Settings → Developer → API keys.' };
+    if (status === 401 || status === 403) return { ok: false, error: 'Esa API key no es válida. Cópiala de nuevo desde Settings → Developer → API keys.' };
     if (status >= 400) return { ok: false, error: `Cal.com respondió ${status}.` };
     // La forma de la respuesta cambió entre versiones: puede venir plana o
     // envuelta en `data`. Se prueban las dos antes de decir que no vino nada.
@@ -550,7 +550,7 @@ export async function verificarServicio(
   if (extra) valores[claveBaseDe(extra.env)] = (enviados[extra.env] as string).trim();
 
   if (hostDelRequest && secretoDeStorage) {
-    return { ok: false, error: 'Para probar con una URL nueva, completá también las credenciales secretas de este servicio.' };
+    return { ok: false, error: 'Para probar con una URL nueva, completa también las credenciales secretas de este servicio.' };
   }
   if (faltan.length) {
     return { ok: false, error: `Falta completar: ${faltan.join(', ')}.` };
@@ -560,7 +560,7 @@ export async function verificarServicio(
     return await ping(valores);
   } catch (e) {
     const msg = e instanceof Error && e.name === 'TimeoutError'
-      ? 'El servicio no respondió a tiempo (8s) — revisá la URL o probá de nuevo.'
+      ? 'El servicio no respondió a tiempo (8s) — revisa la URL o prueba de nuevo.'
       : String(e instanceof Error ? e.message : e);
     return { ok: false, error: msg };
   }

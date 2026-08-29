@@ -285,7 +285,7 @@ export const FAMILIAS: NavFamilia[] = [
  * dos tabs que hacen lo mismo.
  */
 export const MAKO_NAV: NavItem[] = [
-  { key: 'mako', label: 'Preguntale a MaKo', href: '/mako', icon: 'mako', rolesWs: ['closer', 'setter'], match: (p) => starts('/mako')(p) || starts('/mako-doer')(p) },
+  { key: 'mako', label: 'Pregúntale a MaKo', href: '/mako', icon: 'mako', rolesWs: ['closer', 'setter'], match: (p) => starts('/mako')(p) || starts('/mako-doer')(p) },
 ];
 
 /**

@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     switch (body.action) {
       case 'crear': {
         const nombre = (body.nombre ?? '').trim();
-        if (nombre.length < 2) return NextResponse.json({ ok: false, error: 'Poné un nombre de cliente.' }, { status: 400 });
+        if (nombre.length < 2) return NextResponse.json({ ok: false, error: 'Pon un nombre de cliente.' }, { status: 400 });
         const adminEmail = (body.adminEmail ?? '').trim().toLowerCase();
         // Si viene un email de admin, validarlo y chequear que no exista ANTES de
         // crear el workspace (evita dejar un workspace huérfano por un email dup).
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
           if (existe) return NextResponse.json({ ok: false, error: 'Ya existe un usuario con ese email.' }, { status: 400 });
         }
         const capa = (body.capa ?? CAPA_DEFAULT).trim();
-        if (!esCapaValida(capa)) return NextResponse.json({ ok: false, error: 'Elegí un tipo de cliente válido.' }, { status: 400 });
+        if (!esCapaValida(capa)) return NextResponse.json({ ok: false, error: 'Elige un tipo de cliente válido.' }, { status: 400 });
         const def = capaDef(capa);
         const ws = await crearWorkspace(nombre, capa);
         // Seed inicial del workspace, SEGÚN LA CAPA: solo se siembra lo que el

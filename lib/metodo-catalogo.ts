@@ -410,7 +410,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     key: 'gemini',
     nombre: 'Google Gemini',
     categoria: 'Inteligencia',
-    paraQue: 'IA de Google con 1M de contexto y function-calling. El plan gratis no cobra, pero Google usa tus datos para mejorar sus productos (con revisión humana). Para datos de clientes usá una key PAGA (activá facturación en el proyecto): esa NO entrena.',
+    paraQue: 'IA de Google con 1M de contexto y function-calling. El plan gratis no cobra, pero Google usa tus datos para mejorar sus productos (con revisión humana). Para datos de clientes usa una key PAGA (activa facturación en el proyecto): esa NO entrena.',
     campos: [
       { env: 'GEMINI_API_KEY', label: 'API key', secreto: true, placeholder: 'AIza…', nota: 'Empieza con AIza. Si es del plan gratis, Google usa esos textos para mejorar sus productos y personas de Google pueden llegar a leerlos. La key del plan pago no entrena.' },
       cuentaDe('GEMINI_API_KEY'),
@@ -607,7 +607,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     // mundos, porque el cliente lo configuró y cree que quedó andando.
     campos: [
       { env: 'FATHOM_API_KEY', label: 'API key', secreto: true, nota: 'Con esta key MaKo trae tus grabaciones y el texto de lo que se habló en cada una.' },
-      { env: 'FATHOM_HOST_EMAIL', label: 'Email de la cuenta que graba', placeholder: 'vos@tudominio.com', nota: 'El correo con el que entras a Fathom. Es lo que le dice a MaKo que esa grabación es tuya: sin él, tus reuniones llegan y se descartan sin ningún error a la vista. Escríbelo tal cual, sin espacios.' },
+      { env: 'FATHOM_HOST_EMAIL', label: 'Email de la cuenta que graba', placeholder: 'tu@tudominio.com', nota: 'El correo con el que entras a Fathom. Es lo que le dice a MaKo que esa grabación es tuya: sin él, tus reuniones llegan y se descartan sin ningún error a la vista. Escríbelo tal cual, sin espacios.' },
       { env: 'FATHOM_WEBHOOK_SECRET', label: 'Contraseña del webhook', secreto: true, nota: 'La genera Fathom cuando creas el aviso automático y empieza con whsec_. Es lo que hace que la reunión llegue al instante y no varias horas después: de eso depende poder mandarle el resumen al cliente mientras la charla está fresca.' },
     ],
     pasoExterno: {

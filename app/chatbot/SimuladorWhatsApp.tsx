@@ -173,7 +173,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
           tono: j.desenlace === 'positivo' ? 'ok' : 'bad',
           texto: j.desenlace === 'positivo'
             ? 'La secuencia cumplió su objetivo con este lead.'
-            : 'Esta conversación no va a llegar al objetivo. La secuencia cierra acá.',
+            : 'Esta conversación no va a llegar al objetivo. La secuencia cierra aquí.',
           fecha: new Date().toISOString(),
         });
       }

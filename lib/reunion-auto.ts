@@ -102,7 +102,7 @@ export function textoAviso(hechas: ReunionHecha[], tz: string): string {
   if (hechas.length === 1) {
     const h = hechas[0];
     const cuando = fechaHoraEnTz(h.fecha, tz);
-    return `📝 Leí tu reunión${h.conQuien ? ` con *${h.conQuien}*` : ''}${h.titulo ? ` — *${h.titulo}*` : ''}${cuando ? `\n🗓️ ${cuando}` : ''}\n\nSaqué ${tuyas}${deOtros} y te las dejé en el plan para que las confirmes:\n${linkDe(h)}${aviso}\n\nEntrás, revisás y con un toque quedan cargadas. — MaKo`;
+    return `📝 Leí tu reunión${h.conQuien ? ` con *${h.conQuien}*` : ''}${h.titulo ? ` — *${h.titulo}*` : ''}${cuando ? `\n🗓️ ${cuando}` : ''}\n\nSaqué ${tuyas}${deOtros} y te las dejé en el plan para que las confirmes:\n${linkDe(h)}${aviso}\n\nEntras, revisas y con un toque quedan cargadas. — MaKo`;
   }
 
   const filas = hechas.slice(0, 4).map((h) => {
@@ -110,7 +110,7 @@ export function textoAviso(hechas: ReunionHecha[], tz: string): string {
     return `• *${h.titulo || 'Reunión'}*${cuando ? ` — ${cuando}` : ''}\n   ${h.mias} ${h.mias === 1 ? 'tarea tuya' : 'tuyas'}${h.otras ? ` · ${h.otras} de otros` : ''}\n   ${linkDe(h)}`;
   });
   const resto = hechas.length > 4 ? `\n…y ${hechas.length - 4} ${hechas.length - 4 === 1 ? 'reunión más' : 'reuniones más'}.` : '';
-  return `📝 Leí tus *${hechas.length} reuniones* nuevas:\n\n${filas.join('\n\n')}${resto}\n\nEn total ${tuyas}${deOtros}. Cada una se revisa en su propio link, ahí arriba.${aviso}\n\nEntrás, revisás y con un toque quedan cargadas. — MaKo`;
+  return `📝 Leí tus *${hechas.length} reuniones* nuevas:\n\n${filas.join('\n\n')}${resto}\n\nEn total ${tuyas}${deOtros}. Cada una se revisa en su propio link, ahí arriba.${aviso}\n\nEntras, revisas y con un toque quedan cargadas. — MaKo`;
 }
 
 export type ResultadoReunionesAuto = {

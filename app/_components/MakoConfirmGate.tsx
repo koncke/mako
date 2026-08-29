@@ -42,7 +42,7 @@ function ItemCard({ c, busy, bloqueado, error, onResolve }: { c: MakoConfirmacio
         <span style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--ink)' }}>{c.titulo}</span>
       </div>
       <div style={{ fontSize: 11.5, color: c.aplicado ? '#B5630A' : 'var(--dim)', fontWeight: 600, marginBottom: 8 }}>
-        {c.aplicado ? 'MaKo ya lo aplicó — confirmá o deshacé' : 'MaKo necesita que decidas'}
+        {c.aplicado ? 'MaKo ya lo aplicó — confirma o deshaz' : 'MaKo necesita que decidas'}
       </div>
       {c.detalle && <p style={{ fontSize: 13, color: 'var(--dim)', margin: '0 0 10px', lineHeight: 1.5 }}>{c.detalle}</p>}
       {c.cambios.length > 0 && (
@@ -116,8 +116,8 @@ export function MakoConfirmGate() {
         <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 11, padding: '18px 22px', borderBottom: '1px solid var(--border)' }}>
           <span style={{ width: 30, height: 30, borderRadius: 9, background: 'var(--primary)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, letterSpacing: '-.02em' }}>Mk</span>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>MaKo movió {items.length} {items.length === 1 ? 'lead' : 'leads'} por vos</div>
-            <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>Revisá los cambios automáticos antes de seguir. Podés confirmarlos o deshacerlos.</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>MaKo movió {items.length} {items.length === 1 ? 'lead' : 'leads'} por ti</div>
+            <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>Revisa los cambios automáticos antes de seguir. Puedes confirmarlos o deshacerlos.</div>
           </div>
         </div>
         <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '18px 22px' }}>

@@ -27,7 +27,7 @@ export const dynamic = 'force-dynamic';
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 
-export const EMAIL_GEN_SYSTEM_TEMPLATE = `Sos MaKo escribiendo EMAIL MARKETING para el negocio que se describe abajo. No sos el negocio: escribís POR él, en su voz.
+export const EMAIL_GEN_SYSTEM_TEMPLATE = `Eres MaKo escribiendo EMAIL MARKETING para el negocio que se describe abajo. No eres el negocio: escribes POR él, en su voz.
 
 PERFIL DEL NEGOCIO:
 {{perfil}}
@@ -39,22 +39,22 @@ Reglas del email:
 - Asunto corto (máx ~6 palabras), concreto, que dé ganas de abrir. Sin clickbait barato, sin MAYÚSCULAS gritonas, sin emojis salvo que aporten.
 - Preheader (texto de vista previa): 1 línea que complementa el asunto, no lo repite.
 - Cuerpo en texto plano, 2 a 5 párrafos cortos, con saltos de línea. Un solo CTA claro.
-- Variables disponibles: {nombre} (primer nombre del lead), {empresa}, {nombre_completo}, {apellido}. Usalas con naturalidad, sin abusar.
-- Nada de promesas falsas ni lenguaje spam ("gratis!!!", "urgente", "ganá dinero").
+- Variables disponibles: {nombre} (primer nombre del lead), {empresa}, {nombre_completo}, {apellido}. Úsalas con naturalidad, sin abusar.
+- Nada de promesas falsas ni lenguaje spam ("gratis!!!", "urgente", "gana dinero").
 
 PROHIBIDO INVENTAR:
 - El idioma y el trato (vos / tú / usted) salen de la VOZ DE LA MARCA y del perfil, NUNCA por default.
-- No inventes links. Si el email necesita un link de agenda o de pago y no aparece en el contexto, escribí el marcador [LINK DE AGENDA] y seguí: que lo ponga una persona.
+- No inventes links. Si el email necesita un link de agenda o de pago y no aparece en el contexto, escribe el marcador [LINK DE AGENDA] y sigue: que lo ponga una persona.
 - No inventes cifras, testimonios, nombres de clientes, plazos ni garantías que no estén en el perfil.
 
-Devolvé SOLO un JSON: {"asunto": "...", "preheader": "...", "cuerpo": "..."} — sin texto fuera del JSON.`;
+Devuelve SOLO un JSON: {"asunto": "...", "preheader": "...", "cuerpo": "..."} — sin texto fuera del JSON.`;
 
 export async function POST(req: NextRequest) {
   let body: { instruccion?: string; etapa?: string; modo?: string; asuntoActual?: string; cuerpoActual?: string };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
   const instruccion = str(body.instruccion);
-  if (!instruccion) return Response.json({ ok: false, error: 'Decime qué querés que escriba' }, { status: 400 });
+  if (!instruccion) return Response.json({ ok: false, error: 'Dime qué quieres que escriba' }, { status: 400 });
 
   const ctx = [
     body.etapa ? `Etapa del funnel: ${body.etapa}.` : '',
@@ -77,13 +77,13 @@ export async function POST(req: NextRequest) {
     if (!perfil.trim()) {
       return Response.json({
         ok: false,
-        error: 'Todavía no hay perfil del negocio cargado: completá el brief (o subí tus documentos a El Archivero) y MaKo va a poder escribir con tu oferta y tu voz.',
+        error: 'Todavía no hay perfil del negocio cargado: completa el brief (o sube tus documentos a El Archivero) y MaKo va a poder escribir con tu oferta y tu voz.',
       }, { status: 422 });
     }
     const base = await renderPrompt('email.generar.system', EMAIL_GEN_SYSTEM_TEMPLATE, {
       perfil,
-      voz: voz?.trim() || '(todavía no hay guía de voz destilada: escribí con el perfil del negocio y buen criterio, sin sonar genérico. No asumas un dialecto: seguí el que use el perfil.)',
-      funnel: funnel.trim() ? `\nFUNNEL REAL DEL NEGOCIO (así se mueve un lead acá — escribí coherente con estas etapas):\n${funnel}\n` : '',
+      voz: voz?.trim() || '(todavía no hay guía de voz destilada: escribe con el perfil del negocio y buen criterio, sin sonar genérico. No asumas un dialecto: sigue el que use el perfil.)',
+      funnel: funnel.trim() ? `\nFUNNEL REAL DEL NEGOCIO (así se mueve un lead aquí — escribe coherente con estas etapas):\n${funnel}\n` : '',
     });
     const system = await brandSystem(base);
     const text = await chatClaude(system, [{ role: 'user', content: user }], {

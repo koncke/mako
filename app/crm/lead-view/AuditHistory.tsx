@@ -244,7 +244,7 @@ export function AuditHistory({ leadId, stages }: { leadId: number; stages?: Stag
                     ) : (
                       <>{a.campo === 'Etapa' && <span style={{ color: 'var(--dim)', fontSize: 12.5 }}>Entró a</span>} {legible(a.campo, a.valor_nuevo)}</>
                     )}
-                    {t && !t.actual && <span style={{ color: 'var(--faint)', fontSize: 12 }}>· {fmtDur(t.ms)} acá</span>}
+                    {t && !t.actual && <span style={{ color: 'var(--faint)', fontSize: 12 }}>· {fmtDur(t.ms)} aquí</span>}
                   </span>
                   );
                 })}
@@ -267,7 +267,7 @@ export function AuditHistory({ leadId, stages }: { leadId: number; stages?: Stag
       {confirmRevert && (
         <ConfirmDialog
           title={confirmRevert.reciente ? 'Deshacer este movimiento' : 'Restaurar al estado anterior'}
-          message={<>Se van a revertir los valores de este cambio y <b>se va a borrar del historial</b> (no queda un registro nuevo). ¿Confirmás?</>}
+          message={<>Se van a revertir los valores de este cambio y <b>se va a borrar del historial</b> (no queda un registro nuevo). ¿Confirmas?</>}
           confirmLabel={confirmRevert.reciente ? 'Sí, deshacer' : 'Sí, restaurar'}
           onConfirm={() => { const c = confirmRevert; setConfirmRevert(null); deshacer(c.createdAt); }}
           onCancel={() => setConfirmRevert(null)}

@@ -170,7 +170,7 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
           .filter((t) => t.titulo);
         if (!items.length) return { ok: false, resumen: 'No había tareas válidas para agregar.' };
         const nN = `${items.length} tarea${items.length === 1 ? '' : 's'}`;
-        const mirar = items.length === 1 ? 'Miralo acá' : 'Miralas acá';
+        const mirar = items.length === 1 ? 'Míralo aquí' : 'Míralas aquí';
 
         if (ws === OWNER_WS) {
           const { ids, proyectoIds } = await agregarTareasPlanOwner(
@@ -232,7 +232,7 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
         // "sí" repetido NO re-cree las que ya entraron. Reportamos el parcial.
         if (!links.length) return { ok: false, resumen: `No pude agregar ninguna (fallaron ${fallidas}).` };
         const cola = fallidas ? ` (${fallidas} no pude)` : '';
-        return { ok: true, resumen: `Agregué ${links.length} tarea${links.length === 1 ? '' : 's'} al plan${cola}. ${links.length === 1 ? 'Miralo acá' : 'Miralas acá'}:\n${links.join('\n')}` };
+        return { ok: true, resumen: `Agregué ${links.length} tarea${links.length === 1 ? '' : 's'} al plan${cola}. ${links.length === 1 ? 'Míralo aquí' : 'Míralas aquí'}:\n${links.join('\n')}` };
       }
       case 'agendar_reunion': {
         const leadId = Number(payload.leadId);
@@ -284,7 +284,7 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
           await logLeadEvent(leadId, 'Link de agenda enviado', `MaKo mandó el formulario de Calendly de la ${cual} prellenado (la reserva directa la rechazó Calendly: ${motivo}).`, 'MaKo');
           return {
             ok: true,
-            resumen: `Calendly no me dejó reservarlo directo, así que te dejo el formulario ya completado con los datos de ${lead.nombre} — elegís el horario y queda:\n${url}`,
+            resumen: `Calendly no me dejó reservarlo directo, así que te dejo el formulario ya completado con los datos de ${lead.nombre} — eliges el horario y queda:\n${url}`,
           };
         }
       }
@@ -304,12 +304,12 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
 export const MAKO_ACCION_TOOLS: ToolDef[] = [
   {
     name: 'listar_secuencias_nutricion',
-    description: 'Lista las secuencias de nutrición del negocio con su id, nombre, etapa y si están activas o pausadas. Usala para saber el id antes de proponer activar/pausar una.',
+    description: 'Lista las secuencias de nutrición del negocio con su id, nombre, etapa y si están activas o pausadas. Úsala para saber el id antes de proponer activar/pausar una.',
     input_schema: { type: 'object', properties: {} },
   },
   {
     name: 'listar_campanas_meta',
-    description: 'Lista las campañas de Meta Ads conocidas (id, nombre y gasto reciente), tomadas de las métricas ya sincronizadas. Usala para conseguir el id de una campaña antes de proponer renombrarla, cambiar su presupuesto o pausarla/activarla.',
+    description: 'Lista las campañas de Meta Ads conocidas (id, nombre y gasto reciente), tomadas de las métricas ya sincronizadas. Úsala para conseguir el id de una campaña antes de proponer renombrarla, cambiar su presupuesto o pausarla/activarla.',
     input_schema: { type: 'object', properties: {} },
   },
   {
@@ -324,13 +324,13 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
     // confirmación es el único momento en que un humano ve el dato antes de que
     // valga.
     name: 'proponer_lead',
-    description: 'PROPONE dar de alta un lead en el CRM (deja una propuesta y devuelve un LINK para revisarla y confirmarla; NO lo crea). Usala cuando te pidan agregar/cargar a alguien al CRM. Si te compartieron una tarjeta de contacto, los datos vienen en el mensaje. Necesitás al menos el nombre; el teléfono es lo que después permite cruzarlo con su WhatsApp. La tool te devuelve el link: pasáselo tal cual y NO pidas confirmación por el chat.',
+    description: 'PROPONE dar de alta un lead en el CRM (deja una propuesta y devuelve un LINK para revisarla y confirmarla; NO lo crea). Úsala cuando te pidan agregar/cargar a alguien al CRM. Si te compartieron una tarjeta de contacto, los datos vienen en el mensaje. Necesitas al menos el nombre; el teléfono es lo que después permite cruzarlo con su WhatsApp. La tool te devuelve el link: pásaselo tal cual y NO pidas confirmación por el chat.',
     input_schema: {
       type: 'object',
       properties: {
         nombre: { type: 'string', description: 'nombre y apellido de la persona, como lo diría un humano.' },
-        telefono: { type: 'string', description: 'teléfono, solo dígitos con código de país si lo tenés.' },
-        email: { type: 'string', description: 'email, si lo tenés.' },
+        telefono: { type: 'string', description: 'teléfono, solo dígitos con código de país si lo tienes.' },
+        email: { type: 'string', description: 'email, si lo tienes.' },
         empresa: { type: 'string', description: 'nombre del negocio, si lo dijeron.' },
         nota: { type: 'string', description: 'el contexto que dio el dueño en sus palabras (ej. «asistió a la primera sesión»). Va a la ficha: es lo que después explica de dónde salió este lead.' },
       },
@@ -343,7 +343,7 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
     // devuelve son los ÚNICOS que Calendly va a aceptar. Sin esto el modelo
     // inventaría una hora redonda plausible y la reserva rebotaría siempre.
     name: 'listar_horarios_reunion',
-    description: 'Lista los horarios REALES que tenés libres en Calendly para una R1 o una R2, en los próximos días. Usala SIEMPRE antes de proponer agendar: los "startIso" que devuelve son los únicos que Calendly acepta, y hay que pasarlos TAL CUAL, sin redondear ni reescribir. Mostrale al dueño la fecha y hora legibles, no el startIso.',
+    description: 'Lista los horarios REALES que tienes libres en Calendly para una R1 o una R2, en los próximos días. Úsala SIEMPRE antes de proponer agendar: los "startIso" que devuelve son los únicos que Calendly acepta, y hay que pasarlos TAL CUAL, sin redondear ni reescribir. Muéstrale al dueño la fecha y hora legibles, no el startIso.',
     input_schema: {
       type: 'object',
       properties: {
@@ -430,7 +430,7 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
   },
   {
     name: 'proponer_tareas_plan',
-    description: 'PROPONE agregar TAREAS al plan del negocio. Usala cuando te pasan una lista de cosas para el plan (aunque venga desordenada). Cada tarea necesita al menos un título. Resolvé vos lo DEDUCIBLE (a qué proyecto va, dedup con ver_plan). Para lo que NO podés deducir (fechas/urgencia, si un ítem es 1 o varias tareas, prioridad), NO hagas el ida-y-vuelta por WhatsApp: pasá esas dudas en "preguntas" (cada una con 2-4 opciones) — se responden de a UNA en la pantalla de revisión de la app. La tool te devuelve un LINK a esa pantalla: pasáselo tal cual, NO pidas "sí" ni repitas la lista por el chat.',
+    description: 'PROPONE agregar TAREAS al plan del negocio. Úsala cuando te pasan una lista de cosas para el plan (aunque venga desordenada). Cada tarea necesita al menos un título. Resuelve tú lo DEDUCIBLE (a qué proyecto va, dedup con ver_plan). Para lo que NO puedes deducir (fechas/urgencia, si un ítem es 1 o varias tareas, prioridad), NO hagas el ida-y-vuelta por WhatsApp: pasa esas dudas en "preguntas" (cada una con 2-4 opciones) — se responden de a UNA en la pantalla de revisión de la app. La tool te devuelve un LINK a esa pantalla: pásaselo tal cual, NO pidas "sí" ni repitas la lista por el chat.',
     input_schema: {
       type: 'object',
       properties: {
@@ -442,9 +442,9 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
             properties: {
               titulo: { type: 'string', description: 'qué hay que hacer, corto e imperativo.' },
               prioridad: { type: 'string', enum: ['alta', 'media', 'baja', 'futuro'], description: 'opcional; default media.' },
-              proyecto: { type: 'string', description: `opcional; NOMBRE LEGIBLE del proyecto (NUNCA un slug ni un id tipo "agente-de-ads"). Para asignar a uno que YA existe, poné su nombre EXACTO como aparece en ver_plan (campo "nombre"), así no se duplica. Si el tema NO tiene proyecto todavía, poné igual el nombre que le pondrías: es una PROPUESTA que revisa el Perro Guardián antes de crear nada. ⛔ NUNCA le digas al dueño en qué proyecto quedó la tarea: todavía no está decidido.
+              proyecto: { type: 'string', description: `opcional; NOMBRE LEGIBLE del proyecto (NUNCA un slug ni un id tipo "agente-de-ads"). Para asignar a uno que YA existe, pon su nombre EXACTO como aparece en ver_plan (campo "nombre"), así no se duplica. Si el tema NO tiene proyecto todavía, pon igual el nombre que le pondrías: es una PROPUESTA que revisa el Perro Guardián antes de crear nada. ⛔ NUNCA le digas al dueño en qué proyecto quedó la tarea: todavía no está decidido.
 
-CÓMO SE LLAMA UN PROYECTO NUEVO (la misma regla que aplica el Perro — si proponés un nombre que no la cumple, no lo va a reconocer como proyecto nuevo y va a reusar el más parecido):
+CÓMO SE LLAMA UN PROYECTO NUEVO (la misma regla que aplica el Perro — si propones un nombre que no la cumple, no lo va a reconocer como proyecto nuevo y va a reusar el más parecido):
 ${REGLA_NOMBRE_PROYECTO}
 
 Y el nombre va en INGLÉS: «${'Feature: '}AI Agents», no «Agentes IA». Los proyectos que YA existen en español se dejan como están.` },
@@ -465,20 +465,20 @@ Lo que no escribas aca SE PERDIO: nadie vuelve a leer el WhatsApp, y el Perro de
           // enseñaba justo el mapeo equivocado — «¿Intensidad/grado? → escala (ej. ¿qué
           // tan firme es el deadline?)»— y era el ÚNICO ejemplo de escala que veía el
           // modelo: de ahí a tipear «¿cuál es el deadline?» como escala hay un paso.
-          description: `Preguntas para SACARLE CONTEXTO al dueño y que EL PERRO GUARDIÁN decida la prioridad. ⛔ REGLA DURA: NUNCA le preguntes qué prioridad poner ni qué le urge más — ese es el trabajo del Perro (el dueño exagera y no sabe priorizar). PROHIBIDO "¿qué prioridad?", "¿cuál te urge?", "¿alta/media/baja?". Preguntá HECHOS que el Perro no puede deducir: deadlines duros (tipo "fecha"), qué BLOQUEA o de qué DEPENDE, qué mueve en PLATA y en cuánto, qué sería "listo", si es 1 tarea o varias.
+          description: `Preguntas para SACARLE CONTEXTO al dueño y que EL PERRO GUARDIÁN decida la prioridad. ⛔ REGLA DURA: NUNCA le preguntes qué prioridad poner ni qué le urge más — ese es el trabajo del Perro (el dueño exagera y no sabe priorizar). PROHIBIDO "¿qué prioridad?", "¿cuál te urge?", "¿alta/media/baja?". Pregunta HECHOS que el Perro no puede deducir: deadlines duros (tipo "fecha"), qué BLOQUEA o de qué DEPENDE, qué mueve en DINERO y en cuánto, qué sería "listo", si es 1 tarea o varias.
 
 CRITERIO — CADA pregunta tiene que TENER SENTIDO y SUMAR:
 1) Si la respuesta es OBVIA o ya se sabe por las tareas, NO la preguntes. No preguntes cosas que se contradicen con lo dicho (ej: si los leads entran por Ads de Meta, no preguntes "¿por qué canal entran?").
 2) Si no cambia NADA para el Perro, no la hagas.
 
-HACÉ LAS QUE HAGAN FALTA (lista larga → varias).
+HAZ LAS QUE HAGAN FALTA (lista larga → varias).
 
 ${CONTRATO_TIPOS_PREGUNTA}`,
           items: {
             type: 'object',
             properties: {
               pregunta: { type: 'string', description: 'la pregunta, corta y concreta. Sobre HECHOS/CONTEXTO, no sobre qué prioridad poner. Que tenga sentido para las tareas.' },
-              tipo: { type: 'string', enum: ['opcion', 'multi', 'fecha', 'escala', 'comparacion', 'texto'], description: 'ELEGÍ el mejor: multi (varias válidas) / opcion (una excluyente) / fecha (¿para cuándo? → calendario) / escala (intensidad 1-5, con los extremos explicados en el enunciado) / comparacion (A vs B). NUNCA escala para preguntar cuándo.' },
+              tipo: { type: 'string', enum: ['opcion', 'multi', 'fecha', 'escala', 'comparacion', 'texto'], description: 'ELIGE el mejor: multi (varias válidas) / opcion (una excluyente) / fecha (¿para cuándo? → calendario) / escala (intensidad 1-5, con los extremos explicados en el enunciado) / comparacion (A vs B). NUNCA escala para preguntar cuándo.' },
               opciones: { type: 'array', description: '2-6 respuestas cortas (opcion/multi); los DOS ítems a enfrentar (comparacion); 2-4 atajos opcionales (fecha). Escala y texto no la llevan.', items: { type: 'string' } },
             },
             required: ['pregunta', 'tipo'],
@@ -507,7 +507,7 @@ ${CONTRATO_TIPOS_PREGUNTA}`,
   },
   {
     name: 'confirmar_accion',
-    description: 'EJECUTA una acción que estaba pendiente de confirmación, cuando el dueño te dio el OK ("sí", "dale", "confirmo"). Si hay una sola pendiente vigente podés omitir el id; si hay varias, pasá el id exacto (de listar_pendientes).',
+    description: 'EJECUTA una acción que estaba pendiente de confirmación, cuando el dueño te dio el OK ("sí", "dale", "confirmo"). Si hay una sola pendiente vigente puedes omitir el id; si hay varias, pasa el id exacto (de listar_pendientes).',
     input_schema: {
       type: 'object',
       properties: { id: { type: 'number', description: 'id de la acción pendiente a ejecutar (opcional si hay una sola).' } },
@@ -515,7 +515,7 @@ ${CONTRATO_TIPOS_PREGUNTA}`,
   },
   {
     name: 'cancelar_accion',
-    description: 'Cancela una acción pendiente (el dueño dijo que no, o cambió de idea). Si hay una sola vigente podés omitir el id.',
+    description: 'Cancela una acción pendiente (el dueño dijo que no, o cambió de idea). Si hay una sola vigente puedes omitir el id.',
     input_schema: {
       type: 'object',
       properties: { id: { type: 'number', description: 'id de la acción pendiente a cancelar (opcional si hay una sola).' } },
@@ -552,7 +552,7 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
   const proponer = async (tipo: string, payload: Record<string, unknown>, resumen: string): Promise<string> => {
     const id = await crearPendiente(ws, { grupoJid, tipo, payload, resumen, origen: 'hola-mako', ttlMin: TTL_MIN });
     if (id == null) return JSON.stringify({ ok: false, error: 'No pude registrar la acción pendiente.' });
-    return JSON.stringify({ ok: true, pendiente_id: id, resumen, vence_en_min: TTL_MIN, instruccion: 'Deciles qué vas a hacer y pedí que confirmen con un "sí" para ejecutarlo.' });
+    return JSON.stringify({ ok: true, pendiente_id: id, resumen, vence_en_min: TTL_MIN, instruccion: 'Diles qué vas a hacer y pide que confirmen con un "sí" para ejecutarlo.' });
   };
 
   return async (name, input) => {
@@ -609,7 +609,7 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
           return JSON.stringify({
             ok: true, url, nueva,
             instruccion: nueva
-              ? 'Pasale el link TAL CUAL para que lo revise y confirme. No pidas confirmación por el chat ni repitas los datos.'
+              ? 'Pásale el link TAL CUAL para que lo revise y confirme. No pidas confirmación por el chat ni repitas los datos.'
               : 'Ya había una propuesta pendiente para esta persona: es el MISMO link, no se creó otra. Decíselo así y pasáselo.',
           });
         } catch (e) {
@@ -652,7 +652,7 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
 
         const lead = await runWithWorkspace(ws, () => getLead(leadId).catch(() => null));
         if (!lead) return JSON.stringify({ ok: false, error: `No existe el lead #${leadId} en este workspace.` });
-        if (!lead.email) return JSON.stringify({ ok: false, error: `${lead.nombre} no tiene email cargado, y Calendly lo exige para reservar. Pedile el email antes.` });
+        if (!lead.email) return JSON.stringify({ ok: false, error: `${lead.nombre} no tiene email cargado, y Calendly lo exige para reservar. Pídele el email antes.` });
 
         try {
           // El hueco se valida ANTES de pedirle el "sí" al dueño. Sin esto le
@@ -665,7 +665,7 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
           if (!huecos.some((h) => h.startIso === startIso)) {
             return JSON.stringify({
               ok: false,
-              error: 'Ese horario no está entre los libres de Calendly. Copiá un startIso EXACTO de listar_horarios_reunion.',
+              error: 'Ese horario no está entre los libres de Calendly. Copia un startIso EXACTO de listar_horarios_reunion.',
               horarios_libres: huecos.slice(0, 6).map((h) => ({ startIso: h.startIso, cuando: fmtFecha(h.startIso, tz) })),
             });
           }
@@ -701,7 +701,7 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
           return JSON.stringify({
             ok: false,
             faltan: v.pedir.map((f) => f.label),
-            error: `Para mover a "${label}" falta cargar: ${etiquetasDe(v.pedir)}. Pedí ese dato antes de proponer el movimiento.`,
+            error: `Para mover a "${label}" falta cargar: ${etiquetasDe(v.pedir)}. Pide ese dato antes de proponer el movimiento.`,
           });
         }
         const payload: Record<string, unknown> = { leadId, etapa };
@@ -753,7 +753,7 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
             // que no está en el catálogo lo deja igual — ahí manda el Perro al aplicar.
             proyecto: x.proyecto ? canonNombre(String(x.proyecto).trim()).slice(0, 120) : undefined, deadline: typeof x.deadline === 'string' && x.deadline ? String(x.deadline) : undefined, detalle: typeof x.detalle === 'string' && x.detalle ? String(x.detalle).slice(0, 6000) : undefined }))
           .filter((t) => t.titulo);
-        if (!tareas.length) return JSON.stringify({ ok: false, error: 'No hay ninguna tarea con título. Resolvé lo deducible con ver_plan; si falta info, ponela en "preguntas" — no preguntes por acá.' });
+        if (!tareas.length) return JSON.stringify({ ok: false, error: 'No hay ninguna tarea con título. Resuelve lo deducible con ver_plan; si falta info, ponla en "preguntas" — no preguntes por aquí.' });
         // CANDADO: el mensaje era un "sí" pelado y no una lista → las tareas no salen
         // de lo que el dueño acaba de decir, salen de la memoria del modelo. Cortarlo acá
         // (no con una instrucción en el prompt) es lo único que evita que reviva
@@ -761,7 +761,7 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
         if (pareceConfirmacion(mensajeUsuario)) {
           return JSON.stringify({
             ok: false,
-            error: 'CONFIRMACIÓN SIN LISTA: el último mensaje es un "sí/dale" y no trae las tareas. NO inventes ni las saques del historial — pueden ser de otra conversación. Preguntá a QUÉ lista se refiere, o si venía de una reunión decile que entre al plan a confirmarla, o pedile que te la pegue.',
+            error: 'CONFIRMACIÓN SIN LISTA: el último mensaje es un "sí/dale" y no trae las tareas. NO inventes ni las saques del historial — pueden ser de otra conversación. Pregunta a QUÉ lista se refiere, o si venía de una reunión dile que entre al plan a confirmarla, o pídele que te la pegue.',
           });
         }
         const preguntasRaw = (input as { preguntas?: unknown }).preguntas;
@@ -793,7 +793,7 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
 // mal en prod —un link que apuntaba a otro borrador— así que la instrucción lo
 // dice explícito. Y como una instrucción no es una garantía, /plan/revisar/[id]
 // tiene la red: si el id no existe, ofrece los borradores pendientes que sí hay.
-instruccion: `Armaste un BORRADOR con ${tareas.length} tarea${tareas.length === 1 ? '' : 's'}, ${extras}. Mandá UNA línea corta + este link para que lo revisen, respondan y confirmen EN LA APP (NO pidas "sí" acá, NO repitas la lista). ⛔⛔ EL LINK SE COPIA Y SE PEGA TAL CUAL, carácter por carácter — no lo reescribas de memoria ni lo acortes: un solo carácter cambiado lo manda a un borrador que no es, o a ninguno. ⛔ Si das un número, usá EXACTAMENTE estos — no inventes ninguno. ⛔ El proyecto de cada tarea lo decide el Perro Guardián al aplicar: NO lo menciones. Link: ${link}` });
+instruccion: `Armaste un BORRADOR con ${tareas.length} tarea${tareas.length === 1 ? '' : 's'}, ${extras}. Manda UNA línea corta + este link para que lo revisen, respondan y confirmen EN LA APP (NO pidas "sí" aquí, NO repitas la lista). ⛔⛔ EL LINK SE COPIA Y SE PEGA TAL CUAL, carácter por carácter — no lo reescribas de memoria ni lo acortes: un solo carácter cambiado lo manda a un borrador que no es, o a ninguno. ⛔ Si das un número, usa EXACTAMENTE estos — no inventes ninguno. ⛔ El proyecto de cada tarea lo decide el Perro Guardián al aplicar: NO lo menciones. Link: ${link}` });
         } catch (e) {
           return JSON.stringify({ ok: false, error: `No pude armar el borrador: ${e instanceof Error ? e.message : 'error'}` });
         }
@@ -816,7 +816,7 @@ instruccion: `Armaste un BORRADOR con ${tareas.length} tarea${tareas.length === 
         const target = id != null ? vig.find((p) => p.id === id) : (vig.length === 1 ? vig[0] : undefined);
         if (!target) {
           if (id != null) return `No encuentro la acción #${id} vigente. Vigentes: ${vig.map((p) => `#${p.id} (${p.resumen})`).join('; ')}`;
-          return `Hay ${vig.length} acciones pendientes, aclará cuál: ${vig.map((p) => `#${p.id} (${p.resumen})`).join('; ')}`;
+          return `Hay ${vig.length} acciones pendientes, aclara cuál: ${vig.map((p) => `#${p.id} (${p.resumen})`).join('; ')}`;
         }
         if (name === 'cancelar_accion') {
           await resolverPendiente(ws, target.id, 'cancelada');
@@ -826,7 +826,7 @@ instruccion: `Armaste un BORRADOR con ${tareas.length} tarea${tareas.length === 
         // ejecutamos. El "sí" del dueño es un mensaje aparte (turno posterior). 1.5s de
         // margen por el skew reloj-app/DB. Bloquea que el modelo proponga Y confirme solo.
         if (turnStart && target.createdAt && Date.parse(target.createdAt) >= turnStart - 1500) {
-          return 'Recién propuse esa acción en este mismo mensaje. NO la confirmes vos: frená y esperá a que el dueño mande un "sí" aparte.';
+          return 'Recién propuse esa acción en este mismo mensaje. NO la confirmes tú: frena y espera a que el dueño mande un "sí" aparte.';
         }
         const res = await ejecutarAccion(ws, target.tipo, target.payload);
         await resolverPendiente(ws, target.id, res.ok ? 'ejecutada' : 'error', res.resumen);

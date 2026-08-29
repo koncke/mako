@@ -123,7 +123,7 @@ export function evaluarPermiso(p: {
 
   const hoy = diaISO(p.hoy ?? new Date());
   if (hoy > permiso.hasta) {
-    return { ok: false, razon: `el permiso de «${feature}» venció el ${permiso.hasta}. Renovalo con una fecha nueva o dejalo vencido — vencer es la decisión por default.` };
+    return { ok: false, razon: `el permiso de «${feature}» venció el ${permiso.hasta}. Renuévalo con una fecha nueva o déjalo vencido — vencer es la decisión por default.` };
   }
 
   // 3) EL MODELO. `opts.model` deja de ser un parámetro y pasa a ser un permiso: es la

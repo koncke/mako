@@ -43,7 +43,7 @@ export const GCAL_MSG: Record<string, { kind: 'ok' | 'err'; txt: string }> = {
   // «Escribinos» sin decir A DÓNDE es un callejón: el usuario ya sabía que quería
   // escribirnos, lo que no sabe es la dirección. Sale de EMAIL_MAKO para que sea la misma
   // que firma los mails de la plataforma y no dos direcciones que se van separando.
-  config: { kind: 'err', txt: `La conexión con Google no está disponible en este momento. Escribinos a ${EMAIL_MAKO} y lo resolvemos.` },
+  config: { kind: 'err', txt: `La conexión con Google no está disponible en este momento. Escríbenos a ${EMAIL_MAKO} y lo resolvemos.` },
   exchange: { kind: 'err', txt: 'No se pudo completar la conexión. Reintentá.' },
   'no-permitido': { kind: 'err', txt: 'Solo el workspace principal puede conectar Google Calendar.' },
 };
@@ -110,7 +110,7 @@ export function GoogleCalendarPanel() {
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--warn)', marginBottom: 4 }}>Faltan permisos para mover reuniones</div>
               <p style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, margin: '0 0 10px' }}>
                 Autorizaste tu calendario cuando solo pedíamos leerlo: tus reuniones se detectan, pero «Reagendar» no puede mover el evento
-                ni avisarle al invitado. Conectá de nuevo y Google te va a pedir el permiso que falta.
+                ni avisarle al invitado. Conecta de nuevo y Google te va a pedir el permiso que falta.
               </p>
               <a href="/api/integraciones/google-calendar" style={primaryBtn}>Conectar Google Calendar</a>
             </div>
@@ -130,7 +130,7 @@ export function GoogleCalendarPanel() {
           <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
             <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>¿Ves «Error 400: redirect_uri_mismatch»?</div>
             <p style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, margin: 0 }}>
-              Es una configuración nuestra, no tuya: no tenés que crear ninguna credencial. Pasanos esta dirección y lo destrabamos:
+              Es una configuración nuestra, no tuya: no tienes que crear ninguna credencial. Pásanos esta dirección y lo destrabamos:
             </p>
             <code style={mono}>{estado.redirectUri}</code>
             <button

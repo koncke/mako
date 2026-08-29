@@ -23,7 +23,7 @@ function putWithProgress(url: string, file: File, apikey: string | null, onProgr
       let detalle = (xhr.responseText || '').replace(/\s+/g, ' ').slice(0, 200);
       try { const j = JSON.parse(xhr.responseText); detalle = String(j.message || j.error || detalle); } catch { /* texto plano */ }
       if (xhr.status === 413 || /too large|maximum allowed size|exceeded/i.test(detalle)) {
-        return reject(new Error('El archivo supera el límite de Supabase Storage. Subilo en Supabase → Storage → Settings → "Upload file size limit".'));
+        return reject(new Error('El archivo supera el límite de Supabase Storage. Súbelo en Supabase → Storage → Settings → "Upload file size limit".'));
       }
       reject(new Error(`No se pudo subir el archivo (HTTP ${xhr.status})${detalle ? ` — ${detalle}` : ''}`));
     };

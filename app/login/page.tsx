@@ -67,7 +67,7 @@ export default async function LoginPage() {
           <YaLogueado nombre={sesion.nombre} email={sesion.email} />
         ) : (
           <>
-            <div style={{ fontSize: '14px', color: '#5B6472', marginBottom: '22px' }}>Entrá al dashboard.</div>
+            <div style={{ fontSize: '14px', color: '#5B6472', marginBottom: '22px' }}>Entra al dashboard.</div>
             <Suspense fallback={<div style={{ height: '46px', borderRadius: '11px', background: 'rgba(0,0,0,.05)' }} />}>
               <LoginForm />
             </Suspense>

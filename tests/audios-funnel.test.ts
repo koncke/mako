@@ -79,7 +79,7 @@ test('sin link de video el guion no menciona ningún video', () => {
 test('sin lugar declarado el guion NO inventa una dirección: dice que la pasa por acá', () => {
   const def = defDeClave('evento_confirmado')!;
   const sin = guionDe(def, { evento: null });
-  assert.ok(sin.some((b) => b.includes('pasas por acá la dirección')));
+  assert.ok(sin.some((b) => /pasas por (acá|aquí) la dirección/.test(b)));
   assert.ok(!sin.some((b) => /Huayac|calle|avenida/i.test(b)));
 });
 

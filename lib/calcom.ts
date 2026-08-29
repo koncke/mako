@@ -86,7 +86,7 @@ export function verifyCalcomSignature(
     // en Cal.com sin secreto. El mensaje dice qué hacer, porque el que lo va a
     // leer es quien lo configuró.
     throw new CalcomSignatureError(
-      'El webhook está dado de alta SIN secreto en Cal.com. Editalo y pegá el mismo valor que guardaste en MaKo.',
+      'El webhook está dado de alta SIN secreto en Cal.com. Edítalo y pega el mismo valor que guardaste en MaKo.',
     );
   }
   if (!signingKey) {

@@ -40,19 +40,19 @@ const METODO: MetodoEntry[] = [
     categoria: 'Fundamentos',
     cuerpo: `Reglas base de toda redacción de MaKo:
 - Claridad antes que ingenio. Si hay que elegir entre sonar creativo y que se entienda, gana entenderse.
-- Voz activa y frases cortas. El lector escanea; escribí para que capte la idea en 3 segundos.
+- Voz activa y frases cortas. El lector escanea; escribe para que capte la idea en 3 segundos.
 - Beneficio antes que característica. No "tenemos X"; sino "con esto lográs Y". Traducí siempre feature → resultado para el lector.
-- Hablá en el idioma del cliente, no en jerga interna. Usá las palabras que usa él para nombrar su problema.
+- Habla en el idioma del cliente, no en jerga interna. Usa las palabras que usa él para nombrar su problema.
 - Una sola idea y un solo objetivo por mensaje. Si el email/WhatsApp quiere hacer tres cosas, no logra ninguna.
 - Especificidad y honestidad. Datos concretos > adjetivos vacíos. Nunca prometas lo que el negocio no puede cumplir.
-- Escribí como le hablarías a UNA persona, por su nombre, no a "una lista".`,
+- Escribe como le hablarías a UNA persona, por su nombre, no a "una lista".`,
   },
   {
     titulo: 'Estructuras que persuaden: AIDA, PAS, BAB',
     categoria: 'Estructura',
-    cuerpo: `Elegí una estructura según el momento del lead. No las mezcles dentro de un mismo mensaje corto:
-- AIDA (Atención → Interés → Deseo → Acción): buena para presentar algo nuevo. Abrí con un gancho, subí el interés con relevancia, encendé el deseo con el resultado, cerrá con una acción clara.
-- PAS (Problema → Agitación → Solución): la más potente para reactivar. Nombrá el problema real, mostrá qué pasa si sigue sin resolverse (sin dramatizar de más), y ofrecé la salida. Ideal para "no agendó", "no-show", "reactivación".
+    cuerpo: `Elige una estructura según el momento del lead. No las mezcles dentro de un mismo mensaje corto:
+- AIDA (Atención → Interés → Deseo → Acción): buena para presentar algo nuevo. Abre con un gancho, sube el interés con relevancia, enciende el deseo con el resultado, cierra con una acción clara.
+- PAS (Problema → Agitación → Solución): la más potente para reactivar. Nombra el problema real, muestra qué pasa si sigue sin resolverse (sin dramatizar de más), y ofrece la salida. Ideal para "no agendó", "no-show", "reactivación".
 - BAB (Antes → Después → Puente): "hoy estás así / imaginá estar así / el puente es esta llamada". Muy útil cuando el resultado es tangible.
 Regla: la estructura es andamiaje, no se nota. El lector siente una conversación, no una fórmula.`,
   },
@@ -61,7 +61,7 @@ Regla: la estructura es andamiaje, no se nota. El lector siente una conversació
     categoria: 'Email',
     cuerpo: `El asunto tiene un solo trabajo: ganar la apertura. Sin apertura, el mejor cuerpo no existe.
 - 4 a 8 palabras. Que entre completo en el celular.
-- Elegí UN ángulo: curiosidad ("Un caso que te va a sonar"), específico/beneficio ("Reagendemos en 30 seg"), o tensión/pregunta ("¿Lo dejamos acá?").
+- Elige UN ángulo: curiosidad ("Un caso que te va a sonar"), específico/beneficio ("Reagendemos en 30 seg"), o tensión/pregunta ("¿Lo dejamos aquí?").
 - Escribilo en minúsculas o capitalización natural, como un humano. Evitá MAYÚSCULAS, signos de más ($$$, !!!), "GRATIS", "URGENTE" y clickbait vacío: bajan entregabilidad y confianza.
 - El preheader (texto de vista previa) COMPLEMENTA, no repite el asunto: es la segunda línea que termina de convencer de abrir. Nunca lo dejes vacío (si no, se cuela el HTML).
 - Prometé en el asunto solo lo que el cuerpo cumple. El clickbait quema la lista.`,
@@ -73,7 +73,7 @@ Regla: la estructura es andamiaje, no se nota. El lector siente una conversació
 - Prueba social: casos, cantidad de clientes, resultados de gente parecida al lead. "Alguien en tu misma situación hoy logró…".
 - Aversión a la pérdida: la gente teme perder más que lo que desea ganar. Enmarcá lo que se está perdiendo por no actuar, sin amenazar.
 - Reciprocidad: dar valor primero (un tip, un caso, un diagnóstico) antes de pedir. El primer mensaje idealmente REGALA algo.
-- Autoridad: mostrá criterio y especificidad; el que sabe no necesita gritar.
+- Autoridad: muestra criterio y especificidad; el que sabe no necesita gritar.
 - Compromiso y consistencia: recordá el paso que el lead YA dio ("dejaste tus datos", "estabas muy cerca de decidir") para que el siguiente sea coherente.
 - Escasez y urgencia: solo si son verdaderas (cupos, fecha real). La urgencia inventada se nota y espanta.
 Un mensaje suele apoyarse en UN gatillo dominante, no en todos a la vez.`,
@@ -95,10 +95,10 @@ Un mensaje suele apoyarse en UN gatillo dominante, no en todos a la vez.`,
     categoria: 'CTA',
     cuerpo: `El cierre define si el mensaje convierte:
 - Una sola CTA por mensaje. Dos opciones = ninguna acción.
-- Verbo claro + baja fricción: "Agendá acá" / "Respondé este mail y lo vemos". Que el próximo paso cueste 10 segundos.
+- Verbo claro + baja fricción: "Agenda aquí" / "Responde este mail y lo vemos". Que el próximo paso cueste 10 segundos.
 - Reducí el riesgo percibido: "llamada corta", "sin compromiso", "en el horario que mejor te venga".
 - Salida digna SIEMPRE: dale permiso de decir que no. Paradójicamente sube la respuesta y protege la relación.
-- Cerrá como humano, no como sistema: nada de "Saludos cordiales, el equipo". Firma personal, cercana.
+- Cierra como humano, no como sistema: nada de "Saludos cordiales, el equipo". Firma personal, cercana.
 - Los placeholders de acción ([tu link de agenda], [tu link de pago]) NO se inventan: se dejan tal cual para que el sistema los complete.`,
   },
   {

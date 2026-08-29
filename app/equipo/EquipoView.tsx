@@ -155,7 +155,7 @@ export function EquipoView() {
 
       {equipo.length === 0 ? (
         <div style={{ ...card, color: 'var(--dim)', fontSize: 13.5, lineHeight: 1.5 }}>
-          Todavía sos el único. Sumá a tu Closer o Setter arriba.
+          Todavía eres el único. Suma a tu Closer o Setter arriba.
         </div>
       ) : (
         <div style={{ ...card, padding: 0, overflow: 'hidden' }}>

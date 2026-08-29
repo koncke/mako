@@ -130,7 +130,7 @@ export function PerfilTabs() {
 
           <div style={{ marginTop: 14 }}>
             <label style={labelStyle}>Bio / notas</label>
-            <textarea style={area} value={draft.bio} onChange={(e) => set('bio', e.target.value)} placeholder="Algo sobre vos o el negocio (opcional)." />
+            <textarea style={area} value={draft.bio} onChange={(e) => set('bio', e.target.value)} placeholder="Algo sobre ti o el negocio (opcional)." />
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'flex-end', marginTop: 20 }}>
@@ -142,7 +142,7 @@ export function PerfilTabs() {
         <div style={{ ...card, background: 'var(--surface-2)', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
           <span style={{ fontSize: 18 }}>🔒</span>
           <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5 }}>
-            Cada cuenta entra con su <b>Google</b> (los admins gestionan los accesos en Admin). La contraseña maestra queda como respaldo y se cambia en el server, no desde acá.
+            Cada cuenta entra con su <b>Google</b> (los admins gestionan los accesos en Admin). La contraseña maestra queda como respaldo y se cambia en el server, no desde aquí.
           </div>
         </div>
       </div>

@@ -91,7 +91,10 @@ export function EliminarModal({ tipo, nombre, nTareas = 0, task, otras = [], pla
           {fase === 'consultando'
             ? <div style={{ padding: '30px 0', color: 'var(--dim)', fontSize: 14 }}>El Perro Guardián está decidiendo…</div>
             : ver && <>
-                <GuardianIcon size={54} />
+                {/* Se centra con FLEX, no con el `textAlign: 'center'` del padre: el preflight
+                    de Tailwind pone `svg { display: block }` y a un bloque el text-align no lo
+                    mueve — el icono quedaba pegado a la izquierda. */}
+                <div style={{ display: 'flex', justifyContent: 'center' }}><GuardianIcon size={54} /></div>
                 <div style={{ fontSize: 13, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.04em', margin: '12px 0 10px', color: ver.veredicto === 'borrar' ? 'var(--bad)' : 'var(--good)' }}>{ver.veredicto === 'borrar' ? 'Ok, se puede borrar' : 'Mejor conservala'}</div>
                 <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.6, textAlign: 'left', background: ver.veredicto === 'borrar' ? 'var(--bad-bg)' : 'var(--good-bg, var(--surface-2))', border: `1px solid ${ver.veredicto === 'borrar' ? 'var(--bad)' : 'var(--good)'}55`, borderRadius: 12, padding: '14px 16px' }}>{ver.respuesta}</div>
               </>}
@@ -109,13 +112,13 @@ export function EliminarModal({ tipo, nombre, nTareas = 0, task, otras = [], pla
 
   // ── formulario (WizardShell, mismo chrome que los demás) ──
   const preguntas: Record<string, string> = {
-    intro: 'Frená un segundo', motivo: '¿Por qué la querés borrar?',
-    bloqueo: motivo === 'ya_hecha' ? 'Entonces no la borres — marcala como hecha' : 'Entonces no la borres — cambiá su prioridad',
-    dup: 'Busqué posibles duplicadas', porque: motivo === 'duplicada' ? 'Contame un poco más' : '¿Por qué?',
+    intro: 'Frena un segundo', motivo: '¿Por qué la quieres borrar?',
+    bloqueo: motivo === 'ya_hecha' ? 'Entonces no la borres — márcala como hecha' : 'Entonces no la borres — cambia su prioridad',
+    dup: 'Busqué posibles duplicadas', porque: motivo === 'duplicada' ? 'Cuéntame un poco más' : '¿Por qué?',
   };
   const subs: Record<string, string | undefined> = {
     intro: undefined, motivo: 'Según cuál sea, te ayudo distinto.',
-    bloqueo: undefined, dup: 'Elegí la que es el mismo trabajo, o seguí si ninguna aplica.', porque: 'Con esto el perro decide si vale la pena borrarla.',
+    bloqueo: undefined, dup: 'Elige la que es el mismo trabajo, o sigue si ninguna aplica.', porque: 'Con esto el perro decide si vale la pena borrarla.',
   };
   const enUltimo = step === 'bloqueo' || step === 'porque';
   const confirmLabel = step === 'bloqueo'
@@ -170,15 +173,15 @@ export function EliminarModal({ tipo, nombre, nTareas = 0, task, otras = [], pla
       {step === 'bloqueo' && (
         <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.6, textAlign: 'left', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px' }}>
           {motivo === 'ya_hecha'
-            ? <>Si ya se hizo, <strong>marcala como completada</strong> — así queda en tu historial como un logro, no desaparece. Dale al botón de abajo.</>
-            : <>Si cambió la prioridad, <strong>debatila con el perro</strong> en vez de borrarla. Bajarla es mejor que perderla. Dale al botón de abajo.</>}
+            ? <>Si ya se hizo, <strong>márcala como completada</strong> — así queda en tu historial como un logro, no desaparece. Presiona el botón de abajo.</>
+            : <>Si cambió la prioridad, <strong>debátela con el perro</strong> en vez de borrarla. Bajarla es mejor que perderla. Presiona el botón de abajo.</>}
         </div>
       )}
       {step === 'dup' && (
         dupLoading
-          ? <div style={{ padding: '26px 0', textAlign: 'center', color: 'var(--dim)', fontSize: 14 }}><GuardianIcon size={40} /><div style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 8 }}><Spinner /> Buscando tareas duplicadas…</div></div>
+          ? <div style={{ padding: '26px 0', textAlign: 'center', color: 'var(--dim)', fontSize: 14 }}><div style={{ display: 'flex', justifyContent: 'center' }}><GuardianIcon size={40} /></div><div style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 8 }}><Spinner /> Buscando tareas duplicadas…</div></div>
           : dups.length === 0
-            ? <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55, textAlign: 'left', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '13px 15px' }}>No encontré ninguna tarea que sea el mismo trabajo. Si igual creés que está duplicada, seguí y contame cuál.</div>
+            ? <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55, textAlign: 'left', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '13px 15px' }}>No encontré ninguna tarea que sea el mismo trabajo. Si igual crees que está duplicada, sigue y cuéntame cuál.</div>
             : <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {dups.map((d) => {
                   const t = otras.find((o) => o.id === d.id);
@@ -193,7 +196,7 @@ export function EliminarModal({ tipo, nombre, nTareas = 0, task, otras = [], pla
                 })}
               </div>
       )}
-      {step === 'porque' && <textarea value={porque} onChange={(e) => setPorque(e.target.value)} autoFocus placeholder={motivo === 'no_aplica' ? 'Ej: el cliente canceló ese servicio…' : 'Contame tu razón…'} style={{ ...textareaStyle }} />}
+      {step === 'porque' && <textarea value={porque} onChange={(e) => setPorque(e.target.value)} autoFocus placeholder={motivo === 'no_aplica' ? 'Ej: el cliente canceló ese servicio…' : 'Cuéntame tu razón…'} style={{ ...textareaStyle }} />}
     </WizardShell>
   );
 }

@@ -79,24 +79,24 @@ export async function crearSecuenciaDesdeEtapa(etapa: string, nombre: string): P
 
 // ── Prompts del wizard (editables en /configuraciones vía prompt-registry) ────
 
-export const SETTING_GANCHO_TEMPLATE = `Sos MaKo armando una secuencia de mensajes de setting. El negocio: {{perfil}}.
+export const SETTING_GANCHO_TEMPLATE = `Eres MaKo armando una secuencia de mensajes de setting. El negocio: {{perfil}}.
 Objetivo de la secuencia de mensajes: {{objetivo}}. Etapa del lead: {{etapa}}.
-Proponé 3 GANCHOS concretos (lead magnet, oferta puntual, motivo de re-contacto) que este negocio puede ofrecer YA — nada genérico y nada de inventar recursos que no existen: derivalos del perfil. Máximo 15 palabras cada uno.
-Devolvé EXCLUSIVAMENTE un objeto JSON con esta forma: {"sugerencias": ["...", "...", "..."]}`;
+Propón 3 GANCHOS concretos (lead magnet, oferta puntual, motivo de re-contacto) que este negocio puede ofrecer YA — nada genérico y nada de inventar recursos que no existen: derívalos del perfil. Máximo 15 palabras cada uno.
+Devuelve EXCLUSIVAMENTE un objeto JSON con esta forma: {"sugerencias": ["...", "...", "..."]}`;
 
-export const SETTING_CRITERIO_TEMPLATE = `Sos MaKo deduciendo el CRITERIO DE CALIFICACIÓN de un negocio a partir de sus datos reales. El negocio: {{perfil}}.
+export const SETTING_CRITERIO_TEMPLATE = `Eres MaKo deduciendo el CRITERIO DE CALIFICACIÓN de un negocio a partir de sus datos reales. El negocio: {{perfil}}.
 
 Esto es lo que pasó con los leads que ya fueron evaluados en su CRM (respuestas del formulario de agenda, si el dueño los marcó como calificados, y si cerraron):
 {{datos}}
 
-Deducí qué separa a un cliente ideal de uno que no sirve, y devolvelo como reglas que un setter pueda aplicar leyendo una conversación de WhatsApp.
-Reglas: basate SOLO en los patrones que ves en los datos y en el perfil del negocio — no inventes umbrales de facturación ni de tamaño que no aparezcan. Si los datos no alcanzan para una regla, no la escribas. Cada regla en una frase corta y verificable en un chat.
-Devolvé EXCLUSIVAMENTE un objeto JSON con esta forma: {"califica": ["...", "..."], "descalifica": ["...", "..."]}`;
+Deduce qué separa a un cliente ideal de uno que no sirve, y devuélvelo como reglas que un setter pueda aplicar leyendo una conversación de WhatsApp.
+Reglas: básate SOLO en los patrones que ves en los datos y en el perfil del negocio — no inventes umbrales de facturación ni de tamaño que no aparezcan. Si los datos no alcanzan para una regla, no la escribas. Cada regla en una frase corta y verificable en un chat.
+Devuelve EXCLUSIVAMENTE un objeto JSON con esta forma: {"califica": ["...", "..."], "descalifica": ["...", "..."]}`;
 
-export const SETTING_PREGUNTAS_TEMPLATE = `Sos MaKo armando la cualificación por WhatsApp de una secuencia de mensajes de setting. El negocio: {{perfil}}.
+export const SETTING_PREGUNTAS_TEMPLATE = `Eres MaKo armando la cualificación por WhatsApp de una secuencia de mensajes de setting. El negocio: {{perfil}}.
 Objetivo: {{objetivo}}. Etapa del lead: {{etapa}}.
-Proponé 4 PREGUNTAS de cualificación cerradas y cortas (responderlas toma menos de 15 segundos), en el orden en que un setter las haría, que separen a un lead calificado de uno que no. Sin preguntas obvias ni invasivas.
-Devolvé EXCLUSIVAMENTE un objeto JSON con esta forma: {"sugerencias": ["...", "...", "...", "..."]}`;
+Propón 4 PREGUNTAS de cualificación cerradas y cortas (responderlas toma menos de 15 segundos), en el orden en que un setter las haría, que separen a un lead calificado de uno que no. Sin preguntas obvias ni invasivas.
+Devuelve EXCLUSIVAMENTE un objeto JSON con esta forma: {"sugerencias": ["...", "...", "...", "..."]}`;
 
 // ── Criterio de calificación: MaKo lo deduce de los datos reales ─────────────
 // En la reunión decidieron cancelar las llamadas de los no calificados, pero
@@ -162,7 +162,7 @@ export async function probarSecuencia(secuenciaId: number): Promise<ResultadoPru
 
   const contacto = await getContactoReportes();
   if (!contacto.telefono && !contacto.email) {
-    return { ok: false, error: 'Cargá tu teléfono y email en Perfil para recibir la prueba.' };
+    return { ok: false, error: 'Carga tu teléfono y email en Perfil para recibir la prueba.' };
   }
 
   const avisos: string[] = [];
@@ -192,7 +192,7 @@ export async function probarSecuencia(secuenciaId: number): Promise<ResultadoPru
       if (r.ok) enviadosWa += 1; else avisos.push(`Paso ${paso.orden} (WhatsApp): ${r.error ?? 'no salió'}`);
     } else {
       if (!contacto.email) { avisos.push(`Paso ${paso.orden}: sin email en Perfil, no se probó.`); continue; }
-      if (sandbox) { avisos.push('Remitente sandbox: verificá tu dominio para probar los emails.'); continue; }
+      if (sandbox) { avisos.push('Remitente sandbox: verifica tu dominio para probar los emails.'); continue; }
       const asunto = `[PRUEBA] ${aplicarVariables(paso.asunto ?? '(sin asunto)', vars)}`;
       const r = await sendEmail({ to: contacto.email, subject: asunto, html: renderEmailHtml({ subject: asunto, bodyText: cuerpo }), text: cuerpo });
       if (r.ok) enviadosEmail += 1; else avisos.push(`Paso ${paso.orden} (email): ${r.error ?? 'no salió'}`);

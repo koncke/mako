@@ -62,7 +62,7 @@ export async function armarSecuenciasDeAudios(linkVideo?: string | null): Promis
   // escrito justo después de la nota de voz. Sin link no se manda nada — el
   // guion tampoco lo menciona.
   const pieBienvenida = (linkVideo ?? '').trim()
-    ? `Te dejo acá el video: ${(linkVideo ?? '').trim()}`
+    ? `Te dejo aquí el video: ${(linkVideo ?? '').trim()}`
     : '';
 
   const planos: Array<{ clave: string; nombre: string; etapa: string; trigger: string; pasos: PasoSecuencia[] }> = [];
@@ -84,7 +84,7 @@ export async function armarSecuenciasDeAudios(linkVideo?: string | null): Promis
   // confirmaba nada.
   const piePostAgenda = [
     (linkVideo ?? '').trim() ? `Te dejo el video para que llegues con contexto: ${(linkVideo ?? '').trim()}` : '',
-    '¿Me confirmas por acá que te queda bien el horario?',
+    '¿Me confirmas por aquí que te queda bien el horario?',
   ].filter(Boolean).join('\n');
 
   // Los dos de post-agenda comparten secuencia. El orden importa: si el primero

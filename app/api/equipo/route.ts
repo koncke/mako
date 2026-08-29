@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
         const rolWs = body.rol_ws;
         if (!rolWs || !ROLES_WS.includes(rolWs)) return NextResponse.json({ ok: false, error: 'rol inválido' }, { status: 400 });
         if (objetivo.rol_ws === 'admin' && rolWs !== 'admin' && (await contarAdminsClienteActivos(ws)) <= 1) {
-          return NextResponse.json({ ok: false, error: 'Sos el único admin del cliente — nombrá otro admin antes.' }, { status: 400 });
+          return NextResponse.json({ ok: false, error: 'Eres el único admin del cliente — nombra otro admin antes.' }, { status: 400 });
         }
         return NextResponse.json({ ok: true, usuario: await actualizarUsuario(objetivo.id, { rol_ws: rolWs }) });
       }
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
         const estado = body.estado;
         if (estado !== 'activo' && estado !== 'suspendido') return NextResponse.json({ ok: false, error: 'estado inválido' }, { status: 400 });
         if (estado === 'suspendido' && objetivo.rol_ws === 'admin' && (await contarAdminsClienteActivos(ws)) <= 1) {
-          return NextResponse.json({ ok: false, error: 'Sos el único admin del cliente — nombrá otro admin antes.' }, { status: 400 });
+          return NextResponse.json({ ok: false, error: 'Eres el único admin del cliente — nombra otro admin antes.' }, { status: 400 });
         }
         return NextResponse.json({ ok: true, usuario: await actualizarUsuario(objetivo.id, { estado }) });
       }
@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
       case 'eliminar': {
         if (!objetivo) return NextResponse.json({ ok: false, error: 'Falta el miembro.' }, { status: 400 });
         if (objetivo.rol_ws === 'admin' && (await contarAdminsClienteActivos(ws)) <= 1) {
-          return NextResponse.json({ ok: false, error: 'Sos el único admin del cliente — nombrá otro admin antes.' }, { status: 400 });
+          return NextResponse.json({ ok: false, error: 'Eres el único admin del cliente — nombra otro admin antes.' }, { status: 400 });
         }
         await eliminarUsuario(objetivo.id);
         return NextResponse.json({ ok: true });

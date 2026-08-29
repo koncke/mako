@@ -25,7 +25,7 @@ export type ContextoEtapa = {
 
 export const CONTEXTO_ETAPA: Record<string, ContextoEtapa> = {
   lead: {
-    situacion: 'Acaba de dejar sus datos en el formulario del anuncio y todavía no agendó nada. Es el momento más caliente que vas a tener con esta persona: vio tu anuncio hace minutos y todavía se acuerda de qué prometía. También es el momento en que menos te conoce, así que no sabe si sos confiable.',
+    situacion: 'Acaba de dejar sus datos en el formulario del anuncio y todavía no agendó nada. Es el momento más caliente que vas a tener con esta persona: vio tu anuncio hace minutos y todavía se acuerda de qué prometía. También es el momento en que menos te conoce, así que no sabe si eres confiable.',
     sugerido: 'agendar',
     porque: 'Está caliente y sin reunión: lo único que hace falta es que dé el siguiente paso antes de enfriarse.',
   },
@@ -35,7 +35,7 @@ export const CONTEXTO_ETAPA: Record<string, ContextoEtapa> = {
     porque: 'Ya mostró interés y no llegó a la reunión: falta destrabar lo que lo frenó, no volver a explicarle todo.',
   },
   agenda: {
-    situacion: 'Tiene una reunión agendada y todavía no ocurrió. Acá el riesgo no es que no le interese: es que no aparezca. La mitad de las ausencias se evitan con un mensaje que le recuerde para qué es la reunión y qué se lleva.',
+    situacion: 'Tiene una reunión agendada y todavía no ocurrió. Aquí el riesgo no es que no le interese: es que no aparezca. La mitad de las ausencias se evitan con un mensaje que le recuerde para qué es la reunión y qué se lleva.',
     sugerido: 'preparar',
     porque: 'La reunión ya está: lo que falta es que llegue, y que llegue sabiendo de qué se trata.',
   },
@@ -70,12 +70,12 @@ export const CONTEXTO_ETAPA: Record<string, ContextoEtapa> = {
     porque: 'Ya decidió comprar: lo único que falta es sacarle la fricción de encima, rápido.',
   },
   reactivacion: {
-    situacion: 'Hace semanas o meses que nadie le escribe. Trátalo como un lead frío: es muy probable que no recuerde tu anuncio, ni tu landing, ni la conversación que tuvieron. Retomar como si nada quedó pendiente ayer suena falso. Acá lo único que se busca es que vuelva a responder — cualquier otra cosa viene después.',
+    situacion: 'Hace semanas o meses que nadie le escribe. Trátalo como un lead frío: es muy probable que no recuerde tu anuncio, ni tu landing, ni la conversación que tuvieron. Retomar como si nada quedó pendiente ayer suena falso. Aquí lo único que se busca es que vuelva a responder — cualquier otra cosa viene después.',
     sugerido: 'reactivar',
     porque: 'Está frío y no te recuerda: pedirle una reunión de entrada es pedir demasiado. Primero que conteste.',
   },
   manual: {
-    situacion: 'Lo pusiste vos a mano en nutrición, así que la situación la conoces mejor que nadie. Estos leads no entran por ninguna regla automática: alguien decidió que había que escribirles.',
+    situacion: 'Lo pusiste tú a mano en nutrición, así que la situación la conoces mejor que nadie. Estos leads no entran por ninguna regla automática: alguien decidió que había que escribirles.',
     sugerido: 'reactivar',
     porque: 'Entró a mano, sin una etapa que lo explique: conviene un objetivo amplio.',
   },
@@ -85,12 +85,12 @@ export const CONTEXTO_ETAPA: Record<string, ContextoEtapa> = {
     porque: 'Hay una reunión de por medio: lo importante sigue siendo que llegue.',
   },
   facturando: {
-    situacion: 'Ya es cliente y está pagando. Escribirle acá no es vender: es entrega, soporte o la puerta a que compre algo más. Cuidado con tratarlo como un lead — es lo que más rápido rompe la confianza de alguien que ya te pagó.',
+    situacion: 'Ya es cliente y está pagando. Escribirle aquí no es vender: es entrega, soporte o la puerta a que compre algo más. Cuidado con tratarlo como un lead — es lo que más rápido rompe la confianza de alguien que ya te pagó.',
     sugerido: 'preparar',
     porque: 'Ya compró: el trabajo es sostener la relación, no volver a venderle lo mismo.',
   },
   ganado: {
-    situacion: 'Cerró y terminó su ciclo. Cualquier mensaje acá es de relación o de recompra, nunca de captación.',
+    situacion: 'Cerró y terminó su ciclo. Cualquier mensaje aquí es de relación o de recompra, nunca de captación.',
     sugerido: 'reactivar',
     porque: 'El ciclo terminó: si se le escribe, es para abrir uno nuevo.',
   },

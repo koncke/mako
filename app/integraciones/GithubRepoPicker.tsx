@@ -119,7 +119,7 @@ export function GithubRepoPicker({
                 value={elegido}
                 onChange={(v) => void elegir(String(v))}
                 options={repos.map((r) => ({ value: r.value, label: r.label }))}
-                placeholder="Elegí el repositorio…"
+                placeholder="Elige el repositorio…"
               />
             </>
           ) : elegido ? (

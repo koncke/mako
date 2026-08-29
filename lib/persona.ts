@@ -129,16 +129,16 @@ export async function personaEstado(): Promise<{ descripcion: string; fotos: Per
 // ser más frágil entre proveedores (bug de las preguntas de Entregable/Avatares).
 export const PERSONA_DESC_SECCIONES = ['IDENTIDAD', 'ROSTRO', 'OJOS', 'CABELLO', 'COMPLEXIÓN', 'MARCAS DISTINTIVAS', 'VESTIMENTA', 'ACTITUD'] as const;
 
-const PERSONA_DESC_PROMPT = `Sos un director de arte creando la FICHA de una persona para que una IA generativa de imágenes la recree IDÉNTICA en cada anuncio. Te paso VARIAS fotos de la MISMA persona — mirálas TODAS juntas y describí lo que ves, sección por sección. NO inventes nombre ni ningún dato que no se vea. Español neutro, de "tú".
+const PERSONA_DESC_PROMPT = `Eres un director de arte creando la FICHA de una persona para que una IA generativa de imágenes la recree IDÉNTICA en cada anuncio. Te paso VARIAS fotos de la MISMA persona — míralas TODAS juntas y describe lo que ves, sección por sección. NO inventes nombre ni ningún dato que no se vea. Español neutro, de "tú".
 
 CÓMO USAR VARIAS FOTOS (esto es lo más importante):
-- Los rasgos FÍSICOS (rostro, ojos, cabello, complexión, marcas) no cambian entre fotos de la misma persona: cruzá todas las fotos para describirlos con MÁS certeza y detalle, no menos.
-- Lo que SÍ puede variar entre fotos es la ropa y el entorno. Si ves la MISMA persona con distinta vestimenta en distintas fotos, DECILO así ("en unas fotos viste...; en otras...") en vez de presentar solo una como si fuera la única. Si el estilo se repite (mismos colores, mismo tipo de prendas), describí ESE patrón general.
-- Si alguna foto es de mala calidad o no aporta (borrosa, muy lejos, tapada), ignorala para esa sección puntual y basate en las que sí sirven — no la menciones, solo no la uses.
+- Los rasgos FÍSICOS (rostro, ojos, cabello, complexión, marcas) no cambian entre fotos de la misma persona: cruza todas las fotos para describirlos con MÁS certeza y detalle, no menos.
+- Lo que SÍ puede variar entre fotos es la ropa y el entorno. Si ves la MISMA persona con distinta vestimenta en distintas fotos, DILO así ("en unas fotos viste...; en otras...") en vez de presentar solo una como si fuera la única. Si el estilo se repite (mismos colores, mismo tipo de prendas), describe ESE patrón general.
+- Si alguna foto es de mala calidad o no aporta (borrosa, muy lejos, tapada), ignórala para esa sección puntual y básate en las que sí sirven — no la menciones, solo no la uses.
 
 LARGO: nada de secciones todas del mismo tamaño por relleno. Una sección con mucho que describir (ej. el rostro) puede ser 2-3 frases; una simple (ej. marcas distintivas, si no hay ninguna) puede ser una sola línea corta tipo "Ninguna visible". Sé denso y específico, no genérico — cada frase tiene que aportar un dato visual concreto, no una descripción de manual.
 
-Devolvé EXACTAMENTE este formato — un encabezado en MAYÚSCULA por línea y debajo su texto, sin viñetas ni markdown:
+Devuelve EXACTAMENTE este formato — un encabezado en MAYÚSCULA por línea y debajo su texto, sin viñetas ni markdown:
 
 IDENTIDAD
 Género aparente, rango de edad y complexión general.
@@ -177,7 +177,7 @@ const MAX_FOTOS_ANALISIS = 8;
 export async function generarDescripcionPersona(): Promise<{ ok: true; descripcion: string } | { ok: false; error: string }> {
   try {
     const p = await getPersona();
-    if (p.fotos.length === 0) return { ok: false, error: 'Subí al menos una foto primero.' };
+    if (p.fotos.length === 0) return { ok: false, error: 'Sube al menos una foto primero.' };
     const fotos = p.fotos.slice(0, MAX_FOTOS_ANALISIS);
     const dataUrls: string[] = [];
     for (const f of fotos) {
@@ -188,7 +188,7 @@ export async function generarDescripcionPersona(): Promise<{ ok: true; descripci
         dataUrls.push(`data:${f.mime || 'image/jpeg'};base64,${buf.toString('base64')}`);
       } catch { /* esa foto no bajó, seguimos con las demás */ }
     }
-    if (!dataUrls.length) return { ok: false, error: 'No pude descargar las fotos. Reintentá.' };
+    if (!dataUrls.length) return { ok: false, error: 'No pude descargar las fotos. Reintenta.' };
     // Timeout generoso por proveedor: varias imágenes juntas tardan más que una sola.
     // Cascada de visión son 2 (gemini→openai): 60s × 2 = 120s tope, bajo el maxDuration=180.
     const { text } = await leerDocumentoIA({
@@ -200,7 +200,7 @@ export async function generarDescripcionPersona(): Promise<{ ok: true; descripci
       await setPersona({ ...(await getPersona()), descripcion });
       return { ok: true, descripcion };
     }
-    return { ok: false, error: 'No pude analizar las fotos. Reintentá, o conectá tu API key de Gemini (gratis) para el análisis con IA.' };
+    return { ok: false, error: 'No pude analizar las fotos. Reintenta, o conecta tu API key de Gemini (gratis) para el análisis con IA.' };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }

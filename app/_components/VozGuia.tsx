@@ -44,7 +44,7 @@ export function VozGuia() {
       const j = await jpost<{ ok: boolean; error?: string; guia: string; fuentes: number }>('/api/mako/voz', { action: 'destilar' });
       if (!j.ok) throw new Error(j.error || 'No se pudo destilar');
       setGuia(j.guia); setEdit(j.guia);
-      setMsg({ t: 'ok', x: `Voz aprendida${j.fuentes ? ` de ${j.fuentes} anuncio${j.fuentes > 1 ? 's' : ''}` : ''}. Revisala y ajustala si hace falta.` });
+      setMsg({ t: 'ok', x: `Voz aprendida${j.fuentes ? ` de ${j.fuentes} anuncio${j.fuentes > 1 ? 's' : ''}` : ''}. Revísala y ajústala si hace falta.` });
     } catch (e) { setMsg({ t: 'err', x: e instanceof Error ? e.message : String(e) }); }
     finally { setBusy(null); }
   }
@@ -76,7 +76,7 @@ export function VozGuia() {
               <button onClick={() => setOpen(false)} title="Cerrar" style={{ background: 'none', border: 'none', fontSize: '20px', color: 'var(--faint)', cursor: 'pointer' }}>✕</button>
             </div>
             <div style={{ fontSize: '13.5px', color: 'var(--dim)', lineHeight: 1.5, marginBottom: '16px' }}>
-              MaKo aprende cómo comunicás — de las transcripciones de tus anuncios y de tu perfil de marca — y con eso escribe tu nutrición para que suene a vos, no a un bot. Revisala y ajustá lo que quieras.
+              MaKo aprende cómo comunicas — de las transcripciones de tus anuncios y de tu perfil de marca — y con eso escribe tu nutrición para que suene a ti, no a un bot. Revísala y ajusta lo que quieras.
             </div>
 
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
@@ -87,7 +87,7 @@ export function VozGuia() {
 
             {msg && <div style={{ marginBottom: '12px', padding: '9px 12px', borderRadius: '9px', fontSize: '13px', border: '1px solid ' + (msg.t === 'ok' ? 'var(--good)' : 'var(--bad)'), background: msg.t === 'ok' ? 'var(--good-bg)' : 'var(--bad-bg)', color: msg.t === 'ok' ? 'var(--good)' : 'var(--bad)' }}>{msg.x}</div>}
 
-            <textarea value={edit} onChange={(e) => setEdit(e.target.value)} placeholder="Todavía no aprendí tu voz. Tocá «MaKo aprende mi voz» — o escribila vos a mano." rows={14}
+            <textarea value={edit} onChange={(e) => setEdit(e.target.value)} placeholder="Todavía no aprendí tu voz. Toca «MaKo aprende mi voz» — o escríbela tú a mano." rows={14}
               style={{ width: '100%', resize: 'vertical', padding: '12px 14px', borderRadius: '11px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', lineHeight: 1.55, outline: 'none' }} />
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '14px' }}>

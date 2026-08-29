@@ -52,7 +52,7 @@ export function flujoVacio(): Flujo {
 
 /** Descripción legible del disparador (para la card del flujo). */
 export function describirDisparador(d: Disparador): string {
-  if (d.tipo === 'manual') return 'Manual (lo disparás vos)';
+  if (d.tipo === 'manual') return 'Manual (lo disparas tú)';
   const ev = EVENTOS.find((e) => e.key === d.evento)?.label ?? d.evento;
   const f = d.filtro?.reunion ? ` (solo ${d.filtro.reunion})` : '';
   return `${ev}${f}`;

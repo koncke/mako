@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     switch (body.accion) {
       case 'generar': {
         const pedido = (body.pedido ?? '').trim();
-        if (!pedido) return Response.json({ ok: false, error: 'Contale a MaKo qué página necesitás.' }, { status: 400 });
+        if (!pedido) return Response.json({ ok: false, error: 'Cuéntale a MaKo qué página necesitas.' }, { status: 400 });
         const res = await generarLanding({ pedido, objetivo: body.objetivo, basadoEnUrl: body.basadoEnUrl ?? null });
         if (!res.ok) { console.error(`[landing-writer:generar] ${res.error}`); return Response.json({ ok: false, error: res.error }, { status: 502 }); }
         console.log(`[landing-writer:generar] "${res.spec.nombre}" bloques=${res.spec.bloques.length} base=${body.basadoEnUrl ?? '—'}`);

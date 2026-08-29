@@ -183,7 +183,7 @@ export function IdentidadesFiscalesPanel() {
               <button type="button" style={{ ...ghostBtn, opacity: leyendo ? 0.6 : 1 }} disabled={leyendo} onClick={() => fileRef.current?.click()}>
                 {leyendo ? 'Leyendo documento…' : '⇪ Subir PDF/foto de tus datos fiscales'}
               </button>
-              <span style={{ fontSize: 12, color: 'var(--faint)' }}>La IA lee la constancia/RFC/CUIT y rellena lo vacío. Revisá antes de guardar.</span>
+              <span style={{ fontSize: 12, color: 'var(--faint)' }}>La IA lee la constancia/RFC/CUIT y rellena lo vacío. Revisa antes de guardar.</span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
               <Campo label="Razón social / nombre">

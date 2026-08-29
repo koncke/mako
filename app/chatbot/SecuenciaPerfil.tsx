@@ -177,7 +177,7 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
       if (!r.ok) { setErr(r.error || 'MaKo no pudo deducir el criterio.'); return; }
       setCalifica((r.criterio?.califica ?? []).join('\n'));
       setDescalifica((r.criterio?.descalifica ?? []).join('\n'));
-      flashOk(`MaKo lo dedujo de ${r.muestra ?? 0} leads ya evaluados — revisalo y guarda`);
+      flashOk(`MaKo lo dedujo de ${r.muestra ?? 0} leads ya evaluados — revísalo y guarda`);
     } catch { setErr('Sin conexión — prueba de nuevo.'); }
     setBusy(null);
   }
@@ -275,7 +275,7 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {([
                   { v: 'asistido' as const, t: '🙋 Te aviso y te dejo el borrador', d: 'MaKo redacta la respuesta y tú la apruebas con un clic' },
-                  { v: 'automatico' as const, t: '⏸ Solo pausar', d: 'La secuencia se frena y seguís por tu cuenta' },
+                  { v: 'automatico' as const, t: '⏸ Solo pausar', d: 'La secuencia se frena y sigues por tu cuenta' },
                 ]).map((o) => (
                   <button key={o.v} onClick={() => rolAdmin && setModo(o.v)} disabled={!rolAdmin} title={o.d}
                     style={{ padding: '8px 13px', borderRadius: 10, cursor: rolAdmin ? 'pointer' : 'default', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, border: '1px solid ' + (modo === o.v ? 'var(--ink)' : 'var(--border-strong)'), background: modo === o.v ? 'var(--ink)' : 'var(--surface-2)', color: modo === o.v ? 'var(--on-sidebar)' : 'var(--dim)' }}>

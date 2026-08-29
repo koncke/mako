@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   let body: { hipotesis?: string; contexto?: string };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'JSON inválido' }, { status: 400 }); }
   const hipotesis = (body.hipotesis ?? '').trim();
-  if (!hipotesis) return Response.json({ ok: false, error: 'contá tu hipótesis' }, { status: 400 });
+  if (!hipotesis) return Response.json({ ok: false, error: 'cuenta tu hipótesis' }, { status: 400 });
 
   try {
     const propuesta = await sugerirExperimento(hipotesis, body.contexto);

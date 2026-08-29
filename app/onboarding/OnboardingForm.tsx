@@ -78,7 +78,7 @@ export function OnboardingForm({ embedded = false, onComplete }: { embedded?: bo
 
   // Descargar el template de la fase (markdown con las preguntas).
   const descargarTemplate = (g: Group) => {
-    const lines = [`# ${g.label} — Template de MaKo`, '', 'Respondé debajo de cada pregunta (después de "Respuesta:") y volvé a subir este archivo en MaKo.', ''];
+    const lines = [`# ${g.label} — Template de MaKo`, '', 'Responde debajo de cada pregunta (después de "Respuesta:") y vuelve a subir este archivo en MaKo.', ''];
     for (const f of g.fields) { lines.push(`### ${f.label}`, f.placeholder ? `_(ej: ${f.placeholder})_` : '', 'Respuesta: ', '', ''); }
     const blob = new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -176,7 +176,7 @@ export function OnboardingForm({ embedded = false, onComplete }: { embedded?: bo
           <div style={{ textAlign: 'center', fontFamily: MONO, fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 20 }}>Paso {stepSafe + 1} de {total}</div>
 
           <h2 style={{ textAlign: 'center', fontSize: 28, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 6px' }}>{group?.label}</h2>
-          <p style={{ textAlign: 'center', fontSize: 13.5, color: 'var(--dim)', margin: '0 0 22px' }}>Descargá el template, completalo y subilo — o respondé acá abajo.</p>
+          <p style={{ textAlign: 'center', fontSize: 13.5, color: 'var(--dim)', margin: '0 0 22px' }}>Descarga el template, complétalo y súbelo — o responde aquí abajo.</p>
 
           {/* template: descargar / subir */}
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
@@ -215,7 +215,7 @@ export function OnboardingForm({ embedded = false, onComplete }: { embedded?: bo
           {/* Paso final: seguir con el Método (conectar las integraciones). */}
           {stepSafe === total - 1 && !embedded && (
             <div style={{ textAlign: 'center', marginTop: 18 }}>
-              <Link href="/metodo" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Siguiente: conectá tus integraciones (Método) →</Link>
+              <Link href="/metodo" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Siguiente: conecta tus integraciones (Método) →</Link>
             </div>
           )}
         </div>

@@ -37,7 +37,7 @@ export const ESTRUCTURAS_GUION_DEFAULT: EstructuraGuion[] = [
     etiquetas: ['GANCHO', 'HISTORIA', 'CTA'],
     guia: `GANCHO (3-5 segundos, 1-2 frases): llama la atención con el dolor/deseo real, CUALIFICA para quién es (nombra al avatar o su situación) y genera curiosidad por lo que sigue.
 HISTORIA (el cuerpo): una historia que muestre los problemas por los que pasa el avatar y cómo se descubrió una manera nueva de hacer las cosas que los eliminó. ANTES creíble → el descubrimiento (una sola razón, contada simple) → DESPUÉS concreto. El objetivo es que se identifique y le dé curiosidad ver cómo es esa manera nueva.
-CTA (5-10 segundos, 1-2 frases): antes del llamado podés rebatir UNA objeción corta ("no es porque X, es porque…"); después, una sola instrucción clara.`,
+CTA (5-10 segundos, 1-2 frases): antes del llamado puedes rebatir UNA objeción corta ("no es porque X, es porque…"); después, una sola instrucción clara.`,
   },
   {
     id: 'gancho-valor-cta', nombre: 'Gancho → Valor → CTA', emoji: '🎓', activo: true,
@@ -52,7 +52,7 @@ CTA (5-10 segundos, 1-2 frases): dirigido a quien ya quiere ayuda aplicándolo (
     cuando: 'Al grano, sin historia ni tutorial: cualifica fuerte y trae al que ya busca ayuda. Ideal para lead magnet, propuesta directa, retargeting y ofertas.',
     etiquetas: ['GANCHO', 'PROPUESTA', 'CTA'],
     guia: `GANCHO (3-5 segundos, 1-2 frases): pregunta o afirmación que cualifica al avatar y nombra su situación, directo al grano.
-PROPUESTA (el cuerpo): presenta la propuesta de forma clara y atractiva, sin vueltas: qué ofreces, a quién y qué logra. Podés conectar primero con lo que YA intentó y no le funcionó (2-3 cosas, rápido) para ganar confianza, y después mostrar la manera más simple. Sin tutorial y sin historia larga: al grano.
+PROPUESTA (el cuerpo): presenta la propuesta de forma clara y atractiva, sin vueltas: qué ofreces, a quién y qué logra. Puedes conectar primero con lo que YA intentó y no le funcionó (2-3 cosas, rápido) para ganar confianza, y después mostrar la manera más simple. Sin tutorial y sin historia larga: al grano.
 CTA (5-10 segundos, 1-2 frases): mostrar directamente la intención y el paso a seguir; una sola instrucción clara.`,
   },
   {
@@ -60,9 +60,9 @@ CTA (5-10 segundos, 1-2 frases): mostrar directamente la intención y el paso a 
     cuando: 'El formato de respuesta directa más probado: nombrar el problema, hacer sentir su costo real, y recién ahí la salida. Ideal para dolor, mecanismo y retargeting.',
     etiquetas: ['GANCHO', 'PROBLEMA', 'AGITACION', 'SOLUCION', 'CTA'],
     guia: `GANCHO (3 segundos, 1 frase): el problema dicho como el avatar lo piensa de sí mismo — que se reconozca al instante.
-PROBLEMA (breve): poné el problema sobre la mesa con un ejemplo concreto de su día a día; nada de estadísticas abstractas.
-AGITACION (el corazón del guion): hacé VIVIR el costo de seguir igual — qué le cuesta en plata, tiempo o tranquilidad, adónde lleva esto en 6 meses. Emocional pero honesto: agitás lo que YA siente, no inventás miedo.
-SOLUCION (clara y simple): presentá la salida como el alivio natural — UNA idea central de por qué esto sí funciona, sin catálogo de features.
+PROBLEMA (breve): pon el problema sobre la mesa con un ejemplo concreto de su día a día; nada de estadísticas abstractas.
+AGITACION (el corazón del guion): haz VIVIR el costo de seguir igual — qué le cuesta en dinero, tiempo o tranquilidad, adónde lleva esto en 6 meses. Emocional pero honesto: agitas lo que YA siente, no inventas miedo.
+SOLUCION (clara y simple): presenta la salida como el alivio natural — UNA idea central de por qué esto sí funciona, sin catálogo de features.
 CTA (1-2 frases): del alivio a la acción, una sola instrucción.`,
   },
   {

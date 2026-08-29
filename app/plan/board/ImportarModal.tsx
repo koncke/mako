@@ -89,7 +89,7 @@ export function ImportarModal({ onListo, onClose }: {
       ancho={640}
       titulo="Importar al plan"
       total={1} idx={0}
-      pregunta="¿Qué querés que lea?"
+      pregunta="¿Qué quieres que lea?"
       puedeAvanzar={validos.length > 0 && !excedido}
       enUltimo
       confirmLabel={validos.length > 1 ? `Leer los ${validos.length} →` : 'Leer y sacar las tareas →'}
@@ -113,9 +113,9 @@ export function ImportarModal({ onListo, onClose }: {
           }}
         >
           <div style={{ fontSize: 24, marginBottom: 6 }}>📥</div>
-          <div style={{ fontSize: 14, fontWeight: 650, color: 'var(--ink)' }}>Arrastrá los archivos acá</div>
+          <div style={{ fontSize: 14, fontWeight: 650, color: 'var(--ink)' }}>Arrastra los archivos aquí</div>
           <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 5, lineHeight: 1.5 }}>
-            o hacé click para buscarlos. Notas, transcripciones, PDFs, capturas, audios de una reunión — MaKo los lee y saca las tareas.
+            o haz clic para buscarlos. Notas, transcripciones, PDFs, capturas, audios de una reunión — MaKo los lee y saca las tareas.
           </div>
           <input ref={input} type="file" accept={ACCEPT} multiple style={{ display: 'none' }}
             onChange={(e) => { agregar(e.target.files); e.target.value = ''; }} />
@@ -148,7 +148,7 @@ export function ImportarModal({ onListo, onClose }: {
             </div>
             {excedido && (
               <div style={{ marginTop: 9, fontSize: 12.5, color: 'var(--danger, #D0504A)', lineHeight: 1.5 }}>
-                Juntos pesan más de 18 MB y no van a llegar enteros. Sacá alguno y mandalos en dos tandas.
+                Juntos pesan más de 18 MB y no van a llegar enteros. Saca alguno y mándalos en dos tandas.
               </div>
             )}
             {items.length >= MAX_ARCHIVOS && (

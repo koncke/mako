@@ -26,7 +26,7 @@ async function guard(): Promise<Response | null> {
     return Response.json({ ok: false, error: 'Solo el admin del workspace puede generar la nutrición.' }, { status: 403 });
   }
   if ((await getWorkspaceActual()) == null) {
-    return Response.json({ ok: false, error: 'Entrá al workspace del cliente (impersonando) para que MaKo escriba su nutrición.' }, { status: 400 });
+    return Response.json({ ok: false, error: 'Entra al workspace del cliente (impersonando) para que MaKo escriba su nutrición.' }, { status: 400 });
   }
   return null;
 }
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     if (body.action === 'plantilla') {
       // MaKo convierte el copy del paso WA oficial en plantilla Meta y la manda a aprobar.
       if (!(await integracionConectada('whatsapp'))) {
-        return Response.json({ ok: false, error: 'Conectá WhatsApp (Meta) primero para mandar plantillas a aprobar.' }, { status: 400 });
+        return Response.json({ ok: false, error: 'Conecta WhatsApp (Meta) primero para mandar plantillas a aprobar.' }, { status: 400 });
       }
       const orden = Number(body.orden);
       if (!Number.isFinite(orden)) return Response.json({ ok: false, error: 'orden inválido' }, { status: 400 });

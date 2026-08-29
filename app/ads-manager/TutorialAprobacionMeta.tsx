@@ -28,24 +28,24 @@ const SECURITY_CENTER = 'https://business.facebook.com/settings';
 
 const PASOS: Array<{ titulo: string; detalle: string }> = [
   {
-    titulo: 'Abrí el Centro de seguridad',
-    detalle: 'En Meta Business Suite: Configuración → Centro de seguridad → Aprobación de pares (Peer approval). Necesitás control total del portfolio y que el portfolio sea dueño de la cuenta publicitaria.',
+    titulo: 'Abre el Centro de seguridad',
+    detalle: 'En Meta Business Suite: Configuración → Centro de seguridad → Aprobación de pares (Peer approval). Necesitas control total del portfolio y que el portfolio sea dueño de la cuenta publicitaria.',
   },
   {
-    titulo: 'Bajá el nivel de protección de la cuenta',
-    detalle: 'En “Seguridad de la cuenta publicitaria” → Administrar, elegí tu cuenta. Si está en “Protección adicional” (todos los anuncios necesitan aprobación), pasala a “Protección predeterminada”. Si ya está en la predeterminada, no hay nada que bajar.',
+    titulo: 'Baja el nivel de protección de la cuenta',
+    detalle: 'En “Seguridad de la cuenta publicitaria” → Administrar, elige tu cuenta. Si está en “Protección adicional” (todos los anuncios necesitan aprobación), pásala a “Protección predeterminada”. Si ya está en la predeterminada, no hay nada que bajar.',
   },
   {
-    titulo: 'Revisá la seguridad de dominio',
-    detalle: 'En “Seguridad de dominio” → Administrar. Si la lista tiene dominios cargados, TODO anuncio que apunte a un dominio que no esté ahí queda retenido. Agregá el dominio de tus landings, o vaciá la lista para desactivar esa protección.',
+    titulo: 'Revisa la seguridad de dominio',
+    detalle: 'En “Seguridad de dominio” → Administrar. Si la lista tiene dominios cargados, TODO anuncio que apunte a un dominio que no esté ahí queda retenido. Agrega el dominio de tus landings, o vacía la lista para desactivar esa protección.',
   },
   {
-    titulo: 'Revisá la seguridad a nivel negocio',
+    titulo: 'Revisa la seguridad a nivel negocio',
     detalle: 'En “Seguridad a nivel negocio” → Administrar. Si está activo “Bloquear anuncios CTX”, todos los anuncios que abren WhatsApp/Messenger/Instagram Direct necesitan aprobación. Lo mismo con la lista de países: lo que segmente fuera de esa lista queda retenido.',
   },
   {
-    titulo: 'Sumá aprobadores',
-    detalle: 'En la misma pantalla podés designar quién puede aprobar, así no depende de una sola persona. Ojo: quien no tuvo actividad en la cuenta en los últimos 90 días no es elegible.',
+    titulo: 'Suma aprobadores',
+    detalle: 'En la misma pantalla puedes designar quién puede aprobar, así no depende de una sola persona. Ojo: quien no tuvo actividad en la cuenta en los últimos 90 días no es elegible.',
   },
 ];
 
@@ -64,7 +64,7 @@ export function TutorialAprobacionMeta({ compacto = false }: { compacto?: boolea
       {abierto && (
         <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
           <p style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, margin: 0 }}>
-            Meta llama a esto <b>aprobación de pares</b>. El nivel base <b>no se puede apagar</b>: siempre va a retener lo que su sistema marque como sospechoso. Lo que sí podés hacer, una sola vez, es revisar los cuatro filtros que retienen anuncios de forma sistemática.
+            Meta llama a esto <b>aprobación de pares</b>. El nivel base <b>no se puede apagar</b>: siempre va a retener lo que su sistema marque como sospechoso. Lo que sí puedes hacer, una sola vez, es revisar los cuatro filtros que retienen anuncios de forma sistemática.
           </p>
           <ol style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 8 }}>
             {PASOS.map((p) => (
@@ -78,7 +78,7 @@ export function TutorialAprobacionMeta({ compacto = false }: { compacto?: boolea
             Abrir la configuración de Meta ↗
           </a>
           <p style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.5, margin: 0 }}>
-            Esta configuración no se puede leer desde acá (Meta no la expone por API), así que MaKo no puede confirmarte si quedó bien: revisala en pantalla.
+            Esta configuración no se puede leer desde aquí (Meta no la expone por API), así que MaKo no puede confirmarte si quedó bien: revísala en pantalla.
           </p>
         </div>
       )}

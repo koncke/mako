@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
         // Mover/desasignar al único admin-cliente lo sacaría de su workspace y lo
         // dejaría sin ningún admin de cliente.
         if (wsId !== objetivo.workspace_id && (await dejariaClienteSinAdmin(objetivo))) {
-          return NextResponse.json({ ok: false, error: 'Es el único admin de ese cliente — asigná otro admin antes.' }, { status: 400 });
+          return NextResponse.json({ ok: false, error: 'Es el único admin de ese cliente — asigna otro admin antes.' }, { status: 400 });
         }
         // Al asignar a un cliente, un usuario sin rol de negocio queda como admin
         // de ese cliente (el rol se puede bajar después desde el equipo).
@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ ok: false, error: 'El rol de equipo solo aplica a usuarios de un cliente.' }, { status: 400 });
         }
         if (await dejariaClienteSinAdmin(objetivo, rolWs)) {
-          return NextResponse.json({ ok: false, error: 'Es el único admin de ese cliente — asigná otro admin antes.' }, { status: 400 });
+          return NextResponse.json({ ok: false, error: 'Es el único admin de ese cliente — asigna otro admin antes.' }, { status: 400 });
         }
         return NextResponse.json({ ok: true, usuario: await actualizarUsuario(objetivo.id, { rol_ws: rolWs }) });
       }
@@ -191,7 +191,7 @@ export async function POST(req: NextRequest) {
         if (!objetivo) return NextResponse.json({ ok: false, error: 'usuario no encontrado' }, { status: 404 });
         const rol: Rol = body.rol === 'admin' ? 'admin' : 'usuario';
         if (rol !== 'admin' && (await dejariaSinAdmins(objetivo))) {
-          return NextResponse.json({ ok: false, error: 'Es el único admin activo — asigná otro admin antes.' }, { status: 400 });
+          return NextResponse.json({ ok: false, error: 'Es el único admin activo — asigna otro admin antes.' }, { status: 400 });
         }
         return NextResponse.json({ ok: true, usuario: await actualizarUsuario(objetivo.id, { rol }) });
       }
@@ -203,8 +203,8 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ ok: false, error: 'estado inválido' }, { status: 400 });
         }
         if (estado === 'suspendido') {
-          if (await dejariaSinAdmins(objetivo)) return NextResponse.json({ ok: false, error: 'Es el único admin activo — asigná otro admin antes.' }, { status: 400 });
-          if (await dejariaClienteSinAdmin(objetivo)) return NextResponse.json({ ok: false, error: 'Es el único admin de ese cliente — asigná otro admin antes.' }, { status: 400 });
+          if (await dejariaSinAdmins(objetivo)) return NextResponse.json({ ok: false, error: 'Es el único admin activo — asigna otro admin antes.' }, { status: 400 });
+          if (await dejariaClienteSinAdmin(objetivo)) return NextResponse.json({ ok: false, error: 'Es el único admin de ese cliente — asigna otro admin antes.' }, { status: 400 });
         }
         return NextResponse.json({ ok: true, usuario: await actualizarUsuario(objetivo.id, { estado }) });
       }
@@ -212,10 +212,10 @@ export async function POST(req: NextRequest) {
       case 'eliminar': {
         if (!objetivo) return NextResponse.json({ ok: false, error: 'usuario no encontrado' }, { status: 404 });
         if (await dejariaSinAdmins(objetivo)) {
-          return NextResponse.json({ ok: false, error: 'Es el único admin activo — asigná otro admin antes.' }, { status: 400 });
+          return NextResponse.json({ ok: false, error: 'Es el único admin activo — asigna otro admin antes.' }, { status: 400 });
         }
         if (await dejariaClienteSinAdmin(objetivo)) {
-          return NextResponse.json({ ok: false, error: 'Es el único admin de ese cliente — asigná otro admin antes.' }, { status: 400 });
+          return NextResponse.json({ ok: false, error: 'Es el único admin de ese cliente — asigna otro admin antes.' }, { status: 400 });
         }
         await eliminarUsuario(objetivo.id);
         return NextResponse.json({ ok: true });

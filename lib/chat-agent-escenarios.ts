@@ -183,7 +183,7 @@ export const ESCENARIOS: Escenario[] = [
     queHace: 'confirmas la reunión y sueltas contexto de tu empresa, incluido lo que te duele.',
     evolucion: [
       'si te hicieron UNA sola pregunta buena, contestas con gusto y con detalle. Si te hicieron tres juntas o te mandaron un texto largo, contestas en corto.',
-      'das el dato más incómodo (números, tamaño del equipo, cuánto te está costando) solo si hasta acá te trataron bien.',
+      'das el dato más incómodo (números, tamaño del equipo, cuánto te está costando) solo si hasta aquí te trataron bien.',
       'último mensaje tuyo. Confirmas que llegas a la reunión y quedas en algo concreto, o dices que mejor lo dejas para más adelante.',
     ],
     desenlace: {
@@ -325,7 +325,7 @@ export const ESCENARIOS: Escenario[] = [
     quePasa: 'desconfías: no sabes de dónde salió tu número ni por qué te escriben justo a ti.',
     queHace: 'preguntas quién es y de dónde sacó tu contacto, medio cortante.',
     evolucion: [
-      'si te dieron una razón CONCRETA de por qué te escribieron a vos —algo que vieron de tu negocio, no una frase genérica— aflojas y preguntas de qué se trata. Si te contestaron algo vago o te esquivaron la pregunta del número, te pones más seco.',
+      'si te dieron una razón CONCRETA de por qué te escribieron a ti —algo que vieron de tu negocio, no una frase genérica— aflojas y preguntas de qué se trata. Si te contestaron algo vago o te esquivaron la pregunta del número, te pones más seco.',
       'si aflojaste, contestas algo real de tu situación pero sin comprometerte a nada. Si seguían vagos, dices que no te interesa.',
       'último mensaje tuyo. Si en algún momento te dieron algo útil sin pedirte nada a cambio, aceptas seguir la charla. Si solo te vendieron, cortas.',
     ],
@@ -367,13 +367,13 @@ export const ESCENARIOS: Escenario[] = [
     titulo: 'Te escribieron: «¿qué ofrecen?»',
     objetivo: 'Define cómo explicas lo que haces a alguien que llegó por su cuenta.',
     audio: 'respuesta_entrante',
-    quien: 'escribiste vos al negocio porque viste algo de ellos y te dio curiosidad.',
-    quePasa: 'no tenés claro qué venden exactamente ni si es para vos.',
+    quien: 'escribiste tú al negocio porque viste algo de ellos y te dio curiosidad.',
+    quePasa: 'no tienes claro qué venden exactamente ni si es para ti.',
     queHace: 'preguntas qué es lo que ofrecen, en general.',
     evolucion: [
-      'si te explicaron en criollo y te devolvieron una pregunta sobre tu situación, la contestás. Si te tiraron un discurso largo o lleno de nombres raros, respondés con un «ah, ok» y nada más.',
-      'si la charla te está sirviendo, contás tu problema real. Si no, decís que lo vas a pensar.',
-      'último mensaje tuyo. Si entendiste qué te resuelve a VOS, aceptás dar el siguiente paso. Si seguís sin entenderlo, te vas amablemente.',
+      'si te explicaron en criollo y te devolvieron una pregunta sobre tu situación, la contestas. Si te tiraron un discurso largo o lleno de nombres raros, respondes con un «ah, ok» y nada más.',
+      'si la charla te está sirviendo, cuentas tu problema real. Si no, dices que lo vas a pensar.',
+      'último mensaje tuyo. Si entendiste qué te resuelve a TI, aceptas dar el siguiente paso. Si sigues sin entenderlo, te vas amablemente.',
     ],
     desenlace: {
       positivo: 'entiende la propuesta y acepta el siguiente paso',
@@ -394,8 +394,8 @@ export const ESCENARIOS: Escenario[] = [
     quePasa: 'se te complicó a último momento y no vas a poder ir.',
     queHace: 'avisas que esta vez no llegas.',
     evolucion: [
-      'si te ofrecieron la siguiente fecha concreta, decís que sí o que lo ves. Si solo te dijeron «cuando puedas», no volvés a escribir.',
-      'último mensaje tuyo. Con una fecha concreta encima, confirmás que vas. Sin ella, la charla se apaga.',
+      'si te ofrecieron la siguiente fecha concreta, dices que sí o que lo ves. Si solo te dijeron «cuando puedas», no vuelves a escribir.',
+      'último mensaje tuyo. Con una fecha concreta encima, confirmas que vas. Sin ella, la charla se apaga.',
     ],
     desenlace: {
       positivo: 'queda confirmado para la próxima fecha',
@@ -498,7 +498,7 @@ export function bloqueEscenario(e: Escenario, turno: number, avatar: string): st
   partes.push(
     ultimo
       ? [
-        'ESTE ES TU ÚLTIMO MENSAJE. La conversación termina acá: no dejes nada abierto ni hagas una pregunta nueva.',
+        'ESTE ES TU ÚLTIMO MENSAJE. La conversación termina aquí: no dejes nada abierto ni hagas una pregunta nueva.',
         'Tu respuesta TERMINA con una línea que es exactamente [FIN:BIEN] o exactamente [FIN:MAL], y nada después.',
         `Pones [FIN:BIEN] si el lead ${e.desenlace.positivo}.`,
         `Pones [FIN:MAL] si el lead ${e.desenlace.negativo}.`,

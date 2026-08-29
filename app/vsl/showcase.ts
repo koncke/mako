@@ -72,11 +72,11 @@ export const SHOWCASE: ShowcaseFeature[] = [
   },
   {
     slug: 'pipeline',
-    name: 'Armá tu embudo',
+    name: 'Arma tu embudo',
     icon: [
       'M4 4h16v2.172a2 2 0 0 1 -.586 1.414l-4.414 4.414v7l-6 2v-8.5l-4.414 -4.414a2 2 0 0 1 -.586 -1.414v-2.172z',
     ],
-    hook: 'Editás una fila y el resto se escribe solo.',
+    hook: 'Editas una fila y el resto se escribe solo.',
   },
   {
     slug: 'crm',
@@ -87,7 +87,7 @@ export const SHOWCASE: ShowcaseFeature[] = [
       'M13 11m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0',
       'M4 8h3', 'M4 12h3', 'M4 16h3',
     ],
-    hook: 'MaKo llena tu CRM por vos: crea la ficha, mueve el lead solo y engancha la grabación.',
+    hook: 'MaKo llena tu CRM por ti: crea la ficha, mueve el lead solo y engancha la grabación.',
     intro: 'Cargar fichas y arrastrar leads de una fase a otra te roba horas, y <em>siempre se escapa alguno</em>. MaKo captura cada lead que entra, cruza sus datos y lo va <strong>moviendo de fase solo</strong>. Tú solo dedícate a cerrar.',
     points: [
       'Detecta por Calendly cada llamada que cae, la cruza con el lead correcto y lo avanza de fase. Hasta <strong>agenda la segunda llamada solo</strong>, leyendo la transcripción de la primera.',
@@ -137,7 +137,7 @@ export const SHOWCASE: ShowcaseFeature[] = [
       'M9 9l1 0', 'M9 13l6 0', 'M9 17l6 0',
     ],
     hook: 'Deja de adivinar qué creativo funciona. Que lo diga la data.',
-    intro: 'Cada anuncio gana o pierde plata todos los días. MaKo <strong>transcribe todos tus creativos solo</strong>, los cruza con su retención y los ordena en un mapa: cuál escalar, a cuál cambiarle el gancho, cuál reescribir y cuál apagar.',
+    intro: 'Cada anuncio gana o pierde dinero todos los días. MaKo <strong>transcribe todos tus creativos solo</strong>, los cruza con su retención y los ordena en un mapa: cuál escalar, a cuál cambiarle el gancho, cuál reescribir y cuál apagar.',
     points: [
       'Ve <strong>palabra por palabra en qué segundo se cae tu video</strong>, y si el problema es el gancho o lo que viene después.',
       'Pega un guion nuevo y MaKo <strong>lo valora antes de que lo grabes</strong>. Sabes si sirve sin gastar un peso.',
@@ -186,7 +186,7 @@ export const SHOWCASE: ShowcaseFeature[] = [
     hook: 'Vender no es cobrar. MaKo no te deja confundirlos.',
     intro: 'Un contrato firmado no paga tus cuentas; <em>el dinero en la cuenta, sí</em>. MaKo separa lo vendido de lo cobrado, te muestra cuánto falta por entrar y de quién, y te arma <strong>la lista de a quién cobrarle hoy</strong>.',
     points: [
-      'Tu <strong>ROAS sobre la plata que de verdad entró</strong>, no sobre promesas.',
+      'Tu <strong>ROAS sobre el dinero que de verdad entró</strong>, no sobre promesas.',
       'Cada cuota con nombre y fecha: <strong>lo vencido en rojo</strong>, lo que está por vencer en ámbar. Cero cobros olvidados.',
     ],
   },

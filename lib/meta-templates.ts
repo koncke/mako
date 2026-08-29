@@ -259,7 +259,7 @@ function validarVarsParaMeta(d: TemplateDraft): string | null {
   let m: RegExpExecArray | null;
   while ((m = re.exec(d.body)) !== null) vars.push(m[1]);
   for (const v of vars) {
-    if (/^\d/.test(v)) return `Usá variables con nombre (ej. {{nombre}}), no posicionales como {{${v}}}: Meta las rechaza en este formato.`;
+    if (/^\d/.test(v)) return `Usa variables con nombre (ej. {{nombre}}), no posicionales como {{${v}}}: Meta las rechaza en este formato.`;
     if (!d.params.some((p) => p.name === v)) return `Falta el ejemplo de la variable {{${v}}}.`;
   }
   return null;
@@ -281,7 +281,7 @@ export async function submitTemplate(
       body: JSON.stringify(buildGraphPayload(d)),
     });
   } catch (e) {
-    return { ok: false, error: (e as Error)?.name === 'AbortError' ? 'Meta no respondió a tiempo, probá de nuevo.' : String(e) };
+    return { ok: false, error: (e as Error)?.name === 'AbortError' ? 'Meta no respondió a tiempo, prueba de nuevo.' : String(e) };
   }
   const j = await res.json().catch(() => ({}));
   if (!res.ok || j.error) {
@@ -402,7 +402,7 @@ export async function editTemplate(
       body: JSON.stringify({ category: d.category.toUpperCase(), components: buildComponents(d) }),
     });
   } catch (e) {
-    return { ok: false, error: (e as Error)?.name === 'AbortError' ? 'Meta no respondió a tiempo, probá de nuevo.' : String(e) };
+    return { ok: false, error: (e as Error)?.name === 'AbortError' ? 'Meta no respondió a tiempo, prueba de nuevo.' : String(e) };
   }
   const j = await res.json().catch(() => ({}));
   if (!res.ok || j.error) return { ok: false, error: j?.error?.error_user_msg || j?.error?.message || `Meta ${res.status}` };

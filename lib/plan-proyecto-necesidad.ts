@@ -168,7 +168,7 @@ export function presuponeElLugar(nombre: string, semillas: Semilla[]): Veredicto
   const rx = new RegExp(`\\b${LOCATIVA}\\s+(?:el |la |los |las )?(?:feature |agente )?${escRx(nuc)}\\b`);
   for (const t of semillas) {
     if (rx.test(normTitulo(`${t.titulo} ${t.detalle ?? ''}`))) {
-      return { ok: false, motivo: `sus tareas dicen que el trabajo va ADENTRO de «${nombre}»: para quien las escribió ese lugar YA existe. Si de verdad falta, va al catálogo, no por acá` };
+      return { ok: false, motivo: `sus tareas dicen que el trabajo va ADENTRO de «${nombre}»: para quien las escribió ese lugar YA existe. Si de verdad falta, va al catálogo, no por aquí` };
     }
   }
   return { ok: true };

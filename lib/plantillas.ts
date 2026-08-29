@@ -51,7 +51,7 @@ function customACatalogo(id: string, e: EntradaStore): AvisoCatalogo {
   return {
     id, titulo: c.titulo || 'Plantilla nueva', categoria: c.categoria, prioridad: 'media',
     semaforo: 'na', requiereRespuesta: !!c.requiereRespuesta, yaImplementado: 'no',
-    disparador: 'Plantilla personalizada (la usás desde MaKo cuando aplique).',
+    disparador: 'Plantilla personalizada (la usas desde MaKo cuando aplique).',
     ejemplo: e.texto || '',
   };
 }
@@ -132,13 +132,13 @@ export async function crearPlantilla(data: { titulo: string; categoria: Categori
 
 // ── Generación con IA (la plantilla es REFERENCIA, no molde) ──────────────────
 const SYS_AVISO =
-  'Sos MaKo, el copiloto de marketing del dueño de un negocio. Escribís un aviso de ' +
-  'WhatsApp al dueño, en español rioplatense: cercano, directo, sin vueltas, con la ' +
+  'Eres MaKo, el copiloto de marketing del dueño de un negocio. Escribes un aviso de ' +
+  'WhatsApp al dueño, en español neutro (tuteo): cercano, directo, sin vueltas, con la ' +
   'info clave adelante. Te doy una PLANTILLA DE REFERENCIA (guía de tono, formato y ' +
-  'qué decir) y los DATOS REALES del evento. Usá la referencia como base pero sos ' +
+  'qué decir) y los DATOS REALES del evento. Usa la referencia como base pero eres ' +
   'LIBRE de adaptarla, acortarla o reescribirla para que suene natural con esos datos. ' +
-  'Devolvé SOLO el mensaje final listo para mandar (sin comillas ni explicaciones). ' +
-  'Podés usar *negritas* de WhatsApp y algún emoji si pega. Cerrá con "— MaKo".';
+  'Devuelve SOLO el mensaje final listo para mandar (sin comillas ni explicaciones). ' +
+  'Puedes usar *negritas* de WhatsApp y algún emoji si pega. Cierra con "— MaKo".';
 
 /**
  * Genera el texto de un aviso con IA, usando la plantilla como REFERENCIA + los

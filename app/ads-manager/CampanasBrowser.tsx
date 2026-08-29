@@ -438,7 +438,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null }: { s
   const bulkDelete = async () => {
     const ids = [...selSet];
     const rowsSel = sorted.filter((r) => selSet.has(r.node.id));
-    if (rowsSel.some((r) => effStatusOf(r.node) === 'ACTIVE')) { setToast('Solo se pueden eliminar campañas pausadas. Pausá primero las activas seleccionadas.'); setConfirmDel(false); return; }
+    if (rowsSel.some((r) => effStatusOf(r.node) === 'ACTIVE')) { setToast('Solo se pueden eliminar campañas pausadas. Pausa primero las activas seleccionadas.'); setConfirmDel(false); return; }
     setConfirmDel(false);
     let ok = 0; let lastErr = '';
     for (const id of ids) {
@@ -1228,7 +1228,7 @@ function RenameModal({ level, entities, onClose, onApply }: { level: Level; enti
   };
 
   const proponer = async () => {
-    if (!template.trim()) { setErr('Escribí una plantilla.'); return; }
+    if (!template.trim()) { setErr('Escribe una plantilla.'); return; }
     setPhase('loading'); setErr(null);
     try {
       const valores: Record<string, Record<string, string>> = {};
@@ -1280,7 +1280,7 @@ function RenameModal({ level, entities, onClose, onApply }: { level: Level; enti
 
         {phase !== 'review' ? (
           <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 18 }}>
-            <p style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55, margin: 0 }}>Armás una <b>plantilla</b> con variables. MaKo completa cada variable mirando el nombre y la jerarquía; el sistema arma el nombre con ese formato exacto. Revisás antes de escribir en Meta.</p>
+            <p style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55, margin: 0 }}>Armas una <b>plantilla</b> con variables. MaKo completa cada variable mirando el nombre y la jerarquía; el sistema arma el nombre con ese formato exacto. Revisas antes de escribir en Meta.</p>
 
             {/* Plantilla + insertar variable + vista previa en vivo */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

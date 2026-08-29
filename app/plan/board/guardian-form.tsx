@@ -37,7 +37,7 @@ export function IntroBody({ que, mi = 'priorizar lo que de verdad mueve la aguja
 }
 
 // Pregunta con opciones (elegís 1 con un clic) + caja para una respuesta propia.
-export function ChoiceBody({ opciones, value, onChange, customPlaceholder = 'Otra… (escribí tu respuesta)' }: { opciones: string[]; value: string; onChange: (v: string) => void; customPlaceholder?: string }) {
+export function ChoiceBody({ opciones, value, onChange, customPlaceholder = 'Otra… (escribe tu respuesta)' }: { opciones: string[]; value: string; onChange: (v: string) => void; customPlaceholder?: string }) {
   const esCustom = value.trim() !== '' && !opciones.includes(value);
   return (
     <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -161,7 +161,7 @@ export function PreguntaCampo({ q, value, onChange, autoFocus }: {
   }
 
   if (tipo === 'texto') {
-    return <textarea value={value} onChange={(e) => onChange(e.target.value)} autoFocus={autoFocus} rows={3} placeholder="Escribí tu respuesta…" style={{ ...textareaStyle, minHeight: 78, background: 'var(--surface-2)', fontSize: 15 }} />;
+    return <textarea value={value} onChange={(e) => onChange(e.target.value)} autoFocus={autoFocus} rows={3} placeholder="Escribe tu respuesta…" style={{ ...textareaStyle, minHeight: 78, background: 'var(--surface-2)', fontSize: 15 }} />;
   }
 
   // COMPARACIÓN: los dos ítems enfrentados, uno al lado del otro. Es una SEÑAL

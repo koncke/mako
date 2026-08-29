@@ -665,7 +665,7 @@ function CostoMaKo({ usage, cuotas, onVerOps, onOpenService }: { usage: Resumen 
       {filtrado && per && (
         <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: -8, marginBottom: 18 }}>
           {per.llamadas.toLocaleString('es-MX')} llamadas · {fmtTok(per.tokens)} tokens, leídas {per.filas.toLocaleString('es-MX')} filas sin truncar.
-          {' '}<strong style={{ color: 'var(--ink)' }}>Los tiles de saldo y cuota de acá abajo son de hoy</strong>, no del período: el saldo es un estado, no un acumulado.
+          {' '}<strong style={{ color: 'var(--ink)' }}>Los tiles de saldo y cuota de aquí abajo son de hoy</strong>, no del período: el saldo es un estado, no un acumulado.
         </div>
       )}
 
@@ -730,7 +730,7 @@ function ProblemasHistorial({ incidentes, nombreDe }: { incidentes: Incidente[];
         <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>{activos} {activos === 1 ? 'activo' : 'activos'}</span>
       </div>
       {incidentes.length === 0 ? (
-        <div style={{ color: 'var(--dim)', fontSize: 13.5, padding: '14px 0' }}>Todo en orden. Acá van a quedar los incidentes de cada servicio con su período: desde cuándo empezó el problema hasta que se resolvió.</div>
+        <div style={{ color: 'var(--dim)', fontSize: 13.5, padding: '14px 0' }}>Todo en orden. Aquí van a quedar los incidentes de cada servicio con su período: desde cuándo empezó el problema hasta que se resolvió.</div>
       ) : (
         incidentes.map((it, idx) => {
           const activo = it.resolvedAt === null;
@@ -997,9 +997,9 @@ function CodigoLanding({ snippet, clarityConectado = false, elegida, onElegir }:
             : { ok: true, text: `Recibiendo eventos${j.ultima ? ` (última hace ${fmtDuracion(j.ultima, new Date().toISOString())})` : ''}.` }
           : { ok: false, text: 'Aún no llega ningún evento. Instala el Pixel de MaKo en tu página y recárgala.' });
       } else {
-        setEstado({ ok: false, text: j?.error === 'solo admin' ? 'Necesitás ser admin para verificar esta integración.' : (j?.error ?? 'No se pudo verificar.') });
+        setEstado({ ok: false, text: j?.error === 'solo admin' ? 'Necesitas ser admin para verificar esta integración.' : (j?.error ?? 'No se pudo verificar.') });
       }
-    } catch { setEstado({ ok: false, text: 'No se pudo verificar. Revisá tu conexión y probá de nuevo.' }); }
+    } catch { setEstado({ ok: false, text: 'No se pudo verificar. Revisa tu conexión y prueba de nuevo.' }); }
     finally { setVerificando(false); }
   };
 
@@ -1221,7 +1221,7 @@ function SaldoEditor({ provider, gemini, saldo, restante, gastoMes, onGuardado }
           <button onClick={() => { setEditing(false); setInput(''); }} style={{ padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
         </div>
       ) : (
-        <button onClick={() => { setEditing(true); setInput(''); }} style={{ border: '1px solid var(--primary)', borderRadius: 9, background: 'var(--surface)', color: 'var(--primary)', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, padding: '8px 14px', cursor: 'pointer' }}>{saldo ? 'Actualizar saldo' : (gemini ? 'Registrar créditos' : 'Poné tu saldo')}</button>
+        <button onClick={() => { setEditing(true); setInput(''); }} style={{ border: '1px solid var(--primary)', borderRadius: 9, background: 'var(--surface)', color: 'var(--primary)', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, padding: '8px 14px', cursor: 'pointer' }}>{saldo ? 'Actualizar saldo' : (gemini ? 'Registrar créditos' : 'Pon tu saldo')}</button>
       )}
       {cargas.length > 0 && (
         <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
@@ -1423,7 +1423,7 @@ function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota
                 ))}
               </div>
               <p style={{ margin: '10px 0 0', fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.5 }}>
-                Cargá {faltan.includes(',') ? 'estas credenciales' : 'esta credencial'} desde acá y quedará conectado.
+                Carga {faltan.includes(',') ? 'estas credenciales' : 'esta credencial'} desde aquí y quedará conectado.
               </p>
             </div>
           )}
@@ -1460,7 +1460,7 @@ function PermisoGoogleCalendar({ conectada, estado }: { conectada: boolean; esta
   if (!conectada) {
     return (
       <p style={{ margin: '0 0 4px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>
-        Conectá tu agenda para que las reuniones se detecten solas y para que, al reagendar desde el CRM, el evento se mueva y el invitado reciba el aviso.
+        Conecta tu agenda para que las reuniones se detecten solas y para que, al reagendar desde el CRM, el evento se mueva y el invitado reciba el aviso.
       </p>
     );
   }
@@ -1481,7 +1481,7 @@ function PermisoGoogleCalendar({ conectada, estado }: { conectada: boolean; esta
       <p style={{ margin: 0, fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
         La agenda{estado.email ? ` de ${estado.email}` : ''} se autorizó cuando solo pedíamos leerla: tus reuniones se detectan, pero «Reagendar»
         actualiza el CRM y no mueve el evento ni le avisa al invitado. Por eso figura como <b>no conectada</b>.
-        Tocá «Conectar Google Calendar» acá abajo y Google te va a pedir el permiso que falta.
+        Toca «Conectar Google Calendar» aquí abajo y Google te va a pedir el permiso que falta.
       </p>
     </div>
   );

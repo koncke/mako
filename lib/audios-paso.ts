@@ -140,7 +140,7 @@ export const AUDIOS_PASO: AudioPasoDef[] = [
       'No te presentes: ya sabe quién eres.',
       'Retoma la conversación que tuvieron y confirma que viste la reunión agendada.',
       'Di qué van a ver en la reunión y con qué se va a quedar.',
-      'Pide una sola cosa concreta para llegar preparado, y que te la conteste por acá.',
+      'Pide una sola cosa concreta para llegar preparado, y que te la conteste por aquí.',
       'Cierra ofreciéndote para cualquier duda, natural y en corto.',
     ],
   },
@@ -156,7 +156,7 @@ export const AUDIOS_PASO: AudioPasoDef[] = [
       // Pedirle algo concreto ANTES de la reunión hace dos cosas a la vez: llega
       // con el dato a mano y, sobre todo, contestar es la confirmación de que
       // va a ir. El audio 2 ya lo pedía; el 3 se había quedado sin ese cierre.
-      'Pide una sola cosa concreta para llegar preparado, y que te la conteste por acá.',
+      'Pide una sola cosa concreta para llegar preparado, y que te la conteste por aquí.',
       'Cierra natural, como le hablarías a un conocido: nada de fórmulas ni de "quedo atento".',
     ],
   },
@@ -182,7 +182,7 @@ export const AUDIOS_PASO: AudioPasoDef[] = [
 // link, o que da una dirección que nadie cargó, es una mentira que sale a un
 // desconocido.
 export const BULLET_VIDEO = 'Dile que le dejas el link del video por escrito, y en una frase por qué le conviene verlo antes de hablar.';
-export const BULLET_CUPO = 'Pídele que te avise por acá si al final no puede ir, porque los lugares son limitados.';
+export const BULLET_CUPO = 'Pídele que te avise por aquí si al final no puede ir, porque los lugares son limitados.';
 
 /** Dónde y cuándo ocurre el encuentro de fecha fija. Espeja `EventoFunnel` de lib/leads. */
 export type EventoAudio = { lugar?: string | null; dias?: number[]; hora?: string | null; cupo?: number | null };
@@ -250,7 +250,7 @@ export function guionDe(def: AudioPasoDef, opts: { linkVideo?: string | null; ev
     } else {
       // Sin nada declarado no se calla el tema: se dice la verdad, que es que se
       // lo pasás por escrito. Callarlo deja al lead sin saber a dónde ir.
-      g = [g[0], 'Dile que le pasas por acá la dirección y el horario exactos.', ...g.slice(1)];
+      g = [g[0], 'Dile que le pasas por aquí la dirección y el horario exactos.', ...g.slice(1)];
     }
   }
   if (def.pideCupo && (opts.evento?.cupo ?? 0) > 0) g = [...g.slice(0, -1), BULLET_CUPO, g[g.length - 1]];

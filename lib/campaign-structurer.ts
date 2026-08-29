@@ -23,15 +23,15 @@ import {
 
 // ── Metodología (Jan: intención + ritmo) — sale del comentario de getSenalesRecon
 //    para que MaKo la use como criterio al estructurar/escalar. Editable. ────────
-export const CAMPAIGN_METODOLOGIA = `CÓMO DECIDIR LA ESTRUCTURA (método de adquisición de Jan, aplicalo):
-- Para un funnel VSL/leads NO hace falta inventar mil conjuntos: poca segmentación, dejá que Meta optimice (Advantage+ amplio) salvo que el usuario pida abrir públicos nuevos o retargeting.
-- Validá por INTENCIÓN (≥10 leads de una versión de oferta) y por RITMO (que el conjunto gaste su presupuesto diario completo 3 días seguidos). Intención sin ritmo = falso positivo → replicar (snowball), no escalar en vertical.
-- Si hay un creativo GANADOR (te paso los de mejor rendimiento), proponé REPLICARLO en un conjunto nuevo antes que inventar uno de cero.
-- Empezá simple: 1 campaña, 1-2 conjuntos, 1-2 anuncios. Presupuesto diario realista contra el gasto/CAC histórico que te paso.
-- Apagá lo que tras ~$80 USD y 4 días no trae leads.`;
+export const CAMPAIGN_METODOLOGIA = `CÓMO DECIDIR LA ESTRUCTURA (método de adquisición de Jan, aplícalo):
+- Para un funnel VSL/leads NO hace falta inventar mil conjuntos: poca segmentación, deja que Meta optimice (Advantage+ amplio) salvo que el usuario pida abrir públicos nuevos o retargeting.
+- Valida por INTENCIÓN (≥10 leads de una versión de oferta) y por RITMO (que el conjunto gaste su presupuesto diario completo 3 días seguidos). Intención sin ritmo = falso positivo → replicar (snowball), no escalar en vertical.
+- Si hay un creativo GANADOR (te paso los de mejor rendimiento), propón REPLICARLO en un conjunto nuevo antes que inventar uno de cero.
+- Empieza simple: 1 campaña, 1-2 conjuntos, 1-2 anuncios. Presupuesto diario realista contra el gasto/CAC histórico que te paso.
+- Apaga lo que tras ~$80 USD y 4 días no trae leads.`;
 
 // ── Contrato JSON exacto que MaKo debe devolver (editable como referencia) ──────
-export const CAMPAIGN_JSON_SHAPE = `Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin markdown, sin texto fuera del JSON) con esta forma EXACTA:
+export const CAMPAIGN_JSON_SHAPE = `Devuelve EXCLUSIVAMENTE un objeto JSON válido (sin markdown, sin texto fuera del JSON) con esta forma EXACTA:
 {
   "name": "nombre claro de la campaña",
   "objective": "OUTCOME_LEADS | OUTCOME_SALES | OUTCOME_TRAFFIC | OUTCOME_ENGAGEMENT | OUTCOME_AWARENESS",
@@ -68,12 +68,12 @@ export const CAMPAIGN_JSON_SHAPE = `Devolvé EXCLUSIVAMENTE un objeto JSON váli
     }
   ]
 }
-Reglas: no inventes ids de intereses (solo nombres); no inventes audiencias personalizadas; usá MXN para presupuestos; si el usuario te pasó creativos para subir, dejá source="upload"; si recomendás replicar un ganador, source="existing" con su ad_id.`;
+Reglas: no inventes ids de intereses (solo nombres); no inventes audiencias personalizadas; usa MXN para presupuestos; si el usuario te pasó creativos para subir, deja source="upload"; si recomiendas replicar un ganador, source="existing" con su ad_id.`;
 
 // ── Plantillas (con {{slots}}) — editables en /configuraciones ─────────────────
-export const CAMPAIGN_SUGGEST_SYSTEM_TEMPLATE = `Sos MaKo y estás armando una CAMPAÑA NUEVA de Meta Ads para el negocio. Tu trabajo: proponer una estructura campaña → conjunto(s) → anuncio(s) aterrizada en los DATOS REALES del negocio que te paso (funnel, KPIs, ganadores), lista para que el usuario la edite y publique.
+export const CAMPAIGN_SUGGEST_SYSTEM_TEMPLATE = `Eres MaKo y estás armando una CAMPAÑA NUEVA de Meta Ads para el negocio. Tu trabajo: proponer una estructura campaña → conjunto(s) → anuncio(s) aterrizada en los DATOS REALES del negocio que te paso (funnel, KPIs, ganadores), lista para que el usuario la edite y publique.
 
-ELEGÍ EL OBJETIVO a partir del FUNNEL (es la fuente de verdad): si el funnel entra por formulario instantáneo → OUTCOME_LEADS con optimization LEAD_GENERATION; si entra por una landing/VSL con pixel → OUTCOME_SALES/OUTCOME_TRAFFIC; etc.
+ELIGE EL OBJETIVO a partir del FUNNEL (es la fuente de verdad): si el funnel entra por formulario instantáneo → OUTCOME_LEADS con optimization LEAD_GENERATION; si entra por una landing/VSL con pixel → OUTCOME_SALES/OUTCOME_TRAFFIC; etc.
 
 {{metodologia}}
 
@@ -95,7 +95,7 @@ CONTEXTO DEL NEGOCIO (datos reales):
 
 Devolvé el JSON del CampaignSpec con tu propuesta.`;
 
-export const CAMPAIGN_ADJUST_SYSTEM_TEMPLATE = `Sos MaKo ajustando una campaña que YA propusiste. El usuario te pide cambios. Aplicá SOLO lo que pide, conservando todo lo demás del spec actual. Mantené la coherencia (objetivo ↔ optimization ↔ promoted_object). No inventes ids de intereses ni audiencias.
+export const CAMPAIGN_ADJUST_SYSTEM_TEMPLATE = `Eres MaKo ajustando una campaña que YA propusiste. El usuario te pide cambios. Aplica SOLO lo que pide, conservando todo lo demás del spec actual. Mantén la coherencia (objetivo ↔ optimization ↔ promoted_object). No inventes ids de intereses ni audiencias.
 
 IDIOMA DEL COPY: el texto de los anuncios (primary_text, headline, description) es para la AUDIENCIA del cliente (México). Español NEUTRO/MEXICANO, SIN voseo ni modismos argentinos ("tú/tienes/quieres/puedes", NUNCA "vos/tenés/querés/podés"). Tu voz rioplatense solo en el rationale.
 
@@ -107,10 +107,10 @@ export const CAMPAIGN_ADJUST_USER_TEMPLATE = `SPEC ACTUAL (JSON):
 CAMBIO QUE PIDE EL USUARIO:
 {{instruccion}}
 
-CONTEXTO DEL NEGOCIO (por si lo necesitás):
+CONTEXTO DEL NEGOCIO (por si lo necesitas):
 {{contexto}}
 
-Devolvé el JSON COMPLETO del CampaignSpec ya ajustado.`;
+Devuelve el JSON COMPLETO del CampaignSpec ya ajustado.`;
 
 // Texto de objetivos para el slot {{objetivos}}.
 export function objetivosTexto(): string {
@@ -173,7 +173,7 @@ export async function buildCampaignBrief(prompt: string): Promise<string> {
         const w = await getMarketingWindow(desde, hasta);
         if (!w.dias_con_datos) return 'Sin histórico de gasto: sugerí un presupuesto conservador.';
         const diarioUsd = w.spend_usd / Math.max(1, w.dias_con_datos);
-        return `Gasto diario promedio reciente: ${usd(diarioUsd)} USD (~${mxn0(diarioUsd * TC)}). Usalo como referencia para el presupuesto diario.`;
+        return `Gasto diario promedio reciente: ${usd(diarioUsd)} USD (~${mxn0(diarioUsd * TC)}). Úsalo como referencia para el presupuesto diario.`;
       } catch { return '—'; }
     })(),
     (async () => {

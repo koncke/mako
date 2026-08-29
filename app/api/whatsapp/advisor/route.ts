@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   if (!(await integracionConectada('whatsapp'))) {
     const inst = await getInstanciaRow().catch(() => null);
     if (inst?.estado !== 'conectado') {
-      return Response.json({ ok: false, error: 'WhatsApp no está conectado en este workspace. Conectá el número oficial o el no oficial en la tab WhatsApp.' }, { status: 403 });
+      return Response.json({ ok: false, error: 'WhatsApp no está conectado en este workspace. Conecta el número oficial o el no oficial en la tab WhatsApp.' }, { status: 403 });
     }
   }
   let body: Record<string, unknown>;

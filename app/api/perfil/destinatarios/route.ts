@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   }
   const ws = await getWorkspaceActual();
   if (ws == null) {
-    return Response.json({ ok: false, error: 'Elegí un cliente para configurar sus destinatarios.' }, { status: 400 });
+    return Response.json({ ok: false, error: 'Elige un cliente para configurar sus destinatarios.' }, { status: 400 });
   }
   try {
     const wsRow = await getWorkspace(ws);

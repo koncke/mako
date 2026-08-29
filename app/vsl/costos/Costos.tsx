@@ -264,7 +264,7 @@ export default function Costos() {
               </tr>
               <tr>
                 <td>Supabase</td><td className="n">$25</td>
-                <td className="w">La base de datos. Una sola para todos los clientes de MaKo: un cliente nuevo <strong>no suma nada acá</strong>.</td>
+                <td className="w">La base de datos. Una sola para todos los clientes de MaKo: un cliente nuevo <strong>no suma nada aquí</strong>.</td>
               </tr>
               <tr>
                 <td>IA de MaKo</td><td className="n">$22</td>
@@ -374,12 +374,12 @@ export default function Costos() {
               <tr>
                 <td className="w"><strong>⚠️ Cargar más cuentas gratuitas de IA</strong></td>
                 <td className="n down">−$10 a −$25/mes</td>
-                <td className="w">Tenés una sola cuenta y se te agota todos los días. Cargar dos o tres más es gratis y toma 5 minutos. Es la acción con mejor relación esfuerzo/ahorro de toda la lista.</td>
+                <td className="w">Tienes una sola cuenta y se te agota todos los días. Cargar dos o tres más es gratis y toma 5 minutos. Es la acción con mejor relación esfuerzo/ahorro de toda la lista.</td>
               </tr>
               <tr>
                 <td className="w"><strong>Railway lo paga Leandro</strong></td>
                 <td className="n">$21/mes</td>
-                <td className="w">Pasalo a tu cuenta. Si él da de baja la tarjeta, se cae el WhatsApp de todos los clientes conectados, no solo el tuyo.</td>
+                <td className="w">Pásalo a tu cuenta. Si él da de baja la tarjeta, se cae el WhatsApp de todos los clientes conectados, no solo el tuyo.</td>
               </tr>
               <tr>
                 <td className="w"><strong>Fathom a plan gratuito</strong></td>
@@ -465,7 +465,7 @@ export default function Costos() {
             <p>
               <strong>MaKo entero cuesta $9,81 de base de datos</strong>, con todos sus clientes
               adentro — es una sola base compartida, así que sumar clientes al producto no agrega
-              nada acá. Los otros $39 son los tableros que le armaste a clientes de tu agencia: eso
+              nada aquí. Los otros $39 son los tableros que le armaste a clientes de tu agencia: eso
               es costo de servicio.
             </p>
           </div>
@@ -535,7 +535,7 @@ export default function Costos() {
               hacerlo 13 veces. Ya no pasa, y además esa función pasó a un modelo gratuito.
             </p>
 
-            <h3>Lo más importante que podés hacer vos: cargar más cuentas de IA</h3>
+            <h3>Lo más importante que puedes hacer tú: cargar más cuentas de IA</h3>
             <p>
               Esto es simple y vale plata, así que va explicado en detalle.
             </p>
@@ -545,7 +545,7 @@ export default function Costos() {
               MaKo usa esa cuenta gratuita para casi todo, y mientras haya nafta, no se paga nada.
             </p>
             <p>
-              <strong>El problema es que hoy tenés una sola cuenta y tu tanque se vacía todos los
+              <strong>El problema es que hoy tienes una sola cuenta y tu tanque se vacía todos los
               días.</strong> Cuando eso pasa, MaKo tiene que elegir entre dos cosas malas: usar una
               IA paga, o hacer el trabajo con una peor y después rehacerlo. Las dos cuestan.
             </p>
@@ -634,7 +634,7 @@ export default function Costos() {
               <li><strong>La conexión con tu número</strong>, la que se activa escaneando el QR.</li>
             </ul>
             <p>
-              Es <strong>tu operación</strong>: lo usás para hablar con tus clientes y tus leads.{' '}
+              Es <strong>tu operación</strong>: lo usas para hablar con tus clientes y tus leads.{' '}
               <strong>No hay razón para que lo pague Leandro</strong>, y hay una razón fuerte para
               que no: si él da de baja la tarjeta, se cae el WhatsApp de <em>todos</em> los números
               conectados de golpe, no solo el tuyo. Hoy hay tres.
@@ -682,7 +682,7 @@ export default function Costos() {
               no depende de ellos: usa el texto completo de la reunión.
             </p>
             <p>
-              <strong>Al bajarlo, mirá una cosa durante la primera semana:</strong> que las reuniones
+              <strong>Al bajarlo, mira una cosa durante la primera semana:</strong> que las reuniones
               nuevas sigan apareciendo con sus tareas en el plan. Si dejaran de aparecer, se vuelve
               al plan pago y listo — son $18 y es reversible en un click.
             </p>

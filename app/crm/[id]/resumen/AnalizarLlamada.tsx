@@ -68,7 +68,7 @@ export function AnalizarLlamada({ leadId, job, hayGrabacion }: { leadId: number;
       arrancarTransicion(() => router.refresh());
     } catch {
       setRecienMandado(false);
-      setFallo('No pude arrancar el análisis. Revisá la conexión y probá de nuevo.');
+      setFallo('No pude arrancar el análisis. Revisa la conexión y prueba de nuevo.');
     }
   };
 
@@ -99,7 +99,7 @@ export function AnalizarLlamada({ leadId, job, hayGrabacion }: { leadId: number;
       </Button>
       <p style={{ margin: '8px 0 0', fontSize: 13.5, lineHeight: 1.5, color: 'var(--dim)' }}>
         {hayGrabacion
-          ? 'MaKo escucha la grabación y te deja acá el resumen, las objeciones y el próximo paso. Podés cerrar esta pantalla: sigue trabajando igual.'
+          ? 'MaKo escucha la grabación y te deja aquí el resumen, las objeciones y el próximo paso. Puedes cerrar esta pantalla: sigue trabajando igual.'
           : 'Todavía no hay una grabación cargada para este lead. Si la reunión ya pasó, MaKo la busca igual en Fathom por el email.'}
       </p>
     </div>

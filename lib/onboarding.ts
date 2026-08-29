@@ -30,7 +30,7 @@ export const DEFAULT_SCHEMA: Group[] = [
     { key: 'oferta_ticket', label: 'Precio / ticket (USD)', type: 'number', placeholder: '5000' },
     { key: 'oferta_promesa', label: '¿Cuál es la promesa principal? (la transformación)', type: 'textarea', placeholder: 'De cuello de botella a dueño que escala' },
     { key: 'oferta_incluye', label: '¿Qué incluye? (entregables)', type: 'textarea', placeholder: 'Mentorías, comunidad, plantillas…' },
-    { key: 'oferta_garantia', label: '¿Tenés garantía? ¿Cuál?', type: 'text', placeholder: '30 días o devolución' },
+    { key: 'oferta_garantia', label: '¿Tienes garantía? ¿Cuál?', type: 'text', placeholder: '30 días o devolución' },
   ] },
   { key: 'avatar', label: 'Avatar', fields: [
     { key: 'avatar_quien', label: '¿Quién es tu cliente ideal?', type: 'text', placeholder: 'Emprendedor que factura pero está estancado' },
@@ -94,7 +94,7 @@ const esJsonObjeto = (t: string): boolean => Object.keys(parseJsonLoose(t)).leng
 
 // {{lista}} = los campos pedidos (clave: qué pide). El esquema JSON de salida es
 // fijo: si lo cambiás, ajustá también el parseo de abajo.
-export const ONBOARDING_EXTRACT_TEMPLATE = `Sos un extractor de datos. Recibís un TEXTO (un template completado o un documento del negocio del cliente) y una lista de CAMPOS. Devolvé SOLO JSON: {"campos": {"<clave>": "<valor>"}}. Para cada campo poné el valor que corresponda según el texto, conciso y en las palabras del cliente. Si un campo no aparece o no se puede inferir con confianza, omitilo (NO lo inventes). Claves válidas (clave: qué pide):\n{{lista}}`;
+export const ONBOARDING_EXTRACT_TEMPLATE = `Eres un extractor de datos. Recibes un TEXTO (un template completado o un documento del negocio del cliente) y una lista de CAMPOS. Devuelve SOLO JSON: {"campos": {"<clave>": "<valor>"}}. Para cada campo pon el valor que corresponda según el texto, conciso y en las palabras del cliente. Si un campo no aparece o no se puede inferir con confianza, omítelo (NO lo inventes). Claves válidas (clave: qué pide):\n{{lista}}`;
 
 // maxChars: cuánto texto se le manda al modelo. El brief de una fase entra en
 // 12k, pero El Archivero concatena VARIOS documentos del cliente en una sola
@@ -118,7 +118,7 @@ export async function extractAnswersFromText(texto: string, fields: Array<{ key:
 // El Archivero procesa UN archivo por vez (no todo concatenado) para poder atribuir
 // qué campo salió de qué documento y dar un razonamiento por archivo. Devuelve los
 // campos que encontró + una frase corta de qué aportó ese documento.
-export const ARCHIVERO_EXTRACT_TEMPLATE = `Sos un extractor de datos del negocio. Recibís el texto de UN documento del cliente y una lista de CAMPOS. Devolvé SOLO JSON con ESTA forma exacta, y el "razonamiento" SIEMPRE presente: {"razonamiento": "<2-3 frases>", "campos": {"<clave>": "<valor>"}}. El "razonamiento" (OBLIGATORIO, nunca vacío) son 2-3 frases que EMPIEZAN nombrando qué tipo de documento es (Avatar, Oferta, Nicho, Producto, o mixto) y DESCRIBEN con detalle qué entendiste del negocio a partir de él, para que el cliente vea que lo leíste bien. Escribí el razonamiento en español NEUTRO (de "tú", sin voseo argentino). (ej: "Documento de Avatar y Oferta. Define al cliente ideal —un profesional estancado— y su dolor de depender de sí mismo, y describe la oferta 'Negocio que Escala' con su promesa de escalar sin perder el control."). Luego, en "campos", para cada campo poné el valor que corresponda según el texto, conciso y en las palabras del cliente; si un campo no aparece o no se puede inferir con confianza, omitilo (NO lo inventes). Si el documento no aporta ningún campo útil, "campos" vacío pero el "razonamiento" igual explica qué es el documento. Claves válidas de "campos" (clave: qué pide):\n{{lista}}`;
+export const ARCHIVERO_EXTRACT_TEMPLATE = `Eres un extractor de datos del negocio. Recibes el texto de UN documento del cliente y una lista de CAMPOS. Devuelve SOLO JSON con ESTA forma exacta, y el "razonamiento" SIEMPRE presente: {"razonamiento": "<2-3 frases>", "campos": {"<clave>": "<valor>"}}. El "razonamiento" (OBLIGATORIO, nunca vacío) son 2-3 frases que EMPIEZAN nombrando qué tipo de documento es (Avatar, Oferta, Nicho, Producto, o mixto) y DESCRIBEN con detalle qué entendiste del negocio a partir de él, para que el cliente vea que lo leíste bien. Escribe el razonamiento en español NEUTRO (de "tú", sin voseo argentino). (ej: "Documento de Avatar y Oferta. Define al cliente ideal —un profesional estancado— y su dolor de depender de sí mismo, y describe la oferta 'Negocio que Escala' con su promesa de escalar sin perder el control."). Luego, en "campos", para cada campo pon el valor que corresponda según el texto, conciso y en las palabras del cliente; si un campo no aparece o no se puede inferir con confianza, omítelo (NO lo inventes). Si el documento no aporta ningún campo útil, "campos" vacío pero el "razonamiento" igual explica qué es el documento. Claves válidas de "campos" (clave: qué pide):\n{{lista}}`;
 
 export async function extraerDeArchivo(texto: string, fields: Array<{ key: string; label: string }>, maxChars = 24000): Promise<{ campos: Record<string, string>; razonamiento: string; sinIA: boolean; motivoSinIA?: string }> {
   if (!texto.trim() || fields.length === 0) return { campos: {}, razonamiento: '', sinIA: false };
@@ -150,9 +150,9 @@ export async function extraerDeArchivo(texto: string, fields: Array<{ key: strin
 // ── Panorama libre: TODO lo que la IA entendió del negocio ────────────────────
 // No encajado en los campos fijos (eso limitaba). Es un resumen en prosa de todo
 // lo que dicen los documentos, para que el dueño vea el panorama y decida qué dejar.
-export const ARCHIVERO_PANORAMA_TEMPLATE = `Sos MaKo. A partir de los DOCUMENTOS del negocio de un cliente, escribí un PANORAMA claro y completo de todo lo que entendés de su negocio. Español NEUTRO (de "tú", SIN voseo argentino — nada de "tenés/subí/acá"). NO inventes: si algo no aparece en los documentos, no lo pongas.
+export const ARCHIVERO_PANORAMA_TEMPLATE = `Eres MaKo. A partir de los DOCUMENTOS del negocio de un cliente, escribe un PANORAMA claro y completo de todo lo que entiendes de su negocio. Español NEUTRO (de "tú", SIN voseo argentino — nada de "tenés/subí/acá"). NO inventes: si algo no aparece en los documentos, no lo pongas.
 
-Usá SIEMPRE estas 6 secciones, en este orden, cada una con su SUBTÍTULO EN MAYÚSCULA exacto (aunque el material sea poco — si una sección no tiene con qué llenarse, escribí ahí mismo UNA línea: "Todavía no hay información suficiente sobre esto en los documentos."):
+Usa SIEMPRE estas 6 secciones, en este orden, cada una con su SUBTÍTULO EN MAYÚSCULA exacto (aunque el material sea poco — si una sección no tiene con qué llenarse, escribe ahí mismo UNA línea: "Todavía no hay información suficiente sobre esto en los documentos."):
 
 IDENTIDAD Y POSICIONAMIENTO
 A qué se dedica el negocio y cómo se posiciona frente al mercado.
@@ -172,7 +172,7 @@ Cómo habla la marca — formal/cercana, seria/divertida, con qué palabras prop
 OTROS DATOS RELEVANTES
 Cualquier otra cosa útil que un buen estratega anotaría y no entra arriba.
 
-Sé concreto y usá las palabras del cliente. IMPORTANTE: NO expliques lo que vas a hacer, NO incluyas notas, análisis ni comentarios sobre la consigna. Empezá DIRECTO con "IDENTIDAD Y POSICIONAMIENTO", nada antes.`;
+Sé concreto y usa las palabras del cliente. IMPORTANTE: NO expliques lo que vas a hacer, NO incluyas notas, análisis ni comentarios sobre la consigna. Empieza DIRECTO con "IDENTIDAD Y POSICIONAMIENTO", nada antes.`;
 
 // Un modelo "de razonamiento" (gemini-thinking, gpt-oss) a veces vuelca su
 // razonamiento (en inglés, comentando la consigna) en vez del panorama. Lo
@@ -221,7 +221,7 @@ export async function generarPanorama(textos: string[], contexto: string): Promi
 // Lo que ningún documento resolvió NO se pregunta con un campo abierto: la IA
 // arma una pregunta cerrada, corta y a medida del negocio, con opciones probables
 // + la opción de escribirlo. Más fácil de contestar.
-export const ARCHIVERO_PREGUNTAS_TEMPLATE = `Sos MaKo armando el perfil de un negocio para su fábrica de creativos. Ya sabés esto del negocio:\n{{conocido}}\n\nTe faltan estos datos (clave: qué pide):\n{{faltantes}}\n\nPara CADA dato faltante generá UNA pregunta CERRADA, corta y PERSONALIZADA usando lo que ya sabés (nada genérico), en español NEUTRO (de "tú", sin voseo argentino), con 3 a 5 opciones probables y CONCRETAS para ESTE negocio (no opciones de manual). Devolvé SOLO JSON: {"preguntas":[{"key":"<clave exacta del faltante>","pregunta":"<texto>","opciones":["...","..."]}]}. Usá EXACTAMENTE las claves de los faltantes.`;
+export const ARCHIVERO_PREGUNTAS_TEMPLATE = `Eres MaKo armando el perfil de un negocio para su fábrica de creativos. Ya sabes esto del negocio:\n{{conocido}}\n\nTe faltan estos datos (clave: qué pide):\n{{faltantes}}\n\nPara CADA dato faltante genera UNA pregunta CERRADA, corta y PERSONALIZADA usando lo que ya sabes (nada genérico), en español NEUTRO (de "tú", sin voseo argentino), con 3 a 5 opciones probables y CONCRETAS para ESTE negocio (no opciones de manual). Devuelve SOLO JSON: {"preguntas":[{"key":"<clave exacta del faltante>","pregunta":"<texto>","opciones":["...","..."]}]}. Usa EXACTAMENTE las claves de los faltantes.`;
 
 export async function generarPreguntasCerradas(
   faltantes: Array<{ key: string; label: string }>,
@@ -250,7 +250,7 @@ export async function generarPreguntasCerradas(
   const cubiertas = new Set(res.map((r) => r.key));
   for (const f of faltantes) {
     if (cubiertas.has(f.key)) continue;
-    res.push({ key: f.key, pregunta: `Contame: ${f.label}`, opciones: [] });
+    res.push({ key: f.key, pregunta: `Cuéntame: ${f.label}`, opciones: [] });
   }
   return res;
 }

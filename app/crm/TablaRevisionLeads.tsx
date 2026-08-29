@@ -113,7 +113,7 @@ export function TablaRevisionLeads({ filas, onFilas, viaIA, aviso, nota }: {
 
       {viaIA && (
         <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, padding: '9px 11px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-          Estos datos los leyó MaKo. Revisá que cada valor esté en la columna que corresponde: lo que quedó dudoso viene destildado y marcado como <em>revisar</em>.
+          Estos datos los leyó MaKo. Revisa que cada valor esté en la columna que corresponde: lo que quedó dudoso viene destildado y marcado como <em>revisar</em>.
         </div>
       )}
       {aviso && <div style={{ fontSize: 12.5, color: 'var(--warn)', lineHeight: 1.5 }}>{aviso}</div>}
@@ -161,7 +161,7 @@ export function TablaRevisionLeads({ filas, onFilas, viaIA, aviso, nota }: {
       )}
 
       <div style={{ fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.55 }}>
-        {nota ?? 'Nada se creó todavía. Podés corregir cualquier celda acá mismo; las filas atenuadas no entran hasta que se resuelva su motivo.'}
+        {nota ?? 'Nada se creó todavía. Puedes corregir cualquier celda aquí mismo; las filas atenuadas no entran hasta que se resuelva su motivo.'}
       </div>
     </div>
   );

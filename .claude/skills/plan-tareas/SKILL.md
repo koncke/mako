@@ -160,8 +160,8 @@ acá sola: si cambia allá, cambia acá. No la edites a mano.
 > El nombre se entiende SOLO, en 1 a 4 palabras, como el nombre de una tab. Nunca un verbo ("Implementar…"), nunca el nombre de una tarea, nunca jerga ni apodos.
 >
 > EL PREFIJO ES OBLIGATORIO y sale de UNA pregunta: ¿esto se CONSTRUYE, se EJECUTA SOLO, se VENDE, o CRUZA todo?
-> · «Feature: NOMBRE» → una PANTALLA o módulo del producto que el usuario abre y usa. «Feature: Facturación», igual que «Feature: CRM» o «Feature: Ads Manager». Los analistas y los generadores van acá aunque usen IA: los disparás vos.
-> · «${PREFIJO_AGENTE}NOMBRE» → una IA que TRABAJA SOLA, sin que se lo pidas, y cuyo trabajo es su CRITERIO (cómo decide, sus prompts, sus reglas). «${PREFIJO_AGENTE}Perro Guardián», «${PREFIJO_AGENTE}Chat Agent». La prueba: si corre solo, es agente; si lo abrís y lo usás, es feature.
+> · «Feature: NOMBRE» → una PANTALLA o módulo del producto que el usuario abre y usa. «Feature: Facturación», igual que «Feature: CRM» o «Feature: Ads Manager». Los analistas y los generadores van aquí aunque usen IA: los disparas tú.
+> · «${PREFIJO_AGENTE}NOMBRE» → una IA que TRABAJA SOLA, sin que se lo pidas, y cuyo trabajo es su CRITERIO (cómo decide, sus prompts, sus reglas). «${PREFIJO_AGENTE}Perro Guardián», «${PREFIJO_AGENTE}Chat Agent». La prueba: si corre solo, es agente; si lo abres y lo usas, es feature.
 > · «Cliente: NOMBRE» → el trabajo que se hace PARA un cliente de la plataforma: su cuenta, su contenido, sus campañas, lo que se le entrega. «Cliente: Mauricio». La prueba: si el resultado lo usa SOLO ese cliente, es suyo; si lo van a tener todos, es producto y va a su tab.
 > · SIN prefijo → un área del negocio ("Legal y fiscal", "Soporte"), algo transversal ("Seguridad y multi-inquilino") o el trabajo de vender ("Vender MaKo: Ads").
 >
@@ -195,7 +195,7 @@ A qué problema responde. Si alguien lo pidió, la frase TEXTUAL entre « » con
 El criterio de terminado, verificable.
 ```
 
-Esta forma va DENTRO DEL VALOR de este campo, no en tu respuesta al usuario. Copiála EXACTA, con los asteriscos y los saltos de línea. Apuntá a 600-1200 caracteres si el material da para eso. ⛔ NO escribas prosa corrida: sin estos cuatro títulos el detalle NO sirve por más largo y mejor escrito que esté. ⛔ NO rellenes ni supongas: si el material solo da para dos partes, escribí dos — un detalle corto y honesto vale más que uno largo inventado.
+Esta forma va DENTRO DEL VALOR de este campo, no en tu respuesta al usuario. Cópiala EXACTA, con los asteriscos y los saltos de línea. Apunta a 600-1200 caracteres si el material da para eso. ⛔ NO escribas prosa corrida: sin estos cuatro títulos el detalle NO sirve por más largo y mejor escrito que esté. ⛔ NO rellenes ni supongas: si el material solo da para dos partes, escribe dos — un detalle corto y honesto vale más que uno largo inventado.
 
 <!-- CONTRATO-DETALLE:FIN -->
 
@@ -251,17 +251,17 @@ sola: si cambia allá, cambia acá. No la edites a mano.
 > · "opcion" → una sola respuesta, excluyente. OBLIGATORIO: 2 a 6 opciones cortas y concretas.
 > · "multi" → pueden valer VARIAS a la vez. OBLIGATORIO: 2 a 6 opciones. NO agregues "Todas" ni "Ambas": para eso tilda varias.
 > · "comparacion" → enfrentar DOS ítems para ver cuál pesa más. OBLIGATORIO: EXACTAMENTE 2 opciones, y cada una es uno de los ítems.
-> · "fecha" → **para todo "¿para cuándo?", "¿qué fecha?", "¿hay deadline?"**. El dueño ve un CALENDARIO. Podés sumar 2-4 "opciones" como atajos ("Esta semana", "Este mes", "Todavía no hay fecha"), pero no hacen falta.
+> · "fecha" → **para todo "¿para cuándo?", "¿qué fecha?", "¿hay deadline?"**. El dueño ve un CALENDARIO. Puedes sumar 2-4 "opciones" como atajos ("Esta semana", "Este mes", "Todavía no hay fecha"), pero no hacen falta.
 > · "escala" → intensidad de 1 a 5, y NADA MÁS. NO lleva opciones: el dueño ve los números pelados. Por eso la pregunta TIENE que decir qué significan los dos extremos, dentro del enunciado mismo: "¿Qué tan firme es esa fecha? (1 = es una idea, 5 = ya está comprometida con el cliente)".
-> · "texto" → un campo abierto. ⛔⛔ **CASI NUNCA.** La regla del dueño es NUNCA campos abiertos: un textarea vacío es la pregunta que más se saltea. Usalo solo si de verdad no existe ningún otro campo que la conteste, y antes de usarlo intentá dos veces convertirla en "opcion" o en "fecha". Si mandás cualquier otro tipo sin las opciones que ese tipo exige, la pregunta **se descarta entera** — no se convierte en un campo abierto.
+> · "texto" → un campo abierto. ⛔⛔ **CASI NUNCA.** La regla del dueño es NUNCA campos abiertos: un textarea vacío es la pregunta que más se saltea. Úsalo solo si de verdad no existe ningún otro campo que la conteste, y antes de usarlo intenta dos veces convertirla en "opcion" o en "fecha". Si mandas cualquier otro tipo sin las opciones que ese tipo exige, la pregunta **se descarta entera** — no se convierte en un campo abierto.
 >
-> ⛔ NUNCA uses "escala" para preguntar CUÁNDO ni CUÁNTO. "¿Cuál es el deadline?" con botones del 1 al 5 no se puede contestar: el 3 no es una fecha. Si preguntás cuándo, el tipo es "fecha"; si preguntás cuánto, dale opciones con rangos concretos.
+> ⛔ NUNCA uses "escala" para preguntar CUÁNDO ni CUÁNTO. "¿Cuál es el deadline?" con botones del 1 al 5 no se puede contestar: el 3 no es una fecha. Si preguntas cuándo, el tipo es "fecha"; si preguntas cuánto, dale opciones con rangos concretos.
 > ⛔ Una "escala" sin los extremos explicados en el enunciado es una pregunta muerta.
-> ⛔ Una "opcion", "multi" o "comparacion" SIN opciones no se puede contestar: el dueño ve el texto y ningún botón. Si no se te ocurren opciones concretas, cambiá la pregunta hasta que se te ocurran, o no la hagas.
+> ⛔ Una "opcion", "multi" o "comparacion" SIN opciones no se puede contestar: el dueño ve el texto y ningún botón. Si no se te ocurren opciones concretas, cambia la pregunta hasta que se te ocurran, o no la hagas.
 >
-> ⛔⛔ CADA OPCIÓN TIENE QUE SER UNA RESPUESTA POSIBLE A LA PREGUNTA. Leé tu enunciado y leé tus opciones: si al elegir una la frase no queda contestada, está mal.
+> ⛔⛔ CADA OPCIÓN TIENE QUE SER UNA RESPUESTA POSIBLE A LA PREGUNTA. Lee tu enunciado y lee tus opciones: si al elegir una la frase no queda contestada, está mal.
 >   MAL (pasó de verdad): "¿los cinco grupos son fijos o hay que validar si algún módulo no encaja?" con opciones ["CRM", "Chats", "Plan", "Dashboard"]. El enunciado es "¿A o B?" y abajo hay una lista de sustantivos: ninguna opción lo contesta.
->   BIEN: o las opciones son las dos alternativas ("Son fijos" / "Hay que revisarlos"), o cambiás el enunciado para que la lista SÍ lo conteste ("¿Qué módulos no encajan?", tipo multi).
+>   BIEN: o las opciones son las dos alternativas ("Son fijos" / "Hay que revisarlos"), o cambias el enunciado para que la lista SÍ lo conteste ("¿Qué módulos no encajan?", tipo multi).
 >   Nunca dejes un enunciado binario con una lista de nombres abajo.
 
 <!-- CONTRATO-PREGUNTAS:FIN -->

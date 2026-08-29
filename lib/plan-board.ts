@@ -521,7 +521,7 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
     for (const [pid, tits] of ruteadasA) {
       const p = proyectos.find((x) => x.id === pid);
       if (!p) continue;
-      const texto = `MaKo ruteó ${tits.length} tarea${tits.length > 1 ? 's' : ''} acá (en vez de crear un proyecto nuevo): ${tits.map((t) => `«${t.slice(0, 40)}»`).join(', ')}`.slice(0, 300);
+      const texto = `MaKo ruteó ${tits.length} tarea${tits.length > 1 ? 's' : ''} aquí (en vez de crear un proyecto nuevo): ${tits.map((t) => `«${t.slice(0, 40)}»`).join(', ')}`.slice(0, 300);
       const hist = [{ id: genId('h'), ts: ahora, actor, text: texto }, ...(p.historial ?? [])].slice(0, 40);
       await db.from('plan_proyectos').update({ historial: hist, updated_at: new Date().toISOString() }).eq('id', pid)
         .then(({ error }) => { if (error) console.error('[plan-board] historial ruteo:', error.message); });
@@ -960,7 +960,7 @@ export async function priorizarProyectosOwner(motivo?: string): Promise<{
         // una persona confirma» aplicado al número que gobierna la pantalla entera.
         const score = antes?.manual ? antes.score : (limpio[p.id] ?? p.score);
         const razon = antes?.manual && p.score !== antes.score
-          ? `Lo fijaste vos en ${antes.score}. MaKo lo pondría en ${p.score}: ${p.razon}`
+          ? `Lo fijaste tú en ${antes.score}. MaKo lo pondría en ${p.score}: ${p.razon}`
           : p.razon;
         // Historial SOLO cuando el número se movió, y con la razón adentro: es lo único que
         // hace auditable un ranking que decidió una IA, y la regla de la casa dice que todo

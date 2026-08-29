@@ -161,7 +161,7 @@ function actaDelTranscript(ruta) {
 
 async function mandar(cuerpo) {
   const t = token();
-  if (!t) return { ok: false, error: 'no hay token (poné MAKO_TOKEN o .claude/mako-token)' };
+  if (!t) return { ok: false, error: 'no hay token (pon MAKO_TOKEN o .claude/mako-token)' };
   const corte = new AbortController();
   const reloj = setTimeout(() => corte.abort(), 8000);
   try {
@@ -250,7 +250,7 @@ try {
         '1) ¿Cerraste algo que estaba abierto en el plan? → cerrar, con la evidencia.',
         '2) ¿Aprendiste algo sobre una tarea que YA existe? → enriquece, con su id.',
         '3) ¿Apareció trabajo nuevo, o dejaste deuda? → tareas.',
-        'Las tres van en UN borrador y UN link. Si de las tres no sale nada, decilo en una línea y terminá.',
+        'Las tres van en UN borrador y UN link. Si de las tres no sale nada, dilo en una línea y termina.',
       ].join('\\n'),
     }));
     process.exit(0);

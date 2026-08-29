@@ -31,12 +31,12 @@ export const CAPACIDADES: Capacidad[] = [
   {
     id: 'ads-publicar', tab: 'Ads Manager', ruta: '/ads-manager',
     que: 'Crear una campaña de Meta, subirle creativos, prenderla o pausarla, cambiarle el presupuesto y renombrarla — sin salir a Meta.',
-    como: ['Entrá a Ads Manager', 'Tocá "Nueva campaña" y contale a MaKo qué querés promocionar', 'Elegí los creativos y revisá la estructura que arma', 'Se publica en PAUSA: la prendés vos cuando la miraste'],
+    como: ['Entra a Ads Manager', 'Toca "Nueva campaña" y cuéntale a MaKo qué quieres promocionar', 'Elige los creativos y revisa la estructura que arma', 'Se publica en PAUSA: la prendes tú cuando la miraste'],
   },
   {
     id: 'creativos', tab: 'Fábrica de creativos', ruta: '/onboarding',
     que: 'Sacar los avatares, las razones de compra, el lead magnet y la persona de marca — el material del que salen los anuncios.',
-    como: ['Abrí la Fábrica de creativos', 'Definí tus avatares', 'Dejá que MaKo saque las razones de compra de cada uno', 'Cargá tu lead magnet'],
+    como: ['Abre la Fábrica de creativos', 'Define tus avatares', 'Deja que MaKo saque las razones de compra de cada uno', 'Carga tu lead magnet'],
   },
   {
     // La tab se llama Content Machine pero la RUTA sigue siendo /ads-writer (ver
@@ -44,27 +44,27 @@ export const CAPACIDADES: Capacidad[] = [
     // a un cliente le daba un 404.
     id: 'copy-ads', tab: 'Content Machine', ruta: '/ads-writer',
     que: 'Escribir los guiones de los anuncios de video, y seguirlos de borrador a publicado.',
-    como: ['Entrá a Content Machine', 'En Anuncios, abrí el que querés atacar (avatar × razón)', 'Pedile el guion: MaKo elige el ángulo y la estructura solo', 'En Guiones los ves todos, los filtrás y los vas marcando grabado y publicado'],
+    como: ['Entra a Content Machine', 'En Anuncios, abre el que quieres atacar (avatar × razón)', 'Pídele el guion: MaKo elige el ángulo y la estructura solo', 'En Guiones los ves todos, los filtras y los vas marcando grabado y publicado'],
   },
   {
     id: 'landing-diagnosticar', tab: 'Landing Analyst', ruta: '/landing-analyst',
     que: 'Diagnosticar una landing: MaKo la abre, le lee el mensaje y lo cruza con lo que hace la gente que llega (visitas, retención del video, agendas) para decir qué cambiar primero.',
-    como: ['Entrá a Landing Analyst', 'Pegá la dirección de tu página y tocá Analizar', 'Mirá los hallazgos: cada uno cita la frase exacta y trae el reemplazo escrito'],
+    como: ['Entra a Landing Analyst', 'Pega la dirección de tu página y toca Analizar', 'Mira los hallazgos: cada uno cita la frase exacta y trae el reemplazo escrito'],
   },
   {
     id: 'landing-escribir', tab: 'Landing Generator', ruta: '/landing-generator',
     que: 'Escribir la landing entera —estructura y copy terminado— desde tu oferta y tu proceso comercial. Si la página ya se analizó, la escribe resolviendo esos hallazgos.',
-    como: ['Entrá a Landing Generator', 'Contale qué página necesitás y qué tiene que lograr', 'Elegí en "Sobre cuál" la página ya analizada para que arregle lo que falla', 'Pedile los cambios que quieras y copiá el texto listo'],
+    como: ['Entra a Landing Generator', 'Cuéntale qué página necesitas y qué tiene que lograr', 'Elige en "Sobre cuál" la página ya analizada para que arregle lo que falla', 'Pídele los cambios que quieras y copia el texto listo'],
   },
   {
     id: 'crm-lead', tab: 'CRM', ruta: '/crm',
     que: 'Ver y mover leads, completar su ficha, agendar, registrar el cierre y el cobro, y dejar el seguimiento anotado.',
-    como: ['Abrí el CRM', 'Buscá el lead por nombre o teléfono', 'Actualizá su etapa y lo que falte de la ficha'],
+    como: ['Abre el CRM', 'Busca el lead por nombre o teléfono', 'Actualiza su etapa y lo que falte de la ficha'],
   },
   {
     id: 'wa-conversar', tab: 'WhatsApp', ruta: '/whatsapp',
     que: 'Leer y contestar las conversaciones de WhatsApp del negocio, con MaKo sugiriendo la respuesta.',
-    como: ['Entrá a WhatsApp', 'Abrí la conversación', 'Pedile a MaKo que te sugiera la respuesta y ajustala'],
+    como: ['Entra a WhatsApp', 'Abre la conversación', 'Pídele a MaKo que te sugiera la respuesta y ajústala'],
   },
   {
     // ⚠️ Decía `tab: 'Chat Agent', ruta: '/chat-agent'` y las DOS cosas eran
@@ -75,54 +75,54 @@ export const CAPACIDADES: Capacidad[] = [
     // una vez acá, o se propaga a cada lugar que lo copie.
     id: 'nutricion', tab: 'Chatbot', ruta: '/chatbot',
     que: 'Armar las secuencias de seguimiento y nutrición: qué se manda, cuándo, y a quién.',
-    como: ['Entrá a Chatbot', 'Elegí la secuencia o creá una nueva', 'MaKo escribe los mensajes en tu voz y vos los aprobás'],
+    como: ['Entra a Chatbot', 'Elige la secuencia o crea una nueva', 'MaKo escribe los mensajes en tu voz y tú los apruebas'],
   },
   {
     id: 'email', tab: 'Email', ruta: '/email',
     que: 'Mandar campañas y secuencias por email.',
-    como: ['Entrá a Email', 'Elegí a quién le va', 'Revisá el texto que escribe MaKo y mandalo'],
+    como: ['Entra a Email', 'Elige a quién le va', 'Revisa el texto que escribe MaKo y envíalo'],
   },
   {
     // La tab se llama Dashboard en el sidebar, pero `/dashboard` es un redirect
     // a `/marketing`: la ruta va directo al destino real, así el link no rebota.
     id: 'metricas', tab: 'Dashboard', ruta: '/marketing',
     que: 'Ver los números de marketing y comercial: gasto, costo por lead, agendas, show rate, cierres y facturación.',
-    como: ['Abrí el Dashboard', 'Elegí el período', 'Preguntale a MaKo qué cambió y por qué'],
+    como: ['Abre el Dashboard', 'Elige el período', 'Pregúntale a MaKo qué cambió y por qué'],
   },
   {
     id: 'llamadas', tab: 'Closing Analyst', ruta: '/closing',
     que: 'Analizar una llamada de venta: qué objeciones salieron, qué se hizo bien y qué corregir.',
-    como: ['Entrá a Closing Analyst', 'Elegí la llamada', 'Leé el análisis y lo que propone para la próxima'],
+    como: ['Entra a Closing Analyst', 'Elige la llamada', 'Lee el análisis y lo que propone para la próxima'],
   },
   {
     id: 'guiones-ads', tab: 'Ads Analyst', ruta: '/ads-analyst',
     que: 'Ver qué guion y qué gancho retienen mejor, por cuartiles, cruzado con lo que después cerró.',
-    como: ['Entrá a Ads Analyst', 'Elegí el anuncio', 'Mirá dónde se cae la retención y qué gancho aguantó'],
+    como: ['Entra a Ads Analyst', 'Elige el anuncio', 'Mira dónde se cae la retención y qué gancho aguantó'],
   },
   {
     id: 'experimento', tab: 'Experiments', ruta: '/experimentos',
     que: 'Registrar un experimento, su hipótesis y su resultado. Es el único lugar donde se concluye si algo funcionó.',
-    como: ['Entrá a Experiments', 'Cargá la hipótesis y qué vas a medir', 'Volvé cuando tengas el dato y cerralo'],
+    como: ['Entra a Experiments', 'Carga la hipótesis y qué vas a medir', 'Vuelve cuando tengas el dato y ciérralo'],
   },
   {
     id: 'contexto', tab: 'Contexto de MaKo', ruta: '/contexto',
     que: 'Cargar lo que MaKo tiene que saber del negocio: documentos, glosario, oferta, precios.',
-    como: ['Entrá a Contexto de MaKo', 'Subí el documento o escribilo', 'Desde ahí lo usa en todas las tabs'],
+    como: ['Entra a Contexto de MaKo', 'Sube el documento o escríbelo', 'Desde ahí lo usa en todas las tabs'],
   },
   {
     id: 'conectar', tab: 'Integraciones', ruta: '/integraciones',
     que: 'Conectar Meta, WhatsApp, Fathom, el email y el resto de las cuentas, y ver cuáles están sanas.',
-    como: ['Entrá a Integraciones', 'Buscá el servicio', 'Seguí el paso a paso y probá la conexión ahí mismo'],
+    como: ['Entra a Integraciones', 'Busca el servicio', 'Sigue el paso a paso y prueba la conexión ahí mismo'],
   },
   {
     id: 'funnel', tab: 'Onboarding', ruta: '/funnel',
     que: 'Definir el funnel: las etapas por las que pasa un lead y qué las hace avanzar.',
-    como: ['Entrá al Funnel', 'Acomodá las etapas de tu proceso real', 'Eso alimenta al CRM y a la nutrición'],
+    como: ['Entra al Funnel', 'Acomoda las etapas de tu proceso real', 'Eso alimenta al CRM y a la nutrición'],
   },
   {
     id: 'equipo', tab: 'Configuraciones', ruta: '/equipo',
     que: 'Sumar gente al equipo y darle el rol que corresponde (setter, closer, admin).',
-    como: ['Entrá a Configuraciones → Equipo', 'Invitá a la persona', 'Elegí su rol: ve solo lo suyo'],
+    como: ['Entra a Configuraciones → Equipo', 'Invita a la persona', 'Elige su rol: ve solo lo suyo'],
   },
 ];
 

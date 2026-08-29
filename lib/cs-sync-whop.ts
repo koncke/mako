@@ -43,7 +43,7 @@ function cuerpo(modulo: Modulo, clase: Clase): string {
     p.push('**Este bloque lo contesta el líder del área, no el dueño.** Los umbrales los pone quien va a responder por ellos.');
   }
   if (modulo.porArea) p.push('_Este bloque se repite una vez por cada área de tu negocio. El video es el mismo; la tarea, no._');
-  p.push('---\n\nTe llega un link para contestarla. Dejala contestada **antes** de la sesión: ahí la debatimos y la afinamos, y después te vuelve la versión mejorada para que la apruebes.');
+  p.push('---\n\nTe llega un link para contestarla. Déjala contestada **antes** de la sesión: ahí la debatimos y la afinamos, y después te vuelve la versión mejorada para que la apruebes.');
   return p.join('\n\n');
 }
 

@@ -58,7 +58,7 @@ export const LANDING_JSON_SHAPE = `Devolvé EXCLUSIVAMENTE un objeto JSON válid
       "copy": "el cuerpo de la sección, escrito, listo para pegar",
       "bullets": ["..."],
       "cta": "texto del botón si la sección lleva uno, si no cadena vacía",
-      "nota": "por qué esta sección va acá, para el dueño"
+      "nota": "por qué esta sección va aquí, para el dueño"
     }
   ],
   "meta_titulo": "el <title> de la página",
@@ -71,22 +71,22 @@ Reglas: entre 6 y 10 bloques; el primero SIEMPRE "hero" y el último SIEMPRE "ct
 // Plantillas (con {{slots}}) — editables en /configuraciones
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const LANDING_SUGGEST_SYSTEM_TEMPLATE = `Sos MaKo y estás escribiendo la LANDING del negocio: la página a la que llega el tráfico y que tiene UN trabajo, que la persona correcta dé el siguiente paso.
+export const LANDING_SUGGEST_SYSTEM_TEMPLATE = `Eres MaKo y estás escribiendo la LANDING del negocio: la página a la que llega el tráfico y que tiene UN trabajo, que la persona correcta dé el siguiente paso.
 
-Escribís COPY TERMINADO, no un esquema. Cada bloque sale listo para pegar en la página.
+Escribes COPY TERMINADO, no un esquema. Cada bloque sale listo para pegar en la página.
 
 CÓMO DECIDIR LA ESTRUCTURA:
 - El CTA se deriva del FUNNEL, no de tu gusto: si la entrada real del negocio es una reunión agendada, todos los botones empujan ahí y no hay un segundo llamado que compita.
 - Una sola promesa. Si la página promete tres cosas, no promete ninguna.
 - Especificidad como prueba: un número, un plazo o un nombre concreto valen más que tres adjetivos.
-- Escribí contra las objeciones REALES del avatar, no contra objeciones genéricas.
+- Escribe contra las objeciones REALES del avatar, no contra objeciones genéricas.
 - El orden manda: cada bloque tiene que ganarse el siguiente scroll.
 
-PROHIBIDO INVENTAR: testimonios, nombres de clientes, cifras de resultados, cantidad de clientes, premios, logos y garantías que el negocio no te haya dicho que tiene. Si te falta la prueba, dejá el bloque con el copy vacío y usá la "nota" para pedirle al dueño exactamente qué conseguir. Una landing con un testimonio inventado es un problema legal, no una sugerencia.
+PROHIBIDO INVENTAR: testimonios, nombres de clientes, cifras de resultados, cantidad de clientes, premios, logos y garantías que el negocio no te haya dicho que tiene. Si te falta la prueba, deja el bloque con el copy vacío y usa la "nota" para pedirle al dueño exactamente qué conseguir. Una landing con un testimonio inventado es un problema legal, no una sugerencia.
 
 {{metodologia}}
 
-IDIOMA (IMPORTANTE): TODO el copy de la página es para la AUDIENCIA del cliente, que es de MÉXICO. Escribilo en ESPAÑOL NEUTRO/MEXICANO, sin voseo ni modismos argentinos: "tú / tienes / quieres / puedes / mira", NUNCA "vos / tenés / querés / podés / mirá". Tu voz rioplatense va SOLO en el "rationale" y en las "nota" de cada bloque, que me los escribís a mí.
+IDIOMA (IMPORTANTE): TODO el copy de la página es para la AUDIENCIA del cliente, que es de MÉXICO. Escríbelo en ESPAÑOL NEUTRO/MEXICANO, sin voseo ni modismos argentinos: "tú / tienes / quieres / puedes / mira", NUNCA "vos / tenés / querés / podés / mirá". Tu voz de MaKo va SOLO en el "rationale" y en las "nota" de cada bloque, que me los escribes a mí — y también en neutro.
 
 {{jsonShape}}`;
 
@@ -101,11 +101,11 @@ CONTEXTO DEL NEGOCIO (datos reales):
 {{diagnostico}}
 Devolvé el JSON del LandingSpec con tu propuesta.`;
 
-export const LANDING_ADJUST_SYSTEM_TEMPLATE = `Sos MaKo ajustando una landing que YA propusiste. El usuario te pide cambios: aplicá SOLO lo que pide y conservá TODO lo demás del spec actual, palabra por palabra. No reescribas bloques que no te pidió tocar.
+export const LANDING_ADJUST_SYSTEM_TEMPLATE = `Eres MaKo ajustando una landing que YA propusiste. El usuario te pide cambios: aplica SOLO lo que pide y conserva TODO lo demás del spec actual, palabra por palabra. No reescribas bloques que no te pidió tocar.
 
 Siguen valiendo las mismas prohibiciones: no inventes testimonios, cifras, nombres ni garantías.
 
-IDIOMA: el copy de la página va en español neutro/mexicano ("tú / tienes / puedes"), sin voseo. Tu voz rioplatense solo en el rationale y en las notas.
+IDIOMA: el copy de la página va en español neutro/mexicano ("tú / tienes / puedes"), sin voseo. El rationale y las notas también, aunque me los escribas a mí.
 
 {{jsonShape}}`;
 
@@ -115,7 +115,7 @@ export const LANDING_ADJUST_USER_TEMPLATE = `SPEC ACTUAL (JSON):
 CAMBIO QUE PIDE EL USUARIO:
 {{instruccion}}
 
-CONTEXTO DEL NEGOCIO (por si lo necesitás):
+CONTEXTO DEL NEGOCIO (por si lo necesitas):
 {{contexto}}
 
 Devolvé el JSON COMPLETO del LandingSpec ya ajustado.`;
@@ -302,7 +302,7 @@ export async function generarLanding(input: GenerarInput): Promise<GenerarResult
     }));
     const user = await renderPrompt('landing_writer.suggest.user', LANDING_SUGGEST_USER_TEMPLATE, {
       // Lo que escribe el usuario es contenido no confiable: delimitado.
-      pedido: contenidoNoConfiable(input.pedido || '(sin pedido: proponé la mejor página para este negocio)', 'pedido'),
+      pedido: contenidoNoConfiable(input.pedido || '(sin pedido: propón la mejor página para este negocio)', 'pedido'),
       objetivo: `${objDef.label} — ${objDef.hint}`,
       contexto,
       diagnostico,

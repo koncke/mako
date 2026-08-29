@@ -420,7 +420,7 @@ export function EmpresaInbox() {
   async function borrarEsteChat() {
     const sc = findConv(sel);
     if (!sc) return;
-    if (!(await confirm(`¿Borrar el historial guardado de ${sc.nombre}? (Solo el espejo de la app; no toca tu WhatsApp. Podés volver a sincronizarlo.)`))) return;
+    if (!(await confirm(`¿Borrar el historial guardado de ${sc.nombre}? (Solo el espejo de la app; no toca tu WhatsApp. Puedes volver a sincronizarlo.)`))) return;
     setChatBusy('clear'); setSendErr(null);
     try {
       const j = await jpost<{ ok: boolean; error?: string }>('/api/whatsapp/evolution/block', { telefono: sc.telefono ?? '', chat: sc.chatJid, action: 'clear-chat' });
@@ -482,7 +482,7 @@ export function EmpresaInbox() {
               {verOcultos ? '← Volver' : <><IconEyeOff size={14} /> Ocultos</>}
             </button>
           </div>
-          {verOcultos && <div style={{ marginTop: '8px', fontSize: '11.5px', color: 'var(--dim)', lineHeight: 1.4 }}>Conversaciones ocultas. Abrí una y tocá «Mostrar contacto» para devolverla al inbox.</div>}
+          {verOcultos && <div style={{ marginTop: '8px', fontSize: '11.5px', color: 'var(--dim)', lineHeight: 1.4 }}>Conversaciones ocultas. Abre una y toca «Mostrar contacto» para devolverla al inbox.</div>}
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px' }}>
           {borradores.length > 0 && (
@@ -494,7 +494,7 @@ export function EmpresaInbox() {
           {loadingConvs && convs.length === 0 && <div style={{ padding: '18px', color: 'var(--dim)', fontSize: '13.5px' }}>Cargando…</div>}
           {!loadingConvs && convsOrdenados.length === 0 && !err && (
             <div style={{ padding: '18px', color: 'var(--faint)', fontSize: '13px', lineHeight: 1.5 }}>
-              {search.trim() ? 'Ningún lead ni conversación coincide con la búsqueda.' : 'Todavía no hay mensajes en el número no oficial. Conectá el número (chip API no Oficial, arriba) y las conversaciones van a aparecer acá. También podés buscar cualquier lead del CRM por nombre para escribirle.'}
+              {search.trim() ? 'Ningún lead ni conversación coincide con la búsqueda.' : 'Todavía no hay mensajes en el número no oficial. Conecta el número (chip API no Oficial, arriba) y las conversaciones van a aparecer aquí. También puedes buscar cualquier lead del CRM por nombre para escribirle.'}
             </div>
           )}
           {err && <div style={{ margin: '10px', padding: '9px 12px', borderRadius: '9px', border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)', fontSize: '12.5px' }}>{err}</div>}
@@ -531,7 +531,7 @@ export function EmpresaInbox() {
       {/* HILO — cinta índigo superior = diferenciador de canal no oficial */}
       <div style={{ ...card, borderTop: '3px solid var(--wa-noof)' }}>
         {!selConv ? (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: '14px', padding: '0 28px', textAlign: 'center', lineHeight: 1.5 }}>Elegí una conversación</div>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: '14px', padding: '0 28px', textAlign: 'center', lineHeight: 1.5 }}>Elige una conversación</div>
         ) : verOcultos ? (
           /* Contacto oculto: NO mostramos el historial, solo foto/nombre/número + mostrar. */
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '28px', textAlign: 'center' }}>
@@ -574,7 +574,7 @@ export function EmpresaInbox() {
                   <button onClick={() => sel && void loadMsgs(sel)} style={{ padding: '7px 14px', borderRadius: '9px', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>Reintentar</button>
                 </div>
               )}
-              {!loadingMsgs && !errMsgs && msgs.length === 0 && <div style={{ color: 'var(--faint)', fontSize: '13.5px' }}>{selConv.total === 0 ? 'Todavía no le escribiste. Mandale el primer mensaje abajo.' : 'Sin mensajes.'}</div>}
+              {!loadingMsgs && !errMsgs && msgs.length === 0 && <div style={{ color: 'var(--faint)', fontSize: '13.5px' }}>{selConv.total === 0 ? 'Todavía no le escribiste. Envíale el primer mensaje abajo.' : 'Sin mensajes.'}</div>}
               {msgs.map((m) => {
                 const mine = m.fromMe;
                 const esMedia = m.tipo === 'image' || m.tipo === 'audio' || m.tipo === 'video' || m.tipo === 'document' || m.tipo === 'sticker';
@@ -706,7 +706,7 @@ export function EmpresaInbox() {
                 {!verOcultos && (
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button onClick={() => void sincronizarEsteChat()} disabled={chatBusy !== null} title="Traer el historial de este chat desde WhatsApp" style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '5px', padding: '8px 10px', borderRadius: '9px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '12px', fontWeight: 600, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', opacity: chatBusy ? 0.6 : 1 }}>{chatBusy === 'sync' ? 'Trayendo…' : <><IconRefresh size={13} /> Sincronizar</>}</button>
-                    <button onClick={() => void borrarEsteChat()} disabled={chatBusy !== null} title="Borrar el historial guardado de este chat (empezar de 0 acá)" style={{ flex: 1, padding: '8px 10px', borderRadius: '9px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '12px', fontWeight: 600, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', opacity: chatBusy ? 0.6 : 1 }}>{chatBusy === 'clear' ? 'Borrando…' : 'Borrar historial'}</button>
+                    <button onClick={() => void borrarEsteChat()} disabled={chatBusy !== null} title="Borrar el historial guardado de este chat (empezar de 0 aquí)" style={{ flex: 1, padding: '8px 10px', borderRadius: '9px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '12px', fontWeight: 600, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', opacity: chatBusy ? 0.6 : 1 }}>{chatBusy === 'clear' ? 'Borrando…' : 'Borrar historial'}</button>
                   </div>
                 )}
               </div>
@@ -722,7 +722,7 @@ export function EmpresaInbox() {
             />
           </>
         ) : (
-          <div style={{ fontSize: '12.5px', color: 'var(--faint)', lineHeight: 1.5 }}>Elegí una conversación para que MaKo te sugiera qué escribir.</div>
+          <div style={{ fontSize: '12.5px', color: 'var(--faint)', lineHeight: 1.5 }}>Elige una conversación para que MaKo te sugiera qué escribir.</div>
         )}
       </div>
 
@@ -743,7 +743,7 @@ export function EmpresaInbox() {
         <div onClick={() => setOcultarConfirm(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200, padding: '24px' }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '420px', background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: '16px', padding: '22px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '6px' }}><span style={{ color: 'var(--dim)' }}><IconEyeOff size={18} /></span><div style={{ fontSize: '17px', fontWeight: 600, color: 'var(--ink)' }}>Ocultar a {selConv.nombre}</div></div>
-            <div style={{ fontSize: '12.5px', color: 'var(--dim)', marginBottom: '16px', lineHeight: 1.5 }}>La conversación no se va a ver en el inbox ni MaKo la va a leer (para chats personales). No corta el envío. Podés mostrarla de nuevo desde «Ocultos».</div>
+            <div style={{ fontSize: '12.5px', color: 'var(--dim)', marginBottom: '16px', lineHeight: 1.5 }}>La conversación no se va a ver en el inbox ni MaKo la va a leer (para chats personales). No corta el envío. Puedes mostrarla de nuevo desde «Ocultos».</div>
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
               <button onClick={() => setOcultarConfirm(false)} style={{ padding: '8px 16px', borderRadius: '9px', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
               <button onClick={() => void toggleOculto(true)} disabled={hiding} style={{ padding: '8px 18px', borderRadius: '9px', border: 'none', background: 'var(--ink)', color: 'var(--on-ink)', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, cursor: 'pointer', opacity: hiding ? 0.6 : 1 }}>{hiding ? 'Ocultando…' : 'Ocultar'}</button>
@@ -757,7 +757,7 @@ export function EmpresaInbox() {
         <div onClick={() => setBlockModalOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200, padding: '24px' }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '440px', background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: '16px', padding: '22px' }}>
             <div style={{ fontSize: '17px', fontWeight: 600, color: 'var(--ink)', marginBottom: '4px' }}>Bloquear a {selConv.nombre}</div>
-            <div style={{ fontSize: '12.5px', color: 'var(--dim)', marginBottom: '14px', lineHeight: 1.5 }}>No le vas a poder escribir por el no oficial y el motor de nutrición tampoco le va a mandar. Podés desbloquearlo cuando quieras.</div>
+            <div style={{ fontSize: '12.5px', color: 'var(--dim)', marginBottom: '14px', lineHeight: 1.5 }}>No le vas a poder escribir por el no oficial y el motor de nutrición tampoco le va a mandar. Puedes desbloquearlo cuando quieras.</div>
             <textarea value={blockMotivo} onChange={(e) => setBlockMotivo(e.target.value)} placeholder="Motivo del bloqueo (opcional)…" rows={3}
               style={{ width: '100%', boxSizing: 'border-box', resize: 'none', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', outline: 'none' }} />
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '14px' }}>
@@ -776,7 +776,7 @@ export function EmpresaInbox() {
               <div style={{ fontSize: '18px', fontWeight: 600, color: 'var(--ink)' }}>Borradores por enviar</div>
               <button onClick={() => setShowBorr(false)} title="Cerrar" style={{ background: 'none', border: 'none', fontSize: '20px', color: 'var(--faint)', cursor: 'pointer' }}>✕</button>
             </div>
-            <div style={{ fontSize: '12.5px', color: 'var(--dim)', marginBottom: '14px', lineHeight: 1.5 }}>A leads calientes el sistema no manda solo (anti-baneo). Revisá y enviá con 1 clic — o descartá.</div>
+            <div style={{ fontSize: '12.5px', color: 'var(--dim)', marginBottom: '14px', lineHeight: 1.5 }}>A leads calientes el sistema no manda solo (anti-baneo). Revisa y envía con 1 clic — o descarta.</div>
             {borrErr && <div style={{ marginBottom: '12px', padding: '9px 12px', borderRadius: '9px', border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)', fontSize: '12.5px' }}>{borrErr}</div>}
             {borradores.length === 0 && <div style={{ color: 'var(--faint)', fontSize: '13px', padding: '10px 0' }}>No hay borradores pendientes.</div>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>

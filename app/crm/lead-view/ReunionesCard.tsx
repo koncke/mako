@@ -115,7 +115,7 @@ export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }
     return (
       <section style={card}>
         <div style={{ ...sectLabel, marginBottom: 10 }}>Reuniones</div>
-        <p style={{ fontSize: 14, color: 'var(--faint)' }}>Este lead todavía no agendó ninguna reunión. Cuando agende (por Calendly o a mano) los datos de R1/R2 aparecen acá.</p>
+        <p style={{ fontSize: 14, color: 'var(--faint)' }}>Este lead todavía no agendó ninguna reunión. Cuando agende (por Calendly o a mano) los datos de R1/R2 aparecen aquí.</p>
       </section>
     );
   }

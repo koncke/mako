@@ -63,13 +63,13 @@ export function AsignarProyectoModal({ task, labels, onAsignar, onClose }: {
   // encabezado del cambio, con emojis + chips (se lee más fácil que un texto plano)
   const cambioHeader = () => {
     const flecha = <span style={{ color: 'var(--faint)', fontSize: 18, margin: '0 2px' }}>→</span>;
-    if (sel.length === 0) return <div style={cambioBox}><span style={{ color: 'var(--dim)', fontSize: 14 }}>La dejás <b style={{ color: 'var(--ink)' }}>sin proyecto</b>.</span></div>;
+    if (sel.length === 0) return <div style={cambioBox}><span style={{ color: 'var(--dim)', fontSize: 14 }}>La dejas <b style={{ color: 'var(--ink)' }}>sin proyecto</b>.</span></div>;
     if (quitados.length === actuales.length && actuales.length > 0 && agregados.length) {
       if (actuales.length === 1 && sel.length === 1) return <div style={cambioBox}>{chip(actuales[0])}{flecha}{chip(sel[0])}</div>;
       return <div style={cambioBox}>{sel.map(chip)}</div>;
     }
-    if (agregados.length && !quitados.length) return <div style={cambioBox}><span style={{ color: 'var(--dim)', fontSize: 13.5 }}>Agregás</span>{agregados.map(chip)}</div>;
-    if (quitados.length && !agregados.length) return <div style={cambioBox}><span style={{ color: 'var(--dim)', fontSize: 13.5 }}>Sacás</span>{quitados.map(chip)}</div>;
+    if (agregados.length && !quitados.length) return <div style={cambioBox}><span style={{ color: 'var(--dim)', fontSize: 13.5 }}>Agregas</span>{agregados.map(chip)}</div>;
+    if (quitados.length && !agregados.length) return <div style={cambioBox}><span style={{ color: 'var(--dim)', fontSize: 13.5 }}>Sacas</span>{quitados.map(chip)}</div>;
     return <div style={cambioBox}>{sel.map(chip)}</div>;
   };
 
@@ -89,8 +89,8 @@ export function AsignarProyectoModal({ task, labels, onAsignar, onClose }: {
       || sinPrefijo(a.name).localeCompare(sinPrefijo(b.name)));
   }, [labels, busca, fam, orden, sel]);
 
-  const preguntas = ['Hola, soy el Perro Guardián MaKo', '¿En qué proyecto(s) va esta tarea?', sel.length === 0 ? '¿Por qué la dejás sin proyecto?' : '¿Por qué el cambio?'];
-  const subs: (string | undefined)[] = [undefined, 'Podés elegir más de uno. Tenés que cambiar algo para seguir.', 'Contame tu criterio: así entiendo dónde encaja de verdad.'];
+  const preguntas = ['Hola, soy el Perro Guardián MaKo', '¿En qué proyecto(s) va esta tarea?', sel.length === 0 ? '¿Por qué la dejas sin proyecto?' : '¿Por qué el cambio?'];
+  const subs: (string | undefined)[] = [undefined, 'Puedes elegir más de uno. Tienes que cambiar algo para seguir.', 'Cuéntame tu criterio: así entiendo dónde encaja de verdad.'];
   const puedeAvanzar = idx === 0 ? true : idx === 1 ? !mismos : motivo.trim() !== '';
 
   return (
@@ -109,7 +109,7 @@ export function AsignarProyectoModal({ task, labels, onAsignar, onClose }: {
       {idx === 0 && <IntroBody que={`mover "${task.title.slice(0, 44)}" de proyecto`} mi="que cada tarea viva donde de verdad corresponde" />}
       {idx === 1 && (
         <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscá el proyecto…"
+          <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Busca el proyecto…"
             style={{ width: '100%', padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: 14, outline: 'none', fontFamily: SANS }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             {FAMILIAS.map((f) => {

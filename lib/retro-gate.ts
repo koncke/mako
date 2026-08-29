@@ -89,9 +89,9 @@ export const GATE_JSON_SHAPE = `Devolvé EXCLUSIVAMENTE un objeto JSON (sin mark
 - "deja": el motivo se sostiene (cambió el negocio, el plan quedó viejo, hay una urgencia real, el plan anterior estaba mal planteado) → corre la Retro nueva.
 - "no_deja": el motivo NO se sostiene (ansiedad, ganas de una foto nueva, "no tuve tiempo" sin nada atrás, querer tapar que no ejecutaste) → que termine lo de antes.`;
 
-export const GATE_SYSTEM_TEMPLATE = `Sos MaKo, el perro guardián. El usuario quiere correr una Retro NUEVA, pero dejó sin hacer cosas que él mismo aceptó de la Retro anterior. Te pide que lo dejes igual, y te da un motivo.
+export const GATE_SYSTEM_TEMPLATE = `Eres MaKo, el perro guardián. El usuario quiere correr una Retro NUEVA, pero dejó sin hacer cosas que él mismo aceptó de la Retro anterior. Te pide que lo dejes igual, y te da un motivo.
 
-Tu trabajo NO es complacerlo: es protegerlo de la trampa más común del emprendedor, que es cambiar de plan cada semana para no enfrentar que no ejecutó el anterior. Una Retro nueva es dopamina barata: diagnóstico fresco, sensación de avance, cero trabajo hecho. Si lo dejás pasar sin argumento, la Retro se vuelve un informe caro que pide cuando quiere y nunca rinde cuentas.
+Tu trabajo NO es complacerlo: es protegerlo de la trampa más común del emprendedor, que es cambiar de plan cada semana para no enfrentar que no ejecutó el anterior. Una Retro nueva es dopamina barata: diagnóstico fresco, sensación de avance, cero trabajo hecho. Si lo dejas pasar sin argumento, la Retro se vuelve un informe caro que pide cuando quiere y nunca rinde cuentas.
 
 SÉ DURO Y JUSTO. Aceptá el motivo cuando de verdad se sostiene: cambió algo material del negocio, apareció una urgencia real, el plan anterior quedó obsoleto por un hecho concreto, o el plan estaba mal planteado de entrada. Rechazalo cuando es ansiedad, cuando "no tuve tiempo" viene sin nada atrás, o cuando se nota que quiere la foto nueva para no mirar la vieja. Nombrá el sesgo cuando lo veas, sin ser maleducado.
 
@@ -107,7 +107,7 @@ export const GATE_USER_TEMPLATE = `DE LA RETRO ANTERIOR (corrida hace {{dias}} d
 MOTIVO POR EL QUE QUIERE CORRER UNA RETRO NUEVA IGUAL:
 {{motivo}}
 
-Decidí: ¿lo dejás correr la Retro nueva, o que termine lo de antes? Respondé con criterio, sin complacer.`;
+Decide: ¿lo dejas correr la Retro nueva, o que termine lo de antes? Responde con criterio, sin complacer.`;
 
 export type GateVeredicto = { veredicto: 'deja' | 'no_deja'; respuesta: string; usage?: UsageInfo };
 
@@ -132,12 +132,12 @@ export async function debatirGate(estado: EstadoGate, motivo: string): Promise<G
     const v = String(obj.veredicto ?? '').toLowerCase().trim();
     return {
       veredicto: v === 'deja' ? 'deja' : 'no_deja',
-      respuesta: String(obj.respuesta ?? '').trim() || 'Terminá lo de antes.',
+      respuesta: String(obj.respuesta ?? '').trim() || 'Termina lo de antes.',
       usage,
     };
   } catch {
     // Fail-closed: si no se pudo juzgar, no se pasa. Un gate que se abre solo
     // cuando falla la IA no es un gate.
-    return { veredicto: 'no_deja', respuesta: 'No pude procesar el motivo ahora. Probá de nuevo.', usage };
+    return { veredicto: 'no_deja', respuesta: 'No pude procesar el motivo ahora. Prueba de nuevo.', usage };
   }
 }

@@ -238,10 +238,10 @@ export default function TareaCliente({ token, nombre, modulos, inicial, totales 
                   {estado === 'guardado' && 'Guardado.'}
                   {estado === 'guardando' && 'Guardando…'}
                   {estado === 'escribiendo' && 'Se guarda solo en unos segundos.'}
-                  {estado === 'error' && 'No se pudo guardar. Revisá la conexión y volvé a escribir algo.'}
+                  {estado === 'error' && 'No se pudo guardar. Revisa la conexión y vuelve a escribir algo.'}
                   {estado === 'limpio' && (clase.faltan > 0
-                    ? `Te faltan ${clase.faltan} de este bloque. Se guarda solo mientras escribís.`
-                    : 'Se guarda solo mientras escribís.')}
+                    ? `Te faltan ${clase.faltan} de este bloque. Se guarda solo mientras escribes.`
+                    : 'Se guarda solo mientras escribes.')}
                 </p>
                 <Siguiente modulos={modulos} actual={clase.claseId} onIr={irA} />
               </footer>
@@ -384,11 +384,11 @@ function Aprobacion({ clase, onAprobar, guardando }: {
     <section className="cd-apr">
       <p className="cd-apr-int">
         Después de la sesión, MaKo reescribió lo que habías contestado incorporando lo que
-        hablaron. Compará las dos y quedate con la que prefieras. Podés editarla antes de aprobar.
+        hablaron. Compara las dos y quédate con la que prefieras. Puedes editarla antes de aprobar.
       </p>
       <div className="cd-dos">
         <div>
-          <h3>Lo que contestaste vos</h3>
+          <h3>Lo que contestaste tú</h3>
           <div className="cd-txt">{clase.respuesta || <em>Estaba vacío.</em>}</div>
         </div>
         <div>

@@ -323,7 +323,7 @@ export async function POST(req: NextRequest) {
       const pegado = typeof body.valores?.GITHUB_TOKEN === 'string' ? body.valores.GITHUB_TOKEN.trim() : '';
       const usar = pegado || guardado;
       if (!usar || usar.startsWith('PENDING')) {
-        return NextResponse.json({ ok: false, error: 'Pegá primero el token de GitHub.' }, { status: 400 });
+        return NextResponse.json({ ok: false, error: 'Pega primero el token de GitHub.' }, { status: 400 });
       }
       const d = await descubrirGithub(usar);
       if (!d.ok) return NextResponse.json({ ok: false, error: d.error }, { status: 422 });
@@ -339,7 +339,7 @@ export async function POST(req: NextRequest) {
       const pegado = typeof body.valores?.META_ACCESS_TOKEN === 'string' ? body.valores.META_ACCESS_TOKEN.trim() : '';
       const usar = pegado || token;
       if (!usar || usar.startsWith('PENDING')) {
-        return NextResponse.json({ ok: false, error: 'Pegá primero tu access token de Meta.' }, { status: 400 });
+        return NextResponse.json({ ok: false, error: 'Pega primero tu access token de Meta.' }, { status: 400 });
       }
       const d = await descubrirMeta(usar);
       if (!d.ok) return NextResponse.json({ ok: false, error: d.error }, { status: 422 });

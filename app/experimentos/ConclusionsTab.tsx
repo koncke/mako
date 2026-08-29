@@ -37,7 +37,7 @@ export function ConclusionsTab({ aprendizajes }: { aprendizajes: Experimento[] }
 
       {aprendizajes.length === 0 ? (
         <Empty titulo="Todavía no hay conclusiones"
-          sub="Cuando cerrás un experimento, MaKo lee el dato medido y deja acá la lectura: validada, refutada o no concluyente. Arrancá un experimento en la tab Experiments." />
+          sub="Cuando cierras un experimento, MaKo lee el dato medido y deja aquí la lectura: validada, refutada o no concluyente. Arranca un experimento en la tab Experiments." />
       ) : (
         <>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

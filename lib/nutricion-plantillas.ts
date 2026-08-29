@@ -29,11 +29,11 @@ import { getVozGuia, COHORTE_GLOSS } from '@/lib/nutricion-generator';
 const VARS_DISPONIBLES = VARIABLES_LEAD.map((v) => `{{${v.key}}} (${v.descripcion})`).join(', ');
 
 // ── Prompts (registrados en prompt-registry) ─────────────────────────────────
-export const NUTRI_PLANTILLA_SYSTEM_TEMPLATE = `Sos MaKo convirtiendo un mensaje de nutrición (ya escrito en la voz del negocio) en una PLANTILLA de WhatsApp aprobable por Meta. La plantilla oficial existe para REABRIR la conversación: fuera de la ventana de 24h, WhatsApp solo entrega plantillas aprobadas. El link, la oferta o los detalles se mandan DESPUÉS, cuando el lead responde.
+export const NUTRI_PLANTILLA_SYSTEM_TEMPLATE = `Eres MaKo convirtiendo un mensaje de nutrición (ya escrito en la voz del negocio) en una PLANTILLA de WhatsApp aprobable por Meta. La plantilla oficial existe para REABRIR la conversación: fuera de la ventana de 24h, WhatsApp solo entrega plantillas aprobadas. El link, la oferta o los detalles se mandan DESPUÉS, cuando el lead responde.
 
-Convertí el mensaje respetando su voz y su gancho, pero adaptándolo a Meta:
-- Cortito (1-3 líneas). Mantené el tono y el ángulo del original.
-- SACÁ los links y TODO lo que esté entre corchetes ([tu link de agenda], [tu link de pago], [tu problema]…): una plantilla no lleva links externos ni corchetes. Cambiá el cierre por un CTA que invite a RESPONDER ("respondeme y coordinamos", "escribime y te paso los detalles").
+Convierte el mensaje respetando su voz y su gancho, pero adaptándolo a Meta:
+- Cortito (1-3 líneas). Mantén el tono y el ángulo del original.
+- SACA los links y TODO lo que esté entre corchetes ([tu link de agenda], [tu link de pago], [tu problema]…): una plantilla no lleva links externos ni corchetes. Cambia el cierre por un CTA que invite a RESPONDER ("respóndeme y coordinamos", "escríbeme y te paso los detalles").
 - Variables: SOLO las del catálogo, nombradas {{nombre}} (NUNCA posicionales tipo llave-uno-llave). El cuerpo NO empieza ni termina con variable y cada variable va rodeada de texto fijo.
 - Nada de urgencia falsa, mayúsculas sostenidas ni promesas que el negocio no pueda cumplir.
 
@@ -55,7 +55,7 @@ export const NUTRI_PLANTILLA_USER_TEMPLATE = `Cohorte / a quién apunta la secue
 MENSAJE ORIGINAL DE LA NUTRICIÓN (en la voz del negocio):
 {{copy}}
 
-Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin texto ni markdown alrededor) con esta forma EXACTA:
+Devuelve EXCLUSIVAMENTE un objeto JSON válido (sin texto ni markdown alrededor) con esta forma EXACTA:
 {
   "category": "marketing | utility",
   "body": "el cuerpo de la plantilla, con {{nombre}} si aplica, SIN links ni [corchetes]",
@@ -155,7 +155,7 @@ export async function plantillaDesdePaso(secuenciaId: number, orden: number): Pr
   if (!paso) return { ok: false, error: 'No encontré ese paso en la secuencia.' };
   if (paso.canal !== 'whatsapp') return { ok: false, error: 'Solo los pasos de WhatsApp usan plantilla.' };
   if (paso.proveedor === 'no_oficial') return { ok: false, error: 'Este paso va por el número no oficial: no necesita plantilla de Meta.' };
-  if (!paso.cuerpo?.trim()) return { ok: false, error: 'El paso no tiene texto todavía. Escribí el copy primero.' };
+  if (!paso.cuerpo?.trim()) return { ok: false, error: 'El paso no tiene texto todavía. Escribe el copy primero.' };
 
   const name = nombreMetaSafe(sec.clave, orden);
   const language = paso.template_idioma || 'es_MX';
@@ -170,7 +170,7 @@ export async function plantillaDesdePaso(secuenciaId: number, orden: number): Pr
     await bindTemplate(sec.id, orden, name, existente.category, language);
     const nota = existente.status === 'approved' ? 'La plantilla ya está aprobada.'
       : existente.status === 'pending' ? 'La plantilla ya está en revisión en Meta.'
-      : `La plantilla está en estado "${existente.status}" en Meta — revisala en la tab Plantillas.`;
+      : `La plantilla está en estado "${existente.status}" en Meta — revísala en la tab Plantillas.`;
     return { ok: true, name, status: existente.status, nota };
   }
 
@@ -186,7 +186,7 @@ export async function plantillaDesdePaso(secuenciaId: number, orden: number): Pr
   const system = await renderPrompt('nutri.plantilla.system', NUTRI_PLANTILLA_SYSTEM_TEMPLATE, {
     metodologia: metodologia || '(sin metodología de mensajes cargada)',
     metaRules,
-    voz: voz || '(todavía no hay guía de voz; conservá el tono del mensaje original)',
+    voz: voz || '(todavía no hay guía de voz; conserva el tono del mensaje original)',
     vars: VARS_DISPONIBLES,
   });
   const user = await renderPrompt('nutri.plantilla.user', NUTRI_PLANTILLA_USER_TEMPLATE, {
@@ -201,13 +201,13 @@ export async function plantillaDesdePaso(secuenciaId: number, orden: number): Pr
   });
   const o = tomarJSON(raw);
   const bodyRaw = asStr(o?.body).trim();
-  if (!bodyRaw) return { ok: false, error: 'MaKo no devolvió una plantilla válida. Probá de nuevo.' };
+  if (!bodyRaw) return { ok: false, error: 'MaKo no devolvió una plantilla válida. Prueba de nuevo.' };
   const body = sanitizarBody(bodyRaw);
-  if (!body) return { ok: false, error: 'La plantilla quedó vacía tras limpiarla. Probá de nuevo.' };
+  if (!body) return { ok: false, error: 'La plantilla quedó vacía tras limpiarla. Prueba de nuevo.' };
   // Meta rechaza (INVALID_FORMAT) un cuerpo que empieza o termina con variable.
   // Lo cortamos acá con un mensaje claro en vez de gastar el POST a Meta.
   if (/^\{\{/.test(body) || /\}\}$/.test(body)) {
-    return { ok: false, error: 'MaKo devolvió un cuerpo que empieza o termina con una variable (Meta lo rechaza). Probá de nuevo.' };
+    return { ok: false, error: 'MaKo devolvió un cuerpo que empieza o termina con una variable (Meta lo rechaza). Prueba de nuevo.' };
   }
   const category: TemplateCategoria = asStr(o?.category) === 'utility' ? 'utility' : 'marketing';
   const footer = sanitizarFooter(asStr(o?.footer));

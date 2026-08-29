@@ -246,7 +246,7 @@ export function SecuenciaWizard({ secuenciaId: secInicial, secuencias, objetivos
   ];
 
   const slides = [
-    { t: 'Una secuencia, un objetivo', d: 'Cuando una secuencia intenta hacer dos cosas a la vez, no logra ninguna. Elige qué buscas acá y el resto viene después.' },
+    { t: 'Una secuencia, un objetivo', d: 'Cuando una secuencia intenta hacer dos cosas a la vez, no logra ninguna. Elige qué buscas aquí y el resto viene después.' },
     { t: 'Nada sale sin tu aprobación', d: 'Se arma todo aquí, lo pruebas en tu teléfono y se activa solo cuando lo indiques.' },
   ];
 

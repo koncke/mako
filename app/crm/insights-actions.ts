@@ -30,7 +30,7 @@ export async function analizarLlamadaLeadAction(leadId: number): Promise<Analiza
   try {
     const r = await analizarLlamadasDeLead(leadId);
     if (r.encontradas === 0 && r.relinkeadas === 0) {
-      return { ok: false, motivo: 'No encontré la llamada en Fathom ni en Closing Analyst. Revisá que el link de Fathom o el email del lead coincidan con la reunión.' };
+      return { ok: false, motivo: 'No encontré la llamada en Fathom ni en Closing Analyst. Revisa que el link de Fathom o el email del lead coincidan con la reunión.' };
     }
     revalidatePath(`/crm/${leadId}`);
     return { ok: true, ...r };

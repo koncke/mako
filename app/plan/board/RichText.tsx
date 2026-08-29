@@ -106,7 +106,7 @@ export function RichText({ value, onChange, placeholder, style }: {
         <button type="button" title="Lista" onMouseDown={(e) => { e.preventDefault(); cmd('insertUnorderedList'); }} style={btn}>•</button>
       </div>
       <div ref={ref} className="mako-rt" contentEditable suppressContentEditableWarning role="textbox" aria-multiline
-        data-ph={placeholder || 'Escribí acá…'}
+        data-ph={placeholder || 'Escribe aquí…'}
         onFocus={() => setFocused(true)} onBlur={commit}
         style={{ outline: 'none', border: 'none', background: 'transparent', color: 'var(--dim)', fontSize: 14, lineHeight: 1.65, fontFamily: SANS, minHeight: 24, whiteSpace: 'pre-wrap', ...style }} />
     </div>

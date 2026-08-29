@@ -270,7 +270,7 @@ export async function textoAvisoPostLlamada(input: {
   return [
     `✅ Terminó la *${reunion} con ${nombre}*${dur}.`,
     '',
-    '👉 Mirá el resumen de la llamada:',
+    '👉 Mira el resumen de la llamada:',
     linkResumenLead(leadId),
     '',
     '— MaKo',
@@ -295,9 +295,9 @@ export async function textoAvisoPreLlamada(input: {
   const cuanto = minutos >= 60 ? `${Math.round(minutos / 60)} h` : `${minutos} min`;
   const quien = lead.empresa ? `*${lead.nombre}* (${lead.empresa})` : `*${lead.nombre}*`;
   return [
-    `⏰ En ${cuanto} tenés la *${cual}* con ${quien}.`,
+    `⏰ En ${cuanto} tienes la *${cual}* con ${quien}.`,
     '',
-    '👉 Mirá el resumen del lead:',
+    '👉 Mira el resumen del lead:',
     linkResumenLead(leadId),
     '',
     '— MaKo',

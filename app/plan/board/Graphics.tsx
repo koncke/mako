@@ -114,7 +114,7 @@ export function GraphicsView({ board }: { board: Board }) {
           </Card>
         </Section>
 
-        <Section titulo="¿Sos disciplinado con los tiempos?" sub="El espejo de tus hábitos de ejecución. Se llena a medida que usás el board.">
+        <Section titulo="¿Eres disciplinado con los tiempos?" sub="El espejo de tus hábitos de ejecución. Se llena a medida que usas el board.">
           <Card titulo="Cumplimiento de deadlines" sub="De lo terminado con fecha: a tiempo vs tarde">
             <Cumplimiento data={m.conDeadline} />
           </Card>
@@ -222,7 +222,7 @@ function Matriz({ proyectos }: { proyectos: { l: Label; total: number }[] }) {
         ))}
       </div>
       <div style={{ marginTop: 8, minHeight: 20, fontSize: 12.5, color: hovP ? 'var(--ink)' : 'var(--faint)' }}>
-        {hovP ? <span>{hovP.l.emoji} <b style={{ fontWeight: 600 }}>{hovP.l.name}</b> — impacto {hovP.l.impacto}, esfuerzo {hovP.l.esfuerzo}, {hovP.total} tareas</span> : 'Pasá el cursor por una burbuja para ver el proyecto.'}
+        {hovP ? <span>{hovP.l.emoji} <b style={{ fontWeight: 600 }}>{hovP.l.name}</b> — impacto {hovP.l.impacto}, esfuerzo {hovP.l.esfuerzo}, {hovP.total} tareas</span> : 'Pasa el cursor por una burbuja para ver el proyecto.'}
       </div>
     </div>
   );
@@ -284,7 +284,7 @@ function Cumplimiento({ data }: { data: { aTiempo: boolean; dias: number }[] }) 
 }
 
 function CycleTime({ ciclos }: { ciclos: { dias: number; prio: Prio }[] }) {
-  if (!ciclos.length) return <Vacio msg="Todavía sin datos. Se llena cuando cierres tareas que empezaste acá (crear → completar)." icon="🔄" />;
+  if (!ciclos.length) return <Vacio msg="Todavía sin datos. Se llena cuando cierres tareas que empezaste aquí (crear → completar)." icon="🔄" />;
   const orden: Prio[] = ['alta', 'media', 'baja', 'futuro'];
   const prom = (p: Prio) => { const g = ciclos.filter((c) => c.prio === p); return g.length ? Math.round(g.reduce((s, c) => s + c.dias, 0) / g.length) : null; };
   const max = Math.max(1, ...orden.map((p) => prom(p) ?? 0));

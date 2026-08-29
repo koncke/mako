@@ -31,7 +31,7 @@ import { DetalleCliente } from './DetalleCliente';
 type Emitido = { url: string; nombre: string };
 
 const GRUPOS: { cancha: Cancha; titulo: string; sub: string }[] = [
-  { cancha: 'tuya', titulo: 'Te toca a vos', sub: 'Están frenados esperándote' },
+  { cancha: 'tuya', titulo: 'Te toca a ti', sub: 'Están frenados esperándote' },
   { cancha: 'suya', titulo: 'Le toca a él', sub: 'La pelota está de su lado' },
   { cancha: 'al-dia', titulo: 'Al día', sub: 'Sin nada pendiente' },
 ];
@@ -170,7 +170,7 @@ export function ClientesApp({ clientes, totalClases, whopConectado }: {
           </p>
           <div className="cl-token">{emitido.url}</div>
           <p style={{ margin: '12px 0 18px', lineHeight: 1.5, color: 'var(--dim)' }}>
-            <b>Copialo ahora.</b> No se puede volver a ver: de esto solo guardamos una huella,
+            <b>Cópialo ahora.</b> No se puede volver a ver: de esto solo guardamos una huella,
             así que si se pierde hay que emitir uno nuevo y el anterior deja de andar.
           </p>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>

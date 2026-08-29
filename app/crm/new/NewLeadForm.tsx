@@ -26,7 +26,7 @@ export function NewLeadForm() {
         const telefono = String(fd.get('telefono') ?? '').trim();
         if (!email && !telefono) {
           e.preventDefault();
-          setErr('Cargá al menos un email o un teléfono: sin eso el lead es incontactable.');
+          setErr('Carga al menos un email o un teléfono: sin eso el lead es incontactable.');
         } else {
           setErr(null);
         }
@@ -46,7 +46,7 @@ export function NewLeadForm() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
         <Field label="Fecha de agendamiento"><input type="date" name="fecha_agenda" style={field} /></Field>
-        <Field label="Fecha de Reunión 1 (si ya la tenés)"><input type="date" name="fecha_junta_1" style={field} /></Field>
+        <Field label="Fecha de Reunión 1 (si ya la tienes)"><input type="date" name="fecha_junta_1" style={field} /></Field>
       </div>
 
       {err && (

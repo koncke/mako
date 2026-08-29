@@ -95,7 +95,7 @@ export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
         {flash && <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--good)' }}>{flash}</span>}
       </div>
 
-      <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.5 }}>Usá un número <b>exclusivo</b> para MaKo (no tu personal).</div>
+      <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.5 }}>Usa un número <b>exclusivo</b> para MaKo (no tu personal).</div>
     </div>
   );
 }

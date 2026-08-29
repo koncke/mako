@@ -49,8 +49,8 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
       <div style={{ width: '100%', maxWidth: 560, background: 'var(--surface, #fff)', border: '1px solid var(--border, #e5e7eb)', borderRadius: 16, padding: 24, color: 'var(--ink, #12151b)' }}>
         <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Esta pantalla se rompió al dibujarse</div>
         <p style={{ fontSize: 14, lineHeight: 1.55, color: 'var(--dim, #5b6472)', margin: '0 0 16px' }}>
-          Tus datos están a salvo: lo que falló es el dibujo de esta pantalla en este dispositivo, no lo que tenés guardado.
-          Probá de nuevo, y si vuelve a pasar, copiá el detalle y mandáselo a quien te dio el acceso.
+          Tus datos están a salvo: lo que falló es el dibujo de esta pantalla en este dispositivo, no lo que tienes guardado.
+          Prueba de nuevo, y si vuelve a pasar, copia el detalle y envíaselo a quien te dio el acceso.
         </p>
         <pre style={{ margin: '0 0 16px', padding: '12px 14px', borderRadius: 10, background: 'var(--surface-2, #f4f5f7)', border: '1px solid var(--border, #e5e7eb)', fontSize: 12, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: "'Geist Mono', ui-monospace, monospace" }}>{detalle}</pre>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>

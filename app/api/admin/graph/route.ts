@@ -21,7 +21,7 @@ export const dynamic = 'force-dynamic';
 const NOT_FOUND = `<!doctype html><html><head><meta charset="utf-8"><meta name="color-scheme" content="light dark"></head>
 <body style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;margin:0;padding:44px;color:#5B6472;background:#F4F6F9">
   <h2 style="color:#12151B;margin:0 0 10px;font-weight:600">Grafo no disponible</h2>
-  <p style="max-width:62ch;line-height:1.6">No se encontró el grafo. Regeneralo con graphify y actualizá el snapshot:</p>
+  <p style="max-width:62ch;line-height:1.6">No se encontró el grafo. Regenéralo con graphify y actualiza el snapshot:</p>
   <pre style="background:#fff;border:1px solid #EAECF1;border-radius:10px;padding:14px 16px;font-size:13px;overflow:auto">graphify update .
 graphify cluster-only . --no-label
 copy graphify-out\\graph.html app\\api\\admin\\graph\\graph.html</pre>

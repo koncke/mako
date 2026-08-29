@@ -48,9 +48,9 @@ export function MakoProyectoModal({ proj, onApply, onClose }: {
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
         <div style={{ padding: '26px 26px 10px' }}>
           {fase === 'generando'
-            ? <div style={{ padding: '34px 0', textAlign: 'center', color: 'var(--dim)', fontSize: 14 }}><GuardianIcon size={44} /><div style={{ marginTop: 12 }}>MaKo está mejorando el proyecto…</div></div>
+            ? <div style={{ padding: '34px 0', textAlign: 'center', color: 'var(--dim)', fontSize: 14 }}><div style={{ display: 'flex', justifyContent: 'center' }}><GuardianIcon size={44} /></div><div style={{ marginTop: 12 }}>MaKo está mejorando el proyecto…</div></div>
             : <>
-                <div style={{ textAlign: 'center', marginBottom: 14 }}><GuardianIcon size={44} /><div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 8, fontFamily: MONO }}>propuesto por MaKo · editá lo que quieras</div></div>
+                <div style={{ textAlign: 'center', marginBottom: 14 }}><div style={{ display: 'flex', justifyContent: 'center' }}><GuardianIcon size={44} /></div><div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 8, fontFamily: MONO }}>propuesto por MaKo · editá lo que quieras</div></div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                   <EmojiPickerMini value={emoji} onPick={setEmoji} />
                   <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre del proyecto" style={{ ...inputStyle, maxWidth: 320, textAlign: 'center', fontWeight: 600 }} />

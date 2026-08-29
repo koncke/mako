@@ -144,7 +144,7 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
       value={currentStage}
       align="right"
       width={250}
-      ariaLabel="Etapa del lead (elegí otra para mover)"
+      ariaLabel="Etapa del lead (elige otra para mover)"
       onChange={(key) => { if (key && key !== currentStage) setMoveTo(key); }}
       columns={[
         [{ title: 'Pipeline', options: deBanda('pipeline') }, { title: 'Salida', options: deBanda('salidas') }],
@@ -192,7 +192,7 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
           en edición el EditLeadForm muestra su propio banner). */}
       {!editing && faltantes.length > 0 && (
         <div style={{ marginBottom: 18 }}>
-          <DatosSinMarcarCard faltantes={faltantes} onSolucionar={solucionar} nota="Completá estos datos para tener la ficha al día." ignorado={ignorado} onReactivar={reactivar} />
+          <DatosSinMarcarCard faltantes={faltantes} onSolucionar={solucionar} nota="Completa estos datos para tener la ficha al día." ignorado={ignorado} onReactivar={reactivar} />
         </div>
       )}
       {editing ? (

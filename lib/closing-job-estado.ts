@@ -41,7 +41,7 @@ const venció = (fila: FilaJob, ahoraMs: number) =>
 export function estadoAPintar(fila: FilaJob | null, ahoraMs: number): ClosingJob | null {
   if (!fila) return null;
   if (venció(fila, ahoraMs)) {
-    return { estado: 'error', detalle: 'El análisis se cortó por el camino. Probá de nuevo.', startedAt: fila.started_at, finishedAt: null };
+    return { estado: 'error', detalle: 'El análisis se cortó por el camino. Prueba de nuevo.', startedAt: fila.started_at, finishedAt: null };
   }
   const estado: EstadoJob = fila.estado === 'corriendo' || fila.estado === 'listo' ? fila.estado : 'error';
   return { estado, detalle: fila.detalle, startedAt: fila.started_at, finishedAt: fila.finished_at };
@@ -96,5 +96,5 @@ export function resumenDeCorrida(r: Corrida): { estado: 'listo' | 'error'; detal
     // que a los 60 minutos no existen.
     return { estado: 'error', detalle: `Encontré la grabación pero no pude analizarla: ${r.error ?? 'falló el análisis'}` };
   }
-  return { estado: 'error', detalle: 'No encontré esa llamada en Fathom. Revisá que el link de la grabación o el email del lead coincidan con la reunión.' };
+  return { estado: 'error', detalle: 'No encontré esa llamada en Fathom. Revisa que el link de la grabación o el email del lead coincidan con la reunión.' };
 }

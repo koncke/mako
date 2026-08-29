@@ -407,7 +407,7 @@ export async function enviarBroadcast(id: number): Promise<ResultadoBroadcast> {
   // rechazaría a terceros). No marcamos enviado.
   const emailOn = await envioEmailHabilitado();
   if (emailOn && (await remitenteEsSandbox())) {
-    return vacio('remitente sandbox: verificá tu dominio de envío antes de enviar');
+    return vacio('remitente sandbox: verifica tu dominio de envío antes de enviar');
   }
 
   const todos = await leadsDeSegmento(b.segmento);

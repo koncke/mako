@@ -139,7 +139,7 @@ export function ExportarModal({ tasks, labels, titulo, onClose }: {
         <Opcion on={cuales === 'abiertas'} titulo="Las que faltan" sub="sin las que ya están terminadas" onClick={() => setCuales('abiertas')} />
         <Opcion on={cuales === 'todas'} titulo="Todas" sub="incluidas las hechas, para tener el registro" onClick={() => setCuales('todas')} />
         <Opcion on={cuales === 'altas'} titulo="Solo las prioritarias" sub="score 75 o más: lo que el Perro puso primero" onClick={() => setCuales('altas')} />
-        <Opcion on={cuales === 'mano'} titulo="Las elijo a mano" sub="te muestro la lista y marcás las que quieras" onClick={() => { setCuales('mano'); if (!aMano.size) setAMano(new Set(enProyecto.filter((t) => t.progress < 100).map((t) => t.id))); }} />
+        <Opcion on={cuales === 'mano'} titulo="Las elijo a mano" sub="te muestro la lista y marcas las que quieras" onClick={() => { setCuales('mano'); if (!aMano.size) setAMano(new Set(enProyecto.filter((t) => t.progress < 100).map((t) => t.id))); }} />
       </div>
     );
 
@@ -186,10 +186,10 @@ export function ExportarModal({ tasks, labels, titulo, onClose }: {
     );
   };
 
-  const pregunta = actual === 'que' ? '¿Qué querés descargar?'
+  const pregunta = actual === 'que' ? '¿Qué quieres descargar?'
     : actual === 'proyectos' ? '¿De qué proyectos?'
       : actual === 'cuales' ? '¿Qué tareas?'
-        : actual === 'mano' ? '¿Cuáles te llevás?'
+        : actual === 'mano' ? '¿Cuáles te llevas?'
           : actual === 'campos' ? '¿Qué datos lleva cada fila?'
             : '¿En qué formato?';
   const sub = actual === 'campos' ? 'El número, el título, el proyecto y el estado van siempre. Esto es lo demás.'

@@ -35,7 +35,7 @@ const VARS_DISPONIBLES = VARIABLES_LEAD.map((v) => `{{${v.key}}} (${v.descripcio
 // Esqueleto editable del system. {{metaRules}} = reglas de Meta · {{rubric}} =
 // rúbrica de riesgo · {{vars}} = variables del lead que la app sabe rellenar.
 // (Esos tres bloques son a su vez editables como prompts propios; se inyectan acá.)
-export const TEMPLATE_VALIDATOR_SYSTEM_TEMPLATE = `Sos un auditor de plantillas de mensaje de WhatsApp que PREDICE si Meta las va a APROBAR o RECHAZAR. No sos copywriter: evaluás contra las políticas antiabuso de Meta. Aplicá la rúbrica al pie de la letra.
+export const TEMPLATE_VALIDATOR_SYSTEM_TEMPLATE = `Eres un auditor de plantillas de mensaje de WhatsApp que PREDICE si Meta las va a APROBAR o RECHAZAR. No eres copywriter: evalúas contra las políticas antiabuso de Meta. Aplica la rúbrica al pie de la letra.
 
 {{metaRules}}
 
@@ -62,7 +62,7 @@ Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin texto antes ni después, sin
 }
 Reglas de salida:
 - Si hay al menos un bloqueante, riesgo = "ALTO".
-- "propuesta" es la plantilla YA corregida aplicando todas tus correcciones (mantené el sentido del mensaje y usá solo variables válidas). Si la plantilla ya está perfecta (riesgo BAJO y sin hallazgos), devolvé "propuesta": null.
+- "propuesta" es la plantilla YA corregida aplicando todas tus correcciones (mantén el sentido del mensaje y usa solo variables válidas). Si la plantilla ya está perfecta (riesgo BAJO y sin hallazgos), devuelve "propuesta": null.
 - En "propuesta.body" no empieces ni termines con variable, y rodeá cada variable de texto fijo.
 - Sé concreto y breve en cada problema/corrección.`;
 
@@ -108,7 +108,7 @@ function parseResult(raw: string): ValidacionResult {
   return {
     riesgo: 'MEDIO',
     categoria_sugerida: 'marketing',
-    hallazgos: [{ regla: '', problema: 'No se pudo validar automáticamente (respuesta no interpretable).', correccion: 'Revisá manualmente contra las reglas de Meta o reintentá.' }],
+    hallazgos: [{ regla: '', problema: 'No se pudo validar automáticamente (respuesta no interpretable).', correccion: 'Revisa manualmente contra las reglas de Meta o reintenta.' }],
     propuesta: null,
   };
 }

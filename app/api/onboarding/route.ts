@@ -219,7 +219,7 @@ export async function POST(req: NextRequest) {
       // antes de guardarla (una key rota no sirve de nada más adelante).
       case 'gemini': {
         const key = typeof body.geminiKey === 'string' ? body.geminiKey.trim() : '';
-        if (!key) return NextResponse.json({ ok: false, error: 'Pegá tu API key de Gemini.' }, { status: 400 });
+        if (!key) return NextResponse.json({ ok: false, error: 'Pega tu API key de Gemini.' }, { status: 400 });
         try {
           const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`, { cache: 'no-store', signal: AbortSignal.timeout(12000) });
           if (!r.ok) { const j = await r.json().catch(() => ({})); return NextResponse.json({ ok: false, error: `La key no funciona: ${j?.error?.message || `HTTP ${r.status}`}` }, { status: 400 }); }
@@ -318,7 +318,7 @@ export async function POST(req: NextRequest) {
       case 'contacto-enviar-codigo': {
         const c = body.contacto ?? {};
         const telefono = (c.telefono ?? '').trim();
-        if (!telefono) return NextResponse.json({ ok: false, error: 'Ingresá tu número de WhatsApp.' }, { status: 400 });
+        if (!telefono) return NextResponse.json({ ok: false, error: 'Ingresa tu número de WhatsApp.' }, { status: 400 });
         await setContactoReportes({
           nombre: (c.nombre ?? '').trim() || undefined,
           email: (c.email ?? '').trim() || undefined,
@@ -334,7 +334,7 @@ export async function POST(req: NextRequest) {
       // grupo de WhatsApp. Recién acá el teléfono queda dado por bueno.
       case 'contacto-verificar-codigo': {
         const codigo = (body.codigo ?? '').trim();
-        if (!codigo) return NextResponse.json({ ok: false, error: 'Ingresá el código.' }, { status: 400 });
+        if (!codigo) return NextResponse.json({ ok: false, error: 'Ingresa el código.' }, { status: 400 });
         const r = await verificarCodigoContacto(ws, codigo);
         if (!r.ok) return NextResponse.json({ ok: false, error: r.error }, { status: 422 });
         return NextResponse.json({ ok: true });
@@ -430,7 +430,7 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ ok: false, error: 'Solo la agencia puede clonar la configuración.' }, { status: 403 });
         }
         if (ws === OWNER_WS) {
-          return NextResponse.json({ ok: false, error: 'Ya estás en el workspace del dueño: entrá a un workspace de prueba.' }, { status: 400 });
+          return NextResponse.json({ ok: false, error: 'Ya estás en el workspace del dueño: entra a un workspace de prueba.' }, { status: 400 });
         }
         const { clonarConfigDelDueno } = await import('@/lib/clonar-config');
         const r = await clonarConfigDelDueno(ws);

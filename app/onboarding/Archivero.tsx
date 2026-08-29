@@ -259,7 +259,7 @@ export function Archivero({ onEstado, onListo, registro }: {
     } catch {
       // Fail-open: si el endpoint de preguntas se cae (504/red), NO trabar el paso —
       // marcamos revisado para que el Siguiente pueda avanzar igual.
-      setHuecosRevisados(true); setErr('No pude preparar las preguntas ahora; podés seguir y completarlas después.'); setVista('archivos');
+      setHuecosRevisados(true); setErr('No pude preparar las preguntas ahora; puedes seguir y completarlas después.'); setVista('archivos');
     }
     finally { setCargandoPreg(false); }
   };
@@ -294,7 +294,7 @@ export function Archivero({ onEstado, onListo, registro }: {
         // Desde "esto entendí": el footer lleva a las preguntas (o a los archivos si no faltan).
         if (vista === 'masdocs') { void seguirDesdeMasDocs(); return true; }
         // Cosas en la cola sin analizar: no avanzar (se perderían) — avisamos.
-        if (cola.length > 0 || links.length > 0) { setErr('Tenés cosas sin analizar. Tocá "Analizar" (o quitalas) antes de seguir.'); return true; }
+        if (cola.length > 0 || links.length > 0) { setErr('Tienes cosas sin analizar. Toca "Analizar" (o quítalas) antes de seguir.'); return true; }
         // Con huecos sin revisar (desde la vista de archivos): abrimos las preguntas.
         if (est && est.gaps.length > 0 && !huecosRevisados) { void seguirDesdeMasDocs(); return true; }
         return false;
@@ -406,7 +406,7 @@ export function Archivero({ onEstado, onListo, registro }: {
                 <div style={{ width: 42, height: 42, borderRadius: 999, background: 'var(--good-bg)', color: 'var(--good)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flex: 'none' }}>✓</div>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>Listo, ya conozco tu negocio</div>
-                  <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>Extraje {Object.keys(est.answers).length} datos clave{recibidos.length ? <> de {listarY(recibidos.map((g) => grupoWord(g.label)))}</> : ''}. Tocá <b>Siguiente</b> para revisarlos o completar lo que falte.</div>
+                  <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>Extraje {Object.keys(est.answers).length} datos clave{recibidos.length ? <> de {listarY(recibidos.map((g) => grupoWord(g.label)))}</> : ''}. Toca <b>Siguiente</b> para revisarlos o completar lo que falte.</div>
                 </div>
               </div>
             </Fade>
@@ -587,7 +587,7 @@ export function Archivero({ onEstado, onListo, registro }: {
         <div style={{ marginTop: 22, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 18px' }}>
           <div style={{ ...eyebrow, marginBottom: 8 }}>¿Qué debes cargar?</div>
           <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6, marginBottom: 13 }}>
-            En todo este tiempo emprendiendo seguro ya escribiste un montón sobre tu negocio: tu oferta, a quién le vendes, tus guiones, tu web. Tira acá <b>todo eso</b> — MaKo lo lee y te arma tu perfil, después lo revisas y corriges. Cuanto más le des, mejor te conoce.
+            En todo este tiempo emprendiendo seguro ya escribiste un montón sobre tu negocio: tu oferta, a quién le vendes, tus guiones, tu web. Tira aquí <b>todo eso</b> — MaKo lo lee y te arma tu perfil, después lo revisas y corriges. Cuanto más le des, mejor te conoce.
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 9 }}>
             {([

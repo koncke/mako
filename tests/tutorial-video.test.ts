@@ -32,7 +32,7 @@ test('El mensaje trae el link, el canal y el año', () => {
 test('Sin resultados no se inventa nada', () => {
   const t = textoTutorial([], 'algo rarísimo');
   assert.ok(!/youtu/.test(t), 'devolvió un link cuando no encontró nada');
-  assert.match(t, /contame|decime/i, 'no ofrece la salida de seguir por chat');
+  assert.match(t, /cont[aá]me|dec[ií]me|cu[eé]ntame|d[ií]me/i, 'no ofrece la salida de seguir por chat');
 });
 
 test('El link lo manda el CÓDIGO, no el modelo', () => {

@@ -112,7 +112,7 @@ function estaCerrada(c: Campo): boolean {
 // estados: lo único que cambia es el color del punto y el texto de adentro.
 function semaforo(c: Campo, tipeado: boolean): { color: string; texto: string; placeholder: string } {
   if (tipeado) return { color: 'var(--primary)', texto: 'sin guardar', placeholder: '' };
-  if (c.ilegible) return { color: 'var(--bad)', texto: 'ilegible', placeholder: 'Volvé a pegarla' };
+  if (c.ilegible) return { color: 'var(--bad)', texto: 'ilegible', placeholder: 'Vuelve a pegarla' };
   if (c.configurado) return { color: 'var(--good)', texto: 'guardada', placeholder: `••••${c.mask}` };
   if (c.opcional) return { color: 'var(--faint)', texto: 'opcional', placeholder: 'Opcional' };
   return { color: 'var(--warn-fill)', texto: 'pendiente', placeholder: 'Pendiente' };
@@ -270,7 +270,7 @@ function AvisoSeguridad({ abierto, onToggle }: { abierto: boolean; onToggle: () 
         </li>
         <li style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>
           <span style={b}>Son tuyas y solo tuyas.</span> Cada espacio de trabajo tiene su propia fila cifrada,
-          aislada del resto, y puedes borrarlas cuando quieras desde acá.
+          aislada del resto, y puedes borrarlas cuando quieras desde aquí.
         </li>
       </ul>
       )}
@@ -379,9 +379,9 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
       .then((r) => r.json())
       .then((j) => {
         if (j.ok && j.servicio) aplicar(j.servicio as Servicio, n);
-        else setErrorCarga(j.error === 'solo admin' ? 'Necesitás ser admin para configurar esta integración.' : (j.error ?? 'No se pudo cargar el estado.'));
+        else setErrorCarga(j.error === 'solo admin' ? 'Necesitas ser admin para configurar esta integración.' : (j.error ?? 'No se pudo cargar el estado.'));
       })
-      .catch(() => setErrorCarga('No se pudo cargar. Revisá tu conexión y probá de nuevo.'))
+      .catch(() => setErrorCarga('No se pudo cargar. Revisa tu conexión y prueba de nuevo.'))
       .finally(() => setCargando(false));
   };
 
@@ -464,7 +464,7 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
         setRevelado((r) => ({ ...r, [env]: j.valor as string }));
         timers.current[env] = setTimeout(() => ocultar(env), OCULTAR_MS);
       } else ponerMsg(env, { ok: false, text: j.error ?? 'No se pudo mostrar la credencial.' });
-    } catch { ponerMsg(env, { ok: false, text: 'No se pudo mostrar la credencial. Probá de nuevo.' }); }
+    } catch { ponerMsg(env, { ok: false, text: 'No se pudo mostrar la credencial. Prueba de nuevo.' }); }
     finally { setRevelando(null); }
   };
 
@@ -485,7 +485,7 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
       }).then((r) => r.json());
       ponerMsg(env, j.ok ? { ok: true, text: j.detalle ?? 'Conexión OK.' } : { ok: false, text: j.error ?? 'No se pudo verificar.' });
       if (j.ok && Array.isArray(j.facts) && j.facts.length) onFacts?.(j.facts);
-    } catch { ponerMsg(env, { ok: false, text: 'No se pudo verificar. Probá de nuevo.' }); }
+    } catch { ponerMsg(env, { ok: false, text: 'No se pudo verificar. Prueba de nuevo.' }); }
     finally { setProbando(null); }
   };
 
@@ -516,7 +516,7 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
       const secretoGuardado = servicio.campos.some((c) => c.secreto && !enviados[c.env] && c.configurado);
       const motivoSinProbar = faltan.length
         ? `Falta ${faltan.map((c) => c.label).join(', ')} para poder probarla.`
-        : (hostTipeado && secretoGuardado ? 'Para probarla con una URL nueva, volvé a pegar también las credenciales secretas.' : null);
+        : (hostTipeado && secretoGuardado ? 'Para probarla con una URL nueva, vuelve a pegar también las credenciales secretas.' : null);
 
       if (!motivoSinProbar) {
         const p = await fetch('/api/integraciones/credencial', {
@@ -544,7 +544,7 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
         if (servicio.key === 'github' && env === servicio.campos[0]?.env) { setAutoRepo((n) => n + 1); return; }
         ponerMsg(env, { ok: true, text: motivoSinProbar ? `Guardada. ${motivoSinProbar}` : 'Guardada y probada — funciona.' });
       } else ponerMsg(env, { ok: false, text: j.error ?? 'No se pudo guardar.' });
-    } catch { ponerMsg(env, { ok: false, text: 'No se pudo guardar. Probá de nuevo.' }); }
+    } catch { ponerMsg(env, { ok: false, text: 'No se pudo guardar. Prueba de nuevo.' }); }
     finally { setGuardando(null); }
   };
 
@@ -571,7 +571,7 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
       // Un permiso que falta es lo ÚNICO que el cliente tiene que ir a arreglar a
       // Meta, así que se nombra con su nombre exacto en vez de un error genérico.
       const faltan = Array.isArray(j.faltanScopes) ? (j.faltanScopes as string[]) : [];
-      if (faltan.length) avisos.unshift(`A tu token le faltan permisos (${faltan.join(', ')}). Volvé a generarlo marcándolos y pegalo de nuevo.`);
+      if (faltan.length) avisos.unshift(`A tu token le faltan permisos (${faltan.join(', ')}). Vuelve a generarlo marcándolos y pégalo de nuevo.`);
       setAvisosMeta(avisos);
       if (mostrarMsgEn) {
         const guardadas = Array.isArray(j.guardadas) ? j.guardadas.length : 0;
@@ -579,11 +579,11 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
           ok: true,
           text: guardadas
             ? `Guardada. Completé ${guardadas} campo${guardadas === 1 ? '' : 's'} solo${guardadas === 1 ? '' : 's'} desde tu cuenta de Meta.`
-            : 'Guardada. Revisá los avisos de abajo para que pueda completar el resto.',
+            : 'Guardada. Revisa los avisos de abajo para que pueda completar el resto.',
         });
       }
     } catch {
-      if (mostrarMsgEn) ponerMsg(mostrarMsgEn, { ok: false, text: 'Guardada, pero no pude leer tu cuenta de Meta. Probá "Buscar mis datos".' });
+      if (mostrarMsgEn) ponerMsg(mostrarMsgEn, { ok: false, text: 'Guardada, pero no pude leer tu cuenta de Meta. Prueba "Buscar mis datos".' });
     } finally { setDescubriendo(false); }
   };
 
@@ -606,7 +606,7 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
         pixeles: tipo === 'pixel' ? [] : ((j.opciones as OpcionesMeta | undefined)?.pixeles ?? o.pixeles),
       }));
       setAvisosMeta(Array.isArray(j.avisos) ? (j.avisos as string[]) : []);
-    } catch { setAvisosMeta(['No se pudo guardar tu elección. Probá de nuevo.']); }
+    } catch { setAvisosMeta(['No se pudo guardar tu elección. Prueba de nuevo.']); }
     finally { setEligiendo(null); }
   };
 
@@ -622,7 +622,7 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
         setValores((v) => { const nv = { ...v }; delete nv[env]; return nv; });
         cargar();
       } else ponerMsg(env, { ok: false, text: j.error ?? 'No se pudo quitar.' });
-    } catch { ponerMsg(env, { ok: false, text: 'No se pudo quitar. Probá de nuevo.' }); }
+    } catch { ponerMsg(env, { ok: false, text: 'No se pudo quitar. Prueba de nuevo.' }); }
     finally { setQuitando(null); }
   };
 
@@ -743,7 +743,7 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
                   <span>{m.text}</span>
                 </div>
               )}
-              {c.ilegible && <div style={{ fontSize: 12, color: 'var(--warn)', marginTop: 6, lineHeight: 1.45 }}>Guardada pero ilegible (rotó la clave de cifrado) — volvé a pegarla.</div>}
+              {c.ilegible && <div style={{ fontSize: 12, color: 'var(--warn)', marginTop: 6, lineHeight: 1.45 }}>Guardada pero ilegible (rotó la clave de cifrado) — vuelve a pegarla.</div>}
 
               {/* La nota del catálogo dice qué es ESTE campo y de dónde sale ("Lo
                   completa MaKo", "Con el prefijo act_"). Solo mientras está por
@@ -858,7 +858,7 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
             <>
               {hayQueElegir && (
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
-                  Tenés más de una: elegí cuál usamos.
+                  Tienes más de una: elige cuál usamos.
                 </div>
               )}
               {opciones.cuentas.length > 0 && (
@@ -952,7 +952,7 @@ function Elegir({ etiqueta, opciones, cargando, onElegir }: {
         onChange={(v) => { setSel(v); onElegir(v); }}
         width="100%"
         disabled={cargando}
-        placeholder={cargando ? 'Guardando…' : `Elegí tu ${etiqueta.toLowerCase()}`}
+        placeholder={cargando ? 'Guardando…' : `Elige tu ${etiqueta.toLowerCase()}`}
         options={opciones}
       />
     </div>

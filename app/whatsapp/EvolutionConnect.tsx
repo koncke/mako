@@ -23,11 +23,11 @@ type WhEstado = 'ok' | 'sin_secret' | 'secret_prod' | 'no_registrado' | 'url_dis
 // de ENV (sin_secret/secret_prod/url_distinta) son configuración de despliegue de
 // la plataforma: los resuelve el equipo técnico, no el botón "reparar".
 const MIRROR_MSG: Record<Exclude<WhEstado, 'ok'>, string> = {
-  sin_secret: 'Falta el secret del webhook de Evolution en la configuración de la plataforma. Sin eso los mensajes no llegan a la app — avisá al equipo técnico.',
-  secret_prod: 'La app en producción rechaza el secret del webhook: la configuración de la plataforma quedó desalineada. Avisá al equipo técnico y después tocá «Reparar espejo».',
-  url_distinta: 'La app no responde donde debería: la dirección configurada en la plataforma no es la real. Avisá al equipo técnico.',
-  no_registrado: 'El webhook no está activado en este número, por eso no aparecen los chats. Tocá «Reparar espejo» para activarlo.',
-  error: 'No pude verificar el espejo ahora (Evolution no respondió). Probá «Reparar espejo».',
+  sin_secret: 'Falta el secret del webhook de Evolution en la configuración de la plataforma. Sin eso los mensajes no llegan a la app — avisa al equipo técnico.',
+  secret_prod: 'La app en producción rechaza el secret del webhook: la configuración de la plataforma quedó desalineada. Avisa al equipo técnico y después toca «Reparar espejo».',
+  url_distinta: 'La app no responde donde debería: la dirección configurada en la plataforma no es la real. Avisa al equipo técnico.',
+  no_registrado: 'El webhook no está activado en este número, por eso no aparecen los chats. Toca «Reparar espejo» para activarlo.',
+  error: 'No pude verificar el espejo ahora (Evolution no respondió). Prueba «Reparar espejo».',
 };
 // Solo estos estados los arregla el botón (los de env los corrige el equipo técnico).
 const REPARABLE: WhEstado[] = ['no_registrado', 'error'];
@@ -148,12 +148,12 @@ export function EvolutionConnect() {
   }
 
   async function borrarChats() {
-    if (!(await confirm('¿Borrar TODOS los chats guardados del WhatsApp no oficial? Empezás de 0. (No afecta tu WhatsApp; solo el espejo guardado en la app.)'))) return;
+    if (!(await confirm('¿Borrar TODOS los chats guardados del WhatsApp no oficial? Empiezas de 0. (No afecta tu WhatsApp; solo el espejo guardado en la app.)'))) return;
     setBorrando(true); setSyncMsg(null); setErr(null);
     try {
       const { body } = await apiPost<{ ok: boolean; borrados?: number; error?: string }>('/api/whatsapp/evolution', { action: 'borrar-chats' });
       if (!body.ok) throw new Error(body.error || 'No se pudo borrar');
-      setSyncMsg(`Listo: se borraron ${body.borrados ?? 0} mensajes guardados. Empezás de 0.`);
+      setSyncMsg(`Listo: se borraron ${body.borrados ?? 0} mensajes guardados. Empiezas de 0.`);
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
     finally { setBorrando(false); }
   }
@@ -224,8 +224,8 @@ export function EvolutionConnect() {
                 {/* Recién conectó → preguntar si querés traer las conversaciones. */}
                 {pedirSync && (
                   <div style={{ marginTop: '14px', padding: '13px', borderRadius: '10px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', textAlign: 'left' }}>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)' }}>¿Traés tus conversaciones ahora?</div>
-                    <div style={{ fontSize: '12px', color: 'var(--dim)', lineHeight: 1.45, marginTop: '3px' }}>Podés sincronizar los chats que ya tenés en este número, o empezar limpio y que se vayan sumando a medida que escribís/recibís.</div>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)' }}>¿Traes tus conversaciones ahora?</div>
+                    <div style={{ fontSize: '12px', color: 'var(--dim)', lineHeight: 1.45, marginTop: '3px' }}>Puedes sincronizar los chats que ya tienes en este número, o empezar limpio y que se vayan sumando a medida que escribes/recibes.</div>
                     <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                       <button onClick={() => { setPedirSync(false); void sincronizar(); }} disabled={sincronizando} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 13px', borderRadius: '9px', border: 'none', background: 'var(--ink)', color: 'var(--on-ink)', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', opacity: sincronizando ? 0.6 : 1 }}>{sincronizando ? 'Sincronizando…' : <><IconRefresh size={14} /> Sí, sincronizar</>}</button>
                       <button onClick={() => setPedirSync(false)} style={{ padding: '8px 13px', borderRadius: '9px', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' }}>No, empezar limpio</button>
@@ -249,7 +249,7 @@ export function EvolutionConnect() {
                     A PEDIDO (el inbox no vuelca la agenda entera solo). */}
                 <div style={{ marginTop: '16px', padding: '11px 13px', borderRadius: '10px', border: '1px solid var(--border)', background: 'var(--surface-2)', textAlign: 'left' }}>
                   <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--ink)' }}>Sincronizar conversaciones</div>
-                  <div style={{ fontSize: '12px', color: 'var(--dim)', lineHeight: 1.45, marginTop: '3px' }}>Trae al inbox los chats que ya tenés en este número. El inbox no baja toda la agenda solo — solo lo que sincronizás o lo que entra/sale desde acá.</div>
+                  <div style={{ fontSize: '12px', color: 'var(--dim)', lineHeight: 1.45, marginTop: '3px' }}>Trae al inbox los chats que ya tienes en este número. El inbox no baja toda la agenda solo — solo lo que sincronizas o lo que entra/sale desde aquí.</div>
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
                     <button onClick={() => void sincronizar()} disabled={sincronizando} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 13px', borderRadius: '9px', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', opacity: sincronizando ? 0.6 : 1 }}>{sincronizando ? 'Sincronizando…' : <><IconRefresh size={14} /> Sincronizar todo</>}</button>
                     <button onClick={() => void borrarChats()} disabled={borrando} title="Borra TODAS las conversaciones guardadas del inbox (no toca tu WhatsApp)" style={{ padding: '7px 13px', borderRadius: '9px', border: '1px solid var(--bad)', background: 'var(--surface)', color: 'var(--bad)', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', opacity: borrando ? 0.6 : 1 }}>{borrando ? 'Borrando…' : 'Borrar todo el historial'}</button>

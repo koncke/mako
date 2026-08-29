@@ -259,7 +259,7 @@ export async function transcribeMediaBuffer(
 ): Promise<UploadTranscribeResult> {
   const buf = Buffer.from(bytes);
   if (buf.length > MAX_BYTES) {
-    return { status: 'muy_grande', transcript: null, idioma: null, duracion_s: null, model: null, error: `${(buf.length / 1048576).toFixed(1)} MB > 25 MB (límite de OpenAI). Subí solo el audio o recortá el video.` };
+    return { status: 'muy_grande', transcript: null, idioma: null, duracion_s: null, model: null, error: `${(buf.length / 1048576).toFixed(1)} MB > 25 MB (límite de OpenAI). Sube solo el audio o recorta el video.` };
   }
   await asegurarCreds();
 

@@ -138,16 +138,16 @@ export async function contextoParaAgente(): Promise<string> {
     '# Tu negocio, según MaKo',
     '',
     vacio
-      ? 'Todavía no hay contexto cargado. El cliente lo construye completando el onboarding en MaKo; hasta entonces, preguntale a él lo que necesites en vez de suponerlo.'
-      : 'Esto es lo que MaKo sabe del negocio de quien te está hablando. Usalo como contexto de fondo: no hace falta que te lo vuelva a explicar.',
+      ? 'Todavía no hay contexto cargado. El cliente lo construye completando el onboarding en MaKo; hasta entonces, pregúntale a él lo que necesites en vez de suponerlo.'
+      : 'Esto es lo que MaKo sabe del negocio de quien te está hablando. Úsalo como contexto de fondo: no hace falta que te lo vuelva a explicar.',
     '',
   ].join('\n');
 
   const pie = [
     '',
-    '## Si necesitás más',
+    '## Si necesitas más',
     '',
-    'Estas secciones NO vienen acá porque son grandes y casi nunca hacen falta. Pedilas solo cuando el trabajo las requiera:',
+    'Estas secciones NO vienen aquí porque son grandes y casi nunca hacen falta. Pídelas solo cuando el trabajo las requiera:',
     '',
     ...SECCIONES.map((s) => `- \`GET /api/agente/contexto?seccion=${s}\``),
     '',

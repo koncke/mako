@@ -47,6 +47,6 @@ export function avisoInvitacion(inv: ResultadoInvitacion | null | undefined, ema
   // mensaje, y quien está mirando la pantalla lo puede mandar en 10 segundos si le damos
   // el link. Un cartel rojo que no dice qué hacer convierte un trámite en un incidente.
   const porque = inv?.error ? ` (${inv.error})` : '';
-  const link = inv?.enlace ? ` Pasale este link: ${inv.enlace}` : '';
-  return { tono: 'warn', texto: `Creado, pero el mail de acceso NO salió${porque}. Avisale vos a ${e}.${link}` };
+  const link = inv?.enlace ? ` Pásale este link: ${inv.enlace}` : '';
+  return { tono: 'warn', texto: `Creado, pero el mail de acceso NO salió${porque}. Avísale tú a ${e}.${link}` };
 }

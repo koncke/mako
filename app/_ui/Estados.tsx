@@ -124,7 +124,7 @@ export function ErrorState({ titulo, detalle, onReintentar, detalleTecnico, inli
   return (
     <Marco tono="bad" ico={IcoError} inline={inline}
       titulo={titulo ?? 'No se pudo cargar'}
-      detalle={detalle ?? 'Puede ser una caída momentánea. Probá de nuevo en unos segundos.'}
+      detalle={detalle ?? 'Puede ser una caída momentánea. Prueba de nuevo en unos segundos.'}
       accion={onReintentar ? { label: 'Reintentar', onClick: onReintentar } : undefined}
       extra={detalleTecnico ? (
         <details style={{ marginTop: 10, maxWidth: '100%' }}>
@@ -238,9 +238,9 @@ export function PermissionState({ motivo = 'rol', que, accion, secundaria, inlin
   const Nombre = `${nombre[0].toUpperCase()}${nombre.slice(1)}`;
   const titulo = motivo === 'plan' ? `${Nombre} no está en tu plan`
     : motivo === 'ajeno' ? `${Nombre} no es de esta cuenta`
-    : 'No tenés acceso a esta sección';
+    : 'No tienes acceso a esta sección';
   const detalle = motivo === 'plan' ? 'Está construida y funcionando; tu plan actual no la incluye.'
-    : motivo === 'ajeno' ? 'El link que abriste es de otro negocio. Entrá con la cuenta que corresponde, o seguí con lo tuyo.'
+    : motivo === 'ajeno' ? 'El link que abriste es de otro negocio. Entra con la cuenta que corresponde, o sigue con lo tuyo.'
     : `Tu rol dentro del negocio no incluye ${nombre}. Pedíselo a quien administra la cuenta.`;
   return (
     <Marco tono="neutral" ico={IcoCandado} inline={inline}

@@ -290,7 +290,7 @@ export default async function ResumenLeadPage({ params }: { params: Promise<{ id
             sin dar dónde leerlo. Vive acá justamente para poder abrirlo: se ve
             el texto completo, y el botón lleva al lugar donde se manda. */}
         {borradorSeguimiento && (
-          <Seccion titulo="MaKo te escribió el seguimiento" nota="Todavía no se envió. Revisalo y mandalo desde el WhatsApp de MaKo.">
+          <Seccion titulo="MaKo te escribió el seguimiento" nota="Todavía no se envió. Revísalo y envíalo desde el WhatsApp de MaKo.">
             <div style={{ padding: '13px 14px', borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border)', fontSize: 15.5, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>
               {borradorSeguimiento.texto}
             </div>
@@ -309,8 +309,8 @@ export default async function ResumenLeadPage({ params }: { params: Promise<{ id
           <Seccion
             titulo={reunionPaso ? 'Todavía no analicé la llamada' : 'Todavía no hablaron'}
             nota={reunionPaso
-              ? 'La reunión ya pasó. Puedo escuchar la grabación y dejarte acá el resumen, las objeciones y el próximo paso.'
-              : 'Cuando termine la reunión, acá abajo aparece el resumen de la charla, las objeciones y el próximo paso.'}
+              ? 'La reunión ya pasó. Puedo escuchar la grabación y dejarte aquí el resumen, las objeciones y el próximo paso.'
+              : 'Cuando termine la reunión, aquí abajo aparece el resumen de la charla, las objeciones y el próximo paso.'}
           >
             {reunionPaso
               ? <AnalizarLlamada leadId={idNum} job={job} hayGrabacion={grabaciones.length > 0} />

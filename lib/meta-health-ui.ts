@@ -186,14 +186,14 @@ export function explicarIssueEs(it: Issue): { titulo: string; detalle: string } 
   // admin del portfolio SOS VOS, así que decirte "esperá" te deja el anuncio colgado
   // para siempre. Hay que mandarte a aprobarlo.
   if (esAprobacionPendiente(it))
-    return { titulo: 'Falta que lo apruebes en Meta', detalle: 'El anuncio se creó bien, pero Meta lo retiene por seguridad (“aprobación de pares”): antes de que corra, un usuario de confianza o un admin del portfolio dueño de la cuenta tiene que aprobarlo a mano. Si la cuenta es tuya, ese admin sos vos. Abrilo en Ads Manager con el botón de abajo, o buscá el mail de advertise-noreply@support.facebook.com. No se puede aprobar desde acá: Meta no lo expone por API.' };
+    return { titulo: 'Falta que lo apruebes en Meta', detalle: 'El anuncio se creó bien, pero Meta lo retiene por seguridad (“aprobación de pares”): antes de que corra, un usuario de confianza o un admin del portfolio dueño de la cuenta tiene que aprobarlo a mano. Si la cuenta es tuya, ese admin eres tú. Ábrelo en Ads Manager con el botón de abajo, o busca el mail de advertise-noreply@support.facebook.com. No se puede aprobar desde aquí: Meta no lo expone por API.' };
   if (/approv|trusted|owning business admin|really you|not running yet|legitimate|notified them/.test(t))
     return { titulo: 'Esperando aprobación del administrador', detalle: 'El anuncio se publicó y tus cambios se aplicaron, pero todavía no corre: por seguridad, Meta necesita que un administrador de la cuenta apruebe estos anuncios. Ya le avisó por email y en el Administrador de Anuncios.' };
   if (/reject|disapprov|doesn.?t comply|not comply|polic|violat|prohibited/.test(t))
-    return { titulo: 'Rechazado por las políticas de Meta', detalle: 'Meta rechazó el anuncio por sus políticas de publicidad. Revisá el texto y el creativo, editá los textos y guardá para volver a enviarlo a revisión.' };
+    return { titulo: 'Rechazado por las políticas de Meta', detalle: 'Meta rechazó el anuncio por sus políticas de publicidad. Revisa el texto y el creativo, edita los textos y guarda para volver a enviarlo a revisión.' };
   if (/in review|pending review|being reviewed|under review|in_review/.test(t))
     return { titulo: 'En revisión de Meta', detalle: 'Meta todavía está revisando el anuncio. Empieza a entregar cuando lo apruebe (normalmente en unas horas).' };
   if (/payment|billing|unsettled|funding|pay method|declined/.test(t))
     return { titulo: 'Problema de pago', detalle: 'Hay un problema de pago o facturación en la cuenta que frena la entrega. Regularizalo en el Administrador de Anuncios.' };
-  return { titulo: it.resumen || 'Problema del anuncio', detalle: it.mensaje || 'Meta marcó un problema con este anuncio. Revisalo en el Administrador de Anuncios.' };
+  return { titulo: it.resumen || 'Problema del anuncio', detalle: it.mensaje || 'Meta marcó un problema con este anuncio. Revísalo en el Administrador de Anuncios.' };
 }

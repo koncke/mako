@@ -21,7 +21,7 @@ export function ExperimentsTab({ view, refreshExp, notify, demo }: { view: Exper
     setBusyId(id);
     try {
       const j = await fetch('/api/experimentos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, id }) }).then((r) => r.json());
-      if (j.ok) { await refreshExp(); notify(action === 'cerrar' ? 'Experimento cerrado — mirá Conclusions' : action === 'iniciar' ? 'Experimento iniciado' : 'Descartado'); }
+      if (j.ok) { await refreshExp(); notify(action === 'cerrar' ? 'Experimento cerrado — mira Conclusions' : action === 'iniciar' ? 'Experimento iniciado' : 'Descartado'); }
       else notify(j.error || 'Error', 'bad');
     } catch (e) { notify(String(e), 'bad'); } finally { setBusyId(null); }
   };
@@ -30,14 +30,14 @@ export function ExperimentsTab({ view, refreshExp, notify, demo }: { view: Exper
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <p style={{ margin: 0, fontSize: 14, color: 'var(--dim)', maxWidth: 560, lineHeight: 1.55 }}>
-          Cada experimento es una hipótesis puesta a prueba contra el <b>dato real</b>. MaKo la configura; vos la seguís día a día y la cerrás con un aprendizaje.
+          Cada experimento es una hipótesis puesta a prueba contra el <b>dato real</b>. MaKo la configura; tú la sigues día a día y la cierras con un aprendizaje.
         </p>
         <button type="button" onClick={() => setModal(true)} style={btnPrimary}>+ Nuevo experimento</button>
       </div>
 
       {view.activos.length === 0 && view.propuestos.length === 0 ? (
         <Empty titulo="No hay experimentos corriendo"
-          sub="Contale a MaKo una hipótesis (“¿y si filtro más el formulario?”, “¿y si cambio el hook del VSL?”) y la convierte en una prueba medible que arranca hoy.">
+          sub="Cuéntale a MaKo una hipótesis (“¿y si filtro más el formulario?”, “¿y si cambio el hook del VSL?”) y la convierte en una prueba medible que arranca hoy.">
           <button type="button" onClick={() => setModal(true)} style={{ ...btnDark, marginTop: 6 }}>Diseñar mi primer experimento</button>
         </Empty>
       ) : (
@@ -194,8 +194,8 @@ function NuevoExperimentoModal({ onClose, refreshExp, demo }: { onClose: () => v
           {step === 'hipotesis' && (
             <div style={{ padding: '30px 30px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
               <div>
-                <h2 style={pregunta}>¿Qué querés probar?</h2>
-                <p style={ayuda}>Escribí tu hipótesis en una frase. MaKo elige la métrica, el baseline y la ventana, y la deja lista para arrancar.</p>
+                <h2 style={pregunta}>¿Qué quieres probar?</h2>
+                <p style={ayuda}>Escribe tu hipótesis en una frase. MaKo elige la métrica, el baseline y la ventana, y la deja lista para arrancar.</p>
               </div>
               <textarea value={hip} autoFocus onChange={(e) => setHip(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); diseñar(); } }}
@@ -210,7 +210,7 @@ function NuevoExperimentoModal({ onClose, refreshExp, demo }: { onClose: () => v
               {showCtx ? (
                 <div style={{ width: '100%', maxWidth: 500 }}>
                   <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 5 }}>Contexto (opcional)</div>
-                  <textarea value={ctx} onChange={(e) => setCtx(e.target.value)} rows={2} placeholder="¿Qué viste o por qué lo creés? Ayuda a MaKo a elegir mejor la métrica."
+                  <textarea value={ctx} onChange={(e) => setCtx(e.target.value)} rows={2} placeholder="¿Qué viste o por qué lo crees? Ayuda a MaKo a elegir mejor la métrica."
                     style={{ width: '100%', padding: '11px 13px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none', resize: 'vertical', lineHeight: 1.5 }} />
                 </div>
               ) : (
@@ -224,7 +224,7 @@ function NuevoExperimentoModal({ onClose, refreshExp, demo }: { onClose: () => v
           {step === 'revision' && p && (
             <div style={{ padding: '26px 30px 6px' }}>
               <h2 style={{ ...pregunta, fontSize: 22 }}>Tu experimento, listo</h2>
-              <p style={{ ...ayuda, margin: '8px auto 20px' }}>Revisá y ajustá lo que quieras. MaKo eligió la métrica y midió el baseline.</p>
+              <p style={{ ...ayuda, margin: '8px auto 20px' }}>Revisa y ajusta lo que quieras. MaKo eligió la métrica y midió el baseline.</p>
 
               <input value={p.titulo} onChange={(e) => set({ titulo: e.target.value })}
                 style={{ width: '100%', fontSize: 17, fontWeight: 600, color: 'var(--ink)', border: 'none', borderBottom: '1px dashed var(--border-strong)', background: 'transparent', fontFamily: SANS, outline: 'none', padding: '2px 0 6px' }} />
@@ -261,7 +261,7 @@ function NuevoExperimentoModal({ onClose, refreshExp, demo }: { onClose: () => v
             <div style={{ padding: '52px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, textAlign: 'center' }}>
               <div style={{ width: 58, height: 58, borderRadius: '50%', background: 'var(--good-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, color: 'var(--good)' }}>✓</div>
               <h3 style={pregunta}>Experimento en marcha</h3>
-              <p style={ayuda}>MaKo ya midió el baseline y arranca a medir contra el dato real. Lo seguís acá, en Experiments.</p>
+              <p style={ayuda}>MaKo ya midió el baseline y arranca a medir contra el dato real. Lo sigues aquí, en Experiments.</p>
               <button onClick={onClose} style={btnDark}>Listo</button>
             </div>
           )}

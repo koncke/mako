@@ -82,7 +82,7 @@ export function refDeRegla(codigo?: string | null): ReglaRef {
 // ── Motivo de rechazo de Meta (enum) → explicación en español ──
 // Guardamos el enum crudo en la DB y traducimos SOLO al renderizar (client + server).
 const MOTIVO_RECHAZO: Record<string, string> = {
-  INVALID_FORMAT: 'Formato inválido: revisá las variables (no empezar/terminar con {{ }}, ejemplos cargados, header/footer sin variables) y los límites de caracteres.',
+  INVALID_FORMAT: 'Formato inválido: revisa las variables (no empezar/terminar con {{ }}, ejemplos cargados, header/footer sin variables) y los límites de caracteres.',
   ABUSIVE_CONTENT: 'Contenido abusivo o que viola las políticas de WhatsApp.',
   SCAM: 'Meta lo marcó como posible engaño/estafa.',
   INVALID_BUTTON_FORMAT: 'Formato de botón inválido (texto, URL o tipo).',

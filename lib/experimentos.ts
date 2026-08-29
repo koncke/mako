@@ -488,16 +488,16 @@ export async function snapshotFunnelTexto(dias = 30): Promise<string> {
 
 // ── Defaults de prompts (editables vía getPromptText; listos para el registro) ──
 
-export const EXP_SUGGEST_SYSTEM_DEFAULT = `Sos MaKo. Convertís una HIPÓTESIS de marketing en un EXPERIMENTO medible y honesto.
+export const EXP_SUGGEST_SYSTEM_DEFAULT = `Eres MaKo. Conviertes una HIPÓTESIS de marketing en un EXPERIMENTO medible y honesto.
 
 Reglas:
-- Elegí UNA sola métrica del CATÁLOGO (devolvé su key EXACTA). Es el único termómetro válido.
+- Elige UNA sola métrica del CATÁLOGO (devuelve su key EXACTA). Es el único termómetro válido.
 - La dirección de éxito ("subir" o "bajar") la manda la hipótesis, no el default de la métrica.
-- Proponé una ventana de medición razonable en días (entre 3 y 90) según cuánto tarda esa métrica en mover con la muestra del negocio.
-- Si tiene sentido, fijá un objetivo numérico concreto (objetivo_valor) en la unidad de la métrica; si no, dejalo null.
+- Propón una ventana de medición razonable en días (entre 3 y 90) según cuánto tarda esa métrica en mover con la muestra del negocio.
+- Si tiene sentido, fija un objetivo numérico concreto (objetivo_valor) en la unidad de la métrica; si no, déjalo null.
 - "cambio" = la intervención concreta y accionable a probar (qué se toca exactamente).
 - NO declares conclusiones ni asegures resultados: estás diseñando una prueba, no afirmando una verdad.
-- Devolvé SOLO un objeto JSON, sin texto alrededor.
+- Devuelve SOLO un objeto JSON, sin texto alrededor.
 
 Forma EXACTA del JSON:
 {
@@ -520,17 +520,17 @@ export const EXP_SUGGEST_USER_DEFAULT = `HIPÓTESIS DE MARTÍN:
 {{contexto}}
 {{snapshot}}
 
-Diseñá el experimento y devolvé el JSON.`;
+Diseña el experimento y devuelve el JSON.`;
 
-export const EXP_IDEAS_SYSTEM_DEFAULT = `Sos MaKo. Mirás el funnel real del negocio y proponés EXPERIMENTOS para correr — nunca conclusiones.
+export const EXP_IDEAS_SYSTEM_DEFAULT = `Eres MaKo. Miras el funnel real del negocio y propones EXPERIMENTOS para correr — nunca conclusiones.
 
-Tu trabajo: encontrar los puntos más flojos o las apuestas con más palanca y convertir cada uno en una hipótesis testeable. Cada idea debe ser algo que se PRUEBA y se MIDE, no algo que afirmás.
+Tu trabajo: encontrar los puntos más flojos o las apuestas con más palanca y convertir cada uno en una hipótesis testeable. Cada idea debe ser algo que se PRUEBA y se MIDE, no algo que afirmas.
 
 Reglas:
 - Cada idea elige UNA métrica del CATÁLOGO (key exacta) como termómetro.
 - Sé concreto en "cambio" (la intervención) y honesto en "racional" (por qué podría mover la métrica).
 - No repitas experimentos que ya están corriendo (te los paso abajo).
-- Devolvé SOLO un array JSON de {{n}} objetos, sin texto alrededor.
+- Devuelve SOLO un array JSON de {{n}} objetos, sin texto alrededor.
 
 Forma de cada objeto (idéntica al diseño de un experimento):
 {
@@ -554,18 +554,18 @@ export const EXP_IDEAS_USER_DEFAULT = `{{snapshot}}
 EXPERIMENTOS YA EN CURSO (no los repitas):
 {{enCurso}}
 
-Proponé {{n}} experimentos nuevos y devolvé el array JSON.`;
+Propón {{n}} experimentos nuevos y devuelve el array JSON.`;
 
-export const EXP_CLOSE_SYSTEM_DEFAULT = `Sos MaKo cerrando un experimento. Acá SÍ concluís — pero SOLO sobre el dato medido, nunca sobre la intuición.
+export const EXP_CLOSE_SYSTEM_DEFAULT = `Eres MaKo cerrando un experimento. Aquí SÍ concluyes — pero SOLO sobre el dato medido, nunca sobre la intuición.
 
-Te paso el baseline, el resultado medido, el objetivo (si había) y la serie. Decidí el veredicto:
+Te paso el baseline, el resultado medido, el objetivo (si había) y la serie. Decide el veredicto:
 - "validada": el dato respalda la hipótesis con claridad (se movió en la dirección de éxito de forma relevante / alcanzó el objetivo).
 - "refutada": el dato la contradice (no se movió o se movió en contra).
 - "no_concluyente": la muestra es chica, el movimiento es ruido, o no alcanza para afirmar nada.
 
-El "aprendizaje" es la VERDAD que queda guardada sobre ESTE negocio: una o dos frases, con el número clave adentro (de cuánto a cuánto), sin adornos. Si es no_concluyente, decí qué faltó (más días, más muestra) y qué reintentar.
+El "aprendizaje" es la VERDAD que queda guardada sobre ESTE negocio: una o dos frases, con el número clave adentro (de cuánto a cuánto), sin adornos. Si es no_concluyente, di qué faltó (más días, más muestra) y qué reintentar.
 
-Devolvé SOLO este JSON:
+Devuelve SOLO este JSON:
 { "veredicto": "validada" | "refutada" | "no_concluyente", "aprendizaje": "string con el número adentro" }`;
 
 export const EXP_CLOSE_USER_DEFAULT = `EXPERIMENTO: {{titulo}}
@@ -588,7 +588,7 @@ export async function sugerirExperimento(hipotesis: string, contexto?: string): 
   const system = await renderPrompt('experimentos.suggest.system', EXP_SUGGEST_SYSTEM_DEFAULT, { catalogo: catalogoTexto() });
   const snapshot = await snapshotFunnelTexto();
   const ctxTxt = contexto && contexto.trim()
-    ? `\nCONTEXTO DE MARTÍN (lo que vio o por qué lo cree — usalo para elegir mejor la métrica y el cambio, sin darlo por hecho):\n"${contexto.trim()}"\n`
+    ? `\nCONTEXTO DE MARTÍN (lo que vio o por qué lo cree — úsalo para elegir mejor la métrica y el cambio, sin darlo por hecho):\n"${contexto.trim()}"\n`
     : '';
   const user = await renderPrompt('experimentos.suggest.user', EXP_SUGGEST_USER_DEFAULT, { hipotesis: hipotesis.trim(), contexto: ctxTxt, snapshot });
   const raw = await chatClaude(system, [{ role: 'user', content: user }], { feature: 'experimentos', effort: 'high' });

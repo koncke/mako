@@ -36,8 +36,8 @@ async function darDeBaja(req: NextRequest): Promise<{ ok: boolean; error?: strin
 
 export async function GET(req: NextRequest) {
   const r = await darDeBaja(req);
-  if (!r.ok) return page('No se pudo procesar la baja', r.error === 'token inválido' || r.error === 'link inválido' ? 'El enlace no es válido o expiró.' : 'Ocurrió un error. Probá de nuevo más tarde.');
-  return page('Listo, te diste de baja', 'No vas a recibir más correos de esta lista. Si fue un error, escribinos y te volvemos a sumar.');
+  if (!r.ok) return page('No se pudo procesar la baja', r.error === 'token inválido' || r.error === 'link inválido' ? 'El enlace no es válido o expiró.' : 'Ocurrió un error. Prueba de nuevo más tarde.');
+  return page('Listo, te diste de baja', 'No vas a recibir más correos de esta lista. Si fue un error, escríbenos y te volvemos a sumar.');
 }
 
 export async function POST(req: NextRequest) {

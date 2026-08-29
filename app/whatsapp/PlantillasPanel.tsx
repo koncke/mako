@@ -282,7 +282,7 @@ export function PlantillasPanel({ initialSelect, makoSeed, onMakoSeedApplied }: 
   useEffect(() => {
     if (!edit?.meta_template_id || metas.length === 0) return;
     if (!metas.some((m) => m.metaId === edit.meta_template_id)) {
-      setAviso('La plantilla que editabas ya no está en Meta (se borró o cambió). Volvé a abrirla.');
+      setAviso('La plantilla que editabas ya no está en Meta (se borró o cambió). Vuelve a abrirla.');
       setEdit(null); setSel(null); setValidacion(null);
       try { localStorage.removeItem(STORAGE_KEY); } catch { /* sin storage */ }
     }
@@ -410,7 +410,7 @@ export function PlantillasPanel({ initialSelect, makoSeed, onMakoSeedApplied }: 
       return next;
     });
     setValidacionStale(true); // se revalida sola
-    setAviso('Apliqué las correcciones de MaKo. Revisá el resultado.');
+    setAviso('Apliqué las correcciones de MaKo. Revisa el resultado.');
   };
 
   // MaKo redacta una plantilla con la metodología Levanta Muertos (y Meta-safe).
@@ -441,7 +441,7 @@ export function PlantillasPanel({ initialSelect, makoSeed, onMakoSeedApplied }: 
       });
       setValidacionStale(true); // se revalida sola
       setMakoOpen(false); setMakoObjetivo('');
-      setAviso('MaKo redactó la plantilla con Levanta Muertos. Revisala y validá antes de enviar a Meta.');
+      setAviso('MaKo redactó la plantilla con Levanta Muertos. Revísala y valida antes de enviar a Meta.');
     } catch (e) { setMakoError(e instanceof Error ? e.message : String(e)); }
     finally { setMakoBusy(false); }
   };
@@ -467,7 +467,7 @@ export function PlantillasPanel({ initialSelect, makoSeed, onMakoSeedApplied }: 
   const manejarErrorEnvio = (msg: string) => {
     if (edit && esCooldownError(msg)) {
       setCooldown(edit.name, Math.floor(Date.now() / 1000) + 65);
-      setError('Meta todavía está procesando el borrado anterior de esta plantilla. Esperá ~1 minuto y reintentá (el botón se habilita solo).');
+      setError('Meta todavía está procesando el borrado anterior de esta plantilla. Espera ~1 minuto y reintenta (el botón se habilita solo).');
     } else setError(msg);
   };
 
@@ -475,7 +475,7 @@ export function PlantillasPanel({ initialSelect, makoSeed, onMakoSeedApplied }: 
     if (!edit) return;
     if (edit.headerMedia && !edit.headerMedia.handle?.trim()) {
       setConfirmEnviar(false);
-      setError('Subí (o re-subí) el archivo del encabezado antes de enviar a Meta.');
+      setError('Sube (o re-sube) el archivo del encabezado antes de enviar a Meta.');
       return;
     }
     setEnviando(true); setError(null);
@@ -588,7 +588,7 @@ export function PlantillasPanel({ initialSelect, makoSeed, onMakoSeedApplied }: 
           <TemplatePreview item={sel} onEditar={iniciarEdicion} onEliminar={() => { const n = sel.kind === 'draft' ? sel.draft.name : sel.meta.name; const esBorrador = sel.kind === 'draft' && sel.draft.status === 'borrador'; if (esBorrador && sel.draft.id) void borrar(sel.draft.id); else setBorrarMetaName(n); }} />
         ) : !edit ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 14, padding: 20, textAlign: 'center' }}>
-            Elegí una plantilla o creá una nueva para redactarla, validarla con MaKo y enviarla a aprobar a Meta.
+            Elige una plantilla o crea una nueva para redactarla, validarla con MaKo y enviarla a aprobar a Meta.
           </div>
         ) : (
           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 22, display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -606,7 +606,7 @@ export function PlantillasPanel({ initialSelect, makoSeed, onMakoSeedApplied }: 
                 {makoOpen && (
                   <div style={{ padding: '0 13px 13px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <div>
-                      <label style={labelBase}>¿Qué querés lograr con esta plantilla?</label>
+                      <label style={labelBase}>¿Qué quieres lograr con esta plantilla?</label>
                       <input value={makoObjetivo} onChange={(e) => setMakoObjetivo(e.target.value)} placeholder="Ej: reactivar leads que pidieron info y no agendaron" style={inputBase} />
                     </div>
                     <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
@@ -617,7 +617,7 @@ export function PlantillasPanel({ initialSelect, makoSeed, onMakoSeedApplied }: 
                       <button onClick={() => void generarConMako()} disabled={makoBusy || !makoObjetivo.trim()} style={{ ...btnPrimary, opacity: makoBusy || !makoObjetivo.trim() ? 0.55 : 1 }}>{makoBusy ? 'MaKo redactando…' : 'Redactar plantilla →'}</button>
                     </div>
                     {makoError && <div style={{ fontSize: 12, color: 'var(--bad)' }}>{makoError}</div>}
-                    <div style={{ fontSize: 11, color: 'var(--faint)', lineHeight: 1.5 }}>MaKo redacta el cuerpo, la categoría y las variables siguiendo Levanta Muertos y las reglas de Meta. Después lo validás y lo mandás a aprobar.</div>
+                    <div style={{ fontSize: 11, color: 'var(--faint)', lineHeight: 1.5 }}>MaKo redacta el cuerpo, la categoría y las variables siguiendo Levanta Muertos y las reglas de Meta. Después lo validas y lo mandas a aprobar.</div>
                   </div>
                 )}
               </div>
@@ -647,7 +647,7 @@ export function PlantillasPanel({ initialSelect, makoSeed, onMakoSeedApplied }: 
                 <label style={{ ...labelBase, margin: 0 }}>Encabezado (opcional)</label>
                 <Dropdown value={headerTipo} onChange={cambiarHeaderTipo} width={170} ariaLabel="Tipo de encabezado" buttonStyle={{ padding: '6px 10px', fontSize: 12.5 }}
                   options={[{ value: 'NONE', label: 'Ninguno' }, { value: 'TEXT', label: 'Texto' }, { value: 'IMAGE', label: '🖼️ Imagen' }, { value: 'VIDEO', label: '🎬 Video' }, { value: 'DOCUMENT', label: '📄 Documento (PDF)' }]} />
-                {headerTipo === 'NONE' && <span style={{ fontSize: 11.5, color: 'var(--faint)' }}>← elegí Imagen / Video / Documento para adjuntar un archivo</span>}
+                {headerTipo === 'NONE' && <span style={{ fontSize: 11.5, color: 'var(--faint)' }}>← elige Imagen / Video / Documento para adjuntar un archivo</span>}
               </div>
               {headerTipo === 'TEXT' && (
                 <input value={edit.header ?? ''} maxLength={60} onChange={(e) => patchEdit({ header: e.target.value })} placeholder="Texto de encabezado (máx 60, sin variables)" style={inputBase} />
@@ -656,7 +656,7 @@ export function PlantillasPanel({ initialSelect, makoSeed, onMakoSeedApplied }: 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                   {edit.headerMedia?.handle
                     ? <span style={{ fontSize: 13, color: 'var(--good)', fontWeight: 600 }}>✓ {MEDIA_LABEL[edit.headerMedia.format]} cargada: <code style={{ fontFamily: MONO }}>{edit.headerMedia.filename}</code></span>
-                    : <span style={{ fontSize: 12.5, color: 'var(--warn)', fontWeight: 600 }}>↓ Subí una muestra ({headerTipo === 'IMAGE' ? 'jpg/png' : headerTipo === 'VIDEO' ? 'mp4' : 'pdf'}). Meta la usa para revisar; al enviar de verdad se reemplaza por el archivo real.</span>}
+                    : <span style={{ fontSize: 12.5, color: 'var(--warn)', fontWeight: 600 }}>↓ Sube una muestra ({headerTipo === 'IMAGE' ? 'jpg/png' : headerTipo === 'VIDEO' ? 'mp4' : 'pdf'}). Meta la usa para revisar; al enviar de verdad se reemplaza por el archivo real.</span>}
                   <label style={{ ...btnGhost, cursor: subiendoMedia ? 'default' : 'pointer', opacity: subiendoMedia ? 0.6 : 1 }}>
                     {subiendoMedia ? 'Subiendo…' : (edit.headerMedia?.handle ? 'Cambiar archivo' : 'Subir archivo')}
                     <input type="file" hidden disabled={subiendoMedia} accept={headerTipo === 'IMAGE' ? 'image/jpeg,image/png' : headerTipo === 'VIDEO' ? 'video/mp4' : 'application/pdf'} onChange={(e) => { const f = e.target.files?.[0]; if (f) void subirMedia(f); e.target.value = ''; }} />
@@ -667,7 +667,7 @@ export function PlantillasPanel({ initialSelect, makoSeed, onMakoSeedApplied }: 
 
             <div style={{ position: 'relative' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 5 }}>
-                <label style={{ ...labelBase, margin: 0 }}>Cuerpo del mensaje · escribí <code style={{ fontFamily: MONO, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 4, padding: '1px 5px' }}>{'{{'}</code> o insertá una variable →</label>
+                <label style={{ ...labelBase, margin: 0 }}>Cuerpo del mensaje · escribe <code style={{ fontFamily: MONO, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 4, padding: '1px 5px' }}>{'{{'}</code> o inserta una variable →</label>
                 <Dropdown value="" onChange={(v) => v && insertarVar(v)} width={172} align="right" placeholder="+ Insertar variable" ariaLabel="Insertar variable"
                   options={VARIABLES_LEAD.map((v) => ({ value: v.key, label: v.label, sub: `{{${v.key}}} · ${v.descripcion}` }))}
                   buttonStyle={{ padding: '6px 10px', fontSize: 12.5 }} />
@@ -726,14 +726,14 @@ export function PlantillasPanel({ initialSelect, makoSeed, onMakoSeedApplied }: 
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', paddingTop: 4 }}>
               <button onClick={() => { setValidacionOpen(true); void validar(edit); }} disabled={validando || !bodyOk} style={{ ...btnGhost, opacity: validando || !bodyOk ? 0.6 : 1 }}>{validando ? 'MaKo revisando…' : '✨ Validar ahora'}</button>
               {!esEdicionMeta && <button onClick={() => void guardar()} disabled={!puedeGuardar} style={{ ...btnGhost, opacity: !puedeGuardar ? 0.6 : 1 }}>{guardando ? 'Guardando…' : 'Guardar borrador'}</button>}
-              <button onClick={() => setConfirmEnviar(true)} disabled={!puedeEnviar} title={cooldownActivo > 0 ? `Meta procesa el borrado: esperá ${cooldownActivo}s` : (!paramsCompletos ? 'Completá los ejemplos de las variables' : '')} style={{ ...btnPrimary, marginLeft: 'auto', opacity: !puedeEnviar ? 0.5 : 1 }}>{cooldownActivo > 0 ? `Esperá ${cooldownActivo}s…` : (esEdicionMeta ? 'Guardar cambios en Meta →' : 'Enviar a Meta a aprobar →')}</button>
+              <button onClick={() => setConfirmEnviar(true)} disabled={!puedeEnviar} title={cooldownActivo > 0 ? `Meta procesa el borrado: espera ${cooldownActivo}s` : (!paramsCompletos ? 'Completa los ejemplos de las variables' : '')} style={{ ...btnPrimary, marginLeft: 'auto', opacity: !puedeEnviar ? 0.5 : 1 }}>{cooldownActivo > 0 ? `Espera ${cooldownActivo}s…` : (esEdicionMeta ? 'Guardar cambios en Meta →' : 'Enviar a Meta a aprobar →')}</button>
               {esEdicionMeta
                 ? <button onClick={() => setBorrarMetaName(edit.name)} style={{ ...btnGhost, color: 'var(--bad)', borderColor: 'var(--bad)' }}>Eliminar de Meta</button>
                 : edit.id && <button onClick={() => void borrar(edit.id!)} style={{ ...btnGhost, color: 'var(--bad)', borderColor: 'var(--bad)' }}>Borrar</button>}
             </div>
             {cooldownActivo > 0 && <div style={{ fontSize: 11.5, color: 'var(--warn)' }}>Meta está procesando el borrado de <code style={{ fontFamily: MONO }}>{edit.name}</code>. Vas a poder reenviar en {cooldownActivo}s.</div>}
             {esEdicionMeta && <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>Estás editando una plantilla que ya vive en Meta. Al guardar cambios vuelve a revisión (el nombre y el idioma no se pueden cambiar).</div>}
-            {!paramsCompletos && edit.params.length > 0 && <div style={{ fontSize: 11.5, color: 'var(--faint)', textAlign: 'right' }}>Para enviar a Meta, completá los ejemplos de cada variable.</div>}
+            {!paramsCompletos && edit.params.length > 0 && <div style={{ fontSize: 11.5, color: 'var(--faint)', textAlign: 'right' }}>Para enviar a Meta, completa los ejemplos de cada variable.</div>}
           </div>
         )}
       </div>
@@ -747,7 +747,7 @@ export function PlantillasPanel({ initialSelect, makoSeed, onMakoSeedApplied }: 
                 ? <>Vas a editar <code style={{ fontFamily: MONO }}>{edit.name}</code> en Meta. La plantilla <strong>vuelve a revisión</strong> (si estaba aprobada, deja de poder usarse hasta que la re-aprueben). Meta suele responder en minutos.</>
                 : <>Vas a enviar <code style={{ fontFamily: MONO }}>{edit.name}</code> a Meta para revisión. Una vez enviada no se puede editar (sí borrar y rehacer). Meta suele responder en minutos.</>}
             </div>
-            {validacion?.riesgo === 'ALTO' && <div style={{ marginTop: 12, padding: '9px 11px', borderRadius: 9, background: 'var(--bad-bg)', border: '1px solid var(--bad)', color: 'var(--bad)', fontSize: 12.5 }}>⚠ MaKo marcó riesgo ALTO de rechazo. Revisá las correcciones antes de enviar.</div>}
+            {validacion?.riesgo === 'ALTO' && <div style={{ marginTop: 12, padding: '9px 11px', borderRadius: 9, background: 'var(--bad-bg)', border: '1px solid var(--bad)', color: 'var(--bad)', fontSize: 12.5 }}>⚠ MaKo marcó riesgo ALTO de rechazo. Revisa las correcciones antes de enviar.</div>}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 18 }}>
               <button onClick={() => setConfirmEnviar(false)} disabled={enviando} style={btnGhost}>Cancelar</button>
               <button onClick={() => void enviarAMeta()} disabled={enviando} style={{ ...btnPrimary, opacity: enviando ? 0.6 : 1 }}>{enviando ? (esEdicionMeta ? 'Guardando…' : 'Enviando…') : (esEdicionMeta ? 'Confirmar cambios' : 'Confirmar y enviar')}</button>
@@ -760,7 +760,7 @@ export function PlantillasPanel({ initialSelect, makoSeed, onMakoSeedApplied }: 
         <div onClick={() => setBorrarMetaName(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: 'min(92vw, 440px)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 22, fontFamily: SANS }}>
             <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>Eliminar de Meta</div>
-            <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55 }}>Vas a <strong>eliminar</strong> <code style={{ fontFamily: MONO }}>{borrarMetaName}</code> de Meta. Si la usás en alguna secuencia, dejará de enviarse. Esta acción no se puede deshacer.</div>
+            <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55 }}>Vas a <strong>eliminar</strong> <code style={{ fontFamily: MONO }}>{borrarMetaName}</code> de Meta. Si la usas en alguna secuencia, dejará de enviarse. Esta acción no se puede deshacer.</div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 18 }}>
               <button onClick={() => setBorrarMetaName(null)} style={btnGhost}>Cancelar</button>
               <button onClick={() => void ejecutarBorrarMeta()} style={{ ...btnPrimary, background: 'var(--bad)' }}>Eliminar definitivamente</button>
@@ -792,7 +792,7 @@ function ValidacionCard({ v, validando, stale, onAplicar, onClose }: { v: Valida
         {validando && <span style={{ fontSize: 11.5, color: 'var(--dim)', fontFamily: MONO }}>actualizando…</span>}
         {!validando && stale && v && <span style={{ fontSize: 11, color: 'var(--warn)', fontFamily: MONO }}>· editaste, se revalida sola</span>}
         {v && <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--dim)', fontFamily: MONO }}>sugerida: {v.categoria_sugerida}</span>}
-        <button onClick={onClose} aria-label="Cerrar recomendaciones" title="Cerrar (la podés reabrir abajo)" style={{ marginLeft: v ? 0 : 'auto', flex: 'none', border: 'none', background: 'transparent', color: v ? r.color : 'var(--dim)', cursor: 'pointer', fontSize: 15, lineHeight: 1, padding: 0, opacity: 0.7 }}>✕</button>
+        <button onClick={onClose} aria-label="Cerrar recomendaciones" title="Cerrar (la puedes reabrir abajo)" style={{ marginLeft: v ? 0 : 'auto', flex: 'none', border: 'none', background: 'transparent', color: v ? r.color : 'var(--dim)', cursor: 'pointer', fontSize: 15, lineHeight: 1, padding: 0, opacity: 0.7 }}>✕</button>
       </div>
       {v && v.hallazgos.map((h, i) => {
         const ref = refDeRegla(h.regla);

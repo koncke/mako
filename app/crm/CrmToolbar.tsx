@@ -150,11 +150,11 @@ export function AccionesHeader({ total, onImportar, onExportar }: {
               desc="Un archivo con nombre, email, teléfono y empresa"
               onClick={() => { setOpen(false); onImportar(); }} />
             <MenuItem icon={<DownloadIcon size={15} />} label="Exportar leads"
-              desc="Bajá los leads a planilla o documento"
+              desc="Baja los leads a planilla o documento"
               onClick={() => { setOpen(false); onExportar(); }} />
             <span style={{ height: 1, background: 'var(--border)', margin: '5px 6px' }} />
             <MenuItem icon={<FunnelIcon size={15} />} label="Editar funnel"
-              desc="Cambiá las etapas del pipeline y sus flechas"
+              desc="Cambia las etapas del pipeline y sus flechas"
               href="/funnel" onClick={() => setOpen(false)} />
           </div>
         </>}
@@ -451,7 +451,7 @@ export function SinResultados({ hayFiltros, onLimpiar }: { hayFiltros: boolean; 
       <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 5 }}>
         {/* El momento en que uno está trabado es EL momento para contar que se puede
             buscar por número: decirlo solo en el placeholder llega tarde. */}
-        {hayFiltros ? 'Probá con menos filtros, otras palabras sueltas, o el número del lead (#412).' : 'Importá un CSV o cargá tu primer lead para empezar.'}
+        {hayFiltros ? 'Prueba con menos filtros, otras palabras sueltas, o el número del lead (#412).' : 'Importa un CSV o carga tu primer lead para empezar.'}
       </div>
       {hayFiltros && (
         <button type="button" onClick={onLimpiar}

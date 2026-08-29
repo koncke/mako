@@ -28,7 +28,7 @@ export const PARTES_DETALLE = ['Qué hay que hacer', 'Por qué', 'Detalles concr
 /** El contrato largo: va en los prompts de sistema (Fathom, archivo, checklist-coach). */
 export const CONTRATO_DETALLE = `EL DETALLE ES EL CAMPO MÁS IMPORTANTE. El título dice QUÉ hacer; el detalle es lo único que hace que la tarea se pueda ejecutar dentro de tres semanas sin volver a la fuente — y a la fuente no se vuelve nunca.
 
-FORMATO — markdown, estos cuatro títulos EXACTOS, en este orden. Copiá los asteriscos tal cual:
+FORMATO — markdown, estos cuatro títulos EXACTOS, en este orden. Copia los asteriscos tal cual:
 
 **Qué hay que hacer**
 La acción concreta, 1-2 frases.
@@ -46,12 +46,12 @@ El criterio de terminado, verificable por alguien que no estuvo en la conversaci
 
 LARGO — 4 a 8 frases (unos 600 a 1200 caracteres) CUANDO EL MATERIAL DA PARA ESO.
 
-⛔ NO RELLENES. Un detalle de 300 caracteres honesto es MEJOR que uno de 700 con paja. Si el material solo alcanza para dos de las cuatro partes, escribí esas dos y omití las otras: un «Listo cuando» inventado es peor que ninguno.
+⛔ NO RELLENES. Un detalle de 300 caracteres honesto es MEJOR que uno de 700 con paja. Si el material solo alcanza para dos de las cuatro partes, escribe esas dos y omite las otras: un «Listo cuando» inventado es peor que ninguno.
 ⛔ NO REPITAS EL TÍTULO con otras palabras: eso es un detalle vacío.
-⛔ NO SUPONGAS. Si no sabés por qué lo pidió, no lo escribas.`;
+⛔ NO SUPONGAS. Si no sabes por qué lo pidió, no lo escribas.`;
 
 /** Tres líneas, para el `description` de un schema de tool y para las skills. */
-export const CONTRATO_DETALLE_CORTO = `Markdown con estos cuatro títulos exactos, en orden: **Qué hay que hacer** / **Por qué** (con la frase textual entre « » si alguien lo pidió) / **Detalles concretos** (lista con "- ": números, nombres, links tal cual, lo descartado) / **Listo cuando**. Apuntá a 600-1200 caracteres si el material da. ⛔ NO rellenes ni supongas: si solo da para dos partes, escribí dos. Un detalle corto y honesto es mejor que uno largo inventado.`;
+export const CONTRATO_DETALLE_CORTO = `Markdown con estos cuatro títulos exactos, en orden: **Qué hay que hacer** / **Por qué** (con la frase textual entre « » si alguien lo pidió) / **Detalles concretos** (lista con "- ": números, nombres, links tal cual, lo descartado) / **Listo cuando**. Apunta a 600-1200 caracteres si el material da. ⛔ NO rellenes ni supongas: si solo da para dos partes, escribe dos. Un detalle corto y honesto es mejor que uno largo inventado.`;
 
 /** Un ejemplo LITERAL de salida. Nombrar las partes en prosa no alcanzó: el modelo leyó
  *  los `**` como énfasis del autor y devolvió etiquetas planas («Cita:», «Por qué:»).
@@ -60,7 +60,7 @@ export const EJEMPLO_DETALLE = `**Qué hay que hacer**
 Que el botón de importar abra la bandeja de archivos en vez del buscador del sistema operativo.
 
 **Por qué**
-Martín, el 5/8: «cuando apreto el botón, no me debe abrir el buscador de archivos directamente, me debe abrir el modal de importación, donde vea como se van importanto». Hoy elegís un archivo a ciegas y si falla desaparece sin decir por qué.
+Martín, el 5/8: «cuando apreto el botón, no me debe abrir el buscador de archivos directamente, me debe abrir el modal de importación, donde vea como se van importanto». Hoy eliges un archivo a ciegas y si falla desaparece sin decir por qué.
 
 **Detalles concretos**
 - Hasta 12 archivos, 25 MB cada uno y 18 MB en total (el proxy corta el body en 20 MB)
@@ -96,7 +96,7 @@ export const MOLDE_DETALLE = [
  * el molde entero por WhatsApp en vez de crear el borrador. La red que lo ataja es
  * `lib/respuesta-doer.ts`; esto solo baja la probabilidad.
  */
-export const MOLDE_ADVERTENCIA = 'Esta forma va DENTRO DEL VALOR de este campo, no en tu respuesta al usuario. Copiála EXACTA, con los asteriscos y los saltos de línea. Apuntá a 600-1200 caracteres si el material da para eso. ⛔ NO escribas prosa corrida: sin estos cuatro títulos el detalle NO sirve por más largo y mejor escrito que esté. ⛔ NO rellenes ni supongas: si el material solo da para dos partes, escribí dos — un detalle corto y honesto vale más que uno largo inventado.';
+export const MOLDE_ADVERTENCIA = 'Esta forma va DENTRO DEL VALOR de este campo, no en tu respuesta al usuario. Cópiala EXACTA, con los asteriscos y los saltos de línea. Apunta a 600-1200 caracteres si el material da para eso. ⛔ NO escribas prosa corrida: sin estos cuatro títulos el detalle NO sirve por más largo y mejor escrito que esté. ⛔ NO rellenes ni supongas: si el material solo da para dos partes, escribe dos — un detalle corto y honesto vale más que uno largo inventado.';
 
 // =============================================================================
 // El contrato del detalle de un PROYECTO — distinto al de una tarea

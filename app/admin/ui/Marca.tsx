@@ -159,7 +159,7 @@ export function LaMarca() {
           </div>
           <p style={{ margin: '16px 0 0', fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.6 }}>
             Vive en <Link href="/conocimientos" style={{ color: 'var(--primary)', fontWeight: 600 }}>Conocimientos → Branding MaKo</Link>,
-            no acá: son archivos para descargar, no piezas de interfaz. Los bytes están en el bucket privado
+            no aquí: son archivos para descargar, no piezas de interfaz. Los bytes están en el bucket privado
             <code style={{ fontFamily: MONO }}> branding</code> de Storage y se sirven con URL firmada — nunca directa.
             Los archivos originales <strong style={{ color: 'var(--ink)' }}>no están versionados en el repo</strong>: se
             subieron desde el escritorio, así que Storage es la única copia durable.

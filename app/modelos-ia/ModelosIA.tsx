@@ -72,7 +72,7 @@ export function ModelosIA() {
       <div>
         <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>Modelos de IA por tarea</h1>
         <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: '6px 0 0', lineHeight: 1.5 }}>
-          Elegí qué modelo/IA usa cada tarea. Cambiarlo acá re-rutea las llamadas de verdad. <b>Groq</b> es barato y no entrena con tus datos; dejá <b>Claude</b> para razonamiento fino, copywriting con voz de marca y datos de clientes (PII).
+          Elige qué modelo/IA usa cada tarea. Cambiarlo aquí re-rutea las llamadas de verdad. <b>Groq</b> es barato y no entrena con tus datos; deja <b>Claude</b> para razonamiento fino, copywriting con voz de marca y datos de clientes (PII).
           {ahorro > 0 && <> Hay <b style={{ color: 'var(--good)' }}>{ahorro} tarea{ahorro > 1 ? 's' : ''}</b> que el audit sugiere mover a Groq.</>}
         </p>
       </div>

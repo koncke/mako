@@ -548,7 +548,7 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
   }
   if (errores.length) throw new Error(`No se pudo leer el documento con ninguna IA. ${errores.join(' · ')}`);
   const nombres = sinKey.map((p) => (p === 'gemini' ? 'Gemini (gratis)' : 'OpenAI')).join(' o ');
-  throw new Error(`No hay ninguna IA con visión configurada. Cargá una API key de ${nombres || 'Gemini u OpenAI'} en Integraciones.`);
+  throw new Error(`No hay ninguna IA con visión configurada. Carga una API key de ${nombres || 'Gemini u OpenAI'} en Integraciones.`);
 }
 
 async function leerConOpenAI(key: string, o: DocOpts, cuenta = 1): Promise<string> {

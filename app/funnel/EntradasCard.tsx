@@ -83,7 +83,7 @@ export function EntradasCard({
       <p style={{ margin: '6px 0 0', fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6, maxWidth: '70ch' }}>
         Las etapas de abajo dicen por dónde pasa un lead. Esto dice cómo llegó, que es
         otra cosa y es la que usa MaKo para escribirle. Si le dice «vi que dejaste tus
-        datos en el anuncio» a alguien a quien le escribiste vos primero, se nota en la
+        datos en el anuncio» a alguien a quien le escribiste tú primero, se nota en la
         primera frase.
       </p>
 
@@ -123,7 +123,7 @@ export function EntradasCard({
       </div>
 
       <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 8 }}>
-        Podés marcar más de una si te llegan por varios lados. Se piden hasta tres.
+        Puedes marcar más de una si te llegan por varios lados. Se piden hasta tres.
       </div>
 
       {/* El evento solo se pregunta donde la fecha la pone el negocio: si el lead
@@ -132,8 +132,8 @@ export function EntradasCard({
         <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
           <h3 style={{ margin: 0, fontSize: 14, fontWeight: 620, color: 'var(--ink)' }}>Tu sesión</h3>
           <p style={{ margin: '4px 0 10px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>
-            Esto entra en el audio que escucha antes de ir. Si no lo cargás, el audio no
-            dice ninguna dirección: dice que se la pasás por acá.
+            Esto entra en el audio que escucha antes de ir. Si no lo cargas, el audio no
+            dice ninguna dirección: dice que se la pasas por aquí.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>

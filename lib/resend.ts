@@ -219,7 +219,7 @@ ${preheader}
       </td></tr>
       <tr><td style="padding:18px 32px 26px;font-family:'Helvetica Neue',Arial,sans-serif;color:#6B675C;font-size:13px;line-height:1.5;border-top:1px solid #E7E3D9;">
         ${fromName ? `<div style="font-weight:600;color:#1A1813;">${escapeHtml(fromName)}</div>` : ''}
-        ${unsub ? `<div style="margin-top:12px;font-size:12px;color:#A39E91;">Si no querés recibir más estos correos, ${unsub}.</div>` : ''}
+        ${unsub ? `<div style="margin-top:12px;font-size:12px;color:#A39E91;">Si no quieres recibir más estos correos, ${unsub}.</div>` : ''}
       </td></tr>
     </table>
   </td></tr>

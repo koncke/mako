@@ -377,7 +377,7 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
     // El error crudo puede ser una página de error del server (no JSON). Traducirlo:
     // "SyntaxError: Unexpected token 'A'" no le dice nada a nadie.
     else setErr(/JSON|Unexpected token/i.test(String(j.error ?? ''))
-      ? 'Se cortó la conexión con el server antes de terminar. Revisá el plan: puede que algunas ya hayan entrado.'
+      ? 'Se cortó la conexión con el server antes de terminar. Revisa el plan: puede que algunas ya hayan entrado.'
       : String(j.error ?? 'No pude cargarlas.'));
   };
 
@@ -766,7 +766,7 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
             <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>
               {descartadoConCargas
                 ? 'Lo que se cargó al plan está arriba; el resto lo descartaste. Para volver a trabajar esta reunión, extraela de nuevo desde la lista.'
-                : 'Esta reunión ya está cerrada: mirala todo lo que quieras. Para volver a trabajarla, extraela de nuevo desde la lista.'}
+                : 'Esta reunión ya está cerrada: mírala todo lo que quieras. Para volver a trabajarla, extráela de nuevo desde la lista.'}
             </span>
           ) : hayMias ? (
             <button type="button" onClick={() => void descartar()} disabled={!!guardando}
@@ -784,7 +784,7 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
                   : nIncluidas && nAmpliar ? `Agregar ${nIncluidas} y ampliar ${nAmpliar} →`
                     : nIncluidas ? `Agregar ${nIncluidas} al plan →`
                       : nAmpliar ? `Ampliar ${nAmpliar} que ya ${nAmpliar === 1 ? 'está' : 'están'} →`
-                        : 'Elegí al menos una'}
+                        : 'Elige al menos una'}
             </button>
           )}
         </div>

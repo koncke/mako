@@ -138,18 +138,18 @@ export function mensajeIAFallo({ hayIA, motivo, errores = [], tema = 'esto' }: M
 
   // Nada conectado: es el ÚNICO caso donde pedir una key es la respuesta correcta.
   if (!hayIA) {
-    return `No hay ninguna IA conectada, así que MaKo no puede ${tema}. Conectá una IA gratis para empezar — con Gemini alcanza.`;
+    return `No hay ninguna IA conectada, así que MaKo no puede ${tema}. Conecta una IA gratis para empezar — con Gemini alcanza.`;
   }
   if (motivo?.startsWith('Se quedó sin cuota')) {
-    return `${motivo} Vuelve a andar cuando se reinicie (el free de Gemini reinicia cada día). Si no querés esperar: sumá otra cuenta del mismo proveedor o conectá otra IA gratis.${detalle}`;
+    return `${motivo} Vuelve a andar cuando se reinicie (el free de Gemini reinicia cada día). Si no quieres esperar: suma otra cuenta del mismo proveedor o conecta otra IA gratis.${detalle}`;
   }
   if (motivo?.startsWith('La API key')) {
-    return `${motivo} Pegá una nueva.${detalle}`;
+    return `${motivo} Pega una nueva.${detalle}`;
   }
   if (motivo) {
-    return `${motivo} Probá de nuevo en un momento.${detalle}`;
+    return `${motivo} Prueba de nuevo en un momento.${detalle}`;
   }
   // Hay IA conectada y falló sin un motivo reconocible. Lo peor que se puede hacer
   // acá es decir "no hay IA": el usuario va a ir a conectar lo que ya tenía puesto.
-  return `Tu IA está conectada pero no pudo ${tema} ahora mismo. Probá de nuevo en un momento.${detalle}`;
+  return `Tu IA está conectada pero no pudo ${tema} ahora mismo. Prueba de nuevo en un momento.${detalle}`;
 }

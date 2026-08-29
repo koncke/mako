@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: 'solo el admin del espacio' }, { status: 403 });
   }
   const ws = await getWorkspaceActual();
-  if (ws == null) return NextResponse.json({ ok: false, error: 'sin workspace (entrá como un cliente)' }, { status: 400 });
+  if (ws == null) return NextResponse.json({ ok: false, error: 'sin workspace (entra como un cliente)' }, { status: 400 });
 
   // EL TRATO ES LA PUERTA. El plugin reporta siempre lo que el cliente trabaja en su
   // Claude Code, y la única forma honesta de sostener ese «siempre» es que esté dicho

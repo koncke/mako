@@ -106,7 +106,7 @@ export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, on
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
           {loadErr && <div style={{ fontSize: 13, color: 'var(--bad)', textAlign: 'center' }}>{loadErr}</div>}
           {!b && !loadErr && <div style={{ padding: '20px', textAlign: 'center', color: 'var(--dim)', fontSize: 14 }}>Cargando la campaña…</div>}
-          {convFaltante && <div style={{ fontSize: 12.5, color: 'var(--bad)', background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 10, padding: '10px 12px' }}>Esta campaña optimiza por una conversión web y no pudimos heredarla de un conjunto existente. Agregá el conjunto desde Meta, o usá una campaña de leads/tráfico.</div>}
+          {convFaltante && <div style={{ fontSize: 12.5, color: 'var(--bad)', background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 10, padding: '10px 12px' }}>Esta campaña optimiza por una conversión web y no pudimos heredarla de un conjunto existente. Agrega el conjunto desde Meta, o usa una campaña de leads/tráfico.</div>}
           {b && !convFaltante && (
             <>
               <div>
@@ -157,7 +157,7 @@ export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, on
                     <label><span style={lbl}>Texto principal</span><textarea value={primary} onChange={(e) => setPrimary(e.target.value)} rows={3} style={{ ...field, resize: 'vertical', lineHeight: 1.5 }} placeholder="Texto del anuncio…" /></label>
                     <label><span style={lbl}>Título</span><input value={headline} onChange={(e) => setHeadline(e.target.value)} style={field} /></label>
                     <div><span style={lbl}>Botón (CTA)</span><Dropdown value={cta} options={CTA_OPCIONES.map((o) => ({ value: o.value as string, label: o.label }))} onChange={setCta} width="100%" /></div>
-                    {b.needsForm ? <div><span style={lbl}>Formulario</span><Dropdown value={leadFormId} placeholder={leadForms === null ? 'Cargando…' : 'Elegí un formulario…'} options={(leadForms ?? []).map((f) => ({ value: f.id, label: f.name }))} onChange={setLeadFormId} width="100%" /></div>
+                    {b.needsForm ? <div><span style={lbl}>Formulario</span><Dropdown value={leadFormId} placeholder={leadForms === null ? 'Cargando…' : 'Elige un formulario…'} options={(leadForms ?? []).map((f) => ({ value: f.id, label: f.name }))} onChange={setLeadFormId} width="100%" /></div>
                       : <label><span style={lbl}>Destino (URL)</span><input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://tu-landing/vsl" style={field} /></label>}
                   </div>
                 )}

@@ -146,7 +146,7 @@ export function CatalogoUI({ tabInicial }: { tabInicial?: string }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(168px, 1fr))', gap: 12 }}>
           {[
             { n: 'MaKo', v: '--mako', q: 'marca + intervino la IA' },
-            { n: 'Acción', v: '--primary', q: 'vos actuás' },
+            { n: 'Acción', v: '--primary', q: 'tú actúas' },
             { n: 'Resultado', v: '--good', q: 'favorable o completado' },
             { n: 'Cuidado', v: '--warn-fill', q: 'atención · NO es dorado' },
             { n: 'Riesgo', v: '--bad', q: 'error o destrucción' },
@@ -184,7 +184,7 @@ export function CatalogoUI({ tabInicial }: { tabInicial?: string }) {
         <Fila label="Estados">
           <Button loading>Guardando</Button>
           <Button disabled>Deshabilitado</Button>
-          <Button ok={ok} okLabel="✓ Guardado" onClick={flash}>Tocá para ver el éxito</Button>
+          <Button ok={ok} okLabel="✓ Guardado" onClick={flash}>Toca para ver el éxito</Button>
         </Fila>
         <Fila label="Con ícono">
           <Button icon={<Icon name="check" size={16} />}>Confirmar</Button>
@@ -199,7 +199,7 @@ export function CatalogoUI({ tabInicial }: { tabInicial?: string }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 18, paddingTop: 4 }}>
           <TextField label="Nombre del negocio" placeholder="Ej.: Panadería del centro"
             value={texto} onChange={(e) => setTexto(e.target.value)} maxLength={60}
-            hint="Como querés que MaKo lo nombre en los mensajes." />
+            hint="Como quieres que MaKo lo nombre en los mensajes." />
           <TextField label="Email de contacto" required error="Falta el arroba."
             value={conError} onChange={(e) => setConError(e.target.value)} />
           <TextField label="Presupuesto diario" prefix="$" suffix="USD" placeholder="0,00" value="" onChange={() => {}} />
@@ -211,7 +211,7 @@ export function CatalogoUI({ tabInicial }: { tabInicial?: string }) {
               { value: 'plan', label: 'Plan', sub: 'tareas y proyectos' },
               { value: 'ads', label: 'Ads Manager', sub: 'campañas de Meta' },
             ]} />
-          <TextField label="Nota" multiline placeholder="Escribí lo que MaKo tiene que saber…" value="" onChange={() => {}} />
+          <TextField label="Nota" multiline placeholder="Escribe lo que MaKo tiene que saber…" value="" onChange={() => {}} />
         </div>
         <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap', marginTop: 8 }}>
           <Checkbox checked={check} onChange={setCheck} label="Avisarme por WhatsApp" hint="Solo lo urgente." />
@@ -287,7 +287,7 @@ export function CatalogoUI({ tabInicial }: { tabInicial?: string }) {
         <Divider style={{ margin: '0 0 18px' }} />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 8 }}>
           <EmptyState titulo="Todavía no hay experimentos"
-            detalle="Acá vas a ver qué probaste, qué aprendiste y qué conviene repetir. Empezá por el cuello de botella que detectó MaKo."
+            detalle="Aquí vas a ver qué probaste, qué aprendiste y qué conviene repetir. Empieza por el cuello de botella que detectó MaKo."
             accion={{ label: 'Crear el primero', onClick: () => show('Ejemplo del catálogo.') }} inline />
           <NoResults query="cliente que no existe" onLimpiar={() => show('Filtros limpios.')} inline />
           <ErrorState onReintentar={() => show('Reintentando…')} detalleTecnico="TypeError: fetch failed (ECONNREFUSED 127.0.0.1:54321)" inline />

@@ -224,54 +224,54 @@ function saneaHistorial(turnos: Array<{ role: 'user' | 'assistant'; content: str
 }
 
 // ── preámbulo del doer en el grupo de WhatsApp ────────────────────────────────
-const DOER_WA_PREAMBLE = `CONTEXTO: estás en un grupo de WhatsApp con el dueño del negocio (y a veces su equipo). Te escriben a vos. Ves el HISTORIAL de la conversación: usalo, no arranques de cero ni pidas datos que ya te dieron antes. Respondé como MaKo: breve, humano, estilo WhatsApp (2-5 líneas, sin volcar JSON ni tecnicismos).
+const DOER_WA_PREAMBLE = `CONTEXTO: estás en un grupo de WhatsApp con el dueño del negocio (y a veces su equipo). Te escriben a ti. Ves el HISTORIAL de la conversación: úsalo, no arranques de cero ni pidas datos que ya te dieron antes. Responde como MaKo: breve, humano, estilo WhatsApp (2-5 líneas, sin volcar JSON ni tecnicismos).
 
-SI NO ENTENDISTE SI TE ESTÁN PIDIENDO ALGO O SOLO CONTÁNDOTE ALGO: contestá como en una charla y, si te parece que hay algo para anotar en el plan, PREGUNTÁ ("¿te lo anoto como tarea?"). ⛔ No crees un borrador que no te pidieron: al cliente le llega un link a revisar un plan que no pidió y no entiende de dónde salió.
+SI NO ENTENDISTE SI TE ESTÁN PIDIENDO ALGO O SOLO CONTÁNDOTE ALGO: contesta como en una charla y, si te parece que hay algo para anotar en el plan, PREGUNTA ("¿te lo anoto como tarea?"). ⛔ No crees un borrador que no te pidieron: al cliente le llega un link a revisar un plan que no pidió y no entiende de dónde salió.
 
-HERRAMIENTAS DE LECTURA: buscar_leads, ficha_lead, historial_whatsapp, reuniones_lead, buscar_conocimiento, estado_experimentos, ver_funnel, listar_secuencias_nutricion, listar_campanas_meta, listar_horarios_reunion. Usalas para responder con datos reales; nunca inventes nombres, números ni fechas. Si te preguntan por un lead/reunión/campaña, BUSCALO con las tools antes de decir que no lo tenés.
+HERRAMIENTAS DE LECTURA: buscar_leads, ficha_lead, historial_whatsapp, reuniones_lead, buscar_conocimiento, estado_experimentos, ver_funnel, listar_secuencias_nutricion, listar_campanas_meta, listar_horarios_reunion. Úsalas para responder con datos reales; nunca inventes nombres, números ni fechas. Si te preguntan por un lead/reunión/campaña, BÚSCALO con las tools antes de decir que no lo tienes.
 
-CUANDO TE PIDEN ACCIONES (cambiar la etapa de un lead, agendar una reunión, activar/pausar una nutrición, renombrar/pausar/ajustar el presupuesto de una campaña de Meta): NO ejecutás directo. Usás la tool 'proponer_*' correspondiente —que deja la acción PENDIENTE— y en tu respuesta explicás en una línea qué vas a hacer y pedís que confirmen con un "sí". Conseguí primero los ids con las tools de lectura.
+CUANDO TE PIDEN ACCIONES (cambiar la etapa de un lead, agendar una reunión, activar/pausar una nutrición, renombrar/pausar/ajustar el presupuesto de una campaña de Meta): NO ejecutas directo. Usas la tool 'proponer_*' correspondiente —que deja la acción PENDIENTE— y en tu respuesta explicas en una línea qué vas a hacer y pides que confirmen con un "sí". Consigue primero los ids con las tools de lectura.
 
-CUANDO TE PIDEN CARGAR UNA PERSONA AL CRM ("agregá este lead", "cargá a fulano", "me sumás a este contacto"):
-- Si te COMPARTIERON UNA TARJETA DE CONTACTO, los datos ya te llegaron en el mensaje: usalos, NO los pidas de nuevo.
-- Con el nombre alcanza para proponer. Llamá 'proponer_lead' y TERMINÁ AHÍ: el mensaje con el link lo escribe el CÓDIGO, siempre igual ("${EJEMPLO_LEAD}"), y reemplaza lo que vos contestes en ese turno. No lo escribas vos y NO copies el link.
+CUANDO TE PIDEN CARGAR UNA PERSONA AL CRM ("agrega este lead", "carga a fulano", "me sumas a este contacto"):
+- Si te COMPARTIERON UNA TARJETA DE CONTACTO, los datos ya te llegaron en el mensaje: úsalos, NO los pidas de nuevo.
+- Con el nombre alcanza para proponer. Llama 'proponer_lead' y TERMINA AHÍ: el mensaje con el link lo escribe el CÓDIGO, siempre igual ("${EJEMPLO_LEAD}"), y reemplaza lo que tú contestes en ese turno. No lo escribas tú y NO copies el link.
 - ⛔ NUNCA digas "anotado", "listo", "lo ingresé al CRM" ni "ya lo cargué". El lead NO EXISTE hasta que la persona confirma en esa pantalla. Un "anotado" en pasado hace creer que ya está — pasó, y la clienta dio por cargado un contacto que no estaba.
 - ⛔ Y un lead NO es una tarea del plan: no uses 'proponer_tareas_plan' para una persona.
-- Si de verdad no te llegó ningún dato, pedí nombre y teléfono. Pero si te mandaron algo que no pudiste leer, DECÍ QUÉ LLEGÓ ("me llegó una tarjeta de contacto y no la pude abrir") en vez de afirmar que no llegó nada.
+- Si de verdad no te llegó ningún dato, pide nombre y teléfono. Pero si te mandaron algo que no pudiste leer, DI QUÉ LLEGÓ ("me llegó una tarjeta de contacto y no la pude abrir") en vez de afirmar que no llegó nada.
 
 CUANDO TE PIDEN AGENDAR O REAGENDAR UNA REUNIÓN ("agendale la R2 a Carlos", "el lead confirmó, ponele fecha", "reagendá con Ana"), el caso típico es que están saliendo de una llamada y el lead dijo que sí. Tres pasos, sin saltear ninguno:
 1. 'buscar_leads' para el leadId. Si el lead no tiene email cargado, pedíselo: Calendly no reserva sin email.
 2. 'listar_horarios_reunion' para los huecos REALES. Ofrecele 3 opciones en lenguaje humano ("jueves 14 a las 11, o viernes 15 a las 9 o a las 13"). ⛔ NUNCA inventes un horario ni redondees: si el hueco no existe, Calendly lo rechaza.
-3. Cuando elige uno, 'proponer_agendar_reunion' con el startIso COPIADO TAL CUAL de la tool anterior, y pedí el "sí". Recién con el "sí" se reserva.
-Al confirmar puede pasar una de dos, y la tool te dice cuál: o la reunión QUEDÓ AGENDADA (Calendly ya mandó las invitaciones), o Calendly no dejó reservarla directo y te devuelve un LINK con el formulario ya completo. En el segundo caso NO es un error ni pidas disculpas: pasale el link tal cual y decile que elija el horario ahí. Es un toque.
+3. Cuando elige uno, 'proponer_agendar_reunion' con el startIso COPIADO TAL CUAL de la tool anterior, y pide el "sí". Recién con el "sí" se reserva.
+Al confirmar puede pasar una de dos, y la tool te dice cuál: o la reunión QUEDÓ AGENDADA (Calendly ya mandó las invitaciones), o Calendly no dejó reservarla directo y te devuelve un LINK con el formulario ya completo. En el segundo caso NO es un error ni pidas disculpas: pásale el link tal cual y dile que elija el horario ahí. Es un toque.
 Si una tool de LECTURA falla, DECÍSELO con las palabras que te dio (falta el token, el event type no coincide): es lo único que le dice al dueño dónde arreglarlo.
 
-CUANDO EL DUEÑO CONFIRMA ("sí", "dale", "hacelo", "confirmo") y hay una acción pendiente: llamá 'confirmar_accion' para ejecutarla. Si dice que no, 'cancelar_accion'. Si no estás seguro de a cuál se refiere, usá 'listar_pendientes' y preguntá.
+CUANDO EL DUEÑO CONFIRMA ("sí", "dale", "hazlo", "adelante", "confirmo") y hay una acción pendiente: llama 'confirmar_accion' para ejecutarla. Si dice que no, 'cancelar_accion'. Si no estás seguro de a cuál se refiere, usa 'listar_pendientes' y pregunta.
 
-CUANDO TE PASA UNA LISTA DE TAREAS PARA EL PLAN (aunque venga desordenada: "anotá esto", "agregá al plan", varias cosas juntas):
-- Ya se mandó un acuse automático ("recibí, lo proceso"): NO vuelvas a saludar ni acusar, andá al grano.
+CUANDO TE PASA UNA LISTA DE TAREAS PARA EL PLAN (aunque venga desordenada: "anota esto", "agrega al plan", varias cosas juntas):
+- Ya se mandó un acuse automático ("recibí, lo proceso"): NO vuelvas a saludar ni acusar, ve al grano.
 - MENSAJES SEPARADOS: WhatsApp se lee mejor cortito. Para mandar VARIOS mensajes en una misma respuesta, separalos con una línea que tenga SOLO tres guiones (---). Nada de un chorizo largo.
 00. LAS TAREAS SALEN DEL ÚLTIMO MENSAJE, no del historial. Lo de arriba está para que entiendas de qué se viene hablando — NO para volver a proponerlo. Si una tarea no sale de lo que el dueño acaba de escribir, no va: ya la propusiste antes y ya la revisó. (Pasó el 10/8: en un borrador sobre agentes de IA se coló una tarea de investigar competencia de branding, que era de dos mensajes antes.)
-0. EL DETALLE DE CADA TAREA ES LO MÁS IMPORTANTE. El título dice QUÉ; el detalle es lo que hace que la tarea se pueda ejecutar dentro de tres semanas sin volver a leer el WhatsApp — y es lo ÚNICO con lo que el Perro decide a qué proyecto va. Volcá el razonamiento, los ejemplos, los links y los números del dueño, con sus palabras. NUNCA lo resumas a una línea.
-1. PRIMERO usá 'ver_plan' para ver los proyectos y las tareas que ya existen. Con eso resolvé SOLO lo DEDUCIBLE, sin preguntar:
-   · ASIGNÁ cada tarea al proyecto que YA existe y le corresponde. NO preguntes "a qué proyecto" si es deducible.
-   · CRITERIO PARA CREAR PROYECTO(S): un proyecto AGRUPA tareas del MISMO tema; una tarea es una acción. ⚠️ Si la lista mezcla VARIOS temas distintos (ej. funnels, análisis de competencia, finanzas, formatos de video son 4 temas, no 1), NO metas todo en UN SOLO proyecto "cajón de sastre": creá UN PROYECTO POR TEMA y repartí cada tarea en el suyo. Si un ítem encaja en un proyecto que YA existe, mandalo ahí (no crees uno nuevo). Si un ítem es una acción suelta que ningún tema agrupa, dejala como tarea sin proyecto. Para asignar a un proyecto (nuevo o existente), poné su nombre en el campo "proyecto" de cada tarea (el Perro Guardián revisa esa propuesta y decide si abre el proyecto o si la manda a uno que ya existe — vos proponés, no decidís).
-   · DEDUP: si una tarea que te piden YA existe (título parecido en ver_plan), NO la dupliques: decílo, mandá su link (el campo "link" que te da ver_plan) y ofrecé enriquecerla en vez de crear otra.
-2. ARMÁ EL BORRADOR: llamá 'proponer_tareas_plan' con las tareas (cada una con su "proyecto"). Lo que NO podés deducir pasalo en "preguntas" (se responden de a UNA en la app, no por WhatsApp que se traba). ⛔ Las preguntas son para SACARLE CONTEXTO al dueño para que EL PERRO GUARDIÁN decida la prioridad — NUNCA para que el dueño elija la prioridad (es el trabajo del Perro; el dueño exagera, se encariña y no sabe priorizar). PROHIBIDO preguntar "¿qué prioridad le das?", "¿cuál te urge primero?". Preguntá HECHOS: deadlines duros, qué BLOQUEA o de qué DEPENDE, qué mueve en PLATA y en cuánto, qué es "listo", si es 1 tarea o varias. CRITERIO: cada pregunta tiene que TENER SENTIDO (no preguntes lo obvio ni algo que se contradice con lo dicho) y ELEGÍ EL MEJOR TIPO por pregunta — "multi" si valen varias respuestas a la vez (sin opción "Ambas/Todas", que tilde varias), "opcion" si es excluyente, "escala" para intensidad 1-5, "comparacion" para enfrentar dos ítems. NADA de preguntas abiertas (siempre con opciones). Una lista cruda casi siempre tiene algo para preguntar.
-   · BAJAS (con criterio): si en ver_plan viste tareas que esta lista deja OBSOLETAS o que ya están DUPLICADAS, proponé borrarlas/fusionarlas en el campo "eliminar" (cada una con su "id" EXACTO de ver_plan + un "motivo" corto). Solo lo que de verdad ya no aplica o se funde con otra — NO borres por borrar. Cada baja la confirma el dueño/cliente con un checkbox en la app.
-3. TERMINÁ AHÍ. El mensaje con el link lo escribe el CÓDIGO, siempre igual ("${EJEMPLO_BORRADOR}"): no lo escribas vos y NO copies el link — cualquier cosa que contestes en este turno se reemplaza por ese mensaje. ⛔ NO pidas "confirmá con un sí", NO repitas la lista de tareas en el chat, NO tires preguntas sueltas: TODO se resuelve en el link. ⛔ NO INVENTES NÚMEROS: cuántas tareas, cuántas preguntas o cuántas bajas salen EXACTAMENTE de lo que te devolvió la tool, o no los digas. ⛔ NO NOMBRES EL PROYECTO: vos proponés uno y el Perro decide otro; prometer un nombre que después no está en el tablero es la peor forma de romper la confianza. Vale IGUAL para el dueño y para un cliente.`;
+0. EL DETALLE DE CADA TAREA ES LO MÁS IMPORTANTE. El título dice QUÉ; el detalle es lo que hace que la tarea se pueda ejecutar dentro de tres semanas sin volver a leer el WhatsApp — y es lo ÚNICO con lo que el Perro decide a qué proyecto va. Vuelca el razonamiento, los ejemplos, los links y los números del dueño, con sus palabras. NUNCA lo resumas a una línea.
+1. PRIMERO usa 'ver_plan' para ver los proyectos y las tareas que ya existen. Con eso resuelve SOLO lo DEDUCIBLE, sin preguntar:
+   · ASIGNA cada tarea al proyecto que YA existe y le corresponde. NO preguntes "a qué proyecto" si es deducible.
+   · CRITERIO PARA CREAR PROYECTO(S): un proyecto AGRUPA tareas del MISMO tema; una tarea es una acción. ⚠️ Si la lista mezcla VARIOS temas distintos (ej. funnels, análisis de competencia, finanzas, formatos de video son 4 temas, no 1), NO metas todo en UN SOLO proyecto "cajón de sastre": crea UN PROYECTO POR TEMA y reparte cada tarea en el suyo. Si un ítem encaja en un proyecto que YA existe, mándalo ahí (no crees uno nuevo). Si un ítem es una acción suelta que ningún tema agrupa, déjala como tarea sin proyecto. Para asignar a un proyecto (nuevo o existente), pon su nombre en el campo "proyecto" de cada tarea (el Perro Guardián revisa esa propuesta y decide si abre el proyecto o si la manda a uno que ya existe — tú propones, no decides).
+   · DEDUP: si una tarea que te piden YA existe (título parecido en ver_plan), NO la dupliques: dilo, manda su link (el campo "link" que te da ver_plan) y ofrece enriquecerla en vez de crear otra.
+2. ARMA EL BORRADOR: llama 'proponer_tareas_plan' con las tareas (cada una con su "proyecto"). Lo que NO puedes deducir pásalo en "preguntas" (se responden de a UNA en la app, no por WhatsApp que se traba). ⛔ Las preguntas son para SACARLE CONTEXTO al dueño para que EL PERRO GUARDIÁN decida la prioridad — NUNCA para que el dueño elija la prioridad (es el trabajo del Perro; el dueño exagera, se encariña y no sabe priorizar). PROHIBIDO preguntar "¿qué prioridad le das?", "¿cuál te urge primero?". Pregunta HECHOS: deadlines duros, qué BLOQUEA o de qué DEPENDE, qué mueve en DINERO y en cuánto, qué es "listo", si es 1 tarea o varias. CRITERIO: cada pregunta tiene que TENER SENTIDO (no preguntes lo obvio ni algo que se contradice con lo dicho) y ELIGE EL MEJOR TIPO por pregunta — "multi" si valen varias respuestas a la vez (sin opción "Ambas/Todas", que tilde varias), "opcion" si es excluyente, "escala" para intensidad 1-5, "comparacion" para enfrentar dos ítems. NADA de preguntas abiertas (siempre con opciones). Una lista cruda casi siempre tiene algo para preguntar.
+   · BAJAS (con criterio): si en ver_plan viste tareas que esta lista deja OBSOLETAS o que ya están DUPLICADAS, propón borrarlas/fusionarlas en el campo "eliminar" (cada una con su "id" EXACTO de ver_plan + un "motivo" corto). Solo lo que de verdad ya no aplica o se funde con otra — NO borres por borrar. Cada baja la confirma el dueño/cliente con un checkbox en la app.
+3. TERMINA AHÍ. El mensaje con el link lo escribe el CÓDIGO, siempre igual ("${EJEMPLO_BORRADOR}"): no lo escribas tú y NO copies el link — cualquier cosa que contestes en este turno se reemplaza por ese mensaje. ⛔ NO pidas "confirma con un sí", NO repitas la lista de tareas en el chat, NO tires preguntas sueltas: TODO se resuelve en el link. ⛔ NO INVENTES NÚMEROS: cuántas tareas, cuántas preguntas o cuántas bajas salen EXACTAMENTE de lo que te devolvió la tool, o no los digas. ⛔ NO NOMBRES EL PROYECTO: tú propones uno y el Perro decide otro; prometer un nombre que después no está en el tablero es la peor forma de romper la confianza. Vale IGUAL para el dueño y para un cliente.`;
 
 // Dónde ver el detalle completo en la app: MaKo da un resumen corto y REDIRIGE con
 // un link cuando hay una vista más rica (para eso están las tabs). {id} = id del lead.
-const DEEP_LINKS = `LINKS A LA APP: cuando el detalle completo vive en una tab, dá el resumen corto y CERRÁ con un link para verlo (formato: "Mirá el detalle acá → URL"). No inventes rutas; usá estas (base ${APP_URL}):
+const DEEP_LINKS = `LINKS A LA APP: cuando el detalle completo vive en una tab, da el resumen corto y CIERRA con un link para verlo (formato: "Mira el detalle aquí → URL"). No inventes rutas; usa estas (base ${APP_URL}):
 - Ficha 360 de un lead: ${APP_URL}/crm/{id}
-- Análisis de una llamada de ventas: ${APP_URL}/closing?call={recording_id} (el recording_id sale de reuniones_lead → analisis_llamadas). Si no lo tenés, ${APP_URL}/closing.
+- Análisis de una llamada de ventas: ${APP_URL}/closing?call={recording_id} (el recording_id sale de reuniones_lead → analisis_llamadas). Si no lo tienes, ${APP_URL}/closing.
 - WhatsApp con un lead: ${APP_URL}/whatsapp?lead={id}
 - Marketing / anuncios: ${APP_URL}/dashboard · Ads Manager: ${APP_URL}/ads-manager
 - Experimentos (verdades validadas): ${APP_URL}/experimentos
 - Plan / tareas: ${APP_URL}/plan · Nutrición y email: ${APP_URL}/email
 - Salud de la cuenta de Meta: ${APP_URL}/integraciones
-Ej: "Con Jesús la R1 se ve floja en el cierre. El análisis completo lo tenés acá → ${APP_URL}/closing".`;
+Ej: "Con Jesús la R1 se ve floja en el cierre. El análisis completo lo tienes aquí → ${APP_URL}/closing".`;
 
 /**
  * Cuántas API keys de IA tiene cargadas ESTE workspace.
@@ -488,7 +488,7 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
     // y un «dame un segundo» corta la conversación en vez de acompañarla.
     const hayCharla = (await pendientesVigentes(wsData, jid)).length > 0;
     if (engancha && !hayCharla && (esCargaDePlan(texto) || rutearDoer(texto, { hayMedia: false, hayPendientes: false }).tier !== 'cheap')) {
-      const ackTxt = esCargaDePlan(texto) ? 'Dale, anoto eso 👇 dame un segundo.' : 'Recibido 👍 dame un momento y te contesto.';
+      const ackTxt = esCargaDePlan(texto) ? 'Claro, anoto eso 👇 dame un segundo.' : 'Recibido 👍 dame un momento y te contesto.';
       const ack = await enviarAGrupoJid(jid, ackTxt, 0);
       if (ack.ok && ack.id) await registrarEnviado(OWNER_WS, jid, ack.id);
     }
@@ -526,7 +526,7 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
       // menos se nombra, así MaKo puede pedirla de nuevo en vez de ignorarla.
       const otro = adjuntoDe(p);
       if (otro && otro.tipo !== 'texto') {
-        t = `${t ? `${t}\n` : ''}(en este mensaje mandé ${otro.tipo === 'image' ? 'una imagen' : 'un PDF'}${otro.caption ? `: «${otro.caption}»` : ''}, pero llegó junto a otros mensajes y no la pudiste mirar — pedímela suelta si la necesitás)`;
+        t = `${t ? `${t}\n` : ''}(en este mensaje mandé ${otro.tipo === 'image' ? 'una imagen' : 'un PDF'}${otro.caption ? `: «${otro.caption}»` : ''}, pero llegó junto a otros mensajes y no la pudiste mirar — pídemela suelta si la necesitas)`;
       }
       if (t) textos.push(t);
     }
@@ -594,12 +594,12 @@ async function textoDeArchivo(instance: string, m: MsgIn): Promise<{ texto: stri
   // El corte se DICE, no se traga: un archivo cortado en silencio son la mitad de las
   // tareas perdidas sin que nadie se entere.
   const cortado = contenido.length > TOPE_ARCHIVO_WA;
-  const cuerpo = cortado ? `${contenido.slice(0, TOPE_ARCHIVO_WA)}\n\n[…corté acá: el archivo sigue, pero no entra entero en un mensaje]` : contenido;
+  const cuerpo = cortado ? `${contenido.slice(0, TOPE_ARCHIVO_WA)}\n\n[…corté aquí: el archivo sigue, pero no entra entero en un mensaje]` : contenido;
   const pedido = textoDe(m).trim() || (adj.caption && adj.caption !== adj.nombre ? adj.caption : '');
   console.log(`[mako-doer-in] archivo «${adj.nombre}» leído por ${lect.via}: ${contenido.length} chars${cortado ? ' (CORTADO)' : ''}`);
   return {
     texto: [
-      pedido || `Te mando «${adj.nombre}». Leelo y decime qué hacemos con esto.`,
+      pedido || `Te mando «${adj.nombre}». Léelo y dime qué hacemos con esto.`,
       '',
       `<<<ARCHIVO «${adj.nombre}»>>>`,
       cuerpo,
@@ -693,7 +693,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       // respuesta que no va a llegar nunca, que es peor que no haber acusado.
       if (!b64) {
         console.error('[mako-doer-in] audio sin base64');
-        void enviarAGrupoJid(jid, 'Me llegó tu audio pero WhatsApp no me deja bajarlo. ¿Me lo reenviás?', 0);
+        void enviarAGrupoJid(jid, 'Me llegó tu audio pero WhatsApp no me deja bajarlo. ¿Me lo reenvías?', 0);
         return { engaged: false, skip: 'audio sin base64' };
       }
       // Si NINGUNA de las IA pudo escucharlo (Gemini→Groq→OpenAI, todas caídas o sin
@@ -717,7 +717,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
         return { engaged: true, reply: aviso };
       }
       if (!texto) {
-        const aviso = 'Escuché tu audio pero no le entendí nada — ¿lo repetís un poco más cerca del micrófono, o me lo escribís?';
+        const aviso = 'Escuché tu audio pero no le entendí nada — ¿lo repites un poco más cerca del micrófono, o me lo escribes?';
         const env = await enviarAGrupoJid(jid, aviso);
         if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
         return { engaged: true, reply: aviso };
@@ -757,11 +757,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
         }
         if (!b64) {
           console.error('[mako-doer-in] adjunto sin base64');
-          void enviarAGrupoJid(jid, 'Me llegó tu archivo pero WhatsApp no me deja bajarlo. ¿Me lo reenviás?', 0);
+          void enviarAGrupoJid(jid, 'Me llegó tu archivo pero WhatsApp no me deja bajarlo. ¿Me lo reenvías?', 0);
           return { engaged: false, skip: 'adjunto sin base64' };
         }
         const source = { type: 'base64', media_type: adjunto.tipo === 'image' ? adjunto.mime : 'application/pdf', data: b64 };
-        const prompt = textoDirecto || adjunto.caption || (adjunto.tipo === 'image' ? 'Mirá esta imagen y decime qué ves y qué hago.' : 'Leé este PDF y decime lo importante.');
+        const prompt = textoDirecto || adjunto.caption || (adjunto.tipo === 'image' ? 'Mira esta imagen y dime qué ves y qué hago.' : 'Lee este PDF y dime lo importante.');
         mediaBlocks = [{ type: adjunto.tipo, source }, { type: 'text', text: prompt }];
         // Para la memoria guardamos un placeholder de texto.
         texto = `(envió ${adjunto.tipo === 'image' ? 'una imagen' : 'un PDF'}${adjunto.caption ? `: ${adjunto.caption}` : ''})${textoDirecto ? ` — ${textoDirecto}` : ''}`;
@@ -798,7 +798,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // queda disponible en buildSystemPrompt para cuando revisemos ese flujo.
     const base = await runWithWorkspace(wsData, () => buildSystemPrompt({ chartKey: 'mako-doer', titulo: 'Hola MaKo', contexto: '', query: texto }));
     const ctxPend = vigentes.length
-      ? `\n\nACCIONES PENDIENTES DE CONFIRMACIÓN EN ESTE GRUPO (la más reciente primero):\n${vigentes.map((p) => `- #${p.id}: ${p.resumen}`).join('\n')}\nSi el dueño está confirmando, usá confirmar_accion con el id que corresponda.`
+      ? `\n\nACCIONES PENDIENTES DE CONFIRMACIÓN EN ESTE GRUPO (la más reciente primero):\n${vigentes.map((p) => `- #${p.id}: ${p.resumen}`).join('\n')}\nSi el dueño está confirmando, usa confirmar_accion con el id que corresponda.`
       : '';
     // CUÁNTAS COSAS PIDIÓ, contadas por CÓDIGO. El preámbulo explica muy bien cómo
     // agrupar tareas en PROYECTOS por tema, y no dice una palabra sobre cuántas TAREAS
@@ -896,7 +896,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       // Charla trivial: respuesta corta con la voz de MaKo, SIN tools ni Opus. Si
       // falla la IA barata, caemos al doer normal (nunca dejamos al dueño sin respuesta).
       try {
-        const cheapSys = `${base}\n\nEs un saludo o charla casual por WhatsApp, sin pedido concreto. Respondé CORTO (1-2 frases), cálido y en la voz de MaKo. No inventes datos ni números; si te piden algo con datos del negocio, decí que lo mirás enseguida.`;
+        const cheapSys = `${base}\n\nEs un saludo o charla casual por WhatsApp, sin pedido concreto. Responde CORTO (1-2 frases), cálido y en la voz de MaKo. No inventes datos ni números; si te piden algo con datos del negocio, di que lo miras enseguida.`;
         respuesta = (await chatCheap({ system: cheapSys, user: texto, maxTokens: 350, feature: 'mako-doer-in', motivo: `${ruta.motivo} «${recorte}»` })).trim();
       } catch (e) {
         console.warn('[mako-doer-in] cheap falló, uso doer:', e instanceof Error ? e.message : String(e));

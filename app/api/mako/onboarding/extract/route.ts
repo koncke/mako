@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     } else if (name.endsWith('.txt') || name.endsWith('.md') || name.endsWith('.markdown') || (file.type || '').startsWith('text/')) {
       texto = buf.toString('utf8');
     } else {
-      return Response.json({ error: 'Formato no soportado. Subí .txt, .md o .docx (o exportá tu documento a uno de esos).' }, { status: 400 });
+      return Response.json({ error: 'Formato no soportado. Sube .txt, .md o .docx (o exporta tu documento a uno de esos).' }, { status: 400 });
     }
     if (!texto.trim()) return Response.json({ error: 'No se pudo leer texto del archivo.' }, { status: 400 });
 

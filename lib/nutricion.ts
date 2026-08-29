@@ -1151,7 +1151,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           // Remitente sandbox (resend.dev) NO entrega a terceros: abortamos con un
           // error claro en vez de quemar el paso. Se resuelve al verificar dominio.
           estado = 'fallo';
-          nota = 'remitente sandbox: verificá tu dominio de envío';
+          nota = 'remitente sandbox: verifica tu dominio de envío';
           backoffHoras = 24; // config pendiente: 1 reintento/día
         } else {
           const vars = valoresVariablesLead(lead);
@@ -1361,7 +1361,7 @@ async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: 
       await supabase.from('leads').update({ calificado: false, updated_at: ahoraISO() }).eq('id', leadId);
       const { logLeadEvent } = await import('@/lib/leads');
       await logLeadEvent(leadId, 'Setting', `MaKo lo marcó NO calificado por la charla: ${ev.razon}`, 'MaKo');
-      alertaDescalifica = `\n\n⚠️ *No califica* (${ev.razon}). Lo marqué en el CRM. Si tiene reunión agendada, conviene cancelarla — te dejo la decisión a vos.`;
+      alertaDescalifica = `\n\n⚠️ *No califica* (${ev.razon}). Lo marqué en el CRM. Si tiene reunión agendada, conviene cancelarla — te dejo la decisión a ti.`;
     }
   } catch { /* la calificación es un extra: nunca bloquea el aviso */ }
 

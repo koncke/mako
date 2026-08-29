@@ -37,7 +37,7 @@ export function CrmAutoToggle() {
       if (j.ok) setOn(Boolean(j.habilitado));
       else setErr(j.error || 'No se pudo cambiar');
     } catch {
-      setErr('Sin conexión — probá de nuevo');
+      setErr('Sin conexión — prueba de nuevo');
     } finally {
       setBusy(false);
     }

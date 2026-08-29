@@ -163,7 +163,7 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // medido el 12/8 sobre la misma llamada leída por dos workspaces con 65 s de
   // diferencia: gemini-flash 74% de precisión y 2 invenciones, mistral-small 46% y 12.
   // Antes que degradar el modelo, la llamada FALLA y el cron reintenta con la cuota repuesta: ni se degrada ni se paga.
-  { feature: 'plan-fathom', label: 'Extraer tareas de una reunión (Fathom)', grupo: 'Análisis', def: GEMINI(), fallback: [], nota: 'Lo que se lee mal acá no se nota: una tarea que no se extrajo no aparece en ninguna pantalla. Por eso NO se degrada de modelo: si Gemini no contesta, la lectura falla y se reintenta sola. 1 vez por reunión (cacheada).' },
+  { feature: 'plan-fathom', label: 'Extraer tareas de una reunión (Fathom)', grupo: 'Análisis', def: GEMINI(), fallback: [], nota: 'Lo que se lee mal aquí no se nota: una tarea que no se extrajo no aparece en ninguna pantalla. Por eso NO se degrada de modelo: si Gemini no contesta, la lectura falla y se reintenta sola. 1 vez por reunión (cacheada).' },
 
   // ── Copywriting / voz de marca → Sonnet por default (bajó de Opus) ──────────
   { feature: 'campaign-suggest', label: 'Estructurar campaña de Meta', grupo: 'Copywriting', def: GEMINI(), nota: 'Estrategia + voz de marca. Sonnet.' },

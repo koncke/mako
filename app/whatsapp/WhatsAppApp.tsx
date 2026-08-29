@@ -355,7 +355,7 @@ function WhatsAppInner() {
       if (j.ok) setEnvioWaOn(Boolean(j.envioHabilitado));
       else setEnvioErr(j.error || 'No se pudo cambiar el envío real');
     } catch {
-      setEnvioErr('Sin conexión — probá de nuevo');
+      setEnvioErr('Sin conexión — prueba de nuevo');
     } finally {
       setEnvioBusy(false);
     }
@@ -716,7 +716,7 @@ function WhatsAppInner() {
 
   async function enviarAudio(blob: Blob, ext: string, grupo: Contacto) {
     const enEseChat = () => selIdRef.current === grupo.id;
-    if (!blob.size) { if (enEseChat()) setSendError('La grabación quedó vacía, probá de nuevo.'); setAudioFase(null); setAudioFaseGid(null); return; }
+    if (!blob.size) { if (enEseChat()) setSendError('La grabación quedó vacía, prueba de nuevo.'); setAudioFase(null); setAudioFaseGid(null); return; }
     setSending(true);
     setAudioFase('Enviando audio…');
     setAudioFaseGid(grupo.id);
@@ -746,7 +746,7 @@ function WhatsAppInner() {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
-      setSendError('No se pudo acceder al micrófono. Revisá los permisos.');
+      setSendError('No se pudo acceder al micrófono. Revisa los permisos.');
       return;
     }
     let rec: MediaRecorder;
@@ -773,7 +773,7 @@ function WhatsAppInner() {
       setRecording(false);
       setRecPaused(false);
       setRecSecs(0);
-      if (cancelled || !blob.size) { if (!cancelled) setSendError('La grabación quedó vacía, probá de nuevo.'); return; }
+      if (cancelled || !blob.size) { if (!cancelled) setSendError('La grabación quedó vacía, prueba de nuevo.'); return; }
       // Transcodificar a MP3 (único formato que WhatsApp entrega acá) y enviar.
       setSending(true);
       setAudioFase('Procesando audio…');
@@ -1063,8 +1063,8 @@ function WhatsAppInner() {
             {!sel && (
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: '14px', padding: '0 28px', textAlign: 'center', lineHeight: 1.5 }}>
                 {leadSinChat != null
-                  ? 'Este lead todavía no tiene chat de WhatsApp vinculado. Cuando tenga teléfono con conversación, se abre acá solo.'
-                  : 'Elegí una conversación'}
+                  ? 'Este lead todavía no tiene chat de WhatsApp vinculado. Cuando tenga teléfono con conversación, se abre aquí solo.'
+                  : 'Elige una conversación'}
               </div>
             )}
             {sel && (
@@ -1216,12 +1216,12 @@ function WhatsAppInner() {
                         <Dropdown
                           value={selTpl}
                           onChange={setSelTpl}
-                          placeholder="Elegí una plantilla…"
+                          placeholder="Elige una plantilla…"
                           width="100%"
                           ariaLabel="Plantilla de WhatsApp"
                           buttonStyle={{ height: 44, padding: '0 12px', borderRadius: 12, background: 'var(--surface-2)', fontWeight: 400, fontSize: 14 }}
                           options={[
-                            { value: '', label: 'Elegí una plantilla…' },
+                            { value: '', label: 'Elige una plantilla…' },
                             ...templatesInbox.map((t) => ({ value: t.name, label: `${t.name} (${t.category})` })),
                           ]}
                         />
@@ -1286,7 +1286,7 @@ function WhatsAppInner() {
                 quickTemplates={QUICK}
               />
             ) : (
-              <div style={{ fontSize: '12.5px', color: 'var(--faint)', lineHeight: 1.5 }}>Elegí una conversación para que MaKo te sugiera qué escribir.</div>
+              <div style={{ fontSize: '12.5px', color: 'var(--faint)', lineHeight: 1.5 }}>Elige una conversación para que MaKo te sugiera qué escribir.</div>
             )}
           </div>
         </div>
@@ -1304,7 +1304,7 @@ function WhatsAppInner() {
           {seqConRelleno > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', background: 'var(--surface)', border: '1px solid var(--accent)', borderRadius: '12px', padding: '12px 16px', fontSize: '13px', color: 'var(--dim)' }}>
               <span>
-                <strong style={{ color: 'var(--ink)' }}>{seqConRelleno === 1 ? 'Una secuencia sigue' : `${seqConRelleno} secuencias siguen`} con texto de relleno</strong> — MaKo puede escribirlas todas en la voz de tu negocio y vos solo las aprobás (botón «✍️ Nutrición»).
+                <strong style={{ color: 'var(--ink)' }}>{seqConRelleno === 1 ? 'Una secuencia sigue' : `${seqConRelleno} secuencias siguen`} con texto de relleno</strong> — MaKo puede escribirlas todas en la voz de tu negocio y tú solo las apruebas (botón «✍️ Nutrición»).
               </span>
             </div>
           )}
@@ -1362,7 +1362,7 @@ function WhatsAppInner() {
           </div>
 
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-            {!seqSel && <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: '14px' }}>Elegí una secuencia</div>}
+            {!seqSel && <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: '14px' }}>Elige una secuencia</div>}
             {seqSel && (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', padding: '18px 22px', borderBottom: '1px solid var(--border)' }}>
@@ -1418,9 +1418,9 @@ function WhatsAppInner() {
                             </div>
                             <div style={{ marginBottom: '10px' }}>
                               <label style={{ display: 'block', fontSize: '12px', color: 'var(--dim)', marginBottom: '5px' }}>Plantilla de WhatsApp</label>
-                              <Dropdown value={st.template_wa ?? ''} options={tplOptions} onChange={(v) => pickTemplatePaso(i, v)} placeholder="Elegí plantilla" width="100%" ariaLabel="Plantilla del paso" />
+                              <Dropdown value={st.template_wa ?? ''} options={tplOptions} onChange={(v) => pickTemplatePaso(i, v)} placeholder="Elige plantilla" width="100%" ariaLabel="Plantilla del paso" />
                             </div>
-                            <div style={{ width: '100%', padding: '12px 14px', borderRadius: '11px', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', fontSize: '13.5px', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{st.cuerpo || <span style={{ color: 'var(--faint)' }}>Elegí una plantilla aprobada para previsualizar el texto.</span>}</div>
+                            <div style={{ width: '100%', padding: '12px 14px', borderRadius: '11px', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', fontSize: '13.5px', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{st.cuerpo || <span style={{ color: 'var(--faint)' }}>Elige una plantilla aprobada para previsualizar el texto.</span>}</div>
                           </div>
                         );
                       })}
@@ -1446,7 +1446,7 @@ function WhatsAppInner() {
                           </div>
                         </div>
                       ))}
-                      <div style={{ fontSize: '12px', color: 'var(--faint)', marginTop: '8px', paddingLeft: '50px', lineHeight: 1.5 }}>El cuerpo de cada paso es una <strong>plantilla aprobada de Meta</strong> — se administra desde Meta/Chatwoot, no acá. Variable disponible: <code style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '5px', padding: '1px 5px', fontFamily: "'Geist Mono', monospace" }}>{'{{nombre}}'}</code>.</div>
+                      <div style={{ fontSize: '12px', color: 'var(--faint)', marginTop: '8px', paddingLeft: '50px', lineHeight: 1.5 }}>El cuerpo de cada paso es una <strong>plantilla aprobada de Meta</strong> — se administra desde Meta/Chatwoot, no aquí. Variable disponible: <code style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '5px', padding: '1px 5px', fontFamily: "'Geist Mono', monospace" }}>{'{{nombre}}'}</code>.</div>
                     </>
                   )}
                 </div>

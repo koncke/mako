@@ -169,7 +169,7 @@ export async function POST(req: NextRequest) {
       if (share.modo !== 'invitados') return NextResponse.json({ ok: false, error: 'este enlace no es de invitados' }, { status: 400 });
       if (share.revocado_at) return NextResponse.json({ ok: false, error: 'enlace revocado' }, { status: 400 });
       if (malos.length) return NextResponse.json({ ok: false, error: `email inválido: ${malos[0]}` }, { status: 400 });
-      if (!dests.length) return NextResponse.json({ ok: false, error: 'agregá al menos un email' }, { status: 400 });
+      if (!dests.length) return NextResponse.json({ ok: false, error: 'agrega al menos un email' }, { status: 400 });
       const invitados = await invitar(share.id, dests, raiz, share.etiqueta);
       return NextResponse.json({ ok: true, id: share.id, enlace: null, invitados });
     }
@@ -189,7 +189,7 @@ export async function POST(req: NextRequest) {
     if (!MODOS.includes(modo)) return NextResponse.json({ ok: false, error: 'modo inválido' }, { status: 400 });
     if (alcance !== 'todo' && !recursoId) return NextResponse.json({ ok: false, error: 'falta qué compartir' }, { status: 400 });
     if (modo === 'invitados' && malos.length) return NextResponse.json({ ok: false, error: `email inválido: ${malos[0]}` }, { status: 400 });
-    if (modo === 'invitados' && !dests.length) return NextResponse.json({ ok: false, error: 'agregá al menos un email' }, { status: 400 });
+    if (modo === 'invitados' && !dests.length) return NextResponse.json({ ok: false, error: 'agrega al menos un email' }, { status: 400 });
 
     const etiqueta = body.etiqueta ? String(body.etiqueta).slice(0, 140) : null;
     const { id, token } = await crearShare({

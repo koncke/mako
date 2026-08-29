@@ -260,7 +260,7 @@ export async function POST(req: NextRequest) {
         ws,
         // Se dice POR QUÉ quedó esperando. «Confirmalo» a secas, sobre algo que
         // el resto de las veces entra solo, se lee como que el sistema falló.
-        texto: `*${quien}* dejó sus datos en tu landing${contacto ? ` — ${contacto}` : ''}. ${textoDuplicado(dup) || 'Necesito que lo mires'} Por eso NO lo cargué solo: fundir dos contactos no se puede deshacer. Decidís vos acá 👉 ${APP_BASE_URL}/crm/revisar/${id}`,
+        texto: `*${quien}* dejó sus datos en tu landing${contacto ? ` — ${contacto}` : ''}. ${textoDuplicado(dup) || 'Necesito que lo mires'} Por eso NO lo cargué solo: fundir dos contactos no se puede deshacer. Decides tú aquí 👉 ${APP_BASE_URL}/crm/revisar/${id}`,
         // Sin dedup por tiempo: cada persona que deja sus datos es un aviso
         // propio. Agrupar dos leads distintos en uno es perder el segundo.
       }),

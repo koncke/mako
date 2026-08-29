@@ -1434,11 +1434,11 @@ export function CrmBoard({
           titulo={`Nutrición manual · ${manualNutri.name}`}
           total={3}
           idx={manualNutriPaso}
-          pregunta={manualNutriPaso === 0 ? '¿Por qué pasa a nutrición manual?' : manualNutriPaso === 1 ? '¿Hasta cuándo la seguís?' : 'Revisá y confirmá'}
+          pregunta={manualNutriPaso === 0 ? '¿Por qué pasa a nutrición manual?' : manualNutriPaso === 1 ? '¿Hasta cuándo la sigues?' : 'Revisa y confirma'}
           sub={manualNutriPaso === 0
-            ? 'Contá el motivo del parking. Queda en el historial del lead.'
+            ? 'Cuenta el motivo del parking. Queda en el historial del lead.'
             : manualNutriPaso === 1
-              ? 'Poné una fecha límite: si llega sin que el lead avance, vuelve a «datos sin marcar» en rojo.'
+              ? 'Pon una fecha límite: si llega sin que el lead avance, vuelve a «datos sin marcar» en rojo.'
               : 'Esto es lo que va a pasar cuando confirmes.'}
           puedeAvanzar={manualNutriPaso === 0 ? !!manualMotivo.trim() : !!manualDeadline}
           enUltimo={manualNutriPaso === 2}
@@ -1536,15 +1536,15 @@ export function CrmBoard({
           salida: {
             q: qhOpcion === 'hecha' ? `¿Cómo salió la Reunión ${nR}?`
               : qhOpcion === 'avanza' ? '¿A dónde vuelve?'
-              : '¿Cómo lo cerrás?',
+              : '¿Cómo lo cierras?',
             sub: qhOpcion === 'hecha'
-              ? `Ya queda registrado que asistió a la Reunión ${nR}. Elegí qué sigue.`
-              : qhOpcion === 'avanza' ? 'Solo las etapas a las que tu funnel deja avanzar desde acá.'
+              ? `Ya queda registrado que asistió a la Reunión ${nR}. Elige qué sigue.`
+              : qhOpcion === 'avanza' ? 'Solo las etapas a las que tu funnel deja avanzar desde aquí.'
               : 'El lead sale del pipeline. Después te pedimos el motivo.',
           },
           noshowEtapa: {
             q: '¿A qué etapa pasa?',
-            sub: 'Tu funnel no tiene una etapa de No Show para esta reunión: elegí a dónde va.',
+            sub: 'Tu funnel no tiene una etapa de No Show para esta reunión: elige a dónde va.',
           },
           calificado: {
             q: '¿Era un lead calificado?',
@@ -1552,17 +1552,17 @@ export function CrmBoard({
           },
           motivo: {
             q: qhDestino === 'descal' ? '¿Por qué se descalificó?' : '¿Por qué se perdió?',
-            sub: 'Elegí la categoría. En la pantalla siguiente contás el caso concreto.',
+            sub: 'Elige la categoría. En la pantalla siguiente cuentas el caso concreto.',
           },
           motivoDetalle: {
             q: 'Sé específico: ¿qué pasó?',
-            sub: `Categoría: ${qhMotivoCat || '—'}. Agregá el detalle concreto — es lo que se lee en el historial.`,
+            sub: `Categoría: ${qhMotivoCat || '—'}. Agrega el detalle concreto — es lo que se lee en el historial.`,
           },
           fecha: {
             q: `¿Para qué día quedó la Reunión ${nR}?`,
             sub: reagCal && !reagCal.conectado
-              ? 'Se actualiza en el CRM y queda en el historial. Conectá tu Google Calendar para que además se mueva el evento.'
-              : 'Elegí el día. En la pantalla siguiente te traemos los horarios libres de tu agenda.',
+              ? 'Se actualiza en el CRM y queda en el historial. Conecta tu Google Calendar para que además se mueva el evento.'
+              : 'Elige el día. En la pantalla siguiente te traemos los horarios libres de tu agenda.',
           },
           hora: {
             q: '¿A qué hora?',
@@ -1573,16 +1573,16 @@ export function CrmBoard({
             // que hay que decir es otra cosa — cuántos quedan y que se puede
             // escribir una hora que no esté en la lista.
             sub: reagSlotsCargando ? 'Leyendo los horarios libres de tu agenda…'
-              : reagLibres ? `${reagLibres} horarios libres${reagTz ? ` en ${reagTz}` : ''}. Podés escribir cualquier otra hora, aunque no esté en la lista.`
-              : reagSlots ? 'No quedan horarios libres ese día: volvé atrás y elegí otro, o escribí la hora igual.'
+              : reagLibres ? `${reagLibres} horarios libres${reagTz ? ` en ${reagTz}` : ''}. Puedes escribir cualquier otra hora, aunque no esté en la lista.`
+              : reagSlots ? 'No quedan horarios libres ese día: vuelve atrás y elige otro, o escribe la hora igual.'
               : 'No pudimos verificar tu agenda: se ofrece el día entero y no se oculta nada.',
           },
           plazo: {
             q: '¿Hasta cuándo le das tiempo?',
-            sub: 'Si llega esa fecha sin que el lead avance, vuelve a aparecer acá en rojo.',
+            sub: 'Si llega esa fecha sin que el lead avance, vuelve a aparecer aquí en rojo.',
           },
           resumen: {
-            q: 'Revisá y confirmá',
+            q: 'Revisa y confirma',
             sub: qhVaACalendly
               ? 'La reunión hay que agendarla: seguimos ahí.'
               : qhMueveEtapa(qhOpcion) && qhFaltan === null
@@ -1610,7 +1610,7 @@ export function CrmBoard({
           if (qhNoShowPrevio) filas.push([`Reunión ${nR} anterior`, 'queda registrado que no se presentó']);
         } else if (qhOpcion === 'nodecide' || qhOpcion === 'sinresp') {
           filas.push(['Nutrición manual', `nuevo plazo hasta el ${fmtDDMMYYYY(qhPlazo)}`]);
-          filas.push(['Si llega esa fecha', 'vuelve a aparecer acá en rojo']);
+          filas.push(['Si llega esa fecha', 'vuelve a aparecer aquí en rojo']);
         } else {
           if (esR) filas.push([`Reunión ${nR}`, qhOpcion === 'hecha' ? 'sí, asistió' : 'no se presentó']);
           filas.push(['Etapa', `${etapaLabel} → ${destinoLabel}`]);
@@ -1797,7 +1797,7 @@ export function CrmBoard({
                 />
                 {reagHoraPasada ? (
                   <div style={{ fontSize: 12.5, color: 'var(--bad)', lineHeight: 1.45 }}>
-                    Esa hora ya pasó: el lead volvería a quedar pendiente al instante. Elegí otra hora o cambiá el día.
+                    Esa hora ya pasó: el lead volvería a quedar pendiente al instante. Elige otra hora o cambia el día.
                   </div>
                 ) : (
                   <div style={{ fontSize: 11.5, color: 'var(--dim)' }}>Vuelve a quedar pendiente recién a esa hora.</div>
@@ -1891,9 +1891,9 @@ export function CrmBoard({
               ? (esPasada ? `¿Cuándo fue la ${rLabel}?` : `¿Para cuándo está agendada la ${rLabel}?`)
               : mmPaso === 1
                 ? (esPasada ? `¿Asistió a la ${rLabel}?` : '¿Por qué se agendó fuera de Calendly?')
-                : 'Revisá y confirmá'}
+                : 'Revisa y confirma'}
             sub={mmPaso === 0
-              ? (esPasada ? 'La reunión ya ocurrió: registrala a mano (sin Calendly) para avanzar el lead.' : 'Ya está agendada por fuera de Calendly. Cargá la fecha; la asistencia se marca cuando ocurra.')
+              ? (esPasada ? 'La reunión ya ocurrió: regístrala a mano (sin Calendly) para avanzar el lead.' : 'Ya está agendada por fuera de Calendly. Carga la fecha; la asistencia se marca cuando ocurra.')
               : mmPaso === 1
                 ? (esPasada ? undefined : 'Es una excepción: todas las reuniones deberían agendarse por Calendly.')
                 : 'Esto es lo que va a pasar cuando confirmes.'}
@@ -1917,7 +1917,7 @@ export function CrmBoard({
                   ))}
                 </div>
               ) : (
-                <textarea value={mmNota} onChange={(e) => setMmNota(e.target.value)} autoFocus placeholder="Contá el motivo de la excepción…" style={{ ...wizardInput, minHeight: 90, textAlign: 'left', lineHeight: 1.5 }} />
+                <textarea value={mmNota} onChange={(e) => setMmNota(e.target.value)} autoFocus placeholder="Cuenta el motivo de la excepción…" style={{ ...wizardInput, minHeight: 90, textAlign: 'left', lineHeight: 1.5 }} />
               )
             ) : (
               <ResumenFilas filas={[
@@ -2079,10 +2079,10 @@ function BulkHigiene({ marcar, equipo, onDone }: {
               {open.field === 'setter' ? 'El que agendó la reunión.' : 'El que corrió la llamada de venta.'} Elegilo de tu equipo. Solo rellena los que están vacíos.
             </p>
             {equipo.length > 0 ? (
-              <Dropdown value={sel} options={opts} onChange={setSel} placeholder="Elegí del equipo…" width="100%" ariaLabel={open.label} />
+              <Dropdown value={sel} options={opts} onChange={setSel} placeholder="Elige del equipo…" width="100%" ariaLabel={open.label} />
             ) : (
               <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px' }}>
-                Todavía no tenés equipo configurado. Agregá a tus setters y closers en <b>Configuraciones › Equipo</b> y después vas a poder asignarlos acá.
+                Todavía no tienes equipo configurado. Agrega a tus setters y closers en <b>Configuraciones › Equipo</b> y después vas a poder asignarlos aquí.
               </div>
             )}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
@@ -2101,7 +2101,7 @@ function BulkHigiene({ marcar, equipo, onDone }: {
       {openEmpresa && (
         <ConfirmDialog
           title={`Ignorar Empresa en ${idsEmpresa.length} lead${idsEmpresa.length === 1 ? '' : 's'}`}
-          message="Muchas veces no tenés la empresa. Al ignorarla deja de contar como “dato sin marcar” en el CRM general, pero sigue apareciendo como recordatorio suave dentro de la ficha de cada lead. Reversible."
+          message="Muchas veces no tienes la empresa. Al ignorarla deja de contar como “dato sin marcar” en el CRM general, pero sigue apareciendo como recordatorio suave dentro de la ficha de cada lead. Reversible."
           confirmLabel={`Ignorar en los ${idsEmpresa.length}`}
           loading={pending}
           onConfirm={ignorarEmpresa}
@@ -2218,7 +2218,7 @@ function SinMarcar({
             <>
               Sale del worklist y deja de sumar al conteo
               {aIgnorar.faltantes?.length ? <>: <b>{aIgnorar.faltantes.map((f) => f.label).join(', ')}</b></> : null}.
-              Los mismos avisos siguen apareciendo dentro de su ficha, y podés reactivarlos cuando quieras.
+              Los mismos avisos siguen apareciendo dentro de su ficha, y puedes reactivarlos cuando quieras.
             </>
           }
           confirmLabel="Ignorar"

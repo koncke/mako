@@ -42,7 +42,7 @@ export default function ErrorIA({ error, onConectada, children, soloSalida }: {
     return deIA ? (
       <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
         <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 9 }}>
-          Conectá otra IA gratis y volvé a intentar
+          Conecta otra IA gratis y vuelve a intentar
         </div>
         <ConectarIA onConectada={onConectada} />
       </div>
@@ -56,7 +56,7 @@ export default function ErrorIA({ error, onConectada, children, soloSalida }: {
   // detalle» —hace falta para diagnosticar, y ya se pagó no tenerlo— pero no manda.
   const largo = error.length > 200 || /googleapis\.com|https?:\/\//.test(error);
   const resumen = largo
-    ? 'La IA no pudo con esto ahora mismo. Abajo tenés cómo destrabarlo.'
+    ? 'La IA no pudo con esto ahora mismo. Abajo tienes cómo destrabarlo.'
     : error;
 
   return (
@@ -81,7 +81,7 @@ export default function ErrorIA({ error, onConectada, children, soloSalida }: {
       {deIA && (
         <div style={{ marginTop: 12, border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-2)', padding: '13px 15px' }}>
           <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 9 }}>
-            Conectá otra IA gratis y volvé a intentar
+            Conecta otra IA gratis y vuelve a intentar
           </div>
           <ConectarIA onConectada={onConectada} />
         </div>

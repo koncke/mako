@@ -57,11 +57,11 @@ export default function ConectarIA({ onConectada }: {
   useEffect(() => { void cargar(); }, [cargar]);
 
   if (provs === null) {
-    return <div style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)' }}>Viendo qué IA tenés conectadas…</div>;
+    return <div style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)' }}>Viendo qué IA tienes conectadas…</div>;
   }
   if (!provs.length) {
     // Sin sesión o sin catálogo: no dejamos el hueco mudo, pero tampoco inventamos.
-    return <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>Conectá una IA desde Integraciones y volvé a intentar.</div>;
+    return <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>Conecta una IA desde Integraciones y vuelve a intentar.</div>;
   }
 
   const sinConectar = provs.filter((p) => !p.cuentas).length;

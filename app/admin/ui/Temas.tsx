@@ -93,7 +93,7 @@ export function LosTemas() {
       <Banner tono={activo ? 'mako' : 'info'}>
         {activo
           ? 'Hay un tema puesto. Salí a navegar la app: el chip de abajo a la izquierda te sigue a todas las pantallas con la salida. El claro/oscuro está en tu perfil, abajo en la barra.'
-          : 'Elegí un tema y se aplica a TODA la app, no a una maqueta. Nada de esto es producción: es una herramienta para decidir.'}
+          : 'Elige un tema y se aplica a TODA la app, no a una maqueta. Nada de esto es producción: es una herramienta para decidir.'}
       </Banner>
 
       <Section
@@ -165,7 +165,7 @@ export function LosTemas() {
 
       <Section
         titulo={`Los tokens, en modo ${oscuro ? 'oscuro' : 'claro'}`}
-        nota="leídos de la hoja de estilo, no escritos acá: es lo que de verdad se aplica"
+        nota="leídos de la hoja de estilo, no escritos aquí: es lo que de verdad se aplica"
         card
         accion={<Button variant="secondary" onClick={() => aplicarModo(!oscuro)}>
           Ver en {oscuro ? 'claro' : 'oscuro'}
@@ -218,7 +218,7 @@ export function LosTemas() {
           <code style={{ fontFamily: MONO, fontSize: 12 }}>app/vsl/</code> usa <strong>cero</strong> tokens de la app
           (<code style={{ fontFamily: MONO, fontSize: 12 }}>var(--</code> aparece 0 veces) y tiene <strong>646 hexes escritos a mano</strong>.
           Tampoco tiene <code style={{ fontFamily: MONO, fontSize: 12 }}>data-tema</code>: no hay modo oscuro ahí ni puede haberlo sin tokenizarla antes.
-          Poner un tema acá deja la landing exactamente igual — medido: cambia el 7,7% de los píxeles, y es casi todo un botón.
+          Poner un tema aquí deja la landing exactamente igual — medido: cambia el 7,7% de los píxeles, y es casi todo un botón.
         </p>
         <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.6 }}>
           <strong style={{ color: 'var(--ink)' }}>Y el naranja hereda el problema del dorado. </strong>
@@ -294,7 +294,7 @@ function ClienteDeDiseno() {
       {est.existe && !est.conDatos && (
         <>
           <Banner tono="warn">
-            El workspace existe pero está vacío. Entrá y usá <strong>«Datos de Mauricio → Traer todo»</strong> en la
+            El workspace existe pero está vacío. Entra y usa <strong>«Datos de Mauricio → Traer todo»</strong> en la
             barra de arriba: copia todo y da el onboarding por cerrado de una.
           </Banner>
           <div className="mk-row" style={{ marginTop: 12 }}>

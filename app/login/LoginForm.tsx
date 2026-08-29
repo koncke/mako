@@ -18,7 +18,7 @@ import { useSearchParams } from 'next/navigation';
 
 const ERRORES: Record<string, string> = {
   'no-autorizado': 'Esa cuenta de Google no está autorizada para entrar.',
-  oauth: 'No se pudo verificar el inicio de sesión. Probá de nuevo.',
+  oauth: 'No se pudo verificar el inicio de sesión. Prueba de nuevo.',
   token: 'No se pudo completar el login con Google.',
   exchange: 'No se pudo completar el login con Google.',
   config: 'El login con Google no está configurado.',

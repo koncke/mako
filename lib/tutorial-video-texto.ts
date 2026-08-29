@@ -24,15 +24,15 @@ export type VideoTutorial = {
  */
 export function textoTutorial(videos: VideoTutorial[], tema: string): string {
   if (!videos.length) {
-    return `No encontré un video decente de «${tema}». Contame en qué parte te trabás y lo vemos juntos.`;
+    return `No encontré un video decente de «${tema}». Cuéntame en qué parte te trabas y lo vemos juntos.`;
   }
   const v = videos[0];
   return [
-    `Acá tenés el tutorial 👇`,
+    `Aquí tienes el tutorial 👇`,
     `*${v.titulo}*`,
     `${v.canal}${v.publicado ? ` · ${v.publicado.slice(0, 4)}` : ''}`,
     v.url,
     '',
-    'Miralo y si te trabás en algún paso, decime cuál y te ayudo.',
+    'Míralo y si te trabas en algún paso, dime cuál y te ayudo.',
   ].join('\n');
 }

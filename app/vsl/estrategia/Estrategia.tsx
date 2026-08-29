@@ -393,7 +393,7 @@ export default function Estrategia() {
                 <h3>Un Loom VSL por cada lead</h3>
               </div>
               <div className="s-open-rule s-open-rule-a">
-                Acá <b>no va recurso gratis</b>: al que te conoce o al que le escribís a mano se le entra por
+                Aquí <b>no va recurso gratis</b>: al que te conoce o al que le escribes a mano se le entra por
                 lo consultivo, con el análisis ya hecho antes de hablarle.
               </div>
               <Mini tone="a" steps={['Miro su negocio', 'Grabo un Loom para él', 'Cierro con el link']} />
@@ -444,7 +444,7 @@ export default function Estrategia() {
         <section className="s-sec">
           <h2 className="s-h2">Razón egoísta de por qué agendarán la llamada</h2>
           <div className="s-egoist">
-            <p className="s-egoist-q">“Salís de la llamada con toda tu estrategia para conseguir clientes con anuncios pagos, armada para tu negocio.”</p>
+            <p className="s-egoist-q">“Sales de la llamada con toda tu estrategia para conseguir clientes con anuncios pagos, armada para tu negocio.”</p>
             <div className="s-anal">
               {ANALISIS.map((a, i) => (
                 <div key={a.t} className="s-anal-i">
@@ -477,7 +477,7 @@ export default function Estrategia() {
             <p className="s-venta-cierre">
               El diagnóstico deja al prospecto con una lista clara de todo lo que tiene que arreglar — y con
               la certeza de que solo no lo va a hacer. Ahí el cierre es natural: <em>“esto es lo que hay que
-              hacer; podés intentarlo por tu cuenta, o lo hacemos juntos”</em>. Y ahí se pitchea la escalera.
+              hacer; puedes intentarlo por tu cuenta, o lo hacemos juntos”</em>. Y ahí se pitchea la escalera.
             </p>
           </div>
         </section>

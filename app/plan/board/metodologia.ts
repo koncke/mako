@@ -382,7 +382,7 @@ export function cuposDeDistribucion(n: number, tipo: 'proyecto' | 'tarea'): {
     return {
       n, piso, maxArriba: null,
       minAbajo: Math.max(1, Math.round(n * 0.15)),
-      texto: `Son ${n} proyectos. El norte (uno solo) va en 95-100. Como NO podés empatar, el más bajo tiene que quedar en ${piso} o menos — con ${n} proyectos distintos no hay forma de que todos entren más arriba. Y al menos ${Math.max(1, Math.round(n * 0.15))} tienen que quedar en la parte de abajo de la escala: son los que pueden esperar del todo, y en un plan real siempre los hay.`,
+      texto: `Son ${n} proyectos. El norte (uno solo) va en 95-100. Como NO puedes empatar, el más bajo tiene que quedar en ${piso} o menos — con ${n} proyectos distintos no hay forma de que todos entren más arriba. Y al menos ${Math.max(1, Math.round(n * 0.15))} tienen que quedar en la parte de abajo de la escala: son los que pueden esperar del todo, y en un plan real siempre los hay.`,
     };
   }
   const maxArriba = Math.max(1, Math.round(n * 0.15));

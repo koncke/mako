@@ -30,7 +30,7 @@ export function plantillaReporteDraft(): TemplateDraft {
     header: '📊 Reporte MaKo',
     body:
       'Hola {{nombre}} 👋 Tu resumen del día ya está listo: semáforo de la cuenta, ads y wins.\n\n' +
-      'Tocá "Recibir reporte" y te lo paso acá mismo, junto con los avisos de lo urgente durante el día.',
+      'Toca "Recibir reporte" y te lo paso aquí mismo, junto con los avisos de lo urgente durante el día.',
     footer: 'MaKo · Marketing OS',
     buttons: [{ type: 'QUICK_REPLY', text: 'Recibir reporte' }],
     params: [{ name: 'nombre', example: 'Mauricio' }],
@@ -76,7 +76,7 @@ export async function enviarAperturaDiaria(perfil: { nombre: string; telefono: s
   const r = await sendWhatsappTemplate({
     phone: perfil.telefono,
     name: perfil.nombre,
-    content: 'Tu resumen del día está listo — tocá "Recibir reporte".',
+    content: 'Tu resumen del día está listo — toca "Recibir reporte".',
     template: {
       name: PLANTILLA_REPORTE_NOMBRE,
       category: 'utility',

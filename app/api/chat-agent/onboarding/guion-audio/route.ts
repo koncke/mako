@@ -107,7 +107,7 @@ export const PROHIBICIONES: Array<{
   },
   {
     aplica: (e, c) => !e.includes('agenda_sola') && !agendaElLead(c),
-    texto: 'Acá NADIE agenda por su cuenta: no hay link de agenda ni horario reservado. NO digas que agendó, ni menciones una cita o un horario que haya elegido.',
+    texto: 'Aquí NADIE agenda por su cuenta: no hay link de agenda ni horario reservado. NO digas que agendó, ni menciones una cita o un horario que haya elegido.',
     re: /\b(agend\w+|tu cita|reservaste|elegiste (un )?horario)\b/i,
   },
   {
@@ -122,7 +122,7 @@ export const PROHIBICIONES: Array<{
   },
   {
     aplica: (_e, _c, ev) => !ev?.lugar?.trim(),
-    texto: 'NO SABES dónde queda: nadie cargó la dirección. NO inventes ninguna calle, zona ni referencia — di que se la pasas por acá.',
+    texto: 'NO SABES dónde queda: nadie cargó la dirección. NO inventes ninguna calle, zona ni referencia — di que se la pasas por aquí.',
     re: /\b(calle|avenida|av\.|colonia|dirección es|queda en)\b/i,
   },
 ];
@@ -188,7 +188,7 @@ export async function POST(req: Request) {
       // Las prohibiciones van PEGADAS a la situación —arriba del bloque
       // imperativo del guion— y no en un párrafo de contexto lejano. Esa
       // distancia es literalmente la causa del bug que esto viene a cerrar.
-      situacion: prohibidas.length ? `${def.situacion}\n\nLO QUE NO PODÉS DECIR (este negocio no lo tiene):\n${prohibidas.map((p) => `- ${p}`).join('\n')}` : def.situacion,
+      situacion: prohibidas.length ? `${def.situacion}\n\nLO QUE NO PUEDES DECIR (este negocio no lo tiene):\n${prohibidas.map((p) => `- ${p}`).join('\n')}` : def.situacion,
       guion: bullets.map((b, i) => `${i + 1}. ${b}`).join('\n'),
       video: def.pideVideo ? ((linkVideo ?? '').trim() ? VIDEO_CON : VIDEO_SIN) : VIDEO_SIN,
     })}`;

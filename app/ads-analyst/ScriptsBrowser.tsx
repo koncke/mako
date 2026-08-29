@@ -170,7 +170,7 @@ function decorateBeats(sc: ScriptView): DecoratedBeat[] {
 // ── Patrones ganadores (determinístico sobre los guiones confiables) ──
 type Polarity = 'bueno' | 'malo' | 'proceso';
 const POL: Record<Polarity, { c: string; label: string }> = {
-  bueno: { c: '#1E9E57', label: 'Seguí' }, malo: { c: '#D0504A', label: 'Cortá' }, proceso: { c: '#9A6A09', label: 'Proceso' },
+  bueno: { c: '#1E9E57', label: 'Sigue' }, malo: { c: '#D0504A', label: 'Corta' }, proceso: { c: '#9A6A09', label: 'Proceso' },
 };
 type Pattern = {
   key: string; polarity: Polarity; chip: string; big: string; bigColor: string; tlabel: string; stmt: string;
@@ -209,7 +209,7 @@ function buildPatterns(ads: ScriptView[], reliable: ScriptView[]): Pattern[] {
     const share = r((byAngAll[domAngle].length / total) * 100);
     const nSub = Object.keys(byAngAll).filter((k) => byAngAll[k].length <= 2).length;
     out.push({ key: 'concentracion', polarity: 'proceso', chip: 'Ángulo dominante', big: `${share}%`, bigColor: POL.proceso.c, tlabel: `son del ángulo ${angleInfo(domAngle).label}`, priority: 10,
-      stmt: `${share}% de tus guiones atacan por "${angleInfo(domAngle).label}". Estás optimizando dentro de un solo ángulo y dejaste ${nSub} casi sin probar. No sabés si es el mejor o el único que probaste — abrí 2-3 guiones por ángulo flojo.`,
+      stmt: `${share}% de tus guiones atacan por "${angleInfo(domAngle).label}". Estás optimizando dentro de un solo ángulo y dejaste ${nSub} casi sin probar. No sabes si es el mejor o el único que probaste — abre 2-3 guiones por ángulo flojo.`,
       aLabel: angleInfo(domAngle).label, aVal: `${share}%`, a: share, bLabel: 'otros', bVal: `${100 - share}%`, b: 100 - share, max: 100, ads: byAngAll[domAngle] });
   }
   const baja = ads.filter((a) => a.impressions < 8000), nAlta = ads.filter((a) => a.impressions >= 25000).length;
@@ -224,14 +224,14 @@ function buildPatterns(ads: ScriptView[], reliable: ScriptView[]): Pattern[] {
   const waste = ads.filter((a) => a.agendas === 0 && a.spend > 0), wasteSpend = sum(waste, (a) => a.spend);
   if (wasteSpend >= 50) {
     out.push({ key: 'quemado', polarity: 'malo', chip: 'Plata quemada', big: fmtK(wasteSpend), bigColor: POL.malo.c, tlabel: `${waste.length} guiones, 0 agendas`, priority: 9,
-      stmt: `Quemaste ${fmtUSD(wasteSpend)} en ${waste.length} guiones que no agendaron una sola junta. Pausá los que ya tienen impresiones suficientes (no es falta de muestra, no convierten) y reinvertí.`,
+      stmt: `Quemaste ${fmtUSD(wasteSpend)} en ${waste.length} guiones que no agendaron una sola junta. Pausa los que ya tienen impresiones suficientes (no es falta de muestra, no convierten) y reinvierte.`,
       aLabel: '0 agendas', aVal: String(waste.length), a: waste.length, bLabel: 'agendaron', bVal: String(ads.filter(won).length), b: ads.filter(won).length, max: total, ads: bySpend(waste) });
   }
   let wasteAng: { k: string; sp: number; g: ScriptView[] } | null = null;
   Object.keys(byAngAll).forEach((k) => { const g = byAngAll[k], sp = sum(g, (x) => x.spend), ag = sum(g, (x) => x.agendas); if (ag === 0 && sp >= 50 && (!wasteAng || sp > wasteAng.sp)) wasteAng = { k, sp, g }; });
   if (wasteAng && (wasteSpend < 50 || (wasteAng as { sp: number }).sp < 0.85 * wasteSpend)) { const w = wasteAng as { k: string; sp: number; g: ScriptView[] };
     out.push({ key: 'angulo-quemado', polarity: 'malo', chip: 'Ángulo a cortar', big: fmtK(w.sp), bigColor: POL.malo.c, tlabel: `${angleInfo(w.k).label}: 0 agendas`, priority: 8,
-      stmt: `Cortá el ángulo ${angleInfo(w.k).label}: quemó ${fmtUSD(w.sp)} sin agendar nada. Mové esa plata al ángulo que sí rinde.`,
+      stmt: `Corta el ángulo ${angleInfo(w.k).label}: quemó ${fmtUSD(w.sp)} sin agendar nada. Mueve ese dinero al ángulo que sí rinde.`,
       aLabel: 'gastado', aVal: fmtK(w.sp), a: w.sp, bLabel: 'agendas', bVal: '0', b: 0, max: w.sp, ads: bySpend(w.g) });
   }
   const leak = vReliable.filter((a) => a.hookRate >= HOOK_MID && hold(a) < HOLD_MID);
@@ -249,7 +249,7 @@ function buildPatterns(ads: ScriptView[], reliable: ScriptView[]): Pattern[] {
   const weakHook = vReliable.filter((a) => a.hookRate < HOOK_MID && hold(a) >= HOLD_MID);
   if (weakHook.length >= 2) {
     out.push({ key: 'gancho-flojo', polarity: 'malo', chip: 'Gancho flojo', big: String(weakHook.length), bigColor: POL.malo.c, tlabel: 'cuerpo retiene, gancho bajo', priority: 6,
-      stmt: `${weakHook.length} guiones retienen bien una vez que arrancan (${r(mean(weakHook, (a) => hold(a)))}%) pero el gancho no frena el scroll (${r(mean(weakHook, (a) => a.hookRate))}%). Buen cuerpo desperdiciado: probá los ganchos que sugiere MaKo en cada uno.`,
+      stmt: `${weakHook.length} guiones retienen bien una vez que arrancan (${r(mean(weakHook, (a) => hold(a)))}%) pero el gancho no frena el scroll (${r(mean(weakHook, (a) => a.hookRate))}%). Buen cuerpo desperdiciado: prueba los ganchos que sugiere MaKo en cada uno.`,
       aLabel: 'ret. CTA', aVal: `${r(mean(weakHook, (a) => hold(a)))}%`, a: mean(weakHook, (a) => hold(a)), bLabel: 'hook', bVal: `${r(mean(weakHook, (a) => a.hookRate))}%`, b: mean(weakHook, (a) => a.hookRate), max: Math.max(mean(weakHook, (a) => hold(a)), 30), ads: bySpend(weakHook) });
   }
 
@@ -258,7 +258,7 @@ function buildPatterns(ads: ScriptView[], reliable: ScriptView[]): Pattern[] {
   if (dash.length >= 2 && noDash.length >= 2) {
     const rw = r((dash.filter(won).length / dash.length) * 100), rwo = r((noDash.filter(won).length / noDash.length) * 100);
     if (rw > rwo) out.push({ key: 'dashboard', polarity: 'bueno', chip: 'Dashboard', big: `${rw}%`, bigColor: POL.bueno.c, tlabel: 'de los que muestran panel agendan', priority: 7,
-      stmt: `Mostrá el panel en pantalla: los guiones que muestran un dashboard agendan ${rw}% vs ${rwo}% de los que no. Es tu patrón ganador más claro.`,
+      stmt: `Muestra el panel en pantalla: los guiones que muestran un dashboard agendan ${rw}% vs ${rwo}% de los que no. Es tu patrón ganador más claro.`,
       aLabel: 'con panel', aVal: `${rw}%`, a: rw, bLabel: 'sin panel', bVal: `${rwo}%`, b: rwo, max: 100, ads: dash.filter(won) });
   }
   const escalables = vReliable.filter((a) => a.hookRate >= HOOK_MID && hold(a) >= HOLD_MID && a.agendas > 0 && a.freq < 2.4);
@@ -310,7 +310,7 @@ function drillRows(ads: ScriptView[]): DrillRow[] {
 function makoConclusions(reliable: ScriptView[], patterns: Pattern[]): { text: string; bullets: string[] } {
   const text = patterns.length
     ? `Leí tus guiones cruzando guion, spend, frecuencia y resultado${reliable.length ? ` (${reliable.length} con señal suficiente)` : ''}. Esto es lo que importa, de lo más urgente a lo menos:`
-    : 'Todavía no hay guiones con datos suficientes para sacar patrones. Sincronizá o dejá correr más presupuesto.';
+    : 'Todavía no hay guiones con datos suficientes para sacar patrones. Sincroniza o deja correr más presupuesto.';
   return { text, bullets: patterns.slice(0, 4).map((p) => p.stmt) };
 }
 
@@ -386,7 +386,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
     finally { setQuadLoading(false); }
   }
   async function valorar() {
-    if (guionText.trim().length < 80) { setValError('Pegá el guion completo (unas líneas) para poder valorarlo.'); return; }
+    if (guionText.trim().length < 80) { setValError('Pega el guion completo (unas líneas) para poder valorarlo.'); return; }
     setValorando(true); setValError(null); setValoracion(null);
     try {
       const r = await fetch('/api/ads-analyst/valorar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ guion: guionText }) });
@@ -531,8 +531,8 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
           </div>
           <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.6, maxWidth: 560, margin: '0 auto' }}>
             {errorMsg
-              ? 'No se pudo leer la base (en local faltan las claves de Supabase). En producción, sincronizá para analizar los guiones de los video ads con transcript.'
-              : 'Sincronizá para que MaKo lea los guiones de los video ads (los que ya tienen transcript), los clasifique y arme los patrones. Aparecen acá todos los guiones con gasto que ya tienen transcript.'}
+              ? 'No se pudo leer la base (en local faltan las claves de Supabase). En producción, sincroniza para analizar los guiones de los video ads con transcript.'
+              : 'Sincroniza para que MaKo lea los guiones de los video ads (los que ya tienen transcript), los clasifique y arme los patrones. Aparecen aquí todos los guiones con gasto que ya tienen transcript.'}
           </div>
           {!errorMsg && counts.sinTranscript > 0 && (
             <div style={{ fontFamily: MONO, fontSize: 12.5, color: 'var(--faint)', marginTop: 16 }}>
@@ -579,11 +579,11 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
           </div>
         </div>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontFamily: MONO, fontSize: 11, color: 'var(--faint)', margin: '0 0 4px' }}>
-          <span><span style={{ color: POL.bueno.c }}>●</span> seguí</span><span><span style={{ color: POL.malo.c }}>●</span> cortá</span><span><span style={{ color: POL.proceso.c }}>●</span> proceso</span>
+          <span><span style={{ color: POL.bueno.c }}>●</span> sigue</span><span><span style={{ color: POL.malo.c }}>●</span> corta</span><span><span style={{ color: POL.proceso.c }}>●</span> proceso</span>
         </div>
 
         {P.length === 0 ? (
-          <div style={{ fontSize: 13.5, color: 'var(--faint)', margin: '16px 0' }}>Todavía no hay patrones — faltan guiones con datos. Tocá Actualizar para analizar los pendientes.</div>
+          <div style={{ fontSize: 13.5, color: 'var(--faint)', margin: '16px 0' }}>Todavía no hay patrones — faltan guiones con datos. Toca Actualizar para analizar los pendientes.</div>
         ) : (
           <>
             <button onClick={() => openPattern(P[0])} style={{ display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', background: rgba(POL[P[0].polarity].c, .07), border: `1px solid ${rgba(POL[P[0].polarity].c, .36)}`, borderRadius: 16, padding: '22px 24px', margin: '14px 0 16px' }}>
@@ -632,7 +632,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
             </button>
             {showCaveat && (
               <div style={{ padding: '0 18px 16px 52px' }}>
-                <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 12 }}>Estos guiones llaman la atención pero aún no probaron nada — poco spend o cero agendas. Validá con presupuesto antes de copiarlos; no los compares de igual a igual con los que ya gastaron miles. Quedan fuera de los patrones de arriba.</div>
+                <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 12 }}>Estos guiones llaman la atención pero aún no probaron nada — poco spend o cero agendas. Valida con presupuesto antes de copiarlos; no los compares de igual a igual con los que ya gastaron miles. Quedan fuera de los patrones de arriba.</div>
                 <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
                   {lowConf.map((a) => (
                     <button key={a.id} onClick={() => setOpenAd(a.id)} style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 13px', cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -707,7 +707,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
             ))}
             <div style={{ fontSize: 12, color: 'var(--faint)', lineHeight: 1.5, borderTop: '1px solid var(--border)', paddingTop: 11, marginTop: 3 }}>
               {mapMode === 'ads'
-                ? `Cada punto es un anuncio (pasá el cursor para ver cuál); el tamaño = spend y las translúcidas de borde punteado tienen poca muestra. Ejes FIJOS con cortes en gancho ${HOOK_MID}% y retención ${HOLD_MID}% — la posición significa lo mismo siempre. La retención al CTA es baja para casi todos (es estructural del video), por eso la mayoría cae en la banda inferior; ahí lo que manda es el gancho (izq/der) y el spend (tamaño).`
+                ? `Cada punto es un anuncio (pasa el cursor para ver cuál); el tamaño = spend y las translúcidas de borde punteado tienen poca muestra. Ejes FIJOS con cortes en gancho ${HOOK_MID}% y retención ${HOLD_MID}% — la posición significa lo mismo siempre. La retención al CTA es baja para casi todos (es estructural del video), por eso la mayoría cae en la banda inferior; ahí lo que manda es el gancho (izq/der) y el spend (tamaño).`
                 : 'Cada burbuja es un ángulo (número = cuántos anuncios), ponderado por spend. Los cortes son fijos. Tocala para ver sus guiones.'}
             </div>
           </div>
@@ -716,9 +716,9 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
 
       {/* ANALIZA NUEVO GUION */}
       <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
-        <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Analizá un guion nuevo</h2>
-        <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 5 }}>Pegá un guion que todavía no subiste a Meta. MaKo lo compara con lo que ya te funciona y te dice qué esperar y cómo probarlo.</div>
-        <textarea value={guionText} onChange={(e) => setGuionText(e.target.value)} placeholder="Pegá acá el guion completo del video…" rows={6} style={{ width: '100%', marginTop: 14, padding: '14px 16px', borderRadius: 13, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14.5, lineHeight: 1.5, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
+        <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Analiza un guion nuevo</h2>
+        <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 5 }}>Pega un guion que todavía no subiste a Meta. MaKo lo compara con lo que ya te funciona y te dice qué esperar y cómo probarlo.</div>
+        <textarea value={guionText} onChange={(e) => setGuionText(e.target.value)} placeholder="Pega aquí el guion completo del video…" rows={6} style={{ width: '100%', marginTop: 14, padding: '14px 16px', borderRadius: 13, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14.5, lineHeight: 1.5, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 12, flexWrap: 'wrap' }}>
           <button onClick={valorar} disabled={valorando} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 18px', borderRadius: 11, border: 'none', background: valorando ? 'var(--surface-2)' : '#14161B', color: valorando ? 'var(--dim)' : '#F3F5F8', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: valorando ? 'default' : 'pointer' }}>{valorando ? 'Valorando…' : <>{spark(14, 'sva')} Valorar guion</>}</button>
           {valError && <span style={{ fontSize: 12.5, color: 'var(--bad)' }}>{valError}</span>}
@@ -823,7 +823,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
             <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
               {syncGate.level === 'nada' ? (
                 <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px', fontSize: 13.5, lineHeight: 1.5, color: 'var(--dim)' }}>
-                  No hay guiones nuevos sin analizar — los patrones ya reflejan los {counts.analizadas} guiones analizados. Volvé cuando entren anuncios nuevos con transcript.{counts.errores > 0 ? ` Hay ${counts.errores} con error — actualizar puede reintentarlos.` : ''}
+                  No hay guiones nuevos sin analizar — los patrones ya reflejan los {counts.analizadas} guiones analizados. Vuelve cuando entren anuncios nuevos con transcript.{counts.errores > 0 ? ` Hay ${counts.errores} con error — actualizar puede reintentarlos.` : ''}
                 </div>
               ) : syncGate.level === 'reciente' ? (
                 <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start', background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)', borderRadius: 12, padding: '13px 15px' }}>
@@ -951,7 +951,7 @@ export function FunnelModal({ sel, onClose, onReanalizar, reMsg, onSetAngle, onS
         </div>
         <div style={{ padding: embedded ? '16px 0 0' : '22px 26px', maxHeight: embedded ? undefined : '74vh', overflowY: embedded ? undefined : 'auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
           {conf === 'baja' && (
-            <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start', background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)', borderRadius: 12, padding: '13px 15px' }}><span style={{ flex: 'none', color: '#7A5908', fontWeight: 700, fontSize: 15 }}>!</span><div style={{ fontSize: 13.5, lineHeight: 1.5, color: '#5A4408' }}>Muestra chica: {fmtUSD(sel.spend)} y {sel.impressions.toLocaleString('en-US')} impresiones en {sel.days} días. Las métricas pueden moverse mucho todavía — validá con más presupuesto.</div></div>
+            <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start', background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)', borderRadius: 12, padding: '13px 15px' }}><span style={{ flex: 'none', color: '#7A5908', fontWeight: 700, fontSize: 15 }}>!</span><div style={{ fontSize: 13.5, lineHeight: 1.5, color: '#5A4408' }}>Muestra chica: {fmtUSD(sel.spend)} y {sel.impressions.toLocaleString('en-US')} impresiones en {sel.days} días. Las métricas pueden moverse mucho todavía — valida con más presupuesto.</div></div>
           )}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {chips.map((c) => (

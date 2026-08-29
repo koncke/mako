@@ -63,13 +63,13 @@ Las tres comparten los 3 pilares y la C.I.A., pero cada una usa un ángulo difer
       cuerpo: `REGLAS DE CALIDAD:
 - Cada mensaje cumple los 3 pilares y sigue la C.I.A.
 - Una sola CTA por mensaje, formulada como pregunta abierta.
-- Siempre dejá una salida digna: que decir "no" sea tan fácil y libre de culpa como decir "sí".
+- Siempre deja una salida digna: que decir "no" sea tan fácil y libre de culpa como decir "sí".
 - Personalizá con datos reales del negocio y de la conversación previa.
-- Usá solo pruebas sociales reales; NUNCA inventes casos, cifras ni testimonios.
-- Adaptá longitud y formato al canal (WhatsApp corto + nota de voz máx 40s; email con asunto + cuerpo).
+- Usa solo pruebas sociales reales; NUNCA inventes casos, cifras ni testimonios.
+- Adapta longitud y formato al canal (WhatsApp corto + nota de voz máx 40s; email con asunto + cuerpo).
 - Español neutro localizable a MX; tono humano y conversacional.
 - Si el lead no califica o el objetivo es depurar, entregá mensajes de depuración elegante en lugar de venta.
-- Si falta un dato crítico (contexto, objeción o activo de valor), preguntá antes de asumir.
+- Si falta un dato crítico (contexto, objeción o activo de valor), pregunta antes de asumir.
 
 PROHIBIDO (no negociable):
 - Frases genéricas de seguimiento: "solo te escribo para dar seguimiento", "¿sigues interesado?", "¿pudiste ver mi mensaje?".
@@ -83,13 +83,13 @@ PROHIBIDO (no negociable):
     {
       titulo: 'Levanta Muertos — Por etapa del lead',
       categoria: 'Etapas',
-      cuerpo: `Adaptá el ángulo según en qué etapa se enfrió el lead:
+      cuerpo: `Adapta el ángulo según en qué etapa se enfrió el lead:
 
-- PIDIÓ INFO (tibio): retomá EXACTAMENTE lo que preguntó y aportá valor sobre su duda concreta, no un folleto. Cerrá con una pregunta de bajo compromiso (mandar un caso, una muestra). No empujes el cierre todavía.
-- VIO PROPUESTA / COTIZACIÓN (se congeló): el silencio casi siempre es una objeción no dicha (precio o auto-duda). No repreguntes "¿la viste?". Aportá un ángulo nuevo y abrí la puerta a nombrar lo que lo frenó: "normalmente cuando alguien se queda callado aquí es por X o por Y, ¿cuál fue tu caso?". Cierre suave de 3 opciones (entramos / lo movemos / lo paramos).
-- OBJECIÓN (ghosting tras una objeción concreta): validá la objeción de frente sin atacar, reencuadrala y ofrecé un activo de valor o un paso intermedio. No repitas el argumento que ya no funcionó; cambiá el ángulo. Dejá el "no" como opción legítima.
-- FRÍO / MUY FRÍO (semanas o meses sin contacto): reabrí como NUEVA oportunidad, no como seguimiento: usá una novedad real (cambio en la oferta, nuevo caso, nuevo recurso) que justifique escribir. Tono cálido, cero presión. Si no hay novedad real, no inventes: usá valor puro o pasá a depuración.
-- DEPURACIÓN (no responde tras varios intentos, o querés limpiar pipeline): mensaje de depuración elegante — reconocé que las prioridades cambian, cerrá el ciclo con dignidad y dejá la puerta abierta sin rogar. Una pregunta que facilite el "no" tanto como el "sí". Quitar la presión frecuentemente reactiva al lead.`,
+- PIDIÓ INFO (tibio): retoma EXACTAMENTE lo que preguntó y aporta valor sobre su duda concreta, no un folleto. Cierra con una pregunta de bajo compromiso (mandar un caso, una muestra). No empujes el cierre todavía.
+- VIO PROPUESTA / COTIZACIÓN (se congeló): el silencio casi siempre es una objeción no dicha (precio o auto-duda). No repreguntes "¿la viste?". Aporta un ángulo nuevo y abre la puerta a nombrar lo que lo frenó: "normalmente cuando alguien se queda callado aquí es por X o por Y, ¿cuál fue tu caso?". Cierre suave de 3 opciones (entramos / lo movemos / lo paramos).
+- OBJECIÓN (ghosting tras una objeción concreta): valida la objeción de frente sin atacar, reencuádrala y ofrece un activo de valor o un paso intermedio. No repitas el argumento que ya no funcionó; cambia el ángulo. Deja el "no" como opción legítima.
+- FRÍO / MUY FRÍO (semanas o meses sin contacto): reabre como NUEVA oportunidad, no como seguimiento: usa una novedad real (cambio en la oferta, nuevo caso, nuevo recurso) que justifique escribir. Tono cálido, cero presión. Si no hay novedad real, no inventes: usa valor puro o pasa a depuración.
+- DEPURACIÓN (no responde tras varios intentos, o quieres limpiar pipeline): mensaje de depuración elegante — reconoce que las prioridades cambian, cierra el ciclo con dignidad y deja la puerta abierta sin rogar. Una pregunta que facilite el "no" tanto como el "sí". Quitar la presión frecuentemente reactiva al lead.`,
     },
     {
       titulo: 'Levanta Muertos — Coaching y consultoría: psicología y objeciones',
@@ -99,19 +99,19 @@ PROHIBIDO (no negociable):
 POR QUÉ SE ENFRÍAN: auto-desconfianza ("a mí no me va a funcionar"), escarmiento previo (ya pagó un curso que dejó a la mitad), olor a humo, objeción de precio no dicha, se sintieron presionados, "no es buen momento" real, parálisis por exceso de opciones.
 
 OBJECIONES Y CÓMO MANEJARLAS:
-- "Está caro / no me alcanza": no bajes el precio; reencuadrá de gasto a inversión y conectá con el costo de seguir igual. Ofrecé un paso intermedio. "La pregunta no es si cuesta, es cuánto te está costando seguir otro año en el mismo punto."
-- "Ya tomé un curso y no me funcionó": validá sin atacar al competidor; diferenciá por mecanismo (acompañamiento vs información suelta). "La mayoría te da info y te deja solo; ahí es donde casi todos lo dejamos a la mitad."
+- "Está caro / no me alcanza": no bajes el precio; reencuadra de gasto a inversión y conecta con el costo de seguir igual. Ofrece un paso intermedio. "La pregunta no es si cuesta, es cuánto te está costando seguir otro año en el mismo punto."
+- "Ya tomé un curso y no me funcionó": valida sin atacar al competidor; diferencia por mecanismo (acompañamiento vs información suelta). "La mayoría te da info y te deja solo; ahí es donde casi todos lo dejamos a la mitad."
 - "No tengo tiempo": no discutas el tiempo; reducí el compromiso percibido y anclá en el costo de postergar.
-- "No sé si a MÍ me va a funcionar" (la objeción real del sector, es miedo no lógica): bajá la promesa, mostrá a alguien parecido, reducí el riesgo. "No te voy a prometer magia."
-- "Lo tengo que pensar / lo hablo con mi pareja": respetalo de verdad, dale un activo para pensar mejor y dejá salida digna.
-- "¿Y tú quién eres?": ofrecé prueba verificable y transparencia, sin defenderte con ego.
+- "No sé si a MÍ me va a funcionar" (la objeción real del sector, es miedo no lógica): baja la promesa, muestra a alguien parecido, reduce el riesgo. "No te voy a prometer magia."
+- "Lo tengo que pensar / lo hablo con mi pareja": respétalo de verdad, dale un activo para pensar mejor y deja salida digna.
+- "¿Y tú quién eres?": ofrece prueba verificable y transparencia, sin defenderte con ego.
 
-TONO: humano, cercano y consultivo, de igual a igual. Cero euforia de gurú, cero MAYÚSCULAS, casi sin emojis. La credibilidad viene de BAJAR la promesa y poner el resultado del prospecto por encima de la venta. Validá siempre la duda antes de responderla. En high-ticket, registro más premium y selectivo.`,
+TONO: humano, cercano y consultivo, de igual a igual. Cero euforia de gurú, cero MAYÚSCULAS, casi sin emojis. La credibilidad viene de BAJAR la promesa y poner el resultado del prospecto por encima de la venta. Valida siempre la duda antes de responderla. En high-ticket, registro más premium y selectivo.`,
     },
     {
       titulo: 'Levanta Muertos — Banco de scripts de WhatsApp',
       categoria: 'Ejemplos',
-      cuerpo: `Ejemplos parametrizables (usá {nombre}, {oferta}, {beneficio}, {problema}, {tipo_cliente}, {activo_valor}, {X_tiempo}). Adaptalos al contexto real; no los pegues literales.
+      cuerpo: `Ejemplos parametrizables (usa {nombre}, {oferta}, {beneficio}, {problema}, {tipo_cliente}, {activo_valor}, {X_tiempo}). Adáptalos al contexto real; no los pegues literales.
 
 VALOR (whatsapp, corto):
 "Hola {nombre}, me quedé pensando en lo que me contaste de {problema}. Armé algo que ataca justo eso: {activo_valor}, con los pasos que usamos para llegar a {beneficio}. Te lo paso aunque al final no avancemos juntos, te va a servir igual. ¿Te lo mando?"

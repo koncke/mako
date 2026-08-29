@@ -320,7 +320,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
       if (j.contrato_nombre) setContratoSubido(j.contrato_nombre);
       const rellenado = aplicarExtraccion(j);
       const asum = j.asumido?.length ? ` Asumido por defecto: ${j.asumido.join(', ')}.` : '';
-      setFeedback({ kind: 'ok', msg: rellenado.length ? `Contrato leído. Se completó (solo lo vacío): ${rellenado.join(', ')}.${asum} Revisá y Guardá cambios.` : `Contrato leído: no había campos vacíos para completar.${asum}` });
+      setFeedback({ kind: 'ok', msg: rellenado.length ? `Contrato leído. Se completó (solo lo vacío): ${rellenado.join(', ')}.${asum} Revisa y Guarda cambios.` : `Contrato leído: no había campos vacíos para completar.${asum}` });
     } catch (err) {
       setFeedback({ kind: 'err', msg: `No se pudo leer el contrato: ${err instanceof Error ? err.message : String(err)}` });
     } finally { setExtrayendo(false); if (fileRef.current) fileRef.current.value = ''; }
@@ -335,7 +335,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
       if (j.error) throw new Error(j.error);
       if (j.doc_nombre) setFiscalNombre(j.doc_nombre);
       setD((prev) => prev && ({ ...prev, razon: prev.razon.trim() || j.razon || '', idFiscal: prev.idFiscal.trim() || j.id_fiscal || '', domicilio: prev.domicilio.trim() || j.domicilio || '', correo: prev.correo.trim() || j.correo || '' }));
-      setFeedback({ kind: 'ok', msg: 'Documento fiscal leído. Se completaron los datos vacíos. Revisá y Guardá cambios.' });
+      setFeedback({ kind: 'ok', msg: 'Documento fiscal leído. Se completaron los datos vacíos. Revisa y Guarda cambios.' });
     } catch (err) {
       setFeedback({ kind: 'err', msg: `No se pudo leer el documento fiscal: ${err instanceof Error ? err.message : String(err)}` });
     } finally { setSubiendoFiscal(false); if (fiscalRef.current) fiscalRef.current.value = ''; }
@@ -445,7 +445,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
         <div style={docstrip}>
           <div style={{ flex: 1, minWidth: 220 }}>
             <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{contratoNombre ?? 'Sin contrato cargado'}</div>
-            <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 2 }}>{tieneContrato ? 'El contrato ya está cargado.' : 'Subí el contrato (PDF o foto).'}</div>
+            <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 2 }}>{tieneContrato ? 'El contrato ya está cargado.' : 'Sube el contrato (PDF o foto).'}</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {tieneContrato && <button type="button" style={ghostBtn} onClick={() => setVerContrato((v) => !v)}>{verContrato ? 'Cerrar contrato' : 'Ver contrato'}</button>}
@@ -459,7 +459,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
         <div style={{ marginTop: 22 }}>
           <div style={{ ...sectLabel, marginBottom: 12 }}>Cuotas</div>
           {!d && (pagos.length === 0 ? (
-            <div style={{ fontSize: 13.5, color: 'var(--faint)' }}>Sin cuotas cargadas. Entrá a Editar para agregarlas o subí el contrato.</div>
+            <div style={{ fontSize: 13.5, color: 'var(--faint)' }}>Sin cuotas cargadas. Entra a Editar para agregarlas o sube el contrato.</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
               {pagos.map((p) => {
@@ -524,7 +524,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
               )}
             </>
           )}
-          <p style={{ fontSize: 12, color: 'var(--faint)', marginTop: 10 }}>El cash del dashboard lee de acá.</p>
+          <p style={{ fontSize: 12, color: 'var(--faint)', marginTop: 10 }}>El cash del dashboard lee de aquí.</p>
         </div>
       </section>
 
@@ -534,7 +534,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
         <div style={{ maxWidth: 440, marginBottom: 18 }}>
           <span style={{ display: 'block', fontSize: 12.5, marginBottom: 6, color: 'var(--dim)' }}>Facturado por</span>
           {d ? (
-            <Dropdown value={d.facturadoPor} onChange={(v) => upd({ facturadoPor: v })} width="100%" ariaLabel="Facturado por" disabled={identidades === null} placeholder={identidades === null ? 'Cargando…' : 'Elegí una identidad'}
+            <Dropdown value={d.facturadoPor} onChange={(v) => upd({ facturadoPor: v })} width="100%" ariaLabel="Facturado por" disabled={identidades === null} placeholder={identidades === null ? 'Cargando…' : 'Elige una identidad'}
               options={[{ value: '', label: 'Sin definir' }, ...(identidades ?? []).map((i) => ({ value: String(i.id), label: i.nombre, sub: i.id_fiscal ?? undefined }))]} />
           ) : (
             <div style={{ ...mini }}>{facturadoPorTexto}</div>
@@ -711,7 +711,7 @@ function PayModal({ pago, leadId, onClose, onDone }: { pago: Pago; leadId: numbe
       {step === 'elegir' && (
         <>
           <h3 style={modalH3}>Marcar {etiqueta} como pagada</h3>
-          <p style={modalSub}>Subí el comprobante y la IA extrae monto, fecha y hora. Si no lo tenés, registralo manual.</p>
+          <p style={modalSub}>Sube el comprobante y la IA extrae monto, fecha y hora. Si no lo tienes, regístralo manual.</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <button type="button" style={{ ...primaryBtn, width: '100%', opacity: leyendo ? 0.6 : 1 }} onClick={() => fileRef.current?.click()} disabled={leyendo}>{leyendo ? 'Leyendo comprobante…' : 'Subir comprobante'}</button>
             <button type="button" style={{ ...ghostBtn, width: '100%' }} onClick={() => setStep('manual')} disabled={leyendo}>Ingresar manual</button>
@@ -722,7 +722,7 @@ function PayModal({ pago, leadId, onClose, onDone }: { pago: Pago; leadId: numbe
       {step === 'extraido' && ext && (
         <>
           <h3 style={modalH3}>Comprobante leído</h3>
-          <p style={modalSub}>Revisá lo extraído antes de confirmar {etiqueta.toLowerCase()}.</p>
+          <p style={modalSub}>Revisa lo extraído antes de confirmar {etiqueta.toLowerCase()}.</p>
           <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', margin: '6px 0 14px' }}>
             <div style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', padding: '10px 14px', fontFamily: MONO, fontSize: 12, color: 'var(--dim)', display: 'flex', justifyContent: 'space-between', gap: 10 }}>
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ext.nombre}</span><span style={{ color: 'var(--accent)' }}>◆ IA</span>
@@ -742,7 +742,7 @@ function PayModal({ pago, leadId, onClose, onDone }: { pago: Pago; leadId: numbe
       {step === 'manual' && (
         <>
           <h3 style={modalH3}>Registro manual · {etiqueta}</h3>
-          <p style={modalSub}>Sin comprobante: cargá los datos del pago.</p>
+          <p style={modalSub}>Sin comprobante: carga los datos del pago.</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 12 }}>
             <Field label="Monto (USD)"><input className="lead-field" type="number" min={0} step="0.01" value={monto} onChange={(e) => setMonto(e.target.value)} /></Field>
             <Field label="Fecha"><input className="lead-field" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} /></Field>

@@ -228,7 +228,10 @@ export function CarouselsApp({
 
           {!pieza ? (
             <div style={{ ...card, padding: 40, textAlign: 'center' }}>
-              <MakoLogo size={54} />
+              {/* Se centra con FLEX, no con el `textAlign: 'center'` del padre: el preflight
+                  de Tailwind pone `svg { display: block }` y a un bloque el text-align no lo
+                  mueve — el icono quedaba pegado a la izquierda. */}
+              <div style={{ display: 'flex', justifyContent: 'center' }}><MakoLogo size={54} /></div>
               <h2 style={{ fontSize: 20, fontWeight: 650, margin: '16px 0 8px', letterSpacing: '-0.02em' }}>Cuéntale a MaKo qué carrusel necesitas</h2>
               <p style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.6, margin: '0 auto', maxWidth: 420 }}>
                 Escribe el guion completo —portada-gancho, texto por slide, notas de diseño y

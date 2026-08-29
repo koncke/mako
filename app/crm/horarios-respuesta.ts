@@ -72,7 +72,7 @@ export type LecturaHorarios = {
 
 /** Lo que se dice cuando la agenda no se pudo leer. Nunca bloquea el paso. */
 export const AVISO_SIN_AGENDA =
-  'No pude leer tu agenda. Elegí la hora igual: el CRM se actualiza y queda en el historial.';
+  'No pude leer tu agenda. Elige la hora igual: el CRM se actualiza y queda en el historial.';
 
 export function leerRespuestaHorarios(j: RespuestaHorarios | null | undefined): LecturaHorarios {
   // El rango se normaliza SIEMPRE, también en los caminos de error: es justo
@@ -114,13 +114,13 @@ export function motivoLegible(status: number, crudo: string): string {
   const t = (crudo || '').toLowerCase();
   // 403 accessNotConfigured / SERVICE_DISABLED: falta prender la API en Cloud.
   if (t.includes('has not been used in project') || t.includes('accessnotconfigured') || t.includes('service_disabled') || t.includes('is disabled')) {
-    return 'Falta habilitar la API de Google Calendar en tu proyecto de Google Cloud. Mientras tanto elegí la hora a mano: el CRM se actualiza igual.';
+    return 'Falta habilitar la API de Google Calendar en tu proyecto de Google Cloud. Mientras tanto elige la hora a mano: el CRM se actualiza igual.';
   }
   if (status === 401) return 'Tu conexión con Google venció: reconectala desde Integraciones.';
   if (status === 429 || t.includes('rate limit') || t.includes('quota')) {
-    return 'Google está limitando las consultas en este momento. Probá de nuevo en un rato o elegí la hora a mano.';
+    return 'Google está limitando las consultas en este momento. Prueba de nuevo en un rato o elige la hora a mano.';
   }
-  if (status >= 500) return 'Google no está respondiendo en este momento. Elegí la hora a mano: el CRM se actualiza igual.';
+  if (status >= 500) return 'Google no está respondiendo en este momento. Elige la hora a mano: el CRM se actualiza igual.';
   return 'No pude leer tu agenda: los horarios de abajo no están verificados.';
 }
 

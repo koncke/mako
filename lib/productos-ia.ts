@@ -13,31 +13,31 @@ import 'server-only';
 import { renderPrompt } from './prompt-render';
 import { perfilNegocioTexto } from './onboarding';
 import { getPanorama } from './archivero';
-import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, docsIADisponible, motivoDeErroresCascada, type ProvName } from './ai-cheap';
+import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, errorDeCascada, type ProvName } from './ai-cheap';
 import { overrideDeFeature } from './model-registry';
 import { listProductos, type ProductoInput } from './productos';
 
-export const PRODUCTOS_SYSTEM_TEMPLATE = `Sos MaKo, el copiloto de marketing de un negocio de alto ticket.
+export const PRODUCTOS_SYSTEM_TEMPLATE = `Eres MaKo, el copiloto de marketing de un negocio de alto ticket.
 Tu tarea: leer el contexto del negocio y devolver su CATÁLOGO DE PRODUCTOS/OFERTAS ya armado.
 
 Reglas:
-- Devolvé SOLO los productos que el contexto respalda. Si el negocio tiene UNA sola oferta, devolvé UNA. No inventes una escalera de valor que no existe.
-- Máximo 4. Si hay más señales, quedate con las más claras.
+- Devuelve SOLO los productos que el contexto respalda. Si el negocio tiene UNA sola oferta, devuelve UNA. No inventes una escalera de valor que no existe.
+- Máximo 4. Si hay más señales, quédate con las más claras.
 - "tipo" es "unico" (se paga una vez, aunque sea en cuotas) o "suscripcion" (se cobra todos los meses).
-- "monto_usd": para 'unico' es el precio total; para 'suscripcion' es el MENSUAL. Si el contexto no dice el precio, usá null (no inventes cifras).
+- "monto_usd": para 'unico' es el precio total; para 'suscripcion' es el MENSUAL. Si el contexto no dice el precio, usa null (no inventes cifras).
 - "suscripcion_meses": solo si es suscripción Y el contexto dice el plazo. Si es mes a mes o no se sabe, null.
 - "promesa": la transformación concreta que compra el cliente, en una línea.
 - "incluye": los entregables reales, separados por " · ".
 - "garantia": solo si el contexto la menciona; si no, null.
 
-Devolvé SOLO un objeto JSON:
+Devuelve SOLO un objeto JSON:
 {"productos":[{"nombre":"","tipo":"unico","monto_usd":null,"suscripcion_meses":null,"promesa":"","incluye":"","garantia":null}]}
 Sin texto fuera del JSON.`;
 
 export const PRODUCTOS_USER_TEMPLATE = `BRIEF DEL NEGOCIO:
 {{brief}}
 {{panorama}}{{existentes}}
-Armá el catálogo de productos de este negocio.`;
+Arma el catálogo de productos de este negocio.`;
 
 export type ProductoSugerido = ProductoInput;
 export type SugerirResult = { ok: true; productos: ProductoSugerido[] } | { ok: false; error: string };
@@ -88,7 +88,7 @@ export async function sugerirProductos(): Promise<SugerirResult> {
     listProductos().catch(() => []),
   ]);
   if (!brief.trim() && !panorama.trim()) {
-    return { ok: false, error: 'Primero cargá tu negocio (el brief o algún documento en El Archivero): de ahí salen los productos.' };
+    return { ok: false, error: 'Primero carga tu negocio (el brief o algún documento en El Archivero): de ahí salen los productos.' };
   }
   // ⚠️ Se le pasa el producto ENTERO, no un resumen. Antes iban solo el nombre y
   // el precio: un modelo no puede "completar sin pisar" un texto que nunca vio, y
@@ -121,14 +121,11 @@ export async function sugerirProductos(): Promise<SugerirResult> {
     validar: (t) => parseProductos(t).length > 0,
     erroresOut: errores,
   });
-  if (!text) {
-    const hayIA = await docsIADisponible();
-    const motivo = motivoDeErroresCascada(errores);
-    return { ok: false, error: hayIA
-      ? `Tu IA está conectada pero no pudo responder ahora mismo${motivo ? `: ${motivo}` : ' (puede ser un límite de uso momentáneo). Probá de nuevo en un momento.'}`
-      : 'No hay IA para armar los productos. Conectá tu API key de Gemini (gratis) en Integraciones.' };
-  }
+  // El mensaje NO se escribe a mano: `errorDeCascada` es el único que distingue
+  // «no hay ninguna IA» de «hay IA y falló», y el único que muestra qué contestó
+  // cada cuenta. Escribirlo acá es el bug que documenta lib/ia-mensajes.ts.
+  if (!text) return { ok: false, error: await errorDeCascada(errores, 'armar los productos') };
   const productos = parseProductos(text);
-  if (!productos.length) return { ok: false, error: 'La IA no devolvió productos usables. Probá de nuevo.' };
+  if (!productos.length) return { ok: false, error: 'La IA no devolvió productos usables. Prueba de nuevo.' };
   return { ok: true, productos };
 }

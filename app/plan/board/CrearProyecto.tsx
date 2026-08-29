@@ -47,7 +47,7 @@ export function CrearProyectoModal({ otros, onCrear, onClose }: { otros: Array<{
 
   const generar = async () => {
     setFase('generando');
-    const descripcion = `${desc.trim()}${porque.trim() ? `\n\nPor qué importa / qué tareas viven acá: ${porque.trim()}` : ''}`;
+    const descripcion = `${desc.trim()}${porque.trim() ? `\n\nPor qué importa / qué tareas viven aquí: ${porque.trim()}` : ''}`;
     const p = await proponer(descripcion);
     setNombre(p.nombre || desc.trim().slice(0, 30)); setEmoji(p.emoji || '🏷'); setDetalle(p.detalle || desc.trim());
     setFase('result');
@@ -62,9 +62,9 @@ export function CrearProyectoModal({ otros, onCrear, onClose }: { otros: Array<{
       <Shell onClose={onClose}>
         <div style={{ padding: '26px 26px 10px' }}>
           {fase === 'generando'
-            ? <div style={{ padding: '34px 0', textAlign: 'center', color: 'var(--dim)', fontSize: 14 }}><GuardianIcon size={44} /><div style={{ marginTop: 12 }}>MaKo está armando el proyecto…</div></div>
+            ? <div style={{ padding: '34px 0', textAlign: 'center', color: 'var(--dim)', fontSize: 14 }}><div style={{ display: 'flex', justifyContent: 'center' }}><GuardianIcon size={44} /></div><div style={{ marginTop: 12 }}>MaKo está armando el proyecto…</div></div>
             : <>
-                <div style={{ textAlign: 'center', marginBottom: 14 }}><GuardianIcon size={44} /><div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 8, fontFamily: MONO }}>propuesto por MaKo · editá lo que quieras</div></div>
+                <div style={{ textAlign: 'center', marginBottom: 14 }}><div style={{ display: 'flex', justifyContent: 'center' }}><GuardianIcon size={44} /></div><div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 8, fontFamily: MONO }}>propuesto por MaKo · editá lo que quieras</div></div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                   <EmojiPickerMini value={emoji} onPick={setEmoji} />
                   <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre del proyecto" style={{ ...inputStyle, maxWidth: 320, textAlign: 'center', fontWeight: 600 }} />
@@ -83,8 +83,8 @@ export function CrearProyectoModal({ otros, onCrear, onClose }: { otros: Array<{
   }
 
   const banda = score >= 75 ? '#D0504A' : score >= 50 ? '#C8870C' : score >= 25 ? '#1E9E57' : '#98A0AC';
-  const preguntas = ['Hola, soy el Perro Guardián MaKo', '¿De qué se trata el proyecto?', '¿Qué prioridad le pondrías?', '¿Por qué importa? ¿Qué tareas viven acá?', '¿Mando esto a MaKo?'];
-  const subs: (string | undefined)[] = [undefined, 'Contámelo en tus palabras.', 'Comparalo con los demás. 10 = el Objetivo Principal (solo uno).', 'Con esto MaKo le pone nombre, emoji y detalle. Podés saltearlo.', 'Revisá tus respuestas; MaKo genera con esto.'];
+  const preguntas = ['Hola, soy el Perro Guardián MaKo', '¿De qué se trata el proyecto?', '¿Qué prioridad le pondrías?', '¿Por qué importa? ¿Qué tareas viven aquí?', '¿Mando esto a MaKo?'];
+  const subs: (string | undefined)[] = [undefined, 'Cuéntamelo en tus palabras.', 'Compáralo con los demás. 10 = el Objetivo Principal (solo uno).', 'Con esto MaKo le pone nombre, emoji y detalle. Puedes saltarlo.', 'Revisa tus respuestas; MaKo genera con esto.'];
   const puedeAvanzar = idx === 1 ? desc.trim() !== '' : true;
   return (
     <WizardShell
@@ -111,7 +111,7 @@ export function CrearProyectoModal({ otros, onCrear, onClose }: { otros: Array<{
           <input type="range" min={1} max={100} step={1} value={score} onChange={(e) => setScore(Number(e.target.value))} style={{ width: '100%', accentColor: banda }} />
           {ordenados.length > 0 && (
             <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, textAlign: 'left' }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 8 }}>Los que ya tenés</div>
+              <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 8 }}>Los que ya tienes</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 150, overflowY: 'auto' }}>
                 {ordenados.map((p, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--dim)' }}>

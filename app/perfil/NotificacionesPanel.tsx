@@ -268,14 +268,14 @@ export function NotificacionesPanel() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
           <TileCanal
             icono="bell" color="var(--accent)" nombre="En la app"
-            detalle="Pop-up y sonido en este navegador. Solo para vos."
+            detalle="Pop-up y sonido en este navegador. Solo para ti."
           />
           <TileCanal
             icono="whatsapp" color={hayWa ? 'var(--wa)' : 'var(--warn)'} nombre="WhatsApp"
             alerta={!hayWa}
             detalle={hayWa
               ? `${tieneGrupo ? 'Al grupo de MaKo · ' : ''}${dest.telefonos.length === 1 ? '1 número' : `${dest.telefonos.length} números`}`
-              : 'Sin conectar — MaKo no puede avisar por acá'}
+              : 'Sin conectar — MaKo no puede avisar por aquí'}
             accion={{ label: hayWa ? 'Gestionar' : 'Conectar', onClick: () => setModalDest(true) }}
           />
           <TileCanal
@@ -290,7 +290,7 @@ export function NotificacionesPanel() {
       </div>
 
       {/* ── 1. Dentro de la app (personal) ─────────────────────────────────── */}
-      <Seccion titulo="Dentro de la app" nota="Solo para vos — no cambia lo que ve el resto del equipo">
+      <Seccion titulo="Dentro de la app" nota="Solo para ti — no cambia lo que ve el resto del equipo">
         <div style={card}>
           {NOTIF_IN_APP.map((n, i) => (
             <Fila

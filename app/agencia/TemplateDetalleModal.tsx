@@ -116,7 +116,7 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio }: { plantil
               <Paso icono="🧠" titulo="MaKo lo detecta y ESCRIBE con IA" detalle="Toma esta referencia + los datos reales del evento y redacta el mensaje (libre de adaptarlo)." tono="mako" />
               <Flecha />
               <Paso icono="💬" titulo="Te llega al grupo de WhatsApp + al feed" tono="mako" />
-              {plantilla.requiereRespuesta && (<><Flecha /><Paso icono="🙋" titulo="Vos respondés" detalle="Espera tu OK/respuesta para seguir." tono="dueno" /><Flecha /><Paso icono="✅" titulo="MaKo actúa y te confirma" tono="mako" /></>)}
+              {plantilla.requiereRespuesta && (<><Flecha /><Paso icono="🙋" titulo="Tú respondes" detalle="Espera tu OK/respuesta para seguir." tono="dueno" /><Flecha /><Paso icono="✅" titulo="MaKo actúa y te confirma" tono="mako" /></>)}
             </div>
 
             {id && (

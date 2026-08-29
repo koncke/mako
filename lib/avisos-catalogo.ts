@@ -184,7 +184,7 @@ export const CATALOGO_AVISOS: AvisoCatalogo[] = [
     // no se reescribe cada quince minutos) — se toca en alerta-critica.ts.
     disparador: 'Cron alerta-critica: revisa cada 10 min y AVISA cada 1 hora mientras haya un incidente ABIERTO en service_incidents con entrega frenada o severidad roja (detectar rápido e insistir seguido son dos cosas distintas). Se repite hasta que se resuelva; al resolverse sale meta-cuenta-recuperada. Si dos workspaces comparten la misma cuenta publicitaria, avisa UNA vez.',
     ejemplo: `━━ 📣 ANUNCIOS ━━
-🚨🚨🚨 *PARÁ TODO* 🚨🚨🚨
+🚨🚨🚨 *DETÉN TODO* 🚨🚨🚨
 
 ⛔ Tu cuenta publicitaria está *SUSPENDIDA POR FALTA DE PAGO*.
 🛑 Hace *35 min* que no corre un solo anuncio.
@@ -193,9 +193,9 @@ export const CATALOGO_AVISOS: AvisoCatalogo[] = [
 ❌ No entra *ningún* lead nuevo.
 ❌ El día perdido no se recupera.
 
-✅ *QUÉ HACER:* Pagá el saldo que debés en el Business Manager de Meta.
+✅ *QUÉ HACER:* Paga el saldo que debes en el Business Manager de Meta.
 
-👉 *RESOLVELO YA:*
+👉 *RESUÉLVELO YA:*
 https://hola-mako.com/integraciones
 
 🔁 Te voy a seguir avisando hasta que esté arreglado. — MaKo`,
@@ -225,7 +225,7 @@ https://hola-mako.com/integraciones
     id: 'meta-saldo-agotarse', titulo: 'Saldo por agotarse / problema de pago', categoria: 'aviso',
     prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'no',
     disparador: 'Proyección balance ÷ gasto-por-hora < horas restantes del día.',
-    ejemplo: `🟡 Tu saldo en Meta está en *$3 USD*. Al ritmo de hoy se agota antes de la noche y se corta la entrega a mitad de campaña.\n\nCargá saldo o revisá el método de pago para no perder el envión. — MaKo`,
+    ejemplo: `🟡 Tu saldo en Meta está en *$3 USD*. Al ritmo de hoy se agota antes de la noche y se corta la entrega a mitad de campaña.\n\nCarga saldo o revisa el método de pago para no perder el envión. — MaKo`,
   },
   {
     id: 'meta-token-vencido', titulo: 'Token de Meta vencido (integración caída)', categoria: 'aviso',
@@ -237,13 +237,13 @@ https://hola-mako.com/integraciones
     id: 'meta-anuncio-rechazado', titulo: 'Anuncio rechazado por políticas de Meta', categoria: 'aviso',
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'no',
     disparador: 'effective_status = DISAPPROVED / WITH_ISSUES.',
-    ejemplo: `🔴 Meta *rechazó* el anuncio "Testimonio Ana - v3" por política de contenido. No está entregando.\n\nEditá el creativo o el copy y mandalo de nuevo a revisión. ¿Querés que te diga qué suele disparar este rechazo? — MaKo`,
+    ejemplo: `🔴 Meta *rechazó* el anuncio "Testimonio Ana - v3" por política de contenido. No está entregando.\n\nEdita el creativo o el copy y envíalo de nuevo a revisión. ¿Quieres que te diga qué suele disparar este rechazo? — MaKo`,
   },
   {
     id: 'meta-anuncio-espera-aprobacion', titulo: 'Meta retuvo el anuncio esperando tu aprobación', categoria: 'aviso',
     prioridad: 'alta', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'issues_info con error_code 2446984 ("peer approval") tras publicar desde MaKo. OJO: NO es rechazo de políticas — es un control de identidad y Meta NO lo deja aprobar por API.',
-    ejemplo: `🟡 Publiqué *2 anuncios* en "029. Capta Dueños B2B" pero *Meta los retuvo*: por seguridad pide que un admin de la cuenta los apruebe a mano antes de que empiecen a correr.\n\nNo lo puedo hacer yo — Meta no lo permite por API. Son 30 segundos:\n\n👉 https://adsmanager.facebook.com/adsmanager/manage/ads?act=123&selected_ad_ids=456\n\nEntrás, tocás *Revisar y publicar* y confirmás. Si no, quedan sin entregar. — MaKo`,
+    ejemplo: `🟡 Publiqué *2 anuncios* en "029. Capta Dueños B2B" pero *Meta los retuvo*: por seguridad pide que un admin de la cuenta los apruebe a mano antes de que empiecen a correr.\n\nNo lo puedo hacer yo — Meta no lo permite por API. Son 30 segundos:\n\n👉 https://adsmanager.facebook.com/adsmanager/manage/ads?act=123&selected_ad_ids=456\n\nEntras, tocas *Revisar y publicar* y confirmas. Si no, quedan sin entregar. — MaKo`,
   },
 
   // ── ACCIONES SOBRE ADS (sugerencia + "¿lo hago?") ──────────────────────────
@@ -269,13 +269,13 @@ https://hola-mako.com/integraciones
     id: 'ad-gastan-sin-leads', titulo: 'Anuncios que gastan sin traer leads → apagar en lote', categoria: 'accion',
     prioridad: 'media', semaforo: 'rojo', requiereRespuesta: true, yaImplementado: 'no',
     disparador: 'Varios ads con spend > $80 USD y 0 leads en 7d.',
-    ejemplo: `🧹 Encontré *4 anuncios* que gastan sin traer un solo lead en 7 días ($85 tirados). Te los puedo *pausar todos de una*. ¿Le doy? Te paso la lista antes si querés revisar. — MaKo`,
+    ejemplo: `🧹 Encontré *4 anuncios* que gastan sin traer un solo lead en 7 días ($85 tirados). Te los puedo *pausar todos de una*. ¿Le doy? Te paso la lista antes si quieres revisar. — MaKo`,
   },
   {
     id: 'ad-gasto-anomalo', titulo: 'Gasto diario anómalo', categoria: 'aviso',
     prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'no',
     disparador: 'Gasto del día > 1.5× promedio diario 14d.',
-    ejemplo: `🟡 Ojo con el gasto: llevás *$180 hoy* y tu promedio diario es $95. Algo se disparó (¿subiste un presupuesto sin querer?). Revisalo antes de que siga corriendo así toda la noche. — MaKo`,
+    ejemplo: `🟡 Ojo con el gasto: llevas *$180 hoy* y tu promedio diario es $95. Algo se disparó (¿subiste un presupuesto sin querer?). Revísalo antes de que siga corriendo así toda la noche. — MaKo`,
   },
   {
     id: 'ad-aprendizaje-limitado', titulo: 'Conjunto en aprendizaje limitado', categoria: 'pregunta',
@@ -287,7 +287,7 @@ https://hola-mako.com/integraciones
     id: 'ad-cuenta-verde-sin-ads', titulo: 'Cuenta verde pero sin anuncios entregando', categoria: 'accion',
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: true, yaImplementado: 'no',
     disparador: 'Cuenta activa pero 0 ads con effective_status=ACTIVE.',
-    ejemplo: `🔴 Che, tu cuenta está verde pero *no tenés ningún anuncio entregando* — todo está en pausa. Si no fue a propósito, estás perdiendo el día entero de leads. ¿Reactivo algo? — MaKo`,
+    ejemplo: `🔴 Oye, tu cuenta está verde pero *no tienes ningún anuncio entregando* — todo está en pausa. Si no fue a propósito, estás perdiendo el día entero de leads. ¿Reactivo algo? — MaKo`,
   },
   {
     id: 'tracking-apagado', titulo: 'El Pixel de MaKo dejó de mandar datos', categoria: 'aviso',
@@ -320,7 +320,7 @@ https://hola-mako.com/integraciones
     // que enseña a ignorar los avisos. Se ven igual en el panel de la prueba,
     // que es pull — ahí la persona vino a mirar; acá MaKo interrumpe.
     disparador: 'Cron diario: el análisis de una landing declarada trae una pieza que antes no estaba, o deja de traer una que estaba en DOS lecturas buenas seguidas.',
-    ejemplo: `🟡 Le agregaste *un video* a tu landing — lo vi hoy y ya lo estoy midiendo. A partir de ahora vas a tener la curva de retención: en qué minuto se te cae la gente. Mirala acá 👉 https://hola-mako.com/integraciones?abrir=landing — MaKo`,
+    ejemplo: `🟡 Le agregaste *un video* a tu landing — lo vi hoy y ya lo estoy midiendo. A partir de ahora vas a tener la curva de retención: en qué minuto se te cae la gente. Mírala aquí 👉 https://hola-mako.com/integraciones?abrir=landing — MaKo`,
   },
   {
     id: 'lead-fusionado', titulo: 'Junté un contacto con uno que ya tenías', categoria: 'aviso',
@@ -403,7 +403,7 @@ https://hola-mako.com/integraciones
     // link por donde entró, el link sale por un aviso. Una propuesta que nadie
     // sabe que existe es peor que no haberla creado: ocupa el lugar del lead.
     disparador: 'Al instante: entra un opt-in desde la landing y se crea la propuesta de lead.',
-    ejemplo: `🟢 *Marina Olvera* dejó sus datos en tu landing hace un rato — tel 998 136 1529, de Atomy. Todavía NO está en el CRM: la tenés que confirmar vos, así revisás el teléfono antes de que valga. Abrila acá 👉 https://hola-mako.com/crm/revisar/propxnjgz6dj5mhk — MaKo`,
+    ejemplo: `🟢 *Marina Olvera* dejó sus datos en tu landing hace un rato — tel 998 136 1529, de Atomy. Todavía NO está en el CRM: la tienes que confirmar tú, así revisas el teléfono antes de que valga. Ábrela aquí 👉 https://hola-mako.com/crm/revisar/propxnjgz6dj5mhk — MaKo`,
   },
   {
     id: 'tracking-desactualizado', titulo: 'El Pixel de MaKo quedó viejo', categoria: 'aviso',
@@ -416,7 +416,7 @@ https://hola-mako.com/integraciones
     // Por eso el aviso dice QUÉ se está perdiendo y no solo «actualizá»: sin eso
     // es una tarea sin motivo, y una tarea sin motivo no la hace nadie.
     disparador: 'Cron diario: el beacon reporta una versión de snippet anterior a la actual (SNIPPET_VERSION).',
-    ejemplo: `🟡 El Pixel que tenés instalado en tu página es de una versión vieja, así que te estás perdiendo lo nuevo: *ahora captura solo el formulario* y te manda a esa gente al CRM. Copiá el código de nuevo en Integraciones → Landing y volvé a pegarlo. Son dos minutos. — MaKo`,
+    ejemplo: `🟡 El Pixel que tienes instalado en tu página es de una versión vieja, así que te estás perdiendo lo nuevo: *ahora captura solo el formulario* y te manda a esa gente al CRM. Copia el código de nuevo en Integraciones → Landing y vuelve a pegarlo. Son dos minutos. — MaKo`,
   },
   {
     id: 'leads-caida', titulo: 'Caída de leads vs promedio del día', categoria: 'aviso',
@@ -437,9 +437,9 @@ https://hola-mako.com/integraciones
     prioridad: 'alta', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'Cron reunion-recordatorio (cada 10 min): junta_1_at/junta_2_at a menos de 30 minutos, con el lead abierto y la asistencia sin marcar. Una marca por reunión evita repetirlo.',
     ejemplo: `━━ 🗓️ REUNIÓN ━━
-⏰ En 30 min tenés la *R2* con *Francisco Ramos* (Dental Ramos).
+⏰ En 30 min tienes la *R2* con *Francisco Ramos* (Dental Ramos).
 
-👉 Mirá el resumen del lead:
+👉 Mira el resumen del lead:
 https://hola-mako.com/crm/482/resumen
 
 — MaKo`,
@@ -458,7 +458,7 @@ https://hola-mako.com/crm/482/resumen
     // buscarla a mano justo cuando el dato recién llegó y es más fácil de mirar.
     ejemplo: `🎯 *Nuevo agendado*: Juan Pérez reservó una *R1 para el jueves 16 a las 11:00*. Vino del anuncio "VSL testimonios".
 
-👉 Mirá el resumen del lead:
+👉 Mira el resumen del lead:
 https://hola-mako.com/crm/482/resumen
 
 — MaKo`,
@@ -469,9 +469,9 @@ https://hola-mako.com/crm/482/resumen
     disparador: 'Webhook Calendly invitee.canceled.',
     ejemplo: `🔄 *Se canceló* la R1 con Mariela Gómez que era para el jueves 16 a las 11:00 y todavía no reagendó.
 
-Si conseguís otro horario, decime *«reagendale la R1 a Mariela Gómez»* y te busco los huecos libres.
+Si consigues otro horario, dime *«reagéndale la R1 a Mariela Gómez»* y te busco los huecos libres.
 
-👉 Mirá el resumen del lead:
+👉 Mira el resumen del lead:
 https://hola-mako.com/crm/482/resumen
 
 — MaKo`,
@@ -488,7 +488,7 @@ https://hola-mako.com/crm/482/resumen
     ejemplo: `━━ 🗓️ REUNIÓN ━━
 ✅ Terminó la *R1 con Sergio Esquer* (42 min).
 
-👉 Mirá el resumen de la llamada:
+👉 Mira el resumen de la llamada:
 https://hola-mako.com/crm/482/resumen
 
 — MaKo`,
@@ -503,7 +503,7 @@ https://hola-mako.com/crm/482/resumen
     id: 'reunion-tareas-al-plan', titulo: 'Reunión de equipo nueva → tareas esperando confirmación', categoria: 'accion',
     prioridad: 'media', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'Cron fathom-plan: caen grabaciones nuevas de reuniones de EQUIPO, MaKo las lee y deja los borradores pendientes en el plan. UN aviso por corrida, no uno por reunión.',
-    ejemplo: `📝 Leí tus *3 reuniones* nuevas:\n\n• *Sync semanal* — mié 28 jul · 15:30\n   4 tareas tuyas · 3 de otros\n• *Mau <> Martín* — mié 28 jul · 18:00\n   3 tareas tuyas · 4 de otros\n• *Revisión de ads* — jue 29 jul · 10:15\n   4 tareas tuyas · 3 de otros\n\nEn total *11 tareas tuyas* (y 10 de los demás, para repartir), todas esperándote en la misma pantalla:\nhttps://hola-mako.com/plan\n\nEntrás una vez, revisás todo junto y con un toque quedan cargadas. — MaKo`,
+    ejemplo: `📝 Leí tus *3 reuniones* nuevas:\n\n• *Sync semanal* — mié 28 jul · 15:30\n   4 tareas tuyas · 3 de otros\n• *Mau <> Martín* — mié 28 jul · 18:00\n   3 tareas tuyas · 4 de otros\n• *Revisión de ads* — jue 29 jul · 10:15\n   4 tareas tuyas · 3 de otros\n\nEn total *11 tareas tuyas* (y 10 de los demás, para repartir), todas esperándote en la misma pantalla:\nhttps://hola-mako.com/plan\n\nEntras una vez, revisas todo junto y con un toque quedan cargadas. — MaKo`,
   },
   {
     id: 'tareas-autocompletadas', titulo: 'MaKo cerró tareas que ya estaban hechas', categoria: 'aviso',
@@ -515,7 +515,7 @@ https://hola-mako.com/crm/482/resumen
 • *Conectar Fathom* — ya está conectado
 • *Cargar el funnel* — ya está cargado en MaKo
 
-Si alguna no está lista, abrila y reabrila: no la vuelvo a tocar.
+Si alguna no está lista, ábrela y reábrela: no la vuelvo a tocar.
 https://hola-mako.com/plan — MaKo`,
   },
   {
@@ -554,7 +554,7 @@ https://hola-mako.com/plan — MaKo`,
     id: 'plantilla-estado', titulo: 'Plantilla aprobada/rechazada por Meta', categoria: 'aviso',
     prioridad: 'baja', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'parcial',
     disparador: 'Poll de estado de plantillas de WhatsApp.',
-    ejemplo: `✅ Meta *aprobó* tu plantilla "nutricion_bienvenida". Ya la podés usar para abrir conversación fuera de la ventana de 24h. — MaKo`,
+    ejemplo: `✅ Meta *aprobó* tu plantilla "nutricion_bienvenida". Ya la puedes usar para abrir conversación fuera de la ventana de 24h. — MaKo`,
   },
   {
     id: 'nutricion-agotada', titulo: 'Nutrición agotada → lead frío', categoria: 'pregunta',
@@ -566,7 +566,7 @@ https://hola-mako.com/plan — MaKo`,
     id: 'nutricion-frenada', titulo: 'Nutrición frenada por error técnico', categoria: 'aviso',
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'no',
     disparador: 'Cola de nutrición con mensajes sin salir (token/ventana).',
-    ejemplo: `🔴 La nutrición se *frenó sola*: 8 mensajes quedaron en cola sin salir (parece que expiró el token de WhatsApp). Nadie está recibiendo follow-up ahora. Revisá la conexión en /configuraciones. — MaKo`,
+    ejemplo: `🔴 La nutrición se *frenó sola*: 8 mensajes quedaron en cola sin salir (parece que expiró el token de WhatsApp). Nadie está recibiendo follow-up ahora. Revisa la conexión en /configuraciones. — MaKo`,
   },
 
   // ── COBRANZA / CASH ────────────────────────────────────────────────────────
@@ -580,7 +580,7 @@ https://hola-mako.com/plan — MaKo`,
     id: 'cuota-por-vencer', titulo: 'Cuota por vencer (recordatorio proactivo)', categoria: 'aviso',
     prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: true, yaImplementado: 'no',
     disparador: 'Cuota con vencimiento en 24–48h.',
-    ejemplo: `🟡 Mañana vence la cuota 3 de Dental Ramos ($1.500). Avisale hoy y te ahorrás perseguirlo después. ¿Preparo el recordatorio? — MaKo`,
+    ejemplo: `🟡 Mañana vence la cuota 3 de Dental Ramos ($1.500). Avísale hoy y te ahorras perseguirlo después. ¿Preparo el recordatorio? — MaKo`,
   },
   {
     id: 'pago-recibido', titulo: 'Pago recibido / cash collected', categoria: 'aviso',
@@ -600,7 +600,7 @@ https://hola-mako.com/plan — MaKo`,
     id: 'retro-lista', titulo: 'Retro semanal lista (con PDF)', categoria: 'pregunta',
     prioridad: 'media', semaforo: 'na', requiereRespuesta: true, yaImplementado: 'si',
     disparador: 'retro-pipeline genera la retro de la semana.',
-    ejemplo: `🪞 Tu *Retro de la semana* está lista: qué funcionó, qué no y 3 focos para la que viene. Te la mando en PDF acá mismo 👇\n\n¿O preferís que te la resuma en un mensaje? — MaKo`,
+    ejemplo: `🪞 Tu *Retro de la semana* está lista: qué funcionó, qué no y 3 focos para la que viene. Te la mando en PDF aquí mismo 👇\n\n¿O prefieres que te la resuma en un mensaje? — MaKo`,
   },
   {
     id: 'objetivo-en-riesgo', titulo: 'Objetivo/meta en riesgo por ritmo', categoria: 'accion',
@@ -638,7 +638,7 @@ https://hola-mako.com/plan — MaKo`,
     id: 'datos-sin-marcar', titulo: 'Datos sin marcar en el CRM', categoria: 'aviso',
     prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'parcial',
     disparador: 'getPendientesDeMarcar ≥ umbral (configurable).',
-    ejemplo: `📝 Tenés *7 datos sin marcar* en el CRM (reuniones sin resultado, leads sin calificar). Cinco minutos ahora te ordenan las métricas de la semana. ¿Te paso la lista para resolverlos rápido? — MaKo`,
+    ejemplo: `📝 Tienes *7 datos sin marcar* en el CRM (reuniones sin resultado, leads sin calificar). Cinco minutos ahora te ordenan las métricas de la semana. ¿Te paso la lista para resolverlos rápido? — MaKo`,
   },
   {
     id: 'cron-ingesta-fallo', titulo: 'Cron de ingesta falló', categoria: 'aviso',
@@ -664,13 +664,13 @@ https://hola-mako.com/plan — MaKo`,
     id: 'ads-grabaste', titulo: 'Recordatorio: ¿grabaste los anuncios pedidos?', categoria: 'pregunta',
     prioridad: 'media', semaforo: 'na', requiereRespuesta: true, yaImplementado: 'no',
     disparador: 'Tarea "grabar anuncios" creada y vencida sin material subido.',
-    ejemplo: `🎬 ¿Ya grabaste los *3 anuncios nuevos* que quedamos la semana pasada? Cuando los tengas, pasame el *link de la carpeta de Drive* y los tomo de ahí directo: te armo la campaña *en pausa* para que solo revises y publiques. — MaKo`,
+    ejemplo: `🎬 ¿Ya grabaste los *3 anuncios nuevos* que quedamos la semana pasada? Cuando los tengas, pásame el *link de la carpeta de Drive* y los tomo de ahí directo: te armo la campaña *en pausa* para que solo revises y publiques. — MaKo`,
   },
   {
     id: 'drive-campana-armada', titulo: 'Campaña armada desde Drive (en pausa)', categoria: 'accion',
     prioridad: 'media', semaforo: 'na', requiereRespuesta: true, yaImplementado: 'no',
     disparador: 'MaKo tomó los creativos de la carpeta de Drive y armó la estructura.',
-    ejemplo: `📦 Tomé los *4 creativos* de tu carpeta de Drive y te armé una campaña *"Julio - Testimonios"* con 2 conjuntos, toda *en PAUSA*. Revisala en /ads-manager: si te gusta, la publicás vos. ¿Querés que te resuma cómo quedó? — MaKo`,
+    ejemplo: `📦 Tomé los *4 creativos* de tu carpeta de Drive y te armé una campaña *"Julio - Testimonios"* con 2 conjuntos, toda *en PAUSA*. Revísala en /ads-manager: si te gusta, la publicas tú. ¿Quieres que te resuma cómo quedó? — MaKo`,
   },
 ];
 

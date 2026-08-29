@@ -807,7 +807,7 @@ export async function estadoWebhookChatwoot(): Promise<ChatwootWebhookSalud> {
 // la tab /whatsapp y el botón "Registrar webhook" del chip.
 export async function repararWebhookChatwoot(): Promise<{ ok: boolean; estado: ChatwootWebhookEstado; error?: string }> {
   if (!CW_WEBHOOK_SECRET) {
-    return { ok: false, estado: 'sin_secret', error: 'Falta el secret del webhook de Chatwoot en la configuración de la plataforma — avisá al equipo técnico.' };
+    return { ok: false, estado: 'sin_secret', error: 'Falta el secret del webhook de Chatwoot en la configuración de la plataforma — avisa al equipo técnico.' };
   }
   try {
     const c = await cfg();

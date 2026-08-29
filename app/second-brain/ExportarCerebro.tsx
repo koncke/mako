@@ -213,7 +213,7 @@ export function ExportarCerebro({ cerebro, filtroMapa, onClose }: {
           Se descarga como un ZIP con dos niveles de carpeta —la carpeta madre y adentro cada
           sección— y un archivo de texto por dato, más un README con el índice. Cada archivo dice
           de dónde salió y con qué está conectado. Si lo abres con Obsidian vas a ver el mismo mapa
-          que acá.
+          que aquí.
         </p>
       </div>
     </WizardShell>

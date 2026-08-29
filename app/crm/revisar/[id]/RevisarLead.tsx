@@ -113,7 +113,7 @@ export function RevisarLead({ prop }: { prop: Propuesta }) {
         filas={filas}
         onFilas={editar}
         viaIA
-        nota="Nada se creó todavía. Podés corregir cualquier celda acá mismo; las filas atenuadas no entran hasta que se resuelva su motivo."
+        nota="Nada se creó todavía. Puedes corregir cualquier celda aquí mismo; las filas atenuadas no entran hasta que se resuelva su motivo."
       />
     </WizardShell>
   );

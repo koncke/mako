@@ -330,20 +330,20 @@ function parseIssues(raw: unknown): Issue[] {
 // comunes al español (lo que no reconocemos queda como vino; en esta cuenta estas
 // recos casi siempre están vacías, las útiles son las derivadas por MaKo).
 const RECO_TRAD: Array<[RegExp, string]> = [
-  [/increase your (daily )?budget/gi, 'Aumentá tu presupuesto'],
-  [/reduce your (daily )?budget/gi, 'Reducí tu presupuesto'],
-  [/add more creatives?/gi, 'Agregá más creativos'],
-  [/add more ads?/gi, 'Agregá más anuncios'],
-  [/consolidate your ad sets/gi, 'Consolidá tus conjuntos de anuncios'],
-  [/combine (your )?campaigns/gi, 'Combiná tus campañas'],
-  [/update your bid strategy/gi, 'Actualizá tu estrategia de puja'],
-  [/fix your (meta )?pixel/gi, 'Arreglá tu Pixel de Meta'],
-  [/add a payment method/gi, 'Agregá un medio de pago'],
-  [/expand your audience/gi, 'Ampliá tu audiencia'],
+  [/increase your (daily )?budget/gi, 'Aumenta tu presupuesto'],
+  [/reduce your (daily )?budget/gi, 'Reduce tu presupuesto'],
+  [/add more creatives?/gi, 'Agrega más creativos'],
+  [/add more ads?/gi, 'Agrega más anuncios'],
+  [/consolidate your ad sets/gi, 'Consolida tus conjuntos de anuncios'],
+  [/combine (your )?campaigns/gi, 'Combina tus campañas'],
+  [/update your bid strategy/gi, 'Actualiza tu estrategia de puja'],
+  [/fix your (meta )?pixel/gi, 'Arregla tu Pixel de Meta'],
+  [/add a payment method/gi, 'Agrega un medio de pago'],
+  [/expand your audience/gi, 'Amplía tu audiencia'],
   [/advantage\+? campaign budget/gi, 'presupuesto de campaña Advantage+'],
   [/advantage\+? placements/gi, 'ubicaciones Advantage+'],
-  [/get more results/gi, 'Conseguí más resultados'],
-  [/turn on/gi, 'Activá'],
+  [/get more results/gi, 'Consigue más resultados'],
+  [/turn on/gi, 'Activa'],
   [/your ad set/gi, 'tu conjunto de anuncios'],
   [/your campaign/gi, 'tu campaña'],
   [/your budget/gi, 'tu presupuesto'],
@@ -396,8 +396,8 @@ function sugerenciasMako(
     const tarjeta = account.fundingCard ? ` Medio de pago: ${account.fundingCard}.` : '';
     out.push({
       fuente: 'mako',
-      titulo: 'Regularizá el pago de la cuenta de Meta',
-      detalle: `La cuenta está "${account.statusLabel}".${saldo}${tarjeta} Tus campañas figuran activas pero Meta no está entregando hasta que se salde. Entrá al Administrador de Anuncios y pagá / actualizá la tarjeta.`,
+      titulo: 'Regulariza el pago de la cuenta de Meta',
+      detalle: `La cuenta está "${account.statusLabel}".${saldo}${tarjeta} Tus campañas figuran activas pero Meta no está entregando hasta que se salde. Entra al Administrador de Anuncios y paga / actualiza la tarjeta.`,
       prioridad: 'alta',
       semaforo: 'rojo',
     });
@@ -405,7 +405,7 @@ function sugerenciasMako(
     out.push({
       fuente: 'mako',
       titulo: 'La cuenta de Meta está en un estado de espera',
-      detalle: `Estado "${account.statusLabel}". La entrega puede verse limitada. Revisá el Business Manager por las dudas.`,
+      detalle: `Estado "${account.statusLabel}". La entrega puede verse limitada. Revisa el Business Manager por si acaso.`,
       prioridad: 'media',
       semaforo: 'ambar',
     });
@@ -418,7 +418,7 @@ function sugerenciasMako(
     out.push({
       fuente: 'mako',
       titulo: `${rechazados.length} anuncio${rechazados.length === 1 ? '' : 's'} rechazado${rechazados.length === 1 ? '' : 's'} o con problemas`,
-      detalle: `Ej.: ${ej}. Revisá el motivo en cada anuncio (políticas/pago) y corregí o reemplazá el creativo para no perder entrega.`,
+      detalle: `Ej.: ${ej}. Revisa el motivo en cada anuncio (políticas/pago) y corrige o reemplaza el creativo para no perder entrega.`,
       prioridad: 'alta',
       semaforo: 'rojo',
     });
@@ -430,7 +430,7 @@ function sugerenciasMako(
     out.push({
       fuente: 'mako',
       titulo: `${limitados.length} conjunto${limitados.length === 1 ? '' : 's'} en aprendizaje limitado`,
-      detalle: 'Meta no junta suficientes conversiones para salir de aprendizaje. Ampliá la audiencia, subí el presupuesto o consolidá conjuntos para darles volumen.',
+      detalle: 'Meta no junta suficientes conversiones para salir de aprendizaje. Amplía la audiencia, sube el presupuesto o consolida conjuntos para darles volumen.',
       prioridad: 'media',
       semaforo: 'ambar',
     });
@@ -442,7 +442,7 @@ function sugerenciasMako(
     out.push({
       fuente: 'mako',
       titulo: 'No hay anuncios entregando',
-      detalle: 'La cuenta está al día pero ningún anuncio está activo. Si esperabas tener campañas corriendo, activá al menos un conjunto/anuncio.',
+      detalle: 'La cuenta está al día pero ningún anuncio está activo. Si esperabas tener campañas corriendo, activa al menos un conjunto/anuncio.',
       prioridad: 'media',
       semaforo: 'ambar',
     });

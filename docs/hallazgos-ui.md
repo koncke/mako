@@ -37,6 +37,9 @@ están arregladas. El registro de corridas está en [corridas-multiagente.md](co
 - Una guarda que prohíbe una palabra en pantalla engancha identificadores del código y no ve
   el texto que vive en los DATOS: falla donde no importa y calla donde sí →
   [El texto de la UI](#el-texto-de-la-ui).
+- El preflight de Tailwind hace `svg { display: block }`: un ícono **no** se centra con el
+  `textAlign: 'center'` del padre — queda pegado a la izquierda mientras los textos de abajo
+  sí se centran → [Primitives y sistema visual](#primitives-y-sistema-visual).
 
 ---
 
@@ -443,6 +446,49 @@ board del plan; **Configuraciones NO**. Detalle de contrato: `Icon` no acepta `c
 `className` ni `style` — el color se hereda, hay que envolverlo en un `<span style={{color}}>`.
 
 **Vive en:** app/_components/icons.tsx:209 · app/_components/ServicioVisual.tsx (BrandDefs + SvcIcon) · app/_components/PanelMarketing.tsx · *2026-08-01 mako-onboarding-copy-y-bugs + 2026-08-06 rediseno-notificaciones*
+
+### ⚠️ El preflight de Tailwind hace `display:block` a todo `<svg>`: un ícono NO se centra con `textAlign: 'center'`
+
+**Síntoma:** en el dropzone de /video-generator el ícono salía pegado a la izquierda mientras
+los dos textos de abajo salían centrados. El dueño lo vio. El div tenía `textAlign: 'center'`
+y todo lo demás adentro se centraba bien.
+
+**Causa:** `node_modules/tailwindcss/preflight.css` (línea ~209) declara
+`img, svg, video, canvas, audio, iframe, embed, object { display: block; vertical-align: middle }`.
+`text-align` alinea el contenido **inline** de una caja; a una caja de **bloque** no la mueve.
+`<Icon>` (app/_components/icons.tsx:281) y `GuardianIcon` no declaran `display` — heredan el
+`block` del preflight — y `MakoLogo` pone `display:'block'` explícito. Los tres son bloques.
+
+**El diagnóstico obvio era el equivocado:** «el padre ya está centrado, algo le pisa el estilo
+al ícono». No lo pisa nada: el ícono nunca estuvo en el juego del `text-align`.
+
+**Lo que NO es el bug** (barrido de 226 usos de `<Icon>`/`<svg>` contra 244 `textAlign:'center'`
+en `app/`): un ícono adentro de un `display:'inline-flex'` **sí** queda centrado, porque el que
+se alinea es el span inline-flex, no el svg — es el envoltorio que usa medio repo. Igual de sanos
+un `display:flex` con `justifyContent:'center'`, un `flexDirection:'column'` con
+`alignItems:'center'`, un `margin:'0 auto'` y la clase `.mk-state` (app/_ui/ui.css:341, la que
+usan EmptyState/NoResults/ErrorState). Eso son 44 de los 55 candidatos: falsa alarma.
+
+**El patrón roto real es siempre el mismo:** un ícono de bloque **solo, arriba de textos**, dentro
+de una caja que se centra con `text-align`. Aparece en dos formas repetidas: la tarjeta de estado
+vacío (`{...card, padding:40, textAlign:'center'}` con `<MakoLogo size={54}/>` arriba del título)
+y la pantalla «MaKo está pensando…» de los modales del Perro (`<GuardianIcon/>` arriba del texto).
+Once sitios en ocho archivos, todos copiados del mismo molde.
+
+**Regla:** un ícono se centra envolviéndolo, nunca con el `textAlign` del padre:
+`<div style={{ display: 'flex', justifyContent: 'center' }}><Icon .../></div>`.
+
+**NO se arregla en `Icon`.** Ponerle `display:'inline-block'` al svg de `icons.tsx` arregla estos
+once y le cambia el flujo a los ~215 usos restantes: reaparece el hueco de baseline de los inline
+y se corren las filas flex que hoy funcionan. El riesgo es mucho más grande que el bug — se arregla
+en el call-site.
+
+**Vive en:** app/_components/icons.tsx:281 · app/plan/board/GuardianIcon.tsx ·
+app/_components/MakoBrand.tsx:101 · arreglados: video-generator/CargarGuiones.tsx:224,
+carousels/CarouselsApp.tsx:234, stories/StoriesApp.tsx:168, landing-analyst/LandingAnalystApp.tsx:368,
+landing-generator/LandingWriterApp.tsx:234, plan/board/CrearProyecto.tsx:65+67,
+plan/board/MakoProyecto.tsx:51+53, plan/board/EliminarModal.tsx:97+182,
+plan/board/CrearTareaModal.tsx:74 · *2026-08-28 auditoría svg-block*
 
 ### ⚠️ El dorado de MaKo no admite texto blanco
 

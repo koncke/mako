@@ -185,7 +185,7 @@ function RetentionCurve(s: VisualSpec) {
       <path d={path} fill="none" stroke={BLUE} strokeWidth="2.5" strokeLinejoin="round" strokeDasharray="600" strokeDashoffset="600"><animate attributeName="stroke-dashoffset" from="600" to="0" dur="1.2s" fill="freeze" /></path>
       <line x1={dx} y1={y0} x2={dx} y2={y0 + Hh} stroke={RED} strokeWidth="1.5" strokeDasharray="4 3" />
       <circle cx={dx} cy={dy} r="5" fill={RED}><animate attributeName="r" values="5;8;5" dur="1.6s" repeatCount="indefinite" /></circle>
-      <text x={dx + 8} y={dy - 8} fontSize="10.5" fontWeight="700" fill={RED} fontFamily={SANS}>se cae acá</text>
+      <text x={dx + 8} y={dy - 8} fontSize="10.5" fontWeight="700" fill={RED} fontFamily={SANS}>se cae aquí</text>
       <text x={x0} y={y0 + Hh + 22} fontSize="10" fill={DIM} fontFamily={SANS}>0:00</text>
       <text x={x0 + W} y={y0 + Hh + 22} textAnchor="end" fontSize="10" fill={DIM} fontFamily={SANS}>fin</text>
     </Frame>
@@ -332,7 +332,7 @@ function PhaseLadder(s: VisualSpec) {
             <rect x="24" y={y} width={96 + i * 44} height="32" rx="8" fill={active ? TILE : '#FBFCFE'} stroke={active ? BLUE : LINE} strokeWidth={active ? 2 : 1} />
             <circle cx="42" cy={y + 16} r="7" fill={c}>{active && <animate attributeName="opacity" values="1;.4;1" dur="1.6s" repeatCount="indefinite" />}</circle>
             <text x="58" y={y + 20} fontSize="11.5" fontWeight={active ? 700 : 500} fill={active ? INK : DIM}>{clip(p, 15)}</text>
-            {active ? <text x={136 + i * 44} y={y + 20} fontSize="11" fontWeight="700" fill={BLUE}>← acá</text> : null}
+            {active ? <text x={136 + i * 44} y={y + 20} fontSize="11" fontWeight="700" fill={BLUE}>← aquí</text> : null}
           </g>
         );
       })}
@@ -651,7 +651,7 @@ function LogoJourney(s: VisualSpec) {
     { logo: 'landing.svg', label: 'Entró a tu landing', n: '2.310', w: 0.66 },
     { logo: 'vsl.png', label: 'Miró el VSL', n: '1.204', w: 0.5 },
     { logo: 'calendly.png', label: 'Agendó', n: '186', w: 0.34 },
-    { logo: 'whatsapp.png', label: 'Habló con vos', n: '92', w: 0.22 },
+    { logo: 'whatsapp.png', label: 'Habló contigo', n: '92', w: 0.22 },
     { logo: 'pago.svg', label: 'Pagó', n: '31', w: 0.12 },
   ]).slice(0, 6);
   const n = pasos.length, top = 44, H = 41, x0 = 28, barX = 150, barW = 190;

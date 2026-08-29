@@ -126,8 +126,8 @@ const CRUDO: ProyectoCatalogo[] = [
   // dueño (12/8/2026). Que esté acá es lo que lo hace legítimo: un nombre de familia en el
   // catálogo es una decisión nuestra; lo que sigue prohibido es que el modelo lo invente
   // (ver `puedeSerProyectoNuevo`, donde el catálogo se consulta ANTES que las familias).
-  { nombre: 'Content Machine', emoji: '🗺️', familia: 'producto', que: 'La ESTRATEGIA del contenido orgánico, arriba de los formatos: la escalera de contenidos y los pilares, el banco de historias y la materia prima con la que se escribe, el calendario y qué se publica dónde. NO es ninguno de los formatos —Reels, Carousels, Stories, Thumbnails, YouTube Writer son tabs propias— ni el copiloto de idea→guion (eso es «Feature: Ideas»). Acá va lo que decide QUÉ contar; ahí va CÓMO se cuenta.' },
-  { nombre: 'Ideas', emoji: '💡', familia: 'producto', que: 'El copiloto que convierte una idea suelta en un guion. Le tirás lo que sea —una frase, un audio, una imagen, un link de referencia— y te va guiando y organizando hasta que hay una pieza. NO es un repositorio ni un tablero de temas: es la conversación que te lleva de la ocurrencia al guion.' },
+  { nombre: 'Content Machine', emoji: '🗺️', familia: 'producto', que: 'La ESTRATEGIA del contenido orgánico, arriba de los formatos: la escalera de contenidos y los pilares, el banco de historias y la materia prima con la que se escribe, el calendario y qué se publica dónde. NO es ninguno de los formatos —Reels, Carousels, Stories, Thumbnails, YouTube Writer son tabs propias— ni el copiloto de idea→guion (eso es «Feature: Ideas»). Aquí va lo que decide QUÉ contar; ahí va CÓMO se cuenta.' },
+  { nombre: 'Ideas', emoji: '💡', familia: 'producto', que: 'El copiloto que convierte una idea suelta en un guion. Le tiras lo que sea —una frase, un audio, una imagen, un link de referencia— y te va guiando y organizando hasta que hay una pieza. NO es un repositorio ni un tablero de temas: es la conversación que te lleva de la ocurrencia al guion.' },
   { nombre: 'Mindset', emoji: '🧠', familia: 'producto', que: 'La tab de diagnóstico psicológico del dueño: tests (LOT-R y otros), cómo ese perfil afecta a SU negocio en concreto, y las metodologías para trabajarlo. Diagnosticar → relacionar con el negocio → practicar.' },
   { nombre: 'Reels', emoji: '🎬', familia: 'producto', que: 'El formato Reel para el cliente: guion corto, gancho y estructura para Instagram.' },
   { nombre: 'Carousels', emoji: '🎠', familia: 'producto', que: 'El formato carrusel: la secuencia de placas, qué va en cada una y el cierre.' },
@@ -191,7 +191,7 @@ const CRUDO: ProyectoCatalogo[] = [
   // vivía así con 15 tareas: renombrarlo a «Chat Agent» habría abierto un segundo
   // proyecto con el mismo trabajo adentro.
   { nombre: 'Chatbot', emoji: '💬', familia: 'agente', que: 'El agente que conversa con los LEADS solo: secuencias de nutrición, canales fríos, jugadas de setting, plantillas y las métricas de esa conversación.' },
-  { nombre: 'CRM automático', emoji: '⚙️', familia: 'agente', que: 'El motor que mueve los leads de etapa SOLO, por sus reglas (T1..T6), sin que nadie arrastre una tarjeta. NO es la pantalla del CRM (esa es «Feature: CRM»): acá va el criterio con el que decide mover, no la ficha ni la vista.' },
+  { nombre: 'CRM automático', emoji: '⚙️', familia: 'agente', que: 'El motor que mueve los leads de etapa SOLO, por sus reglas (T1..T6), sin que nadie arrastre una tarjeta. NO es la pantalla del CRM (esa es «Feature: CRM»): aquí va el criterio con el que decide mover, no la ficha ni la vista.' },
   { nombre: 'Ads Optimizer Bot', emoji: '🎚️', familia: 'agente', que: 'El agente que vigila y mueve la pauta sin que se lo pidas: sube y baja presupuesto, apaga lo que no rinde, avisa. TODAVÍA NO EXISTE — el proyecto es dónde vive el trabajo de construirlo. NO es la pantalla de campañas (eso es «Feature: Ads Manager»).' },
 
   // ── Transversales: no son una tab, atraviesan toda la app ──────────────────
@@ -266,8 +266,8 @@ export const canonNombre = (nombre: string): string => delCatalogo(nombre)?.nomb
 export const REGLA_NOMBRE_PROYECTO = `El nombre se entiende SOLO, en 1 a 4 palabras, como el nombre de una tab. Nunca un verbo ("Implementar…"), nunca el nombre de una tarea, nunca jerga ni apodos.
 
 EL PREFIJO ES OBLIGATORIO y sale de UNA pregunta: ¿esto se CONSTRUYE, se EJECUTA SOLO, se VENDE, o CRUZA todo?
-· «${PREFIJO_FEATURE}NOMBRE» → una PANTALLA o módulo del producto que el usuario abre y usa. «${PREFIJO_FEATURE}Facturación», igual que «${PREFIJO_FEATURE}CRM» o «${PREFIJO_FEATURE}Ads Manager». Los analistas y los generadores van acá aunque usen IA: los disparás vos.
-· «${PREFIJO_AGENTE}NOMBRE» → una IA que TRABAJA SOLA, sin que se lo pidas, y cuyo trabajo es su CRITERIO (cómo decide, sus prompts, sus reglas). «${PREFIJO_AGENTE}Perro Guardián», «${PREFIJO_AGENTE}Chat Agent». La prueba: si corre solo, es agente; si lo abrís y lo usás, es feature.
+· «${PREFIJO_FEATURE}NOMBRE» → una PANTALLA o módulo del producto que el usuario abre y usa. «${PREFIJO_FEATURE}Facturación», igual que «${PREFIJO_FEATURE}CRM» o «${PREFIJO_FEATURE}Ads Manager». Los analistas y los generadores van aquí aunque usen IA: los disparas tú.
+· «${PREFIJO_AGENTE}NOMBRE» → una IA que TRABAJA SOLA, sin que se lo pidas, y cuyo trabajo es su CRITERIO (cómo decide, sus prompts, sus reglas). «${PREFIJO_AGENTE}Perro Guardián», «${PREFIJO_AGENTE}Chat Agent». La prueba: si corre solo, es agente; si lo abres y lo usas, es feature.
 · «Cliente: NOMBRE» → el trabajo que se hace PARA un cliente de la plataforma: su cuenta, su contenido, sus campañas, lo que se le entrega. «Cliente: Mauricio». La prueba: si el resultado lo usa SOLO ese cliente, es suyo; si lo van a tener todos, es producto y va a su tab.
 · SIN prefijo → un área del negocio ("Legal y fiscal", "Soporte"), algo transversal ("Seguridad y multi-inquilino") o el trabajo de vender ("Vender MaKo: Ads").
 

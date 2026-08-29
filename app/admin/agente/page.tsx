@@ -72,7 +72,7 @@ export default async function AgenteAdminPage() {
       {!sesiones.length ? (
         <EmptyState
           titulo="Todavía no reportó ningún agente"
-          detalle="Cuando un cliente instale el plugin de MaKo en su Claude Code y acepte el reporte, cada sesión que cierre va a aparecer acá."
+          detalle="Cuando un cliente instale el plugin de MaKo en su Claude Code y acepte el reporte, cada sesión que cierre va a aparecer aquí."
         />
       ) : (
         <>

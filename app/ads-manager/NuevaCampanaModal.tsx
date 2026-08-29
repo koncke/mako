@@ -72,7 +72,7 @@ function putWithProgress(url: string, file: File, apikey: string | null, onProgr
       let detalle = (xhr.responseText || '').replace(/\s+/g, ' ').slice(0, 200);
       try { const j = JSON.parse(xhr.responseText); detalle = String(j.message || j.error || detalle); } catch { /* texto plano */ }
       if (xhr.status === 413 || /too large|maximum allowed size|exceeded/i.test(detalle)) {
-        return reject(new Error('El archivo supera el límite de Supabase Storage. Subilo en Supabase → Storage → Settings → "Upload file size limit".'));
+        return reject(new Error('El archivo supera el límite de Supabase Storage. Súbelo en Supabase → Storage → Settings → "Upload file size limit".'));
       }
       reject(new Error(`No se pudo subir el archivo (HTTP ${xhr.status})${detalle ? ` — ${detalle}` : ''}`));
     };
@@ -304,8 +304,8 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
     // El token descarta respuestas viejas si el usuario vuelve atrás y re-elige rápido.
     const req = ++adsetReqRef.current;
     fetch(`/api/ads-manager/ad-add?adset_id=${encodeURIComponent(a.id)}`, { cache: 'no-store' }).then((r) => r.json())
-      .then((j) => { if (adsetReqRef.current !== req) return; if (j.ok) setAdsetInfo({ needsForm: !!j.adset.needsForm, optimization_goal: String(j.adset.optimization_goal ?? '') }); else setErr(`No pude leer el conjunto: ${j.error || 'error'}. Tocá ← Atrás y volvé a elegirlo para reintentar.`); })
-      .catch((e) => { if (adsetReqRef.current === req) setErr(`No pude leer el conjunto: ${String(e)}. Tocá ← Atrás y volvé a elegirlo para reintentar.`); });
+      .then((j) => { if (adsetReqRef.current !== req) return; if (j.ok) setAdsetInfo({ needsForm: !!j.adset.needsForm, optimization_goal: String(j.adset.optimization_goal ?? '') }); else setErr(`No pude leer el conjunto: ${j.error || 'error'}. Toca ← Atrás y vuelve a elegirlo para reintentar.`); })
+      .catch((e) => { if (adsetReqRef.current === req) setErr(`No pude leer el conjunto: ${String(e)}. Toca ← Atrás y vuelve a elegirlo para reintentar.`); });
     setStep('creativos');
   }
 
@@ -394,7 +394,7 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
 - Creativos (${u.length}):
 ${desc}
 
-Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto principal potente, título corto y CTA), en la voz de la marca, alineado al objetivo y la estrategia, usando la descripción de cada creativo. Devolvé el JSON de la campaña con un conjunto y un anuncio por creativo (en el mismo orden de los creativos).`;
+Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto principal potente, título corto y CTA), en la voz de la marca, alineado al objetivo y la estrategia, usando la descripción de cada creativo. Devuelve el JSON de la campaña con un conjunto y un anuncio por creativo (en el mismo orden de los creativos).`;
   }
 
   // Prompt del modo existente: la campaña ya está definida; MaKo SOLO escribe copy.
@@ -413,7 +413,7 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
 - Creativos nuevos (${u.length}):
 ${desc}
 
-Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto principal potente, título corto y CTA), en la voz de la marca, coherente con esa campaña, usando la descripción de cada creativo. Devolvé el JSON de la campaña con un conjunto y un anuncio por creativo (en el mismo orden de los creativos).`;
+Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto principal potente, título corto y CTA), en la voz de la marca, coherente con esa campaña, usando la descripción de cada creativo. Devuelve el JSON de la campaña con un conjunto y un anuncio por creativo (en el mismo orden de los creativos).`;
   }
 
   function construirSpec(mako: CampaignSpec | null): CampaignSpec {
@@ -529,7 +529,7 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
         });
         // Sin JSON (timeout de la plataforma a mitad de lote): no sabemos cuántos entraron.
         const j = await r.json().catch(() => null);
-        if (!j) throw new Error('El servidor no respondió (puede haberse cortado a mitad del lote). Mirá en la tabla cuáles anuncios ya se crearon antes de reintentar, para no duplicarlos.');
+        if (!j) throw new Error('El servidor no respondió (puede haberse cortado a mitad del lote). Mira en la tabla cuáles anuncios ya se crearon antes de reintentar, para no duplicarlos.');
         if (!j.ok) {
           const base = j.error || 'No se pudieron agregar los anuncios';
           const creados = Number(j.created ?? 0);
@@ -539,7 +539,7 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
             // (si no, recalcularía las mismas letras sobre el health viejo).
             setSpec({ ...spec, adsets: spec.adsets.map((a, i) => (i === 0 ? { ...a, ads: a.ads.slice(creados) } : a)) });
             onPublished();
-            throw new Error(`${base} — Los primeros ${creados} de ${ads.length} SÍ se crearon (en pausa). Quedaron ${ads.length - creados} acá: reintentá y se agregan solo esos.`);
+            throw new Error(`${base} — Los primeros ${creados} de ${ads.length} SÍ se crearon (en pausa). Quedaron ${ads.length - creados} aquí: reinténtalo y se agregan solo esos.`);
           }
           throw new Error(base);
         }
@@ -596,7 +596,7 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
           {step === 'campana' && (
             <Paso titulo="¿A qué campaña le sumamos anuncios?" sub="La campaña queda como está (mismo público, presupuesto y configuración): solo se le agregan anuncios nuevos, en pausa.">
               {!health && healthError ? (
-                <p style={{ fontSize: 13.5, color: 'var(--bad)', textAlign: 'center', margin: 0, lineHeight: 1.5, maxWidth: 420 }}>No se pudo leer el estado de Meta: {healthError}. Cerrá el pop-up, tocá «↻ Actualizar estado» y volvé a intentar.</p>
+                <p style={{ fontSize: 13.5, color: 'var(--bad)', textAlign: 'center', margin: 0, lineHeight: 1.5, maxWidth: 420 }}>No se pudo leer el estado de Meta: {healthError}. Cierra el pop-up, toca «↻ Actualizar estado» y vuelve a intentar.</p>
               ) : (
                 <ListaEntidades items={health ? health.campaigns.filter(elegible) : null} sel={campSel?.id ?? null} onPick={elegirCampana}
                   cargando="Cargando las campañas de tu cuenta de Meta…" vacio="No hay campañas en la cuenta. Creala con «Nueva campaña»."
@@ -614,25 +614,25 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
           )}
 
           {step === 'creativos' && (
-            <Paso titulo="¿Qué vas a promocionar?" sub="Subí tus imágenes o videos, o reusá un anuncio que ya te funciona. Podés cargar varios.">
+            <Paso titulo="¿Qué vas a promocionar?" sub="Sube tus imágenes o videos, o reusa un anuncio que ya te funciona. Puedes cargar varios.">
               <CreativosPicker tray={tray} onQuitar={quitar} senales={senales} onGanador={agregarGanador} fileRef={fileRef} />
             </Paso>
           )}
 
           {step === 'inversion' && (
-            <Paso titulo="¿Cuánto querés invertir por día?" sub="Siempre en dólares. Lo convertimos a la moneda de tu cuenta automáticamente.">
+            <Paso titulo="¿Cuánto quieres invertir por día?" sub="Siempre en dólares. Lo convertimos a la moneda de tu cuenta automáticamente.">
               <Inversion value={budgetUsd} onChange={setBudgetUsd} />
             </Paso>
           )}
 
           {step === 'objetivo' && (
-            <Paso titulo="¿Qué buscás con esta campaña?">
+            <Paso titulo="¿Qué buscas con esta campaña?">
               <Opciones items={OBJETIVO_UI} value={objKey} onPick={(v) => { setObjKey(v as ObjKey); setDestino({}); setStep(flow[flow.indexOf('objetivo') + 1]); }} />
             </Paso>
           )}
 
           {step === 'estrategia' && (
-            <Paso titulo="¿Qué querés hacer con estos creativos?" sub={analisisResumen(analisis)}>
+            <Paso titulo="¿Qué quieres hacer con estos creativos?" sub={analisisResumen(analisis)}>
               <Opciones items={ESTRATEGIAS} value={estrategia} onPick={(v) => { setEstrategia(v as Estrategia); const f: Step[] = ['creativos', 'inversion', 'objetivo', 'estrategia', ...((v as Estrategia) === 'retargeting' ? ['publico' as Step] : []), 'ubicaciones', 'destino']; setStep(f[f.indexOf('estrategia') + 1]); }} />
             </Paso>
           )}
@@ -654,16 +654,16 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
           )}
 
           {step === 'destino' && !(existente && !adsetInfo) && (
-            <Paso titulo={pideForm ? '¿Qué formulario instantáneo usás?' : pideConv ? '¿Dónde captás la conversión?' : '¿A qué página llevamos a la gente?'}
-              sub={pideForm ? 'Elegí un formulario que ya tengas en la página.' : pideConv ? 'Tu landing/VSL + por qué conversión del pixel optimizamos (tu agenda, lead, registro…).' : existente ? 'La URL de destino de los anuncios nuevos (tu VSL o landing).' : 'La URL de tu VSL o landing.'}>
+            <Paso titulo={pideForm ? '¿Qué formulario instantáneo usas?' : pideConv ? '¿Dónde captas la conversión?' : '¿A qué página llevamos a la gente?'}
+              sub={pideForm ? 'Elige un formulario que ya tengas en la página.' : pideConv ? 'Tu landing/VSL + por qué conversión del pixel optimizamos (tu agenda, lead, registro…).' : existente ? 'La URL de destino de los anuncios nuevos (tu VSL o landing).' : 'La URL de tu VSL o landing.'}>
               {pideForm ? (
                 <div style={{ width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
-                  <Dropdown value={destino.lead_form_id ?? ''} placeholder={leadForms === null ? 'Cargando formularios…' : leadForms.length ? 'Elegí un formulario…' : 'No tenés formularios instantáneos'}
+                  <Dropdown value={destino.lead_form_id ?? ''} placeholder={leadForms === null ? 'Cargando formularios…' : leadForms.length ? 'Elige un formulario…' : 'No tienes formularios instantáneos'}
                     options={(leadForms ?? []).map((f) => ({ value: f.id, label: f.name }))} onChange={(v) => setDestino((d) => ({ ...d, lead_form_id: v, lead_form_name: leadForms?.find((f) => f.id === v)?.name ?? null }))} width="100%" />
                   {leadForms !== null && leadForms.length === 0 && (
                     existente
-                      ? <p style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>El conjunto optimiza por formulario instantáneo pero no encontramos formularios en la página. Creá uno en Meta o elegí otro conjunto.</p>
-                      : <p style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>No hay formularios instantáneos en la página. Tocá <b>← Atrás</b> y elegí <b>“Leads / agendas en tu web”</b> para captar el lead en tu landing.</p>
+                      ? <p style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>El conjunto optimiza por formulario instantáneo pero no encontramos formularios en la página. Crea uno en Meta o elige otro conjunto.</p>
+                      : <p style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>No hay formularios instantáneos en la página. Toca <b>← Atrás</b> y elige <b>“Leads / agendas en tu web”</b> para captar el lead en tu landing.</p>
                   )}
                 </div>
               ) : (
@@ -700,7 +700,7 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
               <h3 style={pregunta}>{existente ? 'Anuncios agregados en pausa' : 'Campaña creada en pausa'}</h3>
               <p style={ayuda}>
                 {existente
-                  ? <>Se {result.ads === 1 ? 'agregó' : 'agregaron'} {result.ads} anuncio{result.ads === 1 ? '' : 's'} a <b>{campSel?.name ?? 'la campaña'}</b>, en <b>PAUSA</b>. La campaña quedó tal cual estaba; activá los anuncios con el toggle de la tabla cuando quieras.</>
+                  ? <>Se {result.ads === 1 ? 'agregó' : 'agregaron'} {result.ads} anuncio{result.ads === 1 ? '' : 's'} a <b>{campSel?.name ?? 'la campaña'}</b>, en <b>PAUSA</b>. La campaña quedó tal cual estaba; activa los anuncios con el toggle de la tabla cuando quieras.</>
                   : <>Se creó con {result.ads} anuncio{result.ads === 1 ? '' : 's'}, todo en <b>PAUSA</b>. Activala con el toggle de la tabla cuando quieras.</>}
               </p>
               {aprobacion && aprobacion.pendientes.length > 0 && (
@@ -710,7 +710,7 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
                 <div style={{ width: '100%', maxWidth: 460, background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)', borderRadius: 14, padding: '14px 16px', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>⚠ Meta pide que los apruebes</div>
                   <p style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5, margin: 0 }}>
-                    Por seguridad, Meta retuvo {aprobacion.pendientes.length === 1 ? 'este anuncio' : `${aprobacion.pendientes.length} de estos anuncios`} hasta que un admin de la cuenta {aprobacion.pendientes.length === 1 ? 'lo apruebe' : 'los apruebe'} a mano. Si la cuenta es tuya, ese admin sos vos: aprobalos en Ads Manager y recién ahí van a entregar. No se puede hacer desde acá porque Meta no lo permite por API.
+                    Por seguridad, Meta retuvo {aprobacion.pendientes.length === 1 ? 'este anuncio' : `${aprobacion.pendientes.length} de estos anuncios`} hasta que un admin de la cuenta {aprobacion.pendientes.length === 1 ? 'lo apruebe' : 'los apruebe'} a mano. Si la cuenta es tuya, ese admin eres tú: apruébalos en Ads Manager y recién ahí van a entregar. No se puede hacer desde aquí porque Meta no lo permite por API.
                   </p>
                   <a href={linkAprobarEnMeta(aprobacion.accountId, aprobacion.pendientes[0]?.id)} target="_blank" rel="noopener noreferrer"
                     style={{ ...btnDark, background: 'var(--warn-fill)', color: '#fff', fontSize: 14, padding: '10px 18px', alignSelf: 'flex-start', textDecoration: 'none' }}>
@@ -915,7 +915,7 @@ function PublicoPicker({ audiencesAll, audiencias, setAudiencias, onCrear, crean
   return (
     <div style={{ width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'stretch', width: '100%' }}>
-        <Dropdown value="" placeholder={audiencesAll === null ? 'Cargando públicos…' : audiencesAll.length ? 'Elegí un público (podés sumar varios)…' : 'No tenés públicos todavía'} resetAfterSelect
+        <Dropdown value="" placeholder={audiencesAll === null ? 'Cargando públicos…' : audiencesAll.length ? 'Elige un público (puedes sumar varios)…' : 'No tienes públicos todavía'} resetAfterSelect
           options={opts} onChange={(v) => { const a = (audiencesAll ?? []).find((x) => x.id === v); if (a) setAudiencias([...audiencias, { id: a.id, name: a.name }]); }} width="100%" />
         <button type="button" onClick={onRefresh} title="Recargar públicos" style={{ ...btnGhost, padding: '0 13px', flex: 'none' }}>↻</button>
       </div>
@@ -924,13 +924,13 @@ function PublicoPicker({ audiencesAll, audiencias, setAudiencias, onCrear, crean
           {audiencias.map((a) => { const c = countById.get(a.id); return <span key={a.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', fontSize: 13, color: 'var(--ink)' }}>{a.name ?? a.id}{c != null ? <span style={{ color: 'var(--faint)', fontFamily: MONO, fontSize: 11 }}>~{c.toLocaleString('es-MX')}</span> : null}<button type="button" onClick={() => setAudiencias(audiencias.filter((x) => x.id !== a.id))} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--faint)', fontSize: 13, padding: 0 }}>✕</button></span>; })}
         </div>
       )}
-      {chico && <div style={{ fontSize: 12, color: 'var(--warn)', background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)', borderRadius: 10, padding: '8px 12px', textAlign: 'center', lineHeight: 1.45 }}>⚠ Público chico (~{maxCount?.toLocaleString('es-MX')} personas). Por debajo de ~1.000 Meta puede no entregar bien: sumá otro público o ampliá la ventana de días.</div>}
+      {chico && <div style={{ fontSize: 12, color: 'var(--warn)', background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)', borderRadius: 10, padding: '8px 12px', textAlign: 'center', lineHeight: 1.45 }}>⚠ Público chico (~{maxCount?.toLocaleString('es-MX')} personas). Por debajo de ~1.000 Meta puede no entregar bien: suma otro público o amplía la ventana de días.</div>}
       {audiencias.length > 1 && <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>Se combinan (cualquiera de los {audiencias.length}).</span>}
 
       {/* crear público sin entrar a Meta — desplegable + ventana + crear */}
       <div style={{ width: '100%', borderTop: '1px dashed var(--border)', paddingTop: 14, marginTop: 4, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
-        <p style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', margin: 0 }}>¿No está el que querés? Creá uno acá, sin entrar a Meta. Podés crear varios y se combinan.</p>
-        <Dropdown value={nuevoTipo} placeholder="¿Qué público querés crear?" options={TIPO_OPCIONES} onChange={setNuevoTipo} width="100%" />
+        <p style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', margin: 0 }}>¿No está el que quieres? Crea uno aquí, sin entrar a Meta. Puedes crear varios y se combinan.</p>
+        <Dropdown value={nuevoTipo} placeholder="¿Qué público quieres crear?" options={TIPO_OPCIONES} onChange={setNuevoTipo} width="100%" />
         {nuevoTipo === 'pixel' && (
           <>
             <Dropdown value={evento} options={EVENTOS_PIXEL} onChange={setEvento} width="100%" />
@@ -977,7 +977,7 @@ function UbicacionesPicker({ placements, setPlacements }: { placements: string[]
           <span style={{ fontSize: 24, flex: 'none' }}>🎛️</span>
           <span style={{ minWidth: 0 }}>
             <span style={{ display: 'block', fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>Elegir manualmente</span>
-            <span style={{ display: 'block', fontSize: 13, color: 'var(--dim)', marginTop: 1 }}>Vos decidís en qué plataformas se muestra.</span>
+            <span style={{ display: 'block', fontSize: 13, color: 'var(--dim)', marginTop: 1 }}>Tú decides en qué plataformas se muestra.</span>
           </span>
         </button>
       </div>
@@ -986,7 +986,7 @@ function UbicacionesPicker({ placements, setPlacements }: { placements: string[]
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
             {PLACEMENT_OPCIONES.map((p) => { const on = sel.includes(p.value); return <button key={p.value} type="button" onClick={() => toggle(p.value)} style={chip(on)}>{on ? '✓ ' : ''}{p.label}</button>; })}
           </div>
-          {sel.length === 0 && <span style={{ fontSize: 12, color: 'var(--warn)' }}>Elegí al menos una plataforma.</span>}
+          {sel.length === 0 && <span style={{ fontSize: 12, color: 'var(--warn)' }}>Elige al menos una plataforma.</span>}
           <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', textAlign: 'center', lineHeight: 1.5 }}>Threads viaja con la identidad de Instagram: para incluirlo, conviene dejar <b>Automáticas</b>.</span>
         </>
       )}
@@ -1047,7 +1047,7 @@ function Revision({ spec, budgetUsd, tray, setSpec, fijo = false }: { spec: Camp
                   <p style={{ fontSize: 12.5, color: 'var(--dim)', margin: '4px 0 0', padding: '0 7px', lineHeight: 1.5 }}>★ Reusa el anuncio ganador tal cual: su copy y su destino originales.</p>
                 ) : (
                   <>
-                    <InlineCopy value={ad.creative.primary_text ?? ''} onChange={(v) => patchCreative(ai, di, { primary_text: v })} placeholder="Escribí el texto del anuncio…" multiline fontSize={13.5} />
+                    <InlineCopy value={ad.creative.primary_text ?? ''} onChange={(v) => patchCreative(ai, di, { primary_text: v })} placeholder="Escribe el texto del anuncio…" multiline fontSize={13.5} />
                     <InlineCopy value={ad.creative.headline ?? ''} onChange={(v) => patchCreative(ai, di, { headline: v })} placeholder="Título (opcional)" fontSize={12.5} bold />
                     <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', marginTop: 4, padding: '0 7px' }}>▸ {CTA_OPCIONES.find((o) => o.value === (ad.creative.cta_type ?? 'LEARN_MORE'))?.label}{ad.creative.destination_url ? ` · ${ad.creative.destination_url}` : ad.creative.lead_form_name ? ` · ${ad.creative.lead_form_name}` : ''}</div>
                   </>
@@ -1057,7 +1057,7 @@ function Revision({ spec, budgetUsd, tray, setSpec, fijo = false }: { spec: Camp
           );
         }))}
       </div>
-      <p style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>Tocá cualquier texto para editarlo. Se crea en <b>pausa</b>: la activás cuando quieras.</p>
+      <p style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>Toca cualquier texto para editarlo. Se crea en <b>pausa</b>: la activas cuando quieras.</p>
     </div>
   );
 }
@@ -1122,25 +1122,25 @@ function ConversionPicker({ pixels, convs, pixelEvents, destino, setDestino }: {
     const inactivos = EVENTOS_CONV.filter((e) => !activosSet.has(e.value)).map((e) => ({ value: e.value, label: e.label, sub: 'Inactivo — sin datos en 30 días', disabled: true }));
     eventOpts = [...activos, ...custom, ...inactivos];
   } else {
-    eventOpts = [...EVENTOS_CONV.map((e) => ({ value: e.value, label: e.label, sub: 'Verificá que esté activo' })), ...custom];
+    eventOpts = [...EVENTOS_CONV.map((e) => ({ value: e.value, label: e.label, sub: 'Verifica que esté activo' })), ...custom];
   }
   const eventValue = destino.conv?.custom_conversion_id ? `cc:${destino.conv.custom_conversion_id}` : (destino.conv?.pixel_event ?? '');
   const sinPixeles = pixels !== null && pixels.length === 0;
   const nota = !pixelId
-    ? <>Primero elegí el <b>pixel</b>; después te muestro <b>sus</b> eventos.</>
+    ? <>Primero elige el <b>pixel</b>; después te muestro <b>sus</b> eventos.</>
     : pixelEvents === null
       ? <>Buscando los eventos <b>activos</b> de tu pixel…</>
       : detectados
         ? <>Los <b>activos</b> (✓) son los que tu pixel recibió en los últimos 30 días. Los <b>inactivos</b> van en gris y no se pueden elegir: Meta no podría optimizar por ellos.</>
-        : <>No pudimos detectar los eventos activos. Elegí tu <b>conversión</b> (las que ya medís) o un evento estándar que sepas <b>activo</b> en tu pixel.</>;
+        : <>No pudimos detectar los eventos activos. Elige tu <b>conversión</b> (las que ya mides) o un evento estándar que sepas <b>activo</b> en tu pixel.</>;
   return (
     <>
       <Dropdown value={pixelId}
-        placeholder={pixels === null ? 'Cargando tu pixel…' : sinPixeles ? 'No hay pixel en la cuenta' : 'Elegí tu pixel (dataset)…'}
+        placeholder={pixels === null ? 'Cargando tu pixel…' : sinPixeles ? 'No hay pixel en la cuenta' : 'Elige tu pixel (dataset)…'}
         options={(pixels ?? []).map((p) => ({ value: p.id, label: p.name }))} onChange={setPixel} width="100%" />
       {pixelId && (
         <Dropdown value={eventValue} disabled={pixelEvents === null}
-          placeholder={pixelEvents === null ? 'Buscando eventos activos…' : 'Elegí la conversión a optimizar…'}
+          placeholder={pixelEvents === null ? 'Buscando eventos activos…' : 'Elige la conversión a optimizar…'}
           options={eventOpts} onChange={setEvento} width="100%" />
       )}
       <p style={{ fontSize: 11.5, color: 'var(--faint)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>{nota}</p>
@@ -1186,7 +1186,7 @@ function analisisResumen(an: Analisis): string | undefined {
   const con = an.filter((x) => x.angulo || x.descripcion);
   if (!con.length) return 'MaKo mira tus creativos para sugerirte mejor.';
   const angulos = [...new Set(con.map((x) => x.angulo).filter(Boolean))].slice(0, 3);
-  return angulos.length ? `MaKo vio tus creativos (${angulos.join(', ')}). Elegí la estrategia.` : undefined;
+  return angulos.length ? `MaKo vio tus creativos (${angulos.join(', ')}). Elige la estrategia.` : undefined;
 }
 
 function pad(n: number, w: number): string { return String(Math.max(0, Math.floor(n))).padStart(w, '0'); }

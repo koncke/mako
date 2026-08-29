@@ -111,7 +111,7 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
   const guardar = () => {
     setFeedback(null);
     if (!nombre.trim()) { setFeedback({ kind: 'err', msg: 'El nombre es obligatorio.' }); return; }
-    if (isManual && !deadline) { setFeedback({ kind: 'err', msg: 'Para "Nutrición - Manual" tenés que poner una fecha límite.' }); return; }
+    if (isManual && !deadline) { setFeedback({ kind: 'err', msg: 'Para "Nutrición - Manual" tienes que poner una fecha límite.' }); return; }
 
     const payload: LeadEditorInput = {
       stage,
@@ -224,7 +224,7 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
             <Field label="Fecha de agendamiento"><input className="lead-field" type="date" value={fechaAgenda} onChange={(e) => setFechaAgenda(e.target.value)} /></Field>
             <Field label="Fecha de Reunión 1 (anchor de cohorte)"><input className="lead-field" type="date" value={fechaJ1} onChange={(e) => handleFechaJ1(e.target.value)} /></Field>
-            <Field label="¿Asistió a R1?" disabled={asistioJ1Disabled} hint={asistioJ1Disabled ? 'Marcá fecha R1 primero' : undefined}>
+            <Field label="¿Asistió a R1?" disabled={asistioJ1Disabled} hint={asistioJ1Disabled ? 'Marca fecha R1 primero' : undefined}>
               <TriToggle value={asistioJ1} onChange={handleAsistioJ1} disabled={asistioJ1Disabled} />
             </Field>
             <Field label="¿Era lead calificado?" disabled={calificadoDisabled} hint={calificadoDisabled ? 'Solo si asistió a R1 = Sí' : undefined}>
@@ -233,13 +233,13 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
             {reachedR2 && (
               <>
                 <Field label="Fecha de Reunión 2"><input className="lead-field" type="date" value={fechaJ2} onChange={(e) => handleFechaJ2(e.target.value)} /></Field>
-                <Field label="¿Asistió a R2?" disabled={asistioJ2Disabled} hint={asistioJ2Disabled ? 'Marcá fecha R2 primero' : undefined}>
+                <Field label="¿Asistió a R2?" disabled={asistioJ2Disabled} hint={asistioJ2Disabled ? 'Marca fecha R2 primero' : undefined}>
                   <TriToggle value={asistioJ2} onChange={setAsistioJ2} disabled={asistioJ2Disabled} />
                 </Field>
                 <Field label="Fecha de confirmación (opcional)" hint="Cuándo confirmó verbalmente el cierre (entre R2 y primer pago)."><input className="lead-field" type="date" value={fechaConfirmacion} onChange={(e) => setFechaConfirmacion(e.target.value)} /></Field>
               </>
             )}
-            <Field label="Closer asignado" hint={equipo.length === 0 ? 'Configurá tu equipo en Configuraciones › Equipo.' : undefined}><Dropdown value={closer} options={equipoOpts(closer)} onChange={setCloser} placeholder="Elegí un closer…" width="100%" ariaLabel="Closer asignado" /></Field>
+            <Field label="Closer asignado" hint={equipo.length === 0 ? 'Configura tu equipo en Configuraciones › Equipo.' : undefined}><Dropdown value={closer} options={equipoOpts(closer)} onChange={setCloser} placeholder="Elige un closer…" width="100%" ariaLabel="Closer asignado" /></Field>
           </div>
         </section>
       )}
@@ -249,14 +249,14 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
         <section style={card}>
           <div style={{ ...sectLabel, marginBottom: 16 }}>Nutrición</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
-            <Field label="Setter asignado" hint={equipo.length === 0 ? 'Configurá tu equipo en Configuraciones › Equipo.' : undefined}><Dropdown value={setter} options={equipoOpts(setter)} onChange={setSetter} placeholder="Elegí un setter…" width="100%" ariaLabel="Setter asignado" /></Field>
+            <Field label="Setter asignado" hint={equipo.length === 0 ? 'Configura tu equipo en Configuraciones › Equipo.' : undefined}><Dropdown value={setter} options={equipoOpts(setter)} onChange={setSetter} placeholder="Elige un setter…" width="100%" ariaLabel="Setter asignado" /></Field>
             {isManual && (
               <Field label="Fecha límite (deadline)" required hint="Si vence sin que el lead avance, vuelve a 'datos sin marcar' en rojo.">
                 <input className="lead-field" type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
               </Field>
             )}
           </div>
-          <p style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic', marginTop: 12 }}>El detalle de los toques de nutrición por lead todavía no se registra acá; se controla desde las automatizaciones del funnel.</p>
+          <p style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic', marginTop: 12 }}>El detalle de los toques de nutrición por lead todavía no se registra aquí; se controla desde las automatizaciones del funnel.</p>
         </section>
       )}
 
@@ -423,7 +423,7 @@ function MotivoSugerencias({ value, onChange }: { value: string; onChange: (v: s
           );
         })}
       </div>
-      <textarea className="lead-field" value={value} onChange={(e) => onChange(e.target.value)} placeholder="¿Por qué se perdió o descalificó? Contá el contexto…" style={{ minHeight: 80, lineHeight: 1.5 }} />
+      <textarea className="lead-field" value={value} onChange={(e) => onChange(e.target.value)} placeholder="¿Por qué se perdió o descalificó? Cuenta el contexto…" style={{ minHeight: 80, lineHeight: 1.5 }} />
     </div>
   );
 }

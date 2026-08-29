@@ -21,13 +21,13 @@ type WhEstado = 'ok' | 'sin_secret' | 'secret_prod' | 'url_distinta' | 'no_regis
 // url_distinta) son configuración de despliegue de la plataforma: los resuelve el
 // equipo técnico, no el botón. ruteo_ocupado es una colisión entre clientes: ídem.
 const WH_MSG: Record<Exclude<WhEstado, 'ok'>, string> = {
-  sin_secret: 'Falta el secret del webhook de Chatwoot en la configuración de la plataforma. Sin eso la app no se entera cuando un lead responde — avisá al equipo técnico.',
-  secret_prod: 'La app en producción rechaza el secret del webhook: la configuración de la plataforma quedó desalineada. Avisá al equipo técnico.',
-  url_distinta: 'La app no responde donde debería: la dirección configurada en la plataforma no es la real. Avisá al equipo técnico.',
-  no_registrado: 'El webhook no está registrado en tu Chatwoot: cuando un lead responde, la app no se entera (no pausa su nutrición ni te avisa). Tocá «Activar detección» para registrarlo.',
-  sin_ruteo: 'Tu cuenta de Chatwoot no está vinculada a este espacio: los mensajes entrantes se descartan. Tocá «Activar detección» para vincularla.',
-  ruteo_ocupado: 'El ID de cuenta de Chatwoot ya está vinculado a otro cliente — sus mensajes entrantes le llegarían a él. Avisá al equipo técnico.',
-  error: 'No pude verificar la detección de respuestas (Chatwoot no respondió). Tocá «Activar detección» para reintentar.',
+  sin_secret: 'Falta el secret del webhook de Chatwoot en la configuración de la plataforma. Sin eso la app no se entera cuando un lead responde — avisa al equipo técnico.',
+  secret_prod: 'La app en producción rechaza el secret del webhook: la configuración de la plataforma quedó desalineada. Avisa al equipo técnico.',
+  url_distinta: 'La app no responde donde debería: la dirección configurada en la plataforma no es la real. Avisa al equipo técnico.',
+  no_registrado: 'El webhook no está registrado en tu Chatwoot: cuando un lead responde, la app no se entera (no pausa su nutrición ni te avisa). Toca «Activar detección» para registrarlo.',
+  sin_ruteo: 'Tu cuenta de Chatwoot no está vinculada a este espacio: los mensajes entrantes se descartan. Toca «Activar detección» para vincularla.',
+  ruteo_ocupado: 'El ID de cuenta de Chatwoot ya está vinculado a otro cliente — sus mensajes entrantes le llegarían a él. Avisa al equipo técnico.',
+  error: 'No pude verificar la detección de respuestas (Chatwoot no respondió). Toca «Activar detección» para reintentar.',
 };
 // Solo estos los arregla el botón; los demás los corrige el equipo técnico.
 const REPARABLE: WhEstado[] = ['no_registrado', 'sin_ruteo', 'error'];
@@ -100,7 +100,7 @@ export function ChatwootWebhookChip() {
     <>
       {problema ? (
         <button onClick={() => setOpen(true)} style={chipStyle}
-          title="La detección de respuestas del WhatsApp oficial necesita atención — tocá para ver">
+          title="La detección de respuestas del WhatsApp oficial necesita atención — toca para ver">
           <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--warn)' }} />
           API Oficial: revisar
         </button>

@@ -606,7 +606,7 @@ export function SelectorHora({
     if (texto != null && consulta && !tipeadaHora) {
       // Los ejemplos van en AM/PM, el único formato que la UI muestra. El parseo
       // sigue aceptando 24h ("18:15") — no hace falta anunciarlo y mezclar formatos.
-      return { texto: `No entiendo «${consulta}». Probá 6:15 pm, 9 am o «6 y cuarto».`, tono: 'warn' };
+      return { texto: `No entiendo «${consulta}». Prueba 6:15 pm, 9 am o «6 y cuarto».`, tono: 'warn' };
     }
     // El ECO de lo entendido, con el choque incluido: la ambigüedad de "6:15" y el
     // "ese horario ya está tomado" se resuelven en la misma línea, mientras se
@@ -623,10 +623,10 @@ export function SelectorHora({
     if (!choqueValor) return null;
     switch (choqueValor.tipo) {
       case 'ocupado':
-        return { texto: `${horaLegible(value)} está ocupado: ${choqueValor.motivo?.trim() || 'ya hay algo agendado ahí'}. Se guarda igual si confirmás.`, tono: 'warn' };
+        return { texto: `${horaLegible(value)} está ocupado: ${choqueValor.motivo?.trim() || 'ya hay algo agendado ahí'}. Se guarda igual si confirmas.`, tono: 'warn' };
       case 'dudoso':
         return choqueValor.con
-          ? { texto: `${horaLegible(value)} puede pisarse con lo que tenés a las ${horaLegible(choqueValor.con)} (la reunión dura ${r.duracionMin} min).`, tono: 'warn' }
+          ? { texto: `${horaLegible(value)} puede pisarse con lo que tienes a las ${horaLegible(choqueValor.con)} (la reunión dura ${r.duracionMin} min).`, tono: 'warn' }
           : { texto: `${horaLegible(value)} cae entre los horarios que verifiqué: no puedo asegurar que esté libre.`, tono: 'warn' };
       case 'fuera':
         return { texto: `${horaLegible(value)} queda fuera de la franja que verifiqué (${horaLegible(hhmm(r.desdeMin))} a ${horaLegible(hhmm(r.hastaMin))}).`, tono: 'warn' };
@@ -653,7 +653,7 @@ export function SelectorHora({
           autoComplete="off"
           spellCheck={false}
           disabled={cargando}
-          placeholder={cargando ? 'Leyendo tu agenda…' : 'Elegí o escribí la hora'}
+          placeholder={cargando ? 'Leyendo tu agenda…' : 'Elige o escribe la hora'}
           value={mostrado}
           // -1 y no 0: al tipear se SUELTA el puntero explícito para que vuelva a
           // mandar la hora entendida (ver `activoIdx`). Fijarlo en 0 era lo que
@@ -698,7 +698,7 @@ export function SelectorHora({
         )}
         {!cargando && sinHorarios && (
           <span style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.45 }}>
-            Ese día no tiene horarios libres: elegí otro día o escribí la hora igual.
+            Ese día no tiene horarios libres: elige otro día o escribe la hora igual.
           </span>
         )}
         {!cargando && nota ? <span style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.45 }}>{nota}</span> : null}
@@ -734,7 +734,7 @@ export function SelectorHora({
               {consulta
                 ? `Ningún horario libre coincide con «${consulta}».`
                 : verificada
-                  ? 'Ese día no tiene horarios libres. Escribí la hora igual.'
+                  ? 'Ese día no tiene horarios libres. Escribe la hora igual.'
                   : 'No hay horarios para ofrecer.'}
             </div>
           )}

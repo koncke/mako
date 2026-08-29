@@ -43,7 +43,7 @@ export function TaxonomyManager({ angles, avatares, onClose, onSaved, inline = f
     if (minUno && rows.length === 0) return `Tiene que quedar al menos un ${nombre}.`;
     const slugs = rows.map((r) => slug(r.key || r.label));
     const dup = slugs.find((s, i) => s && slugs.indexOf(s) !== i);
-    return dup ? `Hay dos ${nombre}s que quedarían con la misma clave ("${dup}"). Cambiá un nombre.` : null;
+    return dup ? `Hay dos ${nombre}s que quedarían con la misma clave ("${dup}"). Cambia un nombre.` : null;
   }
 
   async function save() {
@@ -78,7 +78,7 @@ export function TaxonomyManager({ angles, avatares, onClose, onSaved, inline = f
           <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>{title}</div>
           <div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 4, lineHeight: 1.4 }}>{blurb}</div>
         </div>
-        {rows.length === 0 && <div style={{ fontSize: 13, color: 'var(--faint)', padding: '2px 0' }}>Todavía no hay. Agregá el primero ↓</div>}
+        {rows.length === 0 && <div style={{ fontSize: 13, color: 'var(--faint)', padding: '2px 0' }}>Todavía no hay. Agrega el primero ↓</div>}
         {rows.map((r) => (
           <div key={r.uid} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
             <input type="color" aria-label="Color" value={r.color} onChange={(e) => ops.update(r.uid, { color: e.target.value })} style={{ width: 38, height: 38, flex: 'none', border: '1px solid var(--border)', borderRadius: 9, background: 'transparent', cursor: 'pointer', padding: 2 }} />
@@ -119,7 +119,7 @@ export function TaxonomyManager({ angles, avatares, onClose, onSaved, inline = f
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '22px 26px', borderBottom: '1px solid var(--border)' }}>
           <div>
             <h2 style={{ fontWeight: 600, fontSize: 22, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Ángulos y avatares</h2>
-            <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 6, lineHeight: 1.5 }}>El vocabulario con el que se clasifican los guiones. Se aplica al re-analizar o sincronizar; los anuncios ya clasificados con uno que borrás lo siguen mostrando hasta re-analizarse.</div>
+            <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 6, lineHeight: 1.5 }}>El vocabulario con el que se clasifican los guiones. Se aplica al re-analizar o sincronizar; los anuncios ya clasificados con uno que borras lo siguen mostrando hasta re-analizarse.</div>
           </div>
           <button aria-label="Cerrar" onClick={onClose} style={{ width: 34, height: 34, flex: 'none', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer', fontFamily: SANS }}>✕</button>
         </div>

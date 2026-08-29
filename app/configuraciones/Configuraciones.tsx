@@ -111,7 +111,7 @@ function PromptCard({ p, onSaved }: { p: Prompt; onSaved: () => void }) {
 
       {p.sensitive && (
         <div style={{ marginTop: 10, padding: '9px 12px', borderRadius: 9, background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: 12.5, lineHeight: 1.5 }}>
-          Editá con cuidado: este prompt define la forma de la respuesta (o es una regla dura). Si rompés el JSON o borrás un {'{{slot}}'}, la función puede dejar de andar en silencio. Tenés “Restaurar default” acá abajo.
+          Edita con cuidado: este prompt define la forma de la respuesta (o es una regla dura). Si rompes el JSON o borras un {'{{slot}}'}, la función puede dejar de andar en silencio. Tienes “Restaurar default” aquí abajo.
         </div>
       )}
 
@@ -204,7 +204,7 @@ export function Configuraciones({ embedded = false }: { embedded?: boolean }) {
             <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Configuraciones</h1>
           </header>
           <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 20px', maxWidth: 760 }}>
-            Configurá a MaKo: cada prompt que hoy vive en el código se puede editar acá. Cada uno trae su contexto (qué hace y qué cuidar) y, si es dinámico, las variables {'{{slot}}'} que se reemplazan con datos reales. Lo que dejes sin tocar se comporta exactamente como hoy. Siempre podés volver al default.
+            Configura a MaKo: cada prompt que hoy vive en el código se puede editar aquí. Cada uno trae su contexto (qué hace y qué cuidar) y, si es dinámico, las variables {'{{slot}}'} que se reemplazan con datos reales. Lo que dejes sin tocar se comporta exactamente como hoy. Siempre puedes volver al default.
           </p>
         </>
       )}

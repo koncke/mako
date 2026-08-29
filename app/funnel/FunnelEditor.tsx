@@ -79,7 +79,7 @@ function arrowPoints(b: Pt, prev: Pt, w: number): string {
 // Estilo del badge según el disparador (auto hoy / automatizable / manual).
 function trigInfo(trg?: TransitionTrigger): { icon: string; label: string; c: string; bg: string } {
   const t = TRIGGER[trg ?? 'manual'];
-  if (!t.auto) return { icon: '✋', label: 'Vos', c: '#8A6D3B', bg: 'rgba(138,109,59,.10)' };
+  if (!t.auto) return { icon: '✋', label: 'Tú', c: '#8A6D3B', bg: 'rgba(138,109,59,.10)' };
   if (t.autoHoy) return { icon: '⚡', label: 'Auto', c: '#3B6D11', bg: 'rgba(59,109,17,.12)' };
   return { icon: '◐', label: 'Auto*', c: '#2E7DBE', bg: 'rgba(46,125,190,.10)' };
 }
@@ -219,13 +219,13 @@ export function FunnelEditor({
       <header style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 6 }}>
         {embedded ? (
           <p style={{ fontSize: 14, color: 'var(--dim)', margin: 0, maxWidth: 640, lineHeight: 1.5 }}>
-            Editás solo tu fila de <b style={{ color: 'var(--ink)', fontWeight: 600 }}>Activo</b> (cómo avanza un lead). La <b style={{ color: CATEGORY.nutricion.c, fontWeight: 600 }}>nutrición</b> y el descartado los generamos nosotros.
+            Editas solo tu fila de <b style={{ color: 'var(--ink)', fontWeight: 600 }}>Activo</b> (cómo avanza un lead). La <b style={{ color: CATEGORY.nutricion.c, fontWeight: 600 }}>nutrición</b> y el descartado los generamos nosotros.
           </p>
         ) : (
           <div>
             <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Funnel</h1>
             <p style={{ fontSize: 14.5, color: 'var(--dim)', margin: '10px 0 0', maxWidth: 660, lineHeight: 1.5 }}>
-              Editás solo tu fila de <b style={{ color: 'var(--ink)', fontWeight: 600 }}>Activo</b> (cómo avanza un lead). La <b style={{ color: CATEGORY.nutricion.c, fontWeight: 600 }}>nutrición</b> y el descartado los generamos nosotros — quitá la nutrición que no uses.
+              Editas solo tu fila de <b style={{ color: 'var(--ink)', fontWeight: 600 }}>Activo</b> (cómo avanza un lead). La <b style={{ color: CATEGORY.nutricion.c, fontWeight: 600 }}>nutrición</b> y el descartado los generamos nosotros — quita la nutrición que no uses.
             </p>
           </div>
         )}
@@ -291,7 +291,7 @@ export function FunnelEditor({
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', margin: '12px 2px 0', fontSize: 12, color: 'var(--dim)' }}>
         <span><b style={{ color: '#3B6D11' }}>⚡ Auto</b> avanza solo (ya cableado)</span>
         <span><b style={{ color: '#2E7DBE' }}>◐ Auto*</b> lo mueve MaKo (CRM automático)</span>
-        <span><b style={{ color: '#8A6D3B' }}>✋ Vos</b> requiere que marques cómo quedó</span>
+        <span><b style={{ color: '#8A6D3B' }}>✋ Tú</b> requiere que marques cómo quedó</span>
       </div>
 
       {/* AUTOMATIZACIONES DE MAKO — qué mueve un lead solo y cuándo */}
@@ -402,7 +402,7 @@ export function FunnelEditor({
 
       {/* Modal: plantillas */}
       {showTemplates && (
-        <ModalShell title="Plantillas de funnel" subtitle="Arrancá desde una base y ajustá lo que quieras." onClose={() => setShowTemplates(false)}>
+        <ModalShell title="Plantillas de funnel" subtitle="Arranca desde una base y ajusta lo que quieras." onClose={() => setShowTemplates(false)}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {FUNNEL_TEMPLATES.map((tpl) => (
               <div key={tpl.id} style={{ display: 'flex', alignItems: 'center', gap: 14, border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px' }}>

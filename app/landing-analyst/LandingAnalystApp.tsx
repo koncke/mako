@@ -325,7 +325,7 @@ export function LandingAnalystApp({ data, errorMsg }: { data: LandingViewData; e
             <div style={{ ...eyebrow, marginBottom: 6 }}>Pega el contenido de tu página</div>
             <div style={{ fontFamily: MONO, fontSize: 12, color: 'var(--dim)', marginBottom: 10 }}>{pegar.url}</div>
             <p style={{ margin: '0 0 12px', fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55 }}>
-              Abre tu landing, selecciona todo el texto de arriba a abajo y pégalo acá. MaKo lo analiza igual y lo cruza con lo que hace la gente que entra.
+              Abre tu landing, selecciona todo el texto de arriba a abajo y pégalo aquí. MaKo lo analiza igual y lo cruza con lo que hace la gente que entra.
             </p>
             <textarea
               style={{ width: '100%', minHeight: 150, padding: '12px 14px', fontSize: 13.5, fontFamily: SANS, lineHeight: 1.55, border: '1px solid var(--border-strong)', borderRadius: 10, background: 'var(--surface)', color: 'var(--ink)', resize: 'vertical' }}
@@ -362,7 +362,10 @@ export function LandingAnalystApp({ data, errorMsg }: { data: LandingViewData; e
       {landings.length === 0 ? (
         <div style={{ padding: '0 32px' }}>
           <div style={{ ...card, padding: 40, textAlign: 'center', maxWidth: 560, margin: '30px auto 0' }}>
-            <MakoLogo size={54} />
+            {/* Se centra con FLEX, no con el `textAlign: 'center'` del padre: el preflight
+                de Tailwind pone `svg { display: block }` y a un bloque el text-align no lo
+                mueve — el icono quedaba pegado a la izquierda. */}
+            <div style={{ display: 'flex', justifyContent: 'center' }}><MakoLogo size={54} /></div>
             <h2 style={{ fontSize: 20, fontWeight: 650, margin: '16px 0 8px', letterSpacing: '-0.02em' }}>Todavía no analizaste ninguna página</h2>
             <p style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.6, margin: 0 }}>
               Pega la dirección de tu landing arriba. MaKo la abre, lee el mensaje y lo cruza con lo que hace la gente que llega, para decirte qué cambiar primero.

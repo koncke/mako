@@ -120,7 +120,7 @@ export function TareasCreadasModal({ tasks, projects, proyNuevoIds, renderTaskCa
           ))}
         </div>
         <div style={{ padding: '12px 20px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, borderTop: '1px solid var(--border)' }}>
-          <span style={{ fontSize: 11.5, color: 'var(--faint)' }}>Tocá {verProy ? 'un proyecto' : 'una tarea'} para abrirla</span>
+          <span style={{ fontSize: 11.5, color: 'var(--faint)' }}>Toca {verProy ? 'un proyecto' : 'una tarea'} para abrirla</span>
           <button type="button" onClick={onClose} style={{ padding: '9px 18px', borderRadius: 9, border: 'none', background: 'var(--ink)', color: 'var(--surface)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>Listo</button>
         </div>
       </div>

@@ -117,12 +117,12 @@ export async function setRazones(list: RazonCelda[]): Promise<void> {
 }
 
 // ── Prompt: generar las 3 motivaciones por avatar (+ copy) ───────────────────
-export const RAZONES_SYSTEM_TEMPLATE = `Sos MaKo, encontrando las RAZONES/MOTIVACIONES de compra de un negocio para sus anuncios de Meta (metodología de Jan, "Anuncio Ganador"). Una RAZÓN no es un hook ni una categoría abstracta: es una MOTIVACIÓN concreta por la que ese avatar compra. Ejemplo de Jan (curso de inglés): un avatar lo compra por un MEJOR SALARIO, otro porque SE VA DE VIAJE, otro por un ASCENSO. Un mismo avatar tiene varias motivaciones distintas.
+export const RAZONES_SYSTEM_TEMPLATE = `Eres MaKo, encontrando las RAZONES/MOTIVACIONES de compra de un negocio para sus anuncios de Meta (metodología de Jan, "Anuncio Ganador"). Una RAZÓN no es un hook ni una categoría abstracta: es una MOTIVACIÓN concreta por la que ese avatar compra. Ejemplo de Jan (curso de inglés): un avatar lo compra por un MEJOR SALARIO, otro porque SE VA DE VIAJE, otro por un ASCENSO. Un mismo avatar tiene varias motivaciones distintas.
 
 Te paso los AVATARES ya definidos. Para CADA avatar, encontrá 3 MOTIVACIONES de compra DISTINTAS y CONCRETAS (no 3 formas de decir lo mismo). Cada una:
 - "nombre": la motivación en 2-5 palabras, concreta ("Un mejor salario", "Escalar sin perder el control", "Dejar de ser el cuello de botella").
-- "descripcion": la motivación A FONDO — el deseo real detrás + la situación concreta de ESE avatar que la dispara (2-3 frases). Acá es donde profundizás.
-- "copy": UNA línea de anuncio (hook) que le habla a ESA motivación de ESE avatar; frena el scroll, del deseo/dolor real. Usá el ENTREGABLE tangible si viene en el contexto.
+- "descripcion": la motivación A FONDO — el deseo real detrás + la situación concreta de ESE avatar que la dispara (2-3 frases). Aquí es donde profundizas.
+- "copy": UNA línea de anuncio (hook) que le habla a ESA motivación de ESE avatar; frena el scroll, del deseo/dolor real. Usa el ENTREGABLE tangible si viene en el contexto.
 
 REGLAS:
 - Las 3 motivaciones de un avatar tienen que ser genuinamente distintas entre sí.
@@ -132,7 +132,7 @@ REGLAS:
 Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin markdown, sin texto afuera). "avatar" es el NÚMERO del avatar (1, 2, 3) tal como te lo paso:
 {"matriz":[{"avatar":1,"razones":[{"nombre":"","descripcion":"","copy":""}]}]}`;
 
-export const RAZONES_USER_TEMPLATE = `AVATARES (usá EXACTAMENTE estos, referencialos por su número):
+export const RAZONES_USER_TEMPLATE = `AVATARES (usa EXACTAMENTE estos, referéncialos por su número):
 {{avatares}}
 
 NEGOCIO:
@@ -219,7 +219,7 @@ export async function generarRazones(): Promise<GenResult> {
 // de referencia), el SIGUIENTE PASO real del funnel (lo que la persona recibe al
 // hacer clic — definido por el dueño en el wizard de creación, no adivinado), y el
 // TONO/personalidad del creador (para humanizar: que suene a él, no a una IA).
-export const GUION_SYSTEM_TEMPLATE = `Sos MaKo, escribiendo el GUION de un anuncio de VIDEO para Meta (gente que no conoce el negocio, salvo que el angulo diga lo contrario). Te paso el avatar, su motivacion de compra, el copy/hook, el lead magnet del negocio, el ANGULO del guion con sus instrucciones, el SIGUIENTE PASO real del funnel y el TONO del creador. Escribi un guion listo para grabar de 30 a 90 segundos, HABLADO, para que una persona lo lea a camara o narre sobre pantalla.
+export const GUION_SYSTEM_TEMPLATE = `Eres MaKo, escribiendo el GUION de un anuncio de VIDEO para Meta (gente que no conoce el negocio, salvo que el angulo diga lo contrario). Te paso el avatar, su motivacion de compra, el copy/hook, el lead magnet del negocio, el ANGULO del guion con sus instrucciones, el SIGUIENTE PASO real del funnel y el TONO del creador. Escribe un guion listo para grabar de 30 a 90 segundos, HABLADO, para que una persona lo lea a camara o narre sobre pantalla.
 
 EL ANGULO DE ESTE GUION: {{anguloNombre}}
 {{anguloInstrucciones}}
@@ -235,7 +235,7 @@ ESTRUCTURA — {{estructuraNombre}}
 EL CTA: EXACTAMENTE EL SIGUIENTE PASO REAL
 Lo que pasa cuando la persona hace clic en este anuncio es: {{siguientePaso}}.
 - El CTA invita EXACTAMENTE a eso, nombrando lo que la persona VE o RECIBE al hacer clic (el video, el recurso, el registro, la compra, la llamada) — no un paso generico ni uno distinto.
-- 1-2 frases, UNA sola accion con UN solo verbo. Nunca dos caminos ("agenda o escribinos").
+- 1-2 frases, UNA sola accion con UN solo verbo. Nunca dos caminos ("agenda o escríbenos").
 - NUNCA inventes un activo que no este confirmado en el contexto (nada de talleres, webinars, guias o descuentos que no te dieron).
 
 TONO Y PERSONALIDAD DEL CREADOR (escribi TODO el guion con esta voz — es SU anuncio, tiene que sonar a el, no a una IA):
@@ -301,7 +301,7 @@ export async function siguientePasoOpciones(): Promise<string[]> {
 export type PreguntaCerrada = { pregunta: string; opciones: string[] };
 export type SugerenciaGuion = { anguloId: string; porQue: string; estructuraId: string; siguientePaso: string; preguntas: PreguntaCerrada[] };
 
-export const SUGERIR_GUION_TEMPLATE = `Sos MaKo, PREPARANDO (todavia no escribiendo) el guion de un anuncio de video para Meta. Tu trabajo es que el dueño del negocio no tenga que pensar ni redactar NADA: vos elegis y el, como mucho, toca un boton.
+export const SUGERIR_GUION_TEMPLATE = `Eres MaKo, PREPARANDO (todavia no escribiendo) el guion de un anuncio de video para Meta. Tu trabajo es que el dueño del negocio no tenga que pensar ni redactar NADA: tú eliges y el, como mucho, toca un boton.
 
 Te paso el contexto del negocio, el avatar y su motivacion de compra (la celda), la biblioteca de ANGULOS de guion y las ESTRUCTURAS disponibles.
 
@@ -317,7 +317,7 @@ Te paso el contexto del negocio, el avatar y su motivacion de compra (la celda),
 - De la LISTA CERRADA de siguientes pasos que te paso, elegi el que mejor calza con el ANGULO y el negocio. Ejemplo: con el angulo de Lead Magnet, el paso natural es el de recibir el recurso — no una llamada. Copia el texto EXACTO de la opcion elegida.
 
 4. PREGUNTAS CERRADAS (maximo 3, pueden ser 0)
-El angulo trae preguntas pensadas para sacarle material concreto al dueño. NO se las hagas abiertas: converti cada una en una pregunta CERRADA con 2 a 4 OPCIONES ya escritas por vos, con material REAL del contexto (SU negocio, SU avatar, SU motivacion). El dueño solo elige la que mas le suena.
+El angulo trae preguntas pensadas para sacarle material concreto al dueño. NO se las hagas abiertas: convierte cada una en una pregunta CERRADA con 2 a 4 OPCIONES ya escritas por ti, con material REAL del contexto (SU negocio, SU avatar, SU motivacion). El dueño solo elige la que mas le suena.
 - Opciones cortas (maximo ~18 palabras), concretas, en primera persona del dueño cuando aplique.
 - Genuinamente DISTINTAS entre si, y TODAS verosimiles para ESTE negocio (nada generico, nada de "otro").
 - Si el contexto ya responde una pregunta de una sola manera obvia, NO la incluyas.
@@ -354,7 +354,7 @@ export async function sugerirGuion(celdaId: string, opts: { anguloId?: string; t
     const av = avatares.find((a) => a.id === celda.avatarId);
 
     const sys = await renderPrompt('razones.sugerir', SUGERIR_GUION_TEMPLATE, {
-      anguloFijado: fijado ? ` — YA ELEGIDO: el dueño eligió "${fijado.nombre}" (anguloId "${fijado.id}"). Usá exactamente ese; no lo cambies.` : '',
+      anguloFijado: fijado ? ` — YA ELEGIDO: el dueño eligió "${fijado.nombre}" (anguloId "${fijado.id}"). Usa exactamente ese; no lo cambies.` : '',
     });
     const user = `NEGOCIO:
 ${brief}
@@ -363,14 +363,14 @@ LA CELDA (este anuncio):
 - AVATAR: ${av ? `${av.nombre} — ${av.segmento}. Situación: ${av.situacion}. Dolor: ${av.dolor}` : '(sin avatar)'}
 - MOTIVACIÓN DE COMPRA: ${celda.nombre} — ${celda.descripcion}
 - COPY/HOOK: ${celda.copy}
-${celda.guiones.length ? `- ÁNGULOS YA USADOS EN ESTA CELDA (elegí uno distinto): ${celda.guiones.map((g) => g.anguloNombre).join(', ')}\n` : ''}
+${celda.guiones.length ? `- ÁNGULOS YA USADOS EN ESTA CELDA (elige uno distinto): ${celda.guiones.map((g) => g.anguloNombre).join(', ')}\n` : ''}
 BIBLIOTECA DE ÁNGULOS:
 ${candidatos.map((a) => `- anguloId "${a.id}" · ${a.nombre} · Cuándo: ${a.cuando} · Requisitos: ${a.requisitos || '(sin requisitos)'} · Estructuras compatibles: ${a.estructuras.join(', ') || '(cualquiera)'}${a.preguntas.length ? ` · Preguntas del ángulo para el dueño (convertilas en cerradas): ${a.preguntas.join(' | ')}` : ' · (sin preguntas: devolvé preguntas [])'}`).join('\n')}
 
 ESTRUCTURAS ACTIVAS:
 ${activas.map((e) => `- estructuraId "${e.id}" · ${e.nombre} · Cuándo: ${e.cuando}`).join('\n')}
 
-SIGUIENTES PASOS POSIBLES (elegí UNO, copiá el texto exacto; el 1ro es el default del funnel):
+SIGUIENTES PASOS POSIBLES (elige UNO, copia el texto exacto; el 1ro es el default del funnel):
 ${pasos.map((p) => `- "${p}"`).join('\n')}
 
 Devolvé solo el JSON.`;
@@ -508,7 +508,7 @@ MOTIVACIÓN DE COMPRA: ${celda.nombre} — ${celda.descripcion}
 COPY/HOOK: ${celda.copy}
 SIGUIENTE PASO AL HACER CLIC: ${siguientePaso}
 ${entregables.length ? `LEAD MAGNET: ${entregablesTexto(entregables)}\n` : ''}${opts.formatoVideoTexto ? `FORMATO DE VIDEO A SEGUIR: ${opts.formatoVideoTexto}\n` : ''}${respAngulo.length ? `LO QUE EL DUEÑO PRECISÓ PARA ESTE ÁNGULO (úsalo, es el material concreto):\n${respAngulo.map((r) => `- ${r.pregunta} → ${r.respuesta.trim()}`).join('\n')}\n` : ''}${opts.nota?.trim() ? `NOTA DEL DUEÑO (qué quiere comunicar — respetala):\n${opts.nota.trim()}\n` : ''}
-Escribí el guion del video con el ángulo "${angulo.nombre}" y la estructura "${estructura.nombre}".`;
+Escribe el guion del video con el ángulo "${angulo.nombre}" y la estructura "${estructura.nombre}".`;
     // Sin `erroresOut`, "no hay IA configurada" y "la IA falló" daban EXACTAMENTE
     // el mismo mensaje: a un cliente con su key puesta le decíamos que la conecte
     // (pasó en vivo, con la cuota agotada). El motivo real cambia qué tiene que

@@ -28,7 +28,7 @@ No los edites acá.
 El nombre es **MaKo**. Ésta es la regla tal cual viaja adentro de los prompts, desde
 `lib/mako-gramatica.ts`:
 
-> CÓMO SE ESCRIBE LA MARCA: **MaKo** — M mayúscula, K MAYÚSCULA en el medio. Nunca "Maco", "Mako", "MAKO" ni "Macko". Si te llega escrito de otra forma (una transcripción de audio suele dejar "Maco"), corregilo al escribirlo vos.
+> CÓMO SE ESCRIBE LA MARCA: **MaKo** — M mayúscula, K MAYÚSCULA en el medio. Nunca "Maco", "Mako", "MAKO" ni "Macko". Si te llega escrito de otra forma (una transcripción de audio suele dejar "Maco"), corrígelo al escribirlo tú.
 
 <!-- REGLA-MARCA:FIN -->
 
@@ -465,7 +465,7 @@ Sale de `lib/mako-gramatica.ts`. **No la edites acá**: si cambia allá, cambia 
 | `recomienda` | Sugerencia | decision | mako | Propone una acción concreta. Sin los cinco campos es un consejo genérico. | la acción · el impacto esperado · el esfuerzo · el responsable · con qué objetivo se relaciona |
 | `aprobacion` | **Aprobación pendiente** | decision | warn | Solo para lo que no se puede deshacer. Nada se mueve hasta tu sí. | el alcance · los cambios previstos · la consecuencia, pegada al botón |
 | `ejecuta` | Aplicando el cambio | curso | mako | Está haciendo el cambio. Sobrevive a que cierres la pantalla. | un estado persistente · qué elementos toca |
-| `completo` | Hecho | aviso | good | Terminó. Si la acción se puede desandar, acá va el Deshacer. | el resultado · los cambios · el próximo control |
+| `completo` | Hecho | aviso | good | Terminó. Si la acción se puede desandar, aquí va el Deshacer. | el resultado · los cambios · el próximo control |
 | `vigila` | En seguimiento | aviso | mako | Quedó una guardia puesta. Es el estado del Perro Guardián. | la condición · la frecuencia · la última revisión · el criterio de alerta |
 | `sin_conclusion` | Falta un dato | decision | neutral | Le falta información. NO es un error: es un pedido de datos. | qué fuente falta · cómo resolverlo |
 

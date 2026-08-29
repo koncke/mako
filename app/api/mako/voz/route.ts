@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
   // → los transcripts fallan-cerrado (0) pero el setting caería a OWNER_WS y
   // pisaría la guía del dueño con una versión degradada. Cortamos antes.
   if ((await getWorkspaceActual()) == null) {
-    return Response.json({ ok: false, error: 'Entrá al workspace del cliente (impersonando) para enseñarle la voz a MaKo.' }, { status: 400 });
+    return Response.json({ ok: false, error: 'Entra al workspace del cliente (impersonando) para enseñarle la voz a MaKo.' }, { status: 400 });
   }
   let body: { action?: string; texto?: string };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }

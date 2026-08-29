@@ -319,7 +319,7 @@ function Indice({ curso, modulos, onAbrir, onModulo }: {
           {tapaHero && <Miniatura className="ugc-hero-img" src={tapaHero} />}
           <span className="ugc-hero-shade" aria-hidden />
           <span className="ugc-hero-body">
-            <span className="ugc-hero-eyebrow">Empeza aca{primera.codigo ? ` ${'·'} ${primera.codigo}` : ''}</span>
+            <span className="ugc-hero-eyebrow">Empieza aquí{primera.codigo ? ` ${'·'} ${primera.codigo}` : ''}</span>
             <span className="ugc-hero-title">{primera.titulo}</span>
             <span className="ugc-hero-cta">Abrir</span>
           </span>

@@ -323,7 +323,7 @@ function MetricasView({ ag, kpis, counts, onVerLlamadas }: { ag: Ag; kpis: Closi
             <Label color="#9A6A09" style={{ fontSize: 10 }}>✦ Hallazgo de la semana</Label>
             <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.015em', marginTop: 7, color: 'var(--ink)' }}>{top.label} decide tus cierres</div>
             <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.55, marginTop: 6 }}>
-              En las ganadas promedia {fmtScore(round1(top.won))} y en las perdidas {fmtScore(round1(top.lost))} (promedio del equipo {fmtScore(round1(top.team))}). Es la dimensión con mayor brecha entre cerrar y perder — subila y las R2 se ganan.
+              En las ganadas promedia {fmtScore(round1(top.won))} y en las perdidas {fmtScore(round1(top.lost))} (promedio del equipo {fmtScore(round1(top.team))}). Es la dimensión con mayor brecha entre cerrar y perder — súbela y las R2 se ganan.
             </div>
           </div>
           <button onClick={() => onVerLlamadas({ sort: 'score' })} style={{ padding: '8px 14px', borderRadius: 999, border: '1px solid var(--primary)', background: 'transparent', color: 'var(--primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Geist', sans-serif", whiteSpace: 'nowrap' }}>Ver las llamadas →</button>
@@ -738,7 +738,7 @@ function ReviseForm({ sel, onDone, onCancel }: { sel: ClosingAnalysisRow; onDone
   const liveScore = vals.length ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10 : sel.score;
 
   async function send(mode: 'manual' | 'mako') {
-    if (mode === 'mako' && !note.trim()) { setErr('Escribí qué viste distinto para que MaKo re-evalúe.'); return; }
+    if (mode === 'mako' && !note.trim()) { setErr('Escribe qué viste distinto para que MaKo re-evalúe.'); return; }
     setBusy(mode); setErr(null);
     try {
       const payload = mode === 'mako'

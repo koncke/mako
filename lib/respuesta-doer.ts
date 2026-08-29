@@ -85,7 +85,7 @@ export const avisoNoPude = (eraDePlan: boolean): string =>
  * lo que la guarda manda.
  */
 export const mensajeBorrador = (link: string) =>
-  `Listo, te armé el borrador. Revisalo y confirmalo acá 👇\n${link}`;
+  `Listo, te armé el borrador. Revísalo y confírmalo aquí 👇\n${link}`;
 
 /** El mismo mensaje en UNA línea, para mostrarlo como ejemplo adentro de un prompt.
  *  Sale de la función y no de un string aparte: el ejemplo que ve el modelo y lo que
@@ -120,7 +120,7 @@ export const mensajeLeadPropuesto = (link: string, nombre?: string | null) => {
   return [
     `Preparé la ficha${quien ? ` de *${quien}*` : ''} para el CRM.`,
     '',
-    '⚠️ *Todavía no está cargado.* Revisá los datos y confirmá acá para que entre 👇',
+    '⚠️ *Todavía no está cargado.* Revisa los datos y confirma aquí para que entre 👇',
     link,
   ].join('\n');
 };

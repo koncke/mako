@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   const mode = body.mode === 'adjust' ? 'adjust' : 'suggest';
   const prompt = String(body.prompt ?? '').trim();
   const instruccion = String(body.instruccion ?? '').trim();
-  if (mode === 'suggest' && !prompt) return Response.json({ ok: false, error: 'Escribí qué campaña querés que arme MaKo.' }, { status: 400 });
+  if (mode === 'suggest' && !prompt) return Response.json({ ok: false, error: 'Escribe qué campaña quieres que arme MaKo.' }, { status: 400 });
   if (mode === 'adjust' && (!instruccion || !body.specActual)) return Response.json({ ok: false, error: 'Falta el cambio a aplicar o el spec actual.' }, { status: 400 });
 
   try {

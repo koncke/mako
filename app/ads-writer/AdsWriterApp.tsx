@@ -119,7 +119,7 @@ export function AdsWriterApp() {
   // tarjeta de galería eso despublicaba por error). La vuelta atrás existe, pero
   // preguntando — y aclarando que no toca nada en Meta.
   const retrocederEstado = async (celdaId: string, guionId: string) => {
-    const ok = await confirm('Este guion figura como publicado. Volverlo a borrador no toca el anuncio en Meta, solo cómo se ve acá.', {
+    const ok = await confirm('Este guion figura como publicado. Volverlo a borrador no toca el anuncio en Meta, solo cómo se ve aquí.', {
       title: '¿Volver a borrador?', confirmLabel: 'Volver a borrador', danger: false,
     });
     if (ok) cambiarEstado(celdaId, guionId, 'borrador');

@@ -38,7 +38,7 @@ export function DatosSinMarcarCard({ faltantes, onSolucionar, label = 'Soluciona
         </span>
       </div>
       {ignorado
-        ? <p style={{ fontSize: 13, color: 'var(--ink)', margin: '0 0 10px', lineHeight: 1.45 }}>Estos avisos están <b>ignorados</b> en el CRM general (no notifican ni cuentan). Seguís pudiendo completarlos acá, o reactivarlos para que vuelvan al worklist.</p>
+        ? <p style={{ fontSize: 13, color: 'var(--ink)', margin: '0 0 10px', lineHeight: 1.45 }}>Estos avisos están <b>ignorados</b> en el CRM general (no notifican ni cuentan). Sigues pudiendo completarlos aquí, o reactivarlos para que vuelvan al worklist.</p>
         : nota && <p style={{ fontSize: 13, color: 'var(--ink)', margin: '0 0 10px', lineHeight: 1.45 }}>{nota}</p>}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
         {faltantes.map((f) => (

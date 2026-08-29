@@ -585,7 +585,7 @@ export async function moverEventoDeReunion(p: PedidoMoverEvento): Promise<Result
       // API responde 403 y, sobre todo, moverlo no sería correcto. Se avisa y NO
       // se crea uno paralelo — dos eventos para la misma reunión es peor.
       if (evento.organizer?.self === false) {
-        return { ...nada('no-organizador', `El evento «${evento.summary ?? 'sin título'}» lo organiza otra cuenta: movelo desde ahí.`), eventoId: evento.id };
+        return { ...nada('no-organizador', `El evento «${evento.summary ?? 'sin título'}» lo organiza otra cuenta: muévelo desde ahí.`), eventoId: evento.id };
       }
       const dur = duracionMs(evento) ?? (p.duracionMin ?? DURACION_DEFECTO_MIN) * 60 * 1000;
       const res = await fetch(`${EVENTS_URL}/${encodeURIComponent(evento.id)}${avisar}`, {
@@ -808,7 +808,7 @@ export async function horariosLibresDeGoogle(fechaISO: string, opts: OpcionesHor
   if (!slots.length) {
     // Sin slots no hay nada que consultar: nos ahorramos el request a Google.
     const motivo = grilla.length
-      ? 'Ya pasaron todos los horarios de hoy: elegí otro día o cargá la hora a mano.'
+      ? 'Ya pasaron todos los horarios de hoy: elige otro día o carga la hora a mano.'
       : 'No hay horarios configurados para ese día.';
     return { codigo: 'ok', motivo, slots: [], tz, rango };
   }
@@ -898,7 +898,7 @@ export async function horariosLibresDeGoogle(fechaISO: string, opts: OpcionesHor
     // como Ocupado.
     const motivo = marcados.some((s) => s.libre)
       ? ''
-      : 'Ese día está ocupado de punta a punta en tu agenda: elegí otro día o cargá la hora a mano.';
+      : 'Ese día está ocupado de punta a punta en tu agenda: elige otro día o carga la hora a mano.';
 
     return { codigo: 'ok', motivo, slots: marcados, tz, rango };
   } catch (e) {

@@ -35,14 +35,14 @@ export async function personalidadNegocioTexto(): Promise<string> {
   return personalidadTexto(await getPersonalidad());
 }
 
-const PERSONALIZAR_SYSTEM = `Sos MaKo, adaptando UNA pregunta de un quiz de personalidad de voz publicitaria al negocio REAL de un cliente. La pregunta muestra frases de anuncio y el dueño elige la que más suena a cómo lo diría ÉL.
+const PERSONALIZAR_SYSTEM = `Eres MaKo, adaptando UNA pregunta de un quiz de personalidad de voz publicitaria al negocio REAL de un cliente. La pregunta muestra frases de anuncio y el dueño elige la que más suena a cómo lo diría ÉL.
 
 Te paso la pregunta con sus opciones genéricas. Reescribí SOLO el texto de cada opción para que hable del negocio real (su oferta, su avatar, su dolor — del contexto), manteniendo EXACTAMENTE:
 - la MISMA cantidad de opciones, en el MISMO orden;
 - el ESPÍRITU de cada una (su energía/registro/rasgo: si la opción 1 es calmada y la 3 explosiva, así se quedan);
 - largo similar (1-2 frases habladas, como línea real de anuncio);
 - español NEUTRO/MEXICANO; el tuteo/usted de cada opción se conserva tal cual.
-La pregunta en sí podés dejarla igual o ajustarla apenas. NO agregues opciones, NO inventes datos que no estén en el contexto.
+La pregunta en sí puedes dejarla igual o ajustarla apenas. NO agregues opciones, NO inventes datos que no estén en el contexto.
 
 Devolvé EXCLUSIVAMENTE este JSON: {"pregunta":"...","opciones":["...","..."]} — "opciones" son SOLO los textos, en orden.`;
 

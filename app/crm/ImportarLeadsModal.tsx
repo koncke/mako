@@ -127,10 +127,10 @@ export function ImportarLeadsModal({ onListo, onClose }: {
         }}
       >
         <div style={{ fontSize: 24, marginBottom: 6 }}>📥</div>
-        <div style={{ fontSize: 14, fontWeight: 650, color: 'var(--ink)' }}>Arrastrá el archivo acá</div>
+        <div style={{ fontSize: 14, fontWeight: 650, color: 'var(--ink)' }}>Arrastra el archivo aquí</div>
         <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 5, lineHeight: 1.5 }}>
-          o hacé click para buscarlo. Anda con <strong>CSV</strong>, y también con PDF, fotos y documentos:
-          de esos MaKo saca los contactos y los revisás en el próximo paso.
+          o haz click para buscarlo. Funciona con <strong>CSV</strong>, y también con PDF, fotos y documentos:
+          de esos MaKo saca los contactos y los revisas en el próximo paso.
         </div>
         <input ref={input} type="file" accept={ACCEPT_IMPORT} style={{ display: 'none' }}
           onChange={(e) => { tomar(e.target.files); e.target.value = ''; }} />
@@ -167,8 +167,8 @@ export function ImportarLeadsModal({ onListo, onClose }: {
       ancho={paso === 0 ? 640 : 940}
       titulo={paso === 0 ? 'Importar leads' : `Importar leads · ${filas.length} fila${filas.length === 1 ? '' : 's'}`}
       total={2} idx={paso}
-      pregunta={paso === 0 ? '¿Qué archivo querés importar?' : '¿Está bien lo que va a entrar?'}
-      sub={paso === 1 ? 'Corregí lo que haga falta y tildá qué se crea.' : undefined}
+      pregunta={paso === 0 ? '¿Qué archivo quieres importar?' : '¿Está bien lo que va a entrar?'}
+      sub={paso === 1 ? 'Corrige lo que haga falta y tilda qué se crea.' : undefined}
       error={err}
       pending={cargando}
       puedeAvanzar={puede}

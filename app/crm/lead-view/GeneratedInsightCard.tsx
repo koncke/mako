@@ -160,7 +160,7 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
               <div style={{ fontSize: 13, color: 'var(--dim)' }}>
                 {tieneFathom
                   ? 'Este lead tiene el link de Fathom pero su llamada todavía no está analizada. MaKo la analiza y genera el insight.'
-                  : 'MaKo busca la llamada en Closing Analyst y Fathom (por email o link) y la re-linkea a este lead. Si no la encuentra, cargá el link de Fathom.'}
+                  : 'MaKo busca la llamada en Closing Analyst y Fathom (por email o link) y la re-linkea a este lead. Si no la encuentra, carga el link de Fathom.'}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -172,7 +172,7 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
 
         {!insight && puedeGenerar && !error && (
           <p style={{ fontSize: 14, color: 'var(--faint)', margin: 0 }}>
-            Hay {llamadas.length} llamada{llamadas.length === 1 ? '' : 's'} analizada{llamadas.length === 1 ? '' : 's'}. Tocá <b>Generar</b> y MaKo devuelve la lectura comercial del lead.
+            Hay {llamadas.length} llamada{llamadas.length === 1 ? '' : 's'} analizada{llamadas.length === 1 ? '' : 's'}. Toca <b>Generar</b> y MaKo devuelve la lectura comercial del lead.
           </p>
         )}
         {/* Error SIEMPRE visible (antes solo se mostraba con llamadas: los fallos

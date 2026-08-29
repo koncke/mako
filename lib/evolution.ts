@@ -17,7 +17,7 @@ import { APP_BASE_URL } from '@/lib/app-url';
 // cortamos — nunca operar sobre la instancia del dueño por un fallback silencioso.
 async function wsEstricto(): Promise<number> {
   const ws = await getWorkspaceActual();
-  if (ws == null) throw new Error('Seleccioná un cliente (impersoná un workspace) para conectar su WhatsApp.');
+  if (ws == null) throw new Error('Selecciona un cliente (impersona un workspace) para conectar su WhatsApp.');
   return ws;
 }
 
@@ -387,7 +387,7 @@ export async function estadoWebhook(): Promise<WebhookSalud> {
 export async function repararWebhook(): Promise<{ ok: boolean; estado: WebhookEstado; error?: string }> {
   const ws = await wsEstricto();
   const instance = instanceNameDeWs(ws);
-  if (!WEBHOOK_SECRET) return { ok: false, estado: 'sin_secret', error: 'Falta el secret del webhook de Evolution en la configuración de la plataforma — avisá al equipo técnico.' };
+  if (!WEBHOOK_SECRET) return { ok: false, estado: 'sin_secret', error: 'Falta el secret del webhook de Evolution en la configuración de la plataforma — avisa al equipo técnico.' };
   const set = await setWebhook(instance);
   if (!set.ok) return { ok: false, estado: 'error', error: set.error };
   const v = await estadoWebhook();

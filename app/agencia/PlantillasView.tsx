@@ -16,7 +16,7 @@ import { EMOJI_CATEGORIA, type CategoriaAviso } from '@/lib/avisos-catalogo';
 const ORDEN: CategoriaAviso[] = ['reporte', 'aviso', 'accion', 'pregunta'];
 const LABEL: Record<CategoriaAviso, string> = { reporte: 'Reportes', aviso: 'Avisos', accion: 'Acciones', pregunta: 'Preguntas' };
 
-const respuestaDueno = (a: PlantillaVista) => (a.categoria === 'accion' ? 'Sí, dale 👍' : a.categoria === 'pregunta' ? 'Dale, pasámelo' : '👍');
+const respuestaDueno = (a: PlantillaVista) => (a.categoria === 'accion' ? 'Sí, adelante 👍' : a.categoria === 'pregunta' ? 'Adelante, pásamelo' : '👍');
 const replicaMaKo = (a: PlantillaVista) => (a.categoria === 'accion' ? '✅ Listo, lo hago ahora y te confirmo cuando esté. — MaKo' : 'Genial, te lo preparo y te lo paso en un rato. 🙌 — MaKo');
 
 type Paso = { t: 'typing'; lado: 'left' | 'right'; autor?: string } | { t: 'msg'; msg: HiloMsg };
@@ -151,7 +151,7 @@ export function PlantillasView() {
           )}
         />
       ) : (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 14 }}>Elegí una plantilla.</div>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 14 }}>Elige una plantilla.</div>
       )}
     </div>
   );

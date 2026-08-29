@@ -543,7 +543,7 @@ export const ENTRADAS: Record<EntradaId, EntradaDef> = {
     id: 'chat_entrante', label: 'Te escriben ellos primero',
     desc: 'Por WhatsApp, un DM o un comentario.',
     dejoDatos: false, empieza: 'lead', objetivoMeta: 'mensajes',
-    quien: 'le escribiste vos primero, por WhatsApp, y todavía no te contestó nadie',
+    quien: 'le escribiste tú primero, por WhatsApp, y todavía no te contestó nadie',
   },
   chat_saliente: {
     id: 'chat_saliente', label: 'Le escribes tú primero',

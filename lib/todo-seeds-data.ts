@@ -45,7 +45,7 @@ export const SEED_CATEGORIAS: SeedProy[] = [
     scoreRazon: 'La meta comercial de arranque: valida que el sistema entero convierte en plata.',
     detalle: 'Llevar el sistema hasta los primeros 10 cierres, afinando oferta, guiones y manejo de objeciones. Se termina cuando hay 10 clientes cerrados y un proceso de venta repetible.' },
   { key: 'funnel', nombre: 'Validar el funnel completo (VSL → agenda → cierre)', emoji: '🔁', color: '#7C5CFB', prioridad: 62, deadlineDias: 45, faseMax: 4,
-    scoreRazon: 'Es donde el tráfico se transforma en plata; una fuga acá arruina toda la pauta.',
+    scoreRazon: 'Es donde el tráfico se transforma en dinero; una fuga aquí arruina toda la pauta.',
     detalle: 'Que el camino del lead convierta punta a punta: mira el VSL, agenda, se presenta (R1), avanza (R2) y cierra. Se termina cuando cada paso tiene su número medido y sin fugas grandes.' },
   { key: 'seguimiento', nombre: 'Montar el seguimiento por WhatsApp', emoji: '💬', color: '#C8870C', prioridad: 50, deadlineDias: 35,
     scoreRazon: 'Recupera plata que hoy se pierde: recordatorios de junta y reactivación de no-shows.',

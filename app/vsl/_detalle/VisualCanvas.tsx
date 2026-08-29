@@ -207,7 +207,7 @@ const JOURNEY = [
   { img: 'landing.svg', label: 'Entraron a la landing', n: '2.310' },
   { img: 'youtube.png', label: 'Miraron tu VSL', n: '1.204' },
   { img: 'meet.png', label: 'Agendaron', n: '186', caen: true },
-  { img: 'whatsapp.png', label: 'Hablaron con vos', n: '92' },
+  { img: 'whatsapp.png', label: 'Hablaron contigo', n: '92' },
   { img: 'pago.svg', label: 'Pagaron', n: '31' },
 ];
 const JIMG: Record<string, HTMLImageElement> = {};
@@ -303,7 +303,7 @@ function drawJourney(ctx: CanvasRenderingContext2D, t: number, W: number, H: num
   if (Math.abs(foco - iCae) < 0.06) {
     const x = originX + iCae * step;
     const ap = eoC(clamp((tt - (iCae * paso)) / 300, 0, 1));
-    const txt = 'Acá se cae la mayoría';
+    const txt = 'Aquí se cae la mayoría';
     ctx.save();
     ctx.font = "700 12.5px 'Geist', system-ui, sans-serif";
     const wTxt = ctx.measureText(txt).width, padH = 13, bw = wTxt + padH * 2 + 22, bh = 32;
@@ -359,7 +359,7 @@ const CHAT: Msg[] = [
   { de: 'mako', t: '🔵 Entró un lead nuevo: *José Rodríguez*, de la campaña RECON de Julio.', hora: '09:14' },
   { de: 'mako', t: 'Vio tu VSL hasta el *27%* y se fue. Todavía no agendó.', hora: '09:16' },
   { de: 'mako', t: 'Volvió a entrar y esta vez llegó al *88%*, pero no agendó. ¿Le mando el seguimiento?', hora: '12:41' },
-  { de: 'yo', t: 'Sí, dale', hora: '12:43' },
+  { de: 'yo', t: 'Sí, adelante', hora: '12:43' },
   { de: 'mako', t: '✅ Listo. *José agendó* para mañana a las 15:00.', hora: '18:02' },
   { de: 'mako', tipo: 'pdf', nombre: 'Ficha del lead — José Rodríguez.PDF', meta: '2 páginas · PDF · 148 kB', hora: '18:02' },
 ];
@@ -533,7 +533,7 @@ function ChatCanvas() {
 const CRM_CHAT: Msg[] = [
   { de: 'mako', t: 'Nuevo lead: *José Rodríguez*, de tu campaña de Julio. Lo cargué al CRM.', hora: '09:14' },
   { de: 'mako', t: '*José Rodríguez* se agendó para dentro de 3 días. ¿Te armo su ficha para la reunión?', hora: '09:15' },
-  { de: 'yo', t: 'Dale 👍', hora: '09:16' },
+  { de: 'yo', t: 'Adelante 👍', hora: '09:16' },
   { de: 'mako', tipo: 'pdf', nombre: 'Ficha — José Rodríguez.PDF', meta: '2 páginas · PDF · 148 kB', hora: '09:16' },
   { de: 'mako', t: '*José Rodríguez* asistió a la llamada. Lo marqué *Presente* en el CRM.', hora: '15:42' },
   { de: 'mako', t: '*José Rodríguez* lleva 1 día sin responder. Su freno en la llamada fue el precio.', hora: '10:20' },

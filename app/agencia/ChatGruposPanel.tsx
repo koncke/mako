@@ -140,7 +140,7 @@ export function ChatGruposPanel() {
           onDraftChange={(jid, has) => setDraftsMap((m) => (m[jid] === has ? m : { ...m, [jid]: has }))}
           accent="var(--accent-soft)"
           accentBubble="var(--wa-noof-bubble)"
-          placeholder="Escribí como MaKo…"
+          placeholder="Escribe como MaKo…"
           header={(
             <button type="button" onClick={() => setDetalleOpen(true)} title="Ver detalle del grupo"
               style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
@@ -155,7 +155,7 @@ export function ChatGruposPanel() {
           onEnviarArchivo={onEnviarArchivo}
         />
       ) : (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 14 }}>Elegí un grupo para ver la conversación.</div>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 14 }}>Elige un grupo para ver la conversación.</div>
       )}
     </div>
   );

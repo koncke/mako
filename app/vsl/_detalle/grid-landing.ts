@@ -49,7 +49,7 @@ function cardInyectada(slug: string): string {
     '</a>';
 }
 
-const BADGE = '<span style="position:absolute;top:16px;right:16px;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:#2F6FED;background:#E4EEFD;padding:4px 9px;border-radius:999px">Estás acá</span>';
+const BADGE = '<span style="position:absolute;top:16px;right:16px;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:#2F6FED;background:#E4EEFD;padding:4px 9px;border-radius:999px">Estás aquí</span>';
 
 /** Corta el HTML en cards `<a href="#m-slug">…</a>`, en orden. */
 function partir(html: string): { slug: string; html: string }[] {

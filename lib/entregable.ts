@@ -70,28 +70,28 @@ export function entregablesTexto(gs: Entregable[]): string {
 }
 
 // ── Prompt (editable en /configuraciones) ────────────────────────────────────
-export const ENTREGABLE_SYSTEM_TEMPLATE = `Sos MaKo, encontrando el LEAD MAGNET de un negocio: su elemento TANGIBLE y CONCRETO que hace que la oferta se entienda rápido y genere CURIOSIDAD/FOMO en los anuncios de Meta. NO es un sentimiento ni una promesa: es una COSA que el cliente entrega o usa (un dashboard, una planilla de Excel, un documento, una metodología CON NOMBRE, un software, un checklist, una plantilla).
+export const ENTREGABLE_SYSTEM_TEMPLATE = `Eres MaKo, encontrando el LEAD MAGNET de un negocio: su elemento TANGIBLE y CONCRETO que hace que la oferta se entienda rápido y genere CURIOSIDAD/FOMO en los anuncios de Meta. NO es un sentimiento ni una promesa: es una COSA que el cliente entrega o usa (un dashboard, una planilla de Excel, un documento, una metodología CON NOMBRE, un software, un checklist, una plantilla).
 
 Ejemplos del concepto: "instala un DASHBOARD de objetivos con cada cliente" → permite el copy "si tus empleados no cumplen sus objetivos es porque te falta ESTE dashboard". Una "metodología de 4 pasos con nombre propio" también sirve.
 
-Encontrá 1 a 3 LEAD MAGNETS candidatos para ESTE negocio (según lo que ya dice el brief). Si el negocio no menciona uno claro, PROPONÉ el más plausible que podría crear/mostrar (y decilo natural). Cada entregable:
+Encuentra 1 a 3 LEAD MAGNETS candidatos para ESTE negocio (según lo que ya dice el brief). Si el negocio no menciona uno claro, PROPÓN el más plausible que podría crear/mostrar (y dilo natural). Cada entregable:
 - "nombre": el nombre del elemento tangible, corto y concreto (ej: "Dashboard de Objetivos por Empleado", "Planilla de Escala 90 días").
 - "tipo": qué clase de elemento es. UNO de: Dashboard, Planilla Excel, Documento, Metodología, Software, Checklist, Plantilla, Otro.
 - "queEs": qué es concretamente y qué resuelve, en 1-2 frases claras.
 - "fomo": UNA línea estilo anuncio que use el entregable para generar CURIOSIDAD/FOMO en el espectador (concreta, del dolor real; ej: "Si tu equipo no cumple sus metas, no es falta de ganas: es que no tienen ESTE tablero a la vista todos los días.").
 
 REGLAS:
-- Aterrizá TODO en el negocio real del brief; nada genérico.
+- Aterriza TODO en el negocio real del brief; nada genérico.
 - NO inventes resultados ni cifras que no estén en el contexto.
 - IDIOMA: español NEUTRO/MEXICANO, de "tú", SIN voseo ni modismos argentinos.
 
-Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin markdown, sin texto afuera) con esta forma EXACTA:
+Devuelve EXCLUSIVAMENTE un objeto JSON válido (sin markdown, sin texto afuera) con esta forma EXACTA:
 {"entregables":[{"nombre":"","tipo":"","queEs":"","fomo":""}]}`;
 
 export const ENTREGABLE_USER_TEMPLATE = `CONTEXTO DEL NEGOCIO (datos reales del Archivero):
 {{brief}}
 {{panorama}}{{respuestas}}
-Encontrá 1-3 lead magnets tangibles. Devolvé solo el JSON.`;
+Encuentra 1-3 lead magnets tangibles. Devuelve solo el JSON.`;
 
 // ── Parseo ────────────────────────────────────────────────────────────────────
 export function parseEntregables(text: string): Entregable[] {
@@ -110,15 +110,15 @@ export function parseEntregables(text: string): Entregable[] {
 export type PreguntaDinamica = { pregunta: string; tipo: 'opciones' | 'archivo'; opciones: string[] };
 export type PasoHistorial = { pregunta: string; respuesta: string };
 
-const ENTREGABLE_SIGUIENTE_SYSTEM = `Sos MaKo, ayudando a un dueño de negocio a definir su LEAD MAGNET: el elemento tangible y CONCRETO que genera FOMO en los ads. En tus preguntas llamalo siempre "lead magnet" (un dashboard, una planilla, una metodología con nombre, un checklist, un software, una plantilla). Vas de a UNA pregunta cerrada por vez, adaptando la siguiente a lo que ya te contestó — nunca repitas algo que ya sabés.
+const ENTREGABLE_SIGUIENTE_SYSTEM = `Eres MaKo, ayudando a un dueño de negocio a definir su LEAD MAGNET: el elemento tangible y CONCRETO que genera FOMO en los ads. En tus preguntas llámalo siempre "lead magnet" (un dashboard, una planilla, una metodología con nombre, un checklist, un software, una plantilla). Vas de a UNA pregunta cerrada por vez, adaptando la siguiente a lo que ya te contestó — nunca repitas algo que ya sabes.
 
 REGLAS:
-- Si con lo que ya te contestó tenés suficiente para proponerle un lead magnet concreto con confianza, o ya van 3 preguntas, respondé {"terminado":true} — no sigas preguntando de más.
-- Si el dueño te dijo que YA TIENE algo concreto (ej: "una plantilla", "un dashboard que ya uso") y todavía no lo mostró, la siguiente pregunta puede ser tipo "archivo": invitalo a subir una imagen o captura de eso. Si en un paso anterior ya declinó subir algo, NO se lo vuelvas a pedir — seguí con preguntas de opciones.
-- Si no, hacé una pregunta tipo "opciones" con 3-4 opciones CONCRETAS y ACCIONABLES para ESTE negocio real (nunca genéricas de manual — usá el contexto de verdad).
+- Si con lo que ya te contestó tienes suficiente para proponerle un lead magnet concreto con confianza, o ya van 3 preguntas, responde {"terminado":true} — no sigas preguntando de más.
+- Si el dueño te dijo que YA TIENE algo concreto (ej: "una plantilla", "un dashboard que ya uso") y todavía no lo mostró, la siguiente pregunta puede ser tipo "archivo": invítalo a subir una imagen o captura de eso. Si en un paso anterior ya declinó subir algo, NO se lo vuelvas a pedir — sigue con preguntas de opciones.
+- Si no, haz una pregunta tipo "opciones" con 3-4 opciones CONCRETAS y ACCIONABLES para ESTE negocio real (nunca genéricas de manual — usa el contexto de verdad).
 - Español neutro/mexicano, de "tú".
 
-Devolvé EXCLUSIVAMENTE uno de estos JSON (nada de texto afuera):
+Devuelve EXCLUSIVAMENTE uno de estos JSON (nada de texto afuera):
 {"terminado":true}
 {"terminado":false,"pregunta":"...","tipo":"opciones","opciones":["...","...","..."]}
 {"terminado":false,"pregunta":"...","tipo":"archivo","opciones":[]}`;

@@ -168,7 +168,7 @@ function Contrato({ c }: { c: ClienteCartera }) {
       />
       {r.terminado && (
         <Fila k="Estado del plazo" v="Se pasó" tono="warn"
-          nota="Pasarse del plazo no es haber terminado: eso lo decidís vos abajo." />
+          nota="Pasarse del plazo no es haber terminado: eso lo decides tú abajo." />
       )}
     </dl>
   );

@@ -119,7 +119,7 @@ export function GuionesAdminView({ tabExterna }: { tabExterna?: 'angulos' | 'est
         {tab === 'angulos' && angulos && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
-              El <b>enfoque</b> de cada anuncio. Todo lo que cargues acá (hooks, reglas, preguntas) es lo que recibe la IA — y las <b>preguntas</b> se le hacen al cliente justo antes de generar.
+              El <b>enfoque</b> de cada anuncio. Todo lo que cargues aquí (hooks, reglas, preguntas) es lo que recibe la IA — y las <b>preguntas</b> se le hacen al cliente justo antes de generar.
             </div>
             {angulos.map((a) => {
               const on = abierto === a.id;

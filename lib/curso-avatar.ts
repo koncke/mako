@@ -147,7 +147,7 @@ REGLA: para que un avatar suene a la persona, el guion se escribe con su habla, 
 
 ORDEN DE ATAQUE: el texto es la primera capa, no la última. Timbre, parámetros del clon y prosodia vienen después. Cuando algo suena a IA, revisar el guion ANTES de tocar el clonador.
 
-OJO CON LA CONCLUSIÓN QUE ESTO CORRIGE: una transcripción verbatim del anuncio dio cero muletillas, y de ahí se concluyó que "el cliente habla así de limpio". Era cierto del anuncio y falso de la persona. Cuando midas un rasgo de habla, mirá material CONVERSACIONAL, no material publicado.`,
+OJO CON LA CONCLUSIÓN QUE ESTO CORRIGE: una transcripción verbatim del anuncio dio cero muletillas, y de ahí se concluyó que "el cliente habla así de limpio". Era cierto del anuncio y falso de la persona. Cuando midas un rasgo de habla, mira material CONVERSACIONAL, no material publicado.`,
   },
   {
     titulo: 'Los marcadores van por función, no por cuota',
@@ -390,7 +390,7 @@ PARA EL AUDIO:
 - Piso de ruido y presencia de música. Una base musical arruina el clon.
 - ¿Cuántos hablantes? Si hay diálogo, no sirve.
 - Bitrate y recompresión. Se puede usar material comprimido, pero conviene saberlo.
-- Y LA PREGUNTA QUE MÁS AHORRA: "¿este audio es de vos hablando como hablarías EN UN ANUNCIO, o conversando?". El registro no se puede medir sin contexto, pero se puede preguntar.
+- Y LA PREGUNTA QUE MÁS AHORRA: "¿este audio es de ti hablando como hablarías EN UN ANUNCIO, o conversando?". El registro no se puede medir sin contexto, pero se puede preguntar.
 
 EL PRINCIPIO: cada uno de estos chequeos existe porque ya nos costó una tanda de créditos o una llamada incómoda. El costo de pedirle al usuario que regrabe es mucho menor que el de producir 12 clips con material equivocado.
 
@@ -403,7 +403,7 @@ Y CÓMO PEDIRLO, que importa tanto como el chequeo: no con una lista de requisit
 
 1) NO PEDIR UNA LISTA DE DEFECTOS. La gente reconoce su cara pero no la sabe describir. Preguntar "¿qué está mal?" produce respuestas vagas y contradictorias.
 
-2) PREGUNTAR DÓNDE SÍ SE PARECE. "Marcá el segundo donde más te parecés y el segundo donde menos." La diferencia entre esos dos frames contiene el diagnóstico. Así apareció el hallazgo de la sonrisa, que resolvió cinco quejas de una.
+2) PREGUNTAR DÓNDE SÍ SE PARECE. "Marca el segundo donde más te pareces y el segundo donde menos." La diferencia entre esos dos frames contiene el diagnóstico. Así apareció el hallazgo de la sonrisa, que resolvió cinco quejas de una.
 
 3) PONER EL INPUT AL LADO DEL OUTPUT. La foto que subió contra el frame generado, en la misma pantalla. En esta producción el cliente pidió exactamente eso y lo dijo así: "necesito verlas las dos al mismo tiempo". Recién ahí pudo describir las diferencias con precisión: quijada, cachetes, labios, barba.
 
@@ -413,7 +413,7 @@ Y CÓMO PEDIRLO, que importa tanto como el chequeo: no con una lista de requisit
 
 6) UN EJE POR CORRECCIÓN. Si dijo cuatro cosas, no se corrigen las cuatro juntas: ya vimos que el modelo lleva cada instrucción al extremo.
 
-PARA MAKO: esto es una pantalla, no un instructivo. Input y output lado a lado, un selector de "acá sí / acá no" sobre la línea de tiempo, y los chequeos de calidad del input visibles con su resultado. La mayoría de las veces esa pantalla cierra el reclamo sin que intervenga nadie.`,
+PARA MAKO: esto es una pantalla, no un instructivo. Input y output lado a lado, un selector de "aquí sí / aquí no" sobre la línea de tiempo, y los chequeos de calidad del input visibles con su resultado. La mayoría de las veces esa pantalla cierra el reclamo sin que intervenga nadie.`,
   },
   {
     titulo: 'Qué está automatizable hoy y qué no',

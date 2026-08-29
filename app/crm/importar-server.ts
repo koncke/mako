@@ -78,16 +78,16 @@ export async function marcarExistentes(filas: FilaImport[]): Promise<FilaImport[
   }));
 }
 
-const SISTEMA_EXTRAER = `Sos un extractor de contactos. Recibís el TEXTO de un documento (una lista, una tabla, una captura, un PDF) y devolvés SOLO JSON con esta forma:
+const SISTEMA_EXTRAER = `Eres un extractor de contactos. Recibes el TEXTO de un documento (una lista, una tabla, una captura, un PDF) y devuelves SOLO JSON con esta forma:
 {"contactos":[{"nombre":"","email":"","telefono":"","empresa":"","seguro":true}]}
 
 Reglas:
-- Un objeto por PERSONA. No inventes datos: si un campo no está en el texto, dejalo como cadena vacía.
+- Un objeto por PERSONA. No inventes datos: si un campo no está en el texto, déjalo como cadena vacía.
 - "nombre" es el nombre de la persona; "empresa" es la organización, nunca el nombre de la persona.
 - "telefono" tal cual aparece (con su prefijo si lo tiene). No lo reformatees ni le agregues códigos de país.
-- "seguro" es false cuando dudás de a qué campo va un valor, cuando el texto está borroso o cortado, o cuando estás partiendo una línea ambigua.
-- Ignorá encabezados, totales, notas al pie y todo lo que no sea una persona.
-- Si el documento no tiene contactos, devolvé {"contactos":[]}.`;
+- "seguro" es false cuando dudas de a qué campo va un valor, cuando el texto está borroso o cortado, o cuando estás partiendo una línea ambigua.
+- Ignora encabezados, totales, notas al pie y todo lo que no sea una persona.
+- Si el documento no tiene contactos, devuelve {"contactos":[]}.`;
 
 function parseJsonLoose(raw: string): Record<string, unknown> {
   const s = (raw || '').trim();
@@ -138,7 +138,7 @@ export async function filasDesdeArchivo(file: File): Promise<LecturaArchivoImpor
   });
   const arr = parseJsonLoose(crudo).contactos;
   if (!Array.isArray(arr)) {
-    return { filas: [], viaIA: true, error: `Leí «${nombre}» pero no pude sacar contactos de ahí. Probá con un CSV.` };
+    return { filas: [], viaIA: true, error: `Leí «${nombre}» pero no pude sacar contactos de ahí. Prueba con un CSV.` };
   }
 
   const filas: FilaImport[] = [];

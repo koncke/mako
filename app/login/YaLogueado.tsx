@@ -34,7 +34,7 @@ export function YaLogueado({ nombre, email }: { nombre: string; email: string })
   return (
     <>
       <div style={{ fontSize: '14px', color: '#5B6472', marginBottom: '6px' }}>
-        Ya tenés la sesión abierta como <strong style={{ color: '#14161B' }}>{quien}</strong>.
+        Ya tienes la sesión abierta como <strong style={{ color: '#14161B' }}>{quien}</strong>.
       </div>
       <div style={{ fontSize: '13px', color: '#8A93A1', marginBottom: '20px' }}>
         {yendo ? 'Entrando…' : 'Te llevamos a tu tablero.'}

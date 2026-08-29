@@ -176,7 +176,7 @@ export function ConocimientoView() {
             <div style={{ ...card, color: 'var(--faint)', fontFamily: MONO, fontSize: 13 }}>Cargando…</div>
           ) : grupos.length === 0 ? (
             <div style={{ ...card, color: 'var(--faint)', fontSize: 14 }}>
-              Todavía no hay conocimiento cargado. Importá un curso arriba o agregá uno abajo.
+              Todavía no hay conocimiento cargado. Importa un curso arriba o agrega uno abajo.
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -291,7 +291,7 @@ function AgregarPanel({ cursos, busy, onCreate }: { cursos: string[]; busy: bool
       setCuerpo((prev) => (prev.trim() ? prev + '\n\n' : '') + j.transcript);
       if (!titulo.trim()) setTitulo(file.name.replace(/\.[^.]+$/, ''));
       const mins = j.duracion_s ? ` · ${Math.round(j.duracion_s / 60)} min` : '';
-      setTranscribeInfo(`✓ Transcripción lista${mins}. Revisala y guardala.`);
+      setTranscribeInfo(`✓ Transcripción lista${mins}. Revísala y guárdala.`);
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setTranscribiendo(false); if (fileRef.current) fileRef.current.value = ''; }
   };
@@ -301,7 +301,7 @@ function AgregarPanel({ cursos, busy, onCreate }: { cursos: string[]; busy: bool
     setError(null);
     const ok = await onCreate({ titulo, categoria: categoria || null, cuerpo, curso: curso.trim() || null, autor: autor.trim() || null, area: areaVal, fuente: transcribeInfo ? 'transcripcion' : 'manual' });
     // Solo limpiamos el formulario si de verdad se guardó (no perdemos el texto/transcripción en un error).
-    if (!ok) { setError('No se pudo guardar (mirá el aviso de arriba). Tu texto sigue acá.'); return; }
+    if (!ok) { setError('No se pudo guardar (mira el aviso de arriba). Tu texto sigue aquí.'); return; }
     setTitulo(''); setCuerpo(''); setCategoria(''); setTranscribeInfo(null);
   };
 
@@ -342,7 +342,7 @@ function AgregarPanel({ cursos, busy, onCreate }: { cursos: string[]; busy: bool
           <input ref={fileRef} type="file" hidden accept="audio/*,video/*" disabled={transcribiendo} onChange={(e) => { const f = e.target.files?.[0]; if (f) void transcribir(f); }} />
         </label>
       </div>
-      <textarea style={area} value={cuerpo} onChange={(e) => setCuerpo(e.target.value)} placeholder="Pegá la metodología / transcripción acá. MaKo la usa para responder y recomendar. También podés subir un video o audio de la clase y OpenAI lo transcribe." />
+      <textarea style={area} value={cuerpo} onChange={(e) => setCuerpo(e.target.value)} placeholder="Pega la metodología / transcripción aquí. MaKo la usa para responder y recomendar. También puedes subir un video o audio de la clase y OpenAI lo transcribe." />
       {transcribeInfo && <div style={{ fontSize: 12.5, color: 'var(--good)', fontWeight: 600, marginTop: 6 }}>{transcribeInfo}</div>}
       {error && <div style={{ fontSize: 12.5, color: 'var(--bad)', marginTop: 6 }}>{error}</div>}
       <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 8 }}>El video/audio se transcribe con OpenAI (máx 25 MB). Al guardar, MaKo lo indexa (embedding) para recuperarlo cuando sea relevante.</div>

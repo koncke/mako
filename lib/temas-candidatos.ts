@@ -50,7 +50,7 @@ export const TOKENS_MOSTRADOS: { grupo: string; tokens: string[] }[] = [
   { grupo: 'Superficies', tokens: ['--bg', '--surface', '--surface-2', '--border', '--border-strong'] },
   { grupo: 'Tinta', tokens: ['--ink', '--on-ink', '--dim', '--faint'] },
   { grupo: 'Barra', tokens: ['--sidebar', '--sidebar-2', '--sidebar-line', '--sidebar-text', '--on-sidebar'] },
-  { grupo: 'Vos actuás (Meta)', tokens: ['--primary', '--primary-strong', '--primary-bg', '--primary-weak'] },
+  { grupo: 'Tú actúas (Meta)', tokens: ['--primary', '--primary-strong', '--primary-bg', '--primary-weak'] },
   { grupo: 'MaKo intervino', tokens: ['--mako', '--mako-lite', '--mako-ink', '--mako-bg', '--mako-border'] },
   { grupo: 'Semáforo', tokens: ['--good', '--warn', '--bad'] },
 ];

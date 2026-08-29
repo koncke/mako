@@ -9,10 +9,10 @@
 
 // ── Chat de gráficos (app/api/chart-insights/route.ts) ───────────────────────
 export const CHART_PROMPT_ANALISIS_DEFAULT =
-  'Mirá el gráfico y tirame SOLO lo más importante: el insight que más impacta, en 2-4 líneas, con tu voz. Nada de resumen completo ni listar todo.';
+  'Mira el gráfico y tírame SOLO lo más importante: el insight que más impacta, en 2-4 líneas, con tu voz. Nada de resumen completo ni listar todo.';
 
 export const CHART_PROMPT_SALUDO_DEFAULT =
-  'Presentate en 1-2 líneas como MaKo y decime en qué me podés ayudar con los datos del negocio. Breve, con tu voz.';
+  'Preséntate en 1-2 líneas como MaKo y dime en qué me puedes ayudar con los datos del negocio. Breve, con tu voz.';
 
 export const CHART_TITULO_DEFAULT =
   'Devolvé SOLO un título corto (3 a 6 palabras, en español, sin comillas ni punto final) que resuma de qué trata esto. Nada más que el título.';
@@ -23,10 +23,10 @@ export const MAKO_CTX_GENERAL_DEFAULT =
 
 // {{titulo}} = nombre del gráfico · {{contexto}} = datos del gráfico (recortados)
 export const MAKO_CTX_CHART_DEFAULT =
-  'CONTEXTO: estás mirando el gráfico "{{titulo}}" del PROPIO negocio de Martín. Ya tenés los datos abajo, analizá directo.\n\nDATOS DEL GRÁFICO:\n{{contexto}}';
+  'CONTEXTO: estás mirando el gráfico "{{titulo}}" del PROPIO negocio de Martín. Ya tienes los datos abajo, analiza directo.\n\nDATOS DEL GRÁFICO:\n{{contexto}}';
 
 export const MAKO_CTX_WHATSAPP_DEFAULT =
-  'SOS CONSULTOR DE SECUENCIAS Y PLANTILLAS DE WHATSAPP. Cuando Martín te proponga una secuencia o un mensaje, evaluá si Meta lo aprobaría (citá la regla), sugerí mejoras concretas y pensá el timing/copy en función del funnel. Sé directo y accionable.';
+  'ERES CONSULTOR DE SECUENCIAS Y PLANTILLAS DE WHATSAPP. Cuando Martín te proponga una secuencia o un mensaje, evalúa si Meta lo aprobaría (cita la regla), sugiere mejoras concretas y piensa el timing/copy en función del funnel. Sé directo y accionable.';
 
 // ── Extracción de un contrato: plan de pagos + Deal Details (app/api/extract-contract)
 export const CONTRACT_EXTRACT_DEFAULT =

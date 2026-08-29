@@ -178,7 +178,7 @@ export function BuscadorTareas({ q, onQ, campos, onCampos, ia, onBuscarIA, onLim
           </div>
 
           <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)', fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.5 }}>
-            ¿No sabés en qué campo está? Escribí lo que buscás con tus palabras y tocá <span style={{ color: 'var(--accent)', fontWeight: 700 }}>✦</span> — MaKo lee el tablero entero y elige.
+            ¿No sabes en qué campo está? Escribe lo que buscas con tus palabras y toca <span style={{ color: 'var(--accent)', fontWeight: 700 }}>✦</span> — MaKo lee el tablero entero y elige.
           </div>
         </div>,
         document.body,

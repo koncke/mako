@@ -15,7 +15,7 @@ export const FASES: Fase[] = [
   { key: 'marketing', label: 'Marketing', ejemplo: 'Dónde se cae la adquisición y si el gasto rinde (CPM/CPC, CTR, costo por landing y por VSL).' },
   { key: 'comercial', label: 'Comercial', ejemplo: 'Dónde se enfría el funnel: R1→R2, no-show, tasa de cierre.' },
   { key: 'closing', label: 'Closing', ejemplo: 'Qué mejorar en las llamadas de cierre.' },
-  { key: 'experimentos', label: 'Experimentos', ejemplo: 'Acá SÍ se afirman las verdades validadas; para lo no probado, proponé abrir un experimento.' },
+  { key: 'experimentos', label: 'Experimentos', ejemplo: 'Aquí SÍ se afirman las verdades validadas; para lo no probado, propón abrir un experimento.' },
 ];
 
 const keyOf = (k: string) => `mako.fase.${k}`;

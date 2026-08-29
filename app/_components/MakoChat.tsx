@@ -17,7 +17,7 @@ const SANS = "'Geist', sans-serif";
 // Preguntas sugeridas por defecto: si un gráfico no trae las suyas, igual
 // SIEMPRE aparecen sugerencias (en todos los gráficos).
 const DEFAULT_SUGERENCIAS = [
-  '¿Qué es lo más importante acá?',
+  '¿Qué es lo más importante aquí?',
   '¿Qué está fallando?',
   '¿Qué hago esta semana?',
   '¿Cómo lo mejoro?',
@@ -211,7 +211,7 @@ export function MakoChat({
         </div>
       )}
       <div style={{ display: 'flex', gap: 10, padding: '12px 20px 14px' }}>
-        <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(); } }} rows={1} placeholder="Preguntale a MaKo…  (Enter envía · Shift+Enter salto de línea)" disabled={pensando} style={{ flex: 1, padding: '11px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none', resize: 'none', minHeight: 44, maxHeight: 160, lineHeight: 1.4 }} />
+        <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(); } }} rows={1} placeholder="Pregúntale a MaKo…  (Enter envía · Shift+Enter salto de línea)" disabled={pensando} style={{ flex: 1, padding: '11px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none', resize: 'none', minHeight: 44, maxHeight: 160, lineHeight: 1.4 }} />
         <button type="button" onClick={() => enviar()} disabled={pensando || !input.trim()} style={{ padding: '11px 18px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: pensando || !input.trim() ? 'default' : 'pointer', opacity: pensando || !input.trim() ? 0.55 : 1 }}>Enviar</button>
       </div>
     </div>

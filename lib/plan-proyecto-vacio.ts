@@ -65,9 +65,9 @@ export async function proyectosSinTareas(): Promise<ProyectoVacio[]> {
   });
 }
 
-const SYSTEM = `Sos MaKo, el asistente de un negocio. Te paso UN PROYECTO del plan que está VACÍO: existe, tiene nombre y a veces una descripción, pero nadie le cargó ni una tarea. Tu trabajo es INTUIR qué tareas concretas harían falta para que ese proyecto avance, para que el dueño las revise y las corrija.
+const SYSTEM = `Eres MaKo, el asistente de un negocio. Te paso UN PROYECTO del plan que está VACÍO: existe, tiene nombre y a veces una descripción, pero nadie le cargó ni una tarea. Tu trabajo es INTUIR qué tareas concretas harían falta para que ese proyecto avance, para que el dueño las revise y las corrija.
 
-QUÉ ES UNA BUENA TAREA ACÁ:
+QUÉ ES UNA BUENA TAREA AQUÍ:
 - Es un ENTREGABLE, no un tema. "Definir los 3 planes y sus precios" sí; "Trabajar en precios" no.
 - La puede empezar una persona sola, hoy, sin esperar una reunión.
 - Se sabe cuándo está terminada.
@@ -81,12 +81,12 @@ QUÉ NO HACER:
 EL DETALLE de cada tarea sigue este molde:
 {{moldeTarea}}
 
-⛔ EN «Por qué» NO PONGAS NINGUNA CITA. El molde pide la frase textual de quien lo pidió, pero acá NADIE pidió nada: estas tareas las estás intuyendo vos a partir del NOMBRE de un proyecto vacío. Escribir «El dueño necesita…» entre comillas es inventarle una frase que nunca dijo, y después queda en el tablero como si fuera un dato. Escribí el porqué en tus palabras, sin comillas y sin atribuírselo a nadie.
+⛔ EN «Por qué» NO PONGAS NINGUNA CITA. El molde pide la frase textual de quien lo pidió, pero aquí NADIE pidió nada: estas tareas las estás intuyendo tú a partir del NOMBRE de un proyecto vacío. Escribir «El dueño necesita…» entre comillas es inventarle una frase que nunca dijo, y después queda en el tablero como si fuera un dato. Escribe el porqué en tus palabras, sin comillas y sin atribuírselo a nadie.
 
-Español rioplatense, directo, sin adjetivos de más.
+Español neutro (tuteo), directo, sin adjetivos de más.
 
 Devolvé EXCLUSIVAMENTE un objeto JSON (sin markdown) con esta forma EXACTA:
-{ "tareas": [ { "titulo": "<máx 200, un entregable>", "detalle": "<el molde de arriba>" } ], "nota": "<1 frase: qué asumiste sobre este proyecto para proponer esto. Si no entendiste de qué se trata, decilo acá en vez de inventar tareas.>" }`;
+{ "tareas": [ { "titulo": "<máx 200, un entregable>", "detalle": "<el molde de arriba>" } ], "nota": "<1 frase: qué asumiste sobre este proyecto para proponer esto. Si no entendiste de qué se trata, dilo aquí en vez de inventar tareas.>" }`;
 
 /**
  * MaKo propone tareas para un proyecto vacío y deja el borrador para revisar.
@@ -139,13 +139,13 @@ export async function proponerTareasParaProyecto(projId: string): Promise<{ id: 
     if (!raw) return { error: await errorDeCascada(errores, `proponer tareas para «${nombre}»`) };
 
     let obj: Record<string, unknown>;
-    try { obj = parseJsonObject(raw); } catch { return { error: 'MaKo contestó algo que no pude leer. Probá de nuevo.' }; }
+    try { obj = parseJsonObject(raw); } catch { return { error: 'MaKo contestó algo que no pude leer. Prueba de nuevo.' }; }
 
     const tareas: PropuestaTarea[] = asArr<Record<string, unknown>>(obj.tareas)
       .map((t) => ({ titulo: str(t.titulo).trim().slice(0, 200), detalle: str(t.detalle).trim().slice(0, 6000), proyecto: nombre }))
       .filter((t) => t.titulo.length > 3)
       .slice(0, 10);
-    if (!tareas.length) return { error: `MaKo no supo qué tareas tendría «${nombre}». Escribile una descripción al proyecto y probá de nuevo.` };
+    if (!tareas.length) return { error: `MaKo no supo qué tareas tendría «${nombre}». Escríbele una descripción al proyecto y prueba de nuevo.` };
 
     // EL MISMO form de preguntas que el resto del tablero, tal cual lo pidió el dueño. Si
     // falla, se sigue igual: un borrador sin preguntas es peor que uno con preguntas, pero

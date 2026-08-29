@@ -37,7 +37,7 @@ const COMANDOS_PLUGIN = [
   '/plugin install mako@mako',
 ].join(String.fromCharCode(10));
 
-const PEDIDO_APP = 'instalá la skill de MaKo desde github.com/mbustos-digital/mako-plugin';
+const PEDIDO_APP = 'instala la skill de MaKo desde github.com/mbustos-digital/mako-plugin';
 
 const MONO = "'Geist Mono', monospace";
 const codeInline: CSSProperties = { fontFamily: MONO, fontSize: 11.5, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 6px', color: 'var(--dim)' };
@@ -106,14 +106,14 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
       const j = await r.json();
       if (j?.ok) { setToken(j.token as string); setVerTrato(false); return; }
       if (j?.necesitaConsentimiento) { setVerTrato(true); return; }
-      setError(j?.error === 'sin workspace (entrá como un cliente)' ? 'Entra a un cliente para generar su token.' : (j?.error ?? 'No se pudo generar.'));
+      setError(j?.error === 'sin workspace (entra como un cliente)' ? 'Entra a un cliente para generar su token.' : (j?.error ?? 'No se pudo generar.'));
     } catch { setError('No se pudo generar. Revisa tu conexión.'); }
     finally { setGenerando(false); }
   };
 
   const copiar = async (que: Copiable, texto: string) => {
     try { await navigator.clipboard.writeText(texto); setCopiado(que); setTimeout(() => setCopiado(null), 1800); }
-    catch { setError('No pudimos copiarlo solos — seleccionalo y copialo a mano.'); }
+    catch { setError('No pudimos copiarlo solos — selecciónalo y cópialo a mano.'); }
   };
 
   const btnPrimario: CSSProperties = { padding: '9px 15px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, cursor: 'pointer' };
@@ -161,23 +161,23 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>
-        Instalá esta skill (3 pasos, sin API key) y <strong style={{ color: 'var(--ink)' }}>Claude arranca sabiendo de tu
+        Instala esta skill (3 pasos, sin API key) y <strong style={{ color: 'var(--ink)' }}>Claude arranca sabiendo de tu
         negocio</strong>: tu oferta, tu cliente ideal, tus razones de compra y cómo suena tu marca. No se lo
-        tenés que volver a contar en cada chat. Además <strong style={{ color: 'var(--ink)' }}>mira tu plan</strong> antes de
+        tienes que volver a contar en cada chat. Además <strong style={{ color: 'var(--ink)' }}>mira tu plan</strong> antes de
         proponerte nada, y cuando encuentra algo para anotar <strong style={{ color: 'var(--ink)' }}>te deja un borrador</strong> —
-        nunca crea una tarea solo: la revisás vos y la prioriza el Perro Guardián.
+        nunca crea una tarea solo: la revisas tú y la prioriza el Perro Guardián.
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 17 }}>
         {/* PASO 1 — token */}
-        {paso(1, 'Generá tu token de conexión', listo ? (
+        {paso(1, 'Genera tu token de conexión', listo ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <code style={{ fontFamily: MONO, fontSize: 11, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', color: 'var(--dim)', userSelect: 'all', wordBreak: 'break-all', flex: '1 1 200px', minWidth: 0 }}>{token}</code>
               <button type="button" style={btnSecundario} onClick={() => copiar('token', token!)}>{copiado === 'token' ? '¡Copiado!' : 'Copiar'}</button>
               <button type="button" style={{ ...btnSecundario, color: 'var(--faint)' }} onClick={() => void generar(true)} disabled={generando} title="Genera uno nuevo e invalida el anterior">{generando ? 'Rotando…' : 'Rotar'}</button>
             </div>
-            <span style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.5 }}>Es una credencial: identifica tu espacio. Claude lo guarda en {AGENTE_TOKEN_ARCHIVO} y no viaja en la skill. Si lo rotás, el anterior deja de funcionar.</span>
+            <span style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.5 }}>Es una credencial: identifica tu espacio. Claude lo guarda en {AGENTE_TOKEN_ARCHIVO} y no viaja en la skill. Si lo rotas, el anterior deja de funcionar.</span>
           </div>
         ) : (
           verTrato ? trato : (
@@ -188,7 +188,7 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
         ))}
 
         {/* PASO 2 — instalar la skill */}
-        {paso(2, 'Instalá el plugin en Claude', (
+        {paso(2, 'Instala el plugin en Claude', (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {/* ⚠️ ESTE PASO PASÓ POR CUATRO VERSIONES, y las tres primeras compartían la
                 misma causa de fondo: no había DE DÓNDE instalarla, así que la app la
@@ -201,7 +201,7 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
                 destrabó fue sacarle el token al archivo — la skill del repo es genérica
                 y lo lee de ~/.mako-token, así que se puede publicar. */}
             <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
-              Pegá estos dos comandos en Claude Code, uno por vez:
+              Pega estos dos comandos en Claude Code, uno por vez:
             </div>
 
             <pre style={{
@@ -219,9 +219,9 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
             {/* La salida para quien no use la terminal. El texto de la skill trae adentro
                 sus propias instrucciones de instalación, así que dárselo alcanza. */}
             <span style={{ fontSize: 12, color: 'var(--faint)', lineHeight: 1.5 }}>
-              ¿Usás la app de Claude y no la terminal? Pegale esto y lo resuelve solo:{' '}
+              ¿Usas la app de Claude y no la terminal? Pégale esto y lo resuelve solo:{' '}
               <button type="button" onClick={() => copiar('token', PEDIDO_APP)} style={{ ...codeInline, cursor: 'pointer' }} title="Copiar">
-                {copiado === 'token' ? '¡copiado!' : 'instalá la skill de MaKo desde github.com/mbustos-digital/mako-plugin'}
+                {copiado === 'token' ? '¡copiado!' : 'instala la skill de MaKo desde github.com/mbustos-digital/mako-plugin'}
               </button>
             </span>
           </div>
@@ -239,19 +239,19 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
             (§0.a). Un agente que sabe escribir código sabe crear dos archivos. */}
 
         {/* PASO 3 — usarlo */}
-        {paso(3, 'Pedíselo a Claude', (
+        {paso(3, 'Pídeselo a Claude', (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
-            <div>Escribile, por ejemplo:</div>
+            <div>Escríbele, por ejemplo:</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {/* Los ejemplos son de NEGOCIO, no de código. Los de antes («mirá mi plan
                   antes de arrancar con esto») venían de cuando la integración era solo
                   para el tablero del dueño, y le decían a un cliente que esto es una
                   herramienta de programación. */}
-              <span style={{ padding: '8px 12px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--ink)', fontSize: 13 }}>“Escribime 5 anuncios para mi oferta, con mis razones de compra.”</span>
-              <span style={{ padding: '8px 12px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--ink)', fontSize: 13 }}>“Mirá mi plan y decime qué debería hacer esta semana.”</span>
-              <span style={{ padding: '8px 12px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--ink)', fontSize: 13 }}>“Anotá esto en mi plan.”</span>
+              <span style={{ padding: '8px 12px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--ink)', fontSize: 13 }}>“Escríbeme 5 anuncios para mi oferta, con mis razones de compra.”</span>
+              <span style={{ padding: '8px 12px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--ink)', fontSize: 13 }}>“Mira mi plan y dime qué debería hacer esta semana.”</span>
+              <span style={{ padding: '8px 12px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--ink)', fontSize: 13 }}>“Anota esto en mi plan.”</span>
             </div>
-            <div>Te devuelve un <strong style={{ color: 'var(--ink)' }}>link a un borrador</strong>. Lo abrís, respondés las preguntas y el Perro le pone la prioridad. Recién ahí entra al tablero.</div>
+            <div>Te devuelve un <strong style={{ color: 'var(--ink)' }}>link a un borrador</strong>. Lo abres, respondes las preguntas y el Perro le pone la prioridad. Recién ahí entra al tablero.</div>
           </div>
         ))}
       </div>

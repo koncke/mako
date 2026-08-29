@@ -146,7 +146,7 @@ ERRORES QUE LOS CURSOS MARCAN: parecer anuncio (segmentar explícito, set profes
 export const METODOLOGIA_CARRUSEL = `AVISO DE COBERTURA (honesto): los cursos comprados tienen POCO material de carrusel. Lo específico son dos clases de Sell Your Knowledge (Ramiro Cubria) y enseñan UN formato: el carrusel de storytelling estilo cómic/viñetas producido con IA + edición. NO hay doctrina de curso sobre cantidad ideal de slides ni taxonomía educativo/storytelling/venta: para eso aplicá criterio general + las reglas de REEL trasladadas (el carrusel es un reel en slides: portada = gancho, desarrollo = historia con curiosidad sostenida, cierre = moraleja + CTA con palabra clave).
 
 LO QUE SÍ SALE DE LOS CURSOS (Sell Your Knowledge):
-- SLIDE 1 = el juego se gana o se pierde acá: portada llamativa, con gancho, igual que el hook de un reel. El problema VISIBLE en la primera imagen, sin explicarlo. La portada NO revela la solución.
+- SLIDE 1 = el juego se gana o se pierde aquí: portada llamativa, con gancho, igual que el hook de un reel. El problema VISIBLE en la primera imagen, sin explicarlo. La portada NO revela la solución.
 - Estructura escena a escena: escena 1 plano general que muestra el problema con contexto; escena 2 primer plano con emoción/reacción (genera curiosidad); escena 3 la respuesta o el siguiente beat. Variar planos entre slides (general → primer plano → cámara por detrás) para que sea dinámico.
 - TEXTO POR SLIDE: diálogos cortos repartidos dentro de la imagen — NUNCA un bloque grande de texto en una esquina; el usuario de Instagram no lee párrafos. UNA tipografía coherente en todo el carrusel, máximo 2-3.
 - Storytelling con personajes consistentes: personaje con accesorios/rasgos distintivos para mantenerlo identificable slide a slide.

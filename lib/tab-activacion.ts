@@ -69,11 +69,11 @@ export const TABS_ACTIVACION: Record<string, TabActivacion> = {
       // lib/closing.ts (ClosingDim/ClosingObjection con t_seconds) + cron closing-sync
       { t: 'Cada llamada, puntuada', d: 'Separa venta de entrega de servicio, puntúa por SPIN y ejecución, y cita el minuto exacto de cada fortaleza y de cada objeción.' },
       // app/closing/ClosingBrowser.tsx (embedToken + deep-link al segundo)
-      { t: 'El video y el transcript, juntos', d: 'Player embebido y transcript anotado: tocás una línea y la grabación salta a ese segundo.' },
+      { t: 'El video y el transcript, juntos', d: 'Player embebido y transcript anotado: tocas una línea y la grabación salta a ese segundo.' },
       // ClosingBrowser: vista Métricas agregada en cliente sobre data.calls
       { t: 'Qué dimensión decide tus cierres', d: 'Cruza ganadas contra perdidas y te marca la dimensión con más gap, la tendencia del score y cómo va cada closer.' },
       // lib/closing.ts:828 reviseAnalysis + :870 reviseWithMako → edit_history
-      { t: 'La última palabra es tuya', d: 'Corregís un puntaje a mano o le pedís a MaKo que re-analice con tu nota, y queda el historial de quién cambió qué.' },
+      { t: 'La última palabra es tuya', d: 'Corriges un puntaje a mano o le pides a MaKo que re-analice con tu nota, y queda el historial de quién cambió qué.' },
     ],
   },
 
@@ -82,17 +82,17 @@ export const TABS_ACTIVACION: Record<string, TabActivacion> = {
     titulo: 'WhatsApp',
     servicio: 'whatsapp',
     eyebrow: '✦ Con WhatsApp conectado',
-    queFalta: 'Conectá tu cuenta por Chatwoot y la bandeja pasa a vivir acá adentro. Tu número de empresa no pide credencial: se engancha escaneando un QR desde esta misma tab.',
-    ademas: 'Ojo con el ID de bandeja: si no fijás el tuyo se usa uno por default que no es el tuyo. El nombre de tu bandeja aparece a la izquierda apenas conectás — si no es el que esperabas, cambiá el ID.',
+    queFalta: 'Conecta tu cuenta por Chatwoot y la bandeja pasa a vivir aquí adentro. Tu número de empresa no pide credencial: se engancha escaneando un QR desde esta misma tab.',
+    ademas: 'Ojo con el ID de bandeja: si no fijas el tuyo se usa uno por default que no es el tuyo. El nombre de tu bandeja aparece a la izquierda apenas conectas — si no es el que esperabas, cambia el ID.',
     slides: [
       // app/whatsapp/WhatsAppApp.tsx + _shared/VoiceRecorder.tsx
-      { t: 'El inbox, acá adentro', d: 'Un hilo por lead con su etapa del funnel al lado, adjuntos, y notas de voz que grabás desde el composer.' },
+      { t: 'El inbox, aquí adentro', d: 'Un hilo por lead con su etapa del funnel al lado, adjuntos, y notas de voz que grabas desde el composer.' },
       // app/whatsapp/WhatsAppAdvisor.tsx (Sugerencia.guion_voz) + lib/whatsapp-advisor.ts
       { t: 'MaKo te dice qué escribir', d: 'Lee la conversación real, la etapa y la ventana de 24h, y te deja mensajes listos con su ángulo y su tono — hasta el guion de una nota de voz.' },
       // lib/template-validator.ts (Hallazgo/Propuesta + aplicarPropuesta)
-      { t: 'Plantillas que no te rechazan', d: 'MaKo valida el borrador contra las reglas de Meta antes de mandarlo: la regla que rompe y una versión corregida que aplicás de un click.' },
+      { t: 'Plantillas que no te rechazan', d: 'MaKo valida el borrador contra las reglas de Meta antes de mandarlo: la regla que rompe y una versión corregida que aplicas de un click.' },
       // EvolutionConnect + EmpresaInbox + lib/evolution.ts (espejo en wa_mensajes)
-      { t: 'Dos números, un historial', d: 'El oficial y el de empresa conviven en la misma tab, y el no oficial queda espejado en tu base: si te banean el número, el historial sigue acá.' },
+      { t: 'Dos números, un historial', d: 'El oficial y el de empresa conviven en la misma tab, y el no oficial queda espejado en tu base: si te banean el número, el historial sigue aquí.' },
     ],
   },
 
@@ -102,12 +102,12 @@ export const TABS_ACTIVACION: Record<string, TabActivacion> = {
     servicio: 'email',
     eyebrow: '✦ Con Resend conectado',
     queFalta: 'Tu API key de Resend y tu dominio verificado desde esta misma tab. Sin dominio propio los envíos quedan en sandbox: se registran pero no salen.',
-    ademas: 'El envío automático de las secuencias tiene además su propio interruptor. Con el envío real en OFF armás y probás todo, pero nada sale — a propósito, para que puedas escribir sin quemar leads.',
+    ademas: 'El envío automático de las secuencias tiene además su propio interruptor. Con el envío real en OFF armas y pruebas todo, pero nada sale — a propósito, para que puedas escribir sin quemar leads.',
     slides: [
       // lib/email-marketing.ts (esSecuenciaEmail sobre nutricion_secuencias)
       { t: 'Secuencias que salen solas', d: 'La secuencia se dispara cuando el lead entra a la cohorte del trigger: pasos, delay en horas, asunto y variables del lead.' },
       // lib/resend.ts createResendDomain/verifyResendDomain + polling en EmailApp.tsx:740
-      { t: 'Tu dominio, verificado desde acá', d: 'Te damos los registros DNS y la app chequea sola hasta que quede verificado; sin dominio propio no sale nada.' },
+      { t: 'Tu dominio, verificado desde aquí', d: 'Te damos los registros DNS y la app chequea sola hasta que quede verificado; sin dominio propio no sale nada.' },
       // lib/email-marketing.ts (statsPorPaso) + webhook resend (suprimirPorRebote)
       { t: 'Quién abrió y quién clickeó', d: 'Aperturas y clicks contados paso por paso de cada secuencia, y lo mismo por broadcast. Las direcciones que rebotan en duro se dan de baja solas para no quemarte el dominio.' },
       // lib/email-marketing.ts:209 SEGMENTOS + leadsDeSegmento/enviarBroadcast
@@ -131,7 +131,7 @@ export const TABS_ACTIVACION: Record<string, TabActivacion> = {
       // lib/ads-analyst.ts:618 getScriptMetrics — histórico acumulado del anuncio
       { t: 'Qué guion escalar', d: 'Ángulo, hook rate, frecuencia, agendas y cierres de todo el histórico del anuncio: un guion se juzga por lo acumulado, no por un rango de fechas.' },
       // lib/ads-analyst.ts:964-974 Valoracion + /api/ads-analyst/valorar
-      { t: 'Valorá un guion sin gastar', d: 'Pegás un guion que todavía no corrió y MaKo lo compara contra el perfil real de tu cuenta: qué patrones tuyos cumple, cuáles no, y un plan de validación con presupuesto y días mínimos.' },
+      { t: 'Valora un guion sin gastar', d: 'Pegas un guion que todavía no corrió y MaKo lo compara contra el perfil real de tu cuenta: qué patrones tuyos cumple, cuáles no, y un plan de validación con presupuesto y días mínimos.' },
     ],
   },
 
@@ -140,7 +140,7 @@ export const TABS_ACTIVACION: Record<string, TabActivacion> = {
     titulo: 'CRM',
     servicio: 'calendly',
     eyebrow: '✦ Con tu agenda conectada',
-    queFalta: 'Calendly, con los event types de tu R1 y tu R2 — sin ellos las reuniones no entran. Podés arrancar sin nada igual: los leads se cargan a mano.',
+    queFalta: 'Calendly, con los event types de tu R1 y tu R2 — sin ellos las reuniones no entran. Puedes arrancar sin nada igual: los leads se cargan a mano.',
     // Honestidad obligada, la cazó la revisión del copy contra el código: los
     // event types figuran como OPCIONALES pero sin ellos wsPorIdentificador
     // devuelve null y el webhook descarta el evento con 200 OK, en silencio — el
@@ -148,10 +148,10 @@ export const TABS_ACTIVACION: Record<string, TabActivacion> = {
     // signing key que pega HOY no se lee (el webhook usa la de plataforma), o
     // sea que su webhook propio devolvería 401 para siempre. Hasta que eso se
     // arregle en código, el aviso se queda acá.
-    ademas: 'Los event types de R1 y R2 figuran como opcionales pero NO lo son: sin ellos el webhook no sabe de quién es la reunión y la descarta sin avisar. El webhook lo crea y lo firma la agencia — la signing key no la ponés vos.',
+    ademas: 'Los event types de R1 y R2 figuran como opcionales pero NO lo son: sin ellos el webhook no sabe de quién es la reunión y la descarta sin avisar. El webhook lo crea y lo firma la agencia — la signing key no la pones tú.',
     slides: [
       // app/crm/StageMoveDialog.tsx + lib/stage-requirements.ts
-      { t: 'El kanban con las reglas puestas', d: 'Arrastrás el lead a la etapa y si le falta un dato el asistente te lo pide ahí mismo: el closer, la grabación, el motivo, o las cuotas que tienen que cuadrar con el monto.' },
+      { t: 'El kanban con las reglas puestas', d: 'Arrastras el lead a la etapa y si le falta un dato el asistente te lo pide ahí mismo: el closer, la grabación, el motivo, o las cuotas que tienen que cuadrar con el monto.' },
       // lib/auto-reuniones.ts buscarReunionesAutomatico (Calendly + Fathom matcheado)
       { t: 'Los datos se buscan solos', d: 'Antes de preguntarte nada, MaKo cruza Calendly con las grabaciones de Fathom ya matcheadas: si hay grabación, la reunión ocurrió.' },
       // app/crm/LeadSheet.tsx + lib/journey.ts:47 buildJourney
@@ -164,13 +164,13 @@ export const TABS_ACTIVACION: Record<string, TabActivacion> = {
     titulo: 'Marketing',
     servicio: 'meta',
     eyebrow: '✦ Con Meta conectado',
-    queFalta: 'Conectá tu cuenta de Meta y este tablero se llena con tu gasto, tus costos y tu embudo de tráfico de todos los días.',
-    ademas: 'El histórico entra en las próximas horas y crece solo cada día. Las etapas que dependen del CRM (agenda, cierre) van a decir "fuente pendiente" hasta que conectes también la agenda — no es un cero, es que todavía no las medís.',
+    queFalta: 'Conecta tu cuenta de Meta y este tablero se llena con tu gasto, tus costos y tu embudo de tráfico de todos los días.',
+    ademas: 'El histórico entra en las próximas horas y crece solo cada día. Las etapas que dependen del CRM (agenda, cierre) van a decir "fuente pendiente" hasta que conectes también la agenda — no es un cero, es que todavía no las mides.',
     slides: [
       // lib/queries.ts getMarketingWindow — KPIs TOFU
-      { t: 'CAC, ROAS y CPL, al día', d: 'Gasto, costo por lead, CAC real y ROAS sobre lo vendido y lo cobrado — no sobre clics, sobre plata.' },
+      { t: 'CAC, ROAS y CPL, al día', d: 'Gasto, costo por lead, CAC real y ROAS sobre lo vendido y lo cobrado — no sobre clics, sobre dinero.' },
       // getFunnelEtapas + lib/sources.ts — embudo con fuente honesta
-      { t: 'Tu embudo, sin mentiras', d: 'Impresión → clic → landing → VSL con el % de paso de cada tramo, y lo que todavía no medís queda marcado como pendiente, no como cero.' },
+      { t: 'Tu embudo, sin mentiras', d: 'Impresión → clic → landing → VSL con el % de paso de cada tramo, y lo que todavía no mides queda marcado como pendiente, no como cero.' },
       // ResumenCreativos — breakdowns live de Meta
       { t: 'Quién ve tus anuncios', d: 'Edad, género, plataforma y región de toda tu cuenta, en vivo desde Meta — para saber a quién le estás pegando.' },
     ],
@@ -181,15 +181,15 @@ export const TABS_ACTIVACION: Record<string, TabActivacion> = {
     titulo: 'Experiments',
     servicio: 'meta',
     eyebrow: '✦ Con Meta conectado',
-    queFalta: 'La Retro y los experimentos necesitan tus números de Meta para tener contra qué medir. Conectala y corré tu primera Retro.',
-    ademas: 'La Retro rinde más mientras más fuentes conectes (llamadas, cobranza, VSL), pero arranca con lo que haya. Es a demanda: la disparás vos cuando querés.',
+    queFalta: 'La Retro y los experimentos necesitan tus números de Meta para tener contra qué medir. Conéctala y corre tu primera Retro.',
+    ademas: 'La Retro rinde más mientras más fuentes conectes (llamadas, cobranza, VSL), pero arranca con lo que haya. Es a demanda: la disparas tú cuando quieres.',
     slides: [
       // lib/retro-pipeline.ts — 8 fases, diagnóstico + plan
-      { t: 'Un diagnóstico de tu negocio', d: 'MaKo cruza todo tu histórico y te dice dónde se te va la plata, qué funciona y el plan priorizado para arrancar.' },
+      { t: 'Un diagnóstico de tu negocio', d: 'MaKo cruza todo tu histórico y te dice dónde se te va el dinero, qué funciona y el plan priorizado para arrancar.' },
       // aplicarPlan → crearExperimento/crearTareasDesde
-      { t: 'Del informe al plan, solo', d: 'Aceptás una idea de la Retro y se crea sola en tu plan como experimento o tarea — no queda en un PDF que nadie abre.' },
+      { t: 'Del informe al plan, solo', d: 'Aceptas una idea de la Retro y se crea sola en tu plan como experimento o tarea — no queda en un PDF que nadie abre.' },
       // lib/experimentos.ts — baseline + medición + veredicto
-      { t: 'Es el único que concluye', d: 'Una hipótesis se vuelve experimento con línea de base, medición automática y veredicto al cerrar: acá MaKo afirma con datos, no opina.' },
+      { t: 'Es el único que concluye', d: 'Una hipótesis se vuelve experimento con línea de base, medición automática y veredicto al cerrar: aquí MaKo afirma con datos, no opina.' },
     ],
   },
 
@@ -201,12 +201,12 @@ export const TABS_ACTIVACION: Record<string, TabActivacion> = {
     cta: { label: 'Ir al CRM y cargar un cierre →', href: '/crm' },
     icono: 'landing',
     eyebrow: '✦ Con tus cierres cargados',
-    queFalta: 'Esta vista sale de tus cierres y sus cobros. Cargá un lead ganado con su monto y su plan de cuotas, y el tablero se arma solo.',
+    queFalta: 'Esta vista sale de tus cierres y sus cobros. Carga un lead ganado con su monto y su plan de cuotas, y el tablero se arma solo.',
     slides: [
       // app/comercial/RevenueKpis.tsx + lib/pagos.ts getRevenueBreakdowns
       { t: 'Vendido, cobrado y pendiente', d: 'Los tres números que no son lo mismo, separados — y atrás de cada uno, el desglose lead por lead.' },
       // app/comercial/CobrarTable.tsx:49-62 (undo real de 5s) + getOutstandingDetalle
-      { t: 'A quién le cobrás esta semana', d: 'La lista ordenada por vencimiento, lo vencido en rojo, y marcás la cuota cobrada desde la misma fila con cinco segundos para deshacer.' },
+      { t: 'A quién le cobras esta semana', d: 'La lista ordenada por vencimiento, lo vencido en rojo, y marcas la cuota cobrada desde la misma fila con cinco segundos para deshacer.' },
       // app/comercial/page.tsx:667 renderTasa + lib/queries.ts:355-411
       { t: 'Cohortes que no te mienten', d: 'Cada semana se rotula madura, madurando o reciente: la tasa de cierre solo se pinta cuando la cohorte ya tuvo tiempo de cerrar.' },
       // app/comercial/page.tsx:577 SCLTimeline + lib/queries.ts:1686 getTramosSCL

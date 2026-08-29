@@ -64,7 +64,7 @@ export function EtiquetasWhatsAppPanel() {
     <div style={card}>
       <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--ink)' }}>Etiquetas de WhatsApp por etapa</div>
       <div style={{ fontSize: '13px', color: 'var(--dim)', lineHeight: 1.55, marginTop: '4px', marginBottom: '16px' }}>
-        Cuando un lead cambia de etapa en el CRM, se le pone/saca sola la etiqueta correspondiente en tu WhatsApp no oficial. Las etiquetas se crean una vez en <strong style={{ color: 'var(--ink)' }}>WhatsApp Business</strong> del celular; acá solo se mapean. (Solo funciona en cuentas WhatsApp Business.)
+        Cuando un lead cambia de etapa en el CRM, se le pone/saca sola la etiqueta correspondiente en tu WhatsApp no oficial. Las etiquetas se crean una vez en <strong style={{ color: 'var(--ink)' }}>WhatsApp Business</strong> del celular; aquí solo se mapean. (Solo funciona en cuentas WhatsApp Business.)
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
@@ -76,7 +76,7 @@ export function EtiquetasWhatsAppPanel() {
       {cargando ? (
         <div style={{ color: 'var(--dim)', fontSize: '13px' }}>Cargando…</div>
       ) : labels.length === 0 ? (
-        <div style={{ padding: '12px', borderRadius: '9px', border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: '12.5px', lineHeight: 1.5 }}>No hay etiquetas todavía. Creá las etiquetas del funnel en la app de WhatsApp Business del celular conectado y tocá «Sincronizar etiquetas».</div>
+        <div style={{ padding: '12px', borderRadius: '9px', border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: '12.5px', lineHeight: 1.5 }}>No hay etiquetas todavía. Crea las etiquetas del funnel en la app de WhatsApp Business del celular conectado y toca «Sincronizar etiquetas».</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {etapas.map((e) => (

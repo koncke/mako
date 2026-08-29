@@ -131,7 +131,7 @@ export function grafoBienvenida(): { nodos: NodoCerebro[]; aristas: AristaCerebr
   const oferta = (hojasDe.get('n1:oferta') ?? [])[0];
   const mercado = hojasDe.get('n1:mercado') ?? [];
   const dolor = mercado[0];
-  for (let i = 1; i < etapas.length; i++) unir(etapas[i - 1], etapas[i], 'Y de acá pasa a acá');
+  for (let i = 1; i < etapas.length; i++) unir(etapas[i - 1], etapas[i], 'Y de aquí pasa a aquí');
   if (etapas[0] && dolor) unir(etapas[0], dolor, 'El lead entra por lo que le duele');
   if (etapas[etapas.length - 1] && oferta) unir(etapas[etapas.length - 1], oferta, 'Cierra comprando tu oferta');
 
@@ -160,7 +160,7 @@ export function grafoBienvenida(): { nodos: NodoCerebro[]; aristas: AristaCerebr
   const docs = (hojasDe.get('n1:negocio') ?? []).slice(3);
   const negocio = (hojasDe.get('n1:negocio') ?? []).slice(0, 3);
   docs.forEach((d, i) => {
-    unir(d, negocio[i % negocio.length], 'De acá salió esto');
+    unir(d, negocio[i % negocio.length], 'De aquí salió esto');
     unir(d, negocio[(i + 2) % negocio.length], 'Y también esto');
   });
   for (let i = 1; i < negocio.length; i++) unir(negocio[i - 1], negocio[i], 'Una cosa lleva a la otra');

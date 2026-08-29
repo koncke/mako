@@ -27,9 +27,9 @@ const CHART_KEY = 'mako-doer';
 // Preámbulo que se suma al system de MaKo para el modo doer: cómo y cuándo usar
 // las herramientas. Inline (no registry) para no acoplar con prompt-registry.
 const DOER_PREAMBLE = `HERRAMIENTAS (modo doer):
-Tenés herramientas para CONSULTAR datos reales del negocio: buscar_leads, ficha_lead, historial_whatsapp, reuniones_lead, buscar_conocimiento y estado_experimentos.
-Cuando la respuesta dependa de un dato concreto —un lead puntual, su historial, una reunión, tu método— USALAS en vez de suponer. Flujo típico: buscar_leads para ubicar al lead por nombre → ficha_lead / historial_whatsapp / reuniones_lead para el detalle → buscar_conocimiento para apoyar tu recomendación en el método real.
-Nunca inventes nombres, números, fechas ni mensajes: si una herramienta no lo trae, decí explícitamente que no lo tenés. Después de consultar, respondé en tu voz de siempre, sin volcar el JSON crudo.`;
+Tienes herramientas para CONSULTAR datos reales del negocio: buscar_leads, ficha_lead, historial_whatsapp, reuniones_lead, buscar_conocimiento y estado_experimentos.
+Cuando la respuesta dependa de un dato concreto —un lead puntual, su historial, una reunión, tu método— ÚSALAS en vez de suponer. Flujo típico: buscar_leads para ubicar al lead por nombre → ficha_lead / historial_whatsapp / reuniones_lead para el detalle → buscar_conocimiento para apoyar tu recomendación en el método real.
+Nunca inventes nombres, números, fechas ni mensajes: si una herramienta no lo trae, di explícitamente que no lo tienes. Después de consultar, responde en tu voz de siempre, sin volcar el JSON crudo.`;
 
 async function buildDoerSystem(opts: { titulo: string; query: string }): Promise<string> {
   const base = await buildSystemPrompt({ chartKey: CHART_KEY, titulo: opts.titulo, contexto: '', query: opts.query });

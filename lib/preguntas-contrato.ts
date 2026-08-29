@@ -218,21 +218,21 @@ export const CONTRATO_TIPOS_PREGUNTA = `TIPO Y OPCIONES — TIENEN QUE SER COHER
 · "opcion" → una sola respuesta, excluyente. OBLIGATORIO: 2 a 6 opciones cortas y concretas.
 · "multi" → pueden valer VARIAS a la vez. OBLIGATORIO: 2 a 6 opciones. NO agregues "Todas" ni "Ambas": para eso tilda varias.
 · "comparacion" → enfrentar DOS ítems para ver cuál pesa más. OBLIGATORIO: EXACTAMENTE 2 opciones, y cada una es uno de los ítems.
-· "fecha" → **para todo "¿para cuándo?", "¿qué fecha?", "¿hay deadline?"**. El dueño ve un CALENDARIO. Podés sumar 2-4 "opciones" como atajos ("Esta semana", "Este mes", "Todavía no hay fecha"), pero no hacen falta.
+· "fecha" → **para todo "¿para cuándo?", "¿qué fecha?", "¿hay deadline?"**. El dueño ve un CALENDARIO. Puedes sumar 2-4 "opciones" como atajos ("Esta semana", "Este mes", "Todavía no hay fecha"), pero no hacen falta.
 · "escala" → intensidad de 1 a 5, y NADA MÁS. NO lleva opciones: el dueño ve los números pelados. Por eso la pregunta TIENE que decir qué significan los dos extremos, dentro del enunciado mismo: "¿Qué tan firme es esa fecha? (1 = es una idea, 5 = ya está comprometida con el cliente)".
-· "texto" → un campo abierto. ⛔⛔ **CASI NUNCA.** La regla del dueño es NUNCA campos abiertos: un textarea vacío es la pregunta que más se saltea. Usalo solo si de verdad no existe ningún otro campo que la conteste, y antes de usarlo intentá dos veces convertirla en "opcion" o en "fecha". Si mandás cualquier otro tipo sin las opciones que ese tipo exige, la pregunta **se descarta entera** — no se convierte en un campo abierto.
+· "texto" → un campo abierto. ⛔⛔ **CASI NUNCA.** La regla del dueño es NUNCA campos abiertos: un textarea vacío es la pregunta que más se saltea. Úsalo solo si de verdad no existe ningún otro campo que la conteste, y antes de usarlo intenta dos veces convertirla en "opcion" o en "fecha". Si mandas cualquier otro tipo sin las opciones que ese tipo exige, la pregunta **se descarta entera** — no se convierte en un campo abierto.
 
-⛔ NUNCA uses "escala" para preguntar CUÁNDO ni CUÁNTO. "¿Cuál es el deadline?" con botones del 1 al 5 no se puede contestar: el 3 no es una fecha. Si preguntás cuándo, el tipo es "fecha"; si preguntás cuánto, dale opciones con rangos concretos.
+⛔ NUNCA uses "escala" para preguntar CUÁNDO ni CUÁNTO. "¿Cuál es el deadline?" con botones del 1 al 5 no se puede contestar: el 3 no es una fecha. Si preguntas cuándo, el tipo es "fecha"; si preguntas cuánto, dale opciones con rangos concretos.
 ⛔ Una "escala" sin los extremos explicados en el enunciado es una pregunta muerta.
-⛔ Una "opcion", "multi" o "comparacion" SIN opciones no se puede contestar: el dueño ve el texto y ningún botón. Si no se te ocurren opciones concretas, cambiá la pregunta hasta que se te ocurran, o no la hagas.
+⛔ Una "opcion", "multi" o "comparacion" SIN opciones no se puede contestar: el dueño ve el texto y ningún botón. Si no se te ocurren opciones concretas, cambia la pregunta hasta que se te ocurran, o no la hagas.
 
-⛔⛔ CADA OPCIÓN TIENE QUE SER UNA RESPUESTA POSIBLE A LA PREGUNTA. Leé tu enunciado y leé tus opciones: si al elegir una la frase no queda contestada, está mal.
+⛔⛔ CADA OPCIÓN TIENE QUE SER UNA RESPUESTA POSIBLE A LA PREGUNTA. Lee tu enunciado y lee tus opciones: si al elegir una la frase no queda contestada, está mal.
   MAL (pasó de verdad): "¿los cinco grupos son fijos o hay que validar si algún módulo no encaja?" con opciones ["CRM", "Chats", "Plan", "Dashboard"]. El enunciado es "¿A o B?" y abajo hay una lista de sustantivos: ninguna opción lo contesta.
-  BIEN: o las opciones son las dos alternativas ("Son fijos" / "Hay que revisarlos"), o cambiás el enunciado para que la lista SÍ lo conteste ("¿Qué módulos no encajan?", tipo multi).
+  BIEN: o las opciones son las dos alternativas ("Son fijos" / "Hay que revisarlos"), o cambias el enunciado para que la lista SÍ lo conteste ("¿Qué módulos no encajan?", tipo multi).
   Nunca dejes un enunciado binario con una lista de nombres abajo.`;
 
 /** La forma exacta del JSON. Incluye el enum COMPLETO, sin valores sin explicar. */
-export const JSON_PREGUNTAS = `Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin markdown) con esta forma EXACTA:
+export const JSON_PREGUNTAS = `Devuelve EXCLUSIVAMENTE un objeto JSON válido (sin markdown) con esta forma EXACTA:
 { "preguntas": [ { "pregunta": "<corta y concreta, sobre un HECHO>", "tipo": "opcion|multi|fecha|escala|comparacion|texto", "opciones": ["...", "..."], "sobre": ["<título exacto de cada tarea de la que habla>"] } ] }
 Si no hace falta ninguna, { "preguntas": [] }.`;
 
@@ -313,11 +313,11 @@ export function apuntarSobre(pregunta: string, sobre: string[] | undefined, titu
  */
 export function ayudaDePregunta(tipo: TipoPregunta, conAtajos = false): string {
   switch (tipo) {
-    case 'multi': return 'Podés elegir varias.';
-    case 'escala': return 'Elegí del 1 al 5.';
-    case 'fecha': return conAtajos ? 'Elegí una fecha, un atajo, o dejalo sin fecha.' : 'Elegí la fecha, o dejalo sin fecha si todavía no hay.';
-    case 'texto': return 'Escribí tu respuesta.';
+    case 'multi': return 'Puedes elegir varias.';
+    case 'escala': return 'Elige del 1 al 5.';
+    case 'fecha': return conAtajos ? 'Elige una fecha, un atajo, o déjalo sin fecha.' : 'Elige la fecha, o déjalo sin fecha si todavía no hay.';
+    case 'texto': return 'Escribe tu respuesta.';
     case 'comparacion': return '¿Cuál de los dos pesa más?';
-    default: return 'Elegí una opción o escribí la tuya.';
+    default: return 'Elige una opción o escribe la tuya.';
   }
 }

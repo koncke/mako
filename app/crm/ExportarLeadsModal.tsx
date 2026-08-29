@@ -67,10 +67,10 @@ function Lote({ children, onClick, activo = false }: { children: ReactNode; onCl
 type PasoId = 'receta' | 'banda' | 'etapas' | 'acotar' | 'periodo' | 'campoFecha' | 'origen' | 'persona' | 'dinero' | 'campos' | 'orden' | 'formato';
 
 const PREGUNTAS: Record<PasoId, { q: string; sub?: string }> = {
-  receta:     { q: '¿Qué necesitás?', sub: 'Elegí un armado listo o construilo vos.' },
+  receta:     { q: '¿Qué necesitas?', sub: 'Elige un armado listo o constrúyelo tú.' },
   banda:      { q: '¿En qué parte del funnel?' },
   etapas:     { q: '¿Qué etapas?', sub: 'Las etapas reales de tu funnel, con cuántos leads tiene cada una hoy.' },
-  acotar:     { q: '¿Querés acotar más?', sub: 'Cada cosa que marques agrega una pregunta. Si no, seguimos.' },
+  acotar:     { q: '¿Quieres acotar más?', sub: 'Cada cosa que marques agrega una pregunta. Si no, seguimos.' },
   periodo:    { q: '¿De qué período?' },
   campoFecha: { q: '¿Qué fecha mira ese período?' },
   origen:     { q: '¿De qué origen?', sub: 'Los orígenes que existen de verdad en tu base.' },

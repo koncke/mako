@@ -97,7 +97,7 @@ export function ChatCard({ leadId }: { leadId: number }) {
     return (
       <section style={card}>
         <div style={{ ...sectLabel, marginBottom: 10 }}>Chat de WhatsApp</div>
-        <p style={{ fontSize: 14, color: 'var(--faint)' }}>Este lead no tiene teléfono cargado — sin teléfono no hay chat. Cargalo con Editar y el hilo aparece acá.</p>
+        <p style={{ fontSize: 14, color: 'var(--faint)' }}>Este lead no tiene teléfono cargado — sin teléfono no hay chat. Cárgalo con Editar y el hilo aparece aquí.</p>
       </section>
     );
   }
@@ -109,7 +109,7 @@ export function ChatCard({ leadId }: { leadId: number }) {
         <p style={{ fontSize: 14, color: 'var(--faint)', margin: '0 0 14px' }}>
           {estado.fase === 'error'
             ? 'No se pudo cargar el chat. Reintentá en un momento.'
-            : 'Todavía no hay chat de WhatsApp para este número. Abrí WhatsApp para escribirle: el hilo aparece acá.'}
+            : 'Todavía no hay chat de WhatsApp para este número. Abre WhatsApp para escribirle: el hilo aparece aquí.'}
         </p>
         {estado.fase === 'sin-chat' && (
           <Link href={`/whatsapp?lead=${leadId}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 18px', borderRadius: 10, border: 'none', background: '#1FA855', color: '#fff', fontSize: 13.5, fontWeight: 700, textDecoration: 'none' }}>
@@ -130,7 +130,7 @@ export function ChatCard({ leadId }: { leadId: number }) {
       </div>
 
       {mensajes.length === 0 ? (
-        <p style={{ fontSize: 14, color: 'var(--faint)' }}>El chat existe pero todavía no tiene mensajes. Escribile desde el botón de arriba.</p>
+        <p style={{ fontSize: 14, color: 'var(--faint)' }}>El chat existe pero todavía no tiene mensajes. Escríbele desde el botón de arriba.</p>
       ) : (
         <div ref={scrollRef} style={{ maxHeight: 480, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, paddingRight: 4 }}>
           {mensajes.map((m, i) => {

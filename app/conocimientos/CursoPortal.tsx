@@ -236,7 +236,7 @@ export function Selector({ cursos, enter, compartir, sinMarca, foco }: {
           {compartir}
         </div>
         <h1 className="al-h1">Cursos</h1>
-        <p className="al-sub">Formación interna. Elegí un curso para entrar. Cada categoría junta los cursos del mismo tema.</p>
+        <p className="al-sub">Formación interna. Elige un curso para entrar. Cada categoría junta los cursos del mismo tema.</p>
       </section>
 
       <section className="al-filtros">

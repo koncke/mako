@@ -349,7 +349,7 @@ export async function createCustomAudience(input: { tipo: AudienceTipo; dias: nu
   let name: string; let rule: Record<string, unknown>;
   if (input.tipo === 'pixel') {
     const pixel = process.env.META_PIXEL_ID;
-    if (!pixel) throw new MetaWriteError('Para "visitaron tu web" hace falta META_PIXEL_ID configurado. Elegí otro tipo o configurá el pixel.');
+    if (!pixel) throw new MetaWriteError('Para "visitaron tu web" hace falta META_PIXEL_ID configurado. Elige otro tipo o configura el pixel.');
     // Website audience por EVENTO del pixel (PageView, ViewContent, Lead, Purchase,
     // o un evento personalizado). El rule EXIGE un filter (por eso pasa el evento).
     const evento = (input.evento || 'PageView').replace(/[^A-Za-z0-9_]/g, '').slice(0, 48) || 'PageView';
@@ -357,7 +357,7 @@ export async function createCustomAudience(input: { tipo: AudienceTipo; dias: nu
     rule = eng({ type: 'pixel', id: pixel }, evento);
   } else if (input.tipo === 'ig') {
     const ig = await getInstagramActorId();
-    if (!ig) throw new MetaWriteError('No encontré una cuenta de Instagram conectada a tu página. Conectala en Meta o elegí otro tipo de público.');
+    if (!ig) throw new MetaWriteError('No encontré una cuenta de Instagram conectada a tu página. Conéctala en Meta o elige otro tipo de público.');
     name = input.name || `Interacción Instagram · ${dias} días`;
     rule = eng({ type: 'ig_business', id: ig }, 'ig_business_profile_engaged');
   } else if (input.tipo === 'video') {
@@ -630,7 +630,7 @@ export const UTM_TAGS = 'utm_source=facebook&utm_medium=paid_social&utm_campaign
 export async function createAdCreative(creative: Creative, adName: string): Promise<string> {
   if (creative.source === 'existing' && creative.source_ad_id) {
     const storyId = await getObjectStoryId(creative.source_ad_id);
-    if (!storyId) throw new MetaWriteError('El anuncio ganador no tiene un post reutilizable (object_story_id). Probá con otro o subí un creativo.');
+    if (!storyId) throw new MetaWriteError('El anuncio ganador no tiene un post reutilizable (object_story_id). Prueba con otro o sube un creativo.');
     const data = await graphPost(`${acct()}/adcreatives`, { name: `${adName} — creativo`, object_story_id: storyId, url_tags: UTM_TAGS });
     return String(data.id);
   }
@@ -725,8 +725,8 @@ export async function getAdForEdit(adId: string): Promise<AdEditData> {
   const ld = oss?.link_data as Record<string, unknown> | undefined;
   const noEditable = (reason: string): AdEditData => ({ ad_id: adId, name, status, issues, editable: false, reason, creative: null });
 
-  if (afs && esCreativoDinamico(afs)) return noEditable('Este anuncio usa creativo dinámico (varios textos/imágenes que Meta rota); editalo desde Meta para no perder esa optimización.');
-  if (!oss || (!vd && !ld)) return noEditable('Este anuncio reutiliza una publicación existente; sus textos se editan desde esa publicación, no acá.');
+  if (afs && esCreativoDinamico(afs)) return noEditable('Este anuncio usa creativo dinámico (varios textos/imágenes que Meta rota); edítalo desde Meta para no perder esa optimización.');
+  if (!oss || (!vd && !ld)) return noEditable('Este anuncio reutiliza una publicación existente; sus textos se editan desde esa publicación, no aquí.');
 
   // CTA de mensajería (WhatsApp/Messenger): el destino NO vive en value.link → no lo tocamos.
   const cta = (vd?.call_to_action ?? ld?.call_to_action) as { type?: string; value?: Record<string, unknown> } | undefined;
@@ -755,7 +755,7 @@ export async function getAdForEdit(adId: string): Promise<AdEditData> {
       primary_text: String(ld?.message ?? ''), headline: String(ld?.name ?? ''), description: String(ld?.description ?? ''),
       cta_type: cta?.type ?? null, destination_url: link || (ld?.link ? String(ld.link) : ''), lead_form_id: lead,
     };
-    if (!hash) return noEditable('No pudimos recuperar la imagen de este anuncio para conservarla; editalo desde Meta.');
+    if (!hash) return noEditable('No pudimos recuperar la imagen de este anuncio para conservarla; edítalo desde Meta.');
   }
   return { ad_id: adId, name, status, issues, editable: true, creative: c };
 }
@@ -763,7 +763,7 @@ export async function getAdForEdit(adId: string): Promise<AdEditData> {
 /** Aplica los textos editados: crea un creativo NUEVO (mismo media) y apunta el anuncio a él. */
 export async function updateAdCopy(adId: string, edited: { primary_text?: string; headline?: string; description?: string; cta_type?: string; destination_url?: string }): Promise<{ creative_id: string }> {
   const current = await getAdForEdit(adId);
-  if (!current.editable || !current.creative) throw new MetaWriteError(current.reason ?? 'Este anuncio no permite editar textos acá.');
+  if (!current.editable || !current.creative) throw new MetaWriteError(current.reason ?? 'Este anuncio no permite editar textos aquí.');
   const cc = current.creative;
   const creative: Creative = {
     source: 'upload',

@@ -211,7 +211,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
           {/* Datos sin marcar: arriba de las tabs → visible en TODAS. */}
           {faltantes.length > 0 && (
             <div style={{ marginBottom: 16 }}>
-              <DatosSinMarcarCard faltantes={faltantes} label="Solucionar →" onSolucionar={() => router.push(solucionarHref)} nota="Completá estos datos para tener la ficha al día." ignorado={ignorado} onReactivar={reactivar} />
+              <DatosSinMarcarCard faltantes={faltantes} label="Solucionar →" onSolucionar={() => router.push(solucionarHref)} nota="Completa estos datos para tener la ficha al día." ignorado={ignorado} onReactivar={reactivar} />
             </div>
           )}
           <LeadTabs

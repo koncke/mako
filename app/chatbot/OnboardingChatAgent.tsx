@@ -1209,7 +1209,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {canalesErr && (
                 <div style={{ padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
-                  No pudimos verificar si el WhatsApp oficial está conectado ({canalesErr}). Si ya lo conectaste, seguí de largo.
+                  No pudimos verificar si el WhatsApp oficial está conectado ({canalesErr}). Si ya lo conectaste, sigue de largo.
                 </div>
               )}
               <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
@@ -1462,7 +1462,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
                 <strong>Falta un dato antes de grabar: cómo llega tu gente.</strong>
                 <div style={{ marginTop: 6, color: 'var(--dim)' }}>
                   No es lo mismo alguien que dejó sus datos en un anuncio que alguien
-                  a quien le escribiste vos primero. De eso depende qué audios te pido
+                  a quien le escribiste tú primero. De eso depende qué audios te pido
                   y qué dice cada uno — si el audio arranca con «vi que dejaste tus
                   datos» y la persona nunca los dejó, se nota en la primera frase.
                 </div>
@@ -1511,7 +1511,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
                   <strong style={{ color: 'var(--ink)' }}>Guardaste {audiosHuerfanos.length === 1 ? 'un audio que hoy no se usa' : `${audiosHuerfanos.length} audios que hoy no se usan`}:</strong>{' '}
                   {audiosHuerfanos.map((d) => d.titulo).join(' · ')}. Se grabaron para
                   otra forma de captar clientes, así que no se le manda a nadie. Quedan
-                  guardados por si volvés a esa forma.
+                  guardados por si vuelves a esa forma.
                 </div>
               )}
 

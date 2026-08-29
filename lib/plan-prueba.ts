@@ -91,14 +91,14 @@ export function exigenciaDe(
         nivel: 'baja-norte',
         minimo: 1,
         clases: [['proyecto', 'tarea']],
-        texto: 'Estás bajando el norte de hoy. Decime qué pasa a serlo en su lugar: un plan sin norte no es un plan con uno menos, es un plan sin foco.',
+        texto: 'Estás bajando el norte de hoy. Dime qué pasa a serlo en su lugar: un plan sin norte no es un plan con uno menos, es un plan sin foco.',
       };
     }
     return {
       nivel: 'baja',
       minimo: 0,
       clases: [],
-      texto: 'Bajar no me lo tenés que probar: sacar cosas de arriba casi siempre es la decisión correcta. Contame en una línea por qué y listo.',
+      texto: 'Bajar no me lo tienes que probar: sacar cosas de arriba casi siempre es la decisión correcta. Cuéntame en una línea por qué y listo.',
     };
   }
   // ── SUBIR AL NORTE ──
@@ -125,7 +125,7 @@ export function exigenciaDe(
     nivel: 'sube-dentro',
     minimo: 0,
     clases: [],
-    texto: 'Es un ajuste fino dentro de la misma banda. Contame por qué y lo miro.',
+    texto: 'Es un ajuste fino dentro de la misma banda. Cuéntame por qué y lo miro.',
   };
 }
 

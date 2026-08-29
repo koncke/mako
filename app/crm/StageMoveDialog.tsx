@@ -610,7 +610,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         ok.add('plan'); rell.push('plan de cuotas');
       }
       setResueltos(ok);
-      setDealReporte(rell.length ? rell.map((x) => `Se completó: ${x}`) : ['El contrato no aportó datos nuevos para completar. Cargá a mano.']);
+      setDealReporte(rell.length ? rell.map((x) => `Se completó: ${x}`) : ['El contrato no aportó datos nuevos para completar. Carga a mano.']);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally { setDealBusy(false); }
@@ -686,7 +686,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
               <span style={{ color: 'var(--ink)' }}>{l}</span>
             </div>
           ))}
-          <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 4 }}>Seguí con «Siguiente»: solo se pregunta lo que faltó.</div>
+          <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 4 }}>Sigue con «Siguiente»: solo se pregunta lo que faltó.</div>
         </div>
       ) : (
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -702,7 +702,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       break;
     case 'huboR1':
       pregunta = '¿Hubo Reunión 1?';
-      sub = 'Hay cierres raros sin reunión — si no la hubo, contanos por qué.';
+      sub = 'Hay cierres raros sin reunión — si no la hubo, cuéntanos por qué.';
       cuerpo = boolStep(huboR1, setHuboR1, 'Sí, hubo R1', 'No hubo R1');
       break;
     case 'motivoNoR1':
@@ -712,8 +712,8 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
     case 'huboR2':
       pregunta = '¿Hubo una Reunión 2?';
       sub = autoR2NoEncontrada
-        ? 'MaKo no encontró una Reunión 2 en Calendly ni Fathom. Si cerraste en la primera llamada, confirmá con «No hubo R2».'
-        : 'Si cerraste en la primera llamada (sin una segunda reunión), elegí «No hubo R2».';
+        ? 'MaKo no encontró una Reunión 2 en Calendly ni Fathom. Si cerraste en la primera llamada, confirma con «No hubo R2».'
+        : 'Si cerraste en la primera llamada (sin una segunda reunión), elige «No hubo R2».';
       cuerpo = boolStep(huboR2, setHuboR2, 'Sí, hubo R2', 'No hubo R2');
       break;
     case 'motivoNoR2':
@@ -775,7 +775,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
     case 'fathomR1':
     case 'fathomR2':
       pregunta = `Link de Fathom de la ${paso === 'fathomR1' ? 'Reunión 1' : 'Reunión 2'}`;
-      sub = 'Si la reunión no se grabó, podés omitirlo.';
+      sub = 'Si la reunión no se grabó, puedes omitirlo.';
       cuerpo = (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {fathom.map((f, i) => (
@@ -793,7 +793,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       break;
     case 'ventaTipo':
       pregunta = '¿Cómo se cobra este cliente?';
-      sub = 'Elegí el tipo de venta.';
+      sub = 'Elige el tipo de venta.';
       cuerpo = (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 360, margin: '0 auto' }}>
           <button type="button" onClick={() => setVentaTipo('unico')} style={{ ...btnOpcion(!esSuscripcion), textAlign: 'left' }}>
@@ -827,7 +827,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       break;
     case 'motivo':
       pregunta = esDescal ? '¿Por qué se descalificó?' : '¿Por qué se perdió?';
-      sub = 'Elegí la categoría; en el próximo paso contás el detalle.';
+      sub = 'Elige la categoría; en el próximo paso cuentas el detalle.';
       cuerpo = (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
           {sugerencias.map((s) => {
@@ -838,8 +838,8 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       );
       break;
     case 'motivoDetalle':
-      pregunta = esDescal ? 'Contanos por qué no calificaba' : 'Sé específico: ¿qué pasó?';
-      sub = motivo.trim() ? `Categoría: ${motivo.trim()}. Agregá el detalle concreto.` : 'Agregá el detalle concreto.';
+      pregunta = esDescal ? 'Cuéntanos por qué no calificaba' : 'Sé específico: ¿qué pasó?';
+      sub = motivo.trim() ? `Categoría: ${motivo.trim()}. Agrega el detalle concreto.` : 'Agrega el detalle concreto.';
       cuerpo = <textarea value={motivoDetalle} onChange={(e) => setMotivoDetalle(e.target.value)} placeholder={esDescal ? 'Ej: factura menos de X, no tiene equipo a cargo…' : 'Ej: le pareció caro vs. la competencia, se enfrió tras la R2…'} autoFocus style={{ ...compInput, minHeight: 90, textAlign: 'left', lineHeight: 1.5 }} />;
       break;
     case 'setter':
@@ -863,11 +863,11 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       }
       cuerpo = equipo.length > 0 ? (
         <div style={{ maxWidth: 340, margin: '0 auto' }}>
-          <Dropdown value={val} options={opts} onChange={set} placeholder="Elegí del equipo…" width="100%" ariaLabel={paso === 'setter' ? 'Setter' : 'Closer'} />
+          <Dropdown value={val} options={opts} onChange={set} placeholder="Elige del equipo…" width="100%" ariaLabel={paso === 'setter' ? 'Setter' : 'Closer'} />
         </div>
       ) : (
         <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border-strong)', borderRadius: 12, padding: '16px 18px', fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.5, textAlign: 'left' }}>
-          Todavía no tenés equipo configurado. Agregá a tus setters y closers en <b>Configuraciones › Equipo</b> y después vas a poder asignarlos acá. Por ahora podés continuar sin asignar.
+          Todavía no tienes equipo configurado. Agrega a tus setters y closers en <b>Configuraciones › Equipo</b> y después vas a poder asignarlos aquí. Por ahora puedes continuar sin asignar.
         </div>
       );
       break;
@@ -882,13 +882,13 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       break;
     case 'dealAuto':
       pregunta = '¿Completamos el cierre con el contrato?';
-      sub = 'MaKo lee el contrato y llena servicio, promesa, datos fiscales y obligaciones. Después revisás lo que falte.';
+      sub = 'MaKo lee el contrato y llena servicio, promesa, datos fiscales y obligaciones. Después revisas lo que falte.';
       cuerpo = dealReporte ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7, textAlign: 'left' }}>
           {dealReporte.map((l, i) => (
             <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'baseline', fontSize: 13.5, padding: '9px 13px', background: 'var(--surface-2)', borderRadius: 10 }}><span>✓</span><span style={{ color: 'var(--ink)' }}>{l}</span></div>
           ))}
-          <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 4 }}>Seguí con «Siguiente»: solo se pregunta lo que faltó.</div>
+          <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 4 }}>Sigue con «Siguiente»: solo se pregunta lo que faltó.</div>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>

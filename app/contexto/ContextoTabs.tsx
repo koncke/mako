@@ -154,7 +154,7 @@ function FasesTab() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: 0 }}>Para cada sección, qué tiene que mirar y hacer MaKo ahí. Si lo dejás vacío, MaKo se comporta como hoy.</p>
+      <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: 0 }}>Para cada sección, qué tiene que mirar y hacer MaKo ahí. Si lo dejas vacío, MaKo se comporta como hoy.</p>
       {fases.map((f) => (
         <div key={f.key} style={card}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>

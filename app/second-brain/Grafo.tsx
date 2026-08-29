@@ -1884,7 +1884,7 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, filtro, onFiltro: setFilt
             <div className="cbg-detalle">
               <Eyebrow>Tu negocio</Eyebrow>
               <p style={{ margin: '6px 0 14px', fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.5 }}>
-                Toca un punto del mapa para verlo. O entra por acá:
+                Toca un punto del mapa para verlo. O entra por aquí:
               </p>
 
               {accesos.slice(0, 2).length > 0 && (

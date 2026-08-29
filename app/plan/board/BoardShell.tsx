@@ -656,7 +656,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
     // ancla: el Perro tiene que puntuarla contra la pirámide del plan y puede ignorarla
     // por completo. Decírselo explícito es lo que evita que la tome de punto de partida
     // — un modelo al que le mostrás un número tiende a quedarse cerca de ese número.
-    partes.push(`(El dueño SUGIRIÓ ${starter}/100 al crearla. Es una sugerencia, no un dato: puntuala vos contra el resto del plan y, si no se sostiene, corregila sin problema.)`);
+    partes.push(`(El dueño SUGIRIÓ ${starter}/100 al crearla. Es una sugerencia, no un dato: puntúala tú contra el resto del plan y, si no se sostiene, corrígela sin problema.)`);
     const contexto = partes.join(' ');
 
     // UNIFICACIÓN: una tarea cargada a mano recibe EXACTAMENTE el mismo trato que una de
@@ -689,7 +689,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
     }
     // Sin veredicto: devolvemos el score REAL con el que quedó la fila (antes se mostraba
     // el número que había tipeado el usuario, que no era el guardado).
-    return { id: t.id, score: t.score, razon: '', respuesta: 'No pude priorizar ahora; quedó con una prioridad provisoria. Podés debatirla después.', prio: displayPrio(t, topProjectId) };
+    return { id: t.id, score: t.score, razon: '', respuesta: 'No pude priorizar ahora; quedó con una prioridad provisoria. Puedes debatirla después.', prio: displayPrio(t, topProjectId) };
   };
 
   // G3: crear en lote las tareas que MaKo sacó de una reunión. Entran con la prioridad
@@ -965,7 +965,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
              igual en el tablero del dueño que en el del cliente, y baja al instante. */
           { key: 'exportar', nodo: <ExportarBoton onAbrir={() => setExportar(true)} />,
             menu: { icono: <DescargarIcon />, label: 'Exportar el tablero',
-              desc: 'Bajá las tareas y los proyectos a un archivo', onClick: () => setExportar(true) } },
+              desc: 'Baja las tareas y los proyectos a un archivo', onClick: () => setExportar(true) } },
         ]} />
 
       </header>
@@ -1586,7 +1586,7 @@ const autorDe = (actor: Actor, nombre: string) => ACTOR_LABEL[actor] || nombre |
 const frasePorAlta = (actor: Actor, nombre: string, genero: 'a' | 'o') =>
   actor === 'ia' ? `Cread${genero} por MaKo`
     : actor === 'code' ? `Cread desde el código`
-      : `Cread${genero} por ${nombre || 'vos'}`;
+      : `Cread${genero} por ${nombre || 'ti'}`;
 
 // Avatar para el change history: MaKo → ✦; Claude Code → ‹╱›; usuario → foto o inicial.
 function ActorAvatar({ actor, nombre, avatarUrl, size = 24 }: { actor: Actor; nombre: string; avatarUrl: string; size?: number }) {
@@ -1859,7 +1859,7 @@ function Prioridades({ tasks, board, objetivo, bloqueadas = 0, onOpen, onOpenPro
             —borde de color arriba, emoji, P#, avance— sin leer una palabra. */}
         <div className="mako-prio-obj" style={{ flex: '0 1 300px', maxWidth: 320, minWidth: 240, display: 'flex' }}>
           {objetivo ? <ObjetivoCard objetivo={objetivo} prog={projProgress(board.tasks, objetivo.id)} onOpen={() => onOpenProj(objetivo.id)} /> : (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'var(--faint)', fontSize: 13.5, border: '1px dashed var(--border-strong)', borderRadius: 16, padding: 24 }}>Todavía no hay un Objetivo Principal. Creá un proyecto y el perro elige el norte.</div>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'var(--faint)', fontSize: 13.5, border: '1px dashed var(--border-strong)', borderRadius: 16, padding: 24 }}>Todavía no hay un Objetivo Principal. Crea un proyecto y el perro elige el norte.</div>
           )}
         </div>
         {/* DERECHA — las 3 tareas en prioridad. `flex: 2 1 380px`: crece el doble que
@@ -1871,14 +1871,14 @@ function Prioridades({ tasks, board, objetivo, bloqueadas = 0, onOpen, onOpenPro
                 más que hacer», que es lo contrario de lo que pasa. Si algo quedó afuera por
                 estar frenado, se dice acá — el número es el aviso de que la cadena está
                 trabada y de que lo que conviene atacar es lo que la destraba. */}
-            {bloqueadas > 0 && <span style={{ fontSize: 12, color: 'var(--dim)' }}>🔒 {bloqueadas} {bloqueadas === 1 ? 'frenada' : 'frenadas'} por otra cosa · no entran acá hasta que se destraben</span>}
+            {bloqueadas > 0 && <span style={{ fontSize: 12, color: 'var(--dim)' }}>🔒 {bloqueadas} {bloqueadas === 1 ? 'frenada' : 'frenadas'} por otra cosa · no entran aquí hasta que se destraben</span>}
           </div>
           {tasks.length === 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, color: 'var(--faint)', textAlign: 'center', padding: '24px 20px', border: '1px dashed var(--border-strong)', borderRadius: 14 }}>
               {/* Acá SOLO se llega con el plan entero terminado: la lista se completa con
                   lo mejor del resto de los proyectos, así que si está vacía es que no
                   queda ni una tarea abierta. Decirlo así y no "todavía no hay ninguna". */}
-              <div style={{ fontSize: 14, maxWidth: 400, lineHeight: 1.5 }}>No queda ninguna tarea abierta en todo el plan. Creá una nueva o sacá los pendientes de tu última reunión.</div>
+              <div style={{ fontSize: 14, maxWidth: 400, lineHeight: 1.5 }}>No queda ninguna tarea abierta en todo el plan. Crea una nueva o saca los pendientes de tu última reunión.</div>
             </div>
           )}
           {tasks.map((t, i) => {
@@ -2105,7 +2105,7 @@ function ChangeHistory({ t, board, ask }: { t: BoardTask; board: Board; ask: (ms
   // una reunión y por dos scripts junta veinte entradas, y abajo del historial está el
   // resto del detalle.
   const { visibles, boton } = useVerMas(t.historial, { inicial: 8, tanda: 8, estilo: 'texto' });
-  if (t.historial.length === 0) return <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic' }}>Sin actividad todavía. Los cambios van a aparecer acá.</div>;
+  if (t.historial.length === 0) return <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic' }}>Sin actividad todavía. Los cambios van a aparecer aquí.</div>;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {visibles.map((h, i) => {
@@ -2171,7 +2171,7 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, onDebat
           <LabelChips chips={chips} max={1} cap={230} onOpen={onOpenProj} />
           <FuenteChip fuente={fuenteEfectiva(t)} />
           <span style={{ flex: 1 }} />
-          <button onClick={() => setMako(true)} title={optimizada ? 'Ya optimizada por MaKo — podés volver a pedirle ayuda' : 'MaKo te ayuda a mejorar título, detalle y checklist'}
+          <button onClick={() => setMako(true)} title={optimizada ? 'Ya optimizada por MaKo — puedes volver a pedirle ayuda' : 'MaKo te ayuda a mejorar título, detalle y checklist'}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: `1px solid ${optimizada ? 'var(--good)' : 'var(--primary-weak)'}`, background: optimizada ? 'var(--good-bg, var(--surface))' : 'var(--primary-bg)', color: optimizada ? 'var(--good)' : 'var(--primary)', borderRadius: 8, padding: '5px 11px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', boxShadow: suggestMako && !optimizada ? '0 0 0 3px var(--primary-weak)' : 'none', animation: suggestMako && !optimizada ? 'makoPulse 1.4s ease-in-out infinite' : 'none' }}>
             <style>{`@keyframes makoPulse{0%,100%{box-shadow:0 0 0 2px var(--primary-weak)}50%{box-shadow:0 0 0 5px transparent}}`}</style>
             {optimizada ? '✦ MaKo ✓ optimizada' : suggestMako ? '✦ Optimizala con MaKo' : '✦ MaKo te ayuda'}

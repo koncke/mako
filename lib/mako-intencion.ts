@@ -312,7 +312,7 @@ export const CONTRATO: Record<Intencion, ContratoIntencion> = {
 export function avisoDeDuda(v: VeredictoIntencion): string {
   if (!v.dudosa) return '';
   if (v.intencion === 'capturar' && v.alternativa === 'pensar') {
-    return '\n\n_Lo dejé anotado. Si querías que lo investigue ahora, decime «investigalo» y lo hago._';
+    return '\n\n_Lo dejé anotado. Si querías que lo investigue ahora, dime «investígalo» y lo hago._';
   }
   return '';
 }

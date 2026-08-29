@@ -68,8 +68,8 @@ export function avisoDePuntos(texto: string): string {
   if (puntos.length) {
     partes.push(
       `⚠️ ESTE MENSAJE ENUMERA ${puntos.length} PUNTOS. Cada punto es AL MENOS una tarea, ` +
-      `salvo que dos digan literalmente lo mismo. Si armás menos de ${puntos.length}, estás ` +
-      `resumiendo — y resumir acá le pierde trabajo al dueño, que ya se tomó el trabajo de separarlo. ` +
+      `salvo que dos digan literalmente lo mismo. Si armas menos de ${puntos.length}, estás ` +
+      `resumiendo — y resumir aquí le pierde trabajo al dueño, que ya se tomó el trabajo de separarlo. ` +
       `Los puntos son: ${puntos.map((p, i) => `(${i + 1}) ${p.texto.slice(0, 90)}`).join(' · ')}`,
     );
   }

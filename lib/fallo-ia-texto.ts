@@ -85,14 +85,14 @@ export function textoFalloIA(causa: CausaFalloIA, link: string, que: QueIntentab
       return [
         `⚠️ Te quedaste sin cuota de IA, por eso no puedo ${que}.`,
         '',
-        'Tu API key llegó al tope. Se repone sola mañana, pero si cargás otra sigo funcionando *ahora* — podés tener varias y las voy rotando 👇',
+        'Tu API key llegó al tope. Se repone sola mañana, pero si cargas otra sigo funcionando *ahora* — puedes tener varias y las voy rotando 👇',
         link,
       ].join('\n');
     case 'sin_respaldo':
       return [
         `⚠️ Tu proveedor de IA se cayó justo ahora y no puedo ${que}.`,
         '',
-        'Tenés *una sola* API key cargada, así que cuando esa falla me quedo sin nada. Cargá una segunda (son gratis) y esto deja de frenarte 👇',
+        'Tienes *una sola* API key cargada, así que cuando esa falla me quedo sin nada. Carga una segunda (son gratis) y esto deja de frenarte 👇',
         link,
       ].join('\n');
     case 'proveedor_caido':
@@ -102,7 +102,7 @@ export function textoFalloIA(causa: CausaFalloIA, link: string, que: QueIntentab
       return [
         `No pude ${que}: los proveedores de IA están con problemas en este momento.`,
         '',
-        'No es nada tuyo, tus keys están bien. Reintentá en un par de minutos.',
+        'No es nada tuyo, tus keys están bien. Reintenta en un par de minutos.',
       ].join('\n');
   }
 }

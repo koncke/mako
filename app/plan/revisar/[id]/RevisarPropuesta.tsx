@@ -332,7 +332,7 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
   // manda al plan, donde el modal de la reunión sí tiene el reparto por persona.
   // Vacío de verdad = ni tareas ni cierres. Antes alcanzaba con no tener tareas.
   if (nT === 0 && nC === 0) {
-    return <Mensaje ok texto={nAjenas ? `Acá no te queda nada para crear: ${nAjenas === 1 ? 'la tarea que quedaba es' : `las ${nAjenas} tareas que quedaban son`} de otras personas.` : 'Este borrador ya no tiene tareas.'}
+    return <Mensaje ok texto={nAjenas ? `Aquí no te queda nada para crear: ${nAjenas === 1 ? 'la tarea que quedaba es' : `las ${nAjenas} tareas que quedaban son`} de otras personas.` : 'Este borrador ya no tiene tareas.'}
       sub="Repartilas desde tu plan: ahí MaKo te deja mandárselas a cada uno." link />;
   }
   if (done) {
@@ -358,7 +358,7 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
   // hay ni opciones ni dónde escribir: el renglón que explica cómo contestar decía una
   // cosa y el campo mostraba otra.
   const qActual = cur.kind === 'q' ? prop.preguntas[cur.i] : cur.kind === 'dyn' ? dynQs[cur.i] : undefined;
-  const sub = cur.kind === 'cerrar' ? 'La tengo en tu tablero abierta, pero encontré esto. Vos decidís.'
+  const sub = cur.kind === 'cerrar' ? 'La tengo en tu tablero abierta, pero encontré esto. Tú decides.'
     : qActual ? ayudaDePregunta(qActual.tipo, qActual.opciones.length > 0)
     : cur.kind === 'extra' ? 'Destildá lo que no vaya y corregí lo que haga falta. El proyecto y la prioridad los pone el Perro.'
     : soloCierres ? 'Las que dijiste que no, quedan abiertas tal cual estaban.'

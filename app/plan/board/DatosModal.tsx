@@ -54,7 +54,7 @@ export function DatosModal({ items, onSetDeadline, onGenChecklist, onAbrir, onIg
           <span style={{ fontSize: 22, lineHeight: 1 }}>◷</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>Datos sin marcar</div>
-            <div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 1, lineHeight: 1.4 }}>Deadline (opcional) y checklist de tus tareas. La checklist la arma MaKo — no tenés que escribir los pasos. Lo que no quieras, lo ignorás.</div>
+            <div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 1, lineHeight: 1.4 }}>Deadline (opcional) y checklist de tus tareas. La checklist la arma MaKo — no tienes que escribir los pasos. Lo que no quieras, lo ignoras.</div>
           </div>
           <button type="button" onClick={onClose} aria-label="Cerrar"
             style={{ flex: 'none', width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', fontSize: 14 }}>✕</button>
@@ -137,7 +137,7 @@ export function DatosConfirm({ onNoPreguntar, onLuego }: { onNoPreguntar: () => 
       <div role="alertdialog" aria-modal="true"
         style={{ width: '100%', maxWidth: 400, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 24px 60px rgba(18,21,27,.3)', padding: '22px 24px' }}>
         <div style={{ fontSize: 15.5, fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>¿Seguir recordándote los datos que faltan?</div>
-        <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 20 }}>Podés reabrirlo cuando quieras desde el ícono ⚠ del plan.</div>
+        <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 20 }}>Puedes reabrirlo cuando quieras desde el ícono ⚠ del plan.</div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
           <button type="button" onClick={onNoPreguntar}
             style={{ padding: '9px 15px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: SANS }}>No volver a pedir todos</button>

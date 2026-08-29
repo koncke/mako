@@ -22,7 +22,7 @@ Las tres etapas son SIEMPRE las mismas; lo que cambia es el contenido:
 
 1) CONECTAR — la plomería, con PRUEBA DE VIDA. Guardar la credencial no es estar conectado: el paso cierra cuando llegó algo de verdad (un código al teléfono, un email a la bandeja, datos reales de su cuenta). Un tilde verde sin evidencia es una mentira que explota después.
 
-2) CONTEXTO — lo que la IA necesita saber. Nunca se le pide al usuario que redacte: se le pide un ARTEFACTO que ya existe (capturas de sus chats, conectar el canal donde ya atiende, un PDF, un audio, un link) y la IA extrae de ahí. Y lo que la app ya sabe NO se pregunta: se muestra como "esto ya lo tengo de vos".
+2) CONTEXTO — lo que la IA necesita saber. Nunca se le pide al usuario que redacte: se le pide un ARTEFACTO que ya existe (capturas de sus chats, conectar el canal donde ya atiende, un PDF, un audio, un link) y la IA extrae de ahí. Y lo que la app ya sabe NO se pregunta: se muestra como "esto ya lo tengo de ti".
 
 3) ENSAYO — la IA propone y el usuario valida JUGANDO. La IA hace de CLIENTE y plantea escenarios reales; el usuario responde como respondería de verdad, y de ese ida y vuelta salen los mensajes, las preguntas y las reglas. El usuario nunca escribe la configuración final: la descubre respondiendo. El ensayo es además la prueba de que la tab quedó lista.
 
@@ -37,7 +37,7 @@ Alternativas, en orden de preferencia:
 - FORCED-CHOICE sobre autodescripción. La gente se describe mal a sí misma pero se reconoce al instante. En vez de "¿cuál es tu tono?", mostrale tres frases concretas y que elija la suya; el dato real viaja OCULTO en la opción elegida.
 - LA IA PROPONE, EL USUARIO CORRIGE. Nunca una hoja en blanco: todo llega pre-llenado y se edita inline.
 - LAS OPCIONES SE PERSONALIZAN AL NEGOCIO antes de mostrarlas (con su oferta, su avatar, su dolor). Si la IA falla, cae a la versión genérica: el paso nunca se traba.
-- LA PREGUNTA PUEDE SER "SUBÍ UNA FOTO". Si el dato ya existe en algún lado, se pide el archivo y la IA lo lee. Si el usuario ya declinó una vez, no se le vuelve a pedir.
+- LA PREGUNTA PUEDE SER "SUBE UNA FOTO". Si el dato ya existe en algún lado, se pide el archivo y la IA lo lee. Si el usuario ya declinó una vez, no se le vuelve a pedir.
 - UNA PREGUNTA POR PANTALLA, y la siguiente la decide la IA mirando el historial; corta sola cuando ya sabe suficiente.
 - CONTEXTO QUE NO SE PIDE: lo que se pueda levantar solo (métricas, historial, transcripciones) se levanta en background mientras el usuario avanza.
 
@@ -132,7 +132,7 @@ Caso real: una revisión así encontró que los recordatorios anclados a una reu
     cuerpo: `No toda llamada a un modelo vale lo mismo. La regla práctica:
 
 - CLASIFICAR, extraer un dato, transcribir, sugerir opciones cortas → modelo barato y rápido. Son tareas con respuesta acotada y verificable.
-- ANALIZAR, deducir un patrón de datos reales, escribir copy que representa la voz de alguien, razonar sobre un caso → modelo bueno. Acá la calidad se nota y el ahorro sale caro.
+- ANALIZAR, deducir un patrón de datos reales, escribir copy que representa la voz de alguien, razonar sobre un caso → modelo bueno. Aquí la calidad se nota y el ahorro sale caro.
 
 Además:
 - El modo JSON estricto de algunos proveedores exige un OBJETO en la raíz: pedir un array pelado falla. Y algunos rechazan salidas que otro modelo acepta sin chistar; conviene parsear con tolerancia (rescatar el objeto aunque venga con prosa alrededor).

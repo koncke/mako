@@ -349,7 +349,7 @@ async function aplicarAccion(a: AutoAccion, yaConf: Set<string>): Promise<'auto'
     return confirmarOCompensar(a.leadId, {
       leadId: a.leadId, leadNombre: lead.nombre, regla: 'T3', tipo: a.tipo, clave: 'T3',
       titulo: `Nutrición manual vencida — ${lead.nombre ?? 'lead'}`,
-      detalle: 'Sin mensajes del lead en WhatsApp. Decidí el desenlace o dejalo para completar los datos.',
+      detalle: 'Sin mensajes del lead en WhatsApp. Decide el desenlace o déjalo para completar los datos.',
       aplicado: false,
       cambios: [],
       opciones: [

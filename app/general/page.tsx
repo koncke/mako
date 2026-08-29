@@ -126,7 +126,7 @@ export default async function GeneralPage() {
     alertas.push({
       nivel: 'ambar',
       titulo: 'No pude chequear qué te quedó pendiente del arranque',
-      detalle: 'Puede que tengas una conexión sin terminar y no lo esté viendo. Revisá Integraciones.',
+      detalle: 'Puede que tengas una conexión sin terminar y no lo esté viendo. Revisa Integraciones.',
       href: '/integraciones', hrefLabel: 'Integraciones',
     });
   }
@@ -151,8 +151,8 @@ export default async function GeneralPage() {
         ? `Cuenta de Meta: ${saludMeta.statusLabel} — entrega frenada`
         : `Cuenta de Meta: ${saludMeta.statusLabel} — vigilar`,
       detalle: esRojo
-        ? `${saldo}Los anuncios figuran ACTIVOS pero la cuenta no está entregando${saludMeta.disableReasonLabel ? ` (${saludMeta.disableReasonLabel})` : ''}. Regularizá el pago en Meta cuanto antes.`
-        : `Estado de cuenta "${saludMeta.statusLabel}". La entrega puede estar limitada — revisá el Business Manager.`,
+        ? `${saldo}Los anuncios figuran ACTIVOS pero la cuenta no está entregando${saludMeta.disableReasonLabel ? ` (${saludMeta.disableReasonLabel})` : ''}. Regulariza el pago en Meta cuanto antes.`
+        : `Estado de cuenta "${saludMeta.statusLabel}". La entrega puede estar limitada — revisa el Business Manager.`,
       href: '/marketing/salud', hrefLabel: 'Estado de Meta',
     });
   }
@@ -182,7 +182,7 @@ export default async function GeneralPage() {
     alertas.push({
       nivel: 'ambar',
       titulo: `${n} cuota${n === 1 ? '' : 's'} por cobrar pronto`,
-      detalle: `Vencen en los próximos días (ej: ${cuotas.porVencer[0].lead_nombre}, en ${cuotas.porVencer[0].dias}d). Tené listo el seguimiento de cobro.`,
+      detalle: `Vencen en los próximos días (ej: ${cuotas.porVencer[0].lead_nombre}, en ${cuotas.porVencer[0].dias}d). Ten listo el seguimiento de cobro.`,
       href: '/comercial', hrefLabel: 'Comercial',
       desglose: { label: 'Cuotas por vencer', value: fmtUSD(tot), color: 'var(--warn-fill)', items: cuotaItems(cuotas.porVencer), emptyText: 'Sin cuotas por vencer.' },
     });
@@ -191,7 +191,7 @@ export default async function GeneralPage() {
     alertas.push({
       nivel: 'ambar',
       titulo: `Los deals se enfrían entre R1 y R2 (${tramo.promedio.toFixed(1)} días prom.)`,
-      detalle: 'Cuanto más tarda la R2, más cae la intención. Agendá la R2 en la misma R1, en vivo.',
+      detalle: 'Cuanto más tarda la R2, más cae la intención. Agenda la R2 en la misma R1, en vivo.',
       href: '/comercial', hrefLabel: 'Comercial',
     });
   }
@@ -215,7 +215,7 @@ export default async function GeneralPage() {
       alertas.push({
         nivel: 'rojo',
         titulo: `Tasa de cierre baja: ${maduras.tasa_cierre_madura.toFixed(0)}% en cohortes maduras`,
-        detalle: 'Califican pero no cierran. Revisá la oferta y el manejo de objeciones en la R2.',
+        detalle: 'Califican pero no cierran. Revisa la oferta y el manejo de objeciones en la R2.',
         href: '/comercial', hrefLabel: 'Comercial',
       });
     }

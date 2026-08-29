@@ -238,7 +238,7 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
       // El texto sale de `avisoInvitacion`, que es el mismo que usa /equipo. Antes acá
       // decía en verde «cuando su admin entre con Google, la cuenta se activa sola» —
       // cierto, y falso como mensaje: nadie le había pasado la URL.
-      setHintCrear(email ? avisoInvitacion(j.invitacion, email) : { tono: 'ok', texto: 'Cliente creado. Entrá como el cliente para configurarlo, o asignale un admin más tarde.' });
+      setHintCrear(email ? avisoInvitacion(j.invitacion, email) : { tono: 'ok', texto: 'Cliente creado. Entra como el cliente para configurarlo, o asígnale un admin más tarde.' });
       await recargar();
     } finally { setCreando(false); }
   };
@@ -289,7 +289,7 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
       {/* ── Agregar cliente (crea workspace + su admin) ─────────────────────── */}
       <div style={card}>
         <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink)', marginBottom: 4 }}>Agregar cliente</div>
-        <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 16 }}>Cada cliente es un espacio de datos aislado. El <b>tipo</b> define qué compró: de él salen las tabs que ve, qué le pide el onboarding y qué se le siembra. El email del admin es opcional: si lo ponés, esa persona entra con Google y arma su equipo (Closer/Setter); si no, lo configurás vos con &ldquo;Entrar como&rdquo;.</div>
+        <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 16 }}>Cada cliente es un espacio de datos aislado. El <b>tipo</b> define qué compró: de él salen las tabs que ve, qué le pide el onboarding y qué se le siembra. El email del admin es opcional: si lo pones, esa persona entra con Google y arma su equipo (Closer/Setter); si no, lo configuras tú con &ldquo;Entrar como&rdquo;.</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1.4fr 1fr auto', gap: 12, alignItems: 'end' }}>
           <div>
             <label style={labelStyle}>Nombre del cliente</label>
@@ -324,7 +324,7 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
 
       {workspaces.length === 0 ? (
         <div style={{ ...card, color: 'var(--dim)', fontSize: 13.5, lineHeight: 1.5 }}>
-          Todavía no hay clientes. Creá el primero arriba.
+          Todavía no hay clientes. Crea el primero arriba.
         </div>
       ) : (
         <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
@@ -390,7 +390,7 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
                     <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', padding: '10px 0 8px' }}>Equipo</div>
                     {equipo.length === 0 ? (
                       <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5, paddingBottom: 6 }}>
-                        Sin miembros todavía. El admin de este cliente los suma desde su panel de Equipo (Configuraciones → Equipo), o entrá como el cliente para configurarlo.
+                        Sin miembros todavía. El admin de este cliente los suma desde su panel de Equipo (Configuraciones → Equipo), o entra como el cliente para configurarlo.
                       </div>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -651,7 +651,7 @@ function TabSuperAdmins({ usuarios, sesion, recargar }: { usuarios: Usuario[]; s
 
       {sesion.legacy && (
         <div style={{ background: 'var(--warn-bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 16px', fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>
-          Estás con la sesión compartida vieja. Cerrá sesión y volvé a entrar con Google para que tu cuenta quede registrada.
+          Estás con la sesión compartida vieja. Cierra sesión y vuelve a entrar con Google para que tu cuenta quede registrada.
         </div>
       )}
 
@@ -776,7 +776,7 @@ function TabCopywriting() {
       <div style={card}>
         <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink)', marginBottom: 4 }}>Ejemplos reales (swipe)</div>
         <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 16, lineHeight: 1.55 }}>
-          Pegá emails o mensajes que te lleguen y te parezcan buenos. MaKo los usa de referencia (few-shot) al escribir. No hace falta que sean tuyos: sirven como muestra de estructura y tono.
+          Pega emails o mensajes que te lleguen y te parezcan buenos. MaKo los usa de referencia (few-shot) al escribir. No hace falta que sean tuyos: sirven como muestra de estructura y tono.
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
           <div>
@@ -789,7 +789,7 @@ function TabCopywriting() {
           </div>
         </div>
         <label style={labelStyle}>Mensaje</label>
-        <textarea value={cuerpo} onChange={(e) => setCuerpo(e.target.value)} rows={6} placeholder="Pegá acá el cuerpo del email / mensaje."
+        <textarea value={cuerpo} onChange={(e) => setCuerpo(e.target.value)} rows={6} placeholder="Pega aquí el cuerpo del email / mensaje."
           style={{ ...input, resize: 'vertical', lineHeight: 1.5, marginBottom: 12 }} />
         <label style={labelStyle}>Por qué te gustó <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--faint)' }}>(opcional, pero ayuda a MaKo)</span></label>
         <input style={{ ...input, marginBottom: 14 }} value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Ej. El asunto genera curiosidad y el cierre no presiona." />

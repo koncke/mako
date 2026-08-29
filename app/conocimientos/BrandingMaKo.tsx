@@ -36,7 +36,7 @@ const SECCIONES: { id: string; label: string; desc: string }[] = [
   { id: 'graficos', label: 'Gráficos', desc: 'Los gráficos hechos a mano para las landings, en PNG de alta resolución.' },
   { id: 'animaciones', label: 'Animaciones', desc: 'Las animaciones que hicimos para los VSL, en MP4.' },
   { id: 'iconos', label: 'Íconos y logos', desc: 'Los íconos de las apps en sus variantes, y los logos originales.' },
-  { id: 'videos', label: 'Videos', desc: 'Los mini-VSL de cada funcionalidad. Se ven acá y se descargan.' },
+  { id: 'videos', label: 'Videos', desc: 'Los mini-VSL de cada funcionalidad. Se ven aquí y se descargan.' },
 ];
 
 const peso = (b: number) => (b > 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.round(b / 1024)} KB`);

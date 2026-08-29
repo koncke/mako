@@ -21,7 +21,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
         <div style={{ width: '100%', maxWidth: 520, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 16, padding: 24 }}>
           <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>MaKo no pudo arrancar en este dispositivo</div>
           <p style={{ fontSize: 14, lineHeight: 1.55, color: '#5b6472', margin: '0 0 16px' }}>
-            Tus datos están intactos. Falló el arranque de la aplicación acá; copiá el detalle y mandáselo a quien te dio el acceso.
+            Tus datos están intactos. Falló el arranque de la aplicación aquí; copia el detalle y mándaselo a quien te dio el acceso.
           </p>
           <pre style={{ margin: '0 0 16px', padding: '12px 14px', borderRadius: 10, background: '#f4f5f7', border: '1px solid #e5e7eb', fontSize: 12, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{detalle}</pre>
           <button type="button" onClick={() => reset()}

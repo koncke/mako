@@ -43,7 +43,7 @@ function MiniSpin({ light }: { light?: boolean }) {
 /** Campo editable inline: mismo gesto que las tarjetas del lead magnet. */
 function Edit({ valor, ph, onSave, style }: { valor: string; ph?: string; onSave: (v: string) => void; style?: CSSProperties }) {
   return (
-    <div className="prod-edit" contentEditable suppressContentEditableWarning spellCheck={false} data-ph={ph || 'Escribí…'}
+    <div className="prod-edit" contentEditable suppressContentEditableWarning spellCheck={false} data-ph={ph || 'Escribe…'}
       onBlur={(e) => { const nv = (e.currentTarget.textContent || '').replace(/\s+/g, ' ').trim(); if (nv !== (valor ?? '').trim()) onSave(nv); }}
       style={{ outline: 'none', cursor: 'text', borderRadius: 6, padding: '2px 6px', margin: '0 -6px', ...style }}
     >{valor}</div>
@@ -104,7 +104,7 @@ function NuevoProducto({ onGuardar, onClose, pending }: { onGuardar: (p: Record<
     : actual === 'tipo' ? '¿Cómo se cobra?'
       : actual === 'monto' ? (esSus ? '¿De cuánto es la mensualidad?' : '¿Cuánto sale?')
         : '¿Qué duración tiene?';
-  const sub = actual === 'monto' ? (esSus ? 'Importe MENSUAL en USD. Si todavía no lo definiste, dejalo vacío.' : 'En USD. Si todavía no lo definiste, dejalo vacío.') : undefined;
+  const sub = actual === 'monto' ? (esSus ? 'Importe MENSUAL en USD. Si todavía no lo definiste, déjalo vacío.' : 'En USD. Si todavía no lo definiste, déjalo vacío.') : undefined;
 
   return (
     <WizardShell
@@ -169,13 +169,13 @@ export function ProductosView({ onListo }: { onListo?: (listo: boolean) => void 
         <div style={{ textAlign: 'center', padding: '18px 0 8px' }}>
           <div style={{ fontSize: 15, color: 'var(--ink)', lineHeight: 1.6, maxWidth: 520, margin: '0 auto 18px' }}>
             {est?.tieneContexto
-              ? 'Ya cargaste tu negocio y tus documentos. MaKo puede armar tu catálogo con eso — vos solo corregís lo que no le salga bien.'
-              : 'Todavía no hay con qué armarlos solos: cargá tu negocio o subí un documento en El Archivero, o agregalos a mano acá abajo.'}
+              ? 'Ya cargaste tu negocio y tus documentos. MaKo puede armar tu catálogo con eso — tú solo corriges lo que no le salga bien.'
+              : 'Todavía no hay con qué armarlos solos: carga tu negocio o sube un documento en El Archivero, o agrégalos a mano aquí abajo.'}
           </div>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
             {est?.tieneContexto && (
               <button type="button" onClick={sugerir} disabled={sugiriendo} style={{ ...btnPrimary, opacity: sugiriendo ? .7 : 1 }}>
-                {sugiriendo ? <><MiniSpin light /> Leyendo tu negocio…</> : '✦ Armalos vos, MaKo'}
+                {sugiriendo ? <><MiniSpin light /> Leyendo tu negocio…</> : '✦ Ármalos tú, MaKo'}
               </button>
             )}
             <button type="button" onClick={() => setNuevo(true)} style={btnGhost}>+ Agregar a mano</button>
@@ -226,14 +226,14 @@ export function ProductosView({ onListo }: { onListo?: (listo: boolean) => void 
                 <div style={{ marginTop: 11, display: 'flex', flexDirection: 'column', gap: 7 }}>
                   <div><span style={eyebrow}>Promesa</span><Edit valor={p.promesa ?? ''} ph="La transformación que compra el cliente" onSave={(v) => guardarCampo(p, { promesa: v })} style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.5 }} /></div>
                   <div><span style={eyebrow}>Incluye</span><Edit valor={p.incluye ?? ''} ph="Los entregables" onSave={(v) => guardarCampo(p, { incluye: v })} style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.5 }} /></div>
-                  <div><span style={eyebrow}>Garantía</span><Edit valor={p.garantia ?? ''} ph="Si tenés" onSave={(v) => guardarCampo(p, { garantia: v })} style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.5 }} /></div>
+                  <div><span style={eyebrow}>Garantía</span><Edit valor={p.garantia ?? ''} ph="Si tienes" onSave={(v) => guardarCampo(p, { garantia: v })} style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.5 }} /></div>
                 </div>
               </div>
             ))}
           </div>
 
           <p style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 14, lineHeight: 1.55 }}>
-            Este catálogo es el que usa el CRM: al cerrar un lead elegís uno y el deal hereda su precio y su forma de cobro.
+            Este catálogo es el que usa el CRM: al cerrar un lead eliges uno y el deal hereda su precio y su forma de cobro.
           </p>
         </>
       )}

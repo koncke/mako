@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
 
   const guion = typeof body.guion === 'string' ? body.guion.trim() : '';
   if (guion.length < 80) {
-    return Response.json({ ok: false, error: 'Pegá el guion completo (mínimo unas líneas) para poder valorarlo.' }, { status: 400 });
+    return Response.json({ ok: false, error: 'Pega el guion completo (mínimo unas líneas) para poder valorarlo.' }, { status: 400 });
   }
   const dur = Number.isFinite(Number(body.dur)) && Number(body.dur) > 0 ? Number(body.dur) : undefined;
 

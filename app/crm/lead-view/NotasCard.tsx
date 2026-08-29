@@ -77,7 +77,7 @@ export function NotasCard({ leadId }: { leadId: number }) {
       <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
         {cargando && <div style={{ fontSize: 13, color: 'var(--faint)' }}>Cargando notas…</div>}
         {!cargando && notas.length === 0 && (
-          <div style={{ fontSize: 13.5, color: 'var(--faint)', fontStyle: 'italic', padding: '4px 0' }}>Todavía no hay notas. Escribí la primera arriba.</div>
+          <div style={{ fontSize: 13.5, color: 'var(--faint)', fontStyle: 'italic', padding: '4px 0' }}>Todavía no hay notas. Escribe la primera arriba.</div>
         )}
         {notas.map((n) => (
           <div key={n.id} style={{ border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px', background: 'var(--surface-2)' }}>

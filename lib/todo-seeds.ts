@@ -149,7 +149,7 @@ export async function autocompletarPorSenales(tareas: Tarea[]): Promise<number> 
 
 ${lista}
 
-Si alguna no está lista, abrila y reabrila: no la vuelvo a tocar.
+Si alguna no está lista, ábrela y reábrela: no la vuelvo a tocar.
 ${APP_BASE_URL}/plan`,
       dedupTtlMin: 1440,
     }).catch((e) => console.error('[plan-auto] aviso:', e instanceof Error ? e.message : String(e)));

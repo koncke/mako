@@ -70,7 +70,7 @@ test('la salida propuesta coincide con la causa', () => {
   assert.match(cuota, /reinicie|otra cuenta|otra IA/i);
   const vencida = mensajeIAFallo({ hayIA: true, motivo: 'La API key parece inválida o vencida.', tema: 'x' });
   // A una key vencida NO la arregla esperar.
-  assert.match(vencida, /Pegá una nueva/);
+  assert.match(vencida, /Peg[aá] una nueva/);
   assert.doesNotMatch(vencida, /reinicie/i);
 });
 

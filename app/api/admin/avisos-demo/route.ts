@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   // Reusar un grupo existente (jid) o crear uno nuevo de pruebas.
   let jid = body.jid?.trim() || '';
   if (!jid) {
-    if (!numero) return NextResponse.json({ ok: false, error: 'pasá numero o jid' }, { status: 400 });
+    if (!numero) return NextResponse.json({ ok: false, error: 'pasa numero o jid' }, { status: 400 });
     const g = await crearGrupoSuelto('MaKo · Pruebas 🧪', [numero], descripcionGrupoMaKo('Pruebas'));
     if (!g.ok) return NextResponse.json({ ok: false, error: g.error }, { status: 500 });
     jid = g.jid;

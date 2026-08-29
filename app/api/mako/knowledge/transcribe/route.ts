@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     // Aceptamos por MIME de media, o por extensión de media (cubre el caso en que
     // el navegador reporta type '' o 'application/octet-stream' para .m4a/.mov/.mkv).
     if (!mimeMedia && !extMedia) {
-      return Response.json({ ok: false, error: 'Formato no soportado. Subí un audio o un video de la clase.' }, { status: 400 });
+      return Response.json({ ok: false, error: 'Formato no soportado. Sube un audio o un video de la clase.' }, { status: 400 });
     }
 
     const bytes = await file.arrayBuffer();

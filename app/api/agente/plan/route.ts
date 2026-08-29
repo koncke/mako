@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
   // propio en el wizard, y el cron cerrar-por-commits ya lo usa) y esta línea lo tenía
   // cerrado desde afuera. Ahora alcanza con que venga algo en cualquiera de los dos.
   if (!tareas.length && !cerrar.length) {
-    return NextResponse.json({ ok: false, error: 'mandá al menos una tarea en `tareas` o un cierre en `cerrar`' }, { status: 400 });
+    return NextResponse.json({ ok: false, error: 'manda al menos una tarea en `tareas` o un cierre en `cerrar`' }, { status: 400 });
   }
 
   try {

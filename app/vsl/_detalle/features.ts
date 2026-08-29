@@ -208,20 +208,20 @@ export const FEATURES: Record<string, Feature> = {
     name: "Tu funnel en un solo lugar",
     icon: ICON["funnel"],
     headline: "Tu negocio entero en una pantalla.",
-    lead: "Te hago una pregunta incómoda: <strong>¿podés ver tu negocio entero ahora mismo?</strong>",
+    lead: "Te hago una pregunta incómoda: <strong>¿puedes ver tu negocio entero ahora mismo?</strong>",
     videoEmbed: "https://player-vz-dd4ad08b-375.tv.pandavideo.com/embed/?v=8d035c87-3767-4b84-8a3d-da41efc6524f&autoplay=true&color=%232F6FED",
     groups: [
       {
-        title: "Para ver la salud de tu negocio, hoy abrís seis pestañas distintas, ¿no?",
+        title: "Para ver la salud de tu negocio, hoy abres seis pestañas distintas, ¿no?",
         bullets: [],
         preguntas: [
-          { logo: "meta.png", app: "Meta", q: "¿Sabés cuál es tu anuncio ganador y cuál deberías apagar hoy?" },
+          { logo: "meta.png", app: "Meta", q: "¿Sabes cuál es tu anuncio ganador y cuál deberías apagar hoy?" },
           { logo: "landing.svg", app: "Tu landing", q: "¿Estás trackeando, lead por lead, cuántas veces entró cada uno?" },
-          { logo: "vsl.png", app: "Tu VSL", q: "¿Sabés qué porcentaje de retención miró cada lead, uno por uno?" },
-          { logo: "calendly.png", app: "Calendly", q: "Si un lead no asistió, ¿sabés si se le hizo el seguimiento por WhatsApp y por email?" },
-          { logo: "llamada.svg", app: "Tus llamadas", q: "¿Sabés por qué un lead no cerró, y tenés un proceso de revisión como closer?" },
+          { logo: "vsl.png", app: "Tu VSL", q: "¿Sabes qué porcentaje de retención miró cada lead, uno por uno?" },
+          { logo: "calendly.png", app: "Calendly", q: "Si un lead no asistió, ¿sabes si se le hizo el seguimiento por WhatsApp y por email?" },
+          { logo: "llamada.svg", app: "Tus llamadas", q: "¿Sabes por qué un lead no cerró, y tienes un proceso de revisión como closer?" },
         ],
-        cierre: "Todo esto lo resuelve <strong>MaKo</strong>. Conectás tus aplicaciones una sola vez y quedan hablando entre ellas. No exportás, no pegás y no rehacés: <strong>MaKo lo hace todo</strong>.",
+        cierre: "Todo esto lo resuelve <strong>MaKo</strong>. Conectas tus aplicaciones una sola vez y quedan hablando entre ellas. No exportas, no pegas y no rehaces: <strong>MaKo lo hace todo</strong>.",
         verMas: { texto: "Descubrí cómo protegemos tus claves", href: "/vsl/integraciones", label: "Integraciones" },
       },
       {
@@ -229,8 +229,8 @@ export const FEATURES: Record<string, Feature> = {
         bullets: [
           "El camino entero en una sola línea: <strong>vieron tu anuncio → entraron a tu landing → miraron tu VSL → agendaron → vinieron a la reunión → pagaron</strong>.",
           "<strong>Y ahí vas a ver exactamente dónde se te caen.</strong> No “algo pasa”: el escalón, con nombre y número.",
-          "Sabiendo dónde está el agujero, dejás de tocar todo a la vez. Arreglás <em>ese</em> paso y el resto del funnel se acomoda.",
-          "Y como el recorrido termina en el pago, recién ahí sabés <strong>cuánto te costó un cliente de verdad</strong> — no cuánto te costó un lead.",
+          "Sabiendo dónde está el agujero, dejas de tocar todo a la vez. Arreglas <em>ese</em> paso y el resto del funnel se acomoda.",
+          "Y como el recorrido termina en el pago, recién ahí sabes <strong>cuánto te costó un cliente de verdad</strong> — no cuánto te costó un lead.",
         ],
         verMas: { texto: "Descubrí cómo MaKo te avisa automáticamente cuando algo falla", href: "/vsl/semaforo", label: "El Semáforo" },
       },
@@ -239,7 +239,7 @@ export const FEATURES: Record<string, Feature> = {
         bullets: [
           "De cada lead vas a ver <strong>cuántas veces entró a tu landing</strong> y <strong>hasta qué parte de tu VSL llegó</strong>.",
           "<strong>Y con eso le hablás distinto a cada uno.</strong> No es lo mismo el que se fue en el minuto uno que el que llegó al 88% y no agendó.",
-          "Al que casi cierra le mandás el empujón que le falta. Al que ni miró, otra cosa. <em>El mismo mensaje para todos es el que no convierte.</em>",
+          "Al que casi cierra le mandas el empujón que le falta. Al que ni miró, otra cosa. <em>El mismo mensaje para todos es el que no convierte.</em>",
           "Tu reproductor te da el promedio anónimo. <strong>MaKo te dice quién.</strong>",
         ],
         verMas: { texto: "Descubrí cómo MaKo automatiza todos tus mensajes", href: "/vsl/seguimiento", label: "Seguimiento automático" },
@@ -254,16 +254,16 @@ export const FEATURES: Record<string, Feature> = {
 
   'pipeline': {
     slug: 'pipeline',
-    name: "Armá tu embudo",
+    name: "Arma tu embudo",
     hook: "Editás una fila y el resto se escribe solo.",
     icon: ICON["funnel"],
     headline: "Editás una fila. El resto del embudo se escribe solo.",
-    lead: "El embudo real de un VSL Funnel no es <em>Lead → R1 → R2 → cierre</em>. Es eso <strong>más</strong> las nutriciones de No-Show por reunión, la de No-Paga y la reactivación de fríos — todo lo que nadie quiere modelar a mano y que en Miro se desactualiza a la semana. Acá editás solo la fila del pipeline activo y el resto <em>se deriva solo</em>.",
+    lead: "El embudo real de un VSL Funnel no es <em>Lead → R1 → R2 → cierre</em>. Es eso <strong>más</strong> las nutriciones de No-Show por reunión, la de No-Paga y la reactivación de fríos — todo lo que nadie quiere modelar a mano y que en Miro se desactualiza a la semana. Aquí editas solo la fila del pipeline activo y el resto <em>se deriva solo</em>.",
     groups: [
       {
         title: "Editás una banda, el sistema deriva las otras dos",
         bullets: [
-          "Trabajás <strong>solo sobre la fila \"Activo\"</strong>: nombrás cada etapa, le ponés tipo (entrada, reunión, grupo, pago, cierre o paso) y la ordenás. Agregás y quitás con un clic.",
+          "Trabajas <strong>solo sobre la fila \"Activo\"</strong>: nombras cada etapa, le pones tipo (entrada, reunión, grupo, pago, cierre o paso) y la ordenas. Agregas y quitas con un clic.",
           "La <strong>banda de Nutrición negativa</strong> — No-Show de R1, No-Show de R2, No-Paga, reactivación de fríos — <em>se genera sola</em> a partir del tipo de cada etapa que pusiste. No la dibujás: la derivás.",
           "La <strong>banda de Descartado</strong> es fija e igual para todos los funnels, así no reinventás las salidas en cada negocio.",
           "Es un embudo <em>lineal ordenado</em>, no un editor de grafo libre: no arrastrás flechas arbitrarias, las transiciones se generan por tipo. Menos decisiones, cero embudo huérfano.",
@@ -273,15 +273,15 @@ export const FEATURES: Record<string, Feature> = {
         title: "El mapa te dice quién dispara cada paso",
         bullets: [
           "Arriba del editor hay un <strong>mapa SVG</strong> del embudo completo con ruteo ortogonal de flechas por canales — de un vistazo ves entradas, reuniones, nutriciones y salidas.",
-          "Cada transición muestra su disparador: <strong>⚡ automático hoy</strong>, <strong>◐ automatizable por MaKo</strong> o <strong>✋ requiere que marques el resultado</strong>. Sabés exactamente qué corre solo y qué todavía es tuyo.",
-          "Pasás el mouse sobre una etapa y el mapa <strong>resalta sus transiciones entrantes y salientes</strong> y atenúa el resto — leés el flujo real de ese punto sin ruido.",
+          "Cada transición muestra su disparador: <strong>⚡ automático hoy</strong>, <strong>◐ automatizable por MaKo</strong> o <strong>✋ requiere que marques el resultado</strong>. Sabes exactamente qué corre solo y qué todavía es tuyo.",
+          "Pasas el mouse sobre una etapa y el mapa <strong>resalta sus transiciones entrantes y salientes</strong> y atenúa el resto — lees el flujo real de ese punto sin ruido.",
           "Hoy están cableados de verdad dos disparadores: <strong>Formulario</strong> (Meta instant forms) y <strong>Agenda</strong> (Calendly). Pago, asistencia y tiempo son automatizables, todavía por marcado.",
         ],
       },
       {
         title: "Plantilla VSL+Webinar lista para arrancar",
         bullets: [
-          "Cuatro plantillas aplicables desde un modal con confirmación: <strong>High-Ticket, Simple, Directa y VSL</strong>. Elegís una y reemplaza tu pipeline entero.",
+          "Cuatro plantillas aplicables desde un modal con confirmación: <strong>High-Ticket, Simple, Directa y VSL</strong>. Eliges una y reemplaza tu pipeline entero.",
           "La plantilla <strong>VSL+Webinar trae el grupo de WhatsApp incluido</strong> como etapa de tipo grupo — la logística que a mano siempre queda a medias.",
           "El <strong>wizard de onboarding también puede setear el funnel desde plantilla</strong> del lado del servidor, no solo la tab: el cliente nuevo arranca con un embudo real, no una hoja en blanco.",
           "Cambiás lo que quieras encima de la plantilla; sigue siendo tu embudo, no un molde cerrado.",
@@ -291,7 +291,7 @@ export const FEATURES: Record<string, Feature> = {
         title: "Una config, fuente de verdad de todo el proceso comercial",
         bullets: [
           "El funnel vive en <strong>una fila por workspace</strong> (funnel_config: pipeline + suppressed). La misma config alimenta el <strong>Kanban del CRM</strong>, las opciones de <strong>\"Datos sin marcar\"</strong>, el onboarding y el contexto que lee MaKo en su prompt.",
-          "No es un diagrama que se desactualiza: es el <strong>embudo ejecutable</strong>. Tocás una etapa acá y se mueve el tablero del equipo.",
+          "No es un diagrama que se desactualiza: es el <strong>embudo ejecutable</strong>. Tocas una etapa aquí y se mueve el tablero del equipo.",
           "Guarda solo en el fondo, con <strong>toast de 5 segundos y botón Deshacer</strong>. No hay botón guardar que se te olvide apretar.",
           "MaKo lee tu funnel como contexto: cuando te sugiere una nutrición o interpreta una señal, habla <em>en los términos de tu embudo</em>, no de uno genérico.",
         ],
@@ -300,7 +300,7 @@ export const FEATURES: Record<string, Feature> = {
     conecta: ["Calendly", "Meta Ads / instant forms", "Fathom", "MaKo"],
     quote: "Modelás cómo avanza tu lead una vez, y el resto del embudo — y tu tablero CRM — se arman solos.",
     nota: "Vivo y en producción: el editor edita, deriva y persiste por workspace, y ya alimenta CRM, Datos sin marcar, onboarding y MaKo. En activación (no lo prometemos como automático todavía): el motor de Automatizaciones de MaKo (T1-T6) que MUEVE leads solo corre en modo observación / dry-run — calcula los movimientos pero no toca nada hasta prenderse (gateado por CRM_AUTO_ENABLED).",
-    metaTitle: "Armá tu embudo en MaKo: editás el pipeline y se deriva solo",
+    metaTitle: "Arma tu embudo en MaKo: editas el pipeline y se deriva solo",
     metaDesc: "Editás solo el pipeline activo y MaKo deriva las nutriciones, el No-Show y las salidas. La misma config alimenta tu CRM, el onboarding y el contexto de MaKo. Plantilla VSL+Webinar lista.",
   },
 
@@ -309,15 +309,15 @@ export const FEATURES: Record<string, Feature> = {
     name: "Onboarding del cliente (wizard)",
     icon: ICON["onboarding"],
     headline: "Tu primer login ya conoce tu negocio",
-    lead: "<strong>La mayoría de las herramientas te reciben con una pantalla en blanco:</strong> conectás todo, importás a mano, y recién a la semana empezás a ver algo. Vos vendés High Ticket con VSL Funnel — <em>no tenés una semana para configurar un dashboard</em>. Con MaKo conectás Meta, contestás 3 preguntas, y <strong>mientras tanto la herramienta te lee 365 días de ads, transcribe tus creativos, analiza tus guiones y tus llamadas de Fathom, y te entrega una primera Retro que te dice dónde se te va la plata.</strong> Cero pantalla en blanco el día uno.",
+    lead: "<strong>La mayoría de las herramientas te reciben con una pantalla en blanco:</strong> conectas todo, importas a mano, y recién a la semana empiezas a ver algo. Tú vendes High Ticket con VSL Funnel — <em>no tienes una semana para configurar un dashboard</em>. Con MaKo conectas Meta, contestas 3 preguntas, y <strong>mientras tanto la herramienta te lee 365 días de ads, transcribe tus creativos, analiza tus guiones y tus llamadas de Fathom, y te entrega una primera Retro que te dice dónde se te va la plata.</strong> Cero pantalla en blanco el día uno.",
     groups: [
       {
         title: "No es un tour vacío: es tu histórico real cargándose solo",
         bullets: [
-          "Apenas conectás Meta se dispara una extracción de 365 días en background: métricas, leads de formularios, transcripciones de tus anuncios, análisis de guiones, llamadas de Fathom y métricas del VSL.",
-          "Son 6 jobs encadenados por dependencias (métricas → leads → transcripciones → guiones → llamadas → VSL), corriendo por tandas reanudables mientras vos seguís contestando preguntas.",
+          "Apenas conectas Meta se dispara una extracción de 365 días en background: métricas, leads de formularios, transcripciones de tus anuncios, análisis de guiones, llamadas de Fathom y métricas del VSL.",
+          "Son 6 jobs encadenados por dependencias (métricas → leads → transcripciones → guiones → llamadas → VSL), corriendo por tandas reanudables mientras tú sigues contestando preguntas.",
           "Un panel lateral te muestra conteos reales a medida que entran: cuántas métricas y qué rango de fechas, cuántos leads, transcripts, guiones, llamadas y filas de VSL. La promesa del carrusel se reemplaza por TUS datos.",
-          "Si cerrás la pestaña, el próximo login retoma desde donde quedó (ej. día 120/365) gracias a un cursor persistido. No re-empieza de cero.",
+          "Si cierras la pestaña, el próximo login retoma desde donde quedó (ej. día 120/365) gracias a un cursor persistido. No re-empieza de cero.",
         ],
       },
       {
@@ -325,7 +325,7 @@ export const FEATURES: Record<string, Feature> = {
         bullets: [
           "Los pasos salen de tu capa: un Project Manager arranca directo en el brief; un plan Completo empieza conectando Meta y WhatsApp. Nadie contesta pantallas que no le tocan.",
           "Una pregunta por pantalla, sobre una tarjeta partida: a la izquierda facts de tu negocio, a la derecha la pregunta. Volver Atrás nunca borra lo que ya respondiste.",
-          "El estado guarda las respuestas de TODOS los pasos posibles aunque tu capa muestre pocos: si subís de capa, MaKo no te vuelve a preguntar lo ya contestado.",
+          "El estado guarda las respuestas de TODOS los pasos posibles aunque tu capa muestre pocos: si subes de capa, MaKo no te vuelve a preguntar lo ya contestado.",
           "El brief base son solo 3 preguntas. Oferta, avatar y personaje de marca (18 campos) se llenan después en Configuraciones, sin bloquearte la entrada.",
         ],
       },
@@ -351,16 +351,16 @@ export const FEATURES: Record<string, Feature> = {
         bullets: [
           "Fail-closed por diseño: si tu token de Meta desaparece a mitad de la extracción, MaKo corta — nunca cae al token de la agencia para seguir con datos que no son tuyos.",
           "Rate limit de Meta manejado con criterio: si Meta te frena, pausa 30s y reintenta ese job; solo un error genuino se marca como error y queda reintentable.",
-          "Lease anti-doble-runner: si abrís dos pestañas, no duplican la extracción — una toma el mando y la otra no toca nada. Escrituras idempotentes como red de seguridad.",
+          "Lease anti-doble-runner: si abres dos pestañas, no duplican la extracción — una toma el mando y la otra no toca nada. Escrituras idempotentes como red de seguridad.",
           "Cada job se saltea con motivo si falta la integración (Fathom sin conectar → 0 llamadas; sin YouTube/Panda → sin métricas de VSL). MaKo no te promete extraer lo que no conectaste.",
         ],
       },
     ],
     conecta: ["Meta Ads", "Fathom", "WhatsApp", "VSL", "Retro", "Plan de ejecución", "Nutrición", "Diagnóstico de fase"],
-    quote: "Cero pantalla en blanco el día uno: conectás Meta y, mientras contestás 3 preguntas, MaKo ya te dice dónde se te va la plata.",
-    nota: "La extracción histórica corre en la pestaña del navegador mientras avanzás el wizard: si la cerrás, se pausa y retoma en tu próximo login, pero no sigue sola en background sin nadie mirando. Un par de honestidades más: la ventana de leads de Meta es de ~90 días (lo que Meta retiene), no 365 como las métricas; el email no se conecta acá (el dominio se verifica aparte, desde la tab de Email); y siempre podés marcar 'Co…",
+    quote: "Cero pantalla en blanco el día uno: conectas Meta y, mientras contestas 3 preguntas, MaKo ya te dice dónde se te va la plata.",
+    nota: "La extracción histórica corre en la pestaña del navegador mientras avanzas el wizard: si la cierras, se pausa y retoma en tu próximo login, pero no sigue sola en background sin nadie mirando. Un par de honestidades más: la ventana de leads de Meta es de ~90 días (lo que Meta retiene), no 365 como las métricas; el email no se conecta aquí (el dominio se verifica aparte, desde la tab de Email); y siempre puedes marcar 'Co…",
     metaTitle: "Onboarding de MaKo: tu dashboard te conoce en el primer login",
-    metaDesc: "Conectás Meta, contestás 3 preguntas y MaKo lee 365 días de tus ads, transcribe tus creativos, analiza tus llamadas de Fathom y te entrega tu primera Retro. Sin pantalla en blanco.",
+    metaDesc: "Conectas Meta, contestas 3 preguntas y MaKo lee 365 días de tus ads, transcribe tus creativos, analiza tus llamadas de Fathom y te entrega tu primera Retro. Sin pantalla en blanco.",
   },
 
   'dashboard': {
@@ -368,7 +368,7 @@ export const FEATURES: Record<string, Feature> = {
     name: "Dashboard",
     icon: ICON["dashboard"],
     headline: "Tus gráficos ya no te dejan solo frente a la barra",
-    lead: "<strong>Abrís Looker o Data Studio, ves una barra que sube, otra que baja, y te quedás igual de perdido:</strong> ¿apago este anuncio o lo escalo? ¿dónde se me cae el funnel entre el VSL y el cierre? Un reporte lindo no vende High Ticket; una <strong>decisión</strong> sí. Graphics te arma tu embudo exacto —Impresión→Click→Landing→VSL→cierre→cobro— con las tasas de paso reales de Meta, y le pega a <em>cada</em> gráfico un botón que abre a MaKo: un analista que ya conoce la fase de tu negocio, tu metodología y tus experimentos validados, y te responde mirando <strong>los números exactos de ese gráfico</strong>, no una captura ni un chat genérico pegado al costado.",
+    lead: "<strong>Abres Looker o Data Studio, ves una barra que sube, otra que baja, y te quedas igual de perdido:</strong> ¿apago este anuncio o lo escalo? ¿dónde se me cae el funnel entre el VSL y el cierre? Un reporte lindo no vende High Ticket; una <strong>decisión</strong> sí. Graphics te arma tu embudo exacto —Impresión→Click→Landing→VSL→cierre→cobro— con las tasas de paso reales de Meta, y le pega a <em>cada</em> gráfico un botón que abre a MaKo: un analista que ya conoce la fase de tu negocio, tu metodología y tus experimentos validados, y te responde mirando <strong>los números exactos de ese gráfico</strong>, no una captura ni un chat genérico pegado al costado.",
     groups: [
       {
         title: "Un analista sobre cada gráfico, no un chat al costado",
@@ -409,7 +409,7 @@ export const FEATURES: Record<string, Feature> = {
       {
         title: "Memoria, audiencia y plata bien gastada",
         bullets: [
-          "Cada chat se guarda como sesión pineable, renombrable y archivable por workspace: volvés a la conversación de ese gráfico cuando querés.",
+          "Cada chat se guarda como sesión pineable, renombrable y archivable por workspace: vuelves a la conversación de ese gráfico cuando quieres.",
           "El título de la sesión lo autogenera una IA barata (Groq/OpenAI) y solo cae a Claude si el proveedor barato falla: no se quema Opus en tareas triviales.",
           "Gráficos de audiencia con breakdown por edad/género, plataforma y un mapa geográfico de México por región (recharts + d3-geo, cargados on-demand).",
           "Abrir un gráfico SIEMPRE devuelve un análisis, incluso reparando sesiones que quedaron vacías por un error previo.",
@@ -418,7 +418,7 @@ export const FEATURES: Record<string, Feature> = {
     ],
     conecta: ["Meta Ads", "Claude (MaKo)", "Groq / OpenAI", "Supabase", "Ficha del lead", "Fase del negocio", "Experimentos validados", "Funnel config"],
     quote: "Otros te pintan la barra. Graphics te dice qué hacer con ella.",
-    nota: "MaKo en Graphics es lectura y recomendación, no ejecución: analiza y te dice qué hacer, pero no pausa anuncios ni mueve presupuesto desde acá (eso vive en Ads Manager). Dos detalles honestos: la sección 'Tendencia' de Marketing se renderiza server-side, así que muestra la métrica por defecto sin selector ni hover —la versión interactiva vive en Comercial— y el mapa de México de los breakdowns por anuncio depende de u…",
+    nota: "MaKo en Graphics es lectura y recomendación, no ejecución: analiza y te dice qué hacer, pero no pausa anuncios ni mueve presupuesto desde aquí (eso vive en Ads Manager). Dos detalles honestos: la sección 'Tendencia' de Marketing se renderiza server-side, así que muestra la métrica por defecto sin selector ni hover —la versión interactiva vive en Comercial— y el mapa de México de los breakdowns por anuncio depende de u…",
     metaTitle: "Graphics de MaKo: reportes visuales con un analista de IA en cada gráfico",
     metaDesc: "Tu embudo real de Meta —Impresión→Click→Landing→VSL→cierre→cobro— con tasas de paso, KPIs de spend/CAC/ROAS y un botón MaKo sobre cada gráfico que analiza tus números exactos y te dice si apagar o escalar. Para vendedores de High Ticket con VSL Funnel.",
   },
@@ -435,12 +435,12 @@ export const FEATURES: Record<string, Feature> = {
         title: "Hoy tu CRM se llena a mano. Y siempre se te escapa alguno.",
         bullets: [
           "Es el trabajo que <strong>no vende nada</strong>: el nombre, el teléfono, de dónde vino, si asistió a la llamada, el enlace de la grabación, cuánto te va a pagar. Y eso <strong>por cada lead que entra</strong>.",
-          "Si no lo hacés, te quedás ciego. Así que lo dejás para la noche. O para el domingo. <strong>O no lo hacés.</strong>",
+          "Si no lo haces, te quedas ciego. Así que lo dejas para la noche. O para el domingo. <strong>O no lo haces.</strong>",
           "Y ahí el embudo se pudre: no por mala estrategia, sino por <strong>un dato que nadie cargó a tiempo</strong>.",
         ],
       },
       {
-        title: "MaKo llena tu CRM por vos, lead por lead.",
+        title: "MaKo llena tu CRM por ti, lead por lead.",
         bullets: [
           "<strong>Entra alguien por tu anuncio</strong> → la ficha se crea sola.",
           "<strong>Agenda una llamada</strong> → el lead se mueve solo a la etapa que toca.",
@@ -456,23 +456,23 @@ export const FEATURES: Record<string, Feature> = {
         bullets: [
           "Cada cosa que hace, te la avisa: <strong>entró un lead, se agendó, vino a la reunión, no se presentó</strong>. En tu WhatsApp, no en una pestaña más.",
           "Antes de la reunión te pasa la <strong>ficha del lead lista</strong>, para que llegues sabiendo con quién vas a hablar.",
-          "Vos respondés con un <em>«dale»</em>. El resto ya está hecho.",
+          "Tú respondes con un <em>«adelante»</em>. El resto ya está hecho.",
         ],
-        cierre: "«Ya tengo mi CRM.» Claro. Y también tenés que perder el tiempo llenándolo. <strong>No existe un CRM pensado para un VSL funnel.</strong> El tuyo no necesita más disciplina: <strong>necesita llenarse solo</strong>.",
+        cierre: "«Ya tengo mi CRM.» Claro. Y también tienes que perder el tiempo llenándolo. <strong>No existe un CRM pensado para un VSL funnel.</strong> El tuyo no necesita más disciplina: <strong>necesita llenarse solo</strong>.",
         verMas: { texto: "Descubrí cómo MaKo trabaja tu WhatsApp", href: "/vsl/whatsapp", label: "WhatsApp" },
       },
     ],
     conecta: ["Meta Ads", "Calendly", "Fathom", "WhatsApp"],
-    hook: "MaKo llena tu CRM por vos: crea la ficha, mueve el lead solo y engancha la grabación. Vos solo cerrás.",
+    hook: "MaKo llena tu CRM por ti: crea la ficha, mueve el lead solo y engancha la grabación. Tú solo cierras.",
     metaTitle: "CRM Automatizado para High Ticket | MaKo",
-    metaDesc: "MaKo llena tu CRM por vos: crea la ficha cuando entra un lead, lo mueve de etapa solo, engancha la grabación de la llamada y te avisa todo por WhatsApp. Vos solo cerrás.",
+    metaDesc: "MaKo llena tu CRM por ti: crea la ficha cuando entra un lead, lo mueve de etapa solo, engancha la grabación de la llamada y te avisa todo por WhatsApp. Tú solo cierras.",
   },
 
   'api': {
     slug: 'api',
     name: "La API de Meta, optimizada",
     icon: ICON["api"],
-    headline: "Meta es tan buena como lo que le dejás ver",
+    headline: "Meta es tan buena como lo que le dejas ver",
     lead: "El píxel sabe quién hizo clic. <strong>No sabe</strong> quién llegó a la llamada descalificado, ni quién se vio tu VSL entero y compró. El pixel del navegador le grita a Meta <em>\"otro formulario lleno\"</em> — y el algoritmo te trae más formularios llenos que nunca contestan. MaKo le devuelve a Meta esas <strong>conversiones reales</strong> (el CAPI) <strong>server-side y desde la verdad de tu CRM</strong>: no cuando alguien deja el mail, sino cuando <strong>califica</strong> y cuando <strong>reserva la llamada</strong>. Con identidad hasheada que sobrevive a los bloqueadores de pixel, para que Meta salga a buscar más gente como la que te paga — <em>no más curiosos</em>.",
     groups: [
       {
@@ -538,7 +538,7 @@ export const FEATURES: Record<string, Feature> = {
     name: "Ads Manager para VSL Funnel",
     icon: ICON["ads"],
     headline: "Nunca más tres horas peleándote con el Ads Manager — y por fin ves, en la misma fila, cuánto CASH cerró cada anuncio",
-    lead: "Meta está hecho para todos: quien vende productos, servicios, catálogos, mensajes... por eso son <strong>mil botones que no necesitás</strong>. MaKo te deja solo lo que un VSL Funnel usa. Pero además arregla el problema de fondo: Meta te dice el CPL y las \\\"conversiones\\\" del pixel, y <em>ninguno de esos números te dice si vendiste</em>. MaKo replica el Ads Manager de Meta dentro del dashboard y le agrega la columna que falta: <strong>los cierres y el cash real de tu CRM, por anuncio</strong>. Pausás por ROAS de caja, no por CPL vanidoso — y cuando querés escalar, MaKo ya sabe cuál fue tu creativo ganador por ventas y te lo propone replicar, con el árbol completo armado y en PAUSA hasta que vos apretés activar.",
+    lead: "Meta está hecho para todos: quien vende productos, servicios, catálogos, mensajes... por eso son <strong>mil botones que no necesitas</strong>. MaKo te deja solo lo que un VSL Funnel usa. Pero además arregla el problema de fondo: Meta te dice el CPL y las \\\"conversiones\\\" del pixel, y <em>ninguno de esos números te dice si vendiste</em>. MaKo replica el Ads Manager de Meta dentro del dashboard y le agrega la columna que falta: <strong>los cierres y el cash real de tu CRM, por anuncio</strong>. Pausas por ROAS de caja, no por CPL vanidoso — y cuando quieres escalar, MaKo ya sabe cuál fue tu creativo ganador por ventas y te lo propone replicar, con el árbol completo armado y en PAUSA hasta que tú presiones activar.",
     groups: [
       {
         title: "La tabla que Meta no te da: estado en vivo + rendimiento + CRM en una sola fila",
@@ -555,25 +555,25 @@ export const FEATURES: Record<string, Feature> = {
           "<strong>Pausar/activar, cambiar presupuesto, renombrar y borrar</strong> directo contra el Graph API — CBO en la campaña, ABO en el conjunto. No es una vista de solo lectura.",
           "El renombrado se <strong>propaga en el acto</strong> a tus leads y a las métricas diarias, para que no te quede el nombre viejo colgado en ningún reporte.",
           "Maneja el patrón traicionero de Meta: errores que llegan con <strong>HTTP 200</strong>. MaKo mira el cuerpo de la respuesta, nunca el status, así un fallo no pasa como éxito.",
-          "<strong>Renombrado masivo con IA sobre tu plantilla</strong>: vos definís el formato (ej. '{nnn}. {objetivo} / {ángulo} - {mes} / {año}'), MaKo solo EXTRAE el valor de cada variable mirando nombre, jerarquía y fecha; la plantilla arma el nombre — formato exacto garantizado.",
+          "<strong>Renombrado masivo con IA sobre tu plantilla</strong>: tú defines el formato (ej. '{nnn}. {objetivo} / {ángulo} - {mes} / {año}'), MaKo solo EXTRAE el valor de cada variable mirando nombre, jerarquía y fecha; la plantilla arma el nombre — formato exacto garantizado.",
         ],
       },
       {
-        title: "Crear campañas con MaKo: subís el creativo, respondés y sale el árbol publicado, siempre en PAUSA",
+        title: "Crear campañas con MaKo: subes el creativo, respondes y sale el árbol publicado, siempre en PAUSA",
         bullets: [
-          "Subí tu creativo (o usá uno ganador), decí cuánto invertir y a quién apuntar. MaKo recibe un brief real de tu negocio —<strong>etapas del funnel, perfil de cliente, CPL/CAC/ROAS de los últimos 30 días, tus anuncios ganadores para replicar y el método de adquisición</strong>— y devuelve un CampaignSpec editable: objetivo, CBO/ABO, targeting, creativos y copy.",
-          "Arma el <strong>árbol completo campaña → conjunto → creativo → anuncio</strong> creado siempre en PAUSED, con rollback best-effort si algo falla a mitad de camino. Nada sale al aire sin que vos lo actives — un clic y sale.",
-          "También <strong>agregás un conjunto o un anuncio a una campaña que ya existe</strong>: hereda el optimization_goal y la conversión (pixel/evento) del conjunto vivo, así el nuevo optimiza por lo mismo sin re-pedirte pixel.",
+          "Sube tu creativo (o usa uno ganador), di cuánto invertir y a quién apuntar. MaKo recibe un brief real de tu negocio —<strong>etapas del funnel, perfil de cliente, CPL/CAC/ROAS de los últimos 30 días, tus anuncios ganadores para replicar y el método de adquisición</strong>— y devuelve un CampaignSpec editable: objetivo, CBO/ABO, targeting, creativos y copy.",
+          "Arma el <strong>árbol completo campaña → conjunto → creativo → anuncio</strong> creado siempre en PAUSED, con rollback best-effort si algo falla a mitad de camino. Nada sale al aire sin que tú lo actives — un clic y sale.",
+          "También <strong>agregas un conjunto o un anuncio a una campaña que ya existe</strong>: hereda el optimization_goal y la conversión (pixel/evento) del conjunto vivo, así el nuevo optimiza por lo mismo sin re-pedirte pixel.",
           "Cablea lo que Meta necesita para publicar de verdad: <strong>cuenta de Instagram conectada</strong> (si no, solo entrega en Facebook), eventos ACTIVOS del pixel, intereses resueltos a ids reales y soporte de formularios instantáneos (lead ads).",
         ],
       },
       {
         title: "Ads Writer: dame ganchos nuevos para el VSL sin volver a explicar quién soy",
         bullets: [
-          "Escribís en lenguaje natural qué querés promocionar y MaKo devuelve <strong>3 a 5 variantes, cada una con un ángulo psicológico distinto</strong> (dolor, prueba social, urgencia, aspiracional, contraintuitivo). No son reescrituras de la misma idea: cada tarjeta ataca un gatillo diferente.",
+          "Escribes en lenguaje natural qué quieres promocionar y MaKo devuelve <strong>3 a 5 variantes, cada una con un ángulo psicológico distinto</strong> (dolor, prueba social, urgencia, aspiracional, contraintuitivo). No son reescrituras de la misma idea: cada tarjeta ataca un gatillo diferente.",
           "Cada variante trae los <strong>4 campos exactos de un anuncio de Meta</strong>: texto principal (gancho en la 1a línea), título, descripción y CTA — listos para pegar, con botón de copiar por campo y 'Copiar todo'.",
           "A diferencia de ChatGPT, ya conoce tu negocio: cada línea sale anclada en tu <strong>oferta, avatar, funnel y tus 6 anuncios ganadores de los últimos 30 días con sus CPL/CAC reales</strong> (el mismo brief que usa el creador de campañas). Regla del prompt: nada de inventar cifras ni garantías.",
-          "<strong>Modo ajuste iterativo</strong>: pedís un cambio en lenguaje natural (más corto, otro ángulo, tono más directo) y MaKo regenera conservando lo que ya funcionaba. El copy sale en español mexicano para tu audiencia; MaKo te dice, en su voz, cuál probar primero.",
+          "<strong>Modo ajuste iterativo</strong>: pides un cambio en lenguaje natural (más corto, otro ángulo, tono más directo) y MaKo regenera conservando lo que ya funcionaba. El copy sale en español mexicano para tu audiencia; MaKo te dice, en su voz, cuál probar primero.",
         ],
       },
       {
@@ -581,7 +581,7 @@ export const FEATURES: Record<string, Feature> = {
         bullets: [
           "<strong>UTMs automáticos en cada anuncio nuevo</strong>: se inyectan las macros {{campaign.name}}/{{ad.name}}/{{adset.name}}, así utm_source/medium/campaign/content se rellenan solos en cada clic — y es lo que después empalma la identificación del lead con el funnel.",
           "<strong>Públicos de retargeting</strong> (engagement de Facebook/Instagram, video o pixel por evento) con ventana de retención configurable, sin ir a Meta.",
-          "Editor de segmentación <strong>no destructivo</strong>: como el POST reemplaza el targeting entero, MaKo trae el objeto crudo de Meta y superpone solo lo que tocás — no te borra geo por ciudad, idiomas, behaviors ni exclusiones.",
+          "Editor de segmentación <strong>no destructivo</strong>: como el POST reemplaza el targeting entero, MaKo trae el objeto crudo de Meta y superpone solo lo que tocas — no te borra geo por ciudad, idiomas, behaviors ni exclusiones.",
           "<strong>Reparar un anuncio rechazado editando el texto</strong>: en Meta el creativo es inmutable, así que MaKo crea uno nuevo reusando el mismo video/imagen, cambia el copy y re-apunta el anuncio (re-dispara la revisión). No rompe casos delicados: Advantage+, CTA de WhatsApp/Messenger o posts reutilizados los deriva a Meta.",
         ],
       },
@@ -596,18 +596,18 @@ export const FEATURES: Record<string, Feature> = {
       },
     ],
     conecta: ["Meta Ads (Graph API)", "MaKo · Claude", "OpenAI gpt-4o visión", "OpenAI Whisper", "Supabase", "CRM interno"],
-    quote: "Dejá de pausar por CPL. Pausá por la plata que entró.",
+    quote: "Deja de pausar por CPL. Pausa por la plata que entró.",
     nota: "Hoy corre sobre la cuenta y página de Meta del dueño del workspace (Fase 1): administrás TUS campañas, todavía no las de cada cliente por separado. La creación de campañas está cableada de punta a punta pero sus permisos de escritura contra cuentas nuevas aún se están validando en vivo.",
     metaTitle: "Ads Manager para VSL Funnel | MaKo",
-    metaDesc: "El único Ads Manager que muestra el cash cerrado de tu CRM por cada anuncio. Pausás, activás, cambiás presupuesto, creás campañas y escribís copy con MaKo contra Meta — sin salir del dashboard.",
+    metaDesc: "El único Ads Manager que muestra el cash cerrado de tu CRM por cada anuncio. Pausas, activas, cambias presupuesto, creas campañas y escribes copy con MaKo contra Meta — sin salir del dashboard.",
   },
 
   'script': {
     slug: 'script',
     name: "Ads Analyst",
     icon: ICON["script"],
-    headline: "Dejá de adivinar qué creativo funciona. Que lo diga la data.",
-    lead: "Cada anuncio gana o pierde plata todos los días, y vos <em>no sabés por qué</em>. Sabés que un video ad rinde y otro no, pero no en qué línea del guion se te va la gente. <strong>MaKo transcribe todos tus creativos solo</strong>, los cruza con su retención real de Meta y los ordena en un mapa: cuál escalar, a cuál cambiarle el gancho, cuál reescribir y cuál apagar. Ves <strong>palabra por palabra en qué segundo se cae tu video</strong> —y si el problema es el gancho o lo que viene después—, dónde cae la audiencia antes del CTA y qué ángulo te agenda por cada $1.000. Y antes de gastar un peso en producir, <strong>pegás un guion nuevo y MaKo lo valora antes de que lo grabes</strong>: te dice si se parece a lo que ya te cierra o si repite tu ángulo saturado. Además detecta <em>patrones que solo no ves</em> —\"atacás siempre al dolor y dejaste sin probar los testimonios\"— todo medido contra el perfil real de tu cuenta, no contra benchmarks de internet.",
+    headline: "Deja de adivinar qué creativo funciona. Que lo diga la data.",
+    lead: "Cada anuncio gana o pierde plata todos los días, y tú <em>no sabes por qué</em>. Sabes que un video ad rinde y otro no, pero no en qué línea del guion se te va la gente. <strong>MaKo transcribe todos tus creativos solo</strong>, los cruza con su retención real de Meta y los ordena en un mapa: cuál escalar, a cuál cambiarle el gancho, cuál reescribir y cuál apagar. Ves <strong>palabra por palabra en qué segundo se cae tu video</strong> —y si el problema es el gancho o lo que viene después—, dónde cae la audiencia antes del CTA y qué ángulo te agenda por cada $1.000. Y antes de gastar un peso en producir, <strong>pegas un guion nuevo y MaKo lo valora antes de que lo grabes</strong>: te dice si se parece a lo que ya te cierra o si repite tu ángulo saturado. Además detecta <em>patrones que solo no ves</em> —\"atacas siempre al dolor y dejaste sin probar los testimonios\"— todo medido contra el perfil real de tu cuenta, no contra benchmarks de internet.",
     groups: [
       {
         title: "El guion partido en bloques, con la retención encima",
@@ -648,7 +648,7 @@ export const FEATURES: Record<string, Feature> = {
       {
         title: "Tuyo, corregible y siempre al día",
         bullets: [
-          "Los <strong>vocabularios de ángulos y avatares son editables por cliente</strong>: alimentan los chips, filtros y el cuadrante de la UI y también el prompt de Claude. Los avatares arrancan vacíos hasta que los definís vos.",
+          "Los <strong>vocabularios de ángulos y avatares son editables por cliente</strong>: alimentan los chips, filtros y el cuadrante de la UI y también el prompt de Claude. Los avatares arrancan vacíos hasta que los defines tú.",
           "Corregís el ángulo o el avatar de un anuncio a mano y ese <strong>override sobrevive al re-análisis</strong>: se guarda aparte y la IA no te lo vuelve a pisar al re-sincronizar.",
           "<strong>Sync incremental diario</strong> (cron 16:00, tras transcribir los ads a las 14:00): saltea lo ya analizado para no re-gastar Claude, reintenta los que fallaron y se autocompleta corrida a corrida.",
           "Cada análisis y cada guion nuevo valorado <strong>quedan guardados y navegables</strong>, con re-análisis manual de un anuncio cuando lo necesites.",
@@ -656,7 +656,7 @@ export const FEATURES: Record<string, Feature> = {
       },
     ],
     conecta: ["Meta Ads", "CRM propio (leads → cierres)", "Claude Opus", "Transcripción de video ads", "Supabase", "Vercel Cron"],
-    quote: "Dejá de adivinar por qué gana un anuncio: mirá el bloque del guion donde se te cae la gente.",
+    quote: "Deja de adivinar por qué gana un anuncio: mira el bloque del guion donde se te cae la gente.",
     metaTitle: "Ads Analyst — auditá el guion de tus video ads de Meta | MaKo",
     metaDesc: "MaKo lee el guion de cada video ad, lo parte en bloques y le superpone tu retención real de Meta para mostrarte dónde se cae la audiencia. Cruza guion, métricas y cierres de tu CRM, y valora guiones nuevos contra el perfil real de tu cuenta antes de gastar.",
   },
@@ -666,7 +666,7 @@ export const FEATURES: Record<string, Feature> = {
     name: "Closing Analyst",
     icon: ICON["closing"],
     headline: "Cada llamada, puntuada y convertida en tu próxima lección. Tus grabaciones de Fathom saben por qué perdés cierres — MaKo te lo dice.",
-    lead: "Escuchar y calificar cada llamada a mano es <em>imposible</em>. Tenés cientos de horas de llamadas de venta en Fathom mezcladas con sesiones de coaching de clientes que ya cerraste — y nadie las revisa porque nadie tiene tiempo de mirarlas ni de taggear cuál es cuál. MaKo las trae de Fathom, las <strong>puntúa con el método SPIN</strong> y te muestra, con el minuto exacto, dónde cerraste y dónde se te escapó. <strong>Closing Analyst separa automáticamente las llamadas de venta reales (R1 diagnóstico / R2 propuesta) de la entrega de servicio</strong>, cita el transcript con el segundo exacto, y sobre todo te dice <em>cuál dimensión decide tus cierres</em> y qué closer flojea en qué. Reproduce el momento clave, te da <strong>coaching concreto</strong> —qué hiciste bien y qué corregir— y cruza todas tus llamadas para encontrar <strong>qué hábito decide tus cierres</strong>, para que tu mejor closer sea el molde del equipo entero. Es review de llamadas de cierre que <strong>se auto-alimenta de tu CRM</strong>.",
+    lead: "Escuchar y calificar cada llamada a mano es <em>imposible</em>. Tienes cientos de horas de llamadas de venta en Fathom mezcladas con sesiones de coaching de clientes que ya cerraste — y nadie las revisa porque nadie tiene tiempo de mirarlas ni de taggear cuál es cuál. MaKo las trae de Fathom, las <strong>puntúa con el método SPIN</strong> y te muestra, con el minuto exacto, dónde cerraste y dónde se te escapó. <strong>Closing Analyst separa automáticamente las llamadas de venta reales (R1 diagnóstico / R2 propuesta) de la entrega de servicio</strong>, cita el transcript con el segundo exacto, y sobre todo te dice <em>cuál dimensión decide tus cierres</em> y qué closer flojea en qué. Reproduce el momento clave, te da <strong>coaching concreto</strong> —qué hiciste bien y qué corregir— y cruza todas tus llamadas para encontrar <strong>qué hábito decide tus cierres</strong>, para que tu mejor closer sea el molde del equipo entero. Es review de llamadas de cierre que <strong>se auto-alimenta de tu CRM</strong>.",
     groups: [
       {
         title: "Separa venta de entrega de servicio, sola",
@@ -700,7 +700,7 @@ export const FEATURES: Record<string, Feature> = {
         bullets: [
           "<strong>Player de Fathom embebido</strong> (thumbnail + iframe) dentro del dashboard, con el transcript pintado línea por línea resaltando las anotaciones en verde y rojo, matcheadas por cercanía temporal (±30s).",
           "Cada timestamp, momento u objeción <strong>abre la grabación de Fathom posicionada en ese segundo</strong> en una pestaña nueva — salto directo al clip que importa.",
-          "Podés <strong>pisar los scores por dimensión</strong> (recalcula el promedio), corregir el outcome y el resumen a mano, o darle a MaKo un comentario libre para que <strong>re-corra el análisis completo</strong> incorporándolo.",
+          "Puedes <strong>pisar los scores por dimensión</strong> (recalcula el promedio), corregir el outcome y el resumen a mano, o darle a MaKo un comentario libre para que <strong>re-corra el análisis completo</strong> incorporándolo.",
           "Cada cambio queda en un <strong>historial con score antes → después</strong>, autor y tipo; un re-análisis nunca borra el rastro.",
         ],
       },
@@ -742,8 +742,8 @@ export const FEATURES: Record<string, Feature> = {
         bullets: [
           "MaKo <strong>destila tu voz leyendo las transcripciones literales de tus propios anuncios</strong> más tu perfil de marca, y guarda una guía de voz por workspace.",
           "Genera el copy de cada paso cruzando esa guía con <strong>metodología de copywriting (RAG) y ejemplos swipe</strong> — reescribe solo el texto, nunca el canal, el orden ni los tiempos.",
-          "<strong>Vos aprobás el preview antes de que se persista</strong> nada: MaKo propone, el que decide sos vos.",
-          "No termina sonando a plantilla robótica: termina sonando a como hablás vos en tus ads.",
+          "<strong>Tú apruebas el preview antes de que se persista</strong> nada: MaKo propone, el que decide eres tú.",
+          "No termina sonando a plantilla robótica: termina sonando a como hablas tú en tus ads.",
         ],
       },
       {
@@ -801,8 +801,8 @@ export const FEATURES: Record<string, Feature> = {
         title: "A quién cobrarle hoy — una lista, no una intuición",
         bullets: [
           "Un renglón por lead con cuota pendiente, <strong>ordenado por vencimiento más cercano arriba</strong>: quién debe, cuánto, y para cuándo.",
-          "Las cuotas <strong>vencidas se marcan URGENTE en rojo con un punto parpadeante</strong>; las que vencen en ≤5 días quedan en ámbar. Sabés a quién timbrar sin abrir un Excel.",
-          "<strong>Marcás cobrado con un click</strong> desde la misma tabla, y aparece un toast con botón <em>Deshacer</em> de 5 segundos por si le pegaste al lead equivocado.",
+          "Las cuotas <strong>vencidas se marcan URGENTE en rojo con un punto parpadeante</strong>; las que vencen en ≤5 días quedan en ámbar. Sabes a quién timbrar sin abrir un Excel.",
+          "<strong>Marcas cobrado con un click</strong> desde la misma tabla, y aparece un toast con botón <em>Deshacer</em> de 5 segundos por si le pegaste al lead equivocado.",
           "La suma del pendiente de la tabla iguala exacto tu Outstanding total. Nada se te escapa entre las cuotas.",
         ],
       },
@@ -811,16 +811,16 @@ export const FEATURES: Record<string, Feature> = {
         bullets: [
           "Generás el plan de tres formas: <strong>uniforme</strong> (inicial + N cuotas espaciadas por tu día de pago desde el cierre), <strong>manual</strong> (cada cuota con su monto y fecha propios), o derivado del contrato.",
           "Regenerar un plan <strong>nunca toca las cuotas ya pagadas</strong>: el histórico queda intacto y solo se reacomodan las pendientes.",
-          "Cada vez que marcás o desmarcás un pago, MaKo <strong>recalcula solo el total cobrado y la fecha del primer pago del lead</strong>, y deja el evento en el Change History ('Pago registrado' / 'Pago desmarcado'). Cero contabilidad a mano.",
+          "Cada vez que marcas o desmarcas un pago, MaKo <strong>recalcula solo el total cobrado y la fecha del primer pago del lead</strong>, y deja el evento en el Change History ('Pago registrado' / 'Pago desmarcado'). Cero contabilidad a mano.",
           "El día de pago va del 1 al 28 y el plan uniforme cubre hasta inicial + 6 cuotas mensuales.",
         ],
       },
       {
-        title: "Subís el comprobante y MaKo llena el registro",
+        title: "Subes el comprobante y MaKo llena el registro",
         bullets: [
-          "Arrastrás la imagen o el PDF del comprobante y <strong>gpt-4o lee monto, fecha y hora</strong> para prellenarte el pop-up de 'Marcar pagada'. Dejás de tipear datos de una captura de pantalla.",
+          "Arrastras la imagen o el PDF del comprobante y <strong>gpt-4o lee monto, fecha y hora</strong> para prellenarte el pop-up de 'Marcar pagada'. Dejas de tipear datos de una captura de pantalla.",
           "El comprobante queda guardado en el bucket del workspace, atado a la fila de ese pago — con el archivo a la vista cuando alguien pregunte cuándo entró esa cuota.",
-          "El OCR <strong>prellena pero nunca marca solo</strong>: confirmás vos, y la action guarda la <strong>fecha y hora reales del ingreso</strong> — no el vencimiento como proxy. Tu Cash Collected refleja el día que de verdad cayó la plata.",
+          "El OCR <strong>prellena pero nunca marca solo</strong>: confirmas tú, y la action guarda la <strong>fecha y hora reales del ingreso</strong> — no el vencimiento como proxy. Tu Cash Collected refleja el día que de verdad cayó la plata.",
         ],
       },
       {
@@ -833,8 +833,8 @@ export const FEATURES: Record<string, Feature> = {
       },
     ],
     conecta: ["Supabase", "OpenAI gpt-4o (OCR)", "Meta Ads", "Calendly"],
-    quote: "Firmaste no es lo mismo que cobraste. MaKo te dice cuánto entró de verdad este mes y a quién le tocás timbre hoy.",
-    nota: "Live y cableado de punta a punta. Lo único que MaKo todavía NO hace es la cobranza automatizada al cliente: las cuotas vencidas y por vencer se te muestran como alertas accionables dentro de la app (/general y la tabla \"A quién cobrarle\"), pero el recordatorio por WhatsApp o email todavía lo mandás vos. El plan de cuotas uniforme va hasta inicial + 6 cuotas mensuales.",
+    quote: "Firmaste no es lo mismo que cobraste. MaKo te dice cuánto entró de verdad este mes y a quién le tocas timbre hoy.",
+    nota: "Live y cableado de punta a punta. Lo único que MaKo todavía NO hace es la cobranza automatizada al cliente: las cuotas vencidas y por vencer se te muestran como alertas accionables dentro de la app (/general y la tabla \"A quién cobrarle\"), pero el recordatorio por WhatsApp o email todavía lo mandas tú. El plan de cuotas uniforme va hasta inicial + 6 cuotas mensuales.",
     metaTitle: "Cobranza y Revenue real | Sold, Cash Collected y Outstanding — MaKo",
     metaDesc: "MaKo separa lo que firmaste (Sold), lo que de verdad entró este mes (Cash Collected) y lo que falta cobrar (Outstanding), con una lista operativa de a quién cobrarle hoy y OCR del comprobante. Cobranza real, no un número de vanity.",
   },
@@ -844,7 +844,7 @@ export const FEATURES: Record<string, Feature> = {
     name: "Tu contrato, leído por IA",
     icon: ICON["contrato"],
     headline: "Del contrato firmado al deal cargado, sin escribir una línea. Soltá el PDF y MaKo arma la cobranza y la ficha.",
-    lead: "Pasar cada contrato a cuotas, datos fiscales y compromisos a mano es <em>tedioso y se llena de errores</em>. Cerrás en la llamada, el cliente firma, y ahí empieza el trabajo aburrido: <strong>re-teclear el plan de cuotas, los datos fiscales, el servicio, la promesa y las obligaciones en el CRM</strong>. Subís el PDF —<strong>o una foto sacada con el celu</strong>— y MaKo lee el contrato firmado y <strong>arma el borrador entero del deal</strong> en español simple, resumido como se lo explicarías al dueño, no en jerga legal. <em>Nada se guarda hasta que apretás \"Guardar cambios\", y nunca pisa lo que ya cargaste a mano.</em>",
+    lead: "Pasar cada contrato a cuotas, datos fiscales y compromisos a mano es <em>tedioso y se llena de errores</em>. Cierras en la llamada, el cliente firma, y ahí empieza el trabajo aburrido: <strong>re-teclear el plan de cuotas, los datos fiscales, el servicio, la promesa y las obligaciones en el CRM</strong>. Subes el PDF —<strong>o una foto sacada con el celu</strong>— y MaKo lee el contrato firmado y <strong>arma el borrador entero del deal</strong> en español simple, resumido como se lo explicarías al dueño, no en jerga legal. <em>Nada se guarda hasta que presionas \"Guardar cambios\", y nunca pisa lo que ya cargaste a mano.</em>",
     groups: [
       {
         title: "Lee el contrato entero, no solo las cuotas",
@@ -858,7 +858,7 @@ export const FEATURES: Record<string, Feature> = {
       {
         title: "PDF o foto — MaKo detecta qué le diste",
         bullets: [
-          "Si subís un <strong>PDF</strong>, lo manda a OpenAI como documento. Si es una <strong>foto o captura</strong>, la manda como visión con detalle alto. Vos no elegís nada: MaKo detecta el tipo de archivo.",
+          "Si subes un <strong>PDF</strong>, lo manda a OpenAI como documento. Si es una <strong>foto o captura</strong>, la manda como visión con detalle alto. Tú no eliges nada: MaKo detecta el tipo de archivo.",
           "El <strong>botón 'Completar con IA'</strong> relee el contrato que ya está guardado en el lead —sin volver a subir nada— y rellena lo que falte al vuelo.",
           "Cuando un lead ganado tiene vacía cualquier sección clave (servicio, promesa, fiscal u obligaciones), la ficha te muestra el aviso y el CTA para completar con IA en un clic.",
         ],
@@ -869,7 +869,7 @@ export const FEATURES: Record<string, Feature> = {
           "MaKo <strong>escribe únicamente los campos vacíos</strong> del borrador. Lo que cargaste a mano queda intacto, aunque MaKo hubiera puesto otra cosa.",
           "Las cuotas extraídas <strong>solo se aplican si el lead no tiene cuotas sin pagar ya cargadas</strong>: no mezcla ni pisa un plan que ya armaste.",
           "Al terminar te muestra la <strong>lista de qué rellenó</strong> y qué <strong>defaults asumió</strong> (ej. modalidad 'Online' o frecuencia '1 vez por semana' cuando el contrato no lo dice), para que revises antes de guardar.",
-          "<strong>Nada se persiste sin tu confirmación.</strong> La extracción llena el borrador; hasta que no apretás 'Guardar cambios', el lead no cambia.",
+          "<strong>Nada se persiste sin tu confirmación.</strong> La extracción llena el borrador; hasta que no presionas 'Guardar cambios', el lead no cambia.",
         ],
       },
       {
@@ -877,15 +877,15 @@ export const FEATURES: Record<string, Feature> = {
         bullets: [
           "Las cuotas extraídas alimentan el <strong>motor de cobranza</strong>, que es de donde el dashboard calcula el <strong>cash collected</strong>. Guardar las cuotas marca el lead como ganado y cerrado, y refresca las vistas de Comercial y General.",
           "Al reemplazar el plan, <strong>conserva las cuotas ya pagadas</strong> y solo cambia las que faltan cobrar: no te desarma el histórico.",
-          "El archivo se guarda al toque en un <strong>bucket privado de Storage</strong>, aislado por workspace. Se previsualiza inline y se descarga con URLs firmadas de corta duración — un contrato de otro cliente nunca se firma ni se filtra.",
+          "El archivo se guarda de inmediato en un <strong>bucket privado de Storage</strong>, aislado por workspace. Se previsualiza inline y se descarga con URLs firmadas de corta duración — un contrato de otro cliente nunca se firma ni se filtra.",
         ],
       },
     ],
     conecta: ["OpenAI gpt-4o (visión + documento)", "Supabase Storage privado", "URLs firmadas por workspace", "Motor de cobranza / cash collected", "Prompts editables de MaKo"],
-    quote: "Cerraste en la llamada. En vez de re-teclear el contrato, se lo tirás a MaKo y sale el deal armado.",
-    nota: "El monto y la fecha de cierre, más el inicio de servicio, hoy los seguís tipeando a mano: la IA los lee pero todavía no los vuelca al borrador (en activación). Las cuotas entran con su monto — que ya alimenta el cash collected — pero las fechas de vencimiento aún se ajustan a mano en algunos casos, así que revisá el semáforo de cobranza después de importar.",
+    quote: "Cerraste en la llamada. En vez de re-teclear el contrato, se lo tiras a MaKo y sale el deal armado.",
+    nota: "El monto y la fecha de cierre, más el inicio de servicio, hoy los sigues tipeando a mano: la IA los lee pero todavía no los vuelca al borrador (en activación). Las cuotas entran con su monto — que ya alimenta el cash collected — pero las fechas de vencimiento aún se ajustan a mano en algunos casos, así que revisa el semáforo de cobranza después de importar.",
     metaTitle: "Lectura de contratos con IA — MaKo | Del cierre a la cobranza sin teclear",
-    metaDesc: "Subí el PDF o la foto del contrato firmado y MaKo extrae el plan de cuotas, los datos fiscales, el servicio, la promesa y las obligaciones al CRM. Solo rellena lo vacío y no guarda nada sin tu OK.",
+    metaDesc: "Sube el PDF o la foto del contrato firmado y MaKo extrae el plan de cuotas, los datos fiscales, el servicio, la promesa y las obligaciones al CRM. Solo rellena lo vacío y no guarda nada sin tu OK.",
   },
 
   'customer': {
@@ -893,7 +893,7 @@ export const FEATURES: Record<string, Feature> = {
     name: "Customer Success",
     icon: ICON["customer"],
     headline: "Cerrar al cliente es la mitad. Que se quede es donde está el dinero.",
-    lead: "En High Ticket, <strong>tu próximo gran ingreso suele ser el cliente que ya te compró</strong>. Tus llamadas de entrega y coaching están llenas de señales que hoy se pierden: quién está a gusto, <em>quién está por soltarte</em>, a quién ofrecerle más. La idea de <strong>Customer Success</strong> es que MaKo escuche <em>esas mismas llamadas</em> que ya grabás con Fathom y te avise a tiempo — <strong>señales de abandono antes de que sea tarde</strong>, cuando todavía podés hacer algo, y a los clientes contentos convertirlos en tu mejor canal de <strong>renovaciones y referidos</strong>. Todo <strong>sin montar un equipo de CS</strong>.",
+    lead: "En High Ticket, <strong>tu próximo gran ingreso suele ser el cliente que ya te compró</strong>. Tus llamadas de entrega y coaching están llenas de señales que hoy se pierden: quién está a gusto, <em>quién está por soltarte</em>, a quién ofrecerle más. La idea de <strong>Customer Success</strong> es que MaKo escuche <em>esas mismas llamadas</em> que ya grabas con Fathom y te avise a tiempo — <strong>señales de abandono antes de que sea tarde</strong>, cuando todavía puedes hacer algo, y a los clientes contentos convertirlos en tu mejor canal de <strong>renovaciones y referidos</strong>. Todo <strong>sin montar un equipo de CS</strong>.",
     groups: [
       {
         title: "El cimiento ya está puesto: MaKo separa las llamadas de servicio de las de venta",
@@ -915,7 +915,7 @@ export const FEATURES: Record<string, Feature> = {
         title: "Alerta de churn antes de que se vaya (en construcción)",
         bullets: [
           "La señal que importa no es una sola: es la <strong>combinación de una señal negativa en la llamada + una cuota impaga</strong>. Cuando las dos coinciden, MaKo te avisa.",
-          "El objetivo es cazar la baja mientras todavía la podés revertir, no hacerte la autopsia después.",
+          "El objetivo es cazar la baja mientras todavía la puedes revertir, no hacerte la autopsia después.",
         ],
       },
       {
@@ -930,7 +930,7 @@ export const FEATURES: Record<string, Feature> = {
     conecta: ["Fathom", "Claude (Anthropic)", "Cobranza del lead", "Supabase"],
     quote: "CS sin equipo de CS: la renovación se escucha en la misma llamada donde ya estás entregando.",
     nota: "En construcción. Lo que YA corre: MaKo clasifica cada llamada de Fathom y separa las de entrega de servicio de las de venta. El Health Score, la alerta de churn (señal negativa + cuota impaga) y la detección de upsell/renovación todavía no están activos — son el próximo motor que armamos encima de ese cimiento. No lo publicamos como disponible hasta que lo esté.",
-    metaTitle: "Customer Success — retené y hacé upsell con las llamadas que ya grabás | MaKo",
+    metaTitle: "Customer Success — retén y haz upsell con las llamadas que ya grabas | MaKo",
     metaDesc: "MaKo escuchará tus sesiones de servicio en Fathom para darte un health score, avisarte del churn cuando se junten señal negativa y cuota impaga, y detectar upsell. Hoy en construcción: ya clasifica y separa las llamadas de servicio de las de venta.",
   },
 
@@ -943,41 +943,41 @@ export const FEATURES: Record<string, Feature> = {
     lead: "Los problemas que te cuestan dinero <strong>no son los que ves venir</strong>.",
     groups: [
       {
-        title: "No querés estudiar tu negocio. Querés saber qué hacer hoy.",
+        title: "No quieres estudiar tu negocio. Quieres saber qué hacer hoy.",
         bullets: [
-          "Abrís tu dashboard, mirás veinte gráficos y salís igual que entraste: <strong>sabiendo mucho y sin saber qué tocar</strong>.",
-          "Sos el que vende, el que cobra y el que decide. <strong>Interpretar métricas no es tu trabajo</strong> — y aun así es lo único que te ofrecen.",
-          "Y lo que se está rompiendo ya está ahí adentro, en alguno de esos gráficos, <strong>esperando a que lo encuentres vos</strong>.",
+          "Abres tu dashboard, miras veinte gráficos y sales igual que entraste: <strong>sabiendo mucho y sin saber qué tocar</strong>.",
+          "Eres el que vende, el que cobra y el que decide. <strong>Interpretar métricas no es tu trabajo</strong> — y aun así es lo único que te ofrecen.",
+          "Y lo que se está rompiendo ya está ahí adentro, en alguno de esos gráficos, <strong>esperando a que lo encuentres tú</strong>.",
         ],
       },
       {
         title: "Esto es lo que se te escapa. MaKo te avisa el mismo día.",
         bullets: [
-          "¿Tu cuenta de Meta figura <em>activa</em> y hace días que no entrega? Los leads se cortaron y vos seguís esperando que entren. <strong>MaKo te avisa</strong> — y te dice en castellano por qué se frenó.",
+          "¿Tu cuenta de Meta figura <em>activa</em> y hace días que no entrega? Los leads se cortaron y tú sigues esperando que entren. <strong>MaKo te avisa</strong> — y te dice en castellano por qué se frenó.",
           "¿Tu anuncio se quemó? Cuando la misma gente ya lo vio más de 3 veces en la semana y cada lead te sale <strong>un 50% más caro</strong> que el promedio del mes, MaKo te dice cuál es. <strong>Antes de que el costo se duplique.</strong>",
-          "¿Califican, se reúnen… y no cierran? Si entre la primera y la segunda reunión ya pasan más de <strong>10 días</strong>, o de cada 10 que califican cerrás menos de 2, MaKo te avisa: ahí no te falta tráfico, <strong>te falta arreglar la venta</strong>. Si cerrás 3 o más, te confirma que tu sistema de venta está sano.",
+          "¿Califican, se reúnen… y no cierran? Si entre la primera y la segunda reunión ya pasan más de <strong>10 días</strong>, o de cada 10 que califican cierras menos de 2, MaKo te avisa: ahí no te falta tráfico, <strong>te falta arreglar la venta</strong>. Si cierras 3 o más, te confirma que tu sistema de venta está sano.",
           "¿Tu funnel empezó a perder gente en un punto exacto? ¿La misma objeción aparece una y otra vez en tus llamadas? ¿Tu negocio entero cuelga de un solo anuncio? <strong>MaKo te avisa.</strong>",
         ],
         cierre: "Lo obvio ya lo cazás solo: que no te pagaron, que no cerraste. Lo que te vacía el mes es <strong>lo que nunca te avisó nadie</strong>.",
         verMas: { texto: "Descubrí cómo MaKo escucha tus llamadas y te dice qué objeción te está costando los cierres", href: "/vsl/closing", label: "Closing Analyst" },
       },
       {
-        title: "En 2 segundos sabés si hoy tenés que hacer algo.",
+        title: "En 2 segundos sabes si hoy tienes que hacer algo.",
         bullets: [
           "Una sola luz para todo el negocio. Verde: avanzás. Rojo: algo necesita tu atención hoy. Y abajo, escrito en castellano, <em>«el negocio está sano»</em> o <em>«hay algo urgente que atender»</em>. No un número para interpretar: <strong>un veredicto</strong>.",
-          "<strong>No elegís vos por dónde empezar</strong>: MaKo ya separó lo urgente, lo que hay que vigilar y lo que está en orden, y dejó arriba lo que más te está costando.",
+          "<strong>No eliges tú por dónde empezar</strong>: MaKo ya separó lo urgente, lo que hay que vigilar y lo que está en orden, y dejó arriba lo que más te está costando.",
           "Un click y estás parado en el lead, la cuota o el anuncio exacto. <strong>No te deja con el diagnóstico en la mano.</strong>",
-          "Y los cientos de gráficos siguen ahí para cuando quieras profundizar. <strong>El día a día lo mirás en una sola luz.</strong>",
+          "Y los cientos de gráficos siguen ahí para cuando quieras profundizar. <strong>El día a día lo miras en una sola luz.</strong>",
         ],
       },
       {
-        title: "No tenés que entrar a mirar: cada mañana te llega al WhatsApp.",
+        title: "No tienes que entrar a mirar: cada mañana te llega al WhatsApp.",
         bullets: [
-          "A las 7 de la mañana tenés cómo amaneció tu negocio en el teléfono, <strong>antes de abrir la computadora</strong>.",
+          "A las 7 de la mañana tienes cómo amaneció tu negocio en el teléfono, <strong>antes de abrir la computadora</strong>.",
           "Si durante el día se prende algo urgente, te escribe. Si está todo bien, <strong>se queda callado</strong> — no te llena el teléfono para decirte que no pasa nada.",
-          "Los lunes, cómo venís en la semana. Y elegís qué te llega y por dónde: <strong>WhatsApp, mail o solo adentro de la app</strong>.",
+          "Los lunes, cómo vienes en la semana. Y eliges qué te llega y por dónde: <strong>WhatsApp, mail o solo adentro de la app</strong>.",
         ],
-        cierre: "«Yo ya tengo mis números.» Claro que los tenés. Repartidos en gráficos que no mirás a tiempo. <strong>No necesitás más datos: necesitás ver lo que hoy no ves.</strong>",
+        cierre: "«Yo ya tengo mis números.» Claro que los tienes. Repartidos en gráficos que no miras a tiempo. <strong>No necesitas más datos: necesitas ver lo que hoy no ves.</strong>",
         verMas: { texto: "Descubrí todo lo que MaKo hace por tu WhatsApp", href: "/vsl/whatsapp", label: "MaKo por WhatsApp" },
       },
     ],
@@ -991,13 +991,13 @@ export const FEATURES: Record<string, Feature> = {
     name: "Experimentos",
     icon: ICON["experimentos"],
     headline: "Ningún gurú sabe qué funciona en TU negocio. Un experimento sí.",
-    lead: "Nadie puede prometerte qué va a funcionar en tu funnel; <em>eso solo lo dice tu mercado</em>. Y mientras tanto tu equipo vive la misma pelea de siempre: <strong>opiniones sobre creativos, filtros de formulario y hooks de VSL que nadie puede zanjar con datos</strong>. En vez de decidir con el estómago, en Experimentos escribís tu hipótesis en una frase y MaKo la fija en una métrica medible, una ventana en días y un baseline comparable. Le das la lectura de tu negocio y <strong>MaKo cruza tu data real</strong> —Meta, anuncios, agendas, cierres— para <strong>lanzar el experimento y medirlo día a día</strong> contra el CAC y el costo-por-agenda <em>reales de tu cuenta</em>. Al cerrar dicta un veredicto con el número adentro. Es la <strong>única superficie del panel donde el sistema declara verdades</strong> — en el resto MaKo sugiere abrir un experimento en vez de opinar. Cada experimento deja <strong>un aprendizaje real y verificado</strong> en tu negocio: dejás de repetir lo que \"debería\" funcionar y hacés lo que a vos te funciona.",
+    lead: "Nadie puede prometerte qué va a funcionar en tu funnel; <em>eso solo lo dice tu mercado</em>. Y mientras tanto tu equipo vive la misma pelea de siempre: <strong>opiniones sobre creativos, filtros de formulario y hooks de VSL que nadie puede zanjar con datos</strong>. En vez de decidir con el estómago, en Experimentos escribes tu hipótesis en una frase y MaKo la fija en una métrica medible, una ventana en días y un baseline comparable. Le das la lectura de tu negocio y <strong>MaKo cruza tu data real</strong> —Meta, anuncios, agendas, cierres— para <strong>lanzar el experimento y medirlo día a día</strong> contra el CAC y el costo-por-agenda <em>reales de tu cuenta</em>. Al cerrar dicta un veredicto con el número adentro. Es la <strong>única superficie del panel donde el sistema declara verdades</strong> — en el resto MaKo sugiere abrir un experimento en vez de opinar. Cada experimento deja <strong>un aprendizaje real y verificado</strong> en tu negocio: dejas de repetir lo que \"debería\" funcionar y haces lo que a ti te funciona.",
     groups: [
       {
         title: "De una frase a un experimento configurado",
         bullets: [
-          "Escribís <strong>\"si filtro más el formulario, baja el costo por agenda\"</strong> y MaKo (Claude, effort:high) elige la métrica, la dirección de éxito (subir/bajar), la ventana en días y el objetivo, con el racional de por qué.",
-          "<strong>No crea nada hasta que confirmás</strong>: el modal te deja editar título, el cambio a medir, la ventana y el objetivo antes de arrancar.",
+          "Escribes <strong>\"si filtro más el formulario, baja el costo por agenda\"</strong> y MaKo (Claude, effort:high) elige la métrica, la dirección de éxito (subir/bajar), la ventana en días y el objetivo, con el racional de por qué.",
+          "<strong>No crea nada hasta que confirmas</strong>: el modal te deja editar título, el cambio a medir, la ventana y el objetivo antes de arrancar.",
           "MaKo solo puede elegir de un <strong>catálogo cerrado de 18 métricas</strong> ancladas al funnel real (cpl, cp_form, cpa, cac, ctr, tasa_agenda, agendamientos, cierres, spend_usd...). No inventa métricas: es el único termómetro válido.",
         ],
       },
@@ -1013,7 +1013,7 @@ export const FEATURES: Record<string, Feature> = {
         title: "El cierre dicta una verdad, no una opinión",
         bullets: [
           "Al cerrar, MaKo lee baseline vs resultado + la serie y dicta veredicto: <strong>validada, refutada o no concluyente</strong>, más un aprendizaje de 1-2 frases con el número clave adentro (de cuánto a cuánto).",
-          "Si Claude falla, <strong>cae a no_concluyente</strong> con un aprendizaje numérico mínimo generado por código — nunca te quedás sin cierre.",
+          "Si Claude falla, <strong>cae a no_concluyente</strong> con un aprendizaje numérico mínimo generado por código — nunca te quedas sin cierre.",
           "El veredicto es un juicio sobre el delta medido en <em>tu</em> cuenta, respaldado por tu CAC y tu costo-por-agenda — no un benchmark genérico de gurú.",
         ],
       },
@@ -1028,7 +1028,7 @@ export const FEATURES: Record<string, Feature> = {
       {
         title: "Ciclo de vida completo, aislado por workspace",
         bullets: [
-          "Estados <strong>propuesto, activo, cerrado, descartado</strong>: guardás una idea sin arrancar, la iniciás después (mide baseline en ese momento), la descartás sin concluir o la eliminás.",
+          "Estados <strong>propuesto, activo, cerrado, descartado</strong>: guardas una idea sin arrancar, la inicias después (mide baseline en ese momento), la descartas sin concluir o la eliminas.",
           "La <strong>Retro auto-crea experimentos</strong> desde sus hallazgos y encadena 1-3 tareas del to-do necesarias para poder correrlo, linkeadas al experimento.",
           "Todo persistido <strong>por-workspace</strong> vía getTenantDb, y los 6 prompts de MaKo (sugerir, idear, cerrar) son <strong>editables desde /configuraciones</strong> con {{slots}}, sin tocar código.",
         ],
@@ -1038,7 +1038,7 @@ export const FEATURES: Record<string, Feature> = {
     quote: "Cada \"¿y si...?\" se vuelve una apuesta con baseline medido y un veredicto con el número adentro. Se acabó ganar la discusión por hablar más fuerte.",
     nota: "Requiere Meta conectado: sin métricas de Meta la tab muestra un panel de activación en vez de experimentos. Métricas de VSL dependen de YouTube configurado, y agendas/cierres de que estén pobladas las fechas del funnel (Calendly / fecha_cierre). El veredicto es un juicio cualitativo sobre el delta, no una prueba de significancia estadística: no hay p-values ni tamaño de muestra mínimo.",
     metaTitle: "Experimentos de marketing con baseline medido | MaKo",
-    metaDesc: "Ningún gurú sabe qué funciona en tu negocio, un experimento sí. Escribí una hipótesis en una frase y MaKo la vuelve una prueba medible contra el CAC y el costo-por-agenda reales de tu cuenta. Baseline comparable, medición en vivo y un veredicto con el número adentro.",
+    metaDesc: "Ningún gurú sabe qué funciona en tu negocio, un experimento sí. Escribe una hipótesis en una frase y MaKo la vuelve una prueba medible contra el CAC y el costo-por-agenda reales de tu cuenta. Baseline comparable, medición en vivo y un veredicto con el número adentro.",
   },
 
   'prioridades': {
@@ -1046,13 +1046,13 @@ export const FEATURES: Record<string, Feature> = {
     name: "Prioridades — El Perro Guardián",
     icon: ICON["prioridades"],
     headline: "No te dice qué está mal. Te dice qué hacer hoy, en orden.",
-    lead: "El problema no es que no sepas qué hacer. Es que <em>todo parece urgente</em> y terminás eligiendo lo fácil o lo que menos miedo te da. Cerrar High Ticket no se muere por falta de tareas: se muere por <strong>parálisis por análisis</strong> y por la trampa de pulir el funnel un día más en vez de salir a vender. MaKo corta el ruido con <strong>una sola pantalla: tu Objetivo Principal y las 3 tareas que de verdad mueven la aguja</strong>. Lo demás, ni lo mires. El Perro Guardián puntúa TODO tu plan con una sola regla — <strong>más plata, más rápido, más fácil</strong> — y cuando querés subir una tarea por cariño, <em>te lo discute y gana</em>.",
+    lead: "El problema no es que no sepas qué hacer. Es que <em>todo parece urgente</em> y terminas eligiendo lo fácil o lo que menos miedo te da. Cerrar High Ticket no se muere por falta de tareas: se muere por <strong>parálisis por análisis</strong> y por la trampa de pulir el funnel un día más en vez de salir a vender. MaKo corta el ruido con <strong>una sola pantalla: tu Objetivo Principal y las 3 tareas que de verdad mueven la aguja</strong>. Lo demás, ni lo mires. El Perro Guardián puntúa TODO tu plan con una sola regla — <strong>más plata, más rápido, más fácil</strong> — y cuando quieres subir una tarea por cariño, <em>te lo discute y gana</em>.",
     groups: [
       {
-        title: "Puntúa todo el plan por vos, con impacto vs. esfuerzo",
+        title: "Puntúa todo el plan por ti, con impacto vs. esfuerzo",
         bullets: [
           "Cada tarea recibe un <strong>IMPACTO 1-100</strong> (cuánta plata mueve y qué tan rápido) y un <strong>ESFUERZO 1-100</strong> (menos es mejor), y un score que los combina. El quick win —alto impacto, bajo esfuerzo— sube solo a la cima.",
-          "Vos <strong>no fijás los números</strong>: los asigna el guardián comparando cada tarea contra el resto ('¿esta trae más plata, más rápido y más fácil que aquella?') y te deja la razón del puntaje en 1-2 frases.",
+          "Tú <strong>no fijas los números</strong>: los asigna el guardián comparando cada tarea contra el resto ('¿esta trae más plata, más rápido y más fácil que aquella?') y te deja la razón del puntaje en 1-2 frases.",
           "La columna —<strong>Alta / Media / Baja / A futuro</strong>— se deriva directo del score. No arrastrás tarjetas: el orden es una consecuencia del criterio, no de tu estado de ánimo del día.",
           "Corre sobre <strong>Claude con effort alto</strong> (hasta 8000 tokens por corrida) para que la comparación sea de verdad razonada, no un ordenamiento por keywords.",
         ],
@@ -1060,8 +1060,8 @@ export const FEATURES: Record<string, Feature> = {
       {
         title: "No es complaciente: te discute y tiene la última palabra",
         bullets: [
-          "Podés abrir un debate sobre cualquier tarea o proyecto. El guardián devuelve veredicto <strong>acepta</strong> (diste un argumento con datos), <strong>ajusta</strong> (algo de razón tenés) o <strong>rechaza</strong> (es puro cariño por la tarea, sin números).",
-          "'<em>Me parece importante</em>' no es un argumento: la <strong>carga de la prueba es tuya</strong>. Si subís una tarea por apego, te nombra el sesgo en la cara ('eso suena a que te encariñaste con la tarea').",
+          "Puedes abrir un debate sobre cualquier tarea o proyecto. El guardián devuelve veredicto <strong>acepta</strong> (diste un argumento con datos), <strong>ajusta</strong> (algo de razón tienes) o <strong>rechaza</strong> (es puro cariño por la tarea, sin números).",
+          "'<em>Me parece importante</em>' no es un argumento: la <strong>carga de la prueba es tuya</strong>. Si subes una tarea por apego, te nombra el sesgo en la cara ('eso suena a que te encariñaste con la tarea').",
           "Cuando te echás atrás —'no, ahora que lo veo…'— sale un mensaje de consolación <strong>pre-escrito, sin gastar un token</strong>: 'urgente no es lo mismo que importante… si de verdad prende fuego, va a volver a aparecer sola'.",
           "Es un socio que <strong>protege tu foco discutiéndote</strong>, no un to-do list que te obedece.",
         ],
@@ -1071,7 +1071,7 @@ export const FEATURES: Record<string, Feature> = {
         bullets: [
           "El modelo tiende a inflar y meter todo en Alta. Un post-procesado determinístico <strong>curva los scores por banda</strong>: ~15% Alta, ~25% Media, ~30% Baja, ~30% A futuro. Casi todo cae abajo, como debe ser.",
           "Los proyectos se reparten en toda la escala 1-100 <strong>sin empatar</strong>, para que siempre haya <strong>un único Objetivo Principal</strong> — no cinco prioridades número uno.",
-          "La vista Prioridades pinta ese objetivo grande a la izquierda y sus <strong>3 secuencias del día numeradas 1-2-3</strong>, elegidas automáticamente (las 3 de mayor score del proyecto top). Vos no las elegís: las ganan.",
+          "La vista Prioridades pinta ese objetivo grande a la izquierda y sus <strong>3 secuencias del día numeradas 1-2-3</strong>, elegidas automáticamente (las 3 de mayor score del proyecto top). Tú no las eliges: las ganan.",
           "Hay <strong>bypass de emergencia</strong>: una tarea con score ≥ 90 (Meta te suspendió la cuenta, se prende fuego algo) entra a Alta aunque no sea del objetivo principal.",
         ],
       },
@@ -1080,13 +1080,13 @@ export const FEATURES: Record<string, Feature> = {
         bullets: [
           "Cuando MaKo saca tareas de una <strong>reunión de Fathom</strong>, cruza cada candidata contra tu plan actual y decide 'nueva' o '<strong>enriquece</strong>' una tarjeta que ya existe — enriquece en vez de duplicar.",
           "Detecta <strong>semánticamente</strong> tareas que son el MISMO trabajo aunque estén escritas distinto, para no llenar el board de repetidos.",
-          "Borrar es irreversible, así que el guardián decide por vos: si tu motivo es débil —'ya no me interesa', 'lo hago después'— <strong>conserva la tarea y te sugiere bajarle la prioridad</strong> en vez de borrarla. Solo aprueba borrar si ya no aplica, está duplicada o fue un error.",
+          "Borrar es irreversible, así que el guardián decide por ti: si tu motivo es débil —'ya no me interesa', 'lo hago después'— <strong>conserva la tarea y te sugiere bajarle la prioridad</strong> en vez de borrarla. Solo aprueba borrar si ya no aplica, está duplicada o fue un error.",
         ],
       },
       {
         title: "Trabaja sola, en background, sin quemar tokens",
         bullets: [
-          "No hay botón de 're-priorizar'. Se dispara <strong>2.5s después de un cambio estructural</strong> (agregás, quitás o completás una tarea), nunca al entrar a la tab ni al refrescar la página.",
+          "No hay botón de 're-priorizar'. Se dispara <strong>2.5s después de un cambio estructural</strong> (agregas, quitas o completas una tarea), nunca al entrar a la tab ni al refrescar la página.",
           "Una <strong>firma del plan</strong> que ignora los scores evita que se re-dispare a sí misma, y un dedup por firma evita re-puntuar lo mismo dos veces.",
           "<strong>Estabilidad</strong>: cada tarea viaja con su score previo y el guardián lo mantiene salvo razón concreta (venció un deadline, cambió el avance, entró o salió algo que altera la comparación). Ante la duda, mantiene — para que el board no baile en cada corrida.",
           "MaKo abre solo un <strong>nudge por tareas sin deadline</strong> cuando hay algo importante (score ≥ 50) sin fecha, y te pide checklist en toda tarea Alta antes de darla por planificada.",
@@ -1104,7 +1104,7 @@ export const FEATURES: Record<string, Feature> = {
     name: "Retro / accountability",
     icon: ICON["retro"],
     headline: "Tus datos viven en 6 tabs. La Retro te da UNA tesis, la fuga en dólares y un plan que se ejecuta solo.",
-    lead: "<strong>Tenés ads en una tab, el CRM en otra, closing en otra, guiones, revenue y experimentos cada uno por su lado — y nunca los cruzás.</strong> Sabés que en algún lado se te escapa plata, pero mirar seis pantallas por separado no te lo dice: el frente compra barato pero el embudo pierde, y vos no sabés por dónde. <em>La Retro es el cerebro que navega todas tus tabs, mide el período contra el anterior, y te devuelve una sola tesis: cuál es tu fuga principal, cuánto te cuesta en plata, y qué hacer — con cada recomendación lista para arrancar a medir de un clic.</em>",
+    lead: "<strong>Tienes ads en una tab, el CRM en otra, closing en otra, guiones, revenue y experimentos cada uno por su lado — y nunca los cruzas.</strong> Sabes que en algún lado se te escapa plata, pero mirar seis pantallas por separado no te lo dice: el frente compra barato pero el embudo pierde, y tú no sabes por dónde. <em>La Retro es el cerebro que navega todas tus tabs, mide el período contra el anterior, y te devuelve una sola tesis: cuál es tu fuga principal, cuánto te cuesta en plata, y qué hacer — con cada recomendación lista para arrancar a medir de un clic.</em>",
     groups: [
       {
         title: "El cruce que ninguna tab te muestra sola",
@@ -1153,8 +1153,8 @@ export const FEATURES: Record<string, Feature> = {
       },
     ],
     conecta: ["Meta Ads", "CRM / Nutrición", "Closing Analyst", "Ads Analyst", "Revenue", "Experimentos", "To-do / Perro Guardián"],
-    quote: "Tu frente compra barato pero el embudo pierde por dos agujeros. Acá está cuánto te cuesta, y acá está el experimento que ya arrancó a medirlo.",
-    nota: "Estado real, sin humo: la Retro es 100% a demanda — la disparás vos desde el wizard, no hay cron que la corra sola cada semana (el nombre 'Retro semanal' es aspiracional). El gate de accountability (que el Perro te frene antes de correr una Retro nueva si dejaste deuda) existe en backend y es configurable en 3 modos, pero todavía no está surface en el wizard: no esperes que 'te bloquee' como experiencia visible aún.",
+    quote: "Tu frente compra barato pero el embudo pierde por dos agujeros. Aquí está cuánto te cuesta, y aquí está el experimento que ya arrancó a medirlo.",
+    nota: "Estado real, sin humo: la Retro es 100% a demanda — la disparas tú desde el wizard, no hay cron que la corra sola cada semana (el nombre 'Retro semanal' es aspiracional). El gate de accountability (que el Perro te frene antes de correr una Retro nueva si dejaste deuda) existe en backend y es configurable en 3 modos, pero todavía no está surface en el wizard: no esperes que 'te bloquee' como experiencia visible aún.",
     metaTitle: "Retro / Accountability — el cerebro que cruza tu embudo y te da la fuga en dólares | MaKo",
     metaDesc: "MaKo navega tus 6 tabs (ads, CRM, closing, guiones, revenue, experimentos), mide el período contra el anterior y te da UNA tesis, la fuga estimada en plata y un plan que arranca a medir de un clic. Con seguimiento que lee el estado real: aceptar no es hacer.",
   },
@@ -1163,8 +1163,8 @@ export const FEATURES: Record<string, Feature> = {
     slug: 'fase-norte',
     name: "Fase / Norte / Diagnóstico",
     icon: ICON["fase-norte"],
-    headline: "Antes de escalar, MaKo te dice en qué fase estás de verdad (y te frena si querés saltear)",
-    lead: "<em>Todos los consejos de negocio suenan igual: \"subí presupuesto\", \"escalá la pauta\", \"meté más leads\".</em> Pero si tu VSL no retiene, tu R1 no muestra o tu closer todavía no cierra, subir la pauta es tirar plata a un embudo pinchado. El problema no es que te falten tácticas: es que <strong>nadie te dice cuál es TU cuello hoy</strong> ni en qué orden atacarlo. <strong>Fase / Norte</strong> es un diagnóstico de 6 preguntas que te ubica en una de 5 fases con su cuello de botella pre-mapeado a tu funnel de high-ticket — y ese resultado se convierte en el <em>Norte</em> que gobierna, en silencio, cada respuesta que te da MaKo.",
+    headline: "Antes de escalar, MaKo te dice en qué fase estás de verdad (y te frena si quieres saltear)",
+    lead: "<em>Todos los consejos de negocio suenan igual: \"sube presupuesto\", \"escala la pauta\", \"mete más leads\".</em> Pero si tu VSL no retiene, tu R1 no muestra o tu closer todavía no cierra, subir la pauta es tirar plata a un embudo pinchado. El problema no es que te falten tácticas: es que <strong>nadie te dice cuál es TU cuello hoy</strong> ni en qué orden atacarlo. <strong>Fase / Norte</strong> es un diagnóstico de 6 preguntas que te ubica en una de 5 fases con su cuello de botella pre-mapeado a tu funnel de high-ticket — y ese resultado se convierte en el <em>Norte</em> que gobierna, en silencio, cada respuesta que te da MaKo.",
     groups: [
       {
         title: "5 fases con el cuello ya mapeado a tu embudo",
@@ -1188,9 +1188,9 @@ export const FEATURES: Record<string, Feature> = {
         title: "El Norte gobierna cada respuesta de MaKo",
         bullets: [
           "El diagnóstico no queda en una pantalla bonita: se inyecta en el system prompt de MaKo bajo 'EN QUÉ FASE ESTÁ EL NEGOCIO (su Norte — priorizá según esto)'.",
-          "MaKo recibe fase, rango, cuello, objetivo, tus prioridades y el 'NO conviene todavía' en cada consulta — y si sos mixto, también la nota de trabajar la fase más baja.",
-          "Efecto concreto: MaKo nunca le dice 'subí presupuesto' a quien todavía no convierte un lead. Aconseja según tu etapa real, no de manual.",
-          "El diagnóstico se recomputa en el server: el wizard te lo muestra al toque, pero el POST manda las 6 respuestas crudas y el server vuelve a correr el cálculo y persiste ESO — no confía del cliente.",
+          "MaKo recibe fase, rango, cuello, objetivo, tus prioridades y el 'NO conviene todavía' en cada consulta — y si eres mixto, también la nota de trabajar la fase más baja.",
+          "Efecto concreto: MaKo nunca le dice 'sube presupuesto' a quien todavía no convierte un lead. Aconseja según tu etapa real, no de manual.",
+          "El diagnóstico se recomputa en el server: el wizard te lo muestra de inmediato, pero el POST manda las 6 respuestas crudas y el server vuelve a correr el cálculo y persiste ESO — no confía del cliente.",
         ],
       },
       {
@@ -1205,7 +1205,7 @@ export const FEATURES: Record<string, Feature> = {
     ],
     conecta: ["MaKo", "VSL Funnel", "Onboarding", "Andrea Estratega / Fórmula 100k", "Supabase"],
     quote: "Tu Norte no vive en una pantalla: vive adentro de MaKo, frenándote antes de que escales un embudo pinchado.",
-    nota: "Hoy el único consumidor real del diagnóstico es el system prompt de MaKo: el Perro Guardián y la Retro todavía no leen tu fase. El diagnóstico se hace una vez, dentro del wizard de onboarding — no hay página /fase para re-hacerlo o editarlo suelto (si volvés al paso, se prefillean tus respuestas previas y podés re-votar).",
+    nota: "Hoy el único consumidor real del diagnóstico es el system prompt de MaKo: el Perro Guardián y la Retro todavía no leen tu fase. El diagnóstico se hace una vez, dentro del wizard de onboarding — no hay página /fase para re-hacerlo o editarlo suelto (si vuelves al paso, se prefillean tus respuestas previas y puedes re-votar).",
     metaTitle: "Fase / Norte / Diagnóstico — MaKo ubica tu negocio y prioriza tu cuello real",
     metaDesc: "Diagnóstico de 6 preguntas que ubica tu negocio high-ticket en una de 5 fases con su cuello de botella pre-mapeado al VSL Funnel. El resultado se vuelve el Norte que gobierna cada respuesta de MaKo, así la IA nunca te dice 'escalá la pauta' antes de tiempo.",
   },
@@ -1215,21 +1215,21 @@ export const FEATURES: Record<string, Feature> = {
     name: "WhatsApp",
     icon: ICON["whatsapp"],
     headline: "No es un WhatsApp más: es un WhatsApp que sabe qué responder — con el reloj de las 24h a la vista",
-    lead: "Estás conversando con un lead que se está por caer y no sabés qué contestar para no espantarlo. Mientras charlás, MaKo lee su historial y su etapa del funnel y te sugiere, <strong>en vivo, qué responder</strong> para acercarte al cierre: no improvisás, mandás <em>lo que de verdad cierra</em>. Porque en High Ticket con VSL Funnel la plata está en los que <strong>vieron el video o agendaron y se enfriaron</strong> — y contestan por WhatsApp, no por mail. El problema es que WhatsApp tiene reglas: <em>fuera de la ventana de 24h de Meta solo pasan plantillas aprobadas</em>, y si querés un segundo número para el toque caliente arriesgás el baneo. Esta bandeja resuelve las dos cosas con <strong>dos vías en una</strong>: la API oficial para tus envíos de nutrición (sin arriesgar el número) y la no oficial para tus conversaciones uno a uno con quien está por cerrar. Te muestra <strong>al minuto cuánto te queda para escribir gratis</strong>, arriba del hilo vive MaKo con 2-3 mensajes de reactivación listos para <em>Usar</em>, y las plantillas las armás con MaKo <strong>para pasar la aprobación de Meta a la primera</strong>.",
+    lead: "Estás conversando con un lead que se está por caer y no sabes qué contestar para no espantarlo. Mientras charlas, MaKo lee su historial y su etapa del funnel y te sugiere, <strong>en vivo, qué responder</strong> para acercarte al cierre: no improvisas, mandas <em>lo que de verdad cierra</em>. Porque en High Ticket con VSL Funnel la plata está en los que <strong>vieron el video o agendaron y se enfriaron</strong> — y contestan por WhatsApp, no por mail. El problema es que WhatsApp tiene reglas: <em>fuera de la ventana de 24h de Meta solo pasan plantillas aprobadas</em>, y si quieres un segundo número para el toque caliente arriesgas el baneo. Esta bandeja resuelve las dos cosas con <strong>dos vías en una</strong>: la API oficial para tus envíos de nutrición (sin arriesgar el número) y la no oficial para tus conversaciones uno a uno con quien está por cerrar. Te muestra <strong>al minuto cuánto te queda para escribir gratis</strong>, arriba del hilo vive MaKo con 2-3 mensajes de reactivación listos para <em>Usar</em>, y las plantillas las armas con MaKo <strong>para pasar la aprobación de Meta a la primera</strong>.",
     groups: [
       {
         title: "Dos números en una sola bandeja: el oficial y el de empresa",
         bullets: [
           "<strong>Número oficial</strong> por WhatsApp Cloud API (vía Chatwoot) para todo lo que Meta permite, y <strong>número de empresa no oficial</strong> (Evolution API) que vinculás escaneando un QR desde WhatsApp &gt; Dispositivos vinculados.",
-          "El inbox <strong>agrupa por persona, no por conversación</strong>: Chatwoot arma una conversación por cada interacción (los recordatorios de n8n generan varias por contacto) y acá se mergean todas en un solo hilo cronológico — un chat por persona.",
+          "El inbox <strong>agrupa por persona, no por conversación</strong>: Chatwoot arma una conversación por cada interacción (los recordatorios de n8n generan varias por contacto) y aquí se mergean todas en un solo hilo cronológico — un chat por persona.",
           "Cada lead nuevo con teléfono <strong>arranca con su chat ya creado</strong> en el inbox, así el deep-link de la ficha nunca cae en la conversación de otro; y si el alta del contacto falla, <em>nunca</em> rompe el alta del lead.",
-          "Cada contacto muestra un <strong>chip con su etapa del funnel</strong> (cliente, por-cobrar, no-show, R2…) con color; filtrás por etapa o por 'solo ventana abierta', y bloqueás/desbloqueás con motivo.",
+          "Cada contacto muestra un <strong>chip con su etapa del funnel</strong> (cliente, por-cobrar, no-show, R2…) con color; filtras por etapa o por 'solo ventana abierta', y bloqueas/desbloqueas con motivo.",
         ],
       },
       {
         title: "La ventana de 24h de Meta, con contador en vivo",
         bullets: [
-          "Detecta si la ventana de servicio de 24h está abierta (<code>can_reply</code> de Chatwoot): <strong>dentro mandás texto libre; fuera, solo plantillas aprobadas</strong>.",
+          "Detecta si la ventana de servicio de 24h está abierta (<code>can_reply</code> de Chatwoot): <strong>dentro mandas texto libre; fuera, solo plantillas aprobadas</strong>.",
           "<strong>Contador regresivo en pantalla</strong> (Xh Ym) que tickea cada 30 segundos y se pone en rojo cuando quedan menos de 60 minutos o cuando ya venció.",
           "Los mensajes llevan <strong>tildes de estado reales</strong> — enviado, entregado, leído, falló — como en tu teléfono.",
           "Grabás <strong>notas de voz desde el navegador</strong> (con pausa/reanudar y contador) y en el canal oficial se transcodifican a MP3, el único formato que este WABA acepta sin tirar el error 131053 de Meta.",
@@ -1241,7 +1241,7 @@ export const FEATURES: Record<string, Feature> = {
           "MaKo (Claude) lee <strong>la conversación real + la etapa del funnel + el estado de la ventana</strong> y devuelve un diagnóstico con la etapa detectada y <strong>2-3 sugerencias</strong> con metodología <em>Levanta Muertos</em>.",
           "Cada sugerencia trae su <strong>ángulo</strong> (valor, curiosidad, prueba social, objeción, cierre suave o depuración), su tono, y un guion opcional de <strong>nota de voz de máximo 40 segundos</strong>.",
           "Si la ventana está cerrada, las sugerencias ya vienen <strong>redactadas como plantilla reactivadora</strong> — no como texto libre que Meta bloquearía.",
-          "El botón <strong>'Usar' inyecta el mensaje al compositor</strong>: lo revisás, lo ajustás y lo mandás. MaKo también conversa sobre el lead y te redacta plantillas de Meta.",
+          "El botón <strong>'Usar' inyecta el mensaje al compositor</strong>: lo revisas, lo ajustas y lo mandas. MaKo también conversa sobre el lead y te redacta plantillas de Meta.",
         ],
       },
       {
@@ -1275,7 +1275,7 @@ export const FEATURES: Record<string, Feature> = {
     name: "Email Marketing",
     icon: ICON["email"],
     headline: "Todo tu email marketing, sin salir de MaKo",
-    lead: "Listas, segmentos, secuencias y reportes: todo lo que esperás de una herramienta de email, <em>con una diferencia</em>. Acá cada correo está <strong>conectado a tu funnel</strong>, así que sabés cuál te trajo ventas, no solo aperturas. Vendés High Ticket con VSL Funnel y hay plata quedándose sobre la mesa: el que vio el VSL y no agendó, el que confirmó y no pagó, el que faltó a la reunión. <strong>MaKo Email Marketing</strong> los mete en secuencias automáticas por su estado exacto en el CRM y te deja disparar broadcasts a segmentos que son etapas reales de tu embudo. Armás campañas y secuencias en un editor simple, <strong>con MaKo redactando en tu voz</strong> y el link de agenda ya puesto adentro; medís aperturas, clics y <strong>ventas reales atribuidas a tu pipeline</strong> de punta a punta, <em>sin salir del tablero ni contratar un Mailchimp aparte</em>.",
+    lead: "Listas, segmentos, secuencias y reportes: todo lo que esperas de una herramienta de email, <em>con una diferencia</em>. Aquí cada correo está <strong>conectado a tu funnel</strong>, así que sabes cuál te trajo ventas, no solo aperturas. Vendes High Ticket con VSL Funnel y hay plata quedándose sobre la mesa: el que vio el VSL y no agendó, el que confirmó y no pagó, el que faltó a la reunión. <strong>MaKo Email Marketing</strong> los mete en secuencias automáticas por su estado exacto en el CRM y te deja disparar broadcasts a segmentos que son etapas reales de tu embudo. Armas campañas y secuencias en un editor simple, <strong>con MaKo redactando en tu voz</strong> y el link de agenda ya puesto adentro; mides aperturas, clics y <strong>ventas reales atribuidas a tu pipeline</strong> de punta a punta, <em>sin salir del tablero ni contratar un Mailchimp aparte</em>.",
     groups: [
       {
         title: "Email nativo del embudo, no un ESP pegado con cinta",
@@ -1287,11 +1287,11 @@ export const FEATURES: Record<string, Feature> = {
         ],
       },
       {
-        title: "MaKo escribe el copy, no vos a las 2am",
+        title: "MaKo escribe el copy, no tú a las 2am",
         bullets: [
           "<strong>Botón MaKo en cada paso y en cada broadcast.</strong> Claude redacta en la voz de Mauricio Bustos y devuelve <em>asunto + preheader + cuerpo</em> ya armados, listos para revisar.",
           "<strong>Reglas de copy incrustadas, no texto genérico.</strong> Asunto corto (máx ~6 palabras), preheader que no repite el asunto, cuerpo de 2 a 5 párrafos con <strong>un solo CTA</strong> y tu link de Calendly ya puesto adentro.",
-          "<strong>Te dice lo que costó.</strong> Cada generación reporta tokens y costo — sabés lo que gastás en IA por email, no una caja negra.",
+          "<strong>Te dice lo que costó.</strong> Cada generación reporta tokens y costo — sabes lo que gastas en IA por email, no una caja negra.",
           "<strong>Prueba a una dirección tuya antes de disparar.</strong> Envío de prueba con prefijo [PRUEBA] a un email puntual, sin tocar el estado del lead ni el CRM.",
         ],
       },
@@ -1308,7 +1308,7 @@ export const FEATURES: Record<string, Feature> = {
         title: "Entregabilidad y respeto por la bandeja de entrada",
         bullets: [
           "<strong>Baja con token firmado + One-Click RFC 8058.</strong> Cada email lleva link de baja con token HMAC sobre el lead_id (nadie da de baja a otro cambiando el número) y los headers List-Unsubscribe/One-Click que piden Gmail y Outlook.",
-          "<strong>Supresión automática de rebotes y quejas.</strong> El webhook firmado de Resend marca aperturas y clics, y ante un <strong>bounce permanente</strong> o una <em>queja de spam</em> pone email_opt_out=true en el lead solo. No le volvés a escribir.",
+          "<strong>Supresión automática de rebotes y quejas.</strong> El webhook firmado de Resend marca aperturas y clics, y ante un <strong>bounce permanente</strong> o una <em>queja de spam</em> pone email_opt_out=true en el lead solo. No le vuelves a escribir.",
           "<strong>Guard anti-spam de 20h en los broadcasts.</strong> Antes de enviar, junta los leads contactados por email en las últimas 20h —cruzando nutrición-email y broadcasts— y los saltea, para no pegarle dos veces al mismo. Nunca escribe a un email vacío ni a un opt-out.",
           "<strong>Envío reanudable pensado para listas grandes.</strong> Persiste en chunks de 100, corta a los 240s y retoma en la próxima corrida sin re-enviar; ante un 429 de Resend corta sin registrar el lead para reintentarlo. Tope de 2000 por broadcast.",
         ],
@@ -1326,13 +1326,13 @@ export const FEATURES: Record<string, Feature> = {
     name: "Conocimiento / Contexto de MaKo (RAG)",
     icon: ICON["conocimiento"],
     headline: "Tu método adentro de la IA. No los genéricos de ChatGPT.",
-    lead: "<strong>Compraste el curso, viste las clases, tenés TU forma de reactivar un lead muerto, de bancarte la objeción de precio, de escribir la secuencia de nutrición.</strong> Y todo eso vive en un PDF, en un Drive o en tu cabeza — mientras la IA que te vende el mundo te escribe copy de manual, plano, con olor a plantilla. <em>Conocimiento le baja tu método a tierra</em>: subís el video de la clase, MaKo lo transcribe, lo indexa, y desde ese momento las reactivaciones de WhatsApp, las secuencias de nutrición y la estructura de tus campañas salen escritas <strong>con TU metodología</strong> — no con genéricos de IA.",
+    lead: "<strong>Compraste el curso, viste las clases, tienes TU forma de reactivar un lead muerto, de bancarte la objeción de precio, de escribir la secuencia de nutrición.</strong> Y todo eso vive en un PDF, en un Drive o en tu cabeza — mientras la IA que te vende el mundo te escribe copy de manual, plano, con olor a plantilla. <em>Conocimiento le baja tu método a tierra</em>: subes el video de la clase, MaKo lo transcribe, lo indexa, y desde ese momento las reactivaciones de WhatsApp, las secuencias de nutrición y la estructura de tus campañas salen escritas <strong>con TU metodología</strong> — no con genéricos de IA.",
     groups: [
       {
-        title: "Cargás el método de la forma que te quede cómoda",
+        title: "Cargas el método de la forma que te quede cómoda",
         bullets: [
-          "Pegás texto directo de tus notas o de un curso que compraste y queda indexado al toque.",
-          "Subís el video o audio de una clase (hasta 25MB): OpenAI lo transcribe con whisper-1 y el texto te queda en pantalla para revisarlo y editarlo ANTES de guardar. No se persiste nada hasta que vos confirmás.",
+          "Pegas texto directo de tus notas o de un curso que compraste y queda indexado de inmediato.",
+          "Subes el video o audio de una clase (hasta 25MB): OpenAI lo transcribe con whisper-1 y el texto te queda en pantalla para revisarlo y editarlo ANTES de guardar. No se persiste nada hasta que tú confirmas.",
           "Importás un curso curado con un click: hoy viene de fábrica 'Levanta Muertos', reactivación de leads sin sonar necesitado — 7 lecciones: 3 pilares, estructura C.I.A., reglas y prohibiciones, guion por etapa del lead, psicología de compra de coaching/consultoría, banco de scripts de WhatsApp y secuencias 7/14/21 días.",
           "Cada entrada se puede reindexar a mano y muestra su estado (indexado / pendiente / error) con badge en la lista.",
         ],
@@ -1340,7 +1340,7 @@ export const FEATURES: Record<string, Feature> = {
       {
         title: "El conocimiento se enchufa exactamente donde corresponde",
         bullets: [
-          "Marcás cada lección con un ÁREA: mensajes, ads, general, glosario o ejemplos. No es una etiqueta decorativa: define QUÉ parte del dashboard la va a usar.",
+          "Marcas cada lección con un ÁREA: mensajes, ads, general, glosario o ejemplos. No es una etiqueta decorativa: define QUÉ parte del dashboard la va a usar.",
           "Lo de 'mensajes' alimenta el asesor de WhatsApp, el generador de nutrición y las plantillas de nutrición.",
           "Lo de 'ads' alimenta el estructurador de campañas de Meta.",
           "Lo 'general' alimenta el chat de MaKo (top-4 sin área).",
@@ -1367,10 +1367,10 @@ export const FEATURES: Record<string, Feature> = {
       },
     ],
     conecta: ["Asesor de WhatsApp", "Motor de nutrición", "Estructurador de campañas Meta", "Chat de MaKo", "Glosario / Reuniones Fathom"],
-    quote: "Tu método no tiene por qué morir en un PDF. Metelo adentro de MaKo y que escriba como vos.",
+    quote: "Tu método no tiene por qué morir en un PDF. Mételo adentro de MaKo y que escriba como tú.",
     nota: "Hoy el que cura el método es la agencia: la pantalla de carga es solo-agencia, así que un cliente/closer/setter todavía no sube su propio conocimiento desde la UI (la infra multi-tenant ya lo banca). Viene un solo curso curado de fábrica, 'Levanta Muertos' (área mensajes) — todavía no hay curados de ads ni general, eso se carga a mano.",
     metaTitle: "Conocimiento (RAG) de MaKo: tu método de venta adentro de la IA",
-    metaDesc: "Subí el video de tu clase, MaKo lo transcribe e indexa, y escribe tus reactivaciones de WhatsApp, nutrición y campañas con TU metodología. Trae 'Levanta Muertos' de fábrica.",
+    metaDesc: "Sube el video de tu clase, MaKo lo transcribe e indexa, y escribe tus reactivaciones de WhatsApp, nutrición y campañas con TU metodología. Trae 'Levanta Muertos' de fábrica.",
   },
 
   'mako': {
@@ -1378,7 +1378,7 @@ export const FEATURES: Record<string, Feature> = {
     name: "MaKo, tu consultor con IA",
     icon: ICON["mako"],
     headline: "No es un chatbot. Es un consultor con tu negocio entero en la cabeza",
-    lead: "MaKo cruza <strong>tus números en vivo, el criterio de Martín Koncke y el contexto de tu operación</strong>, y te habla en tu idioma: qué mover ahora y por qué. Desde la app o desde tu WhatsApp. Preguntale lo que sea, o tocá su botón sobre cualquier gráfico y recibí <strong>una decisión, no un número más</strong>. Te avisa lo urgente, te manda tu <strong>reporte semanal</strong> y <strong>aplica los cambios por vos cuando le das luz verde</strong>. Cuanto más te conoce, más afilado te diagnostica. Porque a diferencia de un ChatGPT cualquiera —que te contesta en abstracto, sin saber nada de <em>tu</em> negocio— <strong>MaKo razona sobre tu operación real</strong>: leyó el historial de WhatsApp de ese lead, sus respuestas de calificación R1/R2, el análisis de la última llamada de ventas y sabe en qué fase está tu negocio. Y responde con la voz de Martín, sin humo: <strong>hipótesis cuando ve el dashboard, verdades solo cuando lo validaste en Experimentos</strong>.",
+    lead: "MaKo cruza <strong>tus números en vivo, el criterio de Martín Koncke y el contexto de tu operación</strong>, y te habla en tu idioma: qué mover ahora y por qué. Desde la app o desde tu WhatsApp. Pregúntale lo que sea, o toca su botón sobre cualquier gráfico y recibe <strong>una decisión, no un número más</strong>. Te avisa lo urgente, te manda tu <strong>reporte semanal</strong> y <strong>aplica los cambios por ti cuando le das luz verde</strong>. Cuanto más te conoce, más afilado te diagnostica. Porque a diferencia de un ChatGPT cualquiera —que te contesta en abstracto, sin saber nada de <em>tu</em> negocio— <strong>MaKo razona sobre tu operación real</strong>: leyó el historial de WhatsApp de ese lead, sus respuestas de calificación R1/R2, el análisis de la última llamada de ventas y sabe en qué fase está tu negocio. Y responde con la voz de Martín, sin humo: <strong>hipótesis cuando ve el dashboard, verdades solo cuando lo validaste en Experimentos</strong>.",
     groups: [
       {
         title: "Contexto real inyectado en cada respuesta",
@@ -1399,8 +1399,8 @@ export const FEATURES: Record<string, Feature> = {
       {
         title: "'Hola MaKo': te contesta desde el propio grupo de WhatsApp",
         bullets: [
-          "Escucha tus grupos vía WhatsApp: lee <strong>texto, transcribe notas de voz (STT), lee imágenes y PDFs nativo</strong> con visión de Claude. Le mandás una captura o un audio y te responde.",
-          "<strong>Recuerda la conversación</strong> (últimos 24 turnos), manda 'escribiendo…', acusa recibo al instante cuando cargás algo al plan y parte las respuestas largas en varios mensajes.",
+          "Escucha tus grupos vía WhatsApp: lee <strong>texto, transcribe notas de voz (STT), lee imágenes y PDFs nativo</strong> con visión de Claude. Le mandas una captura o un audio y te responde.",
+          "<strong>Recuerda la conversación</strong> (últimos 24 turnos), manda 'escribiendo…', acusa recibo al instante cuando cargas algo al plan y parte las respuestas largas en varios mensajes.",
           "Distingue el eco de su propia respuesta (la línea de voz es tu número, así que todo llega como fromMe) para no contestarse a sí mismo. Fuera de la allowlist y sin workspace dueño reconocido, no contesta: <em>fail-closed</em>.",
         ],
       },
@@ -1415,8 +1415,8 @@ export const FEATURES: Record<string, Feature> = {
       {
         title: "MaKo Doer: un miembro más del grupo que actúa desde el celular",
         bullets: [
-          "Le hablás como a un integrante del equipo y elige cuándo intervenir: en modo <strong>'ventana'</strong> solo salta si lo nombrás 'mako', si le mandás una nota de voz, o si hay una acción pendiente; nombrarlo abre una <strong>ventana deslizante de 15 min</strong> de charla libre sin repetir 'Hola MaKo'. En modo 'libre' responde a todo.",
-          "Es un <strong>brain-dump ordenado</strong>: le tirás seis cosas sueltas y usa ver_plan para asignar cada una a un proyecto existente, crear uno nuevo si es un tema coherente, <strong>deduplicar contra títulos parecidos</strong> y devolverte deep-links por tarea.",
+          "Le hablas como a un integrante del equipo y elige cuándo intervenir: en modo <strong>'ventana'</strong> solo salta si lo nombras 'mako', si le mandas una nota de voz, o si hay una acción pendiente; nombrarlo abre una <strong>ventana deslizante de 15 min</strong> de charla libre sin repetir 'Hola MaKo'. En modo 'libre' responde a todo.",
+          "Es un <strong>brain-dump ordenado</strong>: le tiras seis cosas sueltas y usa ver_plan para asignar cada una a un proyecto existente, crear uno nuevo si es un tema coherente, <strong>deduplicar contra títulos parecidos</strong> y devolverte deep-links por tarea.",
           "El aislamiento es <strong>por dueño del grupo, no por la línea que recibe</strong> (wsDeGrupoJid): el grupo de un cliente ve solo SUS datos; grupo SuperAdmin/pruebas → workspace de la agencia; cualquier otro → no contesta. Memoria por grupo en mako_doer_conv y anti-eco con ring buffer de ids para no procesar su propia respuesta.",
         ],
       },
@@ -1449,14 +1449,14 @@ export const FEATURES: Record<string, Feature> = {
     name: "Integraciones + BYOK + Saldo de IA",
     icon: ICON["integraciones"],
     headline: "Tus llaves, tu embudo, tu saldo. Ninguna caja negra en el medio.",
-    lead: "<strong>Tu VSL Funnel vive repartido en diez herramientas</strong> — Meta Ads, WhatsApp, Fathom, Calendly, el player del VSL, el pixel de la landing — y cada software nuevo te pide pegar tus API keys en un panel ajeno que se las queda para siempre. Terminás sin saber quién guarda qué, ni cuánto te cuesta cada cosa que \"hace la IA\". <strong>MaKo lo da vuelta:</strong> conectás las diez piezas desde <em>una sola pantalla</em>, con tus llaves cifradas y aisladas por workspace — traé las tuyas, no un black-box que las retiene — y ves <em>en dólares exactos</em> qué te sale cada proceso de IA, por proveedor. BYOK de verdad más transparencia total del gasto.",
+    lead: "<strong>Tu VSL Funnel vive repartido en diez herramientas</strong> — Meta Ads, WhatsApp, Fathom, Calendly, el player del VSL, el pixel de la landing — y cada software nuevo te pide pegar tus API keys en un panel ajeno que se las queda para siempre. Terminas sin saber quién guarda qué, ni cuánto te cuesta cada cosa que \"hace la IA\". <strong>MaKo lo da vuelta:</strong> conectas las diez piezas desde <em>una sola pantalla</em>, con tus llaves cifradas y aisladas por workspace — trae las tuyas, no un black-box que las retiene — y ves <em>en dólares exactos</em> qué te sale cada proceso de IA, por proveedor. BYOK de verdad más transparencia total del gasto.",
     groups: [
       {
         title: "Una pantalla, las diez piezas de tu embudo",
         bullets: [
-          "Pegás, probás la conexión y guardás sin salir de la app: Meta Ads (token + ad account, con pixel/CAPI opcionales), WhatsApp vía Chatwoot, Resend, Fathom, Calendly, Panda Video, YouTube, Google Calendar y el pixel de tu Landing/VSL.",
+          "Pegas, pruebas la conexión y guardas sin salir de la app: Meta Ads (token + ad account, con pixel/CAPI opcionales), WhatsApp vía Chatwoot, Resend, Fathom, Calendly, Panda Video, YouTube, Google Calendar y el pixel de tu Landing/VSL.",
           "El botón 'Probar conexión' hace el request real de cada proveedor con su auth exacto (Meta por query param, Chatwoot por header, Panda sin Bearer) y te devuelve datos concretos — nombre de la cuenta, última llamada — para que reconozcas que es LA tuya. Timeout de 8s por ping.",
-          "Los valores que tecleás pisan a los guardados para probar ANTES de guardar: no guardás a ciegas una key que no sabés si anda.",
+          "Los valores que tecleas pisan a los guardados para probar ANTES de guardar: no guardas a ciegas una key que no sabes si funciona.",
           "El env del servidor queda solo como respaldo de arranque del dueño. Una vez que migra a la base, la base manda para todos y gestionás todo desde la app.",
         ],
       },
@@ -1464,7 +1464,7 @@ export const FEATURES: Record<string, Feature> = {
         title: "BYOK real: tus credenciales cifradas y aisladas",
         bullets: [
           "Cada credencial se cifra AES-256-GCM con clave HKDF-SHA256 derivada de tu workspace + sal por fila, más un AAD que ata el criptograma a SU fila: reventar la key de un cliente no da las de los demás, y un blob copiado a otro workspace no abre.",
-          "Ver una credencial en claro (el 'ojito') es una acción aparte, reservada al admin de tu propio workspace: ni la agencia entrando como vos puede leerla en texto plano.",
+          "Ver una credencial en claro (el 'ojito') es una acción aparte, reservada al admin de tu propio workspace: ni la agencia entrando como tú puede leerla en texto plano.",
           "Todo guardar / borrar / revelar queda en un rastro de auditoría en la base — incluidos los intentos rechazados.",
           "Anti-secuestro de webhooks: si intentás guardar un identificador que ya reclamó otro workspace, MaKo lo frena (409) y lo audita como intento de secuestro. Sin esto, pegar el identificador de otro le robaba los webhooks entrantes.",
         ],
@@ -1473,8 +1473,8 @@ export const FEATURES: Record<string, Feature> = {
         title: "Saldo de IA: qué te cuesta cada cosa, al centavo",
         bullets: [
           "Cada llamada a la IA registra input/output/cache tokens y costo USD según el pricing público del modelo — Opus, Sonnet, Haiku, Groq OSS, GPT-4o-mini — incluido el STT por segundos de audio.",
-          "Ves gasto del mes, tokens de hoy (con gauge de lo que corre gratis en Groq), desglose por proceso y proveedor, e historial de las últimas 80 operaciones con motivo legible: sabés qué hizo la IA y qué salió.",
-          "Cargás tu saldo prepago por proveedor y MaKo deriva el 'restante = saldo cargado − gasto desde que lo cargaste'. Nada de facturas sorpresa a fin de mes.",
+          "Ves gasto del mes, tokens de hoy (con gauge de lo que corre gratis en Groq), desglose por proceso y proveedor, e historial de las últimas 80 operaciones con motivo legible: sabes qué hizo la IA y qué salió.",
+          "Cargas tu saldo prepago por proveedor y MaKo deriva el 'restante = saldo cargado − gasto desde que lo cargaste'. Nada de facturas sorpresa a fin de mes.",
           "El gasto y el saldo los ve solo el dueño o el admin de la agencia; un closer o setter no.",
         ],
       },
@@ -1489,10 +1489,10 @@ export const FEATURES: Record<string, Feature> = {
       },
     ],
     conecta: ["Meta Ads", "WhatsApp / Chatwoot", "Fathom", "Calendly", "Panda Video", "YouTube", "Google Calendar", "Resend", "Landing / VSL", "Claude / OpenAI / Groq"],
-    quote: "Traé tus propias llaves y mirá el gasto de IA al centavo. MaKo conecta tu embudo; no te secuestra las credenciales.",
-    nota: "Dos honestidades: (1) El saldo de IA es MANUAL — la API de Anthropic no expone el saldo prepago, así que lo tecleás vos leyéndolo de la consola; el 'restante' es una derivación (cargado − gastado), no un dato en vivo del proveedor. (2) BYOK no aplica a las keys de IA: Anthropic, OpenAI y Groq son servicio de plataforma de la agencia.",
+    quote: "Trae tus propias llaves y mira el gasto de IA al centavo. MaKo conecta tu embudo; no te secuestra las credenciales.",
+    nota: "Dos honestidades: (1) El saldo de IA es MANUAL — la API de Anthropic no expone el saldo prepago, así que lo tecleas tú leyéndolo de la consola; el 'restante' es una derivación (cargado − gastado), no un dato en vivo del proveedor. (2) BYOK no aplica a las keys de IA: Anthropic, OpenAI y Groq son servicio de plataforma de la agencia.",
     metaTitle: "Integraciones + BYOK + Saldo de IA | MaKo",
-    metaDesc: "Conectá las diez piezas de tu VSL Funnel desde una pantalla, con tus API keys cifradas y aisladas por workspace, y mirá en dólares exactos qué te cuesta cada proceso de IA. BYOK real, sin caja negra.",
+    metaDesc: "Conecta las diez piezas de tu VSL Funnel desde una pantalla, con tus API keys cifradas y aisladas por workspace, y mira en dólares exactos qué te cuesta cada proceso de IA. BYOK real, sin caja negra.",
   },
 
   'equipo': {
@@ -1500,7 +1500,7 @@ export const FEATURES: Record<string, Feature> = {
     name: "Equipo + roles por workspace",
     icon: ICON["equipo"],
     headline: "Tu equipo de ventas, cada uno con exactamente las herramientas de su trabajo",
-    lead: "Corrés un equipo de High Ticket: <strong>setters que llenan la agenda, closers que cierran</strong>. Pero les diste acceso a todo, y ahora el setter ve cuánto gastás en ads, el closer toca la config de integraciones y cada alta o baja es un lío de contraseñas. <strong>MaKo te da un segundo eje de permisos por workspace</strong>: invitás por email, asignás un rol de negocio (Admin, Closer o Setter) y <em>cada uno ve solo las tabs que necesita para su trabajo</em> — ni una más. Sumar gente es un mail, sacar a alguien es instantáneo, y el equipo de cada cliente está totalmente aislado del de cualquier otro.",
+    lead: "Corres un equipo de High Ticket: <strong>setters que llenan la agenda, closers que cierran</strong>. Pero les diste acceso a todo, y ahora el setter ve cuánto gastas en ads, el closer toca la config de integraciones y cada alta o baja es un lío de contraseñas. <strong>MaKo te da un segundo eje de permisos por workspace</strong>: invitas por email, asignas un rol de negocio (Admin, Closer o Setter) y <em>cada uno ve solo las tabs que necesita para su trabajo</em> — ni una más. Sumar gente es un mail, sacar a alguien es instantáneo, y el equipo de cada cliente está totalmente aislado del de cualquier otro.",
     groups: [
       {
         title: "Tres roles, tres sets de herramientas fijos",
@@ -1515,7 +1515,7 @@ export const FEATURES: Record<string, Feature> = {
         title: "El candado es real, no cosmético",
         bullets: [
           "Cada página de negocio se protege server-side con <em>requireRolWs</em> al arranque: si tu rol no está permitido, redirect a tu casa.",
-          "Esconder el link en el sidebar es solo la superficie — tecleando la URL a mano <strong>tampoco entrás</strong>.",
+          "Esconder el link en el sidebar es solo la superficie — tecleando la URL a mano <strong>tampoco entras</strong>.",
           "El endpoint /api/equipo re-autoriza aparte: un closer o setter que pegue directo al API recibe <strong>403</strong>, no un link escondido. Dos capas separadas.",
           "Suspender o eliminar a alguien no le esconde tabs: lo <strong>desloguea por completo</strong> y lo manda a /login.",
         ],
@@ -1533,14 +1533,14 @@ export const FEATURES: Record<string, Feature> = {
         bullets: [
           "Invitás con un email y MaKo crea la persona en estado <em>invitado</em>, con su rol y su workspace ya asignados.",
           "Cuando entra con Google usando ese mail, se activa <strong>sola</strong>: de <em>invitado</em> a <em>activo</em>, sin crear ninguna contraseña.",
-          "Guard anti-lockout: no podés suspender, borrar ni degradar al <strong>último admin activo</strong> del cliente — MaKo te frena con un error explícito y te pide nombrar otro admin primero.",
+          "Guard anti-lockout: no puedes suspender, borrar ni degradar al <strong>último admin activo</strong> del cliente — MaKo te frena con un error explícito y te pide nombrar otro admin primero.",
         ],
       },
       {
         title: "Aislado por workspace, y con dos ejes de permiso",
         bullets: [
           "Un admin-cliente solo ve y toca a <strong>SU</strong> equipo: cualquier acción sobre alguien de otro workspace devuelve 404 'Ese miembro no pertenece a tu equipo'.",
-          "Nunca ves ni tocás a otro cliente ni a los admins de la agencia — todo scopeado al workspace del que invita.",
+          "Nunca ves ni tocas a otro cliente ni a los admins de la agencia — todo scopeado al workspace del que invita.",
           "Dos ejes que conviven: el <strong>ROL</strong> decide qué ve la persona dentro del negocio; la <strong>CAPA</strong> decide qué compró el cliente. La capa aplica hasta al admin.",
         ],
       },
@@ -1549,7 +1549,7 @@ export const FEATURES: Record<string, Feature> = {
     quote: "Sumar a alguien es un mail. Sacarlo es un clic. Y nunca ve más de lo que su trabajo necesita.",
     nota: "El botón de invitar no manda ningún correo: crea la persona en estado 'invitado' y ella entra por su cuenta con Google usando ese email para activarse (el login es solo Google OAuth). Un dato honesto sobre la revocación en caliente: depende de que la base responda — si Supabase se cae, la sesión firmada se sostiene sin re-chequear hasta que vuelva. En operación normal, el corte es inmediato.",
     metaTitle: "Equipo + roles por workspace | MaKo",
-    metaDesc: "Armá tu equipo de ventas en MaKo: invitá por email, asigná rol (Admin, Closer, Setter) y dale a cada uno solo las tabs de su trabajo. Enforcement server-side, revocación en caliente y aislamiento total por cliente.",
+    metaDesc: "Arma tu equipo de ventas en MaKo: invita por email, asigna rol (Admin, Closer, Setter) y dale a cada uno solo las tabs de su trabajo. Enforcement server-side, revocación en caliente y aislamiento total por cliente.",
   },
 
   'perfil-reportes': {
@@ -1557,7 +1557,7 @@ export const FEATURES: Record<string, Feature> = {
     name: "Perfil + Reportes + Notificaciones",
     icon: ICON["perfil-reportes"],
     headline: "Tu dashboard te habla por WhatsApp. Y solo cuando cuesta plata.",
-    lead: "<strong>Abrís el panel cinco veces al día para chequear lo mismo:</strong> cuánto gastaste, cuántos leads entraron, si la cuenta de ads sigue viva, qué cuota venció. Y aun así te enterás tarde de que Meta te frenó la entrega o de que un adset se fatigó quemando presupuesto. El problema no es la data —ya está toda en MaKo—, es que <em>vive en una pestaña que no siempre tenés abierta</em>. Reportes le da vuelta el flujo: <strong>a la mañana te llega el resumen del negocio por WhatsApp, y durante el día MaKo solo te interrumpe cuando algo urgente te está costando dinero.</strong> El mismo semáforo, los mismos ads y wins del panel, empujados a tu bolsillo con criterio de \"no me spamees\".",
+    lead: "<strong>Abres el panel cinco veces al día para chequear lo mismo:</strong> cuánto gastaste, cuántos leads entraron, si la cuenta de ads sigue viva, qué cuota venció. Y aun así te enteras tarde de que Meta te frenó la entrega o de que un adset se fatigó quemando presupuesto. El problema no es la data —ya está toda en MaKo—, es que <em>vive en una pestaña que no siempre tienes abierta</em>. Reportes le da vuelta el flujo: <strong>a la mañana te llega el resumen del negocio por WhatsApp, y durante el día MaKo solo te interrumpe cuando algo urgente te está costando dinero.</strong> El mismo semáforo, los mismos ads y wins del panel, empujados a tu bolsillo con criterio de \"no me spamees\".",
     groups: [
       {
         title: "El aviso horario que solo suena cuando duele",
@@ -1571,23 +1571,23 @@ export const FEATURES: Record<string, Feature> = {
         title: "Digest diario y semanal, armados de las mismas fuentes que el panel",
         bullets: [
           "Diario (a la mañana): semáforo de Meta con saldo en USD y gastado en MXN, ads de ayer con gasto/leads/CPL/CTR, wins con cierres contra tu meta y cash del mes, más pendientes y cuotas vencidas.",
-          "Semanal (lunes): ads de la semana con CAC, cash semanal, ritmo estimado a la meta y cobranza vencida. Empezás la semana sabiendo si vas a llegar.",
-          "Cada sección va en su propio try/catch: si una fuente falla, el reporte se arma igual sin esa parte. Nunca recibís un reporte roto por un dato que no cargó.",
+          "Semanal (lunes): ads de la semana con CAC, cash semanal, ritmo estimado a la meta y cobranza vencida. Empiezas la semana sabiendo si vas a llegar.",
+          "Cada sección va en su propio try/catch: si una fuente falla, el reporte se arma igual sin esa parte. Nunca recibes un reporte roto por un dato que no cargó.",
         ],
       },
       {
         title: "Resuelto el dolor técnico que hace que casi nadie logre reportes por WhatsApp",
         bullets: [
-          "Meta prohíbe saltos de línea y textos largos en las plantillas, así que reportes multilínea por plantilla es imposible. La secuencia de mensajes: el diario manda UNA plantilla-apertura ('reporte_mako', botón 'Recibir reporte'); la tocás y se abre la ventana de servicio de 24h.",
-          "Con la ventana abierta, el resto del día los reportes salen como texto libre multilínea vía Chatwoot, tal cual los leés en el panel. Sin recortes ni parámetros mutilados.",
+          "Meta prohíbe saltos de línea y textos largos en las plantillas, así que reportes multilínea por plantilla es imposible. La secuencia de mensajes: el diario manda UNA plantilla-apertura ('reporte_mako', botón 'Recibir reporte'); la tocas y se abre la ventana de servicio de 24h.",
+          "Con la ventana abierta, el resto del día los reportes salen como texto libre multilínea vía Chatwoot, tal cual los lees en el panel. Sin recortes ni parámetros mutilados.",
           "Si la ventana está cerrada, el reporte no se pierde: queda pendiente y el cron horario lo reintenta solo (flushPendientesWhatsapp) apenas se reabre.",
           "La plantilla de Meta se da de alta desde la propia UI, idempotente: solo crea el borrador y lo manda a aprobar si no está ya aprobado o en revisión, y te muestra el estado real (Aprobada / En revisión / Rechazada, con motivo).",
         ],
       },
       {
-        title: "Vos elegís qué llega, por dónde y con qué detalle",
+        title: "Tú eliges qué llega, por dónde y con qué detalle",
         bullets: [
-          "Por cada reporte —horario, diario, semanal— elegís canal WhatsApp y/o Email de forma independiente. El diario por mail y el urgente por WhatsApp, si querés.",
+          "Por cada reporte —horario, diario, semanal— eliges canal WhatsApp y/o Email de forma independiente. El diario por mail y el urgente por WhatsApp, si quieres.",
           "Un set global de secciones (semáforo / ads / wins / pendientes) que apagás o prendés: el toggle corta tanto el envío como el chequeo de esa sección, no solo la muestra.",
           "Merge defensivo de defaults: config vieja o corrupta nunca rompe el reporte, se completa con los valores por defecto.",
         ],

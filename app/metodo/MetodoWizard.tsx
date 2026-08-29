@@ -74,9 +74,9 @@ export function MetodoWizard({ servicios: SERVICIOS_METODO }: { servicios: Servi
       .then((r) => r.json())
       .then((j) => {
         if (j.ok) aplicar(j.servicios);
-        else setErrorCarga(j.error === 'solo admin' ? 'Necesitás ser admin para configurar las integraciones.' : (j.error ?? 'No se pudo cargar el estado.'));
+        else setErrorCarga(j.error === 'solo admin' ? 'Necesitas ser admin para configurar las integraciones.' : (j.error ?? 'No se pudo cargar el estado.'));
       })
-      .catch(() => setErrorCarga('No se pudo cargar. Revisá tu conexión y probá de nuevo.'))
+      .catch(() => setErrorCarga('No se pudo cargar. Revisa tu conexión y prueba de nuevo.'))
       .finally(() => setCargando(false));
   };
 
@@ -174,7 +174,7 @@ export function MetodoWizard({ servicios: SERVICIOS_METODO }: { servicios: Servi
       ) : errorCarga ? (
         <div style={{ ...card, maxWidth: 560, margin: '40px auto 0', textAlign: 'center' }}>
           <div style={{ fontSize: 14, color: 'var(--bad)', fontWeight: 600, marginBottom: 4 }}>{errorCarga}</div>
-          <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 16 }}>Si tu sesión venció, entrá de nuevo.</div>
+          <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 16 }}>Si tu sesión venció, entra de nuevo.</div>
           <button type="button" style={btnGhost} onClick={() => { setCargando(true); cargar(); }}>Reintentar</button>
         </div>
       ) : fin ? (
@@ -265,7 +265,7 @@ export function MetodoWizard({ servicios: SERVICIOS_METODO }: { servicios: Servi
                         autoComplete="off"
                         onChange={(e) => setValores((v) => ({ ...v, [c.env]: e.target.value }))}
                       />
-                      {ce?.ilegible && <div style={{ fontSize: 12, color: 'var(--warn)', marginTop: 6 }}>Guardada con una clave vieja — volvé a pegarla.</div>}
+                      {ce?.ilegible && <div style={{ fontSize: 12, color: 'var(--warn)', marginTop: 6 }}>Guardada con una clave vieja — vuelve a pegarla.</div>}
                       {enBase && (
                         <button type="button" onClick={() => quitar(c.env)} disabled={quitando === c.env}
                           style={{ marginTop: 6, background: 'none', border: 'none', padding: 0, fontFamily: SANS, fontSize: 12, fontWeight: 600, color: 'var(--bad)', cursor: quitando === c.env ? 'default' : 'pointer', opacity: quitando === c.env ? 0.6 : 1 }}>
@@ -282,7 +282,7 @@ export function MetodoWizard({ servicios: SERVICIOS_METODO }: { servicios: Servi
               <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', marginTop: 18, padding: '11px 13px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
                 <span style={{ fontSize: 15, lineHeight: 1.3 }}>🔒</span>
                 <span style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
-                  <b style={{ color: 'var(--ink)' }}>Tus llaves son tuyas (BYOK).</b> Se guardan <b>cifradas</b> en tu cuenta —nadie más las ve, ni el resto de los clientes— y todo el consumo corre contra <b>tu propio proveedor</b>. Podés quitarlas cuando quieras.
+                  <b style={{ color: 'var(--ink)' }}>Tus llaves son tuyas (BYOK).</b> Se guardan <b>cifradas</b> en tu cuenta —nadie más las ve, ni el resto de los clientes— y todo el consumo corre contra <b>tu propio proveedor</b>. Puedes quitarlas cuando quieras.
                 </span>
               </div>
 

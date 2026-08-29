@@ -26,9 +26,9 @@ export const CURSO_ANALISIS: Curso = {
   slug: 'analisis-negocio',
   categoria: 'Estrategia y negocio',
   titulo: 'Análisis de Negocio — Las 5 Fases',
-  cardDesc: 'El diagnóstico que le da el Norte a cada negocio: en qué fase estás, tu cuello y qué priorizar. Probalo acá mismo.',
+  cardDesc: 'El diagnóstico que le da el Norte a cada negocio: en qué fase estás, tu cuello y qué priorizar. Pruébalo aquí mismo.',
   eyebrow: 'Método interno',
-  subtitulo: 'La metodología de Andrea Estratega (Fórmula 100k) adaptada al modelo VSL + Meta Ads de MaKo. Probá el diagnóstico y mirá las 5 fases.',
+  subtitulo: 'La metodología de Andrea Estratega (Fórmula 100k) adaptada al modelo VSL + Meta Ads de MaKo. Prueba el diagnóstico y mira las 5 fases.',
   volumen: '5 fases · 5 dimensiones',
   recursos: [],
   clases: [],
@@ -101,7 +101,7 @@ function DiagnosticoForm() {
         <div className="an-q-head"><span className="an-q-n">{q.emoji}</span><span className="an-q-t">{texto}</span></div>
         {esVolumen && (
           <div className="an-canal">
-            <span className="an-canal-l">¿Cómo cerrás la venta?</span>
+            <span className="an-canal-l">¿Cómo cierras la venta?</span>
             <div className="an-canal-pills">{CANALES.map((c) => <button key={c.id} type="button" className={`an-pill ${canal === c.id ? 'on' : ''}`} onClick={() => setCanal(c.id)}>{c.label}</button>)}</div>
           </div>
         )}
@@ -134,23 +134,23 @@ type AndreaFase = { n: number; nombre: string; ingresos: string; audiencia: stri
 const ANDREA_FASES: AndreaFase[] = [
   { n: 0, nombre: 'Nacimiento', ingresos: '$0 – $100/mes', audiencia: '0 – 2.000 seguidores', cuello: 'Visibilidad', foco: 'Validar el nicho y crear una base de audiencia cualificada.', mix: [80, 20, 0] },
   { n: 1, nombre: 'Crecimiento', ingresos: '$100 – $1.000/mes', audiencia: '2.000 – 5.000 seguidores', cuello: 'Conversión', foco: 'Construir el sistema de captación y las primeras ventas consistentes.', mix: [50, 30, 20] },
-  { n: 2, nombre: 'Monetización', ingresos: '$1.000 – $5.000/mes', audiencia: '5.000 – 20.000 seguidores', cuello: 'Sistemas', foco: 'Crear un sistema evergreen que venda sin depender 100% de vos.', mix: [30, 40, 30] },
+  { n: 2, nombre: 'Monetización', ingresos: '$1.000 – $5.000/mes', audiencia: '5.000 – 20.000 seguidores', cuello: 'Sistemas', foco: 'Crear un sistema evergreen que venda sin depender 100% de ti.', mix: [30, 40, 30] },
   { n: 3, nombre: 'Escalamiento', ingresos: '$5.000 – $10.000/mes', audiencia: '30.000 – 50.000 seguidores', cuello: 'Tiempo', foco: 'Delegar, subir precios y activar tráfico pago sistematizado.', mix: [20, 40, 40] },
   { n: 4, nombre: 'Priorización', ingresos: '$10.000 – $20.000+/mes', audiencia: '+50.000 seguidores', cuello: 'Dispersión', foco: 'Simplificar, filtrar y escalar solo lo más rentable.', mix: [0, 50, 10] },
 ];
 
 const ANDREA_DIM: Array<[string, string]> = [
-  ['Producto y Oferta', 'Qué vendés, cómo lo ofrecés y si el mercado lo valida. Una oferta mal estructurada hace que nadie entienda qué solucionás ni por qué pagarte.'],
+  ['Producto y Oferta', 'Qué vendes, cómo lo ofreces y si el mercado lo valida. Una oferta mal estructurada hace que nadie entienda qué solucionas ni por qué pagarte.'],
   ['Marketing y Audiencia', 'El flujo de posibles clientes. Sin él, no hay ventas. El contenido es el activo que hace crecer el negocio — pero debe estar alineado con la oferta.'],
   ['Ventas y Monetización', 'Crecer sin convertir no sirve. La clave es un sistema que lleve a la audiencia fría a clientes de forma predecible.'],
   ['Lead Magnets y Prospectos', 'La puerta de entrada al funnel. Un buen lead magnet resuelve un dolor puntual, genera confianza y conecta con la oferta principal.'],
-  ['Sistemas y Automatización', 'Liberan tu tiempo y hacen que el negocio funcione sin que estés presente. Sin ellos, sos el cuello de botella de tu propio negocio.'],
+  ['Sistemas y Automatización', 'Liberan tu tiempo y hacen que el negocio funcione sin que estés presente. Sin ellos, eres el cuello de botella de tu propio negocio.'],
 ];
 
 const ANDREA_LLENAR: Array<[string, string]> = [
-  ['Diagnóstico del negocio', 'Tipo de negocio, nicho y sub-nicho, principal problema que resolvés y la transformación que ofrecés (el antes vs. después).'],
+  ['Diagnóstico del negocio', 'Tipo de negocio, nicho y sub-nicho, principal problema que resuelves y la transformación que ofreces (el antes vs. después).'],
   ['Situación actual', 'Qué está funcionando, qué NO, y cuál es el cuello: visibilidad, conversión, retención o sistemas.'],
-  ['Competencia y mercado', 'Competidores que admirás, qué hacen que vos no, y qué hacés vos que ellos no — el embrión de tu vehículo único.'],
+  ['Competencia y mercado', 'Competidores que admiras, qué hacen que tú no, y qué haces tú que ellos no — el embrión de tu vehículo único.'],
   ['Oportunidades', 'Un ángulo de contenido sin explotar, un formato de producto que el mercado necesita y un canal donde tu avatar ya está.'],
 ];
 
@@ -181,7 +181,7 @@ function AndreaFaseDetalle({ f }: { f: AndreaFase }) {
 // ── La vista completa (con pestañas) ─────────────────────────────────────────
 type Tab = 'probar' | 'fases' | 'dimensiones' | 'metodologia';
 const TABS: Array<{ id: Tab; label: string }> = [
-  { id: 'probar', label: '🎯 Probá tu fase' },
+  { id: 'probar', label: '🎯 Prueba tu fase' },
   { id: 'fases', label: '📈 Las 5 fases' },
   { id: 'dimensiones', label: '🔬 Las 5 dimensiones' },
   { id: 'metodologia', label: '📖 La metodología' },
@@ -213,7 +213,7 @@ export default function AnalisisNegocio({ back, compartible = true }: { back?: (
       {/* PROBÁ TU FASE */}
       {tab === 'probar' && (
         <section className="an-pane">
-          <p className="an-p">Respondé las 6 preguntas —las mismas del onboarding— y mirá tu fase, tu cuello de botella y qué priorizar.</p>
+          <p className="an-p">Responde las 6 preguntas —las mismas del onboarding— y mira tu fase, tu cuello de botella y qué priorizar.</p>
           <DiagnosticoForm />
         </section>
       )}

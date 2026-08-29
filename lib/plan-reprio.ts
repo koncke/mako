@@ -205,7 +205,7 @@ export async function proponerReprio(pedido: Pedido): Promise<Propuesta> {
     if (ver.veredicto === 'rechaza') {
       // Un error de parseo NO es un rechazo: el Perro no juzgó nada. Se dice que falló.
       if (ver.fallas?.startsWith('ERROR')) {
-        return { estado: 'error', scoreActual, error: 'MaKo no pudo responder ahora. Probá de nuevo.', usage: ver.usage };
+        return { estado: 'error', scoreActual, error: 'MaKo no pudo responder ahora. Prueba de nuevo.', usage: ver.usage };
       }
       const { data } = await db.from('plan_reprios').insert({ ...fila, estado: 'rechazado' }).select('id').single();
       await escribirHistorial(pedido.entidad, pedido.itemId, `El Perro rechazó moverlo a ${scorePedido} — queda en ${scoreActual}${ver.razon ? ` · ${ver.razon.slice(0, 200)}` : ''}`, 'ia');

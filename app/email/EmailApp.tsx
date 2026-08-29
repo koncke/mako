@@ -209,7 +209,7 @@ export function EmailApp() {
         <div style={{ marginBottom: '14px', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: '12.5px', lineHeight: 1.5 }}>
           {!resendOk
             ? 'Resend no está configurado (falta la API key). Los envíos quedan en modo simulado.'
-            : 'Envío real apagado: podés escribir y probar todo, pero los envíos automáticos se registran como simulado y no salen de verdad. Activalo con el botón "Envío real" de arriba cuando estés listo.'}
+            : 'Envío real apagado: puedes escribir y probar todo, pero los envíos automáticos se registran como simulado y no salen de verdad. Actívalo con el botón "Envío real" de arriba cuando estés listo.'}
         </div>
       )}
       {error && (
@@ -315,7 +315,7 @@ function SequencesView(props: {
 
   async function generar(i: number) {
     if (!draft) return;
-    const instruccion = window.prompt('¿Qué querés que escriba MaKo para este email? (ej: "reescribilo más corto y con más urgencia")');
+    const instruccion = window.prompt('¿Qué quieres que escriba MaKo para este email? (ej: "reescríbelo más corto y con más urgencia")');
     if (!instruccion) return;
     setGenFor(i); setMsg(null);
     try {
@@ -357,7 +357,7 @@ function SequencesView(props: {
       {/* Editor */}
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
         {!sel || !draft ? (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: '14px' }}>{loading ? 'Cargando…' : 'Elegí o creá una secuencia'}</div>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: '14px' }}>{loading ? 'Cargando…' : 'Elige o crea una secuencia'}</div>
         ) : (
           <>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', padding: '18px 22px', borderBottom: '1px solid var(--border)' }}>
@@ -524,7 +524,7 @@ function BroadcastsView(props: {
 
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         {loading && <div style={{ padding: '20px 22px', color: 'var(--dim)', fontSize: '13.5px' }}>Cargando…</div>}
-        {!loading && broadcasts.length === 0 && <div style={{ padding: '20px 22px', color: 'var(--faint)', fontSize: '13.5px' }}>No hay broadcasts. Creá el primero.</div>}
+        {!loading && broadcasts.length === 0 && <div style={{ padding: '20px 22px', color: 'var(--faint)', fontSize: '13.5px' }}>No hay broadcasts. Crea el primero.</div>}
         {broadcasts.map((b) => {
           const seg = segmentos.find((s) => s.value === b.segmento);
           const est = ESTADO_STYLE[b.estado] ?? ESTADO_STYLE.borrador;
@@ -584,7 +584,7 @@ function BroadcastEditor(props: {
   }
 
   async function generar() {
-    const instruccion = window.prompt('¿Sobre qué querés el broadcast? (ej: "anunciá un webinar en vivo el jueves sobre prospección")');
+    const instruccion = window.prompt('¿Sobre qué quieres el broadcast? (ej: "anuncia un webinar en vivo el jueves sobre prospección")');
     if (!instruccion) return;
     setGen(true); setMsg(null);
     try {
@@ -609,7 +609,7 @@ function BroadcastEditor(props: {
   }
 
   async function programar() {
-    if (!schedAt) { setMsg({ type: 'err', text: 'Elegí fecha y hora.' }); return; }
+    if (!schedAt) { setMsg({ type: 'err', text: 'Elige fecha y hora.' }); return; }
     if (!(await guardar())) return;
     setBusy(true); setMsg(null);
     try {
@@ -804,11 +804,11 @@ function DominioSetup({ dom, onUpdate, onClose }: { dom: DomState; onUpdate: (d:
         <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
           {pasoDot(2, paso === 2, paso > 2)}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '14px', fontWeight: 600, color: paso >= 2 ? 'var(--ink)' : 'var(--faint)' }}>Cargá estos registros en el DNS de tu dominio</div>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: paso >= 2 ? 'var(--ink)' : 'var(--faint)' }}>Carga estos registros en el DNS de tu dominio</div>
             {paso === 2 && (
               <>
                 <div style={{ fontSize: '12.5px', color: 'var(--dim)', marginTop: '4px', lineHeight: 1.5 }}>
-                  En el panel donde administrás el dominio (Cloudflare, GoDaddy, SiteGround…), agregá estos registros tal cual. Después tocá <strong>Verificar</strong> — puede tardar unos minutos en propagar.
+                  En el panel donde administras el dominio (Cloudflare, GoDaddy, SiteGround…), agrega estos registros tal cual. Después toca <strong>Verificar</strong> — puede tardar unos minutos en propagar.
                 </div>
                 <div style={{ marginTop: '10px', border: '1px solid var(--border)', borderRadius: '11px', overflow: 'hidden' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '70px 1.2fr 2fr 70px 70px', gap: '10px', padding: '9px 12px', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', fontFamily: "'Geist Mono', monospace", fontSize: '10px', letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--dim)' }}>
@@ -854,7 +854,7 @@ function DominioSetup({ dom, onUpdate, onClose }: { dom: DomState; onUpdate: (d:
                   <button onClick={() => void accion({ action: 'remitente', local, nombre })} disabled={busy || !nombre.trim() || !local.trim()}
                     style={{ ...btnAccent, opacity: busy || !nombre.trim() || !local.trim() ? 0.6 : 1 }}>{busy ? 'Guardando…' : 'Guardar remitente'}</button>
                 </div>
-                {!dom.sandbox && <div style={{ fontSize: '12.5px', color: 'var(--good)', marginTop: '8px', fontWeight: 600 }}>Remitente actual: {dom.remitente} ✓ — ¡listo! Ya podés activar el envío real.</div>}
+                {!dom.sandbox && <div style={{ fontSize: '12.5px', color: 'var(--good)', marginTop: '8px', fontWeight: 600 }}>Remitente actual: {dom.remitente} ✓ — ¡listo! Ya puedes activar el envío real.</div>}
               </>
             )}
           </div>
@@ -864,7 +864,7 @@ function DominioSetup({ dom, onUpdate, onClose }: { dom: DomState; onUpdate: (d:
       {err && <div style={{ marginTop: '14px', padding: '9px 12px', borderRadius: '9px', border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)', fontSize: '13px' }}>{err}</div>}
       {!dom.resendConfigurado && (
         <div style={{ marginTop: '14px', padding: '9px 12px', borderRadius: '9px', border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: '12.5px' }}>
-          Falta la API key de Resend — cargala en <a href="/integraciones" style={{ color: 'inherit', fontWeight: 600 }}>Integraciones</a>.
+          Falta la API key de Resend — cárgala en <a href="/integraciones" style={{ color: 'inherit', fontWeight: 600 }}>Integraciones</a>.
         </div>
       )}
     </div>

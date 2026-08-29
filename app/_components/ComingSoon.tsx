@@ -27,7 +27,7 @@ export function ComingSoon({ title, icon }: { title: string; icon?: string }) {
         </div>
         <h1 style={{ fontWeight: 600, fontSize: 34, letterSpacing: '-0.02em', margin: '0 0 12px', color: 'var(--ink)' }}>Coming soon</h1>
         <p style={{ fontSize: 15.5, color: 'var(--dim)', lineHeight: 1.6, margin: 0 }}>
-          MaKo está construyendo esta función. <span style={{ color: 'var(--faint)' }}>We’re building this feature</span> — muy pronto la vas a poder usar acá.
+          MaKo está construyendo esta función. <span style={{ color: 'var(--faint)' }}>We’re building this feature</span> — muy pronto la vas a poder usar aquí.
         </p>
       </div>
     </main>

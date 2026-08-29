@@ -39,11 +39,11 @@ const SLIDES_DIAG: Slide[] = [
 ];
 const SLIDES_DOCS: Slide[] = [
   { t: 'MaKo trabaja con TU negocio', d: 'Lo que sale de tus documentos entra en cada análisis: deja de darte consejos de manual y te habla de lo tuyo.' },
-  { t: 'Subís y todo se arma solo', d: 'Al subir tus documentos, MaKo arma tu perfil y, si están vacíos, propone también tus avatares y tus razones.' },
+  { t: 'Subes y todo se arma solo', d: 'Al subir tus documentos, MaKo arma tu perfil y, si están vacíos, propone también tus avatares y tus razones.' },
 ];
 const SLIDES_OFERTA: Slide[] = [
   { t: 'Tu oferta, en claro', d: 'Lo que vendes, tu promesa y tu precio — extraído de tus documentos y listo para corregir.' },
-  { t: 'La base de todo', d: 'De acá salen las razones y los creativos. Cuanto más afinada tu oferta, mejor te vende MaKo.' },
+  { t: 'La base de todo', d: 'De aquí salen las razones y los creativos. Cuanto más afinada tu oferta, mejor te vende MaKo.' },
 ];
 const SLIDES_ENTREGABLE: Slide[] = [
   { t: 'El elemento que se ve', d: 'Casi toda oferta tiene algo tangible —un dashboard, una planilla, una metodología— que la hace entendible al instante.' },

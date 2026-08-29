@@ -55,9 +55,9 @@ export function NoEsTuyo({ existe, deQuien, wsDestino }: {
         <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 8, lineHeight: 1.55 }}>
           {existe
             ? (puedeIr && deQuien
-              ? <>Este borrador es de <strong style={{ color: 'var(--ink)' }}>{deQuien}</strong>. Podés pasar a su CRM para verlo.</>
-              : 'Este borrador es de otra cuenta. Entrá con esa cuenta para verlo.')
-            : 'Fijate que el link esté entero — a veces se corta al copiarlo de un chat.'}
+              ? <>Este borrador es de <strong style={{ color: 'var(--ink)' }}>{deQuien}</strong>. Puedes pasar a su CRM para verlo.</>
+              : 'Este borrador es de otra cuenta. Entra con esa cuenta para verlo.')
+            : 'Fíjate que el link esté entero — a veces se corta al copiarlo de un chat.'}
         </div>
         <div style={{ display: 'flex', gap: 9, justifyContent: 'center', marginTop: 18, flexWrap: 'wrap' }}>
           {puedeIr && (

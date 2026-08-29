@@ -41,7 +41,7 @@ export function MakoChecklistModal({ title, detalle, yaOptimizada = false, onApp
   const cargarPreguntas = async () => {
     setLoading(true); setErr('');
     const j = await coach({ action: 'ask', tarea });
-    setPreguntas(j.ok && Array.isArray(j.preguntas) && j.preguntas.length ? j.preguntas : [{ pregunta: 'Contame en una línea qué hace falta para dar esto por listo', opciones: [] }]);
+    setPreguntas(j.ok && Array.isArray(j.preguntas) && j.preguntas.length ? j.preguntas : [{ pregunta: 'Cuéntame en una línea qué hace falta para dar esto por listo', opciones: [] }]);
     setLoading(false); setPaso(1);
   };
   const optimizar = async () => {
@@ -54,7 +54,7 @@ export function MakoChecklistModal({ title, detalle, yaOptimizada = false, onApp
       setUseTit(!!p.titulo && p.titulo.trim() !== title.trim());
       setUseDet(!!p.detalle && p.detalle.trim() !== detalle.trim());
       setPaso(N + 2);
-    } else setErr(j.error || 'MaKo no devolvió nada. Probá con más contexto.');
+    } else setErr(j.error || 'MaKo no devolvió nada. Prueba con más contexto.');
     setLoading(false);
   };
   const saltear = () => { setAnswers((a) => ({ ...a, [paso - 1]: SKIP })); setPaso(paso + 1); };
@@ -80,7 +80,7 @@ export function MakoChecklistModal({ title, detalle, yaOptimizada = false, onApp
       titulo={`MaKo optimiza · ${title.slice(0, 36) || 'tarea'}`}
       total={total} idx={Math.min(paso, total - 1)}
       pregunta={loading ? 'MaKo está pensando…' : pregunta}
-      sub={paso === 0 ? undefined : enConfirm ? 'Revisá tus respuestas antes de generar.' : enPropuesta ? 'Elegí qué aplicar.' : 'Respondé (o saltéala si no aplica).'}
+      sub={paso === 0 ? undefined : enConfirm ? 'Revisa tus respuestas antes de generar.' : enPropuesta ? 'Elige qué aplicar.' : 'Responde (o sáltala si no aplica).'}
       puedeAvanzar={enPropuesta ? nApply > 0 : enConfirm ? true : paso >= 1 && paso <= N ? respondida(paso - 1) : true}
       pending={loading}
       enUltimo={enUltimo} confirmLabel={enConfirm ? 'Generar con MaKo →' : `Aplicar ${nApply}`}
@@ -93,7 +93,7 @@ export function MakoChecklistModal({ title, detalle, yaOptimizada = false, onApp
       {loading
         ? <div style={{ padding: '22px 0', color: 'var(--dim)', fontSize: 14 }}>{paso === 0 ? 'Leyendo la tarea…' : 'Armando la propuesta…'}</div>
         : paso === 0
-          ? <><IntroBody que={`optimizar "${title.slice(0, 46) || 'esta tarea'}"`} mi="que tus tareas queden claras y ejecutables" />{yaOptimizada && <div style={{ fontSize: 12.5, color: 'var(--good)', marginTop: 12 }}>✓ Ya la optimizamos antes — podés refinarla.</div>}</>
+          ? <><IntroBody que={`optimizar "${title.slice(0, 46) || 'esta tarea'}"`} mi="que tus tareas queden claras y ejecutables" />{yaOptimizada && <div style={{ fontSize: 12.5, color: 'var(--good)', marginTop: 12 }}>✓ Ya la optimizamos antes — puedes refinarla.</div>}</>
           : enConfirm
             ? <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {preguntas.map((p, i) => (

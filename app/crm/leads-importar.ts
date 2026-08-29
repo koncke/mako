@@ -83,7 +83,7 @@ export const ACCEPT_IMPORT = EXTENSIONES_IMPORT.join(',');
  * Excel o en Sheets. Lo que NO se puede hacer es romper con un error críptico.
  */
 export const EXTENSIONES_PLANILLA = ['.xlsx', '.xls', '.xlsm', '.xlsb', '.ods', '.numbers'];
-export const MENSAJE_PLANILLA = 'Todavía no leo planillas de Excel. Abrila y usá "Guardar como" → CSV (delimitado por comas), y volvé a subirla.';
+export const MENSAJE_PLANILLA = 'Todavía no leo planillas de Excel. Ábrela y usa "Guardar como" → CSV (delimitado por comas), y vuelve a subirla.';
 
 export const esPlanilla = (nombre: string): boolean =>
   EXTENSIONES_PLANILLA.some((e) => nombre.toLowerCase().endsWith(e));

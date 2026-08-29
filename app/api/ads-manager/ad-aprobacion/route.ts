@@ -58,7 +58,7 @@ async function avisarPorWhatsApp(
   const texto =
     `🟡 Publiqué ${cuales}${donde} pero *Meta los retuvo*: por seguridad pide que un admin de la cuenta los apruebe a mano antes de que empiecen a correr.\n\n` +
     `No lo puedo hacer yo — Meta no lo permite por API. Son 30 segundos:\n\n👉 ${link}\n\n` +
-    `Entrás, tocás *Revisar y publicar* y confirmás. Si no, quedan sin entregar. — MaKo`;
+    `Entras, tocas *Revisar y publicar* y confirmas. Si no, quedan sin entregar. — MaKo`;
   await emitirAviso({
     tipo: 'meta-anuncio-espera-aprobacion',
     titulo: n === 1 ? 'Meta espera que apruebes 1 anuncio' : `Meta espera que apruebes ${n} anuncios`,

@@ -46,7 +46,7 @@ const ESTADO_TPL: Record<string, { label: string; color: string; bg: string }> =
 };
 
 function fmtDelay(h: number): string {
-  if (h <= 1) return 'al toque';
+  if (h <= 1) return 'de inmediato';
   if (h < 24) return `a las ${h}h`;
   const d = Math.round(h / 24);
   return d === 1 ? 'al día siguiente' : `a los ${d} días`;
@@ -209,7 +209,7 @@ export function NutricionGenerar({ onAplicado }: { onAplicado?: () => void } = {
             {!sel && (
               <>
                 <div style={{ fontSize: '13.5px', color: 'var(--dim)', lineHeight: 1.5, margin: '8px 0 12px' }}>
-                  MaKo escribe el copy de cada secuencia en la voz de tu negocio, aplicando su metodología de copywriting. Lo revisás, ajustás y aprobás — no se manda nada hasta que vos quieras.
+                  MaKo escribe el copy de cada secuencia en la voz de tu negocio, aplicando su metodología de copywriting. Lo revisas, ajustas y apruebas — no se manda nada hasta que tú quieras.
                 </div>
                 {!!secs?.length && (
                   <div style={{ marginBottom: '16px' }}>
@@ -245,7 +245,7 @@ export function NutricionGenerar({ onAplicado }: { onAplicado?: () => void } = {
             {sel && (
               <>
                 <div style={{ fontSize: '13px', color: 'var(--dim)', lineHeight: 1.5, margin: '8px 0 16px' }}>
-                  Revisá lo que escribió MaKo. Los links de agenda/pago se completan solos al enviar. Ajustá lo que quieras y aprobá.
+                  Revisa lo que escribió MaKo. Los links de agenda/pago se completan solos al enviar. Ajusta lo que quieras y aprueba.
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   {draft.map((p, i) => (

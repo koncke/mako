@@ -66,7 +66,7 @@ async function get(path: string, token: string, params: Record<string, string> =
     const r = await fetch(url.toString(), { cache: 'no-store', signal: AbortSignal.timeout(12000) });
     const body = (await r.json().catch(() => ({}))) as Json;
     const e = body.error as { message?: string; code?: number } | undefined;
-    if (e) return { body, error: e.code === 190 ? 'Token inválido o vencido. Generá uno nuevo de usuario de sistema.' : (e.message ?? 'error de Meta') };
+    if (e) return { body, error: e.code === 190 ? 'Token inválido o vencido. Genera uno nuevo de usuario de sistema.' : (e.message ?? 'error de Meta') };
     return { body };
   } catch (err) {
     return { body: {}, error: err instanceof Error ? err.message : String(err) };
@@ -83,7 +83,7 @@ const s = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? S
  */
 export async function descubrirMeta(token: string): Promise<Descubrimiento> {
   const limpio = token.trim();
-  if (!limpio || limpio.startsWith('PENDING')) return { ok: false, error: 'Pegá primero tu access token de Meta.' };
+  if (!limpio || limpio.startsWith('PENDING')) return { ok: false, error: 'Pega primero tu access token de Meta.' };
 
   // 1. ¿Quién es y qué permisos trae? debug_token es la única forma de saber los
   //    scopes REALES: si faltan, el error tiene que decir CUÁL falta, no "error 100".

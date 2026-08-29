@@ -51,11 +51,11 @@ export type IncidenteTexto = {
 const CAUSA: Record<string, { titular: string; queHacer: string }> = {
   'Saldo impago': {
     titular: 'Tu cuenta publicitaria está *SUSPENDIDA POR FALTA DE PAGO*',
-    queHacer: 'Pagá el saldo que debés en el Business Manager de Meta.',
+    queHacer: 'Paga el saldo que debes en el Business Manager de Meta.',
   },
   'Deshabilitada': {
     titular: 'Meta *DESHABILITÓ* tu cuenta publicitaria',
-    queHacer: 'Entrá al Business Manager y pedí la revisión de la cuenta.',
+    queHacer: 'Entra al Business Manager y pide la revisión de la cuenta.',
   },
   'En revisión de riesgo': {
     titular: 'Meta puso tu cuenta *EN REVISIÓN DE RIESGO*',
@@ -63,7 +63,7 @@ const CAUSA: Record<string, { titular: string; queHacer: string }> = {
   },
   'Pendiente de liquidación': {
     titular: 'Tu cuenta quedó *PENDIENTE DE LIQUIDACIÓN*',
-    queHacer: 'Meta está esperando que se salde la cuenta. Revisá el método de pago.',
+    queHacer: 'Meta está esperando que se salde la cuenta. Revisa el método de pago.',
   },
   'En período de gracia': {
     titular: 'Tu cuenta está *EN PERÍODO DE GRACIA*: se frena en cualquier momento',
@@ -71,7 +71,7 @@ const CAUSA: Record<string, { titular: string; queHacer: string }> = {
   },
   'Pendiente de cierre': {
     titular: 'Tu cuenta publicitaria está *POR CERRARSE*',
-    queHacer: 'Entrá ya al Business Manager: si se cierra, se pierde el historial.',
+    queHacer: 'Entra ya al Business Manager: si se cierra, se pierde el historial.',
   },
   'Cerrada': {
     titular: 'Tu cuenta publicitaria está *CERRADA*',
@@ -102,7 +102,7 @@ export function causaDe(i: IncidenteTexto): { titular: string; queHacer: string 
   if (i.confirmado === false) {
     return {
       titular: 'MaKo *no puede leer el estado* de tu cuenta publicitaria',
-      queHacer: 'Revisá la conexión con Meta: puede ser el token o el ID de la cuenta.',
+      queHacer: 'Revisa la conexión con Meta: puede ser el token o el ID de la cuenta.',
     };
   }
 
@@ -193,7 +193,7 @@ export function textoAlerta(i: IncidenteTexto, minAbierto: number, veces: number
       ? `🚨⚠️ *${cuanto.toUpperCase()} SIN ENTREGAR* ⚠️🚨`
       : `🚨⚠️ *${cuanto.toUpperCase()} SIN RESOLVER* ⚠️🚨`],
     [`⛔ ${titular}.`, motivo, insistencia, grave],
-    i.entregaFrenada ? ['💸 Seguís sin recibir un solo lead.'] : [],
+    i.entregaFrenada ? ['💸 Sigues sin recibir un solo lead.'] : [],
     queHacer ? [`✅ ${queHacer}`] : [],
     ['👉 ' + link],
     ['— MaKo'],

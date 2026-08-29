@@ -77,7 +77,7 @@ export function FlujoEditor({ plantillaId }: { plantillaId: string }) {
         <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Cuándo dispara</span>
         <Dropdown
           value={dispTipo === 'manual' ? 'manual' : `evento:${evento}`}
-          options={[{ value: 'manual', label: 'Manual (lo disparás vos)' }, ...EVENTOS.map((e) => ({ value: `evento:${e.key}`, label: e.label }))]}
+          options={[{ value: 'manual', label: 'Manual (lo disparas tú)' }, ...EVENTOS.map((e) => ({ value: `evento:${e.key}`, label: e.label }))]}
           onChange={(v) => { if (v === 'manual') setFlujo({ ...flujo, disparador: { tipo: 'manual' } }); else setFlujo({ ...flujo, disparador: { tipo: 'evento', evento: v.replace('evento:', '') as never } }); }}
         />
         {dispTipo === 'evento' && (evento === 'lead.agendo' || evento === 'reunion.ocurrio' || evento === 'lead.cancelo') && (
@@ -95,7 +95,7 @@ export function FlujoEditor({ plantillaId }: { plantillaId: string }) {
       {/* Pasos */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Pasos</span>
-        {flujo.pasos.length === 0 && <div style={{ fontSize: 12, color: 'var(--faint)' }}>Sin pasos todavía. Agregá uno abajo.</div>}
+        {flujo.pasos.length === 0 && <div style={{ fontSize: 12, color: 'var(--faint)' }}>Sin pasos todavía. Agrega uno abajo.</div>}
         {flujo.pasos.map((p, i) => (
           <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', background: 'var(--surface-2)', display: 'flex', flexDirection: 'column', gap: 7 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -116,7 +116,7 @@ export function FlujoEditor({ plantillaId }: { plantillaId: string }) {
             {p.tipo === 'accion' && (
               <div style={{ maxWidth: 240 }}>
                 <Dropdown value={p.accion} options={[{ value: 'crear_tarea', label: 'Crear una tarea' }, { value: 'inscribir_nutricion', label: 'Inscribir en nutrición' }, { value: 'marcar_lead', label: 'Marcar el lead' }]} onChange={(v) => setPaso(i, { ...p, accion: v as never })} />
-                <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 5 }}>Se propone y confirmás con un “sí” (nunca dispara solo).</div>
+                <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 5 }}>Se propone y confirmas con un “sí” (nunca dispara solo).</div>
               </div>
             )}
             {p.tipo === 'esperar' && (

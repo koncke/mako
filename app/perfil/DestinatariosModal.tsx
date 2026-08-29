@@ -101,7 +101,7 @@ function Lista({ titulo, sub, items, onChange, placeholder, icono, tipo, onBorra
 
   const agregar = () => {
     if (!nuevo.trim()) {
-      setMotivo(tipo === 'tel' ? 'Escribí el número (sin el código de país, ese lo elegís al lado).' : 'Escribí el email.');
+      setMotivo(tipo === 'tel' ? 'Escribe el número (sin el código de país, ese lo eliges al lado).' : 'Escribe el email.');
       return;
     }
     // ⚠️ Cada rechazo dice QUÉ pasa. El duplicado se avisa en vez de descartarse
@@ -225,7 +225,7 @@ export function DestinatariosModal({ inicial, onCerrar, onGuardado }: {
 
   const guardar = async () => {
     if (borrInvalido) {
-      setError('Hay un dato a medio escribir. Completalo y tocá «Agregar», o borralo.');
+      setError('Hay un dato a medio escribir. Complétalo y toca «Agregar», o bórralo.');
       return;
     }
     if (!dirty) { setError('No cambiaste nada todavía.'); return; }
@@ -273,7 +273,7 @@ export function DestinatariosModal({ inicial, onCerrar, onGuardado }: {
           ¿A quién le avisa MaKo?
         </div>
         <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 5, marginBottom: 22, lineHeight: 1.5 }}>
-          Podés sumar a quien haga falta. Todos reciben lo que esté activado en cada canal.
+          Puedes sumar a quien haga falta. Todos reciben lo que esté activado en cada canal.
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
@@ -315,7 +315,7 @@ export function DestinatariosModal({ inicial, onCerrar, onGuardado }: {
             {linkGrupo && (
               <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
                 <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 6 }}>
-                  Pasale este link y entra solo:
+                  Pásale este link y entra solo:
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <code style={{
@@ -339,7 +339,7 @@ export function DestinatariosModal({ inicial, onCerrar, onGuardado }: {
           <div style={{ marginTop: 18, fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px' }}>
             Quien saques deja de recibir los reportes, pero sigue en el grupo de WhatsApp:
             echarlo de un grupo es visible para todos los demás y no es algo que se deba hacer
-            solo. Si hace falta, sacalo desde WhatsApp.
+            solo. Si hace falta, sácalo desde WhatsApp.
           </div>
         )}
 

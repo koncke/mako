@@ -60,7 +60,7 @@ export const BITACORA: Hito[] = [
       'El warning dejó de ser un tercer dorado y pasó a **naranja** (`--warn-fill: #EE7B1C`): era imposible que «cuidado» no se leyera como «MaKo».',
       'Los ocho estados de pantalla. Faltaban **cuatro enteros** —cero apariciones en todo el repositorio—: `NoResults`, `StaleData`, `PermissionState` y `Banner`/`Alert`.',
       'Una sola confirmación (había dos, y ninguna mandaba) y un solo campo de texto (había tres).',
-      '⚠️ **Se coló en el commit de otra sesión.** Los primitives (`ui.css`, `Button`, `Field`, `tokens`, `Toggle`, `Select`, `globals.css`) entraron en `974b4a4`, cuyo asunto habla de «Los 24 proyectos de cliente». Es exactamente el peligro que documenta AGENTS.md: la otra cuenta hizo `git add -A` con mi trabajo a medias en el árbol. Si buscás cuándo nació `app/_ui`, `git log --follow` te va a mandar a un commit que habla de otra cosa.',
+      '⚠️ **Se coló en el commit de otra sesión.** Los primitives (`ui.css`, `Button`, `Field`, `tokens`, `Toggle`, `Select`, `globals.css`) entraron en `974b4a4`, cuyo asunto habla de «Los 24 proyectos de cliente». Es exactamente el peligro que documenta AGENTS.md: la otra cuenta hizo `git add -A` con mi trabajo a medias en el árbol. Si buscas cuándo nació `app/_ui`, `git log --follow` te va a mandar a un commit que habla de otra cosa.',
     ],
     commits: [
       { sha: '974b4a4', msg: 'Los 24 proyectos de cliente + las 11 invenciones corregidas (se llevó app/_ui adentro)', lineas: 1108, archivos: 10 },
@@ -74,7 +74,7 @@ export const BITACORA: Hito[] = [
       'app/_ui/Estados.tsx — los 8 estados de pantalla + Banner/Alert',
       'app/_ui/Confirm.tsx · Toast.tsx — una sola implementación de cada uno',
       'app/_ui/LEEME.md — qué hay, cuándo se usa cada cosa y las reglas de crecimiento',
-      'app/admin/ui/CatalogoUI.tsx — el catálogo vivo, que nació acá',
+      'app/admin/ui/CatalogoUI.tsx — el catálogo vivo, que nació aquí',
     ],
   },
   {
@@ -83,7 +83,7 @@ export const BITACORA: Hito[] = [
     pedido: 'Te paso también los archivos de contexto, para que tengas más info…\nSería bueno que a medida que vayas implementando pueda ir visualizando y también que te bases en https://www.skills.sh/ para aprovechar las skills de diseño.\nY también busques como lo diseñan otras apps que lo hacen bien, así tienes referencia.',
     puntos: [
       'Adjuntó `Arquitectura MaKo.md` y `MaKo_Contexto_Integral_Rediseno_Claude_Code.pdf` (40 páginas). Es el documento que gobierna todo esto: los §18.3 (escala tipográfica) y §19.2 (tabs) que se citan más abajo salen de ahí.',
-      'De acá salió la skill `frontend-design`, que quedó instalada en `.claude/skills/frontend-design/`.',
+      'De aquí salió la skill `frontend-design`, que quedó instalada en `.claude/skills/frontend-design/`.',
       '«Poder ir visualizando» fue el germen de esta pantalla: primero fue un HTML publicado afuera, después `/admin/rediseno`, y terminó siendo esta tab.',
     ],
   },
@@ -91,7 +91,7 @@ export const BITACORA: Hito[] = [
     fecha: '6 ago', hora: '13:39', chat: CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
     titulo: 'Parte 2 · La navegación por intención',
     puntos: [
-      'La barra dejó de ser el inventario de módulos y pasó a agruparse por **para qué la abrís**: cuatro familias con su pregunta.',
+      'La barra dejó de ser el inventario de módulos y pasó a agruparse por **para qué la abres**: cuatro familias con su pregunta.',
       '`PageHeader` con una línea de propósito: qué pregunta responde cada pantalla.',
       '**Corrección sobre la Parte 1:** la escala tipográfica del documento (§18.3) son **siete** niveles con base 14 px, no cuatro con base 15 que había shipeado. Los tokens se renombraron por USO (`--fs-card`, `--fs-sect`) y no por tamaño, justamente para que un cambio de valor no obligue a renombrar nada.',
     ],
@@ -133,7 +133,7 @@ export const BITACORA: Hito[] = [
     titulo: 'Hover, desplegables en blanco y separar las secciones',
     pedido: '1. Haz que "Hoy" vuelva a ser "General"\n2. Saldo de Ia arriba del todo. Y cerrar sesión en rojo.\n3. Los desplegables en blanco, como el del perfil.\n4. Si tengo abierto "Operate" y la barra está plegada, se tienen que ver los otros íconos.\n5. No me gusta el ícono de "Operate" cambialo a uno más adecuado, y que no sea muy parecido al de "Create".\n6. Al pasar el cursor por las tabs de la sidebar se tienen que pintar o algo debe pasar, para que sea más intuitivo.\n7. Diferencia más las 3 secciones de las tabs internas, de alguna manera.',
     puntos: [
-      'El punto 6 y el 7 son los que van a volver **cinco veces más**. Ninguno se resolvió acá.',
+      'El punto 6 y el 7 son los que van a volver **cinco veces más**. Ninguno se resolvió aquí.',
       'El punto 3 fijó una regla: los desplegables van en **blanco**, como el del perfil. Uno oscuro flotando sobre el contenido claro se leía como parte de la barra, y entonces no quedaba claro si te habías ido de la sección.',
     ],
   },
@@ -142,7 +142,7 @@ export const BITACORA: Hito[] = [
     titulo: 'Hover, jerarquía y los desplegables en blanco',
     puntos: [
       'El desplegable de una colección pasó a `createPortal` sobre `document.body`: adentro del `<aside>` quedaba recortado por el `overflow: hidden` del panel.',
-      'Salir de sesión en rojo (`.mk-salir`): es la única acción destructiva del menú del perfil, la que no querés tocar por error buscando Configuraciones.',
+      'Salir de sesión en rojo (`.mk-salir`): es la única acción destructiva del menú del perfil, la que no quieres tocar por error buscando Configuraciones.',
       'El ícono de Operate pasó a `rayo`.',
     ],
     commits: [{ sha: '4f12f78', msg: 'Rediseño · la barra: hover, jerarquía y los desplegables en blanco', lineas: 212, archivos: 4 }],
@@ -154,7 +154,7 @@ export const BITACORA: Hito[] = [
     pedido: 'Al navegar por la sidebar pasan cosas raras…\n\n1. Si yo abro uno de las 3 secciones, se debería mantener abierta.\n2. Muchas veces para abrir una sección o lo que sea tengo que dar doble click, es como que queda en lo anterior, no se si es por los deplegables o que.\n3. Abro un desplegable e incluso sin cerrar la sidebar se cierra la sección en la que estaba navegando y se abre operate.\n4. En "Create" elimina el desplegable y que quede: "Content Machine" reemplazando Ads Writer. Y si, debes reemplazar la ruta. Abajo "Chat Agent" y cambiale el ícono que no tiene nada que ver. Luego vienen "Landing Generator" y "VSL Generator", siempre los nombres deben coincidir con la ruta.\n5. En Analyze agrega la primera tab que sea "Second Brain", por ahora replica lo que hay en onboardin allí dentro. Luego dashboard, luego saca a "Market Analyst" y pongo abajo de dashboard como "Competitor Spy", cambiale el icono claro. Luego experiments y luego analysts.\n6. Reordena "Analysts". Así: Offer, Ads, Landing, VSL, Closing, CS… Todos con el Analyst, claro.\n7. Reordena "Operate": General, Plan por un lado. Luego separalo con una linea o separando un poco más de distancia y "CRM" y "Ads Manager". La misma separación y abajo los chats, pero sin el desplegable, los tres uno abajo del otro.\n8. Las 3 secciones se tienen que diferenciar claramente de las tabs, hoy tienen el mismo diseño y eso hace que se confunda y no sea intuitivo. Tanto cuando esta plegada como cuando esta desplegada la sidebar.',
     puntos: [
       'Los puntos 1, 2 y 3 son **tres síntomas de causas distintas**, y ese fue el error de lectura: los traté como un solo bug de estado durante un rato.',
-      'El punto 4 fijó otra regla que se sostiene: **el nombre de la tab tiene que coincidir con la ruta**. De acá salieron los renombres `/landing-writer`→`/landing-generator`, `/vsl-writer`→`/vsl-generator`, `/market-analyst`→`/competitor-spy`.',
+      'El punto 4 fijó otra regla que se sostiene: **el nombre de la tab tiene que coincidir con la ruta**. De aquí salieron los renombres `/landing-writer`→`/landing-generator`, `/vsl-writer`→`/vsl-generator`, `/market-analyst`→`/competitor-spy`.',
     ],
   },
   {
@@ -163,7 +163,7 @@ export const BITACORA: Hito[] = [
     puntos: [
       '**La causa raíz del punto 1:** la familia desplegada se **derivaba** en cada render de la ruta y del cursor, y se limpiaba en el `onMouseLeave`. Pasó a ser estado (`useState`) con un ajuste en fase de render cuando cambia la ruta — el patrón de React de «ajustar estado cuando cambia una prop», hecho en render y no en un efecto (un efecto pintaría un frame con la familia equivocada).',
       'Los renombres de ruta se hicieron con `git mv` **más un stub de redirect** en la ruta vieja: los links viejos circulan.',
-      '⚠️ Acá casi rompo el trabajo de la otra sesión: hice `git mv app/ads-writer` con **367 + 199 líneas sin commitear** de la otra cuenta adentro. Se detectó y se devolvió intacto, y por eso Content Machine sigue apuntando a `/ads-writer`.',
+      '⚠️ Aquí casi rompo el trabajo de la otra sesión: hice `git mv app/ads-writer` con **367 + 199 líneas sin commitear** de la otra cuenta adentro. Se detectó y se devolvió intacto, y por eso Content Machine sigue apuntando a `/ads-writer`.',
     ],
     commits: [{ sha: '4e8380f', msg: 'Rediseño · la barra deja de perder dónde estabas parado', lineas: 454, archivos: 13 }],
     archivos: [
@@ -174,7 +174,7 @@ export const BITACORA: Hito[] = [
   },
   {
     fecha: '6 ago', hora: '16:15', chat: CH, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
-    titulo: 'El chip, el cerebro, y «esperá a que la barra esté abierta»',
+    titulo: 'El chip, el cerebro, y «espera a que la barra esté abierta»',
     pedido: '1. Está bien que el chip con el número aparezca en la sección, pero una vez que esa sección está desplegada no debe aparecer más allí, sino en la tab correspondiente.\n2. Las secciones aún no se diferencian bien de las tabs, revisa como hacerlo y que quede bien.\n3. Second Brain un icono de cerebro, obvio.\n4. Revisa la captura, funciona mal el desplegable, eso es porque debe esperar a que la sidebar esté abierta del todo para recién poder desplegar. Creo que muchos bugs se deben a eso, debería tener un status de abierto o cerrado la sidebar y guiarse por ahí muchas cosas…\n5. Agrega un "Chat Analyst" antes de closing analyst.\n6. Siento que "MaKo" con el logo arriba están muy sueltos… Tal vez podrías ponerle una animación o algo.\n7. Quiero agregar una tab de "Reportar problema" que sea "Tickets" la ruta, pero no se si ponerla abajo de "Preguntale a MaKo" o dentro del desplegable del perfil. Decide tu',
     puntos: [
       '**El punto 4 fue el diagnóstico correcto, y lo dio él, no yo.** El desplegable se posicionaba midiendo la barra con `getBoundingClientRect()` **mientras** el ancho estaba animándose de 68 a 244 px. Se agregó el estado `moviendo` + `barraQuieta`, y nada que dependa de la geometría se ejecuta durante esos 200 ms.',
@@ -216,7 +216,7 @@ export const BITACORA: Hito[] = [
   // ── 7 de agosto ────────────────────────────────────────────────────────────
   {
     fecha: '7 ago', hora: '02:17', chat: CH, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
-    titulo: 'Content Machine como sección propia, y «hacé bien esto de una vez»',
+    titulo: 'Content Machine como sección propia, y «haz bien esto de una vez»',
     pedido: '1. Aún no se diferencia bien las secciones de las tabs. Haz bien esto de una vez…\n2. Te había pedido que al pasar el cursor por las tabs estas interactuen, como lo hacen las secciones.\n3. Quiero que "Content Machine" sea otra sección más, dentro tendrá "Ideas" luego un desplegable llamado "Ads" que contenga "Ads Writer" - "Image Generator" - "Video Generator". Luego otro desplegable llamado "Instagram" con "Reels" - "Carousels" - "Stories". Por último uno que sea "YouTube" con "YouTube Writer" - "Thumbnails". Los 3 desplegables con los logos reales, utiliza el de Meta para el caso de Ads. Y bueno para Ideas un foco o algo así.\n4. Te paso los SVG',
     puntos: [
       'El punto 2 lo había pedido **dos veces antes** (15:13 punto 6 y otra). Que haya que repetirlo dos veces era la señal de que no era «me olvidé»: era un bug.',
@@ -266,7 +266,7 @@ export const BITACORA: Hito[] = [
     titulo: '«Se supone que es un símbolo de dólar y me pasaste un círculo»',
     pedido: 'El icono de Sales Machine se supone que es un simbolo de dolar y lo que me pasaste es un circulo…',
     puntos: [
-      'Acá se cortó el ciclo. El problema no era el archivo que mandaba: era mi conversor.',
+      'Aquí se cortó el ciclo. El problema no era el archivo que mandaba: era mi conversor.',
     ],
   },
   {
@@ -346,7 +346,7 @@ export const BITACORA: Hito[] = [
     titulo: 'Siete puntos: centrado, topbar sin scroll, íconos, Sidebar, branding y podar texto',
     pedido: '1. No es necesario que se extiendan todos los bloques al ancho completo, pueden estar centrados, pero lo que no es como estaba antes.\n2. Como regla de diseño, y esto te pasa mucho, si haces una topbar de navegación NO le pongas scroll, eso está mal.\n3. No veo los íconos allí.\n4. Todas las cosas que vayas poniendo allí se tienen que ver igual que en la app y llamarse igual. Pusiste "La barra" cuando lo llamamos siempre "Sidebar" y no se ve para nada igual que en la app. Puedes agregar más info claro, porque estamos viendolo en la tab de diseño. Pero a simple vista se tiene que ver igual.\n5. Revisa en CONOCIMIENTOS de extraer de allí también las cosas del apartado de "Branding MaKo".\n6. Otra cosa que te pasa mucho al construir una nueva tab o alguna sección es que pones subtitulos innecesarios, textos innecesarios. En este caso "Las piezas y el porqué de cada una. Todo se renderiza de la biblioteca real, no de capturas: si algo se ve mal acá, se ve mal en toda la app.". Revisa esto no solo para ese subititulo, sino para toda la tab de ui\n7. En lugar de "Qué se fue cambiando" pon "Change History". Y agrega fecha, hora, nombre del chat y cuenta. Que esté bien diseñado, estamos justamente trabajando en eso.',
     puntos: [
-      'Los puntos 2 y 6 vienen marcados como **«esto te pasa mucho»**: no son correcciones de esta pantalla, son reglas. Por eso terminaron en `AGENTS.md` y en `app/_ui/LEEME.md`, no solo arregladas acá.',
+      'Los puntos 2 y 6 vienen marcados como **«esto te pasa mucho»**: no son correcciones de esta pantalla, son reglas. Por eso terminaron en `AGENTS.md` y en `app/_ui/LEEME.md`, no solo arregladas aquí.',
       'El punto 4 fija el criterio del catálogo entero: **se ve igual y se llama igual que en la app**.',
     ],
   },
@@ -357,7 +357,7 @@ export const BITACORA: Hito[] = [
       'Cinco frentes independientes: el branding en Conocimientos · el texto que sobra en la tab · si se puede montar el `Sidebar` real · cómo saber la cuenta y el chat de una corrida · una auditoría de anchos y topbars sobre todo `app/`.',
       '**El hallazgo que cambió el plan:** «Branding MaKo» dentro de Conocimientos **no es un manual de marca**. Es una galería de archivos para descargar (bucket privado `branding` de Storage, catálogo en `branding_assets`, migraciones 0098 y 0100). Cero líneas sobre color, tipografía o voz. Lo que se buscaba estaba en `globals.css`, `MakoBrand.tsx`, `mako-persona.ts` y `docs/mapa-del-proyecto.md`.',
       'La auditoría de topbars encontró la violación que de verdad importaba, y no era la de esta pantalla: las tabs de la **ficha del lead** scrolleaban de costado *y* tenían la barra de scroll oculta por CSS.',
-      'De acá salió también cómo llenar «cuenta» y «chat»: `CLAUDE_CONFIG_DIR` vacío = `~\\.claude` = cuenta 1, y el título de la sesión vive en `%APPDATA%\\Claude\\claude-code-sessions\\<cuenta>\\<org>\\<sesión>.json`.',
+      'De aquí salió también cómo llenar «cuenta» y «chat»: `CLAUDE_CONFIG_DIR` vacío = `~\\.claude` = cuenta 1, y el título de la sesión vive en `%APPDATA%\\Claude\\claude-code-sessions\\<cuenta>\\<org>\\<sesión>.json`.',
       '⚠️ Trampa del entorno: `vercel ls` escribe la tabla por **stderr**. Un `2>/dev/null` para limpiar el ruido deja solo las URLs, sin la columna Status, y un bucle que espera `● Ready` se cuelga para siempre sin decir por qué.',
     ],
   },
@@ -365,7 +365,7 @@ export const BITACORA: Hito[] = [
     fecha: '7 ago', hora: '14:25', chat: CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
     titulo: 'La Sidebar se monta, y las tabs Íconos y Marca',
     puntos: [
-      'La sección mostraba una **imitación** de la barra, dibujada a mano acá adentro. Dos códigos distintos para la misma cosa: no había forma de que coincidieran.',
+      'La sección mostraba una **imitación** de la barra, dibujada a mano aquí adentro. Dos códigos distintos para la misma cosa: no había forma de que coincidieran.',
       '**No se puede montar el `Sidebar` entero, y el motivo no es el obvio.** No es solo que `usePathname()` devuelva `/admin/ui` y marque la fila equivocada: es que `adminShell = rol === \'admin\' && !impersonando` hace que para el super-admin la barra pinte `ADMIN_NAV` en vez de las cuatro familias. La tab que documenta la barra habría mostrado otra barra.',
       'La solución fue extraer las piezas y compartirlas: `Marca`, `Familia`, `NavLink`, `Identidad`, `panelStyle`, `identidadStyle` pasaron a estar exportadas en `Sidebar.tsx` y las usan la barra de verdad y la vista previa.',
       'La lista de íconos sale de `NOMBRES_ICONO` (`icons.tsx`), no escrita a mano: si no, el día que se agrega un ícono el catálogo dice que no existe.',
@@ -405,7 +405,7 @@ export const BITACORA: Hito[] = [
       'Cada fila arranca plegada: solo el título con su tipo. El detalle —el pedido textual, los archivos, los commits— se abre al tocarla.',
       'La metadata pasó de una columna angosta a una **línea horizontal** debajo del título: «Nombre del chat: Rediseño por partes» no entra en 108 px, y era exactamente lo que él avisó que iba a pasar.',
       'Naranja `#D97757` (el de Claude) para lo que hizo el agente, azul `#2F6FED` para los pedidos. Es color de CATEGORÍA, no semántico.',
-      'La foto de las entradas de Martín sale de `/api/perfil` (`usuarios.foto_url`): si la cambia en su perfil, cambia acá. Sin foto, cae a iniciales, que es lo que hace `Avatar`.',
+      'La foto de las entradas de Martín sale de `/api/perfil` (`usuarios.foto_url`): si la cambia en su perfil, cambia aquí. Sin foto, cae a iniciales, que es lo que hace `Avatar`.',
     ],
     archivos: [
       'app/admin/ui/bitacora.ts — reescrito. Tipos `Actor`, `Tipo`, `Commit`; 33 entradas',
@@ -434,10 +434,10 @@ export const BITACORA: Hito[] = [
       'Antes de escribir nada: **35 archivos** resolvían por su cuenta el «analizando…», y en `app/_ui/` no había NINGUNA pieza de MaKo — solo el color (un tono `mako` en Button, Badge y Progress).',
       '⚠️ **El Semáforo eran dos tipos incompatibles.** `Semaforo` decía `ambar`/`gris`, `SemaforoAviso` decía `amarillo`/`na`: no coincidían en dos de los cuatro valores, en 158 usos sobre 22 archivos. Un `switch` sobre el equivocado compila perfecto y pinta otro color — no avisa nunca. No era un problema de diseño, era un bug latente.',
       '**El rótulo no es un prop.** Sale del catálogo y no se puede pasar por parámetro: es la única forma de que el criterio de «listo» de la tarea (que se llame igual en Plan, Dashboard, CRM y chat) no dependa de que cada pantalla se acuerde.',
-      '**El error que solo se vio renderizando los nueve juntos:** «MaKo está ejecutando» me había quedado AZUL. Azul es «vos actuás» y el que actúa ahí es MaKo. Leído de a un estado parecía razonable; con los nueve uno debajo del otro eran ocho dorados y uno azul sin nada que lo explicara. Va dorado.',
+      '**El error que solo se vio renderizando los nueve juntos:** «MaKo está ejecutando» me había quedado AZUL. Azul es «tú actúas» y el que actúa ahí es MaKo. Leído de a un estado parecía razonable; con los nueve uno debajo del otro eran ocho dorados y uno azul sin nada que lo explicara. Va dorado.',
       '**El segundo error, del mismo tipo:** el chequeo de campos obligatorios disparaba también en la variante compacta, que por diseño no muestra esos campos — nueve avisos imposibles de resolver. Una guarda con falsos positivos se ignora a la semana, y ahí deja de avisar de los verdaderos.',
       'La forma: el estado se reconoce por el **filo izquierdo**, no por el fondo. Seis tarjetas seguidas con seis fondos de color son una bolsa de caramelos. Y la estrella brilla solo en «analizando» y «ejecutando» — por eso `MakoStar` ahora acepta `animate`.',
-      '⚠️ Convivencia: `app/_ui/ui.css` tenía trabajo sin commitear de la otra sesión pegado al final, así que git daba UN solo hunk de 145 líneas con lo de los dos. Se separó con `hash-object` + `update-index` (el `git add -p` que decía el hallazgo no corre acá: es interactivo). La receta quedó en `docs/hallazgos-infra.md`.',
+      '⚠️ Convivencia: `app/_ui/ui.css` tenía trabajo sin commitear de la otra sesión pegado al final, así que git daba UN solo hunk de 145 líneas con lo de los dos. Se separó con `hash-object` + `update-index` (el `git add -p` que decía el hallazgo no corre aquí: es interactivo). La receta quedó en `docs/hallazgos-infra.md`.',
     ],
     commits: [{ sha: 'bad3b90', msg: 'Parte 3 · La gramática de MaKo: los nueve estados, en un solo lugar', lineas: 737, archivos: 9 }],
     archivos: [
@@ -464,7 +464,7 @@ export const BITACORA: Hito[] = [
     titulo: 'La barra de admin deja de ser otra barra',
     puntos: [
       '⚠️ **No era un problema de estilos: eran dos JSX distintos.** El shell de admin no usaba `<Familia>` — tenía su propia rama con un rótulo estático y una lista plana. Por eso las secciones no se desplegaban y no se parecía a la del producto: ninguna cantidad de CSS lo iba a arreglar. Ahora `ADMIN_SECCIONES` (que era `{titulo, items}`) son dos `NavFamilia` más, y hay **una sola rama** que pinta los dos shells.',
-      'La regla que queda: **si dos cosas tienen que verse igual, tienen que ser el mismo componente.** Mientras sean dos ramas de JSX vuelven a divergir a la tercera edición — que es exactamente lo que había pasado acá.',
+      'La regla que queda: **si dos cosas tienen que verse igual, tienen que ser el mismo componente.** Mientras sean dos ramas de JSX vuelven a divergir a la tercera edición — que es exactamente lo que había pasado aquí.',
       'El super admin ve las CUATRO familias de producto además de Admin y Dev. Funciona sin impersonar porque un admin que no impersona cae en su PROPIO workspace (`resolverDesdeCookies`, lib/workspace.ts). ⚠️ Si el usuario admin no tiene workspace asignado, esas tabs dan 403: para ese caso está el flag `entrarComoDueno`, que quedó enchufado aunque hoy ningún item lo use.',
       '**«MaKo» no era una tab que redirigía: era la ÚNICA puerta a una feature.** Apuntaba a `/admin?tab=copy` y adentro vive el cerebro de copywriting (metodología + swipe de ejemplos); el tab bar de /admin solo mostraba Clientes y Super Admins. Y casi nunca funcionaba, porque el `?tab=` lo lee un efecto de MONTAJE: estando ya en /admin, la navegación del cliente no remontaba nada y te dejaba en Clientes — eso es lo que se veía como «me redirige». Se sacó de la barra y volvió a tener botón propio adentro de /admin.',
       '**«Integraciones» (/metodo) sí hace algo**: es el asistente guiado de credenciales. Se saca de la barra porque duplica la tab de Integraciones, pero la ruta queda: sigue colgando de Configuraciones → «Método».',
@@ -499,7 +499,7 @@ export const BITACORA: Hito[] = [
       '**skills.sh es un catálogo de skills de agentes**, y adentro está `impeccable` (pbakaus), que tiene una lista de cosas que se rechazan sin discusión. Dos aplicaban textual a lo que teníamos: *«A kicker or eyebrow above a heading. This one is a **ban, not a default**: no brief earns it back. The heading carries its own weight»* — eso es el rótulo en monospace arriba del título, en las nueve tarjetas — y *«Same-size cards of icon plus heading plus text as the page structure. **Cards are the lazy container**»* — eso son las tres tarjetas iguales apiladas.',
       'Las apps reales dieron el número que faltaba: una fila de checks de GitHub tiene **UN** elemento de texto; una fila de GitHub Advisories tiene 4 y el cuarto es una **oración**, no pares etiqueta-valor. Stripe Radar documenta que su lista existe para *«scan a list of reviews without seeing details»*, y al abrir **todavía** hay un «Show all insights»: ni siquiera el segundo nivel vuelca todo.',
       'Sobre la aprobación irreversible convergen tres sistemas (Cloudscape de AWS, GitLab, Win32): el alcance identificado, la palabra «no se puede deshacer», y la consecuencia en su propia sección. Y Microsoft es explícito en lo que estábamos haciendo mal: *«Don\'t hide needed information because users might not find it»*.',
-      'NN/g cerró dos discusiones con dato: varios paneles abiertos a la vez, nunca acordeón exclusivo («restringe la capacidad de combinar información»); y el caret gana sobre el «+» para decir «esto se abre acá y no te lleva a otra página» (136 participantes, p<0.01).',
+      'NN/g cerró dos discusiones con dato: varios paneles abiertos a la vez, nunca acordeón exclusivo («restringe la capacidad de combinar información»); y el caret gana sobre el «+» para decir «esto se abre aquí y no te lleva a otra página» (136 participantes, p<0.01).',
       'Lo único que la investigación NO resolvió: si el envío se puede cortar de verdad a mitad de tanda. La propuesta de reemplazar el botón por una ventana de gracia con «Detener» quedó **sin implementar** a propósito — prometer un corte que el backend no puede hacer es peor que el botón de hoy.',
     ],
   },
@@ -555,7 +555,7 @@ export const BITACORA: Hito[] = [
       'La fila, copiada de la lista de advisories de GitHub: título + **píldora de estado INLINE al final del título** (no alineada a la derecha: con nombres de largo muy distinto, a la derecha dejan el borde izquierdo dentado fila por fila) + una línea gris, y el TIEMPO en el riel derecho, que es lo que impide que la fila se vea medio vacía.',
       '⚠️ **La barra de progreso pintaba 1% cuando el dato decía 62%.** `MakoProps.progreso` va de 0 a 1 y `Progress.value` de 0 a 100: los dos son `number` y el compilador no ve nada. Se le había ajustado el ancho TRES veces sin mirar el valor. Si algo se ve mal y ya lo ajustaste tres veces, el problema no es el estilo — es el dato.',
       'Se rediseñaron las cuatro secciones que habían quedado viejas: fuera la monospace del rótulo («monospace as a costume for technical»), `curso` pasa a filas con filete, y el «por qué» de la pastilla inline sale del `title` —un tooltip nativo que falla los tres requisitos de WCAG 1.4.13— y se hace visible.',
-      'Se borró la sección «Second Brain y Perro Guardián»: era prosa, no una pieza, y este archivo abre diciendo que acá no se explica nada. Los textos siguen en `DESCRIPCIONES`.',
+      'Se borró la sección «Second Brain y Perro Guardián»: era prosa, no una pieza, y este archivo abre diciendo que aquí no se explica nada. Los textos siguen en `DESCRIPCIONES`.',
       'Los ejemplos ahora cuentan la operación de UN cliente —una clínica que pauta en Meta— en vez de hablar del VSL de la casa y de Martín como responsable.',
     ],
     archivos: [

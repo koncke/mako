@@ -52,19 +52,19 @@ export const EXT_POR_FAMILIA: Record<Exclude<FamiliaArchivo, 'desconocido'>, str
  * «guardalo como .docx» lo resuelve en diez segundos.
  */
 export const NO_SOPORTADOS: Record<string, string> = {
-  doc: 'es el Word viejo (97-2003) y necesita otra librería. Abrilo y guardalo como .docx.',
-  xls: 'es el Excel viejo (97-2003). Abrilo y guardalo como .xlsx.',
-  ppt: 'es el PowerPoint viejo (97-2003). Abrilo y guardalo como .pptx.',
-  pages: 'es de Pages (Apple) y es un formato cerrado. Exportalo a .docx o .pdf.',
-  numbers: 'es de Numbers (Apple) y es un formato cerrado. Exportalo a .xlsx o .csv.',
-  key: 'es de Keynote (Apple) y es un formato cerrado. Exportalo a .pptx o .pdf.',
-  zip: 'es un comprimido: no lo abro por seguridad. Mandame los archivos sueltos.',
-  rar: 'es un comprimido: no lo abro por seguridad. Mandame los archivos sueltos.',
-  '7z': 'es un comprimido: no lo abro por seguridad. Mandame los archivos sueltos.',
+  doc: 'es el Word viejo (97-2003) y necesita otra librería. Ábrelo y guárdalo como .docx.',
+  xls: 'es el Excel viejo (97-2003). Ábrelo y guárdalo como .xlsx.',
+  ppt: 'es el PowerPoint viejo (97-2003). Ábrelo y guárdalo como .pptx.',
+  pages: 'es de Pages (Apple) y es un formato cerrado. Expórtalo a .docx o .pdf.',
+  numbers: 'es de Numbers (Apple) y es un formato cerrado. Expórtalo a .xlsx o .csv.',
+  key: 'es de Keynote (Apple) y es un formato cerrado. Expórtalo a .pptx o .pdf.',
+  zip: 'es un comprimido: no lo abro por seguridad. Mándame los archivos sueltos.',
+  rar: 'es un comprimido: no lo abro por seguridad. Mándame los archivos sueltos.',
+  '7z': 'es un comprimido: no lo abro por seguridad. Mándame los archivos sueltos.',
   epub: 'es un libro electrónico y todavía no lo leo. Pasámelo a .pdf.',
-  mkv: 'es un contenedor de video que la transcripción no acepta. Pasalo a .mp4.',
-  tiff: 'es un formato de imagen que la visión no acepta. Pasalo a .png o .jpg.',
-  tif: 'es un formato de imagen que la visión no acepta. Pasalo a .png o .jpg.',
+  mkv: 'es un contenedor de video que la transcripción no acepta. Pásalo a .mp4.',
+  tiff: 'es un formato de imagen que la visión no acepta. Pásalo a .png o .jpg.',
+  tif: 'es un formato de imagen que la visión no acepta. Pásalo a .png o .jpg.',
 };
 
 /** Si el formato no se puede leer PERO sabemos por qué, la explicación concreta. */

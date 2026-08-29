@@ -122,7 +122,7 @@ function Retention(s: Spec) {
           <XAxis dataKey="label" tick={{ fill: DIM, fontSize: 11 }} axisLine={{ stroke: BORDER }} tickLine={false} />
           <YAxis tick={{ fill: DIM, fontSize: 11 }} axisLine={false} tickLine={false} width={30} tickFormatter={(n) => `${n}%`} />
           <Tooltip contentStyle={tip} formatter={(v) => [`${v}%`, 'retención']} />
-          <ReferenceLine x={drop} stroke={RED} strokeDasharray="4 3" label={{ value: 'se cae acá', fill: RED, fontSize: 11, fontWeight: 700, position: 'top' }} />
+          <ReferenceLine x={drop} stroke={RED} strokeDasharray="4 3" label={{ value: 'se cae aquí', fill: RED, fontSize: 11, fontWeight: 700, position: 'top' }} />
           <Area type="monotone" dataKey="v" stroke={BLUE} strokeWidth={2.6} fill="url(#rcRet)" animationDuration={1000} />
         </AreaChart>
       </ResponsiveContainer>

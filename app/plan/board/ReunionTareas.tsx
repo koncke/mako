@@ -678,7 +678,7 @@ function FilaYaEnPlan({ f, onFila, url, onAbrirTarea, renderTaskCard, delTablero
         </div>
         {eligiendo && (
           <div style={{ marginTop: 9, padding: 10, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)' }}>
-            <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscá la tarea de tu plan…"
+            <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Busca la tarea de tu plan…"
               style={{ width: '100%', padding: '8px 10px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: 13, outline: 'none', fontFamily: SANS }} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 7, maxHeight: 220, overflowY: 'auto' }}>
               {candidatas.map((t) => (
@@ -688,7 +688,7 @@ function FilaYaEnPlan({ f, onFila, url, onAbrirTarea, renderTaskCard, delTablero
                     setEligiendo(false); setBusca('');
                     // Lo elige una persona mirando las dos: es lo más confiable que hay,
                     // así que va con confianza alta y sin tildar (se amplía, no se crea).
-                    onFila({ enriquece: { id: t.id, razon: `ya está en tu plan como «${t.titulo}» — lo marcaste vos`, confianza: 'alta' }, ampliar: true, incluir: false });
+                    onFila({ enriquece: { id: t.id, razon: `ya está en tu plan como «${t.titulo}» — lo marcaste tú`, confianza: 'alta' }, ampliar: true, incluir: false });
                   }}
                   style={{ textAlign: 'left', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: 12.5, lineHeight: 1.35, cursor: 'pointer', fontFamily: SANS }}>
                   {t.titulo}

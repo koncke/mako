@@ -566,7 +566,7 @@ export async function createLeadAction(formData: FormData): Promise<void> {
   // Un lead sin email NI teléfono es incontactable: el dato es posible de
   // conseguir al momento de crearlo, así que se exige al menos uno.
   if (!emptyToNull(formData.get('email')) && !emptyToNull(formData.get('telefono'))) {
-    throw new Error('Cargá al menos un email o un teléfono: sin eso el lead es incontactable.');
+    throw new Error('Carga al menos un email o un teléfono: sin eso el lead es incontactable.');
   }
   const created = await createLead({
     nombre,
@@ -720,7 +720,7 @@ export async function bulkFillLeadFieldAction(
   leadIds: number[],
 ): Promise<{ updated: number }> {
   const v = value.trim();
-  if (!v) throw new Error('Poné un valor para asignar.');
+  if (!v) throw new Error('Pon un valor para asignar.');
   if (field !== 'setter' && field !== 'closer' && field !== 'empresa') throw new Error('Ese campo no se puede marcar en lote.');
   const ids = [...new Set(leadIds)].filter((n) => Number.isInteger(n) && n > 0);
   if (!ids.length) return { updated: 0 };
@@ -1291,7 +1291,7 @@ export type ReagendarResultado = {
  */
 async function moverEnCalendario(lead: Lead | null, cual: 'r1' | 'r2', nuevoIso: string | null, duracionMin?: number): Promise<ReagendarResultado> {
   const n = cual === 'r2' ? 2 : 1;
-  if (!nuevoIso) return { ok: false, accion: 'nada', mensaje: 'Cargá también la hora si querés que se mueva el evento del calendario.', reconectar: false, invitado: null };
+  if (!nuevoIso) return { ok: false, accion: 'nada', mensaje: 'Carga también la hora si quieres que se mueva el evento del calendario.', reconectar: false, invitado: null };
   // Sin el lead no hay ancla (ni fecha vieja, ni email, ni nombre): el buscador no
   // encontraría nada y terminaría CREANDO un evento vacío por una lectura fallida.
   if (!lead) return { ok: false, accion: 'nada', mensaje: 'No se pudo leer el lead para ubicar el evento en el calendario.', reconectar: false, invitado: null };
@@ -1646,7 +1646,7 @@ export async function revertMoveAction(leadId: number, createdAt: string): Promi
   const STATUS = new Set(['Etapa', 'Estado']);
   if (grupo.some((r) => STATUS.has(r.campo))) {
     const ultimo = allAudit.filter((r) => STATUS.has(r.campo)).reduce((mx, r) => (r.created_at > mx ? r.created_at : mx), '');
-    if (ultimo && createdAt !== ultimo) throw new Error('Solo se puede deshacer el último cambio de estado. Volvé de a uno, empezando por el más reciente.');
+    if (ultimo && createdAt !== ultimo) throw new Error('Solo se puede deshacer el último cambio de estado. Vuelve de a uno, empezando por el más reciente.');
   }
 
   const bool = (s: string | null): boolean | null => (s === 'Sí' ? true : s === 'No' ? false : null);
@@ -1852,7 +1852,7 @@ export async function declararEntradasAction(entradas: string[], evento: unknown
   // Se saneа con las MISMAS funciones que leen el jsonb: si el saneo de escritura
   // y el de lectura fueran dos, divergen y se guarda algo que después no se lee.
   const limpias = parseEntradas(entradas);
-  if (!limpias.length) return { ok: false, error: 'Elegí al menos una forma en la que te llega la gente.' };
+  if (!limpias.length) return { ok: false, error: 'Elige al menos una forma en la que te llega la gente.' };
   const ev = parseEvento(evento);
   try {
     const actual = await getFunnel();

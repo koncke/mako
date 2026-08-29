@@ -112,7 +112,7 @@ export function AudienciaModal({ entidad, item, otros, tareas, onAplicado, onUsa
       <WizardShell
         titulo={`MaKo · ${entidad === 'proyecto' ? 'prioridad del proyecto' : 'prioridad de la tarea'}`}
         pasos={['Veredicto']} pasoActual="Veredicto"
-        pregunta={gano ? (res?.veredicto === 'acepta' ? 'Tenés razón.' : 'Te doy una parte.') : 'No te lo doy.'}
+        pregunta={gano ? (res?.veredicto === 'acepta' ? 'Tienes razón.' : 'Te doy una parte.') : 'No te lo doy.'}
         sub={gano ? `${item.titulo} · ${res?.scoreActual} → ${res?.scoreFinal}` : `${item.titulo} · queda en ${res?.scoreActual}`}
         error={err || null}
         puedeAvanzar enUltimo
@@ -243,7 +243,7 @@ export function AudienciaModal({ entidad, item, otros, tareas, onAplicado, onUsa
     <WizardShell
       titulo={`MaKo · ${item.titulo.slice(0, 40)}`}
       pasos={pasos} pasoActual={paso}
-      pregunta={paso === 'A cuánto' ? '¿A cuánto lo querés?' : paso === 'Con qué' ? '¿Con qué lo sostenés?' : '¿Por qué?'}
+      pregunta={paso === 'A cuánto' ? '¿A cuánto lo quieres?' : paso === 'Con qué' ? '¿Con qué lo sostienes?' : '¿Por qué?'}
       sub={paso === 'Con qué' ? 'Elegilo de la lista: un nombre escrito a mano no prueba nada.' : undefined}
       error={err || null}
       puedeAvanzar={paso === 'A cuánto' ? pedido !== item.score : paso === 'Con qué' ? carga.ok : motivo.trim().length >= 10}

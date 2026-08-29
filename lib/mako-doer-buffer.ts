@@ -162,7 +162,7 @@ export function unirMensajes(msgs: Array<{ texto: string }>): string {
   const textos = msgs.map((m) => m.texto.trim()).filter(Boolean);
   if (textos.length <= 1) return textos[0] ?? '';
   return [
-    `[Te mandó ${textos.length} mensajes seguidos. Son UNA sola cosa: leelos todos antes de contestar, respondé UNA vez por el conjunto y cargá TODAS las tareas juntas, no de a una. Si un mensaje posterior corrige o amplía a uno anterior, gana el posterior.]`,
+    `[Te mandó ${textos.length} mensajes seguidos. Son UNA sola cosa: léelos todos antes de contestar, responde UNA vez por el conjunto y carga TODAS las tareas juntas, no de a una. Si un mensaje posterior corrige o amplía a uno anterior, gana el posterior.]`,
     ...textos.map((t, i) => `(${i + 1}) ${t}`),
   ].join('\n\n');
 }

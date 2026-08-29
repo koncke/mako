@@ -10,9 +10,9 @@ import { MakoChat } from '../_components/MakoChat';
 import { Icon } from '../_components/icons';
 
 const SUGERENCIAS = [
-  '¿Por qué se enfrió un lead? (decime el nombre)',
+  '¿Por qué se enfrió un lead? (dime el nombre)',
   '¿Qué leads necesitan seguimiento?',
-  'Resumime el WhatsApp de un lead',
+  'Resúmeme el WhatsApp de un lead',
   '¿Qué dice mi método sobre objeciones de precio?',
 ];
 

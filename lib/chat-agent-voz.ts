@@ -294,7 +294,7 @@ Lo que recibes ya viene filtrado: son solo los tramos clasificados como ETAPA DE
 
 Analizas cinco bloques:
 - tono: si tutea o trata de usted, formal o relajado, largo o telegráfico, emojis, muletillas REALES que repite.
-- preguntas: las preguntas concretas con las que averigua si un desconocido le sirve como cliente. Preguntas de venta y de calificación. Una pregunta de soporte ("¿qué error te aparece?", "¿ya lo probaste?") o de coordinación ("¿a qué hora te queda bien?") NO va acá.
+- preguntas: las preguntas concretas con las que averigua si un desconocido le sirve como cliente. Preguntas de venta y de calificación. Una pregunta de soporte ("¿qué error te aparece?", "¿ya lo probaste?") o de coordinación ("¿a qué hora te queda bien?") NO va aquí.
 - objeciones: qué le objetan los POSIBLES CLIENTES antes de comprar —precio, tiempo, "lo voy a pensar", desconfianza— y cómo responde él. El reclamo de alguien que ya compró no es una objeción de venta, y una duda sobre el costo de una herramienta que él mismo usa tampoco.
 - cierre: cómo pasa de la charla al siguiente paso (enlace, propuesta de horario, audio, llamada), con la frase que usa.
 - patron: la secuencia típica — cuántos mensajes le toma y en qué orden (por ejemplo: "saluda → pregunta el rubro → aporta un dato → propone llamada"), y cuánto suele esperar antes de insistir.

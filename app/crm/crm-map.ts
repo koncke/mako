@@ -41,9 +41,9 @@ export function calendlyDe(l: Lead): { q: string; a: string }[] {
     ['¿A qué te dedicás?', l.respuesta_objetivo],
     ['Facturación mensual actual', l.respuesta_facturacion],
     ['Colaboradores', l.respuesta_colaboradores],
-    ['¿Cuándo querés empezar?', l.respuesta_cuando_empezar],
+    ['¿Cuándo quieres empezar?', l.respuesta_cuando_empezar],
     ['¿Listo para invertir?', l.respuesta_inversion],
-    ['¿Sos el decisor?', l.respuesta_decisor],
+    ['¿Eres el decisor?', l.respuesta_decisor],
   ];
   return pairs.filter(([, a]) => !!a && a.trim()).map(([q, a]) => ({ q, a: a as string }));
 }

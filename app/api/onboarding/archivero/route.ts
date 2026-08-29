@@ -35,7 +35,7 @@ const MAX_ARCHIVO_BYTES = 25 * 1024 * 1024;
 // timeout), lo mostramos; si no, un genérico honesto (ya no dice "reintentá en un
 // momento" sin más, que sonaba a que ni valía la pena investigar).
 const mensajeSinIA = (nombre: string, motivo?: string) =>
-  motivo ? `No pude analizar "${nombre}": ${motivo}` : `Tu IA está conectada pero no pudo analizar "${nombre}" ahora mismo. Probá de nuevo en un momento.`;
+  motivo ? `No pude analizar "${nombre}": ${motivo}` : `Tu IA está conectada pero no pudo analizar "${nombre}" ahora mismo. Prueba de nuevo en un momento.`;
 const LEER_DOC = 'Transcribí TODO el texto legible de este documento, tal cual, sin resumir ni omitir nada. Si es una imagen o captura, describí también lo que se ve. Devolvé solo el texto.';
 
 async function leerArchivo(file: File): Promise<{ texto: string; warning?: string }> {
@@ -77,7 +77,7 @@ async function leerArchivo(file: File): Promise<{ texto: string; warning?: strin
       return { texto: text };
     } catch (e) { return { texto: '', warning: `No pude leer "${file.name}": ${msg(e)}` }; }
   }
-  return { texto: '', warning: `"${file.name}": formato no soportado (subí .txt, .md, .docx, .pdf o una imagen).` };
+  return { texto: '', warning: `"${file.name}": formato no soportado (sube .txt, .md, .docx, .pdf o una imagen).` };
 }
 
 // Procesa UN archivo ya subido a storage (direct-upload). Corre dentro de
@@ -85,7 +85,7 @@ async function leerArchivo(file: File): Promise<{ texto: string; warning?: strin
 async function procesarDirecto(ws: number, body: { fileId?: string; path?: string; nombre?: string; mime?: string; tamano?: number; finalizar?: boolean }): Promise<Response> {
   try {
     if (!(await docsIADisponible())) {
-      return Response.json({ ok: false, error: 'Necesito una IA para leer tus documentos. Cargá tu API key de Gemini (es gratis) en Integraciones y volvé a analizar.' }, { status: 400 });
+      return Response.json({ ok: false, error: 'Necesito una IA para leer tus documentos. Carga tu API key de Gemini (es gratis) en Integraciones y vuelve a analizar.' }, { status: 400 });
     }
     const fileId = String(body.fileId || '');
     const path = String(body.path || '');
@@ -170,7 +170,7 @@ async function fetchWebText(url: string): Promise<{ texto: string; titulo: strin
 async function procesarLink(ws: number, body: { url?: string }): Promise<Response> {
   try {
     if (!(await docsIADisponible())) {
-      return Response.json({ ok: false, error: 'Necesito una IA para leer la web. Cargá tu API key de Gemini (es gratis) y volvé a analizar.' }, { status: 400 });
+      return Response.json({ ok: false, error: 'Necesito una IA para leer la web. Carga tu API key de Gemini (es gratis) y vuelve a analizar.' }, { status: 400 });
     }
     const val = validarUrlPublica(String(body.url || ''));
     if (!val.ok) return Response.json({ ok: false, error: val.error }, { status: 400 });
@@ -234,7 +234,7 @@ export async function POST(req: NextRequest) {
       // Sin una IA para leer los docs, subir no sirve: avisamos claro (y no guardamos
       // archivos que quedarían "sin datos"). Gemini es gratis y alcanza (ver #onboarding).
       if (!(await docsIADisponible())) {
-        return Response.json({ ok: false, error: 'Necesito una IA para leer tus documentos. Cargá tu API key de Gemini (es gratis) en Integraciones y volvé a analizar.' }, { status: 400 });
+        return Response.json({ ok: false, error: 'Necesito una IA para leer tus documentos. Carga tu API key de Gemini (es gratis) en Integraciones y vuelve a analizar.' }, { status: 400 });
       }
       const fields = (await flatFields()).map((f) => ({ key: f.key, label: `${f.grupo} — ${f.label}` }));
       const warnings: string[] = [];

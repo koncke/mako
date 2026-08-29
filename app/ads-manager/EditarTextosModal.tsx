@@ -103,12 +103,12 @@ export function EditarTextosModal({ adId, adName, onClose, onSaved }: { adId: st
               <label><span style={lbl}>Descripción (opcional)</span>
                 <input value={description} onChange={(e) => setDescription(e.target.value)} style={field} /></label>
               <div><span style={lbl}>Botón (CTA)</span>
-                <Dropdown value={cta} placeholder="Elegí un botón…" options={ctaOpts} onChange={setCta} width="100%" /></div>
+                <Dropdown value={cta} placeholder="Elige un botón…" options={ctaOpts} onChange={setCta} width="100%" /></div>
               {!esLeadForm && (
                 <label><span style={lbl}>Destino (URL)</span>
                   <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://tu-landing/vsl" style={field} /></label>
               )}
-              <p style={{ fontSize: 11.5, color: 'var(--faint)', margin: 0, lineHeight: 1.5 }}>Se crea un creativo nuevo con el mismo video/imagen y estos textos; Meta vuelve a revisarlo. El video/imagen no se cambia acá.</p>
+              <p style={{ fontSize: 11.5, color: 'var(--faint)', margin: 0, lineHeight: 1.5 }}>Se crea un creativo nuevo con el mismo video/imagen y estos textos; Meta vuelve a revisarlo. El video/imagen no se cambia aquí.</p>
             </>
           )}
         </div>

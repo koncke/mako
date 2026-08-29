@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
   try {
     const participantes = await participantesDe(recordingId);
     if (!participantes.length) {
-      return Response.json({ ok: false, error: 'No tengo los participantes de esta reunión. Volvé a analizarla y probá de nuevo.' }, { status: 409 });
+      return Response.json({ ok: false, error: 'No tengo los participantes de esta reunión. Vuelve a analizarla y prueba de nuevo.' }, { status: 409 });
     }
 
     if (action === 'destinatarios') {
@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
 
     if (action === 'enviar') {
       const canales = (body.canales ?? {}) as { wa?: boolean; email?: boolean };
-      if (!canales.wa && !canales.email) return Response.json({ ok: false, error: 'Elegí al menos un canal.' }, { status: 400 });
+      if (!canales.wa && !canales.email) return Response.json({ ok: false, error: 'Elige al menos un canal.' }, { status: 400 });
       const telefono = body.telefono ? String(body.telefono).slice(0, 30) : undefined;
       // Si además tiene plan en la app, el mensaje lleva el link a la confirmación.
       const link = body.link ? String(body.link).slice(0, 500) : undefined;

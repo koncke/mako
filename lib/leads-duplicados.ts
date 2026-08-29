@@ -147,7 +147,7 @@ export function textoDuplicado(cs: Coincidencia[]): string {
   const c = cs[0];
   const quien = limpio(c.lead.nombre) || 'un contacto sin nombre';
   const resto = cs.length > 1 ? ` (y ${cs.length - 1} más)` : '';
-  return `Ya tenés a «${quien}»${resto} con el ${c.texto.replace(/^mismo /, '')}.`;
+  return `Ya tienes a «${quien}»${resto} con el ${c.texto.replace(/^mismo /, '')}.`;
 }
 
 /** El error que frena el alta cuando hay un duplicado y nadie lo autorizó.
