@@ -24,10 +24,10 @@ import type { Curso } from './curso';
 export const CURSO_MEGADATA_DE_UN_JOVEN_EMPREDEDOR: Curso = {
   slug: 'megadata-de-un-joven-emprededor',
   categoria: 'Cursos externos',
-  cardDesc: '7 clases en 1 módulos.',
+  cardDesc: '7 clases en 1 módulo.',
   eyebrow: 'Curso externo',
   titulo: 'Megadata De Un Joven Emprededor - Lathos Club',
-  subtitulo: '7 clases, 1 módulos. Video, transcripción y tus apuntes en un solo lugar.',
+  subtitulo: '7 clases, 1 módulo. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '1,0 h',
   portada: '/cono-portadas/megadata-de-un-joven-emprededor.png',
   recursos: [

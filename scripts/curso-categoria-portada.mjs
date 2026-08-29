@@ -52,9 +52,21 @@ const EQUIVALE = {
   'Ecommerce': 'Ecommerce',
   'Ventas': 'Ventas',
   'Marketing': 'Marketing',
-  'Marca Personal': 'Marca personal',
-  'Lanzamientos': 'Lanzamientos',
-  'Afiliados': 'Afiliados',
+  // ⚠️ ESTAS TRES GUARDAN DECISIONES DE MARTIN, y por eso NO son la traducción obvia.
+  //
+  //    Sin ellas el mapeo recrea la sección cada vez que llega un curso nuevo de esa
+  //    categoría de origen, y hay que volver a moverlo a mano. Pasó dos veces: «Marca
+  //    personal» y «Lanzamientos» se vaciaron por pedido suyo y volvieron solas con el
+  //    siguiente curso. Su reclamo, textual: «revisá las categorías, que no te pase más
+  //    eso, ya lo hablamos».
+  //
+  //    El criterio que él viene aplicando —y que ya estaba escrito en catalogo.ts para el
+  //    método Fukuda— es que una sección de UN curso agrupa por modelo de negocio y no por
+  //    lo que alguien viene a buscar. Marca personal, lanzamientos y afiliación son todas
+  //    formas de alcance sin pauta: van a «Orgánico», que es donde él las mandó.
+  'Marca Personal': 'Orgánico',
+  'Lanzamientos': 'Orgánico',
+  'Afiliados': 'Orgánico',
   'Finanzas / Inversiones': 'Finanzas',
   'Trading': 'Finanzas',
   'Crypto': 'Finanzas',
@@ -207,5 +219,34 @@ if (nuevasPor.length) {
 
 const sinTapa = fichas.filter((s) => !enDisco.has(s));
 if (sinTapa.length) console.log(`\n  ${sinTapa.length} sin tapa en disco: ${sinTapa.join(', ')}`);
+
+// ── 4. ¿quedó alguno en el cajón? ───────────────────────────────────────────────────
+/**
+ * ⚠️ «Cursos externos» ES EL DEFAULT DEL PIPELINE, Y NADIE LO MIRA.
+ *
+ * Un curso que la plataforma no conoce se publica ahí y no falla nada: aparece en la
+ * grilla, con su tapa y sus clases, en una sección que agrupa por PROCEDENCIA. Se
+ * descubre cuando el dueño abre el portal y lo ve — que es como se descubrió las dos
+ * veces anteriores.
+ *
+ * Esto no lo puede arreglar el script solo: la categoría de un curso que la plataforma no
+ * conoce sale de su MATERIAL, y eso lo decide una persona. Lo que sí puede es no dejar que
+ * pase en silencio.
+ */
+const cat3 = readFileSync(CAT_TS, 'utf8');
+const mapaCat = new Map([...(/const CATEGORIA[^=]*=\s*\{([\s\S]*?)\r?\n\};/.exec(cat3)?.[1] ?? '')
+  .matchAll(/'([^']+)':\s*'([^']*)'/g)].map((x) => [x[1], x[2]]));
+const enElCajon = [];
+for (const slug of fichas) {
+  const src = readFileSync(join(DIR, `curso-${slug}.ts`), 'utf8');
+  const propia = /categoria: '([^']*)'/.exec(src)?.[1] ?? '';
+  const suSlug = /slug: '([^']*)'/.exec(src)?.[1] ?? slug;
+  if ((mapaCat.get(suSlug) ?? propia) === 'Cursos externos') enElCajon.push(suSlug);
+}
+if (enElCajon.length) {
+  console.log(`\n  ⚠️  ${enElCajon.length} curso(s) quedaron en «Cursos externos» — hay que darles categoría a mano:`);
+  for (const s of enElCajon) console.log(`     · ${s}`);
+  console.log('     (la plataforma no los conoce: la categoría sale de lo que ENSEÑAN, y eso lo decide una persona)');
+}
 
 console.log(`\n  Verificá con:  npm run typecheck\n`);

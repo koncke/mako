@@ -2581,3 +2581,93 @@ html:has(.ahdoc), body:has(.ahdoc) { overflow: hidden !important; height: 100% !
   font-size: 12px; line-height: 1; padding-left: 2px;
   backdrop-filter: blur(2px); pointer-events: none;
 }
+
+
+/* ═════════════════════════════════════════════════════════════════════════════════════
+   COLA ESCRITA A MANO — 29/08/2026
+   ═════════════════════════════════════════════════════════════════════════════════════
+   Va al FINAL a propósito: esta hoja se genera desde el origen, y con la misma
+   especificidad gana la última regla. Puesto arriba, `!important` tampoco alcanza y el
+   síntoma es «le pongo !important y no pasa nada». Está escrito en AGENTS.md.
+   ═════════════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Las barras de scroll ────────────────────────────────────────────────────────────
+   Venían con el fondo blanco del navegador, que corta el diseño en dos — sobre todo en
+   la barra lateral, que es oscura. Reportado por Martín.
+
+   ⚠️ NO se ocultan. `scrollbar-width: none` está PROHIBIDO en este repo: no elimina el
+      scroll, elimina la evidencia de que hay más contenido, y con `overflow: hidden` en
+      el contenedor el síntoma es cero. Se ADELGAZAN y se tiñen. */
+.ahdoc .ugc,
+.ahdoc .ugc * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(22, 21, 15, .22) transparent;
+}
+.ahdoc .ugc *::-webkit-scrollbar { width: 10px; height: 10px; }
+.ahdoc .ugc *::-webkit-scrollbar-track { background: transparent; }
+.ahdoc .ugc *::-webkit-scrollbar-thumb {
+  background-color: rgba(22, 21, 15, .22);
+  border-radius: 99px;
+  /* El borde transparente + `background-clip` deja aire alrededor del pulgar: sin eso
+     toca los bordes y se lee como una franja, no como un control. */
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+.ahdoc .ugc *::-webkit-scrollbar-thumb:hover { background-color: rgba(22, 21, 15, .40); }
+.ahdoc .ugc *::-webkit-scrollbar-corner { background: transparent; }
+
+/* La barra lateral es OSCURA: un pulgar oscuro ahí desaparece del todo, que es el mismo
+   problema con el signo cambiado. Va claro y translúcido. */
+.ahdoc .ugc .ugc-side,
+.ahdoc .ugc .ugc-side * { scrollbar-color: rgba(255, 255, 255, .26) transparent; }
+.ahdoc .ugc .ugc-side *::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, .26); }
+.ahdoc .ugc .ugc-side *::-webkit-scrollbar-thumb:hover { background-color: rgba(255, 255, 255, .44); }
+
+/* ── El curso, al extremo derecho de la barra de arriba ─────────────────────────────── */
+.ahdoc .ugc .ugc-topbar { display: flex; align-items: center; gap: 16px; }
+.ahdoc .ugc .ugc-topbar .ugc-search { flex: 1 1 auto; min-width: 0; }
+.ahdoc .ugc .ugc-topbar-curso {
+  flex: 0 0 auto;
+  display: flex; flex-direction: column; align-items: flex-end;
+  gap: 2px; text-align: right; min-width: 0;
+}
+.ahdoc .ugc .ugc-topbar-curso-t {
+  font-weight: 700; font-size: 14px; line-height: 1.15;
+  max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ahdoc .ugc .ugc-topbar-curso-n {
+  font-size: 11px; letter-spacing: .08em; text-transform: uppercase; opacity: .55;
+}
+/* En pantalla angosta el nombre del curso se lleva el buscador puesto: se esconde el
+   contador primero y, si sigue sin entrar, el título entero. La barra NO scrollea de
+   costado — esconder destinos detrás de un gesto lateral es esconderlos. */
+@media (max-width: 900px) {
+  .ahdoc .ugc .ugc-topbar-curso-n { display: none; }
+  .ahdoc .ugc .ugc-topbar-curso-t { max-width: 180px; }
+}
+@media (max-width: 640px) {
+  .ahdoc .ugc .ugc-topbar-curso { display: none; }
+}
+
+/* ── Anterior / siguiente, DEBAJO del video ─────────────────────────────────────────── */
+.ahdoc .ugc .ugc-lecnav-pie {
+  margin-top: 14px;
+  display: flex; flex-wrap: wrap; gap: 10px;
+}
+
+/* ── «Material de esta clase»: una sección a lo ANCHO, abajo de todo ─────────────────
+   Vivía adentro de la columna del papel, al final de una transcripción de 6.000 px:
+   existía y nadie iba a llegar. Ahora es hermana del split y ocupa las dos columnas. */
+.ahdoc .ugc .ugc-material {
+  margin-top: 22px;
+  padding: 26px 22px 30px;
+  border-radius: 18px;
+  background: #fffdf6;
+  border: 2px solid #16150f;
+  box-shadow: 4px 4px 0 #16150f;
+}
+.ahdoc .ugc .ugc-material > * + * { margin-top: 10px; }
+.ahdoc .ugc .ugc-material .ugc-paper-title { margin: 0 0 6px; }
+/* Los links del material en fila, no apilados a lo largo: son pocos y cortos. */
+.ahdoc .ugc .ugc-material-lista { display: flex; flex-wrap: wrap; gap: 10px; }
+.ahdoc .ugc .ugc-material-lista > * { margin-top: 0 !important; display: inline-block !important; }

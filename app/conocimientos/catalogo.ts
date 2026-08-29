@@ -90,6 +90,8 @@ import { CURSO_HACKEANDO_EL_ALGORITMO } from './curso-hackeando-el-algoritmo';
 import { CURSO_TU_1_MILLON } from './curso-tu-1-millon';
 import { CURSO_COMPLETO_VIDEOS_IA } from './curso-completo-videos-ia';
 import { CURSO_360_MARCA_PERSONAL } from './curso-360-marca-personal';
+import { CURSO_CODIGO_MILLONARIO } from './curso-codigo-millonario';
+import { CURSO_ECOMMERCE_DE_ARZ_URUS } from './curso-ecommerce-de-arz-urus';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio';
 import { CURSO_BRANDING } from './BrandingMaKo';
@@ -244,6 +246,15 @@ const CATEGORIA: Record<string, string> = {
   'mentoria-d60': 'Desarrollo personal',   // «claridad mental», «domina tus hábitos», «RutiMax»
   'trading-clutifx': 'Finanzas',           // «BIAS», «entradas», «time»
   'trading-arelis-rodriguez-2025': 'Finanzas', // con sus hermanos: us30 y clutifx
+
+  // Tanda del 29/08 (segunda vuelta). Los dos primeros los decide su material; los dos de
+  // abajo son secciones de UN curso que Martín ya había mandado a «Orgánico», y volvieron
+  // solas con el curso siguiente porque el mapeo del script no guardaba esa decisión. Ya
+  // está arreglado ahí (ver EQUIVALE en curso-categoria-portada.mjs); esto los mueve.
+  'completo-videos-ia': 'Inteligencia Artificial', // «Introducción a la IA», modelos de video
+  'ecommerce-de-arz-urus': 'Ecommerce',    // lo dice el título
+  '360-marca-personal': 'Orgánico',        // era «Marca personal», sección de un solo curso
+  'codigo-millonario': 'Orgánico',         // era «Afiliados» — mismo criterio que el método Fukuda
   // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
   // plataforma. El comentario al lado es la categoría de origen.
   'escuela-tu-primer-millon': 'Negocios digitales', // Hustlers
@@ -267,10 +278,6 @@ const CATEGORIA: Record<string, string> = {
   // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
   // plataforma. El comentario al lado es la categoría de origen.
   'tu-1-millon': 'Finanzas',               // Finanzas / Inversiones
-
-  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
-  // plataforma. El comentario al lado es la categoría de origen.
-  '360-marca-personal': 'Marca personal',  // Marca Personal
 
 };
 
@@ -355,6 +362,10 @@ const PORTADA: Record<string, string> = {
   // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
   // pero la ficha se había emitido antes de que existiera.
   '360-marca-personal': '/cono-portadas/360-marca-personal.png',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'codigo-millonario': '/cono-portadas/codigo-millonario.jpg',
 
 };
 
@@ -644,6 +655,12 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_360_MARCA_PERSONAL,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_CODIGO_MILLONARIO,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_ECOMMERCE_DE_ARZ_URUS,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,

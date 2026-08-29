@@ -40,6 +40,29 @@ di() { echo "$(date '+%Y-%m-%d %H:%M') $1" >> "$MIO"; }
 
 [ -f "$LOG" ] || { di "no hay cola.log todavia — no hago nada"; exit 0; }
 
+# ─────────────────────────────────────────────────────────────────────────────────────
+# ⚠️ EL DISCO, QUE ES LO QUE NADIE MIRABA.
+#
+# El 29/08/2026 llego a 815 MB de 455 GB y nos enteramos porque Martin no podia trabajar.
+# Este perro miraba si la cola escribia, y la cola escribia perfecto: bajaba, transcribia
+# y publicaba mientras el disco se terminaba. Una cola sana llenando el disco se ve
+# exactamente igual que una cola sana.
+#
+# Por eso el aviso va ACA y no en la cola: el que vigila tiene que mirar tambien lo que el
+# vigilado consume, no solo si respira.
+#
+# Avisa, NO borra: el barrido (`cursos-liberar.sh`) es el que libera, y corre solo. Si el
+# disco sigue bajando con el barrido puesto, es que hay algo que el barrido no puede tocar
+# —cursos sin publicar, o algo fuera de C:/cursos— y eso lo tiene que ver una persona.
+# ─────────────────────────────────────────────────────────────────────────────────────
+GB=$(df -k /c | tail -1 | awk '{printf "%d", $4/1048576}')
+AVISO_GB=30
+if [ "${GB:-999}" -lt "$AVISO_GB" ]; then
+  di "⚠️ DISCO BAJO: quedan ${GB} GB (aviso bajo ${AVISO_GB})."
+  di "   El barrido corre cada 6 h. A mano: sh scripts/cursos-liberar.sh"
+  di "   Que hay para liberar: node scripts/curso-liberables.mjs --ver"
+fi
+
 # ⚠️ LA VIDA SE MIDE POR EL MÁS RECIENTE DE LOS **DOS** LOGS, y esto no es un detalle:
 #    desde el 29/08/2026 el bajador escribe en su propio archivo (dos escritores sobre el
 #    mismo se comían el 10% de las líneas). Mirando solo `cola.log`, una descarga larga

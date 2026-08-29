@@ -24,10 +24,10 @@ import type { Curso } from './curso';
 export const CURSO_LEGALMENTE_EMPRENDEDOR: Curso = {
   slug: 'legalmente-emprendedor',
   categoria: 'Cursos externos',
-  cardDesc: '7 clases en 1 módulos.',
+  cardDesc: '7 clases en 1 módulo.',
   eyebrow: 'Curso externo',
   titulo: 'Legalmente Emprendedor - Lathos club',
-  subtitulo: '7 clases, 1 módulos. Video, transcripción y tus apuntes en un solo lugar.',
+  subtitulo: '7 clases, 1 módulo. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '2,5 h',
   portada: '/cono-portadas/legalmente-emprendedor.png',
   recursos: [

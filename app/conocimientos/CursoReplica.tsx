@@ -270,11 +270,27 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
       <div className="ugc">
         <div className="ugc-shell">
           <aside className="ugc-side" aria-label="Navegacion del curso">
+            {/* Arriba de todo va la MARCA del portal, no el curso: es el lugar donde se
+                busca «dónde estoy parado» en cualquier sitio, y desde acá se vuelve al
+                catálogo. El nombre del curso se fue al otro extremo de la barra de
+                arriba. Pedido de Martin. */}
             <div className="ugc-side-brand">
-              <span className="ugc-side-name">{curso.titulo}</span>
-              <span className="ugc-side-sub">{curso.clases.length} clases</span>
+              <span className="ugc-side-name">Conocimientos</span>
+              <span className="ugc-side-sub">Formación</span>
             </div>
-            {onSalir && (
+            {/*
+              ⚠️ UN SOLO BOTON EN ESTE LUGAR, y cambia segun donde estes.
+                 Fuera de una clase lleva al catálogo; adentro, al listado del que saliste
+                 (el módulo, o los resultados de tu búsqueda). Antes «Todas las clases»
+                 vivía arriba del video y «Volver a los cursos» acá: dos salidas en dos
+                 lugares distintos para la misma intención. Ahora el ojo lo busca siempre
+                 en el mismo sitio y el rótulo dice a dónde va.
+            */}
+            {clase ? (
+              <button type="button" className="ugc-side-exit" onClick={volverAlListado}>
+                <span className="ugc-side-exit-label">{FLECHA_IZQ} Todas las clases</span>
+              </button>
+            ) : onSalir && (
               <button type="button" className="ugc-side-exit" onClick={onSalir}>
                 <span className="ugc-side-exit-label">{FLECHA_IZQ} Volver a los cursos</span>
               </button>
@@ -319,6 +335,14 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
                     búsqueda de 12 letras cueste 12 clicks en el Atrás. */}
                 <input value={q} onChange={(e) => { setQ(e.target.value); ir({ q: e.target.value || undefined }, { reemplazar: true }); }}
                   placeholder="Buscar leccion, modelo, formato" aria-label="Buscar en el curso" />
+              </div>
+              {/* De QUE curso es esta pantalla. Estaba arriba de la barra lateral, en el
+                  lugar donde el ojo busca la marca del sitio; ahora ahi va «Conocimientos»
+                  y el curso queda al otro extremo, que es donde se lee como contexto y no
+                  como identidad. Pedido de Martin. */}
+              <div className="ugc-topbar-curso">
+                <span className="ugc-topbar-curso-t">{curso.titulo}</span>
+                <span className="ugc-topbar-curso-n">{curso.clases.length} clases</span>
               </div>
             </div>
 
@@ -598,19 +622,9 @@ function Leccion({ clase, curso, abrirClase, volverAlListado }: {
   const activa = tab && tabs.includes(tab) ? tab : tabs[0] ?? null;
 
   return (
+    <>
     <div className="ugc-split">
       <div className="ugc-vcol">
-        {/* UNA sola barra de navegacion. Estaba puesta arriba y abajo, asi que los
-            botones aparecian dos veces en la misma pantalla. */}
-        <nav className="ugc-lecnav">
-          {/* Lleva al listado del que saliste —el módulo, o los resultados de tu
-              búsqueda—, no al índice pelado: es el mismo destino al que va el Atrás del
-              navegador desde acá. Que los dos coincidan es la mitad del arreglo; si
-              llevan a lugares distintos, el usuario no puede predecir ninguno. */}
-          <button type="button" className="ugc-btn" onClick={volverAlListado}>{FLECHA_IZQ} Todas las clases</button>
-          {prev && <button type="button" className="ugc-btn" onClick={() => abrirClase(prev.n)}>{FLECHA_IZQ} {prev.titulo}</button>}
-          {next && <button type="button" className="ugc-btn" onClick={() => abrirClase(next.n)}>{next.titulo} {FLECHA_DER}</button>}
-        </nav>
         <div className="ugc-ltitle">
           <span className="ugc-pill">{clase.grupo}{clase.codigo ? ` ${'·'} ${clase.codigo}` : ''}</span>
           <h1>{clase.titulo}</h1>
@@ -632,6 +646,17 @@ function Leccion({ clase, curso, abrirClase, volverAlListado }: {
             </div>
             <div className="ugc-vbar"><span className="ugc-vbar-dur">{clase.cardDesc}</span></div>
           </div>
+        )}
+        {/* ⚠️ ANTERIOR / SIGUIENTE VAN DEBAJO DEL VIDEO, no arriba.
+            Arriba competían con el título de la clase por el primer golpe de vista, y son
+            lo que se usa DESPUES de ver: pasar a la que sigue. «Todas las clases» ya no
+            está acá — se fue a la barra lateral, al lugar exacto donde está «Volver a los
+            cursos» cuando no hay clase abierta, que es donde el ojo ya lo busca. */}
+        {(prev || next) && (
+          <nav className="ugc-lecnav ugc-lecnav-pie">
+            {prev && <button type="button" className="ugc-btn" onClick={() => abrirClase(prev.n)}>{FLECHA_IZQ} {prev.titulo}</button>}
+            {next && <button type="button" className="ugc-btn" onClick={() => abrirClase(next.n)}>{next.titulo} {FLECHA_DER}</button>}
+          </nav>
         )}
       </div>
 
@@ -691,37 +716,41 @@ function Leccion({ clase, curso, abrirClase, volverAlListado }: {
             : <div className="ugc-paper">Esta clase no trae documento.</div>
         ) : null}
 
-        {/* ⚠️ EL MATERIAL DE LA CLASE, que tampoco se dibujaba.
-            `recursoSlugs` dice que PDF va con que clase, y esta vista tenia CERO
-            referencias al campo: 5.284 vinculos clase→recurso invisibles en 23 cursos. El
-            archivo seguia estando en la lista general del curso, pero desde la clase no
-            habia forma de saber cual le tocaba — ni desde el recurso, cual era su clase.
-
-            ⚠️ Y LA CAUSA DE FONDO, que vale para el proximo campo que se agregue:
-            `catalogo.ts` pone `replica: true` a TODOS los cursos con un `.map()`, asi que
-            `CursoPortal` cortocircuita a esta vista SIEMPRE — tambien para el admin. O sea
-            que `CursoPortal` es codigo muerto y todo lo que dibuja y esta no, no se ve en
-            ninguna parte. Son «dos componentes para la misma pantalla»: lo que se agrega a
-            uno no aparece en el otro, y hoy el que manda es este. */}
-        {material.length > 0 && (
-          <div className="ugc-paper">
-            <h3 className="ugc-paper-title">Material de esta clase</h3>
-            {material.map((r) => {
-              const href = r.driveId ? `https://drive.google.com/file/d/${r.driveId}/view` : r.notionUrl;
-              const etiqueta = `${r.badge ? `${r.badge} ${'·'} ` : ''}${r.label}`;
-              return href ? (
-                <a key={r.slug} className="ugc-btn" href={href} target="_blank" rel="noreferrer"
-                   style={{ display: 'block', marginTop: 8 }}>{etiqueta} {FLECHA_DER}</a>
-              ) : (
-                /* Un recurso sin archivo ni link (un prompt, un banco) vive en la pestaña
-                   «Recursos del curso»: se NOMBRA, y no se finge un boton que no lleva a
-                   ningun lado. Un boton muerto es peor que no tenerlo. */
-                <p className="ugc-doc-p" key={r.slug} style={{ marginTop: 8 }}>{etiqueta}</p>
-              );
-            })}
-          </div>
-        )}
       </div>
     </div>
+
+      {/* ⚠️ EL MATERIAL DE LA CLASE, que tampoco se dibujaba.
+          `recursoSlugs` dice que PDF va con que clase, y esta vista tenia CERO
+          referencias al campo: 5.284 vinculos clase→recurso invisibles en 23 cursos. El
+          archivo seguia estando en la lista general del curso, pero desde la clase no
+          habia forma de saber cual le tocaba — ni desde el recurso, cual era su clase.
+
+          ⚠️ Y LA CAUSA DE FONDO, que vale para el proximo campo que se agregue:
+          `catalogo.ts` pone `replica: true` a TODOS los cursos con un `.map()`, asi que
+          `CursoPortal` cortocircuita a esta vista SIEMPRE — tambien para el admin. O sea
+          que `CursoPortal` es codigo muerto y todo lo que dibuja y esta no, no se ve en
+          ninguna parte. Son «dos componentes para la misma pantalla»: lo que se agrega a
+          uno no aparece en el otro, y hoy el que manda es este. */}
+      {material.length > 0 && (
+        <section className="ugc-material" aria-label="Material de esta clase">
+          <h3 className="ugc-paper-title">Material de esta clase</h3>
+          <div className="ugc-material-lista">
+          {material.map((r) => {
+            const href = r.driveId ? `https://drive.google.com/file/d/${r.driveId}/view` : r.notionUrl;
+            const etiqueta = `${r.badge ? `${r.badge} ${'·'} ` : ''}${r.label}`;
+            return href ? (
+              <a key={r.slug} className="ugc-btn" href={href} target="_blank" rel="noreferrer"
+                 style={{ display: 'block', marginTop: 8 }}>{etiqueta} {FLECHA_DER}</a>
+            ) : (
+              /* Un recurso sin archivo ni link (un prompt, un banco) vive en la pestaña
+                 «Recursos del curso»: se NOMBRA, y no se finge un boton que no lleva a
+                 ningun lado. Un boton muerto es peor que no tenerlo. */
+              <p className="ugc-doc-p" key={r.slug} style={{ marginTop: 8 }}>{etiqueta}</p>
+            );
+          })}
+          </div>
+        </section>
+      )}
+    </>
   );
 }
