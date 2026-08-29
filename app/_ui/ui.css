@@ -1011,61 +1011,59 @@
 
 
 /* ── El lienzo de un clip generándose ──────────────────────────────────────
-   Copiado de lo que hace Flow, mirando el video cuadro por cuadro en vez de
-   imaginarlo. Tres cosas que estaban mal en la primera versión:
+   Copiado de Flow mirando su video cuadro por cuadro, y CORREGIDO después de
+   verlo en pantalla: la primera versión se veía negra.
 
-   1. **Va DESATURADO y oscuro, no con los colores de marca.** El primer intento
-      usaba --primary y --accent: quedaba un cargando de app, alegre y ajeno. Lo
-      de Flow es gris azulado, casi monocromo, y por eso se lee como una imagen
-      que todavía no resolvió en vez de como un adorno.
-   2. **Las manchas son GRANDES y se mueven LENTO.** Rápido se lee como spinner;
-      lento se lee como algo revelándose. Ciclos de 18 y 26 segundos.
-   3. **Va sobre negro.** El fondo de la card es casi negro y la niebla apenas lo
-      levanta. Sobre un gris claro no hay niebla que se vea.
+   ⚠️ La causa era el desenfoque. `blur(40px)` sobre una tarjeta de 176 px de
+   ancho no difumina: promedia la tarjeta entera hasta un color plano, y ese
+   color plano —sobre un fondo casi negro— es negro. El desenfoque tiene que ser
+   chico EN RELACIÓN al lienzo, no en píxeles absolutos: acá va 16 px, y las
+   manchas ocupan menos para que sobrevivan al promedio.
 
-   Lo que NO se copia es el porcentaje: Flow lo sabe, nosotros no. Un número
-   inventado que avanza solo es exactamente la clase de mentira que después nadie
-   perdona — va el tiempo transcurrido, que es cierto.
+   El resto es lo que hace Flow: gris azulado y gris cálido, casi monocromo, sobre
+   negro, moviéndose lento (18 y 26 s). Rápido se lee como spinner; lento, como
+   algo revelándose. Y va sobre negro porque sobre gris claro no hay niebla que se
+   vea.
 
-   `prefers-reduced-motion` la apaga: una animación infinita no es negociable
-   para quien la marea. */
+   Lo que NO se copia es el porcentaje: Flow lo sabe, nosotros no. Va el tiempo
+   transcurrido, que es cierto.
+
+   `prefers-reduced-motion` la apaga. */
 @keyframes mk-niebla-a {
-  0%   { transform: translate3d(-14%, -10%, 0) scale(1.6) rotate(0deg); }
-  100% { transform: translate3d(12%, 12%, 0) scale(2) rotate(150deg); }
+  0%   { transform: translate3d(-16%, -12%, 0) scale(1.15) rotate(0deg); }
+  100% { transform: translate3d(14%, 14%, 0) scale(1.45) rotate(140deg); }
 }
 @keyframes mk-niebla-b {
-  0%   { transform: translate3d(14%, 12%, 0) scale(1.9) rotate(0deg); }
-  100% { transform: translate3d(-12%, -8%, 0) scale(1.55) rotate(-150deg); }
+  0%   { transform: translate3d(16%, 14%, 0) scale(1.35) rotate(0deg); }
+  100% { transform: translate3d(-14%, -10%, 0) scale(1.1) rotate(-140deg); }
 }
 
 .mk-lienzo {
   position: relative;
   overflow: hidden;
   border-radius: 14px;
-  background: #14161a;
+  background: #0f1114;
   isolation: isolate;
 }
 .mk-lienzo::before,
 .mk-lienzo::after {
   content: '';
   position: absolute;
-  inset: -55%;
+  inset: -20%;
   z-index: 0;
-  filter: blur(40px);
+  filter: blur(16px);
   will-change: transform;
 }
-/* Gris azulado y gris cálido: los dos tonos que se ven en la niebla de Flow
-   antes de que la imagen empiece a teñirla. */
 .mk-lienzo::before {
   background:
-    radial-gradient(42% 46% at 32% 30%, rgba(150, 163, 178, .55), transparent 70%),
-    radial-gradient(36% 40% at 72% 68%, rgba(96, 108, 124, .5), transparent 72%);
+    radial-gradient(26% 20% at 34% 28%, rgba(186, 198, 212, .85), transparent 68%),
+    radial-gradient(22% 17% at 70% 66%, rgba(118, 134, 156, .8), transparent 70%);
   animation: mk-niebla-a 18s ease-in-out infinite alternate;
 }
 .mk-lienzo::after {
   background:
-    radial-gradient(38% 42% at 68% 26%, rgba(176, 166, 158, .38), transparent 72%),
-    radial-gradient(34% 38% at 26% 74%, rgba(120, 132, 148, .42), transparent 72%);
+    radial-gradient(24% 18% at 68% 24%, rgba(206, 194, 182, .6), transparent 70%),
+    radial-gradient(20% 16% at 28% 76%, rgba(142, 156, 174, .7), transparent 70%);
   animation: mk-niebla-b 26s ease-in-out infinite alternate;
 }
 .mk-lienzo > * { position: relative; z-index: 1; }

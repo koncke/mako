@@ -26,7 +26,6 @@ import { getRazones } from '@/lib/razones';
 // `soloHablado` vive en puestas-data —sin `server-only`— porque decide cuántas
 // palabras tiene un guion, y de ahí sale la duración: necesita test.
 import { soloHablado, puestaPorId } from '@/lib/puestas-data';
-import { leerHistorial } from './video-datos';
 
 export type GuionDisponible = {
   id: string;
@@ -48,7 +47,18 @@ export type GuionDisponible = {
   primeraLinea: string;
   /** Palabras HABLADAS: sin las etiquetas de sección. */
   palabras: number;
-  /** `true` si este guion ya se usó: se grabó, o se planificó en esta tab. */
+  /**
+   * `true` solo si de este guion salió un VIDEO.
+   *
+   * ⚠️ Escribir el plan de tomas NO cuenta. Contaba, y estaba mal: apenas se
+   * armaba el plan el guion aparecía como «Generado» aunque no existiera un solo
+   * clip. El dueño lo dijo exacto: «si no llegué a generarlo se tiene que marcar
+   * como Borrador, no Generado».
+   *
+   * Un plan es una intención; un video es un hecho. Marcar la intención como
+   * hecho es la forma más barata de que la lista deje de servir para decidir qué
+   * falta grabar.
+   */
   yaUsado: boolean;
   /**
    * Los formatos con los que YA se grabó, por nombre («Car Talks», «The
@@ -86,11 +96,7 @@ export type GuionDisponible = {
  * solo repite un aviso.
  */
 export async function guionesDisponibles(): Promise<GuionDisponible[]> {
-  const [razones, historial] = await Promise.all([getRazones(), leerHistorial()]);
-
-  const usados = new Set(
-    historial.map((h) => h.guionId).filter((v): v is string => typeof v === 'string' && v.length > 0),
-  );
+  const razones = await getRazones();
 
   const out: GuionDisponible[] = [];
   for (const celda of razones ?? []) {
@@ -119,10 +125,10 @@ export async function guionesDisponibles(): Promise<GuionDisponible[]> {
         primeraLinea: hablado.slice(0, 160),
         palabras: hablado.split(/\s+/).filter(Boolean).length,
         grabadoEn,
-        yaUsado:
-          grabadoEn.length > 0
-          || estado === 'grabado' || estado === 'publicado'
-          || usados.has(String(g.id ?? '')),
+        // Las dos fuentes que hablan de un video REAL. El historial de planes de
+        // la tab quedó afuera a propósito: dice que se escribió un plan, no que se
+        // haya grabado nada.
+        yaUsado: grabadoEn.length > 0 || estado === 'grabado' || estado === 'publicado',
       });
     }
   }
