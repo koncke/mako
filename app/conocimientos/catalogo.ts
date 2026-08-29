@@ -166,6 +166,19 @@ const CATEGORIA: Record<string, string> = {
   'ugc-sim-academy-de-mindshft': 'Inteligencia Artificial', // IA
   'vender-por-fb-e-ig-ads': 'Anuncios',    // ADS
 
+  // Los cinco que la plataforma NO resuelve: o no los conoce, o los mandó a «Diferentes»,
+  // que es otro cajón por descarte. Con cinco se puede preguntarle al MATERIAL, que es lo
+  // que manda sobre la etiqueta que le puso un sistema. El comentario dice de dónde salió
+  // cada uno: si mañana alguien discute una, tiene el criterio y no una decisión muda.
+  'certificacion-marketing-digital-ia': 'Marketing', // 153 clases: diccionario de marketing, growth plan
+  'creativos-animados': 'Inteligencia Artificial', // es la 2a academia de AvatarHype, que ya está ahí
+  'legalmente-emprendedor': 'Negocios digitales', // «cómo vamos a montar nuestro negocio», «la idea»
+  'megadata-de-un-joven-emprededor': 'Desarrollo personal', // hábitos, entorno, «el tiempo es dinero»
+  // ⚠️ Este NO se dedujo del nombre. «US30» es el ticker del Dow Jones, pero un ticker en
+  //    un título es un parecido; la clase 1 dice «en la parte del Dow Jones», «al ser un
+  //    mercado de negociaciones», «por la oferta y la demanda». Eso sí es el material
+  //    hablando de sí mismo.
+  'us30-2-0': 'Finanzas',
 };
 
 /**
