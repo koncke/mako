@@ -93,13 +93,34 @@ while IFS= read -r d; do
   #    los otros 77 cursos esperando. El `--abort-on-unavailable-fragment` de
   #    curso-bajar.mjs ataca la causa; esto es la red por si aparece otra forma de
   #    colgarse. Lo que quede a medias se retoma solo: el --download-archive no repite.
-  timeout "$TOPE_BAJADOR" node scripts/curso-bajar.mjs --plan "$PLAN" >> "$LOG" 2>&1
-  COD=$?
-  [ "$COD" = "124" ] && di "  ⏰ el bajador pasó el tope de $TOPE_BAJADOR y lo corté — sigo con lo bajado."
-  di "  -- bajador salió con $COD · $(libres) GB libres --"
+  # ⚠️ BAJAR Y TRANSCRIBIR VAN A LA VEZ, no uno atrás del otro.
+  #
+  #    Medido sobre «megadata» (7 clases): 5m44 bajando y 6m46 transcribiendo+subiendo,
+  #    o sea casi mitad y mitad — y mientras transcribía NO se bajaba nada, y mientras
+  #    bajaba no se transcribía. Son recursos distintos: uno es la red de bajada, el otro
+  #    CPU (ffmpeg), APIs de transcripción y la red de SUBIDA.
+  #
+  #    El pipeline YA estaba escrito para esto: su `descargaViva` mira si `bajados.txt`
+  #    crece o si hay un `.part` FRESCO, y no publica mientras el bajador trabaje. Esa
+  #    lógica existía y nunca se había usado, porque la cola los corría en serie.
+  di "  ▶ bajando y transcribiendo A LA VEZ · $(date +%H:%M:%S)"
+  timeout "$TOPE_BAJADOR" node scripts/curso-bajar.mjs --plan "$PLAN" >> "$LOG" 2>&1 &
+  PID_BAJADOR=$!
 
   node scripts/curso-pipeline.mjs --plan "$PLAN" --drive --tope-horas 12 >> "$LOG" 2>&1
-  di "  -- pipeline salió con $? · $(libres) GB libres --"
+  di "  -- pipeline (1a pasada) salió con $? · $(date +%H:%M:%S) · $(libres) GB libres --"
+
+  wait "$PID_BAJADOR"
+  COD=$?
+  [ "$COD" = "124" ] && di "  ⏰ el bajador pasó el tope de $TOPE_BAJADOR y lo corté — sigo con lo bajado."
+  di "  -- bajador salió con $COD · $(date +%H:%M:%S) · $(libres) GB libres --"
+
+  # ⚠️ SEGUNDA PASADA, y no es opcional. Si el pipeline terminó antes que el bajador,
+  #    publicó con lo que había hasta ese momento. Esta pasada recoge las clases que
+  #    llegaron al final y republica completo. Es barata: si no hay nada nuevo dice
+  #    «nada nuevo para transcribir» y solo vuelve a emitir la ficha.
+  node scripts/curso-pipeline.mjs --plan "$PLAN" --drive --tope-horas 12 >> "$LOG" 2>&1
+  di "  -- pipeline (2a pasada) salió con $? · $(date +%H:%M:%S) · $(libres) GB libres --"
 
   # Liberar apenas se publica: si no, el curso siguiente arranca contra un disco lleno.
   # El script decide solo (solo borra bajo --min-libre-gb y con las cinco condiciones).
