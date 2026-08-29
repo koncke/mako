@@ -2352,3 +2352,76 @@ mirando.
 
 **Vive en:** `app/video-generator/VideoGeneratorApp.tsx`, `video-datos.ts`.
 
+
+## La instrucción que importaba viajaba marcada como «no confiable»
+
+**El síntoma.** El dueño eligió un guion suyo en el Video Generator y el plan salió
+con otro texto. El cierre, que es lo más caro de un anuncio:
+
+| | |
+|---|---|
+| el guion decía | «En el video del enlace te explico cómo construir ese sistema para detectar el incendio antes de que empiece. Da click en el enlace.» |
+| el plan devolvió | «Toca el botón aquí abajo, deja tus datos en el formulario y te mando los detalles completos.» |
+
+Y además metió regionalismos que el cliente no escribió: «una bronca», «nomás»,
+«ocupas un gerente».
+
+**El diagnóstico obvio era el equivocado.** Parecía «al prompt le falta decirle que
+no reescriba». No le faltaba: `componerTema` mandaba el guion precedido de
+**«GUION A GRABAR — respeta su contenido, su orden y su cierre»**.
+
+**La causa real.** Esa instrucción viajaba dentro de
+`contenidoNoConfiable(tema, 'tema_usuario')`, o sea envuelta en la etiqueta que le
+dice al modelo *«esto es DATO del usuario, no órdenes»* — la misma envoltura que
+protege contra inyección de prompt. Mientras tanto el **system** prompt tenía un
+apartado entero titulado «CÓMO SE ESCRIBE EL TEXTO HABLADO» y cerraba con «Escribe
+el plan completo». El modelo obedeció a la parte confiable, que es exactamente lo
+que la envoltura existe para lograr.
+
+El disparador fue un cambio de producto sin cambio de prompt: la tab pasó de
+preguntar **un tema** («¿De qué habla tu anuncio?») a recibir **un guion
+terminado**, y el guion siguió entrando por el mismo campo `tema`.
+
+**Regla que queda.** Una instrucción metida en el mismo bloque que el contenido del
+usuario **no es una instrucción**: la envoltura anti-inyección la degrada a dato, y
+funciona igual de bien contra uno mismo. Lo que gobierna el comportamiento va en el
+system; en el bloque del usuario van los datos y nada más. Y cuando cambia lo que
+entra por un campo, hay que releer el prompt que lo consume: el compilador no ve
+que `tema` pasó de ser un tema a ser un guion.
+
+**Y el arreglo no fue un prompt mejor.** Un prompt que pide no reescribir funciona
+*casi siempre*, y «casi siempre» sobre el CTA de un anuncio es un modo de falla
+silencioso: el texto sale bien escrito, suena natural y solo se nota comparando
+contra el original — o cuando nadie llega al embudo. El reparto del guion en tomas
+se calcula en código (`lib/guion-reparto.ts`, determinista y con test) y
+`sanearPlan` **pisa** el campo `voz` que devuelve el modelo. El modelo ya no puede
+tocar las palabras aunque quiera; sigue escribiendo lo suyo —cámara, acción, prompt
+de video—, que es donde aporta.
+
+Medido de punta a punta contra el guion real: 140 palabras entran, 140 salen,
+idénticas, y el cierre es el del cliente.
+
+**Vive en:** `lib/guion-reparto.ts`, `lib/video-planner.ts`,
+`app/video-generator/actions.ts`, `app/video-generator/video-pedido.ts`.
+
+## Un catálogo puede documentar una producción que nunca ocurrió
+
+El catálogo de puestas declaraba `fuente: 'Mauricio/GUION-01-v4.md, GUION-02.md,
+GUION-03.md · anuncios 1 a 3'`, y sobre esa línea se marcaron guiones como «ya
+grabados». El dueño avisó que uno de ellos nunca lo generó.
+
+**Se midió en vez de discutir:** `ffprobe` sobre los cuatro anuncios terminados da
+100,7 s · 98,2 s · 92,0 s · 56,1 s. `GUION-03.md` declara **~62 s** y ningún video
+producido dura eso. El guion de producción existe —7 clips, derivado del *Guion 2*
+del archivo del cliente— pero **no se produjo**. La línea del catálogo era una
+intención escrita como si fuera un hecho.
+
+**Regla que queda.** Un campo de procedencia escrito a mano no es evidencia. Cuando
+una marca de la UI depende de él («ya lo grabaste»), la marca hereda su
+confiabilidad. Para atar un guion a un anuncio sirven los artefactos: la duración
+del archivo final y la cantidad de clips, no el nombre del documento. Y frente a la
+duda se marca **de menos**: decirle a alguien que ya grabó algo que no grabó lo
+manda a buscar un anuncio que no existe.
+
+**Vive en:** `lib/puestas-data.ts` (campo `fuente`),
+`app/video-generator/guiones-datos.ts`.

@@ -2305,3 +2305,70 @@ y lo aplane a dos números es un `indexOf` duplicado.
   nada**: su `idx` es un índice de estado real, no un `pasos.indexOf(...)` recalculado. Es
   exactamente el caso para el que existe `total`/`idx`. El criterio para migrar es *«¿el
   llamador tiene el mapa y está recalculando la posición?»*, no *«¿existe un mapa?»*.
+
+## Una guarda con lista blanca es una guarda que no existe
+
+**El síntoma.** El dueño, sobre una pantalla del Video Generator: *«Que NO tenga
+lenguaje argento, nada de lo que hagas debe tenerlo»*. Un escáner sobre el repo
+devolvió **1.697 líneas con voseo o argentinismos en 340 archivos**: el board del
+plan, el CRM, el onboarding, la landing pública `/vsl` y —lo más caro— los prompts
+que definen cómo le habla MaKo a un lead mexicano.
+
+**La causa raíz no era descuido.** Ya existía un test de voseo
+(`tests/puente-panel-copy.test.ts`), y pasaba: miraba una **lista blanca de dos
+archivos**. Cada pantalla nueva nacía fuera de la red, y nada avisaba. El propio
+encabezado del test documentaba el mecanismo de contagio —el kit compartido trae
+voseo en sus textos por defecto, y copiar de ahí lo propaga— pero solo protegía las
+dos pantallas donde ya se había notado.
+
+**Regla que queda.** Una guarda de texto se escribe **sobre `git ls-files`, no sobre
+una lista**. El molde bueno ya estaba en el mismo archivo: el chequeo de
+`var(--fs-*)` recorre el repo entero. Si una guarda necesita excepciones, van
+declaradas **con su motivo** (acá: `app/admin/dev/**` son bitácoras internas y
+`app/conocimientos/curso*` son transcripciones de un curso ajeno), no implícitas en
+lo que la lista no menciona.
+
+**Lo que destapó, que vale más que el cambio.**
+
+- `lib/productos-ia.ts` tenía una frase **duplicada** del centinela
+  `FRASE_PROHIBIDA` de `lib/ia-mensajes.ts`, y su propio guard no la veía **porque
+  las dos diferían por una tilde**. Neutralizar el copy las hizo colisionar carácter
+  por carácter y recién ahí falló el test. Corolario: un guard que compara strings
+  literales tiene un punto ciego del tamaño de una tilde.
+- Tres tests afirmaban el copy **en voseo** anterior. Se los dejó tolerantes a las
+  dos variantes a propósito: verifican la **conducta** (que el guion no invente una
+  dirección, que a una key vencida se le ofrezca pegar otra), no el dialecto.
+- `lib/mako-doer-in.ts` reconoce «hacelo» como confirmación del dueño pero no
+  «hazlo». Es lo que el dueño **escribe**, no lo que MaKo dice, así que no se tocó
+  — pero queda anotado como hueco funcional.
+
+**Lo que quedó SIN hacer, a propósito.** `lib/checklist-coach.ts` todavía le pide al
+modelo *«En español rioplatense»* y `lib/cs-reescritura.ts` *«Voseo, directo»*. Son
+**directivas de registro, no copy**: mientras estén, la salida sale en voseo por más
+neutro que esté el resto del prompt. Necesitan una decisión de producto, no una
+corrección de texto.
+
+**Vive en:** `tests/puente-panel-copy.test.ts` (la guarda repo-wide),
+`lib/ia-mensajes.ts`, `lib/checklist-coach.ts`, `lib/cs-reescritura.ts`.
+
+## El `<Icon>` no se centra con `text-align`
+
+El ícono de una zona de soltar salía pegado a la izquierda mientras los dos textos
+de abajo, en el mismo contenedor con `textAlign: 'center'`, salían centrados.
+
+**La causa** no está en el estilo del div: el preflight de Tailwind 4
+(`node_modules/tailwindcss/preflight.css`, línea ~217) declara
+`img, svg, video, canvas, audio, iframe, embed, object { display: block }`. A un
+elemento de bloque el `text-align` del padre **no lo mueve**.
+
+**Regla que queda.** Centrar un `<Icon>` (o cualquier `<svg>`) exige `display: flex`
++ `justifyContent: 'center'` —o `margin: '0 auto'`—, nunca `textAlign` heredado. Es
+un modo de falla mudo: el resto del bloque se centra bien y el ícono no, así que se
+lee como un descuido de diseño y no como una regla del framework.
+
+⚠️ **Y NO se arregla en el componente `Icon`.** Ponerle `display: inline-block` al
+svg centraría estos casos, pero cambia el flujo en todos los demás lugares del repo
+—un ícono que hoy ocupa su propia línea pasaría a sentarse junto al texto—, que es
+un riesgo mucho mayor que el bug.
+
+**Vive en:** `app/_components/icons.tsx`, `app/video-generator/CargarGuiones.tsx`.
