@@ -64,6 +64,24 @@ import { CURSO_MONETIZATUBE } from './curso-monetizatube';
 import { CURSO_SEMINARIOS_ALEJANDRO_CARDONA } from './curso-seminarios-alejandro-cardona';
 import { CURSO_THE_REAL_WORLD } from './curso-the-real-world';
 import { CURSO_US30_2_0 } from './curso-us30-2-0';
+import { CURSO_21_DIAS_DE_GRATITUD } from './curso-21-dias-de-gratitud';
+import { CURSO_ACADEMIA_MAV } from './curso-academia-mav';
+import { CURSO_AVATAR_MASTERY } from './curso-avatar-mastery';
+import { CURSO_CHATGPT_IA_MASTERY } from './curso-chatgpt-ia-mastery';
+import { CURSO_COMO_VENDER_COMO_UN_GLADIADOR_ROMANO } from './curso-como-vender-como-un-gladiador-romano';
+import { CURSO_CURSOS_PRO_JIMMY_NARAINE } from './curso-cursos-pro-jimmy-naraine';
+import { CURSO_DINERO_INTELIGENTE_LA_RUTA_AL_EXITO_FINANCIERO } from './curso-dinero-inteligente-la-ruta-al-exito-financiero';
+import { CURSO_EDICION_DE_VIDEO_EN_CAPCUT } from './curso-edicion-de-video-en-capcut';
+import { CURSO_ELEVA_TU_VIDA_CON_IA } from './curso-eleva-tu-vida-con-ia';
+import { CURSO_FBA_AGENCY } from './curso-fba-agency';
+import { CURSO_MENTORIA_D60 } from './curso-mentoria-d60';
+import { CURSO_MINDSET_MILLONARIO } from './curso-mindset-millonario';
+import { CURSO_N8N_VIRAL_MACHINE } from './curso-n8n-viral-machine';
+import { CURSO_NEGOCIA_CON_CONFIANZA } from './curso-negocia-con-confianza';
+import { CURSO_TERMUX_HACKING_PARA_PRINCIPIANTES_2026 } from './curso-termux-hacking-para-principiantes-2026';
+import { CURSO_THE_REAL_WOLF } from './curso-the-real-wolf';
+import { CURSO_TRADING_CLUTIFX } from './curso-trading-clutifx';
+import { CURSO_VIVE_VENDIENDO } from './curso-vive-vendiendo';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio';
 import { CURSO_BRANDING } from './BrandingMaKo';
@@ -179,6 +197,38 @@ const CATEGORIA: Record<string, string> = {
   //    mercado de negociaciones», «por la oferta y la demanda». Eso sí es el material
   //    hablando de sí mismo.
   'us30-2-0': 'Finanzas',
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  '21-dias-de-gratitud': 'Desarrollo personal', // Desarrollo personal
+  'academia-mav': 'Desarrollo personal',   // Desarrollo personal
+  'chatgpt-ia-mastery': 'Inteligencia Artificial', // IA
+  'cursos-pro-jimmy-naraine': 'Ventas',    // Ventas
+  'dinero-inteligente-la-ruta-al-exito-financiero': 'Finanzas', // Finanzas / Inversiones
+  'edicion-de-video-en-capcut': 'Edición', // Edición de Video
+  'eleva-tu-vida-con-ia': 'Inteligencia Artificial', // IA
+  'fba-agency': 'Ecommerce',               // Ecommerce
+  // ⚠️ ESTOS DOS LOS CORRIGIÓ EL MATERIAL: la plataforma los tenía en «Ecommerce» y no
+  //    tienen UNA sola clase de ecommerce. Es la regla de que lo que un curso dice de sí
+  //    mismo le gana a la etiqueta que le puso otro sistema — el `category` de la
+  //    plataforma es el DATO por default, no un oráculo. Revisadas las 66 fichas contra
+  //    sus títulos de clase, estas dos eran las únicas que se contradecían de plano.
+  'mindset-millonario': 'Desarrollo personal', // «QUE ES MINDSET», «Mindset POBRE vs RICO», «Afronta tus MIEDOS»
+  // Va con los otros tres de contenido automatizado sin cara (AutomatizaTube,
+  // MonetizaTube, Automatización y Monetización de YouTube) y no en «Inteligencia
+  // Artificial»: la herramienta es n8n, pero lo que alguien viene a buscar es alcance sin
+  // pauta. Discutible; si se mueve, que se mueva con sus tres hermanos.
+  'n8n-viral-machine': 'Orgánico',         // «Automatización de Contenido Viral Faceless»
+  'negocia-con-confianza': 'Negocios digitales', // Hustlers
+  'termux-hacking-para-principiantes-2026': 'Ciberseguridad', // Ciberseguridad
+  'the-real-wolf': 'Negocios digitales',   // Hustlers
+  'vive-vendiendo': 'Ventas',              // Ventas
+
+  // Tanda del 29/08 que la plataforma NO conoce. Misma regla que los de arriba: los decide
+  // el MATERIAL, y al lado va de qué título de clase salió cada uno.
+  'avatar-mastery': 'Inteligencia Artificial', // «influencers digitales», «CivitAI»
+  'como-vender-como-un-gladiador-romano': 'Ventas', // «¿Qué es la Venta», «Ventas Como Modo De Vida»
+  'mentoria-d60': 'Desarrollo personal',   // «claridad mental», «domina tus hábitos», «RutiMax»
+  'trading-clutifx': 'Finanzas',           // «BIAS», «entradas», «time»
 };
 
 /**
@@ -215,6 +265,25 @@ const PORTADA: Record<string, string> = {
   'megadata-de-un-joven-emprededor': '/cono-portadas/megadata-de-un-joven-emprededor.png',
   'monetizatube': '/cono-portadas/monetizatube.png',
   'the-real-world': '/cono-portadas/the-real-world.png',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  '21-dias-de-gratitud': '/cono-portadas/21-dias-de-gratitud.jpg',
+  'academia-mav': '/cono-portadas/academia-mav.jpg',
+  'chatgpt-ia-mastery': '/cono-portadas/chatgpt-ia-mastery.jpg',
+  'como-vender-como-un-gladiador-romano': '/cono-portadas/como-vender-como-un-gladiador-romano.png',
+  'cursos-pro-jimmy-naraine': '/cono-portadas/cursos-pro-jimmy-naraine.jpg',
+  'dinero-inteligente-la-ruta-al-exito-financiero': '/cono-portadas/dinero-inteligente-la-ruta-al-exito-financiero.jpg',
+  'edicion-de-video-en-capcut': '/cono-portadas/edicion-de-video-en-capcut.jpg',
+  'eleva-tu-vida-con-ia': '/cono-portadas/eleva-tu-vida-con-ia.jpg',
+  'fba-agency': '/cono-portadas/fba-agency.jpg',
+  'mentoria-d60': '/cono-portadas/mentoria-d60.jpg',
+  'mindset-millonario': '/cono-portadas/mindset-millonario.jpg',
+  'n8n-viral-machine': '/cono-portadas/n8n-viral-machine.jpg',
+  'negocia-con-confianza': '/cono-portadas/negocia-con-confianza.jpg',
+  'termux-hacking-para-principiantes-2026': '/cono-portadas/termux-hacking-para-principiantes-2026.jpg',
+  'the-real-wolf': '/cono-portadas/the-real-wolf.png',
+  'vive-vendiendo': '/cono-portadas/vive-vendiendo.jpg',
 
 };
 
@@ -407,6 +476,26 @@ export const CURSOS_TODOS: Curso[] = [
   CURSO_SEMINARIOS_ALEJANDRO_CARDONA,
   CURSO_THE_REAL_WORLD,
   CURSO_US30_2_0,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_21_DIAS_DE_GRATITUD,
+  CURSO_ACADEMIA_MAV,
+  CURSO_AVATAR_MASTERY,
+  CURSO_CHATGPT_IA_MASTERY,
+  CURSO_COMO_VENDER_COMO_UN_GLADIADOR_ROMANO,
+  CURSO_CURSOS_PRO_JIMMY_NARAINE,
+  CURSO_DINERO_INTELIGENTE_LA_RUTA_AL_EXITO_FINANCIERO,
+  CURSO_EDICION_DE_VIDEO_EN_CAPCUT,
+  CURSO_ELEVA_TU_VIDA_CON_IA,
+  CURSO_FBA_AGENCY,
+  CURSO_MENTORIA_D60,
+  CURSO_MINDSET_MILLONARIO,
+  CURSO_N8N_VIRAL_MACHINE,
+  CURSO_NEGOCIA_CON_CONFIANZA,
+  CURSO_TERMUX_HACKING_PARA_PRINCIPIANTES_2026,
+  CURSO_THE_REAL_WOLF,
+  CURSO_TRADING_CLUTIFX,
+  CURSO_VIVE_VENDIENDO,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,

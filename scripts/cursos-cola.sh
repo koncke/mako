@@ -176,6 +176,27 @@ while IFS= read -r d; do
   node scripts/curso-pipeline.mjs --plan "$PLAN" --drive --tope-horas 12 >> "$LOG" 2>&1
   di "  -- pipeline (2a pasada) salió con $? · $(date +%H:%M:%S) · $(libres) GB libres --"
 
+  # ⚠️ PUBLICAR NO ES QUE SE VEA. Son DOS pasos más, y ser scripts sueltos que «hay que
+  #    acordarse de correr» ya falló DOS VECES sobre el mismo reclamo del dueño:
+  #
+  #      · 28/08 — «No veo ninguno de esos cursos nuevos»: 14 fichas publicadas en disco que
+  #        el portal no mostraba, porque nadie las había importado en catalogo.ts.
+  #      · 29/08 — otra vez: 18 fichas sin importar y 18 de vuelta en «Cursos externos».
+  #
+  #    La segunda vez es la que importa. `curso-al-catalogo.mjs` se escribió justamente para
+  #    automatizar el paso manual… y quedó como otro paso manual. Un script que arregla un
+  #    olvido, si hay que acordarse de correrlo, es el mismo olvido con más pasos.
+  #
+  #    La forma en que falla es la peor: el .ts existe, tiene sus clases, sus
+  #    transcripciones y sus ids de Drive, nada falla y el curso simplemente NO APARECE.
+  #    Desde afuera es indistinguible de «no se procesó».
+  #
+  #    Los dos son idempotentes y baratos: si no hay nada que agregar, no tocan el archivo.
+  node scripts/curso-al-catalogo.mjs >> "$LOG" 2>&1
+  di "  -- catalogo salió con $? --"
+  node scripts/curso-categoria-portada.mjs >> "$LOG" 2>&1
+  di "  -- categoria+tapa salió con $? --"
+
   # Liberar apenas se publica: si no, el curso siguiente arranca contra un disco lleno.
   # El script decide solo (solo borra bajo --min-libre-gb y con las cinco condiciones).
   node scripts/curso-a-drive.mjs --plan "$PLAN" --liberar >> "$LOG" 2>&1
