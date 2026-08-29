@@ -2447,3 +2447,62 @@ manda a buscar un anuncio que no existe.
 
 **Vive en:** `lib/puestas-data.ts` (campo `fuente`),
 `app/video-generator/guiones-datos.ts`.
+
+## El 403 del puente de Flow: el token se emite bien, y aun así el sitio key queda descartado por deducción
+
+Síntoma: `403 · "reCAPTCHA evaluation failed" · PUBLIC_ERROR_UNUSUAL_ACTIVITY` en
+`video:batchAsyncGenerateVideoReferenceImages` por el puente, mientras el dueño
+genera a mano en la misma pestaña, cuenta e IP.
+
+**Lo que se puede deducir sin medir nada**, y ahorra la prueba entera del site key:
+`grecaptcha.enterprise.execute(clave, …)` **tira excepción** si la clave no es la que
+`api.js` cargó en la página («Invalid site key or not loaded in api.js»). Si tirara,
+`background.js:102` devolvería `CAPTCHA_FALLO` y nunca habría un 403 de Google. Hubo
+403 con cuerpo de Google ⇒ **se acuñó un token y llegó**. O sea que el site key
+hardcodeado coincide con el de la página, y `siteKeyDeLaPagina()` (0.9.0) es correcto
+como higiene pero **no es el arreglo del 403**.
+
+Eso deja dos causas, y **las dos dan el error idéntico**: (a) la `action` del token no
+es la que Flow usa, (b) el score es bajo. Las separa una sola prueba: **espejar
+`grecaptcha.enterprise.execute` igual que se espeja `window.fetch`** y leer la acción
+real cuando el dueño genera a mano.
+
+**El diagnóstico obvio era el equivocado, dos veces.** `clientContext.projectId: ""`
+(`background.js:202`, el regex de `:58` nunca aprende el id porque ninguna URL de
+video tiene forma `/v1/projects/<id>/`) y el `Authorization` **duplicado y concatenado**
+(`injected.js:280-281`: la plantilla trae `Authorization` con mayúscula, se agrega
+`authorization` en minúscula, y `Headers` los une en `"Bearer VIEJO, Bearer NUEVO"` —
+verificado en node) son defectos REALES pero **no son la causa de este error**: el
+rechazo de reCAPTCHA ocurre antes de validar el cuerpo, y si el auth no se hubiera
+parseado la respuesta sería 401, no un veredicto de captcha. Son las dos fallas que
+aparecen **apenas el captcha pase**.
+
+**Trampa del entorno:** `delete o.authorization` sobre `{Authorization: 'x'}` no borra
+nada. Por eso `injected.js:187` deja el **Bearer guardado en `chrome.storage.local`**,
+contradiciendo textualmente el comentario de `background.js:122-125`. Mismo caso con
+`delete headers['content-type']` (`:287`), que es código muerto.
+
+**Regla que queda.** El espejo se aplicó a la URL, al método, a los headers, al cuerpo
+y al site key — y **el único campo que quedó adivinado es el que produce este error
+exacto**. Cuando un diseño existe para no suponer, el campo que todavía se supone es
+el sospechoso, sin importar cuántas veces se lo haya «arreglado» (la acción ya se
+cambió una vez, de `batchAsyncGenerateVideo` a derivarla del path: cambiar una
+suposición por otra no es medir).
+
+**Y el corolario que decide el frente:** si la causa resulta ser el score, la única
+diferencia entre nosotros y useapi/FlowKit es la telemetría de actividad humana
+inventada, que está **deliberadamente prohibida** acá (`extension/background.js:8-18`).
+En ese caso el puente no puede correr desatendido por diseño y el camino es la API
+oficial (`gemini-omni-flash-preview` / Veo 3.1 Lite), no otra vuelta de arreglo.
+
+**Antes de invertir una hora más en el 403:** mirar un video que el dueño ya generó a
+mano y confirmar si trae la marca de agua «Veo» móvil de las cuentas sin Ultra. Si la
+trae, el puente produce 0 anuncios usables ande o no ande el captcha, y arreglar el
+403 no destraba nada.
+
+**Vive en:** `extension/injected.js` (`:155-168` captcha, `:187` delete roto, `:194`
+borra `applicationType`, `:200` borra `sessionId`, `:280-281` auth duplicado, `:305`
+`credentials:'include'`), `extension/background.js` (`:25` site key, `:58` projectId,
+`:90-98` `pestanaDeFlow` sin filtro de pestaña activa, `:174-181` `accionDeCaptcha`,
+`:353` alarm cada 15 s), `lib/flow-protocolo.ts:230-236` (reintento infinito de la
+rama recaptcha) y `:400-406` (tabla `accion` muerta: la extensión ya no la lee).

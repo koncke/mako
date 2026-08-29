@@ -105,6 +105,15 @@ async function pedirCaptcha(tabId, action) {
   if (res.siteKeyUsado && res.siteKeyUsado !== SITE_KEY) {
     console.warn(`[mako] el site key de la pagina es ${res.siteKeyUsado}, el nuestro era ${SITE_KEY}`);
   }
+  // LA MEDICION que faltaba: con que acciones acuna Flow sus tokens. Queda
+  // guardado para que viaje en el proximo latido y se pueda ver desde el server,
+  // sin pedirle una captura de pantalla a nadie.
+  if (Array.isArray(res.accionesDeFlow) && res.accionesDeFlow.length) {
+    try { await chrome.storage.local.set({ accionesDeFlow: res.accionesDeFlow }); } catch { /* no es critico */ }
+    if (!res.accionesDeFlow.includes(action)) {
+      console.warn(`[mako] pedimos la accion "${action}" y Flow usa: ${res.accionesDeFlow.join(', ')}`);
+    }
+  }
   return res.token;
 }
 
@@ -199,8 +208,17 @@ async function ejecutar(trabajo) {
   if (!soloLectura) {
     const captcha = await pedirCaptcha(tab.id, accionDeCaptcha(path));
     cuerpo = { ...(body || {}) };
+    // ⚠️ `projectId` solo viaja si lo SABEMOS. Iba siempre, y cuando estaba vacio
+    // —que es casi siempre: solo se aprende de URLs con forma `/v1/projects/<id>/`
+    // y ninguna de las que Flow hace de verdad la tiene— `fundir()` PISABA con ''
+    // el projectId real que traia la plantilla. Un pedido de generacion que
+    // declara no tener proyecto, con un bearer que si pertenece a uno, es una
+    // incoherencia adentro del mismo request.
+    //
+    // Es el antipatron que el espejo existe para evitar: nuestro dato inventado
+    // ganandole al copiado.
     cuerpo.clientContext = {
-      projectId,
+      ...(projectId ? { projectId } : {}),
       tool: 'PINHOLE',
       ...(cuerpo.clientContext || {}),
       recaptchaContext: { token: captcha },

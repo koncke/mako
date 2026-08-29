@@ -111,6 +111,7 @@ export type MotivoFalla =
   | 'medio_vencido'
   /** Google marcó la sesión como automatizada. NO se reintenta: se para. */
   | 'sesion_marcada'
+  | 'captcha'
   /** 500 del backend. Reintentar con backoff. */
   | 'transitorio'
   /** El token venció o el puente no está. Se recaptura y se reencola. */
@@ -229,9 +230,16 @@ export function clasificarFalla(status: number, cuerpo: unknown): { motivo: Moti
   // bloqueo— y ahí sí se frena.
   if (/recaptcha evaluation failed/i.test(texto)) {
     return {
-      motivo: 'transitorio',
-      error: 'Google rechazó el token de reCAPTCHA de este pedido. Se reintenta con uno nuevo.',
-      reintentable: true,
+      motivo: 'captcha',
+      error: 'Google rechazó el token de reCAPTCHA de este pedido.',
+      // ⚠️ NO reintentable. Era `true`, y eso es peligroso justo acá: si la causa
+      // fuera el SCORE de la sesión, cada reintento acuña otro token desde la
+      // misma pestaña y lo empeora — que es exactamente el modo de falla que este
+      // proyecto ya midió («reintentar contra un bloqueo causa el bloqueo»).
+      //
+      // Un token mal acuñado tampoco mejora reintentando: se arregla acuñándolo
+      // bien, que es un cambio de código, no otra vuelta.
+      reintentable: false,
     };
   }
   // El medio subido vive ~1 h. No es un fallo del pedido: hay que resubir.

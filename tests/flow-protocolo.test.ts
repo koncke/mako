@@ -65,11 +65,19 @@ test('la sesión marcada NO se reintenta', () => {
  * Los dos 403 se parecen y significan cosas opuestas: uno dice «esta cuenta está
  * quemada», el otro «este token no servía». El segundo se arregla acuñando otro.
  */
-test('un token de reCAPTCHA rechazado NO es una sesión quemada', () => {
+test('un token de reCAPTCHA rechazado NO es una sesión quemada, y NO se reintenta', () => {
   const r = clasificarFalla(403, { error: { message: 'reCAPTCHA evaluation failed' } });
-  assert.equal(r.motivo, 'transitorio');
-  assert.equal(r.reintentable, true, 'el siguiente intento acuña un token nuevo');
+  assert.equal(r.motivo, 'captcha', 'tiene motivo propio: no es ni sesión quemada ni un fallo cualquiera');
   assert.doesNotMatch(r.error, /cookies/i, 'no se le pide al dueño que limpie nada: el problema no es suyo');
+
+  // ⚠️ Y NO se reintenta, aunque suene a que reintentar es gratis.
+  //
+  // Si la causa fuera el SCORE de la sesión, cada reintento acuña otro token desde
+  // la misma pestaña y lo empeora — el modo de falla que este proyecto ya midió:
+  // 25 pedidos automáticos contra un bloqueo, causando el bloqueo. Y si la causa
+  // es un token mal acuñado, reintentar tampoco lo arregla: hay que acuñarlo bien,
+  // que es un cambio de código.
+  assert.equal(r.reintentable, false);
 });
 
 test('pero la página de bloqueo SIGUE frenando, aunque el 403 hable de reCAPTCHA', () => {
