@@ -55,7 +55,6 @@ import { CURSO_AUTOMATIZACION_Y_MONETIZACION_DE_YOUTOBE } from './curso-automati
 import { CURSO_AUTOMATIZATUBE } from './curso-automatizatube';
 import { CURSO_BOOTCAMP_DE_CIERRE_DE_VENTAS_IA } from './curso-bootcamp-de-cierre-de-ventas-ia';
 import { CURSO_CODIGO_GENIO } from './curso-codigo-genio';
-import { CURSO_CREATIVOS_ANIMADOS } from './curso-creativos-animados';
 import { CURSO_DESARROLLA_TU_INFLUENCER_VIRTUAL } from './curso-desarrolla-tu-influencer-virtual';
 import { CURSO_IMAN_GADZHI_8_FIGURE_PERSONAL_BRAND } from './curso-iman-gadzhi-8-figure-personal-brand';
 import { CURSO_LEGALMENTE_EMPRENDEDOR } from './curso-legalmente-emprendedor';
@@ -86,6 +85,7 @@ import { CURSO_TRADING_ARELIS_RODRIGUEZ_2025 } from './curso-trading-arelis-rodr
 import { CURSO_ESCUELA_TU_PRIMER_MILLON } from './curso-escuela-tu-primer-millon';
 import { CURSO_MENTORIA_4K } from './curso-mentoria-4k';
 import { CURSO_EDITA_COMO_UN_PRO } from './curso-edita-como-un-pro';
+import { CURSO_EXPERTO_EN_CHATGPT } from './curso-experto-en-chatgpt';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio';
 import { CURSO_BRANDING } from './BrandingMaKo';
@@ -143,7 +143,10 @@ const CATEGORIA: Record<string, string> = {
   // Posicionamiento en buscadores. Sección propia y no «Orgánico»: las dos son tráfico
   // que no se paga por click, pero el que busca SEO busca SEO — la disciplina, sus
   // herramientas y su vocabulario— y no «lo que no es pauta». Decisión del dueño.
-  'bigseo-academy': 'SEO',
+  // El SEO pasa a «Orgánico» por decisión de Martín (29/08): las dos son tráfico que no
+  // se paga por click, y con un solo curso la sección propia no se sostenía. Con esto la
+  // sección «SEO» deja de existir — era este curso y nada más.
+  'bigseo-academy': 'Orgánico',
   // Trabajar sobre uno mismo: voz, comunicación, presencia. Decisión del dueño.
   'instituto-de-comunicacion': 'Desarrollo personal',
   // Edición de video, junto al de Guille Collado.
@@ -161,7 +164,7 @@ const CATEGORIA: Record<string, string> = {
   'avatares-que-se-parecen': CATEGORIA_PROPIA,
   // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
   // plataforma. El comentario al lado es la categoría de origen.
-  '100m-money-models': 'Ventas',           // Ventas
+  '100m-money-models': 'Negocios digitales', // decisión de Martín (29/08); la plataforma decía Ventas
   '21-tecnicas-para-invertir-en-bienes-raices': 'Finanzas', // Finanzas / Inversiones
   'amorir': 'Desarrollo personal',         // Desarrollo personal
   'automatizacion-y-monetizacion-de-youtobe': 'Orgánico', // Auto Youtube
@@ -176,15 +179,15 @@ const CATEGORIA: Record<string, string> = {
   'jaque-blue-creacion-de-contenido': 'Orgánico', // Redes Sociales
   'm5-95': 'Anuncios',                     // ADS
   'manychat-master-instagram': 'Orgánico', // Redes Sociales
-  'master-marca-personal-5-0': 'Marca personal', // Marca Personal
+  'master-marca-personal-5-0': 'Orgánico', // Victor Heras · decisión de Martín (29/08)
   'mateo-maffia-byf': 'Orgánico',          // Redes Sociales
   'monetizatube': 'Orgánico',              // Auto Youtube
   'nuevo-organic-ecom-3-0-junio-2026': 'Ecommerce', // Ecommerce
   'seminarios-alejandro-cardona': 'Negocios digitales', // Hustlers
-  'social-funnel': 'Marketing',            // Marketing
-  'stories-master': 'Marketing',           // Marketing
+  'social-funnel': 'Negocios digitales',   // Emilio Puigrredón · decisión de Martín (29/08)
+  'stories-master': 'Orgánico',            // decisión de Martín (29/08)
   'the-real-world': 'Negocios digitales',  // Agencias
-  'trilogia-de-brian-tracy': 'Negocios digitales', // Hustlers
+  'trilogia-de-brian-tracy': 'Desarrollo personal', // decisión de Martín (29/08)
   'ugc-sim-academy-de-mindshft': 'Inteligencia Artificial', // IA
   'vender-por-fb-e-ig-ads': 'Anuncios',    // ADS
 
@@ -192,9 +195,9 @@ const CATEGORIA: Record<string, string> = {
   // que es otro cajón por descarte. Con cinco se puede preguntarle al MATERIAL, que es lo
   // que manda sobre la etiqueta que le puso un sistema. El comentario dice de dónde salió
   // cada uno: si mañana alguien discute una, tiene el criterio y no una decisión muda.
-  'certificacion-marketing-digital-ia': 'Marketing', // 153 clases: diccionario de marketing, growth plan
+  'certificacion-marketing-digital-ia': 'Negocios digitales', // decisión de Martín (29/08)
   'creativos-animados': 'Inteligencia Artificial', // es la 2a academia de AvatarHype, que ya está ahí
-  'legalmente-emprendedor': 'Negocios digitales', // «cómo vamos a montar nuestro negocio», «la idea»
+  'legalmente-emprendedor': 'Finanzas',    // decisión de Martín (29/08)
   'megadata-de-un-joven-emprededor': 'Desarrollo personal', // hábitos, entorno, «el tiempo es dinero»
   // ⚠️ Este NO se dedujo del nombre. «US30» es el ticker del Dow Jones, pero un ticker en
   //    un título es un parecido; la clase 1 dice «en la parte del Dow Jones», «al ser un
@@ -244,6 +247,10 @@ const CATEGORIA: Record<string, string> = {
   // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
   // plataforma. El comentario al lado es la categoría de origen.
   'edita-como-un-pro': 'Edición',          // Edición de Video
+
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'experto-en-chatgpt': 'Inteligencia Artificial', // IA
 
 };
 
@@ -313,6 +320,10 @@ const PORTADA: Record<string, string> = {
   // pero la ficha se había emitido antes de que existiera.
   'edita-como-un-pro': '/cono-portadas/edita-como-un-pro.jpg',
 
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'experto-en-chatgpt': '/cono-portadas/experto-en-chatgpt.jpg',
+
 };
 
 /**
@@ -365,6 +376,19 @@ const TITULO: Record<string, string> = {
    * cualquiera que ya lo tenga. Lo que se corrige es lo que se LEE.
    */
   'iman-gadzhi-agency-navigator': 'Iman Gadzhi - Agency Incubator',
+  /**
+   * El plan de origen trae como autor «Convierte Más», que es la ESCUELA y no una persona,
+   * así que la tarjeta salía sin nadie que la firme. Martín lo pidió el 29/08: «no le
+   * pusiste nombre de la autora».
+   *
+   * El nombre no se dedujo de la marca ni se buscó afuera: lo dice el propio material, en
+   * la clase de bienvenida — «Mi nombre es Vilma Núñez y es para mí un honor también ser
+   * UNA DE LAS profesoras de este programa».
+   *
+   * Por eso queda la escuela entre paréntesis y no en su lugar: ella misma aclara que es
+   * una de varias, y atribuirle 153 clases enteras sería afirmar de más.
+   */
+  'certificacion-marketing-digital-ia': 'Certificación en Marketing Digital potenciada por IA - Vilma Núñez (Convierte Más)',
 };
 
 const AUTOR: Record<string, string> = {
@@ -414,7 +438,23 @@ const conAutor = (titulo: string, autor?: string) =>
  * mostrando uno solo (el filtro de abajo no cambió) y el link viejo aterriza donde
  * corresponde. Reemplazar es REDIRIGIR, no borrar.
  */
-const REEMPLAZADOS = new Map<string, string>([['avatarhype', 'creativos-ugc-realistas']]);
+const REEMPLAZADOS = new Map<string, string>([
+  ['avatarhype', 'creativos-ugc-realistas'],
+  /**
+   * «Creativos Animados» es la SEGUNDA academia de AvatarHype, no un curso aparte, y su
+   * material ya vive adentro del grande: el `videoId` de su única clase
+   * (`1eeOFpwumZ869pa5wjMy1owhfEwSIqLVT`) está publicado en `curso-creativos-ugc-realistas`,
+   * que además tiene un módulo llamado «Creativos Animados». Verificado antes de sacarlo.
+   *
+   * ⚠️ YA SE HABIA SACADO UNA VEZ Y VOLVIO SOLO. El commit `c4c33ee4` lo fusionó a
+   * propósito borrando su import, y `e16d296a` («14 cursos que el portal no mostraba») lo
+   * re-importó en silencio — porque `curso-al-catalogo.mjs` detecta por PATH del import y
+   * la ficha seguía en disco. Borrar el import no es un candado: el candado es esto, más
+   * la lista de fusionados de ese script. Martín lo reportó el 29/08 como «lo pusiste como
+   * curso aparte, cuando ya está el curso de avatarhype».
+   */
+  ['creativos-animados', 'creativos-ugc-realistas'],
+]);
 
 /**
  * Cuelga una lista de recursos de un curso generado, en las DOS puntas.
@@ -495,7 +535,6 @@ export const CURSOS_TODOS: Curso[] = [
   CURSO_AUTOMATIZATUBE,
   CURSO_BOOTCAMP_DE_CIERRE_DE_VENTAS_IA,
   CURSO_CODIGO_GENIO,
-  CURSO_CREATIVOS_ANIMADOS,
   CURSO_DESARROLLA_TU_INFLUENCER_VIRTUAL,
   CURSO_IMAN_GADZHI_8_FIGURE_PERSONAL_BRAND,
   CURSO_LEGALMENTE_EMPRENDEDOR,
@@ -536,6 +575,9 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_EDITA_COMO_UN_PRO,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_EXPERTO_EN_CHATGPT,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,

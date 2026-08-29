@@ -141,12 +141,26 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
    * La regla, que vale para cualquier estado compartido en una misma URL: el que
    * escribe parte de una clave PARTE DE LO QUE HAY, nunca de vacio.
    */
+  /**
+   * ⚠️ Y EMPUJA, NO REEMPLAZA. `replaceState` no crea entrada en el historial, asi que el
+   * boton ATRAS del navegador no volvia a la pantalla anterior del curso: se salia del
+   * portal entero, a la pagina de donde habias venido. Reportado por Martin el 29/08:
+   * «cuando le doy a atras no me lleva atras, sino que se sale de la pantalla».
+   *
+   * Con `pushState` cada paso —abrir una clase, ir a recursos, volver al indice— deja su
+   * entrada, y el `hashchange` de arriba ya redibuja solo cuando el navegador la saca.
+   *
+   * Se compara el destino con la URL actual antes de empujar: sin eso, hacer click en la
+   * clase que ya estas viendo apila entradas identicas y Atras «no hace nada» N veces.
+   */
   const ir = (v: Vista) => {
     const h = new URLSearchParams(location.hash.replace(/^#/, ''));
     if (v.clase) h.set('clase', String(v.clase)); else h.delete('clase');
     if (v.recursos) h.set('v', 'recursos'); else h.delete('v');
     const s = h.toString();
-    history.replaceState(null, '', s ? `#${s}` : location.pathname + location.search);
+    const base = location.pathname + location.search;
+    const destino = s ? `${base}#${s}` : base;
+    if (destino !== base + location.hash) history.pushState(null, '', destino);
     setVista(v);
     window.scrollTo({ top: 0 });
   };

@@ -51,7 +51,19 @@ marca tenga la gramática de MaKo al día
 PÚBLICA de la skill de Claude— esté generada de la versión viva
 (`node --import tsx scripts/generar-plugin.mjs --check`) y que el zip que el cliente
 descarga desde /video-generator no haya quedado viejo respecto de `extension/`
-(`node scripts/zip-extension.mjs --check`). Si lo recreás, poné los cinco.
+(`node scripts/zip-extension.mjs --check`) y que `app/conocimientos/catalogo.ts` no importe
+fichas que no estén **en git** (`node scripts/curso-catalogo-verificar.mjs`). Si lo
+recreás, poné los seis.
+
+⚠️ El último se agregó el 29/08/2026, después de que **producción estuviera 46 minutos en
+la versión vieja sin que nada lo dijera**: un commit subió `catalogo.ts` con 18 imports
+nuevos y no los archivos que esos imports nombran —al commitear por ruta explícita se sube
+el índice y no lo indexado—, el build murió con 18 «Module not found» y el `git push` había
+salido con 0. **El typecheck no lo caza a propósito**: corre contra el árbol de trabajo,
+donde los archivos existen; lo que falta es que existan EN GIT. Son dos preguntas distintas
+y sólo una tenía guarda. Y ahora es más fácil que pase, no menos: la cola llama sola a
+`curso-al-catalogo.mjs` después de publicar cada curso, así que cada curso nuevo agrega un
+import por su cuenta.
 
 El del zip existe por la misma razón que el de `plugin/`: **el artefacto que se
 distribuye no es el fuente**. `public/mako-puente.zip` se commitea para que Vercel lo

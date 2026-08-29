@@ -41,8 +41,25 @@ const fichas = readdirSync(DIR)
   .map((m) => m[1])
   .sort();
 
+/**
+ * ⚠️ LOS QUE SE SACARON A PROPOSITO. Sin esta lista, este script los RESUCITA.
+ *
+ * Pasó, y por eso está: «Creativos Animados» es la segunda academia de AvatarHype y su
+ * material vive adentro del curso grande. El commit `c4c33ee4` lo fusionó borrando su
+ * import… y `e16d296a` lo volvió a importar en silencio, porque acá la detección es por
+ * PATH del import y la ficha seguía en disco. Martín lo vio de nuevo el 29/08: «lo pusiste
+ * como curso aparte, cuando ya está el curso de avatarhype».
+ *
+ * Borrar el import NO es un candado: es justo lo que este script deshace. El candado son
+ * dos cosas, y las dos hacen falta — esta lista (para que no vuelva a la grilla) y
+ * `REEMPLAZADOS` en catalogo.ts (para que el link viejo siga resolviendo).
+ *
+ * Un slug se suma acá SOLO si su contenido está verificado adentro de otro curso.
+ */
+const FUSIONADOS = new Set(['creativos-animados']);
+
 // El PATH del import es la clave: el nombre de la const puede diferir del slug.
-const faltan = fichas.filter((s) => !cat.includes(`'./curso-${s}'`));
+const faltan = fichas.filter((s) => !FUSIONADOS.has(s) && !cat.includes(`'./curso-${s}'`));
 
 console.log(`\n  ${fichas.length} ficha(s) en disco · ${faltan.length} sin importar en catalogo.ts\n`);
 for (const s of faltan) console.log(`     ✖ ${s}`);
