@@ -26,6 +26,7 @@ import { getRazones } from '@/lib/razones';
 // `soloHablado` vive en puestas-data —sin `server-only`— porque decide cuántas
 // palabras tiene un guion, y de ahí sale la duración: necesita test.
 import { soloHablado, puestaPorId } from '@/lib/puestas-data';
+import { leerHistorial } from './video-datos';
 
 export type GuionDisponible = {
   id: string;
@@ -60,6 +61,17 @@ export type GuionDisponible = {
    * falta grabar.
    */
   yaUsado: boolean;
+  /**
+   * `true` si ya hay un PLAN de tomas hecho con este guion en esta tab.
+   *
+   * Es el estado del medio, y faltaba: entre «no toqué esto» y «hay un video»
+   * está «ya lo trabajé». Sin él, el guion en el que uno viene trabajando se ve
+   * igual que los seis que nunca abrió, y al elegirlo la tab vuelve a pedir que
+   * se genere el plan que ya existe.
+   */
+  conPlan: boolean;
+  /** El id del plan, para poder ABRIRLO en vez de rehacerlo. */
+  planId?: string;
   /**
    * Los formatos con los que YA se grabó, por nombre («Car Talks», «The
    * Office»). Vacío no significa «no se grabó»: significa que no consta.
@@ -96,7 +108,14 @@ export type GuionDisponible = {
  * solo repite un aviso.
  */
 export async function guionesDisponibles(): Promise<GuionDisponible[]> {
-  const razones = await getRazones();
+  const [razones, historial] = await Promise.all([getRazones(), leerHistorial()]);
+
+  // El plan MÁS NUEVO de cada guion. El historial viene del más nuevo al más
+  // viejo, así que el primero que aparece gana.
+  const planDe = new Map<string, string>();
+  for (const h of historial) {
+    if (h.guionId && !planDe.has(h.guionId)) planDe.set(h.guionId, h.id);
+  }
 
   const out: GuionDisponible[] = [];
   for (const celda of razones ?? []) {
@@ -113,6 +132,7 @@ export async function guionesDisponibles(): Promise<GuionDisponible[]> {
         .filter((v): v is string => !!v);
 
       const estado = String(g.estado ?? 'borrador');
+      const planId = planDe.get(String(g.id ?? ''));
 
       out.push({
         id: String(g.id ?? ''),
@@ -125,6 +145,8 @@ export async function guionesDisponibles(): Promise<GuionDisponible[]> {
         primeraLinea: hablado.slice(0, 160),
         palabras: hablado.split(/\s+/).filter(Boolean).length,
         grabadoEn,
+        conPlan: !!planId,
+        planId,
         // Las dos fuentes que hablan de un video REAL. El historial de planes de
         // la tab quedó afuera a propósito: dice que se escribió un plan, no que se
         // haya grabado nada.

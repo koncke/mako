@@ -944,12 +944,28 @@ export function VideoGeneratorApp({
         error={error}
         puedeAvanzar={puedeAvanzar}
         enUltimo={paso === 'revisar'}
+        siguienteLabel={paso === 'guion' && guion?.planId ? 'Ver el plan →' : 'Siguiente →'}
         confirmLabel="Generar anuncio"
         pending={busy}
         cargando={busy ? 'MaKo está escribiendo tu anuncio…' : null}
         atrasLabel={idx === 0 ? 'Cambiar plantilla' : 'Atrás'}
         onAtras={() => (idx === 0 ? setVista('catalogo') : setPaso(PASOS[idx - 1]))}
-        onSiguiente={() => setPaso(PASOS[idx + 1])}
+        onSiguiente={() => {
+          // Si este guion YA tiene un plan, se abre ese en vez de mandar a
+          // rehacerlo. Rehacerlo perdía el trabajo hecho —las tomas corregidas a
+          // mano, los clips ya generados— y encima costaba una llamada al modelo
+          // para volver a escribir algo que ya estaba escrito.
+          if (paso === 'guion' && guion?.planId) {
+            const guardado = historial.find((e) => e.id === guion.planId);
+            if (guardado) {
+              setActual(guardado);
+              setVista('anuncio');
+              window.history.replaceState(null, '', `?plan=${guardado.id}`);
+              return;
+            }
+          }
+          setPaso(PASOS[idx + 1]);
+        }}
         onConfirmar={() => void generar()}
         onClose={() => setVista('catalogo')}
         fullscreen
@@ -1117,16 +1133,21 @@ export function VideoGeneratorApp({
                           formato — es exactamente lo que hizo el dueño con su
                           primer anuncio, grabado en Car Talks y en The Office. */}
                       {/*
-                        Los DOS estados se nombran. Antes, «sin generar» era la
-                        ausencia de etiqueta, y una ausencia no se lee como un
-                        estado: se lee como que falta algo por cargar. El dueño:
-                        «no veo lo que te pedí como borrador».
+                        TRES estados, no dos, y esa era la confusión: entre «no
+                        toqué esto» y «hay un video» está «ya lo trabajé».
+                        Poniéndole «Borrador» a todo, la etiqueta dejó de decir
+                        nada — el dueño: «ahora tooodos están en borrador».
+
+                        Por eso el guion intacto NO lleva etiqueta: es el estado
+                        por defecto, y una etiqueta que está en todas las filas es
+                        ruido, no información. Se marca lo que se APARTA de lo
+                        normal.
                       */}
                       {g.yaUsado ? (
                         <Tag color="var(--good)" icon={<Icon name="check" size={12} />}>Generado</Tag>
-                      ) : (
-                        <Tag>Borrador</Tag>
-                      )}
+                      ) : g.conPlan ? (
+                        <Tag color="var(--primary)">Con plan</Tag>
+                      ) : null}
                       {cab?.desborda && <Tag color="var(--warn)">No entra</Tag>}
 
                       <button
