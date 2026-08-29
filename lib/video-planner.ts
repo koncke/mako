@@ -21,6 +21,7 @@
 
 import 'server-only';
 import { chatClaude } from './anthropic';
+import { chatCheapCascade } from './ai-cheap';
 import { getFunnel } from './leads';
 import { perfilNegocioTexto } from './onboarding';
 import { getPersona } from './persona';
@@ -533,4 +534,79 @@ export async function generarPlan(ws: number, pedido: PedidoPlan): Promise<Gener
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, error: `No se pudo armar el plan: ${msg}` };
   }
+}
+
+// ── Reescribir UNA toma ──────────────────────────────────────────────────────
+// El pedido más chico que existe en esta tab, y el que más se usa: una frase no
+// cierra y hay que cambiarla. Antes había que rehacer el plan entero, lo que
+// cambiaba también las seis tomas que estaban bien.
+//
+// Va por la cascada barata y no por Claude: es un pedido de una frase con el
+// contexto de siete, no necesita el modelo caro. Y por eso puede repetirse todas
+// las veces que haga falta sin que corregir un anuncio salga como generarlo.
+
+const SYSTEM_TOMA = `Eres MaKo. Reescribes UNA toma de un anuncio en video, con una
+instrucción del dueño.
+
+Te dan el anuncio entero para que sepas qué se dijo antes y qué viene después. La
+toma que hay que cambiar está marcada con >>>.
+
+Reglas:
+- Devuelves SOLO el texto nuevo de esa toma. Sin comillas, sin explicación, sin el
+  número de la toma.
+- Es lo que una persona DICE a cámara: se escribe como se habla, no como se
+  escribe. Puede arrancar con un conector ("a ver", "mira", "pues", "entonces",
+  "la verdad").
+- Respetas el tope de palabras que te dan. Menos palabras y el modelo de video
+  alarga sílabas; más, y la frase se corta a la mitad.
+- No repites lo que ya dice otra toma ni adelantas lo que viene después.
+- **No inventas un mecanismo que el anuncio no nombra**: ni formularios, ni
+  registros, ni WhatsApp, ni agendas. Si el anuncio manda a un video en un
+  enlace, el anuncio manda a un video en un enlace.
+- Haces lo que pide la instrucción del dueño. Si la instrucción pide algo que
+  rompe una regla de arriba, la regla gana y haces lo más parecido que sí entra.`;
+
+export async function reescribirToma(opts: {
+  /** El anuncio entero, con la toma a cambiar marcada. */
+  anuncio: string;
+  actual: string;
+  instruccion: string;
+  tope: number;
+  acentoEsVoseante: boolean;
+}): Promise<string> {
+  const user = [
+    `EL ANUNCIO (la toma marcada con >>> es la que hay que cambiar):\n${opts.anuncio}`,
+    '',
+    `LO QUE DICE HOY: ${opts.actual}`,
+    `TOPE: ${opts.tope} palabras.`,
+    '',
+    `LO QUE PIDE EL DUEÑO:\n${contenidoNoConfiable(opts.instruccion, 'instruccion_usuario')}`,
+    '',
+    'Devuelve solo el texto nuevo de esa toma.',
+  ].join('\n');
+
+  const salida = await chatCheapCascade({
+    system: SYSTEM_TOMA,
+    user,
+    maxTokens: 400,
+    temperature: 0.4,
+    feature: 'video-toma',
+    motivo: 'reescribir una toma del anuncio',
+    // Se valida que ALGO vuelva y que no sea un párrafo: una toma de 8 segundos
+    // no puede tener 80 palabras, y un modelo que devuelve el anuncio entero es
+    // un modo de falla real.
+    validar: (t: string) => {
+      const limpio = t.trim();
+      return limpio.length > 0 && contarPalabras(limpio) <= opts.tope * 2.5;
+    },
+  });
+
+  // Se le sacan las comillas con las que a veces envuelve la respuesta, y las
+  // marcas de voseo si el acento no lo admite — la misma limpieza que el plan.
+  const limpio = salida.trim().replace(/^["«'`]+|["»'`]+$/g, '').trim();
+  if (!limpio) return '';
+  if (!opts.acentoEsVoseante && marcasDeVoseo(limpio).length > 0) {
+    console.warn(`[video-toma] la toma volvió con voseo: ${marcasDeVoseo(limpio).join(', ')}`);
+  }
+  return limpio;
 }

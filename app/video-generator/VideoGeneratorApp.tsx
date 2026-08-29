@@ -29,7 +29,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from '@/app/_ui/Link';
 import {
-  Pagina, PageHeader, Section, Button, Textarea, Alert, Tag, Modal, MONO,
+  Pagina, PageHeader, Section, Button, Alert, Tag, Modal, MONO,
 } from '@/app/_ui';
 import { WizardShell } from '../_components/WizardShell';
 import { Icon } from '../_components/icons';
@@ -38,7 +38,7 @@ import {
   guionATexto,
   puestaPorId, puestasOfrecidas, type Puesta,
 } from './video-pedido';
-import { generarPlanAction, editarLineaPlanAction } from './actions';
+import { generarPlanAction, editarLineaPlanAction, reescribirTomaAction } from './actions';
 import { PuentePanel } from './PuentePanel';
 import type { Puente } from '@/lib/flow-cola';
 import { cabidaDeGuion, soloHablado } from '@/lib/puestas-data';
@@ -442,7 +442,8 @@ function DetalleFormato({
 // cómo se fabrica, y el cliente no fabrica nada.
 
 function LineaGuion({
-  n, segundos, habla, voz, palabras, tope, voseo, literal, ctaInventado, original, onEditar, guardando,
+  n, segundos, habla, voz, palabras, tope, voseo, literal, ctaInventado, original,
+  onEditar, onPedir, guardando,
 }: {
   n: number; segundos: number; habla: boolean; voz: string;
   palabras: number; tope: number; voseo: string[];
@@ -454,9 +455,27 @@ function LineaGuion({
   original?: string;
   /** Guardar el texto corregido a mano. */
   onEditar: (voz: string) => void;
+  /** Pedirle a MaKo que cambie ESTA toma. */
+  onPedir: (instruccion: string) => Promise<void>;
   guardando: boolean;
 }) {
   const alerta = palabras > tope || voseo.length > 0;
+  // El campo de instrucción arranca cerrado: siete campos abiertos a la vez es
+  // un formulario, y esto es un guion que se lee.
+  const [pidiendo, setPidiendo] = useState(false);
+  const [instruccion, setInstruccion] = useState('');
+  const [enviando, setEnviando] = useState(false);
+
+  const pedir = async () => {
+    if (!instruccion.trim()) return;
+    setEnviando(true);
+    try {
+      await onPedir(instruccion.trim());
+      setInstruccion(''); setPidiendo(false);
+    } finally {
+      setEnviando(false);
+    }
+  };
   return (
     <div style={{
       display: 'flex', alignItems: 'flex-start', gap: 12, padding: '9px 0',
@@ -469,6 +488,20 @@ function LineaGuion({
         {segundos}s
       </span>
       <div style={{ flex: 1, minWidth: 0 }}>
+        {/* El botón vive en la fila, alineado a la derecha del texto: pertenece a
+            ESTA toma y a ninguna otra. */}
+        <button
+          type="button"
+          onClick={() => setPidiendo((v) => !v)}
+          title="Pedirle a MaKo que cambie esta toma"
+          style={{
+            float: 'right', marginLeft: 10, background: 'transparent', border: 'none',
+            cursor: 'pointer', padding: '2px 5px', borderRadius: 6,
+            color: pidiendo ? 'var(--accent)' : 'var(--faint)', lineHeight: 0,
+          }}
+        >
+          <Icon name="ia" size={14} />
+        </button>
         {/*
           Se edita ACÁ, escribiendo encima. Antes, para cambiar una palabra había
           que pedirle a MaKo que rehiciera el plan entero: caro, lento, y con el
@@ -482,6 +515,7 @@ function LineaGuion({
         <EditarTexto
           valor={voz}
           multiline
+          enfasis
           disabled={guardando}
           onSave={onEditar}
           style={{
@@ -512,6 +546,27 @@ function LineaGuion({
           <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--warn)', lineHeight: 1.5, marginTop: 4 }}>
             MaKo nombró algo que tu guion no dice ({ctaInventado.join(', ')}). Tu guion decía:
             «{original}»
+          </div>
+        )}
+
+        {pidiendo && (
+          <div style={{ marginTop: 9, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+            <input
+              autoFocus
+              value={instruccion}
+              onChange={(e) => setInstruccion(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') void pedir(); if (e.key === 'Escape') setPidiendo(false); }}
+              placeholder="Más corta. Que arranque con una pregunta. Sacale el nombre del gerente."
+              disabled={enviando}
+              style={{
+                flex: 1, minWidth: 0, fontFamily: 'inherit', fontSize: 'var(--fs-sm)',
+                padding: '7px 10px', borderRadius: 9, color: 'var(--ink)',
+                background: 'var(--surface)', border: '1px solid var(--border-strong)',
+              }}
+            />
+            <Button size="sm" variant="mako" onClick={() => void pedir()} loading={enviando} disabled={!instruccion.trim()}>
+              Cambiar
+            </Button>
           </div>
         )}
       </div>
@@ -559,7 +614,6 @@ export function VideoGeneratorApp({
   const [cargando, setCargando] = useState(false);
   /** El guion abierto en el detalle. null = cerrado. */
   const [verGuion, setVerGuion] = useState<GuionDisponible | null>(null);
-  const [feedback, setFeedback] = useState('');
   const [verGuiones, setVerGuiones] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -628,6 +682,20 @@ export function VideoGeneratorApp({
     }
   }, [actual]);
 
+  /** Le pide a MaKo el cambio de UNA toma. */
+  const pedirCambio = useCallback(async (n: number, instruccion: string) => {
+    if (!actual) return;
+    setError(null);
+    try {
+      const out = await reescribirTomaAction(actual.id, n, instruccion);
+      if (!out.ok) { setError(out.error); return; }
+      setActual(out.item);
+      setHistorial((h) => h.map((e) => (e.id === out.item.id ? out.item : e)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo cambiar la toma.');
+    }
+  }, [actual]);
+
   const empezar = useCallback((id: string) => {
     setPuestaId(id);
     setGuionId('');
@@ -636,7 +704,16 @@ export function VideoGeneratorApp({
     setVista('wizard');
   }, []);
 
-  const generar = useCallback(async (conFeedback: boolean) => {
+  /**
+   * Genera el plan del anuncio.
+   *
+   * Ya no toma `conFeedback`: ese parámetro existía para el bloque de «¿le
+   * cambiamos algo?», que rehacía el plan ENTERO con un comentario suelto. Ahora
+   * los cambios se piden POR TOMA (`reescribirTomaAction`), que cuesta una
+   * llamada barata en vez de un plan completo y no toca las tomas que estaban
+   * bien.
+   */
+  const generar = useCallback(async () => {
     setBusy(true); setError(null);
     try {
       const out = await generarPlanAction({
@@ -647,13 +724,10 @@ export function VideoGeneratorApp({
         // cuánto se TARDA en decirlo.
         guionId: guion?.id ?? '',
         guionTexto: guion?.texto ?? '',
-        feedback,
-        anteriorId: conFeedback ? actual?.id : undefined,
       });
       if (!out.ok) { setError(out.error); return; }
       setHistorial(out.historial);
       setActual(out.item);
-      setFeedback('');
       setVista('anuncio');
       // El anuncio abierto queda en la URL. Sin esto, refrescar la página lo
       // perdía y devolvía al catálogo: el plan vive en el server pero la vista
@@ -662,7 +736,7 @@ export function VideoGeneratorApp({
     } finally {
       setBusy(false);
     }
-  }, [puestaId, guion, feedback, actual]);
+  }, [puestaId, guion]);
 
   const copiarGuion = useCallback(() => {
     if (!actual) return;
@@ -688,7 +762,7 @@ export function VideoGeneratorApp({
         atrasLabel={idx === 0 ? 'Cambiar plantilla' : 'Atrás'}
         onAtras={() => (idx === 0 ? setVista('catalogo') : setPaso(PASOS[idx - 1]))}
         onSiguiente={() => setPaso(PASOS[idx + 1])}
-        onConfirmar={() => void generar(false)}
+        onConfirmar={() => void generar()}
         onClose={() => setVista('catalogo')}
         fullscreen
         embebido
@@ -1009,7 +1083,14 @@ export function VideoGeneratorApp({
             <Button
               variant="mako"
               disabled
-              title="La generación automática del video se enciende cuando termine la conexión con el generador"
+              // ⚠️ El título decía que esto «se enciende cuando termine la
+              // conexión con el generador», y era MENTIRA: el puente ya está
+              // conectado y responde. Lo que no existe todavía es la generación.
+              //
+              // Un botón apagado que culpa a algo que sí funciona manda al dueño a
+              // revisar su navegador durante media hora. Un aviso que dice qué
+              // falta cuesta lo mismo y no le hace perder el tiempo.
+              title="Todavía no está construida la generación del video. El plan de tomas ya está listo para producir a mano."
             >
               Generar el video
             </Button>
@@ -1055,31 +1136,22 @@ export function VideoGeneratorApp({
                   original={c.original}
                   guardando={editandoLinea}
                   onEditar={(v) => void editarLinea(c.n, v)}
+                  onPedir={(i) => pedirCambio(c.n, i)}
                 />
               ))}
             </div>
           </Section>
 
-          <div style={{ marginTop: 'var(--gap)' }}>
-            <Section titulo="¿Le cambiamos algo?">
-              <Textarea
-                rows={2}
-                value={feedback}
-                onChange={(e) => setFeedback(e.target.value)}
-                placeholder="El cierre no convence, la tercera toma dice lo mismo que la segunda..."
-              />
-              <div style={{ marginTop: 10 }}>
-                <Button
-                  variant="mako"
-                  onClick={() => void generar(true)}
-                  loading={busy}
-                  disabled={!feedback.trim()}
-                >
-                  Reescribirlo
-                </Button>
-              </div>
-            </Section>
-          </div>
+          {/*
+            ACÁ VIVÍA «¿le cambiamos algo?», que rehacía el plan ENTERO con un
+            comentario suelto. Se fue por pedido del dueño —«mejor que se pueda
+            editar escribiendo, o sí darle instrucciones, pero por bloques, no
+            todo el guion»— y porque el trato era malo: una frase que no cierra
+            costaba las otras seis tomas, que estaban bien.
+
+            Lo que hace lo mismo y mejor vive ahora dentro de cada toma: se
+            escribe encima, o se le pide el cambio a MaKo ahí, en esa línea.
+          */}
         </div>
       </Pagina>
     );

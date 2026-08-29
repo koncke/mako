@@ -70,6 +70,35 @@ export const ICONO_SECCION_GUION: Record<string, string> = {
 };
 
 /**
+ * Convierte el `**enfasis**` en nodos, para que el campo editable lo MUESTRE en
+ * negrita en vez de escupir los asteriscos.
+ */
+function conEnfasis(texto: string) {
+  return texto.split(/\*\*/).map((t, i) => (
+    i % 2 === 1 ? <strong key={i}>{t}</strong> : <span key={i}>{t}</span>
+  ));
+}
+
+/**
+ * Vuelve del DOM al texto con `**`.
+ *
+ * Hay que recorrer los nodos y no leer `innerText`: innerText devuelve la negrita
+ * como texto plano, así que guardar con él BORRARÍA el énfasis en silencio cada
+ * vez que alguien pasa el foco por una línea. Es el modo de falla más caro de un
+ * campo editable — no falla, adelgaza el contenido de a poco.
+ */
+function desdeDom(nodo: Node): string {
+  if (nodo.nodeType === 3) return nodo.textContent ?? '';
+  const el = nodo as HTMLElement;
+  const dentro = Array.from(el.childNodes).map(desdeDom).join('');
+  const tag = el.tagName;
+  if (tag === 'STRONG' || tag === 'B') return dentro ? `**${dentro}**` : '';
+  if (tag === 'BR') return '\n';
+  if (tag === 'DIV' || tag === 'P') return `\n${dentro}`;
+  return dentro;
+}
+
+/**
  * Texto que se edita donde se lee. Sin botón de lápiz y sin «modo edición»: se
  * hace clic encima, se escribe, y al salir se guarda.
  *
@@ -77,12 +106,14 @@ export const ICONO_SECCION_GUION: Record<string, string> = {
  * pase por el campo dispararía un guardado — y con el guardado en el server, un
  * viaje de red por cada vez que alguien pasa el foco de largo.
  */
-export function EditarTexto({ valor, onSave, multiline, style, disabled }: {
+export function EditarTexto({ valor, onSave, multiline, style, disabled, enfasis }: {
   valor: string;
   onSave: (v: string) => void;
   multiline?: boolean;
   style?: CSSProperties;
   disabled?: boolean;
+  /** Pinta `**así**` en negrita y lo conserva al guardar. */
+  enfasis?: boolean;
 }) {
   return (
     <div
@@ -91,7 +122,9 @@ export function EditarTexto({ valor, onSave, multiline, style, disabled }: {
       suppressContentEditableWarning
       spellCheck={false}
       onBlur={(e) => {
-        const crudo = e.currentTarget.innerText || '';
+        const crudo = enfasis
+          ? Array.from(e.currentTarget.childNodes).map(desdeDom).join('')
+          : (e.currentTarget.innerText || '');
         const nuevo = multiline
           ? crudo.replace(/\n{3,}/g, '\n\n').trim()
           : crudo.replace(/\s+/g, ' ').trim();
@@ -99,7 +132,7 @@ export function EditarTexto({ valor, onSave, multiline, style, disabled }: {
       }}
       style={{ whiteSpace: multiline ? 'pre-wrap' : 'normal', opacity: disabled ? 0.6 : 1, ...style }}
     >
-      {valor}
+      {enfasis ? conEnfasis(valor) : valor}
     </div>
   );
 }

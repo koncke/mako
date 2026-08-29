@@ -9,7 +9,7 @@
 // al workspace del dueño.
 
 import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
-import { generarPlan } from '@/lib/video-planner';
+import { generarPlan, reescribirToma } from '@/lib/video-planner';
 import { resolverAcento } from '@/lib/acento-workspace';
 import { tzDeWorkspace } from '@/lib/timezone';
 import {
@@ -163,4 +163,58 @@ export async function editarLineaPlanAction(
 
   await guardarEnHistorial(actualizado);
   return { ok: true, item: actualizado };
+}
+
+/**
+ * Le pide a MaKo que cambie UNA toma, con una instrucción del dueño.
+ *
+ * Reemplaza al «¿le cambiamos algo?» que rehacía el plan ENTERO. El dueño:
+ * «mejor que se pueda editar escribiendo, o sí darle instrucciones, pero por
+ * bloques, no todo el guion».
+ *
+ * Y no es solo comodidad: rehacer el plan entero por una frase que no cierra
+ * cambiaba también las seis tomas que sí estaban bien. El costo de arreglar algo
+ * tiene que ser proporcional a lo que está mal.
+ *
+ * ⚠️ La instrucción la escribe el USUARIO, así que viaja envuelta en
+ * `contenidoNoConfiable`. Y el guion también — ninguno de los dos manda sobre las
+ * reglas, que van en el system.
+ */
+export async function reescribirTomaAction(
+  planId: string,
+  n: number,
+  instruccion: string,
+): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  const pedido = (instruccion ?? '').trim().slice(0, 600);
+  if (!pedido) return { ok: false, error: 'Escribe qué le cambio a esta toma.' };
+
+  const historial = await leerHistorial();
+  const item = historial.find((e) => e.id === planId);
+  if (!item) return { ok: false, error: 'Ese anuncio ya no está en el historial. Vuelve a generarlo.' };
+
+  const clip = item.plan.clips.find((c) => c.n === n);
+  if (!clip) return { ok: false, error: 'Esa toma no existe en el plan.' };
+
+  const puesta = puestaPorId(item.plan.puestaId);
+  const tope = puesta ? palabrasQueEntran(puesta, clip.segundos) : (clip.tope ?? 25);
+
+  try {
+    const nueva = await reescribirToma({
+      // El anuncio ENTERO como contexto: una toma sin las de al lado se reescribe
+      // repitiendo lo que ya se dijo o adelantando lo que viene.
+      anuncio: item.plan.clips.map((c) => `${c.n === n ? '>>> ' : '    '}${c.n}. ${c.voz}`).join('\n'),
+      actual: clip.voz,
+      instruccion: pedido,
+      tope,
+      acentoEsVoseante: !!item.plan.acentoEsVoseante,
+    });
+    if (!nueva) return { ok: false, error: 'MaKo no pudo reescribir esa toma. Intenta de nuevo o corrígela a mano.' };
+
+    return await editarLineaPlanAction(planId, n, nueva);
+  } catch (e) {
+    return { ok: false, error: `No se pudo reescribir: ${msg(e)}` };
+  }
 }
