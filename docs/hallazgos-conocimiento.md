@@ -5447,3 +5447,82 @@ y las mismas 253 clases y 38 `driveId` que antes.
 - **Un duplicado real**: el mismo PDF (mismo sha1) publicado bajo «Master Copy» y bajo
   «¿Por qué hablamos de Marketing Perpetuo». Cuelga de dos secciones, así que puede ser
   correcto — pero en la lista se ve como dos cosas distintas con el mismo nombre.
+
+## Bajar el archivo no es poner la portada, y el síntoma es «algunos no tienen miniatura»
+
+**Vive en:** `app/conocimientos/catalogo.ts` (mapa `PORTADA`) · `scripts/curso-a-portal.mjs`
+(la emisión de `portada`) · `scripts/curso-categoria-portada.mjs`
+
+Reportado el 28/08/2026 como *«y algunos no tienen miniatura»*. El diagnóstico obvio —«la
+tapa no se bajó»— era el equivocado: **había 42 archivos en `public/cono-portadas` y UNA
+sola entrada en el mapa `PORTADA`**.
+
+La causa es que `portada` se congela el día que se emite la ficha:
+
+```js
+const portada = existsSync(dirPortadas) ? `/cono-portadas/${…find(…)}` : undefined;
+```
+
+El generador declara `portada` **solo si el archivo ya existía** cuando escribió
+`curso-<slug>.ts`. Una tapa que llega después —bajada a mano, o por un barrido posterior—
+queda en disco **sin que nada la nombre**, y el curso se publica sin miniatura hasta que
+alguien vuelva a regenerar esa ficha. Medido: 11 cursos así.
+
+- **Se engancha por el mapa `PORTADA`, no regenerando la ficha.** El mapa existe
+  exactamente para eso: `curso-a-portal.mjs` REESCRIBE el `.ts` en cada corrida, así que
+  lo que se ponga allá dura hasta la próxima publicación. Y regenerar 11 cursos para
+  cambiar una línea vuelve a subir sus videos.
+- **La guarda de «¿ya tiene tapa?» se pregunta por el SLUG, nunca por dos extensiones
+  concretas.** La primera versión preguntaba `existsSync(slug.webp) || existsSync(slug.jpg)`
+  y los `.png` daban falso: volvía a bajar 4 tapas en cada corrida. Es «`existsSync(<nombre>)`
+  no es un cruce» otra vez — la extensión sale de los BYTES del origen y no se puede
+  enumerar de antemano.
+- **La contraparte del reporte:** «algunos no tienen miniatura» describe lo que se ve, no
+  el alcance. Eran 17, de los cuales 6 son secciones internas de MaKo que van sin tapa a
+  propósito. Contar antes de arreglar separó las dos cosas.
+
+## «Cursos externos» agrupa por PROCEDENCIA, que no es lo que nadie viene a buscar
+
+**Vive en:** `app/conocimientos/catalogo.ts` (mapa `CATEGORIA`) ·
+`scripts/curso-categoria-portada.mjs`
+
+`'Cursos externos'` es el DEFAULT que emite el pipeline, y con 48 cursos publicados **38
+habían caído ahí**. El propio mapa tenía el criterio escrito al lado —agrupar por lo que
+alguien viene a buscar, no por el modelo de negocio ni por de dónde vino— y el default lo
+contradecía sin que nada avisara: un cajón con 38 adentro no ayuda a encontrar nada.
+
+**La categoría era un DATO y estaba al lado.** La tabla `courses` de la plataforma trae
+`category` poblado, igual que `cover_image`. No había que adivinarla ni inferirla del
+título: 26 de los 38 salieron de ahí con una tabla de equivalencias.
+
+- **Y NO se le inventa categoría a la que no está.** «Diferentes» y «Hustlers» son cajones
+  de la plataforma que tampoco dicen qué se busca, y hay 10 cursos que la plataforma no
+  conoce. Se quedan como están: **un cajón nuestro no es mejor que el suyo**, y una
+  categoría inventada se lee igual de convincente que una real.
+- Es la misma lección que la tapa: cuando estés eligiendo entre candidatos o traduciendo a
+  ojo, **andá a buscar la columna primero**.
+
+## Al insertar en un archivo CRLF, el punto de corte cae entre el `\r` y el `\n`
+
+**Vive en:** `scripts/curso-categoria-portada.mjs` (`bloque()` y `escribir()`)
+
+Con `core.autocrlf=true` —que es la config de este clon— git deja **todo** el árbol en CRLF
+en disco. Un script que ubica el cierre de un bloque con `/…\n\};/` y calcula
+`fin = m.index + m[0].length - 3` está asumiendo que el salto mide UN carácter. En CRLF
+mide dos, así que el punto de inserción cae **entre el `\r` y el `\n`** y cada bloque queda
+con un retorno de carro colgado: una línea que es solo un `\r`.
+
+**Ninguna capa lo ve:** el compilador trata el CR como espacio, `npm run typecheck` pasa,
+y no se ve en ningún listado ni en ningún log. Lo delata una sola cosa, y de rebote:
+
+- **Git deja de normalizar un archivo de finales MEZCLADOS.** Con CRLF puro el filtro
+  `clean` convierte a LF y el diff sale chico; con dos `\r` sueltos adentro no convierte
+  nada, así que **se guardó el archivo entero en CRLF** — 457 líneas idénticas borradas y
+  vuelta a agregar, y el `git blame` del catálogo perdido. Ese diff de archivo entero es
+  la firma: si un cambio de 45 líneas produce un diff de 457, mirá los finales de línea
+  antes que el contenido.
+- **El arreglo es capturar el salto, no asumirlo:** `([\s\S]*?)(\r?\n)\};` y
+  `fin = m.index + m[0].length - (m[2].length + 2)`.
+- **Y un comentario no es un control:** el script ahora tiene una guarda que se niega a
+  escribir si quedó un `\r(?!\n)`, con el contexto de la línea. Sin eso el archivo se
+  escribe mal y nadie se entera — que es lo que pasó.
