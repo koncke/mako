@@ -478,15 +478,20 @@ function LineaGuion({
   };
   return (
     <div style={{
-      display: 'flex', alignItems: 'flex-start', gap: 12, padding: '9px 0',
+      display: 'flex', alignItems: 'flex-start', gap: 16, padding: '14px 0',
       borderTop: n === 1 ? 'none' : '1px solid var(--border)',
     }}>
-      <span style={{
-        flex: 'none', fontFamily: MONO, fontSize: 11, color: 'var(--faint)',
-        minWidth: 40, paddingTop: 3,
-      }}>
-        {segundos}s
-      </span>
+      {/* El número de toma manda sobre los segundos: es como se nombra («cambiá
+          la 3»). Los segundos van abajo, chicos, porque se consultan y no se
+          buscan. */}
+      <div style={{ flex: 'none', minWidth: 34, textAlign: 'right', paddingTop: 2 }}>
+        <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 600, color: 'var(--dim)', lineHeight: 1.2 }}>
+          {n}
+        </div>
+        <div style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', marginTop: 2 }}>
+          {segundos}s
+        </div>
+      </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         {/* El botón vive en la fila, alineado a la derecha del texto: pertenece a
             ESTA toma y a ninguna otra. */}
@@ -512,6 +517,18 @@ function LineaGuion({
           muestra el texto crudo— y vuelve al guardar. Es el precio de editar en
           el mismo lugar donde se lee, y es más barato que un modal.
         */}
+        {/*
+          Tamaño de LECTURA, fuera de la escala de la interfaz, y es a propósito.
+
+          Esto no es texto de una pantalla: es lo que una persona va a decir a
+          cámara. Se lee en voz alta, se corrige mirándolo de lejos y se compara
+          contra el guion original. A 14 px —`--fs-md`, el tamaño del resto de la
+          app— hay que acercarse a la pantalla para leerlo, y el dueño lo dijo:
+          «las letras super chiquitas, no se llega a leer bien».
+
+          El `clamp` lo mantiene legible en un monitor grande sin desbordar en uno
+          chico.
+        */}
         <EditarTexto
           valor={voz}
           multiline
@@ -519,7 +536,7 @@ function LineaGuion({
           disabled={guardando}
           onSave={onEditar}
           style={{
-            fontSize: 'var(--fs-md)', lineHeight: 1.6,
+            fontSize: 'clamp(16px, 1.15vw, 19px)', lineHeight: 1.62,
             color: habla ? 'var(--ink)' : 'var(--dim)',
             fontStyle: habla ? 'normal' : 'italic',
           }}
@@ -1099,7 +1116,21 @@ export function VideoGeneratorApp({
 
         {error && <Alert tono="bad">{error}</Alert>}
 
-        <div style={{ maxWidth: 780 }}>
+        {/*
+          DOS COLUMNAS, y la de la derecha no es relleno.
+
+          Antes el guion vivía en una tira de 780 px con media pantalla en blanco
+          al lado. Ahora esa mitad contesta las dos preguntas que uno se hace
+          leyendo el guion y que hasta acá no tenían respuesta en esta pantalla:
+          **¿con qué cara se graba?** y **¿cómo se ve ese formato?**. Las dos se
+          contestan mirando, no leyendo — por eso van la foto real y el ejemplo en
+          video, y no una lista de propiedades.
+
+          En pantalla angosta la columna baja abajo (`flexWrap`), que es donde
+          molesta menos: primero lo que se lee, después la referencia.
+        */}
+        <div style={{ display: 'flex', gap: 28, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 620px', minWidth: 0, maxWidth: 900 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
             {puestaActual && <Tag>{puestaActual.nombre}</Tag>}
             <Tag>{actual.plan.duracionTotalSeg} segundos</Tag>
@@ -1152,6 +1183,68 @@ export function VideoGeneratorApp({
             Lo que hace lo mismo y mejor vive ahora dentro de cada toma: se
             escribe encima, o se le pide el cambio a MaKo ahí, en esa línea.
           */}
+        </div>
+
+        {/* ── La referencia: con quién y cómo ──────────────────────────────── */}
+        <aside style={{ flex: '0 1 300px', minWidth: 260, display: 'grid', gap: 16 }}>
+          <div style={{
+            borderRadius: 14, background: 'var(--surface)',
+            border: '1px solid var(--border)', overflow: 'hidden',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '14px 16px' }}>
+              {contexto?.fotoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={contexto.fotoUrl}
+                  alt="Tu cara de marca"
+                  style={{ width: 54, height: 54, borderRadius: 11, objectFit: 'cover', flex: 'none' }}
+                />
+              ) : (
+                <div style={{
+                  width: 54, height: 54, borderRadius: 11, flex: 'none', display: 'grid',
+                  placeItems: 'center', background: 'var(--surface-2)', color: 'var(--faint)',
+                }}>
+                  <Icon name="perfil" size={24} />
+                </div>
+              )}
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 'var(--fs-card)', fontWeight: 650, color: 'var(--ink)' }}>
+                  Quién lo dice
+                </div>
+                <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginTop: 2 }}>
+                  {contexto?.tieneFotos
+                    ? <>Tu cara de marca. <Link href="/onboarding">Cambiarla</Link></>
+                    : <><Link href="/onboarding">Sube una foto tuya</Link> o cada toma sale con otra persona.</>}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {puestaActual?.ejemplo && (
+            <div style={{
+              borderRadius: 14, background: 'var(--surface)',
+              border: '1px solid var(--border)', overflow: 'hidden',
+            }}>
+              <video
+                src={puestaActual.ejemplo.video}
+                poster={puestaActual.ejemplo.poster}
+                autoPlay
+                loop
+                muted
+                playsInline
+                style={{ width: '100%', display: 'block', aspectRatio: '9 / 16', objectFit: 'cover' }}
+              />
+              <div style={{ padding: '12px 15px 14px' }}>
+                <div style={{ fontSize: 'var(--fs-card)', fontWeight: 650, color: 'var(--ink)' }}>
+                  Cómo se va a ver
+                </div>
+                <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>
+                  {puestaActual.nombre} · {puestaActual.tecnico}
+                </div>
+              </div>
+            </div>
+          )}
+        </aside>
         </div>
       </Pagina>
     );
