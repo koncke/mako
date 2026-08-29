@@ -1913,3 +1913,44 @@ proceso que no encuentra nada y termina con éxito tiene que decir **por qué** 
 nada: sin esa línea, «no había nada que hacer» y «no supe leer la entrada» son el mismo
 log. Es la misma regla que «"No encontré nada que revisar" y "revisé y está todo bien" son
 respuestas DISTINTAS», aplicada a la entrada en vez de a la salida.
+
+# Todo proceso largo necesita algo que lo MIRE, no solo que lo lance
+
+Un trabajo de horas se muere. Siempre. Lo que hay que decidir no es cómo evitarlo sino
+**cuánto tarda alguien en enterarse** — y si la respuesta es «cuando Martín pregunte», el
+costo real no es la caída: es el silencio.
+
+La cola de cursos se murió **tres veces en dos días, por tres causas distintas**:
+
+| Cuándo | Causa | Cuánto estuvo parada |
+|---|---|---|
+| 27/08 | el harness mató el grupo al cerrar la sesión | ~10 h |
+| 28/08 | un Ctrl+C (`Last Result: -1073741510`) | horas |
+| 28/08 | el pipeline arrancó y nunca escribió su línea de salida | **7 h 30** |
+
+Cada arreglo fue correcto y ninguno alcanzó, porque **arreglar causas de a una no cierra el
+agujero**: siempre hay una cuarta. Lo que lo cierra es que algo mire solo.
+
+**La regla: si un proceso dura más que una sesión, se lanza con un vigilante.** Dos tareas
+programadas, no una: la que hace el trabajo y la que lo mira. `scripts/cursos-perro.sh`
+corre cada 15 minutos, y el molde sirve para cualquier otro trabajo largo.
+
+Tres cosas que lo hacen funcionar, y las tres se aprendieron fallando:
+
+1. **La señal de vida es el LOG, no los procesos.** El log se escribe en TODAS las fases
+   —bajando, transcribiendo, subiendo, dando rondas—. Contar procesos falla en las dos
+   direcciones: da «0» sobre una cola sana que está entre dos clases, y da «1» sobre una
+   colgada hace horas.
+2. **UN PROCESO VIVO NO ES PROGRESO.** Hacen falta dos umbrales: a los 20 min sin escribir
+   *y sin procesos* está muerta; a los 45 min sin escribir está **colgada aunque tenga
+   procesos**, y hay que matarlos. Sin el segundo, el 410 de un CDN tiene a yt-dlp
+   «trabajando» siete horas sobre fragmentos muertos y el vigilante no hace nada.
+3. **No revivir lo que terminó bien, ni lo que paró por una razón que sigue vigente.** Si la
+   cola paró por DISCO, levantarla repite el mismo paro cada 15 minutos. Se anota y se sale.
+
+⚠️ **Y el bug que cazó la PRIMERA corrida del vigilante:** contaba **su propia consulta**
+como proceso vivo — la línea de comandos del shell que la ejecuta contiene el patrón que
+busca. Veía «1 proceso vivo» sobre una cola muerta hacía 7 horas y le daba más tiempo, para
+siempre. El vigilante habría sido decorativo y nadie se habría enterado. **Un chequeo que se
+mide a sí mismo siempre da que está todo bien:** filtrá por `Name='node.exe'` (o el binario
+que sea), nunca sólo por la línea de comandos.
