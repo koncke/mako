@@ -136,7 +136,7 @@ const CATEGORIA: Record<string, string> = {
   'analisis-negocio': CATEGORIA_PROPIA,
   'branding-mako': CATEGORIA_PROPIA,
   'construir-app': CATEGORIA_PROPIA,
-  'avatares-que-se-parecen': CATEGORIA_PROPIA,
+  'avatares-que-se-parecen': CATEGORIA_PROPIA,
   // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
   // plataforma. El comentario al lado es la categoría de origen.
   '100m-money-models': 'Ventas',           // Ventas
@@ -188,7 +188,7 @@ const CATEGORIA: Record<string, string> = {
  * Los cursos de la sección MaKo van a propósito SIN miniatura.
  */
 const PORTADA: Record<string, string> = {
-  'anuncio-ganador': '/cono-portadas/anuncio-ganador.jpg',
+  'anuncio-ganador': '/cono-portadas/anuncio-ganador.jpg',
   // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
   // pero la ficha se había emitido antes de que existiera.
   '21-tecnicas-para-invertir-en-bienes-raices': '/cono-portadas/21-tecnicas-para-invertir-en-bienes-raices.jpg',

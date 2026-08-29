@@ -73,9 +73,33 @@ for (const c of plataforma) {
 let cat = readFileSync(CAT_TS, 'utf8');
 const NL = cat.includes('\r\n') ? '\r\n' : '\n';
 
+// ⚠️ Y el comentario de arriba no es un control: esto lo es. Un `\r` colgado no rompe el
+//    build ni el typecheck, así que sin esta guarda el archivo se escribe mal y nadie se
+//    entera. Si aparece uno, no se escribe NADA.
+const escribir = (texto) => {
+  const suelto = /\r(?!\n)/.exec(texto);
+  if (suelto) {
+    const ini = texto.lastIndexOf('\n', suelto.index) + 1;
+    console.error(`\n  ✖ CR suelto — NO escribo. Contexto: ${JSON.stringify(texto.slice(ini, suelto.index + 1))}\n`);
+    process.exit(1);
+  }
+  writeFileSync(CAT_TS, texto, 'utf8');
+};
+
+// ⚠️ EL SALTO DE LÍNEA SE CAPTURA, NO SE ASUME QUE MIDE UNO. Con `\n};` fijo y un
+//    archivo CRLF —que es como git deja TODO en disco acá, `core.autocrlf=true`— el punto
+//    de inserción caía entre el `\r` y el `\n`, y cada bloque quedaba con un `\r` colgado:
+//    una línea que es solo un retorno de carro. No rompe nada (el compilador lo trata como
+//    espacio y el typecheck pasa) y no se ve en ningún listado — exactamente la forma de
+//    falla de «en Windows, todo texto que cruza de una herramienta a otra trae \r».
 const bloque = (nombre) => {
-  const m = new RegExp(`const ${nombre}[^=]*=\\s*\\{([\\s\\S]*?)\\n\\};`).exec(cat);
-  return m ? { texto: m[1], fin: m.index + m[0].length - 3, claves: new Set([...m[1].matchAll(/'([^']+)':\s*'/g)].map((x) => x[1])) } : null;
+  const m = new RegExp(`const ${nombre}[^=]*=\\s*\\{([\\s\\S]*?)(\\r?\\n)\\};`).exec(cat);
+  if (!m) return null;
+  return {
+    texto: m[1],
+    fin: m.index + m[0].length - (m[2].length + 2),
+    claves: new Set([...m[1].matchAll(/'([^']+)':\s*'/g)].map((x) => x[1])),
+  };
 };
 const bCat = bloque('CATEGORIA');
 const bPor = bloque('PORTADA');
@@ -120,7 +144,7 @@ if (nuevasCat.length) {
     + NL + '  // plataforma. El comentario al lado es la categoría de origen.' + NL
     + nuevasCat.map(([s, c, o]) => `  '${s}': '${c}',${' '.repeat(Math.max(1, 34 - s.length - c.length))}// ${o}`).join(NL) + NL;
   cat = cat.slice(0, bCat.fin) + texto + cat.slice(bCat.fin);
-  writeFileSync(CAT_TS, cat, 'utf8');
+  escribir(cat);
   console.log(`\n  ✓ ${nuevasCat.length} categoría(s) escritas en catalogo.ts`);
 }
 
@@ -174,7 +198,7 @@ if (nuevasPor.length) {
     + NL + '  // pero la ficha se había emitido antes de que existiera.' + NL
     + nuevasPor.map(([s, f]) => `  '${s}': '/cono-portadas/${f}',`).join(NL) + NL;
   cat = cat.slice(0, bPor2.fin) + texto + cat.slice(bPor2.fin);
-  writeFileSync(CAT_TS, cat, 'utf8');
+  escribir(cat);
   console.log(`\n  ✓ ${nuevasPor.length} tapa(s) enganchada(s) en el mapa PORTADA`);
   for (const [s, f] of nuevasPor) console.log(`     · ${s.padEnd(44)} ${f}`);
 } else {
