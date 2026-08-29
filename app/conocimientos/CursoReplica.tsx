@@ -59,7 +59,7 @@ const FLECHA_DER = '→';
  * click en uno. Si se desincronizan, el modulo se dibuja en la barra y al abrirlo la
  * grilla sale vacia — sin ningun error. Es «una cosa, un lugar» aplicada a un nombre.
  */
-const SIN_MODULO = 'Sin modulo';
+const SIN_MODULO = 'Clases';
 
 /**
  * Carga la hoja del origen y avisa CUANDO ESTA. Las dos mitades importan.
@@ -230,7 +230,9 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
    * direcciones:
    *
    *  · DE MENOS: cuando ninguna clase trae `grupo`, el agrupado inventa el modulo
-   *    «Sin modulo» — un nombre que no esta escrito en NINGUNA clase. Buscarlo da cero.
+   *    sintetico (`SIN_MODULO`) — un nombre que no esta escrito en NINGUNA clase, asi que
+   *    buscarlo como texto da cero. Entonces se llamaba «Sin modulo»; hoy dice «Clases»,
+   *    que es lo que el usuario tiene que leer — «Sin modulo» se lee como un error.
    *    Medido el 29/08/2026: **82 clases de 10 cursos** quedaban inalcanzables por ese
    *    camino (termux 17, mindset-millonario 14, trading-clutifx 11, the-real-wolf 10,
    *    codigo-genio 9, mentoria-d60 8, us30 6, the-real-world 4, iman-gadzhi 2,
@@ -239,7 +241,7 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
    *    modulo, arrastra clases ajenas adentro.
    *
    * El modulo es una IDENTIDAD, no un texto: se compara por igualdad y con la MISMA
-   * expresion que arma el agrupado de arriba, para que el sintetico «Sin modulo» matchee.
+   * expresion que arma el agrupado de arriba, para que el sintetico matchee.
    */
   const [mod, setMod] = useState<string | null>(null);
 

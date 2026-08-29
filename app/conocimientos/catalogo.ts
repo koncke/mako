@@ -236,6 +236,7 @@ const CATEGORIA: Record<string, string> = {
   'como-vender-como-un-gladiador-romano': 'Ventas', // «¿Qué es la Venta», «Ventas Como Modo De Vida»
   'mentoria-d60': 'Desarrollo personal',   // «claridad mental», «domina tus hábitos», «RutiMax»
   'trading-clutifx': 'Finanzas',           // «BIAS», «entradas», «time»
+  'trading-arelis-rodriguez-2025': 'Finanzas', // con sus hermanos: us30 y clutifx
   // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
   // plataforma. El comentario al lado es la categoría de origen.
   'escuela-tu-primer-millon': 'Negocios digitales', // Hustlers
