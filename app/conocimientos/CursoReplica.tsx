@@ -28,7 +28,8 @@
  * que no llevan a ningun lado.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { usePosicion, type Posicion } from './posicion';
 import { TIPO_BADGE } from './CursoPortal';
 import { Miniatura } from './Miniatura';
 
@@ -106,175 +107,45 @@ const minutosDe = (cs: Clase[]) => {
 type Modulo = { n: number; nombre: string; clases: Clase[]; portada: string | null };
 
 /**
- * UNA POSICION EN EL CURSO. Es TODO lo que define «dónde estoy», y va entero en la URL.
+ * Una POSICION del portal: TODO lo que define «dónde estoy».
  *
- * ⚠️ El comentario de abajo ya decía «LA VISTA VIVE EN LA URL, NO EN EL ESTADO» — y al
- * lado se le fueron agregando `mod`, `q` y el recurso abierto como `useState`. La regla
- * estaba escrita y el código creció en contra: cada uno de esos es una posición que el
- * Atrás no podía devolver. Volver de una clase te dejaba en el índice del curso aunque
- * hubieras salido del módulo 7, porque el módulo no estaba en ningún lado que sobreviva.
- *
- * Reportado por Martín el 29/08/2026: «cuando entro a una clase y le doy para atrás me
- * lleva a todos los cursos, cuando debería llevarme exactamente a la posición anterior. Y
- * con el scroll anterior».
- *
- * La regla que queda: **si algo cambia lo que se ve, va acá.** Un estado de navegación
- * que no está en la URL no sobrevive al Atrás, ni al F5, ni a copiar el link — y las tres
- * cosas se reportan como bugs distintos del mismo botón.
+ * El tipo vive en `posicion.ts`, que es su dueño. Declararlo en dos lados es exactamente
+ * como se desincronizan los campos — y acá ya pasó: la regla «la vista vive en la URL»
+ * estaba escrita en este archivo desde el principio, y al lado se le fueron agregando
+ * `mod`, `q` y el recurso abierto como `useState`. Cada uno era una posición que el Atrás
+ * no podía devolver.
  */
-type Vista = {
-  clase?: number;       // la clase abierta
-  recursos?: boolean;   // la lista de recursos del curso
-  r?: string;           // el recurso abierto, por slug
-  mod?: string;         // el módulo por el que está filtrada la grilla
-  q?: string;           // lo que se escribió en el buscador
-};
+type Vista = Posicion;
 
 export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir?: () => void }) {
   const cssListo = useCssDelOrigen();
 
   /**
-   * ATENCION - LA VISTA VIVE EN LA URL, NO EN EL ESTADO.
-   * Con `useState` a secas, refrescar la pagina devolvia a la grilla de cursos: se
-   * perdia la clase abierta y, en un link compartido, tambien el curso. Un curso que
-   * no sobrevive a F5 no se puede compartir ni dejar abierto en una pestana.
-   * Se usa el hash porque esta vista se monta dentro de rutas distintas (/conocimientos
-   * y /compartido/<token>) y el hash no depende de ninguna de las dos.
+   * TODA la navegacion sale de `usePosicion`, el DUEÑO UNICO de la URL.
+   *
+   * Aca adentro habia ~200 lineas de lo mismo —estado propio, lector del hash,
+   * escritor, memoria de scroll— compitiendo con otras DOS implementaciones en las dos
+   * rutas que montan esta vista. Tres dueños de la misma URL, y ninguno se enteraba de
+   * lo que escribian los otros: `pushState` no dispara ningun evento. El porque
+   * completo, con las cuatro veces que este boton se reporto roto, esta en posicion.ts.
    */
-  const [vista, setVista] = useState<Vista>({});
+  const { pos, ir: irPos } = usePosicion();
+  const vista = pos;
 
   /**
-   * ⚠️ EL SCROLL SE GUARDA POR POSICION, y la clave es la URL entera.
-   *
-   * Antes `ir()` hacía `scrollTo({top:0})` SIEMPRE — también al volver. Así que aunque el
-   * Atrás devolviera al lugar correcto, devolvía al lugar correcto arriba de todo: en un
-   * módulo de 78 clases eso es no volver. Y había otros dos lugares mandando el scroll a
-   * cero (Conocimientos.tsx y PortalCompartido.tsx), cada uno con su propia clave.
-   *
-   * Va en `sessionStorage` y no en memoria porque tiene que sobrevivir a un F5, que es
-   * justo cuando más se nota. La clave incluye el pathname: la misma vista se monta bajo
-   * /conocimientos y bajo /compartido/<token>, y compartir clave entre dos rutas hace que
-   * restaurar sea PEOR que no restaurar — te deja en la posición de otra pantalla.
+   * El CURSO viaja adentro de la posicion, asi que cada paso lo conserva: sin esto,
+   * abrir una clase te sacaria del curso. Es la misma razon por la que abrir una clase
+   * conserva el modulo — el contexto es parte de donde estas, no del camino.
    */
-  /**
-   * ⚠️ ACA NO SCROLLEA LA VENTANA: SCROLLEA `.ugc-content`.
-   *
-   * La hoja del origen arma la pantalla con la barra fija y el contenido en su propio
-   * contenedor con `overflow-y: auto`. Medido en MasteryHaus: `window.scrollY` vale 0
-   * SIEMPRE (body 663 = innerHeight 663) mientras `.ugc-content` tiene 8.063px de alto
-   * sobre 561 visibles.
-   *
-   * O sea que `window.scrollTo(...)` acá no hace nada — ni el que había en `ir()` para
-   * subir al tope, ni el primero que escribí para restaurar. Y la prueba que lo tenía que
-   * cazar pasaba en verde comparando 0 con 0: un chequeo sobre un valor que no se mueve
-   * confirma cualquier cosa. Se descubrió porque la prueba se preguntó primero si el caso
-   * era VALIDO («¿la página puede bajar?») y se contestó que no.
-   */
-  const carril = () => document.querySelector('.ugc-content') as HTMLElement | null;
-  const clave = () => `cono-pos:${location.pathname}${location.hash}`;
-  const guardarScroll = () => {
-    try { sessionStorage.setItem(clave(), String(carril()?.scrollTop ?? 0)); } catch { /* noop */ }
-  };
-  const restaurarScroll = () => {
-    let y = 0;
-    try { y = parseInt(sessionStorage.getItem(clave()) || '0', 10) || 0; } catch { /* noop */ }
-    // Dos frames: el primero deja pintar la vista nueva, el segundo ya tiene el alto real.
-    // Con uno solo, la lista todavía no creció y el scroll queda topeado en lo que había.
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      const c = carril();
-      if (c) c.scrollTop = y; else window.scrollTo({ top: y, behavior: 'instant' as ScrollBehavior });
-    }));
-  };
-
-  useEffect(() => {
-    const leer = () => {
-      const h = new URLSearchParams(location.hash.replace(/^#/, ''));
-      const n = Number(h.get('clase'));
-      setVista({
-        clase: Number.isFinite(n) && n > 0 ? n : undefined,
-        recursos: h.get('v') === 'recursos',
-        r: h.get('r') ?? undefined,
-        mod: h.get('mod') ?? undefined,
-        q: h.get('q') ?? undefined,
-      });
-      // Llegar acá es SIEMPRE ir a una posición que ya existía (Atrás, Adelante, o el
-      // link pegado): se restaura lo que se había guardado para ella.
-      restaurarScroll();
-    };
-    leer();
-    window.addEventListener('hashchange', leer);
-    return () => window.removeEventListener('hashchange', leer);
-  }, []);
-  /**
-   * ⚠️ ESCRIBE SOLO SUS CLAVES; el resto del hash NO se toca.
-   *
-   * Arrancaba de un `URLSearchParams` vacio, o sea REEMPLAZABA el hash entero. En
-   * /conocimientos daba igual, pero en un link compartido el hash lo comparte con el
-   * portal, que guarda ahi el `curso=`: abrir una clase lo borraba, y al refrescar no
-   * quedaba de que curso era esa clase — volvias a la grilla de cursos.
-   *
-   * Medido en produccion: `#curso=creativos-ugc-realistas` pasaba a `#clase=1`.
-   *
-   * La regla, que vale para cualquier estado compartido en una misma URL: el que
-   * escribe parte de una clave PARTE DE LO QUE HAY, nunca de vacio.
-   */
-  /**
-   * ⚠️ Y EMPUJA, NO REEMPLAZA. `replaceState` no crea entrada en el historial, asi que el
-   * boton ATRAS del navegador no volvia a la pantalla anterior del curso: se salia del
-   * portal entero, a la pagina de donde habias venido. Reportado por Martin el 29/08:
-   * «cuando le doy a atras no me lleva atras, sino que se sale de la pantalla».
-   *
-   * Con `pushState` cada paso —abrir una clase, ir a recursos, volver al indice— deja su
-   * entrada, y el `hashchange` de arriba ya redibuja solo cuando el navegador la saca.
-   *
-   * Se compara el destino con la URL actual antes de empujar: sin eso, hacer click en la
-   * clase que ya estas viendo apila entradas identicas y Atras «no hace nada» N veces.
-   */
-  /**
-   * `reemplazar` PISA la entrada actual en vez de agregar una.
-   *
-   * Es para los cambios que no son «un paso» para el usuario: escribir en el buscador
-   * (una entrada por tecla haría que salir de una búsqueda de 12 letras cueste 12 clicks)
-   * o limpiar un filtro que quedó incoherente con lo que se acaba de hacer.
-   */
-  const ir = (v: Vista, o?: { reemplazar?: boolean }) => {
-    // Lo primero: anotar dónde estábamos, para poder volver ACA y no al tope.
-    guardarScroll();
-    const h = new URLSearchParams(location.hash.replace(/^#/, ''));
-    // Se escriben las CINCO claves de la posición. Las que no van, se borran: dejar una
-    // colgada (un `mod` viejo al abrir una clase de otro módulo) es peor que no tenerla,
-    // porque el Atrás devuelve a un lugar que nunca existió.
-    if (v.clase) h.set('clase', String(v.clase)); else h.delete('clase');
-    if (v.recursos) h.set('v', 'recursos'); else h.delete('v');
-    if (v.r) h.set('r', v.r); else h.delete('r');
-    if (v.mod) h.set('mod', v.mod); else h.delete('mod');
-    if (v.q) h.set('q', v.q); else h.delete('q');
-    const s = h.toString();
-    const base = location.pathname + location.search;
-    const destino = s ? `${base}#${s}` : base;
-    if (o?.reemplazar) history.replaceState(null, '', destino);
-    else if (destino !== base + location.hash) history.pushState(null, '', destino);
-    setVista(v);
-    // Un paso HACIA ADELANTE arranca arriba: es contenido que no viste todavía. El
-    // scroll de la posición anterior ya quedó guardado, así que el Atrás lo va a
-    // encontrar. Un `reemplazar` NO sube: no es un paso — escribiendo en el buscador te
-    // tiraría al tope en cada tecla.
-    if (!o?.reemplazar) {
-      const c = carril();
-      if (c) c.scrollTop = 0; else window.scrollTo({ top: 0 });
-    }
-  };
+  const ir = (v: Vista, o?: { reemplazar?: boolean }) =>
+    irPos({ curso: pos.curso, ...v }, o?.reemplazar ? 'reemplazar' : 'empujar');
 
   /**
-   * ⚠️ EL BUSCADOR SI ES ESTADO LOCAL, y a propósito: se escribe letra por letra.
-   *
-   * Empujar una entrada de historial por cada tecla haría que el Atrás borre una letra
-   * por vez y que salir de una búsqueda de 12 caracteres cueste 12 clicks. Lo que se
-   * guarda en la URL es la búsqueda YA HECHA (cuando se abre algo desde sus resultados),
-   * y de ahí sale el valor inicial: por eso arranca de `vista.q`.
+   * ⚠️ EL BUSCADOR SI ES ESTADO LOCAL, y a proposito: se escribe letra por letra, y
+   * empujar una entrada por tecla haria que salir de una busqueda de 12 caracteres
+   * cueste 12 clicks. Lo que va a la URL es la busqueda ya hecha, con `reemplazar`.
    */
   const [q, setQ] = useState(vista.q ?? '');
-  // Si la URL cambia por Atrás/Adelante, el input tiene que seguirla.
   useEffect(() => { setQ(vista.q ?? ''); }, [vista.q]);
 
   const modulos: Modulo[] = useMemo(() => {
