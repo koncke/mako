@@ -140,6 +140,36 @@
   });
 
   // ── Qué vimos: lo que el service worker necesita para decidir ─────────────
+  /**
+   * Las plantillas ENTERAS, para que el service worker las guarde.
+   *
+   * Distinto de `MAKO_ESPIA_PIDO`, que manda solo los NOMBRES de los headers para
+   * diagnosticar. Acá hace falta el pedido completo, porque el día de mañana hay
+   * que repetirlo.
+   *
+   * Lo que NO sale: el `authorization`, que se repone fresco en cada pedido, y el
+   * token de reCAPTCHA, que se acuña en el momento y vencido no sirve para nada.
+   * Guardar un token vencido es cargar con una credencial sin ganar nada.
+   */
+  window.addEventListener('MAKO_GUARDAR_PIDO', (ev) => {
+    const { id } = ev.detail || {};
+    const out = [];
+    for (const [clase, p] of plantillas) {
+      const headers = { ...p.headers };
+      delete headers.authorization;
+      let cuerpo = p.cuerpo;
+      if (cuerpo) {
+        try {
+          const o = JSON.parse(cuerpo);
+          if (o && o.clientContext && o.clientContext.recaptchaContext) delete o.clientContext.recaptchaContext;
+          cuerpo = JSON.stringify(o);
+        } catch { /* si no era JSON, va como vino */ }
+      }
+      out.push({ clase, url: p.url, metodo: p.metodo, headers, cuerpo, credenciales: p.credenciales });
+    }
+    responder('MAKO_GUARDAR_OK', id, { plantillas: out });
+  });
+
   window.addEventListener('MAKO_ESPIA_PIDO', (ev) => {
     const { id } = ev.detail || {};
     const visto = {};
@@ -167,7 +197,7 @@
 
   // ── Nuestro pedido, calcado de la plantilla ───────────────────────────────
   window.addEventListener('MAKO_FETCH_PIDO', async (ev) => {
-    const { id, clase, cuerpo, path, soloLectura, bearer } = ev.detail || {};
+    const { id, clase, cuerpo, path, soloLectura, bearer, respaldo } = ev.detail || {};
     try {
       // ── Lectura: si Flow ya lo preguntó, se usa SU respuesta ───────────────
       // Cero tráfico nuestro. El pedido que la produjo lo hizo la app.
@@ -182,10 +212,15 @@
         });
       }
 
-      const plantilla = plantillas.get(clase);
+      // La de ESTA sesión primero; si la pestaña se recargó recién, la que el
+      // service worker guardó de una sesión anterior.
+      //
+      // ⚠️ Que exista respaldo NO es «reconstruir el pedido a mano», que es lo que
+      // no funcionó cinco veces: es el MISMO pedido que hizo Flow, copiado tal
+      // cual, solo que visto hace un rato en vez de hace un minuto. Lo que sigue
+      // sin inventarse es la forma.
+      const plantilla = plantillas.get(clase) || (respaldo && respaldo.clase === clase ? respaldo : null);
       if (!plantilla) {
-        // Sin plantilla no se inventa: se dice que falta. Reconstruir el pedido a
-        // mano es exactamente lo que no funcionó cinco veces.
         return responder('MAKO_FETCH_OK', id, { error: `SIN_PLANTILLA:${clase}` });
       }
 

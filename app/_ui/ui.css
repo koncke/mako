@@ -1011,57 +1011,62 @@
 
 
 /* ── El lienzo de un clip generándose ──────────────────────────────────────
-   Dos capas que se mueven a distinta velocidad y en distinto sentido. Una sola
-   se lee como un «cargando» cualquiera; dos, desfasadas, se leen como algo que
-   está PASANDO ahí adentro — que es lo que de verdad está pasando.
+   Copiado de lo que hace Flow, mirando el video cuadro por cuadro en vez de
+   imaginarlo. Tres cosas que estaban mal en la primera versión:
 
-   Ocupa el tamaño exacto que va a tener el video (9:16). El hueco reservado
-   desde el primer segundo es la mitad del efecto: cuando el clip llega, aparece
-   EN SU LUGAR en vez de empujar la página.
+   1. **Va DESATURADO y oscuro, no con los colores de marca.** El primer intento
+      usaba --primary y --accent: quedaba un cargando de app, alegre y ajeno. Lo
+      de Flow es gris azulado, casi monocromo, y por eso se lee como una imagen
+      que todavía no resolvió en vez de como un adorno.
+   2. **Las manchas son GRANDES y se mueven LENTO.** Rápido se lee como spinner;
+      lento se lee como algo revelándose. Ciclos de 18 y 26 segundos.
+   3. **Va sobre negro.** El fondo de la card es casi negro y la niebla apenas lo
+      levanta. Sobre un gris claro no hay niebla que se vea.
 
-   `prefers-reduced-motion` la apaga: una animación infinita a pantalla no es
-   negociable para quien la marea. */
+   Lo que NO se copia es el porcentaje: Flow lo sabe, nosotros no. Un número
+   inventado que avanza solo es exactamente la clase de mentira que después nadie
+   perdona — va el tiempo transcurrido, que es cierto.
+
+   `prefers-reduced-motion` la apaga: una animación infinita no es negociable
+   para quien la marea. */
 @keyframes mk-niebla-a {
-  0%   { transform: translate3d(-18%, -8%, 0) scale(1.5) rotate(0deg); }
-  100% { transform: translate3d(14%, 10%, 0) scale(1.9) rotate(180deg); }
+  0%   { transform: translate3d(-14%, -10%, 0) scale(1.6) rotate(0deg); }
+  100% { transform: translate3d(12%, 12%, 0) scale(2) rotate(150deg); }
 }
 @keyframes mk-niebla-b {
-  0%   { transform: translate3d(12%, 14%, 0) scale(1.7) rotate(0deg); }
-  100% { transform: translate3d(-16%, -10%, 0) scale(1.4) rotate(-180deg); }
-}
-@keyframes mk-lienzo-pulso {
-  0%, 100% { opacity: .55; }
-  50%      { opacity: .9; }
+  0%   { transform: translate3d(14%, 12%, 0) scale(1.9) rotate(0deg); }
+  100% { transform: translate3d(-12%, -8%, 0) scale(1.55) rotate(-150deg); }
 }
 
 .mk-lienzo {
   position: relative;
   overflow: hidden;
-  border-radius: 13px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #14161a;
   isolation: isolate;
 }
 .mk-lienzo::before,
 .mk-lienzo::after {
   content: '';
   position: absolute;
-  inset: -60%;
+  inset: -55%;
   z-index: 0;
-  filter: blur(34px);
+  filter: blur(40px);
   will-change: transform;
 }
+/* Gris azulado y gris cálido: los dos tonos que se ven en la niebla de Flow
+   antes de que la imagen empiece a teñirla. */
 .mk-lienzo::before {
   background:
-    radial-gradient(38% 42% at 30% 35%, color-mix(in srgb, var(--primary) 55%, transparent), transparent 70%),
-    radial-gradient(34% 38% at 70% 65%, color-mix(in srgb, var(--accent) 40%, transparent), transparent 70%);
-  animation: mk-niebla-a 14s linear infinite alternate, mk-lienzo-pulso 6s ease-in-out infinite;
+    radial-gradient(42% 46% at 32% 30%, rgba(150, 163, 178, .55), transparent 70%),
+    radial-gradient(36% 40% at 72% 68%, rgba(96, 108, 124, .5), transparent 72%);
+  animation: mk-niebla-a 18s ease-in-out infinite alternate;
 }
 .mk-lienzo::after {
   background:
-    radial-gradient(40% 44% at 65% 28%, color-mix(in srgb, var(--accent) 45%, transparent), transparent 72%),
-    radial-gradient(30% 34% at 25% 75%, color-mix(in srgb, var(--primary) 35%, transparent), transparent 72%);
-  animation: mk-niebla-b 19s linear infinite alternate, mk-lienzo-pulso 8s ease-in-out infinite reverse;
+    radial-gradient(38% 42% at 68% 26%, rgba(176, 166, 158, .38), transparent 72%),
+    radial-gradient(34% 38% at 26% 74%, rgba(120, 132, 148, .42), transparent 72%);
+  animation: mk-niebla-b 26s ease-in-out infinite alternate;
 }
 .mk-lienzo > * { position: relative; z-index: 1; }
 

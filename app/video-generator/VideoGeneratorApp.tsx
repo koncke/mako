@@ -458,6 +458,21 @@ function Lienzo({ url, cargando, error, onGenerar, n }: {
 }) {
   const ANCHO = 176;
 
+  /*
+    El cronómetro. Arranca cuando arranca la espera, no cuando montó el
+    componente: si no, volver a la pestaña mostraría 0:00 sobre un clip que lleva
+    dos minutos.
+  */
+  const [desde] = useState(() => Date.now());
+  const [ahora, setAhora] = useState(desde);
+  useEffect(() => {
+    if (!cargando) return;
+    const t = setInterval(() => setAhora(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [cargando]);
+  const seg = Math.max(0, Math.round((ahora - desde) / 1000));
+  const reloj = `${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, '0')}`;
+
   if (url) {
     return (
       <video
@@ -478,20 +493,28 @@ function Lienzo({ url, cargando, error, onGenerar, n }: {
     return (
       <div
         className="mk-lienzo"
-        style={{ width: ANCHO, aspectRatio: '9 / 16', marginTop: 11, display: 'grid', placeItems: 'center' }}
+        style={{ width: ANCHO, aspectRatio: '9 / 16', marginTop: 11 }}
         role="status"
         aria-label={`Generando la toma ${n}`}
       >
-        <div style={{ textAlign: 'center', padding: '0 14px' }}>
-          <div style={{ color: '#fff', opacity: .95, marginBottom: 8 }}>
-            <Icon name="ia" size={22} />
-          </div>
-          <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 650, color: '#fff', textShadow: '0 1px 6px rgba(0,0,0,.45)' }}>
-            Filmando la toma {n}
-          </div>
-          <div style={{ fontSize: 'var(--fs-meta)', color: 'rgba(255,255,255,.85)', marginTop: 3, textShadow: '0 1px 6px rgba(0,0,0,.45)' }}>
-            un par de minutos
-          </div>
+        {/* Como en Flow: el ícono arriba a la izquierda y el contador arriba a la
+            derecha. Lo de Flow es un PORCENTAJE porque su servidor se lo dice; el
+            nuestro no lo sabe, así que va el tiempo, que es cierto. Un número
+            inventado que avanza solo es la clase de mentira que después nadie
+            perdona. */}
+        <div style={{
+          position: 'absolute', inset: '10px 11px auto 11px', display: 'flex',
+          alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <span style={{ color: 'rgba(255,255,255,.72)', lineHeight: 0 }}>
+            <Icon name="tvad" size={15} />
+          </span>
+          <span style={{
+            fontFamily: MONO, fontSize: 11, color: 'rgba(255,255,255,.72)',
+            fontVariantNumeric: 'tabular-nums',
+          }}>
+            {reloj}
+          </span>
         </div>
       </div>
     );

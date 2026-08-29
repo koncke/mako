@@ -103,6 +103,46 @@ async function pedirCaptcha(tabId, action) {
   return res.token;
 }
 
+
+// ── El respaldo de plantillas ────────────────────────────────────────────────
+//
+// Las plantillas del espejo viven en la MEMORIA de la pestana de Flow. Un F5 las
+// borra, y con ellas la posibilidad de generar: la tab pedia «abri Flow y genera
+// algo a mano una vez» DESPUES DE CADA RECARGA. Para un producto eso no es un
+// requisito, es una tab que no funciona.
+//
+// Asi que se guardan aca, en el storage de la extension, que sobrevive tanto al
+// F5 como al reinicio del service worker.
+//
+// ⚠️ Lo que se guarda NO lleva credenciales: `injected.js` saca el `authorization`
+// —que se repone fresco en cada pedido— y el token de reCAPTCHA, que se acuna en
+// el momento y vencido no sirve. Guardar un token vencido seria cargar con una
+// credencial sin ganar nada.
+const CLAVE_PLANTILLAS = 'plantillas';
+
+async function guardarPlantillas(tabId) {
+  try {
+    const r = await chrome.tabs.sendMessage(tabId, { tipo: 'GUARDAR_PLANTILLAS' });
+    const lista = (r && r.plantillas) || [];
+    if (!lista.length) return;
+    const previas = (await chrome.storage.local.get(CLAVE_PLANTILLAS))[CLAVE_PLANTILLAS] || {};
+    const mapa = { ...previas };
+    // La mas nueva gana. Y una plantilla vieja NO se borra porque hoy no se haya
+    // visto: es justo el caso que esto viene a arreglar.
+    for (const p of lista) mapa[p.clase] = { ...p, cuando: Date.now() };
+    await chrome.storage.local.set({ [CLAVE_PLANTILLAS]: mapa });
+  } catch { /* si la pestana no responde, no hay nada que guardar */ }
+}
+
+async function respaldoDe(clase) {
+  try {
+    const mapa = (await chrome.storage.local.get(CLAVE_PLANTILLAS))[CLAVE_PLANTILLAS] || {};
+    return mapa[clase] || null;
+  } catch {
+    return null;
+  }
+}
+
 // ── Ejecutar un trabajo contra Flow ──────────────────────────────────────────
 
 /**
@@ -184,6 +224,8 @@ async function ejecutar(trabajo) {
   const clase = path.split('?')[0].split('/').filter(Boolean).pop() || '';
   const r = await chrome.tabs.sendMessage(tab.id, {
     tipo: 'HACER_FETCH', clase, path: path.split('?')[0], cuerpo, soloLectura, bearer,
+    // Por si la pestana se recargo y todavia no vio pasar este pedido.
+    respaldo: await respaldoDe(clase),
   });
   if (!r || r.error) throw new Error(r?.error || 'FETCH_FALLO');
 
@@ -232,6 +274,10 @@ async function ciclo() {
     if (estado === 'listo') {
       try {
         const tab = await pestanaDeFlow();
+        // Cada latido guarda lo que la pagina haya visto. Es el momento correcto:
+        // no cuesta nada extra —la pestana ya se esta consultando— y garantiza que
+        // lo que Flow hizo hace un minuto sobreviva al proximo F5.
+        await guardarPlantillas(tab.id);
         const espia = await chrome.tabs.sendMessage(tab.id, { tipo: 'VER_ESPIA' });
         if (espia && espia.visto) {
           // Ordenado con lo que GENERA primero: el detalle se corta al guardarse, y

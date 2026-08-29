@@ -62,10 +62,17 @@ chrome.runtime.onMessage.addListener((msg, _sender, responder) => {
     // para siempre.
     pedirALaPagina(
       'MAKO_FETCH_PIDO', 'MAKO_FETCH_OK',
-      { clase: msg.clase, path: msg.path, cuerpo: msg.cuerpo, soloLectura: msg.soloLectura, bearer: msg.bearer },
+      { clase: msg.clase, path: msg.path, cuerpo: msg.cuerpo, soloLectura: msg.soloLectura, bearer: msg.bearer, respaldo: msg.respaldo },
       60000, 'FETCH_TIMEOUT',
       (d) => responder(d),
     );
+    return true;
+  }
+
+  if (msg?.tipo === 'GUARDAR_PLANTILLAS') {
+    // Las plantillas enteras, para que sobrevivan al próximo F5.
+    pedirALaPagina('MAKO_GUARDAR_PIDO', 'MAKO_GUARDAR_OK', {}, 5000, 'GUARDAR_TIMEOUT',
+      (d) => responder(d));
     return true;
   }
 
