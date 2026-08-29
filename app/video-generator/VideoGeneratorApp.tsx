@@ -41,11 +41,14 @@ import {
 import { generarPlanAction } from './actions';
 import { PuentePanel } from './PuentePanel';
 import type { Puente } from '@/lib/flow-cola';
-import { cabidaDeGuion } from '@/lib/puestas-data';
+import { cabidaDeGuion, soloHablado } from '@/lib/puestas-data';
 import type { GuionDisponible } from './guiones-datos';
 import type { AnuncioHecho } from './anuncios-datos';
 import { CargarGuiones } from './CargarGuiones';
-import { SeccionCard, parsearSecciones, ICONO_SECCION_GUION } from '../components/SeccionCard';
+import {
+  SeccionCard, parsearSecciones, reconstruirSecciones, EditarTexto, ICONO_SECCION_GUION,
+} from '../components/SeccionCard';
+import { editarGuionAction } from './cargar-guiones-action';
 import { useRouter } from 'next/navigation';
 
 type Vista = 'catalogo' | 'wizard' | 'anuncio';
@@ -194,15 +197,43 @@ function Fila({ k, v, nota }: { k: string; v: string; nota?: string }) {
 }
 
 function DetalleGuion({
-  guion, puesta, onCerrar, onUsar,
+  guion, puesta, onCerrar, onUsar, onEditado,
 }: {
   guion: GuionDisponible;
   puesta?: Puesta;
   onCerrar: () => void;
   onUsar: () => void;
+  /** El guion cambió en el server: hay que volver a bajarlo. */
+  onEditado: () => void;
 }) {
-  const cab = puesta ? cabidaDeGuion(puesta, guion.hablado) : null;
-  const secciones = parsearSecciones(guion.texto, undefined, 20);
+  /*
+    El texto vive en estado local mientras el modal está abierto.
+
+    No se lee de `guion.texto` directamente porque guardar dispara un
+    `router.refresh()` y las props tardan un viaje en volver: sin copia local, la
+    frase recién escrita parpadearía a la versión vieja antes de asentarse. Se
+    escribe optimista y el refresh confirma.
+  */
+  const [texto, setTexto] = useState(guion.texto);
+  const [guardando, setGuardando] = useState(false);
+  const [errorEdit, setErrorEdit] = useState<string | null>(null);
+
+  const cab = puesta ? cabidaDeGuion(puesta, soloHablado(texto)) : null;
+  const secciones = parsearSecciones(texto, undefined, 20);
+
+  const guardar = useCallback(async (nuevo: string) => {
+    setTexto(nuevo);
+    setGuardando(true); setErrorEdit(null);
+    try {
+      const out = await editarGuionAction(guion.id, nuevo);
+      if (!out.ok) { setErrorEdit(out.error); return; }
+      onEditado();
+    } catch (e) {
+      setErrorEdit(e instanceof Error ? e.message : 'No se pudo guardar.');
+    } finally {
+      setGuardando(false);
+    }
+  }, [guion.id, onEditado]);
   return (
     <Modal
       titulo={guion.angulo || 'Sin título'}
@@ -256,6 +287,8 @@ function DetalleGuion({
         ordenara, o uno donde el modelo no pudo— `parsearSecciones` devuelve
         vacio y se cae al texto plano. Un guion sin bloques se sigue leyendo.
       */}
+      {errorEdit && <Alert tono="bad">{errorEdit}</Alert>}
+
       {secciones.length > 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9, maxHeight: '52vh', overflowY: 'auto' }}>
           {secciones.map((s, i) => (
@@ -265,17 +298,43 @@ function DetalleGuion({
               abiertoDefault={i === 0}
               icono={ICONO_SECCION_GUION[s.titulo] ?? '\u{1F3AC}'}
               size="sm"
-            />
+            >
+              <EditarTexto
+                valor={s.texto}
+                multiline
+                disabled={guardando}
+                onSave={(v) => void guardar(reconstruirSecciones(
+                  secciones.map((sec, j) => (j === i ? { ...sec, texto: v } : sec)),
+                ))}
+                style={{ fontSize: 'var(--fs-sm)', color: 'var(--ink)', lineHeight: 1.6 }}
+              />
+            </SeccionCard>
           ))}
         </div>
       ) : (
-        <div style={{
-          whiteSpace: 'pre-wrap', fontSize: 'var(--fs-md)', lineHeight: 1.7,
-          color: 'var(--ink)', maxHeight: '52vh', overflowY: 'auto',
-        }}>
-          {guion.texto}
+        // Un guion sin rótulos —cargado antes de que MaKo los pusiera, o uno
+        // donde el modelo no pudo— se edita ENTERO. No se pierde ni se bloquea:
+        // el que no tiene bloques es justamente el que más ganas dan de corregir.
+        <div style={{ maxHeight: '52vh', overflowY: 'auto' }}>
+          <EditarTexto
+            valor={texto}
+            multiline
+            disabled={guardando}
+            onSave={(v) => void guardar(v)}
+            style={{
+              fontSize: 'var(--fs-md)', lineHeight: 1.7, color: 'var(--ink)',
+              background: 'var(--surface-2)', border: '1px solid var(--border)',
+              borderRadius: 10, padding: '12px 14px', margin: 0,
+            }}
+          />
         </div>
       )}
+
+      {/* Que se puede escribir encima no se descubre solo: el campo se ve igual
+          que un texto hasta que alguien le hace clic. Una línea lo dice. */}
+      <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--faint)', marginTop: 10 }}>
+        {guardando ? 'Guardando…' : 'Haz clic en cualquier parte del guion para corregirlo.'}
+      </div>
     </Modal>
   );
 }
@@ -382,10 +441,16 @@ function DetalleFormato({
 // cómo se fabrica, y el cliente no fabrica nada.
 
 function LineaGuion({
-  n, segundos, habla, voz, palabras, tope, voseo,
+  n, segundos, habla, voz, palabras, tope, voseo, literal, seAlejo, original,
 }: {
   n: number; segundos: number; habla: boolean; voz: string;
   palabras: number; tope: number; voseo: string[];
+  /** Es el cierre del guion: va palabra por palabra como lo escribió el cliente. */
+  literal?: boolean;
+  /** La adaptación conservó menos de la mitad del contenido del original. */
+  seAlejo?: boolean;
+  /** Lo que decía el guion, cuando MaKo lo dijo de otra forma. */
+  original?: string;
 }) {
   const alerta = palabras > tope || voseo.length > 0;
   return (
@@ -407,6 +472,23 @@ function LineaGuion({
           <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--warn)', lineHeight: 1.5, marginTop: 4 }}>
             {palabras > tope && <div>Es muy largo para {segundos} segundos. Pide acortarlo.</div>}
             {voseo.length > 0 && <div>Tiene palabras de otro país ({voseo.join(', ')}) para el acento elegido.</div>}
+          </div>
+        )}
+
+        {/*
+          Qué se hizo con esta línea. MaKo adapta la FORMA —le pone los conectores
+          con los que arranca la persona— y eso es deseable; lo que no puede es
+          cambiar lo que dice. Estas dos marcas hacen visible la diferencia, que
+          antes solo se podía ver comparando a mano contra el guion.
+        */}
+        {literal && (
+          <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--faint)', marginTop: 4 }}>
+            Cierre — va tal cual lo escribiste.
+          </div>
+        )}
+        {seAlejo && original && (
+          <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--warn)', lineHeight: 1.5, marginTop: 4 }}>
+            MaKo se alejó del guion en esta toma. Decía: «{original}»
           </div>
         )}
       </div>
@@ -552,6 +634,7 @@ export function VideoGeneratorApp({
                 puesta={puesta}
                 onCerrar={() => setVerGuion(null)}
                 onUsar={() => { setGuionId(verGuion.id); setVerGuion(null); }}
+                onEditado={() => router.refresh()}
               />
             )}
 
@@ -892,6 +975,9 @@ export function VideoGeneratorApp({
                   // El acento sale del PLAN —lo escribió el server al generarlo— y
                   // no de un estado de esta pantalla, que ya no lo pregunta.
                   voseo={actual.plan.acentoEsVoseante ? [] : (c.voseo ?? [])}
+                  literal={c.literal}
+                  seAlejo={c.seAlejo}
+                  original={c.original}
                 />
               ))}
             </div>

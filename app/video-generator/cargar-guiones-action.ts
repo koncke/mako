@@ -263,3 +263,49 @@ export async function textoDeLinkAction(crudo: string): Promise<{ ok: true; text
   }
 }
 
+
+/**
+ * Reescribe el texto de un guion.
+ *
+ * El dueño lo pidió al ver el detalle: «donde está el guion también deberías
+ * dejar corregirlo, es decir escribir. Que es lo que ya se puede hacer en los
+ * desplegables de la matriz». Es la misma edición inline de /ads-writer, en la
+ * pantalla donde se elige qué grabar — que es justo donde uno se da cuenta de
+ * que una frase no cierra.
+ *
+ * ⚠️ Escribe sobre `mako.razones`, que es el MISMO lugar del que come la matriz.
+ * No hay copia: corregir acá corrige en todos lados, que es lo que se espera de
+ * un guion que es uno solo.
+ *
+ * Lo que NO hace es tocar `estructuraId`: si el dueño reescribe el cuerpo, la
+ * estructura que MaKo detectó sigue siendo la misma. Y si borra los rótulos, el
+ * guion se sigue leyendo —`parsearSecciones` cae a texto plano— y el reparto en
+ * tomas también, porque `soloHablado` no exige rótulos.
+ */
+export async function editarGuionAction(id: string, texto: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const c = await ctx();
+  if (!c.ok) return c;
+
+  const limpio = (texto ?? '').trim();
+  if (!limpio) return { ok: false, error: 'El guion no puede quedar vacío.' };
+  if (limpio.length > 20000) return { ok: false, error: 'Ese texto es demasiado largo para un guion.' };
+
+  const celdas = await getRazones();
+  let encontrado = false;
+
+  const nuevas = celdas.map((celda) => ({
+    ...celda,
+    guiones: (celda.guiones ?? []).map((g) => {
+      if (g.id !== id) return g;
+      encontrado = true;
+      return { ...g, texto: limpio };
+    }),
+  }));
+
+  // Un id que no está NO se crea: sería guardar el guion de nadie. El error es
+  // honesto porque el caso real es que otro lo borró mientras este lo editaba.
+  if (!encontrado) return { ok: false, error: 'Ese guion ya no existe. Recarga la pantalla.' };
+
+  await setRazones(nuevas);
+  return { ok: true };
+}

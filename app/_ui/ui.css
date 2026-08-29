@@ -996,3 +996,15 @@
   color: var(--on-sidebar);
   background: var(--sidebar-dev-2);
 }
+
+/* ── Edición inline (contentEditable) ──────────────────────────────────────
+   El texto se edita donde se lee: no hay «modo edición» ni botón de lápiz. Se
+   hace clic encima y se escribe; al salir del campo, se guarda.
+
+   Vive ACÁ y no en el <style> de una pantalla porque ya estaba escrito en el
+   <style> de MatrizView y usado desde OTRO archivo (GuionLector), donde solo
+   funcionaba si la matriz estaba montada en el mismo árbol. Una clase que
+   depende de qué otra pantalla esté abierta es una clase que un día no pinta. */
+.mk-edit { outline: none; cursor: text; border-radius: 6px; padding: 4px 8px; margin: 0 -8px; }
+.mk-edit:hover { background: var(--surface-2); }
+.mk-edit:focus { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--border-strong); }

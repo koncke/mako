@@ -69,6 +69,52 @@ export const ICONO_SECCION_GUION: Record<string, string> = {
   PROMESA: '\u{1F91D}', PINTURA: '\u{1F5BC}\u{FE0F}', PRUEBA: '\u{2705}',
 };
 
+/**
+ * Texto que se edita donde se lee. Sin botón de lápiz y sin «modo edición»: se
+ * hace clic encima, se escribe, y al salir se guarda.
+ *
+ * `onSave` solo se llama si el texto CAMBIÓ. Sin esa comparación, cada clic que
+ * pase por el campo dispararía un guardado — y con el guardado en el server, un
+ * viaje de red por cada vez que alguien pasa el foco de largo.
+ */
+export function EditarTexto({ valor, onSave, multiline, style, disabled }: {
+  valor: string;
+  onSave: (v: string) => void;
+  multiline?: boolean;
+  style?: CSSProperties;
+  disabled?: boolean;
+}) {
+  return (
+    <div
+      className="mk-edit"
+      contentEditable={!disabled}
+      suppressContentEditableWarning
+      spellCheck={false}
+      onBlur={(e) => {
+        const crudo = e.currentTarget.innerText || '';
+        const nuevo = multiline
+          ? crudo.replace(/\n{3,}/g, '\n\n').trim()
+          : crudo.replace(/\s+/g, ' ').trim();
+        if (nuevo !== (valor ?? '').trim()) onSave(nuevo);
+      }}
+      style={{ whiteSpace: multiline ? 'pre-wrap' : 'normal', opacity: disabled ? 0.6 : 1, ...style }}
+    >
+      {valor}
+    </div>
+  );
+}
+
+/**
+ * Rearma el guion completo después de editar UNA sección.
+ *
+ * Las tarjetas son independientes pero el guion guardado sigue siendo un solo
+ * string con sus rótulos: es el contrato con el parser, con `soloHablado` y con
+ * el planificador de tomas.
+ */
+export function reconstruirSecciones(secciones: Seccion[]): string {
+  return secciones.map((s) => `${s.titulo}\n${s.texto}`).join('\n\n');
+}
+
 const TAMANOS = {
   sm: { pad: '13px 16px', icon: 30, iconFont: 14, tituloFont: 13.5, bodyPad: '0 16px 14px 58px', bodyFont: 13.5 },
   md: { pad: '15px 18px', icon: 32, iconFont: 15, tituloFont: 15, bodyPad: '2px 18px 18px 62px', bodyFont: 14.5 },
