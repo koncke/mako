@@ -104,7 +104,31 @@ const minutosDe = (cs: Clase[]) => {
 };
 
 type Modulo = { n: number; nombre: string; clases: Clase[]; portada: string | null };
-type Vista = { clase?: number; recursos?: boolean };
+
+/**
+ * UNA POSICION EN EL CURSO. Es TODO lo que define «dónde estoy», y va entero en la URL.
+ *
+ * ⚠️ El comentario de abajo ya decía «LA VISTA VIVE EN LA URL, NO EN EL ESTADO» — y al
+ * lado se le fueron agregando `mod`, `q` y el recurso abierto como `useState`. La regla
+ * estaba escrita y el código creció en contra: cada uno de esos es una posición que el
+ * Atrás no podía devolver. Volver de una clase te dejaba en el índice del curso aunque
+ * hubieras salido del módulo 7, porque el módulo no estaba en ningún lado que sobreviva.
+ *
+ * Reportado por Martín el 29/08/2026: «cuando entro a una clase y le doy para atrás me
+ * lleva a todos los cursos, cuando debería llevarme exactamente a la posición anterior. Y
+ * con el scroll anterior».
+ *
+ * La regla que queda: **si algo cambia lo que se ve, va acá.** Un estado de navegación
+ * que no está en la URL no sobrevive al Atrás, ni al F5, ni a copiar el link — y las tres
+ * cosas se reportan como bugs distintos del mismo botón.
+ */
+type Vista = {
+  clase?: number;       // la clase abierta
+  recursos?: boolean;   // la lista de recursos del curso
+  r?: string;           // el recurso abierto, por slug
+  mod?: string;         // el módulo por el que está filtrada la grilla
+  q?: string;           // lo que se escribió en el buscador
+};
 
 export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir?: () => void }) {
   const cssListo = useCssDelOrigen();
@@ -118,11 +142,64 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
    * y /compartido/<token>) y el hash no depende de ninguna de las dos.
    */
   const [vista, setVista] = useState<Vista>({});
+
+  /**
+   * ⚠️ EL SCROLL SE GUARDA POR POSICION, y la clave es la URL entera.
+   *
+   * Antes `ir()` hacía `scrollTo({top:0})` SIEMPRE — también al volver. Así que aunque el
+   * Atrás devolviera al lugar correcto, devolvía al lugar correcto arriba de todo: en un
+   * módulo de 78 clases eso es no volver. Y había otros dos lugares mandando el scroll a
+   * cero (Conocimientos.tsx y PortalCompartido.tsx), cada uno con su propia clave.
+   *
+   * Va en `sessionStorage` y no en memoria porque tiene que sobrevivir a un F5, que es
+   * justo cuando más se nota. La clave incluye el pathname: la misma vista se monta bajo
+   * /conocimientos y bajo /compartido/<token>, y compartir clave entre dos rutas hace que
+   * restaurar sea PEOR que no restaurar — te deja en la posición de otra pantalla.
+   */
+  /**
+   * ⚠️ ACA NO SCROLLEA LA VENTANA: SCROLLEA `.ugc-content`.
+   *
+   * La hoja del origen arma la pantalla con la barra fija y el contenido en su propio
+   * contenedor con `overflow-y: auto`. Medido en MasteryHaus: `window.scrollY` vale 0
+   * SIEMPRE (body 663 = innerHeight 663) mientras `.ugc-content` tiene 8.063px de alto
+   * sobre 561 visibles.
+   *
+   * O sea que `window.scrollTo(...)` acá no hace nada — ni el que había en `ir()` para
+   * subir al tope, ni el primero que escribí para restaurar. Y la prueba que lo tenía que
+   * cazar pasaba en verde comparando 0 con 0: un chequeo sobre un valor que no se mueve
+   * confirma cualquier cosa. Se descubrió porque la prueba se preguntó primero si el caso
+   * era VALIDO («¿la página puede bajar?») y se contestó que no.
+   */
+  const carril = () => document.querySelector('.ugc-content') as HTMLElement | null;
+  const clave = () => `cono-pos:${location.pathname}${location.hash}`;
+  const guardarScroll = () => {
+    try { sessionStorage.setItem(clave(), String(carril()?.scrollTop ?? 0)); } catch { /* noop */ }
+  };
+  const restaurarScroll = () => {
+    let y = 0;
+    try { y = parseInt(sessionStorage.getItem(clave()) || '0', 10) || 0; } catch { /* noop */ }
+    // Dos frames: el primero deja pintar la vista nueva, el segundo ya tiene el alto real.
+    // Con uno solo, la lista todavía no creció y el scroll queda topeado en lo que había.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const c = carril();
+      if (c) c.scrollTop = y; else window.scrollTo({ top: y, behavior: 'instant' as ScrollBehavior });
+    }));
+  };
+
   useEffect(() => {
     const leer = () => {
       const h = new URLSearchParams(location.hash.replace(/^#/, ''));
       const n = Number(h.get('clase'));
-      setVista({ clase: Number.isFinite(n) && n > 0 ? n : undefined, recursos: h.get('v') === 'recursos' });
+      setVista({
+        clase: Number.isFinite(n) && n > 0 ? n : undefined,
+        recursos: h.get('v') === 'recursos',
+        r: h.get('r') ?? undefined,
+        mod: h.get('mod') ?? undefined,
+        q: h.get('q') ?? undefined,
+      });
+      // Llegar acá es SIEMPRE ir a una posición que ya existía (Atrás, Adelante, o el
+      // link pegado): se restaura lo que se había guardado para ella.
+      restaurarScroll();
     };
     leer();
     window.addEventListener('hashchange', leer);
@@ -153,19 +230,52 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
    * Se compara el destino con la URL actual antes de empujar: sin eso, hacer click en la
    * clase que ya estas viendo apila entradas identicas y Atras «no hace nada» N veces.
    */
-  const ir = (v: Vista) => {
+  /**
+   * `reemplazar` PISA la entrada actual en vez de agregar una.
+   *
+   * Es para los cambios que no son «un paso» para el usuario: escribir en el buscador
+   * (una entrada por tecla haría que salir de una búsqueda de 12 letras cueste 12 clicks)
+   * o limpiar un filtro que quedó incoherente con lo que se acaba de hacer.
+   */
+  const ir = (v: Vista, o?: { reemplazar?: boolean }) => {
+    // Lo primero: anotar dónde estábamos, para poder volver ACA y no al tope.
+    guardarScroll();
     const h = new URLSearchParams(location.hash.replace(/^#/, ''));
+    // Se escriben las CINCO claves de la posición. Las que no van, se borran: dejar una
+    // colgada (un `mod` viejo al abrir una clase de otro módulo) es peor que no tenerla,
+    // porque el Atrás devuelve a un lugar que nunca existió.
     if (v.clase) h.set('clase', String(v.clase)); else h.delete('clase');
     if (v.recursos) h.set('v', 'recursos'); else h.delete('v');
+    if (v.r) h.set('r', v.r); else h.delete('r');
+    if (v.mod) h.set('mod', v.mod); else h.delete('mod');
+    if (v.q) h.set('q', v.q); else h.delete('q');
     const s = h.toString();
     const base = location.pathname + location.search;
     const destino = s ? `${base}#${s}` : base;
-    if (destino !== base + location.hash) history.pushState(null, '', destino);
+    if (o?.reemplazar) history.replaceState(null, '', destino);
+    else if (destino !== base + location.hash) history.pushState(null, '', destino);
     setVista(v);
-    window.scrollTo({ top: 0 });
+    // Un paso HACIA ADELANTE arranca arriba: es contenido que no viste todavía. El
+    // scroll de la posición anterior ya quedó guardado, así que el Atrás lo va a
+    // encontrar. Un `reemplazar` NO sube: no es un paso — escribiendo en el buscador te
+    // tiraría al tope en cada tecla.
+    if (!o?.reemplazar) {
+      const c = carril();
+      if (c) c.scrollTop = 0; else window.scrollTo({ top: 0 });
+    }
   };
 
-  const [q, setQ] = useState('');
+  /**
+   * ⚠️ EL BUSCADOR SI ES ESTADO LOCAL, y a propósito: se escribe letra por letra.
+   *
+   * Empujar una entrada de historial por cada tecla haría que el Atrás borre una letra
+   * por vez y que salir de una búsqueda de 12 caracteres cueste 12 clicks. Lo que se
+   * guarda en la URL es la búsqueda YA HECHA (cuando se abre algo desde sus resultados),
+   * y de ahí sale el valor inicial: por eso arranca de `vista.q`.
+   */
+  const [q, setQ] = useState(vista.q ?? '');
+  // Si la URL cambia por Atrás/Adelante, el input tiene que seguirla.
+  useEffect(() => { setQ(vista.q ?? ''); }, [vista.q]);
 
   const modulos: Modulo[] = useMemo(() => {
     const m = new Map<string, Clase[]>();
@@ -243,7 +353,25 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
    * El modulo es una IDENTIDAD, no un texto: se compara por igualdad y con la MISMA
    * expresion que arma el agrupado de arriba, para que el sintetico matchee.
    */
-  const [mod, setMod] = useState<string | null>(null);
+  // Sale de la URL, no de `useState`: es una POSICION, y tiene que sobrevivir al Atrás.
+  const mod = vista.mod ?? null;
+
+  /**
+   * ⚠️ ABRIR UNA CLASE CONSERVA EL LUGAR DEL QUE SALISTE. Es el bug que reportó Martín.
+   *
+   * Antes era `ir({ clase: n })`, que borra el resto de la posición: entrabas al módulo 7,
+   * abrías una clase, y el Atrás te devolvía al índice del curso — o directamente al
+   * catálogo— porque en la URL ya no quedaba rastro de que venías de un módulo. El paso
+   * atrás llevaba a un lugar por el que nunca habías pasado.
+   *
+   * Llevando el contexto adentro de la posición de la clase, el Atrás lo devuelve solo:
+   * `#mod=Módulo 7&clase=12` → Atrás → `#mod=Módulo 7`, que es exactamente de donde
+   * saliste. Y lo mismo con una búsqueda.
+   */
+  const contexto = { mod: vista.mod, q: vista.q };
+  const abrirClase = (n: number) => ir({ ...contexto, clase: n });
+  /** El «Volver» de una clase: al listado del que salió, no al índice pelado. */
+  const volverAlListado = () => ir(contexto);
 
   const filtradas = useMemo(() => {
     if (mod) return curso.clases.filter((c) => (c.grupo || SIN_MODULO) === mod);
@@ -285,12 +413,12 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
                   modulo estaba filtrando, y quedaban DOS renglones en verde. Una barra que
                   marca dos lugares a la vez no dice donde estas: dice menos que ninguno. */}
               <button type="button" className={`ugc-nav-item${!clase && !vista.recursos && !q && !mod ? ' on' : ''}`}
-                onClick={() => { setQ(''); setMod(null); ir({}); }}>
+                onClick={() => ir({})}>
                 <span className="ugc-nav-label">Inicio del curso</span>
               </button>
               {curso.recursos.length > 0 && (
                 <button type="button" className={`ugc-nav-item${vista.recursos ? ' on' : ''}`}
-                  onClick={() => { setQ(''); setMod(null); ir({ recursos: true }); }}>
+                  onClick={() => ir({ recursos: true })}>
                   <span className="ugc-nav-label">Recursos del curso</span>
                   <span className="ugc-nav-count">{curso.recursos.length}</span>
                 </button>
@@ -303,7 +431,7 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
               {modulos.map((m) => (
                 <button key={m.nombre} type="button"
                   className={`ugc-nav-item${(clase ? (clase.grupo || SIN_MODULO) === m.nombre : mod === m.nombre) ? ' on' : ''}`}
-                  onClick={() => { ir({}); setQ(''); setMod(m.nombre); }} title={m.nombre}>
+                  onClick={() => ir({ mod: m.nombre })} title={m.nombre}>
                   <span className="ugc-nav-num">{m.n}</span>
                   <span className="ugc-nav-label">{m.nombre}</span>
                   <span className="ugc-nav-count">{m.clases.length} {'·'} {minutosDe(m.clases)}</span>
@@ -315,16 +443,21 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
           <div className="ugc-main">
             <div className="ugc-topbar">
               <div className="ugc-search">
-                <input value={q} onChange={(e) => { setQ(e.target.value); setMod(null); if (e.target.value) ir({}); }}
+                {/* Buscar te saca de donde estés (un módulo, una clase) y queda en la URL,
+                    pero REEMPLAZANDO: una entrada por tecla haría que salir de una
+                    búsqueda de 12 letras cueste 12 clicks en el Atrás. */}
+                <input value={q} onChange={(e) => { setQ(e.target.value); ir({ q: e.target.value || undefined }, { reemplazar: true }); }}
                   placeholder="Buscar leccion, modelo, formato" aria-label="Buscar en el curso" />
               </div>
             </div>
 
             <div className="ugc-content">
               {clase ? (
-                <Leccion clase={clase} curso={curso} ir={ir} />
+                <Leccion clase={clase} curso={curso} abrirClase={abrirClase} volverAlListado={volverAlListado} />
               ) : vista.recursos ? (
-                <Recursos curso={curso} />
+                <Recursos curso={curso} abiertoSlug={vista.r}
+                  abrir={(slug) => ir({ recursos: true, r: slug })}
+                  cerrar={() => ir({ recursos: true })} />
               ) : filtradas ? (
                 <>
                   {/* Filtrando por modulo, el titulo dice DE QUE modulo: «12 de 404» no
@@ -333,12 +466,12 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
                     <h2>{mod ? `${mod} ${'·'} ${filtradas.length} ${filtradas.length === 1 ? 'leccion' : 'lecciones'}` : `${filtradas.length} de ${curso.clases.length}`}</h2>
                   </div>
                   <div className="ugc-rail">
-                    {filtradas.map((c) => <TarjetaClase key={c.n} clase={c} onAbrir={() => ir({ clase: c.n })} />)}
+                    {filtradas.map((c) => <TarjetaClase key={c.n} clase={c} onAbrir={() => abrirClase(c.n)} />)}
                   </div>
                 </>
               ) : (
-                <Indice curso={curso} modulos={modulos} onAbrir={(c) => ir({ clase: c.n })}
-                  onModulo={(m) => { ir({}); setQ(''); setMod(m.nombre); }} />
+                <Indice curso={curso} modulos={modulos} onAbrir={(c) => abrirClase(c.n)}
+                  onModulo={(m) => ir({ mod: m.nombre })} />
               )}
             </div>
           </div>
@@ -438,8 +571,16 @@ function TarjetaClase({ clase, onAbrir }: { clase: Clase; onAbrir: () => void })
 }
 
 /** Los recursos del curso: los 13 que venian del curso viejo (agentes, Notion, PDFs). */
-function Recursos({ curso }: { curso: Curso }) {
-  const [abierto, setAbierto] = useState<Recurso | null>(null);
+function Recursos({ curso, abiertoSlug, abrir, cerrar }: {
+  curso: Curso;
+  /** Qué recurso está abierto. Viene de la URL: si fuera estado local, el Atrás desde un
+   *  recurso saltearía la lista entera y saldría del curso. */
+  abiertoSlug?: string;
+  abrir: (slug: string) => void;
+  cerrar: () => void;
+}) {
+  const abierto = abiertoSlug ? curso.recursos.find((r) => r.slug === abiertoSlug) ?? null : null;
+  const setAbierto = (r: Recurso | null) => (r ? abrir(r.slug) : cerrar());
   if (abierto) {
     return (
       <div className="ugc-paper">
@@ -527,7 +668,13 @@ function Recursos({ curso }: { curso: Curso }) {
   );
 }
 
-function Leccion({ clase, curso, ir }: { clase: Clase; curso: Curso; ir: (v: Vista) => void }) {
+function Leccion({ clase, curso, abrirClase, volverAlListado }: {
+  clase: Clase; curso: Curso;
+  /** Abre otra clase CONSERVANDO el listado del que se salió (módulo o búsqueda). */
+  abrirClase: (n: number) => void;
+  /** Vuelve a ese mismo listado, no al índice pelado del curso. */
+  volverAlListado: () => void;
+}) {
   const [doc, setDoc] = useState<{ paneles: Record<string, string> } | null>(null);
   const [estado, setEstado] = useState<'idle' | 'cargando' | 'error'>('idle');
   const [tab, setTab] = useState<string | null>(null);
@@ -585,9 +732,13 @@ function Leccion({ clase, curso, ir }: { clase: Clase; curso: Curso; ir: (v: Vis
         {/* UNA sola barra de navegacion. Estaba puesta arriba y abajo, asi que los
             botones aparecian dos veces en la misma pantalla. */}
         <nav className="ugc-lecnav">
-          <button type="button" className="ugc-btn" onClick={() => ir({})}>{FLECHA_IZQ} Todas las clases</button>
-          {prev && <button type="button" className="ugc-btn" onClick={() => ir({ clase: prev.n })}>{FLECHA_IZQ} {prev.titulo}</button>}
-          {next && <button type="button" className="ugc-btn" onClick={() => ir({ clase: next.n })}>{next.titulo} {FLECHA_DER}</button>}
+          {/* Lleva al listado del que saliste —el módulo, o los resultados de tu
+              búsqueda—, no al índice pelado: es el mismo destino al que va el Atrás del
+              navegador desde acá. Que los dos coincidan es la mitad del arreglo; si
+              llevan a lugares distintos, el usuario no puede predecir ninguno. */}
+          <button type="button" className="ugc-btn" onClick={volverAlListado}>{FLECHA_IZQ} Todas las clases</button>
+          {prev && <button type="button" className="ugc-btn" onClick={() => abrirClase(prev.n)}>{FLECHA_IZQ} {prev.titulo}</button>}
+          {next && <button type="button" className="ugc-btn" onClick={() => abrirClase(next.n)}>{next.titulo} {FLECHA_DER}</button>}
         </nav>
         <div className="ugc-ltitle">
           <span className="ugc-pill">{clase.grupo}{clase.codigo ? ` ${'·'} ${clase.codigo}` : ''}</span>
