@@ -49,7 +49,41 @@ cd "$REPO" || exit 1
 libres() { df -k /c | tail -1 | awk '{printf "%d", $4/1048576}'; }
 di() { echo "$1" >> "$LOG"; }
 
+# ─────────────────────────────────────────────────────────────────────────────────────
+# ⚠️ UNA SOLA COLA A LA VEZ. NO ES PRUDENCIA: EL 28/08/2026 HUBO DOS.
+#
+# El perro revivía con `schtasks /end` + `/run`, y `/end` mata el proceso que la tarea
+# registró pero NO a sus nietos — Git Bash re-ejecuta el script en un hijo. Cada
+# resurrección dejaba una cola huérfana corriendo. Medido: dos árboles vivos y DOS
+# `curso-pipeline` sobre la MISMA carpeta de curso.
+#
+# Y lo que más costó no fue el trabajo duplicado: fue que el log tenía dos escritores.
+# La señal de vida del perro es la fecha del log, así que con dos colas escribiendo una
+# cola colgada parece viva para siempre. **El vigilante deja de vigilar y nada avisa.**
+# Se descubrió de rebote, por una medición que no cerraba: el log mezclaba el formato de
+# línea viejo con el nuevo, que es imposible con un solo proceso.
+#
+# El lock es la guarda que NO depende de que el perro mate bien: aunque quede un huérfano,
+# el segundo se niega a arrancar. Se chequea con `kill -0` y no con PowerShell porque el
+# `$$` de Git Bash es el pid de MSYS y NO existe para Windows — preguntarle a Windows por
+# ese número contesta «no existe» sobre un proceso vivo, y el lock se creería huérfano
+# siempre. Entre dos Git Bash, en cambio, los pid son del mismo espacio.
+# ─────────────────────────────────────────────────────────────────────────────────────
+LOCK="C:/cursos/_cola.lock"
+if [ -f "$LOCK" ]; then
+  OTRA=$(tr -d "\r" < "$LOCK")
+  if [ -n "$OTRA" ] && kill -0 "$OTRA" 2>/dev/null; then
+    di ""
+    di "⛔ ya hay una cola viva (pid $OTRA) — NO arranco. $(date)"
+    exit 0
+  fi
+  di ""
+  di "   (lock de la pid $OTRA, que ya no existe: lo tomo) $(date)"
+fi
+echo $$ > "$LOCK"
+
 if [ ! -f "$LISTA" ]; then
+  rm -f "$LOCK"
   di ""
   di "⛔ No existe $LISTA — la cola no tiene qué hacer."
   exit 1
@@ -127,6 +161,12 @@ while IFS= read -r d; do
   node scripts/curso-a-drive.mjs --plan "$PLAN" --liberar >> "$LOG" 2>&1
   di "  -- liberar salió con $? · $(libres) GB libres --"
 done < "$LISTA"
+
+# Se suelta acá y no en un `trap`: en sh un `trap … EXIT` también corre al salir de una
+# SUBSHELL, y esta cola lanza el bajador con `&` y usa `$(…)` por todos lados. El lock lo
+# habría borrado el primer subproceso que terminara, o sea al minuto de arrancar.
+# Si la cola muere de golpe el lock queda, y para eso está el chequeo de `kill -0`.
+rm -f "$LOCK"
 
 di ""
 di "════════ cola terminada $(date) · $(libres) GB libres ════════"

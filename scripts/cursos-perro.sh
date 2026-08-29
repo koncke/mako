@@ -86,6 +86,36 @@ fi
 
 di "LA LEVANTO: ${MIN}min sin escribir."
 di "   ultima linea: $(echo "$ULTIMA" | cut -c1-90)"
+
+# ⚠️ `schtasks /end` MATA EL PROCESO QUE LA TAREA REGISTRÓ Y DEJA VIVOS A SUS NIETOS.
+#    Git Bash re-ejecuta el script en un hijo, así que cada resurrección dejaba una cola
+#    HUÉRFANA corriendo. Medido el 28/08/2026: dos árboles vivos a la vez y dos
+#    `curso-pipeline` sobre la misma carpeta de curso.
+#
+#    Lo caro no es el trabajo duplicado: es que con dos colas escribiendo el mismo log,
+#    la señal de vida de este perro deja de significar nada. Una cola colgada parece viva
+#    para siempre porque la otra escribe. **El vigilante se vuelve decorativo y nadie se
+#    entera** — que es exactamente el bug que ya tuvo este script en su primera corrida,
+#    cuando se contaba a sí mismo como proceso vivo.
+#
+#    `taskkill /T` mata el árbol. Se filtra por NOMBRE de binario además de por línea de
+#    comandos, por la misma razón de siempre: sin eso, la propia consulta entra en la
+#    lista de lo que hay que matar.
+powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='bash.exe' OR Name='sh.exe'\" | Where-Object { \$_.CommandLine -match 'cursos-cola' } | ForEach-Object { taskkill /PID \$_.ProcessId /T /F }" >/dev/null 2>&1
 schtasks //end //tn "cursos-cola" >/dev/null 2>&1
+
+# El lock lo suelta la cola al terminar bien; si la matamos recién, queda huérfano. No se
+# borra a ciegas —eso sería anular la guarda—: se borra SOLO si su pid ya no existe.
+LOCK="C:/cursos/_cola.lock"
+if [ -f "$LOCK" ]; then
+  P=$(tr -d "\r" < "$LOCK")
+  if [ -n "$P" ] && kill -0 "$P" 2>/dev/null; then
+    di "   OJO: el lock (pid $P) sigue vivo despues de matar. No lo toco."
+  else
+    rm -f "$LOCK"
+    di "   lock huerfano (pid $P) liberado."
+  fi
+fi
+
 schtasks //run //tn "cursos-cola" >/dev/null 2>&1
 di "   lanzada. Lo bajado no se repite (--download-archive)."

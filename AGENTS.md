@@ -1954,3 +1954,24 @@ busca. Veía «1 proceso vivo» sobre una cola muerta hacía 7 horas y le daba m
 siempre. El vigilante habría sido decorativo y nadie se habría enterado. **Un chequeo que se
 mide a sí mismo siempre da que está todo bien:** filtrá por `Name='node.exe'` (o el binario
 que sea), nunca sólo por la línea de comandos.
+
+⚠️ **Y el que MIRA necesita que haya UN SOLO ESCRITOR.** Un mes después el mismo vigilante
+volvió a quedar decorativo, por el otro lado: `schtasks /end` mata el proceso que la tarea
+registró y **deja vivos a sus nietos** —Git Bash re-ejecuta el script en un hijo—, así que
+cada resurrección dejaba una cola huérfana. El 28/08/2026 había **dos colas corriendo sobre
+el mismo curso**, con dos pipelines escribiendo la misma carpeta. Y como la señal de vida es
+la fecha del log, **con dos escritores una cola colgada parece viva para siempre porque la
+otra escribe**. No hay síntoma: el log avanza y los cursos salen.
+
+- **Todo proceso largo lleva un LOCK, y el lock no depende de que el vigilante mate bien.**
+  Aunque quede un huérfano, el segundo se niega a arrancar. Es la guarda que sobrevive al
+  fallo del que la protege — y el vigilante, aparte, mata el ÁRBOL (`taskkill /T /F`), no el
+  proceso suelto.
+- **El lock se chequea con `kill -0`, no preguntándole a Windows.** El `$$` de Git Bash es
+  el pid de MSYS y **no existe** para Windows: `Get-CimInstance` contesta «no existe» sobre
+  un proceso vivo, y el lock se creería huérfano siempre.
+- **Se suelta al final del script, NUNCA con `trap … EXIT`:** en sh ese trap también corre
+  al salir de una subshell, y cualquier `$(…)` o `&` lo borraría al minuto de arrancar.
+- **Y la firma para reconocerlo: dos formatos de log en el mismo archivo son dos procesos.**
+  Acá se descubrió de rebote, porque un parser encontró 8 rondas y **cero cronometradas**:
+  el log mezclaba el formato viejo con el nuevo, que es imposible con un solo escritor.

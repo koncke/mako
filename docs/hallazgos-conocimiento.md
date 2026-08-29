@@ -5526,3 +5526,56 @@ y no se ve en ningún listado ni en ningún log. Lo delata una sola cosa, y de r
 - **Y un comentario no es un control:** el script ahora tiene una guarda que se niega a
   escribir si quedó un `\r(?!\n)`, con el contexto de la línea. Sin eso el archivo se
   escribe mal y nadie se entera — que es lo que pasó.
+
+## Dos colas a la vez: el vigilante se vuelve decorativo y nadie se entera
+
+**Vive en:** `scripts/cursos-cola.sh` (el lock) · `scripts/cursos-perro.sh` (matar el árbol)
+
+El 28/08/2026 había **DOS colas corriendo sobre el mismo curso**, con dos
+`curso-pipeline.mjs` escribiendo en la MISMA carpeta. Vivían hacía más de dos horas.
+
+**La causa:** el perro revive con `schtasks /end` + `/run`, y `/end` mata el proceso que la
+tarea registró pero **no a sus nietos**. Git Bash re-ejecuta el script en un hijo
+(`bash.exe script` → `usr/bin/bash.exe script`), así que cada resurrección dejaba el árbol
+viejo entero corriendo. El perro había revivido a las 21:04; a las 23:17 esa cola seguía
+viva, con la tarea programada corriendo otra al lado desde las 21:55.
+
+**Y lo caro no es el trabajo duplicado.** La señal de vida del perro es la fecha del log.
+Con dos colas escribiendo el mismo archivo, **una cola colgada parece viva para siempre
+porque la otra escribe**. El vigilante que se instaló justamente para que esto no pasara
+deja de medir nada — y no hay síntoma: el log avanza, los cursos salen, todo se ve sano.
+Es el mismo error que ya tuvo este perro en su primera corrida (contarse a sí mismo como
+proceso vivo), con otro disfraz: **un chequeo cuya señal puede producir otro escritor no
+está midiendo lo que cree.**
+
+**Cómo se encontró, que es lo que más ahorra:** de rebote, por una medición que no cerraba.
+Al querer medir si el paralelo servía, el parser encontró 8 rondas y **cero cronometradas**:
+el log mezclaba el formato de línea viejo con el nuevo, y `pipeline (1a pasada)` no aparecía
+NUNCA. Eso es imposible con un solo proceso. **Dos formatos de log en el mismo archivo son
+dos procesos**, no un bug de formato.
+
+Las tres reglas que quedan:
+
+1. **Un proceso largo lleva un LOCK, y el lock no depende de que el vigilante mate bien.**
+   Aunque quede un huérfano, el segundo se niega a arrancar. Es la guarda que sobrevive al
+   fallo del que la protege.
+2. **Se chequea con `kill -0`, no con PowerShell.** El `$$` de Git Bash es el pid de MSYS y
+   **no existe para Windows**: preguntarle a Windows por ese número contesta «no existe»
+   sobre un proceso vivo, y el lock se creería huérfano siempre. Entre dos Git Bash los pid
+   son del mismo espacio y `kill -0` funciona.
+3. **El lock se suelta al final del script, NUNCA con `trap … EXIT`.** En sh ese trap
+   también corre al salir de una subshell, y esta cola lanza el bajador con `&` y usa
+   `$(…)` por todos lados: el lock lo habría borrado el primer subproceso en terminar, o
+   sea al minuto de arrancar. Si el proceso muere de golpe el lock queda, y para eso está
+   el `kill -0`.
+
+**Matar el árbol:** `taskkill /PID n /T /F` sobre cada `bash.exe`/`sh.exe` cuya línea de
+comandos nombre el script, ANTES del `schtasks /end`. Y se filtra por NOMBRE de binario
+además de por línea de comandos — sin eso la propia consulta entra en la lista de lo que
+hay que matar.
+
+⚠️ **El mismo autocount muerde al DIAGNOSTICAR, no solo al vigilar.** Contando procesos «de
+la cola» desde una herramienta de shell, el resultado dio 4 con una sola cola viva: los
+otros tres eran **mis propios shells**, cuya línea de comandos contenía los patrones que
+estaba buscando. Un conteo así hay que mirarlo como LISTA, con la línea de comandos al
+lado, antes de sacar cualquier conclusión de él.
