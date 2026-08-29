@@ -28,8 +28,9 @@ import { getRolWsEfectivo, getWorkspaceActual, getTenantDb } from '@/lib/workspa
 import { encolar, estadoPuente } from '@/lib/flow-cola';
 import { ENDPOINTS, obj, arr, str, extraerMediaId } from '@/lib/flow-protocolo';
 import {
-  cuerpoClipReferencias, semillaDeToma, mediaIdDeReferencia,
+  cuerpoClipReferencias, semillaDeToma, mediaIdDeReferencia, KEY_CARA_FLOW,
 } from '@/lib/flow-clip-referencias';
+import { getSetting } from '@/lib/settings';
 import { leerHistorial, guardarEnHistorial, type PlanGuardado } from './video-datos';
 
 async function ctxAdmin(): Promise<{ ok: true; ws: number } | { ok: false; error: string }> {
@@ -96,7 +97,11 @@ export async function generarTomaAction(
   // Sin `mediaId` no se genera: un clip sin la foto de referencia sale con una
   // persona distinta, y descubrirlo cuesta el clip entero. El error dice qué
   // hacer, no que algo falló.
-  const mediaId = mediaIdDeReferencia(String(puente.detalle ?? ''));
+  // Primero lo APRENDIDO, después lo que se ve ahora. Al revés, un F5 en Flow
+  // —que vacía las plantillas de la pestaña— dejaría a la tab sin poder generar
+  // aunque la cara ya se supiera desde hace días.
+  const mediaId = (await getSetting(KEY_CARA_FLOW))?.trim()
+    || mediaIdDeReferencia(String(puente.detalle ?? ''));
   if (!mediaId) {
     return {
       ok: false,

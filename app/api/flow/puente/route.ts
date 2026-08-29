@@ -16,6 +16,9 @@
 // Si algún día alguien agrega un campo `bearer` a este contrato, está creando una
 // custodia que hoy no existe y que no hace falta.
 
+import { mediaIdDeReferencia, KEY_CARA_FLOW } from '@/lib/flow-clip-referencias';
+import { setSetting } from '@/lib/settings';
+import { runWithWorkspace } from '@/lib/workspace';
 import { NextResponse, type NextRequest } from 'next/server';
 import {
   workspaceDeToken, marcarVisto, tomarTrabajos, resolver, fallar, estadoGuardado,
@@ -114,7 +117,25 @@ export async function POST(req: NextRequest) {
 
   // ── 2. El puente reporta que está vivo ────────────────────────────────────
   const estado = ESTADOS.includes(str(body.estado) as EstadoPuente) ? (str(body.estado) as EstadoPuente) : 'listo';
-  await marcarVisto(ws, str(body.projectId), estado, str(body.detalle), str(body.version));
+  const detalle = str(body.detalle);
+  await marcarVisto(ws, str(body.projectId), estado, detalle, str(body.version));
+
+  // ── La cara se APRENDE, no se consulta ───────────────────────────────────
+  //
+  // Las plantillas que reporta el espejo viven en la MEMORIA de la pestaña de
+  // Flow: recargarla las borra. Y de ahí salía el `mediaId` de la foto del
+  // cliente, así que un F5 —o recargar la extensión, que obliga a uno— dejaba a
+  // la tab sin poder generar hasta que la persona hiciera otro video a mano.
+  //
+  // Así que la primera vez que pasa por acá se GUARDA. Un dato que se descubre
+  // una vez y no cambia no puede depender de que una pestaña siga abierta.
+  //
+  // No se pisa con vacío: un latido sin plantillas —el normal después de un F5—
+  // no puede borrar lo que ya se sabía.
+  if (detalle) {
+    const cara = mediaIdDeReferencia(detalle);
+    if (cara) await runWithWorkspace(ws, () => setSetting(KEY_CARA_FLOW, cara));
+  }
 
   // ── 3. Y se lleva lo que sigue ────────────────────────────────────────────
   // `tomarTrabajos` devuelve vacío si la sesión está MARCADA: ahí hay que parar,

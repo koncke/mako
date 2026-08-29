@@ -86,6 +86,15 @@ export function semillaDeToma(planId: string, n: number): number {
 }
 
 /**
+ * Dónde queda guardada la cara una vez que se aprendió.
+ *
+ * Se guarda porque las plantillas del espejo viven en la MEMORIA de la pestaña de
+ * Flow: un F5 las borra. Un dato que se descubre una vez y no cambia no puede
+ * depender de que una pestaña siga abierta.
+ */
+export const KEY_CARA_FLOW = 'video-generator.cara-flow';
+
+/**
  * El `mediaId` de la foto de marca, leído del tráfico que la extensión copió.
  *
  * ⚠️ Esto es una LECTURA DE DIAGNÓSTICO usada como dato, y hay que saberlo: el
