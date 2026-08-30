@@ -2373,48 +2373,41 @@ un riesgo mucho mayor que el bug.
 
 **Vive en:** `app/_components/icons.tsx`, `app/video-generator/CargarGuiones.tsx`.
 
-## `align-items: center` centra CAJAS; el ojo ve TINTA — y hay que elegir CONTRA QUÉ
+## «No se ve alineado» casi nunca es un problema de posición
 
-**Vive en:** `public/cono-doc/ugc.css` → `.ugc-hero-primera`.
+**Vive en:** `public/cono-doc/ugc.css` → `.ugc-hero-arranque` / `.ugc-hero-primera`.
 
-Una pastilla («Empezar →», Archivo 13 px) con un texto al lado (el nombre de la clase,
-JetBrains Mono 11,5 px) se veía corrida. Medido, las dos cajas estaban **centradas al
-píxel: 0,01 px de desfase**. El problema no era el centrado.
+Una pastilla («Empezar →») con el nombre de la clase al lado se veía corrida. Martín lo
+reportó **tres veces**, y las dos primeras respuestas fueron mías y estuvieron mal:
 
-Entre la caja de línea y los glifos hay dos cosas que cambian con cada tipografía: el
-*half-leading* (la mitad de la diferencia entre `line-height` y `font-size`) y la distancia
-entre el `ascent` de la fuente y su altura de mayúscula. Dos fuentes distintas, en cajas
-perfectamente centradas, ponen la tinta en sitios distintos.
+1. *«están descentradas»* → medido, las cajas estaban a **0,01 px**. No era.
+2. *«hay que mover el texto»* → se lo subió 2 px, después 1,25 px. **Ambos invisibles**, y
+   él contestó lo obvio: «sigue exactamente igual, no cambió nada». Tenía razón: 0,75 px de
+   diferencia entre dos intentos no se ve.
 
-⚠️ **Y ACÁ ESTÁ LO QUE COSTÓ DOS VUELTAS: medir da DOS números, según contra qué midas.**
+**Lo que estaba mal era el CUERPO, no la posición.** El nombre estaba en 11,5 px contra los
+13 px del rótulo del botón. Un texto más chico y más claro al lado de una pastilla no se lee
+como parte del renglón: **cuelga de ella**. Ningún desplazamiento arregla eso.
 
-| la tinta del nombre está… | …a |
-|---|---|
-| del **centro de la pastilla** | 1,73 px |
-| del **rótulo del botón** | 1,23 px |
+Y con los dos al mismo cuerpo, la alineación correcta es la que él nombró —«alineado al
+TEXTO de Empezar»— y tiene una sola herramienta: **`align-items: baseline`**, que apoya los
+dos textos en la misma línea por definición, sin ningún número que ajustar. El
+desplazamiento a mano se eliminó.
 
-Se corrigió primero contra la pastilla (−2 px) y Martín volvió a reportarlo: con −2 el
-texto queda **alto**. **El ojo lee los dos textos como un renglón y alinea uno con otro; la
-forma lima de atrás no participa.** La referencia es el rótulo, y el valor es −1,25 px.
+⚠️ **`baseline` se había probado ANTES y se descartó, por un síntoma que venía de otro
+lado.** Con cuerpos distintos ninguna alineación iba a funcionar, así que la prueba «falló»
+y la solución correcta quedó descartada por una razón falsa. **Cuando descartes una opción,
+anotá contra qué la probaste**: si esa condición cambia, la opción vuelve a estar viva.
 
-**La regla: cuando dos cosas «no se ven alineadas», la mitad del trabajo es decidir CONTRA
-QUÉ se alinean.** Medir sin haber elegido la referencia da un número correcto de la
-pregunta equivocada — y en este caso los dos números se llevaban medio píxel, así que
-ninguno «se veía mal» en la planilla.
+**Las tres reglas que quedan:**
 
-**Se eligió mirando, no despejando.** Se dibujó la misma fila a 0 / −0,75 / −1,25 / −1,75 /
-−2 y se comparó (`scratchpad/comparar-nudge.mjs`). Es el mismo método que resolvió el
-encuadre de las tapas, y por la misma razón: el ojo no promedia, elige.
+- **Cuando la medición dice que está bien y la persona sigue viéndolo mal, lo que está mal
+  es la pregunta.** Medir con más precisión sobre la métrica equivocada no acerca nada: hubo
+  tres mediciones —cajas, tinta, baselines— y las tres dieron «medio píxel», que era cierto.
+- **Antes de mover algo un píxel, preguntá si las dos cosas tienen el mismo tamaño, el mismo
+  peso y el mismo color.** Un desajuste de esos se lee como desalineación y no se arregla
+  moviendo.
+- **Si el arreglo termina siendo un número, es sospechoso.** El bueno acá no lleva ninguno.
 
-⚠️ **Las otras dos hipótesis eran falsas, las dos comprobadas antes de tocar nada:**
-
-- *«están descentradas»* → 0,01 px. No.
-- *«hay que alinear por baseline»* → `align-items: baseline` **EMPEORA**, de 1,73 a 2,02 px:
-  el `inline-flex` de la pastilla sintetiza su baseline y no cae donde uno supone.
-
-**Cómo se mide** (`scratchpad/medir-tinta.js`): la caja de línea con un `Range` sobre el
-contenido, y la tinta con `canvas.measureText` usando la `font` de `getComputedStyle`.
-
-⚠️ **Y la hoja de comparación tiene que colgar DENTRO del scope.** Las reglas son
-`.ahdoc .ugc .ugc-…`, así que un clon colgado de `body` pierde todo el estilo y la
-comparación no compara nada — sale una lista de texto plano que parece un resultado.
+**El método que sí funcionó las tres veces que se usó** (encuadre de tapas, cuerpo del
+texto, y este): dibujar las variantes una debajo de otra y mirar. `scratchpad/variantes-fila.mjs`.
