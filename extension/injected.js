@@ -134,6 +134,14 @@
   // `window.grecaptcha` porque la libreria carga despues de nosotros.
   const accionesVistas = new Map();
   let _grecaptcha;
+  // true mientras acunamos NOSOTROS. Sirve para no contar nuestra propia llamada
+  // como si fuera de Flow.
+  //
+  // ⚠️ Antes esto viajaba como una clave extra DENTRO de las opciones de
+  // `execute` (`{ action, __mako: true }`), y reCAPTCHA valida ese objeto: contesta
+  // «Invalid parameters to grecaptcha.execute» y no acuna nada. Una marca propia
+  // NUNCA va adentro del contrato de un tercero.
+  let acunandoNosotros = false;
 
   function envolverGrecaptcha(g) {
     try {
@@ -143,9 +151,9 @@
       e.execute = function (siteKey, opciones) {
         try {
           const accion = opciones && opciones.action;
-          // Solo se guarda lo que pide FLOW. Nuestras propias llamadas se marcan
-          // para no contaminar la medicion con lo que nosotros mismos inventamos.
-          if (accion && !(opciones && opciones.__mako)) {
+          // Solo se guarda lo que pide FLOW: la medicion no puede contaminarse con
+          // lo que nosotros mismos inventamos.
+          if (accion && !acunandoNosotros) {
             accionesVistas.set(String(accion), { siteKey: String(siteKey || ''), cuando: Date.now() });
           }
         } catch { /* medir no puede romper la pagina */ }
@@ -215,7 +223,13 @@
       const medida = vista ? String(action) : [...accionesVistas.keys()][0];
       const accionFinal = medida || action || 'generate';
 
-      const token = await g.execute(clave, { action: accionFinal, __mako: true });
+      acunandoNosotros = true;
+      let token;
+      try {
+        token = await g.execute(clave, { action: accionFinal });
+      } finally {
+        acunandoNosotros = false;
+      }
       responder('MAKO_CAPTCHA_OK', id, {
         token,
         siteKeyUsado: clave,
