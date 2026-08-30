@@ -1026,6 +1026,15 @@
 .mk-edit:hover { background: var(--surface-2); }
 .mk-edit:focus { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--border-strong); }
 
+/* ⚠️ QUE SE PUEDA TOCAR SE PAGA CON DISENO, NO CON UNA LEYENDA.
+   `.mk-edit` a secas solo se pinta en `:hover`, asi que en reposo el texto se ve
+   como texto y nadie descubre que se edita — y la salida barata es agregar una
+   linea que lo explique, que es exactamente lo que este proyecto viene sacando
+   de las pantallas. Esta variante muestra la caja EN REPOSO, apenas, y se marca
+   mas al pasar por encima. Cuesta cero palabras. */
+.mk-edit--visible { background: var(--surface); box-shadow: inset 0 0 0 1px var(--border); }
+.mk-edit--visible:hover { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--border-strong); }
+
 
 /* ── El lienzo de un clip generándose ──────────────────────────────────────
    Cuarta versión, y las tres anteriores fallaron en lo mismo: se escribieron

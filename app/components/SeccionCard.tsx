@@ -106,7 +106,7 @@ function desdeDom(nodo: Node): string {
  * pase por el campo dispararía un guardado — y con el guardado en el server, un
  * viaje de red por cada vez que alguien pasa el foco de largo.
  */
-export function EditarTexto({ valor, onSave, multiline, style, disabled, enfasis }: {
+export function EditarTexto({ valor, onSave, multiline, style, disabled, enfasis, className }: {
   valor: string;
   onSave: (v: string) => void;
   multiline?: boolean;
@@ -114,10 +114,17 @@ export function EditarTexto({ valor, onSave, multiline, style, disabled, enfasis
   disabled?: boolean;
   /** Pinta `**así**` en negrita y lo conserva al guardar. */
   enfasis?: boolean;
+  /**
+   * Una clase extra. Hoy la única es `mk-edit--visible`, que muestra la caja EN
+   * REPOSO en vez de sólo al pasar por encima: donde el texto ES la pantalla,
+   * que se pueda tocar tiene que verse sin buscarlo, y la alternativa era una
+   * leyenda que lo explicara.
+   */
+  className?: string;
 }) {
   return (
     <div
-      className="mk-edit"
+      className={className ? `mk-edit ${className}` : 'mk-edit'}
       contentEditable={!disabled}
       suppressContentEditableWarning
       spellCheck={false}

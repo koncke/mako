@@ -270,7 +270,7 @@ function Salidas({ resumen, children }: { resumen: string; children: React.React
  * Lo que sobrevive del wizard es lo único que hacía falta: la posición, un solo
  * botón que avanza, y una salida. Todo flota sobre el negro, sin encerrar nada.
  */
-function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia, cargando, onSiguiente, atras, onAtras, onSalir, error }: {
+function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia, cargando, onSiguiente, atras, onAtras, onSalir, error, mismaSalida }: {
   pregunta: string;
   titulo?: string;
   paso: number;
@@ -284,6 +284,8 @@ function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia,
   onAtras?: () => void;
   onSalir: () => void;
   error?: string;
+  /** `true` = «atrás» ya lleva afuera; no se dibuja un «Salir» al lado. */
+  mismaSalida?: boolean;
 }) {
   return (
     <div className="mk-estudio">
@@ -351,12 +353,17 @@ function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia,
         </div>
       )}
 
-      {/* Las salidas, al pie y en peso bajo. Nunca compiten con lo que avanza. */}
+      {/* Las salidas, al pie y en peso bajo. Nunca compiten con lo que avanza.
+          ⚠️ Y son UNA cuando van al mismo lado: en el primer paso «Volver al
+          catálogo» y «Salir» hacían exactamente lo mismo, uno al lado del otro.
+          Dos botones con el mismo destino no dan dos opciones: dan una duda. */}
       <div style={{ display: 'flex', gap: 22, marginTop: 'auto', paddingTop: 8 }}>
         {onAtras && (
           <button type="button" onClick={onAtras} style={salida}>{atras ?? 'Atrás'}</button>
         )}
-        <button type="button" onClick={onSalir} style={salida}>Salir</button>
+        {!mismaSalida && (
+          <button type="button" onClick={onSalir} style={salida}>Salir</button>
+        )}
       </div>
     </div>
   );
@@ -451,43 +458,61 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
   } {
     // ── 1. El guion ───────────────────────────────────────────────────────
     if (paso.id === 'guion-leer') {
+      const seg = item.plan.clips[0]?.segundos ?? 8;
       return {
         pregunta: '¿Dice lo que quieres decir?',
+        // ⚠️ ESTA LÍNEA CONTESTA LA PREGUNTA QUE NADIE HACÍA EN VOZ ALTA.
+        //
+        // Martín: «no se entiende por qué se divide en 7 clips. Nosotros lo
+        // entendemos, pero un usuario nuevo no entiende». La pantalla mostraba
+        // siete bloques numerados y en ningún lado decía por qué son siete.
+        //
+        // Son siete porque un clip de Flow dura como máximo esos segundos, y el
+        // guion se reparte para que entre. Dicho así son siete palabras y no
+        // hace falta ninguna explicación más — y el `8s` de cada renglón lo
+        // vuelve a decir sin decirlo.
+        sub: `Se filma en ${item.plan.clips.length} tomas de ${seg} segundos.`,
         cuerpo: (
-          <div style={{ height: LIENZO, overflowY: 'auto', minHeight: 0, width: '100%' }}>
+          <div style={{ width: '100%', maxWidth: 760, margin: '0 auto' }}>
             {item.plan.clips.map((c) => (
               <div
                 key={c.n}
                 style={{
-                  display: 'flex', gap: 16, padding: '15px 0',
+                  display: 'flex', gap: 18, padding: '18px 0', alignItems: 'flex-start',
                   borderTop: c.n === 1 ? 'none' : '1px solid var(--border)',
                 }}
               >
-                <div style={{
-                  flex: 'none', width: 30, textAlign: 'right', fontFamily: MONO,
-                  fontSize: 14, color: 'var(--faint)', paddingTop: 5,
-                }}>
-                  {c.n}
+                {/* El número manda sobre los segundos —es como se nombra una
+                    toma, «cambiá la 3»— y los segundos van abajo, chicos: se
+                    consultan, no se buscan. Y son los que explican el corte. */}
+                <div style={{ flex: 'none', width: 34, textAlign: 'right', paddingTop: 4 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 15, color: 'var(--dim)', lineHeight: 1.1 }}>
+                    {c.n}
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', marginTop: 3 }}>
+                    {c.segundos}s
+                  </div>
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  {/* Tamaño de LECTURA, fuera de la escala de la interfaz y a
-                      propósito: esto no es texto de una pantalla, es lo que una
-                      persona va a decir a cámara. */}
+                {/* ⚠️ `minWidth: 0` y `overflowWrap`: sin los dos, un hijo de un
+                    flex no puede achicarse por debajo del ancho de su contenido y
+                    empuja la fila. Es la mitad del scroll horizontal que había. */}
+                <div style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
                   <EditarTexto
                     valor={c.voz}
                     multiline
                     enfasis
+                    className="mk-edit--visible"
                     disabled={ocupado === 'linea'}
                     onSave={(v) => void correr('linea', () => editarLineaPlanAction(item.id, c.n, v), false)}
                     style={{
-                      fontSize: 'clamp(18px, 1.5vw, 23px)', lineHeight: 1.45,
+                      fontSize: 'clamp(17px, 1.35vw, 21px)', lineHeight: 1.5,
                       color: c.habla ? 'var(--ink)' : 'var(--dim)',
                       fontStyle: c.habla ? 'normal' : 'italic',
                     }}
                   />
                   {(c.palabras ?? 0) > (c.tope ?? 0) && (
-                    <div style={{ marginTop: 5 }}>
-                      <Status tono="warn">Muy largo para {c.segundos} segundos</Status>
+                    <div style={{ marginTop: 7 }}>
+                      <Status tono="warn">No entra en {c.segundos} segundos</Status>
                     </div>
                   )}
                 </div>
@@ -496,7 +521,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
           </div>
         ),
         boton: 'Escribir dónde se filma',
-        consecuencia: 'No gasta créditos. MaKo tarda unos segundos.',
+        consecuencia: 'No gasta créditos.',
         cargandoBoton: ocupado === 'escenas',
         onSiguiente: () => void correr('escenas', () => escribirEscenasAction(item.id)),
         atras: 'Volver al catálogo',
@@ -798,6 +823,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
       onAtras={p.onAtras}
       onSalir={onSalir}
       error={error}
+      mismaSalida={p.onAtras === onSalir}
     >
       {p.cuerpo}
     </Estudio>
