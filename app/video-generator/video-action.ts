@@ -81,6 +81,34 @@ function buscarCampo(v: unknown, campos: string[], visto = new Set<unknown>()): 
   return '';
 }
 
+/**
+ * Encola UNA consulta de estado, y solo si no hay ninguna esperando.
+ *
+ * ⚠️ Sin este freno la pantalla encolaba una cada 6 segundos mientras el puente
+ * consume de a UNA por latido: la cola crecía más rápido de lo que se vaciaba.
+ * Medido: 66 consultas pendientes para un solo clip.
+ *
+ * Y no es solo desprolijo. Cada consulta es tráfico contra Google desde la
+ * sesión del cliente, y este proyecto ya midió lo que pasa cuando se le manda
+ * ritmo de máquina: «reintentar contra un bloqueo causa el bloqueo».
+ */
+async function consultarUnaVez(operacion: string): Promise<void> {
+  const db = await getTenantDb();
+  const { data } = await db
+    .from('flow_trabajos')
+    .select('id')
+    .eq('tipo', 'estado_clips')
+    .in('estado', ['pendiente', 'tomado'])
+    .limit(50);
+  // Si ya hay alguna esperando, esa contesta por esta. No hace falta otra.
+  if ((data ?? []).length > 0) return;
+  await encolar('estado_clips', {
+    path: ENDPOINTS.estadoVideo,
+    body: { operations: [{ operation: { name: operacion } }] },
+    operacion,
+  });
+}
+
 /** El nombre de la operación que Flow devolvió al aceptar el pedido. */
 function nombreDeOperacion(resultado: unknown): string {
   // Primero la ruta REAL, medida sobre una respuesta de verdad; después la que
@@ -133,6 +161,20 @@ export async function generarTomaAction(
 
   const clip = item.plan.clips.find((c) => c.n === n);
   if (!clip) return { ok: false, error: 'Esa toma no existe en el plan.' };
+
+  // ⚠️ FRENO DE PLATA. Si esta toma YA tiene una operación en curso o un video,
+  // no se genera de nuevo: se devuelve lo que hay.
+  //
+  // Sin esto, apretar «generar» sobre una toma que ya se estaba generando
+  // encolaba OTRA generación y la cobraba. Pasó: dos clips pagados por el mismo
+  // texto, con la única diferencia de que el primero no se supo leer.
+  //
+  // Reintentar es gratis para el que aprieta el botón y caro para el que paga la
+  // cuenta. El guard va acá, en el server, no en que la pantalla deshabilite algo.
+  const yaHay = marcas(item)[String(n)] ?? {};
+  if (yaHay.url || yaHay.operacion || yaHay.trabajoId) {
+    return { ok: true, item };
+  }
 
   // ── Estado VIVO del puente, no recordado ─────────────────────────────────
   // ⚠️ Cada estado dice LO SUYO. Antes todo lo que no fuera `listo` contestaba
@@ -242,13 +284,7 @@ export async function estadoTomaAction(
       return { ok: true, item, estado: { fase: 'error', error: e } };
     }
     item = await guardarMarca(item, n, { operacion: nombre });
-    // Y se pide el primer estado en la misma pasada: el clip tarda de todos
-    // modos, no hay razón para esperar un tick más para empezar a preguntar.
-    await encolar('estado_clips', {
-      path: ENDPOINTS.estadoVideo,
-      body: { operations: [{ operation: { name: nombre } }] },
-      operacion: nombre,
-    });
+    await consultarUnaVez(nombre);
     return { ok: true, item, estado: { fase: 'generando', operacion: nombre } };
   }
 
@@ -269,7 +305,10 @@ export async function estadoTomaAction(
     // ahí se saca la URL.
     const texto = JSON.stringify(c.resultado ?? '');
     if (!texto.includes(operacion)) continue;
-    const url = buscarCampo(c.resultado, ['fifeUrl', 'videoUri', 'servingUrl', 'url']);
+    // Los nombres salen del ESQUEMA del bundle de Flow, no de suponer: la respuesta
+    // de estado declara `outputUri` y `encodedVideo`, y el medio terminado trae
+    // `fifeUrl`. Se buscan todos, en cualquier profundidad.
+    const url = buscarCampo(c.resultado, ['fifeUrl', 'outputUri', 'videoUri', 'servingUrl', 'encodedVideo', 'url']);
     if (!url) continue;
     const mediaId = extraerMediaId(c.resultado) || buscarCampo(c.resultado, ['mediaId', 'mediaGenerationId']) || operacion;
     item = await guardarMarca(item, n, { url, mediaId });
@@ -277,10 +316,6 @@ export async function estadoTomaAction(
   }
 
   // Todavía no. Se vuelve a preguntar — una operación sin video NO falló.
-  await encolar('estado_clips', {
-    path: ENDPOINTS.estadoVideo,
-    body: { operations: [{ operation: { name: operacion } }] },
-    operacion,
-  });
+  await consultarUnaVez(operacion);
   return { ok: true, item, estado: { fase: 'generando', operacion } };
 }

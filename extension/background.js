@@ -229,7 +229,20 @@ async function ejecutar(trabajo) {
   // algo que ni siquiera lo usa era gratis en riesgo y caro en score.
   const soloLectura = SOLO_LECTURA.has(trabajo.tipo);
 
-  let cuerpo = null;
+  // ⚠️ `soloLectura` mezclaba DOS conceptos y eso rompio la consulta de estado.
+  //
+  // Significaba a la vez «no necesita captcha» y «no manda cuerpo». Para el saldo
+  // las dos son ciertas. Para preguntar por un clip, la primera es cierta y la
+  // segunda NO: la lista de operaciones por las que se pregunta VA en el cuerpo.
+  //
+  // Como el cuerpo no viajaba, Google contestaba los medios recientes del
+  // proyecto en vez de los nuestros — y como ademas la respuesta se servia de la
+  // CACHE de la propia pagina, lo que volvia eran los videos que el dueno habia
+  // generado a mano. Medido: 24 consultas y NINGUNA mencionaba nuestra operacion,
+  // mientras la pantalla decia «generando» para siempre.
+  //
+  // Ahora: el cuerpo va siempre que lo haya; el captcha, solo cuando hace falta.
+  let cuerpo = body ? { ...body } : null;
   if (!soloLectura) {
     const captcha = await pedirCaptcha(tab.id, accionDeCaptcha(trabajo.tipo, path));
     cuerpo = { ...(body || {}) };

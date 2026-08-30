@@ -327,8 +327,18 @@
       // ⚠️ La condición es `soloLectura` y NO `!cuerpo`: `cuerpo` SIEMPRE llega
       // con algo (el `clientContext` que le agrega el service worker), así que
       // preguntar por él dejaba esta rama muerta sin que nada avisara.
+      // ⚠️ La cache SOLO sirve para pedidos sin cuerpo.
+      //
+      // Se guardaba la respuesta que la propia pagina recibio para esa clase y se
+      // devolvia como si fuera la nuestra. Para `/v1/credits` —un GET pelado— eso
+      // es correcto: la respuesta no depende de nada nuestro. Para el estado de un
+      // clip es directamente otra pregunta: devolvia los videos que el dueno habia
+      // generado a mano y nunca los nuestros.
+      //
+      // La regla que queda: una respuesta cacheada solo vale si el pedido no tiene
+      // parametros. Con cuerpo, cada pedido es una pregunta distinta.
       const cache = respuestas.get(clase);
-      if (soloLectura && cache && Date.now() - cache.cuando < 120000) {
+      if (soloLectura && !cuerpo && cache && Date.now() - cache.cuando < 120000) {
         return responder('MAKO_FETCH_OK', id, {
           status: cache.status, texto: cache.texto, deCache: true, metodo: 'CACHE',
         });
