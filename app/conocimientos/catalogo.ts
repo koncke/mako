@@ -110,6 +110,7 @@ import { CURSO_AUTOMATIZA_TU_WHATSAPP } from './curso-automatiza-tu-whatsapp';
 import { CURSO_IMPERIO_AFILIADO } from './curso-imperio-afiliado';
 import { CURSO_ACADEMIA_DEL_SENSEI } from './curso-academia-del-sensei';
 import { CURSO_GROWING_SETTERS_3_0 } from './curso-growing-setters-3-0';
+import { CURSO_INSTITUTO_DE_MARCA_PERSONAL } from './curso-instituto-de-marca-personal';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio.datos';
 import { CURSO_BRANDING } from './BrandingMaKo.datos';
@@ -368,6 +369,10 @@ const CATEGORIA: Record<string, string> = {
   'academia-del-sensei': 'Finanzas',       // Trading
   'growing-setters-3-0': 'Ventas',         // appointment setting y ventas high ticket, no ecommerce
 
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'instituto-de-marca-personal': 'Orgánico', // Marca Personal
+
 };
 
 /**
@@ -530,6 +535,10 @@ const PORTADA: Record<string, string> = {
   // pero la ficha se había emitido antes de que existiera.
   'academia-del-sensei': '/cono-portadas/academia-del-sensei.png',
   'growing-setters-3-0': '/cono-portadas/growing-setters-3-0.jpg',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'instituto-de-marca-personal': '/cono-portadas/instituto-de-marca-personal.png',
 
 };
 
@@ -817,6 +826,10 @@ const RESUMEN: Record<string, string> = {
   'academia-del-sensei': 'Formación de trading desde cero: análisis técnico e institucional, manual de BIAS, psicología del trader, gestión monetaria y preparación para pruebas de fondeo.',
   'growing-setters-3-0': 'Programa para trabajar como appointment setter: manejo de conversaciones, objeciones y prospectos, ventas high ticket, marca personal y cómo armar tu agencia de infoproductos.',
 
+  // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
+  // del catálogo de la plataforma.
+  'instituto-de-marca-personal': 'Aprende a construir y monetizar tu marca personal. El curso enseña definición de marca personal identificando valores y puntos fuertes, creación de estrategias de contenido efectivas, gestión de redes sociales, construcción de audiencia comprometida, crecimiento orgánico en YouTube, técnicas de monetización, colaboraciones con marcas, y estrategias de crecimiento viral. Basado en 16 módulos especializados para transformar tu marca en negocio online rentable.',
+
 };
 
 // Sin acentos y en minúsculas, para que «Sofia» no se sume a un título que ya dice
@@ -1092,6 +1105,9 @@ export const CURSOS_TODOS: Curso[] = [
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_ACADEMIA_DEL_SENSEI,
   CURSO_GROWING_SETTERS_3_0,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_INSTITUTO_DE_MARCA_PERSONAL,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
