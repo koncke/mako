@@ -5745,3 +5745,115 @@ Del mismo barrido del 29/08/2026, verificado pero SIN hacer:
   vuelven a entrar nunca.
 - **El log corta la causa del fallo de transcripción a 150 caracteres**
   (`curso-pipeline.mjs:152`) y se lleva puestas las razones de OpenAI y Gemini.
+
+## Un backtick adentro de un comentario de CSS apagó medio portal
+
+**Vive en:** `app/conocimientos/CursoPortal.tsx` (la constante `CSS`, línea ~964).
+
+La hoja de la grilla del portal no es un `.css`: es **un template literal** de 250 reglas
+que se inyecta con `<style dangerouslySetInnerHTML>`. Al sumarle una regla, el comentario
+que se escribió al lado nombraba una clase entre backticks —`` `.al-rescard-desc` ``, la
+convención de todo comentario del repo— y **ese backtick cerró la cadena**.
+
+Lo que se ve desde afuera no se parece a un problema de CSS:
+
+- La ruta devuelve **HTTP 200**, en un segundo, sin overlay de error.
+- El HTML pesa 67 KB en vez de 154 y **de texto visible trae «Conocimientos · Curso
+  AVATARHYPE»**: el layout entero y ni una tarjeta. Se lee igual que «mi componente
+  renderiza vacío», que manda a depurar el componente, que está bien.
+- El typecheck **sí** lo caza, pero lo dice al revés: `Property 'al' does not exist on type
+  '"\n.cono.ahc {\n --paper:#F4F1E8; …"'`. El nombre de la propiedad es el pedazo de
+  selector que quedó afuera de la cadena.
+
+**La regla: en un comentario que vive DENTRO de un template literal no va ningún backtick.**
+Vale para cualquier CSS-en-JS, cualquier prompt largo y cualquier SQL embebido de este repo.
+Y el `$` de un `${` es el otro carácter con la misma propiedad — `$100M` es inofensivo,
+`${algo}` no.
+
+**Y el corolario del diagnóstico**, que es lo que ahorra el tiempo: cuando una pantalla
+devuelve 200 y le falta el CUERPO, el typecheck sabe por qué. Correrlo cuesta 7 segundos y
+contesta antes que cualquier lectura del componente.
+
+## La clase existía en esa hoja, y la hoja no era la que la estaba pintando
+
+**Vive en:** `app/conocimientos/CursoPortal.tsx` (`CSS`, scope `.cono`) ·
+`public/cono-doc/ugc.css` (scope `.ahdoc .ugc`).
+
+El portal tiene **DOS** hojas con nombres de clase que se pisan:
+
+| Hoja | Scope | Qué pinta |
+|---|---|---|
+| la constante `CSS` de `CursoPortal.tsx` | `.cono` | la GRILLA de cursos y el hub |
+| `public/cono-doc/ugc.css` (333 KB, del origen) | `.ahdoc .ugc` | la vista replicada de un curso |
+
+`.al-rescard-desc` está definida en **las dos**. Buscar la clase encuentra `ugc.css`, y
+`ugc.css` es el archivo con la cola de reglas escritas a mano — así que la regla nueva de la
+tarjeta se escribió ahí. No aplicó, y el modo de falla es el peor de los de CSS: **la
+propiedad simplemente no está**, sin error, sin advertencia y sin nada que apunte al
+archivo. El texto salía a 16px heredados del `body` y sin recorte.
+
+Y no lo arregla `!important`: **un selector que no matchea no compite.** El elemento vive en
+`div.cono.ahc` y la regla pedía un ancestro `.ahdoc` que ahí no existe.
+
+**La regla: preguntale al NAVEGADOR de qué hoja sale un estilo, no al repositorio.** Son
+tres líneas de CDP y contesta lo que ninguna búsqueda puede:
+
+```js
+[...document.styleSheets].map(s => ({ href: s.href, tiene: [...s.cssRules].filter(r => (r.selectorText||'').includes('mi-clase')).length }))
+document.querySelector('.mi-clase').closest('.ahdoc')   // ¿el scope que asumí está?
+```
+
+Es el mismo error que «`existsSync(<nombre>)` no es un cruce, es una coincidencia de
+nombre», aplicado a CSS: **que la clase esté escrita en una hoja no dice que esa hoja sea la
+que la pinta.**
+
+## Los cursos venían mal categorizados por PROCEDENCIA, no por criterio
+
+**Vive en:** `app/conocimientos/catalogo.ts` (mapa `CATEGORIA`) ·
+`scripts/curso-categoria-portada.mjs` (`EQUIVALE`).
+
+Auditoría de los 90 cursos del 30/08/2026, con un escéptico verificando cada cambio
+propuesto: **se mueven 9, se quedan 81**. Lo que importa no es la lista, es que los 9
+fallaban todos de la misma forma — la sección salía de **de qué plataforma vino el curso**
+y no de lo que la persona viene a buscar:
+
+- «Hustlers» (un cajón del origen) traducía a *Negocios digitales*, y adentro había un curso
+  de ventas de Belfort, uno de negociación emocional y uno de bolsa.
+- «Finanzas / Inversiones» traía un curso de escalar coaching online.
+- «ADS» traía uno de TikTok Shop sin una sola mención a pauta.
+
+**El criterio ya estaba escrito** en el propio `catalogo.ts` («se agrupa por lo que alguien
+viene a buscar») y **la traducción de categorías lo pasaba por encima**, porque traducir 1:1
+la etiqueta del origen ES agrupar por procedencia con otro nombre. La etiqueta del origen
+sirve para el 90% y es exactamente el 10% restante lo que se ve mal en pantalla.
+
+**Y «Marketing» se sacó de la tabla de equivalencias.** Es la traducción que más obvia
+parece y la que menos separa: en un portal donde TODOS los cursos son de marketing,
+«Marketing» es el nombre del portal, no el de una sección. Traducirla abrió **dos veces** una
+sección de un solo curso, y las dos veces hubo que moverlo a mano después.
+
+## El publicador se llevó nueve ediciones a mano porque miraba la FORMA de la línea
+
+**Vive en:** `scripts/cursos-publicar.sh` (la guarda de `catalogo.ts`).
+
+`catalogo.ts` es el único archivo que escriben el pipeline **y** una persona, así que el
+publicador automático tenía una guarda: no commitearlo si su diff traía líneas que no
+parecieran del pipeline. Miraba si cada línea tenía un `': '`, un `CURSO_`, un `curso-`.
+
+No protegía nada. Una categoría corregida a mano se escribe `'slug': 'Ventas',`, que es
+**exactamente** la forma que el pipeline emite. El 30/08/2026, tres minutos después de que
+se movieran nueve categorías a mano, la tarea programada las commiteó y las pusheó adentro
+de un commit que decía «conocimientos: cursos publicados por la cola».
+
+**La regla: lo que separa a un proceso de una persona es la OPERACIÓN, no cómo se ve la
+línea.** Los dos escritores automáticos (`curso-al-catalogo.mjs`,
+`curso-categoria-portada.mjs`) hacen los dos `slice(0,fin) + texto + slice(fin)`: **insertan
+y nunca tocan una línea existente**. Así que en un diff suyo no hay ninguna línea borrada, y
+una `-` es una persona — siempre, y sin envejecer con el formato del archivo. Verificado
+sobre los 5 commits automáticos anteriores: 4 con cero borradas, y el quinto también traía
+una edición a mano absorbida.
+
+**El costo asumido:** con la guarda apretada, un curso nuevo no aparece en el portal hasta
+que quien está editando `catalogo.ts` commitee. El log lo dice con todas las letras, porque
+un curso que tarda una hora en aparecer es más barato que el trabajo a medias de otro
+publicado a producción con un mensaje que no lo nombra.

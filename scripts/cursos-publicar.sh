@@ -46,15 +46,26 @@ fi
 di "  $PEND archivo(s) del pipeline sin commitear"
 
 # ⚠️ `catalogo.ts` es el UNICO archivo compartido: lo escribe el pipeline y también lo
-#    edita una persona. Se commitea sólo si su diff toca exclusivamente líneas de cursos
-#    (imports, constantes, categorías, tapas). Si hay algo más, es trabajo de alguien y no
-#    se lo lleva puesto este script.
-AJENO=$(git diff -U0 -- app/conocimientos/catalogo.ts \
-  | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' \
-  | grep -vE "curso-|CURSO_|': '|cono-portadas|^[+-]\s*//|^[+-]\s*$" | wc -l)
+#    edita una persona. Si hay trabajo a mano adentro, no se lo lleva puesto este script.
+#
+# ⚠️ LO QUE SEPARA A LOS DOS ES LA OPERACION, NO LA FORMA DE LA LINEA. La version anterior
+#    de esta guarda miraba si cada linea cambiada PARECIA del pipeline —un `': '`, un
+#    `CURSO_`, un `curso-`— y por eso no protegia nada: una categoria corregida a mano se
+#    escribe `'slug': 'Ventas',`, que es exactamente la forma que el pipeline emite. El
+#    30/08/2026 se llevo nueve categorias movidas a mano adentro de un commit que decia
+#    «cursos publicados por la cola», y ninguna de las dos partes se entero.
+#
+#    El pipeline SOLO INSERTA. `curso-al-catalogo.mjs` y `curso-categoria-portada.mjs`
+#    hacen los dos `slice(0,fin) + texto + slice(fin)`: agregan bloques y no tocan una sola
+#    linea existente. Asi que en un diff suyo NO HAY NINGUNA LINEA BORRADA. Una `-` es una
+#    persona, siempre — y esa pregunta no envejece con el formato del archivo.
+BORRADAS=$(git diff -U0 -- app/conocimientos/catalogo.ts \
+  | grep -cE '^-[^-]' || true)
+AJENO=${BORRADAS:-0}
 if [ "$AJENO" -gt 0 ]; then
-  di "  ⚠️ catalogo.ts tiene $AJENO linea(s) que NO son del pipeline: NO lo commiteo."
-  di "     Alguien lo está editando. Reviso solo las fichas y las tapas."
+  di "  ⚠️ catalogo.ts tiene $AJENO linea(s) BORRADAS, y el pipeline nunca borra:"
+  di "     alguien lo está editando a mano. NO lo commiteo — solo fichas y tapas."
+  di "     (los cursos nuevos quedan sin aparecer hasta que esa persona lo commitee)"
   git add app/conocimientos/curso-*.ts public/cono-portadas/ 2>/dev/null
 else
   git add app/conocimientos/curso-*.ts app/conocimientos/catalogo.ts public/cono-portadas/ 2>/dev/null

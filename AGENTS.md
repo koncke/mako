@@ -572,6 +572,23 @@ La guardia es `tests/landing-snippet-emitido.test.ts`: reconstruye el snippet ap
 reglas de escape y lo audita contra los propios detectores. **Si escribís código generado,
 el test mira lo EMITIDO, no el fuente.**
 
+⚠️ **Y adentro de un template literal no va NINGÚN backtick, ni siquiera en un comentario.**
+Es la convención del repo nombrar una clase o una función entre backticks, y adentro de una
+cadena eso la CIERRA a la mitad. Pasó el 30/08/2026 en la hoja de estilos del portal de
+cursos (`CursoPortal.tsx`, la constante `CSS` de 250 reglas): un comentario que decía
+`` `.al-rescard-desc` `` partió la hoja, y **la pantalla contestó HTTP 200 con el layout
+entero y ni una tarjeta** — que se lee igual que «mi componente renderiza vacío» y manda a
+depurar el componente, que estaba bien.
+
+Lo mismo vale para todo lo grande que vive en una cadena de este repo: los prompts, el
+snippet del Pixel, el SQL embebido. Nombrá la clase sin comillas de ningún tipo. Y el `${`
+es el otro carácter con esa propiedad: `$100M` es inofensivo, `${algo}` no.
+
+**Cómo se diagnostica en 7 segundos:** cuando una ruta devuelve 200 y le falta el CUERPO,
+corré `npm run typecheck` antes de leer nada. Lo caza — pero lo dice al revés, como
+`Property 'al' does not exist on type '"\n.cono.ahc {…"'`: el nombre de la propiedad es el
+pedazo que quedó afuera de la cadena.
+
 # «No puedo hacer X con este dato» no es «este dato es falso»
 
 Un control que descubre que no puede ACTUAR sobre algo tiene una sola salida honesta:
