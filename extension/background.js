@@ -242,7 +242,11 @@ async function ejecutar(trabajo) {
   // mientras la pantalla decia «generando» para siempre.
   //
   // Ahora: el cuerpo va siempre que lo haya; el captcha, solo cuando hace falta.
-  let cuerpo = body ? { ...body } : null;
+  // Un body VACIO no es un body: `{}` es truthy y apagaba la cache de `creditos`,
+  // que es justo el pedido que si conviene cachear porque no depende de nada
+  // nuestro.
+  const tieneCuerpo = !!body && Object.keys(body).length > 0;
+  let cuerpo = tieneCuerpo ? { ...body } : null;
   if (!soloLectura) {
     const captcha = await pedirCaptcha(tab.id, accionDeCaptcha(trabajo.tipo, path));
     cuerpo = { ...(body || {}) };

@@ -32,6 +32,7 @@ import {
 } from '@/lib/flow-clip-referencias';
 import { getSetting } from '@/lib/settings';
 import { leerHistorial, guardarEnHistorial, type PlanGuardado } from './video-datos';
+import { guardarSaldo, leerSaldoGuardado, guardarCostoMedido, type SaldoFlow } from './saldo-datos';
 
 async function ctxAdmin(): Promise<{ ok: true; ws: number } | { ok: false; error: string }> {
   if ((await getRolWsEfectivo()) !== 'admin') {
@@ -128,7 +129,11 @@ export type EstadoToma =
   | { fase: 'error'; error: string };
 
 /** Lo que se guarda por toma, dentro del plan. */
-type MarcaVideo = { trabajoId?: number; operacion?: string; url?: string; mediaId?: string; error?: string };
+type MarcaVideo = {
+  trabajoId?: number; operacion?: string; url?: string; mediaId?: string; error?: string;
+  /** El saldo justo ANTES de generar esta toma. La otra mitad de medir el costo. */
+  saldoAntes?: number | null;
+};
 
 const marcas = (plan: PlanGuardado): Record<string, MarcaVideo> =>
   (plan.video ?? {}) as Record<string, MarcaVideo>;
@@ -218,6 +223,12 @@ export async function generarTomaAction(
     };
   }
 
+  // El saldo ANTES de gastar. Es la mitad de la medición del costo real: sin
+  // esto el costo por clip se queda para siempre en una estimación heredada de
+  // una tabla de internet — y este proyecto ya planificó con una que estaba AL
+  // DOBLE.
+  const saldoAntes = (await leerSaldoGuardado()).creditos;
+
   const trabajoId = await encolar('generar_clip', {
     path: ENDPOINTS.clipDesdeReferencias,
     body: cuerpoClipReferencias(
@@ -227,7 +238,7 @@ export async function generarTomaAction(
   });
   if (trabajoId == null) return { ok: false, error: 'No se pudo encolar el trabajo.' };
 
-  return { ok: true, item: await guardarMarca(item, n, { trabajoId, operacion: '', url: '', error: '' }) };
+  return { ok: true, item: await guardarMarca(item, n, { trabajoId, operacion: '', url: '', error: '', saldoAntes }) };
 }
 
 /**
@@ -312,10 +323,77 @@ export async function estadoTomaAction(
     if (!url) continue;
     const mediaId = extraerMediaId(c.resultado) || buscarCampo(c.resultado, ['mediaId', 'mediaGenerationId']) || operacion;
     item = await guardarMarca(item, n, { url, mediaId });
+    // El clip esta listo: se pregunta el saldo, y la resta contra el de antes da
+    // el costo REAL de una toma. Es el numero del que depende toda la economia
+    // del plan y hasta hoy no lo teniamos medido.
+    if (typeof marca.saldoAntes === 'number') {
+      await encolar('creditos', { path: ENDPOINTS.creditos, body: {} });
+    }
     return { ok: true, item, estado: { fase: 'listo', url, mediaId } };
   }
 
   // Todavía no. Se vuelve a preguntar — una operación sin video NO falló.
   await consultarUnaVez(operacion);
   return { ok: true, item, estado: { fase: 'generando', operacion } };
+}
+
+// ── El saldo ─────────────────────────────────────────────────────────────────
+
+/**
+ * Pide el saldo al navegador del cliente y lo guarda.
+ *
+ * Es de SOLO LECTURA: no acuña captcha, no gasta créditos, y la propia página de
+ * Flow cachea la respuesta 2 minutos. Preguntarlo es barato; no saberlo es lo
+ * caro — un anuncio que se corta en la toma cinco por falta de créditos no dejó
+ * cinco quintos de anuncio, dejó cinco clips pagados y nada que publicar.
+ */
+export async function pedirSaldoAction(): Promise<{ ok: true; trabajoId: number } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  const puente = await estadoPuente().catch(() => null);
+  if (!puente || puente.estado === 'sin_conectar') {
+    return { ok: false, error: 'Todavía no conectaste tu navegador.' };
+  }
+
+  const id = await encolar('creditos', { path: ENDPOINTS.creditos, body: {} });
+  if (id == null) return { ok: false, error: 'No se pudo preguntar por el saldo.' };
+  return { ok: true, trabajoId: id };
+}
+
+/**
+ * Mira si ya volvió el saldo. Si volvió, lo guarda y lo devuelve.
+ *
+ * La pantalla la llama unas pocas veces con unos segundos de diferencia. No
+ * espera adentro: una action que se queda esperando muere en el timeout.
+ */
+export async function saldoAction(
+  trabajoId: number | null,
+): Promise<{ ok: true; saldo: SaldoFlow; listo: boolean } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  if (trabajoId != null) {
+    const db = await getTenantDb();
+    const { data } = await db.from('flow_trabajos').select('estado, resultado').eq('id', trabajoId).maybeSingle();
+    if (str(data?.estado) === 'listo') {
+      const r = obj(data?.resultado);
+      const creditos = Number(r.credits ?? r.subscriptionCredits);
+      if (Number.isFinite(creditos)) {
+        // ⚠️ Se mide ANTES de pisar el saldo guardado: la resta necesita los dos
+        // numeros, y guardar primero borraria el de antes.
+        const previo = (await leerSaldoGuardado()).creditos;
+        await guardarSaldo(creditos, str(r.userPaygateTier) || str(r.sku));
+        // Una sola toma por vez, asi que la diferencia ES el costo de un clip. Si
+        // el dueno genero algo a mano en el medio, el guard de
+        // `guardarCostoMedido` descarta el numero absurdo en vez de contaminar
+        // todas las cuentas que vienen despues.
+        if (typeof previo === 'number' && previo > creditos) await guardarCostoMedido(previo - creditos);
+        return { ok: true, saldo: await leerSaldoGuardado(), listo: true };
+      }
+    }
+  }
+  // Todavía no volvió: se devuelve lo último que se supo, con su fecha. Un saldo
+  // viejo bien fechado sirve; uno sin fecha no se puede juzgar.
+  return { ok: true, saldo: await leerSaldoGuardado(), listo: false };
 }

@@ -56,6 +56,8 @@ export type PlanGuardado = {
     url?: string;
     mediaId?: string;
     error?: string;
+    /** El saldo justo ANTES de generar esta toma. La otra mitad de medir el costo. */
+    saldoAntes?: number | null;
   }>;
 };
 

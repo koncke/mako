@@ -49,7 +49,7 @@ import {
   SeccionCard, parsearSecciones, reconstruirSecciones, EditarTexto, ICONO_SECCION_GUION,
 } from '../components/SeccionCard';
 import { editarGuionAction } from './cargar-guiones-action';
-import { generarTomaAction, estadoTomaAction } from './video-action';
+import { generarTomaAction, estadoTomaAction, pedirSaldoAction, saldoAction } from './video-action';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 
@@ -719,10 +719,12 @@ function LineaGuion({
 // ── La app ───────────────────────────────────────────────────────────────────
 
 export function VideoGeneratorApp({
-  historialInicial, contexto, puente, guiones, anuncios }: {
+  historialInicial, contexto, puente, guiones, anuncios, saldo: saldoInicial, costoClip }: {
   historialInicial: PlanGuardado[];
   contexto: EstadoContextoVideo | null;
-  puente: Puente | null; guiones: GuionDisponible[]; anuncios: AnuncioHecho[] }) {
+  puente: Puente | null; guiones: GuionDisponible[]; anuncios: AnuncioHecho[];
+  saldo: { creditos: number | null; at: string | null; tier: string };
+  costoClip: { creditos: number; medido: boolean } }) {
   const PLANTILLAS = useMemo(() => puestasOfrecidas(), []);
 
   const [historial, setHistorial] = useState<PlanGuardado[]>(historialInicial);
@@ -730,6 +732,27 @@ export function VideoGeneratorApp({
   const [editandoLinea, setEditandoLinea] = useState(false);
   /** La toma que se está generando ahora. null = ninguna. */
   const [generando, setGenerando] = useState<number | null>(null);
+  const [saldo, setSaldo] = useState(saldoInicial);
+
+  /**
+   * Refresca el saldo cuando se abre un anuncio.
+   *
+   * Ahí es cuando importa —es el momento previo a gastar— y no en cada carga de
+   * la tab: preguntar por preguntar es tráfico contra Google desde la sesión del
+   * cliente, y este proyecto ya midió lo que cuesta el tráfico de más.
+   */
+  const refrescarSaldo = useCallback(async () => {
+    const p = await pedirSaldoAction();
+    if (!p.ok) return;
+    for (let i = 0; i < 6; i++) {
+      await new Promise((r) => setTimeout(r, 3000));
+      const s = await saldoAction(p.trabajoId).catch(() => null);
+      if (s?.ok) {
+        setSaldo(s.saldo);
+        if (s.listo) return;
+      }
+    }
+  }, []);
   // Siempre se entra al catálogo, aunque haya anuncios hechos: se viene a crear
   // uno nuevo, no a releer el anterior.
   const [vista, setVista] = useState<Vista>('catalogo');
@@ -917,6 +940,7 @@ export function VideoGeneratorApp({
       setHistorial(out.historial);
       setActual(out.item);
       setVista('anuncio');
+      void refrescarSaldo();
       // El anuncio abierto queda en la URL. Sin esto, refrescar la página lo
       // perdía y devolvía al catálogo: el plan vive en el server pero la vista
       // vivía solo en el estado del cliente, y un F5 se lo lleva.
@@ -1334,6 +1358,48 @@ export function VideoGeneratorApp({
             <Tag>{actual.plan.duracionTotalSeg} segundos</Tag>
             <Tag>{actual.plan.clips.length} tomas</Tag>
           </div>
+
+          {/*
+            LO QUE VA A COSTAR, antes del botón.
+
+            El dueño lo pidió así: «si tenemos el saldo, y ya de antemano sabemos
+            por la cantidad de tokens que consume cada clip y la cantidad de
+            clips, si le alcanzará o no». Es la pregunta correcta y llega antes de
+            gastar — un anuncio que se corta en la toma cinco por falta de
+            créditos no dejó cinco quintos de anuncio: dejó cinco clips pagados y
+            nada que publicar.
+
+            Tres estados, y el tercero NO es «no alcanza»: cuando nunca se leyó el
+            saldo se dice que no se sabe. Decirle «no te alcanza» a alguien que sí
+            tiene créditos es peor que no decirle nada.
+          */}
+          {(() => {
+            const costo = actual.plan.clips.length * costoClip.creditos;
+            const hechos = Object.values(actual.video ?? {}).filter((v) => v?.url).length;
+            const falta = Math.max(0, actual.plan.clips.length - hechos) * costoClip.creditos;
+            const sinSaldo = saldo.creditos == null;
+            const alcanza = !sinSaldo && (saldo.creditos as number) >= falta;
+            return (
+              <div style={{ marginBottom: 16 }}>
+                <Alert tono={sinSaldo ? 'info' : alcanza ? 'info' : 'warn'}>
+                  Este anuncio son <strong>{actual.plan.clips.length} tomas</strong> ·
+                  {' '}~<strong>{costo} créditos</strong> de tu cuenta de Google
+                  {!costoClip.medido && ' (estimado)'}.
+                  {sinSaldo ? (
+                    <> Todavía no sé cuántos créditos te quedan.</>
+                  ) : alcanza ? (
+                    <> Te quedan <strong>{saldo.creditos}</strong>
+                      {falta > 0 && <> — alcanza para este y {Math.floor(((saldo.creditos as number) - falta) / Math.max(1, costo))} más</>}.
+                    </>
+                  ) : (
+                    <> Te quedan <strong>{saldo.creditos}</strong> y faltan <strong>{falta}</strong> para
+                      terminarlo. Vas a poder generar {Math.floor((saldo.creditos as number) / costoClip.creditos)} tomas.
+                    </>
+                  )}
+                </Alert>
+              </div>
+            );
+          })()}
 
           <Section
             titulo="Tu guion"

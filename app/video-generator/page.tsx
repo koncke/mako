@@ -14,6 +14,7 @@ import { estadoContextoVideo, leerHistorial } from './video-datos';
 import { estadoPuente } from '@/lib/flow-cola';
 import { guionesDisponibles } from './guiones-datos';
 import { leerAnuncios } from './anuncios-datos';
+import { leerSaldoGuardado, costoPorClip } from './saldo-datos';
 import { VideoGeneratorApp } from './VideoGeneratorApp';
 
 export const dynamic = 'force-dynamic';
@@ -25,9 +26,9 @@ export default async function Page() {
   const ws = await getWorkspaceActual();
   // Agencia sin impersonar: no hay workspace del que leer. La vista igual se
   // sirve (las actions cortan con su propio error si intenta operar).
-  if (ws == null) return <VideoGeneratorApp historialInicial={[]} contexto={null} puente={null} guiones={[]} anuncios={[]} />;
+  if (ws == null) return <VideoGeneratorApp historialInicial={[]} contexto={null} puente={null} guiones={[]} anuncios={[]} saldo={{ creditos: null, at: null, tier: '' }} costoClip={{ creditos: 15, medido: false }} />;
 
-  const [historial, contexto, puente, guiones, anuncios] = await Promise.all([
+  const [historial, contexto, puente, guiones, anuncios, saldo, costoClip] = await Promise.all([
     leerHistorial(),
     estadoContextoVideo(),
     // Estado VIVO: si el cliente desconecta el navegador, el panel lo dice sola
@@ -40,6 +41,11 @@ export default async function Page() {
     // Los anuncios ya terminados. Mismo criterio que los guiones: su ausencia no
     // puede tumbar la pantalla, porque la tab sirve igual sin ellos.
     leerAnuncios().catch(() => []),
+    // El saldo GUARDADO, no una consulta: preguntarle al navegador del cliente en
+    // cada carga de la página es tráfico contra Google por algo que casi nunca
+    // cambió. La pantalla lo refresca sola cuando hace falta.
+    leerSaldoGuardado().catch(() => ({ creditos: null, at: null, tier: '' })),
+    costoPorClip().catch(() => ({ creditos: 15, medido: false })),
   ]);
 
   return (
@@ -49,6 +55,8 @@ export default async function Page() {
       puente={puente}
       guiones={guiones}
       anuncios={anuncios}
+      saldo={saldo}
+      costoClip={costoClip}
     />
   );
 }
