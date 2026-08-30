@@ -75,6 +75,21 @@ export type Puesta = {
   densidad: number;
   /** ¿Hay que generar imágenes ANTES de animar, o se anima sobre fotos reales? */
   imagenesPrevias: boolean;
+  /**
+   * Cuántas IMÁGENES hay que generar antes del video. Una por ESCENARIO, no por clip.
+   *
+   * ⚠️ Este número existe porque el orden correcto es IMAGEN → VIDEO, y el
+   * catálogo decía lo contrario: `The Office` y `Car Talks` estaban en
+   * `imagenesPrevias: false`, dato que salió de cómo se produjo A MANO el cuarto
+   * anuncio y se generalizó a una regla del formato. El primer clip que salió de
+   * punta a punta lo pagó: ángulo equivocado y sin parecerse a la persona.
+   *
+   * La cuenta NO es por clip. Siete tomas dentro del mismo auto son un escenario
+   * y una imagen; un recorrido por una oficina son varios lugares y varias
+   * imágenes. Por eso vive acá, fijo por formato: es una propiedad de la puesta en
+   * escena, no del guion.
+   */
+  escenarios: number;
   /** ¿Necesita character sheet además de la foto real? */
   characterSheet: boolean;
   /** Las que rompen el formato si se ignoran. Van a la tarjeta y al prompt. */
@@ -126,6 +141,7 @@ export const CATALOGO_PUESTAS: Puesta[] = [
     ritmo: 'H O H O H O H H',
     densidad: 2.1,
     imagenesPrevias: false,
+    escenarios: 4,
     characterSheet: false,
     reglas: [
       'Lo que se ve NO ilustra la frase. El fondo es contexto, no subtítulo.',
@@ -159,6 +175,7 @@ export const CATALOGO_PUESTAS: Puesta[] = [
     habla: 'siempre',
     densidad: 3,
     imagenesPrevias: false,
+    escenarios: 1,
     characterSheet: false,
     reglas: [
       'Una sola foto real como referencia. El escenario lo pone el prompt.',
@@ -190,6 +207,7 @@ export const CATALOGO_PUESTAS: Puesta[] = [
     habla: 'siempre',
     densidad: 3,
     imagenesPrevias: true,
+    escenarios: 2,
     characterSheet: false,
     reglas: [
       'Dos imágenes de referencia, una por persona, cada una a un lado del set.',
@@ -216,6 +234,7 @@ export const CATALOGO_PUESTAS: Puesta[] = [
     habla: 'siempre',
     densidad: 3,
     imagenesPrevias: false,
+    escenarios: 2,
     characterSheet: false,
     reglas: [
       'La cámara no se mueve. En el prompt se indica cuál de las dos habla en ese clip.',
@@ -241,6 +260,7 @@ export const CATALOGO_PUESTAS: Puesta[] = [
     habla: 'nunca',
     densidad: 2.55,
     imagenesPrevias: true,
+    escenarios: 3,
     characterSheet: true,
     reglas: [
       'El prompt lleva «no talking» siempre. Sin eso el modelo la hace hablar aunque no le des guion.',
@@ -267,6 +287,7 @@ export const CATALOGO_PUESTAS: Puesta[] = [
     habla: 'siempre',
     densidad: 3,
     imagenesPrevias: true,
+    escenarios: 2,
     characterSheet: false,
     reglas: [
       'Una imagen por momento del producto: preparándolo, con el vaso en la mano, guardándolo, el primer plano final.',
@@ -292,6 +313,7 @@ export const CATALOGO_PUESTAS: Puesta[] = [
     habla: 'siempre',
     densidad: 3,
     imagenesPrevias: true,
+    escenarios: 2,
     characterSheet: false,
     reglas: [
       'Hacen falta las imágenes del antes y del después, además del avatar base.',
@@ -316,6 +338,7 @@ export const CATALOGO_PUESTAS: Puesta[] = [
     habla: 'nunca',
     densidad: 2.55,
     imagenesPrevias: true,
+    escenarios: 2,
     characterSheet: false,
     reglas: [
       'Se produce igual que Voz en off: primero las imágenes, después se anima cada una.',

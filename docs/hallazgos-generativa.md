@@ -2506,3 +2506,61 @@ borra `applicationType`, `:200` borra `sessionId`, `:280-281` auth duplicado, `:
 `:90-98` `pestanaDeFlow` sin filtro de pestaña activa, `:174-181` `accionDeCaptcha`,
 `:353` alarm cada 15 s), `lib/flow-protocolo.ts:230-236` (reintento infinito de la
 rama recaptcha) y `:400-406` (tabla `accion` muerta: la extensión ya no la lee).
+
+## Cuando el avatar no se parece, la culpa puede ser de la foto que se le pasó
+
+**El pedido del dueño, textual:** *«muchas muchas veces la imagen de IA sale mal, porque
+la IMAGEN que se le pasó era mala… no tenía buena iluminación, o ya de por sí, como nos
+ha pasado, era otra imagen de IA, lo que hacía que todo se vea muy artificial. Por eso es
+importante compararlo una al lado de la otra… "Mirá, esto es lo que vos me pasaste, y
+esto es lo que se generó, ¿realmente no se parecen o la IA lo hizo mal? ¿O en realidad tu
+input estaba mal?"»*
+
+**Por qué importa más de lo que parece.** «No se parece» es un diagnóstico ambiguo con
+dos causas de costo opuesto:
+
+| Causa | Cómo se arregla | Cuánto cuesta |
+|---|---|---|
+| El modelo lo hizo mal | Regenerar | Un clip |
+| **La foto de origen era mala** | Cambiar la foto | Regenerar **todo** lo hecho con ella |
+
+Y la segunda tiene un caso especialmente traicionero: **una foto que ya era generada por
+IA**. Alimentar IA con IA acumula el sesgo del modelo y el resultado se ve artificial sin
+que ningún prompt lo arregle — ya está medido en este proyecto que «referenciar IA con IA
+pierde la identidad», pero se había tratado como una regla de producción, no como algo
+que la pantalla tenga que ayudar a DETECTAR.
+
+**La regla que queda:** cuando una pantalla le pide a alguien que juzgue un resultado
+generado, tiene que mostrarle **la entrada al lado de la salida**. Sin la entrada
+delante, la persona solo puede culpar al modelo — que es la conclusión equivocada la
+mitad de las veces, y la que lleva a quemar créditos regenerando sobre una foto que
+nunca iba a funcionar.
+
+Es el mismo principio que ya rige el error crudo de Flow: **el veredicto no puede
+reemplazar a la evidencia**.
+
+**Vive en:** el paso de imágenes del Video Generator (por construir),
+`app/video-generator/`.
+
+## El orden correcto es IMAGEN → VIDEO, y el catálogo decía otra cosa
+
+El primer clip que el Video Generator generó de punta a punta salió con el ángulo
+equivocado y sin parecerse a la persona. La causa no fue el prompt: fue el ORDEN.
+
+Se generaba en UN paso —escena descrita + foto de referencia en el mismo pedido—, que es
+exactamente lo que la sección «Composición e identidad se resuelven en DOS pasos» de este
+mismo documento dice que no funciona. El método estaba escrito y el código no lo seguía.
+
+**Y el catálogo lo contradecía por escrito:** `The Office` y `Car Talks` declaraban
+`imagenesPrevias: false`. Ese dato salió de cómo se produjo A MANO el cuarto anuncio
+—donde se fue de foto a video— y se generalizó a una regla del formato. El dueño lo
+corrigió: *«en cada formato es 1 o más imágenes… en esta del auto puede ser 1, porque es
+una sola toma; pero en la oficina, como son cambios de escenario, sí deberían ser
+diferentes imágenes»*.
+
+**La cuenta no es por clip: es por ESCENARIO.** Un anuncio de 7 tomas dentro del mismo
+auto necesita una imagen; uno que recorre una oficina necesita una por lugar. Decidido:
+el número vive en el catálogo, fijo por formato, porque es una propiedad de la puesta en
+escena y no del guion.
+
+**Vive en:** `lib/puestas-data.ts`, `app/video-generator/video-action.ts`.
