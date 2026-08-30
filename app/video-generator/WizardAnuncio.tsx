@@ -35,7 +35,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from '@/app/_ui/Link';
 import { Button, Tag, Status, TextField, MONO } from '@/app/_ui';
-import { WizardShell } from '../_components/WizardShell';
 import { Icon } from '../_components/icons';
 import type { PlanGuardado, EstadoContextoVideo } from './video-datos';
 import type { Puesta } from '@/lib/puestas-data';
@@ -113,13 +112,20 @@ function clave(p: Paso): string {
 
 // ── Piezas ──────────────────────────────────────────────────────────────────
 
-/** Un 9:16 a tamaño de decisión. Es lo enorme de casi todas las pantallas. */
+/**
+ * Un 9:16 a tamaño de decisión. Es lo enorme de casi todas las pantallas.
+ *
+ * Sobre negro y SIN BORDE: un borde le pone marco a lo que tiene que no tenerlo.
+ * Lo que separa el medio del fondo es su propio contenido, no una línea.
+ */
 function Vertical({ children, fondo }: { children: React.ReactNode; fondo?: string }) {
   return (
     <div style={{
-      height: LIENZO, aspectRatio: '9 / 16', borderRadius: 16, overflow: 'hidden',
-      background: fondo ?? 'var(--surface-2)', position: 'relative', flex: 'none',
+      height: LIENZO, aspectRatio: '9 / 16', borderRadius: 18, overflow: 'hidden',
+      background: fondo ?? '#111316', position: 'relative', flex: 'none',
       display: 'grid', placeItems: 'center',
+      // La sombra hace que el medio FLOTE sobre el negro en vez de estar pegado.
+      boxShadow: '0 24px 70px rgba(0,0,0,.55)',
     }}>
       {children}
     </div>
@@ -129,6 +135,18 @@ function Vertical({ children, fondo }: { children: React.ReactNode; fondo?: stri
 const MEDIO: React.CSSProperties = {
   display: 'block', width: '100%', height: '100%', objectFit: 'cover',
 };
+
+/**
+ * Lo que acaba de llegar aparece DESDE la niebla, no la reemplaza de golpe.
+ *
+ * Es el momento que el dueño pidió hacer épico, y no es un adorno: describe lo
+ * que de verdad pasó — una imagen que se terminó de resolver. El desenfoque que
+ * se va es el mismo gesto que la niebla que estaba abajo. Un corte seco, en
+ * cambio, hace que noventa segundos de espera terminen sin que pase nada.
+ */
+function Revela({ children, k }: { children: React.ReactNode; k: string }) {
+  return <div key={k} className="mk-revelar" style={{ width: '100%', height: '100%' }}>{children}</div>;
+}
 
 /** La niebla de Flow, a tamaño real. Con el reloj, que es lo único cierto. */
 function Niebla({ etiqueta, desde }: { etiqueta: string; desde: number }) {
@@ -140,7 +158,7 @@ function Niebla({ etiqueta, desde }: { etiqueta: string; desde: number }) {
   const seg = Math.max(0, Math.round((ahora - desde) / 1000));
   return (
     <div
-      className="mk-lienzo"
+      className="mk-lienzo mk-lienzo--estudio"
       style={{ width: '100%', height: '100%', borderRadius: 0 }}
       role="status"
       aria-label={etiqueta}
@@ -201,8 +219,8 @@ function Clip({ src }: { src: string }) {
 function Pie({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
-      textAlign: 'center', marginTop: 10, fontSize: 'var(--fs-sm)',
-      color: 'var(--dim)', fontWeight: 600,
+      textAlign: 'center', marginTop: 12, fontSize: 'var(--fs-sm)',
+      color: 'rgba(255,255,255,.55)', fontWeight: 600,
     }}>
       {children}
     </div>
@@ -214,7 +232,7 @@ function Salidas({ resumen, children }: { resumen: string; children: React.React
   return (
     <details style={{ marginTop: 4 }}>
       <summary style={{
-        cursor: 'pointer', fontSize: 'var(--fs-sm)', color: 'var(--dim)',
+        cursor: 'pointer', fontSize: 'var(--fs-sm)', color: 'rgba(255,255,255,.55)',
         textAlign: 'center', listStyle: 'none',
       }}>
         {resumen}
@@ -227,6 +245,133 @@ function Salidas({ resumen, children }: { resumen: string; children: React.React
     </details>
   );
 }
+
+/**
+ * EL ESTUDIO: la pantalla donde se produce, sin caja de formulario.
+ *
+ * Martín: *«elimina el contenedor tipo form que ya tenemos. La generación de
+ * video e imágenes tiene que ser mucho más épica.»*
+ *
+ * `WizardShell` es el chrome correcto para una PREGUNTA con un input debajo —una
+ * tarjeta con header, dots y footer— y es exactamente el marco equivocado para
+ * mirar un video vertical de 720 px: le pone borde a lo que tiene que no tener
+ * borde, y convierte «mirá esto» en «completá esto».
+ *
+ * El fondo NEGRO está medido sobre cuadros reales de Flow, no elegido: su lienzo
+ * de generación vive sobre negro puro. Un gris oscuro se lee como una caja más
+ * oscura; el negro desaparece y deja sólo el medio.
+ *
+ * Lo que sobrevive del wizard es lo único que hacía falta: la posición, un solo
+ * botón que avanza, y una salida. Todo flota sobre el negro, sin encerrar nada.
+ */
+function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia, cargando, onSiguiente, atras, onAtras, onSalir, error }: {
+  pregunta: string;
+  titulo?: string;
+  paso: number;
+  total: number;
+  children: React.ReactNode;
+  boton?: string;
+  consecuencia?: string;
+  cargando?: boolean;
+  onSiguiente?: () => void;
+  atras?: string;
+  onAtras?: () => void;
+  onSalir: () => void;
+  error?: string;
+}) {
+  return (
+    <div className="mk-estudio">
+      {/* La barra de posición: segmentos finos, no dots de formulario. Dice
+          dónde estás sin pedir nada y sin ocupar una fila entera. */}
+      <div style={{
+        display: 'flex', gap: 4, width: '100%', maxWidth: 520, alignItems: 'center',
+      }}>
+        {Array.from({ length: total }, (_, i) => (
+          <div
+            key={i}
+            style={{
+              flex: 1, height: 3, borderRadius: 2,
+              background: i < paso ? 'rgba(255,255,255,.85)' : 'rgba(255,255,255,.16)',
+              transition: 'background .35s ease',
+            }}
+          />
+        ))}
+      </div>
+
+      {/* LA PREGUNTA, grande y sola. Es lo que se lee en el primer segundo. */}
+      <div style={{ textAlign: 'center', maxWidth: 720 }}>
+        <h2 style={{
+          margin: 0, fontSize: 'clamp(22px, 2.2vw, 31px)', fontWeight: 640,
+          letterSpacing: '-.02em', lineHeight: 1.2, color: '#fff',
+        }}>
+          {pregunta}
+        </h2>
+        {titulo && (
+          <p style={{
+            margin: '9px 0 0', fontSize: 'var(--fs-md)', lineHeight: 1.45,
+            color: 'rgba(255,255,255,.62)',
+          }}>
+            {titulo}
+          </p>
+        )}
+      </div>
+
+      <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>{children}</div>
+
+      {error && (
+        <div style={{
+          fontSize: 'var(--fs-sm)', color: '#FFB4A8', textAlign: 'center', maxWidth: 560,
+        }}>
+          {error}
+        </div>
+      )}
+
+      {boton && (
+        <div style={{ textAlign: 'center' }}>
+          <button
+            type="button"
+            onClick={onSiguiente}
+            disabled={!onSiguiente || cargando}
+            style={{
+              fontFamily: 'inherit', fontSize: 17, fontWeight: 650,
+              padding: '15px 34px', borderRadius: 999, border: 'none',
+              background: cargando ? 'rgba(255,255,255,.28)' : '#fff',
+              color: cargando ? 'rgba(255,255,255,.75)' : '#0B0C0E',
+              cursor: onSiguiente && !cargando ? 'pointer' : 'default',
+              transition: 'transform .15s ease, background .2s ease',
+            }}
+            onMouseEnter={(e) => { if (onSiguiente && !cargando) e.currentTarget.style.transform = 'scale(1.03)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+          >
+            {cargando ? 'Un momento…' : boton}
+          </button>
+          {/* La consecuencia PEGADA al botón y antes del click. En blanco al 70%:
+              se lee, y no compite con el botón. */}
+          {consecuencia && (
+            <div style={{
+              marginTop: 10, fontSize: 'var(--fs-sm)', color: 'rgba(255,255,255,.7)',
+            }}>
+              {consecuencia}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Las salidas, al pie y en peso bajo. Nunca compiten con lo que avanza. */}
+      <div style={{ display: 'flex', gap: 22, marginTop: 'auto', paddingTop: 8 }}>
+        {onAtras && (
+          <button type="button" onClick={onAtras} style={salida}>{atras ?? 'Atrás'}</button>
+        )}
+        <button type="button" onClick={onSalir} style={salida}>Salir</button>
+      </div>
+    </div>
+  );
+}
+
+const salida: React.CSSProperties = {
+  background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+  fontSize: 'var(--fs-sm)', color: 'rgba(255,255,255,.55)', padding: 4,
+};
 
 // ── El wizard ───────────────────────────────────────────────────────────────
 
@@ -321,12 +466,12 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                 key={c.n}
                 style={{
                   display: 'flex', gap: 16, padding: '15px 0',
-                  borderTop: c.n === 1 ? 'none' : '1px solid var(--border)',
+                  borderTop: c.n === 1 ? 'none' : '1px solid rgba(255,255,255,.10)',
                 }}
               >
                 <div style={{
                   flex: 'none', width: 30, textAlign: 'right', fontFamily: MONO,
-                  fontSize: 14, color: 'var(--faint)', paddingTop: 5,
+                  fontSize: 14, color: 'rgba(255,255,255,.4)', paddingTop: 5,
                 }}>
                   {c.n}
                 </div>
@@ -342,7 +487,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                     onSave={(v) => void correr('linea', () => editarLineaPlanAction(item.id, c.n, v), false)}
                     style={{
                       fontSize: 'clamp(18px, 1.5vw, 23px)', lineHeight: 1.45,
-                      color: c.habla ? 'var(--ink)' : 'var(--dim)',
+                      color: c.habla ? '#fff' : 'rgba(255,255,255,.62)',
                       fontStyle: c.habla ? 'normal' : 'italic',
                     }}
                   />
@@ -386,7 +531,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
       ) : generando ? (
         <Niebla etiqueta={`Generando la imagen del escenario ${paso.n}`} desde={desde} />
       ) : marca?.elegida ? (
-        <img src={marca.elegida} alt={escena?.lugar ?? ''} style={MEDIO} />
+        <Revela k={marca.elegida}><img src={marca.elegida} alt={escena?.lugar ?? ''} style={MEDIO} /></Revela>
       ) : (
         <div style={{ color: 'var(--faint)' }}><Icon name="imagegen" size={44} /></div>
       );
@@ -518,7 +663,9 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                 <Pie>Tu foto</Pie>
               </div>
               <div>
-                <Vertical fondo="#000">{uno?.url ? <Clip src={uno.url} /> : null}</Vertical>
+                <Vertical fondo="#000">
+                  {uno?.url ? <Revela k={uno.url}><Clip src={uno.url} /></Revela> : null}
+                </Vertical>
                 <Pie>La toma 1</Pie>
               </div>
             </div>
@@ -573,7 +720,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
       const dentro = enCurso
         ? <Niebla etiqueta={`Filmando la toma ${n}`} desde={desde} />
         : vAnterior?.url
-          ? <Clip src={vAnterior.url} />
+          ? <Revela k={vAnterior.url}><Clip src={vAnterior.url} /></Revela>
           : imagen
             ? <img src={imagen} alt={`El escenario de la toma ${n}`} style={MEDIO} />
             : null;
@@ -641,36 +788,25 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
     };
   }
 
+  const posicion = Math.max(1, mapa.indexOf(clave(paso)) + 1);
+
   return (
-    <WizardShell
-      fullscreen
-      embebido
-      anchoCuerpo={ANCHO_CUERPO}
-      pasos={mapa}
-      pasoActual={clave(paso)}
-      titulo={p.titulo ?? ''}
+    <Estudio
       pregunta={p.pregunta}
-      sub={p.sub}
-      error={error || null}
-      puedeAvanzar={!!p.onSiguiente && !ocupado}
-      enUltimo={false}
-      confirmLabel=""
-      pending={!!p.cargandoBoton}
-      hideSiguiente={!p.boton}
-      siguienteLabel={p.boton ?? ''}
-      atrasLabel={p.atras ?? 'Atrás'}
-      hideAtras={!p.onAtras}
-      onAtras={() => p.onAtras?.()}
-      onSiguiente={() => p.onSiguiente?.()}
-      onConfirmar={() => p.onSiguiente?.()}
-      onClose={onSalir}
-      extraFooter={p.consecuencia ? (
-        // La consecuencia PEGADA al botón y en tinta normal, antes del click.
-        <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--ink)' }}>{p.consecuencia}</span>
-      ) : undefined}
+      titulo={p.titulo}
+      paso={posicion}
+      total={mapa.length}
+      boton={p.boton}
+      consecuencia={p.consecuencia}
+      cargando={!!p.cargandoBoton}
+      onSiguiente={p.onSiguiente}
+      atras={p.atras}
+      onAtras={p.onAtras}
+      onSalir={onSalir}
+      error={error}
     >
       {p.cuerpo}
-    </WizardShell>
+    </Estudio>
   );
 }
 

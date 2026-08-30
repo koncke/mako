@@ -1105,6 +1105,66 @@
 }
 .mk-lienzo > * { position: relative; z-index: 1; }
 
+/* ── EL ESTUDIO: la superficie donde se genera ────────────────────────────
+   No es una tarjeta con un formulario adentro: es una isla OSCURA, del mismo
+   tipo que el sidebar y el toast, donde lo unico que hay es lo que se esta
+   produciendo. El dueno lo pidio asi: «elimina el contenedor tipo form que ya
+   tenemos, la generacion de video e imagenes tiene que ser mucho mas epica».
+
+   El negro no es una eleccion estetica: esta MEDIDO sobre cuadros reales de
+   Google Flow (scratchpad/flow/f_03.png). Su lienzo de generacion vive sobre
+   negro PURO —(0,0,0) en las cuatro esquinas y entre tiles— y no sobre un gris.
+   Un gris oscuro se lee como «una caja mas oscura»; el negro desaparece y deja
+   solo el medio, que es el punto. */
+.mk-estudio {
+  background: #000;
+  border-radius: 20px;
+  padding: 30px 24px 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  min-height: 78vh;
+  color: #fff;
+}
+
+/* ⚠️ LA NIEBLA SOBRE NEGRO ES OTRA NIEBLA.
+   `.mk-lienzo` esta calibrada contra una PAGINA CLARA: base #525963, que sobre
+   blanco se lee como una foto desenfocada. Sobre negro esa misma base se ve
+   como un rectangulo gris claro flotando, o sea lo contrario de «algo
+   formandose».
+   Estos valores salen de muestrear el cuadro de Flow: el tile va de (19,24,28)
+   en sus lobulos oscuros a (108,112,117) en los claros, con una media cerca de
+   (55,60,65). */
+.mk-lienzo--estudio { background: #373C41; }
+.mk-lienzo--estudio::before {
+  background:
+    radial-gradient(62% 40% at 28% 22%, rgba(108, 112, 117, .85), transparent 70%),
+    radial-gradient(58% 38% at 20% 80%, rgba(92, 97, 103, .70), transparent 70%),
+    radial-gradient(60% 42% at 78% 55%, rgba(13, 17, 21, .75), transparent 70%);
+}
+.mk-lienzo--estudio::after {
+  background:
+    radial-gradient(58% 38% at 74% 20%, rgba(100, 105, 111, .75), transparent 70%),
+    radial-gradient(56% 40% at 32% 58%, rgba(15, 19, 23, .70), transparent 70%),
+    radial-gradient(52% 34% at 86% 86%, rgba(96, 101, 107, .70), transparent 70%);
+}
+
+/* El medio APARECE DESDE la niebla en vez de reemplazarla de golpe.
+   Es el momento que el dueno pidio hacer epico, y es literalmente lo que pasa:
+   una imagen que se termina de resolver. El desenfoque que se va es el mismo
+   gesto que la niebla que estaba abajo. */
+@keyframes mk-revelar {
+  0%   { opacity: 0; transform: scale(1.06); filter: blur(26px) saturate(.6); }
+  60%  { opacity: 1; }
+  100% { opacity: 1; transform: scale(1);    filter: blur(0)    saturate(1); }
+}
+.mk-revelar { animation: mk-revelar 900ms cubic-bezier(.16,.84,.34,1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-revelar { animation: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .mk-lienzo::before, .mk-lienzo::after { animation: none; }
 }

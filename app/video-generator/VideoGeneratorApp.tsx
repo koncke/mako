@@ -1159,6 +1159,11 @@ export function VideoGeneratorApp({
   // onboarding: no se inventa uno.
   if (vista === 'anuncio' && actual) {
     return (
+      // `Pagina` con ancho completo: el estudio es un LIENZO y necesita cada
+      // píxel. La regla de la casa sigue en pie —una pantalla no elige su ancho,
+      // lo elige `Pagina`— y `completo` es la variante que existe justo para
+      // esto.
+      <Pagina ancho="completo" densidad="compacta">
       <WizardAnuncio
         item={actual}
         contexto={contexto}
@@ -1175,6 +1180,7 @@ export function VideoGeneratorApp({
           window.history.replaceState(null, '', window.location.pathname);
         }}
       />
+      </Pagina>
     );
   }
 
