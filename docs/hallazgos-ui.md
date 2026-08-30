@@ -2372,3 +2372,42 @@ svg centraría estos casos, pero cambia el flujo en todos los demás lugares del
 un riesgo mucho mayor que el bug.
 
 **Vive en:** `app/_components/icons.tsx`, `app/video-generator/CargarGuiones.tsx`.
+
+## `align-items: center` centra CAJAS; el ojo ve TINTA
+
+**Vive en:** `public/cono-doc/ugc.css` → `.ugc-hero-primera`.
+
+Una pastilla («Empezar →», Archivo 13 px) con un texto al lado (el nombre de la clase,
+JetBrains Mono 11,5 px) se veía corrida. Medido, las dos cajas estaban **centradas al
+píxel: 0,01 px de desfase**. El problema no era el centrado.
+
+Entre la caja de línea y los glifos hay dos cosas que cambian con cada tipografía: el
+*half-leading* (la mitad de la diferencia entre `line-height` y `font-size`, repartida
+arriba y abajo) y la distancia entre el `ascent` de la fuente y su altura de mayúscula. Dos
+fuentes distintas, en cajas perfectamente centradas, ponen la tinta en sitios distintos.
+
+Medido con `measureText` sobre las dos (`actualBoundingBoxAscent`/`Descent`):
+
+| | vs. el centro de la pastilla |
+|---|---|
+| rótulo del botón (Archivo 13) | **0,5 px** |
+| nombre de la clase (Mono 11,5) | **1,73 px** |
+
+⚠️ **Y las dos hipótesis obvias eran falsas, las dos comprobadas antes de tocar nada:**
+
+- *«están descentradas»* → 0,01 px. No.
+- *«hay que alinear por baseline, no por centro»* → `align-items: baseline` **EMPEORA** el
+  caso, de 1,73 a 2,02 px. El `inline-flex` de la pastilla sintetiza su baseline y no cae
+  donde uno supone.
+
+La cura es un ajuste óptico **medido**: `position: relative; top: -2px` sobre el texto
+chico, con el número al lado en el comentario. Queda a 0,27 px.
+
+**La regla: si dos textos de tipografías o cuerpos distintos van uno al lado del otro y
+«se ven corridos», medí la TINTA antes de tocar el layout.** Un `align-items` distinto
+mueve cajas que ya estaban bien. Y si el ajuste termina siendo un desplazamiento a mano,
+que sea el número que salió de medir — no uno probado a ojo hasta que pareció.
+
+**Cómo se mide** (`scratchpad/medir-tinta.js`): la caja de línea con un `Range` sobre el
+contenido, y la tinta con `canvas.measureText` usando la `font` que devuelve
+`getComputedStyle`. La baseline sale de `top + halfLeading + fontBoundingBoxAscent`.

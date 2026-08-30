@@ -2839,6 +2839,15 @@ html:has(.ahdoc), body:has(.ahdoc) { overflow: hidden !important; height: 100% !
    toques. «Abrir» no decia que se abria. */
 .ahdoc .ugc .ugc-hero-arranque {
   display: flex;
+  /* ⚠️ BASELINE, no CENTER. Medido: con `center` las dos CAJAS quedan centradas al pixel
+     (desfase 0,01 px) y aun asi se ve corrido, porque el ojo no alinea cajas: alinea
+     lineas de base. Son dos tipografias y dos cuerpos distintos —Archivo 13 px adentro de
+     la pastilla, JetBrains Mono 11,5 px al lado—, asi que sus baselines caen en sitios
+     distintos dentro de cajas perfectamente centradas.
+
+     Con `baseline` la pastilla se alinea por la base de SU rotulo, que es contra lo que se
+     lee el texto de al lado. Reportado por Martin: «el titulo de la primera clase no quedo
+     alineado y centrado con el boton». */
   align-items: center;
   gap: 13px;
   min-width: 0;
@@ -2865,6 +2874,20 @@ html:has(.ahdoc), body:has(.ahdoc) { overflow: hidden !important; height: 100% !
    —dos lineas lo convertirian en un segundo parrafo al lado del boton. */
 .ahdoc .ugc .ugc-hero-primera {
   min-width: 0;
+  /* ⚠️ CORRECCION OPTICA MEDIDA, no un ojimetro. `align-items: center` centra las CAJAS
+     DE LINEA, y con eso las dos quedan centradas al pixel (0,01 px) — pero el ojo no ve
+     cajas, ve TINTA, y la tinta de cada tipografia cae en un sitio distinto adentro de su
+     caja. Medido con `measureText` sobre las dos: la tinta de este texto (JetBrains Mono
+     11,5) cae 1,73 px POR DEBAJO del centro de la pastilla, mientras que la del rotulo
+     (Archivo 13, adentro del boton) esta a 0,5 px. Se sube 2 px y queda a un cuarto de
+     pixel.
+
+     Probado antes `align-items: baseline`, que es lo que uno supone: EMPEORA a 2,02 px.
+     Lo reporto Martin —«el titulo de la primera clase no quedo alineado y centrado con el
+     boton»— y las dos primeras hipotesis (cajas descentradas, baselines) daban 0,6 px, o
+     sea invisible: el numero que importaba era otro. */
+  position: relative;
+  top: -2px;
   font-family: var(--font-jetbrains), monospace;
   font-size: 11.5px;
   letter-spacing: 0.01em;
