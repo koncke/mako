@@ -180,10 +180,35 @@ const SOLO_LECTURA = new Set(['creditos', 'estado_clips']);
  * clip desde referencias no es lo mismo que encadenarlo por frames— y la tabla
  * por tipo solo podia acertarle a uno.
  */
-function accionDeCaptcha(path) {
-  // De `/v1/video:batchAsyncGenerateVideoReferenceImages` sale
-  // `batchAsyncGenerateVideoReferenceImages`: el metodo, sin la version ni el
-  // recurso. Es exactamente lo que la app pone en su propio `execute()`.
+/**
+ * Las acciones que Flow usa DE VERDAD. Medidas, no derivadas.
+ *
+ * ⚠️ Salieron de decodificar el bundle de Flow: la tabla de strings del
+ * ofuscador, indice 0x13d8, despues de aplicar la rotacion que el propio bundle
+ * hace al cargar. La linea donde la app acuna su token es
+ *
+ *     recaptchaContext: { token: await hw('VIDEO_GENERATION'), applicationType: ... }
+ *
+ * Antes se DERIVABA del path —`batchAsyncGenerateVideoReferenceImages`— con un
+ * comentario que afirmaba que era «exactamente lo que la app pone en su propio
+ * execute()». Era falso, y costo un dia: reCAPTCHA Enterprise ATA el token a la
+ * accion, asi que cada pedido volvia 403 «reCAPTCHA evaluation failed» — el mismo
+ * cuerpo que devuelve un token con score bajo, y por eso se confundio con una
+ * sesion quemada durante horas.
+ *
+ * Y NO se pudo medir desde la pagina: se envolvio `grecaptcha.enterprise.execute`
+ * y no capturo nada en dos intentos, porque Flow lo llama desde un contexto que
+ * el espejo no alcanza. Cuando el espejo no llega, se lee el codigo.
+ */
+const ACCION_CAPTCHA = {
+  generar_clip: 'VIDEO_GENERATION',
+  generar_imagen: 'IMAGE_GENERATION',
+};
+
+function accionDeCaptcha(tipo, path) {
+  if (ACCION_CAPTCHA[tipo]) return ACCION_CAPTCHA[tipo];
+  // Fallback para lo que todavia no se midio: el metodo del endpoint. No es lo
+  // que Flow usa —ahora lo sabemos— pero es lo unico inferible sin medir.
   const ultimo = String(path || '').split('?')[0].split('/').filter(Boolean).pop() || '';
   const metodo = ultimo.includes(':') ? ultimo.split(':').pop() : ultimo;
   return metodo || 'generate';
@@ -206,7 +231,7 @@ async function ejecutar(trabajo) {
 
   let cuerpo = null;
   if (!soloLectura) {
-    const captcha = await pedirCaptcha(tab.id, accionDeCaptcha(path));
+    const captcha = await pedirCaptcha(tab.id, accionDeCaptcha(trabajo.tipo, path));
     cuerpo = { ...(body || {}) };
     // ⚠️ `projectId` solo viaja si lo SABEMOS. Iba siempre, y cuando estaba vacio
     // —que es casi siempre: solo se aprende de URLs con forma `/v1/projects/<id>/`
