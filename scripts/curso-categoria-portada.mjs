@@ -384,6 +384,40 @@ if (sinTapa.length) console.log(`\n  ${sinTapa.length} sin tapa en disco: ${sinT
  * ⚠️ Y no se inventa la que falta: un curso sin descripción se queda sin resumen. Ver el
  *    porqué en el comentario del mapa, en catalogo.ts.
  */
+/**
+ * El techo de 185 caracteres, que NO es un gusto: la portada del curso recorta la
+ * descripcion a 3 lineas y en esa columna entran ~93 caracteres por linea. Lo que pase de
+ * ahi no se lee en ningun lado.
+ *
+ * ⚠️ Y ESTO TENIA QUE SER AUTOMATICO. Las 87 descripciones se acortaron a mano el
+ *    30/08/2026 y ese mismo dia la cola publico dos cursos nuevos con 452 y 473
+ *    caracteres: un arreglo que hay que repetir a mano en cada curso nuevo no es un
+ *    arreglo, es una tarea. Es la misma leccion que `curso-al-catalogo.mjs`, que se
+ *    escribio para automatizar un paso manual y quedo como otro paso manual.
+ *
+ * ⚠️ RECORTA, NO REESCRIBE. Corta en un limite de clausula —punto o coma— y se queda con
+ *    el prefijo mas largo que entre. Nunca agrega ni reformula: una descripcion que dice
+ *    de menos sigue siendo cierta, una que dice de mas no. Si ni la primera clausula
+ *    entra, se deja entera y se avisa: es preferible una linea larga a una frase cortada
+ *    al medio.
+ */
+const TOPE_RESUMEN = 185;
+const recortadas = [];
+const recortar = (texto) => {
+  if (texto.length <= TOPE_RESUMEN) return texto;
+  // Los cortes posibles, de mayor a menor: el final de cada clausula que entre en el tope.
+  let mejor = '';
+  for (const m of texto.matchAll(/[.,;:]\s+/g)) {
+    const hasta = m.index + 1;                 // se conserva el signo
+    if (hasta > TOPE_RESUMEN) break;
+    mejor = texto.slice(0, hasta);
+  }
+  if (!mejor) { recortadas.push([texto.length, null]); return texto; }
+  const final = mejor.replace(/[,;:]$/, '.').trim();
+  recortadas.push([texto.length, final.length]);
+  return final;
+};
+
 cat = readFileSync(CAT_TS, 'utf8');
 const bRes = bloque('RESUMEN');
 const nuevasRes = [];
@@ -395,7 +429,7 @@ else {
     // El cruce ya se hizo arriba: rehacerlo acá es la forma de que dos partes del mismo
     // script contesten distinto sobre el mismo curso.
     const d = (enPlataforma.get(f.slug)?.p?.short_description ?? '').replace(/\s+/g, ' ').trim();
-    if (d) nuevasRes.push([f.slug, d]);
+    if (d) nuevasRes.push([f.slug, recortar(d)]);
     else sinResumen.push(f.slug);
   }
 }
@@ -409,6 +443,12 @@ if (nuevasRes.length) {
   cat = cat.slice(0, bRes.fin) + texto + cat.slice(bRes.fin);
   escribir(cat);
   console.log(`\n  ✓ ${nuevasRes.length} resumen(es) escrito(s) en el mapa RESUMEN`);
+}
+if (recortadas.length) {
+  const cortadas = recortadas.filter((r) => r[1]);
+  const enteras = recortadas.filter((r) => !r[1]);
+  if (cortadas.length) console.log(`\n  ${cortadas.length} descripcion(es) recortada(s) al tope de ${TOPE_RESUMEN}: ${cortadas.map((r) => `${r[0]}→${r[1]}`).join(', ')}`);
+  if (enteras.length) console.log(`  ⚠️  ${enteras.length} pasan de ${TOPE_RESUMEN} y NO se pudieron cortar en una clausula: quedaron enteras, revisalas a mano`);
 }
 if (sinResumen.length) {
   console.log(`\n  ${sinResumen.length} sin resumen (la plataforma no los describe, no se les inventa uno):`);

@@ -111,6 +111,7 @@ import { CURSO_IMPERIO_AFILIADO } from './curso-imperio-afiliado';
 import { CURSO_ACADEMIA_DEL_SENSEI } from './curso-academia-del-sensei';
 import { CURSO_GROWING_SETTERS_3_0 } from './curso-growing-setters-3-0';
 import { CURSO_INSTITUTO_DE_MARCA_PERSONAL } from './curso-instituto-de-marca-personal';
+import { CURSO_UDIA } from './curso-udia';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio.datos';
 import { CURSO_BRANDING } from './BrandingMaKo.datos';
@@ -373,6 +374,10 @@ const CATEGORIA: Record<string, string> = {
   // plataforma. El comentario al lado es la categoría de origen.
   'instituto-de-marca-personal': 'Orgánico', // Marca Personal
 
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'udia': 'Inteligencia Artificial',       // IA
+
 };
 
 /**
@@ -539,6 +544,10 @@ const PORTADA: Record<string, string> = {
   // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
   // pero la ficha se había emitido antes de que existiera.
   'instituto-de-marca-personal': '/cono-portadas/instituto-de-marca-personal.png',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'udia': '/cono-portadas/udia.png',
 
 };
 
@@ -819,7 +828,7 @@ const RESUMEN: Record<string, string> = {
 
   // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
   // del catálogo de la plataforma.
-  'imperio-afiliado': 'Aprende a crear tu negocio de marketing de afiliados desde cero. El curso enseña cómo seleccionar productos rentables para promocionar, crear funnels perpetuos, construir estrategias de email marketing efectivas, generar tráfico cualificado, conversión de desconocidos en clientes, y monetización sin crear producto propio. Incluye el método único para convertir masivamente a través de máquinas digitales.',
+  'imperio-afiliado': 'Aprende a crear tu negocio de marketing de afiliados desde cero. El curso enseña cómo seleccionar productos rentables para promocionar, crear funnels perpetuos.',
 
   // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
   // del catálogo de la plataforma.
@@ -828,7 +837,11 @@ const RESUMEN: Record<string, string> = {
 
   // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
   // del catálogo de la plataforma.
-  'instituto-de-marca-personal': 'Aprende a construir y monetizar tu marca personal. El curso enseña definición de marca personal identificando valores y puntos fuertes, creación de estrategias de contenido efectivas, gestión de redes sociales, construcción de audiencia comprometida, crecimiento orgánico en YouTube, técnicas de monetización, colaboraciones con marcas, y estrategias de crecimiento viral. Basado en 16 módulos especializados para transformar tu marca en negocio online rentable.',
+  'instituto-de-marca-personal': 'Aprende a construir y monetizar tu marca personal. El curso enseña definición de marca personal identificando valores y puntos fuertes, creación de estrategias de contenido efectivas.',
+
+  // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
+  // del catálogo de la plataforma.
+  'udia': 'Aprende a crear y escalar negocios usando inteligencia artificial. El curso enseña automatización de procesos con IA, creación de aplicaciones funcionales desde ideas.',
 
 };
 
@@ -1108,6 +1121,9 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_INSTITUTO_DE_MARCA_PERSONAL,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_UDIA,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
