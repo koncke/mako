@@ -2969,3 +2969,60 @@ porque no rompe nada visible. Donde sí importa es en iOS: el manifest es lo que
 apuntando a una pantalla que no es la app.
 
 **Vive en:** proxy.ts (`config.matcher`) · *2026-08-18*
+
+## Los CUATRO guards de sincronía frenaban el push de cualquiera que reclonara
+
+**Vive en:** `scripts/sync-contrato-detalle.mjs` · `scripts/sync-gramatica-doc.mjs` ·
+`scripts/generar-plugin.mjs` · `scripts/zip-extension.mjs`.
+
+El pre-push tiene una familia de guardas que comparan un texto GENERADO contra un archivo
+del repo: la skill contra el contrato del `detalle`, `docs/branding-mako.md` contra
+`lib/mako-gramatica.ts`, `plugin/` contra `lib/agente-skill.ts`, y
+`lib/extension-version.ts` contra el `manifest.json` de la extensión. Las cuatro comparaban
+con `===`.
+
+**Y `core.autocrlf=true` hace que esa comparación dependa de en qué clon estás.** El bloque
+se inserta con `\n` sobre un archivo que en disco es CRLF, así que el resultado queda
+MEZCLADO: CRLF en lo escrito a mano y LF en lo generado. En el clon donde el script corrió
+alguna vez eso coincide y el chequeo pasa; en un árbol recién sacado de git —un clon
+nuevo, un worktree, CI— git normaliza TODO a CRLF y la comparación exacta da distinto
+**sobre un archivo idéntico**.
+
+El síntoma es desconcertante y por eso costó: `node scripts/sync-contrato-detalle.mjs
+--check` decía **«✓ al día» en el repo y «✗ DESINCRONIZADO» en un worktree del mismo
+commit**, con `git status` limpio en los dos.
+
+⚠️ **Y las cuatro se «verificaron» en el repo, que es el único árbol donde el bug no puede
+verse.** Antes de tocar `generar-plugin.mjs` se corrió su `--check` en el repo, dio verde y
+se lo declaró sano; falló apenas se lo corrió en el worktree. **Comprobar una guarda en el
+único lugar donde no puede fallar es no comprobarla.**
+
+La cura, en las cuatro: `const sinCR = (s) => s.replace(/\r\n/g, '\n')` y comparar
+normalizado. **Al ESCRIBIR se usa el texto tal cual**: normalizar sirve para decidir SI hay
+que escribir, no para cambiar QUÉ se escribe.
+
+### Y el corolario que se paga entre sesiones: un guard que mira el DISCO bloquea al vecino
+
+`zip-extension.mjs --check` calculaba la huella de la extensión con
+`readdirSync`/`readFileSync` sobre `extension/`, o sea el árbol de trabajo. Con dos
+sesiones sobre el mismo clon —lo normal acá—, **cualquier edición a medio hacer de una
+bloquea el push de la otra**: el 30/08/2026 no se pudo pushear el portal de cursos porque
+la sesión vecina tenía `background.js`, `content.js` e `injected.js` modificados sin
+commitear.
+
+El propio script ya aplicaba esta lección a las SALIDAS —«se despliega el COMMIT, no el
+disco», con su caso escrito al lado— y se la había salteado a la ENTRADA. Y es exactamente
+la trampa que `curso-catalogo-verificar.mjs` cometió el 29/08, que también bloqueó a la
+sesión vecina, y que se curó igual: **en `--check`, leer de HEAD** (`git ls-tree` +
+`git show`). Generando sin `--check` sí se lee el disco, que ahí es lo correcto.
+
+**La regla general: un guard de pre-push contesta sobre lo que se PUBLICA. Todo lo que lea
+del árbol de trabajo es una pregunta sobre otra cosa** — y en un repo con sesiones en
+paralelo, sobre el trabajo de otro.
+
+⚠️ **Cuando el árbol compartido tiene trabajo ajeno que no compila, el push va desde un
+worktree limpio**, no con `--no-verify`. Hoy un `.tsx` nuevo y sin commitear de la otra
+sesión tenía un error de tipos y el hook —que corre `tsc` sobre el árbol— frenaba todo.
+`git worktree add --detach <ruta> main`, un junction a `node_modules` (`New-Item -ItemType
+Junction`), y `git push origin HEAD:main` desde ahí. Se descarta con `git worktree remove
+--force` + `git worktree prune`.

@@ -72,6 +72,35 @@ instalando la versión vieja — sin error, sin síntoma, y con el bug que se ac
 arreglar todavía adentro. La huella se calcula sobre el CONTENIDO de los archivos y no
 sobre el zip, porque un zip trae timestamps y no es reproducible byte a byte.
 
+⚠️ **UNA GUARDA DEL PRE-PUSH CONTESTA SOBRE LO QUE SE PUBLICA, NO SOBRE TU DISCO.** Todo
+lo que lea del árbol de trabajo es una pregunta sobre otra cosa — y con dos sesiones sobre
+el mismo clon, sobre el trabajo a medias de la otra. Ya bloqueó pushes en las dos
+direcciones: el verificador del catálogo frenó a la sesión vecina el 29/08, y el del zip
+de la extensión frenó al portal de cursos el 30/08 porque el vecino tenía tres `.js` sin
+commitear. En `--check` se lee de **HEAD** (`git ls-tree` + `git show`); generando se lee
+el disco, que ahí sí es lo correcto.
+
+⚠️ **Y TODA GUARDA QUE COMPARE TEXTO GENERADO CONTRA UN ARCHIVO NORMALIZA LOS ``.** El
+bloque se inserta con `
+` sobre un archivo que en disco es CRLF (`core.autocrlf=true`), así
+que el archivo queda MEZCLADO y la comparación exacta pasa **sólo en el clon donde el script
+corrió alguna vez**. En un clon nuevo, un worktree o CI, git normaliza todo a CRLF y la
+guarda frena el push sobre un archivo idéntico. Las CUATRO de esta familia lo tenían
+(`sync-contrato-detalle`, `sync-gramatica-doc`, `generar-plugin`, `zip-extension`). Va
+`const sinCR = (s) => s.replace(/
+/g, '
+')` para DECIDIR si escribir; lo que se
+escribe no se toca.
+
+⚠️ **Y se prueba en un árbol recién checkouteado, no en el tuyo.** Las cuatro daban «✓ al
+día» en el repo, que es el único lugar donde ese bug no puede verse. Comprobar una guarda
+donde no puede fallar es no comprobarla.
+
+⚠️ **Si el árbol compartido tiene trabajo ajeno que no compila, se pushea desde un worktree
+limpio — nunca con `--no-verify`.** `git worktree add --detach <ruta> main`, un junction a
+`node_modules` (`New-Item -ItemType Junction`), `git push origin HEAD:main` desde ahí, y
+después `git worktree remove --force` + `git worktree prune`.
+
 ⚠️ **Lo que el hook NO hace es correr los tests** (`npm test`), y por eso hay que acordarse
 a mano. Un renombre pasa el typecheck perfecto y rompe una aserción sin que nada avise: al
 renombrar la tab «Guiones» a «Ads Writer» el push salió verde, se desplegó a producción, y
