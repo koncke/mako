@@ -20,7 +20,33 @@ const HUELLA = resolve(RAIZ, 'public/mako-puente.sha');
 // nueva» que no se apaga nunca (o peor: uno que nunca aparece).
 const VERSION_TS = resolve(RAIZ, 'lib/extension-version.ts');
 
-const version = JSON.parse(readFileSync(resolve(ORIGEN, 'manifest.json'), 'utf8')).version;
+const CHEQUEO = process.argv.includes('--check');
+
+/**
+ * ⚠️ EN MODO `--check` LA EXTENSIÓN SE LEE DE **HEAD**, NO DEL DISCO.
+ *
+ * La guarda de abajo ya aplicaba esta lección a las SALIDAS (el zip, la huella y
+ * `extension-version.ts` tienen que estar commiteados) y se la había salteado a la
+ * ENTRADA: la huella se calculaba con `readdirSync`/`readFileSync` sobre `extension/`.
+ *
+ * Con eso, cualquier edición a medio hacer de OTRA sesión bloquea el push de todos: el
+ * 30/08/2026 una sesión no pudo pushear trabajo del portal de cursos porque la otra tenía
+ * `background.js`, `content.js` e `injected.js` modificados sin commitear. Y era la misma
+ * trampa que el verificador del catálogo de cursos ya había cometido —bloqueó a la sesión
+ * vecina el 29/08— con la misma cura: preguntar por lo que se PUBLICA, no por lo que hay
+ * en el disco de quien pushea. Sesiones en paralelo sobre un mismo clon es lo normal acá.
+ *
+ * Generando (sin `--check`) sí se lee el disco: ahí el que corre el script es el autor de
+ * la extensión y lo que quiere empaquetar es lo que acaba de escribir.
+ */
+const deHead = (ruta) => execSync(`git show HEAD:${ruta}`, { encoding: 'buffer', maxBuffer: 64 * 1024 * 1024 });
+const listarHead = () => execSync('git ls-tree HEAD extension/ --name-only', { encoding: 'utf8' })
+  .split('\n').map((l) => l.trim()).filter(Boolean).map((l) => l.replace(/^extension\//, ''))
+  .filter((f) => f && !f.startsWith('.')).sort();
+
+const leer = (f) => (CHEQUEO ? deHead(`extension/${f}`) : readFileSync(resolve(ORIGEN, f)));
+
+const version = JSON.parse(leer('manifest.json').toString('utf8')).version;
 
 const moduloVersion = `// GENERADO por scripts/zip-extension.mjs — no editar a mano.
 //
@@ -32,7 +58,7 @@ const moduloVersion = `// GENERADO por scripts/zip-extension.mjs — no editar a
 export const EXTENSION_VERSION = '${version}';
 `;
 
-const archivos = readdirSync(ORIGEN).filter((f) => !f.startsWith('.')).sort();
+const archivos = CHEQUEO ? listarHead() : readdirSync(ORIGEN).filter((f) => !f.startsWith('.')).sort();
 
 // La huella se calcula sobre el CONTENIDO, no sobre el zip: un zip trae
 // timestamps y no es reproducible byte a byte, así que compararlo consigo mismo
@@ -40,11 +66,11 @@ const archivos = readdirSync(ORIGEN).filter((f) => !f.startsWith('.')).sort();
 const h = createHash('sha256');
 for (const f of archivos) {
   h.update(f);
-  h.update(readFileSync(resolve(ORIGEN, f)));
+  h.update(leer(f));
 }
 const huella = h.digest('hex');
 
-if (process.argv.includes('--check')) {
+if (CHEQUEO) {
   const guardada = existsSync(HUELLA) ? readFileSync(HUELLA, 'utf8').trim() : '';
   if (guardada !== huella) {
     console.error('\n  ✖ public/mako-puente.zip quedó viejo: la extensión cambió.');
