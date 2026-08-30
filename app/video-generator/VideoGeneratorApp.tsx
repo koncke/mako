@@ -29,7 +29,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from '@/app/_ui/Link';
 import {
-  Pagina, PageHeader, Section, Button, Alert, Tag, Modal, MONO,
+  Pagina, PageHeader, Section, Button, Alert, Tag, Modal, Status, Spinner,
+  ErrorState, Confirm, MONO,
 } from '@/app/_ui';
 import { WizardShell } from '../_components/WizardShell';
 import { Icon } from '../_components/icons';
@@ -49,8 +50,12 @@ import {
   SeccionCard, parsearSecciones, reconstruirSecciones, EditarTexto, ICONO_SECCION_GUION,
 } from '../components/SeccionCard';
 import { editarGuionAction } from './cargar-guiones-action';
-import { generarTomaAction, estadoTomaAction, pedirSaldoAction, saldoAction } from './video-action';
-import { PasoEscenarios, escenariosListos } from './PasoEscenarios';
+import {
+  generarTomaAction, estadoTomaAction, pedirSaldoAction, saldoAction, escribirEscenasAction,
+} from './video-action';
+import { Escenarios, escenariosListos, escenaDeToma } from './PasoEscenarios';
+import { VisorToma } from './VisorToma';
+import { causaFlow, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 
@@ -391,7 +396,14 @@ function AnuncioCard({ a }: { a: AnuncioHecho }) {
 function DetalleFormato({
   puesta, onCerrar, onUsar,
 }: {
-  puesta: Puesta; onCerrar: () => void; onUsar: () => void;
+  puesta: Puesta;
+  onCerrar: () => void;
+  /**
+   * Opcional a propósito: el mismo modal se abre desde el CATÁLOGO, donde tiene
+   * sentido crear con ese formato, y desde un anuncio YA CREADO, donde no. Sin
+   * esto habría que duplicar el modal para leer lo mismo.
+   */
+  onUsar?: () => void;
 }) {
   const ej = puesta.ejemplo!;
   return (
@@ -400,7 +412,9 @@ function DetalleFormato({
       encabezado={puesta.tecnico}
       onCerrar={onCerrar}
       ancho={720}
-      pie={<Button variant="mako" onClick={onUsar} icon={<Icon name="mako" size={14} />}>Crear con este formato</Button>}
+      pie={onUsar
+        ? <Button variant="mako" onClick={onUsar} icon={<Icon name="mako" size={14} />}>Crear con este formato</Button>
+        : undefined}
     >
       <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <video
@@ -450,135 +464,158 @@ function DetalleFormato({
  * sienta como algo que está pasando y no como una pantalla rota: el hueco del
  * video ya está ahí, del tamaño que va a tener, desde el primer segundo.
  */
-function Lienzo({ url, cargando, error, onGenerar, n }: {
-  url?: string;
-  cargando: boolean;
-  error?: string;
-  /** Ausente = todavía no se puede filmar (faltan escenarios por confirmar). */
-  onGenerar?: () => void;
-  n: number;
-}) {
-  const ANCHO = 176;
-
-  /*
-    El cronómetro. Arranca cuando arranca la espera, no cuando montó el
-    componente: si no, volver a la pestaña mostraría 0:00 sobre un clip que lleva
-    dos minutos.
-  */
-  const [desde] = useState(() => Date.now());
-  const [ahora, setAhora] = useState(desde);
-  useEffect(() => {
-    if (!cargando) return;
-    const t = setInterval(() => setAhora(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, [cargando]);
-  const seg = Math.max(0, Math.round((ahora - desde) / 1000));
-  const reloj = `${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, '0')}`;
-
-  if (url) {
-    return (
-      <video
-        src={url}
-        controls
-        playsInline
-        preload="metadata"
-        style={{
-          display: 'block', width: ANCHO, marginTop: 11, borderRadius: 13,
-          aspectRatio: '9 / 16', objectFit: 'cover', background: '#000',
-          border: '1px solid var(--border)',
-        }}
-      />
-    );
-  }
-
-  if (cargando) {
-    return (
-      <div
-        className="mk-lienzo"
-        style={{ width: ANCHO, aspectRatio: '9 / 16', marginTop: 11 }}
-        role="status"
-        aria-label={`Generando la toma ${n}`}
-      >
-        {/* Como en Flow: el ícono arriba a la izquierda y el contador arriba a la
-            derecha. Lo de Flow es un PORCENTAJE porque su servidor se lo dice; el
-            nuestro no lo sabe, así que va el tiempo, que es cierto. Un número
-            inventado que avanza solo es la clase de mentira que después nadie
-            perdona. */}
-        <div style={{
-          position: 'absolute', inset: '10px 11px auto 11px', display: 'flex',
-          alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          <span style={{ color: 'rgba(255,255,255,.72)', lineHeight: 0 }}>
-            <Icon name="tvad" size={15} />
-          </span>
-          <span style={{
-            fontFamily: MONO, fontSize: 11, color: 'rgba(255,255,255,.72)',
-            fontVariantNumeric: 'tabular-nums',
-          }}>
-            {reloj}
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Todavía no se puede filmar ──────────────────────────────────────────
-  // Un botón deshabilitado no dice POR QUÉ, y «no puedo apretar esto» sin motivo
-  // es indistinguible de un botón roto. Acá el hueco dice qué falta y dónde está.
-  if (!onGenerar) {
-    return (
-      <div style={{
-        width: ANCHO, aspectRatio: '9 / 16', marginTop: 11, borderRadius: 13,
-        background: 'var(--surface-2)', border: '1px dashed var(--border)',
-        display: 'grid', placeItems: 'center', padding: '0 14px', textAlign: 'center',
-      }}>
-        <div>
-          <div style={{ color: 'var(--faint)', marginBottom: 7 }}><Icon name="image" size={19} /></div>
-          <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--dim)', lineHeight: 1.45 }}>
-            Primero confirma el escenario, arriba
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={onGenerar}
-      style={{
-        width: ANCHO, aspectRatio: '9 / 16', marginTop: 11, cursor: 'pointer',
-        borderRadius: 13, background: 'var(--surface-2)', fontFamily: 'inherit',
-        border: `1.5px dashed ${error ? 'var(--bad)' : 'var(--border-strong)'}`,
-        display: 'grid', placeItems: 'center', padding: '0 14px',
-        transition: 'border-color .15s, background .15s',
-      }}
-      onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.borderColor = error ? 'var(--bad)' : 'var(--border-strong)'; }}
-    >
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ color: 'var(--faint)', marginBottom: 7 }}><Icon name="ia" size={20} /></div>
-        <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 650, color: 'var(--ink)' }}>
-          {error ? 'Volver a intentar' : 'Filmar esta toma'}
-        </div>
-        {error && (
-          <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--bad)', marginTop: 5, lineHeight: 1.4 }}>
-            {error.slice(0, 90)}
-          </div>
-        )}
-      </div>
-    </button>
-  );
-}
+// ⚠️ ACÁ VIVÍA `Lienzo`: un hueco de 176×313 reservado en CADA fila del guion.
+//
+// Su comentario lo defendía bien para UNA espera —«ocupa el mismo espacio en los
+// tres estados, así el hueco del video ya está ahí desde el primer segundo»— y es
+// cierto: evita el salto de layout cuando el clip llega.
+//
+// Y es exactamente al revés repetido siete veces sobre tomas que el sistema
+// todavía tiene PROHIBIDO producir. Eso no es continuidad: son 2.191 px de
+// promesa vacía, con el mismo cartel gris siete veces. El dueño lo vio de una:
+// «una cantidad impresionante de textos, botones y pasos todos juntos».
+//
+// La regla que queda: EL MEDIO SE GANA. `.mk-fila__medio` (64 px) sólo se emite
+// cuando hay un clip listo o uno en vuelo. En los otros estados la fila mide ~86
+// px y no hay hueco de ninguna clase — ni chico, ni punteado, ni con cartel.
+//
+// El 9:16 grande vive en dos lugares y en ninguno se repite: la comparación del
+// escenario (176 px) y el visor (300 px, `VisorToma.tsx`).
 
 /** Lo generado de una toma, si hay algo. */
 function videoDe(item: PlanGuardado | null, n: number) {
   return item?.video?.[String(n)];
 }
 
+/**
+ * Lo que se puede hacer con esta toma, y en qué estado está.
+ *
+ * Cinco estados y NINGUNO reserva espacio para otro. El motivo por el que una
+ * toma todavía no se puede filmar es propiedad del GRUPO —del escenario— y se
+ * dice UNA vez en su cabecera, no siete veces adentro de siete cajas vacías.
+ */
+function RielToma({ n, video, enCurso, onGenerar, onVer, costoTexto }: {
+  n: number;
+  video?: {
+    url?: string; error?: string; operacion?: string; trabajoId?: number;
+    errorCausa?: string; errorCrudo?: string; errorAt?: string;
+  };
+  enCurso: boolean;
+  onGenerar?: () => void;
+  onVer?: () => void;
+  costoTexto: string;
+}) {
+  const [desde] = useState(() => Date.now());
+  const [ahora, setAhora] = useState(desde);
+  const filmando = (enCurso || !!video?.trabajoId || !!video?.operacion) && !video?.url && !video?.error;
+
+  useEffect(() => {
+    if (!filmando) return;
+    const t = setInterval(() => setAhora(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [filmando]);
+  const seg = Math.max(0, Math.round((ahora - desde) / 1000));
+  const reloj = `${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, '0')}`;
+
+  // ── No se puede filmar todavía ─────────────────────────────────────────
+  if (!onGenerar && !video?.url && !filmando && !video?.error) {
+    return (
+      <div style={{ marginTop: 9 }}>
+        <Status tono="neutral">Falta el escenario</Status>
+      </div>
+    );
+  }
+
+  // ── No se pudo ─────────────────────────────────────────────────────────
+  if (video?.error) {
+    const causa = (video.errorCausa as CausaFlow) ?? causaFlow(video.errorCrudo ?? video.error);
+    const txt = textoFlow(causa, `la toma ${n}`, video.errorAt);
+    return (
+      <div style={{ marginTop: 9 }}>
+        <div style={{ marginBottom: 8 }}><Status tono="bad">No se pudo</Status></div>
+        <ErrorState
+          inline
+          titulo={txt.titulo}
+          detalle={txt.detalle}
+          detalleTecnico={video.errorCrudo || undefined}
+          accion={txt.arreglaEn
+            ? { label: txt.accion, href: txt.arreglaEn }
+            : { label: `Volver a filmar la toma ${n}`, onClick: onGenerar }}
+        />
+      </div>
+    );
+  }
+
+  // ── Filmando ───────────────────────────────────────────────────────────
+  if (filmando) {
+    return (
+      <div style={{ marginTop: 9, display: 'flex', alignItems: 'center', gap: 11 }}>
+        {/* ⚠️ NO es `.mk-lienzo`: sus cuatro números están calibrados contra
+            cuadros de Flow y a 64 px el blur PROMEDIA la tarjeta hasta un gris
+            plano. Por debajo de 150 px el «esperá» es un Spinner. */}
+        <div className="mk-fila__medio" style={{ display: 'grid', placeItems: 'center' }}>
+          <Spinner size={18} />
+        </div>
+        <div>
+          <Status tono="mako">Filmando</Status>
+          <div style={{
+            fontFamily: MONO, fontSize: 12, color: 'var(--faint)', marginTop: 5,
+            fontVariantNumeric: 'tabular-nums',
+          }}>
+            {reloj}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Filmada ────────────────────────────────────────────────────────────
+  if (video?.url) {
+    return (
+      <div style={{ marginTop: 9, display: 'flex', alignItems: 'center', gap: 11 }}>
+        <button
+          type="button"
+          onClick={onVer}
+          aria-label={`Ver la toma ${n}`}
+          className="mk-fila__medio"
+          style={{ padding: 0, border: 'none', cursor: 'pointer', position: 'relative' }}
+        >
+          <video src={video.url} preload="metadata" muted playsInline />
+          <span style={{
+            position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
+            justifyContent: 'center', color: '#fff',
+          }}>
+            <Icon name="play" size={20} />
+          </span>
+        </button>
+        <div>
+          <Status tono="good">Filmada</Status>
+          <div style={{ marginTop: 6 }}>
+            <Button size="sm" variant="secondary" onClick={onVer}>Ver la toma {n}</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Sin filmar ─────────────────────────────────────────────────────────
+  return (
+    <div style={{ marginTop: 9 }}>
+      <div style={{ marginBottom: 7 }}><Status tono="neutral">Sin filmar</Status></div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 11, flexWrap: 'wrap' }}>
+        <Button size="sm" variant="mako" icon={<Icon name="videogen" size={14} />} onClick={onGenerar}>
+          Filmar la toma {n}
+        </Button>
+        {/* La consecuencia PEGADA al botón, en tinta normal y antes del click. */}
+        <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--ink)' }}>{costoTexto}</span>
+      </div>
+    </div>
+  );
+}
+
 function LineaGuion({
   n, segundos, habla, voz, palabras, tope, voseo, literal, ctaInventado, original,
-  onEditar, onPedir, guardando, video, enCurso, onGenerar,
+  onEditar, onPedir, guardando, video, enCurso, onGenerar, onVer, costoTexto,
 }: {
   n: number; segundos: number; habla: boolean; voz: string;
   palabras: number; tope: number; voseo: string[];
@@ -594,10 +631,17 @@ function LineaGuion({
   onPedir: (instruccion: string) => Promise<void>;
   guardando: boolean;
   /** El video de esta toma, cuando existe o se está haciendo. */
-  video?: { url?: string; error?: string; operacion?: string; trabajoId?: number };
+  video?: {
+    url?: string; error?: string; operacion?: string; trabajoId?: number;
+    errorCausa?: string; errorCrudo?: string; errorAt?: string;
+  };
   enCurso: boolean;
-  /** Ausente = todavia no se puede filmar. Ver `Lienzo`. */
+  /** Ausente = todavía no se puede filmar: falta confirmar su escenario. */
   onGenerar?: () => void;
+  /** Abrir el visor en esta toma. Ausente = no hay nada que mirar. */
+  onVer?: () => void;
+  /** Lo que cuesta filmarla, ya redactado por quien sabe el saldo. */
+  costoTexto: string;
 }) {
   const alerta = palabras > tope || voseo.length > 0;
   // El campo de instrucción arranca cerrado: siete campos abiertos a la vez es
@@ -706,12 +750,17 @@ function LineaGuion({
           </div>
         )}
 
-        <Lienzo
+        {/* ── EL RIEL ──────────────────────────────────────────────────
+            El medio SE GANA: `.mk-fila__medio` solo existe cuando hay un clip
+            listo o uno en vuelo. En los otros dos estados la fila no lleva hueco
+            de ninguna clase. */}
+        <RielToma
           n={n}
-          url={video?.url}
-          cargando={enCurso && !video?.url}
-          error={video?.error}
+          video={video}
+          enCurso={enCurso}
           onGenerar={onGenerar}
+          onVer={onVer}
+          costoTexto={costoTexto}
         />
 
         {pidiendo && (
@@ -756,6 +805,11 @@ export function VideoGeneratorApp({
   /** La toma que se está generando ahora. null = ninguna. */
   const [generando, setGenerando] = useState<number | null>(null);
   const [saldo, setSaldo] = useState(saldoInicial);
+  /** Qué toma se está mirando en el visor. `null` = ninguna. */
+  const [viendo, setViendo] = useState<number | null>(null);
+  const [rehaciendo, setRehaciendo] = useState(false);
+  /** El formato abierto para mirarlo. Reusa el mismo modal que el catálogo. */
+  const [verFormato, setVerFormato] = useState<Puesta | null>(null);
   /**
    * ¿MaKo lo dice con las palabras de la persona, o el guion va tal cual?
    *
@@ -821,6 +875,32 @@ export function VideoGeneratorApp({
     () => (actual ? puestaPorId(actual.plan.puestaId) : undefined),
     [actual],
   );
+
+  /**
+   * Lo que cuesta filmar UNA toma, en una frase, con el saldo real adentro.
+   *
+   * ⚠️ Vive acá y viaja a cada fila y al visor, en vez de que cada uno lo arme:
+   * el saldo y el costo medido son de esta pantalla, y tres copias de la misma
+   * frase son tres lugares donde puede quedar vieja.
+   *
+   * Y el tercer estado NO es «no alcanza»: cuando nunca se leyó el saldo se dice
+   * que no se sabe. Decirle «no te alcanza» a alguien que sí tiene créditos es
+   * peor que no decirle nada.
+   */
+  const costoDeUnaToma = useMemo(() => {
+    const c = `~${costoClip.creditos}${costoClip.medido ? '' : ' (estimado)'}`;
+    return saldo.creditos == null
+      ? `Gasta ${c} créditos de Google. Todavía no leí cuántos te quedan.`
+      : `Gasta ${c} de tus ${saldo.creditos} créditos de Google.`;
+  }, [costoClip, saldo]);
+
+  /** Si el saldo alcanza para lo que falta. `null` = no se sabe. */
+  const alcanzaTodo = useMemo(() => {
+    if (!actual || saldo.creditos == null) return null;
+    const hechas = Object.values(actual.video ?? {}).filter((v) => v?.url).length;
+    const faltan = Math.max(0, actual.plan.clips.length - hechas);
+    return { ok: saldo.creditos >= faltan * costoClip.creditos, faltan, entran: Math.floor(saldo.creditos / Math.max(1, costoClip.creditos)) };
+  }, [actual, saldo, costoClip]);
   const guion = useMemo(
     () => guiones.find((g) => g.id === guionId),
     [guiones, guionId],
@@ -1362,52 +1442,125 @@ export function VideoGeneratorApp({
   if (vista === 'anuncio' && actual) {
     return (
       <Pagina>
+        {/*
+          UN SOLO ESTADO, Y UNA SOLA ACCION PRIMARIA.
+
+          Antes convivian tres avisos —dos Alert azules y un boton que cambiaba de
+          nombre— diciendo cada uno una parte de lo mismo. El estado del anuncio
+          es UNO y cambia; la accion es la del paso en curso, o ninguna cuando la
+          decision vive mas abajo (confirmar un escenario se decide mirando la
+          comparacion, no desde el header).
+        */}
         <PageHeader
           titulo={actual.plan.titulo}
-          // Sin ícono: `arrow-left` no existe en el set y `<Icon>` no falla con
+          proposito="Primero la imagen del lugar; después se filma toma por toma."
+          estado={(() => {
+            const hechas = Object.values(actual.video ?? {}).filter((v) => v?.url).length;
+            const fallidas = Object.values(actual.video ?? {}).filter((v) => v?.error).length;
+            const total = actual.plan.clips.length;
+            const escenas = actual.escenas ?? [];
+            const sinConfirmar = escenas.filter((e) => !actual.imagenes?.[String(e.n)]?.confirmada).length;
+            const generandoImg = escenas.some((e) => {
+              const m = actual.imagenes?.[String(e.n)];
+              return !!m?.trabajoId && !m?.opciones?.length && !m?.error;
+            });
+            if (!escenas.length) return <Status tono="neutral">Falta decir dónde se filma</Status>;
+            if (generandoImg) return <Status tono="mako">Generando la imagen del lugar</Status>;
+            if (sinConfirmar > 0) {
+              return (
+                <Status tono="info">
+                  {sinConfirmar === 1 ? 'Falta confirmar el escenario' : `Faltan confirmar ${sinConfirmar} escenarios`}
+                </Status>
+              );
+            }
+            if (fallidas > 0) return <Status tono="bad">{fallidas === 1 ? '1 toma no se pudo filmar' : `${fallidas} tomas no se pudieron filmar`}</Status>;
+            if (hechas >= total) return <Status tono="good">Las {total} tomas filmadas</Status>;
+            return <Status tono="mako">{hechas} de {total} tomas filmadas</Status>;
+          })()}
+          // Sin icono: `arrow-left` no existe en el set y `<Icon>` no falla con
           // un nombre desconocido — cae a `dot` y dibuja un puntito.
           acciones={
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setVista('catalogo');
-                // Y se limpia el `?plan=`: si quedara, refrescar reabriría el
-                // anuncio que el dueño acaba de cerrar.
-                window.history.replaceState(null, '', window.location.pathname);
-              }}
-            >
-              Volver al catálogo
-            </Button>
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setVista('catalogo');
+                  // Y se limpia el `?plan=`: si quedara, refrescar reabriria el
+                  // anuncio que el dueno acaba de cerrar.
+                  window.history.replaceState(null, '', window.location.pathname);
+                }}
+              >
+                Volver al catálogo
+              </Button>
+              {puestaActual?.ejemplo && (
+                <Button size="sm" variant="secondary" onClick={() => setVerFormato(puestaActual)}>
+                  Ver un ejemplo del formato
+                </Button>
+              )}
+            </>
           }
-          accion={
-            <Button
-              variant="mako"
-              icon={<Icon name="ia" size={16} />}
-              loading={generando === 1}
-              // ⚠️ Filmar está cerrado hasta que los escenarios estén
-              // confirmados. No es una preferencia de flujo: animar sin haber
-              // fijado la imagen es lo que produjo el primer clip con el ángulo
-              // equivocado y una cara que no era la del dueño.
-              //
-              // El botón deshabilitado es la CORTESÍA; el que decide es el
-              // server (`generarTomaAction`), porque esconder un botón no
-              // protege nada.
-              disabled={generando != null || !!videoDe(actual, 1)?.url || !escenariosListos(actual)}
-              onClick={() => void generarToma(1)}
-              // Genera LA PRIMERA, no las siete. El texto lo dice para que nadie
-              // apriete esperando el anuncio entero y crea que se colgó.
-              title={
-                escenariosListos(actual)
-                  ? 'Genera la primera toma. Si te convence, sigues con las demás.'
-                  : 'Primero confirma los escenarios, arriba.'
-              }
-            >
-              {videoDe(actual, 1)?.url
-                ? 'Primera toma lista'
-                : escenariosListos(actual) ? 'Generar la primera toma' : 'Confirma los escenarios'}
-            </Button>
-          }
+          accion={(() => {
+            const escenas = actual.escenas ?? [];
+            const listos = escenariosListos(actual);
+            const hechas = Object.values(actual.video ?? {}).filter((v) => v?.url).length;
+            const total = actual.plan.clips.length;
+
+            // ⚠️ SIN ESCENARIOS NO HAY PRIMARIA EN EL HEADER, y con escenarios
+            // sin confirmar tampoco. La primaria vive DONDE SE TOMA LA DECISION:
+            // escribirlos, en el estado vacio que explica que son; confirmarlos,
+            // pegado a la comparacion que hay que mirar para decidir.
+            //
+            // Ponerla tambien arriba serian dos botones con el mismo nombre en la
+            // misma pantalla, que es justo lo que la regla de una sola accion
+            // primaria existe para evitar.
+            if (!escenas.length || !listos) return undefined;
+            if (hechas >= total) {
+              return (
+                <Button variant="secondary" icon={<Icon name="play" size={16} />} onClick={() => setViendo(1)}>
+                  Ver el anuncio entero
+                </Button>
+              );
+            }
+            const siguiente = actual.plan.clips.find((c) => !actual.video?.[String(c.n)]?.url)?.n ?? 1;
+            return (
+              <Button
+                variant="mako"
+                icon={<Icon name="videogen" size={16} />}
+                loading={generando === siguiente}
+                disabled={generando != null}
+                onClick={() => void generarToma(siguiente)}
+                // Filma LA SIGUIENTE, no las siete. El texto lo dice para que
+                // nadie apriete esperando el anuncio entero y crea que se colgo.
+                title="Filma una toma. Si te convence, sigues con las demás."
+              >
+                Filmar la toma {siguiente}
+              </Button>
+            );
+          })()}
+          consecuencia={(() => {
+            const escenas = actual.escenas ?? [];
+            const hechas = Object.values(actual.video ?? {}).filter((v) => v?.url).length;
+            const total = actual.plan.clips.length;
+            if (!escenas.length) return 'No gasta créditos: lo que se paga es el video.';
+            if (!escenariosListos(actual)) return undefined;
+            if (hechas >= total) return 'No gasta créditos: ya está filmado.';
+            return costoDeUnaToma;
+          })()}
         />
+
+        {/* ⚠️ El aviso de saldo insuficiente va PEGADO al boton que gasta, nunca
+            arriba de la pagina. Y solo cuando de verdad no alcanza: decirle «no
+            te alcanza» a alguien que si tiene creditos es peor que no decir
+            nada. */}
+        {alcanzaTodo && !alcanzaTodo.ok && alcanzaTodo.faltan > 0 && escenariosListos(actual) && (
+          <div style={{ marginBottom: 16 }}>
+            <Alert tono="warn">
+              Te quedan <strong>{saldo.creditos}</strong> créditos y cada toma cuesta ~{costoClip.creditos}.
+              Alcanza para <strong>{alcanzaTodo.entran}</strong> de las {alcanzaTodo.faltan} que faltan.
+              Recarga tu cuenta de Google antes de seguir, o vas a quedarte con tomas sueltas.
+            </Alert>
+          </div>
+        )}
 
         {error && <Alert tono="bad">{error}</Alert>}
 
@@ -1425,54 +1578,22 @@ export function VideoGeneratorApp({
           molesta menos: primero lo que se lee, después la referencia.
         */}
         <div style={{ display: 'flex', gap: 28, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        <div style={{ flex: '1 1 620px', minWidth: 0, maxWidth: 900 }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-            {puestaActual && <Tag>{puestaActual.nombre}</Tag>}
-            <Tag>{actual.plan.duracionTotalSeg} segundos</Tag>
-            <Tag>{actual.plan.clips.length} tomas</Tag>
-          </div>
+        {/* ⚠️ SIN `maxWidth` propio: una pantalla no elige su ancho, lo elige
+            `Pagina`. El de 900 que había acá dejaba una franja muerta que nadie
+            puso a propósito. */}
+        <div style={{ flex: '1 1 620px', minWidth: 0 }}>
+          {/* ⚠️ ACÁ VIVÍAN LOS TRES `Tag` (formato · segundos · tomas) Y LOS DOS
+              `Alert` AZULES APILADOS —el de créditos y el de escenarios—, ~150 px
+              de texto antes de llegar a nada accionable.
 
-          {/*
-            LO QUE VA A COSTAR, antes del botón.
+              Los tres datos viven ahora en la tarjeta del aside y en el modal del
+              formato. El número de créditos se mudó PEGADO al botón que lo gasta,
+              que es donde muerde: arriba de la pantalla y en gris no lo lee
+              nadie, y el que va a apretar lo necesita con el dedo encima. Y el
+              estado del anuncio es uno solo y vive en el header.
 
-            El dueño lo pidió así: «si tenemos el saldo, y ya de antemano sabemos
-            por la cantidad de tokens que consume cada clip y la cantidad de
-            clips, si le alcanzará o no». Es la pregunta correcta y llega antes de
-            gastar — un anuncio que se corta en la toma cinco por falta de
-            créditos no dejó cinco quintos de anuncio: dejó cinco clips pagados y
-            nada que publicar.
-
-            Tres estados, y el tercero NO es «no alcanza»: cuando nunca se leyó el
-            saldo se dice que no se sabe. Decirle «no te alcanza» a alguien que sí
-            tiene créditos es peor que no decirle nada.
-          */}
-          {(() => {
-            const costo = actual.plan.clips.length * costoClip.creditos;
-            const hechos = Object.values(actual.video ?? {}).filter((v) => v?.url).length;
-            const falta = Math.max(0, actual.plan.clips.length - hechos) * costoClip.creditos;
-            const sinSaldo = saldo.creditos == null;
-            const alcanza = !sinSaldo && (saldo.creditos as number) >= falta;
-            return (
-              <div style={{ marginBottom: 16 }}>
-                <Alert tono={sinSaldo ? 'info' : alcanza ? 'info' : 'warn'}>
-                  Este anuncio son <strong>{actual.plan.clips.length} tomas</strong> ·
-                  {' '}~<strong>{costo} créditos</strong> de tu cuenta de Google
-                  {!costoClip.medido && ' (estimado)'}.
-                  {sinSaldo ? (
-                    <> Todavía no sé cuántos créditos te quedan.</>
-                  ) : alcanza ? (
-                    <> Te quedan <strong>{saldo.creditos}</strong>
-                      {falta > 0 && <> — alcanza para este y {Math.floor(((saldo.creditos as number) - falta) / Math.max(1, costo))} más</>}.
-                    </>
-                  ) : (
-                    <> Te quedan <strong>{saldo.creditos}</strong> y faltan <strong>{falta}</strong> para
-                      terminarlo. Vas a poder generar {Math.floor((saldo.creditos as number) / costoClip.creditos)} tomas.
-                    </>
-                  )}
-                </Alert>
-              </div>
-            );
-          })()}
+              La cuenta de esta pantalla: de ~3.900 px de columna a ~1.300, y el
+              estado más VACÍO ya no es el más largo. */}
 
           {/*
             LOS ESCENARIOS VAN ARRIBA DEL GUION, y el orden es el argumento.
@@ -1481,24 +1602,34 @@ export function VideoGeneratorApp({
             debajo del guion la convertiría en un accesorio del paso siguiente,
             que es exactamente el error que el generador tenía adentro.
           */}
-          <PasoEscenarios
-            item={actual}
-            fotoUrl={contexto?.fotoUrl ?? null}
-            escenarios={Math.max(1, Math.min(puestaActual?.escenarios ?? 1, actual.plan.clips.length))}
-            onCambio={(it) => {
-              setActual(it);
-              setHistorial((h) => h.map((e) => (e.id === it.id ? it : e)));
-            }}
-          />
-
+          {/* UNA SOLA LISTA. Antes eran dos —escenarios arriba, tomas abajo— y
+              había que cruzarlas mentalmente («el escenario 1 cubre las tomas 1 a
+              7»). Ahora el escenario es la CABECERA del grupo que cubre. */}
           <Section
-            titulo="Tu guion"
+            titulo={`Las ${actual.plan.clips.length} tomas`}
             accion={
-              <Button size="sm" variant="tertiary" onClick={copiarGuion} icon={<Icon name="copy" size={13} />}>
-                Copiar
-              </Button>
+              <div className="mk-row">
+                <Button size="sm" variant="tertiary" onClick={copiarGuion} icon={<Icon name="copy" size={13} />}>
+                  Copiar el guion
+                </Button>
+                {(actual.escenas?.length ?? 0) > 0 && (
+                  <Button size="sm" variant="tertiary" onClick={() => setRehaciendo(true)}>
+                    Rehacer el reparto de escenarios
+                  </Button>
+                )}
+              </div>
             }
           >
+            <Escenarios
+              item={actual}
+              fotoUrl={contexto?.fotoUrl ?? null}
+              tieneFotos={!!contexto?.tieneFotos}
+              escenarios={Math.max(1, Math.min(puestaActual?.escenarios ?? 1, actual.plan.clips.length))}
+              onCambio={(it: PlanGuardado) => {
+                setActual(it);
+                setHistorial((h) => h.map((e) => (e.id === it.id ? it : e)));
+              }}
+            />
             <div>
               {actual.plan.clips.map((c) => (
                 <LineaGuion
@@ -1528,7 +1659,11 @@ export function VideoGeneratorApp({
                   // no estén confirmados. La toma se puede leer y editar igual:
                   // lo que se cierra es gastar créditos sobre una imagen que
                   // nadie miró.
+                  // `undefined` = todavía no se puede filmar. El riel lo dice
+                  // con un estado en palabras, no con un hueco vacío.
                   onGenerar={escenariosListos(actual) ? () => void generarToma(c.n) : undefined}
+                  onVer={videoDe(actual, c.n)?.url ? () => setViendo(c.n) : undefined}
+                  costoTexto={costoDeUnaToma}
                 />
               ))}
             </div>
@@ -1607,6 +1742,50 @@ export function VideoGeneratorApp({
           )}
         </aside>
         </div>
+
+        {/* ── El visor ──────────────────────────────────────────────────────
+            El 9:16 grande vive acá y en la comparación del escenario, y en
+            ningún otro lado. Nunca está vacío: una toma sin filmar muestra la
+            imagen confirmada de SU escenario, que es literalmente el primer
+            cuadro que se va a animar. */}
+        {viendo != null && (
+          <VisorToma
+            item={actual}
+            n={viendo}
+            costoTexto={costoDeUnaToma}
+            onCerrar={() => setViendo(null)}
+            onIr={(k) => setViendo(Math.max(1, Math.min(k, actual.plan.clips.length)))}
+            onFilmar={(k) => { setViendo(null); void generarToma(k); }}
+          />
+        )}
+
+        {/* Rehacer el reparto DESCARTA las imágenes confirmadas. Se pregunta, y
+            los dos botones nombran su acción: los defaults del primitive son
+            «Confirmar»/«Cancelar», que la casa prohíbe. */}
+        {rehaciendo && (
+          <Confirm
+            title="Rehacer el reparto de escenarios"
+            message="MaKo va a escribir los lugares otra vez y las imágenes que ya confirmaste se descartan. Las tomas ya filmadas no se tocan."
+            confirmLabel="Rehacer el reparto"
+            cancelLabel="Dejar los escenarios como están"
+            tone="danger"
+            onCancel={() => setRehaciendo(false)}
+            onConfirm={async () => {
+              setRehaciendo(false);
+              const r = await escribirEscenasAction(actual.id).catch(() => null);
+              if (r?.ok) {
+                setActual(r.item);
+                setHistorial((h) => h.map((e) => (e.id === r.item.id ? r.item : e)));
+              } else {
+                setError(r?.error || 'MaKo no pudo rehacer el reparto.');
+              }
+            }}
+          />
+        )}
+
+        {verFormato && (
+          <DetalleFormato puesta={verFormato} onCerrar={() => setVerFormato(null)} />
+        )}
       </Pagina>
     );
   }

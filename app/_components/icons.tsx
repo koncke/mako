@@ -151,6 +151,11 @@ const PATHS: Record<string, ReactNode> = {
   // El tercer DownloadIcon del repo, pero el primero en el catálogo: hasta ahora vivía
   // copiado en app/crm/CrmToolbar.tsx:62 y app/plan/board/BoardShell.tsx:997.
   descargar: (<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></>),
+  // El triangulo de reproducir. Lo piden el overlay de una toma ya filmada y
+  // «Ver el anuncio entero». ⚠️ NO existia, y `Icon` NO falla con un nombre
+  // desconocido: `PATHS[name] ?? PATHS.dot` dibuja un punto de 3 px, sin error
+  // ni warning. Por eso se AGREGA en vez de elegir un nombre parecido.
+  play: (<path d="M8 5.5v13l11-6.5-11-6.5Z" strokeLinejoin="round" />),
   dot: (<circle cx="12" cy="12" r="3" />),
   // ── Íconos de la fábrica (SVG entregados por Martín) ──────────────────────
   // Vienen de archivos de 1500×1500 rellenos. Cada uno se escala y se centra

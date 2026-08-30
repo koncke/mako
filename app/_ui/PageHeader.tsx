@@ -24,7 +24,9 @@
 import type { ReactNode } from 'react';
 import { MONO } from './tokens';
 
-export function PageHeader({ titulo, proposito, estado, filtros, accion, acciones, tabs, compacto }: {
+export function PageHeader({
+  titulo, proposito, estado, filtros, accion, acciones, consecuencia, tabs, compacto,
+}: {
   titulo: string;
   /** Qué pregunta responde esta pantalla. Una línea. Omitilo si es obvio. */
   proposito?: string;
@@ -36,6 +38,16 @@ export function PageHeader({ titulo, proposito, estado, filtros, accion, accione
   accion?: ReactNode;
   /** Acciones secundarias, a la izquierda de la primaria y con menos peso. */
   acciones?: ReactNode;
+  /**
+   * Lo que va a pasar si se aprieta la acción primaria. Va DEBAJO del botón, en
+   * tinta normal y antes del click.
+   *
+   * En gris y arriba de la pantalla no la lee nadie: es la lección que dejó el
+   * botón que enviaba 340 mensajes irreversibles con el detalle escondido detrás
+   * de un click. Si la acción gasta plata, borra algo o sale hacia afuera, esto
+   * no es opcional.
+   */
+  consecuencia?: ReactNode;
   /** Vistas hermanas del mismo nivel (Tabs). Van pegadas abajo del header. */
   tabs?: ReactNode;
   /** Versión de una línea, para pantallas de detalle dentro de un flujo. */
@@ -64,11 +76,27 @@ export function PageHeader({ titulo, proposito, estado, filtros, accion, accione
           )}
         </div>
         {(accion || acciones) && (
-          // En mobile la fila se apila y la acción primaria toma el ancho: es la
-          // única que tiene que poder tocarse sin apuntar.
-          <div className="mk-row mk-row--stack" style={{ flex: 'none', justifyContent: 'flex-end' }}>
-            {acciones}
-            {accion}
+          <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 7 }}>
+            {/* En mobile la fila se apila y la acción primaria toma el ancho: es
+                la única que tiene que poder tocarse sin apuntar. */}
+            <div className="mk-row mk-row--stack" style={{ justifyContent: 'flex-end' }}>
+              {acciones}
+              {accion}
+            </div>
+            {/* ⚠️ LA CONSECUENCIA VA PEGADA AL BOTÓN, DEBAJO Y EN TINTA NORMAL.
+                No en gris y no arriba de la pantalla: ahí no la lee nadie. El
+                precedente es `MakoProps.consecuencia`, que existe por lo mismo —
+                se podía aprobar un envío de 340 mensajes sin haber visto qué se
+                enviaba. Sin este prop, la consecuencia se dibuja AL LADO de las
+                acciones secundarias y la regla no se puede cumplir. */}
+            {consecuencia && (
+              <div style={{
+                fontSize: 'var(--fs-sm)', color: 'var(--ink)', lineHeight: 1.45,
+                textAlign: 'right', maxWidth: 340,
+              }}>
+                {consecuencia}
+              </div>
+            )}
           </div>
         )}
       </div>

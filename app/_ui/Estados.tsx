@@ -113,10 +113,21 @@ export function NoResults({ query, onLimpiar, detalle, inline }: {
  * Algo falló. Dos cosas obligatorias: qué pasó en castellano (no el stack) y
  * cómo salir. Si `detalleTecnico` viene, queda plegado para reportarlo.
  */
-export function ErrorState({ titulo, detalle, onReintentar, detalleTecnico, inline }: {
+export function ErrorState({
+  titulo, detalle, onReintentar, accion, secundaria, detalleTecnico, inline,
+}: {
   titulo?: string;
   detalle?: ReactNode;
+  /**
+   * El atajo de siempre. Dibuja un botón que dice «Reintentar» a secas — que la
+   * casa prohíbe — y por eso sigue acá SOLO para los call-sites que ya lo usan.
+   * Para algo nuevo va `accion`, que nombra su objeto.
+   */
   onReintentar?: () => void;
+  /** La salida, nombrada: «Volver a generar la imagen del escenario 1». */
+  accion?: { label: string; onClick?: () => void; href?: string };
+  /** La otra salida, cuando existe: casi siempre la que NO depende de nosotros. */
+  secundaria?: { label: string; onClick?: () => void; href?: string };
   /** El mensaje crudo del servidor. Va plegado: sirve para reportar, no para leer. */
   detalleTecnico?: string;
   inline?: boolean;
@@ -125,7 +136,8 @@ export function ErrorState({ titulo, detalle, onReintentar, detalleTecnico, inli
     <Marco tono="bad" ico={IcoError} inline={inline}
       titulo={titulo ?? 'No se pudo cargar'}
       detalle={detalle ?? 'Puede ser una caída momentánea. Prueba de nuevo en unos segundos.'}
-      accion={onReintentar ? { label: 'Reintentar', onClick: onReintentar } : undefined}
+      accion={accion ?? (onReintentar ? { label: 'Reintentar', onClick: onReintentar } : undefined)}
+      secundaria={secundaria}
       extra={detalleTecnico ? (
         <details style={{ marginTop: 10, maxWidth: '100%' }}>
           <summary style={{ cursor: 'pointer', fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>Detalle técnico</summary>

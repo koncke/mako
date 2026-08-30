@@ -75,7 +75,23 @@ export type PlanGuardado = {
     elegida?: string;
     /** true = la subió la persona, no la generó Flow. */
     propia?: boolean;
+    /**
+     * ⚠️ ELEGIR NO ES CONFIRMAR. Al llegar las imágenes se preselecciona la
+     * primera; este campo lo escribe una PERSONA mirando la comparación. Sin él,
+     * el gate que protege ~105 créditos se abría solo en cuanto Flow contestaba.
+     */
+    confirmada?: boolean;
     error?: string;
+    /** De quién fue la culpa: decide qué se muestra y si hay a dónde ir. */
+    errorCausa?: string;
+    /** Lo que dijo Google, tal cual. No se tira: se pliega. */
+    errorCrudo?: string;
+    /**
+     * ⚠️ Cuándo pasó. Un error guardado sin fecha se lee como si acabara de
+     * ocurrir — y esta pantalla mostró durante horas el JSON de un bug ya
+     * arreglado, presentado como si fuera de ese momento.
+     */
+    errorAt?: string;
     /**
      * El saldo justo ANTES de generar esta imagen.
      *
@@ -92,6 +108,9 @@ export type PlanGuardado = {
     url?: string;
     mediaId?: string;
     error?: string;
+    errorCausa?: string;
+    errorCrudo?: string;
+    errorAt?: string;
     /** El saldo justo ANTES de generar esta toma. La otra mitad de medir el costo. */
     saldoAntes?: number | null;
   }>;

@@ -33,6 +33,7 @@ import {
 import { parchesImagenEscena, imagenesDeRespuesta, semillaDeEscena } from '@/lib/flow-imagen';
 import { escribirEscenas, reescribirEscena } from '@/lib/escenas';
 import { puestaPorId } from '@/lib/puestas-data';
+import { causaFlow, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
 import { getSetting } from '@/lib/settings';
 import { leerHistorial, guardarEnHistorial, type PlanGuardado } from './video-datos';
 import { guardarSaldo, leerSaldoGuardado, guardarCostoMedido, type SaldoFlow } from './saldo-datos';
@@ -134,6 +135,16 @@ export type EstadoToma =
 /** Lo que se guarda por toma, dentro del plan. */
 type MarcaVideo = {
   trabajoId?: number; operacion?: string; url?: string; mediaId?: string; error?: string;
+  /** De quién fue la culpa. Decide qué se muestra y si hay a dónde ir. */
+  errorCausa?: CausaFlow;
+  /** Lo que dijo Google, tal cual. No se tira: se pliega. */
+  errorCrudo?: string;
+  /**
+   * ⚠️ CUÁNDO pasó. Sin esto, un error guardado hace tres días se lee como si
+   * acabara de ocurrir — que es exactamente lo que le pasó al dueño con un JSON
+   * de un bug ya arreglado, que la pantalla devolvía para siempre.
+   */
+  errorAt?: string;
   /** El saldo justo ANTES de generar esta toma. La otra mitad de medir el costo. */
   saldoAntes?: number | null;
 };
@@ -197,11 +208,13 @@ export async function generarTomaAction(
   // dejaria pasar el caso de un plan SIN escenas, que es justamente el estado en
   // el que el paso todavia no se hizo.
   const escena = item.escenas?.find((e) => n >= e.desde && n <= e.hasta);
-  const confirmada = escena ? item.imagenes?.[String(escena.n)]?.elegida : '';
+  // ⚠️ `confirmada`, NO `elegida`. La primera imagen se preselecciona sola al
+  // llegar, así que mirar `elegida` era dar por cerrado un paso que nadie hizo.
+  const confirmada = escena ? item.imagenes?.[String(escena.n)]?.confirmada : false;
   if (!confirmada) {
     return {
       ok: false,
-      error: 'Antes de filmar hay que confirmar el escenario de esta toma. Está arriba, en «Dónde se filma».',
+      error: 'Antes de filmar hay que confirmar el escenario de esta toma. Está arriba, en la cabecera del lugar.',
     };
   }
 
@@ -305,8 +318,9 @@ export async function estadoTomaAction(
     // terminó» y la pantalla giraba para siempre. El dueño lo vio antes que
     // nosotros: «se quedó pensando eternamente».
     if (estado === 'fallido') {
-      item = await guardarMarca(item, n, { error: str(data?.error) || 'Flow rechazó el pedido.' });
-      return { ok: true, item, estado: { fase: 'error', error: str(data?.error) || 'Flow rechazó el pedido.' } };
+      const fallo = falloGuardable(str(data?.error), `la toma ${n}`);
+      item = await guardarMarca(item, n, fallo);
+      return { ok: true, item, estado: { fase: 'error', error: fallo.error } };
     }
     if (estado !== 'listo') {
       return { ok: true, item, estado: { fase: 'encolado', trabajoId: marca.trabajoId } };
@@ -444,6 +458,21 @@ export async function saldoAction(
 type MarcaImagen = {
   trabajoId?: number; opciones?: string[]; elegida?: string; propia?: boolean;
   error?: string; saldoAntes?: number | null; intento?: number;
+  /**
+   * ⚠️ ELEGIR NO ES CONFIRMAR, y hasta hoy eran lo mismo.
+   *
+   * Al llegar las imágenes se preselecciona la primera (`elegida`), y el paso se
+   * daba por cerrado con sólo mirar ese campo. O sea: la comparación lado a lado
+   * —el único motivo por el que esta pantalla existe— nunca era obligatoria, y
+   * el gate que protege ~105 créditos se abría solo.
+   *
+   * Un paso de confirmación cuyo estado lo escribe el server al llegar el dato
+   * no es un paso: es un rótulo.
+   */
+  confirmada?: boolean;
+  errorCausa?: CausaFlow;
+  errorCrudo?: string;
+  errorAt?: string;
 };
 
 const imgs = (plan: PlanGuardado): Record<string, MarcaImagen> =>
@@ -456,6 +485,23 @@ async function guardarImagen(item: PlanGuardado, n: number, marca: MarcaImagen):
   };
   await guardarEnHistorial(actualizado);
   return actualizado;
+}
+
+/**
+ * Traduce un fallo de Flow a lo que se guarda.
+ *
+ * Es el ÚNICO lugar donde el crudo cruza la frontera hacia el cliente. Los tres
+ * puntos que lo producen pasan por acá; escribir la traducción en cada uno sería
+ * tener tres versiones de la misma regla, y la tercera se queda vieja.
+ */
+function falloGuardable(crudo: string, que: string) {
+  const causa = causaFlow(crudo);
+  return {
+    error: textoFlow(causa, que).titulo,
+    errorCausa: causa,
+    errorCrudo: crudo,
+    errorAt: new Date().toISOString(),
+  };
 }
 
 function planDe(historial: PlanGuardado[], planId: string): PlanGuardado | null {
@@ -614,7 +660,12 @@ export async function generarImagenAction(
   return {
     ok: true,
     item: await guardarImagen(item, n, {
-      trabajoId, intento, saldoAntes, opciones: [], elegida: '', error: '', propia: false,
+      trabajoId, intento, saldoAntes, opciones: [], elegida: '', propia: false,
+      confirmada: false,
+      // Los CUATRO campos del error, no sólo el texto: un `errorCrudo` que
+      // sobrevive a su `error` es lo que hace que el detalle técnico plegado
+      // hable de un fallo que ya no existe.
+      error: '', errorCausa: undefined, errorCrudo: '', errorAt: '',
     }),
   };
 }
@@ -654,17 +705,20 @@ export async function estadoImagenAction(
   // supone— un trabajo caído se lee como «todavía no terminó» y la pantalla gira
   // para siempre. Ya pasó una vez con los clips.
   if (str(data?.estado) === 'fallido') {
-    const e = str(data?.error) || 'Flow rechazó el pedido de imagen.';
-    item = await guardarImagen(item, n, { error: e });
-    return { ok: true, item, estado: { fase: 'error', error: e } };
+    const fallo = falloGuardable(str(data?.error), `la imagen del escenario ${n}`);
+    item = await guardarImagen(item, n, fallo);
+    return { ok: true, item, estado: { fase: 'error', error: fallo.error } };
   }
   if (str(data?.estado) !== 'listo') return { ok: true, item, estado: { fase: 'generando' } };
 
   const opciones = imagenesDeRespuesta(data?.resultado).map((i) => i.url);
   if (!opciones.length) {
-    const e = 'Flow aceptó el pedido pero no devolvió ninguna imagen.';
-    item = await guardarImagen(item, n, { error: e });
-    return { ok: true, item, estado: { fase: 'error', error: e } };
+    const fallo = falloGuardable(
+      'Flow aceptó el pedido y no devolvió ninguna imagen.',
+      `la imagen del escenario ${n}`,
+    );
+    item = await guardarImagen(item, n, fallo);
+    return { ok: true, item, estado: { fase: 'error', error: fallo.error } };
   }
 
   // La primera queda preseleccionada: la persona confirma o cambia, pero nunca
@@ -691,7 +745,32 @@ export async function elegirImagenAction(
   // dejaría que la pantalla escriba una URL arbitraria dentro del plan.
   if (!m.opciones?.includes(url)) return { ok: false, error: 'Esa imagen no es de este escenario.' };
 
-  return { ok: true, item: await guardarImagen(item, n, { elegida: url }) };
+  // Cambiar de imagen re-abre la decisión: lo que se confirmó fue la otra.
+  return { ok: true, item: await guardarImagen(item, n, { elegida: url, confirmada: false }) };
+}
+
+/**
+ * La persona CONFIRMA que esa imagen es el lugar.
+ *
+ * Es el paso que faltaba, y no es ceremonia: es el único momento en que alguien
+ * mira la comparación antes de que se gasten créditos. Sin él, `escenariosListos`
+ * se cumplía solo en cuanto Flow contestaba.
+ */
+export async function confirmarEscenaAction(
+  planId: string,
+  n: number,
+): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  const item = planDe(await leerHistorial(), planId);
+  if (!item) return { ok: false, error: 'Ese anuncio ya no está en el historial.' };
+
+  // No se confirma lo que no existe: sin imagen elegida no hay nada que mirar.
+  if (!imgs(item)[String(n)]?.elegida) {
+    return { ok: false, error: 'Todavía no hay una imagen de ese escenario para confirmar.' };
+  }
+  return { ok: true, item: await guardarImagen(item, n, { confirmada: true }) };
 }
 
 /**
@@ -727,6 +806,9 @@ export async function subirImagenEscenaAction(
 
   return {
     ok: true,
-    item: await guardarImagen(item, n, { opciones: [uri], elegida: uri, propia: true, error: '' }),
+    item: await guardarImagen(item, n, {
+      opciones: [uri], elegida: uri, propia: true, confirmada: false,
+      error: '', errorCausa: undefined, errorCrudo: '', errorAt: '',
+    }),
   };
 }
