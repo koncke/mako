@@ -105,6 +105,8 @@ import { CURSO_CARRERA_DE_ECOMMERCE } from './curso-carrera-de-ecommerce';
 import { CURSO_BLACK_BOX_CANVA } from './curso-black-box-canva';
 import { CURSO_GROWING_AMG } from './curso-growing-amg';
 import { CURSO_ECOM_TOTAL_2_0 } from './curso-ecom-total-2-0';
+import { CURSO_MASTER_MARCA_PERSONAL_4_0 } from './curso-master-marca-personal-4-0';
+import { CURSO_AUTOMATIZA_TU_WHATSAPP } from './curso-automatiza-tu-whatsapp';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio';
 import { CURSO_BRANDING } from './BrandingMaKo';
@@ -307,7 +309,7 @@ const CATEGORIA: Record<string, string> = {
 
   // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
   // plataforma. El comentario al lado es la categoría de origen.
-  'la-universidad-del-closer': 'Ecommerce', // Ecommerce
+  'la-universidad-del-closer': 'Ventas',      // lo pidio Martin: es closing, no ecommerce
 
   // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
   // plataforma. El comentario al lado es la categoría de origen.
@@ -331,7 +333,12 @@ const CATEGORIA: Record<string, string> = {
 
   // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
   // plataforma. El comentario al lado es la categoría de origen.
-  'black-box-canva': 'Marketing',          // Marketing
+  // Canva y fotografía son producción de piezas: van con edición de video, que es donde
+  // alguien busca «cómo hago que esto se vea bien». Decisión de Martín (30/08).
+  // La guarda los marcó a los dos —uno como sección de un curso y el otro en el cajón—,
+  // pero el aviso queda en el log y lo vio él primero.
+  'fotografia-al-completo-de-0-a-pro-2025': 'Edición',
+  'black-box-canva': 'Edición',          // Marketing
 
   // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
   // plataforma. El comentario al lado es la categoría de origen.
@@ -340,6 +347,14 @@ const CATEGORIA: Record<string, string> = {
   // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
   // plataforma. El comentario al lado es la categoría de origen.
   'ecom-total-2-0': 'Ecommerce',           // Ecommerce
+
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'master-marca-personal-4-0': 'Orgánico', // Marca Personal
+
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'automatiza-tu-whatsapp': 'Marketing',   // Marketing
 
 };
 
@@ -476,6 +491,14 @@ const PORTADA: Record<string, string> = {
   // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
   // pero la ficha se había emitido antes de que existiera.
   'ecom-total-2-0': '/cono-portadas/ecom-total-2-0.jpg',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'master-marca-personal-4-0': '/cono-portadas/master-marca-personal-4-0.jpg',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'automatiza-tu-whatsapp': '/cono-portadas/automatiza-tu-whatsapp.jpg',
 
 };
 
@@ -810,6 +833,12 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_ECOM_TOTAL_2_0,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_MASTER_MARCA_PERSONAL_4_0,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_AUTOMATIZA_TU_WHATSAPP,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
