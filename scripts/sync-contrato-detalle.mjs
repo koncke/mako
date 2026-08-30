@@ -134,7 +134,22 @@ for (const d of DESTINOS) {
     nuevo = paso;
   }
   if (faltan) { sucio++; continue; }
-  if (nuevo === txt) { console.log(`  ✓ ${d} al día`); continue; }
+  // ⚠️ SE COMPARA SIN LOS `\r`, PORQUE SI NO ESTE GUARD FALLA EN CUALQUIER CLON NUEVO.
+  //
+  // El bloque se inserta con `\n` y el archivo en disco es CRLF (`core.autocrlf=true`
+  // acá), así que el resultado queda MEZCLADO: CRLF en lo escrito a mano y LF en lo
+  // generado. En el clon donde el script corrió alguna vez, eso coincide y el chequeo
+  // pasa; en un árbol recién sacado de git —un clon nuevo, un worktree— git normaliza
+  // TODO a CRLF y la comparación exacta da distinto sobre un archivo que es idéntico.
+  //
+  // Pasó el 30/08/2026: el mismo archivo daba «al día» en el repo y «DESINCRONIZADO» en
+  // un worktree, con `git status` limpio en los dos. Es la trampa de «en Windows, todo
+  // texto que cruza de una herramienta a otra trae \r», acá entre git y el script.
+  //
+  // Al ESCRIBIR se usa `nuevo` tal cual: normalizar es para decidir si hace falta
+  // escribir, no para cambiar lo que se escribe.
+  const sinCR = (s) => s.replace(/\r\n/g, '\n');
+  if (sinCR(nuevo) === sinCR(txt)) { console.log(`  ✓ ${d} al día`); continue; }
   if (CHECK) { console.error(`  ✗ ${d} DESINCRONIZADO — corré: node scripts/sync-contrato-detalle.mjs`); sucio++; continue; }
   writeFileSync(d, nuevo);
   console.log(`  ↻ ${d} actualizado`);
