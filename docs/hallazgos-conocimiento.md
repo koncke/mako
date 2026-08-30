@@ -6066,3 +6066,56 @@ clases, 5 recursos y 4 transcripciones); `fba-agency` arrastraba «más de 80 ho
 original, cuya frase vecina dice «12+ módulos» y el material tiene 8; y en
 `claude-academy-2026` el escéptico volteó al primero — **había verificado sólo lo NUEVO y
 nunca preguntó si lo HEREDADO de la original era cierto.**
+
+## Dos fichas de curso vivían dentro de un `'use client'`, y el build murió sin decir dónde
+
+**Vive en:** `app/conocimientos/AnalisisNegocio.datos.ts` ·
+`app/conocimientos/BrandingMaKo.datos.ts` · `app/conocimientos/catalogo.ts` (`sinAutor`).
+
+`catalogo.ts` importaba `CURSO_ANALISIS` y `CURSO_BRANDING` como **valor** desde
+`AnalisisNegocio.tsx` y `BrandingMaKo.tsx`, y los dos archivos empiezan con `'use client'`.
+En el grafo del **server** ese export no es el objeto: es una referencia de cliente. Así que
+dos de las 94 entradas de `CURSOS_TODOS` llegaban **sin `titulo`**.
+
+Producción quedó una hora en el deploy viejo con este error, que no nombra ni el archivo ni
+el curso:
+
+```
+Failed to collect configuration for /compartido/[token]
+TypeError: Cannot read properties of undefined (reading 'lastIndexOf')
+    at Array.map, en module evaluation
+```
+
+Tres cosas que hacen a este bug particularmente caro:
+
+1. **Estaba latente y CALLADO.** `conAutor(undefined, undefined)` devuelve `undefined` sin
+   quejarse, y el mapa `TITULO` sólo mira tres slugs. Lo destapó `sinAutor()`, que es la
+   **primera función que toca TODOS los títulos**. Una fragilidad vieja se vuelve visible el
+   día que alguien la recorre entera — y el que la recorre se lleva la culpa del commit.
+2. **NO SE VE EN LOCAL.** `tsx` ignora la directiva `'use client'`, así que importar el
+   catálogo con `npx tsx` devuelve los 94 cursos **con** título. Se verificó así y dio verde
+   sobre un build roto. Esto lo caza `npm run build` **o no lo caza nadie** — y el build no
+   corre en el pre-push a propósito (ver AGENTS.md).
+3. **El síntoma apunta a la ruta equivocada.** Muere en `/compartido/[token]` porque es un
+   server component que importa el catálogo; el bug no tiene nada que ver con esa pantalla.
+
+**La regla, que ya estaba en AGENTS.md por el otro lado:** «`'use client'` es una frontera
+de DATOS». Lo documentado hasta ahora era lo que VIAJA de más al navegador (145 KB de
+catálogo en el bundle); esto es la cara opuesta y menos mirada: **lo que NO LLEGA al
+server.** Un objeto de datos exportado desde un `.tsx` no existe para quien lo importe desde
+el server, y no falla al importar — falla al usarlo, en otro archivo.
+
+**Cómo se busca:** `grep -oP "from '\./[A-Za-z]+'"` sobre el archivo que arma el catálogo.
+Los imports de fichas son todos de `.ts` en kebab-case; un import de un `PascalCase` es un
+componente, y si trae un valor es este bug.
+
+⚠️ **Y al mover la ficha, un `export … from` NO alcanza**: no crea binding local, así que el
+propio componente —que usa la ficha adentro— deja de compilar. Van las dos cosas: `import` +
+`export`.
+
+⚠️ **Postmortem de la propia búsqueda: la sonda mentía.** La primera versión listaba los
+cursos rotos con `.filter(...).map((c, k) => ...)` y el `k` es el índice del array
+**filtrado**, no el real: informaba «0» y «1» sobre entradas que estaban en cualquier lado.
+Es el mismo error de medición que ya se cometió con `grupo`/`subgrupo` el mismo día. **Una
+sonda es código y se lee como código**; el índice de un `map` después de un `filter` no ubica
+nada.

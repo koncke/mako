@@ -467,6 +467,27 @@ Y lo que mas duele: existia `serviciosPara()`, la funcion escrita justo para no
 mostrarle al cliente lo que no es suyo. No servia de nada. **Filtrar al PINTAR no sirve
 si el dato ya viajo.**
 
+⚠️ **Y LA CARA OPUESTA, QUE ES LA QUE TIRA EL BUILD: lo que NO LLEGA al server.** Un
+objeto de datos exportado desde un `.tsx` con `'use client'` NO es ese objeto para quien lo
+importe desde el grafo del server: es una referencia de cliente. No falla al importar —
+falla al USARLO, en otro archivo y sin nombrar ninguno de los dos.
+
+El 30/08/2026 costó **una hora de producción sirviendo el deploy viejo**: `catalogo.ts`
+importaba dos fichas de curso desde `AnalisisNegocio.tsx` y `BrandingMaKo.tsx`, así que dos
+de las 94 entradas llegaban sin `titulo` y Vercel moría con «Failed to collect configuration
+for /compartido/[token]: Cannot read properties of undefined». La ruta que aparece en el
+error no tiene nada que ver con el bug: es la primera server component que importa el
+catálogo.
+
+- **Un objeto de datos va en un `.ts`, y el `.tsx` lo importa** — nunca al revés. Si hay que
+  mudarlo, `import` + `export` en el componente: un `export … from` no crea binding local y
+  el propio componente deja de compilar.
+- **Se busca mirando de dónde importa VALORES el módulo de datos**: las fichas son `.ts` en
+  kebab-case, así que un import de un `PascalCase` es un componente y ahí está.
+- ⚠️ **`tsx` IGNORA la directiva**, así que importar el catálogo con `npx tsx` devuelve todo
+  bien y cualquier verificación local da verde sobre un build roto. **Esto lo caza
+  `npm run build` o no lo caza nadie** — y el build no corre en el pre-push, a propósito.
+
 1. **Lo que el cliente necesita se resuelve en el SERVER y baja por props**, ya
    filtrado. Si el componente necesita dos campos de un catalogo de 20 entradas, bajan
    los dos campos — no el catalogo.
