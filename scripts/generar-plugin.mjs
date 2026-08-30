@@ -122,7 +122,13 @@ let viejos = 0;
 for (const [rel, contenido] of archivos) {
   const destino = path.join(DESTINO, rel);
   const actual = fs.existsSync(destino) ? fs.readFileSync(destino, 'utf8') : null;
-  if (actual === contenido) continue;
+  // ⚠️ SIN LOS `\r`, igual que sus dos guards hermanos (`sync-contrato-detalle.mjs` y
+  //    `sync-gramatica-doc.mjs`). El archivo se genera con `\n` y git lo deja en CRLF al
+  //    sacarlo (`core.autocrlf=true`), así que en el clon donde el script corrió coincide
+  //    y en un árbol recién checkouteado —un clon nuevo, un worktree— no, sobre un
+  //    contenido IDÉNTICO. Los tres frenaban el push de cualquiera que reclonara.
+  const sinCR = (s) => (s === null ? null : s.replace(/\r\n/g, '\n'));
+  if (sinCR(actual) === sinCR(contenido)) continue;
   if (check) {
     console.error(`  ✖ plugin/${rel} quedó viejo`);
     viejos += 1;
