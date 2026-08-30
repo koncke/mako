@@ -270,7 +270,46 @@ test('sin plantilla NO se inventa el pedido: se dice qué falta', () => {
   assert.equal(r?.motivo, 'puente_dormido');
   assert.equal(r?.reintentable, false);
   assert.match(r!.error, /credits/, 'tiene que decir QUÉ pedido falta');
-  assert.match(r!.error, /genera algo/i, 'y qué hacer para que aparezca');
+  // ⚠️ Este assert miraba la frase literal («genera algo») y se puso rojo el día
+  // que el mensaje mejoró, sobre un comportamiento que había mejorado. Ahora mide
+  // el CONTRATO: que diga adónde ir y qué hacer ahí. Un test atado a la redacción
+  // castiga escribir mejor, que es lo contrario de lo que tiene que hacer.
+  assert.match(r!.error, /Flow/, 'tiene que decir dónde se arregla');
+  assert.match(r!.error, /vuelve a intentar|espera/i, 'y qué hacer para que aparezca');
+});
+
+test('cada clase dice QUÉ hacer, y no «genera algo»', () => {
+  // Con dos clases de generación, «abre Flow y genera algo» manda a hacer la que ya
+  // estaba hecha: generar un video no le enseña al espejo a pedir una imagen, son
+  // plantillas distintas. El mensaje tiene que nombrar la acción correcta.
+  const img = clasificarFallaDelNavegador('SIN_PLANTILLA:flowMedia:batchGenerateImages');
+  assert.match(img!.error, /imagen/i, 'la de imágenes manda a generar una IMAGEN');
+
+  const vid = clasificarFallaDelNavegador('SIN_PLANTILLA:video:batchAsyncGenerateVideoReferenceImages');
+  assert.match(vid!.error, /video/i, 'la de clips manda a generar un VIDEO');
+
+  // Y las dos frases tienen que ser DISTINTAS: si son iguales, el mensaje volvió a
+  // no decir cuál de las dos cosas hacer.
+  assert.notEqual(img!.error, vid!.error);
+});
+
+test('la clase con dos puntos adentro llega ENTERA al mensaje', () => {
+  // El bug: la clase se sacaba con `split(':')[1]`, y la de imágenes lleva dos
+  // puntos adentro (`flowMedia:batchGenerateImages`). El error nombraba
+  // `flowMedia`, un endpoint que NO EXISTE — o sea que el mensaje mandaba a
+  // buscar otra cosa. Un dato partido a la mitad adentro de un error es peor que
+  // no ponerlo: se lee como preciso.
+  const r = clasificarFallaDelNavegador('SIN_PLANTILLA:flowMedia:batchGenerateImages');
+  assert.match(r!.error, /flowMedia:batchGenerateImages/, 'la clase va completa');
+});
+
+test('una clase que todavía no tiene frase propia no se queda sin mensaje', () => {
+  // El fallback importa: una clase nueva —el día que se agregue un endpoint— no
+  // puede dejar al usuario con un error vacío. Dice lo genérico y nombra la clase.
+  const r = clasificarFallaDelNavegador('SIN_PLANTILLA:algoQueTodaviaNoExiste');
+  assert.equal(r?.motivo, 'puente_dormido');
+  assert.match(r!.error, /algoQueTodaviaNoExiste/);
+  assert.ok(r!.error.trim().length > 20, 'no puede ser una frase vacía');
 });
 
 // ── El saldo, medido contra una cuenta real el 26/08/2026 ───────────────────
