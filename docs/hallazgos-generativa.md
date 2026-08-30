@@ -2697,3 +2697,73 @@ créditos del video ya se gastaron. `mencionaCara()` lo mide y descarta.
    **Vive en:** `app/video-generator/video-datos.ts`.
 
 **Vive en:** `app/video-generator/PasoEscenarios.tsx`.
+
+## Una causa VERDADERA que no era LA causa
+
+El 30/08/2026, ante «recargué la extensión y sigue en la versión anterior», se diagnosticó
+—con evidencia dura— que producción servía el zip 0.12.0 porque el build estaba rojo. Los
+dos hechos eran ciertos y están medidos: `git show 0a8205bc:public/mako-puente.zip` trae
+`version: 0.12.0`, el de HEAD trae `0.13.0`, y difieren en el código, no solo en el string
+(`injected.js` 20.773 b → 22.377 b).
+
+**Y no era el motivo del síntoma.** La extensión que corría no había salido de ningún zip:
+Chrome tenía cargada, descomprimida, `C:\Users\marti\OneDrive\Escritorio\mako-puente` — una
+COPIA de `extension/` hecha a las 10:54:34, 68 minutos antes de que existiera la 0.13.0.
+Recargar releía esa carpeta. La recarga funcionó perfecto; recargó la carpeta equivocada.
+
+**Cómo se probó que no vino de un zip, que es la parte reusable:** `zip-extension.mjs`
+REESCRIBE el manifest al empaquetar (`manifestParaPaquete()` saca los `http://localhost/*`).
+El manifest de la carpeta cargada mide 1.244 b y contiene `localhost`; el de adentro de
+cualquier zip mide 1.182 b y no puede contenerlo. Un archivo que el empaquetador toca es una
+**huella de procedencia gratis**: dice de dónde salió una copia sin preguntarle a nadie.
+
+Tres reglas:
+
+1. **Una hipótesis con evidencia dura sigue siendo una hipótesis mientras la CADENA hasta el
+   síntoma tenga un eslabón sin medir.** Acá el eslabón era «la extensión que corre salió de
+   bajar el zip», que nunca se comprobó. Se puede tener el hecho perfectamente medido y la
+   conclusión al revés.
+2. **Cuando el síntoma es «X no se actualiza», la primera pregunta es QUÉ X está corriendo,
+   no por qué no se actualizó.** Y se contesta leyendo el perfil de Chrome (`location: 4` =
+   unpacked, y el `path`), nunca suponiendo la carpeta. Ya estaba escrito en este mismo
+   documento de la vez anterior, se citó, y no se aplicó.
+3. **Dos errores que coinciden se leen como confirmación.** La pantalla decía que la
+   extensión estaba al día: comparaba la instalada (0.12.0) contra `EXTENSION_VERSION` del
+   build servido (0.12.0), y `esMasVieja('0.12.0','0.12.0')` es false. El aviso de «quedó
+   vieja» no aparecía **porque las dos mitades estaban viejas**. Un indicador que compara dos
+   valores que se mueven juntos no detecta el desfase: lo esconde.
+
+**Vive en:** `app/video-generator/PuentePanel.tsx`, `scripts/zip-extension.mjs`,
+`lib/extension-version.ts`.
+
+## La única fuente viva de qué código corre no la pinta ninguna pantalla
+
+`flow_puentes.version` la escribe el latido de la extensión cada 15 s desde
+`chrome.runtime.getManifest()` (`extension/background.js`). Es lo ÚNICO que dice qué código
+está corriendo de verdad, y contestó la pregunta en un comando:
+
+    ws 1 | listo | version reportada: 0.12.0 | ultimo latido: 2026-08-30T15:35:35Z
+
+`estadoPuente()` la devuelve y ahí muere: ninguna vista la muestra. Mientras tanto la
+pantalla derivaba el estado de dos números que podían estar los dos viejos.
+
+**La regla: cuando exista un dato REPORTADO por el sistema del que se sospecha, ese le gana a
+cualquier cosa derivada.** Y si no se pinta en ningún lado, la próxima vez se vuelve a
+diagnosticar por deducción — que es lo que pasó acá durante media hora.
+
+**Sin hacer:** mostrar la versión reportada en `PuentePanel`, al lado de la que se espera.
+**Vive en:** `lib/flow-cola.ts` (`estadoPuente`), `app/video-generator/PuentePanel.tsx`.
+
+## El guard del zip no abre el zip
+
+`scripts/zip-extension.mjs --check` compara una huella del CONTENIDO de `extension/` contra
+`public/mako-puente.sha`. Nunca abre `public/mako-puente.zip`. Un zip corrupto, truncado o
+sencillamente no regenerado pasa el guard mientras el `.sha` esté al día.
+
+Esta vez NO se activó —los 10 archivos del zip hashean idéntico a `extension/`, verificado— y
+por eso se anota en vez de arreglarse a las apuradas: es una debilidad medida, no un bug vivo.
+El arreglo, cuando se haga, es que la huella se calcule LEYENDO el zip, que es el artefacto
+que se distribuye. Es la misma lección que ya tiene este repo escrita —«el artefacto que se
+distribuye no es el fuente»— aplicada una vuelta más adentro.
+
+**Vive en:** `scripts/zip-extension.mjs`.
