@@ -56,6 +56,10 @@ EL PROMPT DE LA IMAGEN — lo más importante:
   ni su edad, ni su sonrisa, ni su piel. La persona la pone una foto real que
   viaja aparte. Si la describes, sale otra persona.
 - Refiérete a ella como "the subject" y listo.
+- EMPIEZA por el encuadre. Te dan una línea en inglés que dice cómo filma este
+  formato: va literal al principio del prompt, antes del lugar. Un formato es su
+  encuadre —«Car Talks» ES un selfie en un auto—, y una imagen con el lugar
+  correcto y el encuadre equivocado no sirve para nada.
 - Vertical 9:16, fotográfico y realista, nunca ilustración ni render 3D.
 - La ropa y la hora del día tienen que ser LAS MISMAS en todos los escenarios: es
   el mismo anuncio, filmado seguido. Un cambio de camisa entre la toma 3 y la 4
@@ -65,6 +69,36 @@ EL PROMPT DE LA IMAGEN — lo más importante:
 
 Responde SOLO con JSON:
 {"escenas":[{"desdeToma":<n>,"lugar":"<en español, una línea>","prompt":"<en inglés>"}]}`;
+
+/**
+ * Cómo filma cada puesta, EN INGLÉS y en términos de encuadre.
+ *
+ * ⚠️ Esto faltaba y se notó en la primera imagen real: el catálogo decía
+ * `camara: 'selfie'` —que es «brazo estirado, la persona se filma a sí misma»— y
+ * al prompt le llegaba la palabra suelta «selfie», en español, adentro de una
+ * línea de contexto. El modelo escribió una escena correcta y encuadrada como
+ * cualquier otra: un plano medio de alguien sentado en un auto, visto desde
+ * afuera. Nada que ver con el formato.
+ *
+ * Un token que el modelo tiene que interpretar no es una instrucción. El
+ * encuadre es lo que define un formato —es literalmente su nombre: «Car Talks»
+ * es un selfie en un auto— así que se le dice con las palabras que el modelo de
+ * imagen entiende, y se le dice primero.
+ */
+const COMO_FILMA: Record<string, string> = {
+  selfie:
+    'SELFIE, at arm length. The camera IS the phone the subject is holding: close-up, '
+    + 'face and shoulders filling the frame, slightly high angle looking down, wide-angle '
+    + 'phone lens with its mild distortion. The subject looks straight into the lens.',
+  seguimiento:
+    'FOLLOWING SHOT. The camera moves with the subject through the space: medium shot, '
+    + 'walking pace, the background sliding behind. Handheld feel, eye level.',
+  mano:
+    'HANDHELD, filmed by another person with a phone. Slightly off-centre framing, small '
+    + 'imperfections, eye level, natural and unstaged.',
+  estatica:
+    'LOCKED-OFF TRIPOD SHOT. Fixed frame, medium shot, eye level, stable and composed.',
+};
 
 function planParaPrompt(plan: PlanVideo): string {
   return plan.clips
@@ -98,7 +132,13 @@ export async function escribirEscenas(
   const escenarios = Math.max(1, Math.min(puesta.escenarios || 1, tomas));
 
   const user = [
-    `FORMATO: ${puesta.nombre} (${puesta.tecnico}) · cámara ${puesta.camara}`,
+    `FORMATO: ${puesta.nombre} (${puesta.tecnico})`,
+    '',
+    // El encuadre va ARRIBA y en inglés: es lo que define el formato, y es lo
+    // primero que el prompt de imagen tiene que decir.
+    'CÓMO SE FILMA ESTE FORMATO — esto va SIEMPRE al principio de cada prompt, tal cual:',
+    COMO_FILMA[puesta.camara] ?? COMO_FILMA.estatica,
+    '',
     `ESCENARIOS A DEVOLVER: ${escenarios}`,
     '',
     'REGLAS DE ESTE FORMATO:',
