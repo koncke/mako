@@ -107,6 +107,7 @@ import { CURSO_GROWING_AMG } from './curso-growing-amg';
 import { CURSO_ECOM_TOTAL_2_0 } from './curso-ecom-total-2-0';
 import { CURSO_MASTER_MARCA_PERSONAL_4_0 } from './curso-master-marca-personal-4-0';
 import { CURSO_AUTOMATIZA_TU_WHATSAPP } from './curso-automatiza-tu-whatsapp';
+import { CURSO_IMPERIO_AFILIADO } from './curso-imperio-afiliado';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio.datos';
 import { CURSO_BRANDING } from './BrandingMaKo.datos';
@@ -356,6 +357,10 @@ const CATEGORIA: Record<string, string> = {
   // plataforma. El comentario al lado es la categoría de origen.
   'automatiza-tu-whatsapp': 'Ventas',      // auditoría 30/08: ManyChat y secuencias que convierten
 
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'imperio-afiliado': 'Orgánico',          // Afiliados
+
 };
 
 /**
@@ -509,6 +514,10 @@ const PORTADA: Record<string, string> = {
   'trading-arelis-rodriguez-2025': '/cono-portadas/trading-arelis-rodriguez-2025.jpg',
   'trading-clutifx': '/cono-portadas/trading-clutifx.jpg',
   'us30-2-0': '/cono-portadas/us30-2-0.jpg',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'imperio-afiliado': '/cono-portadas/imperio-afiliado.png',
 
 };
 
@@ -787,6 +796,10 @@ const RESUMEN: Record<string, string> = {
   'creativos-ugc-realistas': 'Curso para aprender a producir creativos UGC publicitarios con avatares de IA: crear la imagen, animarla con modelos de video, editar en CapCut y clonar la voz.',
   'masteryhaus': 'Estructura y escala un negocio digital de servicios ya en marcha, con nicho, oferta y validación, script de ventas y objeciones, entrega del servicio y marketing perpetuo.',
 
+  // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
+  // del catálogo de la plataforma.
+  'imperio-afiliado': 'Aprende a crear tu negocio de marketing de afiliados desde cero. El curso enseña cómo seleccionar productos rentables para promocionar, crear funnels perpetuos, construir estrategias de email marketing efectivas, generar tráfico cualificado, conversión de desconocidos en clientes, y monetización sin crear producto propio. Incluye el método único para convertir masivamente a través de máquinas digitales.',
+
 };
 
 // Sin acentos y en minúsculas, para que «Sofia» no se sume a un título que ya dice
@@ -1055,6 +1068,9 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_AUTOMATIZA_TU_WHATSAPP,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_IMPERIO_AFILIADO,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
