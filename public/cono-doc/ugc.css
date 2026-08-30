@@ -2848,7 +2848,17 @@ html:has(.ahdoc), body:has(.ahdoc) { overflow: hidden !important; height: 100% !
      Con `baseline` la pastilla se alinea por la base de SU rotulo, que es contra lo que se
      lee el texto de al lado. Reportado por Martin: «el titulo de la primera clase no quedo
      alineado y centrado con el boton». */
-  align-items: center;
+  /* ⚠️ BASELINE, y esta vez es lo correcto. Martin, textual: «se ve descentrado porque
+     no esta alineado al TEXTO de Empezar con la flecha». Eso es exactamente lo que
+     hace `baseline`: apoya los dos textos en la misma linea, por definicion y sin
+     ningun numero que ajustar. `center` alineaba la caja del texto con la caja de la
+     PASTILLA, que es otra cosa — y es de donde salieron dos rondas de ajustes de un
+     pixel que no arreglaron nada.
+
+     La primera vez que se probo `baseline` fallo, y fallo por otra razon: los dos
+     textos tenian cuerpos distintos (11,5 contra 13), asi que ninguna alineacion los
+     iba a hacer ver como un renglon. Con el mismo cuerpo, baseline es exacto. */
+  align-items: baseline;
   gap: 13px;
   min-width: 0;
   margin-top: 3px;
@@ -2874,28 +2884,6 @@ html:has(.ahdoc), body:has(.ahdoc) { overflow: hidden !important; height: 100% !
    —dos lineas lo convertirian en un segundo parrafo al lado del boton. */
 .ahdoc .ugc .ugc-hero-primera {
   min-width: 0;
-  /* ⚠️ CORRECCION OPTICA MEDIDA, no un ojimetro. `align-items: center` centra las CAJAS
-     DE LINEA, y con eso las dos quedan centradas al pixel (0,01 px) — pero el ojo no ve
-     cajas, ve TINTA, y la tinta de cada tipografia cae en un sitio distinto adentro de su
-     caja. Medido con `measureText` sobre las dos: la tinta de este texto (JetBrains Mono
-     11,5) cae 1,73 px POR DEBAJO del centro de la pastilla, mientras que la del rotulo
-     (Archivo 13, adentro del boton) esta a 0,5 px.
-
-     ⚠️ Y LA REFERENCIA ES EL ROTULO DEL BOTON, NO EL CENTRO DE LA PASTILLA. Primero se
-     corrigio contra la pastilla —1,73 px, o sea -2— y Martin volvio a decir que se veia
-     descentrado: con -2 el texto queda ALTO. El ojo lee los dos textos como un renglon y
-     alinea uno con otro; la forma lima de atras no participa. Contra el rotulo la
-     diferencia es 1,23 px, y a -1,25 los dos quedan a nivel.
-
-     Se eligio MIRANDO, no despejando: se dibujo la misma fila a 0 / -0,75 / -1,25 / -1,75
-     / -2 y se compararon (scratchpad/comparar-nudge.mjs). Medir daba DOS numeros segun
-     contra que se midiera, y el ojo no promedia: elige uno.
-
-     Probado tambien `align-items: baseline`, que es lo que uno supone: EMPEORA, a 2,02 px
-     —el inline-flex de la pastilla sintetiza su baseline y no cae donde uno cree—. Y las
-     dos primeras hipotesis (cajas descentradas, baselines) daban 0,6 px: invisible. */
-  position: relative;
-  top: -1.25px;
   font-family: var(--font-jetbrains), monospace;
   /* ⚠️ EL MISMO CUERPO QUE EL ROTULO DEL BOTON. Estaba en 11,5 px contra los 13 del
      boton, y esa diferencia es la que Martin leia como «descentrado»: un texto mas chico
