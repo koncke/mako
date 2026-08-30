@@ -29,6 +29,7 @@ export const CURSO_ESCUELA_TU_PRIMER_MILLON: Curso = {
   titulo: 'Escuela tu primer millón - Amadeo Llados',
   subtitulo: '20 clases, 7 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '9,0 h',
+  portada: '/cono-portadas/escuela-tu-primer-millon.jpg',
   recursos: [
 
   ],

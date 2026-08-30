@@ -29,6 +29,7 @@ export const CURSO_CODIGO_MILLONARIO: Curso = {
   titulo: 'Código millonario - Melisa Escobar',
   subtitulo: '50 clases, 6 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '8,9 h',
+  portada: '/cono-portadas/codigo-millonario.jpg',
   recursos: [
 
   ],

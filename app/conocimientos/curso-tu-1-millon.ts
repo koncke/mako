@@ -29,6 +29,7 @@ export const CURSO_TU_1_MILLON: Curso = {
   titulo: 'Tu 1 Millón - Amadeos Llados',
   subtitulo: '37 clases, 9 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '5,7 h',
+  portada: '/cono-portadas/tu-1-millon.jpg',
   recursos: [
 
   ],

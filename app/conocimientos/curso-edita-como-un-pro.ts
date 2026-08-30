@@ -29,6 +29,7 @@ export const CURSO_EDITA_COMO_UN_PRO: Curso = {
   titulo: 'Edita como un PRO - Shadia Chamie',
   subtitulo: '30 clases, 6 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '9,6 h',
+  portada: '/cono-portadas/edita-como-un-pro.jpg',
   recursos: [
 
   ],

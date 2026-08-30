@@ -29,6 +29,7 @@ export const CURSO_HACKEANDO_EL_ALGORITMO: Curso = {
   titulo: 'Hackeando el Algoritmo - Guille Collado',
   subtitulo: '35 clases, 18 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '19,3 h',
+  portada: '/cono-portadas/hackeando-el-algoritmo.png',
   recursos: [
 
   ],

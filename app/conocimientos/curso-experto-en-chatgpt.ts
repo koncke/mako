@@ -29,6 +29,7 @@ export const CURSO_EXPERTO_EN_CHATGPT: Curso = {
   titulo: 'Experto en ChatGPT - Amel Fernandez',
   subtitulo: '32 clases, 25 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '9,1 h',
+  portada: '/cono-portadas/experto-en-chatgpt.jpg',
   recursos: [
 
   ],

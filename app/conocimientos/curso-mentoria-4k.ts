@@ -29,6 +29,7 @@ export const CURSO_MENTORIA_4K: Curso = {
   titulo: 'Mentoria 4K - Eric Rodríguez',
   subtitulo: '30 clases, 7 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '6,6 h',
+  portada: '/cono-portadas/mentoria-4k.png',
   recursos: [
 
   ],
@@ -295,6 +296,7 @@ export const CURSO_MENTORIA_4K: Curso = {
       videoId: '12YOzfRRU6brEdeKel2otQzf4pXUxGfQ4',
       resumen: '',
       transcripcion: [],
+      hasTx: true,
       recursoSlugs: [],
       herramientas: [],
     },

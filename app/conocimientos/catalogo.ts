@@ -92,6 +92,10 @@ import { CURSO_COMPLETO_VIDEOS_IA } from './curso-completo-videos-ia';
 import { CURSO_360_MARCA_PERSONAL } from './curso-360-marca-personal';
 import { CURSO_CODIGO_MILLONARIO } from './curso-codigo-millonario';
 import { CURSO_ECOMMERCE_DE_ARZ_URUS } from './curso-ecommerce-de-arz-urus';
+import { CURSO_TUMADREANNA_MARKETING_DEFINITIVO } from './curso-tumadreanna-marketing-definitivo';
+import { CURSO_ACADEMIA_FIVE_STARS } from './curso-academia-five-stars';
+import { CURSO_MONETIZA_CON_JOHAN_IA } from './curso-monetiza-con-johan-ia';
+import { CURSO_LA_UNIVERSIDAD_DEL_CLOSER } from './curso-la-universidad-del-closer';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio';
 import { CURSO_BRANDING } from './BrandingMaKo';
@@ -279,6 +283,22 @@ const CATEGORIA: Record<string, string> = {
   // plataforma. El comentario al lado es la categoría de origen.
   'tu-1-millon': 'Finanzas',               // Finanzas / Inversiones
 
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'tumadreanna-marketing-definitivo': 'Marketing', // Marketing
+
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'academia-five-stars': 'Ventas',         // Ventas
+
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'monetiza-con-johan-ia': 'Anuncios',     // ADS
+
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'la-universidad-del-closer': 'Ecommerce', // Ecommerce
+
 };
 
 /**
@@ -366,6 +386,22 @@ const PORTADA: Record<string, string> = {
   // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
   // pero la ficha se había emitido antes de que existiera.
   'codigo-millonario': '/cono-portadas/codigo-millonario.jpg',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'tumadreanna-marketing-definitivo': '/cono-portadas/tumadreanna-marketing-definitivo.jpg',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'academia-five-stars': '/cono-portadas/academia-five-stars.jpg',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'monetiza-con-johan-ia': '/cono-portadas/monetiza-con-johan-ia.jpg',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'la-universidad-del-closer': '/cono-portadas/la-universidad-del-closer.png',
 
 };
 
@@ -661,6 +697,18 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_ECOMMERCE_DE_ARZ_URUS,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_TUMADREANNA_MARKETING_DEFINITIVO,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_ACADEMIA_FIVE_STARS,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_MONETIZA_CON_JOHAN_IA,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_LA_UNIVERSIDAD_DEL_CLOSER,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,

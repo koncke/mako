@@ -24,10 +24,10 @@ import type { Curso } from './curso';
 export const CURSO_TRADING_ARELIS_RODRIGUEZ_2025: Curso = {
   slug: 'trading-arelis-rodriguez-2025',
   categoria: 'Cursos externos',
-  cardDesc: '16 clases en 1 módulos.',
+  cardDesc: '16 clases en 1 módulo.',
   eyebrow: 'Curso externo',
   titulo: 'Curso de Trading Arelis Rodriguez 2025',
-  subtitulo: '16 clases, 1 módulos. Video, transcripción y tus apuntes en un solo lugar.',
+  subtitulo: '16 clases, 1 módulo. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '11,0 h',
   recursos: [
 

@@ -29,6 +29,7 @@ export const CURSO_360_MARCA_PERSONAL: Curso = {
   titulo: '360 Marca Personal - Lathos club',
   subtitulo: '48 clases, 11 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '8,7 h',
+  portada: '/cono-portadas/360-marca-personal.png',
   recursos: [
 
   ],
