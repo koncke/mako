@@ -77,8 +77,13 @@ if (CHEQUEO) {
     console.error('    Corré: node scripts/zip-extension.mjs\n');
     process.exit(1);
   }
+  // ⚠️ Sin los `\r`: `moduloVersion` se arma con `\n` y git deja el archivo en CRLF al
+  //    sacarlo, así que la comparación exacta pasa SOLO en el clon donde el script corrió
+  //    alguna vez. Es el cuarto guard de esta familia con el mismo bug — los otros tres
+  //    son sync-contrato-detalle, sync-gramatica-doc y generar-plugin.
+  const sinCR = (s) => s.replace(/\r\n/g, '\n');
   const tsGuardado = existsSync(VERSION_TS) ? readFileSync(VERSION_TS, 'utf8') : '';
-  if (tsGuardado !== moduloVersion) {
+  if (sinCR(tsGuardado) !== sinCR(moduloVersion)) {
     console.error('\n  ✖ lib/extension-version.ts no coincide con el manifest.');
     console.error('    Corré: node scripts/zip-extension.mjs\n');
     process.exit(1);
