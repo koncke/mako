@@ -6119,3 +6119,50 @@ cursos rotos con `.filter(...).map((c, k) => ...)` y el `k` es el índice del ar
 Es el mismo error de medición que ya se cometió con `grupo`/`subgrupo` el mismo día. **Una
 sonda es código y se lee como código**; el índice de un `map` después de un `filter` no ubica
 nada.
+
+## Tres cursos ya estaban en Drive y la cola los iba a bajar de nuevo
+
+**Vive en:** `scripts/curso-drive-comparar.mjs` · `scripts/cursos-cola.sh` (antes de bajar).
+
+Martín, 30/08/2026: *«siempre revisá el Drive, porque estoy seguro de que hay algunos que ya
+están allí. Claro que comparalo, por si el de cursoselite tiene nuevas clases o módulos o
+directamente son diferentes».* Tenía razón: de los 18 que quedaban, **tres estaban a medias
+y sumaban 303 clases ya subidas**.
+
+| curso | ya en Drive | faltan |
+|---|---|---|
+| the-perfect-launch | 196 de 237 | 41 |
+| growth-partner | 55 de 106 | 51 |
+| academia-de-lanzamiento | 52 de 104 | 52 |
+
+La cola bajaba **sin preguntar nunca** si el curso ya estaba. No había ningún cruce contra
+Drive antes de descargar — sólo después, para subir.
+
+### Las cuatro trampas del cruce, todas encontradas construyéndolo
+
+1. **La normalización ES el resultado.** Los faltantes de `the-perfect-launch` fueron
+   **170 → 56 → 41** a medida que aparecían prefijos: primero `Copia de `, después
+   `Copia de Copia de ` (doble). Dos de esas tres mediciones eran convincentes y estaban
+   mal. Cada cosa que el normalizador no saca se convierte en un falso faltante, y la
+   cuenta resultante parece un dato.
+2. **El AUTOR confirma, nunca decide.** La primera versión metía el nombre del autor en la
+   misma bolsa que el del curso: «ACADEMIA ESTRATEGA - Juan ADS» matcheó
+   «M5 -95 - Juan ADS» con puntaje **1**. Son dos cursos distintos del mismo autor, y lo
+   único en común era su nombre. La carpeta se parte en `<Curso> - <Autor>` y sólo el
+   curso decide.
+3. **Cero coincidencias NO es «a medias»: es la firma de que la carpeta es de OTRO curso.**
+   Sin esa guarda, cuatro falsos positivos figuraban como parciales e invitaban a bajar «lo
+   que falta» —que era todo— contra una carpeta ajena. `0/N` con una carpeta encontrada es
+   más sospechoso que no encontrar nada.
+4. **Y sacar al autor perdió un match VERDADERO.** «Academia de Lanzamient**o**» contra
+   «Academia de Lanzamient**os**» no cruzaban por una letra; el match anterior lo salvaba
+   por accidente, con el autor. Va con raíz (`s`/`es`). **Al arreglar un falso positivo,
+   contá también los verdaderos que dejaste de encontrar.**
+
+⚠️ **El script INFORMA, no saltea.** Bajar de más cuesta tiempo; publicar un curso con los
+videos de otro es un curso plausible y falso que nadie detecta —y el punto 2 muestra que el
+riesgo no es teórico—. Ante dos candidatas parejas dice «ambiguo» y no elige.
+
+⚠️ **Y distingue «Drive desmontado» de «no está en Drive».** Sin el montaje en `G:` las dos
+se ven igual desde el filesystem, y la conclusión equivocada cuesta bajar un curso entero
+que ya estaba: sale con código 2 y lo dice.
