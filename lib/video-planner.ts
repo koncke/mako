@@ -220,6 +220,21 @@ leyendo: se nota cuando nadie llega.
 
 `;
 
+const BLOQUE_SIN_ADAPTAR = `## EL GUION VA TAL CUAL — NO SE TOCA
+
+El cliente pidió expresamente que su guion NO se adapte. Cada clip trae su línea
+de VOZ y se copia **palabra por palabra**: ni una distinta, ni una de más, ni un
+conector agregado.
+
+Tu trabajo acá es el OTRO: para cada toma, con esa voz ya dada, escribir qué se
+ve, qué hace la cámara y el prompt de video. El campo "voz" del JSON lo devuelves
+copiando la línea literal que te dieron.
+
+La sección de abajo sobre cómo se escribe el texto hablado **no aplica**: describe
+cómo se escribiría un guion desde cero, y acá no hay que escribir ninguno.
+
+`;
+
 const USER_TEMPLATE = `## EL PEDIDO
 
 {{pedido}}
@@ -418,6 +433,18 @@ export type PedidoPlan = {
   /** El tema, la historia o el guion que el usuario ya tiene. */
   tema: string;
   /**
+   * `false` = el guion va TAL CUAL, sin adaptar.
+   *
+   * Por defecto MaKo lo dice con las palabras de la persona —le pone sus
+   * conectores, cambia «un problema» por «una bronca»— y eso suele ser lo que se
+   * quiere: un guion escrito como se escribe suena leído.
+   *
+   * Pero no siempre. Un guion que ya se corrigió palabra por palabra, o uno que
+   * cita algo textual, no se toca. La diferencia la decide el dueño, no nosotros:
+   * es SU texto.
+   */
+  adaptarVoz?: boolean;
+  /**
    * El guion del cliente, PALABRA POR PALABRA, cuando eligió uno suyo.
    *
    * Presente = el texto hablado ya está decidido y el modelo no lo escribe: se
@@ -483,10 +510,14 @@ export async function generarPlan(ws: number, pedido: PedidoPlan): Promise<Gener
 
   // Qué tomas caen dentro del CIERRE. Esas y solo esas van literales: es donde
   // vive a dónde manda el anuncio, y es lo único que no admite ni un matiz.
+  // Sin adaptación, TODAS las tomas son literales: el guion entra como está.
+  // Con adaptación, solo el cierre —que es donde vive a dónde manda el anuncio.
   const cierre = pedido.guionLiteral ? cierreDeGuion(pedido.guionLiteral) : '';
-  const literales = reparto
-    ? tomasDelCierre(reparto, contarPalabrasReparto(cierre))
-    : new Set<number>();
+  const literales = !reparto
+    ? new Set<number>()
+    : pedido.adaptarVoz === false
+      ? new Set<number>(reparto.map((_, i) => i))
+      : tomasDelCierre(reparto, contarPalabrasReparto(cierre));
 
   try {
     const contexto = await briefDelNegocio();
@@ -506,7 +537,7 @@ export async function generarPlan(ws: number, pedido: PedidoPlan): Promise<Gener
       // uno sin llenar se ven IGUAL desde afuera —el template renderiza en los dos
       // casos— y el único síntoma vive en la calidad de lo que sale.
       acento: pedido.acentoPrompt,
-      guionLiteral: reparto ? BLOQUE_GUION_LITERAL : '',
+      guionLiteral: reparto ? (pedido.adaptarVoz === false ? BLOQUE_SIN_ADAPTAR : BLOQUE_GUION_LITERAL) : '',
       estructura: `${estructuraDeClips(puesta, cantidad, segundos, reparto, literales)}\n\nFORMA DEL JSON:\n${JSON_SHAPE}`,
     }));
 

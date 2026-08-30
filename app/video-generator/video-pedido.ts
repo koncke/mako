@@ -56,6 +56,8 @@ export type { Puesta };
 
 /** Lo que la pantalla le pide al server para armar un anuncio. */
 export type PedidoVideo = {
+  /** `false` = el guion va tal cual. La decisión es del dueño: es su texto. */
+  adaptarVoz?: boolean;
   puestaId: string;
   anguloId?: string;
   /**

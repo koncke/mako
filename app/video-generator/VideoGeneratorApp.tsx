@@ -733,6 +733,14 @@ export function VideoGeneratorApp({
   /** La toma que se está generando ahora. null = ninguna. */
   const [generando, setGenerando] = useState<number | null>(null);
   const [saldo, setSaldo] = useState(saldoInicial);
+  /**
+   * ¿MaKo lo dice con las palabras de la persona, o el guion va tal cual?
+   *
+   * Arranca en SÍ porque es lo que suele quererse —un guion escrito como se
+   * escribe suena leído— pero es una decisión del dueño: es su texto. Un guion
+   * que ya se corrigió palabra por palabra no se toca.
+   */
+  const [adaptarVoz, setAdaptarVoz] = useState(true);
 
   /**
    * Refresca el saldo cuando se abre un anuncio.
@@ -935,6 +943,7 @@ export function VideoGeneratorApp({
         // cuánto se TARDA en decirlo.
         guionId: guion?.id ?? '',
         guionTexto: guion?.texto ?? '',
+        adaptarVoz,
       });
       if (!out.ok) { setError(out.error); return; }
       setHistorial(out.historial);
@@ -948,7 +957,7 @@ export function VideoGeneratorApp({
     } finally {
       setBusy(false);
     }
-  }, [puestaId, guion]);
+  }, [puestaId, guion, adaptarVoz]);
 
   const copiarGuion = useCallback(() => {
     if (!actual) return;
@@ -1272,6 +1281,33 @@ export function VideoGeneratorApp({
               />
               <Fila k="Acento" v={contexto?.acento.etiqueta ?? "—"} nota={contexto?.acento.seguro ? undefined : 'lo deduje de tu zona horaria'} />
             </div>
+
+            {/*
+              La única decisión que queda antes de generar, y es del dueño.
+              Va como pregunta y no como ajuste escondido: cambia lo que se va a
+              DECIR a cámara, que es lo más visible del anuncio.
+            */}
+            <label style={{
+              display: 'flex', gap: 11, alignItems: 'flex-start', cursor: 'pointer',
+              padding: '13px 15px', borderRadius: 12,
+              background: 'var(--surface)', border: '1px solid var(--border)',
+            }}>
+              <input
+                type="checkbox"
+                checked={adaptarVoz}
+                onChange={(e) => setAdaptarVoz(e.target.checked)}
+                style={{ marginTop: 3, width: 17, height: 17, accentColor: 'var(--primary)', flex: 'none' }}
+              />
+              <span>
+                <span style={{ fontSize: 'var(--fs-md)', fontWeight: 650, color: 'var(--ink)' }}>
+                  Que MaKo lo diga con tus palabras
+                </span>
+                <span style={{ display: 'block', fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>
+                  Le pone tus muletillas y tu forma de hablar, sin cambiar lo que dice ni el
+                  cierre. Si lo desmarcas, el guion va tal cual lo escribiste.
+                </span>
+              </span>
+            </label>
 
             {cabida?.desborda && (
               <Alert tono="warn">

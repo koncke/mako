@@ -81,6 +81,7 @@ export async function generarPlanAction(
       // vez de pedirle al modelo que lo escriba — que es lo que venia pasando y
       // por lo que un anuncio salio con un CTA que el cliente nunca escribio.
       guionLiteral: guionTexto,
+      adaptarVoz: input.adaptarVoz,
       cantidadClips: cabida.clips,
       duracionTotalSeg: cabida.segundosReales,
       feedback: input.feedback,
