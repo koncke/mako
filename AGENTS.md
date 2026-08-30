@@ -1495,6 +1495,27 @@ historial no hace.
 El detalle, con los tres síntomas y los gotchas de verificarlo con Playwright, en
 [docs/hallazgos-conocimiento.md](docs/hallazgos-conocimiento.md).
 
+# Cambiar la ETIQUETA de un elemento arrastra su hoja por defecto, y eso no sale en el diff
+
+`a` → `button`, `div` → `section`, `span` → `p`: el diff muestra una palabra cambiada y lo
+que cambia de verdad es `text-align`, `font`, `cursor`, `margin`, `display` y el
+comportamiento del `type`. No hay ninguna regla del proyecto que lo explique, porque el
+estilo no vive en el proyecto.
+
+El hero del portal de cursos se replicó de un origen donde es un `<a>` y acá se escribió
+`<button>`, porque tiene que ejecutar una acción de React. **Mordió dos veces por el mismo
+agujero**: primero colapsaba a 0×0 sin un `display: block` —un `<button>` no es `block`—, y
+meses después resultó que todo su contenido salía CENTRADO, porque un botón trae
+`text-align: center` y un enlace no. Lo segundo vivió invisible mientras el contenido fue
+una cejilla y un título corto: centrado, eso se lee como una decisión de diseño. Se hizo
+visible el día que se le metió un párrafo adentro.
+
+**Se comprueba con `getComputedStyle` sobre el elemento nuevo, nunca leyendo el CSS del
+repo** — ahí no está escrito, justamente. Y si el cambio de etiqueta es por interactividad
+(el caso normal: hace falta un `onClick`), acordate del otro costado: el nombre accesible.
+Un `<button>` con un párrafo adentro se anuncia leyendo el párrafo entero, así que lleva
+`aria-label` propio.
+
 # Una pantalla oscura se hace redefiniendo TOKENS, no reglas
 
 La app es **tema claro con islas oscuras** (el sidebar, el tooltip, el toast). No hay

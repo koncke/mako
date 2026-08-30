@@ -5955,3 +5955,52 @@ módulos + secciones mezclados, y el de MasteryHaus razonó sobre una contradicc
 existía. No dañó las descripciones —ninguna afirma un número— pero es el recordatorio de
 que **un subagente no puede validar el dato que vos le pasaste**: hereda tu error de
 medición y te lo devuelve confirmado.
+
+## Cambiar la ETIQUETA de un elemento arrastra su hoja de estilos por defecto
+
+**Vive en:** `app/conocimientos/CursoReplica.tsx` (el hero) · `public/cono-doc/ugc.css`.
+
+El hero del curso se replicó del origen, donde es un `<a>`, y acá se escribió como
+`<button>` porque tiene que ejecutar una acción de React en vez de navegar. Eso ya había
+mordido una vez —sin `display: block` el `<button>` colapsaba a 0×0, y el porqué quedó
+escrito al lado—. **Volvió a morder por otro lado del mismo agujero: un `<button>` trae
+`text-align: center` del navegador y un `<a>` no.**
+
+Vivió meses sin que nadie lo viera, porque el contenido era una cejilla, un título corto y
+un botón chico: centrado, eso se lee como una decisión de diseño. Al meter un párrafo de
+cuatro líneas adentro, el mismo CSS pasó a leerse como un error.
+
+**La regla: cuando reemplaces la etiqueta de un elemento por otra —`a`→`button`,
+`div`→`section`, `span`→`p`—, la hoja del navegador cambia con ella y eso NO aparece en
+ningún diff.** El diff muestra el cambio de una palabra; lo que cambia son `text-align`,
+`font`, `cursor`, `margin`, `display` y el comportamiento por defecto del `type`. Se
+comprueba con `getComputedStyle` sobre el elemento nuevo, no leyendo el CSS del proyecto —
+ahí no está escrito, justamente.
+
+## El encuadre de una tapa se elige MIRANDO, y la hoja de contactos cuesta 10 minutos
+
+**Vive en:** `public/cono-doc/ugc.css` (`.ugc-hero-img`) ·
+`scratchpad/comparar-encuadre.mjs`.
+
+Martín reportó *«hay varias que se le corta la cara»*. La geometría explica por qué: la
+caja del hero es **900×260** y las tapas rondan el 16:9, así que con `object-fit: cover`
+entra el **~51% de la altura** — y con el `object-position` por defecto (`50% 50%`) lo que
+se ve es la banda **24%–76%**. El cuarto de arriba, que es donde vive la cabeza en una
+tapa de curso, se tira siempre.
+
+Lo que NO se hizo: elegir un número por intuición. Se armó una hoja de contactos —las
+mismas tapas recortadas a la caja real, a 50%, 35% y 25%, una al lado de la otra— y se
+miró. **A 35% mejoraron o quedaron igual las 12 probadas**; a 25% empiezan a cortarse los
+pies del diseño (el logo de `runbenguo`, las llaves de `ecommerce-de-arz-urus`). Diez
+minutos de script contra una corazonada que habría que revisar de nuevo en un mes.
+
+⚠️ **Tres trampas del script de la hoja de contactos**, las tres con síntoma de «la captura
+salió en blanco»:
+
+1. **`document.body.innerHTML = ''` no sobrevive a React**: la raíz se vuelve a pintar y se
+   lleva puesto lo que le metas. Va una capa propia agregada a `body`, con su `id`.
+2. **`captureBeyondViewport` sin `clip` captura el DOCUMENTO entero** — 17.000 px del
+   portal con la hoja como una franja arriba. Va `clip` con el rect de la capa.
+3. **Un backtick adentro del template literal que se manda por `Runtime.evaluate`** lo parte
+   igual que en el CSS de la sección de arriba. Mismo error, dos archivos distintos, el
+   mismo día.
