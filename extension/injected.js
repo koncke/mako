@@ -210,18 +210,30 @@
   }
 
   window.addEventListener('MAKO_CAPTCHA_PIDO', async (ev) => {
-    const { id, action, siteKey } = ev.detail || {};
+    const { id, action, siteKey, medida } = ev.detail || {};
     try {
       const g = await esperarGrecaptcha(10000);
       if (!g) return responder('MAKO_CAPTCHA_OK', id, { error: 'SIN_GRECAPTCHA' });
       const clave = siteKeyDeLaPagina() || siteKey;
 
-      // La accion que FLOW usa de verdad le gana a la que derivamos del path.
-      // Si Flow todavia no acuno ninguna en esta sesion, se cae a la derivada —
-      // que es lo que habia — y el reporte lo dice.
-      const vista = accionesVistas.get(String(action));
-      const medida = vista ? String(action) : [...accionesVistas.keys()][0];
-      const accionFinal = medida || action || 'generate';
+      // ⚠️ El fallback solo pisa a una accion ADIVINADA, nunca a una MEDIDA.
+      //
+      // Esto decia: «si Flow no acuno esta accion en la sesion, usa la primera
+      // que si acuno». Nacio cuando la accion se derivaba del path —una
+      // suposicion— y ahi cualquier cosa vista de verdad era mejor.
+      //
+      // Con la tabla leida del bundle deja de ser cierto, y de la peor forma: en
+      // una sesion donde Flow genero un VIDEO y nosotros pedimos una IMAGEN,
+      // `IMAGE_GENERATION` (medida, correcta) perdia contra `VIDEO_GENERATION`
+      // (vista, de otro pedido). Un token acunado para otra accion vuelve como
+      // 403 «reCAPTCHA evaluation failed», que es el mismo cuerpo que devuelve
+      // una sesion quemada — o sea, un dia de diagnostico equivocado.
+      //
+      // Es el antipatron de siempre con el signo cambiado: lo observado
+      // ganandole a lo medido cuando lo observado es de OTRA pregunta.
+      const vista = accionesVistas.has(String(action));
+      const accionFinal = (vista || medida ? String(action) : [...accionesVistas.keys()][0])
+        || action || 'generate';
 
       acunandoNosotros = true;
       let token;
@@ -369,8 +381,21 @@
       // `credits`; `checkAppAvailability`, `fetchUserRecommendations` y
       // `batchLogFrontendEvents` viajan sin él. Agregarlo donde la app no lo pone
       // es volver a inventar.
+      // ⚠️ LA URL SE COPIA ENTERA. El `path` que manda el service worker sirve
+      // para ENCONTRAR la plantilla (de él sale la `clase`), nunca para
+      // reescribirla.
+      //
+      // Antes había un `if (path && !plantilla.url.includes(path)) url.pathname
+      // = path`, y con el endpoint de imágenes eso era una bomba: su path lleva
+      // el projectId adentro (`/v1/projects/<id>/flowMedia:batchGenerateImages`),
+      // nosotros NO lo sabemos —solo se aprende de URLs que Flow no hace— y la
+      // condición daba verdadera justamente porque los ids no coincidían. O sea:
+      // habría pisado el projectId REAL de la plantilla con uno inventado.
+      //
+      // Y no se pierde nada, porque la `clase` sale del último tramo del path:
+      // dos pedidos con paths distintos son dos clases distintas y por lo tanto
+      // dos plantillas distintas. La que se encontró YA es la de este endpoint.
       const url = new URL(plantilla.url);
-      if (path && !plantilla.url.includes(path)) url.pathname = path;
 
       // ⚠️ El `Authorization` de la plantilla se saca ANTES de poner el nuestro.
       // Sin esto quedaban los dos —`Authorization` de Flow y `authorization`

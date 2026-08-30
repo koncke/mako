@@ -2564,3 +2564,136 @@ el número vive en el catálogo, fijo por formato, porque es una propiedad de la
 escena y no del guion.
 
 **Vive en:** `lib/puestas-data.ts`, `app/video-generator/video-action.ts`.
+
+## El contrato de imagen de Flow, medido del bundle (30/08/2026)
+
+Se leyó del bundle de Flow en vez de reconstruirlo, que es lo que costó cinco vueltas con
+el endpoint de video. Vale para no volver a buscarlo:
+
+```
+endpoint : /v1/projects/<projectId>/flowMedia:batchGenerateImages
+captcha  : accion IMAGE_GENERATION
+cuerpo   : { clientContext, modelInput, modelSettings, userInput }
+  userInput.prompts[]        ← un string por imagen pedida
+  userInput.candidatesCount  ← cuántas variantes (Flow pide 4 en su diálogo, 1 al editar)
+  userInput.referenceImageInput.referenceImages[]
+      { mediaId, useMediaId: true, isLikeness: true,
+        imageInputType: 'IMAGE_INPUT_TYPE_REFERENCE' }
+  userInput.userImages[]     ← alternativa con bytes: { imageType: 'SUBJECT', rawImageBytes }
+respuesta: { imagePanels: [ { generatedImages: [...], prompt } ], workflowId }
+```
+
+**El hallazgo que ahorra el paso entero: `isLikeness`.** La sustitución del personaje por
+la foto real NO es un segundo pedido — es un campo del mismo. Y como el mecanismo es el
+mismo que usa el clip (`referenceImages`), se puede reusar el `mediaId` que el paso de
+video ya aprendió (`KEY_CARA_FLOW`): una cara, un lugar. Sin ese campo la foto entra como
+referencia estética y la cara se reinventa.
+
+**Y `IMAGE_USAGE_TYPE_ASSET` NO es un error de tipeo por `IMAGE_USAGE_TYPE_ASSET_IMAGE`.**
+Los dos existen en el bundle, en enums de mensajes distintos. Estuvo a punto de
+«arreglarse» un valor copiado del tráfico real contra el enum del mensaje equivocado — que
+es el antipatrón del espejo con el signo cambiado. Antes de corregir un valor medido,
+comprobar contra QUÉ enum se lo está comparando.
+
+**Vive en:** `lib/flow-imagen.ts`, `lib/flow-clip-referencias.ts`.
+
+## Dos agujeros del espejo que sólo destapa un endpoint con id en el path
+
+Los dos estuvieron dormidos mientras la única generación fue de video, y los dos
+habrían fallado con el mismo cuerpo de error: 403 «reCAPTCHA evaluation failed».
+
+**1. Nuestro `path` pisaba el de la plantilla.** Había un
+`if (path && !plantilla.url.includes(path)) url.pathname = path`. Con el endpoint de
+imágenes el path lleva el projectId adentro (`/v1/projects/<id>/flowMedia:...`), nosotros
+NO lo sabemos —sólo se aprende de URLs que Flow no hace— y la condición daba verdadera
+**justamente porque los ids no coincidían**. O sea: habría reemplazado el projectId real
+de la plantilla por uno inventado. La regla que queda: **el `path` sirve para ENCONTRAR la
+plantilla, nunca para reescribirla** — la clase sale del último tramo del path, así que la
+plantilla que se encontró ya es la de ese endpoint.
+
+**2. El fallback del captcha pisaba una acción MEDIDA.** `injected.js` decía: «si Flow no
+acuñó esta acción en la sesión, usá la primera que sí acuñó». Nació cuando la acción se
+derivaba del path —una suposición— y ahí cualquier cosa vista de verdad era mejor. Con la
+tabla leída del bundle deja de ser cierto: en una sesión donde Flow generó un VIDEO y
+nosotros pedimos una IMAGEN, `IMAGE_GENERATION` (medida, correcta) perdía contra
+`VIDEO_GENERATION` (vista, de OTRA pregunta). **Un fallback sólo puede pisar a un valor
+adivinado**, así que ahora el service worker manda un flag `medida` diciendo de dónde
+salió la acción.
+
+**Vive en:** `extension/injected.js`, `extension/background.js`, `extension/content.js`.
+
+## «Genera algo una vez» no es un mensaje de error
+
+`SIN_PLANTILLA` contestaba *«Todavía no vimos a Google Flow hacer este pedido. Abre Flow,
+genera algo una vez, y vuelve a intentar»*. Con dos clases de generación eso manda a hacer
+la que ya estaba hecha: generar un video no le enseña al espejo a pedir una imagen, son
+plantillas distintas. Ahora hay una frase por clase (`QUE_HACER_SIN_PLANTILLA`).
+
+**Y de paso, un bug que el mensaje mismo escondía:** la clase se sacaba con
+`m.split(':')[1]`, y la clase de imágenes lleva dos puntos adentro
+(`flowMedia:batchGenerateImages`). El error nombraba `flowMedia`, un endpoint que no
+existe. Un mensaje de error con un dato partido a la mitad manda a buscar lo que no es.
+
+**Vive en:** `lib/flow-protocolo.ts`.
+
+## Una pregunta contestada dos veces: `imagenesPrevias` vs `escenarios`
+
+El catálogo de puestas tenía las dos, y se contradecían: `The Office` decía
+`imagenesPrevias: false` y `escenarios: 4`. Con el booleano vivo, el planner además le
+pedía al modelo una lista en prosa (`imagenesNecesarias`) de las imágenes a generar —una
+TERCERA respuesta a la misma pregunta, esta vez una opinión.
+
+Se borraron las dos. Queda `Puesta.escenarios`, que es un dato del catálogo, y las escenas
+(`lib/escenas.ts`), que además saben qué tomas cubre cada una y traen su prompt.
+
+**La regla que queda, y es la de siempre con una vuelta más:** cuando encuentres dos
+fuentes para el mismo dato, contá TRES antes de dar por cerrada la unificación. La tercera
+casi nunca está en el mismo archivo — acá vivía adentro del esquema JSON que se le pedía a
+un modelo, que es donde nadie busca un catálogo.
+
+**Vive en:** `lib/puestas-data.ts`, `lib/video-planner.ts`, `lib/escenas-core.ts`.
+
+## Qué le toca al modelo y qué no, en el paso de imágenes
+
+Tres decisiones, y sólo una es del modelo:
+
+| Pregunta | Quién la contesta | Por qué |
+|---|---|---|
+| ¿Cuántas imágenes? | el CATÁLOGO (`Puesta.escenarios`) | es una propiedad del formato, no del guion |
+| ¿Dónde corta cada escenario? | el modelo, y si contesta mal, la aritmética | es juicio, pero un reparto parejo siempre existe |
+| ¿Qué se ve en cada uno? | el modelo | es lo único que no se puede derivar |
+
+El reparto se valida entero o se descarta (`validarEscenas`), y cuando los cortes no valen
+**no se cae el paso**: cae al reparto parejo. Un paso de imágenes que se rompe porque un
+modelo devolvió mal una lista de números deja a la persona sin anuncio por una razón que
+no es suya.
+
+**Y la red de las caras es la segunda capa obligatoria.** El catálogo dice desde siempre
+«no se describe la cara: la identidad la resuelve la foto real», y eso vivía sólo en la
+prosa de un prompt. Acá «casi siempre» es caro de un modo particular: el fallo NO se ve al
+leer el prompt, se ve tres pasos después, cuando el clip sale con la cara de otro y los
+créditos del video ya se gastaron. `mencionaCara()` lo mide y descarta.
+
+**Vive en:** `lib/escenas-core.ts`, `lib/escenas.ts`, `tests/escenas-core.test.ts`.
+
+## Lo que quedó SIN hacer del paso de imágenes
+
+1. **El clip todavía NO arranca desde la imagen aprobada.** Hoy la imagen sirve para
+   confirmar el escenario y para elegir la cara; el video se sigue pidiendo con
+   `clipDesdeReferencias`. Para animar desde la imagen hace falta `IMAGE_USAGE_TYPE_START_IMAGE`
+   con el `mediaId` de la imagen generada — y **no se hizo a propósito**: no hay plantilla
+   de ese pedido en el espejo, y armarlo a mano es exactamente lo que costó cinco vueltas.
+   Se destraba solo el día que alguien anime UNA imagen a mano en Flow con la pestaña
+   abierta. `imagenesDeRespuesta()` ya guarda el `mediaId` cuando viene.
+   **Vive en:** `lib/flow-imagen.ts`, `app/video-generator/video-action.ts`.
+2. **«Las imágenes son gratis» sigue siendo una afirmación, no una medición.** Se guarda
+   el `saldoAntes` de cada imagen —que es la mitad irrecuperable— pero nada calcula todavía
+   la diferencia. Y ojo con el atajo: `saldoAction` atribuye CUALQUIER bajada de saldo al
+   costo de un clip, así que si las imágenes cobraran, ese número quedaría contaminado.
+   **Vive en:** `app/video-generator/saldo-datos.ts`, `app/video-generator/video-action.ts`.
+3. **La foto propia del lugar se guarda como data: URI dentro del historial**, que topea en
+   10 anuncios en `app_settings`. Es la misma deuda que ya tienen los clips y se salda
+   igual: bajando los medios a storage propio.
+   **Vive en:** `app/video-generator/video-datos.ts`.
+
+**Vive en:** `app/video-generator/PasoEscenarios.tsx`.

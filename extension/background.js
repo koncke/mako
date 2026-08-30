@@ -97,8 +97,16 @@ async function pestanaDeFlow() {
   return tab;
 }
 
-async function pedirCaptcha(tabId, action) {
-  const res = await chrome.tabs.sendMessage(tabId, { tipo: 'GET_CAPTCHA', action, siteKey: SITE_KEY });
+/**
+ * Acuna un token de reCAPTCHA para una accion.
+ *
+ * `medida` dice si esa accion salio de la TABLA (leida del bundle de Flow) o de
+ * derivarla del path. La pagina lo necesita para saber si puede pisarla con lo
+ * que vio acunar a Flow: una adivinada si, una medida NUNCA — ver el comentario
+ * largo en injected.js.
+ */
+async function pedirCaptcha(tabId, action, medida) {
+  const res = await chrome.tabs.sendMessage(tabId, { tipo: 'GET_CAPTCHA', action, siteKey: SITE_KEY, medida: !!medida });
   if (!res || !res.token) throw new Error(res?.error || 'CAPTCHA_FALLO');
   // Queda en la consola de la extension: si la clave de la pagina NO es la que
   // tenemos escrita, es la explicacion del 403 y hay que verla, no deducirla.
@@ -248,7 +256,11 @@ async function ejecutar(trabajo) {
   const tieneCuerpo = !!body && Object.keys(body).length > 0;
   let cuerpo = tieneCuerpo ? { ...body } : null;
   if (!soloLectura) {
-    const captcha = await pedirCaptcha(tab.id, accionDeCaptcha(trabajo.tipo, path));
+    const captcha = await pedirCaptcha(
+      tab.id,
+      accionDeCaptcha(trabajo.tipo, path),
+      !!ACCION_CAPTCHA[trabajo.tipo],
+    );
     cuerpo = { ...(body || {}) };
     // ⚠️ `projectId` solo viaja si lo SABEMOS. Iba siempre, y cuando estaba vacio
     // —que es casi siempre: solo se aprende de URLs con forma `/v1/projects/<id>/`

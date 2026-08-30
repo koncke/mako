@@ -30,6 +30,9 @@ import { ENDPOINTS, obj, arr, str, extraerMediaId } from '@/lib/flow-protocolo';
 import {
   cuerpoClipReferencias, semillaDeToma, mediaIdDeReferencia, KEY_CARA_FLOW,
 } from '@/lib/flow-clip-referencias';
+import { cuerpoImagenEscena, imagenesDeRespuesta, semillaDeEscena } from '@/lib/flow-imagen';
+import { escribirEscenas, reescribirEscena } from '@/lib/escenas';
+import { puestaPorId } from '@/lib/puestas-data';
 import { getSetting } from '@/lib/settings';
 import { leerHistorial, guardarEnHistorial, type PlanGuardado } from './video-datos';
 import { guardarSaldo, leerSaldoGuardado, guardarCostoMedido, type SaldoFlow } from './saldo-datos';
@@ -179,6 +182,27 @@ export async function generarTomaAction(
   const yaHay = marcas(item)[String(n)] ?? {};
   if (yaHay.url || yaHay.operacion || yaHay.trabajoId) {
     return { ok: true, item };
+  }
+
+  // ⚠️ EL PASO DE IMAGENES ES OBLIGATORIO, y el guard vive ACA.
+  //
+  // La pantalla ya apaga el boton, pero apagar un boton no protege nada: el que
+  // decide es el server. Y lo que se protege no es un capricho de flujo — animar
+  // sin haber fijado la imagen del escenario es exactamente lo que produjo el
+  // primer clip de punta a punta, con el angulo equivocado y una cara que no era
+  // la del dueno. Ese clip se pago.
+  //
+  // El guard va en POSITIVO: «solo se filma lo que tiene su escenario
+  // confirmado». La forma negativa —«bloquear si hay escenas sin confirmar»—
+  // dejaria pasar el caso de un plan SIN escenas, que es justamente el estado en
+  // el que el paso todavia no se hizo.
+  const escena = item.escenas?.find((e) => n >= e.desde && n <= e.hasta);
+  const confirmada = escena ? item.imagenes?.[String(escena.n)]?.elegida : '';
+  if (!confirmada) {
+    return {
+      ok: false,
+      error: 'Antes de filmar hay que confirmar el escenario de esta toma. Está arriba, en «Dónde se filma».',
+    };
   }
 
   // ── Estado VIVO del puente, no recordado ─────────────────────────────────
@@ -396,4 +420,294 @@ export async function saldoAction(
   // Todavía no volvió: se devuelve lo último que se supo, con su fecha. Un saldo
   // viejo bien fechado sirve; uno sin fecha no se puede juzgar.
   return { ok: true, saldo: await leerSaldoGuardado(), listo: false };
+}
+
+// =============================================================================
+// EL PASO DE IMÁGENES — primero el escenario, después el video
+// =============================================================================
+// El orden importa y el generador lo tenía al revés. El primer clip que salió de
+// punta a punta salió en un ángulo que nadie pidió y con una cara que no se
+// parecía: se estaba animando sobre la nada. El proceso real, el que produjo los
+// cuatro anuncios que funcionaron, fija primero la imagen del lugar.
+//
+// ── Por qué la confirmación es LADO A LADO ─────────────────────────────────
+// El dueño: «muchas muchas veces la imagen de IA sale mal porque la IMAGEN que
+// se le pasó era mala: no tenía buena iluminación, o ya de por sí era otra
+// imagen de IA, lo que hacía que todo se vea muy artificial».
+//
+// O sea: cuando una imagen no se parece, hay DOS causas posibles y se ven igual.
+// Poner la foto original al lado de la generada convierte «esto está mal» en una
+// pregunta que la persona puede contestar —¿realmente no se parecen, o la foto
+// de entrada estaba mal?—. Sin la comparación, la única salida es regenerar, y
+// regenerar contra una foto mala da otra imagen mala.
+
+type MarcaImagen = {
+  trabajoId?: number; opciones?: string[]; elegida?: string; propia?: boolean;
+  error?: string; saldoAntes?: number | null; intento?: number;
+};
+
+const imgs = (plan: PlanGuardado): Record<string, MarcaImagen> =>
+  (plan.imagenes ?? {}) as Record<string, MarcaImagen>;
+
+async function guardarImagen(item: PlanGuardado, n: number, marca: MarcaImagen): Promise<PlanGuardado> {
+  const actualizado: PlanGuardado = {
+    ...item,
+    imagenes: { ...imgs(item), [String(n)]: { ...(imgs(item)[String(n)] ?? {}), ...marca } },
+  };
+  await guardarEnHistorial(actualizado);
+  return actualizado;
+}
+
+function planDe(historial: PlanGuardado[], planId: string): PlanGuardado | null {
+  return historial.find((e) => e.id === planId) ?? null;
+}
+
+/**
+ * MaKo escribe los escenarios del anuncio. Es el primer paso después del guion.
+ *
+ * No genera ninguna imagen: escribe DÓNDE se filma cada tramo y con qué prompt.
+ * Separar las dos cosas es lo que permite corregir el prompt antes de gastar
+ * nada — y aunque las imágenes sean gratis, una imagen equivocada cuesta la
+ * vuelta entera de mirarla, descartarla y volver a pedirla.
+ */
+export async function escribirEscenasAction(
+  planId: string,
+  ajuste?: string,
+): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  const item = planDe(await leerHistorial(), planId);
+  if (!item) return { ok: false, error: 'Ese anuncio ya no está en el historial.' };
+
+  const puesta = puestaPorId(item.plan.puestaId);
+  if (!puesta) return { ok: false, error: 'No reconozco el formato de este anuncio.' };
+
+  const escenas = await escribirEscenas(item.plan, puesta, ajuste);
+  if (!escenas) {
+    return {
+      ok: false,
+      error: 'MaKo no pudo escribir los escenarios. Vuelve a intentarlo; si sigue igual, revisa tus API keys en /integraciones.',
+    };
+  }
+
+  // ⚠️ Rehacer los escenarios INVALIDA las imágenes, y por eso se borran acá.
+  //
+  // Dejarlas sería peor que borrarlas: quedaría la imagen del escenario viejo
+  // ilustrando el prompt nuevo, y eso no se lee como un error — se lee como una
+  // imagen. La persona aprobaría un escenario mirando otro.
+  const actualizado: PlanGuardado = { ...item, escenas, imagenes: {} };
+  await guardarEnHistorial(actualizado);
+  return { ok: true, item: actualizado };
+}
+
+/** Corrige UN escenario con lo que pidió la persona, y descarta su imagen vieja. */
+export async function corregirEscenaAction(
+  planId: string,
+  n: number,
+  ajuste: string,
+): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  const item = planDe(await leerHistorial(), planId);
+  if (!item?.escenas) return { ok: false, error: 'Este anuncio todavía no tiene escenarios.' };
+
+  const escena = item.escenas.find((e) => e.n === n);
+  if (!escena) return { ok: false, error: 'Ese escenario no existe.' };
+
+  const nueva = await reescribirEscena(escena, ajuste);
+  if (!nueva) return { ok: false, error: 'MaKo no pudo aplicar ese cambio. Prueba a decirlo de otra forma.' };
+
+  const actualizado: PlanGuardado = {
+    ...item,
+    escenas: item.escenas.map((e) => (e.n === n ? nueva : e)),
+    // Solo la de ESTE escenario. Las otras siguen aprobadas y no se tocan.
+    imagenes: { ...imgs(item), [String(n)]: {} },
+  };
+  await guardarEnHistorial(actualizado);
+  return { ok: true, item: actualizado };
+}
+
+/**
+ * Manda a generar la imagen de UN escenario.
+ *
+ * ⚠️ Sin freno de plata, a diferencia de las tomas: las imágenes de Flow no
+ * gastan créditos. Lo que sí se guarda es el saldo de antes — «son gratis» es
+ * hoy una afirmación y no una medición, y este proyecto ya planificó con una
+ * tabla de costos de internet que estaba al doble. Con el saldo previo, la
+ * primera generación lo confirma o lo desmiente sola.
+ */
+export async function generarImagenAction(
+  planId: string,
+  n: number,
+): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  const item = planDe(await leerHistorial(), planId);
+  if (!item?.escenas) return { ok: false, error: 'Este anuncio todavía no tiene escenarios.' };
+
+  const escena = item.escenas.find((e) => e.n === n);
+  if (!escena) return { ok: false, error: 'Ese escenario no existe.' };
+
+  const puente = await estadoPuente().catch(() => null);
+  if (!puente || puente.estado === 'sin_conectar') {
+    return { ok: false, error: 'Todavía no conectaste tu navegador. Configúralo abajo, en «Prepara tu navegador».' };
+  }
+  if (puente.estado === 'marcada') {
+    return { ok: false, error: 'Google marcó esta sesión y dejó de aceptar generaciones. Abajo, en «Prepara tu navegador», está qué hacer.' };
+  }
+  if (puente.estado === 'sin_sesion') {
+    return { ok: false, error: 'Tu sesión de Google Flow venció. Abre Flow, inicia sesión, y vuelve a intentar.' };
+  }
+
+  // La cara: primero lo APRENDIDO, después lo que se ve ahora. Es la misma que
+  // usa el clip, y a propósito — dos caras distintas entre la imagen y el video
+  // es exactamente el defecto que este paso viene a arreglar.
+  //
+  // Acá NO es bloqueante, y esa es la diferencia con el clip: una imagen de
+  // escenario sin la persona sigue siendo útil (dice si el lugar está bien), y
+  // el prompt no describe a nadie. Sin cara sale un desconocido en el lugar
+  // correcto, que se puede juzgar. Un CLIP sin cara, no.
+  const mediaIdCara = (await getSetting(KEY_CARA_FLOW))?.trim()
+    || mediaIdDeReferencia(String(puente.detalle ?? ''));
+
+  // Un intento más = otra semilla. «Regenerar» tiene que dar algo distinto o el
+  // botón no hace nada; y la semilla sigue siendo derivada, así que volver al
+  // intento 2 daría la misma imagen del intento 2.
+  const intento = (imgs(item)[String(n)]?.intento ?? 0) + 1;
+  const saldoAntes = (await leerSaldoGuardado()).creditos;
+
+  const trabajoId = await encolar('generar_imagen', {
+    // El projectId de este path es de mentira y no importa: la extensión usa el
+    // path SOLO para encontrar la plantilla (de su último tramo sale la clase) y
+    // la URL la copia entera del tráfico real de Flow, projectId incluido.
+    path: ENDPOINTS.generarImagenes('x'),
+    body: cuerpoImagenEscena({
+      prompt: escena.prompt,
+      mediaIdCara,
+      seed: semillaDeEscena(planId, n * 100 + intento),
+    }),
+  });
+  if (trabajoId == null) return { ok: false, error: 'No se pudo encolar la imagen.' };
+
+  return {
+    ok: true,
+    item: await guardarImagen(item, n, {
+      trabajoId, intento, saldoAntes, opciones: [], elegida: '', error: '', propia: false,
+    }),
+  };
+}
+
+export type EstadoImagen =
+  | { fase: 'sin_empezar' }
+  | { fase: 'generando' }
+  | { fase: 'listo'; opciones: string[]; elegida: string }
+  | { fase: 'error'; error: string };
+
+/** Mira si ya volvió la imagen. Un paso por llamada, sin esperar adentro. */
+export async function estadoImagenAction(
+  planId: string,
+  n: number,
+): Promise<{ ok: true; item: PlanGuardado; estado: EstadoImagen } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  let item = planDe(await leerHistorial(), planId);
+  if (!item) return { ok: false, error: 'Ese anuncio ya no está en el historial.' };
+
+  const m = imgs(item)[String(n)] ?? {};
+  if (m.opciones?.length) {
+    return { ok: true, item, estado: { fase: 'listo', opciones: m.opciones, elegida: m.elegida ?? '' } };
+  }
+  if (m.error) return { ok: true, item, estado: { fase: 'error', error: m.error } };
+  if (!m.trabajoId) return { ok: true, item, estado: { fase: 'sin_empezar' } };
+
+  const db = await getTenantDb();
+  const { data } = await db
+    .from('flow_trabajos')
+    .select('estado, resultado, error')
+    .eq('id', m.trabajoId)
+    .maybeSingle();
+
+  // `fallido`, que es lo que escribe la cola. Con `error` —el nombre que uno
+  // supone— un trabajo caído se lee como «todavía no terminó» y la pantalla gira
+  // para siempre. Ya pasó una vez con los clips.
+  if (str(data?.estado) === 'fallido') {
+    const e = str(data?.error) || 'Flow rechazó el pedido de imagen.';
+    item = await guardarImagen(item, n, { error: e });
+    return { ok: true, item, estado: { fase: 'error', error: e } };
+  }
+  if (str(data?.estado) !== 'listo') return { ok: true, item, estado: { fase: 'generando' } };
+
+  const opciones = imagenesDeRespuesta(data?.resultado).map((i) => i.url);
+  if (!opciones.length) {
+    const e = 'Flow aceptó el pedido pero no devolvió ninguna imagen.';
+    item = await guardarImagen(item, n, { error: e });
+    return { ok: true, item, estado: { fase: 'error', error: e } };
+  }
+
+  // La primera queda preseleccionada: la persona confirma o cambia, pero nunca
+  // se queda mirando dos imágenes sin ninguna elegida — eso convierte una
+  // confirmación en un trámite más.
+  item = await guardarImagen(item, n, { opciones, elegida: opciones[0] });
+  return { ok: true, item, estado: { fase: 'listo', opciones, elegida: opciones[0] } };
+}
+
+/** La persona elige cuál de las variantes queda. */
+export async function elegirImagenAction(
+  planId: string,
+  n: number,
+  url: string,
+): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  const item = planDe(await leerHistorial(), planId);
+  if (!item) return { ok: false, error: 'Ese anuncio ya no está en el historial.' };
+
+  const m = imgs(item)[String(n)] ?? {};
+  // Solo una de las que se generaron para ESTA escena. Aceptar cualquier string
+  // dejaría que la pantalla escriba una URL arbitraria dentro del plan.
+  if (!m.opciones?.includes(url)) return { ok: false, error: 'Esa imagen no es de este escenario.' };
+
+  return { ok: true, item: await guardarImagen(item, n, { elegida: url }) };
+}
+
+/**
+ * La persona sube SU foto del lugar en vez de generarla.
+ *
+ * Es la tercera corrección que pidió el dueño, y la que más veces gana: cuando
+ * el escenario existe de verdad, una foto real del lugar le gana a cualquier
+ * prompt. Entra como una opción más y queda elegida.
+ *
+ * ⚠️ Llega como data: URI y se guarda tal cual, igual que las que devuelve Flow
+ * cuando manda binario. Pesa dentro del historial y el historial topea en 10
+ * anuncios — es la misma deuda que ya tienen los clips, y se salda igual: bajando
+ * los medios a storage propio. Está anotado en docs/hallazgos-generativa.md.
+ */
+export async function subirImagenEscenaAction(
+  planId: string,
+  n: number,
+  dataUri: string,
+): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  const uri = (dataUri || '').trim();
+  if (!/^data:image\/(png|jpeg|jpg|webp);base64,[A-Za-z0-9+/=]+$/.test(uri)) {
+    return { ok: false, error: 'Eso no es una imagen. Sube un PNG, un JPG o un WEBP.' };
+  }
+  // ~6 MB de base64. Por encima de eso el historial entero deja de entrar en su
+  // fila de app_settings y se pierde el anuncio, no la foto.
+  if (uri.length > 8_000_000) return { ok: false, error: 'Esa imagen pesa demasiado. Prueba con una más chica.' };
+
+  const item = planDe(await leerHistorial(), planId);
+  if (!item?.escenas?.some((e) => e.n === n)) return { ok: false, error: 'Ese escenario no existe.' };
+
+  return {
+    ok: true,
+    item: await guardarImagen(item, n, { opciones: [uri], elegida: uri, propia: true, error: '' }),
+  };
 }

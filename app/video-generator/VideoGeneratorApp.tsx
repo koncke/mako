@@ -50,6 +50,7 @@ import {
 } from '../components/SeccionCard';
 import { editarGuionAction } from './cargar-guiones-action';
 import { generarTomaAction, estadoTomaAction, pedirSaldoAction, saldoAction } from './video-action';
+import { PasoEscenarios, escenariosListos } from './PasoEscenarios';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 
@@ -453,7 +454,8 @@ function Lienzo({ url, cargando, error, onGenerar, n }: {
   url?: string;
   cargando: boolean;
   error?: string;
-  onGenerar: () => void;
+  /** Ausente = todavía no se puede filmar (faltan escenarios por confirmar). */
+  onGenerar?: () => void;
   n: number;
 }) {
   const ANCHO = 176;
@@ -520,6 +522,26 @@ function Lienzo({ url, cargando, error, onGenerar, n }: {
     );
   }
 
+  // ── Todavía no se puede filmar ──────────────────────────────────────────
+  // Un botón deshabilitado no dice POR QUÉ, y «no puedo apretar esto» sin motivo
+  // es indistinguible de un botón roto. Acá el hueco dice qué falta y dónde está.
+  if (!onGenerar) {
+    return (
+      <div style={{
+        width: ANCHO, aspectRatio: '9 / 16', marginTop: 11, borderRadius: 13,
+        background: 'var(--surface-2)', border: '1px dashed var(--border)',
+        display: 'grid', placeItems: 'center', padding: '0 14px', textAlign: 'center',
+      }}>
+        <div>
+          <div style={{ color: 'var(--faint)', marginBottom: 7 }}><Icon name="image" size={19} /></div>
+          <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--dim)', lineHeight: 1.45 }}>
+            Primero confirma el escenario, arriba
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <button
       type="button"
@@ -574,7 +596,8 @@ function LineaGuion({
   /** El video de esta toma, cuando existe o se está haciendo. */
   video?: { url?: string; error?: string; operacion?: string; trabajoId?: number };
   enCurso: boolean;
-  onGenerar: () => void;
+  /** Ausente = todavia no se puede filmar. Ver `Lienzo`. */
+  onGenerar?: () => void;
 }) {
   const alerta = palabras > tope || voseo.length > 0;
   // El campo de instrucción arranca cerrado: siete campos abiertos a la vez es
@@ -1361,13 +1384,27 @@ export function VideoGeneratorApp({
               variant="mako"
               icon={<Icon name="ia" size={16} />}
               loading={generando === 1}
-              disabled={generando != null || !!videoDe(actual, 1)?.url}
+              // ⚠️ Filmar está cerrado hasta que los escenarios estén
+              // confirmados. No es una preferencia de flujo: animar sin haber
+              // fijado la imagen es lo que produjo el primer clip con el ángulo
+              // equivocado y una cara que no era la del dueño.
+              //
+              // El botón deshabilitado es la CORTESÍA; el que decide es el
+              // server (`generarTomaAction`), porque esconder un botón no
+              // protege nada.
+              disabled={generando != null || !!videoDe(actual, 1)?.url || !escenariosListos(actual)}
               onClick={() => void generarToma(1)}
               // Genera LA PRIMERA, no las siete. El texto lo dice para que nadie
               // apriete esperando el anuncio entero y crea que se colgó.
-              title="Genera la primera toma. Si te convence, sigues con las demás."
+              title={
+                escenariosListos(actual)
+                  ? 'Genera la primera toma. Si te convence, sigues con las demás.'
+                  : 'Primero confirma los escenarios, arriba.'
+              }
             >
-              {videoDe(actual, 1)?.url ? 'Primera toma lista' : 'Generar la primera toma'}
+              {videoDe(actual, 1)?.url
+                ? 'Primera toma lista'
+                : escenariosListos(actual) ? 'Generar la primera toma' : 'Confirma los escenarios'}
             </Button>
           }
         />
@@ -1437,6 +1474,23 @@ export function VideoGeneratorApp({
             );
           })()}
 
+          {/*
+            LOS ESCENARIOS VAN ARRIBA DEL GUION, y el orden es el argumento.
+
+            El proceso de producción es imagen → video. Poner esta sección
+            debajo del guion la convertiría en un accesorio del paso siguiente,
+            que es exactamente el error que el generador tenía adentro.
+          */}
+          <PasoEscenarios
+            item={actual}
+            fotoUrl={contexto?.fotoUrl ?? null}
+            escenarios={Math.max(1, Math.min(puestaActual?.escenarios ?? 1, actual.plan.clips.length))}
+            onCambio={(it) => {
+              setActual(it);
+              setHistorial((h) => h.map((e) => (e.id === it.id ? it : e)));
+            }}
+          />
+
           <Section
             titulo="Tu guion"
             accion={
@@ -1470,7 +1524,11 @@ export function VideoGeneratorApp({
                   onPedir={(i) => pedirCambio(c.n, i)}
                   video={videoDe(actual, c.n)}
                   enCurso={generando === c.n}
-                  onGenerar={() => void generarToma(c.n)}
+                  // `undefined` apaga el botón de filmar mientras los escenarios
+                  // no estén confirmados. La toma se puede leer y editar igual:
+                  // lo que se cierra es gastar créditos sobre una imagen que
+                  // nadie miró.
+                  onGenerar={escenariosListos(actual) ? () => void generarToma(c.n) : undefined}
                 />
               ))}
             </div>

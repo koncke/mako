@@ -178,6 +178,10 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // guion Y los prompts de video, así que carga más estructura que un writer de
   // copy, pero sigue siendo brief público sin PII → default GRATIS.
   { feature: 'video-planner', label: 'Planificar anuncio en video (Video Generator)', grupo: 'Copywriting', def: GEMINI(), nota: 'De un tema a un plan de clips: qué dice cada uno, qué se ve, la cámara y el prompt listo para pegar. El ritmo y el tope de palabras los fija la puesta en escena, no el modelo. Sin PII.' },
+  // Los escenarios de un anuncio (lib/escenas.ts). Decide dónde cambia el lugar
+  // y escribe el prompt de cada imagen; la CANTIDAD la fija el catálogo de
+  // puestas, no el modelo. Brief público sin PII → default GRATIS.
+  { feature: 'video-escenas', label: 'Escribir los escenarios del anuncio (Video Generator)', grupo: 'Copywriting', def: GEMINI(), nota: 'Antes de animar: en qué lugares se filma, qué tomas cubre cada uno y el prompt de la imagen en inglés. Tiene prohibido describir la cara —la pone la foto real— y eso se valida, no se pide. Sin PII.' },
   { feature: 'wa-advisor', label: 'Asesor de WhatsApp — sugerir respuesta a un lead', grupo: 'Copywriting', def: GEMINI(), pii: true, nota: 'Analiza la charla real y propone el próximo mensaje (datos del cliente).' },
   { feature: 'wa-advisor-chat', label: 'Asesor de WhatsApp — conversar con MaKo sobre el lead', grupo: 'Copywriting', def: GEMINI(), pii: true, nota: 'Ida y vuelta de preguntas sobre el lead (datos del cliente).' },
   { feature: 'wa-template', label: 'Generar plantilla de WhatsApp (asesor)', grupo: 'Copywriting', def: GEMINI() },

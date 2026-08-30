@@ -73,16 +73,19 @@ export type Puesta = {
    * cuánto texto acepta el modelo antes de tartamudear o de sobrarle tiempo.
    */
   densidad: number;
-  /** ¿Hay que generar imágenes ANTES de animar, o se anima sobre fotos reales? */
-  imagenesPrevias: boolean;
   /**
    * Cuántas IMÁGENES hay que generar antes del video. Una por ESCENARIO, no por clip.
    *
    * ⚠️ Este número existe porque el orden correcto es IMAGEN → VIDEO, y el
-   * catálogo decía lo contrario: `The Office` y `Car Talks` estaban en
-   * `imagenesPrevias: false`, dato que salió de cómo se produjo A MANO el cuarto
-   * anuncio y se generalizó a una regla del formato. El primer clip que salió de
-   * punta a punta lo pagó: ángulo equivocado y sin parecerse a la persona.
+   * catálogo decía lo contrario: había un `imagenesPrevias: boolean` que en
+   * `The Office` y en `Car Talks` valía `false`, dato que salió de cómo se
+   * produjo A MANO el cuarto anuncio y se generalizó a una regla del formato. El
+   * primer clip que salió de punta a punta lo pagó: ángulo equivocado y sin
+   * parecerse a la persona.
+   *
+   * Ese booleano ya no existe: contestaba la MISMA pregunta que este número y la
+   * contestaba distinto. Toda puesta necesita al menos un escenario, así que la
+   * pregunta «¿hay que generar imágenes?» ya no se hace — la respuesta es sí.
    *
    * La cuenta NO es por clip. Siete tomas dentro del mismo auto son un escenario
    * y una imagen; un recorrido por una oficina son varios lugares y varias
@@ -140,7 +143,6 @@ export const CATALOGO_PUESTAS: Puesta[] = [
     habla: 'mixto',
     ritmo: 'H O H O H O H H',
     densidad: 2.1,
-    imagenesPrevias: false,
     escenarios: 4,
     characterSheet: false,
     reglas: [
@@ -174,7 +176,6 @@ export const CATALOGO_PUESTAS: Puesta[] = [
     camara: 'selfie',
     habla: 'siempre',
     densidad: 3,
-    imagenesPrevias: false,
     escenarios: 1,
     characterSheet: false,
     reglas: [
@@ -206,7 +207,6 @@ export const CATALOGO_PUESTAS: Puesta[] = [
     camara: 'estatica',
     habla: 'siempre',
     densidad: 3,
-    imagenesPrevias: true,
     escenarios: 2,
     characterSheet: false,
     reglas: [
@@ -233,7 +233,6 @@ export const CATALOGO_PUESTAS: Puesta[] = [
     camara: 'estatica',
     habla: 'siempre',
     densidad: 3,
-    imagenesPrevias: false,
     escenarios: 2,
     characterSheet: false,
     reglas: [
@@ -259,7 +258,6 @@ export const CATALOGO_PUESTAS: Puesta[] = [
     camara: 'mano',
     habla: 'nunca',
     densidad: 2.55,
-    imagenesPrevias: true,
     escenarios: 3,
     characterSheet: true,
     reglas: [
@@ -286,7 +284,6 @@ export const CATALOGO_PUESTAS: Puesta[] = [
     camara: 'estatica',
     habla: 'siempre',
     densidad: 3,
-    imagenesPrevias: true,
     escenarios: 2,
     characterSheet: false,
     reglas: [
@@ -312,7 +309,6 @@ export const CATALOGO_PUESTAS: Puesta[] = [
     camara: 'mano',
     habla: 'siempre',
     densidad: 3,
-    imagenesPrevias: true,
     escenarios: 2,
     characterSheet: false,
     reglas: [
@@ -337,7 +333,6 @@ export const CATALOGO_PUESTAS: Puesta[] = [
     camara: 'mano',
     habla: 'nunca',
     densidad: 2.55,
-    imagenesPrevias: true,
     escenarios: 2,
     characterSheet: false,
     reglas: [

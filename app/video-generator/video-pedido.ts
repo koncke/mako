@@ -11,6 +11,7 @@
 // (cuánto dura, cuántos clips) y no de la puesta.
 
 import type { PlanVideo } from '@/lib/video-planner';
+import type { Escena } from '@/lib/escenas-core';
 import { CATALOGO_PUESTAS, puestaPorId, puestasOfrecidas, type Puesta } from '@/lib/puestas-data';
 
 export { CATALOGO_PUESTAS, puestaPorId, puestasOfrecidas };
@@ -124,7 +125,13 @@ export function guionATexto(plan: PlanVideo): string {
 // (para eso está `guionATexto`) — es el molde de los cuatro anuncios que se
 // hicieron a mano y lo consume la producción, que hoy todavía es manual.
 
-export function planATexto(plan: PlanVideo, nombrePuesta: string): string {
+/** En qué escenario se filma esta toma. Vacío si todavía no se generaron. */
+function escenaDe(escenas: Escena[], n: number): string {
+  const e = escenas.find((x) => n >= x.desde && n <= x.hasta);
+  return e ? `Escenario ${e.n} (${e.lugar})` : '';
+}
+
+export function planATexto(plan: PlanVideo, nombrePuesta: string, escenas: Escena[] = []): string {
   const lineas: string[] = [
     `GUION · ${plan.titulo}`,
     '',
@@ -136,9 +143,15 @@ export function planATexto(plan: PlanVideo, nombrePuesta: string): string {
     '',
   ];
 
-  if (plan.imagenesNecesarias.length > 0) {
-    lineas.push('IMÁGENES A GENERAR ANTES DE ANIMAR');
-    plan.imagenesNecesarias.forEach((img, i) => lineas.push(`${i + 1}. ${img}`));
+  // Las imágenes van PRIMERO porque el proceso va primero por ahí: se fija el
+  // escenario y recién después se anima. Un texto que empieza por los clips
+  // describe el paso dos como si fuera el uno.
+  if (escenas.length > 0) {
+    lineas.push('ESCENARIOS — se generan ANTES de animar');
+    escenas.forEach((e) => {
+      const tomas = e.desde === e.hasta ? `toma ${e.desde}` : `tomas ${e.desde}-${e.hasta}`;
+      lineas.push('', `ESCENARIO ${e.n} · ${tomas} · ${e.lugar}`, e.prompt);
+    });
     lineas.push('');
   }
 
@@ -150,7 +163,7 @@ export function planATexto(plan: PlanVideo, nombrePuesta: string): string {
       c.habla ? `Dice: ${c.voz}` : `Voz en off: ${c.voz}`,
       `Qué se ve: ${c.queSeVe}`,
       `Cámara: ${c.camara}`,
-      c.imagenAdjunta ? `Adjuntar: ${c.imagenAdjunta}` : '',
+      escenaDe(escenas, c.n),
       '',
       'PROMPT:',
       c.prompt,

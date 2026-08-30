@@ -169,6 +169,27 @@ export function extraerMediaId(fuente: unknown): string | null {
  * ⚠️ Se clasifica por `reason` estructurado ANTES que por el texto. El texto de
  * un proveedor cambia sin aviso; el enum, mucho menos.
  */
+/**
+ * Qué tiene que hacer la persona cuando falta una plantilla, POR CLASE.
+ *
+ * El espejo copia el último pedido que hizo la propia app de Flow, así que una
+ * plantilla que falta se arregla haciendo ESA cosa a mano una vez. Y son cosas
+ * distintas: generar un video no enseña a pedir una imagen.
+ *
+ * La clave es el último tramo del path, que es como la extensión nombra cada
+ * clase (extension/injected.js).
+ */
+const QUE_HACER_SIN_PLANTILLA: Record<string, string> = {
+  'flowMedia:batchGenerateImages':
+    'Todavía no vi a Google Flow generar una imagen. Abre Flow con esta pestaña abierta, genera UNA imagen a mano, y vuelve a intentar',
+  'video:batchAsyncGenerateVideoReferenceImages':
+    'Todavía no vi a Google Flow generar un video con tu foto de referencia. Abre Flow, genera UNO a mano usando tu foto, y vuelve a intentar',
+  'video:batchAsyncGenerateVideoStartImage':
+    'Todavía no vi a Google Flow animar una imagen. Abre Flow, anima UNA imagen a mano, y vuelve a intentar',
+  credits:
+    'Todavía no vi a Google Flow leer tu saldo. Abre Flow y espera unos segundos con la pestaña a la vista',
+};
+
 export function clasificarFalla(status: number, cuerpo: unknown): { motivo: MotivoFalla; error: string; reintentable: boolean } {
   // ⚠️ El cuerpo NO siempre es JSON. Cuando Google decide que el tráfico es
   // automatizado no contesta un error de la API: sirve su página HTML de bloqueo
@@ -314,10 +335,18 @@ export function clasificarFallaDelNavegador(
   // propia app de Flow (ver extension/injected.js). Si nunca vio uno de esa clase,
   // NO inventa uno — que es lo que no funcionó — y avisa que falta.
   if (/^SIN_PLANTILLA:/i.test(m)) {
-    const clase = m.split(':')[1] || '';
+    // ⚠️ La clase lleva DOS puntos adentro (`flowMedia:batchGenerateImages`), así
+    // que `split(':')[1]` la partía a la mitad y el mensaje nombraba un endpoint
+    // que no existe. Se corta en el PRIMER dos puntos y el resto es la clase.
+    const clase = m.slice(m.indexOf(':') + 1).trim();
     return {
       motivo: 'puente_dormido',
-      error: `Todavía no vimos a Google Flow hacer este pedido${clase ? ` (${clase})` : ''}. Abre Flow, genera algo una vez, y vuelve a intentar.`,
+      // «Genera algo una vez» no alcanza: generar un video no enseña a pedir una
+      // imagen, y son plantillas distintas. Un error que no dice cuál de las dos
+      // cosas hacer manda a probar la que ya estaba hecha.
+      error: `${QUE_HACER_SIN_PLANTILLA[clase] ?? 'Todavía no vimos a Google Flow hacer este pedido'}${
+        clase ? ` (${clase})` : ''
+      }.`,
       reintentable: false,
     };
   }

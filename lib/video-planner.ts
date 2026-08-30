@@ -56,8 +56,6 @@ export type ClipPlan = {
   queSeVe: string;
   /** La indicación de cámara, en la voz del método. */
   camara: string;
-  /** Qué imagen adjuntar, cuando la puesta necesita imágenes previas. */
-  imagenAdjunta?: string;
   /** El prompt completo, listo para pegar. Español para el guion, inglés para la escena. */
   prompt: string;
   /** Palabras contadas en `voz`. Medido acá, no declarado por el modelo. */
@@ -84,8 +82,15 @@ export type PlanVideo = {
   clips: ClipPlan[];
   /** El guion entero seguido, para leerlo de corrido y detectar que no cierra. */
   deCorrido: string;
-  /** Qué imágenes hay que tener ANTES de animar. Vacío si la puesta no las pide. */
-  imagenesNecesarias: string[];
+  /**
+   * ⚠️ Acá vivía `imagenesNecesarias`: una lista en prosa que escribía el modelo.
+   *
+   * La reemplazan las ESCENAS (`lib/escenas.ts`), y la diferencia no es de
+   * formato. Aquella lista contestaba «¿cuántas imágenes?» con una opinión;
+   * ahora esa pregunta la contesta `Puesta.escenarios`, que es un dato del
+   * catálogo, y cada escena sabe además qué tomas cubre y trae su prompt en
+   * inglés. Un plan no puede tener dos respuestas distintas a la misma pregunta.
+   */
   /**
    * `true` si el acento del cliente ES rioplatense.
    *
@@ -253,11 +258,9 @@ const JSON_SHAPE = `{
       "voz": "lo que se dice en este clip",
       "queSeVe": "la acción física de la persona",
       "camara": "qué hace la cámara",
-      "imagenAdjunta": "nombre de la imagen a adjuntar, o null",
       "prompt": "el prompt completo listo para pegar"
     }
-  ],
-  "imagenesNecesarias": ["descripción de cada imagen que hay que generar antes, o lista vacía"]
+  ]
 }`;
 
 /**
@@ -298,9 +301,10 @@ function estructuraDeClips(
     ...filas,
     '',
     `Ritmo: ${habla.map((h) => (h ? 'H' : 'O')).join(' ')} (H = habla en cámara, O = voz en off).`,
-    puesta.imagenesPrevias
-      ? 'Esta puesta necesita imágenes generadas ANTES de animar: enumera cuáles en `imagenesNecesarias` y referencia cada una en el `imagenAdjunta` del clip que la usa.'
-      : 'Esta puesta NO necesita generar imágenes: se anima sobre fotos reales. Deja `imagenesNecesarias` vacío y `imagenAdjunta` en null.',
+    // Las imágenes NO se piden acá. Se generan después, en su propio paso, con la
+    // cantidad que fija el formato — este prompt solo escribe el guion y las
+    // tomas. Pedírselas también acá era darle al modelo una segunda oportunidad
+    // de contestar distinto la misma pregunta.
   ].join('\n');
 }
 
@@ -355,7 +359,6 @@ function sanearPlan(
   // lado del clip para que se pida rehacer ese y no todo el plan.
   const clips: ClipPlan[] = crudos.map((c, i) => {
     const o = (c ?? {}) as Record<string, unknown>;
-    const adjunta = str(o.imagenAdjunta);
     // ── La voz: adaptada, salvo en el cierre ────────────────────────────────
     // El modelo adapta la forma —los conectores con los que arranca la persona,
     // las palabras de su variedad— y eso es una feature: un guion dicho como se
@@ -393,7 +396,6 @@ function sanearPlan(
       voz,
       queSeVe: str(o.queSeVe),
       camara: str(o.camara),
-      imagenAdjunta: puesta.imagenesPrevias && adjunta ? adjunta : undefined,
       prompt: conAcento(str(o.prompt), acento),
       palabras: contarPalabras(voz),
       tope: palabrasQueEntran(puesta, segundos[i]),
@@ -408,10 +410,6 @@ function sanearPlan(
     };
   });
 
-  const imagenes = Array.isArray(raw.imagenesNecesarias)
-    ? raw.imagenesNecesarias.map(str).filter(Boolean)
-    : [];
-
   return {
     puestaId: puesta.id,
     titulo: str(raw.titulo) || 'Anuncio sin título',
@@ -419,7 +417,6 @@ function sanearPlan(
     ritmo: habla.map((h) => (h ? 'H' : 'O')).join(' '),
     clips,
     deCorrido: clips.map((c) => c.voz).filter(Boolean).join(' '),
-    imagenesNecesarias: puesta.imagenesPrevias ? imagenes : [],
   };
 }
 

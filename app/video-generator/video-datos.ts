@@ -21,6 +21,7 @@ import { tzDeWorkspace } from '@/lib/timezone';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { getSchema, getAnswers } from '@/lib/onboarding';
 import type { PlanVideo } from '@/lib/video-planner';
+import type { Escena } from '@/lib/escenas-core';
 
 export const KEY_HISTORIAL_VIDEO = 'video-generator.historial';
 const MAX_HISTORIAL = 10;
@@ -50,6 +51,41 @@ export type PlanGuardado = {
    * storage propio antes de que venza el TTL de Google (~1 h) — mientras eso no
    * exista, esto es un puntero con fecha de vencimiento, no un archivo.
    */
+  /**
+   * Los escenarios del anuncio: dónde se filma cada tramo, y el prompt de su
+   * imagen. Los escribe MaKo (`lib/escenas.ts`) y la cantidad la fija el
+   * formato, no el modelo.
+   *
+   * Ausente = todavía no se llegó al paso de imágenes. No es lo mismo que una
+   * lista vacía, que sería «se pidieron y no salió ninguna».
+   */
+  escenas?: Escena[];
+  /**
+   * Lo generado por ESCENARIO, indexado por su número.
+   *
+   * ⚠️ Va aparte de `video` a propósito. Son dos preguntas distintas —«¿ya tengo
+   * la imagen del lugar?» y «¿ya animé la toma 3?»— y meterlas en el mismo mapa
+   * hace que la clave `"1"` signifique dos cosas según quién la lea.
+   */
+  imagenes?: Record<string, {
+    trabajoId?: number;
+    /** Las variantes que devolvió Flow. Se muestran para elegir. */
+    opciones?: string[];
+    /** La que la persona confirmó. Sin esto, la escena no está aprobada. */
+    elegida?: string;
+    /** true = la subió la persona, no la generó Flow. */
+    propia?: boolean;
+    error?: string;
+    /**
+     * El saldo justo ANTES de generar esta imagen.
+     *
+     * Existe aunque las imágenes sean gratis — o precisamente por eso. «Son
+     * gratis» es hoy una afirmación, no una medición, y este proyecto ya
+     * planificó con una tabla de costos de internet que estaba al doble. Con
+     * esto, la primera generación lo confirma o lo desmiente sola.
+     */
+    saldoAntes?: number | null;
+  }>;
   video?: Record<string, {
     trabajoId?: number;
     operacion?: string;
