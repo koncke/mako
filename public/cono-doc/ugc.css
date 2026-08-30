@@ -2879,15 +2879,23 @@ html:has(.ahdoc), body:has(.ahdoc) { overflow: hidden !important; height: 100% !
      cajas, ve TINTA, y la tinta de cada tipografia cae en un sitio distinto adentro de su
      caja. Medido con `measureText` sobre las dos: la tinta de este texto (JetBrains Mono
      11,5) cae 1,73 px POR DEBAJO del centro de la pastilla, mientras que la del rotulo
-     (Archivo 13, adentro del boton) esta a 0,5 px. Se sube 2 px y queda a un cuarto de
-     pixel.
+     (Archivo 13, adentro del boton) esta a 0,5 px.
 
-     Probado antes `align-items: baseline`, que es lo que uno supone: EMPEORA a 2,02 px.
-     Lo reporto Martin —«el titulo de la primera clase no quedo alineado y centrado con el
-     boton»— y las dos primeras hipotesis (cajas descentradas, baselines) daban 0,6 px, o
-     sea invisible: el numero que importaba era otro. */
+     ⚠️ Y LA REFERENCIA ES EL ROTULO DEL BOTON, NO EL CENTRO DE LA PASTILLA. Primero se
+     corrigio contra la pastilla —1,73 px, o sea -2— y Martin volvio a decir que se veia
+     descentrado: con -2 el texto queda ALTO. El ojo lee los dos textos como un renglon y
+     alinea uno con otro; la forma lima de atras no participa. Contra el rotulo la
+     diferencia es 1,23 px, y a -1,25 los dos quedan a nivel.
+
+     Se eligio MIRANDO, no despejando: se dibujo la misma fila a 0 / -0,75 / -1,25 / -1,75
+     / -2 y se compararon (scratchpad/comparar-nudge.mjs). Medir daba DOS numeros segun
+     contra que se midiera, y el ojo no promedia: elige uno.
+
+     Probado tambien `align-items: baseline`, que es lo que uno supone: EMPEORA, a 2,02 px
+     —el inline-flex de la pastilla sintetiza su baseline y no cae donde uno cree—. Y las
+     dos primeras hipotesis (cajas descentradas, baselines) daban 0,6 px: invisible. */
   position: relative;
-  top: -2px;
+  top: -1.25px;
   font-family: var(--font-jetbrains), monospace;
   font-size: 11.5px;
   letter-spacing: 0.01em;

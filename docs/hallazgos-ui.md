@@ -2373,7 +2373,7 @@ un riesgo mucho mayor que el bug.
 
 **Vive en:** `app/_components/icons.tsx`, `app/video-generator/CargarGuiones.tsx`.
 
-## `align-items: center` centra CAJAS; el ojo ve TINTA
+## `align-items: center` centra CAJAS; el ojo ve TINTA — y hay que elegir CONTRA QUÉ
 
 **Vive en:** `public/cono-doc/ugc.css` → `.ugc-hero-primera`.
 
@@ -2382,32 +2382,39 @@ JetBrains Mono 11,5 px) se veía corrida. Medido, las dos cajas estaban **centra
 píxel: 0,01 px de desfase**. El problema no era el centrado.
 
 Entre la caja de línea y los glifos hay dos cosas que cambian con cada tipografía: el
-*half-leading* (la mitad de la diferencia entre `line-height` y `font-size`, repartida
-arriba y abajo) y la distancia entre el `ascent` de la fuente y su altura de mayúscula. Dos
-fuentes distintas, en cajas perfectamente centradas, ponen la tinta en sitios distintos.
+*half-leading* (la mitad de la diferencia entre `line-height` y `font-size`) y la distancia
+entre el `ascent` de la fuente y su altura de mayúscula. Dos fuentes distintas, en cajas
+perfectamente centradas, ponen la tinta en sitios distintos.
 
-Medido con `measureText` sobre las dos (`actualBoundingBoxAscent`/`Descent`):
+⚠️ **Y ACÁ ESTÁ LO QUE COSTÓ DOS VUELTAS: medir da DOS números, según contra qué midas.**
 
-| | vs. el centro de la pastilla |
+| la tinta del nombre está… | …a |
 |---|---|
-| rótulo del botón (Archivo 13) | **0,5 px** |
-| nombre de la clase (Mono 11,5) | **1,73 px** |
+| del **centro de la pastilla** | 1,73 px |
+| del **rótulo del botón** | 1,23 px |
 
-⚠️ **Y las dos hipótesis obvias eran falsas, las dos comprobadas antes de tocar nada:**
+Se corrigió primero contra la pastilla (−2 px) y Martín volvió a reportarlo: con −2 el
+texto queda **alto**. **El ojo lee los dos textos como un renglón y alinea uno con otro; la
+forma lima de atrás no participa.** La referencia es el rótulo, y el valor es −1,25 px.
+
+**La regla: cuando dos cosas «no se ven alineadas», la mitad del trabajo es decidir CONTRA
+QUÉ se alinean.** Medir sin haber elegido la referencia da un número correcto de la
+pregunta equivocada — y en este caso los dos números se llevaban medio píxel, así que
+ninguno «se veía mal» en la planilla.
+
+**Se eligió mirando, no despejando.** Se dibujó la misma fila a 0 / −0,75 / −1,25 / −1,75 /
+−2 y se comparó (`scratchpad/comparar-nudge.mjs`). Es el mismo método que resolvió el
+encuadre de las tapas, y por la misma razón: el ojo no promedia, elige.
+
+⚠️ **Las otras dos hipótesis eran falsas, las dos comprobadas antes de tocar nada:**
 
 - *«están descentradas»* → 0,01 px. No.
-- *«hay que alinear por baseline, no por centro»* → `align-items: baseline` **EMPEORA** el
-  caso, de 1,73 a 2,02 px. El `inline-flex` de la pastilla sintetiza su baseline y no cae
-  donde uno supone.
-
-La cura es un ajuste óptico **medido**: `position: relative; top: -2px` sobre el texto
-chico, con el número al lado en el comentario. Queda a 0,27 px.
-
-**La regla: si dos textos de tipografías o cuerpos distintos van uno al lado del otro y
-«se ven corridos», medí la TINTA antes de tocar el layout.** Un `align-items` distinto
-mueve cajas que ya estaban bien. Y si el ajuste termina siendo un desplazamiento a mano,
-que sea el número que salió de medir — no uno probado a ojo hasta que pareció.
+- *«hay que alinear por baseline»* → `align-items: baseline` **EMPEORA**, de 1,73 a 2,02 px:
+  el `inline-flex` de la pastilla sintetiza su baseline y no cae donde uno supone.
 
 **Cómo se mide** (`scratchpad/medir-tinta.js`): la caja de línea con un `Range` sobre el
-contenido, y la tinta con `canvas.measureText` usando la `font` que devuelve
-`getComputedStyle`. La baseline sale de `top + halfLeading + fontBoundingBoxAscent`.
+contenido, y la tinta con `canvas.measureText` usando la `font` de `getComputedStyle`.
+
+⚠️ **Y la hoja de comparación tiene que colgar DENTRO del scope.** Las reglas son
+`.ahdoc .ugc .ugc-…`, así que un clon colgado de `body` pierde todo el estilo y la
+comparación no compara nada — sale una lista de texto plano que parece un resultado.
