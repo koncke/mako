@@ -207,7 +207,7 @@ const CATEGORIA: Record<string, string> = {
   'mateo-maffia-byf': 'Orgánico',          // Redes Sociales
   'monetizatube': 'Orgánico',              // Auto Youtube
   'nuevo-organic-ecom-3-0-junio-2026': 'Ecommerce', // Ecommerce
-  'seminarios-alejandro-cardona': 'Negocios digitales', // Hustlers
+  'seminarios-alejandro-cardona': 'Finanzas', // auditoría 30/08: bolsa, acciones y ETFs
   'social-funnel': 'Negocios digitales',   // Emilio Puigrredón · decisión de Martín (29/08)
   'stories-master': 'Orgánico',            // decisión de Martín (29/08)
   'the-real-world': 'Negocios digitales',  // Agencias
@@ -233,7 +233,7 @@ const CATEGORIA: Record<string, string> = {
   '21-dias-de-gratitud': 'Desarrollo personal', // Desarrollo personal
   'academia-mav': 'Desarrollo personal',   // Desarrollo personal
   'chatgpt-ia-mastery': 'Inteligencia Artificial', // IA
-  'cursos-pro-jimmy-naraine': 'Ventas',    // Ventas
+  'cursos-pro-jimmy-naraine': 'Negocios digitales', // auditoría 30/08: cómo crear y lanzar TU curso
   'dinero-inteligente-la-ruta-al-exito-financiero': 'Finanzas', // Finanzas / Inversiones
   'edicion-de-video-en-capcut': 'Edición', // Edición de Video
   'eleva-tu-vida-con-ia': 'Inteligencia Artificial', // IA
@@ -249,9 +249,9 @@ const CATEGORIA: Record<string, string> = {
   // Artificial»: la herramienta es n8n, pero lo que alguien viene a buscar es alcance sin
   // pauta. Discutible; si se mueve, que se mueva con sus tres hermanos.
   'n8n-viral-machine': 'Orgánico',         // «Automatización de Contenido Viral Faceless»
-  'negocia-con-confianza': 'Negocios digitales', // Hustlers
+  'negocia-con-confianza': 'Desarrollo personal', // auditoría 30/08: juego interior y conversaciones difíciles
   'termux-hacking-para-principiantes-2026': 'Ciberseguridad', // Ciberseguridad
-  'the-real-wolf': 'Negocios digitales',   // Hustlers
+  'the-real-wolf': 'Ventas', // auditoría 30/08: Belfort: ventas, persuasión y negociación
   'vive-vendiendo': 'Ventas',              // Ventas
 
   // Tanda del 29/08 que la plataforma NO conoce. Misma regla que los de arriba: los decide
@@ -280,7 +280,7 @@ const CATEGORIA: Record<string, string> = {
 
   // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
   // plataforma. El comentario al lado es la categoría de origen.
-  'mentoria-4k': 'Ecommerce',              // Ecommerce
+  'mentoria-4k': 'Negocios digitales', // auditoría 30/08: infoproducto y embudos, no hay tienda
 
   // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
   // plataforma. El comentario al lado es la categoría de origen.
@@ -296,7 +296,7 @@ const CATEGORIA: Record<string, string> = {
 
   // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
   // plataforma. El comentario al lado es la categoría de origen.
-  'tu-1-millon': 'Finanzas',               // Finanzas / Inversiones
+  'tu-1-millon': 'Negocios digitales', // auditoría 30/08: escalar coaching online, no inversiones
 
 
   // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
@@ -305,7 +305,7 @@ const CATEGORIA: Record<string, string> = {
 
   // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
   // plataforma. El comentario al lado es la categoría de origen.
-  'monetiza-con-johan-ia': 'Anuncios',     // ADS
+  'monetiza-con-johan-ia': 'Orgánico', // auditoría 30/08: TikTok Shop y creadores, sin pauta (el origen decía ADS)
 
   // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
   // plataforma. El comentario al lado es la categoría de origen.
@@ -354,7 +354,7 @@ const CATEGORIA: Record<string, string> = {
 
   // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
   // plataforma. El comentario al lado es la categoría de origen.
-  'automatiza-tu-whatsapp': 'Marketing',   // Marketing
+  'automatiza-tu-whatsapp': 'Ventas',      // auditoría 30/08: ManyChat y secuencias que convierten
 
 };
 
@@ -571,6 +571,103 @@ const AUTOR: Record<string, string> = {
   masteryhaus: 'Sofía Contreras',
   bluehacker: 'Marcos Razzetti',
   'anuncio-ganador': 'Jan Schroeder',
+};
+
+/**
+ * De qué va cada curso, en una o dos frases. Lo pinta la tarjeta arriba del «Abrir».
+ *
+ * Es la `short_description` del catálogo de la plataforma de origen, o sea un DATO y no
+ * algo que escribimos nosotros: el pipeline no la traía y la tarjeta terminaba diciendo
+ * sólo cuánto material hay («33 clases en 2 módulos»), que es la respuesta a la otra
+ * pregunta. Quien mira una grilla de 90 cursos necesita las dos.
+ *
+ * Vive acá y no en la ficha por la misma razón que `CATEGORIA`, `PORTADA` y `AUTOR`:
+ * `curso-a-portal.mjs` REESCRIBE `curso-<slug>.ts` en cada corrida.
+ *
+ * ⚠️ NO se inventa la que falta. De los 90 cursos, los que la plataforma no describe se
+ *    quedan sin resumen y la tarjeta no dibuja nada — una frase escrita a ojo sobre un
+ *    curso que nadie miró es peor que el espacio en blanco, porque se lee con la misma
+ *    autoridad que las que sí son el dato. Las escribe
+ *    `scripts/curso-categoria-portada.mjs`.
+ */
+const RESUMEN: Record<string, string> = {
+  // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
+  // del catálogo de la plataforma.
+  '100m-money-models': 'Programa sobre cómo estructurar ofertas, upsells, downsells y modelos de continuidad para hacer que un negocio genere más dinero por cliente y escale de forma predecible.',
+  '21-dias-de-gratitud': 'Experiencia de 21 días con meditaciones guiadas, diario de experiencias y comunidad, para transformar la forma en que ves las cosas, soltar lo que pesa y disfrutar más el presente.',
+  '21-tecnicas-para-invertir-en-bienes-raices': 'Formación online centrada en estrategias y técnicas de inversión inmobiliaria para identificar oportunidades, analizar propiedades y construir ingresos o patrimonio en bienes raíces.',
+  '360-marca-personal': 'Aprende a construir y potenciar tu marca personal desde cero con la estrategia exacta que llevó al éxito a DollarDorado. Este curso 360° te guía paso a paso para crear una identidad digital auténtica y rentable, desarrollar contenido con intención, monetizar tu presencia en redes sociales y convertir tu marca personal en un modelo de negocio escalable. Ideal para emprendedores y creadores que buscan transformar su presencia digital en ingresos reales.',
+  'academia-five-stars': 'Mentoría con acompañamiento personalizado para aprender ventas high ticket, gestionar llamadas, mejorar la comunicación y el cierre, y desarrollar una carrera como closer con potencial de generar comisiones mensuales.',
+  'academia-mav': 'Programa intensivo de 60 días (“Modo MAV”) para ayudar a mujeres a convertirse en Mujeres de Alto Valor, trabajando mente, cuerpo, dinero, relaciones, propósito y espiritualidad con mentorías en vivo, materiales exclusivos y comunidad privada.',
+  'amorir': 'Membresía digital que ofrece sesiones en vivo, meditaciones guiadas, rutinas de ejercicio, yoga y una red social privada para crecer en las 7 áreas de la vida (mente, cuerpo, relaciones, etc.) con acompañamiento y comunidad.',
+  'automatiza-tu-whatsapp': 'Formación paso a paso para conectar WhatsApp, diseñar flujos de conversación, crear respuestas automáticas y secuencias de mensajes que conviertan, con módulos de ManyChat y Respond.io para automatizar ventas y atención 24/7.',
+  'automatizacion-y-monetizacion-de-youtobe': 'Aprende a crear canales de YouTube completamente automatizados sin mostrar tu cara ni hacer videos. El curso te enseña a crear y optimizar canales, monetizar en pocas semanas, crear videos de forma automatizada, y generar ingresos pasivos de $2,000+ mensuales. Incluye más de 120 videos de contenido, comunidad privada, y métodos para crear contenido sin grabar ni editar.',
+  'automatizatube': 'Aprende a crear y monetizar canales de YouTube completamente automatizados sin mostrar tu cara, sin grabar videos ni poner tu voz. Este curso te enseña la metodología completa para elegir nichos rentables, crear guiones con IA, externalizar tareas con freelancers y generar ingresos pasivos de $3,000-$6,000+ mensuales. Incluye 19 módulos de contenido, comunidad activa de 5,000+ alumnos y sesiones mensuales en vivo con Carlotta.',
+  'bigseo-academy': 'Formación orientada a aprender SEO práctico para posicionar webs, entender la optimización on-page y aplicar estrategias que mejoren la visibilidad orgánica de un sitio.',
+  'black-box-canva': 'Entrenamiento con más de 70 clases grabadas para dominar Canva (versión gratuita), crear imágenes “imposibles de ignorar” con el método TIFOPI, y producir videos tipo “Nuggets” que vendan en Instagram, con bonos de branding, perfil de Instagram y crecimiento de comunidad.',
+  'bootcamp-de-cierre-de-ventas-ia': 'Bootcamp práctico para dominar llamadas de venta, comunicación persuasiva, detección de necesidades, manejo de objeciones y cierre de ofertas high ticket, utilizando inteligencia artificial para preparar conversaciones, investigar prospectos, crear guiones y mejorar el seguimiento comercial.',
+  'carrera-de-ecommerce': 'Programa práctico para aprender a vender en Amazon con FBA, desde la elección de productos y proveedores hasta logística, lanzamientos, publicidad y escalado, con un método probado y acompañamiento.',
+  'chatgpt-ia-mastery': 'Curso práctico para aprender a utilizar ChatGPT y herramientas de IA en tareas de creación de contenido, automatización, marketing y productos digitales, con foco en convertir el uso de IA en productividad e ingresos.',
+  'claude-academy-2026': 'Hub de aprendizaje gratuito con 26 cursos estructurados, tutoriales interactivos, bibliotecas de casos de uso y un sistema de recomendaciones personalizadas, basado en el marco 4D AI Fluency (Delegación, Descripción, Discernimiento y Diligencia) que Anthropic usa internamente.',
+  'codigo-genio': 'Programa que enseña técnicas avanzadas para mejorar memoria, concentración y creatividad, basadas en la psicología de la genialidad y patrones de genios históricos, con el objetivo de desbloquear el máximo potencial intelectual.',
+  'codigo-millonario': 'ormación guiada para generar ingresos en internet con IA: crear productos digitales en poco tiempo, atraer tráfico y cerrar ventas, con métodos paso a paso, comunidad y clases en vivo.',
+  'como-vender-como-un-gladiador-romano': 'Aprende técnicas de ventas de alto valor con estrategias prácticas y aplicables basadas en la mentalidad de un gladiador romano. Este curso básico de Lathos Academy te enseña estructuras y blueprints listos para usar, mentorías en directo con roleplays, y te prepara para cerrar ventas complejas. Incluye acceso a oportunidades como closer y seguimiento continuo dentro de la comunidad.',
+  'creator-club': 'Programa para aprender edición viral, dominar herramientas como CapCut, Premiere Pro, After Effects y DaVinci Resolve, y usar IA para generar guiones virales más rápido.',
+  'cursos-heygen': 'Enseña a usar HeyGen para convertir guiones en videos con avatares hiperrealistas o tipo cartoon, clonar voces, crear personajes virtuales desde una foto y producir contenido a escala para marketing, educación y comunicación corporativa.',
+  'cursos-pro-jimmy-naraine': 'Programa para transformar tu conocimiento en un curso online rentable, aprendiendo a estructurar, producir y lanzar programas educativos con una metodología guiada paso a paso.',
+  'desarrolla-tu-influencer-virtual': 'Formación para crear, desarrollar y monetizar un influencer virtual mediante IA, construyendo identidad, contenido y presencia digital para convertir el avatar en una marca o activo de negocio.',
+  'dinero-inteligente-la-ruta-al-exito-financiero': 'Programa intensivo de 14 días que enseña a gestionar dinero, tomar decisiones de inversión inteligentes y aplicar las “3 claves de la aptitud financiera”: gastar menos, ganar más e invertir como un loco.',
+  'ecom-total-2-0': 'Sistema completo para crear, lanzar y escalar una marca de productos físicos desde cero, con inventario propio y publicación lista para vender; enseña a elegir productos con evidencia de mercado, importar profesionalmente, diferenciar la marca, optimizar listings y escalar ventas en Amazon, MercadoLibre y web propia.',
+  'ecommerce-full-2-0': 'Curso completo para crear un ecommerce de alta conversión en Shopify, elegir productos, configurar la tienda, optimizar conversión, crear campañas de Meta Ads y Google Ads, analizar métricas y escalar ventas, con enfoque en marca y rentabilidad.',
+  'edicion-de-video-en-capcut': 'Curso online de 15 módulos para aprender a editar videos cortos desde el ordenador con CapCut PC, cubriendo instalación, creación de proyectos, efectos, croma key, transiciones, texto, audio y exportación, con enfoque en crear contenido atractivo para redes y ofrecer servicios de edición.',
+  'edita-como-un-pro': 'Taller práctico para editar videos que atraigan, emocionen, retengan y conviertan; enseña fundamentos de edición, CapCut, ritmo, narrativa visual, efectos, transiciones, música e iluminación para contenido orgánico y anuncios.',
+  'eleva-tu-vida-con-ia': 'Programa para aprender a usar IA de forma práctica en creatividad, productividad, automatización y desarrollo personal, con enfoque en crear herramientas, mejorar tu flujo de trabajo y pensar como un “AI native”.',
+  'emprende-con-instagram': 'Curso con más de 50 lecciones en video, plantillas y ejercicios para atraer seguidores, crear contenido de impacto y estructurar una estrategia de Instagram que genere ventas y posicione tu marca.',
+  'escuela-tu-primer-millon': 'Aprende a crear tu negocio de coaching online y generar ingresos de seis cifras. El curso enseña cómo elegir el nicho correcto, crecer en redes sociales, conseguir tu primer cliente, establecer precios, técnicas de venta en Instagram, estrategias de retención de clientes, y gestión de equipo. Incluye múltiples módulos desde fundamentos hasta escalamiento de negocio.',
+  'experto-en-chatgpt': 'Curso online de 25 módulos para transformar la manera de trabajar con ChatGPT, aprendiendo prompting, creación de asistentes/GPTs, contenido, análisis, automatización y casos de uso aplicados a marketing, negocio y productividad.',
+  'fba-agency': 'Programa integral de más de 80 horas de video y 12+ módulos para aprender a vender en Amazon FBA: encontrar productos ganadores, importar, crear marca, optimizar listings, gestionar PPC, lanzar y escalar productos, con comunidad, mentorías y actualizaciones de por vida.',
+  'growing-amg': 'Aprende a montar tu propia agencia de infoproductos desde cero y escálala hasta $10,000+ mensuales. Growing AMG, del founder Agus Nievas (creador del Appointment Setting en Latinoamérica), te guía paso a paso en tres fases: construir tu agencia, captar clientes con un sistema predecible, y generar ingresos consistentes. Ideal para emprendedores que buscan libertad financiera sin experiencia previa.',
+  'hackeando-el-algoritmo': 'Sistema completo de 3 fases que te lleva de invisible a referente en tu sector. Enseña a hackear los algoritmos de Instagram y TikTok para crear contenido viral y crecer de manera orgánica y previsible.',
+  'hackeando-la-edicion': 'Programa para aprender edición con intención, dominar ritmo, estructura y narrativa visual, y crear videos más dinámicos y virales en CapCut.',
+  'iman-gadzhi-8-figure-personal-brand': 'Formación para aprender a lanzar y vender productos digitales, construir ofertas, escalar negocios online y usar sistemas modernos de adquisición, contenido y automatización para generar ingresos.',
+  'iman-gadzhi-agency-navigator': 'Aprende a construir y escalar tu propia agencia de marketing digital desde cero, generando ingresos de 6 cifras. Este curso básico de Agency Navigator incluye más de 50 horas de contenido detallado que cubre: mentalidad de emprendedor, sistemas de negocio, generación de leads, técnicas de cierre de ventas, entrega de servicios y operaciones escalables. Ideal para quienes buscan crear una agencia SMMA rentable con éxito probado de miles de estudiantes.',
+  'instituto-de-comunicacion': 'Curso enfocado en desarrollar la habilidad de comunicar de forma clara, segura y persuasiva, con el objetivo de mejorar tu confianza, tus relaciones, tu marca personal y tu impacto profesional y personal.',
+  'inteligencia-viral-2026': 'Programa centrado en el arte de explicar, conectar y vender con contenido viral, usando la estructura y ciencia detrás de guiones y videos hiper virales.',
+  'jaque-blue-creacion-de-contenido': 'Masterclass/curso para aprender a crear contenido único y destacar en redes sociales con una estrategia propia.',
+  'la-universidad-del-closer': 'Aprende a cerrar ventas como closer digital. El curso enseña técnicas de cierre de ventas aplicadas al mundo digital, psicología del comprador, comunicación persuasiva, manejo de objeciones, cualificación de prospectos, uso de herramientas digitales, y construcción de relaciones con clientes. Basado en el sistema probado que genera ingresos en dólares sin necesidad de crear producto propio, ni tener miles de seguidores, ni invertir grandes cantidades.',
+  'legalmente-emprendedor': 'Aprende los fundamentos legales y fiscales necesarios para formalizar tu negocio correctamente en México. Este curso básico de Lathos Academy te guía en los requisitos legales, constitución de empresa, registro fiscal (RFC), contratos, propiedad intelectual y estrategias para optimizar tu operación legal desde el inicio. Diseñado para jóvenes emprendedores que buscan proteger su negocio con seguridad jurídica.',
+  'm5-95': 'Domina la publicidad del futuro con inteligencia artificial. Este curso avanzado te enseña a crear, analizar y escalar campañas rentables en Meta Ads usando IA, segmentando audiencias con precisión, generando contenidos irresistibles y automatizando procesos para maximizar tu ROI. Aprende la metodología 5% humano, 95% IA con más de 10 módulos intensivos y bonos exclusivos.',
+  'manychat-master-instagram': 'Formación para usar ManyChat en Instagram, automatizar respuestas, convertir comentarios en ventas y escalar un negocio sin responder mensajes uno por uno.',
+  'master-en-ia': 'Programa en español con varios cursos y recursos para aprender a crear imágenes y videos con IA, usar prompts, y llevar ideas creativas a proyectos reales con herramientas como Midjourney, Kling, Veo 3, Runway y otras.',
+  'master-marca-personal-4-0': 'Construye y posiciona tu marca personal de forma profesional y estratégica. Este curso avanzado te enseña cómo crear una identidad visual impactante, desarrollar tu presencia en redes, y monetizar tu personal branding para convertirte en una referencia en tu industria.',
+  'master-marca-personal-5-0': 'Programa para construir una marca personal sólida, crear contenido con intención, crecer en redes, desarrollar comunidad y monetizar con servicios, productos digitales o gestión de marcas de terceros.',
+  'mateo-maffia-byf': 'Plataforma y formación para detectar contenido viral, convertir ideas en videos, usar storytelling y estrategias orgánicas para vender y crecer con TikTok y short form video.',
+  'megadata-de-un-joven-emprededor': 'Aprende a utilizar datos y análisis para impulsar tu negocio digital desde cero. Este curso básico te enseña conceptos de "megadata" (grandes volúmenes de información), cómo interpretarlos y usarlos para tomar decisiones estratégicas en tu emprendimiento, optimizar tu presencia online y crecer como joven empresario digital.',
+  'mentoria-4k': 'Programa paso a paso para crear tu primer negocio digital de éxito que genere mínimo 4.000€ mensuales. Sistema completo que cubre desde la creación de marca personal hasta técnicas de conversión probadas en mercados brasileños.',
+  'mentoria-d60': 'Programa de 30 días para vencer la procrastinación de forma definitiva y aumentar la productividad con consistencia, enfocado en lograr resultados “millonarios” sin necesidad de trabajar más horas, mediante hábitos, sistemas y mentalidad de alta ejecución.',
+  'metodo-fukuda-poder-organico': 'Evento de alto impacto (2 días) con conferencias de expertos para enseñar a crear y vender infoproductos y escalar con estrategias orgánicas; las ediciones recientes añaden IA, funnels, marca personal, contenido, creación de equipos y lanzamientos.',
+  'mindset-millonario': 'Curso que enseña cómo transformar la mentalidad y hábitos para pasar de una vida limitada a crear negocios millonarios, con enfoque en espiritualidad (Dios/Jesús), disciplina, enfoque y abundancia.',
+  'monetiza-con-johan-ia': 'Contenido y comunidad enfocados en enseñar a monetizar en TikTok y Facebook (cuentas en EE. UU., Creator Growth Challenge, bonificaciones y estrategias de crecimiento), con tips prácticos, métodos y ejemplos de cuentas monetizadas.',
+  'monetizatube': 'Aprende a crear y monetizar canales de YouTube completamente automatizados sin aparecer en cámara. El curso enseña selección de nichos rentables, creación de contenido con IA y freelancers, SEO de YouTube, posicionamiento de vídeos, técnicas de viralización, optimización de títulos y miniaturas, múltiples fuentes de monetización (AdSense, afiliación, ventas de infoproductos), y escalamiento a ingresos de 5 cifras. Incluye herramientas IA para guionización, locución automática y edición de vídeos.',
+  'n8n-viral-machine': 'Sistema para automatizar presencia digital, generar contenido viral, distribuirlo en varias plataformas y vender más sin grabarte, editar ni publicar manualmente.',
+  'negocia-con-confianza': 'Programa transformacional de 13 días que enseña a reconectar la identidad como negociador, gestionar emociones, hacer preguntas poderosas y sostener tu posición sin dañar la relación, convirtiendo conversaciones difíciles en oportunidades.',
+  'nuevo-organic-ecom-3-0-junio-2026': 'Formación para aprender dropshipping orgánico, crear contenido en TikTok e Instagram Reels, encontrar productos ganadores, montar una tienda Shopify y escalar sin necesidad de gastar en anuncios.',
+  'programa-raio': 'Método para aprender inglés de forma acelerada con lecciones basadas en historias interactivas, práctica guiada y repetición, pensado para lograr comunicación fluida en alrededor de 3 meses.',
+  'sell-your-knowledge': 'Aprende a transformar tu conocimiento, experiencia y habilidades en un negocio rentable de 6 y 7 cifras. El curso enseña auditoría y validación de oferta, posicionamiento único en el mercado, estrategia de contenido con reels e historias en Instagram, sistema de ventas consultivo, procesos de prospección orgánica, configuración de servicios escalables, gestión de equipos, y sistemas repetibles de adquisición. Metodología enfocada en claridad de oferta, marketing orgánico y monetización predecible sin dependencia de publicidad pagada.',
+  'seminarios-alejandro-cardona': 'Seminarios intensivos para aprender a invertir en la bolsa, identificar acciones rentables, reconocer momentos de compra y venta, entender ETFs y fortalecer la disciplina mental del inversionista.',
+  'social-funnel': 'Sistema para crear un “embudo social” que combina contenido orgánico y anuncios de tráfico al perfil para captar leads, agendar llamadas y cerrar ventas de programas de coaching/consultoría de alto valor.',
+  'stories-master': 'Entrenamiento paso a paso para estructurar historias que vendan, con secuencias de contenido, guiones, técnicas de persuasión y automatización, enfocado en generar ventas 24/7 sin estar 100% presente.',
+  'taller-capcut-pro-gg': 'Taller práctico para aprender a crear Reels y videos cortos más dinámicos con CapCut, dominando transiciones, animaciones, efectos y recursos visuales para Instagram, TikTok y YouTube Shorts.',
+  'termux-hacking-para-principiantes-2026': 'Curso introductorio de hacking ético enfocado en usar Termux en Android para ejecutar herramientas de seguridad, scripts en Python, comandos Bash y técnicas básicas de pentesting, sin necesidad de root, ideal para principiantes que quieren dar sus primeros pasos en ciberseguridad desde el móvil.',
+  'the-real-wolf': 'The Real Wolf es un curso de 10 lecciones en nivel intermedio dictado por Jordan Belfort que enseña técnicas avanzadas de ventas, persuasión y negociación. El programa se basa en la experiencia real de Belfort como vendedor exitoso y está diseñado para que aprendas cómo cerrar ventas, persuadir efectivamente y dominar la psicología del cliente en contextos empresariales.',
+  'the-real-world': 'Aprende a generar ingresos en línea a través de múltiples métodos de monetización. El programa enseña e-commerce, dropshipping, copywriting, freelancing, criptomonedas y marketing digital. Incluye módulos estructurados sobre desarrollo personal, generación de ingresos pasivos, y técnicas de negocio online.',
+  'trilogia-de-brian-tracy': 'Aprende los pilares del éxito empresarial y personal a través de tres áreas fundamentales. La trilogía enseña liderazgo estratégico, administración del tiempo efectiva, técnicas avanzadas de ventas y negociación, psicología del éxito, desarrollo de habilidades directivas, fijación de objetivos, estrategia empresarial, y principios de crecimiento personal. Basada en 50+ años de experiencia formando a 5 millones de personas en todo el mundo sobre liderazgo, estrategia, ventas, desarrollo personal y éxito empresarial.',
+  'tu-1-millon': 'Membresía/campus para escalar tu negocio o coaching online a +10K/mes, crear una marca personal de +$1M, desarrollar el mindset y hábitos de millonario, y aprender a vender online, con mentorías en vivo y comunidad.',
+  'tumadreanna-marketing-definitivo': 'Programa de marketing y redes sociales centrado en crear contenido viral, posicionar marcas y escalar resultados en Instagram/TikTok mediante estrategia creativa, neuromarketing y formatos pensados para crecer en alcance y conversión.',
+  'ugc-sim-academy-de-mindshft': 'Formación/evento para aprender cómo las marcas pagan entre 1.000€ y 5.000€ por vídeos creados con IA para anuncios y redes sociales, y cómo crear esas piezas desde cero sin grabarte ni depender de un equipo.',
+  'vender-por-fb-e-ig-ads': 'Curso para aprender a crear, optimizar y escalar campañas publicitarias en Facebook e Instagram para vender más, con enfoque práctico en segmentación, creativos, copywriting, pixel y métricas.',
+  'vive-vendiendo': 'Formación enfocada en desarrollar habilidades de venta y persuasión para aprender a comunicar valor, conectar con clientes, manejar objeciones y cerrar ventas de forma más consistente.',
+
 };
 
 // Sin acentos y en minúsculas, para que «Sofia» no se sume a un título que ya dice
@@ -844,6 +941,9 @@ export const CURSOS_TODOS: Curso[] = [
   categoria: CATEGORIA[c.slug] ?? c.categoria,
   portada: c.portada ?? PORTADA[c.slug] ?? primerFrame(c),
   titulo: TITULO[c.slug] ?? conAutor(c.titulo, AUTOR[c.slug]),
+  // Lo que declara la ficha gana: si algún día un curso trae el suyo propio, ese es más
+  // específico que el de la plataforma de origen.
+  resumen: c.resumen ?? RESUMEN[c.slug],
   // La réplica es la vista de TODOS los cursos, no un modo de uno. Se pone acá y no
   // curso por curso porque un flag que hay que acordarse de poner deja al próximo curso
   // naciendo con la vista vieja — y nadie se entera hasta que lo abre alguien.

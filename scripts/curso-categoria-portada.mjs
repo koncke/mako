@@ -51,7 +51,12 @@ const EQUIVALE = {
   'Hustlers': 'Negocios digitales',
   'Ecommerce': 'Ecommerce',
   'Ventas': 'Ventas',
-  'Marketing': 'Marketing',
+  // ⚠️ 'Marketing' NO está, y es la traducción que más obvia parece: en un portal donde
+  //    TODOS los cursos son de marketing, «Marketing» no separa nada — es el nombre del
+  //    portal, no el de una sección. Traducirlo 1:1 abrió dos veces una sección de un solo
+  //    curso, y las dos veces hubo que moverlo a mano después (Black Box de Canva → Edición,
+  //    Automatiza tu WhatsApp → Ventas). Un curso así cae en el cajón y la guarda de abajo
+  //    lo grita, que es lo correcto: la sección sale de su MATERIAL y la elige una persona.
   // ⚠️ ESTAS TRES GUARDAN DECISIONES DE MARTIN, y por eso NO son la traducción obvia.
   //
   //    Sin ellas el mapeo recrea la sección cada vez que llega un curso nuevo de esa
@@ -219,6 +224,49 @@ if (nuevasPor.length) {
 
 const sinTapa = fichas.filter((s) => !enDisco.has(s));
 if (sinTapa.length) console.log(`\n  ${sinTapa.length} sin tapa en disco: ${sinTapa.join(', ')}`);
+
+// ── 3b. el RESUMEN: de qué va el curso ──────────────────────────────────────────────
+/**
+ * La `short_description` de la plataforma, que es de dónde salen también la categoría y
+ * la tapa. Sin ella la tarjeta sólo dice CUÁNTO material hay («33 clases en 2 módulos») y
+ * no QUÉ se aprende, que es la pregunta de quien mira una grilla de 90 cursos.
+ *
+ * ⚠️ Los otros tres campos que trae la plataforma —`description`, `what_you_learn`,
+ *    `requirements`— están VACÍOS en las 130 filas: existen en el esquema y no en el dato.
+ *    Ir a buscar ahí un texto más largo devuelve la cadena vacía, no un error.
+ *
+ * ⚠️ Y no se inventa la que falta: un curso sin descripción se queda sin resumen. Ver el
+ *    porqué en el comentario del mapa, en catalogo.ts.
+ */
+cat = readFileSync(CAT_TS, 'utf8');
+const bRes = bloque('RESUMEN');
+const nuevasRes = [];
+const sinResumen = [];
+if (!bRes) console.log('\n  (no hay mapa RESUMEN en catalogo.ts — me lo salteo)');
+else {
+  for (const slug of fichas) {
+    if (bRes.claves.has(slug)) continue;
+    const p = idx.get(norm(slug));
+    const d = (p?.short_description ?? '').replace(/\s+/g, ' ').trim();
+    if (d) nuevasRes.push([slug, d]);
+    else sinResumen.push(slug);
+  }
+}
+if (nuevasRes.length) {
+  // La comilla simple es el delimitador del mapa, así que un apóstrofo adentro del texto
+  // —«el día a día», «l'entreprise»— parte la cadena y rompe el build. Se escapa.
+  const esc = (s) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  const texto = NL + '  // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`'
+    + NL + '  // del catálogo de la plataforma.' + NL
+    + nuevasRes.map(([s, d]) => `  '${s}': '${esc(d)}',`).join(NL) + NL;
+  cat = cat.slice(0, bRes.fin) + texto + cat.slice(bRes.fin);
+  escribir(cat);
+  console.log(`\n  ✓ ${nuevasRes.length} resumen(es) escrito(s) en el mapa RESUMEN`);
+}
+if (sinResumen.length) {
+  console.log(`\n  ${sinResumen.length} sin resumen (la plataforma no los describe, no se les inventa uno):`);
+  console.log(`     ${sinResumen.join(', ')}`);
+}
 
 // ── 4. ¿quedó alguno en el cajón? ───────────────────────────────────────────────────
 /**

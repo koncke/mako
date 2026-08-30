@@ -2751,16 +2751,47 @@ html:has(.ahdoc), body:has(.ahdoc) { overflow: hidden !important; height: 100% !
    control, se lee como la marca — y se descubre que es clickeable con el cursor. -- */
 .ahdoc .ugc .ugc-side-name > span { color: var(--lime); }
 .ahdoc .ugc .ugc-side-brand-btn {
-  background: none; border: 0; padding: 0; margin: 0;
-  font: inherit; color: inherit; text-align: left;
+  background: none; border: 0; margin: 0;
+  font: inherit; color: inherit;
   cursor: pointer;
-  /* La barra lo ordena en columna igual que al <div> que reemplaza. */
-  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
-  width: 100%;
+}
+/* GRANDE Y CENTRADO. Estaba chico y pegado arriba a la izquierda, que es donde va
+   una etiqueta, no una marca: la marca es lo primero que se mira y tiene que
+   ocupar su lugar. Vale para el boton y para el rotulo, que son la misma pieza
+   con dos comportamientos. Pedido de Martin. */
+.ahdoc .ugc .ugc-side-brand {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  width: 100% !important;
+  padding: 26px 14px 22px !important;
+}
+.ahdoc .ugc .ugc-side-name {
+  font-size: 27px !important;
+  line-height: 1.05 !important;
+  letter-spacing: -0.035em !important;
+  font-weight: 800 !important;
 }
 .ahdoc .ugc .ugc-side-brand-btn:hover .ugc-side-name { opacity: .85; }
 /* El foco por teclado TIENE que verse: es la unica pista para quien no usa mouse, y
    sacarlo es de las cosas que rompen una pantalla sin que nadie lo note. */
 .ahdoc .ugc .ugc-side-brand-btn:focus-visible {
   outline: 2px solid var(--lime); outline-offset: 4px; border-radius: 4px;
+}
+
+
+/* De que va el curso, arriba del riel de modulos. Es el MISMO texto que la tarjeta de la
+   grilla muestra recortado a 3 lineas; aca va entero, que es donde termina de leerse.
+   Ancho de LECTURA y no el de la hoja: una linea de 1200 px no se sigue con el ojo.
+
+   Se llama `ugc-curso-resumen` y no `ugc-resumen` porque la hoja del origen ya trae
+   `.ugc-resumen-note`, que es otra cosa: dos nombres a un caracter de distancia es como
+   se edita el equivocado dentro de tres meses. */
+.ahdoc .ugc .ugc-curso-resumen {
+  margin: 22px 0 0;
+  max-width: 70ch;
+  font-size: 15.5px;
+  line-height: 1.65;
+  color: rgba(22, 21, 15, .8);
 }

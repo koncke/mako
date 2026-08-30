@@ -287,12 +287,10 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
               <button type="button" className="ugc-side-brand ugc-side-brand-btn"
                 onClick={onSalir} aria-label="Ir a todos los cursos">
                 <span className="ugc-side-name">Cono<span>cimientos</span></span>
-                <span className="ugc-side-sub">Formación</span>
               </button>
             ) : (
               <div className="ugc-side-brand">
                 <span className="ugc-side-name">Cono<span>cimientos</span></span>
-                <span className="ugc-side-sub">Formación</span>
               </div>
             )}
             {/*
@@ -422,6 +420,11 @@ function Indice({ curso, modulos, onAbrir, onModulo }: {
           </span>
         </button>
       )}
+      {/* De que va el curso, ENTERO. En la tarjeta de la grilla el mismo texto va
+          recortado a 3 lineas —si no, una tarjeta mide el triple que la de al lado—, asi
+          que aca es donde se lee completo. Un recorte que no tiene ningun lugar donde
+          terminar de leerse es texto perdido. */}
+      {curso.resumen && <p className="ugc-curso-resumen">{curso.resumen}</p>}
       <div className="ugc-rail-head"><h2>Los modulos</h2></div>
       <div className="ugc-rail">
         {modulos.map((m) => (

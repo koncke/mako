@@ -122,7 +122,7 @@ export function DocContent({ text }: { text: string }) {
 // `img` es opcional a propósito: la tarjeta de un curso con portada la muestra, y la
 // de una clase o un recurso sigue siendo la misma tarjeta sin imagen. Un componente
 // por caso los haría divergir en tres números, que es lo que ya pasó con `.mk-fila`.
-export function Card({ badge, nota, titulo, desc, onClick, ariaLabel, img }: { badge: string; nota?: string; titulo: string; desc: string; onClick: () => void; ariaLabel: string; img?: string }) {
+export function Card({ badge, nota, titulo, desc, resumen, onClick, ariaLabel, img }: { badge: string; nota?: string; titulo: string; desc: string; resumen?: string; onClick: () => void; ariaLabel: string; img?: string }) {
   // Si la miniatura da 404, la tarjeta vuelve a la variante SIN imagen — no se queda con
   // el marco vacío. Por eso el estado vive acá y no adentro de `Miniatura`: el que decide
   // el `className` es este componente.
@@ -140,6 +140,10 @@ export function Card({ badge, nota, titulo, desc, onClick, ariaLabel, img }: { b
         {nota && <span className="al-rescard-nota">{nota}</span>}
       </span>
       <span className="al-rescard-title">{titulo}</span>
+      {/* DE QUÉ VA antes de CUÁNTO HAY: parado frente a la grilla, «33 clases en 2
+          módulos» no ayuda a elegir hasta después de saber de qué se trata. Y las dos
+          van arriba del «Abrir», que es el orden en que se decide entrar. */}
+      {resumen && <span className="al-rescard-resumen">{resumen}</span>}
       {desc && <span className="al-rescard-desc">{desc}</span>}
       <span className="al-rescard-go">Abrir <span className="al-arr">→</span></span>
     </button>
@@ -193,7 +197,9 @@ export function Selector({ cursos, enter, compartir, sinMarca, foco }: {
   // Cada término por separado, todos tienen que estar: «claude rodrigo» encuentra el
   // curso aunque las dos palabras vivan en campos distintos.
   const coincide = (c: Curso, terminos: string[]) => {
-    const heno = norm(`${c.titulo} ${c.cardDesc} ${c.categoria} ${c.subtitulo}`);
+    // El resumen entra al pajar: es donde viven las herramientas y los temas que el título
+    // no nombra («ManyChat», «ETFs», «embudos»), o sea justo lo que alguien tipea.
+    const heno = norm(`${c.titulo} ${c.cardDesc} ${c.categoria} ${c.subtitulo} ${c.resumen ?? ''}`);
     return terminos.every((t) => heno.includes(t));
   };
 
@@ -303,7 +309,7 @@ export function Selector({ cursos, enter, compartir, sinMarca, foco }: {
           <div className="al-seclabel"><span>{nombreCat}</span><span className="al-vol">{list.length} curso{list.length > 1 ? 's' : ''}</span></div>
           <div className="al-grid">
             {list.map((c) => (
-              <Card key={c.slug} badge="Curso" titulo={c.titulo} desc={c.cardDesc} img={c.portada}
+              <Card key={c.slug} badge="Curso" titulo={c.titulo} desc={c.cardDesc} resumen={c.resumen} img={c.portada}
                 ariaLabel={`Entrar a ${c.titulo}`} onClick={() => enter(c.slug)} />
             ))}
           </div>
@@ -1088,11 +1094,25 @@ export const CSS = `
 .cono .al-rescard-nota{ font-family:var(--mono); font-size:9.5px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-60); border:1.5px solid var(--ink-15); border-radius:6px; padding:3px 8px; white-space:nowrap; }
 .cono .al-rescard-title{ font-family:var(--disp); font-weight:800; font-size:20px; letter-spacing:-.02em; color:var(--ink); line-height:1.1; }
 .cono .al-rescard-desc{ font-size:14px; line-height:1.5; color:var(--ink-60); }
+/* El resumen: de qué va el curso, arriba del «Abrir». Se recorta a 3 líneas — las
+   descripciones de la plataforma van de 80 a 400 caracteres, así que sin tope una
+   tarjeta mide el triple que la de al lado y la grilla queda dentada. */
+.cono .al-rescard-resumen{ font-size:14px; line-height:1.5; color:var(--ink-80); display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; line-clamp:3; overflow:hidden; }
+/* Con las dos al mismo peso la tarjeta tiene dos párrafos y ninguno manda, así que el
+   volumen («33 clases en 2 módulos») baja a dato al lado de la prosa. El selector es de
+   HERMANO a propósito: al-rescard-desc es también la línea de una clase («19:15 · 1.
+   $100M Money Models») y la de un recurso, que no tienen resumen — bajarla en todas
+   cambiaría tres tarjetas para arreglar una.
+   ⚠️ Y NADA de backticks en un comentario de acá: esta hoja entera es un template
+   literal, así que uno solo la cierra a la mitad. El síntoma no es un error de CSS —
+   es la mitad del portal sin renderizar y un typecheck quejándose de una propiedad
+   que no existe en un string. */
+.cono .al-rescard-resumen + .al-rescard-desc{ font-family:var(--mono); font-size:11.5px; letter-spacing:.02em; color:var(--ink-60); }
 /* Tarjeta con miniatura: la imagen va al ras del borde, así que el padding se mueve
    del botón a los hijos — con padding en el botón queda un marco blanco alrededor. */
 .cono .al-rescard-img{ padding:0; overflow:hidden; }
 .cono .al-rescard-img > .al-rescard-top{ padding:14px 18px 0; }
-.cono .al-rescard-img > .al-rescard-title, .cono .al-rescard-img > .al-rescard-desc{ padding:0 18px; }
+.cono .al-rescard-img > .al-rescard-title, .cono .al-rescard-img > .al-rescard-desc, .cono .al-rescard-img > .al-rescard-resumen{ padding:0 18px; }
 .cono .al-rescard-img > .al-rescard-go{ padding:0 18px 16px; }
 .cono .al-rescard-thumb{ display:block; width:100%; border-bottom:1.5px solid var(--ink); background:var(--ink-05, rgba(0,0,0,.04)); }
 /* La miniatura LLENA la tarjeta. Para las 9 tapas de 16:9 no hay recorte —la caja ya

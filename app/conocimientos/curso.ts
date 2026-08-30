@@ -63,6 +63,16 @@ export type Clase = {
 };
 export type Curso = {
   slug: string; categoria: string; cardDesc: string;
+  /**
+   * De qué va el curso, en prosa. Es la `short_description` de la plataforma de
+   * origen, y NO es lo mismo que `cardDesc`: ése dice cuánto material hay («33
+   * clases en 2 módulos»), éste dice qué se aprende. Son las dos preguntas que
+   * alguien se hace parado frente a la tarjeta, y una no contesta la otra.
+   *
+   * Se engancha en `catalogo.ts` (mapa `RESUMEN`) y no acá, por lo mismo que la
+   * categoría y la portada: las fichas de curso son auto-generadas.
+   */
+  resumen?: string;
   eyebrow: string; titulo: string; subtitulo: string; volumen: string;
   // Miniatura del curso, servida estática desde `public/cono-portadas/<slug>.<ext>`.
   // Va como ruta y no como id de Drive porque se muestra en la grilla de TODOS los
