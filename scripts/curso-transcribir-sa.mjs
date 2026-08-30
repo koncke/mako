@@ -55,6 +55,45 @@ if (!TOKEN || !TEAM) {
   console.error('\n  ✖ Faltan SCREENAPP_TOKEN / SCREENAPP_TEAM_ID en .env.local\n');
   process.exit(1);
 }
+
+/**
+ * ⚠️ EL TOKEN VENCE, Y CUANDO VENCIÓ NADIE SE ENTERÓ DURANTE TRES DÍAS.
+ *
+ * El anterior expiró el 20/08/2026. Desde entonces cada ronda de cada curso llamaba a la
+ * API, recibía un 401, y el `throw` de `api()` mataba el proceso con un stack trace en el
+ * log: **640 veces**. Todo se siguió transcribiendo porque el pipeline cae al respaldo, así
+ * que desde afuera no se notaba nada — y por eso no se notó. Lo descubrió Martín leyendo un
+ * reporte de estado, no el sistema.
+ *
+ * Es «un fallback que no cobra es una degradación silenciosa» en su forma más cara: el
+ * respaldo funcionaba tan bien que tapó tres días de la ruta principal caída.
+ *
+ * Ahora se mira ANTES de llamar. El `exp` está adentro del propio JWT, así que no hace
+ * falta pedirle nada a nadie: es una resta.
+ *
+ * ⚠️ Y se sigue saliendo con código 1, no 0. El pipeline ya sabe leerlo («ScreenApp falló:
+ *    sigo por el respaldo») y bajar a la cascada barata. Lo que cambia es que dice QUÉ pasa
+ *    y QUÉ hacer, en una línea, en vez de un volcado de pila que no nombra la causa.
+ */
+const vence = (() => {
+  try {
+    const carga = JSON.parse(Buffer.from(TOKEN.split('.')[1], 'base64url').toString('utf8'));
+    return carga.exp ? new Date(carga.exp * 1000) : null;
+  } catch { return null; }   // no es un JWT o vino raro: no se inventa una fecha
+})();
+if (vence) {
+  const dias = Math.floor((vence - Date.now()) / 86400000);
+  const cuando = vence.toISOString().slice(0, 10);
+  if (dias < 0) {
+    console.error(`\n  ✖ El token de ScreenApp VENCIÓ el ${cuando} (hace ${-dias} días).`);
+    console.error('    No es un error de red ni del audio: hay que renovarlo.');
+    console.error('    Sacá uno nuevo en screenapp.io y ponelo en SCREENAPP_TOKEN de .env.local.');
+    console.error('    Mientras tanto todo se transcribe por la cascada de respaldo.\n');
+    process.exit(1);
+  }
+  if (dias <= 14) console.warn(`\n  ⚠️ El token de ScreenApp vence el ${cuando}, en ${dias} día(s). Renovalo antes.\n`);
+}
+
 const H = { Authorization: `Bearer ${TOKEN}`, 'X-Team-ID': TEAM };
 
 const api = async (ruta, init) => {
