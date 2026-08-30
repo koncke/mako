@@ -500,6 +500,16 @@ const PORTADA: Record<string, string> = {
   // pero la ficha se había emitido antes de que existiera.
   'automatiza-tu-whatsapp': '/cono-portadas/automatiza-tu-whatsapp.jpg',
 
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'avatar-mastery': '/cono-portadas/avatar-mastery.jpg',
+  'completo-videos-ia': '/cono-portadas/completo-videos-ia.jpg',
+  'ecommerce-de-arz-urus': '/cono-portadas/ecommerce-de-arz-urus.jpg',
+  'fotografia-al-completo-de-0-a-pro-2025': '/cono-portadas/fotografia-al-completo-de-0-a-pro-2025.jpg',
+  'trading-arelis-rodriguez-2025': '/cono-portadas/trading-arelis-rodriguez-2025.jpg',
+  'trading-clutifx': '/cono-portadas/trading-clutifx.jpg',
+  'us30-2-0': '/cono-portadas/us30-2-0.jpg',
+
 };
 
 /**
@@ -584,11 +594,24 @@ const AUTOR: Record<string, string> = {
  * Vive acá y no en la ficha por la misma razón que `CATEGORIA`, `PORTADA` y `AUTOR`:
  * `curso-a-portal.mjs` REESCRIBE `curso-<slug>.ts` en cada corrida.
  *
- * ⚠️ NO se inventa la que falta. De los 90 cursos, los que la plataforma no describe se
- *    quedan sin resumen y la tarjeta no dibuja nada — una frase escrita a ojo sobre un
- *    curso que nadie miró es peor que el espacio en blanco, porque se lee con la misma
- *    autoridad que las que sí son el dato. Las escribe
- *    `scripts/curso-categoria-portada.mjs`.
+ * ⚠️ NO SE INVENTA NINGUNA, PERO SÍ SE ESCRIBEN. No es lo mismo: una frase puesta a ojo
+ *    sobre un curso que nadie miró se lee con la misma autoridad que las que son el dato,
+ *    y eso es lo prohibido. Escribirla LEYENDO los módulos, los títulos de clase y las
+ *    transcripciones no lo es — es la única fuente que queda cuando el curso no viene de
+ *    la plataforma (MasteryHaus es Circle, AvatarHype y BlueHacker son sus propios sitios).
+ *    Esas cuatro están abajo, en su propio bloque rotulado, porque la procedencia cambia
+ *    qué hacer con ellas: las de la plataforma se re-copian solas si el origen las corrige.
+ *
+ * ⚠️ Y LA DESCRIPCIÓN DE ELLOS DESCRIBE **SU** PRODUCTO, NO NUESTRA COPIA. Dos venían
+ *    prometiendo material que acá no está —«un módulo de macroeconomía con el economista
+ *    Juan Odar», «clases en vivo, comunidad y acompañamiento»— y se recortaron, con el
+ *    porqué escrito al lado de cada una. Que el texto sea un dato de ellos no lo hace
+ *    cierto sobre lo que nosotros publicamos, y una promesa hueca no se descubre como un
+ *    bug: se descubre como que el portal miente.
+ *
+ * Las de la plataforma las escribe `scripts/curso-categoria-portada.mjs`, que además es
+ * quien CRUZA cada curso con su entrada de origen. Ese cruce ya erró nueve de golpe: ver
+ * su cabecera antes de tocarlo.
  */
 const RESUMEN: Record<string, string> = {
   // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
@@ -667,6 +690,40 @@ const RESUMEN: Record<string, string> = {
   'ugc-sim-academy-de-mindshft': 'Formación/evento para aprender cómo las marcas pagan entre 1.000€ y 5.000€ por vídeos creados con IA para anuncios y redes sociales, y cómo crear esas piezas desde cero sin grabarte ni depender de un equipo.',
   'vender-por-fb-e-ig-ads': 'Curso para aprender a crear, optimizar y escalar campañas publicitarias en Facebook e Instagram para vender más, con enfoque práctico en segmentación, creativos, copywriting, pixel y métricas.',
   'vive-vendiendo': 'Formación enfocada en desarrollar habilidades de venta y persuasión para aprender a comunicar valor, conectar con clientes, manejar objeciones y cerrar ventas de forma más consistente.',
+
+  // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
+  // del catálogo de la plataforma.
+  'avatar-mastery': 'Formación práctica para crear un avatar/influencer digital con IA —rostro, cuerpo, outfits, estilo y expresiones consistentes— y convertirlo en un proyecto monetizable mediante redes sociales, plataformas de suscripción, ecommerce o servicios de agencia.',
+  'certificacion-marketing-digital-ia': 'Certificación para aprender marketing digital con apoyo de IA, enfocada en aplicar el método Convierte Más© para conseguir más ventas, más prospectos y mejores resultados en negocios online.',
+  'claude-ai-rodrigo-rojo': 'Curso práctico para aprender a configurar Claude, diseñar prompts efectivos, crear artefactos y prototipos web, gestionar proyectos con bases de conocimiento, y automatizar tareas con MCP, Skills y Claude Cowork.',
+  'completo-videos-ia': 'Curso orientado a crear videos con inteligencia artificial, desde la generación de ideas y prompts hasta la producción, edición y publicación de contenido audiovisual para redes sociales.',
+  'ecommerce-de-arz-urus': 'Formación para crear una tienda online, elegir producto, montar Shopify, aprender anuncios y escalar un negocio de ecommerce/dropshipping desde cero.',
+  'fotografia-al-completo-de-0-a-pro-2025': 'Curso completo de fotografía que lleva al alumno desde cero hasta nivel profesional, cubriendo fundamentos de cámara, iluminación en estudio y exterior, composición, géneros fotográficos, edición y retoque, y flujo de trabajo para entregar proyectos reales.',
+  // ⚠️ Recortado: el original prometía «clases en vivo, comunidad y acompañamiento». En las
+  //    15 transcripciones (370k caracteres) «comunidad» y «acompañamiento» aparecen CERO
+  //    veces, y las 15 de «en vivo» son operaciones que la autora hizo en vivo, no clases.
+  //    Lo que tenemos son 16 clases grabadas de un intensivo, casi todo sobre oro.
+  'trading-arelis-rodriguez-2025': 'Formación estructurada para operar mercados financieros, cubriendo fundamentos, análisis técnico, estrategia, gestión de riesgo y mentalidad, con operaciones reales analizadas paso a paso para mejorar la consistencia del trader.',
+  'trading-clutifx': 'Entrenamiento para aplicar una metodología de trading basada en contexto de mercado, gestión del tiempo, BIAS o sesgo direccional, y técnicas Smart Money (SMT), con revisión de operaciones y directos para ver el proceso de análisis en la práctica.',
+  // ⚠️ Recortado: el original cerraba con «y un módulo de macroeconomía con el economista
+  //    Juan Odar». En nuestras 6 transcripciones (630k caracteres) Odar aparece UNA vez, y
+  //    es la recomendación de un curso AJENO suyo. La macroeconomía sí se toca, el módulo no
+  //    existe — el curso no tiene módulos. Ver docs/hallazgos-conocimiento.md.
+  'us30-2-0': 'Programa para dominar la operativa del US30 combinando teoría y práctica: historia del índice, análisis técnico y chartismo específico, gestión de riesgo, lectura de tendencias y patrones, impacto de noticias y nociones de macroeconomía aplicadas a la dirección del mercado.',
+
+  // ── Escritas DESDE EL MATERIAL, no copiadas de la plataforma ──────────────
+  // Estos cursos no vienen del catálogo de la plataforma (MasteryHaus es Circle,
+  // AvatarHype y BlueHacker son sus propios sitios), así que no hay `short_description`
+  // que copiar. Se escribieron leyendo los módulos, los títulos de clase y las
+  // transcripciones reales, y cada afirmación se verificó contra ese material.
+  //
+  // ⚠️ Van rotuladas aparte porque la PROCEDENCIA cambia qué hacer con ellas: las de
+  //    la plataforma se re-copian solas si el origen las corrige, y éstas no las
+  //    corrige nadie. Si el curso se regenera con material distinto, hay que releerlas.
+  'aumenta-tu-valor-y-atv-advantage': 'Programa práctico para expertos en infoproductos y creadores de contenido: prospectar y cerrar creadores, definir oferta, pricing y producto MVP, generar leads, montar funnels low y high ticket, lanzamientos, evergreen y email marketing, hacer setting y closing y llevar equipo, métricas y finanzas, más el Sistema Advantage con plantillas de Airtable automatizadas en ManyChat, Make y Zapier.',
+  'bluehacker': 'Formación para vender ofertas high ticket, con foco en nicho y cliente ideal, oferta y precio, booking funnel, proceso de setters, cierre de llamadas y objeciones, tráfico pago con Meta Ads, Instagram orgánico, outbound en frío por email y LinkedIn, VSL funnel, email marketing y un bloque grande de mentalidad, identidad y productividad. La mitad del material son sesiones semanales grabadas de mentoría, agrupadas por temática.',
+  'creativos-ugc-realistas': 'Curso para aprender a producir creativos UGC publicitarios con avatares de IA, con los fundamentos del método y los agentes que arman guion e imagen, y toda la producción: crear la imagen, animarla con modelos de video, editar en CapCut y clonar la voz. Incluye catálogo de modelos de IA, biblioteca de prompts, ApiMart y Kie, y formatos UGC con y sin producto, podcast, dualcast, voz en off y trends virales.',
+  'masteryhaus': 'Estructura y escala un negocio digital de servicios ya en marcha, con mentalidad y foco, nicho, oferta, precios y validación, lanzamiento y funnels, script de ventas y objeciones, entrega del servicio y marketing perpetuo con contenido en YouTube, podcast, email, Meta, TikTok y LinkedIn. Suma un workshop de gestión del tiempo, el setup de la herramienta Mastery Machine y las sesiones grabadas de Maestría y Mastery Club.',
 
 };
 

@@ -87,6 +87,99 @@ for (const c of plataforma) {
   if (c.title && !idx.has(norm(c.title))) idx.set(norm(c.title), c);
 }
 
+// ── Encontrar un curso en el catálogo de la plataforma ──────────────────────────────
+/**
+ * ⚠️ PEDIR IGUALDAD EXACTA DEJÓ NUEVE CURSOS SIN DATO, Y EL CERO NO SE DISTINGUE DE
+ *    «NO ESTÁ EN LA PLATAFORMA».
+ *
+ * Y la causa de fondo no era la exigencia de igualdad: era que **el índice se construía
+ * con DOS claves y se consultaba con UNA**. Arriba se indexa por slug Y por título, y los
+ * tres call-sites hacían `idx.get(norm(slug))` a secas. Tres cursos con el título idéntico
+ * al de la plataforma —«Curso de Claude AI - Rodrigo Rojo» es exacto carácter por
+ * carácter— se daban por inexistentes porque su slug no coincidía. La mitad del índice
+ * nunca se leyó, y nada lo dice: un `Map` al que no le preguntás no se queja.
+ *
+ * Encima de eso sí está la fragilidad de la igualdad exacta, que explica el resto: nuestro
+ * `certificacion-marketing-digital-ia` contra su «Certificación en Marketing Digital
+ * potenciada por IA», nuestro `us30-2-0` contra su `curso-us30-2-0`.
+ *
+ * Medido el 30/08/2026: de 13 cursos que el script daba por «no está en la plataforma»,
+ * NUEVE estaban. Y el mismo cruce decide la tapa, así que los 9 aparecían además en la
+ * lista de «sin tapa en disco» — un bug, dos síntomas, y el segundo se reportó como
+ * «hay muchos que no tienen portada».
+ *
+ * ⚠️ Y ACÁ NO SE PUEDE ELEGIR EL PRIMER CANDIDATO. La descripción de otro curso en la
+ *    tarjeta de éste no da error ni 404: da un texto plausible y equivocado, que es
+ *    exactamente cómo se publicaron recursos que abrían el PDF de otro curso. Por eso
+ *    hacen falta DOS señales que no dependan una de la otra, y ante la duda se ABSTIENE.
+ */
+const RUIDO = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'y', 'con', 'en', 'para', 'por',
+  'un', 'una', 'al', 'su', 'tu', 'lo', 'que', 'como']);
+const palabras = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  .split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !RUIDO.has(w));
+
+// Cuántos títulos de la plataforma contienen cada palabra. «mastery» está en muchos y no
+// distingue nada; «avatar» está en dos y lo distingue todo. Sin este peso, «AVATAR MASTERY
+// - Ava Digital» empataba con «ChatGPT & IA Mastery».
+const DOCS = new Map();
+for (const p of plataforma) for (const w of new Set(palabras(`${p.slug} ${p.title}`))) DOCS.set(w, (DOCS.get(w) ?? 0) + 1);
+const pesoDe = (w) => Math.log(1 + plataforma.length / (1 + (DOCS.get(w) ?? 0)));
+
+const mismoAutor = (a, b) => {
+  const A = new Set(palabras(a)), B = new Set(palabras(b));
+  if (!A.size || !B.size) return false;
+  let n = 0;
+  for (const w of A) if (B.has(w)) n++;
+  return n >= 2 || (n === 1 && Math.min(A.size, B.size) === 1);
+};
+
+/** Devuelve `{ p, como }`, o `{ ambiguo: [...] }`, o `null`. Nunca elige a ciegas. */
+const buscarEnPlataforma = (slug, titulo) => {
+  const exacto = idx.get(norm(slug)) ?? idx.get(norm(titulo));
+  if (exacto) return { p: exacto, como: 'exacto' };
+
+  // Señal 1: uno de los dos slugs CONTIENE al otro ya normalizado. `curso-us30-2-0`
+  // contiene a `us30-2-0`. Se exige largo mínimo para que «trading» no matchee a medio
+  // catálogo, y que el que contiene sea UNO SOLO — si son varios, no es una señal.
+  const n = norm(slug);
+  if (n.length >= 12) {
+    const dentro = plataforma.filter((p) => {
+      const q = norm(p.slug || '');
+      return q && (q.includes(n) || n.includes(q)) && Math.min(q.length, n.length) >= 12;
+    });
+    if (dentro.length === 1) return { p: dentro[0], como: 'slug contenido' };
+    if (dentro.length > 1) return { ambiguo: dentro.map((p) => p.title) };
+  }
+
+  // Señal 2: parecido de título ponderado por rareza, y el AUTOR como confirmación
+  // independiente — nuestros títulos lo llevan pegado («… - Rodrigo Rojo»).
+  const mias = new Set(palabras(`${slug} ${titulo}`));
+  const totalMio = [...mias].reduce((s, w) => s + pesoDe(w), 0);
+  const autorNuestro = (titulo.split(' - ')[1] ?? '').trim();
+  const cand = [];
+  for (const p of plataforma) {
+    const suyas = new Set(palabras(`${p.slug} ${p.title}`));
+    let comun = 0;
+    for (const w of mias) if (suyas.has(w)) comun += pesoDe(w);
+    if (!comun) continue;
+    const totalSuyo = [...suyas].reduce((s, w) => s + pesoDe(w), 0);
+    const score = comun / Math.min(totalMio, totalSuyo);
+    const autorOk = !!(autorNuestro && p.instructor && mismoAutor(autorNuestro, p.instructor));
+    cand.push({ p, score, autorOk });
+  }
+  if (!cand.length) return null;
+  cand.sort((a, b) => (b.autorOk - a.autorOk) || (b.score - a.score));
+  const [top, seg] = cand;
+
+  // Se acepta con las DOS señales, o con una sola si es abrumadora Y despegada del segundo.
+  if (top.autorOk && top.score >= 0.35) return { p: top.p, como: 'título + autor' };
+  const margen = seg ? top.score - seg.score : 1;
+  if (top.score >= 0.75 && margen >= 0.25) return { p: top.p, como: `título (margen ${margen.toFixed(2)})` };
+
+  // Hay parecido y no alcanza para decidir: se DICE, no se elige.
+  return { ambiguo: cand.slice(0, 3).map((c) => `${c.p.title} (${c.score.toFixed(2)}${c.autorOk ? ', autor ✓' : ''})`) };
+};
+
 let cat = readFileSync(CAT_TS, 'utf8');
 const NL = cat.includes('\r\n') ? '\r\n' : '\n';
 
@@ -122,7 +215,35 @@ const bCat = bloque('CATEGORIA');
 const bPor = bloque('PORTADA');
 if (!bCat) { console.error('\n  ✖ No encontré CATEGORIA en catalogo.ts\n'); process.exit(1); }
 
-const fichas = readdirSync(DIR).map((f) => /^curso-(.+)\.ts$/.exec(f)).filter(Boolean).map((m) => m[1]).sort();
+/**
+ * Las fichas, con su slug REAL y su título.
+ *
+ * ⚠️ El nombre del archivo NO es el slug. `curso-producto-app.ts` declara
+ *    `slug: 'construir-app'`, y una clave escrita con el nombre de archivo no la lee nadie:
+ *    la categoría, la tapa o la descripción quedan puestas y no aparecen, sin ningún error.
+ *    Es la misma trampa que «la unidad de un chequeo es la ENTIDAD, no el archivo».
+ *
+ * El título hace falta para el cruce flojo: es donde vive el autor.
+ */
+const IMPORTADAS = new Set([...cat.matchAll(/from '\.\/(curso-[^']+)'/g)].map((m) => m[1]));
+const fichas = readdirSync(DIR)
+  .map((f) => /^(curso-(.+))\.ts$/.exec(f))
+  .filter(Boolean)
+  // ⚠️ Un archivo en disco no es un curso del portal. `curso-creativos-animados.ts` quedó
+  //    ahí después de fusionarse dentro de AvatarHype: el catálogo ya no lo importa, así
+  //    que nadie lo ve. Sin este filtro el script le baja la tapa, le escribe el resumen y
+  //    lo lista como pendiente — trabajo y ruido sobre algo que no existe para el usuario.
+  .filter((m) => IMPORTADAS.has(m[1]))
+  .map((m) => {
+    const src = readFileSync(join(DIR, `${m[1]}.ts`), 'utf8');
+    return {
+      archivo: m[1],
+      slug: /slug: '((?:[^'\\]|\\.)*)'/.exec(src)?.[1] ?? m[2],
+      titulo: /titulo: '((?:[^'\\]|\\.)*)'/.exec(src)?.[1] ?? '',
+      declaraPortada: /^\s*portada: '/m.test(src),
+    };
+  })
+  .sort((a, b) => a.slug.localeCompare(b.slug));
 
 // Las tapas que ya están en disco, por slug y con CUALQUIER extensión.
 const yaEnDisco = new Map();
@@ -133,22 +254,47 @@ if (existsSync(PORTADAS)) {
 const nuevasCat = [];
 const bajarTapa = [];
 const sinDato = [];
-for (const slug of fichas) {
-  const p = idx.get(norm(slug));
-  if (!bCat.claves.has(slug)) {
+const ambiguos = [];
+// El resultado del cruce se guarda por slug: lo usan la categoría, la tapa y el resumen,
+// y buscarlo tres veces es tres oportunidades de que dos de ellas contesten distinto.
+const enPlataforma = new Map();
+for (const f of fichas) {
+  const hit = buscarEnPlataforma(f.slug, f.titulo);
+  if (hit?.ambiguo) ambiguos.push([f.slug, hit.ambiguo]);
+  const p = hit?.p ?? null;
+  enPlataforma.set(f.slug, hit ?? null);
+
+  if (!bCat.claves.has(f.slug)) {
     const c = p && p.category && EQUIVALE[p.category];
-    if (c) nuevasCat.push([slug, c, p.category]);
-    else sinDato.push([slug, (p && p.category) || '(no está en la plataforma)']);
+    if (c) nuevasCat.push([f.slug, c, p.category]);
+    else sinDato.push([f.slug, (p && p.category) || (hit?.ambiguo ? '(candidatos ambiguos — ver abajo)' : '(no está en la plataforma)')]);
   }
   // ⚠️ La extensión sale de los BYTES del origen y hay `.png` además de `.webp`/`.jpg`:
   //    preguntar por dos extensiones concretas es «existsSync no es un cruce» — daba
   //    falso sobre tapas que YA estaban y las volvía a bajar en cada corrida.
-  const yaTiene = (bPor && bPor.claves.has(slug)) || yaEnDisco.has(slug);
-  if (!yaTiene && p && p.cover_image) bajarTapa.push([slug, p.cover_image]);
+  const yaTiene = (bPor && bPor.claves.has(f.slug)) || yaEnDisco.has(f.slug);
+  if (!yaTiene && p && p.cover_image) bajarTapa.push([f.slug, p.cover_image]);
 }
 
 console.log(`\n  ${fichas.length} curso(s) · ${nuevasCat.length} categoría(s) nueva(s) · ${bajarTapa.length} tapa(s) por bajar\n`);
 for (const [s, c, orig] of nuevasCat) console.log(`     ${s.padEnd(44)} ${orig.padEnd(22)} → ${c}`);
+// Los que salieron del cruce flojo se listan SIEMPRE, aunque no haya nada nuevo que
+// escribir: un match por parecido es una decisión, y una decisión que nadie ve no se
+// puede corregir. El «exacto» no se lista porque no es una decisión.
+const flojos = fichas.filter((f) => enPlataforma.get(f.slug)?.p && enPlataforma.get(f.slug).como !== 'exacto');
+if (flojos.length) {
+  console.log(`\n  ${flojos.length} cruzado(s) por PARECIDO — revisá que sean el mismo curso:`);
+  for (const f of flojos) {
+    const h = enPlataforma.get(f.slug);
+    console.log(`     · ${f.slug.padEnd(40)} [${h.como}]`);
+    console.log(`       nuestro:  ${f.titulo}`);
+    console.log(`       de ellos: ${h.p.title}`);
+  }
+}
+if (ambiguos.length) {
+  console.log(`\n  ⚠️  ${ambiguos.length} con candidatos AMBIGUOS — no elijo ninguno:`);
+  for (const [s, lista] of ambiguos) console.log(`     · ${s}\n         ${lista.join('\n         ')}`);
+}
 if (sinDato.length) {
   console.log(`\n  ${sinDato.length} se quedan como están (no se les inventa categoría):`);
   for (const [s, por] of sinDato) console.log(`     · ${s.padEnd(44)} ${por}`);
@@ -203,11 +349,11 @@ cat = readFileSync(CAT_TS, 'utf8');
 const bPor2 = bloque('PORTADA');
 const nuevasPor = [];
 if (bPor2) {
-  for (const slug of fichas) {
-    if (bPor2.claves.has(slug) || !enDisco.has(slug)) continue;
+  for (const f of fichas) {
+    if (bPor2.claves.has(f.slug) || !enDisco.has(f.slug)) continue;
     // La ficha ya la declara: no se duplica el dato en dos lugares.
-    if (/^\s*portada: '/m.test(readFileSync(join(DIR, `curso-${slug}.ts`), 'utf8'))) continue;
-    nuevasPor.push([slug, enDisco.get(slug)]);
+    if (f.declaraPortada) continue;
+    nuevasPor.push([f.slug, enDisco.get(f.slug)]);
   }
 }
 if (nuevasPor.length) {
@@ -222,7 +368,7 @@ if (nuevasPor.length) {
   console.log(`\n  Todas las tapas de disco ya están enganchadas.`);
 }
 
-const sinTapa = fichas.filter((s) => !enDisco.has(s));
+const sinTapa = fichas.filter((f) => !enDisco.has(f.slug)).map((f) => f.slug);
 if (sinTapa.length) console.log(`\n  ${sinTapa.length} sin tapa en disco: ${sinTapa.join(', ')}`);
 
 // ── 3b. el RESUMEN: de qué va el curso ──────────────────────────────────────────────
@@ -244,12 +390,13 @@ const nuevasRes = [];
 const sinResumen = [];
 if (!bRes) console.log('\n  (no hay mapa RESUMEN en catalogo.ts — me lo salteo)');
 else {
-  for (const slug of fichas) {
-    if (bRes.claves.has(slug)) continue;
-    const p = idx.get(norm(slug));
-    const d = (p?.short_description ?? '').replace(/\s+/g, ' ').trim();
-    if (d) nuevasRes.push([slug, d]);
-    else sinResumen.push(slug);
+  for (const f of fichas) {
+    if (bRes.claves.has(f.slug)) continue;
+    // El cruce ya se hizo arriba: rehacerlo acá es la forma de que dos partes del mismo
+    // script contesten distinto sobre el mismo curso.
+    const d = (enPlataforma.get(f.slug)?.p?.short_description ?? '').replace(/\s+/g, ' ').trim();
+    if (d) nuevasRes.push([f.slug, d]);
+    else sinResumen.push(f.slug);
   }
 }
 if (nuevasRes.length) {
@@ -285,11 +432,10 @@ const cat3 = readFileSync(CAT_TS, 'utf8');
 const mapaCat = new Map([...(/const CATEGORIA[^=]*=\s*\{([\s\S]*?)\r?\n\};/.exec(cat3)?.[1] ?? '')
   .matchAll(/'([^']+)':\s*'([^']*)'/g)].map((x) => [x[1], x[2]]));
 const enElCajon = [];
-for (const slug of fichas) {
-  const src = readFileSync(join(DIR, `curso-${slug}.ts`), 'utf8');
+for (const f of fichas) {
+  const src = readFileSync(join(DIR, `${f.archivo}.ts`), 'utf8');
   const propia = /categoria: '([^']*)'/.exec(src)?.[1] ?? '';
-  const suSlug = /slug: '([^']*)'/.exec(src)?.[1] ?? slug;
-  if ((mapaCat.get(suSlug) ?? propia) === 'Cursos externos') enElCajon.push(suSlug);
+  if ((mapaCat.get(f.slug) ?? propia) === 'Cursos externos') enElCajon.push(f.slug);
 }
 if (enElCajon.length) {
   console.log(`\n  ⚠️  ${enElCajon.length} curso(s) quedaron en «Cursos externos» — hay que darles categoría a mano:`);
@@ -321,9 +467,9 @@ const DE_UNO_A_PROPOSITO = new Set([
   'MaKo', 'Producto y construcción', 'VSL y Landing Page',
 ]);
 const porSeccion = new Map();
-for (const slug of fichas) {
-  const src = readFileSync(join(DIR, `curso-${slug}.ts`), 'utf8');
-  const suSlug = /slug: '([^']*)'/.exec(src)?.[1] ?? slug;
+for (const f of fichas) {
+  const src = readFileSync(join(DIR, `${f.archivo}.ts`), 'utf8');
+  const suSlug = f.slug;
   const cat = mapaCat.get(suSlug) ?? (/categoria: '([^']*)'/.exec(src)?.[1] ?? '');
   if (!cat || cat === 'Cursos externos') continue;
   porSeccion.set(cat, [...(porSeccion.get(cat) ?? []), suSlug]);
