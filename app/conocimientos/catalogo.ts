@@ -97,6 +97,8 @@ import { CURSO_ACADEMIA_FIVE_STARS } from './curso-academia-five-stars';
 import { CURSO_MONETIZA_CON_JOHAN_IA } from './curso-monetiza-con-johan-ia';
 import { CURSO_LA_UNIVERSIDAD_DEL_CLOSER } from './curso-la-universidad-del-closer';
 import { CURSO_EMPRENDE_CON_INSTAGRAM } from './curso-emprende-con-instagram';
+import { CURSO_MASTER_EN_IA } from './curso-master-en-ia';
+import { CURSO_ECOMMERCE_FULL_2_0 } from './curso-ecommerce-full-2-0';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio';
 import { CURSO_BRANDING } from './BrandingMaKo';
@@ -305,6 +307,14 @@ const CATEGORIA: Record<string, string> = {
   // plataforma. El comentario al lado es la categoría de origen.
   'emprende-con-instagram': 'Orgánico',    // Redes Sociales
 
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'master-en-ia': 'Inteligencia Artificial', // IA
+
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'ecommerce-full-2-0': 'Ecommerce',       // Ecommerce
+
 };
 
 /**
@@ -412,6 +422,14 @@ const PORTADA: Record<string, string> = {
   // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
   // pero la ficha se había emitido antes de que existiera.
   'emprende-con-instagram': '/cono-portadas/emprende-con-instagram.jpg',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'master-en-ia': '/cono-portadas/master-en-ia.jpg',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'ecommerce-full-2-0': '/cono-portadas/ecommerce-full-2-0.jpg',
 
 };
 
@@ -722,6 +740,12 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_EMPRENDE_CON_INSTAGRAM,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_MASTER_EN_IA,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_ECOMMERCE_FULL_2_0,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
