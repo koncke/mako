@@ -1065,6 +1065,10 @@
   border-radius: 14px;
   background: #525963;
   isolation: isolate;
+  /* Para que el desenfoque se mida contra ESTE elemento y no contra la pantalla.
+     Ver el bloque de abajo: es lo que hace que la pieza funcione a cualquier
+     tamaño en vez de a uno solo. */
+  container-type: size;
 }
 .mk-lienzo::before,
 .mk-lienzo::after {
@@ -1072,7 +1076,17 @@
   position: absolute;
   inset: -30%;
   z-index: 0;
+  /* ⚠️ EL DESENFOQUE ES PROPORCIONAL, NO FIJO.
+     Los 22 px estaban calibrados contra una tarjeta de 176 —el 12,5% de su
+     ancho— y el comentario de arriba explica por qué a menos escala PROMEDIA la
+     tarjeta hasta un gris plano. Le faltaba la otra mitad: a MÁS escala pasa lo
+     contrario, y a 411 px de ancho las nubes dejan de ser niebla y se ven como
+     tres manchas con borde. La pieza estaba atada a un solo tamaño.
+     `cqw` mide contra el propio elemento, así que 12,5cqw es el mismo 12,5% a
+     cualquier tamaño y el error no puede volver. El `blur(22px)` de arriba queda
+     como piso para un navegador sin container queries: peor, pero nunca cero. */
   filter: blur(22px);
+  filter: blur(12.5cqw);
   will-change: transform;
 }
 .mk-lienzo::before {

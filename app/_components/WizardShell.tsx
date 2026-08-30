@@ -55,7 +55,7 @@ export function WizardShell({
   puedeAvanzar, enUltimo, confirmLabel, pending = false, cargando = null,
   atrasLabel, onAtras, onSiguiente, onConfirmar, onClose, bloqueante = false, hideAtras = false,
   fullscreen = false, escenario, siguienteLabel = 'Siguiente →', extraFooter, adminBar, hideSiguiente = false,
-  embebido = false, ancho = 560,
+  embebido = false, ancho = 560, anchoCuerpo,
 }: {
   titulo: string;            // línea mono arriba (ej. "Nutrición manual · Juan")
   pregunta: string; sub?: string;
@@ -108,6 +108,19 @@ export function WizardShell({
    * cortan y la pieza se lee como una columna finita.
    */
   ancho?: number;
+  /**
+   * Ancho del CUERPO, cuando el paso muestra algo que no entra en una columna de
+   * lectura.
+   *
+   * El modo `fullscreen` fija 480 px, que es el ancho correcto para una pregunta
+   * con un input debajo —que es para lo que nació— y es la mitad de lo que
+   * necesita un paso cuyo trabajo es COMPARAR DOS IMÁGENES lado a lado. A 480 las
+   * dos entran a 230 px y la comparación deja de poder hacerse, que es lo único
+   * que ese paso tenía para ofrecer.
+   *
+   * Ausente = el de siempre. No cambia ni un wizard existente.
+   */
+  anchoCuerpo?: number;
 } & ProgresoWizard) {
   const capa = useCapaModal(!fullscreen);
   // Mientras carga, la pieza está trabada: ni avanzar, ni volver, ni cerrar.
@@ -240,7 +253,7 @@ export function WizardShell({
           pegados uno contra otro. Se estira a lo ancho a propósito (la caja de
           contexto y las listas ocupan todo); el CENTRADO de los botones lo pone
           cada paso con alignSelf, que es la regla de la pieza. */}
-      <div style={{ maxWidth: fullscreen ? 480 : Math.max(480, ancho - 80), margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>{children}</div>
+      <div style={{ maxWidth: anchoCuerpo ?? (fullscreen ? 480 : Math.max(480, ancho - 80)), margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>{children}</div>
       {error && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 12 }}>{error}</div>}
     </div>
   );

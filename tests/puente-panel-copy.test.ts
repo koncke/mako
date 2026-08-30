@@ -110,7 +110,13 @@ const VOSEO = new RegExp(`(?<![\\p{L}_-])(${FORMAS.join('|')})(?![\\p{L}_-])`, '
  *     desde la app. El `[^:'"\`\\]` de adelante es para no cortar en `https://`.
  */
 function copyVisible(ruta: string): string {
-  const crudo = readFileSync(join(RAIZ, ruta), 'utf8');
+  // ⚠️ `git ls-files` lista el ÍNDICE, no el disco. Un archivo borrado y todavía
+  // sin commitear aparece en la lista y no existe, y hasta hoy eso tiraba el
+  // guard ENTERO con un ENOENT — o sea que borrar un archivo apagaba el chequeo
+  // de voseo de los otros 900. Un archivo que no está no tiene copy que revisar:
+  // se saltea y se sigue.
+  let crudo: string;
+  try { crudo = readFileSync(join(RAIZ, ruta), 'utf8'); } catch { return ''; }
   const enBlanco = (m: string) => m.replace(/[^\n]/g, ' ');
   return crudo
     .replace(/\/\*[\s\S]*?\*\//g, enBlanco)   // bloques /* … */ y {/* … */}

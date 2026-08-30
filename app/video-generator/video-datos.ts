@@ -52,6 +52,15 @@ export type PlanGuardado = {
    * exista, esto es un puntero con fecha de vencimiento, no un archivo.
    */
   /**
+   * `true` = alguien ya miró la toma 1 al lado de su foto y dijo que sí.
+   *
+   * Hace falta persistirlo porque la pregunta «¿esta cara es la tuya?» se hace
+   * UNA vez —la semilla de la toma 1 fija la cara que heredan las otras seis— y
+   * sin el dato, refrescar con solo la toma 1 filmada volvería a preguntarla
+   * para siempre.
+   */
+  caraVista?: boolean;
+  /**
    * Los escenarios del anuncio: dónde se filma cada tramo, y el prompt de su
    * imagen. Los escribe MaKo (`lib/escenas.ts`) y la cantidad la fija el
    * formato, no el modelo.

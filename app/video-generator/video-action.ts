@@ -750,6 +750,51 @@ export async function elegirImagenAction(
 }
 
 /**
+ * Descarta una toma ya filmada, para poder volver a filmarla.
+ *
+ * ⚠️ SIN ESTO, «rehacer la toma» NO HACE NADA. El freno de plata de
+ * `generarTomaAction` devuelve lo que hay cuando la toma ya tiene `url` —y está
+ * bien, es lo que impidió pagar dos veces el mismo clip—, así que pedir de nuevo
+ * la misma toma contesta `ok` y no genera nada. Es un botón que responde bien y
+ * no pasa nada, que es la peor forma de fallar.
+ *
+ * Rehacer es entonces DOS pasos explícitos: descartar y volver a generar. Que
+ * sean dos es a propósito: borrar un clip pagado no puede ser un efecto lateral
+ * de apretar «generar».
+ */
+export async function descartarTomaAction(
+  planId: string,
+  n: number,
+): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  const item = planDe(await leerHistorial(), planId);
+  if (!item) return { ok: false, error: 'Ese anuncio ya no está en el historial.' };
+
+  const sin = { ...marcas(item) };
+  delete sin[String(n)];
+  const actualizado: PlanGuardado = { ...item, video: sin };
+  await guardarEnHistorial(actualizado);
+  return { ok: true, item: actualizado };
+}
+
+/** Queda escrito que la cara ya se miró: la pregunta se hace una sola vez. */
+export async function marcarCaraVistaAction(
+  planId: string,
+): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  const item = planDe(await leerHistorial(), planId);
+  if (!item) return { ok: false, error: 'Ese anuncio ya no está en el historial.' };
+
+  const actualizado: PlanGuardado = { ...item, caraVista: true };
+  await guardarEnHistorial(actualizado);
+  return { ok: true, item: actualizado };
+}
+
+/**
  * La persona CONFIRMA que esa imagen es el lugar.
  *
  * Es el paso que faltaba, y no es ceremonia: es el único momento en que alguien

@@ -106,7 +106,7 @@ export function textoFlow(causa: CausaFlow, que: string, at?: string, ahora = ne
         // sus credenciales por un bache nuestro es el mismo error con el signo
         // cambiado, y se paga peor: lo manda a tocar algo que está bien.
         detalle: con(
-          `No es tuyo ni de tu cuenta, y no se gastaron créditos: el pedido que sale de acá tiene un campo que Google no reconoce. Ya quedó anotado y se arregla de nuestro lado. Mientras tanto puedes subir una foto y seguir sin esperar.`,
+          `No es tuyo ni de tu cuenta, y no se gastaron créditos: el pedido que sale de aquí tiene un campo que Google no reconoce. Ya quedó anotado y se arregla de nuestro lado. Mientras tanto puedes subir una foto y seguir sin esperar.`,
         ),
         accion: `Volver a generar ${que}`,
         secundaria: 'Subir mi foto del lugar',
