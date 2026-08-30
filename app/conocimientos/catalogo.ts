@@ -108,6 +108,8 @@ import { CURSO_ECOM_TOTAL_2_0 } from './curso-ecom-total-2-0';
 import { CURSO_MASTER_MARCA_PERSONAL_4_0 } from './curso-master-marca-personal-4-0';
 import { CURSO_AUTOMATIZA_TU_WHATSAPP } from './curso-automatiza-tu-whatsapp';
 import { CURSO_IMPERIO_AFILIADO } from './curso-imperio-afiliado';
+import { CURSO_ACADEMIA_DEL_SENSEI } from './curso-academia-del-sensei';
+import { CURSO_GROWING_SETTERS_3_0 } from './curso-growing-setters-3-0';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio.datos';
 import { CURSO_BRANDING } from './BrandingMaKo.datos';
@@ -361,6 +363,11 @@ const CATEGORIA: Record<string, string> = {
   // plataforma. El comentario al lado es la categoría de origen.
   'imperio-afiliado': 'Orgánico',          // Afiliados
 
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'academia-del-sensei': 'Finanzas',       // Trading
+  'growing-setters-3-0': 'Ventas',         // appointment setting y ventas high ticket, no ecommerce
+
 };
 
 /**
@@ -518,6 +525,11 @@ const PORTADA: Record<string, string> = {
   // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
   // pero la ficha se había emitido antes de que existiera.
   'imperio-afiliado': '/cono-portadas/imperio-afiliado.png',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'academia-del-sensei': '/cono-portadas/academia-del-sensei.png',
+  'growing-setters-3-0': '/cono-portadas/growing-setters-3-0.jpg',
 
 };
 
@@ -800,6 +812,11 @@ const RESUMEN: Record<string, string> = {
   // del catálogo de la plataforma.
   'imperio-afiliado': 'Aprende a crear tu negocio de marketing de afiliados desde cero. El curso enseña cómo seleccionar productos rentables para promocionar, crear funnels perpetuos, construir estrategias de email marketing efectivas, generar tráfico cualificado, conversión de desconocidos en clientes, y monetización sin crear producto propio. Incluye el método único para convertir masivamente a través de máquinas digitales.',
 
+  // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
+  // del catálogo de la plataforma.
+  'academia-del-sensei': 'Formación de trading desde cero: análisis técnico e institucional, manual de BIAS, psicología del trader, gestión monetaria y preparación para pruebas de fondeo.',
+  'growing-setters-3-0': 'Programa para trabajar como appointment setter: manejo de conversaciones, objeciones y prospectos, ventas high ticket, marca personal y cómo armar tu agencia de infoproductos.',
+
 };
 
 // Sin acentos y en minúsculas, para que «Sofia» no se sume a un título que ya dice
@@ -1071,6 +1088,10 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_IMPERIO_AFILIADO,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_ACADEMIA_DEL_SENSEI,
+  CURSO_GROWING_SETTERS_3_0,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
