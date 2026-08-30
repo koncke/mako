@@ -94,7 +94,14 @@ for (const b of BLOQUES) {
   nuevo = paso;
 }
 
-if (nuevo === txt) {
+// ⚠️ SIN LOS `\r`, POR LA MISMA RAZÓN QUE `sync-contrato-detalle.mjs`: el bloque se
+// inserta con `\n` sobre un archivo CRLF, así que en el clon donde el script corrió el
+// archivo queda MEZCLADO y coincide, y en un árbol recién sacado de git —un clon nuevo,
+// un worktree— git lo normaliza todo a CRLF y la comparación exacta falla sobre un
+// archivo idéntico. El guard frenaba el push de cualquiera que reclonara.
+// Al escribir se usa `nuevo` tal cual: normalizar decide SI hay que escribir, no QUÉ.
+const sinCR = (s) => s.replace(/\r\n/g, '\n');
+if (sinCR(nuevo) === sinCR(txt)) {
   console.log(`  ✓ ${DESTINO} al día`);
   process.exit(0);
 }
