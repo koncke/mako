@@ -249,4 +249,42 @@ if (enElCajon.length) {
   console.log('     (la plataforma no los conoce: la categoría sale de lo que ENSEÑAN, y eso lo decide una persona)');
 }
 
+/**
+ * ⚠️ Y LAS SECCIONES DE UN SOLO CURSO, que es el reclamo de verdad.
+ *
+ * «Cursos externos» es el caso obvio, pero el que se repite es otro: llega un curso con
+ * una categoría de origen que Martín ya había vaciado —«Marca personal», «Lanzamientos»,
+ * «Afiliados», «Marketing»— y la sección REAPARECE con un curso adentro. Pasó tres veces
+ * en un día, y las tres las encontró él abriendo el portal.
+ *
+ * No se corrige solo a propósito: a dónde va depende de lo que el curso ENSEÑA, y sus
+ * decisiones anteriores sobre la misma categoría de origen fueron a lugares distintos
+ * (un «Marketing» fue a Negocios digitales y otro a Orgánico). Un mapeo automático ahí
+ * estaría adivinando. Lo que sí se puede es que no pase en silencio.
+ *
+ * No se avisa de las que son de uno A PROPÓSITO: Idiomas y Ciberseguridad son disciplinas
+ * enteras, no cajones. La lista está acá para que agregar una sea una decisión explícita.
+ */
+const DE_UNO_A_PROPOSITO = new Set([
+  // Disciplinas enteras: quien busca inglés busca inglés, no «lo que no es otra cosa».
+  'Idiomas', 'Ciberseguridad', 'SEO',
+  // Las secciones de la casa. No salen del catálogo de la plataforma, no se comparten en
+  // los links, y su tamaño no dice nada: son el método y la marca, no un cajón.
+  'MaKo', 'Producto y construcción', 'VSL y Landing Page',
+]);
+const porSeccion = new Map();
+for (const slug of fichas) {
+  const src = readFileSync(join(DIR, `curso-${slug}.ts`), 'utf8');
+  const suSlug = /slug: '([^']*)'/.exec(src)?.[1] ?? slug;
+  const cat = mapaCat.get(suSlug) ?? (/categoria: '([^']*)'/.exec(src)?.[1] ?? '');
+  if (!cat || cat === 'Cursos externos') continue;
+  porSeccion.set(cat, [...(porSeccion.get(cat) ?? []), suSlug]);
+}
+const deUno = [...porSeccion].filter(([c, xs]) => xs.length === 1 && !DE_UNO_A_PROPOSITO.has(c));
+if (deUno.length) {
+  console.log(`\n  ⚠️  ${deUno.length} sección/es con UN SOLO curso — revisá si corresponde:`);
+  for (const [c, xs] of deUno) console.log(`     · «${c}»  →  ${xs[0]}`);
+  console.log('     (una sección de un curso agrupa por modelo de negocio, no por lo que alguien busca)');
+}
+
 console.log(`\n  Verificá con:  npm run typecheck\n`);
