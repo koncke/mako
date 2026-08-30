@@ -5857,3 +5857,101 @@ una edición a mano absorbida.
 que quien está editando `catalogo.ts` commitee. El log lo dice con todas las letras, porque
 un curso que tarda una hora en aparecer es más barato que el trabajo a medias de otro
 publicado a producción con un mensaje que no lo nombra.
+
+## El índice se construía con dos claves y se consultaba con una
+
+**Vive en:** `scripts/curso-categoria-portada.mjs` (`buscarEnPlataforma`).
+
+El script cruza cada curso nuestro con su entrada en el catálogo de la plataforma de
+origen, y de ese cruce salen TRES cosas: la categoría, la tapa y la descripción. El índice
+se armaba con dos claves —`idx.set(norm(c.slug))` **y** `idx.set(norm(c.title))`— y los
+tres call-sites hacían `idx.get(norm(slug))` a secas. **La mitad del índice no se leyó
+nunca.**
+
+Medido el 30/08/2026: de 13 cursos que el script daba por «no está en la plataforma»,
+**nueve estaban**. Tres de ellos con el título idéntico carácter por carácter — «Curso de
+Claude AI - Rodrigo Rojo» es literal en los dos lados— y se daban por inexistentes porque
+su *slug* no coincidía.
+
+**Un `Map` al que no le preguntás no se queja.** No hay error, no hay log, y la respuesta
+—cero resultados— es indistinguible de la verdad. Es la misma forma de «un cero
+perfectamente correcto sobre la pregunta equivocada».
+
+**Y un bug, DOS síntomas que se reportaron por separado.** El mismo cruce decide la tapa,
+así que esos nueve cursos aparecían además en la lista de «sin tapa en disco». Martín lo
+reportó como *«hay muchos que no tienen portada, revisalo»* — un pedido de UI sobre un bug
+de cruce de datos. **Cuando dos síntomas aparecen juntos y parecen de áreas distintas,
+preguntá qué función comparten antes de arreglar los dos.**
+
+### El cruce flojo que lo reemplaza, y por qué se abstiene
+
+Tres señales en orden, y ninguna termina en `[0]`:
+
+1. **Exacto** por slug o por título (ahora sí, los dos).
+2. **Un slug contenido en el otro**, normalizados: `curso-us30-2-0` ⊃ `us30-2-0`. Se exige
+   largo mínimo de 12 —si no, «trading» matchea medio catálogo— y que el que contiene sea
+   **uno solo**: si son varios, no es una señal, es una coincidencia.
+3. **Parecido de título ponderado por rareza (IDF), con el AUTOR como segunda señal.**
+
+El peso por rareza no es un refinamiento: sin él, «AVATAR MASTERY - Ava Digital» empataba
+en 0,50 con «AVATAR MASTERY — Crea y monetiza tu influencer virtual con IA» y con «ChatGPT
+& IA Mastery», porque «mastery» pesa lo mismo que «avatar». Con IDF, «avatar» —que está en
+dos títulos de 130— decide.
+
+**Se acepta con las DOS señales (autor + parecido ≥ 0,35) o con una abrumadora y despegada
+del segundo (≥ 0,75 y margen ≥ 0,25). Si no, se abstiene y LISTA los candidatos.** El
+porqué del rigor: publicar la descripción de otro curso no da error, no da 404 y nadie lo
+nota — es exactamente el modo de falla de los recursos que abrían el PDF de otro curso.
+
+Y **todo match que no sea exacto se imprime siempre**, con los dos títulos al lado, aunque
+no haya nada nuevo que escribir: un cruce por parecido es una decisión, y una decisión que
+nadie ve no se puede corregir.
+
+## La descripción de ellos describe SU producto, no nuestra copia
+
+**Vive en:** `app/conocimientos/catalogo.ts` (mapa `RESUMEN`).
+
+Que un texto sea un dato del origen no lo hace cierto sobre lo que nosotros publicamos.
+Dos de las nueve descripciones recuperadas prometían material que en nuestra copia no
+está, y las dos se detectaron leyendo el corpus entero:
+
+- **`us30-2-0`**: «un módulo de macroeconomía con el economista Juan Odar». En las 6
+  transcripciones (630k caracteres) Odar aparece **una vez**, y es la recomendación de un
+  curso AJENO suyo: *«yo les recomendaría tomen su curso con Juan Hodar, está 99 dólares»*.
+  El curso además no tiene módulos.
+- **`trading-arelis-rodriguez-2025`**: «clases en vivo, comunidad y acompañamiento».
+  «Comunidad» y «acompañamiento»: **cero menciones** en 370k caracteres. Las 15 de «en
+  vivo» son *operaciones* que la autora hizo en vivo.
+
+Una promesa hueca no se descubre como un bug: se descubre como que el portal miente.
+
+⚠️ **Y la tercera alerta del mismo barrido NO se sostuvo.** Se marcó que
+`fotografia-al-completo` prometía «flujo de trabajo para entregar proyectos reales» y que
+eso «no existe»; medido, «flujo de trabajo» sale 7 veces, hay un BLOQUE 7 «Casos Prácticos»
+y hay retoque y edición. **Recortar ahí habría sido empobrecer una descripción correcta.**
+Tres de tres alertas plausibles, dos ciertas — verificar cada una contra el corpus cuesta
+un minuto y evita editar lo que estaba bien.
+
+## Casi reporto 14 líneas de volumen rotas: `grupo` matchea dentro de `subgrupo`
+
+**Vive en:** las fichas `app/conocimientos/curso-*.ts` (el `cardDesc` del curso).
+
+Un agente avisó que MasteryHaus dice «230 clases en **12** módulos» y tiene 47. Al barrer
+los 91 cursos con `/grupo: '([^']*)'/g` salieron **15 rotos**. Los 15 eran de la medición:
+
+1. **`/grupo: '/` MATCHEA ADENTRO DE `subgrupo: '`.** Contando así, un curso con 12 módulos
+   y 36 secciones «tiene» 48. Va `/(?<!sub)grupo: '/`.
+2. **Un curso sin un solo `grupo` no tiene «0 módulos».** La pantalla agrupa esas clases
+   bajo uno inventado (`SIN_MODULO = 'Clases'`, en `CursoReplica.tsx`), así que ve **uno**.
+   Declarar «1 módulo» ahí es correcto: medir contra el archivo cuando lo que importa es lo
+   que se dibuja da nueve falsos positivos más.
+
+Bien medido: **86 de 87 correctos**. El único real es `creator-club`, que declara 10 y
+dibuja 9 porque un módulo del plan no tiene clases publicadas. **Pendiente, sin arreglar.**
+
+⚠️ **Y el dato malo se propagó a los agentes.** El volcado de material que consumió la
+corrida usaba la misma regex, así que los cuatro escritores vieron «módulos» que eran
+módulos + secciones mezclados, y el de MasteryHaus razonó sobre una contradicción que no
+existía. No dañó las descripciones —ninguna afirma un número— pero es el recordatorio de
+que **un subagente no puede validar el dato que vos le pasaste**: hereda tu error de
+medición y te lo devuelve confirmado.

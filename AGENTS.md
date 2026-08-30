@@ -1799,6 +1799,62 @@ había cableado**, dos horas antes.
 - **Al lanzar la corrida**, decile qué acabás de tocar. Un agente que sabe que F0 se commiteó
   hace una hora no gasta un reporte en descubrirlo.
 
+## Un agente no puede validar el dato que VOS le pasaste: te lo devuelve confirmado
+
+Cuando le das a un subagente un volcado en vez de la fuente, tu error de medición viaja
+adentro y vuelve con la autoridad de una conclusión ajena. No hay forma de que lo cace: para
+él, tu archivo **es** el mundo.
+
+El 30/08/2026 el volcado de material de 13 cursos se armó con `/grupo: '([^']*)'/g`, que
+**también matchea adentro de `subgrupo: '`**. Los agentes vieron módulos y secciones
+mezclados, y uno reportó como contradicción que MasteryHaus declarara «12 módulos»
+teniendo 47. Bien medido tiene 12: los 47 eran mi regex. El barrido que hice sobre los 91
+cursos con la misma regex dio **15 rotos, los 15 falsos**.
+
+- **Antes de volcar, verificá el volcado contra UN caso conocido.** Abrir el curso en
+  pantalla y contar los módulos de la barra cuesta un minuto y descarta la clase entera de
+  error.
+- **Y si un agente reporta una contradicción en TU archivo, la primera hipótesis es el
+  archivo.** Es más barato de comprobar que la conclusión, y es la que más veces gana.
+- El corolario del pedido: pedile la CITA, no el número. Una afirmación con su frase
+  textual al lado se puede verificar contra la fuente; un conteo, no.
+
+## Un cruce que no encuentra nada no está diciendo que no esté
+
+Todo enganche entre dos sistemas —nuestro slug contra el `slug` de un proveedor, un id
+contra un nombre de archivo, un email contra una fila— falla en silencio y con la misma
+cara que el vacío legítimo. **Cero resultados es una respuesta, no un hecho.**
+
+- **Contá cuántos NO cruzaron y andá a mirar tres a mano.** Si el cruce está roto, se ve en
+  el primero. `scripts/curso-categoria-portada.mjs` daba 13 cursos «que no están en la
+  plataforma»: nueve estaban, y tres con el título idéntico carácter por carácter.
+- **Si el índice tiene N claves, consultalo con las N.** Ese índice se armaba con slug Y
+  título y los tres call-sites preguntaban sólo por slug — la mitad no se leyó nunca. Un
+  `Map` al que no le preguntás no se queja.
+- ⚠️ **Y cuando dos síntomas de áreas distintas aparecen juntos, buscá la función que
+  comparten antes de arreglar los dos.** Ese mismo cruce decide la categoría, la tapa y la
+  descripción, así que el bug se reportó como «hay muchos que no tienen portada» —un pedido
+  de UI— y como «faltan descripciones». Era uno solo.
+
+## El dato de un tercero describe SU producto, no nuestra copia de él
+
+Copiar un campo de un proveedor —una descripción, un temario, una duración— trae también
+sus promesas, y nuestra copia casi siempre es parcial. Dos de las nueve descripciones que
+se recuperaron del catálogo de origen prometían material que acá no está: «un módulo de
+macroeconomía con el economista Juan Odar» (aparece una vez en 630k caracteres, y es la
+recomendación de un curso ajeno suyo) y «clases en vivo, comunidad y acompañamiento» (cero
+menciones de las dos últimas en 370k).
+
+**Que el texto sea un dato no lo hace cierto sobre lo que nosotros publicamos.** Antes de
+mostrar un campo ajeno, buscá cada cosa que promete en el material que sí tenemos, y
+recortá lo que no esté — dejando escrito al lado qué se sacó y por qué, o el próximo lo
+«arregla» devolviéndolo. Una promesa hueca no se descubre como un bug: se descubre como que
+el producto miente.
+
+⚠️ **Y verificá alerta por alerta antes de recortar.** De tres promesas marcadas en ese
+mismo barrido, **una era falsa alarma** y recortarla habría empobrecido una descripción
+correcta.
+
 ## Y para leerlos: grepeá la ruta, no abras el documento
 
 **Antes de tocar un archivo, `Grep` su ruta en `docs/`.** Cada hallazgo trae adentro
