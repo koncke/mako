@@ -155,6 +155,22 @@ while IFS= read -r d; do
   #    El pipeline YA estaba escrito para esto: su `descargaViva` mira si `bajados.txt`
   #    crece o si hay un `.part` FRESCO, y no publica mientras el bajador trabaje. Esa
   #    lógica existía y nunca se había usado, porque la cola los corría en serie.
+  # ⚠️ QUE HAY DE ESTE CURSO EN DRIVE, ANTES DE BAJAR NADA.
+  #
+  #    Pedido de Martín (30/08/2026): «siempre revisá el Drive, porque estoy seguro de que
+  #    hay algunos que ya están allí». Tenía razón: de los 18 que quedaban en la cola, TRES
+  #    estaban a medias — 303 clases ya subidas que se iban a bajar de nuevo. «The Perfect
+  #    Launch» tenía 196 de sus 237.
+  #
+  #    Solo INFORMA, no saltea nada. Bajar de más cuesta tiempo; publicar un curso con los
+  #    videos de otro es un curso plausible y falso que nadie detecta. Y el riesgo es real:
+  #    en la primera versión del cruce, «ACADEMIA ESTRATEGA - Juan ADS» matcheó con
+  #    «M5 -95 - Juan ADS» por el nombre del autor.
+  #
+  #    No frena la cola si falla: es un informe, no una condición.
+  node scripts/curso-drive-comparar.mjs --plan "$PLAN" >> "$LOG" 2>&1 || \
+    di "  (el chequeo de Drive falló con $? — sigo igual, es informativo)"
+
   di "  ▶ bajando y transcribiendo A LA VEZ · $(date +%H:%M:%S)  (la bajada, en $LOG_BAJA)"
   echo "" >> "$LOG_BAJA"
   echo "════ $d · $(date) ════" >> "$LOG_BAJA"
