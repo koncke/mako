@@ -223,7 +223,7 @@ function accionDeCaptcha(tipo, path) {
 }
 
 async function ejecutar(trabajo) {
-  const { path, body } = trabajo.pedido || {};
+  const { path, body, parches } = trabajo.pedido || {};
   if (typeof path !== 'string' || !path.startsWith('/v1')) {
     return { id: trabajo.id, ok: false, motivo: 'transitorio', error: 'pedido sin path válido', reintentable: false };
   }
@@ -300,7 +300,7 @@ async function ejecutar(trabajo) {
   // del espejo: se copiaba todo menos lo único que importaba.
   const clase = path.split('?')[0].split('/').filter(Boolean).pop() || '';
   const r = await chrome.tabs.sendMessage(tab.id, {
-    tipo: 'HACER_FETCH', clase, path: path.split('?')[0], cuerpo, soloLectura, bearer,
+    tipo: 'HACER_FETCH', clase, path: path.split('?')[0], cuerpo, parches, soloLectura, bearer,
     // Por si la pestana se recargo y todavia no vio pasar este pedido.
     respaldo: await respaldoDe(clase),
   });

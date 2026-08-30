@@ -79,6 +79,53 @@
     return out;
   }
 
+  /**
+   * Escribe UN valor adentro del cuerpo copiado, siguiendo un camino.
+   *
+   * `requests.0.structuredPrompt` cambia esa rama y NO toca a sus hermanas. Es lo
+   * que `fundir()` no puede hacer: los arrays se reemplazan enteros a proposito,
+   * porque fundir dos listas elemento por elemento produce mezclas que ninguna de
+   * las dos partes pidio.
+   *
+   * Pero eso deja un agujero justo donde mas duele. El pedido de imagen de Flow
+   * es `{ mediaGenerationContext, useNewMedia, requests: [ {...} ] }`, y adentro
+   * de ese unico elemento conviven lo que NOSOTROS decidimos (el prompt, la
+   * semilla) con lo que SOLO sabe la plantilla (`imageModelName`, y los
+   * `imageInputs` que traen la cara de la persona). Mandar el array a medias
+   * pierde el modelo y la cara; mandarlo entero exige inventar los dos, que es
+   * exactamente lo que este espejo existe para no hacer.
+   *
+   * El parche es la tercera salida: se copia TODO y se cambia solo la hoja.
+   *
+   * Un camino que no existe se CREA (objetos para tramos con nombre, y se respeta
+   * el array si el tramo es un numero y el array ya esta). Un tramo numerico sobre
+   * algo que no es array no se fuerza: se ignora el parche entero, porque escribir
+   * `{"0": ...}` donde el contrato espera una lista produce un pedido que el
+   * servidor acepta y contesta cualquier cosa.
+   */
+  function parchar(cuerpo, camino, valor) {
+    // ⚠️ Se RECORTA cada tramo antes de filtrar. Sin esto, un camino de puros
+    // espacios ('   ') sobrevivia al filter y escribia una clave con ese nombre
+    // adentro del cuerpo: un pedido que sale, que Google acepta, y que ignora el
+    // prompt. Lo caza tests/espejo-parchar.test.ts.
+    const tramos = String(camino || '').split('.').map((t) => t.trim()).filter(Boolean);
+    if (!tramos.length) return false;
+    let nodo = cuerpo;
+    for (let i = 0; i < tramos.length - 1; i++) {
+      const t = tramos[i];
+      const esIndice = /^\d+$/.test(t);
+      if (esIndice && !Array.isArray(nodo)) return false;
+      if (nodo[t] == null || typeof nodo[t] !== 'object') {
+        nodo[t] = /^\d+$/.test(tramos[i + 1]) ? [] : {};
+      }
+      nodo = nodo[t];
+    }
+    const ultimo = tramos[tramos.length - 1];
+    if (/^\d+$/.test(ultimo) && !Array.isArray(nodo)) return false;
+    nodo[ultimo] = valor;
+    return true;
+  }
+
   const fetchOriginal = window.fetch;
 
   window.fetch = function (entrada, init) {
@@ -331,7 +378,7 @@
 
   // ── Nuestro pedido, calcado de la plantilla ───────────────────────────────
   window.addEventListener('MAKO_FETCH_PIDO', async (ev) => {
-    const { id, clase, cuerpo, path, soloLectura, bearer, respaldo } = ev.detail || {};
+    const { id, clase, cuerpo, parches, path, soloLectura, bearer, respaldo } = ev.detail || {};
     try {
       // ── Lectura: si Flow ya lo preguntó, se usa SU respuesta ───────────────
       // Cero tráfico nuestro. El pedido que la produjo lo hizo la app.
@@ -427,6 +474,18 @@
       // prompt y el token del captcha. Lo que no sabemos que existe viaja igual,
       // que es el punto entero de copiar en vez de reconstruir.
       const cuerpoFinal = llevaCuerpo ? fundir(base(plantilla.cuerpo), cuerpo || {}) : null;
+
+      // Los PARCHES van despues de fundir: son lo mas especifico que se dijo sobre
+      // este pedido, asi que ganan. Si alguno no se pudo aplicar, el pedido NO
+      // sale: un prompt que no llego a destino produce una imagen perfecta del
+      // escenario equivocado, y eso no se ve como un error — se ve como una imagen.
+      if (cuerpoFinal && parches && typeof parches === 'object') {
+        for (const [camino, valor] of Object.entries(parches)) {
+          if (!parchar(cuerpoFinal, camino, valor)) {
+            return responder('MAKO_FETCH_OK', id, { error: `PARCHE_FALLO:${camino}` });
+          }
+        }
+      }
 
       const res = await fetchOriginal.call(window, url.toString(), {
         method: metodo,

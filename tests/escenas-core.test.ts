@@ -80,6 +80,63 @@ test('un prompt de composición pura pasa limpio', () => {
   );
 });
 
+// ── Los falsos positivos que hacían inusable el paso entero ────────────────
+//
+// La primera versión comparaba por SUBSTRING y estas son las palabras que el
+// propio prompt PIDE usar: el lugar, los objetos, la ropa. Medido: nueve de diez
+// prompts legítimos quedaban rechazados, y el mensaje que salía culpaba a las API
+// keys del cliente.
+//
+// ⚠️ Y el test anterior daba VERDE: su prompt esquivaba las cuatro trampas por
+// casualidad. Un test verde sobre la propiedad equivocada es la forma más cara de
+// estar seguro — por eso acá van las palabras exactas, una por una.
+test('las palabras que CONTIENEN una prohibida no son una mención', () => {
+  const casos: [string, string][] = [
+    ['a chair by the window', 'chair contiene hair'],
+    ['a wooden surface with papers', 'surface contiene face'],
+    ['vintage furniture, warm light', 'vintage contiene age'],
+    ['a cinematic image of the room', 'image contiene age'],
+    ['storage boxes stacked in the garage', 'storage y garage contienen age'],
+    ['on a small stage, empty village street', 'stage y village contienen age'],
+    ['archival footage look, muted palette', 'footage contiene age'],
+    ['a leather armchair near the desk', 'armchair contiene hair'],
+    ['metal clips on a clipboard', 'clips contiene lips'],
+    ['a glass carafe on the table', 'carafe contiene cara'],
+    ['a wrinkled linen shirt hanging', 'wrinkled contiene wrinkle'],
+  ];
+  for (const [prompt, porque] of casos) {
+    assert.deepEqual(mencionaCara(prompt), [], `${porque}: ${prompt}`);
+  }
+});
+
+test('los términos de CÁMARA con «eye» son legítimos', () => {
+  // Encuadre, no anatomía, y es justo lo que un prompt de composición tiene que
+  // poder decir.
+  assert.deepEqual(mencionaCara('shot at eye level, 35mm'), []);
+  assert.deepEqual(mencionaCara('eye-level medium shot'), []);
+  assert.deepEqual(mencionaCara("a bird's-eye view of the desk"), []);
+  // Pero los ojos siguen prohibidos.
+  assert.ok(mencionaCara('close up on his eyes').length > 0);
+});
+
+test('sigue atrapando lo que tiene que atrapar, como palabra entera', () => {
+  // Se compara como CONJUNTO: el orden lo decide dónde cae cada palabra en el
+  // texto, no la lista, y fijar ese orden sería fijar una casualidad.
+  const marcas = (t: string) => mencionaCara(t).slice().sort();
+  assert.deepEqual(marcas('a man with a short beard'), ['beard', 'man with']);
+  assert.deepEqual(marcas('warm smile, 40 years old'), ['smile', 'years old']);
+  assert.deepEqual(marcas('su rostro de perfil'), ['rostro']);
+});
+
+test('el detector no se pierde una palabra terminada en vocal acentuada', () => {
+  // La razón de que los límites vayan por Unicode y no con ``: el `` de
+  // JavaScript es ASCII incluso con el flag `u`, así que después de una vocal
+  // acentuada no hay borde y la coincidencia se pierde SIN dar error. Este
+  // proyecto ya lo pagó con los imperativos del voseo.
+  assert.ok(mencionaCara('se ve la sonrisa').length > 0);
+  assert.ok(mencionaCara('el pelo al viento').length > 0);
+});
+
 // ── La validación de la respuesta ───────────────────────────────────────────
 
 const PROMPT_OK = 'Vertical 9:16 photograph of a sunlit modern office at golden hour, '

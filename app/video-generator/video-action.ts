@@ -30,7 +30,7 @@ import { ENDPOINTS, obj, arr, str, extraerMediaId } from '@/lib/flow-protocolo';
 import {
   cuerpoClipReferencias, semillaDeToma, mediaIdDeReferencia, KEY_CARA_FLOW,
 } from '@/lib/flow-clip-referencias';
-import { cuerpoImagenEscena, imagenesDeRespuesta, semillaDeEscena } from '@/lib/flow-imagen';
+import { parchesImagenEscena, imagenesDeRespuesta, semillaDeEscena } from '@/lib/flow-imagen';
 import { escribirEscenas, reescribirEscena } from '@/lib/escenas';
 import { puestaPorId } from '@/lib/puestas-data';
 import { getSetting } from '@/lib/settings';
@@ -483,13 +483,22 @@ export async function escribirEscenasAction(
   const puesta = puestaPorId(item.plan.puestaId);
   if (!puesta) return { ok: false, error: 'No reconozco el formato de este anuncio.' };
 
-  const escenas = await escribirEscenas(item.plan, puesta, ajuste);
-  if (!escenas) {
+  const salida = await escribirEscenas(item.plan, puesta, ajuste);
+  if (!salida.ok) {
+    // ⚠️ DOS CAUSAS, DOS FRASES. Antes las dos salían como «revisa tus API keys
+    // en /integraciones», y una de ellas es culpa NUESTRA: la IA contestó bien y
+    // la red que impide describir caras descartó el lote. Mandar a alguien a
+    // revisar unas credenciales que están perfectas es la forma más cara de
+    // equivocarse en un mensaje de error — y la contracara de la regla, que ya
+    // estaba escrita: cuando NO es del usuario, se dice con todas las letras.
     return {
       ok: false,
-      error: 'MaKo no pudo escribir los escenarios. Vuelve a intentarlo; si sigue igual, revisa tus API keys en /integraciones.',
+      error: salida.motivo === 'filtro'
+        ? `MaKo escribió los escenarios pero se los rechacé yo: ${salida.detalle}. No es nada tuyo ni de tus credenciales. Vuelve a intentarlo — sale distinto cada vez.`
+        : 'MaKo no pudo escribir los escenarios. Vuelve a intentarlo; si sigue igual, revisa tus API keys en /integraciones.',
     };
   }
+  const escenas = salida.escenas;
 
   // ⚠️ Rehacer los escenarios INVALIDA las imágenes, y por eso se borran acá.
   //
@@ -517,7 +526,17 @@ export async function corregirEscenaAction(
   if (!escena) return { ok: false, error: 'Ese escenario no existe.' };
 
   const nueva = await reescribirEscena(escena, ajuste);
-  if (!nueva) return { ok: false, error: 'MaKo no pudo aplicar ese cambio. Prueba a decirlo de otra forma.' };
+  if (!nueva) {
+    // Igual que arriba: este camino también puede caer por la red de las caras, y
+    // ahí «prueba a decirlo de otra forma» es un callejón sin salida — pedir «una
+    // silla junto a una superficie de madera» era legítimo y no hay otra forma de
+    // decirlo. Ahora la red no da falsos positivos, pero el mensaje no puede
+    // volver a acusar a quien escribió bien.
+    return {
+      ok: false,
+      error: 'MaKo no pudo aplicar ese cambio. Vuelve a intentarlo, o descríbelo con otras palabras.',
+    };
+  }
 
   const actualizado: PlanGuardado = {
     ...item,
@@ -562,16 +581,12 @@ export async function generarImagenAction(
     return { ok: false, error: 'Tu sesión de Google Flow venció. Abre Flow, inicia sesión, y vuelve a intentar.' };
   }
 
-  // La cara: primero lo APRENDIDO, después lo que se ve ahora. Es la misma que
-  // usa el clip, y a propósito — dos caras distintas entre la imagen y el video
-  // es exactamente el defecto que este paso viene a arreglar.
+  // ⚠️ ACÁ SE LEÍA LA CARA Y SE MANDABA EN EL CUERPO. Ya no.
   //
-  // Acá NO es bloqueante, y esa es la diferencia con el clip: una imagen de
-  // escenario sin la persona sigue siendo útil (dice si el lugar está bien), y
-  // el prompt no describe a nadie. Sin cara sale un desconocido en el lugar
-  // correcto, que se puede juzgar. Un CLIP sin cara, no.
-  const mediaIdCara = (await getSetting(KEY_CARA_FLOW))?.trim()
-    || mediaIdDeReferencia(String(puente.detalle ?? ''));
+  // La cara sale de la PLANTILLA: son los `imageInputs` del pedido que la persona
+  // hizo a mano en Flow con su foto. Es la misma foto que ya usa el paso de video
+  // y no hay que nombrarla — lo cual, además, es más fuerte que mandarla: un id
+  // que copiamos no puede quedar viejo respecto del que Flow está usando hoy.
 
   // Un intento más = otra semilla. «Regenerar» tiene que dar algo distinto o el
   // botón no hace nada; y la semilla sigue siendo derivada, así que volver al
@@ -584,10 +599,14 @@ export async function generarImagenAction(
     // path SOLO para encontrar la plantilla (de su último tramo sale la clase) y
     // la URL la copia entera del tráfico real de Flow, projectId incluido.
     path: ENDPOINTS.generarImagenes('x'),
-    body: cuerpoImagenEscena({
+    // ⚠️ PARCHES, no cuerpo. Adentro de `requests[0]` viven `imageModelName` y
+    // los `imageInputs` que traen la cara, y los dos los sabe SOLO la plantilla:
+    // `fundir()` reemplaza los arrays enteros, así que mandar `requests` a medias
+    // perdería el modelo y la cara. Se copia todo y se cambia sólo la hoja.
+    parches: parchesImagenEscena({
       prompt: escena.prompt,
-      mediaIdCara,
-      seed: semillaDeEscena(planId, n * 100 + intento),
+      seed: semillaDeEscena(planId, n, intento),
+      batchId: randomUUID(),
     }),
   });
   if (trabajoId == null) return { ok: false, error: 'No se pudo encolar la imagen.' };

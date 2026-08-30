@@ -334,6 +334,20 @@ export function clasificarFallaDelNavegador(
   // La extensión no reconstruye los pedidos: los calca del último que hizo la
   // propia app de Flow (ver extension/injected.js). Si nunca vio uno de esa clase,
   // NO inventa uno — que es lo que no funcionó — y avisa que falta.
+  // El espejo copia el pedido de Flow y le cambia solo las hojas que decidimos
+  // nosotros (el prompt, la semilla). Si una de esas hojas no se pudo escribir, el
+  // pedido NO sale — y tiene que decirse, porque el modo de falla silencioso es
+  // peor que cualquier error: una imagen perfecta del escenario equivocado no se
+  // lee como un fallo, se lee como una imagen.
+  if (/^PARCHE_FALLO:/i.test(m)) {
+    const camino = m.slice(m.indexOf(':') + 1).trim();
+    return {
+      motivo: 'puente_dormido',
+      error: `El pedido que Google Flow hace hoy cambió de forma y no pude escribirle el prompt (${camino}). No se generó nada. Avísanos: hay que volver a copiar el pedido.`,
+      reintentable: false,
+    };
+  }
+
   if (/^SIN_PLANTILLA:/i.test(m)) {
     // ⚠️ La clase lleva DOS puntos adentro (`flowMedia:batchGenerateImages`), así
     // que `split(':')[1]` la partía a la mitad y el mensaje nombraba un endpoint

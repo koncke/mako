@@ -62,7 +62,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, responder) => {
     // para siempre.
     pedirALaPagina(
       'MAKO_FETCH_PIDO', 'MAKO_FETCH_OK',
-      { clase: msg.clase, path: msg.path, cuerpo: msg.cuerpo, soloLectura: msg.soloLectura, bearer: msg.bearer, respaldo: msg.respaldo },
+      { clase: msg.clase, path: msg.path, cuerpo: msg.cuerpo, parches: msg.parches, soloLectura: msg.soloLectura, bearer: msg.bearer, respaldo: msg.respaldo },
       60000, 'FETCH_TIMEOUT',
       (d) => responder(d),
     );

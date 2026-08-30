@@ -80,13 +80,19 @@ function planParaPrompt(plan: PlanVideo): string {
  * imágenes con un reparto a medias — una imagen equivocada no se ve como un
  * error, se ve como una imagen.
  */
+export type SalidaEscenas =
+  | { ok: true; escenas: Escena[] }
+  /** `filtro` = la IA contestó y la red la descartó. NO es culpa del cliente. */
+  | { ok: false; motivo: 'filtro' | 'ia'; detalle: string };
+
 export async function escribirEscenas(
   plan: PlanVideo,
   puesta: Puesta,
   ajuste?: string,
-): Promise<Escena[] | null> {
+): Promise<SalidaEscenas> {
   const tomas = plan.clips.length;
-  if (!tomas) return null;
+  if (!tomas) return { ok: false, motivo: 'ia', detalle: 'el plan no tiene tomas' };
+  const motivos: string[] = [];
   // Nunca más escenarios que tomas: dos imágenes para una sola toma es un
   // escenario que el guion no tiene.
   const escenarios = Math.max(1, Math.min(puesta.escenarios || 1, tomas));
@@ -118,13 +124,21 @@ export async function escribirEscenas(
       temperature: 0.4,
       feature: FEATURE_ESCENAS,
       motivo: 'escribir los escenarios de un anuncio',
-      validar: (t) => !!validarEscenas(t, escenarios, tomas),
+      validar: (t) => !!validarEscenas(t, escenarios, tomas, motivos),
     });
-  } catch { return null; }
+  } catch (e) {
+    return { ok: false, motivo: 'ia', detalle: String((e as Error)?.message ?? e) };
+  }
 
-  const ok = validarEscenas(crudo, escenarios, tomas);
-  if (!ok) return null;
-  return armarEscenas(tomas, escenarios, ok);
+  const val = validarEscenas(crudo, escenarios, tomas, motivos);
+  if (!val) {
+    // Si la red guardó un motivo, la IA contestó y el problema es NUESTRO. Sin
+    // motivo, no se sabe, y no se sabe se dice — no se convierte en una acusación.
+    return motivos.length
+      ? { ok: false, motivo: 'filtro', detalle: [...new Set(motivos)].join(' · ') }
+      : { ok: false, motivo: 'ia', detalle: 'la respuesta no tuvo la forma esperada' };
+  }
+  return { ok: true, escenas: armarEscenas(tomas, escenarios, val) };
 }
 
 const SYSTEM_UNA = `Eres MaKo, el director de fotografía de este anuncio.

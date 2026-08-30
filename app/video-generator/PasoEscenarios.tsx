@@ -313,9 +313,27 @@ function TarjetaEscena({ escena, item, fotoUrl, onCambio }: {
             loading={ocupado === 'corregir'}
             disabled={!ajuste.trim() || !!ocupado}
             onClick={async () => {
-              await correr('corregir', () => corregirEscenaAction(item.id, escena.n, ajuste));
-              setAjuste('');
-              setPidiendo(false);
+              // Se marca acá y no en onMouseDown: con teclado no hay mouse down, y
+              // un botón que no muestra su progreso al activarse con Enter parece
+              // roto justo para quien no usa el mouse.
+              setOcupado('corregir');
+              setError('');
+              const antes = ajuste;
+              const r = await corregirEscenaAction(item.id, escena.n, antes).catch(() => null);
+              if (r?.ok) {
+                onCambio(r.item);
+                setAjuste('');
+                setPidiendo(false);
+                setError('');
+              } else {
+                // ⚠️ Lo escrito NO se borra cuando falla. Antes se limpiaba el campo
+                // y se cerraba el panel pasara lo que pasara, así que un fallo se
+                // llevaba puesto lo que la persona acababa de redactar y la obligaba
+                // a escribirlo de nuevo para reintentar. Un error no puede costar
+                // además el trabajo de quien lo recibió.
+                setError(r?.error || 'No se pudo aplicar ese cambio.');
+              }
+              setOcupado('');
             }}
           >
             Corregir
