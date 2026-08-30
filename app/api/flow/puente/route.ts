@@ -25,6 +25,7 @@ import {
   type EstadoPuente,
 } from '@/lib/flow-cola';
 import { LIMITES, clasificarFalla, clasificarFallaDelNavegador, type MotivoFalla } from '@/lib/flow-protocolo';
+import { EXTENSION_VERSION } from '@/lib/extension-version';
 
 export const dynamic = 'force-dynamic';
 
@@ -160,5 +161,17 @@ export async function POST(req: NextRequest) {
     // que nunca dice `marcada`, así que esto era siempre false y el puente jamás
     // se enteraba de que había que parar.
     pausado: guardado === 'marcada',
+    // ⚠️ LA VERSIÓN QUE DEBERÍA ESTAR CORRIENDO.
+    //
+    // El latido ya decía la suya desde hace días; lo que faltaba era la vuelta.
+    // Sin esto la extensión no tiene forma de saber que quedó vieja, y el único
+    // que se entera es el que mira la pantalla — o sea, nadie, hasta que algo
+    // falla por una razón que no se parece a «tu extensión es de hace tres
+    // horas».
+    //
+    // Con esto, una instalación DESCOMPRIMIDA se reinicia sola y vuelve leyendo
+    // los archivos nuevos. Es la diferencia entre que actualizar sea un trámite y
+    // que no exista.
+    versionEsperada: EXTENSION_VERSION,
   });
 }

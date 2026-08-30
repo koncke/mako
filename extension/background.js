@@ -222,6 +222,54 @@ function accionDeCaptcha(tipo, path) {
   return metodo || 'generate';
 }
 
+/**
+ * Se reinicia sola cuando el server dice que hay una version mas nueva.
+ *
+ * ── Por que existe ────────────────────────────────────────────────────────
+ * Esta extension se instala DESCOMPRIMIDA, y a una instalacion descomprimida
+ * Chrome no la actualiza nunca: el boton «Recargar» de chrome://extensions
+ * vuelve a leer LA MISMA CARPETA. Si esa carpeta no cambio, recargar no puede
+ * cambiar nada — y desde afuera se ve identico a un boton que no funciona.
+ *
+ * Ya costo dos veces el mismo dia. La primera se diagnostico mal (se creyo que
+ * era el zip viejo que servia produccion, que era cierto y no era la causa); la
+ * segunda, el dueno recargo y contesto «no funciono», con razon.
+ *
+ * `chrome.runtime.reload()` SI vuelve a leer los archivos del disco. Asi que en
+ * cuanto la carpeta esta al dia, esto cierra el circulo solo.
+ *
+ * ── Las tres guardas, y las tres importan ─────────────────────────────────
+ * 1. Solo en instalaciones descomprimidas. Chrome le agrega `update_url` al
+ *    manifest de lo que viene de la tienda, y ahi el que actualiza es Chrome:
+ *    reiniciar no traeria nada nuevo.
+ * 2. UN intento por version de destino. Si la carpeta sigue vieja, el reinicio
+ *    no cambia nada y sin esta guarda quedaria reiniciandose cada 15 segundos
+ *    para siempre. Un bucle de reinicio es peor que estar desactualizado: mata
+ *    la pestana de trabajo y no deja rastro de por que.
+ * 3. Nunca en el medio de un trabajo. Reiniciar con un clip a mitad de camino
+ *    pierde el resultado y deja al cliente mirando «generando…» sobre algo que
+ *    ya termino.
+ */
+async function quizasReiniciar(esperada, hayTrabajoEnCurso) {
+  try {
+    if (!esperada || hayTrabajoEnCurso) return;
+    const manifest = chrome.runtime.getManifest();
+    if (manifest.version === esperada) {
+      // Al dia: se limpia la marca para que un salto futuro pueda volver a intentar.
+      await chrome.storage.local.remove('reinicioIntentado');
+      return;
+    }
+    // De la tienda: el que actualiza es Chrome, no nosotros.
+    if (manifest.update_url) return;
+
+    const { reinicioIntentado } = await chrome.storage.local.get('reinicioIntentado');
+    if (reinicioIntentado === esperada) return;
+    await chrome.storage.local.set({ reinicioIntentado: esperada });
+    console.log(`[mako] ${manifest.version} -> ${esperada}: reiniciando para leer los archivos nuevos`);
+    chrome.runtime.reload();
+  } catch { /* actualizarse nunca puede romper al que ya funciona */ }
+}
+
 async function ejecutar(trabajo) {
   const { path, body, parches } = trabajo.pedido || {};
   if (typeof path !== 'string' || !path.startsWith('/v1')) {
@@ -399,6 +447,11 @@ async function ciclo() {
     await chrome.storage.local.set({ pendientes: [] });
 
     if (typeof out.cooldownMs === 'number') cooldownMs = out.cooldownMs;
+
+    // ⚠️ ANTES de tomar trabajo nuevo y solo si no hay nada en curso: es el unico
+    // momento del ciclo en el que reiniciar no pierde nada.
+    await quizasReiniciar(out.versionEsperada, (out.trabajos || []).length > 0);
+
     if (out.pausado || estado !== 'listo') return;
 
     const nuevos = [];
