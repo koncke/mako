@@ -104,6 +104,7 @@ import { CURSO_TALLER_CAPCUT_PRO_GG } from './curso-taller-capcut-pro-gg';
 import { CURSO_CARRERA_DE_ECOMMERCE } from './curso-carrera-de-ecommerce';
 import { CURSO_BLACK_BOX_CANVA } from './curso-black-box-canva';
 import { CURSO_GROWING_AMG } from './curso-growing-amg';
+import { CURSO_ECOM_TOTAL_2_0 } from './curso-ecom-total-2-0';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio';
 import { CURSO_BRANDING } from './BrandingMaKo';
@@ -336,6 +337,10 @@ const CATEGORIA: Record<string, string> = {
   // plataforma. El comentario al lado es la categoría de origen.
   'growing-amg': 'Negocios digitales',     // Agencias
 
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'ecom-total-2-0': 'Ecommerce',           // Ecommerce
+
 };
 
 /**
@@ -467,6 +472,10 @@ const PORTADA: Record<string, string> = {
   // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
   // pero la ficha se había emitido antes de que existiera.
   'growing-amg': '/cono-portadas/growing-amg.png',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'ecom-total-2-0': '/cono-portadas/ecom-total-2-0.jpg',
 
 };
 
@@ -798,6 +807,9 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_GROWING_AMG,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_ECOM_TOTAL_2_0,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
