@@ -6004,3 +6004,65 @@ salió en blanco»:
 3. **Un backtick adentro del template literal que se manda por `Runtime.evaluate`** lo parte
    igual que en el CSS de la sección de arriba. Mismo error, dos archivos distintos, el
    mismo día.
+
+## `$1` adentro de un texto es una sustitución en `String.replace`
+
+**Vive en:** `scratchpad/reemplazar-resumenes.mjs` · cualquier script que reescriba
+`app/conocimientos/catalogo.ts`.
+
+Al acortar las 87 descripciones, el reemplazo se escribió como STRING:
+
+```js
+bloque = bloque.replace(re, `$1${escapar(texto)}$2`)   // ⛔
+```
+
+En un string de reemplazo, `$1`, `$&`, `` $` `` y `$'` **son sustituciones**. Y varias
+descripciones de cursos hablan de plata: la de `growing-amg` dice «escálala hasta
+**$10,000+** mensuales». Ese `$1` se expandió al grupo de captura y la línea quedó:
+
+```
+'growing-amg': 'Aprende a montar tu propia agencia … hasta   'growing-amg': '0,000+ mensuales…',
+```
+
+**El escapado de comillas no protege de esto**: `escapar()` estaba puesto y hacía bien su
+trabajo — el problema no era el texto insertado sino el string que lo envuelve. Va como
+FUNCIÓN, donde `$` no significa nada: `.replace(re, (_, ini, fin) => ini + texto + fin)`.
+
+⚠️ **Y el error no lo dijo el script**, que terminó con «✓ 71 descripciones acortadas».
+Lo dijo el **typecheck**, tres pasos después, con `TS1005: ';' expected` en una línea que
+el script creía haber escrito bien. Un reescritor de código fuente que no vuelve a
+parsear lo que escribió reporta éxito sobre un archivo roto — por eso el guard de
+`escribir()` en `curso-categoria-portada.mjs` chequea el CR suelto, y por eso conviene
+correr el typecheck **dentro** del script y no después.
+
+## Verificar «no se agregó nada» se hace con código, no con otro agente
+
+Al pedir 87 descripciones más cortas con la regla «acortar es TIRAR, no reescribir», dos
+auditores por lote las dieron por buenas. Un chequeo determinista de 30 líneas —partir las
+dos versiones en palabras de contenido, aplicar una raíz burda para no marcar
+«campaña»/«campañas», y listar lo que está en la corta y no en la larga— encontró **16 de
+87 con contenido nuevo**.
+
+No es que los auditores fueran malos: **un agente que audita el texto de otro agente puede
+compartir su punto ciego**, y «lo verifiqué» sin volver a la fuente es una tautología. Lo
+que el código hace y el agente no es *ser exhaustivo sin cansarse*.
+
+⚠️ **Y el hallazgo interesante no fue la invención: fue lo contrario.** De esas 16, la
+mayoría había mirado los módulos y las clases —que estaban en el prompt— y quedado **más
+precisa que la descripción de la plataforma**, que es marketing del origen. El caso claro
+es `megadata-de-un-joven-emprededor`: la descripción de la plataforma decía que enseña a
+analizar «grandes volúmenes de información», y el material es mentalidad para
+emprendedores. Ahí el material le gana a la etiqueta, y la versión «que se salió de la
+regla» era la correcta.
+
+**La regla que queda: un chequeo automático de divergencia no dice «esto está mal», dice
+«esto hay que mirarlo».** Terminar en un rechazo automático habría tirado las diez que
+mejoraban junto con las cuatro que había que corregir.
+
+Las cuatro corregidas, para el registro de qué tipo de cosa se cuela: `tumadreanna` decía
+«en vivo» sobre masterclasses grabadas y fechadas; `jaque-blue` decía «identidad visual»
+donde el material sostiene «identidad» (cero apariciones de «visual» en 9 módulos, 23
+clases, 5 recursos y 4 transcripciones); `fba-agency` arrastraba «más de 80 horas» de la
+original, cuya frase vecina dice «12+ módulos» y el material tiene 8; y en
+`claude-academy-2026` el escéptico volteó al primero — **había verificado sólo lo NUEVO y
+nunca preguntó si lo HEREDADO de la original era cierto.**

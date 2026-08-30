@@ -1495,6 +1495,47 @@ historial no hace.
 El detalle, con los tres síntomas y los gotchas de verificarlo con Playwright, en
 [docs/hallazgos-conocimiento.md](docs/hallazgos-conocimiento.md).
 
+# Un reescritor de codigo fuente reporta exito sobre un archivo roto
+
+Cualquier script que EDITE un `.ts` del repo —insertar en un mapa, reemplazar un valor,
+regenerar un bloque— termina con su «✓ listo» aunque haya dejado el archivo sin compilar.
+El script no parsea lo que escribió; el que se entera es el typecheck, tres pasos después
+y culpando a otra línea.
+
+Dos formas de romperlo que ya pasaron acá, las dos el mismo día:
+
+1. **`$1`, `$&`, `` $` `` y `$'` son SUSTITUCIONES en un string de reemplazo.** Varias
+   descripciones de cursos hablan de plata («escálala hasta **$10,000+** mensuales»), así
+   que `.replace(re, '$1' + texto + '$2')` expandió el `$1` del TEXTO al grupo de captura y
+   partió la línea en dos. **El escapado de comillas no protege de esto**: el problema no
+   es el texto insertado sino el string que lo envuelve. Va como función:
+   `.replace(re, (_, ini, fin) => ini + texto + fin)`.
+2. **Un `` suelto** al insertar en un archivo CRLF — no rompe el build ni el typecheck y
+   no se ve en ningún listado (ver la sección de Windows más abajo).
+
+**La regla: un script que escribe código fuente valida su salida ANTES de escribirla**, o
+como mínimo corre el typecheck él mismo y falla ruidoso. `escribir()` en
+`scripts/curso-categoria-portada.mjs` es el molde: chequea el CR suelto y, si aparece, no
+escribe NADA — mejor no hacer el trabajo que dejarlo a medias.
+
+# Que un agente verifique a otro agente no reemplaza un chequeo determinista
+
+Un auditor que lee el texto de otro auditor puede compartir su punto ciego, y «lo
+verifiqué» sin volver a la fuente es una tautología. Lo que el código hace y el modelo no
+es **ser exhaustivo sin cansarse**.
+
+Medido: se pidieron 87 descripciones más cortas con la regla «acortar es TIRAR, no
+reescribir». Dos auditores por lote las dieron por buenas. Un chequeo determinista de 30
+líneas —partir las dos versiones en palabras de contenido, aplicar una raíz burda para no
+marcar «campaña»/«campañas», y listar lo que aparece en la corta y no en la larga—
+encontró **16 con contenido nuevo**.
+
+⚠️ **Y el resultado del chequeo NO era «están mal»: era «hay que mirarlas».** De esas 16, la
+mayoría había mirado el material del curso y quedado más precisa que el texto original;
+sólo cuatro afirmaban algo sin respaldo. **Un chequeo automático de divergencia señala
+dónde mirar, no qué rechazar** — automatizar el rechazo habría tirado las diez que
+mejoraban junto con las cuatro que había que corregir.
+
 # Cambiar la ETIQUETA de un elemento arrastra su hoja por defecto, y eso no sale en el diff
 
 `a` → `button`, `div` → `section`, `span` → `p`: el diff muestra una palabra cambiada y lo
