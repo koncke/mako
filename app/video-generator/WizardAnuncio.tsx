@@ -122,7 +122,11 @@ function Vertical({ children, fondo }: { children: React.ReactNode; fondo?: stri
   return (
     <div style={{
       height: LIENZO, aspectRatio: '9 / 16', borderRadius: 18, overflow: 'hidden',
-      background: fondo ?? '#111316', position: 'relative', flex: 'none',
+      // `--surface-2` y no un gris más oscuro: la regla de la casa es que en
+      // oscuro las superficies SUBEN de luminosidad. El negro se pasa explícito
+      // donde hay un video, que es el único lugar donde el negro es el fondo
+      // correcto porque es el fondo del propio medio.
+      background: fondo ?? 'var(--surface-2)', position: 'relative', flex: 'none',
       display: 'grid', placeItems: 'center',
       // La sombra hace que el medio FLOTE sobre el negro en vez de estar pegado.
       boxShadow: '0 24px 70px rgba(0,0,0,.55)',
@@ -171,6 +175,8 @@ function Niebla({ etiqueta, desde }: { etiqueta: string; desde: number }) {
         position: 'absolute', inset: '16px 18px auto 18px', display: 'flex',
         alignItems: 'center', justifyContent: 'space-between',
       }}>
+        {/* Blanco a mano, y acá SÍ corresponde: van sobre la niebla, que es un
+            gris fijo medido contra Flow y no cambia con el tema. */}
         <span style={{ color: 'rgba(255,255,255,.75)', lineHeight: 0 }}>
           <Icon name="tvad" size={19} />
         </span>
@@ -220,7 +226,7 @@ function Pie({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
       textAlign: 'center', marginTop: 12, fontSize: 'var(--fs-sm)',
-      color: 'rgba(255,255,255,.55)', fontWeight: 600,
+      color: 'var(--dim)', fontWeight: 600,
     }}>
       {children}
     </div>
@@ -232,7 +238,7 @@ function Salidas({ resumen, children }: { resumen: string; children: React.React
   return (
     <details style={{ marginTop: 4 }}>
       <summary style={{
-        cursor: 'pointer', fontSize: 'var(--fs-sm)', color: 'rgba(255,255,255,.55)',
+        cursor: 'pointer', fontSize: 'var(--fs-sm)', color: 'var(--dim)',
         textAlign: 'center', listStyle: 'none',
       }}>
         {resumen}
@@ -291,7 +297,7 @@ function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia,
             key={i}
             style={{
               flex: 1, height: 3, borderRadius: 2,
-              background: i < paso ? 'rgba(255,255,255,.85)' : 'rgba(255,255,255,.16)',
+              background: i < paso ? 'var(--ink)' : 'var(--border-strong)',
               transition: 'background .35s ease',
             }}
           />
@@ -302,14 +308,14 @@ function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia,
       <div style={{ textAlign: 'center', maxWidth: 720 }}>
         <h2 style={{
           margin: 0, fontSize: 'clamp(22px, 2.2vw, 31px)', fontWeight: 640,
-          letterSpacing: '-.02em', lineHeight: 1.2, color: '#fff',
+          letterSpacing: '-.02em', lineHeight: 1.2, color: 'var(--ink)',
         }}>
           {pregunta}
         </h2>
         {titulo && (
           <p style={{
             margin: '9px 0 0', fontSize: 'var(--fs-md)', lineHeight: 1.45,
-            color: 'rgba(255,255,255,.62)',
+            color: 'var(--dim)',
           }}>
             {titulo}
           </p>
@@ -320,7 +326,7 @@ function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia,
 
       {error && (
         <div style={{
-          fontSize: 'var(--fs-sm)', color: '#FFB4A8', textAlign: 'center', maxWidth: 560,
+          fontSize: 'var(--fs-sm)', color: 'var(--bad)', textAlign: 'center', maxWidth: 560,
         }}>
           {error}
         </div>
@@ -328,28 +334,16 @@ function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia,
 
       {boton && (
         <div style={{ textAlign: 'center' }}>
-          <button
-            type="button"
-            onClick={onSiguiente}
-            disabled={!onSiguiente || cargando}
-            style={{
-              fontFamily: 'inherit', fontSize: 17, fontWeight: 650,
-              padding: '15px 34px', borderRadius: 999, border: 'none',
-              background: cargando ? 'rgba(255,255,255,.28)' : '#fff',
-              color: cargando ? 'rgba(255,255,255,.75)' : '#0B0C0E',
-              cursor: onSiguiente && !cargando ? 'pointer' : 'default',
-              transition: 'transform .15s ease, background .2s ease',
-            }}
-            onMouseEnter={(e) => { if (onSiguiente && !cargando) e.currentTarget.style.transform = 'scale(1.03)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
-          >
-            {cargando ? 'Un momento…' : boton}
-          </button>
+          {/* El botón de la CASA, no uno pintado a mano: en oscuro se resuelve
+              solo con los tokens y se ve igual que en el resto de la app. */}
+          <Button variant="primary" size="xl" loading={cargando} disabled={!onSiguiente} onClick={onSiguiente}>
+            {boton}
+          </Button>
           {/* La consecuencia PEGADA al botón y antes del click. En blanco al 70%:
               se lee, y no compite con el botón. */}
           {consecuencia && (
             <div style={{
-              marginTop: 10, fontSize: 'var(--fs-sm)', color: 'rgba(255,255,255,.7)',
+              marginTop: 10, fontSize: 'var(--fs-sm)', color: 'var(--dim)',
             }}>
               {consecuencia}
             </div>
@@ -370,7 +364,7 @@ function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia,
 
 const salida: React.CSSProperties = {
   background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-  fontSize: 'var(--fs-sm)', color: 'rgba(255,255,255,.55)', padding: 4,
+  fontSize: 'var(--fs-sm)', color: 'var(--faint)', padding: 4,
 };
 
 // ── El wizard ───────────────────────────────────────────────────────────────
@@ -466,12 +460,12 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                 key={c.n}
                 style={{
                   display: 'flex', gap: 16, padding: '15px 0',
-                  borderTop: c.n === 1 ? 'none' : '1px solid rgba(255,255,255,.10)',
+                  borderTop: c.n === 1 ? 'none' : '1px solid var(--border)',
                 }}
               >
                 <div style={{
                   flex: 'none', width: 30, textAlign: 'right', fontFamily: MONO,
-                  fontSize: 14, color: 'rgba(255,255,255,.4)', paddingTop: 5,
+                  fontSize: 14, color: 'var(--faint)', paddingTop: 5,
                 }}>
                   {c.n}
                 </div>
@@ -487,7 +481,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                     onSave={(v) => void correr('linea', () => editarLineaPlanAction(item.id, c.n, v), false)}
                     style={{
                       fontSize: 'clamp(18px, 1.5vw, 23px)', lineHeight: 1.45,
-                      color: c.habla ? '#fff' : 'rgba(255,255,255,.62)',
+                      color: c.habla ? 'var(--ink)' : 'var(--dim)',
                       fontStyle: c.habla ? 'normal' : 'italic',
                     }}
                   />

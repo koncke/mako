@@ -1117,15 +1117,21 @@
    Un gris oscuro se lee como «una caja mas oscura»; el negro desaparece y deja
    solo el medio, que es el punto. */
 .mk-estudio {
-  background: #000;
-  border-radius: 20px;
-  padding: 30px 24px 26px;
+  /* ⚠️ SIN FONDO PROPIO, y esa es la corrección. La primera versión pintaba un
+     rectángulo negro DENTRO de una app clara, y el dueño lo cortó de raíz: «si
+     lo harás dark mode, hazlo todo, no que esté una parte blanca».
+     Un negro adentro de un blanco no es modo oscuro: es el mismo contenedor que
+     se vino a sacar, pintado de otro color. La pantalla entera se pone oscura
+     con `data-tema="oscuro"` (app/_components/TemaOscuro.tsx), que redefine los
+     TOKENS — y con eso se dan vuelta solos el fondo, los botones, los estados y
+     todo lo que ya los usa, en vez de pintarse blancos a mano. */
+  padding: 26px 24px 22px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 22px;
   min-height: 78vh;
-  color: #fff;
+  color: var(--ink);
 }
 
 /* ⚠️ LA NIEBLA SOBRE NEGRO ES OTRA NIEBLA.

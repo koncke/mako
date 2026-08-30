@@ -54,6 +54,7 @@ import {
   generarTomaAction, estadoTomaAction, pedirSaldoAction, saldoAction, escribirEscenasAction,
 } from './video-action';
 import { WizardAnuncio } from './WizardAnuncio';
+import { TemaOscuro } from '../_components/TemaOscuro';
 import { causaFlow, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
@@ -152,7 +153,10 @@ function Plantilla({
           {elegida && (
             <div style={{
               position: 'absolute', top: 9, right: 9, width: 26, height: 26, borderRadius: 999,
-              background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center',
+              // `--on-ink` y no `#fff`: en oscuro `--primary` es un azul CLARO
+              // (#7FA6F8) y encima el blanco no se lee. El token existe para
+              // esto y se da vuelta solo.
+              background: 'var(--primary)', color: 'var(--on-ink)', display: 'grid', placeItems: 'center',
               boxShadow: '0 1px 6px rgba(0,0,0,.35)',
             }}>
               <Icon name="check" size={15} />
@@ -1164,6 +1168,13 @@ export function VideoGeneratorApp({
       // lo elige `Pagina`— y `completo` es la variante que existe justo para
       // esto.
       <Pagina ancho="completo" densidad="compacta">
+      {/* ⚠️ LA PANTALLA ENTERA, no un rectángulo negro adentro de una app clara.
+          El dueño lo cortó de raíz: «si lo harás dark mode, hazlo todo, no que
+          esté una parte blanca». `TemaOscuro` marca `<html data-tema="oscuro">`
+          y los TOKENS redefinidos dan vuelta el fondo, los botones y los estados
+          solos — que es la forma que este repo ya tiene escrita para una
+          pantalla oscura, y la razón por la que no se pintan blancos a mano. */}
+      <TemaOscuro />
       <WizardAnuncio
         item={actual}
         contexto={contexto}
