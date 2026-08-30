@@ -42,6 +42,56 @@ async function ctxAdmin(): Promise<{ ok: true; ws: number } | { ok: false; error
   return { ok: true, ws };
 }
 
+/**
+ * Busca un valor en cualquier profundidad de la respuesta.
+ *
+ * ⚠️ Existe porque la forma de la respuesta de Flow YA nos falló dos veces, y las
+ * dos por lo mismo: se escribió el lector suponiendo la estructura en vez de
+ * mirando una respuesta real.
+ *
+ * El pedido de clip devuelve `{ media: [{ video: { operation: { name } } }] }` y
+ * el lector buscaba `{ operations: [{ operation: { name } }] }` — que es lo que
+ * decía la documentación de un tercero. Resultado: Google generaba el video y
+ * MaKo contestaba «Flow aceptó el pedido pero no devolvió una operación», con el
+ * clip ya andando y los créditos ya gastados. El peor tipo de error: el que
+ * reporta un fallo sobre algo que funcionó.
+ *
+ * Buscar por NOMBRE DE CAMPO en vez de por ruta sobrevive a que Google mueva las
+ * cosas de lugar, que es exactamente lo que hace sin avisar.
+ */
+function buscarCampo(v: unknown, campos: string[], visto = new Set<unknown>()): string {
+  if (!v || typeof v !== 'object' || visto.has(v)) return '';
+  visto.add(v);
+  if (Array.isArray(v)) {
+    for (const x of v) {
+      const r = buscarCampo(x, campos, visto);
+      if (r) return r;
+    }
+    return '';
+  }
+  const o = v as Record<string, unknown>;
+  for (const c of campos) {
+    const val = o[c];
+    if (typeof val === 'string' && val.trim()) return val.trim();
+  }
+  for (const x of Object.values(o)) {
+    const r = buscarCampo(x, campos, visto);
+    if (r) return r;
+  }
+  return '';
+}
+
+/** El nombre de la operación que Flow devolvió al aceptar el pedido. */
+function nombreDeOperacion(resultado: unknown): string {
+  // Primero la ruta REAL, medida sobre una respuesta de verdad; después la que
+  // decía la documentación; y al final, la búsqueda por nombre de campo.
+  const media = arr(obj(resultado).media)[0];
+  const directo = str(obj(obj(obj(media).video).operation).name) || str(obj(media).name);
+  if (directo) return directo;
+  const op = arr(obj(resultado).operations)[0];
+  return str(obj(obj(op).operation).name) || str(obj(op).name) || buscarCampo(resultado, ['name']);
+}
+
 export type EstadoToma =
   | { fase: 'sin_empezar' }
   | { fase: 'encolado'; trabajoId: number }
@@ -185,9 +235,7 @@ export async function estadoTomaAction(
       return { ok: true, item, estado: { fase: 'encolado', trabajoId: marca.trabajoId } };
     }
 
-    // El nombre de la operación viene adentro de `operations[0].operation.name`.
-    const op = arr(obj(data?.resultado).operations)[0];
-    const nombre = str(obj(obj(op).operation).name) || str(obj(op).name);
+    const nombre = nombreDeOperacion(data?.resultado);
     if (!nombre) {
       const e = 'Flow aceptó el pedido pero no devolvió una operación.';
       item = await guardarMarca(item, n, { error: e });
@@ -215,17 +263,17 @@ export async function estadoTomaAction(
     .limit(12);
 
   for (const c of consultas ?? []) {
-    for (const it of arr(obj(c.resultado).operations)) {
-      const op = obj(obj(it).operation);
-      if (str(op.name) !== operacion) continue;
-      const video = obj(obj(op.metadata).video);
-      const mediaId = extraerMediaId(video);
-      const url = str(video.fifeUrl) || str(video.videoUri);
-      if (mediaId && url) {
-        item = await guardarMarca(item, n, { url, mediaId });
-        return { ok: true, item, estado: { fase: 'listo', url, mediaId } };
-      }
-    }
+    // Se mira la consulta ENTERA y no una ruta: la respuesta del estado tiene la
+    // misma costumbre de mover los campos de lugar. Se comprueba que la operación
+    // sea la nuestra buscando su nombre en cualquier parte del objeto, y recién
+    // ahí se saca la URL.
+    const texto = JSON.stringify(c.resultado ?? '');
+    if (!texto.includes(operacion)) continue;
+    const url = buscarCampo(c.resultado, ['fifeUrl', 'videoUri', 'servingUrl', 'url']);
+    if (!url) continue;
+    const mediaId = extraerMediaId(c.resultado) || buscarCampo(c.resultado, ['mediaId', 'mediaGenerationId']) || operacion;
+    item = await guardarMarca(item, n, { url, mediaId });
+    return { ok: true, item, estado: { fase: 'listo', url, mediaId } };
   }
 
   // Todavía no. Se vuelve a preguntar — una operación sin video NO falló.
