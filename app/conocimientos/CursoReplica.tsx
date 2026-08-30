@@ -422,14 +422,30 @@ function Indice({ curso, modulos, onAbrir, onModulo }: {
           {tapaHero && <Miniatura className="ugc-hero-img" src={tapaHero} />}
           <span className="ugc-hero-shade" aria-hidden />
           <span className="ugc-hero-body">
-            <span className="ugc-hero-eyebrow">Empieza aquí{primera.codigo ? ` ${'·'} ${primera.codigo}` : ''}</span>
-            <span className="ugc-hero-title">{primera.titulo}</span>
+            {/* La CATEGORIA y no «Empieza aquí»: ese rotulo repetia lo que ya dice el
+                boton, y en cambio esta ranura puede decir algo que no esta en ningun
+                otro lado de la pantalla. */}
+            <span className="ugc-hero-eyebrow">{curso.categoria}</span>
+            {/* EL TITULO DEL CURSO, sin el autor. Aca vivia el titulo de la PRIMERA CLASE
+                —«1. Skool Money Models Tutorial»—, que es un dato del boton y no de la
+                portada; Martin lo pidio: «alli deberia estar el titulo del curso». El
+                autor se saca porque «Eleva tu vida con IA - Vishen, Vykintas Glodenis,
+                Manon Dave» rompe el banner y «Eleva tu vida con IA» entra. */}
+            <span className="ugc-hero-title">{curso.tituloCorto ?? curso.titulo}</span>
             {/* De que va el curso, PEGADO al boton. Vivia abajo del hero, como un parrafo
                 suelto sobre la hoja, y Martin lo corrigio: «la queria dentro de la
                 portada, conjunto al boton de Abrir». Acá la lee el que esta decidiendo si
                 entra, que es el unico momento en que la pregunta importa. */}
             {curso.resumen && <span className="ugc-hero-resumen">{curso.resumen}</span>}
-            <span className="ugc-hero-cta">Abrir</span>
+            {/* El boton estaba SOLO, cuadrado y mas pesado que el titulo. Ahora es una
+                pastilla al lado del nombre de la clase a la que lleva: deja de ser un
+                bloque suelto, dice a donde va —«Abrir» no decia que— y el titulo de la
+                primera clase, que se habia quedado sin lugar, vuelve como su acompanante
+                en vez de disputarle la ranura grande. */}
+            <span className="ugc-hero-arranque">
+              <span className="ugc-hero-cta">Empezar <span aria-hidden>&rarr;</span></span>
+              <span className="ugc-hero-primera">{primera.titulo}</span>
+            </span>
           </span>
         </button>
       )}

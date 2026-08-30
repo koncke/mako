@@ -584,6 +584,52 @@ const AUTOR: Record<string, string> = {
 };
 
 /**
+ * El título SIN el autor, para la portada del curso.
+ *
+ * La grilla y la barra de arriba muestran «Curso - Autor», que es lo correcto ahí: en una
+ * lista de 91, saber de quién es distingue. Adentro del curso ya sabés dónde estás, y ese
+ * mismo título rompe el banner: «Eleva tu vida con IA - Vishen, Vykintas Glodenis, Manon
+ * Dave» son 60 caracteres donde entran 20. Lo pidió Martín con ese ejemplo.
+ *
+ * La convención es «Curso - Autor» y la escribe `tituloConAutor` en `curso-a-portal.mjs`,
+ * así que se corta en el ÚLTIMO « - »: hay títulos que ya traen uno adentro («Método
+ * Fukuda - Poder Orgánico - Ximena Fukuda», «ManyChat Master - Instagram - Andy Landa»).
+ *
+ * ⚠️ Probado contra los 91: acierta en 75 de los 79 que cortan. Los cuatro que fallan
+ *    tienen el AUTOR ADELANTE, que ninguna regla posicional puede distinguir de un
+ *    subtítulo — «Iman Gadzhi - Agency Incubator» es el autor y su curso, y
+ *    «Jaque Blue - Creacion de Contenido» es el curso y su tema. Van a mano abajo.
+ */
+const TITULO_CORTO: Record<string, string> = {
+  // El autor va PRIMERO: cortar por la derecha deja el nombre de la persona y tira el
+  // del curso, que es exactamente lo contrario de lo que se busca.
+  // ⚠️ La clave es el SLUG, y acá no coincide con lo que se ve: el curso se llamaba
+  //    «Agency Navigator» en la plataforma y el propio autor lo llama «Agency Incubator»
+  //    34 veces en los videos (ver `TITULO` arriba). El slug quedó con el nombre viejo.
+  'iman-gadzhi-agency-navigator': 'Agency Incubator',
+  'mateo-maffia-byf': 'BYF',
+  // Acá lo de la derecha no es un autor sino el tema, y sin él el título no dice nada.
+  // Se copia TAL CUAL, sin corregirle el acento: la grilla muestra el título largo y dos
+  // ortografías del mismo nombre en dos pantallas se leen como dos cursos.
+  'jaque-blue-creacion-de-contenido': 'Jaque Blue - Creacion de Contenido',
+  // «GG» son las iniciales del autor y ya está en el nombre del taller.
+  'taller-capcut-pro-gg': 'Taller Capcut PRO',
+};
+
+const sinAutor = (titulo: string, slug: string): string => {
+  const propio = TITULO_CORTO[slug];
+  if (propio) return propio;
+  const i = titulo.lastIndexOf(' - ');
+  if (i < 0) return titulo;
+  const cabeza = titulo.slice(0, i).trim();
+  const cola = titulo.slice(i + 3).trim();
+  // Dos guardas contra cortar de más: que quede algo con lo que nombrar al curso, y que
+  // lo de la derecha tenga largo de nombre propio y no de frase.
+  if (cabeza.length < 6 || cola.length > 46) return titulo;
+  return cabeza;
+};
+
+/**
  * De qué va cada curso, en una o dos frases. Lo pinta la tarjeta arriba del «Abrir».
  *
  * Es la `short_description` del catálogo de la plataforma de origen, o sea un DATO y no
@@ -998,6 +1044,10 @@ export const CURSOS_TODOS: Curso[] = [
   categoria: CATEGORIA[c.slug] ?? c.categoria,
   portada: c.portada ?? PORTADA[c.slug] ?? primerFrame(c),
   titulo: TITULO[c.slug] ?? conAutor(c.titulo, AUTOR[c.slug]),
+  // El título sin el autor, para la portada de adentro del curso. Se calcula del título
+  // YA resuelto —no del crudo de la ficha— porque el autor se lo puede haber pegado
+  // `conAutor` dos líneas arriba: cortar antes sería cortar sobre otro string.
+  tituloCorto: sinAutor(TITULO[c.slug] ?? conAutor(c.titulo, AUTOR[c.slug]), c.slug),
   // Lo que declara la ficha gana: si algún día un curso trae el suyo propio, ese es más
   // específico que el de la plataforma de origen.
   resumen: c.resumen ?? RESUMEN[c.slug],

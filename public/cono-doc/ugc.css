@@ -2805,7 +2805,7 @@ html:has(.ahdoc), body:has(.ahdoc) { overflow: hidden !important; height: 100% !
    es el texto que dice de que va. Dos lineas como techo, que es donde entra el 100% de
    los titulos de primera clase medidos. */
 .ahdoc .ugc .ugc-hero-title {
-  font-size: clamp(21px, 2.3vw, 29px) !important;
+  font-size: clamp(23px, 2.6vw, 33px) !important;
   line-height: 1.06 !important;
   letter-spacing: -0.02em !important;
   display: -webkit-box;
@@ -2815,14 +2815,63 @@ html:has(.ahdoc), body:has(.ahdoc) { overflow: hidden !important; height: 100% !
   overflow: hidden;
 }
 .ahdoc .ugc .ugc-hero-resumen {
-  font-size: 13px;
-  line-height: 1.45;
-  color: rgba(244, 241, 232, .84);
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: rgba(244, 241, 232, .82);
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 5;
-  line-clamp: 5;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
   overflow: hidden;
+  margin-bottom: 2px;
+}
+
+/* ── El arranque del curso ─────────────────────────────────────────────────────
+   El boton estaba SOLO: una caja lima cuadrada, pegada al borde izquierdo y mas
+   pesada que el titulo. Martin: «siento que el boton de abrir tiene un feo diseño,
+   esta como solo, cuadrado y muy alineado a la izquierda, mas grande que el
+   titulo».
+
+   Las tres cosas se arreglan con la misma decision: el boton deja de ser un bloque
+   suelto y pasa a ser una PASTILLA con su acompanante. Al lado va el nombre de la
+   clase a la que lleva —que ademas se habia quedado sin lugar al pasar el titulo
+   del curso a la ranura grande—, asi que la fila dice a donde vas antes de que la
+   toques. «Abrir» no decia que se abria. */
+.ahdoc .ugc .ugc-hero-arranque {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+  margin-top: 3px;
+}
+.ahdoc .ugc .ugc-hero-cta {
+  flex: 0 0 auto;
+  margin-top: 0 !important;
+  align-self: auto !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.005em;
+  padding: 9px 17px !important;
+  border-radius: 999px !important;
+  gap: 7px !important;
+  box-shadow: 0 2px 12px rgba(205, 241, 59, .18);
+  transition: transform .16s ease, box-shadow .16s ease, background-color .16s ease;
+}
+.ahdoc .ugc .ugc-hero:hover .ugc-hero-cta {
+  transform: translateX(2px);
+  box-shadow: 0 3px 18px rgba(205, 241, 59, .3);
+}
+/* El nombre de la clase: acompana, no compite. Una sola linea con puntos suspensivos
+   —dos lineas lo convertirian en un segundo parrafo al lado del boton. */
+.ahdoc .ugc .ugc-hero-primera {
+  min-width: 0;
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 11.5px;
+  letter-spacing: 0.01em;
+  color: rgba(244, 241, 232, .62);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 /* La sombra tenia que morir al 46% porque el texto llegaba hasta ahi; ahora la
    columna es mas ancha y sin esto las ultimas lineas quedan sobre la foto. */
@@ -2857,3 +2906,14 @@ html:has(.ahdoc), body:has(.ahdoc) { overflow: hidden !important; height: 100% !
    asi que la leccion es la misma: cambiar la ETIQUETA de un elemento arrastra su
    hoja de estilos por defecto, y eso no aparece en ningun diff. */
 .ahdoc .ugc .ugc-hero { text-align: left !important; }
+
+
+/* La cejilla pasa a ser la CATEGORIA del curso, asi que se escribe como un rotulo y no
+   como una frase: es un dato, y ademas es lo unico de la portada que no esta repetido en
+   ningun otro lugar de la pantalla. */
+.ahdoc .ugc .ugc-hero-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.12em !important;
+  font-size: 10px !important;
+  opacity: .95;
+}

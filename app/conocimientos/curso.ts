@@ -73,6 +73,13 @@ export type Curso = {
    * categoría y la portada: las fichas de curso son auto-generadas.
    */
   resumen?: string;
+  /**
+   * El título sin el autor pegado. Lo usa SOLO la portada de adentro del curso: la grilla
+   * y la barra de arriba siguen mostrando «Curso - Autor», que ahí sí distingue. Se
+   * calcula en `catalogo.ts`, con las excepciones a mano de los que traen el autor
+   * adelante.
+   */
+  tituloCorto?: string;
   eyebrow: string; titulo: string; subtitulo: string; volumen: string;
   // Miniatura del curso, servida estática desde `public/cono-portadas/<slug>.<ext>`.
   // Va como ruta y no como id de Drive porque se muestra en la grilla de TODOS los
