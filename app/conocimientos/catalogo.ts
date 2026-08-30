@@ -96,6 +96,7 @@ import { CURSO_TUMADREANNA_MARKETING_DEFINITIVO } from './curso-tumadreanna-mark
 import { CURSO_ACADEMIA_FIVE_STARS } from './curso-academia-five-stars';
 import { CURSO_MONETIZA_CON_JOHAN_IA } from './curso-monetiza-con-johan-ia';
 import { CURSO_LA_UNIVERSIDAD_DEL_CLOSER } from './curso-la-universidad-del-closer';
+import { CURSO_EMPRENDE_CON_INSTAGRAM } from './curso-emprende-con-instagram';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio';
 import { CURSO_BRANDING } from './BrandingMaKo';
@@ -259,6 +260,10 @@ const CATEGORIA: Record<string, string> = {
   'ecommerce-de-arz-urus': 'Ecommerce',    // lo dice el título
   '360-marca-personal': 'Orgánico',        // era «Marca personal», sección de un solo curso
   'codigo-millonario': 'Orgánico',         // era «Afiliados» — mismo criterio que el método Fukuda
+  // La plataforma lo tenia en «Marketing» y quedaba solo ahi, recreando una seccion de un
+  // curso. Sus clases son ManyChat, «viral con TUMADRE» y «como conseguir ideas virales»:
+  // va con ManyChat Master Instagram, en Organico.
+  'tumadreanna-marketing-definitivo': 'Orgánico',
   // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
   // plataforma. El comentario al lado es la categoría de origen.
   'escuela-tu-primer-millon': 'Negocios digitales', // Hustlers
@@ -283,9 +288,6 @@ const CATEGORIA: Record<string, string> = {
   // plataforma. El comentario al lado es la categoría de origen.
   'tu-1-millon': 'Finanzas',               // Finanzas / Inversiones
 
-  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
-  // plataforma. El comentario al lado es la categoría de origen.
-  'tumadreanna-marketing-definitivo': 'Marketing', // Marketing
 
   // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
   // plataforma. El comentario al lado es la categoría de origen.
@@ -298,6 +300,10 @@ const CATEGORIA: Record<string, string> = {
   // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
   // plataforma. El comentario al lado es la categoría de origen.
   'la-universidad-del-closer': 'Ecommerce', // Ecommerce
+
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'emprende-con-instagram': 'Orgánico',    // Redes Sociales
 
 };
 
@@ -402,6 +408,10 @@ const PORTADA: Record<string, string> = {
   // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
   // pero la ficha se había emitido antes de que existiera.
   'la-universidad-del-closer': '/cono-portadas/la-universidad-del-closer.png',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'emprende-con-instagram': '/cono-portadas/emprende-con-instagram.jpg',
 
 };
 
@@ -709,6 +719,9 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_LA_UNIVERSIDAD_DEL_CLOSER,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_EMPRENDE_CON_INSTAGRAM,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
