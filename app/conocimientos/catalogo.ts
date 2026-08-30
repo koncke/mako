@@ -99,6 +99,9 @@ import { CURSO_LA_UNIVERSIDAD_DEL_CLOSER } from './curso-la-universidad-del-clos
 import { CURSO_EMPRENDE_CON_INSTAGRAM } from './curso-emprende-con-instagram';
 import { CURSO_MASTER_EN_IA } from './curso-master-en-ia';
 import { CURSO_ECOMMERCE_FULL_2_0 } from './curso-ecommerce-full-2-0';
+import { CURSO_FOTOGRAFIA_AL_COMPLETO_DE_0_A_PRO_2025 } from './curso-fotografia-al-completo-de-0-a-pro-2025';
+import { CURSO_TALLER_CAPCUT_PRO_GG } from './curso-taller-capcut-pro-gg';
+import { CURSO_CARRERA_DE_ECOMMERCE } from './curso-carrera-de-ecommerce';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio';
 import { CURSO_BRANDING } from './BrandingMaKo';
@@ -315,6 +318,14 @@ const CATEGORIA: Record<string, string> = {
   // plataforma. El comentario al lado es la categoría de origen.
   'ecommerce-full-2-0': 'Ecommerce',       // Ecommerce
 
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'taller-capcut-pro-gg': 'Edición',       // Edición de Video
+
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'carrera-de-ecommerce': 'Ecommerce',     // Ecommerce
+
 };
 
 /**
@@ -430,6 +441,14 @@ const PORTADA: Record<string, string> = {
   // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
   // pero la ficha se había emitido antes de que existiera.
   'ecommerce-full-2-0': '/cono-portadas/ecommerce-full-2-0.jpg',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'taller-capcut-pro-gg': '/cono-portadas/taller-capcut-pro-gg.jpg',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'carrera-de-ecommerce': '/cono-portadas/carrera-de-ecommerce.jpg',
 
 };
 
@@ -746,6 +765,15 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_ECOMMERCE_FULL_2_0,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_FOTOGRAFIA_AL_COMPLETO_DE_0_A_PRO_2025,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_TALLER_CAPCUT_PRO_GG,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_CARRERA_DE_ECOMMERCE,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
