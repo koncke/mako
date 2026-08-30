@@ -2781,17 +2781,79 @@ html:has(.ahdoc), body:has(.ahdoc) { overflow: hidden !important; height: 100% !
 }
 
 
-/* De que va el curso, arriba del riel de modulos. Es el MISMO texto que la tarjeta de la
-   grilla muestra recortado a 3 lineas; aca va entero, que es donde termina de leerse.
-   Ancho de LECTURA y no el de la hoja: una linea de 1200 px no se sigue con el ojo.
+/* ── De que va el curso, DENTRO de la portada y pegado al boton ────────────────
+   Vivia como un parrafo suelto abajo del hero, sobre la hoja. Martin lo corrigio:
+   «la queria dentro de la portada, conjunto al boton de Abrir, que quede bien
+   disenado». Es el lugar correcto tambien por otra razon: la pregunta «de que va
+   esto» solo importa en el momento de decidir si entras, y ese momento es el boton.
 
-   Se llama `ugc-curso-resumen` y no `ugc-resumen` porque la hoja del origen ya trae
-   `.ugc-resumen-note`, que es otra cosa: dos nombres a un caracter de distancia es como
-   se edita el equivocado dentro de tres meses. */
-.ahdoc .ugc .ugc-curso-resumen {
-  margin: 22px 0 0;
-  max-width: 70ch;
-  font-size: 15.5px;
-  line-height: 1.65;
-  color: rgba(22, 21, 15, .8);
+   ⚠️ EL HERO NO CRECE. Su `max-height: 260px` esta puesto a proposito mas arriba
+      —«el hero ocupaba media pantalla con un boton chico adentro»— y Martin volvio
+      a decir que el recuadro esta bien. Asi que el texto entra achicando la letra y
+      ensanchando la columna, NUNCA subiendo el alto de la caja.
+
+   Las cuentas, a 260 px: cejilla 14 + titulo 44 + descripcion 4x20 + boton 44 +
+   huecos 27 = 209 px. Con un titulo de dos lineas (que por eso se recorta en dos)
+   son 253, que sigue entrando. */
+.ahdoc .ugc .ugc-hero-body {
+  max-width: 64% !important;
+  gap: 8px !important;
+  padding-right: 18px !important;
 }
+/* El titulo bajaba de 44 px y con eso solo el se comia un sexto de la caja. El hero dejo
+   de ser un boton con un rotulo grande: ahora es la cabecera del curso, y el que manda
+   es el texto que dice de que va. Dos lineas como techo, que es donde entra el 100% de
+   los titulos de primera clase medidos. */
+.ahdoc .ugc .ugc-hero-title {
+  font-size: clamp(21px, 2.3vw, 29px) !important;
+  line-height: 1.06 !important;
+  letter-spacing: -0.02em !important;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.ahdoc .ugc .ugc-hero-resumen {
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(244, 241, 232, .84);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  line-clamp: 5;
+  overflow: hidden;
+}
+/* La sombra tenia que morir al 46% porque el texto llegaba hasta ahi; ahora la
+   columna es mas ancha y sin esto las ultimas lineas quedan sobre la foto. */
+.ahdoc .ugc .ugc-hero-shade {
+  background:
+    linear-gradient(0deg, rgba(22, 21, 15, .60), rgba(22, 21, 15, .16) 42%, transparent 66%),
+    linear-gradient(90deg, rgba(22, 21, 15, .96), rgba(22, 21, 15, .88) 38%, rgba(22, 21, 15, .55) 62%, rgba(22, 21, 15, .28)) !important;
+}
+
+/* ── El encuadre de la tapa del hero ───────────────────────────────────────────
+   Medido: la caja del hero es 900x260 y las tapas rondan el 16:9, asi que entra el
+   ~51% de su altura. Con el `object-position` por defecto (50% 50%) se ve la banda
+   24%-76%, y el cuarto de arriba es justo donde vive la cabeza: Martin lo reporto
+   como «hay varias que se le corta la cara».
+
+   El 35% se eligio MIRANDO, no por regla: se armo una hoja de contactos con las
+   mismas tapas recortadas a 50%, 35% y 25% (scratchpad/comparar-encuadre.mjs) y a
+   35% mejoraron o quedaron igual las 12 probadas — cabeza entera en growing-amg,
+   us30, bluehacker, m5-95, ecommerce y certificacion, y el titulo completo en
+   masteryhaus, fotografia y avatar-mastery. A 25% empiezan a cortarse los pies del
+   diseno (el logo de runbenguo, las llaves de ecommerce), asi que no se baja mas.
+
+   ⚠️ Se posiciona, NO se agranda la caja: pedido explicito de Martin, y el
+      `max-height: 260px` de mas arriba tiene su propio porque escrito. */
+.ahdoc .ugc .ugc-hero-img { object-position: 50% 35% !important; }
+
+/* ⚠️ EL HERO ES UN <button> Y EN EL ORIGEN ERA UN <a>, Y UN BOTON TRAE
+   `text-align: center` DEL NAVEGADOR. Con una cejilla, un titulo corto y un boton
+   chico eso se leia como una decision de diseno y paso desapercibido; con un
+   parrafo de cuatro lineas centrado se lee como un error. Ya habia mordido una vez
+   por lo mismo —sin `display: block` el <button> colapsaba a 0x0, ver mas arriba—,
+   asi que la leccion es la misma: cambiar la ETIQUETA de un elemento arrastra su
+   hoja de estilos por defecto, y eso no aparece en ningun diff. */
+.ahdoc .ugc .ugc-hero { text-align: left !important; }

@@ -410,21 +410,29 @@ function Indice({ curso, modulos, onAbrir, onModulo }: {
   return (
     <>
       {primera && (
-        <button type="button" className="ugc-hero" onClick={() => onAbrir(primera)}>
+        <button
+          type="button"
+          className="ugc-hero"
+          onClick={() => onAbrir(primera)}
+          /* El rotulo se declara: con la descripcion adentro, el nombre accesible del
+             boton pasaria a ser el parrafo entero y lector de pantalla leeria 400
+             caracteres para decir «abrir la primera clase». */
+          aria-label={`Abrir ${primera.titulo}`}
+        >
           {tapaHero && <Miniatura className="ugc-hero-img" src={tapaHero} />}
           <span className="ugc-hero-shade" aria-hidden />
           <span className="ugc-hero-body">
             <span className="ugc-hero-eyebrow">Empieza aquí{primera.codigo ? ` ${'·'} ${primera.codigo}` : ''}</span>
             <span className="ugc-hero-title">{primera.titulo}</span>
+            {/* De que va el curso, PEGADO al boton. Vivia abajo del hero, como un parrafo
+                suelto sobre la hoja, y Martin lo corrigio: «la queria dentro de la
+                portada, conjunto al boton de Abrir». Acá la lee el que esta decidiendo si
+                entra, que es el unico momento en que la pregunta importa. */}
+            {curso.resumen && <span className="ugc-hero-resumen">{curso.resumen}</span>}
             <span className="ugc-hero-cta">Abrir</span>
           </span>
         </button>
       )}
-      {/* De que va el curso, ENTERO. En la tarjeta de la grilla el mismo texto va
-          recortado a 3 lineas —si no, una tarjeta mide el triple que la de al lado—, asi
-          que aca es donde se lee completo. Un recorte que no tiene ningun lugar donde
-          terminar de leerse es texto perdido. */}
-      {curso.resumen && <p className="ugc-curso-resumen">{curso.resumen}</p>}
       <div className="ugc-rail-head"><h2>Los modulos</h2></div>
       <div className="ugc-rail">
         {modulos.map((m) => (
