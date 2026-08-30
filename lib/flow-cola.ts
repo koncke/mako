@@ -138,7 +138,7 @@ export async function workspaceDeToken(token: string): Promise<number | null> {
 }
 
 /** El puente reporta que está vivo, y con qué proyecto de Flow trabaja. */
-export async function marcarVisto(ws: number, projectId: string, estado: EstadoPuente, detalle = '', version = ''): Promise<void> {
+export async function marcarVisto(ws: number, projectId: string, estado: EstadoPuente, detalle = '', version = '', accionesCaptcha = ''): Promise<void> {
   const db = await runWithWorkspace(ws, () => getTenantDb());
   const patch: Record<string, unknown> = {
     ultimo_visto: new Date().toISOString(),
@@ -151,6 +151,9 @@ export async function marcarVisto(ws: number, projectId: string, estado: EstadoP
   // Solo si vino: una extensión vieja no la manda, y pisar con '' borraría el
   // único dato que dice que hay una copia sin actualizar dando vueltas.
   if (version) patch.version = version.slice(0, 20);
+  // Igual que la version: solo si vino. Un latido de antes de que esto existiera
+  // no puede borrar una medicion que ya se hizo.
+  if (accionesCaptcha) patch.acciones_captcha = accionesCaptcha.slice(0, 500);
 
   // ⚠️ EL AUTO-REPORTE NO PUEDE LEVANTAR UNA MARCA.
   //

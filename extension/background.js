@@ -329,6 +329,11 @@ async function ciclo() {
       body: JSON.stringify({
         token, projectId, estado, detalle, resultados: pendientes, cuantos: 1,
         version: chrome.runtime.getManifest().version,
+        // La MEDICION del captcha. Vivia solo en la consola del service worker, o
+        // sea que para leerla habia que pedirle a una persona que abriera DevTools
+        // y copiara una linea — y si el navegador es de otro, ni eso. Un dato de
+        // diagnostico que hay que pedir no es un dato: es una molestia.
+        accionesCaptcha: ((await chrome.storage.local.get('accionesDeFlow')).accionesDeFlow || []).join(','),
       }),
     });
     if (!res.ok) return;

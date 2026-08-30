@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
   // ── 2. El puente reporta que está vivo ────────────────────────────────────
   const estado = ESTADOS.includes(str(body.estado) as EstadoPuente) ? (str(body.estado) as EstadoPuente) : 'listo';
   const detalle = str(body.detalle);
-  await marcarVisto(ws, str(body.projectId), estado, detalle, str(body.version));
+  await marcarVisto(ws, str(body.projectId), estado, detalle, str(body.version), str(body.accionesCaptcha));
 
   // ── La cara se APRENDE, no se consulta ───────────────────────────────────
   //
