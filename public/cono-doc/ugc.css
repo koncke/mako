@@ -2897,9 +2897,18 @@ html:has(.ahdoc), body:has(.ahdoc) { overflow: hidden !important; height: 100% !
   position: relative;
   top: -1.25px;
   font-family: var(--font-jetbrains), monospace;
-  font-size: 11.5px;
+  /* ⚠️ EL MISMO CUERPO QUE EL ROTULO DEL BOTON. Estaba en 11,5 px contra los 13 del
+     boton, y esa diferencia es la que Martin leia como «descentrado»: un texto mas chico
+     y mas claro al lado de una pastilla no se lee como parte del renglon, CUELGA de ella
+     — y por eso dos rondas de ajustar pixeles no cambiaron nada (0,75 px es invisible;
+     dos cuerpos distintos, no).
+
+     La leccion es la de siempre y me la salte dos veces: «no se ve alineado» casi nunca
+     es un problema de posicion. Se vio poniendo cinco variantes una debajo de otra
+     (scratchpad/variantes-fila.mjs), no midiendo. */
+  font-size: 13px;
   letter-spacing: 0.01em;
-  color: rgba(244, 241, 232, .62);
+  color: rgba(244, 241, 232, .66);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
