@@ -81,10 +81,34 @@ const nextConfig: NextConfig = {
       // control que este redirect existe para tener se pierde justo con la gente
       // que ya lo usó.
       //
-      // No hace falta sumarlo a `PUBLICOS`: los redirects de next.config corren
-      // ANTES del proxy (doc de Next, «Execution order»), así que el gate de auth
-      // ni se entera. Es lo correcto — este link se comparte con gente que no
-      // tiene cuenta.
+      // ⚠️ EL DESTINO SÍ PASA POR EL GATE, aunque el redirect corra antes.
+      //
+      // Acá decía lo contrario, y ESE COMENTARIO es lo que hizo que nadie lo
+      // mirara: «no hace falta sumarlo a PUBLICOS, los redirects corren ANTES del
+      // proxy, así que el gate ni se entera». La premisa es cierta (doc de Next,
+      // «Execution order») y la conclusión es falsa. El redirect no sirve el
+      // archivo: manda un 307 y el navegador PIDE EL DESTINO DE NUEVO. Ese segundo
+      // pedido es un request nuevo y entra al proxy como cualquier otro.
+      //
+      // Medido en producción el 30/08/2026:
+      //     /extension        → 307 a /mako-puente.zip
+      //     /mako-puente.zip  → 307 a /login?next=%2Fmako-puente.zip
+      //
+      // CONSECUENCIA VIGENTE, elegida a propósito: el zip no está en `PUBLICOS` ni
+      // exento del matcher, así que quien abra este link SIN SESIÓN cae en el
+      // login. No es un olvido — se evaluó abrirlo (el zip no lleva secretos y la
+      // extensión ya está publicada en la Chrome Web Store, o sea que su código ya
+      // es distribuible) y se decidió que no.
+      //
+      // Y el link no queda roto: `destinoSeguro` conserva el `?next`, así que
+      // después de entrar el archivo se baja solo. Sirve para gente CON cuenta,
+      // que es toda la que puede usar la extensión —sin token de MaKo no hace
+      // nada—; para alguien sin cuenta es un login, no una descarga.
+      //
+      // Si alguna vez se abre: `'/mako-puente.zip'` a `PUBLICOS`, ruta EXACTA.
+      // NUNCA sumar `zip` a las extensiones exentas del matcher de proxy.ts, que
+      // abriría también cualquier .zip que caiga en public/ después.
+      // Lo fija `tests/redirects-gate.test.ts`.
       //
       // ⚠️ El destino SIGUE AL FLAG, no es la tienda a secas. Mientras se itera, la
       // tienda tiene una versión vieja —cada subida pasa por revisión— y este link

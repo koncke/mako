@@ -14,6 +14,7 @@ habilita a darle mejores prompts al otro Claude».
 - Un `200` en un webhook es un **acuse de recibo**: el proveedor no reintenta y el evento se pierde para siempre → [Webhooks](#webhooks-recibir-sin-perder-eventos).
 - Un push no es una entrega: el build de Vercel falla, **producción sigue sirviendo la versión vieja** y nadie avisa → [Build, deploy y entrega](#build-deploy-y-entrega).
 - La factura de builds no mide tiempo: mide `ceil(minutos) × vCPU`. Acortar el build **no ahorró nada**, y el comentario que decía lo contrario vivió un mes en el código → [Build, deploy y entrega](#build-deploy-y-entrega).
+- Un comentario que afirma que algo **no pasa por el gate** con una premisa cierta y una conclusión falsa: el destino de un redirect es un request NUEVO, y el link de la extensión cayó en el login durante días → [El comentario decía que el gate «ni se entera»](#el-comentario-decía-que-el-gate-ni-se-entera-y-por-eso-nadie-lo-miró).
 - La tabla `notificaciones` **no existe en producción** desde siempre y el escritor se traga el error → [Migraciones](#migraciones).
 - Hay features **terminadas, con migración y API propias, que ninguna página monta**: compilan y no existen → [Código construido que ninguna página monta](#código-construido-que-ninguna-página-monta).
 - Si Claude Code «se cierra solo» y la PC sigue andando, es el **proceso GPU** muriendo por la gráfica híbrida — y los tres diagnósticos obvios (memoria, energía, drivers) estaban los tres equivocados → [El equipo](#el-equipo-cuando-se-cierra-claude-code-y-no-es-claude-code).
@@ -2281,6 +2282,43 @@ subiendo de verdad.
 
 ## El equipo: cuando se cierra Claude Code y no es Claude Code
 
+### ⚠️ El `next dev` de la otra sesión deja `.next/dev/types/*` CORTADO A LA MITAD, y el typecheck lo culpa a él
+
+Variante de la anterior, y engaña distinto: acá lo que rompe no es código ajeno **sin
+commitear** sino un archivo **generado** que quedó a medio escribir. Medido el 30/08/2026:
+
+```
+.next/dev/types/routes.d.ts(207,14): error TS1109: Expression expected.
+.next/dev/types/routes.d.ts(214,5): error TS1161: Unterminated regular expression literal.
+.next/dev/types/validator.ts(1430,18): error TS1002: Unterminated string literal.
+```
+
+Siete errores, ninguno en el repo. Leyendo el archivo aparece la firma: una línea dice
+`omponents` (le falta la `c`) y otra `ves">> = Specific`. **Son escrituras truncadas**, no
+código roto — el `next dev -p 3000` de la otra sesión (pid 26880) los había reescrito 57
+segundos antes.
+
+Tres cosas que lo separan del caso de arriba:
+
+- **La pista de `git status` NO sirve**, porque `.next/` está en `.gitignore`: los archivos
+  del error no aparecen ni en tu commit ni en el status. La pista es la RUTA — todo lo que
+  cuelga de `.next/` es generado, y un error de SINTAXIS ahí adentro (`Unterminated
+  string literal`, `Expression expected`) no es de nadie: es un archivo partido.
+- **No se cura solo esperando.** «El verde se toma con el árbol estable» funciona para un
+  refactor ajeno a medio terminar; acá el archivo quedó roto **en disco** y una segunda
+  corrida del typecheck da exactamente los mismos siete errores. Se cura recompilando (que
+  lo dispara la otra sesión al tocar una ruta) o desde un worktree limpio, donde `.next`
+  nace vacío.
+- **Y frena el push**, porque el pre-push corre `npm run typecheck`. Sigue valiendo lo de
+  siempre: worktree limpio, `--no-verify` nunca.
+
+⚠️ **Y el error miente sobre el archivo culpable en un segundo nivel:** `validator.ts` nombra
+la última ruta que alcanzó a escribir antes del corte
+(`app/api/ads-manager/analyze-creatives/route.js`), así que el mensaje invita a ir a mirar
+una ruta que no tiene absolutamente nada que ver.
+
+**Vive en:** `.next/dev/types/` (generado) · `.git/hooks/pre-push` · *2026-08-30*
+
 ### ⚠️ «Se cierra solo» = crash del proceso GPU ~~por la gráfica híbrida, no un bug de la app~~
 
 > 🔴 **EL TÍTULO DE ESTA ENTRADA ESTÁ AL REVÉS, y se deja escrito para que se vea el error.**
@@ -2969,6 +3007,81 @@ porque no rompe nada visible. Donde sí importa es en iOS: el manifest es lo que
 apuntando a una pantalla que no es la app.
 
 **Vive en:** proxy.ts (`config.matcher`) · *2026-08-18*
+
+## El comentario decía que el gate «ni se entera», y por eso nadie lo miró
+
+Hermano del anterior —el mismo matcher, la misma extensión que falta— pero con una vuelta
+que lo hace más caro: **acá el bug estaba documentado como si fuera el diseño correcto.**
+
+`hola-mako.com/extension` es el link corto que se reparte por mail y por WhatsApp para
+bajar la extensión del puente a Google Flow. Medido contra producción el 30/08/2026:
+
+    curl https://hola-mako.com/extension        → 307 a /mako-puente.zip
+    curl https://hola-mako.com/mako-puente.zip  → 307 a /login?next=%2Fmako-puente.zip
+
+O sea: **cualquiera que reciba el link y no tenga sesión de MaKo cae en el login, nunca en
+la descarga** — y es justo la gente a la que se le manda. Por el botón de
+`/video-generator` sí funciona, porque ahí el usuario ya está logueado; el que está roto es
+el link suelto, que es el único camino que no se puede probar estando adentro.
+
+**La causa es de una línea:** `/mako-puente.zip` no está en `PUBLICOS`
+(`lib/rutas-publicas.ts`) y `zip` no está entre las extensiones exentas del matcher de
+`proxy.ts`.
+
+⚠️ **Lo que hizo que nadie lo viera fue un COMENTARIO, y ese es el hallazgo.** En
+`next.config.ts`, sobre el redirect, decía:
+
+> *«No hace falta sumarlo a `PUBLICOS`: los redirects de next.config corren ANTES del proxy
+> (doc de Next, "Execution order"), así que el gate de auth ni se entera. Es lo correcto —
+> este link se comparte con gente que no tiene cuenta.»*
+
+**La premisa es cierta y la conclusión es falsa.** El redirect efectivamente corre antes
+del proxy; lo que no hace es SERVIR el archivo. Manda un 307, y el navegador pide
+`/mako-puente.zip` de nuevo: **ese segundo pedido es un request nuevo y entra al proxy como
+cualquier otro.** El comentario documentaba la intención correcta («este link se comparte
+con gente sin cuenta») con un razonamiento falso, y eso es peor que no tener comentario:
+**convence a quien pasa por al lado de que ahí no hay nada que revisar.** Es la forma que
+toma «un comentario no es un control» cuando el comentario, además, está bien intencionado.
+
+**La regla: cuando un comentario afirma que algo NO pasa por un control, esa afirmación se
+mide, no se razona.** Un `curl` sin cookie cuesta cinco segundos y contesta lo que ninguna
+lectura del código iba a contestar.
+
+**La decisión (30/08/2026): queda CERRADO, a propósito.** Se evaluó abrirlo y era viable —
+se abrió el zip y se verificó que no lleva secretos (10 archivos; el único literal largo en
+todo el código es `6LdsFiUsAAAAA…`, el site key de reCAPTCHA **de Google Flow**, público
+por naturaleza y visible en el HTML de labs.google), y la extensión ya está publicada en la
+Chrome Web Store, o sea que su código ya es distribuible. Aun así se eligió no abrirlo.
+**No queda roto:** `destinoSeguro` conserva el `?next`, así que después de entrar el archivo
+se baja solo. El link sirve para gente CON cuenta, que es toda la que puede usar la
+extensión — sin token de MaKo no hace nada.
+
+**Y el guard que quedó NO exige que los destinos sean públicos.** La clase de bug no era
+«una ruta mal configurada» sino **«una creencia falsa sobre una ruta»**: un test que pidiera
+`público: true` habría convertido una decisión de producto —abrir o no una descarga a todo
+internet— en un test que se pone verde solo. `tests/redirects-gate.test.ts` exige que el
+estado esté **DECLARADO**: un redirect nuevo hacia un archivo estático no falla por estar
+gateado, falla por no estar declarado, que es el momento en que alguien tiene que decidirlo.
+Lee el matcher del fuente de `proxy.ts` porque no puede importarlo — Next exige que
+`config.matcher` sea un literal analizable en build, así que no existe la constante.
+
+Dos detalles que ese test se comió y conviene no repetir:
+
+- **El literal del matcher viene con el escape del CÓDIGO FUENTE** (`\\.`). Sin pasarlo por
+  `JSON.parse`, el patrón dice «una barra invertida y cualquier carácter», matchea de más y
+  **el test pasa en falso**. El caso que lo caza es `/logo.png`.
+- **Un test así hay que matarlo a propósito antes de creerle.** Los tres mutantes —declarar
+  el zip como abierto, agregar un redirect sin declarar, saltear el desescapado— murieron
+  cada uno por el test que le tocaba. Un chequeo sobre un universo vacío contesta «todo
+  bien» y apaga la búsqueda.
+
+**Lo que quedó SIN hacer:** `public/mako-puente.sha` también está gateado, y está bien —
+nadie lo pide por HTTP, lo lee sólo `scripts/zip-extension.mjs` en el pre-push. Si algún día
+algo lo fuera a bajar desde el navegador, se cae por el mismo agujero y sin síntoma.
+
+**Vive en:** `next.config.ts` (el redirect de `/extension`) · `lib/rutas-publicas.ts`
+(`PUBLICOS`) · `proxy.ts` (`config.matcher`) · `lib/extension-tienda.ts`
+(`EXTENSION_URL_ZIP`) · `tests/redirects-gate.test.ts` · *2026-08-30*
 
 ## Los CUATRO guards de sincronía frenaban el push de cualquiera que reclonara
 

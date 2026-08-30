@@ -1944,6 +1944,15 @@ que editar antes de cada subida se sube sin editar la vez que hay apuro.
   siempre es una justificación de permiso que no explica el *para qué* del usuario: se
   reescribe ese campo y se reenvía, sin resubir el paquete.
 
+⚠️ **Y el link corto `hola-mako.com/extension` NO reparte a gente sin cuenta**, aunque exista
+para eso: el redirect manda un 307 y el destino (`/mako-puente.zip`) es un request nuevo que
+sí pasa por el gate, así que quien no tenga sesión de MaKo cae en el login. Está **cerrado a
+propósito** —se verificó que el zip no lleva secretos y se decidió no abrirlo igual—, y el
+`?next` del login entrega el archivo después de entrar, así que sirve para gente CON cuenta,
+que es toda la que puede usar la extensión. El detalle, con el comentario falso que lo tapó
+durante días, en [hallazgos-infra.md](hallazgos-infra.md) → «El comentario decía que el gate
+"ni se entera"».
+
 **Vive en:** `lib/extension-tienda.ts`, `extension/manifest.json`,
 `scripts/zip-extension.mjs`, `app/privacidad/extension/page.tsx`,
 `app/video-generator/PuentePanel.tsx`.
