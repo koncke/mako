@@ -22,17 +22,11 @@ import { FaseIcono, FaseResultado } from '../onboarding/FaseUI';
 import Compartir from './Compartir';
 import type { Curso } from './curso';
 
-export const CURSO_ANALISIS: Curso = {
-  slug: 'analisis-negocio',
-  categoria: 'Estrategia y negocio',
-  titulo: 'Análisis de Negocio — Las 5 Fases',
-  cardDesc: 'El diagnóstico que le da el Norte a cada negocio: en qué fase estás, tu cuello y qué priorizar. Pruébalo aquí mismo.',
-  eyebrow: 'Método interno',
-  subtitulo: 'La metodología de Andrea Estratega (Fórmula 100k) adaptada al modelo VSL + Meta Ads de MaKo. Prueba el diagnóstico y mira las 5 fases.',
-  volumen: '5 fases · 5 dimensiones',
-  recursos: [],
-  clases: [],
-};
+// La ficha se mudo a ./AnalisisNegocio.datos: `catalogo.ts` la importa como VALOR desde el
+// SERVER y este archivo es `'use client'`, asi que alla llegaba una referencia de
+// cliente en vez del objeto. Se re-exporta para no romper a ningun otro consumidor.
+import { CURSO_ANALISIS } from './AnalisisNegocio.datos';
+export { CURSO_ANALISIS };
 
 // ── Barras (estrategia de MaKo / mezcla de contenido de Andrea) ──────────────
 function Barras({ filas }: { filas: Array<[string, number, string]> }) {

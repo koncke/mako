@@ -108,8 +108,8 @@ import { CURSO_ECOM_TOTAL_2_0 } from './curso-ecom-total-2-0';
 import { CURSO_MASTER_MARCA_PERSONAL_4_0 } from './curso-master-marca-personal-4-0';
 import { CURSO_AUTOMATIZA_TU_WHATSAPP } from './curso-automatiza-tu-whatsapp';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
-import { CURSO_ANALISIS } from './AnalisisNegocio';
-import { CURSO_BRANDING } from './BrandingMaKo';
+import { CURSO_ANALISIS } from './AnalisisNegocio.datos';
+import { CURSO_BRANDING } from './BrandingMaKo.datos';
 
 /**
  * La sección de lo PROPIO: método, marca y criterios de la casa.
@@ -616,9 +616,25 @@ const TITULO_CORTO: Record<string, string> = {
   'taller-capcut-pro-gg': 'Taller Capcut PRO',
 };
 
-const sinAutor = (titulo: string, slug: string): string => {
+const sinAutor = (titulo: string | undefined, slug: string): string | undefined => {
   const propio = TITULO_CORTO[slug];
   if (propio) return propio;
+  /**
+   * ⚠️ TOLERA UN TÍTULO AUSENTE, Y NO ES DEFENSIVISMO: LA VERSIÓN ESTRICTA TIRÓ EL BUILD.
+   *
+   * Esta función corre para las 94 fichas al evaluar el módulo. La causa de que faltara un
+   * título ya está arreglada —eran `CURSO_ANALISIS` y `CURSO_BRANDING`, importados como
+   * VALOR desde dos `.tsx` con `'use client'`, ver `AnalisisNegocio.datos.ts`—, pero la
+   * guarda se queda: un `.lastIndexOf` acá no dibuja mal un curso, mata la evaluación del
+   * módulo entero, y Vercel muere con «Failed to collect configuration for
+   * /compartido/[token]» sin nombrar ni el archivo ni el curso.
+   *
+   * Lo que expuso aquel bug latente es que ésta fue la PRIMERA función que toca TODOS los
+   * títulos: las anteriores (`conAutor`, el mapa `TITULO`) sólo tocan los de los cursos que
+   * declaran autor, que son tres. Una fragilidad vieja se vuelve visible el día que alguien
+   * la recorre entera — y el que la recorre se lleva la culpa.
+   */
+  if (!titulo) return undefined;
   const i = titulo.lastIndexOf(' - ');
   if (i < 0) return titulo;
   const cabeza = titulo.slice(0, i).trim();

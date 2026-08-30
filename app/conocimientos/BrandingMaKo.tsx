@@ -14,17 +14,11 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Curso } from './curso';
 import Compartir from './Compartir';
 
-export const CURSO_BRANDING: Curso = {
-  slug: 'branding-mako',
-  categoria: 'Marca y material',
-  titulo: 'Branding MaKo',
-  cardDesc: 'Todo el material de marca en un solo lugar: los gráficos de las landings, las animaciones de los VSL, los íconos de las apps y los videos. Cada pieza se descarga.',
-  eyebrow: 'Material de marca',
-  subtitulo: 'Los gráficos, animaciones, íconos y videos que fuimos produciendo. Todo descargable, y con la opción de compartir por link.',
-  volumen: '179 piezas',
-  recursos: [],
-  clases: [],
-};
+// La ficha se mudo a ./BrandingMaKo.datos: `catalogo.ts` la importa como VALOR desde el
+// SERVER y este archivo es `'use client'`, asi que alla llegaba una referencia de
+// cliente en vez del objeto. Se re-exporta para no romper a ningun otro consumidor.
+import { CURSO_BRANDING } from './BrandingMaKo.datos';
+export { CURSO_BRANDING };
 
 type Asset = {
   id: string; seccion: string; grupo: string; archivo: string; titulo: string;
