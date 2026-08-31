@@ -167,12 +167,55 @@ const esEntrada = (e: unknown): e is PlanGuardado => {
 };
 
 /** Historial del workspace (tolerante: basura o shape viejo → vacío). */
+/**
+ * Una url que YA SABEMOS que no puede funcionar no es una url.
+ *
+ * ⚠️ SE LIMPIA AL LEER, y ése es el punto entero. Una versión anterior guardó como
+ * `url` de la toma el enlace de `labs.google` —que exige la cookie de Google y
+ * contesta 401 desde nuestro dominio: dieciséis bytes de HTML, que en un <video>
+ * se ven como «un video de 0 segundos»—. Se revirtió el código que lo escribía, y
+ * eso no alcanzó: el valor ya estaba en el plan de la persona.
+ *
+ * Y `url` es justo la guarda que apaga todo lo demás: con ella puesta, la pantalla
+ * da la toma por lista, el sondeo no corre, y el camino que baja el clip no se
+ * ejecuta nunca. El arreglo quedaba detrás de una puerta que el dato malo mantenía
+ * cerrada — la cuarta vez en la misma noche con esa forma.
+ *
+ * Por eso se limpia en `leerHistorial` y no en una pantalla: acá pasan todos los
+ * caminos, así que ninguno se puede olvidar.
+ *
+ * El criterio es en POSITIVO sobre lo que se sabe roto, no una lista de lo que se
+ * acepta: mañana el clip puede vivir en otro storage y una lista blanca lo
+ * bloquearía sin decir por qué.
+ */
+const urlInservible = (u: string): boolean => u.includes('labs.google/fx/api/trpc/');
+
+function limpiarUrlsMuertas(p: PlanGuardado): PlanGuardado {
+  const video = p.video;
+  if (!video) return p;
+  let toco = false;
+  const limpio: Record<string, MarcaVideo> = {};
+  for (const [k, m] of Object.entries(video)) {
+    if (m?.url && urlInservible(m.url)) {
+      // Se borra la `url` y se conserva la `operacion`: el clip existe y está
+      // pagado, lo único que falta es volver a pedir su enlace.
+      const { url: _fuera, ...resto } = m;
+      limpio[k] = resto;
+      toco = true;
+    } else {
+      limpio[k] = m;
+    }
+  }
+  return toco ? { ...p, video: limpio } : p;
+}
+
 export async function leerHistorial(): Promise<PlanGuardado[]> {
   try {
     const raw = await getSetting(KEY_HISTORIAL_VIDEO);
     if (!raw) return [];
     const arr = JSON.parse(raw) as unknown;
-    return Array.isArray(arr) ? arr.filter(esEntrada).slice(0, MAX_HISTORIAL) : [];
+    if (!Array.isArray(arr)) return [];
+    return arr.filter(esEntrada).slice(0, MAX_HISTORIAL).map(limpiarUrlsMuertas);
   } catch {
     return [];
   }
