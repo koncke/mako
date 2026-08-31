@@ -3352,3 +3352,49 @@ destruye, qué deja sin salida, qué no se dibuja, qué queda viejo. Esa partici
 es la que hizo que 23 agentes no se pisaran — y el escéptico por hallazgo mató 3
 de 19, todos por la misma razón: describían un camino que un guard de más arriba
 ya impedía.
+
+
+## El prompt de un clip con referencia sólo dice QUÉ HACE la persona
+
+**Vive en:** `lib/prompts-video.ts`, `lib/video-planner.ts`
+
+El prompt de video lo escribía un modelo, y salía describiendo la toma desde
+cero y en inglés: *«Close-up selfie angle filmed with a handheld smartphone
+inside a parked car…»*. Suena razonable y está mal: **el clip no se genera de la
+nada, se anima DESDE la imagen del escenario**, que ya tiene el auto, la luz, el
+encuadre y la cara resueltos. Un prompt que vuelve a describir todo eso le
+compite a la imagen en vez de apoyarse en ella.
+
+De ahí que el prompt de video sea corto y el de imagen larguísimo. No es una
+inconsistencia: **el de imagen tiene que fijar una fotografía completa porque no
+hay nada previo; el de video hereda todo eso y sólo agrega movimiento.**
+Alargarlo es volver a pelearle a la imagen.
+
+### Y el guion traía asteriscos que nunca se habían notado
+
+Medido: **12 de los 14 clips del historial** tienen `**énfasis**` adentro de
+`voz`. Lo escribe el planificador para que se vea al LEER el guion, y ahí está
+bien.
+
+Hasta ahora no llegaban al modelo **por casualidad**: el prompt lo redactaba el
+mismo modelo, que al copiar la línea adentro de `Script: "…"` los dejaba afuera.
+El día que el guion se interpola verbatim en una plantilla, ese accidente
+desaparece — y `"apagando una **bronca que ya existía** desde…"` es un texto que
+el modelo de video puede leer en voz alta o directamente romper.
+
+⚠️ **La regla: lo que se MUESTRA y lo que se DICE no son el mismo texto.** Cuando
+un campo cruza de la pantalla a un modelo que lo va a pronunciar, hay que sacarle
+las marcas de lectura. Y el corolario de diagnóstico: **una protección que existe
+por accidente no aparece en ningún grep.** Nada en el código sacaba esos
+asteriscos; lo que los sacaba era que un modelo reescribía la frase en el medio.
+Cuando quites un paso intermedio, preguntá qué estaba haciendo sin que nadie se
+lo hubiera pedido.
+
+### Falso positivo que casi reporto
+
+Mi chequeo de «¿el prompt viaja intacto?» dio **NO**, y el prompt viajaba
+perfecto: comparaba la cadena cruda contra `JSON.stringify(cuerpo)`, donde el
+salto de línea ya es `
+` escapado. Verificar recorriendo el objeto dio 1
+coincidencia idéntica. **Un chequeo que compara texto contra JSON serializado
+mide el escapado, no el contenido.**
