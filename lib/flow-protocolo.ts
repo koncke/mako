@@ -225,6 +225,15 @@ export type MotivoFalla =
   | 'contenido'
   /** Se acabaron los créditos del día. Reintentar no sirve: se espera. */
   | 'cuota'
+  /**
+   * Google está limitando el RITMO. No es lo mismo que quedarse sin créditos.
+   *
+   * ⚠️ Motivo propio y no `cuota`, aunque los dos vengan de un 429: la acción es
+   * opuesta. Sin créditos hay que RECARGAR, y con un límite de ritmo hay que
+   * ESPERAR — y los créditos están intactos. Decirle «recargá» a alguien que
+   * tiene 996 es mandarlo a pagar por un problema que se arregla solo.
+   */
+  | 'ritmo'
   /** El modelo no existe para este tier. Reintentar no sirve: se baja de modelo. */
   | 'modelo'
   /** La imagen subida venció (TTL ~1 h). Se vuelve a subir y se reencola. */
@@ -418,8 +427,19 @@ export function clasificarFalla(status: number, cuerpo: unknown): { motivo: Moti
     return { motivo: 'medio_vencido', error: 'La imagen de referencia venció en el storage de Google.', reintentable: true };
   }
   if (status === 429) {
+    // ⚠️ `ritmo` y NO `cuota`. El texto de acá abajo ya decía la verdad —«está
+    // limitando el ritmo»— y el MOTIVO decía otra cosa; y como el motivo es el
+    // que elige el mensaje que ve el cliente, la pantalla terminaba diciendo «tu
+    // cuenta de Google se quedó sin créditos» con 996 créditos en la cuenta.
+    //
+    // Medido el 31/08/2026: la marca guardaba `saldoAntes: 996` JUNTO al error
+    // que decía que no alcanzaban. El dato que lo desmentía estaba al lado.
+    //
+    // El 429 por créditos agotados existe y se detecta por su `reason`
+    // (`PUBLIC_ERROR_USER_QUOTA_REACHED`), que se mira más arriba. Un 429 sin ese
+    // reason es ritmo.
     return {
-      motivo: 'cuota',
+      motivo: 'ritmo',
       error: 'Google está limitando el ritmo de esta cuenta. Hay que esperar antes de volver a intentar.',
       reintentable: false,
     };

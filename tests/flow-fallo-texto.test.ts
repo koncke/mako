@@ -31,8 +31,13 @@ function motivosDelFuente(): string[] {
   const src = readFileSync(join(process.cwd(), 'lib/flow-protocolo.ts'), 'utf8');
   const i = src.indexOf('export type MotivoFalla =');
   assert.ok(i > 0, 'MotivoFalla ya no está en lib/flow-protocolo.ts: el test quedó viejo');
-  const fin = src.indexOf(';', i);
-  return [...src.slice(i, fin).matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
+  // ⚠️ LOS COMENTARIOS SE SACAN ANTES DE BUSCAR EL FINAL. Un `;` adentro de un
+  // JSDoc de la unión cortaba la lectura ahí: pasó, y el test acusó «la
+  // extracción falló» sobre un tipo perfectamente sano. Un parser que una coma
+  // mal puesta puede romper miente sobre el archivo que dice verificar.
+  const limpio = src.slice(i).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*/g, '');
+  const fin = limpio.indexOf(';');
+  return [...limpio.slice(0, fin).matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
 }
 
 test('TODO motivo que el server puede escribir tiene su causa', () => {

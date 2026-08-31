@@ -50,6 +50,8 @@ export type CausaFlow =
   | 'sesion'
   /** La cuenta de Google se quedó sin créditos. */
   | 'sin_creditos'
+  /** Google está limitando el ritmo. Los créditos están intactos: hay que esperar. */
+  | 'ritmo'
   /** La extensión no contesta. */
   | 'puente'
   /** Google falló y no dijo por qué. */
@@ -125,6 +127,7 @@ const CAUSA_DE_MOTIVO: Record<string, CausaFlow> = {
   contenido: 'contenido',
   persona_publica: 'persona_publica',
   cuota: 'sin_creditos',
+  ritmo: 'ritmo',
   // El pedido nombra un modelo que esta cuenta no tiene: lo armamos nosotros.
   modelo: 'nuestra',
   medio_vencido: 'google',
@@ -255,6 +258,15 @@ export function textoFlow(
         titulo: `Google no aceptó el prompt de ${que}`,
         detalle: con('El filtro de contenido de Google rechazó cómo está escrito el escenario. No se gastaron créditos, y volver a intentarlo con el mismo texto va a dar lo mismo: hay que reescribirlo.'),
         accion: 'Decir qué cambiar',
+      };
+
+    case 'ritmo':
+      return {
+        titulo: 'Google está limitando el ritmo de tu cuenta',
+        detalle: con(
+          'Le pediste varias generaciones seguidas y te frenó por un rato. Tus créditos están intactos y no se gastó ninguno. Espera unos minutos y vuelve a intentarlo.',
+        ),
+        accion: 'Volver a intentar',
       };
 
     case 'persona_publica':

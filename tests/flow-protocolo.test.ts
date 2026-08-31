@@ -19,6 +19,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { clasificarFalla, clasificarFallaDelNavegador, leerSaldo, extraerMediaId, LIMITES, MODELOS, RECAPTCHA_SITE_KEY } from '../lib/flow-protocolo';
+import { textoFlow } from '../lib/flow-fallo-texto';
 
 // ── Clasificar el fallo ──────────────────────────────────────────────────────
 
@@ -357,3 +358,44 @@ test('NO convierte créditos a videos', () => {
   assert.doesNotMatch(s.etiqueta, /video|clip/i);
 });
 
+
+// ── UN 429 NO ES QUEDARSE SIN CRÉDITOS ──────────────────────────────────────
+// El caso real, del 31/08/2026: una imagen falló con HTTP 429 y la pantalla le
+// dijo al dueño «tu cuenta de Google se quedó sin créditos» — con 996 créditos,
+// guardados en la marca JUSTO AL LADO del error que los desmentía.
+//
+// El texto del clasificador ya decía la verdad («está limitando el ritmo»); lo
+// que estaba mal era el MOTIVO, y el motivo es el que elige el mensaje que ve el
+// cliente. Un texto correcto colgado de una etiqueta equivocada se muestra
+// equivocado — y éste mandaba a pagar por algo que se arregla esperando.
+
+test('un 429 pelado es RITMO, no cuota', () => {
+  // ⚠️ El cuerpo va como OBJETO, no como string. Escrito con `JSON.stringify`
+  // este test pasaba igual… por el camino equivocado: `clasificarFalla` no lo
+  // parseaba, se quedaba sin `reason`, y caía al 429 genérico. Un test que pasa
+  // por la razón equivocada es peor que uno que falla.
+  const f = clasificarFalla(429, {
+    error: { code: 429, message: 'Resource has been exhausted (e.g. check quota).' },
+  });
+  assert.equal(f.motivo, 'ritmo');
+});
+
+test('un 429 CON el reason de cuota sí es cuota', () => {
+  // Éste es el que de verdad hay que recargar, y se reconoce por su `reason`.
+  const f = clasificarFalla(429, {
+    error: {
+      code: 429,
+      message: 'Quota reached',
+      details: [{ reason: 'PUBLIC_ERROR_USER_QUOTA_REACHED' }],
+    },
+  });
+  assert.equal(f.motivo, 'cuota');
+});
+
+test('las dos causas mandan a lugares OPUESTOS', () => {
+  const ritmo = textoFlow('ritmo', 'la imagen');
+  const sin = textoFlow('sin_creditos', 'la imagen');
+  assert.match(ritmo.detalle, /intactos/i, 'ritmo tiene que decir que los créditos siguen ahí');
+  assert.doesNotMatch(ritmo.detalle, /rec[áa]rga/i, 'ritmo NO puede mandar a recargar');
+  assert.match(sin.detalle, /rec[áa]rga/i, 'sin créditos sí manda a recargar');
+});
