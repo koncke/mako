@@ -112,6 +112,7 @@ import { CURSO_ACADEMIA_DEL_SENSEI } from './curso-academia-del-sensei';
 import { CURSO_GROWING_SETTERS_3_0 } from './curso-growing-setters-3-0';
 import { CURSO_INSTITUTO_DE_MARCA_PERSONAL } from './curso-instituto-de-marca-personal';
 import { CURSO_UDIA } from './curso-udia';
+import { CURSO_CLUB_DE_NEGOCIOS } from './curso-club-de-negocios';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio.datos';
 import { CURSO_BRANDING } from './BrandingMaKo.datos';
@@ -378,6 +379,10 @@ const CATEGORIA: Record<string, string> = {
   // plataforma. El comentario al lado es la categoría de origen.
   'udia': 'Inteligencia Artificial',       // IA
 
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'club-de-negocios': 'Ecommerce',         // Ecommerce
+
 };
 
 /**
@@ -548,6 +553,10 @@ const PORTADA: Record<string, string> = {
   // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
   // pero la ficha se había emitido antes de que existiera.
   'udia': '/cono-portadas/udia.png',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'club-de-negocios': '/cono-portadas/club-de-negocios.png',
 
 };
 
@@ -843,6 +852,10 @@ const RESUMEN: Record<string, string> = {
   // del catálogo de la plataforma.
   'udia': 'Aprende a crear y escalar negocios usando inteligencia artificial. El curso enseña automatización de procesos con IA, creación de aplicaciones funcionales desde ideas.',
 
+  // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
+  // del catálogo de la plataforma.
+  'club-de-negocios': 'Aprende a crear y escalar tu negocio online dentro de una comunidad de emprendedores. El club enseña desarrollo de estrategias de negocio, creación de tiendas online rentables.',
+
 };
 
 // Sin acentos y en minúsculas, para que «Sofia» no se sume a un título que ya dice
@@ -1124,6 +1137,9 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_UDIA,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_CLUB_DE_NEGOCIOS,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
