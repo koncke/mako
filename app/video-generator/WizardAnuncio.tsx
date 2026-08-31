@@ -361,7 +361,20 @@ function Salidas({ resumen, children }: { resumen: string; children: React.React
  * Lo que sobrevive del wizard es lo único que hacía falta: la posición, un solo
  * botón que avanza, y una salida. Todo flota sobre el negro, sin encerrar nada.
  */
-function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia, cargando, onSiguiente, atras, onAtras, onSalir, error, puesta, alLado, enEjemplo }: {
+/**
+ * ⚠️ EXPORTADO: es el lenguaje de pantalla de TODA la tab, no del wizard.
+ *
+ * El paso «¿Cuál de tus guiones quieres grabar?» seguía usando `WizardShell` —el
+ * wizard de formulario: tarjeta de 620 px, tipografías fuera de la escala, filas
+ * de 14 px— mientras el resto ya usaba esto. El dueño lo vio de una: «se quedó
+ * con el formato de form viejo».
+ *
+ * Y el recorrido real era oscuro → CLARO → oscuro, porque `WizardShell` no monta
+ * el tema. Mudarlo no es sólo estética: quita el salto y, de yapa, el riel del
+ * ejemplo pasa a acompañar también ese paso — que es lo que el dueño pidió cuando
+ * dijo que la previsualización tiene que estar «durante toda la creación».
+ */
+export function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia, cargando, onSiguiente, atras, onAtras, onSalir, error, puesta, alLado, enEjemplo }: {
   pregunta: string;
   titulo?: string;
   paso: number;

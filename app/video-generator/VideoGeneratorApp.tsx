@@ -32,7 +32,6 @@ import {
   Pagina, PageHeader, Section, Button, Alert, Tag, Modal, Status, Spinner,
   ErrorState, Confirm, MONO,
 } from '@/app/_ui';
-import { WizardShell } from '../_components/WizardShell';
 import { Icon } from '../_components/icons';
 import type { PlanGuardado, EstadoContextoVideo } from './video-datos';
 import {
@@ -53,7 +52,7 @@ import { editarGuionAction } from './cargar-guiones-action';
 import {
   generarTomaAction, estadoTomaAction, pedirSaldoAction, saldoAction, escribirEscenasAction,
 } from './video-action';
-import { WizardAnuncio } from './WizardAnuncio';
+import { WizardAnuncio, Estudio } from './WizardAnuncio';
 import { TemaOscuro } from '../_components/TemaOscuro';
 import { causaFlow, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
 import { useSearchParams } from 'next/navigation';
@@ -790,21 +789,36 @@ export function VideoGeneratorApp({
   // ── Las tres preguntas ─────────────────────────────────────────────────────
   if (vista === 'wizard') {
     return (
-      <WizardShell
-        titulo={puesta ? puesta.nombre : 'Nuevo anuncio'}
-        pasos={PASOS}
-        pasoActual={paso}
+      // ⚠️ `Estudio` Y NO `WizardShell`. El dueño: «el primer paso de "¿Cuál de
+      // tus guiones quieres grabar?" se quedó con el formato de form viejo».
+      //
+      // Y no era sólo estética: `WizardShell` es una tarjeta de 620 px con
+      // tipografías fuera de la escala `--fs-*` y, sobre todo, NO monta el tema.
+      // El recorrido real era oscuro → CLARO → oscuro, dos saltos en tres
+      // pantallas del mismo flujo.
+      //
+      // Mudarlo trae además dos cosas gratis: el riel del ejemplo acompaña también
+      // este paso —que es lo que se pidió cuando se dijo «durante toda la
+      // creación»— y desaparecen del camino los dos botones de `WizardShell` con
+      // `color: '#fff'` sobre `--primary`, que en oscuro dan 2,41:1 y no se leen.
+      <Estudio
         pregunta={PREGUNTA[paso]}
-        error={error}
-        puedeAvanzar={puedeAvanzar}
-        enUltimo={paso === 'revisar'}
-        siguienteLabel={paso === 'guion' && guion?.planId ? 'Ver el plan →' : 'Siguiente →'}
-        confirmLabel="Generar anuncio"
-        pending={busy}
-        cargando={busy ? 'MaKo está escribiendo tu anuncio…' : null}
-        atrasLabel={idx === 0 ? 'Cambiar plantilla' : 'Atrás'}
+        paso={idx + 1}
+        total={PASOS.length}
+        puesta={puesta}
+        error={error ?? undefined}
+        // ⚠️ SIEMPRE «Siguiente», como en todo el resto. Lo que el botón hace de
+        // más lo dice la línea de abajo, no su rótulo.
+        boton={paso === 'revisar' ? 'Generar anuncio' : 'Siguiente'}
+        consecuencia={paso === 'revisar' ? costoDeUnaToma : undefined}
+        cargando={busy}
+        atras={idx === 0 ? 'Cambiar plantilla' : 'Volver'}
         onAtras={() => (idx === 0 ? setVista('catalogo') : setPaso(PASOS[idx - 1]))}
+        onSalir={() => setVista('catalogo')}
         onSiguiente={() => {
+          // En el último paso, «Siguiente» ES generar. Un solo camino de salida.
+          if (paso === 'revisar') { void generar(); return; }
+          if (!puedeAvanzar) return;
           // Si este guion YA tiene un plan, se abre ese en vez de mandar a
           // rehacerlo. Rehacerlo perdía el trabajo hecho —las tomas corregidas a
           // mano, los clips ya generados— y encima costaba una llamada al modelo
@@ -820,10 +834,6 @@ export function VideoGeneratorApp({
           }
           setPaso(PASOS[idx + 1]);
         }}
-        onConfirmar={() => void generar()}
-        onClose={() => setVista('catalogo')}
-        fullscreen
-        embebido
       >
         {paso === 'guion' && (
           <div style={{ textAlign: 'left' }}>
@@ -1193,7 +1203,7 @@ export function VideoGeneratorApp({
             </div>
           </div>
         )}
-      </WizardShell>
+      </Estudio>
     );
   }
 
