@@ -179,6 +179,34 @@ export function fundirPlantillas(
   return [...mapa.values()];
 }
 
+/**
+ * ¿La plantilla de imagen ya trae el array donde vive la cara?
+ *
+ * ⚠️ ES UNA GUARDA, NO UNA CURIOSIDAD, y sale de una trampa concreta: `parchar()`
+ * INVENTA los tramos que faltan. Sobre una plantilla sin `imageInputs`, un parche
+ * a `requests.0.imageInputs.0.name` crearía `[{ name }]` **sin su
+ * `imageInputType`**, devolvería éxito, y saldría un cuerpo mal formado armado por
+ * nosotros — sin `PARCHE_FALLO`, sin error, y con una imagen de resultado. El modo
+ * de falla más caro: no se lee como un fallo, se lee como una imagen.
+ *
+ * Devuelve `null` cuando no se puede saber —cuerpo ausente, o truncado y por eso
+ * ilegible—, que NO es lo mismo que «no lo tiene». Con `null` no se parchea: no
+ * poder comprobar algo no autoriza a asumirlo.
+ */
+export function tieneCaraParcheable(cuerpo: string | null): boolean | null {
+  if (!cuerpo) return null;
+  let o: Record<string, unknown>;
+  try { o = JSON.parse(cuerpo) as Record<string, unknown>; } catch { return null; }
+  const req = Array.isArray(o.requests) ? o.requests[0] : null;
+  if (!req || typeof req !== 'object') return false;
+  const inputs = (req as Record<string, unknown>).imageInputs;
+  if (!Array.isArray(inputs) || !inputs.length) return false;
+  const primero = inputs[0] as Record<string, unknown> | undefined;
+  // Tiene que traer las DOS: el nombre que vamos a pisar y el tipo que hay que
+  // conservar. Con una sola, parchear deja el pedido a medias.
+  return !!primero && typeof primero.name === 'string' && typeof primero.imageInputType === 'string';
+}
+
 /** Las que el navegador NO tiene y nosotros sí. Es lo único que hace falta devolver. */
 export function faltantes(
   guardadas: PlantillaEspejo[],

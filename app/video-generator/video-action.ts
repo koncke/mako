@@ -26,7 +26,7 @@
 import { randomUUID } from 'node:crypto';
 import { getRolWsEfectivo, getWorkspaceActual, getTenantDb } from '@/lib/workspace';
 import { encolar, estadoPuente } from '@/lib/flow-cola';
-import { ENDPOINTS, obj, arr, str, extraerMediaId, parchesEstadoClip, urlDeMedioFlow } from '@/lib/flow-protocolo';
+import { ENDPOINTS, obj, arr, str, extraerMediaId, parchesEstadoClip, urlDeMedioFlow, parchesSubirImagen, KEY_CARAS_FLOW } from '@/lib/flow-protocolo';
 import {
   cuerpoClipReferencias, semillaDeToma, mediaIdDeReferencia, KEY_CARA_FLOW,
 } from '@/lib/flow-clip-referencias';
@@ -36,9 +36,10 @@ import { puestaPorId } from '@/lib/puestas-data';
 import { generarPlanAction } from './actions';
 import { guionesDisponibles } from './guiones-datos';
 import { causaFlow, causaDeMotivo, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
-import { getSetting } from '@/lib/settings';
+import { getSetting, setSetting } from '@/lib/settings';
 import { leerHistorial, guardarEnHistorial, type PlanGuardado, type MarcaVideo } from './video-datos';
-import { personaEstado, addPersonaFoto } from '@/lib/persona';
+import { sanearPlantillas, tieneCaraParcheable, KEY_PLANTILLAS } from '@/lib/flow-plantillas';
+import { personaEstado, addPersonaFoto, getPersona } from '@/lib/persona';
 import { guardarSaldo, leerSaldoGuardado, guardarCostoMedido, type SaldoFlow } from './saldo-datos';
 
 async function ctxAdmin(): Promise<{ ok: true; ws: number } | { ok: false; error: string }> {
@@ -969,6 +970,15 @@ export async function generarImagenAction(
   const intento = (imgs(item)[String(n)]?.intento ?? 0) + 1;
   const saldoAntes = (await leerSaldoGuardado()).creditos;
 
+  // ⚠️ LAS DOS CONDICIONES, y la segunda es una guarda contra `parchar`, que
+
+  // INVENTA los tramos que faltan: sobre una plantilla sin `imageInputs` crearía
+
+  // uno sin su `imageInputType`, devolvería éxito, y saldría un cuerpo mal
+
+  // formado hecho por nosotros — con una imagen de resultado y sin ningún error.
+
+  const cara = (await caraParcheable()) ? await caraEnFlow(item) : '';
   const trabajoId = await encolar('generar_imagen', {
     // El projectId de este path es de mentira y no importa: la extensión usa el
     // path SOLO para encontrar la plantilla (de su último tramo sale la clase) y
@@ -982,6 +992,10 @@ export async function generarImagenAction(
       prompt: escena.prompt,
       seed: semillaDeEscena(planId, n, intento),
       batchId: randomUUID(),
+      // La cara elegida, y SÓLO si las dos condiciones se cumplen: que ya esté
+      // subida a Flow, y que la plantilla tenga dónde ponerla. Si falta una, no
+      // se parchea y manda la plantilla — que es como funcionaba antes.
+      ...(cara ? { cara } : {}),
     }),
   });
   if (trabajoId == null) return { ok: false, error: 'No se pudo encolar la imagen.' };
@@ -1142,6 +1156,79 @@ export async function elegirFotoAction(
   const actualizado: PlanGuardado = { ...item, fotoId };
   await guardarEnHistorial(actualizado);
   return { ok: true, item: actualizado };
+}
+
+/**
+ * El `mediaId` en Flow de la foto elegida para este anuncio. Si no está, la sube.
+ *
+ * Devuelve `''` mientras no la tenga —la subida es un trabajo del puente y tarda
+ * un latido—, y la pantalla vuelve a preguntar. No bloquea: una action que espera
+ * a que un navegador ajeno conteste muere en el timeout.
+ *
+ * ⚠️ SE CACHEA POR FOTO. Subir la misma foto en cada anuncio no rompe nada y gasta
+ * tráfico contra la sesión de Google del cliente, y este proyecto ya midió lo que
+ * cuesta el ritmo de máquina contra Google.
+ */
+async function caraEnFlow(item: PlanGuardado): Promise<string> {
+  const fotoId = str(item.fotoId);
+  if (!fotoId) return '';
+
+  const mapa = JSON.parse((await getSetting(KEY_CARAS_FLOW)) || '{}') as Record<string, string>;
+  if (str(mapa[fotoId])) return str(mapa[fotoId]);
+
+  const db = await getTenantDb();
+  const { data } = await db
+    .from('flow_trabajos')
+    .select('id, estado, resultado')
+    .eq('tipo', 'subir_imagen')
+    .filter('pedido->>fotoId', 'eq', fotoId)
+    .order('id', { ascending: false })
+    .limit(3);
+
+  for (const t of data ?? []) {
+    if (str(t.estado) !== 'listo') continue;
+    // ⚠️ La respuesta MEDIDA trae el id en `media.name`, y `media` es un OBJETO
+    // —no un array, a diferencia de las respuestas de generación—. Por eso no se
+    // usa `extraerMediaId`, que mira claves de primer nivel: acá está un nivel
+    // más adentro.
+    const id = str(obj(obj(t.resultado).media).name);
+    if (!id) continue;
+    await setSetting(KEY_CARAS_FLOW, JSON.stringify({ ...mapa, [fotoId]: id }));
+    return id;
+  }
+
+  // Ninguna esperando: se sube. Con una en vuelo, se espera a ésa.
+  if (!(data ?? []).some((t) => ['pendiente', 'tomado'].includes(str(t.estado)))) {
+    const foto = (await getPersona()).fotos.find((f: { id: string }) => f.id === fotoId);
+    if (!foto) return '';
+    const bin = await db.storage.from('archivero').download(foto.path);
+    if (bin.error || !bin.data) return '';
+    const b64 = Buffer.from(await bin.data.arrayBuffer()).toString('base64');
+    await encolar('subir_imagen', {
+      path: ENDPOINTS.subirImagen,
+      parches: parchesSubirImagen(b64),
+      // Para poder encontrar este trabajo despues sin mirar el cuerpo entero.
+      fotoId,
+    });
+  }
+  return '';
+}
+
+/**
+ * ¿Se puede parchear la cara sin romper el pedido?
+ *
+ * Se pregunta a la PLANTILLA guardada, no al esquema. Si no se puede saber
+ * —cuerpo ausente o truncado— no se parchea: no poder comprobar algo no autoriza
+ * a asumirlo.
+ */
+async function caraParcheable(): Promise<boolean> {
+  try {
+    const guardadas = sanearPlantillas(JSON.parse((await getSetting(KEY_PLANTILLAS)) || '[]'));
+    const p = guardadas.find((x) => x.clase === 'flowMedia:batchGenerateImages');
+    return tieneCaraParcheable(p?.cuerpo ?? null) === true;
+  } catch {
+    return false;
+  }
 }
 
 /**

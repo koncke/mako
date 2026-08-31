@@ -102,6 +102,40 @@ export function parchesEstadoClip(operacion: string): Record<string, unknown> {
  * storage propio, que además es lo que hay que hacer igual para pegar las siete
  * tomas. Esto es lo que lo hace visible hoy, no el destino.
  */
+/**
+ * Subir una foto a Flow. MEDIDO el 31/08/2026 del pedido que hace la propia
+ * página cuando alguien arrastra una imagen.
+ *
+ *     POST /v1/flow/uploadImage
+ *     {"clientContext":{"projectId":"…","tool":"PINHOLE"},"imageBytes":"<base64>"}
+ *
+ * ⚠️ DOS COSAS QUE FLOWKIT DECÍA MAL, y las dos importan:
+ *
+ *  · NO lleva `mimeType`. El contrato de terceros lo incluía; el pedido real sólo
+ *    manda los bytes. Google los reconoce solo.
+ *  · NO lleva `recaptchaContext`. Subir una imagen no acuña captcha, aunque sea
+ *    una escritura — por eso `subir_imagen` va en `SIN_CAPTCHA`. Agregarle un
+ *    token que la app no manda es inventar un campo, que es exactamente lo que
+ *    produjo los dos HTTP 400 de esta noche.
+ *
+ * La respuesta trae el id en `media.name` — un OBJETO, no un array, a diferencia
+ * de las respuestas de generación.
+ *
+ * `imageBytes` va SIN el prefijo `data:...;base64,`: es base64 pelado.
+ */
+export function parchesSubirImagen(base64: string): Record<string, unknown> {
+  return { imageBytes: base64 };
+}
+
+/**
+ * Qué `mediaId` de Flow le corresponde a cada foto nuestra.
+ *
+ * Se guarda para no volver a subir la misma foto en cada anuncio: subirla otra
+ * vez no rompe nada pero gasta tráfico contra la sesión del cliente, y este
+ * proyecto ya midió lo que cuesta el ritmo de máquina contra Google.
+ */
+export const KEY_CARAS_FLOW = 'flow.caras';
+
 /** Donde queda anotada la variante que SI trae el video, una vez medida. */
 export const KEY_VARIANTE_VIDEO = 'flow.varianteVideo';
 
@@ -300,6 +334,10 @@ const QUE_HACER_SIN_PLANTILLA: Record<string, string> = {
     'Todavía no vi a Google Flow animar una imagen. Abre Flow, anima UNA imagen a mano, y vuelve a intentar',
   credits:
     'Todavía no vi a Google Flow leer tu saldo. Abre Flow y espera unos segundos con la pestaña a la vista',
+  // Se hace UNA vez por navegador y queda guardada del lado del servidor, así que
+  // ningún cliente la va a leer dos veces.
+  uploadImage:
+    'Todavía no vi a Google Flow recibir una foto. Abre Flow y arrastra CUALQUIER imagen a un proyecto, una sola vez, y vuelve a intentar',
 };
 
 export function clasificarFalla(status: number, cuerpo: unknown): { motivo: MotivoFalla; error: string; reintentable: boolean } {

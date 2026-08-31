@@ -60,6 +60,17 @@ export type PedidoImagenEscena = {
   seed: number;
   /** El lote. Va uno por escena, como el `batchId` del clip. */
   batchId: string;
+  /**
+   * El `mediaId` de la cara elegida dentro de Flow, si hay una.
+   *
+   * ⚠️ Sólo se manda cuando el SERVIDOR verificó que la plantilla ya trae un
+   * `imageInputs[0]`. `parchar` INVENTA el tramo que falta: sobre una plantilla
+   * sin ese array crearía `[{ name }]` sin su `imageInputType`, devolvería éxito,
+   * y saldría un cuerpo mal formado construido por nosotros — sin `PARCHE_FALLO`
+   * y sin nada que lo delate. Es exactamente lo que el espejo existe para no
+   * hacer.
+   */
+  cara?: string;
 };
 
 /**
@@ -69,7 +80,9 @@ export type PedidoImagenEscena = {
  * conserva de la plantilla: el modelo, la cara, el `clientContext`, el
  * `requestContext` y lo que Google agregue mañana sin avisar.
  *
- * ⚠️ NO se parchea `imageInputs`. La cara sale de la plantilla —de la imagen que
+ * ⚠️ `imageInputs` se parchea SÓLO si la persona eligió una cara y el servidor
+ * comprobó que la plantilla ya tiene ese array. Sin eso, la cara sale de la
+ * plantilla —de la imagen que
  * la persona generó a mano con su foto— y por eso es la misma cara que ya usa el
  * paso de video. El día que haga falta cambiarla, se parchea ese camino con la
  * forma medida: `{ imageInputType: 'IMAGE_INPUT_TYPE_REFERENCE', name: <id> }`.
@@ -78,6 +91,14 @@ export function parchesImagenEscena(p: PedidoImagenEscena): Record<string, unkno
   return {
     // El prompt viaja igual que en el clip: partes de texto, no un string suelto.
     'requests.0.structuredPrompt': { parts: [{ text: p.prompt }] },
+    // ⚠️ LA CARA, cuando la persona eligió una. MEDIDO: en el pedido real vive en
+    // `requests[0].imageInputs[0].name`, al lado de un `imageInputType` que NO se
+    // toca — por eso va por parche y no por cuerpo: `fundir` reemplazaría el array
+    // entero y se llevaría ese campo puesto.
+    //
+    // Sin `cara` no se escribe nada y la plantilla manda, que es como funcionaba
+    // antes: la foto que la persona ya tenía en Flow.
+    ...(p.cara ? { 'requests.0.imageInputs.0.name': p.cara } : {}),
     // La semilla explícita: reintentar la misma escena tiene que dar la misma
     // imagen, o «cambié el prompt y salió distinto» sería indistinguible de
     // «salió distinto porque sí».

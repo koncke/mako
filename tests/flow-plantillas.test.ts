@@ -12,6 +12,7 @@ import assert from 'node:assert/strict';
 
 import {
   sanearPlantillas, fundirPlantillas, faltantes, claseDePath, CLASES_UTILES,
+  tieneCaraParcheable,
   type PlantillaEspejo,
 } from '../lib/flow-plantillas';
 
@@ -157,4 +158,38 @@ test('la basura no rompe nada', () => {
   assert.deepEqual(sanearPlantillas(null), []);
   assert.deepEqual(sanearPlantillas('x'), []);
   assert.deepEqual(sanearPlantillas([null, 3, { clase: 'credits' }]), []);
+});
+
+// =============================================================================
+// La guarda de la cara: `parchar` inventa lo que falta, así que hay que preguntar
+// =============================================================================
+
+test('la cara sólo se parchea si la plantilla ya trae imageInputs completo', () => {
+  // ⚠️ El cuerpo MEDIDO del pedido de imagen de Flow, 31/08/2026.
+  const real = JSON.stringify({
+    clientContext: { projectId: 'p', tool: 'PINHOLE' },
+    requests: [{
+      imageModelName: 'NARWHAL',
+      structuredPrompt: { parts: [{ text: 'x' }] },
+      imageInputs: [{ imageInputType: 'IMAGE_INPUT_TYPE_REFERENCE', name: '268d674a-x' }],
+    }],
+  });
+  assert.equal(tieneCaraParcheable(real), true);
+
+  // Sin el array: parchear crearía `[{name}]` SIN su `imageInputType`, devolvería
+  // éxito, y saldría un cuerpo mal formado hecho por nosotros — con una imagen de
+  // resultado y ningún error. Es el modo de falla más caro que hay.
+  assert.equal(tieneCaraParcheable(JSON.stringify({ requests: [{ seed: 1 }] })), false);
+
+  // Con el array pero SIN el tipo: media plantilla es peor que ninguna.
+  assert.equal(
+    tieneCaraParcheable(JSON.stringify({ requests: [{ imageInputs: [{ name: 'x' }] }] })),
+    false,
+  );
+
+  // ⚠️ `null` NO es `false`: es «no se puede saber». El cuerpo se guarda cortado a
+  // 20.000 caracteres, así que puede llegar sin parsear. No poder comprobar algo
+  // no autoriza a asumirlo — con `null` no se parchea.
+  assert.equal(tieneCaraParcheable(null), null);
+  assert.equal(tieneCaraParcheable('{"requests":[{"imageInp'), null);
 });

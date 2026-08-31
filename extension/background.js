@@ -263,7 +263,10 @@ async function respaldoDe(clase) {
  * porque alli decide otra cosa —si una respuesta cacheada puede contestar— y
  * renombrarlo obligaria a que las dos puntas se actualicen a la vez.)
  */
-const SIN_CAPTCHA = new Set(['creditos', 'estado_clips']);
+// ⚠️ `subir_imagen` esta aca aunque ESCRIBA. El pedido real de Flow —medido— no
+// lleva `recaptchaContext`, y agregarle un token que la app no manda es inventar
+// un campo: exactamente lo que produjo los dos HTTP 400 de esta noche.
+const SIN_CAPTCHA = new Set(['creditos', 'estado_clips', 'subir_imagen']);
 
 /**
  * El nombre de la accion con la que se acuna el token de reCAPTCHA.
