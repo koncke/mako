@@ -68,9 +68,14 @@ const LIENZO = 'min(62vh, 720px)';
  *  · 391 px = 220 × 16/9, y 220 es el ancho exacto de la tarjeta del catálogo
  *             (`Plantilla`). El ejemplo nunca crece más que el objeto que la
  *             persona apretó dos pantallas antes.
- *  · × .82  = el techo contra el medio que SÍ se está decidiendo. `LIENZO` se
- *             REFERENCIA y no se retipea: si cambia, esta proporción sigue
- *             siendo cierta.
+ *  ⚠️ ERA `min(391px, LIENZO * .67)`, y después `.82`. Hoy es el LIENZO entero:
+ *     el dueño pidió que al correrse a la derecha «mantenga su tamaño», y eso
+ *     sólo se cumple si la caja del riel mide lo mismo que la del centro — con
+ *     cualquier proporción menor el viaje incluye un encogimiento.
+ *
+ *     La regla que las versiones anteriores protegían —una referencia no compite
+ *     con lo que se está decidiendo— la resuelve ahora el CERRAR: el ejemplo
+ *     grande está mientras se lo mira, y se va a una miniatura de un clic.
  *
  * ⚠️ Medirlo contra el VIEWPORT era la trampa: a 860 px de alto empataba con el
  * héroe y por debajo lo superaba. Una referencia que compite en tamaño con lo que
@@ -79,7 +84,21 @@ const LIENZO = 'min(62vh, 720px)';
  * `vh` y no `dvh`, igual que LIENZO: dos alturas que se comparan salen de la
  * misma unidad o se cruzan solas en el navegador del teléfono.
  */
-const EJEMPLO = `min(520px, calc(${LIENZO} * .82))`;
+const EJEMPLO = LIENZO;
+
+/**
+ * Cerrado: una miniatura, no una tira.
+ *
+ * El dueño: «cuando se cierra… se pone más chiquito arriba a la derecha. Pero no
+ * pegado al borde, sino manteniendo una simetría con el resto». Antes plegar
+ * dejaba una tira vertical de 68 px con el rótulo de canto — reconocible como
+ * control, pero ya no como VIDEO, así que la persona perdía de vista qué era lo
+ * que había cerrado. Una miniatura sigue siendo la cosa; una tira es un botón.
+ *
+ * La simetría sale sola: el riel centra su contenido dentro de `--riel-ancho`, y
+ * ese ancho se deriva del alto + los mismos 48 px de margen que usa abierto.
+ */
+const EJEMPLO_CERRADO = 'min(190px, 24vh)';
 
 /**
  * El ancho del riel se DERIVA del alto del ejemplo. No es un número.
@@ -96,7 +115,8 @@ const EJEMPLO = `min(520px, calc(${LIENZO} * .82))`;
  * mantener sincronizadas.
  */
 const RIEL = `calc(${EJEMPLO} * 9 / 16 + 48px)`;
-const RIEL_PLEGADO = 68;
+const RIEL_CERRADO = `calc(${EJEMPLO_CERRADO} * 9 / 16 + 48px)`;
+
 
 // ── Dónde está el anuncio ───────────────────────────────────────────────────
 
@@ -418,7 +438,7 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
   // sumar padding que viven en otros archivos, y ese acople es lo que hacía que
   // la pieza «flotara» al cambiar cualquier cosa alrededor.
   const anchoRiel = puesta?.ejemplo
-    ? ({ ['--riel-ancho' as string]: ejemploAbierto ? RIEL : `${RIEL_PLEGADO}px` } as React.CSSProperties)
+    ? ({ ['--riel-ancho' as string]: ejemploAbierto ? RIEL : RIEL_CERRADO } as React.CSSProperties)
     : undefined;
 
   return (
@@ -635,7 +655,7 @@ function HuecoDelEjemplo({ puesta, abierta, slot }: {
   return (
     <aside
       className={`mk-riel${abierta ? '' : ' mk-riel--plegado'}`}
-      style={{ ['--mk-riel-alto' as string]: EJEMPLO }}
+      style={{ ['--mk-riel-alto' as string]: abierta ? EJEMPLO : EJEMPLO_CERRADO }}
     >
       <p className="mk-riel__para">Así se verá tu anuncio</p>
       {/* El hueco: mismo alto y misma proporción que el video, sin dibujar nada.

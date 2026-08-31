@@ -31,7 +31,14 @@ import type { Puesta } from '@/lib/puestas-data';
 
 /** La curva de la casa. Ya está tres veces en ui.css. */
 const CURVA = 'cubic-bezier(.16,.84,.34,1)';
-const MS = 520;
+/**
+ * ⚠️ 900 y no 520. El dueño: «quiero que la preview se desplace más lento a la
+ * derecha». No es gusto: el viaje al riel es lo ÚNICO que explica por qué esa
+ * cosa está al costado —la persona tiene que poder seguirla con el ojo— y a 520
+ * ms sobre ~700 px el ojo la pierde y aparece ya puesta, que se lee como que se
+ * dibujó otra.
+ */
+const MS = 900;
 
 export type Estacion = 'tarjeta' | 'centro' | 'riel';
 
@@ -48,6 +55,9 @@ function volar(el: HTMLElement, hasta: DOMRect, alTerminar?: () => void) {
   // Escala uniforme: las tres cajas son 9:16 por construcción, así que alcanza con
   // una. Escalar los dos ejes por separado deformaría la cara si alguna caja no
   // respetara la proporción.
+  // Hoy vale 1 en el viaje del centro al riel —las dos cajas miden lo mismo, que
+  // es lo que pidió el dueño: «que mantenga su tamaño»—. Se calcula igual porque
+  // el viaje desde la TARJETA del catálogo sí escala.
   const escala = desde.width === 0 ? 1 : hasta.width / desde.width;
   const dx = hasta.left + hasta.width / 2 - (desde.left + desde.width / 2);
   const dy = hasta.top + hasta.height / 2 - (desde.top + desde.height / 2);
@@ -55,13 +65,20 @@ function volar(el: HTMLElement, hasta: DOMRect, alTerminar?: () => void) {
   // ⚠️ El destino se escribe ANTES de animar, y la animación va al revés: del
   // lugar viejo al nuevo. Así, si algo la interrumpe, el elemento ya está donde
   // tiene que estar en vez de quedarse a mitad de camino para siempre.
+  // ⚠️ La caja se escribe SIN transición: acá el movimiento lo cuenta el
+  // `transform` de abajo, y dejar la transición de CSS puesta haría que las dos
+  // animaciones tiren del mismo elemento hacia el mismo lado con tiempos
+  // distintos. La transición existe para el otro caso —abrir y cerrar, que
+  // cambian la caja sin volar— y se repone al terminar.
+  el.style.transition = 'none';
   el.style.left = `${hasta.left}px`;
   el.style.top = `${hasta.top}px`;
   el.style.width = `${hasta.width}px`;
   el.style.height = `${hasta.height}px`;
+  const reponer = () => { el.style.transition = ''; };
 
   const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  if (reduce) { alTerminar?.(); return; }
+  if (reduce) { reponer(); alTerminar?.(); return; }
 
   const anim = el.animate(
     [
@@ -70,8 +87,8 @@ function volar(el: HTMLElement, hasta: DOMRect, alTerminar?: () => void) {
     ],
     { duration: MS, easing: CURVA, fill: 'none' },
   );
-  anim.addEventListener('finish', () => alTerminar?.(), { once: true });
-  anim.addEventListener('cancel', () => alTerminar?.(), { once: true });
+  anim.addEventListener('finish', () => { reponer(); alTerminar?.(); }, { once: true });
+  anim.addEventListener('cancel', () => { reponer(); alTerminar?.(); }, { once: true });
 }
 
 export function PreviaVolante({ puesta, estacion, cajaTarjeta, slotCentro, slotRiel, plegado, onToggle }: {
@@ -209,9 +226,20 @@ export function PreviaVolante({ puesta, estacion, cajaTarjeta, slotCentro, slotR
   }, [estacion, slotCentro, slotRiel]);
 
   const enRiel = estacion === 'riel';
+  /** Cerrado sólo tiene sentido en el riel: en el centro el ejemplo ES la pantalla. */
+  const cerrado = plegado && enRiel;
+
+  /**
+   * Cerrar SIEMPRE silencia.
+   *
+   * El dueño: «cuando se cierra, básicamente se mutea». Y es lo correcto aunque
+   * no lo hubiera pedido: una miniatura de 100 px hablando en una esquina es un
+   * sonido sin fuente visible — la persona busca de dónde sale en vez de escuchar.
+   */
+  const cerrar = () => { setConSonido(false); onToggle(); };
 
   return (
-    <div ref={caja} className={`mk-volante${plegado && enRiel ? ' mk-volante--plegado' : ''}`}>
+    <div ref={caja} className={`mk-volante${cerrado ? ' mk-volante--plegado' : ''}`}>
       <video
         ref={video}
         // La `key` es la PUESTA y no el `src`: cambiar de archivo para el sonido
@@ -221,41 +249,64 @@ export function PreviaVolante({ puesta, estacion, cajaTarjeta, slotCentro, slotR
         poster={puesta.ejemplo?.poster}
         autoPlay
         loop
-        muted={!conSonido}
+        muted={!conSonido || cerrado}
         playsInline
         className="mk-volante__video"
       />
 
-      {/* El sello quemado ADENTRO del recorte: es lo que dice «esto es un
-          ejemplo» sin gastar una palabra, y sobrevive a cualquier tamaño. En el
-          riel además es el control para plegar. */}
-      <button
-        type="button"
-        className="mk-sello mk-volante__sello"
-        onClick={enRiel ? onToggle : undefined}
-        aria-expanded={enRiel ? !plegado : undefined}
-        tabIndex={enRiel ? 0 : -1}
-      >
-        <span className="mk-volante__nombre">
-          {plegado && enRiel ? 'Ver el ejemplo' : `Ejemplo · ${puesta.nombre}`}
-        </span>
-        {enRiel && <span className="mk-volante__chev"><Icon name="chevron" size={15} /></span>}
-      </button>
-
-      {/* ⚠️ NO dice «desmutear»: los clips cortos NO TIENEN pista de audio —370 KB
-          y 306 KB, medido— y los completos sí. El botón cambia de archivo. Sólo se
-          dibuja si esa versión existe: un control que no puede cumplir su promesa
-          no se dibuja. */}
-      {puesta.ejemplo?.completo && !(plegado && enRiel) && (
+      {/* CERRADO: la miniatura entera es el botón para volver a abrirla. Un
+          control chico encima de algo chico es dos objetos donde alcanza uno. */}
+      {cerrado && (
         <button
           type="button"
-          className="mk-volante__sonido"
-          onClick={() => setConSonido((v) => !v)}
-          aria-pressed={conSonido}
-          title={conSonido ? 'Silenciar' : 'Escuchar el ejemplo'}
+          className="mk-volante__abrir"
+          onClick={onToggle}
+          aria-label={`Ver el ejemplo de ${puesta.nombre}`}
         >
-          <Icon name={conSonido ? 'sonido' : 'mic'} size={14} />
+          <span className="mk-volante__abrir-ico"><Icon name="eye" size={16} /></span>
         </button>
+      )}
+
+      {!cerrado && (
+        <>
+          {/* ⚠️ EL SELLO YA NO ES UN BOTÓN. Era el que plegaba, y ahora eso lo
+              hace la X de arriba: dejarlo clicable daría dos controles para la
+              misma acción, uno de ellos sin ninguna marca de que lo es. Queda
+              como lo que siempre fue de verdad — el rótulo que dice qué es esto. */}
+          <span className="mk-sello mk-volante__sello">
+            <span className="mk-volante__nombre">Ejemplo · {puesta.nombre}</span>
+          </span>
+
+          {/* CERRAR, arriba a la derecha. Donde el dueño lo pidió, y donde se lo
+              busca: es la esquina donde cierra todo lo demás de la app. */}
+          {enRiel && (
+            <button
+              type="button"
+              className="mk-volante__cerrar"
+              onClick={cerrar}
+              title="Cerrar el ejemplo"
+              aria-label="Cerrar el ejemplo"
+            >
+              <Icon name="x" size={15} />
+            </button>
+          )}
+
+          {/* ⚠️ NO dice «desmutear»: los clips cortos NO TIENEN pista de audio
+              —370 KB y 306 KB, medido— y los completos sí. El botón cambia de
+              archivo. Sólo se dibuja si esa versión existe: un control que no
+              puede cumplir su promesa no se dibuja. */}
+          {puesta.ejemplo?.completo && (
+            <button
+              type="button"
+              className="mk-volante__sonido"
+              onClick={() => setConSonido((v) => !v)}
+              aria-pressed={conSonido}
+              title={conSonido ? 'Silenciar' : 'Escuchar el ejemplo'}
+            >
+              <Icon name={conSonido ? 'sonido' : 'mic'} size={14} />
+            </button>
+          )}
+        </>
       )}
     </div>
   );

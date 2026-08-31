@@ -1647,6 +1647,15 @@
   border-radius: 18px;
   overflow: hidden;
   background: #000;
+  /* Abrir y cerrar cambian la CAJA sin volar: sin esto el ejemplo salta de
+     tamaño de un cuadro al otro y no se entiende que es el mismo objeto.
+     ⚠️ `volar()` la apaga mientras dura el vuelo y la repone al terminar: ahí el
+     movimiento lo cuenta el `transform`, y dos animaciones sobre el mismo
+     elemento se pelean. */
+  transition: left .42s cubic-bezier(.16,.84,.34,1),
+              top .42s cubic-bezier(.16,.84,.34,1),
+              width .42s cubic-bezier(.16,.84,.34,1),
+              height .42s cubic-bezier(.16,.84,.34,1);
   /* `will-change` sólo acá: el elemento se anima de verdad y es uno solo. Ponerlo
      de más obliga al navegador a promover capas que después no usa. */
   will-change: transform;
@@ -1665,29 +1674,51 @@
   align-items: flex-end;
   gap: 8px;
   width: 100%;
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
   text-align: left;
 }
 .mk-volante__nombre { flex: 1; min-width: 0; }
-.mk-volante__chev {
-  flex: none;
-  line-height: 0;
-  color: rgba(255,255,255,.75);
-  transform: rotate(-90deg);
-  transition: transform .14s ease;
-}
-.mk-volante--plegado .mk-volante__chev { transform: rotate(90deg); }
-.mk-volante__sello:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
-/* El sonido: un botón redondo arriba a la derecha, sobre el video. Va ahí y no
-   debajo porque el elemento vuela: todo lo que le pertenece tiene que viajar
-   ADENTRO de su caja. */
-.mk-volante__sonido {
+/* CERRAR: arriba a la derecha, donde el dueño lo pidió y donde cierra todo lo
+   demás de la app. Comparte anatomía con el de sonido — misma pieza, dos
+   configuraciones — así que las dos salen del mismo bloque de abajo. */
+.mk-volante__cerrar { top: 9px; right: 9px; }
+
+/* El SONIDO baja: «ese botón pasa a estar abajo». Va sobre el sello y a su
+   derecha, que es el hueco que el rótulo deja libre. */
+.mk-volante__sonido { bottom: 11px; right: 9px; }
+
+/* CERRADO: la miniatura entera es el botón. El ícono aparece al pasar por
+   encima; en reposo no tapa nada, que es todo el punto de haberla achicado. */
+.mk-volante__abrir {
   position: absolute;
-  top: 9px;
-  right: 9px;
+  inset: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.mk-volante__abrir-ico {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: rgba(0,0,0,.55);
+  color: #fff;
+  opacity: 0;
+  transition: opacity .14s ease;
+}
+.mk-volante__abrir:hover .mk-volante__abrir-ico,
+.mk-volante__abrir:focus-visible .mk-volante__abrir-ico { opacity: 1; }
+.mk-volante__abrir:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* Los dos controles redondos sobre el video. Van ADENTRO de la caja y no debajo
+   porque el elemento vuela: todo lo que le pertenece tiene que viajar con él. */
+.mk-volante__sonido,
+.mk-volante__cerrar {
+  position: absolute;
   display: grid;
   place-items: center;
   width: 30px;
@@ -1699,15 +1730,18 @@
   cursor: pointer;
   transition: background .14s ease;
 }
-.mk-volante__sonido:hover { background: rgba(0,0,0,.78); }
-.mk-volante__sonido:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.mk-volante__sonido:hover,
+.mk-volante__cerrar:hover { background: rgba(0,0,0,.78); }
+.mk-volante__sonido:focus-visible,
+.mk-volante__cerrar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
-/* Plegado: la caja se angosta y el video se corre. El nodo NO se desmonta — es la
+/* Cerrado: sigue siendo el mismo video, más chico. El nodo NO se desmonta — es la
    condición para poder volarlo después. */
+.mk-volante--plegado { border-radius: 12px; }
 .mk-volante--plegado .mk-volante__video { object-position: center; }
 
 @media (prefers-reduced-motion: reduce) {
-  .mk-volante, .mk-volante__chev, .mk-volante__sonido { transition: none; }
+  .mk-volante, .mk-volante__sonido, .mk-volante__cerrar, .mk-volante__abrir-ico { transition: none; }
   .mk-volante { will-change: auto; }
 }
 
