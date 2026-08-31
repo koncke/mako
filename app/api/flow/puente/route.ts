@@ -17,7 +17,11 @@
 // custodia que hoy no existe y que no hace falta.
 
 import { mediaIdDeReferencia, KEY_CARA_FLOW } from '@/lib/flow-clip-referencias';
-import { setSetting } from '@/lib/settings';
+import { getSetting, setSetting } from '@/lib/settings';
+import {
+  sanearPlantillas, fundirPlantillas, faltantes, KEY_PLANTILLAS,
+  type PlantillaEspejo,
+} from '@/lib/flow-plantillas';
 import { runWithWorkspace } from '@/lib/workspace';
 import { NextResponse, type NextRequest } from 'next/server';
 import {
@@ -147,6 +151,45 @@ export async function POST(req: NextRequest) {
     if (cara) await runWithWorkspace(ws, () => setSetting(KEY_CARA_FLOW, cara));
   }
 
+  // ── Y LAS PLANTILLAS TAMBIÉN SE APRENDEN ─────────────────────────────────
+  //
+  // Lo de arriba guardaba UN dato aprendido de las plantillas. Esto guarda las
+  // plantillas, que es de dónde salía ese dato y todo lo demás.
+  //
+  // El dueño lo preguntó así: «¿por qué me pides constantemente generar imágenes
+  // o videos? ¿no te basta la data de todas las veces que lo hemos generado?».
+  // No bastaba, y no era una limitación: la copia del pedido de Flow vivía sólo en
+  // el navegador —la memoria de la pestaña, que muere con el F5, y
+  // `chrome.storage.local`, que se va con el perfil—. De este lado no quedaba
+  // nada, así que cada olvido del navegador volvía a pedirle que generara algo a
+  // mano sobre algo que ya había hecho decenas de veces.
+  //
+  // ⚠️ Se FUNDE, no se pisa. Un latido puede traer menos clases que el anterior
+  // (la pestaña se recargó recién), y pisar con eso sería borrar lo aprendido
+  // justo cuando más falta hace. Y una plantilla SIN CUERPO nunca le gana a una
+  // completa: esa cáscara no se distingue de una sana hasta que Google contesta
+  // 400.
+  const llegan = sanearPlantillas(body.plantillas);
+  let guardadas: PlantillaEspejo[] = [];
+  if (llegan.length) {
+    guardadas = await runWithWorkspace(ws, async () => {
+      const previas = sanearPlantillas(JSON.parse((await getSetting(KEY_PLANTILLAS)) || '[]'));
+      const fundidas = fundirPlantillas(previas, llegan);
+      await setSetting(KEY_PLANTILLAS, JSON.stringify(fundidas));
+      return fundidas;
+    });
+  } else {
+    guardadas = await runWithWorkspace(ws, async () =>
+      sanearPlantillas(JSON.parse((await getSetting(KEY_PLANTILLAS)) || '[]')));
+  }
+
+  // Lo que el navegador NO tiene y nosotros sí. Sólo eso vuelve: mandar las diez
+  // en cada latido serían 150 KB cada quince segundos por nada.
+  const clasesQueTiene = Array.isArray(body.clases) ? body.clases.map(String) : [];
+  const plantillasFaltantes = clasesQueTiene.length
+    ? faltantes(guardadas, clasesQueTiene)
+    : [];
+
   // ── 3. Y se lleva lo que sigue ────────────────────────────────────────────
   // `tomarTrabajos` devuelve vacío si la sesión está MARCADA: ahí hay que parar,
   // no seguir pidiendo. El puente lo ve por `pausado` y espacia el polling.
@@ -166,6 +209,9 @@ export async function POST(req: NextRequest) {
     // una persona, no hay nada que disimular. Que el número viaje en cada
     // respuesta permite bajarlo sin que el cliente actualice la extensión.
     cooldownMs: LIMITES.cooldownMs,
+    // Las que le faltan al navegador. Con esto, un F5 —o un perfil nuevo, o
+    // reinstalar la extensión— deja de costar «generá uno a mano».
+    ...(plantillasFaltantes.length ? { plantillas: plantillasFaltantes } : {}),
     // Sale de lo GUARDADO y no del auto-reporte: `estado` lo escribe la extensión,
     // que nunca dice `marcada`, así que esto era siempre false y el puente jamás
     // se enteraba de que había que parar.

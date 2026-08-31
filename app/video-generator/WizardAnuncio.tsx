@@ -39,6 +39,7 @@ import { Icon } from '../_components/icons';
 import type { PlanGuardado, EstadoContextoVideo } from './video-datos';
 import type { Puesta } from '@/lib/puestas-data';
 import { causaFlow, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
+import { useExtensionInstalada, AvisoExtensionVieja } from './extension-instalada';
 import {
   escribirEscenasAction, corregirEscenaAction, generarImagenAction, estadoImagenAction,
   elegirImagenAction, subirImagenEscenaAction, confirmarEscenaAction,
@@ -336,6 +337,10 @@ function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia,
    */
   alLado?: React.ReactNode;
 }) {
+  // Qué versión de la extensión corre en el navegador de quien está mirando. Es
+  // lo único de esta pantalla que puede explicar por qué todo lo demás falla.
+  const extensionInstalada = useExtensionInstalada();
+
   // `Estudio` se monta UNA vez y en posición estable, así que este estado
   // sobrevive a los siete pasos: el ejemplo no se cierra solo al avanzar.
   const [ejemploAbierto, setEjemploAbierto] = useState(true);
@@ -360,6 +365,17 @@ function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia,
           confirmada, cada toma— asi que salir no pierde nada y volver a entrar
           cae en el mismo lugar. Preguntar «¿seguro?» sobre algo que no se pierde
           es enseñar a ignorar las preguntas. */}
+      {/* ⚠️ ARRIBA DE TODO Y ANTES QUE NADA, y no es ruido: cuando aparece,
+          NADA de esta pantalla puede funcionar. Una extensión vieja no da un
+          error que se parezca a «tu extensión es de hace tres horas» — da un
+          HTTP 400 de Google, o un cronómetro que no termina, o un pedido que
+          sale con un campo que ya no existe.
+          El aviso ya existía, pero sólo en el panel de conectar el puente. La
+          falla ocurre acá, que es donde alguien pasa una hora generando. */}
+      <div style={{ width: '100%', maxWidth: 900 }}>
+        <AvisoExtensionVieja instalada={extensionInstalada} compacto />
+      </div>
+
       <div style={{
         display: 'flex', alignItems: 'center', width: '100%', maxWidth: 900, gap: 16,
       }}>

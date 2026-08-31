@@ -39,87 +39,16 @@ import {
 import { puedeInstalarExtension, type PuedeInstalar } from '@/lib/navegador';
 import { leerSaldo } from '@/lib/flow-protocolo';
 import { EXTENSION_VERSION } from '@/lib/extension-version';
+// ⚠️ `esMasVieja`, el hook y el aviso VIVÍAN ACÁ, y por eso el wizard no los
+// tenía. Se mudaron enteros: el aviso hacía falta en dos pantallas y la copia
+// habría sido la tercera de una función que ya está duplicada en la extensión.
+import {
+  esMasVieja, useExtensionInstalada, AvisoExtensionVieja,
+} from './extension-instalada';
 import { rehabilitarPuenteAction } from './puente-actions';
-
-/**
- * ¿`a` es una versión anterior a `b`?
- *
- * Compara número por número, no como texto: `'0.10.0' < '0.6.0'` es TRUE en
- * orden alfabético, que es justo el error que hace falta evitar cuando la
- * segunda cifra pasa de un dígito a dos.
- */
-function esMasVieja(a: string, b: string): boolean {
-  const na = a.split('.').map((n) => Number(n) || 0);
-  const nb = b.split('.').map((n) => Number(n) || 0);
-  for (let i = 0; i < Math.max(na.length, nb.length); i++) {
-    const x = na[i] ?? 0;
-    const y = nb[i] ?? 0;
-    if (x !== y) return x < y;
-  }
-  return false;
-}
 
 const FLOW_URL = 'https://labs.google/fx/tools/flow';
 
-/**
- * ¿Está la extensión instalada en ESTE navegador?
- *
- * Lo dice el atributo que su content script pone en `<html>` al cargar la página.
- * No se usa `externally_connectable` —que sería lo obvio— porque ese mecanismo
- * necesita el ID de la extensión, y el ID CAMBIA cuando se publica en la Chrome
- * Web Store: Google asigna el suyo. Por el DOM funciona igual instalada a mano o
- * desde la tienda.
- */
-function useExtensionInstalada(): string | false | null {
-  // null = todavía no se sabe. Importa: mostrar «no la tenés» durante un
-  // instante a alguien que sí la tiene es peor que no mostrar nada.
-  //
-  // Devuelve la VERSIÓN y no un booleano, porque el content script ya la escribe
-  // en el atributo y tirarla costó caro: al arreglar un bug de la extensión no
-  // había forma de saber si el cliente estaba corriendo el arreglo o la versión
-  // vieja, así que «sigue igual» era indistinguible de «no lo recargaste». Se
-  // diagnosticó a ciegas tres veces.
-  const [instalada, setInstalada] = useState<string | false | null>(null);
-
-  useEffect(() => {
-    const mirar = () => document.documentElement.getAttribute('data-mako-puente');
-    const v = mirar();
-    if (v) { setInstalada(v); return; }
-    // El content script corre en `document_start`, pero una recarga con la
-    // extensión recién instalada puede llegar tarde: se mira un rato antes de
-    // afirmar que no está.
-    let n = 0;
-    const t = window.setInterval(() => {
-      const w = mirar();
-      if (w) { setInstalada(w); window.clearInterval(t); return; }
-      if (++n >= 6) { setInstalada(false); window.clearInterval(t); }
-    }, 250);
-
-    // Y se vuelve a mirar cuando la pestaña recupera el foco.
-    //
-    // Con el zip esto no hacía falta: instalar era un desvío por
-    // `chrome://extensions` que terminaba en una recarga. Desde la tienda el
-    // camino natural es «clic → pestaña nueva → instalar → volver acá», y al
-    // volver la respuesta seguía siendo la de hace un minuto. El content script
-    // NO se inyecta hacia atrás en pestañas ya abiertas, así que el atributo
-    // tampoco aparece solo: lo único honesto que se puede hacer al detectar el
-    // regreso es ofrecer la recarga, no simularla.
-    const alVolver = () => {
-      if (document.visibilityState !== 'visible') return;
-      const w = mirar();
-      if (w) setInstalada(w);
-      else setInstalada((antes) => (antes === false ? false : antes));
-    };
-    document.addEventListener('visibilitychange', alVolver);
-
-    return () => {
-      window.clearInterval(t);
-      document.removeEventListener('visibilitychange', alVolver);
-    };
-  }, []);
-
-  return instalada;
-}
 
 /**
  * ¿Este navegador puede instalar la extensión?
@@ -494,19 +423,7 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
         Ahora se ordenan de verdad. Si la instalada va ADELANTE, no se dice nada:
         no hay nada que hacer.
       */}
-      {typeof instalada === 'string' && esMasVieja(instalada, EXTENSION_VERSION) && (
-        <div style={{ marginBottom: 12 }}>
-          <Alert
-            tono="warn"
-            accion={{ label: 'Descargar la nueva', href: EXTENSION_URL_ZIP }}
-          >
-            <strong>Tu extensión quedó vieja.</strong> Tienes la <code>{instalada}</code> y
-            la actual es la <code>{EXTENSION_VERSION}</code>. Descárgala, descomprímela
-            sobre la misma carpeta y usa el botón de recargar (↻) en{' '}
-            <code style={{ fontFamily: MONO, fontSize: 12 }}>chrome://extensions</code>.
-          </Alert>
-        </div>
-      )}
+      <AvisoExtensionVieja instalada={instalada} />
 
       {instalada === false && puedeInstalar === 'no' && (
         <div style={{ marginBottom: 12 }}>

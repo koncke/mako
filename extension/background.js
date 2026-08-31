@@ -156,6 +156,46 @@ async function guardarPlantillas(tabId) {
   } catch { /* si la pestana no responde, no hay nada que guardar */ }
 }
 
+/**
+ * Todo lo guardado, para mandarselo al servidor.
+ *
+ * Sin esto, lo que el navegador aprendio de Flow muere con el perfil — y la app
+ * vuelve a pedir «genera UNA imagen a mano» sobre algo que el cliente ya hizo
+ * decenas de veces. El dueno lo pregunto con todas las letras.
+ */
+async function todasLasPlantillas() {
+  try {
+    const mapa = (await chrome.storage.local.get(CLAVE_PLANTILLAS))[CLAVE_PLANTILLAS] || {};
+    return Object.entries(mapa).map(([clase, p]) => ({ ...p, clase }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Guarda las que mando el servidor, para las clases que ACA no hay.
+ *
+ * ⚠️ Nunca pisa una local. La local es de esta maquina y de esta sesion; la del
+ * servidor puede ser de otro dia. Se usa para llenar huecos, no para sincronizar.
+ */
+async function sembrarPlantillas(lista) {
+  try {
+    if (!Array.isArray(lista) || !lista.length) return 0;
+    const previas = (await chrome.storage.local.get(CLAVE_PLANTILLAS))[CLAVE_PLANTILLAS] || {};
+    const mapa = { ...previas };
+    let n = 0;
+    for (const p of lista) {
+      if (!p || !p.clase || mapa[p.clase]) continue;
+      mapa[p.clase] = { ...p, cuando: p.cuando || Date.now(), delServidor: true };
+      n++;
+    }
+    if (n) await chrome.storage.local.set({ [CLAVE_PLANTILLAS]: mapa });
+    return n;
+  } catch {
+    return 0;
+  }
+}
+
 async function respaldoDe(clase) {
   try {
     const mapa = (await chrome.storage.local.get(CLAVE_PLANTILLAS))[CLAVE_PLANTILLAS] || {};
@@ -550,9 +590,21 @@ async function ciclo() {
 
     const pendientes = (await chrome.storage.local.get('pendientes')).pendientes || [];
 
+    // Lo que este navegador aprendio de Flow, para que no se pierda con el perfil.
+    // Se manda solo cuando CAMBIO: son decenas de KB y el latido es cada 15 s.
+    const plantillasLocales = await todasLasPlantillas();
+    const firma = plantillasLocales
+      .map((p) => `${p.clase}:${(p.cuerpo || '').length}:${p.metodo}`)
+      .sort()
+      .join('|');
+    const { firmaPlantillas } = await chrome.storage.local.get('firmaPlantillas');
+    const mandarPlantillas = firma && firma !== firmaPlantillas;
+
     const res = await fetch(`${MAKO}/api/flow/puente`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-flow-token': token },
+      // ⚠️ `plantillas` va solo cuando cambio; `clases` va SIEMPRE, porque es lo
+      // que le permite al servidor contestar unicamente lo que falta.
       // ⚠️ `version` NO es telemetria: es la respuesta a «¿que codigo esta
       // corriendo alla?», que ya costo horas una vez —el cliente estuvo toda una
       // tarde con una copia vieja y nada lo mostraba— y volvio a costar hoy, al
@@ -568,6 +620,10 @@ async function ciclo() {
         // y copiara una linea — y si el navegador es de otro, ni eso. Un dato de
         // diagnostico que hay que pedir no es un dato: es una molestia.
         accionesCaptcha: ((await chrome.storage.local.get('accionesDeFlow')).accionesDeFlow || []).join(','),
+        // Que clases tiene ESTE navegador. Es lo unico que el servidor necesita
+        // para contestar solo lo que falta en vez de mandarlo todo cada 15 s.
+        clases: plantillasLocales.map((p) => p.clase),
+        ...(mandarPlantillas ? { plantillas: plantillasLocales } : {}),
       }),
     });
     if (!res.ok) return;
@@ -580,8 +636,19 @@ async function ciclo() {
 
     if (typeof out.cooldownMs === 'number') cooldownMs = out.cooldownMs;
 
+    // Lo que se mando quedo guardado del otro lado: se anota la firma para no
+    // volver a mandarlo hasta que cambie.
+    if (mandarPlantillas) await chrome.storage.local.set({ firmaPlantillas: firma });
+
+    // Y lo que falta aca lo repone el servidor. Con esto, un F5, un perfil nuevo
+    // o reinstalar la extension dejan de costar «genera uno a mano»: lo que este
+    // navegador aprendio una vez sirve para siempre.
+    const sembradas = await sembrarPlantillas(out.plantillas);
+    if (sembradas) console.log(`[mako] ${sembradas} plantilla(s) repuestas desde el servidor`);
+
     // ⚠️ ANTES de tomar trabajo nuevo y solo si no hay nada en curso: es el unico
     // momento del ciclo en el que reiniciar no pierde nada.
+
     await quizasReiniciar(out.versionEsperada, (out.trabajos || []).length > 0);
 
     if (out.pausado || estado !== 'listo') return;
