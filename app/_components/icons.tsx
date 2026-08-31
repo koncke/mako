@@ -82,6 +82,10 @@ const PATHS: Record<string, ReactNode> = {
   // lo necesitó — la regla de la casa: si a un catálogo le falta algo, se le
   // agrega al catálogo.
   copy: (<><rect x="9" y="9" width="11" height="11" rx="2.4" /><path d="M5.5 15.5A2 2 0 0 1 4 13.6V6a2 2 0 0 1 2-2h7.6a2 2 0 0 1 1.9 1.5" /></>),
+  // Regenerar: la flecha circular de siempre. Se agrega al set en vez de meter un
+  // emoji suelto, que es la regla — y `<Icon name="inventado">` no falla: dibuja
+  // un punto, así que un nombre que no existe se descubre mirando la pantalla.
+  regenerar: (<><path d="M20 12a8 8 0 1 1-2.3-5.6" /><path d="M20 4v5h-5" /></>),
   // Chevron para desplegar. `size` lo controla quien lo usa; la rotación, un
   // transform en el contenedor (no hay una variante "chevron-up": es el mismo
   // ícono girado, como en el resto de la app).

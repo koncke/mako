@@ -62,6 +62,47 @@ function subirConProgreso(
 }
 
 /**
+ * Una imagen que NO se dibuja hasta que terminó de bajar.
+ *
+ * ⚠️ El dueño: «cuando una foto cargada tarda en renderizar, no hagas que se
+ * renderice cortada de arriba a abajo, como normalmente lo hacen, eso es feo».
+ *
+ * Y no es sólo feo: una foto que aparece por franjas es indistinguible de una
+ * foto rota a medio cargar, así que la pantalla parece estar fallando justo
+ * mientras funciona. Un JPEG progresivo lo hace por diseño y el navegador no
+ * ofrece apagarlo — la única forma de no verlo es no montar el `<img>` a la
+ * vista hasta que `load` haya disparado.
+ *
+ * El `<img>` se monta igual desde el principio (si no, no empieza a bajar):
+ * lo que se controla es su OPACIDAD. Y `onError` también apaga el latido, o un
+ * link vencido deja el punto pulsando para siempre.
+ */
+export function Foto({ src, alt, radio = 0 }: { src: string; alt: string; radio?: number }) {
+  const [listo, setListo] = useState(false);
+  return (
+    <span style={{
+      display: 'block', position: 'relative', width: '100%', height: '100%',
+      background: 'var(--surface-2)', borderRadius: radio, overflow: 'hidden',
+    }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={alt}
+        onLoad={() => setListo(true)}
+        onError={() => setListo(true)}
+        style={{
+          display: 'block', width: '100%', height: '100%', objectFit: 'cover',
+          opacity: listo ? 1 : 0, transition: 'opacity .18s ease',
+        }}
+      />
+      {!listo && (
+        <span className="mk-cargando-foto" aria-hidden="true" />
+      )}
+    </span>
+  );
+}
+
+/**
  * La foto grande, que ADEMÁS es el control para cambiarla.
  *
  * El hover descubre que se puede tocar; el click abre las otras. Y lleva
@@ -133,7 +174,7 @@ export function ModalFotos({ fotos, elegida, onElegir, onSubida, onCerrar }: {
             onClick={() => { onElegir(f.id); onCerrar(); }}
             aria-pressed={f.id === elegida}
           >
-            <img src={f.url} alt="" />
+            <Foto src={f.url} alt="" />
             {f.id === elegida && (
               <span className="mk-fotos__tilde"><Icon name="check" size={13} /></span>
             )}

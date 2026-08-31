@@ -184,7 +184,6 @@ const CAJA = 300;
  * la pantalla nunca quede coja.
  */
 const RIEL = `calc(${EJEMPLO} * 9 / 16 + ${2 * CALLE}px)`;
-const RIEL_CERRADO = `calc(${EJEMPLO_CERRADO} * 9 / 16 + ${2 * CALLE}px)`;
 
 
 // ── Dónde está el anuncio ───────────────────────────────────────────────────
@@ -521,7 +520,6 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
   // ⚠️ El plegado ya NO es estado de esta pantalla: lo manda quien tiene el
   // volante, porque el video sobrevive a los cambios de pantalla y su estado
   // tiene que sobrevivir con él. Guardarlo acá lo reseteaba en cada paso.
-  const ejemploAbierto = !plegado;
   // ⚠️ UN SOLO NÚMERO mueve el riel Y el aire del estudio. Sin esto había que
   // sumar padding que viven en otros archivos, y ese acople es lo que hacía que
   // la pieza «flotara» al cambiar cualquier cosa alrededor.
@@ -706,7 +704,13 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
                 fila. Centrada en la fila quedaba corrida a la izquierda —la fila
                 incluye el «Volver»— y una línea que dice lo que cuesta apretar
                 tiene que estar debajo del botón que cobra, no debajo del par. */}
-            <div style={{ minWidth: 220, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            {/* ⚠️ `position: relative` y la consecuencia ABSOLUTA. El dueño: «el
+                botón de Volver SIEMPRE debe estar centrado a la letra del botón
+                de CONTINUAR». Con la consecuencia en el flujo, esta columna mide
+                botón + línea, y «Volver» —que se centra contra la columna— queda
+                más arriba que el rótulo al que acompaña. Sacándola del flujo, la
+                columna vuelve a medir lo que mide el botón. */}
+            <div style={{ minWidth: 220, position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <Button
                 variant="primary"
                 size="xl"
@@ -718,7 +722,10 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
                 {boton}
               </Button>
               {consecuencia && (
-                <div style={{ marginTop: 10, fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 10,
+                  fontSize: 'var(--fs-sm)', color: 'var(--dim)', textAlign: 'center',
+                }}>
                   {consecuencia}
                 </div>
               )}
@@ -841,6 +848,8 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
   const [error, setError] = useState('');
   const [ajuste, setAjuste] = useState('');
   const [pidiendo, setPidiendo] = useState(false);
+  /** El panel de regenerar, encima de la imagen. Dos salidas y nada más. */
+  const [rehacer, setRehacer] = useState(false);
   const [desde, setDesde] = useState(() => Date.now());
   const archivo = useRef<HTMLInputElement>(null);
 
@@ -1189,7 +1198,11 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
           // escrito abajo, en el subtítulo; lo que la pantalla PIDE es aprobar la
           // cara con la que se va a filmar. El título nombra la decisión, no el
           // dato — un título que describe el contenido deja la pregunta muda.
-          : opciones.length ? '¿Sirve esta imagen?' : '¿Apruebas tu avatar?',
+          // ⚠️ EL MISMO CON IMAGEN Y SIN ELLA. Estaba puesto sólo en una de las
+          // dos ramas, así que apenas salía la imagen el título cambiaba a
+          // «¿Sirve esta imagen?» — y el dueño ya lo había pedido una vez. La
+          // pregunta de esta pantalla es la misma antes y después de generar.
+          : '¿Apruebas tu avatar?',
         titulo: escena?.lugar,
         cuerpo: (
           <div>
@@ -1214,7 +1227,82 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                 <Pie>Tu foto</Pie>
               </div>
               <div>
-                <Vertical ancho={`${CAJA}px`}>{derecha}</Vertical>
+                <Vertical ancho={`${CAJA}px`}>
+                  {derecha}
+                  {/* La imagen ES el control, igual que la foto de al lado: hover
+                      para descubrirlo, un ícono siempre visible para que exista
+                      también sin hover, y al tocarla las dos únicas salidas. */}
+                  {opciones.length > 0 && !generando && (
+                    <>
+                      <button
+                        type="button"
+                        className="mk-regen__zona"
+                        onClick={() => setRehacer(true)}
+                        aria-label="Regenerar esta imagen"
+                      >
+                        <span className="mk-regen__velo">
+                          <Icon name="regenerar" size={17} />
+                          Regenerar
+                        </span>
+                      </button>
+                      {/* Siempre visible: un control que sólo aparece con el
+                          cursor encima no existe en una tableta, y tampoco para
+                          quien no sabe que hay algo que tocar. */}
+                      <span className="mk-regen__pin" aria-hidden="true">
+                        <Icon name="regenerar" size={15} />
+                      </span>
+                    </>
+                  )}
+
+                  {rehacer && (
+                    <div className="mk-regen__panel" role="dialog" aria-label="Regenerar la imagen">
+                      <button
+                        type="button"
+                        className="mk-regen__cerrar"
+                        onClick={() => { setRehacer(false); setPidiendo(false); }}
+                        aria-label="Cerrar"
+                      >
+                        <Icon name="x" size={15} />
+                      </button>
+                      {!pidiendo ? (
+                        <>
+                          <Button
+                            variant="mako"
+                            loading={ocupado === 'imagen'}
+                            onClick={() => void correr('imagen', () => generarImagenAction(item.id, paso.n), false)}
+                            icon={<Icon name="regenerar" size={15} />}
+                          >
+                            Regenerar
+                          </Button>
+                          <Button variant="secondary" onClick={() => setPidiendo(true)}>
+                            Decir qué cambiar
+                          </Button>
+                        </>
+                      ) : (
+                        <div style={{ width: '100%', display: 'grid', gap: 9 }}>
+                          <TextField
+                            label="Qué cambiarle"
+                            value={ajuste}
+                            onChange={(e) => setAjuste(e.target.value)}
+                          />
+                          <Button
+                            variant="mako"
+                            loading={ocupado === 'corregir'}
+                            disabled={!ajuste.trim()}
+                            onClick={async () => {
+                              await correr('corregir', () => corregirEscenaAction(item.id, paso.n, ajuste), false);
+                              setAjuste('');
+                              setPidiendo(false);
+                              setRehacer(false);
+                            }}
+                          >
+                            Pedirle el cambio a MaKo
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </Vertical>
                 {/* ⚠️ Las dos ramas de este pie decían lo MISMO. Un condicional que
                     no condiciona nada es una decisión que alguien empezó y no
                     terminó, y se lee como si dijera algo. */}
@@ -1261,50 +1349,13 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
               </div>
             )}
 
-            {opciones.length > 0 && (
-              <Salidas resumen="No sirve">
-                <Button
-                  size="sm"
-                  variant="mako"
-                  loading={ocupado === 'imagen'}
-                  onClick={() => void correr('imagen', () => generarImagenAction(item.id, paso.n), false)}
-                >
-                  Generar la imagen otra vez
-                </Button>
-                <Button size="sm" variant="tertiary" onClick={() => setPidiendo((v) => !v)}>
-                  Decir qué cambiar
-                </Button>
-                <Button size="sm" variant="tertiary" onClick={() => archivo.current?.click()}>
-                  Subir mi foto del lugar
-                </Button>
-                {/* Nueva: hoy el link a cambiar la foto propia desaparece justo
-                    cuando ya cargaste una, que es cuando hace falta. */}
-                <Link href="/onboarding" style={{ fontSize: 'var(--fs-sm)', alignSelf: 'center' }}>
-                  Cambiar mi foto de entrada
-                </Link>
-              </Salidas>
-            )}
-
-            {pidiendo && (
-              <div style={{ display: 'flex', gap: 9, alignItems: 'flex-end', marginTop: 12 }}>
-                <div style={{ flex: 1 }}>
-                  <TextField label="Qué cambiarle" value={ajuste} onChange={(e) => setAjuste(e.target.value)} />
-                </div>
-                <Button
-                  variant="mako"
-                  loading={ocupado === 'corregir'}
-                  disabled={!ajuste.trim()}
-                  onClick={async () => {
-                    await correr('corregir', () => corregirEscenaAction(item.id, paso.n, ajuste), false);
-                    setAjuste('');
-                    setPidiendo(false);
-                  }}
-                >
-                  Pedirle el cambio a MaKo
-                </Button>
-              </div>
-            )}
-
+            {/* ⚠️ ACÁ HABÍA UN DESPLEGABLE «No sirve» CON CUATRO SALIDAS. Se fue
+                entero, y el dueño fue explícito: «NO debe existir un botón de "No
+                continuar"». Tenía razón de fondo — un par «Continuar / No sirve»
+                convierte una pantalla de aprobación en una encuesta, y las cuatro
+                opciones de adentro no eran salidas: eran cuatro formas distintas
+                de pedir otra imagen.
+                Ahora la imagen ES el control: se toca, y adentro hay DOS. */}
             <input
               ref={archivo}
               type="file"
@@ -1314,14 +1365,14 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
             />
           </div>
         ),
-        boton: sinEscenas
-          ? undefined
-          : txt
-            ? txt.accion
-            : opciones.length
-              ? 'Sí, es este lugar'
-              : 'Generar la imagen',
-        consecuencia: textoCosto(0, opciones.length ? { nota: 'Filmar sí gasta.' } : {}),
+        // ⚠️ SIEMPRE «Continuar». El dueño, por segunda vez: «TODOS los botones
+        // deben estar en CONTINUAR». Lo que el botón hace de más lo dice la línea
+        // de abajo, no su rótulo — y un rótulo distinto por paso obliga a leerlo
+        // cada vez para saber si es el mismo botón.
+        boton: sinEscenas ? undefined : txt ? txt.accion : 'Continuar',
+        // Y sin «Filmar sí gasta»: es texto que nadie pidió, en una pantalla que
+        // no filma. La consecuencia dice lo que cuesta APRETAR ESTE botón.
+        consecuencia: textoCosto(0),
         cargandoBoton: ocupado === 'imagen' || ocupado === 'confirmar' || generando,
         onSiguiente: opciones.length
           ? () => void correr('confirmar', () => confirmarEscenaAction(item.id, paso.n))

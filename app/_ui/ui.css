@@ -1855,3 +1855,107 @@
   86% { transform: translateX(-6px) }
 }
 @media (prefers-reduced-motion: reduce) { .mk-flecha-señala { animation: none } }
+
+/* El latido de una foto que todavía no bajó. Es un PUNTO y no un spinner: un
+   spinner promete una espera larga, y esto son décimas. */
+.mk-cargando-foto {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.mk-cargando-foto::after {
+  content: '';
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--dim);
+  animation: mk-girar .7s linear infinite;
+}
+@keyframes mk-girar { to { transform: rotate(360deg) } }
+@media (prefers-reduced-motion: reduce) {
+  .mk-cargando-foto::after { animation: none; border-top-color: var(--border-strong) }
+}
+
+/* ── REGENERAR LA IMAGEN — el medio ES el control ────────────────────────────
+   El dueño lo pidió así, y es el mismo argumento que ya rige la foto de al lado:
+   una acción que se usa poco no merece un botón permanente en la pantalla, pero
+   TAMPOCO puede depender sólo del hover — en una tableta no hay cursor. Van las
+   dos cosas: el velo que aparece al pasar por encima, y un pin chico siempre
+   visible que dice que ahí hay algo. */
+.mk-regen__zona {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+.mk-regen__velo {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  gap: 7px;
+  grid-auto-flow: row;
+  background: rgba(0, 0, 0, .5);
+  color: #fff;
+  font-size: var(--fs-sm);
+  font-weight: 650;
+  opacity: 0;
+  transition: opacity .14s ease;
+}
+.mk-regen__zona:hover .mk-regen__velo,
+.mk-regen__zona:focus-visible .mk-regen__velo { opacity: 1; }
+.mk-regen__zona:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.mk-regen__pin {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, .55);
+  color: #fff;
+  pointer-events: none;
+}
+
+/* El panel: fondo negro traslúcido para que la foto se siga viendo detrás, y
+   sólo DOS salidas. El desenfoque es lo que deja leer el texto encima de una
+   imagen de la que no sabemos nada — sin él, un fondo claro se come las letras. */
+.mk-regen__panel {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  padding: 20px;
+  background: rgba(0, 0, 0, .62);
+  backdrop-filter: blur(3px);
+}
+.mk-regen__cerrar {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(0, 0, 0, .55);
+  color: #fff;
+  cursor: pointer;
+}
+.mk-regen__cerrar:hover { background: rgba(0, 0, 0, .8); }
+.mk-regen__cerrar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+@media (prefers-reduced-motion: reduce) { .mk-regen__velo { transition: none } }
