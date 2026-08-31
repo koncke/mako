@@ -359,11 +359,24 @@ function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia,
             {onAtras && (
               <Button variant="tertiary" onClick={onAtras}>{atras ?? 'Volver'}</Button>
             )}
-            {/* El botón de la CASA, no uno pintado a mano: en oscuro se resuelve
-                solo con los tokens y se ve igual que en el resto de la app. */}
-            <Button variant="primary" size="xl" loading={cargando} disabled={!onSiguiente} onClick={onSiguiente}>
-              {boton}
-            </Button>
+            {/* ⚠️ EL QUE AVANZA TIENE QUE PESAR MÁS QUE TODO LO DEMÁS.
+                Con `size="xl"` a secas quedaba del mismo porte que el «Volver»
+                de al lado, y en una pantalla cuyo trabajo entero es «mirá esto y
+                seguí» eso deja las dos salidas empatadas. Se le da ancho mínimo y
+                aire propio: el peso de un botón es lo que dice, en un segundo,
+                cuál es el camino. */}
+            <div style={{ minWidth: 220 }}>
+              <Button
+                variant="primary"
+                size="xl"
+                full
+                loading={cargando}
+                disabled={!onSiguiente}
+                onClick={onSiguiente}
+              >
+                {boton}
+              </Button>
+            </div>
           </div>
           {/* La consecuencia PEGADA al botón y antes del click. En blanco al 70%:
               se lee, y no compite con el botón. */}
@@ -632,35 +645,6 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
               </div>
             ))}
 
-            {/* ── LAS MULETILLAS, ACÁ Y NO ANTES ────────────────────────────
-                La decisión es «¿me gusta cómo suena?», y eso se contesta LEYENDO
-                el guion. Estaba en la pantalla anterior, donde todavía no había
-                nada que leer: preguntarlo ahí es pedir una opinión sobre algo que
-                no se vio.
-
-                No es un interruptor: rehace el guion entero. Por eso el botón
-                dice lo que va a hacer, y sólo aparece mientras no haya nada
-                filmado. */}
-            {/* ⚠️ UNO SOLO Y CORTO. Acá había un botón largo MÁS una frase al
-                lado explicando el estado, y sumado al «Volver al catálogo» y al
-                «No gasta créditos» dejaba cuatro renglones de letra chica
-                apilados debajo del guion. El dueño: «mira la cantidad de texto
-                abajo en los botones, está horrible eso».
-
-                La frase sobraba: el botón ofrece SIEMPRE lo contrario de lo que
-                está puesto, así que su propio texto ya dice en cuál de los dos
-                estás. Explicar al lado lo que el botón ya dice es escribir dos
-                veces. */}
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
-              <Button
-                variant="tertiary"
-                loading={ocupado === 'muletillas'}
-                disabled={!!ocupado}
-                onClick={() => void correr('muletillas', () => cambiarMuletillasAction(item.id, !conMuletillas), false)}
-              >
-                {conMuletillas ? 'Escribirlo tal cual' : 'Ponerle mi forma de hablar'}
-              </Button>
-            </div>
           </div>
         ),
         // ⚠️ «Siguiente», y NO «Escribir dónde se filma».
