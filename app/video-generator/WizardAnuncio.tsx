@@ -131,6 +131,15 @@ const EJEMPLO_CERRADO = 'min(190px, 24vh)';
 const CALLE = 16;
 
 /**
+ * El ancho de CADA caja del paso del escenario. Son dos, lado a lado.
+ *
+ * Fijo y no derivado del alto: con dos cajas 9:16 sacadas de un alto en `vh`, el
+ * ancho de la fila cambia con el alto de la ventana, y con él cambia dónde
+ * arranca el ejemplo del costado. Un número acá deja la fila en 620 px siempre.
+ */
+const CAJA = 300;
+
+/**
  * El ancho del riel. Cambia al cerrar, y eso es a propósito.
  *
  * ⚠️ Lo había dejado FIJO para que la columna de texto no se moviera al abrir y
@@ -236,11 +245,21 @@ function clave(p: Paso): string {
  * Sobre negro y SIN BORDE: un borde le pone marco a lo que tiene que no tenerlo.
  * Lo que separa el medio del fondo es su propio contenido, no una línea.
  */
-function Vertical({ children, fondo, alto = LIENZO, plano = false }: {
+function Vertical({ children, fondo, alto = LIENZO, ancho, plano = false }: {
   children: React.ReactNode;
   fondo?: string;
   /** El alto. Por defecto, el del medio que se está decidiendo. */
   alto?: string;
+  /**
+   * El ancho, cuando el que manda es el ancho y no el alto.
+   *
+   * ⚠️ Por defecto la caja sale del ALTO (`vh`) y el ancho lo deriva el
+   * `aspect-ratio`. Eso está bien con UNA caja, y se rompe con dos al lado: el
+   * ancho de la fila pasa a depender del alto de la ventana, así que nadie —ni
+   * el riel, ni el centrado— puede saber cuánto va a medir. Donde hay dos, manda
+   * el ancho y el alto se deriva.
+   */
+  ancho?: string;
   /**
    * Sin sombra.
    *
@@ -256,7 +275,8 @@ function Vertical({ children, fondo, alto = LIENZO, plano = false }: {
 }) {
   return (
     <div style={{
-      height: alto, aspectRatio: '9 / 16', borderRadius: 18, overflow: 'hidden',
+      ...(ancho ? { width: ancho } : { height: alto }),
+      aspectRatio: '9 / 16', borderRadius: 18, overflow: 'hidden',
       // `--surface-2` y no un gris más oscuro: la regla de la casa es que en
       // oscuro las superficies SUBEN de luminosidad. El negro se pasa explícito
       // donde hay un video, que es el único lugar donde el negro es el fondo
@@ -418,7 +438,7 @@ function Salidas({ resumen, children }: { resumen: string; children: React.React
  * ejemplo pasa a acompañar también ese paso — que es lo que el dueño pidió cuando
  * dijo que la previsualización tiene que estar «durante toda la creación».
  */
-export function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia, cargando, onSiguiente, atras, onAtras, onSalir, error, puesta, alLado, slotRiel, plegado }: {
+export function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia, cargando, onSiguiente, atras, onAtras, onSalir, error, puesta, alLado, slotRiel, plegado, ancho = 900 }: {
   pregunta: string;
   titulo?: string;
   paso: number;
@@ -445,6 +465,14 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
   /** Dónde aterriza el ejemplo. Lo dibuja `PreviaVolante`, no esta pantalla. */
   slotRiel?: React.RefObject<HTMLDivElement | null>;
   plegado?: boolean;
+  /**
+   * El ancho de la columna de este paso. Lo dice el PASO, no se mide.
+   *
+   * Es lo que decide dónde arranca el ejemplo del costado: el grupo que se centra
+   * es «columna + calle + ejemplo». Un paso que dibuja algo angosto y no lo
+   * declara deja al ejemplo lejos, con un pozo de aire muerto en el medio.
+   */
+  ancho?: number;
   /**
    * Una acción que pertenece a la pregunta, en su misma línea.
    *
@@ -482,28 +510,25 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
   // Converge en una pasada: al fijar la caja al ancho del contenido, el contenido
   // sigue entrando igual y no cambia de tamaño. El `clamp` y el umbral de 8 px
   // son la red por si algún día entra algo que sí reaccione al ancho.
+  // ⚠️ EL ANCHO SE DECLARA. Lo estuve MIDIENDO y era un bucle: la caja se
+  // angostaba, el texto se reacomodaba, medía menos, y se angostaba otra vez —
+  // hasta dejar los clips del guion apretados en una columna de 290 px. El
+  // `clamp` no lo evitaba, sólo le ponía piso.
+  //
+  // El error de fondo fue querer que el ancho saliera del contenido cuando el
+  // contenido es shrink-to-fit: eso es una definición circular, y ninguna red la
+  // arregla. Lo dice cada paso, que es el único que sabe qué va a dibujar.
   const lienzo = useRef<HTMLDivElement>(null);
-  const [anchoCol, setAnchoCol] = useState(900);
-  // ⚠️ Y EL ALTO TAMBIÉN SE MIDE. El dueño: «sería bueno que se alinee a la misma
-  // altura, ya que tienen el mismo tamaño». Y tiene el mismo tamaño de verdad —
-  // las dos cajas usan `LIENZO`— pero arrancaban a distinta altura: el riel
-  // colgaba de un `116px` escrito a mano y el contenido de lo que midan el título
-  // y el subtítulo del paso, que cambian con cada pregunta. Dos objetos idénticos
-  // desalineados por 100 px se leen como un error, no como una jerarquía.
+
+  // El alto SÍ se mide, y ahí no hay circularidad: el riel es `fixed`, así que
+  // moverlo no mueve el contenido. Converge en una pasada.
   const [arriba, setArriba] = useState(116);
   useLayoutEffect(() => {
     const el = lienzo.current;
     const hijo = el?.firstElementChild as HTMLElement | null;
-    if (!hijo) return;
+    const hueco = slotRiel?.current;
+    if (!hijo || !hueco) return;
     const medir = () => {
-      const w = Math.round(hijo.getBoundingClientRect().width);
-      const v = Math.min(940, Math.max(420, w));
-      setAnchoCol((prev) => (Math.abs(prev - v) > 8 ? v : prev));
-
-      // El riel es `fixed`, así que moverlo NO mueve el contenido: la corrección
-      // converge en una pasada y no hay bucle posible.
-      const hueco = slotRiel?.current;
-      if (!hueco) return;
       const d = Math.round(hijo.getBoundingClientRect().top - hueco.getBoundingClientRect().top);
       if (Math.abs(d) > 2) setArriba((prev) => Math.min(320, Math.max(0, prev + d)));
     };
@@ -515,19 +540,16 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
 
   const anchoRiel = puesta?.ejemplo
     ? ({
-      ['--riel-ancho' as string]: ejemploAbierto ? RIEL : RIEL_CERRADO,
+      // ⚠️ EL RIEL CONSERVA SU ANCHO AL CERRAR, y lo que se achica es sólo el
+      // video adentro. Es la única forma de cumplir las dos cosas que se pidieron
+      // y que se contradicen si el riel se angosta: que la miniatura «no cuente
+      // para el centrado» —o sea que el texto no se mueva— y que no termine «en
+      // el lugar equivocado». Angostando el riel, el grupo se re-centra y la
+      // pantalla entera salta; con el ancho quieto, sólo se mueve lo que se
+      // apretó, y la miniatura queda arriba a la izquierda de su propio carril.
+      ['--riel-ancho' as string]: RIEL,
       ['--riel-calle' as string]: `${CALLE}px`,
-      ['--riel-contenido' as string]: `${anchoCol}px`,
-      // ⚠️ CERRADO, EL EJEMPLO NO CUENTA PARA EL CENTRADO. El dueño: «cuando está
-      // cerrado, todo el video chiquito no debería contar para el centrado de la
-      // otra sección. No pasa nada que cuando esté chiquito esté más al costado».
-      //
-      // Y es lo correcto: abierto son dos cosas que se miran juntas, así que el
-      // conjunto se centra. Cerrado ya no es un contenido, es un CONTROL —una
-      // miniatura para volver a abrirlo— y un control no tiene por qué correr el
-      // texto que uno está leyendo. Ahí el que manda es el contenido solo, y la
-      // miniatura se va a la calle de la página.
-      ['--riel-cuenta' as string]: ejemploAbierto ? '1' : '0',
+      ['--riel-contenido' as string]: `${ancho}px`,
       ['--riel-arriba' as string]: `${arriba}px`,
     } as React.CSSProperties)
     : undefined;
@@ -572,7 +594,7 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
       <AvisoExtensionVieja instalada={extensionInstalada} compacto />
 
       <div style={{
-        display: 'flex', alignItems: 'center', width: '100%', maxWidth: 900, gap: 16,
+        display: 'flex', alignItems: 'center', width: '100%', maxWidth: ancho, gap: 16,
       }}>
         <button type="button" onClick={onSalir} style={salida}>← Salir</button>
       </div>
@@ -584,7 +606,7 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
       {/* La barra de posición: segmentos finos, no dots de formulario. Dice
           dónde estás sin pedir nada y sin ocupar una fila entera. */}
       <div style={{
-        display: 'flex', gap: 4, width: '100%', maxWidth: 520, alignItems: 'center',
+        display: 'flex', gap: 4, width: '100%', maxWidth: Math.min(520, ancho), alignItems: 'center',
       }}>
         {Array.from({ length: total }, (_, i) => (
           <div
@@ -599,7 +621,7 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
       </div>
 
       {/* LA PREGUNTA, grande. Es lo que se lee en el primer segundo. */}
-      <div style={{ textAlign: 'center', maxWidth: 820 }}>
+      <div style={{ textAlign: 'center', maxWidth: Math.min(820, ancho) }}>
         {/* Lo de al lado va en la MISMA fila y en `baseline`, no debajo: una
             acción sobre lo que la pregunta nombra pertenece a la pregunta. Y con
             `baseline` no se cuelga de un título de 31 px. */}
@@ -897,6 +919,8 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
     pregunta: string; titulo?: string; cuerpo: React.ReactNode;
     boton?: string; consecuencia?: string; onSiguiente?: () => void;
     atras?: string; onAtras?: () => void; cargandoBoton?: boolean;
+    /** El ancho de la columna de ESTE paso. Ver el prop `ancho` de `Estudio`. */
+    ancho?: number;
     /** Una acción que pertenece a la pregunta y va en su misma línea. */
     alLado?: React.ReactNode;
   } {
@@ -1087,12 +1111,22 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
         // La flecha apunta a la izquierda porque ahí está la foto que hay que
         // elegir, y sin ella «selecciona tu foto» obliga a buscar dónde.
         <div style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-          gap: 10, padding: 24, textAlign: 'center', color: 'var(--dim)',
+          display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+          gap: 10, padding: '24px 22px', textAlign: 'left', color: 'var(--dim)',
         }}>
-          <svg width="74" height="34" viewBox="0 0 74 34" fill="none" aria-hidden="true">
-            <path d="M70 6C40 6 22 12 6 26" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-            <path d="M16 24L5 27L11 34" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+          {/* ⚠️ Era una curva de 2 px que terminaba en dos rayitas: a ese tamaño
+              una flecha fina no se lee como flecha, se lee como una raya suelta —
+              «mira esa flecha». Un triángulo lleno sobre un asta gruesa se
+              reconoce como flecha aunque mida 20 px, porque lo que la define es
+              la MASA de la punta, no la línea. */}
+          <svg width="96" height="30" viewBox="0 0 96 30" fill="none" aria-hidden="true">
+            <path
+              d="M92 6C66 6 40 9 22 15"
+              stroke="currentColor"
+              strokeWidth="3.4"
+              strokeLinecap="round"
+            />
+            <path d="M4 15L26 5.5V24.5L4 15Z" fill="currentColor" />
           </svg>
           <div style={{ fontSize: 'var(--fs-md)', fontWeight: 650, color: 'var(--ink)' }}>
             Elige tu foto
@@ -1104,6 +1138,8 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
       );
 
       return {
+        // 620 = las dos cajas (300 cada una) más los 20 de aire del medio.
+        ancho: CAJA * 2 + 20,
         pregunta: sinEscenas
           ? 'Buscando dónde se filma'
           : opciones.length ? '¿Sirve esta imagen?' : '¿Dónde se filma?',
@@ -1122,7 +1158,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                   puedeCambiar={(contexto?.fotos?.length ?? 0) > 0}
                   onAbrir={() => setEligiendoFoto(true)}
                 >
-                  <Vertical>
+                  <Vertical ancho={`${CAJA}px`}>
                     {fotoElegida
                       ? <img src={fotoElegida} alt="Tu foto" style={MEDIO} />
                       : <div style={{ color: 'var(--faint)' }}><Icon name="perfil" size={44} /></div>}
@@ -1131,7 +1167,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                 <Pie>Tu foto</Pie>
               </div>
               <div>
-                <Vertical fondo={txt ? 'var(--surface-2)' : undefined}>{derecha}</Vertical>
+                <Vertical ancho={`${CAJA}px`}>{derecha}</Vertical>
                 {/* ⚠️ Las dos ramas de este pie decían lo MISMO. Un condicional que
                     no condiciona nada es una decisión que alguien empezó y no
                     terminó, y se lee como si dijera algo. */}
@@ -1547,6 +1583,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
       slotRiel={slotRiel}
       plegado={plegado}
       alLado={p.alLado}
+      ancho={p.ancho}
     >
       {p.cuerpo}
     </Estudio>

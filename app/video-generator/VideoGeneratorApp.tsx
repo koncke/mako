@@ -1046,6 +1046,10 @@ export function VideoGeneratorApp({
         onSalir={() => setVista('catalogo')}
         slotRiel={slotRiel}
         plegado={rielPlegado}
+        // 520 es lo que mide la lista de guiones. Declarado y no medido: medirlo
+        // era circular —la caja se angostaba, el texto se reacomodaba, medía
+        // menos— y terminaba con las tarjetas apretadas en 290 px.
+        ancho={520}
         onSiguiente={() => {
           if (!puedeAvanzar) return;
           // Si este guion YA tiene un plan, se abre ese en vez de mandar a
@@ -1065,7 +1069,10 @@ export function VideoGeneratorApp({
         }}
       >
         {paso === 'guion' && (
-          <div style={{ textAlign: 'left' }}>
+          // `width: 100%` para que LLENE la columna que el paso declaró. Sin
+          // esto la lista es shrink-to-fit y se centra adentro, dejando un pozo
+          // de aire entre el texto y el ejemplo del costado.
+          <div style={{ textAlign: 'left', width: '100%' }}>
             {verGuion && (
               <DetalleGuion
                 guion={verGuion}
