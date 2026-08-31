@@ -218,6 +218,26 @@ export type MarcaVideo = {
    * Esto no apaga nada, y en cuanto una consulta conteste bien se borra solo.
    */
   ciego?: { desde: string; error: string; crudo?: string };
+  /**
+   * Los clips que se descartaron para rehacer la toma. NUNCA se pierden.
+   *
+   * ⚠️ «Rehacer la toma N» era `descartarTomaAction` + `generarTomaAction` en un
+   * solo click, y el primero hacía `delete`. O sea: el clip pagado se borraba
+   * ANTES de saber si el segundo podía filmar — y el segundo tiene CINCO guards
+   * que devuelven sin filmar nada (escenario sin confirmar, puente sin conectar,
+   * sesión marcada, sesión de Flow vencida, sin mediaId). Con cualquiera de
+   * ellos, ~15 créditos se iban a cambio de nada.
+   *
+   * El propio docstring de `descartarTomaAction` decía que los dos pasos están
+   * separados a propósito «porque borrar un clip pagado no puede ser un efecto
+   * lateral de apretar generar», y los tres call-sites de la pantalla los
+   * volvían a juntar en uno.
+   *
+   * Guardar el intento anterior es además lo que hace que rehacer VALGA: sin
+   * esto, comparar el clip nuevo con el viejo era imposible y volver atrás
+   * también.
+   */
+  descartadas?: MarcaVideo[];
 };
 
 const esEntrada = (e: unknown): e is PlanGuardado => {

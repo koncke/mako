@@ -44,7 +44,7 @@ import { FotoGrande, ModalFotos } from './ElegirFoto';
 import {
   escribirEscenasAction, corregirEscenaAction, generarImagenAction, estadoImagenAction,
   elegirImagenAction, subirImagenEscenaAction, confirmarEscenaAction,
-  generarTomaAction, estadoTomaAction, descartarTomaAction, marcarCaraVistaAction,
+  generarTomaAction, estadoTomaAction, descartarTomaAction, restaurarTomaAction, marcarCaraVistaAction,
   elegirFotoAction, elegirUltimaFotoAction,
   cambiarMuletillasAction,
 } from './video-action';
@@ -963,6 +963,9 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
   const tomaEnCurso = item.plan.clips.find((c) => {
     const v = item.video?.[String(c.n)];
     if (!v || v.url) return false;
+    // Una marca que sólo guarda clips descartados no tiene nada en vuelo: sin
+    // esto el sondeo preguntaría cada pocos segundos por un trabajo inexistente.
+    if (!v.trabajoId && !v.operacion) return false;
     // ⚠️ UN ERROR DE PUENTE NO APAGA EL SONDEO, Y SIN ESTO LA CURA NO CORRE NUNCA.
     //
     // `estadoTomaAction` sabe borrar un error de puente sobre una toma viva
@@ -1553,7 +1556,19 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
       const n = paso.n;
       const anterior = item.plan.clips.slice(0, n - 1).reverse().find((c) => item.video?.[String(c.n)]?.url);
       const vAnterior = anterior ? item.video?.[String(anterior.n)] : undefined;
-      const enCurso = item.video?.[String(n)] && !item.video[String(n)]?.url && !item.video[String(n)]?.error;
+      // ⚠️ «EN CURSO» ES QUE HAYA UN TRABAJO, NO QUE EXISTA LA MARCA.
+      //
+      // Con «existe la marca y no tiene url ni error», una marca que sólo guarda
+      // clips descartados —lo que deja `descartarTomaAction` desde que archiva en
+      // vez de borrar— se leería como «Filmando la toma N», con su cronómetro,
+      // para siempre. Y el sondeo saldría a preguntar por un clip que nadie está
+      // esperando.
+      const marcaToma = item.video?.[String(n)];
+      const enCurso = !!marcaToma
+        && !!(marcaToma.trabajoId || marcaToma.operacion)
+        && !marcaToma.url && !marcaToma.error;
+      /** Clips de esta toma que se descartaron para rehacerla. Nunca se pierden. */
+      const descartadas = marcaToma?.descartadas ?? [];
       const fallo = item.video?.[String(n)]?.error;
       const escena = (item.escenas ?? []).find((e) => n >= e.desde && n <= e.hasta);
       const imagen = escena ? item.imagenes?.[String(escena.n)]?.elegida : '';
@@ -1576,7 +1591,17 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
        * pagó, y lo único roto es nuestra forma de preguntar por ella.
        */
       const ciego = enCurso ? item.video?.[String(n)]?.ciego : undefined;
-      const txtCiego = ciego ? textoFlow('ciego', `la toma ${n}`, ciego.desde) : null;
+      // ⚠️ EL TEXTO DEL SERVER, QUE SE CALCULABA Y SE PISABA CON EL GENÉRICO.
+      //
+      // `ciego.error` lo escribió quien vio el error CRUDO de Google, así que
+      // nombra la causa real —la sesión venció, el puente está dormido, Google
+      // limita el ritmo— y dice qué apretar. La pantalla lo tenía guardado en la
+      // base y dibujaba en su lugar «no pude leer el estado», que no lleva a
+      // ningún lado.
+      //
+      // El parámetro ya existía y su doc dice, textual, que GANA sobre la
+      // constante. Simplemente no se lo pasaba nadie.
+      const txtCiego = ciego ? textoFlow('ciego', `la toma ${n}`, ciego.desde, undefined, ciego.error) : null;
 
       // Lo enorme NUNCA está vacío: si no hay clip que mirar, se muestra la
       // imagen confirmada del escenario, que es literalmente el primer cuadro
@@ -1709,6 +1734,27 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
               </div>
             )}
 
+            {/* ⚠️ LA VUELTA AL CLIP DESCARTADO. Sin esto, archivarlo sería la
+                misma pérdida con un rastro en la base: «escribir la salida no es
+                ofrecerla», que este módulo ya pagó tres veces.
+                Va plegado porque es la excepción —quien descarta casi siempre
+                quiere el nuevo—, y el resumen dice qué hay adentro sin abrirlo. */}
+            {!enCurso && !txt && !marcaToma?.url && descartadas.length > 0 && (
+              <div style={{ marginTop: 14 }}>
+                <Salidas resumen={`Volver al clip que descartaste · Costo: 0 créditos`}>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    loading={ocupado === 'restaurar'}
+                    disabled={!!ocupado}
+                    onClick={() => void correr('restaurar', () => restaurarTomaAction(item.id, n), false)}
+                  >
+                    {`Recuperar la toma ${n}`}
+                  </Button>
+                </Salidas>
+              </div>
+            )}
+
             {/* El pliegue DESAPARECE mientras se filma: ofrecer rehacer la
                 anterior con la siguiente ya pagada encima deja el anuncio
                 incoherente, y cuenta dos cosas a la vez. */}
@@ -1791,7 +1837,12 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
               }
             : () => void correr('filmar', () => generarTomaAction(item.id, n), false),
         atras: 'Atrás',
-        onAtras: () => setForzado({ id: 'escenario', n: (item.escenas ?? []).slice(-1)[0]?.n ?? 1 }),
+        // ⚠️ AL ESCENARIO DE ESTA TOMA, no al ÚLTIMO de la lista. Con siete
+        // tomas repartidas en tres escenarios, «Atrás» desde la toma 2 llevaba
+        // al escenario 3 —un lugar que esa toma no usa—, y si ahí se tocaba una
+        // variante, `elegirImagenAction` dejaba `confirmada: false` en una
+        // escena que nadie quería tocar, reabriendo un paso ya cerrado.
+        onAtras: () => setForzado({ id: 'escenario', n: (escena ?? (item.escenas ?? [])[0])?.n ?? 1 }),
       };
     }
 

@@ -41,6 +41,7 @@ import { leerHistorial, guardarEnHistorial, type PlanGuardado, type MarcaVideo, 
 import { sanearPlantillas, tieneCaraParcheable, KEY_PLANTILLAS } from '@/lib/flow-plantillas';
 import { olvidarTomasFallidas } from './tomas-invalidar';
 import { sumarVariantes } from './variantes-imagen';
+import { archivarToma, recuperarToma } from './tomas-archivo';
 import { personaEstado, addPersonaFoto, getPersona } from '@/lib/persona';
 import { guardarSaldo, leerSaldoGuardado, guardarCostoMedido, type SaldoFlow } from './saldo-datos';
 
@@ -212,11 +213,28 @@ const BUCKET_CLIPS = 'video-clips';
  * desde afuera del modelo de CORS. Así que hay que PROVOCAR el pedido en el
  * navegador del cliente y mirar a dónde fue.
  */
+/**
+ * Una firma de Google dura ~6 h. Se descarta con margen.
+ *
+ * El margen no es cautela de más: entre que se lee el enlace y que `guardarClip`
+ * termina de bajar el .mp4 pasan segundos, y un enlace que vence en el medio deja
+ * el clip a medio bajar — que es indistinguible de un 403.
+ *
+ * Sin fecha se lo trata como VIGENTE: los trabajos viejos no tienen `listo_at`
+ * poblado, y descartarlos todos pediría un enlace nuevo por cada clip ya bajado.
+ * Si estuviera vencido, el 403 lo descubre en la vuelta siguiente.
+ */
+function enlaceVencido(listoAt: string, margenH = 5): boolean {
+  const t = Date.parse(listoAt);
+  if (!Number.isFinite(t)) return false;
+  return Date.now() - t > margenH * 3600_000;
+}
+
 async function conseguirEnlace(mediaId: string): Promise<string> {
   const db = await getTenantDb();
   const { data } = await db
     .from('flow_trabajos')
-    .select('id, estado, resultado')
+    .select('id, estado, resultado, listo_at')
     .eq('tipo', 'enlace_clip')
     .filter('pedido->>mediaId', 'eq', mediaId)
     .order('id', { ascending: false })
@@ -225,7 +243,24 @@ async function conseguirEnlace(mediaId: string): Promise<string> {
   for (const t of data ?? []) {
     if (str(t.estado) !== 'listo') continue;
     const url = str(obj(t.resultado).url);
-    if (url) return url;
+    if (!url) continue;
+    // ⚠️ UN ENLACE VIEJO NO SIRVE, Y DEVOLVERLO TAPABA EL PEDIDO DE UNO NUEVO.
+    //
+    // La firma de Google vence a las ~6 h. Este bucle devolvía el enlace del
+    // trabajo `listo` más reciente sin mirar su fecha, y el `return` está ARRIBA
+    // del re-encolado de abajo: con un enlace vencido guardado, `guardarClip`
+    // recibía 403, devolvía '', y la vuelta siguiente volvía a leer el mismo
+    // enlace muerto. Para siempre.
+    //
+    // El resultado es el peor de este módulo: un clip que EXISTE del lado de
+    // Google, pagado, que la app no puede bajar nunca más — con la pantalla
+    // trabada «a ciegas» y la única salida ofrecida siendo filmarlo de nuevo, o
+    // sea pagarlo dos veces.
+    //
+    // La causa es al revés de lo que uno buscaría: no falta el id permanente
+    // —está guardado— sino que SOBRA un enlace muerto en el camino.
+    if (enlaceVencido(str(t.listo_at))) continue;
+    return url;
   }
   // Ninguno esperando: se pide. Con uno en vuelo, se espera a ése.
   if (!(data ?? []).some((t) => ['pendiente', 'tomado'].includes(str(t.estado)))) {
@@ -246,7 +281,7 @@ async function conseguirEnlace(mediaId: string): Promise<string> {
  * Devuelve la url propia, o `''` si algo falló — y si falló, se reintenta en la
  * vuelta siguiente sin gastar créditos: el clip ya está pagado del lado de Google.
  */
-async function guardarClip(planId: string, n: number, firmada: string): Promise<string> {
+async function guardarClip(planId: string, n: number, firmada: string, operacion: string): Promise<string> {
   try {
     const r = await fetch(firmada);
     if (!r.ok) return '';
@@ -255,10 +290,21 @@ async function guardarClip(planId: string, n: number, firmada: string): Promise<
     if (bytes.byteLength < 1000) return '';
 
     const db = await getTenantDb();
-    const ruta = `video-generator/${planId}/toma-${n}.mp4`;
+    // ⚠️ LA RUTA LLEVA LA OPERACIÓN, Y ANTES ERA FIJA CON `upsert: true`.
+    //
+    // O sea que refilmar una toma SOBRESCRIBÍA el .mp4 del clip anterior: se
+    // perdía el archivo además de la marca, y con eso el clip pagado dejaba de
+    // existir en los dos lugares a la vez. La regla del dueño —«un render nuevo
+    // NUNCA sobrescribe al anterior; van los dos con nombre que los distinga»—
+    // aplicada a lo único de este módulo que cuesta plata.
+    //
+    // La operación es el nombre que le puso Google a ESE clip: distingue los
+    // intentos sin inventar un contador, y es el mismo id que queda guardado en
+    // la marca como `mediaId`.
+    const ruta = `video-generator/${planId}/toma-${n}-${operacion}.mp4`;
     const { error } = await db.storage
       .from(BUCKET_CLIPS)
-      .upload(ruta, bytes, { contentType: 'video/mp4', upsert: true });
+      .upload(ruta, bytes, { contentType: 'video/mp4', upsert: false });
     if (error) {
       console.error('[video] no se pudo guardar el clip:', error.message);
       return '';
@@ -374,20 +420,21 @@ export async function generarTomaAction(
   if (!fallada && (yaHay.operacion || yaHay.trabajoId)) {
     return { ok: true, item };
   }
-  if (fallada) {
-    // Se limpia el intento anterior ANTES de encolar: si quedara la `operacion`
-    // vieja, el sondeo del estado seguiría preguntando por ella y volvería a
-    // encontrar el mismo rechazo, pisando el resultado del intento nuevo.
-    item = await guardarMarca(item, n, {
-      trabajoId: undefined,
-      operacion: undefined,
-      error: undefined,
-      errorCausa: undefined,
-      errorCrudo: undefined,
-      errorAt: undefined,
-      ciego: undefined,
-    });
-  }
+  // ⚠️ ACÁ SE BORRABA EL DIAGNÓSTICO, Y ES EL LUGAR EQUIVOCADO.
+  //
+  // Debajo hay CINCO guards que devuelven sin filmar nada —escenario sin
+  // confirmar, puente sin conectar, sesión marcada, sesión de Flow vencida, sin
+  // mediaId—. Limpiando antes, cualquiera de ellos dejaba la toma sin causa, sin
+  // crudo y sin fecha: al recargar, una toma que Google había RECHAZADO se veía
+  // como una que nunca se intentó.
+  //
+  // Y con causa `contenido` eso cuesta plata: el texto guardado dice que volver
+  // a intentar con el mismo prompt va a dar lo mismo, y sin él la pantalla
+  // ofrece filmar como si fuera un primer intento.
+  //
+  // La limpieza se mudó a la MISMA escritura que guarda el trabajo nuevo (al
+  // final): así no existe ningún instante en que la toma esté sin diagnóstico y
+  // sin intento nuevo.
 
   // ⚠️ EL PASO DE IMAGENES ES OBLIGATORIO, y el guard vive ACA.
   //
@@ -484,7 +531,17 @@ export async function generarTomaAction(
   });
   if (trabajoId == null) return { ok: false, error: 'No se pudo encolar el trabajo.' };
 
-  return { ok: true, item: await guardarMarca(item, n, { trabajoId, operacion: '', url: '', error: '', saldoAntes }) };
+  // Los SEIS campos del intento anterior, en la misma escritura que encola el
+  // nuevo. `operacion: ''` es la que más importa: con la vieja puesta, el sondeo
+  // seguiría preguntando por ella y volvería a encontrar el mismo rechazo,
+  // pisando el resultado del intento nuevo.
+  return {
+    ok: true,
+    item: await guardarMarca(item, n, {
+      trabajoId, operacion: '', url: '', saldoAntes,
+      error: '', errorCausa: undefined, errorCrudo: undefined, errorAt: undefined, ciego: undefined,
+    }),
+  };
 }
 
 /**
@@ -663,7 +720,7 @@ export async function estadoTomaAction(
         // Flow>`. Se probó y no puede funcionar.
         const enlace = await conseguirEnlace(operacion);
         if (enlace) {
-          const guardada = await guardarClip(planId, n, enlace);
+          const guardada = await guardarClip(planId, n, enlace, operacion);
           if (guardada) {
             item = await guardarMarca(item, n, {
               url: guardada, mediaId: operacion, ciego: undefined,
@@ -1322,8 +1379,40 @@ export async function descartarTomaAction(
   const item = planDe(await leerHistorial(), planId);
   if (!item) return { ok: false, error: 'Ese anuncio ya no está en el historial.' };
 
+  // ⚠️ SE ARCHIVA, NO SE BORRA. Antes esto era `delete sin[String(n)]`, y el
+  // clip pagado dejaba de existir en el mismo instante — antes de saber si
+  // `generarTomaAction` iba a poder filmar algo, cosa que tiene cinco motivos
+  // para no poder. Ahora el intento anterior queda guardado y la pantalla
+  // ofrece volver a él.
   const sin = { ...marcas(item) };
-  delete sin[String(n)];
+  sin[String(n)] = archivarToma(marcas(item)[String(n)]);
+  const actualizado: PlanGuardado = { ...item, video: sin };
+  await guardarEnHistorial(actualizado);
+  return { ok: true, item: actualizado };
+}
+
+/**
+ * Vuelve al último clip descartado de una toma.
+ *
+ * Es la otra mitad de archivar: guardar el intento anterior sin ofrecer cómo
+ * recuperarlo sería la misma pérdida con un rastro en la base — «escribir la
+ * salida no es ofrecerla», que este módulo ya pagó tres veces.
+ */
+export async function restaurarTomaAction(
+  planId: string,
+  n: number,
+): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  const item = planDe(await leerHistorial(), planId);
+  if (!item) return { ok: false, error: 'Ese anuncio ya no está en el historial.' };
+
+  const vuelve = recuperarToma(marcas(item)[String(n)]);
+  if (!vuelve) return { ok: false, error: 'No hay ningún clip anterior guardado para esa toma.' };
+
+  const sin = { ...marcas(item) };
+  sin[String(n)] = vuelve;
   const actualizado: PlanGuardado = { ...item, video: sin };
   await guardarEnHistorial(actualizado);
   return { ok: true, item: actualizado };
