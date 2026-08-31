@@ -479,11 +479,15 @@
     const { id, mediaId, variantes } = ev.detail || {};
     const base = 'https://labs.google/fx/api/trpc/media.getMediaUrlRedirect?name=' + encodeURIComponent(mediaId || '');
     const lista = Array.isArray(variantes) && variantes.length ? variantes : [''];
-    const out = [];
 
-    for (const v of lista) {
+    // ⚠️ TODOS A LA VEZ, no uno tras otro.
+    //
+    // En serie son ocho candidatos por doce segundos: hasta 96 s con el service
+    // worker esperando, y un service worker MV3 se duerme mucho antes. La sonda
+    // no llegaba a contestar nunca. En paralelo tarda lo que tarda el mas lento.
+    const out = await Promise.all(lista.map((v) => {
       const url = v ? base + '&mediaUrlType=' + encodeURIComponent(v) : base;
-      const r = await new Promise((resolve) => {
+      return new Promise((resolve) => {
         let el = document.createElement('video');
         el.preload = 'metadata';
         el.muted = true;
@@ -492,7 +496,7 @@
           el = null;
           resolve(dato);
         };
-        const reloj = setTimeout(() => cerrar({ variante: v || '(sin parametro)', estado: 'timeout' }), 12000);
+        const reloj = setTimeout(() => cerrar({ variante: v || '(sin parametro)', estado: 'timeout' }), 8000);
         el.addEventListener('loadedmetadata', () => {
           clearTimeout(reloj);
           cerrar({
@@ -510,8 +514,7 @@
         }, { once: true });
         el.src = url;
       });
-      out.push(r);
-    }
+    }));
     responder('MAKO_SONDA_OK', id, { sonda: out });
   });
 

@@ -761,17 +761,26 @@ async function ciclo() {
       if (pedido && pedido.mediaId) {
         const { sondaHecha } = await chrome.storage.local.get('sondaHecha');
         if (sondaHecha !== pedido.mediaId) {
-          await chrome.storage.local.set({ sondaHecha: pedido.mediaId });
           const tabS = await pestanaDeFlow();
-          if (tabS) {
-            const r = await chrome.tabs.sendMessage(tabS.id, {
-              tipo: 'SONDA_MEDIO', mediaId: pedido.mediaId, variantes: pedido.variantes,
+          // El content script se repone ANTES: recargar la extension deja
+          // huerfanos los de las pestanas abiertas, que es JUSTO el momento en que
+          // esto corre por primera vez.
+          await asegurarContentScript(tabS.id);
+          const r = await chrome.tabs.sendMessage(tabS.id, {
+            tipo: 'SONDA_MEDIO', mediaId: pedido.mediaId, variantes: pedido.variantes,
+          });
+          if (r && r.sonda) {
+            // ⚠️ SE ANOTA DESPUES DE QUE CONTESTO, no antes.
+            //
+            // La version anterior marcaba «ya sondeado» y RECIEN despues sondeaba,
+            // asi que el primer intento fallido —la pestana muda un segundo despues
+            // de recargar la extension, que es exactamente cuando esto corre—
+            // quemaba la sonda para siempre y en silencio. Una guarda de un solo
+            // intento tiene que contar los intentos que SIRVIERON.
+            await chrome.storage.local.set({
+              sondaHecha: pedido.mediaId,
+              sondaResultado: JSON.stringify({ mediaId: pedido.mediaId, r: r.sonda }),
             });
-            if (r && r.sonda) {
-              await chrome.storage.local.set({
-                sondaResultado: JSON.stringify({ mediaId: pedido.mediaId, r: r.sonda }),
-              });
-            }
           }
         }
       }
