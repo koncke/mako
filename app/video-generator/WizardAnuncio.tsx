@@ -43,6 +43,7 @@ import {
   escribirEscenasAction, corregirEscenaAction, generarImagenAction, estadoImagenAction,
   elegirImagenAction, subirImagenEscenaAction, confirmarEscenaAction,
   generarTomaAction, estadoTomaAction, descartarTomaAction, marcarCaraVistaAction,
+  cambiarMuletillasAction,
 } from './video-action';
 import { editarLineaPlanAction, reescribirTomaAction } from './actions';
 import { EditarTexto } from '../components/SeccionCard';
@@ -270,7 +271,7 @@ function Salidas({ resumen, children }: { resumen: string; children: React.React
  * Lo que sobrevive del wizard es lo único que hacía falta: la posición, un solo
  * botón que avanza, y una salida. Todo flota sobre el negro, sin encerrar nada.
  */
-function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia, cargando, onSiguiente, atras, onAtras, onSalir, error, mismaSalida }: {
+function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia, cargando, onSiguiente, atras, onAtras, onSalir, error, vistaPrevia }: {
   pregunta: string;
   titulo?: string;
   paso: number;
@@ -284,11 +285,26 @@ function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia,
   onAtras?: () => void;
   onSalir: () => void;
   error?: string;
-  /** `true` = «atrás» ya lleva afuera; no se dibuja un «Salir» al lado. */
-  mismaSalida?: boolean;
+  /** La tira de previsualización del formato. Va arriba a la derecha. */
+  vistaPrevia?: React.ReactNode;
 }) {
   return (
     <div className="mk-estudio">
+      {/* ── LA BARRA DE ARRIBA ──────────────────────────────────────────────
+          SALIR a la izquierda y del todo arriba, que es donde se lo busca.
+          ⚠️ No pregunta nada al salir, y eso es correcto ACA: el anuncio se
+          guarda entero en cada paso —el guion, los escenarios, cada imagen
+          confirmada, cada toma— asi que salir no pierde nada y volver a entrar
+          cae en el mismo lugar. Preguntar «¿seguro?» sobre algo que no se pierde
+          es enseñar a ignorar las preguntas. */}
+      <div style={{
+        display: 'flex', alignItems: 'center', width: '100%', maxWidth: 900, gap: 16,
+      }}>
+        <button type="button" onClick={onSalir} style={salida}>← Salir</button>
+        <div style={{ flex: 1 }} />
+        {vistaPrevia}
+      </div>
+
       {/* La barra de posición: segmentos finos, no dots de formulario. Dice
           dónde estás sin pedir nada y sin ocupar una fila entera. */}
       <div style={{
@@ -336,11 +352,19 @@ function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia,
 
       {boton && (
         <div style={{ textAlign: 'center' }}>
-          {/* El botón de la CASA, no uno pintado a mano: en oscuro se resuelve
-              solo con los tokens y se ve igual que en el resto de la app. */}
-          <Button variant="primary" size="xl" loading={cargando} disabled={!onSiguiente} onClick={onSiguiente}>
-            {boton}
-          </Button>
+          {/* «Volver» AL LADO del principal y en peso bajo. Antes vivía al pie de
+              la pantalla, lejos de lo que sigue: el par de salidas de un paso se
+              lee junto o no se lee. */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+            {onAtras && (
+              <Button variant="tertiary" onClick={onAtras}>{atras ?? 'Volver'}</Button>
+            )}
+            {/* El botón de la CASA, no uno pintado a mano: en oscuro se resuelve
+                solo con los tokens y se ve igual que en el resto de la app. */}
+            <Button variant="primary" size="xl" loading={cargando} disabled={!onSiguiente} onClick={onSiguiente}>
+              {boton}
+            </Button>
+          </div>
           {/* La consecuencia PEGADA al botón y antes del click. En blanco al 70%:
               se lee, y no compite con el botón. */}
           {consecuencia && (
@@ -353,18 +377,10 @@ function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia,
         </div>
       )}
 
-      {/* Las salidas, al pie y en peso bajo. Nunca compiten con lo que avanza.
-          ⚠️ Y son UNA cuando van al mismo lado: en el primer paso «Volver al
-          catálogo» y «Salir» hacían exactamente lo mismo, uno al lado del otro.
-          Dos botones con el mismo destino no dan dos opciones: dan una duda. */}
-      <div style={{ display: 'flex', gap: 22, marginTop: 'auto', paddingTop: 8 }}>
-        {onAtras && (
-          <button type="button" onClick={onAtras} style={salida}>{atras ?? 'Atrás'}</button>
-        )}
-        {!mismaSalida && (
-          <button type="button" onClick={onSalir} style={salida}>Salir</button>
-        )}
-      </div>
+      {/* ⚠️ ACÁ HABÍA UN SEGUNDO PAR DE SALIDAS, al pie de todo. «Volver» subió
+          al lado del botón que avanza y «Salir» subió a la barra de arriba: el
+          mismo botón dibujado en dos lugares es el que nadie encuentra en
+          ninguno. */}
     </div>
   );
 }
@@ -373,6 +389,63 @@ const salida: React.CSSProperties = {
   background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
   fontSize: 'var(--fs-sm)', color: 'var(--faint)', padding: 4,
 };
+
+/**
+ * El formato elegido, mirable en cualquier momento y ocultable.
+ *
+ * Martín: *«cuando estoy creando, sería bueno siempre poder previsualizar el
+ * template que elegí, y que se pueda ocultar cuando quiera»*.
+ *
+ * Es una pregunta que aparece en cualquier paso —«¿esto era Car Talks?»— y hasta
+ * ahora había que salir al catálogo para contestarla, o sea perder el lugar. El
+ * ejemplo es un video de diez segundos, mudo y en loop: contesta mirándolo, que
+ * es más rápido que cualquier texto que se pudiera escribir al lado.
+ *
+ * Arranca CERRADO. Abierto por defecto, un video en movimiento le compite la
+ * atención a lo único que la pantalla está pidiendo mirar.
+ */
+function VistaPrevia({ puesta }: { puesta: Puesta | undefined }) {
+  const [abierta, setAbierta] = useState(false);
+  if (!puesta?.ejemplo) return null;
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        type="button"
+        onClick={() => setAbierta((v) => !v)}
+        style={{ ...salida, display: 'flex', alignItems: 'center', gap: 7 }}
+      >
+        <Icon name={abierta ? 'x' : 'play'} size={13} />
+        {abierta ? 'Ocultar el formato' : `Ver el formato · ${puesta.nombre}`}
+      </button>
+      {abierta && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 10px)', right: 0, zIndex: 40,
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 14, padding: 10, boxShadow: '0 18px 50px rgba(0,0,0,.45)',
+        }}>
+          <video
+            src={puesta.ejemplo.video}
+            poster={puesta.ejemplo.poster}
+            autoPlay
+            loop
+            muted
+            playsInline
+            style={{
+              display: 'block', width: 150, aspectRatio: '9 / 16',
+              objectFit: 'cover', borderRadius: 10, background: '#000',
+            }}
+          />
+          <div style={{
+            fontSize: 'var(--fs-meta)', color: 'var(--dim)', marginTop: 8,
+            maxWidth: 150, lineHeight: 1.4,
+          }}>
+            {puesta.tecnico}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── El wizard ───────────────────────────────────────────────────────────────
 
@@ -439,6 +512,32 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
     return () => { vivo = false; clearInterval(t); };
   }, [escenaEnCurso, tomaEnCurso, item.id, onCambio]);
 
+  /**
+   * Al llegar al paso del lugar SIN escenarios, MaKo los escribe solo.
+   *
+   * ⚠️ Esto es la otra mitad de que «Siguiente» no espere. Antes ese botón se
+   * quedaba quieto quince segundos llamando al modelo, y un botón que dice
+   * «Siguiente» y no pasa nada se lee como colgado. Ahora avanza al instante y la
+   * espera ocurre ACÁ, donde aparece el resultado y donde ya hay una niebla que
+   * la cuenta.
+   *
+   * `escribiendo` es un ref y no un estado: alcanza con que no se dispare dos
+   * veces, y un estado extra volvería a renderizar sin que nada cambie en
+   * pantalla.
+   */
+  const escribiendo = useRef(false);
+  useEffect(() => {
+    if (paso.id !== 'escenario') return;
+    if ((item.escenas?.length ?? 0) > 0 || escribiendo.current || ocupado) return;
+    escribiendo.current = true;
+    void (async () => {
+      const r = await escribirEscenasAction(item.id).catch(() => null);
+      if (r?.ok) onCambio(r.item);
+      else setError(r?.error || 'MaKo no pudo escribir los escenarios.');
+      escribiendo.current = false;
+    })();
+  }, [paso, item.id, item.escenas, ocupado, onCambio]);
+
   const subir = useCallback((n: number, f: File | null) => {
     if (!f) return;
     const lector = new FileReader();
@@ -459,8 +558,15 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
     // ── 1. El guion ───────────────────────────────────────────────────────
     if (paso.id === 'guion-leer') {
       const seg = item.plan.clips[0]?.segundos ?? 8;
+      // Del DATO, no de un estado que haya que recordar: un plan sin adaptar
+      // marca TODAS sus tomas como literales.
+      const conMuletillas = item.plan.clips.some((c) => !c.literal);
       return {
-        pregunta: '¿Dice lo que quieres decir?',
+        // ⚠️ LITERAL, no ingeniosa. Martín: «los títulos que les pones no me
+        // gustan, tienen que ser más literales». «¿Dice lo que quieres decir?»
+        // suena bien y no nombra la cosa: lo que se está haciendo es APROBAR EL
+        // GUION, y eso es lo que tiene que decir.
+        pregunta: '¿Apruebas el guion?',
         // ⚠️ ESTA LÍNEA CONTESTA LA PREGUNTA QUE NADIE HACÍA EN VOZ ALTA.
         //
         // Martín: «no se entiende por qué se divide en 7 clips. Nosotros lo
@@ -518,12 +624,51 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                 </div>
               </div>
             ))}
+
+            {/* ── LAS MULETILLAS, ACÁ Y NO ANTES ────────────────────────────
+                La decisión es «¿me gusta cómo suena?», y eso se contesta LEYENDO
+                el guion. Estaba en la pantalla anterior, donde todavía no había
+                nada que leer: preguntarlo ahí es pedir una opinión sobre algo que
+                no se vio.
+
+                No es un interruptor: rehace el guion entero. Por eso el botón
+                dice lo que va a hacer, y sólo aparece mientras no haya nada
+                filmado. */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              gap: 12, marginTop: 24, flexWrap: 'wrap',
+            }}>
+              <Button
+                variant="tertiary"
+                loading={ocupado === 'muletillas'}
+                disabled={!!ocupado}
+                onClick={() => void correr('muletillas', () => cambiarMuletillasAction(item.id, !conMuletillas), false)}
+              >
+                {conMuletillas ? 'Escribirlo tal cual lo escribí' : 'Ponerle mi forma de hablar'}
+              </Button>
+              <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>
+                {conMuletillas
+                  ? 'Ahora está adaptado a cómo hablas.'
+                  : 'Ahora va palabra por palabra como lo escribiste.'}
+              </span>
+            </div>
           </div>
         ),
-        boton: 'Escribir dónde se filma',
+        // ⚠️ «Siguiente», y NO «Escribir dónde se filma».
+        //
+        // Dos razones, y las dos son de Martín. La primera: el nombre no era
+        // descriptivo — nombraba lo que pasa POR DENTRO, no lo que la persona
+        // está haciendo, que es avanzar. La segunda es más fuerte: ese botón
+        // TARDABA, porque esperaba a que MaKo escribiera los escenarios antes de
+        // cambiar de pantalla. Un botón que dice «Siguiente» y se queda quieto
+        // quince segundos se lee como colgado.
+        //
+        // Ahora avanza SIEMPRE y al instante; la espera ocurre en la pantalla
+        // siguiente, que es donde aparece el resultado y donde ya hay una niebla
+        // que la cuenta.
+        boton: 'Siguiente',
         consecuencia: 'No gasta créditos.',
-        cargandoBoton: ocupado === 'escenas',
-        onSiguiente: () => void correr('escenas', () => escribirEscenasAction(item.id)),
+        onSiguiente: () => setForzado({ id: 'escenario', n: 1 }),
         atras: 'Volver al catálogo',
         onAtras: onSalir,
       };
@@ -532,6 +677,9 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
     // ── 2. El lugar ───────────────────────────────────────────────────────
     if (paso.id === 'escenario') {
       const escena = (item.escenas ?? []).find((e) => e.n === paso.n);
+      // Todavía no llegaron los escenarios: MaKo los está escribiendo (el efecto
+      // de arriba). La pantalla lo dice con la misma niebla que todo lo demás.
+      const sinEscenas = !escena;
       const marca = item.imagenes?.[String(paso.n)];
       const opciones = marca?.opciones ?? [];
       const generando = !!marca?.trabajoId && !opciones.length && !marca?.error;
@@ -540,7 +688,9 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
         : undefined;
       const txt = causa ? textoFlow(causa, `la imagen del escenario ${paso.n}`, marca?.errorAt) : null;
 
-      const derecha = txt ? (
+      const derecha = sinEscenas ? (
+        <Niebla etiqueta="MaKo está escribiendo dónde se filma" desde={desde} />
+      ) : txt ? (
         <div style={{ padding: 24, textAlign: 'center' }}>
           <div style={{ fontSize: 'var(--fs-md)', fontWeight: 650, color: 'var(--ink)' }}>{txt.titulo}</div>
           <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginTop: 9, lineHeight: 1.5 }}>
@@ -556,7 +706,9 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
       );
 
       return {
-        pregunta: opciones.length ? '¿Sirve esta imagen?' : '¿Dónde se filma?',
+        pregunta: sinEscenas
+          ? 'Buscando dónde se filma'
+          : opciones.length ? '¿Sirve esta imagen?' : '¿Dónde se filma?',
         titulo: escena?.lugar,
         cuerpo: (
           <div>
@@ -650,17 +802,19 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
             />
           </div>
         ),
-        boton: txt
-          ? txt.accion
-          : opciones.length
-            ? `Confirmar el escenario ${paso.n}`
-            : `Generar la imagen del escenario ${paso.n}`,
+        boton: sinEscenas
+          ? undefined
+          : txt
+            ? txt.accion
+            : opciones.length
+              ? 'Sí, es este lugar'
+              : 'Generar la imagen',
         consecuencia: opciones.length ? 'No gasta créditos. Filmar sí gasta.' : 'No gasta créditos.',
         cargandoBoton: ocupado === 'imagen' || ocupado === 'confirmar' || generando,
         onSiguiente: opciones.length
           ? () => void correr('confirmar', () => confirmarEscenaAction(item.id, paso.n))
           : () => void correr('imagen', () => generarImagenAction(item.id, paso.n), false),
-        atras: 'Volver al guion',
+        atras: 'Volver',
         onAtras: () => setForzado({ id: 'guion-leer' }),
       };
     }
@@ -823,7 +977,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
       onAtras={p.onAtras}
       onSalir={onSalir}
       error={error}
-      mismaSalida={p.onAtras === onSalir}
+      vistaPrevia={<VistaPrevia puesta={puesta} />}
     >
       {p.cuerpo}
     </Estudio>

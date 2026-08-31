@@ -33,6 +33,8 @@ import {
 import { parchesImagenEscena, imagenesDeRespuesta, semillaDeEscena } from '@/lib/flow-imagen';
 import { escribirEscenas, reescribirEscena } from '@/lib/escenas';
 import { puestaPorId } from '@/lib/puestas-data';
+import { generarPlanAction } from './actions';
+import { guionesDisponibles } from './guiones-datos';
 import { causaFlow, causaDeMotivo, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
 import { getSetting } from '@/lib/settings';
 import { leerHistorial, guardarEnHistorial, type PlanGuardado } from './video-datos';
@@ -866,4 +868,63 @@ export async function subirImagenEscenaAction(
       error: '', errorCausa: undefined, errorCrudo: '', errorAt: '',
     }),
   };
+}
+
+/**
+ * Rehace el guion con o sin las muletillas de la persona.
+ *
+ * ── Por qué vive acá y no en el paso anterior ──────────────────────────────
+ * Martín: *«ahí debería estar el botón de agregar las muletillas, en esa tab, y
+ * se debe agregar sin salir de la tab»*. La decisión se toma LEYENDO el guion —es
+ * literalmente «¿me gusta cómo suena?»— y estaba en la pantalla anterior, donde
+ * todavía no hay nada que leer. Preguntarlo antes es pedir una opinión sobre algo
+ * que no se vio.
+ *
+ * ⚠️ NO ES UN INTERRUPTOR: rehace el guion entero, así que descarta los
+ * escenarios y sus imágenes. Por eso quien llama sólo lo ofrece mientras no haya
+ * ninguna toma filmada — una vez que se gastaron créditos, cambiar el guion de
+ * lado a lado deja de ser algo que se prueba y se vuelve una decisión.
+ */
+export async function cambiarMuletillasAction(
+  planId: string,
+  adaptarVoz: boolean,
+): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  const item = planDe(await leerHistorial(), planId);
+  if (!item) return { ok: false, error: 'Ese anuncio ya no está en el historial.' };
+
+  // Con algo filmado no se rehace: son créditos gastados sobre un texto que
+  // dejaría de existir.
+  if (Object.values(marcas(item)).some((v) => v?.url || v?.trabajoId)) {
+    return { ok: false, error: 'Ya hay tomas filmadas con este guion: cambiarlo ahora las dejaría sin sentido.' };
+  }
+  if (!item.guionId) {
+    return { ok: false, error: 'Este anuncio no guardó de qué guion salió, así que no se puede rehacer.' };
+  }
+
+  const guion = (await guionesDisponibles()).find((g) => g.id === item.guionId);
+  if (!guion?.texto?.trim()) {
+    return { ok: false, error: 'No encontré el guion original de este anuncio.' };
+  }
+
+  const out = await generarPlanAction({
+    puestaId: item.plan.puestaId,
+    anguloId: item.plan.anguloId,
+    guionId: item.guionId,
+    guionTexto: guion.texto,
+    adaptarVoz,
+  });
+  if (!out.ok) return out;
+
+  // El anuncio conserva su ID: es el MISMO anuncio con el guion reescrito. Si
+  // naciera con otro, el `?plan=` de la barra quedaría apuntando al viejo y la
+  // pantalla mostraría uno mientras la URL nombra otro.
+  const actualizado: PlanGuardado = {
+    ...out.item, id: item.id, guionId: item.guionId,
+    escenas: undefined, imagenes: {}, video: {},
+  };
+  await guardarEnHistorial(actualizado);
+  return { ok: true, item: actualizado };
 }

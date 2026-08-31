@@ -86,10 +86,20 @@ Responde SOLO con JSON:
  * imagen entiende, y se le dice primero.
  */
 const COMO_FILMA: Record<string, string> = {
+  // ⚠️ NI UNA PALABRA DE LA LISTA PROHIBIDA. La primera version de esta linea
+  // decia «close-up, FACE and shoulders filling the frame» — y `mencionaCara()`
+  // rechaza todo prompt que diga `face`. O sea: le pedia al modelo copiar
+  // literalmente una linea que el guard de al lado prohibe, y el resultado fue
+  // que TODAS las escenas se rechazaban con «describe a la persona: face».
+  //
+  // La regla que queda: el vocabulario de una instruccion y el de su guard son
+  // el mismo vocabulario. Si el guard prohibe una palabra, la instruccion no la
+  // puede usar — y eso hay que mirarlo al escribir la instruccion, no cuando
+  // vuelve el rechazo.
   selfie:
-    'SELFIE, at arm length. The camera IS the phone the subject is holding: close-up, '
-    + 'face and shoulders filling the frame, slightly high angle looking down, wide-angle '
-    + 'phone lens with its mild distortion. The subject looks straight into the lens.',
+    'SELFIE, at arm length. The camera IS the phone the subject is holding: tight '
+    + 'head-and-shoulders framing, slightly high angle looking down, wide-angle phone '
+    + 'lens with its mild distortion. The subject looks straight into the lens.',
   seguimiento:
     'FOLLOWING SHOT. The camera moves with the subject through the space: medium shot, '
     + 'walking pace, the background sliding behind. Handheld feel, eye level.',
