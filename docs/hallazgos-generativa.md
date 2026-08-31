@@ -3091,3 +3091,94 @@ Cuatro detalles deciden si funciona:
   viejo al nuevo): si algo la interrumpe, el elemento ya está donde va.
 - Un **fantasma** que se cruza con el original es más simple de escribir y se rompe
   en cuanto algo lo interrumpe: quedan dos videos o ninguno.
+
+
+---
+
+## Los tres muros que fijan DÓNDE puede vivir el emparejado (31/08/2026)
+
+Se midieron al mudar la configuración del puente al popup de la extensión, y
+valen para cualquier cosa que una extensión quiera pedirle al server de MaKo:
+
+1. **No hay a qué llamar.** `crearTokenPuente` guarda `sha256` del token
+   (`lib/flow-cola.ts`), así que **ningún endpoint podría devolver el existente
+   aunque quisiera**, y su único call site es la server action.
+2. **El transporte muere en `proxy.ts`.** Un `fetch` de extensión manda siempre
+   `Origin: chrome-extension://<id>`, que nunca coincide con el host → 403 a todo
+   POST, con cookie o sin ella. Un GET esquivaría el chequeo (solo cubre
+   POST/PUT/PATCH/DELETE) pero **un GET que ROTA una credencial es una primitiva
+   de CSRF**: cualquier `<img>` de cualquier sitio desconectaría al cliente.
+3. **`PUBLICOS` no sirve**, y lo dice textual `lib/rutas-publicas.ts`: estar ahí
+   significa que la ruta **no lee la cookie de sesión**, que es justo lo que un
+   endpoint de emparejado necesita.
+
+Y hay un cuarto que no es de código: **mientras la extensión se instale
+descomprimida, su id es distinto en CADA máquina.** Fijar `chrome-extension://<id>`
+en el proxy rompería al 100% de los clientes, y no fijarlo abriría un POST exento
+de CSRF a cualquier extensión con acceso a hola-mako.com.
+
+**Lo que queda: la página deja de ser una PANTALLA y pasa a ser un MENSAJERO.**
+`app/video-generator/PuenteEnlace.tsx` no dibuja nada; escucha el pedido del
+content script, acuña con la sesión, y contesta por evento. El botón vive en el
+popup y el acuñado vive donde está la cookie.
+
+**Vive en:** `extension/mako-puente.js`, `app/video-generator/PuenteEnlace.tsx`.
+
+## Un dato que sale de un global hidratado por callback no es un dato
+
+El popup preguntaba `{tipo:'ESTADO'}` y el service worker contestaba **de forma
+síncrona** con `{ conectado: !!bearer }`, leyendo un global que se hidrata por el
+callback de `chrome.storage.local.get` al arrancar el worker.
+
+El detalle que lo vuelve inevitable: **el propio `sendMessage` del popup es lo que
+despierta al worker en frío.** O sea que la pregunta llega justo cuando el
+callback todavía no corrió, `bearer` es `null`, y el popup pinta «falta abrir
+Flow» con Flow perfectamente abierto. No es intermitente por carga: es lo que pasa
+siempre que el worker estaba dormido, que es casi siempre.
+
+La cura es leer de `storage` en el handler. Y la regla general: **si un valor se
+hidrata en un callback, cualquier lectura síncrona de él es una carrera** — no
+importa cuánto tiempo «suele» tardar.
+
+⚠️ Y al lado había un segundo bug de la misma familia: el `return true` estaba
+**fuera** del `if`, así que el listener dejaba el canal abierto para TODO mensaje
+desconocido y el emisor esperaba una respuesta que no iba a llegar nunca.
+
+## Un rastro escrito «al final» no registra las salidas tempranas
+
+`ciclo()` —el latido de la extensión— tiene **cuatro** returns antes del final:
+sin token, `!res.ok`, el `catch`, y el `return` de pausado. Escribir el estado
+«al terminar el ciclo» deja sin registrar exactamente los casos que hay que
+mostrar: el **404** (token rotado porque se conectó otro navegador) y el **fallo
+de red**.
+
+Y el modo de falla es el peor: el popup pintaría **el último latido bueno para
+siempre**, que se lee como que todo anda.
+
+Va con un acumulador declarado antes del `try` y un `finally` que escribe. La
+regla: **cuando instrumentes una función, contá sus salidas antes de elegir dónde
+escribir.** Es la misma familia que «la métrica puesta después del early-return no
+mide el fallo», que este repo ya tiene escrita para las visitas.
+
+## Un botón a un clic convierte un accidente raro en uno normal
+
+`crearTokenPuente` hace `upsert … onConflict:'workspace_id'`: acuñar un token
+**desconecta la máquina anterior**. Mientras eso vivía detrás de un panel de
+cuatro pasos en la web, pasaba casi nunca. Con el botón «Conectar» a un clic
+dentro del popup, pasa a ser el camino normal.
+
+**La regla: cuando muevas una acción a un lugar más accesible, revisá qué
+supuestos de FRECUENCIA tenía.** Lo que era seguro porque «nadie lo hace dos
+veces» deja de serlo. Acá quedó un guard por `vivo && listo` —un navegador que
+late pero tiene Flow cerrado no está trabajando, así que no tiene derecho a
+bloquear al que sí— y una salida explícita que **nombra al otro navegador**, que
+es lo único que convierte esto en una decisión en vez de una sorpresa.
+
+## Y el saldo NO puede leerse desde el service worker
+
+Medido y escrito en `extension/background.js`: un pedido a `/v1/credits` desde el
+worker viaja con `Origin: chrome-extension://` y sin las cookies del sitio, y
+Google contesta su página de bloqueo. Sale de la **página** de Flow o no sale.
+
+**Corolario duro: leer los créditos siempre exige la pestaña de Flow abierta**,
+por autónomo que sea el popup. Por eso «Abre Google Flow» no se puede saltear.

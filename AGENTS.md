@@ -456,6 +456,31 @@ Antes de escribir un límite —de tamaño, de progreso, de espaciado— comprob
 el límite real de la capa de abajo. Un número tuyo por encima del suyo no protege:
 promete.
 
+# Mover una acción a un lugar más accesible cambia sus supuestos de FRECUENCIA
+
+Lo que era seguro porque «nadie lo hace dos veces» deja de serlo el día que pasa a
+estar a un clic. No hay ninguna línea que cambie y ningún test que falle: la misma
+función, llamada más seguido, se vuelve peligrosa.
+
+El caso, del 31/08/2026: `crearTokenPuente` hace `upsert … onConflict:'workspace_id'`,
+o sea que conectar un navegador **desconecta al anterior**. Vivía detrás de un panel de
+cuatro pasos en la web, así que pasaba casi nunca. Al mudarse a un botón «Conectar» del
+popup de la extensión, pasaba a ser el camino normal — y desconectar en silencio la
+máquina que estaba trabajando.
+
+**Antes de mudar una acción, enumerá qué la protegía además de su código.** La fricción
+es una salvaguarda real, y es la primera que se pierde. Lo que quedó acá: un guard
+explícito, y una salida que **nombra** lo que se va a romper («ya hay otro navegador
+conectado: {cuál}»), porque lo que convierte esto en una decisión y no en una sorpresa
+es que la persona sepa a quién está desconectando.
+
+⚠️ **Y el corolario de la instrumentación: contá las salidas tempranas antes de elegir
+dónde escribir el rastro.** Un estado escrito «al final de la función» no registra los
+returns de arriba — y esos son justo los fallos. El síntoma es una pantalla que muestra
+el último estado BUENO para siempre, que se lee como que todo anda. Va con un acumulador
+antes del `try` y un `finally`. Es la misma familia que «la métrica puesta después del
+early-return no mide el fallo».
+
 # Escribir la salida no es ofrecerla: después de escribirla, preguntá QUIÉN LA LLAMA
 
 Cuatro veces en un mismo día, en el mismo archivo, con cuatro formas distintas y
