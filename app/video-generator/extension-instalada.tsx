@@ -99,7 +99,11 @@ export function AvisoExtensionVieja({ instalada, compacto = false }: {
   if (!esMasVieja(instalada, EXTENSION_VERSION)) return null;
 
   return (
-    <div style={{ marginBottom: compacto ? 0 : 12, width: '100%' }}>
+    // El ancho vive ACÁ y no en un envoltorio del llamador: ese envoltorio se
+    // dibujaba siempre, y en un contenedor `flex` con `gap` un hijo vacío no
+    // cuesta 0 — cuesta el gap. Quien sabe si esto va a existir es este
+    // componente, así que el ancho viaja con él.
+    <div style={{ marginBottom: compacto ? 0 : 12, width: '100%', maxWidth: 900 }}>
       <Alert tono="warn" accion={{ label: 'Descargar la nueva', href: EXTENSION_URL_ZIP }}>
         <strong>Tu extensión quedó vieja.</strong> Tienes la <code>{instalada}</code> y la
         actual es la <code>{EXTENSION_VERSION}</code>. Descárgala y{' '}

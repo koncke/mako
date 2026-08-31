@@ -557,9 +557,19 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
           sale con un campo que ya no existe.
           El aviso ya existía, pero sólo en el panel de conectar el puente. La
           falla ocurre acá, que es donde alguien pasa una hora generando. */}
-      <div style={{ width: '100%', maxWidth: 900 }}>
-        <AvisoExtensionVieja instalada={extensionInstalada} compacto />
-      </div>
+      {/* ⚠️ EL ENVOLTORIO SE DIBUJA SÓLO SI HAY AVISO. `AvisoExtensionVieja`
+          devuelve `null` cuando la extensión está al día —o sea casi siempre— y
+          un hijo vacío de un contenedor `flex` con `gap` NO mide 0: mide 0 y
+          ADEMÁS se cobra el gap. Eran 22 px que empujaban toda la pantalla hacia
+          abajo sin que nada se viera. Un `display: contents` no alcanza: el hueco
+          lo crea el gap, no la caja. */}
+      {/* ⚠️ SIN ENVOLTORIO. `AvisoExtensionVieja` devuelve `null` cuando la
+          extensión está al día —o sea casi siempre— y un hijo vacío de un
+          contenedor `flex` con `gap` no mide 0: mide 0 y ADEMÁS se cobra el gap.
+          Eran 22 px que empujaban toda la pantalla hacia abajo sin que se viera
+          nada. El ancho se lo pone el propio aviso, que es el único que sabe si
+          va a existir — poner la condición acá afuera la tendría en dos lugares. */}
+      <AvisoExtensionVieja instalada={extensionInstalada} compacto />
 
       <div style={{
         display: 'flex', alignItems: 'center', width: '100%', maxWidth: 900, gap: 16,
