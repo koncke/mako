@@ -81,6 +81,39 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
   ['requestHeaders'],
 );
 
+/**
+ * A DONDE redirige el pedido de un medio.
+ *
+ * ⚠️ ES LA UNICA FORMA QUE QUEDA DE SABERLO, y no cuesta ningun permiso nuevo.
+ *
+ * Medido hoy: `getMediaUrlRedirect?name=<id>` redirige al archivo, y ese destino
+ * no manda CORS. Asi que el redirect no se puede seguir ni leer con `fetch` —ni
+ * desde la pagina («Failed to fetch») ni desde el service worker (lo mismo, y en
+ * modo manual devuelve un `opaqueredirect` con el `Location` ilegible)—. Un
+ * <video> lo carga igual, porque los elementos de medio no piden CORS: el archivo
+ * esta ahi y el problema es solo LEERLO.
+ *
+ * `webRequest` mira el trafico desde afuera del modelo de CORS, y ya esta en el
+ * manifest desde el primer dia —se usa para aprender la api key—. Su
+ * `onBeforeRedirect` trae el `redirectUrl` completo.
+ *
+ * Y eso contesta la pregunta que decide todo: si el destino es una url FIRMADA,
+ * el servidor la baja el mismo y la extension no tiene que mover un byte.
+ */
+const redirectsDeMedios = new Map();
+chrome.webRequest.onBeforeRedirect.addListener(
+  (det) => {
+    try {
+      const m = det.url.match(/[?&]name=([0-9a-f-]{8,})/i);
+      if (!m) return;
+      redirectsDeMedios.set(m[1], { url: det.redirectUrl, cuando: Date.now() });
+      // Se guarda tambien en disco: el service worker se duerme y con el se va el Map.
+      chrome.storage.local.set({ ultimoRedirectMedio: JSON.stringify({ mediaId: m[1], url: det.redirectUrl }) });
+    } catch { /* mirar nunca puede romper nada */ }
+  },
+  { urls: ['https://labs.google/fx/api/trpc/media.getMediaUrlRedirect*'] },
+);
+
 // ── El captcha ───────────────────────────────────────────────────────────────
 // Se pide a la PÁGINA de Flow, que ya tiene el widget cargado. No hay ningún
 // servicio de resolución de por medio: el token lo emite Google evaluando esta
@@ -702,6 +735,10 @@ async function ciclo() {
     if (sondaSW) {
       respuestasVistas = { ...(respuestasVistas || {}), __sondaSW: String(sondaSW).slice(0, 1400) };
     }
+    const { ultimoRedirectMedio } = await chrome.storage.local.get('ultimoRedirectMedio');
+    if (ultimoRedirectMedio) {
+      respuestasVistas = { ...(respuestasVistas || {}), __redirect: String(ultimoRedirectMedio).slice(0, 1400) };
+    }
 
     const plantillasLocales = await todasLasPlantillas();
     const firma = plantillasLocales
@@ -775,7 +812,7 @@ async function ciclo() {
         //
         // `sondaOk` se escribe UNICAMENTE cuando la sonda contesto.
         const { sondaOk } = await chrome.storage.local.get('sondaOk');
-        if (sondaOk !== pedido.mediaId + '|sw') {
+        if (sondaOk !== pedido.mediaId + '|redir') {
           const tabS = await pestanaDeFlow();
           // El content script se repone ANTES: recargar la extension deja
           // huerfanos los de las pestanas abiertas, que es JUSTO el momento en que
@@ -833,7 +870,7 @@ async function ciclo() {
             }
 
             await chrome.storage.local.set({
-              sondaOk: pedido.mediaId + '|sw',
+              sondaOk: pedido.mediaId + '|redir',
               sondaSW: JSON.stringify(desdeSW).slice(0, 1200),
               sondaResultado: JSON.stringify({ mediaId: pedido.mediaId, r: r.sonda, bytes: r.bytes }),
             });
