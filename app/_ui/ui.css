@@ -1159,10 +1159,12 @@
 
      900 = el ancho de la columna de contenido (los `maxWidth: 900` de adentro).
      64  = la barra lateral, que no forma parte del grupo. */
-  --riel-grupo: calc(900px + 48px + var(--riel-ancho, 0px));
+  --riel-grupo: calc(900px + var(--riel-ancho, 0px));
   --riel-derecha: max(24px, calc((100vw - 64px - var(--riel-grupo)) / 2));
   padding-left: var(--riel-derecha);
-  padding-right: calc(var(--riel-derecha) + 48px + var(--riel-ancho, 0px));
+  /* La calle ya vive ADENTRO del riel, así que no se suma de nuevo acá: sumarla
+     en los dos lados era lo que dejaba 72 px entre el texto y el video. */
+  padding-right: calc(var(--riel-derecha) + var(--riel-ancho, 0px));
   transition: padding-left .18s cubic-bezier(.16,.84,.34,1),
               padding-right .18s cubic-bezier(.16,.84,.34,1);
 }
@@ -1250,7 +1252,15 @@
      Anclado arriba queda a la altura de la pregunta, que es lo que acompaña. */
   justify-content: flex-start;
   padding-top: var(--riel-arriba, 116px);
-  transition: width .18s cubic-bezier(.16,.84,.34,1);
+  /* ⚠️ A LA IZQUIERDA, NO CENTRADO. El dueño: «al achicarse, se tiene que
+     desplazar ahora a la izquierda, no a la derecha, y pegarse en la sección
+     superior del otro contenedor».
+     Centrado, encoger movía la miniatura hacia la DERECHA —hacia el borde de la
+     ventana, o sea lejos de todo— y encima el ejemplo dejaba de estar donde
+     estaba. Alineado a la izquierda y arriba, encoger lo deja pegado a la
+     esquina de la sección: el mismo punto de anclaje abierto y cerrado. */
+  align-items: flex-start;
+  padding-left: var(--riel-calle, 20px);
 }
 
 /* El filete ya no recorre la ventana entera: mide lo que mide el contenido.
@@ -1258,6 +1268,8 @@
 .mk-riel::before {
   content: '';
   position: absolute;
+  /* Pegado al borde del riel, o sea a media calle del texto: es la juntura
+     entre las dos zonas y tiene que estar EN el medio, no de un lado. */
   left: 0;
   /* Los dos numeros salen del CONTENIDO, no del gusto: 24 px de aire arriba y
      abajo, y en el medio la linea (19) + su margen (14) + el ejemplo. Medido en

@@ -114,8 +114,26 @@ const EJEMPLO_CERRADO = 'min(190px, 24vh)';
  * gobierna la pieza (`EJEMPLO`) y el riel lo sigue: no hay dos medidas que
  * mantener sincronizadas.
  */
-const RIEL = `calc(${EJEMPLO} * 9 / 16 + 48px)`;
-const RIEL_CERRADO = `calc(${EJEMPLO_CERRADO} * 9 / 16 + 48px)`;
+/**
+ * La CALLE entre la columna de texto y el ejemplo.
+ *
+ * ⚠️ Era 24 de cada lado + 48 de separación del grupo, o sea 72 px entre el texto
+ * y el video. El dueño: «tiene que ser bastante más pegado». Un solo número
+ * ahora, y los dos lados lo usan.
+ */
+const CALLE = 20;
+
+/**
+ * El ancho del riel. ⚠️ NO CAMBIA AL CERRAR, y eso es el arreglo.
+ *
+ * Cerrar angostaba el riel, y como el `padding` del estudio se deriva de ese
+ * ancho, TODA la columna de texto se corría a la derecha al cerrar y volvía al
+ * abrir. Un control que mueve la pantalla entera hace que la persona pierda el
+ * renglón que estaba leyendo — el ejemplo se cierra justamente para poder leer.
+ *
+ * Con el ancho fijo, lo único que se mueve es lo que se apretó: el ejemplo.
+ */
+const RIEL = `calc(${EJEMPLO} * 9 / 16 + ${2 * CALLE}px)`;
 
 
 // ── Dónde está el anuncio ───────────────────────────────────────────────────
@@ -438,7 +456,7 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
   // sumar padding que viven en otros archivos, y ese acople es lo que hacía que
   // la pieza «flotara» al cambiar cualquier cosa alrededor.
   const anchoRiel = puesta?.ejemplo
-    ? ({ ['--riel-ancho' as string]: ejemploAbierto ? RIEL : RIEL_CERRADO } as React.CSSProperties)
+    ? ({ ['--riel-ancho' as string]: RIEL, ['--riel-calle' as string]: `${CALLE}px` } as React.CSSProperties)
     : undefined;
 
   return (
