@@ -175,6 +175,17 @@ export type PlanGuardado = {
    */
   escenas?: Escena[];
   /**
+   * El prompt que la persona escribió a mano para una toma, por número.
+   *
+   * ⚠️ VIVE EN EL PLAN Y NO EN LA MARCA DE LA TOMA, y la diferencia es la que
+   * hace que sirva: la marca se archiva y se limpia en cada refilmada
+   * (`archivarToma`), así que un prompt guardado ahí se perdería justo al hacer
+   * lo único para lo que se escribió — volver a filmar.
+   *
+   * Es una DECISIÓN sobre la toma, no un dato de un intento.
+   */
+  promptsPropios?: Record<string, string>;
+  /**
    * Lo generado por ESCENARIO, indexado por su número.
    *
    * ⚠️ Va aparte de `video` a propósito. Son dos preguntas distintas —«¿ya tengo

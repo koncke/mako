@@ -160,6 +160,10 @@ const PATHS: Record<string, ReactNode> = {
   // desconocido: `PATHS[name] ?? PATHS.dot` dibuja un punto de 3 px, sin error
   // ni warning. Por eso se AGREGA en vez de elegir un nombre parecido.
   play: (<path d="M8 5.5v13l11-6.5-11-6.5Z" strokeLinejoin="round" />),
+  // El gemelo de `play`, para el clip que se controla desde la propia pantalla.
+  // Las dos barras miden lo mismo que el alto del triangulo (13) y arrancan a la
+  // misma altura: puestos uno encima del otro en el mismo boton, no salta nada.
+  pausa: (<path d="M9 5.5v13M15 5.5v13" strokeLinecap="round" />),
   dot: (<circle cx="12" cy="12" r="3" />),
   // ── Íconos de la fábrica (SVG entregados por Martín) ──────────────────────
   // Vienen de archivos de 1500×1500 rellenos. Cada uno se escala y se centra

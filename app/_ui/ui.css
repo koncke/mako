@@ -1174,7 +1174,17 @@
     var(--riel-contenido, 900px)
     + var(--riel-cuenta, 1) * (var(--riel-calle, 16px) + var(--riel-ancho, 0px))
   );
-  --riel-derecha: max(24px, calc((100vw - 64px - var(--riel-grupo)) / 2));
+  /* ⚠️ 68px Y NO 64: el <aside> mide RAIL = 68 (app/_components/Sidebar.tsx).
+     Y `--riel-vw` en vez de `100vw`: `100vw` INCLUYE la barra de scroll y el
+     `right:` de un `position: fixed` no, así que el riel y el contenido medían
+     ventanas distintas. Los dos errores corrían para el mismo lado y sumaban
+     2px + S/2 de corrimiento PERMANENTE — con una barra de 15px, el hueco que
+     tenía que ser de 16 quedaba en 6,5. Eso es lo que el dueño vino reportando
+     como «el preview está mal ubicado» una y otra vez: no era el centrado, era
+     que la cuenta medía dos anchos distintos.
+     `--riel-vw` lo escribe el JS con `documentElement.clientWidth`, que es el
+     ancho de verdad. El fallback a 100vw sólo aplica antes del primer layout. */
+  --riel-derecha: max(24px, calc((var(--riel-vw, 100vw) - 68px - var(--riel-grupo)) / 2));
   /* ⚠️ CERRADA, LA MINIATURA SE QUEDA JUNTO AL TEXTO, no se va al borde.
      Estuvo en la calle de la página —24px del borde— y el dueño lo cortó dos
      veces: «se cierra en el lugar equivocado», «está mal ubicada cuando está
@@ -1975,7 +1985,36 @@
 .mk-regen__cerrar:hover { background: rgba(0, 0, 0, .8); }
 .mk-regen__cerrar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
-@media (prefers-reduced-motion: reduce) { .mk-regen__velo { transition: none } }
+/* ── Sobre un VIDEO la zona de regenerar es SOLO LA FRANJA DE ABAJO ────────
+   Con `inset: 0` —lo que sirve sobre una imagen— la zona se come el centro, que
+   en un clip es donde vive el play. Se queda con la banda inferior, que es
+   exactamente la que el degradado ya ocupaba, así que lo que se ve no cambia:
+   cambia dónde se puede clickear. */
+.mk-regen__zona--abajo { top: auto; height: 34%; }
+
+/* El play propio del clip. Grande y en el medio, porque es lo único que hace la
+   pantalla además de decidir; y se desvanece mientras corre para no taparle la
+   cara a la persona, que es lo que se está mirando. */
+.mk-clip__play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: none;
+  background: rgba(0, 0, 0, .18);
+  color: #fff;
+  cursor: pointer;
+  transition: opacity .16s ease, background .16s ease;
+}
+.mk-clip__play--corriendo { opacity: 0; background: transparent; }
+.mk-clip__play--corriendo:hover,
+.mk-clip__play:focus-visible { opacity: 1; background: rgba(0, 0, 0, .18); }
+.mk-clip__play:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-regen__velo, .mk-clip__play { transition: none }
+}
 
 /* Abrir y cerrar el ejemplo mueve el texto y el riel a la vez. Con el
    movimiento reducido eso no se anima: se acomoda y ya. */

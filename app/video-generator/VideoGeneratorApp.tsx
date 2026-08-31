@@ -714,14 +714,17 @@ export function VideoGeneratorApp({
    * que no se sabe. Decirle «no te alcanza» a alguien que sí tiene créditos es
    * peor que no decirle nada.
    */
-  const costoDeUnaToma = useMemo(() => textoCosto(costoClip.creditos, {
-    estimado: !costoClip.medido,
-    saldo: saldo.creditos,
-    // El tercer estado NO es «no alcanza»: cuando nunca se leyó el saldo se dice
-    // que no se sabe. Decirle «no te alcanza» a alguien que sí tiene créditos es
-    // peor que no decirle nada.
-    nota: saldo.creditos == null ? 'Todavía no leí cuántos te quedan.' : undefined,
-  }), [costoClip, saldo]);
+  // ⚠️ SIN EL SALDO. El dueño: «elimina " · te quedan 996"… eso es innecesario».
+  // Y sin la nota que colgaba de él, que sin saldo en la línea ya no tiene de
+  // qué hablar. El saldo sigue vivo en `alcanzaTodo`, que es donde de verdad
+  // decide algo.
+  //
+  // Éste es el costo GENERAL del workspace y queda como respaldo: las pantallas
+  // que saben de qué toma hablan usan `costoDeToma`, que sale de la duración.
+  const costoDeUnaToma = useMemo(
+    () => textoCosto(costoClip.creditos, { estimado: !costoClip.medido }),
+    [costoClip],
+  );
 
   /** Si el saldo alcanza para lo que falta. `null` = no se sabe. */
   const alcanzaTodo = useMemo(() => {

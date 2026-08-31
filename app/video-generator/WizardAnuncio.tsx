@@ -34,17 +34,19 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link, { useRouter } from '@/app/_ui/Link';
-import { Button, Tag, Status, TextField, Tooltip, MONO } from '@/app/_ui';
+import { Button, Tag, Status, TextField, Textarea, Tooltip, MONO } from '@/app/_ui';
 import { Icon } from '../_components/icons';
 import type { PlanGuardado, EstadoContextoVideo } from './video-datos';
 import type { Puesta } from '@/lib/puestas-data';
 import { causaFlow, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
+import { creditosDeClip } from '@/lib/costo-clip';
+import { promptDeClip } from '@/lib/prompts-video';
 import { useExtensionInstalada, AvisoExtensionVieja } from './extension-instalada';
 import { FotoGrande, ModalFotos } from './ElegirFoto';
 import {
   escribirEscenasAction, corregirEscenaAction, generarImagenAction, estadoImagenAction,
   elegirImagenAction, subirImagenEscenaAction, confirmarEscenaAction,
-  generarTomaAction, estadoTomaAction, descartarTomaAction, restaurarTomaAction, marcarCaraVistaAction,
+  generarTomaAction, estadoTomaAction, descartarTomaAction, restaurarTomaAction, guardarPromptTomaAction, marcarCaraVistaAction,
   elegirFotoAction, elegirUltimaFotoAction,
   cambiarMuletillasAction,
 } from './video-action';
@@ -146,18 +148,26 @@ const CALLE = 16;
  * frase copiada tres veces es la que se queda vieja cuando cambia el precio.
  */
 export function textoCosto(creditos: number, opts: {
-  /** El costo está medido o es una estimación. */
+  /**
+   * El costo NO está en la tabla y es una estimación.
+   *
+   * ⚠️ Es la excepción, no el caso normal. Antes TODA toma se anunciaba como
+   * «~15 (estimado) créditos» viniera de un clip de 4 segundos o de uno de 10 —
+   * un «~» sobre un dato que sí conocemos le pide a la persona que desconfíe, y
+   * encima cobra de más en los cortos: 15 sobre uno de 4 s es más del doble.
+   */
   estimado?: boolean;
-  /** Cuántos le quedan. `null`/`undefined` = todavía no se leyó. */
-  saldo?: number | null;
-  /** Una aclaración que cuelga del costo, como «filmar sí gasta». */
+  /** Una aclaración que cuelga del costo. */
   nota?: string;
 } = {}): string {
+  // ⚠️ ACÁ IBA « · te quedan N», Y SE FUE POR PEDIDO DEL DUEÑO: «elimina " · te
+  // quedan 996"… eso es innecesario». Tiene razón — el saldo no es la
+  // consecuencia de apretar ESTE botón, y mezclarlo con el precio hace que la
+  // línea que tiene que contestar «¿cuánto me cuesta esto?» conteste dos cosas.
   const cuanto = creditos === 0
     ? '0 créditos'
-    : `~${creditos}${opts.estimado ? ' (estimado)' : ''} créditos`;
-  const resto = opts.saldo == null ? '' : ` · te quedan ${opts.saldo}`;
-  return `Costo: ${cuanto}${resto}.${opts.nota ? ` ${opts.nota}` : ''}`;
+    : `${opts.estimado ? '~' : ''}${creditos} créditos${opts.estimado ? ' (estimado)' : ''}`;
+  return `Costo: ${cuanto}.${opts.nota ? ` ${opts.nota}` : ''}`;
 }
 
 /**
@@ -214,6 +224,15 @@ type Paso =
   | { id: 'escenario'; n: number }
   | { id: 'cara' }
   | { id: 'toma'; n: number }
+  /**
+   * Ver y cambiar el prompt de una toma.
+   *
+   * ⚠️ NO SE DERIVA DEL DATO como los demás: `pasoDe` no lo devuelve nunca. Es un
+   * desvío al que se entra a mano desde el clip y del que se sale volviendo. Por
+   * eso `clave()` lo hace contar como su toma — el indicador de arriba tiene que
+   * seguir marcando dónde está el anuncio, no inventar un paso más.
+   */
+  | { id: 'prompt'; n: number }
   | { id: 'listo' };
 
 /**
@@ -278,6 +297,9 @@ function mapaDe(item: PlanGuardado): string[] {
 }
 
 function clave(p: Paso): string {
+  // El desvío del prompt cuenta como la toma de la que salió: es una decisión
+  // SOBRE esa toma, no un paso más del anuncio.
+  if (p.id === 'prompt') return `toma-${p.n}`;
   return p.id === 'escenario' || p.id === 'toma' ? `${p.id}-${p.n}` : p.id;
 }
 
@@ -391,46 +413,59 @@ function Niebla({ etiqueta, desde }: { etiqueta: string; desde: number }) {
 }
 
 /** Un video que se reproduce solo, y un play si el navegador no deja. */
-function Clip({ src }: { src: string }) {
+function Clip({ src, controlPropio = false }: { src: string; controlPropio?: boolean }) {
   const ref = useRef<HTMLVideoElement>(null);
-  const [trabado, setTrabado] = useState(false);
+  const [andando, setAndando] = useState(false);
   useEffect(() => {
     // ⚠️ El autoplay se RECHAZA cuando se entra por `?plan=` sin ningún gesto
     // previo, que es el caso normal al volver a un anuncio. Sin este fallback, un
     // clip que el navegador no deja arrancar se ve igual que uno que salió mudo.
-    ref.current?.play().catch(() => setTrabado(true));
+    ref.current?.play().then(() => setAndando(true)).catch(() => setAndando(false));
   }, [src]);
+
+  // ⚠️ SIN LA BARRA NATIVA cuando el clip es un CONTROL además de un video.
+  //
+  // El dueño: «ten en cuenta que en este caso el vídeo tiene un interfaz abajo.
+  // No sé si se le puede quitar y que solo quede con el botón de PLAY en el
+  // medio». Se puede, y además hay que hacerlo: la franja de abajo es justo donde
+  // vive «Regenerar» —el mismo lugar que en la foto y en la imagen—, así que la
+  // barra de Chrome le comía el control y dejaba dos interfaces peleando por el
+  // mismo píxel.
+  //
+  // Lo que se pierde es el scrub y el volumen. Vale la pena: son 8 segundos en
+  // loop, y lo que se decide mirándolo es «¿me sirve?», no «¿qué pasa en el
+  // segundo 5?».
   return (
     <>
-      <video ref={ref} key={src} src={src} controls loop playsInline style={MEDIO} />
-      {trabado && (
+      <video
+        ref={ref}
+        key={src}
+        src={src}
+        controls={!controlPropio}
+        loop
+        playsInline
+        style={MEDIO}
+        onPlay={() => setAndando(true)}
+        onPause={() => setAndando(false)}
+      />
+      {controlPropio && (
         <button
           type="button"
-          onClick={() => { void ref.current?.play(); setTrabado(false); }}
-          aria-label="Reproducir"
-          style={{
-            position: 'absolute', inset: 0, display: 'grid', placeItems: 'center',
-            background: 'rgba(0,0,0,.25)', border: 'none', cursor: 'pointer', color: '#fff',
+          className={`mk-clip__play${andando ? ' mk-clip__play--corriendo' : ''}`}
+          onClick={() => {
+            const v = ref.current;
+            if (!v) return;
+            if (v.paused) void v.play(); else v.pause();
           }}
+          aria-label={andando ? 'Pausar' : 'Reproducir'}
         >
-          <Icon name="play" size={64} />
+          <Icon name={andando ? 'pausa' : 'play'} size={56} />
         </button>
       )}
     </>
   );
 }
 
-/** El rótulo de un panel de comparación. Dos palabras, abajo, sin adornos. */
-function Pie({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{
-      textAlign: 'center', marginTop: 12, fontSize: 'var(--fs-sm)',
-      color: 'var(--dim)', fontWeight: 600,
-    }}>
-      {children}
-    </div>
-  );
-}
 
 /** Las salidas del «no». Plegadas: en un segundo no se ve lo que hay adentro. */
 function Salidas({ resumen, children }: { resumen: string; children: React.ReactNode }) {
@@ -573,6 +608,20 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
   // crece un renglón el ejemplo se cuelga por debajo de los botones y queda
   // flotando sobre nada. `0` = todavía no se midió, y ahí no se topea.
   const [tope, setTope] = useState(0);
+  /**
+   * El ancho de la ventana sin la barra de scroll.
+   *
+   * ⚠️ Se MIDE en vez de usar `100vw`, que la incluye. Arranca en 0 y el CSS cae
+   * a `100vw` hasta el primer layout: un valor de más por un frame es preferible
+   * a adivinar el ancho de una barra que en Windows mide 15 y en Mac 0.
+   */
+  const [vw, setVw] = useState(0);
+  useEffect(() => {
+    const medir = () => setVw(document.documentElement.clientWidth);
+    medir();
+    window.addEventListener('resize', medir);
+    return () => window.removeEventListener('resize', medir);
+  }, []);
   useLayoutEffect(() => {
     const el = lienzo.current;
     const hijo = el?.firstElementChild as HTMLElement | null;
@@ -609,6 +658,10 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
       // apretó, y la miniatura queda arriba a la izquierda de su propio carril.
       ['--riel-ancho' as string]: RIEL,
       ['--riel-calle' as string]: `${CALLE}px`,
+      // El ancho de la ventana SIN la barra de scroll. El porqué está en ui.css,
+      // donde se consume: `100vw` la INCLUYE y el `right:` de un `fixed` no, así
+      // que el riel y el contenido venían midiendo dos ventanas distintas.
+      ...(vw > 0 ? { ['--riel-vw' as string]: `${vw}px` } : {}),
       ['--riel-contenido' as string]: `${ancho}px`,
       ['--riel-arriba' as string]: `${arriba}px`,
       ...(tope > 0 ? { ['--riel-tope' as string]: `${tope}px` } : {}),
@@ -924,9 +977,50 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
   // de la pestaña, y perderlo te deja mirando otra cuenta.
   const router = useRouter();
   const [eligiendoFoto, setEligiendoFoto] = useState(false);
+  /** El panel de salidas encima del CLIP (el gemelo de `rehacer`, que es el de la imagen). */
+  const [rehacerClip, setRehacerClip] = useState(false);
+  /** El texto del prompt mientras se edita, en el paso `prompt`. */
+  const [promptTexto, setPromptTexto] = useState('');
+  /**
+   * Llegó al escenario preguntándose si la IA lo copió bien.
+   *
+   * Es un estado de PANTALLA y no del plan: explica de dónde viene, y no tiene
+   * que sobrevivir a una recarga. Guardarlo sería prometer que la app recuerda
+   * una duda.
+   */
+  const [explicandoParecido, setExplicandoParecido] = useState(false);
   const paso = pasoDe(item, forzado);
   const mapa = useMemo(() => mapaDe(item), [item]);
   const total = item.plan.clips.length;
+
+  /**
+   * Lo que cuesta filmar la toma `n`, con su número EXACTO.
+   *
+   * Sale de la duración de ese clip (`lib/costo-clip.ts`), que es de lo que
+   * depende el precio de verdad. Se cae al texto general —el que trae el costo
+   * medido del workspace— sólo cuando la duración no está en la tabla, y ahí sí
+   * se anuncia como estimación.
+   */
+  const costoDeToma = useCallback((n: number): string => {
+    const c = item.plan.clips.find((x) => x.n === n);
+    const creditos = c ? creditosDeClip(c.segundos) : null;
+    return creditos == null ? costoTexto : textoCosto(creditos);
+  }, [item.plan.clips, costoTexto]);
+
+  /**
+   * El costo SUELTO, para meterlo adentro de otra frase.
+   *
+   * ⚠️ Va aparte de `costoDeToma` y no es duplicación: uno arma la línea entera
+   * que cuelga del botón («Costo: 15 créditos.») y el otro entra en el resumen de
+   * un pliegue («Rehacer la toma 2 · 12 créditos»). Meter la frase completa
+   * adentro de la otra da «Rehacer la toma 2 · Costo: 12 créditos.», que es la
+   * misma palabra dos veces y un punto en el medio de un rótulo.
+   */
+  const creditosDeToma = useCallback((n: number): string => {
+    const c = item.plan.clips.find((x) => x.n === n);
+    const creditos = c ? creditosDeClip(c.segundos) : null;
+    return creditos == null ? '~15 créditos (estimado)' : `${creditos} créditos`;
+  }, [item.plan.clips]);
 
   const correr = useCallback(async (
     etiqueta: string,
@@ -947,7 +1041,10 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
     if (r.item) onCambio(r.item);
     if (r.ok) {
       // Al avanzar se suelta el paso forzado: la posición vuelve a salir del dato.
-      if (avanzar) setForzado(null);
+      // Y con él la explicación del parecido, que es un estado de PANTALLA: dejarla
+      // prendida haría que el escenario siguiera preguntando «¿se parece a tu
+      // foto?» en visitas que no vienen de ahí.
+      if (avanzar) { setForzado(null); setExplicandoParecido(false); }
     } else {
       setError(r.error || 'No se pudo.');
     }
@@ -1276,7 +1373,12 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
       return {
         // 620 = las dos cajas (300 cada una) más los 20 de aire del medio.
         ancho: CAJA * 2 + 20,
-        pregunta: sinEscenas
+        // ⚠️ LLEGÓ PREGUNTÁNDOSE SI LA IA LO COPIÓ BIEN, y la pantalla tiene
+        // que contestar ESO y no volver a pedir una aprobación genérica. Es la
+        // misma pantalla, con la pregunta cambiada por la que trajo.
+        pregunta: explicandoParecido
+          ? '¿Se parece a tu foto?'
+          : sinEscenas
           ? 'Buscando dónde se filma'
           // ⚠️ «¿Apruebas tu avatar?» y no «¿Dónde se filma?». El lugar ya está
           // escrito abajo, en el subtítulo; lo que la pantalla PIDE es aprobar la
@@ -1287,7 +1389,13 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
           // «¿Sirve esta imagen?» — y el dueño ya lo había pedido una vez. La
           // pregunta de esta pantalla es la misma antes y después de generar.
           : '¿Apruebas tu avatar?',
-        titulo: escena?.lugar,
+        titulo: explicandoParecido
+          // El texto que pidió el dueño: cómo se generan, que la IA sigue SUS
+          // fotos, y qué mirar. Va acá —debajo del título y encima de las dos
+          // cajas— porque lo que tiene que hacer es dirigir la mirada a la
+          // comparación que ya está abajo, no ocupar su lugar.
+          ? 'MaKo generó la imagen de la derecha a partir de tu foto de la izquierda. Míralas juntas: si la cara no es la tuya, el video tampoco lo va a ser. Regenera la imagen, o prueba con otra foto tuya.'
+          : escena?.lugar,
         cuerpo: (
           <div>
             <div style={{ display: 'flex', gap: 20, justifyContent: 'center' }}>
@@ -1470,7 +1578,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
           ? () => void correr('confirmar', () => confirmarEscenaAction(item.id, paso.n))
           : () => void correr('imagen', () => generarImagenAction(item.id, paso.n), false),
         atras: 'Volver',
-        onAtras: () => setForzado({ id: 'guion-leer' }),
+        onAtras: () => { setExplicandoParecido(false); setForzado({ id: 'guion-leer' }); },
       };
     }
 
@@ -1500,39 +1608,119 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                     es lo unico contra lo que la comparacion dice algo. Contra la
                     foto de perfil comparaba dos cosas que no tienen por que
                     parecerse — una es un retrato, la otra un fotograma. */}
-                <Vertical>
+                {/* ⚠️ CON `ancho`, Y ES LO QUE FALTABA ACÁ.
+                    Sin él la caja sale del ALTO en `vh` y el ancho lo deriva el
+                    aspect-ratio, así que la fila mide distinto en cada ventana:
+                    este paso DECLARABA 620 y dibujaba ~655, y con eso el ejemplo
+                    del costado —que se ubica con el ancho declarado— terminaba
+                    encima de la caja del clip. El dueño lo reportó como «te
+                    volvió a pasar lo mismo con el preview».
+                    La regla estaba escrita en el docstring de `Vertical` —«donde
+                    hay dos, manda el ancho»— y el paso del escenario ya la
+                    aplicaba. Éste, que también tiene dos cajas, se había quedado
+                    afuera. */}
+                <Vertical ancho={`${CAJA}px`}>
                   {imagenBase
                     ? <img src={imagenBase} alt="El cuadro del que sale el clip" style={MEDIO} />
                     : contexto?.fotoUrl
                       ? <img src={contexto.fotoUrl} alt="Tu foto" style={MEDIO} />
                       : <div style={{ color: 'var(--faint)' }}><Icon name="perfil" size={44} /></div>}
                 </Vertical>
-                <Pie>{imagenBase ? 'La imagen' : 'Tu foto'}</Pie>
               </div>
               <div>
-                <Vertical fondo="#000">
-                  {uno?.url ? <Revela k={uno.url}><Clip src={uno.url} /></Revela> : null}
+                <Vertical fondo="#000" ancho={`${CAJA}px`}>
+                  {uno?.url ? <Revela k={uno.url}><Clip src={uno.url} controlPropio /></Revela> : null}
+
+                  {/* ⚠️ LA ZONA ES SOLO LA FRANJA DE ABAJO, no la caja entera.
+                      Sobre una imagen el control puede ocupar todo; sobre un
+                      video el centro es del play. Con `inset: 0` —lo que usa la
+                      imagen— tocar para reproducir abriría el panel de rehacer. */}
+                  {uno?.url && !rehacerClip && (
+                    <button
+                      type="button"
+                      className="mk-regen__zona mk-regen__zona--abajo"
+                      onClick={() => setRehacerClip(true)}
+                      aria-label="Rehacer este clip"
+                    >
+                      <span className="mk-regen__velo">
+                        <span className="mk-regen__texto">
+                          <Icon name="regenerar" size={15} />
+                          Regenerar
+                        </span>
+                      </span>
+                    </button>
+                  )}
+
+                  {rehacerClip && (
+                    <div className="mk-regen__panel" role="dialog" aria-label="Rehacer el clip">
+                      <button
+                        type="button"
+                        className="mk-regen__cerrar"
+                        onClick={() => setRehacerClip(false)}
+                        aria-label="Cerrar"
+                      >
+                        <Icon name="x" size={15} />
+                      </button>
+
+                      {/* Tres salidas, y son tres porque un clip puede fallar de
+                          tres maneras distintas: salió mal y con otra semilla
+                          sale bien, le pedimos lo que no era, o la cara no es la
+                          suya. Cada una se arregla en un lugar diferente, y
+                          ofrecer una sola manda a la gente a pagar clips hasta
+                          acertar. */}
+                      <Button
+                        variant="primary"
+                        size="lg"
+                        icon={<Icon name="regenerar" size={15} />}
+                        onClick={() => {
+                          // Se cierra ANTES de arrancar: dejar el panel abierto
+                          // sobre algo que ya se está rehaciendo deja botones
+                          // apretables encima de lo que no se puede cancelar.
+                          setRehacerClip(false);
+                          void correr('rehacer', async () => {
+                            const d = await descartarTomaAction(item.id, 1);
+                            if (!d.ok) return d;
+                            return generarTomaAction(item.id, 1);
+                          }, false);
+                        }}
+                      >
+                        Regenerar
+                      </Button>
+
+                      <Button
+                        variant="tertiary"
+                        onClick={() => {
+                          const c = item.plan.clips.find((x) => x.n === 1);
+                          setPromptTexto(
+                            c ? promptDeClip(item.plan.puestaId, c, item.promptsPropios?.['1']) : '',
+                          );
+                          setRehacerClip(false);
+                          setForzado({ id: 'prompt', n: 1 });
+                        }}
+                      >
+                        Decir qué cambiar
+                      </Button>
+
+                      <Button
+                        variant="tertiary"
+                        onClick={() => {
+                          setRehacerClip(false);
+                          setExplicandoParecido(true);
+                          setForzado({ id: 'escenario', n: escena1?.n ?? 1 });
+                        }}
+                      >
+                        No se parece a mí
+                      </Button>
+                    </div>
+                  )}
                 </Vertical>
-                <Pie>El clip</Pie>
               </div>
             </div>
-            <Salidas resumen={`No se parece · ~15 créditos`}>
-              <Button
-                size="sm"
-                variant="mako"
-                loading={ocupado === 'rehacer'}
-                onClick={() => void correr('rehacer', async () => {
-                  const d = await descartarTomaAction(item.id, 1);
-                  if (!d.ok) return d;
-                  return generarTomaAction(item.id, 1);
-                }, false)}
-              >
-                Rehacer la toma 1
-              </Button>
-              <Link href="/onboarding" style={{ fontSize: 'var(--fs-sm)', alignSelf: 'center' }}>
-                Cambiar mi foto en Onboarding
-              </Link>
-            </Salidas>
+            {/* ⚠️ ACÁ HABÍA UN PLIEGUE «No se parece» con las mismas salidas.
+                Se fue: desde que el clip es el control, rehacer y «no se parece»
+                viven ENCIMA del video, que es donde se está mirando. Dejar las
+                dos versiones da cuatro botones para tres decisiones, y el de
+                abajo se lee como si hiciera otra cosa. */}
           </div>
         ),
         // ⚠️ «Siguiente», como todos. Martin: «siempre los botones de abajo debe
@@ -1541,13 +1729,79 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
         // cambia en cada pantalla obliga a leerlo de nuevo cada vez, y el trabajo
         // de ese boton es siempre el mismo: avanzar.
         boton: 'Siguiente',
-        consecuencia: costoTexto,
+        // El botón filma la toma 2, así que el costo es el DE ELLA. Antes decía
+        // el número general, que en un clip corto cobraba de más en el cartel.
+        consecuencia: costoDeToma(2),
         cargandoBoton: ocupado === 'cara',
         onSiguiente: () => void correr('cara', async () => {
           const m = await marcarCaraVistaAction(item.id);
           if (!m.ok) return m;
           return generarTomaAction(item.id, 2);
         }),
+      };
+    }
+
+    // ── 3b. Qué le pedimos al video ───────────────────────────────────────
+    //
+    // Un desvío, no un paso del anuncio: se entra desde el clip y se sale
+    // volviendo. Existe porque «Decir qué cambiar» sobre un video no puede ser lo
+    // mismo que sobre una imagen — en la imagen MaKo reescribe la escena y vuelve
+    // a generar; acá lo que gobierna el clip es UNA instrucción, y la persona
+    // puede leerla y corregirla sin intermediario.
+    if (paso.id === 'prompt') {
+      const n = paso.n;
+      const clipDelPaso = item.plan.clips.find((c) => c.n === n);
+      const original = clipDelPaso
+        ? promptDeClip(item.plan.puestaId, clipDelPaso)
+        : '';
+      const cambiado = promptTexto.trim() !== original.trim();
+      return {
+        ancho: 620,
+        pregunta: `¿Qué le pides a la toma ${n}?`,
+        titulo: 'Esto es lo que le llega al modelo, palabra por palabra.',
+        cuerpo: (
+          <div style={{ display: 'grid', gap: 12 }}>
+            <Textarea
+              value={promptTexto}
+              onChange={(e) => setPromptTexto(e.target.value)}
+              rows={11}
+              aria-label={`El prompt de la toma ${n}`}
+            />
+            {/* Deshacer tiene que existir, o la única salida de un texto mal
+                escrito es escribir otro texto encima. Aparece sólo cuando hay
+                algo que deshacer. */}
+            {cambiado && (
+              <button
+                type="button"
+                onClick={() => setPromptTexto(original)}
+                style={{
+                  justifySelf: 'center', border: 'none', background: 'none',
+                  color: 'var(--dim)', fontSize: 'var(--fs-sm)', cursor: 'pointer',
+                  textDecoration: 'underline', padding: 4,
+                }}
+              >
+                Volver al texto de MaKo
+              </button>
+            )}
+          </div>
+        ),
+        boton: `Filmar la toma ${n}`,
+        consecuencia: costoDeToma(n),
+        cargandoBoton: ocupado === 'prompt',
+        onSiguiente: () => void correr('prompt', async () => {
+          // Guardar y filmar son dos escrituras y van EN ESTE ORDEN: si se
+          // filmara primero, el clip saldría con el prompt viejo y el texto nuevo
+          // quedaría guardado al lado, describiendo algo que no se pidió.
+          const g = await guardarPromptTomaAction(item.id, n, cambiado ? promptTexto : '');
+          if (!g.ok) return g;
+          const d = await descartarTomaAction(item.id, n);
+          if (!d.ok) return d;
+          return generarTomaAction(item.id, n);
+        }),
+        atras: 'Volver',
+        // Sale al paso que diga el DATO, como todo el resto: el wizard no
+        // recuerda por dónde se vino.
+        onAtras: () => setForzado(null),
       };
     }
 
@@ -1726,7 +1980,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                           return generarTomaAction(item.id, n);
                         }, false)}
                       >
-                        {`Volver a filmar la toma ${n} · ~15 créditos`}
+                        {`Volver a filmar la toma ${n} · ${creditosDeToma(n)}`}
                       </Button>
                     </div>
                   </Salidas>
@@ -1759,7 +2013,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                 anterior con la siguiente ya pagada encima deja el anuncio
                 incoherente, y cuenta dos cosas a la vez. */}
             {!enCurso && anterior && !txt && (
-              <Salidas resumen={`Rehacer la toma ${anterior.n} · ~15 créditos`}>
+              <Salidas resumen={`Rehacer la toma ${anterior.n} · ${creditosDeToma(anterior.n)}`}>
                 <Button
                   size="sm"
                   variant="mako"
@@ -1822,7 +2076,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
         // El costo SIEMPRE con su número, cero incluido. Generar el escenario no
         // gasta; decir «~15 créditos» sobre un botón que no cobra es mentir al
         // revés, y no decir nada obliga a adivinar.
-        consecuencia: enCurso ? undefined : caraRechazada ? textoCosto(0) : costoTexto,
+        consecuencia: enCurso ? undefined : caraRechazada ? textoCosto(0) : costoDeToma(n),
         cargandoBoton: ocupado === 'filmar' || ocupado === 'rehacer-escena',
         onSiguiente: enCurso
           ? undefined

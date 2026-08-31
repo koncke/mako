@@ -132,7 +132,21 @@ function escenaDe(escenas: Escena[], n: number): string {
   return e ? `Escenario ${e.n} (${e.lugar})` : '';
 }
 
-export function planATexto(plan: PlanVideo, nombrePuesta: string, escenas: Escena[] = []): string {
+/**
+ * ⚠️ HOY NO LA LLAMA NADIE. `grep planATexto` devuelve una sola aparición: ésta.
+ * Vivía detrás del paso «Revisa antes de generar», que el dueño sacó («toda esta
+ * tab está de más»). Se deja porque es la única forma escrita de leer un plan
+ * entero de corrido, y porque borrarla y reescribirla cuesta más que mantenerla —
+ * pero queda dicho acá, que es lo que evita que alguien la lea como si estuviera
+ * en producción.
+ */
+export function planATexto(
+  plan: PlanVideo,
+  nombrePuesta: string,
+  escenas: Escena[] = [],
+  /** Los prompts que la persona escribió a mano, por número de toma. */
+  propios?: Record<string, string>,
+): string {
   const lineas: string[] = [
     `GUION · ${plan.titulo}`,
     '',
@@ -171,7 +185,7 @@ export function planATexto(plan: PlanVideo, nombrePuesta: string, escenas: Escen
       // pantalla mostrara un prompt y el modelo recibiera otro — y el día que un
       // clip salga raro, el texto que se mira para entender por qué sería el
       // equivocado.
-      promptDeClip(plan.puestaId, c),
+      promptDeClip(plan.puestaId, c, propios?.[String(c.n)]),
       '',
     );
   });

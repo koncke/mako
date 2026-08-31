@@ -123,12 +123,24 @@ export function comoSeDice(voz: string): string {
 export function promptDeClip(
   puestaId: string,
   clip: Pick<ClipPlan, 'voz' | 'habla' | 'prompt'>,
+  /**
+   * Lo que escribió la persona a mano, si escribió algo.
+   *
+   * ⚠️ GANA SOBRE TODO, incluso sobre el prompt validado del formato. Es la única
+   * precedencia posible: alguien que abrió el prompt, lo leyó y lo cambió sabe
+   * algo de ESTA toma que ninguna plantilla puede saber. Si el sistema le pisara
+   * el texto, el paso de editarlo sería un formulario decorativo.
+   */
+  propio?: string,
 ): string {
+  const aMano = (propio ?? '').trim();
+  if (aMano) return aMano;
+
   const plantilla = PROMPT_VIDEO[puestaId];
   const voz = comoSeDice(clip.voz ?? '');
   if (!plantilla || !clip.habla || !voz) return clip.prompt;
 
   const acento = acentoDe(clip.prompt);
-  const propio = plantilla(voz);
-  return acento ? `${propio}\n${acento}` : propio;
+  const base = plantilla(voz);
+  return acento ? `${base}\n${acento}` : base;
 }

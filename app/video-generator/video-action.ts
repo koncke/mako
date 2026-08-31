@@ -530,7 +530,7 @@ export async function generarTomaAction(
       // Car Talks lo validó Martín contra Flow; el del modelo describía la toma
       // desde cero y en inglés, compitiendo con la imagen de referencia que ya
       // tiene el auto, la luz y la cara resueltos.
-      { prompt: promptDeClip(item.plan.puestaId, clip), mediaId, seed: semillaDeToma(planId, n) },
+      { prompt: promptDeClip(item.plan.puestaId, clip, item.promptsPropios?.[String(n)]), mediaId, seed: semillaDeToma(planId, n) },
       randomUUID(),
     ),
   });
@@ -1392,6 +1392,45 @@ export async function descartarTomaAction(
   const sin = { ...marcas(item) };
   sin[String(n)] = archivarToma(marcas(item)[String(n)]);
   const actualizado: PlanGuardado = { ...item, video: sin };
+  await guardarEnHistorial(actualizado);
+  return { ok: true, item: actualizado };
+}
+
+/**
+ * Guarda el prompt que la persona escribió para una toma.
+ *
+ * ⚠️ NO FILMA. Guardar y gastar ~15 créditos son dos decisiones distintas, y
+ * juntarlas haría que corregir una coma cobrara un clip. Quien llama decide si
+ * después filma.
+ *
+ * Vaciar el campo lo devuelve al prompt del formato: es la forma de deshacer, y
+ * tiene que existir o la única salida de un texto mal escrito sería escribir otro
+ * texto encima.
+ */
+export async function guardarPromptTomaAction(
+  planId: string,
+  n: number,
+  prompt: string,
+): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  const item = planDe(await leerHistorial(), planId);
+  if (!item) return { ok: false, error: 'Ese anuncio ya no está en el historial.' };
+  if (!item.plan.clips.some((c) => c.n === n)) return { ok: false, error: 'Esa toma no existe en el plan.' };
+
+  // Un tope generoso pero real: el plan entero vive en UNA fila de texto de
+  // `app_settings`, y siete prompts sin límite la hacen crecer sin techo.
+  const texto = (prompt ?? '').trim().slice(0, 4000);
+
+  const previos = { ...(item.promptsPropios ?? {}) };
+  if (texto) previos[String(n)] = texto;
+  else delete previos[String(n)];
+
+  const actualizado: PlanGuardado = {
+    ...item,
+    promptsPropios: Object.keys(previos).length ? previos : undefined,
+  };
   await guardarEnHistorial(actualizado);
   return { ok: true, item: actualizado };
 }
