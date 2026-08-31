@@ -1175,9 +1175,18 @@
     + var(--riel-cuenta, 1) * (var(--riel-calle, 16px) + var(--riel-ancho, 0px))
   );
   --riel-derecha: max(24px, calc((100vw - 64px - var(--riel-grupo)) / 2));
-  /* Cerrado la miniatura se va a la calle de la página: con el texto centrado en
-     todo el ancho, dejarla donde estaba la taparía. */
-  --riel-x: max(24px, calc(var(--riel-cuenta, 1) * var(--riel-derecha)));
+  /* ⚠️ CERRADA, LA MINIATURA SE QUEDA JUNTO AL TEXTO, no se va al borde.
+     Estuvo en la calle de la página —24px del borde— y el dueño lo cortó dos
+     veces: «se cierra en el lugar equivocado», «está mal ubicada cuando está
+     chica». Y es cierto: pegada al borde deja de pertenecer a la pantalla y
+     pasa a flotar en un rincón, sin relación con nada.
+     La cuenta: cerrada el texto se recentra, así que el carril tiene que
+     retroceder lo mismo que el texto avanzó — una calle más el ancho del riel.
+     Así la miniatura queda a la misma distancia del texto que el ejemplo grande. */
+  --riel-x: max(24px, calc(
+    var(--riel-derecha)
+    - (1 - var(--riel-cuenta, 1)) * (var(--riel-calle, 16px) + var(--riel-ancho, 0px))
+  ));
   padding-left: var(--riel-derecha);
   /* ⚠️ Este `padding` no es «lo que sobra»: es lo que deja a la caja del mismo
      ancho que su contenido y pegada al filete. Sin la calle sumada acá, la caja

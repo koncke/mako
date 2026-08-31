@@ -330,7 +330,9 @@ export async function generarTomaAction(
   if (!ctx.ok) return ctx;
 
   const historial = await leerHistorial();
-  const item = historial.find((e) => e.id === planId);
+  // `let` y no `const`: reintentar una toma fallada limpia su marca antes de
+  // encolar, y eso devuelve un plan nuevo.
+  let item = historial.find((e) => e.id === planId);
   if (!item) return { ok: false, error: 'Ese anuncio ya no está en el historial.' };
 
   const clip = item.plan.clips.find((c) => c.n === n);
@@ -346,8 +348,43 @@ export async function generarTomaAction(
   // Reintentar es gratis para el que aprieta el botón y caro para el que paga la
   // cuenta. El guard va acá, en el server, no en que la pantalla deshabilite algo.
   const yaHay = marcas(item)[String(n)] ?? {};
-  if (yaHay.url || yaHay.operacion || yaHay.trabajoId) {
+  // Ya está filmada: no se refilma nunca.
+  if (yaHay.url) return { ok: true, item };
+
+  // ⚠️ PERO UNA TOMA FALLADA NO ESTÁ «EN CURSO», Y ESTE GUARD LAS CONFUNDÍA.
+  //
+  // El síntoma que lo delató: Google rechazó la toma 1 por su filtro de personas
+  // públicas, la pantalla ofreció «Volver a filmar la toma 1»… y apretarlo no
+  // hacía nada. Nada de nada: la marca conservaba la `operacion` del intento
+  // rechazado, así que se entraba acá y se devolvía `ok: true` sin filmar.
+  //
+  // Y `ok: true` es lo que lo volvía invisible: la pantalla se quedaba igual sin
+  // un solo error, o sea el modo de falla más caro que este repo tiene escrito —
+  // un ÉXITO FALSO no deja log, no deja excepción, y encima envenena lo que
+  // viene después. El dueño lo reportó como «le doy y no hace nada», que es
+  // literalmente lo único que se podía ver.
+  //
+  // El guard sigue protegiendo lo que vino a proteger —dos clips pagados por el
+  // mismo texto— porque eso sólo puede pasar mientras el primero está EN VUELO.
+  // Con un error encima, el intento anterior ya terminó y no hay nada que
+  // duplicar.
+  const fallada = !!yaHay.error;
+  if (!fallada && (yaHay.operacion || yaHay.trabajoId)) {
     return { ok: true, item };
+  }
+  if (fallada) {
+    // Se limpia el intento anterior ANTES de encolar: si quedara la `operacion`
+    // vieja, el sondeo del estado seguiría preguntando por ella y volvería a
+    // encontrar el mismo rechazo, pisando el resultado del intento nuevo.
+    item = await guardarMarca(item, n, {
+      trabajoId: undefined,
+      operacion: undefined,
+      error: undefined,
+      errorCausa: undefined,
+      errorCrudo: undefined,
+      errorAt: undefined,
+      ciego: undefined,
+    });
   }
 
   // ⚠️ EL PASO DE IMAGENES ES OBLIGATORIO, y el guard vive ACA.
