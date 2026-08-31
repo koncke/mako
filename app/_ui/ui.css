@@ -1167,15 +1167,27 @@
      escrito acá como `900px`, y ese número era falso: la lista de guiones mide
      482 y se centraba adentro de la caja de 900, dejando 194 px de aire muerto
      contra el filete. Cada paso trae un ancho distinto; no hay constante. */
-  --riel-grupo: calc(var(--riel-contenido, 900px) + var(--riel-calle, 16px) + var(--riel-ancho, 0px));
+  /* `--riel-cuenta` vale 1 desplegado y 0 cerrado: es lo que saca a la miniatura
+     de la cuenta. Abierto el grupo son dos columnas y se centra el conjunto;
+     cerrado manda el contenido solo y el texto vuelve al medio. */
+  --riel-grupo: calc(
+    var(--riel-contenido, 900px)
+    + var(--riel-cuenta, 1) * (var(--riel-calle, 16px) + var(--riel-ancho, 0px))
+  );
   --riel-derecha: max(24px, calc((100vw - 64px - var(--riel-grupo)) / 2));
+  /* Cerrado la miniatura se va a la calle de la página: con el texto centrado en
+     todo el ancho, dejarla donde estaba la taparía. */
+  --riel-x: max(24px, calc(var(--riel-cuenta, 1) * var(--riel-derecha)));
   padding-left: var(--riel-derecha);
   /* ⚠️ Este `padding` no es «lo que sobra»: es lo que deja a la caja del mismo
      ancho que su contenido y pegada al filete. Sin la calle sumada acá, la caja
      se ensancha y el contenido, que va centrado, se despega del divisor. */
-  padding-right: calc(var(--riel-derecha) + var(--riel-ancho, 0px) + var(--riel-calle, 16px));
-  transition: padding-left .18s cubic-bezier(.16,.84,.34,1),
-              padding-right .18s cubic-bezier(.16,.84,.34,1);
+  padding-right: calc(
+    var(--riel-derecha)
+    + var(--riel-cuenta, 1) * (var(--riel-ancho, 0px) + var(--riel-calle, 16px))
+  );
+  transition: padding-left .26s cubic-bezier(.16,.84,.34,1),
+              padding-right .26s cubic-bezier(.16,.84,.34,1);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1238,7 +1250,10 @@
      grupo, pertenece a la página — que es de lo que habla.
      El respaldo de 24px es para una pantalla angosta, donde el grupo no entra y
      el `max()` gana: ahí el riel vuelve a la calle de siempre. */
-  right: var(--riel-derecha, 24px);
+  right: var(--riel-x, 24px);
+  /* El mismo tiempo que el padding del estudio: el texto y el ejemplo se mueven
+     JUNTOS o se lee como dos cosas sueltas acomodándose por su cuenta. */
+  transition: right .26s cubic-bezier(.16,.84,.34,1);
   bottom: 0;
   z-index: 40;
   /* El respaldo es el de una pantalla alta; el valor real llega en línea desde
@@ -1952,3 +1967,9 @@
 .mk-regen__cerrar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 @media (prefers-reduced-motion: reduce) { .mk-regen__velo { transition: none } }
+
+/* Abrir y cerrar el ejemplo mueve el texto y el riel a la vez. Con el
+   movimiento reducido eso no se anima: se acomoda y ya. */
+@media (prefers-reduced-motion: reduce) {
+  .mk-estudio, .mk-riel { transition: none }
+}

@@ -597,6 +597,23 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
       ['--riel-contenido' as string]: `${ancho}px`,
       ['--riel-arriba' as string]: `${arriba}px`,
       ...(tope > 0 ? { ['--riel-tope' as string]: `${tope}px` } : {}),
+      // ⚠️ 1 DESPLEGADO, 0 CERRADO — y esta variable ya entró y salió dos veces
+      // hoy, así que conviene decir para qué sirve y para qué NO.
+      //
+      // SÍ: decide si el ejemplo cuenta para centrar el CONTENIDO. Abierto son
+      // dos columnas y el conjunto se centra —el texto se corre a la izquierda—;
+      // cerrado es un control al costado y el texto vuelve al medio. Pedido del
+      // dueño, dos veces: «cuando se cierra la preview tiene que volver a
+      // centrarse todo».
+      //
+      // NO: los botones. Se probó correrlos con esto y lo cortó al verlo — el par
+      // «Continuar / Volver» es lo único que no se mueve en la pantalla, y un
+      // ancla que se mueve deja de ser un ancla.
+      //
+      // Y la primera vez falló por otra cosa: la miniatura se iba al borde
+      // mientras el texto se quedaba quieto, o sea medio movimiento. Van las dos
+      // cosas juntas o ninguna.
+      ['--riel-cuenta' as string]: plegado ? '0' : '1',
     } as React.CSSProperties)
     : undefined;
 
