@@ -19,7 +19,7 @@
 import { mediaIdDeReferencia, KEY_CARA_FLOW } from '@/lib/flow-clip-referencias';
 import { getSetting, setSetting } from '@/lib/settings';
 import {
-  sanearPlantillas, fundirPlantillas, faltantes, KEY_PLANTILLAS,
+  sanearPlantillas, soloDelProyecto, fundirPlantillas, faltantes, KEY_PLANTILLAS,
   type PlantillaEspejo,
 } from '@/lib/flow-plantillas';
 import { runWithWorkspace, getTenantDb } from '@/lib/workspace';
@@ -172,7 +172,32 @@ export async function POST(req: NextRequest) {
   // justo cuando más falta hace. Y una plantilla SIN CUERPO nunca le gana a una
   // completa: esa cáscara no se distingue de una sana hasta que Google contesta
   // 400.
-  const llegan = sanearPlantillas(body.plantillas);
+  // ⚠️ Y SOLO LAS DE ESTE PROYECTO DE FLOW.
+  //
+  // El respaldo de plantillas de la extensión vive bajo UNA clave global de
+  // `chrome.storage.local`, sin token ni workspace adentro. Emparejar el mismo
+  // navegador con otro cliente pisa el `token` y NO toca ese respaldo, así que
+  // este latido puede traer plantillas aprendidas mientras el navegador estaba
+  // emparejado con OTRO workspace — con el projectId de Flow de aquel cliente, el
+  // cuerpo de su generación y el mediaId de su cara. Sin este filtro se
+  // persistían acá, y en el latido siguiente bajaban al navegador real de este
+  // cliente como «faltantes».
+  //
+  // El arreglo de raíz está en la extensión (la clave lleva el token desde la
+  // 0.37.0). Éste es el lado que no depende de que el cliente actualice: el
+  // `projectId` que el navegador está mirando viaja en ESTE mismo request.
+  const { quedan: llegan, ajenas } = soloDelProyecto(
+    sanearPlantillas(body.plantillas),
+    str(body.projectId),
+  );
+  if (ajenas.length) {
+    // Se REGISTRA, no se descarta en silencio: una política que rechaza sin dejar
+    // rastro hace indistinguibles «no llegó» de «lo tiramos nosotros».
+    console.warn(
+      `[flow] ws ${ws}: ${ajenas.length} plantillas de otro proyecto de Flow, descartadas ` +
+      `(${ajenas.map((p) => p.clase).join(', ')})`,
+    );
+  }
   let guardadas: PlantillaEspejo[] = [];
   if (llegan.length) {
     guardadas = await runWithWorkspace(ws, async () => {

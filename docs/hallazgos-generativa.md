@@ -3439,3 +3439,78 @@ hoy a `guion-leer`, que declara 760 y dibuja 700 − S.
 `puesta.ejemplo`, `anchoRiel` es `undefined` y manda toda esa columna de valores
 falsos. Un fallback que no coincide con el valor real no es una red: es un
 segundo diseño que nadie revisó.
+
+
+## El respaldo de plantillas no sabe de quién es
+
+**Vive en:** `extension/mako-puente.js`, `extension/background.js`,
+`app/api/flow/puente/route.ts`, `lib/flow-plantillas.ts`
+
+Auditoría de aislamiento entre workspaces, 31/08/2026: 14 agentes, **10
+hallazgos, 9 refutados por los escépticos, 1 real**. Éste.
+
+El respaldo de plantillas de Flow vive en `chrome.storage.local` bajo **una clave
+global** —`plantillas`—, sin token ni workspace adentro. Emparejar el mismo
+navegador con otro cliente pisa el `token` y **no toca ese respaldo**, así que el
+latido siguiente sube al workspace nuevo lo aprendido con el anterior: el
+`projectId` de Flow de aquel cliente, el cuerpo de su generación y el `mediaId`
+de su cara. El server lo persistía sin mirar procedencia, y en el latido
+siguiente se lo bajaba al navegador real del otro cliente como «faltantes».
+
+Es el caso normal del super-admin, que abre un cliente por pestaña.
+
+⚠️ **Y lo que hace difícil verlo: nadie gana un permiso que no tenía.** El que
+empareja está autorizado en los dos workspaces, y el Google que paga es siempre
+el del navegador que apretó Conectar. Por eso pasa todos los filtros mentales de
+«¿esto es una vulnerabilidad?» — y sin embargo los datos de un cliente terminan
+**persistidos en la fila de otro**. La pregunta de una auditoría de aislamiento
+no es «¿alguien escala privilegios?» sino **«¿un dato de A puede terminar en
+B?»**.
+
+**El arreglo va en los dos lados, y son dos lados distintos a propósito:** la
+raíz es de la extensión —cambiar de token borra `plantillas`, `firmaPlantillas`,
+`projectId` y `ultimoRedirectMedio`—, pero eso depende de que el cliente
+actualice. El server no puede resolverlo solo (recibe un token válido) **salvo
+por un dato que ya viene en el mismo request**: el `projectId` que el navegador
+está mirando.
+
+⚠️ **Sólo se descarta lo que se puede PROBAR ajeno.** Una plantilla sin
+`projectId` —`credits`, `uploadImage`, las dos de video— pasa: tirarla sería
+castigar la falta de evidencia, y son las que hacen andar el saldo y la subida de
+fotos. Y si el puente no reporta proyecto, no se filtra nada: sin la mitad de la
+comparación no hay comparación.
+
+### Lo que la auditoría confirmó CERRADO
+
+Vale escribirlo porque es lo que evita volver a auditarlo:
+
+| Superficie | Por qué está cerrada |
+|---|---|
+| El puente | Se identifica por TOKEN, no por cookie. `workspaceDeToken` **nunca acepta un workspace por parámetro** |
+| La cola | El RPC `flow_tomar_trabajos` filtra por `workspace_id` en sus TRES sentencias |
+| Entregar el resultado | `resolver`/`fallar` filtran por workspace **y** por id |
+| Las tablas | `flow_trabajos` y `flow_puentes` están en `TENANT_TABLES`: el proxy inyecta el filtro solo |
+| Los ajustes | `getSetting`/`setSetting` scopean por `wsActual()` siempre |
+| Las actions | Resuelven el plan desde el historial DEL WORKSPACE ACTUAL: un `planId` ajeno no se encuentra |
+| Anon | `flow_trabajos` y `flow_puentes` contestan `permission denied` |
+
+⚠️ **`video-clips` es un bucket PÚBLICO** y la ruta no lleva el workspace. NO es
+un cruce —los dos segmentos son UUID y la url sólo vive en el historial de su
+dueño— pero es un link público y permanente. Medido: `HEAD` sin sesión → 200.
+Listar sí está cerrado, y se comprobó **con objetos adentro**, que es lo único
+que distingue «denegado» de «bucket vacío».
+
+⚠️ **Y el default que hay que recordar:** una request **sin cookie de sesión**
+resuelve a `OWNER_WS`. Está puesto para crons y webhooks, y el puente no depende
+de eso porque usa el token — pero cualquier endpoint nuevo que se autentique por
+su cuenta y llame a `getTenantDb()` va a trabajar en silencio sobre los datos de
+Mauricio.
+
+### El residuo anotado y NO arreglado
+
+El token del puente es un **bearer que sirve fuera del navegador y sobrevive al
+logout**, y el `forzar` lo elige quien pide. Eso convierte «un script en la
+página» en «una credencial persistente exfiltrable». No es un cruce entre
+workspaces —un script que ya corre en el origen de la víctima tiene su sesión— y
+por eso quedó afuera de este arreglo. Es endurecimiento, y vive en
+`app/video-generator/PuenteEnlace.tsx` y `lib/flow-cola.ts`.

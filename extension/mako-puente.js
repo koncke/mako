@@ -59,8 +59,34 @@ function pedirToken(forzar) {
       // Se guarda ACÁ y no en el service worker: es el único punto por el que
       // pasa el token, y guardarlo antes de contestar hace que el «ok» no pueda
       // ser más optimista que la realidad.
-      chrome.storage.local.set({ token, workspaceNombre: String(d.workspace || '') }, () => {
-        cerrar({ ok: true });
+      // ⚠️ CAMBIAR DE CLIENTE TIENE QUE BORRAR LO APRENDIDO CON EL ANTERIOR.
+      //
+      // El respaldo de plantillas vive bajo UNA clave global (`plantillas`), sin
+      // token ni workspace adentro. Antes esto pisaba solo el `token`, asi que el
+      // navegador seguia con las plantillas del cliente anterior — y el latido
+      // siguiente las subia al workspace nuevo: su projectId de Flow, el cuerpo
+      // de su generacion y el mediaId de su cara terminaban guardados en la fila
+      // de otro cliente, y de ahi bajaban al navegador real de ese otro.
+      //
+      // Es el caso normal del super-admin, que abre un cliente por pestaña.
+      //
+      // Se limpia SOLO cuando el token cambia: reconectar el mismo cliente no
+      // puede costarle lo que ya habia aprendido, que es justo lo que evita
+      // volver a pedirle que genere algo a mano.
+      chrome.storage.local.get(['token'], (previo) => {
+        const cambio = previo && previo.token && previo.token !== token;
+        const guardar = () => chrome.storage.local.set(
+          { token, workspaceNombre: String(d.workspace || '') },
+          () => cerrar({ ok: true }),
+        );
+        if (!cambio) { guardar(); return; }
+        // `firmaPlantillas` va con `plantillas` o el latido creeria que no cambio
+        // nada y no volveria a subir las del cliente nuevo. `projectId` y
+        // `ultimoRedirectMedio` son del proyecto de Flow del anterior.
+        chrome.storage.local.remove(
+          ['plantillas', 'firmaPlantillas', 'projectId', 'ultimoRedirectMedio'],
+          guardar,
+        );
       });
     };
 

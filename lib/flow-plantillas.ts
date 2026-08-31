@@ -98,6 +98,68 @@ const HEADERS_PROHIBIDOS = new Set(['authorization', 'cookie', 'set-cookie', 'x-
  * Devuelve solo lo de las clases útiles, sin credenciales, sin el token del
  * captcha —que se acuña en el momento y vencido no sirve para nada— y acotada.
  */
+/**
+ * El proyecto de Flow al que pertenece una plantilla. `''` = no se puede saber.
+ *
+ * Vive en dos lados según la clase: en el PATH de la url
+ * (`/v1/projects/<uuid>/flowMedia:batchGenerateImages`) o en el
+ * `clientContext.projectId` del cuerpo. Se miran los dos, y alcanza con uno.
+ */
+export function proyectoDePlantilla(p: PlantillaEspejo): string {
+  const enUrl = /\/projects\/([0-9a-f-]{36})/i.exec(p.url || '');
+  if (enUrl) return enUrl[1];
+  try {
+    const o = JSON.parse(p.cuerpo || '{}') as { clientContext?: { projectId?: unknown } };
+    const id = String(o?.clientContext?.projectId ?? '');
+    return /^[0-9a-f-]{36}$/i.test(id) ? id : '';
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Se queda con las plantillas que son de ESTE proyecto de Flow.
+ *
+ * ⚠️ POR QUÉ EXISTE: el respaldo de plantillas de la extensión vive en
+ * `chrome.storage.local` bajo UNA clave global (`plantillas`), sin token ni
+ * workspace adentro. Emparejar el mismo navegador con otro cliente pisa el
+ * `token` y NO toca ese respaldo, así que el latido siguiente sube al workspace
+ * nuevo las plantillas aprendidas en el anterior — con el projectId de Flow del
+ * otro cliente, el cuerpo de su generación y el mediaId de su cara.
+ *
+ * Es el caso normal del super-admin, que abre un cliente por pestaña. Nadie gana
+ * un permiso que no tenía —el que empareja está autorizado en los dos, y el
+ * Google que paga es siempre el del navegador que apretó Conectar—, pero los
+ * datos de un cliente terminan PERSISTIDOS en la fila de otro, y de ahí bajan al
+ * navegador real de ese otro en el latido siguiente.
+ *
+ * El arreglo de raíz es de la extensión (que la clave lleve el token). Éste es el
+ * lado que NO depende de que el cliente actualice: el server ya recibe, en el
+ * mismo request, el projectId que el navegador está mirando.
+ *
+ * ⚠️ Sólo se descarta lo que se puede PROBAR ajeno. Una plantilla sin projectId
+ * —`credits`, `uploadImage`, las dos de video— pasa: no tenemos con qué
+ * contradecirla, y tirarla sería castigar la falta de evidencia. Y si el puente
+ * no reporta proyecto, no se filtra nada: sin la mitad de la comparación no hay
+ * comparación.
+ */
+export function soloDelProyecto(
+  ps: PlantillaEspejo[],
+  projectId: string,
+): { quedan: PlantillaEspejo[]; ajenas: PlantillaEspejo[] } {
+  const mio = String(projectId || '').trim();
+  if (!/^[0-9a-f-]{36}$/i.test(mio)) return { quedan: ps, ajenas: [] };
+
+  const quedan: PlantillaEspejo[] = [];
+  const ajenas: PlantillaEspejo[] = [];
+  for (const p of ps) {
+    const suyo = proyectoDePlantilla(p);
+    if (suyo && suyo.toLowerCase() !== mio.toLowerCase()) ajenas.push(p);
+    else quedan.push(p);
+  }
+  return { quedan, ajenas };
+}
+
 export function sanearPlantillas(crudo: unknown): PlantillaEspejo[] {
   if (!Array.isArray(crudo)) return [];
   const out: PlantillaEspejo[] = [];
