@@ -67,7 +67,16 @@ const duracion = (f) => {
 
 const correr = (args) => {
   const p = spawnSync(FFMPEG, args, { encoding: 'utf8' });
-  if (p.status !== 0) throw new Error((`${p.stderr}`.trim().split('\n').slice(-4).join('\n')) || 'ffmpeg falló');
+  if (p.status === 0) return;
+  // ⚠️ EL MENSAJE SE RECORTA A 4 LÍNEAS PARA QUE SE PUEDA LEER, y con eso se pierde la
+  //    evidencia. Cuando el video de origen tiene la pista de audio rota, el «Invalid data
+  //    found» sale al PRINCIPIO y lo tapan cientos de líneas posteriores; las últimas
+  //    cuatro dicen «Task finished with error code: -22», que no distingue un material
+  //    roto de un argumento mal puesto. Un mensaje recortado sirve para MOSTRAR el error,
+  //    no para DECIDIR sobre su causa — así que el stderr entero viaja aparte.
+  const e = new Error((`${p.stderr}`.trim().split('\n').slice(-4).join('\n')) || 'ffmpeg falló');
+  e.stderr = `${p.stderr}`;
+  throw e;
 };
 
 // ⚠️ Un m4a escribe su `moov atom` AL FINAL. Si el proceso muere a mitad —y acá murió,
@@ -276,6 +285,9 @@ for (const f of entradas) {
       console.log(`  ✓ ${nombre}  →  ${mb(t)} MB${dur ? `  (${Math.round(dur / 60)} min)` : ''}${alerta}`);
     }
     hechos++;
+    // Salió bien: el .roto de la vuelta anterior ya cumplió su función —hizo que se
+    // rebajara— y de acá en más sólo ocupa disco y ensucia el listado.
+    try { if (existsSync(`${src}.roto`)) unlinkSync(`${src}.roto`); } catch { /* da igual */ }
   } catch (e) {
     // Un fallo NO borra lo anterior ni queda como estado terminal: se reporta y
     // se sigue. Es la lección del cron de anuncios (9 anuncios sin texto para
@@ -285,6 +297,39 @@ for (const f of entradas) {
     }
     console.error(`  ✖ ${nombre}\n     ${e.message.replace(/\n/g, '\n     ')}`);
     fallados++;
+
+    /**
+     * ── EL VIDEO DE ORIGEN PUEDE ESTAR ROTO, Y REINTENTAR NO LO ARREGLA ───────────────
+     *
+     * Medido el 31/08/2026 en «Curso de Trading ClutiFX», clase 4: el .mp4 estaba
+     * completo —175 MB y 27:35, exactamente la duración del plan— y su pista AAC tenía
+     * paquetes corruptos. ffmpeg cortaba la extracción a los 7:27 y esta rama lo daba por
+     * fallado, que está BIEN: publicar 27% de una clase como si fuera la clase entera es
+     * el bug de «Creator Club».
+     *
+     * Lo que faltaba es que alguien lo arreglara. El archivo EXISTE, así que ningún
+     * chequeo lo ve: el registro de yt-dlp dice que se bajó, el disco dice que está, y el
+     * pipeline reintenta la misma extracción sobre el mismo material roto ronda tras
+     * ronda hasta que se rinde y publica el curso sin esa clase.
+     *
+     * Se pone en cuarentena renombrándolo. Con el .mp4 fuera del camino, la guarda de
+     * fantasmas de `curso-bajar.mjs` lo ve como no bajado, le saca la línea del registro
+     * y yt-dlp lo trae de nuevo. Son dos mecanismos que ya existen; lo único que faltaba
+     * era conectarlos.
+     *
+     * ⚠️ UNA SOLA VEZ POR CLASE. Si ya hay un `.roto` de antes, el material es así y
+     *    volver a bajarlo es gastar la descarga para llegar al mismo lugar. El límite no
+     *    es una preferencia: sin él, esto es un lazo de descargas infinito.
+     */
+    const roto = `${src}.roto`;
+    if (/Invalid data|Error submitting packet|corrupt|moov atom/i.test(`${e.stderr ?? ''}${e.message}`) && !existsSync(roto)) {
+      try {
+        renameSync(src, roto);
+        console.error(`     ↳ el VIDEO de origen está roto: lo aparté como .roto para que se vuelva a bajar.`);
+      } catch { /* si no se puede renombrar, queda como estaba: se reintenta y se reporta */ }
+    } else if (existsSync(roto)) {
+      console.error(`     ↳ ya se rebajó una vez y volvió igual: el material de origen es así.`);
+    }
   }
 }
 

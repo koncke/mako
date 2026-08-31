@@ -140,10 +140,30 @@ if (idsRegistrados.size) {
   // ⚠️ Y UNA CLASE CON TEXTO ESTA TERMINADA, tenga o no video. El video se libera a
   //    proposito; lo que el pipeline necesita ya se extrajo. Sin esta condicion, un curso
   //    viejo con sus videos liberados y sin drive.json se re-baja entero para nada.
+  /**
+   * ⚠️ UN `.roto` LOCAL LE GANA A LA COPIA DE DRIVE.
+   *
+   * `curso-audio.mjs` aparta como `.roto` el video cuyo audio no se puede extraer. Ese
+   * archivo suele estar TAMBIÉN en Drive —se subió antes de que nadie supiera que estaba
+   * mal—, y entonces `enDrive` decía «lo tenemos» y la clase no se volvía a bajar nunca.
+   *
+   * Drive no valida nada: guarda lo que le subimos. Si lo que le subimos estaba corrupto,
+   * la copia de respaldo AVALA el archivo malo, y una comprobación que pregunta «¿existe
+   * en algún lado?» contesta que sí sobre algo que no sirve. Vale para cualquier respaldo:
+   * responde por la EXISTENCIA, nunca por el contenido.
+   *
+   * Y rebajar sirve: medido el 31/08/2026 en «Curso de Trading ClutiFX» clase 4, el
+   * archivo viejo daba 447 s de audio sobre un video de 1655, y la descarga nueva —del
+   * MISMO tamaño en bytes, 175.422.520— dio los 1655 completos. El origen estaba bien; se
+   * había corrompido al bajarlo.
+   *
+   * El lazo está acotado por el otro lado: `curso-audio.mjs` sólo aparta un `.roto` si no
+   * hay uno de antes, así que cada clase se rebaja UNA vez y después se acepta como es.
+   */
   const fantasmas = clases.filter((c) => idsRegistrados.has(String(c.videoId))
     && !existsSync(join(dirVideo, `${c.archivo}.mp4`))
     && !existsSync(join(base, 'texto', `${c.archivo}.md`))
-    && !enDrive.has(Number(c.n)));
+    && (existsSync(join(dirVideo, `${c.archivo}.mp4.roto`)) || !enDrive.has(Number(c.n))));
   if (fantasmas.length) {
     console.log(`\n  ⚠ ${fantasmas.length} clase(s) figuran en bajados.txt, NO están en video/ y TAMPOCO en Drive.`);
     for (const c of fantasmas.slice(0, 6)) console.log(`      n=${c.n}  ${String(c.titulo).slice(0, 54)}`);
