@@ -168,6 +168,45 @@ export function urlDeMedioFlow(mediaId: string, miniatura = false): string {
   return miniatura ? `${base}&mediaUrlType=MEDIA_URL_TYPE_THUMBNAIL` : base;
 }
 
+/**
+ * Cuántos días sobrevive un token que dejó de usarse.
+ *
+ * ⚠️ El token del puente es un BEARER: sirve fuera del navegador, desde
+ * cualquier lado, y no lo mata cerrar sesión —eso último es a propósito, porque
+ * el puente tiene que trabajar mientras la persona no está—. Un secreto así,
+ * sin vencimiento, es válido para siempre desde el día que se filtra.
+ *
+ * El vencimiento es POR INACTIVIDAD y no absoluto, y la diferencia es lo que lo
+ * hace aplicable: un puente que trabaja todos los días nunca se corta —así que
+ * esto no puede sorprender a nadie con el navegador andando— y uno que quedó
+ * copiado en algún lado muere solo.
+ *
+ * No cubre el caso de un token robado Y usado; contra eso no hay vencimiento que
+ * alcance, hay rotación. Rotar es apretar «Conectar», que ya invalida el
+ * anterior.
+ */
+export const VENCE_SIN_USO_DIAS = 60;
+
+/**
+ * ¿Este puente dejó de usarse hace tanto que su token ya no vale?
+ *
+ * Se mide contra `ultimo_visto`, y contra `created_at` mientras no haya latido:
+ * un token acuñado y nunca usado también tiene que morir, o quedaría un secreto
+ * vivo por una conexión que nunca ocurrió.
+ *
+ * Sin ninguna de las dos fechas NO se vence: no saber cuándo se usó por última
+ * vez es una razón para abstenerse, no para cortarle el puente a alguien.
+ */
+export function tokenVencido(
+  ultimoVisto: string | null | undefined,
+  createdAt: string | null | undefined,
+  ahora = Date.now(),
+): boolean {
+  const t = Date.parse(String(ultimoVisto || createdAt || ''));
+  if (!Number.isFinite(t)) return false;
+  return ahora - t > VENCE_SIN_USO_DIAS * 24 * 3600_000;
+}
+
 export const RECAPTCHA_SITE_KEY = '6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV';
 
 /**

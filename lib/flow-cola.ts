@@ -27,7 +27,7 @@ import 'server-only';
 import { createHash, randomBytes } from 'node:crypto';
 import { getTenantDb, runWithWorkspace } from './workspace';
 import { getSupabaseServer } from './supabase';
-import { perfilDeTrabajo, type MotivoFalla } from './flow-protocolo';
+import { perfilDeTrabajo, tokenVencido, type MotivoFalla } from './flow-protocolo';
 
 /** Tipos de trabajo que la extensión sabe ejecutar. */
 export type TipoTrabajo =
@@ -149,11 +149,16 @@ export async function workspaceDeToken(token: string): Promise<number | null> {
   // usa, y devuelve un id, nunca datos del cliente.
   const { data } = await getSupabaseServer()
     .from('flow_puentes')
-    .select('workspace_id')
+    .select('workspace_id, ultimo_visto, created_at')
     .eq('token_hash', hash(token))
     .maybeSingle();
   const ws = Number(data?.workspace_id);
-  return Number.isInteger(ws) && ws > 0 ? ws : null;
+  if (!Number.isInteger(ws) || ws <= 0) return null;
+  // Vencido = como si no existiera. La ruta ya contesta 404 a un token que no
+  // resuelve, y el puente lo pinta como «sin conectar», que trae su botón de
+  // Conectar: la salida ya está y no hace falta un estado nuevo.
+  if (tokenVencido(data?.ultimo_visto as string, data?.created_at as string)) return null;
+  return ws;
 }
 
 /** El puente reporta que está vivo, y con qué proyecto de Flow trabaja. */

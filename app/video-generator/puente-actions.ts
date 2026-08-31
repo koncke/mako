@@ -17,6 +17,7 @@ import { crearTokenPuente, encolar, estadoPuente, type Puente } from '@/lib/flow
 import { estaVivo } from '@/lib/flow-puente-frescura';
 import { ENDPOINTS } from '@/lib/flow-protocolo';
 import { getTenantDb } from '@/lib/workspace';
+import { getSetting, setSetting } from '@/lib/settings';
 
 /** El motivo, no la frase: quien pinta es el popup y necesita elegir pantalla. */
 export type MotivoConectar = 'rol' | 'sin_ws' | 'otro_navegador' | 'error';
@@ -53,13 +54,41 @@ export type ConectarOut =
  * popup la ofrece nombrando al otro navegador, que es lo único que convierte esto
  * en una decisión en vez de una sorpresa.
  */
-export async function conectarPuenteAction(etiqueta: string, forzar = false): Promise<ConectarOut> {
+/**
+ * Cuánto vale el permiso de desbancar al otro navegador, desde que se avisó.
+ *
+ * Es el tiempo de leer «ya hay otro navegador: X» y decidir. Corto a propósito:
+ * lo que autoriza es pisar una sesión que está trabajando.
+ */
+const FORZAR_MS = 60_000;
+const KEY_FORZAR = 'flow.puente.forzar_hasta';
+
+export async function conectarPuenteAction(etiqueta: string): Promise<ConectarOut> {
   const ctx = await ctxAdmin();
   if (!ctx.ok) return ctx;
   try {
+    // ⚠️ `forzar` YA NO ES UN PARÁMETRO, y ése era el agujero.
+    //
+    // Venía del `detail` de un evento de ventana (`PuenteEnlace`), así que
+    // cualquier script de la página podía pedir el token con `forzar: true` y
+    // llevarse dos cosas de un saque: una credencial y la desconexión del
+    // navegador que estaba trabajando.
+    //
+    // Ahora el permiso lo emite el SERVER: la primera vez contesta «ya hay otro»
+    // y deja una marca de un minuto; la segunda —que en el popup es la persona
+    // apretando de nuevo después de LEER de quién es— la consume. El que pide no
+    // decide, decide el que sabe.
+    //
+    // No hace inexpugnable el evento: un script podría dar los dos pasos. Lo que
+    // corta es el disparo a ciegas, que es la forma que tiene esto de pasar.
+    const permiso = Number(await getSetting(KEY_FORZAR)) || 0;
+    const forzar = permiso > Date.now();
+    if (forzar) await setSetting(KEY_FORZAR, '0');
+
     if (!forzar) {
       const p = await estadoPuente();
       if (estaVivo(p.ultimoVisto, Date.now()) && p.estado === 'listo') {
+        await setSetting(KEY_FORZAR, String(Date.now() + FORZAR_MS));
         return {
           ok: false,
           motivo: 'otro_navegador',

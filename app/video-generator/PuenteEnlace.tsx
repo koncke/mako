@@ -42,7 +42,11 @@ export function PuenteEnlace(): null {
       if (enVuelo.current) return;
       enVuelo.current = true;
       try {
-        const out = await conectarPuenteAction(String(d.etiqueta || 'Mi navegador'), !!d.forzar);
+        // ⚠️ SIN `forzar`. Lo elegía el que dispara el evento —o sea cualquier
+        // script de la página— y con eso se llevaba el token Y la desconexión del
+        // navegador que estaba trabajando. Ahora el permiso lo emite el server
+        // tras avisar de quién es la sesión que se va a pisar.
+        const out = await conectarPuenteAction(String(d.etiqueta || 'Mi navegador'));
         window.dispatchEvent(new CustomEvent(
           out.ok ? 'MAKO_PUENTE_TOKEN' : 'MAKO_PUENTE_TOKEN_ERROR',
           {
