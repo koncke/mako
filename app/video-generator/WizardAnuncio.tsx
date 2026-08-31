@@ -44,7 +44,7 @@ import {
   escribirEscenasAction, corregirEscenaAction, generarImagenAction, estadoImagenAction,
   elegirImagenAction, subirImagenEscenaAction, confirmarEscenaAction,
   generarTomaAction, estadoTomaAction, descartarTomaAction, marcarCaraVistaAction,
-  elegirFotoAction, subirFotoPersonaAction,
+  elegirFotoAction, elegirUltimaFotoAction,
   marcarEjemploVistoAction,
   cambiarMuletillasAction,
 } from './video-action';
@@ -1083,15 +1083,19 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                   elegida={item.fotoId ?? contexto?.fotos?.[0]?.id ?? ''}
                   ocupado={!!ocupado}
                   onElegir={(id) => void correr('foto', () => elegirFotoAction(item.id, id), false)}
-                  onSubir={(f) => {
-                    const lector = new FileReader();
-                    lector.onload = () => void correr(
-                      'foto',
-                      () => subirFotoPersonaAction(item.id, String(lector.result || ''), f.name),
-                      false,
-                    );
-                    lector.readAsDataURL(f);
-                  }}
+                  onSubir={(f) => void correr('foto', async () => {
+                    // ⚠️ MULTIPART, no un argumento de server action: esas topean
+                    // en 1 MB por default y una foto de celular no entra. Se reusa
+                    // la ruta del onboarding, que ya valida tipo y tamaño.
+                    const fd = new FormData();
+                    fd.append('file', f);
+                    const r = await fetch('/api/onboarding/persona', { method: 'POST', body: fd })
+                      .then((x) => x.json())
+                      .catch(() => null);
+                    if (!r?.ok) return { ok: false as const, error: r?.error || 'No se pudo subir la foto.' };
+                    // Con la foto ya guardada, sólo queda decir que ES la elegida.
+                    return elegirUltimaFotoAction(item.id);
+                  }, false)}
                 />
               </div>
               <div>

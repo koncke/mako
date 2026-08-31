@@ -1145,45 +1145,30 @@ export async function elegirFotoAction(
 }
 
 /**
- * Sube una foto nueva de la persona y la deja elegida para este anuncio.
+ * Deja elegida la ÚLTIMA foto que se subió.
  *
- * ⚠️ Reusa `addPersonaFoto` de `lib/persona.ts`, que es el único lugar que sabe
- * dónde viven: una segunda ruta de subida sería un segundo formato de nombre, un
- * segundo prefijo y un índice que se separa del primero.
+ * ⚠️ EL ARCHIVO NO PASA POR ACÁ, y el intento anterior era un bug listo para
+ * morder. Una server action de Next topea el cuerpo en **1 MB** por default y
+ * este proyecto no sube ese límite (`next.config.ts` no define
+ * `serverActions.bodySizeLimit`), así que mandar una foto en base64 como
+ * argumento falla con cualquier foto de celular — y el repo ya lo tiene escrito
+ * con su caso en `docs/hallazgos-infra.md`: por eso la importación de leads
+ * necesitó un route handler.
  *
- * Y deja la foto ELEGIDA al subirla: quien acaba de subir una foto en esta
- * pantalla la subió para usarla. Pedirle que además la seleccione es contar dos
- * veces lo mismo.
+ * La foto sube por `POST /api/onboarding/persona` en multipart, que ya existe,
+ * ya valida tipo y tamaño (15 MB) y es el único lugar que sabe dónde viven las
+ * fotos. Acá sólo se fija cuál quedó elegida.
  */
-export async function subirFotoPersonaAction(
+export async function elegirUltimaFotoAction(
   planId: string,
-  dataUrl: string,
-  nombre: string,
 ): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string }> {
   const ctx = await ctxAdmin();
   if (!ctx.ok) return ctx;
 
-  // Sin el flag `s` —el target de este proyecto no lo tiene— y con [\s\S] en su
-  // lugar: un data URL puede traer saltos de linea y `.` no los cruza.
-  const m = /^data:([\w/+.-]+);base64,([\s\S]+)$/.exec(dataUrl || '');
-  if (!m) return { ok: false, error: 'Ese archivo no se pudo leer.' };
-  const mime = m[1];
-  if (!mime.startsWith('image/')) return { ok: false, error: 'Tiene que ser una imagen.' };
-  const buf = Buffer.from(m[2], 'base64');
-  // 12 MB: una foto de celular entra de sobra, y el tope existe para que un archivo
-  // enorme no muera a mitad de camino sin decir por qué.
-  if (buf.byteLength > 12 * 1024 * 1024) {
-    return { ok: false, error: 'La foto pesa más de 12 MB. Usa una más liviana.' };
-  }
-
-  const foto = await addPersonaFoto(buf, nombre || 'foto.jpg', mime).catch(() => null);
-  if (!foto) return { ok: false, error: 'No se pudo guardar la foto.' };
-
-  const item = planDe(await leerHistorial(), planId);
-  if (!item) return { ok: false, error: 'Ese anuncio ya no está en el historial.' };
-  const actualizado: PlanGuardado = { ...item, fotoId: foto.id };
-  await guardarEnHistorial(actualizado);
-  return { ok: true, item: actualizado };
+  const est = await personaEstado().catch(() => null);
+  const ultima = est?.fotos?.[est.fotos.length - 1];
+  if (!ultima) return { ok: false, error: 'No se encontró la foto que subiste.' };
+  return elegirFotoAction(planId, ultima.id);
 }
 
 export async function marcarEjemploVistoAction(
