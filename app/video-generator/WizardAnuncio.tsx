@@ -1193,7 +1193,14 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
       const sinEscenas = !escena;
       const marca = item.imagenes?.[String(paso.n)];
       const opciones = marca?.opciones ?? [];
-      const generando = !!marca?.trabajoId && !opciones.length && !marca?.error;
+      // ⚠️ «Generando» sale de la SEÑAL, no de que la lista esté vacía. Desde
+      // que las variantes se acumulan, `!opciones.length` sería falso siempre a
+      // partir de la segunda y el loader no aparecería nunca. La compatibilidad
+      // con los planes viejos —que no tienen `trabajoListo`— es la misma que usa
+      // el sondeo del server.
+      const generando = !!marca?.trabajoId
+        && (marca.trabajoListo ? marca.trabajoId !== marca.trabajoListo : !opciones.length)
+        && !marca?.error;
       const causa: CausaFlow | undefined = marca?.error
         ? ((marca.errorCausa as CausaFlow) ?? causaFlow(marca.errorCrudo ?? marca.error))
         : undefined;
@@ -1406,9 +1413,13 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
             )}
 
             {/* Las variantes: cambian lo que muestra el panel, no son otra
-                decisión ni otra pantalla. */}
+                decisión ni otra pantalla.
+                ⚠️ La tira ENVUELVE porque ahora crece: cada regeneración suma
+                una variante en vez de pisar la anterior, y la caja mide 300 px.
+                Recortarla en silencio escondería justo la que alguien quiere
+                recuperar. */}
             {opciones.length > 1 && (
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 12 }}>
                 {opciones.map((u) => (
                   <button
                     key={u}

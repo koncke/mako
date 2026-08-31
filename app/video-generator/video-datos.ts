@@ -15,6 +15,7 @@
 
 import 'server-only';
 import { getSetting, setSetting } from '@/lib/settings';
+import type { CausaFlow } from '@/lib/flow-fallo-texto';
 import { getPersona, personaEstado } from '@/lib/persona';
 import { resolverAcento } from '@/lib/acento-workspace';
 import { tzDeWorkspace } from '@/lib/timezone';
@@ -25,6 +26,90 @@ import type { Escena } from '@/lib/escenas-core';
 
 export const KEY_HISTORIAL_VIDEO = 'video-generator.historial';
 const MAX_HISTORIAL = 10;
+
+/**
+ * Lo que se guarda por ESCENARIO.
+ *
+ * ⚠️ Vive acá —donde se persiste— y no en la action, que es donde estaba. Había
+ * DOS declaraciones del mismo dato: el inline de `PlanGuardado.imagenes` y una
+ * `MarcaImagen` en `video-action.ts`, y tres campos existían sólo en la segunda
+ * (`opcionesId`, `elegidaId`, `intento`). El cast de `imgs()` tapaba la
+ * diferencia, así que agregar un campo compilaba de un lado y del otro no se
+ * veía. Es exactamente lo que ya había pasado con `MarcaVideo`, con el porqué
+ * escrito al lado suyo — y volvió a pasar en el campo de al lado.
+ */
+export type MarcaImagen = {
+  /** El último trabajo encolado para este escenario. */
+  trabajoId?: number;
+  /**
+   * El trabajo cuyo resultado YA se absorbió.
+   *
+   * ⚠️ Existe porque `opciones` estaba haciendo DOS trabajos: guardar las
+   * variantes y avisar que la generación terminó (`if (m.opciones?.length)
+   * return listo`). Con la lista como señal de «listo», encolar una nueva
+   * generación OBLIGABA a vaciarla — y vaciarla es borrar la imagen que la
+   * persona tenía.
+   *
+   * Pasó, y lo reportó el dueño: regeneró, la nueva no le gustó, y la anterior
+   * ya no estaba. Su regla, escrita: «un render nuevo NUNCA sobrescribe al
+   * anterior; van los dos con nombre que los distinga».
+   *
+   * Separar la señal del dato es lo que permite que la lista sólo CREZCA.
+   */
+  trabajoListo?: number;
+  /** Las variantes que devolvió Flow, en orden de generación. Se acumulan. */
+  opciones?: string[];
+  /** La que se está mirando. La escribe la persona o la llegada de una nueva. */
+  elegida?: string;
+  /**
+   * El `mediaId` DENTRO DE FLOW de cada variante, en el mismo orden que
+   * `opciones`, y el de la elegida.
+   *
+   * ⚠️ Es lo que permite que el clip se anime DESDE la imagen generada. Sin esto
+   * el id se tiraba al pintar la lista, y a la hora de filmar no quedaba con qué
+   * referenciarla — así que se usaba la foto cruda, que no tiene la escena
+   * adentro. Martín lo vio en la grilla de Flow antes que nosotros.
+   *
+   * Se guardan los DOS: la lista para poder cambiar de variante sin volver a
+   * pedir nada, y el de la elegida para no tener que buscar por índice —los
+   * índices se corren cuando alguien regenera y la lista cambia de largo—.
+   *
+   * ⚠️ Y el id NO VENCE, la URL sí (~6 h). Cuando la dirección de una variante
+   * vieja caduque, lo que sigue sirviendo para FILMAR es este id.
+   */
+  opcionesId?: string[];
+  elegidaId?: string;
+  /** true = la subió la persona, no la generó Flow. */
+  propia?: boolean;
+  /**
+   * ⚠️ ELEGIR NO ES CONFIRMAR. Al llegar las imágenes se preselecciona la
+   * nueva; este campo lo escribe una PERSONA mirando la comparación. Sin él,
+   * el gate que protege ~105 créditos se abría solo en cuanto Flow contestaba.
+   */
+  confirmada?: boolean;
+  /** Cuántas veces se pidió. Alimenta la semilla: sin esto, regenerar repetiría. */
+  intento?: number;
+  error?: string;
+  /** De quién fue la culpa: decide qué se muestra y si hay a dónde ir. */
+  errorCausa?: CausaFlow;
+  /** Lo que dijo Google, tal cual. No se tira: se pliega. */
+  errorCrudo?: string;
+  /**
+   * ⚠️ Cuándo pasó. Un error guardado sin fecha se lee como si acabara de
+   * ocurrir — y esta pantalla mostró durante horas el JSON de un bug ya
+   * arreglado, presentado como si fuera de ese momento.
+   */
+  errorAt?: string;
+  /**
+   * El saldo justo ANTES de generar esta imagen.
+   *
+   * Existe aunque las imágenes sean gratis — o precisamente por eso. «Son
+   * gratis» es hoy una afirmación, no una medición, y este proyecto ya
+   * planificó con una tabla de costos de internet que estaba al doble. Con
+   * esto, la primera generación lo confirma o lo desmiente sola.
+   */
+  saldoAntes?: number | null;
+};
 
 export type PlanGuardado = {
   id: string;
@@ -96,41 +181,7 @@ export type PlanGuardado = {
    * la imagen del lugar?» y «¿ya animé la toma 3?»— y meterlas en el mismo mapa
    * hace que la clave `"1"` signifique dos cosas según quién la lea.
    */
-  imagenes?: Record<string, {
-    trabajoId?: number;
-    /** Las variantes que devolvió Flow. Se muestran para elegir. */
-    opciones?: string[];
-    /** La que la persona confirmó. Sin esto, la escena no está aprobada. */
-    elegida?: string;
-    /** true = la subió la persona, no la generó Flow. */
-    propia?: boolean;
-    /**
-     * ⚠️ ELEGIR NO ES CONFIRMAR. Al llegar las imágenes se preselecciona la
-     * primera; este campo lo escribe una PERSONA mirando la comparación. Sin él,
-     * el gate que protege ~105 créditos se abría solo en cuanto Flow contestaba.
-     */
-    confirmada?: boolean;
-    error?: string;
-    /** De quién fue la culpa: decide qué se muestra y si hay a dónde ir. */
-    errorCausa?: string;
-    /** Lo que dijo Google, tal cual. No se tira: se pliega. */
-    errorCrudo?: string;
-    /**
-     * ⚠️ Cuándo pasó. Un error guardado sin fecha se lee como si acabara de
-     * ocurrir — y esta pantalla mostró durante horas el JSON de un bug ya
-     * arreglado, presentado como si fuera de ese momento.
-     */
-    errorAt?: string;
-    /**
-     * El saldo justo ANTES de generar esta imagen.
-     *
-     * Existe aunque las imágenes sean gratis — o precisamente por eso. «Son
-     * gratis» es hoy una afirmación, no una medición, y este proyecto ya
-     * planificó con una tabla de costos de internet que estaba al doble. Con
-     * esto, la primera generación lo confirma o lo desmiente sola.
-     */
-    saldoAntes?: number | null;
-  }>;
+  imagenes?: Record<string, MarcaImagen>;
   video?: Record<string, MarcaVideo>;
 };
 

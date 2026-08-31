@@ -37,9 +37,10 @@ import { generarPlanAction } from './actions';
 import { guionesDisponibles } from './guiones-datos';
 import { causaFlow, causaDeMotivo, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
 import { getSetting, setSetting } from '@/lib/settings';
-import { leerHistorial, guardarEnHistorial, type PlanGuardado, type MarcaVideo } from './video-datos';
+import { leerHistorial, guardarEnHistorial, type PlanGuardado, type MarcaVideo, type MarcaImagen } from './video-datos';
 import { sanearPlantillas, tieneCaraParcheable, KEY_PLANTILLAS } from '@/lib/flow-plantillas';
 import { olvidarTomasFallidas } from './tomas-invalidar';
+import { sumarVariantes } from './variantes-imagen';
 import { personaEstado, addPersonaFoto, getPersona } from '@/lib/persona';
 import { guardarSaldo, leerSaldoGuardado, guardarCostoMedido, type SaldoFlow } from './saldo-datos';
 
@@ -863,39 +864,6 @@ export async function saldoAction(
 // de entrada estaba mal?—. Sin la comparación, la única salida es regenerar, y
 // regenerar contra una foto mala da otra imagen mala.
 
-type MarcaImagen = {
-  trabajoId?: number; opciones?: string[]; elegida?: string; propia?: boolean;
-  /**
-   * El `mediaId` DENTRO DE FLOW de cada variante, en el mismo orden que
-   * `opciones`, y el de la elegida.
-   *
-   * ⚠️ Es lo que permite que el clip se anime DESDE la imagen generada. Sin esto
-   * el id se tiraba al pintar la lista, y a la hora de filmar no quedaba con qué
-   * referenciarla — así que se usaba la foto cruda, que no tiene la escena
-   * adentro. Martín lo vio en la grilla de Flow antes que nosotros.
-   *
-   * Se guardan los DOS: la lista para poder cambiar de variante sin volver a
-   * pedir nada, y el de la elegida para no tener que buscar por índice —los
-   * índices se corren cuando alguien regenera y la lista cambia de largo—.
-   */
-  opcionesId?: string[]; elegidaId?: string;
-  error?: string; saldoAntes?: number | null; intento?: number;
-  /**
-   * ⚠️ ELEGIR NO ES CONFIRMAR, y hasta hoy eran lo mismo.
-   *
-   * Al llegar las imágenes se preselecciona la primera (`elegida`), y el paso se
-   * daba por cerrado con sólo mirar ese campo. O sea: la comparación lado a lado
-   * —el único motivo por el que esta pantalla existe— nunca era obligatoria, y
-   * el gate que protege ~105 créditos se abría solo.
-   *
-   * Un paso de confirmación cuyo estado lo escribe el server al llegar el dato
-   * no es un paso: es un rótulo.
-   */
-  confirmada?: boolean;
-  errorCausa?: CausaFlow;
-  errorCrudo?: string;
-  errorAt?: string;
-};
 
 const imgs = (plan: PlanGuardado): Record<string, MarcaImagen> =>
   (plan.imagenes ?? {}) as Record<string, MarcaImagen>;
@@ -1180,12 +1148,26 @@ export async function generarImagenAction(
 
   return {
     ok: true,
+    // ⚠️ ACÁ SE BORRABA LA IMAGEN QUE LA PERSONA TENÍA: `opciones: []` y
+    // `elegida: ''`. Ya no.
+    //
+    // No era un descuido: `opciones` era también la señal de «ya terminó»
+    // (`estadoImagenAction` hacía `if (m.opciones?.length) return listo`), así
+    // que dejarla llena habría hecho que el sondeo nunca esperara la nueva. La
+    // señal se mudó a `trabajoListo` y con eso la lista puede sólo CRECER.
+    //
+    // Lo reportó el dueño el 31/08/2026: regeneró, la segunda no le gustó, y la
+    // primera ya no estaba en ningún lado de la app. Su regla, escrita hace
+    // meses: «un render nuevo NUNCA sobrescribe al anterior; van los dos con
+    // nombre que los distinga».
+    //
+    // `confirmada: false` SÍ se mantiene: hay una imagen nueva en camino y el
+    // paso vuelve a estar abierto. Y los cuatro campos del error se limpian
+    // juntos —un `errorCrudo` que sobrevive a su `error` deja el detalle
+    // técnico plegado hablando de un fallo que ya no existe—.
     item: await guardarImagen(item, n, {
-      trabajoId, intento, saldoAntes, opciones: [], elegida: '', propia: false,
+      trabajoId, intento, saldoAntes, propia: false,
       confirmada: false,
-      // Los CUATRO campos del error, no sólo el texto: un `errorCrudo` que
-      // sobrevive a su `error` es lo que hace que el detalle técnico plegado
-      // hable de un fallo que ya no existe.
       error: '', errorCausa: undefined, errorCrudo: '', errorAt: '',
     }),
   };
@@ -1209,8 +1191,19 @@ export async function estadoImagenAction(
   if (!item) return { ok: false, error: 'Ese anuncio ya no está en el historial.' };
 
   const m = imgs(item)[String(n)] ?? {};
-  if (m.opciones?.length) {
-    return { ok: true, item, estado: { fase: 'listo', opciones: m.opciones, elegida: m.elegida ?? '' } };
+  // ⚠️ LA SEÑAL DE «YA TERMINÓ» ES `trabajoListo`, NO QUE LA LISTA TENGA ALGO.
+  //
+  // Con `opciones.length` como señal, una lista que se conserva entre
+  // generaciones haría que el sondeo diera por terminada la nueva antes de
+  // empezar. Son dos preguntas distintas —«¿tengo variantes?» y «¿llegó la que
+  // pedí?»— y meterlas en un campo es lo que obligaba a vaciarlo.
+  //
+  // La segunda mitad es la compatibilidad: los planes escritos antes de que este
+  // campo existiera tienen `opciones` y no tienen `trabajoListo`. Sin esta rama,
+  // volverían a absorber su propio resultado y duplicarían la lista.
+  const yaLlego = m.trabajoListo ? m.trabajoId === m.trabajoListo : !!m.opciones?.length;
+  if (yaLlego) {
+    return { ok: true, item, estado: { fase: 'listo', opciones: m.opciones ?? [], elegida: m.elegida ?? '' } };
   }
   if (m.error) return { ok: true, item, estado: { fase: 'error', error: m.error } };
   if (!m.trabajoId) return { ok: true, item, estado: { fase: 'sin_empezar' } };
@@ -1244,9 +1237,7 @@ export async function estadoImagenAction(
   // correcto: la imagen generada ya tiene su cara DENTRO de la escena —el auto,
   // la luz, el encuadre—, y animar desde el retrato pierde todo eso.
   const salidas = imagenesDeRespuesta(data?.resultado);
-  const opciones = salidas.map((i) => i.url);
-  const opcionesId = salidas.map((i) => i.mediaId ?? '');
-  if (!opciones.length) {
+  if (!salidas.length) {
     const fallo = falloGuardable(
       'Flow aceptó el pedido y no devolvió ninguna imagen.',
       `la imagen del escenario ${n}`,
@@ -1255,13 +1246,31 @@ export async function estadoImagenAction(
     return { ok: true, item, estado: { fase: 'error', error: fallo.error } };
   }
 
-  // La primera queda preseleccionada: la persona confirma o cambia, pero nunca
-  // se queda mirando dos imágenes sin ninguna elegida — eso convierte una
-  // confirmación en un trámite más.
+  // ── LA LISTA SE SUMA, NO SE REEMPLAZA ────────────────────────────────────
+  //
+  // Las variantes viejas quedan disponibles para volver a ellas con un click. Es
+  // lo que faltaba el día que el dueño regeneró, la nueva no le gustó, y la
+  // anterior ya no existía en la app —sólo en `flow_trabajos`, de donde hubo que
+  // rescatarla a mano—. La regla —y el porqué del dedup— vive en
+  // `variantes-imagen.ts`, que es un módulo testeable.
+  const previas = (m.opciones ?? []).map((url, i) => ({ url, mediaId: m.opcionesId?.[i] ?? '' }));
+  const { todas, elegida: nueva } = sumarVariantes(previas, salidas);
+
+  // Si todo lo que llegó ya estaba, se conserva lo que la persona tenía elegido:
+  // un sondeo repetido no puede mover la selección debajo de nadie.
+  const elegida = nueva?.url ?? m.elegida ?? todas[0]?.url ?? '';
+  const elegidaId = nueva?.mediaId ?? (nueva ? '' : m.elegidaId) ?? todas[0]?.mediaId ?? '';
+
   item = await guardarImagen(item, n, {
-    opciones, elegida: opciones[0], opcionesId, elegidaId: opcionesId[0] || '',
+    opciones: todas.map((v) => v.url),
+    opcionesId: todas.map((v) => v.mediaId ?? ''),
+    elegida,
+    elegidaId,
+    // El trabajo queda marcado como absorbido: sin esto el sondeo volvería a
+    // entrar acá en cada vuelta.
+    trabajoListo: m.trabajoId,
   });
-  return { ok: true, item, estado: { fase: 'listo', opciones, elegida: opciones[0] } };
+  return { ok: true, item, estado: { fase: 'listo', opciones: todas.map((v) => v.url), elegida } };
 }
 
 /** La persona elige cuál de las variantes queda. */
