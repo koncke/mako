@@ -309,10 +309,21 @@ function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia,
         display: 'flex', alignItems: 'center', width: '100%', maxWidth: 900, gap: 16,
       }}>
         <button type="button" onClick={onSalir} style={salida}>← Salir</button>
-        <div style={{ flex: 1 }} />
-        {vistaPrevia}
       </div>
 
+      {/* ── DOS COLUMNAS: lo que se decide, y con qué se compara ────────────
+          La referencia va a la DERECHA y grande, no en un desplegable de la
+          esquina: es lo que contesta «¿esto se parece a lo que elegí?», que es
+          una pregunta que aparece mientras se mira, no antes.
+          Plegada queda una tira angosta con su rótulo girado, como la sidebar. */}
+      <div style={{
+        display: 'flex', gap: 26, width: '100%', alignItems: 'flex-start',
+        justifyContent: 'center', flexWrap: 'wrap',
+      }}>
+        <div style={{
+          flex: '1 1 620px', minWidth: 0, display: 'flex', flexDirection: 'column',
+          alignItems: 'center', gap: 22,
+        }}>
       {/* La barra de posición: segmentos finos, no dots de formulario. Dice
           dónde estás sin pedir nada y sin ocupar una fila entera. */}
       <div style={{
@@ -407,6 +418,10 @@ function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia,
         </div>
       )}
 
+        </div>
+        {vistaPrevia}
+      </div>
+
       {/* ⚠️ ACÁ HABÍA UN SEGUNDO PAR DE SALIDAS, al pie de todo. «Volver» subió
           al lado del botón que avanza y «Salir» subió a la barra de arriba: el
           mismo botón dibujado en dos lugares es el que nadie encuentra en
@@ -441,45 +456,79 @@ const salida: React.CSSProperties = {
 function VistaPrevia({ puesta }: { puesta: Puesta | undefined }) {
   const [abierta, setAbierta] = useState(true);
   if (!puesta?.ejemplo) return null;
-  return (
-    <div style={{ position: 'relative' }}>
+
+  // ── PLEGADA: una tira angosta, como la sidebar ──────────────────────────
+  if (!abierta) {
+    return (
       <button
         type="button"
-        onClick={() => setAbierta((v) => !v)}
-        style={{ ...salida, display: 'flex', alignItems: 'center', gap: 7 }}
-      >
-        <Icon name={abierta ? 'x' : 'play'} size={13} />
-        {/* El NOMBRE va siempre, abierta o cerrada: es el único lugar donde se
-            lee cómo se llama el formato con el que se está trabajando, y con la
-            vista abierta era justo cuando desaparecía. */}
-        {abierta ? `Ocultar · ${puesta.nombre}` : `Ver el formato · ${puesta.nombre}`}
-      </button>
-      {abierta && (
-        <div style={{
-          position: 'absolute', top: 'calc(100% + 10px)', right: 0, zIndex: 40,
+        onClick={() => setAbierta(true)}
+        title="Ver cómo se verá tu anuncio"
+        style={{
+          flex: 'none', width: 44, alignSelf: 'stretch', minHeight: 220,
           background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 14, padding: 10, boxShadow: '0 18px 50px rgba(0,0,0,.45)',
+          borderRadius: 14, cursor: 'pointer', color: 'var(--dim)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', gap: 14, padding: '14px 0',
+          fontFamily: 'inherit',
+        }}
+      >
+        <Icon name="play" size={16} />
+        {/* El rótulo girado: la tira plegada sigue diciendo QUÉ es. Una tira muda
+            es un borde, y un borde no se aprieta. */}
+        <span style={{
+          writingMode: 'vertical-rl', transform: 'rotate(180deg)',
+          fontSize: 'var(--fs-sm)', fontWeight: 600, letterSpacing: '.01em',
+          whiteSpace: 'nowrap',
         }}>
-          <video
-            src={puesta.ejemplo.video}
-            poster={puesta.ejemplo.poster}
-            autoPlay
-            loop
-            muted
-            playsInline
-            style={{
-              display: 'block', width: 150, aspectRatio: '9 / 16',
-              objectFit: 'cover', borderRadius: 10, background: '#000',
-            }}
-          />
-          {/* ⚠️ ACÁ DECÍA `puesta.tecnico` —«Selfie en movimiento»— y el dueño lo
-              marcó: no es como se llama el formato. El nombre es «Car Talks»; lo
-              otro es la técnica con la que está hecho, que es un dato del
-              catálogo y no su nombre. Y como el botón que la abre YA dice el
-              nombre, acá no va ninguno: repetirlo abajo era la tercera línea de
-              texto de una esquina que no tiene que tener ninguna. */}
-        </div>
-      )}
+          Así se verá tu anuncio
+        </span>
+      </button>
+    );
+  }
+
+  // ── ABIERTA: el ejemplo, grande ─────────────────────────────────────────
+  return (
+    <div style={{
+      flex: 'none', width: 288, background: 'var(--surface)',
+      border: '1px solid var(--border)', borderRadius: 16, padding: 14,
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: 10, marginBottom: 12,
+      }}>
+        <span style={{ fontSize: 'var(--fs-md)', fontWeight: 650, color: 'var(--ink)' }}>
+          Así se verá tu anuncio
+        </span>
+        <button
+          type="button"
+          onClick={() => setAbierta(false)}
+          title="Ocultar"
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer', lineHeight: 0,
+            color: 'var(--faint)', padding: 4,
+          }}
+        >
+          <Icon name="x" size={15} />
+        </button>
+      </div>
+      <video
+        src={puesta.ejemplo.video}
+        poster={puesta.ejemplo.poster}
+        autoPlay
+        loop
+        muted
+        playsInline
+        style={{
+          display: 'block', width: '100%', aspectRatio: '9 / 16',
+          objectFit: 'cover', borderRadius: 12, background: '#000',
+        }}
+      />
+      <div style={{
+        fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginTop: 10, lineHeight: 1.45,
+      }}>
+        {puesta.nombre}
+      </div>
     </div>
   );
 }
@@ -634,8 +683,12 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
         // entiende, que es la palabra, no el signo.
         alLado: (
           <Tooltip text="MaKo lo reescribe con tu forma de hablar: te pone tus muletillas y tus conectores, sin cambiar lo que dice ni el cierre.">
+            {/* `secondary` y no `tertiary`: el terciario se dibuja como texto
+                con un hover, y el dueño lo marcó — «haz que ese botón sea botón,
+                no sólo texto». Un control que hace algo caro (rehace el guion
+                entero) no puede leerse como un enlace. */}
             <Button
-              variant="tertiary"
+              variant="secondary"
               size="sm"
               loading={ocupado === 'muletillas'}
               disabled={!!ocupado}
