@@ -19,7 +19,9 @@ import 'server-only';
 //
 // ── La regla que gobierna el prompt: no se describe la cara ────────────────
 // La identidad la resuelve la foto real de la persona, que viaja en el mismo
-// pedido (`referenceImages` con `isLikeness`). Un prompt que además describe una
+// pedido. ⚠️ EN `requests[0].imageInputs[0].name`, MEDIDO — este comentario decía
+// «`referenceImages` con `isLikeness`», que es el camino del VIDEO y no el de la
+// imagen: mandaba a buscar un campo que este pedido no tiene. Un prompt que además describe una
 // cara le está dando al modelo dos fuentes para lo mismo, y gana la que no
 // queremos. Está escrito en el prompt Y validado en `mencionaCara()`, porque una
 // regla que solo vive en la prosa de un prompt se cumple casi siempre — y acá
@@ -51,7 +53,9 @@ cambio de escenario llega temprano, para no repetir el mismo rincón dos veces.
 EL PROMPT DE LA IMAGEN — lo más importante:
 - Va en INGLÉS. El guion va en español; la escena, en inglés.
 - Describe SOLO la composición: el lugar, la luz, la hora del día, el encuadre,
-  el lente, la distancia de cámara, la ropa, los objetos que hay alrededor.
+  el lente, la distancia de cámara, los objetos que hay alrededor.
+- NO describas la ROPA. La trae la foto de referencia, igual que la cara. Si la
+  describes, el modelo le cambia la camiseta y deja de ser la misma persona.
 - NUNCA describas a la persona. Ni su cara, ni sus ojos, ni su pelo, ni su barba,
   ni su edad, ni su sonrisa, ni su piel. La persona la pone una foto real que
   viaja aparte. Si la describes, sale otra persona.
@@ -61,9 +65,11 @@ EL PROMPT DE LA IMAGEN — lo más importante:
   encuadre —«Car Talks» ES un selfie en un auto—, y una imagen con el lugar
   correcto y el encuadre equivocado no sirve para nada.
 - Vertical 9:16, fotográfico y realista, nunca ilustración ni render 3D.
-- La ropa y la hora del día tienen que ser LAS MISMAS en todos los escenarios: es
-  el mismo anuncio, filmado seguido. Un cambio de camisa entre la toma 3 y la 4
-  delata que el video es generado.
+- NO escribas nada sobre la luz dura, el flash, el grano ni la textura de piel: eso
+  se agrega después por código, igual en todas las escenas. Ocúpate del LUGAR.
+- La hora del día tiene que ser LA MISMA en todos los escenarios: es el mismo
+  anuncio, filmado seguido. Un salto de tarde a noche entre la toma 3 y la 4
+  delata que el video es generado. (De la ropa no te ocupes: la fija la foto.)
 - Entre 40 y 70 palabras. Un prompt corto deja que el modelo rellene; uno largo
   se contradice a sí mismo.
 

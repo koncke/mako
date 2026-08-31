@@ -19,6 +19,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { mencionaCara } from '../lib/escenas-core';
+import { promptFinal } from '../lib/flow-imagen';
 
 const RAIZ = process.cwd();
 
@@ -85,4 +86,46 @@ test('las cuatro cámaras del catálogo tienen su traducción a encuadre', () =>
   for (const camara of ['selfie', 'seguimiento', 'mano', 'estatica']) {
     assert.match(bloque, new RegExp(`\\b${camara}\\s*:`), `falta el encuadre de «${camara}»`);
   }
+});
+
+// ── EL PROMPT QUE SE MANDA DE VERDAD ────────────────────────────────────────
+// El prompt del modelo describe el LUGAR y nada más. Todo lo que hace que la
+// persona salga parecida —la identidad, la luz, el realismo— lo pone el código,
+// y por eso hay que poder mirarlo desde acá.
+
+test('el prompt final lleva el metodo validado, no solo la escena', () => {
+  const escena = 'SELFIE at arm length inside a modern car, soft afternoon light.';
+  const con = promptFinal(escena, { conCara: true });
+
+  assert.ok(con.startsWith(escena), 'la escena va primero: es lo que decide la composición');
+  assert.match(con, /identity reference/i, 'falta el bloqueo de identidad');
+  assert.match(con, /clothing exactly/i, 'la ropa la trae la foto, y hay que pedirlo');
+  assert.match(con, /soft ambient daylight/i, 'falta el antídoto de luz del C5');
+  assert.match(con, /no dramatic flash/i, 'el C5 crudo quema los altos en interior');
+  assert.match(con, /visible pores/i, 'falta el bloque de realismo del 6C');
+  assert.match(con, /No text, no watermark/i, 'falta el negative prompt');
+});
+
+test('sin cara elegida NO se pide preservar identidad', () => {
+  // Pedirle que respete «la referencia» cuando la referencia es la que quedó de
+  // lo último que la persona hizo a mano en Flow es pedirle que copie a un
+  // desconocido. Sin cara propia, mejor que el modelo componga libre.
+  const sin = promptFinal('A tidy modern office at midday.', { conCara: false });
+  assert.doesNotMatch(sin, /identity reference/i);
+  // La luz y el realismo NO dependen de la cara: van siempre.
+  assert.match(sin, /soft ambient daylight/i);
+  assert.match(sin, /visible pores/i);
+});
+
+test('⚠️ el bloque constante NO puede pasar por el guard de caras', () => {
+  // Es la razón por la que se concatena DESPUÉS y no se le pide al modelo.
+  // `mencionaCara` prohíbe `facial` y `freckles` para que el modelo no invente
+  // una persona; el método validado los usa para lo contrario — para pedir que
+  // RESPETE la de la foto. Si algún día alguien mueve este texto al prompt del
+  // modelo, este test le explica en el acto por qué se rechaza todo el lote.
+  const marcas = mencionaCara(promptFinal('x'.repeat(40), { conCara: true }));
+  assert.ok(
+    marcas.length > 0,
+    'si esto deja de marcar, el guard cambió y hay que revisar dónde se concatena el método',
+  );
 });

@@ -124,7 +124,13 @@ test('los parches del paso de imágenes apuntan a caminos que existen en el pedi
   }
 
   // Cambió lo nuestro…
-  assert.deepEqual(pedidoDeFlow.requests[0].structuredPrompt, { parts: [{ text: 'a sunlit office' }] });
+  // ⚠️ El texto NO es el de la escena pelado: el prompt que se manda es el de la
+  // escena MÁS el método validado (identidad, luz, realismo), que pone el código.
+  // Se comprueba por partes y no por igualdad: fijar el string entero acá haría
+  // que cualquier ajuste del método rompa un test que no habla del método.
+  const txt = pedidoDeFlow.requests[0].structuredPrompt.parts[0].text;
+  assert.ok(txt.startsWith('a sunlit office'), 'la escena va primero');
+  assert.match(txt, /visible pores/, 'el método validado tiene que viajar con el prompt');
   assert.equal(pedidoDeFlow.requests[0].seed, 99);
   assert.equal(pedidoDeFlow.requests[0].imageAspectRatio, 'IMAGE_ASPECT_RATIO_PORTRAIT');
   assert.equal(pedidoDeFlow.mediaGenerationContext.batchId, 'nuestro');

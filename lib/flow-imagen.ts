@@ -87,10 +87,67 @@ export type PedidoImagenEscena = {
  * paso de video. El día que haga falta cambiarla, se parchea ese camino con la
  * forma medida: `{ imageInputType: 'IMAGE_INPUT_TYPE_REFERENCE', name: <id> }`.
  */
+/**
+ * LO QUE EL MÉTODO VALIDADO PONE Y NUESTRO PROMPT NO PONÍA.
+ *
+ * ⚠️ POR CÓDIGO Y NO EN EL PROMPT DEL MODELO, por dos razones que se suman:
+ *
+ *  1. Es CONSTANTE. No depende de la escena, así que pedírselo al modelo en cada
+ *     llamada es pagar tokens para que reescriba —peor— algo que ya está escrito.
+ *  2. NUESTRO PROPIO GUARD LO RECHAZA. `mencionaCara()` prohíbe `facial` y
+ *     `freckles` para que el modelo no invente una persona, y este bloque los usa
+ *     para lo contrario: para pedir que RESPETE la de la foto. Es la misma trampa
+ *     ya cosechada («el vocabulario de una instrucción y el de su guard son el
+ *     mismo vocabulario»), y la salida no es abrir el guard: es que este texto no
+ *     pase por él, porque no lo escribe el modelo.
+ *
+ * De dónde sale cada línea, todas verificadas en su fuente:
+ *  · IDENTIDAD  → `docs/guia-produccion-mauricio.md`, el bloqueo de identidad.
+ *    Adaptado a UNA referencia: el original habla de dos imágenes y nosotros
+ *    mandamos sólo la cara.
+ *  · LUZ        → `lib/curso-avatar.ts`, el ANTÍDOTO del C5 del método 6C.
+ *    El C5 por defecto pide «direct harsh iPhone flash» y sirve para nocturno o
+ *    fiesta; para interior, auto o luz natural —que es todo lo que filmamos— el
+ *    curso manda esta otra línea. Usar el C5 crudo es lo que quema los altos.
+ *  · REALISMO   → el cierre del 6C (`app/conocimientos/curso-ugc-recursos.ts`).
+ */
+const IDENTIDAD =
+  'The reference image is provided ONLY as an identity reference: match the subject\'s '
+  + 'facial features, proportions, physical traits and clothing exactly. Do NOT copy its '
+  + 'background, framing or pose — those come from the description above.';
+
+const LUZ =
+  'Natural iPhone photo with soft ambient daylight, no dramatic flash, low contrast, '
+  + 'muted tones, slight grain, authentic smartphone exposure, realistic shadows, '
+  + 'candid UGC vibe.';
+
+const REALISMO =
+  'Realistic skin with visible pores, freckles, subtle blemishes, natural texture, and '
+  + 'small imperfections. Natural anatomy, realistic hands, believable proportions, '
+  + 'consistent facial identity, accurate clothing folds, realistic reflections, and '
+  + 'authentic iPhone exposure. No text, no watermark, no distortion.';
+
+/**
+ * El prompt que se manda de verdad: el de la escena + el método.
+ *
+ * Sin `server-only` y exportada a propósito: es lo único que un test puede mirar
+ * para saber qué se está pidiendo. Un prompt que sólo existe adentro del que lo
+ * manda es un prompt que nadie puede revisar.
+ */
+export function promptFinal(escena: string, opts: { conCara: boolean }): string {
+  return [escena.trim(), opts.conCara ? IDENTIDAD : '', LUZ, REALISMO]
+    .filter(Boolean)
+    .join('\n\n');
+}
+
 export function parchesImagenEscena(p: PedidoImagenEscena): Record<string, unknown> {
   return {
     // El prompt viaja igual que en el clip: partes de texto, no un string suelto.
-    'requests.0.structuredPrompt': { parts: [{ text: p.prompt }] },
+    // ⚠️ Y va el prompt FINAL, no el que escribió el modelo: la identidad, la luz
+    // y el realismo los pone el código. Antes se mandaba `p.prompt` pelado —40 a
+    // 70 palabras de composición y nada más— y el resultado era una persona
+    // parecida a nadie, con otra ropa y con la luz que el modelo quisiera.
+    'requests.0.structuredPrompt': { parts: [{ text: promptFinal(p.prompt, { conCara: !!p.cara }) }] },
     // ⚠️ LA CARA, cuando la persona eligió una. MEDIDO: en el pedido real vive en
     // `requests[0].imageInputs[0].name`, al lado de un `imageInputType` que NO se
     // toca — por eso va por parche y no por cuerpo: `fundir` reemplazaría el array
