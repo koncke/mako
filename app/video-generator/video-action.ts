@@ -406,7 +406,22 @@ export async function generarTomaAction(
   // Primero lo APRENDIDO, después lo que se ve ahora. Al revés, un F5 en Flow
   // —que vacía las plantillas de la pestaña— dejaría a la tab sin poder generar
   // aunque la cara ya se supiera desde hace días.
-  const mediaId = (await getSetting(KEY_CARA_FLOW))?.trim()
+  // ⚠️ EL CLIP SE ANIMA DESDE LA IMAGEN GENERADA DE SU ESCENA, no desde la foto.
+  //
+  // Martín lo vio en la grilla de Flow antes que nosotros: «referenció a la
+  // imagen incorrecta… la segunda es la que debió referenciar, que es la que
+  // generé con MaKo». Y es exactamente lo correcto: esa imagen ya tiene su cara
+  // DENTRO de la escena —el auto, la luz, el encuadre, la ropa—, mientras que el
+  // retrato del onboarding es una persona sobre un fondo de estudio. Animar
+  // desde el retrato tira todo el trabajo del paso anterior.
+  //
+  // El respaldo sigue siendo la cara aprendida: si por lo que sea no hay id de la
+  // imagen —una escena vieja, generada antes de que se guardara— se filma con lo
+  // que había antes en vez de no filmar.
+  const escenaDeLaToma = (item.escenas ?? []).find((e) => n >= e.desde && n <= e.hasta);
+  const idImagen = escenaDeLaToma ? str(imgs(item)[String(escenaDeLaToma.n)]?.elegidaId) : '';
+  const mediaId = idImagen
+    || (await getSetting(KEY_CARA_FLOW))?.trim()
     || mediaIdDeReferencia(String(puente.detalle ?? ''));
   if (!mediaId) {
     return {
@@ -777,6 +792,20 @@ export async function saldoAction(
 
 type MarcaImagen = {
   trabajoId?: number; opciones?: string[]; elegida?: string; propia?: boolean;
+  /**
+   * El `mediaId` DENTRO DE FLOW de cada variante, en el mismo orden que
+   * `opciones`, y el de la elegida.
+   *
+   * ⚠️ Es lo que permite que el clip se anime DESDE la imagen generada. Sin esto
+   * el id se tiraba al pintar la lista, y a la hora de filmar no quedaba con qué
+   * referenciarla — así que se usaba la foto cruda, que no tiene la escena
+   * adentro. Martín lo vio en la grilla de Flow antes que nosotros.
+   *
+   * Se guardan los DOS: la lista para poder cambiar de variante sin volver a
+   * pedir nada, y el de la elegida para no tener que buscar por índice —los
+   * índices se corren cuando alguien regenera y la lista cambia de largo—.
+   */
+  opcionesId?: string[]; elegidaId?: string;
   error?: string; saldoAntes?: number | null; intento?: number;
   /**
    * ⚠️ ELEGIR NO ES CONFIRMAR, y hasta hoy eran lo mismo.
@@ -979,6 +1008,22 @@ export async function generarImagenAction(
   // formado hecho por nosotros — con una imagen de resultado y sin ningún error.
 
   const cara = (await caraParcheable()) ? await caraEnFlow(item) : '';
+
+  // ⚠️ SI HAY UNA FOTO ELEGIDA Y TODAVÍA NO ESTÁ EN FLOW, NO SE GENERA.
+  //
+  // Medido: los trabajos #351 (subir la foto) y #352 (generar la imagen) se
+  // crearon en el MISMO segundo, porque esta función encolaba la subida y seguía
+  // de largo. Resultado: la imagen salió con la cara de la plantilla —la vieja— y
+  // la foto que Martín acababa de elegir llegó a Flow un latido tarde, para nada.
+  //
+  // Y la forma en que fallaba es la peor: no da error, da UNA IMAGEN. Con la cara
+  // equivocada, cobrada, y sin nada que lo delate.
+  //
+  // Esperar un latido no cuesta nada; generar con la cara vieja cuesta la
+  // generación y la confianza en el selector.
+  if (item.fotoId && !cara && (await caraParcheable())) {
+    return { ok: false, error: 'MaKo está subiendo tu foto a Google. En unos segundos vuelve a intentar.' };
+  }
   const trabajoId = await encolar('generar_imagen', {
     // El projectId de este path es de mentira y no importa: la extensión usa el
     // path SOLO para encontrar la plantilla (de su último tramo sale la clase) y
@@ -1054,7 +1099,20 @@ export async function estadoImagenAction(
   }
   if (str(data?.estado) !== 'listo') return { ok: true, item, estado: { fase: 'generando' } };
 
-  const opciones = imagenesDeRespuesta(data?.resultado).map((i) => i.url);
+  // ⚠️ EL `mediaId` YA NO SE TIRA, y ahí estaba el bug que encontró Martín.
+  //
+  // Esta línea era `.map((i) => i.url)`: se quedaba con la dirección para pintar
+  // la imagen y descartaba su id dentro de Flow. Sin ese id, cuando llegaba el
+  // momento de animar el clip no había con qué referenciar la imagen recién
+  // generada — así que se usaba `KEY_CARA_FLOW`, o sea la FOTO CRUDA.
+  //
+  // Martín lo vio en la grilla de Flow: «referenció a la imagen incorrecta… la
+  // segunda es la que debió referenciar, que es la que generé con MaKo». Y es lo
+  // correcto: la imagen generada ya tiene su cara DENTRO de la escena —el auto,
+  // la luz, el encuadre—, y animar desde el retrato pierde todo eso.
+  const salidas = imagenesDeRespuesta(data?.resultado);
+  const opciones = salidas.map((i) => i.url);
+  const opcionesId = salidas.map((i) => i.mediaId ?? '');
   if (!opciones.length) {
     const fallo = falloGuardable(
       'Flow aceptó el pedido y no devolvió ninguna imagen.',
@@ -1067,7 +1125,9 @@ export async function estadoImagenAction(
   // La primera queda preseleccionada: la persona confirma o cambia, pero nunca
   // se queda mirando dos imágenes sin ninguna elegida — eso convierte una
   // confirmación en un trámite más.
-  item = await guardarImagen(item, n, { opciones, elegida: opciones[0] });
+  item = await guardarImagen(item, n, {
+    opciones, elegida: opciones[0], opcionesId, elegidaId: opcionesId[0] || '',
+  });
   return { ok: true, item, estado: { fase: 'listo', opciones, elegida: opciones[0] } };
 }
 
@@ -1088,8 +1148,13 @@ export async function elegirImagenAction(
   // dejaría que la pantalla escriba una URL arbitraria dentro del plan.
   if (!m.opciones?.includes(url)) return { ok: false, error: 'Esa imagen no es de este escenario.' };
 
+  // El id de ESA variante viaja con la elección: es lo que el clip va a
+  // referenciar, y buscarlo después por índice se rompe cuando alguien regenera
+  // y la lista cambia de largo.
+  const idElegido = m.opcionesId?.[m.opciones.indexOf(url)] ?? '';
+
   // Cambiar de imagen re-abre la decisión: lo que se confirmó fue la otra.
-  return { ok: true, item: await guardarImagen(item, n, { elegida: url, confirmada: false }) };
+  return { ok: true, item: await guardarImagen(item, n, { elegida: url, elegidaId: idElegido, confirmada: false }) };
 }
 
 /**
