@@ -1,12 +1,13 @@
 {
   "manifest_version": 3,
   "name": "MaKo",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "description": "Genera los anuncios de MaKo con tu propia cuenta de Google Flow, desde tu navegador.",
   "permissions": [
     "storage",
     "alarms",
-    "webRequest"
+    "webRequest",
+    "scripting"
   ],
   "host_permissions": [
     "https://labs.google/*",

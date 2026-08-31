@@ -82,7 +82,16 @@ export async function POST(req: NextRequest) {
     //   3. Recién ahí, la etiqueta del navegador, y solo si está en el enum.
     const delNavegador = clasificarFallaDelNavegador(str(r.error));
     if (delNavegador) {
-      await fallar(ws, id, delNavegador.motivo, delNavegador.error, delNavegador.reintentable);
+      // ⚠️ El mensaje traducido NO puede reemplazar al original — la misma regla
+      // que ya cumple la rama de al lado. El crudo de Chrome es la ÚNICA
+      // evidencia que distingue un content script huérfano de una pestaña que el
+      // navegador descartó, y sin él los dos se diagnostican igual.
+      await fallar(
+        ws, id, delNavegador.motivo,
+        `${delNavegador.error}
+[crudo] ${str(r.error).slice(0, 300)}`,
+        delNavegador.reintentable,
+      );
       continue;
     }
 

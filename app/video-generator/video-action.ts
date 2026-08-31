@@ -33,7 +33,7 @@ import {
 import { parchesImagenEscena, imagenesDeRespuesta, semillaDeEscena } from '@/lib/flow-imagen';
 import { escribirEscenas, reescribirEscena } from '@/lib/escenas';
 import { puestaPorId } from '@/lib/puestas-data';
-import { causaFlow, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
+import { causaFlow, causaDeMotivo, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
 import { getSetting } from '@/lib/settings';
 import { leerHistorial, guardarEnHistorial, type PlanGuardado } from './video-datos';
 import { guardarSaldo, leerSaldoGuardado, guardarCostoMedido, type SaldoFlow } from './saldo-datos';
@@ -308,7 +308,7 @@ export async function estadoTomaAction(
   if (!marca.operacion && marca.trabajoId) {
     const { data } = await db
       .from('flow_trabajos')
-      .select('estado, resultado, error')
+      .select('estado, resultado, error, motivo')
       .eq('id', marca.trabajoId)
       .maybeSingle();
 
@@ -318,7 +318,7 @@ export async function estadoTomaAction(
     // terminó» y la pantalla giraba para siempre. El dueño lo vio antes que
     // nosotros: «se quedó pensando eternamente».
     if (estado === 'fallido') {
-      const fallo = falloGuardable(str(data?.error), `la toma ${n}`);
+      const fallo = falloGuardable(str(data?.error), `la toma ${n}`, str(data?.motivo));
       item = await guardarMarca(item, n, fallo);
       return { ok: true, item, estado: { fase: 'error', error: fallo.error } };
     }
@@ -494,10 +494,20 @@ async function guardarImagen(item: PlanGuardado, n: number, marca: MarcaImagen):
  * puntos que lo producen pasan por acá; escribir la traducción en cada uno sería
  * tener tres versiones de la misma regla, y la tercera se queda vieja.
  */
-function falloGuardable(crudo: string, que: string) {
-  const causa = causaFlow(crudo);
+function falloGuardable(crudo: string, que: string, motivo = '') {
+  // ⚠️ EL MOTIVO DEL SERVER GANA SOBRE ADIVINAR POR TEXTO.
+  //
+  // `flow_trabajos.motivo` lo escribió quien vio el error CRUDO de Google. Lo que
+  // hay en `.error` es la traducción al castellano que ese mismo código produjo,
+  // así que clasificarla de nuevo por expresiones es adivinar sobre una respuesta
+  // que ya estaba contestada — y medido, ocho de los nueve mensajes posibles
+  // caían en «no sé».
+  //
+  // `causaFlow` queda de red para un motivo nuevo que este mapa todavía no
+  // conozca, que es lo único que no se puede prever.
+  const causa = causaDeMotivo(motivo) ?? causaFlow(crudo);
   return {
-    error: textoFlow(causa, que).titulo,
+    error: textoFlow(causa, que, undefined, undefined, crudo).titulo,
     errorCausa: causa,
     errorCrudo: crudo,
     errorAt: new Date().toISOString(),
@@ -697,7 +707,7 @@ export async function estadoImagenAction(
   const db = await getTenantDb();
   const { data } = await db
     .from('flow_trabajos')
-    .select('estado, resultado, error')
+    .select('estado, resultado, error, motivo')
     .eq('id', m.trabajoId)
     .maybeSingle();
 
@@ -705,7 +715,7 @@ export async function estadoImagenAction(
   // supone— un trabajo caído se lee como «todavía no terminó» y la pantalla gira
   // para siempre. Ya pasó una vez con los clips.
   if (str(data?.estado) === 'fallido') {
-    const fallo = falloGuardable(str(data?.error), `la imagen del escenario ${n}`);
+    const fallo = falloGuardable(str(data?.error), `la imagen del escenario ${n}`, str(data?.motivo));
     item = await guardarImagen(item, n, fallo);
     return { ok: true, item, estado: { fase: 'error', error: fallo.error } };
   }

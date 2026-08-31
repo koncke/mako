@@ -117,6 +117,19 @@ export type MotivoFalla =
   /** El token venció o el puente no está. Se recaptura y se reencola. */
   | 'sin_sesion'
   /**
+   * No hay NINGUNA pestaña de Flow abierta.
+   *
+   * ⚠️ Es un motivo propio y no un `sin_sesion`, y la diferencia importa: son
+   * acciones distintas —abrir Flow contra volver a iniciar sesión— y meter las
+   * dos en el mismo cajón hacía que la mitad de las veces se le dijera «tu
+   * sesión venció» a alguien cuya sesión estaba perfecta.
+   *
+   * Antes vivía adentro de `sin_sesion` con un test que defendía, con razón, que
+   * son cosas distintas. Lo que faltaba no era elegir entre las dos: era el
+   * tercer casillero.
+   */
+  | 'sin_pestana'
+  /**
    * La pestaña de Flow está abierta pero no responde: le falta el content
    * script. NO se reintenta — hace falta que una persona la recargue.
    */
@@ -339,6 +352,18 @@ export function clasificarFallaDelNavegador(
   // pedido NO sale — y tiene que decirse, porque el modo de falla silencioso es
   // peor que cualquier error: una imagen perfecta del escenario equivocado no se
   // lee como un fallo, se lee como una imagen.
+  // La extensión intentó reponer el content script y la pestaña sigue sin
+  // contestar. Se distingue del «Receiving end does not exist» crudo a
+  // propósito: dice que la reparación automática YA se intentó y no alcanzó, o
+  // sea que el F5 es de verdad el único camino.
+  if (/^PUENTE_MUDO$/i.test(m)) {
+    return {
+      motivo: 'puente_dormido',
+      error: 'La pestaña de Google Flow no responde ni siquiera después de reponer el puente. Recárgala (F5) y vuelve a intentar.',
+      reintentable: false,
+    };
+  }
+
   if (/^PARCHE_FALLO:/i.test(m)) {
     const camino = m.slice(m.indexOf(':') + 1).trim();
     return {
@@ -365,9 +390,10 @@ export function clasificarFallaDelNavegador(
     };
   }
 
+  // Su propio motivo: ver el comentario de `sin_pestana` en `MotivoFalla`.
   if (m === 'NO_FLOW_TAB') {
     return {
-      motivo: 'sin_sesion',
+      motivo: 'sin_pestana',
       error: 'No hay ninguna pestaña de Google Flow abierta en este navegador.',
       reintentable: false,
     };

@@ -47,6 +47,11 @@ function pedirALaPagina(evPido, evOk, detalle, ms, errorTimeout, responder) {
 }
 
 chrome.runtime.onMessage.addListener((msg, _sender, responder) => {
+  // La UNICA forma de distinguir «no hay content script en esta pestana» de «lo
+  // hay y esta ocupado». Sin esto, las dos se ven igual desde el service worker:
+  // un `sendMessage` que rechaza. Y no cuesta un viaje a la pagina.
+  if (msg?.tipo === 'PING') { responder({ ok: true }); return false; }
+
   if (msg?.tipo === 'GET_CAPTCHA') {
     pedirALaPagina(
       'MAKO_CAPTCHA_PIDO', 'MAKO_CAPTCHA_OK',

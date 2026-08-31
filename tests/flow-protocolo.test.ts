@@ -194,11 +194,20 @@ test('el captcha que no contesta tampoco se reintenta', () => {
   }
 });
 
-test('sin pestaña de Flow es sin_sesion, no puente_dormido', () => {
-  // Son cosas distintas y llevan a acciones distintas: abrir Flow vs. recargarlo.
+test('sin pestaña de Flow tiene su PROPIO motivo: son tres cosas, no dos', () => {
+  // La intención de este test no cambió —«no hay pestaña», «recargá la pestaña» y
+  // «tu sesión venció» llevan a acciones distintas— pero la cumplía metiendo la
+  // primera adentro de `sin_sesion`, que YA significaba la tercera. Con dos
+  // casilleros para tres situaciones, cualquier mapa de motivo a mensaje acierta
+  // a lo sumo dos: a alguien con la sesión perfecta se le decía que venció.
+  //
+  // Lo que faltaba no era elegir entre las dos: era el tercer casillero.
   const r = clasificarFallaDelNavegador('NO_FLOW_TAB');
-  assert.equal(r?.motivo, 'sin_sesion');
+  assert.equal(r?.motivo, 'sin_pestana');
+  assert.notEqual(r?.motivo, 'sin_sesion', 'no es que la sesión venció');
+  assert.notEqual(r?.motivo, 'puente_dormido', 'ni que la pestaña no conteste');
   assert.equal(r?.reintentable, false);
+  assert.match(r!.error, /abierta|abre/i, 'el mensaje tiene que decir QUÉ hacer: abrir Flow');
 });
 
 test('un error que no reconoce devuelve null y NO pisa la clasificación previa', () => {

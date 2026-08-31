@@ -26,6 +26,23 @@
 // indistinguible de un error de ahora.** Traducir el mensaje sin decir CUÁNDO
 // pasó cambia una mentira por otra. Por eso `textoFlow` recibe el `at` y lo dice.
 
+/**
+ * De `flow_trabajos.motivo` —que el SERVER ya clasificó— a lo que ve el cliente.
+ *
+ * ⚠️ ESTO EXISTE PORQUE LA PANTALLA ESTABA ADIVINANDO. La columna `motivo` está
+ * en la tabla desde la migración 0145, con la causa ya decidida por quien vio el
+ * error crudo de Google; la pantalla no la leía y volvía a clasificar por TEXTO
+ * sobre un mensaje que el propio server ya había traducido al castellano.
+ *
+ * Medido sobre los nueve mensajes que el server puede escribir: OCHO caían en
+ * `desconocida`. Entre ellos el de la pestaña muda, que se convertía en «Google
+ * no pudo hacer la imagen y no dijo por qué / tus créditos están bien» — cuando
+ * la instrucción que lo arreglaba en dos segundos, «Recárgala (F5)», estaba
+ * escrita palabra por palabra en la misma fila.
+ *
+ * Es un mapa CERRADO: un motivo nuevo devuelve `undefined` y quien llama cae a
+ * `causaFlow`, que es adivinar. El compilador no avisa de eso; el test sí.
+ */
 export type CausaFlow =
   /** El pedido que sale de acá está mal armado. No es del cliente. */
   | 'nuestra'
@@ -37,6 +54,8 @@ export type CausaFlow =
   | 'puente'
   /** Google falló y no dijo por qué. */
   | 'google'
+  /** El filtro de contenido de Google rechazó el prompt. Reintentar no sirve. */
+  | 'contenido'
   | 'desconocida';
 
 /**
@@ -63,6 +82,27 @@ export function causaFlow(crudo: string): CausaFlow {
   if (/\b5\d\d\b|unavailable|internal|deadline|timeout/.test(m)) return 'google';
 
   return 'desconocida';
+}
+
+const CAUSA_DE_MOTIVO: Record<string, CausaFlow> = {
+  puente_dormido: 'puente',
+  // No hay pestaña abierta: el puente no existe, no es que la sesión venció.
+  sin_pestana: 'puente',
+  captcha: 'puente',
+  contenido: 'contenido',
+  cuota: 'sin_creditos',
+  // El pedido nombra un modelo que esta cuenta no tiene: lo armamos nosotros.
+  modelo: 'nuestra',
+  medio_vencido: 'google',
+  transitorio: 'google',
+  // Sin ambigüedad recién desde que `NO_FLOW_TAB` dejó de ser `sin_sesion`.
+  sin_sesion: 'sesion',
+  sesion_marcada: 'sesion',
+};
+
+/** La causa que el server ya decidió, o `undefined` si el motivo es nuevo. */
+export function causaDeMotivo(motivo: string): CausaFlow | undefined {
+  return CAUSA_DE_MOTIVO[(motivo || '').trim()];
 }
 
 export type TextoFlow = {
@@ -94,9 +134,25 @@ export function cuandoPaso(at: string | undefined, ahora: Date): string {
  * `que` nombra el objeto: «la imagen del escenario 1», «la toma 3». Un error que
  * no dice sobre qué es obliga a adivinar cuál de las siete filas se rompió.
  */
-export function textoFlow(causa: CausaFlow, que: string, at?: string, ahora = new Date()): TextoFlow {
+export function textoFlow(
+  causa: CausaFlow,
+  que: string,
+  at?: string,
+  ahora = new Date(),
+  /**
+   * La frase que escribió el SERVER, si la hay. GANA sobre la constante.
+   *
+   * El server vio el error crudo y muchas veces sabe algo que acá no se puede
+   * saber —qué pestaña, qué campo, qué hay que apretar—. Reemplazarla por un
+   * texto genérico es tirar la única parte accionable del mensaje.
+   */
+  delServidor = '',
+): TextoFlow {
   const cuando = cuandoPaso(at, ahora);
-  const con = (d: string) => (cuando ? `${cuando} ${d}` : d);
+  const con = (d: string) => {
+    const base = (delServidor || '').trim() || d;
+    return cuando ? `${cuando} ${base}` : base;
+  };
 
   switch (causa) {
     case 'nuestra':
@@ -125,6 +181,13 @@ export function textoFlow(causa: CausaFlow, que: string, at?: string, ahora = ne
         detalle: con('Cada toma cuesta unos 15 créditos y ya no alcanzan. Recárgalos en tu cuenta de Google y vuelve a filmar.'),
         arreglaEn: '/integraciones',
         accion: 'Ver la conexión con Google',
+      };
+
+    case 'contenido':
+      return {
+        titulo: `Google no aceptó el prompt de ${que}`,
+        detalle: con('El filtro de contenido de Google rechazó cómo está escrito el escenario. No se gastaron créditos, y volver a intentarlo con el mismo texto va a dar lo mismo: hay que reescribirlo.'),
+        accion: 'Decir qué cambiar',
       };
 
     case 'puente':

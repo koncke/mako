@@ -26,6 +26,19 @@
 // exactamente el orden de prioridades correcto.
 
 (function () {
+  // ⚠️ RE-EJECUTAR ESTE ARCHIVO NO PUEDE VOLVER A ENVOLVER `window.fetch`.
+  //
+  // Ahora se lo puede re-inyectar para reponer el puente de una pestana que quedo
+  // sin content script, y dos envoltorios serian DOS PEDIDOS REALES a Google por
+  // cada uno nuestro — con los creditos del cliente. Y seria INVISIBLE: el flag
+  // `cerrado` de content.js tapa la segunda respuesta, asi que el doble gasto no
+  // dejaria ni un sintoma.
+  //
+  // La marca vive en el mundo de la PAGINA y muere con ella, que es exactamente
+  // lo que hace falta: sobrevive a un reinicio de la extension y no a un F5.
+  if (window.__makoEspejo) return;
+  window.__makoEspejo = 1;
+
   const API = 'aisandbox-pa.googleapis.com';
 
   /** Última plantilla vista por clase de pedido. Solo en memoria. */

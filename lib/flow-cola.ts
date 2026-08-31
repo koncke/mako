@@ -145,7 +145,13 @@ export async function marcarVisto(ws: number, projectId: string, estado: EstadoP
     estado,
     // La columna es `text` sin límite (mig 0145). El recorte a 300 era nuestro y
     // mutilaba justo lo que sirve para diagnosticar sin molestar a nadie.
-    estado_detalle: detalle.slice(0, 8000),
+    // Sin guarda, un latido normal —el que no trae plantillas nuevas— pisaba con
+    // vacío lo último que se había visto. Las tres líneas de abajo ya la tenían;
+    // ésta no, y era la que más se perdía.
+    // ⚠️ Contrapartida a saber: `ultimo_visto` se sigue escribiendo en cada
+    // latido, así que un `estado_detalle` viejo va a PARECER fresco. Se acepta:
+    // hoy el dato se perdía entero cada 15 segundos.
+    ...(detalle ? { estado_detalle: detalle.slice(0, 8000) } : {}),
   };
   if (projectId) patch.project_id = projectId;
   // Solo si vino: una extensión vieja no la manda, y pisar con '' borraría el
@@ -286,7 +292,12 @@ export async function fallar(
       estado: seguir ? 'pendiente' : 'fallido',
       intentos,
       motivo,
-      error: error.slice(0, 500),
+      // ⚠️ 2000 y no 500. El que escribe le pega el `[crudo]` al mensaje —hay una
+      // regla escrita para eso, que el traducido no puede reemplazar al
+      // original— y este corte de acá abajo la anulaba en silencio: guardaba la
+      // frase en castellano y tijereteaba justo la evidencia. La columna es
+      // `text`, sin límite propio.
+      error: error.slice(0, 2000),
       tomado_at: null,
       ...(seguir ? {} : { listo_at: new Date().toISOString() }),
     })

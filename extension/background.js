@@ -250,11 +250,30 @@ function accionDeCaptcha(tipo, path) {
  *    pierde el resultado y deja al cliente mirando «generando…» sobre algo que
  *    ya termino.
  */
+/** `a` es anterior a `b`. Gemela de `esMasVieja` en app/video-generator/PuentePanel.tsx. */
+function esMasVieja(a, b) {
+  const na = String(a || '').split('.').map(Number);
+  const nb = String(b || '').split('.').map(Number);
+  for (let i = 0; i < Math.max(na.length, nb.length); i++) {
+    const x = na[i] || 0;
+    const y = nb[i] || 0;
+    if (x !== y) return x < y;
+  }
+  return false;
+}
+
 async function quizasReiniciar(esperada, hayTrabajoEnCurso) {
   try {
     if (!esperada || hayTrabajoEnCurso) return;
     const manifest = chrome.runtime.getManifest();
-    if (manifest.version === esperada) {
+    // ORDENADA, no `===`. Una igualdad dispara TAMBIEN cuando la instalada va
+    // ADELANTE de lo que sirve produccion —la maquina de desarrollo, los minutos
+    // entre el push y el deploy, y para siempre si el build fallo— y cada uno de
+    // esos reinicios deja la pestana muda hasta el latido siguiente. Es la misma
+    // leccion que la pantalla ya aprendio en PuentePanel.tsx (`esMasVieja`); si se
+    // cambia una, se cambia la otra: la extension no tiene bundler y no puede
+    // importar de `app/`.
+    if (!esMasVieja(manifest.version, esperada)) {
       // Al dia: se limpia la marca para que un salto futuro pueda volver a intentar.
       await chrome.storage.local.remove('reinicioIntentado');
       return;
@@ -270,6 +289,52 @@ async function quizasReiniciar(esperada, hayTrabajoEnCurso) {
   } catch { /* actualizarse nunca puede romper al que ya funciona */ }
 }
 
+/**
+ * Repone el puente de una pestana de Flow que quedo sin content script.
+ *
+ * CHROME NO REINYECTA HACIA ATRAS. Ni despues de un `chrome.runtime.reload()`,
+ * ni en una pestana que ya estaba abierta cuando se instalo la extension, ni en
+ * una navegacion por pushState adentro de la SPA de Flow. Los tres dejan el
+ * script HUERFANO: sigue vivo en la pagina, pero el listener que registro
+ * pertenece al contexto viejo y el service worker nuevo no lo ve.
+ *
+ * El sintoma es el error literal de Chrome «Receiving end does not exist», y
+ * hasta hoy la unica salida era que una persona apretara F5 — y nadie se lo
+ * pedia, porque el puente seguia diciendo que estaba listo.
+ *
+ * `injected.js` va PRIMERO y va SIEMPRE: si la pestana es de las que nunca lo
+ * tuvieron, reponer solo content.js cambia un error claro por 25 segundos de
+ * espera y un timeout de captcha. Re-ejecutarlo cuando ya esta vivo es gratis
+ * —tiene su guarda de idempotencia— y conserva sus plantillas en memoria, que es
+ * justo lo que no se puede perder.
+ *
+ * Devuelve 'ok' | 'repuesto' | 'mudo'.
+ */
+const reparadasEnEstaVuelta = new Set();
+
+async function pingContent(tabId) {
+  try {
+    const r = await chrome.tabs.sendMessage(tabId, { tipo: 'PING' });
+    return !!(r && r.ok);
+  } catch { return false; }
+}
+
+async function asegurarContentScript(tabId) {
+  if (await pingContent(tabId)) return 'ok';
+  // UN intento por vuelta del ciclo: si inyectar no alcanzo, insistir cada 15 s
+  // sobre la misma pestana no la va a arreglar y si puede tapar el diagnostico.
+  if (reparadasEnEstaVuelta.has(tabId)) return 'mudo';
+  reparadasEnEstaVuelta.add(tabId);
+  try {
+    await chrome.scripting.executeScript({ target: { tabId }, files: ['injected.js'], world: 'MAIN' });
+    await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] });
+  } catch (e) {
+    console.warn('[mako] no se pudo reponer el puente:', e);
+    return 'mudo';
+  }
+  return (await pingContent(tabId)) ? 'repuesto' : 'mudo';
+}
+
 async function ejecutar(trabajo) {
   const { path, body, parches } = trabajo.pedido || {};
   if (typeof path !== 'string' || !path.startsWith('/v1')) {
@@ -277,6 +342,11 @@ async function ejecutar(trabajo) {
   }
 
   const tab = await pestanaDeFlow();
+
+  // Reponer ANTES de gastar el trabajo. Un pedido que muere por un content
+  // script ausente queda `puente_dormido`, que NO se reintenta: es un trabajo
+  // quemado por algo que se arreglaba una linea antes.
+  if ((await asegurarContentScript(tab.id)) === 'mudo') throw new Error('PUENTE_MUDO');
 
   // Los pedidos de LECTURA no llevan cuerpo, así que no llevan `recaptchaContext`
   // — y por lo tanto no hay que minar un token para ellos. Medido: `/v1/credits`
@@ -397,8 +467,27 @@ async function ciclo() {
     // Qué pedidos vio la página. Viaja en `detalle` para que un fallo se pueda
     // diagnosticar mirando la base, sin pedirle a nadie otra captura de pantalla.
     if (estado === 'listo') {
+      reparadasEnEstaVuelta.clear();
       try {
         const tab = await pestanaDeFlow();
+
+        // ACA EL PUENTE DEJA DE MENTIR.
+        //
+        // `estado` se calculaba solo con el bearer y la apiKey, que viven en
+        // chrome.storage y sobreviven a cualquier reinicio. O sea que decia
+        // «listo» con la pestana muda — y el server, viendo verde, le seguia
+        // repartiendo trabajo: cada uno moria terminal en el primer intento. Una
+        // cola entera se vaciaba en fallos con el semaforo en verde.
+        //
+        // Este y `NO_FLOW_TAB` son los UNICOS dos caminos por los que este ciclo
+        // apaga el puente. Cualquier otro fallo —espiar, guardar plantillas— NO
+        // apaga nada: no poder MIRAR no es no poder trabajar.
+        if ((await asegurarContentScript(tab.id)) === 'mudo') {
+          estado = 'sin_sesion';
+          detalle = 'La pestana de Google Flow esta abierta pero no responde, y no se pudo reponer el puente. Recargala (F5).';
+          throw new Error('MUDO');
+        }
+
         // Cada latido guarda lo que la pagina haya visto. Es el momento correcto:
         // no cuesta nada extra —la pestana ya se esta consultando— y garantiza que
         // lo que Flow hizo hace un minuto sobreviva al proximo F5.
@@ -413,7 +502,14 @@ async function ciclo() {
           );
           detalle = JSON.stringify(Object.fromEntries(orden)).slice(0, 7500);
         }
-      } catch { /* si no se puede espiar, no es motivo para no trabajar */ }
+      } catch (e) {
+        // Si la pestana esta muda, `estado` y `detalle` ya se escribieron arriba y
+        // no se pisan. Lo demas —no poder espiar— no apaga nada.
+        if (String((e && e.message) || e) === 'NO_FLOW_TAB') {
+          estado = 'sin_sesion';
+          detalle = 'No hay ninguna pestana de Google Flow abierta. Abre labs.google/fx/tools/flow y dejala abierta.';
+        }
+      }
     }
 
     const pendientes = (await chrome.storage.local.get('pendientes')).pendientes || [];
