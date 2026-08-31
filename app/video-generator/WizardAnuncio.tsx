@@ -44,6 +44,7 @@ import {
   escribirEscenasAction, corregirEscenaAction, generarImagenAction, estadoImagenAction,
   elegirImagenAction, subirImagenEscenaAction, confirmarEscenaAction,
   generarTomaAction, estadoTomaAction, descartarTomaAction, marcarCaraVistaAction,
+  elegirFotoAction, subirFotoPersonaAction,
   marcarEjemploVistoAction,
   cambiarMuletillasAction,
 } from './video-action';
@@ -639,6 +640,78 @@ function VistaPrevia({ puesta, abierta, onToggle }: {
   );
 }
 
+/**
+ * Con cuál de tus fotos se genera este anuncio.
+ *
+ * ⚠️ VA DEBAJO DE LA FOTO, NO EN OTRA PANTALLA. La regla de la casa es un paso por
+ * pantalla, y esto NO es un paso: es un parámetro de la imagen que se está por
+ * generar, y la foto grande de arriba ya es su vista previa. Sacarlo a una
+ * pantalla propia agregaría una decisión donde hoy hay una.
+ *
+ * Y las miniaturas son CHICAS a propósito. Lo enorme es la foto elegida; la tira
+ * es para cambiarla, no para mirarla. Si todas midieran lo mismo, la pantalla
+ * pediría comparar ocho caras en vez de confirmar una.
+ *
+ * Con una sola foto no se dibuja la tira: elegir entre uno no es elegir. Sí queda
+ * el botón de subir, que es la única acción con sentido ahí.
+ */
+function TiraDeFotos({ fotos, elegida, onElegir, onSubir, ocupado }: {
+  fotos: { id: string; url: string }[];
+  elegida: string;
+  onElegir: (id: string) => void;
+  onSubir: (f: File) => void;
+  ocupado: boolean;
+}) {
+  const entrada = useRef<HTMLInputElement>(null);
+  return (
+    <div style={{
+      display: 'flex', gap: 8, justifyContent: 'center', alignItems: 'center',
+      marginTop: 10, flexWrap: 'wrap',
+    }}>
+      {fotos.length > 1 && fotos.map((f) => (
+        <button
+          key={f.id}
+          type="button"
+          onClick={() => onElegir(f.id)}
+          disabled={ocupado}
+          aria-label={f.id === elegida ? 'Foto elegida' : 'Usar esta foto'}
+          aria-pressed={f.id === elegida}
+          className="mk-fotito"
+          // La elegida se marca con un ARO, no con opacidad en las otras: bajarles
+          // el brillo a las no elegidas las hace parecer inhabilitadas.
+          style={f.id === elegida ? { outline: '2px solid var(--primary)', outlineOffset: 2 } : undefined}
+        >
+          <img src={f.url} alt="" />
+        </button>
+      ))}
+      <button
+        type="button"
+        onClick={() => entrada.current?.click()}
+        disabled={ocupado}
+        aria-label="Subir otra foto"
+        title="Subir otra foto"
+        className="mk-fotito mk-fotito--mas"
+      >
+        {/* No hay ícono de «más» en el set, y no se inventa uno: se AGREGA al
+            catálogo o se usa una glifa. Acá alcanza con el signo, que además se
+            entiende sin conocer el set. */}
+        <span aria-hidden style={{ fontSize: 18, lineHeight: 1, fontWeight: 400 }}>+</span>
+      </button>
+      <input
+        ref={entrada}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = '';
+          if (f) onSubir(f);
+        }}
+      />
+    </div>
+  );
+}
+
 // ── El wizard ───────────────────────────────────────────────────────────────
 
 export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, onSalir }: {
@@ -965,6 +1038,12 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
         : undefined;
       const txt = causa ? textoFlow(causa, `la imagen del escenario ${paso.n}`, marca?.errorAt) : null;
 
+      // La foto con la que se genera: la elegida para ESTE anuncio, y si no hay,
+      // la primera — que es lo que pasaba antes de poder elegir.
+      const fotoElegida = (contexto?.fotos ?? []).find((f) => f.id === item.fotoId)?.url
+        ?? contexto?.fotoUrl
+        ?? '';
+
       const derecha = sinEscenas ? (
         <Niebla etiqueta="MaKo está escribiendo dónde se filma" desde={desde} />
       ) : txt ? (
@@ -992,15 +1071,35 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
             <div style={{ display: 'flex', gap: 20, justifyContent: 'center' }}>
               <div>
                 <Vertical>
-                  {contexto?.fotoUrl
-                    ? <img src={contexto.fotoUrl} alt="Tu foto" style={MEDIO} />
+                  {fotoElegida
+                    ? <img src={fotoElegida} alt="Tu foto" style={MEDIO} />
                     : <div style={{ color: 'var(--faint)' }}><Icon name="perfil" size={44} /></div>}
                 </Vertical>
                 <Pie>Tu foto</Pie>
+                {/* Elegir con cuál se genera. Va acá y no en otra pantalla: es un
+                    parámetro de la imagen que se está por generar, no un paso. */}
+                <TiraDeFotos
+                  fotos={contexto?.fotos ?? []}
+                  elegida={item.fotoId ?? contexto?.fotos?.[0]?.id ?? ''}
+                  ocupado={!!ocupado}
+                  onElegir={(id) => void correr('foto', () => elegirFotoAction(item.id, id), false)}
+                  onSubir={(f) => {
+                    const lector = new FileReader();
+                    lector.onload = () => void correr(
+                      'foto',
+                      () => subirFotoPersonaAction(item.id, String(lector.result || ''), f.name),
+                      false,
+                    );
+                    lector.readAsDataURL(f);
+                  }}
+                />
               </div>
               <div>
                 <Vertical fondo={txt ? 'var(--surface-2)' : undefined}>{derecha}</Vertical>
-                <Pie>{opciones.length > 1 ? 'Lo que salió' : 'Lo que salió'}</Pie>
+                {/* ⚠️ Las dos ramas de este pie decían lo MISMO. Un condicional que
+                    no condiciona nada es una decisión que alguien empezó y no
+                    terminó, y se lee como si dijera algo. */}
+                <Pie>Lo que salió</Pie>
               </div>
             </div>
 

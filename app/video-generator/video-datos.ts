@@ -72,6 +72,15 @@ export type PlanGuardado = {
    */
   ejemploVisto?: boolean;
   /**
+   * Qué foto de la persona se eligió para ESTE anuncio.
+   *
+   * ⚠️ Por plan y no global, a propósito: dos anuncios pueden querer caras o
+   * vestuarios distintos, y una preferencia global haría que empezar el segundo
+   * cambiara el primero sin avisar. Si está vacío se usa la primera, que es lo que
+   * pasaba antes — así ningún anuncio viejo cambia de cara solo.
+   */
+  fotoId?: string;
+  /**
    * Los escenarios del anuncio: dónde se filma cada tramo, y el prompt de su
    * imagen. Los escribe MaKo (`lib/escenas.ts`) y la cantidad la fija el
    * formato, no el modelo.
@@ -251,6 +260,16 @@ export type EstadoContextoVideo = {
    */
   fotoUrl: string | null;
   /**
+   * TODAS las fotos del onboarding, para poder elegir.
+   *
+   * ⚠️ Antes bajaba sólo `fotos[0]` y la pantalla mostraba «Tu foto» como si fuera
+   * la única. Martín: «debo ser capaz de elegir qué foto de entre todas las que
+   * están ya subidas gracias al onboarding». Y tiene razón más allá de la
+   * comodidad: la primera foto del array no es una decisión de nadie, es un orden
+   * de subida — el producto estaba eligiendo por él sin decirlo.
+   */
+  fotos: { id: string; url: string }[];
+  /**
    * El acento que el server va a usar, ya resuelto.
    *
    * Baja resuelto y no como zona horaria a propósito: si el cliente lo dedujera
@@ -286,8 +305,15 @@ export async function estadoContextoVideo(): Promise<EstadoContextoVideo> {
   // imagen el paso muestra el aviso, que es peor que verla pero mucho mejor que
   // un error.
   let fotoUrl: string | null = null;
+  let listaFotos: { id: string; url: string }[] = [];
   if (fotos > 0) {
-    try { fotoUrl = (await personaEstado()).fotos[0]?.url ?? null; } catch { fotoUrl = null; }
+    try {
+      const est = await personaEstado();
+      listaFotos = est.fotos
+        .filter((f) => !!f.url)
+        .map((f) => ({ id: f.id, url: f.url as string }));
+      fotoUrl = listaFotos[0]?.url ?? null;
+    } catch { fotoUrl = null; }
   }
 
   const ws = await getWorkspaceActual();
@@ -297,6 +323,7 @@ export async function estadoContextoVideo(): Promise<EstadoContextoVideo> {
     tieneFotos: fotos > 0,
     cantidadFotos: fotos,
     fotoUrl,
+    fotos: listaFotos,
     acento: { etiqueta: acento.etiqueta, seguro: acento.seguro },
     perfilListo: perfil.listo,
     faltanDelPerfil: perfil.faltan,

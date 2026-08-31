@@ -38,6 +38,7 @@ import { guionesDisponibles } from './guiones-datos';
 import { causaFlow, causaDeMotivo, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
 import { getSetting } from '@/lib/settings';
 import { leerHistorial, guardarEnHistorial, type PlanGuardado, type MarcaVideo } from './video-datos';
+import { personaEstado, addPersonaFoto } from '@/lib/persona';
 import { guardarSaldo, leerSaldoGuardado, guardarCostoMedido, type SaldoFlow } from './saldo-datos';
 
 async function ctxAdmin(): Promise<{ ok: true; ws: number } | { ok: false; error: string }> {
@@ -1114,6 +1115,77 @@ export async function descartarTomaAction(
  * Gemela de `marcarCaraVistaAction`, y por la misma razón: una pantalla que se
  * muestra una sola vez necesita que ese «una vez» sobreviva a un refresh.
  */
+/**
+ * La persona elige con QUÉ foto suya se genera este anuncio.
+ *
+ * Se guarda en el plan y no en un ajuste global: dos anuncios pueden querer caras
+ * distintas, y una preferencia global haría que empezar el segundo le cambiara la
+ * cara al primero sin avisar.
+ */
+export async function elegirFotoAction(
+  planId: string,
+  fotoId: string,
+): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  const item = planDe(await leerHistorial(), planId);
+  if (!item) return { ok: false, error: 'Ese anuncio ya no está en el historial.' };
+
+  // Se comprueba que la foto EXISTA antes de guardarla: un id que no está deja el
+  // anuncio apuntando a nada y la pantalla en blanco, sin decir por qué.
+  const est = await personaEstado().catch(() => ({ fotos: [] as { id: string }[] }));
+  if (!est.fotos.some((f: { id: string }) => f.id === fotoId)) {
+    return { ok: false, error: 'Esa foto ya no está en tu perfil.' };
+  }
+
+  const actualizado: PlanGuardado = { ...item, fotoId };
+  await guardarEnHistorial(actualizado);
+  return { ok: true, item: actualizado };
+}
+
+/**
+ * Sube una foto nueva de la persona y la deja elegida para este anuncio.
+ *
+ * ⚠️ Reusa `addPersonaFoto` de `lib/persona.ts`, que es el único lugar que sabe
+ * dónde viven: una segunda ruta de subida sería un segundo formato de nombre, un
+ * segundo prefijo y un índice que se separa del primero.
+ *
+ * Y deja la foto ELEGIDA al subirla: quien acaba de subir una foto en esta
+ * pantalla la subió para usarla. Pedirle que además la seleccione es contar dos
+ * veces lo mismo.
+ */
+export async function subirFotoPersonaAction(
+  planId: string,
+  dataUrl: string,
+  nombre: string,
+): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  // Sin el flag `s` —el target de este proyecto no lo tiene— y con [\s\S] en su
+  // lugar: un data URL puede traer saltos de linea y `.` no los cruza.
+  const m = /^data:([\w/+.-]+);base64,([\s\S]+)$/.exec(dataUrl || '');
+  if (!m) return { ok: false, error: 'Ese archivo no se pudo leer.' };
+  const mime = m[1];
+  if (!mime.startsWith('image/')) return { ok: false, error: 'Tiene que ser una imagen.' };
+  const buf = Buffer.from(m[2], 'base64');
+  // 12 MB: una foto de celular entra de sobra, y el tope existe para que un archivo
+  // enorme no muera a mitad de camino sin decir por qué.
+  if (buf.byteLength > 12 * 1024 * 1024) {
+    return { ok: false, error: 'La foto pesa más de 12 MB. Usa una más liviana.' };
+  }
+
+  const foto = await addPersonaFoto(buf, nombre || 'foto.jpg', mime).catch(() => null);
+  if (!foto) return { ok: false, error: 'No se pudo guardar la foto.' };
+
+  const item = planDe(await leerHistorial(), planId);
+  if (!item) return { ok: false, error: 'Ese anuncio ya no está en el historial.' };
+  const actualizado: PlanGuardado = { ...item, fotoId: foto.id };
+  await guardarEnHistorial(actualizado);
+  return { ok: true, item: actualizado };
+}
+
 export async function marcarEjemploVistoAction(
   planId: string,
 ): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string }> {

@@ -1417,3 +1417,35 @@
 @media (prefers-reduced-motion: reduce) {
   .mk-lienzo::before, .mk-lienzo::after { animation: none; }
 }
+
+/* ── LA TIRA DE FOTOS del video-generator ─────────────────────────────────
+   Miniaturas CHICAS a propósito: lo enorme es la foto elegida, y la tira sirve
+   para cambiarla, no para mirarla. Si todas midieran lo mismo, la pantalla
+   pediría comparar ocho caras en vez de confirmar una. */
+.mk-fotito {
+  width: 44px;
+  height: 62px;
+  flex: none;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  background: var(--surface-2);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  color: var(--dim);
+  transition: border-color .14s ease, transform .14s ease;
+}
+.mk-fotito img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mk-fotito:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+.mk-fotito:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.mk-fotito:disabled { cursor: default; transform: none; }
+/* La de subir se distingue por el BORDE punteado, no por el color: un color solo
+   no lo ve todo el mundo, y el punteado dice «acá falta algo» sin una palabra. */
+.mk-fotito--mas { border-style: dashed; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-fotito { transition: none; }
+  .mk-fotito:hover { transform: none; }
+}
