@@ -20,7 +20,7 @@
 //   node <abs>\scripts\curso-bajar.mjs --plan … --solo 3,7,12
 //   node <abs>\scripts\curso-bajar.mjs --plan … --listar
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, unlinkSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
@@ -284,6 +284,42 @@ for (const [i, c] of clases.entries()) {
 
   fallos.push({ n: c.n, titulo: c.titulo, url: c.url, code: p.status });
   console.error(`  ✖ falló (código ${p.status}) — sigo con las demás`);
+
+  /**
+   * ── SOBRAS ILEGIBLES: se tiran, o el próximo intento reanuda sobre basura ───────────
+   *
+   * yt-dlp baja el video y el audio por separado y después los une. Si lo matan en el
+   * medio —o si un stream llega corrupto— quedan archivos con NOMBRE COMPLETO
+   * (`…fhls-fastly_skyfire-466.mp4`), no un `.part`. En la corrida siguiente yt-dlp los
+   * ve, dice «has already been downloaded», y el merge muere con «error reading header».
+   * La clase no se baja nunca más y el curso se publica sin ella.
+   *
+   * Medido el 31/08/2026 en «Curso de Trading ClutiFX» clase 12: 64 MB de stream de video
+   * con el header ilegible, intactos en disco desde el 28/08.
+   *
+   * ⚠️ SE PREGUNTA SI SE PUEDEN LEER, no si están. Ésa es toda la diferencia: un stream a
+   *    medias y uno completo pesan los dos algo plausible y tienen los dos su nombre
+   *    final. Sólo abrirlos los distingue.
+   *
+   * ⚠️ Y NO SE TOCAN LOS `.part`. Ésos son el mecanismo de reanudación legítimo de yt-dlp
+   *    —un corte de red a los 800 MB se retoma desde ahí— y borrarlos convierte cada
+   *    fallo transitorio en una descarga entera de nuevo.
+   */
+  const ffprobe = join(FFDIR, 'ffprobe.exe');
+  if (existsSync(ffprobe)) {
+    for (const f of readdirSync(dirVideo)) {
+      if (!f.startsWith(`${c.archivo}.`) || f === `${c.archivo}.mp4`) continue;
+      if (/\.part(-Frag\d+)?$/i.test(f)) continue;          // reanudable: no se toca
+      if (!/\.(mp4|m4a|webm|mkv)$/i.test(f)) continue;
+      const ruta = join(dirVideo, f);
+      const q = spawnSync(ffprobe, ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', ruta], { encoding: 'utf8', timeout: 60_000 });
+      if (q.status === 0 && Number(`${q.stdout}`.trim()) > 0) continue;   // se lee: sirve
+      try {
+        unlinkSync(ruta);
+        console.error(`     ↳ tiré «${f}»: no se puede leer, y si queda yt-dlp la reanuda para siempre.`);
+      } catch { /* si no se puede borrar, el aviso ya quedó */ }
+    }
+  }
 }
 
 const bajados = existsSync(dirVideo) ? readdirSync(dirVideo).filter((f) => /\.(mp4|mkv|webm|m4v)$/i.test(f)) : [];
