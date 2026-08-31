@@ -401,11 +401,15 @@ const salida: React.CSSProperties = {
  * ejemplo es un video de diez segundos, mudo y en loop: contesta mirándolo, que
  * es más rápido que cualquier texto que se pudiera escribir al lado.
  *
- * Arranca CERRADO. Abierto por defecto, un video en movimiento le compite la
- * atención a lo único que la pantalla está pidiendo mirar.
+ * ⚠️ ARRANCA ABIERTA, y lo pidió el dueño: *«la preview por defecto tiene que
+ * estar abierta»*. Yo la había dejado cerrada por miedo a que el video en
+ * movimiento compitiera con lo que hay que mirar — pero vive en la esquina
+ * superior derecha, fuera de la columna central, y la referencia sirve mientras
+ * se lee el guion, no después. Cerrada, la respuesta está a un click de
+ * distancia de una pregunta que aparece sola.
  */
 function VistaPrevia({ puesta }: { puesta: Puesta | undefined }) {
-  const [abierta, setAbierta] = useState(false);
+  const [abierta, setAbierta] = useState(true);
   if (!puesta?.ejemplo) return null;
   return (
     <div style={{ position: 'relative' }}>
@@ -415,7 +419,10 @@ function VistaPrevia({ puesta }: { puesta: Puesta | undefined }) {
         style={{ ...salida, display: 'flex', alignItems: 'center', gap: 7 }}
       >
         <Icon name={abierta ? 'x' : 'play'} size={13} />
-        {abierta ? 'Ocultar el formato' : `Ver el formato · ${puesta.nombre}`}
+        {/* El NOMBRE va siempre, abierta o cerrada: es el único lugar donde se
+            lee cómo se llama el formato con el que se está trabajando, y con la
+            vista abierta era justo cuando desaparecía. */}
+        {abierta ? `Ocultar · ${puesta.nombre}` : `Ver el formato · ${puesta.nombre}`}
       </button>
       {abierta && (
         <div style={{
@@ -435,12 +442,12 @@ function VistaPrevia({ puesta }: { puesta: Puesta | undefined }) {
               objectFit: 'cover', borderRadius: 10, background: '#000',
             }}
           />
-          <div style={{
-            fontSize: 'var(--fs-meta)', color: 'var(--dim)', marginTop: 8,
-            maxWidth: 150, lineHeight: 1.4,
-          }}>
-            {puesta.tecnico}
-          </div>
+          {/* ⚠️ ACÁ DECÍA `puesta.tecnico` —«Selfie en movimiento»— y el dueño lo
+              marcó: no es como se llama el formato. El nombre es «Car Talks»; lo
+              otro es la técnica con la que está hecho, que es un dato del
+              catálogo y no su nombre. Y como el botón que la abre YA dice el
+              nombre, acá no va ninguno: repetirlo abajo era la tercera línea de
+              texto de una esquina que no tiene que tener ninguna. */}
         </div>
       )}
     </div>
@@ -634,23 +641,25 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                 No es un interruptor: rehace el guion entero. Por eso el botón
                 dice lo que va a hacer, y sólo aparece mientras no haya nada
                 filmado. */}
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              gap: 12, marginTop: 24, flexWrap: 'wrap',
-            }}>
+            {/* ⚠️ UNO SOLO Y CORTO. Acá había un botón largo MÁS una frase al
+                lado explicando el estado, y sumado al «Volver al catálogo» y al
+                «No gasta créditos» dejaba cuatro renglones de letra chica
+                apilados debajo del guion. El dueño: «mira la cantidad de texto
+                abajo en los botones, está horrible eso».
+
+                La frase sobraba: el botón ofrece SIEMPRE lo contrario de lo que
+                está puesto, así que su propio texto ya dice en cuál de los dos
+                estás. Explicar al lado lo que el botón ya dice es escribir dos
+                veces. */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
               <Button
                 variant="tertiary"
                 loading={ocupado === 'muletillas'}
                 disabled={!!ocupado}
                 onClick={() => void correr('muletillas', () => cambiarMuletillasAction(item.id, !conMuletillas), false)}
               >
-                {conMuletillas ? 'Escribirlo tal cual lo escribí' : 'Ponerle mi forma de hablar'}
+                {conMuletillas ? 'Escribirlo tal cual' : 'Ponerle mi forma de hablar'}
               </Button>
-              <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>
-                {conMuletillas
-                  ? 'Ahora está adaptado a cómo hablas.'
-                  : 'Ahora va palabra por palabra como lo escribiste.'}
-              </span>
             </div>
           </div>
         ),
@@ -667,10 +676,15 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
         // siguiente, que es donde aparece el resultado y donde ya hay una niebla
         // que la cuenta.
         boton: 'Siguiente',
-        consecuencia: 'No gasta créditos.',
+        // ⚠️ SIN consecuencia y SIN «Volver», y las dos por el mismo motivo: no
+        // aportan nada y ocupan un renglón cada una.
+        //
+        // «No gasta créditos» contesta un miedo que en este paso nadie tiene —
+        // leer un guion no sugiere que se esté por gastar algo—; la línea sirve
+        // pegada al botón que SÍ gasta, y ahí sigue. Y «Volver al catálogo» es
+        // exactamente lo que hace el «Salir» de arriba: el mismo botón dibujado
+        // dos veces es el que no se encuentra en ninguno.
         onSiguiente: () => setForzado({ id: 'escenario', n: 1 }),
-        atras: 'Volver al catálogo',
-        onAtras: onSalir,
       };
     }
 
