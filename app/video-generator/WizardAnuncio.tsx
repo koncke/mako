@@ -668,7 +668,21 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
   });
   const tomaEnCurso = item.plan.clips.find((c) => {
     const v = item.video?.[String(c.n)];
-    return !!v && !v.url && !v.error;
+    if (!v || v.url) return false;
+    // ⚠️ UN ERROR DE PUENTE NO APAGA EL SONDEO, Y SIN ESTO LA CURA NO CORRE NUNCA.
+    //
+    // `estadoTomaAction` sabe borrar un error de puente sobre una toma viva
+    // cuando el puente vuelve a estar sano. Pero esa función la llama SOLO este
+    // sondeo, y el sondeo se apagaba justo por la condición que la cura viene a
+    // sacar: `!v.error`. O sea, el arreglo vivía detrás de la puerta que él mismo
+    // tenía que abrir.
+    //
+    // Medido: la marca de la toma 1 tenía `errorCausa: 'puente'` y su `operacion`
+    // viva, el puente reportaba `listo`, y la pantalla siguió diciendo «La toma 1
+    // no salió» a través de dos recargas. La cura estaba desplegada y no se
+    // ejecutó una sola vez.
+    if (v.error) return v.errorCausa === 'puente' && !!v.operacion;
+    return true;
   });
 
   useEffect(() => {
