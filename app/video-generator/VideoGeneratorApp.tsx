@@ -508,8 +508,6 @@ export function VideoGeneratorApp({
   /** Qué toma se está mirando en el visor. `null` = ninguna. */
   const [viendo, setViendo] = useState<number | null>(null);
   const [rehaciendo, setRehaciendo] = useState(false);
-  /** El formato abierto para mirarlo. Reusa el mismo modal que el catálogo. */
-  const [verFormato, setVerFormato] = useState<Puesta | null>(null);
   /**
    * ¿MaKo lo dice con las palabras de la persona, o el guion va tal cual?
    *

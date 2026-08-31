@@ -82,7 +82,6 @@ const EJEMPLO = `min(391px, calc(${LIENZO} * .67))`;
 /** 268 = 220 (la tarjeta del catálogo) + 24 + 24. Plegado, la tira de la sidebar. */
 const RIEL = 268;
 const RIEL_PLEGADO = 68;
-const ANCHO_CUERPO = 880;
 
 // ── Dónde está el anuncio ───────────────────────────────────────────────────
 
@@ -696,7 +695,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
   const p = pantalla();
 
   function pantalla(): {
-    pregunta: string; titulo?: string; sub?: string; cuerpo: React.ReactNode;
+    pregunta: string; titulo?: string; cuerpo: React.ReactNode;
     boton?: string; consecuencia?: string; onSiguiente?: () => void;
     atras?: string; onAtras?: () => void; cargandoBoton?: boolean;
     /** Una acción que pertenece a la pregunta y va en su misma línea. */
@@ -724,7 +723,18 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
         // guion se reparte para que entre. Dicho así son siete palabras y no
         // hace falta ninguna explicación más — y el `8s` de cada renglón lo
         // vuelve a decir sin decirlo.
-        sub: `Se filma en ${item.plan.clips.length} tomas de ${seg} segundos.`,
+        //
+        // ⚠️ Y SE LLAMA `titulo`, QUE ES EL SLOT QUE `Estudio` DIBUJA.
+        //
+        // Estuvo escrita como `sub` desde que se escribió, y `sub` no lo lee
+        // nadie: está declarado en el tipo de `pantalla()`, asignado una sola vez
+        // acá, y jamás pasado a `<Estudio>`. O sea que esta línea —puesta para
+        // contestar un reclamo textual del dueño— NUNCA APARECIÓ EN LA PANTALLA,
+        // y el reclamo siguió vivo sin que nada lo delatara: el campo compila, el
+        // tipo lo acepta y el render simplemente no lo menciona.
+        //
+        // Dos campos para el mismo lugar es cómo uno se muere. Queda uno.
+        titulo: `Se filma en ${item.plan.clips.length} tomas de ${seg} segundos.`,
         // ── EL BOTÓN, EN LA LÍNEA DEL TÍTULO ─────────────────────────────
         //
         // Pasaron tres versiones acá. Un botón abajo que decía «Escribirlo tal
