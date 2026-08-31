@@ -692,6 +692,28 @@ cursos (`CursoPortal.tsx`, la constante `CSS` de 250 reglas): un comentario que 
 entero y ni una tarjeta** — que se lee igual que «mi componente renderiza vacío» y manda a
 depurar el componente, que estaba bien.
 
+## Y en JSX, un `//` entre etiquetas NO es un comentario: es TEXTO
+
+En posición de hijo de JSX no hay sintaxis de comentario. Un bloque `//` ahí es una
+cadena como cualquier otra, y React la pinta. Sólo `{/* … */}` comenta, y sólo porque
+es una expresión.
+
+Y **el compilador no puede ayudar**: `<div>// hola</div>` es JSX perfectamente válido.
+Tampoco lo cazan los tests, que miran datos y no pantallas. Lo caza mirar la pantalla, o
+no lo caza nadie.
+
+El 31/08/2026 llegó a producción así: catorce líneas explicando por qué la pantalla usa
+`Estudio` y no `WizardShell` —con sus backticks, sus flechas y sus «⚠️»— impresas arriba
+de todo en la tab del cliente. Lo escribí yo mudando ese paso, y salió por la misma
+puerta que el bug de arriba: se movió un bloque desde un contexto donde `//` comenta
+(entre sentencias) a uno donde no (entre etiquetas). **Es un cambio de CONTEXTO, no de
+contenido**, así que el diff no muestra nada raro.
+
+⚠️ La regla operativa: **cuando muevas un comentario, mirá dónde CAE, no qué dice.**
+Entre `return (` y `<Tag>` seguís en JS. Después del primer `<`, ya no. Y un barrido lo
+encuentra en segundos: una línea que empieza con `//` cuyo vecino de arriba cierra una
+etiqueta y cuyo vecino de abajo abre otra.
+
 Lo mismo vale para todo lo grande que vive en una cadena de este repo: los prompts, el
 snippet del Pixel, el SQL embebido. Nombrá la clase sin comillas de ningún tipo. Y el `${`
 es el otro carácter con esa propiedad: `$100M` es inofensivo, `${algo}` no.

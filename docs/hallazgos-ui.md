@@ -2411,3 +2411,39 @@ anotá contra qué la probaste**: si esa condición cambia, la opción vuelve a 
 
 **El método que sí funcionó las tres veces que se usó** (encuadre de tapas, cuerpo del
 texto, y este): dibujar las variantes una debajo de otra y mirar. `scratchpad/variantes-fila.mjs`.
+
+
+---
+
+## Un atributo que la PERSONA toca no puede colgar de estado vivo
+
+`<details open>`, `<dialog open>`, `<input checked>` sin `onChange`: son atributos que el
+navegador cambia por su cuenta cuando alguien interactúa. Alimentarlos desde un valor que
+se recalcula en cada render los rompe de dos formas a la vez, y una de las dos no da
+ningún error.
+
+El caso, del 31/08/2026, en el desplegable «Tu navegador» de `/video-generator`:
+
+```tsx
+<details open={!llamo}>          // `llamo` sale del estado que se re-pregunta cada 15 s
+```
+
+1. **Mismatch de hidratación.** El server pinta con el snapshot que trajo la página; el
+   cliente re-pregunta a los milisegundos y ya contesta otra cosa. React lo denuncia y
+   **no lo parcha**.
+2. **El que no avisa, y es el caro: React reescribe el atributo cada vez que el valor
+   cambia.** La persona abre el panel, el poll vuelve 15 segundos después con otro valor,
+   y el panel se cierra solo. No hay error, no hay log: hay un desplegable que «no se
+   queda abierto», que es como se reporta y no lleva a ningún lado.
+
+**La cura es colgarlo de un valor que NO cambia nunca** — acá, el dato que vino del
+server: `open={!inicial.ultimoVisto}`. Con eso React no vuelve a tocar el atributo en toda
+la vida del componente, y el abierto/cerrado queda donde tiene que estar: en manos de
+quien mira. Es un `defaultOpen`, y decirlo así en el nombre de la variable ahorra el
+próximo intento de «actualizarlo».
+
+⚠️ **Y se verifica ESPERANDO.** Abrirlo y sacar la captura da verde sobre el bug: el
+segundo modo de falla necesita que pase un ciclo del poll. Abrir, esperar más que el
+intervalo, y recién ahí mirar.
+
+**Vive en:** `app/video-generator/PuentePanel.tsx`.
