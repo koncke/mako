@@ -3398,3 +3398,44 @@ salto de línea ya es `
 ` escapado. Verificar recorriendo el objeto dio 1
 coincidencia idéntica. **Un chequeo que compara texto contra JSON serializado
 mide el escapado, no el contenido.**
+
+
+## La geometría del riel: por qué «el preview está mal ubicado» volvió tantas veces
+
+**Vive en:** `app/_ui/ui.css` (bloque `.mk-estudio`), `app/video-generator/WizardAnuncio.tsx`
+
+Reportado seis o siete veces con la misma frase, arreglado cuatro. La cuenta,
+medida por fin:
+
+    despeje = 16 − (D − A)/2 − S/2
+
+con **A** = el ancho que el paso DECLARA (`--riel-contenido`), **D** = el que de
+verdad DIBUJA, y **S** = la barra de scroll. Eran dos defectos sumándose:
+
+**1. Declarar el ancho no alcanza: hay que dibujarlo.** El paso `cara` declaraba
+620 y dibujaba `2·W + 20`, porque sus dos `Vertical` iban sin la prop `ancho` —
+y sin ella la caja sale de `height: min(62vh,720px)` + `aspect-ratio`, o sea que
+**su ancho cambia con el ALTO de la ventana**. Con `flex: none` no puede
+encogerse, así que desborda y se come el filete. Se pisa cuando W > 314, o sea
+con la ventana más alta que ~900px — por eso aparecía y desaparecía según la
+pantalla. La regla estaba escrita en el propio docstring de `Vertical` («donde
+hay dos, manda el ancho») y el paso hermano ya la aplicaba.
+
+**2. Los dos anchos de ventana.** El CSS restaba `64px` de sidebar cuando el
+`<aside>` mide **68**, y usaba `100vw` —que **incluye** la barra de scroll—
+contra el `right:` de un `position: fixed`, que **no la incluye**. Los dos
+errores corren para el mismo lado: **2px + S/2 de corrimiento permanente**. Con
+una barra de 15px, el hueco que tenía que ser de 16 quedaba en 6,5. Ahora el JS
+baja `--riel-vw` medido con `clientWidth`.
+
+⚠️ **La trampa que queda viva:** la caja de contenido del estudio mide
+`A − 60 − S`, no `A`. Los 16px aparecen **porque el contenido DESBORDA 30px por
+lado**. Si alguien le pone `width: 100%` o un `maxWidth` al cuerpo de un paso, el
+contenido deja de desbordar y aterriza a **44px** del filete. Es lo que le pasa
+hoy a `guion-leer`, que declara 760 y dibuja 700 − S.
+
+**Y los fallbacks del CSS mienten**: `--riel-calle` cae a 20px donde el JS manda
+16, `--riel-ancho` a 341px donde el JS manda un `calc`. Si el paso no trae
+`puesta.ejemplo`, `anchoRiel` es `undefined` y manda toda esa columna de valores
+falsos. Un fallback que no coincide con el valor real no es una red: es un
+segundo diseño que nadie revisó.
