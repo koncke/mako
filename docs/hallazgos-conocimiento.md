@@ -6520,3 +6520,61 @@ algo plausible y tienen los dos su nombre final— y se tira lo que no abre.
 ⚠️ **`unlinkSync` faltaba en el import y `node --check` pasó igual**: sólo mira sintaxis.
 El fallo habría salido en runtime, justo en el camino de error que casi nunca se ejecuta —
 o sea, meses después y sobre otro curso.
+
+## `drive.json` contesta por lo que anotamos, no por lo que Drive tiene
+
+**Vive en:** `scripts/curso-bajar.mjs` (el guard de fantasmas)
+
+«Academia de Lanzamiento» clase 52 «modelos de ventas»: `drive.json` la daba por subida,
+con su id de Drive, su nombre de archivo y su subcarpeta. El archivo **no existía** — ni en
+esa carpeta, ni en ninguna otra del curso. El guard de fantasmas la salteaba justamente por
+eso («está en Drive»), así que no se bajaba nunca y el curso quedó publicado sin ella desde
+el primer día, sin un solo error en ningún lado.
+
+`drive.json` es el resultado de un **cruce por nombre**, y un cruce se equivoca. Una
+anotación que apunta a un archivo inexistente hace el mismo daño que una marca huérfana en
+`bajados.txt`: avala algo que no está. Y Drive está montado en `G:`, así que comprobarlo es
+un `existsSync` sobre un archivo local — cuesta nada y convierte una anotación en un hecho.
+
+### El error que casi cuesta cientos de GB: verificar por RUTA
+
+La primera versión comprobaba `carpeta + rel + archivo`. Dio **0 de 104**, y el aviso decía
+«104 clases que drive.json da por subidas NO están en Drive». Con los videos ya liberados,
+eso habría bajado el curso entero de nuevo.
+
+La causa: **`drive.json` se escribe desde DOS formatos distintos y sólo uno trae la ruta
+real.** El que deja el cruce (`curso-drive-fusionar.mjs`) guarda el nombre que el archivo
+tiene EN DRIVE y su subcarpeta; el que deja la subida (`curso-a-drive.mjs`) guarda el
+nombre LOCAL con `rel` vacío. Buscando por NOMBRE en todo el árbol de la carpeta del curso
+—un barrido recursivo, 208 archivos— da **103 de 104**, que es la verdad, y la que falta es
+exactamente la que se había reportado.
+
+**Una verificación equivocada sale más cara que no verificar**: la que no existe no hace
+nada, y la que pregunta mal manda a rehacer trabajo que estaba bien. Antes de dar por buena
+una comprobación nueva, hay que correrla sobre un caso donde se sepa la respuesta y contar
+los dos errores — no sólo si encuentra lo que se buscaba.
+
+### Y un chequeo que no puede mirar se abstiene
+
+Si el montaje no está disponible, o la carpeta viene vacía porque Drive todavía no
+sincronizó, se cree lo anotado. Sin esa salvedad, correr el bajador con `G:` desconectado
+declararía fantasma a TODO y bajaría todo de nuevo — un disco desmontado no es evidencia de
+que un archivo no exista.
+
+## Balance: de 14 clases perdidas quedaron 7, y ninguna se puede recuperar
+
+Al terminar la ronda, `scripts/curso-censo-faltantes.mjs` dice **0 que valdría la pena
+reintentar** sobre 65 cursos publicados. Lo que queda:
+
+| | |
+|---|---|
+| **6** | HTTP 404: el video no está en el origen. `master-marca-personal-4-0` (5) y `avatar-mastery` (1) |
+| **1** | sin pista de audio: `avatar-mastery` n=16 son 10 segundos de video mudo |
+
+Lo recuperado en el camino, y cada uno por una causa distinta: 5 caídas 5xx y 1 sin rastro
+en MIDAS CONCEPT, 2 transitorias en «Importador Pro Legacy», 1 en «Gemini/Notebook LM», 1
+marca huérfana en «Edita como un Pro», 1 video corrupto y 1 sobra de descarga ilegible en
+ClutiFX, y 1 anotación de Drive que apuntaba a la nada en «Academia de Lanzamiento».
+
+**Siete causas distintas para catorce clases.** Ninguna se habría encontrado buscando «por
+qué falla la descarga»: cada una vivía en un eslabón diferente y ninguna daba error.

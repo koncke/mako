@@ -2519,3 +2519,46 @@ y ahogaban las 14 que había que mirar.
   el origen, 5 caídas transitorias, 2 sin rastro y 1 sin pista de audio: cuatro respuestas
   distintas. «Faltan 14» invita a seguir buscando; «7 no existen» dice que se escribe y se
   para.
+
+# Una verificación equivocada sale más cara que no verificar
+
+Un chequeo nuevo se estrena sobre un caso donde ya se sabe la respuesta, y se cuentan los
+DOS errores: lo que marca de más y lo que deja pasar. Encontrar lo que se buscaba no
+alcanza — un chequeo que acierta el caso conocido y se equivoca en el resto es peor que no
+tenerlo, porque el que no existe no hace nada y el que pregunta mal manda a rehacer trabajo
+que estaba bien.
+
+El 31/08/2026, al verificar que la copia en Drive de cada clase existiera de verdad: por
+RUTA daba 0 de 104 —«el curso entero es un fantasma»— y con los videos ya liberados eso son
+cientos de GB bajados de nuevo. Por NOMBRE daba 103 de 104, que era la verdad, y la que
+faltaba era exactamente la que se había reportado. La causa: el archivo de anotaciones se
+escribe desde **dos** rutinas distintas y sólo una guarda la ruta real.
+
+- **Antes de confiar en un chequeo nuevo, corrélo sobre un universo con respuesta conocida
+  y contá los falsos positivos.** Si marca casi todo, el que está mal es el chequeo.
+- **Un formato que escriben dos rutinas tiene dos formas**, aunque el nombre del campo sea
+  el mismo. Mirá quién más escribe ese archivo antes de asumir qué contiene.
+
+# Un chequeo que no puede mirar se abstiene
+
+La ausencia de evidencia no es evidencia de ausencia, y en código eso se escribe como una
+rama explícita. Un disco desmontado, una carpeta que todavía no sincronizó, una API que
+timeoutea: ninguno de los tres significa «no existe», y tratarlos así convierte una falla de
+infraestructura en una decisión destructiva.
+
+Va como salvedad ANTES del veredicto: si el montaje no responde o el listado viene vacío, se
+cree lo anotado y no se concluye nada. Es la misma regla que «"No puedo hacer X con este
+dato" no es "este dato es falso"», del lado del que verifica.
+
+# Cuando N cosas fallan, contá cuántas CAUSAS hay antes de buscar la causa
+
+«Faltan 14 clases» se lee como un problema; eran **siete problemas distintos**, uno por
+eslabón, y ninguno daba error: cinco caídas 5xx, una marca de descarga huérfana, un video
+que se bajó corrupto, una sobra de descarga con el header ilegible, una anotación de
+respaldo que apuntaba a la nada, seis borrados en el origen y una clase sin pista de audio.
+
+Buscar «por qué falla la descarga» no habría encontrado ninguno. Lo que los separó fue
+clasificar los catorce por su evidencia —el error en los logs, qué archivos hay, qué dice
+cada registro— ANTES de arreglar el primero. Un grupo de fallos que comparten el síntoma no
+comparte la causa por defecto: eso hay que medirlo, y el conteo de causas se hace primero
+porque decide si lo que sigue es un arreglo o siete.
