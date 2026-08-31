@@ -1625,3 +1625,83 @@
   .mk-fotoelegir__velo, .mk-fotos__una, .mk-fotos__barra i { transition: none; }
   .mk-fotos__una:hover { transform: none; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EL EJEMPLO QUE VUELA — un nodo, tres estaciones
+   ═══════════════════════════════════════════════════════════════════════════
+   `fixed` y con `left/top/width/height` escritos por JS: es lo que permite que el
+   MISMO elemento esté sobre la tarjeta del catálogo, después en el centro, y
+   después en el riel — sin desmontarse ni una vez.
+
+   Un fantasma que se cruza con el original funciona hasta que algo lo interrumpe;
+   un nodo que sólo cambia de caja se puede interrumpir en cualquier momento y el
+   siguiente destino lo recoge desde donde quedó. */
+.mk-volante {
+  position: fixed;
+  z-index: 45;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #000;
+  /* `will-change` sólo acá: el elemento se anima de verdad y es uno solo. Ponerlo
+     de más obliga al navegador a promover capas que después no usa. */
+  will-change: transform;
+}
+.mk-volante__video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* El sello, con su gradiente, hereda de `.mk-sello`. Acá sólo se le suma que sea
+   un control cuando está en el riel. */
+.mk-volante__sello {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  width: 100%;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+.mk-volante__nombre { flex: 1; min-width: 0; }
+.mk-volante__chev {
+  flex: none;
+  line-height: 0;
+  color: rgba(255,255,255,.75);
+  transform: rotate(-90deg);
+  transition: transform .14s ease;
+}
+.mk-volante--plegado .mk-volante__chev { transform: rotate(90deg); }
+.mk-volante__sello:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* El sonido: un botón redondo arriba a la derecha, sobre el video. Va ahí y no
+   debajo porque el elemento vuela: todo lo que le pertenece tiene que viajar
+   ADENTRO de su caja. */
+.mk-volante__sonido {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(0,0,0,.55);
+  color: #fff;
+  cursor: pointer;
+  transition: background .14s ease;
+}
+.mk-volante__sonido:hover { background: rgba(0,0,0,.78); }
+.mk-volante__sonido:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* Plegado: la caja se angosta y el video se corre. El nodo NO se desmonta — es la
+   condición para poder volarlo después. */
+.mk-volante--plegado .mk-volante__video { object-position: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-volante, .mk-volante__chev, .mk-volante__sonido { transition: none; }
+  .mk-volante { will-change: auto; }
+}

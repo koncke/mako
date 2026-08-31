@@ -46,7 +46,6 @@ import {
   elegirImagenAction, subirImagenEscenaAction, confirmarEscenaAction,
   generarTomaAction, estadoTomaAction, descartarTomaAction, marcarCaraVistaAction,
   elegirFotoAction, elegirUltimaFotoAction,
-  marcarEjemploVistoAction,
   cambiarMuletillasAction,
 } from './video-action';
 import { editarLineaPlanAction, reescribirTomaAction } from './actions';
@@ -89,21 +88,12 @@ const RIEL_PLEGADO = 68;
 // ── Dónde está el anuncio ───────────────────────────────────────────────────
 
 type Paso =
-  /**
-   * El ejemplo del formato, a pantalla completa y una sola vez.
-   *
-   * ⚠️ ES UN PASO, no una región, y ahí está toda la pieza. Cuatro versiones
-   * intentaron que el ejemplo conviviera con la pantalla —tarjeta, panel, riel de
-   * alto completo, riel anclado arriba— y el dueño las cortó a las cuatro; la
-   * última con el diagnóstico exacto: «no se entiende qué hace eso allí».
-   *
-   * Ninguna podía contestarlo, porque la respuesta no es una etiqueta: es que el
-   * ejemplo OCUPA EL MISMO ASIENTO donde va a vivir todo lo del usuario, con la
-   * misma medida y en la misma posición, y la pantalla siguiente se lo quita. Eso
-   * lo enseña la SECUENCIA y no gasta una palabra. Un riel `fixed` no puede ceder
-   * nada; una pantalla sí.
-   */
-  | { id: 'ejemplo' }
+  // ⚠️ EL PASO `ejemplo` SE FUE A SER UNA VISTA DE LA TAB.
+  //
+  // Estaba acá y eso lo ataba a que YA existiera un plan guardado —su acción
+  // necesitaba un `item.id` que en ese momento no existe—. Y el dueño lo quería
+  // ANTES de todo: «me gustaría que el primer paso de todo sea… el de "Así se
+  // verá tu anuncio"». Vive en `VideoGeneratorApp`, entre el catálogo y el guion.
   | { id: 'guion-leer' }
   | { id: 'escenario'; n: number }
   | { id: 'cara' }
@@ -116,14 +106,10 @@ type Paso =
  * El orden de las preguntas es el orden de la producción: se lee el guion, se
  * fija cada lugar, se mira la cara una vez, se filma toma por toma.
  */
-export function pasoDe(item: PlanGuardado, forzado: Paso | null, tieneEjemplo = false): Paso {
+export function pasoDe(item: PlanGuardado, forzado: Paso | null): Paso {
   if (forzado) return forzado;
   const escenas = item.escenas ?? [];
   if (!escenas.length) {
-    // `tieneEjemplo` entra como PARÁMETRO y no se resuelve adentro: `pasoDe` es
-    // pura y tiene test. Quien sabe si el formato trae ejemplo es quien recibe la
-    // `puesta`, no esta función.
-    if (tieneEjemplo && !item.ejemploVisto) return { id: 'ejemplo' };
     return { id: 'guion-leer' };
   }
 
@@ -156,7 +142,6 @@ function pasoAnterior(mapa: string[], actual: string): Paso | null {
   const i = mapa.indexOf(actual);
   if (i <= 0) return null;
   const clave = mapa[i - 1];
-  if (clave === 'ejemplo') return { id: 'ejemplo' };
   if (clave === 'guion-leer') return { id: 'guion-leer' };
   if (clave === 'cara') return { id: 'cara' };
   if (clave === 'listo') return { id: 'listo' };
@@ -165,13 +150,9 @@ function pasoAnterior(mapa: string[], actual: string): Paso | null {
   return null;
 }
 
-function mapaDe(item: PlanGuardado, tieneEjemplo = false): string[] {
+function mapaDe(item: PlanGuardado): string[] {
   const escenas = item.escenas ?? [];
   return [
-    // Con la misma condición que `pasoDe`: si el paso no puede aparecer, tampoco
-    // ocupa un segmento en la barra de posición. Una barra que cuenta pantallas
-    // que no existen dice que faltan más pasos de los que faltan.
-    ...(tieneEjemplo && !item.ejemploVisto && !escenas.length ? ['ejemplo'] : []),
     'guion-leer',
     ...(escenas.length ? escenas.map((e) => `escenario-${e.n}`) : ['escenario-1']),
     'toma-1', 'cara',
@@ -374,7 +355,7 @@ function Salidas({ resumen, children }: { resumen: string; children: React.React
  * ejemplo pasa a acompañar también ese paso — que es lo que el dueño pidió cuando
  * dijo que la previsualización tiene que estar «durante toda la creación».
  */
-export function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia, cargando, onSiguiente, atras, onAtras, onSalir, error, puesta, alLado, enEjemplo }: {
+export function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia, cargando, onSiguiente, atras, onAtras, onSalir, error, puesta, alLado, slotRiel, plegado }: {
   pregunta: string;
   titulo?: string;
   paso: number;
@@ -398,7 +379,9 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
    * al costado. El ejemplo ocupa el asiento del medio, y recién en la pantalla
    * siguiente se corre al costado — contarlo dos veces rompe justo esa lectura.
    */
-  enEjemplo?: boolean;
+  /** Dónde aterriza el ejemplo. Lo dibuja `PreviaVolante`, no esta pantalla. */
+  slotRiel?: React.RefObject<HTMLDivElement | null>;
+  plegado?: boolean;
   /**
    * Una acción que pertenece a la pregunta, en su misma línea.
    *
@@ -414,7 +397,10 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
 
   // `Estudio` se monta UNA vez y en posición estable, así que este estado
   // sobrevive a los siete pasos: el ejemplo no se cierra solo al avanzar.
-  const [ejemploAbierto, setEjemploAbierto] = useState(true);
+  // ⚠️ El plegado ya NO es estado de esta pantalla: lo manda quien tiene el
+  // volante, porque el video sobrevive a los cambios de pantalla y su estado
+  // tiene que sobrevivir con él. Guardarlo acá lo reseteaba en cada paso.
+  const ejemploAbierto = !plegado;
   // ⚠️ UN SOLO NÚMERO mueve el riel Y el aire del estudio. Sin esto había que
   // sumar padding que viven en otros archivos, y ese acople es lo que hacía que
   // la pieza «flotara» al cambiar cualquier cosa alrededor.
@@ -430,12 +416,8 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
           el centro y otro chico al costado. Lo metí yo al agregar ese paso, y es
           la misma pieza contándose dos veces: el ejemplo ocupa el asiento del
           medio, y recién en la pantalla siguiente se corre al costado. */}
-      {!enEjemplo && (
-        <VistaPrevia
-          puesta={puesta}
-          abierta={ejemploAbierto}
-          onToggle={() => setEjemploAbierto((v) => !v)}
-        />
+      {slotRiel && (
+        <HuecoDelEjemplo puesta={puesta} abierta={!plegado} slot={slotRiel} />
       )}
       {/* ── LA BARRA DE ARRIBA ──────────────────────────────────────────────
           SALIR a la izquierda y del todo arriba, que es donde se lo busca.
@@ -614,99 +596,48 @@ const salida: React.CSSProperties = {
  * tarjeta que la persona apretó treinta segundos antes. El test de un segundo lo
  * gana el reconocimiento, no la lectura.
  */
-function VistaPrevia({ puesta, abierta, onToggle }: {
+/**
+ * El HUECO donde aterriza el ejemplo. No dibuja el video: reserva su lugar.
+ *
+ * ⚠️ EL VIDEO YA NO VIVE ACÁ. Vive en `PreviaVolante`, un solo nodo `fixed` que
+ * arranca sobre la tarjeta que la persona apretó en el catálogo, vuela al centro
+ * de «Así se verá tu anuncio», y de ahí se corre a este hueco — sin desmontarse
+ * ni una vez en todo el recorrido.
+ *
+ * Y ése es el punto: la persona VE que la cosa que eligió es la misma que se
+ * corrió al costado. Eso contesta «¿qué hace eso ahí?» sin gastar una palabra, y
+ * es lo único que las cuatro versiones anteriores del riel no podían hacer —
+ * porque un elemento que se desmonta y se vuelve a crear no se puede seguir con
+ * el ojo.
+ *
+ * Lo único que queda acá es la medida. Si esta caja cambia de tamaño, el volante
+ * la sigue: no hay dos números que mantener sincronizados.
+ */
+function HuecoDelEjemplo({ puesta, abierta, slot }: {
   puesta: Puesta | undefined;
   abierta: boolean;
-  onToggle: () => void;
+  slot: React.RefObject<HTMLDivElement | null>;
 }) {
-  // El sonido vive acá y no arriba: es una preferencia de MIRAR el ejemplo, no
-  // una decisión del anuncio. No se persiste a propósito — nadie quiere que el
-  // audio arranque solo la próxima vez que abra la tab.
-  const [conSonido, setConSonido] = useState(false);
-  const video = useRef<HTMLVideoElement>(null);
-
-  // Al pasar a la versión con sonido el navegador puede rechazar la reproducción
-  // —un video con audio no arranca sin un gesto—. Acá SÍ hubo gesto: el click en
-  // el botón. Se pide explícitamente para que no quede en pausa sin decir nada.
-  useEffect(() => {
-    if (conSonido) video.current?.play().catch(() => { /* si igual lo rechaza, quedan los controles */ });
-  }, [conSonido]);
-
   if (!puesta?.ejemplo) return null;
-
   return (
-    // `<aside>` y no `<div>`: es una región complementaria, y además
-    // `[data-barra-agencia] aside` de globals.css le corre el tope solo cuando
-    // está prendida la barra de la agencia. Un div queda 50 px abajo del borde y
-    // fabrica scroll de página en silencio.
     <aside
       className={`mk-riel${abierta ? '' : ' mk-riel--plegado'}`}
       style={{ ['--mk-riel-alto' as string]: EJEMPLO }}
     >
-      {/* ⚠️ UN SOLO NODO, SIEMPRE MONTADO. Plegar es un estado de CSS.
-          Antes había dos ramas de JSX: abierta dibujaba un `<video>` y plegada un
-          `<img>` con el póster. O sea que el video NO tenía identidad estable — se
-          destruía y se volvía a crear en cada pliegue.
-          Dos consecuencias, y la segunda es la que bloquea todo lo que sigue:
-          (a) el sonido y el momento del video se perdían al plegar; (b) ninguna
-          animación puede mover un nodo que desaparece a mitad de camino. */}
       <p className="mk-riel__para">Así se verá tu anuncio</p>
-
-      <Vertical alto="var(--mk-riel-alto)" fondo="#000" plano>
-        <video
-          ref={video}
-          // ⚠️ La `key` es la PUESTA, no el archivo: cambiar de `src` sin cambiar
-          // de key deja que el mismo elemento cargue la otra versión, que es
-          // justo lo que hace falta para el sonido. Con la key en el src, React
-          // lo remontaría y volveríamos al problema de arriba.
-          key={puesta.nombre}
-          src={conSonido && puesta.ejemplo.completo ? puesta.ejemplo.completo : puesta.ejemplo.video}
-          poster={puesta.ejemplo.poster}
-          autoPlay
-          loop
-          muted={!conSonido}
-          playsInline
-          style={MEDIO}
-        />
-
-        {/* EL RÓTULO ES EL CONTROL. No hay ✕: una ✕ promete «esto se va» sobre
-            algo que vuelve, y era el elemento menos visible de la pieza. */}
-        <button type="button" className="mk-riel__rotulo" aria-expanded={abierta} onClick={onToggle}>
-          <span className="mk-riel__nombre">
-            {abierta ? `Ejemplo · ${puesta.nombre}` : 'Ver el ejemplo'}
-          </span>
-          <span className="mk-riel__chev"><Icon name="chevron" size={16} /></span>
-        </button>
-      </Vertical>
-
-      {/* ── EL SONIDO NO SE «DESMUTEA»: SE CAMBIA DE ARCHIVO ─────────────────
-          ⚠️ MEDIDO: los clips del ejemplo NO TIENEN PISTA DE AUDIO. 370 KB y
-          306 KB, sin `mp4a` adentro. Los completos —3,6 MB y 6,8 MB— sí.
-          Un botón que llamara `muted = false` sobre el clip corto no habría
-          sonado nunca, y desde afuera se habría leído como un botón roto. Lo que
-          hace falta es cargar la otra versión, que ya está en los datos
-          (`ejemplo.completo`) y que nadie usaba.
-          Sólo se dibuja si esa versión existe: un control que no puede cumplir su
-          promesa no se dibuja. */}
-      {abierta && puesta.ejemplo.completo && (
-        <button
-          type="button"
-          className="mk-riel__sonido"
-          onClick={() => setConSonido((v) => !v)}
-          aria-pressed={conSonido}
-          title={conSonido ? 'Silenciar' : 'Escuchar el ejemplo'}
-        >
-          <Icon name={conSonido ? 'sonido' : 'mic'} size={14} />
-          <span>{conSonido ? 'Silenciar' : 'Escuchar'}</span>
-        </button>
-      )}
+      {/* El hueco: mismo alto y misma proporción que el video, sin dibujar nada.
+          El volante se posiciona sobre esta caja. */}
+      <div
+        ref={slot}
+        style={{ height: 'var(--mk-riel-alto)', aspectRatio: '9 / 16', borderRadius: 18 }}
+      />
     </aside>
   );
 }
 
 // ── El wizard ───────────────────────────────────────────────────────────────
 
-export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, onSalir }: {
+export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, onSalir, slotRiel, plegado }: {
   item: PlanGuardado;
   contexto: EstadoContextoVideo | null;
   puesta: Puesta | undefined;
@@ -714,6 +645,9 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
   costoTexto: string;
   onCambio: (item: PlanGuardado) => void;
   onSalir: () => void;
+  /** Dónde aterriza el ejemplo. El video lo dibuja `PreviaVolante`, arriba. */
+  slotRiel?: React.RefObject<HTMLDivElement | null>;
+  plegado?: boolean;
 }) {
   const [forzado, setForzado] = useState<Paso | null>(null);
   const [ocupado, setOcupado] = useState('');
@@ -727,9 +661,8 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
   // de la pestaña, y perderlo te deja mirando otra cuenta.
   const router = useRouter();
   const [eligiendoFoto, setEligiendoFoto] = useState(false);
-  const hayEjemplo = !!puesta?.ejemplo;
-  const paso = pasoDe(item, forzado, hayEjemplo);
-  const mapa = useMemo(() => mapaDe(item, hayEjemplo), [item, hayEjemplo]);
+  const paso = pasoDe(item, forzado);
+  const mapa = useMemo(() => mapaDe(item), [item]);
   const total = item.plan.clips.length;
 
   const correr = useCallback(async (
@@ -834,50 +767,6 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
     alLado?: React.ReactNode;
   } {
     // ── 1. El guion ───────────────────────────────────────────────────────
-    // ── EL EJEMPLO, A PANTALLA COMPLETA Y UNA SOLA VEZ ────────────────────
-    //
-    // Nueve palabras de chrome en total. El ejemplo ocupa el mismo rectángulo,
-    // con la misma medida y en la misma posición donde va a vivir todo lo del
-    // usuario — y la pantalla siguiente se lo quita. Eso es lo que contesta «¿qué
-    // hace eso ahí?» sin gastar una explicación.
-    if (paso.id === 'ejemplo' && puesta?.ejemplo) {
-      return {
-        // Una afirmación y no una pregunta: es el único paso del wizard donde no
-        // hay nada que decidir. Y es el texto de Martín, textual.
-        pregunta: 'Así se verá tu anuncio',
-        cuerpo: (
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
-            {/* `plano` = SIN SOMBRA, y recupera acá su único call site legítimo.
-                La sombra de la casa significa «este es el medio que se está
-                decidiendo»: hace que flote. El ejemplo no se decide. */}
-            <Vertical fondo="#000" plano>
-              {/* Mudo, en loop y SIN `controls`, al revés que cada toma del
-                  usuario. Lo que se mira no se opera. */}
-              <video
-                src={puesta.ejemplo.video}
-                poster={puesta.ejemplo.poster}
-                autoPlay
-                loop
-                muted
-                playsInline
-                style={MEDIO}
-              />
-              {/* El sello va por DENTRO del recorte; lo del usuario se rotula por
-                  FUERA y debajo (`Pie`). Dentro contra fuera es una diferencia
-                  estructural, no de color ni de peso, así que sobrevive a
-                  cualquier tema y a cualquier tamaño. Y recién a 405 px de ancho
-                  se lee: en el riel de 220 competía con su propio video. */}
-              <span className="mk-sello">{`Ejemplo · ${puesta.nombre}`}</span>
-            </Vertical>
-          </div>
-        ),
-        // «mi anuncio» contra un sello que dice «Ejemplo», en la misma mirada.
-        boton: 'Siguiente',
-        cargandoBoton: ocupado === 'ejemplo',
-        onSiguiente: () => void correr('ejemplo', () => marcarEjemploVistoAction(item.id)),
-      };
-    }
-
     if (paso.id === 'guion-leer') {
       const seg = item.plan.clips[0]?.segundos ?? 8;
       // Del DATO, no de un estado que haya que recordar: un plan sin adaptar
@@ -1498,7 +1387,8 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
       onSalir={onSalir}
       error={error}
       puesta={puesta}
-      enEjemplo={paso.id === 'ejemplo'}
+      slotRiel={slotRiel}
+      plegado={plegado}
       alLado={p.alLado}
     >
       {p.cuerpo}

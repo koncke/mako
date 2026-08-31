@@ -26,7 +26,7 @@
 //
 // El flujo: catálogo → tres preguntas → el anuncio.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import Link from '@/app/_ui/Link';
 import {
   Pagina, PageHeader, Section, Button, Alert, Tag, Modal, Status, Spinner,
@@ -53,12 +53,25 @@ import {
   generarTomaAction, estadoTomaAction, pedirSaldoAction, saldoAction, escribirEscenasAction,
 } from './video-action';
 import { WizardAnuncio, Estudio } from './WizardAnuncio';
+import { PreviaVolante } from './PreviaVolante';
 import { TemaOscuro } from '../_components/TemaOscuro';
 import { causaFlow, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 
-type Vista = 'catalogo' | 'wizard' | 'anuncio';
+/**
+ * ⚠️ `ejemplo` ES UNA VISTA DE LA TAB, no un paso del anuncio.
+ *
+ * Martín: «me gustaría que el primer paso de todo sea… el de "Así se verá tu
+ * anuncio" donde se ve el template que elegí».
+ *
+ * Antes era un `Paso` de `WizardAnuncio`, y eso lo ataba a que YA existiera un
+ * plan guardado —su acción necesitaba un `item.id` que en ese momento no existe—.
+ * Como vista, ocurre justo después de elegir la plantilla y antes de todo lo
+ * demás, que es donde tiene sentido: lo primero que se ve es lo que se acaba de
+ * elegir, grande.
+ */
+type Vista = 'catalogo' | 'ejemplo' | 'wizard' | 'anuncio';
 
 // ⚠️ UN SOLO PASO, y los otros dos no se «simplificaron»: no debían existir.
 //
@@ -113,13 +126,22 @@ function Plantilla({
   nombre, video, poster, elegida, onElegir, onDetalle,
 }: {
   nombre: string; video: string; poster: string;
-  elegida: boolean; onElegir: () => void; onDetalle: () => void;
+  /**
+   * ⚠️ Recibe la CAJA del recorte, medida en el handler del click.
+   *
+   * Es de donde arranca el vuelo. Y se mide acá y no después porque la tarjeta se
+   * desmonta en el mismo commit en que cambia la vista: un
+   * `getBoundingClientRect()` en un efecto llegaría tarde y mediría un elemento
+   * que ya no está en el documento.
+   */
+  elegida: boolean; onElegir: (caja?: DOMRect) => void; onDetalle: () => void;
 }) {
+  const recorte = useRef<HTMLDivElement>(null);
   return (
     <div style={{ width: 220 }}>
       <button
         type="button"
-        onClick={onElegir}
+        onClick={() => onElegir(recorte.current?.getBoundingClientRect())}
         onDoubleClick={onDetalle}
         aria-pressed={elegida}
         style={{
@@ -130,7 +152,7 @@ function Plantilla({
           outlineOffset: elegida ? 2 : 0,
         }}
       >
-        <div style={{ position: 'relative', borderRadius: 'var(--r-md)', overflow: 'hidden', lineHeight: 0 }}>
+        <div ref={recorte} style={{ position: 'relative', borderRadius: 'var(--r-md)', overflow: 'hidden', lineHeight: 0 }}>
           {/* Muted + playsInline: sin las dos, el navegador no deja autoplay. */}
           <video
             src={video}
@@ -558,6 +580,17 @@ export function VideoGeneratorApp({
   // uno nuevo, no a releer el anterior.
   const [vista, setVista] = useState<Vista>('catalogo');
 
+  // ── EL EJEMPLO QUE VUELA ───────────────────────────────────────────────
+  // Un solo nodo que recorre tres estaciones: la tarjeta que se apretó, el centro
+  // de «Así se verá tu anuncio», y el riel. Vive acá arriba —y no en ninguna
+  // pantalla— porque tiene que sobrevivir a los cambios de vista: un elemento que
+  // se desmonta no se puede seguir con el ojo, y seguirlo con el ojo es todo el
+  // argumento.
+  const slotCentro = useRef<HTMLDivElement>(null);
+  const slotRiel = useRef<HTMLDivElement>(null);
+  const [cajaTarjeta, setCajaTarjeta] = useState<DOMRect | null>(null);
+  const [rielPlegado, setRielPlegado] = useState(false);
+
   // El reloj que permite que «el puente anda» se apague solo. Arranca en `null`
   // para no decidir una rama con dos relojes distintos —el del server y el del
   // navegador— durante la hidratación.
@@ -735,12 +768,17 @@ export function VideoGeneratorApp({
     return () => { vivo = false; clearInterval(id); };
   }, [generando, actual?.id]);
 
-  const empezar = useCallback((id: string) => {
+  const empezar = useCallback((id: string, caja?: DOMRect) => {
     setPuestaId(id);
     setGuionId('');
     setPaso('guion');
     setError(null);
-    setVista('wizard');
+    // ⚠️ La caja se mide en el HANDLER DEL CLICK, no después: la tarjeta se
+    // desmonta en el mismo commit en que cambia la vista, así que un
+    // `getBoundingClientRect()` en un efecto llegaría tarde y mediría un elemento
+    // que ya no está.
+    setCajaTarjeta(caja ?? null);
+    setVista('ejemplo');
   }, []);
 
   /**
@@ -787,8 +825,70 @@ export function VideoGeneratorApp({
   }, [actual]);
 
   // ── Las tres preguntas ─────────────────────────────────────────────────────
+  // ── «ASÍ SE VERÁ TU ANUNCIO»: el primer paso de todo ──────────────────────
+  //
+  // Martín: «me gustaría que el primer paso de todo sea… el de "Así se verá tu
+  // anuncio" donde se ve el template que elegí. Y mi idea es que al darle
+  // siguiente, haga una animación y se coloque al costado».
+  //
+  // Lo que hace que esto funcione no es esta pantalla: es que el video NO SE
+  // DIBUJA acá. Acá hay un HUECO, y encima flota el mismo nodo que venía sobre la
+  // tarjeta del catálogo. Por eso se puede seguir con el ojo, y por eso la
+  // pantalla siguiente puede correrlo al costado sin cortes.
+  if (vista === 'ejemplo' && puesta?.ejemplo) {
+    return (
+      <Pagina ancho="completo" densidad="compacta">
+        <TemaOscuro />
+        <Estudio
+          // Una afirmación y no una pregunta: es el único paso donde no hay nada
+          // que decidir. Y es el texto de Martín, textual.
+          pregunta="Así se verá tu anuncio"
+          paso={1}
+          total={PASOS.length + 1}
+          boton="Siguiente"
+          onSiguiente={() => setVista('wizard')}
+          atras="Cambiar formato"
+          onAtras={() => { setVista('catalogo'); setCajaTarjeta(null); }}
+          onSalir={() => { setVista('catalogo'); setCajaTarjeta(null); }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            {/* El hueco, con la MISMA medida que el lienzo de todas las pantallas
+                que vienen. Eso es lo que hace que el ejemplo ocupe el asiento de
+                lo que después va a ser tuyo. */}
+            <div
+              ref={slotCentro}
+              style={{ height: 'min(62vh, 720px)', aspectRatio: '9 / 16', borderRadius: 18 }}
+            />
+          </div>
+        </Estudio>
+      {/* ⚠️ EL EJEMPLO VIVE ACÁ, no en ninguna pantalla. Es un solo nodo `fixed`
+          que recorre las tres estaciones —la tarjeta, el centro, el riel— sin
+          desmontarse ni una vez. Que sobreviva a los cambios de vista es toda la
+          pieza: un elemento que se destruye y se vuelve a crear no se puede
+          seguir con el ojo, y seguirlo con el ojo es lo que contesta «¿qué hace
+          eso ahí?» sin gastar una palabra. */}
+      {puesta?.ejemplo && (
+        <PreviaVolante
+          puesta={puesta}
+          estacion="centro"
+          cajaTarjeta={cajaTarjeta}
+          slotCentro={slotCentro}
+          slotRiel={slotRiel}
+          plegado={rielPlegado}
+          onToggle={() => setRielPlegado((v) => !v)}
+        />
+      )}
+      </Pagina>
+    );
+  }
+
   if (vista === 'wizard') {
     return (
+      // `Pagina` con ancho completo, como el resto de la tab: el estudio es un
+      // LIENZO y necesita cada píxel. Y envuelve para que el ejemplo que vuela
+      // pueda ser hermano de la pantalla en vez de vivir adentro de ella.
+      <Pagina ancho="completo" densidad="compacta">
+      <TemaOscuro />
       // ⚠️ `Estudio` Y NO `WizardShell`. El dueño: «el primer paso de "¿Cuál de
       // tus guiones quieres grabar?" se quedó con el formato de form viejo».
       //
@@ -815,6 +915,8 @@ export function VideoGeneratorApp({
         atras={idx === 0 ? 'Cambiar plantilla' : 'Volver'}
         onAtras={() => (idx === 0 ? setVista('catalogo') : setPaso(PASOS[idx - 1]))}
         onSalir={() => setVista('catalogo')}
+        slotRiel={slotRiel}
+        plegado={rielPlegado}
         onSiguiente={() => {
           // En el último paso, «Siguiente» ES generar. Un solo camino de salida.
           if (paso === 'revisar') { void generar(); return; }
@@ -1204,6 +1306,25 @@ export function VideoGeneratorApp({
           </div>
         )}
       </Estudio>
+
+      {/* ⚠️ EL EJEMPLO VIVE ACÁ, no en ninguna pantalla. Es un solo nodo `fixed`
+          que recorre las tres estaciones —la tarjeta, el centro, el riel— sin
+          desmontarse ni una vez. Que sobreviva a los cambios de vista es toda la
+          pieza: un elemento que se destruye y se vuelve a crear no se puede
+          seguir con el ojo, y seguirlo con el ojo es lo que contesta «¿qué hace
+          eso ahí?» sin gastar una palabra. */}
+      {puesta?.ejemplo && (
+        <PreviaVolante
+          puesta={puesta}
+          estacion="riel"
+          cajaTarjeta={cajaTarjeta}
+          slotCentro={slotCentro}
+          slotRiel={slotRiel}
+          plegado={rielPlegado}
+          onToggle={() => setRielPlegado((v) => !v)}
+        />
+      )}
+      </Pagina>
     );
   }
 
@@ -1244,8 +1365,23 @@ export function VideoGeneratorApp({
           solos — que es la forma que este repo ya tiene escrita para una
           pantalla oscura, y la razón por la que no se pintan blancos a mano. */}
       <TemaOscuro />
+      {/* El ejemplo sigue al costado durante todo el anuncio: es el tercer tramo
+          del mismo vuelo, y el mismo nodo. */}
+      {puestaActual?.ejemplo && (
+        <PreviaVolante
+          puesta={puestaActual}
+          estacion="riel"
+          cajaTarjeta={cajaTarjeta}
+          slotCentro={slotCentro}
+          slotRiel={slotRiel}
+          plegado={rielPlegado}
+          onToggle={() => setRielPlegado((v) => !v)}
+        />
+      )}
       <WizardAnuncio
         item={actual}
+        slotRiel={slotRiel}
+        plegado={rielPlegado}
         contexto={contexto}
         puesta={puestaActual}
         costoTexto={costoDeUnaToma}
@@ -1336,7 +1472,11 @@ export function VideoGeneratorApp({
             video={p.ejemplo!.video}
             poster={p.ejemplo!.poster}
             elegida={p.id === puestaId}
-            onElegir={() => setPuestaId(p.id)}
+            // Un click ELIGE y arranca: es lo que pidió Martín —«al seleccionar
+            // un template… que haga una animación y se ponga en el centro,
+            // desapareciendo a los otros»— y de paso saca el paso intermedio de
+            // apretar «Crear» arriba.
+            onElegir={(caja) => empezar(p.id, caja)}
             onDetalle={() => setDetalle(p)}
           />
         ))}
