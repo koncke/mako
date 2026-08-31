@@ -1149,22 +1149,27 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
           display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
           gap: 10, padding: '24px 22px', textAlign: 'left', color: 'var(--dim)',
         }}>
-          {/* ⚠️ RECTA. Probé una curva dos veces y las dos quedaron mal: a este
-              tamaño una curva fina no se lee como flecha, se lee como un
-              rasguño. Una recta con punta maciza se reconoce siempre, y además
-              dice mejor lo que tiene que decir — señala UN lugar, no un camino.
-              El cabeceo es el mismo de `.mk-puntero`, en horizontal porque acá
-              la flecha apunta al costado. */}
+          {/* ⚠️ MINIMALISTA, tercera versión. La curva no se leía como flecha; la
+              maciza se leía, pero pesaba más que el texto al que acompaña — y
+              esto es un rótulo, no un cartel. Una punta abierta de dos trazos
+              sobre una línea fina dice lo mismo con la mitad de tinta.
+              Se queda RECTA: señala UN lugar, no un camino. */}
           <svg
             className="mk-flecha-señala"
-            width="86"
-            height="18"
-            viewBox="0 0 86 18"
+            width="72"
+            height="14"
+            viewBox="0 0 72 14"
             fill="none"
             aria-hidden="true"
+            style={{ opacity: .55 }}
           >
-            <path d="M84 9H26" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" />
-            <path d="M2 9L26 0V18L2 9Z" fill="currentColor" />
+            <path
+              d="M70 7H4M4 7L11 1M4 7L11 13"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
           <div style={{ fontSize: 'var(--fs-md)', fontWeight: 650, color: 'var(--ink)' }}>
             Elige tu foto
