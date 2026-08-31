@@ -1156,7 +1156,12 @@ async function saldoLocal(forzar) {
     }
     const r = await chrome.tabs.sendMessage(tab.id, {
       tipo: 'HACER_FETCH',
-      clase: 'creditos',
+      // ⚠️ `credits`, NO `creditos`. La clase de una plantilla es el ULTIMO TRAMO
+      // DEL PATH (`claseDePath`), no el nombre que le damos en `ENDPOINTS`. Con el
+      // nombre nuestro no hay respaldo que buscar, el espejo no puede armar el
+      // pedido, y el popup contesta «no pude leer tus creditos» con Flow abierto y
+      // andando — un error que culpa a Google por un typo nuestro.
+      clase: 'credits',
       path: '/v1/credits',
       cuerpo: null,
       // ⚠️ `parches: null` EXPLICITO: `content.js` lo reenvia e `injected.js` lo
@@ -1166,7 +1171,7 @@ async function saldoLocal(forzar) {
       parches: null,
       soloLectura: true,
       bearer,
-      respaldo: await respaldoDe('creditos'),
+      respaldo: await respaldoDe('credits'),
     });
     const d = (r && r.resultado) || null;
     if (!d) return { error: String((r && r.error) || 'SIN_RESPUESTA'), cuando: Date.now() };
@@ -1190,6 +1195,23 @@ async function saldoLocal(forzar) {
 // avise.
 chrome.alarms.create('ciclo', { periodInMinutes: 0.25 });
 chrome.alarms.onAlarm.addListener((a) => { if (a.name === 'ciclo') void ciclo(); });
+
+// ⚠️ Y NO SE ESPERA AL PROXIMO LATIDO PARA CONTAR LA BUENA NOTICIA.
+//
+// Abrir Flow es el paso que la persona acaba de hacer, mirando la pantalla. Si el
+// aviso de MaKo tarda en irse, lo que aprende es que la app no se entera de lo
+// que hace — y encima el reloj del navegador y el de la pagina son dos esperas
+// que SE SUMAN: hasta 15 s hasta que la extension reporta, mas hasta 15 s hasta
+// que la pagina pregunta. Medio minuto mirando un cartel que ya no es cierto.
+//
+// Con esto el lado de la extension pasa a ser inmediato: en cuanto una pestana de
+// Flow termina de cargar, se late. `complete` y no `loading` porque antes de eso
+// no hay content script al que preguntarle nada.
+chrome.tabs.onUpdated.addListener((_id, info, tab) => {
+  if (info.status !== 'complete') return;
+  if (!/^https:\/\/labs\.google\/fx\/.*tools\/flow/.test(tab.url || '')) return;
+  void ciclo();
+});
 
 chrome.runtime.onMessage.addListener((msg, _s, responder) => {
   // ⚠️ ESTADO SE LEE DE STORAGE, NO DE LOS GLOBALES.

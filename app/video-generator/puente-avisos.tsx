@@ -82,7 +82,7 @@ function Caja({ tono, children }: { tono: 'warn' | 'bad'; children: React.ReactN
 }
 
 /** Dónde se resuelve todo lo que este aviso NO puede resolver. */
-const EN_LA_EXTENSION = 'Ábrela desde el ícono de MaKo, arriba a la derecha del navegador.';
+const EN_LA_EXTENSION = 'Ábrela desde el ícono de MaKo.';
 
 export function AvisoPuente({ puente, ahora, instalada, compacto = false }: {
   puente: Puente | null;
@@ -173,10 +173,72 @@ export function AvisoPuente({ puente, ahora, instalada, compacto = false }: {
     );
   }
 
+  // Lo que queda no tiene ningun boton que esta pagina pueda ofrecer: se resuelve
+  // en el popup. Asi que en vez de una cinta mas, es un PUNTERO a donde hay que ir.
   const { txt } = estadoDelPuente(puente, ahora);
+  return <PunteroALaExtension texto={txt} />;
+}
+
+/**
+ * El cartel que SEÑALA la barra del navegador.
+ *
+ * Martin: «que dentro de MaKo detecte donde esta el icono de la extension y
+ * señale con una flecha a ese aviso… y que el mensaje este conectado a esa
+ * flecha».
+ *
+ * ⚠️ NO SE PUEDE DETECTAR LA POSICION DEL ICONO, y conviene decirlo acá antes de
+ * que alguien lo intente: no existe ninguna API. Una pagina no ve la barra del
+ * navegador, y la extension tampoco sabe donde la anclaron —`chrome.action` no
+ * expone coordenadas—. Lo unico medible desde acá es el borde de la ventana.
+ *
+ * Lo que SI es un hecho, y alcanza: la barra esta arriba y los iconos se apilan
+ * contra el borde DERECHO. El puntero se ancla a esa esquina —que es la misma en
+ * todos los navegadores— y la flecha sale del mensaje hacia alli. Se lee como
+ * «alla arriba», que es verdad, y no como un pin que pretende saber mas.
+ *
+ * El mensaje viaja PEGADO a la flecha, que era el pedido: un cartel abajo y una
+ * flecha arriba son dos cosas, y hay que unirlas con la mirada.
+ */
+function PunteroALaExtension({ texto }: { texto: string }) {
   return (
-    <Caja tono="warn">
-      <strong>{txt}.</strong> {EN_LA_EXTENSION}
-    </Caja>
+    <>
+    {/* ⚠️ EL HUECO. Un `position: fixed` sale del flujo por definición, así que el
+        puntero caía justo ENCIMA de «Crear mi anuncio», que es la acción de la
+        pantalla. El espacio hay que pedirlo, y se pide donde el flujo existe.
+        Un separador acá y no un `padding` en el `<main>`: ese `<main>` es
+        `Pagina`, que lo escribe INLINE, y una regla de hoja pierde contra un
+        estilo inline — quedaría un `!important` para ganarle a la primitiva. */}
+    <div aria-hidden="true" style={{ height: 76 }} />
+    <div className="mk-puntero" id={ID_AVISO_PUENTE} role="status">
+      {/* La flecha nace en la caja y termina arriba a la derecha, contra la barra.
+          Curva y no recta: una recta vertical se lee como un subrayado; la curva
+          dice «sali de aca y anda alla». */}
+      <svg
+        className="mk-puntero__flecha"
+        width="86"
+        height="46"
+        viewBox="0 0 86 46"
+        fill="none"
+        aria-hidden="true"
+      >
+        <path
+          d="M8 44C8 26 22 8 74 5"
+          stroke="currentColor"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+        />
+        <path
+          d="M62 2.5L75 5L67.5 15"
+          stroke="currentColor"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+      <div className="mk-puntero__caja">
+        <strong>{texto}.</strong> {EN_LA_EXTENSION}
+      </div>
+    </div>
+    </>
   );
 }

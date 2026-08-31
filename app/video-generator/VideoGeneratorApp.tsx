@@ -91,12 +91,26 @@ type Vista = 'catalogo' | 'ejemplo' | 'wizard' | 'anuncio';
 //     workspace (lib/acento-workspace.ts) y su lugar es el onboarding de la tab.
 //
 // La regla que queda: **esta tab no pregunta nada que el sistema ya sepa.**
-const PASOS = ['guion', 'revisar'] as const;
+/**
+ * ⚠️ ERA `['guion', 'revisar']`. Martín, mirando «Revisa antes de generar»: «toda
+ * esta tab está de más… para eso luego ya tenemos una tab donde seleccionamos la
+ * "persona" o le cargamos foto nueva».
+ *
+ * Y tenía razón por partida doble. El paso existía para confirmar la CARA, y esa
+ * decisión ya se toma —eligiendo entre las fotos del onboarding o subiendo una
+ * nueva— en el paso del escenario, con la foto grande y a un clic. Una pantalla
+ * que pide confirmar algo que se elige después no confirma nada: pregunta antes
+ * de tiempo. Y encima la casilla de la cara estaba dibujada DOS veces en la misma
+ * pantalla, con el mismo texto.
+ *
+ * Lo único que valía la pena de ahí —cuánto va a costar— no se perdió: bajó al
+ * botón que de verdad gasta, que es donde la regla de la casa lo pide.
+ */
+const PASOS = ['guion'] as const;
 type Paso = (typeof PASOS)[number];
 
 const PREGUNTA: Record<Paso, string> = {
   guion: '¿Cuál de tus guiones quieres grabar?',
-  revisar: 'Revisa antes de generar',
 };
 
 /**
@@ -620,6 +634,11 @@ export function VideoGeneratorApp({
   // en esta misma tab: solo con la pestana VISIBLE, cada 15 s —el mismo pulso que
   // la extension—, y se corta al ocultarse preguntando una vez al volver, que es
   // cuando la respuesta de verdad cambio.
+  // Lo lee el intervalo, que se crea una sola vez: sin la `ref` el efecto tendria
+  // que depender de `puenteAnda` y se reiniciaria en cada cambio de estado.
+  const bloqueado = useRef(true);
+  const arrancarRef = useRef<(() => void) | null>(null);
+
   useEffect(() => {
     let vivo = true;
     let t: number | undefined;
@@ -636,10 +655,16 @@ export function VideoGeneratorApp({
       window.clearInterval(t);
       if (document.visibilityState !== 'visible') return;
       void preguntar();
-      t = window.setInterval(() => void preguntar(), 15000);
+      // ⚠️ EL RITMO DEPENDE DE SI HAY ALGO QUE ESPERAR. Bloqueado se pregunta
+      // cada 3 s —alguien acaba de abrir Flow y esta mirando este cartel—; ya
+      // conectado, cada 15 s, que es el pulso de la extension y mas rapido no
+      // informa mas. Un solo numero servia para uno de los dos casos y elegia
+      // mal justo en el que se nota.
+      t = window.setInterval(() => void preguntar(), bloqueado.current ? 3000 : 15000);
     };
 
     arrancar();
+    arrancarRef.current = arrancar;
     document.addEventListener('visibilitychange', arrancar);
     return () => {
       vivo = false;
@@ -847,6 +872,17 @@ export function VideoGeneratorApp({
   // distintas sobre el mismo navegador.
   const puenteAnda = estadoDelPuente(puenteVivo, ahoraTick).anda;
 
+  // Cuando el bloqueo cambia, el intervalo se rehace con el ritmo nuevo. Va acá y
+  // no en las dependencias del efecto del poll porque ese efecto tiene que
+  // montarse UNA vez: reiniciarlo en cada cambio de estado tira la vuelta en
+  // curso y desalinea el pulso.
+  useEffect(() => {
+    const ahoraBloqueado = !puenteAnda;
+    if (bloqueado.current === ahoraBloqueado) return;
+    bloqueado.current = ahoraBloqueado;
+    arrancarRef.current?.();
+  }, [puenteAnda]);
+
   const empezar = useCallback((id: string, caja?: DOMRect) => {
     // ⚠️ EL GATE, Y ESTÁ ACÁ A PROPÓSITO. El dueño: «y claro que no te deje
     // avanzar». Va en la ENTRADA y no adentro del recorrido por una razón que ya
@@ -995,10 +1031,15 @@ export function VideoGeneratorApp({
         total={PASOS.length}
         puesta={puesta}
         error={error ?? undefined}
-        // ⚠️ SIEMPRE «Siguiente», como en todo el resto. Lo que el botón hace de
-        // más lo dice la línea de abajo, no su rótulo.
-        boton={paso === 'revisar' ? 'Generar anuncio' : 'Siguiente'}
-        consecuencia={paso === 'revisar' ? costoDeUnaToma : undefined}
+        // El guion es el único paso, así que su botón ES el que genera. Nombra su
+        // acción y su objeto —nunca «Siguiente» sobre algo irreversible— y la
+        // consecuencia va pegada abajo, antes del clic.
+        //
+        // Salvo cuando ese guion YA tiene un plan: ahí no genera nada, lo abre. Un
+        // botón que dice «Generar» y abre lo hecho es el mismo error que este repo
+        // ya pagó con «Revisar el puente».
+        boton={guion?.planId ? 'Abrir lo que ya tienes' : 'Generar anuncio'}
+        consecuencia={guion?.planId ? undefined : costoDeUnaToma}
         cargando={busy}
         atras={idx === 0 ? 'Cambiar plantilla' : 'Volver'}
         onAtras={() => (idx === 0 ? setVista('catalogo') : setPaso(PASOS[idx - 1]))}
@@ -1006,8 +1047,6 @@ export function VideoGeneratorApp({
         slotRiel={slotRiel}
         plegado={rielPlegado}
         onSiguiente={() => {
-          // En el último paso, «Siguiente» ES generar. Un solo camino de salida.
-          if (paso === 'revisar') { void generar(); return; }
           if (!puedeAvanzar) return;
           // Si este guion YA tiene un plan, se abre ese en vez de mandar a
           // rehacerlo. Rehacerlo perdía el trabajo hecho —las tomas corregidas a
@@ -1022,7 +1061,7 @@ export function VideoGeneratorApp({
               return;
             }
           }
-          setPaso(PASOS[idx + 1]);
+          void generar();
         }}
       >
         {paso === 'guion' && (
@@ -1244,155 +1283,8 @@ export function VideoGeneratorApp({
         )}
 
 
-        {paso === 'revisar' && (
-          <div style={{ textAlign: 'left', display: 'grid', gap: 14 }}>
-            {/*
-              Lo que se revisa NO es un resumen de lo que elegiste: es lo que el
-              sistema puso SOLO y vos nunca viste. El formato y el guion los
-              acabás de elegir; la cara, la duración y el acento los decidió MaKo,
-              y son justo los que se notan recién en el video terminado.
-            */}
-
-            {/* La CARA. Va primero y va como IMAGEN: la pregunta que contesta es
-                «¿es esta persona?», y un «3 fotos cargadas» se lee igual con las
-                fotos correctas que con las de otro. */}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 14,
-              padding: '13px 15px', borderRadius: 12,
-              background: 'var(--surface)', border: '1px solid var(--border)',
-            }}>
-              {contexto?.fotoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={contexto.fotoUrl}
-                  alt="Tu cara de marca"
-                  style={{ width: 62, height: 62, borderRadius: 10, objectFit: 'cover', flex: 'none' }}
-                />
-              ) : (
-                <div style={{
-                  width: 62, height: 62, borderRadius: 10, flex: 'none', display: 'grid',
-                  placeItems: 'center', background: 'var(--surface-2)', color: 'var(--faint)',
-                }}>
-                  <Icon name="perfil" size={26} />
-                </div>
-              )}
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 'var(--fs-md)', fontWeight: 650, color: 'var(--ink)' }}>
-                  {contexto?.tieneFotos ? 'Esta es la cara del avatar' : 'Todavía no cargaste tu cara'}
-                </div>
-                <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>
-                  {contexto?.tieneFotos
-                    ? <>Si no eres tú, cámbiala en <Link href="/onboarding">Onboarding → Persona</Link>.</>
-                    : <>Sin una foto tuya, cada toma sale con una persona distinta. Cárgala en <Link href="/onboarding">Onboarding → Persona</Link>.</>}
-                </div>
-              </div>
-            </div>
-
-            {/* Lo que MaKo derivó y nadie eligió. */}
-            <div style={{
-              padding: '13px 15px', borderRadius: 12,
-              background: 'var(--surface)', border: '1px solid var(--border)',
-              display: 'grid', gap: 9,
-            }}>
-              <Fila k="Formato" v={puesta?.nombre ?? '—'} />
-              <Fila k="Guion" v={guion?.angulo || 'Sin título'} />
-              <Fila
-                k="Va a durar"
-                v={cabida ? `${cabida.segundosReales} segundos en ${cabida.clips} tomas` : '—'}
-              />
-              <Fila k="Acento" v={contexto?.acento.etiqueta ?? "—"} nota={contexto?.acento.seguro ? undefined : 'lo deduje de tu zona horaria'} />
-            </div>
-
-            {/* ⚠️ ACÁ HABÍA UNA CASILLA: «Que MaKo lo diga con tus palabras».
-                Se mudó a la pantalla del guion, y no es un cambio de lugar: la
-                pregunta era «¿te gusta cómo suena?» hecha ANTES de que existiera
-                nada que sonara. Se contesta leyendo, así que vive donde se lee. */}
-
-            {cabida?.desborda && (
-              <div style={{ marginTop: 14 }}>
-                <Alert tono="warn">
-                  Este guion es más largo de lo que <strong>{puesta?.nombre}</strong> puede
-                  contar: entran {cabida.palabras - cabida.palabrasDeMas} palabras y tiene{' '}
-                  {cabida.palabras}. Si sigues, el final va a quedar afuera. Prueba con otro
-                  formato o recorta el guion en Ads Writer.
-                </Alert>
-              </div>
-            )}
-          </div>
-        )}
 
 
-        {paso === 'revisar' && (
-          <div style={{ textAlign: 'left', display: 'grid', gap: 14 }}>
-            {/*
-              Lo que se revisa NO es un resumen de lo que elegiste: es lo que el
-              sistema puso SOLO y vos nunca viste. El formato y el guion los
-              acabás de elegir; la cara, la duración y el acento los decidió MaKo,
-              y son justo los que se notan recién en el video terminado.
-            */}
-
-            {/* La CARA. Va primero y va como IMAGEN: la pregunta que contesta es
-                «¿es esta persona?», y un «3 fotos cargadas» se lee igual con las
-                fotos correctas que con las de otro. */}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 14,
-              padding: '13px 15px', borderRadius: 12,
-              background: 'var(--surface)', border: '1px solid var(--border)',
-            }}>
-              {contexto?.fotoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={contexto.fotoUrl}
-                  alt="Tu cara de marca"
-                  style={{ width: 62, height: 62, borderRadius: 10, objectFit: 'cover', flex: 'none' }}
-                />
-              ) : (
-                <div style={{
-                  width: 62, height: 62, borderRadius: 10, flex: 'none', display: 'grid',
-                  placeItems: 'center', background: 'var(--surface-2)', color: 'var(--faint)',
-                }}>
-                  <Icon name="perfil" size={26} />
-                </div>
-              )}
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 'var(--fs-md)', fontWeight: 650, color: 'var(--ink)' }}>
-                  {contexto?.tieneFotos ? 'Esta es la cara del avatar' : 'Todavía no cargaste tu cara'}
-                </div>
-                <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>
-                  {contexto?.tieneFotos
-                    ? <>Si no eres tú, cámbiala en <Link href="/onboarding">Onboarding → Persona</Link>.</>
-                    : <>Sin una foto tuya, cada toma sale con una persona distinta. Cárgala en <Link href="/onboarding">Onboarding → Persona</Link>.</>}
-                </div>
-              </div>
-            </div>
-
-            {/* ⚠️ LA SEGUNDA CASILLA IGUAL. Estaba duplicada en los dos pasos del
-                wizard, con el mismo texto y el mismo estado — y por eso al sacar
-                una el compilador encontró la otra. La decisión se mudó a la
-                pantalla del guion, donde hay algo que leer para tomarla. */}
-
-            {cabida?.desborda && (
-              <Alert tono="warn">
-                El guion es más largo de lo que <strong>{puesta?.nombre}</strong> puede contar:
-                sobran {cabida.palabrasDeMas} palabras y el final va a quedar afuera.
-              </Alert>
-            )}
-
-            {/*
-              Qué pasa al apretar, PEGADO al botón y en tinta normal.
-              //
-              Y dice lo que NO pasa: acá se escribe el plan —cómo se reparte el
-              guion en tomas—, no se genera el video. Sin esa línea, «Generar
-              anuncio» promete un video y devuelve un texto, que es la forma más
-              barata de que alguien crea que algo se rompió.
-            */}
-            <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.6 }}>
-              MaKo va a repartir tu guion en {cabida?.clips ?? '—'} tomas y escribir cómo se
-              filma cada una. <strong>Todavía no se genera ningún video</strong> ni se gastan
-              créditos de tu cuenta de Google.
-            </div>
-          </div>
-        )}
       </Estudio>
 
       {/* ⚠️ EL EJEMPLO VIVE ACÁ, no en ninguna pantalla. Es un solo nodo `fixed`
