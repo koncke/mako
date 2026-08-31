@@ -1544,6 +1544,8 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
         ? ((item.video?.[String(n)]?.errorCausa as CausaFlow) ?? causaFlow(fallo))
         : undefined;
       const txt = causa ? textoFlow(causa, `la toma ${n}`, item.video?.[String(n)]?.errorAt) : null;
+      /** Google rechazó la CARA: refilmar con la misma foto da lo mismo. */
+      const caraRechazada = causa === 'persona_publica';
 
       /**
        * La toma corre y no podemos leerla.
@@ -1702,10 +1704,31 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
         // filmar. Y cuando filmar no es lo que conviene —sin créditos, filtro de
         // contenido— eso lo dice el detalle de arriba, que para eso está escrito
         // por causa.
-        boton: enCurso ? undefined : txt ? `Volver a filmar la toma ${n}` : 'Siguiente',
-        consecuencia: enCurso ? undefined : costoTexto,
+        // ⚠️ Y CUANDO REFILMAR NO PUEDE FUNCIONAR, EL BOTÓN LLEVA A LO QUE SÍ.
+        //
+        // El filtro de personas públicas de Google no rechaza el prompt: rechaza
+        // LA CARA. Medido dos veces seguidas sobre la misma toma —dos
+        // operaciones distintas, el mismo `PROMINENT_PERSON`— así que ofrecer
+        // «Volver a filmar» ahí es ofrecer un botón que ya sabemos que falla, y
+        // encima anunciando que cuesta 15 créditos.
+        //
+        // Es la misma regla que ya rige los mensajes de error de esta app: si hay
+        // algo que hacer, el botón tiene que ser ESO. Acá lo único que puede
+        // cambiar el resultado es la foto, y la foto se elige dos pasos atrás.
+        boton: enCurso
+          ? undefined
+          : caraRechazada
+            ? 'Elegir otra foto'
+            : txt ? `Volver a filmar la toma ${n}` : 'Siguiente',
+        // Sin costo cuando no se va a filmar: volver a elegir la foto es gratis, y
+        // decir «~15 créditos» sobre un botón que no gasta es mentir al revés.
+        consecuencia: enCurso || caraRechazada ? undefined : costoTexto,
         cargandoBoton: ocupado === 'filmar',
-        onSiguiente: enCurso ? undefined : () => void correr('filmar', () => generarTomaAction(item.id, n), false),
+        onSiguiente: enCurso
+          ? undefined
+          : caraRechazada
+            ? () => setForzado({ id: 'escenario', n: (item.escenas ?? [])[0]?.n ?? 1 })
+            : () => void correr('filmar', () => generarTomaAction(item.id, n), false),
         atras: 'Atrás',
         onAtras: () => setForzado({ id: 'escenario', n: (item.escenas ?? []).slice(-1)[0]?.n ?? 1 }),
       };
