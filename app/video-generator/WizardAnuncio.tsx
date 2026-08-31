@@ -58,6 +58,29 @@ import { EditarTexto } from '../components/SeccionCard';
  * está vacío» desde una Mac.
  */
 const LIENZO = 'min(62vh, 720px)';
+
+/**
+ * El alto del EJEMPLO del formato. Los dos topes están DERIVADOS, ninguno elegido:
+ *
+ *  · 391 px = 220 × 16/9, y 220 es el ancho exacto de la tarjeta del catálogo
+ *             (`Plantilla`). El ejemplo nunca crece más que el objeto que la
+ *             persona apretó dos pantallas antes.
+ *  · × .67  = el techo contra el medio que SÍ se está decidiendo. `LIENZO` se
+ *             REFERENCIA y no se retipea: si cambia, esta proporción sigue
+ *             siendo cierta.
+ *
+ * ⚠️ Medirlo contra el VIEWPORT era la trampa: a 860 px de alto empataba con el
+ * héroe y por debajo lo superaba. Una referencia que compite en tamaño con lo que
+ * hay que decidir deja de ser referencia.
+ *
+ * `vh` y no `dvh`, igual que LIENZO: dos alturas que se comparan salen de la
+ * misma unidad o se cruzan solas en el navegador del teléfono.
+ */
+const EJEMPLO = `min(391px, calc(${LIENZO} * .67))`;
+
+/** 268 = 220 (la tarjeta del catálogo) + 24 + 24. Plegado, la tira de la sidebar. */
+const RIEL = 268;
+const RIEL_PLEGADO = 68;
 const ANCHO_CUERPO = 880;
 
 // ── Dónde está el anuncio ───────────────────────────────────────────────────
@@ -119,10 +142,27 @@ function clave(p: Paso): string {
  * Sobre negro y SIN BORDE: un borde le pone marco a lo que tiene que no tenerlo.
  * Lo que separa el medio del fondo es su propio contenido, no una línea.
  */
-function Vertical({ children, fondo }: { children: React.ReactNode; fondo?: string }) {
+function Vertical({ children, fondo, alto = LIENZO, plano = false }: {
+  children: React.ReactNode;
+  fondo?: string;
+  /** El alto. Por defecto, el del medio que se está decidiendo. */
+  alto?: string;
+  /**
+   * Sin sombra.
+   *
+   * La sombra de la casa significa «este es el medio que se está decidiendo»:
+   * hace que FLOTE. El ejemplo del formato no se decide, así que va PLANO — y eso
+   * es un portador de «esto no es tuyo» que no gasta ni una palabra.
+   *
+   * ⚠️ La sombra NO se escala. Es ELEVACIÓN, no huella: dos objetos apoyados en
+   * el mismo plano proyectan el mismo blur midan lo que midan. O va la de la
+   * casa, o no va ninguna.
+   */
+  plano?: boolean;
+}) {
   return (
     <div style={{
-      height: LIENZO, aspectRatio: '9 / 16', borderRadius: 18, overflow: 'hidden',
+      height: alto, aspectRatio: '9 / 16', borderRadius: 18, overflow: 'hidden',
       // `--surface-2` y no un gris más oscuro: la regla de la casa es que en
       // oscuro las superficies SUBEN de luminosidad. El negro se pasa explícito
       // donde hay un video, que es el único lugar donde el negro es el fondo
@@ -130,7 +170,7 @@ function Vertical({ children, fondo }: { children: React.ReactNode; fondo?: stri
       background: fondo ?? 'var(--surface-2)', position: 'relative', flex: 'none',
       display: 'grid', placeItems: 'center',
       // La sombra hace que el medio FLOTE sobre el negro en vez de estar pegado.
-      boxShadow: '0 24px 70px rgba(0,0,0,.55)',
+      boxShadow: plano ? undefined : '0 24px 70px rgba(0,0,0,.55)',
     }}>
       {children}
     </div>
@@ -271,7 +311,7 @@ function Salidas({ resumen, children }: { resumen: string; children: React.React
  * Lo que sobrevive del wizard es lo único que hacía falta: la posición, un solo
  * botón que avanza, y una salida. Todo flota sobre el negro, sin encerrar nada.
  */
-function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia, cargando, onSiguiente, atras, onAtras, onSalir, error, vistaPrevia, alLado }: {
+function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia, cargando, onSiguiente, atras, onAtras, onSalir, error, puesta, alLado }: {
   pregunta: string;
   titulo?: string;
   paso: number;
@@ -285,8 +325,8 @@ function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia,
   onAtras?: () => void;
   onSalir: () => void;
   error?: string;
-  /** La tira de previsualización del formato. Va arriba a la derecha. */
-  vistaPrevia?: React.ReactNode;
+  /** El formato elegido. Si trae ejemplo, la pantalla estrena su riel derecho. */
+  puesta?: Puesta;
   /**
    * Una acción que pertenece a la pregunta, en su misma línea.
    *
@@ -296,8 +336,23 @@ function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia,
    */
   alLado?: React.ReactNode;
 }) {
+  // `Estudio` se monta UNA vez y en posición estable, así que este estado
+  // sobrevive a los siete pasos: el ejemplo no se cierra solo al avanzar.
+  const [ejemploAbierto, setEjemploAbierto] = useState(true);
+  // ⚠️ UN SOLO NÚMERO mueve el riel Y el aire del estudio. Sin esto había que
+  // sumar padding que viven en otros archivos, y ese acople es lo que hacía que
+  // la pieza «flotara» al cambiar cualquier cosa alrededor.
+  const anchoRiel = puesta?.ejemplo
+    ? ({ ['--riel-ancho' as string]: `${ejemploAbierto ? RIEL : RIEL_PLEGADO}px` } as React.CSSProperties)
+    : undefined;
+
   return (
-    <div className="mk-estudio">
+    <div className="mk-estudio" style={anchoRiel}>
+      <VistaPrevia
+        puesta={puesta}
+        abierta={ejemploAbierto}
+        onToggle={() => setEjemploAbierto((v) => !v)}
+      />
       {/* ── LA BARRA DE ARRIBA ──────────────────────────────────────────────
           SALIR a la izquierda y del todo arriba, que es donde se lo busca.
           ⚠️ No pregunta nada al salir, y eso es correcto ACA: el anuncio se
@@ -311,19 +366,10 @@ function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia,
         <button type="button" onClick={onSalir} style={salida}>← Salir</button>
       </div>
 
-      {/* ── DOS COLUMNAS: lo que se decide, y con qué se compara ────────────
-          La referencia va a la DERECHA y grande, no en un desplegable de la
-          esquina: es lo que contesta «¿esto se parece a lo que elegí?», que es
-          una pregunta que aparece mientras se mira, no antes.
-          Plegada queda una tira angosta con su rótulo girado, como la sidebar. */}
-      <div style={{
-        display: 'flex', gap: 26, width: '100%', alignItems: 'flex-start',
-        justifyContent: 'center', flexWrap: 'wrap',
-      }}>
-        <div style={{
-          flex: '1 1 620px', minWidth: 0, display: 'flex', flexDirection: 'column',
-          alignItems: 'center', gap: 22,
-        }}>
+      {/* ⚠️ ACÁ HABÍA UNA FILA DE DOS COLUMNAS. Se fue entera: el riel es `fixed`
+          contra el borde de la PANTALLA, así que no hay segunda columna contra la
+          cual flotar, ni `flexWrap` que decida solo cuándo la referencia se va
+          abajo. Los hijos vuelven a ser hijos directos del estudio. */}
       {/* La barra de posición: segmentos finos, no dots de formulario. Dice
           dónde estás sin pedir nada y sin ocupar una fila entera. */}
       <div style={{
@@ -418,10 +464,6 @@ function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia,
         </div>
       )}
 
-        </div>
-        {vistaPrevia}
-      </div>
-
       {/* ⚠️ ACÁ HABÍA UN SEGUNDO PAR DE SALIDAS, al pie de todo. «Volver» subió
           al lado del botón que avanza y «Salir» subió a la barra de arriba: el
           mismo botón dibujado en dos lugares es el que nadie encuentra en
@@ -453,83 +495,78 @@ const salida: React.CSSProperties = {
  * se lee el guion, no después. Cerrada, la respuesta está a un click de
  * distancia de una pregunta que aparece sola.
  */
-function VistaPrevia({ puesta }: { puesta: Puesta | undefined }) {
-  const [abierta, setAbierta] = useState(true);
+/**
+ * El ejemplo del formato: el BORDE DERECHO de la pantalla, no una tarjeta al lado.
+ *
+ * ── Por qué un riel y no una caja ──────────────────────────────────────────
+ * La versión anterior era la ÚNICA tarjeta de una pantalla rehecha entera para
+ * no tener ninguna. Y no alcanzaba con sacarle el fondo: en oscuro `--surface`
+ * sobre `--bg` da 1,13:1, o sea que lo que dibujaba la caja era el BORDE.
+ *
+ * Flow separa zonas con un escalón de relleno y CERO bordes — pero a escala de
+ * ZONA, no de un rectángulo de 288 px. A esa escala el relleno no se lee como
+ * zona: se lee como el marco que lo rodea. La corrección no era «menos caja»:
+ * era zona de verdad. Una franja anclada al borde, de alto completo, SÍ es una
+ * zona, y ahí alcanza un filete de 1 px donde antes hacía falta un contorno.
+ *
+ * ── Por qué el nombre va ADENTRO ───────────────────────────────────────────
+ * Es la regla que hace legible la pantalla entera: **el ejemplo se rotula por
+ * DENTRO del recorte; lo que produce el usuario se rotula por FUERA y debajo**
+ * (`Pie`). Dentro contra fuera es una diferencia estructural, no de color ni de
+ * peso, así que sobrevive a cualquier tema y a cualquier tamaño.
+ *
+ * Y el dibujo del rótulo es el de `Plantilla`, copiado al valor: es la misma
+ * tarjeta que la persona apretó treinta segundos antes. El test de un segundo lo
+ * gana el reconocimiento, no la lectura.
+ */
+function VistaPrevia({ puesta, abierta, onToggle }: {
+  puesta: Puesta | undefined;
+  abierta: boolean;
+  onToggle: () => void;
+}) {
   if (!puesta?.ejemplo) return null;
 
-  // ── PLEGADA: una tira angosta, como la sidebar ──────────────────────────
-  if (!abierta) {
-    return (
-      <button
-        type="button"
-        onClick={() => setAbierta(true)}
-        title="Ver cómo se verá tu anuncio"
-        style={{
-          flex: 'none', width: 44, alignSelf: 'stretch', minHeight: 220,
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 14, cursor: 'pointer', color: 'var(--dim)',
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-          justifyContent: 'center', gap: 14, padding: '14px 0',
-          fontFamily: 'inherit',
-        }}
-      >
-        <Icon name="play" size={16} />
-        {/* El rótulo girado: la tira plegada sigue diciendo QUÉ es. Una tira muda
-            es un borde, y un borde no se aprieta. */}
-        <span style={{
-          writingMode: 'vertical-rl', transform: 'rotate(180deg)',
-          fontSize: 'var(--fs-sm)', fontWeight: 600, letterSpacing: '.01em',
-          whiteSpace: 'nowrap',
-        }}>
-          Así se verá tu anuncio
-        </span>
-      </button>
-    );
-  }
-
-  // ── ABIERTA: el ejemplo, grande ─────────────────────────────────────────
   return (
-    <div style={{
-      flex: 'none', width: 288, background: 'var(--surface)',
-      border: '1px solid var(--border)', borderRadius: 16, padding: 14,
-    }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        gap: 10, marginBottom: 12,
-      }}>
-        <span style={{ fontSize: 'var(--fs-md)', fontWeight: 650, color: 'var(--ink)' }}>
-          Así se verá tu anuncio
-        </span>
-        <button
-          type="button"
-          onClick={() => setAbierta(false)}
-          title="Ocultar"
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer', lineHeight: 0,
-            color: 'var(--faint)', padding: 4,
-          }}
-        >
-          <Icon name="x" size={15} />
+    // `<aside>` y no `<div>`: es una región complementaria, y además
+    // `[data-barra-agencia] aside` de globals.css le corre el tope solo cuando
+    // está prendida la barra de la agencia. Un div queda 50 px abajo del borde y
+    // fabrica scroll de página en silencio.
+    <aside
+      className={`mk-riel${abierta ? '' : ' mk-riel--plegado'}`}
+      style={{ ['--mk-riel-alto' as string]: EJEMPLO }}
+    >
+      {abierta ? (
+        <Vertical alto="var(--mk-riel-alto)" fondo="#000" plano>
+          {/* Sin `controls` y sin sonido, a diferencia de las tomas del usuario.
+              Y sin radio propio: lo recorta el padre. Un solo radio por estado. */}
+          <video
+            src={puesta.ejemplo.video}
+            poster={puesta.ejemplo.poster}
+            autoPlay
+            loop
+            muted
+            playsInline
+            style={MEDIO}
+          />
+          {/* EL RÓTULO ES EL CONTROL. No hay ✕: una ✕ promete «esto se va» sobre
+              algo que vuelve, y era el elemento menos visible de la pieza. El
+              área de click pasa de 23×23 px a todo el ancho del rótulo. */}
+          <button type="button" className="mk-riel__rotulo" aria-expanded onClick={onToggle}>
+            <span className="mk-riel__nombre">{`Ejemplo · ${puesta.nombre}`}</span>
+            <span className="mk-riel__chev"><Icon name="chevron" size={16} /></span>
+          </button>
+        </Vertical>
+      ) : (
+        // PLEGADA: el póster CONGELADO, no el video pausado ni en loop. El
+        // movimiento periférico es el captador de atención más fuerte que hay, y
+        // plegar significa justamente dejar de competir.
+        <button type="button" className="mk-riel__abrir" aria-expanded={false} onClick={onToggle}>
+          <img src={puesta.ejemplo.poster} alt="" className="mk-riel__mini" />
+          <span className="mk-riel__vert">Ejemplo</span>
+          <span className="mk-riel__chev"><Icon name="chevron" size={13} /></span>
         </button>
-      </div>
-      <video
-        src={puesta.ejemplo.video}
-        poster={puesta.ejemplo.poster}
-        autoPlay
-        loop
-        muted
-        playsInline
-        style={{
-          display: 'block', width: '100%', aspectRatio: '9 / 16',
-          objectFit: 'cover', borderRadius: 12, background: '#000',
-        }}
-      />
-      <div style={{
-        fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginTop: 10, lineHeight: 1.45,
-      }}>
-        {puesta.nombre}
-      </div>
-    </div>
+      )}
+    </aside>
   );
 }
 
@@ -1078,7 +1115,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
       onAtras={p.onAtras}
       onSalir={onSalir}
       error={error}
-      vistaPrevia={<VistaPrevia puesta={puesta} />}
+      puesta={puesta}
       alLado={p.alLado}
     >
       {p.cuerpo}

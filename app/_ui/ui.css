@@ -1141,6 +1141,165 @@
   gap: 22px;
   min-height: 78vh;
   color: var(--ink);
+  /* El aire de la derecha lo gobierna el MISMO número que el ancho del riel. Sin
+     esto había que sumar padding que viven en otros archivos, y ese acople es lo
+     que hacía que la referencia «flotara» al cambiar cualquier cosa alrededor. */
+  padding-right: calc(24px + var(--riel-ancho, 0px));
+  transition: padding-right .18s cubic-bezier(.16,.84,.34,1);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EL RIEL DEL EJEMPLO — el borde derecho del estudio
+   ═══════════════════════════════════════════════════════════════════════════
+   ⚠️ SIN FONDO Y SIN CAJA, y no es una omisión: es toda la pieza. Lo único que
+   se dibuja es un filete de 1 px que entra y sale de la ventana por arriba y por
+   abajo. Una caja tiene cuatro lados y cuatro esquinas; esto tiene un lado y
+   ninguna esquina, así que no encierra nada — es la juntura entre dos zonas.
+
+   La version anterior era una tarjeta, y el dueño la corto: era la unica caja de
+   una pantalla rehecha entera para no tener ninguna. Y sacarle el fondo no
+   alcanzaba: en oscuro --surface sobre --bg da 1,13:1, o sea que la caja la
+   dibujaba el BORDE.
+
+   --border-strong y NO --border: la regla de la casa es que en oscuro las lineas
+   van con un color opaco a DOS escalones del fondo. --border da 1,39:1 y no se
+   ve; --border-strong da 1,90:1.
+
+   `fixed` y no `sticky`: es el borde de la PANTALLA, y eso es lo que `fixed`
+   significa. Ademas elimina el acople a la suma de padding de otros archivos.
+   `top: var(--barra-agencia)` funciona con la barra prendida y apagada: el token
+   vale 0px en :root. */
+.mk-riel {
+  position: fixed;
+  top: var(--barra-agencia);
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  width: var(--riel-ancho, 268px);
+  background: none;
+  border: none;
+  border-left: 1px solid var(--border-strong);
+  border-radius: 0;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Centrado contra la PANTALLA y no contra el contenido: el ejemplo no se mueve
+     ni un pixel en los siete pasos, que es parte de que se lea como referencia y
+     no como algo que pasa. */
+  justify-content: center;
+  transition: width .18s cubic-bezier(.16,.84,.34,1);
+}
+
+/* ── EL ROTULO QUEMADO ADENTRO ────────────────────────────────────────────
+   Los valores EXACTOS de la tarjeta del catalogo (`Plantilla`). El argumento es
+   RECONOCIMIENTO, y el reconocimiento vive en que sea identico, no parecido: un
+   valor movido por un pelo tira la tesis entera. */
+.mk-riel__rotulo {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: flex;
+  /* flex-end y NO baseline: un SVG sin baseline propia la sintetiza del borde de
+     abajo y monta tres pixeles alto. */
+  align-items: flex-end;
+  gap: 8px;
+  padding: 30px 12px 11px;
+  background: linear-gradient(to top, rgba(0,0,0,.75), transparent);
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--fs-card);
+  font-weight: 650;
+  line-height: 1.25;
+  color: #fff;
+  text-align: left;
+}
+.mk-riel__nombre { flex: 1; min-width: 0; }
+.mk-riel__rotulo:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.mk-riel__rotulo:hover .mk-riel__chev { transform: translateX(3px) rotate(-90deg); }
+
+.mk-riel__chev {
+  flex: none;
+  line-height: 0;
+  color: rgba(255,255,255,.75);
+  /* El chevron del set apunta ABAJO: -90 lo lleva a la derecha, o sea «se va al
+     borde». La rotacion va en el span porque `Icon` no acepta estilos. */
+  transform: rotate(-90deg);
+  transition: transform .14s ease;
+}
+
+/* ── PLEGADA ──────────────────────────────────────────────────────────────
+   Con rotulo y no muda: una tira sin texto es un borde, y un borde no se
+   aprieta. */
+.mk-riel__abrir {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--dim);
+}
+.mk-riel__mini {
+  display: block;
+  width: 48px;
+  height: 85px;
+  object-fit: cover;
+  border-radius: var(--r-sm);
+  background: #000;
+  transition: transform .14s ease;
+}
+.mk-riel__vert {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: .01em;
+  white-space: nowrap;
+}
+.mk-riel--plegado .mk-riel__chev { transform: rotate(90deg); color: var(--dim); }
+/* Sin fondo ni borde, la evidencia de que se aprieta la ponen TRES cosas y
+   ninguna es un relleno: la palabra sube de --dim a --ink, la miniatura crece y
+   el chevron se corre. */
+.mk-riel__abrir:hover { color: var(--ink); }
+.mk-riel__abrir:hover .mk-riel__mini { transform: scale(1.05); }
+.mk-riel__abrir:hover .mk-riel__chev { transform: translateX(-2px) rotate(90deg); }
+.mk-riel__abrir:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* ── ABAJO DE 1060 px deja de ser riel y pasa a ser banda ──────────────────
+   El corte no es un numero redondo: sale de la suma de las cajas (sidebar 68 +
+   Pagina 56 + estudio 24 + riel 292 = 440) contra los 620 que pide la columna
+   del wizard. Se REORGANIZA: no se comprime y no scrollea de costado. */
+@media (max-width: 1059px) {
+  .mk-estudio { padding-right: 24px; }
+  .mk-riel {
+    position: static;
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--border-strong);
+    flex-direction: row;
+    justify-content: center;
+    gap: 18px;
+    padding-top: 22px;
+    /* !important porque el alto llega por estilo en linea desde el TS, que es
+       donde vive la derivacion contra LIENZO: la constante tiene un solo dueno. */
+    --mk-riel-alto: 267px !important;
+  }
+  .mk-riel__rotulo { position: absolute; }
+  .mk-riel__abrir { position: static; flex-direction: row; gap: 12px; }
+  .mk-riel__vert { writing-mode: horizontal-tb; transform: none; }
+  .mk-riel--plegado .mk-riel__chev { transform: rotate(0deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-riel, .mk-riel__chev, .mk-riel__mini, .mk-estudio { transition: none; }
 }
 
 /* ⚠️ LA NIEBLA SOBRE NEGRO ES OTRA NIEBLA.
