@@ -358,41 +358,48 @@ function DetalleGuion({
  * está hecho no agrega nada. Sin `autoPlay` y sin `loop` — cuatro videos
  * arrancando solos al abrir la pantalla es lo contrario de una galería.
  */
-function AnuncioCard({ a }: { a: AnuncioHecho }) {
+/**
+ * Un anuncio terminado. Es una FILA, no una tarjeta.
+ *
+ * ⚠️ LA DIFERENCIA CON UNA PLANTILLA ES ESTRUCTURAL, no de color. El dueño:
+ * «que se vea de una forma diferente a los template, está bien que se
+ * previsualice, pero si son idénticos, se confunde».
+ *
+ * Y tenía razón: los dos eran un 9:16 de ~230 px en una grilla, así que la
+ * pantalla mostraba dos paredes de videos verticales que se leían igual aunque
+ * una fuera «lo que podés elegir» y la otra «lo que ya hiciste».
+ *
+ * La regla de la casa lo resuelve sin inventar nada: **un grupo de cosas del
+ * mismo tipo es una lista con filete, no una pila de cajas.** Una plantilla es
+ * algo que se ELIGE —y para eso hay que verla grande, en una pared donde
+ * comparás—; un anuncio terminado es algo que se ABRE, y para eso alcanza con
+ * reconocerlo. Miniatura chica a la izquierda, el nombre legible, y el video en
+ * su tamaño real recién cuando lo pedís.
+ *
+ * Y el rótulo va POR FUERA del recorte, al revés que en las plantillas, donde va
+ * quemado adentro. Es el mismo portador que ya usa el wizard: dentro contra
+ * fuera dice «esto es un ejemplo» / «esto es tuyo» sin gastar una palabra, y
+ * sobrevive a cualquier tema y a cualquier tamaño.
+ */
+function AnuncioFila({ a, onVer }: { a: AnuncioHecho; onVer: () => void }) {
   const puesta = puestaPorId(a.puestaId);
   const mm = Math.floor(a.duracionSeg / 60);
   const ss = String(Math.round(a.duracionSeg % 60)).padStart(2, '0');
 
   return (
-    <div style={{
-      width: 240, borderRadius: 14, overflow: 'hidden',
-      background: 'var(--surface)', border: '1px solid var(--border)',
-    }}>
-      {/* 9:16, que es como se producen y como se ven en el feed. */}
-      <video
-        src={a.url}
-        poster={a.poster}
-        controls
-        preload="metadata"
-        playsInline
-        style={{ display: 'block', width: '100%', aspectRatio: '9 / 16', objectFit: 'cover', background: '#000' }}
-      />
-      <div style={{ padding: '11px 13px 13px' }}>
-        <div style={{
-          fontSize: 'var(--fs-md)', fontWeight: 650, color: 'var(--ink)', lineHeight: 1.35,
-          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-        }}>
-          {a.titulo}
-        </div>
-        <div style={{
-          fontSize: 'var(--fs-meta)', color: 'var(--faint)', marginTop: 5,
-          display: 'flex', gap: 7, flexWrap: 'wrap',
-        }}>
-          <span>{mm}:{ss}</span>
-          {puesta && <><span>·</span><span>{puesta.nombre}</span></>}
-        </div>
-      </div>
-    </div>
+    <button type="button" className="mk-anuncio" onClick={onVer}>
+      {/* El póster CONGELADO, no el video: son varios en pantalla y el
+          movimiento periférico es el captador de atención más fuerte que hay. */}
+      <img src={a.poster} alt="" className="mk-anuncio__mini" />
+      <span className="mk-anuncio__medio">
+        <span className="mk-anuncio__nombre">{a.titulo}</span>
+        <span className="mk-anuncio__meta">
+          {mm}:{ss}
+          {puesta ? ` · ${puesta.nombre}` : ''}
+        </span>
+      </span>
+      <span className="mk-anuncio__chev"><Icon name="chevron" size={15} /></span>
+    </button>
   );
 }
 
@@ -563,6 +570,7 @@ export function VideoGeneratorApp({
   }, []);
   /** La plantilla abierta en el detalle. null = modal cerrado. */
   const [detalle, setDetalle] = useState<Puesta | null>(null);
+  const [verAnuncio, setVerAnuncio] = useState<AnuncioHecho | null>(null);
   const router = useRouter();
   const [paso, setPaso] = useState<Paso>('guion');
 
@@ -1337,27 +1345,43 @@ export function VideoGeneratorApp({
         es ruido. Aparece cuando hay algo que mirar.
       */}
       {anuncios.length > 0 && (
-        <div style={{ marginTop: 'calc(var(--gap) * 1.4)' }}>
-          <div style={{
-            display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 14,
-          }}>
-            <h2 style={{
-              margin: 0, fontSize: 'var(--fs-sect)', fontWeight: 700,
-              letterSpacing: '-.01em', color: 'var(--ink)',
-            }}>
-              Anuncios terminados
-            </h2>
-            <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>
-              {anuncios.length}
-            </span>
-          </div>
+        // ⚠️ DESPLEGABLE Y CERRADO, que es lo que pidió el dueño. A esta pantalla
+        // se viene a crear uno nuevo: lo hecho es referencia, no destino, así que
+        // cuesta UNA fila hasta que alguien la pide. Con `<details>` nativo, que
+        // trae gratis el teclado y el foco.
+        //
+        // El número va en el resumen: es lo que decide si vale la pena abrirlo.
+        <details className="mk-terminados" style={{ marginTop: 40 }}>
+          <summary className="mk-terminados__resumen">
+            <span className="mk-terminados__chev"><Icon name="chevron" size={15} /></span>
+            Anuncios terminados
+            <span className="mk-terminados__n">{anuncios.length}</span>
+          </summary>
 
-          <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+          <div className="mk-terminados__lista">
             {anuncios.map((a) => (
-              <AnuncioCard key={a.id} a={a} />
+              <AnuncioFila key={a.id} a={a} onVer={() => setVerAnuncio(a)} />
             ))}
           </div>
-        </div>
+        </details>
+      )}
+
+      {/* El anuncio en su tamaño real, recién cuando se pide. La lista sirve para
+          reconocerlo; mirarlo es otra cosa y merece la pantalla. */}
+      {verAnuncio && (
+        <Modal titulo={verAnuncio.titulo} onCerrar={() => setVerAnuncio(null)} ancho={520}>
+          <video
+            src={verAnuncio.url}
+            poster={verAnuncio.poster}
+            controls
+            autoPlay
+            playsInline
+            style={{
+              display: 'block', width: '100%', aspectRatio: '9 / 16',
+              objectFit: 'cover', background: '#000', borderRadius: 'var(--r-md)',
+            }}
+          />
+        </Modal>
       )}
 
       {/*
@@ -1372,7 +1396,14 @@ export function VideoGeneratorApp({
         que es exactamente cuando hay algo que hacer otra vez.
       */}
       {puente && !puenteAnda && (
-        <div style={{ marginTop: 'var(--gap)', maxWidth: 780 }}>
+        // ⚠️ `--gap` NO EXISTE en este proyecto: cero definiciones en todo
+        // `app/` y `lib/`. Un `var()` sin fallback y sin token no falla — HEREDA,
+        // y si nadie lo definió arriba resuelve a nada: el margen valía 0 y la
+        // sección quedaba pegada a la anterior sin que nada lo dijera.
+        //
+        // Es el mismo modo de falla que ya tiene escrito este repo con `<Icon>` y
+        // un nombre inventado: no da error, dibuja otra cosa.
+        <div style={{ marginTop: 40, maxWidth: 780 }}>
           <PuentePanel inicial={puente} />
         </div>
       )}

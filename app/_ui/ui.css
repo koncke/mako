@@ -1477,3 +1477,90 @@
 .mk-riel--plegado .mk-riel__sonido { display: none; }
 
 @media (prefers-reduced-motion: reduce) { .mk-riel__sonido { transition: none; } }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ANUNCIOS TERMINADOS — una lista, no una pared
+   ═══════════════════════════════════════════════════════════════════════════
+   ⚠️ LA DIFERENCIA CON LAS PLANTILLAS ES ESTRUCTURAL, no de color. Los dos eran
+   un 9:16 de ~230 px en una grilla, así que la pantalla mostraba dos paredes de
+   videos verticales que se leían igual aunque una fuera «lo que puedes elegir» y
+   la otra «lo que ya hiciste».
+
+   Una plantilla se ELIGE —y para eso hay que verla grande, comparándola con las
+   otras—; un anuncio terminado se ABRE, y para eso alcanza con reconocerlo. */
+.mk-terminados { border-top: 1px solid var(--border); padding-top: 6px; }
+
+.mk-terminados__resumen {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 2px;
+  cursor: pointer;
+  list-style: none;
+  font-size: var(--fs-md);
+  font-weight: 650;
+  color: var(--ink);
+}
+.mk-terminados__resumen::-webkit-details-marker { display: none; }
+.mk-terminados__resumen:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.mk-terminados__n {
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  color: var(--faint);
+}
+.mk-terminados__chev {
+  line-height: 0;
+  color: var(--dim);
+  transform: rotate(-90deg);
+  transition: transform .16s ease;
+}
+.mk-terminados[open] .mk-terminados__chev { transform: rotate(0deg); }
+
+.mk-terminados__lista { display: flex; flex-direction: column; padding-bottom: 8px; }
+
+/* La fila: filete entre hermanas, sin caja. Tres cajas apiladas del mismo tamaño
+   son el contenedor perezoso; la caja se gana. */
+.mk-anuncio {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  padding: 9px 6px;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background .14s ease;
+}
+.mk-anuncio:first-child { border-top: none; }
+.mk-anuncio:hover { background: var(--surface-2); }
+.mk-anuncio:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.mk-anuncio__mini {
+  display: block;
+  width: 34px;
+  height: 60px;
+  flex: none;
+  object-fit: cover;
+  border-radius: var(--r-sm);
+  background: #000;
+}
+.mk-anuncio__medio { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.mk-anuncio__nombre {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mk-anuncio__meta { font-size: var(--fs-meta); color: var(--faint); }
+.mk-anuncio__chev { flex: none; line-height: 0; color: var(--faint); }
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-terminados__chev, .mk-anuncio { transition: none; }
+}
