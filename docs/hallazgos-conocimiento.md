@@ -6294,3 +6294,66 @@ curso adentro de otro — y eso no da error: da un curso plausible y falso, con 
 abren y se reproducen. Por eso `--para-cola` emite **sólo** `parcial`: ni `otro-curso`, ni
 `ambiguo`, ni `nuevo`. Se verificó pidiéndole los tres casos y comprobando que devuelve
 vacío.
+
+## Doce cursos publicados tenían la pestaña «Transcripción» vacía, y nada lo dijo
+
+**Vive en:** `scripts/cursos-publicar.sh`, `scripts/curso-catalogo-verificar.mjs`,
+`public/cono-tx/`
+
+El publicador automático commitea tres cosas: la ficha (`app/conocimientos/curso-*.ts`),
+el catálogo y la tapa. **`public/cono-tx/` no estaba en la lista.** La ficha declara
+`hasTx: true` clase por clase, así que el portal OFRECE la pestaña y va a buscar
+`/cono-tx/<videoId>.json`; sin el archivo, el fetch da 404 y el
+`.catch(() => setTx(null))` de `CursoReplica.tsx` lo deja en nada.
+
+**El curso se ve entero**: la portada, los módulos, las clases, el video reproduciéndose
+desde Drive. Lo único que falta es el texto, y falta en silencio. Medido el 31/08/2026:
+**703 transcripciones en disco y fuera de git**, repartidas en 12 cursos publicados —siete
+de ellos con el **100%** de su texto faltando: `growth-partner` (106), `belikethealgo`
+(106), `academia-de-lanzamiento` (103), `ecommerce-0-a-17-millones` (99),
+`club-de-negocios` (98), `udia` (96) e `instituto-de-marca-personal` (92).
+
+**La causa no es un olvido: es una automatización que no heredó todo lo que hacía la mano
+que reemplazó.** Históricamente los `.json` los subían commits manuales («cursos: X
+publicado»), donde la persona agregaba lo que veía sin commitear. Cuando la cola pasó a
+publicar sola, `cursos-publicar.sh` se escribió con las rutas que alguien enumeró de
+memoria, y esa lista estaba incompleta. Es la misma familia que el catálogo importando
+fichas sin commitear —«al commitear por ruta explícita se sube el índice y no lo
+indexado»— corrida una capa más abajo: **ahí el catálogo nombraba fichas, acá las fichas
+nombran archivos.**
+
+**La regla: cuando un paso manual se automatiza, la lista de lo que tocaba no se escribe de
+memoria — se saca de lo que los commits manuales venían subiendo.** `git log --name-only`
+sobre los últimos commits de esa mano contesta la pregunta en un comando, y es la única
+fuente que no depende de acordarse.
+
+### Cómo se encontró, y por qué el chequeo obvio no lo veía
+
+No lo encontró leer el publicador: lo encontró preguntar **contra git**, no contra el
+disco. En el disco están las 6.250; la pregunta que importa es cuántas están en el
+COMMIT, que es lo que se despliega. `existsSync` contesta que sí sobre el mismo agujero
+—exactamente la trampa que el verificador del catálogo ya tenía documentada— y por eso el
+chequeo nuevo usa `git ls-tree`.
+
+⚠️ **Y mi primer barrido dio 17 cursos, no 12: cinco eran falsos.** Cruzaba TODOS los
+`videoId` de la ficha contra git, sin filtrar por `hasTx`. Una clase que nunca se
+transcribió sale con `hasTx: false` —el generador lo hace bien— y no promete nada, así que
+no tiene por qué tener `.json`. **La pregunta correcta no es «¿está el archivo?» sino
+«¿alguien lo prometió?»**: contar referencias que nadie hace infla el problema y manda a
+arreglar lo que está bien.
+
+### La guarda, y por qué bloquea sólo la mitad
+
+`curso-catalogo-verificar.mjs` —que ya corre en el pre-push y adentro del publicador—
+ahora hace la segunda pregunta. Y distingue dos casos que se ven iguales:
+
+| Caso | Qué hace |
+|---|---|
+| `hasTx: true`, el `.json` está en disco y no en el commit | **frena el push**: se arregla commiteando |
+| `hasTx: true` y el `.json` no está en ningún lado | **avisa y deja pasar**: no hay nada que subir |
+
+El segundo caso no puede frenar. Una guarda que bloquea por algo que nadie puede arreglar
+commiteando es un candado sin llave, y lo que se aprende de un candado sin llave es a
+saltearlo — que es cómo se pierde también la mitad que sí servía. La misma sesión tenía al
+lado un commit del vecino titulado «El arreglo no podía correr: la guarda envenenada
+seguía puesta».

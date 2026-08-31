@@ -2303,3 +2303,41 @@ transcribe, y el curso se publica incompleto **sin un solo error en ningún log*
   Lo que encontró el bug no fue leer el código: fue escribir la pregunta al revés —«¿cuántas
   están marcadas y no están en ningún lado?»— y correrla. Un registro que nadie puede
   desmentir es una afirmación, no un dato.
+
+# Cuando un paso manual se automatiza, la lista de lo que tocaba se SACA DEL LOG
+
+Un script que reemplaza a una mano se escribe enumerando de memoria lo que esa mano hacía,
+y esa lista siempre viene corta. Lo que falta no falla: se publica a medias, con la parte
+visible entera.
+
+El 31/08/2026, `scripts/cursos-publicar.sh` commiteaba la ficha, el catálogo y la tapa de
+cada curso, y **nunca `public/cono-tx/`** —el texto de las clases—. Los commits manuales
+que reemplazó sí lo subían. Resultado: **12 cursos publicados con la pestaña
+«Transcripción» vacía**, siete de ellos con el 100% de su texto faltando. El curso se ve
+entero —portada, módulos, clases, video reproduciéndose— y el `.catch(() => setTx(null))`
+del fetch deja el panel en nada. Sin error, sin 404 visible, sin nada que lleve al script.
+
+- **La lista sale de `git log --name-only` sobre los últimos commits de esa mano**, no de
+  acordarse. Es un comando, y es la única fuente que no depende de la memoria de nadie.
+- **Y la pregunta se le hace a GIT, no al disco.** `existsSync` contesta que sí sobre el
+  mismo agujero: en el árbol de trabajo están todos los archivos. Lo que se despliega es el
+  commit — `git ls-tree`.
+- Es la misma familia que «el catálogo importa fichas que no están en el commit», corrida
+  una capa: ahí el índice nombraba fichas, acá las fichas nombran archivos. **Si algo que
+  se commitea NOMBRA otra cosa, esa otra cosa necesita su propia guarda.**
+
+# Una guarda bloquea sólo lo que se arregla haciendo lo que ella pide
+
+Si un chequeo frena por algo que el que empuja no puede resolver —el archivo no existe en
+ningún lado, el dato lo tiene otro equipo, la causa está en otro repo—, deja de ser una
+red y pasa a ser un candado sin llave. Y de un candado sin llave lo único que se aprende es
+a saltearlo, con lo cual se pierde también la mitad que sí servía.
+
+Al escribir un guard, partí los casos por **«¿esto se arregla haciendo lo que digo?»**:
+
+- **Sí** → frena, y el mensaje trae el comando exacto.
+- **No** → avisa y deja pasar. Sigue siendo información, y no toma a nadie de rehén.
+
+Es la misma razón por la que el verificador del catálogo pregunta por HEAD y no por el
+árbol de trabajo: un archivo sin commitear no rompe ningún build, así que frenar por él
+sólo traba a la sesión de al lado por algo que no es suyo.
