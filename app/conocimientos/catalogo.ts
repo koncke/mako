@@ -117,6 +117,7 @@ import { CURSO_ECOMMERCE_0_A_17_MILLONES } from './curso-ecommerce-0-a-17-millon
 import { CURSO_ACADEMIA_DE_LANZAMIENTO } from './curso-academia-de-lanzamiento';
 import { CURSO_BELIKETHEALGO } from './curso-belikethealgo';
 import { CURSO_GROWTH_PARTNER } from './curso-growth-partner';
+import { CURSO_GEMINI_NOTEBOOK_LM_Y_WORKSPACE } from './curso-gemini-notebook-lm-y-workspace';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio.datos';
 import { CURSO_BRANDING } from './BrandingMaKo.datos';
@@ -403,6 +404,10 @@ const CATEGORIA: Record<string, string> = {
   // plataforma. El comentario al lado es la categoría de origen.
   'growth-partner': 'Ecommerce',           // Ecommerce
 
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'gemini-notebook-lm-y-workspace': 'Inteligencia Artificial', // IA
+
 };
 
 /**
@@ -593,6 +598,10 @@ const PORTADA: Record<string, string> = {
   // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
   // pero la ficha se había emitido antes de que existiera.
   'growth-partner': '/cono-portadas/growth-partner.png',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'gemini-notebook-lm-y-workspace': '/cono-portadas/gemini-notebook-lm-y-workspace.jpg',
 
 };
 
@@ -908,6 +917,10 @@ const RESUMEN: Record<string, string> = {
   // del catálogo de la plataforma.
   'growth-partner': 'Aprende a convertirte en un Growth Partner de marcas e-commerce. El curso enseña embudos de venta, publicidad en Meta Ads y Google Ads, estrategia de contenido y UGC.',
 
+  // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
+  // del catálogo de la plataforma.
+  'gemini-notebook-lm-y-workspace': 'Programa práctico para usar Gemini como asistente de productividad, integrar IA en Gmail/Docs/Sheets/Slides/Drive.',
+
 };
 
 // Sin acentos y en minúsculas, para que «Sofia» no se sume a un título que ya dice
@@ -1204,6 +1217,9 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_GROWTH_PARTNER,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_GEMINI_NOTEBOOK_LM_Y_WORKSPACE,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
