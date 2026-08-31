@@ -2776,3 +2776,74 @@ que se distribuye. Es la misma lección que ya tiene este repo escrita —«el a
 distribuye no es el fuente»— aplicada una vuelta más adentro.
 
 **Vive en:** `scripts/zip-extension.mjs`.
+
+---
+
+## Una ZONA se gana con contenido; sin él es un hueco con un borde al lado
+
+El riel de referencia de `/video-generator` —el ejemplo del formato elegido, a la derecha—
+se rehizo cuatro veces y las dos últimas fallaron por lo mismo, con el diagnóstico obvio
+apuntando al lado equivocado las dos veces.
+
+La versión que el dueño cortó era una franja anclada al borde derecho, `position: fixed`,
+de **alto completo**, con el ejemplo (391 px) **centrado contra la pantalla** y un filete de
+1 px que recorría la ventana entera. El argumento escrito era bueno: Flow separa zonas con
+un escalón de relleno y cero bordes, pero a escala de ZONA, así que una franja de alto
+completo sí es una zona y ahí alcanza un filete donde antes hacía falta un contorno.
+
+Lo reportó como **«se ve muy vacío»**, y el diagnóstico obvio —el centrado— era el
+equivocado. Medido a 1600×980: contenido 391 px dentro de una franja de 980. **El error no
+era dónde estaba el objeto: era haber declarado zona a una franja que el contenido no
+llena.** Y el filete la empeoraba en vez de disimularla: una línea de 900 px al lado de un
+objeto de 391 no marca un borde, **dibuja el hueco**.
+
+La regla: antes de anclar algo al borde de la pantalla, poné el alto del contenido contra
+el alto de la franja. Si no la llena, no es una zona — se ancla a la altura de lo que
+acompaña (acá, la pregunta) y **el separador mide lo que mide el contenido**, no lo que
+mide la ventana. El estado plegado no lleva separador ninguno: ahí no hay zona, hay un
+control de 48 px, y darle el filete de la versión abierta reproduce el mismo hueco en
+chico.
+
+**Vive en:** `.mk-riel` de `app/_ui/ui.css` (el `::before` con el filete acotado) y
+`VistaPrevia` de `app/video-generator/WizardAnuncio.tsx`.
+
+## Nombrar una cosa no es decir para qué está
+
+El segundo defecto del mismo reporte: **«y sobre todo, no se entiende que hace eso allí»**.
+
+Lo único escrito en la pieza era el rótulo quemado dentro del recorte, `Ejemplo · Car
+Talks`. Es correcto y no contesta la pregunta: dice **QUÉ ES**, que es identidad, no
+propósito. Un usuario que ve un video que no es el suyo al lado de su guion no necesita el
+nombre del formato — necesita saber por qué está en pantalla.
+
+La frase que lo contesta —«Así se verá tu anuncio»— **había sido escrita por el dueño** y
+la sacó una ronda de rediseño con un argumento propio (que le prometía al usuario que ese
+video era el suyo). El argumento tenía sentido y aun así estaba mal, porque la ambigüedad
+se resuelve con las dos juntas: la línea de arriba dice para qué sirve, y el rótulo de
+adentro aclara que el video todavía no es suyo.
+
+Y lo mismo en el estado plegado: la palabra vertical decía `Ejemplo` —lo que hay adentro— y
+pasó a `Ver el ejemplo`, que dice lo que pasa al apretar. Un control se rotula por su
+efecto.
+
+**Vive en:** `.mk-riel__para` de `app/_ui/ui.css`.
+
+## Cómo se verificó, que es lo que hace repetible el arreglo
+
+El Chrome real no llegaba al `localhost` del dev server (`ERR_CONNECTION_REFUSED` con el
+puerto escuchando en las dos familias), y el wizard vive detrás de login y de estado de
+cliente, así que no se alcanza con una URL. La salida fue un **banco de pruebas**: un HTML
+que inyecta los tokens de `app/globals.css` (los bloques `:root` y `[data-tema="oscuro"]`,
+extraídos con un script — la hoja entera no sirve porque arranca con `@import "tailwindcss"`),
+enlaza `app/_ui/ui.css` **tal cual** y reproduce el esqueleto del estudio. Se captura con
+`chrome.exe --headless=new --screenshot`.
+
+⚠️ **La ruta del `--screenshot` va ABSOLUTA y en formato Windows.** Con una ruta relativa
+contesta `Failed to write file: Access is denied (0x5)`, que se lee como un problema de
+permisos y no lo es.
+
+⚠️ **Y no sirve para el CONTENIDO, solo para la GEOMETRÍA.** Lo que el banco prueba es
+dónde cae cada cosa con la hoja real; los datos, el video y los estados de React son
+maqueta. Confundir las dos cosas es dar por verificado lo que no se miró.
+
+**Vive en:** el harness es descartable (va al scratchpad de la sesión), la técnica no.

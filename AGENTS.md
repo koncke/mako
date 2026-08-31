@@ -80,7 +80,8 @@ de la extensión frenó al portal de cursos el 30/08 porque el vecino tenía tre
 commitear. En `--check` se lee de **HEAD** (`git ls-tree` + `git show`); generando se lee
 el disco, que ahí sí es lo correcto.
 
-⚠️ **Y TODA GUARDA QUE COMPARE TEXTO GENERADO CONTRA UN ARCHIVO NORMALIZA LOS ``.** El
+⚠️ **Y TODA GUARDA QUE COMPARE TEXTO GENERADO CONTRA UN ARCHIVO NORMALIZA LOS `
+`.** El
 bloque se inserta con `
 ` sobre un archivo que en disco es CRLF (`core.autocrlf=true`), así
 que el archivo queda MEZCLADO y la comparación exacta pasa **sólo en el clon donde el script
@@ -1560,7 +1561,8 @@ Dos formas de romperlo que ya pasaron acá, las dos el mismo día:
    partió la línea en dos. **El escapado de comillas no protege de esto**: el problema no
    es el texto insertado sino el string que lo envuelve. Va como función:
    `.replace(re, (_, ini, fin) => ini + texto + fin)`.
-2. **Un `` suelto** al insertar en un archivo CRLF — no rompe el build ni el typecheck y
+2. **Un `
+` suelto** al insertar en un archivo CRLF — no rompe el build ni el typecheck y
    no se ve en ningún listado (ver la sección de Windows más abajo).
 
 **La regla: un script que escribe código fuente valida su salida ANTES de escribirla**, o
@@ -1910,6 +1912,35 @@ había cableado**, dos horas antes.
   reporta distinto.
 - **Al lanzar la corrida**, decile qué acabás de tocar. Un agente que sabe que F0 se commiteó
   hace una hora no gasta un reporte en descubrirlo.
+
+## Un panel de agentes al que le preguntas por una decision YA TOMADA siempre trae un argumento en contra
+
+Un jurado de N agentes que evalua una opcion produce criticas: para eso se lo llama. Si lo
+que se le pone a votar es algo que el dueno ya decidio, va a devolver un argumento en
+contra —bien escrito, con su porque— y ese argumento **no es evidencia**: es el output que
+la pregunta pedia. Cambiar la decision del dueno por eso es reemplazar a quien tiene el
+contexto por quien tiene la retorica.
+
+Costo dos rondas de rediseno del mismo wizard, en la misma semana:
+
+- La regla **«un solo paso a la vez, cosas grandes, casi sin texto»** se sometio a un panel
+  de diseno que la penalizo — cualquier jurado castiga a un wizard frente a una pantalla
+  densa, porque cuenta clicks y no cuenta comprension. El dueno tuvo que repetirla.
+- La frase **«Asi se vera tu anuncio»**, que el habia escrito textual en su pedido, la
+  saco una ronda de rediseno con un argumento propio (le prometia al usuario que ese video
+  era el suyo). El argumento tenia sentido y aun asi estaba mal, y al sacarla la pantalla
+  se quedo sin la unica linea que decia para que servia la pieza. Lo reporto de nuevo.
+
+**La regla: lo que el dueno decidio es una RESTRICCION del problema, no una opcion del
+espacio de soluciones.** Al panel se le pregunta *como cumplirla mejor*, nunca *si
+conviene*. Y si un agente igual devuelve un argumento en contra —va a pasar—, eso se
+REPORTA como observacion, no se ejecuta: la decision de cambiar de opinion es de quien
+tomo la decision.
+
+⚠️ **Y el copy que el dueno escribio en su pedido se usa TEXTUAL.** Que suene mejorable no
+es motivo: el sabe a quien le habla. Si de verdad ambiguo, se DESAMBIGUA agregando —acá
+fueron dos rotulos, uno diciendo para que sirve y otro aclarando de quien es el video—, no
+se reemplaza.
 
 ## Un agente no puede validar el dato que VOS le pasaste: te lo devuelve confirmado
 
