@@ -1205,7 +1205,9 @@
   right: 0;
   bottom: 0;
   z-index: 40;
-  width: var(--riel-ancho, 268px);
+  /* El respaldo es el de una pantalla alta; el valor real llega en línea desde
+     el TS, derivado del alto del ejemplo. */
+  width: var(--riel-ancho, 341px);
   background: none;
   border: none;
   border-radius: 0;
@@ -1237,7 +1239,7 @@
      la captura, la version anterior sobresalia 49 px por arriba y 11 por abajo:
      un filete descentrado se lee como que algo falta de un lado. */
   top: calc(var(--riel-arriba, 116px) - 24px);
-  height: calc(var(--mk-riel-alto, 391px) + 99px);
+  height: calc(var(--mk-riel-alto, 520px) + 99px);
   border-left: 1px solid var(--border-strong);
 }
 
@@ -1363,7 +1365,7 @@
     padding-top: 22px;
     /* !important porque el alto llega por estilo en linea desde el TS, que es
        donde vive la derivacion contra LIENZO: la constante tiene un solo dueno. */
-    --mk-riel-alto: 267px !important;
+    --mk-riel-alto: 330px !important;
   }
   .mk-riel::before { display: none; }
   .mk-riel__rotulo { position: absolute; }

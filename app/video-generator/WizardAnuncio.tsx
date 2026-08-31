@@ -68,7 +68,7 @@ const LIENZO = 'min(62vh, 720px)';
  *  · 391 px = 220 × 16/9, y 220 es el ancho exacto de la tarjeta del catálogo
  *             (`Plantilla`). El ejemplo nunca crece más que el objeto que la
  *             persona apretó dos pantallas antes.
- *  · × .67  = el techo contra el medio que SÍ se está decidiendo. `LIENZO` se
+ *  · × .82  = el techo contra el medio que SÍ se está decidiendo. `LIENZO` se
  *             REFERENCIA y no se retipea: si cambia, esta proporción sigue
  *             siendo cierta.
  *
@@ -79,10 +79,23 @@ const LIENZO = 'min(62vh, 720px)';
  * `vh` y no `dvh`, igual que LIENZO: dos alturas que se comparan salen de la
  * misma unidad o se cruzan solas en el navegador del teléfono.
  */
-const EJEMPLO = `min(391px, calc(${LIENZO} * .67))`;
+const EJEMPLO = `min(520px, calc(${LIENZO} * .82))`;
 
-/** 268 = 220 (la tarjeta del catálogo) + 24 + 24. Plegado, la tira de la sidebar. */
-const RIEL = 268;
+/**
+ * El ancho del riel se DERIVA del alto del ejemplo. No es un número.
+ *
+ * ⚠️ ERA 268 fijo, heredado de la tarjeta del catálogo (220 px). Dos problemas, y
+ * el segundo aparece recién al agrandar: con 268 el video salía a 145 px de ancho
+ * —se reconocía, pero no se podía LEER lo que pasa adentro, que es todo lo que
+ * una referencia tiene que dejar hacer—; y subirlo a mano deja AIRE MUERTO en las
+ * pantallas bajas, donde el que manda es el alto y el video no llega a ocupar el
+ * ancho reservado.
+ *
+ * El video es 9:16 y no negocia, así que el ancho sale del alto. Un solo número
+ * gobierna la pieza (`EJEMPLO`) y el riel lo sigue: no hay dos medidas que
+ * mantener sincronizadas.
+ */
+const RIEL = `calc(${EJEMPLO} * 9 / 16 + 48px)`;
 const RIEL_PLEGADO = 68;
 
 // ── Dónde está el anuncio ───────────────────────────────────────────────────
@@ -405,7 +418,7 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
   // sumar padding que viven en otros archivos, y ese acople es lo que hacía que
   // la pieza «flotara» al cambiar cualquier cosa alrededor.
   const anchoRiel = puesta?.ejemplo
-    ? ({ ['--riel-ancho' as string]: `${ejemploAbierto ? RIEL : RIEL_PLEGADO}px` } as React.CSSProperties)
+    ? ({ ['--riel-ancho' as string]: ejemploAbierto ? RIEL : `${RIEL_PLEGADO}px` } as React.CSSProperties)
     : undefined;
 
   return (
