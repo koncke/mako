@@ -536,33 +536,39 @@ function VistaPrevia({ puesta, abierta, onToggle }: {
       style={{ ['--mk-riel-alto' as string]: EJEMPLO }}
     >
       {abierta ? (
-        <Vertical alto="var(--mk-riel-alto)" fondo="#000" plano>
-          {/* Sin `controls` y sin sonido, a diferencia de las tomas del usuario.
-              Y sin radio propio: lo recorta el padre. Un solo radio por estado. */}
-          <video
-            src={puesta.ejemplo.video}
-            poster={puesta.ejemplo.poster}
-            autoPlay
-            loop
-            muted
-            playsInline
-            style={MEDIO}
-          />
-          {/* EL RÓTULO ES EL CONTROL. No hay ✕: una ✕ promete «esto se va» sobre
-              algo que vuelve, y era el elemento menos visible de la pieza. El
-              área de click pasa de 23×23 px a todo el ancho del rótulo. */}
-          <button type="button" className="mk-riel__rotulo" aria-expanded onClick={onToggle}>
-            <span className="mk-riel__nombre">{`Ejemplo · ${puesta.nombre}`}</span>
-            <span className="mk-riel__chev"><Icon name="chevron" size={16} /></span>
-          </button>
-        </Vertical>
+        <>
+          {/* La frase de Martín, textual. Contesta «¿qué hace eso ahí?» antes de
+              que la pregunta llegue a formularse, que es la única forma de que
+              una referencia se lea como referencia. */}
+          <p className="mk-riel__para">Así se verá tu anuncio</p>
+          <Vertical alto="var(--mk-riel-alto)" fondo="#000" plano>
+            {/* Sin `controls` y sin sonido, a diferencia de las tomas del usuario.
+                Y sin radio propio: lo recorta el padre. Un solo radio por estado. */}
+            <video
+              src={puesta.ejemplo.video}
+              poster={puesta.ejemplo.poster}
+              autoPlay
+              loop
+              muted
+              playsInline
+              style={MEDIO}
+            />
+            {/* EL RÓTULO ES EL CONTROL. No hay ✕: una ✕ promete «esto se va» sobre
+                algo que vuelve, y era el elemento menos visible de la pieza. El
+                área de click pasa de 23×23 px a todo el ancho del rótulo. */}
+            <button type="button" className="mk-riel__rotulo" aria-expanded onClick={onToggle}>
+              <span className="mk-riel__nombre">{`Ejemplo · ${puesta.nombre}`}</span>
+              <span className="mk-riel__chev"><Icon name="chevron" size={16} /></span>
+            </button>
+          </Vertical>
+        </>
       ) : (
         // PLEGADA: el póster CONGELADO, no el video pausado ni en loop. El
         // movimiento periférico es el captador de atención más fuerte que hay, y
         // plegar significa justamente dejar de competir.
         <button type="button" className="mk-riel__abrir" aria-expanded={false} onClick={onToggle}>
           <img src={puesta.ejemplo.poster} alt="" className="mk-riel__mini" />
-          <span className="mk-riel__vert">Ejemplo</span>
+          <span className="mk-riel__vert">Ver el ejemplo</span>
           <span className="mk-riel__chev"><Icon name="chevron" size={13} /></span>
         </button>
       )}

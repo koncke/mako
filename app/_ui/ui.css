@@ -1178,18 +1178,62 @@
   width: var(--riel-ancho, 268px);
   background: none;
   border: none;
-  border-left: 1px solid var(--border-strong);
   border-radius: 0;
   box-shadow: none;
   display: flex;
   flex-direction: column;
   align-items: center;
-  /* Centrado contra la PANTALLA y no contra el contenido: el ejemplo no se mueve
-     ni un pixel en los siete pasos, que es parte de que se lea como referencia y
-     no como algo que pasa. */
-  justify-content: center;
+  /* ⚠️ ARRIBA, Y ACÁ SE TERMINA EL HUECO.
+     Centrado contra una franja de alto completo, un ejemplo de 391 px deja MÁS
+     DE LA MITAD de la franja vacía, arriba y abajo. El dueño lo cortó: «se ve
+     muy vacío».
+     El error no fue el centrado: fue hacer una ZONA de alto completo para un
+     contenido que no la llena. Una zona se gana con contenido; sin él es un
+     hueco con un borde al lado, y el borde lo DIBUJA en vez de disimularlo.
+     Anclado arriba queda a la altura de la pregunta, que es lo que acompaña. */
+  justify-content: flex-start;
+  padding-top: var(--riel-arriba, 116px);
   transition: width .18s cubic-bezier(.16,.84,.34,1);
 }
+
+/* El filete ya no recorre la ventana entera: mide lo que mide el contenido.
+   Una línea de 900 px al lado de un objeto de 391 es el dibujo del hueco. */
+.mk-riel::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  /* Los dos numeros salen del CONTENIDO, no del gusto: 24 px de aire arriba y
+     abajo, y en el medio la linea (19) + su margen (14) + el ejemplo. Medido en
+     la captura, la version anterior sobresalia 49 px por arriba y 11 por abajo:
+     un filete descentrado se lee como que algo falta de un lado. */
+  top: calc(var(--riel-arriba, 116px) - 24px);
+  height: calc(var(--mk-riel-alto, 391px) + 99px);
+  border-left: 1px solid var(--border-strong);
+}
+
+/* ── PARA QUÉ ESTÁ AHÍ ────────────────────────────────────────────────────
+   ⚠️ Esta línea la había sacado, y era la única que contestaba la pregunta que
+   el dueño hizo: «no se entiende qué hace eso allí». El rótulo de adentro dice
+   QUÉ ES —«Ejemplo · Car Talks»—, y eso es identidad, no propósito: nombra la
+   cosa sin decir por qué está en pantalla.
+   Y el texto es el que había pedido él, textual: «me imagino la preview de "Así
+   se verá tu anuncio"». Lo descarté por un argumento propio y con eso se fue la
+   frase. Las dos juntas cierran: la de arriba dice para qué sirve, la de adentro
+   aclara que el video no es suyo todavía. */
+.mk-riel__para {
+  max-width: 200px;
+  margin-bottom: 14px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--dim);
+  text-align: center;
+}
+.mk-riel--plegado .mk-riel__para { display: none; }
+/* Plegado NO lleva filete. El filete marca el borde de una zona, y plegado no
+   hay zona: hay un control de 48 px. Dejarlo con el alto de la version abierta
+   reproduce el mismo hueco en chico, que es el defecto que se vino a sacar. */
+.mk-riel--plegado::before { display: none; }
 
 /* ── EL ROTULO QUEMADO ADENTRO ────────────────────────────────────────────
    Los valores EXACTOS de la tarjeta del catalogo (`Plantilla`). El argumento es
@@ -1233,8 +1277,6 @@
    Con rotulo y no muda: una tira sin texto es un borde, y un borde no se
    aprieta. */
 .mk-riel__abrir {
-  position: absolute;
-  inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1282,8 +1324,9 @@
   .mk-riel {
     position: static;
     width: 100%;
-    border-left: none;
     border-top: 1px solid var(--border-strong);
+    padding-top: 22px;
+    --riel-arriba: 0px;
     flex-direction: row;
     justify-content: center;
     gap: 18px;
@@ -1292,8 +1335,10 @@
        donde vive la derivacion contra LIENZO: la constante tiene un solo dueno. */
     --mk-riel-alto: 267px !important;
   }
+  .mk-riel::before { display: none; }
   .mk-riel__rotulo { position: absolute; }
-  .mk-riel__abrir { position: static; flex-direction: row; gap: 12px; }
+  .mk-riel__para { max-width: none; margin: 0; align-self: center; }
+  .mk-riel__abrir { flex-direction: row; gap: 12px; }
   .mk-riel__vert { writing-mode: horizontal-tb; transform: none; }
   .mk-riel--plegado .mk-riel__chev { transform: rotate(0deg); }
 }
