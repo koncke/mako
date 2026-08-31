@@ -2847,3 +2847,88 @@ dónde cae cada cosa con la hoja real; los datos, el video y los estados de Reac
 maqueta. Confundir las dos cosas es dar por verificado lo que no se miró.
 
 **Vive en:** el harness es descartable (va al scratchpad de la sesión), la técnica no.
+
+---
+
+## Un arreglo puede diagnosticar bien y curar mal: la extensión que no se actualizaba
+
+Martín lo reportó **cuatro veces** en dos días: «recargué la extensión y no se actualiza».
+Las cuatro tenía razón, y la tercera vez se «arregló» de una forma que no podía funcionar.
+
+El diagnóstico, del 30/08, era correcto y está escrito en el commit `0e21b906`: **a una
+instalación DESCOMPRIMIDA Chrome no la actualiza nunca**; el botón ↻ de
+`chrome://extensions` vuelve a leer *la misma carpeta*, no baja nada de ningún lado.
+
+La cura fue hacer que la extensión se reiniciara sola con `chrome.runtime.reload()`. Y
+`chrome.runtime.reload()` **también vuelve a leer la misma carpeta**. Automatizar la
+relectura de una carpeta que nadie actualiza no cambia nada: se cambió un botón que no
+servía por un reintento automático que tampoco, y encima silencioso — su guarda de «un
+intento por versión de destino» hace que después del primer intento fallido no vuelva a
+pasar nada nunca.
+
+**La regla: cuando el diagnóstico es «el origen está viejo», la cura tiene que tocar el
+ORIGEN.** Releer más veces, o releer automáticamente, es hacer más rápido lo que ya no
+servía. Antes de dar por cerrado un arreglo, preguntá qué cambió *del lado del dato*.
+
+### Y la carpeta se LEE del perfil de Chrome, no se supone
+
+Medido el 31/08 con un script sobre `%LOCALAPPDATA%/Google/Chrome/User Data/*/Secure
+Preferences`, buscando las extensiones con `location: 4` (descomprimida):
+
+    repo:                      0.17.0
+    carpeta que Chrome carga:  0.16.0  →  C:\Users\marti\OneDrive\Escritorio\mako-puente
+    puente vivo:               0.16.0
+
+Chrome no cargaba la carpeta del repo: cargaba **una copia en el Escritorio**, congelada el
+30/08 a las 21:12. Es la segunda vez que esa copia produce horas de diagnóstico equivocado
+— la primera está anotada más arriba, con la misma conclusión: *un artefacto que se
+distribuye copiado se desincroniza el mismo día*.
+
+El perfil también trae `manifest.update_url`, que separa «viene de la tienda» (la actualiza
+Chrome) de «descomprimida» (no la actualiza nadie). Son dos mundos distintos y desde la
+pantalla se ven iguales.
+
+**Vive en:** el script es descartable; lo que queda es el método — `location: 4` + `path` +
+leer el `manifest.json` de esa carpeta.
+
+## Un aviso que vive lejos de donde se paga la consecuencia es un aviso que no existe
+
+El aviso «tu extensión quedó vieja», con el número instalado, el actual y el link al zip,
+**ya existía y era correcto**. Vivía en `PuentePanel` — la pantalla de *conectar el
+puente*—, y la falla ocurre en el **wizard**, que es donde alguien pasa una hora generando.
+Martín estuvo con la 0.16.0 mientras producción servía la 0.17.0 y la única pantalla que se
+lo habría dicho era una que no estaba mirando.
+
+Corolario del texto: decía «descárgala, descomprímela sobre la misma carpeta y usa el botón
+de recargar». Correcto y **incompleto**: le faltaba la frase que costó cuatro rondas —
+*recargar sin reemplazar los archivos no hace nada*. Cuando un mecanismo se malinterpreta
+tres veces, el aviso tiene que negar explícitamente la interpretación equivocada, no sólo
+describir la correcta.
+
+**Vive en:** `app/video-generator/extension-instalada.tsx` (la pieza, usada por el panel y
+por el wizard).
+
+## Lo que el navegador aprende, si no se guarda, se vuelve a pedir
+
+Pregunta del dueño: *«¿por qué me pides constantemente generar imágenes o videos? ¿No te
+basta la data de todas las veces que lo hemos generado?»*. No bastaba, y era un defecto.
+
+El puente funciona **copiando** el pedido que hace la propia página de Flow. Esa copia vivía
+en dos lugares y los dos son del navegador: la memoria de la pestaña (muere con el F5) y
+`chrome.storage.local` (se va con el perfil). Del lado del servidor no quedaba nada — así
+que cada olvido del navegador reactivaba **cuatro mensajes distintos** pidiendo generar algo
+a mano, sobre cosas que el cliente ya había hecho decenas de veces.
+
+Lo caro no es la molestia: es que el producto le pide al cliente que repita trabajo para
+recuperar un dato que nosotros teníamos y tiramos.
+
+La lección ya estaba aplicada **a un solo dato** —el `mediaId` de la cara, con su comentario
+diciendo «un dato que se descubre una vez y no cambia no puede depender de que una pestaña
+siga abierta»— y no a lo que lo produce. Ahora el latido manda las plantillas (sólo cuando
+cambian, por firma) y el servidor devuelve las que a ese navegador le faltan.
+
+⚠️ **El saneo va DONDE SE ESCRIBE, aunque la extensión ya sanee.** No es desconfianza del
+código de al lado: el que guarda es el único que puede garantizar qué quedó guardado, y las
+extensiones viejas —de las que siempre hay— mandan lo que mandaba su versión.
+
+**Vive en:** `lib/flow-plantillas.ts`, `app/api/flow/puente/route.ts`, `extension/background.js`.
