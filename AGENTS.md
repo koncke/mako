@@ -428,6 +428,39 @@ hacía lo contrario —ante `{tipo:'escala', opciones:[fechas]}` se quedaba con 
 tiraba las fechas— y esas respuestas no quedaban en ningún lado: ni en la base, ni en la
 pantalla, ni en el log.
 
+# Escribir la salida no es ofrecerla: después de escribirla, preguntá QUIÉN LA LLAMA
+
+Cuatro veces en un mismo día, en el mismo archivo, con cuatro formas distintas y
+el mismo resultado: código correcto, compilando, con tests en verde, que **no se
+ejecuta nunca**.
+
+| Qué se escribió | Por qué no hacía nada |
+|---|---|
+| `sub: 'Se filma en 7 tomas de 8 segundos'` | el render pasa `titulo={p.titulo}` y jamás menciona `p.sub` |
+| `accion` y `secundaria` del estado a ciegas | la pantalla dibujaba el texto y ningún botón |
+| una etiqueta sacada de `txt.accion` | el `onClick` de al lado llamaba siempre a otra cosa — decía «Revisar el puente» y gastaba 15 créditos |
+| una cura que borra un error obsoleto | vivía en la action que el sondeo llama, y el sondeo se apagaba con `if (!v.error)` — **la puerta que la cura tenía que abrir** |
+
+Ninguna da error. TypeScript acepta un campo del tipo de retorno que el
+consumidor no destructura, una constante exportada que nadie importa, y una
+función a la que no llega ningún call site. Los tests también: prueban que la
+salida se produzca, no que alguien la pida.
+
+**La regla: al agregar un campo, una acción o un arreglo, el trabajo no termina
+al escribirlo — termina cuando comprobaste el CALL SITE.** Tres preguntas, y son
+treinta segundos:
+
+1. `grep` del nombre. Si aparece una sola vez, es la declaración: no lo lee nadie.
+2. ¿La condición que activa a mi arreglo puede ser falsa **por culpa de lo que el
+   arreglo viene a arreglar**? Ése es el caso más caro, porque parece desplegado.
+3. Si es texto que alguien tiene que ver: **miralo en la pantalla**, no en el
+   código. Un banco de pruebas donde vos escribiste el texto a mano confirma tu
+   modelo mental, no la pantalla — eso también pasó ese día.
+
+⚠️ **Y dos campos para el mismo lugar es cómo se muere uno de los dos.** `sub` y
+`titulo` apuntaban al mismo renglón; el render eligió uno y el otro quedó vivo en
+el tipo, aceptando asignaciones, para siempre.
+
 # Un `console.warn` no es un control, y un «no» tiene que sobrevivir al fallback
 
 Dos mitades del mismo error, medidas el 12/8/2026 sobre cinco proyectos que el Perro

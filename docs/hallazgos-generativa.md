@@ -2932,3 +2932,72 @@ código de al lado: el que guarda es el único que puede garantizar qué quedó 
 extensiones viejas —de las que siempre hay— mandan lo que mandaba su versión.
 
 **Vive en:** `lib/flow-plantillas.ts`, `app/api/flow/puente/route.ts`, `extension/background.js`.
+
+
+---
+
+## El contrato del estado de un video: el campo se llama `media`
+
+Medido el 31/08/2026, leyendo el pedido que hace la propia página de Flow:
+
+```
+POST https://aisandbox-pa.googleapis.com/v1/video:batchCheckAsyncVideoGenerationStatus
+{"media":[{"name":"<mediaId>","projectId":"<projectId>"}]}
+```
+
+**`operations` no existe.** Durante todo ese día se mandó
+`{"operations":[{"operation":{"name":…}}]}`, que salió del contrato de FlowKit —la
+doc de un tercero—. El `path` de ese contrato resultó correcto y el CUERPO no, que
+es el modo de falla más caro: el endpoint responde, así que parece un problema de
+datos y no de forma.
+
+`fundir()` agregaba nuestra clave **al lado** de la de Flow, así que salía un
+pedido con `media` (el de Flow, apuntando a otro video) y `operations` (el
+nuestro, inexistente). «Request contains an invalid argument» era literal.
+
+**Vive en:** `parchesEstadoClip` en `lib/flow-protocolo.ts`, con su test en
+`tests/flow-estado-clip.test.ts` — que ahora corre contra la plantilla MEDIDA. El
+mismo test escrito sobre la forma inventada pasaba en verde mientras producción
+devolvía 400.
+
+## Tres hipótesis razonadas, ninguna correcta, y lo que sí lo resolvió
+
+Vale anotarlo porque el error no fue de razonamiento: las tres eran defendibles y
+dos eran ciertas *sobre otra cosa*.
+
+1. **«el cuerpo pisa el array de Flow»** — cierto (`fundir` reemplaza arrays) y no
+   era la causa: el pedido salió por parches y dio el mismo 400.
+2. **«la plantilla quedó sin cuerpo»** — cierto para otras clases, no para ésta.
+3. **«falta el `clientContext`»** — **falso**, y duró un commit. El cuerpo medido
+   no lo lleva, así que agregarlo era el antipatrón que el espejo existe para
+   evitar: nuestro dato inventado ganándole al copiado.
+
+Lo que contestó la pregunta no fue pensar mejor: fue **hacer que la plantilla real
+llegara al servidor y leerla**. Y esa instrumentación —el espía reportando el
+respaldo, sin cortar el cuerpo de esa clase, y las plantillas persistidas— se
+había construido dos commits antes **para otra cosa**.
+
+**La regla: cuando dos hipótesis razonables se turnan sin cerrar, dejá de razonar
+y andá a buscar el dato.** El costo de instrumentar se paga con la primera
+hipótesis que no hay que probar. Y el olfato: si cada arreglo produce el MISMO
+error idéntico, no estás cerca — estás mirando la variable equivocada.
+
+## Una falla de la CONSULTA no puede matar lo consultado
+
+Al hacer visible el fallo se agregó una rama que, si la causa era del cliente
+—sesión, créditos, puente—, escribía un `error` **terminal** sobre la toma. Es la
+regla de la casa aplicada al revés, y en la misma función que la aplica bien dos
+líneas más abajo: *no poder preguntar por algo no lo vuelve falso*.
+
+El puente se queda mudo por cosas que duran segundos —recargar la extensión deja
+huérfanos los content scripts de las pestañas abiertas—, y nada de eso le pasa al
+video, que se genera del lado de Google. El daño es doble y el segundo es plata:
+un `error` apaga el sondeo y la pantalla ofrece volver a filmar, o sea pagar un
+segundo clip por uno que ya existe.
+
+Y el síntoma es inconfundible una vez que se sabe: **la pantalla afirmaba «La toma
+1 no salió» mientras el popup de la extensión, a diez centímetros, decía «✓
+Conectado a MaKo · ✓ Sesión de Flow detectada».** Cuando dos partes de la misma
+app se contradicen a la vista, una está recordando en vez de leer.
+
+**Vive en:** `estadoTomaAction` en `app/video-generator/video-action.ts`.
