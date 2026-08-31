@@ -33,7 +33,7 @@
 // «la pantalla cree que voy en la 4 y el dato dice otra cosa».
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Link from '@/app/_ui/Link';
+import Link, { useRouter } from '@/app/_ui/Link';
 import { Button, Tag, Status, TextField, Tooltip, MONO } from '@/app/_ui';
 import { Icon } from '../_components/icons';
 import type { PlanGuardado, EstadoContextoVideo } from './video-datos';
@@ -731,6 +731,9 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
   const [desde, setDesde] = useState(() => Date.now());
   const archivo = useRef<HTMLInputElement>(null);
 
+  // ⚠️ `useRouter` de `app/_ui/Link`, NO el de next/navigation: preserva el `?ws=`
+  // de la pestaña, y perderlo te deja mirando otra cuenta.
+  const router = useRouter();
   const hayEjemplo = !!puesta?.ejemplo;
   const paso = pasoDe(item, forzado, hayEjemplo);
   const mapa = useMemo(() => mapaDe(item, hayEjemplo), [item, hayEjemplo]);
@@ -1093,8 +1096,25 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                       .then((x) => x.json())
                       .catch(() => null);
                     if (!r?.ok) return { ok: false as const, error: r?.error || 'No se pudo subir la foto.' };
+                    // ⚠️ LA RUTA CONTESTA `ok: true` AUNQUE HAYA SALTEADO EL ARCHIVO.
+                    // Si no era una imagen, o pesaba más de 15 MB, lo dice en
+                    // `warnings` y devuelve 200 igual. Ignorarlos convierte «tu foto
+                    // no entró» en «no pasó nada», que es como se reportó.
+                    const aviso = Array.isArray(r.warnings) ? r.warnings[0] : '';
+                    if (aviso) return { ok: false as const, error: String(aviso) };
+
                     // Con la foto ya guardada, sólo queda decir que ES la elegida.
-                    return elegirUltimaFotoAction(item.id);
+                    const el = await elegirUltimaFotoAction(item.id);
+                    // ⚠️ Y REFRESCAR LA LISTA, que es lo que faltaba.
+                    //
+                    // Las fotos las arma el SERVIDOR al renderizar la página, así que
+                    // después de subir una el `contexto` del cliente sigue siendo el
+                    // de hace un rato y la foto nueva no aparece. Medido: la foto
+                    // estaba en la base y en storage, y Martín reportó «intenté subir
+                    // una foto y no se subió». Escribir bien y no mostrarlo se ve
+                    // igual que no escribir.
+                    router.refresh();
+                    return el;
                   }, false)}
                 />
               </div>
