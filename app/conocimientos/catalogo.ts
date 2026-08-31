@@ -121,6 +121,8 @@ import { CURSO_GEMINI_NOTEBOOK_LM_Y_WORKSPACE } from './curso-gemini-notebook-lm
 import { CURSO_IMPORTADOR_PRO_LEGACY } from './curso-importador-pro-legacy';
 import { CURSO_MIDAS_CONCEPT } from './curso-midas-concept';
 import { CURSO_APRENDE_A_IMPORTAR_DE_CHINA_Y_CREA_UN_E_COMMERCE_DE_EXITO } from './curso-aprende-a-importar-de-china-y-crea-un-e-commerce-de-exito';
+import { CURSO_AILINK_VIP_AGUSTIN_MEDINA } from './curso-ailink-vip-agustin-medina';
+import { CURSO_ACADEMIA_ESTRATEGA } from './curso-academia-estratega';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio.datos';
 import { CURSO_BRANDING } from './BrandingMaKo.datos';
@@ -423,6 +425,14 @@ const CATEGORIA: Record<string, string> = {
   // plataforma. El comentario al lado es la categoría de origen.
   'aprende-a-importar-de-china-y-crea-un-e-commerce-de-exito': 'Ecommerce', // Ecommerce
 
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'ailink-vip-agustin-medina': 'Inteligencia Artificial', // IA
+
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'academia-estratega': 'Anuncios',        // ADS
+
 };
 
 /**
@@ -629,6 +639,14 @@ const PORTADA: Record<string, string> = {
   // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
   // pero la ficha se había emitido antes de que existiera.
   'aprende-a-importar-de-china-y-crea-un-e-commerce-de-exito': '/cono-portadas/aprende-a-importar-de-china-y-crea-un-e-commerce-de-exito.jpg',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'ailink-vip-agustin-medina': '/cono-portadas/ailink-vip-agustin-medina.jpg',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'academia-estratega': '/cono-portadas/academia-estratega.jpg',
 
 };
 
@@ -960,6 +978,14 @@ const RESUMEN: Record<string, string> = {
   // del catálogo de la plataforma.
   'aprende-a-importar-de-china-y-crea-un-e-commerce-de-exito': 'Programa práctico que enseña paso a paso cómo importar productos desde China de forma segura y legal, encontrar proveedores confiables, calcular costos reales.',
 
+  // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
+  // del catálogo de la plataforma.
+  'ailink-vip-agustin-medina': 'Formación práctica con +200 videos, plantillas, casos reales y comunidad, para dominar n8n, chatbots, RAG, scraping y agentes, y aprender a prospectar.',
+
+  // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
+  // del catálogo de la plataforma.
+  'academia-estratega': 'Programa que enseña a planificar, ejecutar y optimizar campañas de publicidad online, con módulos sobre creación y profesionalización de una agencia de marketing.',
+
 };
 
 // Sin acentos y en minúsculas, para que «Sofia» no se sume a un título que ya dice
@@ -1268,6 +1294,12 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_APRENDE_A_IMPORTAR_DE_CHINA_Y_CREA_UN_E_COMMERCE_DE_EXITO,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_AILINK_VIP_AGUSTIN_MEDINA,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_ACADEMIA_ESTRATEGA,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
