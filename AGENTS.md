@@ -2469,3 +2469,53 @@ Lo que sí sirve es la tabla de dos por dos. En el mismo caso, la `duracion` vac
 resultó un predictor real: **62,5% de fallo contra 2,0%**, 31 veces más riesgo. Eso alcanza
 para AVISAR antes de gastar la descarga, y no para descartar: de los seis que daban 404, uno
 traía su duración puesta.
+
+# Un hecho que sólo vive en la salida de un proceso no existe para el siguiente
+
+Cuando un paso descubre algo que cambia lo que otro paso debería hacer —«esta clase no
+tiene audio», «este archivo está corrupto», «este ítem no existe en el origen»—, imprimirlo
+no alcanza. El proceso siguiente no lee logs: lee el disco y la base. Si el hallazgo no
+queda escrito donde él mira, cada corrida vuelve a empezar sin saberlo.
+
+El 31/08/2026, `curso-audio.mjs` sabía perfectamente cuáles clases no tenían pista de
+audio y lo decía en pantalla; `curso-pipeline.mjs` las esperaba igual, porque medía
+`texto N/M` sobre el total del plan. N no llegaba a M nunca: el curso no decía «completo»
+ni una vez, quemaba su tope de reintentos en cada pasada, y figuraba incompleto para
+siempre. Se arregló con un archivo vacío al lado del audio.
+
+- **Lo que cambia la decisión de otro paso se persiste**, aunque sea un archivo vacío con
+  el nombre correcto. Es más barato que cualquier protocolo entre procesos.
+- **Y «resuelto» no es «hecho».** La diferencia entre «falta trabajo» y «no hay nada que
+  hacer» es la que decide si un proceso termina o gira para siempre; si el contador sólo
+  sabe contar lo hecho, no puede expresarla.
+
+# Dos números que se comparan tienen que medir lo mismo
+
+Un bucle que decide si hubo progreso con `ahora > antes` es correcto sólo mientras las dos
+puntas midan lo mismo. Cambiar una sola —lo natural al agregar un caso nuevo— no rompe
+nada visible: convierte la condición en verdadera para siempre, y el proceso se lee a sí
+mismo progresando sin fin.
+
+Pasó al hacer que las clases mudas contaran como resueltas: con `antes = textos()` y
+`ahora = resueltas()`, una sola clase muda deja `ahora > antes` verdadero en TODAS las
+rondas, el contador de rondas secas no sube nunca y el pipeline gira hasta el tope de 12
+horas. **Comparar dos cosas distintas es peor que no comparar**, y el arreglo habría hecho
+exactamente lo contrario de lo que buscaba.
+
+Al tocar un contador que participa de una comparación, buscá la OTRA punta antes de
+guardar. Y si las dos salen de funciones distintas, que se llamen parecido es la señal de
+que se van a desincronizar.
+
+# Antes de contar algo, decidí el universo — y decilo en el código
+
+Un censo sobre el conjunto equivocado no da un número grande: da un número **sin
+significado**, y a veces con cara de catástrofe. «Clases sin transcribir» sobre los 77
+cursos de la cola dio **1.911**; los 10 que ni se empezaron aportaban 1.897 por definición
+y ahogaban las 14 que había que mirar.
+
+- **El universo va escrito arriba del contador**, con el porqué. La próxima persona que lo
+  corra no tiene forma de saber que «todos» era la elección equivocada.
+- **Y un total que no se puede accionar hay que partirlo.** Las 14 eran 6 que no existen en
+  el origen, 5 caídas transitorias, 2 sin rastro y 1 sin pista de audio: cuatro respuestas
+  distintas. «Faltan 14» invita a seguir buscando; «7 no existen» dice que se escribe y se
+  para.

@@ -6448,3 +6448,75 @@ contenido que sí está:
 ⚠️ **Y el barrido de marcas huérfanas sobre los 77 cursos dio UNA sola** (`edita-como-un-pro`
 n=27). El sistema está sano: el problema no era masivo, era específico. Vale la pena decirlo
 porque la tentación después de encontrar un bug así es asumir que está en todos lados.
+
+## Una clase MUDA no es una clase que falta, y el pipeline la esperaba para siempre
+
+**Vive en:** `scripts/curso-audio.mjs`, `scripts/curso-pipeline.mjs`,
+`scripts/curso-censo-faltantes.mjs`
+
+`curso-audio.mjs` ya distinguía una clase sin pista de audio —una placa, un separador, una
+bienvenida sin voz— de una que falló, y lo decía en pantalla: *«Los N mudos NO se
+reintentan: no tienen audio y nunca lo van a tener»*. Pero lo sabía **sólo mientras
+corría**. Un hecho que vive únicamente en la salida de un proceso no existe para el
+proceso siguiente.
+
+El pipeline mide si un curso está listo con `texto N/M` sobre el total del plan, así que N
+no llegaba a M jamás: el curso no decía «completo» ni una vez, quemaba el tope de rondas
+secas en **cada** pasada, y figuraba incompleto para siempre. «AVATAR MASTERY» estuvo
+14/16 desde el día que se publicó, y una de esas dos son 10 segundos de video sin sonido.
+
+Ahora `curso-audio.mjs` deja un `.mudo` al lado del audio y el pipeline cuenta
+`resueltas = transcriptas + mudas`. Medido: AVATAR MASTERY pasa de 14/16 a **15/16**, que
+es la verdad — la otra es un 404 en el origen.
+
+⚠️ **Y `antes` tuvo que pasar a medir lo mismo que `ahora`.** Con `antes = textos()` y
+`ahora = resueltas()`, una sola clase muda hace que `ahora > antes` sea verdadero en TODAS
+las rondas: el contador de rondas secas no sube nunca y el pipeline gira hasta el tope de
+12 horas. **Comparar dos cosas distintas es peor que no comparar** — el arreglo habría
+hecho exactamente lo contrario de lo que buscaba, y en silencio.
+
+## Un censo sobre el universo equivocado no da un número grande: da uno sin significado
+
+El primer censo de «clases sin texto» barrió los 77 cursos de la lista y devolvió **1.911**.
+Los 10 que la cola todavía no procesó tienen CERO textos por definición, así que aportaban
+1.897 y ahogaban las 14 que importaban. Peor que inútil: tiene cara de catástrofe.
+
+Acotado a los 65 publicados, el número es 14 y **cada uno pide algo distinto**:
+
+| | |
+|---|---|
+| **6** | 404: el video no está en el origen. No vuelve |
+| **5** | 5xx: se cayó el server. Se reintenta |
+| **2** | sin rastro en los logs |
+| **1** | sin pista de audio: no es una pérdida, es material sin voz |
+
+Vive en `scripts/curso-censo-faltantes.mjs`, para no tener que volver a decidir el universo
+cada vez. **«Faltan 14 clases» invita a seguir buscando; «7 no existen» dice que hay que
+escribirlo y parar.**
+
+## Sobras de descarga con nombre completo: yt-dlp las reanuda para siempre
+
+**Vive en:** `scripts/curso-bajar.mjs`
+
+yt-dlp baja el video y el audio por separado y después los une. Si lo matan en el medio —o
+si un stream llega corrupto— quedan archivos con **nombre completo**
+(`…fhls-fastly_skyfire-466.mp4`), no un `.part`. En la corrida siguiente yt-dlp los ve,
+dice «has already been downloaded», y el merge muere con «error reading header». La clase
+no se baja nunca más y el curso se publica sin ella.
+
+«Curso de Trading ClutiFX» clase 12: 64 MB de stream de video con el header ilegible,
+intactos en disco desde el 28/08 y el merge fallando en cada pasada.
+
+Ahora, cuando una descarga falla, se le pregunta a **ffprobe si sus sobras se pueden LEER**
+—no si están, que es toda la diferencia: un stream a medias y uno completo pesan los dos
+algo plausible y tienen los dos su nombre final— y se tira lo que no abre.
+
+- **Los `.part` no se tocan.** Son el mecanismo de reanudación legítimo: un corte de red a
+  los 800 MB se retoma desde ahí, y borrarlos convertiría cada fallo transitorio en una
+  descarga entera de nuevo.
+- Verificado de punta a punta: tiró el stream de video roto, **dejó el de audio** (que sí
+  se leía), la corrida siguiente lo rebajó y unió, y el curso quedó 12/12 publicado.
+
+⚠️ **`unlinkSync` faltaba en el import y `node --check` pasó igual**: sólo mira sintaxis.
+El fallo habría salido en runtime, justo en el camino de error que casi nunca se ejecuta —
+o sea, meses después y sobre otro curso.
