@@ -48,6 +48,7 @@
 // sólo la hoja. Es el espejo llevado un paso más adentro.
 
 import { semillaDeToma } from './flow-clip-referencias';
+import { PROMPT_IMAGEN } from './prompts-imagen';
 
 export { semillaDeToma };
 
@@ -57,6 +58,15 @@ export const ASPECTO_VERTICAL = 'IMAGE_ASPECT_RATIO_PORTRAIT';
 export type PedidoImagenEscena = {
   /** La composición: dónde está, con qué luz, desde qué ángulo. Nunca la cara. */
   prompt: string;
+  /**
+   * El formato. Si tiene prompt PROPIO, ése manda y el de arriba no se usa.
+   *
+   * No es una preferencia: el prompt del formato no describe un lugar, describe
+   * cómo se FOTOGRAFÍA —exposición medida en la cara, ventanillas quemadas,
+   * profundidad de campo de teléfono— y eso es lo que un modelo de texto no
+   * puede escribir bien porque no vio la imagen que salió mal.
+   */
+  puestaId?: string;
   seed: number;
   /** El lote. Va uno por escena, como el `batchId` del clip. */
   batchId: string;
@@ -134,7 +144,18 @@ const REALISMO =
  * para saber qué se está pidiendo. Un prompt que sólo existe adentro del que lo
  * manda es un prompt que nadie puede revisar.
  */
-export function promptFinal(escena: string, opts: { conCara: boolean }): string {
+export function promptFinal(
+  escena: string,
+  opts: { conCara: boolean; puestaId?: string },
+): string {
+  // ⚠️ EL PROMPT DEL FORMATO GANA, ENTERO. No se le concatena nada: ya trae su
+  // propia identidad («mantén a la persona totalmente inalterada»), su propia luz
+  // y su propio negativo. Pegarle además el bloque genérico sería darle dos
+  // instrucciones para lo mismo, y el modelo elige — que es exactamente el modo
+  // de falla que este prompt vino a cerrar.
+  const propio = opts.puestaId ? PROMPT_IMAGEN[opts.puestaId] : undefined;
+  if (propio) return propio;
+
   return [escena.trim(), opts.conCara ? IDENTIDAD : '', LUZ, REALISMO]
     .filter(Boolean)
     .join('\n\n');
@@ -147,7 +168,7 @@ export function parchesImagenEscena(p: PedidoImagenEscena): Record<string, unkno
     // y el realismo los pone el código. Antes se mandaba `p.prompt` pelado —40 a
     // 70 palabras de composición y nada más— y el resultado era una persona
     // parecida a nadie, con otra ropa y con la luz que el modelo quisiera.
-    'requests.0.structuredPrompt': { parts: [{ text: promptFinal(p.prompt, { conCara: !!p.cara }) }] },
+    'requests.0.structuredPrompt': { parts: [{ text: promptFinal(p.prompt, { conCara: !!p.cara, puestaId: p.puestaId }) }] },
     // ⚠️ LA CARA, cuando la persona eligió una. MEDIDO: en el pedido real vive en
     // `requests[0].imageInputs[0].name`, al lado de un `imageInputType` que NO se
     // toca — por eso va por parche y no por cuerpo: `fundir` reemplazaría el array

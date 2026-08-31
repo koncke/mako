@@ -1035,6 +1035,11 @@ export async function generarImagenAction(
     // perdería el modelo y la cara. Se copia todo y se cambia sólo la hoja.
     parches: parchesImagenEscena({
       prompt: escena.prompt,
+      // ⚠️ El FORMATO decide el prompt cuando tiene uno probado. La escena que
+      // escribió el modelo sigue viajando —es el respaldo de los formatos que
+      // todavía no lo tienen— y su `lugar` sigue siendo lo que se lee en
+      // pantalla, así que no se pierde nada por mandar las dos cosas.
+      puestaId: item.plan.puestaId,
       seed: semillaDeEscena(planId, n, intento),
       batchId: randomUUID(),
       // La cara elegida, y SÓLO si las dos condiciones se cumplen: que ya esté

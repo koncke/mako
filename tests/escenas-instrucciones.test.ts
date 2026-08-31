@@ -20,6 +20,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { mencionaCara } from '../lib/escenas-core';
 import { promptFinal } from '../lib/flow-imagen';
+import { PROMPT_IMAGEN } from '../lib/prompts-imagen';
 
 const RAIZ = process.cwd();
 
@@ -128,4 +129,29 @@ test('⚠️ el bloque constante NO puede pasar por el guard de caras', () => {
     marcas.length > 0,
     'si esto deja de marcar, el guard cambió y hay que revisar dónde se concatena el método',
   );
+});
+
+test('el prompt del FORMATO gana entero, sin concatenarle el generico', () => {
+  // Trae su propia identidad, su propia luz y su propio negativo. Pegarle además
+  // el bloque genérico serían dos instrucciones para lo mismo, y el modelo elige
+  // — que es el modo de falla que este prompt vino a cerrar.
+  const p = promptFinal('lo que escribio el modelo', { conCara: true, puestaId: 'selfie-movimiento' });
+  assert.ok(p.startsWith('Mantén a la persona totalmente inalterada'));
+  assert.doesNotMatch(p, /lo que escribio el modelo/);
+  assert.doesNotMatch(p, /visible pores/, 'no se le concatena el bloque generico');
+  assert.match(p, /VENTANILLAS/, 'el prompt del formato viaja completo');
+});
+
+test('un formato SIN prompt propio cae al camino de antes', () => {
+  const p = promptFinal('A tidy office.', { conCara: true, puestaId: 'plano-secuencia' });
+  assert.ok(p.startsWith('A tidy office.'));
+  assert.match(p, /visible pores/);
+});
+
+test('⚠️ el prompt del formato tampoco puede pasar por el guard de caras', () => {
+  // Dice «mismo rostro», «mismo cabello», «misma sonrisa» — y tiene que decirlo:
+  // ahí esas palabras FIJAN a la persona de la foto en vez de inventar una. Por
+  // eso lo concatena el código y no lo escribe el modelo.
+  const marcas = mencionaCara(PROMPT_IMAGEN['selfie-movimiento']);
+  assert.ok(marcas.length > 0, 'si esto deja de marcar, revisar donde se concatena');
 });
