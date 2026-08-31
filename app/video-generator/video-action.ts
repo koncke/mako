@@ -363,6 +363,32 @@ export async function estadoTomaAction(
 
   const marca = marcas(item)[String(n)] ?? {};
   if (marca.url) return { ok: true, item, estado: { fase: 'listo', url: marca.url, mediaId: marca.mediaId ?? '' } };
+
+  // ⚠️ UN ERROR DE PUENTE SOBRE UNA TOMA QUE SIGUE VIVA SE BORRA.
+  //
+  // El puente es la extensión del navegador, y se queda muda por cosas que duran
+  // segundos: una recarga de la extensión deja huérfanos los scripts de las
+  // pestañas abiertas, un F5 en Flow hace lo mismo. Nada de eso le pasa a la toma,
+  // que se está generando del lado de Google.
+  //
+  // Sin esto, la pantalla le mostraba al dueño «La toma 1 no salió» mientras su
+  // propio popup decía «✓ Conectado a MaKo · ✓ Sesión de Flow detectada». Un
+  // hecho de hace dos minutos presentado como el estado de ahora, que es
+  // exactamente lo que la regla de la casa prohíbe: el estado se lee vivo, no se
+  // recuerda.
+  //
+  // Se borra sólo si hay `operacion`: eso es lo que prueba que Google aceptó el
+  // pedido. Sin ella no hay nada vivo que rescatar y el error es el estado real.
+  if (marca.error && marca.errorCausa === 'puente' && marca.operacion) {
+    const puente = await estadoPuente().catch(() => null);
+    if (puente?.estado === 'listo') {
+      item = await guardarMarca(item, n, {
+        error: undefined, errorCausa: undefined, errorCrudo: undefined, errorAt: undefined,
+      });
+      return { ok: true, item, estado: { fase: 'generando', operacion: String(marca.operacion) } };
+    }
+  }
+
   if (marca.error) return { ok: true, item, estado: { fase: 'error', error: marca.error } };
   if (!marca.trabajoId && !marca.operacion) return { ok: true, item, estado: { fase: 'sin_empezar' } };
 
@@ -465,16 +491,27 @@ export async function estadoTomaAction(
   if (fallidas.length >= 2) {
     const crudo = str(fallidas[0]?.error);
     const causa = causaDeMotivo(str(fallidas[0]?.motivo)) ?? causaFlow(crudo);
-    // Si Google señala a la sesión o a los créditos, eso GANA: son cosas del
-    // cliente, con su pantalla y su arreglo. `ciego` es para cuando el rechazo es
-    // del pedido que sale de acá, que es lo que no se estaba diciendo.
-    const suyo = causa === 'sesion' || causa === 'sin_creditos' || causa === 'puente';
-    if (suyo) {
-      const fallo = falloGuardable(crudo, `la toma ${n}`, str(fallidas[0]?.motivo));
-      item = await guardarMarca(item, n, fallo);
-      return { ok: true, item, estado: { fase: 'error', error: fallo.error } };
-    }
-    const texto = textoFlow('ciego', `la toma ${n}`).detalle;
+
+    // ⚠️ NINGUNA FALLA DE LA CONSULTA MATA LA TOMA. NINGUNA.
+    //
+    // Acá había una rama que, si la causa era del cliente —sesión, créditos,
+    // puente—, escribía un `error` terminal sobre la toma. Estaba mal, y era la
+    // misma regla que esta función aplica bien dos líneas más abajo: no poder
+    // PREGUNTAR por algo no lo vuelve falso. La toma la aceptó Google y la está
+    // haciendo; que nuestra extensión se haya quedado muda medio minuto no le pasa
+    // a ella.
+    //
+    // El daño era doble y el segundo es plata: `error` apaga el sondeo y la
+    // pantalla ofrece volver a filmar, o sea pagar un segundo clip por uno que ya
+    // existe. Medido: le pasó al dueño con el puente sano, mirando «La toma 1 no
+    // salió» al lado de un popup que decía «✓ Conectado».
+    //
+    // La causa NO se tira: decide QUÉ se lee. Si la sesión de Google venció, el
+    // texto lo dice y manda a arreglarlo — pero como un estado a ciegas, que se
+    // cura solo, y no como una toma perdida.
+    const texto = causa === 'ciego' || causa === 'nuestra' || causa === 'desconocida'
+      ? textoFlow('ciego', `la toma ${n}`).detalle
+      : textoFlow(causa, `la toma ${n}`).detalle;
     if (!marca.ciego) {
       item = await guardarMarca(item, n, {
         ciego: { desde: new Date().toISOString(), error: texto, crudo: crudo.slice(0, 2000) },

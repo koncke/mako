@@ -1271,7 +1271,20 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
             )}
           </div>
         ),
-        boton: enCurso ? undefined : txt ? txt.accion : `Filmar la toma ${n}`,
+        // ⚠️ LA ETIQUETA Y LA ACCIÓN SALÍAN DE DOS LUGARES DISTINTOS.
+        //
+        // El rótulo venía de `txt.accion` —el texto de la causa— y el `onClick`
+        // llamaba SIEMPRE a `generarTomaAction`. Con la causa `puente` eso daba un
+        // botón que decía «Revisar el puente» y gastaba ~15 créditos: una etiqueta
+        // que promete un diagnóstico sobre un control que cobra. El dueño lo
+        // reportó como «ese botón no hace nada», que es la lectura correcta desde
+        // afuera — lo que hacía no se parecía en nada a lo que decía.
+        //
+        // Un botón se rotula por su EFECTO. Acá el efecto es uno solo: volver a
+        // filmar. Y cuando filmar no es lo que conviene —sin créditos, filtro de
+        // contenido— eso lo dice el detalle de arriba, que para eso está escrito
+        // por causa.
+        boton: enCurso ? undefined : txt ? `Volver a filmar la toma ${n}` : `Filmar la toma ${n}`,
         consecuencia: enCurso ? undefined : costoTexto,
         cargandoBoton: ocupado === 'filmar',
         onSiguiente: enCurso ? undefined : () => void correr('filmar', () => generarTomaAction(item.id, n), false),
