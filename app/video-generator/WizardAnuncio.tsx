@@ -551,18 +551,35 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
   // El alto SÍ se mide, y ahí no hay circularidad: el riel es `fixed`, así que
   // moverlo no mueve el contenido. Converge en una pasada.
   const [arriba, setArriba] = useState(116);
+  const botones = useRef<HTMLDivElement>(null);
+  // ⚠️ EL TOPE. El dueño: «jamás el preview de ejemplo tiene que sobrepasar al
+  // botón de siguiente». El alto del ejemplo sale de `62vh`, o sea de la VENTANA:
+  // no sabe nada de dónde termina esta pantalla, así que en cuanto la cabecera
+  // crece un renglón el ejemplo se cuelga por debajo de los botones y queda
+  // flotando sobre nada. `0` = todavía no se midió, y ahí no se topea.
+  const [tope, setTope] = useState(0);
   useLayoutEffect(() => {
     const el = lienzo.current;
     const hijo = el?.firstElementChild as HTMLElement | null;
     const hueco = slotRiel?.current;
     if (!hijo || !hueco) return;
     const medir = () => {
-      const d = Math.round(hijo.getBoundingClientRect().top - hueco.getBoundingClientRect().top);
+      const arribaHueco = hueco.getBoundingClientRect().top;
+      const d = Math.round(hijo.getBoundingClientRect().top - arribaHueco);
       if (Math.abs(d) > 2) setArriba((prev) => Math.min(320, Math.max(0, prev + d)));
+
+      // Desde donde arranca el ejemplo hasta donde arrancan los botones, menos
+      // el aire. Se mide contra la fila de botones y no contra el borde de la
+      // ventana: lo que no puede taparse es el camino de salida, no el pie.
+      const b = botones.current?.getBoundingClientRect().top;
+      if (b == null) return;
+      const cabe = Math.round(b - arribaHueco - 20);
+      if (cabe > 80) setTope((prev) => (Math.abs(prev - cabe) > 4 ? cabe : prev));
     };
     medir();
     const obs = new ResizeObserver(medir);
     obs.observe(hijo);
+    if (botones.current) obs.observe(botones.current);
     return () => obs.disconnect();
   }, [paso, children, slotRiel]);
 
@@ -579,6 +596,12 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
       ['--riel-calle' as string]: `${CALLE}px`,
       ['--riel-contenido' as string]: `${ancho}px`,
       ['--riel-arriba' as string]: `${arriba}px`,
+      ...(tope > 0 ? { ['--riel-tope' as string]: `${tope}px` } : {}),
+      // 1 desplegado, 0 cerrado. Sólo lo miran los botones de abajo, y por eso
+      // volver a tenerlo NO trae de vuelta el salto de la pantalla entera que
+      // esto ya causó una vez: el ancho del riel sigue fijo, así que el texto no
+      // se mueve. Lo único que se corre es el par «Continuar / Volver».
+      ['--riel-cuenta' as string]: plegado ? '0' : '1',
     } as React.CSSProperties)
     : undefined;
 
@@ -686,7 +709,20 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
       )}
 
       {boton && (
-        <div style={{ textAlign: 'center' }}>
+        // ⚠️ LOS BOTONES SE CENTRAN CONTRA EL GRUPO, NO CONTRA LA COLUMNA. El
+        // dueño: «si está DESPLEGADO el preview, sí debe contar como elemento, y
+        // en dicho caso los botones de continuar y volver se deben CENTRAR».
+        //
+        // Y es la lectura correcta: desplegado, lo que la persona VE es una
+        // pantalla de dos columnas, y el eje de una pantalla de dos columnas pasa
+        // por el medio de las dos. Cerrado el ejemplo es un control al costado y
+        // el eje vuelve al texto. Media calle más medio riel es exactamente la
+        // diferencia entre los dos ejes.
+        <div ref={botones} style={{
+          textAlign: 'center',
+          transform: 'translateX(calc(var(--riel-cuenta, 0) * (var(--riel-calle, 0px) + var(--riel-ancho, 0px)) / 2))',
+          transition: 'transform .18s cubic-bezier(.16,.84,.34,1)',
+        }}>
           {/* «Volver» AL LADO del principal y en peso bajo. Antes vivía al pie de
               la pantalla, lejos de lo que sigue: el par de salidas de un paso se
               lee junto o no se lee. */}
@@ -816,7 +852,14 @@ function HuecoDelEjemplo({ puesta, abierta, slot }: {
   return (
     <aside
       className={`mk-riel${abierta ? '' : ' mk-riel--plegado'}`}
-      style={{ ['--mk-riel-alto' as string]: abierta ? EJEMPLO : EJEMPLO_CERRADO }}
+      // `min()` con el tope medido: gana el más chico de los dos. Sin el tope
+      // —el primer cuadro, antes de medir— vale sólo `EJEMPLO`, que es lo que
+      // valía antes.
+      style={{
+        ['--mk-riel-alto' as string]: abierta
+          ? `min(${EJEMPLO}, var(--riel-tope, 100vh))`
+          : EJEMPLO_CERRADO,
+      }}
     >
       <p className="mk-riel__para">Así se verá tu anuncio</p>
       {/* El hueco: mismo alto y misma proporción que el video, sin dibujar nada.
