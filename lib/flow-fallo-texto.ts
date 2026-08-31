@@ -57,6 +57,15 @@ export type CausaFlow =
   /** El filtro de contenido de Google rechazó el prompt. Reintentar no sirve. */
   | 'contenido'
   /**
+   * El filtro de PERSONAS PÚBLICAS de Google rechazó la CARA. No es el prompt.
+   *
+   * ⚠️ Causa propia y no `contenido`, aunque las dos sean «un filtro de Google
+   * dijo que no»: la ACCIÓN es distinta. `contenido` manda a reescribir el
+   * escenario, y acá reescribirlo no cambia nada — lo que hay que cambiar es la
+   * foto. Un mensaje que manda a arreglar lo que está bien es peor que ninguno.
+   */
+  | 'persona_publica'
+  /**
    * Google ACEPTÓ el trabajo y lo está haciendo; lo que falla es preguntarle
    * cómo va.
    *
@@ -114,6 +123,7 @@ const CAUSA_DE_MOTIVO: Record<string, CausaFlow> = {
   sin_pestana: 'puente',
   captcha: 'puente',
   contenido: 'contenido',
+  persona_publica: 'persona_publica',
   cuota: 'sin_creditos',
   // El pedido nombra un modelo que esta cuenta no tiene: lo armamos nosotros.
   modelo: 'nuestra',
@@ -245,6 +255,15 @@ export function textoFlow(
         titulo: `Google no aceptó el prompt de ${que}`,
         detalle: con('El filtro de contenido de Google rechazó cómo está escrito el escenario. No se gastaron créditos, y volver a intentarlo con el mismo texto va a dar lo mismo: hay que reescribirlo.'),
         accion: 'Decir qué cambiar',
+      };
+
+    case 'persona_publica':
+      return {
+        titulo: `Google no quiso animar esta cara en ${que}`,
+        detalle: con(
+          'Su filtro de personas públicas cree que la cara se parece a la de alguien famoso y se niega a generarla. No es un problema tuyo ni de MaKo, y reintentar con la misma foto va a dar lo mismo. Lo que suele destrabarlo es elegir otra foto tuya: otro ángulo, otra luz, o una donde no mires de frente a la cámara.',
+        ),
+        accion: 'Elegir otra foto',
       };
 
     case 'puente':

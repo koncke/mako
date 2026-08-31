@@ -566,6 +566,41 @@ export async function estadoTomaAction(
     // ahí se saca la URL.
     const texto = JSON.stringify(c.resultado ?? '');
     if (!texto.includes(operacion)) continue;
+
+    // ── ⚠️ GOOGLE PUEDE HABERLO RECHAZADO, Y ESO NO ES «TODAVÍA NO» ────────
+    //
+    // Medido el 31/08/2026 sobre una toma que estuvo SEIS MINUTOS «filmando»:
+    //
+    //   mediaMetadata.mediaStatus = {
+    //     mediaGenerationStatus: 'MEDIA_GENERATION_STATUS_FAILED',
+    //     failureReasons: ['PROMINENT_PERSON'],
+    //     error: { code: 3, message: 'PUBLIC_ERROR_PROMINENT_PEOPLE_FILTER_FAILED' },
+    //   }
+    //
+    // Google decidió que la cara se parece a la de una persona pública y se negó
+    // a animarla. Ese video NO va a llegar nunca. Y este bucle sólo buscaba
+    // `SUCCESSFUL`: cualquier otra cosa caía al `continue` de abajo, así que la
+    // pantalla esperaba para siempre un resultado que ya tenía respuesta.
+    //
+    // Es exactamente la regla que este repo ya tiene escrita —«no pasó nada» y
+    // «pasó y se murió» se ven iguales si mirás sólo el resultado— y la razón por
+    // la que un rechazo TIENE que dejar rastro: sin esto, «Google lo rechazó» y
+    // «Google está tardando» son la misma pantalla.
+    if (/MEDIA_GENERATION_STATUS_FAILED/.test(texto)) {
+      const porFamoso = /PROMINENT_PERSON|PROMINENT_PEOPLE/i.test(texto);
+      const causa: CausaFlow = porFamoso ? 'persona_publica' : 'contenido';
+      const t = textoFlow(porFamoso ? 'persona_publica' : 'contenido', `la toma ${n}`);
+      item = await guardarMarca(item, n, {
+        error: t.detalle,
+        errorCausa: causa,
+        // El crudo se guarda para poder diagnosticar sin pedir otra captura: el
+        // motivo real de Google vive ahí y no en nuestra traducción.
+        errorCrudo: texto.slice(0, 1200),
+        errorAt: new Date().toISOString(),
+        ciego: undefined,
+      });
+      return { ok: true, item, estado: { fase: 'error', error: t.detalle } };
+    }
     // Los nombres salen del ESQUEMA del bundle de Flow, no de suponer: la respuesta
     // de estado declara `outputUri` y `encodedVideo`, y el medio terminado trae
     // `fifeUrl`. Se buscan todos, en cualquier profundidad.
