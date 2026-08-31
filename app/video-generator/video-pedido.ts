@@ -13,6 +13,7 @@
 import type { PlanVideo } from '@/lib/video-planner';
 import type { Escena } from '@/lib/escenas-core';
 import { CATALOGO_PUESTAS, puestaPorId, puestasOfrecidas, type Puesta } from '@/lib/puestas-data';
+import { promptDeClip } from '@/lib/prompts-video';
 
 export { CATALOGO_PUESTAS, puestaPorId, puestasOfrecidas };
 
@@ -166,7 +167,11 @@ export function planATexto(plan: PlanVideo, nombrePuesta: string, escenas: Escen
       escenaDe(escenas, c.n),
       '',
       'PROMPT:',
-      c.prompt,
+      // El MISMO que se le manda a Flow. Resolverlo aparte acá haría que la
+      // pantalla mostrara un prompt y el modelo recibiera otro — y el día que un
+      // clip salga raro, el texto que se mira para entender por qué sería el
+      // equivocado.
+      promptDeClip(plan.puestaId, c),
       '',
     );
   });

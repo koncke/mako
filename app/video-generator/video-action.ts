@@ -31,6 +31,7 @@ import {
   cuerpoClipReferencias, semillaDeToma, mediaIdDeReferencia, KEY_CARA_FLOW,
 } from '@/lib/flow-clip-referencias';
 import { parchesImagenEscena, imagenesDeRespuesta, semillaDeEscena } from '@/lib/flow-imagen';
+import { promptDeClip } from '@/lib/prompts-video';
 import { escribirEscenas, reescribirEscena } from '@/lib/escenas';
 import { puestaPorId } from '@/lib/puestas-data';
 import { generarPlanAction } from './actions';
@@ -525,7 +526,11 @@ export async function generarTomaAction(
   const trabajoId = await encolar('generar_clip', {
     path: ENDPOINTS.clipDesdeReferencias,
     body: cuerpoClipReferencias(
-      { prompt: clip.prompt, mediaId, seed: semillaDeToma(planId, n) },
+      // ⚠️ EL PROMPT DEL FORMATO GANA sobre el que escribió el modelo. El de
+      // Car Talks lo validó Martín contra Flow; el del modelo describía la toma
+      // desde cero y en inglés, compitiendo con la imagen de referencia que ya
+      // tiene el auto, la luz y la cara resueltos.
+      { prompt: promptDeClip(item.plan.puestaId, clip), mediaId, seed: semillaDeToma(planId, n) },
       randomUUID(),
     ),
   });
