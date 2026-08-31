@@ -1224,7 +1224,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                       : <div style={{ color: 'var(--faint)' }}><Icon name="perfil" size={44} /></div>}
                   </Vertical>
                 </FotoGrande>
-                <Pie>Tu foto</Pie>
+
               </div>
               <div>
                 <Vertical ancho={`${CAJA}px`}>
@@ -1241,16 +1241,12 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                         aria-label="Regenerar esta imagen"
                       >
                         <span className="mk-regen__velo">
-                          <Icon name="regenerar" size={17} />
-                          Regenerar
+                          <span className="mk-regen__texto">
+                            <Icon name="regenerar" size={15} />
+                            Regenerar
+                          </span>
                         </span>
                       </button>
-                      {/* Siempre visible: un control que sólo aparece con el
-                          cursor encima no existe en una tableta, y tampoco para
-                          quien no sabe que hay algo que tocar. */}
-                      <span className="mk-regen__pin" aria-hidden="true">
-                        <Icon name="regenerar" size={15} />
-                      </span>
                     </>
                   )}
 
@@ -1266,15 +1262,26 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                       </button>
                       {!pidiendo ? (
                         <>
+                          {/* El mismo par que abajo: uno pesa y el otro no. Y
+                              «Decir qué cambiar» va DEBAJO, que es lo que dice
+                              cuál de los dos es el camino. */}
                           <Button
-                            variant="mako"
-                            loading={ocupado === 'imagen'}
-                            onClick={() => void correr('imagen', () => generarImagenAction(item.id, paso.n), false)}
+                            variant="primary"
+                            size="lg"
                             icon={<Icon name="regenerar" size={15} />}
+                            onClick={() => {
+                              // ⚠️ SE CIERRA ANTES DE ARRANCAR. Dejar el panel
+                              // abierto sobre una imagen que ya se está rehaciendo
+                              // deja dos botones apretables encima de algo que no
+                              // se puede cancelar — y esconde la niebla, que es la
+                              // única señal de que empezó.
+                              setRehacer(false);
+                              void correr('imagen', () => generarImagenAction(item.id, paso.n), false);
+                            }}
                           >
                             Regenerar
                           </Button>
-                          <Button variant="secondary" onClick={() => setPidiendo(true)}>
+                          <Button variant="tertiary" onClick={() => setPidiendo(true)}>
                             Decir qué cambiar
                           </Button>
                         </>
@@ -1303,10 +1310,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                     </div>
                   )}
                 </Vertical>
-                {/* ⚠️ Las dos ramas de este pie decían lo MISMO. Un condicional que
-                    no condiciona nada es una decisión que alguien empezó y no
-                    terminó, y se lee como si dijera algo. */}
-                <Pie>Lo que salió</Pie>
+
               </div>
             </div>
 

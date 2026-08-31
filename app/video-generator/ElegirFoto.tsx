@@ -117,12 +117,12 @@ export function FotoGrande({ url, puedeCambiar, onAbrir, children }: {
 }) {
   if (!puedeCambiar) return <>{children}</>;
   return (
-    <button type="button" className="mk-fotoelegir" onClick={onAbrir} aria-label="Cambiar la foto">
+    <button type="button" className="mk-fotoelegir" onClick={onAbrir} aria-label="Cambiar foto">
       {children}
       <span className="mk-fotoelegir__velo">
         <span className="mk-fotoelegir__texto">
           <Icon name="perfil" size={15} />
-          Cambiar la foto
+          Cambiar foto
         </span>
       </span>
     </button>

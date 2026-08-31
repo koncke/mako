@@ -1879,12 +1879,14 @@
   .mk-cargando-foto::after { animation: none; border-top-color: var(--border-strong) }
 }
 
-/* ── REGENERAR LA IMAGEN — el medio ES el control ────────────────────────────
-   El dueño lo pidió así, y es el mismo argumento que ya rige la foto de al lado:
-   una acción que se usa poco no merece un botón permanente en la pantalla, pero
-   TAMPOCO puede depender sólo del hover — en una tableta no hay cursor. Van las
-   dos cosas: el velo que aparece al pasar por encima, y un pin chico siempre
-   visible que dice que ahí hay algo. */
+/* ── REGENERAR LA IMAGEN — el GEMELO de «Cambiar foto» ───────────────────────
+   ⚠️ Las dos cajas de esta pantalla hacen lo MISMO —se tocan para rehacer lo que
+   muestran— así que se comportan igual. El dueño lo pidió textual: «de la misma
+   manera que "Cambiar la foto" está abajo del todo, con el ícono y no todo se
+   pone negro, sino solo una parte».
+   Y tenía razón de fondo: un velo parejo tapa la cara entera para decir «esto se
+   puede cambiar», o sea que esconde justo lo que hay que mirar para decidir si
+   hace falta cambiarlo. El degradado desde abajo dice lo mismo sin costo. */
 .mk-regen__zona {
   position: absolute;
   inset: 0;
@@ -1897,37 +1899,28 @@
   position: absolute;
   inset: 0;
   display: grid;
-  place-items: center;
-  gap: 7px;
-  grid-auto-flow: row;
-  background: rgba(0, 0, 0, .5);
-  color: #fff;
-  font-size: var(--fs-sm);
-  font-weight: 650;
+  place-items: end center;
+  padding-bottom: 16px;
+  background: linear-gradient(to top, rgba(0,0,0,.72), transparent 45%);
   opacity: 0;
-  transition: opacity .14s ease;
+  transition: opacity .16s ease;
 }
 .mk-regen__zona:hover .mk-regen__velo,
 .mk-regen__zona:focus-visible .mk-regen__velo { opacity: 1; }
 .mk-regen__zona:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
-.mk-regen__pin {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, .55);
+.mk-regen__texto {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--fs-sm);
+  font-weight: 650;
   color: #fff;
-  pointer-events: none;
 }
 
-/* El panel: fondo negro traslúcido para que la foto se siga viendo detrás, y
-   sólo DOS salidas. El desenfoque es lo que deja leer el texto encima de una
-   imagen de la que no sabemos nada — sin él, un fondo claro se come las letras. */
+/* El panel: dos salidas, con el mismo peso relativo que «Continuar» y «Volver».
+   El degradado sigue abajo para que la foto se lea detrás — es lo que se está
+   juzgando, y taparla entera obliga a cerrar el panel para volver a mirarla. */
 .mk-regen__panel {
   position: absolute;
   inset: 0;
@@ -1936,10 +1929,10 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 11px;
+  gap: 10px;
   padding: 20px;
-  background: rgba(0, 0, 0, .62);
-  backdrop-filter: blur(3px);
+  background: rgba(0, 0, 0, .55);
+  backdrop-filter: blur(2px);
 }
 .mk-regen__cerrar {
   position: absolute;
