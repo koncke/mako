@@ -141,6 +141,28 @@ export function pasoDe(item: PlanGuardado, forzado: Paso | null, tieneEjemplo = 
 }
 
 /** El mapa que ve el indicador de progreso. Sale del dato, como la posición. */
+/**
+ * El paso ANTERIOR, derivado del mapa. No hay historial de clicks.
+ *
+ * ⚠️ Se deriva igual que la posicion: el wizard no recuerda por donde se vino,
+ * mira el dato y contesta. Un «Volver» que dependa del historial promete «de
+ * donde viniste» cuando lo que se espera es «el paso de arriba» — y este repo ya
+ * tiene escrito que el destino de Volver es una propiedad de la PANTALLA, no del
+ * camino.
+ */
+function pasoAnterior(mapa: string[], actual: string): Paso | null {
+  const i = mapa.indexOf(actual);
+  if (i <= 0) return null;
+  const clave = mapa[i - 1];
+  if (clave === 'ejemplo') return { id: 'ejemplo' };
+  if (clave === 'guion-leer') return { id: 'guion-leer' };
+  if (clave === 'cara') return { id: 'cara' };
+  if (clave === 'listo') return { id: 'listo' };
+  const m = /^(escenario|toma)-(\d+)$/.exec(clave);
+  if (m) return { id: m[1] as 'escenario' | 'toma', n: Number(m[2]) };
+  return null;
+}
+
 function mapaDe(item: PlanGuardado, tieneEjemplo = false): string[] {
   const escenas = item.escenas ?? [];
   return [
@@ -781,7 +803,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
           </div>
         ),
         // «mi anuncio» contra un sello que dice «Ejemplo», en la misma mirada.
-        boton: 'Empezar mi anuncio',
+        boton: 'Siguiente',
         cargandoBoton: ocupado === 'ejemplo',
         onSiguiente: () => void correr('ejemplo', () => marcarEjemploVistoAction(item.id)),
       };
@@ -1077,24 +1099,41 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
     // ── 3. La cara ────────────────────────────────────────────────────────
     if (paso.id === 'cara') {
       const uno = item.video?.['1'];
+      // La imagen del escenario que se confirmo: es EL CUADRO del que salio este
+      // clip, asi que es lo unico contra lo que tiene sentido compararlo.
+      const escena1 = (item.escenas ?? []).find((e) => 1 >= e.desde && 1 <= e.hasta);
+      const imagenBase = escena1 ? item.imagenes?.[String(escena1.n)]?.elegida : '';
       return {
-        pregunta: '¿Seguimos con esta cara?',
+        // ⚠️ LITERAL, y nombra lo que se esta decidiendo. Martin: «el titulo NO
+        // debe ser "¿Seguimos con esta cara?" cuando estoy generando el clip...
+        // justamente deberia ser "¿Apruebas este clip?"». Tiene razon: lo que se
+        // mira es un VIDEO, y aprobarlo es lo que desbloquea las otras seis tomas.
+        pregunta: '¿Apruebas este clip?',
         cuerpo: (
           <div>
             <div style={{ display: 'flex', gap: 20, justifyContent: 'center' }}>
               <div>
+                {/* ⚠️ LA IMAGEN GENERADA, no la foto original.
+                    Martin: «en la imagen de la izquierda se debe ver ESA imagen
+                    generada a partir de la foto que le subi».
+                    Y es lo correcto: el clip se anima DESDE ese cuadro, asi que
+                    es lo unico contra lo que la comparacion dice algo. Contra la
+                    foto de perfil comparaba dos cosas que no tienen por que
+                    parecerse — una es un retrato, la otra un fotograma. */}
                 <Vertical>
-                  {contexto?.fotoUrl
-                    ? <img src={contexto.fotoUrl} alt="Tu foto" style={MEDIO} />
-                    : <div style={{ color: 'var(--faint)' }}><Icon name="perfil" size={44} /></div>}
+                  {imagenBase
+                    ? <img src={imagenBase} alt="El cuadro del que sale el clip" style={MEDIO} />
+                    : contexto?.fotoUrl
+                      ? <img src={contexto.fotoUrl} alt="Tu foto" style={MEDIO} />
+                      : <div style={{ color: 'var(--faint)' }}><Icon name="perfil" size={44} /></div>}
                 </Vertical>
-                <Pie>Tu foto</Pie>
+                <Pie>{imagenBase ? 'La imagen' : 'Tu foto'}</Pie>
               </div>
               <div>
                 <Vertical fondo="#000">
                   {uno?.url ? <Revela k={uno.url}><Clip src={uno.url} /></Revela> : null}
                 </Vertical>
-                <Pie>La toma 1</Pie>
+                <Pie>El clip</Pie>
               </div>
             </div>
             <Salidas resumen={`No se parece · ~15 créditos`}>
@@ -1116,7 +1155,12 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
             </Salidas>
           </div>
         ),
-        boton: `Seguir y filmar la toma 2`,
+        // ⚠️ «Siguiente», como todos. Martin: «siempre los botones de abajo debe
+        // ser siguiente, no cualquier otra cosa». Lo que el boton hace de mas —y
+        // cuesta— lo dice `consecuencia`, que va pegada abajo: un rotulo que
+        // cambia en cada pantalla obliga a leerlo de nuevo cada vez, y el trabajo
+        // de ese boton es siempre el mismo: avanzar.
+        boton: 'Siguiente',
         consecuencia: costoTexto,
         cargandoBoton: ocupado === 'cara',
         onSiguiente: () => void correr('cara', async () => {
@@ -1298,7 +1342,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
         // filmar. Y cuando filmar no es lo que conviene —sin créditos, filtro de
         // contenido— eso lo dice el detalle de arriba, que para eso está escrito
         // por causa.
-        boton: enCurso ? undefined : txt ? `Volver a filmar la toma ${n}` : `Filmar la toma ${n}`,
+        boton: enCurso ? undefined : txt ? `Volver a filmar la toma ${n}` : 'Siguiente',
         consecuencia: enCurso ? undefined : costoTexto,
         cargandoBoton: ocupado === 'filmar',
         onSiguiente: enCurso ? undefined : () => void correr('filmar', () => generarTomaAction(item.id, n), false),
@@ -1319,6 +1363,20 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
 
   const posicion = Math.max(1, mapa.indexOf(clave(paso)) + 1);
 
+  /**
+   * El «Volver» de TODA pantalla, salvo que la pantalla diga otra cosa.
+   *
+   * ⚠️ Martín: «no hay botón de retroceder, no puedo volver para atrás, solo
+   * salir». Cierto: sólo dos de las siete pantallas lo definían, y en las demás
+   * la única salida era abandonar el anuncio. Una pantalla sin vuelta atrás
+   * convierte cualquier error en «empezar de nuevo».
+   *
+   * Sale del MAPA y no de un historial de clicks: el wizard no recuerda por dónde
+   * se vino, mira el dato y contesta. En el primer paso no se dibuja — un
+   * «Volver» que no lleva a ningún lado es peor que no tenerlo.
+   */
+  const anterior = pasoAnterior(mapa, clave(paso));
+
   return (
     <Estudio
       pregunta={p.pregunta}
@@ -1329,8 +1387,8 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
       consecuencia={p.consecuencia}
       cargando={!!p.cargandoBoton}
       onSiguiente={p.onSiguiente}
-      atras={p.atras}
-      onAtras={p.onAtras}
+      atras={p.atras ?? (anterior ? 'Volver' : undefined)}
+      onAtras={p.onAtras ?? (anterior ? () => setForzado(anterior) : undefined)}
       onSalir={onSalir}
       error={error}
       puesta={puesta}
