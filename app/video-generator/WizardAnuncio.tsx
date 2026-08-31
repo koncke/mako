@@ -40,6 +40,7 @@ import type { PlanGuardado, EstadoContextoVideo } from './video-datos';
 import type { Puesta } from '@/lib/puestas-data';
 import { causaFlow, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
 import { useExtensionInstalada, AvisoExtensionVieja } from './extension-instalada';
+import { FotoGrande, ModalFotos } from './ElegirFoto';
 import {
   escribirEscenasAction, corregirEscenaAction, generarImagenAction, estadoImagenAction,
   elegirImagenAction, subirImagenEscenaAction, confirmarEscenaAction,
@@ -690,78 +691,6 @@ function VistaPrevia({ puesta, abierta, onToggle }: {
   );
 }
 
-/**
- * Con cuál de tus fotos se genera este anuncio.
- *
- * ⚠️ VA DEBAJO DE LA FOTO, NO EN OTRA PANTALLA. La regla de la casa es un paso por
- * pantalla, y esto NO es un paso: es un parámetro de la imagen que se está por
- * generar, y la foto grande de arriba ya es su vista previa. Sacarlo a una
- * pantalla propia agregaría una decisión donde hoy hay una.
- *
- * Y las miniaturas son CHICAS a propósito. Lo enorme es la foto elegida; la tira
- * es para cambiarla, no para mirarla. Si todas midieran lo mismo, la pantalla
- * pediría comparar ocho caras en vez de confirmar una.
- *
- * Con una sola foto no se dibuja la tira: elegir entre uno no es elegir. Sí queda
- * el botón de subir, que es la única acción con sentido ahí.
- */
-function TiraDeFotos({ fotos, elegida, onElegir, onSubir, ocupado }: {
-  fotos: { id: string; url: string }[];
-  elegida: string;
-  onElegir: (id: string) => void;
-  onSubir: (f: File) => void;
-  ocupado: boolean;
-}) {
-  const entrada = useRef<HTMLInputElement>(null);
-  return (
-    <div style={{
-      display: 'flex', gap: 8, justifyContent: 'center', alignItems: 'center',
-      marginTop: 10, flexWrap: 'wrap',
-    }}>
-      {fotos.length > 1 && fotos.map((f) => (
-        <button
-          key={f.id}
-          type="button"
-          onClick={() => onElegir(f.id)}
-          disabled={ocupado}
-          aria-label={f.id === elegida ? 'Foto elegida' : 'Usar esta foto'}
-          aria-pressed={f.id === elegida}
-          className="mk-fotito"
-          // La elegida se marca con un ARO, no con opacidad en las otras: bajarles
-          // el brillo a las no elegidas las hace parecer inhabilitadas.
-          style={f.id === elegida ? { outline: '2px solid var(--primary)', outlineOffset: 2 } : undefined}
-        >
-          <img src={f.url} alt="" />
-        </button>
-      ))}
-      <button
-        type="button"
-        onClick={() => entrada.current?.click()}
-        disabled={ocupado}
-        aria-label="Subir otra foto"
-        title="Subir otra foto"
-        className="mk-fotito mk-fotito--mas"
-      >
-        {/* No hay ícono de «más» en el set, y no se inventa uno: se AGREGA al
-            catálogo o se usa una glifa. Acá alcanza con el signo, que además se
-            entiende sin conocer el set. */}
-        <span aria-hidden style={{ fontSize: 18, lineHeight: 1, fontWeight: 400 }}>+</span>
-      </button>
-      <input
-        ref={entrada}
-        type="file"
-        accept="image/*"
-        hidden
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          e.target.value = '';
-          if (f) onSubir(f);
-        }}
-      />
-    </div>
-  );
-}
-
 // ── El wizard ───────────────────────────────────────────────────────────────
 
 export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, onSalir }: {
@@ -784,6 +713,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
   // ⚠️ `useRouter` de `app/_ui/Link`, NO el de next/navigation: preserva el `?ws=`
   // de la pestaña, y perderlo te deja mirando otra cuenta.
   const router = useRouter();
+  const [eligiendoFoto, setEligiendoFoto] = useState(false);
   const hayEjemplo = !!puesta?.ejemplo;
   const paso = pasoDe(item, forzado, hayEjemplo);
   const mapa = useMemo(() => mapaDe(item, hayEjemplo), [item, hayEjemplo]);
@@ -1123,50 +1053,23 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
           <div>
             <div style={{ display: 'flex', gap: 20, justifyContent: 'center' }}>
               <div>
-                <Vertical>
-                  {fotoElegida
-                    ? <img src={fotoElegida} alt="Tu foto" style={MEDIO} />
-                    : <div style={{ color: 'var(--faint)' }}><Icon name="perfil" size={44} /></div>}
-                </Vertical>
+                {/* ⚠️ LA FOTO GRANDE ES EL CONTROL. Antes había una tira de
+                    miniaturas debajo, y el dueño la cortó: ponía ocho caras del
+                    mismo tamaño en una pantalla cuyo trabajo es confirmar UNA.
+                    Elegir es una acción rara; tenerla siempre a la vista le cobra
+                    atención a todas las veces que no se usa. */}
+                <FotoGrande
+                  url={fotoElegida}
+                  puedeCambiar={(contexto?.fotos?.length ?? 0) > 0}
+                  onAbrir={() => setEligiendoFoto(true)}
+                >
+                  <Vertical>
+                    {fotoElegida
+                      ? <img src={fotoElegida} alt="Tu foto" style={MEDIO} />
+                      : <div style={{ color: 'var(--faint)' }}><Icon name="perfil" size={44} /></div>}
+                  </Vertical>
+                </FotoGrande>
                 <Pie>Tu foto</Pie>
-                {/* Elegir con cuál se genera. Va acá y no en otra pantalla: es un
-                    parámetro de la imagen que se está por generar, no un paso. */}
-                <TiraDeFotos
-                  fotos={contexto?.fotos ?? []}
-                  elegida={item.fotoId ?? contexto?.fotos?.[0]?.id ?? ''}
-                  ocupado={!!ocupado}
-                  onElegir={(id) => void correr('foto', () => elegirFotoAction(item.id, id), false)}
-                  onSubir={(f) => void correr('foto', async () => {
-                    // ⚠️ MULTIPART, no un argumento de server action: esas topean
-                    // en 1 MB por default y una foto de celular no entra. Se reusa
-                    // la ruta del onboarding, que ya valida tipo y tamaño.
-                    const fd = new FormData();
-                    fd.append('file', f);
-                    const r = await fetch('/api/onboarding/persona', { method: 'POST', body: fd })
-                      .then((x) => x.json())
-                      .catch(() => null);
-                    if (!r?.ok) return { ok: false as const, error: r?.error || 'No se pudo subir la foto.' };
-                    // ⚠️ LA RUTA CONTESTA `ok: true` AUNQUE HAYA SALTEADO EL ARCHIVO.
-                    // Si no era una imagen, o pesaba más de 15 MB, lo dice en
-                    // `warnings` y devuelve 200 igual. Ignorarlos convierte «tu foto
-                    // no entró» en «no pasó nada», que es como se reportó.
-                    const aviso = Array.isArray(r.warnings) ? r.warnings[0] : '';
-                    if (aviso) return { ok: false as const, error: String(aviso) };
-
-                    // Con la foto ya guardada, sólo queda decir que ES la elegida.
-                    const el = await elegirUltimaFotoAction(item.id);
-                    // ⚠️ Y REFRESCAR LA LISTA, que es lo que faltaba.
-                    //
-                    // Las fotos las arma el SERVIDOR al renderizar la página, así que
-                    // después de subir una el `contexto` del cliente sigue siendo el
-                    // de hace un rato y la foto nueva no aparece. Medido: la foto
-                    // estaba en la base y en storage, y Martín reportó «intenté subir
-                    // una foto y no se subió». Escribir bien y no mostrarlo se ve
-                    // igual que no escribir.
-                    router.refresh();
-                    return el;
-                  }, false)}
-                />
               </div>
               <div>
                 <Vertical fondo={txt ? 'var(--surface-2)' : undefined}>{derecha}</Vertical>
@@ -1176,6 +1079,23 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                 <Pie>Lo que salió</Pie>
               </div>
             </div>
+
+            {eligiendoFoto && (
+              <ModalFotos
+                fotos={contexto?.fotos ?? []}
+                elegida={item.fotoId ?? contexto?.fotos?.[0]?.id ?? ''}
+                onCerrar={() => setEligiendoFoto(false)}
+                onElegir={(id) => void correr('foto', () => elegirFotoAction(item.id, id), false)}
+                onSubida={() => void correr('foto', async () => {
+                  const el = await elegirUltimaFotoAction(item.id);
+                  // La lista la arma el SERVIDOR: sin esto la foto recién subida no
+                  // aparece hasta recargar, y se lee como que no se subió.
+                  router.refresh();
+                  setEligiendoFoto(false);
+                  return el;
+                }, false)}
+              />
+            )}
 
             {/* Las variantes: cambian lo que muestra el panel, no son otra
                 decisión ni otra pantalla. */}

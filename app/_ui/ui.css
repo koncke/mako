@@ -1418,66 +1418,6 @@
   .mk-lienzo::before, .mk-lienzo::after { animation: none; }
 }
 
-/* ── LA TIRA DE FOTOS del video-generator ─────────────────────────────────
-   Miniaturas CHICAS a propósito: lo enorme es la foto elegida, y la tira sirve
-   para cambiarla, no para mirarla. Si todas midieran lo mismo, la pantalla
-   pediría comparar ocho caras en vez de confirmar una. */
-.mk-fotito {
-  width: 44px;
-  height: 62px;
-  flex: none;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  overflow: hidden;
-  background: var(--surface-2);
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  color: var(--dim);
-  transition: border-color .14s ease, transform .14s ease;
-}
-.mk-fotito img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.mk-fotito:hover { border-color: var(--border-strong); transform: translateY(-1px); }
-.mk-fotito:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-.mk-fotito:disabled { cursor: default; transform: none; }
-/* La de subir se distingue por el BORDE punteado, no por el color: un color solo
-   no lo ve todo el mundo, y el punteado dice «acá falta algo» sin una palabra. */
-.mk-fotito--mas { border-style: dashed; }
-
-@media (prefers-reduced-motion: reduce) {
-  .mk-fotito { transition: none; }
-  .mk-fotito:hover { transform: none; }
-}
-
-/* ── EL SONIDO DEL EJEMPLO ────────────────────────────────────────────────
-   ⚠️ NO dice «desmutear», y no es una cuestión de palabras: los clips cortos del
-   ejemplo NO TIENEN pista de audio (370 KB y 306 KB, sin `mp4a`). Lo que hace el
-   botón es cargar la versión completa, que sí la tiene. Un control rotulado
-   «desmutear» sobre algo que no puede sonar es un botón roto con nombre correcto. */
-.mk-riel__sonido {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 10px;
-  padding: 5px 11px;
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  color: var(--dim);
-  transition: color .14s ease, border-color .14s ease;
-}
-.mk-riel__sonido:hover { color: var(--ink); border-color: var(--border-strong); }
-.mk-riel__sonido:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-.mk-riel__sonido[aria-pressed="true"] { color: var(--ink); border-color: var(--border-strong); }
-.mk-riel--plegado .mk-riel__sonido { display: none; }
-
-@media (prefers-reduced-motion: reduce) { .mk-riel__sonido { transition: none; } }
-
 /* ═══════════════════════════════════════════════════════════════════════════
    ANUNCIOS TERMINADOS — una lista, no una pared
    ═══════════════════════════════════════════════════════════════════════════
@@ -1563,4 +1503,125 @@
 
 @media (prefers-reduced-motion: reduce) {
   .mk-terminados__chev, .mk-anuncio { transition: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ELEGIR LA FOTO — la foto grande ES el control
+   ═══════════════════════════════════════════════════════════════════════════
+   ⚠️ Antes había una tira de miniaturas debajo, y el dueño la cortó: ponía ocho
+   caras del mismo tamaño en una pantalla cuyo trabajo es confirmar UNA. Elegir es
+   una acción rara; tenerla siempre a la vista le cobra atención a todas las veces
+   que no se usa.
+
+   El hover DESCUBRE que se puede tocar. Pero el botón es un botón de verdad, con
+   su foco visible: un control que sólo existe al pasar el mouse no existe para
+   quien navega con teclado ni para quien está en un teléfono. */
+.mk-fotoelegir {
+  position: relative;
+  display: block;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-radius: 18px;
+  overflow: hidden;
+}
+.mk-fotoelegir:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.mk-fotoelegir__velo {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: end center;
+  padding-bottom: 16px;
+  /* Degradado desde abajo, no un velo parejo: tapar la cara entera para decir
+     «se puede cambiar» esconde justo lo que hay que mirar. */
+  background: linear-gradient(to top, rgba(0,0,0,.72), transparent 45%);
+  opacity: 0;
+  transition: opacity .16s ease;
+}
+.mk-fotoelegir:hover .mk-fotoelegir__velo,
+.mk-fotoelegir:focus-visible .mk-fotoelegir__velo { opacity: 1; }
+
+.mk-fotoelegir__texto {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--fs-sm);
+  font-weight: 650;
+  color: #fff;
+}
+
+/* ── La grilla del elegidor ─────────────────────────────────────────────── */
+.mk-fotos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 10px;
+}
+.mk-fotos__una {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  padding: 0;
+  overflow: hidden;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  color: var(--dim);
+  font-family: inherit;
+  transition: border-color .14s ease, transform .14s ease;
+}
+.mk-fotos__una img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mk-fotos__una:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+.mk-fotos__una:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.mk-fotos__una:disabled { cursor: default; transform: none; }
+/* La elegida con un ARO y un tilde, no bajándole el brillo a las otras: eso las
+   hace parecer inhabilitadas. */
+.mk-fotos__una--elegida { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary) inset; }
+.mk-fotos__una--nueva { border-style: dashed; }
+
+.mk-fotos__tilde {
+  position: absolute;
+  top: 6px; right: 6px;
+  display: grid;
+  place-items: center;
+  width: 22px; height: 22px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--on-ink);
+}
+.mk-fotos__mas {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-meta);
+  font-weight: 600;
+}
+.mk-fotos__mas span { font-size: 20px; line-height: 1; }
+
+/* El loader: una barra REAL, alimentada por los bytes que salieron. Un `fetch` no
+   da progreso de subida, así que esto sólo puede existir con XHR. */
+.mk-fotos__subiendo { display: flex; flex-direction: column; align-items: center; gap: 7px; width: 74%; }
+.mk-fotos__pct { font-size: var(--fs-meta); font-weight: 650; color: var(--ink); }
+.mk-fotos__barra {
+  display: block;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+}
+.mk-fotos__barra i {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+  transition: width .18s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-fotoelegir__velo, .mk-fotos__una, .mk-fotos__barra i { transition: none; }
+  .mk-fotos__una:hover { transform: none; }
 }
