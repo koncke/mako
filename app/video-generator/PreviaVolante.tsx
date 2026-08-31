@@ -111,7 +111,14 @@ export function PreviaVolante({ puesta, estacion, cajaTarjeta, slotCentro, slotR
     // el movimiento arranca recién cuando cambia de estación.
     if (previa.current === null) {
       const r = cajaTarjeta ?? destino?.getBoundingClientRect();
+      // ⚠️ Sin `r` el nodo queda SIN `left`/`top`, y un `position: fixed` sin
+      // coordenadas se dibuja donde lo dejó el flujo — que es exactamente el
+      // «flotando en el medio» del bug. Se esconde hasta que el observador de
+      // abajo le encuentre destino: un ejemplo mal puesto tapa el guion, y no
+      // verlo un cuadro no le cuesta nada a nadie.
+      if (!r) el.style.visibility = 'hidden';
       if (r) {
+        el.style.visibility = 'visible';
         el.style.left = `${r.left}px`;
         el.style.top = `${r.top}px`;
         el.style.width = `${r.width}px`;
@@ -128,21 +135,77 @@ export function PreviaVolante({ puesta, estacion, cajaTarjeta, slotCentro, slotR
     if (destino) volar(el, destino.getBoundingClientRect());
   }, [estacion, cajaTarjeta, slotCentro, slotRiel]);
 
-  // Cuando la ventana cambia de tamaño el destino se movió: se re-encaja sin
-  // animar. Sin esto, el ejemplo queda flotando sobre el lugar viejo.
+  // ⚠️ EL DESTINO SE PERSIGUE, NO SE MIDE UNA VEZ.
+  //
+  // El bug: entrando por un link directo (`?plan=…`) el ejemplo quedaba flotando
+  // en el medio de la pantalla, encima del guion, con el riel vacío al costado.
+  //
+  // La causa son dos cosas que se suman. Una: este nodo se monta en TRES ramas
+  // distintas del árbol, así que cambiar de vista lo REMONTA — la promesa de «un
+  // solo nodo» se cumple mientras se navega con clicks, y no cuando se entra
+  // directo. Dos: el `useLayoutEffect` de arriba mide el destino UNA vez, y sus
+  // dependencias son objetos `ref`, que nunca cambian de identidad. Si en ese
+  // instante el hueco todavía no existe o mide 0 —el riel se dibuja con un
+  // `aspect-ratio` y una variable CSS que el motor resuelve un cuadro después—,
+  // no hay segunda oportunidad: queda sin `left`/`top`, o sea donde caiga.
+  //
+  // Un `ResizeObserver` sobre el hueco contesta las dos: dispara cuando aparece,
+  // cuando el layout se asienta y cuando la ventana cambia. Sin animar — esto
+  // corrige una posición, no cuenta un movimiento.
   useEffect(() => {
     const reencajar = () => {
       const el = caja.current;
       const destino = estacion === 'centro' ? slotCentro.current : slotRiel.current;
       if (!el || !destino) return;
       const r = destino.getBoundingClientRect();
+      // Un destino de 0×0 todavía no se resolvió: pegarse a él dejaría el ejemplo
+      // invisible, que es peor que dejarlo donde está hasta el próximo aviso.
+      if (r.width < 4 || r.height < 4) return;
+      el.style.visibility = 'visible';
       el.style.left = `${r.left}px`;
       el.style.top = `${r.top}px`;
       el.style.width = `${r.width}px`;
       el.style.height = `${r.height}px`;
     };
+
+    // ⚠️ SE ESPERA AL HUECO, NO SE LO DA POR PRESENTE.
+    //
+    // Medido: al entrar por un link directo este efecto corre ANTES de que el
+    // riel exista, así que no había nada que observar y el único reintento —un
+    // `requestAnimationFrame`— también llegaba temprano. Resultado: el ejemplo
+    // quedaba sin destino para siempre.
+    //
+    // Un intento por cuadro hasta encontrarlo, con techo. El techo importa: sin
+    // él, una pantalla que legítimamente no tiene riel deja un bucle corriendo
+    // mientras la pestaña esté abierta.
+    let obs: ResizeObserver | null = null;
+    let rafId = 0;
+    let intentos = 0;
+    const TOPE = 180; // ~3 s a 60 fps
+
+    const buscar = () => {
+      const destino = estacion === 'centro' ? slotCentro.current : slotRiel.current;
+      if (destino) {
+        reencajar();
+        // Ya está: de acá en más lo sigue el observador, que además avisa cuando
+        // el hueco cambia de tamaño (el riel se pliega y se despliega).
+        obs = new ResizeObserver(reencajar);
+        obs.observe(destino);
+        return;
+      }
+      if (++intentos > TOPE) return;
+      rafId = window.requestAnimationFrame(buscar);
+    };
+    buscar();
+
     window.addEventListener('resize', reencajar);
-    return () => window.removeEventListener('resize', reencajar);
+    window.addEventListener('scroll', reencajar, { passive: true });
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      obs?.disconnect();
+      window.removeEventListener('resize', reencajar);
+      window.removeEventListener('scroll', reencajar);
+    };
   }, [estacion, slotCentro, slotRiel]);
 
   const enRiel = estacion === 'riel';
