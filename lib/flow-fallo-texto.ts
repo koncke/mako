@@ -56,6 +56,20 @@ export type CausaFlow =
   | 'google'
   /** El filtro de contenido de Google rechazó el prompt. Reintentar no sirve. */
   | 'contenido'
+  /**
+   * Google ACEPTÓ el trabajo y lo está haciendo; lo que falla es preguntarle
+   * cómo va.
+   *
+   * ⚠️ Es una causa propia y no un `nuestra` más, y la diferencia no es de matiz:
+   * el texto de `nuestra` afirma «no se gastaron créditos», que acá sería FALSO
+   * —el clip se aceptó, así que se pagó— y su acción es «volver a generar», que
+   * cobraría un segundo clip por uno que probablemente ya existe.
+   *
+   * Es la regla de la casa aplicada a la salida: «no puedo hacer X con este dato»
+   * no es «este dato es falso». No poder LEER el estado no convierte a la toma en
+   * fallida.
+   */
+  | 'ciego'
   | 'desconocida';
 
 /**
@@ -166,6 +180,22 @@ export function textoFlow(
         ),
         accion: `Volver a generar ${que}`,
         secundaria: 'Subir mi foto del lugar',
+      };
+
+    case 'ciego':
+      return {
+        // El título nombra ${que} porque, con siete tomas, un error que no dice
+        // cuál obliga a adivinar. Y es literal: dice lo que pasa, no lo que se
+        // siente.
+        titulo: `MaKo no puede leer cómo va ${que}`,
+        // Dos frases. Lo que hay que HACER es un botón, no un párrafo.
+        detalle: con(
+          'Google aceptó el pedido y el video se está haciendo de su lado; lo que falla es la consulta con la que preguntamos si ya terminó. No es tu cuenta, ni tu sesión, ni tus créditos, y MaKo va a seguir preguntando.',
+        ),
+        // ⚠️ NO dice «volver a generar»: la toma ya se pagó y volver a pedirla
+        // cobraría un segundo clip por uno que probablemente ya existe.
+        accion: 'Preguntar de nuevo',
+        secundaria: 'Abrir Google Flow',
       };
 
     case 'sesion':

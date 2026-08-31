@@ -48,6 +48,33 @@ export const ENDPOINTS = {
  * por definición —va en el HTML de labs.google— y no autoriza nada por sí sola:
  * el token que devuelve lo emite Google evaluando la sesión.
  */
+/**
+ * Cómo se le pregunta a Flow por UNA operación de video.
+ *
+ * ⚠️ DEVUELVE PARCHES, NO UN CUERPO, y ésa es toda la pieza.
+ *
+ * El espejo funde nuestro cuerpo con el que manda la propia página de Flow, y
+ * `fundir()` REEMPLAZA los arrays enteros — a propósito, porque fundir dos listas
+ * elemento por elemento produce mezclas que ninguna de las dos partes pidió. Así
+ * que mandar `{ operations: [{ operation: { name } }] }` no agregaba nuestra
+ * operación al pedido de Flow: **tiraba el array de Flow y dejaba el nuestro**,
+ * con todo lo que cada entrada lleva al lado del `name` y que nosotros no sabemos
+ * que existe. Google contestó HTTP 400 «Request contains an invalid argument», y
+ * como nadie leía las consultas fallidas la pantalla se quedó cinco minutos
+ * diciendo «Filmando la toma 1». Medido el 31/08/2026 en producción.
+ *
+ * El parche por camino escribe SOLO esa hoja y no toca a sus hermanas. Es el mismo
+ * mecanismo que ya usa el pedido de imágenes (`parchesImagenEscena`), por la misma
+ * razón, y que acá faltaba: una regla puesta en un lugar de dos no está
+ * implementada, está documentada.
+ *
+ * Vive en este módulo —sin `server-only`— para que tenga test. La decisión que
+ * falla en silencio es exactamente la que necesita red.
+ */
+export function parchesEstadoClip(operacion: string): Record<string, unknown> {
+  return { 'operations.0.operation.name': operacion };
+}
+
 export const RECAPTCHA_SITE_KEY = '6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV';
 
 /**

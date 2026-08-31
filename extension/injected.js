@@ -139,6 +139,29 @@
     return true;
   }
 
+  /**
+   * ¿Se puede contestar este pedido con lo que la página ya recibió?
+   *
+   * Sale a una función propia porque era un `if` de tres condiciones adentro de un
+   * handler de 120 líneas, y ahí NO se puede testear — que es justo lo que hace
+   * falta, porque cuando se equivoca no falla: contesta. La respuesta cacheada es
+   * de OTRA pregunta, así que devuelve datos plausibles del proyecto del cliente y
+   * la pantalla los da por buenos.
+   *
+   * La regla es una sola: **una respuesta cacheada sólo vale si el pedido no tiene
+   * parámetros.** Un cuerpo es un parámetro y un PARCHE también — el más
+   * específico que hay. El guard miraba nada más el cuerpo, y por eso el día que
+   * la consulta de estado pasó de cuerpo a parches habría vuelto a servir los
+   * videos que el dueño generó a mano, que es el bug que ya se pagó una vez.
+   */
+  function puedeUsarCache(soloLectura, cuerpo, parches, cache, ahora) {
+    if (!soloLectura) return false;
+    if (cuerpo) return false;
+    if (parches && Object.keys(parches).length) return false;
+    if (!cache) return false;
+    return ahora - cache.cuando < 120000;
+  }
+
   const fetchOriginal = window.fetch;
 
   window.fetch = function (entrada, init) {
@@ -380,8 +403,14 @@
         // De los pedidos que GENERAN va el cuerpo entero: es el contrato que hay
         // que replicar, y una muestra cortada esconde justo el campo que falta.
         // Del resto alcanza con saber que existen.
+        // ⚠️ `/generat/i` y no `/generate|Generate/`. La clase de la consulta de
+        // estado es `video:batchCheckAsyncVideoGenerationStatus`: dice
+        // «Generation», no «Generate», asi que caia en la rama de 200 caracteres
+        // y su cuerpo —el contrato que hay que replicar— llegaba decapitado.
+        // Una muestra cortada esconde justo el campo que falta, que es lo que el
+        // comentario de al lado ya decia y el regex no cumplia.
         cuerpoMuestra: p.cuerpo
-          ? p.cuerpo.slice(0, /generate|Generate/.test(clase) ? 4000 : 200)
+          ? p.cuerpo.slice(0, /generat/i.test(clase) ? 4000 : 200)
           : null,
         edadMs: Date.now() - p.cuando,
       };
@@ -410,7 +439,7 @@
       // La regla que queda: una respuesta cacheada solo vale si el pedido no tiene
       // parametros. Con cuerpo, cada pedido es una pregunta distinta.
       const cache = respuestas.get(clase);
-      if (soloLectura && !cuerpo && cache && Date.now() - cache.cuando < 120000) {
+      if (puedeUsarCache(soloLectura, cuerpo, parches, cache, Date.now())) {
         return responder('MAKO_FETCH_OK', id, {
           status: cache.status, texto: cache.texto, deCache: true, metodo: 'CACHE',
         });

@@ -111,18 +111,42 @@ export type PlanGuardado = {
      */
     saldoAntes?: number | null;
   }>;
-  video?: Record<string, {
-    trabajoId?: number;
-    operacion?: string;
-    url?: string;
-    mediaId?: string;
-    error?: string;
-    errorCausa?: string;
-    errorCrudo?: string;
-    errorAt?: string;
-    /** El saldo justo ANTES de generar esta toma. La otra mitad de medir el costo. */
-    saldoAntes?: number | null;
-  }>;
+  video?: Record<string, MarcaVideo>;
+};
+
+/**
+ * Lo que se sabe de UNA toma. El tipo vive acá, que es donde se persiste.
+ *
+ * ⚠️ ESTABA ESCRITO DOS VECES —acá y en video-action.ts— y ya se pagó: al sumarle
+ * `ciego` a la copia de la action, la pantalla dejó de compilar porque el que
+ * gobierna lo guardado es éste. Es la regla de la casa: una cosa, un lugar. Si
+ * hay que copiar la misma forma en dos archivos, el segundo se queda viejo — y en
+ * un tipo, «viejo» significa que el compilador deja de proteger justo el campo
+ * nuevo.
+ */
+export type MarcaVideo = {
+  trabajoId?: number;
+  operacion?: string;
+  url?: string;
+  mediaId?: string;
+  error?: string;
+  errorCausa?: string;
+  errorCrudo?: string;
+  errorAt?: string;
+  /** El saldo justo ANTES de generar esta toma. La otra mitad de medir el costo. */
+  saldoAntes?: number | null;
+  /**
+   * No podemos LEER el estado de esta toma, aunque Google la haya aceptado.
+   *
+   * Se persiste porque la pantalla decide qué dibujar mirando el plan y no lo que
+   * devuelve la action: sin un dato acá, el sondeo seguía y la pantalla seguía
+   * diciendo «Filmando la toma 1» con un cronómetro que no termina nunca.
+   *
+   * ⚠️ Y va en un campo PROPIO, no en `error`: `error` apaga el sondeo y ofrece
+   * volver a generar —o sea, pagar otro clip por uno que probablemente ya existe—.
+   * Esto no apaga nada, y en cuanto una consulta conteste bien se borra solo.
+   */
+  ciego?: { desde: string; error: string; crudo?: string };
 };
 
 const esEntrada = (e: unknown): e is PlanGuardado => {

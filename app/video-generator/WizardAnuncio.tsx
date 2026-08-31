@@ -1031,6 +1031,19 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
         : undefined;
       const txt = causa ? textoFlow(causa, `la toma ${n}`, item.video?.[String(n)]?.errorAt) : null;
 
+      /**
+       * La toma corre y no podemos leerla.
+       *
+       * ⚠️ Es una tercera situación y no una variante de las dos que había. Con
+       * `enCurso` a secas la pantalla decía «Filmando la toma 1 · Suele tardar
+       * entre 1 y 3 minutos» mientras Google venía rechazando cada consulta con
+       * un HTTP 400, y el cronómetro pasó los cinco minutos sin que nada lo
+       * dijera. Con `fallo` diría que la toma no salió, que es falso: salió, se
+       * pagó, y lo único roto es nuestra forma de preguntar por ella.
+       */
+      const ciego = enCurso ? item.video?.[String(n)]?.ciego : undefined;
+      const txtCiego = ciego ? textoFlow('ciego', `la toma ${n}`, ciego.desde) : null;
+
       // Lo enorme NUNCA está vacío: si no hay clip que mirar, se muestra la
       // imagen confirmada del escenario, que es literalmente el primer cuadro
       // que se va a animar.
@@ -1044,7 +1057,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
 
       return {
         pregunta: enCurso
-          ? `Filmando la toma ${n}`
+          ? (txtCiego ? txtCiego.titulo : `Filmando la toma ${n}`)
           : txt
             ? `La toma ${n} no salió`
             : anterior
@@ -1055,9 +1068,35 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
             <div style={{ display: 'flex', justifyContent: 'center' }}>
               <Vertical fondo="#000">{dentro}</Vertical>
             </div>
-            {enCurso && (
+            {/* ⚠️ La estimación NO se muestra cuando ya sabemos que se pasó. Un
+                «suele tardar entre 1 y 3 minutos» al lado de un cronómetro en 4:51
+                no es un dato optimista: es la pantalla afirmando que todo va
+                normal cuando el servidor ya sabe que no. */}
+            {enCurso && !txtCiego && (
               <div style={{ textAlign: 'center', marginTop: 12, fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>
                 Suele tardar entre 1 y 3 minutos.
+              </div>
+            )}
+            {txtCiego && (
+              <div style={{ textAlign: 'center', marginTop: 12 }}>
+                <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.5 }}>
+                  {txtCiego.detalle}
+                </div>
+                {/* Lo que Google dijo, TAL CUAL y plegado. La traducción no lo
+                    reemplaza: sin el crudo, el que investiga después no tiene con
+                    qué empezar. */}
+                {ciego?.crudo && (
+                  <div style={{ marginTop: 10 }}>
+                    <Salidas resumen="Ver lo que respondió Google">
+                      <pre style={{
+                        margin: 0, textAlign: 'left', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                        fontSize: 'var(--fs-meta)', color: 'var(--dim)', fontFamily: 'var(--mono, monospace)',
+                      }}>
+                        {ciego.crudo}
+                      </pre>
+                    </Salidas>
+                  </div>
+                )}
               </div>
             )}
             {txt && (

@@ -494,11 +494,46 @@ async function ciclo() {
         await guardarPlantillas(tab.id);
         const espia = await chrome.tabs.sendMessage(tab.id, { tipo: 'VER_ESPIA' });
         if (espia && espia.visto) {
+          const visto = { ...espia.visto };
+
+          // ⚠️ EL ESPIA MIRABA SOLO LA MEMORIA DE LA PESTANA, y esa se vacia con
+          // cada F5. Resultado: el reporte listaba las 8 clases que Flow pide al
+          // cargar la pagina y NINGUNA de las que generan — que son justo las que
+          // hay que leer para saber por que un pedido nuestro sale mal.
+          //
+          // Medido el 31/08/2026: con una consulta de estado fallando con
+          // HTTP 400, el detalle que llegaba al servidor no tenia ni una linea
+          // sobre esa clase, aunque su plantilla existia (el pedido salio y Google
+          // lo contesto). Estaba en el respaldo, que nadie reportaba.
+          //
+          // Las de memoria GANAN: son de esta sesion. El respaldo solo rellena lo
+          // que hoy no se vio, marcado como tal para no leerlo como reciente.
+          try {
+            const guardadas = (await chrome.storage.local.get(CLAVE_PLANTILLAS))[CLAVE_PLANTILLAS] || {};
+            for (const [clase, p] of Object.entries(guardadas)) {
+              if (visto[clase]) continue;
+              visto[clase] = {
+                metodo: p.metodo,
+                hayRespuesta: false,
+                deRespaldo: true,
+                url: String(p.url || '').replace(/key=[^&]+/, 'key=<oculta>'),
+                headers: Object.keys(p.headers || {}).sort(),
+                tieneCuerpo: p.cuerpo != null,
+                cuerpoMuestra: p.cuerpo
+                  ? String(p.cuerpo).slice(0, /generat/i.test(clase) ? 4000 : 200)
+                  : null,
+                edadMs: Date.now() - (p.cuando || 0),
+              };
+            }
+          } catch { /* sin respaldo se reporta lo de memoria, que es lo de antes */ }
+
           // Ordenado con lo que GENERA primero: el detalle se corta al guardarse, y
           // lo que se pierde tiene que ser lo que ya conocemos, no el contrato que
           // estamos tratando de leer.
-          const orden = Object.entries(espia.visto).sort(
-            (a, b) => (/generate/i.test(b[0]) ? 1 : 0) - (/generate/i.test(a[0]) ? 1 : 0),
+          // `/generat/i` cubre tambien `...VideoGenerationStatus`, que con
+          // `/generate/i` quedaba al final y se lo comia el corte de 7500.
+          const orden = Object.entries(visto).sort(
+            (a, b) => (/generat/i.test(b[0]) ? 1 : 0) - (/generat/i.test(a[0]) ? 1 : 0),
           );
           detalle = JSON.stringify(Object.fromEntries(orden)).slice(0, 7500);
         }

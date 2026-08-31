@@ -26,7 +26,7 @@
 import { randomUUID } from 'node:crypto';
 import { getRolWsEfectivo, getWorkspaceActual, getTenantDb } from '@/lib/workspace';
 import { encolar, estadoPuente } from '@/lib/flow-cola';
-import { ENDPOINTS, obj, arr, str, extraerMediaId } from '@/lib/flow-protocolo';
+import { ENDPOINTS, obj, arr, str, extraerMediaId, parchesEstadoClip } from '@/lib/flow-protocolo';
 import {
   cuerpoClipReferencias, semillaDeToma, mediaIdDeReferencia, KEY_CARA_FLOW,
 } from '@/lib/flow-clip-referencias';
@@ -37,7 +37,7 @@ import { generarPlanAction } from './actions';
 import { guionesDisponibles } from './guiones-datos';
 import { causaFlow, causaDeMotivo, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
 import { getSetting } from '@/lib/settings';
-import { leerHistorial, guardarEnHistorial, type PlanGuardado } from './video-datos';
+import { leerHistorial, guardarEnHistorial, type PlanGuardado, type MarcaVideo } from './video-datos';
 import { guardarSaldo, leerSaldoGuardado, guardarCostoMedido, type SaldoFlow } from './saldo-datos';
 
 async function ctxAdmin(): Promise<{ ok: true; ws: number } | { ok: false; error: string }> {
@@ -99,7 +99,7 @@ function buscarCampo(v: unknown, campos: string[], visto = new Set<unknown>()): 
  * sesión del cliente, y este proyecto ya midió lo que pasa cuando se le manda
  * ritmo de máquina: «reintentar contra un bloqueo causa el bloqueo».
  */
-async function consultarUnaVez(operacion: string): Promise<void> {
+async function consultarUnaVez(operacion: string, aCiegas = false): Promise<void> {
   const db = await getTenantDb();
   const { data } = await db
     .from('flow_trabajos')
@@ -109,9 +109,48 @@ async function consultarUnaVez(operacion: string): Promise<void> {
     .limit(50);
   // Si ya hay alguna esperando, esa contesta por esta. No hace falta otra.
   if ((data ?? []).length > 0) return;
+
+  // ⚠️ CUANDO YA SABEMOS QUE LA CONSULTA ESTÁ ROTA, SE PREGUNTA MÁS LENTO.
+  //
+  // Cada trabajo reintenta cinco veces antes de darse por fallido, así que la
+  // pantalla —que sondea cada seis segundos— estaba produciendo una ráfaga
+  // permanente de pedidos contra la sesión de Google del cliente por algo que ya
+  // se sabe que no va a contestar. Este proyecto ya midió a qué lleva eso:
+  // reintentar contra un bloqueo es lo que causa el bloqueo.
+  //
+  // No se deja de preguntar del todo, a propósito: el arreglo puede llegar por el
+  // otro lado —la página de Flow renueva su plantilla— y entonces la toma se
+  // destraba sola sin que nadie toque nada.
+  if (aCiegas) {
+    const { data: ultima } = await db
+      .from('flow_trabajos')
+      .select('listo_at')
+      .eq('tipo', 'estado_clips')
+      .eq('estado', 'fallido')
+      .order('id', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const t = Date.parse(str(ultima?.listo_at));
+    if (Number.isFinite(t) && Date.now() - t < 60_000) return;
+  }
   await encolar('estado_clips', {
     path: ENDPOINTS.estadoVideo,
-    body: { operations: [{ operation: { name: operacion } }] },
+    // ⚠️ PARCHE Y NO CUERPO, y acá estaba la causa MEDIDA del HTTP 400
+    // «Request contains an invalid argument» que dejó al dueño mirando un
+    // cronómetro eterno el 31/08/2026.
+    //
+    // El espejo funde nuestro cuerpo con el que manda la propia página de Flow
+    // (`fundir()` en extension/injected.js) — y `fundir()` REEMPLAZA los arrays
+    // enteros, a propósito. Así que mandar `operations: [{operation:{name}}]` no
+    // agregaba nuestra operación al pedido de Flow: TIRABA el array de Flow y
+    // dejaba el nuestro, con todo lo que cada entrada lleva al lado del `name` y
+    // que nosotros no sabemos que existe. Google contestó lo único que podía.
+    //
+    // El parche por camino escribe SOLO esa hoja y no toca a sus hermanas. Es
+    // exactamente el mecanismo que se construyó para el pedido de imágenes por
+    // esta misma razón, y que acá no se había aplicado: una regla puesta en un
+    // lugar de dos no está implementada, está documentada.
+    parches: parchesEstadoClip(operacion),
     operacion,
   });
 }
@@ -132,24 +171,24 @@ export type EstadoToma =
   | { fase: 'encolado'; trabajoId: number }
   | { fase: 'generando'; operacion: string }
   | { fase: 'listo'; url: string; mediaId: string }
+  /**
+   * La toma corre del lado de Google y NO podemos leer cómo va.
+   *
+   * ⚠️ No es `error`, y la diferencia cuesta plata: `error` significa que la toma
+   * no existe y que hay que volver a generarla —o sea pagar otro clip—, mientras
+   * que esto significa que el clip probablemente YA está hecho y lo único roto es
+   * nuestra forma de preguntar. Meter las dos en el mismo casillero es la trampa
+   * que este repo ya tiene escrita: «no puedo hacer X con este dato» no es «este
+   * dato es falso».
+   */
+  | { fase: 'a_ciegas'; operacion: string; error: string }
   | { fase: 'error'; error: string };
 
-/** Lo que se guarda por toma, dentro del plan. */
-type MarcaVideo = {
-  trabajoId?: number; operacion?: string; url?: string; mediaId?: string; error?: string;
-  /** De quién fue la culpa. Decide qué se muestra y si hay a dónde ir. */
-  errorCausa?: CausaFlow;
-  /** Lo que dijo Google, tal cual. No se tira: se pliega. */
-  errorCrudo?: string;
-  /**
-   * ⚠️ CUÁNDO pasó. Sin esto, un error guardado hace tres días se lee como si
-   * acabara de ocurrir — que es exactamente lo que le pasó al dueño con un JSON
-   * de un bug ya arreglado, que la pantalla devolvía para siempre.
-   */
-  errorAt?: string;
-  /** El saldo justo ANTES de generar esta toma. La otra mitad de medir el costo. */
-  saldoAntes?: number | null;
-};
+/**
+ * Lo que se guarda por toma. El tipo lo declara `video-datos.ts`, que es donde
+ * se persiste; acá se importa. Tenerlo escrito en los dos lados fue lo que hizo
+ * que agregarle un campo compilara en uno y rompiera en el otro.
+ */
 
 const marcas = (plan: PlanGuardado): Record<string, MarcaVideo> =>
   (plan.video ?? {}) as Record<string, MarcaVideo>;
@@ -341,15 +380,31 @@ export async function estadoTomaAction(
 
   // ── Paso 2: ¿ya hay video? ───────────────────────────────────────────────
   const operacion = String(marca.operacion);
+  // ⚠️ SIN `.eq('estado','listo')`, y ese filtro era el bug.
+  //
+  // Preguntando sólo por las consultas que salieron BIEN, una consulta que falla
+  // es indistinguible de una que todavía no llegó — y las cuatro que había el
+  // 31/08/2026 habían fallado las cuatro, con cinco intentos cada una. La
+  // pantalla decía «Filmando la toma 1» y el cronómetro pasaba los cinco minutos
+  // sin que nada, en ningún lado, dijera que Google venía contestando 400.
+  //
+  // Es la misma lección que ya está aplicada veinte líneas más arriba, en el
+  // Paso 1, con su comentario y todo: «un trabajo caído se leía como todavía no
+  // terminó y la pantalla giraba para siempre». Estaba puesta en un lugar de dos.
   const { data: consultas } = await db
     .from('flow_trabajos')
-    .select('estado, resultado')
+    .select('id, estado, resultado, error, motivo, pedido')
     .eq('tipo', 'estado_clips')
-    .eq('estado', 'listo')
     .order('id', { ascending: false })
     .limit(12);
 
-  for (const c of consultas ?? []) {
+  // Sólo las consultas por ESTA operación. Antes se miraban todas y se buscaba el
+  // nombre adentro del resultado, que alcanza para las que contestaron pero no
+  // para las que fallaron: una consulta fallida no tiene resultado donde buscar.
+  // El `pedido.operacion` es el dato exacto y lo escribimos nosotros al encolar.
+  const mias = (consultas ?? []).filter((c) => str(obj(c.pedido).operacion) === operacion);
+
+  for (const c of mias.filter((c) => str(c.estado) === 'listo')) {
     // Se mira la consulta ENTERA y no una ruta: la respuesta del estado tiene la
     // misma costumbre de mover los campos de lugar. Se comprueba que la operación
     // sea la nuestra buscando su nombre en cualquier parte del objeto, y recién
@@ -362,7 +417,8 @@ export async function estadoTomaAction(
     const url = buscarCampo(c.resultado, ['fifeUrl', 'outputUri', 'videoUri', 'servingUrl', 'encodedVideo', 'url']);
     if (!url) continue;
     const mediaId = extraerMediaId(c.resultado) || buscarCampo(c.resultado, ['mediaId', 'mediaGenerationId']) || operacion;
-    item = await guardarMarca(item, n, { url, mediaId });
+    // La ceguera se borra sola: si esta consulta contestó, ya no estamos ciegos.
+    item = await guardarMarca(item, n, { url, mediaId, ciego: undefined });
     // El clip esta listo: se pregunta el saldo, y la resta contra el de antes da
     // el costo REAL de una toma. Es el numero del que depende toda la economia
     // del plan y hasta hoy no lo teniamos medido.
@@ -370,6 +426,39 @@ export async function estadoTomaAction(
       await encolar('creditos', { path: ENDPOINTS.creditos, body: {} });
     }
     return { ok: true, item, estado: { fase: 'listo', url, mediaId } };
+  }
+
+  // ── ¿Y si lo roto es la PREGUNTA? ────────────────────────────────────────
+  //
+  // Dos consultas fallidas son diez llamadas a Google rechazadas: eso ya no es un
+  // bache. Se dice, y se dice sin convertir la toma en un error — el clip se
+  // aceptó y lo más probable es que exista.
+  //
+  // Dos y no una: cada trabajo ya reintenta cinco veces solo, así que una sola
+  // fallida puede ser un mal minuto de la red. Es la comparación asimétrica de
+  // siempre: para afirmar que algo se rompió hacen falta dos lecturas, para
+  // creerle a un éxito alcanza con una.
+  const fallidas = mias.filter((c) => str(c.estado) === 'fallido');
+  if (fallidas.length >= 2) {
+    const crudo = str(fallidas[0]?.error);
+    const causa = causaDeMotivo(str(fallidas[0]?.motivo)) ?? causaFlow(crudo);
+    // Si Google señala a la sesión o a los créditos, eso GANA: son cosas del
+    // cliente, con su pantalla y su arreglo. `ciego` es para cuando el rechazo es
+    // del pedido que sale de acá, que es lo que no se estaba diciendo.
+    const suyo = causa === 'sesion' || causa === 'sin_creditos' || causa === 'puente';
+    if (suyo) {
+      const fallo = falloGuardable(crudo, `la toma ${n}`, str(fallidas[0]?.motivo));
+      item = await guardarMarca(item, n, fallo);
+      return { ok: true, item, estado: { fase: 'error', error: fallo.error } };
+    }
+    const texto = textoFlow('ciego', `la toma ${n}`).detalle;
+    if (!marca.ciego) {
+      item = await guardarMarca(item, n, {
+        ciego: { desde: new Date().toISOString(), error: texto, crudo: crudo.slice(0, 2000) },
+      });
+    }
+    await consultarUnaVez(operacion, true);
+    return { ok: true, item, estado: { fase: 'a_ciegas', operacion, error: texto } };
   }
 
   // Todavía no. Se vuelve a preguntar — una operación sin video NO falló.
