@@ -116,6 +116,7 @@ import { CURSO_CLUB_DE_NEGOCIOS } from './curso-club-de-negocios';
 import { CURSO_ECOMMERCE_0_A_17_MILLONES } from './curso-ecommerce-0-a-17-millones';
 import { CURSO_ACADEMIA_DE_LANZAMIENTO } from './curso-academia-de-lanzamiento';
 import { CURSO_BELIKETHEALGO } from './curso-belikethealgo';
+import { CURSO_GROWTH_PARTNER } from './curso-growth-partner';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio.datos';
 import { CURSO_BRANDING } from './BrandingMaKo.datos';
@@ -398,6 +399,10 @@ const CATEGORIA: Record<string, string> = {
   // plataforma. El comentario al lado es la categoría de origen.
   'belikethealgo': 'Finanzas',             // Trading
 
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'growth-partner': 'Ecommerce',           // Ecommerce
+
 };
 
 /**
@@ -584,6 +589,10 @@ const PORTADA: Record<string, string> = {
   // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
   // pero la ficha se había emitido antes de que existiera.
   'belikethealgo': '/cono-portadas/belikethealgo.png',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'growth-partner': '/cono-portadas/growth-partner.png',
 
 };
 
@@ -895,6 +904,10 @@ const RESUMEN: Record<string, string> = {
   // del catálogo de la plataforma.
   'belikethealgo': 'Aprende a tradear en Forex con la estrategia probada de Benjamín Carmona. El curso enseña análisis técnico, identificación de patrones de precio, entrada y salida de operaciones.',
 
+  // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
+  // del catálogo de la plataforma.
+  'growth-partner': 'Aprende a convertirte en un Growth Partner de marcas e-commerce. El curso enseña embudos de venta, publicidad en Meta Ads y Google Ads, estrategia de contenido y UGC.',
+
 };
 
 // Sin acentos y en minúsculas, para que «Sofia» no se sume a un título que ya dice
@@ -1188,6 +1201,9 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_BELIKETHEALGO,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_GROWTH_PARTNER,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
