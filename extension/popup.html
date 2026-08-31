@@ -1,15 +1,41 @@
 <!doctype html>
 <meta charset="utf-8">
+<!--
+  El popup NO configura nada: informa.
+
+  Tenía un campo «Código de conexión», su botón «Conectar» y dos líneas de
+  estado. El dueño: «elimina todo esto… dentro de MaKo simplemente mostrar un
+  aviso cuando esté desconectado. Todo minimalista».
+
+  El campo era la salida de emergencia del apretón de manos, y por eso se puede
+  ir sin perder nada: MaKo le pasa la llave sola desde la página, y los dos casos
+  en que eso falla —extensión recién instalada, extensión vieja— NO se arreglaban
+  pegando el código; se arreglan recargando o actualizando, que es lo que dice
+  MaKo. Un campo que sólo sirve para un camino que ya no se recorre es una puerta
+  a un cuarto vacío.
+
+  Queda una línea de estado y, cuando falta algo, el único link que lo arregla.
+-->
 <style>
-  body { font: 13px/1.5 system-ui, sans-serif; width: 300px; padding: 14px; margin: 0; }
-  h1 { font-size: 15px; margin: 0 0 10px; }
-  input { width: 100%; box-sizing: border-box; padding: 7px; font: inherit; }
-  button { margin-top: 8px; padding: 7px 12px; font: inherit; cursor: pointer; }
-  .estado { margin-top: 12px; padding: 9px; border-radius: 6px; background: #f2f3f5; }
-  .ok { color: #0a7d33; } .falta { color: #9a6700; }
+  :root { color-scheme: light dark; }
+  body {
+    font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    width: 224px; padding: 13px 14px; margin: 0;
+    background: #fff; color: #16181d;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background: #1c1e24; color: #e8eaee; }
+    .sec { color: #9aa1ad; }
+    a { color: #8ab4ff; }
+  }
+  .marca { font-size: 12px; font-weight: 700; letter-spacing: .02em; color: #9aa1ad; }
+  .fila { display: flex; align-items: center; gap: 8px; margin-top: 9px; font-size: 14px; }
+  .punto { width: 8px; height: 8px; border-radius: 999px; flex: none; background: #22a558; }
+  .punto[data-tono="falta"] { background: #d59b0a; }
+  .sec { color: #6b7280; font-size: 12px; margin-top: 7px; }
+  a { color: #1a56db; }
 </style>
-<h1>MaKo</h1>
-<label>Código de conexión<br><input id="token" placeholder="flow_…"></label>
-<button id="guardar">Conectar</button>
-<div class="estado" id="estado">…</div>
+<div class="marca">MaKo</div>
+<div class="fila"><span class="punto" id="punto"></span><span id="txt">…</span></div>
+<div class="sec" id="sec"></div>
 <script src="popup.js"></script>

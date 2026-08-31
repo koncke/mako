@@ -1428,9 +1428,31 @@
 
    Una plantilla se ELIGE —y para eso hay que verla grande, comparándola con las
    otras—; un anuncio terminado se ABRE, y para eso alcanza con reconocerlo. */
-.mk-terminados { border-top: 1px solid var(--border); padding-top: 6px; }
+/* El PLEGABLE: una fila que cuesta nada hasta que alguien la pide. Lo usan los
+   anuncios terminados y la configuración del navegador, que comparten el mismo
+   argumento — son referencia, no destino, y a esta pantalla se viene a crear.
+   Se llamaba `.mk-terminados`: con dos usos, el nombre del primero mentía. */
+.mk-plegable { border-top: 1px solid var(--border); padding-top: 6px; }
 
-.mk-terminados__resumen {
+/* El estado a la derecha del rótulo: es lo que decide si vale la pena abrirlo,
+   igual que el número en los terminados. */
+.mk-plegable__estado {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--dim);
+}
+.mk-plegable__punto {
+  width: 7px; height: 7px; border-radius: 999px; flex: none;
+  background: var(--good);
+}
+.mk-plegable__punto[data-tono="warn"] { background: var(--warn); }
+.mk-plegable__punto[data-tono="bad"] { background: var(--bad); }
+
+.mk-plegable__resumen {
   display: flex;
   align-items: center;
   gap: 9px;
@@ -1441,23 +1463,23 @@
   font-weight: 650;
   color: var(--ink);
 }
-.mk-terminados__resumen::-webkit-details-marker { display: none; }
-.mk-terminados__resumen:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.mk-plegable__resumen::-webkit-details-marker { display: none; }
+.mk-plegable__resumen:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
-.mk-terminados__n {
+.mk-plegable__n {
   font-size: var(--fs-meta);
   font-weight: 600;
   color: var(--faint);
 }
-.mk-terminados__chev {
+.mk-plegable__chev {
   line-height: 0;
   color: var(--dim);
   transform: rotate(-90deg);
   transition: transform .16s ease;
 }
-.mk-terminados[open] .mk-terminados__chev { transform: rotate(0deg); }
+.mk-plegable[open] .mk-plegable__chev { transform: rotate(0deg); }
 
-.mk-terminados__lista { display: flex; flex-direction: column; padding-bottom: 8px; }
+.mk-plegable__lista { display: flex; flex-direction: column; padding-bottom: 8px; }
 
 /* La fila: filete entre hermanas, sin caja. Tres cajas apiladas del mismo tamaño
    son el contenedor perezoso; la caja se gana. */
@@ -1502,7 +1524,7 @@
 .mk-anuncio__chev { flex: none; line-height: 0; color: var(--faint); }
 
 @media (prefers-reduced-motion: reduce) {
-  .mk-terminados__chev, .mk-anuncio { transition: none; }
+  .mk-plegable__chev, .mk-anuncio { transition: none; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

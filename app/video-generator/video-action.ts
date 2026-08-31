@@ -383,13 +383,13 @@ export async function generarTomaAction(
   if (!puente || puente.estado === 'sin_conectar') {
     return {
       ok: false,
-      error: 'Todavía no conectaste tu navegador. Configúralo abajo, en «Prepara tu navegador».',
+      error: 'Tu navegador no está conectado. Sal al catálogo y ábrelo en «Tu navegador», al pie.',
     };
   }
   if (puente.estado === 'marcada') {
     return {
       ok: false,
-      error: 'Google marcó esta sesión y dejó de aceptar generaciones. Abajo, en «Prepara tu navegador», está qué hacer y el botón para volver a habilitarla.',
+      error: 'Google marcó esta sesión y dejó de aceptar generaciones. En el catálogo, dentro de «Tu navegador», está qué hacer y el botón para volver a habilitarla.',
     };
   }
   if (puente.estado === 'sin_sesion') {
@@ -977,10 +977,10 @@ export async function generarImagenAction(
 
   const puente = await estadoPuente().catch(() => null);
   if (!puente || puente.estado === 'sin_conectar') {
-    return { ok: false, error: 'Todavía no conectaste tu navegador. Configúralo abajo, en «Prepara tu navegador».' };
+    return { ok: false, error: 'Tu navegador no está conectado. Sal al catálogo y ábrelo en «Tu navegador», al pie.' };
   }
   if (puente.estado === 'marcada') {
-    return { ok: false, error: 'Google marcó esta sesión y dejó de aceptar generaciones. Abajo, en «Prepara tu navegador», está qué hacer.' };
+    return { ok: false, error: 'Google marcó esta sesión y dejó de aceptar generaciones. En el catálogo, dentro de «Tu navegador», está qué hacer.' };
   }
   if (puente.estado === 'sin_sesion') {
     return { ok: false, error: 'Tu sesión de Google Flow venció. Abre Flow, inicia sesión, y vuelve a intentar.' };

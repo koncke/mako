@@ -27,7 +27,7 @@
 // está), no un tilde. Es lo que la skill pide: la recompensa es el dato real.
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Section, Button, Alert, Status, MONO } from '@/app/_ui';
+import { Button, Alert, Status, MONO } from '@/app/_ui';
 import { Icon } from '../_components/icons';
 import {
   conectarPuenteAction, probarPuenteAction, estadoPruebaAction,
@@ -115,56 +115,110 @@ function entregarToken(token: string): Promise<boolean> {
   });
 }
 
+/**
+ * Un paso: el número, el título, la acción, y UNA línea de ayuda debajo.
+ *
+ * ⚠️ La ayuda ERA una caja gris con cejilla «CÓMO SE HACE» y tres renglones de
+ * prosa. Cuatro de esas cajas son lo que convertía a esto en una pared —el dueño:
+ * «elimina todo esto… todo minimalista»—. La regla de la skill que las pedía
+ * sigue en pie y no es la caja: es que la ACCIÓN va primero y el contexto abajo.
+ * Eso se cumple igual con una línea tenue, y se lee.
+ */
 function Paso({
-  n, titulo, hecho, activo, children, contexto,
+  n, titulo, hecho, activo, children, ayuda,
 }: {
   n: number; titulo: string; hecho: boolean; activo: boolean;
-  children?: ReactNode; contexto?: ReactNode;
+  children?: ReactNode; ayuda?: ReactNode;
 }) {
   return (
     <div style={{
-      display: 'flex', gap: 12, padding: '14px 0',
+      display: 'flex', gap: 12, padding: '13px 0',
       borderTop: n === 1 ? 'none' : '1px solid var(--border)',
-      opacity: hecho || activo ? 1 : 0.55,
+      opacity: hecho || activo ? 1 : 0.5,
     }}>
       <span style={{
-        flex: 'none', width: 24, height: 24, borderRadius: 999, display: 'grid',
-        placeItems: 'center', fontSize: 12, fontWeight: 700,
+        flex: 'none', width: 22, height: 22, borderRadius: 999, display: 'grid',
+        placeItems: 'center', fontSize: 11.5, fontWeight: 700,
         background: hecho ? 'var(--good-bg)' : activo ? 'var(--primary-bg)' : 'var(--surface-2)',
         color: hecho ? 'var(--good)' : activo ? 'var(--primary)' : 'var(--faint)',
         border: hecho || activo ? 'none' : '1px solid var(--border-strong)',
       }}>
-        {hecho ? <Icon name="check" size={13} /> : n}
+        {hecho ? <Icon name="check" size={12} /> : n}
       </span>
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 'var(--fs-md)', fontWeight: 650, color: 'var(--ink)' }}>{titulo}</div>
-        {/* La acción primero. El contexto va abajo de todo: nadie lee un párrafo
-            antes de poder tocar algo. */}
-        {children && <div style={{ marginTop: 9 }}>{children}</div>}
-        {contexto && (
+        {children && <div style={{ marginTop: 8 }}>{children}</div>}
+        {ayuda && (
           <div style={{
-            background: 'var(--surface-2)', border: '1px solid var(--border)',
-            borderRadius: 12, padding: '11px 13px', marginTop: 10, textAlign: 'left',
-          }}>
-            <div style={{
-              fontFamily: MONO, fontSize: 10, letterSpacing: '.08em',
-              textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6,
-            }}>
-              Cómo se hace
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>{contexto}</div>
-          </div>
+            fontSize: 'var(--fs-sm)', color: 'var(--faint)',
+            lineHeight: 1.55, marginTop: 7,
+          }}>{ayuda}</div>
         )}
       </div>
     </div>
   );
 }
 
-export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] }) {
+/**
+ * QUÉ LE PASA AL NAVEGADOR, en una frase. UN solo juicio.
+ *
+ * ⚠️ Lo miran DOS pantallas —la fila plegada y el aviso del catálogo— y por eso
+ * está acá y no adentro del render. Medido antes de unificarlo: el aviso decía
+ * «tu navegador no está conectado» mientras la fila, tres bloques más abajo,
+ * decía «falta abrir Google Flow». Las dos hablaban del mismo hecho, la segunda
+ * tenía razón, y la primera mandaba a reinstalar una extensión que ya estaba.
+ *
+ * Es la regla del repo sobre dos números que se comparan en pantalla, aplicada a
+ * dos frases: si se leen juntas, salen del mismo juicio o se contradicen.
+ */
+export function estadoDelPuente(
+  p: EstadoPruebaOut['puente'] | null,
+  ahora: number | null,
+): { tono: 'good' | 'warn' | 'bad'; txt: string; anda: boolean; vivo: boolean } {
+  if (!p) return { tono: 'warn', txt: 'Sin conectar', anda: false, vivo: false };
+  const desde = ahora != null && p.ultimoVisto ? ahora - new Date(p.ultimoVisto).getTime() : null;
+  // Mientras no se sabe (primer render, sin reloj todavía) se conserva lo que el
+  // server trajo: parpadear a «desconectado» un instante es peor que esperar.
+  const vivo = desde == null ? !!p.ultimoVisto : desde < VIVO_MS;
+
+  if (p.estado === 'marcada') return { tono: 'bad', txt: 'Google marcó esta sesión', anda: false, vivo };
+  if (!vivo) return { tono: 'warn', txt: 'Sin conectar', anda: false, vivo };
+  if (p.estado !== 'listo') return { tono: 'warn', txt: 'Falta abrir Google Flow', anda: false, vivo };
+  return { tono: 'good', txt: 'Listo', anda: true, vivo };
+}
+
+/** El `id` del desplegable. `AvisoPuente` lo abre por acá. */
+export const ID_PUENTE = 'mk-puente';
+
+/**
+ * Abre la configuración del navegador y la trae a la vista.
+ *
+ * Vive suelta —y no como prop— porque la llaman dos pantallas que no son padres
+ * de ésta: el catálogo y el estudio. Pasarles un callback obligaría a subir el
+ * estado del `<details>` hasta el ancestro común, que es toda la tab.
+ */
+export function abrirPuente() {
+  const el = document.getElementById(ID_PUENTE) as HTMLDetailsElement | null;
+  if (!el) return;
+  el.open = true;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+export function PuentePanel({ inicial, saldo, onEstado }: {
+  inicial: EstadoPruebaOut['puente'];
+  /** El saldo GUARDADO, para que la línea diga algo antes de comprobar nada. */
+  saldo?: { creditos: number | null } | null;
+  /**
+   * Le cuenta hacia arriba cada estado nuevo.
+   *
+   * Este panel es el ÚNICO que re-pregunta por el puente, así que lo que averigua
+   * no puede quedarse acá adentro: quien decide si se puede empezar un anuncio
+   * vive afuera, y sin esto seguía mirando el snapshot de la carga.
+   */
+  onEstado?: (p: EstadoPruebaOut['puente']) => void;
+}) {
   const [puente, setPuente] = useState(inicial);
-  const [token, setToken] = useState<string | null>(null);
-  const [copiado, setCopiado] = useState(false);
   const instalada = useExtensionInstalada();
   const puedeInstalar = usePuedeInstalar();
   const ahora = useAhora();
@@ -184,28 +238,20 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
 
   // Hechos, no checkboxes — y hechos CON FECHA.
   //
-  // ⚠️ Esto era `!!puente.ultimoVisto`, o sea «alguna vez llamó». El dueño
-  // desinstaló la extensión y los pasos 2 y 3 siguieron en verde con una última
-  // señal de **35 horas antes**: el paso 1 hablaba del navegador de ahora y los
-  // otros dos de un navegador que ya no existía. Un campo con fecha usado como
-  // booleano deja de medir el presente y pasa a medir el pasado.
+  // ⚠️ La frescura se calculaba ACÁ, con su propio plazo y su propia comparación
+  // de fecha, y otra vez en el juicio compartido. Dos copias de la misma regla:
+  // el día que el plazo cambie en una, la fila y los tilditos de al lado
+  // contestan cosas distintas sobre el mismo navegador.
   //
-  // El plazo no vuelve al puente menos capaz: si sigue vivo en OTRO navegador
-  // —que es un caso legítimo, la extensión trabaja desde donde se instaló— llamó
-  // hace 15 segundos y esto sigue en verde. Lo único que se apaga es lo que dejó
-  // de dar señales.
-  const desdeUltima = ahora != null && puente.ultimoVisto
-    ? ahora - new Date(puente.ultimoVisto).getTime()
-    : null;
-  // Mientras no se sabe (primer render, sin reloj todavía) se conserva lo que el
-  // server trajo: parpadear a «desconectado» durante un instante es peor que
-  // esperar 100 ms.
-  const vivo = desdeUltima == null ? !!puente.ultimoVisto : desdeUltima < VIVO_MS;
+  // El plazo existe porque `!!puente.ultimoVisto` medía «alguna vez llamó»: el
+  // dueño desinstaló la extensión y los pasos 2 y 3 siguieron en verde con una
+  // última señal de 35 horas antes. Un campo con fecha usado como booleano deja
+  // de medir el presente y pasa a medir el pasado.
+  const juicio = estadoDelPuente(puente, ahora);
 
-  const llamo = vivo;
-  const conSesion = vivo && puente.estado === 'listo';
+  const llamo = juicio.vivo;
+  const conSesion = juicio.vivo && puente.estado === 'listo';
   const probado = prueba?.estado === 'listo';
-  const listo = llamo && conSesion && probado;
 
   // ── Volver a preguntar mientras alguien está mirando ──────────────────────
   // El reloj de `useAhora` hace que la señal vieja se apague, pero `ultimoVisto`
@@ -252,25 +298,17 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
     try {
       const out = await conectarPuenteAction('Mi navegador');
       if (!out.ok) { setError(out.error); return; }
-      // Con la extensión presente, el token se le entrega solo. El código en
-      // pantalla queda como salida de emergencia: si el apretón de manos falla
-      // —una versión vieja de la extensión, un content script que no cargó—,
-      // todavía se puede pegar a mano en vez de quedar sin camino.
-      if (instalada && (await entregarToken(out.token))) {
-        setCiclos(0);
-        return;
-      }
-      setToken(out.token);
+      // ⚠️ YA NO HAY PEGADO A MANO. El popup de la extensión perdió su campo
+      // —el dueño: «elimina todo esto»— así que mostrar un código para pegar
+      // apuntaría a una pantalla que ya no existe.
+      //
+      // Y el arreglo real de los dos casos en que el apretón falla —extensión
+      // recién instalada sin recargar, extensión vieja— nunca fue pegar el
+      // código: es recargar o actualizar, y las dos cosas ya tienen su botón.
+      if (await entregarToken(out.token)) { setCiclos(0); return; }
+      setError('No pude conectarla. Recarga la página y vuelve a intentar.');
     } finally { setBusyCodigo(false); }
   }, [instalada]);
-
-  const copiar = useCallback(() => {
-    if (!token) return;
-    navigator.clipboard.writeText(token).then(
-      () => { setCopiado(true); window.setTimeout(() => setCopiado(false), 1800); },
-      () => { /* sin portapapeles: el código está en pantalla para seleccionarlo */ },
-    );
-  }, [token]);
 
   const probar = useCallback(async () => {
     setBusyPrueba(true); setError(null); setPrueba(null);
@@ -312,6 +350,11 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
     };
   }, [hayQueEsperar, agotado, trabajoId]);
 
+  // Un solo punto de salida, y colgado del ESTADO y no de cada `setPuente`.
+  // Hay tres lugares que lo escriben (el poll de 15 s, el tick de la prueba, el
+  // snapshot inicial) y avisar en cada uno es garantizar que el cuarto se olvide.
+  useEffect(() => { onEstado?.(puente); }, [puente, onEstado]);
+
   const [rehabilitando, setRehabilitando] = useState(false);
 
   /** «Ya hice lo que decía el aviso»: la salida explícita del estado de contención. */
@@ -327,291 +370,260 @@ export function PuentePanel({ inicial }: { inicial: EstadoPruebaOut['puente'] })
 
   const volverAMirar = useCallback(() => { setCiclos(0); }, []);
 
-  // Con todo listo, esto deja de ser un instructivo y pasa a ser una línea.
-  if (listo) {
-    // El SALDO es el dato, y esta vista se lo estaba comiendo: decía «listo para
-    // generar» sobre una prueba que había vuelto con el número de créditos de la
-    // cuenta adentro. Un tilde verde no es una recompensa; el saldo real sí, y es
-    // además la única forma de saber cuánto se puede producir antes de empezar.
-    const saldo = leerSaldo(prueba?.resultado);
-    return (
-      <Section titulo="Tu navegador">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <Status tono="good">Listo para generar</Status>
-          <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>
-            {saldo.creditos != null
-              ? <>Tu cuenta de Google Flow tiene <strong>{saldo.etiqueta}</strong>.</>
-              : 'Los videos se generan en tu navegador, con tu cuenta de Google Flow.'}
-          </span>
-          <Button size="sm" variant="tertiary" onClick={() => void probar()} loading={busyPrueba}>
-            Volver a probar
-          </Button>
-        </div>
-      </Section>
-    );
-  }
+  // ── EL ESTADO, EN UNA LÍNEA ───────────────────────────────────────────────
+  // Es lo único que se ve sin abrir, y es lo que decide si vale la pena abrir.
+  // El saldo VIVO —el que acaba de traer la prueba— le gana al guardado, que es
+  // el que la página trajo del server y puede tener horas.
+  const saldoVivo = leerSaldo(prueba?.resultado);
+  const creditos = saldoVivo.creditos != null
+    ? saldoVivo.etiqueta
+    : saldo?.creditos != null
+      ? `${saldo.creditos.toLocaleString('es-MX')} créditos`
+      : null;
+
+  // El saldo es lo ÚNICO que esta pantalla le agrega al juicio compartido: la
+  // recompensa del paso 4 es el número real, no un tilde.
+  const estado = juicio.anda && creditos ? { ...juicio, txt: `Listo · ${creditos}` } : juicio;
 
   return (
-    <Section titulo="Prepara tu navegador">
-      {error && <Alert tono="bad">{error}</Alert>}
+    // ⚠️ DESPLEGABLE Y CERRADO. El dueño: «elimina todo esto, debería vivir
+    // dentro del desplegable de la página… todo minimalista».
+    //
+    // Se abre solo la primera vez —cuando el navegador NUNCA llamó—, que es la
+    // única en que alguien viene a esta tab a configurar algo. Después es una
+    // fila: quien entra a hacer un anuncio no tiene por qué volver a leer cómo se
+    // instala una extensión que ya instaló. Lo que avisa si se cayó no es esto
+    // sino `AvisoPuente`, que aparece en el camino.
+    //
+    // El `id` es cómo lo abre ese aviso. Con `<details>` nativo eso es tocar el
+    // DOM, y es a propósito: subir el abierto/cerrado a un estado de React para
+    // algo que pasa una vez cada tanto costaría el prop en tres pantallas.
+    //
+    // ⚠️ `open` SALE DE `inicial`, el dato del server, y NO del estado vivo.
+    // Con el estado vivo esto era `open={!llamo}` y fallaba de dos formas a la
+    // vez: mismatch de hidratación —el server pinta con el snapshot y el cliente
+    // re-pregunta a los milisegundos—, y sobre todo, como el valor CAMBIABA
+    // entre renders, React volvía a escribir el atributo cada 15 segundos: el
+    // panel que la persona acababa de abrir se cerraba solo al primer poll.
+    //
+    // Colgado de un valor que nunca cambia, React no lo vuelve a tocar nunca y
+    // el abierto/cerrado queda donde tiene que estar: en manos de quien mira.
+    <details id={ID_PUENTE} className="mk-plegable" open={!inicial.ultimoVisto}>
+      <summary className="mk-plegable__resumen">
+        <span className="mk-plegable__chev"><Icon name="chevron" size={15} /></span>
+        Tu navegador
+        <span className="mk-plegable__estado">
+          <span className="mk-plegable__punto" data-tono={estado.tono} />
+          {estado.txt}
+        </span>
+      </summary>
 
-      {agotado && hayQueEsperar && (
-        <Alert tono="warn">
-          Dejé de revisar para no consumir de más. Cuando termines los pasos de abajo,
-          vuelve a mirar.
-          <div style={{ marginTop: 8 }}>
-            <Button size="sm" variant="secondary" onClick={volverAMirar}>Volver a revisar</Button>
-          </div>
-        </Alert>
-      )}
+      <div style={{ paddingBottom: 10, maxWidth: 620 }}>
+        {error && <Alert tono="bad">{error}</Alert>}
 
-      {/*
-        La sesión marcada es un estado de CONTENCIÓN: no se levanta solo, a
-        propósito. Pero hasta acá tampoco se levantaba con nada — el aviso decía
-        qué hacer y después no había forma de decir «ya lo hice», así que la tab
-        quedaba muerta aunque el problema estuviera resuelto.
-
-        El botón es la salida explícita que el diseño pedía y nunca existió.
-      */}
-      {puente.estado === 'marcada' && (
-        <Alert tono="bad">
-          Google marcó esta sesión como automatizada y dejó de aceptar generaciones. Espera un
-          rato, borra las cookies de google.com y labs.google, y vuelve a entrar a Flow.
-          Reintentar sin hacer eso solo empeora la marca.
-          <div style={{ marginTop: 9 }}>
-            <Button size="sm" variant="secondary" onClick={rehabilitar} loading={rehabilitando}>
-              Ya lo hice, volver a habilitar
-            </Button>
-          </div>
-        </Alert>
-      )}
-
-      <div style={{ fontSize: 'var(--fs-md)', color: 'var(--dim)', lineHeight: 1.65, marginBottom: 6 }}>
-        Tus videos se generan en <strong>tu</strong> computadora, con <strong>tu</strong> cuenta
-        de Google Flow y tus créditos. MaKo escribe el guion y arma cada toma; tu navegador la
-        produce. Se configura una vez.
-      </div>
-
-      {/*
-        El HECHO le gana a la corazonada, y por eso el orden de esta condición no
-        es decorativo: si la extensión contestó que está instalada, este navegador
-        la pudo instalar — no importa lo que infiera el sniff. Solo queda la
-        ventana en que ya sabemos que NO está y además sabemos que no puede estar.
-
-        Y se pinta únicamente con la certeza `'no'`: ni con `'no-se-sabe'`, ni con
-        `null`. Decirle «tu navegador no sirve» a un Chrome de verdad —pasa en
-        `http://` por IP de LAN, donde `userAgentData` no existe— le niega la
-        función a quien la tiene y no tiene vuelta atrás dentro de la pantalla. No
-        avisarle a un Safari le cuesta medio minuto, y es lo que ya pasa hoy.
-      */}
-      {/*
-        La extensión instalada quedó vieja.
-        //
-        Esto existe por un día entero perdido: el dueño tenía una copia del zip en
-        una carpeta suelta, Chrome la recargaba con total fidelidad, y cada arreglo
-        se desplegaba sin llegar nunca a su navegador. «Sigue igual» era
-        indistinguible de «no llegó el cambio», y se diagnosticaron durante horas
-        los síntomas de una versión que ya no existía.
-        //
-        ⚠️ La comparación ERA de igualdad, con el argumento de que «si difieren,
-        hay algo que hacer». Es falso en un caso que pasa todos los días mientras
-        se desarrolla: la instalada es MÁS NUEVA que el zip publicado. Ahí el
-        aviso decía «tu extensión quedó vieja: tienes la 0.10.0 y la actual es la
-        0.6.0», que además de inútil es la clase de mensaje que hace desconfiar
-        de todos los demás avisos de la pantalla.
-
-        Ahora se ordenan de verdad. Si la instalada va ADELANTE, no se dice nada:
-        no hay nada que hacer.
-      */}
-      <AvisoExtensionVieja instalada={instalada} />
-
-      {instalada === false && puedeInstalar === 'no' && (
-        <div style={{ marginBottom: 12 }}>
+        {agotado && hayQueEsperar && (
           <Alert tono="warn">
-            <strong>Este navegador no puede instalar la extensión.</strong> Abre MaKo en
-            Chrome, Edge, Brave u Opera y completa ahí estos cuatro pasos. Después puedes
-            seguir usando MaKo en este navegador: la extensión trabaja desde donde la
-            instalaste, no desde donde escribes.
+            Dejé de revisar para no consumir de más.
+            <div style={{ marginTop: 8 }}>
+              <Button size="sm" variant="secondary" onClick={volverAMirar}>Volver a revisar</Button>
+            </div>
           </Alert>
-        </div>
-      )}
+        )}
 
-      <Paso
-        n={1}
-        titulo="Instala la extensión de MaKo"
-        hecho={!!instalada}
-        activo={!instalada}
-        contexto={
-          EXTENSION_EN_TIENDA ? (
-            <>
-              Se instala desde la tienda de Chrome con un clic. Funciona en Chrome, Edge,
-              Brave y Opera.
-            </>
+        {/*
+          La sesión marcada es un estado de CONTENCIÓN: no se levanta solo, a
+          propósito. El botón es la salida explícita — sin él la tab quedaba
+          muerta aunque el problema estuviera resuelto.
+        */}
+        {puente.estado === 'marcada' && (
+          <Alert tono="bad">
+            Google marcó esta sesión como automatizada y dejó de aceptar generaciones. Espera un
+            rato, borra las cookies de google.com y labs.google, y vuelve a entrar a Flow.
+            Reintentar sin hacer eso solo empeora la marca.
+            <div style={{ marginTop: 9 }}>
+              <Button size="sm" variant="secondary" onClick={rehabilitar} loading={rehabilitando}>
+                Ya lo hice, volver a habilitar
+              </Button>
+            </div>
+          </Alert>
+        )}
+
+        <AvisoExtensionVieja instalada={instalada} />
+
+        {/*
+          El HECHO le gana a la corazonada: si la extensión contestó que está
+          instalada, este navegador la pudo instalar. Y se pinta sólo con la
+          certeza `'no'` — decirle «tu navegador no sirve» a un Chrome de verdad
+          (pasa en `http://` por IP de LAN) le niega la función a quien la tiene.
+        */}
+        {instalada === false && puedeInstalar === 'no' && (
+          <div style={{ marginBottom: 12 }}>
+            <Alert tono="warn">
+              <strong>Este navegador no puede instalar la extensión.</strong> Abre MaKo en
+              Chrome, Edge, Brave u Opera y conéctalo ahí. Después puedes seguir usando MaKo
+              en este navegador: la extensión trabaja desde donde la instalaste.
+            </Alert>
+          </div>
+        )}
+
+        <Paso
+          n={1}
+          titulo="Instala la extensión"
+          hecho={!!instalada}
+          activo={!instalada}
+          ayuda={EXTENSION_EN_TIENDA
+            ? 'Chrome, Edge, Brave y Opera.'
+            : <>Descomprímela en una carpeta, abre <code style={{ fontFamily: MONO, fontSize: 12 }}>chrome://extensions</code>, activa el <strong>Modo de desarrollador</strong> y usa <strong>Cargar descomprimida</strong>.</>}
+        >
+          {instalada ? (
+            <Status tono="good">
+              Instalada{typeof instalada === 'string' ? ` · v${instalada}` : ''}
+            </Status>
+          ) : EXTENSION_EN_TIENDA ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => window.open(EXTENSION_URL_TIENDA, '_blank', 'noopener')}
+                icon={<Icon name="descargar" size={14} />}
+              >
+                Añadir a Chrome
+              </Button>
+              {/*
+                La instalación pasa en OTRA pestaña, y al volver acá el content
+                script no está: Chrome no lo inyecta hacia atrás. Sin este botón
+                el paso queda trabado sobre algo que sí está instalado.
+              */}
+              {instalada === false && (
+                <Button variant="tertiary" size="sm" onClick={() => window.location.reload()}>
+                  Ya la instalé
+                </Button>
+              )}
+            </div>
           ) : (
-            <>
-              Descarga el archivo y descomprímelo en una carpeta. Después abre{' '}
-              <code style={{ fontFamily: MONO, fontSize: 12 }}>chrome://extensions</code>, activa
-              el <strong>Modo de desarrollador</strong> arriba a la derecha, y usa{' '}
-              <strong>Cargar descomprimida</strong> apuntando a esa carpeta.
-              <div style={{ marginTop: 6 }}>
-                Funciona en Chrome, Edge, Brave y Opera.
-              </div>
-            </>
-          )
-        }
-      >
-        {instalada ? (
-          <Status tono="good">
-            Ya está instalada en este navegador{typeof instalada === 'string' ? ` (v${instalada})` : ''}
-          </Status>
-        ) : EXTENSION_EN_TIENDA ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <Button
               variant="secondary"
-              onClick={() => window.open(EXTENSION_URL_TIENDA, '_blank', 'noopener')}
+              size="sm"
+              onClick={() => { window.location.href = EXTENSION_URL_ZIP; }}
               icon={<Icon name="descargar" size={14} />}
             >
-              Añadir a Chrome
+              Descargar
             </Button>
-            {/*
-              La instalación pasa en OTRA pestaña, y al volver acá el content
-              script no está: Chrome no lo inyecta hacia atrás en una página que
-              ya estaba abierta. Sin este botón el paso queda trabado diciendo que
-              no está instalada sobre algo que sí lo está — y el usuario no tiene
-              cómo saber que lo único que falta es un F5.
-            */}
-            {instalada === false && (
-              <Button variant="tertiary" size="sm" onClick={() => window.location.reload()}>
-                Ya la instalé
-              </Button>
-            )}
-          </div>
-        ) : (
-          <Button
-            variant="secondary"
-            onClick={() => { window.location.href = EXTENSION_URL_ZIP; }}
-            icon={<Icon name="descargar" size={14} />}
-          >
-            Descargar la extensión
-          </Button>
-        )}
-      </Paso>
+          )}
+        </Paso>
 
-      <Paso
-        n={2}
-        titulo="Conecta la extensión con tu cuenta"
-        hecho={llamo}
-        activo={!!instalada && !llamo}
-        contexto="Un clic y listo: MaKo le pasa la llave a la extensión sin que tengas que copiar nada. Si algo falla, aparece el código para pegarlo a mano."
-      >
-        {token ? (
-          // Salida de emergencia: el apretón de manos no funcionó (extensión
-          // vieja, content script que no cargó). Se puede pegar a mano.
-          <>
-            <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginBottom: 8 }}>
-              No pude pasárselo solo. Copia este código y pégalo en la extensión, haciendo
-              clic en su ícono.
-            </div>
-            <div style={{
-              fontFamily: MONO, fontSize: 12.5, padding: 10, wordBreak: 'break-all',
-              background: 'var(--surface-2)', border: '1px solid var(--border)',
-              borderRadius: 'var(--r-sm)',
-            }}>{token}</div>
-            <div style={{ marginTop: 8 }}>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={copiar}
-                icon={<Icon name={copiado ? 'check' : 'copy'} size={13} />}
-              >
-                {copiado ? 'Copiado' : 'Copiar el código'}
-              </Button>
-            </div>
-          </>
-        ) : (
+        <Paso
+          n={2}
+          titulo="Conéctala con tu cuenta"
+          hecho={llamo}
+          activo={!!instalada && !llamo}
+          ayuda="Un clic: MaKo le pasa la llave sola."
+        >
           <Button
             variant="secondary"
+            size="sm"
             onClick={() => void conectar()}
             loading={busyCodigo}
             disabled={instalada === false}
           >
             {llamo ? 'Volver a conectar' : 'Conectar'}
           </Button>
-        )}
-      </Paso>
+        </Paso>
 
-      <Paso
-        n={3}
-        titulo="Abre Google Flow e inicia sesión"
-        hecho={conSesion}
-        activo={llamo && !conSesion}
-        contexto="Deja esa pestaña abierta mientras generas videos: de ahí sale el permiso para usar tu cuenta. Si la cierras, MaKo espera y retoma cuando la vuelvas a abrir. Necesitas una suscripción de Google que incluya Flow."
-      >
-        <Button
-          variant="secondary"
-          onClick={() => window.open(FLOW_URL, '_blank', 'noopener')}
-          icon={<Icon name="web" size={14} />}
+        <Paso
+          n={3}
+          titulo="Abre Google Flow"
+          hecho={conSesion}
+          activo={llamo && !conSesion}
+          ayuda="Deja esa pestaña abierta mientras generas: de ahí sale el permiso para usar tu cuenta. Necesitas una suscripción de Google que incluya Flow."
         >
-          Abrir Google Flow
-        </Button>
-      </Paso>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => window.open(FLOW_URL, '_blank', 'noopener')}
+            icon={<Icon name="web" size={14} />}
+          >
+            Abrir Google Flow
+          </Button>
+        </Paso>
 
-      <Paso
-        n={4}
-        titulo="Comprueba que todo funciona"
-        hecho={probado}
-        activo={conSesion && !probado}
-        contexto="Esta prueba no genera ningún video ni gasta créditos: solo le pregunta a Google cuántos te quedan. Si responde, ya puedes crear anuncios."
-      >
-        <Button
-          variant="mako"
-          onClick={() => void probar()}
-          loading={busyPrueba}
-          disabled={!puente.emparejado}
+        <Paso
+          n={4}
+          titulo="Comprueba tus créditos"
+          hecho={probado}
+          activo={conSesion && !probado}
+          ayuda="No genera ningún video ni gasta créditos: solo le pregunta a Google cuántos te quedan."
         >
-          Comprobar
-        </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => void probar()}
+            loading={busyPrueba}
+            disabled={!puente.emparejado}
+          >
+            Comprobar
+          </Button>
 
-        {prueba && (
-          <div style={{ marginTop: 10 }}>
-            {prueba.estado === 'listo' ? (
-              <Alert tono="good">
-                <strong>Todo funciona.</strong> Tu navegador le preguntó a Google:{' '}
-                tu cuenta tiene <strong>{leerSaldo(prueba.resultado).etiqueta}</strong>.
-                {/* El JSON crudo queda a mano pero no de entrada: el dato es el
-                    saldo, no la estructura de la respuesta. */}
-                <details style={{ marginTop: 8 }}>
-                  <summary style={{ cursor: 'pointer', fontSize: 'var(--fs-meta)', color: 'var(--dim)' }}>
-                    Ver la respuesta completa
-                  </summary>
-                  <div style={{
-                    fontFamily: MONO, fontSize: 'var(--fs-meta)', marginTop: 8, padding: 10,
-                    background: 'var(--surface-2)', borderRadius: 'var(--r-sm)',
-                    whiteSpace: 'pre-wrap', wordBreak: 'break-all',
-                  }}>{JSON.stringify(prueba.resultado, null, 2)}</div>
-                </details>
-              </Alert>
-            ) : prueba.estado === 'fallido' ? (
-              <Alert tono="bad">
-                <strong>No funcionó.</strong> {prueba.error || 'sin detalle'}
-              </Alert>
-            ) : (
-              <Alert tono="info">
-                {/*
-                  Este texto NO puede enumerar posibles causas. La versión anterior
-                  mandaba a revisar tres cosas —extensión instalada, código pegado,
-                  pestaña de Flow abierta— y en el caso real que lo puso a prueba las
-                  tres estaban bien: la falla era otra, y el mensaje mandó a buscar
-                  donde no era. Cuando el trabajo falla de verdad, el motivo llega
-                  clasificado y se muestra arriba, en la rama `fallido`.
-                */}
-                Esperando a tu navegador. Deja abierta la pestaña de Google Flow; la respuesta
-                aparece aquí en unos segundos.
-              </Alert>
-            )}
-          </div>
-        )}
-      </Paso>
-    </Section>
+          {prueba && (
+            <div style={{ marginTop: 10 }}>
+              {prueba.estado === 'listo' ? (
+                <Alert tono="good">
+                  Tu cuenta tiene <strong>{leerSaldo(prueba.resultado).etiqueta}</strong>.
+                </Alert>
+              ) : prueba.estado === 'fallido' ? (
+                <Alert tono="bad">
+                  <strong>No funcionó.</strong> {prueba.error || 'sin detalle'}
+                </Alert>
+              ) : (
+                <Alert tono="info">
+                  {/*
+                    Este texto NO puede enumerar posibles causas. La versión
+                    anterior mandaba a revisar tres cosas y en el caso real que lo
+                    puso a prueba las tres estaban bien: el motivo real llega
+                    clasificado y se muestra arriba, en la rama `fallido`.
+                  */}
+                  Esperando a tu navegador. Deja abierta la pestaña de Google Flow.
+                </Alert>
+              )}
+            </div>
+          )}
+        </Paso>
+      </div>
+    </details>
+  );
+}
+
+/**
+ * EL AVISO, para el resto de MaKo.
+ *
+ * El dueño: «dentro de MaKo simplemente mostrar un aviso cuando esté
+ * desconectado. Y claro que no te deje avanzar».
+ *
+ * Una línea y un botón que abre la configuración. No repite los pasos —eso vive
+ * en el desplegable, en un solo lugar— y no intenta adivinar cuál de los cuatro
+ * falta: el que abre lo ve marcado ahí.
+ */
+export function AvisoPuente({ puente, ahora, compacto = false }: {
+  puente: EstadoPruebaOut['puente'] | null;
+  ahora: number | null;
+  compacto?: boolean;
+}) {
+  const { txt } = estadoDelPuente(puente, ahora);
+  return (
+    <Alert tono="warn">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <span>
+          <strong>{txt}.</strong>
+          {/* La consecuencia, y sólo donde hay lugar: es lo que convierte un
+              estado en un motivo para hacer algo. */}
+          {!compacto && ' Sin eso no se pueden producir los videos.'}
+        </span>
+        {/* ⚠️ El rótulo dice lo que el botón HACE: abre la configuración. Decía
+            «Conectar», que es sólo uno de los cuatro pasos de adentro — y en el
+            caso más común (falta abrir Flow) nombraba justo el que ya está
+            hecho. Este repo ya pagó un botón que decía una cosa y hacía otra. */}
+        <Button size="sm" variant="secondary" onClick={abrirPuente}>Configurar</Button>
+      </div>
+    </Alert>
   );
 }

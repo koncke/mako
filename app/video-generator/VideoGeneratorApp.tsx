@@ -39,7 +39,7 @@ import {
   puestaPorId, puestasOfrecidas, type Puesta,
 } from './video-pedido';
 import { generarPlanAction, editarLineaPlanAction, reescribirTomaAction } from './actions';
-import { PuentePanel } from './PuentePanel';
+import { PuentePanel, AvisoPuente, abrirPuente, estadoDelPuente } from './PuentePanel';
 import type { Puente } from '@/lib/flow-cola';
 import { cabidaDeGuion, soloHablado } from '@/lib/puestas-data';
 import type { GuionDisponible } from './guiones-datos';
@@ -595,6 +595,16 @@ export function VideoGeneratorApp({
   // para no decidir una rama con dos relojes distintos —el del server y el del
   // navegador— durante la hidratación.
   const [ahoraTick, setAhoraTick] = useState<number | null>(null);
+
+  // ⚠️ EL PUENTE ES ESTADO, NO PROP. El `puente` que trae la página es un
+  // snapshot del momento en que se sirvió; el desplegable lo re-pregunta cada
+  // 15 s y necesita poder contárselo a quien decide si se puede avanzar.
+  //
+  // Sin esto, alguien que conecta su navegador desde el desplegable veía el
+  // tilde verde AHÍ y el botón de crear seguía bloqueado hasta recargar: dos
+  // partes de la misma pantalla contestando cosas distintas sobre el mismo
+  // hecho, que es exactamente la trampa que el gate viene a evitar.
+  const [puenteVivo, setPuenteVivo] = useState(puente);
   useEffect(() => {
     setAhoraTick(Date.now());
     const t = window.setInterval(() => setAhoraTick(Date.now()), 30000);
@@ -768,7 +778,25 @@ export function VideoGeneratorApp({
     return () => { vivo = false; clearInterval(id); };
   }, [generando, actual?.id]);
 
+  // ¿El navegador está conectado AHORA? Es el hecho del que cuelga todo lo que
+  // esta tab puede hacer, así que se calcula una vez y lo miran los dos lugares
+  // que deciden: el gate de la entrada y el aviso.
+  // ⚠️ Del MISMO juicio que pinta el aviso y la fila. Estaba escrito acá a mano
+  // —el plazo, la comparación de fecha, el `=== 'listo'`— y eso son tres reglas
+  // duplicadas: el día que una cambie, el botón y el cartel dicen cosas
+  // distintas sobre el mismo navegador.
+  const puenteAnda = estadoDelPuente(puenteVivo, ahoraTick).anda;
+
   const empezar = useCallback((id: string, caja?: DOMRect) => {
+    // ⚠️ EL GATE, Y ESTÁ ACÁ A PROPÓSITO. El dueño: «y claro que no te deje
+    // avanzar». Va en la ENTRADA y no adentro del recorrido por una razón que ya
+    // costó caro en este repo: adentro, el dato del puente queda congelado en el
+    // momento en que se entró —el desplegable que lo refresca vive en el
+    // catálogo—, así que un gate ahí puede trabar a alguien que YA conectó.
+    //
+    // Y no se queda mudo: abrir la configuración ES la respuesta al click. Un
+    // control que no hace nada es indistinguible de uno roto.
+    if (!puenteAnda) { abrirPuente(); return; }
     setPuestaId(id);
     setGuionId('');
     setPaso('guion');
@@ -779,7 +807,7 @@ export function VideoGeneratorApp({
     // que ya no está.
     setCajaTarjeta(caja ?? null);
     setVista('ejemplo');
-  }, []);
+  }, [puenteAnda]);
 
   /**
    * Genera el plan del anuncio.
@@ -883,24 +911,24 @@ export function VideoGeneratorApp({
   }
 
   if (vista === 'wizard') {
+  // ⚠️ `Estudio` Y NO `WizardShell`. El dueño: «el primer paso de "¿Cuál de
+  // tus guiones quieres grabar?" se quedó con el formato de form viejo».
+  //
+  // Y no era sólo estética: `WizardShell` es una tarjeta de 620 px con
+  // tipografías fuera de la escala `--fs-*` y, sobre todo, NO monta el tema.
+  // El recorrido real era oscuro → CLARO → oscuro, dos saltos en tres
+  // pantallas del mismo flujo.
+  //
+  // Mudarlo trae además dos cosas gratis: el riel del ejemplo acompaña también
+  // este paso —que es lo que se pidió cuando se dijo «durante toda la
+  // creación»— y desaparecen del camino los dos botones de `WizardShell` con
+  // `color: '#fff'` sobre `--primary`, que en oscuro dan 2,41:1 y no se leen.
     return (
       // `Pagina` con ancho completo, como el resto de la tab: el estudio es un
       // LIENZO y necesita cada píxel. Y envuelve para que el ejemplo que vuela
       // pueda ser hermano de la pantalla en vez de vivir adentro de ella.
       <Pagina ancho="completo" densidad="compacta">
       <TemaOscuro />
-      // ⚠️ `Estudio` Y NO `WizardShell`. El dueño: «el primer paso de "¿Cuál de
-      // tus guiones quieres grabar?" se quedó con el formato de form viejo».
-      //
-      // Y no era sólo estética: `WizardShell` es una tarjeta de 620 px con
-      // tipografías fuera de la escala `--fs-*` y, sobre todo, NO monta el tema.
-      // El recorrido real era oscuro → CLARO → oscuro, dos saltos en tres
-      // pantallas del mismo flujo.
-      //
-      // Mudarlo trae además dos cosas gratis: el riel del ejemplo acompaña también
-      // este paso —que es lo que se pidió cuando se dijo «durante toda la
-      // creación»— y desaparecen del camino los dos botones de `WizardShell` con
-      // `color: '#fff'` sobre `--primary`, que en oscuro dan 2,41:1 y no se leen.
       <Estudio
         pregunta={PREGUNTA[paso]}
         paso={idx + 1}
@@ -1410,10 +1438,6 @@ export function VideoGeneratorApp({
   // ¿El puente está andando AHORA? Se mira la FRESCURA de la última señal, no su
   // existencia: `ultimoVisto` es un campo con fecha, y usarlo como booleano ya
   // dejó los pasos en verde con una señal de 35 horas antes.
-  const puenteAnda = puente?.estado === 'listo'
-    && !!puente.ultimoVisto
-    && (ahoraTick == null || ahoraTick - new Date(puente.ultimoVisto).getTime() < 2 * 60 * 1000);
-
   return (
     <Pagina>
       {/* ⚠️ ACÁ FALTABA, y por eso «toda la tab» no estaba oscura.
@@ -1426,6 +1450,13 @@ export function VideoGeneratorApp({
           a mano: una pantalla nueva nace oscura sin tocar una línea. */}
       <TemaOscuro />
       {error && <Alert tono="bad">{error}</Alert>}
+
+      {/* ⚠️ EL AVISO, ARRIBA DE TODO Y EN UNA LÍNEA. El dueño: «dentro de MaKo
+          simplemente mostrar un aviso cuando esté desconectado».
+          No repite los cuatro pasos —ésos viven en el desplegable del pie, en un
+          solo lugar— ni adivina cuál falta: el botón abre esa configuración, que
+          es donde el paso pendiente ya está marcado. */}
+      {puente && !puenteAnda && <AvisoPuente puente={puenteVivo} ahora={ahoraTick} />}
 
       {contexto && !contexto.tieneFotos && (
         <Alert tono="warn">
@@ -1456,7 +1487,7 @@ export function VideoGeneratorApp({
         <Button
           variant="mako"
           size="xl"
-          disabled={!puedeCrear}
+          disabled={!puedeCrear || (!!puente && !puenteAnda)}
           onClick={() => puestaId && empezar(puestaId)}
           icon={<Icon name="ia" size={19} />}
         >
@@ -1501,14 +1532,14 @@ export function VideoGeneratorApp({
         // trae gratis el teclado y el foco.
         //
         // El número va en el resumen: es lo que decide si vale la pena abrirlo.
-        <details className="mk-terminados" style={{ marginTop: 40 }}>
-          <summary className="mk-terminados__resumen">
-            <span className="mk-terminados__chev"><Icon name="chevron" size={15} /></span>
+        <details className="mk-plegable" style={{ marginTop: 40 }}>
+          <summary className="mk-plegable__resumen">
+            <span className="mk-plegable__chev"><Icon name="chevron" size={15} /></span>
             Anuncios terminados
-            <span className="mk-terminados__n">{anuncios.length}</span>
+            <span className="mk-plegable__n">{anuncios.length}</span>
           </summary>
 
-          <div className="mk-terminados__lista">
+          <div className="mk-plegable__lista">
             {anuncios.map((a) => (
               <AnuncioFila key={a.id} a={a} onVer={() => setVerAnuncio(a)} />
             ))}
@@ -1535,26 +1566,24 @@ export function VideoGeneratorApp({
       )}
 
       {/*
-        El puente SOLO se muestra cuando hay algo que hacer con él.
+        ⚠️ SIEMPRE, Y PLEGADO. Antes se dibujaba sólo cuando el puente NO andaba,
+        con el argumento de que «una vez que anda, el dueño no tiene por qué
+        volver a leer cuatro pasos». El argumento era correcto y la conclusión no:
+        aparecer/desaparecer hace que la única forma de reconectar sea que la cosa
+        ya esté rota, y mientras tanto no hay dónde mirar el saldo.
 
-        Es un paso previo, no una sección de esta pantalla: una vez que anda, el
-        dueño no tiene por qué volver a leer cuatro pasos de instalación cada vez
-        que entra a hacer un anuncio. «Ya comprobó que funcionaba, ya no debe
-        aparecer.»
-
-        Vivo y no recordado: un puente que dejó de llamar vuelve a mostrarse solo,
-        que es exactamente cuando hay algo que hacer otra vez.
+        Plegado cuesta una fila, y esa fila DICE el estado —«Listo · 1.012
+        créditos», «Falta abrir Google Flow»—, que es justo lo que antes obligaba
+        a desplegar cuatro pasos para averiguar.
       */}
-      {puente && !puenteAnda && (
-        // ⚠️ `--gap` NO EXISTE en este proyecto: cero definiciones en todo
-        // `app/` y `lib/`. Un `var()` sin fallback y sin token no falla — HEREDA,
-        // y si nadie lo definió arriba resuelve a nada: el margen valía 0 y la
-        // sección quedaba pegada a la anterior sin que nada lo dijera.
-        //
-        // Es el mismo modo de falla que ya tiene escrito este repo con `<Icon>` y
-        // un nombre inventado: no da error, dibuja otra cosa.
-        <div style={{ marginTop: 40, maxWidth: 780 }}>
-          <PuentePanel inicial={puente} />
+      {/* ⚠️ SIN ancho propio. Con `maxWidth: 780` la fila plegada terminaba 250 px
+          antes que la de «Anuncios terminados», que es su hermana visual y su
+          vecina inmediata: dos filetes de largo distinto uno encima del otro se
+          leen como un error de maquetado. La medida de lectura se cuida ADENTRO,
+          en el contenido, que es donde importa. */}
+      {puente && (
+        <div style={{ marginTop: 40 }}>
+          <PuentePanel inicial={puente} saldo={saldo} onEstado={setPuenteVivo} />
         </div>
       )}
 
