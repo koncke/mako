@@ -1262,6 +1262,15 @@ export function VideoGeneratorApp({
 
   return (
     <Pagina>
+      {/* ⚠️ ACÁ FALTABA, y por eso «toda la tab» no estaba oscura.
+          `TemaOscuro` sólo se montaba en la rama del anuncio, así que el catálogo
+          —la primera pantalla que se ve— seguía claro. El dueño lo pidió dos
+          veces: «si lo harás dark mode, hazlo todo» y ahora «toda la tab de
+          video-generator, incluso la selección del template».
+          Marca `<html data-tema="oscuro">` y los TOKENS dan vuelta el fondo, los
+          botones y los estados solos. Es la razón por la que no se pintan blancos
+          a mano: una pantalla nueva nace oscura sin tocar una línea. */}
+      <TemaOscuro />
       {error && <Alert tono="bad">{error}</Alert>}
 
       {contexto && !contexto.tieneFotos && (
