@@ -79,6 +79,34 @@ export function parchesEstadoClip(operacion: string): Record<string, unknown> {
   return { 'media.0.name': operacion };
 }
 
+/**
+ * De dónde se ve —y se baja— un medio de Flow.
+ *
+ * ⚠️ OTRO DOMINIO. No es `aisandbox-pa.googleapis.com`, que es la API de
+ * generación: es la API propia de la app, en `labs.google`. Medido el 31/08/2026
+ * leyendo el `src` de los videos en la grilla del proyecto, después de una noche
+ * entera buscándolo en el tráfico equivocado — el espejo filtraba por el host de
+ * la API de generación, y ese filtro era un resumen de lo que ya habíamos mirado,
+ * no una decisión sobre dónde vive el contrato.
+ *
+ * La forma es la que Flow usa, tal cual:
+ *   /fx/api/trpc/media.getMediaUrlRedirect?name=<mediaId>
+ * y con `&mediaUrlType=MEDIA_URL_TYPE_THUMBNAIL` devuelve la miniatura.
+ *
+ * Es un REDIRECT al archivo, autenticado por la cookie de Google del navegador.
+ *
+ * ⚠️ CONSECUENCIA QUE HAY QUE SABER: esta URL se ve en el navegador de quien está
+ * conectado a Flow —que es el mismo que tiene que estar abierto para generar, así
+ * que en el producto es siempre el caso— pero NO sirve para el armado final ni
+ * para compartir: el servidor no tiene esa cookie. El clip hay que BAJARLO a
+ * storage propio, que además es lo que hay que hacer igual para pegar las siete
+ * tomas. Esto es lo que lo hace visible hoy, no el destino.
+ */
+export function urlDeMedioFlow(mediaId: string, miniatura = false): string {
+  const base = `https://labs.google/fx/api/trpc/media.getMediaUrlRedirect?name=${encodeURIComponent(mediaId)}`;
+  return miniatura ? `${base}&mediaUrlType=MEDIA_URL_TYPE_THUMBNAIL` : base;
+}
+
 export const RECAPTCHA_SITE_KEY = '6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV';
 
 /**

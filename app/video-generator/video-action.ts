@@ -26,7 +26,7 @@
 import { randomUUID } from 'node:crypto';
 import { getRolWsEfectivo, getWorkspaceActual, getTenantDb } from '@/lib/workspace';
 import { encolar, estadoPuente } from '@/lib/flow-cola';
-import { ENDPOINTS, obj, arr, str, extraerMediaId, parchesEstadoClip } from '@/lib/flow-protocolo';
+import { ENDPOINTS, obj, arr, str, extraerMediaId, parchesEstadoClip, urlDeMedioFlow } from '@/lib/flow-protocolo';
 import {
   cuerpoClipReferencias, semillaDeToma, mediaIdDeReferencia, KEY_CARA_FLOW,
 } from '@/lib/flow-clip-referencias';
@@ -477,13 +477,26 @@ export async function estadoTomaAction(
       // que decirlas distinto: esperar no sirve, y volver a filmar tira un clip
       // pagado.
       if (/MEDIA_GENERATION_STATUS_SUCCESSFUL/.test(texto)) {
-        const texto2 = textoFlow('sin_enlace', `la toma ${n}`).detalle;
-        if (marca.ciego?.error !== texto2) {
-          item = await guardarMarca(item, n, {
-            ciego: { desde: new Date().toISOString(), error: texto2 },
-          });
+        // ⚠️ EL ENLACE SE ARMA, NO SE BUSCA — y esto está MEDIDO, no deducido.
+        //
+        // La respuesta del estado dice que el clip terminó y con cuántos bytes, y
+        // no trae ninguna url. El enlace vive en la API propia de la app
+        // (`labs.google/fx/api/trpc/media.getMediaUrlRedirect?name=<id>`), y su
+        // único parámetro es el id del medio — que es exactamente el mismo que ya
+        // tenemos en `operacion`. Se verificó contra el `src` real de los videos
+        // de la grilla: los ids coinciden carácter por carácter.
+        //
+        // Es la excepción a «no se reconstruye, se copia» y hay que decir por qué:
+        // acá no se está reconstruyendo un pedido autenticado con headers que no
+        // conocemos, sino escribiendo un `<video src>` que el navegador de la
+        // persona resuelve con su propia sesión. La copia sigue siendo la regla
+        // para todo lo que sale por el puente.
+        const url = urlDeMedioFlow(operacion);
+        item = await guardarMarca(item, n, { url, mediaId: operacion, ciego: undefined });
+        if (typeof marca.saldoAntes === 'number') {
+          await encolar('creditos', { path: ENDPOINTS.creditos, body: {} });
         }
-        return { ok: true, item, estado: { fase: 'a_ciegas', operacion, error: texto2 } };
+        return { ok: true, item, estado: { fase: 'listo', url, mediaId: operacion } };
       }
       continue;
     }
