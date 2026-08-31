@@ -131,10 +131,73 @@ const idsRegistrados = (() => {
   } catch { return new Set(); }
 })();
 if (idsRegistrados.size) {
+  /**
+   * ⚠️ `drive.json` CONTESTA POR LO QUE ANOTAMOS, NO POR LO QUE DRIVE TIENE.
+   *
+   * Es el resultado de un cruce por nombre entre el plan y la carpeta de Drive, y un
+   * cruce se equivoca: puede quedar apuntando a un archivo que se movió, que se renombró
+   * o que nunca estuvo. Cuando eso pasa, la anotación es tan dañina como una marca
+   * huérfana en `bajados.txt` — avala algo que no está, y la clase no se rebaja NUNCA.
+   *
+   * «Academia de Lanzamiento» clase 52: `drive.json` la daba por presente con su id y su
+   * ruta, y el archivo no existía ni en esa carpeta ni en ninguna otra del curso. La clase
+   * quedó sin bajar y sin transcribir desde que se publicó, y nada lo dijo.
+   *
+   * Drive está MONTADO en G:, así que comprobarlo es un `existsSync` sobre un archivo
+   * local: cuesta nada y convierte una anotación en un hecho.
+   *
+   * ⚠️ Si el montaje NO está disponible —la unidad no montada, la carpeta renombrada—, se
+   *    cree lo anotado. Sin esa salvedad, correr esto con G: desconectado declararía
+   *    fantasma a TODO el curso y lo bajaría entero de nuevo: cientos de GB por un disco
+   *    que no estaba. Un chequeo que no puede mirar no concluye — se abstiene.
+   */
   const enDrive = (() => {
     try {
       const d = JSON.parse(readFileSync(join(base, 'drive.json'), 'utf8').replace(/^﻿/, ''));
-      return new Set((d.clases ?? []).filter((x) => x.videoId).map((x) => Number(x.n)));
+      const conId = (d.clases ?? []).filter((x) => x.videoId);
+      const montado = d.carpeta && existsSync(d.carpeta);
+      if (!montado) return new Set(conId.map((x) => Number(x.n)));
+
+      /**
+       * ⚠️ SE BUSCA POR NOMBRE EN TODO EL ÁRBOL, NO POR LA RUTA ANOTADA. `drive.json` se
+       *    escribe desde DOS FORMATOS distintos y sólo uno trae la ruta real: el que deja
+       *    el cruce (`curso-drive-fusionar.mjs`) guarda el nombre que el archivo tiene EN
+       *    DRIVE y su subcarpeta; el que deja la subida (`curso-a-drive.mjs`) guarda el
+       *    nombre LOCAL con `rel` vacío.
+       *
+       *    Medido en «Academia de Lanzamiento»: por ruta daban 0 de 104 y por nombre 103
+       *    de 104. Verificar por ruta habría declarado fantasma al curso entero — y con
+       *    los videos ya liberados, eso son cientos de GB bajados de nuevo por una
+       *    comprobación que preguntaba mal. Una verificación equivocada es más cara que
+       *    no verificar.
+       */
+      const nombres = new Set();
+      const recorrer = (dir, prof) => {
+        if (prof > 4) return;
+        let entradas = [];
+        try { entradas = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+        for (const e of entradas) {
+          if (e.isDirectory()) recorrer(join(dir, e.name), prof + 1);
+          else nombres.add(e.name.toLowerCase());
+        }
+      };
+      recorrer(d.carpeta, 0);
+      // Carpeta vacía = Drive todavía no sincronizó. No se concluye nada.
+      if (!nombres.size) return new Set(conId.map((x) => Number(x.n)));
+
+      const vivas = new Set();
+      const rotas = [];
+      for (const x of conId) {
+        if (x.archivo && !nombres.has(String(x.archivo).toLowerCase())) rotas.push(x);
+        else vivas.add(Number(x.n));
+      }
+      if (rotas.length) {
+        console.log(`\n  ⚠ ${rotas.length} clase(s) que drive.json da por subidas NO están en Drive:`);
+        for (const x of rotas.slice(0, 5)) console.log(`      n=${x.n}  ${String(x.archivo).slice(0, 54)}`);
+        if (rotas.length > 5) console.log(`      … y ${rotas.length - 5} más`);
+        console.log(`    Las trato como no bajadas: si están en el registro, se les saca la línea.`);
+      }
+      return vivas;
     } catch { return new Set(); }
   })();
   // ⚠️ Y UNA CLASE CON TEXTO ESTA TERMINADA, tenga o no video. El video se libera a
