@@ -39,6 +39,7 @@ import { causaFlow, causaDeMotivo, textoFlow, type CausaFlow } from '@/lib/flow-
 import { getSetting, setSetting } from '@/lib/settings';
 import { leerHistorial, guardarEnHistorial, type PlanGuardado, type MarcaVideo } from './video-datos';
 import { sanearPlantillas, tieneCaraParcheable, KEY_PLANTILLAS } from '@/lib/flow-plantillas';
+import { olvidarTomasFallidas } from './tomas-invalidar';
 import { personaEstado, addPersonaFoto, getPersona } from '@/lib/persona';
 import { guardarSaldo, leerSaldoGuardado, guardarCostoMedido, type SaldoFlow } from './saldo-datos';
 
@@ -632,7 +633,7 @@ export async function estadoTomaAction(
         errorCausa: causa,
         // El crudo se guarda para poder diagnosticar sin pedir otra captura: el
         // motivo real de Google vive ahí y no en nuestra traducción.
-        errorCrudo: texto.slice(0, 1200),
+        errorCrudo: crudoGuardable(texto),
         errorAt: new Date().toISOString(),
         ciego: undefined,
       });
@@ -900,9 +901,20 @@ const imgs = (plan: PlanGuardado): Record<string, MarcaImagen> =>
   (plan.imagenes ?? {}) as Record<string, MarcaImagen>;
 
 async function guardarImagen(item: PlanGuardado, n: number, marca: MarcaImagen): Promise<PlanGuardado> {
+  // El choke point: TODA escritura de imagen pasa por acá, así que la regla se
+  // escribe una vez. Puesta en cada action —generar, elegir, subir— serían tres
+  // copias y la cuarta nacería sin ella.
+  //
+  // ⚠️ La condición es que `elegida` CAMBIE, no que se apriete Continuar.
+  // Confirmar no cambia la entrada: si limpiara el fallo, el botón de avanzar
+  // ofrecería filmar de nuevo la misma imagen que Google ya rechazó, a ~15
+  // créditos la vuelta. Un bucle gratis es un bug; uno que cobra es peor.
+  const base = marca.elegida !== undefined && marca.elegida !== imgs(item)[String(n)]?.elegida
+    ? olvidarTomasFallidas(item, n)
+    : item;
   const actualizado: PlanGuardado = {
-    ...item,
-    imagenes: { ...imgs(item), [String(n)]: { ...(imgs(item)[String(n)] ?? {}), ...marca } },
+    ...base,
+    imagenes: { ...imgs(base), [String(n)]: { ...(imgs(base)[String(n)] ?? {}), ...marca } },
   };
   await guardarEnHistorial(actualizado);
   return actualizado;
@@ -933,6 +945,29 @@ function falloGuardable(crudo: string, que: string, motivo = '') {
     errorCrudo: crudo,
     errorAt: new Date().toISOString(),
   };
+}
+
+/**
+ * El crudo que se guarda para diagnosticar después: las dos puntas, no la primera.
+ *
+ * ⚠️ ERA `texto.slice(0, 1200)`, Y RECORTABA JUSTO LA EVIDENCIA. En la respuesta
+ * de Flow el principio es el prompt —que ya tenemos escrito en el plan— y el
+ * MOTIVO vive al final: `mediaStatus`, `failureReasons`, el `PUBLIC_ERROR_…`.
+ * Medido el 31/08/2026 sobre el rechazo de la toma 1: los 1200 caracteres
+ * guardados terminaban a la mitad del prompt y no contenían una sola palabra de
+ * por qué había fallado.
+ *
+ * La clasificación en sí estaba bien —se hace sobre el texto ENTERO, antes de
+ * recortar—, así que el daño no fue un mensaje equivocado: fue que después no
+ * hubiera forma de COMPROBARLO. Es la regla de la casa, un escalón más abajo: un
+ * mensaje recortado sirve para mostrar un error, no para decidir sobre su causa
+ * — y éste no servía ni para mostrarlo.
+ */
+function crudoGuardable(texto: string, tope = 1600): string {
+  if (texto.length <= tope) return texto;
+  const cabeza = Math.floor(tope * 0.3);
+  const cola = tope - cabeza;
+  return `${texto.slice(0, cabeza)}\n…[${texto.length - tope} caracteres omitidos]…\n${texto.slice(-cola)}`;
 }
 
 function planDe(historial: PlanGuardado[], planId: string): PlanGuardado | null {
@@ -1037,7 +1072,10 @@ export async function corregirEscenaAction(
 export async function generarImagenAction(
   planId: string,
   n: number,
-): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string }> {
+  // ⚠️ El fallo puede traer `item`: hay una salida temprana que ESCRIBE antes de
+  // rendirse (borra el fallo del intento anterior). Sin este campo, ese trabajo
+  // no tenía cómo llegar a la pantalla.
+): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string; item?: PlanGuardado }> {
   const ctx = await ctxAdmin();
   if (!ctx.ok) return ctx;
 
@@ -1094,7 +1132,25 @@ export async function generarImagenAction(
   // Esperar un latido no cuesta nada; generar con la cara vieja cuesta la
   // generación y la confianza en el selector.
   if (item.fotoId && !cara && (await caraParcheable())) {
-    return { ok: false, error: 'MaKo está subiendo tu foto a Google. En unos segundos vuelve a intentar.' };
+    // ⚠️ SE BORRA EL FALLO VIEJO ANTES DE SALIR, Y ESA ES LA MITAD QUE FALTABA.
+    //
+    // La limpieza de los cuatro campos del error vive abajo, en la escritura que
+    // sigue al encolado — o sea DESPUÉS de este return. Con lo cual la pantalla
+    // decía dos cosas a la vez: el panel pintaba el fallo del intento anterior
+    // («tu cuenta de Google se quedó sin créditos») y el pie, la espera de éste
+    // («MaKo está subiendo tu foto»). El dueño lo reportó junto: «no solo me
+    // sigue apareciendo el mismo mensaje erróneo, sino que me dice también que
+    // está subiendo la foto cuando ya la subió».
+    //
+    // Dos mensajes que se contradicen no confunden sólo sobre ese punto: hacen
+    // desconfiar de todos los demás. Y es la regla de la casa sobre las salidas
+    // tempranas — un estado que se escribe «al final de la función» no registra
+    // los `return` de arriba, que son justo los que hay que contar.
+    return {
+      ok: false,
+      item: await guardarImagen(item, n, { error: '', errorCausa: undefined, errorCrudo: '', errorAt: '' }),
+      error: 'MaKo está subiendo tu foto a Google. En unos segundos vuelve a intentar.',
+    };
   }
   const trabajoId = await encolar('generar_imagen', {
     // El projectId de este path es de mentira y no importa: la extensión usa el

@@ -3182,3 +3182,97 @@ Google contesta su página de bloqueo. Sale de la **página** de Flow o no sale.
 
 **Corolario duro: leer los créditos siempre exige la pestaña de Flow abierta**,
 por autónomo que sea el popup. Por eso «Abre Google Flow» no se puede saltear.
+
+
+## El bucle de «La toma 1 no salió»: el rechazo sobrevivía a su propia cura
+
+**Vive en:** `app/video-generator/tomas-invalidar.ts`, `app/video-generator/video-action.ts`,
+`app/video-generator/WizardAnuncio.tsx`, `lib/flow-fallo-texto.ts`
+
+Reportado el 31/08/2026 como *«entra en un bucle infinito de "La toma 1 no salió"…
+y me vuelve a la tab anterior»*. Eran **cuatro** defectos distintos apilados en la
+misma pantalla, y ninguno daba error.
+
+### 1. El bucle: nadie borraba el fallo cuando cambiaba lo que lo había causado
+
+Google rechazó la toma 1 (`PROMINENT_PERSON`). La pantalla ofrecía arreglar el
+escenario; se arreglaba; se apretaba Continuar; `pasoDe` volvía a la toma 1 —que
+seguía con el `error` del intento viejo— y la pantalla volvía a ofrecer arreglar
+el escenario. Sin salida y sin un solo mensaje de error.
+
+Las dos pantallas estaban bien por separado: cada una hacía lo suyo. Lo que
+faltaba era que **rehacer la ENTRADA invalidara el resultado que esa entrada
+había producido**. Es «rechazar deja una deuda» con nadie encargado de saldarla.
+
+El corte va en `guardarImagen`, que es el choke point por el que pasan las tres
+actions que escriben una imagen. Y la condición es que **`elegida` CAMBIE, no que
+se apriete Continuar**: confirmar no cambia la entrada, así que limpiar ahí
+ofrecería filmar de nuevo la misma imagen que Google ya rechazó, a ~15 créditos
+la vuelta. **Un bucle gratis es un bug; uno que cobra es peor.**
+
+Lo que NUNCA se olvida: una toma con `url` (créditos pagados) y una toma en vuelo
+(borrarla deja el trabajo huérfano y su resultado sin dónde caer).
+
+### 2. El porqué se calculaba y no se dibujaba
+
+`textoFlow` devuelve título, detalle y acción. La pantalla de la toma usaba
+**sólo el título**, en `pregunta`, y tiraba el resto — así que el paso más caro
+del recorrido mostraba «La toma 1 no salió» y nada más. El dueño lo reportó dos
+veces con la misma frase: *«no hace nada, ni un mensaje de error»*. Era literal: el
+mensaje estaba clasificado y guardado en la base, y no llegaba al DOM.
+
+Es «escribir la salida no es ofrecerla», en el mismo archivo donde esa lección ya
+estaba escrita dos veces. **Un `grep` del campo no alcanza cuando el objeto SÍ se
+usa**: `txt` aparecía en cuatro lugares y en ninguno era `txt.detalle`.
+
+### 3. «Elegir otra foto» era la mitad equivocada de la cura
+
+El clip **no se anima desde la foto del perfil: se anima desde la imagen del
+escenario** (`elegidaId`, en `generarTomaAction`). Cambiar la foto y volver a
+filmar le manda a Google exactamente la misma cara que ya rechazó, y cobra otro
+clip por el mismo resultado. Lo que cambia lo que Google mira es una imagen de
+escenario nueva — y eso además no cuesta créditos.
+
+El texto de `persona_publica` decía «elegir otra foto» y el botón sólo NAVEGABA,
+dejando a la persona en un paso desde donde Continuar la traía de vuelta al mismo
+error. Ahora el botón genera la imagen y lleva ahí a mirarla: **una promesa, un
+efecto**.
+
+⚠️ **La regla general:** antes de escribir la instrucción de un error, seguí la
+cadena de entradas hasta la que el proveedor realmente mira. Una instrucción que
+nombra el eslabón equivocado se lee como una solución y gasta el presupuesto.
+
+### 4. El crudo se recortaba justo por la punta donde vive el motivo
+
+`errorCrudo: texto.slice(0, 1200)`. En la respuesta de Flow el principio es el
+prompt —que ya tenemos escrito en el plan— y el motivo vive al final:
+`mediaStatus`, `failureReasons`, el `PUBLIC_ERROR_…`. Medido sobre el rechazo
+real: los 1200 caracteres guardados terminaban a la mitad del prompt y **no
+contenían una sola palabra de por qué había fallado**.
+
+La clasificación estaba bien —se hace sobre el texto entero, antes de recortar—,
+así que el daño no fue un mensaje equivocado: fue que después **no hubiera forma
+de comprobarlo**. Queda `crudoGuardable()`, que se queda con las dos puntas.
+
+### 5. Y un `ok: false` puede haber ESCRITO igual
+
+`correr()` aplicaba `r.item` sólo cuando `r.ok`. La salida temprana de «todavía
+estoy subiendo tu foto» borra el fallo del intento anterior **antes** de
+rendirse, y ese trabajo se descartaba: la pantalla seguía pintando el error viejo
+arriba y el nuevo abajo, contradiciéndose. Lo reportó junto: *«no solo me sigue
+apareciendo el mismo mensaje erróneo, sino que me dice también que está subiendo
+la foto cuando ya la subió»*.
+
+**Una action que falla puede haber cambiado el estado.** Tirar su `item` deja la
+pantalla afirmando algo que el server ya no tiene — y dos mensajes que se
+contradicen no confunden sólo sobre ese punto: hacen desconfiar de todos los
+demás.
+
+### El método que los separó
+
+Los cuatro se veían como un solo síntoma. Lo que los partió fue **preguntarle a
+la base qué decía la marca**, en vez de leer el código buscando el bug: `errorAt`
+fechaba el rechazo, `errorCausa` decía `persona_publica`, y el `errorCrudo` no
+alcanzaba a contener la evidencia — tres respuestas de tres defectos distintos en
+un solo registro. Es la regla de la casa: cuando N cosas fallan, contá cuántas
+CAUSAS hay antes de buscar la causa.

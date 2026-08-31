@@ -936,9 +936,16 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
     setOcupado(etiqueta);
     setError('');
     setDesde(Date.now());
-    const r = await fn().catch(() => ({ ok: false as const, error: 'No se pudo. Vuelve a intentarlo.' }));
-    if (r.ok && r.item) {
-      onCambio(r.item);
+    const r = await fn().catch(() => ({ ok: false as const, item: undefined, error: 'No se pudo. Vuelve a intentarlo.' }));
+    // ⚠️ EL `item` SE APLICA VENGA COMO VENGA EL `ok`, Y ANTES SE TIRABA.
+    //
+    // Una action puede FALLAR y haber escrito igual — la salida temprana de
+    // «todavía estoy subiendo tu foto» borra el fallo del intento anterior antes
+    // de rendirse. Con la condición atada a `r.ok`, ese trabajo se descartaba y
+    // la pantalla seguía pintando un estado que el server ya no tenía: el error
+    // viejo arriba y el nuevo abajo, contradiciéndose.
+    if (r.item) onCambio(r.item);
+    if (r.ok) {
       // Al avanzar se suelta el paso forzado: la posición vuelve a salir del dato.
       if (avanzar) setForzado(null);
     } else {
@@ -1612,6 +1619,27 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                 Suele tardar entre 1 y 3 minutos.
               </div>
             )}
+
+            {/* ⚠️ EL PORQUÉ. NO SE DIBUJABA, Y ES TODO LO QUE ESTA PANTALLA
+                TENÍA PARA DECIR.
+                `txt` sale de `textoFlow(causa, …)` con su título, su detalle y su
+                acción; de los tres, la pantalla usaba SÓLO el título —en
+                `pregunta`— y tiraba el resto. O sea que el paso más caro del
+                recorrido mostraba «La toma 1 no salió» y NADA más: ni qué pasó,
+                ni de quién fue la culpa, ni qué hacer al respecto.
+                El dueño lo reportó dos veces, y las dos con la misma frase: «no
+                hace nada, ni un mensaje de error». Era literal — el mensaje
+                existía, estaba clasificado y guardado en la base, y no llegaba al
+                DOM. Es «escribir la salida no es ofrecerla», en el mismo archivo
+                donde ya está escrita esa lección dos veces. */}
+            {txt && !enCurso && (
+              <div style={{
+                textAlign: 'center', marginTop: 14,
+                fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.5,
+              }}>
+                {txt.detalle}
+              </div>
+            )}
             {txtCiego && (
               <div style={{ textAlign: 'center', marginTop: 12 }}>
                 <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.5 }}>
@@ -1715,19 +1743,41 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
         // Es la misma regla que ya rige los mensajes de error de esta app: si hay
         // algo que hacer, el botón tiene que ser ESO. Acá lo único que puede
         // cambiar el resultado es la foto, y la foto se elige dos pasos atrás.
+        //
+        // ⚠️ Y DECÍA «ELEGIR OTRA FOTO», QUE ERA LA MITAD EQUIVOCADA DE LA CURA.
+        //
+        // El clip se anima desde la IMAGEN DEL ESCENARIO, no desde la foto del
+        // perfil (`elegidaId`, en `generarTomaAction`). Cambiar la foto y volver
+        // a filmar le manda a Google la misma cara que ya rechazó. Lo que cambia
+        // lo que Google mira es una imagen de escenario nueva — y no cuesta
+        // créditos.
+        //
+        // Además el botón NAVEGABA y nada más: dejaba a la persona en el paso del
+        // escenario, donde apretar Continuar la traía de vuelta a este mismo
+        // error. Dos pantallas correctas por separado y un bucle entre las dos.
+        // Ahora el botón hace lo que promete: manda a generar la imagen y lleva
+        // ahí a mirarla.
         boton: enCurso
           ? undefined
           : caraRechazada
-            ? 'Elegir otra foto'
+            ? 'Volver a generar el escenario'
             : txt ? `Volver a filmar la toma ${n}` : 'Siguiente',
-        // Sin costo cuando no se va a filmar: volver a elegir la foto es gratis, y
-        // decir «~15 créditos» sobre un botón que no gasta es mentir al revés.
-        consecuencia: enCurso || caraRechazada ? undefined : costoTexto,
-        cargandoBoton: ocupado === 'filmar',
+        // El costo SIEMPRE con su número, cero incluido. Generar el escenario no
+        // gasta; decir «~15 créditos» sobre un botón que no cobra es mentir al
+        // revés, y no decir nada obliga a adivinar.
+        consecuencia: enCurso ? undefined : caraRechazada ? textoCosto(0) : costoTexto,
+        cargandoBoton: ocupado === 'filmar' || ocupado === 'rehacer-escena',
         onSiguiente: enCurso
           ? undefined
           : caraRechazada
-            ? () => setForzado({ id: 'escenario', n: (item.escenas ?? [])[0]?.n ?? 1 })
+            ? () => {
+                // La escena de ESTA toma, no `escenas[0]`: con siete tomas en
+                // tres escenas, la primera es la de otro lugar.
+                const e = escena ?? (item.escenas ?? [])[0];
+                if (!e) return;
+                setForzado({ id: 'escenario', n: e.n });
+                void correr('rehacer-escena', () => generarImagenAction(item.id, e.n), false);
+              }
             : () => void correr('filmar', () => generarTomaAction(item.id, n), false),
         atras: 'Atrás',
         onAtras: () => setForzado({ id: 'escenario', n: (item.escenas ?? []).slice(-1)[0]?.n ?? 1 }),

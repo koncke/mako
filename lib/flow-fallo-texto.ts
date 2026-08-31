@@ -272,10 +272,21 @@ export function textoFlow(
     case 'persona_publica':
       return {
         titulo: `Google no quiso animar esta cara en ${que}`,
+        // ⚠️ ESTE TEXTO DECÍA «ELEGIR OTRA FOTO» Y ESO SOLO NO ARREGLA NADA.
+        //
+        // El clip NO se anima desde la foto del perfil: se anima desde la IMAGEN
+        // DEL ESCENARIO, que es la que tiene la cara puesta adentro de la escena
+        // (`elegidaId` en `generarTomaAction`). O sea que cambiar la foto y
+        // volver a filmar vuelve a mandarle a Google exactamente la misma cara
+        // que ya rechazó, y cobra otro clip por el mismo resultado.
+        //
+        // Lo que cambia lo que Google mira es una imagen de escenario NUEVA — y
+        // eso además no cuesta créditos. La foto es el segundo paso, para cuando
+        // el filtro insiste.
         detalle: con(
-          'Su filtro de personas públicas cree que la cara se parece a la de alguien famoso y se niega a generarla. No es un problema tuyo ni de MaKo, y reintentar con la misma foto va a dar lo mismo. Lo que suele destrabarlo es elegir otra foto tuya: otro ángulo, otra luz, o una donde no mires de frente a la cámara.',
+          'Su filtro de personas públicas cree que la cara se parece a la de alguien famoso y se niega a animarla. No es un problema tuyo ni de MaKo. El video se filma desde la imagen del escenario, así que lo que lo destraba es generar esa imagen otra vez —no cuesta créditos—: sale con la cara un poco distinta y suele pasar. Si insiste, genérala con otra foto tuya: otro ángulo, otra luz, o una donde no mires de frente a la cámara.',
         ),
-        accion: 'Elegir otra foto',
+        accion: 'Volver a generar el escenario',
       };
 
     case 'puente':
