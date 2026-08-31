@@ -759,8 +759,20 @@ async function ciclo() {
     try {
       const pedido = out.sonda;
       if (pedido && pedido.mediaId) {
-        const { sondaHecha } = await chrome.storage.local.get('sondaHecha');
-        if (sondaHecha !== pedido.mediaId) {
+        // ⚠️ CLAVE NUEVA, Y NO ES CAPRICHO.
+        //
+        // La 0.26.0 escribia `sondaHecha` ANTES de sondear, asi que el primer
+        // intento fallido dejo el marcador puesto para siempre. La 0.27.0 arreglo
+        // el orden — y no sirvio de nada, porque el valor envenenado seguia en el
+        // storage del navegador y hacia que el bloque se salteara entero.
+        //
+        // Un arreglo de logica no limpia el estado que dejo el error. Cuando una
+        // guarda persistida se escribio mal aunque sea una vez, hay que cambiarle
+        // el nombre o borrarla: si no, la version arreglada nunca llega a correr.
+        //
+        // `sondaOk` se escribe UNICAMENTE cuando la sonda contesto.
+        const { sondaOk } = await chrome.storage.local.get('sondaOk');
+        if (sondaOk !== pedido.mediaId) {
           const tabS = await pestanaDeFlow();
           // El content script se repone ANTES: recargar la extension deja
           // huerfanos los de las pestanas abiertas, que es JUSTO el momento en que
@@ -778,7 +790,7 @@ async function ciclo() {
             // quemaba la sonda para siempre y en silencio. Una guarda de un solo
             // intento tiene que contar los intentos que SIRVIERON.
             await chrome.storage.local.set({
-              sondaHecha: pedido.mediaId,
+              sondaOk: pedido.mediaId,
               sondaResultado: JSON.stringify({ mediaId: pedido.mediaId, r: r.sonda, bytes: r.bytes }),
             });
           }
