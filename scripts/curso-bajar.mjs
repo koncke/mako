@@ -137,22 +137,43 @@ if (idsRegistrados.size) {
       return new Set((d.clases ?? []).filter((x) => x.videoId).map((x) => Number(x.n)));
     } catch { return new Set(); }
   })();
+  // ⚠️ Y UNA CLASE CON TEXTO ESTA TERMINADA, tenga o no video. El video se libera a
+  //    proposito; lo que el pipeline necesita ya se extrajo. Sin esta condicion, un curso
+  //    viejo con sus videos liberados y sin drive.json se re-baja entero para nada.
   const fantasmas = clases.filter((c) => idsRegistrados.has(String(c.videoId))
     && !existsSync(join(dirVideo, `${c.archivo}.mp4`))
+    && !existsSync(join(base, 'texto', `${c.archivo}.md`))
     && !enDrive.has(Number(c.n)));
   if (fantasmas.length) {
     console.log(`\n  ⚠ ${fantasmas.length} clase(s) figuran en bajados.txt, NO están en video/ y TAMPOCO en Drive.`);
     for (const c of fantasmas.slice(0, 6)) console.log(`      n=${c.n}  ${String(c.titulo).slice(0, 54)}`);
     if (fantasmas.length > 6) console.log(`      … y ${fantasmas.length - 6} más`);
-    console.log(`    yt-dlp las va a saltear y video/ va a quedar sin ellas, sin dar error.`);
-    console.log(`    Para volver a bajarlas: sumá --rebajar (les saca la línea del registro).\n`);
   }
-  if (tiene('rebajar') && fantasmas.length) {
+
+  /**
+   * ── SE CURA SOLO, y esto ANTES pedía `--rebajar` ────────────────────────────────────
+   *
+   * El chequeo estaba bien y no servía: detectaba el fantasma, lo escribía en el log, y
+   * saltaba a bajar igual salteándolo. La cola nunca pasa `--rebajar`, así que el aviso
+   * iba a un archivo que nadie abre y la clase se perdía para siempre. Es «un
+   * `console.warn` no es un control» en su forma más pura: el que se tiene que enterar no
+   * lee logs, y acá ni siquiera hacía falta que alguien se enterara — había que actuar.
+   *
+   * La asimetría decide: sacar la línea cuesta UN reintento de descarga; dejarla cuesta la
+   * clase entera, en un curso que ya se publicó, y sin ningún síntoma. Y un fantasma nunca
+   * es correcto por definición —el registro dice que está y no está en NINGUNA de las tres
+   * fuentes—, así que no hay caso legítimo que esto rompa.
+   *
+   * `--no-rebajar` queda para diagnosticar sin tocar el registro.
+   */
+  if (fantasmas.length && !tiene('no-rebajar')) {
     const quitar = new Set(fantasmas.map((c) => String(c.videoId)));
     const quedan = readFileSync(archivo, 'utf8').split(/\r?\n/)
       .filter((l) => !quitar.has(l.trim().split(/\s+/).pop() ?? ''));
-    writeFileSync(archivo, quedan.join('\n'), 'utf8');
-    console.log(`  ✓ --rebajar: saqué ${fantasmas.length} línea(s) de bajados.txt.\n`);
+    writeFileSync(archivo, quedan.filter(Boolean).join('\n') + '\n', 'utf8');
+    console.log(`  ✓ les saqué la línea del registro: yt-dlp las vuelve a intentar ahora.\n`);
+  } else if (fantasmas.length) {
+    console.log(`    (--no-rebajar puesto: dejo el registro como está y las salteo)\n`);
   }
 }
 
