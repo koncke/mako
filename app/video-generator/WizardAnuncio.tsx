@@ -34,7 +34,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from '@/app/_ui/Link';
-import { Button, Tag, Status, TextField, MONO } from '@/app/_ui';
+import { Button, Tag, Status, TextField, Tooltip, MONO } from '@/app/_ui';
 import { Icon } from '../_components/icons';
 import type { PlanGuardado, EstadoContextoVideo } from './video-datos';
 import type { Puesta } from '@/lib/puestas-data';
@@ -271,7 +271,7 @@ function Salidas({ resumen, children }: { resumen: string; children: React.React
  * Lo que sobrevive del wizard es lo único que hacía falta: la posición, un solo
  * botón que avanza, y una salida. Todo flota sobre el negro, sin encerrar nada.
  */
-function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia, cargando, onSiguiente, atras, onAtras, onSalir, error, vistaPrevia }: {
+function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia, cargando, onSiguiente, atras, onAtras, onSalir, error, vistaPrevia, alLado }: {
   pregunta: string;
   titulo?: string;
   paso: number;
@@ -287,6 +287,14 @@ function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia,
   error?: string;
   /** La tira de previsualización del formato. Va arriba a la derecha. */
   vistaPrevia?: React.ReactNode;
+  /**
+   * Una acción que pertenece a la pregunta, en su misma línea.
+   *
+   * Va acá y no en el cuerpo porque actúa sobre lo que la pregunta NOMBRA. Suelta
+   * arriba del contenido parecía un tercer elemento sin dueño; al lado del
+   * título se lee como lo que es.
+   */
+  alLado?: React.ReactNode;
 }) {
   return (
     <div className="mk-estudio">
@@ -322,14 +330,23 @@ function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia,
         ))}
       </div>
 
-      {/* LA PREGUNTA, grande y sola. Es lo que se lee en el primer segundo. */}
-      <div style={{ textAlign: 'center', maxWidth: 720 }}>
-        <h2 style={{
-          margin: 0, fontSize: 'clamp(22px, 2.2vw, 31px)', fontWeight: 640,
-          letterSpacing: '-.02em', lineHeight: 1.2, color: 'var(--ink)',
+      {/* LA PREGUNTA, grande. Es lo que se lee en el primer segundo. */}
+      <div style={{ textAlign: 'center', maxWidth: 820 }}>
+        {/* Lo de al lado va en la MISMA fila y en `baseline`, no debajo: una
+            acción sobre lo que la pregunta nombra pertenece a la pregunta. Y con
+            `baseline` no se cuelga de un título de 31 px. */}
+        <div style={{
+          display: 'flex', alignItems: 'baseline', justifyContent: 'center',
+          gap: 16, flexWrap: 'wrap',
         }}>
-          {pregunta}
-        </h2>
+          <h2 style={{
+            margin: 0, fontSize: 'clamp(22px, 2.2vw, 31px)', fontWeight: 640,
+            letterSpacing: '-.02em', lineHeight: 1.2, color: 'var(--ink)',
+          }}>
+            {pregunta}
+          </h2>
+          {alLado}
+        </div>
         {titulo && (
           <p style={{
             margin: '9px 0 0', fontSize: 'var(--fs-md)', lineHeight: 1.45,
@@ -574,6 +591,8 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
     pregunta: string; titulo?: string; sub?: string; cuerpo: React.ReactNode;
     boton?: string; consecuencia?: string; onSiguiente?: () => void;
     atras?: string; onAtras?: () => void; cargandoBoton?: boolean;
+    /** Una acción que pertenece a la pregunta y va en su misma línea. */
+    alLado?: React.ReactNode;
   } {
     // ── 1. El guion ───────────────────────────────────────────────────────
     if (paso.id === 'guion-leer') {
@@ -598,37 +617,39 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
         // hace falta ninguna explicación más — y el `8s` de cada renglón lo
         // vuelve a decir sin decirlo.
         sub: `Se filma en ${item.plan.clips.length} tomas de ${seg} segundos.`,
+        // ── EL BOTÓN, EN LA LÍNEA DEL TÍTULO ─────────────────────────────
+        //
+        // Pasaron tres versiones acá. Un botón abajo que decía «Escribirlo tal
+        // cual» —incomprensible, y debajo del texto que modifica—; dos opciones a
+        // la vista, que el dueño cortó porque «tal cual» no es una opción sino lo
+        // que pasa si no haces nada; y uno arriba del guion, suelto, que parecía
+        // un tercer elemento sin dueño.
+        //
+        // Actúa sobre lo que el título nombra, así que va en su misma línea.
+        //
+        // Y lleva el `?`: «Formatear guion» dice QUÉ pasa y no qué significa, y
+        // el detalle no puede vivir en una frase al lado —ya se sacaron cuatro
+        // renglones de letra chica de esta pantalla—. El tooltip cubre el botón
+        // ENTERO, no sólo el ícono: quien duda pasa por encima de lo que no
+        // entiende, que es la palabra, no el signo.
+        alLado: (
+          <Tooltip text="MaKo lo reescribe con tu forma de hablar: te pone tus muletillas y tus conectores, sin cambiar lo que dice ni el cierre.">
+            <Button
+              variant="tertiary"
+              size="sm"
+              loading={ocupado === 'muletillas'}
+              disabled={!!ocupado}
+              onClick={() => void correr('muletillas', () => cambiarMuletillasAction(item.id, true), false)}
+            >
+              Formatear guion
+              <span style={{ display: 'inline-flex', marginLeft: 7, opacity: 0.72 }}>
+                <Icon name="help" size={14} />
+              </span>
+            </Button>
+          </Tooltip>
+        ),
         cuerpo: (
           <div style={{ width: '100%', maxWidth: 760, margin: '0 auto' }}>
-            {/* ── UN SOLO BOTÓN, Y ARRIBA ──────────────────────────────────
-                Acá pasaron dos versiones y las dos estaban mal.
-
-                La primera era un botón abajo que decía «Escribirlo tal cual»:
-                incomprensible fuera de contexto, y encima debajo del texto que
-                modifica. La segunda fueron DOS opciones a la vista — y el dueño
-                la cortó con el argumento correcto: «yo no pondría para nada un
-                botón de "Tal cual lo escribiste", para eso simplemente le doy
-                siguiente sin apretar ese botón».
-
-                Tiene razón y ordena todo: TAL CUAL no es una opción, es lo que
-                pasa si no haces nada. El guion llega con las palabras de la
-                persona y esto AGREGA algo encima. Un botón, no un selector.
-
-                Por eso también cambió el default de generación: el plan nace sin
-                adaptar. Con el default al revés, el «no» exigía una acción — y un
-                sistema donde no hacer nada te cambia el texto está al revés. */}
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
-              <Button
-                variant="tertiary"
-                icon={<Icon name="ia" size={14} />}
-                loading={ocupado === 'muletillas'}
-                disabled={!!ocupado}
-                onClick={() => void correr('muletillas', () => cambiarMuletillasAction(item.id, true), false)}
-              >
-                Formatear guion
-              </Button>
-            </div>
-
             {item.plan.clips.map((c) => (
               <div
                 key={c.n}
@@ -1005,6 +1026,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
       onSalir={onSalir}
       error={error}
       vistaPrevia={<VistaPrevia puesta={puesta} />}
+      alLado={p.alLado}
     >
       {p.cuerpo}
     </Estudio>
