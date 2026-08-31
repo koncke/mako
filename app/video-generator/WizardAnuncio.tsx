@@ -32,7 +32,7 @@
 // flujo entero. Con eso, recargar cae en el mismo lugar y no existe el estado
 // «la pantalla cree que voy en la 4 y el dato dice otra cosa».
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link, { useRouter } from '@/app/_ui/Link';
 import { Button, Tag, Status, TextField, Tooltip, MONO } from '@/app/_ui';
 import { Icon } from '../_components/icons';
@@ -467,10 +467,43 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
   // ⚠️ UN SOLO NÚMERO mueve el riel Y el aire del estudio. Sin esto había que
   // sumar padding que viven en otros archivos, y ese acople es lo que hacía que
   // la pieza «flotara» al cambiar cualquier cosa alrededor.
+  // ⚠️ EL ANCHO DE LA COLUMNA SE MIDE, NO SE ASUME.
+  //
+  // Estaba escrito como `900px` en el CSS, y ese número era falso en la pantalla
+  // que el dueño estaba mirando: el contenido del paso del guion no tiene ancho
+  // propio —se encoge a sus tarjetas, 482 px— y se centraba adentro de una caja
+  // de 900. Resultado: 194 px de aire muerto entre el texto y el filete contra 16
+  // del otro lado, o sea lo contrario de lo que se pidió.
+  //
+  // Y no hay constante que sirva: cada paso trae un contenido de ancho distinto
+  // —la lista de guiones mide 482, la de tomas 900—. Lo único que lo contesta es
+  // medirlo.
+  //
+  // Converge en una pasada: al fijar la caja al ancho del contenido, el contenido
+  // sigue entrando igual y no cambia de tamaño. El `clamp` y el umbral de 8 px
+  // son la red por si algún día entra algo que sí reaccione al ancho.
+  const lienzo = useRef<HTMLDivElement>(null);
+  const [anchoCol, setAnchoCol] = useState(900);
+  useLayoutEffect(() => {
+    const el = lienzo.current;
+    const hijo = el?.firstElementChild as HTMLElement | null;
+    if (!hijo) return;
+    const medir = () => {
+      const w = Math.round(hijo.getBoundingClientRect().width);
+      const v = Math.min(940, Math.max(420, w));
+      setAnchoCol((prev) => (Math.abs(prev - v) > 8 ? v : prev));
+    };
+    medir();
+    const obs = new ResizeObserver(medir);
+    obs.observe(hijo);
+    return () => obs.disconnect();
+  }, [paso, children]);
+
   const anchoRiel = puesta?.ejemplo
     ? ({
       ['--riel-ancho' as string]: ejemploAbierto ? RIEL : RIEL_CERRADO,
       ['--riel-calle' as string]: `${CALLE}px`,
+      ['--riel-contenido' as string]: `${anchoCol}px`,
     } as React.CSSProperties)
     : undefined;
 
@@ -557,7 +590,7 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
         )}
       </div>
 
-      <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>{children}</div>
+      <div ref={lienzo} style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>{children}</div>
 
       {error && (
         <div style={{
