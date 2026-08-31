@@ -29,6 +29,7 @@ export const CURSO_CLUB_DE_NEGOCIOS: Curso = {
   titulo: 'Club De Negocios',
   subtitulo: '98 clases, 16 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '23,8 h',
+  portada: '/cono-portadas/club-de-negocios.png',
   recursos: [
 
   ],

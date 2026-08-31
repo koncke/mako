@@ -29,6 +29,7 @@ export const CURSO_COMPLETO_VIDEOS_IA: Curso = {
   titulo: 'Curso Completo Videos IA - Jan Nafta',
   subtitulo: '41 clases, 8 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '15,4 h',
+  portada: '/cono-portadas/completo-videos-ia.jpg',
   recursos: [
 
   ],

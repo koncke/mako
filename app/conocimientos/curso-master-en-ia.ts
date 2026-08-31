@@ -29,6 +29,7 @@ export const CURSO_MASTER_EN_IA: Curso = {
   titulo: 'Master en IA - Roco de la Portilla',
   subtitulo: '59 clases, 30 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '20,5 h',
+  portada: '/cono-portadas/master-en-ia.jpg',
   recursos: [
 
   ],

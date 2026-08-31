@@ -29,6 +29,7 @@ export const CURSO_GROWING_AMG: Curso = {
   titulo: 'Growing AMG - Agus Nievas',
   subtitulo: '68 clases, 9 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '25,5 h',
+  portada: '/cono-portadas/growing-amg.png',
   recursos: [
 
   ],

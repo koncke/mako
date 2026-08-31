@@ -29,6 +29,7 @@ export const CURSO_TUMADREANNA_MARKETING_DEFINITIVO: Curso = {
   titulo: 'TUMADREANNA Marketing Definitivo - Anna Maria Pavlyuk',
   subtitulo: '48 clases, 43 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '',
+  portada: '/cono-portadas/tumadreanna-marketing-definitivo.jpg',
   recursos: [
 
   ],
@@ -477,6 +478,7 @@ export const CURSO_TUMADREANNA_MARKETING_DEFINITIVO: Curso = {
       videoId: '1TuO4jQvFk7ZblXm7ms13rcqZCu1Hs2Vg',
       resumen: '',
       transcripcion: [],
+      hasTx: true,
       recursoSlugs: [],
       herramientas: [],
     },

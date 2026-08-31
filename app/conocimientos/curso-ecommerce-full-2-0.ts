@@ -29,6 +29,7 @@ export const CURSO_ECOMMERCE_FULL_2_0: Curso = {
   titulo: 'Ecommerce Full 2.0 - Haciendola',
   subtitulo: '60 clases, 10 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '8,0 h',
+  portada: '/cono-portadas/ecommerce-full-2-0.jpg',
   recursos: [
 
   ],

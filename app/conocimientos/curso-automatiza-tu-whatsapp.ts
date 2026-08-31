@@ -29,6 +29,7 @@ export const CURSO_AUTOMATIZA_TU_WHATSAPP: Curso = {
   titulo: 'Automatiza tu WhatsApp - SoySimon',
   subtitulo: '88 clases, 5 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '13,5 h',
+  portada: '/cono-portadas/automatiza-tu-whatsapp.jpg',
   recursos: [
 
   ],

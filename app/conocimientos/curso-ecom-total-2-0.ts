@@ -29,6 +29,7 @@ export const CURSO_ECOM_TOTAL_2_0: Curso = {
   titulo: 'Ecom Total 2.0 - Temo Valle',
   subtitulo: '77 clases, 12 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '15,6 h',
+  portada: '/cono-portadas/ecom-total-2-0.jpg',
   recursos: [
 
   ],

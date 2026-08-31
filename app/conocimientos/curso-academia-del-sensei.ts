@@ -29,6 +29,7 @@ export const CURSO_ACADEMIA_DEL_SENSEI: Curso = {
   titulo: 'Academia Del Sensei',
   subtitulo: '72 clases, 7 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '16,3 h',
+  portada: '/cono-portadas/academia-del-sensei.png',
   recursos: [
 
   ],
@@ -239,6 +240,7 @@ export const CURSO_ACADEMIA_DEL_SENSEI: Curso = {
       videoId: '1JrR5GNNiP0AtEA3bZdvMqn-RLGTGOcJS',
       resumen: '',
       transcripcion: [],
+      hasTx: true,
       recursoSlugs: [],
       herramientas: [],
     },

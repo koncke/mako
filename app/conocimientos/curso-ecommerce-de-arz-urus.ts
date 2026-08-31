@@ -29,6 +29,7 @@ export const CURSO_ECOMMERCE_DE_ARZ_URUS: Curso = {
   titulo: 'Curso De Ecommerce De Arz Urus',
   subtitulo: '50 clases, 7 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '6,1 h',
+  portada: '/cono-portadas/ecommerce-de-arz-urus.jpg',
   recursos: [
 
   ],

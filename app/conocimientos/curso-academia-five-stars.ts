@@ -29,6 +29,7 @@ export const CURSO_ACADEMIA_FIVE_STARS: Curso = {
   titulo: 'Academia Five Stars - Augusto Bianchi',
   subtitulo: '51 clases, 11 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '64,5 h',
+  portada: '/cono-portadas/academia-five-stars.jpg',
   recursos: [
 
   ],

@@ -29,6 +29,7 @@ export const CURSO_LA_UNIVERSIDAD_DEL_CLOSER: Curso = {
   titulo: 'La universidad del Closer - Tino Mossu',
   subtitulo: '53 clases, 9 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '10,7 h',
+  portada: '/cono-portadas/la-universidad-del-closer.png',
   recursos: [
 
   ],

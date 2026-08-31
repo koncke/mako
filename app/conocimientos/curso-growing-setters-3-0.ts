@@ -29,6 +29,7 @@ export const CURSO_GROWING_SETTERS_3_0: Curso = {
   titulo: 'Growing Setters 3.0 - Agustín Nievas',
   subtitulo: '92 clases, 7 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '27,0 h',
+  portada: '/cono-portadas/growing-setters-3-0.jpg',
   recursos: [
 
   ],
@@ -155,6 +156,7 @@ export const CURSO_GROWING_SETTERS_3_0: Curso = {
       videoId: '1l2nzLDMPyuXpJMmly1QNLJ2p6FFxvV04',
       resumen: '',
       transcripcion: [],
+      hasTx: true,
       recursoSlugs: [],
       herramientas: [],
     },

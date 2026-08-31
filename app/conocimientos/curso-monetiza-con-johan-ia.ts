@@ -29,6 +29,7 @@ export const CURSO_MONETIZA_CON_JOHAN_IA: Curso = {
   titulo: 'Monetiza con Johan IA',
   subtitulo: '51 clases, 16 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '',
+  portada: '/cono-portadas/monetiza-con-johan-ia.jpg',
   recursos: [
 
   ],

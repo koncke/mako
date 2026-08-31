@@ -29,6 +29,7 @@ export const CURSO_IMPERIO_AFILIADO: Curso = {
   titulo: 'Imperio afiliado - Toni Galvez',
   subtitulo: '92 clases, 9 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '39,8 h',
+  portada: '/cono-portadas/imperio-afiliado.png',
   recursos: [
 
   ],

@@ -29,6 +29,7 @@ export const CURSO_BLACK_BOX_CANVA: Curso = {
   titulo: 'Black Box Canva - Santi Herrera',
   subtitulo: '68 clases, 7 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '9,0 h',
+  portada: '/cono-portadas/black-box-canva.jpg',
   recursos: [
 
   ],

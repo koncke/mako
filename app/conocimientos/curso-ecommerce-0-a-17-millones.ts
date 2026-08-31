@@ -29,6 +29,7 @@ export const CURSO_ECOMMERCE_0_A_17_MILLONES: Curso = {
   titulo: 'Ecommerce 0 a 17 millones - Lathos Club',
   subtitulo: '99 clases, 11 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '58,3 h',
+  portada: '/cono-portadas/ecommerce-0-a-17-millones.png',
   recursos: [
 
   ],

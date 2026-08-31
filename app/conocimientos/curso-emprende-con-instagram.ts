@@ -29,6 +29,7 @@ export const CURSO_EMPRENDE_CON_INSTAGRAM: Curso = {
   titulo: 'Emprende con Instagram - Ana Clavellinas',
   subtitulo: '54 clases, 8 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '5,5 h',
+  portada: '/cono-portadas/emprende-con-instagram.jpg',
   recursos: [
 
   ],

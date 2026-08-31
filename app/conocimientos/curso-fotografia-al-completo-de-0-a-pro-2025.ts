@@ -29,6 +29,7 @@ export const CURSO_FOTOGRAFIA_AL_COMPLETO_DE_0_A_PRO_2025: Curso = {
   titulo: 'Curso de Fotografía al completo De 0 a Pro 2025 - Ruben Guo',
   subtitulo: '63 clases, 8 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '13,9 h',
+  portada: '/cono-portadas/fotografia-al-completo-de-0-a-pro-2025.jpg',
   recursos: [
 
   ],

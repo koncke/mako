@@ -29,6 +29,7 @@ export const CURSO_INSTITUTO_DE_MARCA_PERSONAL: Curso = {
   titulo: 'Instituto De Marca Personal - Sergio Begueria',
   subtitulo: '92 clases, 15 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '51,6 h',
+  portada: '/cono-portadas/instituto-de-marca-personal.png',
   recursos: [
 
   ],

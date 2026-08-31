@@ -29,6 +29,7 @@ export const CURSO_CARRERA_DE_ECOMMERCE: Curso = {
   titulo: 'Carrera de Ecommerce - Mauro Stendel',
   subtitulo: '64 clases, 16 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '10,1 h',
+  portada: '/cono-portadas/carrera-de-ecommerce.jpg',
   recursos: [
 
   ],
