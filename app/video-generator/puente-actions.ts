@@ -12,40 +12,104 @@
 // pipeline —cuántos créditos hay y en qué tier está la cuenta—, que hasta ahora
 // solo se podía leer mirando la pantalla de Flow.
 
-import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
+import { getRolWsEfectivo, getWorkspaceActual, getWorkspace } from '@/lib/workspace';
 import { crearTokenPuente, encolar, estadoPuente, type Puente } from '@/lib/flow-cola';
+import { estaVivo } from '@/lib/flow-puente-frescura';
 import { ENDPOINTS } from '@/lib/flow-protocolo';
 import { getTenantDb } from '@/lib/workspace';
 
-async function ctxAdmin(): Promise<{ ok: true; ws: number } | { ok: false; error: string }> {
+/** El motivo, no la frase: quien pinta es el popup y necesita elegir pantalla. */
+export type MotivoConectar = 'rol' | 'sin_ws' | 'otro_navegador' | 'error';
+
+async function ctxAdmin(): Promise<{ ok: true; ws: number } | { ok: false; motivo: MotivoConectar; error: string }> {
   if ((await getRolWsEfectivo()) !== 'admin') {
-    return { ok: false, error: 'Solo el administrador del workspace puede conectar el navegador.' };
+    return { ok: false, motivo: 'rol', error: 'Solo el administrador del workspace puede conectar el navegador.' };
   }
   const ws = await getWorkspaceActual();
-  if (ws == null) return { ok: false, error: 'Sin workspace activo.' };
+  if (ws == null) return { ok: false, motivo: 'sin_ws', error: 'Sin workspace activo.' };
   return { ok: true, ws };
 }
 
 export type ConectarOut =
-  | { ok: true; token: string }
-  | { ok: false; error: string };
+  | { ok: true; token: string; workspace: string }
+  | { ok: false; motivo: MotivoConectar; error: string; etiqueta?: string };
 
 /**
  * Crea el código de conexión y lo devuelve EN CLARO una sola vez.
  *
  * Se guarda hasheado, así que no hay forma de volver a leerlo: si el cliente lo
- * pierde, se genera otro. Llamar a esto de nuevo ROTA el código y desconecta al
- * navegador anterior — que es lo correcto si se sospecha que se filtró.
+ * pierde, se genera otro.
+ *
+ * ⚠️ QUIÉN LLAMA A ESTO CAMBIÓ, y por eso hizo falta el guard de abajo. Antes lo
+ * disparaba una persona apretando «Conectar» en la web, mirando un panel que le
+ * decía qué estaba haciendo. Ahora lo dispara el POPUP de la extensión, a un
+ * clic, desde cualquier navegador — y `crearTokenPuente` hace un upsert por
+ * workspace, así que cada llamada DESCONECTA a la máquina anterior. Lo que era
+ * un accidente raro pasaba a ser uno normal.
+ *
+ * La negativa es por `vivo && listo` y no por `vivo` a secas a propósito: un
+ * navegador que late pero tiene Flow cerrado no está trabajando, así que no tiene
+ * derecho a bloquear al que sí puede. Y `forzar` es la salida explícita — el
+ * popup la ofrece nombrando al otro navegador, que es lo único que convierte esto
+ * en una decisión en vez de una sorpresa.
  */
-export async function conectarPuenteAction(etiqueta: string): Promise<ConectarOut> {
+export async function conectarPuenteAction(etiqueta: string, forzar = false): Promise<ConectarOut> {
   const ctx = await ctxAdmin();
   if (!ctx.ok) return ctx;
   try {
+    if (!forzar) {
+      const p = await estadoPuente();
+      if (estaVivo(p.ultimoVisto, Date.now()) && p.estado === 'listo') {
+        return {
+          ok: false,
+          motivo: 'otro_navegador',
+          error: 'Ya hay otro navegador conectado y trabajando.',
+          etiqueta: p.etiqueta || '',
+        };
+      }
+    }
     const { token } = await crearTokenPuente(etiqueta);
-    return { ok: true, token };
+    // ⚠️ EL NOMBRE DEL CLIENTE VIAJA, y se pinta en el pie del popup.
+    //
+    // La pestaña que abre la extensión no lleva `?ws=`, así que el workspace lo
+    // resuelve la cookie de impersonación: un admin de agencia con un cliente
+    // abierto empareja su navegador AL WORKSPACE DEL CLIENTE y gasta ahí sus
+    // créditos de Flow, sin una sola pantalla que lo diga. Mostrarlo es la
+    // diferencia entre un error que se ve y uno que se descubre a los tres días.
+    return { ok: true, token, workspace: (await nombreDeWorkspace(ctx.ws)) };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    return { ok: false, motivo: 'error', error: e instanceof Error ? e.message : String(e) };
   }
+}
+
+/**
+ * El nombre del cliente, para el pie del popup. Su ausencia no rompe nada.
+ *
+ * Usa `getWorkspace` y no una consulta propia: la tabla `workspaces` se lee con
+ * el cliente crudo cross-workspace, no con el scopeado — pedirla por `getTenantDb`
+ * devolveria vacio y el pie quedaria mudo justo en el caso que viene a cubrir.
+ */
+async function nombreDeWorkspace(ws: number): Promise<string> {
+  try {
+    return String((await getWorkspace(ws))?.nombre ?? '');
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Solo el estado del puente. Es lo que la pantalla pregunta cada 15 s.
+ *
+ * Aparte de `estadoPruebaAction` a proposito: aquella trae ademas la ultima
+ * prueba, que solo le importaba al panel de configuracion. Pedir dos datos para
+ * usar uno es tráfico contra la base por algo que nadie mira — y ese panel ya no
+ * existe: los cuatro pasos viven en el popup de la extension.
+ *
+ * Sin guard de admin: leer si el navegador propio esta conectado no es una
+ * escritura, y `estadoPuente` ya viene scopeado por `getTenantDb`.
+ */
+export async function estadoPuenteAction(): Promise<Puente> {
+  return estadoPuente();
 }
 
 export type PruebaOut =

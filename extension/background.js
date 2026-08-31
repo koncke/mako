@@ -646,9 +646,19 @@ async function ejecutar(trabajo) {
 async function ciclo() {
   if (corriendo) return;
   corriendo = true;
+  // ⚠️ EL RASTRO DEL LATIDO, y se escribe en TODAS las salidas.
+  //
+  // Es lo unico de lo que el popup puede pintar: sin esto no tiene forma de
+  // distinguir «MaKo dijo que la sesion esta marcada» de «no pude ni hablar con
+  // MaKo». Y va en un acumulador con `finally` y no «al final del ciclo» porque
+  // este ciclo tiene CUATRO salidas tempranas (sin token, res.ok falso, el catch,
+  // y el return de pausado): escribiendolo al final, un 404 o una caida de red
+  // nunca se registrarian y el popup pintaria el ultimo latido bueno para
+  // siempre — que es el modo de falla mas caro, porque se lee como que anda.
+  const latido = { ok: false, http: 0, estado: '', detalle: '', cuando: Date.now() };
   try {
     const { token } = await chrome.storage.local.get('token');
-    if (!token) return;
+    if (!token) { latido.estado = 'sin_token'; return; }
 
     let estado = 'listo';
     let detalle = '';
@@ -787,6 +797,11 @@ async function ciclo() {
     const { firmaPlantillas } = await chrome.storage.local.get('firmaPlantillas');
     const mandarPlantillas = firma && firma !== firmaPlantillas;
 
+    // El estado ya no cambia despues de esto: es lo que se le va a contar a MaKo
+    // y es lo que el popup tiene que pintar.
+    latido.estado = estado;
+    latido.detalle = detalle;
+
     const res = await fetch(`${MAKO}/api/flow/puente`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-flow-token': token },
@@ -815,9 +830,21 @@ async function ciclo() {
         ...(mandarPlantillas ? { plantillas: plantillasLocales } : {}),
       }),
     });
+    latido.http = res.status;
+    // ⚠️ Un 404 NO es un error de red: es «este token ya no existe», y pasa cada
+    // vez que alguien conecta otro navegador (el upsert por workspace rota el
+    // token). El popup lo distingue por el numero y ofrece volver a conectar, en
+    // vez de mandar a revisar internet.
     if (!res.ok) return;
 
+    latido.ok = true;
     const out = await res.json();
+    // ⚠️ `pausado`, y NO un campo `estadoPuente` que no existe: la respuesta del
+    // latido no trae el estado del puente, trae `pausado`, que el server calcula
+    // como `guardado === 'marcada'`. Es el UNICO camino por el que la extension
+    // puede enterarse de que Google marco la sesion — ella nunca lo dice, solo
+    // sabe decir `listo` o `sin_sesion`.
+    if (out && out.pausado) latido.estado = 'marcada';
     // Los resultados ya viajaron: recién ahora se limpian. Si la request falló,
     // quedan y se reintentan — perder un resultado deja al cliente mirando
     // «generando…» sobre algo que en realidad terminó.
@@ -963,8 +990,198 @@ async function ciclo() {
       await new Promise((r) => setTimeout(r, cooldownMs));
     }
     if (nuevos.length) await chrome.storage.local.set({ pendientes: nuevos });
-  } catch { /* la próxima vuelta reintenta */ } finally {
+  } catch (e) {
+    latido.detalle = String((e && e.message) || e);
+  } finally {
+    await chrome.storage.local.set({ ultimoLatido: latido });
+    // La INSIGNIA es lo unico que se ve sin abrir nada, y es lo que reemplaza a
+    // «volver a la web para enterarse». Sin permiso nuevo.
+    try {
+      await chrome.action.setBadgeText({ text: latido.ok && latido.estado === 'listo' ? '' : '!' });
+      await chrome.action.setBadgeBackgroundColor({ color: '#d59b0a' });
+    } catch { /* el badge no puede tumbar el ciclo */ }
     corriendo = false;
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// LO QUE EL POPUP PIDE
+// ═════════════════════════════════════════════════════════════════════════
+// Los cuatro pasos de configuracion se mudaron al popup de la extension. Lo que
+// sigue es lo que hace falta para que ahi se pueda hacer todo lo que NO exige la
+// sesion de MaKo: conectar (disparando a la pagina), abrir y recargar Flow, y
+// leer el saldo.
+
+const URL_MAKO_TAB = `${MAKO}/video-generator`;
+const URL_FLOW = 'https://labs.google/fx/tools/flow';
+
+/**
+ * Conectar: el disparo vive aca, el acunado vive en la pagina.
+ *
+ * ⚠️ NO se puede acunar el token desde el service worker, y no es por falta de
+ * ganas: `crearTokenPuente` guarda un sha256 —no existe endpoint que devuelva el
+ * token existente— y un POST de extension muere en el chequeo de Origin del
+ * proxy de MaKo, que rechaza `chrome-extension://`. Abrirle una excepcion no es
+ * opcion mientras la extension se instale descomprimida: el id es distinto en
+ * cada maquina, asi que la excepcion tendria que ser para cualquier extension.
+ *
+ * Entonces: se busca una pestana de MaKo, se le pide a SU content script que le
+ * pida el token a la pagina, y si no hay ninguna se abre una.
+ */
+async function conectar(forzar) {
+  await chrome.storage.local.set({ emparejando: true, emparejarError: '' });
+  try {
+    let tabs = [];
+    try { tabs = await chrome.tabs.query({ url: `${MAKO}/*` }); } catch { tabs = []; }
+
+    for (const t of tabs) {
+      const r = await pedirEmparejar(t.id, forzar);
+      if (r) return await finEmparejado(r, null);
+    }
+
+    // Ninguna pestana de MaKo: se abre una en segundo plano. Si la persona no
+    // tiene sesion, la pagina no va a poder acunar y el pedido vuelve como
+    // `sesion` — ahi la pestana se ACTIVA para que pueda entrar.
+    const nueva = await chrome.tabs.create({ url: URL_MAKO_TAB, active: false });
+    await esperarCarga(nueva.id);
+    const r = await pedirEmparejar(nueva.id, forzar);
+    return await finEmparejado(r || { ok: false, motivo: 'sesion' }, nueva.id);
+  } catch (e) {
+    return await finEmparejado({ ok: false, motivo: 'error', error: String((e && e.message) || e) }, null);
+  }
+}
+
+async function pedirEmparejar(tabId, forzar) {
+  try {
+    return await chrome.tabs.sendMessage(tabId, { tipo: 'EMPAREJAR', forzar: !!forzar });
+  } catch {
+    // Content script HUERFANO: Chrome no lo inyecta hacia atras en una pestana
+    // que ya estaba abierta cuando se instalo o se actualizo la extension. Con
+    // hola-mako.com en `host_permissions` esto se puede reponer, y sin reponerlo
+    // el sintoma es «apreto Conectar y no pasa nada» sobre una pestana abierta.
+    try {
+      await chrome.scripting.executeScript({ target: { tabId }, files: ['mako-puente.js'] });
+      return await chrome.tabs.sendMessage(tabId, { tipo: 'EMPAREJAR', forzar: !!forzar });
+    } catch { return null; }
+  }
+}
+
+async function finEmparejado(r, tabCreada) {
+  const ok = !!(r && r.ok);
+  await chrome.storage.local.set({
+    emparejando: false,
+    emparejarError: ok ? '' : String((r && r.motivo) || 'error'),
+    emparejarEtiqueta: (r && r.etiqueta) || '',
+  });
+  if (ok) {
+    // Se conecto: la pestana que abri yo ya no hace falta, y el latido sale ya
+    // para que el popup no tenga que esperar 15 s a decir algo verdadero.
+    if (tabCreada != null) { try { await chrome.tabs.remove(tabCreada); } catch { /* la cerro alguien */ } }
+    await ciclo();
+  } else if (tabCreada != null) {
+    // No se pudo: la pestana se ACTIVA en vez de cerrarse. Es la unica forma de
+    // que la persona vea que le falta iniciar sesion — cerrarla dejaria un error
+    // sin ningun lugar donde resolverlo.
+    try { await chrome.tabs.update(tabCreada, { active: true }); } catch { /* ya no esta */ }
+  }
+  return r || { ok: false, motivo: 'error' };
+}
+
+function esperarCarga(tabId) {
+  return new Promise((resolve) => {
+    const reloj = setTimeout(fin, 9000);
+    function alCambiar(id, info) {
+      if (id !== tabId || info.status !== 'complete') return;
+      fin();
+    }
+    function fin() {
+      clearTimeout(reloj);
+      chrome.tabs.onUpdated.removeListener(alCambiar);
+      resolve();
+    }
+    chrome.tabs.onUpdated.addListener(alCambiar);
+  });
+}
+
+/** Abre Flow, o enfoca la pestana que ya esta. */
+async function abrirFlow() {
+  try {
+    const t = await pestanaDeFlow();
+    await chrome.tabs.update(t.id, { active: true });
+    await chrome.windows.update(t.windowId, { focused: true });
+    return { ok: true, creada: false };
+  } catch {
+    await chrome.tabs.create({ url: URL_FLOW, active: true });
+    return { ok: true, creada: true };
+  }
+}
+
+/**
+ * Recarga la pestana de Flow.
+ *
+ * Lo hace la EXTENSION, no la persona. Es la diferencia concreta entre el panel
+ * viejo y esto: la web solo podia PEDIR «recargala (F5)»; el popup ve la
+ * pestana, la recarga, y despues late para que el estado se actualice solo.
+ */
+async function recargarFlow() {
+  try {
+    const t = await pestanaDeFlow();
+    await chrome.tabs.reload(t.id);
+    return { ok: true };
+  } catch {
+    await chrome.tabs.create({ url: URL_FLOW, active: true });
+    return { ok: true, creada: true };
+  }
+}
+
+/**
+ * El saldo, LOCAL: sin dar la vuelta por la cola de MaKo.
+ *
+ * ⚠️ El pedido a `/v1/credits` sale de la PAGINA de Flow y nunca del service
+ * worker: desde aca viaja con `Origin: chrome-extension://` y sin las cookies del
+ * sitio, y Google contesta su pagina de bloqueo. Esta medido y es la razon de que
+ * el paso 4 siga necesitando la pestana abierta.
+ *
+ * NO escribe nada en el server: `saldoAction` sigue siendo el unico escritor del
+ * saldo guardado, que es lo que alimenta el costo por clip.
+ */
+async function saldoLocal(forzar) {
+  const { saldoLocal: prev } = await chrome.storage.local.get('saldoLocal');
+  // Piso de ritmo: abrir el popup no puede ser un pedido a Google cada vez.
+  if (!forzar && prev && Date.now() - prev.cuando < 60000) return prev;
+  try {
+    const tab = await pestanaDeFlow();
+    if ((await asegurarContentScript(tab.id)) === 'mudo') {
+      return { error: 'MUDO', cuando: Date.now() };
+    }
+    const r = await chrome.tabs.sendMessage(tab.id, {
+      tipo: 'HACER_FETCH',
+      clase: 'creditos',
+      path: '/v1/credits',
+      cuerpo: null,
+      // ⚠️ `parches: null` EXPLICITO: `content.js` lo reenvia e `injected.js` lo
+      // consulta para decidir si puede usar la respuesta cacheada. Omitirlo lo
+      // deja `undefined`, que hoy se comporta igual y no tiene por que seguir
+      // haciendolo.
+      parches: null,
+      soloLectura: true,
+      bearer,
+      respaldo: await respaldoDe('creditos'),
+    });
+    const d = (r && r.resultado) || null;
+    if (!d) return { error: String((r && r.error) || 'SIN_RESPUESTA'), cuando: Date.now() };
+    const saldo = {
+      creditos: typeof d.credits === 'number' ? d.credits : null,
+      // En POSITIVO: se afirma «gratuito» solo con la marca explicita de Google.
+      // Es la misma regla que `leerSaldo` del server, y dice lo mismo o calla.
+      gratuito: d.userPaygateTier === 'PAYGATE_TIER_NOT_PAID' || d.sku === 'WS_FREEMIUM',
+      sku: String(d.sku || ''),
+      cuando: Date.now(),
+    };
+    await chrome.storage.local.set({ saldoLocal: saldo });
+    return saldo;
+  } catch (e) {
+    return { error: String((e && e.message) || e), cuando: Date.now() };
   }
 }
 
@@ -973,9 +1190,47 @@ async function ciclo() {
 // avise.
 chrome.alarms.create('ciclo', { periodInMinutes: 0.25 });
 chrome.alarms.onAlarm.addListener((a) => { if (a.name === 'ciclo') void ciclo(); });
+
 chrome.runtime.onMessage.addListener((msg, _s, responder) => {
+  // ⚠️ ESTADO SE LEE DE STORAGE, NO DE LOS GLOBALES.
+  //
+  // Contestaba `{ conectado: !!bearer }` de forma SINCRONA, leyendo un global que
+  // se hidrata por callback al arrancar el worker. El propio `sendMessage` del
+  // popup despierta al worker en frio: el callback todavia no corrio, `bearer` es
+  // null, y el popup pintaba «falta abrir Flow» con Flow perfectamente abierto.
+  // Un dato que depende de una carrera no es un dato.
   if (msg?.tipo === 'ESTADO') {
-    responder({ conectado: !!bearer, projectId });
+    chrome.storage.local.get(
+      ['token', 'bearer', 'apiKey', 'ultimoLatido', 'saldoLocal', 'emparejando', 'emparejarError', 'emparejarEtiqueta', 'workspaceNombre'],
+      async (v) => {
+        let hayFlow = false;
+        try { await pestanaDeFlow(); hayFlow = true; } catch { hayFlow = false; }
+        responder({
+          // Booleanos: el popup no necesita ninguna credencial, y lo que no sale
+          // de aca no se puede filtrar por una pantalla.
+          token: !!v.token,
+          bearer: !!v.bearer,
+          apiKey: !!v.apiKey,
+          hayFlow,
+          ultimoLatido: v.ultimoLatido || null,
+          saldo: v.saldoLocal || null,
+          emparejando: !!v.emparejando,
+          emparejarError: v.emparejarError || '',
+          emparejarEtiqueta: v.emparejarEtiqueta || '',
+          workspace: v.workspaceNombre || '',
+          version: chrome.runtime.getManifest().version,
+        });
+      },
+    );
+    return true;
   }
-  return true;
+  if (msg?.tipo === 'CONECTAR') { void conectar(!!msg.forzar).then(responder); return true; }
+  if (msg?.tipo === 'ABRIR_FLOW') { void abrirFlow().then(responder); return true; }
+  if (msg?.tipo === 'RECARGAR_FLOW') { void recargarFlow().then(responder); return true; }
+  if (msg?.tipo === 'SALDO') { void saldoLocal(true).then(responder); return true; }
+  if (msg?.tipo === 'LATIR') { void ciclo().then(() => responder({ ok: true })); return true; }
+  // ⚠️ El `return true` estaba FUERA del if, asi que dejaba el canal abierto para
+  // TODO mensaje desconocido y el emisor esperaba una respuesta que no llegaba
+  // nunca.
+  return false;
 });

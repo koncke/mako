@@ -1,41 +1,60 @@
 <!doctype html>
 <meta charset="utf-8">
 <!--
-  El popup NO configura nada: informa.
+  ACA VIVE LA CONFIGURACION DEL PUENTE.
 
-  Tenía un campo «Código de conexión», su botón «Conectar» y dos líneas de
-  estado. El dueño: «elimina todo esto… dentro de MaKo simplemente mostrar un
-  aviso cuando esté desconectado. Todo minimalista».
+  El dueño: «esto tiene que ir DENTRO del desplegable de la extensión de MaKo… y
+  dentro de MaKo simplemente mostrar un aviso cuando esté desconectado. Todo
+  minimalista».
 
-  El campo era la salida de emergencia del apretón de manos, y por eso se puede
-  ir sin perder nada: MaKo le pasa la llave sola desde la página, y los dos casos
-  en que eso falla —extensión recién instalada, extensión vieja— NO se arreglaban
-  pegando el código; se arreglan recargando o actualizando, que es lo que dice
-  MaKo. Un campo que sólo sirve para un camino que ya no se recorre es una puerta
-  a un cuarto vacío.
+  Y hay una razón técnica que lo vuelve mejor y no solo distinto: tres de los
+  cuatro pasos hablan del NAVEGADOR, y la web no puede tocarlo. Nunca pudo abrir
+  la pestaña de Flow, ni saber si estaba dormida, ni recargarla: solo podía
+  pedirlo por escrito. Desde acá se hacen.
 
-  Queda una línea de estado y, cuando falta algo, el único link que lo arregla.
+  UN PASO POR PANTALLA: un título enorme, como máximo una línea tenue, como
+  máximo un botón. Nunca dos cosas que decidir a la vez.
 -->
 <style>
-  :root { color-scheme: light dark; }
-  body {
-    font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
-    width: 224px; padding: 13px 14px; margin: 0;
-    background: #fff; color: #16181d;
-  }
+  :root { color-scheme: light dark; --tinta: #16181d; --tenue: #6b7280; --fondo: #fff; --linea: #e6e8ec; }
   @media (prefers-color-scheme: dark) {
-    body { background: #1c1e24; color: #e8eaee; }
-    .sec { color: #9aa1ad; }
-    a { color: #8ab4ff; }
+    :root { --tinta: #e8eaee; --tenue: #9aa1ad; --fondo: #1c1e24; --linea: #2c2f37; }
   }
-  .marca { font-size: 12px; font-weight: 700; letter-spacing: .02em; color: #9aa1ad; }
-  .fila { display: flex; align-items: center; gap: 8px; margin-top: 9px; font-size: 14px; }
-  .punto { width: 8px; height: 8px; border-radius: 999px; flex: none; background: #22a558; }
-  .punto[data-tono="falta"] { background: #d59b0a; }
-  .sec { color: #6b7280; font-size: 12px; margin-top: 7px; }
-  a { color: #1a56db; }
+  * { box-sizing: border-box; }
+  body {
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    width: 300px; margin: 0; padding: 20px 18px 14px;
+    background: var(--fondo); color: var(--tinta);
+  }
+  .marca { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--tenue); }
+
+  /* El titulo es la pantalla. Se lee en un segundo y dice que hacer. */
+  h1 { font-size: 21px; line-height: 1.2; font-weight: 650; margin: 12px 0 0; letter-spacing: -.01em; }
+  h1.numero { font-size: 42px; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  .tenue { font-size: 12.5px; color: var(--tenue); margin-top: 7px; }
+
+  button {
+    display: block; width: 100%; margin-top: 15px; padding: 11px 14px;
+    font: inherit; font-weight: 600; cursor: pointer;
+    border: 1px solid var(--linea); border-radius: 10px;
+    background: #2f6df6; color: #fff; border-color: transparent;
+  }
+  button.suave { background: transparent; color: var(--tinta); border-color: var(--linea); }
+  button:disabled { opacity: .55; cursor: default; }
+
+  .pie {
+    margin-top: 16px; padding-top: 10px; border-top: 1px solid var(--linea);
+    font-size: 10.5px; color: var(--tenue); display: flex; gap: 6px; justify-content: space-between;
+  }
+
+  /* El latido del estado desconocido: no afirma nada mientras no sabe. */
+  .punto { width: 9px; height: 9px; border-radius: 999px; background: var(--tenue); margin-top: 14px; animation: late 1.1s ease-in-out infinite; }
+  @keyframes late { 0%, 100% { opacity: .25 } 50% { opacity: 1 } }
+  @media (prefers-reduced-motion: reduce) { .punto { animation: none; opacity: .6 } }
 </style>
+
 <div class="marca">MaKo</div>
-<div class="fila"><span class="punto" id="punto"></span><span id="txt">…</span></div>
-<div class="sec" id="sec"></div>
+<div id="cuerpo"><div class="punto"></div></div>
+<div class="pie"><span id="version"></span><span id="ws"></span></div>
+
 <script src="popup.js"></script>

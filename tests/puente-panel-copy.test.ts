@@ -253,7 +253,11 @@ test('el aviso de navegador incompatible ofrece una SALIDA, no solo la puerta ce
   // seguir usando MaKo donde está — la extensión trabaja desde donde se instaló,
   // que es cierto porque el que encola y el que ejecuta solo comparten el
   // workspace (lib/flow-cola.ts), nunca la sesión ni el navegador.
-  const copy = enUnaLinea(copyVisible('app/video-generator/PuentePanel.tsx'));
+  // ⚠️ La ruta se mudó: los cuatro pasos de configuración viven ahora en el popup
+  // de la extensión, y de `PuentePanel.tsx` solo sobrevivieron los avisos. Este
+  // test es la razón por la que el copy sobrevivió TEXTUAL en la mudanza: sin él,
+  // reescribirlo «para achicar» se lleva puesto el contrato.
+  const copy = enUnaLinea(copyVisible('app/video-generator/puente-avisos.tsx'));
   const aviso = /Este navegador no puede instalar la extensión.{0,320}/.exec(copy)?.[0] ?? '';
 
   assert.ok(aviso, 'desapareció el aviso de navegador incompatible');

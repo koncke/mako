@@ -39,7 +39,10 @@ import {
   puestaPorId, puestasOfrecidas, type Puesta,
 } from './video-pedido';
 import { generarPlanAction, editarLineaPlanAction, reescribirTomaAction } from './actions';
-import { PuentePanel, AvisoPuente, abrirPuente, estadoDelPuente } from './PuentePanel';
+import { AvisoPuente, estadoDelPuente, ID_AVISO_PUENTE } from './puente-avisos';
+import { PuenteEnlace } from './PuenteEnlace';
+import { estadoPuenteAction } from './puente-actions';
+import { useExtensionInstalada } from './extension-instalada';
 import type { Puente } from '@/lib/flow-cola';
 import { cabidaDeGuion, soloHablado } from '@/lib/puestas-data';
 import type { GuionDisponible } from './guiones-datos';
@@ -605,6 +608,45 @@ export function VideoGeneratorApp({
   // partes de la misma pantalla contestando cosas distintas sobre el mismo
   // hecho, que es exactamente la trampa que el gate viene a evitar.
   const [puenteVivo, setPuenteVivo] = useState(puente);
+  const instalada = useExtensionInstalada();
+
+  // ⚠️ EL LATIDO LO PREGUNTA ESTA PANTALLA. Lo hacia el panel de configuracion,
+  // que ya no existe; sin reemplazo, `ahoraTick` sigue corriendo y a los dos
+  // minutos el gate se cierra solo sobre un puente que esta llamando cada 15 s.
+  // El reloj y la re-consulta van JUNTOS o la frescura se convierte en un
+  // temporizador que miente al reves.
+  //
+  // Tres limites, y los tres salen de un poll que ya se fue de las manos una vez
+  // en esta misma tab: solo con la pestana VISIBLE, cada 15 s —el mismo pulso que
+  // la extension—, y se corta al ocultarse preguntando una vez al volver, que es
+  // cuando la respuesta de verdad cambio.
+  useEffect(() => {
+    let vivo = true;
+    let t: number | undefined;
+
+    const preguntar = async () => {
+      if (!vivo || document.visibilityState !== 'visible') return;
+      try {
+        const p = await estadoPuenteAction();
+        if (vivo && p) setPuenteVivo(p);
+      } catch { /* la proxima vuelta reintenta */ }
+    };
+
+    const arrancar = () => {
+      window.clearInterval(t);
+      if (document.visibilityState !== 'visible') return;
+      void preguntar();
+      t = window.setInterval(() => void preguntar(), 15000);
+    };
+
+    arrancar();
+    document.addEventListener('visibilitychange', arrancar);
+    return () => {
+      vivo = false;
+      window.clearInterval(t);
+      document.removeEventListener('visibilitychange', arrancar);
+    };
+  }, []);
   useEffect(() => {
     setAhoraTick(Date.now());
     const t = window.setInterval(() => setAhoraTick(Date.now()), 30000);
@@ -778,6 +820,24 @@ export function VideoGeneratorApp({
     return () => { vivo = false; clearInterval(id); };
   }, [generando, actual?.id]);
 
+  /**
+   * Un clic que choca contra el gate tiene que CONTESTAR algo.
+   *
+   * `empezar` se llama desde tres lugares y solo uno es el boton deshabilitado:
+   * la tarjeta de la plantilla y el modal de detalle tambien entran por aca. Sin
+   * esto quedan dos clics mudos, que es indistinguible de un boton roto.
+   *
+   * Trae el aviso a la vista y lo hace parpadear. No abre nada mas: lo que sigue
+   * vive en el popup de la extension, y una pagina web no puede abrirlo.
+   */
+  function resaltarAviso() {
+    const el = document.getElementById(ID_AVISO_PUENTE);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    el.animate([{ opacity: 1 }, { opacity: .35 }, { opacity: 1 }], { duration: 640, iterations: 2 });
+  }
+
   // ¿El navegador está conectado AHORA? Es el hecho del que cuelga todo lo que
   // esta tab puede hacer, así que se calcula una vez y lo miran los dos lugares
   // que deciden: el gate de la entrada y el aviso.
@@ -796,7 +856,7 @@ export function VideoGeneratorApp({
     //
     // Y no se queda mudo: abrir la configuración ES la respuesta al click. Un
     // control que no hace nada es indistinguible de uno roto.
-    if (!puenteAnda) { abrirPuente(); return; }
+    if (!puenteAnda) { resaltarAviso(); return; }
     setPuestaId(id);
     setGuionId('');
     setPaso('guion');
@@ -1456,7 +1516,7 @@ export function VideoGeneratorApp({
           No repite los cuatro pasos —ésos viven en el desplegable del pie, en un
           solo lugar— ni adivina cuál falta: el botón abre esa configuración, que
           es donde el paso pendiente ya está marcado. */}
-      {puente && !puenteAnda && <AvisoPuente puente={puenteVivo} ahora={ahoraTick} />}
+      {!puenteAnda && <AvisoPuente puente={puenteVivo} ahora={ahoraTick} instalada={instalada} />}
 
       {contexto && !contexto.tieneFotos && (
         <Alert tono="warn">
@@ -1487,7 +1547,7 @@ export function VideoGeneratorApp({
         <Button
           variant="mako"
           size="xl"
-          disabled={!puedeCrear || (!!puente && !puenteAnda)}
+          disabled={!puedeCrear || !puenteAnda}
           onClick={() => puestaId && empezar(puestaId)}
           icon={<Icon name="ia" size={19} />}
         >
@@ -1565,27 +1625,11 @@ export function VideoGeneratorApp({
         </Modal>
       )}
 
-      {/*
-        ⚠️ SIEMPRE, Y PLEGADO. Antes se dibujaba sólo cuando el puente NO andaba,
-        con el argumento de que «una vez que anda, el dueño no tiene por qué
-        volver a leer cuatro pasos». El argumento era correcto y la conclusión no:
-        aparecer/desaparecer hace que la única forma de reconectar sea que la cosa
-        ya esté rota, y mientras tanto no hay dónde mirar el saldo.
-
-        Plegado cuesta una fila, y esa fila DICE el estado —«Listo · 1.012
-        créditos», «Falta abrir Google Flow»—, que es justo lo que antes obligaba
-        a desplegar cuatro pasos para averiguar.
-      */}
-      {/* ⚠️ SIN ancho propio. Con `maxWidth: 780` la fila plegada terminaba 250 px
-          antes que la de «Anuncios terminados», que es su hermana visual y su
-          vecina inmediata: dos filetes de largo distinto uno encima del otro se
-          leen como un error de maquetado. La medida de lectura se cuida ADENTRO,
-          en el contenido, que es donde importa. */}
-      {puente && (
-        <div style={{ marginTop: 40 }}>
-          <PuentePanel inicial={puente} saldo={saldo} onEstado={setPuenteVivo} />
-        </div>
-      )}
+      {/* El MENSAJERO. No dibuja nada: acuña el token cuando la extensión lo
+          pide desde su popup. Es lo único del emparejado que no se pudo mudar —
+          el token nace de una server action con la cookie de sesión— y por eso la
+          página sigue estando en el circuito, pero ya no como pantalla. */}
+      <PuenteEnlace />
 
       {detalle && (
         <DetalleFormato

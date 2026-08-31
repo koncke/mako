@@ -3,26 +3,122 @@
 // =============================================================================
 // Existe para que el usuario NO tenga que copiar y pegar un código.
 //
-// Hace dos cosas, las dos por el DOM y no por `externally_connectable`: ese
-// mecanismo necesita el ID de la extensión, y el ID CAMBIA cuando se publica en
-// la Chrome Web Store (Google asigna el suyo). Marcando el DOM funciona igual
-// instalada a mano o desde la tienda, sin tocar una línea.
+// Todo por el DOM y no por `externally_connectable`: ese mecanismo necesita el
+// ID de la extensión, y el ID CAMBIA al publicarse en la Chrome Web Store.
+// Marcando el DOM funciona igual instalada a mano o desde la tienda.
 //
-//   1. Avisa que está instalada, poniendo un atributo en <html>. La página lo
-//      mira y por eso puede decir «Conectar» en vez de «Descargá un zip».
-//   2. Recibe el token cuando la persona aprieta el botón, y lo guarda.
+// ⚠️ EL SENTIDO SE DIO VUELTA. Antes la PÁGINA empujaba el token cuando alguien
+// apretaba «Conectar» en la web. Ahora el botón vive en el popup de la extensión
+// —el dueño: «esto tiene que ir DENTRO del desplegable de la extensión»— así que
+// el pedido nace del service worker y la página pasa a ser un MENSAJERO:
 //
-// Solo escucha en el origen de MaKo, que es el único declarado en el manifest.
+//   popup ─CONECTAR─▶ SW ─EMPAREJAR─▶ este script
+//                                       │  MAKO_PUENTE_PIDO_TOKEN (evento)
+//                                       ▼
+//                                    la página (PuenteEnlace.tsx) acuña con la
+//                                    sesión del usuario y contesta por evento
+//
+// El acuñado NO se puede mover acá: el token nace de una server action con la
+// cookie de sesión, y un fetch de extensión muere en el chequeo de Origin del
+// proxy. Lo que se mudó al popup es el DISPARO y el RESULTADO.
 
 document.documentElement.setAttribute('data-mako-puente', chrome.runtime.getManifest().version);
 
-window.addEventListener('MAKO_PUENTE_TOKEN', (ev) => {
-  const token = ev.detail && ev.detail.token;
-  if (typeof token !== 'string' || !token.startsWith('flow_')) return;
-  chrome.storage.local.set({ token }, () => {
-    // El acuse va de vuelta por el mismo camino: sin esto la página no puede
-    // distinguir «lo guardó» de «la extensión no escuchó», y terminaría
-    // diciendo que conectó sobre algo que no pasó.
-    window.dispatchEvent(new CustomEvent('MAKO_PUENTE_TOKEN_OK'));
+/** Cuántos ms se espera a que la página conteste el pedido de token. */
+const ESPERA_MS = 12000;
+
+/**
+ * Le pide un token a la página y contesta al service worker.
+ *
+ * El `id` de correlación no es decorativo: los eventos son globales, así que sin
+ * él dos pedidos en vuelo se resuelven con la respuesta del otro. Es la misma
+ * razón que ya está escrita en `content.js`.
+ */
+function pedirToken(forzar) {
+  return new Promise((resolve) => {
+    const id = `p${Date.now()}${Math.random()}`;
+    let cerrado = false;
+
+    const cerrar = (out) => {
+      if (cerrado) return;
+      cerrado = true;
+      clearTimeout(reloj);
+      window.removeEventListener('MAKO_PUENTE_TOKEN', alToken);
+      window.removeEventListener('MAKO_PUENTE_TOKEN_ERROR', alError);
+      resolve(out);
+    };
+
+    const alToken = (ev) => {
+      const d = (ev && ev.detail) || {};
+      if (d.id !== id) return;
+      const token = d.token;
+      if (typeof token !== 'string' || !token.startsWith('flow_')) {
+        cerrar({ ok: false, motivo: 'error' });
+        return;
+      }
+      // Se guarda ACÁ y no en el service worker: es el único punto por el que
+      // pasa el token, y guardarlo antes de contestar hace que el «ok» no pueda
+      // ser más optimista que la realidad.
+      chrome.storage.local.set({ token, workspaceNombre: String(d.workspace || '') }, () => {
+        cerrar({ ok: true });
+      });
+    };
+
+    const alError = (ev) => {
+      const d = (ev && ev.detail) || {};
+      if (d.id !== id) return;
+      cerrar({ ok: false, motivo: String(d.motivo || 'error'), etiqueta: String(d.etiqueta || '') });
+    };
+
+    // ⚠️ Sin este corte, un `MAKO_PUENTE_PIDO_TOKEN` que nadie escucha —la
+    // página todavía no hidrató, o es una ruta de MaKo que no monta el enlace—
+    // deja al popup diciendo «Conectando…» para siempre. El timeout es lo que
+    // convierte «no contestó» en una pantalla con salida.
+    const reloj = setTimeout(() => cerrar({ ok: false, motivo: 'sesion' }), ESPERA_MS);
+
+    window.addEventListener('MAKO_PUENTE_TOKEN', alToken);
+    window.addEventListener('MAKO_PUENTE_TOKEN_ERROR', alError);
+    window.dispatchEvent(new CustomEvent('MAKO_PUENTE_PIDO_TOKEN', {
+      detail: { id, forzar: !!forzar, etiqueta: navegador() },
+    }));
   });
+}
+
+/** Un nombre que la persona reconozca en «ya hay otro navegador conectado». */
+function navegador() {
+  const ua = navigator.userAgent;
+  const cual = /Edg\//.test(ua) ? 'Edge'
+    : /OPR\//.test(ua) ? 'Opera'
+      : /Brave/.test(ua) ? 'Brave'
+        : /Chrome\//.test(ua) ? 'Chrome'
+          : 'Navegador';
+  const so = /Windows/.test(ua) ? 'Windows'
+    : /Mac OS X/.test(ua) ? 'Mac'
+      : /Linux/.test(ua) ? 'Linux'
+        : '';
+  return so ? `${cual} en ${so}` : cual;
+}
+
+chrome.runtime.onMessage.addListener((msg, _sender, responder) => {
+  if (msg && msg.tipo === 'EMPAREJAR') {
+    // ⚠️ El script corre en `document_start`: si la página todavía no hidrató,
+    // `PuenteEnlace` no existe y nadie escucha el pedido. Por eso se espera a que
+    // el enlace avise que está montado, con el mismo tope que el pedido — y si no
+    // avisa se intenta igual, porque una pestaña ya hidratada antes de que este
+    // script escuchara no va a volver a avisar nunca.
+    void esperarEnlace().then(() => pedirToken(msg.forzar)).then(responder);
+    return true;
+  }
+  return false;
 });
+
+let enlaceListo = false;
+window.addEventListener('MAKO_PUENTE_ENLACE_LISTO', () => { enlaceListo = true; });
+
+function esperarEnlace() {
+  if (enlaceListo || document.readyState === 'complete') return Promise.resolve();
+  return new Promise((resolve) => {
+    const t = setTimeout(resolve, 4000);
+    window.addEventListener('MAKO_PUENTE_ENLACE_LISTO', () => { clearTimeout(t); resolve(); }, { once: true });
+  });
+}
