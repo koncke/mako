@@ -203,7 +203,12 @@ export async function POST(req: NextRequest) {
     let total = 0;
     for (const [k, v] of Object.entries(rec)) {
       if (typeof v !== 'string') continue;
-      const t = v.slice(0, 1400);
+      // ⚠️ Las claves de diagnostico propias llevan MAS presupuesto. Con 1400
+      // parejos, la lista de fuentes del DOM llegaba cortada en la mitad de la
+      // grilla y el dato que se fue a buscar —el <video> del reproductor— no
+      // entraba nunca. Se pidio dos veces y las dos llego truncada.
+      const tope = k.startsWith('__') ? 6000 : 1400;
+      const t = v.slice(0, tope);
       if (total + t.length > 40_000) break;
       total += t.length;
       out[k.slice(0, 80)] = t;

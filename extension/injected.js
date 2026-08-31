@@ -538,7 +538,21 @@
     // credencial que no necesitamos.
     const fuentes = [];
     try {
-      for (const el of document.querySelectorAll('video, video source, img')) {
+      // ⚠️ LOS VIDEOS PRIMERO, Y NO ES ORDEN: ES QUE LLEGUEN.
+      //
+      // `querySelectorAll('video, img')` devuelve en orden del DOCUMENTO, asi que
+      // las decenas de miniaturas de la grilla salen antes que el reproductor — y
+      // el corte de la lista se las come todas menos las primeras. Se pidio dos
+      // veces el dato y las dos veces llego la parte que no servia.
+      //
+      // Es la misma forma que ya mordio hoy con el `detalle` del espia: un
+      // presupuesto compartido donde lo que hace falta va ultimo.
+      const orden = [
+        ...document.querySelectorAll('video'),
+        ...document.querySelectorAll('video source'),
+        ...document.querySelectorAll('img'),
+      ];
+      for (const el of orden) {
         const src = el.currentSrc || el.src || el.getAttribute('src') || '';
         if (!src || src.startsWith('data:')) continue;
         let forma = src;
@@ -552,7 +566,10 @@
             ? `${u.protocol}//${u.host}${u.pathname}${u.search}`.slice(0, 600)
             : `${u.protocol}//${u.host}${u.pathname}`;
         } catch { /* blob: y demas van tal cual */ }
-        if (!fuentes.includes(forma)) fuentes.push(forma);
+        // El tag delante: con veinte urls parecidas, saber cual salio de un
+        // <video> es la mitad de la respuesta.
+        const etiquetado = `${el.tagName.toLowerCase()} ${forma}`;
+        if (!fuentes.includes(etiquetado)) fuentes.push(etiquetado);
         if (fuentes.length >= 25) break;
       }
     } catch { /* nunca romper la pagina de Flow por mirarla */ }
