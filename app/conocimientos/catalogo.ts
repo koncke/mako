@@ -113,6 +113,8 @@ import { CURSO_GROWING_SETTERS_3_0 } from './curso-growing-setters-3-0';
 import { CURSO_INSTITUTO_DE_MARCA_PERSONAL } from './curso-instituto-de-marca-personal';
 import { CURSO_UDIA } from './curso-udia';
 import { CURSO_CLUB_DE_NEGOCIOS } from './curso-club-de-negocios';
+import { CURSO_ECOMMERCE_0_A_17_MILLONES } from './curso-ecommerce-0-a-17-millones';
+import { CURSO_ACADEMIA_DE_LANZAMIENTO } from './curso-academia-de-lanzamiento';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio.datos';
 import { CURSO_BRANDING } from './BrandingMaKo.datos';
@@ -383,6 +385,14 @@ const CATEGORIA: Record<string, string> = {
   // plataforma. El comentario al lado es la categoría de origen.
   'club-de-negocios': 'Ecommerce',         // Ecommerce
 
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'ecommerce-0-a-17-millones': 'Ecommerce', // Ecommerce
+
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'academia-de-lanzamiento': 'Orgánico',   // Lanzamientos
+
 };
 
 /**
@@ -557,6 +567,14 @@ const PORTADA: Record<string, string> = {
   // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
   // pero la ficha se había emitido antes de que existiera.
   'club-de-negocios': '/cono-portadas/club-de-negocios.png',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'ecommerce-0-a-17-millones': '/cono-portadas/ecommerce-0-a-17-millones.png',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'academia-de-lanzamiento': '/cono-portadas/academia-de-lanzamiento.png',
 
 };
 
@@ -856,6 +874,14 @@ const RESUMEN: Record<string, string> = {
   // del catálogo de la plataforma.
   'club-de-negocios': 'Aprende a crear y escalar tu negocio online dentro de una comunidad de emprendedores. El club enseña desarrollo de estrategias de negocio, creación de tiendas online rentables.',
 
+  // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
+  // del catálogo de la plataforma.
+  'ecommerce-0-a-17-millones': 'Aprende a crear un negocio de e-commerce desde cero hasta generar 17 millones en ventas. El curso enseña cómo seleccionar producto rentable, crear tienda online.',
+
+  // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
+  // del catálogo de la plataforma.
+  'academia-de-lanzamiento': 'prende a lanzar y vender infoproductos de forma rentable. El curso enseña cómo crecer en redes sociales, construir conexiones auténticas con tu audiencia, crear webinars que venden.',
+
 };
 
 // Sin acentos y en minúsculas, para que «Sofia» no se sume a un título que ya dice
@@ -1140,6 +1166,12 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_CLUB_DE_NEGOCIOS,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_ECOMMERCE_0_A_17_MILLONES,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_ACADEMIA_DE_LANZAMIENTO,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
