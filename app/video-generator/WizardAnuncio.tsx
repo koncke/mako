@@ -484,6 +484,13 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
   // son la red por si algún día entra algo que sí reaccione al ancho.
   const lienzo = useRef<HTMLDivElement>(null);
   const [anchoCol, setAnchoCol] = useState(900);
+  // ⚠️ Y EL ALTO TAMBIÉN SE MIDE. El dueño: «sería bueno que se alinee a la misma
+  // altura, ya que tienen el mismo tamaño». Y tiene el mismo tamaño de verdad —
+  // las dos cajas usan `LIENZO`— pero arrancaban a distinta altura: el riel
+  // colgaba de un `116px` escrito a mano y el contenido de lo que midan el título
+  // y el subtítulo del paso, que cambian con cada pregunta. Dos objetos idénticos
+  // desalineados por 100 px se leen como un error, no como una jerarquía.
+  const [arriba, setArriba] = useState(116);
   useLayoutEffect(() => {
     const el = lienzo.current;
     const hijo = el?.firstElementChild as HTMLElement | null;
@@ -492,18 +499,36 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
       const w = Math.round(hijo.getBoundingClientRect().width);
       const v = Math.min(940, Math.max(420, w));
       setAnchoCol((prev) => (Math.abs(prev - v) > 8 ? v : prev));
+
+      // El riel es `fixed`, así que moverlo NO mueve el contenido: la corrección
+      // converge en una pasada y no hay bucle posible.
+      const hueco = slotRiel?.current;
+      if (!hueco) return;
+      const d = Math.round(hijo.getBoundingClientRect().top - hueco.getBoundingClientRect().top);
+      if (Math.abs(d) > 2) setArriba((prev) => Math.min(320, Math.max(0, prev + d)));
     };
     medir();
     const obs = new ResizeObserver(medir);
     obs.observe(hijo);
     return () => obs.disconnect();
-  }, [paso, children]);
+  }, [paso, children, slotRiel]);
 
   const anchoRiel = puesta?.ejemplo
     ? ({
       ['--riel-ancho' as string]: ejemploAbierto ? RIEL : RIEL_CERRADO,
       ['--riel-calle' as string]: `${CALLE}px`,
       ['--riel-contenido' as string]: `${anchoCol}px`,
+      // ⚠️ CERRADO, EL EJEMPLO NO CUENTA PARA EL CENTRADO. El dueño: «cuando está
+      // cerrado, todo el video chiquito no debería contar para el centrado de la
+      // otra sección. No pasa nada que cuando esté chiquito esté más al costado».
+      //
+      // Y es lo correcto: abierto son dos cosas que se miran juntas, así que el
+      // conjunto se centra. Cerrado ya no es un contenido, es un CONTROL —una
+      // miniatura para volver a abrirlo— y un control no tiene por qué correr el
+      // texto que uno está leyendo. Ahí el que manda es el contenido solo, y la
+      // miniatura se va a la calle de la página.
+      ['--riel-cuenta' as string]: ejemploAbierto ? '1' : '0',
+      ['--riel-arriba' as string]: `${arriba}px`,
     } as React.CSSProperties)
     : undefined;
 
@@ -1042,7 +1067,30 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
       ) : marca?.elegida ? (
         <Revela k={marca.elegida}><img src={marca.elegida} alt={escena?.lugar ?? ''} style={MEDIO} /></Revela>
       ) : (
-        <div style={{ color: 'var(--faint)' }}><Icon name="imagegen" size={44} /></div>
+        // ⚠️ ERA UN ÍCONO SUELTO EN EL MEDIO DE UNA CAJA GRIS, y el dueño lo leyó
+        // como lo que parecía: «para que no quede como una imagen rota». Un ícono
+        // de imagen sin nada más ES el dibujo universal de un archivo que no
+        // cargó — o sea que la pantalla anunciaba una falla donde no había
+        // ninguna, en el paso más caro del recorrido.
+        //
+        // Lo que va acá no es un adorno: es la única instrucción de la pantalla.
+        // La flecha apunta a la izquierda porque ahí está la foto que hay que
+        // elegir, y sin ella «selecciona tu foto» obliga a buscar dónde.
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          gap: 10, padding: 24, textAlign: 'center', color: 'var(--dim)',
+        }}>
+          <svg width="74" height="34" viewBox="0 0 74 34" fill="none" aria-hidden="true">
+            <path d="M70 6C40 6 22 12 6 26" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+            <path d="M16 24L5 27L11 34" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <div style={{ fontSize: 'var(--fs-md)', fontWeight: 650, color: 'var(--ink)' }}>
+            Elige tu foto
+          </div>
+          <div style={{ fontSize: 'var(--fs-sm)', lineHeight: 1.5 }}>
+            Con esa cara se filma el escenario.
+          </div>
+        </div>
       );
 
       return {

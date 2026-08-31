@@ -106,8 +106,24 @@ export async function deletePersonaFoto(id: string): Promise<void> {
 }
 
 /** URL firmada INLINE para ver una foto (300s). */
+/**
+ * ⚠️ SEIS HORAS, NO CINCO MINUTOS.
+ *
+ * Una URL firmada que se pinta DENTRO de una página tiene la vida de esa página,
+ * no la del request que la generó. Con 300 s, el modal «¿Con cuál de tus fotos?»
+ * mostraba la primera foto y el resto rotas — y el síntoma miente sobre la causa:
+ * parece que faltan las fotos, cuando lo que falta es la firma.
+ *
+ * Por qué la PRIMERA sí cargaba, que es lo que delata el caso: es la que ya se
+ * había pedido en la caja grande de «Tu foto», así que estaba en el caché del
+ * navegador. Las otras siete se piden recién al abrir el modal, minutos después.
+ *
+ * El plazo no es una laxitud: el link es de un solo objeto y no se puede adivinar,
+ * y seis horas es menos que una sesión de trabajo. Lo que no puede pasar es que
+ * venza mientras la pantalla que lo muestra sigue abierta.
+ */
 async function urlFoto(path: string): Promise<string | null> {
-  const { data } = await getSupabaseServer().storage.from(BUCKET).createSignedUrl(path, 300);
+  const { data } = await getSupabaseServer().storage.from(BUCKET).createSignedUrl(path, 60 * 60 * 6);
   return data?.signedUrl ?? null;
 }
 
