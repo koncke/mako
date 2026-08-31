@@ -695,9 +695,12 @@ async function ciclo() {
     // Lo que este navegador aprendio de Flow, para que no se pierda con el perfil.
     // Se manda solo cuando CAMBIO: son decenas de KB y el latido es cada 15 s.
     // Lo que la sonda dejo listo en un latido anterior.
-    const { sondaResultado } = await chrome.storage.local.get('sondaResultado');
+    const { sondaResultado, sondaSW } = await chrome.storage.local.get(['sondaResultado', 'sondaSW']);
     if (sondaResultado) {
       respuestasVistas = { ...(respuestasVistas || {}), __sonda: String(sondaResultado).slice(0, 1400) };
+    }
+    if (sondaSW) {
+      respuestasVistas = { ...(respuestasVistas || {}), __sondaSW: String(sondaSW).slice(0, 1400) };
     }
 
     const plantillasLocales = await todasLasPlantillas();
@@ -772,7 +775,7 @@ async function ciclo() {
         //
         // `sondaOk` se escribe UNICAMENTE cuando la sonda contesto.
         const { sondaOk } = await chrome.storage.local.get('sondaOk');
-        if (sondaOk !== pedido.mediaId) {
+        if (sondaOk !== pedido.mediaId + '|sw') {
           const tabS = await pestanaDeFlow();
           // El content script se repone ANTES: recargar la extension deja
           // huerfanos los de las pestanas abiertas, que es JUSTO el momento en que
@@ -789,8 +792,49 @@ async function ciclo() {
             // de recargar la extension, que es exactamente cuando esto corre—
             // quemaba la sonda para siempre y en silencio. Una guarda de un solo
             // intento tiene que contar los intentos que SIRVIERON.
+            // ⚠️ Y LA MISMA PREGUNTA, PERO DESDE EL SERVICE WORKER.
+            //
+            // Medido: desde la PAGINA el `fetch` tira «Failed to fetch» — el
+            // endpoint es mismo origen pero redirige a un host que no manda CORS.
+            // Un <video> lo carga igual (los elementos de medio no piden CORS),
+            // asi que el archivo esta ahi y lo unico que falta es poder LEERLO.
+            //
+            // El service worker juega con otras reglas: para los hosts que estan
+            // en `host_permissions` —labs.google lo esta— Chrome NO le aplica CORS.
+            // La incognita es el salto siguiente, al host del archivo, que no
+            // sabemos cual es. Se prueba y se anota; con la respuesta se decide si
+            // alcanza con esto o si hay que sumar ese host al manifest.
+            //
+            // Se prueban las dos formas: siguiendo el redirect (si funciona, ya
+            // tenemos los bytes) y frenando en el (si se puede leer el `Location`,
+            // el servidor baja el archivo el mismo y no viaja nada por aca).
+            const desdeSW = {};
+            const urlMedio = 'https://labs.google/fx/api/trpc/media.getMediaUrlRedirect?name='
+              + encodeURIComponent(pedido.mediaId);
+            try {
+              const rr = await fetch(urlMedio, { credentials: 'include' });
+              const bb = await rr.blob();
+              desdeSW.follow = {
+                ok: true, status: rr.status, tipo: rr.type,
+                contentType: bb.type, tamano: bb.size,
+                urlFinal: String(rr.url || '').slice(0, 200),
+              };
+            } catch (e) {
+              desdeSW.follow = { ok: false, mensaje: String((e && e.message) || e).slice(0, 160) };
+            }
+            try {
+              const rm = await fetch(urlMedio, { credentials: 'include', redirect: 'manual' });
+              desdeSW.manual = {
+                ok: true, status: rm.status, tipo: rm.type,
+                location: String(rm.headers.get('location') || '(no legible)').slice(0, 200),
+              };
+            } catch (e) {
+              desdeSW.manual = { ok: false, mensaje: String((e && e.message) || e).slice(0, 160) };
+            }
+
             await chrome.storage.local.set({
-              sondaOk: pedido.mediaId,
+              sondaOk: pedido.mediaId + '|sw',
+              sondaSW: JSON.stringify(desdeSW).slice(0, 1200),
               sondaResultado: JSON.stringify({ mediaId: pedido.mediaId, r: r.sonda, bytes: r.bytes }),
             });
           }
