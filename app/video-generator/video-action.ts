@@ -464,7 +464,29 @@ export async function estadoTomaAction(
     // de estado declara `outputUri` y `encodedVideo`, y el medio terminado trae
     // `fifeUrl`. Se buscan todos, en cualquier profundidad.
     const url = buscarCampo(c.resultado, ['fifeUrl', 'outputUri', 'videoUri', 'servingUrl', 'encodedVideo', 'url']);
-    if (!url) continue;
+    if (!url) {
+      // ⚠️ LA CONSULTA CONTESTÓ Y EL CLIP ESTÁ HECHO: eso NO es «todavía no».
+      //
+      // Medido el 31/08/2026 sobre una respuesta real: la consulta de estado trae
+      // `mediaGenerationStatus: MEDIA_GENERATION_STATUS_SUCCESSFUL` y
+      // `mediaBlobSize: 2586206` — y NINGUNA url. Ni `fifeUrl`, ni `outputUri`,
+      // ni nada. El enlace vive en otro lado y todavía no sabemos dónde.
+      //
+      // Antes esto caía en el `continue` y la pantalla seguía esperando para
+      // siempre sobre un video que ya existía. Son dos situaciones distintas y hay
+      // que decirlas distinto: esperar no sirve, y volver a filmar tira un clip
+      // pagado.
+      if (/MEDIA_GENERATION_STATUS_SUCCESSFUL/.test(texto)) {
+        const texto2 = textoFlow('sin_enlace', `la toma ${n}`).detalle;
+        if (marca.ciego?.error !== texto2) {
+          item = await guardarMarca(item, n, {
+            ciego: { desde: new Date().toISOString(), error: texto2 },
+          });
+        }
+        return { ok: true, item, estado: { fase: 'a_ciegas', operacion, error: texto2 } };
+      }
+      continue;
+    }
     const mediaId = extraerMediaId(c.resultado) || buscarCampo(c.resultado, ['mediaId', 'mediaGenerationId']) || operacion;
     // La ceguera se borra sola: si esta consulta contestó, ya no estamos ciegos.
     item = await guardarMarca(item, n, { url, mediaId, ciego: undefined });
@@ -487,6 +509,18 @@ export async function estadoTomaAction(
   // fallida puede ser un mal minuto de la red. Es la comparación asimétrica de
   // siempre: para afirmar que algo se rompió hacen falta dos lecturas, para
   // creerle a un éxito alcanza con una.
+  // ⚠️ Y SI ALGUNA CONSULTA CONTESTÓ, YA NO ESTAMOS CIEGOS.
+  //
+  // `ciego` se escribía una vez y sólo se borraba al encontrar la url, así que
+  // con las consultas ya funcionando la pantalla seguía diciendo «MaKo no puede
+  // leer cómo va la toma 1» y mostrando, plegado, un HTTP 400 de veinte minutos
+  // antes. Un estado que se escribe y no se revisa es un estado que miente en
+  // cuanto el mundo cambia — y acá el mundo cambió porque lo arreglamos nosotros.
+  if (marca.ciego && mias.some((c) => str(c.estado) === 'listo')) {
+    item = await guardarMarca(item, n, { ciego: undefined });
+    marca.ciego = undefined;
+  }
+
   const fallidas = mias.filter((c) => str(c.estado) === 'fallido');
   if (fallidas.length >= 2) {
     const crudo = str(fallidas[0]?.error);

@@ -450,6 +450,18 @@
           ? p.cuerpo.slice(0, /generat/i.test(clase) ? 4000 : 200)
           : null,
         edadMs: Date.now() - p.cuando,
+        // ⚠️ UNA MUESTRA DE LA RESPUESTA, y no es telemetria: es la unica forma
+        // de saber que endpoint trae el ENLACE de un video.
+        //
+        // Medido: la consulta de estado dice que el clip esta hecho —con su
+        // tamano en bytes— y NO trae ninguna url. El enlace tiene que salir de
+        // otro lado, y el candidato es lo que la grilla del proyecto ya listo.
+        // Solo de los GET, que es lo que el espejo ya cachea, y acotado.
+        respuestaMuestra: (() => {
+          const r = respuestas.get(clase);
+          if (!r || (p.metodo !== 'GET' && p.metodo !== 'HEAD')) return null;
+          return String(r.texto || '').slice(0, 700);
+        })(),
       };
     }
     responder('MAKO_ESPIA_OK', id, { visto });

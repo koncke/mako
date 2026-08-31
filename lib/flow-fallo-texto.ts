@@ -70,6 +70,16 @@ export type CausaFlow =
    * fallida.
    */
   | 'ciego'
+  /**
+   * El clip ESTÁ HECHO del lado de Google y no tenemos con qué traerlo.
+   *
+   * ⚠️ Es distinto de `ciego`, y la diferencia importa porque cambia lo que
+   * conviene hacer. En `ciego` no sabemos nada: puede estar generándose. Acá
+   * Google contestó `MEDIA_GENERATION_STATUS_SUCCESSFUL` con el tamaño del
+   * archivo — o sea que esperar más no sirve, y volver a filmar es tirar un clip
+   * que ya se pagó y que existe.
+   */
+  | 'sin_enlace'
   | 'desconocida';
 
 /**
@@ -206,6 +216,13 @@ export function textoFlow(
         // cobraría un segundo clip por uno que probablemente ya existe.
         accion: 'Preguntar de nuevo',
         secundaria: 'Abrir Google Flow',
+      };
+
+    case 'sin_enlace':
+      return {
+        titulo: `${que.charAt(0).toUpperCase()}${que.slice(1)} ya está lista en Google`,
+        detalle: con('El video está hecho y MaKo todavía no sabe con qué enlace traerlo. Se está resolviendo de nuestro lado; el clip no se pierde ni se vuelve a cobrar.'),
+        accion: 'Buscar el video otra vez',
       };
 
     case 'sesion':
