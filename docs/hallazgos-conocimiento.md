@@ -6166,3 +6166,131 @@ riesgo no es teórico—. Ante dos candidatas parejas dice «ambiguo» y no elig
 ⚠️ **Y distingue «Drive desmontado» de «no está en Drive».** Sin el montaje en `G:` las dos
 se ven igual desde el filesystem, y la conclusión equivocada cuesta bajar un curso entero
 que ya estaba: sale con código 2 y lo dice.
+
+
+## El registro de bajados sólo crecía, y 23 clases quedaron saltadas para siempre
+
+**Vive en:** `scripts/curso-drive-fusionar.mjs` (`--marcar-bajados`), `C:\cursos\<slug>\bajados.txt`
+
+Pedido de Martín: *«que baje solo lo que falta»*. El cruce con Drive ya resolvía los ids,
+pero `yt-dlp` se bajaba el curso entero igual — son dos registros distintos y se estaba
+tocando uno solo. `--marcar-bajados` cierra eso: por cada clase que tiene id de Drive y no
+tiene video local, escribe su línea `<plataforma> <videoId>` en `bajados.txt`, que es el
+`--download-archive` de yt-dlp.
+
+**Lo que salió mal es la forma en que se escribía: sólo agregaba.** La primera corrida
+marcó según un `drive.json` que la SEGUNDA corrida cambió —al sacarle el prefijo «Copia
+de» al cruce, 23 clases de «The Perfect Launch» dejaron de tener id— y esas 23 quedaron
+anotadas **sin video local y sin Drive**. yt-dlp obedece el registro: las saltea, `video/`
+queda sin ellas, el pipeline no las transcribe, y el curso se publica incompleto. **Sin un
+solo error en ningún log**: cada pieza hizo exactamente lo que le tocaba.
+
+Es la misma familia que el «fantasma» contra el que `curso-bajar.mjs` ya tiene una guarda,
+y esa guarda no salta acá justamente porque estas clases SÍ están en Drive — que es el
+diseño, no un bug.
+
+**La regla: un registro DERIVADO de otro dato se recalcula entero, nunca se le agrega.**
+Un archivo que sólo crece acumula las decisiones equivocadas de todas las corridas
+anteriores, y no hay forma de distinguir una marca vigente de una que quedó vieja. Ahora
+`--marcar-bajados` recomputa qué está legítimamente bajado —video local **o** id de
+Drive—, reescribe el archivo completo y avisa cuántas marcas sacó. Corrido dos veces
+seguidas deja el mismo contenido; eso es lo que se probó antes de darlo por bueno.
+
+**Y cómo se encontró, que es lo que se repite:** no se encontró leyendo el código. Se
+encontró escribiendo la pregunta al revés —*«¿cuántas clases están marcadas como bajadas y
+no están en ningún lado?»*— y corriéndola sobre los tres cursos. Un chequeo de esa forma
+vale para cualquier registro de reanudación: **el estado que dice «esto ya está» tiene que
+poder confrontarse contra el mundo**, o es una afirmación que nadie puede desmentir.
+
+Medido después del arreglo:
+
+    the-perfect-launch        marcadas sin nada: 0 ✓  ·  por bajar: 65/237
+    growth-partner            marcadas sin nada: 0 ✓  ·  por bajar: 21/106
+    academia-de-lanzamiento   marcadas sin nada: 0 ✓  ·  por bajar: 0/104
+
+## «Copia de» no es parte del título: sin sacarlo, el cruce erraba 129 videos
+
+**Vive en:** `norm` y `normEstricto` en `scripts/curso-drive-fusionar.mjs`
+
+La plataforma de origen antepone «Copia de » —y «Copia de Copia de », que también
+aparece— a los archivos duplicados. Es un prefijo del ORIGEN, no del nombre de la clase.
+Sin sacarlo, «The Perfect Launch» cruzaba **67 de sus 237** clases; con el prefijo fuera,
+**172**. Los 105 de diferencia son videos que ya estaban en Drive y se iban a bajar de
+nuevo, en un curso de 237 clases.
+
+El prefijo va **antes** del número de orden en la cadena de normalización, porque va
+adelante de todo. Y va en las DOS funciones: si el desempate final no lo saca, dos títulos
+idénticos salvo por «Copia de» se leen como distintos justo en el momento en que hay que
+desempatarlos.
+
+⚠️ **El número se movió tres veces mientras se construía el cruce** —170 → 56 → 41 → 65
+por bajar— y cada valor intermedio parecía definitivo. Un cruce por nombre no tiene un
+resultado «correcto» que uno reconozca al verlo: **hay que mirar los que NO cruzaron**, de
+a tres, a mano. Ahí aparecen los prefijos, los acentos y los cortes de título; en el total,
+no aparece nada.
+
+## Editar la cola mientras estaba corriendo le corrió el offset a bash
+
+**Vive en:** `scripts/cursos-cola.sh` (tarea programada `cursos-cola`)
+
+Se le agregaron 25 líneas al script **con la cola corriendo**. No pasó nada en el momento,
+y eso es lo que hace que la trampa sea cara: `bash` parsea el `while … done` entero a
+memoria antes de ejecutarlo, así que el cuerpo del bucle sigue siendo el VIEJO y no se
+rompe nada a la vista.
+
+Lo que sí cambió es el **offset**: bash guarda la posición de byte donde quedó leyendo, y
+la vuelve a usar cuando el bucle termina. Con 1.695 bytes insertados antes de ese punto,
+esa posición ahora cae en el medio del cuerpo del bucle. Al terminar la lista, bash iba a
+leer un fragmento cortado, después un `done < "$LISTA"` suelto —error de sintaxis— y a
+salir **sin ejecutar el `rm -f "$LOCK"` de abajo**. El lock quedaba puesto, y con el lock
+puesto el perro guardián no puede levantar la cola: el estado final es una cola muerta que
+nadie revive, que es exactamente lo que el lock y el perro vienen a evitar.
+
+Dos consecuencias, y las dos importan:
+
+1. **Un script largo que está corriendo no se edita en el lugar: se edita y se REINICIA el
+   proceso.** No alcanza con que «no se rompió»; el daño está agendado para cuando el
+   intérprete vuelva a leer.
+2. **El cambio tampoco estaba haciendo efecto.** El bucle en memoria era el viejo, así que
+   el curso siguiente iba a pasar por el camino de antes. Editar y no reiniciar da lo peor
+   de los dos mundos: el comportamiento nuevo no corre y el archivo queda minado.
+
+El reinicio es `taskkill /PID <raíz> /T /F` (el ÁRBOL, no el proceso suelto: Git Bash
+re-ejecuta el script en un hijo y `schtasks /end` deja vivos a los nietos) y después
+`schtasks /run /tn cursos-cola`. El lock se auto-cura solo —chequea con `kill -0` y toma
+el de una pid que ya no existe—, así que no hay que borrarlo a mano; borrarlo sería peor,
+porque es la red por si el kill falla a medias.
+
+⚠️ **Y verificar que murió volvió a chocar con el chequeo que se mide a sí mismo.** La
+consulta `CommandLine -match 'cursos-cola'` contesta «3 colas vivas» sobre cero colas
+vivas: la línea de comandos de la propia consulta contiene el patrón. Ya estaba escrito en
+`AGENTS.md` por el perro guardián y volvió a pasar igual. Se filtra por lo que la consulta
+NO puede ser —acá, `CommandLine -notmatch ' -c '`—, o se cuenta otra cosa.
+
+## Los otros 13 cursos pendientes no están en Drive: el ahorro son 257 clases, de dos cursos
+
+**Vive en:** `scripts/curso-drive-comparar.mjs`
+
+Martín pidió *«siempre revisá el drive, porque estoy seguro de que hay algunos que ya están
+allí»*. Corrido contra los 15 cursos que faltan, el resultado es acotado y conviene tenerlo
+escrito para no volver a barrer:
+
+| | |
+|---|---|
+| ya en Drive a medias | **2**: `growth-partner` (85 de 106) y `the-perfect-launch` (172 de 237) |
+| nada parecido en Drive | 10 |
+| matchearon **otro** curso | 3 |
+
+O sea: de las 2.425 clases que quedan por delante, **257 salen de Drive y 2.168 hay que
+bajarlas**. El cruce vale la pena igual —257 clases son decenas de GB y horas—, pero la
+expectativa correcta es «dos cursos», no «varios».
+
+⚠️ **Los tres falsos son el resultado más valioso de la corrida.** `importador-pro-legacy`
+matcheó «Cursos Pro - Jimmy Naraine», y `curso-airbnb-master` y `master-escala-100k`
+matchearon los dos la MISMA carpeta ajena, «Master en IA - Roco de la Portilla». En los
+tres el parecido de nombre es 1 y las clases que coinciden son **0 de N**. Si el
+comparador hubiera clasificado eso como «a medias», la cola habría colgado los videos de un
+curso adentro de otro — y eso no da error: da un curso plausible y falso, con clases que
+abren y se reproducen. Por eso `--para-cola` emite **sólo** `parcial`: ni `otro-curso`, ni
+`ambiguo`, ni `nuevo`. Se verificó pidiéndole los tres casos y comprobando que devuelve
+vacío.

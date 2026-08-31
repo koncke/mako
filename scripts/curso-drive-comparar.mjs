@@ -199,7 +199,18 @@ if (tiene('cola')) {
   planes = [p];
 }
 
+/**
+ * `--para-cola`: además del informe, UNA línea en stdout que el shell pueda capturar —
+ * `PARCIAL<tab><carpeta>`— cuando el curso está a medias en Drive.
+ *
+ * ⚠️ Sólo para 'parcial'. Ni 'otro-curso' ni 'ambiguo' ni 'nuevo' salen por acá: son
+ *    justamente los casos en que NO hay que tocar nada, y una línea de más haría que la
+ *    cola fusione contra una carpeta ajena.
+ */
 const res = planes.map(comparar);
+if (tiene('para-cola')) {
+  for (const r of res) if (r.estado === 'parcial' && r.carpeta) process.stdout.write(`PARCIAL\t${r.carpeta}\n`);
+}
 const parciales = res.filter((r) => r.estado === 'parcial');
 const completos = res.filter((r) => r.estado === 'completo');
 console.log(`\n  ${res.length} comparado(s): ${completos.length} ya completos en Drive · ${parciales.length} a medias · ${res.filter((r) => r.estado === 'nuevo').length} nuevos · ${res.filter((r) => r.estado === 'ambiguo').length} ambiguos · ${res.filter((r) => r.estado === 'otro-curso').length} que matchearon OTRO curso`);

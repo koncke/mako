@@ -171,6 +171,21 @@ while IFS= read -r d; do
   node scripts/curso-drive-comparar.mjs --plan "$PLAN" >> "$LOG" 2>&1 || \
     di "  (el chequeo de Drive falló con $? — sigo igual, es informativo)"
 
+  # Si está a medias en Drive, se resuelven los ids de lo que YA está y se anota en el
+  # registro de yt-dlp para no volver a bajarlo. Pedido de Martín: «que baje solo lo que
+  # falta». Medido el 31/08: «The Perfect Launch» pasó de 237 clases a bajar a 65, y
+  # «Growth Partner» de 106 a 21.
+  #
+  # ⚠️ SOLO cuando el comparador dice PARCIAL. «Otro curso» y «ambiguo» no salen por ahí a
+  #    propósito: fusionar contra una carpeta ajena cuelga los videos de un curso en otro,
+  #    y eso no da error — da un curso plausible y falso.
+  CARPETA_DRIVE=$(node scripts/curso-drive-comparar.mjs --plan "$PLAN" --para-cola 2>/dev/null | sed -n 's/^PARCIAL\t//p' | head -1)
+  if [ -n "$CARPETA_DRIVE" ]; then
+    di "  ↳ ya está a medias en Drive («$CARPETA_DRIVE»): fusiono y bajo sólo lo que falta"
+    node scripts/curso-drive-fusionar.mjs --plan "$PLAN" --carpeta "$CARPETA_DRIVE" --aplicar --marcar-bajados >> "$LOG" 2>&1 \
+      || di "  ⚠ la fusión con Drive falló con $? — sigo y bajo el curso entero"
+  fi
+
   di "  ▶ bajando y transcribiendo A LA VEZ · $(date +%H:%M:%S)  (la bajada, en $LOG_BAJA)"
   echo "" >> "$LOG_BAJA"
   echo "════ $d · $(date) ════" >> "$LOG_BAJA"
@@ -189,6 +204,16 @@ while IFS= read -r d; do
   #    publicó con lo que había hasta ese momento. Esta pasada recoge las clases que
   #    llegaron al final y republica completo. Es barata: si no hay nada nuevo dice
   #    «nada nuevo para transcribir» y solo vuelve a emitir la ficha.
+  # ⚠️ EL AUDIO DE LO QUE VINO DE DRIVE. Esas clases nunca se bajaron, así que no tienen
+  #    audio local y el transcriptor no las ve. Sin esto el curso se publica con la mitad
+  #    de las clases sin transcripción y NADA avisa: el video se reproduce desde Drive y el
+  #    panel sale vacío. ffmpeg lee el montaje de G: como cualquier archivo local.
+  #    Es idempotente: si el audio ya está, no hace nada.
+  if [ -n "$CARPETA_DRIVE" ]; then
+    node scripts/curso-audio-desde-drive.mjs --plan "$PLAN" >> "$LOG" 2>&1 \
+      || di "  ⚠ el audio desde Drive salió con $? — puede quedar sin transcribir lo que vino de Drive"
+  fi
+
   node scripts/curso-pipeline.mjs --plan "$PLAN" --drive --tope-horas 12 >> "$LOG" 2>&1
   di "  -- pipeline (2a pasada) salió con $? · $(date +%H:%M:%S) · $(libres) GB libres --"
 

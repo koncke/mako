@@ -54,6 +54,11 @@ const limpio = (s) => String(s).normalize('NFC').replace(/[<>:"/\\|?*\u0000-\u00
 // «02 1. Introducción») y se comparan solo las palabras con contenido.
 const norm = (s) => String(s ?? '')
   .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  // ⚠️ «Copia de » —y «Copia de Copia de », que también aparece— lo pone la plataforma de
+  //    origen, no es parte del título. Sin sacarlo, «The Perfect Launch» cruzaba 67 de sus
+  //    237 clases en vez de ~196: 129 videos que YA estaban en Drive se iban a bajar de
+  //    nuevo. Va antes del número de orden, porque el prefijo va adelante de todo.
+  .replace(/^(\s*copia de\s*)+/i, '')
   .replace(/^\s*\d{1,3}\s*[-.)]?\s*/, '')
   .replace(/^\s*\d{1,3}\s*[-.)]?\s*/, '')
   .replace(/\b\d{1,2}:\d{2}\b/g, '')
@@ -67,6 +72,9 @@ const cuerpo = (s) => palabras(s, 7);
 // dos clases distintas competían por el mismo archivo. Este es el desempate final.
 const normEstricto = (s) => String(s ?? '')
   .normalize('NFD').replace(/[̀-ͯ]/g, '')
+  // El mismo prefijo del origen: si el desempate final no lo saca, dos títulos idénticos
+  // salvo por «Copia de» se leen como distintos justo cuando hay que desempatarlos.
+  .replace(/^(\s*copia de\s*)+/i, '')
   .replace(/[^a-z0-9]+/gi, ' ').toLowerCase().trim();
 // El plan prefija el módulo con su orden («12. IX. Potenciando…»); las carpetas que
 // ya existen en Drive no lo llevan. Se saca acá y no en cada uso.
@@ -328,3 +336,88 @@ writeFileSync(join(base, 'drive.json'), JSON.stringify({
   curso: plan.curso, carpeta: dirCurso, clases, recursos: [],
 }, null, 2), 'utf8');
 console.log(`\n  → ${join(base, 'drive.json')}\n`);
+
+/**
+ * ── --marcar-bajados: que el bajador NO las vuelva a bajar ──────────────────────────
+ *
+ * Pedido de Martín (31/08/2026): «que baje solo lo que falta». Sin esto, fusionar resuelve
+ * los ids pero yt-dlp igual se baja el curso entero: son dos registros distintos y sólo se
+ * estaba tocando uno.
+ *
+ * El registro de reanudación de yt-dlp (`bajados.txt`) es una línea por video con el
+ * formato `<extractor> <id>`, que acá salen tal cual de `plataforma` y `videoId` del plan.
+ *
+ * ⚠️ SOLO SE MARCA LO QUE TIENE ID DE DRIVE. Marcar una clase que no está en ningún lado
+ *    la deja sin video PARA SIEMPRE y sin ningún error: yt-dlp la saltea porque el registro
+ *    dice que ya está, `video/` queda sin ella, y el pipeline publica el curso incompleto.
+ *    Es exactamente el «fantasma» contra el que `curso-bajar.mjs` ya tiene una guarda —y
+ *    esa guarda no salta acá justamente porque estas clases SÍ están en Drive, que es el
+ *    diseño.
+ *
+ * ⚠️ Y no se marca lo que ya está en `video/`: yt-dlp ya lo saltea solo, y reescribirlo
+ *    sólo agrega ruido al registro.
+ */
+if (process.argv.includes('--marcar-bajados')) {
+  const archivo = join(base, 'bajados.txt');
+  const yaRegistradas = new Set();
+  try {
+    for (const l of readFileSync(archivo, 'utf8').split(/\r?\n/)) {
+      const id = l.trim().split(/\s+/).pop();
+      if (id) yaRegistradas.add(id);
+    }
+  } catch { /* todavía no existe: se crea */ }
+
+  const conId = new Set(clases.filter((c) => c.videoId).map((c) => Number(c.n)));
+  const nuevas = [];
+  const sinLocal = [];
+  for (const c of plan.clases) {
+    if (!conId.has(Number(c.n))) continue;                       // sin id de Drive: se baja
+    if (existsSync(join(base, 'video', `${c.archivo}.mp4`))) continue;  // ya está en disco
+    if (!c.plataforma || !c.videoId) continue;                   // sin con qué armar la línea
+    sinLocal.push(c);
+    if (yaRegistradas.has(String(c.videoId))) continue;          // ya estaba anotada
+    nuevas.push(`${c.plataforma} ${c.videoId}`);
+  }
+
+  /**
+   * ⚠️ PRIMERO SE LIMPIA, DESPUÉS SE AGREGA. Una corrida anterior marcó según un drive.json
+   *    que esta corrida cambió —al mejorar el cruce, 23 clases de «The Perfect Launch»
+   *    dejaron de tener id— y quedaron anotadas sin video local y sin Drive. Eso las saltea
+   *    PARA SIEMPRE y sin un solo error: yt-dlp obedece el registro, `video/` queda sin
+   *    ellas, y el curso se publica incompleto.
+   *
+   *    Así que el marcado es IDEMPOTENTE por construcción: se recalcula qué está
+   *    legítimamente bajado —video local o id de Drive— y se reescribe el registro entero.
+   *    Un registro que solo crece acumula las decisiones equivocadas de todas las corridas.
+   */
+  const legitimos = new Set();
+  for (const c of plan.clases) {
+    if (conId.has(Number(c.n)) || existsSync(join(base, 'video', `${c.archivo}.mp4`))) {
+      legitimos.add(String(c.videoId));
+    }
+  }
+  const previas = [];
+  try {
+    for (const l of readFileSync(archivo, 'utf8').split(/\r?\n/)) {
+      const id = l.trim().split(/\s+/).pop();
+      if (id) previas.push([l.trim(), id]);
+    }
+  } catch { /* no existía */ }
+  // Se conserva lo que sigue siendo legítimo; lo demás se saca y se vuelve a bajar.
+  const conservadas = previas.filter(([, id]) => legitimos.has(id));
+  const sacadas = previas.length - conservadas.length;
+  if (sacadas) console.log(`  ⚠️ saqué ${sacadas} marca(s) vieja(s) que ya no corresponden: esas clases se vuelven a bajar`);
+
+  const yaEn = new Set(conservadas.map(([, id]) => id));
+  const finales = [...conservadas.map(([l]) => l), ...nuevas.filter((l) => !yaEn.has(l.split(/\s+/).pop()))];
+  writeFileSync(archivo, finales.length ? finales.join('\n') + '\n' : '', 'utf8');
+  console.log(`  ✓ ${sinLocal.length} clase(s) ya están en Drive y NO se van a bajar` +
+    (nuevas.length ? ` (${nuevas.length} anotada(s) ahora en bajados.txt)` : ' (ya estaban anotadas)'));
+  console.log(`    quedan por bajar: ${plan.clases.length - sinLocal.length} de ${plan.clases.length}`);
+  // ⚠️ El audio de esas clases NO existe local. Sin este paso se publican sin transcripción
+  //    y nada avisa: la clase se ve, se reproduce desde Drive, y el panel sale vacío.
+  if (sinLocal.length) {
+    console.log(`    ⚠️ su audio hay que sacarlo de Drive para transcribirlas:`);
+    console.log(`       node scripts/curso-audio-desde-drive.mjs --plan ${join(base, 'plan.json')}`);
+  }
+}

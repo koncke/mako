@@ -2229,3 +2229,44 @@ modo paralelo. Todo número serie-vs-paralelo medía los flags de yt-dlp y se lo
 scheduler. Lo que contesta es un A/B con el mismo código, alternando el modo ítem por ítem.
 Y **la hora de cada fase se escribe desde el día uno**: el formato viejo no la tenía, así
 que ese pasado no se puede medir ni con el mejor análisis.
+
+# Un proceso largo que está corriendo no se edita en el lugar
+
+Editar un `.sh` mientras lo ejecuta `bash` no rompe nada en el momento —el `while … done`
+ya está parseado en memoria— y por eso se pasa por alto. Lo que cambia es el **offset**:
+bash guarda la posición de byte donde quedó leyendo y la reusa cuando el bucle termina.
+Con líneas insertadas antes de ese punto, esa posición cae en otro lado y el intérprete
+ejecuta un fragmento cortado.
+
+El 31/08/2026, en `scripts/cursos-cola.sh`, el final agendado era un error de sintaxis que
+saltaba el `rm -f "$LOCK"` de las últimas líneas: la cola moría dejando el lock puesto, y
+con el lock puesto el perro guardián **no puede levantarla**. Una cola muerta que nadie
+revive es exactamente lo que el lock y el perro vienen a evitar.
+
+- **Se edita y se REINICIA el proceso.** Que «no se haya roto» no es una verificación: el
+  daño está agendado para cuando el intérprete vuelva a leer.
+- **Y sin reiniciar el cambio tampoco corre.** El bucle en memoria es el viejo, así que lo
+  nuevo no se aplica y el archivo igual queda minado — lo peor de los dos mundos.
+- **Reiniciar es matar el ÁRBOL** (`taskkill /PID <raíz> /T /F`), nunca el proceso suelto:
+  Git Bash re-ejecuta el script en un hijo y `schtasks /end` deja vivos a los nietos.
+- Vale igual para cualquier archivo que un proceso vivo lea de a poco: un `.sh`, una lista
+  que se consume línea por línea, un log del que otro proceso hace `tail`.
+
+# Un registro DERIVADO se recalcula entero, nunca se le agrega
+
+Todo archivo que dice «esto ya está» —un `--download-archive`, un caché de índices, una
+lista de procesados— y que se DERIVA de otro dato tiene que reescribirse completo cada
+vez. Si sólo crece, acumula las decisiones equivocadas de todas las corridas anteriores y
+no hay forma de distinguir una marca vigente de una que quedó vieja.
+
+El 31/08/2026 costó 23 clases de un curso de 237: se marcaron como bajadas contra un
+`drive.json` que la corrida siguiente cambió, y quedaron anotadas sin video local y sin
+Drive. yt-dlp las saltea porque el registro dice que ya están, el pipeline no las
+transcribe, y el curso se publica incompleto **sin un solo error en ningún log**.
+
+- **Recomputar y reescribir**, avisando cuántas marcas se sacaron. La prueba es correrlo
+  dos veces seguidas y comprobar que el contenido no cambia.
+- **Y el estado que afirma «esto ya está» tiene que poder confrontarse contra el mundo.**
+  Lo que encontró el bug no fue leer el código: fue escribir la pregunta al revés —«¿cuántas
+  están marcadas y no están en ningún lado?»— y correrla. Un registro que nadie puede
+  desmentir es una afirmación, no un dato.
