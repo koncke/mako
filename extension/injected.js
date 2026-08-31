@@ -162,6 +162,9 @@
     return ahora - cache.cuando < 120000;
   }
 
+  /** La API propia de la app de Flow, en su mismo dominio. */
+  const TRPC = 'labs.google/fx/api/trpc/';
+
   const fetchOriginal = window.fetch;
 
   window.fetch = function (entrada, init) {
@@ -169,7 +172,17 @@
     try {
       const esRequest = typeof Request !== 'undefined' && entrada instanceof Request;
       const url = esRequest ? entrada.url : String(entrada || '');
-      if (!url.includes(API)) return promesa;
+      // ⚠️ TAMBIEN LA API PROPIA DE labs.google, y no es una ampliacion menor:
+      // es de donde sale el ENLACE de un video.
+      //
+      // Medido leyendo el DOM de la grilla: los clips se muestran desde
+      // `https://labs.google/fx/api/trpc/media.getMediaUrlRedirect`. El espejo
+      // filtraba por `aisandbox-pa.googleapis.com` y nunca lo vio — se paso una
+      // noche buscando en el trafico equivocado un enlace que la propia pagina
+      // pedia a otro dominio.
+      //
+      // Es el mismo mecanismo, no uno nuevo: se copia el pedido que hace Flow.
+      if (!url.includes(API) && !url.includes(TRPC)) return promesa;
 
       const clase = claseDe(url);
       const metodo = String((init && init.method) || (esRequest && entrada.method) || 'GET').toUpperCase();
@@ -469,7 +482,13 @@
         let forma = src;
         try {
           const u = new URL(src, location.href);
-          forma = `${u.protocol}//${u.host}${u.pathname}`;
+          // ⚠️ CON QUERY solo para la API propia de Flow: ahi el query son los
+          // PARAMETROS del pedido (que medio se pide), no una firma. Sin eso no se
+          // puede saber como se le pregunta. Para todo lo demas —fife urls,
+          // avatares— el query si lleva firmas y se corta.
+          forma = u.host === 'labs.google' && u.pathname.startsWith('/fx/api/trpc/')
+            ? `${u.protocol}//${u.host}${u.pathname}${u.search}`.slice(0, 600)
+            : `${u.protocol}//${u.host}${u.pathname}`;
         } catch { /* blob: y demas van tal cual */ }
         if (!fuentes.includes(forma)) fuentes.push(forma);
         if (fuentes.length >= 25) break;
