@@ -779,12 +779,22 @@ async function ciclo() {
             // intento tiene que contar los intentos que SIRVIERON.
             await chrome.storage.local.set({
               sondaHecha: pedido.mediaId,
-              sondaResultado: JSON.stringify({ mediaId: pedido.mediaId, r: r.sonda }),
+              sondaResultado: JSON.stringify({ mediaId: pedido.mediaId, r: r.sonda, bytes: r.bytes }),
             });
           }
         }
       }
-    } catch { /* sondear nunca apaga nada */ }
+    } catch (e) {
+      // ⚠️ UN `catch` VACIO SOBRE EL INSTRUMENTO QUE SE CONSTRUYO PARA NO ESTAR
+      // CIEGO. Estuvo ochenta latidos sin contestar y las cuatro causas posibles
+      // —no hay pestana, el sendMessage rechaza, el content script no contesta, o
+      // la respuesta viene vacia— se veian exactamente igual desde el servidor:
+      // nada. Es el mismo modo de falla que costo la noche, montado encima de la
+      // herramienta que venia a evitarlo.
+      await chrome.storage.local.set({
+        sondaResultado: JSON.stringify({ error: String((e && e.message) || e) }),
+      });
+    }
 
     // Lo que se mando quedo guardado del otro lado: se anota la firma para no
     // volver a mandarlo hasta que cambie.

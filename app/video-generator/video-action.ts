@@ -477,26 +477,39 @@ export async function estadoTomaAction(
       // que decirlas distinto: esperar no sirve, y volver a filmar tira un clip
       // pagado.
       if (/MEDIA_GENERATION_STATUS_SUCCESSFUL/.test(texto)) {
-        // ⚠️ EL ENLACE SE ARMA, NO SE BUSCA — y esto está MEDIDO, no deducido.
+        // ⚠️⚠️ ACÁ SE PINTABA LA URL DE FLOW EN UN <video>, Y NO PUEDE FUNCIONAR.
         //
-        // La respuesta del estado dice que el clip terminó y con cuántos bytes, y
-        // no trae ninguna url. El enlace vive en la API propia de la app
-        // (`labs.google/fx/api/trpc/media.getMediaUrlRedirect?name=<id>`), y su
-        // único parámetro es el id del medio — que es exactamente el mismo que ya
-        // tenemos en `operacion`. Se verificó contra el `src` real de los videos
-        // de la grilla: los ids coinciden carácter por carácter.
+        // Se hizo razonando que el navegador de la persona la resolvería con su
+        // propia sesión de Google. Suena bien y está mal, MEDIDO:
         //
-        // Es la excepción a «no se reconstruye, se copia» y hay que decir por qué:
-        // acá no se está reconstruyendo un pedido autenticado con headers que no
-        // conocemos, sino escribiendo un `<video src>` que el navegador de la
-        // persona resuelve con su propia sesión. La copia sigue siendo la regla
-        // para todo lo que sale por el puente.
-        const url = urlDeMedioFlow(operacion);
-        item = await guardarMarca(item, n, { url, mediaId: operacion, ciego: undefined });
-        if (typeof marca.saldoAntes === 'number') {
-          await encolar('creditos', { path: ENDPOINTS.creditos, body: {} });
+        //     GET .../media.getMediaUrlRedirect?name=<id>   (sin la cookie)
+        //     → 401 · text/html · 16 bytes · "No session found"
+        //
+        // Nuestra página vive en hola-mako.com, así que ese `<video src>` es un
+        // pedido de TERCERA PARTE hacia labs.google. La cookie de Google no viaja
+        // —SameSite, o el bloqueo de cookies de terceros que Chrome trae puesto— y
+        // el elemento recibe dieciséis bytes de HTML.
+        //
+        // Y un <video> con dieciséis bytes de HTML adentro se comporta EXACTAMENTE
+        // como «un video de 0 segundos», que fue el reporte textual del dueño. La
+        // explicación que se había escrito —«esa url devuelve el póster»— era una
+        // deducción a partir del síntoma; ésta es una medición.
+        //
+        // La lección: una url ajena que se ve bien en la pestaña donde estás
+        // logueado NO se ve desde tu propio dominio. Antes de pintar un recurso de
+        // otro sitio, pedilo desde el origen que lo va a pedir de verdad.
+        //
+        // Por eso el clip hay que BAJARLO desde la página que sí tiene la sesión
+        // —la extensión— y servirlo desde storage propio. Que además es lo que hay
+        // que hacer igual para pegar las siete tomas y antes de que venza el TTL.
+        // Lo planteó el dueño hace rato y era la salida correcta desde el principio.
+        const texto2 = textoFlow('sin_enlace', `la toma ${n}`).detalle;
+        if (marca.ciego?.error !== texto2) {
+          item = await guardarMarca(item, n, {
+            ciego: { desde: new Date().toISOString(), error: texto2 },
+          });
         }
-        return { ok: true, item, estado: { fase: 'listo', url, mediaId: operacion } };
+        return { ok: true, item, estado: { fase: 'a_ciegas', operacion, error: texto2 } };
       }
       continue;
     }

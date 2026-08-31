@@ -515,7 +515,29 @@
         el.src = url;
       });
     }));
-    responder('MAKO_SONDA_OK', id, { sonda: out });
+    // ⚠️ Y LA PREGUNTA QUE AHORA IMPORTA: se pueden LEER los bytes desde aca?
+    //
+    // Medido: esa url contesta 401 «No session found» sin la cookie de Google, asi
+    // que pintarla en un <video> de nuestro dominio no puede funcionar nunca. El
+    // clip hay que BAJARLO desde esta pagina, que si tiene la sesion.
+    //
+    // Lo unico que falta saber para construir eso es si el `fetch` puede leer la
+    // respuesta: el endpoint es mismo origen, pero REDIRIGE a otro host, y si ese
+    // host no manda CORS el fetch tira. Se pregunta una vez y se sabe.
+    let bytes = null;
+    try {
+      const r = await fetch(base, { credentials: 'include' });
+      const b = await r.blob();
+      bytes = {
+        estado: 'ok', status: r.status, tipo: r.type,
+        contentType: b.type || r.headers.get('content-type') || '',
+        tamano: b.size, urlFinal: String(r.url || '').slice(0, 200),
+      };
+    } catch (e) {
+      bytes = { estado: 'error', mensaje: String((e && e.message) || e).slice(0, 200) };
+    }
+
+    responder('MAKO_SONDA_OK', id, { sonda: out, bytes });
   });
 
   window.addEventListener('MAKO_RESPUESTAS_PIDO', (ev) => {
