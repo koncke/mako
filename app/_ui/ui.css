@@ -1144,7 +1144,9 @@
   /* El aire de la derecha lo gobierna el MISMO número que el ancho del riel. Sin
      esto había que sumar padding que viven en otros archivos, y ese acople es lo
      que hacía que la referencia «flotara» al cambiar cualquier cosa alrededor. */
-  padding-right: calc(24px + var(--riel-ancho, 0px));
+  /* 48 = los 24 de calle que el riel se corrió del borde + los 24 de aire entre
+     el contenido y el filete. Si el riel se mueve, esto se mueve con él. */
+  padding-right: calc(48px + var(--riel-ancho, 0px));
   transition: padding-right .18s cubic-bezier(.16,.84,.34,1);
 }
 
@@ -1202,7 +1204,13 @@
 .mk-riel {
   position: fixed;
   top: var(--barra-agencia);
-  right: 0;
+  /* ⚠️ NO `right: 0`. El dueño: «quedaría mucho mejor si se pegase a la sección,
+     no al borde de la pantalla. Tampoco tan pegado, pero me entiendes».
+     Pegado al borde, el ejemplo pertenece a la VENTANA; corrido hacia adentro,
+     pertenece a la página — que es de lo que habla. Son los mismos 24 px de
+     calle que usa todo lo demás, y con los 24 de adentro del riel el ejemplo
+     queda a 48 del borde: separado sin quedar flotando. */
+  right: 24px;
   bottom: 0;
   z-index: 40;
   /* El respaldo es el de una pantalla alta; el valor real llega en línea desde

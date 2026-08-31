@@ -225,6 +225,38 @@ export function PreviaVolante({ puesta, estacion, cajaTarjeta, slotCentro, slotR
     };
   }, [estacion, slotCentro, slotRiel]);
 
+  // ⚠️ `ResizeObserver` OBSERVA TAMAÑO, NO POSICIÓN. Y ese es exactamente el bug
+  // que se veía al cerrar y volver a abrir: el alto del hueco cambia de GOLPE
+  // —es una variable CSS— mientras el riel anima su ancho durante 180 ms. Como el
+  // hueco va centrado dentro del riel, su X sigue moviéndose después de que su
+  // tamaño ya se asentó… y el observador, que sólo mira el tamaño, no vuelve a
+  // avisar. El ejemplo quedaba clavado en la X de ese instante: a mitad de
+  // camino, corrido contra el borde.
+  //
+  // Así que durante la transición se persigue por cuadro. Es la única forma de
+  // seguir algo que se mueve sin cambiar de tamaño.
+  useEffect(() => {
+    let id = 0;
+    const hasta = Date.now() + 700; // las dos transiciones: 180 ms del riel, 420 de la caja
+
+    const seguir = () => {
+      const el = caja.current;
+      const destino = estacion === 'centro' ? slotCentro.current : slotRiel.current;
+      if (el && destino) {
+        const r = destino.getBoundingClientRect();
+        if (r.width >= 4 && r.height >= 4) {
+          el.style.left = `${r.left}px`;
+          el.style.top = `${r.top}px`;
+          el.style.width = `${r.width}px`;
+          el.style.height = `${r.height}px`;
+        }
+      }
+      if (Date.now() < hasta) id = window.requestAnimationFrame(seguir);
+    };
+    id = window.requestAnimationFrame(seguir);
+    return () => window.cancelAnimationFrame(id);
+  }, [plegado, estacion, slotCentro, slotRiel]);
+
   const enRiel = estacion === 'riel';
   /** Cerrado sólo tiene sentido en el riel: en el centro el ejemplo ES la pantalla. */
   const cerrado = plegado && enRiel;
