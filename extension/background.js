@@ -376,7 +376,8 @@ async function asegurarContentScript(tabId) {
 }
 
 async function ejecutar(trabajo) {
-  const { path, body, parches } = trabajo.pedido || {};
+  const { path, body: pedidoOriginal, parches: parchesDelPedido } = trabajo.pedido || {};
+  let parches = parchesDelPedido;
   if (typeof path !== 'string' || !path.startsWith('/v1')) {
     return { id: trabajo.id, ok: false, motivo: 'transitorio', error: 'pedido sin path válido', reintentable: false };
   }
@@ -411,6 +412,37 @@ async function ejecutar(trabajo) {
   // Un body VACIO no es un body: `{}` es truthy y apagaba la cache de `creditos`,
   // que es justo el pedido que si conviene cachear porque no depende de nada
   // nuestro.
+  // ⚠️ UN CUERPO CON `operations` SE CONVIERTE EN PARCHE, SIEMPRE.
+  //
+  // Medido el 31/08/2026: con el arreglo desplegado hacia media hora, produccion
+  // SEGUIA encolando la consulta de estado con `body`, porque la pestana abierta
+  // del cliente le habla al deploy con el que se cargo. O sea: el servidor se
+  // arregla y el cliente sigue mandando la forma vieja durante todo lo que dure
+  // esa pestana — y cada uno de esos pedidos se come un HTTP 400.
+  //
+  // El espejo es el unico lugar que SABE por que esa forma esta mal: `fundir()`
+  // reemplaza los arrays enteros, asi que un `operations` nuestro TIRA el de
+  // Flow con todo lo que lleva al lado. Traducirlo aca lo arregla para cualquier
+  // version del servidor, vieja o nueva, sin esperar a nadie.
+  //
+  // Es acotado a proposito: SOLO `operations`, que es el unico array que un
+  // pedido nuestro manda hoy. Convertir cualquier array a parches a ciegas seria
+  // inventar una regla para casos que no existen.
+  let body = pedidoOriginal;
+  if (body && Array.isArray(body.operations)) {
+    const parchesDelCuerpo = {};
+    body.operations.forEach((op, i) => {
+      const nombre = op && op.operation && op.operation.name;
+      if (nombre) parchesDelCuerpo[`operations.${i}.operation.name`] = nombre;
+    });
+    if (Object.keys(parchesDelCuerpo).length) {
+      parches = { ...parchesDelCuerpo, ...(parches || {}) };
+      const { operations, ...resto } = body;
+      body = Object.keys(resto).length ? resto : null;
+      console.log('[mako] cuerpo con operations convertido a parches (servidor viejo)');
+    }
+  }
+
   const tieneCuerpo = !!body && Object.keys(body).length > 0;
   let cuerpo = tieneCuerpo ? { ...body } : null;
   if (!soloLectura) {

@@ -141,6 +141,19 @@ export type MotivoFalla =
   | 'captcha'
   /** 500 del backend. Reintentar con backoff. */
   | 'transitorio'
+  /**
+   * Google entendio el pedido y dijo que esta MAL ARMADO. Es nuestro.
+   *
+   * No es `transitorio`, y la diferencia cuesta dos veces. Primero: caia en el
+   * catch-all reintentable, asi que cada consulta rota se comia CINCO llamadas
+   * contra la sesion de Google del cliente por algo que no puede cambiar
+   * reintentando — y este proyecto ya midio que reintentar contra un bloqueo es
+   * lo que causa el bloqueo. Y segundo: `transitorio` mapea a la causa `google`,
+   * cuyo texto dice «Google no pudo y no dijo por que, vuelve a intentarlo en
+   * unos minutos», que es falso en las tres partes: pudo, dijo, y reintentar no
+   * sirve.
+   */
+  | 'pedido_invalido'
   /** El token venció o el puente no está. Se recaptura y se reencola. */
   | 'sin_sesion'
   /**
@@ -317,6 +330,26 @@ export function clasificarFalla(status: number, cuerpo: unknown): { motivo: Moti
   if (status === 401 || /invalid.*credential|unauthenticated/i.test(texto)) {
     return { motivo: 'sin_sesion', error: 'El token de Flow venció. Hay que recapturarlo desde el navegador.', reintentable: true };
   }
+  // ⚠️ ANTES DEL CATCH-ALL: un argumento invalido no es un bache de Google.
+  //
+  // Medido el 31/08/2026: el 400 «Request contains an invalid argument» de la
+  // consulta de estado caia justo aca, en `transitorio`, con `reintentable: true`.
+  // Dos danos, y los dos silenciosos. Cada trabajo se comia CINCO llamadas contra
+  // la sesion de Google del cliente por un pedido que estaba mal armado de este
+  // lado y que no podia mejorar reintentando. Y `transitorio` mapea a la causa
+  // `google`, cuyo texto le dice al cliente «Google no pudo y no dijo por que,
+  // vuelve a intentarlo en unos minutos» — falso en las tres partes.
+  //
+  // Google SI dijo por que. Es de los pocos errores que vienen con el diagnostico
+  // adentro, y estabamos tirandolo.
+  if (/invalid_argument|invalid argument|invalid json payload|unknown name|cannot find field/i.test(texto)) {
+    return {
+      motivo: 'pedido_invalido',
+      error: 'El pedido que sale de MaKo tiene un campo que Google no reconoce.',
+      reintentable: false,
+    };
+  }
+
   return { motivo: 'transitorio', error: mensaje.slice(0, 300), reintentable: true };
 }
 

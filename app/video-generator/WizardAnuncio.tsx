@@ -44,6 +44,7 @@ import {
   escribirEscenasAction, corregirEscenaAction, generarImagenAction, estadoImagenAction,
   elegirImagenAction, subirImagenEscenaAction, confirmarEscenaAction,
   generarTomaAction, estadoTomaAction, descartarTomaAction, marcarCaraVistaAction,
+  marcarEjemploVistoAction,
   cambiarMuletillasAction,
 } from './video-action';
 import { editarLineaPlanAction, reescribirTomaAction } from './actions';
@@ -86,6 +87,21 @@ const RIEL_PLEGADO = 68;
 // ── Dónde está el anuncio ───────────────────────────────────────────────────
 
 type Paso =
+  /**
+   * El ejemplo del formato, a pantalla completa y una sola vez.
+   *
+   * ⚠️ ES UN PASO, no una región, y ahí está toda la pieza. Cuatro versiones
+   * intentaron que el ejemplo conviviera con la pantalla —tarjeta, panel, riel de
+   * alto completo, riel anclado arriba— y el dueño las cortó a las cuatro; la
+   * última con el diagnóstico exacto: «no se entiende qué hace eso allí».
+   *
+   * Ninguna podía contestarlo, porque la respuesta no es una etiqueta: es que el
+   * ejemplo OCUPA EL MISMO ASIENTO donde va a vivir todo lo del usuario, con la
+   * misma medida y en la misma posición, y la pantalla siguiente se lo quita. Eso
+   * lo enseña la SECUENCIA y no gasta una palabra. Un riel `fixed` no puede ceder
+   * nada; una pantalla sí.
+   */
+  | { id: 'ejemplo' }
   | { id: 'guion-leer' }
   | { id: 'escenario'; n: number }
   | { id: 'cara' }
@@ -98,10 +114,16 @@ type Paso =
  * El orden de las preguntas es el orden de la producción: se lee el guion, se
  * fija cada lugar, se mira la cara una vez, se filma toma por toma.
  */
-export function pasoDe(item: PlanGuardado, forzado: Paso | null): Paso {
+export function pasoDe(item: PlanGuardado, forzado: Paso | null, tieneEjemplo = false): Paso {
   if (forzado) return forzado;
   const escenas = item.escenas ?? [];
-  if (!escenas.length) return { id: 'guion-leer' };
+  if (!escenas.length) {
+    // `tieneEjemplo` entra como PARÁMETRO y no se resuelve adentro: `pasoDe` es
+    // pura y tiene test. Quien sabe si el formato trae ejemplo es quien recibe la
+    // `puesta`, no esta función.
+    if (tieneEjemplo && !item.ejemploVisto) return { id: 'ejemplo' };
+    return { id: 'guion-leer' };
+  }
 
   const sinConfirmar = escenas.find((e) => !item.imagenes?.[String(e.n)]?.confirmada);
   if (sinConfirmar) return { id: 'escenario', n: sinConfirmar.n };
@@ -119,9 +141,13 @@ export function pasoDe(item: PlanGuardado, forzado: Paso | null): Paso {
 }
 
 /** El mapa que ve el indicador de progreso. Sale del dato, como la posición. */
-function mapaDe(item: PlanGuardado): string[] {
+function mapaDe(item: PlanGuardado, tieneEjemplo = false): string[] {
   const escenas = item.escenas ?? [];
   return [
+    // Con la misma condición que `pasoDe`: si el paso no puede aparecer, tampoco
+    // ocupa un segmento en la barra de posición. Una barra que cuenta pantallas
+    // que no existen dice que faltan más pasos de los que faltan.
+    ...(tieneEjemplo && !item.ejemploVisto && !escenas.length ? ['ejemplo'] : []),
     'guion-leer',
     ...(escenas.length ? escenas.map((e) => `escenario-${e.n}`) : ['escenario-1']),
     'toma-1', 'cara',
@@ -610,8 +636,9 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
   const [desde, setDesde] = useState(() => Date.now());
   const archivo = useRef<HTMLInputElement>(null);
 
-  const paso = pasoDe(item, forzado);
-  const mapa = useMemo(() => mapaDe(item), [item]);
+  const hayEjemplo = !!puesta?.ejemplo;
+  const paso = pasoDe(item, forzado, hayEjemplo);
+  const mapa = useMemo(() => mapaDe(item, hayEjemplo), [item, hayEjemplo]);
   const total = item.plan.clips.length;
 
   const correr = useCallback(async (
@@ -702,6 +729,50 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
     alLado?: React.ReactNode;
   } {
     // ── 1. El guion ───────────────────────────────────────────────────────
+    // ── EL EJEMPLO, A PANTALLA COMPLETA Y UNA SOLA VEZ ────────────────────
+    //
+    // Nueve palabras de chrome en total. El ejemplo ocupa el mismo rectángulo,
+    // con la misma medida y en la misma posición donde va a vivir todo lo del
+    // usuario — y la pantalla siguiente se lo quita. Eso es lo que contesta «¿qué
+    // hace eso ahí?» sin gastar una explicación.
+    if (paso.id === 'ejemplo' && puesta?.ejemplo) {
+      return {
+        // Una afirmación y no una pregunta: es el único paso del wizard donde no
+        // hay nada que decidir. Y es el texto de Martín, textual.
+        pregunta: 'Así se verá tu anuncio',
+        cuerpo: (
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            {/* `plano` = SIN SOMBRA, y recupera acá su único call site legítimo.
+                La sombra de la casa significa «este es el medio que se está
+                decidiendo»: hace que flote. El ejemplo no se decide. */}
+            <Vertical fondo="#000" plano>
+              {/* Mudo, en loop y SIN `controls`, al revés que cada toma del
+                  usuario. Lo que se mira no se opera. */}
+              <video
+                src={puesta.ejemplo.video}
+                poster={puesta.ejemplo.poster}
+                autoPlay
+                loop
+                muted
+                playsInline
+                style={MEDIO}
+              />
+              {/* El sello va por DENTRO del recorte; lo del usuario se rotula por
+                  FUERA y debajo (`Pie`). Dentro contra fuera es una diferencia
+                  estructural, no de color ni de peso, así que sobrevive a
+                  cualquier tema y a cualquier tamaño. Y recién a 405 px de ancho
+                  se lee: en el riel de 220 competía con su propio video. */}
+              <span className="mk-sello">{`Ejemplo · ${puesta.nombre}`}</span>
+            </Vertical>
+          </div>
+        ),
+        // «mi anuncio» contra un sello que dice «Ejemplo», en la misma mirada.
+        boton: 'Empezar mi anuncio',
+        cargandoBoton: ocupado === 'ejemplo',
+        onSiguiente: () => void correr('ejemplo', () => marcarEjemploVistoAction(item.id)),
+      };
+    }
+
     if (paso.id === 'guion-leer') {
       const seg = item.plan.clips[0]?.segundos ?? 8;
       // Del DATO, no de un estado que haya que recordar: un plan sin adaptar

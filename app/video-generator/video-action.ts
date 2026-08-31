@@ -103,12 +103,35 @@ async function consultarUnaVez(operacion: string, aCiegas = false): Promise<void
   const db = await getTenantDb();
   const { data } = await db
     .from('flow_trabajos')
-    .select('id')
+    .select('id, estado, tomado_at')
     .eq('tipo', 'estado_clips')
     .in('estado', ['pendiente', 'tomado'])
+    // ⚠️ POR ESTA OPERACIÓN, no por cualquiera. El guard prometía «¿hay alguna
+    // esperando por esto?» y contestaba «¿hay alguna esperando por cualquier
+    // cosa?». Con una sola toma en vuelo no muerde; con dos, la consulta de la
+    // toma 1 bloquea la de la toma 2 y la segunda no se pregunta nunca.
+    .filter('pedido->>operacion', 'eq', operacion)
     .limit(50);
+
+  // ⚠️ Y UN TRABAJO COLGADO NO CONTESTA POR NADIE.
+  //
+  // Si el navegador se cerró en el medio, su trabajo queda `tomado` para siempre
+  // — y mientras esté ahí, este guard cree que alguien va a contestar y no encola
+  // nada más. Resultado: la pantalla sondea cada seis segundos, no pasa nada, y
+  // no hay ningún error porque tampoco hay ningún pedido. Medido el 31/08/2026:
+  // el trabajo #215 quedó tomado a las 02:56:30 y congeló la cola.
+  //
+  // 10 minutos es el mismo `COLGADO_MS` que usa el rescate de `flow_tomar_trabajos`
+  // (mig 0147). Se replica el número a propósito y con esta nota: la alternativa
+  // era importar de un módulo `server-only` a otro por una constante.
+  const COLGADO_MS = 10 * 60_000;
+  const vivas = (data ?? []).filter((t) => {
+    if (str(t.estado) !== 'tomado') return true;
+    const t0 = Date.parse(str(t.tomado_at));
+    return !Number.isFinite(t0) || Date.now() - t0 < COLGADO_MS;
+  });
   // Si ya hay alguna esperando, esa contesta por esta. No hace falta otra.
-  if ((data ?? []).length > 0) return;
+  if (vivas.length > 0) return;
 
   // ⚠️ CUANDO YA SABEMOS QUE LA CONSULTA ESTÁ ROTA, SE PREGUNTA MÁS LENTO.
   //
@@ -881,6 +904,26 @@ export async function descartarTomaAction(
 }
 
 /** Queda escrito que la cara ya se miró: la pregunta se hace una sola vez. */
+/**
+ * La persona ya vio el ejemplo del formato. Es el «Empezar mi anuncio».
+ *
+ * Gemela de `marcarCaraVistaAction`, y por la misma razón: una pantalla que se
+ * muestra una sola vez necesita que ese «una vez» sobreviva a un refresh.
+ */
+export async function marcarEjemploVistoAction(
+  planId: string,
+): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  const item = planDe(await leerHistorial(), planId);
+  if (!item) return { ok: false, error: 'Ese anuncio ya no está en el historial.' };
+
+  const actualizado: PlanGuardado = { ...item, ejemploVisto: true };
+  await guardarEnHistorial(actualizado);
+  return { ok: true, item: actualizado };
+}
+
 export async function marcarCaraVistaAction(
   planId: string,
 ): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string }> {

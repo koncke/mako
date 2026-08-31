@@ -109,6 +109,9 @@ const CAUSA_DE_MOTIVO: Record<string, CausaFlow> = {
   modelo: 'nuestra',
   medio_vencido: 'google',
   transitorio: 'google',
+  // Lo armamos mal nosotros. El texto de `nuestra` ya lo dice bien y —lo que mas
+  // importa— no manda al cliente a revisar nada suyo.
+  pedido_invalido: 'nuestra',
   // Sin ambigüedad recién desde que `NO_FLOW_TAB` dejó de ser `sin_sesion`.
   sin_sesion: 'sesion',
   sesion_marcada: 'sesion',

@@ -1149,6 +1149,36 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   EL SELLO — «esto no es tuyo», quemado adentro del recorte
+   ═══════════════════════════════════════════════════════════════════════════
+   Los valores EXACTOS de la tarjeta del catálogo (`Plantilla`). El argumento es
+   RECONOCIMIENTO, y el reconocimiento vive en que sea idéntico, no parecido: un
+   valor movido por un pelo tira la tesis entera. La persona apretó esa misma
+   tarjeta treinta segundos antes.
+
+   ⚠️ Y va POR DENTRO del recorte, mientras que todo lo que produce el usuario se
+   rotula por FUERA y debajo (`Pie`). Dentro contra fuera es una diferencia
+   ESTRUCTURAL, no de color ni de peso, así que sobrevive a cualquier tema, a
+   cualquier tamaño y a cualquier daltonismo. Es lo que dice «esto es un ejemplo»
+   sin escribir una explicación.
+
+   El degradado, y no un fondo sólido: el sello tiene que leerse sobre un video
+   que cambia de cuadro, y un rectángulo opaco taparía la parte de abajo del
+   encuadre — que en un formato vertical es justo donde suele estar el subtítulo. */
+.mk-sello {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 30px 12px 11px;
+  background: linear-gradient(to top, rgba(0,0,0,.75), transparent);
+  font-size: var(--fs-card);
+  font-weight: 650;
+  line-height: 1.25;
+  color: #fff;
+  text-align: left;
+  pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    EL RIEL DEL EJEMPLO — el borde derecho del estudio
    ═══════════════════════════════════════════════════════════════════════════
    ⚠️ SIN FONDO Y SIN CAJA, y no es una omisión: es toda la pieza. Lo único que

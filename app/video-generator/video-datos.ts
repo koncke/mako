@@ -61,6 +61,17 @@ export type PlanGuardado = {
    */
   caraVista?: boolean;
   /**
+   * `true` = ya vio el ejemplo del formato a pantalla completa.
+   *
+   * Se persiste por la misma razón que `caraVista`: es una pantalla que se
+   * muestra UNA vez, y sin el dato volvería a aparecer en cada carga —delante de
+   * alguien que ya sabe cómo se ve su formato— para siempre.
+   *
+   * Y la pantalla sólo existe mientras no hay escenas: un anuncio a medio filmar
+   * no vuelve nunca ahí, tenga el campo lo que tenga.
+   */
+  ejemploVisto?: boolean;
+  /**
    * Los escenarios del anuncio: dónde se filma cada tramo, y el prompt de su
    * imagen. Los escribe MaKo (`lib/escenas.ts`) y la cantidad la fija el
    * formato, no el modelo.
