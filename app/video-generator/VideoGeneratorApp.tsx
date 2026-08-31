@@ -517,7 +517,19 @@ export function VideoGeneratorApp({
    * escribe suena leído— pero es una decisión del dueño: es su texto. Un guion
    * que ya se corrigió palabra por palabra no se toca.
    */
-  const [adaptarVoz, setAdaptarVoz] = useState(true);
+  // ⚠️ ARRANCA EN FALSE, y el cambio es de fondo: el guion se genera TAL CUAL
+  // lo escribió el cliente, y la adaptación a su forma de hablar se PIDE después,
+  // leyendo el resultado.
+  //
+  // Martín: «yo no pondría para nada un botón de "Tal cual lo escribiste", para
+  // eso simplemente le doy siguiente sin apretar ese botón». Tiene razón y ordena
+  // todo: lo que no se toca tiene que ser el texto de la persona, no una versión
+  // que alguien reescribió. Con el default al revés, el «no» exigía una acción y
+  // el botón tenía que ofrecer las dos.
+  //
+  // El control ya no vive acá: vive arriba del guion, que es donde se puede
+  // juzgar si hace falta.
+  const [adaptarVoz] = useState(false);
 
   /**
    * Refresca el saldo cuando se abre un anuncio.
@@ -1085,32 +1097,73 @@ export function VideoGeneratorApp({
               <Fila k="Acento" v={contexto?.acento.etiqueta ?? "—"} nota={contexto?.acento.seguro ? undefined : 'lo deduje de tu zona horaria'} />
             </div>
 
+            {/* ⚠️ ACÁ HABÍA UNA CASILLA: «Que MaKo lo diga con tus palabras».
+                Se mudó a la pantalla del guion, y no es un cambio de lugar: la
+                pregunta era «¿te gusta cómo suena?» hecha ANTES de que existiera
+                nada que sonara. Se contesta leyendo, así que vive donde se lee. */}
+
+            {cabida?.desborda && (
+              <div style={{ marginTop: 14 }}>
+                <Alert tono="warn">
+                  Este guion es más largo de lo que <strong>{puesta?.nombre}</strong> puede
+                  contar: entran {cabida.palabras - cabida.palabrasDeMas} palabras y tiene{' '}
+                  {cabida.palabras}. Si sigues, el final va a quedar afuera. Prueba con otro
+                  formato o recorta el guion en Ads Writer.
+                </Alert>
+              </div>
+            )}
+          </div>
+        )}
+
+
+        {paso === 'revisar' && (
+          <div style={{ textAlign: 'left', display: 'grid', gap: 14 }}>
             {/*
-              La única decisión que queda antes de generar, y es del dueño.
-              Va como pregunta y no como ajuste escondido: cambia lo que se va a
-              DECIR a cámara, que es lo más visible del anuncio.
+              Lo que se revisa NO es un resumen de lo que elegiste: es lo que el
+              sistema puso SOLO y vos nunca viste. El formato y el guion los
+              acabás de elegir; la cara, la duración y el acento los decidió MaKo,
+              y son justo los que se notan recién en el video terminado.
             */}
-            <label style={{
-              display: 'flex', gap: 11, alignItems: 'flex-start', cursor: 'pointer',
+
+            {/* La CARA. Va primero y va como IMAGEN: la pregunta que contesta es
+                «¿es esta persona?», y un «3 fotos cargadas» se lee igual con las
+                fotos correctas que con las de otro. */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 14,
               padding: '13px 15px', borderRadius: 12,
               background: 'var(--surface)', border: '1px solid var(--border)',
             }}>
-              <input
-                type="checkbox"
-                checked={adaptarVoz}
-                onChange={(e) => setAdaptarVoz(e.target.checked)}
-                style={{ marginTop: 3, width: 17, height: 17, accentColor: 'var(--primary)', flex: 'none' }}
-              />
-              <span>
-                <span style={{ fontSize: 'var(--fs-md)', fontWeight: 650, color: 'var(--ink)' }}>
-                  Que MaKo lo diga con tus palabras
-                </span>
-                <span style={{ display: 'block', fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>
-                  Le pone tus muletillas y tu forma de hablar, sin cambiar lo que dice ni el
-                  cierre. Si lo desmarcas, el guion va tal cual lo escribiste.
-                </span>
-              </span>
-            </label>
+              {contexto?.fotoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={contexto.fotoUrl}
+                  alt="Tu cara de marca"
+                  style={{ width: 62, height: 62, borderRadius: 10, objectFit: 'cover', flex: 'none' }}
+                />
+              ) : (
+                <div style={{
+                  width: 62, height: 62, borderRadius: 10, flex: 'none', display: 'grid',
+                  placeItems: 'center', background: 'var(--surface-2)', color: 'var(--faint)',
+                }}>
+                  <Icon name="perfil" size={26} />
+                </div>
+              )}
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 'var(--fs-md)', fontWeight: 650, color: 'var(--ink)' }}>
+                  {contexto?.tieneFotos ? 'Esta es la cara del avatar' : 'Todavía no cargaste tu cara'}
+                </div>
+                <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>
+                  {contexto?.tieneFotos
+                    ? <>Si no eres tú, cámbiala en <Link href="/onboarding">Onboarding → Persona</Link>.</>
+                    : <>Sin una foto tuya, cada toma sale con una persona distinta. Cárgala en <Link href="/onboarding">Onboarding → Persona</Link>.</>}
+                </div>
+              </div>
+            </div>
+
+            {/* ⚠️ LA SEGUNDA CASILLA IGUAL. Estaba duplicada en los dos pasos del
+                wizard, con el mismo texto y el mismo estado — y por eso al sacar
+                una el compilador encontró la otra. La decisión se mudó a la
+                pantalla del guion, donde hay algo que leer para tomarla. */}
 
             {cabida?.desborda && (
               <Alert tono="warn">

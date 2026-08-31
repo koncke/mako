@@ -600,6 +600,35 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
         sub: `Se filma en ${item.plan.clips.length} tomas de ${seg} segundos.`,
         cuerpo: (
           <div style={{ width: '100%', maxWidth: 760, margin: '0 auto' }}>
+            {/* ── UN SOLO BOTÓN, Y ARRIBA ──────────────────────────────────
+                Acá pasaron dos versiones y las dos estaban mal.
+
+                La primera era un botón abajo que decía «Escribirlo tal cual»:
+                incomprensible fuera de contexto, y encima debajo del texto que
+                modifica. La segunda fueron DOS opciones a la vista — y el dueño
+                la cortó con el argumento correcto: «yo no pondría para nada un
+                botón de "Tal cual lo escribiste", para eso simplemente le doy
+                siguiente sin apretar ese botón».
+
+                Tiene razón y ordena todo: TAL CUAL no es una opción, es lo que
+                pasa si no haces nada. El guion llega con las palabras de la
+                persona y esto AGREGA algo encima. Un botón, no un selector.
+
+                Por eso también cambió el default de generación: el plan nace sin
+                adaptar. Con el default al revés, el «no» exigía una acción — y un
+                sistema donde no hacer nada te cambia el texto está al revés. */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
+              <Button
+                variant="tertiary"
+                icon={<Icon name="ia" size={14} />}
+                loading={ocupado === 'muletillas'}
+                disabled={!!ocupado}
+                onClick={() => void correr('muletillas', () => cambiarMuletillasAction(item.id, true), false)}
+              >
+                Formatear guion
+              </Button>
+            </div>
+
             {item.plan.clips.map((c) => (
               <div
                 key={c.n}
