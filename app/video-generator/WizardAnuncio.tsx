@@ -597,11 +597,6 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
       ['--riel-contenido' as string]: `${ancho}px`,
       ['--riel-arriba' as string]: `${arriba}px`,
       ...(tope > 0 ? { ['--riel-tope' as string]: `${tope}px` } : {}),
-      // 1 desplegado, 0 cerrado. Sólo lo miran los botones de abajo, y por eso
-      // volver a tenerlo NO trae de vuelta el salto de la pantalla entera que
-      // esto ya causó una vez: el ancho del riel sigue fijo, así que el texto no
-      // se mueve. Lo único que se corre es el par «Continuar / Volver».
-      ['--riel-cuenta' as string]: plegado ? '0' : '1',
     } as React.CSSProperties)
     : undefined;
 
@@ -709,20 +704,17 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
       )}
 
       {boton && (
-        // ⚠️ LOS BOTONES SE CENTRAN CONTRA EL GRUPO, NO CONTRA LA COLUMNA. El
-        // dueño: «si está DESPLEGADO el preview, sí debe contar como elemento, y
-        // en dicho caso los botones de continuar y volver se deben CENTRAR».
+        // ⚠️ LOS BOTONES SE CENTRAN CONTRA LA COLUMNA, y ahí se quedan.
         //
-        // Y es la lectura correcta: desplegado, lo que la persona VE es una
-        // pantalla de dos columnas, y el eje de una pantalla de dos columnas pasa
-        // por el medio de las dos. Cerrado el ejemplo es un control al costado y
-        // el eje vuelve al texto. Media calle más medio riel es exactamente la
-        // diferencia entre los dos ejes.
-        <div ref={botones} style={{
-          textAlign: 'center',
-          transform: 'translateX(calc(var(--riel-cuenta, 0) * (var(--riel-calle, 0px) + var(--riel-ancho, 0px)) / 2))',
-          transition: 'transform .18s cubic-bezier(.16,.84,.34,1)',
-        }}>
+        // Lo probé corriéndolos al eje del grupo cuando el ejemplo está
+        // desplegado —el dueño lo pidió y el argumento era bueno: desplegado se
+        // ve una pantalla de dos columnas—. Lo cortó al verlo: «hazlo como estaba
+        // antes, porque se rompen muchas cosas».
+        //
+        // Y se entiende por qué: el par de botones es lo único que NO se mueve en
+        // toda la pantalla, así que engancharlo al ejemplo lo convierte en una
+        // pieza más que baila. Un ancla que se mueve deja de ser un ancla.
+        <div ref={botones} style={{ textAlign: 'center' }}>
           {/* «Volver» AL LADO del principal y en peso bajo. Antes vivía al pie de
               la pantalla, lejos de lo que sigue: el par de salidas de un paso se
               lee junto o no se lee. */}
