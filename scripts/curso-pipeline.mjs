@@ -123,7 +123,19 @@ const hayParte = () => {
 };
 
 const audios = () => cuenta('audio', (f) => /\.m4a$/i.test(f));
+/**
+ * ⚠️ UNA CLASE MUDA CUENTA COMO RESUELTA. `curso-audio.mjs` deja un `.mudo` al lado del
+ *    audio cuando el video no tiene pista de sonido —una placa, un separador, una
+ *    bienvenida sin voz—. Esas clases no van a tener .md nunca, y sin contarlas el
+ *    objetivo es inalcanzable: el curso no dice «completo» jamás, quema el tope de rondas
+ *    secas en cada pasada, y figura incompleto para siempre.
+ *
+ *    «Resuelta» y «transcripta» no son lo mismo, y la diferencia es justo la que hay entre
+ *    «falta trabajo» y «no hay nada que hacer».
+ */
 const textos = () => cuenta('texto', (f) => f.endsWith('.md') && f !== '_indice.md');
+const mudos = () => cuenta('audio', (f) => f.endsWith('.mudo'));
+const resueltas = () => textos() + mudos();
 
 // `tsx` para los `.ts`: node solo no los sabe correr, y sin el flag el fallo es un
 // SyntaxError críptico en vez de «falta el loader».
@@ -166,7 +178,12 @@ console.log(`  Clases: ${total} · paralelo ${PARALELO} · tope ${TOPE_H} h\n`);
 
 while (Date.now() < hasta) {
   ronda++;
-  const antes = textos();
+  // ⚠️ LA MISMA MEDIDA QUE `ahora`, o el contador de rondas secas no sube NUNCA.
+  //    Con `antes = textos()` y `ahora = resueltas()`, una sola clase muda hace que
+  //    `ahora > antes` sea verdadero en TODAS las rondas: el pipeline se lee a si mismo
+  //    progresando sin fin y gira hasta el tope de 12 horas. Comparar dos cosas distintas
+  //    es peor que no comparar.
+  const antes = resueltas();
 
   const a = correr('curso-audio.mjs', ['--plan', PLAN, '--de', join(base, 'video'), '--a', join(base, 'audio')]);
   // Se anota ANTES de correr: despues de transcribir, audios()>textos() ya no dice si habia trabajo.
@@ -206,7 +223,7 @@ while (Date.now() < hasta) {
     ? correr('curso-a-drive.mjs', ['--plan', PLAN, '--solo-copiar', '--liberar'])
     : { code: 0, resumen: [] };
 
-  const ahora = textos();
+  const ahora = resueltas();
   console.log(`  [${hora()}] ronda ${ronda}: video ${bajados()}/${total} · audio ${audios()} · texto ${ahora}/${total}`);
   for (const l of [...a.resumen, ...t.resumen, ...g.resumen]) if (l) console.log(`             ${l}`);
 

@@ -13,7 +13,7 @@
 //
 //   node scripts/curso-audio.mjs --de C:\cursos\video --a C:\cursos\audio
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join, extname, basename } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { esIntermedio } from './curso-comun.mjs';
@@ -228,6 +228,20 @@ for (const f of entradas) {
   if (!tieneAudio(src)) {
     console.log(`  ○ ${nombre}  (SIN PISTA DE AUDIO — es una placa muda, no hay nada que transcribir)`);
     mudos++;
+    /**
+     * ⚠️ SE DEJA CONSTANCIA EN DISCO, y no alcanza con contarlo en pantalla.
+     *
+     * El pipeline mide si un curso está listo con `texto N/M` sobre el total de clases del
+     * plan. Una clase sin pista de audio NUNCA va a tener .md, así que N jamás llega a M:
+     * el curso no dice «completo» nunca, quema el tope de rondas secas en CADA pasada, y
+     * todo contador lo reporta incompleto para siempre. Medido en «AVATAR MASTERY»: la
+     * clase 16 son 10 segundos de video sin pista de audio —una placa—, y el curso figura
+     * 14/16 desde que se publicó.
+     *
+     * El que SABE que es muda es este script, y lo sabía sólo mientras corría. Un hecho
+     * que sólo vive en la salida de un proceso no existe para el proceso siguiente.
+     */
+    try { writeFileSync(join(A, `${nombre}.mudo`), '', 'utf8'); } catch { /* el conteo ya salió */ }
     continue;
   }
 
