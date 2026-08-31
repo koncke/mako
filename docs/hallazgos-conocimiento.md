@@ -6357,3 +6357,94 @@ commiteando es un candado sin llave, y lo que se aprende de un candado sin llave
 saltearlo — que es cómo se pierde también la mitad que sí servía. La misma sesión tenía al
 lado un commit del vecino titulado «El arreglo no podía correr: la guarda envenenada
 seguía puesta».
+
+## Un video se bajó corrupto, y todo el sistema lo dio por bueno para siempre
+
+**Vive en:** `scripts/curso-audio.mjs`, `scripts/curso-bajar.mjs`
+
+«Curso de Trading ClutiFX», clase 4. El `.mp4` estaba en disco, pesaba 175.422.520 bytes y
+duraba 27:35 — **exactamente** la duración que declara el plan. Su pista AAC tenía paquetes
+rotos: ffmpeg cortaba la extracción a los 7:27 y `curso-audio.mjs` la daba por fallada.
+
+Eso último está BIEN y no hay que tocarlo: publicar el 27% de una clase como si fuera la
+clase entera es el bug de «Creator Club». Lo que faltaba es que alguien lo **arreglara**.
+El archivo existe, así que ningún chequeo lo ve —el registro de yt-dlp dice que se bajó, el
+disco dice que está, Drive dice que está— y el pipeline reintentaba la misma extracción
+sobre el mismo material roto ronda tras ronda, hasta rendirse y publicar el curso sin ella.
+
+**Y rebajar sirve.** La descarga nueva pesa **exactamente lo mismo** y da los 1655 s de
+audio completos. El origen estaba bien; se había corrompido en la bajada. **Un tamaño igual
+no dice nada del contenido** — era la comprobación que parecía obvia y no habría encontrado
+nada.
+
+La cadena que lo cierra son dos piezas que ya existían y no estaban conectadas: el
+extractor aparta el video como `.roto` cuando el fallo es de decodificación, y el bajador
+trata una clase con `.roto` como no bajada. **Una sola vez por clase**: si ya hay un `.roto`
+de antes, el material es así y volver a bajarlo es gastar la descarga para llegar al mismo
+lugar. Ese límite no es una preferencia — sin él, esto es un lazo de descargas infinito.
+
+### El respaldo responde por la EXISTENCIA, nunca por el contenido
+
+El `.roto` tuvo que ganarle a Drive, y ese fue el último obstáculo. La copia corrupta
+estaba **también en Drive** —se subió antes de que nadie supiera que estaba mal—, así que
+`enDrive` contestaba «lo tenemos» y la clase no se rebajaba nunca.
+
+Drive no valida nada: guarda lo que le subimos. Si lo que le subimos estaba roto, **la copia
+de respaldo termina avalando el archivo malo**, y una comprobación que pregunta «¿existe en
+algún lado?» contesta que sí sobre algo que no sirve. Vale para cualquier respaldo, cualquier
+caché y cualquier CDN: sirven para responder si algo está, nunca si algo está bien.
+
+### Un mensaje recortado sirve para MOSTRAR un error, no para DECIDIR sobre su causa
+
+`correr()` recortaba el stderr de ffmpeg a las últimas 4 líneas —correcto, para que se pueda
+leer— y con eso la cuarentena no se disparaba nunca. El `Invalid data found` sale al
+PRINCIPIO y lo tapan cientos de líneas; las últimas cuatro dicen `Task finished with error
+code: -22`, que no distingue un material roto de un argumento mal puesto. Ahora el stderr
+entero viaja aparte, en `e.stderr`.
+
+Costó una iteración entera: el arreglo estaba bien escrito y no hacía nada, porque estaba
+matcheando contra un texto ya truncado.
+
+## Tres diagnósticos obvios que eran falsos, en la misma corrida
+
+Los tres se creyeron un rato y los tres los tiró el número siguiente. Van juntos porque
+comparten la forma: **una observación verdadera que no explica nada.**
+
+1. **«Las 14 clases perdidas son todas de Vimeo».** Cierto, y no significa nada: esos cursos
+   son **100% Vimeo**, y Vimeo anda 107/109. Una propiedad que comparten los que fallan Y
+   los que andan no es una causa. La tasa base primero, siempre.
+2. **«Son duplicados: el plan repite lecciones».** Había evidencia buena —n=17 y n=18 se
+   llaman las dos «1 Barco vs avión»— pero cada una tiene **su propio `videoId`**: son
+   videos distintos con el mismo título. Cruzar por título habría cerrado el tema con la
+   conclusión equivocada. El id es una clave; el título es un parecido.
+3. **«Los 108 videos en disco decodifican bien».** El barrido probaba `ffmpeg -t 3`, o sea
+   los primeros 3 segundos. La corrupción de la clase 4 empieza a los 7:27. **Un test
+   parcial no da un resultado parcial: da un verde**, y un verde apaga la búsqueda.
+
+Lo que sí sirvió, en los tres casos, fue medir la proporción en vez del hecho. La `duracion`
+vacía en el plan, por ejemplo, **sí** predice el fallo —62,5% contra 2,0%, 31 veces más
+riesgo— y por eso el rescate la usa para avisar antes de bajar. Pero avisa: no descarta. De
+los 6 que dan 404, uno traía su duración puesta.
+
+## Las 14 clases que faltaban en cursos ya publicados, clasificadas
+
+**Vive en:** `scripts/cursos-rescatar.sh`
+
+El pipeline se rinde después de N rondas sin progreso y publica con lo que tiene. Está bien
+—esperar para siempre por una clase bloquea el curso entero— pero deja el curso en
+producción incompleto, y la cola no vuelve a pasar por él hasta rebobinar la lista entera,
+que son días. `cursos-rescatar.sh` reintenta sin esperar eso.
+
+Medido sobre 7 cursos publicados (464 clases), 14 sin transcribir, y **no son todas lo
+mismo** — tratarlas igual es o reintentar para siempre lo que no existe, o resignar
+contenido que sí está:
+
+| | |
+|---|---|
+| **6** | HTTP 404 en el origen. 5 traen la `duracion` vacía en el plan: el propio origen tampoco las conocía |
+| **3** | timeout / HTTP 503 — la red falló, el video está. Se recuperan |
+| **5** | sin error en ningún log. 2 tenían el video bajado y sólo les faltaba transcribir |
+
+⚠️ **Y el barrido de marcas huérfanas sobre los 77 cursos dio UNA sola** (`edita-como-un-pro`
+n=27). El sistema está sano: el problema no era masivo, era específico. Vale la pena decirlo
+porque la tentación después de encontrar un bug así es asumir que está en todos lados.

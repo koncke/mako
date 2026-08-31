@@ -2416,3 +2416,56 @@ Al escribir un guard, partí los casos por **«¿esto se arregla haciendo lo que
 Es la misma razón por la que el verificador del catálogo pregunta por HEAD y no por el
 árbol de trabajo: un archivo sin commitear no rompe ningún build, así que frenar por él
 sólo traba a la sesión de al lado por algo que no es suyo.
+
+# Que un archivo EXISTA no dice nada de si sirve, y el respaldo tampoco
+
+Un `.mp4` corrupto, un JSON a medio escribir, un PDF truncado: pesan lo que tienen que
+pesar, tienen el nombre final, y todo el sistema los da por buenos. `existsSync` contesta
+que sí, el registro de descargas contesta que sí, y **la copia en el respaldo también** —
+porque un respaldo guarda lo que le subimos, sin validar nada. Si lo que se subió estaba
+roto, el respaldo termina AVALANDO el archivo malo.
+
+El 31/08/2026 costó una clase de 28 minutos que estuvo publicada e incompleta: el video
+pesaba 175.422.520 bytes y duraba 27:35 —exactamente lo que declaraba el plan— y su pista
+de audio se cortaba a los 7:27. La descarga nueva pesó **exactamente lo mismo** y salió
+entera, así que ni siquiera comparar tamaños lo habría encontrado.
+
+- **Un respaldo, un caché o un CDN responden por la EXISTENCIA, nunca por el contenido.**
+  Cuando un guard pregunta «¿lo tenemos en algún lado?», la respuesta no es «está bien».
+- **El que descubre que un archivo no sirve tiene que dejarlo ANOTADO donde el que lo trae
+  lo vea** — acá, apartarlo como `.roto`, que el bajador lee. Un fallo que sólo se reporta
+  en un log deja el archivo malo en su lugar y el próximo paso lo vuelve a aceptar.
+- **Y ese reintento se acota a UNO.** Si el material vuelve igual, es así. Sin el tope, un
+  archivo que siempre falla es un lazo de descargas infinito.
+
+# Un mensaje recortado sirve para MOSTRAR un error, no para DECIDIR sobre su causa
+
+Recortar el stderr de un proceso a las últimas N líneas es correcto para que una persona lo
+lea, y destruye la evidencia para el código que tiene que clasificarlo: la causa suele estar
+al PRINCIPIO y las últimas líneas son el desenlace genérico.
+
+Con ffmpeg sobre un video roto, las últimas cuatro dicen `Task finished with error code:
+-22 (Invalid argument)` —que no distingue un material corrupto de un argumento mal puesto—
+mientras que `Invalid data found when processing input` sale al principio, sepultado bajo
+cientos de líneas. Un arreglo bien escrito no hizo nada durante una iteración entera porque
+matcheaba contra el texto ya truncado.
+
+**Si algo va a decidir sobre la causa de un fallo, la salida entera viaja aparte** (`e.stderr`
+al lado de `e.message`). Lo recortado es para la pantalla.
+
+# Una observación verdadera que también vale para los casos buenos no explica nada
+
+Antes de dar por encontrada la causa de N fallos, medí la proporción — nunca el hecho:
+
+- «Las 14 clases que fallaron son de Vimeo» era **cierto** y vacío: esos cursos son 100%
+  Vimeo, y Vimeo anda 107 de 109.
+- «Los 108 videos decodifican bien» venía de probar los primeros **3 segundos**; la
+  corrupción empezaba a los 7:27. **Un test parcial no da un resultado parcial: da un
+  verde**, y un verde apaga la búsqueda.
+- «Son duplicados, el plan repite lecciones» tenía buena evidencia —dos clases con el mismo
+  título— y cada una tenía **su propio id**. El id es una clave; el título es un parecido.
+
+Lo que sí sirve es la tabla de dos por dos. En el mismo caso, la `duracion` vacía en el plan
+resultó un predictor real: **62,5% de fallo contra 2,0%**, 31 veces más riesgo. Eso alcanza
+para AVISAR antes de gastar la descarga, y no para descartar: de los seis que daban 404, uno
+traía su duración puesta.
