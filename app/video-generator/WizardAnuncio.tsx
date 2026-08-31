@@ -170,6 +170,21 @@ export function textoCosto(creditos: number, opts: {
 const CAJA = 300;
 
 /**
+ * La caja de la toma. Una sola, así que puede ser más grande — pero no tanto.
+ *
+ * ⚠️ 320 y no 360, y el número sale de una CUENTA, no del gusto: la caja es 9:16,
+ * así que 360 de ancho son 640 de alto, y con la cabecera (≈230) más los botones
+ * (≈100) eso da 970 — justo el alto de una pantalla de portátil. El paso quedaba
+ * con el botón cortado abajo. Con 320 son 569, y el total entra en 899.
+ *
+ * Y es un número FIJO en píxeles, no derivado de `vh`: el ancho de la caja es lo
+ * que decide dónde arranca el ejemplo del costado, y un ancho que cambia con el
+ * alto de la ventana deja al riel adivinando. Esa dependencia cruzada ya rompió
+ * el centrado dos veces en este archivo.
+ */
+const CAJA_TOMA = 320;
+
+/**
  * El ancho del riel. Cambia al cerrar, y eso es a propósito.
  *
  * ⚠️ Lo había dejado FIJO para que la columna de texto no se moviera al abrir y
@@ -1555,9 +1570,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
             : null;
 
       return {
-        // Una sola caja, un poco más grande que las del escenario porque acá es
-        // el medio que se está mirando, no una comparación.
-        ancho: CAJA + 60,
+        ancho: CAJA_TOMA,
         // ⚠️ CON SALIDA. La primera version de esta pantalla dibujaba el mensaje
         // y NINGUN boton: `boton` solo se define cuando `enCurso` es falso, y a
         // ciegas sigue siendo verdadero. Martin: «ni siquiera me salta un
@@ -1586,7 +1599,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
         cuerpo: (
           <div>
             <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <Vertical fondo="#000" ancho={`${CAJA + 60}px`}>{dentro}</Vertical>
+              <Vertical fondo="#000" ancho={`${CAJA_TOMA}px`}>{dentro}</Vertical>
             </div>
             {/* ⚠️ La estimación NO se muestra cuando ya sabemos que se pasó. Un
                 «suele tardar entre 1 y 3 minutos» al lado de un cronómetro en 4:51
