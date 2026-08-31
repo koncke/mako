@@ -183,6 +183,33 @@ export async function POST(req: NextRequest) {
       sanearPlantillas(JSON.parse((await getSetting(KEY_PLANTILLAS)) || '[]')));
   }
 
+  // ── LO QUE FLOW YA RECIBIÓ ────────────────────────────────────────────────
+  //
+  // Se guarda para poder contestar UNA pregunta que hoy no tiene respuesta: de
+  // dónde sale el ENLACE de un video. La consulta de estado dice que el clip está
+  // hecho —con su tamaño en bytes— y no trae ninguna url; el candidato es lo que
+  // la grilla del proyecto ya listó, y eso la página lo pidió por GET, así que el
+  // espejo tiene la respuesta guardada sin gastar un pedido nuestro.
+  //
+  // Es diagnóstico acotado y con fecha: se pisa entero en cada latido y no se
+  // acumula. No lleva credenciales —son respuestas, no pedidos— pero se topea
+  // igual, porque lo que se guarda sin tope crece hasta que alguien lo descubre.
+  if (body.respuestas && typeof body.respuestas === 'object') {
+    const rec = body.respuestas as Record<string, unknown>;
+    const out: Record<string, string> = {};
+    let total = 0;
+    for (const [k, v] of Object.entries(rec)) {
+      if (typeof v !== 'string') continue;
+      const t = v.slice(0, 1400);
+      if (total + t.length > 40_000) break;
+      total += t.length;
+      out[k.slice(0, 80)] = t;
+    }
+    if (Object.keys(out).length) {
+      await runWithWorkspace(ws, () => setSetting('flow.respuestas', JSON.stringify(out)));
+    }
+  }
+
   // Lo que el navegador NO tiene y nosotros sí. Sólo eso vuelve: mandar las diez
   // en cada latido serían 150 KB cada quince segundos por nada.
   const clasesQueTiene = Array.isArray(body.clases) ? body.clases.map(String) : [];

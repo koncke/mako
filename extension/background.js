@@ -580,6 +580,7 @@ async function ciclo() {
 
     let estado = 'listo';
     let detalle = '';
+    let respuestasVistas = null;
     if (!bearer) {
       // No es un error: es que el usuario todavía no abrió Flow en esta sesión.
       estado = 'sin_sesion';
@@ -622,6 +623,13 @@ async function ciclo() {
         // no cuesta nada extra —la pestana ya se esta consultando— y garantiza que
         // lo que Flow hizo hace un minuto sobreviva al proximo F5.
         await guardarPlantillas(tab.id);
+        // Lo que Flow ya recibio, por su propio canal. Va aparte del `detalle`
+        // porque ese tiene tope de 7500 y las clases que generan se lo comen.
+        try {
+          const r = await chrome.tabs.sendMessage(tab.id, { tipo: 'VER_RESPUESTAS' });
+          if (r && r.respuestas) respuestasVistas = r.respuestas;
+        } catch { /* no poder mirar no apaga nada */ }
+
         const espia = await chrome.tabs.sendMessage(tab.id, { tipo: 'VER_ESPIA' });
         if (espia && espia.visto) {
           const visto = { ...espia.visto };
@@ -713,6 +721,8 @@ async function ciclo() {
         // Que clases tiene ESTE navegador. Es lo unico que el servidor necesita
         // para contestar solo lo que falta en vez de mandarlo todo cada 15 s.
         clases: plantillasLocales.map((p) => p.clase),
+        // Lo que Flow ya recibio, para saber de donde sale el enlace de un video.
+        ...(respuestasVistas ? { respuestas: respuestasVistas } : {}),
         ...(mandarPlantillas ? { plantillas: plantillasLocales } : {}),
       }),
     });

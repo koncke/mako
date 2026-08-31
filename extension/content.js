@@ -81,6 +81,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, responder) => {
     return true;
   }
 
+  if (msg?.tipo === 'VER_RESPUESTAS') {
+    // Lo que Flow YA recibio. Canal propio: el del espia tiene tope y se llena.
+    pedirALaPagina('MAKO_RESPUESTAS_PIDO', 'MAKO_RESPUESTAS_OK', {}, 5000, 'RESPUESTAS_TIMEOUT',
+      (d) => responder(d));
+    return true;
+  }
+
   if (msg?.tipo === 'VER_ESPIA') {
     // Qué pedidos vio la página. Es lo que permite diagnosticar sin pedirle otra
     // captura de pantalla a nadie.

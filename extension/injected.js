@@ -420,6 +420,28 @@
     responder('MAKO_GUARDAR_OK', id, { plantillas: out });
   });
 
+  /**
+   * Lo que Flow YA RECIBIO, por su propio canal.
+   *
+   * ⚠️ Aparte del espia, y no por prolijidad: el `detalle` del espia se corta a
+   * 7500 caracteres y las clases que GENERAN van primero a proposito. Sus cuerpos
+   * llegan a 4000 cada uno, asi que dos de ellas se comen el presupuesto entero y
+   * TODO lo demas desaparece — incluida la muestra que se agrego para saber de
+   * donde sale el enlace de un video. Se instrumento, se desplego, y el dato no
+   * llego nunca: lo borro el orden que yo mismo puse.
+   *
+   * Un canal compartido con un tope es un canal donde lo ultimo que se agrega es
+   * lo primero que se pierde.
+   */
+  window.addEventListener('MAKO_RESPUESTAS_PIDO', (ev) => {
+    const { id } = ev.detail || {};
+    const out = {};
+    for (const [clase, r] of respuestas) {
+      out[clase] = String(r.texto || '').slice(0, 1400);
+    }
+    responder('MAKO_RESPUESTAS_OK', id, { respuestas: out });
+  });
+
   window.addEventListener('MAKO_ESPIA_PIDO', (ev) => {
     const { id } = ev.detail || {};
     const visto = {};
@@ -450,18 +472,6 @@
           ? p.cuerpo.slice(0, /generat/i.test(clase) ? 4000 : 200)
           : null,
         edadMs: Date.now() - p.cuando,
-        // ⚠️ UNA MUESTRA DE LA RESPUESTA, y no es telemetria: es la unica forma
-        // de saber que endpoint trae el ENLACE de un video.
-        //
-        // Medido: la consulta de estado dice que el clip esta hecho —con su
-        // tamano en bytes— y NO trae ninguna url. El enlace tiene que salir de
-        // otro lado, y el candidato es lo que la grilla del proyecto ya listo.
-        // Solo de los GET, que es lo que el espejo ya cachea, y acotado.
-        respuestaMuestra: (() => {
-          const r = respuestas.get(clase);
-          if (!r || (p.metodo !== 'GET' && p.metodo !== 'HEAD')) return null;
-          return String(r.texto || '').slice(0, 700);
-        })(),
       };
     }
     responder('MAKO_ESPIA_OK', id, { visto });
