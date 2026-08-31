@@ -628,6 +628,10 @@ async function ciclo() {
         try {
           const r = await chrome.tabs.sendMessage(tab.id, { tipo: 'VER_RESPUESTAS' });
           if (r && r.respuestas) respuestasVistas = r.respuestas;
+          // De donde salen los medios que la pagina esta mostrando.
+          if (r && Array.isArray(r.fuentes) && r.fuentes.length) {
+            respuestasVistas = { ...(respuestasVistas || {}), '__fuentes': r.fuentes.join('\n') };
+          }
         } catch { /* no poder mirar no apaga nada */ }
 
         const espia = await chrome.tabs.sendMessage(tab.id, { tipo: 'VER_ESPIA' });

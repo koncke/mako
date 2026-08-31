@@ -216,7 +216,17 @@
 
       // La RESPUESTA se guarda clonada, y solo de lo que es una lectura barata:
       // con esto una consulta de créditos no necesita un pedido nuestro.
-      if (metodo === 'GET' || clase === 'credits') {
+      // ⚠️ DE TODO, NO SOLO DE LOS GET.
+      //
+      // La condicion vieja guardaba la respuesta de los GET, y la grilla del
+      // proyecto —que es donde estan los videos con su enlace— NO sale de ningun
+      // GET: medido, `sessions` contesta `{}`. O sea que el unico lugar donde
+      // podia estar la respuesta era justo el que no se guardaba.
+      //
+      // Guardar de mas no cambia ninguna decision: la rama que CONTESTA con la
+      // cache exige `soloLectura` Y que el pedido no tenga parametros, asi que una
+      // respuesta guardada de mas no puede servirse por error.
+      if (true) {
         promesa.then((res) => {
           try {
             res.clone().text().then(
@@ -439,7 +449,34 @@
     for (const [clase, r] of respuestas) {
       out[clase] = String(r.texto || '').slice(0, 1400);
     }
-    responder('MAKO_RESPUESTAS_OK', id, { respuestas: out });
+
+    // ⚠️ Y SE LE PREGUNTA AL DOM, que es la fuente que no puede mentir.
+    //
+    // La respuesta del estado dice que el clip esta hecho y no trae enlace;
+    // ninguna respuesta guardada lo tiene. Pero la pagina LOS ESTA MOSTRANDO, asi
+    // que el enlace existe y esta en un atributo. Se leen los `src` de los medios
+    // y se manda su FORMA —origen y camino, sin query— para saber de que endpoint
+    // bajarlos.
+    //
+    // Sin el query a proposito: ahi viajan los tokens de firma. Para saber DE
+    // DONDE se baja alcanza con el camino, y una firma en nuestra base es una
+    // credencial que no necesitamos.
+    const fuentes = [];
+    try {
+      for (const el of document.querySelectorAll('video, video source, img')) {
+        const src = el.currentSrc || el.src || el.getAttribute('src') || '';
+        if (!src || src.startsWith('data:')) continue;
+        let forma = src;
+        try {
+          const u = new URL(src, location.href);
+          forma = `${u.protocol}//${u.host}${u.pathname}`;
+        } catch { /* blob: y demas van tal cual */ }
+        if (!fuentes.includes(forma)) fuentes.push(forma);
+        if (fuentes.length >= 25) break;
+      }
+    } catch { /* nunca romper la pagina de Flow por mirarla */ }
+
+    responder('MAKO_RESPUESTAS_OK', id, { respuestas: out, fuentes });
   });
 
   window.addEventListener('MAKO_ESPIA_PIDO', (ev) => {
