@@ -263,7 +263,24 @@ if (idsRegistrados.size) {
 const fallos = [];
 let ok = 0;
 
-for (const [i, c] of clases.entries()) {
+/**
+ * ── UNA SEGUNDA PASADA SOBRE LO QUE FALLO, y no es «por las dudas» ──────────────────
+ *
+ * `--retries 5` cubre la red DENTRO de una request; no cubre que el servidor del origen
+ * conteste 502 o 503 en ese momento. Vimeo lo hace, y el bajador junta esos fallos, los
+ * lista y sugiere «volver a correr» — pero la cola lo corre UNA sola vez por curso, asi
+ * que la sugerencia no la lee nadie y la clase se pierde para esa corrida entera. El
+ * curso se publica sin ella y la cola no vuelve a pasar en dias.
+ *
+ * Medido el 31/08/2026: 12 de las 14 clases que faltaban en cursos ya publicados eran
+ * transitorias —5xx y timeouts—, y las 12 se recuperaron con un solo reintento a mano.
+ *
+ * La segunda pasada es barata por construccion: solo toca las que fallaron, y para
+ * entonces paso el tiempo que tardo el resto del curso, que es justo lo que un fallo
+ * transitorio necesita.
+ */
+const bajarLote = (lote) => {
+for (const [i, c] of lote.entries()) {
   console.log(`\n  ── ${i + 1}/${clases.length} · ${String(c.n).padStart(2, '0')} ${c.titulo} (${c.duracion}) ──`);
 
   const args = [
@@ -383,6 +400,22 @@ for (const [i, c] of clases.entries()) {
       } catch { /* si no se puede borrar, el aviso ya quedó */ }
     }
   }
+}
+};
+
+bajarLote(clases);
+
+// El `i + 1` de los rotulos cuenta sobre el LOTE, no sobre el curso: en la segunda pasada
+// dice «1/3» y no «52/104», que es lo correcto —son tres reintentos, no el curso de nuevo—.
+if (fallos.length) {
+  const otraVez = fallos.splice(0, fallos.length)
+    .map((f) => clases.find((c) => c.n === f.n))
+    .filter(Boolean);
+  console.log(`\n${'─'.repeat(70)}`);
+  console.log(`  Segunda pasada: ${otraVez.length} clase(s) que fallaron. Un 5xx del origen suele`);
+  console.log(`  haberse ido para cuando termino el resto del curso.`);
+  console.log('─'.repeat(70));
+  bajarLote(otraVez);
 }
 
 const bajados = existsSync(dirVideo) ? readdirSync(dirVideo).filter((f) => /\.(mp4|mkv|webm|m4v)$/i.test(f)) : [];
