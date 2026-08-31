@@ -174,12 +174,45 @@
       const clase = claseDe(url);
       const metodo = String((init && init.method) || (esRequest && entrada.method) || 'GET').toUpperCase();
       const headers = headersAObjeto((init && init.headers) || (esRequest && entrada.headers));
-      // El cuerpo solo se guarda si es un string: clonar un Request para leer un
-      // stream tiene costo y puede alterar el pedido de la app.
+      // ⚠️ EL CUERPO TAMBIEN SE LEE DE UN `Request`, Y NO ES UN DETALLE.
+      //
+      // La version anterior guardaba el cuerpo solo si `init.body` era un string,
+      // con el argumento de que clonar un Request cuesta y puede alterar el pedido
+      // de la app. Lo segundo es falso —`clone()` existe justo para esto y el
+      // original sigue intacto— y lo primero es despreciable al lado de lo que
+      // costaba: si Flow llama `fetch(new Request(url, { body }))`, `init` es
+      // `undefined` y quedaba una plantilla CASCARA — url buena, headers buenos,
+      // metodo bueno, cuerpo vacio.
+      //
+      // Y una cascara NO SE DISTINGUE DE UNA PLANTILLA SANA en ningun punto del
+      // camino: `SIN_PLANTILLA` no dispara porque la plantilla existe,
+      // `PARCHE_FALLO` no dispara porque el parche se puede escribir sobre un
+      // objeto vacio, y `base(null)` devuelve `{}` sin quejarse. El pedido sale,
+      // Google contesta 400, y el error apunta a nuestro cuerpo cuando lo que
+      // falta es todo lo que la plantilla tenia que aportar.
+      //
+      // Se lee ASINCRONICO y se completa la plantilla cuando llega: el pedido de
+      // Flow no espera nada nuestro, y una plantilla que se completa un
+      // milisegundo tarde sirve igual — la proxima vez que la usemos es minutos
+      // despues.
       const cuerpo = init && typeof init.body === 'string' ? init.body : null;
 
       const credenciales = (init && init.credentials) || (esRequest && entrada.credentials) || undefined;
-      plantillas.set(clase, { url, metodo, headers, cuerpo, credenciales, cuando: Date.now() });
+      const plantilla = { url, metodo, headers, cuerpo, credenciales, cuando: Date.now() };
+      plantillas.set(clase, plantilla);
+
+      // El cuerpo que venia adentro del `Request` se completa cuando llega. Se
+      // rellena ESTE objeto y no `plantillas.get(clase)`: si mientras tanto paso
+      // otro pedido de la misma clase, el del mapa ya es otro y pisarlo seria
+      // meterle el cuerpo de un pedido viejo.
+      if (cuerpo == null && esRequest && entrada.body && !entrada.bodyUsed) {
+        try {
+          entrada.clone().text().then(
+            (t) => { if (t && plantilla.cuerpo == null) plantilla.cuerpo = t; },
+            () => {},
+          );
+        } catch { /* si no se puede clonar, la plantilla queda como antes */ }
+      }
 
       // La RESPUESTA se guarda clonada, y solo de lo que es una lectura barata:
       // con esto una consulta de créditos no necesita un pedido nuestro.
@@ -399,7 +432,11 @@
         hayRespuesta: respuestas.has(clase),
         url: p.url.replace(/key=[^&]+/, 'key=<oculta>'),
         headers: Object.keys(p.headers).sort(),
+        // ⚠️ El dato que separa «la plantilla no existe» de «existe y esta
+        // vacia». Son dos diagnosticos con dos arreglos distintos y hasta ahora
+        // se veian iguales desde el servidor.
         tieneCuerpo: p.cuerpo != null,
+        esCascara: p.cuerpo == null && p.metodo !== 'GET' && p.metodo !== 'HEAD',
         // De los pedidos que GENERAN va el cuerpo entero: es el contrato que hay
         // que replicar, y una muestra cortada esconde justo el campo que falta.
         // Del resto alcanza con saber que existen.

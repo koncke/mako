@@ -519,6 +519,7 @@ async function ciclo() {
                 url: String(p.url || '').replace(/key=[^&]+/, 'key=<oculta>'),
                 headers: Object.keys(p.headers || {}).sort(),
                 tieneCuerpo: p.cuerpo != null,
+                esCascara: p.cuerpo == null && p.metodo !== 'GET' && p.metodo !== 'HEAD',
                 cuerpoMuestra: p.cuerpo
                   ? String(p.cuerpo).slice(0, /generat/i.test(clase) ? 4000 : 200)
                   : null,
