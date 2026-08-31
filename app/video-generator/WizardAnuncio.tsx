@@ -360,7 +360,7 @@ function Salidas({ resumen, children }: { resumen: string; children: React.React
  * Lo que sobrevive del wizard es lo único que hacía falta: la posición, un solo
  * botón que avanza, y una salida. Todo flota sobre el negro, sin encerrar nada.
  */
-function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia, cargando, onSiguiente, atras, onAtras, onSalir, error, puesta, alLado }: {
+function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia, cargando, onSiguiente, atras, onAtras, onSalir, error, puesta, alLado, enEjemplo }: {
   pregunta: string;
   titulo?: string;
   paso: number;
@@ -376,6 +376,15 @@ function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia,
   error?: string;
   /** El formato elegido. Si trae ejemplo, la pantalla estrena su riel derecho. */
   puesta?: Puesta;
+  /**
+   * Esta ES la pantalla del ejemplo, así que el riel no se dibuja.
+   *
+   * Sin esto los dos mostraban el mismo video, los dos en `autoPlay loop`, y la
+   * pantalla reproducía el clip dos veces a la vez: enorme en el centro y chico
+   * al costado. El ejemplo ocupa el asiento del medio, y recién en la pantalla
+   * siguiente se corre al costado — contarlo dos veces rompe justo esa lectura.
+   */
+  enEjemplo?: boolean;
   /**
    * Una acción que pertenece a la pregunta, en su misma línea.
    *
@@ -401,11 +410,19 @@ function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia,
 
   return (
     <div className="mk-estudio" style={anchoRiel}>
-      <VistaPrevia
-        puesta={puesta}
-        abierta={ejemploAbierto}
-        onToggle={() => setEjemploAbierto((v) => !v)}
-      />
+      {/* ⚠️ EN LA PANTALLA DEL EJEMPLO, EL RIEL NO SE DIBUJA.
+          Los dos mostraban el mismo video y los dos en `autoPlay loop`, así que
+          esa pantalla reproducía DOS veces el mismo clip a la vez — uno enorme en
+          el centro y otro chico al costado. Lo metí yo al agregar ese paso, y es
+          la misma pieza contándose dos veces: el ejemplo ocupa el asiento del
+          medio, y recién en la pantalla siguiente se corre al costado. */}
+      {!enEjemplo && (
+        <VistaPrevia
+          puesta={puesta}
+          abierta={ejemploAbierto}
+          onToggle={() => setEjemploAbierto((v) => !v)}
+        />
+      )}
       {/* ── LA BARRA DE ARRIBA ──────────────────────────────────────────────
           SALIR a la izquierda y del todo arriba, que es donde se lo busca.
           ⚠️ No pregunta nada al salir, y eso es correcto ACA: el anuncio se
@@ -588,6 +605,19 @@ function VistaPrevia({ puesta, abierta, onToggle }: {
   abierta: boolean;
   onToggle: () => void;
 }) {
+  // El sonido vive acá y no arriba: es una preferencia de MIRAR el ejemplo, no
+  // una decisión del anuncio. No se persiste a propósito — nadie quiere que el
+  // audio arranque solo la próxima vez que abra la tab.
+  const [conSonido, setConSonido] = useState(false);
+  const video = useRef<HTMLVideoElement>(null);
+
+  // Al pasar a la versión con sonido el navegador puede rechazar la reproducción
+  // —un video con audio no arranca sin un gesto—. Acá SÍ hubo gesto: el click en
+  // el botón. Se pide explícitamente para que no quede en pausa sin decir nada.
+  useEffect(() => {
+    if (conSonido) video.current?.play().catch(() => { /* si igual lo rechaza, quedan los controles */ });
+  }, [conSonido]);
+
   if (!puesta?.ejemplo) return null;
 
   return (
@@ -599,41 +629,61 @@ function VistaPrevia({ puesta, abierta, onToggle }: {
       className={`mk-riel${abierta ? '' : ' mk-riel--plegado'}`}
       style={{ ['--mk-riel-alto' as string]: EJEMPLO }}
     >
-      {abierta ? (
-        <>
-          {/* La frase de Martín, textual. Contesta «¿qué hace eso ahí?» antes de
-              que la pregunta llegue a formularse, que es la única forma de que
-              una referencia se lea como referencia. */}
-          <p className="mk-riel__para">Así se verá tu anuncio</p>
-          <Vertical alto="var(--mk-riel-alto)" fondo="#000" plano>
-            {/* Sin `controls` y sin sonido, a diferencia de las tomas del usuario.
-                Y sin radio propio: lo recorta el padre. Un solo radio por estado. */}
-            <video
-              src={puesta.ejemplo.video}
-              poster={puesta.ejemplo.poster}
-              autoPlay
-              loop
-              muted
-              playsInline
-              style={MEDIO}
-            />
-            {/* EL RÓTULO ES EL CONTROL. No hay ✕: una ✕ promete «esto se va» sobre
-                algo que vuelve, y era el elemento menos visible de la pieza. El
-                área de click pasa de 23×23 px a todo el ancho del rótulo. */}
-            <button type="button" className="mk-riel__rotulo" aria-expanded onClick={onToggle}>
-              <span className="mk-riel__nombre">{`Ejemplo · ${puesta.nombre}`}</span>
-              <span className="mk-riel__chev"><Icon name="chevron" size={16} /></span>
-            </button>
-          </Vertical>
-        </>
-      ) : (
-        // PLEGADA: el póster CONGELADO, no el video pausado ni en loop. El
-        // movimiento periférico es el captador de atención más fuerte que hay, y
-        // plegar significa justamente dejar de competir.
-        <button type="button" className="mk-riel__abrir" aria-expanded={false} onClick={onToggle}>
-          <img src={puesta.ejemplo.poster} alt="" className="mk-riel__mini" />
-          <span className="mk-riel__vert">Ver el ejemplo</span>
-          <span className="mk-riel__chev"><Icon name="chevron" size={13} /></span>
+      {/* ⚠️ UN SOLO NODO, SIEMPRE MONTADO. Plegar es un estado de CSS.
+          Antes había dos ramas de JSX: abierta dibujaba un `<video>` y plegada un
+          `<img>` con el póster. O sea que el video NO tenía identidad estable — se
+          destruía y se volvía a crear en cada pliegue.
+          Dos consecuencias, y la segunda es la que bloquea todo lo que sigue:
+          (a) el sonido y el momento del video se perdían al plegar; (b) ninguna
+          animación puede mover un nodo que desaparece a mitad de camino. */}
+      <p className="mk-riel__para">Así se verá tu anuncio</p>
+
+      <Vertical alto="var(--mk-riel-alto)" fondo="#000" plano>
+        <video
+          ref={video}
+          // ⚠️ La `key` es la PUESTA, no el archivo: cambiar de `src` sin cambiar
+          // de key deja que el mismo elemento cargue la otra versión, que es
+          // justo lo que hace falta para el sonido. Con la key en el src, React
+          // lo remontaría y volveríamos al problema de arriba.
+          key={puesta.nombre}
+          src={conSonido && puesta.ejemplo.completo ? puesta.ejemplo.completo : puesta.ejemplo.video}
+          poster={puesta.ejemplo.poster}
+          autoPlay
+          loop
+          muted={!conSonido}
+          playsInline
+          style={MEDIO}
+        />
+
+        {/* EL RÓTULO ES EL CONTROL. No hay ✕: una ✕ promete «esto se va» sobre
+            algo que vuelve, y era el elemento menos visible de la pieza. */}
+        <button type="button" className="mk-riel__rotulo" aria-expanded={abierta} onClick={onToggle}>
+          <span className="mk-riel__nombre">
+            {abierta ? `Ejemplo · ${puesta.nombre}` : 'Ver el ejemplo'}
+          </span>
+          <span className="mk-riel__chev"><Icon name="chevron" size={16} /></span>
+        </button>
+      </Vertical>
+
+      {/* ── EL SONIDO NO SE «DESMUTEA»: SE CAMBIA DE ARCHIVO ─────────────────
+          ⚠️ MEDIDO: los clips del ejemplo NO TIENEN PISTA DE AUDIO. 370 KB y
+          306 KB, sin `mp4a` adentro. Los completos —3,6 MB y 6,8 MB— sí.
+          Un botón que llamara `muted = false` sobre el clip corto no habría
+          sonado nunca, y desde afuera se habría leído como un botón roto. Lo que
+          hace falta es cargar la otra versión, que ya está en los datos
+          (`ejemplo.completo`) y que nadie usaba.
+          Sólo se dibuja si esa versión existe: un control que no puede cumplir su
+          promesa no se dibuja. */}
+      {abierta && puesta.ejemplo.completo && (
+        <button
+          type="button"
+          className="mk-riel__sonido"
+          onClick={() => setConSonido((v) => !v)}
+          aria-pressed={conSonido}
+          title={conSonido ? 'Silenciar' : 'Escuchar el ejemplo'}
+        >
+          <Icon name={conSonido ? 'sonido' : 'mic'} size={14} />
+          <span>{conSonido ? 'Silenciar' : 'Escuchar'}</span>
         </button>
       )}
     </aside>
@@ -1515,6 +1565,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
       onSalir={onSalir}
       error={error}
       puesta={puesta}
+      enEjemplo={paso.id === 'ejemplo'}
       alLado={p.alLado}
     >
       {p.cuerpo}

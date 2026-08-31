@@ -1449,3 +1449,31 @@
   .mk-fotito { transition: none; }
   .mk-fotito:hover { transform: none; }
 }
+
+/* ── EL SONIDO DEL EJEMPLO ────────────────────────────────────────────────
+   ⚠️ NO dice «desmutear», y no es una cuestión de palabras: los clips cortos del
+   ejemplo NO TIENEN pista de audio (370 KB y 306 KB, sin `mp4a`). Lo que hace el
+   botón es cargar la versión completa, que sí la tiene. Un control rotulado
+   «desmutear» sobre algo que no puede sonar es un botón roto con nombre correcto. */
+.mk-riel__sonido {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 10px;
+  padding: 5px 11px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--dim);
+  transition: color .14s ease, border-color .14s ease;
+}
+.mk-riel__sonido:hover { color: var(--ink); border-color: var(--border-strong); }
+.mk-riel__sonido:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.mk-riel__sonido[aria-pressed="true"] { color: var(--ink); border-color: var(--border-strong); }
+.mk-riel--plegado .mk-riel__sonido { display: none; }
+
+@media (prefers-reduced-motion: reduce) { .mk-riel__sonido { transition: none; } }
