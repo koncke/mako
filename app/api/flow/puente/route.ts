@@ -22,13 +22,16 @@ import {
   sanearPlantillas, fundirPlantillas, faltantes, KEY_PLANTILLAS,
   type PlantillaEspejo,
 } from '@/lib/flow-plantillas';
-import { runWithWorkspace } from '@/lib/workspace';
+import { runWithWorkspace, getTenantDb } from '@/lib/workspace';
 import { NextResponse, type NextRequest } from 'next/server';
 import {
   workspaceDeToken, marcarVisto, tomarTrabajos, resolver, fallar, estadoGuardado,
   type EstadoPuente,
 } from '@/lib/flow-cola';
-import { LIMITES, clasificarFalla, clasificarFallaDelNavegador, type MotivoFalla } from '@/lib/flow-protocolo';
+import {
+  LIMITES, clasificarFalla, clasificarFallaDelNavegador, VARIANTES_MEDIA,
+  KEY_VARIANTE_VIDEO, type MotivoFalla,
+} from '@/lib/flow-protocolo';
 import { EXTENSION_VERSION } from '@/lib/extension-version';
 
 export const dynamic = 'force-dynamic';
@@ -210,6 +213,25 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ── ¿HAY QUE SONDEAR? ─────────────────────────────────────────────────────
+  // Sólo mientras no sepamos la respuesta. Es una pregunta que se contesta una vez
+  // y no cambia, así que en cuanto haya resultado deja de pedirse para siempre.
+  let sonda: { mediaId: string; variantes: string[] } | null = null;
+  const yaSondeado = await runWithWorkspace(ws, () => getSetting(KEY_VARIANTE_VIDEO));
+  if (!yaSondeado) {
+    const db2 = await runWithWorkspace(ws, () => getTenantDb());
+    const { data: ult } = await db2
+      .from('flow_trabajos')
+      .select('pedido')
+      .eq('tipo', 'estado_clips')
+      .order('id', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const ped = (ult?.pedido && typeof ult.pedido === 'object' ? ult.pedido : {}) as Record<string, unknown>;
+    const mediaId = str(ped.operacion);
+    if (mediaId) sonda = { mediaId, variantes: [...VARIANTES_MEDIA] };
+  }
+
   // Lo que el navegador NO tiene y nosotros sí. Sólo eso vuelve: mandar las diez
   // en cada latido serían 150 KB cada quince segundos por nada.
   const clasesQueTiene = Array.isArray(body.clases) ? body.clases.map(String) : [];
@@ -236,6 +258,19 @@ export async function POST(req: NextRequest) {
     // una persona, no hay nada que disimular. Que el número viaje en cada
     // respuesta permite bajarlo sin que el cliente actualice la extensión.
     cooldownMs: LIMITES.cooldownMs,
+    // ⚠️ QUE VARIANTE DE LA URL TRAE EL VIDEO. Se pregunta UNA vez y se guarda.
+    //
+    // `getMediaUrlRedirect?name=<id>` devuelve el POSTER de un video, no el video:
+    // medido por el sintoma exacto que reporto el dueno —«me trajo un video, pero
+    // es de 0 segundos»—, que es lo que hace un <video> cuando le das una imagen.
+    // La variante correcta vive en un enum (`mediaUrlType`) que no esta
+    // documentado en ningun lado que tengamos.
+    //
+    // Probar valores contra produccion de a uno, esperando un reporte entre cada
+    // intento, es el bucle que costo esta noche. Asi que se manda la lista entera y
+    // el NAVEGADOR contesta: un <video> suelto por candidato, y el que devuelve
+    // `duration > 0` es el bueno. Es la unica fuente que no puede equivocarse.
+    ...(sonda ? { sonda } : {}),
     // Las que le faltan al navegador. Con esto, un F5 —o un perfil nuevo, o
     // reinstalar la extensión— deja de costar «generá uno a mano».
     ...(plantillasFaltantes.length ? { plantillas: plantillasFaltantes } : {}),

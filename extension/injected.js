@@ -456,6 +456,65 @@
    * Un canal compartido con un tope es un canal donde lo ultimo que se agrega es
    * lo primero que se pierde.
    */
+  /**
+   * ¿Cual de las variantes de `getMediaUrlRedirect` trae el VIDEO?
+   *
+   * ⚠️ SE MIDE, NO SE ADIVINA, y la diferencia ya costo una noche. El enum de
+   * `mediaUrlType` no esta documentado en ningun lado que tengamos, y probar
+   * valores contra produccion de a uno es exactamente el bucle que hay que evitar.
+   *
+   * El navegador es el unico que puede contestar sin ambiguedad: se crea un
+   * `<video>` suelto —nunca se agrega al documento— con cada candidato y se espera
+   * su `loadedmetadata`. Si vuelve con `duration > 0` y `videoWidth > 0`, eso ES el
+   * video. Si es una imagen, el elemento la acepta y contesta duracion 0, que es
+   * exactamente el sintoma que reporto el dueño: «me trajo un video, pero es de 0
+   * segundos».
+   *
+   * Un elemento de medio no necesita CORS para cargar, asi que esto funciona donde
+   * un `fetch` se choca contra el redirect a otro origen.
+   *
+   * No reproduce nada: `preload='metadata'` trae los primeros bytes y corta.
+   */
+  window.addEventListener('MAKO_SONDA_PIDO', async (ev) => {
+    const { id, mediaId, variantes } = ev.detail || {};
+    const base = 'https://labs.google/fx/api/trpc/media.getMediaUrlRedirect?name=' + encodeURIComponent(mediaId || '');
+    const lista = Array.isArray(variantes) && variantes.length ? variantes : [''];
+    const out = [];
+
+    for (const v of lista) {
+      const url = v ? base + '&mediaUrlType=' + encodeURIComponent(v) : base;
+      const r = await new Promise((resolve) => {
+        let el = document.createElement('video');
+        el.preload = 'metadata';
+        el.muted = true;
+        const cerrar = (dato) => {
+          try { el.removeAttribute('src'); el.load(); } catch { /* ignorar */ }
+          el = null;
+          resolve(dato);
+        };
+        const reloj = setTimeout(() => cerrar({ variante: v || '(sin parametro)', estado: 'timeout' }), 12000);
+        el.addEventListener('loadedmetadata', () => {
+          clearTimeout(reloj);
+          cerrar({
+            variante: v || '(sin parametro)',
+            estado: 'ok',
+            duracion: Number(el.duration) || 0,
+            ancho: el.videoWidth || 0,
+            alto: el.videoHeight || 0,
+          });
+        }, { once: true });
+        el.addEventListener('error', () => {
+          clearTimeout(reloj);
+          const c = el && el.error ? el.error.code : 0;
+          cerrar({ variante: v || '(sin parametro)', estado: 'error', codigo: c });
+        }, { once: true });
+        el.src = url;
+      });
+      out.push(r);
+    }
+    responder('MAKO_SONDA_OK', id, { sonda: out });
+  });
+
   window.addEventListener('MAKO_RESPUESTAS_PIDO', (ev) => {
     const { id } = ev.detail || {};
     const out = {};

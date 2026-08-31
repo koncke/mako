@@ -694,6 +694,12 @@ async function ciclo() {
 
     // Lo que este navegador aprendio de Flow, para que no se pierda con el perfil.
     // Se manda solo cuando CAMBIO: son decenas de KB y el latido es cada 15 s.
+    // Lo que la sonda dejo listo en un latido anterior.
+    const { sondaResultado } = await chrome.storage.local.get('sondaResultado');
+    if (sondaResultado) {
+      respuestasVistas = { ...(respuestasVistas || {}), __sonda: String(sondaResultado).slice(0, 1400) };
+    }
+
     const plantillasLocales = await todasLasPlantillas();
     const firma = plantillasLocales
       .map((p) => `${p.clase}:${(p.cuerpo || '').length}:${p.metodo}`)
@@ -739,6 +745,37 @@ async function ciclo() {
     await chrome.storage.local.set({ pendientes: [] });
 
     if (typeof out.cooldownMs === 'number') cooldownMs = out.cooldownMs;
+
+    // ⚠️ LA SONDA LA PIDE EL SERVIDOR Y CORRE UNA SOLA VEZ.
+    //
+    // Contesta cual variante de `mediaUrlType` trae el VIDEO. El enum no esta
+    // documentado en ningun lado que tengamos, y probar valores contra produccion
+    // de a uno —esperando un reporte del dueno entre cada intento— es exactamente
+    // el bucle que costo esta noche.
+    //
+    // Tarda hasta 12 s por candidato, asi que NO puede correr en cada latido: se
+    // anota el mediaId sondeado y no se repite. El resultado viaja con el latido
+    // SIGUIENTE, que es lo que hace que esto no bloquee la cola.
+    try {
+      const pedido = out.sonda;
+      if (pedido && pedido.mediaId) {
+        const { sondaHecha } = await chrome.storage.local.get('sondaHecha');
+        if (sondaHecha !== pedido.mediaId) {
+          await chrome.storage.local.set({ sondaHecha: pedido.mediaId });
+          const tabS = await pestanaDeFlow();
+          if (tabS) {
+            const r = await chrome.tabs.sendMessage(tabS.id, {
+              tipo: 'SONDA_MEDIO', mediaId: pedido.mediaId, variantes: pedido.variantes,
+            });
+            if (r && r.sonda) {
+              await chrome.storage.local.set({
+                sondaResultado: JSON.stringify({ mediaId: pedido.mediaId, r: r.sonda }),
+              });
+            }
+          }
+        }
+      }
+    } catch { /* sondear nunca apaga nada */ }
 
     // Lo que se mando quedo guardado del otro lado: se anota la firma para no
     // volver a mandarlo hasta que cambie.

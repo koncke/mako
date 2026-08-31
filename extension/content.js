@@ -81,6 +81,14 @@ chrome.runtime.onMessage.addListener((msg, _sender, responder) => {
     return true;
   }
 
+  if (msg?.tipo === 'SONDA_MEDIO') {
+    // Cual variante de la url trae el video. Tarda: 12 s por candidato.
+    pedirALaPagina('MAKO_SONDA_PIDO', 'MAKO_SONDA_OK',
+      { mediaId: msg.mediaId, variantes: msg.variantes }, 120000, 'SONDA_TIMEOUT',
+      (d) => responder(d));
+    return true;
+  }
+
   if (msg?.tipo === 'VER_RESPUESTAS') {
     // Lo que Flow YA recibio. Canal propio: el del espia tiene tope y se llena.
     pedirALaPagina('MAKO_RESPUESTAS_PIDO', 'MAKO_RESPUESTAS_OK', {}, 5000, 'RESPUESTAS_TIMEOUT',

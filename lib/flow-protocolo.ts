@@ -102,6 +102,33 @@ export function parchesEstadoClip(operacion: string): Record<string, unknown> {
  * storage propio, que además es lo que hay que hacer igual para pegar las siete
  * tomas. Esto es lo que lo hace visible hoy, no el destino.
  */
+/** Donde queda anotada la variante que SI trae el video, una vez medida. */
+export const KEY_VARIANTE_VIDEO = 'flow.varianteVideo';
+
+/**
+ * Los candidatos de `mediaUrlType`, para que el NAVEGADOR diga cual trae el video.
+ *
+ * ⚠️ ES UNA LISTA DE CANDIDATOS, NO UN CONTRATO. El enum real de Google no lo
+ * tenemos; el unico valor MEDIDO es `MEDIA_URL_TYPE_THUMBNAIL`, leido del `src` de
+ * la grilla. El resto son formas plausibles del mismo enum y estan aca para que se
+ * prueben TODAS DE UNA en el navegador de la persona, en vez de ir probando de a
+ * una contra produccion y esperar un reporte entre cada intento — que es el bucle
+ * que costo una noche entera.
+ *
+ * El vacio va PRIMERO porque es lo que se usa hoy: si resultara ser el bueno, el
+ * problema esta en otro lado y hay que saberlo antes de tocar nada mas.
+ */
+export const VARIANTES_MEDIA: readonly string[] = Object.freeze([
+  '',
+  'MEDIA_URL_TYPE_VIDEO',
+  'MEDIA_URL_TYPE_ORIGINAL',
+  'MEDIA_URL_TYPE_DOWNLOAD',
+  'MEDIA_URL_TYPE_RAW',
+  'MEDIA_URL_TYPE_FULL',
+  'MEDIA_URL_TYPE_PREVIEW',
+  'MEDIA_URL_TYPE_THUMBNAIL',
+]);
+
 export function urlDeMedioFlow(mediaId: string, miniatura = false): string {
   const base = `https://labs.google/fx/api/trpc/media.getMediaUrlRedirect?name=${encodeURIComponent(mediaId)}`;
   return miniatura ? `${base}&mediaUrlType=MEDIA_URL_TYPE_THUMBNAIL` : base;
