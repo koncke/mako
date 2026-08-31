@@ -428,6 +428,42 @@ async function asegurarContentScript(tabId) {
 }
 
 async function ejecutar(trabajo) {
+  // ── EL ENLACE FIRMADO NO PASA POR EL ESPEJO ──────────────────────────────
+  //
+  // Es el unico trabajo asi, y la razon esta medida: el enlace de un clip no vive
+  // en ninguna respuesta. `getMediaUrlRedirect?name=<id>` REDIRIGE al archivo, y
+  // ese redirect no se puede leer con `fetch` ni desde la pagina ni desde el
+  // service worker —CORS lo corta en las dos, y en modo manual el `Location` viene
+  // ilegible—. Un <video> lo carga igual, porque los elementos de medio no piden
+  // CORS.
+  //
+  // Asi que el trabajo es: PROVOCAR el pedido con un <video> suelto y leer a donde
+  // fue, que es lo que `webRequest` ve desde afuera del modelo de CORS.
+  //
+  // El destino es una url firmada de flow-content.google que anda SIN cookies y
+  // dura ~6 h, asi que con eso el servidor baja el archivo el mismo.
+  if (trabajo.tipo === 'enlace_clip') {
+    const mediaId = String((trabajo.pedido && trabajo.pedido.mediaId) || '');
+    if (!mediaId) {
+      return { id: trabajo.id, ok: false, motivo: 'transitorio', error: 'enlace_clip sin mediaId', reintentable: false };
+    }
+    const tabE = await pestanaDeFlow();
+    if ((await asegurarContentScript(tabE.id)) === 'mudo') throw new Error('PUENTE_MUDO');
+    redirectsDeMedios.delete(mediaId);
+    const carga = await chrome.tabs.sendMessage(tabE.id, { tipo: 'PEDIR_ENLACE', mediaId });
+    // Un instante: `onBeforeRedirect` corre en su propio hilo de eventos.
+    await new Promise((r) => setTimeout(r, 400));
+    const visto = redirectsDeMedios.get(mediaId);
+    if (!visto || !visto.url) {
+      return {
+        id: trabajo.id, ok: false, motivo: 'transitorio',
+        error: 'No se vio el redirect del medio (' + ((carga && carga.estado) || 'sin carga') + ')',
+        reintentable: true,
+      };
+    }
+    return { id: trabajo.id, ok: true, data: { url: visto.url, mediaId } };
+  }
+
   const { path, body: pedidoOriginal, parches: parchesDelPedido } = trabajo.pedido || {};
   let parches = parchesDelPedido;
   if (typeof path !== 'string' || !path.startsWith('/v1')) {

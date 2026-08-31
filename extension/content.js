@@ -81,6 +81,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, responder) => {
     return true;
   }
 
+  if (msg?.tipo === 'PEDIR_ENLACE') {
+    pedirALaPagina('MAKO_ENLACE_PIDO', 'MAKO_ENLACE_OK', { mediaId: msg.mediaId }, 20000,
+      'ENLACE_TIMEOUT', (d) => responder(d));
+    return true;
+  }
+
   if (msg?.tipo === 'SONDA_MEDIO') {
     // Cual variante de la url trae el video. Tarda: 12 s por candidato.
     pedirALaPagina('MAKO_SONDA_PIDO', 'MAKO_SONDA_OK',

@@ -30,7 +30,26 @@ import { getSupabaseServer } from './supabase';
 import { perfilDeTrabajo, type MotivoFalla } from './flow-protocolo';
 
 /** Tipos de trabajo que la extensión sabe ejecutar. */
-export type TipoTrabajo = 'subir_imagen' | 'generar_imagen' | 'generar_clip' | 'estado_clips' | 'creditos';
+export type TipoTrabajo =
+  | 'subir_imagen' | 'generar_imagen' | 'generar_clip' | 'estado_clips' | 'creditos'
+  /**
+   * Conseguir el enlace FIRMADO de un clip ya generado.
+   *
+   * ⚠️ Es el unico trabajo que NO pasa por el espejo, y por una razon medida: el
+   * enlace no vive en ninguna respuesta. `getMediaUrlRedirect?name=<id>` REDIRIGE
+   * al archivo, y ese redirect no se puede leer con `fetch` ni desde la pagina ni
+   * desde el service worker — CORS lo corta en las dos, y en modo manual el
+   * `Location` viene ilegible.
+   *
+   * Lo que si puede verlo es `webRequest`, que mira el trafico desde afuera del
+   * modelo de CORS y ya estaba en el manifest. Asi que el trabajo consiste en
+   * PROVOCAR el redirect (un <video> suelto en la pagina) y leer a donde fue.
+   *
+   * El destino es `flow-content.google/video/<id>` con `Expires`, `KeyName` y
+   * `Signature`: una url firmada que anda sin cookies y dura ~6 h. Con eso el
+   * servidor baja el archivo el mismo.
+   */
+  | 'enlace_clip';
 
 export type EstadoPuente = 'sin_conectar' | 'listo' | 'sin_sesion' | 'marcada';
 

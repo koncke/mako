@@ -178,6 +178,95 @@ async function consultarUnaVez(operacion: string, aCiegas = false): Promise<void
   });
 }
 
+/**
+ * Dónde quedan los clips ya bajados.
+ *
+ * ⚠️ PÚBLICO, como `avatars`, y con la ruta bajo el id del plan — un UUID que no
+ * se adivina. Son anuncios que el cliente va a publicar igual; el costo de que
+ * sea privado son URLs firmadas que vencen, y ya vimos esta noche lo que cuesta
+ * un puntero con fecha de vencimiento.
+ *
+ * Límite de 100 MB y sólo tipos de video: un bucket sin tope es un bucket que un
+ * día alguien llena.
+ *
+ * ⚠️ Si se agrega un bucket, va TAMBIÉN a `BUCKETS` de `lib/reset-workspace.ts`,
+ * o el reset de un workspace deja los archivos huérfanos. Ya pasó con `ig-media`.
+ */
+const BUCKET_CLIPS = 'video-clips';
+
+/**
+ * Pide al navegador del cliente el enlace FIRMADO de un clip, y lo espera.
+ *
+ * No espera adentro: encola el trabajo si no hay ninguno, y en la vuelta
+ * siguiente lo lee. La pantalla sondea cada seis segundos, así que «la vuelta
+ * siguiente» es enseguida.
+ *
+ * ⚠️ POR QUÉ HACE FALTA UN TRABAJO PARA ESTO. El enlace no vive en ninguna
+ * respuesta de Flow: `getMediaUrlRedirect?name=<id>` REDIRIGE al archivo, y ese
+ * redirect no se puede leer con `fetch` ni desde la página ni desde el service
+ * worker de la extensión. Lo único que lo ve es `webRequest`, que mira el tráfico
+ * desde afuera del modelo de CORS. Así que hay que PROVOCAR el pedido en el
+ * navegador del cliente y mirar a dónde fue.
+ */
+async function conseguirEnlace(mediaId: string): Promise<string> {
+  const db = await getTenantDb();
+  const { data } = await db
+    .from('flow_trabajos')
+    .select('id, estado, resultado')
+    .eq('tipo', 'enlace_clip')
+    .filter('pedido->>mediaId', 'eq', mediaId)
+    .order('id', { ascending: false })
+    .limit(3);
+
+  for (const t of data ?? []) {
+    if (str(t.estado) !== 'listo') continue;
+    const url = str(obj(t.resultado).url);
+    if (url) return url;
+  }
+  // Ninguno esperando: se pide. Con uno en vuelo, se espera a ése.
+  if (!(data ?? []).some((t) => ['pendiente', 'tomado'].includes(str(t.estado)))) {
+    await encolar('enlace_clip', { path: ENDPOINTS.estadoVideo, mediaId });
+  }
+  return '';
+}
+
+/**
+ * Baja el clip con su enlace firmado y lo deja en storage propio.
+ *
+ * ⚠️ SE BAJA, NO SE APUNTA. La url firmada de Google vence —medido: unas 6 h— y
+ * además el anuncio terminado son SIETE tomas que hay que pegar del lado del
+ * servidor. Un puntero con fecha de vencimiento no sirve para ninguna de las dos
+ * cosas, y el dueño lo dijo antes que nosotros: «si ya de por sí vamos a tener que
+ * descargar luego los clips para agruparlos, por qué no simplemente los descargas».
+ *
+ * Devuelve la url propia, o `''` si algo falló — y si falló, se reintenta en la
+ * vuelta siguiente sin gastar créditos: el clip ya está pagado del lado de Google.
+ */
+async function guardarClip(planId: string, n: number, firmada: string): Promise<string> {
+  try {
+    const r = await fetch(firmada);
+    if (!r.ok) return '';
+    const bytes = new Uint8Array(await r.arrayBuffer());
+    // Un archivo de cero bytes no es un clip: es un error que se ve como un video.
+    if (bytes.byteLength < 1000) return '';
+
+    const db = await getTenantDb();
+    const ruta = `video-generator/${planId}/toma-${n}.mp4`;
+    const { error } = await db.storage
+      .from(BUCKET_CLIPS)
+      .upload(ruta, bytes, { contentType: 'video/mp4', upsert: true });
+    if (error) {
+      console.error('[video] no se pudo guardar el clip:', error.message);
+      return '';
+    }
+    const { data } = db.storage.from(BUCKET_CLIPS).getPublicUrl(ruta);
+    return str(data?.publicUrl);
+  } catch (e) {
+    console.error('[video] falló la bajada del clip:', String(e));
+    return '';
+  }
+}
+
 /** El nombre de la operación que Flow devolvió al aceptar el pedido. */
 function nombreDeOperacion(resultado: unknown): string {
   // Primero la ruta REAL, medida sobre una respuesta de verdad; después la que
@@ -477,6 +566,24 @@ export async function estadoTomaAction(
       // que decirlas distinto: esperar no sirve, y volver a filmar tira un clip
       // pagado.
       if (/MEDIA_GENERATION_STATUS_SUCCESSFUL/.test(texto)) {
+        // ── EL CLIP ESTÁ HECHO: SE PIDE SU ENLACE Y SE BAJA ────────────────
+        //
+        // Todo lo de abajo es el porqué de que esto NO sea `marca.url = <url de
+        // Flow>`. Se probó y no puede funcionar.
+        const enlace = await conseguirEnlace(operacion);
+        if (enlace) {
+          const guardada = await guardarClip(planId, n, enlace);
+          if (guardada) {
+            item = await guardarMarca(item, n, {
+              url: guardada, mediaId: operacion, ciego: undefined,
+            });
+            if (typeof marca.saldoAntes === 'number') {
+              await encolar('creditos', { path: ENDPOINTS.creditos, body: {} });
+            }
+            return { ok: true, item, estado: { fase: 'listo', url: guardada, mediaId: operacion } };
+          }
+        }
+
         // ⚠️⚠️ ACÁ SE PINTABA LA URL DE FLOW EN UN <video>, Y NO PUEDE FUNCIONAR.
         //
         // Se hizo razonando que el navegador de la persona la resolvería con su

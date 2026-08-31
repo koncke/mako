@@ -71,7 +71,7 @@ const TABLAS_RESET = [
 ] as const;
 
 /** Buckets con binarios prefijados por `<ws>/`. `avatars` NO: es por usuario. */
-const BUCKETS = ['archivero', 'wa-media', 'contratos', 'branding'] as const;
+const BUCKETS = ['archivero', 'wa-media', 'contratos', 'branding', 'ig-media', 'ads-creatives', 'video-clips'] as const;
 
 export type ResultadoReset = {
   borrado: Record<string, number>;

@@ -596,6 +596,10 @@ export type PerfilTrabajo = {
 const PERFILES: Record<string, PerfilTrabajo> = {
   creditos: { accion: 'getCredits', soloLectura: true },
   estado_clips: { accion: 'batchCheckAsyncVideoGenerationStatus', soloLectura: true },
+  // No sale por el espejo —lo atiende `background.js` antes—, pero necesita perfil:
+  // sin entrada, `perfilDeTrabajo` cae al default y le pediria un captcha a algo
+  // que solo mira un redirect.
+  enlace_clip: { accion: 'getMediaUrl', soloLectura: true },
   subir_imagen: { accion: 'uploadImage', soloLectura: false },
   generar_imagen: { accion: 'batchGenerateImages', soloLectura: false },
   generar_clip: { accion: 'batchAsyncGenerateVideo', soloLectura: false },

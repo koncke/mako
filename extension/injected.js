@@ -475,6 +475,39 @@
    *
    * No reproduce nada: `preload='metadata'` trae los primeros bytes y corta.
    */
+  /**
+   * Provoca el pedido del medio para que `webRequest` vea a donde redirige.
+   *
+   * Un <video> suelto —nunca se agrega al documento— con `preload='metadata'`:
+   * pide los primeros bytes y corta. No reproduce nada y no descarga el archivo
+   * entero.
+   *
+   * No devuelve el enlace: el que lo ve es el service worker. Aca solo se
+   * dispara el pedido y se avisa cuando el elemento ya cargo algo.
+   */
+  window.addEventListener('MAKO_ENLACE_PIDO', (ev) => {
+    const { id, mediaId } = ev.detail || {};
+    const url = 'https://labs.google/fx/api/trpc/media.getMediaUrlRedirect?name=' + encodeURIComponent(mediaId || '');
+    let el = document.createElement('video');
+    el.preload = 'metadata';
+    el.muted = true;
+    const cerrar = (dato) => {
+      try { el.removeAttribute('src'); el.load(); } catch { /* ignorar */ }
+      el = null;
+      responder('MAKO_ENLACE_OK', id, dato);
+    };
+    const reloj = setTimeout(() => cerrar({ estado: 'timeout' }), 15000);
+    el.addEventListener('loadedmetadata', () => {
+      clearTimeout(reloj);
+      cerrar({ estado: 'ok', duracion: Number(el.duration) || 0 });
+    }, { once: true });
+    el.addEventListener('error', () => {
+      clearTimeout(reloj);
+      cerrar({ estado: 'error', codigo: el && el.error ? el.error.code : 0 });
+    }, { once: true });
+    el.src = url;
+  });
+
   window.addEventListener('MAKO_SONDA_PIDO', async (ev) => {
     const { id, mediaId, variantes } = ev.detail || {};
     const base = 'https://labs.google/fx/api/trpc/media.getMediaUrlRedirect?name=' + encodeURIComponent(mediaId || '');
