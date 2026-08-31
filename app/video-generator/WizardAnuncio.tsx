@@ -131,6 +131,36 @@ const EJEMPLO_CERRADO = 'min(190px, 24vh)';
 const CALLE = 16;
 
 /**
+ * QUÉ CUESTA APRETAR, siempre con el número. También cuando es cero.
+ *
+ * Martín: «prefiero que diga en lugar de "No gasta créditos" siempre la cantidad…
+ * algo como "Costo: 0". Y así también en los otros que sí cuestan».
+ *
+ * Y tiene razón por una razón que no es de gusto: «no gasta» y «gasta ~15» son
+ * dos frases con dos formas distintas, así que la persona tiene que LEERLAS para
+ * compararlas. Con el mismo molde en los dos casos, el número se compara solo —
+ * y el cero deja de ser una promesa vaga para pasar a ser un dato de la misma
+ * clase que los demás.
+ *
+ * ⚠️ UNA función y no tres literales: el costo aparece en tres pantallas y una
+ * frase copiada tres veces es la que se queda vieja cuando cambia el precio.
+ */
+export function textoCosto(creditos: number, opts: {
+  /** El costo está medido o es una estimación. */
+  estimado?: boolean;
+  /** Cuántos le quedan. `null`/`undefined` = todavía no se leyó. */
+  saldo?: number | null;
+  /** Una aclaración que cuelga del costo, como «filmar sí gasta». */
+  nota?: string;
+} = {}): string {
+  const cuanto = creditos === 0
+    ? '0 créditos'
+    : `~${creditos}${opts.estimado ? ' (estimado)' : ''} créditos`;
+  const resto = opts.saldo == null ? '' : ` · te quedan ${opts.saldo}`;
+  return `Costo: ${cuanto}${resto}.${opts.nota ? ` ${opts.nota}` : ''}`;
+}
+
+/**
  * El ancho de CADA caja del paso del escenario. Son dos, lado a lado.
  *
  * Fijo y no derivado del alto: con dos cajas 9:16 sacadas de un alto en `vh`, el
@@ -932,6 +962,10 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
       // marca TODAS sus tomas como literales.
       const conMuletillas = item.plan.clips.some((c) => !c.literal);
       return {
+        // La lista de tomas mide 760 (`maxWidth` de su contenedor). Sin declararlo
+        // la columna valía 900 y el ejemplo del costado quedaba 70 px más lejos
+        // que del otro lado del filete: «no hay el mismo espacio, hay mucho más».
+        ancho: 760,
         // ⚠️ LITERAL, no ingeniosa. Martín: «los títulos que les pones no me
         // gustan, tienen que ser más literales». «¿Dice lo que quieres decir?»
         // suena bien y no nombra la cosa: lo que se está haciendo es APROBAR EL
@@ -1282,7 +1316,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
             : opciones.length
               ? 'Sí, es este lugar'
               : 'Generar la imagen',
-        consecuencia: opciones.length ? 'No gasta créditos. Filmar sí gasta.' : 'No gasta créditos.',
+        consecuencia: textoCosto(0, opciones.length ? { nota: 'Filmar sí gasta.' } : {}),
         cargandoBoton: ocupado === 'imagen' || ocupado === 'confirmar' || generando,
         onSiguiente: opciones.length
           ? () => void correr('confirmar', () => confirmarEscenaAction(item.id, paso.n))
@@ -1300,6 +1334,8 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
       const escena1 = (item.escenas ?? []).find((e) => 1 >= e.desde && 1 <= e.hasta);
       const imagenBase = escena1 ? item.imagenes?.[String(escena1.n)]?.elegida : '';
       return {
+        // Misma fila de dos cajas que el escenario.
+        ancho: CAJA * 2 + 20,
         // ⚠️ LITERAL, y nombra lo que se esta decidiendo. Martin: «el titulo NO
         // debe ser "¿Seguimos con esta cara?" cuando estoy generando el clip...
         // justamente deberia ser "¿Apruebas este clip?"». Tiene razon: lo que se
@@ -1407,6 +1443,9 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
             : null;
 
       return {
+        // Una sola caja, un poco más grande que las del escenario porque acá es
+        // el medio que se está mirando, no una comparación.
+        ancho: CAJA + 60,
         // ⚠️ CON SALIDA. La primera version de esta pantalla dibujaba el mensaje
         // y NINGUN boton: `boton` solo se define cuando `enCurso` es falso, y a
         // ciegas sigue siendo verdadero. Martin: «ni siquiera me salta un
@@ -1435,7 +1474,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
         cuerpo: (
           <div>
             <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <Vertical fondo="#000">{dentro}</Vertical>
+              <Vertical fondo="#000" ancho={`${CAJA + 60}px`}>{dentro}</Vertical>
             </div>
             {/* ⚠️ La estimación NO se muestra cuando ya sabemos que se pasó. Un
                 «suele tardar entre 1 y 3 minutos» al lado de un cronómetro en 4:51

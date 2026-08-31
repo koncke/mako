@@ -55,7 +55,7 @@ import { editarGuionAction } from './cargar-guiones-action';
 import {
   generarTomaAction, estadoTomaAction, pedirSaldoAction, saldoAction, escribirEscenasAction,
 } from './video-action';
-import { WizardAnuncio, Estudio } from './WizardAnuncio';
+import { WizardAnuncio, Estudio, textoCosto } from './WizardAnuncio';
 import { PreviaVolante } from './PreviaVolante';
 import { TemaOscuro } from '../_components/TemaOscuro';
 import { causaFlow, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
@@ -714,12 +714,14 @@ export function VideoGeneratorApp({
    * que no se sabe. Decirle «no te alcanza» a alguien que sí tiene créditos es
    * peor que no decirle nada.
    */
-  const costoDeUnaToma = useMemo(() => {
-    const c = `~${costoClip.creditos}${costoClip.medido ? '' : ' (estimado)'}`;
-    return saldo.creditos == null
-      ? `Gasta ${c} créditos de Google. Todavía no leí cuántos te quedan.`
-      : `Gasta ${c} de tus ${saldo.creditos} créditos de Google.`;
-  }, [costoClip, saldo]);
+  const costoDeUnaToma = useMemo(() => textoCosto(costoClip.creditos, {
+    estimado: !costoClip.medido,
+    saldo: saldo.creditos,
+    // El tercer estado NO es «no alcanza»: cuando nunca se leyó el saldo se dice
+    // que no se sabe. Decirle «no te alcanza» a alguien que sí tiene créditos es
+    // peor que no decirle nada.
+    nota: saldo.creditos == null ? 'Todavía no leí cuántos te quedan.' : undefined,
+  }), [costoClip, saldo]);
 
   /** Si el saldo alcanza para lo que falta. `null` = no se sabe. */
   const alcanzaTodo = useMemo(() => {
@@ -1046,10 +1048,16 @@ export function VideoGeneratorApp({
         onSalir={() => setVista('catalogo')}
         slotRiel={slotRiel}
         plegado={rielPlegado}
-        // 520 es lo que mide la lista de guiones. Declarado y no medido: medirlo
-        // era circular —la caja se angostaba, el texto se reacomodaba, medía
-        // menos— y terminaba con las tarjetas apretadas en 290 px.
-        ancho={520}
+        // ⚠️ 560 Y NO 520. Con 520 el título «¿Cuál de tus guiones quieres
+        // grabar?» se partía en dos renglones: la columna no gobierna sólo la
+        // lista, gobierna TAMBIÉN la cabecera, y ésta necesita más aire que las
+        // tarjetas. El número tiene que ser el del elemento más ANCHO del paso,
+        // no el del que uno tenía en la cabeza.
+        //
+        // Declarado y no medido: medirlo era circular —la caja se angostaba, el
+        // texto se reacomodaba, medía menos— y terminaba con las tarjetas
+        // apretadas en 290 px.
+        ancho={560}
         onSiguiente={() => {
           if (!puedeAvanzar) return;
           // Si este guion YA tiene un plan, se abre ese en vez de mandar a
