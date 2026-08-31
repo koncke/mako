@@ -115,25 +115,37 @@ const EJEMPLO_CERRADO = 'min(190px, 24vh)';
  * mantener sincronizadas.
  */
 /**
- * La CALLE entre la columna de texto y el ejemplo.
+ * LA CALLE. Un solo número gobierna las tres distancias del borde derecho.
  *
- * ⚠️ Era 24 de cada lado + 48 de separación del grupo, o sea 72 px entre el texto
- * y el video. El dueño: «tiene que ser bastante más pegado». Un solo número
- * ahora, y los dos lados lo usan.
+ * El dueño lo especificó exacto: «la misma distancia de la línea divisoria que
+ * separa el video debería separar la sección». O sea que el filete es el EJE, no
+ * un borde: `CALLE` de aire hasta el texto de un lado, `CALLE` hasta el video del
+ * otro, y `CALLE` más entre el video y donde termina el grupo.
+ *
+ * ⚠️ Antes la calle se contaba DOS VECES: 24 adentro del riel más 48 de
+ * separación del grupo, y encima el filete quedaba pegado al texto — o sea 1 px
+ * de un lado y 68 del otro. Un divisor descentrado se lee como que algo falta de
+ * un lado, que es literalmente el diagnóstico que ya está escrito abajo para el
+ * eje vertical de este mismo filete.
  */
-const CALLE = 20;
+const CALLE = 16;
 
 /**
- * El ancho del riel. ⚠️ NO CAMBIA AL CERRAR, y eso es el arreglo.
+ * El ancho del riel. Cambia al cerrar, y eso es a propósito.
  *
- * Cerrar angostaba el riel, y como el `padding` del estudio se deriva de ese
- * ancho, TODA la columna de texto se corría a la derecha al cerrar y volvía al
- * abrir. Un control que mueve la pantalla entera hace que la persona pierda el
- * renglón que estaba leyendo — el ejemplo se cierra justamente para poder leer.
+ * ⚠️ Lo había dejado FIJO para que la columna de texto no se moviera al abrir y
+ * cerrar. El dueño lo corrigió: «como todo tiene que quedar CENTRADO siempre,
+ * cuando el video se abre, la otra sección debe desplazarse hacia la izquierda,
+ * para centrarse todo».
  *
- * Con el ancho fijo, lo único que se mueve es lo que se apretó: el ejemplo.
+ * Y tiene razón sobre lo que manda: lo que está centrado no es la columna, es el
+ * GRUPO —columna + calle + ejemplo—. Con el riel fijo, cerrar dejaba el grupo
+ * descentrado con un hueco a la derecha; con el riel variable, el conjunto
+ * respira hacia el centro. El costo —que el texto se mueva— es el precio de que
+ * la pantalla nunca quede coja.
  */
 const RIEL = `calc(${EJEMPLO} * 9 / 16 + ${2 * CALLE}px)`;
+const RIEL_CERRADO = `calc(${EJEMPLO_CERRADO} * 9 / 16 + ${2 * CALLE}px)`;
 
 
 // ── Dónde está el anuncio ───────────────────────────────────────────────────
@@ -456,7 +468,10 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
   // sumar padding que viven en otros archivos, y ese acople es lo que hacía que
   // la pieza «flotara» al cambiar cualquier cosa alrededor.
   const anchoRiel = puesta?.ejemplo
-    ? ({ ['--riel-ancho' as string]: RIEL, ['--riel-calle' as string]: `${CALLE}px` } as React.CSSProperties)
+    ? ({
+      ['--riel-ancho' as string]: ejemploAbierto ? RIEL : RIEL_CERRADO,
+      ['--riel-calle' as string]: `${CALLE}px`,
+    } as React.CSSProperties)
     : undefined;
 
   return (

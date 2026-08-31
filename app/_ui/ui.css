@@ -1159,12 +1159,17 @@
 
      900 = el ancho de la columna de contenido (los `maxWidth: 900` de adentro).
      64  = la barra lateral, que no forma parte del grupo. */
-  --riel-grupo: calc(900px + var(--riel-ancho, 0px));
+  /* El GRUPO es lo que se centra: columna + calle + riel. La calle de acá es la
+     que va entre el texto y el filete; las otras dos —filete↔video y video↔fin—
+     ya viven adentro de `--riel-ancho`. Las tres valen lo mismo, que es lo que
+     convierte al filete en un EJE en vez de un borde. */
+  --riel-grupo: calc(900px + var(--riel-calle, 16px) + var(--riel-ancho, 0px));
   --riel-derecha: max(24px, calc((100vw - 64px - var(--riel-grupo)) / 2));
   padding-left: var(--riel-derecha);
-  /* La calle ya vive ADENTRO del riel, así que no se suma de nuevo acá: sumarla
-     en los dos lados era lo que dejaba 72 px entre el texto y el video. */
-  padding-right: calc(var(--riel-derecha) + var(--riel-ancho, 0px));
+  /* ⚠️ Este `padding` no es «lo que sobra»: es lo que deja a la columna en 900 px
+     EXACTOS y pegada al filete. Sin la calle sumada acá, la columna se ensancha y
+     el texto se come el aire del divisor. */
+  padding-right: calc(var(--riel-derecha) + var(--riel-ancho, 0px) + var(--riel-calle, 16px));
   transition: padding-left .18s cubic-bezier(.16,.84,.34,1),
               padding-right .18s cubic-bezier(.16,.84,.34,1);
 }
