@@ -42,7 +42,7 @@ import { causaFlow, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
 import { creditosDeClip } from '@/lib/costo-clip';
 import { promptDeClip } from '@/lib/prompts-video';
 import { useExtensionInstalada, AvisoExtensionVieja } from './extension-instalada';
-import { FotoGrande, ModalFotos } from './ElegirFoto';
+import { Foto, FotoGrande, ModalFotos } from './ElegirFoto';
 import {
   escribirEscenasAction, corregirEscenaAction, generarImagenAction, estadoImagenAction,
   elegirImagenAction, subirImagenEscenaAction, confirmarEscenaAction,
@@ -311,8 +311,16 @@ function clave(p: Paso): string {
  * Sobre negro y SIN BORDE: un borde le pone marco a lo que tiene que no tenerlo.
  * Lo que separa el medio del fondo es su propio contenido, no una línea.
  */
-function Vertical({ children, fondo, alto = LIENZO, ancho, plano = false }: {
+function Vertical({ children, fondo, alto = LIENZO, ancho, plano = false, clase }: {
   children: React.ReactNode;
+  /**
+   * Una clase para colgarle reglas al CONTENEDOR.
+   *
+   * La usa el clip: el hover de «Regenerar» tiene que dispararse pasando el
+   * cursor por CUALQUIER parte del video, no sólo por la franja donde se
+   * clickea. Sin eso el control existe y no lo descubre nadie.
+   */
+  clase?: string;
   fondo?: string;
   /** El alto. Por defecto, el del medio que se está decidiendo. */
   alto?: string;
@@ -340,7 +348,7 @@ function Vertical({ children, fondo, alto = LIENZO, ancho, plano = false }: {
   plano?: boolean;
 }) {
   return (
-    <div style={{
+    <div className={clase} style={{
       ...(ancho ? { width: ancho } : { height: alto }),
       aspectRatio: '9 / 16', borderRadius: 18, overflow: 'hidden',
       // `--surface-2` y no un gris más oscuro: la regla de la casa es que en
@@ -641,10 +649,30 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
       if (cabe > 80) setTope((prev) => (Math.abs(prev - cabe) > 4 ? cabe : prev));
     };
     medir();
+    // ⚠️ UNA MEDICIÓN NO ALCANZA AL CAMBIAR DE PASO, y es la cuarta vez que este
+    // repo tropieza con lo mismo: **`ResizeObserver` observa TAMAÑO, no
+    // POSICIÓN**. Si la cabecera de arriba pasa de una línea a tres, el lienzo no
+    // cambia de tamaño —sólo baja—, así que el observador no dispara y el riel se
+    // queda a la altura del paso anterior. El dueño lo vio exacto: «mira cómo se
+    // quedó el título de Así se verá tu anuncio (que al cerrarlo y volverlo a
+    // abrir se pone en su lugar)» — cerrar y abrir es lo único que cambiaba un
+    // TAMAÑO y despertaba al observador.
+    //
+    // La cura es perseguir unos frames después del cambio de paso: el texto ya
+    // está, las fuentes ya cargaron, y `medir` converge en una pasada.
+    let vivo = true;
+    let f = 0;
+    const perseguir = () => {
+      if (!vivo || f++ > 8) return;
+      medir();
+      requestAnimationFrame(perseguir);
+    };
+    requestAnimationFrame(perseguir);
+
     const obs = new ResizeObserver(medir);
     obs.observe(hijo);
     if (botones.current) obs.observe(botones.current);
-    return () => obs.disconnect();
+    return () => { vivo = false; obs.disconnect(); };
   }, [paso, children, slotRiel]);
 
   const anchoRiel = puesta?.ejemplo
@@ -805,7 +833,12 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
               lee junto o no se lee. */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
             {onAtras && (
-              <Button variant="tertiary" onClick={onAtras}>{atras ?? 'Volver'}</Button>
+              // ⚠️ SE APAGA MIENTRAS TRABAJA. El principal ya se apagaba solo con
+              // `loading`, y «Volver» quedaba vivo: apretarlo con una generación
+              // en vuelo cambia de paso debajo de una acción que va a contestar
+              // sobre otra pantalla. El dueño: «el usuario puede seguir apretando
+              // botones, no queremos bugs del estilo».
+              <Button variant="tertiary" disabled={cargando} onClick={onAtras}>{atras ?? 'Volver'}</Button>
             )}
             {/* ⚠️ EL QUE AVANZA TIENE QUE PESAR MÁS QUE TODO LO DEMÁS.
                 Con `size="xl"` a secas quedaba del mismo porte que el «Volver»
@@ -1324,7 +1357,13 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
       ) : generando ? (
         <Niebla etiqueta={`Generando la imagen del escenario ${paso.n}`} desde={desde} />
       ) : marca?.elegida ? (
-        <Revela k={marca.elegida}><img src={marca.elegida} alt={escena?.lugar ?? ''} style={MEDIO} /></Revela>
+        // ⚠️ CON LOADER, no pintándose de arriba hacia abajo. El dueño ya lo
+        // había pedido para las fotos y esta imagen se había quedado afuera:
+        // «no se puso el loader en la foto que yo subí y eso hizo que se cargara
+        // como ya te mencioné que no quiero que se cargue».
+        // Una imagen que aparece por franjas se lee como una conexión rota; y
+        // acá encima es la que se está juzgando.
+        <Revela k={marca.elegida}><Foto src={marca.elegida} alt={escena?.lugar ?? ''} /></Revela>
       ) : (
         // ⚠️ ERA UN ÍCONO SUELTO EN EL MEDIO DE UNA CAJA GRIS, y el dueño lo leyó
         // como lo que parecía: «para que no quede como una imagen rota». Un ícono
@@ -1412,7 +1451,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                 >
                   <Vertical ancho={`${CAJA}px`}>
                     {fotoElegida
-                      ? <img src={fotoElegida} alt="Tu foto" style={MEDIO} />
+                      ? <Foto src={fotoElegida} alt="Tu foto" />
                       : <div style={{ color: 'var(--faint)' }}><Icon name="perfil" size={44} /></div>}
                   </Vertical>
                 </FotoGrande>
@@ -1454,6 +1493,33 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                       </button>
                       {!pidiendo ? (
                         <>
+                          {/* Las variantes que ya se generaron, para volver a
+                              cualquiera con un click. Van ARRIBA de los botones:
+                              «ya tengo una que me servía» es más barato que
+                              generar otra, así que se ofrece primero. */}
+                          {opciones.length > 1 && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginBottom: 4 }}>
+                              {opciones.map((u) => (
+                                <button
+                                  key={u}
+                                  type="button"
+                                  disabled={!!ocupado}
+                                  onClick={() => {
+                                    setRehacer(false);
+                                    void correr('elegir', () => elegirImagenAction(item.id, paso.n, u), false);
+                                  }}
+                                  title="Usar esta"
+                                  style={{
+                                    width: 44, aspectRatio: '9 / 16', borderRadius: 7, overflow: 'hidden',
+                                    padding: 0, cursor: 'pointer', lineHeight: 0,
+                                    border: u === marca?.elegida ? '2px solid var(--primary)' : '1px solid rgba(255,255,255,.35)',
+                                  }}
+                                >
+                                  <img src={u} alt="" style={MEDIO} />
+                                </button>
+                              ))}
+                            </div>
+                          )}
                           {/* El mismo par que abajo: uno pesa y el otro no. Y
                               «Decir qué cambiar» va DEBAJO, que es lo que dice
                               cuál de los dos es el camino. */}
@@ -1523,31 +1589,14 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
               />
             )}
 
-            {/* Las variantes: cambian lo que muestra el panel, no son otra
-                decisión ni otra pantalla.
-                ⚠️ La tira ENVUELVE porque ahora crece: cada regeneración suma
-                una variante en vez de pisar la anterior, y la caja mide 300 px.
-                Recortarla en silencio escondería justo la que alguien quiere
-                recuperar. */}
-            {opciones.length > 1 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 12 }}>
-                {opciones.map((u) => (
-                  <button
-                    key={u}
-                    type="button"
-                    onClick={() => void correr('elegir', () => elegirImagenAction(item.id, paso.n, u), false)}
-                    title="Usar esta"
-                    style={{
-                      width: 40, aspectRatio: '9 / 16', borderRadius: 7, overflow: 'hidden',
-                      padding: 0, cursor: 'pointer', lineHeight: 0,
-                      border: u === marca?.elegida ? '2px solid var(--primary)' : '1px solid var(--border)',
-                    }}
-                  >
-                    <img src={u} alt="" style={MEDIO} />
-                  </button>
-                ))}
-              </div>
-            )}
+            {/* ⚠️ LAS VARIANTES SE MUDARON ADENTRO DEL PANEL DE «Regenerar».
+                Estaban acá abajo, sueltas bajo la imagen, y el dueño las mandó
+                al panel: «me gusta que se vean las variaciones… pero dentro del
+                apartado de Regenerar deberían salir. No abajo».
+                Y tiene la misma razón de fondo que todo lo demás de esta
+                pantalla: elegir otra variante ES una forma de rehacer, así que
+                vive donde viven las formas de rehacer. Sueltas abajo eran una
+                cuarta salida con otro aspecto. */}
 
             {/* ⚠️ ACÁ HABÍA UN DESPLEGABLE «No sirve» CON CUATRO SALIDAS. Se fue
                 entero, y el dueño fue explícito: «NO debe existir un botón de "No
@@ -1573,7 +1622,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
         // Y sin «Filmar sí gasta»: es texto que nadie pidió, en una pantalla que
         // no filma. La consecuencia dice lo que cuesta APRETAR ESTE botón.
         consecuencia: textoCosto(0),
-        cargandoBoton: ocupado === 'imagen' || ocupado === 'confirmar' || generando,
+        cargandoBoton: !!ocupado || generando,
         onSiguiente: opciones.length
           ? () => void correr('confirmar', () => confirmarEscenaAction(item.id, paso.n))
           : () => void correr('imagen', () => generarImagenAction(item.id, paso.n), false),
@@ -1588,6 +1637,8 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
       // La imagen del escenario que se confirmo: es EL CUADRO del que salio este
       // clip, asi que es lo unico contra lo que tiene sentido compararlo.
       const escena1 = (item.escenas ?? []).find((e) => 1 >= e.desde && 1 <= e.hasta);
+      /** Se apretó rehacer y todavía no volvió: la pantalla ya lo muestra. */
+      const filmando = ocupado === 'rehacer' || (!!uno && !uno.url && !uno.error);
       const imagenBase = escena1 ? item.imagenes?.[String(escena1.n)]?.elegida : '';
       return {
         // Misma fila de dos cajas que el escenario.
@@ -1621,15 +1672,24 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                     afuera. */}
                 <Vertical ancho={`${CAJA}px`}>
                   {imagenBase
-                    ? <img src={imagenBase} alt="El cuadro del que sale el clip" style={MEDIO} />
+                    ? <Foto src={imagenBase} alt="El cuadro del que sale el clip" />
                     : contexto?.fotoUrl
-                      ? <img src={contexto.fotoUrl} alt="Tu foto" style={MEDIO} />
+                      ? <Foto src={contexto.fotoUrl} alt="Tu foto" />
                       : <div style={{ color: 'var(--faint)' }}><Icon name="perfil" size={44} /></div>}
                 </Vertical>
               </div>
               <div>
-                <Vertical fondo="#000" ancho={`${CAJA}px`}>
-                  {uno?.url ? <Revela k={uno.url}><Clip src={uno.url} controlPropio /></Revela> : null}
+                <Vertical fondo="#000" ancho={`${CAJA}px`} clase="mk-clip">
+                  {uno?.url && !filmando ? <Revela k={uno.url}><Clip src={uno.url} controlPropio /></Revela> : null}
+                  {/* ⚠️ EL LOADER ARRANCA CON EL CLICK, no cuando contesta el
+                      server. Entre apretar «Regenerar» y que la marca vuelva sin
+                      `url` pasan segundos en los que la pantalla seguía mostrando
+                      el clip viejo, entera y apretable. El dueño: «no carga
+                      INMEDIATAMENTE el loader… en esos momentos el usuario puede
+                      seguir apretando botones, no queremos bugs del estilo».
+                      El estado lo tenemos desde el instante del click (`ocupado`);
+                      lo que faltaba era dibujarlo. */}
+                  {filmando && <Niebla etiqueta={`Filmando la toma 1`} desde={desde} />}
 
                   {/* ⚠️ LA ZONA ES SOLO LA FRANJA DE ABAJO, no la caja entera.
                       Sobre una imagen el control puede ocupar todo; sobre un
@@ -1677,6 +1737,14 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                           // sobre algo que ya se está rehaciendo deja botones
                           // apretables encima de lo que no se puede cancelar.
                           setRehacerClip(false);
+                          // ⚠️ SE CLAVA LA PANTALLA. Descartar deja la toma 1 sin
+                          // `url`, y con eso `pasoDe` deja de devolver `cara` y
+                          // salta al paso de filmar — que dibuja UNA sola caja.
+                          // O sea que apretar «Regenerar» hacía desaparecer la
+                          // imagen de al lado, que es justamente contra lo que se
+                          // está comparando. El dueño: «sacó la imagen que estaba
+                          // al lado, eso no debería pasar».
+                          setForzado({ id: 'cara' });
                           void correr('rehacer', async () => {
                             const d = await descartarTomaAction(item.id, 1);
                             if (!d.ok) return d;
@@ -1732,12 +1800,32 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
         // El botón filma la toma 2, así que el costo es el DE ELLA. Antes decía
         // el número general, que en un clip corto cobraba de más en el cartel.
         consecuencia: costoDeToma(2),
-        cargandoBoton: ocupado === 'cara',
-        onSiguiente: () => void correr('cara', async () => {
-          const m = await marcarCaraVistaAction(item.id);
-          if (!m.ok) return m;
-          return generarTomaAction(item.id, 2);
-        }),
+        // Cualquier trabajo en curso apaga la fila, no sólo el de este botón:
+        // rehacer el clip corre desde el panel de arriba y también tiene que
+        // dejar la pantalla quieta.
+        cargandoBoton: !!ocupado,
+        // ⚠️ AVANZA PRIMERO Y ESCRIBE DESPUÉS. El dueño: «cuando le doy a
+        // Siguiente el botón se pone un pequeño scroll, que no entiendo por qué
+        // es, si ya está generado incluso la próxima toma… si no ejecuta nada
+        // ese botón, debería pasar inmediatamente».
+        //
+        // Tiene razón: las dos escrituras son de trámite —anotar que la cara ya
+        // se miró, y encolar la toma 2, que si ya existe devuelve lo que hay— y
+        // ninguna cambia lo que la persona va a ver a continuación. Bloquear la
+        // pantalla en un ida y vuelta para eso es cobrarle la latencia a algo que
+        // no la necesita.
+        //
+        // No es un éxito optimista: si alguna falla, el error aparece igual —
+        // `correr` lo pinta— y no se perdió nada, porque la pantalla siguiente
+        // sale del dato y el dato se vuelve a leer.
+        onSiguiente: () => {
+          setForzado({ id: 'toma', n: 2 });
+          void correr('cara', async () => {
+            const m = await marcarCaraVistaAction(item.id);
+            if (!m.ok) return m;
+            return generarTomaAction(item.id, 2);
+          }, false);
+        },
       };
     }
 
@@ -1760,11 +1848,18 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
         pregunta: `¿Qué le pides a la toma ${n}?`,
         titulo: 'Esto es lo que le llega al modelo, palabra por palabra.',
         cuerpo: (
-          <div style={{ display: 'grid', gap: 12 }}>
+          // ⚠️ ANCHO FIJO Y NO `100%`, y el número no es de gusto: el paso declara
+          // 620 y la caja de contenido del estudio mide `declarado - 60`, así que
+          // un `100%` dibujaría 560 y el ejemplo del costado —que se ubica con el
+          // ancho DECLARADO— quedaría a 44px en vez de a 16. Es la misma trampa
+          // que hoy tiene `guion-leer`. Lo que se dibuja tiene que medir lo que
+          // se declara.
+          <div className="mk-prompt" style={{ width: 620, display: 'grid', gap: 12 }}>
             <Textarea
+              className="mk-scroll-oscuro"
               value={promptTexto}
               onChange={(e) => setPromptTexto(e.target.value)}
-              rows={11}
+              rows={13}
               aria-label={`El prompt de la toma ${n}`}
             />
             {/* Deshacer tiene que existir, o la única salida de un texto mal
@@ -1785,9 +1880,11 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
             )}
           </div>
         ),
-        boton: `Filmar la toma ${n}`,
+        // El dueño lo pidió así, y además es lo correcto: se llegó acá desde
+        // «Regenerar», y el botón que cierra ese camino tiene que nombrarlo.
+        boton: `Regenerar: Toma ${n}`,
         consecuencia: costoDeToma(n),
-        cargandoBoton: ocupado === 'prompt',
+        cargandoBoton: !!ocupado,
         onSiguiente: () => void correr('prompt', async () => {
           // Guardar y filmar son dos escrituras y van EN ESTE ORDEN: si se
           // filmara primero, el clip saldría con el prompt viejo y el texto nuevo
@@ -1888,8 +1985,20 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
             false,
           ),
         } : {}),
+        // ⚠️ MIENTRAS EL LOADER CORRE, LA PANTALLA DICE QUE ESTÁ FILMANDO Y
+        // NADA MÁS. El dueño: «el mensaje ese que aparece debajo NO debería
+        // aparecer si sigue en loader… el usuario entiende que se está
+        // generando. Mensajes solo cuando es error y no se pudo generar».
+        //
+        // Y es más verdadero así: `ciego` NO es un fallo — es «Google lo aceptó
+        // y no podemos leer cómo va». Un rechazo escribe `error`, que sí cambia
+        // el título. Anunciar «MaKo no puede leer cómo va» sobre un clip que
+        // probablemente esté llegando bien asusta por algo nuestro.
+        //
+        // La salida no se pierde: el detalle y «volver a filmar» siguen en el
+        // pliegue de abajo, que es un pliegue y no un mensaje.
         pregunta: enCurso
-          ? (txtCiego ? txtCiego.titulo : `Filmando la toma ${n}`)
+          ? `Filmando la toma ${n}`
           : txt
             ? `La toma ${n} no salió`
             : anterior
@@ -1904,7 +2013,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                 «suele tardar entre 1 y 3 minutos» al lado de un cronómetro en 4:51
                 no es un dato optimista: es la pantalla afirmando que todo va
                 normal cuando el servidor ya sabe que no. */}
-            {enCurso && !txtCiego && (
+            {enCurso && (
               <div style={{ textAlign: 'center', marginTop: 12, fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>
                 Suele tardar entre 1 y 3 minutos.
               </div>
@@ -1932,9 +2041,12 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
             )}
             {txtCiego && (
               <div style={{ textAlign: 'center', marginTop: 12 }}>
-                <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.5 }}>
-                  {txtCiego.detalle}
-                </div>
+                {/* ⚠️ ACÁ IBA EL PÁRRAFO DE `ciego`, Y SE FUE. El dueño: «el
+                    mensaje ese que aparece debajo NO debería aparecer si sigue en
+                    loader… mensajes solo cuando es error y no se pudo generar».
+                    Lo que queda es el pliegue, que es un pliegue y no un mensaje:
+                    quien quiera saber por qué lo abre, y el que sólo está
+                    esperando ve un loader y un «suele tardar 1 a 3 minutos». */}
 
                 {/* ── UN SOLO PLIEGUE, Y CERRADO ──────────────────────────
                     Acá había DOS `Salidas` sueltas —una para el error crudo y
@@ -2077,7 +2189,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
         // gasta; decir «~15 créditos» sobre un botón que no cobra es mentir al
         // revés, y no decir nada obliga a adivinar.
         consecuencia: enCurso ? undefined : caraRechazada ? textoCosto(0) : costoDeToma(n),
-        cargandoBoton: ocupado === 'filmar' || ocupado === 'rehacer-escena',
+        cargandoBoton: !!ocupado,
         onSiguiente: enCurso
           ? undefined
           : caraRechazada
