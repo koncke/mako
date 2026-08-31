@@ -20,6 +20,7 @@
 // La automatización que arregló el olvido de importar creó un olvido nuevo, más silencioso.
 
 import { execSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 
 // ⚠️ SE PREGUNTA POR EL COMMIT (HEAD), NO POR EL ARBOL DE TRABAJO.
 //
@@ -53,8 +54,65 @@ const trackeados = new Set(
 
 const faltan = imports.filter((i) => !trackeados.has(i));
 
+/**
+ * ── Y LA MISMA PREGUNTA UN ESCALÓN MÁS ABAJO: ¿la ficha promete texto que está en git? ──
+ *
+ * Cada clase con `hasTx: true` hace que el portal ofrezca la pestaña «Transcripción» y
+ * busque `/cono-tx/<videoId>.json`. Si la ficha se commiteó y el .json no, el fetch da 404,
+ * el `.catch(() => setTx(null))` de CursoReplica.tsx lo deja en nada, y el usuario ve una
+ * pestaña VACÍA. No hay error, no hay pantalla rota, no hay nada que lleve hasta acá.
+ *
+ * Es el mismo agujero que el de arriba —lo que está en el árbol no es lo que se publica—
+ * corrido una capa: ahí el catálogo nombraba fichas, acá las fichas nombran archivos.
+ * Medido el 31/08/2026: 703 .json fuera de git y siete cursos publicados sin una sola
+ * transcripción.
+ *
+ * ⚠️ BLOQUEA SOLO LO QUE SE PUEDE ARREGLAR COMMITEANDO: el archivo está en el disco y no
+ *    en el commit. Si tampoco está en el disco, lo que está mal es el `hasTx` de la ficha
+ *    y no hay nada que subir — frenar ahí convertiría la guarda en un candado que nadie
+ *    puede abrir, y lo que se aprende de un guard así es a saltearlo. Esos se avisan.
+ */
+const enGit = new Set(
+  execSync('git ls-tree -r --name-only HEAD public/cono-tx', { encoding: 'utf8', maxBuffer: 1 << 28 })
+    .split('\n').map((s) => s.trim()).filter(Boolean),
+);
+const sinCommitear = [];
+const sinArchivo = [];
+for (const f of imports.filter((i) => trackeados.has(i))) {
+  let src;
+  try { src = enHead(`app/conocimientos/${f}.ts`); } catch { continue; }
+  // Dentro de un objeto de clase no hay llaves entre `videoId` y `hasTx`, así que
+  // `[^{}]` alcanza para no cruzarse de clase.
+  for (const m of src.matchAll(/videoId: '([^']+)',[^{}]*?hasTx: true/g)) {
+    const ruta = `public/cono-tx/${m[1]}.json`;
+    if (enGit.has(ruta)) continue;
+    (existsSync(ruta) ? sinCommitear : sinArchivo).push({ f, ruta });
+  }
+}
+if (sinArchivo.length) {
+  // No frena: no hay nada que commitear. Pero se dice, porque son clases que prometen
+  // un texto que no existe en ningún lado.
+  const cursos = [...new Set(sinArchivo.map((x) => x.f))];
+  console.log(`  ⚠ ${sinArchivo.length} clase(s) declaran hasTx y no tienen .json ni en disco:`
+    + ` ${cursos.slice(0, 4).join(', ')}${cursos.length > 4 ? ` y ${cursos.length - 4} más` : ''}`);
+}
+if (sinCommitear.length) {
+  const cursos = [...new Set(sinCommitear.map((x) => x.f))];
+  console.error(`\n  ✖ ${sinCommitear.length} TRANSCRIPCION(ES) ESTÁN EN EL DISCO Y NO EN EL COMMIT.`);
+  console.error('    Esos cursos ya están publicados: la pestaña «Transcripción» les sale VACÍA.\n');
+  for (const c of cursos) {
+    const n = sinCommitear.filter((x) => x.f === c).length;
+    console.error(`      · ${c}: ${n} clase(s)`);
+  }
+  console.error('\n    Se arregla commiteándolas:');
+  console.error('      git add public/cono-tx/');
+  console.error('      git commit\n');
+  process.exit(1);
+}
+
 if (!faltan.length) {
-  console.log(`  ✓ las ${imports.length} fichas que importa el catálogo commiteado existen en el commit.`);
+  console.log(`  ✓ las ${imports.length} fichas que importa el catálogo commiteado existen en el commit,`
+    + ' con su transcripción.');
   process.exit(0);
 }
 

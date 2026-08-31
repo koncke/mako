@@ -59,6 +59,18 @@ di "  $PEND archivo(s) del pipeline sin commitear"
 #    hacen los dos `slice(0,fin) + texto + slice(fin)`: agregan bloques y no tocan una sola
 #    linea existente. Asi que en un diff suyo NO HAY NINGUNA LINEA BORRADA. Una `-` es una
 #    persona, siempre — y esa pregunta no envejece con el formato del archivo.
+# ⚠️ `public/cono-tx/` VA EN LA MISMA LISTA QUE LA FICHA. Es el texto de cada clase, y la
+#    ficha lo declara con `hasTx: true`. Si la ficha se commitea y el .json no, el curso se
+#    publica, la pestaña «Transcripción» APARECE y sale vacía: el fetch a
+#    /cono-tx/<videoId>.json da 404 y el `.catch(() => setTx(null))` de CursoReplica.tsx lo
+#    deja en nada. Sin error, sin 404 visible, sin ningún síntoma que lleve acá.
+#
+#    Medido el 31/08/2026: 703 transcripciones en disco y fuera de git, y SIETE cursos ya
+#    publicados con el 100% de su texto faltando —belikethealgo, growth-partner,
+#    academia-de-lanzamiento, ecommerce-0-a-17-millones, club-de-negocios, udia e
+#    instituto-de-marca-personal—. Históricamente las subían los commits A MANO («cursos:
+#    X publicado»); cuando la cola pasó a automática, ese paso se quedó afuera y nadie lo
+#    notó porque el curso se ve perfecto: la portada, las clases y el video están.
 BORRADAS=$(git diff -U0 -- app/conocimientos/catalogo.ts \
   | grep -cE '^-[^-]' || true)
 AJENO=${BORRADAS:-0}
@@ -66,9 +78,9 @@ if [ "$AJENO" -gt 0 ]; then
   di "  ⚠️ catalogo.ts tiene $AJENO linea(s) BORRADAS, y el pipeline nunca borra:"
   di "     alguien lo está editando a mano. NO lo commiteo — solo fichas y tapas."
   di "     (los cursos nuevos quedan sin aparecer hasta que esa persona lo commitee)"
-  git add app/conocimientos/curso-*.ts public/cono-portadas/ 2>/dev/null
+  git add app/conocimientos/curso-*.ts public/cono-portadas/ public/cono-tx/ 2>/dev/null
 else
-  git add app/conocimientos/curso-*.ts app/conocimientos/catalogo.ts public/cono-portadas/ 2>/dev/null
+  git add app/conocimientos/curso-*.ts app/conocimientos/catalogo.ts public/cono-portadas/ public/cono-tx/ 2>/dev/null
 fi
 
 if git diff --cached --quiet; then
