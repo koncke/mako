@@ -3276,3 +3276,79 @@ fechaba el rechazo, `errorCausa` decía `persona_publica`, y el `errorCrudo` no
 alcanzaba a contener la evidencia — tres respuestas de tres defectos distintos en
 un solo registro. Es la regla de la casa: cuando N cosas fallan, contá cuántas
 CAUSAS hay antes de buscar la causa.
+
+
+## Auditoría del /video-generator: dónde se pierde trabajo pagado
+
+**Vive en:** `app/video-generator/` (`video-action.ts`, `WizardAnuncio.tsx`,
+`video-datos.ts`, `puente-actions.ts`)
+
+Corrida de 23 agentes el 31/08/2026, con un escéptico por hallazgo: **19
+hallazgos, 16 sobrevivieron**. Cuatro ángulos —qué destruye trabajo, qué deja sin
+salida, qué se calcula y no se dibuja, qué estado sobrevive a su causa—.
+
+El patrón que comparten casi todos y que conviene tener a mano: **este módulo
+gasta créditos reales, y sus fallas no dan error — dan una pantalla plausible.**
+
+### Lo que se arregló
+
+| Qué pasaba | Por qué |
+|---|---|
+| «Rehacer la toma N» borraba el clip pagado antes de saber si podía refilmar | Es `descartar` + `generar` en un click, y `generar` tiene CINCO puertas que devuelven sin filmar. Ahora se archiva (`MarcaVideo.descartadas`) |
+| El .mp4 nuevo pisaba el anterior | `guardarClip` subía a una ruta fija con `upsert: true`. Ahora la ruta lleva la operación |
+| Un enlace firmado vencido tapaba el pedido de uno nuevo | El `return` del enlace estaba ARRIBA del re-encolado: un clip pagado quedaba inalcanzable **para siempre** |
+| El diagnóstico se borraba antes de esos cinco guards | Una toma rechazada se veía como una que nunca se intentó |
+| `ciego.error` se calculaba y se pintaba el genérico | El parámetro `delServidor` ya existía y nadie se lo pasaba |
+| «Atrás» de una toma iba al ÚLTIMO escenario | Y tocar una variante ahí reabría un paso ya cerrado |
+
+### Lo que quedó SIN hacer
+
+**Cambiar la foto no invalida la imagen del escenario ya generada**
+(`video-action.ts`, `elegirFotoAction`). Y es la cura DOCUMENTADA para el rechazo
+`persona_publica`: la persona cambia la foto, aprieta Continuar… y «Continuar»
+CONFIRMA la imagen vieja en vez de rehacerla. El selector de fotos no gobierna
+nada una vez que la imagen existe. **Éste es el más caro de los pendientes.**
+
+**El anuncio terminado es una puerta de un solo sentido**
+(`WizardAnuncio.tsx`, paso `listo`). El «Atrás» está escrito y no se dibuja
+nunca: `Volver` vive adentro del `{boton && …}` de `Estudio`, así que desaparece
+en toda pantalla sin botón principal. Con eso quedan inalcanzables los pliegues
+«Rehacer la toma N» de los siete clips.
+
+**«Volver» desde «¿Apruebas este clip?» cae en una toma ya filmada** cuyo botón
+promete cobrar ~15 créditos y no hace nada — el freno de plata devuelve `ok` sin
+generar. Es el éxito falso servido por el camino más natural que existe.
+
+**El paso del escenario tiene el defecto que la toma ya arregló**: el rótulo sale
+de `txt.accion` y el `onClick` llama siempre a `generarImagenAction`. Con el
+filtro de contenido el botón dice «Decir qué cambiar» y reenvía el mismo prompt.
+Las dos curas —reescribir el prompt, subir tu propia imagen— están implementadas
+en el server y son inalcanzables desde la pantalla justo en el estado en que
+hacen falta.
+
+**Si MaKo no logra escribir los escenarios, la pantalla queda sin un solo botón**
+y reintenta sola cada pocos segundos, sin tope y sin que nada lo cuente.
+
+**«Ya lo hice, volver a habilitar» borra TODOS los trabajos fallidos del
+workspace** (`puente-actions.ts`), no sólo los que mató la marca de sesión: se
+lleva la evidencia cruda de toda falla anterior — justo lo que este módulo se
+esforzó en conservar.
+
+**El tope de 10 del historial evicta un anuncio terminado sin avisar** y
+huerfaniza sus siete clips: los .mp4 siguen en el bucket colgados de un `planId`
+que sólo vivía en esa fila de `app_settings`.
+
+**`fotoId` y el mapa `flow.caras` sobreviven al borrado de la foto**: se sigue
+generando con una cara que ya no existe, mientras la pantalla muestra otra.
+
+**4 de los 7 campos de `EstadoContextoVideo` se calculan en cada carga y no los
+lee nadie** — dos consultas por página cuyo resultado se descarta, incluido el
+aviso que el propio módulo declara como su razón de leer el perfil.
+
+### Y el método, que es lo que se reusa
+
+Los cuatro ángulos se eligieron por **modo de falla**, no por archivo: qué
+destruye, qué deja sin salida, qué no se dibuja, qué queda viejo. Esa partición
+es la que hizo que 23 agentes no se pisaran — y el escéptico por hallazgo mató 3
+de 19, todos por la misma razón: describían un camino que un guard de más arriba
+ya impedía.
