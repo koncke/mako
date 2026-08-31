@@ -29,6 +29,7 @@ export const CURSO_TRADING_ARELIS_RODRIGUEZ_2025: Curso = {
   titulo: 'Curso de Trading Arelis Rodriguez 2025',
   subtitulo: '16 clases, 1 módulo. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '11,0 h',
+  portada: '/cono-portadas/trading-arelis-rodriguez-2025.jpg',
   recursos: [
 
   ],
@@ -183,6 +184,7 @@ export const CURSO_TRADING_ARELIS_RODRIGUEZ_2025: Curso = {
       videoId: '1XLsvNmQA48LxBHdz8TExzNVmWCdztgww',
       resumen: '',
       transcripcion: [],
+      hasTx: true,
       recursoSlugs: [],
       herramientas: [],
     },

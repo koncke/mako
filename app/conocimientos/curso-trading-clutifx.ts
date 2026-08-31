@@ -29,6 +29,7 @@ export const CURSO_TRADING_CLUTIFX: Curso = {
   titulo: 'Curso de Trading ClutiFX - Carles Clotet',
   subtitulo: '11 clases, 1 módulo. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '5,0 h',
+  portada: '/cono-portadas/trading-clutifx.jpg',
   recursos: [
 
   ],

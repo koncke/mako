@@ -29,6 +29,7 @@ export const CURSO_US30_2_0: Curso = {
   titulo: 'Curso US30 2.0 - Gregory Trejo',
   subtitulo: '6 clases, 1 módulo. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '16,1 h',
+  portada: '/cono-portadas/us30-2-0.jpg',
   recursos: [
 
   ],

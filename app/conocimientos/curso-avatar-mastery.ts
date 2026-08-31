@@ -29,6 +29,7 @@ export const CURSO_AVATAR_MASTERY: Curso = {
   titulo: 'AVATAR MASTERY - Ava Digital',
   subtitulo: '15 clases, 10 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '2,4 h',
+  portada: '/cono-portadas/avatar-mastery.jpg',
   recursos: [
 
   ],
