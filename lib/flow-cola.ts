@@ -216,11 +216,26 @@ export async function encolar(tipo: TipoTrabajo, pedido: Record<string, unknown>
   // conocerlo. Cada cosa que la extensión sabe de memoria es una versión nueva —y
   // una revisión de la Chrome Web Store— el día que cambie.
   const { accion, soloLectura } = perfilDeTrabajo(tipo);
-  const { data } = await db
+  const { data, error } = await db
     .from('flow_trabajos')
     .insert({ tipo, pedido: { ...pedido, accion, soloLectura }, estado: 'pendiente' })
     .select('id')
     .maybeSingle();
+
+  // ⚠️ UN ENCOLADO QUE FALLA TIENE QUE DECIRLO.
+  //
+  // Esto devolvia `null` en silencio, y el 31/08/2026 costo una vuelta entera de
+  // diagnostico: el tipo `enlace_clip` no estaba en el CHECK de la columna, asi
+  // que la base rechazaba el insert, `encolar` contestaba `null`, y la pantalla se
+  // quedaba esperando un trabajo QUE NUNCA EXISTIO. Todo el codigo de la bajada
+  // estaba desplegado y funcionando; lo unico roto era una lista de la migracion.
+  //
+  // Y el sintoma era indistinguible de «todavia no termino», que es la forma mas
+  // cara de fallar: manda a revisar lo que si funciona.
+  if (error) {
+    console.error(`[flow] no se pudo encolar ${tipo}: ${error.message}`);
+    return null;
+  }
   const id = Number(data?.id);
   return Number.isInteger(id) ? id : null;
 }
