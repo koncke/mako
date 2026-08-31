@@ -119,6 +119,7 @@ import { CURSO_BELIKETHEALGO } from './curso-belikethealgo';
 import { CURSO_GROWTH_PARTNER } from './curso-growth-partner';
 import { CURSO_GEMINI_NOTEBOOK_LM_Y_WORKSPACE } from './curso-gemini-notebook-lm-y-workspace';
 import { CURSO_IMPORTADOR_PRO_LEGACY } from './curso-importador-pro-legacy';
+import { CURSO_MIDAS_CONCEPT } from './curso-midas-concept';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio.datos';
 import { CURSO_BRANDING } from './BrandingMaKo.datos';
@@ -413,6 +414,10 @@ const CATEGORIA: Record<string, string> = {
   // plataforma. El comentario al lado es la categoría de origen.
   'importador-pro-legacy': 'Ecommerce',    // Ecommerce
 
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'midas-concept': 'Negocios digitales',   // Agencias
+
 };
 
 /**
@@ -611,6 +616,10 @@ const PORTADA: Record<string, string> = {
   // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
   // pero la ficha se había emitido antes de que existiera.
   'importador-pro-legacy': '/cono-portadas/importador-pro-legacy.jpg',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'midas-concept': '/cono-portadas/midas-concept.png',
 
 };
 
@@ -934,6 +943,10 @@ const RESUMEN: Record<string, string> = {
   // del catálogo de la plataforma.
   'importador-pro-legacy': 'Programa avanzado de importaciones y ecommerce para generar entre $30.000 y $100.000 USD al año con importaciones, con acceso directo a Woker y a un despachante oficial.',
 
+  // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
+  // del catálogo de la plataforma.
+  'midas-concept': 'Aprende la metodología MIDAS de la A a la Z para crear tu propio negocio de infoproductos. Este curso básico te enseña cómo crear.',
+
 };
 
 // Sin acentos y en minúsculas, para que «Sofia» no se sume a un título que ya dice
@@ -1236,6 +1249,9 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_IMPORTADOR_PRO_LEGACY,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_MIDAS_CONCEPT,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
