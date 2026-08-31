@@ -1842,3 +1842,16 @@
   86% { transform: translateY(-5px) }
 }
 @media (prefers-reduced-motion: reduce) { .mk-puntero__flecha { animation: none } }
+
+
+/* La flecha que SEÑALA algo al costado. Mismo cabeceo que `.mk-puntero__flecha`
+   —corto y espaciado, llama al ojo una vez y se queda quieta— pero en el eje que
+   corresponde: una flecha horizontal que sube y baja no señala, tiembla. */
+.mk-flecha-señala { animation: mk-senala-x 2.6s ease-in-out infinite; }
+@keyframes mk-senala-x {
+  0%, 62%, 100% { transform: translateX(0) }
+  70% { transform: translateX(-6px) }
+  78% { transform: translateX(0) }
+  86% { transform: translateX(-6px) }
+}
+@media (prefers-reduced-motion: reduce) { .mk-flecha-señala { animation: none } }

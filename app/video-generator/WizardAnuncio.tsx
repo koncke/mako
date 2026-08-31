@@ -672,7 +672,11 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
                 seguí» eso deja las dos salidas empatadas. Se le da ancho mínimo y
                 aire propio: el peso de un botón es lo que dice, en un segundo,
                 cuál es el camino. */}
-            <div style={{ minWidth: 220 }}>
+            {/* ⚠️ LA CONSECUENCIA VA ADENTRO DE ESTA COLUMNA, no debajo de la
+                fila. Centrada en la fila quedaba corrida a la izquierda —la fila
+                incluye el «Volver»— y una línea que dice lo que cuesta apretar
+                tiene que estar debajo del botón que cobra, no debajo del par. */}
+            <div style={{ minWidth: 220, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <Button
                 variant="primary"
                 size="xl"
@@ -683,17 +687,14 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
               >
                 {boton}
               </Button>
+              {consecuencia && (
+                <div style={{ marginTop: 10, fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>
+                  {consecuencia}
+                </div>
+              )}
             </div>
           </div>
-          {/* La consecuencia PEGADA al botón y antes del click. En blanco al 70%:
-              se lee, y no compite con el botón. */}
-          {consecuencia && (
-            <div style={{
-              marginTop: 10, fontSize: 'var(--fs-sm)', color: 'var(--dim)',
-            }}>
-              {consecuencia}
-            </div>
-          )}
+
         </div>
       )}
 
@@ -1114,19 +1115,22 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
           display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
           gap: 10, padding: '24px 22px', textAlign: 'left', color: 'var(--dim)',
         }}>
-          {/* ⚠️ Era una curva de 2 px que terminaba en dos rayitas: a ese tamaño
-              una flecha fina no se lee como flecha, se lee como una raya suelta —
-              «mira esa flecha». Un triángulo lleno sobre un asta gruesa se
-              reconoce como flecha aunque mida 20 px, porque lo que la define es
-              la MASA de la punta, no la línea. */}
-          <svg width="96" height="30" viewBox="0 0 96 30" fill="none" aria-hidden="true">
-            <path
-              d="M92 6C66 6 40 9 22 15"
-              stroke="currentColor"
-              strokeWidth="3.4"
-              strokeLinecap="round"
-            />
-            <path d="M4 15L26 5.5V24.5L4 15Z" fill="currentColor" />
+          {/* ⚠️ RECTA. Probé una curva dos veces y las dos quedaron mal: a este
+              tamaño una curva fina no se lee como flecha, se lee como un
+              rasguño. Una recta con punta maciza se reconoce siempre, y además
+              dice mejor lo que tiene que decir — señala UN lugar, no un camino.
+              El cabeceo es el mismo de `.mk-puntero`, en horizontal porque acá
+              la flecha apunta al costado. */}
+          <svg
+            className="mk-flecha-señala"
+            width="86"
+            height="18"
+            viewBox="0 0 86 18"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path d="M84 9H26" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" />
+            <path d="M2 9L26 0V18L2 9Z" fill="currentColor" />
           </svg>
           <div style={{ fontSize: 'var(--fs-md)', fontWeight: 650, color: 'var(--ink)' }}>
             Elige tu foto
@@ -1142,7 +1146,11 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
         ancho: CAJA * 2 + 20,
         pregunta: sinEscenas
           ? 'Buscando dónde se filma'
-          : opciones.length ? '¿Sirve esta imagen?' : '¿Dónde se filma?',
+          // ⚠️ «¿Apruebas tu avatar?» y no «¿Dónde se filma?». El lugar ya está
+          // escrito abajo, en el subtítulo; lo que la pantalla PIDE es aprobar la
+          // cara con la que se va a filmar. El título nombra la decisión, no el
+          // dato — un título que describe el contenido deja la pregunta muda.
+          : opciones.length ? '¿Sirve esta imagen?' : '¿Apruebas tu avatar?',
         titulo: escena?.lugar,
         cuerpo: (
           <div>

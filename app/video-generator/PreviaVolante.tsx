@@ -208,6 +208,17 @@ export function PreviaVolante({ puesta, estacion, cajaTarjeta, slotCentro, slotR
         // el hueco cambia de tamaño (el riel se pliega y se despliega).
         obs = new ResizeObserver(reencajar);
         obs.observe(destino);
+        // ⚠️ Y TAMBIÉN EL CUERPO DE LA PÁGINA. Es la misma trampa de siempre —un
+        // `ResizeObserver` mira TAMAÑO, no posición— pero por el otro lado: al
+        // cambiar de paso, el hueco NO cambia de medida, se MUEVE (el paso trae
+        // otro alto de cabecera, y con él otro `--riel-arriba`). El observador no
+        // dice nada y el ejemplo se queda en la posición del paso anterior, tapando
+        // el texto, hasta que un scroll lo corrige por casualidad — que es
+        // exactamente el síntoma reportado al apretar «Volver».
+        //
+        // El cuerpo sí cambia de alto en cada paso, así que observarlo es el aviso
+        // barato de «acá se reacomodó todo».
+        obs.observe(document.body);
         return;
       }
       if (++intentos > TOPE) return;
