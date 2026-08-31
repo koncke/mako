@@ -1197,53 +1197,56 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                 <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.5 }}>
                   {txtCiego.detalle}
                 </div>
-                {/* Lo que Google dijo, TAL CUAL y plegado. La traducción no lo
-                    reemplaza: sin el crudo, el que investiga después no tiene con
-                    qué empezar. */}
-                {ciego?.crudo && (
-                  <div style={{ marginTop: 10 }}>
-                    <Salidas resumen="Ver lo que respondió Google">
-                      <pre style={{
-                        margin: 0, textAlign: 'left', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                        fontSize: 'var(--fs-meta)', color: 'var(--dim)', fontFamily: 'var(--mono, monospace)',
-                      }}>
-                        {ciego.crudo}
-                      </pre>
-                    </Salidas>
-                  </div>
-                )}
-              </div>
-            )}
-            {txt && (
-              <div style={{ textAlign: 'center', marginTop: 12, fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>
-                {txt.detalle}
-              </div>
-            )}
-            {/* ── LA SALIDA DE EMERGENCIA ──────────────────────────────────
-                A ciegas hay que poder abandonar esta toma, y va PLEGADA porque no
-                es lo primero que conviene hacer: la toma se acepto y se pago, asi
-                que volver a filmarla cobra un segundo clip por uno que
-                probablemente ya existe. Primero se pregunta de nuevo; esto es
-                para cuando ya no vale la pena esperar.
 
-                El resumen dice el COSTO, que es lo unico que decide. */}
-            {txtCiego && (
-              <div style={{ marginTop: 14 }}>
-                <Salidas resumen={`Abandonar la toma ${n} y volver a filmarla · ~15 créditos`}>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    loading={ocupado === 'rehacer-ciega'}
-                    disabled={!!ocupado}
-                    onClick={() => void correr('rehacer-ciega', async () => {
-                      const d = await descartarTomaAction(item.id, n);
-                      if (!d.ok) return d;
-                      return generarTomaAction(item.id, n);
-                    }, false)}
-                  >
-                    {`Volver a filmar la toma ${n}`}
-                  </Button>
-                </Salidas>
+                {/* ── UN SOLO PLIEGUE, Y CERRADO ──────────────────────────
+                    Acá había DOS `Salidas` sueltas —una para el error crudo y
+                    otra para abandonar la toma— más el párrafo largo, todo
+                    apilado debajo del lienzo y por encima del botón principal.
+                    Tres bloques de texto centrado del mismo peso: nada se leía
+                    primero, y lo único que había que apretar quedaba al final.
+
+                    Ahora es uno. Adentro va lo que casi nadie necesita —lo que
+                    contestó Google— y lo que casi nadie debería apretar
+                    —rehacer la toma, que cobra un segundo clip por uno que
+                    probablemente ya existe—. Y el resumen dice las dos cosas,
+                    así que se sabe qué hay adentro sin abrirlo. */}
+                <div style={{ marginTop: 14 }}>
+                  <Salidas resumen="Ver el detalle · o volver a filmar esta toma">
+                    <div style={{ width: '100%', maxWidth: 520 }}>
+                      {/* El crudo, ACOTADO. Sin tope, el JSON de Google son
+                          nueve renglones de monoespaciada alineados a la
+                          izquierda que se comen la pantalla — y la evidencia no
+                          puede pesar más que la salida. Se conserva entero
+                          (nunca se recorta el error: es la única pista para el
+                          que investiga), pero scrollea adentro de su caja. */}
+                      {ciego?.crudo && (
+                        <pre style={{
+                          margin: '0 0 14px', textAlign: 'left', whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word', maxHeight: 160, overflowY: 'auto',
+                          padding: '10px 12px', borderRadius: 'var(--r-sm)',
+                          background: 'var(--surface-2)', border: '1px solid var(--border)',
+                          fontSize: 'var(--fs-meta)', color: 'var(--dim)',
+                          fontFamily: 'var(--mono, monospace)', lineHeight: 1.45,
+                        }}>
+                          {ciego.crudo}
+                        </pre>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        loading={ocupado === 'rehacer-ciega'}
+                        disabled={!!ocupado}
+                        onClick={() => void correr('rehacer-ciega', async () => {
+                          const d = await descartarTomaAction(item.id, n);
+                          if (!d.ok) return d;
+                          return generarTomaAction(item.id, n);
+                        }, false)}
+                      >
+                        {`Volver a filmar la toma ${n} · ~15 créditos`}
+                      </Button>
+                    </div>
+                  </Salidas>
+                </div>
               </div>
             )}
 

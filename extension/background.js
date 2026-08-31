@@ -447,25 +447,45 @@ async function ejecutar(trabajo) {
   // Es acotado a proposito: SOLO `operations`, que es el unico array que un
   // pedido nuestro manda hoy. Convertir cualquier array a parches a ciegas seria
   // inventar una regla para casos que no existen.
+  // ⚠️ Y `operations` NO ES EL CAMPO. Medido el 31/08/2026 sobre el pedido que
+  // hace la propia pagina de Flow: el cuerpo real es
+  // `{"media":[{"name":…,"projectId":…}]}`. `operations` no existe, y por eso
+  // Google contestaba «Request contains an invalid argument».
+  //
+  // Un servidor viejo puede seguir mandando la forma equivocada durante todo lo
+  // que dure una pestana abierta, asi que la traduccion vive aca: se saca el
+  // nombre de donde estaba y se escribe donde va.
   let body = pedidoOriginal;
   if (body && Array.isArray(body.operations)) {
     const parchesDelCuerpo = {};
     body.operations.forEach((op, i) => {
-      const nombre = op && op.operation && op.operation.name;
-      if (nombre) parchesDelCuerpo[`operations.${i}.operation.name`] = nombre;
+      const nombre = op && (op.name || (op.operation && op.operation.name));
+      if (nombre) parchesDelCuerpo[`media.${i}.name`] = nombre;
     });
     if (Object.keys(parchesDelCuerpo).length) {
+      // Los del pedido ganan: son mas especificos que esta traduccion.
       parches = { ...parchesDelCuerpo, ...(parches || {}) };
       const { operations, ...resto } = body;
       body = Object.keys(resto).length ? resto : null;
-      console.log('[mako] cuerpo con operations convertido a parches (servidor viejo)');
+      console.log('[mako] cuerpo viejo con `operations` traducido a `media` (servidor viejo)');
     }
   }
 
   const tieneCuerpo = !!body && Object.keys(body).length > 0;
   let cuerpo = tieneCuerpo ? { ...body } : null;
 
-  // ⚠️ `soloLectura` VOLVIO A MEZCLAR DOS CONCEPTOS, Y ES LA TERCERA VEZ.
+  // ⚠️ ACA HUBO UN clientContext INVENTADO, Y DURO UN COMMIT.
+  //
+  // Se agrego razonando que `estado_clips` era el unico tipo con parametros que
+  // no lo recibia de nadie. El razonamiento era correcto y la conclusion no: el
+  // cuerpo MEDIDO de este pedido es `{"media":[…]}` y NO LLEVA clientContext.
+  // Agregarselo era exactamente el antipatron que el espejo existe para evitar —
+  // nuestro dato inventado ganandole al copiado— y habria sido un segundo campo
+  // que Google no reconoce encima del primero.
+  //
+  // Lo que quedo es el nombre del flag, que si valia la pena: `SIN_CAPTCHA` dice
+  // la unica decision que toma, en vez de invitar a colgarle comportamientos.
+  // ⚠️ `soloLectura` MEZCLABA DOS CONCEPTOS, Y ESO ROMPIO ESTA MISMA CONSULTA.
   //
   // Significa «no necesita captcha». Y de hecho significaba tambien «no manda
   // cuerpo» —eso ya se arreglo una vez, con su comentario— y ahora resulta que
@@ -483,15 +503,6 @@ async function ejecutar(trabajo) {
   // esta MEDIDO en el cuerpo de `v1:checkAppAvailability`. No se inventa nada: lo
   // que no sabemos lo sigue poniendo la plantilla, porque `fundir` mezcla campo
   // por campo y lo nuestro solo gana en las dos claves que ponemos.
-  if (sinCaptcha && (tieneCuerpo || (parches && Object.keys(parches).length))) {
-    cuerpo = { ...(cuerpo || {}) };
-    cuerpo.clientContext = {
-      ...(projectId ? { projectId } : {}),
-      tool: 'PINHOLE',
-      ...(cuerpo.clientContext || {}),
-    };
-  }
-
   if (!sinCaptcha) {
     const captcha = await pedirCaptcha(
       tab.id,

@@ -49,30 +49,34 @@ export const ENDPOINTS = {
  * el token que devuelve lo emite Google evaluando la sesión.
  */
 /**
- * Cómo se le pregunta a Flow por UNA operación de video.
+ * Cómo se le pregunta a Flow por UN video en curso.
  *
- * ⚠️ DEVUELVE PARCHES, NO UN CUERPO, y ésa es toda la pieza.
+ * ⚠️ EL CAMPO SE LLAMA `media`, Y CADA ENTRADA ES `{ name, projectId }`.
  *
- * El espejo funde nuestro cuerpo con el que manda la propia página de Flow, y
- * `fundir()` REEMPLAZA los arrays enteros — a propósito, porque fundir dos listas
- * elemento por elemento produce mezclas que ninguna de las dos partes pidió. Así
- * que mandar `{ operations: [{ operation: { name } }] }` no agregaba nuestra
- * operación al pedido de Flow: **tiraba el array de Flow y dejaba el nuestro**,
- * con todo lo que cada entrada lleva al lado del `name` y que nosotros no sabemos
- * que existe. Google contestó HTTP 400 «Request contains an invalid argument», y
- * como nadie leía las consultas fallidas la pantalla se quedó cinco minutos
- * diciendo «Filmando la toma 1». Medido el 31/08/2026 en producción.
+ * Esto está MEDIDO: es el cuerpo que la propia página de Flow manda a este
+ * endpoint, capturado por el espejo y leído del servidor el 31/08/2026:
  *
- * El parche por camino escribe SOLO esa hoja y no toca a sus hermanas. Es el mismo
- * mecanismo que ya usa el pedido de imágenes (`parchesImagenEscena`), por la misma
- * razón, y que acá faltaba: una regla puesta en un lugar de dos no está
- * implementada, está documentada.
+ *     {"media":[{"name":"b7324be5-…","projectId":"9973383e-…"}]}
  *
- * Vive en este módulo —sin `server-only`— para que tenga test. La decisión que
- * falla en silencio es exactamente la que necesita red.
+ * Durante todo ese día se mandó `{"operations":[{"operation":{"name":…}}]}` — una
+ * clave que Flow no tiene— y Google contestó, con toda razón, «Request contains
+ * an invalid argument». La forma vieja salió del contrato de FlowKit, que es la
+ * doc de un tercero; el `path` de ese contrato resultó correcto y el CUERPO no.
+ *
+ * Es, otra vez, la regla que este repo ya tenía escrita y que costó tres
+ * hipótesis equivocadas antes de aplicarse: **un pedido a una API privada de
+ * Google no se reconstruye, se COPIA del que hace la propia app.** El camino que
+ * lo resolvió no fue razonar mejor: fue hacer que la plantilla real llegara al
+ * servidor y leerla.
+ *
+ * DEVUELVE PARCHES y no un cuerpo, porque `fundir()` reemplaza los arrays
+ * enteros: escribiendo `media.0.name` se cambia esa hoja y el `projectId` que la
+ * plantilla ya trae al lado sobrevive.
+ *
+ * Vive en este módulo —sin `server-only`— para que tenga test.
  */
 export function parchesEstadoClip(operacion: string): Record<string, unknown> {
-  return { 'operations.0.operation.name': operacion };
+  return { 'media.0.name': operacion };
 }
 
 export const RECAPTCHA_SITE_KEY = '6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV';

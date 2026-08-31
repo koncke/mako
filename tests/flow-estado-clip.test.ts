@@ -51,75 +51,70 @@ const puedeUsarCache = traer<
 >('puedeUsarCache');
 
 /**
- * Una plantilla realista: el pedido que hace la propia página de Flow.
+ * El pedido que hace la propia página de Flow, MEDIDO.
  *
- * ⚠️ Los campos de adentro de `operations[0]` que NO son `operation` están acá a
- * propósito y con nombres inventados. NO se afirma que Flow mande exactamente
- * éstos —no está medido, porque el espía cortaba el cuerpo de esta clase a 200
- * caracteres—. Lo que el test fija es la PROPIEDAD: sea lo que sea que Flow ponga
- * al lado del `name`, tiene que sobrevivir. Un test que dependiera de los nombres
- * exactos estaría afirmando algo que no se midió.
+ * ⚠️ Esto ya no es una maqueta plausible: es el cuerpo real, capturado por el
+ * espejo y leído del servidor el 31/08/2026. Importa que sea el de verdad, porque
+ * durante todo ese día se mandó `{"operations":[{"operation":{"name":…}}]}` —una
+ * clave que Flow no tiene— contra un endpoint cuyo campo se llama `media`. Un
+ * test escrito sobre la forma inventada habría pasado en verde mientras
+ * producción devolvía HTTP 400.
  */
 const PLANTILLA_DE_FLOW = {
-  clientContext: { projectId: 'p-real', tool: 'PINHOLE', sessionId: ';123' },
-  operations: [
-    {
-      operation: { name: 'operacion-vieja' },
-      sceneId: 'algo-que-no-sabemos-que-existe',
-      mediaGenerationId: 'otro-mas',
-    },
+  media: [
+    { name: 'media-vieja', projectId: 'p-real' },
   ],
 };
 
-test('el CUERPO pisa el array de Flow: es la causa medida del HTTP 400', () => {
-  // Esto es lo que se hacía antes. Se deja fijado para que la próxima persona vea
-  // POR QUÉ no se puede volver, sin tener que reproducir el 400 en producción.
+test('el campo se llama `media`, no `operations`', () => {
+  // La causa medida del 400: se mandaba una clave que este endpoint no tiene.
+  // `fundir` la agregaba AL LADO de la de Flow, así que salía un pedido con
+  // `media` (el de Flow, apuntando a otro video) y `operations` (el nuestro,
+  // inexistente). Google contestó lo único que podía.
   const roto = fundir(PLANTILLA_DE_FLOW, {
     operations: [{ operation: { name: 'la-nuestra' } }],
   });
-  const ops = roto.operations as Array<Record<string, unknown>>;
+  assert.ok('operations' in roto, 'la clave inventada viajaba');
+  const media = roto.media as Array<Record<string, unknown>>;
+  assert.equal(media[0]?.name, 'media-vieja', 'y encima preguntaba por el video de antes');
 
-  assert.equal(ops.length, 1);
-
-  // ⚠️ SE AFIRMA SOBRE LAS CLAVES, no con un `deepEqual` contra el objeto.
-  //
-  // `assert.deepEqual` de node:assert/strict está tipado como
-  // `asserts actual is T`, así que ESTRECHA la variable al literal que se le pasa
-  // — y después mirar un campo hermano deja de compilar, sobre el mismo objeto que
-  // el test existe para inspeccionar. Guardar la referencia en otra variable no
-  // alcanza: el estrechamiento la sigue.
-  //
-  // Y de paso la aserción queda mejor: lo que se está afirmando es exactamente
-  // que NO quedó nada más que `operation`, que es el daño.
-  const primera = ops[0];
-  assert.deepEqual(Object.keys(primera).sort(), ['operation']);
-  assert.equal((primera.operation as { name: string }).name, 'la-nuestra');
+  // Lo que se manda ahora nombra el campo correcto y ninguno más.
+  assert.deepEqual(Object.keys(parchesEstadoClip('la-nuestra')), ['media.0.name']);
 });
 
-test('el PARCHE cambia el nombre y no toca a sus hermanos', () => {
+test('el CUERPO reemplaza el array entero: por eso va por parche', () => {
+  // La razón por la que ni siquiera con el nombre correcto se puede mandar un
+  // cuerpo: `fundir` reemplaza los arrays, así que el `projectId` que la
+  // plantilla trae al lado del `name` desaparecería.
+  const roto = fundir(PLANTILLA_DE_FLOW, { media: [{ name: 'la-nuestra' }] });
+  const media = roto.media as Array<Record<string, unknown>>;
+  const primera = media[0];
+  assert.deepEqual(Object.keys(primera).sort(), ['name']);
+  assert.equal(primera.projectId, undefined, 'el projectId se perdió con el reemplazo');
+});
+
+test('el PARCHE cambia el nombre y conserva el projectId', () => {
   const cuerpo = JSON.parse(JSON.stringify(PLANTILLA_DE_FLOW));
   for (const [camino, valor] of Object.entries(parchesEstadoClip('la-nuestra'))) {
     assert.ok(parchar(cuerpo, camino, valor), `el parche ${camino} no se pudo aplicar`);
   }
-
-  const op = cuerpo.operations[0];
-  assert.equal(op.operation.name, 'la-nuestra');
-  // Y lo que no sabemos que existe sigue ahí, que es el punto entero de copiar el
-  // pedido en vez de reconstruirlo.
-  assert.equal(op.sceneId, 'algo-que-no-sabemos-que-existe');
-  assert.equal(op.mediaGenerationId, 'otro-mas');
-  assert.equal(cuerpo.clientContext.projectId, 'p-real');
+  assert.equal(cuerpo.media[0].name, 'la-nuestra');
+  // El `projectId` sobrevive porque nunca lo tocamos. Es el punto entero de copiar
+  // el pedido en vez de reconstruirlo: lo que no sabemos que existe viaja igual.
+  assert.equal(cuerpo.media[0].projectId, 'p-real');
+  assert.deepEqual(Object.keys(cuerpo), ['media']);
 });
 
-test('el parche sobrevive a una plantilla sin operations', () => {
-  // Si la página de Flow todavía no preguntó por ninguna operación, el array puede
-  // no existir. El parche tiene que CREARLO y no reventar: quedarse sin preguntar
-  // es peor que preguntar con lo mínimo.
-  const cuerpo: Record<string, unknown> = { clientContext: { tool: 'PINHOLE' } };
+test('el parche sobrevive a una plantilla sin `media`', () => {
+  // Si la página de Flow todavía no preguntó por ningún video, el array puede no
+  // existir. El parche tiene que CREARLO y no reventar: preguntar con lo mínimo es
+  // mejor que no preguntar — aunque sin el `projectId` de la plantilla esa
+  // consulta probablemente falle, y ahí el mensaje ya dice qué hacer.
+  const cuerpo: Record<string, unknown> = {};
   for (const [camino, valor] of Object.entries(parchesEstadoClip('la-nuestra'))) {
     assert.ok(parchar(cuerpo, camino, valor));
   }
-  assert.deepEqual(cuerpo.operations, [{ operation: { name: 'la-nuestra' } }]);
+  assert.deepEqual(cuerpo.media, [{ name: 'la-nuestra' }]);
 });
 
 test('la cache NO contesta un pedido que lleva parches', () => {

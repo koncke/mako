@@ -191,10 +191,17 @@ export function textoFlow(
         // cuál obliga a adivinar. Y es literal: dice lo que pasa, no lo que se
         // siente.
         titulo: `MaKo no puede leer cómo va ${que}`,
-        // Dos frases. Lo que hay que HACER es un botón, no un párrafo.
-        detalle: con(
-          'Google aceptó el pedido y el video se está haciendo de su lado; lo que falla es la consulta con la que preguntamos si ya terminó. No es tu cuenta, ni tu sesión, ni tus créditos, y MaKo va a seguir preguntando.',
-        ),
+        // ⚠️ UNA LÍNEA. La versión anterior eran 40 palabras en un párrafo
+        // centrado de tres renglones, debajo de un lienzo de 720 px y encima de
+        // dos pliegues sueltos y un volcado de JSON. El dueño lo cortó: «esos
+        // mensajes de abajo están muy mal diseñados».
+        //
+        // Lo que sobraba no era el tono: era que la pantalla explicaba en vez de
+        // ofrecer. Lo tranquilizador —no es tu cuenta, no son tus créditos, MaKo
+        // sigue preguntando— es cierto y no es lo que alguien necesita leer con
+        // el botón a la vista. Queda la causa en catorce palabras; el resto lo
+        // dice el botón.
+        detalle: con('Google aceptó el pedido y lo está haciendo. Lo que falla es nuestra consulta.'),
         // ⚠️ NO dice «volver a generar»: la toma ya se pagó y volver a pedirla
         // cobraría un segundo clip por uno que probablemente ya existe.
         accion: 'Preguntar de nuevo',
