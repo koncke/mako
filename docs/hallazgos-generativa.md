@@ -3001,3 +3001,93 @@ Conectado a MaKo · ✓ Sesión de Flow detectada».** Cuando dos partes de la m
 app se contradicen a la vista, una está recordando en vez de leer.
 
 **Vive en:** `estadoTomaAction` en `app/video-generator/video-action.ts`.
+
+---
+
+## Los contratos de Flow, todos MEDIDOS (31/08/2026)
+
+Lo que costó la noche fue creerle a FlowKit —la doc de un tercero— tres veces. Éstos
+salen del pedido que hace la propia página, capturado por el espejo:
+
+```
+POST /v1/flow/uploadImage
+{"clientContext":{"projectId":"…","tool":"PINHOLE"},"imageBytes":"<base64>"}
+→ {"media":{"name":"<mediaId>", …}}            ← OBJETO, no array
+```
+⚠️ **No lleva `mimeType`** (FlowKit lo incluía) **ni `recaptchaContext`**: subir una
+imagen no acuña captcha aunque sea una escritura. Agregar un campo que la app no
+manda es lo que produjo los dos HTTP 400 del día.
+
+```
+POST /v1/video:batchCheckAsyncVideoGenerationStatus
+{"media":[{"name":"<mediaId>","projectId":"…"}]}
+```
+⚠️ El campo se llama **`media`**, no `operations`. El `path` de FlowKit era correcto
+y el CUERPO no — el modo de falla más caro, porque el endpoint responde y parece un
+problema de datos.
+
+```
+La cara, en el pedido de imagen:  requests[0].imageInputs[0].name
+La cara, en el pedido de clip:    requests[0].referenceImages[0].mediaId
+El enlace de un medio:  GET labs.google/fx/api/trpc/media.getMediaUrlRedirect?name=<id>
+    → 302 a flow-content.google/video/<id>?Expires&KeyName&Signature  (firmada, ~6 h)
+```
+
+**Vive en:** `lib/flow-protocolo.ts`, `lib/flow-imagen.ts`, `lib/flow-clip-referencias.ts`.
+
+## Una proyección que tira un campo no falla: falla tres pasos después
+
+```ts
+const opciones = imagenesDeRespuesta(data).map((i) => i.url);
+```
+
+`imagenesDeRespuesta` devuelve `{url, mediaId}`. Ese `.map` guardaba la dirección
+para pintar la imagen y **descartaba su identidad**. Nada falló ahí. Falló tres pasos
+más adelante, al filmar: sin el id no había con qué referenciar la imagen recién
+generada, así que el código se caía a la foto cruda del onboarding — y el clip salía
+animado desde un retrato de estudio en vez de desde la escena.
+
+Lo vio el dueño mirando la grilla de Flow, no ningún test.
+
+**La regla: cuando proyectes una lista de objetos a uno solo de sus campos,
+preguntá quién más va a necesitar esa fila.** Un `.map(x => x.algo)` es una decisión
+de arquitectura disfrazada de conveniencia, y el lugar donde se paga nunca es el
+lugar donde se escribe.
+
+## Encolar un trabajo y seguir de largo es hacerlo con el dato viejo
+
+Los trabajos #351 (subir la foto a Flow) y #352 (generar la imagen con esa cara) se
+crearon **en el mismo segundo**: la función encolaba la subida y continuaba. La
+imagen salió con la cara anterior y la foto recién elegida llegó un latido tarde,
+para nada.
+
+Y la forma en que falla es la peor: **no da error, da una imagen** — con la cara
+equivocada, cobrada, y sin nada que lo delate. Un selector cuyo efecto se pierde en
+una carrera es un selector decorativo que además cuesta plata.
+
+**La regla: si el paso B necesita el resultado de A, B no se encola hasta tener A.**
+Esperar un latido no cuesta nada; generar con el dato viejo cuesta la generación.
+
+## Un elemento que se desmonta no se puede seguir con el ojo
+
+El riel del ejemplo se rehízo **cinco** veces y las cuatro primeras fallaron por lo
+mismo, que nadie —incluido yo— nombró hasta la quinta: **el video se destruía y se
+volvía a crear** en cada cambio de pantalla y en cada pliegue, porque abierto y
+plegado eran dos ramas de JSX distintas.
+
+Con eso, ninguna cantidad de rótulos podía contestar «¿qué hace eso ahí?»: la única
+respuesta que funciona es que la persona VEA que la cosa que eligió es la misma que
+se corrió al costado, y eso exige un nodo con identidad estable.
+
+La pieza que lo resuelve es un solo `<video>` `position: fixed` que recorre tres
+estaciones cambiando de caja (`lib` no: `app/video-generator/PreviaVolante.tsx`).
+Cuatro detalles deciden si funciona:
+
+- La caja de origen se mide **en el handler del click**: el elemento se desmonta en
+  ese mismo commit, así que medirlo en un efecto mide algo que ya no está.
+- `useLayoutEffect`, no `useEffect`: con el segundo aparece un cuadro en la posición
+  vieja y después salta.
+- El destino se **escribe antes** de animar y la animación va al revés (del lugar
+  viejo al nuevo): si algo la interrumpe, el elemento ya está donde va.
+- Un **fantasma** que se cruza con el original es más simple de escribir y se rompe
+  en cuanto algo lo interrumpe: quedan dos videos o ninguno.

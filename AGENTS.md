@@ -428,6 +428,34 @@ hacía lo contrario —ante `{tipo:'escala', opciones:[fechas]}` se quedaba con 
 tiraba las fechas— y esas respuestas no quedaban en ningún lado: ni en la base, ni en la
 pantalla, ni en el log.
 
+# Tres topes del entorno que no dan error: te dan otra cosa
+
+Los tres se descubrieron el mismo día, los tres escribiendo código nuevo, y los tres
+producen un resultado plausible en vez de un fallo.
+
+**1. Una server action topea el cuerpo en 1 MB.** Este proyecto no define
+`serverActions.bodySizeLimit`, así que mandar un archivo en base64 como argumento
+falla con cualquier foto de celular. Lo que sube archivos es un **route handler
+multipart** — ya está escrito, con su caso, en `docs/hallazgos-infra.md`, y se
+escribió mal igual. Peor que el bug fue el tope declarado: la función anunciaba 12 MB
+sobre un límite físico de 1.
+
+**2. `fetch` NO expone el progreso de SUBIDA.** Su `ReadableStream` sirve para la
+bajada. Para saber cuántos bytes salieron hace falta `xhr.upload.onprogress`
+(molde: `putWithProgress` en `app/ads-manager/NuevaCampanaModal.tsx`). Una barra
+alimentada por un `fetch` sólo puede saltar de 0 a 100: miente sobre lo único que
+promete.
+
+**3. Un `var(--token)` inexistente NO falla: HEREDA.** Y sin nadie que lo defina
+arriba, resuelve a nada. `marginTop: 'var(--gap)'` —un token con cero definiciones en
+todo el repo— valía 0 y la sección quedaba pegada a la anterior sin que nada lo
+dijera. Es el mismo modo de falla que `<Icon name="inventado">`, que dibuja un punto.
+
+⚠️ **El patrón que comparten: el entorno tiene un tope y tu código declara otro.**
+Antes de escribir un límite —de tamaño, de progreso, de espaciado— comprobá cuál es
+el límite real de la capa de abajo. Un número tuyo por encima del suyo no protege:
+promete.
+
 # Escribir la salida no es ofrecerla: después de escribirla, preguntá QUIÉN LA LLAMA
 
 Cuatro veces en un mismo día, en el mismo archivo, con cuatro formas distintas y
