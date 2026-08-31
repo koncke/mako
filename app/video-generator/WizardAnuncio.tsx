@@ -1153,6 +1153,24 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
             : null;
 
       return {
+        // ⚠️ CON SALIDA. La primera version de esta pantalla dibujaba el mensaje
+        // y NINGUN boton: `boton` solo se define cuando `enCurso` es falso, y a
+        // ciegas sigue siendo verdadero. Martin: «ni siquiera me salta un
+        // boton... se queda generando allí». Una pantalla sin salida es peor que
+        // una pantalla con un error.
+        //
+        // Y las acciones YA ESTABAN ESCRITAS en `textoFlow('ciego')` —`accion` y
+        // `secundaria`— sin que nadie las dibujara. Es el mismo defecto que el
+        // campo `sub`: definir la salida no es ofrecerla.
+        ...(txtCiego ? {
+          boton: txtCiego.accion,
+          cargandoBoton: ocupado === 'reconsultar',
+          onSiguiente: () => void correr(
+            'reconsultar',
+            () => estadoTomaAction(item.id, n).then((r) => (r.ok ? { ok: true, item: r.item } : r)),
+            false,
+          ),
+        } : {}),
         pregunta: enCurso
           ? (txtCiego ? txtCiego.titulo : `Filmando la toma ${n}`)
           : txt
@@ -1201,6 +1219,34 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                 {txt.detalle}
               </div>
             )}
+            {/* ── LA SALIDA DE EMERGENCIA ──────────────────────────────────
+                A ciegas hay que poder abandonar esta toma, y va PLEGADA porque no
+                es lo primero que conviene hacer: la toma se acepto y se pago, asi
+                que volver a filmarla cobra un segundo clip por uno que
+                probablemente ya existe. Primero se pregunta de nuevo; esto es
+                para cuando ya no vale la pena esperar.
+
+                El resumen dice el COSTO, que es lo unico que decide. */}
+            {txtCiego && (
+              <div style={{ marginTop: 14 }}>
+                <Salidas resumen={`Abandonar la toma ${n} y volver a filmarla · ~15 créditos`}>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    loading={ocupado === 'rehacer-ciega'}
+                    disabled={!!ocupado}
+                    onClick={() => void correr('rehacer-ciega', async () => {
+                      const d = await descartarTomaAction(item.id, n);
+                      if (!d.ok) return d;
+                      return generarTomaAction(item.id, n);
+                    }, false)}
+                  >
+                    {`Volver a filmar la toma ${n}`}
+                  </Button>
+                </Salidas>
+              </div>
+            )}
+
             {/* El pliegue DESAPARECE mientras se filma: ofrecer rehacer la
                 anterior con la siguiente ya pagada encima deja el anuncio
                 incoherente, y cuenta dos cosas a la vez. */}

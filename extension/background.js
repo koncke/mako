@@ -211,7 +211,26 @@ async function respaldoDe(clase) {
  * Los trabajos que solo LEEN. No llevan cuerpo, no llevan captcha, y si la página
  * ya preguntó lo mismo hace poco se contestan con su respuesta, sin tráfico.
  */
-const SOLO_LECTURA = new Set(['creditos', 'estado_clips']);
+/**
+ * Los trabajos que NO necesitan acunar un captcha.
+ *
+ * ⚠️ SE LLAMA POR LO QUE HACE, y el nombre viejo —`SOLO_LECTURA`— es la razon de
+ * que este bug se repitiera TRES veces. «Solo lectura» suena a una propiedad del
+ * pedido, asi que fue significando, una tras otra, tres cosas distintas:
+ *
+ *   1. «no necesita captcha»          ← lo unico que decide de verdad
+ *   2. «no manda cuerpo»              ← rompio la consulta de estado la 1ra vez
+ *   3. «no necesita clientContext»    ← la rompio la 3ra, con un 400 identico
+ *
+ * Cada una se descubrio por separado, con dias de diferencia, sobre el mismo
+ * `if`. Un nombre que describe una CATEGORIA invita a colgarle comportamientos;
+ * uno que describe UNA decision, no.
+ *
+ * (En el mensaje al mundo de la pagina el campo sigue llamandose `soloLectura`,
+ * porque alli decide otra cosa —si una respuesta cacheada puede contestar— y
+ * renombrarlo obligaria a que las dos puntas se actualicen a la vez.)
+ */
+const SIN_CAPTCHA = new Set(['creditos', 'estado_clips']);
 
 /**
  * El nombre de la accion con la que se acuna el token de reCAPTCHA.
@@ -394,7 +413,7 @@ async function ejecutar(trabajo) {
   // es un GET pelado. Pedir un `grecaptcha.execute()` cada 15 s sin que nadie
   // toque nada es, además, una señal de automatización por sí sola; hacerlo para
   // algo que ni siquiera lo usa era gratis en riesgo y caro en score.
-  const soloLectura = SOLO_LECTURA.has(trabajo.tipo);
+  const sinCaptcha = SIN_CAPTCHA.has(trabajo.tipo);
 
   // ⚠️ `soloLectura` mezclaba DOS conceptos y eso rompio la consulta de estado.
   //
@@ -445,7 +464,35 @@ async function ejecutar(trabajo) {
 
   const tieneCuerpo = !!body && Object.keys(body).length > 0;
   let cuerpo = tieneCuerpo ? { ...body } : null;
-  if (!soloLectura) {
+
+  // ⚠️ `soloLectura` VOLVIO A MEZCLAR DOS CONCEPTOS, Y ES LA TERCERA VEZ.
+  //
+  // Significa «no necesita captcha». Y de hecho significaba tambien «no manda
+  // cuerpo» —eso ya se arreglo una vez, con su comentario— y ahora resulta que
+  // significaba ademas «no necesita clientContext». `estado_clips` era el UNICO
+  // tipo con parametros que no recibia `clientContext` de nadie: ni de aca,
+  // porque este bloque se salteaba entero, ni de la plantilla, si la plantilla
+  // quedo sin cuerpo.
+  //
+  // MEDIDO el 31/08/2026, y es lo que cierra el caso: con el pedido ya saliendo
+  // por PARCHES —o sea sin pisar el array de Flow— el 400 siguio igual (#247).
+  // Eso descarta la primera causa y deja esta: el pedido viajaba sin projectId,
+  // sin tool y sin sessionId, que es exactamente un «argumento invalido».
+  //
+  // El `projectId` sale de las URLs que Flow hace de verdad y `tool: 'PINHOLE'`
+  // esta MEDIDO en el cuerpo de `v1:checkAppAvailability`. No se inventa nada: lo
+  // que no sabemos lo sigue poniendo la plantilla, porque `fundir` mezcla campo
+  // por campo y lo nuestro solo gana en las dos claves que ponemos.
+  if (sinCaptcha && (tieneCuerpo || (parches && Object.keys(parches).length))) {
+    cuerpo = { ...(cuerpo || {}) };
+    cuerpo.clientContext = {
+      ...(projectId ? { projectId } : {}),
+      tool: 'PINHOLE',
+      ...(cuerpo.clientContext || {}),
+    };
+  }
+
+  if (!sinCaptcha) {
     const captcha = await pedirCaptcha(
       tab.id,
       accionDeCaptcha(trabajo.tipo, path),
@@ -490,7 +537,7 @@ async function ejecutar(trabajo) {
   // del espejo: se copiaba todo menos lo único que importaba.
   const clase = path.split('?')[0].split('/').filter(Boolean).pop() || '';
   const r = await chrome.tabs.sendMessage(tab.id, {
-    tipo: 'HACER_FETCH', clase, path: path.split('?')[0], cuerpo, parches, soloLectura, bearer,
+    tipo: 'HACER_FETCH', clase, path: path.split('?')[0], cuerpo, parches, soloLectura: sinCaptcha, bearer,
     // Por si la pestana se recargo y todavia no vio pasar este pedido.
     respaldo: await respaldoDe(clase),
   });
