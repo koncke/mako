@@ -1337,7 +1337,20 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
       const causa: CausaFlow | undefined = marca?.error
         ? ((marca.errorCausa as CausaFlow) ?? causaFlow(marca.errorCrudo ?? marca.error))
         : undefined;
-      const txt = causa ? textoFlow(causa, `la imagen del escenario ${paso.n}`, marca?.errorAt) : null;
+      // ⚠️ CON LA FRASE DEL SERVER, que se calculaba y se pisaba con la genérica.
+      //
+      // Es el MISMO defecto que ya se había arreglado en el paso de filmar y que
+      // seguía vivo en su hermano. Costó caro hoy, en vivo: a una clienta cuyo
+      // puente estaba PERFECTO —`listo`, visto hace un segundo— la pantalla le
+      // decía «el puente con Google Flow no responde… está cerrada, o la sesión
+      // de Google no está abierta», o sea a arreglar algo que no estaba roto.
+      // Lo que el server había escrito era «Todavía no vi a Google Flow generar
+      // una imagen. Abre Flow con esta pestaña abierta y genera una imagen a
+      // mano» — la instrucción exacta que la destrababa, guardada en la base y
+      // nunca dibujada.
+      const txt = causa
+        ? textoFlow(causa, `la imagen del escenario ${paso.n}`, marca?.errorAt, undefined, marca?.error)
+        : null;
 
       // La foto con la que se genera: la elegida para ESTE anuncio, y si no hay,
       // la primera — que es lo que pasaba antes de poder elegir.

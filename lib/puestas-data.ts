@@ -28,6 +28,8 @@
 // =============================================================================
 
 /** Cómo se comporta la cámara durante el clip. */
+import { DURACIONES_FLOW } from './costo-clip';
+
 export type Camara =
   | 'estatica'      // trípode. Podcast, Dualcast, producto en mano.
   | 'mano'          // alguien filma con el teléfono: temblor, encuadre descentrado.
@@ -423,11 +425,44 @@ export function contarPalabras(texto: string): number {
  */
 export function repartirDuracion(puesta: Puesta, cantidad: number, totalSeg: number): number[] {
   const [minSeg, maxSeg] = puesta.segundosClip;
-  const base = Math.min(maxSeg, Math.max(minSeg, Math.floor(totalSeg / cantidad)));
+
+  // ⚠️ SOLO LAS DURACIONES QUE FLOW SABE GENERAR, y antes no era así.
+  //
+  // Esto repartía el resto sumando `+= 1` segundo por clip, así que con un
+  // formato de `[8, 10]` producía clips de **9 segundos** — una duración que
+  // Flow no genera. Medido en el anuncio de una clienta, en vivo: 7 de sus 8
+  // clips salieron en 9 s.
+  //
+  // Y no falla ruidoso: el número se ve razonable, la pantalla lo muestra, y el
+  // costo tampoco lo delata porque 9 no está en la tabla de precios y cae a
+  // «estimado». Un valor fuera del catálogo que nadie valida se propaga hasta el
+  // modelo.
+  //
+  // La lista sale de `lib/costo-clip.ts`, que es donde vive la tabla de precios:
+  // lo que se puede comprar es exactamente lo que se puede pedir.
+  const posibles = DURACIONES_FLOW.filter((d) => d >= minSeg && d <= maxSeg);
+  // Un formato cuyo rango no contenga ninguna válida no puede quedar sin
+  // duración: se usa su mínimo declarado y que el catálogo se corrija aparte.
+  const escalones: number[] = posibles.length ? [...posibles] : [minSeg];
+
+  // La más larga que entre `cantidad` veces en el total. Si ni la más corta
+  // entra, se usa la más corta igual: un anuncio más largo que lo pedido es
+  // mejor que uno con clips que no existen.
+  const base = [...escalones].reverse().find((d) => d * cantidad <= totalSeg) ?? escalones[0];
   const segundos = Array.from({ length: cantidad }, () => base);
+
+  // El resto se gasta SUBIENDO DE ESCALÓN —de 8 a 10, nunca a 9—, y sólo cuando
+  // el salto entero entra. Lo que no alcanza para un escalón se deja: el anuncio
+  // queda unos segundos más corto que lo pedido, que es la única forma honesta de
+  // redondear contra un catálogo cerrado.
   let resto = totalSeg - base * cantidad;
-  for (let i = 0; resto > 0 && i < cantidad; i++) {
-    if (segundos[i] < maxSeg) { segundos[i] += 1; resto -= 1; }
+  for (let i = 0; i < cantidad && resto > 0; i++) {
+    const sig = escalones.find((d) => d > segundos[i]);
+    if (sig === undefined) continue;
+    const salto = sig - segundos[i];
+    if (salto > resto) continue;
+    segundos[i] = sig;
+    resto -= salto;
   }
   return segundos;
 }

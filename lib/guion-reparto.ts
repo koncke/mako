@@ -116,6 +116,8 @@ export function repartirGuion(hablado: string, topes: number[]): TomaRepartida[]
   const total = piezas.reduce((s, p) => s + contarPalabrasReparto(p), 0);
 
   const tomas: TomaRepartida[] = [];
+  /** Las piezas de cada toma, para poder moverlas después sin re-partir texto. */
+  const porToma: string[][] = [];
   let i = 0;
 
   for (let clip = 0; clip < n; clip++) {
@@ -149,15 +151,65 @@ export function repartirGuion(hablado: string, topes: number[]): TomaRepartida[]
     }
 
     tomas.push({ voz: elegidas.join(' '), palabras });
+    porToma.push(elegidas);
   }
 
-  // Si sobraron piezas —el guion desborda—, van todas a la última toma. Se
-  // prefiere una toma larga a un guion mutilado.
+  // Si sobraron piezas —el guion desborda—, van a la última toma: el texto sale
+  // en orden, así que lo que quedó sin repartir va después de todo lo demás.
   if (i < piezas.length) {
-    const resto = piezas.slice(i);
-    const ultima = tomas[n - 1];
-    ultima.voz = [ultima.voz, ...resto].filter(Boolean).join(' ');
-    ultima.palabras = contarPalabrasReparto(ultima.voz);
+    porToma[n - 1].push(...piezas.slice(i));
+  }
+
+  // ── Y AHÍ SE COMPACTA HACIA LA IZQUIERDA ────────────────────────────────
+  //
+  // Volcarlo todo en la última y terminar dejaba una toma con TRES VECES su
+  // tope. Medido en vivo, en el anuncio de una clienta: siete tomas entre 18 y
+  // 26 palabras, la octava con 80 contra un tope de 24 — el CTA entero
+  // apelotonado en ocho segundos— y 57 palabras de lugar libre repartidas en las
+  // siete de arriba, sin usar.
+  //
+  // Mover la PRIMERA pieza de una toma al final de la ANTERIOR conserva el orden
+  // del guion, que es lo único intocable. Y se hace de izquierda a derecha y
+  // repetido, no de derecha a izquierda: el hueco tiene que PROPAGARSE. Un solo
+  // pase hacia atrás se frena en la primera toma llena —que es justo lo que
+  // pasaba acá, con la toma 6 medio vacía dos lugares más allá— y no mueve nada.
+  //
+  // No garantiza que todo entre: un guion que no cabe no cabe, y para eso está el
+  // aviso. Lo que garantiza es que el desborde no se apile en una sola toma
+  // habiendo lugar en las otras.
+  const palabrasDe = (ps: string[]) => ps.reduce((t, p) => t + contarPalabrasReparto(p), 0);
+  for (let ronda = 0; ronda < n; ronda++) {
+    let movio = false;
+    for (let c = 0; c < n - 1; c++) {
+      // Se tira de la siguiente mientras entre y le quede algo: una toma vacía
+      // en el medio es un corte a negro con la persona muda.
+      while (porToma[c + 1].length > 0) {
+        const hueco = topes[c] - palabrasDe(porToma[c]);
+        if (hueco <= 0) break;
+        const siguiente = porToma[c + 1];
+        const w = contarPalabrasReparto(siguiente[0]);
+
+        if (w <= hueco && (siguiente.length > 1 || palabrasDe(siguiente) > w)) {
+          porToma[c].push(siguiente.shift() as string);
+          movio = true;
+          continue;
+        }
+
+        // ⚠️ ACÁ PROBÉ PARTIR LA PIEZA POR PALABRAS, Y LOS TESTS LO FRENARON.
+        // Cortaba el CTA por la mitad y dejaba «enlace.» solo en la última toma:
+        // peor que el desborde que venía a arreglar, porque el llamado a la
+        // acción es lo único del guion que TIENE que llegar entero.
+        // El desborde que queda es real —un guion de 211 palabras contra 210 de
+        // capacidad no entra— y para eso está el aviso de «no entra».
+        break;
+      }
+    }
+    if (!movio) break;
+  }
+
+  for (let c = 0; c < n; c++) {
+    tomas[c].voz = porToma[c].join(' ');
+    tomas[c].palabras = contarPalabrasReparto(tomas[c].voz);
   }
 
   // Chequeo barato de la garantía 1. Si alguna vez falla, es un bug de reparto y

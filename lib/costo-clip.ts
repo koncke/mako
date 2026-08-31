@@ -13,6 +13,15 @@
 // SIN `server-only`: es una tabla y necesita test.
 
 /**
+ * Las únicas duraciones que Flow genera. En segundos, de menor a mayor.
+ *
+ * ⚠️ NO ES UNA PREFERENCIA, ES EL CATÁLOGO. Pedirle 9 segundos no da un clip de
+ * 9: da un clip que no existe. Y la lista sale de la misma tabla de precios de
+ * acá abajo, que es la evidencia de qué se puede comprar.
+ */
+export const DURACIONES_FLOW = [4, 6, 8, 10] as const;
+
+/**
  * Créditos por clip, según cuántos segundos dura. Medido contra Flow.
  *
  * ⚠️ El precio NO es lineal: 4 s cuesta 7 y 10 s cuesta 15, o sea que el segundo
