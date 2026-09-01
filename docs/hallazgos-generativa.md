@@ -4365,3 +4365,159 @@ solamente algo que no dependa de su versión.**
   borra: urls firmadas del cliente anterior viajan en los latidos del siguiente.
 - **`esperarEnlace()` toma `readyState === 'complete'`** como prueba de que el
   enlace está montado. Una página cargada no es una página hidratada.
+
+### El barrido de pendientes (01/09/2026, tarde)
+
+**Vive en:** `supabase/migrations/0154_flow_abandono.sql` ·
+`app/api/cron/flow-abandono/route.ts` · `app/api/flow/puente/route.ts` ·
+`lib/flow-plantillas.ts` · `lib/flow-cola.ts` · `lib/flow-protocolo.ts` ·
+`extension/background.js` · `extension/mako-puente.js` ·
+`app/extension/instalar/` · `app/video-generator/EditorAnuncio.tsx`
+
+#### ⚠️ El vigilante y el vigilado eran el mismo
+
+Todo lo que miraba `flow_trabajos` colgaba del propio puente: el rescate de
+colgados vive DENTRO de `flow_tomar_trabajos`, que sólo corre cuando la extensión
+pide trabajo. Cuando el navegador del cliente se muere, no queda nadie.
+
+**La regla, y es más general que esta cola: si el worker de una cola es el
+navegador de otra persona, el vigilante NO puede vivir adentro del worker.** Es
+«todo proceso largo necesita algo que lo MIRE» con el agravante de que el proceso
+no es nuestro.
+
+Dos detalles del cierre que no son obvios:
+- **El WHERE es `tomado_at is null`, no la edad a secas.** Un trabajo que YA fue
+  tomado y volvió a `pendiente` por el rescate no está abandonado: se está
+  reintentando, y su `created_at` puede ser de hace horas sin que eso signifique
+  nada. Cerrar por edad mataría justo a los que el sistema está reintentando bien.
+- **`for update skip locked`**: si otra transacción tiene la fila es porque alguien
+  la está tomando en este preciso momento — o sea que no está abandonada.
+
+Y el agujero que se ve al lado: **el rescate devolvía un `tomado` a `pendiente` sin
+tocar `intentos`.** Un trabajo que el navegador toma y nunca reporta rebotaba entre
+los dos estados PARA SIEMPRE con `intentos` en 0, ocupando un lugar del lote de
+cinco en cada ciclo.
+
+⚠️ **El incremento va en el RESCATE y NO al tomar.** `fallar()` ya suma cuando la
+extensión REPORTA; sumar en las dos puntas contaría doble y el techo de 5 pasaría
+a 2 o 3 **en silencio**. Las dos ramas son excluyentes —o reporta, o desaparece— y
+cuentan lo mismo: un intento que no produjo resultado.
+
+#### Una guarda que nadie escribe corre para siempre
+
+`KEY_VARIANTE_VIDEO` decidía si hacía falta sondear, y **no la escribía nadie en
+todo el repo**. Verificado contra producción: no existe en NINGÚN workspace. La
+sonda se pedía en cada latido —cada quince segundos— mientras hubiera un
+`estado_clips` en la cola. Cada corrida son ocho `<video>` y tres `fetch` contra la
+sesión de Google del cliente, por una pregunta que se contesta una vez.
+
+**Es la misma familia que `r.resultado`, pero al revés:** ahí un consumidor leía un
+campo que nadie escribía; acá un guard consulta una clave que nadie escribe. Los
+dos se ven igual desde afuera —el sistema hace su trabajo— y los dos son un
+control muerto.
+
+⚠️ **Y el cierre tiene que contar los intentos que NO sirvieron.** Si sólo cerrara
+al encontrar una variante buena, un navegador donde ninguna sirve la seguiría
+corriendo eternamente — que es el caso PEOR: el que más tráfico genera y el que
+menos puede aprender. A los 12 intentos se guarda `'ninguna'`, que es una
+respuesta.
+
+#### Un ticket de permiso más un bucle es un consentimiento salteado
+
+Regresión introducida el mismo día: al hacer que `conectar()` pruebe TODAS las
+pestañas —y con `<PuenteEnlace/>` mudado al layout raíz, o sea que todas
+contestan— **un solo clic desconectaba el otro navegador sin preguntar.**
+
+El mecanismo: `conectarPuenteAction` no acepta un `forzar` del cliente. La primera
+vez contesta «ya hay otro» **y deja un ticket armado por 60 s**; el segundo pedido
+lo consume y pisa. Eso está bien cuando los dos pedidos son dos CLICS con la
+pantalla de «Si continúas, ese se desconectará» en el medio. El bucle hacía los dos
+seguidos, sin pantalla y sin persona.
+
+**La regla: un permiso que se emite en la respuesta A y se consume en la petición B
+asume que entre A y B hubo una PERSONA. Cualquier bucle que haga A y B seguidos lo
+saltea — y no hay nada en el código de A ni en el de B que lo delate.** Antes de
+poner un retry o un loop alrededor de una llamada, preguntá si esa llamada deja
+algo armado.
+
+#### El instructivo que no existía, y el paso que no se puede verificar
+
+No había NINGUNA instrucción de instalación en todo el producto: el aviso ofrecía
+un botón que baja un `.zip` y nada más.
+
+Y la instrucción que se usaba de boca en boca —«descomprime encima de la misma
+carpeta»— **tiene un paso que quien lo ejecuta no puede verificar: cuál es «la
+misma carpeta»**. Se equivoca en silencio y el síntoma es idéntico al de un botón
+roto. Falló tres veces, una de ellas costándole el día al dueño.
+
+**La regla: entre dos instrucciones correctas, gana la que tiene todos sus pasos
+verificables por quien los hace.** Reinstalar limpio no tiene ese paso — la carpeta
+que se elige en «Cargar descomprimida» ES la que Chrome carga — y su costo estaba
+medido y era casi nulo, porque el servidor ya repone las plantillas solo.
+
+Con el paso que separa «lo hice» de «creí que lo hice»: mirar la versión abajo del
+popup. Es el único hecho observable del instructivo.
+
+#### Una pila de deshacer apila por GESTO, no por cambio
+
+Un arrastre dispara decenas de `setPlan` por segundo. Si cada uno apilara, Ctrl+Z
+desharía un píxel y habría que apretarlo cuarenta veces. El apilado de un borde va
+en el `pointerdown` —cuando el gesto EMPIEZA— y un arrastre que vuelve al mismo
+lugar se saca al soltar.
+
+⚠️ **Y se calcula AFUERA del updater de `setState`.** Un updater tiene que ser puro
+y en StrictMode React lo llama dos veces: apilar ahí adentro dejaría dos entradas
+por gesto.
+
+#### Datos de un cliente en la fila de otro, por dos caminos
+
+Medido: `flow.respuestas` guardaba `userSettings`, `likeness:listUserLikenesses`
+—los parecidos faciales cargados en Google—, `appConfig`, `sessions`,
+`savedSharedApplets` y dos claves que eran UUID sueltos.
+
+**El storage del navegador es UNO SOLO para todos los clientes que se abren desde
+él.** Si el anterior dejó algo ahí, el latido del siguiente lo sube a SU fila. Es
+el caso normal del super-admin, que abre un cliente por pestaña.
+
+Se cierra por los dos lados y hacen falta los dos: la limpieza al cambiar de
+cliente (que ya existía para las plantillas y **estaba a medias** — le faltaban las
+tres claves de la sonda) y un allowlist en el server, **que es la mitad que
+protege contra la extensión vieja: la que sigue instalada mientras la gente
+actualiza.**
+
+⚠️ **Un guard que se escribe en un cliente sólo protege a los clientes que ya
+actualizaron.** El server es el único lado cuyo arreglo llega a todos el mismo día.
+
+#### El editor no dejaba aplicar una edición que no cambiara la duración
+
+`sinCambios` comparaba el TOTAL. Correr un tramo medio segundo, o recortarle a uno
+lo que se le agrega a otro, dejaba el botón apagado — y son justo las ediciones que
+uno hace cuando el largo ya está bien y lo que quiere arreglar es DÓNDE cortan.
+**La duración es una consecuencia de los cortes, no su identidad.**
+
+#### Lo que se decidió NO hacer
+
+- **Cablear `puestaDe`** para que un plan hecho con un formato DEL CLIENTE se pueda
+  redistribuir. Medido: **cero formatos en la tabla, y `formatos-datos.ts` no lo
+  importa nadie** — el módulo entero es inalcanzable. Cablearlo ahora sería
+  plomería para una feature sin datos, sin pantalla y sin consumidores: el séptimo
+  caso de «escribir la salida no es ofrecerla» de esta misma sesión, escrito a
+  sabiendas. Se desbloquea cuando exista la pantalla del creador de formatos, no
+  antes.
+- **Reordenar tramos en el editor.** Mover un tramo de lugar cambia lo que el
+  anuncio DICE, y el guion ya está repartido y verificado contra el texto. Es una
+  operación que se ve como recortar y no lo es.
+- **Sumar `www.hola-mako.com` al manifest.** Medido: `www` devuelve 308 al apex
+  antes de que la página cargue. El pendiente no existía.
+
+#### Lo que sigue SIN resolverse
+
+- **Publicar la extensión en la Chrome Web Store.** Mientras se sirva el ZIP, cada
+  arreglo de la extensión es un trámite manual por cliente — y con el gate nuevo,
+  además, **un bloqueo por cliente hasta que reinstale**. Es la decisión más cara
+  que quedó abierta. Necesita a Martín.
+- **Cuánto dura un `ya29.` de Google.** El bearer ya se invalida por evento (un 401
+  lo borra), que es el arreglo sin umbral. Un umbral por TIEMPO necesita el número
+  medido, y no lo tenemos.
+- **Verificar el editor en un navegador hidratado.** Sigue sin verse en pantalla.
+- **El worker de montaje sigue sin contenedor**, y Epidemic Sound sin alta.
