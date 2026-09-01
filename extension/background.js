@@ -1205,7 +1205,9 @@ const URL_FLOW = 'https://labs.google/fx/tools/flow';
  * pida el token a la pagina, y si no hay ninguna se abre una.
  */
 async function conectar(forzar) {
-  await chrome.storage.local.set({ emparejando: true, emparejarError: '' });
+  // La marca de tiempo es lo que le permite al popup distinguir «esta
+  // conectando» de «se murio conectando». Sin ella, una sola de las dos existe.
+  await chrome.storage.local.set({ emparejando: true, emparejandoDesde: Date.now(), emparejarError: '' });
   try {
     let tabs = [];
     try { tabs = await chrome.tabs.query({ url: `${MAKO}/*` }); } catch { tabs = []; }
@@ -1539,7 +1541,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
   // Un dato que depende de una carrera no es un dato.
   if (msg?.tipo === 'ESTADO') {
     chrome.storage.local.get(
-      ['token', 'bearer', 'apiKey', 'ultimoLatido', 'saldoLocal', 'emparejando', 'emparejarError', 'emparejarEtiqueta', 'workspaceNombre', 'versionEsperada'],
+      ['token', 'bearer', 'apiKey', 'ultimoLatido', 'saldoLocal', 'emparejando', 'emparejandoDesde', 'emparejarError', 'emparejarEtiqueta', 'workspaceNombre', 'versionEsperada'],
       async (v) => {
         let hayFlow = false;
         try { await pestanaDeFlow(); hayFlow = true; } catch { hayFlow = false; }
@@ -1553,6 +1555,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
           ultimoLatido: v.ultimoLatido || null,
           saldo: v.saldoLocal || null,
           emparejando: !!v.emparejando,
+          emparejandoDesde: Number(v.emparejandoDesde) || 0,
           emparejarError: v.emparejarError || '',
           emparejarEtiqueta: v.emparejarEtiqueta || '',
           workspace: v.workspaceNombre || '',

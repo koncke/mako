@@ -156,7 +156,25 @@ async function pintar() {
   }
 
   // ── Conectar (paso 2) ──────────────────────────────────────────────────
-  if (v.emparejando) { esperando('Conectando…'); return; }
+  // ⚠️ «Conectando…» NO PUEDE SER PARA SIEMPRE. Es una pantalla sin botón colgada
+  // de un flag que apaga `finEmparejado`, o sea el mismo proceso que se puede
+  // morir: el service worker de MV3 se duerme, y `conectar()` espera hasta 12 s a
+  // que la página conteste. Si lo matan en el medio, el flag queda en `true` y el
+  // popup se queda en «Conectando…» sin nada que tocar, para siempre.
+  //
+  // Pasados los 30 s no se está conectando: se murió. Y ahí lo que corresponde es
+  // ofrecer el reintento, no seguir contando una espera que ya no existe.
+  if (v.emparejando) {
+    const desde = Number(v.emparejandoDesde) || 0;
+    if (!desde || Date.now() - desde < 30000) { esperando('Conectando…'); return; }
+    pantalla({
+      titulo: 'Se cortó a mitad de camino',
+      tenue: 'El navegador cerró la extensión antes de terminar. Vuelve a intentar.',
+      boton: 'Conectar',
+      accion: () => void conectar(false),
+    });
+    return;
+  }
 
   if (v.emparejarError) {
     // «Ya hay otro navegador» es el único que no es un error del usuario: es una
@@ -257,6 +275,24 @@ async function pintar() {
     });
     return;
   }
+  // ⚠️ «Todo listo» MIRA EL LATIDO, no sólo las credenciales guardadas. Sin esto
+  // era la pantalla que contradice a MaKo sobre el mismo hecho: el popup decía
+  // «Todo listo» —porque hay token, bearer y apiKey en storage— mientras la web
+  // decía «tu navegador no está conectado», que es lo que mide el server. Los dos
+  // hablaban del mismo navegador y sólo uno miraba el presente.
+  //
+  // Dos minutos es el mismo plazo que usa `lib/flow-puente-frescura.ts`. Si se
+  // cambia uno hay que cambiar el otro: la extensión no tiene bundler y no puede
+  // importar de `app/`.
+  if (latido && latido.cuando && Date.now() - latido.cuando > 120000) {
+    pantalla({
+      titulo: 'Perdí contacto con MaKo',
+      tenue: 'Hace un rato que no logro hablar con MaKo. Se reintenta y se ve qué pasa.',
+      boton: 'Reintentar',
+      accion: latir,
+    });
+    return;
+  }
   pantalla({ titulo: 'Todo listo', boton: 'Ver mis créditos', suave: true, accion: verSaldo });
 }
 
@@ -298,21 +334,29 @@ async function verSaldo() {
     // que recargar, hay que ABRIR Flow para que haga su propia consulta de
     // créditos y podamos copiarla.
     const e = String(s.error);
+    // ⚠️ RECARGAR, NO ABRIR. `abrirFlow` ENFOCA la pestaña que ya está abierta, y
+    // enfocar no hace que Flow pida nada: la consulta de créditos que necesitamos
+    // copiar la hace al CARGAR. Con la pestaña abierta —que es el caso normal,
+    // porque sin ella ni se llega hasta acá— «Abrir Google Flow» era un botón que
+    // cambiaba de ventana y dejaba todo igual.
     if (e.startsWith('SIN_PLANTILLA')) {
       pantalla({
-        titulo: 'Abre Google Flow',
-        tenue: 'Todavía no vi a Flow consultar tus créditos. Con la pestaña abierta lo hace solo.',
-        boton: 'Abrir Google Flow',
-        accion: abrirFlow,
+        titulo: 'Recarga Google Flow',
+        tenue: 'Todavía no vi a Flow consultar tus créditos. Al cargar la página lo hace solo.',
+        boton: 'Recargar',
+        accion: recargarFlow,
       });
       return;
     }
     if (e === 'HTTP_401' || e === 'HTTP_403' || e === 'RESPUESTA_NO_JSON') {
       pantalla({
         titulo: 'Google no aceptó la consulta',
-        tenue: 'Tu sesión de Flow venció o Google la pausó. Abre Flow, inicia sesión y vuelve.',
-        boton: 'Abrir Google Flow',
-        accion: abrirFlow,
+        // No se afirma cuál de las dos: un 403 no las distingue, y mandar a
+        // limpiar cookies a alguien cuya sesión sólo venció es mandarlo a hacer
+        // de más. Recargar contesta las dos.
+        tenue: 'Tu sesión de Flow venció, o Google la pausó. Recarga Flow y fíjate si te pide iniciar sesión.',
+        boton: 'Recargar Flow',
+        accion: recargarFlow,
       });
       return;
     }
