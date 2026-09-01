@@ -403,7 +403,35 @@ function esMasVieja(a, b) {
   return false;
 }
 
-async function quizasReiniciar(esperada, hayTrabajoEnCurso) {
+/**
+ * Anota que version sirve produccion, para que el popup pueda frenar.
+ *
+ * ⚠️ ANTES ESTO REINICIABA LA EXTENSION, Y ERA UN AUTOGOL. `chrome.runtime.reload()`
+ * vuelve a leer LA MISMA CARPETA: en una instalacion descomprimida no baja nada,
+ * asi que no puede actualizar nada — y el `if (manifest.update_url) return` de
+ * abajo hace que el reinicio corriera SOLO en instalaciones descomprimidas. O sea
+ * que se reiniciaba unicamente en el unico caso donde reiniciar no sirve.
+ *
+ * Y no era gratis. Un `runtime.reload()` mata al service worker y **se lleva la
+ * alarma**; si Chrome no lo vuelve a levantar —MV3 no arranca el worker hasta que
+ * llegue un evento, y la alarma era el evento— el puente se apaga PARA SIEMPRE.
+ * Es la causa mas probable del caso medido el 01/09/2026: una clienta con la
+ * 0.37.1 instalada mientras produccion servia la 0.37.3, cuyo puente dejo de
+ * latir y no volvio nunca.
+ *
+ * Lo que corresponde no es automatizar la recarga: es DECIR que hay que
+ * reemplazar los archivos. Eso lo hace el popup, con el paso a paso, y hasta que
+ * no este al dia no deja seguir.
+ */
+async function anotarVersionEsperada(esperada) {
+  try {
+    if (!esperada) return;
+    await chrome.storage.local.set({ versionEsperada: String(esperada) });
+  } catch { /* saber la version nunca puede romper al que ya funciona */ }
+}
+
+/** Sin llamadores desde el 01/09/2026. Se deja el porque arriba, no el codigo. */
+async function quizasReiniciarNoUsar(esperada, hayTrabajoEnCurso) {
   try {
     if (!esperada || hayTrabajoEnCurso) return;
     const manifest = chrome.runtime.getManifest();
@@ -1018,12 +1046,14 @@ async function ciclo() {
     // ⚠️ ANTES de tomar trabajo nuevo y solo si no hay nada en curso: es el unico
     // momento del ciclo en el que reiniciar no pierde nada.
 
-    await quizasReiniciar(out.versionEsperada, (out.trabajos || []).length > 0);
+    await anotarVersionEsperada(out.versionEsperada);
 
     if (out.pausado || estado !== 'listo') return;
 
     const cola = out.trabajos || [];
     const nuevos = [];
+    /** Google frenó la sesión: no sale ni un pedido más de este lote. */
+    let frenar = false;
     for (let i = 0; i < cola.length; i++) {
       const t = cola[i];
       // ⚠️ EL COOLDOWN ES UN PISO ENTRE LLAMADAS, NO UN SLEEP AL FINAL DEL BUCLE.
@@ -1049,7 +1079,45 @@ async function ciclo() {
       const falta = cooldownMs - (Date.now() - (await ultimaLlamadaFlow()));
       if (falta > 0) await new Promise((r) => setTimeout(r, falta));
       try {
-        nuevos.push(await ejecutar(t));
+        const r = await ejecutar(t);
+        nuevos.push(r);
+
+        // ⚠️ UN 403 FRENA EL LOTE ENTERO, EN EL ACTO.
+        //
+        // `out.pausado` se mira ANTES del bucle, así que un lote ya tomado seguía
+        // hasta el final aunque el primer trabajo volviera con la sesión marcada.
+        // Medido el 01/09/2026: tres trabajos de una clienta, tres 403 seguidos
+        // de `PUBLIC_ERROR_UNUSUAL_ACTIVITY`. Con esto habría sido UNO.
+        //
+        // Y no es un detalle de eficiencia: `lib/flow-protocolo.ts` lo dice con
+        // todas las letras — «`sesion_marcada` es el peor y el único que obliga a
+        // frenar todo: seguir pegando con la sesión marcada es lo que la termina
+        // de quemar». La regla estaba escrita y no la aplicaba nadie de este lado.
+        //
+        // ⚠️ Y ACÁ NO SE CLASIFICA, que es la regla de este archivo: quien decide
+        // si algo se reintenta es el server, porque es quien sabe cuántos créditos
+        // hay en juego. Frenar no es clasificar — es la dirección SEGURA, la única
+        // que este lado tiene permitido tomar solo.
+        // ⚠️ SE MARCA Y SE ROMPE DESPUES DEL SELLO. El `break` no puede saltearse
+        // el `marcarLlamadaFlow()` de abajo: un pedido rechazado IGUAL SALIO, y
+        // no sellarlo dejaria al proximo ciclo creyendo que la ultima llamada fue
+        // hace rato — o sea reintentando rapido contra un bloqueo, que es
+        // exactamente como se profundiza.
+        if (r && r.ok === false && r.status === 403) {
+          frenar = true;
+          for (const resto of cola.slice(i + 1)) {
+            // Se devuelven SIN intentar, y reintentables: no fallaron, no
+            // salieron. Sin esto quedan `tomado` hasta que el rescate de diez
+            // minutos los suelte, y el cliente mira un loader ese rato entero.
+            nuevos.push({
+              id: resto.id,
+              ok: false,
+              motivo: 'transitorio',
+              error: 'No se intentó: Google frenó la sesión en el trabajo anterior.',
+              reintentable: true,
+            });
+          }
+        }
       } catch (e) {
         const msg = String(e && e.message ? e.message : e);
         nuevos.push({
@@ -1070,6 +1138,7 @@ async function ciclo() {
       // Y se sella aunque la llamada falle: un pedido rechazado igual salio, y
       // reintentar rapido contra un bloqueo es como se profundiza un bloqueo.
       await marcarLlamadaFlow();
+      if (frenar) break;
     }
     if (nuevos.length) {
       await chrome.storage.local.set({ pendientes: nuevos });
@@ -1334,10 +1403,39 @@ async function saldoLocal(forzar) {
       bearer,
       respaldo: await respaldoDe('credits'),
     });
-    const d = (r && r.resultado) || null;
-    if (!d) return { error: String((r && r.error) || 'SIN_RESPUESTA'), cuando: Date.now() };
+    // ⚠️ `r.texto`, NO `r.resultado`. Ese campo NO EXISTE en ningun lado de la
+    // extension: `injected.js` contesta `{ status, texto, metodo, urlUsada }` o
+    // `{ error }` (injected.js:795). Leyendo un campo que nadie escribe, `d` era
+    // `undefined` SIEMPRE y este boton contestaba «No pude leer tus creditos» en
+    // el 100% de los casos, con Flow abierto y andando.
+    //
+    // Es un bug de CONTRATO: dos lados de un mensaje que no se pusieron de
+    // acuerdo sobre el nombre de un campo, sin que nada falle ruidoso. Y no
+    // hacia falta inventar nada — el otro consumidor del mismo mensaje, treinta
+    // lineas mas arriba (`ejecutar`), ya lo hacia bien: `String(r.texto || '')`,
+    // `JSON.parse`, y mirar el `status`.
+    if (!r || r.error) return { error: String((r && r.error) || 'SIN_RESPUESTA'), cuando: Date.now() };
+
+    // ⚠️ Y EL STATUS SE MIRA. Un 200 con la pagina de bloqueo de Google adentro
+    // parsea como HTML y cae al `catch` de abajo; un 401 o un 403 traen JSON
+    // valido y sin `credits`, asi que sin esto se leerian como «cero creditos».
+    // Cero y «no me dejaron preguntar» no son lo mismo.
+    if (!(r.status >= 200 && r.status < 300)) {
+      return { error: `HTTP_${r.status}`, cuando: Date.now() };
+    }
+
+    let d = null;
+    try { d = r.texto ? JSON.parse(r.texto) : null; } catch { /* no era JSON: se dice abajo */ }
+    // Google contesta HTML cuando bloquea. Que no sea JSON ES el dato.
+    if (!d || typeof d !== 'object') return { error: 'RESPUESTA_NO_JSON', cuando: Date.now() };
+    // ⚠️ SIN EL NUMERO NO HAY SALDO. `creditos: null` se guardaba igual, y el
+    // popup lo pinta solo si es `number` — asi que caia en «Todo listo · Ver mis
+    // creditos», el mismo boton, otra vez. Un dato ausente que se guarda como
+    // valido es un bucle con cara de pantalla.
+    if (typeof d.credits !== 'number') return { error: 'SIN_CREDITOS_EN_LA_RESPUESTA', cuando: Date.now() };
+
     const saldo = {
-      creditos: typeof d.credits === 'number' ? d.credits : null,
+      creditos: d.credits,
       // En POSITIVO: se afirma «gratuito» solo con la marca explicita de Google.
       // Es la misma regla que `leerSaldo` del server, y dice lo mismo o calla.
       gratuito: d.userPaygateTier === 'PAYGATE_TIER_NOT_PAID' || d.sku === 'WS_FREEMIUM',
@@ -1441,7 +1539,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
   // Un dato que depende de una carrera no es un dato.
   if (msg?.tipo === 'ESTADO') {
     chrome.storage.local.get(
-      ['token', 'bearer', 'apiKey', 'ultimoLatido', 'saldoLocal', 'emparejando', 'emparejarError', 'emparejarEtiqueta', 'workspaceNombre'],
+      ['token', 'bearer', 'apiKey', 'ultimoLatido', 'saldoLocal', 'emparejando', 'emparejarError', 'emparejarEtiqueta', 'workspaceNombre', 'versionEsperada'],
       async (v) => {
         let hayFlow = false;
         try { await pestanaDeFlow(); hayFlow = true; } catch { hayFlow = false; }
@@ -1459,6 +1557,19 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
           emparejarEtiqueta: v.emparejarEtiqueta || '',
           workspace: v.workspaceNombre || '',
           version: chrome.runtime.getManifest().version,
+          // ⚠️ LA COMPARACION SE HACE ACA, no en el popup. `esMasVieja` ya vive
+          // en este archivo y compara ORDENADO —no `!==`—, porque una igualdad
+          // tambien dispara cuando la instalada va ADELANTE: la maquina de
+          // desarrollo, los minutos entre el push y el deploy, y para siempre si
+          // el build fallo. Duplicarla en el popup serian dos respuestas posibles
+          // a la misma pregunta.
+          versionEsperada: v.versionEsperada || '',
+          // De la tienda actualiza Chrome solo, asi que ahi no hay paso a paso
+          // que dar: frenar seria dejar a alguien encerrado esperando a Google.
+          deLaTienda: !!chrome.runtime.getManifest().update_url,
+          versionVieja: !!v.versionEsperada
+            && !chrome.runtime.getManifest().update_url
+            && esMasVieja(chrome.runtime.getManifest().version, v.versionEsperada),
         });
       },
     );

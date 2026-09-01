@@ -480,7 +480,11 @@ export async function generarTomaAction(
   if (puente.estado === 'marcada') {
     return {
       ok: false,
-      error: 'Google marcó esta sesión y dejó de aceptar generaciones. En el catálogo, dentro de «Tu navegador», está qué hacer y el botón para volver a habilitarla.',
+      // ⚠️ YA NO MANDA A OTRA PANTALLA. Decía «en el catálogo, dentro de "Tu
+      // navegador", está el botón», y el botón estaba efectivamente en otra
+      // pantalla: describir un camino no es ofrecer una salida. Ahora el aviso
+      // con su botón se dibuja arriba de esta misma pantalla.
+      error: 'Google marcó esta sesión y dejó de aceptar generaciones. Arriba, en el aviso rojo, está qué hacer y el botón para volver a habilitarla.',
     };
   }
   if (puente.estado === 'sin_sesion') {
@@ -1282,7 +1286,7 @@ export async function generarImagenAction(
     return { ok: false, error: 'Tu navegador no está conectado. Sal al catálogo y ábrelo en «Tu navegador», al pie.' };
   }
   if (puente.estado === 'marcada') {
-    return { ok: false, error: 'Google marcó esta sesión y dejó de aceptar generaciones. En el catálogo, dentro de «Tu navegador», está qué hacer.' };
+    return { ok: false, error: 'Google marcó esta sesión y dejó de aceptar generaciones. Arriba, en el aviso rojo, está qué hacer y el botón para volver a habilitarla.' };
   }
   if (puente.estado === 'sin_sesion') {
     return { ok: false, error: 'Tu sesión de Google Flow venció. Abre Flow, inicia sesión, y vuelve a intentar.' };

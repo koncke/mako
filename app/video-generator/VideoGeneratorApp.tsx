@@ -43,7 +43,8 @@ import { descargarComo } from './descargar';
 import { nombreDeAnuncio } from './video-pedido';
 import { AvisoPuente, estadoDelPuente, ID_AVISO_PUENTE } from './puente-avisos';
 import { estadoPuenteAction } from './puente-actions';
-import { useExtensionInstalada } from './extension-instalada';
+import { useExtensionInstalada, AvisoExtensionVieja, esMasVieja } from './extension-instalada';
+import { EXTENSION_VERSION } from '@/lib/extension-version';
 import type { Puente } from '@/lib/flow-cola';
 import { cabidaDeGuion, soloHablado } from '@/lib/puestas-data';
 import type { GuionDisponible } from './guiones-datos';
@@ -931,6 +932,8 @@ export function VideoGeneratorApp({
       <Pagina ancho="completo" densidad="compacta">
         <TemaOscuro />
         <Estudio
+          puente={puenteVivo}
+          ahora={ahoraTick}
           // Una afirmación y no una pregunta: es el único paso donde no hay nada
           // que decidir. Y es el texto de Martín, textual.
           pregunta="Así se verá tu anuncio"
@@ -993,6 +996,8 @@ export function VideoGeneratorApp({
       <Pagina ancho="completo" densidad="compacta">
       <TemaOscuro />
       <Estudio
+          puente={puenteVivo}
+          ahora={ahoraTick}
         pregunta={PREGUNTA[paso]}
         paso={idx + 1}
         total={PASOS.length}
@@ -1405,6 +1410,21 @@ export function VideoGeneratorApp({
   // desde adentro del proceso de crear (primer paso del wizard), que es donde
   // sirven — no en la portada.
   const puedeCrear = !!puestaId;
+  // ⚠️ UNA EXTENSIÓN VIEJA NO DEJA EMPEZAR. El dueño: «que no te deje avanzar
+  // hasta que tengas la última versión».
+  //
+  // No es celo. Una versión vieja no falla ruidoso, falla CALLADA: la 0.37.x se
+  // reiniciaba sola al ver que había una nueva —para releer la misma carpeta— y
+  // el puente no volvía nunca. El cliente veía un clip generándose para siempre y
+  // 12 créditos gastados en un trabajo que nadie iba a tomar.
+  //
+  // ⚠️ Y ESTE ES EL LADO QUE ALCANZA A QUIEN YA TIENE LA VIEJA. El gate del popup
+  // vive dentro de la extensión, así que quien tiene la 0.37 corre el popup viejo
+  // y no lo ve nunca. Esto lo renderiza el server: llega igual.
+  //
+  // Sólo con la CERTEZA de una versión: `null` es «todavía no se sabe» y `false`
+  // es «no está instalada», que ya tiene su propio aviso.
+  const extensionVieja = typeof instalada === 'string' && esMasVieja(instalada, EXTENSION_VERSION);
 
   // ¿El puente está andando AHORA? Se mira la FRESCURA de la última señal, no su
   // existencia: `ultimoVisto` es un campo con fecha, y usarlo como booleano ya
@@ -1427,7 +1447,14 @@ export function VideoGeneratorApp({
           No repite los cuatro pasos —ésos viven en el desplegable del pie, en un
           solo lugar— ni adivina cuál falta: el botón abre esa configuración, que
           es donde el paso pendiente ya está marcado. */}
-      {!puenteAnda && <AvisoPuente puente={puenteVivo} ahora={ahoraTick} instalada={instalada} />}
+      {/* ⚠️ ARRIBA DEL AVISO DEL PUENTE, y no al lado. Una extensión vieja explica
+          casi siempre al puente caído, así que mostrarlos juntos hace que la
+          persona arregle el de abajo —reconectar— sobre una versión que se va a
+          volver a apagar. Un aviso a la vez, del más bloqueante al menos. */}
+      <AvisoExtensionVieja instalada={instalada} />
+      {!extensionVieja && !puenteAnda && (
+        <AvisoPuente puente={puenteVivo} ahora={ahoraTick} instalada={instalada} />
+      )}
 
       {contexto && !contexto.tieneFotos && (
         <Alert tono="warn">

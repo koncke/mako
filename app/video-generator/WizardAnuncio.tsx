@@ -48,6 +48,8 @@ import { PasoTomas } from './PasoTomas';
 import { creditosDeClip as creditosDeClipFlow } from '@/lib/costo-clip';
 import { promptFinal, urlDeFlowVencida } from '@/lib/flow-imagen';
 import { useExtensionInstalada, AvisoExtensionVieja } from './extension-instalada';
+import { AvisoPuente, estadoDelPuente } from './puente-avisos';
+import type { Puente } from '@/lib/flow-cola';
 import { Foto, FotoGrande, ModalFotos } from './ElegirFoto';
 import { avisarPuente } from './avisar-puente';
 import { PasoMontaje } from './PasoMontaje';
@@ -549,8 +551,26 @@ function Salidas({ resumen, children }: { resumen: string; children: React.React
  * ejemplo pasa a acompañar también ese paso — que es lo que el dueño pidió cuando
  * dijo que la previsualización tiene que estar «durante toda la creación».
  */
-export function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia, cargando, onSiguiente, atras, onAtras, onSalir, error, puesta, alLado, slotRiel, plegado, ancho = 900 }: {
+export function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia, cargando, onSiguiente, atras, onAtras, onSalir, error, puesta, puente, ahora, alLado, slotRiel, plegado, ancho = 900 }: {
   pregunta: string;
+  /**
+   * El estado del navegador del cliente. ⚠️ ENTRA ACÁ PORQUE EL AVISO NO LLEGABA
+   * A NINGUNA DE LAS TRES PANTALLAS DEL ESTUDIO.
+   *
+   * `AvisoPuente` vivía sólo en el catálogo, y con él su único botón para levantar
+   * una sesión que Google marcó. Pero el bloqueo ocurre FILMANDO, que es cuando se
+   * le habla a Google — así que la persona veía el error en rojo, con un texto que
+   * le decía «en el catálogo, dentro de "Tu navegador", está el botón», y el botón
+   * estaba en otra pantalla. Un problema que se muestra en un lugar y se cura en
+   * otro es, para el que lo mira, un problema sin cura. Es la segunda vez que pasa
+   * en esta tab: la primera fue con «sumar tomas».
+   *
+   * Va en `Estudio` y no en el paso, para que lo tengan las tres vistas de una y
+   * la cuarta que alguien agregue nazca con él.
+   */
+  puente?: Puente | null;
+  /** El reloj del navegador, para medir la frescura del latido. `null` = primer render. */
+  ahora?: number | null;
   titulo?: string;
   paso: number;
   total: number;
@@ -775,6 +795,17 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
           nada. El ancho se lo pone el propio aviso, que es el único que sabe si
           va a existir — poner la condición acá afuera la tendría en dos lugares. */}
       <AvisoExtensionVieja instalada={extensionInstalada} compacto />
+      {/* ⚠️ Y EL DEL PUENTE, que es el que trae la salida cuando Google frena la
+          sesión. Va DEBAJO del de la versión y no arriba: una extensión vieja
+          explica casi siempre al puente caído, así que reconectar sobre una
+          versión vieja es arreglar el síntoma de abajo. Uno a la vez. */}
+      {/* `puente === undefined` es «esta pantalla no lo pasa», y eso NO es lo
+          mismo que `null` («no hay puente»): con `undefined` no se afirma nada.
+          Sin esta distinción, cualquier uso de `Estudio` que olvide el prop
+          pintaría «tu navegador no está conectado» sobre un navegador sano. */}
+      {puente !== undefined && !estadoDelPuente(puente, ahora ?? null).anda && (
+        <AvisoPuente puente={puente} ahora={ahora ?? null} instalada={extensionInstalada} compacto />
+      )}
 
       <div style={{
         display: 'flex', alignItems: 'center', width: '100%', maxWidth: ancho, gap: 16,

@@ -22,7 +22,7 @@ const MAKO = `${ORIGEN_MAKO}/video-generator`;
 const $ = (id) => document.getElementById(id);
 
 /** Un solo lugar arma la pantalla: título, línea tenue y como máximo un botón. */
-function pantalla({ titulo, numero, tenue, boton, accion, suave }) {
+function pantalla({ titulo, numero, tenue, pasos, boton, accion, suave, boton2, accion2 }) {
   const cuerpo = $('cuerpo');
   cuerpo.textContent = '';
 
@@ -38,19 +38,47 @@ function pantalla({ titulo, numero, tenue, boton, accion, suave }) {
     cuerpo.appendChild(p);
   }
 
-  if (boton) {
+  // Los pasos van ANTES de los botones: el primer boton es el paso 1, asi que
+  // leerlos despues seria leer la receta despues de empezar a cocinar.
+  if (pasos && pasos.length) {
+    const ol = document.createElement('ol');
+    ol.className = 'pasos';
+    for (const p of pasos) {
+      const li = document.createElement('li');
+      // Los pasos traen **negrita** para lo que NO se puede saltear. Se arma por
+      // NODOS y no con innerHTML: es texto nuestro, pero un popup que interpreta
+      // HTML es una puerta que no hace falta abrir.
+      //
+      // ⚠️ El indice sale de `entries()`, NO de `indexOf`: `indexOf` devuelve la
+      // PRIMERA coincidencia, asi que dos tramos con el mismo texto —«la» dos
+      // veces en la misma frase— habrian tomado los dos el indice del primero, y
+      // la negrita habria caido en el pedazo equivocado sin que nada falle.
+      for (const [i, t] of p.split('**').entries()) {
+        if (!t) continue;
+        li.appendChild(i % 2
+          ? Object.assign(document.createElement('b'), { textContent: t })
+          : document.createTextNode(t));
+      }
+      ol.appendChild(li);
+    }
+    cuerpo.appendChild(ol);
+  }
+
+  const poner = (texto, fn, esSuave) => {
     const b = document.createElement('button');
-    if (suave) b.className = 'suave';
-    b.textContent = boton;
+    if (esSuave) b.className = 'suave';
+    b.textContent = texto;
     b.addEventListener('click', () => {
       // Se apaga en el acto: el popup vive mientras tiene foco y un segundo clic
       // dispararía dos veces la misma cosa —dos tokens, dos pestañas de Flow—.
       b.disabled = true;
       b.textContent = 'Un momento…';
-      accion();
+      fn();
     });
     cuerpo.appendChild(b);
-  }
+  };
+  if (boton) poner(boton, accion, suave);
+  if (boton2) poner(boton2, accion2, true);
 }
 
 function esperando(titulo) {
@@ -89,6 +117,43 @@ async function pintar() {
   $('ws').textContent = v.workspace || '';
 
   const latido = v.ultimoLatido || null;
+
+  // ── Paso 0: la version ─────────────────────────────────────────────────
+  // ⚠️ VA PRIMERO Y NO DEJA PASAR. El dueño: «que no te deje avanzar hasta que
+  // tengas la última versión».
+  //
+  // No es celo: una extensión vieja no falla ruidoso, falla CALLADA. La 0.37.x
+  // se apagaba sola al detectar que había una versión nueva —reiniciándose para
+  // leer la misma carpeta vieja— y el puente no volvía nunca; el cliente veía un
+  // clip generándose para siempre. Dejar «seguir igual» sería ofrecer un camino
+  // que ya sabemos que termina ahí.
+  //
+  // La comparación la hizo `background.js` con `esMasVieja`, que compara ORDENADO
+  // y no por `!==`: una instalación que va ADELANTE —la máquina de desarrollo,
+  // los minutos entre el push y el deploy— no es vieja y no se frena.
+  //
+  // ⚠️ Y ESTO NO ALCANZA A QUIEN YA TIENE LA VERSIÓN VIEJA. Su popup es el
+  // viejo, que no tiene esta pantalla. A esa persona la alcanza `AvisoExtensionVieja`
+  // en la web, que la renderiza el server. Las dos piezas dicen lo mismo a
+  // públicos distintos y por eso existen las dos.
+  if (v.versionVieja) {
+    pantalla({
+      titulo: 'Actualiza la extensión',
+      tenue: `Tienes la ${v.version} y la actual es la ${v.versionEsperada}. `
+        + 'Con la vieja, un video puede quedarse generando para siempre.',
+      pasos: [
+        'Toca **Descargar la nueva**: baja un archivo .zip.',
+        'Descomprímelo **encima de la misma carpeta** desde la que instalaste MaKo, '
+          + 'reemplazando los archivos. Este paso es el que actualiza: sin él, lo demás no hace nada.',
+        'Vuelve aquí y toca **Ya reemplacé los archivos**.',
+      ],
+      boton: 'Descargar la nueva',
+      accion: bajarNueva,
+      boton2: 'Ya reemplacé los archivos',
+      accion2: () => chrome.runtime.reload(),
+    });
+    return;
+  }
 
   // ── Conectar (paso 2) ──────────────────────────────────────────────────
   if (v.emparejando) { esperando('Conectando…'); return; }
@@ -138,11 +203,28 @@ async function pintar() {
   }
 
   if (latido && latido.estado === 'marcada') {
+    // ⚠️ ERA UN CALLEJÓN SIN SALIDA. Decía qué hacer en una línea y ofrecía
+    // «Abrir MaKo», que no toca este estado: la persona llegaba a MaKo y ahí le
+    // decían que volviera a la extensión.
+    //
+    // Los tres pasos son manuales por naturaleza —esperar, borrar cookies,
+    // volver a entrar— así que lo honesto es enumerarlos y hacer el único que sí
+    // se puede automatizar: abrir Flow. El botón que LEVANTA la marca vive en
+    // MaKo, porque es una decisión que se guarda del lado del server; ahora se
+    // dibuja también dentro del estudio, que es donde ocurre el bloqueo.
     pantalla({
       titulo: 'Google pausó tu sesión de Flow',
-      tenue: 'Espera un rato, borra las cookies de google.com y labs.google, y vuelve a entrar a Flow.',
-      boton: 'Abrir MaKo',
-      accion: abrirMako,
+      tenue: 'Detectó actividad inusual. Reintentar sin hacer esto solo empeora la marca.',
+      pasos: [
+        'Espera **unos minutos** sin generar nada.',
+        'Borra las cookies de **google.com** y **labs.google**.',
+        'Vuelve a entrar a Flow e inicia sesión.',
+        'En MaKo, toca **Ya lo hice, volver a habilitar** en el aviso rojo.',
+      ],
+      boton: 'Abrir Google Flow',
+      accion: abrirFlow,
+      boton2: 'Ir a MaKo',
+      accion2: abrirMako,
     });
     return;
   }
@@ -205,11 +287,40 @@ async function verSaldo() {
   esperando('Preguntando a Google…');
   const s = await enviar({ tipo: 'SALDO' });
   if (s && s.error) {
+    // ⚠️ EL MOTIVO DECIDE LA FRASE. Antes había una sola —«recarga Flow»— para
+    // todas las causas, y encima este botón fallaba SIEMPRE por un campo mal
+    // leído: `background.js` buscaba `r.resultado`, que no existe en ningún lado
+    // de la extensión. O sea que el único texto que había era el equivocado para
+    // el 100% de los casos.
+    //
+    // Ahora los motivos vienen separados, y cada uno tiene el remedio que de
+    // verdad lo arregla. `SIN_PLANTILLA` es el más distinto de todos: no hay nada
+    // que recargar, hay que ABRIR Flow para que haga su propia consulta de
+    // créditos y podamos copiarla.
+    const e = String(s.error);
+    if (e.startsWith('SIN_PLANTILLA')) {
+      pantalla({
+        titulo: 'Abre Google Flow',
+        tenue: 'Todavía no vi a Flow consultar tus créditos. Con la pestaña abierta lo hace solo.',
+        boton: 'Abrir Google Flow',
+        accion: abrirFlow,
+      });
+      return;
+    }
+    if (e === 'HTTP_401' || e === 'HTTP_403' || e === 'RESPUESTA_NO_JSON') {
+      pantalla({
+        titulo: 'Google no aceptó la consulta',
+        tenue: 'Tu sesión de Flow venció o Google la pausó. Abre Flow, inicia sesión y vuelve.',
+        boton: 'Abrir Google Flow',
+        accion: abrirFlow,
+      });
+      return;
+    }
     pantalla({
       titulo: 'No pude leer tus créditos',
-      // Sin enumerar causas: el error clasificado vive en el latido y el remedio
-      // real de casi todos es el mismo.
-      tenue: 'Recarga la pestaña de Google Flow y vuelve a intentar.',
+      tenue: e === 'MUDO'
+        ? 'La pestaña de Flow no responde. Se recarga y volvemos a intentar.'
+        : 'Recarga la pestaña de Google Flow y vuelve a intentar.',
       boton: 'Recargar',
       accion: recargarFlow,
     });
@@ -241,6 +352,18 @@ async function pestanaDeMako() {
  * tiene sentido». Tenía razón dos veces: no tenía sentido abrirla, y tampoco era
  * lo que hacía falta.
  */
+/**
+ * Baja el zip de la version nueva.
+ *
+ * Va a MaKo y no a un link directo al archivo: si alguna vez el zip cambia de
+ * lugar, el que sabe donde esta es el server. Y `active: true` porque la descarga
+ * es lo unico que la persona tiene que ver que ocurrio.
+ */
+function bajarNueva() {
+  chrome.tabs.create({ url: `${ORIGEN_MAKO}/mako-puente.zip`, active: true });
+  window.close();
+}
+
 async function abrirMako() {
   const t = await pestanaDeMako();
   if (t) {
