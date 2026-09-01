@@ -49,3 +49,48 @@ export function olvidarTomasFallidas(item: PlanGuardado, escenaN: number): PlanG
   }
   return saco ? { ...item, video: quedan } : item;
 }
+
+/**
+ * Cambiar la FOTO invalida las imágenes que salieron de la anterior.
+ *
+ * ⚠️ SIN ESTO, EL SELECTOR DE FOTOS NO GOBIERNA NADA una vez que la imagen
+ * existe. La persona cambia la foto, aprieta Continuar… y «Continuar» CONFIRMA la
+ * imagen vieja —la de la cara anterior— porque la pantalla ofrece confirmar
+ * cuando ya hay opciones. Y esa imagen confirmada es el cuadro del que sale el
+ * clip pagado.
+ *
+ * Es especialmente caro porque cambiar de foto es la cura DOCUMENTADA del rechazo
+ * por persona pública: el mensaje le dice que pruebe con otra foto, ella la
+ * cambia, y el sistema sigue usando la anterior.
+ *
+ * ⚠️ Y NO SE TOCA LA ESCENA QUE YA TIENE UN CLIP FILMADO. Ese clip salió de esa
+ * imagen: borrarla dejaría al anuncio mostrando un video cuyo cuadro de origen ya
+ * no existe, y encima invitaría a regenerar algo que ya se pagó.
+ */
+export function olvidarImagenesDeLaFoto(item: PlanGuardado): PlanGuardado {
+  const escenas = item.escenas ?? [];
+  if (!escenas.length) return item;
+
+  const filmada = (n: number) => !!(item.video ?? {})[String(n)]?.url;
+  const imgs = (item.imagenes ?? {}) as Record<string, Record<string, unknown>>;
+
+  const quedan: Record<string, Record<string, unknown>> = {};
+  let saco = false;
+  for (const e of escenas) {
+    const k = String(e.n);
+    const marca = imgs[k];
+    if (!marca) continue;
+    let tieneClip = false;
+    for (let t = e.desde; t <= e.hasta; t++) if (filmada(t)) tieneClip = true;
+    if (tieneClip) { quedan[k] = marca; continue; }
+    // Se conserva el intento —para que la semilla siga avanzando— y se tira lo
+    // que describe a la cara vieja.
+    quedan[k] = { intento: marca.intento };
+    saco = true;
+  }
+  // Las que no son de ninguna escena viva se dejan como estaban: este arreglo es
+  // sobre la foto, no una limpieza general.
+  for (const [k, v] of Object.entries(imgs)) if (!(k in quedan)) quedan[k] = v;
+
+  return saco ? { ...item, imagenes: quedan } : item;
+}

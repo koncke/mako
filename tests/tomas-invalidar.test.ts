@@ -88,3 +88,57 @@ test('sin nada que olvidar se devuelve el MISMO objeto', () => {
   const antes = plan({ '1': { url: 'https://flow/clip1.mp4' } });
   assert.equal(olvidarTomasFallidas(antes, 1), antes);
 });
+
+// ── Y cambiar la FOTO invalida lo que salió de la anterior ──────────────────
+// Sin esto el selector de fotos no gobierna nada una vez que la imagen existe: la
+// persona cambia la foto, aprieta Continuar, y «Continuar» CONFIRMA la imagen
+// vieja —la de la cara anterior—, que es el cuadro del que sale el clip pagado.
+// Y es especialmente caro porque cambiar de foto es la cura DOCUMENTADA del
+// rechazo por persona pública.
+
+import { olvidarImagenesDeLaFoto } from '../app/video-generator/tomas-invalidar';
+
+const conEscenas = (video: Record<string, unknown>, imagenes: Record<string, unknown>) => ({
+  escenas: [
+    { n: 1, desde: 1, hasta: 2, lugar: 'A', prompt: 'a' },
+    { n: 2, desde: 3, hasta: 4, lugar: 'B', prompt: 'b' },
+  ],
+  video, imagenes,
+} as unknown as PlanGuardado);
+
+test('la imagen de una escena SIN clip filmado se olvida', () => {
+  const p = conEscenas({}, { '1': { elegida: 'vieja', confirmada: true, intento: 3 } });
+  const r = olvidarImagenesDeLaFoto(p);
+  assert.equal(r.imagenes?.['1']?.elegida, undefined);
+  assert.equal(r.imagenes?.['1']?.confirmada, undefined);
+});
+
+test('pero el INTENTO se conserva, o regenerar repetiría la misma imagen', () => {
+  // La semilla se deriva del intento: reiniciarlo daría otra vez el render que la
+  // persona acaba de descartar.
+  const p = conEscenas({}, { '1': { elegida: 'vieja', intento: 7 } });
+  assert.equal(olvidarImagenesDeLaFoto(p).imagenes?.['1']?.intento, 7);
+});
+
+test('⚠️ la escena que YA tiene un clip filmado NO se toca', () => {
+  // Ese clip salió de esa imagen: borrarla dejaría el anuncio mostrando un video
+  // cuyo cuadro de origen ya no existe, e invitaría a regenerar algo pagado.
+  const p = conEscenas(
+    { '1': { url: 'https://mako/toma-1.mp4' } },
+    { '1': { elegida: 'la-del-clip', confirmada: true }, '2': { elegida: 'sin-clip' } },
+  );
+  const r = olvidarImagenesDeLaFoto(p);
+  assert.equal(r.imagenes?.['1']?.elegida, 'la-del-clip', 'la que produjo el clip sobrevive');
+  assert.equal(r.imagenes?.['2']?.elegida, undefined, 'la otra no');
+});
+
+test('sin nada que olvidar devuelve el MISMO objeto', () => {
+  const p = conEscenas({ '1': { url: 'u' }, '3': { url: 'u' } },
+    { '1': { elegida: 'a' }, '2': { elegida: 'b' } });
+  assert.equal(olvidarImagenesDeLaFoto(p), p);
+});
+
+test('un plan sin escenas no se toca', () => {
+  const p = { imagenes: { '1': { elegida: 'x' } } } as unknown as PlanGuardado;
+  assert.equal(olvidarImagenesDeLaFoto(p), p);
+});

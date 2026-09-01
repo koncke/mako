@@ -255,9 +255,21 @@ export async function rehabilitarPuenteAction(): Promise<{ ok: true } | { ok: fa
   const db = await getTenantDb();
   await db.from('flow_puentes').update({ estado: 'listo', estado_detalle: '' }).eq('workspace_id', ws);
 
-  // Y los trabajos que murieron por la marca se sacan de en medio: quedaron
+  // Y los trabajos que murieron POR LA MARCA se sacan de en medio: quedaron
   // fallidos por algo que ya se resolvió, y verlos en rojo al volver hace pensar
   // que sigue roto.
-  await db.from('flow_trabajos').delete().eq('workspace_id', ws).eq('estado', 'fallido');
+  //
+  // ⚠️ ACOTADO POR MOTIVO, y antes borraba TODOS los fallidos del workspace.
+  // Con eso se llevaba puesta la evidencia cruda de cualquier otra falla —de otro
+  // motivo y de otro tipo de trabajo— justo cuando alguien está investigando por
+  // qué algo no anda. Este módulo se esforzó en conservar esa evidencia
+  // (`crudoGuardable`, «nunca se recorta el error»), y un botón la borraba entera.
+  //
+  // Lo que sobrevive es lo correcto: un fallo por contenido o por cuota no lo
+  // resolvió volver a habilitar la sesión, así que sigue siendo verdad.
+  await db.from('flow_trabajos').delete()
+    .eq('workspace_id', ws)
+    .eq('estado', 'fallido')
+    .eq('motivo', 'sesion_marcada');
   return { ok: true };
 }

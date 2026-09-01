@@ -40,7 +40,7 @@ import { causaFlow, causaDeMotivo, textoFlow, type CausaFlow } from '@/lib/flow-
 import { getSetting, setSetting } from '@/lib/settings';
 import { leerHistorial, guardarEnHistorial, type PlanGuardado, type MarcaVideo, type MarcaImagen } from './video-datos';
 import { sanearPlantillas, tieneCaraParcheable, KEY_PLANTILLAS } from '@/lib/flow-plantillas';
-import { olvidarTomasFallidas } from './tomas-invalidar';
+import { olvidarTomasFallidas, olvidarImagenesDeLaFoto } from './tomas-invalidar';
 import { agregarClip, quitarClip, cambiarDuracion } from './plan-clips';
 import { sumarVariantes } from './variantes-imagen';
 import { archivarToma, recuperarToma } from './tomas-archivo';
@@ -1605,7 +1605,16 @@ export async function elegirFotoAction(
     return { ok: false, error: 'Esa foto ya no está en tu perfil.' };
   }
 
-  const actualizado: PlanGuardado = { ...item, fotoId };
+  // ⚠️ Y SE INVALIDA LO QUE SALIÓ DE LA FOTO ANTERIOR. Sin esto el selector no
+  // gobierna nada: la persona cambia la foto, aprieta Continuar, y «Continuar»
+  // CONFIRMA la imagen vieja — la de la cara anterior—, que es el cuadro del que
+  // después sale el clip pagado.
+  //
+  // Sólo si de verdad cambió: reelegir la misma foto no puede costarle las
+  // imágenes que ya aprobó.
+  const actualizado: PlanGuardado = item.fotoId === fotoId
+    ? { ...item, fotoId }
+    : { ...olvidarImagenesDeLaFoto(item), fotoId };
   await guardarEnHistorial(actualizado);
   return { ok: true, item: actualizado };
 }
@@ -1624,6 +1633,26 @@ export async function elegirFotoAction(
 async function caraEnFlow(item: PlanGuardado): Promise<string> {
   const fotoId = str(item.fotoId);
   if (!fotoId) return '';
+
+  // ⚠️ SE COMPRUEBA QUE LA FOTO SIGA EXISTIENDO ANTES DE USAR LO CACHEADO.
+  //
+  // `elegirFotoAction` verifica que exista al ELEGIRLA, y eso no cubre nada acá:
+  // borrar la foto después deja el `fotoId` del plan y la entrada del mapa vivos,
+  // así que se seguía generando con la cara de una foto que ya no está — mientras
+  // la pantalla muestra otra. Nadie puede notar que la comparación «¿apruebas tu
+  // avatar?» está comparando dos cosas sin relación.
+  //
+  // Y de paso se purga el mapa: una clave que apunta a una foto borrada no vuelve
+  // a servir nunca, y guardarla es prometer que sí.
+  const est = await personaEstado().catch(() => null);
+  if (est && !est.fotos.some((f: { id: string }) => f.id === fotoId)) {
+    const sucio = JSON.parse((await getSetting(KEY_CARAS_FLOW)) || '{}') as Record<string, string>;
+    if (fotoId in sucio) {
+      delete sucio[fotoId];
+      await setSetting(KEY_CARAS_FLOW, JSON.stringify(sucio));
+    }
+    return '';
+  }
 
   const mapa = JSON.parse((await getSetting(KEY_CARAS_FLOW)) || '{}') as Record<string, string>;
   if (str(mapa[fotoId])) return str(mapa[fotoId]);
