@@ -38,7 +38,12 @@ type Resultado = {
   id: number;
   ok: boolean;
   /** Dónde quedó el mp4, y los dos números que ve la persona. */
-  salida?: { ruta?: string; segundosAntes?: number; segundosDespues?: number; palabrasPerdidas?: number };
+  salida?: {
+    ruta?: string; url?: string; segundosAntes?: number; segundosDespues?: number;
+    palabrasPerdidas?: number;
+    /** El plan de cortes que produjo ESTE video. Es lo que el editor edita. */
+    plan?: { total: number; segs: Array<{ toma: number; ini: number; fin: number }> } | null;
+  };
   motivo?: string;
   error?: string;
 };
@@ -156,6 +161,14 @@ export async function POST(req: Request) {
       guion: String(pedido.guion || ''),
       // Los parámetros del formato. Sin adivinar: el worker no conoce las puestas.
       segundosPorToma: Array.isArray(pedido.segundosPorToma) ? pedido.segundosPorToma : [],
+      // ⚠️ EL PLAN DE CORTES, SI LA PERSONA LO EDITÓ. Con esto el montaje no
+      // recalcula: el detector de energía es un buen default y no la última
+      // palabra — una pausa retórica se le parece a una muerta, y quien sabe cuál
+      // es cuál es el dueño del anuncio mirándolo.
+      plan: pedido.plan ?? null,
+      // La música de fondo, ya resuelta a una url por el server. El worker no
+      // conoce el catálogo: baja lo que le dan.
+      musica: typeof pedido.musica === 'string' ? pedido.musica : '',
       subida: { url: firma.signedUrl, ruta, token: firma.token },
       publica: db.storage.from(BUCKET).getPublicUrl(ruta).data.publicUrl,
     });

@@ -54,8 +54,22 @@ if [ ! -d "$CLIPS" ]; then
   exit 1
 fi
 
-echo "== 1/6 plan de cortes =="
-CLAMP=${CLAMP:-0.45} node "$(dirname "$0")/plan-cortes-anuncio.mjs" "$T" $NTOMAS $DURVID > "$T/plan.json"
+# ⚠️ SI YA HAY UN PLAN, NO SE RECALCULA — y ese es todo el mecanismo del editor.
+#
+# El detector de doble umbral decide que se tira mirando la energia del audio.
+# Es un buen default y no es la ultima palabra: una pausa retorica antes de un
+# giro se le parece a una muerta, y el que sabe cual es cual es el dueño del
+# anuncio mirandolo.
+#
+# Asi que el editor no es otro pipeline: es una pantalla que edita ESTE json y lo
+# vuelve a mandar. Con el plan puesto, el paso 1 se saltea entero y el resto del
+# montaje corre igual — misma voz, misma mezcla, mismos subtitulos.
+if [ -s "$T/plan.json" ]; then
+  echo "== 1/6 plan de cortes: EDITADO A MANO, no se recalcula =="
+else
+  echo "== 1/6 plan de cortes =="
+  CLAMP=${CLAMP:-0.45} node "$(dirname "$0")/plan-cortes-anuncio.mjs" "$T" $NTOMAS $DURVID > "$T/plan.json"
+fi
 TOTAL=$(node -e "process.stdout.write(String(JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).total))" "$T/plan.json")
 node "$(dirname "$0")/gen-filtros-anuncio.mjs" "$T/plan.json" "$T" $NTOMAS
 

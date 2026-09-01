@@ -164,6 +164,10 @@ const PATHS: Record<string, ReactNode> = {
   // Las dos barras miden lo mismo que el alto del triangulo (13) y arrancan a la
   // misma altura: puestos uno encima del otro en el mismo boton, no salta nada.
   pausa: (<path d="M9 5.5v13M15 5.5v13" strokeLinecap="round" />),
+  // La tijera del editor de cortes: partir un tramo en dos. ⚠️ Se AGREGA acá y
+  // no se resuelve con un emoji — `Icon` con un nombre que no existe dibuja un
+  // punto y no falla, así que el que falta se descubre mirando la pantalla.
+  tijera: (<><circle cx="6" cy="6" r="2.6" /><circle cx="6" cy="18" r="2.6" /><path d="M20 4 8.6 15.4M20 20 8.6 8.6" strokeLinecap="round" /></>),
   dot: (<circle cx="12" cy="12" r="3" />),
   // ── Íconos de la fábrica (SVG entregados por Martín) ──────────────────────
   // Vienen de archivos de 1500×1500 rellenos. Cada uno se escala y se centra

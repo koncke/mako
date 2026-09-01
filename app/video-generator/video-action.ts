@@ -46,6 +46,8 @@ import { sumarVariantes } from './variantes-imagen';
 import { archivarToma, recuperarToma } from './tomas-archivo';
 import { personaEstado, addPersonaFoto, getPersona } from '@/lib/persona';
 import { guardarSaldo, leerSaldoGuardado, guardarCostoMedido, type SaldoFlow } from './saldo-datos';
+import { leerPlan, porQueNoSirveElPlan, type Plan } from './plan-montaje';
+import { pistaPorId } from '@/lib/musica-catalogo';
 
 async function ctxAdmin(): Promise<{ ok: true; ws: number } | { ok: false; error: string }> {
   if ((await getRolWsEfectivo()) !== 'admin') {
@@ -1977,9 +1979,17 @@ export async function cambiarMuletillasAction(
 
 export type EstadoMontaje =
   | { fase: 'sin_empezar' }
-  | { fase: 'encolado'; id: number }
+  | {
+    fase: 'encolado'; id: number;
+    /** Hace cuántos minutos está esperando que alguien lo tome. */
+    esperando: number;
+  }
   | { fase: 'montando'; id: number; desde: string | null }
-  | { fase: 'listo'; url: string; segundosAntes?: number; segundosDespues?: number }
+  | {
+    fase: 'listo'; url: string; segundosAntes?: number; segundosDespues?: number;
+    /** Los cortes que produjeron ESTE video. Es lo que el editor edita. */
+    plan?: Plan | null;
+  }
   | { fase: 'error'; error: string; motivo: string };
 
 /**
@@ -1992,6 +2002,17 @@ export type EstadoMontaje =
  */
 export async function montarAnuncioAction(
   planId: string,
+  /**
+   * Los cortes editados a mano. Sin esto, el worker los calcula solo.
+   *
+   * ⚠️ Y CON ESTO, EL DETECTOR NO CORRE. Es el mecanismo del editor entero: la
+   * energía del audio decide bien casi siempre, pero no distingue una pausa
+   * retórica de una muerta — y quien sabe cuál es cuál es el dueño del anuncio
+   * mirándolo.
+   */
+  plan?: Plan | null,
+  /** El id de la pista de fondo. Se valida contra el catálogo, no se cree. */
+  musica?: string | null,
 ): Promise<{ ok: true; id: number } | { ok: false; error: string }> {
   const ctx = await ctxAdmin();
   if (!ctx.ok) return ctx;
@@ -2024,6 +2045,15 @@ export async function montarAnuncioAction(
     .maybeSingle();
   if (vivo?.id) return { ok: true, id: Number(vivo.id) };
 
+  // ⚠️ UN PLAN EDITADO SE VALIDA ANTES DE ENCOLARLO. Un tramo invertido o
+  // negativo no hace fallar a ffmpeg: `trim=3:1` produce un segmento VACÍO y el
+  // anuncio sale más corto sin que nada lo diga. Es un render de 25 s de CPU
+  // gastado en un archivo mal.
+  if (plan) {
+    const malo = porQueNoSirveElPlan(plan, item.plan.clips.length, item.plan.clips[0]?.segundos ?? 10);
+    if (malo) return { ok: false, error: malo };
+  }
+
   const { data, error } = await db
     .from('montaje_trabajos')
     .insert({
@@ -2036,6 +2066,11 @@ export async function montarAnuncioAction(
         // corrigió una línea a mano, el anuncio dice la corregida.
         guion: item.plan.clips.map((c) => c.voz).filter(Boolean).join(' '),
         segundosPorToma: item.plan.clips.map((c) => c.segundos),
+        plan: plan ?? null,
+        // ⚠️ LA URL LA PONE EL SERVER DESDE EL CATÁLOGO, no viaja del navegador.
+        // Una url de música elegida por el cliente es un GET que el worker hace
+        // a donde le digan: un SSRF desde adentro del contenedor.
+        musica: pistaPorId(musica)?.url ?? '',
       },
     })
     .select('id')
@@ -2061,7 +2096,7 @@ export async function estadoMontajeAction(
   // de otros anuncios y la fila que contesta por éste se cae afuera, sin error.
   const { data } = await db
     .from('montaje_trabajos')
-    .select('id, estado, resultado, error, motivo, tomado_at')
+    .select('id, estado, resultado, error, motivo, tomado_at, created_at')
     .eq('plan_id', planId)
     .order('id', { ascending: false })
     .limit(1)
@@ -2083,6 +2118,10 @@ export async function estadoMontajeAction(
         url,
         segundosAntes: typeof r.segundosAntes === 'number' ? r.segundosAntes : undefined,
         segundosDespues: typeof r.segundosDespues === 'number' ? r.segundosDespues : undefined,
+        // Los cortes que produjeron este video. Sin esto el editor no tendría
+        // qué editar: la pantalla vería un video terminado y ninguna de las
+        // decisiones que lo produjeron.
+        plan: leerPlan(r.plan),
       },
     };
   }
@@ -2092,5 +2131,12 @@ export async function estadoMontajeAction(
   if (est === 'tomado') {
     return { ok: true, estado: { fase: 'montando', id: Number(data.id), desde: str(data.tomado_at) || null } };
   }
-  return { ok: true, estado: { fase: 'encolado', id: Number(data.id) } };
+  // ⚠️ CUÁNTO HACE QUE ESPERA, y no es un adorno. El montaje ahora arranca solo,
+  // así que con el worker apagado la pantalla prometería «2 a 5 minutos» para
+  // siempre sobre algo que nadie va a tomar nunca. «Está en la fila» y «no hay
+  // nadie atendiendo la fila» son dos cosas distintas, y desde afuera se ven
+  // idénticas: un spinner.
+  const desde = Date.parse(str(data.created_at) || '');
+  const esperando = Number.isFinite(desde) ? Math.max(0, Math.floor((Date.now() - desde) / 60000)) : 0;
+  return { ok: true, estado: { fase: 'encolado', id: Number(data.id), esperando } };
 }

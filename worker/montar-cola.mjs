@@ -105,6 +105,24 @@ async function montar(t) {
     // conteo: comerse el ataque de una palabra no cambia el conteo.
     await writeFile(path.join(dir, 'guion.txt'), t.guion || '', 'utf8');
 
+    // ⚠️ EL PLAN EDITADO, SI VIENE. El montaje mira si `plan.json` ya existe y en
+    // ese caso no recalcula: es todo el mecanismo del editor. El detector de
+    // energia es un buen default, no la ultima palabra — una pausa retorica se le
+    // parece a una muerta, y quien sabe cual es cual es el dueño del anuncio
+    // mirandolo.
+    if (t.plan && Array.isArray(t.plan.segs) && t.plan.segs.length) {
+      await writeFile(path.join(dir, 'plan.json'), JSON.stringify(t.plan), 'utf8');
+      console.log(`    plan editado: ${t.plan.segs.length} tramos, ${t.plan.total}s`);
+    }
+
+    // La música de fondo, si el anuncio eligió una. La url la resolvió MaKo
+    // desde su catálogo: acá se baja y ya.
+    let musica = '';
+    if (t.musica) {
+      musica = path.join(dir, 'musica.mp3');
+      await bajar(t.musica, musica);
+    }
+
     const seg = t.segundosPorToma || [];
     const env = {
       ...process.env,
@@ -113,9 +131,10 @@ async function montar(t) {
       // esto pasa a ser una lista y el montaje tiene que leerla.
       DURVID: String(seg[0] ?? 10.005),
       CLIPS: clips,
-      // Sin música hasta que Epidemic Connect esté aprobado. El paso no se
-      // saltea: hace loudnorm sobre la voz sola.
-      MUSICA: process.env.MONTAJE_MUSICA || '',
+      // Sin música, el paso NO se saltea: hace loudnorm sobre la voz sola. El
+      // env queda como escape para probar una pista en el contenedor sin pasar
+      // por el catálogo.
+      MUSICA: musica || process.env.MONTAJE_MUSICA || '',
     };
 
     const salida = `${t.nombreArchivo || 'anuncio.mp4'}`;
@@ -143,12 +162,21 @@ async function montar(t) {
     // inventa ninguno.
     const antes = (t.clips.length * (seg[0] ?? 10.005));
     const mDur = /duration=?\s*([\d.]+)/i.exec(out);
+
+    // ⚠️ EL PLAN VUELVE CON EL RESULTADO, y sin esto el editor no tendria que
+    // editar. El detector corre en el contenedor y su salida se moria ahi: la
+    // pantalla veia un video terminado y ninguna de las decisiones que lo
+    // produjeron. Un montaje que no devuelve sus cortes es una caja negra.
+    let plan = null;
+    try { plan = JSON.parse(await readFile(path.join(dir, 'plan.json'), 'utf8')); } catch { /* sin plan, la pantalla lo dice */ }
+
     return {
       ruta: t.subida.ruta,
       url: t.publica,
       segundosAntes: Math.round(antes * 100) / 100,
       segundosDespues: mDur ? Math.round(Number(mDur[1]) * 100) / 100 : undefined,
       bytes: s.size,
+      plan,
     };
   } finally {
     // Un contenedor que no limpia se queda sin disco a las pocas decenas de

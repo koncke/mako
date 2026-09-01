@@ -2576,7 +2576,12 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
               primero que se ve son siete clips con aire muerto, que es
               exactamente el «video con cara de IA» que el montaje viene a
               evitar. */}
-          <PasoMontaje planId={item.id} titulo={item.plan.titulo} />
+          <PasoMontaje
+            planId={item.id}
+            titulo={item.plan.titulo}
+            clips={clips}
+            segundosPorToma={item.plan.clips.map((c) => c.segundos)}
+          />
           <div style={{ width: '100%', borderTop: '1px solid var(--border)', paddingTop: 20 }}>
             <div style={{
               textAlign: 'center', marginBottom: 12,

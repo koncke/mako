@@ -967,3 +967,143 @@ permite predecir el error para cualquier otro `limit`, no sólo para 0,7.
   de Segoe UI Black. Anton es más angosta: si esos números salieron de mirar cuadros, los
   renglones ahora quedan cortos. **Sin verificar** — la sesión que los eligió ya cerró.
 - **`NTOMAS` y `DURVID` por workspace**, hoy defaults del script.
+
+---
+
+## El editor de cortes (01/09/2026)
+
+**Vive en:** `app/video-generator/EditorAnuncio.tsx` · `app/video-generator/editor-cortes.ts` ·
+`app/video-generator/plan-montaje.ts` · `worker/montar-cola.mjs` ·
+`scripts/montar-anuncio-sin-silencios.sh` · `lib/musica-catalogo.ts`
+
+### Un montaje que no devuelve sus cortes es una caja negra
+
+El detector de doble umbral producía `plan.json` —`{ total, segs: [{toma, ini, fin}] }`—
+dentro del contenedor, lo usaba y lo tiraba con el directorio temporal. La pantalla veía un
+mp4 terminado y **ninguna de las decisiones que lo produjeron**.
+
+Eso no era una carencia del editor: era la razón por la que el editor no podía existir. Un
+plan de cortes ES una línea de tiempo; devolverlo convirtió «escribir un editor de video»
+en «escribir una pantalla sobre un objeto que ya teníamos». El camino de vuelta son tres
+líneas: el worker lee el `plan.json` que acaba de usar y lo manda con el resultado, la
+action lo guarda, el editor lo edita, y el script **no recalcula si el archivo ya existe**.
+
+**La regla:** cuando un proceso automático toma decisiones que alguien podría querer
+corregir, esas decisiones vuelven con el resultado. Si sólo vuelve el producto, la única
+forma de corregirlo es rehacerlo entero — y para eso hay que reconstruir a mano lo que el
+proceso ya sabía.
+
+### ⚠️ ffmpeg no falla con un tramo inválido: te da otra cosa
+
+Ninguno de estos da error, y los cuatro dejan el archivo mal después de gastar el render:
+
+| Lo que llega | Lo que hace ffmpeg |
+|---|---|
+| `trim=3:1` (invertido) | segmento **vacío**; el anuncio sale más corto |
+| `fin` más allá del clip | devuelve lo que hay y calla |
+| tramo de 0,1 s | un parpadeo que nadie quiso |
+| dos tramos de la misma toma que se pisan | un video **bien formado que dice otra cosa**: repite media frase |
+
+El último es el peor y es el más fácil de producir arrastrando un borde. Por eso el editor
+tiene **dos capas**: `moverBorde` ACOTA contra el vecino del mismo clip —en un programa de
+edición el borde se frena contra el tope, no se pierde el arrastre con un cartel rojo— y
+`porQueNoSirveElPlan` valida en el server lo que llegue de cualquier lado. La primera es
+para que se sienta bien; la segunda es porque el navegador no es la única puerta.
+
+### El separador de dos píxeles mentía sobre el tiempo
+
+Los bloques de la tira llevaban `marginRight: 2` para verse separados. El cabezal se
+posiciona con segundos puros (`t * escala`), así que **cada corte lo desfasaba 2 px**: con
+siete tomas, 14 px de mentira acumulada justo en lo único que ese control tiene que decir
+con precisión. Va como `borderRight` (con el `box-sizing: border-box` global se come el
+ancho en vez de agregarlo) y no como margen.
+
+**La regla, para cualquier cosa que sea a la vez decoración y escala:** si dos elementos
+dicen la misma magnitud por caminos distintos —uno por layout, otro por aritmética—,
+cualquier píxel que el layout agregue es un error que la aritmética no ve.
+
+### La escala se fija una vez, o la tira se mueve debajo del dedo
+
+Los píxeles por segundo salen del plan de APERTURA y no se recalculan al editar. Si se
+recalcularan, recortar un tramo estiraría a los demás para volver a llenar el ancho: la
+línea de tiempo se movería entera mientras se arrastra, y el recorte se vería como que no
+pasó nada. Con la escala fija la tira se acorta, que es lo que uno hizo — y cuando se
+alarga, **scrollea** (`.mk-scroll-oscuro`, nunca `scrollbar-width: none`).
+
+### La previsión no espera al render, y por eso hay que decir qué NO muestra
+
+El editor reproduce las TOMAS ORIGINALES saltando de una a otra en los cortes: es lo mismo
+que el montaje va a concatenar, sin cola ni CPU. Un editor que para mostrar un cambio
+necesita esperar dos minutos es un formulario con un botón de vista previa.
+
+⚠️ **El bug que casi se va vivo:** el bucle sólo buscaba cuando el elemento estaba pausado,
+o sea al cambiar de TOMA. Dos tramos seguidos de la misma toma —partir una toma y sacarle
+un bache del medio, que es el caso central del editor— dejaban el video reproduciendo de
+largo: **la previsión mostraba justo el pedazo que se acababa de sacar**. Se busca al
+cambiar de TRAMO, no de toma.
+
+Y lo que la previsión no tiene —subtítulos, música, nivelación— se dice en pantalla. Sin esa
+línea, quien mira concluye que se perdieron.
+
+### El montaje arranca solo, así que la espera tuvo que aprender a desmentirse
+
+La pantalla del montaje sólo existe cuando las tomas están todas filmadas, y montar no gasta
+créditos: pedir un botón más para ver lo que la persona vino a ver es un paso que no decide
+nada. Ahora arranca en un efecto, **con pestillo en un ref y no en el estado** — dos efectos
+de StrictMode leen el mismo `sin_empezar` antes de que vuelva ninguna respuesta, y la guarda
+de «ya hay uno en vuelo» de la action tampoco los separa porque las dos consultas salen
+antes del primer insert.
+
+⚠️ **Y eso cambió qué puede mentir.** Con el botón, un worker apagado no producía nada. Con
+el arranque automático, produce **un loader prometiendo «2 a 5 minutos» para siempre**.
+«Está en la fila» y «no hay nadie atendiendo la fila» se ven idénticos desde afuera: un
+spinner. El estado `encolado` ahora trae `esperando` en minutos y a los 10 el texto deja de
+prometer. Es la misma familia que «un mensaje que sale solo no puede afirmar lo que no
+verificó», entrando por la puerta de una mejora de UX.
+
+### Una pestaña CDP nueva no hidrata: el síntoma acá fue `display: none`
+
+Verificando la línea de tiempo en un banco temporal: el DOM completo (7 `<video>`, el
+`[role=dialog]`, todos los textos) y **toda la geometría en cero**. La causa no es del
+código: la pestaña nunca hidrató, así que el efecto de `useCapaModal` no corrió y
+`capa.visible` se quedó en su valor inicial, con lo cual `.mk-modal__fondo` quedó en
+`display: none`.
+
+**La firma, para reconocerlo en segundos:** `Object.keys(nodo).find(k =>
+k.startsWith('__reactFiber'))` devuelve `undefined`. Sin ese chequeo, un modal invisible en
+una pestaña sin hidratar se lee como un bug del modal — y se depura el componente, que está
+bien. Ver también la memoria `cdp-pestana-no-hidrata`.
+
+**Lo que quedó SIN verificar por esto:** los anchos reales de los bloques y la posición del
+cabezal en pantalla. Los dos problemas de layout de arriba se encontraron por aritmética
+sobre el código, no mirando. Alguien tiene que abrir el editor en un navegador de verdad.
+
+### Los tests no corrían
+
+Se escribieron con `vitest`; el repo corre `node --import tsx --test tests/*.test.ts`. 36
+tests que pasaban perfecto bajo un runner que nadie invoca. Es «escribir la salida no es
+ofrecerla» aplicada a la red de seguridad: la prueba de que un test existe no es que pase,
+es que `npm test` lo cuente.
+
+### La música: la plomería entera, el catálogo vacío
+
+`lib/musica-catalogo.ts` está vacío **a propósito** y con el porqué escrito: falta la
+licencia (Epidemic Sound Connect), no el código. El camino completo funciona: el editor
+elige un id, la action lo resuelve a una url **desde el catálogo del server** —una url
+elegida por el cliente sería un GET que el worker hace a donde le digan, o sea un SSRF desde
+adentro del contenedor—, el worker la baja y el montaje la mezcla.
+
+Y el control **no se dibuja si no hay pistas**: `hayMusica()` lo gatea. Un selector con una
+sola opción que dice «Sin música» ocupa el mismo lugar que el que funciona y enseña que
+tocarlo no hace nada.
+
+### Lo que quedó SIN hacer
+
+- **Mirar el editor en un navegador hidratado**, arriba.
+- **Deshacer.** No hay `Ctrl+Z`: un arrastre equivocado se arregla arrastrando de vuelta.
+  Con las operaciones puras en `editor-cortes.ts`, es una pila de planes en un `useRef`.
+- **La música**, esperando Epidemic. Una fila en `PISTAS` y anda.
+- **Reordenar tomas.** El editor recorta y parte; mover un tramo de lugar no está. El plan
+  lo soporta (es un array ordenado), lo que falta es el arrastre.
+- **El worker sigue sin contenedor**, así que nada de esto se probó de punta a punta contra
+  un montaje real.

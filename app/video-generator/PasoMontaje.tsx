@@ -15,12 +15,14 @@
 // de mostrar: **cuánto se recortó y que no se perdió ni una palabra**. Los dos
 // números los produce el verificador; acá sólo se pintan.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Alert, Spinner } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { montarAnuncioAction, estadoMontajeAction, type EstadoMontaje } from './video-action';
 import { descargarComo } from './descargar';
 import { nombreDeAnuncio } from './video-pedido';
+import { EditorAnuncio } from './EditorAnuncio';
+import type { Plan } from './plan-montaje';
 
 /** `70.04` → `1:10`. Sin decimales: nadie lee un anuncio en centésimas. */
 function reloj(seg: number): string {
@@ -28,10 +30,18 @@ function reloj(seg: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-export function PasoMontaje({ planId, titulo }: { planId: string; titulo: string }) {
+export function PasoMontaje({ planId, titulo, clips, segundosPorToma }: {
+  planId: string;
+  titulo: string;
+  /** Las tomas originales. Las necesita el editor para previsualizar sin render. */
+  clips: string[];
+  segundosPorToma: number[];
+}) {
   const [estado, setEstado] = useState<EstadoMontaje>({ fase: 'sin_empezar' });
   const [ocupado, setOcupado] = useState('');
   const [error, setError] = useState('');
+  const [editando, setEditando] = useState(false);
+  const [musica, setMusica] = useState<string | null>(null);
 
   const mirar = useCallback(async () => {
     const r = await estadoMontajeAction(planId).catch(() => null);
@@ -50,15 +60,33 @@ export function PasoMontaje({ planId, titulo }: { planId: string; titulo: string
     return () => clearInterval(t);
   }, [enVuelo, mirar]);
 
-  const montar = async () => {
+  const montar = useCallback(async (plan?: Plan | null, pista?: string | null) => {
     setOcupado('montar');
     setError('');
-    const r = await montarAnuncioAction(planId).catch(() => null);
+    const r = await montarAnuncioAction(planId, plan ?? null, pista ?? null).catch(() => null);
     if (!r) setError('No se pudo empezar el montaje. Vuelve a intentarlo.');
     else if (!r.ok) setError(r.error);
     else await mirar();
     setOcupado('');
-  };
+  }, [planId, mirar]);
+
+  // ── El montaje ARRANCA SOLO ─────────────────────────────────────────────
+  // Esta pantalla sólo existe cuando las tomas están todas filmadas, así que
+  // pedirle a la persona que apriete un botón más para ver lo que vino a ver es
+  // un paso que no decide nada. El montaje no gasta créditos: lo único que se
+  // arriesga es CPU nuestra.
+  //
+  // ⚠️ EL PESTILLO NO ES EL ESTADO, ES UN REF. Dos efectos de StrictMode leen el
+  // mismo `sin_empezar` antes de que ninguna respuesta vuelva, y la guarda de
+  // «ya hay uno en vuelo» de la action tampoco los separa: las dos consultas
+  // salen antes del primer insert. El resultado serían dos renders del mismo
+  // anuncio, uno tirado.
+  const arrancado = useRef(false);
+  useEffect(() => {
+    if (arrancado.current || estado.fase !== 'sin_empezar' || ocupado) return;
+    arrancado.current = true;
+    void montar();
+  }, [estado.fase, ocupado, montar]);
 
   const bajar = async (url: string) => {
     setOcupado('bajar');
@@ -70,29 +98,7 @@ export function PasoMontaje({ planId, titulo }: { planId: string; titulo: string
 
   return (
     <div style={{ display: 'grid', gap: 16, justifyItems: 'center', width: '100%' }}>
-      {estado.fase === 'sin_empezar' && (
-        <>
-          <p style={{
-            margin: 0, maxWidth: '46ch', textAlign: 'center',
-            fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.55,
-          }}>
-            MaKo le quita el aire muerto, le pone tu voz y le quema los subtítulos.
-            Tarda unos minutos y no gasta créditos de Flow.
-          </p>
-          <Button
-            variant="mako"
-            size="xl"
-            loading={ocupado === 'montar'}
-            disabled={!!ocupado}
-            icon={<Icon name="ia" size={19} />}
-            onClick={() => void montar()}
-          >
-            Montar el anuncio
-          </Button>
-        </>
-      )}
-
-      {enVuelo && (
+      {(enVuelo || estado.fase === 'sin_empezar') && (
         // ⚠️ `Spinner` y NO `.mk-cargando-foto`. Esa clase es `position: absolute;
         // inset: 0`, asi que sin un padre posicionado se estira a la pantalla
         // entera —medido: 1472x788—. Y su propio comentario dice para que es:
@@ -105,9 +111,15 @@ export function PasoMontaje({ planId, titulo }: { planId: string; titulo: string
             {estado.fase === 'montando' ? 'Montando tu anuncio' : 'En la fila para montar'}
           </div>
           {/* Fija expectativa, adentro del loader. No es un mensaje de estado
-              suelto: es parte de la espera, que es lo que la regla permite. */}
+              suelto: es parte de la espera, que es lo que la regla permite.
+              ⚠️ Y DEJA DE PROMETERLO cuando la espera ya la desmintió: un
+              trabajo que lleva diez minutos sin que nadie lo tome no está
+              tardando, está sin atender. Seguir diciendo «2 a 5 minutos» sobre
+              eso es afirmar algo que el propio reloj ya contradice. */}
           <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>
-            Suele tardar entre 2 y 5 minutos.
+            {estado.fase === 'encolado' && estado.esperando >= 10
+              ? `Lleva ${estado.esperando} minutos esperando turno. Escríbenos si sigue así.`
+              : 'Suele tardar entre 2 y 5 minutos.'}
           </div>
         </div>
       )}
@@ -140,17 +152,52 @@ export function PasoMontaje({ planId, titulo }: { planId: string; titulo: string
               </div>
             </div>
           )}
-          <Button
-            variant="primary"
-            size="lg"
-            loading={ocupado === 'bajar'}
-            disabled={!!ocupado}
-            icon={<Icon name="descargar" size={17} />}
-            onClick={() => void bajar(estado.url)}
-          >
-            Descargar el anuncio
-          </Button>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+            <Button
+              variant="primary"
+              size="lg"
+              loading={ocupado === 'bajar'}
+              disabled={!!ocupado}
+              icon={<Icon name="descargar" size={17} />}
+              onClick={() => void bajar(estado.url)}
+            >
+              Descargar el anuncio
+            </Button>
+            {/* ⚠️ EL EDITOR SE OFRECE SÓLO SI EL MONTAJE DEVOLVIÓ SUS CORTES.
+                Sin el plan no hay nada que editar, y un botón que abre una línea
+                de tiempo vacía es peor que ninguno: promete un control que no
+                existe. Un montaje viejo —de antes de que el worker devolviera el
+                plan— cae acá, y lo correcto es que el botón no esté. */}
+            {estado.plan && (
+              <Button
+                variant="secondary"
+                size="lg"
+                disabled={!!ocupado}
+                icon={<Icon name="tijera" size={17} />}
+                onClick={() => setEditando(true)}
+              >
+                Ajustar los cortes
+              </Button>
+            )}
+          </div>
         </>
+      )}
+
+      {editando && estado.fase === 'listo' && estado.plan && (
+        <EditorAnuncio
+          clips={clips}
+          segundosPorToma={segundosPorToma}
+          plan={estado.plan}
+          musica={musica}
+          onCerrar={() => setEditando(false)}
+          onAplicar={(plan, pista) => {
+            setEditando(false);
+            setMusica(pista);
+            // El estado pasa a `encolado` en cuanto la action contesta, así que
+            // la pantalla vuelve sola al loader: no hace falta pintar nada acá.
+            void montar(plan, pista);
+          }}
+        />
       )}
 
       {estado.fase === 'error' && (
