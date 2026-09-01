@@ -3758,3 +3758,79 @@ captura los pedidos que hace la página de Flow por su cuenta. Con una sesión
 generando, contar cada cuánto llama ella misma a
 `batchCheckAsyncVideoGenerationStatus` contesta la pregunta con un dato y no con una
 estimación. Es una tarde y cierra un 10 s en el 84% de los trabajos.
+
+## ⚠️ Dos cambios que no tocan una guarda pueden desarmarla JUNTOS (01/09/2026)
+
+**Vive en:** `extension/background.js` (el bucle que ejecuta el lote)
+
+Lo cazó un revisor adversario sobre un commit que ya estaba desplegado, y es el
+hallazgo más caro de esta tanda porque **ninguna prueba lo podía encontrar**.
+
+El `cooldownMs` —lo único entre un cliente y un `PUBLIC_ERROR_UNUSUAL_ACTIVITY`,
+que le bloquea la sesión de Google— vivía como un `await sleep(cooldownMs)` en la
+cola del `for` que ejecuta el lote de trabajos. Eso espacia a los trabajos **de un
+mismo lote**. Entre el último de un lote y el primero del siguiente no espaciaba
+nada: lo hacía la alarma de 15 s, **por accidente y sin que nadie lo dijera**.
+
+Dos cambios, cada uno correcto y verificable por separado:
+
+1. sacar el sleep después del último trabajo del lote — no espaciaba nada, era
+   tiempo muerto que pagaba el cliente mirando el loader;
+2. encadenar el ciclo siguiente en el acto en vez de esperar la alarma — sólo
+   adelanta un viaje a NUESTRO servidor, no le habla a Google.
+
+**Juntos**, el último trabajo de un lote y el primero del siguiente quedaban
+separados por ese viaje: **~0,3 s donde el piso son 10**.
+
+### Por qué esto no se encuentra revisando ninguno de los dos
+
+- Cada cambio, leído solo, es defendible — y los dos comentarios que escribí
+  argumentaban bien su propio caso.
+- No hay síntoma: no falla nada, no hay error, no hay test que se ponga rojo. El
+  sistema simplemente le habla a Google más rápido de lo permitido, y **la factura
+  llega días después y en la cuenta de otro** (la sesión bloqueada es la del
+  cliente, no la nuestra).
+- La guarda que se rompió **no estaba en ninguno de los dos diffs**.
+
+**La regla: cuando un guard depende de dos cosas —una explícita y una accidental—
+el diff que toca sólo la accidental no muestra nada.** Antes de cambiar el ritmo
+de cualquier cosa, escribí qué mantiene hoy el espaciado REAL, no cuál es la línea
+que dice `cooldown`. Acá el espaciado real era «el sleep del bucle **o** la
+alarma», y el segundo término no estaba escrito en ningún lado.
+
+### El arreglo: el cooldown como PISO, no como sleep al final del bucle
+
+```js
+const falta = cooldownMs - (Date.now() - (await ultimaLlamadaFlow()));
+if (falta > 0) await esperar(falta);
+…ejecutar…
+await marcarLlamadaFlow();
+```
+
+Tres decisiones que no son de estilo:
+
+- **El sello va DESPUÉS, no antes.** El ritmo original dormía al TERMINAR, así que
+  el hueco real entre dos pedidos era «lo que tardó el primero + 10 s». Sellando al
+  empezar se encogería a 10 s a secas — más rápido que antes, que es justo lo que no
+  se puede hacer sin medir.
+- **Se sella aunque la llamada falle.** Un pedido rechazado igual salió, y
+  reintentar rápido contra un bloqueo es como se profundiza un bloqueo.
+- **El reloj va en `chrome.storage`, no en un global.** El service worker MV3 se
+  muere seguido y un piso en memoria se reinicia con él: la primera llamada del
+  worker nuevo saldría sin esperar. **Un guard que se olvida de lo que pasó hace
+  diez segundos es un guard el 80% de las veces**, que es exactamente el que no
+  sirve cuando del otro lado hay un detector de actividad automática.
+
+Con esto la guarda queda igual de estricta que siempre **y además vale entre ciclos,
+entre latidos y entre reinicios del worker** — donde antes no valía y nadie lo
+sabía. El tiempo muerto se recupera igual.
+
+### Y la lección sobre el panel adversario
+
+Los 18 veredictos del panel dieron 3 seguras, y **la mayoría de los ⛔ eran «esto ya
+está aplicado»**: los agentes leyeron el árbol mientras yo lo editaba, que es la
+trampa ya documentada en `AGENTS.md`. Fue ruido. Pero **uno solo de esos dieciocho
+encontró un defecto real, introducido esa misma hora, que ningún test podía ver** —
+y ése justificó la corrida entera. Un panel adversario no se mide por su tasa de
+acierto: se mide por si el hallazgo que sí trae es de los que no se encuentran de
+otra forma.
