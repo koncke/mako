@@ -3654,3 +3654,107 @@ falsa.
 **Sigue pendiente:** publicar la extensión en la Chrome Web Store. La tienda tiene
 ≤0.36.0, así que **quien la instale desde ahí no tiene nada de esto**. El ZIP de
 `/video-generator` sí (0.37.2).
+
+## ⚠️ El p90 de 357 s NO era la cola: eran cuatro operaciones colgadas (01/09/2026)
+
+**Vive en:** `app/video-generator/video-action.ts` (`consultarUnaVez`, la rama
+`MEDIA_GENERATION_STATUS_FAILED`)
+
+Corrección a la lectura de la tabla de arriba, y vale más que la tabla.
+
+`estado_clips` eran 234 de 348 trabajos, con un p90 de espera de 357 s. Se lee como
+«la cola de consultas está saturada». Contando las consultas **por operación** sobre
+las 400 más recientes:
+
+```
+  104  …4c49574b68db   desde 2026-08-30 13:24
+   74  …46fb36e3ffaf   desde 2026-08-31 04:28
+   42  …48a078c3808f   desde 2026-08-31 18:47
+   41  …9cc4f10b2989   desde 2026-08-31 02:50
+    2  …6c78d4ae39d0   desde 2026-09-01 02:40
+    2  …a04db0d040ac   desde 2026-09-01 02:00
+
+  31 operaciones · MEDIANA: 1 consulta por operación
+```
+
+**261 de 400 consultas —el 65%— salieron de CUATRO operaciones**, todas anteriores
+al 31/08. Eran los bucles de la toma que Google ya había rechazado y que se seguía
+preguntando para siempre: el defecto que cerró la rama
+`MEDIA_GENERATION_STATUS_FAILED`. Después de eso, la mediana es **1 consulta por
+operación**.
+
+### Las dos lecciones, y la segunda es la cara
+
+1. **Un percentil alto sobre una cola puede ser un BUCLE, no una saturación.** Y los
+   dos se ven idénticos en un agregado por tipo: muchas filas, mucha espera. Lo que
+   los separa es **agrupar por la entidad** (acá, la operación) y mirar la
+   distribución. Una mediana de 1 con un p90 de 357 s no es una cola cargada: es un
+   puñado de casos rotos ahogando a los sanos. Vale para cualquier tabla de eventos.
+
+2. **Un hallazgo de un subagente sobre datos históricos no fecha lo que lee.** Un
+   agente reportó, con evidencia correcta, que una operación tuvo *«42 consultas con
+   el mismo `MEDIA_GENERATION_STATUS_FAILED`»*. Cierto — y de **antes** del arreglo
+   que estaba en el commit anterior. Es exactamente lo que ya está en `AGENTS.md`
+   («un agente no distingue "nunca estuvo roto" de "se arregló hace una hora»),
+   corrido de código a datos: **una tabla de eventos guarda el pasado, incluido el
+   que ya se arregló**. Antes de tratar un conteo histórico como el estado de hoy,
+   partilo por fecha.
+
+**Lo que esto NO invalida:** la espera mediana de 13,6 s y los ~14 s de reporte
+tardío eran reales y los pagaba **todo** trabajo, sano o no. Los arreglos siguen
+valiendo lo que valen. Lo que cambia es qué esperar: el alivio va a verse en la
+MEDIANA, no en un p90 que ya se había ido con otro arreglo.
+
+## Por qué las consultas de estado NO se pueden agrupar en una
+
+**Vive en:** `app/video-generator/video-action.ts` (`parchesEstadoClip`) ·
+`extension/injected.js` (`fundir`)
+
+Sale solo: el endpoint de Google se llama `batchCheckAsyncVideoGenerationStatus` y
+toma una LISTA, así que preguntar por las siete tomas en un solo trabajo parece
+gratis — 7 consultas → 1, y encima menos llamadas a Google, que es estrictamente
+más seguro.
+
+**No se puede, y la razón ya está pagada en este repo.** Nosotros no MANDAMOS ese
+pedido: lo parcheamos. `fundir()` reemplaza arrays enteros a propósito, así que
+mandar `operations: [...]` tira el array de Flow con todos los campos que cada
+entrada lleva al lado del `name` y que no sabemos que existen — es la causa medida
+del HTTP 400 «Request contains an invalid argument» del 31/08. El parche por camino
+escribe `operations[0].operation.name` y nada más, y funciona **porque esa entrada
+ya existe en el pedido de Flow**.
+
+Para preguntar por siete habría que CREAR `operations[1..6]` desde cero, o sea
+volver justo al modo de falla que el parche vino a evitar: un pedido mal formado
+hecho por nosotros.
+
+**La regla: en un espejo, lo que se puede parchear es lo que el original ya tiene.**
+La forma del endpoint dice lo que Google acepta; el pedido real dice lo que nosotros
+podemos escribir. Son dos preguntas distintas, y la segunda es la que manda.
+
+**Lo que sí quedaría** —sin tocar el espejo— es que la extensión mire sola una
+operación en vuelo en vez de esperar a que MaKo le encole cada consulta. Con la
+mediana en 1 consulta por operación ya no es urgente.
+
+## Y el otro camino descartado: aflojar el cooldown en las lecturas
+
+**Vive en:** `lib/flow-protocolo.ts` (`PERFILES`, `soloLectura`) ·
+`extension/background.js`
+
+294 de 348 trabajos son de SOLO LECTURA —`getCredits`,
+`batchCheckAsyncVideoGenerationStatus`, `getMediaUrl`— y los tres pagan el mismo
+`cooldownMs` de 10 s que una generación. El dato para distinguirlos **ya viaja**:
+`perfilDeTrabajo` escribe `soloLectura` dentro del `pedido` al encolar, y la
+extensión no lo lee nunca.
+
+Es tentador y **no se hizo**, por una razón concreta: el número con el que habría
+que reemplazarlo no está medido. Lo que hace segura una lectura frecuente sería que
+coincida con el ritmo al que la propia página de Flow pollea su estado, y ese ritmo
+no lo tenemos — `LIMITES.pollMs` es una elección nuestra, no una medición de Flow.
+Poner un número a ojo contra un guard cuyo modo de falla es **bloquearle la sesión
+de Google a un cliente** es exactamente lo que la regla del umbral prohíbe.
+
+**Lo que falta para poder hacerlo:** el espía de la extensión (`VER_ESPIA`) ya
+captura los pedidos que hace la página de Flow por su cuenta. Con una sesión
+generando, contar cada cuánto llama ella misma a
+`batchCheckAsyncVideoGenerationStatus` contesta la pregunta con un dato y no con una
+estimación. Es una tarde y cierra un 10 s en el 84% de los trabajos.
