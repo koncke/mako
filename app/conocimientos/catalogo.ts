@@ -125,6 +125,7 @@ import { CURSO_AILINK_VIP_AGUSTIN_MEDINA } from './curso-ailink-vip-agustin-medi
 import { CURSO_ACADEMIA_ESTRATEGA } from './curso-academia-estratega';
 import { CURSO_HIT_HIGT_IMPACT_TRAINER } from './curso-hit-higt-impact-trainer';
 import { CURSO_PROTOCOLO_IA } from './curso-protocolo-ia';
+import { CURSO_AIRBNB_MASTER } from './curso-airbnb-master';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio.datos';
 import { CURSO_BRANDING } from './BrandingMaKo.datos';
@@ -443,6 +444,10 @@ const CATEGORIA: Record<string, string> = {
   // plataforma. El comentario al lado es la categoría de origen.
   'protocolo-ia': 'Inteligencia Artificial', // IA
 
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'airbnb-master': 'Finanzas',             // Finanzas / Inversiones
+
 };
 
 /**
@@ -665,6 +670,10 @@ const PORTADA: Record<string, string> = {
   // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
   // pero la ficha se había emitido antes de que existiera.
   'protocolo-ia': '/cono-portadas/protocolo-ia.jpg',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'airbnb-master': '/cono-portadas/airbnb-master.jpg',
 
 };
 
@@ -1012,6 +1021,10 @@ const RESUMEN: Record<string, string> = {
   // del catálogo de la plataforma.
   'protocolo-ia': 'Sistema de cuatro fases para usar IA en la adquisición de clientes: crear ganchos y guiones, producir anuncios, lanzar campañas en Facebook Ads.',
 
+  // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
+  // del catálogo de la plataforma.
+  'airbnb-master': 'Formación para crear un negocio de rentas cortas en Airbnb: detectar oportunidades turísticas, negociar propiedades, preparar y publicar anuncios, optimizar precios.',
+
 };
 
 // Sin acentos y en minúsculas, para que «Sofia» no se sume a un título que ya dice
@@ -1332,6 +1345,9 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_PROTOCOLO_IA,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_AIRBNB_MASTER,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
