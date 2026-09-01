@@ -128,6 +128,7 @@ import { CURSO_PROTOCOLO_IA } from './curso-protocolo-ia';
 import { CURSO_AIRBNB_MASTER } from './curso-airbnb-master';
 import { CURSO_DOMINIA_ACADEMY_SKOOL } from './curso-dominia-academy-skool';
 import { CURSO_MASTER_ESCALA_100K } from './curso-master-escala-100k';
+import { CURSO_THE_PERFECT_LAUNCH } from './curso-the-perfect-launch';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio.datos';
 import { CURSO_BRANDING } from './BrandingMaKo.datos';
@@ -458,6 +459,10 @@ const CATEGORIA: Record<string, string> = {
   // plataforma. El comentario al lado es la categoría de origen.
   'master-escala-100k': 'Finanzas',        // Crypto
 
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'the-perfect-launch': 'Orgánico',        // Lanzamientos
+
 };
 
 /**
@@ -692,6 +697,10 @@ const PORTADA: Record<string, string> = {
   // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
   // pero la ficha se había emitido antes de que existiera.
   'master-escala-100k': '/cono-portadas/master-escala-100k.png',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'the-perfect-launch': '/cono-portadas/the-perfect-launch.jpg',
 
 };
 
@@ -1051,6 +1060,10 @@ const RESUMEN: Record<string, string> = {
   // del catálogo de la plataforma.
   'master-escala-100k': 'Aprende a construir un negocio de e-commerce desde cero y escalarlo hasta $100,000 USD en ventas anuales. El curso enseña selección de productos rentables, creación de tiendas online.',
 
+  // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
+  // del catálogo de la plataforma.
+  'the-perfect-launch': 'Método de lanzamientos y sistemas de crecimiento para diseñar, lanzar y escalar negocios (digitales y físicos) de forma rentable, combinando estrategia comercial, marketing digital.',
+
 };
 
 // Sin acentos y en minúsculas, para que «Sofia» no se sume a un título que ya dice
@@ -1380,6 +1393,9 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_MASTER_ESCALA_100K,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_THE_PERFECT_LAUNCH,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
