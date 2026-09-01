@@ -552,6 +552,141 @@ ID de YouTube o en el sistema de derechos de Meta. No se comprobó.
 
 ---
 
+## 11. El montaje de un anuncio es decidir qué se TIRA (01/09/2026)
+
+La §10 dejó un pipeline que sincroniza bien y suena bien. Martín lo miró y dijo lo único
+que importaba: **«que no queden silencios, es un anuncio, eso mata la retención»**. Tenía
+razón, y el número era peor de lo que parecía a ojo.
+
+Medido sobre los dos anuncios de 70,04 s:
+
+| | Aire en cabeza y cola | Huecos internos | Total muerto |
+|---|---|---|---|
+| Video 5 | 5,22 s | 10,44 s | **15,7 s = 22%** |
+| Video 6 | 5,49 s | 11,95 s | **17,4 s = 25%** |
+
+**Un cuarto del anuncio era silencio.** Después de cortar: 70,04 → 57,75 s y 70,04 →
+59,52 s, sin tocar una sola palabra.
+
+### 11.1 El anclaje de la §10.6 resuelve la sincronía y NO resuelve el ritmo
+
+Son dos problemas distintos y es fácil confundirlos porque el primero se ve arreglado.
+Anclar cada voz a la ventana de 10,005 s de su clip garantiza que la voz no se despegue del
+video — y **conserva íntegro todo el silencio que la toma traía**. Flow entrega clips de
+duración fija; el locutor no llena esos 10 s. Lo que sobra queda adentro.
+
+**La regla:** en un anuncio, el corte no es la operación de pegar la voz al video. Es
+decidir qué tramos NO van. El pipeline correcto se queda solo con los tramos donde hay voz y
+tira el resto, cabeza, cola y huecos internos por igual.
+
+El corte cae dentro de una toma, así que produce **jump cuts**. En vertical publicitario eso
+es el estilo, no un defecto: la cámara está fija y el encuadre no cambia, así que el salto
+se lee como ritmo. Verificado en frames a ambos lados de los cortes.
+
+### 11.2 Un corte que ahorra dos décimas no paga su jump cut
+
+La primera versión del planificador cortaba todo silencio de más de 0,20 s. Resultado: 21 y
+23 tramos, algunos de **0,25 s** — un parpadeo entre dos saltos, que gana nada.
+
+Dos umbrales, y hacen falta los dos:
+
+- **`MINHUECO` (0,30 s)**: si al sacar el silencio los dos tramos quedarían separados por
+  menos que esto, no se corta — se fusionan. El ahorro no justifica el salto visual.
+- **`MINSEG` (0,35 s)**: un tramo más corto que esto se descarta; sería un flash.
+
+Con eso los tramos bajaron de 21→16 y de 23→15, y el ahorro casi no se movió (10,61→10,35 s
+y 12,14→10,51 s). **Se perdieron 2 décimas de ahorro y se ganó que se pueda mirar.**
+
+Y la respiración: cada tramo de voz se queda con **0,11 s de aire de cada lado**, así que
+entre frase y frase quedan ~0,22 s. Sacar el silencio entero suena atropellado; el silencio
+corto es parte del habla, el largo es el que mata.
+
+### 11.3 GOTCHA: `silencedetect` escribe en STDERR
+
+**Esto produjo un informe que decía «0,00 s de aire muerto» en las 14 tomas**, justo cuando
+el problema a resolver era el aire muerto. El script parseaba con `execFileSync`, que
+devuelve **stdout**, y ffmpeg manda `silence_start`/`silence_end` a **stderr**. Como ffmpeg
+sale con código 0, tampoco entra por el `catch`: el parseo encuentra cero coincidencias y
+reporta cero silencios. No hay error en ninguna parte.
+
+La firma de este bug es un informe **perfectamente uniforme**: todas las tomas con
+exactamente 0,00 y ningún hueco. Un análisis real nunca da tan parejo. **Cuando una
+medición devuelve el mismo valor limpio para todas las entradas, el sospechoso número uno
+es el parseo, no el material.**
+
+Se resuelve con `spawnSync` leyendo `stdout + stderr`.
+
+### 11.4 `-filter_complex_script` ya no existe (ffmpeg 7+)
+
+En ffmpeg 9.0 la opción fue removida y devuelve `Unrecognized option
+'filter_complex_script'`. El reemplazo es la sintaxis genérica de leer el valor de una
+opción desde archivo:
+
+```bash
+ffmpeg ... -/filter_complex "$T/filtro-video.txt" ...
+```
+
+Vale la pena usarla en vez de pasar el filtro inline: con 15–16 tramos el grafo pasa el
+millar de caracteres y se vuelve ilegible en la línea de comando.
+
+### 11.5 En un `filter_complex` no se puede usar dos veces el mismo pad de entrada
+
+Una toma con K tramos necesita `split=K` (video) / `asplit=K` (audio) antes de los `trim`.
+Escribir `[0:v]trim=...` dos veces sobre el mismo input no funciona. Es obvio una vez que se
+sabe y no lo es antes.
+
+### 11.6 Cortar video por frames y audio por muestras NO acumula desfase apreciable
+
+La preocupación razonable: `trim` de video cae en el frame más cercano (41,7 ms a 24 fps) y
+`atrim` corta la muestra exacta, así que cada tramo puede quedar hasta medio frame corrido y
+16 tramos podrían acumular ~300 ms.
+
+**Medido: 23 ms en 15 tramos** (video 1428 frames / 24 = 59,500 s contra audio 59,523 s).
+Muy por debajo del umbral de percepción de desincronía labial. No hace falta compensar nada,
+pero sí conviene medirlo cuando cambie el número de tramos o los fps.
+
+### 11.7 Sobre la voz robótica: qué se cambió y qué NO está verificado
+
+Martín escuchó el primer video 5 y marcó que la voz sonaba robótica en algunos puntos. Lo
+que se cambió en el STS:
+
+| | stability | similarity_boost |
+|---|---|---|
+| Antes | 0.45 | 0.85 |
+| Ahora | **0.55** | **0.75** |
+
+El razonamiento: un `similarity_boost` alto fuerza el timbre del clon y, cuando el modelo no
+puede reconciliar el audio fuente con el objetivo, mete artefactos metálicos. Bajarlo suele
+limpiarlos a costa de un poco de parecido.
+
+**NO VERIFICADO: que esta sea la causa real.** Es una hipótesis razonable, no una medición —
+no hay forma de medir «robótico» desde acá y quien decide es el oído de Martín. Se le
+mandaron 4 variantes de la misma toma (A=0.45/0.85 original, B=0.55/0.75, C=B más
+`remove_background_noise=true`, D=0.70/0.65) para que elija.
+
+Un dato que sí quedó medido: **`remove_background_noise=true` cambia la duración de salida**
+(9,985 s contra 10,031 s de las otras tres). Con el pipeline de la §10 eso rompía el
+anclaje; con el de esta sección da igual, porque los tramos se derivan del audio real.
+
+Y lo que no cambia: el STS **conserva el texto exacto** con cualquiera de los cuatro
+ajustes, verificado transcribiendo entrada y salida con Groq.
+
+### 11.8 Lo que quedó SIN hacer
+
+- **Cuál de las 4 variantes de voz es la buena.** Los videos entregados usan la B por
+  apuesta, no por veredicto. Cambiarla son 7 llamadas de API (~1.650 caracteres, nada).
+- **Los umbrales del planificador no están validados de oído**, solo de ojo en frames y de
+  reloj. `AIRE=0.11`, `MINHUECO=0.30` y `MINSEG=0.35` viven arriba de
+  `scripts/plan-cortes-anuncio.mjs` y son lo primero que hay que mover si el resultado suena
+  atropellado (subirlos) o todavía lento (bajarlos).
+- **Los huecos internos se cortan todos por igual**, sin distinguir una pausa retórica
+  (la que hace el locutor antes del giro, que vende) de una pausa muerta. Hoy las trata
+  igual. Si alguna vez se come un silencio dramático que hacía falta, ese es el motivo.
+- **Nada de esto se aplicó al video 4**, que ya estaba terminado antes y quedó con su
+  montaje original.
+
+---
+
 ## Nota de cosecha
 
 Esto tiene que quedar escrito en el repo o se pierde. Sugerencia: `docs/hallazgos-video-pipeline.md`, con entrada en `docs/hallazgos.md` en el mismo commit. Los tres hallazgos que más tiempo van a ahorrar después son: (1) el diagnóstico obvio equivocado — SOUNDRAW y Beatoven parecían resolver el caso "entrega a cliente" y son justo al revés; (2) las tres fallas silenciosas (libass cayendo a otra fuente, `deesser` con `i=0` como no-op, `loudnorm` resampleando a 192 kHz); y (3) la regla que gobierna todo lo nuevo: **la licencia de una herramienta nunca licencia un asset, y el canal de obtención (API/portal) es un contrato distinto de la licencia del archivo**.
