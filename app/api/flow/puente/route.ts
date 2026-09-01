@@ -248,6 +248,21 @@ export async function POST(req: NextRequest) {
   // ── ¿HAY QUE SONDEAR? ─────────────────────────────────────────────────────
   // Sólo mientras no sepamos la respuesta. Es una pregunta que se contesta una vez
   // y no cambia, así que en cuanto haya resultado deja de pedirse para siempre.
+  // ⚠️ Y EL LAZO SE CIERRA ACÁ, QUE ES LO QUE NO PASABA.
+  //
+  // `KEY_VARIANTE_VIDEO` no la escribía NADIE en todo el repo, así que
+  // `yaSondeado` era falsy para siempre: la sonda se pedía en CADA latido, o sea
+  // cada quince segundos, mientras hubiera un `estado_clips` en la cola. Cada
+  // corrida son ocho `<video>` y tres `fetch` contra la sesión de Google del
+  // cliente — por una pregunta que se contesta una vez y no cambia.
+  //
+  // No es sólo desperdicio: es tráfico automatizado contra la sesión de alguien,
+  // repetido sin fin, y el 01/09/2026 una clienta se comió un
+  // `PUBLIC_ERROR_UNUSUAL_ACTIVITY` de Google. No se puede afirmar que fue esto
+  // —hay varias fuentes de tráfico—, pero es la única que corre para siempre por
+  // un control muerto, y eso alcanza para apagarla.
+  await cerrarSonda(ws);
+
   let sonda: { mediaId: string; variantes: string[] } | null = null;
   const yaSondeado = await runWithWorkspace(ws, () => getSetting(KEY_VARIANTE_VIDEO));
   if (!yaSondeado) {
@@ -359,4 +374,67 @@ export async function POST(req: NextRequest) {
     // que no exista.
     versionEsperada: EXTENSION_VERSION,
   });
+}
+
+/**
+ * Da la sonda por terminada cuando ya contestó, o cuando dejó de tener sentido.
+ *
+ * ⚠️ LA GUARDA DE UN SOLO INTENTO TIENE QUE CONTAR LOS INTENTOS QUE SIRVIERON, y
+ * también los que NO. Si sólo se cerrara al encontrar una variante buena, un
+ * cliente donde ninguna funciona la seguiría corriendo para siempre — que es
+ * exactamente el caso peor, porque es el que más tráfico genera y el que menos
+ * puede aprender.
+ *
+ * Por eso hay dos salidas: una respuesta útil (se guarda la variante) o
+ * `INTENTOS_SONDA` corridas sin ninguna (se guarda `'ninguna'`). Las dos escriben
+ * `KEY_VARIANTE_VIDEO`, que es lo que apaga el pedido.
+ */
+const INTENTOS_SONDA = 12;
+const KEY_SONDA_INTENTOS = 'flow.sonda.intentos';
+
+async function cerrarSonda(ws: number): Promise<void> {
+  try {
+    const ya = await runWithWorkspace(ws, () => getSetting(KEY_VARIANTE_VIDEO));
+    if (ya) return;
+
+    // ¿Contestó? El resultado viaja con las respuestas, bajo `__sonda`.
+    const crudo = await runWithWorkspace(ws, () => getSetting('flow.respuestas'));
+    let variante = '';
+    try {
+      const resp = JSON.parse(crudo || '{}') as Record<string, unknown>;
+      const s = JSON.parse(String(resp.__sonda || '{}')) as { r?: unknown };
+      // `r` es el mapa variante → resultado. Se busca la primera que haya
+      // devuelto un video de verdad: un `bytes` que no sea de un póster.
+      const r = (s.r && typeof s.r === 'object' ? s.r : {}) as Record<string, { estado?: unknown; bytes?: unknown; tipo?: unknown }>;
+      for (const v of VARIANTES_MEDIA) {
+        const x = r[v || '(sin variante)'] ?? r[v];
+        if (!x || typeof x !== 'object') continue;
+        const tipo = String(x.tipo ?? '');
+        const bytes = Number(x.bytes ?? 0);
+        // ⚠️ EL TIPO MANDA SOBRE EL TAMAÑO. Un póster de un video largo pesa más
+        // que un clip corto, así que decidir por bytes elegiría la imagen. Lo que
+        // separa las dos es el `content-type`.
+        if (tipo.startsWith('video/') && bytes > 0) { variante = v; break; }
+      }
+    } catch { /* sin respuesta legible: cuenta como intento */ }
+
+    if (variante !== '') {
+      await runWithWorkspace(ws, () => setSetting(KEY_VARIANTE_VIDEO, variante));
+      return;
+    }
+
+    const n = Number(await runWithWorkspace(ws, () => getSetting(KEY_SONDA_INTENTOS))) || 0;
+    if (n + 1 >= INTENTOS_SONDA) {
+      // `'ninguna'` y no un vacío: un string vacío se lee como «todavía no» y la
+      // volvería a encender. Lo que se guarda es la RESPUESTA, y la respuesta es
+      // que ninguna variante sirvió en este navegador.
+      await runWithWorkspace(ws, () => setSetting(KEY_VARIANTE_VIDEO, 'ninguna'));
+      return;
+    }
+    await runWithWorkspace(ws, () => setSetting(KEY_SONDA_INTENTOS, String(n + 1)));
+  } catch (e) {
+    // Cerrar una sonda nunca puede romper un latido: el latido es lo que hace
+    // andar al cliente y esto es instrumentación.
+    console.error('[puente] no se pudo cerrar la sonda:', e instanceof Error ? e.message : e);
+  }
 }

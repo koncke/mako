@@ -107,6 +107,12 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   // de qué le están hablando desde la primera línea, y esto es «👤 LEAD».
   'lead-fusionado': 'lead',
 
+  // ⚠️ `sistema` Y NO `anuncios`, aunque hable de videos. El rótulo dice DE QUÉ le
+  // están hablando, y lo que hay que tocar acá no es una campaña: es la extensión
+  // del navegador. «📣 ANUNCIOS» lo mandaría a mirar métricas; «🔧 SISTEMA» lo
+  // manda a la herramienta, que es donde está el problema y la solución.
+  'flow-puente-ausente': 'sistema',
+
   'meta-cuenta-frenada': 'anuncios', 'meta-cuenta-riesgo': 'anuncios',
   'meta-cuenta-recuperada': 'anuncios', 'meta-saldo-agotarse': 'anuncios',
   'meta-token-vencido': 'anuncios', 'meta-anuncio-rechazado': 'anuncios',
@@ -170,6 +176,20 @@ export const CATALOGO_AVISOS: AvisoCatalogo[] = [
     prioridad: 'media', semaforo: 'na', requiereRespuesta: true, yaImplementado: 'no',
     disparador: 'Cron mensual (falta crear) el día 1.',
     ejemplo: `📅 *Cierre de junio*\n\nCash: $48.200 (+18% vs mayo)\nCierres: 11/10 ✅ · CAC $175\nMejor anuncio: "Carrusel resultados" (CPL $4,1)\nPeor: "Reel precio" (CPL $19, para apagar)\n\n¿Te armo el plan de julio? — MaKo`,
+  },
+
+  // ── EL PUENTE DE FLOW ──────────────────────────────────────────────────────
+  {
+    id: 'flow-puente-ausente', titulo: 'El navegador dejó de tomar los videos', categoria: 'aviso',
+    prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
+    // ⚠️ ES EL PRIMER AVISO DE FLOW QUE EXISTE. Hasta hoy no había NINGUNO: un
+    // puente que se moría no le avisaba a nadie, ni al cliente ni a nosotros, y
+    // la única señal era un clip que se generaba para siempre en una pantalla que
+    // alguien tenía que estar mirando.
+    disparador: 'Cron cada 10 min: hay trabajos `pendiente` que nadie tomó en 12 minutos (`flow_cerrar_abandonados`).',
+    ejemplo: `🔴 Tus videos no se están generando: tu navegador dejó de responder y quedaron *3 tomas* sin tomar.
+
+Abre la extensión de MaKo y toca *Conectar*. Las tomas no se cobraron: cuando vuelvas, las vuelves a mandar. — MaKo`,
   },
 
   // ── CUENTA / SALUD DE META (semáforo) ──────────────────────────────────────

@@ -1224,14 +1224,32 @@ async function conectar(forzar) {
     // Ahora: gana el PRIMER EXITO. Si ninguna acuna, se guarda el fallo mas
     // informativo — un 'rol' o un 'sin_ws' los contesto el server sabiendo algo,
     // mientras que 'sin_enlace' solo dice que nadie atendio.
-    let peor = null;
+    // ⚠️ Y SE CORTA ANTE CUALQUIER RESPUESTA DEL SERVER, no solo ante `ok`.
+    //
+    // REGRESION MEDIDA, introducida el mismo dia que este bucle: seguir probando
+    // despues de un `otro_navegador` DESCONECTA AL OTRO NAVEGADOR SIN PREGUNTAR.
+    //
+    // El mecanismo: `conectarPuenteAction` no acepta un `forzar` del cliente —lo
+    // emite el server—. La primera vez contesta «ya hay otro» Y DEJA UN TICKET
+    // armado por 60 s (`KEY_FORZAR`); el segundo pedido lo consume y pisa. Eso
+    // esta bien cuando los dos pedidos son dos CLICS de la persona, con la
+    // pantalla de «Si continuas, ese se desconectara» en el medio. Pero este
+    // bucle hace los dos pedidos SEGUIDOS, sin pantalla y sin persona: la pestana
+    // 1 arma el ticket y la pestana 2 lo consume.
+    //
+    // Y hoy pasa SIEMPRE que haya dos pestanas de MaKo abiertas, porque
+    // `<PuenteEnlace/>` se mudo al layout raiz y ahora TODAS contestan. Antes
+    // contestaba una sola y el bucle no llegaba a la segunda.
+    //
+    // Un motivo del server es una RESPUESTA: llego, pregunto, y le dijeron que
+    // no. Probar otra pestana no cambia la respuesta —es la misma sesion y el
+    // mismo workspace— y en el unico caso donde cambia algo, lo que cambia es
+    // que se saltea el consentimiento. Solo `sin_enlace` justifica seguir: ahi
+    // nadie contesto, y la de al lado puede.
     for (const t of tabs) {
       const r = await pedirEmparejar(t.id, forzar);
-      if (r && r.ok) return await finEmparejado(r, null);
-      if (r && (!peor || peor.motivo === 'sin_enlace')) peor = r;
+      if (r && (r.ok || r.motivo !== 'sin_enlace')) return await finEmparejado(r, null);
     }
-    // Alguna contesto un motivo de verdad: eso es una respuesta, no un silencio.
-    if (peor && peor.motivo !== 'sin_enlace') return await finEmparejado(peor, null);
 
     // ⚠️ Y SI TODAS CALLARON CON PESTANAS ABIERTAS, se recarga UNA y se reintenta.
     // El silencio casi siempre es una pestana cargada antes de que la extension

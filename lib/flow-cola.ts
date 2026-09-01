@@ -298,7 +298,13 @@ export async function resolver(ws: number, id: number, resultado: unknown): Prom
     .from('flow_trabajos')
     .update({ estado: 'listo', resultado, listo_at: new Date().toISOString(), motivo: '', error: '' })
     .eq('workspace_id', ws)
-    .eq('id', id);
+    .eq('id', id)
+    // ⚠️ SOLO SI SIGUE `tomado`. Sin esto, un resultado que llega tarde —el
+    // navegador reportando algo que ya se dio por abandonado y se cerró— revive
+    // un trabajo `fallido` y lo pone `listo`. La pantalla ya le dijo a la persona
+    // que no salió y que reintentara; si además reintentó, termina con dos.
+    // Es la misma condición que el cierre por abandono usa del otro lado.
+    .eq('estado', 'tomado');
 }
 
 /**

@@ -236,7 +236,20 @@ export function EditorAnuncio({
   };
 
   const cambio = Math.round((plan.total - planInicial.total) * 10) / 10;
-  const sinCambios = Math.abs(cambio) < 0.05 && musica === musicaInicial;
+  // ⚠️ SE COMPARA EL PLAN, NO LA DURACION. Decía `Math.abs(cambio) < 0.05`, o sea
+  // que un cambio que NO mueve el total dejaba el botón apagado: correr un tramo
+  // medio segundo hacia adelante, o recortarle a uno lo que se le agrega a otro.
+  // Son ediciones perfectamente normales — de hecho son las que uno hace cuando
+  // el largo ya está bien y lo que quiere arreglar es DÓNDE cortan— y no se
+  // podían aplicar. La duración es una consecuencia de los cortes, no su
+  // identidad.
+  const mismosCortes = plan.segs.length === planInicial.segs.length
+    && plan.segs.every((s, i) => {
+      const o = planInicial.segs[i];
+      return o && o.toma === s.toma
+        && Math.abs(o.ini - s.ini) < 0.005 && Math.abs(o.fin - s.fin) < 0.005;
+    });
+  const sinCambios = mismosCortes && musica === musicaInicial;
 
   return (
     <Modal

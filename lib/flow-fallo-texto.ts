@@ -121,6 +121,11 @@ export function causaFlow(crudo: string): CausaFlow {
 
 const CAUSA_DE_MOTIVO: Record<string, CausaFlow> = {
   puente_dormido: 'puente',
+  // Nadie tomó el trabajo: el navegador del cliente dejó de responder. Es la MISMA
+  // causa que `puente_dormido` —el puente— y sin esta fila `causaDeMotivo` devolvía
+  // `undefined`, con lo cual el texto caía al genérico y no decía qué hacer. El
+  // motivo se agregó hoy con el tope de abandono y nació sin su fila acá.
+  puente_ausente: 'puente',
   // No hay pestaña abierta: el puente no existe, no es que la sesión venció.
   sin_pestana: 'puente',
   captcha: 'puente',
