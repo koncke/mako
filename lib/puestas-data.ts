@@ -619,13 +619,49 @@ export function cabidaDeGuion(puesta: Puesta, texto: string): CabidaGuion {
   const pisoSeg = minClips * minSeg;
   const techoSeg = maxClips * maxSeg;
 
-  const segundosReales = Math.min(techoSeg, Math.max(pisoSeg, segundosNecesarios));
 
-  // La cantidad de clips sale de los segundos que de verdad se van a usar, con el
-  // largo medio de un clip — y se acota al rango de la puesta, que es lo que el
-  // saneo del plan va a exigir después.
-  const medio = (minSeg + maxSeg) / 2;
-  const clips = Math.min(maxClips, Math.max(minClips, Math.round(segundosReales / medio)));
+  // ⚠️ EL PLAN SE DIMENSIONA CONTRA LA CAPACIDAD REAL, NO CONTRA UN PROMEDIO.
+  //
+  // Antes: `clips = round(segundosReales / ((minSeg + maxSeg) / 2))`. Dos errores
+  // encadenados. El primero, que 9 —el promedio de 8 y 10— no es una duración que
+  // Flow genere, así que el plan se dimensionaba contra clips que no existen. El
+  // segundo, peor: preguntaba «¿cuántos clips cubren estos segundos?» cuando la
+  // pregunta es «¿cuántos hacen falta para que el guion ENTRE?».
+  //
+  // Y había un tercero, que es el que de verdad mordía: `segundosReales` salía de
+  // `ceil(palabras / densidad)` —un número cualquiera— y las duraciones que se
+  // pueden armar de verdad casi nunca suman eso. Medido con el anuncio de una
+  // clienta: 211 palabras → 71 s → 8 clips; pero los 8 clips que
+  // `repartirDuracion` arma suman 70 s, o sea 210 palabras de capacidad. UNA
+  // palabra de más — y el reparto vuelca todo el sobrante en la última toma.
+  //
+  // El dueño lo diagnosticó antes que nadie: «siempre en el último clip apila
+  // todo lo restante… tal vez es un bug que tiene predefinida la cantidad de
+  // clips».
+  //
+  // Ahora se busca la combinación MÁS CHICA que alcanza: se prueban las cantidades
+  // de menor a mayor y, para cada una, el total de segundos de menor a mayor,
+  // midiendo con las duraciones que `repartirDuracion` va a emitir de verdad y con
+  // `palabrasQueEntran` de cada una. El anuncio queda tan largo como el guion
+  // necesita y ni un segundo más.
+  //
+  // Si ni el máximo alcanza, se usa el máximo y `desborda` lo dice: un guion que
+  // no cabe no cabe. Pero el plan ya no nace GARANTIZANDO el apilado.
+  const capacidadDe = (c: number, total: number) =>
+    repartirDuracion(puesta, c, total).reduce((t, seg) => t + palabrasQueEntran(puesta, seg), 0);
+
+  let clips = maxClips;
+  let segundosReales = Math.min(techoSeg, Math.max(pisoSeg, segundosNecesarios));
+  buscar: for (let c = minClips; c <= maxClips; c++) {
+    const desde = Math.max(c * minSeg, segundosNecesarios);
+    for (let total = desde; total <= c * maxSeg; total++) {
+      if (capacidadDe(c, total) >= palabras) {
+        clips = c;
+        segundosReales = total;
+        break buscar;
+      }
+    }
+  }
 
   const desborda = segundosNecesarios > techoSeg;
   const palabrasDeMas = desborda ? palabras - Math.floor(puesta.densidad * techoSeg) : 0;

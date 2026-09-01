@@ -63,6 +63,24 @@ function unidades(texto: string): string[] {
 }
 
 /** Parte una unidad demasiado larga por sus cortes DÉBILES, y si no alcanza, por comas. */
+/**
+ * Parte una pieza en trozos más chicos SIN romper una frase.
+ *
+ * Gemela de `subdividir` con una diferencia que es todo el punto: cuando no
+ * encuentra un separador seguro, DEVUELVE LA PIEZA ENTERA en vez de cortar por
+ * palabras. `subdividir` corta igual porque su trabajo es que algo entre en una
+ * toma; el de ésta es que el reparto tenga con qué rellenar huecos, y para eso
+ * una pieza sin cortar es preferible a un CTA partido al medio.
+ */
+function afinar(pieza: string, objetivo: number): string[] {
+  if (contarPalabrasReparto(pieza) <= objetivo) return [pieza];
+  for (const sep of [/(?<=[:;—–…])\s+/, /(?<=,)\s+/]) {
+    const trozos = pieza.split(sep).map((t) => t.trim()).filter(Boolean);
+    if (trozos.length > 1) return trozos.flatMap((t) => afinar(t, objetivo));
+  }
+  return [pieza];
+}
+
 function subdividir(unidad: string, tope: number): string[] {
   if (contarPalabrasReparto(unidad) <= tope) return [unidad];
 
@@ -111,7 +129,20 @@ export function repartirGuion(hablado: string, topes: number[]): TomaRepartida[]
 
   // Las unidades, ya subdivididas contra el tope más chico que puede tocarles.
   const topeMin = Math.max(1, Math.min(...topes));
-  const piezas = unidades(texto).flatMap((u) => subdividir(u, topeMin));
+  // ⚠️ Y DESPUÉS SE AFINAN, o el reparto no puede repartir.
+  //
+  // `subdividir` corta contra el tope MÁS CHICO, así que una pieza puede medir lo
+  // mismo que una toma entera — y entonces una toma con lugar para 20 palabras no
+  // puede aceptar una pieza de 24. El resultado era el apilado: huecos de un lado
+  // y el sobrante amontonado en la última.
+  //
+  // `afinar` vuelve a pasar SOLO por los separadores seguros —dos puntos, punto y
+  // coma, raya, y las comas— y nunca por palabras: una pieza sin separador se
+  // queda entera. Es lo que permite mover texto sin partir una frase por la
+  // mitad, que ya se probó y rompía el CTA.
+  const piezas = unidades(texto)
+    .flatMap((u) => subdividir(u, topeMin))
+    .flatMap((p) => afinar(p, Math.max(6, Math.ceil(topeMin / 2))));
 
   const total = piezas.reduce((s, p) => s + contarPalabrasReparto(p), 0);
 
