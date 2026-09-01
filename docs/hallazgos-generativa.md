@@ -3894,3 +3894,100 @@ rompe. El síntoma no aparece del lado que cambiaste.
 
 Es estrictamente más seguro que antes: la versión vieja podía encontrar **cero**
 filas propias; ésta encuentra siempre al menos las mismas.
+
+## Creador de formatos: lo que un formato ES, y lo que no (01/09/2026)
+
+**Vive en:** `lib/formato-medir.ts` · `lib/formato-prompt.ts` ·
+`app/video-generator/formatos-datos.ts` · mig 0152 y 0153
+
+### La regla que decide toda la forma, y ya estaba escrita
+
+El propio tipo `Puesta` la dice, y `puestasOfrecidas()` la cumple en código
+(filtra por `p.ejemplo`):
+
+> «Para sumar una puesta al menú: se produce un anuncio con ella… **sin ejemplo
+> no entra** — ofrecer un formato que nadie produjo es prometer sin haber medido.»
+
+O sea que **un formato no es una fila de configuración: es un prompt validado**.
+Eso descarta el formulario y obliga a que el creador termine en una producción
+real. Un formato nace `borrador` y sólo pasa a `listo` con un clip hecho.
+
+### ⚠️ La densidad de un video NO es la densidad de un formato
+
+El error conceptual que más caro habría salido. La densidad de un video de
+referencia mide a un **humano** hablando; la de un formato mide **cuánto acepta
+el modelo de video antes de trabarse**. No son la misma magnitud, y la del
+modelo es más baja.
+
+La evidencia es el catálogo: los ocho formatos van de **2,1 a 3** y ninguno llega
+a 3,5 — esos números salieron de probar contra Flow, no de medir locutores. Un
+tope de 5 (el que puse primero) dejaba pasar a cualquiera que hable rápido y le
+guardaba una densidad que el modelo no sostiene.
+
+**La regla: cuando midas algo del mundo para configurar un modelo, preguntá si el
+modelo tiene su propio techo — y si el catálogo que ya tenés lo revela.**
+
+### ⚠️ Una lista de palabras no distingue «hablar DE la cara» de «describirla»
+
+Escribí una guarda de 25 palabras para que un prompt de formato no describa a la
+persona. Corrida contra el único prompt real que existe, el de Car Talks:
+
+```
+  rostro  ×5   «la cámara mide la exposición basándose en su rostro»
+  cara    ×2   «sin dejar la mitad de la cara a oscuras»
+  bajo    ×2   «imagen lavada, de bajo contraste»
+  piel    ×1   «mismo rostro, mismos rasgos, misma piel»
+```
+
+**10 coincidencias, las 10 falsas.** Y tiene sentido: un prompt de fotografía
+habla de la cara todo el tiempo —dónde cae la luz, qué está enfocado— sin
+describirla. La diferencia no está en la palabra sino en su papel gramatical, y
+eso una regex no lo ve. Encima `bajo` cazaba «bajo contraste».
+
+Queda una lista corta de palabras sin uso legítimo en un prompt de foto (barba,
+canoso, años, pecas) y **está escrito que es una red para lo obvio, no una
+prueba**, con un test que fija que «los ojos en sombra» PASA.
+
+**El test de calibre es lo que lo encontró**, y es la regla de la casa: correr el
+umbral contra los datos que ya tenés y contar los falsos positivos. Sin él la
+guarda habría rechazado el 100% de los prompts buenos mientras parecía cuidar
+algo.
+
+### El molde: qué es genérico y qué es del formato
+
+El prompt de Car Talks tiene siete bloques y sólo tres hablan del auto. Los
+genéricos —identidad, exposición, enfoque— son los que hacen que la foto parezca
+real y que la cara sea la de la persona, y son justo los que un modelo
+escribiendo desde cero se olvida. Van escritos una vez; al modelo le queda
+describir el **lugar**.
+
+### Tres guardas que fallan calladas, y viven en la BASE
+
+- **`camara` es la llave de un diccionario cerrado**: `COMO_FILMA[camara] ??
+  COMO_FILMA.estatica`. Un valor desconocido no da error — cae a trípode, y un
+  formato selfie sale con planos fijos sin una línea en ningún log.
+- **`mixto` sin `ritmo` deja el anuncio entero mudo**, y el default vacío hacía
+  que ésa fuera la combinación que salía sola.
+- **Un formato sin aire en ninguno de los dos rangos** deja al guion que no entra
+  sin a dónde crecer: es el apilado de la última toma entrando por otra puerta.
+
+### Y una fuga que me hice yo
+
+`formatos` no entró en `TENANT_TABLES`. `getTenantDb` sólo inyecta el
+`workspace_id` en las tablas de esa lista: sin estar, un cliente habría visto los
+formatos de otro. Agregué `montaje_trabajos` un rato antes y me olvidé de ésta.
+
+**Al crear una tabla per-workspace, `TENANT_TABLES` es parte de la migración, no
+un paso siguiente.** Ninguna prueba local lo caza: con un solo workspace, scopear
+y no scopear dan lo mismo.
+
+### Lo que queda SIN hacer
+
+- **Las pantallas del creador.** Están las piezas (medir, molde, guardas,
+  resolver) y no hay un solo consumidor.
+- **`MedidaVideo.cortes` no tiene productor**: detectar cortes de escena necesita
+  ffmpeg, que hoy sólo vive en el contenedor del worker.
+- **El `ejemplo` de un formato de cliente** necesita ir a un bucket: `public/` no
+  lo puede escribir un cliente.
+- **Los 7 call sites de `puestaPorId`** siguen siendo síncronos y sólo ven los de
+  fábrica. Hasta que usen `puestaDe`, un formato creado no se puede usar.
