@@ -49,6 +49,7 @@ import { promptFinal, urlDeFlowVencida } from '@/lib/flow-imagen';
 import { useExtensionInstalada, AvisoExtensionVieja } from './extension-instalada';
 import { Foto, FotoGrande, ModalFotos } from './ElegirFoto';
 import { avisarPuente } from './avisar-puente';
+import { PasoMontaje } from './PasoMontaje';
 import {
   escribirEscenasAction, generarImagenAction, estadoImagenAction,
   elegirImagenAction, subirImagenEscenaAction, confirmarEscenaAction,
@@ -2554,7 +2555,26 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
     const clips = item.plan.clips.map((c) => item.video?.[String(c.n)]?.url).filter(Boolean) as string[];
     return {
       pregunta: 'Tu anuncio, entero',
-      cuerpo: <Encadenado clips={clips} titulo={item.plan.titulo} />,
+      cuerpo: (
+        <div style={{ display: 'grid', gap: 26, justifyItems: 'center', width: '100%' }}>
+          {/* ⚠️ EL MONTAJE VA ARRIBA, y las tomas sueltas abajo.
+              El entregable es el anuncio montado: lo de arriba es lo que la
+              persona vino a buscar y lo de abajo es material. Al reves, lo
+              primero que se ve son siete clips con aire muerto, que es
+              exactamente el «video con cara de IA» que el montaje viene a
+              evitar. */}
+          <PasoMontaje planId={item.id} titulo={item.plan.titulo} />
+          <div style={{ width: '100%', borderTop: '1px solid var(--border)', paddingTop: 20 }}>
+            <div style={{
+              textAlign: 'center', marginBottom: 12,
+              fontSize: 'var(--fs-sm)', color: 'var(--faint)',
+            }}>
+              Las tomas por separado
+            </div>
+            <Encadenado clips={clips} titulo={item.plan.titulo} />
+          </div>
+        </div>
+      ),
       atras: 'Atrás',
       onAtras: () => setForzado({ id: 'toma', n: total }),
     };
