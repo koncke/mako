@@ -33,7 +33,7 @@ import {
 import { parchesImagenEscena, imagenesDeRespuesta, semillaDeEscena } from '@/lib/flow-imagen';
 import { promptDeClip } from '@/lib/prompts-video';
 import { escribirEscenas, reescribirEscena } from '@/lib/escenas';
-import { puestaPorId } from '@/lib/puestas-data';
+import { puestaPorId, contarPalabras, marcasDeVoseo } from '@/lib/puestas-data';
 import { generarPlanAction } from './actions';
 import { guionesDisponibles } from './guiones-datos';
 import { causaFlow, causaDeMotivo, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
@@ -41,6 +41,7 @@ import { getSetting, setSetting } from '@/lib/settings';
 import { leerHistorial, guardarEnHistorial, type PlanGuardado, type MarcaVideo, type MarcaImagen } from './video-datos';
 import { sanearPlantillas, tieneCaraParcheable, KEY_PLANTILLAS } from '@/lib/flow-plantillas';
 import { olvidarTomasFallidas } from './tomas-invalidar';
+import { agregarClip, quitarClip, cambiarDuracion } from './plan-clips';
 import { sumarVariantes } from './variantes-imagen';
 import { archivarToma, recuperarToma } from './tomas-archivo';
 import { personaEstado, addPersonaFoto, getPersona } from '@/lib/persona';
@@ -1394,6 +1395,83 @@ export async function descartarTomaAction(
   const sin = { ...marcas(item) };
   sin[String(n)] = archivarToma(marcas(item)[String(n)]);
   const actualizado: PlanGuardado = { ...item, video: sin };
+  await guardarEnHistorial(actualizado);
+  return { ok: true, item: actualizado };
+}
+
+/**
+ * Las tres ediciones del plan de clips: agregar, quitar, cambiar la duración.
+ *
+ * Una sola action con un `que` en vez de tres, porque las tres hacen lo MISMO
+ * —leer el plan, aplicar una función pura, guardar— y la diferencia cabe en una
+ * palabra. Tres copias de ese envoltorio son tres lugares donde olvidarse el
+ * guard de admin.
+ *
+ * ⚠️ La decisión de si se puede vive en `plan-clips.ts`, que es puro y testeado.
+ * Acá NO se re-valida nada: duplicar la regla es cómo una de las dos se queda
+ * vieja, y la que se queda vieja siempre es la que no tiene test.
+ */
+export async function editarClipsAction(
+  planId: string,
+  orden:
+    | { que: 'agregar'; despuesDe: number; segundos: number }
+    | { que: 'quitar'; n: number }
+    | { que: 'duracion'; n: number; segundos: number },
+): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  const item = planDe(await leerHistorial(), planId);
+  if (!item) return { ok: false, error: 'Ese anuncio ya no está en el historial.' };
+
+  const r = orden.que === 'agregar'
+    ? agregarClip(item, orden.despuesDe, orden.segundos)
+    : orden.que === 'quitar'
+      ? quitarClip(item, orden.n)
+      : cambiarDuracion(item, orden.n, orden.segundos);
+
+  if (!r.ok) return r;
+  await guardarEnHistorial(r.item);
+  return { ok: true, item: r.item };
+}
+
+/**
+ * Escribe la línea que dice una toma.
+ *
+ * Existe por el clip que nace vacío: sin esto, agregar un clip daría una toma que
+ * no se puede filmar y ninguna forma de arreglarla.
+ *
+ * ⚠️ Recalcula `palabras` con la misma función que el planificador
+ * (`contarPalabras`), no contando espacios acá: dos formas de contar palabras dan
+ * dos topes distintos para el mismo texto, y el aviso de «no entra» pasaría a
+ * depender de quién preguntó.
+ */
+export async function escribirVozTomaAction(
+  planId: string,
+  n: number,
+  voz: string,
+): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  const item = planDe(await leerHistorial(), planId);
+  if (!item) return { ok: false, error: 'Ese anuncio ya no está en el historial.' };
+  if (!item.plan.clips.some((c) => c.n === n)) return { ok: false, error: 'Esa toma no existe.' };
+
+  const marca = marcas(item)[String(n)];
+  if (marca?.url) {
+    return { ok: false, error: `La toma ${n} ya está filmada. Descarta el clip para poder cambiar lo que dice.` };
+  }
+
+  const texto = (voz ?? '').trim().slice(0, 1000);
+  const clips = item.plan.clips.map((c) => (
+    c.n === n ? { ...c, voz: texto, palabras: contarPalabras(texto), voseo: marcasDeVoseo(texto) } : c
+  ));
+
+  const actualizado: PlanGuardado = {
+    ...item,
+    plan: { ...item.plan, clips, deCorrido: clips.map((c) => c.voz).filter(Boolean).join(' ') },
+  };
   await guardarEnHistorial(actualizado);
   return { ok: true, item: actualizado };
 }
