@@ -51,7 +51,7 @@ for (const slug of slugs) {
   let txt = 0;
   try { txt = readdirSync(join(base, 'texto')).filter((f) => f.endsWith('.md') && !f.startsWith('_')).length; } catch {}
   let mudas = 0;
-  try { mudas = readdirSync(join(base, 'audio')).filter((f) => f.endsWith('.mudo')).length; } catch {}
+  try { mudas = readdirSync(join(base, 'audio')).filter((f) => f.endsWith('.mudo') || f.endsWith('.sinvoz')).length; } catch {}
   const hechas = Math.min(txt + mudas, alcanzables);
 
   const tit = `${plan.curso ?? ''} - ${plan.autor ?? ''}`.replace(/^[\s-]+|[\s-]+$/g, '').toLowerCase();

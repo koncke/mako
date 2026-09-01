@@ -91,14 +91,25 @@ for (const slug of readFileSync('C:/cursos/_cola.txt', 'utf8').split(/\r?\n/).ma
 
   const textos = new Set();
   try { for (const f of readdirSync(join(base, 'texto'))) textos.add(f.replace(/\.md$/i, '')); } catch {}
+  // Dos marcas distintas porque son dos cosas distintas, y el censo existe para decir POR
+  // QUE. `.mudo`: el video no trae pista de audio. `.sinvoz`: la trae y está casi vacía
+  // —una placa—, y el transcriptor la saltea a propósito porque transcribir casi-silencio
+  // inventa texto. Para el objetivo cuentan igual; para entender el informe, no.
   const mudas = new Set();
-  try { for (const f of readdirSync(join(base, 'audio'))) if (f.endsWith('.mudo')) mudas.add(f.replace(/\.mudo$/, '')); } catch {}
+  const sinVoz = new Set();
+  try {
+    for (const f of readdirSync(join(base, 'audio'))) {
+      if (f.endsWith('.mudo')) mudas.add(f.replace(/\.mudo$/, ''));
+      else if (f.endsWith('.sinvoz')) sinVoz.add(f.replace(/\.sinvoz$/, ''));
+    }
+  } catch {}
 
   for (const c of plan.clases) {
     if (textos.has(c.archivo)) continue;
     filas.push({
       slug, n: c.n, titulo: String(c.titulo).slice(0, 36),
       causa: mudas.has(c.archivo) ? 'sin pista de audio (nada que transcribir)'
+        : sinVoz.has(c.archivo) ? 'casi en silencio (una placa; transcribirla inventaría)'
         : tipo(errores.get(String(c.videoId)), !String(c.duracion ?? '').trim()),
     });
   }
@@ -112,5 +123,5 @@ for (const [causa, xs] of Object.entries(por).sort((a, b) => b[1].length - a[1].
   console.log(`  ── ${xs.length} · ${causa}`);
   for (const f of xs) console.log(`       ${f.slug.slice(0, 30).padEnd(32)} n=${String(f.n).padStart(3)}  ${f.titulo}`);
 }
-const perdidas = filas.filter((f) => !/audio|404|ROTA/.test(f.causa));
+const perdidas = filas.filter((f) => !/audio|silencio|404|ROTA/.test(f.causa));
 console.log(`\n  ${filas.length - perdidas.length} sin nada que hacerles · ${perdidas.length} valdría la pena reintentar\n`);
