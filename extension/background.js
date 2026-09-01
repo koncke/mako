@@ -57,6 +57,26 @@ const LOTE = 5;
 const CADENA_MAX = 20;
 let cadena = 0;
 
+/**
+ * Cuándo se le habló a Flow por última vez. En `storage` y no en un global.
+ *
+ * ⚠️ EL SERVICE WORKER MV3 SE MUERE, y con él cualquier variable. Un piso de
+ * ritmo guardado en memoria se reinicia cada vez que Chrome apaga el worker
+ * —o sea seguido— y entonces la primera llamada del worker nuevo sale sin
+ * esperar nada. Un guard que se olvida de lo que pasó hace diez segundos no es
+ * un guard: es un guard el 80% de las veces, que es justo el que no sirve
+ * cuando lo que está del otro lado es un detector de actividad automática.
+ */
+async function ultimaLlamadaFlow() {
+  const v = await chrome.storage.local.get('ultimaLlamadaFlow');
+  const t = Number(v && v.ultimaLlamadaFlow);
+  return Number.isFinite(t) ? t : 0;
+}
+
+async function marcarLlamadaFlow() {
+  await chrome.storage.local.set({ ultimaLlamadaFlow: Date.now() });
+}
+
 chrome.storage.local.get(['bearer', 'projectId', 'apiKey'], (v) => {
   bearer = v.bearer || null;
   projectId = v.projectId || '';
@@ -1006,6 +1026,28 @@ async function ciclo() {
     const nuevos = [];
     for (let i = 0; i < cola.length; i++) {
       const t = cola[i];
+      // ⚠️ EL COOLDOWN ES UN PISO ENTRE LLAMADAS, NO UN SLEEP AL FINAL DEL BUCLE.
+      //
+      // Antes vivia como un `await sleep(cooldownMs)` en la cola del `for`, y eso
+      // solo espaciaba a los trabajos de UN MISMO lote. Mientras cada latido
+      // traia un trabajo y despues dormia 15 s de alarma, alcanzaba por
+      // accidente: la alarma hacia de guarda sin que nadie lo dijera.
+      //
+      // Al encadenar ciclos, ese accidente se termina — y con el sleep al final
+      // del bucle, el ultimo trabajo de un lote y el primero del siguiente
+      // quedaban separados por un viaje a nuestro servidor: ~0,3 s. O sea que dos
+      // cambios que por separado no tocan la guarda, JUNTOS la desarman. Lo cazo
+      // un revisor adversario y no una prueba, porque no rompe nada visible:
+      // simplemente se le habla a Google mas rapido de lo permitido, y la factura
+      // llega como un PUBLIC_ERROR_UNUSUAL_ACTIVITY que bloquea la sesion del
+      // cliente.
+      //
+      // Esperando ANTES de llamar y contra el reloj de la ULTIMA llamada, la
+      // guarda vale a traves de ciclos, de latidos y de reinicios del service
+      // worker — y de paso desaparece la espera inutil despues del ultimo
+      // trabajo, que era la mitad de lo que se venia a arreglar.
+      const falta = cooldownMs - (Date.now() - (await ultimaLlamadaFlow()));
+      if (falta > 0) await new Promise((r) => setTimeout(r, falta));
       try {
         nuevos.push(await ejecutar(t));
       } catch (e) {
@@ -1018,15 +1060,16 @@ async function ciclo() {
           reintentable: true,
         });
       }
-      // El ritmo que reemplaza al simulador de actividad humana.
+      // ⚠️ DESPUES Y NO ANTES, y en el `finally` de hecho: el ritmo original
+      // dormia al TERMINAR la llamada, asi que el hueco real entre dos pedidos
+      // era «lo que tardo el primero + 10 s». Sellando al empezar, ese hueco se
+      // encogeria a 10 s a secas — mas rapido que antes, que es exactamente lo
+      // que no se puede hacer sin medir. Se sella al terminar y la guarda queda
+      // igual de estricta que siempre, solo que ahora tambien entre ciclos.
       //
-      // ⚠️ ENTRE dos llamadas, no DESPUES de la ultima. El cooldown separa una
-      // llamada a Google de la SIGUIENTE; despues del ultimo trabajo del lote no
-      // hay ninguna siguiente en este ciclo —la proxima esta, como minimo, a un
-      // viaje al servidor de distancia—, asi que esos 10 s no espaciaban nada:
-      // se los comia entero el cliente mirando el loader. La guarda queda
-      // intacta, y sobre un lote de 5 son 10 s menos por tanda.
-      if (i < cola.length - 1) await new Promise((r) => setTimeout(r, cooldownMs));
+      // Y se sella aunque la llamada falle: un pedido rechazado igual salio, y
+      // reintentar rapido contra un bloqueo es como se profundiza un bloqueo.
+      await marcarLlamadaFlow();
     }
     if (nuevos.length) {
       await chrome.storage.local.set({ pendientes: nuevos });
