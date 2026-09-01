@@ -1119,7 +1119,20 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
     setOcupado(etiqueta);
     setError('');
     setDesde(Date.now());
-    const r = await fn().catch(() => ({ ok: false as const, item: undefined, error: 'No se pudo. Vuelve a intentarlo.' }));
+    // ⚠️ ESTE `catch` ES EL CAMINO SIN RESPUESTA, no «algo falló».
+    //
+    // Sólo se llega acá cuando la action ni siquiera contestó: la red se cortó,
+    // la pestaña perdió conexión, el deploy se reinició en el medio. Todo error
+    // que el server SÍ pudo clasificar viene en `r.error` y llega con su causa y
+    // su link. Un «No se pudo» a secas los hacía ver iguales.
+    //
+    // Y lo que importa decir acá es lo que la persona no puede saber: que no se
+    // perdió nada y que no se cobró nada, porque el pedido no llegó a salir.
+    const r = await fn().catch(() => ({
+      ok: false as const,
+      item: undefined,
+      error: 'No llegó respuesta. No se perdió nada de lo que hiciste: vuelve a intentarlo.',
+    }));
     // Lo que esta action haya encolado ya está en la cola: se le avisa al puente
     // en vez de dejarlo dormir hasta su próxima alarma. Va acá y no en cada
     // botón porque `correr` es el único camino de la pantalla a una action.

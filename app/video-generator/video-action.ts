@@ -535,7 +535,13 @@ export async function generarTomaAction(
       randomUUID(),
     ),
   });
-  if (trabajoId == null) return { ok: false, error: 'No se pudo encolar el trabajo.' };
+  // ⚠️ «Encolar» es vocabulario NUESTRO. Un cliente no sabe que hay una cola, y
+  // un error que nombra la maquinaria en vez del efecto lo deja sin saber si el
+  // problema es suyo, si perdió algo, o si tiene que hacer algo. Se dice qué NO
+  // pasó y de quién es.
+  if (trabajoId == null) {
+    return { ok: false, error: `No se pudo mandar la toma ${n} a filmar. Es un problema nuestro, no tuyo: vuelve a intentarlo en un momento.` };
+  }
 
   // Los SEIS campos del intento anterior, en la misma escritura que encola el
   // nuevo. `operacion: ''` es la que más importa: con la vieja puesta, el sondeo

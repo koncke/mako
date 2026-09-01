@@ -38,7 +38,7 @@ import {
   guionATexto,
   puestaPorId, puestasOfrecidas, type Puesta,
 } from './video-pedido';
-import { generarPlanAction, editarLineaPlanAction, reescribirTomaAction } from './actions';
+import { generarPlanAction } from './actions';
 import { descargarComo } from './descargar';
 import { nombreDeAnuncio } from './video-pedido';
 import { AvisoPuente, estadoDelPuente, ID_AVISO_PUENTE } from './puente-avisos';
@@ -54,14 +54,11 @@ import {
   SeccionCard, parsearSecciones, reconstruirSecciones, EditarTexto, ICONO_SECCION_GUION,
 } from '../components/SeccionCard';
 import { editarGuionAction } from './cargar-guiones-action';
-import {
-  generarTomaAction, estadoTomaAction, pedirSaldoAction, saldoAction, escribirEscenasAction,
-} from './video-action';
+import { pedirSaldoAction, saldoAction, escribirEscenasAction } from './video-action';
 import { WizardAnuncio, Estudio, textoCosto } from './WizardAnuncio';
 import { PreviaVolante } from './PreviaVolante';
 import { TemaOscuro } from '../_components/TemaOscuro';
 import { causaFlow, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
-import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 
 /**
@@ -548,9 +545,6 @@ export function VideoGeneratorApp({
 
   const [historial, setHistorial] = useState<PlanGuardado[]>(historialInicial);
   const [actual, setActual] = useState<PlanGuardado | null>(null);
-  const [editandoLinea, setEditandoLinea] = useState(false);
-  /** La toma que se está generando ahora. null = ninguna. */
-  const [generando, setGenerando] = useState<number | null>(null);
   const [saldo, setSaldo] = useState(saldoInicial);
   /** Qué toma se está mirando en el visor. `null` = ninguna. */
   const [viendo, setViendo] = useState<number | null>(null);
@@ -762,9 +756,25 @@ export function VideoGeneratorApp({
   // Se busca en el historial que bajó del server, así que un plan que ya se
   // recortó del tope de 10 no vuelve: en ese caso se entra al catálogo, que es
   // la caída correcta —mejor la home que una pantalla vacía.
-  const params = useSearchParams();
+  // ⚠️ DE `window.location`, NO DE `useSearchParams()`. Y el porqué es una
+  // carrera, que es lo que hizo tan difícil diagnosticarlo.
+  //
+  // El síntoma: abrir `?plan=<id>` con un id que EXISTE caía al catálogo… a
+  // veces. Instrumentado, el efecto corría con todo bien —`id` presente,
+  // `hist=3`, `actual=false`, `match=true`— y otras veces no abría. Intermitente.
+  //
+  // `useSearchParams()` no tiene su valor garantizado en el primer commit del
+  // cliente cuando la página no está envuelta en un `<Suspense>`: puede llegar
+  // vacío. Y este efecto corre UNA sola vez, con `[]`, así que si en ese commit
+  // llega vacío, el deep link muere para siempre — refrescar no lo arregla,
+  // porque el efecto ya corrió.
+  //
+  // `window.location.search` es el dato crudo del navegador y en un efecto —que
+  // corre siempre después del montaje— ya está. Sin hook, sin carrera.
+  //
+  // Es la regla de la casa: «un dato que depende de una carrera no es un dato».
   useEffect(() => {
-    const id = params.get('plan');
+    const id = new URLSearchParams(window.location.search).get('plan');
     if (!id || actual) return;
     const guardado = historial.find((e) => e.id === id);
     if (guardado) { setActual(guardado); setVista('anuncio'); }
@@ -775,85 +785,9 @@ export function VideoGeneratorApp({
   const idx = PASOS.indexOf(paso);
   const puedeAvanzar = paso === 'guion' ? !!guionId : true;
 
-  /**
-   * Guarda una toma corregida a mano.
-   *
-   * El plan vuelve del server ya recalculado —palabras, tope y marcas de voseo
-   * son MEDIDAS, no declaraciones— así que el estado local se reemplaza entero
-   * con lo que devolvió, en vez de parchear el clip que se tocó.
-   */
-  const editarLinea = useCallback(async (n: number, voz: string) => {
-    if (!actual) return;
-    setEditandoLinea(true); setError(null);
-    try {
-      const out = await editarLineaPlanAction(actual.id, n, voz);
-      if (!out.ok) { setError(out.error); return; }
-      setActual(out.item);
-      setHistorial((h) => h.map((e) => (e.id === out.item.id ? out.item : e)));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo guardar la toma.');
-    } finally {
-      setEditandoLinea(false);
-    }
-  }, [actual]);
 
-  /** Le pide a MaKo el cambio de UNA toma. */
-  const pedirCambio = useCallback(async (n: number, instruccion: string) => {
-    if (!actual) return;
-    setError(null);
-    try {
-      const out = await reescribirTomaAction(actual.id, n, instruccion);
-      if (!out.ok) { setError(out.error); return; }
-      setActual(out.item);
-      setHistorial((h) => h.map((e) => (e.id === out.item.id ? out.item : e)));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo cambiar la toma.');
-    }
-  }, [actual]);
 
-  /**
-   * Manda a generar UNA toma.
-   *
-   * Una, y no las siete. La regla es del dueño y es económica: si el avatar no se
-   * parece, descubrirlo cuesta un clip y no un anuncio entero. Y el primero es
-   * además el que fija la cara que los siguientes heredan.
-   */
-  const generarToma = useCallback(async (n: number) => {
-    if (!actual) return;
-    setError(null);
-    const out = await generarTomaAction(actual.id, n);
-    if (!out.ok) { setError(out.error); return; }
-    setActual(out.item);
-    setGenerando(n);
-  }, [actual]);
 
-  /**
-   * El latido que pregunta cómo va.
-   *
-   * Cada vuelta hace UN paso del lado del server —sacar el nombre de la
-   * operación, o preguntar por el video— y nunca espera adentro: una action que
-   * se queda esperando un minuto muere en el timeout de la plataforma.
-   *
-   * Se apaga solo cuando la toma queda lista o falla. Un intervalo que sigue
-   * latiendo con la pestaña abierta y nada que esperar es tráfico contra Flow por
-   * nada, y contra Flow el tráfico de más se paga en score.
-   */
-  useEffect(() => {
-    if (generando == null || !actual) return;
-    let vivo = true;
-    const tick = async () => {
-      const out = await estadoTomaAction(actual.id, generando).catch(() => null);
-      if (!vivo || !out || !out.ok) return;
-      setActual(out.item);
-      if (out.estado.fase === 'listo' || out.estado.fase === 'error') {
-        setGenerando(null);
-        if (out.estado.fase === 'error') setError(out.estado.error);
-      }
-    };
-    void tick();
-    const id = setInterval(() => void tick(), 6000);
-    return () => { vivo = false; clearInterval(id); };
-  }, [generando, actual?.id]);
 
   /**
    * Un clic que choca contra el gate tiene que CONTESTAR algo.
@@ -981,12 +915,6 @@ export function VideoGeneratorApp({
     }
   }, [puestaId, guion, adaptarVoz]);
 
-  const copiarGuion = useCallback(() => {
-    if (!actual) return;
-    navigator.clipboard.writeText(guionATexto(actual.plan)).catch(() => {
-      /* sin portapapeles: el guion igual está en pantalla */
-    });
-  }, [actual]);
 
   // ── Las tres preguntas ─────────────────────────────────────────────────────
   // ── «ASÍ SE VERÁ TU ANUNCIO»: el primer paso de todo ──────────────────────
