@@ -1421,9 +1421,47 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
                       fontStyle: c.habla ? 'normal' : 'italic',
                     }}
                   />
+                  {/* ⚠️ EL AVISO NO PUEDE SER SOLO UN AVISO.
+                      Acá decía «No entra en 8 segundos» y no ofrecía nada. El
+                      arreglo existía —sumar una toma, darle más segundos— pero
+                      vivía en la pantalla SIGUIENTE, plegado detrás de un renglón
+                      gris que dice «Cambiar el guion». El dueño lo reportó como
+                      que no existía: «tampoco veo que se puedan agregar tomas,
+                      editar los segundos de alguna».
+                      Tenía razón. Un problema que se muestra en una pantalla y se
+                      cura en otra es, para el que lo mira, un problema sin cura.
+                      Las dos salidas van ACÁ, al lado del aviso que las pide. */}
                   {(c.palabras ?? 0) > (c.tope ?? 0) && (
-                    <div style={{ marginTop: 7 }}>
-                      <Status tono="warn">No entra en {c.segundos} segundos</Status>
+                    <div style={{ marginTop: 7, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <Status tono="warn">
+                        No entra en {c.segundos} segundos: sobran {(c.palabras ?? 0) - (c.tope ?? 0)} palabras
+                      </Status>
+                      {/* Alargar la toma es lo más barato: no agrega un clip, así
+                          que no agrega un crédito. Por eso va primero. */}
+                      {c.segundos < 10 && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={!!ocupado}
+                          loading={ocupado === `dur-${c.n}`}
+                          onClick={() => void correr(`dur-${c.n}`, () => editarClipsAction(item.id, {
+                            que: 'duracion', n: c.n, segundos: c.segundos === 4 ? 6 : c.segundos === 6 ? 8 : 10,
+                          }), false)}
+                        >
+                          Darle {c.segundos === 4 ? 6 : c.segundos === 6 ? 8 : 10} segundos
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={!!ocupado}
+                        loading={ocupado === `add-${c.n}`}
+                        onClick={() => void correr(`add-${c.n}`, () => editarClipsAction(item.id, {
+                          que: 'agregar', despuesDe: c.n, segundos: c.segundos,
+                        }), false)}
+                      >
+                        Partirla en dos tomas
+                      </Button>
                     </div>
                   )}
                 </div>

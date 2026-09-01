@@ -22,6 +22,8 @@
 
 import type { PlanGuardado, MarcaVideo } from './video-datos';
 import { DURACIONES_FLOW } from '@/lib/costo-clip';
+import { puestaPorId, palabrasQueEntran } from '@/lib/puestas-data';
+import { repartirGuion } from '@/lib/guion-reparto';
 
 export type Edicion =
   | { ok: true; item: PlanGuardado }
@@ -70,18 +72,69 @@ function cubrirTodo<T extends { desde: number; hasta: number }>(escenas: T[], to
 
 /** El plan con los totales recalculados. Se llama después de tocar los clips. */
 function recomponer(item: PlanGuardado, clips: PlanGuardado['plan']['clips']): PlanGuardado {
+  const conTexto = redistribuir(item, clips);
   return {
     ...item,
     plan: {
       ...item.plan,
-      clips,
-      duracionTotalSeg: clips.reduce((t, c) => t + c.segundos, 0),
+      clips: conTexto,
+      duracionTotalSeg: conTexto.reduce((t, c) => t + c.segundos, 0),
       // El ritmo describe qué toma habla y cuál va en off. Con una toma más o una
       // menos, el patrón viejo describe otro anuncio.
-      ritmo: clips.map((c) => (c.habla ? 'H' : 'O')).join(' '),
-      deCorrido: clips.map((c) => c.voz).filter(Boolean).join(' '),
+      ritmo: conTexto.map((c) => (c.habla ? 'H' : 'O')).join(' '),
+      deCorrido: conTexto.map((c) => c.voz).filter(Boolean).join(' '),
     },
   };
+}
+
+/**
+ * Reparte el guion otra vez sobre la estructura nueva.
+ *
+ * ⚠️ SIN ESTO, «sumar una toma» EMPEORA EL PROBLEMA QUE VIENE A ARREGLAR.
+ *
+ * El dueño apretó el aviso de «no entra» esperando que se partiera la toma
+ * larga. `agregarClip` insertaba un clip VACÍO y no tocaba el texto: la toma de
+ * 63 palabras seguía con 63, y encima aparecía una toma muda al lado — que es un
+ * corte a negro con la persona callada, o sea peor que el desborde.
+ *
+ * El texto se puede repartir de nuevo sin perder nada porque `repartirGuion`
+ * garantiza que concatenar las tomas devuelve el guion entero: se junta lo que
+ * hay, se vuelve a partir contra los topes nuevos, y no se pierde una palabra.
+ *
+ * ⚠️ Y NO SE HACE SI YA HAY UNA TOMA FILMADA. Ese clip costó créditos y su video
+ * dice EXACTAMENTE el texto que tenía cuando se filmó; moverle una palabra deja
+ * un anuncio donde el audio y el guion no coinciden, y eso no lo detecta nadie
+ * hasta que alguien lo mira. Con algo filmado, la estructura cambia y el texto se
+ * queda quieto: el desborde se arregla a mano, que es más trabajo pero no
+ * destruye nada pagado.
+ */
+function redistribuir(
+  item: PlanGuardado,
+  clips: PlanGuardado['plan']['clips'],
+): PlanGuardado['plan']['clips'] {
+  const hayFilmada = Object.values(item.video ?? {}).some((v) => v?.url);
+  if (hayFilmada) return clips;
+
+  const guion = clips.map((c) => c.voz).filter(Boolean).join(' ').trim();
+  if (!guion) return clips;
+
+  // El tope de cada toma sale de su duración: es la misma cuenta que hace el
+  // planificador, y tenerla acá evita que el editor y el plan discrepen sobre
+  // cuántas palabras entran en 8 segundos.
+  const puesta = puestaPorId(item.plan.puestaId);
+  // Sin la puesta no se puede saber cuántas palabras entran en un segundo, y
+  // repartir contra un tope inventado es peor que no repartir: dejaría tomas
+  // marcadas «no entra» que sí entran, o al revés.
+  if (!puesta) return clips;
+  const topes = clips.map((c) => palabrasQueEntran(puesta, c.segundos));
+  const repartidas = repartirGuion(guion, topes);
+
+  return clips.map((c, i) => ({
+    ...c,
+    voz: repartidas[i]?.voz ?? '',
+    palabras: repartidas[i]?.palabras ?? 0,
+    tope: topes[i],
+  }));
 }
 
 /**

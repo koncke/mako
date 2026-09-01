@@ -120,6 +120,118 @@ function subdividir(unidad: string, tope: number): string[] {
  * guion en silencio, y eso es peor que un clip apretado — la pantalla ya avisa
  * antes de llegar acá cuando el guion desborda (`cabidaDeGuion`).
  */
+/**
+ * El mejor reparto posible de `piezas` (en orden) entre `topes`, exacto.
+ *
+ * ⚠️ ESTO REEMPLAZA A UN RELLENO GOLOSO MÁS TRES RONDAS DE COMPACTACIÓN, y la
+ * razón es que las heurísticas no podían resolver el caso real.
+ *
+ * Medido en el anuncio del dueño (01/09/2026), 190 palabras contra 192 de
+ * capacidad —o sea que ENTRA— y aun así:
+ *
+ *     toma  tope  palabras
+ *       1     30      20        41 palabras de lugar libre arriba…
+ *       4     30      26
+ *       6     24      20
+ *       7     24      63        …y el triple del tope en la última
+ *
+ * La compactación movía la primera pieza de una toma a la anterior sólo si
+ * entraba en el hueco. Con piezas de 24 palabras —una oración sin comas no se
+ * puede afinar más— y huecos de 4, no había ni un movimiento legal. El goloso
+ * dejaba los huecos y la compactación no podía cerrarlos: dos mecanismos
+ * correctos que juntos no llegaban a la respuesta.
+ *
+ * Y no hace falta una heurística mejor, porque el problema es CHICO y tiene
+ * solución exacta: partir una secuencia en K grupos CONTIGUOS es programación
+ * dinámica de toda la vida. Con ~15 piezas y 7 tomas son microsegundos.
+ *
+ * Se minimiza, en este orden:
+ *  1. el DESBORDE MÁXIMO de una toma — porque lo que arruina un anuncio es una
+ *     toma con el triple de texto, no que el total esté 5 palabras arriba;
+ *  2. a igual desborde máximo, el desborde TOTAL;
+ *  3. a igual desborde, el desbalance — para que no queden tomas casi vacías al
+ *     lado de tomas al tope.
+ *
+ * Lo que NO hace, a propósito: partir una pieza. El orden del guion y la
+ * integridad de cada frase son intocables — partir por palabras ya se probó y
+ * dejaba «enlace.» solo en la última toma.
+ */
+function repartoExacto(pesos: number[], topes: number[]): number[][] {
+  const m = pesos.length;
+  const n = topes.length;
+  if (n === 0) return [];
+  if (m === 0) return topes.map(() => []);
+
+  const suma: number[] = [0];
+  for (let k = 0; k < m; k++) suma.push(suma[k] + pesos[k]);
+
+  // costo[j][i] = mejor coste usando las tomas 0..j para las piezas 0..i-1
+  const INF = Number.POSITIVE_INFINITY;
+  const peor: number[][] = Array.from({ length: n }, () => new Array(m + 1).fill(INF));
+  const tot: number[][] = Array.from({ length: n }, () => new Array(m + 1).fill(INF));
+  const desb: number[][] = Array.from({ length: n }, () => new Array(m + 1).fill(INF));
+  const corte: number[][] = Array.from({ length: n }, () => new Array(m + 1).fill(-1));
+
+  // ⚠️ Se PERMITE una toma vacía en el DP (desde `i` a `i`) y se penaliza fuerte
+  // con el desbalance, en vez de prohibirla. Prohibirla haría el problema
+  // infactible cuando hay menos piezas que tomas, y ahí no hay respuesta buena:
+  // hay que elegir la menos mala. La red de más abajo se ocupa de que ninguna
+  // quede muda si hay con qué llenarla.
+  for (let j = 0; j < n; j++) {
+    for (let i = 0; i <= m; i++) {
+      const desde = j === 0 ? 0 : -1;
+      if (j === 0) {
+        const w = suma[i] - suma[desde];
+        const over = Math.max(0, w - topes[0]);
+        peor[0][i] = over;
+        tot[0][i] = over;
+        desb[0][i] = Math.abs(topes[0] - w);
+        corte[0][i] = 0;
+        continue;
+      }
+      for (let k = 0; k <= i; k++) {
+        if (peor[j - 1][k] === INF) continue;
+        const w = suma[i] - suma[k];
+        const over = Math.max(0, w - topes[j]);
+        const p = Math.max(peor[j - 1][k], over);
+        const t = tot[j - 1][k] + over;
+        const d = desb[j - 1][k] + Math.abs(topes[j] - w);
+        // ⚠️ EL EMPATE SE ROMPE HACIA ADELANTE, con `<=` en el último criterio.
+        //
+        // Con un guion de una sola frase y tres tomas, las dos opciones —ponerla
+        // en la primera o en la última— dan exactamente el mismo desborde (0) y
+        // el mismo desbalance (67). El DP tenía que elegir una, y con `<` elegía
+        // el primer `k` que empataba, que es el que deja el grupo final MÁS
+        // GRANDE: o sea la frase al final y dos tomas mudas adelante.
+        //
+        // Un anuncio se lee de arriba abajo: si hay texto de sobra para una sola
+        // toma, va en la primera. `k` es donde ARRANCA el último grupo, así que
+        // un `k` más grande deja menos texto al final y lo empuja hacia adelante
+        // — y con `<=` gana el último que empata, que es el más grande.
+        //
+        // Lo cazó un test que ya existía. Vale como recordatorio de que un
+        // criterio de desempate no es un detalle: decide el 100% de los casos
+        // donde el óptimo no es único.
+        if (p < peor[j][i]
+          || (p === peor[j][i] && t < tot[j][i])
+          || (p === peor[j][i] && t === tot[j][i] && d <= desb[j][i])) {
+          peor[j][i] = p; tot[j][i] = t; desb[j][i] = d; corte[j][i] = k;
+        }
+      }
+    }
+  }
+
+  const grupos: number[][] = Array.from({ length: n }, () => []);
+  let fin = m;
+  for (let j = n - 1; j >= 0; j--) {
+    const ini = corte[j][fin];
+    if (ini < 0) break;
+    for (let k = ini; k < fin; k++) grupos[j].push(k);
+    fin = ini;
+  }
+  return grupos;
+}
+
 export function repartirGuion(hablado: string, topes: number[]): TomaRepartida[] {
   const n = topes.length;
   if (n <= 0) return [];
@@ -146,116 +258,20 @@ export function repartirGuion(hablado: string, topes: number[]): TomaRepartida[]
 
   const total = piezas.reduce((s, p) => s + contarPalabrasReparto(p), 0);
 
-  const tomas: TomaRepartida[] = [];
-  /** Las piezas de cada toma, para poder moverlas después sin re-partir texto. */
-  const porToma: string[][] = [];
-  let i = 0;
-
-  for (let clip = 0; clip < n; clip++) {
-    const quedan = n - clip;               // tomas por llenar, contando esta
-    const restante = piezas.slice(i).reduce((s, p) => s + contarPalabrasReparto(p), 0);
-
-    // El objetivo de ESTA toma: lo que queda repartido entre las que faltan, sin
-    // pasarse de lo que la puesta admite. Repartir parejo y no llenar hasta el
-    // tope es lo que evita que las primeras tomas queden apretadas y las últimas
-    // vacías — que es como se ve un anuncio que se quedó sin texto al final.
-    const objetivo = Math.min(topes[clip], Math.max(1, Math.ceil(restante / quedan)));
-
-    const elegidas: string[] = [];
-    let palabras = 0;
-
-    while (i < piezas.length) {
-      const p = piezas[i];
-      const w = contarPalabrasReparto(p);
-
-      // Siempre entra al menos una pieza: una toma vacía en el medio del anuncio
-      // es un corte a negro con la persona muda.
-      if (elegidas.length === 0) { elegidas.push(p); palabras += w; i++; continue; }
-
-      // Y no se toman piezas de más si eso dejaría sin texto a las tomas que
-      // faltan: el final del guion es el CTA y tiene que llegar entero.
-      const piezasQueQuedan = piezas.length - i;
-      if (piezasQueQuedan <= quedan - 1) break;
-
-      if (palabras + w > objetivo) break;
-      elegidas.push(p); palabras += w; i++;
-    }
-
-    tomas.push({ voz: elegidas.join(' '), palabras });
-    porToma.push(elegidas);
-  }
-
-  // Si sobraron piezas —el guion desborda—, van a la última toma: el texto sale
-  // en orden, así que lo que quedó sin repartir va después de todo lo demás.
-  if (i < piezas.length) {
-    porToma[n - 1].push(...piezas.slice(i));
-  }
-
-  // ── Y AHÍ SE COMPACTA HACIA LA IZQUIERDA ────────────────────────────────
+  // ── EL REPARTO, EXACTO ────────────────────────────────────────────────
   //
-  // Volcarlo todo en la última y terminar dejaba una toma con TRES VECES su
-  // tope. Medido en vivo, en el anuncio de una clienta: siete tomas entre 18 y
-  // 26 palabras, la octava con 80 contra un tope de 24 — el CTA entero
-  // apelotonado en ocho segundos— y 57 palabras de lugar libre repartidas en las
-  // siete de arriba, sin usar.
-  //
-  // Mover la PRIMERA pieza de una toma al final de la ANTERIOR conserva el orden
-  // del guion, que es lo único intocable. Y se hace de izquierda a derecha y
-  // repetido, no de derecha a izquierda: el hueco tiene que PROPAGARSE. Un solo
-  // pase hacia atrás se frena en la primera toma llena —que es justo lo que
-  // pasaba acá, con la toma 6 medio vacía dos lugares más allá— y no mueve nada.
-  //
-  // No garantiza que todo entre: un guion que no cabe no cabe, y para eso está el
-  // aviso. Lo que garantiza es que el desborde no se apile en una sola toma
-  // habiendo lugar en las otras.
-  const palabrasDe = (ps: string[]) => ps.reduce((t, p) => t + contarPalabrasReparto(p), 0);
-  for (let ronda = 0; ronda < n; ronda++) {
-    let movio = false;
-    for (let c = 0; c < n - 1; c++) {
-      // Se tira de la siguiente mientras entre y le quede algo: una toma vacía
-      // en el medio es un corte a negro con la persona muda.
-      while (porToma[c + 1].length > 0) {
-        const hueco = topes[c] - palabrasDe(porToma[c]);
-        if (hueco <= 0) break;
-        const siguiente = porToma[c + 1];
-        const w = contarPalabrasReparto(siguiente[0]);
+  // Antes acá vivían un relleno goloso y tres rondas de compactación. Los dos
+  // eran correctos y juntos no llegaban: ver `repartoExacto` para el caso real
+  // que no podían resolver —41 palabras de lugar libre arriba y el triple del
+  // tope en la última, sobre un guion que ENTRABA—.
+  const pesos = piezas.map((p) => contarPalabrasReparto(p));
+  const grupos = repartoExacto(pesos, topes);
+  const porToma: string[][] = grupos.map((g) => g.map((k) => piezas[k]));
 
-        // ⚠️ SE PERMITE VACIAR LA SIGUIENTE SI HAY CON QUÉ RELLENARLA, y esa
-        // era la línea que impedía drenar la cadena.
-        //
-        // El guard viejo se negaba a dejar una toma sin piezas —correcto, una
-        // toma vacía es un corte a negro con la persona muda—, pero lo aplicaba
-        // MIRANDO SÓLO A SU VECINA. Con una toma de una sola pieza en el medio,
-        // nada podía moverse: la de atrás no podía darle, porque quedaría vacía,
-        // y la de adelante seguía con el triple de su tope. Medido en el anuncio
-        // de una clienta: la toma 6 con 4 palabras y lugar para 20, la 7 llena, y
-        // la 8 con 82 contra un tope de 24. El hueco y el desborde mirándose.
-        //
-        // La condición correcta no es «¿queda algo en mi vecina?» sino «¿queda
-        // algo MÁS ADELANTE que la vuelva a llenar?». La ronda siguiente lo hace.
-        const hayConQueRellenar = porToma.slice(c + 2).some((t) => t.length > 1);
-        if (w <= hueco && (siguiente.length > 1 || hayConQueRellenar)) {
-          porToma[c].push(siguiente.shift() as string);
-          movio = true;
-          continue;
-        }
-
-        // ⚠️ ACÁ PROBÉ PARTIR LA PIEZA POR PALABRAS, Y LOS TESTS LO FRENARON.
-        // Cortaba el CTA por la mitad y dejaba «enlace.» solo en la última toma:
-        // peor que el desborde que venía a arreglar, porque el llamado a la
-        // acción es lo único del guion que TIENE que llegar entero.
-        // El desborde que queda es real —un guion de 211 palabras contra 210 de
-        // capacidad no entra— y para eso está el aviso de «no entra».
-        break;
-      }
-    }
-    if (!movio) break;
-  }
-
-  // ⚠️ Y LA RED: si algo quedó vacío, se le devuelve una pieza. Permitir vaciar
-  // fue lo que hizo posible drenar, pero una toma sin texto es un corte a negro
-  // con la persona muda — y eso es peor que el desborde que vinimos a arreglar.
-  // Se prefiere una toma corta a una muda.
+  // ⚠️ LA RED CONTRA LA TOMA MUDA. El DP puede dejar una vacía cuando hay menos
+  // piezas que tomas —ahí no hay respuesta buena, hay que elegir la menos mala—
+  // y una toma sin texto es un corte a negro con la persona callada, que es peor
+  // que un clip apretado. Se prefiere una toma corta a una muda.
   for (let ronda = 0; ronda < n; ronda++) {
     let arreglo = false;
     for (let c = 0; c < n; c++) {
@@ -263,14 +279,15 @@ export function repartirGuion(hablado: string, topes: number[]): TomaRepartida[]
       const donante = c > 0 && porToma[c - 1].length > 1 ? c - 1
         : c + 1 < n && porToma[c + 1].length > 1 ? c + 1 : -1;
       if (donante < 0) continue;
-      // Del anterior se toma su ÚLTIMA pieza; del siguiente, su PRIMERA. Las dos
-      // conservan el orden del guion, que es lo único intocable.
+      // Del anterior se toma su ULTIMA pieza; del siguiente, su PRIMERA. Las dos
+      // conservan el orden del guion, que es lo unico intocable.
       porToma[c].push(donante === c - 1 ? porToma[donante].pop() as string : porToma[donante].shift() as string);
       arreglo = true;
     }
     if (!arreglo) break;
   }
 
+  const tomas: TomaRepartida[] = topes.map(() => ({ voz: '', palabras: 0 }));
   for (let c = 0; c < n; c++) {
     tomas[c].voz = porToma[c].join(' ');
     tomas[c].palabras = contarPalabrasReparto(tomas[c].voz);
