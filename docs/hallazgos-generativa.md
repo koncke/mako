@@ -3557,3 +3557,100 @@ La salida no es más algoritmo: es el editor de clips. Sumar una toma es un clic
 no hace nada» dejó de ser posible cuando el paso único reemplazó a `cara` y
 `toma`: `pasoDe` ya no los devuelve. **Un rediseño puede cerrar un pendiente sin
 tocarlo** — conviene re-verificar la lista después de uno, y no darla por vigente.
+
+## Media espera de punta a punta la poníamos nosotros (01/09/2026)
+
+**Vive en:** `extension/background.js` · `app/video-generator/avisar-puente.ts` ·
+`lib/video-planner.ts` · `lib/flow-protocolo.ts`
+
+El dueño: *«hay cosas que demoran muchísimo y no deberían, ya que en flow se genera
+rápido… es nuestro problema»*. Tenía razón, y se puede medir.
+
+Partiendo los 348 trabajos `listo` más recientes en dos tramos —de `created_at` a
+`tomado_at` (dormido en la cola) y de `tomado_at` a `listo_at`— en segundos:
+
+| tipo | n | espera med | p75 | p90 | ejecución med | % perdido esperando |
+|---|---|---|---|---|---|---|
+| `estado_clips` | 234 | 13,6 | 167,6 | 357,3 | 14,6 | 48% |
+| `creditos` | 35 | 8,2 | 12,8 | 13,4 | 14,2 | 37% |
+| `generar_clip` | 32 | 10,3 | 14,2 | 30,9 | 28,9 | 26% |
+| `enlace_clip` | 25 | 14,0 | 14,4 | 14,9 | 14,2 | 50% |
+| `generar_imagen` | 17 | 10,3 | 12,7 | 14,7 | 43,9 | 19% |
+
+### ⚠️ El dato que lo delata NO es el 48%: es la uniformidad
+
+Lo que rompe el caso no es ninguno de los porcentajes, es que **una consulta de
+estado y un pedido de enlace tarden los dos ~14 s**. Son dos operaciones que no se
+parecen en nada. Dos trabajos distintos que tardan lo mismo no están trabajando:
+están esperando algo fijo, y ese algo es de uno.
+
+Sirve como olfato general: **cuando dos operaciones de costo muy distinto miden
+igual, el número no es trabajo — es una constante tuya**. Un promedio por tipo lo
+muestra en una tabla; un promedio global lo habría escondido.
+
+### Las cuatro esperas, y por qué ninguna era la guarda anti-bloqueo
+
+1. **`cuantos: 1`** — la extensión pedía UN trabajo por latido. Un clip no es un
+   trabajo: son ~9 (generarlo, preguntar ~7 veces cómo va, pedir el enlace), o sea
+   nueve alarmas de 15 s. La mediana de 13,6 s es exactamente lo que predice pedir
+   de a uno: **media alarma**. El servidor ya topeaba en 5 y el RPC ya protegía con
+   `FOR UPDATE SKIP LOCKED`; el cliente pedía uno por su cuenta.
+2. **El cooldown después del ÚLTIMO trabajo del lote** — los 10 s separan una
+   llamada a Google de la SIGUIENTE. Después de la última no hay siguiente en ese
+   ciclo, así que no espaciaban nada.
+3. **El resultado dormía un latido entero antes de reportarse** — se guardaba en
+   `pendientes` y se mandaba al PRINCIPIO del ciclo siguiente. **Éste es el ~14 s
+   uniforme.**
+4. **El primer trabajo esperaba a la alarma** — apretar «Generar» costaba hasta
+   15 s (30 en una extensión empaquetada: es el mínimo que impone Chrome) sobre un
+   trabajo que ya estaba encolado.
+
+### La regla: separar la GUARDA del RITMO
+
+`cooldownMs` es la guarda —lo único entre un cliente y un
+`PUBLIC_ERROR_UNUSUAL_ACTIVITY`, que le bloquea la sesión de Google—. Las cuatro
+esperas de arriba **no eran esa guarda**: eran el ritmo del transporte, y estaba
+puesto muy por debajo de lo que la guarda permitía. Cuando algo va lento y hay un
+límite de seguridad cerca, la pregunta no es «¿puedo aflojar el límite?» sino
+**«¿estoy respetándolo, o estoy MUY por debajo sin darme cuenta?»**. Acá el
+`cooldownMs` no se tocó y aun así se recuperó la mitad del reloj.
+
+### Y el corolario del sondeo: preguntar costaba más que hacer
+
+234 de 348 trabajos eran «¿cómo va el clip?». `consultarUnaVez` ya deduplica bien
+(no encola una consulta si hay otra viva para esa operación), así que no era un
+flood: era que **cada pregunta pagaba el viaje completo**. Cuando un contador de
+trabajos está dominado por los que sólo PREGUNTAN, el arreglo no es preguntar
+menos — es que preguntar salga barato.
+
+### El primer paso: se pedía el campo más largo para tirarlo
+
+*«Cuando acomoda el guion en las tomas, se demora increíblemente mucho para una
+tarea simple»*. El reparto en tomas ya lo hace el código (`repartirGuion`), así que
+lo simple es simple. Lo que tardaba era otra cosa: el plan le pedía al modelo un
+`prompt` de video por clip —un párrafo cinematográfico en inglés— y **para un
+formato con prompt propio ese campo no se usa nunca**: `promptDeClip` le gana
+entero. Car Talks declara `habla: 'siempre'`, así que se descartaban los siete.
+
+Y lo único que sobrevivía de ese párrafo era el acento… que tampoco lo escribía el
+modelo: lo pega `conAcento()` con el texto que eligió el cliente. Le pedíamos que
+nos devolviera un dato que ya teníamos.
+
+**La regla, que es la de siempre corrida un lugar:** «escribir la salida no es
+ofrecerla» tiene una gemela del lado de la entrada — **pedirle a un modelo un campo
+que después se descarta no es sólo código muerto: es tiempo de generación que el
+cliente paga mirando un loader**. Al agregar una precedencia («el prompt del formato
+le gana al del modelo»), la pregunta que sigue es si todavía hace falta PEDIR lo
+que perdió.
+
+Se comprueba con un `grep` del campo: si sus únicos lectores están detrás de un
+`if` que casi siempre es falso, dejá de pedirlo en ese caso.
+
+**Lo que NO se hizo, a propósito:** los formatos sin prompt validado siguen pidiendo
+el suyo. Copiarles el de Car Talks sería peor que no tener ninguno — habla de la
+palanca de cambios, y en una oficina eso no es un detalle de más, es una instrucción
+falsa.
+
+**Sigue pendiente:** publicar la extensión en la Chrome Web Store. La tienda tiene
+≤0.36.0, así que **quien la instale desde ahí no tiene nada de esto**. El ZIP de
+`/video-generator` sí (0.37.2).
