@@ -218,3 +218,21 @@ export function nombreDeClip(titulo: string, n: number, total: number): string {
   const ancho = String(total).length;
   return `${limpio} - toma ${String(n).padStart(ancho, '0')}.mp4`;
 }
+
+/**
+ * El nombre del anuncio ENTERO, ya pegado. Mismas reglas que `nombreDeClip`.
+ *
+ * Sin número de toma, porque no hay tomas: es el video final. Lo comparten las
+ * dos pantallas donde un anuncio terminado se puede llevar —el último paso del
+ * wizard y el modal de «Anuncios terminados»— para que el archivo se llame
+ * igual venga de donde venga.
+ */
+export function nombreDeAnuncio(titulo: string): string {
+  const limpio = (titulo || 'Anuncio')
+    .normalize('NFC')
+    .replace(/[\\/:*?"<>|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 60) || 'Anuncio';
+  return `${limpio}.mp4`;
+}

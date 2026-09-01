@@ -39,6 +39,8 @@ import {
   puestaPorId, puestasOfrecidas, type Puesta,
 } from './video-pedido';
 import { generarPlanAction, editarLineaPlanAction, reescribirTomaAction } from './actions';
+import { descargarComo } from './descargar';
+import { nombreDeAnuncio } from './video-pedido';
 import { AvisoPuente, estadoDelPuente, ID_AVISO_PUENTE } from './puente-avisos';
 import { PuenteEnlace } from './PuenteEnlace';
 import { estadoPuenteAction } from './puente-actions';
@@ -339,7 +341,7 @@ function DetalleGuion({
       {errorEdit && <Alert tono="bad">{errorEdit}</Alert>}
 
       {secciones.length > 0 ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9, maxHeight: '52vh', overflowY: 'auto' }}>
+        <div className="mk-scroll-y" style={{ display: 'flex', flexDirection: 'column', gap: 9, maxHeight: '52vh', overflowY: 'auto' }}>
           {secciones.map((s, i) => (
             <SeccionCard
               key={s.titulo + i}
@@ -364,7 +366,7 @@ function DetalleGuion({
         // Un guion sin rótulos —cargado antes de que MaKo los pusiera, o uno
         // donde el modelo no pudo— se edita ENTERO. No se pierde ni se bloquea:
         // el que no tiene bloques es justamente el que más ganas dan de corregir.
-        <div style={{ maxHeight: '52vh', overflowY: 'auto' }}>
+        <div className="mk-scroll-y" style={{ maxHeight: '52vh', overflowY: 'auto' }}>
           <EditarTexto
             valor={texto}
             multiline
@@ -596,6 +598,9 @@ export function VideoGeneratorApp({
   // Siempre se entra al catálogo, aunque haya anuncios hechos: se viene a crear
   // uno nuevo, no a releer el anterior.
   const [vista, setVista] = useState<Vista>('catalogo');
+  /** La descarga del anuncio terminado. Estado POR ACCION, nunca compartido. */
+  const [bajandoAnuncio, setBajandoAnuncio] = useState(false);
+  const [fallaAnuncio, setFallaAnuncio] = useState('');
 
   // ── EL EJEMPLO QUE VUELA ───────────────────────────────────────────────
   // Un solo nodo que recorre tres estaciones: la tarjeta que se apretó, el centro
@@ -860,12 +865,42 @@ export function VideoGeneratorApp({
    * Trae el aviso a la vista y lo hace parpadear. No abre nada mas: lo que sigue
    * vive en el popup de la extension, y una pagina web no puede abrirlo.
    */
+  /**
+   * La respuesta a un clic que el gate bloqueó.
+   *
+   * ⚠️ ERA INVISIBLE, Y LO COMPROBÉ SIENDO EL USUARIO. Apreté una tarjeta con el
+   * puente desconectado y no vi absolutamente nada: el `scrollIntoView` no hace
+   * nada cuando el aviso YA está a la vista —que es el caso normal, vive arriba
+   * de todo— y lo único que quedaba era un fundido de opacidad a .35 sobre un
+   * cartel que está a 500 px de donde uno hizo clic. El comentario del gate dice
+   * «no se queda mudo: abrir la configuración ES la respuesta al click», y la
+   * intención es correcta; lo que fallaba era que la respuesta no se veía.
+   *
+   * Es la trampa de siempre: «un control que no hace nada es indistinguible de
+   * uno roto» — y una respuesta que no se percibe es lo mismo que ninguna.
+   *
+   * Ahora crece y se le enciende un aro. Un cambio de TAMAÑO se ve por el rabillo
+   * del ojo aunque uno esté mirando otra parte de la pantalla; un cambio de
+   * opacidad, no.
+   */
   function resaltarAviso() {
     const el = document.getElementById(ID_AVISO_PUENTE);
     if (!el) return;
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Sólo si hace falta: si ya está a la vista, este scroll es un no-op y el
+    // aviso tiene que llegar por otro lado.
+    const caja = el.getBoundingClientRect();
+    if (caja.top < 0 || caja.bottom > window.innerHeight) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-    el.animate([{ opacity: 1 }, { opacity: .35 }, { opacity: 1 }], { duration: 640, iterations: 2 });
+    el.animate(
+      [
+        { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(242,176,30,0)' },
+        { transform: 'scale(1.025)', boxShadow: '0 0 0 4px rgba(242,176,30,.55)' },
+        { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(242,176,30,0)' },
+      ],
+      { duration: 520, iterations: 2, easing: 'ease-out' },
+    );
   }
 
   // ¿El navegador está conectado AHORA? Es el hecho del que cuelga todo lo que
@@ -1044,9 +1079,31 @@ export function VideoGeneratorApp({
         // botón que dice «Generar» y abre lo hecho es el mismo error que este repo
         // ya pagó con «Revisar el puente».
         boton={guion?.planId ? 'Abrir lo que ya tienes' : 'Generar anuncio'}
-        consecuencia={guion?.planId ? undefined : costoDeUnaToma}
+        // ⚠️ ACÁ DECÍA «Costo: N créditos» Y ERA FALSO POR PARTIDA DOBLE.
+        //
+        // Este botón le pide a MaKo que ESCRIBA el guion en tomas. Eso no toca
+        // Flow y no gasta un solo crédito: los créditos se gastan después, al
+        // filmar cada toma. Y el número que mostraba era `costoDeUnaToma`, o sea
+        // el de UN clip — ni el de este paso (cero) ni el del anuncio entero.
+        //
+        // La regla dice que la consecuencia va pegada al botón y antes del clic;
+        // una consecuencia que no es la de ese botón es peor que ninguna, porque
+        // se lee con la misma autoridad.
+        //
+        // Y cuando no hay guion elegido, la línea contesta la pregunta que la
+        // persona tiene de verdad: por qué el botón no responde.
+        consecuencia={
+          guion?.planId ? undefined
+            : !puedeAvanzar ? 'Elige un guion de la lista.'
+              : cabida ? `Escribirlo es gratis. Filmarlo son ${cabida.clips} tomas.` : undefined
+        }
         cargando={busy}
-        atras={idx === 0 ? 'Cambiar plantilla' : 'Volver'}
+        // ⚠️ «formato», que es como se llama en las OTRAS dos pantallas: el catálogo
+        // dice «Elige el formato» y el paso del ejemplo dice «Cambiar formato».
+        // Acá decía «plantilla» — el mismo objeto con tres nombres (formato,
+        // plantilla, y «puesta en escena» adentro del código) obliga a la persona
+        // a deducir que son lo mismo, y eso es trabajo que le estamos pasando.
+        atras={idx === 0 ? 'Cambiar formato' : 'Volver'}
         onAtras={() => (idx === 0 ? setVista('catalogo') : setPaso(PASOS[idx - 1]))}
         onSalir={() => setVista('catalogo')}
         slotRiel={slotRiel}
@@ -1061,8 +1118,18 @@ export function VideoGeneratorApp({
         // texto se reacomodaba, medía menos— y terminaba con las tarjetas
         // apretadas en 290 px.
         ancho={560}
-        onSiguiente={() => {
-          if (!puedeAvanzar) return;
+        // ⚠️ SIN HANDLER CUANDO NO SE PUEDE AVANZAR, y no un `return` mudo adentro.
+        //
+        // El guard existía —`if (!puedeAvanzar) return;`— pero vivía DENTRO del
+        // handler, así que el botón se dibujaba encendido (`Estudio` sólo lo apaga
+        // con `disabled={!onSiguiente}`). Resultado medido: «Generar anuncio», en
+        // primario y con un costo en créditos abajo, se podía apretar sin haber
+        // elegido un guion y **no pasaba absolutamente nada**.
+        //
+        // Es la regla que este mismo archivo aplica bien 160 líneas más arriba, en
+        // `empezar`: «un control que no hace nada es indistinguible de uno roto».
+        // Estaba puesta en un lugar de dos.
+        onSiguiente={!puedeAvanzar ? undefined : () => {
           // Si este guion YA tiene un plan, se abre ese en vez de mandar a
           // rehacerlo. Rehacerlo perdía el trabajo hecho —las tomas corregidas a
           // mano, los clips ya generados— y encima costaba una llamada al modelo
@@ -1271,7 +1338,13 @@ export function VideoGeneratorApp({
                           textDecoration: 'underline', textUnderlineOffset: 3,
                         }}
                       >
-                        Abrir
+                        {/* ⚠️ Nombra su OBJETO. Decía «Abrir» a secas, y en una
+                            lista de siete guiones eso son siete botones idénticos:
+                            quien navega por teclado o con lector de pantalla oye
+                            «Abrir, Abrir, Abrir» sin saber cuál es cuál. La regla de
+                            la casa lo dice para los pares de salida y vale igual
+                            acá: cada botón nombra su acción y su objeto. */}
+                        Abrir el guion
                       </button>
                     </div>
                   );
@@ -1383,6 +1456,7 @@ export function VideoGeneratorApp({
         contexto={contexto}
         puesta={puestaActual}
         costoTexto={costoDeUnaToma}
+        saldo={saldo.creditos}
         onCambio={(it) => {
           setActual(it);
           setHistorial((h) => h.map((e) => (e.id === it.id ? it : e)));
@@ -1520,18 +1594,60 @@ export function VideoGeneratorApp({
       {/* El anuncio en su tamaño real, recién cuando se pide. La lista sirve para
           reconocerlo; mirarlo es otra cosa y merece la pantalla. */}
       {verAnuncio && (
-        <Modal titulo={verAnuncio.titulo} onCerrar={() => setVerAnuncio(null)} ancho={520}>
+        <Modal titulo={verAnuncio.titulo} onCerrar={() => { setVerAnuncio(null); setFallaAnuncio(''); }} ancho={520}>
+          {/* ⚠️ `maxHeight` Y `contain`, y sin esto el modal SIEMPRE scrolleaba.
+              Medido el 01/09/2026: un anuncio 9:16 se dibujaba con 809 px de alto
+              adentro de un cuerpo de 552, o sea que todo anuncio —son todos
+              verticales— nacía con barra de scroll y con la cabeza o los pies
+              cortados. El `aspectRatio` fija la forma pero no la acota al alto
+              disponible, y `cover` encima recorta en vez de encoger.
+              `52vh` es el mismo techo que ya usan las otras dos cajas de esta
+              pantalla. */}
           <video
             src={verAnuncio.url}
             poster={verAnuncio.poster}
             controls
             autoPlay
             playsInline
+            // ⚠️ MANDA EL ALTO, NO EL ANCHO. Con `width: 100%` + `maxHeight`, el
+            // ancho gana y el alto se recorta: la caja queda APAISADA (478×425
+            // medidos) con el video vertical flotando en el medio entre dos
+            // franjas negras. En un 9:16 la dimensión que hay que fijar es la que
+            // escasea, que es el alto de la pantalla.
             style={{
-              display: 'block', width: '100%', aspectRatio: '9 / 16',
-              objectFit: 'cover', background: '#000', borderRadius: 'var(--r-md)',
+              display: 'block', height: '62vh', width: 'auto', maxWidth: '100%',
+              aspectRatio: '9 / 16', objectFit: 'cover',
+              background: '#000', borderRadius: 'var(--r-md)', margin: '0 auto',
             }}
           />
+          {/* ⚠️ ACÁ NO HABÍA NINGÚN BOTÓN, y era el único lugar donde vive un
+              anuncio terminado. El dueño lo pidió textual —«sería ideal un solo
+              botón para descargarlo todo», «que se nombren bien, con número de
+              toma y nombre de anuncio»— y el wizard sí lo tiene; esta pantalla,
+              que es donde uno vuelve a buscar lo hecho de días anteriores, no.
+              Mirar y no poder llevárselo es la mitad del trabajo. */}
+          <div style={{ display: 'grid', gap: 8, justifyItems: 'center', paddingTop: 4 }}>
+            <Button
+              variant="primary"
+              loading={bajandoAnuncio}
+              disabled={bajandoAnuncio}
+              icon={<Icon name="descargar" size={17} />}
+              onClick={() => {
+                setBajandoAnuncio(true);
+                setFallaAnuncio('');
+                void descargarComo(verAnuncio.url, nombreDeAnuncio(verAnuncio.titulo))
+                  .catch((e) => setFallaAnuncio(e instanceof Error ? e.message : 'No se pudo descargar.'))
+                  .finally(() => setBajandoAnuncio(false));
+              }}
+            >
+              Descargar el anuncio
+            </Button>
+            {/* Sólo cuando falla: un mensaje debajo de un botón que está trabajando
+                es ruido, y el estado ya lo cuenta el propio botón. */}
+            {fallaAnuncio && (
+              <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--bad)' }}>{fallaAnuncio}</div>
+            )}
+          </div>
         </Modal>
       )}
 

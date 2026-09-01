@@ -39,7 +39,7 @@ import { Icon } from '../_components/icons';
 import type { PlanGuardado, EstadoContextoVideo } from './video-datos';
 import type { Puesta } from '@/lib/puestas-data';
 import { causaFlow, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
-import { creditosDeClip } from '@/lib/costo-clip';
+import { creditosDeClip, notaSaldo } from '@/lib/costo-clip';
 import { promptDeClip } from '@/lib/prompts-video';
 import { imagenEnCurso } from './variantes-imagen';
 import { nombreDeClip } from './video-pedido';
@@ -1024,12 +1024,27 @@ function HuecoDelEjemplo({ puesta, abierta, slot }: {
 
 // ── El wizard ───────────────────────────────────────────────────────────────
 
-export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, onSalir, slotRiel, plegado }: {
+export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCambio, onSalir, slotRiel, plegado }: {
   item: PlanGuardado;
   contexto: EstadoContextoVideo | null;
   puesta: Puesta | undefined;
   /** Lo que cuesta una toma, ya redactado por quien sabe el saldo. */
   costoTexto: string;
+  /**
+   * Créditos que quedan en la cuenta de Flow. `null` = nunca se leyó.
+   *
+   * ⚠️ ENTRA COMO PROP PORQUE LA ADVERTENCIA NO EXISTÍA. El dueño lo pidió en una
+   * frase que está citada, textual, en la cabecera de `saldo-datos.ts`: «si
+   * tenemos el saldo, y un usuario quiere generar un video, y ya de antemano
+   * sabemos por la cantidad de tokens que consume cada clip y la cantidad de
+   * clips que hay, si le alcanzará o no».
+   *
+   * Se escribió entero —`alcanzaParaAnuncio()` en saldo-datos.ts, `alcanzaTodo`
+   * en VideoGeneratorApp— y **ninguno de los dos tenía un solo lector**. O sea
+   * que «Filmar las 6 que faltan» cobraba ~72 créditos sin mirar si había 72.
+   * Es la regla de la casa: escribir la salida no es ofrecerla.
+   */
+  saldo: number | null;
   onCambio: (item: PlanGuardado) => void;
   onSalir: () => void;
   /** Dónde aterriza el ejemplo. El video lo dibuja `PreviaVolante`, arriba. */
@@ -2142,9 +2157,18 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
             : faltan.length
               ? `Filmar las ${faltan.length} que faltan`
               : 'Ver el anuncio entero',
+        // ⚠️ Y SI NO ALCANZA, SE DICE ACÁ — pegado al botón y antes del clic, que
+        // es donde la regla de la casa manda poner la consecuencia de lo
+        // irreversible. Un anuncio que se corta en la toma cinco por falta de
+        // créditos no dejó cinco quintos de anuncio: dejó cinco clips PAGADOS y
+        // nada que publicar.
+        //
+        // `null` no es «no alcanza»: es «no se sabe», y ahí no se dice nada.
+        // Inventarle una advertencia a alguien que sí tiene saldo es el error con
+        // el signo cambiado, y se paga peor.
         consecuencia: filmadas === 0
-          ? textoCosto(creditosDeClip(item.plan.clips[0]?.segundos ?? 8) ?? 15)
-          : faltan.length ? textoCosto(creditos) : textoCosto(0),
+          ? textoCosto(creditosDeClip(item.plan.clips[0]?.segundos ?? 8) ?? 15, { nota: notaSaldo(saldo, creditosDeClip(item.plan.clips[0]?.segundos ?? 8) ?? 15) })
+          : faltan.length ? textoCosto(creditos, { nota: notaSaldo(saldo, creditos) }) : textoCosto(0),
         cargandoBoton: !!ocupado,
         onSiguiente: () => {
           if (!faltan.length) { setForzado({ id: 'listo' }); return; }
@@ -2346,13 +2370,13 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                           (nunca se recorta el error: es la única pista para el
                           que investiga), pero scrollea adentro de su caja. */}
                       {ciego?.crudo && (
-                        <pre style={{
+                        <pre className="mk-scroll-y" style={{
                           margin: '0 0 14px', textAlign: 'left', whiteSpace: 'pre-wrap',
                           wordBreak: 'break-word', maxHeight: 160, overflowY: 'auto',
                           padding: '10px 12px', borderRadius: 'var(--r-sm)',
                           background: 'var(--surface-2)', border: '1px solid var(--border)',
                           fontSize: 'var(--fs-meta)', color: 'var(--dim)',
-                          fontFamily: 'var(--mono, monospace)', lineHeight: 1.45,
+                          fontFamily: "'Geist Mono', monospace", lineHeight: 1.45,
                         }}>
                           {ciego.crudo}
                         </pre>
@@ -2672,7 +2696,7 @@ function Encadenado({ clips, titulo }: { clips: string[]; titulo: string }) {
           icon={<Icon name="descargar" size={15} />}
           onClick={() => void bajarUna(i)}
         >
-          {`Bajar la toma ${i + 1}`}
+          {`Descargar la toma ${i + 1}`}
         </Button>
         <Button
           size="sm"
@@ -2682,7 +2706,7 @@ function Encadenado({ clips, titulo }: { clips: string[]; titulo: string }) {
           icon={<Icon name="descargar" size={15} />}
           onClick={() => void bajarTodas()}
         >
-          {`Bajar las ${clips.length}`}
+          {`Descargar las ${clips.length}`}
         </Button>
       </div>
 
@@ -2694,7 +2718,7 @@ function Encadenado({ clips, titulo }: { clips: string[]; titulo: string }) {
       </div>
 
       {falla && (
-        <div style={{ marginTop: 8, fontSize: 'var(--fs-sm)', color: 'var(--danger, #f87171)' }}>{falla}</div>
+        <div style={{ marginTop: 8, fontSize: 'var(--fs-sm)', color: 'var(--bad)' }}>{falla}</div>
       )}
     </div>
   );

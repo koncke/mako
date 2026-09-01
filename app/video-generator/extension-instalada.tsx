@@ -108,7 +108,7 @@ export function AvisoExtensionVieja({ instalada, compacto = false }: {
         <strong>Tu extensión quedó vieja.</strong> Tienes la <code>{instalada}</code> y la
         actual es la <code>{EXTENSION_VERSION}</code>. Descárgala y{' '}
         <strong>descomprímela encima de la misma carpeta</strong> desde la que la
-        instalaste, reemplazando los archivos. Recién después usa el botón de recargar
+        instalaste, reemplazando los archivos. Después de eso usa el botón de recargar
         (↻).{' '}
         <strong>Recargar sin reemplazar los archivos no hace nada</strong>: ese botón
         vuelve a leer la misma carpeta, no descarga nada.

@@ -49,9 +49,23 @@ export function estadoDeToma(item: PlanGuardado, n: number): EstadoToma {
 
 const COLOR: Record<EstadoToma, string> = {
   filmada: 'var(--primary)',
-  generando: 'var(--mako, #d4a94a)',
-  fallada: 'var(--danger, #f87171)',
-  'sin-texto': 'var(--border-strong)',
+  // ⚠️ Sin fallback. `--mako` existe (globals.css:123 y su variante oscura), así
+  // que el `#d4a94a` que había acá nunca se pintaba — pero era un SEGUNDO dorado
+  // de marca escrito a mano, esperando a que alguien renombrara el token para
+  // tomar el control en silencio.
+  generando: 'var(--mako)',
+  // ⚠️ `--bad`, y antes decía `var(--danger, #f87171)`. `--danger` NO EXISTE en
+  // ningún .css del repo, así que un `var()` con fallback siempre pintaba el hex
+  // —un rojo que ningún tema da vuelta— y encima parecía un token. `--bad` sí
+  // existe, y tiene su variante para fondo oscuro (globals.css:274).
+  fallada: 'var(--bad)',
+  // ⚠️ ÁMBAR, Y NO EL MISMO GRIS QUE `pendiente`. Son dos estados distintos y se
+  // pintaban idénticos: el rótulo que los separaba vivía sólo en `title` y
+  // `aria-label`, o sea en ningún lado que se vea. Y no son intercambiables —
+  // `pendiente` es «todavía no le tocó», que se arregla solo esperando;
+  // `sin-texto` es «esta toma no tiene qué decir», que NO se arregla solo y
+  // bloquea el filmado. Uno es reposo y el otro es una deuda.
+  'sin-texto': 'var(--warn)',
   pendiente: 'var(--border-strong)',
 };
 

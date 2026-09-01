@@ -48,3 +48,26 @@ export function creditosDeClip(segundos: number): number | null {
   const c = CREDITOS_POR_DURACION[Math.round(segundos)];
   return typeof c === 'number' ? c : null;
 }
+
+/**
+ * «No alcanza: tienes N.» — o nada, si alcanza o si no se sabe.
+ *
+ * ⚠️ VIVE ACA Y NO EN LA PANTALLA, y no es prolijidad: `WizardAnuncio.tsx` es un
+ * componente cliente que arrastra modulos `server-only`, asi que una funcion
+ * declarada ahi adentro NO LA PUEDE IMPORTAR NINGUN TEST. Es la regla escrita de
+ * la casa: la condicion que decide algo caro va en un modulo sin `server-only`,
+ * o termina siendo lo unico sin red justo donde mas duele.
+ *
+ * Las TRES respuestas son distintas y las tres importan:
+ * · alcanza -> silencio. Un aviso que sale siempre deja de leerse.
+ * · no alcanza -> se dice con el numero que hay, para que la persona sepa cuanto
+ *   le falta y no solo que le falta.
+ * · `null` (nunca se leyo el saldo) -> **silencio tambien**. «No se sabe» no es
+ *   «no alcanza», y decirle a alguien que no puede pagar algo que si puede es el
+ *   mismo error con el signo cambiado — y ese se paga peor, porque lo manda a
+ *   recargar creditos que ya tiene.
+ */
+export function notaSaldo(saldo: number | null, hacenFalta: number): string | undefined {
+  if (saldo == null || hacenFalta <= 0 || saldo >= hacenFalta) return undefined;
+  return `No alcanza: tienes ${saldo}.`;
+}

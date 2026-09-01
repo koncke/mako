@@ -906,6 +906,32 @@ export async function pedirSaldoAction(): Promise<{ ok: true; trabajoId: number 
 }
 
 /**
+ * Cuantas generaciones de clip estan corriendo AHORA en este workspace.
+ *
+ * Es la pregunta que decide si la resta de saldos se puede atribuir a UN clip.
+ * Se cuentan los trabajos de tipo `generar_clip` que todavia no cerraron: si hay
+ * mas de uno, el saldo bajo por varios y medir seria inventar un precio.
+ *
+ * Ante la duda —una consulta que falla— devuelve 2, o sea «no midas». Un precio
+ * que no se actualiza es un problema chico; uno inventado se muestra como hecho
+ * y se usa para decidir si al cliente le alcanza.
+ */
+async function generacionesEnVuelo(): Promise<number> {
+  try {
+    const db = await getTenantDb();
+    const { data } = await db
+      .from('flow_trabajos')
+      .select('id')
+      .eq('tipo', 'generar_clip')
+      .in('estado', ['pendiente', 'tomado'])
+      .limit(5);
+    return (data ?? []).length;
+  } catch {
+    return 2;
+  }
+}
+
+/**
  * Mira si ya volvió el saldo. Si volvió, lo guarda y lo devuelve.
  *
  * La pantalla la llama unas pocas veces con unos segundos de diferencia. No
@@ -928,11 +954,25 @@ export async function saldoAction(
         // numeros, y guardar primero borraria el de antes.
         const previo = (await leerSaldoGuardado()).creditos;
         await guardarSaldo(creditos, str(r.userPaygateTier) || str(r.sku));
-        // Una sola toma por vez, asi que la diferencia ES el costo de un clip. Si
-        // el dueno genero algo a mano en el medio, el guard de
-        // `guardarCostoMedido` descarta el numero absurdo en vez de contaminar
-        // todas las cuentas que vienen despues.
-        if (typeof previo === 'number' && previo > creditos) await guardarCostoMedido(previo - creditos);
+        // ⚠️ SOLO SI HAY UNA SOLA GENERACION EN VUELO. La premisa que estaba
+        // escrita acá —«una sola toma por vez, asi que la diferencia ES el costo
+        // de un clip»— era cierta cuando se escribio y **«filmar todas» la dejo de
+        // ser**: con siete tomas lanzadas juntas, el saldo que se lee cuando
+        // termina UNA ya tiene descontadas las que terminaron en el medio, y la
+        // resta mide el LOTE.
+        //
+        // Costo medido: `video-generator.costo-clip` quedo en **150** en el
+        // workspace del dueño, o sea diez clips presentados como uno, y sin el
+        // «(estimado)» que avisa que no es un hecho.
+        //
+        // El techo de `guardarCostoMedido` acota el daño pero no lo evita: dos
+        // clips de 4 s son 14, y 14 es un precio posible. Lo que de verdad lo
+        // cierra es no medir cuando la premisa no se cumple — y eso solo se puede
+        // preguntar acá, que es donde se sabe cuantas hay en vuelo.
+        const enVuelo = await generacionesEnVuelo();
+        if (enVuelo <= 1 && typeof previo === 'number' && previo > creditos) {
+          await guardarCostoMedido(previo - creditos);
+        }
         return { ok: true, saldo: await leerSaldoGuardado(), listo: true };
       }
     }

@@ -22,6 +22,7 @@ import 'server-only';
 // que nunca se corrige es una tabla de internet más.
 
 import { getSetting, setSetting } from '@/lib/settings';
+import { CREDITOS_POR_DURACION } from '@/lib/costo-clip';
 
 export const KEY_SALDO = 'video-generator.saldo';
 export const KEY_COSTO_CLIP = 'video-generator.costo-clip';
@@ -68,7 +69,11 @@ export async function costoPorClip(): Promise<{ creditos: number; medido: boolea
   try {
     const raw = await getSetting(KEY_COSTO_CLIP);
     const n = Number(raw);
-    if (Number.isFinite(n) && n > 0) return { creditos: n, medido: true };
+    // ⚠️ SE VALIDA AL LEER, no sólo al escribir. El 150 del workspace del dueño ya
+    // está guardado, y un guard que sólo mira lo que entra no lo saca nunca.
+    // Un valor imposible se descarta y se cae a la estimación, que al menos se
+    // anuncia como tal.
+    if (costoClipPlausible(n)) return { creditos: n, medido: true };
   } catch { /* sin medición, va la estimación */ }
   return { creditos: COSTO_CLIP_ESTIMADO, medido: false };
 }
@@ -77,8 +82,46 @@ export async function guardarCostoMedido(creditos: number): Promise<void> {
   // Un costo absurdo no se guarda: si la resta dio negativo o gigante, algo pasó
   // en el medio (otra generación a mano, una recarga) y ese número contaminaría
   // todas las cuentas que vienen después.
-  if (!Number.isFinite(creditos) || creditos <= 0 || creditos > 200) return;
+  //
+  // ⚠️ EL TECHO ERA 200 Y TENÍA QUE SER 15, Y ESO DEJÓ ENTRAR UN 150 A PRODUCCIÓN.
+  //
+  // Medido el 01/09/2026: `video-generator.costo-clip` valía **150** en el
+  // workspace del dueño. Un clip no puede costar 150 — el máximo que existe es un
+  // clip de 10 s, que sale 15 (`CREDITOS_POR_DURACION`). 150 es diez clips.
+  //
+  // La causa está escrita, textual, en el llamador: «Una sola toma por vez, así
+  // que la diferencia ES el costo de un clip». Era cierto cuando se escribió, y
+  // **«filmar todas» lo dejó de ser**: con siete tomas en vuelo, el saldo que se
+  // lee después de que termina UNA ya tiene descontadas las que terminaron en el
+  // medio, y la resta mide el LOTE.
+  //
+  // Y el daño no era sólo el número: se muestra SIN el «(estimado)» —porque
+  // `medido: true`— o sea con la autoridad de un hecho, y `alcanzaTodo` lo usa
+  // para decidir si al cliente le alcanza el saldo. Con 150 en vez de 12, la app
+  // le dice que no puede pagar un anuncio que puede pagar diez veces.
+  //
+  // El techo ahora sale de la tabla exacta que el dueño midió contra Flow, así
+  // que no hay dos fuentes de verdad para el mismo precio.
+  if (!Number.isFinite(creditos) || creditos <= 0 || creditos > COSTO_CLIP_MAXIMO) return;
   await setSetting(KEY_COSTO_CLIP, String(Math.round(creditos)));
+}
+
+/**
+ * Lo que puede costar un clip como MÁXIMO: el de 10 s, la duración más larga que
+ * Flow genera. Cualquier medición por encima no es un clip, es un lote.
+ */
+const COSTO_CLIP_MAXIMO = Math.max(...Object.values(CREDITOS_POR_DURACION));
+
+/**
+ * Repara una medición que quedó guardada por encima del máximo posible.
+ *
+ * ⚠️ NO se limpia en `guardarCostoMedido`: ese guard protege lo que ENTRA, y el
+ * 150 ya está adentro. Lo que quedó mal escrito hay que corregirlo donde se LEE,
+ * o el workspace que lo tiene sigue con el número malo hasta que alguien genere
+ * un clip nuevo — y mientras tanto la pantalla afirma un precio falso.
+ */
+export function costoClipPlausible(n: number): boolean {
+  return Number.isFinite(n) && n > 0 && n <= COSTO_CLIP_MAXIMO;
 }
 
 export type Alcanza = {

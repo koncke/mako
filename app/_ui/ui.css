@@ -425,6 +425,43 @@
   border-radius: 999px;
 }
 .mk-scroll-oscuro::-webkit-scrollbar-thumb:hover { background: var(--sidebar-text); }
+
+/* ── Y en una PANTALLA oscura, lo mismo para todo lo que scrollee ──────────
+   ⚠️ ESTO NO ES DEL VIDEO-GENERATOR: es del `Modal` de `app/_ui`, o sea de las
+   nueve pantallas que lo usan.
+
+   Medido el 01/09/2026 abriendo un anuncio terminado: `.mk-modal__cuerpo` tiene
+   `overflow-y: auto` y el contenido no entra (552 px de caja contra 833 de
+   contenido), así que Chrome dibuja su barra nativa de **15 px, blanca y
+   opaca**, pegada al borde de un modal negro. Es exactamente el caso que la
+   regla de arriba describe —«lo más brillante de la pantalla, y se lee como un
+   elemento de la interfaz en vez de como un control»— sólo que en una isla que
+   nadie había mirado. El dueño ya lo había reportado una vez, en otra pantalla:
+   «mira lo feo que se ve… con una barra blanca».
+
+   Va por TEMA y no por clase a propósito: pedirle a cada consumidor que se
+   acuerde de poner `.mk-scroll-oscuro` es garantizar que el décimo no lo haga.
+   La pregunta «¿esta caja está sobre fondo oscuro?» la contesta el tema, no el
+   componente.
+
+   Y sigue siendo adelgazar y teñir, nunca `scrollbar-width: none`: la barra es
+   la única señal de que abajo hay más. */
+[data-tema="oscuro"] .mk-modal__cuerpo,
+[data-tema="oscuro"] .mk-scroll-y {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+[data-tema="oscuro"] .mk-modal__cuerpo::-webkit-scrollbar,
+[data-tema="oscuro"] .mk-scroll-y::-webkit-scrollbar { width: 8px; height: 8px; }
+[data-tema="oscuro"] .mk-modal__cuerpo::-webkit-scrollbar-track,
+[data-tema="oscuro"] .mk-scroll-y::-webkit-scrollbar-track { background: transparent; }
+[data-tema="oscuro"] .mk-modal__cuerpo::-webkit-scrollbar-thumb,
+[data-tema="oscuro"] .mk-scroll-y::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+}
+[data-tema="oscuro"] .mk-modal__cuerpo::-webkit-scrollbar-thumb:hover,
+[data-tema="oscuro"] .mk-scroll-y::-webkit-scrollbar-thumb:hover { background: var(--dim); }
 .mk-navrow:hover { background: rgba(255, 255, 255, .085); color: var(--on-sidebar); }
 .mk-navrow:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary-weak); }
 .mk-navrow.is-activo {
