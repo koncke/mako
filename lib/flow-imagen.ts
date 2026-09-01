@@ -182,6 +182,19 @@ export function promptFinal(
      * formulario decorativo.
      */
     propio?: string;
+    /**
+     * El prompt validado de un formato que creó el CLIENTE.
+     *
+     * ⚠️ ENTRA POR PARÁMETRO Y NO POR `PROMPT_IMAGEN`, y no es un detalle de
+     * estilo: ese mapa es una constante de código, y los formatos del cliente
+     * viven en la base, por workspace. Buscarlos acá obligaría a este módulo
+     * —que es puro y testeable— a leer la base y a saber de qué workspace es
+     * quien pregunta.
+     *
+     * Ocupa exactamente el lugar del prompt de fábrica en la precedencia: abajo
+     * de lo que la persona escribió a mano, arriba del bloque genérico.
+     */
+    plantilla?: string;
   },
 ): string {
   const aMano = (opts.propio ?? '').trim();
@@ -194,6 +207,13 @@ export function promptFinal(
   // de falla que este prompt vino a cerrar.
   const propio = opts.puestaId ? PROMPT_IMAGEN[opts.puestaId] : undefined;
   if (propio) return propio;
+
+  // El del formato del cliente, con la MISMA regla: gana entero y no se le
+  // concatena nada. Va después del de fábrica porque un id de fábrica nunca
+  // llega con plantilla —son fuentes distintas— y el orden deja explícito cuál
+  // manda si algún día se cruzaran.
+  const delCliente = (opts.plantilla ?? '').trim();
+  if (delCliente) return delCliente;
 
   return [escena.trim(), opts.conCara ? IDENTIDAD : '', LUZ, REALISMO]
     .filter(Boolean)

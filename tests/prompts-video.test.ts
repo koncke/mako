@@ -124,3 +124,47 @@ test('lee el Expires venga primero o en el medio de la query', () => {
   const ayer = Math.floor(Date.now() / 1000) - 10;
   assert.equal(urlDeFlowVencida(`https://x/y?KeyName=k&Expires=${ayer}&Signature=s`), true);
 });
+
+// ── Y el prompt de un formato que creó el CLIENTE ───────────────────────────
+// Los formatos de fábrica guardan su prompt en `PROMPT_VIDEO`, una constante de
+// código. Los del cliente viven en la base, por workspace, así que entran por
+// parámetro — y ocupan el mismo lugar en la precedencia.
+
+test('el prompt de un formato del cliente se usa, con la voz adentro', () => {
+  const p = promptDeClip('ws1-mi-formato', clip('Mira esto.'), undefined,
+    'La persona dice: "{{voz}}", de pie frente a una pizarra.');
+  assert.match(p, /La persona dice: "Mira esto\.", de pie frente a una pizarra\./);
+});
+
+test('⚠️ sin el hueco {{voz}} NO se usa: un prompt sin la línea hace que el modelo la invente', () => {
+  // No produce un clip mudo — produce uno donde el modelo decide qué decir, o
+  // sea un video plausible que dice otra cosa. Peor que no tener plantilla.
+  const p = promptDeClip('ws1-mi-formato', clip('Mira esto.'), undefined,
+    'La persona de pie frente a una pizarra.');
+  assert.doesNotMatch(p, /pizarra/);
+  assert.match(p, /Lo que escribió el modelo/, 'cae al del modelo, que al menos trae el guion');
+});
+
+test('lo que la persona escribió A MANO le gana también al formato del cliente', () => {
+  // Misma precedencia que con los de fábrica: quien abrió el prompt y lo cambió
+  // sabe algo de ESA toma que ninguna plantilla puede saber.
+  const p = promptDeClip('ws1-mi-formato', clip('X.'), 'lo mío, tal cual',
+    'La persona dice: "{{voz}}".');
+  assert.equal(p, 'lo mío, tal cual');
+});
+
+test('y un formato de FÁBRICA no se deja pisar por una plantilla de cliente', () => {
+  // Los ids no se pueden cruzar —el del cliente lleva prefijo `ws`— pero si
+  // alguna vez llegaran juntos, manda el de fábrica: está medido contra un
+  // anuncio entero.
+  const p = promptDeClip('selfie-movimiento', clip('Hola.'), undefined,
+    'ESTO NO TENDRIA QUE APARECER {{voz}}');
+  assert.doesNotMatch(p, /NO TENDRIA QUE APARECER/);
+  assert.match(p, /micromovimientos naturales/);
+});
+
+test('las marcas de lectura tampoco llegan al prompt del cliente', () => {
+  const p = promptDeClip('ws1-x', clip('una **cosa** importante'), undefined, 'Dice: "{{voz}}".');
+  assert.doesNotMatch(p, /\*/);
+  assert.match(p, /una cosa importante/);
+});

@@ -120,6 +120,22 @@ export function comoSeDice(voz: string): string {
  * mostraría un prompt y Flow recibiría otro — y el día que un clip saliera raro,
  * el texto que se mira para entender por qué sería el equivocado.
  */
+/**
+ * Convierte el prompt guardado de un formato del cliente en la misma función que
+ * usan los de fábrica.
+ *
+ * ⚠️ EL HUECO ES `{{voz}}` Y ES OBLIGATORIO. Un prompt de video sin la línea que
+ * la persona dice no produce un clip mudo: produce uno donde el modelo INVENTA
+ * qué decir, que es peor —sale un video plausible que dice otra cosa—. Sin el
+ * hueco se devuelve `undefined` y el que llama cae al prompt del modelo, que al
+ * menos trae el guion adentro.
+ */
+function plantillaDelCliente(txt?: string): ((voz: string) => string) | undefined {
+  const t = (txt ?? '').trim();
+  if (!t || !t.includes('{{voz}}')) return undefined;
+  return (voz: string) => t.split('{{voz}}').join(voz);
+}
+
 export function promptDeClip(
   puestaId: string,
   clip: Pick<ClipPlan, 'voz' | 'habla' | 'prompt'>,
@@ -132,11 +148,20 @@ export function promptDeClip(
    * el texto, el paso de editarlo sería un formulario decorativo.
    */
   propio?: string,
+  /**
+   * El prompt validado de un formato que creó el CLIENTE.
+   *
+   * ⚠️ POR PARÁMETRO Y NO POR `PROMPT_VIDEO`: ese mapa es una constante de
+   * código y los formatos del cliente viven en la base, por workspace. Es una
+   * FUNCIÓN de `(voz) => string` igual que las de fábrica, así que el texto que
+   * llega tiene que traer un `{{voz}}` donde va la línea — se reemplaza abajo.
+   */
+  delFormato?: string,
 ): string {
   const aMano = (propio ?? '').trim();
   if (aMano) return aMano;
 
-  const plantilla = PROMPT_VIDEO[puestaId];
+  const plantilla = PROMPT_VIDEO[puestaId] ?? plantillaDelCliente(delFormato);
   const voz = comoSeDice(clip.voz ?? '');
   if (!plantilla || !clip.habla || !voz) return clip.prompt;
 
