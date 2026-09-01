@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "publicar-extension": "node scripts/publicar-extension.mjs",
     "test": "node --import tsx --test tests/*.test.ts"
   },
   "dependencies": {
