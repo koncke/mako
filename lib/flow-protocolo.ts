@@ -683,40 +683,23 @@ export function leerSaldo(data: unknown): SaldoFlow {
 // JavaScript. Viajan parámetros —una acción de captcha, un booleano— igual que
 // los manda cualquier cliente de una API. La extensión no gana nada nuevo.
 
-export type PerfilTrabajo = {
-  /**
-   * La `action` del reCAPTCHA. Google la evalúa contra la que el sitio registra,
-   * así que tiene que ser la del método real de Flow, no una inventada.
-   */
-  accion: string;
-  /**
-   * Un trabajo que solo LEE: no lleva cuerpo, no necesita captcha, y si la página
-   * ya preguntó lo mismo hace poco se contesta con su respuesta, sin tráfico.
-   */
-  soloLectura: boolean;
-};
-
-const PERFILES: Record<string, PerfilTrabajo> = {
-  creditos: { accion: 'getCredits', soloLectura: true },
-  estado_clips: { accion: 'batchCheckAsyncVideoGenerationStatus', soloLectura: true },
-  // No sale por el espejo —lo atiende `background.js` antes—, pero necesita perfil:
-  // sin entrada, `perfilDeTrabajo` cae al default y le pediria un captcha a algo
-  // que solo mira un redirect.
-  enlace_clip: { accion: 'getMediaUrl', soloLectura: true },
-  subir_imagen: { accion: 'uploadImage', soloLectura: false },
-  generar_imagen: { accion: 'batchGenerateImages', soloLectura: false },
-  generar_clip: { accion: 'batchAsyncGenerateVideo', soloLectura: false },
-};
-
-/**
- * El perfil de un tipo de trabajo.
- *
- * El default es el MÁS restrictivo —lleva captcha y lleva cuerpo— porque un tipo
- * que nadie registró no puede terminar salteándose el captcha por omisión. Es la
- * misma regla de siempre: el fallback es más débil que el camino feliz, nunca más
- * fuerte.
- */
-export function perfilDeTrabajo(tipo: string): PerfilTrabajo {
-  return PERFILES[tipo] ?? { accion: 'generate', soloLectura: false };
-}
+// ⚠️ ACÁ VIVÍAN `PerfilTrabajo`, `PERFILES` y `perfilDeTrabajo`, BORRADOS EL
+// 01/09/2026 POR NO TENER UN SOLO LECTOR.
+//
+// El diseño era bueno y la ejecución quedó a medias: `encolar()` le pegaba
+// `accion` y `soloLectura` a cada pedido, y `extension/background.js` nunca los
+// leyó. Verificado con `git log -S` sobre `extension/`: ni un commit los menciona.
+// Nacieron sin lector el 28/08 y siguieron así.
+//
+// Y NO se cablearon, se sacaron — que es la decisión que cuesta más y la correcta
+// acá. Sus valores son los adivinados-del-path que después se REEMPLAZARON
+// midiendo el tráfico real de Flow: la acción del captcha sale hoy de lo que la
+// extensión mide envolviendo a `grecaptcha` y viaja en `acciones_captcha`.
+// Cablearlos ahora sería pisar una medición con una suposición vieja, que es
+// exactamente al revés de como se arreglaron las otras cosas de este archivo.
+//
+// El párrafo de arriba —«lo que es una tabla se manda; lo que es una capacidad se
+// instala»— sigue siendo cierto y por eso se conserva: la regla no se murió con
+// su primera implementación. Si vuelve a hacer falta mandar una tabla, ese es el
+// criterio; lo que no vuelve es mandar una tabla que nadie lee.
 

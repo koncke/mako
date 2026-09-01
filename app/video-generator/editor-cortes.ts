@@ -129,3 +129,20 @@ export function enSegundo(plan: Plan, t: number): { i: number; toma: number; den
 export function recorte(plan: Plan, cuantasTomas: number, duracionClip: number): { antes: number; despues: number } {
   return { antes: r3(cuantasTomas * duracionClip), despues: plan.total };
 }
+
+/**
+ * ¿Son el mismo corte? Con tolerancia de milisegundo.
+ *
+ * La usa la pila de deshacer para no guardar entradas que no cambian nada: un
+ * arrastre que arranca y vuelve al mismo lugar, o un `partir` que se abstuvo. Sin
+ * esto, Ctrl+Z tendría que apretarse cuatro veces para deshacer una cosa — y las
+ * tres primeras no harían nada visible, que es peor que no tener deshacer.
+ */
+export function mismoPlan(a: Plan, b: Plan): boolean {
+  if (a.segs.length !== b.segs.length) return false;
+  return a.segs.every((s, i) => {
+    const o = b.segs[i];
+    return !!o && o.toma === s.toma
+      && Math.abs(o.ini - s.ini) < 0.001 && Math.abs(o.fin - s.fin) < 0.001;
+  });
+}

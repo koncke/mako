@@ -6,7 +6,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { moverBorde, quitarTramo, partirTramo, inicios, enSegundo, MINIMO_SEG } from '../app/video-generator/editor-cortes';
+import { moverBorde, quitarTramo, partirTramo, inicios, enSegundo, mismoPlan, MINIMO_SEG } from '../app/video-generator/editor-cortes';
 import { porQueNoSirveElPlan, type Plan } from '../app/video-generator/plan-montaje';
 
 const DUR = 10;
@@ -155,4 +155,37 @@ test('la línea de tiempo · pasado el final se queda en el último tramo', () =
   // Nunca `null`: un cabezal sin tramo deja la previsión en negro al llegar al
   // final, que se lee como que el anuncio se rompió.
   assert.deepEqual(enSegundo(plan(), 99), { i: 3, toma: 4, dentro: 6.3 });
+});
+
+test('mismoPlan · dos planes iguales lo son, y uno movido un milisegundo tambien', () => {
+  // La tolerancia no es laxitud: los bordes se guardan redondeados a milésimas y
+  // un arrastre que vuelve al mismo pixel puede dar 3.0000001. Sin tolerancia,
+  // la pila de deshacer se llenaría de entradas que no cambian nada.
+  const a = plan();
+  assert.equal(mismoPlan(a, plan()), true);
+  const b = plan();
+  b.segs[0] = { ...b.segs[0], fin: b.segs[0].fin + 0.0004 };
+  assert.equal(mismoPlan(a, b), true);
+});
+
+test('mismoPlan · un corte movido de verdad NO es el mismo', () => {
+  const a = plan();
+  const b = moverBorde(plan(), 0, 'fin', 7, DUR);
+  assert.equal(mismoPlan(a, b), false);
+});
+
+test('mismoPlan · partir cambia el plan aunque no cambie la duracion', () => {
+  // Es el caso que una comparacion por TOTAL no ve: partir deja el mismo largo y
+  // dos tramos donde habia uno.
+  const a = plan();
+  const b = partirTramo(plan(), 0, 3);
+  assert.equal(a.total, b.total);
+  assert.equal(mismoPlan(a, b), false);
+});
+
+test('mismoPlan · una operacion que se ABSTUVO devuelve el mismo plan', () => {
+  // Es lo que le permite a la pila de deshacer no guardar entradas mudas.
+  const a = plan();
+  assert.equal(mismoPlan(a, partirTramo(a, 0, 0.5)), true);
+  assert.equal(mismoPlan(a, moverBorde(a, 99, 'fin', 5, DUR)), true);
 });

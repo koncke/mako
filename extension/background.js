@@ -710,6 +710,22 @@ async function ejecutar(trabajo) {
   // sabe cuántos créditos hay en juego. Si el navegador pudiera decidirlo,
   // estaría decidiendo cuántas veces le pegamos a Google.
   if (!res.ok || (data && (data.error || (data.data && data.data.error)))) {
+    // ⚠️ UN 401 DICE QUE EL BEARER YA NO SIRVE, Y HAY QUE CREERLE.
+    //
+    // `bearer` se guardaba y no se invalidaba nunca: era un «alguna vez», no un
+    // «ahora» — la misma familia que `puente.estado`, que hoy se arregló
+    // agregándole el latido. Con el token vencido, `if (!bearer)` seguía dando
+    // falso y los cinco reintentos salían con la credencial muerta, cada uno
+    // acuñando su reCAPTCHA contra la sesión de la persona. Cinco pedidos
+    // rechazados es exactamente la forma del tráfico que Google marca.
+    //
+    // No hace falta medir cuánto dura un `ya29.` para esto: el 401 ES la medición.
+    // Borrarlo hace que el próximo ciclo lo tome del tráfico real de Flow, que es
+    // de donde sale, en vez de reusar el que ya se sabe muerto.
+    if (res.status === 401) {
+      bearer = '';
+      try { await chrome.storage.local.remove('bearer'); } catch { /* el ciclo lo repone */ }
+    }
     return { id: trabajo.id, ok: false, status: res.status, data, error: texto.slice(0, 400) };
   }
   return { id: trabajo.id, ok: true, data };
@@ -1585,9 +1601,12 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
           // el build fallo. Duplicarla en el popup serian dos respuestas posibles
           // a la misma pregunta.
           versionEsperada: v.versionEsperada || '',
-          // De la tienda actualiza Chrome solo, asi que ahi no hay paso a paso
-          // que dar: frenar seria dejar a alguien encerrado esperando a Google.
-          deLaTienda: !!chrome.runtime.getManifest().update_url,
+          // ⚠️ `deLaTienda` VIAJABA ACA Y NO LO LEIA NADIE — el mismo modo de
+          // falla que `r.resultado`, en chiquito y recien nacido. Su condicion
+          // (de la tienda actualiza Chrome solo, asi que ahi no hay paso a paso
+          // que dar y frenar seria encerrar a alguien esperando a Google) ya vive
+          // adentro de `versionVieja`, dos lineas mas abajo. Un campo de mas es
+          // un contrato que alguien va a leer creyendo que decide algo.
           versionVieja: !!v.versionEsperada
             && !chrome.runtime.getManifest().update_url
             && esMasVieja(chrome.runtime.getManifest().version, v.versionEsperada),

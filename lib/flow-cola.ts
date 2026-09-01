@@ -27,7 +27,7 @@ import 'server-only';
 import { createHash, randomBytes } from 'node:crypto';
 import { getTenantDb, runWithWorkspace } from './workspace';
 import { getSupabaseServer } from './supabase';
-import { perfilDeTrabajo, tokenVencido, type MotivoFalla } from './flow-protocolo';
+import { tokenVencido, type MotivoFalla } from './flow-protocolo';
 
 /** Tipos de trabajo que la extensión sabe ejecutar. */
 export type TipoTrabajo =
@@ -220,10 +220,17 @@ export async function encolar(tipo: TipoTrabajo, pedido: Record<string, unknown>
   // El PERFIL viaja adentro del pedido para que la extensión no tenga que
   // conocerlo. Cada cosa que la extensión sabe de memoria es una versión nueva —y
   // una revisión de la Chrome Web Store— el día que cambie.
-  const { accion, soloLectura } = perfilDeTrabajo(tipo);
+
   const { data, error } = await db
     .from('flow_trabajos')
-    .insert({ tipo, pedido: { ...pedido, accion, soloLectura }, estado: 'pendiente' })
+    // ⚠️ YA NO SE LE PEGA `accion` NI `soloLectura`. Nacieron el 28/08 y NUNCA
+    // los leyó nadie: `git log -S` sobre `extension/` no devuelve un solo commit
+    // que los mencione. Y no se cablean, se BORRAN — sus valores son los
+    // adivinados-del-path que después se reemplazaron midiendo el tráfico real,
+    // así que cablearlos ahora sería pisar una medición con una suposición vieja.
+    // La acción del captcha ya sale de lo que la extensión MIDE envolviendo a
+    // `grecaptcha`, que es un dato y no un perfil escrito a mano.
+    .insert({ tipo, pedido, estado: 'pendiente' })
     .select('id')
     .maybeSingle();
 

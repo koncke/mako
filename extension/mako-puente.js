@@ -191,7 +191,16 @@ let enlaceListo = false;
 window.addEventListener('MAKO_PUENTE_ENLACE_LISTO', () => { enlaceListo = true; });
 
 function esperarEnlace() {
-  if (enlaceListo || document.readyState === 'complete') return Promise.resolve();
+  // ⚠️ SIN `|| document.readyState === 'complete'`. Una página CARGADA no es una
+  // página HIDRATADA: `complete` sólo dice que los recursos bajaron, y el enlace
+  // lo monta React después. Con esa condición, en una pestaña ya cargada se
+  // dejaba de esperar en el acto y se preguntaba al vacío.
+  //
+  // No se pierde nada: el `setTimeout(resolve, 4000)` de abajo ya cubre el caso
+  // de una pestaña que se hidrató ANTES de que este script escuchara —esa no va a
+  // volver a avisar nunca—. La diferencia es que ahora se le dan cuatro segundos
+  // en vez de cero.
+  if (enlaceListo) return Promise.resolve();
   return new Promise((resolve) => {
     const t = setTimeout(resolve, 4000);
     window.addEventListener('MAKO_PUENTE_ENLACE_LISTO', () => { clearTimeout(t); resolve(); }, { once: true });
