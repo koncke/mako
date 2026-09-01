@@ -648,18 +648,52 @@ export async function estadoTomaAction(
   // Es la misma lección que ya está aplicada veinte líneas más arriba, en el
   // Paso 1, con su comentario y todo: «un trabajo caído se leía como todavía no
   // terminó y la pantalla giraba para siempre». Estaba puesta en un lugar de dos.
+  // ⚠️ EL FILTRO POR OPERACIÓN VA EN SQL, Y ESTO ERA UN CUELGUE SIN SALIDA.
+  //
+  // Traía las últimas 12 filas de `estado_clips` de CUALQUIER operación y recién
+  // después filtraba en JS por la suya. O sea: una ventana GLOBAL para una
+  // pregunta que es de UNA toma. Con doce tomas en vuelo —lo que produce «filmar
+  // todas», y el formato admite doce— las doce filas más nuevas pueden ser todas
+  // de las otras once, y la fila `listo` que YA trae la url de ésta se cae de la
+  // ventana. Entonces el bucle no encuentra nada, la función llega al final,
+  // `consultarUnaVez` encola otra consulta, y eso no converge nunca: cuantas más
+  // tomas hay, menos chance tiene cada una de verse.
+  //
+  // No es teórico y hoy es más fácil que ayer: subir el lote a 5 hace que la cola
+  // drene más rápido (más filas nuevas por minuto) y el sondeo pasó a preguntar
+  // por TODAS las tomas en vuelo en vez de una. Los dos cambios son correctos y
+  // los dos empujan hacia este techo.
+  //
+  // ⚠️ Y `.limit(12)` NO se baja. Con una sola operación en vuelo la profundidad
+  // efectiva de hoy ya es de hasta 12 filas suyas; recortarla sería una regresión
+  // justo en el camino `a_ciegas`, donde la fila que importa es la `listo` con
+  // `SUCCESSFUL` —la única que dispara `conseguirEnlace` en cada vuelta— y cada
+  // fila `fallido` la empuja hacia abajo. Con la ventana chica, tres fallas la
+  // entierran y dejaríamos de pedirle el enlace a un clip que EXISTE y está
+  // pagado.
+  //
+  // ⚠️ Y sólo `listo`/`fallido`: son los únicos estados que leen los tres
+  // consumidores de `mias`. Las filas `pendiente`/`tomado` no se miran nunca y
+  // sacarlas en SQL es lo que evita que las consultas EN VUELO se coman los slots
+  // de la ventana — que es la otra mitad de la causa.
+  //
+  // ⚠️ SIN ÍNDICE, y queda dicho: `pedido->>operacion` no está indexado (la 0145
+  // sólo crea `(workspace_id, estado, created_at)` y el parcial de colgados).
+  // Como el `limit` se aplica DESPUÉS del predicado, para una operación cuyas
+  // filas ya quedaron viejas el plan recorre `id` hacia atrás. Hoy no se nota y
+  // `consultarUnaVez` ya hace este mismo filtro desde el 31/08; crece con la
+  // tabla, que nadie purga. Antes de que moleste va un índice de expresión, no un
+  // `limit` más chico: el `limit` chico rompe lo de arriba.
   const { data: consultas } = await db
     .from('flow_trabajos')
-    .select('id, estado, resultado, error, motivo, pedido')
+    .select('id, estado, resultado, error, motivo')
     .eq('tipo', 'estado_clips')
+    .filter('pedido->>operacion', 'eq', operacion)
+    .in('estado', ['listo', 'fallido'])
     .order('id', { ascending: false })
     .limit(12);
 
-  // Sólo las consultas por ESTA operación. Antes se miraban todas y se buscaba el
-  // nombre adentro del resultado, que alcanza para las que contestaron pero no
-  // para las que fallaron: una consulta fallida no tiene resultado donde buscar.
-  // El `pedido.operacion` es el dato exacto y lo escribimos nosotros al encolar.
-  const mias = (consultas ?? []).filter((c) => str(obj(c.pedido).operacion) === operacion);
+  const mias = consultas ?? [];
 
   for (const c of mias.filter((c) => str(c.estado) === 'listo')) {
     // Se mira la consulta ENTERA y no una ruta: la respuesta del estado tiene la
