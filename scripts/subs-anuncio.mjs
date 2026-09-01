@@ -7,7 +7,13 @@ const IN = process.argv[2];
 const OUT = process.argv[3];
 
 const W = 720, H = 1280;
-const FUENTE = 'Segoe UI Black';
+// ⚠️ NO 'Segoe UI Black'. Existe en Windows y NO existe en un servidor Linux, y
+// libass **no falla**: cae a la primera fuente que encuentre y sigue. El
+// resultado son subtitulos con otra tipografia, sin una linea en ningun log.
+// Anton es OFL, va bundleada en `worker/fuentes/` y su nombre de familia es
+// exactamente «Anton» (verificado leyendo la tabla `name` del .ttf: el nombre
+// que libass busca es el de la familia, no el del archivo).
+const FUENTE = process.env.SUBS_FUENTE || 'Anton';
 const CUERPO = 52;
 const MAX_CHARS = 18;
 const MAX_PAL = 3;
@@ -15,8 +21,23 @@ const HUECO = 0.6;
 const Y = 950;
 const COLA = 0.12;
 
-const env = fs.readFileSync('C:/Users/marti/OneDrive/Escritorio/dashboard-marketing-main/dashboard-marketing/.env.local', 'utf8');
-const K = env.split('\n').find(l => l.startsWith('GROQ_API_KEY='))?.slice(13).trim();
+// La key: del ENTORNO primero —que es como la va a tener el worker— y del
+// .env.local solo como comodidad para correrlo a mano desde el repo. Leer una
+// ruta absoluta a la carpeta de Martin era lo segundo que no sobrevivia al
+// contenedor, y su forma de fallar es la peor: `K` queda undefined, la request
+// sale sin Authorization y Groq contesta 401 sobre algo que parece un problema
+// de audio.
+let K = process.env.GROQ_API_KEY;
+if (!K) {
+  try {
+    const env = fs.readFileSync(new URL('../.env.local', import.meta.url), 'utf8');
+    K = env.split(/\r?\n/).find((l) => l.startsWith('GROQ_API_KEY='))?.slice(13).trim();
+  } catch { /* sin archivo: se avisa abajo */ }
+}
+if (!K) {
+  console.error('FALTA GROQ_API_KEY: es la que transcribe la voz para los subtitulos.');
+  process.exit(1);
+}
 
 const fd = new FormData();
 fd.append('file', new Blob([fs.readFileSync(IN)], { type: 'audio/mpeg' }), 'a.mp3');

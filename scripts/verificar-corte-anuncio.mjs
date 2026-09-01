@@ -10,8 +10,25 @@ import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
 const DIR = process.argv[2], N = +process.argv[3], RES = process.argv[4];
-const ENVF = 'C:/Users/marti/OneDrive/Escritorio/dashboard-marketing-main/dashboard-marketing/.env.local';
-const K = fs.readFileSync(ENVF, 'utf8').split('\n').find(l => l.startsWith('GROQ_API_KEY='))?.slice(13).trim();
+// La key, del entorno primero: en el worker no hay `.env.local` ni carpeta de
+// Martín. El archivo queda como comodidad para correr el verificador a mano.
+//
+// ⚠️ Y se corta ACÁ si falta, en vez de seguir con `K` undefined. Este script es
+// el que decide si el anuncio se entrega o no: sin key, la transcripción vuelve
+// 401, la comparación de texto se hace contra una lista vacía y el veredicto es
+// «no se perdió ninguna palabra» — un verde sobre una verificación que no
+// ocurrió, que es peor que un rojo.
+let K = process.env.GROQ_API_KEY;
+if (!K) {
+  try {
+    const env = fs.readFileSync(new URL('../.env.local', import.meta.url), 'utf8');
+    K = env.split(/\r?\n/).find((l) => l.startsWith('GROQ_API_KEY='))?.slice(13).trim();
+  } catch { /* sin archivo: se corta abajo */ }
+}
+if (!K) {
+  console.error('FALTA GROQ_API_KEY: sin ella la verificación no puede leer el audio, y un verde sin verificar es peor que un rojo.');
+  process.exit(2);
+}
 
 async function palabras(file) {
   const mp3 = file.replace(/\.[^.]+$/, '') + '.v16.mp3';

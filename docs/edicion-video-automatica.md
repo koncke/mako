@@ -433,3 +433,75 @@ produce el verificador.
   documentación oficial, todo lo que circula es blog. −14 LUFS es un default operativo, no
   un requisito de plataforma.
 - **Content ID**: no se comprobó si la música usada está registrada en YouTube o Meta.
+
+---
+
+## 8. El port a MaKo — hecho el 01/09/2026
+
+Las dos decisiones que bloqueaban están tomadas por Martín: **contenedor propio** para
+ffmpeg, y **Epidemic Sound Connect** para la música. La segunda es un trámite comercial,
+así que el pipeline se construyó con la música **enchufable y apagada** — sin ella entrega
+voz y subtítulos, y no se traba.
+
+### Lo que se sacó, y cómo fallaba cada cosa
+
+| Qué | Cómo fallaba fuera de la máquina de Martín |
+|---|---|
+| 3 llamadas a `python` | `command not found` en medio de un pipe; con `pipefail`, la salida vacía se tomaba como número |
+| 5 rutas absolutas (`C:/Users/marti/…`) | música, clips, scratchpad y el `.env.local` que leían dos scripts |
+| `Segoe UI Black` | **libass no falla**: cae a otra fuente y sigue |
+
+Hoy los seis scripts no tienen una sola ruta absoluta ni una llamada a python.
+`scripts/loudnorm-json.mjs` reemplaza a python, y falla ruidoso con las últimas líneas de
+ffmpeg cuando no encuentra el JSON — porque un campo ausente que sale como cadena vacía
+corre todos los `$1 $2 $3 $4` un lugar y `measured_TP` termina recibiendo el LRA.
+
+### ⚠️ El fallo de la fuente, medido y con imagen
+
+Renderizando el MISMO cuadro con y sin `fontsdir`, en ffmpeg 9.0:
+
+```
+  con fontsdir=fuentes   →  11.731 bytes   Anton: condensada, pesada
+  sin fontsdir           →  22.814 bytes   Arial: fina, ancha
+  ffmpeg salió 0 en los dos casos
+```
+
+No es sólo otra tipografía: la caída es **mucho más ancha**. «PRUEBA ANTON» ocupa 230 px
+con Anton y 505 px con la fallback, sobre un lienzo de 720 — así que los topes de
+`MAX_CHARS` del generador de subtítulos, calibrados para una condensada, desbordan.
+
+Por eso hay **dos** guardas y no una: el montaje corta si no hay ninguna `.ttf` en
+`$T/fuentes`, y el Dockerfile compara los dos renders en tiempo de build y falla si son
+idénticos. Comprobar que la fuente cargó sólo se puede hacer antes de renderizar; después
+es un archivo mal con exit code 0.
+
+### El `fontsdir` va RELATIVO
+
+Un `filter_complex` separa sus opciones con `:`, así que una ruta de Windows (`C:/…`) parte
+el filtro al medio. El montaje hace `cd "$T"` antes del render y copia la fuente a
+`$T/fuentes`, así que `fontsdir=fuentes` alcanza y funciona igual en los dos sistemas.
+
+### Verificación independiente del gotcha del limitador
+
+`alimiter=limit=0.7` sobre una señal de −24,1 dB, en ffmpeg 9.0:
+
+```
+  entrada                          -24,1 dB
+  alimiter=limit=0.7               -21,0 dB   ← SUBIÓ 3,1 dB sin limitar nada
+  alimiter=limit=0.7:level=disabled -24,1 dB
+```
+
+El auto-level multiplica por `1/limit`, que para 0,7 son exactamente **3,098 dB** —
+el mismo número que reportó la corrida original, reproducido por otro camino.
+
+### Lo que falta para que sea una feature
+
+1. **La cola y el bucle del worker.** El repo ya tiene el patrón tres veces
+   (`flow_trabajos` es el más cercano) y un precedente de worker largo con perro guardián
+   en `scripts/cursos-perro.sh`. El Dockerfile no trae `CMD` todavía a propósito: primero
+   se corre a mano contra un directorio de trabajo.
+2. **Provisionar el contenedor.** Necesita la cuenta de Martín.
+3. **Epidemic Sound Connect.** Trámite comercial. `MUSICA` vacío es hoy el camino normal.
+4. **`NTOMAS` y `DURVID` por workspace**, hoy defaults del script.
+5. **BYOK de ElevenLabs** — decisión de producto: en la cuenta de quién vive la voz clonada
+   de un cliente.

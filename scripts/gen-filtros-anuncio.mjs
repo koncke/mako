@@ -26,7 +26,17 @@ for (let t = 1; t <= N; t++) {
 }
 for (let k = 0; k < segs.length; k++) etiquetas.push(`[v${k}]`);
 fv += `${etiquetas.join('')}concat=n=${segs.length}:v=1:a=0[vc];\n`;
-fv += `[vc]ass=subs.ass:original_size=720x1280[v]`;
+// ⚠️ `fontsdir` Y RELATIVO, por dos razones distintas.
+//
+// Sin `fontsdir`, libass busca la fuente en las carpetas del sistema y en Linux
+// no la encuentra — y no falla: cae a otra y sigue. Subtitulos rotos, cero
+// error.
+//
+// Y RELATIVO porque un `filter_complex` separa sus opciones con `:`, asi que una
+// ruta de Windows («C:/...») parte el filtro al medio. El montaje hace `cd "$T"`
+// antes del render y copia la fuente a `$T/fuentes`, asi que «fuentes» alcanza y
+// funciona igual en los dos sistemas.
+fv += `[vc]ass=subs.ass:fontsdir=fuentes:original_size=720x1280[v]`;
 fs.writeFileSync(`${OUT}/filtro-video.txt`, fv);
 
 // --- filtro de AUDIO: mismos tramos sobre los mp3 de voz, mismo orden ---
