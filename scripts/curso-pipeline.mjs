@@ -155,7 +155,10 @@ const audios = () => cuenta('audio', (f) => /\.m4a$/i.test(f));
  *    «falta trabajo» y «no hay nada que hacer».
  */
 const textos = () => cuenta('texto', (f) => f.endsWith('.md') && f !== '_indice.md');
-const mudos = () => cuenta('audio', (f) => f.endsWith('.mudo'));
+// `.mudo` = el video no tiene pista de audio. `.sinvoz` = la tiene y está casi vacía, y el
+// transcriptor la saltea a propósito porque transcribir casi-silencio inventa. Para el
+// objetivo las dos son lo mismo: no van a tener texto nunca y no hay nada que hacerles.
+const mudos = () => cuenta('audio', (f) => f.endsWith('.mudo') || f.endsWith('.sinvoz'));
 const resueltas = () => textos() + mudos();
 
 // `tsx` para los `.ts`: node solo no los sabe correr, y sin el flag el fallo es un

@@ -293,6 +293,18 @@ const unaClase = async ([clave, piezas]) => {
       : null;
   if (motivo) {
     saltadas.push({ clave, motivo });
+    /**
+     * ⚠️ SE DEJA CONSTANCIA EN DISCO. Saltear está bien —transcribir casi-silencio produce
+     *    invención, que es peor que no tener texto— pero el pipeline mide `texto N/M` y
+     *    esta clase no va a tener .md nunca: sin la marca, el curso queda incompleto para
+     *    siempre y quema el tope de rondas secas en cada rebobinado de la cola.
+     *
+     *    Es la misma correccion que la de las clases MUDAS. La diferencia entre las dos es
+     *    real y por eso la marca se llama distinto: una muda no tiene pista de audio, y
+     *    ésta la tiene y está casi vacía —«BIENVENIDA AIRBNB MASTERR», 3:48 y 29 KB, o sea
+     *    130 bytes por segundo contra los ~4.100 de una clase hablada—.
+     */
+    try { writeFileSync(join(dirAudio, `${clave}.sinvoz`), motivo, 'utf8'); } catch { /* el conteo ya salió */ }
     console.log(`  – ${clave} — ${motivo}, la salteo`);
     return;
   }
