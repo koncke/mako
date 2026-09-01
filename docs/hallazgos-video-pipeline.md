@@ -294,6 +294,264 @@ CC0 §4: *"Affirmer offers the Work as-is and makes no representations or warran
 
 ---
 
+## 10. Los primeros montajes reales (01/09/2026) — dónde la receta de arriba falló
+
+Se montaron **tres anuncios de Mauricio** de punta a punta con la receta de las §2–§4:
+clips de Flow, voz de ElevenLabs, música de Pixabay y subtítulos quemados. Salieron, pero
+**tres de los comandos escritos arriba no hacen lo que dicen que hacen**, y ninguno falla:
+los tres pasan sin error y dejan el archivo mal. Corregidos abajo.
+
+El pipeline entero quedó versionado en **`scripts/montar-anuncio-vertical.sh`** (+
+`scripts/subs-anuncio.mjs`). Es el que corrió; no es pseudocódigo.
+
+### 10.1 `alimiter=limit=0.891` NO limita a −1 dBFS. No limita a nada.
+
+Es el peor de los tres porque es el que protege el entregable. `alimiter` tiene un
+parámetro **`level` (auto level) que viene en `true` por default**, y su efecto es
+renormalizar la salida a 0 dBFS **después** de limitar. El `limit` se aplica y se deshace.
+
+Medido, mismo archivo:
+
+| Cadena | Sample peak resultante |
+|---|---|
+| `alimiter=limit=0.7` (como está escrito arriba) | **0.000265 dB** — o sea 0 dBFS, sin tocar |
+| `alimiter=limit=0.7:level=disabled` | **−3.098 dB** — correcto |
+
+La doc de ffmpeg lo dice, en una línea fácil de saltear: *"level: Auto level output signal.
+Default is enabled. This normalizes audio back to 0dB if enabled."*
+
+**Siempre `alimiter=limit=<x>:level=disabled`.** Sin eso, toda la §4 termina entregando
+audio a 0 dBFS, que es exactamente lo que la cadena decía evitar.
+
+### 10.2 `acompressor:makeup` es un factor LINEAL, no decibeles
+
+Arriba está escrito `makeup=2` con la intención de +2 dB. **`makeup=2` es ×2 = +6.02 dB.**
+Medido sobre el mismo material: con `makeup=1` el true peak da −4.83 dBTP, con `makeup=2`
+da +1.19 dBTP. La diferencia es exactamente 6.02 dB.
+
+En material que ya viene caliente eso solo empuja todo por encima de 0 dBFS y dispara el
+problema de 10.3.
+
+### 10.3 `linear=true` cae a `dynamic` por TRUE PEAK, no solo por LRA
+
+La §4 documenta una sola condición de caída (`measured_LRA > LRA` target). **Hay una
+segunda, y es la que se activó acá.** `loudnorm` solo puede trabajar en modo lineal si la
+ganancia que necesita no revienta el true peak:
+
+```
+measured_TP + (I_target − measured_I)  ≤  TP_target
+```
+
+Reordenado, es una condición sobre el **PLR** (peak-to-loudness ratio) de la entrada:
+
+```
+PLR = measured_TP − measured_I  ≤  TP_target − I_target
+```
+
+Con los targets de la casa (I=−14, TP=−1) el techo es **13 dB de PLR**. La voz del primer
+video entraba con PLR de 15.6 dB → `dynamic`, silenciosamente, con `input_lra` en 4.80 y el
+LRA target en 11. Leer solo el LRA para explicar la caída lleva a buscar el problema donde
+no está.
+
+**Y no es un margen teórico:** de los tres videos montados, uno entró con **PLR 12.84**, a
+0.16 dB del techo. Por eso el script imprime el PLR en cada corrida y el
+`normalization_type` de la pasada 2. Si alguna vez dice `dynamic`, el número que hay que
+mirar es ese, no el LRA.
+
+### 10.4 El audio de ElevenLabs sale clipeado
+
+No es ruido de fondo ni un caso raro: la voz cruda concatenada midió **sample peak 0 dBFS y
+true peak +0.19 dBTP**. Sale de la API ya en el techo. Cualquier cadena que asuma headroom
+—y la §4 lo asume, fue escrita pensando en voz cruda de grabación— arranca ya en falta.
+
+Corolario para la §4 entera: **sobre audio de ElevenLabs no hace falta denoise** (no se usó
+DeepFilterNet en ninguno de los tres y no hizo falta), pero **sí hace falta headroom**, que
+es lo contrario de lo que la cadena hace con su `makeup`.
+
+### 10.5 El orden correcto: normalizar la MEZCLA, no la voz
+
+La §4 normaliza la voz a −14 LUFS y después alguien le suma música encima, lo que mueve el
+resultado. **El entregable es la mezcla, así que el loudnorm de dos pasadas va sobre la
+mezcla.** La voz solo recibe tratamiento tonal y control de picos.
+
+Cadena que funcionó, entera:
+
+```bash
+# 1. voz: tonal + picos. Sin loudnorm todavía.
+ffmpeg -i voz-cruda.wav -af "highpass=f=80:poles=2,deesser=i=0.35:m=0.5:f=0.5,\
+acompressor=threshold=-18dB:ratio=3:attack=5:release=180:makeup=2,\
+alimiter=limit=0.7:level=disabled" -ar 48000 -ac 1 voz-proc.wav
+
+# 2. música: medir su I y calcular la ganancia, no tirar un "-20 dB" a ojo.
+ffmpeg -t $TOTAL -i musica.mp3 -af "volume=${GAN}dB,\
+afade=t=in:st=0:d=0.8,afade=t=out:st=$((TOTAL-2.5)):d=2.5" -ar 48000 -ac 2 musica.wav
+
+# 3. mezcla. normalize=0 es obligatorio: sin eso amix divide por el nº de entradas.
+ffmpeg -i voz-proc.wav -i musica.wav -filter_complex \
+  "[0:a]aformat=channel_layouts=stereo[v];[v][1:a]amix=inputs=2:normalize=0:duration=longest[m]" \
+  -map "[m]" -ar 48000 mezcla-cruda.wav
+
+# 4. loudnorm de la MEZCLA, pasada 1 para medir, pasada 2 con los measured_*.
+#    Verificar SIEMPRE que la pasada 2 diga "linear".
+ffmpeg -i mezcla-cruda.wav -af "loudnorm=I=-14:TP=-1:LRA=11:measured_I=...:\
+measured_TP=...:measured_LRA=...:measured_thresh=...:linear=true:print_format=json,\
+alimiter=limit=0.891:level=disabled" -ar 48000 -ac 2 audio-final.wav
+```
+
+Música a **−33 LUFS** deja una separación de ~16 LU contra la voz, que es lo que se usó en
+los tres. Dentro del rango usable (15–20); para moverla, tocar el `volume=` del paso 2.
+
+Verificación que hay que hacer siempre, sobre el archivo escrito y no sobre lo que el
+filtro dijo que iba a hacer: los tres videos midieron **−14.00 / −14.00 / −14.02 LUFS** con
+true peak entre −1.22 y −2.49 dBTP.
+
+### 10.6 Los mp3 de voz traen padding: anclar cada uno a su clip, no concatenar
+
+Cada mp3 de voz dura entre 26 y 34 ms más que su clip de video. Ese sobrante es padding del
+encoder MP3 y es **silencio digital** (medido: −91 a −94 dB en los últimos 40 ms), pero si
+se concatenan los audios de corrido el error **acumula** y la voz se despega del video hacia
+el final.
+
+Lo correcto es anclar cada audio al offset de su clip y recortar/padear a la duración exacta
+del clip (`-af apad -t <dur_del_clip>`). Con eso, video y voz dieron el mismo número al
+milisegundo en los tres montajes.
+
+### 10.7 GOTCHA: los tags de un MP3 mienten sobre su origen
+
+**El diagnóstico obvio era el equivocado, y por poco cuesta regenerar toda la voz al pedo.**
+
+Los `audio-clip*.mp3` del cuarto video traían en sus tags `major_brand=isom` y
+`compatible_brands=isomiso2avc1mp41`, que es metadata de contenedor **MP4**. La lectura
+natural —y la que se hizo primero— fue «esto es el audio extraído de los clips de Flow,
+todavía sin pasar por ElevenLabs, hay que generarlo». Era falso: ffmpeg **arrastra el
+metadata del contenedor de origen a través de toda la cadena**, y esos tags sobrevivieron a
+un paso intermedio ya olvidado.
+
+Lo que lo resolvió fue **medir, no leer los tags**:
+
+| Archivo | RMS |
+|---|---|
+| `6.mp4` (clip de Flow) | **−46.3 dB** — prácticamente mudo |
+| `audio-clip6.mp3` | **−17.2 dB** — voz plena |
+
+Si `audio-clip6` fuera el audio extraído de `6.mp4`, no podría tener voz donde el origen no
+la tiene. **Para saber qué hay adentro de un audio se mide el audio; los tags describen por
+dónde pasó el archivo, no qué contiene.**
+
+De paso, el hallazgo que salió de esa medición: **un clip de Flow puede volver MUDO**
+(`6.mp4`, −46 dB) y nada lo avisa. Por eso ese clip tiene 4 variantes de voz con nombres de
+texto distinto (`opcion-A-pero-despues`, `opcion-C-entonces`): hubo que resolverlo por TTS
+porque no había audio fuente que convertir. **Medir el RMS de cada clip apenas baja de Flow**
+es 2 segundos y evita descubrirlo en el montaje. El script lo imprime.
+
+### 10.8 El generador de subtítulos producía solapes, y su propio comentario decía que no
+
+El `build_ass` propio (heredado de la corrida del 24/08) calculaba el fin de cada evento así:
+
+```js
+fin = Math.max(eventos[i+1].w.start, eventos[i].w.start + 0.02)   // MAL
+```
+
+El comentario al lado decía *"el fin de cada evento es el inicio del siguiente: por
+construccion, cero solapes"*. **No es cierto.** Ese `Math.max` fuerza una duración mínima de
+20 ms estirando el fin hacia adelante, y cuando Whisper devuelve dos palabras a menos de
+20 ms de distancia el evento se mete adentro del siguiente. Se manifestó en **1 de 3
+videos**: 5 solapes, el peor de 220 ms.
+
+Que aparezca en uno de tres es lo peligroso: la verificación del propio script lo atrapó
+(por eso existe), pero dos videos pasaron y el bug seguía ahí.
+
+La duración mínima no se resuelve estirando el fin. Se resuelve saneando los inicios y
+descartando los eventos degenerados:
+
+```js
+for (const e of eventos) e.ini = e.w.start;
+for (let i = 1; i < eventos.length; i++)                 // inicios monótonos
+  if (eventos[i].ini < eventos[i-1].ini) eventos[i].ini = eventos[i-1].ini;
+eventos = eventos.filter((e,i) =>                        // tirar los < 40 ms
+  i+1 >= eventos.length || eventos[i+1].ini - e.ini >= 0.04);
+for (let i = 0; i < eventos.length; i++)                 // recién ahora, los fines
+  eventos[i].fin = (i+1 < eventos.length) ? eventos[i+1].ini : eventos[i].w.end + 0.12;
+```
+
+La palabra descartada **sigue apareciendo en pantalla** dentro de su bloque de 3; lo único
+que pierde es su turno de resalte amarillo, y a menos de 40 ms eso no se ve. En el video
+afectado se fusionaron 8 de 146 eventos.
+
+### 10.9 El voice_id de Mauricio que estaba anotado ya no existe
+
+La memoria tenía `cw1FCBOoMtF4joFyHYy9`. La API responde **`voice_not_found`**. El vigente
+es **`dKQBE4K2Lu9KFMvS8sgP`** — «Mauricio Bustos (anuncios 22-08)», que es la re-clonación
+desde anuncios del 22/08 (la que la propia memoria dice que salió mejor que la de celular).
+
+Regla que queda: **un voice_id anotado se verifica con `GET /v1/voices/{id}` antes de armar
+un lote**, no se asume. Un id muerto no rompe en la primera llamada de un pipeline largo —
+rompe después de que ya gastaste el resto. `GET /v1/voices` lista las clonadas con su nombre
+y es la forma de encontrar el reemplazo.
+
+Los parámetros que sí siguen valiendo: `eleven_multilingual_sts_v2`, `stability 0.45`,
+`similarity_boost 0.85`, y **el STS conserva el texto exacto** (verificado transcribiendo
+entrada y salida con Groq y comparando).
+
+### 10.10 Lo que sí funcionó tal como está escrito
+
+- **`ass=...:original_size=720x1280`** — los subtítulos salieron con el tamaño correcto.
+- **`Segoe UI Black` en Windows**: verificado en frames extraídos de los tres renders, la
+  fuente se aplicó de verdad (no cayó a una genérica). Sigue siendo **fuente propietaria de
+  Microsoft y en Linux caería en silencio** — el aviso de §2 y §9.4 sigue vigente para el
+  SaaS, donde hay que pasar a Anton o Montserrat ExtraBold. Para el archivo entregado no hay
+  problema: rasterizar glifos no es redistribuir la fuente.
+- **Groq `whisper-large-v3` con `verbose_json` + `timestamp_granularities[]=word`**. Se
+  transcribe la **voz sola, no la mezcla**, para que la música no ensucie los timestamps —
+  vale como regla.
+- **Transcribir sobre el audio final** (§3). Se comparó contra unos subtítulos generados
+  antes sobre una concatenación sin anclar: el desfase real fue de **80 ms máximo, +0.01 s
+  de media** — menos de lo que se temía, pero en la dirección esperada. Regenerar cuesta una
+  llamada de API; hacerlo siempre.
+- **Concat demuxer con `-c:v copy`**: los clips de Flow salen todos con los mismos
+  parámetros (h264 High, 720x1280, yuv420p, 24 fps), así que el video final no se recomprime
+  hasta el paso de quemar subtítulos.
+
+### 10.11 Licencia de la música usada
+
+`leberch-corporate-509707.mp3` = **«Corporate» de leberch**, Pixabay id 509707
+(https://pixabay.com/music/corporate-corporate-509707/). Duración publicada 3:28 = 208.039 s
+medidos, coincide. **Sí para entregarle el archivo a Mauricio**, por la §5(b): la concesión
+es *"irrevocable, worldwide, perpetual... right to download, use, copy, modify or adapt the
+Content for commercial or non-commercial purposes"*, y un anuncio con avatar, voz y
+subtítulos no es Standalone. **No para el SaaS**: esa enumeración no incluye `distribute` ni
+`sub-license`, y la licencia completa prohíbe *"bulk, large-scale or systematic copying"*.
+
+**Corrección al §5**: el *resumen* de la licencia de Pixabay trae suelta la frase *"You
+cannot use that Content for commercial purposes in relation to goods and services"*, que
+leída sola mataría el caso. En la licencia completa está condicionada: *"**If Content
+depicts any trademarks, logos or brands**..."*. Una pista instrumental no depicta ninguna
+marca, así que no aplica — **pero hay que leer `/service/terms/`, no
+`/service/license-summary/`**, porque el resumen omite la condición y por sí solo lleva a la
+conclusión contraria.
+
+La ficha de evidencia (id, uploader, fecha de descarga, cláusulas) quedó junto al archivo,
+en `Escritorio/Mauricio/CUARTO VIDEO DE IA/RECURSOS/AUDIOS/LICENCIA-musica-leberch-corporate.md`,
+como pide la §6.
+
+**Sin verificar, y no hay que darlo por bueno:** si esta pista está registrada en el Content
+ID de YouTube o en el sistema de derechos de Meta. No se comprobó.
+
+### 10.12 Lo que quedó SIN hacer
+
+- **La separación voz/música (16 LU) no se validó de oído**, solo por medición. Si suena
+  tapada o demasiado presente, el número a mover es el `-33` del paso 2 en
+  `scripts/montar-anuncio-vertical.sh`.
+- **El cuarto video se remontó sin necesidad** (ya estaba terminado). Quedó como
+  `CUARTO VIDEO DE IA/Video 4 - FINAL musica Pixabay.mp4`, al lado del original, sin
+  pisarlo. Si no sirve, se borra; no hay nada que dependa de él.
+- **Ducking (sidechain) de la música bajo la voz**: no se probó. Con música plana a −33 LUFS
+  no hizo falta, pero para pistas con más dinámica va a hacer falta.
+- **El script asume 7 tomas de 10.005 s** (`NTOMAS`/`DURTOMA` arriba de todo). Para un video
+  con otra estructura hay que tocar esas dos variables, no está autodetectado.
+
+---
+
 ## Nota de cosecha
 
 Esto tiene que quedar escrito en el repo o se pierde. Sugerencia: `docs/hallazgos-video-pipeline.md`, con entrada en `docs/hallazgos.md` en el mismo commit. Los tres hallazgos que más tiempo van a ahorrar después son: (1) el diagnóstico obvio equivocado — SOUNDRAW y Beatoven parecían resolver el caso "entrega a cliente" y son justo al revés; (2) las tres fallas silenciosas (libass cayendo a otra fuente, `deesser` con `i=0` como no-op, `loudnorm` resampleando a 192 kHz); y (3) la regla que gobierna todo lo nuevo: **la licencia de una herramienta nunca licencia un asset, y el canal de obtención (API/portal) es un contrato distinto de la licencia del archivo**.
