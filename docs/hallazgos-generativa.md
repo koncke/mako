@@ -4200,6 +4200,31 @@ disparándose sobre la sesión que la escribió.
 refutación tiene que correr contra un `git stash` o contra `HEAD`, no contra tu árbol.** Si
 no, su salida es un espejo de tus propios cambios con cara de auditoría independiente.
 
+### Dos controles muertos, y los dos en el camino de «probar que esto anda»
+
+- **`probarImagenAction` no podía funcionar nunca.** Encolaba `{ body: { prompt } }` a
+  secas, y `extension/background.js` rechaza todo pedido sin un `path` que empiece con
+  `/v1`: «pedido sin path válido». Encolaba un trabajo, lo contaba como intento, y moría
+  con un error que no nombra nada — justo el control que existe para contestar «¿anda el
+  puente?». Es «escribir la salida no es ofrecerla» en su forma más cara: el call site
+  existía, se ejecutaba, y el CONTRATO del otro lado no se cumplía.
+- **La fábrica de plantillas se abstenía justo con quien la necesita.** Las tres arrancan
+  con `if (!ES_UUID.test(proj)) return null`, y el navegador aprende el `projectId` de UN
+  solo lugar: la url de las llamadas de imagen (`/v1/projects/<id>/…`). Un cliente que
+  todavía no hizo ninguna llegaba con vacío → cero fábricas → «Abre Flow, genera UNO a
+  mano», que es el paso manual que las fábricas vienen a borrar. **Degradaba en silencio:
+  sin error y sin log.**
+
+  `proyectoDePlantilla` ya sabía derivarlo del `clientContext.projectId` del cuerpo, y las
+  de video lo traen ahí: con UNA plantilla guardada alcanza. Si no hay ninguna sigue vacío
+  y se abstiene — un `projectId` inventado manda el pedido al proyecto de otro, y eso no da
+  error: da una imagen en la grilla que no es de nadie.
+
+**La regla que comparten: una precondición que se aprende de UN solo evento es una
+precondición que falla para el primer usuario.** Antes de colgar algo de un dato aprendido,
+preguntá de cuántas fuentes se puede derivar — y si la respuesta es una, escribí la
+segunda.
+
 ### Lo que quedó SIN hacer
 
 - **Publicar la extensión 0.38.0 en la Chrome Web Store.** Sin eso, el arreglo del latido
