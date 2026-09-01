@@ -375,7 +375,13 @@ export function extraerMediaId(fuente: unknown): string | null {
  */
 const QUE_HACER_SIN_PLANTILLA: Record<string, string> = {
   'flowMedia:batchGenerateImages':
-    'Todavía no vi a Google Flow generar una imagen. Abre Flow con esta pestaña abierta, genera UNA imagen a mano, y vuelve a intentar',
+    // ⚠️ DICE «ADENTRO DE UN PROYECTO» Y «NO ALCANZA CON SUBIR UNA FOTO», y las
+    // dos aclaraciones salen de ver a una clienta hacer exactamente lo otro.
+    // Medido en su puente: espejó `uploadImage` —subió su foto— y ninguna
+    // llamada de generación, con el projectId vacío porque nunca entró a un
+    // proyecto. Leyó «genera una imagen a mano» y entendió «subí tu foto», que
+    // es una lectura razonable de esa frase.
+    'Todavía no vi a Google Flow generar una imagen. Abre Flow, entra a un proyecto y genera UNA imagen escribiendo un prompt — no alcanza con subir una foto. Deja esa pestaña abierta y vuelve a intentar',
   'video:batchAsyncGenerateVideoReferenceImages':
     'Todavía no vi a Google Flow generar un video con tu foto de referencia. Abre Flow, genera UNO a mano usando tu foto, y vuelve a intentar',
   'video:batchAsyncGenerateVideoStartImage':

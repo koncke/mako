@@ -1349,7 +1349,12 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
       // mano» — la instrucción exacta que la destrababa, guardada en la base y
       // nunca dibujada.
       const txt = causa
-        ? textoFlow(causa, `la imagen del escenario ${paso.n}`, marca?.errorAt, undefined, marca?.error)
+        // ⚠️ `errorCrudo` Y NO `error`. Puse `error` hace una hora y salió el
+        // título DOS VECES: `falloGuardable` guarda en `error` el TÍTULO que ya
+        // produjo `textoFlow` —no la instrucción—, así que pasárselo de vuelta
+        // como «lo que dijo el server» es devolverle su propia salida. La frase
+        // que sirve, la que dice qué apretar, vive en `errorCrudo`.
+        ? textoFlow(causa, `la imagen del escenario ${paso.n}`, marca?.errorAt, undefined, marca?.errorCrudo)
         : null;
 
       // La foto con la que se genera: la elegida para ESTE anuncio, y si no hay,
