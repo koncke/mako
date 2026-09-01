@@ -63,3 +63,33 @@ export function sumarVariantes(
     elegida: nuevas[0],
   };
 }
+
+/**
+ * ¿La imagen que se pidió TODAVÍA no llegó?
+ *
+ * ⚠️ ESTA REGLA VIVE EN UN SOLO LUGAR PORQUE YA SE PARTIÓ EN DOS, y la mitad que
+ * quedó vieja rompió el paso entero.
+ *
+ * Cuando las variantes pasaron a acumularse, la señal de «ya llegó» se mudó de
+ * `opciones.length` a `trabajoListo`. Actualicé la del RENDER y me olvidé de la
+ * del SONDEO, que siguió preguntando `!opciones.length` — y desde la segunda
+ * generación esa condición es falsa siempre, porque la lista ya no se vacía. O
+ * sea que el sondeo dejaba de correr justo cuando había algo que esperar:
+ * regenerar una imagen no podía terminar nunca, para nadie.
+ *
+ * Medido en vivo sobre el workspace de una clienta: su trabajo estaba `listo`
+ * hacía tres minutos, con la imagen adentro, y la pantalla seguía en el loader
+ * porque nadie salía a buscarla.
+ *
+ * La segunda mitad —`trabajoListo` ausente— es la compatibilidad con los planes
+ * escritos antes de que ese campo existiera.
+ */
+export function imagenEnCurso(m: {
+  trabajoId?: number;
+  trabajoListo?: number;
+  opciones?: string[];
+  error?: string;
+} | undefined): boolean {
+  if (!m?.trabajoId || m.error) return false;
+  return m.trabajoListo ? m.trabajoId !== m.trabajoListo : !m.opciones?.length;
+}

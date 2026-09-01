@@ -18,7 +18,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sumarVariantes, type Variante } from '../app/video-generator/variantes-imagen';
+import { sumarVariantes, imagenEnCurso, type Variante } from '../app/video-generator/variantes-imagen';
 
 const A: Variante = { url: 'https://flow/a.png?Expires=1', mediaId: 'id-a' };
 const B: Variante = { url: 'https://flow/b.png?Expires=2', mediaId: 'id-b' };
@@ -89,4 +89,34 @@ test('no muta las listas que recibe', () => {
   const previas = [A];
   sumarVariantes(previas, [B]);
   assert.deepEqual(previas, [A]);
+});
+
+// ── Y la señal que decide si hay que ir a buscarla ──────────────────────────
+// Esta parte se agregó DESPUÉS de romperlo en vivo. Cuando las variantes pasaron
+// a acumularse, la señal de «ya llegó» se mudó de `opciones.length` a
+// `trabajoListo`; actualicé la del RENDER y no la del SONDEO. Desde la segunda
+// generación `!opciones.length` es falso siempre —la lista ya no se vacía—, así
+// que el sondeo dejaba de correr justo cuando había algo que esperar: regenerar
+// una imagen no podía terminar NUNCA, para ningún cliente.
+
+test('con un trabajo nuevo en vuelo, hay que ir a buscarla', () => {
+  assert.equal(imagenEnCurso({ trabajoId: 437, trabajoListo: 436, opciones: ['ya-tenia'] }), true);
+});
+
+test('cuando el trabajo en vuelo ES el absorbido, ya no', () => {
+  assert.equal(imagenEnCurso({ trabajoId: 437, trabajoListo: 437, opciones: ['a', 'b'] }), false);
+});
+
+test('un plan viejo sin la señal cae a la lista, que es como funcionaba antes', () => {
+  assert.equal(imagenEnCurso({ trabajoId: 10, opciones: [] }), true);
+  assert.equal(imagenEnCurso({ trabajoId: 10, opciones: ['una'] }), false);
+});
+
+test('con error no se persigue: el sondeo giraría para siempre', () => {
+  assert.equal(imagenEnCurso({ trabajoId: 437, trabajoListo: 436, error: 'falló' }), false);
+});
+
+test('sin trabajo encolado no hay nada que esperar', () => {
+  assert.equal(imagenEnCurso({}), false);
+  assert.equal(imagenEnCurso(undefined), false);
 });

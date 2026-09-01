@@ -41,6 +41,7 @@ import type { Puesta } from '@/lib/puestas-data';
 import { causaFlow, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
 import { creditosDeClip } from '@/lib/costo-clip';
 import { promptDeClip } from '@/lib/prompts-video';
+import { imagenEnCurso } from './variantes-imagen';
 import { useExtensionInstalada, AvisoExtensionVieja } from './extension-instalada';
 import { Foto, FotoGrande, ModalFotos } from './ElegirFoto';
 import {
@@ -1086,10 +1087,9 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
 
   // ── El sondeo, uno solo y para las dos esperas ──────────────────────────
   // La imagen del escenario y el clip de la toma esperan igual y se apagan igual.
-  const escenaEnCurso = (item.escenas ?? []).find((e) => {
-    const m = item.imagenes?.[String(e.n)];
-    return !!m?.trabajoId && !m?.opciones?.length && !m?.error;
-  });
+  // ⚠️ LA MISMA REGLA QUE EL RENDER, importada. Tenerla escrita dos veces fue
+  // exactamente el bug: se actualizó una y la otra quedó vieja.
+  const escenaEnCurso = (item.escenas ?? []).find((e) => imagenEnCurso(item.imagenes?.[String(e.n)]));
   const tomaEnCurso = item.plan.clips.find((c) => {
     const v = item.video?.[String(c.n)];
     if (!v || v.url) return false;
@@ -1326,14 +1326,8 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
       const sinEscenas = !escena;
       const marca = item.imagenes?.[String(paso.n)];
       const opciones = marca?.opciones ?? [];
-      // ⚠️ «Generando» sale de la SEÑAL, no de que la lista esté vacía. Desde
-      // que las variantes se acumulan, `!opciones.length` sería falso siempre a
-      // partir de la segunda y el loader no aparecería nunca. La compatibilidad
-      // con los planes viejos —que no tienen `trabajoListo`— es la misma que usa
-      // el sondeo del server.
-      const generando = !!marca?.trabajoId
-        && (marca.trabajoListo ? marca.trabajoId !== marca.trabajoListo : !opciones.length)
-        && !marca?.error;
+      // La MISMA función que usa el sondeo: una regla, un lugar.
+      const generando = imagenEnCurso(marca);
       const causa: CausaFlow | undefined = marca?.error
         ? ((marca.errorCausa as CausaFlow) ?? causaFlow(marca.errorCrudo ?? marca.error))
         : undefined;
