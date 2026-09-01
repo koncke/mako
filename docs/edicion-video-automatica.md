@@ -505,3 +505,66 @@ el mismo número que reportó la corrida original, reproducido por otro camino.
 4. **`NTOMAS` y `DURVID` por workspace**, hoy defaults del script.
 5. **BYOK de ElevenLabs** — decisión de producto: en la cuenta de quién vive la voz clonada
    de un cliente.
+
+---
+
+## 9. La cola y el worker — hecho el 01/09/2026
+
+### Cómo se prende (los pasos exactos)
+
+**1. Un secreto, el mismo en los dos lados.**
+
+```
+openssl rand -hex 32
+```
+
+Va como `MONTAJE_WORKER_TOKEN` en Vercel (Production) **y** como variable del
+contenedor. Sin él la puerta contesta 404 y el worker sale con código 1 — ninguno
+de los dos se cae a «cualquiera pasa».
+
+**2. La imagen.**
+
+```
+docker build -f worker/Dockerfile -t mako-montaje .
+```
+
+El build FALLA si Anton no se está cargando: renderiza el mismo cuadro con y sin
+`fontsdir` y exige que salgan distintos. Es la única forma de detectar la caída
+de libass, que no da error.
+
+**3. Correrla**, con `MONTAJE_WORKER_TOKEN`, `MAKO_URL` y `GROQ_API_KEY` (la
+transcripción de los subtítulos y de la verificación). Una réplica = un render a
+la vez; la concurrencia se sube agregando réplicas, no subiendo `p_cuantos`.
+
+### Lo que se verificó, y contra qué
+
+| Qué | Cómo |
+|---|---|
+| La toma es atómica | dos `montaje_tomar` seguidos devuelven trabajos **distintos** |
+| El tope de intentos | un trabajo con 3 queda `fallido` con motivo y no se re-entrega |
+| La cola vacía | devuelve 0, no un error |
+| La ruta pasa el middleware | por el **texto** del 404: «no encontrado» es el handler; «no autenticado» sería `proxy.ts` |
+
+### ⚠️ El rescate de colgados va a 20 minutos, no a 10
+
+En Flow un trabajo es una llamada HTTP y 10 minutos sobran. Acá es un pipeline
+entero —transcribir, cortar, mezclar, renderizar— que en un anuncio largo pasa
+los cinco minutos con facilidad. **Un rescate demasiado corto no desatasca:
+duplica el render que todavía está corriendo**, y los dos escriben en la misma
+ruta.
+
+### ⚠️ La url de subida se firma AL ENTREGAR, no al encolar
+
+Un trabajo puede esperar horas en la cola. Una firma acuñada al encolar llegaría
+vencida y el worker fallaría en el último paso, **después de gastar el render
+entero** — que es la forma más cara de fallar. Se acuña cuando se entrega, y si
+no se puede firmar el trabajo se suelta en vez de entregarse condenado.
+
+### Lo que falta
+
+1. **La pantalla.** Las dos actions están (`montarAnuncioAction`,
+   `estadoMontajeAction`); falta el paso del wizard que las use y muestre los dos
+   números —cuánto se recortó y que no se perdió una palabra—.
+2. **Provisionar el contenedor.** Necesita la cuenta de Martín.
+3. **Epidemic Sound Connect.** Hoy `MUSICA` vacío es el camino normal.
+4. **`NTOMAS`/`DURVID` por workspace** y **BYOK de ElevenLabs**.
