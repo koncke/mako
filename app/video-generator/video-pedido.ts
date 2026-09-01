@@ -194,3 +194,27 @@ export function planATexto(
 
   return lineas.filter((l, i, arr) => l !== '' || arr[i - 1] !== '').join('\n').trim();
 }
+
+/**
+ * El nombre del archivo de un clip: el anuncio y el número de toma.
+ *
+ * ⚠️ Se SANEA porque es un nombre de archivo, no una etiqueta. Windows rechaza
+ * `\ / : * ? " < > |`, y un título de anuncio puede traer cualquiera de esos —
+ * «Los 4 sistemas: sin ti» ya alcanza. Un nombre inválido no da error: el
+ * navegador lo reemplaza por el suyo, y volvemos a tener siete archivos llamados
+ * `toma-1-<uuid>.mp4` que es justo lo que esto viene a arreglar.
+ *
+ * El número va con cero adelante para que el orden alfabético —el de cualquier
+ * carpeta— coincida con el orden del anuncio. Sin eso, la toma 10 se ordena entre
+ * la 1 y la 2.
+ */
+export function nombreDeClip(titulo: string, n: number, total: number): string {
+  const limpio = (titulo || 'Anuncio')
+    .normalize('NFC')
+    .replace(/[\\\/:*?"<>|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 60) || 'Anuncio';
+  const ancho = String(total).length;
+  return `${limpio} - toma ${String(n).padStart(ancho, '0')}.mp4`;
+}

@@ -42,6 +42,7 @@ import { causaFlow, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
 import { creditosDeClip } from '@/lib/costo-clip';
 import { promptDeClip } from '@/lib/prompts-video';
 import { imagenEnCurso } from './variantes-imagen';
+import { nombreDeClip } from './video-pedido';
 import { promptFinal } from '@/lib/flow-imagen';
 import { useExtensionInstalada, AvisoExtensionVieja } from './extension-instalada';
 import { Foto, FotoGrande, ModalFotos } from './ElegirFoto';
@@ -820,7 +821,18 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
         </div>
       )}
 
-      {boton && (
+      {/* ⚠️ SE DIBUJA CON `boton` O CON `onAtras`, y antes sólo con `boton`.
+          Con el gate atado al principal, TODA pantalla sin botón que avanza
+          perdía también su «Volver» — y el paso final del anuncio es
+          exactamente eso: declara `atras` y `onAtras` y no declara `boton`, así
+          que su vuelta atrás existía, compilaba y no la dibujaba nadie.
+          Con las siete tomas filmadas eso dejaba el anuncio en una PUERTA DE UN
+          SOLO SENTIDO: ningún camino a una pantalla de toma, o sea ningún camino
+          a rehacer una ni a recuperar un clip descartado. La única salida era
+          abandonar el anuncio.
+          Es «escribir la salida no es ofrecerla» servido por un gate: el destino
+          estaba bien elegido y bien escrito, y el render lo tapaba. */}
+      {(boton || onAtras) && (
         // ⚠️ LOS BOTONES SE CENTRAN CONTRA LA COLUMNA, y ahí se quedan.
         //
         // Lo probé corriéndolos al eje del grupo cuando el ejemplo está
@@ -860,6 +872,12 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
                 botón + línea, y «Volver» —que se centra contra la columna— queda
                 más arriba que el rótulo al que acompaña. Sacándola del flujo, la
                 columna vuelve a medir lo que mide el botón. */}
+            {/* ⚠️ Y EL PRINCIPAL SIGUE ATADO A `boton`. Al abrir la fila para que
+                «Volver» exista sin él, esta caja quedaba dibujando un botón
+                VACÍO en la pantalla final — un rectángulo apretable sin rótulo,
+                que es peor que no tener botón. Abrir un gate obliga a mirar qué
+                más vivía adentro. */}
+            {boton && (
             <div style={{ minWidth: 220, position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <Button
                 variant="primary"
@@ -880,6 +898,7 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
                 </div>
               )}
             </div>
+            )}
           </div>
 
         </div>
@@ -2252,7 +2271,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
     const clips = item.plan.clips.map((c) => item.video?.[String(c.n)]?.url).filter(Boolean) as string[];
     return {
       pregunta: 'Tu anuncio, entero',
-      cuerpo: <Encadenado clips={clips} />,
+      cuerpo: <Encadenado clips={clips} titulo={item.plan.titulo} />,
       atras: 'Atrás',
       onAtras: () => setForzado({ id: 'toma', n: total }),
     };
@@ -2300,11 +2319,74 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
 }
 
 /** El anuncio de corrido: las tomas encadenadas, sin tocar nada. */
-function Encadenado({ clips }: { clips: string[] }) {
+/**
+ * Baja un archivo con el NOMBRE que le queremos poner.
+ *
+ * ⚠️ Hace falta el `fetch` + blob: el atributo `download` de un `<a>` se IGNORA
+ * cuando el archivo es de otro origen, y los clips viven en el storage de
+ * Supabase. Sin esto el navegador guarda `toma-1-<uuid>.mp4` —el nombre de la
+ * ruta— y el atributo no da error: simplemente no hace nada.
+ *
+ * Comprobado antes de escribirlo: el bucket contesta
+ * `access-control-allow-origin: *`, así que el fetch desde la página funciona.
+ * Un blob es del propio origen, y ahí el nombre sí manda.
+ */
+async function bajarComo(url: string, nombre: string): Promise<void> {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`no se pudo bajar (${r.status})`);
+  const blob = await r.blob();
+  const href = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = href;
+  a.download = nombre;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // ⚠️ Se revoca TARDE, no en la línea siguiente: revocar el blob antes de que el
+  // navegador termine de escribirlo cancela la descarga, y el síntoma es un
+  // archivo de 0 bytes o directamente ninguno.
+  setTimeout(() => URL.revokeObjectURL(href), 60_000);
+}
+
+function Encadenado({ clips, titulo }: { clips: string[]; titulo: string }) {
   const [i, setI] = useState(0);
+  const [bajando, setBajando] = useState('');
+  const [falla, setFalla] = useState('');
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => { ref.current?.play().catch(() => {}); }, [i]);
   if (!clips.length) return null;
+
+  const ir = (k: number) => setI(Math.min(clips.length - 1, Math.max(0, k)));
+
+  const bajarUna = async (k: number) => {
+    setFalla('');
+    setBajando(`una-${k}`);
+    try {
+      await bajarComo(clips[k], nombreDeClip(titulo, k + 1, clips.length));
+    } catch (e) {
+      setFalla(e instanceof Error ? e.message : 'No se pudo bajar esa toma.');
+    } finally {
+      setBajando('');
+    }
+  };
+
+  const bajarTodas = async () => {
+    setFalla('');
+    setBajando('todas');
+    try {
+      // De a una y en orden. No en paralelo: siete descargas simultáneas contra
+      // el mismo host es la forma de que alguna vuelva cortada, y además el
+      // navegador las numera en el orden en que llegan.
+      for (let k = 0; k < clips.length; k++) {
+        await bajarComo(clips[k], nombreDeClip(titulo, k + 1, clips.length));
+      }
+    } catch (e) {
+      setFalla(e instanceof Error ? e.message : 'No se pudieron bajar todas.');
+    } finally {
+      setBajando('');
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <Vertical fondo="#000">
@@ -2318,20 +2400,81 @@ function Encadenado({ clips }: { clips: string[] }) {
           style={MEDIO}
         />
       </Vertical>
-      {/* La cinta: cuesta cero palabras y sin ella nadie sabe qué toma suena.
-          No es clicable — 3 px no es un target y elegir entre siete sería una
-          segunda decisión en una pantalla que tiene una. */}
-      <div style={{ display: 'flex', gap: 3, marginTop: 10, width: '60%' }}>
+
+      {/* ⚠️ LA CINTA AHORA SE PUEDE TOCAR, y antes decía en un comentario que no
+          —«3 px no es un target y elegir entre siete sería una segunda decisión
+          en una pantalla que tiene una»—. Era cierto mientras esta pantalla solo
+          servía para MIRAR el anuncio de corrido. Dejó de serlo: el dueño baja
+          los clips uno por uno, así que llegar a una toma concreta pasó a ser la
+          tarea principal. Y por eso además crece a 8 px: un target que hay que
+          acertar no puede medir 3.
+          Cuando cambia lo que la pantalla sirve, la regla de la pantalla cambia
+          con ella — el comentario viejo describía bien OTRA pantalla. */}
+      <div style={{ display: 'flex', gap: 4, marginTop: 12, width: '70%' }}>
         {clips.map((u, k) => (
-          <div
+          <button
             key={u}
+            type="button"
+            onClick={() => ir(k)}
+            aria-label={`Ver la toma ${k + 1}`}
+            aria-current={k === i}
             style={{
-              flex: 1, height: 3, borderRadius: 2,
+              flex: 1, height: 8, borderRadius: 4, border: 'none', padding: 0,
+              cursor: 'pointer',
               background: k === i ? 'var(--primary)' : 'var(--border-strong)',
             }}
           />
         ))}
       </div>
+
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        gap: 12, marginTop: 12,
+      }}>
+        <Button size="sm" variant="tertiary" disabled={i === 0} onClick={() => ir(i - 1)}>
+          Anterior
+        </Button>
+        <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', minWidth: 108, textAlign: 'center' }}>
+          Toma {i + 1} de {clips.length}
+        </span>
+        <Button size="sm" variant="tertiary" disabled={i === clips.length - 1} onClick={() => ir(i + 1)}>
+          Siguiente
+        </Button>
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap', justifyContent: 'center' }}>
+        <Button
+          size="sm"
+          variant="secondary"
+          loading={bajando === `una-${i}`}
+          disabled={!!bajando}
+          icon={<Icon name="descargar" size={15} />}
+          onClick={() => void bajarUna(i)}
+        >
+          {`Bajar la toma ${i + 1}`}
+        </Button>
+        <Button
+          size="sm"
+          variant="mako"
+          loading={bajando === 'todas'}
+          disabled={!!bajando}
+          icon={<Icon name="descargar" size={15} />}
+          onClick={() => void bajarTodas()}
+        >
+          {`Bajar las ${clips.length}`}
+        </Button>
+      </div>
+
+      {/* Se avisa UNA vez y antes de que pase: Chrome pregunta si permite bajar
+          varios archivos, y una descarga que se frena sin explicación se lee como
+          que el botón no anda. */}
+      <div style={{ marginTop: 8, fontSize: 'var(--fs-meta)', color: 'var(--faint)', textAlign: 'center' }}>
+        Al bajar todas, el navegador te va a pedir permiso una vez.
+      </div>
+
+      {falla && (
+        <div style={{ marginTop: 8, fontSize: 'var(--fs-sm)', color: 'var(--danger, #f87171)' }}>{falla}</div>
+      )}
     </div>
   );
 }
