@@ -13,6 +13,7 @@ import assert from 'node:assert/strict';
 import {
   sanearPlantillas, fundirPlantillas, faltantes, claseDePath, CLASES_UTILES,
   tieneCaraParcheable,
+  seGuardaLaRespuesta,
   type PlantillaEspejo,
 } from '../lib/flow-plantillas';
 
@@ -192,4 +193,48 @@ test('la cara sólo se parchea si la plantilla ya trae imageInputs completo', ()
   // no autoriza a asumirlo — con `null` no se parchea.
   assert.equal(tieneCaraParcheable(null), null);
   assert.equal(tieneCaraParcheable('{"requests":[{"imageInp'), null);
+});
+
+// =============================================================================
+// Que respuestas de Flow se guardan
+// =============================================================================
+// Se guardaba TODO lo que mandara el navegador. Medido en produccion el
+// 01/09/2026, lo que habia en la fila de dos clientes incluia `userSettings`,
+// `likeness:listUserLikenesses` —los parecidos faciales cargados en Google—,
+// `appConfig`, `sessions` y dos claves que eran UUID sueltos.
+//
+// Y hay una razon mas urgente que la prolijidad: el storage del navegador es UNO
+// para todos los clientes que se abren desde el. Si el anterior dejo algo ahi, el
+// latido del siguiente lo sube a SU fila.
+
+test('se guardan las clases del protocolo', () => {
+  assert.equal(seGuardaLaRespuesta('credits'), true);
+  assert.equal(seGuardaLaRespuesta('video:batchAsyncGenerateVideoReferenceImages'), true);
+  assert.equal(seGuardaLaRespuesta('flowMedia:batchGenerateImages'), true);
+});
+
+test('⚠️ NO se guardan las respuestas de Google que no pedimos', () => {
+  // Las seis salieron de mirar la base, no de imaginar: estaban guardadas.
+  for (const k of [
+    'userSettings', 'likeness:listUserLikenesses', 'likeness:checkEligibility',
+    'appConfig', 'sessions', 'savedSharedApplets', 'v1:fetchUserRecommendations',
+    'flow:batchLogFrontendEvents',
+  ]) {
+    assert.equal(seGuardaLaRespuesta(k), false, `se estaria guardando ${k}`);
+  }
+});
+
+test('⚠️ NO se guarda una clave que es un UUID suelto', () => {
+  // Habia dos en la fila de un cliente. Una clave que es un id es un dato de
+  // alguien, no una clase de pedido.
+  assert.equal(seGuardaLaRespuesta('348e1e35-af0b-465d-95eb-172419d6a47f'), false);
+});
+
+test('las cuatro de diagnostico propio SI se guardan', () => {
+  // Son las que escribimos nosotros y las unicas que empiezan con `__`.
+  for (const k of ['__fuentes', '__sonda', '__sondaSW', '__redirect']) {
+    assert.equal(seGuardaLaRespuesta(k), true, k);
+  }
+  // Pero no cualquier cosa que empiece con dos guiones: es una lista, no un prefijo.
+  assert.equal(seGuardaLaRespuesta('__loQueSea'), false);
 });

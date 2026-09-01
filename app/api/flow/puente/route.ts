@@ -21,7 +21,7 @@ import { getSetting, setSetting } from '@/lib/settings';
 import {
   sanearPlantillas, soloDelProyecto, fundirPlantillas, faltantes, KEY_PLANTILLAS,
   type PlantillaEspejo,
-  proyectoDePlantilla,
+  proyectoDePlantilla,  seGuardaLaRespuesta,
 } from '@/lib/flow-plantillas';
 import { runWithWorkspace, getTenantDb } from '@/lib/workspace';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -230,6 +230,16 @@ export async function POST(req: NextRequest) {
     let total = 0;
     for (const [k, v] of Object.entries(rec)) {
       if (typeof v !== 'string') continue;
+      // ⚠️ SOLO LO QUE ESTE LADO RECONOCE. Es la mitad que protege contra una
+      // extensión VIEJA, que es la que sigue instalada en los navegadores de la
+      // gente: si el cliente anterior dejó su `__sonda` en el storage del
+      // navegador —con su mediaId y sus urls firmadas— el latido del cliente
+      // nuevo lo sube igual, y el filtro de allá no existe hasta que actualicen.
+      //
+      // La lista es la de las clases del protocolo más las dos de diagnóstico.
+      // Lo que no está no se guarda: un campo que nadie sabe leer no puede ser
+      // más que ruido, y a veces es el dato de otro.
+      if (!seGuardaLaRespuesta(k)) continue;
       // ⚠️ Las claves de diagnostico propias llevan MAS presupuesto. Con 1400
       // parejos, la lista de fuentes del DOM llegaba cortada en la mitad de la
       // grilla y el dato que se fue a buscar —el <video> del reproductor— no

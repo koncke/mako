@@ -91,8 +91,19 @@ function pedirToken(forzar) {
         // `firmaPlantillas` va con `plantillas` o el latido creeria que no cambio
         // nada y no volveria a subir las del cliente nuevo. `projectId` y
         // `ultimoRedirectMedio` son del proyecto de Flow del anterior.
+        // ⚠️ Y LA SONDA TAMBIEN. `sondaResultado` lleva el mediaId completo del
+        // cliente anterior y urls firmadas suyas; `sondaSW` lleva el resultado de
+        // pedirlas. Si no se borran, el proximo latido —que ya es del cliente
+        // NUEVO— los sube a SU fila: datos de un cliente guardados en el
+        // workspace de otro, por el mismo camino que ya se cerro para las
+        // plantillas y por el mismo motivo.
+        //
+        // Es el caso normal del super-admin, que abre un cliente por pestana.
         chrome.storage.local.remove(
-          ['plantillas', 'firmaPlantillas', 'projectId', 'ultimoRedirectMedio'],
+          [
+            'plantillas', 'firmaPlantillas', 'projectId', 'ultimoRedirectMedio',
+            'sondaResultado', 'sondaSW', 'sondaOk',
+          ],
           guardar,
         );
       });

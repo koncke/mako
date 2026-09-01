@@ -290,3 +290,34 @@ export function faltantes(
   const tiene = new Set(clasesQueTiene.map(String));
   return guardadas.filter((p) => !tiene.has(p.clase));
 }
+
+/**
+ * Qué respuestas de Flow se guardan. Allowlist POSITIVO.
+ *
+ * ⚠️ SE GUARDABA TODO LO QUE MANDARA EL NAVEGADOR. Medido en producción el
+ * 01/09/2026, lo que había en la fila de dos clientes incluía `userSettings`,
+ * `likeness:listUserLikenesses` —los parecidos faciales que la persona tiene
+ * cargados en Google—, `appConfig`, `sessions`, `savedSharedApplets` y dos claves
+ * que eran UUID sueltos. Nada de eso lo pide ni lo lee nadie de este lado: es
+ * respuesta de Google a pedidos de Google, guardada en nuestra base porque el
+ * espejo la vio pasar.
+ *
+ * Y hay una segunda razón, más urgente: el storage del navegador es UNO SOLO para
+ * todos los clientes que se abren desde él. Si el anterior dejó algo ahí, el
+ * latido del siguiente lo sube a SU fila. La limpieza al cambiar de cliente vive
+ * en `mako-puente.js`, pero eso sólo alcanza a los navegadores actualizados: esta
+ * lista es la mitad que protege contra la extensión vieja, que es la que sigue
+ * instalada mientras la gente actualiza.
+ *
+ * Lo que entra: las clases del protocolo —las que de verdad usamos— y las cuatro
+ * de diagnóstico propio, que empiezan con `__` y las escribimos nosotros.
+ */
+const CLAVES_RESPUESTA = new Set<string>([
+  ...CLASES_UTILES,
+  '__fuentes', '__sonda', '__sondaSW', '__redirect',
+]);
+
+/** ¿Esta clave de respuesta se guarda? Es el allowlist, en una función. */
+export function seGuardaLaRespuesta(clave: string): boolean {
+  return CLAVES_RESPUESTA.has(clave);
+}
