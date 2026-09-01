@@ -6578,3 +6578,55 @@ ClutiFX, y 1 anotación de Drive que apuntaba a la nada en «Academia de Lanzami
 
 **Siete causas distintas para catorce clases.** Ninguna se habría encontrado buscando «por
 qué falla la descarga»: cada una vivía en un eslabón diferente y ninguna daba error.
+
+## Un 5xx no es transitorio por definición, y la `duracion` vacía lo desempata
+
+**Vive en:** `scripts/curso-censo-faltantes.mjs`
+
+«HIT Higt Impact Trainer» se publicó con **16 clases sin bajar, todas con HTTP 500**. El
+censo las clasificó como «caída del server, se recuperan» —lo razonable, y lo que había
+funcionado doce veces— y mandó a reintentarlas. **Volvieron a fallar horas después**, con
+los tres referers probados y también sin ninguno: Vimeo contesta 500 sobre esos videos y
+punto.
+
+Lo que sí los separa es la `duracion` del plan. Medido en HIT:
+
+| | se bajó | NO se bajó | tasa de fallo |
+|---|---|---|---|
+| duración vacía | 0 | 15 | **100%** |
+| duración puesta | 122 | 0 | **0%** |
+
+Separación perfecta, y con una explicación: **la duración sale de la ficha de la lección en
+la plataforma de origen**, así que vacía significa que el origen tampoco sabía cuánto
+duraba. La lección está listada y su video no existe del otro lado.
+
+En un barrido anterior sobre otros 7 cursos la separación fue 62,5% contra 2,0%. Es un
+predictor fortísimo, **no una ley** — por eso decide junto al código HTTP y no solo.
+
+**La regla que queda: el mismo error HTTP puede tener dos veredictos, y lo que los separa
+no es el error sino un dato del propio material.** Un 5xx con duración puesta es
+transitorio y se reintenta —así se recuperaron 12 clases el 31/08—; el mismo 5xx con
+duración vacía es el origen roto y reintentarlo es gastar la descarga para llegar al mismo
+lugar.
+
+⚠️ **Y la precedencia importa: un 404 o un 403 GANAN sobre la duración.** Ya son
+definitivos por sí solos y dicen más que «rota». El predictor manda sobre los AMBIGUOS
+—5xx, timeout, sin rastro—, que es justo donde el código HTTP no alcanza para decidir.
+
+### Cómo se descubrió, y el diagnóstico que parecía obvio
+
+Las 16 fallaron en **ráfagas** (29-30, 34-38, 70, 74-78, 90, 92, 119), y cinco consecutivas
+dos veces se lee como límite de tasa. Esa lectura era razonable **y equivocada**: el
+reintento a las 6 horas, sobre un origen que no se estaba tocando, dio exactamente los
+mismos 500. La ráfaga no venía del ritmo de las requests sino de que las lecciones rotas
+están agrupadas en el temario —son los «EXTRA» y las «PREGUNTA FRECUENTE» de cada módulo,
+material secundario que la plataforma probablemente nunca terminó de subir.
+
+**Un patrón temporal se puede explicar por el sistema o por los datos, y la única forma de
+saberlo es repetir sin el sistema.** Acá alcanzó con reintentar en frío.
+
+## Balance: 22 clases sin transcribir y ninguna recuperable
+
+Sobre 70 cursos publicados: **15 rotas en el origen** (HIT), **6 borradas** (404: cinco de
+`master-marca-personal-4-0`, una de `avatar-mastery`) y **1 sin pista de audio**. El censo
+dice **0 que valdría la pena reintentar**, y ahora eso es cierto en vez de optimista.

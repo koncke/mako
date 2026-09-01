@@ -2562,3 +2562,37 @@ clasificar los catorce por su evidencia —el error en los logs, qué archivos h
 cada registro— ANTES de arreglar el primero. Un grupo de fallos que comparten el síntoma no
 comparte la causa por defecto: eso hay que medirlo, y el conteo de causas se hace primero
 porque decide si lo que sigue es un arreglo o siete.
+
+# El mismo error puede tener dos veredictos, y lo que los separa suele ser un dato del material
+
+Clasificar un fallo por su código —«5xx es transitorio, se reintenta»— es correcto hasta que
+deja de serlo, y entonces manda a reintentar para siempre algo que no puede funcionar. El
+código dice qué contestó el servidor, no si el recurso existe.
+
+El 01/09/2026: 16 clases con HTTP 500 se dieron por transitorias —lo razonable, y lo que
+había funcionado doce veces— y volvieron a fallar seis horas después, con tres referers
+distintos y también sin ninguno. Lo que las separaba estaba en nuestros propios datos: la
+`duracion` que el origen publica para cada lección. **Vacía: 0 de 15 bajadas. Puesta: 122 de
+122.** La duración sale de la ficha del origen, así que vacía significa que el origen tampoco
+sabía cuánto duraba.
+
+- **Cuando un código de error da veredictos contradictorios, buscá el discriminador en los
+  DATOS, no en más categorías de error.** Suele haber un campo que ya tenés y que sabe algo
+  que el protocolo no.
+- **Y dejá la precedencia escrita.** Un 404 es definitivo por sí solo y dice más: el
+  predictor manda sobre los ambiguos, no sobre los que ya decidieron.
+- **Un predictor fortísimo no es una ley.** 100% en un curso y 62,5% en otros siete: decide
+  junto al código, nunca solo.
+
+# Un patrón temporal se explica por el sistema o por los datos: repetí sin el sistema
+
+Fallos agrupados —cinco seguidos, dos veces— se leen como límite de tasa, y esa lectura es
+razonable. También puede ser que lo que falla esté agrupado en el ORIGEN.
+
+Acá eran las lecciones «EXTRA» y «PREGUNTA FRECUENTE» de cada módulo: material secundario
+que la plataforma nunca terminó de subir, y que en el temario va junto. El ritmo de las
+requests no tenía nada que ver.
+
+**La prueba que los distingue es reintentar en frío**, horas después y sin carga. Si el
+patrón sobrevive, no era el sistema. Cuesta una corrida y descarta la mitad de las
+hipótesis.
