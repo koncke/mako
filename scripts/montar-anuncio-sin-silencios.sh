@@ -14,7 +14,7 @@ SCR="C:/Users/marti/AppData/Local/Temp/claude/C--Users-marti-OneDrive-Escritorio
 mkdir -p "$DEST/RECURSOS/AUDIOS"
 
 echo "== 1/6 plan de cortes =="
-node "$(dirname "$0")/plan-cortes-anuncio.mjs" "$T" $NTOMAS $DURVID > "$T/plan.json"
+node "$(dirname "$0")/plan-cortes-anuncio.mjs" "$T" $NTOMAS $DURVID ${CORTE:-0.05 0.14 0.25 0.10 13} > "$T/plan.json"
 TOTAL=$(python -c "import json;print(json.load(open(r'$T/plan.json'))['total'])")
 node "$(dirname "$0")/gen-filtros-anuncio.mjs" "$T/plan.json" "$T" $NTOMAS
 

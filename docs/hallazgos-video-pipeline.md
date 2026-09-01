@@ -590,9 +590,13 @@ La primera versión del planificador cortaba todo silencio de más de 0,20 s. Re
 
 Dos umbrales, y hacen falta los dos:
 
-- **`MINHUECO` (0,30 s)**: si al sacar el silencio los dos tramos quedarían separados por
-  menos que esto, no se corta — se fusionan. El ahorro no justifica el salto visual.
-- **`MINSEG` (0,35 s)**: un tramo más corto que esto se descarta; sería un flash.
+- **`MINHUECO`**: si al sacar el silencio los dos tramos quedarían separados por menos
+  que esto, no se corta — se fusionan. El ahorro no justifica el salto visual.
+- **`MINSEG`**: un tramo más corto que esto se descarta; sería un flash.
+
+> ⚠️ Los valores que se usaron acá (0,30 y 0,35, con `AIRE` 0,11 y umbral fijo de −38 dB)
+> **quedaron cortos y hubo que rehacer la entrega**. Los buenos están en 11.8, junto con
+> la razón de fondo: el umbral de silencio no puede ser una constante.
 
 Con eso los tramos bajaron de 21→16 y de 23→15, y el ahorro casi no se movió (10,61→10,35 s
 y 12,14→10,51 s). **Se perdieron 2 décimas de ahorro y se ganó que se pueda mirar.**
@@ -671,12 +675,79 @@ anclaje; con el de esta sección da igual, porque los tramos se derivan del audi
 Y lo que no cambia: el STS **conserva el texto exacto** con cualquiera de los cuatro
 ajustes, verificado transcribiendo entrada y salida con Groq.
 
-### 11.8 Lo que quedó SIN hacer
+### 11.8 GOTCHA: un umbral FIJO de silencio no sirve, y verificar el PLAN no es verificar el RESULTADO
+
+**Esto costó una entrega entera.** Con los umbrales de 11.2 el informe decía «se van 10,5 s,
+15%» y era verdad. Martín miró el video y dijo *«sigue teniendo muchos silencios»*. Tenía
+razón: al medir el archivo entregado con un umbral realista, **quedaban 12,6 s de silencio
+en 57,75 s — el 22%, exactamente lo mismo que antes de cortar**.
+
+Dos errores encadenados, y el segundo es el que dejó pasar al primero.
+
+**(a) El umbral fijo de −38 dB medía silencio DIGITAL, no silencio PERCEPTUAL.**
+
+El locutor va manejando. El piso de ruido no es el mismo en todas las tomas — medido en el
+mismo anuncio:
+
+| toma | RMS | piso de ruido | separación |
+|---|---|---|---|
+| 1 | −16,1 dB | **−39,2 dB** | 23,1 dB |
+| 2 | −16,4 dB | **−44,3 dB** | 28,0 dB |
+| 3 | −18,0 dB | −76,6 dB | 58,7 dB |
+| 4 | −25,1 dB | −84,5 dB | 59,4 dB |
+| 6 | −17,3 dB | **−47,1 dB** | 29,8 dB |
+
+Con umbral fijo en −38 dB, las pausas de las tomas 1, 2 y 6 **están por encima del umbral**:
+tienen ruido de motor, no silencio. `silencedetect` no las ve. Se corta el silencio digital,
+queda intacto el perceptual, y el anuncio sigue igual de lento. El barrido lo muestra sin
+lugar a dudas: mismo material, solo cambiando el umbral a adaptativo, 65,7 s → 41,1 s.
+
+**La regla: el umbral sale del nivel de CADA toma, no de una constante.**
+`umbral = RMS_de_la_toma − 13 dB`, acotado a [−45, −26]. Con eso la toma ruidosa se mide con
+−29 dB y la limpia con −38, que es lo que cada una necesita.
+
+**(b) Se verificó el plan, no el producto.** El informe del planificador es una predicción
+sobre sus propias reglas: si las reglas están mal, el informe confirma con entusiasmo que se
+aplicaron mal. **La única verificación que vale es medir el archivo final** con un umbral
+derivado de ese archivo. Está en el pipeline ahora y es lo que hay que mirar:
+
+```bash
+RMS=$(ffmpeg -i voz-proc.wav -af astats -f null - 2>&1 | grep -m1 "RMS level dB" | sed 's/.*: //')
+U=$(awk -v r="$RMS" 'BEGIN{u=r-13; if(u<-45)u=-45; if(u>-26)u=-26; printf "%.1f",u}')
+ffmpeg -i voz-proc.wav -af "silencedetect=n=${U}dB:d=0.12" -f null -
+```
+
+**El test de que el corte no se comió voz: transcribir el resultado y contar palabras.**
+Es lo que permite ser agresivo sin miedo. En el barrido, las cuatro configuraciones —desde
+la conservadora hasta la más brutal— devolvieron **124 palabras, las mismas**. Ninguna tocó
+habla. Sin esa verificación no hay forma de saber si un corte agresivo mutiló una sílaba, y
+uno se queda corto por las dudas, que es justo lo que había pasado.
+
+Barrido completo sobre el mismo material (70,04 s de origen):
+
+| config | tramos | duración | silencio que QUEDA | palabras |
+|---|---|---|---|---|
+| umbral fijo (11.2) | 10 | 65,72 s | **28,54 s** | 124 |
+| moderado | 22 | 43,84 s | 7,69 s | 124 |
+| **agresivo (elegido)** | **27** | **41,09 s** | **3,38 s** | **124** |
+| muy agresivo | 29 | 41,38 s | 4,14 s | 124 |
+
+Los valores que quedaron, y que **reemplazan a los de 11.2**:
+
+```
+AIRE=0.05   MINHUECO=0.14   MINSEG=0.25   MINSIL=0.10   DELTA=13
+```
+
+Resultado final medido sobre los archivos entregados: video 5 **70,04 → 41,09 s con 0,95 s
+de silencio (2%)**, video 6 **70,04 → 50,67 s con 0,49 s (1%)**. Contra el 22% y 24% de la
+entrega anterior. Un anuncio de respuesta directa termina con **un corte cada ~1,5 s**; eso
+no es un defecto del método, es el formato.
+
+### 11.9 Lo que quedó SIN hacer
 
 - **Cuál de las 4 variantes de voz es la buena.** Los videos entregados usan la B por
   apuesta, no por veredicto. Cambiarla son 7 llamadas de API (~1.650 caracteres, nada).
-- **Los umbrales del planificador no están validados de oído**, solo de ojo en frames y de
-  reloj. `AIRE=0.11`, `MINHUECO=0.30` y `MINSEG=0.35` viven arriba de
+- **Los umbrales están validados por medición, no de oído.** Viven arriba de
   `scripts/plan-cortes-anuncio.mjs` y son lo primero que hay que mover si el resultado suena
   atropellado (subirlos) o todavía lento (bajarlos).
 - **Los huecos internos se cortan todos por igual**, sin distinguir una pausa retórica
