@@ -758,6 +758,124 @@ no es un defecto del método, es el formato.
 
 ---
 
+## 12. Lo que arruina un anuncio no es el silencio: es el no-habla CON energía
+
+Martín señaló dos defectos concretos en los videos de la §11, y los dos tenían la misma
+causa de fondo, que invalidaba el detector entero:
+
+- *«hay un silencio muy largo previo a "Nadie la vio venir"»* — **no era silencio.** Medido:
+  1,36 s con RMS −23 dB y **pico −6,3 dB**. La voz de ese anuncio tiene RMS −17 dB. Era una
+  respiración, tan fuerte como el habla.
+- *«la IA se traba y dice "eh", muy corto, como un espasmo, y eso hace que el video se vea
+  de IA»* — una isla de ~0,2 s a −23 dB entre tramos a −33 dB.
+
+**Un detector de un solo umbral distingue SONIDO de SILENCIO. No distingue HABLA de
+NO-HABLA.** Y el no-habla con energía —respiraciones, muletillas, los espasmos del
+speech-to-speech— es exactamente lo que delata que un video está hecho con IA. Recortar
+silencio digital no lo toca.
+
+### 12.1 GOTCHA grande: los timestamps de palabra de Whisper NO sirven para POSICIONAR
+
+Parecía la solución obvia: si Whisper dice dónde están las palabras, conservar eso y tirar
+el resto. **Falla por dos motivos independientes, los dos medidos, y ninguno es evidente.**
+
+**(a) `word.end` está estirado.** Whisper nunca deja huecos entre palabras: alarga la última
+palabra antes de una pausa hasta donde arranca la siguiente. En la toma 4 del video 5,
+`"apriete,"` figura durando **2,44 s** cuando deja de sonar a los 0,5 s; los otros 2 s son
+silencio metido dentro del timestamp de la palabra. Un plan hecho con `word.end` no corta
+ni un hueco interno.
+
+**(b) `word.start` está CORRIDO, hasta ~0,6 s en este material.** Whisper ubica `"apagando"`
+en 3.24. La energía dice que en 3.24 todavía suena `"terminar"`, que entre 3.42 y 3.82 hay
+**silencio real** (−39 a −49 dB) y que `"apagando"` arranca recién en 3.90.
+
+Cortar por esos números parte palabras al medio. Las salidas fueron `"pagando"` por
+`"apagando"`, `"quiere"` por `"requiere"`, `"ser"` por `"hacer"`, y `"compromisos"`
+directamente desaparecida.
+
+**La regla: la energía POSICIONA (es exacta), Whisper VERIFICA (después).** Al revés no
+funciona.
+
+### 12.2 La solución: detector de doble umbral
+
+Dos umbrales derivados del RMS de cada toma, no uno:
+
+| | umbral | para qué |
+|---|---|---|
+| **bajo** | `RMS − 13 dB` | marca los **bordes** del tramo. Generoso a propósito: una vocal final decae despacio y sigue siendo parte de la palabra |
+| **alto** | `RMS − 6 dB` | marca el **núcleo de habla**. Una respiración o una muletilla no llegan; una sílaba sí |
+
+Un tramo del umbral bajo se conserva **solo si contiene algún núcleo del alto**. Y se le
+recorta la cabeza hasta poco antes del primer núcleo y la cola hasta poco después del
+último, porque **la respiración viaja pegada DENTRO del mismo tramo de energía** que la
+palabra: descartar tramos enteros no la saca.
+
+La cola lleva más margen que la cabeza (0,22 s contra 0,07 s) justamente por el decaimiento
+de las vocales finales.
+
+### 12.3 Y un caso que ningún umbral resuelve
+
+Al inicio de una toma había un ruido a **−15,7 dB** contra un RMS de voz de −16,4: **más
+fuerte que el habla**. Ninguna regla de energía lo separa.
+
+Ese es el único lugar donde Whisper interviene en posicionar, y como **tope grueso**: si el
+tramo arranca más de 0,5 s antes del primer `word.start` que contiene, se lo recorta hasta
+`word.start − 0,45 s`. El margen de 0,45 existe para absorber el error de Whisper de 12.1(b).
+Actúa solo en el caso patológico y no toca el resto.
+
+### 12.4 Contar palabras NO es verificar. Hay que comparar el TEXTO.
+
+**Este error dejó pasar la entrega anterior.** El verificador contaba palabras y decía «124
+de 124, intacto». Comparando el texto aparecía esto:
+
+| original | resultado |
+|---|---|
+| Cambiar eso **requiere** algo | Cambiar eso **quiere** algo |
+| que **hacer** responsable | que **ser** responsable |
+| estructurar **compromisos** que | estructurar que |
+
+Un corte que se come el ataque de una palabra **mantiene el conteo intacto**. Hay que
+diffear las dos transcripciones palabra por palabra. Está en
+`scripts/verificar-corte-anuncio.mjs` y devuelve exit≠0 si algo falta o se mutiló.
+
+**Falso positivo conocido, para no perseguirlo:** `"pregunta si"` se transcribe como
+`"preguntas i"`. Es coarticulación del reconocedor, no daño. Se distingue mirando si hay un
+corte dentro del intervalo: en este caso el tramo `[3.03, 5.96]` contiene las dos palabras
+enteras. **Si una diferencia aparece con TODAS las configuraciones, incluidas las que casi
+no cortan, es del reconocedor y no del corte.**
+
+### 12.5 Los silencios de 50 ms son oclusivas, no pausas
+
+Buscando el final de cada palabra con `silencedetect ... d=0.05` se detectan las oclusivas
+internas: `/p/`, `/t/`, `/g/` dejan 50–80 ms de silencio **dentro** de la palabra. Cortar
+ahí parte `"apagando"` en la `/g/` y sale `"dando"`. Una pausa de verdad entre palabras dura
+más. El detector de bordes va con `d=0.10` o más.
+
+### 12.6 Resultado
+
+| | origen | §11 (entregado y rechazado) | ahora |
+|---|---|---|---|
+| Video 5 | 70,04 s | 41,09 s, hueco de 1,36 s | **38,65 s, 0 huecos** |
+| Video 6 | 70,04 s | 50,67 s, el "eh" adentro | **48,63 s, 0 huecos, texto intacto** |
+
+«0 huecos» = ningún espacio ≥ 0,30 s entre palabras consecutivas de la transcripción del
+resultado. Los dos midieron −14,05 y −14,03 LUFS.
+
+### 12.7 Lo que quedó SIN hacer
+
+- **Nada de esto se validó de oído**, solo por medición. Los umbrales viven arriba de
+  `scripts/plan-cortes-anuncio.mjs` y `DELTA_HI` es el primero que hay que mover: bajarlo
+  hace el detector más exigente con qué considera habla.
+- **El detector no distingue una pausa retórica de una muerta.** Si alguna vez se come un
+  silencio dramático que hacía falta antes de un giro, ese es el motivo.
+- **Las muletillas que Whisper SÍ transcribe** (un "eh" que llega a texto) no se filtran hoy:
+  el filtro por lista de interjecciones se sacó junto con el enfoque por palabras. Si
+  aparece una, hay que volver a meterlo.
+- **Martín pidió borrar las versiones viejas** de cada video y se hizo. Eso matiza la regla
+  de no pisar renders comparables: vale mientras se está comparando, no después de elegir.
+
+---
+
 ## Nota de cosecha
 
 Esto tiene que quedar escrito en el repo o se pierde. Sugerencia: `docs/hallazgos-video-pipeline.md`, con entrada en `docs/hallazgos.md` en el mismo commit. Los tres hallazgos que más tiempo van a ahorrar después son: (1) el diagnóstico obvio equivocado — SOUNDRAW y Beatoven parecían resolver el caso "entrega a cliente" y son justo al revés; (2) las tres fallas silenciosas (libass cayendo a otra fuente, `deesser` con `i=0` como no-op, `loudnorm` resampleando a 192 kHz); y (3) la regla que gobierna todo lo nuevo: **la licencia de una herramienta nunca licencia un asset, y el canal de obtención (API/portal) es un contrato distinto de la licencia del archivo**.
