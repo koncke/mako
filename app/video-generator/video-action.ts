@@ -33,7 +33,8 @@ import {
 import { parchesImagenEscena, imagenesDeRespuesta, semillaDeEscena } from '@/lib/flow-imagen';
 import { promptDeClip } from '@/lib/prompts-video';
 import { escribirEscenas, reescribirEscena } from '@/lib/escenas';
-import { puestaPorId, contarPalabras, marcasDeVoseo } from '@/lib/puestas-data';
+import { puestaPorId, contarPalabras, marcasDeVoseo, palabrasQueEntran } from '@/lib/puestas-data';
+import { estaVivo } from '@/lib/flow-puente-frescura';
 import { generarPlanAction } from './actions';
 import { guionesDisponibles } from './guiones-datos';
 import { causaFlow, causaDeMotivo, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
@@ -41,7 +42,7 @@ import { getSetting, setSetting } from '@/lib/settings';
 import { leerHistorial, guardarEnHistorial, type PlanGuardado, type MarcaVideo, type MarcaImagen } from './video-datos';
 import { sanearPlantillas, tieneCaraParcheable, KEY_PLANTILLAS } from '@/lib/flow-plantillas';
 import { olvidarTomasFallidas, olvidarImagenesDeLaFoto } from './tomas-invalidar';
-import { agregarClip, quitarClip, cambiarDuracion } from './plan-clips';
+import { agregarClip, quitarClip, cambiarDuracion, partirHastaQueEntre, tomasQueHacenFalta } from './plan-clips';
 import { sumarVariantes } from './variantes-imagen';
 import { archivarToma, recuperarToma } from './tomas-archivo';
 import { personaEstado, addPersonaFoto, getPersona } from '@/lib/persona';
@@ -489,6 +490,50 @@ export async function generarTomaAction(
     };
   }
 
+  // ⚠️ Y EL LATIDO, QUE ES LO ÚNICO QUE HABLA DEL PRESENTE. `estado: 'listo'` es
+  // un campo GUARDADO: lo escribió el último latido que llegó bien y se queda así
+  // para siempre — con la extensión cerrada, desinstalada o el navegador apagado.
+  //
+  // Medido en producción el 01/09/2026: el puente de una clienta tenía
+  // estado='listo' con `ultimo_visto` de 74 segundos antes. Pasó los tres
+  // controles de arriba, se encoló el trabajo 550, y nadie lo tomó NUNCA. Horas
+  // después seguía `pendiente`, con `intentos=0`, y la pantalla mostrando un
+  // clip que se generaba para siempre.
+  //
+  // `estaVivo` ya existía y su propio módulo decía tener tres consumidores: el
+  // aviso, este gate, y el guard de reconexión. Eran dos. Es «una regla aplicada
+  // en un lugar de dos no está implementada, está documentada».
+  if (!estaVivo(puente.ultimoVisto, Date.now())) {
+    return {
+      ok: false,
+      error: 'Tu navegador dejó de responder, así que esta toma no se mandaría a ningún lado. Abre la extensión de MaKo y vuelve a conectarlo.',
+    };
+  }
+
+  // ── ¿Entra el texto? ─────────────────────────────────────────────────────
+  // ⚠️ NADIE MIRABA ESTO ANTES DE COBRAR. Medido el 01/09/2026: dos planes con la
+  // última toma en 70 y 63 palabras sobre 8 segundos —densidades de 8,75 y 7,88
+  // contra un techo de 3,0—. Apretar «Filmar» habría gastado 12 créditos cada uno
+  // en un clip donde el avatar se traba o se come media frase, que es exactamente
+  // lo que separa «un video con IA» de un anuncio.
+  //
+  // El margen no es comodidad: el conteo de palabras y el tope redondean, así que
+  // un 15% cubre la medición. Por debajo de eso el aviso de «no entra» ya está en
+  // la pantalla y la decisión es de quien mira; por encima es plata a la basura.
+  const puestaDelPlan = puestaPorId(item.plan.puestaId);
+  if (puestaDelPlan) {
+    const entran = palabrasQueEntran(puestaDelPlan, clip.segundos);
+    const tiene = contarPalabras(clip.voz || '');
+    if (entran > 0 && tiene > entran * 1.15) {
+      const faltan = tomasQueHacenFalta(tiene, clip.segundos, item.plan.puestaId) - 1;
+      return {
+        ok: false,
+        error: `La toma ${n} tiene ${tiene} palabras y en ${clip.segundos} segundos entran ${entran}. `
+          + `Súmale ${faltan} ${faltan === 1 ? 'toma' : 'tomas'} en «Cambiar el guion» y el texto se reparte solo.`,
+      };
+    }
+  }
+
   // ── La cara ──────────────────────────────────────────────────────────────
   // Sin `mediaId` no se genera: un clip sin la foto de referencia sale con una
   // persona distinta, y descubrirlo cuesta el clip entero. El error dice qué
@@ -566,6 +611,14 @@ export async function generarTomaAction(
  * pregunta por el video. Nunca espera adentro: una action que espera un minuto
  * es una action que muere en el timeout de la plataforma.
  */
+/**
+ * Cuánto puede esperar un trabajo SIN QUE NADIE LO TOME antes de darlo por
+ * perdido. No es cuánto tarda una generación: es cuánto tarda el navegador del
+ * cliente en levantar el teléfono, y eso son segundos —la alarma del puente
+ * corre cada 15— o nunca.
+ */
+const ABANDONO_MS = 4 * 60 * 1000;
+
 export async function estadoTomaAction(
   planId: string,
   n: number,
@@ -614,7 +667,7 @@ export async function estadoTomaAction(
   if (!marca.operacion && marca.trabajoId) {
     const { data } = await db
       .from('flow_trabajos')
-      .select('estado, resultado, error, motivo')
+      .select('estado, resultado, error, motivo, tomado_at, created_at')
       .eq('id', marca.trabajoId)
       .maybeSingle();
 
@@ -629,6 +682,32 @@ export async function estadoTomaAction(
       return { ok: true, item, estado: { fase: 'error', error: fallo.error } };
     }
     if (estado !== 'listo') {
+      // ⚠️ UN TRABAJO QUE NADIE TOMA NO CADUCA NUNCA, y acá esa espera no tenía
+      // tope: la pantalla decía «Filmando» para siempre, sin salida y sin botón.
+      //
+      // Medido en producción el 01/09/2026: el trabajo 550 de una clienta llevaba
+      // HORAS en `pendiente`, con `tomado_at` en null e `intentos` en 0, porque su
+      // extensión había dejado de latir al actualizarse. El rescate de trabajos
+      // colgados no lo alcanza —sólo mira los que están `tomado`— y encima lo
+      // dispara el mismo puente que ya no está.
+      //
+      // «Está en la fila» y «no hay nadie atendiendo la fila» se ven idénticos
+      // desde afuera: un spinner. Pasados los cuatro minutos sin que nadie lo
+      // tome, no es una demora: es que del otro lado no hay nadie.
+      const nacio = Date.parse(str(data?.created_at) || '');
+      const esperando = Number.isFinite(nacio) ? Date.now() - nacio : 0;
+      if (!str(data?.tomado_at) && esperando > ABANDONO_MS) {
+        // Se CIERRA el trabajo antes de contestar. Si no, un puente que despierta
+        // más tarde lo toma igual y el cliente paga dos veces la misma toma: la
+        // que reintentó y ésta.
+        await db.from('flow_trabajos')
+          .update({ estado: 'fallido', motivo: 'puente_ausente', error: 'Nadie tomó el trabajo: el navegador dejó de responder.', listo_at: new Date().toISOString() })
+          .eq('id', marca.trabajoId)
+          .eq('estado', 'pendiente');
+        const e = 'Tu navegador nunca tomó esta toma: dejó de responder. Abre la extensión de MaKo, conéctalo, y vuelve a filmarla — no se gastaron créditos.';
+        item = await guardarMarca(item, n, { error: e, errorCausa: 'puente', errorAt: new Date().toISOString() });
+        return { ok: true, item, estado: { fase: 'error', error: e } };
+      }
       return { ok: true, item, estado: { fase: 'encolado', trabajoId: marca.trabajoId } };
     }
 
@@ -1497,6 +1576,7 @@ export async function editarClipsAction(
   planId: string,
   orden:
     | { que: 'agregar'; despuesDe: number; segundos: number }
+    | { que: 'partir'; n: number }
     | { que: 'quitar'; n: number }
     | { que: 'duracion'; n: number; segundos: number },
 ): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string }> {
@@ -1506,11 +1586,24 @@ export async function editarClipsAction(
   const item = planDe(await leerHistorial(), planId);
   if (!item) return { ok: false, error: 'Ese anuncio ya no está en el historial.' };
 
-  const r = orden.que === 'agregar'
-    ? agregarClip(item, orden.despuesDe, orden.segundos)
-    : orden.que === 'quitar'
-      ? quitarClip(item, orden.n)
-      : cambiarDuracion(item, orden.n, orden.segundos);
+  let r: ReturnType<typeof agregarClip>;
+  if (orden.que === 'agregar') {
+    r = agregarClip(item, orden.despuesDe, orden.segundos);
+  } else if (orden.que === 'partir') {
+    // ⚠️ EN UNA SOLA PASADA, y con el número que de verdad hace falta.
+    //
+    // Con un botón que suma de a una, la persona aprieta, ve que sigue sin
+    // entrar, aprieta otra vez — y cada viaje reescribe el plan entero, así que
+    // dos pestañas abiertas se pisan. Y con `ceil(palabras / tope)` tampoco
+    // alcanzaba: el repartidor corta en separadores seguros, así que tres tomas
+    // sobre 70 palabras dejaban una de 28 contra un tope de 24. `partirHastaQueEntre`
+    // simula y para cuando entra de verdad.
+    r = partirHastaQueEntre(item, orden.n);
+  } else if (orden.que === 'quitar') {
+    r = quitarClip(item, orden.n);
+  } else {
+    r = cambiarDuracion(item, orden.n, orden.segundos);
+  }
 
   if (!r.ok) return r;
   await guardarEnHistorial(r.item);

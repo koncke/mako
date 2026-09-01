@@ -13,7 +13,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { agregarClip, quitarClip, cambiarDuracion } from '../app/video-generator/plan-clips';
+import { agregarClip, quitarClip, cambiarDuracion, tomasQueHacenFalta, partirHastaQueEntre, enCuantasQueda } from '../app/video-generator/plan-clips';
 import type { PlanGuardado } from '../app/video-generator/video-datos';
 
 const clip = (n: number, segundos = 8, voz = `linea ${n}`) => ({
@@ -190,4 +190,205 @@ test('ningún movimiento pierde un clip PAGADO', () => {
     if (r.ok) p = r.item;
     assert.deepEqual(urls(p), antes, 'el clip pagado sobrevivió a cada movimiento');
   }
+});
+
+// =============================================================================
+// El apilado de la última toma, con las anteriores YA PAGADAS
+// =============================================================================
+// El caso real, medido en producción el 01/09/2026: el plan de una clienta tenía
+// las tomas 1..8 filmadas y la 9 con **70 palabras en 8 segundos** —densidad
+// 8,75 contra un techo de 3,0—. El plan se había creado antes del reparto
+// exacto, así que el arreglo del planificador no lo alcanzaba: había que poder
+// repararlo desde la pantalla.
+//
+// Y no se podía: `redistribuir` se abstenía del plan ENTERO al ver una toma
+// filmada, así que «sumar una toma» insertaba el clip vacío y dejaba las 70
+// palabras donde estaban. O sea el mismo «corte a negro con la persona callada»
+// que ese guard dice que hay que evitar, entrando por su propia puerta.
+
+/** Un plan con las primeras `filmadas` tomas pagadas y la última desbordada. */
+function planApilado(): PlanGuardado {
+  const clips = [];
+  for (let n = 1; n <= 9; n++) {
+    const ultima = n === 9;
+    clips.push({
+      n,
+      segundos: 8,
+      habla: true,
+      // 70 palabras en la última: el caso real.
+      voz: ultima ? Array.from({ length: 70 }, (_, i) => `p${i + 1}`).join(' ') : `linea ${n}`,
+      queSeVe: '', camara: '', prompt: `prompt ${n}`,
+      palabras: ultima ? 70 : 2,
+      tope: 24,
+      voseo: [] as string[],
+    });
+  }
+  const video: Record<string, { url: string }> = {};
+  for (let n = 1; n <= 8; n++) video[String(n)] = { url: `https://mako/toma-${n}.mp4` };
+  return {
+    id: 'apilado',
+    plan: {
+      puestaId: 'selfie-movimiento', titulo: 'Diagnóstico', duracionTotalSeg: 72,
+      ritmo: 'H H H H H H H H H', deCorrido: '', clips,
+    },
+    escenas: [{ n: 1, desde: 1, hasta: 9, lugar: 'El auto', prompt: 'car' }],
+    video,
+    imagenes: { '1': { elegida: 'img-auto' } },
+  } as unknown as PlanGuardado;
+}
+
+const vozDe = (it: PlanGuardado, n: number) => it.plan.clips.find((c) => c.n === n)?.voz ?? '';
+const palabras = (t: string) => t.trim().split(/\s+/).filter(Boolean).length;
+
+test('APILADO: sumar tomas al final REPARTE la toma desbordada, con 8 tomas ya pagadas', () => {
+  const p = planApilado();
+  // Dos tomas más: 70 palabras repartidas en tres tomas de 8 s.
+  let r = agregarClip(p, 9, 8);
+  assert.ok(r.ok);
+  r = agregarClip(r.item, 10, 8);
+  assert.ok(r.ok);
+
+  const it = r.item;
+  assert.equal(it.plan.clips.length, 11);
+
+  // ⚠️ LO PAGADO NO SE MOVIÓ NI UNA PALABRA. Es la razón por la que el guard
+  // viejo existía, y la que el arreglo tenía que conservar: el video de la toma 3
+  // dice «linea 3» y va a seguir diciéndolo.
+  for (let n = 1; n <= 8; n++) {
+    assert.equal(vozDe(it, n), `linea ${n}`, `la toma pagada ${n} cambió de texto`);
+    assert.equal(it.video?.[String(n)]?.url, `https://mako/toma-${n}.mp4`);
+  }
+
+  // Y las tres sin filmar se repartieron las 70 palabras.
+  const repartido = [9, 10, 11].map((n) => palabras(vozDe(it, n)));
+  assert.equal(repartido.reduce((a, b) => a + b, 0), 70, 'se perdieron o se inventaron palabras');
+  for (const [k, cuantas] of repartido.entries()) {
+    assert.ok(cuantas > 0, `la toma ${9 + k} quedó MUDA: un corte a negro con la persona callada`);
+  }
+  // Ninguna se queda con el montón. Antes del arreglo, la 9 seguía con 70.
+  assert.ok(Math.max(...repartido) < 40, `sigue apilado: ${JSON.stringify(repartido)}`);
+});
+
+test('APILADO: el guion entero sobrevive, en orden', () => {
+  const p = planApilado();
+  const antes = p.plan.clips.map((c) => c.voz).join(' ');
+  let r = agregarClip(p, 9, 8); assert.ok(r.ok);
+  r = agregarClip(r.item, 10, 8); assert.ok(r.ok);
+  const despues = r.item.plan.clips.map((c) => c.voz).filter(Boolean).join(' ');
+  assert.equal(despues.replace(/\s+/g, ' ').trim(), antes.replace(/\s+/g, ' ').trim());
+});
+
+test('APILADO: el texto NO cruza una toma pagada', () => {
+  // La 9 desborda y está al final. Si el reparto ignorara las paredes, parte de
+  // sus 70 palabras podría terminar en la 8 —que ya está filmada diciendo otra
+  // cosa— y el anuncio tendría audio y guion distintos sin que nadie lo note.
+  const p = planApilado();
+  const r = agregarClip(p, 9, 8);
+  assert.ok(r.ok);
+  assert.equal(vozDe(r.item, 8), 'linea 8');
+});
+
+test('sumar una toma sobre un guion QUE YA ENTRA deja el clip vacío', () => {
+  // El otro uso de sumar: agregar un beat nuevo. Ahí repartir sería moverle las
+  // frases a alguien que no lo pidió.
+  const p = planApilado();
+  // Se le saca el desborde a la 9 y se suma en el medio del tramo sin filmar.
+  p.plan.clips[8] = { ...p.plan.clips[8], voz: 'cierre corto', palabras: 2 };
+  const r = agregarClip(p, 9, 8);
+  assert.ok(r.ok);
+  assert.equal(vozDe(r.item, 10), '');
+  assert.equal(vozDe(r.item, 9), 'cierre corto');
+});
+
+test('tomasQueHacenFalta cuenta contra el techo del formato, no adivina', () => {
+  // `selfie-movimiento` admite 3 palabras por segundo, así que en 8 s entran 24:
+  // las 70 de la toma real necesitan 3 tomas. El número sale del catálogo, no de
+  // una constante escrita al lado — el día que una puesta cambie de densidad,
+  // esto la sigue.
+  assert.equal(tomasQueHacenFalta(70, 8, 'selfie-movimiento'), 3);
+  assert.equal(tomasQueHacenFalta(24, 8, 'selfie-movimiento'), 1);
+  assert.equal(tomasQueHacenFalta(25, 8, 'selfie-movimiento'), 2);
+  // Una puesta que no existe no puede contestar, y no inventa un número: 1 deja
+  // la pantalla como estaba en vez de mandar a partir en 7.
+  assert.equal(tomasQueHacenFalta(70, 8, 'no-existe'), 1);
+});
+
+test('cambiar la duración NO toca el texto, que es lo que su contrato dice', () => {
+  // Pasaba por el mismo `recomponer` que sumar y quitar, así que con nada
+  // filmado le repartía el guion entero al anuncio por haber movido un número.
+  const p = planApilado();
+  // Sin nada filmado: es el caso donde el reparto sí corría.
+  p.video = {};
+  const antes = p.plan.clips.map((c) => c.voz);
+  const r = cambiarDuracion(p, 2, 10);
+  assert.ok(r.ok);
+  assert.deepEqual(r.item.plan.clips.map((c) => c.voz), antes);
+  assert.equal(r.item.plan.clips.find((c) => c.n === 2)?.segundos, 10);
+});
+
+test('quitar una toma SE LLEVA SU LÍNEA, y reparte lo que queda', () => {
+  // ⚠️ Esto es lo que hace, no necesariamente lo que alguien espera: quitar la
+  // toma 3 borra «linea 3» del guion, en silencio. Queda escrito acá para que
+  // sea una decisión y no un descubrimiento — si en algún momento se decide que
+  // la línea tiene que sobrevivir mudándose al vecino, este test es el que hay
+  // que dar vuelta.
+  const p = planApilado();
+  p.video = {};                                   // nada pagado: se puede quitar
+  const antes = palabras(p.plan.clips.map((c) => c.voz).join(' '));
+  const suLinea = palabras(p.plan.clips[2].voz);
+  const r = quitarClip(p, 3);
+  assert.ok(r.ok);
+  const despues = palabras(r.item.plan.clips.map((c) => c.voz).filter(Boolean).join(' '));
+  assert.equal(despues, antes - suLinea);
+  // Y lo que queda NO se apila: se repartió sobre las 8 tomas que sobrevivieron.
+  const maxima = Math.max(...r.item.plan.clips.map((c) => palabras(c.voz)));
+  assert.ok(maxima <= 24, `quedó una toma con ${maxima} palabras sobre un tope de 24`);
+});
+
+test('⚠️ PARTIR SIMULA: `ceil(palabras/tope)` da un piso que NO alcanza', () => {
+  // Medido sobre el plan real: 70 palabras y topes de 24 dan ceil = 3, y con tres
+  // tomas quedaban de 25 y 28 — una seguía sin poder filmarse, o sea que el
+  // arreglo dejaba el problema puesto. El repartidor corta en separadores
+  // seguros, nunca por el medio de una frase, así que el promedio no manda.
+  const p = planApilado();
+  assert.equal(tomasQueHacenFalta(70, 8, 'selfie-movimiento'), 3);   // el piso
+  const r = partirHastaQueEntre(p, 9);
+  assert.ok(r.ok);
+  // Y ninguna toma SIN FILMAR queda por encima de su tope. Es la única prueba
+  // que importa: que el resultado se pueda filmar.
+  for (const c of r.item.plan.clips) {
+    const filmada = !!r.item.video?.[String(c.n)]?.url;
+    if (!filmada) assert.ok((c.palabras ?? 0) <= (c.tope ?? 0), `la toma ${c.n} quedó con ${c.palabras} sobre ${c.tope}`);
+  }
+});
+
+test('PARTIR no toca ni una palabra de lo pagado, ni pierde guion', () => {
+  const p = planApilado();
+  const antes = p.plan.clips.map((c) => c.voz).join(' ').replace(/\s+/g, ' ').trim();
+  const r = partirHastaQueEntre(p, 9);
+  assert.ok(r.ok);
+  for (let n = 1; n <= 8; n++) {
+    assert.equal(r.item.plan.clips.find((c) => c.n === n)?.voz, `linea ${n}`);
+  }
+  const despues = r.item.plan.clips.map((c) => c.voz).filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+  assert.equal(despues, antes);
+});
+
+test('el número del botón es el que va a pasar', () => {
+  // Dos cuentas distintas —una para mostrar y otra para hacer— son cómo el botón
+  // promete un número y el server hace otro.
+  const p = planApilado();
+  const dice = enCuantasQueda(p, 9);
+  const r = partirHastaQueEntre(p, 9);
+  assert.ok(r.ok);
+  assert.equal(r.item.plan.clips.length - p.plan.clips.length + 1, dice);
+});
+
+test('partir una toma que YA entra no agrega nada', () => {
+  const p = planApilado();
+  p.plan.clips[8] = { ...p.plan.clips[8], voz: 'cierre corto', palabras: 2 };
+  const r = partirHastaQueEntre(p, 9);
+  assert.ok(r.ok);
+  assert.equal(r.item.plan.clips.length, 9);
+  assert.equal(enCuantasQueda(p, 9), 1);
 });

@@ -104,11 +104,22 @@ function pedirToken(forzar) {
       cerrar({ ok: false, motivo: String(d.motivo || 'error'), etiqueta: String(d.etiqueta || '') });
     };
 
-    // ⚠️ Sin este corte, un `MAKO_PUENTE_PIDO_TOKEN` que nadie escucha —la
-    // página todavía no hidrató, o es una ruta de MaKo que no monta el enlace—
-    // deja al popup diciendo «Conectando…» para siempre. El timeout es lo que
-    // convierte «no contestó» en una pantalla con salida.
-    const reloj = setTimeout(() => cerrar({ ok: false, motivo: 'sesion' }), ESPERA_MS);
+    // ⚠️ EL TIMEOUT ES SU PROPIO MOTIVO, Y NO 'sesion'.
+    //
+    // Decía 'sesion', o sea que «nadie contestó» se convertía en la afirmación
+    // «no iniciaste sesión» — sobre alguien que estaba logueada, mirando su
+    // propio tablero, con la pestaña abierta. La reportó el dueño así: «Leila no
+    // puede generar porque dice que MaKo no está conectado».
+    //
+    // Y la causa era otra: el enlace que contesta este pedido vivía adentro de
+    // una vista de /video-generator, así que en cualquier otra pantalla de MaKo
+    // no había nadie escuchando. El remedio de eso es RECARGAR la pestaña, que
+    // no tiene nada que ver con iniciar sesión: mandarla a loguearse la manda a
+    // arreglar algo que estaba bien.
+    //
+    // Es la regla de la casa: «no pude hacer X con este dato» no es «este dato es
+    // falso», y un mensaje que sale solo no puede afirmar lo que no verificó.
+    const reloj = setTimeout(() => cerrar({ ok: false, motivo: 'sin_enlace' }), ESPERA_MS);
 
     window.addEventListener('MAKO_PUENTE_TOKEN', alToken);
     window.addEventListener('MAKO_PUENTE_TOKEN_ERROR', alError);

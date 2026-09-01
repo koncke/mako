@@ -16,7 +16,8 @@
 //   paso 4  Créditos          → se consulta contra la pestaña de Flow, sin dar la
 //                               vuelta por la cola de MaKo.
 
-const MAKO = 'https://hola-mako.com/video-generator';
+const ORIGEN_MAKO = 'https://hola-mako.com';
+const MAKO = `${ORIGEN_MAKO}/video-generator`;
 
 const $ = (id) => document.getElementById(id);
 
@@ -68,7 +69,16 @@ const POR_QUE = {
   sesion: 'Inicia sesión en MaKo y vuelve a intentar.',
   rol: 'Solo quien administra la cuenta puede conectar un navegador.',
   sin_ws: 'Abre un cliente en MaKo y vuelve a intentar.',
+  // ⚠️ «No contestó» tiene su propio remedio, y no es iniciar sesión. La página
+  // está abierta y la sesión puede estar perfecta: lo que no respondió es el
+  // enlace, y eso se arregla recargando.
+  sin_enlace: 'Tu pestaña de MaKo no respondió. Se recarga y se vuelve a intentar.',
   error: 'Vuelve a intentar en un momento.',
+};
+
+/** El título de la pantalla de fallo. `sin_enlace` no habla de conectar nada. */
+const TITULO_FALLO = {
+  sin_enlace: 'Recarga tu pestaña de MaKo',
 };
 
 async function pintar() {
@@ -96,10 +106,10 @@ async function pintar() {
       return;
     }
     pantalla({
-      titulo: 'Termina de conectar en MaKo',
+      titulo: TITULO_FALLO[v.emparejarError] || 'Termina de conectar en MaKo',
       tenue: POR_QUE[v.emparejarError] || POR_QUE.error,
-      boton: 'Abrir MaKo',
-      accion: abrirMako,
+      boton: v.emparejarError === 'sin_enlace' ? 'Recargar y conectar' : 'Abrir MaKo',
+      accion: v.emparejarError === 'sin_enlace' ? recargarMakoYConectar : abrirMako,
     });
     return;
   }
@@ -208,6 +218,52 @@ async function verSaldo() {
   await pintar();
 }
 
-function abrirMako() { chrome.tabs.create({ url: MAKO }); window.close(); }
+/**
+ * Busca una pestaña de MaKo ya abierta. `null` si no hay ninguna.
+ *
+ * ⚠️ Se prefiere la ACTIVA de la ventana actual: con dos pestañas de MaKo, la
+ * que la persona está mirando es la que tiene en la cabeza, y llevarla a la otra
+ * se siente como que el botón hizo cualquier cosa.
+ */
+async function pestanaDeMako() {
+  const todas = await chrome.tabs.query({ url: `${ORIGEN_MAKO}/*` }).catch(() => []);
+  if (!todas.length) return null;
+  const activa = todas.find((t) => t.active);
+  return activa || todas[0];
+}
+
+/**
+ * ⚠️ NO ABRE UNA PESTAÑA NUEVA SI YA HAY UNA.
+ *
+ * Hacía `chrome.tabs.create` siempre, así que el remedio a «no estás conectada»
+ * era una segunda pestaña de /video-generator encima de la que ya estaba abierta.
+ * El dueño: «al abrir la extensión le abre una nueva tab de video-generator, no
+ * tiene sentido». Tenía razón dos veces: no tenía sentido abrirla, y tampoco era
+ * lo que hacía falta.
+ */
+async function abrirMako() {
+  const t = await pestanaDeMako();
+  if (t) {
+    await chrome.tabs.update(t.id, { active: true }).catch(() => {});
+    await chrome.windows.update(t.windowId, { focused: true }).catch(() => {});
+  } else {
+    await chrome.tabs.create({ url: MAKO });
+  }
+  window.close();
+}
+
+/**
+ * El remedio de `sin_enlace`: recargar la pestaña que no contestó y reintentar.
+ *
+ * Se hace ACÁ y no se le pide a la persona, porque «recarga la pestaña» es una
+ * instrucción que se puede ejecutar sola. Y sin pestaña, se abre una: ahí sí
+ * hace falta.
+ */
+async function recargarMakoYConectar() {
+  esperando('Recargando MaKo…');
+  await enviar({ tipo: 'RECARGAR_MAKO' });
+  await enviar({ tipo: 'CONECTAR', forzar: false });
+  await pintar();
+}
 
 void pintar();

@@ -10,6 +10,7 @@ import { HideOnPublicLanding } from './_components/PublicRouteGate';
 import { TituloTab } from './_components/TituloTab';
 import { WsFetch } from './_components/WsFetch';
 import { TemaCandidato } from './_components/TemaCandidato';
+import { PuenteEnlace } from './video-generator/PuenteEnlace';
 import { getSesionAdmin } from '@/lib/auth';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { WsProvider } from './_ui/Link';
@@ -116,6 +117,23 @@ export default async function RootLayout({
             le pega el `?ws=` de la pestaña a todas las llamadas a /api. Va lo más
             arriba posible del árbol para que el chunk cargue antes que nadie. */}
         <WsFetch />
+        {/* ⚠️ EL ENLACE DEL PUENTE VA EN EL LAYOUT, y no adentro de
+            /video-generator. Su alcance tiene que ser el MISMO que el del content
+            script que le habla, y ése está declarado en el manifest de la
+            extensión: `https://hola-mako.com/*`, o sea TODA la app.
+
+            Vivía adentro del return del catálogo de /video-generator, detrás de
+            tres early returns. Con eso:
+            · en el wizard —que es DONDE SE FILMA, el único lugar donde el puente
+              importa— no había nadie escuchando;
+            · y si la persona tenía otra pestaña de MaKo abierta en cualquier otra
+              tab, la extensión le pedía el token A ÉSA, que tampoco escuchaba.
+            En los dos casos el pedido moría por timeout, y el timeout se reportaba
+            como «Inicia sesión en MaKo» a alguien que estaba logueada y mirando su
+            propio tablero.
+
+            No pinta nada y no corre nada hasta que le piden un token. */}
+        <PuenteEnlace />
         {/* El tema candidato del rebrand, si hay uno puesto desde
             /admin/ui?tab=temas. Va acá arriba a propósito: su <script> tiene
             que correr ANTES del primer pintado o la app parpadea del tema viejo

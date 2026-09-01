@@ -42,7 +42,6 @@ import { generarPlanAction } from './actions';
 import { descargarComo } from './descargar';
 import { nombreDeAnuncio } from './video-pedido';
 import { AvisoPuente, estadoDelPuente, ID_AVISO_PUENTE } from './puente-avisos';
-import { PuenteEnlace } from './PuenteEnlace';
 import { estadoPuenteAction } from './puente-actions';
 import { useExtensionInstalada } from './extension-instalada';
 import type { Puente } from '@/lib/flow-cola';
@@ -1578,12 +1577,6 @@ export function VideoGeneratorApp({
           </div>
         </Modal>
       )}
-
-      {/* El MENSAJERO. No dibuja nada: acuña el token cuando la extensión lo
-          pide desde su popup. Es lo único del emparejado que no se pudo mudar —
-          el token nace de una server action con la cookie de sesión— y por eso la
-          página sigue estando en el circuito, pero ya no como pantalla. */}
-      <PuenteEnlace />
 
       {detalle && (
         <DetalleFormato

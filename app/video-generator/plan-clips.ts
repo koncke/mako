@@ -70,9 +70,25 @@ function cubrirTodo<T extends { desde: number; hasta: number }>(escenas: T[], to
   }));
 }
 
+/**
+ * Qué hacer con el TEXTO al recomponer. No es un detalle de implementación: las
+ * tres operaciones quieren cosas distintas y meterlas en una sola regla hacía
+ * que dos de ellas mintieran sobre su propio contrato.
+ *
+ * · `siDesborda` — sumar tomas. Si alguna no entra, se reparte (que es para lo
+ *   que la persona apretó el botón); si todo entra, la toma nueva nace VACÍA,
+ *   porque ahí sumar es agregar un beat, no partir uno.
+ * · `siempre` — quitar una toma. Su texto tiene que ir a algún lado o se pierde.
+ * · `nunca` — cambiar la duración. Su doc dice, textual, «No toca el texto:
+ *   acortar un clip con más palabras de las que entran deja el aviso de "no
+ *   entra", que es información». Y hasta hoy lo tocaba igual, porque pasaba por
+ *   el mismo `recomponer` que los otros dos.
+ */
+type Reparto = 'siDesborda' | 'siempre' | 'nunca';
+
 /** El plan con los totales recalculados. Se llama después de tocar los clips. */
-function recomponer(item: PlanGuardado, clips: PlanGuardado['plan']['clips']): PlanGuardado {
-  const conTexto = redistribuir(item, clips);
+function recomponer(item: PlanGuardado, clips: PlanGuardado['plan']['clips'], reparto: Reparto): PlanGuardado {
+  const conTexto = redistribuir(item, clips, reparto);
   return {
     ...item,
     plan: {
@@ -101,23 +117,31 @@ function recomponer(item: PlanGuardado, clips: PlanGuardado['plan']['clips']): P
  * garantiza que concatenar las tomas devuelve el guion entero: se junta lo que
  * hay, se vuelve a partir contra los topes nuevos, y no se pierde una palabra.
  *
- * ⚠️ Y NO SE HACE SI YA HAY UNA TOMA FILMADA. Ese clip costó créditos y su video
- * dice EXACTAMENTE el texto que tenía cuando se filmó; moverle una palabra deja
- * un anuncio donde el audio y el guion no coinciden, y eso no lo detecta nadie
- * hasta que alguien lo mira. Con algo filmado, la estructura cambia y el texto se
- * queda quieto: el desborde se arregla a mano, que es más trabajo pero no
- * destruye nada pagado.
+ * ⚠️ Y NO SE TOCA NI UNA PALABRA DE UNA TOMA FILMADA. Ese clip costó créditos y
+ * su video dice EXACTAMENTE el texto que tenía cuando se filmó; moverle una
+ * palabra deja un anuncio donde el audio y el guion no coinciden, y eso no lo
+ * detecta nadie hasta que alguien lo mira.
+ *
+ * ⚠️ PERO ABSTENERSE DEL PLAN ENTERO ERA DEMASIADO, y dejaba viva justo la falla
+ * que este reparto vino a arreglar. Medido en producción el 01/09/2026: el plan
+ * de una clienta tenía las tomas 1..8 filmadas y la 9 con **70 palabras en 8
+ * segundos** —densidad 8,75 contra un techo de 3,0—. Apretar «sumar una toma»
+ * insertaba el clip vacío, veía una toma filmada, y devolvía el texto intacto:
+ * las 70 palabras seguían amontonadas Y ahora había una toma muda al lado. O
+ * sea exactamente el «corte a negro con la persona callada» que el párrafo de
+ * arriba dice que hay que evitar, entrando por la puerta del guard.
+ *
+ * Lo que corresponde es un corte más fino: se reparte DENTRO de cada tramo
+ * contiguo de tomas SIN filmar. Las filmadas quedan congeladas y además hacen de
+ * pared —el texto nunca cruza una—, así que ninguna palabra se mueve de un lado
+ * al otro de algo pagado. Con nada filmado es un solo tramo y se comporta igual
+ * que siempre.
  */
 function redistribuir(
   item: PlanGuardado,
   clips: PlanGuardado['plan']['clips'],
+  reparto: Reparto,
 ): PlanGuardado['plan']['clips'] {
-  const hayFilmada = Object.values(item.video ?? {}).some((v) => v?.url);
-  if (hayFilmada) return clips;
-
-  const guion = clips.map((c) => c.voz).filter(Boolean).join(' ').trim();
-  if (!guion) return clips;
-
   // El tope de cada toma sale de su duración: es la misma cuenta que hace el
   // planificador, y tenerla acá evita que el editor y el plan discrepen sobre
   // cuántas palabras entran en 8 segundos.
@@ -126,15 +150,124 @@ function redistribuir(
   // repartir contra un tope inventado es peor que no repartir: dejaría tomas
   // marcadas «no entra» que sí entran, o al revés.
   if (!puesta) return clips;
-  const topes = clips.map((c) => palabrasQueEntran(puesta, c.segundos));
-  const repartidas = repartirGuion(guion, topes);
 
-  return clips.map((c, i) => ({
-    ...c,
-    voz: repartidas[i]?.voz ?? '',
-    palabras: repartidas[i]?.palabras ?? 0,
-    tope: topes[i],
-  }));
+  // ⚠️ `item.video` YA VIENE REMAPEADO por quien llama. `agregarClip` corre los
+  // números antes de componer, así que preguntar por `c.n` acá es preguntar por
+  // la numeración NUEVA — que es la correcta. Preguntar por la vieja marcaría
+  // como filmada a la toma de al lado.
+  const filmada = (n: number) => !!(item.video ?? {})[String(n)]?.url;
+  const salida = clips.map((c) => ({ ...c }));
+
+  let i = 0;
+  while (i < clips.length) {
+    if (filmada(clips[i].n)) { i++; continue; }
+    // El tramo: de acá hasta la próxima filmada (o el final).
+    let fin = i;
+    while (fin < clips.length && !filmada(clips[fin].n)) fin++;
+
+    const tramo = clips.slice(i, fin);
+    const topes = tramo.map((c) => palabrasQueEntran(puesta, c.segundos));
+    const guion = tramo.map((c) => c.voz).filter(Boolean).join(' ').trim();
+
+    // ¿Este tramo NECESITA que se lo reparta? Con `siDesborda`, sólo si alguna
+    // de sus tomas se pasa de su tope. Repartir un tramo que ya entra le mueve
+    // las frases a alguien que no lo pidió.
+    const desborda = tramo.some((c, k) => (c.palabras || 0) > topes[k]);
+    const tocaRepartir = reparto === 'siempre' || (reparto === 'siDesborda' && desborda);
+
+    if (guion && tocaRepartir) {
+      const repartidas = repartirGuion(guion, topes);
+      for (let k = 0; k < tramo.length; k++) {
+        salida[i + k] = {
+          ...salida[i + k],
+          voz: repartidas[k]?.voz ?? '',
+          palabras: repartidas[k]?.palabras ?? 0,
+          tope: topes[k],
+        };
+      }
+    } else {
+      // Un tramo sin texto igual necesita su tope al día: depende de la duración,
+      // y es lo que decide si la pantalla dice «no entra».
+      for (let k = 0; k < tramo.length; k++) salida[i + k] = { ...salida[i + k], tope: topes[k] };
+    }
+    i = fin;
+  }
+
+  return salida;
+}
+
+/**
+ * En cuántas tomas hay que partir ésta para que el texto entre.
+ *
+ * Devuelve 1 cuando ya entra. Es la cuenta que convierte «no entra» en una
+ * acción: sin ella la persona suma tomas de a una y prueba, que es tres viajes
+ * al server para llegar al mismo lugar.
+ */
+export function tomasQueHacenFalta(palabras: number, segundos: number, puestaId: string): number {
+  const puesta = puestaPorId(puestaId);
+  if (!puesta) return 1;
+  return tomasParaQueEntre(palabras, palabrasQueEntran(puesta, segundos));
+}
+
+/**
+ * Parte la toma `n` en las que hagan falta para que su texto entre.
+ *
+ * ⚠️ SIMULA, NO ESTIMA. `ceil(palabras / tope)` da un piso y NO alcanza: el
+ * repartidor corta en separadores seguros —nunca por el medio de una frase— así
+ * que un tramo puede quedar por encima de su tope aunque el promedio entre.
+ * Medido sobre el plan real: 70 palabras sobre topes de 24 daban ceil = 3, y con
+ * tres tomas quedaban de 25 y 28. Una de ellas seguía sin poder filmarse, o sea
+ * que el arreglo dejaba el problema puesto.
+ *
+ * Acá se agregan tomas de a una y se mira el resultado DE VERDAD, parando en
+ * cuanto entra. Da el número mínimo que funciona, no el que la división promete.
+ */
+export function partirHastaQueEntre(item: PlanGuardado, n: number): Edicion {
+  const clip = item.plan.clips.find((c) => c.n === n);
+  if (!clip) return { ok: false, error: 'Esa toma no existe.' };
+
+  const sinFilmar = (it: PlanGuardado, c: PlanGuardado['plan']['clips'][number]) =>
+    !(it.video ?? {})[String(c.n)]?.url;
+  const desborda = (it: PlanGuardado) =>
+    it.plan.clips.some((c) => sinFilmar(it, c) && (c.palabras ?? 0) > (c.tope ?? 0));
+
+  let acc = item;
+  // El tope de 8 no es capricho: es lo que separa «partir una toma» de un número
+  // mal calculado que crea cuarenta clips vacíos.
+  for (let k = 0; k < 8; k++) {
+    if (!desborda(acc)) break;
+    const paso = agregarClip(acc, n + k, clip.segundos);
+    if (!paso.ok) return paso;
+    acc = paso.item;
+  }
+  return { ok: true, item: acc };
+}
+
+/**
+ * Cuántas tomas va a haber donde hoy hay una, si se aprieta el botón.
+ *
+ * Corre la MISMA simulación que `partirHastaQueEntre`, para que el número que se
+ * lee en el botón sea el que va a pasar. Con dos cuentas distintas —una para
+ * mostrar y otra para hacer— el botón promete un número y el server hace otro.
+ */
+export function enCuantasQueda(item: PlanGuardado, n: number): number {
+  const antes = item.plan.clips.length;
+  const r = partirHastaQueEntre(item, n);
+  return r.ok ? r.item.plan.clips.length - antes + 1 : 1;
+}
+
+/**
+ * La misma cuenta contra el tope YA CALCULADO que cada clip lleva encima.
+ *
+ * ⚠️ Existe para que la PANTALLA no tenga que repetir la fórmula. La pantalla
+ * tiene `c.palabras` y `c.tope` a mano y podría hacer el `ceil` ahí mismo — y con
+ * eso habría dos lugares que contestan «en cuántas tomas hay que partir esto»,
+ * que es exactamente cómo el botón termina diciendo un número y el server
+ * exigiendo otro.
+ */
+export function tomasParaQueEntre(palabras: number, tope: number): number {
+  if (tope <= 0 || palabras <= 0) return 1;
+  return Math.max(1, Math.ceil(palabras / tope));
 }
 
 /**
@@ -176,6 +309,9 @@ export function agregarClip(item: PlanGuardado, despuesDe: number, segundos: num
 
   return {
     ok: true,
+    // `siDesborda`: sumar una toma sobre un guion que YA entra agrega un beat y
+    // el clip nace vacío; sobre uno que no entra, PARTE la toma larga — que es
+    // el botón que la persona apretó cuando leyó «no entra».
     item: recomponer({
       ...item,
       video: remapear<MarcaVideo>(item.video, corrido),
@@ -192,7 +328,7 @@ export function agregarClip(item: PlanGuardado, despuesDe: number, segundos: num
         })),
         clips.length,
       ),
-    }, clips),
+    }, clips, 'siDesborda'),
   };
 }
 
@@ -253,7 +389,7 @@ export function quitarClip(item: PlanGuardado, n: number): Edicion {
         item.promptsImagenPropios,
         (k) => nuevoDeEscena.get(k) ?? null,
       ),
-    }, clips),
+    }, clips, 'siempre'),
   };
 }
 
@@ -284,6 +420,10 @@ export function cambiarDuracion(item: PlanGuardado, n: number, segundos: number)
     item: recomponer(
       item,
       item.plan.clips.map((c) => (c.n === n ? { ...c, segundos } : c)),
+      // `nunca`, y es lo que esta función dice arriba que hace. Pasaba por el
+      // mismo `recomponer` que las otras dos, así que con nada filmado le
+      // repartía el guion entero al anuncio por haber movido un número.
+      'nunca',
     ),
   };
 }

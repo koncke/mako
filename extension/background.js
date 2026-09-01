@@ -1141,9 +1141,41 @@ async function conectar(forzar) {
     let tabs = [];
     try { tabs = await chrome.tabs.query({ url: `${MAKO}/*` }); } catch { tabs = []; }
 
+    // ⚠️ SE PRUEBAN TODAS, NO LA PRIMERA QUE CONTESTE ALGO.
+    //
+    // Antes esto hacia `if (r) return`, y `r` es la respuesta del content script
+    // —que SIEMPRE contesta, aunque sea su propio timeout—. O sea que la primera
+    // pestana de MaKo de la lista decidia por todas: con una pestana vieja del
+    // CRM abierta y la de /video-generator al lado, se le pedia el token a la del
+    // CRM, fallaba, y ahi terminaba. Con dos pestanas abiertas, cual gana depende
+    // del orden en que Chrome las devuelve.
+    //
+    // Ahora: gana el PRIMER EXITO. Si ninguna acuna, se guarda el fallo mas
+    // informativo — un 'rol' o un 'sin_ws' los contesto el server sabiendo algo,
+    // mientras que 'sin_enlace' solo dice que nadie atendio.
+    let peor = null;
     for (const t of tabs) {
       const r = await pedirEmparejar(t.id, forzar);
-      if (r) return await finEmparejado(r, null);
+      if (r && r.ok) return await finEmparejado(r, null);
+      if (r && (!peor || peor.motivo === 'sin_enlace')) peor = r;
+    }
+    // Alguna contesto un motivo de verdad: eso es una respuesta, no un silencio.
+    if (peor && peor.motivo !== 'sin_enlace') return await finEmparejado(peor, null);
+
+    // ⚠️ Y SI TODAS CALLARON CON PESTANAS ABIERTAS, se recarga UNA y se reintenta.
+    // El silencio casi siempre es una pestana cargada antes de que la extension
+    // se instalara o se actualizara: su content script quedo huerfano. Reponerlo
+    // ya se intenta en `pedirEmparejar`; lo que eso no arregla es una PAGINA
+    // vieja, servida antes de que el enlace existiera. Eso lo arregla un F5.
+    if (tabs.length) {
+      const t = tabs.find((x) => x.active) || tabs[0];
+      try {
+        await chrome.tabs.reload(t.id);
+        await esperarCarga(t.id);
+        const r = await pedirEmparejar(t.id, forzar);
+        if (r && r.ok) return await finEmparejado(r, null);
+        if (r) return await finEmparejado(r, null);
+      } catch { /* la cerraron mientras tanto: sigue el camino de abrir una */ }
     }
 
     // Ninguna pestana de MaKo: se abre una en segundo plano. Si la persona no
@@ -1152,10 +1184,32 @@ async function conectar(forzar) {
     const nueva = await chrome.tabs.create({ url: URL_MAKO_TAB, active: false });
     await esperarCarga(nueva.id);
     const r = await pedirEmparejar(nueva.id, forzar);
-    return await finEmparejado(r || { ok: false, motivo: 'sesion' }, nueva.id);
+    // ⚠️ 'sin_enlace' y no 'sesion': que la pagina nueva no conteste puede ser que
+    // no haya sesion —lo mas probable, y por eso la pestana se ACTIVA— o que no
+    // haya terminado de cargar. Afirmar la primera es adivinar; el popup dice lo
+    // que se sabe y la pestana abierta muestra lo que falte.
+    return await finEmparejado(r || { ok: false, motivo: 'sin_enlace' }, nueva.id);
   } catch (e) {
     return await finEmparejado({ ok: false, motivo: 'error', error: String((e && e.message) || e) }, null);
   }
+}
+
+/**
+ * Recarga la pestana de MaKo que no contesto y espera a que vuelva.
+ *
+ * Es el remedio de `sin_enlace`, y se hace desde aca porque el popup se cierra en
+ * cuanto pierde el foco: una recarga disparada alla se corta a la mitad.
+ */
+async function recargarMako() {
+  let tabs = [];
+  try { tabs = await chrome.tabs.query({ url: `${MAKO}/*` }); } catch { tabs = []; }
+  const t = tabs.find((x) => x.active) || tabs[0];
+  if (!t) return { ok: false };
+  try {
+    await chrome.tabs.reload(t.id);
+    await esperarCarga(t.id);
+    return { ok: true };
+  } catch { return { ok: false }; }
 }
 
 async function pedirEmparejar(tabId, forzar) {
@@ -1300,7 +1354,43 @@ async function saldoLocal(forzar) {
 // El service worker MV3 se duerme: el alarm es lo que lo despierta. Con
 // setInterval solo, el puente deja de existir a los 30 segundos sin que nada
 // avise.
-chrome.alarms.create('ciclo', { periodInMinutes: 0.25 });
+//
+// ⚠️ Y LA ALARMA NO ALCANZA CON CREARLA ACA ARRIBA. Esta linea corre cuando el
+// service worker ARRANCA, y despues de una actualizacion el worker se termina y
+// NO vuelve a arrancar hasta que llegue un evento. Si la actualizacion se llevo
+// la alarma —y esa es la unica que despertaba al worker—, no queda ningun evento
+// que pueda arrancarlo: el puente se apaga PARA SIEMPRE y nada lo dice.
+//
+// Medido en produccion el 01/09/2026: el ultimo latido de una clienta reporto la
+// version 0.37.1 y su popup corria la 0.37.3. Desde la actualizacion no volvio a
+// latir ni una vez. Su trabajo quedo `pendiente` con `intentos=0` durante horas,
+// y la pantalla mostrando un clip que se generaba eternamente.
+//
+// `onInstalled` (que dispara con reason 'update') y `onStartup` SI despiertan al
+// worker. Son los dos unicos momentos que pueden reponer la alarma, y por eso
+// tienen que estar los dos: `onStartup` cubre reabrir Chrome, `onInstalled`
+// cubre instalar y actualizar.
+const PERIODO_MIN = 0.25;
+
+async function asegurarAlarma() {
+  try {
+    const a = await chrome.alarms.get('ciclo');
+    if (!a) await chrome.alarms.create('ciclo', { periodInMinutes: PERIODO_MIN });
+  } catch {
+    // `get` puede fallar si el worker se esta apagando: crearla igual es barato
+    // y `create` sobre una que ya existe la reemplaza sin duplicarla.
+    try { await chrome.alarms.create('ciclo', { periodInMinutes: PERIODO_MIN }); } catch { /* no hay mas que hacer */ }
+  }
+  // Y SE LATE YA. Sin esto, despues de una actualizacion el puente se queda
+  // callado hasta el primer disparo —y para MaKo, un puente que no late hace un
+  // minuto es un puente muerto: el gate no deja filmar.
+  void ciclo();
+}
+
+chrome.runtime.onInstalled.addListener(() => { void asegurarAlarma(); });
+chrome.runtime.onStartup.addListener(() => { void asegurarAlarma(); });
+void asegurarAlarma();
+
 chrome.alarms.onAlarm.addListener((a) => { if (a.name === 'ciclo') void ciclo(); });
 
 // ⚠️ Y NO SE ESPERA AL PROXIMO LATIDO PARA CONTAR LA BUENA NOTICIA.
@@ -1375,6 +1465,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
     return true;
   }
   if (msg?.tipo === 'CONECTAR') { void conectar(!!msg.forzar).then(responder); return true; }
+  if (msg?.tipo === 'RECARGAR_MAKO') { void recargarMako().then(responder); return true; }
   if (msg?.tipo === 'ABRIR_FLOW') { void abrirFlow().then(responder); return true; }
   if (msg?.tipo === 'RECARGAR_FLOW') { void recargarFlow().then(responder); return true; }
   if (msg?.tipo === 'SALDO') { void saldoLocal(true).then(responder); return true; }

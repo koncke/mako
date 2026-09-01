@@ -43,6 +43,7 @@ import { creditosDeClip, notaSaldo } from '@/lib/costo-clip';
 import { promptDeClip } from '@/lib/prompts-video';
 import { imagenEnCurso } from './variantes-imagen';
 import { nombreDeClip } from './video-pedido';
+import { enCuantasQueda } from './plan-clips';
 import { PasoTomas } from './PasoTomas';
 import { creditosDeClip as creditosDeClipFlow } from '@/lib/costo-clip';
 import { promptFinal, urlDeFlowVencida } from '@/lib/flow-imagen';
@@ -1465,17 +1466,33 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
                           Darle {c.segundos === 4 ? 6 : c.segundos === 6 ? 8 : 10} segundos
                         </Button>
                       )}
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        disabled={!!ocupado}
-                        loading={ocupado === `add-${c.n}`}
-                        onClick={() => void correr(`add-${c.n}`, () => editarClipsAction(item.id, {
-                          que: 'agregar', despuesDe: c.n, segundos: c.segundos,
-                        }), false)}
-                      >
-                        Partirla en dos tomas
-                      </Button>
+                      {/* ⚠️ EL NÚMERO SALE DE LA CUENTA, NO ES «dos» FIJO.
+                          Decía «Partirla en dos tomas» siempre. Una toma de 70
+                          palabras sobre un tope de 24 necesita TRES: partida en
+                          dos quedaban 35 y 35, seguía sin entrar, y la persona
+                          tenía que descubrir apretando que el botón no alcanzaba.
+                          Medido en producción: dos planes así, de 70 y 63
+                          palabras. */}
+                      {(() => {
+                        // El número sale de SIMULAR el corte sobre este plan, no
+                        // de una división: es el mismo cálculo que va a correr el
+                        // server, así que el botón no puede prometer un número y
+                        // el resultado ser otro.
+                        const enCuantas = enCuantasQueda(item, c.n);
+                        return (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            disabled={!!ocupado}
+                            loading={ocupado === `add-${c.n}`}
+                            onClick={() => void correr(`add-${c.n}`, () => editarClipsAction(item.id, {
+                              que: 'partir', n: c.n,
+                            }), false)}
+                          >
+                            Partirla en {enCuantas} tomas
+                          </Button>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>

@@ -16,7 +16,11 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { plantillaImagenDeFabrica, conPlantillaDeFabrica, CLASE_IMAGEN } from '../lib/plantilla-fabrica';
+import {
+  plantillaImagenDeFabrica, conPlantillaDeFabrica, CLASE_IMAGEN,
+  plantillaClipDeFabrica, plantillaEstadoClipDeFabrica, CLASE_CLIP, CLASE_ESTADO_CLIP,
+} from '../lib/plantilla-fabrica';
+import { parchesEstadoClip } from '../lib/flow-protocolo';
 import { fundirPlantillas, sanearPlantillas, tieneCaraParcheable } from '../lib/flow-plantillas';
 
 const PROJ = '9973383e-74eb-4503-80f3-d30fb856781a';
@@ -74,15 +78,22 @@ test('y NO pisa una medida que ya existía', () => {
   // por un recuerdo.
   const real = { clase: CLASE_IMAGEN, url: 'https://aisandbox-pa.googleapis.com/x', metodo: 'POST', headers: {}, cuerpo: '{"real":1}', cuando: 999 };
   const out = conPlantillaDeFabrica([real], PROJ);
-  assert.equal(out.length, 1);
-  assert.equal(out[0].cuerpo, '{"real":1}');
+  // ⚠️ La medida de imagen queda INTACTA, y eso es lo que este test cuida. Lo que
+  // cambió el 01/09/2026 es que ahora se suman además las dos de VIDEO: antes la
+  // función salía temprano al encontrar la de imagen, y por eso un cliente que ya
+  // había generado una imagen nunca recibía las que le faltaban para filmar.
+  const imagen = out.filter((p) => p.clase === CLASE_IMAGEN);
+  assert.equal(imagen.length, 1);
+  assert.equal(imagen[0].cuerpo, '{"real":1}');
+  assert.equal(out.length, 3);
 });
 
-test('se suma sólo cuando falta la de imagen', () => {
+test('se suman las que faltan, sin tocar lo que ya había', () => {
   const otra = { clase: 'credits', url: 'https://aisandbox-pa.googleapis.com/v1/credits', metodo: 'GET', headers: {}, cuerpo: null, cuando: 5 };
   const out = conPlantillaDeFabrica([otra], PROJ);
-  assert.equal(out.length, 2);
+  assert.equal(out.length, 4);                    // credits + las tres de fábrica
   assert.ok(out.some((p) => p.clase === CLASE_IMAGEN));
+  assert.ok(out.some((p) => p.clase === 'credits'));
 });
 
 test('sin projectId no se suma nada: se espera a saberlo', () => {
@@ -106,4 +117,94 @@ test('pasa el saneo entero: origen, clase y cuerpo', () => {
   assert.ok(s, 'la de fábrica sobrevive al saneo');
   assert.equal(s.clase, CLASE_IMAGEN);
   assert.ok(s.cuerpo && s.cuerpo.length > 100);
+});
+
+// =============================================================================
+// Las dos de VIDEO: el paso manual que quedaba vivo en el último tramo
+// =============================================================================
+// La fábrica cubría sólo la imagen. Un usuario nuevo llegaba hasta el escenario
+// —sin tocar Flow, que era el punto— y ahí, al filmar, se topaba con «Abre Flow,
+// genera UNO a mano usando tu foto». Medido en producción el 01/09/2026: le pasó
+// a una clienta, con el error `SIN_PLANTILLA:video:batchAsyncGenerateVideoReferenceImages`.
+
+
+test('la de CLIP trae el clientContext, que es todo lo que el código no manda', () => {
+  const p = plantillaClipDeFabrica(PROJ);
+  assert.ok(p);
+  const c = JSON.parse(p.cuerpo!);
+  // `cuerpoClipReferencias` manda todo MENOS esto, y por eso la plantilla existe.
+  assert.equal(c.clientContext.projectId, PROJ);
+  assert.equal(c.clientContext.tool, 'PINHOLE');
+  assert.equal(c.clientContext.recaptchaContext.applicationType, 'RECAPTCHA_APPLICATION_TYPE_WEB');
+  assert.equal(p.metodo, 'POST');
+  assert.match(p.url, /\/v1\/video:batchAsyncGenerateVideoReferenceImages$/);
+});
+
+test('⚠️ la de CLIP NO afirma en qué plan está la cuenta del cliente', () => {
+  // El pedido real trae `userPaygateTier: 'PAYGATE_TIER_NOT_PAID'`. Copiarlo del
+  // espejo de otro cliente sería afirmar un hecho sobre una cuenta ajena que no
+  // medimos. Omitirlo deja que lo resuelva Google, que sí lo sabe.
+  const c = JSON.parse(plantillaClipDeFabrica(PROJ)!.cuerpo!);
+  assert.equal(c.clientContext.userPaygateTier, undefined);
+  // Y `sessionId` es del navegador y cambia en cada sesión. La de imagen ya lo
+  // omite y está generando en producción: la evidencia dice que no es obligatorio.
+  assert.equal(c.clientContext.sessionId, undefined);
+});
+
+test('la de ESTADO deja el hueco que `parchesEstadoClip` pisa', () => {
+  // Sin esta clase el clip se genera igual y NADIE VA A BUSCARLO: la toma se
+  // queda «filmando» hasta que alguien mire el proyecto de Flow a mano.
+  const p = plantillaEstadoClipDeFabrica(PROJ);
+  assert.ok(p);
+  const c = JSON.parse(p.cuerpo!);
+  assert.equal(c.media[0].projectId, PROJ);
+  assert.equal(c.media[0].name, '');
+  // El parche del protocolo apunta exactamente a ese hueco.
+  assert.deepEqual(Object.keys(parchesEstadoClip('op-1')), ['media.0.name']);
+});
+
+test('las dos se desplazan solas ante un pedido REAL', () => {
+  // `cuando: 0` es lo que hace que el primer pedido que la extensión copie del
+  // tráfico de Flow las reemplace, sin que nadie tenga que acordarse de borrarlas.
+  for (const p of [plantillaClipDeFabrica(PROJ), plantillaEstadoClipDeFabrica(PROJ)]) {
+    assert.equal(p!.cuando, 0);
+    assert.equal(p!.deFabrica, true);
+  }
+});
+
+test('sin un projectId de verdad no se inventa ninguna', () => {
+  for (const malo of ['', 'no-es-un-uuid', '   ', '9973383e']) {
+    assert.equal(plantillaClipDeFabrica(malo), null);
+    assert.equal(plantillaEstadoClipDeFabrica(malo), null);
+  }
+});
+
+test('⚠️ conPlantillaDeFabrica cubre clase por clase, no «si falta alguna»', () => {
+  // Salía temprano en cuanto encontraba la de imagen. O sea que el cliente que YA
+  // había generado una imagen —el que tenía la de imagen— nunca recibía las de
+  // video, que eran justo las que le faltaban. Es el caso real de la clienta.
+  const soloImagen = [{
+    clase: CLASE_IMAGEN, url: 'x', metodo: 'POST', headers: {}, cuerpo: '{}', cuando: 111,
+  }];
+  const out = conPlantillaDeFabrica(soloImagen, PROJ);
+  const clases = out.map((p) => p.clase);
+  assert.ok(clases.includes(CLASE_CLIP), 'no se sumó la de filmar');
+  assert.ok(clases.includes(CLASE_ESTADO_CLIP), 'no se sumó la de preguntar si salió');
+  // Y la medida NO se pisa: describe lo que Google acepta HOY en esa cuenta.
+  assert.equal(out.find((p) => p.clase === CLASE_IMAGEN)?.cuando, 111);
+  assert.equal(out.filter((p) => p.clase === CLASE_IMAGEN).length, 1);
+});
+
+test('con las tres ya medidas no se agrega nada', () => {
+  const todas = [CLASE_IMAGEN, CLASE_CLIP, CLASE_ESTADO_CLIP].map((clase) => ({
+    clase, url: 'x', metodo: 'POST', headers: {}, cuerpo: '{}', cuando: 222,
+  }));
+  assert.equal(conPlantillaDeFabrica(todas, PROJ).length, 3);
+});
+
+test('un cliente SIN nada recibe las tres, que es todo lo que hace falta para un anuncio', () => {
+  // El recorrido entero: generar el escenario (imagen), filmarlo (clip) y saber
+  // que salió (estado). Con las tres, nadie tiene que abrir Flow a generar nada.
+  const clases = conPlantillaDeFabrica([], PROJ).map((p) => p.clase).sort();
+  assert.deepEqual(clases, [CLASE_IMAGEN, CLASE_CLIP, CLASE_ESTADO_CLIP].sort());
 });
