@@ -146,6 +146,36 @@ chrome.runtime.onMessage.addListener((msg, _sender, responder) => {
   return false;
 });
 
+// ── «Hay trabajo»: la pagina despierta al puente ────────────────────────────
+// El sentido contrario al del emparejado. MaKo encola un trabajo y avisa en el
+// acto, en vez de que la extension lo descubra en su proxima alarma — que es
+// hasta medio minuto de loader sobre algo que ya estaba listo para empezar.
+//
+// Se ignora cualquier evento que no venga de esta misma pagina: `postMessage`
+// lo puede disparar un iframe ajeno, y aunque lo unico que consigue es que el
+// puente le pregunte a MaKo por trabajo suyo —con el token de este navegador y
+// nada mas—, no hay razon para escuchar a un tercero.
+//
+// El estrangulador no es prolijidad: sin el, una pantalla que encola siete
+// tomas de una manda siete avisos en el mismo tick. `ciclo()` ya es idempotente
+// por `corriendo`, asi que serian seis mensajes al vacio.
+let ultimoAviso = 0;
+
+window.addEventListener('MAKO_PUENTE_HAY_TRABAJO', (ev) => {
+  if (ev && ev.target !== window) return;
+  const ahora = Date.now();
+  if (ahora - ultimoAviso < 1500) return;
+  ultimoAviso = ahora;
+  try {
+    chrome.runtime.sendMessage({ tipo: 'DESPERTAR' }, () => {
+      // Leer `lastError` es lo que evita el «Unchecked runtime.lastError» en la
+      // consola del cliente cuando el service worker todavia no desperto. No hay
+      // nada que hacer con el error: el ciclo de la alarma lo cubre igual.
+      void chrome.runtime.lastError;
+    });
+  } catch { /* la extension se recargo: la alarma lo cubre */ }
+});
+
 let enlaceListo = false;
 window.addEventListener('MAKO_PUENTE_ENLACE_LISTO', () => { enlaceListo = true; });
 

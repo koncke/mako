@@ -31,6 +31,32 @@ let projectId = '';
 let apiKey = '';
 let corriendo = false;
 
+// ⚠️ CUANTOS TRABAJOS SE PIDEN POR LATIDO, y por que no es 1.
+//
+// Era 1, y eso hacia que CADA trabajo costara un latido entero. Un clip no es un
+// trabajo: son ~9 —generarlo, preguntar 7 veces como va, y pedir el enlace—, o
+// sea nueve esperas de 15 s que nadie ve trabajando. Medido en produccion sobre
+// 348 trabajos: la mediana esperaba 13,6 s en la cola —la mitad de un latido, que
+// es exactamente lo que predice pedir de a uno— y el p90 de las consultas de
+// estado llegaba a 357 s.
+//
+// Subirlo NO afloja ninguna guarda:
+// · el server ya topea en `LIMITES.concurrencia` (5) y el RPC toma con
+//   `FOR UPDATE SKIP LOCKED`, asi que dos pestanas no se llevan el mismo trabajo;
+// · los trabajos se siguen ejecutando DE A UNO y con el `cooldownMs` entre medio,
+//   que es la guarda de verdad contra el PUBLIC_ERROR_UNUSUAL_ACTIVITY. Lo que
+//   cambia es cuantos se traen por viaje, no cada cuanto se le habla a Google.
+const LOTE = 5;
+
+/**
+ * Latidos seguidos que el ciclo puede encadenar solo, sin esperar a la alarma.
+ *
+ * Existe para que una tanda no se pague a 15 s por trabajo. El tope es la
+ * baranda: un trabajo que falla y se reencola para siempre giraria sin fin.
+ */
+const CADENA_MAX = 20;
+let cadena = 0;
+
 chrome.storage.local.get(['bearer', 'projectId', 'apiKey'], (v) => {
   bearer = v.bearer || null;
   projectId = v.projectId || '';
@@ -656,6 +682,10 @@ async function ciclo() {
   // nunca se registrarian y el popup pintaria el ultimo latido bueno para
   // siempre — que es el modo de falla mas caro, porque se lee como que anda.
   const latido = { ok: false, http: 0, estado: '', detalle: '', cuando: Date.now() };
+  // ¿Este ciclo ejecuto algo? Decide si se encadena otro en el acto en vez de
+  // esperar a la alarma. Va afuera del `try` por la misma razon que `latido`:
+  // este ciclo tiene cuatro salidas tempranas.
+  let hizoAlgo = false;
   try {
     const { token } = await chrome.storage.local.get('token');
     if (!token) { latido.estado = 'sin_token'; return; }
@@ -815,7 +845,7 @@ async function ciclo() {
       // Un artefacto que se distribuye COPIADO se desincroniza el mismo dia. Si
       // no dice su version, cada diagnostico arranca preguntando.
       body: JSON.stringify({
-        token, projectId, estado, detalle, resultados: pendientes, cuantos: 1,
+        token, projectId, estado, detalle, resultados: pendientes, cuantos: LOTE,
         version: chrome.runtime.getManifest().version,
         // La MEDICION del captcha. Vivia solo en la consola del service worker, o
         // sea que para leerla habia que pedirle a una persona que abriera DevTools
@@ -972,8 +1002,10 @@ async function ciclo() {
 
     if (out.pausado || estado !== 'listo') return;
 
+    const cola = out.trabajos || [];
     const nuevos = [];
-    for (const t of out.trabajos || []) {
+    for (let i = 0; i < cola.length; i++) {
+      const t = cola[i];
       try {
         nuevos.push(await ejecutar(t));
       } catch (e) {
@@ -987,9 +1019,19 @@ async function ciclo() {
         });
       }
       // El ritmo que reemplaza al simulador de actividad humana.
-      await new Promise((r) => setTimeout(r, cooldownMs));
+      //
+      // ⚠️ ENTRE dos llamadas, no DESPUES de la ultima. El cooldown separa una
+      // llamada a Google de la SIGUIENTE; despues del ultimo trabajo del lote no
+      // hay ninguna siguiente en este ciclo —la proxima esta, como minimo, a un
+      // viaje al servidor de distancia—, asi que esos 10 s no espaciaban nada:
+      // se los comia entero el cliente mirando el loader. La guarda queda
+      // intacta, y sobre un lote de 5 son 10 s menos por tanda.
+      if (i < cola.length - 1) await new Promise((r) => setTimeout(r, cooldownMs));
     }
-    if (nuevos.length) await chrome.storage.local.set({ pendientes: nuevos });
+    if (nuevos.length) {
+      await chrome.storage.local.set({ pendientes: nuevos });
+      hizoAlgo = true;
+    }
   } catch (e) {
     latido.detalle = String((e && e.message) || e);
   } finally {
@@ -1001,6 +1043,28 @@ async function ciclo() {
       await chrome.action.setBadgeBackgroundColor({ color: '#d59b0a' });
     } catch { /* el badge no puede tumbar el ciclo */ }
     corriendo = false;
+
+    // ⚠️ EL RESULTADO NO ESPERA A LA PROXIMA ALARMA.
+    //
+    // Los resultados se guardan en `pendientes` y se mandan al PRINCIPIO del
+    // ciclo siguiente (ver la linea que los lee y el `set({ pendientes: [] })`
+    // de mas arriba). O sea que todo trabajo terminado dormia un latido entero
+    // antes de que MaKo se enterara — y despues la pantalla todavia tardaba
+    // hasta 10 s mas en preguntar. Eso explica el numero que no cerraba de la
+    // medicion: una consulta de estado y un pedido de enlace, que son dos
+    // operaciones que no se parecen en nada, tardaban las dos ~14 s. No era
+    // trabajo: era espera nuestra.
+    //
+    // Encadenar otro ciclo hace las dos cosas de una: manda lo que acaba de
+    // terminar y se trae lo que siga. No le habla a Google de mas —lo unico que
+    // se adelanta es el viaje a NUESTRO servidor— y el `cooldownMs` sigue
+    // separando cada llamada a Flow exactamente igual que antes.
+    if (hizoAlgo && cadena < CADENA_MAX) {
+      cadena++;
+      setTimeout(() => { void ciclo(); }, 0);
+    } else {
+      cadena = 0;
+    }
   }
 }
 
@@ -1214,6 +1278,27 @@ chrome.tabs.onUpdated.addListener((_id, info, tab) => {
 });
 
 chrome.runtime.onMessage.addListener((msg, _s, responder) => {
+  // ⚠️ MAKO AVISA QUE HAY TRABAJO, EN VEZ DE QUE ESTE LADO LO DESCUBRA TARDE.
+  //
+  // El primer trabajo de una tanda esperaba a la proxima alarma —hasta 15 s, y
+  // en una extension empaquetada Chrome puede llevar el minimo a 30— con la
+  // persona mirando el loader inmediatamente despues de apretar «Generar». Nada
+  // pasaba en ese rato: el trabajo ya estaba encolado y este lado no lo sabia.
+  //
+  // Viaja por el content script de hola-mako.com, igual que el emparejado, y por
+  // la misma razon: `externally_connectable` necesita el ID de la extension, que
+  // cambia al publicarse en la tienda.
+  //
+  // No abre ninguna puerta: `ciclo()` hace exactamente lo que ya hacia cada 15 s
+  // —le pregunta al servidor si hay algo suyo, con el token de este navegador—.
+  // Lo unico que cambia es CUANDO. Y `corriendo` lo hace idempotente: un aviso
+  // que llega con un ciclo en curso no lo duplica.
+  if (msg?.tipo === 'DESPERTAR') {
+    void ciclo();
+    responder?.({ ok: true });
+    return false;
+  }
+
   // ⚠️ ESTADO SE LEE DE STORAGE, NO DE LOS GLOBALES.
   //
   // Contestaba `{ conectado: !!bearer }` de forma SINCRONA, leyendo un global que

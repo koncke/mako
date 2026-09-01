@@ -28,6 +28,7 @@ import { getPersona } from './persona';
 import { getWorkspaceActual } from './workspace';
 import { brandSystem, parseJsonObject } from './campaign-structurer';
 import { renderTemplate, contenidoNoConfiable } from './prompt-render-pure';
+import { tienePromptVideoPropio } from './prompts-video';
 import {
   puestaPorId, ritmoDeClips, palabrasQueEntran, contarPalabras, repartirDuracion,
   marcasDeVoseo, conAcento, soloHablado, type Puesta,
@@ -111,9 +112,51 @@ export type GenerarPlanOut =
 
 // ── El prompt ────────────────────────────────────────────────────────────────
 
+/**
+ * Cómo se escribe el prompt de video — y por qué NO siempre se pide.
+ *
+ * ⚠️ ESTE BLOQUE SOLO VIAJA SI EL FORMATO NO TIENE PROMPT PROPIO.
+ *
+ * Un formato con prompt validado —hoy `selfie-movimiento`, el de Martín— lo
+ * arma `promptDeClip` (lib/prompts-video.ts) y le GANA al que escriba el modelo,
+ * entero. O sea que en ese caso todo esto era instrucción para producir un campo
+ * que se descarta: el más largo del JSON, un párrafo cinematográfico en inglés
+ * por clip, y `selfie-movimiento` declara `habla: 'siempre'`, así que se
+ * descartaban los siete. Trabajo de generación pagado en la espera del cliente.
+ *
+ * El dueño: «cuando acomoda el guion en las tomas, se demora increíblemente
+ * mucho para una tarea simple». Y tiene razón sobre lo simple: el reparto del
+ * guion en tomas ya lo hace el CÓDIGO (`repartirGuion`), así que en un anuncio
+ * con guion propio lo único que de verdad le queda al modelo es decirlo como se
+ * habla.
+ *
+ * Lo que sí sobrevive es el ACENTO, y no porque lo escriba el modelo: lo pega
+ * `conAcento()` con el texto que eligió el cliente. Pedírselo al modelo era
+ * hacerle dar la vuelta a un dato que ya teníamos — justo lo que la regla de la
+ * casa prohíbe («un dato exacto que pasa por las manos de un LLM deja de ser
+ * exacto»).
+ */
+const BLOQUE_PROMPT_VIDEO = `
+## CÓMO SE ESCRIBE EL PROMPT DE VIDEO
+
+Tres bloques, en este orden y siempre en inglés salvo el guion:
+
+1. **Cámara.** Qué hace el teléfono que filma. Con precisión: "retrocede frente a él" y "visto desde el asiento del acompañante" son tomas opuestas, y si no lo dices el modelo elige la que no es. Cuando la puesta pide cámara estática, se dice explícitamente que no se mueve.
+2. **Acción.** Qué hace la persona, físicamente. Va siempre, incluso si es "está quieto": si no se escribe, el modelo rellena.
+3. **Guion.** El texto entre comillas, tal cual.
+
+**NO escribas el acento ni el idioma en el prompt.** Lo agrega el sistema al final, con las palabras exactas que eligió el cliente. Si lo escribes tú, se borra.
+
+**NUNCA describas la cara, el pelo, la edad ni el cuerpo de la persona.** Ni una palabra. La identidad la resuelve la foto de referencia que se adjunta, y cualquier descripción compite con ella: el modelo prefiere el texto y devuelve a alguien que cumple la descripción sin ser la persona. Esta es la regla que más caro se paga romper.
+
+**Tampoco describas el tratamiento fotográfico** (contraste, flash, grano). Eso ya viene resuelto.
+
+Cuando la persona no habla en un clip, el prompt dice explícitamente que no dice nada.
+`;
+
 const SYSTEM_TEMPLATE = `Eres MaKo, planificando un anuncio en video con avatar de IA para un negocio real.
 
-Tu salida es el PLAN DE CLIPS: qué dice cada clip, qué se ve, cómo se mueve la cámara, y el prompt listo para pegar en el modelo de video. No escribes prosa ni explicaciones.
+Tu salida es el PLAN DE CLIPS: qué dice cada clip, qué se ve y cómo se mueve la cámara{{salidaPrompt}}. No escribes prosa ni explicaciones.
 
 ## LA PUESTA EN ESCENA ELEGIDA: {{puestaNombre}}
 
@@ -145,23 +188,7 @@ Esto ya costó seis versiones de guion en este proyecto: el acento equivocado no
 **Un solo énfasis por clip, no cuatro.** El énfasis es contraste: si todas las palabras suben, ninguna destaca. Marca en **negrita** la frase que lleva el peso, y solo esa.
 
 **El último clip cierra con la acción.** Directo, en imperativo, señalando.
-
-## CÓMO SE ESCRIBE EL PROMPT DE VIDEO
-
-Tres bloques, en este orden y siempre en inglés salvo el guion:
-
-1. **Cámara.** Qué hace el teléfono que filma. Con precisión: "retrocede frente a él" y "visto desde el asiento del acompañante" son tomas opuestas, y si no lo dices el modelo elige la que no es. Cuando la puesta pide cámara estática, se dice explícitamente que no se mueve.
-2. **Acción.** Qué hace la persona, físicamente. Va siempre, incluso si es "está quieto": si no se escribe, el modelo rellena.
-3. **Guion.** El texto entre comillas, tal cual.
-
-**NO escribas el acento ni el idioma en el prompt.** Lo agrega el sistema al final, con las palabras exactas que eligió el cliente. Si lo escribes tú, se borra.
-
-**NUNCA describas la cara, el pelo, la edad ni el cuerpo de la persona.** Ni una palabra. La identidad la resuelve la foto de referencia que se adjunta, y cualquier descripción compite con ella: el modelo prefiere el texto y devuelve a alguien que cumple la descripción sin ser la persona. Esta es la regla que más caro se paga romper.
-
-**Tampoco describas el tratamiento fotográfico** (contraste, flash, grano). Eso ya viene resuelto.
-
-Cuando la persona no habla en un clip, el prompt dice explícitamente que no dice nada.
-
+{{promptDeVideo}}
 ## LO QUE SE VE NO ILUSTRA LO QUE SE DICE
 
 El fondo es contexto, no subtítulo. Si la frase habla de una junta, no hace falta que se vea una junta. La imagen sostiene la atención; el texto lleva el argumento.
@@ -232,8 +259,8 @@ de VOZ y se copia **palabra por palabra**: ni una distinta, ni una de más, ni u
 conector agregado.
 
 Tu trabajo acá es el OTRO: para cada toma, con esa voz ya dada, escribir qué se
-ve, qué hace la cámara y el prompt de video. El campo "voz" del JSON lo devuelves
-copiando la línea literal que te dieron.
+ve y qué hace la cámara. El campo "voz" del JSON lo devuelves copiando la línea
+literal que te dieron.
 
 La sección de abajo sobre cómo se escribe el texto hablado **no aplica**: describe
 cómo se escribiría un guion desde cero, y acá no hay que escribir ninguno.
@@ -250,15 +277,19 @@ const USER_TEMPLATE = `## EL PEDIDO
 
 Escribe el plan completo respetando la cantidad de clips, la duración de cada uno y el tope de palabras que se indica clip por clip.`;
 
-const JSON_SHAPE = `{
+/**
+ * La forma del JSON. Sin el `prompt` cuando el formato ya trae el suyo validado
+ * — ver `BLOQUE_PROMPT_VIDEO` para el porqué: es el campo más largo de la salida
+ * y en ese caso se descarta entero.
+ */
+const jsonShape = (conPrompt: boolean): string => `{
   "titulo": "el título del anuncio, corto",
   "clips": [
     {
       "n": 1,
       "voz": "lo que se dice en este clip",
       "queSeVe": "la acción física de la persona",
-      "camara": "qué hace la cámara",
-      "prompt": "el prompt completo listo para pegar"
+      "camara": "qué hace la cámara"${conPrompt ? ',\n      "prompt": "el prompt completo listo para pegar"' : ''}
     }
   ]
 }`;
@@ -396,7 +427,13 @@ function sanearPlan(
       voz,
       queSeVe: str(o.queSeVe),
       camara: str(o.camara),
-      prompt: conAcento(str(o.prompt), acento),
+      // ⚠️ CON UN FORMATO DE PROMPT PROPIO, ACÁ QUEDA SOLO EL ACENTO — y alcanza.
+      //
+      // `promptDeClip` lee de este campo UNA cosa: el `Spoken in …` final, con
+      // `acentoDe()`. Y ese renglón nunca lo escribió el modelo: lo pega
+      // `conAcento` con el texto que eligió el cliente. Pedirle el párrafo entero
+      // era generar siete prompts cinematográficos para tirar siete.
+      prompt: conAcento(tienePromptVideoPropio(puesta.id) ? '' : str(o.prompt), acento),
       palabras: contarPalabras(voz),
       tope: palabrasQueEntran(puesta, segundos[i]),
       voseo: marcasDeVoseo(voz),
@@ -516,6 +553,10 @@ export async function generarPlan(ws: number, pedido: PedidoPlan): Promise<Gener
       ? new Set<number>(reparto.map((_, i) => i))
       : tomasDelCierre(reparto, contarPalabrasReparto(cierre));
 
+  // ¿Hay que pedirle el prompt de video al modelo? Solo si este formato no trae
+  // uno propio validado — con `selfie-movimiento` se descartaba entero.
+  const conPrompt = !tienePromptVideoPropio(puesta.id);
+
   try {
     const contexto = await briefDelNegocio();
     const system = await brandSystem(renderTemplate(SYSTEM_TEMPLATE, {
@@ -535,7 +576,13 @@ export async function generarPlan(ws: number, pedido: PedidoPlan): Promise<Gener
       // casos— y el único síntoma vive en la calidad de lo que sale.
       acento: pedido.acentoPrompt,
       guionLiteral: reparto ? (pedido.adaptarVoz === false ? BLOQUE_SIN_ADAPTAR : BLOQUE_GUION_LITERAL) : '',
-      estructura: `${estructuraDeClips(puesta, cantidad, segundos, reparto, literales)}\n\nFORMA DEL JSON:\n${JSON_SHAPE}`,
+      // Ver `BLOQUE_PROMPT_VIDEO`: con un formato que ya trae su prompt validado,
+      // ni la instrucción ni el campo viajan. No es una poda de prosa —eso sería
+      // cosmético—: es dejar de PEDIR el campo más largo de la salida, que en ese
+      // caso se descartaba entero.
+      promptDeVideo: conPrompt ? BLOQUE_PROMPT_VIDEO : '',
+      salidaPrompt: conPrompt ? ', y el prompt listo para pegar en el modelo de video' : '',
+      estructura: `${estructuraDeClips(puesta, cantidad, segundos, reparto, literales)}\n\nFORMA DEL JSON:\n${jsonShape(conPrompt)}`,
     }));
 
     const feedback = pedido.feedback?.trim();
@@ -552,7 +599,16 @@ export async function generarPlan(ws: number, pedido: PedidoPlan): Promise<Gener
     const salida = await chatClaude(system, [{ role: 'user', content: user }], {
       thinking: true,
       effort: 'high',
-      maxTokens: 12000,
+      // ⚠️ EL TOPE TAMBIÉN ES TIEMPO, y no solo un techo por si acaso: el timeout
+      // de la capa barata se calcula con él (`maxTokens * 12`, ver lib/anthropic.ts),
+      // así que un tope inflado alarga la espera que se le concede a una llamada
+      // que iba a contestar mucho antes.
+      //
+      // Sin el prompt de video son ~100 tokens menos por clip: doce tomas de
+      // Car Talks son 1.200 tokens de párrafos en inglés que se descartaban. 12k
+      // era el tope del plan CON prompts; sin ellos sobra con la mitad larga, y
+      // el plan más grande que este formato admite (12 clips) entra holgado.
+      maxTokens: conPrompt ? 12000 : 5000,
       feature: FEATURE_VIDEO_PLANNER,
       motivo: `Planificar anuncio en video (${puesta.nombre})`,
     });

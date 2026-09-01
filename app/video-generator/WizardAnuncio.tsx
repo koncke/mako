@@ -48,6 +48,7 @@ import { creditosDeClip as creditosDeClipFlow } from '@/lib/costo-clip';
 import { promptFinal, urlDeFlowVencida } from '@/lib/flow-imagen';
 import { useExtensionInstalada, AvisoExtensionVieja } from './extension-instalada';
 import { Foto, FotoGrande, ModalFotos } from './ElegirFoto';
+import { avisarPuente } from './avisar-puente';
 import {
   escribirEscenasAction, generarImagenAction, estadoImagenAction,
   elegirImagenAction, subirImagenEscenaAction, confirmarEscenaAction,
@@ -1103,6 +1104,10 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
     setError('');
     setDesde(Date.now());
     const r = await fn().catch(() => ({ ok: false as const, item: undefined, error: 'No se pudo. Vuelve a intentarlo.' }));
+    // Lo que esta action haya encolado ya está en la cola: se le avisa al puente
+    // en vez de dejarlo dormir hasta su próxima alarma. Va acá y no en cada
+    // botón porque `correr` es el único camino de la pantalla a una action.
+    avisarPuente();
     // ⚠️ EL `item` SE APLICA VENGA COMO VENGA EL `ok`, Y ANTES SE TIRABA.
     //
     // Una action puede FALLAR y haber escrito igual — la salida temprana de
@@ -1157,6 +1162,12 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
       const r = escenaEnCurso
         ? await estadoImagenAction(item.id, escenaEnCurso.n).catch(() => null)
         : await estadoTomaAction(item.id, tomaEnCurso!.n).catch(() => null);
+      // ⚠️ ACÁ ES DONDE MÁS PESA, y por volumen: preguntar cómo va un clip son
+      // 234 de los 348 trabajos medidos en producción, y su espera en la cola
+      // llegaba a un p90 de 357 s. Cada vuelta de este sondeo encola una
+      // consulta; sin el aviso, esa consulta duerme hasta la próxima alarma del
+      // navegador y recién ahí sale.
+      avisarPuente();
       if (vivo && r?.ok) onCambio(r.item);
     }, escenaEnCurso ? 4000 : 6000);
     return () => { vivo = false; clearInterval(t); };
