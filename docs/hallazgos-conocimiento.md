@@ -6630,3 +6630,51 @@ saberlo es repetir sin el sistema.** Acá alcanzó con reintentar en frío.
 Sobre 70 cursos publicados: **15 rotas en el origen** (HIT), **6 borradas** (404: cinco de
 `master-marca-personal-4-0`, una de `avatar-mastery`) y **1 sin pista de audio**. El censo
 dice **0 que valdría la pena reintentar**, y ahora eso es cierto en vez de optimista.
+
+## Tres veces la misma forma: un paso sabe que no hay nada que hacer y no lo escribe
+
+**Vive en:** `scripts/curso-audio.mjs`, `scripts/curso-transcribir-sa.mjs`,
+`scripts/curso-pipeline.mjs`
+
+El pipeline mide si un curso está listo con `texto N/M` sobre el plan. Tres clases de
+lección no van a tener `.md` **nunca**, y cada una dejaba el curso incompleto para siempre
+—sin decir «completo» ni una vez, quemando el tope de rondas secas en cada rebobinado de
+la cola—:
+
+| Caso | Quién lo sabe | Marca |
+|---|---|---|
+| El video no trae pista de audio | `curso-audio.mjs` | `audio/<clase>.mudo` |
+| La trae y está casi vacía (una placa) | `curso-transcribir-sa.mjs` | `audio/<clase>.sinvoz` |
+| No hay video del otro lado (`videoId: null`) | el propio plan | se saca del objetivo |
+
+Los tres pasos **ya sabían** —lo decían en pantalla, con su motivo— y lo sabían sólo
+mientras corrían. Casos medidos: «AVATAR MASTERY» llevaba 14/16 con una clase de 10
+segundos sin sonido; «Curso Airbnb Master», 148/149 por una placa de 3:48 con 29 KB de
+audio (130 bytes por segundo contra los ~4.100 de una clase hablada); «Creativos Animados»,
+1/2 desde que entró a la cola.
+
+**Las marcas se llaman distinto a propósito.** Para el objetivo cuentan igual, pero el
+censo existe para decir POR QUÉ, y «sin pista de audio» sobre una clase que sí la tiene es
+la clase de imprecisión que hace que después nadie confíe en el número.
+
+Medido antes de cada cambio: 1 clase de 5.007 en cada caso. Chico, y permanente: sin la
+marca, ese curso figura incompleto en todos los informes futuros y cuesta rondas secas en
+cada pasada de la cola.
+
+## Escribí la regla y la incumplí a los diez minutos
+
+**Vive en:** `scripts/curso-estado-cola.mjs`, `scripts/curso-censo-faltantes.mjs`
+
+El commit que agregó el informe de estado decía, textual: *«si el reporte y el pipeline no
+miden lo mismo, uno de los dos miente en cada informe»*. Diez minutos después el pipeline
+pasó a contar `.sinvoz` como resuelta y **los dos informes seguían contando sólo `.mudo`**,
+así que reportaban como faltante una clase que el pipeline ya había cerrado.
+
+No fue distracción: es que **una definición compartida por tres archivos no tiene dueño**.
+El que agrega el cuarto caso toca el que está mirando y los otros dos quedan viejos sin que
+nada falle — es «una cosa, un lugar» aplicada a un criterio de conteo en vez de a un
+catálogo.
+
+Lo que queda, hasta que el criterio viva en un módulo único: **al tocar qué cuenta como
+"hecho", grepear el nombre de la marca en `scripts/` antes de cerrar.** Son dos segundos y
+es la única red que hoy existe.
