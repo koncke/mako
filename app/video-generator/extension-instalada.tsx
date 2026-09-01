@@ -20,7 +20,6 @@ import { Alert } from '@/app/_ui';
 import { EXTENSION_VERSION } from '@/lib/extension-version';
 // El link al zip tiene un solo dueño y no es este archivo: definirlo acá sería
 // una segunda constante con el mismo nombre esperando a que alguien cambie una.
-import { EXTENSION_URL_ZIP } from '@/lib/extension-tienda';
 // La comparación vive en su propio módulo, sin React: su GEMELA está en
 // `extension/background.js` y hace falta un test que las corra a las dos.
 import { esMasVieja } from '@/lib/version-comparar';
@@ -104,14 +103,17 @@ export function AvisoExtensionVieja({ instalada, compacto = false }: {
     // cuesta 0 — cuesta el gap. Quien sabe si esto va a existir es este
     // componente, así que el ancho viaja con él.
     <div style={{ marginBottom: compacto ? 0 : 12, width: '100%', maxWidth: 900 }}>
-      <Alert tono="warn" accion={{ label: 'Descargar la nueva', href: EXTENSION_URL_ZIP }}>
+      {/* ⚠️ LLEVA AL INSTRUCTIVO, no al zip. Y ya no dice «reemplaza los archivos»:
+          esa instrucción tiene un paso que quien la ejecuta no puede verificar
+          —cuál es «la misma carpeta»— y falló tres veces. Los pasos verificables
+          viven en /extension/instalar, en UN solo lugar: escritos acá y allá se
+          separan, como se separó todo lo demás que este repo escribió dos veces. */}
+      <Alert tono="warn" accion={{ label: 'Ver cómo actualizar', href: '/extension/instalar' }}>
         <strong>Tu extensión quedó vieja.</strong> Tienes la <code>{instalada}</code> y la
-        actual es la <code>{EXTENSION_VERSION}</code>. Descárgala y{' '}
-        <strong>descomprímela encima de la misma carpeta</strong> desde la que la
-        instalaste, reemplazando los archivos. Después de eso usa el botón de recargar
-        (↻).{' '}
-        <strong>Recargar sin reemplazar los archivos no hace nada</strong>: ese botón
-        vuelve a leer la misma carpeta, no descarga nada.
+        actual es la <code>{EXTENSION_VERSION}</code>. Son tres minutos: se quita la vieja
+        y se carga la nueva.{' '}
+        <strong>El botón ↻ de Chrome no alcanza</strong>: vuelve a leer la misma
+        carpeta, no descarga nada.
       </Alert>
     </div>
   );

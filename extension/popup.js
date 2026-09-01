@@ -141,16 +141,22 @@ async function pintar() {
       titulo: 'Actualiza la extensión',
       tenue: `Tienes la ${v.version} y la actual es la ${v.versionEsperada}. `
         + 'Con la vieja, un video puede quedarse generando para siempre.',
+      // ⚠️ SE QUITA LA VIEJA Y SE CARGA LA NUEVA, no se «reemplazan los archivos».
+      // Esa instrucción tiene un paso que quien la ejecuta NO PUEDE VERIFICAR
+      // —cuál es «la misma carpeta»— y ya falló tres veces, una de ellas
+      // costándole el día al dueño: Chrome tenía cargada una copia congelada en
+      // otra ruta mientras él reemplazaba los archivos del repo.
+      //
+      // Reinstalar no tiene ese paso: la carpeta que se elige en «Cargar
+      // descomprimida» ES la que Chrome carga. Y no cuesta nada — el token vuelve
+      // con un clic y las plantillas las repone el servidor en el primer latido.
       pasos: [
-        'Toca **Descargar la nueva**: baja un archivo .zip.',
-        'Descomprímelo **encima de la misma carpeta** desde la que instalaste MaKo, '
-          + 'reemplazando los archivos. Este paso es el que actualiza: sin él, lo demás no hace nada.',
-        'Vuelve aquí y toca **Ya reemplacé los archivos**.',
+        'Toca **Ver los pasos**: ahí está el detalle y el archivo.',
+        'En **chrome://extensions**, quita MaKo y vuelve a cargarla descomprimida.',
+        'Vuelve aquí: abajo tiene que decir **v' + v.versionEsperada + '**.',
       ],
-      boton: 'Descargar la nueva',
+      boton: 'Ver los pasos',
       accion: bajarNueva,
-      boton2: 'Ya reemplacé los archivos',
-      accion2: () => chrome.runtime.reload(),
     });
     return;
   }
@@ -397,14 +403,18 @@ async function pestanaDeMako() {
  * lo que hacía falta.
  */
 /**
- * Baja el zip de la version nueva.
+ * Lleva al instructivo, no al archivo.
  *
- * Va a MaKo y no a un link directo al archivo: si alguna vez el zip cambia de
- * lugar, el que sabe donde esta es el server. Y `active: true` porque la descarga
- * es lo unico que la persona tiene que ver que ocurrio.
+ * ⚠️ APUNTABA AL ZIP, y el comentario que estaba acá afirmaba una indirección que
+ * el código no hacía. Bajar el archivo sin decir qué hacer con él es entregar el
+ * remedio sin la receta: quien no sepa que hay que cargarlo descomprimido se
+ * queda con un `.zip` en Descargas y ninguna pista.
+ *
+ * Y el zip está detrás del login a propósito, así que un link directo puede
+ * terminar en `/login` sin ninguna explicación. La página lo dice y lo ofrece.
  */
 function bajarNueva() {
-  chrome.tabs.create({ url: `${ORIGEN_MAKO}/mako-puente.zip`, active: true });
+  chrome.tabs.create({ url: `${ORIGEN_MAKO}/extension/instalar`, active: true });
   window.close();
 }
 
