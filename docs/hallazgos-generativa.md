@@ -4242,3 +4242,126 @@ segunda.
   se puede redistribuir: `puestaPorId` no ve esos formatos y `redistribuir` se abstiene.
 - **`www.hola-mako.com` y los previews no matchean** en el manifest: ahí la extensión se ve
   como no instalada y el emparejado no puede ocurrir.
+
+### El popup: cinco callejones sin salida y un bug de contrato (01/09/2026)
+
+**Vive en:** `extension/popup.js` · `extension/background.js` ·
+`app/video-generator/WizardAnuncio.tsx` (`Estudio`)
+
+#### ⚠️ «Consultar tokens» fallaba SIEMPRE, por un campo que no existe
+
+`saldoLocal()` hacía `const d = (r && r.resultado) || null`. **Ningún punto de la
+extensión escribe un campo `resultado`**: `injected.js` contesta `{ status, texto,
+metodo, urlUsada }` o `{ error }`. Leyendo algo que nadie escribe, `d` era
+`undefined` siempre y el botón contestaba «No pude leer tus créditos» en el 100% de
+los casos, con Flow abierto y andando.
+
+**Cómo se reconoce esta familia:** un consumidor que lee un campo con `|| null` o
+`?? {}` y un productor que nunca lo escribe. No falla, no loguea: cae al camino de
+error o al default, y se lee como que el proveedor externo tuvo la culpa.
+
+Y el contraejemplo estaba treinta líneas más arriba: el otro consumidor del MISMO
+mensaje ya hacía `String(r.texto || '')` + `JSON.parse` + mirar el `status`.
+
+Una auditoría de los 17 tipos de mensaje y los 7 pares de CustomEvent confirmó que
+**era el único desacuerdo** de todo el paso de mensajes de la extensión.
+
+#### Un 403 tiene que frenar el LOTE, no sólo el trabajo
+
+`out.pausado` se mira ANTES del bucle, así que un lote ya tomado seguía hasta el
+final aunque el primer trabajo volviera con la sesión marcada. Medido: **tres
+trabajos, tres 403 de `PUBLIC_ERROR_UNUSUAL_ACTIVITY`**. Con el corte habría sido
+uno — y cada 403 de más profundiza la marca.
+
+La regla estaba escrita en `lib/flow-protocolo.ts`: *«`sesion_marcada` es el peor y
+el único que obliga a frenar todo»*. No la aplicaba nadie del lado del navegador.
+
+⚠️ Y el `break` va **después** de `marcarLlamadaFlow()`: un pedido rechazado igual
+salió, y no sellarlo deja al ciclo siguiente reintentando rápido contra un bloqueo.
+
+**El principio:** la extensión no clasifica fallos —eso lo decide el server, que
+sabe cuántos créditos hay en juego— pero **frenar no es clasificar**: es la
+dirección segura, la única que un lado subordinado puede tomar solo.
+
+#### ⚠️ `chrome.runtime.reload()` sólo corría donde no puede servir
+
+`quizasReiniciar` reiniciaba la extensión cuando producción servía una versión más
+nueva. Pero `reload()` vuelve a leer **la misma carpeta** —no descarga nada— y el
+`if (manifest.update_url) return` de arriba hacía que corriera **sólo en
+instalaciones descomprimidas**. O sea: se reiniciaba únicamente en el único caso
+donde reiniciar no puede actualizar nada.
+
+Y no era gratis: un `runtime.reload()` mata al service worker y **se lleva la
+alarma**. Es la causa más probable del puente que se apagó y no volvió nunca.
+
+**La regla: antes de automatizar un remedio, comprobá en qué casos corre. Un
+remedio cuya única rama viva es aquella donde no sirve es peor que ninguno —
+consume la confianza del que lo ve pasar y tiene efectos propios.**
+
+#### El botón que arregla vivía en otra pantalla. Otra vez
+
+`AvisoPuente` —con su botón «Ya lo hice, volver a habilitar», el único que levanta
+una sesión marcada— se dibujaba **sólo en el catálogo**. El bloqueo ocurre
+FILMANDO. La persona veía el error en rojo, con un texto que le decía «en el
+catálogo, dentro de "Tu navegador", está el botón», y el botón estaba en otra
+pantalla.
+
+Es la **segunda vez** en esta tab: la primera fue «sumar tomas», y su comentario
+quedó escrito. Pasó igual, porque la lección se anotó sobre el caso y no sobre la
+forma. **La forma: cuando un mensaje de error DESCRIBE dónde está la solución, eso
+no es un mensaje mal redactado — es la evidencia de que la solución está en el
+lugar equivocado.** Se mueve el botón, no se mejora el texto.
+
+El aviso pasó a `Estudio`, que es el chrome de las tres vistas, para que la cuarta
+que alguien agregue nazca con él.
+
+#### Tres pantallas del popup que no llevaban a ningún lado
+
+- **«Conectando…» podía ser para siempre.** Una pantalla SIN BOTÓN colgada de un
+  flag que apaga `finEmparejado` — el mismo proceso que se puede morir. El service
+  worker de MV3 se duerme y `conectar()` espera hasta 12 s a que la página conteste;
+  si lo matan en el medio, el flag queda en `true` y no queda nada que tocar.
+  **Un flag de "en curso" que sólo apaga el proceso en curso necesita una marca de
+  tiempo, o no distingue "trabajando" de "muerto".**
+- **«Todo listo» no miraba el latido.** Era la pantalla que contradice a MaKo sobre
+  el mismo hecho: el popup decía «Todo listo» —hay token, bearer y apiKey en
+  storage— mientras la web decía «tu navegador no está conectado», que es lo que
+  mide el server. Los dos hablaban del mismo navegador y sólo uno miraba el
+  presente. Es el desacuerdo que `estadoDelPuente` ya había venido a cerrar del
+  lado de la web, reapareciendo del lado de la extensión.
+- **Las dos ramas nuevas de `verSaldo` mandaban a ABRIR Flow**, y lo que arregla las
+  dos es RECARGARLO: `abrirFlow` ENFOCA la pestaña que ya está abierta, y enfocar no
+  hace que Flow pida nada — la consulta de créditos que hay que copiar la hace al
+  CARGAR. Escrito veinte minutos antes por esta misma sesión, y cazado por una
+  auditoría adversaria y no por una prueba.
+
+#### El gate de versión, y a quién alcanza cada mitad
+
+El popup frena si la instalada es más vieja que la que sirve producción: es la
+primera pantalla, con los pasos, y no deja seguir. La comparación la hace
+`background.js` con `esMasVieja` —ORDENADA, no `!==`, porque una instalación que va
+ADELANTE no es vieja— y el popup sólo la pinta.
+
+⚠️ **Pero eso no alcanza a quien YA tiene la versión vieja: su popup es el viejo.**
+A esa persona la alcanza `AvisoExtensionVieja`, que renderiza el server — y que
+faltaba justo en el CATÁLOGO, que es donde se empieza un anuncio. Las dos piezas
+dicen lo mismo a públicos distintos, y por eso tienen que existir las dos.
+
+**La regla, para cualquier gate que viva dentro de lo que se está actualizando: el
+gate protege a los que vienen, nunca a los que ya están. Al que ya está lo alcanza
+solamente algo que no dependa de su versión.**
+
+#### Lo que quedó SIN hacer
+
+- **`forzar` no lo lee nadie** (`background.js`): con dos pestañas de MaKo, un clic
+  puede desconectar el otro navegador sin preguntar.
+- **`bearer` y `apiKey` nunca se invalidan**: son un «alguna vez», no un «ahora» —
+  la misma familia que `puente.estado`.
+- **El servidor pega `accion` y `soloLectura` a cada pedido y la extensión no los
+  leyó nunca** (`lib/flow-cola.ts`).
+- **`deLaTienda` viaja al popup y nadie lo lee** — el mismo modo de falla que
+  `r.resultado`, en chiquito, y recién nacido.
+- **La sonda no cierra por ninguno de los dos extremos**, y cambiar de cliente no la
+  borra: urls firmadas del cliente anterior viajan en los latidos del siguiente.
+- **`esperarEnlace()` toma `readyState === 'complete'`** como prueba de que el
+  enlace está montado. Una página cargada no es una página hidratada.
