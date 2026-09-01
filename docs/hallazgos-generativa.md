@@ -4023,3 +4023,197 @@ persona puede tomar mirando su propio video.
   lo puede escribir un cliente.
 - **Los 7 call sites de `puestaPorId`** siguen siendo síncronos y sólo ven los de
   fábrica. Hasta que usen `puestaDe`, un formato creado no se puede usar.
+
+---
+
+## El puente que se apaga al actualizarse, y el timeout que acusaba de no tener sesión (01/09/2026)
+
+**Vive en:** `extension/background.js` · `extension/mako-puente.js` · `extension/popup.js` ·
+`app/layout.tsx` · `app/video-generator/VideoGeneratorApp.tsx` ·
+`app/video-generator/video-action.ts` · `app/video-generator/plan-clips.ts` ·
+`lib/plantilla-fabrica.ts` · `lib/flow-puente-frescura.ts`
+
+Tres síntomas que reportó el dueño con capturas, y **dos de ellos comparten una sola causa**.
+
+### ⚠️ La causa común: el puente vivía dentro de UNA vista de UNA ruta
+
+`<PuenteEnlace />` —lo único que puede acuñar el token, porque nace de una server action
+con la cookie de sesión— se renderizaba en el return final de `VideoGeneratorApp`, detrás
+de **tres** early returns (`vista === 'ejemplo'`, `'wizard'`, `'anuncio'`). Y
+`<AvisoPuente>` estaba en el mismo lugar.
+
+O sea que en el **wizard** —que es DONDE SE FILMA, el único lugar donde el puente
+importa— no había ni el aviso de que el navegador se había caído ni forma de reconectarlo.
+
+Y del otro lado, `mako-puente.js` se inyecta en **toda** `hola-mako.com/*` (manifest). Con
+una pestaña del CRM abierta al lado de la de video, la extensión le pedía el token A ESA,
+que tampoco escuchaba.
+
+**La regla: el alcance de un content script y el del listener que le contesta son EL MISMO
+CONJUNTO, o el que sobra falla en silencio.** El manifest declara el alcance; la página
+tiene que igualarlo. `<PuenteEnlace />` pasó al layout raíz.
+
+### ⚠️ Un service worker MV3 que se actualiza puede no volver a arrancar NUNCA
+
+`chrome.alarms.create('ciclo', …)` estaba en el nivel superior de `background.js`, que es
+lo que todo el mundo escribe. Esa línea corre **cuando el worker arranca**. Después de una
+actualización Chrome termina el worker; si la actualización se llevó la alarma —y la alarma
+era el único evento que podía arrancarlo— **no queda ningún camino de vuelta**.
+
+Medido: el último latido de una clienta reportó `version: '0.37.1'` y su popup corría la
+`0.37.3`. Desde la actualización no latió ni una vez, durante horas.
+
+**Van `chrome.runtime.onInstalled` (dispara con reason 'update') y `chrome.runtime.onStartup`.**
+Son los dos únicos eventos que despiertan al worker sin que nadie toque nada. Y se late en
+el acto, sin esperar el primer disparo.
+
+**Cómo se reconoce:** un puente cuyo `version` en la base es MENOR que la que corre el
+popup. Son dos hechos que se contradicen y sólo se ven juntos si alguien los cruza.
+
+### Un campo GUARDADO no habla del presente, aunque diga «listo»
+
+`generarTomaAction` —el guard que decide si se gastan 12 créditos— chequeaba
+`puente.estado`, que vale `'listo'` desde el último latido bueno **y se queda así con la
+extensión desinstalada**. Nunca miraba `ultimo_visto`.
+
+`estaVivo` existía desde antes y su propio módulo decía tener tres consumidores: «el aviso
+de la tab, el gate que decide si se puede empezar un anuncio, y el guard de reconexión».
+**Eran dos.** El del medio no existía. Es «una regla aplicada en un lugar de dos no está
+implementada, está documentada», con el módulo enumerando sus propios call sites como si
+existieran.
+
+### Un trabajo `pendiente` que nadie toma no caduca nunca
+
+`flow_trabajos` tiene rescate de colgados, pero mira los `tomado` — y encima lo dispara el
+mismo puente que ya no está. Un trabajo que **nunca se tomó** (`tomado_at` null,
+`intentos` 0) se queda ahí para siempre, y la pantalla decía «Filmando» sin tope, sin
+salida y sin botón.
+
+Es exactamente el mismo modo de falla que la cola de montaje, entrando por otra puerta:
+**«está en la fila» y «no hay nadie atendiendo la fila» se ven idénticos desde afuera: un
+spinner.**
+
+A los 4 minutos sin que nadie lo tome se cierra el trabajo y se dice qué pasó. ⚠️ **Se
+CIERRA, no sólo se informa:** si no, un puente que despierte más tarde lo toma igual y el
+cliente paga dos veces la misma toma —la que reintentó y ésta—.
+
+### ⚠️ Un timeout convertido en una acusación
+
+`mako-puente.js` reportaba su timeout de 12 s como `motivo: 'sesion'`, y el popup lo
+AFIRMABA: **«Inicia sesión en MaKo»** — a alguien logueada, mirando su propio tablero, con
+la pestaña abierta al lado.
+
+**Lo que lo delata en un segundo: el server NI SIQUIERA PUEDE emitir ese motivo.**
+`MotivoConectar` es `'rol' | 'sin_ws' | 'otro_navegador' | 'error'`. Los tres únicos
+emisores de `'sesion'` eran de transporte: el timeout, un `catch` genérico en
+`PuenteEnlace`, y un `r || { motivo: 'sesion' }` en `background.js`.
+
+**La regla operativa que queda: cuando un mensaje de error acuse de algo, buscá si ese
+valor existe en el contrato del que supuestamente lo emite.** Si no está, lo inventó el
+transporte — y el transporte no sabe nada del hecho que está afirmando.
+
+Y el remedio importa tanto como el diagnóstico: `sin_enlace` se arregla **recargando**, que
+no tiene nada que ver con iniciar sesión. Mandarla a loguearse la mandaba a arreglar algo
+que estaba bien.
+
+### Tres formas de perder pestañas, en el mismo popup
+
+- **`conectar()` se quedaba con la PRIMERA pestaña que contestara ALGO**, incluido un
+  fracaso — y `mako-puente.js` SIEMPRE contesta, aunque sea su propio timeout. Con dos
+  pestañas abiertas, cuál ganaba dependía del orden en que Chrome las devuelve. Ahora gana
+  el primer ÉXITO, y si todas callan se recarga una y se reintenta.
+- **«Abrir MaKo» hacía `chrome.tabs.create` siempre.** El remedio a «no estás conectada»
+  era una segunda pestaña encima de la que ya estaba abierta. `abrirFlow`, **tres funciones
+  más abajo en el mismo archivo**, ya enfocaba la existente desde siempre: el contraejemplo
+  estaba al lado.
+- **`enlaceListo` es un latch que nunca vuelve a false**, y `esperarEnlace()` toma
+  `readyState === 'complete'` como prueba de que el enlace está montado. No lo es: una
+  página cargada no es una página hidratada. **Sin arreglar.**
+
+### La plantilla de fábrica cubría el primer paso y no el último
+
+Un usuario nuevo llegaba hasta el escenario sin tocar Flow —que era el punto— y ahí, **al
+filmar**, se topaba con «Abre Flow, genera UNO a mano usando tu foto». El paso manual
+apareciendo en el último lugar del recorrido, que es donde más caro sale.
+
+Se pueden sintetizar porque **el cuerpo del pedido ya lo arma el código entero**
+(`cuerpoClipReferencias`): lo único que la plantilla aporta es el `clientContext`, y el
+`projectId` ya viaja en cada latido. Van dos: la que filma y la que pregunta si salió —sin
+la segunda el clip se genera y nadie va a buscarlo—.
+
+⚠️ **Lo que NO se copia del espejo de otro cliente: `userPaygateTier`.** Afirma en qué plan
+está una cuenta, y eso no lo sabemos. Omitirlo deja que lo resuelva Google, que sí lo sabe.
+Es «no se afirma lo que no se verificó» aplicado a un campo de protocolo.
+
+Y `conPlantillaDeFabrica` **salía temprano al encontrar la de imagen**, así que el cliente
+que YA tenía esa —o sea, el que había generado una a mano— nunca recibía las de video. Eran
+justo las que le faltaban. Va clase por clase.
+
+### El guard del apilado se comía el arreglo que venía a proteger
+
+`redistribuir` se abstenía del plan ENTERO ante **una sola** toma filmada. Sobre un plan con
+8 tomas pagadas y la novena con 70 palabras, «sumar una toma» insertaba el clip vacío y
+dejaba las 70 donde estaban: el mismo «corte a negro con la persona callada» que ese guard
+dice que hay que evitar, **entrando por su propia puerta**.
+
+Se reparte dentro de cada **tramo contiguo de tomas sin filmar**. Las filmadas quedan
+congeladas y además hacen de PARED: el texto nunca cruza algo pagado.
+
+**Y el corolario que costó encontrar: un solo `recomponer` para tres operaciones hacía que
+dos mintieran sobre su propio contrato.** `cambiarDuracion` documenta, textual, «No toca el
+texto» — y lo tocaba, porque pasaba por el mismo camino que sumar y quitar. Cada operación
+declara su intención (`siDesborda` / `siempre` / `nunca`).
+
+### ⚠️ `ceil(palabras / tope)` es un PISO, no la respuesta
+
+El botón decía «Partirla en dos tomas», fijo. Se cambió por la cuenta… y la cuenta también
+estaba mal: `repartirGuion` corta en **separadores seguros**, nunca por el medio de una
+frase, así que 70 palabras en 3 tomas de tope 24 dejaban una de 28. Seguía sin poder
+filmarse: el arreglo dejaba el problema puesto.
+
+`partirHastaQueEntre` agrega de a una y **mira el resultado de verdad**, parando cuando
+entra. Y el número del botón sale de la MISMA simulación: con dos cuentas distintas —una
+para mostrar y otra para hacer— el botón promete un número y el server hace otro.
+
+**La regla: cuando el resultado de una operación depende de unidades indivisibles (frases,
+archivos, bloques), la división da un piso. La respuesta se simula.**
+
+### Nadie validaba la densidad antes de cobrar
+
+Dos planes en producción con la última toma en **70 y 63 palabras sobre 8 segundos** —
+densidades de 8,75 y 7,88 contra un techo medido de 3,0. Apretar «Filmar» eran 12 créditos
+cada uno en un clip donde el avatar se traba o se come media frase. El aviso de «no entra»
+estaba en la pantalla; **el guard que gasta el dinero no lo miraba**.
+
+### ⚠️ Nota de método: una refutación adversarial mide el árbol de AHORA
+
+La corrida de agentes verificó las 5 investigaciones y después intentó refutar cada
+hallazgo caro. Para entonces los arreglos ya estaban aplicados en el árbol de trabajo, así
+que los refutadores leyeron el código NUEVO y marcaron como «refutado» casi todo — «no
+sostiene: `PuenteEnlace` está en el layout raíz», «el archivo dice `sin_enlace`».
+
+Eran ciertas todas, y **ninguna refutaba nada**: describían el arreglo. Es la advertencia de
+`AGENTS.md` («un agente no distingue "nunca estuvo roto" de "se arregló hace una hora")
+disparándose sobre la sesión que la escribió.
+
+**La regla operativa: si vas a arreglar mientras una corrida verifica, la fase de
+refutación tiene que correr contra un `git stash` o contra `HEAD`, no contra tu árbol.** Si
+no, su salida es un espejo de tus propios cambios con cara de auditoría independiente.
+
+### Lo que quedó SIN hacer
+
+- **Publicar la extensión 0.38.0 en la Chrome Web Store.** Sin eso, el arreglo del latido
+  no le llega a nadie que la haya instalado desde la tienda — y es EL arreglo que hace que
+  un puente muerto vuelva solo. Necesita a Martín.
+- **`enlaceListo` / `esperarEnlace()`**, arriba: `readyState === 'complete'` no prueba que
+  React hidrató.
+- **El aviso del puente dentro del wizard.** El enlace ya está en todas las pantallas; el
+  AVISO sigue viviendo sólo en el catálogo (`VideoGeneratorApp.tsx:1431`), así que en el
+  wizard el navegador se puede caer sin que nada lo diga. Lo tapa el gate nuevo —no deja
+  filmar y explica por qué—, pero es un error donde debería haber un aviso.
+- **Las otras 2 clases vivas sin fábrica** (`credits` y `uploadImage`), y derivar el
+  `projectId` sin depender de que Flow haga una llamada que lo lleve en la URL.
+- **`puestaDe` sigue sin call sites**, así que un plan hecho con un formato DEL CLIENTE no
+  se puede redistribuir: `puestaPorId` no ve esos formatos y `redistribuir` se abstiene.
+- **`www.hola-mako.com` y los previews no matchean** en el manifest: ahí la extensión se ve
+  como no instalada y el emparejado no puede ocurrir.
