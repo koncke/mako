@@ -220,7 +220,21 @@ export function repartirGuion(hablado: string, topes: number[]): TomaRepartida[]
         const siguiente = porToma[c + 1];
         const w = contarPalabrasReparto(siguiente[0]);
 
-        if (w <= hueco && (siguiente.length > 1 || palabrasDe(siguiente) > w)) {
+        // ⚠️ SE PERMITE VACIAR LA SIGUIENTE SI HAY CON QUÉ RELLENARLA, y esa
+        // era la línea que impedía drenar la cadena.
+        //
+        // El guard viejo se negaba a dejar una toma sin piezas —correcto, una
+        // toma vacía es un corte a negro con la persona muda—, pero lo aplicaba
+        // MIRANDO SÓLO A SU VECINA. Con una toma de una sola pieza en el medio,
+        // nada podía moverse: la de atrás no podía darle, porque quedaría vacía,
+        // y la de adelante seguía con el triple de su tope. Medido en el anuncio
+        // de una clienta: la toma 6 con 4 palabras y lugar para 20, la 7 llena, y
+        // la 8 con 82 contra un tope de 24. El hueco y el desborde mirándose.
+        //
+        // La condición correcta no es «¿queda algo en mi vecina?» sino «¿queda
+        // algo MÁS ADELANTE que la vuelva a llenar?». La ronda siguiente lo hace.
+        const hayConQueRellenar = porToma.slice(c + 2).some((t) => t.length > 1);
+        if (w <= hueco && (siguiente.length > 1 || hayConQueRellenar)) {
           porToma[c].push(siguiente.shift() as string);
           movio = true;
           continue;
@@ -236,6 +250,25 @@ export function repartirGuion(hablado: string, topes: number[]): TomaRepartida[]
       }
     }
     if (!movio) break;
+  }
+
+  // ⚠️ Y LA RED: si algo quedó vacío, se le devuelve una pieza. Permitir vaciar
+  // fue lo que hizo posible drenar, pero una toma sin texto es un corte a negro
+  // con la persona muda — y eso es peor que el desborde que vinimos a arreglar.
+  // Se prefiere una toma corta a una muda.
+  for (let ronda = 0; ronda < n; ronda++) {
+    let arreglo = false;
+    for (let c = 0; c < n; c++) {
+      if (porToma[c].length > 0) continue;
+      const donante = c > 0 && porToma[c - 1].length > 1 ? c - 1
+        : c + 1 < n && porToma[c + 1].length > 1 ? c + 1 : -1;
+      if (donante < 0) continue;
+      // Del anterior se toma su ÚLTIMA pieza; del siguiente, su PRIMERA. Las dos
+      // conservan el orden del guion, que es lo único intocable.
+      porToma[c].push(donante === c - 1 ? porToma[donante].pop() as string : porToma[donante].shift() as string);
+      arreglo = true;
+    }
+    if (!arreglo) break;
   }
 
   for (let c = 0; c < n; c++) {
