@@ -807,7 +807,7 @@ export const CURSO_CREATOR_CLUB: Curso = {
     },
     {
       n: 53,
-      vn: 2,
+      vn: 1,
       grupo: 'Davinci Resolve 0 a 100',
       modulo: 7,
       titulo: 'Clase 1 - Iniciación y controles básicos',
@@ -821,7 +821,7 @@ export const CURSO_CREATOR_CLUB: Curso = {
     },
     {
       n: 54,
-      vn: 3,
+      vn: 2,
       grupo: 'Davinci Resolve 0 a 100',
       modulo: 7,
       titulo: 'Clase 2 - Subitulado, keyframes y más funcionalidades básicas',
@@ -835,7 +835,7 @@ export const CURSO_CREATOR_CLUB: Curso = {
     },
     {
       n: 55,
-      vn: 4,
+      vn: 3,
       grupo: 'Davinci Resolve 0 a 100',
       modulo: 7,
       titulo: 'Clase 3 - Domina Fusion para animaciones avanzadas',
@@ -849,7 +849,7 @@ export const CURSO_CREATOR_CLUB: Curso = {
     },
     {
       n: 56,
-      vn: 5,
+      vn: 4,
       grupo: 'Davinci Resolve 0 a 100',
       modulo: 7,
       titulo: 'Clase 4 - Crea un Reel avanzado animado desde 0',
@@ -863,7 +863,7 @@ export const CURSO_CREATOR_CLUB: Curso = {
     },
     {
       n: 57,
-      vn: 6,
+      vn: 5,
       grupo: 'Davinci Resolve 0 a 100',
       modulo: 7,
       titulo: 'Clase 5 - Plugins esenciales para editar como un PRO (incluidos)',
@@ -877,7 +877,7 @@ export const CURSO_CREATOR_CLUB: Curso = {
     },
     {
       n: 58,
-      vn: 7,
+      vn: 6,
       grupo: 'Davinci Resolve 0 a 100',
       modulo: 7,
       titulo: 'Clase 6 - Subtítulos con textura y animaciones avanzadas con Presets',
@@ -891,7 +891,7 @@ export const CURSO_CREATOR_CLUB: Curso = {
     },
     {
       n: 59,
-      vn: 8,
+      vn: 7,
       grupo: 'Davinci Resolve 0 a 100',
       modulo: 7,
       titulo: 'Clase 7 - Colorización paso a paso + plantillas',
@@ -905,7 +905,7 @@ export const CURSO_CREATOR_CLUB: Curso = {
     },
     {
       n: 60,
-      vn: 9,
+      vn: 8,
       grupo: 'Davinci Resolve 0 a 100',
       modulo: 7,
       titulo: 'Clase 8 - Pack V3 de subtítulos animados (metalizados y más)',

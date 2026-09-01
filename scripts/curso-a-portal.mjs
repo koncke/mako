@@ -417,6 +417,7 @@ const choques = new Map();
 for (const m of modulos) choques.set(sinOrdinal(m), (choques.get(sinOrdinal(m)) ?? 0) + 1);
 const nombreGrupo = (m) => (m ? (choques.get(sinOrdinal(m)) > 1 ? String(m) : sinOrdinal(m)) : undefined);
 const clases = [];
+let rescatadas = 0;
 let conTx = 0, sinTx = 0, conApuntes = 0;
 
 // ⚠️ Una clase SIN id de Drive no entra a la ficha. Antes se emitía igual con
@@ -471,6 +472,28 @@ for (const c of plan.clases) {
     sinTx++;
   }
 
+  /**
+   * ⚠️ «¿LA PRODUJE YO EN ESTA CORRIDA?» NO ES «¿EXISTE?».
+   *
+   * `hasTx` se marcaba sólo cuando este script encontraba el `.md` local y escribía el
+   * JSON. Pero el `.md` se limpia —el texto vive en `public/cono-tx/<videoId>.json`, que
+   * es lo que el portal lee— así que al regenerar una ficha vieja las clases cuyo `.md` ya
+   * no está quedan con `hasTx: false` y **el portal no ofrece la pestaña**, con la
+   * transcripción publicada ahí al lado.
+   *
+   * Medido el 01/09/2026 en «MasteryHaus»: 7 clases con 137 a 361 párrafos cada una,
+   * invisibles. No hay error, no hay pestaña vacía —que al menos se vería—: directamente
+   * no está la pestaña, así que nada delata que falte algo.
+   *
+   * La pregunta correcta se le hace al DISCO, que es de donde lo va a leer el navegador.
+   */
+  if (!hasTx && videoId && existsSync(join(dirTx, `${videoId}.json`))) {
+    hasTx = true;
+    conTx++;
+    sinTx--;
+    rescatadas++;
+  }
+
   // vn = número dentro del módulo, para el badge del hub.
   const delModulo = plan.clases.filter((x) => x.modulo === c.modulo);
   const vn = delModulo.findIndex((x) => x.n === c.n) + 1;
@@ -518,6 +541,38 @@ for (const c of plan.clases) {
     hasTx,
   });
 }
+
+/**
+ * ── EL BADGE NUMERA LO QUE SE VE, no lo que traía el plan ────────────────────
+ *
+ * `vn` se calculaba con `plan.clases.filter(...)`, o sea contra el plan CRUDO. Ese plan
+ * incluye filas que nunca llegan a la ficha —un link a los packs de recursos, unos brutos
+ * para practicar, una lección que la plataforma no tiene—, así que cuando la que caía era
+ * la primera del módulo, las que quedaban salían numeradas 2, 3, 4…
+ *
+ * Medido el 01/09/2026: en «Creator Club» el módulo «Davinci Resolve 0 a 100» mostraba con
+ * el badge 2 una clase cuyo propio título es «Clase 1 - Iniciación y controles básicos».
+ * En «$100M Money Models», 32 clases numeradas del 2 al 33. Es exactamente el pedido de
+ * Martín del 28/08 —«quiero que en cada módulo se reinicie el contador»— vuelto a abrir
+ * por una causa distinta: aquella vez el contador era global, ésta arranca corrido.
+ *
+ * ⚠️ Se renumera acá y no en el cálculo de arriba porque recién en este punto se sabe
+ *    QUÉ clases sobrevivieron: el filtro que las descarta corre adentro del mismo bucle
+ *    que las numera, así que mientras numera todavía no sabe.
+ */
+const porModulo = new Map();
+for (const c of clases) {
+  const k = c.grupo ?? '';
+  porModulo.set(k, [...(porModulo.get(k) ?? []), c]);
+}
+let renumeradas = 0;
+for (const [, xs] of porModulo) {
+  xs.forEach((c, i) => {
+    if (c.vn !== undefined && c.vn !== i + 1) renumeradas++;
+    c.vn = xs.length > 1 ? i + 1 : c.vn;
+  });
+}
+if (renumeradas) console.log(`  · ${renumeradas} clase(s) renumeradas: el badge arrancaba corrido`);
 
 // ── Emitir el módulo del curso ───────────────────────────────────────────────
 // El slug del plan suele venir con «curso-de-» adelante; sin quitarlo el archivo

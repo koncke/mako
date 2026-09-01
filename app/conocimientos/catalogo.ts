@@ -811,6 +811,11 @@ const AUTOR: Record<string, string> = {
  *    «Jaque Blue - Creacion de Contenido» es el curso y su tema. Van a mano abajo.
  */
 const TITULO_CORTO: Record<string, string> = {
+  // Acá no sobra un autor: sobra el título. 63 caracteres —«Curso Aprende a importar de
+  // China y crea un e-commerce de éxito»— no entran en el hero y lo parten en tres
+  // renglones. Se recorta conservando las DOS ideas que lo definen, importar y vender:
+  // quedarse sólo con «Aprende a importar de China» tira la mitad del curso.
+  'aprende-a-importar-de-china-y-crea-un-e-commerce-de-exito': 'Importar de China y crear un e-commerce',
   // El autor va PRIMERO: cortar por la derecha deja el nombre de la persona y tira el
   // del curso, que es exactamente lo contrario de lo que se busca.
   // ⚠️ La clave es el SLUG, y acá no coincide con lo que se ve: el curso se llamaba
@@ -1116,6 +1121,16 @@ const primerFrame = (c: Curso): string | undefined => {
   const id = c.clases?.find((k) => k.videoId)?.videoId;
   return id ? `https://drive.google.com/thumbnail?id=${id}&sz=w800` : undefined;
 };
+
+/**
+ * ¿El `cardDesc` de este curso lo escribió `curso-a-portal.mjs` o una persona?
+ *
+ * El generador arma «N clases en M módulos.»; las fichas escritas a mano traen copy. Es la
+ * diferencia entre poder reusarlo en el hero y estar poniendo ahí el pie de la tarjeta.
+ * Se reconoce por la FORMA, que es estable porque la escribe una plantilla: empieza con un
+ * número y sigue con «clase/clases».
+ */
+const cardDescEsGenerado = (d?: string) => !d || /^\d+\s+clases?\b/.test(d.trim());
 
 const conAutor = (titulo: string, autor?: string) =>
   autor && !sinAcentos(titulo).includes(sinAcentos(autor)) ? `${titulo} - ${autor}` : titulo;
@@ -1439,7 +1454,17 @@ export const CURSOS_TODOS: Curso[] = [
   tituloCorto: sinAutor(TITULO[c.slug] ?? conAutor(c.titulo, AUTOR[c.slug]), c.slug),
   // Lo que declara la ficha gana: si algún día un curso trae el suyo propio, ese es más
   // específico que el de la plataforma de origen.
-  resumen: c.resumen ?? RESUMEN[c.slug],
+  //
+  // Y si no hay ninguno de los dos, cae al `cardDesc` — pero SOLO si es copy de verdad.
+  // Siete cursos tenían el hero con el título solo teniendo su descripción escrita a mano
+  // dos campos más allá: las fichas propias de MaKo y las que se cargaron a mano nunca
+  // pasaron por la plataforma de origen, que es de donde sale `RESUMEN`.
+  //
+  // ⚠️ LA SALVEDAD ES TODO EL ARREGLO. En los cursos auto-generados `cardDesc` es «106
+  //    clases en 16 módulos», y eso en el hero no es una descripción: es el pie de la
+  //    tarjeta puesto donde va la promesa del curso. Un fallback sin este filtro cambia
+  //    siete heroes vacíos por noventa heroes que dicen una obviedad.
+  resumen: c.resumen ?? RESUMEN[c.slug] ?? (cardDescEsGenerado(c.cardDesc) ? undefined : c.cardDesc),
   // La réplica es la vista de TODOS los cursos, no un modo de uno. Se pone acá y no
   // curso por curso porque un flag que hay que acordarse de poner deja al próximo curso
   // naciendo con la vista vieja — y nadie se entera hasta que lo abre alguien.

@@ -28,7 +28,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
   clases: [
     {
       n: 2,
-      vn: 2,
+      vn: 1,
       grupo: '1. $100M Money Models',
       subgrupo: 'Skool Money Models Tutorial',
       modulo: 1,
@@ -43,7 +43,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 3,
-      vn: 3,
+      vn: 2,
       grupo: '1. $100M Money Models',
       subgrupo: 'Next Steps',
       modulo: 1,
@@ -58,7 +58,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 4,
-      vn: 4,
+      vn: 3,
       grupo: '1. $100M Money Models',
       subgrupo: 'Next Steps',
       modulo: 1,
@@ -73,7 +73,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 5,
-      vn: 5,
+      vn: 4,
       grupo: '1. $100M Money Models',
       subgrupo: 'Next Steps',
       modulo: 1,
@@ -88,7 +88,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 6,
-      vn: 6,
+      vn: 5,
       grupo: '1. $100M Money Models',
       subgrupo: 'Continuity Offers',
       modulo: 1,
@@ -103,7 +103,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 7,
-      vn: 7,
+      vn: 6,
       grupo: '1. $100M Money Models',
       subgrupo: 'Continuity Offers',
       modulo: 1,
@@ -118,7 +118,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 8,
-      vn: 8,
+      vn: 7,
       grupo: '1. $100M Money Models',
       subgrupo: 'Continuity Offers',
       modulo: 1,
@@ -133,7 +133,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 9,
-      vn: 9,
+      vn: 8,
       grupo: '1. $100M Money Models',
       subgrupo: 'Continuity Offers',
       modulo: 1,
@@ -148,7 +148,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 10,
-      vn: 10,
+      vn: 9,
       grupo: '1. $100M Money Models',
       subgrupo: 'Downsell Offers',
       modulo: 1,
@@ -163,7 +163,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 11,
-      vn: 11,
+      vn: 10,
       grupo: '1. $100M Money Models',
       subgrupo: 'Downsell Offers',
       modulo: 1,
@@ -178,7 +178,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 12,
-      vn: 12,
+      vn: 11,
       grupo: '1. $100M Money Models',
       subgrupo: 'Downsell Offers',
       modulo: 1,
@@ -193,7 +193,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 13,
-      vn: 13,
+      vn: 12,
       grupo: '1. $100M Money Models',
       subgrupo: 'Downsell Offers',
       modulo: 1,
@@ -208,7 +208,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 14,
-      vn: 14,
+      vn: 13,
       grupo: '1. $100M Money Models',
       subgrupo: 'Upsell Offers',
       modulo: 1,
@@ -223,7 +223,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 15,
-      vn: 15,
+      vn: 14,
       grupo: '1. $100M Money Models',
       subgrupo: 'Upsell Offers',
       modulo: 1,
@@ -238,7 +238,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 16,
-      vn: 16,
+      vn: 15,
       grupo: '1. $100M Money Models',
       subgrupo: 'Upsell Offers',
       modulo: 1,
@@ -253,7 +253,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 17,
-      vn: 17,
+      vn: 16,
       grupo: '1. $100M Money Models',
       subgrupo: 'Upsell Offers',
       modulo: 1,
@@ -268,7 +268,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 18,
-      vn: 18,
+      vn: 17,
       grupo: '1. $100M Money Models',
       subgrupo: 'Upsell Offers',
       modulo: 1,
@@ -283,7 +283,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 19,
-      vn: 19,
+      vn: 18,
       grupo: '1. $100M Money Models',
       subgrupo: 'Attraction Offers',
       modulo: 1,
@@ -298,7 +298,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 20,
-      vn: 20,
+      vn: 19,
       grupo: '1. $100M Money Models',
       subgrupo: 'Attraction Offers',
       modulo: 1,
@@ -313,7 +313,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 21,
-      vn: 21,
+      vn: 20,
       grupo: '1. $100M Money Models',
       subgrupo: 'Attraction Offers',
       modulo: 1,
@@ -328,7 +328,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 22,
-      vn: 22,
+      vn: 21,
       grupo: '1. $100M Money Models',
       subgrupo: 'Attraction Offers',
       modulo: 1,
@@ -343,7 +343,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 23,
-      vn: 23,
+      vn: 22,
       grupo: '1. $100M Money Models',
       subgrupo: 'Attraction Offers',
       modulo: 1,
@@ -358,7 +358,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 24,
-      vn: 24,
+      vn: 23,
       grupo: '1. $100M Money Models',
       subgrupo: 'Attraction Offers',
       modulo: 1,
@@ -373,7 +373,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 25,
-      vn: 25,
+      vn: 24,
       grupo: '1. $100M Money Models',
       subgrupo: 'Intro',
       modulo: 1,
@@ -388,7 +388,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 26,
-      vn: 26,
+      vn: 25,
       grupo: '1. $100M Money Models',
       subgrupo: 'Intro',
       modulo: 1,
@@ -403,7 +403,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 27,
-      vn: 27,
+      vn: 26,
       grupo: '1. $100M Money Models',
       subgrupo: 'Intro',
       modulo: 1,
@@ -418,7 +418,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 28,
-      vn: 28,
+      vn: 27,
       grupo: '1. $100M Money Models',
       subgrupo: 'Intro',
       modulo: 1,
@@ -433,7 +433,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 29,
-      vn: 29,
+      vn: 28,
       grupo: '1. $100M Money Models',
       subgrupo: 'Intro',
       modulo: 1,
@@ -448,7 +448,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 30,
-      vn: 30,
+      vn: 29,
       grupo: '1. $100M Money Models',
       subgrupo: 'Intro',
       modulo: 1,
@@ -463,7 +463,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 31,
-      vn: 31,
+      vn: 30,
       grupo: '1. $100M Money Models',
       subgrupo: 'Intro',
       modulo: 1,
@@ -478,7 +478,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 32,
-      vn: 32,
+      vn: 31,
       grupo: '1. $100M Money Models',
       subgrupo: 'Intro',
       modulo: 1,
@@ -493,7 +493,7 @@ export const CURSO_100M_MONEY_MODELS: Curso = {
     },
     {
       n: 33,
-      vn: 33,
+      vn: 32,
       grupo: '1. $100M Money Models',
       subgrupo: 'Intro',
       modulo: 1,

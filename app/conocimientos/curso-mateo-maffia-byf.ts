@@ -471,7 +471,7 @@ export const CURSO_MATEO_MAFFIA_BYF: Curso = {
     },
     {
       n: 31,
-      vn: 2,
+      vn: 1,
       grupo: '8 - Que la gente quiera comprart',
       modulo: 8,
       titulo: 'Cómo hacer que quieran comprarte LO QUE SEA - Desafío BYF Desafí',
@@ -485,7 +485,7 @@ export const CURSO_MATEO_MAFFIA_BYF: Curso = {
     },
     {
       n: 32,
-      vn: 3,
+      vn: 2,
       grupo: '8 - Que la gente quiera comprart',
       modulo: 8,
       titulo: 'Nicho - Desafío BYF Desafío Build Your Freedom',
