@@ -41,10 +41,19 @@ export function TemaOscuro() {
     return () => { if (!yaEstaba) document.documentElement.removeAttribute(MARCA); };
   }, []);
 
-  return (
-    <script
-      // eslint-disable-next-line react/no-danger
-      dangerouslySetInnerHTML={{ __html: `document.documentElement.setAttribute('${MARCA}','${VALOR}')` }}
-    />
-  );
+  // ⚠️ NO DEVUELVE NADA, y el `<script>` que evita el flash se mudó a
+  // `TemaOscuroScript`, que NO es un componente cliente.
+  //
+  // React se quejaba en CADA render: «Encountered a script tag while rendering
+  // React component. Scripts inside React components are never executed when
+  // rendering on the client». Tiene razón —en el pase de cliente no se ejecuta—
+  // y el error era permanente y falso, que es la peor clase de ruido: el
+  // protocolo de este repo dice que ante un problema lo primero es mirar la
+  // consola de quien lo está viendo, y un error falso que sale siempre enseña a
+  // ignorarla.
+  //
+  // Lo que queda acá es lo que el script NO puede hacer: prender el atributo al
+  // volver a esta ruta por navegación de cliente, donde no hay documento nuevo
+  // que parsear, y apagarlo al salir.
+  return null;
 }

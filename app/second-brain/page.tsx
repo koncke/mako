@@ -32,6 +32,7 @@ import { BotonClaude } from './BotonClaude';
 import { getAgenteToken } from '@/lib/agente-token';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { TemaOscuro } from '@/app/_components/TemaOscuro';
+import { TemaOscuroScript } from '@/app/_components/TemaOscuroScript';
 import { APP_BASE_URL } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
@@ -64,6 +65,7 @@ export default async function SecondBrainPage() {
       {/* El mapa se pinta oscuro, y la PÁGINA con él: el pedido del dueño es que el
           lienzo no tenga un fondo distinto al de la página. La única forma de que sean
           el mismo color es que no haya dos colores. */}
+      <TemaOscuroScript />
       <TemaOscuro />
       {/* ⚠️ EL HEADER LO ARMA `VistaCerebro`, NO ESTA PÁGINA. Los dos botones del header
           dependen de lo que el mapa está mostrando (exportar baja el recorte que estás

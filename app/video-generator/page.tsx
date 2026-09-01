@@ -16,6 +16,9 @@ import { guionesDisponibles } from './guiones-datos';
 import { leerAnuncios } from './anuncios-datos';
 import { leerSaldoGuardado, costoPorClip } from './saldo-datos';
 import { VideoGeneratorApp } from './VideoGeneratorApp';
+// El interruptor del tema, en el HTML del servidor: corre antes del primer
+// pintado y evita el fogonazo blanco. Ver TemaOscuroScript.
+import { TemaOscuroScript } from '@/app/_components/TemaOscuroScript';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -26,7 +29,7 @@ export default async function Page() {
   const ws = await getWorkspaceActual();
   // Agencia sin impersonar: no hay workspace del que leer. La vista igual se
   // sirve (las actions cortan con su propio error si intenta operar).
-  if (ws == null) return <VideoGeneratorApp historialInicial={[]} contexto={null} puente={null} guiones={[]} anuncios={[]} saldo={{ creditos: null, at: null, tier: '' }} costoClip={{ creditos: 15, medido: false }} />;
+  if (ws == null) return <><TemaOscuroScript /><VideoGeneratorApp historialInicial={[]} contexto={null} puente={null} guiones={[]} anuncios={[]} saldo={{ creditos: null, at: null, tier: '' }} costoClip={{ creditos: 15, medido: false }} /></>;
 
   const [historial, contexto, puente, guiones, anuncios, saldo, costoClip] = await Promise.all([
     leerHistorial(),
@@ -49,6 +52,8 @@ export default async function Page() {
   ]);
 
   return (
+    <>
+    <TemaOscuroScript />
     <VideoGeneratorApp
       historialInicial={historial}
       contexto={contexto}
@@ -58,5 +63,6 @@ export default async function Page() {
       saldo={saldo}
       costoClip={costoClip}
     />
+    </>
   );
 }
