@@ -3834,3 +3834,63 @@ encontró un defecto real, introducido esa misma hora, que ningún test podía v
 y ése justificó la corrida entera. Un panel adversario no se mide por su tasa de
 acierto: se mide por si el hallazgo que sí trae es de los que no se encuentran de
 otra forma.
+
+## Una ventana GLOBAL para una pregunta que es de UNA entidad (01/09/2026)
+
+**Vive en:** `app/video-generator/video-action.ts` (`estadoTomaAction`)
+
+`estadoTomaAction` traía las últimas 12 filas de `estado_clips` **de cualquier
+operación** y recién después filtraba en JS por la suya. La pregunta es de una
+toma; la ventana era del sistema entero.
+
+Con varias tomas en vuelo, las doce filas más nuevas pueden ser todas de las
+OTRAS, y la fila `listo` que ya trae la url de ésta se cae de la ventana. El bucle
+no encuentra nada, la función llega al final, `consultarUnaVez` encola otra
+consulta — y **no converge nunca: cuantas más tomas hay, menos chance tiene cada
+una de verse**.
+
+Medido sobre las 298 filas de `estado_clips` de producción, contando operaciones
+distintas dentro de cada ventana de 12 filas consecutivas:
+
+```
+  MÁXIMO: 10 operaciones distintas en 12 slots
+  30 ventanas con 6 o más
+```
+
+Ya estaba al borde, **con el sondeo viejo que seguía una sola toma**.
+
+### Lo que lo hace valioso: dos aceleraciones correctas empujaban justo ahí
+
+El lote de 5 hace que la cola drene más rápido (más filas nuevas por minuto) y el
+sondeo pasó a preguntar por TODAS las tomas en vuelo. Los dos cambios son
+correctos, y **los dos acercan este techo**. Encontrarlo después de mergearlos se
+habría reportado como *«se cuelga desde que aceleramos»*, y el diagnóstico obvio
+—revertir la aceleración— habría sido el equivocado: el defecto es de 2026-08-31 y
+la aceleración sólo lo destapa.
+
+**La regla: al acelerar algo, buscá qué CONSULTAS tienen un tope fijo aguas
+abajo.** Un `limit(N)` sobre una tabla compartida es un supuesto de concurrencia
+escrito como número, y acelerar la producción de filas es exactamente lo que lo
+rompe. El síntoma no aparece del lado que cambiaste.
+
+### Las tres decisiones del arreglo
+
+- **El `limit(12)` NO se baja.** Con una sola operación en vuelo la profundidad
+  efectiva de hoy ya es de hasta 12 filas suyas; recortarla sería una regresión en
+  el camino `a_ciegas`, donde la fila que importa es la `listo` con `SUCCESSFUL`
+  —la única que dispara `conseguirEnlace` en cada vuelta— y cada `fallido` la
+  empuja hacia abajo. Con la ventana chica, tres fallas la entierran y dejaríamos
+  de pedirle el enlace a un clip que **existe y está pagado**.
+- **Sólo `listo`/`fallido` en el SELECT.** Son los únicos estados que leen los tres
+  consumidores. Las filas `pendiente`/`tomado` no se miran nunca, y sacarlas en SQL
+  es lo que evita que **las consultas en vuelo se coman los slots** — la otra mitad
+  de la causa, y la que más crece con el paralelismo.
+- **Sin índice, y queda escrito.** `pedido->>operacion` no está indexado y el
+  `limit` se aplica DESPUÉS del predicado, así que para una operación con filas ya
+  viejas el plan recorre `id` hacia atrás. Hoy no se nota y `consultarUnaVez` hace
+  este mismo filtro desde el 31/08; crece con la tabla, que nadie purga. Cuando
+  moleste va un índice de expresión, **no un `limit` más chico** — el `limit` chico
+  rompe lo de arriba.
+
+Es estrictamente más seguro que antes: la versión vieja podía encontrar **cero**
+filas propias; ésta encuentra siempre al menos las mismas.
