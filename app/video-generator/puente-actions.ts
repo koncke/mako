@@ -32,7 +32,11 @@ async function ctxAdmin(): Promise<{ ok: true; ws: number } | { ok: false; motiv
 }
 
 export type ConectarOut =
-  | { ok: true; token: string; workspace: string }
+  // ⚠️ `wsId` viaja para que la extensión sepa SI CAMBIÓ DE CLIENTE. No alcanza
+  // con mirar el token: `crearTokenPuente` acuña uno nuevo en cada conexión, así
+  // que comparar tokens da «cambió» hasta reconectando el mismo workspace. No es
+  // un dato sensible: es el workspace que la propia página ya está mirando.
+  | { ok: true; token: string; workspace: string; wsId: number }
   | { ok: false; motivo: MotivoConectar; error: string; etiqueta?: string };
 
 /**
@@ -105,7 +109,7 @@ export async function conectarPuenteAction(etiqueta: string): Promise<ConectarOu
     // abierto empareja su navegador AL WORKSPACE DEL CLIENTE y gasta ahí sus
     // créditos de Flow, sin una sola pantalla que lo diga. Mostrarlo es la
     // diferencia entre un error que se ve y uno que se descubre a los tres días.
-    return { ok: true, token, workspace: (await nombreDeWorkspace(ctx.ws)) };
+    return { ok: true, token, workspace: (await nombreDeWorkspace(ctx.ws)), wsId: ctx.ws };
   } catch (e) {
     return { ok: false, motivo: 'error', error: e instanceof Error ? e.message : String(e) };
   }

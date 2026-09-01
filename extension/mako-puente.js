@@ -73,10 +73,18 @@ function pedirToken(forzar) {
       // Se limpia SOLO cuando el token cambia: reconectar el mismo cliente no
       // puede costarle lo que ya habia aprendido, que es justo lo que evita
       // volver a pedirle que genere algo a mano.
-      chrome.storage.local.get(['token'], (previo) => {
-        const cambio = previo && previo.token && previo.token !== token;
+      // ⚠️ SE COMPARA EL WORKSPACE, NO EL TOKEN — y la primera version comparaba
+      // el token, que era un bug con cara de arreglo: `crearTokenPuente` acuña un
+      // token NUEVO en cada conexion, asi que «el token cambio» era cierto hasta
+      // reconectando el MISMO cliente, y con eso se le borraban las plantillas
+      // que ya habia aprendido. El comentario decia lo contrario del codigo.
+      const wsId = Number(d.wsId) || 0;
+      chrome.storage.local.get(['wsId'], (previo) => {
+        // Sin `wsId` no se borra nada: no saber de quien era es razon para
+        // abstenerse, no para tirarle a alguien lo que le costo generar.
+        const cambio = !!wsId && !!previo && !!previo.wsId && previo.wsId !== wsId;
         const guardar = () => chrome.storage.local.set(
-          { token, workspaceNombre: String(d.workspace || '') },
+          { token, wsId, workspaceNombre: String(d.workspace || '') },
           () => cerrar({ ok: true }),
         );
         if (!cambio) { guardar(); return; }

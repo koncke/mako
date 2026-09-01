@@ -51,7 +51,7 @@ export function PuenteEnlace(): null {
           out.ok ? 'MAKO_PUENTE_TOKEN' : 'MAKO_PUENTE_TOKEN_ERROR',
           {
             detail: out.ok
-              ? { id, token: out.token, workspace: out.workspace }
+              ? { id, token: out.token, workspace: out.workspace, wsId: out.wsId }
               : { id, motivo: out.motivo, etiqueta: out.etiqueta ?? '' },
           },
         ));
