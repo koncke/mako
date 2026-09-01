@@ -43,6 +43,8 @@ import { creditosDeClip } from '@/lib/costo-clip';
 import { promptDeClip } from '@/lib/prompts-video';
 import { imagenEnCurso } from './variantes-imagen';
 import { nombreDeClip } from './video-pedido';
+import { PasoTomas } from './PasoTomas';
+import { creditosDeClip as creditosDeClipFlow } from '@/lib/costo-clip';
 import { promptFinal } from '@/lib/flow-imagen';
 import { useExtensionInstalada, AvisoExtensionVieja } from './extension-instalada';
 import { Foto, FotoGrande, ModalFotos } from './ElegirFoto';
@@ -50,6 +52,7 @@ import {
   escribirEscenasAction, generarImagenAction, estadoImagenAction,
   elegirImagenAction, subirImagenEscenaAction, confirmarEscenaAction,
   generarTomaAction, estadoTomaAction, descartarTomaAction, restaurarTomaAction, guardarPromptTomaAction, guardarPromptEscenaAction, marcarCaraVistaAction,
+  editarClipsAction, escribirVozTomaAction,
   elegirFotoAction, elegirUltimaFotoAction,
   cambiarMuletillasAction,
 } from './video-action';
@@ -226,6 +229,15 @@ type Paso =
   | { id: 'guion-leer' }
   | { id: 'escenario'; n: number }
   | { id: 'cara' }
+  /**
+   * TODAS las tomas, en una sola pantalla.
+   *
+   * ⚠️ Reemplaza a `toma-N` y a `cara`, que eran ocho pasos para una decisión
+   * repetida. El dueño: «que esos no representen muchos pasos del form, que
+   * representen 1 solo paso». `toma` sobrevive sólo como destino de los `Volver`
+   * viejos; `pasoDe` ya no lo devuelve nunca.
+   */
+  | { id: 'tomas' }
   | { id: 'toma'; n: number }
   /**
    * Ver y cambiar el prompt de una toma.
@@ -254,15 +266,15 @@ export function pasoDe(item: PlanGuardado, forzado: Paso | null): Paso {
   const sinConfirmar = escenas.find((e) => !item.imagenes?.[String(e.n)]?.confirmada);
   if (sinConfirmar) return { id: 'escenario', n: sinConfirmar.n };
 
-  const tomas = item.plan.clips;
-  const uno = item.video?.['1'];
-  // La cara se mira UNA vez, y justo cuando existe la evidencia para mirarla: con
-  // la toma 1 lista y ninguna otra. Antes no hay qué comparar; después ya se
-  // heredó en seis clips pagados.
-  if (uno?.url && !item.caraVista) return { id: 'cara' };
-
-  const falta = tomas.find((c) => !item.video?.[String(c.n)]?.url);
-  if (falta) return { id: 'toma', n: falta.n };
+  // ⚠️ UN SOLO PASO PARA LAS N TOMAS, y con él se fue el paso `cara`.
+  //
+  // No se fue el GATE que ese paso protegía —que nadie gaste ~105 créditos con
+  // una cara que no miró—: se mudó al botón. Mientras no haya una toma aprobada,
+  // lo único que la pantalla ofrece es filmar la primera. La protección deja de
+  // ser una pared y pasa a ser el camino por defecto, que es más barato de
+  // obedecer que de esquivar.
+  const falta = item.plan.clips.some((c) => !item.video?.[String(c.n)]?.url);
+  if (falta) return { id: 'tomas' };
   return { id: 'listo' };
 }
 
@@ -290,11 +302,12 @@ function pasoAnterior(mapa: string[], actual: string): Paso | null {
 
 function mapaDe(item: PlanGuardado): string[] {
   const escenas = item.escenas ?? [];
+  // Una sola marca para todas las tomas: el indicador de arriba mide el
+  // RECORRIDO, y filmar dejó de ser N pasos para ser uno.
   return [
     'guion-leer',
     ...(escenas.length ? escenas.map((e) => `escenario-${e.n}`) : ['escenario-1']),
-    'toma-1', 'cara',
-    ...item.plan.clips.slice(1).map((c) => `toma-${c.n}`),
+    'tomas',
     'listo',
   ];
 }
@@ -304,8 +317,11 @@ function clave(p: Paso): string {
   // SOBRE esa toma o ese escenario, no un paso más del anuncio. Y tiene que
   // mirar `de`: con `toma-` fijo, editar el prompt de una IMAGEN movía el
   // indicador de arriba a otra parte del recorrido.
-  if (p.id === 'prompt') return `${p.de === 'escena' ? 'escenario' : 'toma'}-${p.n}`;
-  return p.id === 'escenario' || p.id === 'toma' ? `${p.id}-${p.n}` : p.id;
+  if (p.id === 'prompt') return p.de === 'escena' ? `escenario-${p.n}` : 'tomas';
+  // Los `toma-N` viejos —a los que todavía apunta algún «Volver»— cuentan como el
+  // paso único, que es donde de verdad aterrizan.
+  if (p.id === 'toma') return 'tomas';
+  return p.id === 'escenario' ? `escenario-${p.n}` : p.id;
 }
 
 // ── Piezas ──────────────────────────────────────────────────────────────────
@@ -1033,6 +1049,8 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
   const [eligiendoFoto, setEligiendoFoto] = useState(false);
   /** El panel de salidas encima del CLIP (el gemelo de `rehacer`, que es el de la imagen). */
   const [rehacerClip, setRehacerClip] = useState(false);
+  /** Qué toma se está mirando en el paso único. */
+  const [tomaSel, setTomaSel] = useState(1);
   /** El texto del prompt mientras se edita, en el paso `prompt`. */
   const [promptTexto, setPromptTexto] = useState('');
   /**
@@ -1957,7 +1975,97 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
       };
     }
 
-    // ── 4. Filmar ─────────────────────────────────────────────────────────
+    // ── 4. TODAS LAS TOMAS, EN UNA PANTALLA ───────────────────────────────
+    if (paso.id === 'tomas') {
+      const total = item.plan.clips.length;
+      const filmadas = item.plan.clips.filter((c) => item.video?.[String(c.n)]?.url).length;
+      const faltan = item.plan.clips.filter((c) => !item.video?.[String(c.n)]?.url);
+      const creditos = faltan.reduce((t, c) => t + (creditosDeClip(c.segundos) ?? 15), 0);
+      // ⚠️ EL GATE DE LA CARA, convertido en botón. Mientras no haya una toma
+      // aprobada lo único que se ofrece es filmar la primera: nadie gasta ~90
+      // créditos con una cara que todavía no miró. Aprobar y lanzar el resto es
+      // la MISMA pulsación, así que la protección no cuesta un paso.
+      const aprobada = !!item.caraVista && filmadas > 0;
+      const primeraSinFilmar = faltan[0]?.n ?? 1;
+
+      return {
+        ancho: 480,
+        pregunta: aprobada
+          ? `Tus tomas (${filmadas} de ${total})`
+          : filmadas > 0 ? '¿Apruebas este clip?' : 'Filmemos la primera',
+        titulo: aprobada || filmadas === 0
+          ? undefined
+          : 'Si la cara es la tuya, con una pulsación se filman todas las demás.',
+        cuerpo: (
+          <PasoTomas
+            item={item}
+            sel={Math.min(tomaSel, total)}
+            onSel={setTomaSel}
+            ocupado={ocupado}
+            correr={(e, fn, av) => void correr(e, fn, av)}
+            onEditarPrompt={(n) => {
+              const c = item.plan.clips.find((x) => x.n === n);
+              setPromptTexto(c ? promptDeClip(item.plan.puestaId, c, item.promptsPropios?.[String(n)]) : '');
+              setForzado({ id: 'prompt', n, de: 'toma' });
+            }}
+            onNoSeParece={(n) => {
+              const e = (item.escenas ?? []).find((x) => n >= x.desde && n <= x.hasta);
+              setExplicandoParecido(true);
+              setForzado({ id: 'escenario', n: e?.n ?? 1 });
+            }}
+            acciones={{
+              generar: (n) => generarTomaAction(item.id, n),
+              descartar: (n) => descartarTomaAction(item.id, n),
+              recuperar: (n) => restaurarTomaAction(item.id, n),
+              editar: (orden) => editarClipsAction(item.id, orden),
+              escribirVoz: (n, voz) => escribirVozTomaAction(item.id, n, voz),
+            }}
+          />
+        ),
+        boton: filmadas === 0
+          ? `Filmar la toma ${primeraSinFilmar}`
+          : !aprobada
+            ? `Sí, filmar las ${faltan.length} que faltan`
+            : faltan.length
+              ? `Filmar las ${faltan.length} que faltan`
+              : 'Ver el anuncio entero',
+        consecuencia: filmadas === 0
+          ? textoCosto(creditosDeClip(item.plan.clips[0]?.segundos ?? 8) ?? 15)
+          : faltan.length ? textoCosto(creditos) : textoCosto(0),
+        cargandoBoton: !!ocupado,
+        onSiguiente: () => {
+          if (!faltan.length) { setForzado({ id: 'listo' }); return; }
+          if (filmadas === 0) {
+            void correr(`filmar-${primeraSinFilmar}`, () => generarTomaAction(item.id, primeraSinFilmar), false);
+            return;
+          }
+          // Aprobar y lanzar TODO lo que falta. Se encolan de a una y en orden:
+          // la cola del puente toma de a cinco, así que mandar siete de golpe no
+          // las acelera y sí complica saber cuál falló.
+          void correr('todas', async () => {
+            if (!item.caraVista) {
+              const m = await marcarCaraVistaAction(item.id);
+              if (!m.ok) return m;
+            }
+            let ultimo: { ok: boolean; item?: PlanGuardado; error?: string } = { ok: true, item };
+            for (const c of faltan) {
+              ultimo = await generarTomaAction(item.id, c.n);
+              if (!ultimo.ok) return ultimo;
+            }
+            return ultimo;
+          }, false);
+        },
+        atras: 'Volver',
+        onAtras: () => setForzado({ id: 'escenario', n: (item.escenas ?? []).slice(-1)[0]?.n ?? 1 }),
+      };
+    }
+
+    // ── 4b. Filmar UNA toma (legado) ──────────────────────────────────────
+    // ⚠️ `pasoDe` ya no devuelve `toma`: quedó sólo como destino de los «Volver»
+    // que apuntan ahí. Se conserva en vez de borrarse porque `clave()` lo mapea a
+    // `tomas` y el wizard nunca lo pinta — borrarlo ahora sería tocar 400 líneas
+    // en el mismo commit que estrena la pantalla nueva.
+
     if (paso.id === 'toma') {
       const n = paso.n;
       const anterior = item.plan.clips.slice(0, n - 1).reverse().find((c) => item.video?.[String(c.n)]?.url);
