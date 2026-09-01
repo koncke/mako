@@ -123,6 +123,7 @@ import { CURSO_MIDAS_CONCEPT } from './curso-midas-concept';
 import { CURSO_APRENDE_A_IMPORTAR_DE_CHINA_Y_CREA_UN_E_COMMERCE_DE_EXITO } from './curso-aprende-a-importar-de-china-y-crea-un-e-commerce-de-exito';
 import { CURSO_AILINK_VIP_AGUSTIN_MEDINA } from './curso-ailink-vip-agustin-medina';
 import { CURSO_ACADEMIA_ESTRATEGA } from './curso-academia-estratega';
+import { CURSO_HIT_HIGT_IMPACT_TRAINER } from './curso-hit-higt-impact-trainer';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio.datos';
 import { CURSO_BRANDING } from './BrandingMaKo.datos';
@@ -433,6 +434,10 @@ const CATEGORIA: Record<string, string> = {
   // plataforma. El comentario al lado es la categoría de origen.
   'academia-estratega': 'Anuncios',        // ADS
 
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'hit-higt-impact-trainer': 'Desarrollo personal', // Desarrollo personal
+
 };
 
 /**
@@ -647,6 +652,10 @@ const PORTADA: Record<string, string> = {
   // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
   // pero la ficha se había emitido antes de que existiera.
   'academia-estratega': '/cono-portadas/academia-estratega.jpg',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'hit-higt-impact-trainer': '/cono-portadas/hit-higt-impact-trainer.jpg',
 
 };
 
@@ -986,6 +995,10 @@ const RESUMEN: Record<string, string> = {
   // del catálogo de la plataforma.
   'academia-estratega': 'Programa que enseña a planificar, ejecutar y optimizar campañas de publicidad online, con módulos sobre creación y profesionalización de una agencia de marketing.',
 
+  // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
+  // del catálogo de la plataforma.
+  'hit-higt-impact-trainer': 'Programa de formación y oratoria de alto impacto que combina PNL, coaching, psicoterapia, marketing y ventas para crear experiencias transformadoras.',
+
 };
 
 // Sin acentos y en minúsculas, para que «Sofia» no se sume a un título que ya dice
@@ -1300,6 +1313,9 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_ACADEMIA_ESTRATEGA,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_HIT_HIGT_IMPACT_TRAINER,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
