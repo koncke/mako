@@ -29,6 +29,7 @@ export const CURSO_AIRBNB_MASTER: Curso = {
   titulo: 'Curso Airbnb Master - Maurice Hofra',
   subtitulo: '149 clases, 17 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '29,6 h',
+  portada: '/cono-portadas/airbnb-master.jpg',
   recursos: [
 
   ],

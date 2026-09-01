@@ -29,6 +29,7 @@ export const CURSO_GROWTH_PARTNER: Curso = {
   titulo: 'Growth Partner - Jaime Jiguera',
   subtitulo: '106 clases, 16 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '122,4 h',
+  portada: '/cono-portadas/growth-partner.png',
   recursos: [
 
   ],

@@ -29,6 +29,7 @@ export const CURSO_PROTOCOLO_IA: Curso = {
   titulo: 'Protocolo IA - Julián Otálora',
   subtitulo: '147 clases, 10 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '19,5 h',
+  portada: '/cono-portadas/protocolo-ia.jpg',
   recursos: [
 
   ],
