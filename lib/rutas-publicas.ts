@@ -48,6 +48,16 @@ export const PUBLICOS = [
   // (hasheado en flow_puentes) y no mira la cookie para nada. Es la ruta EXACTA,
   // no el prefijo `/api/flow`: ahí van a convivir rutas de la app con sesión.
   '/api/flow/puente',
+  // El worker de montaje: corre en un contenedor propio, no en un navegador, asi
+  // que no tiene cookie de sesion. Se autentica con `MONTAJE_WORKER_TOKEN` en un
+  // bearer, comparado en tiempo constante, y sin ese secreto configurado la ruta
+  // contesta 404 — no se cae a «cualquiera pasa».
+  //
+  // ⚠️ Estar en esta lista significa DOS cosas, y la segunda se olvida: que la
+  // ruta se hace cargo de su auth, y que NO lee la cookie de sesion para nada.
+  // El early-return del proxy se saltea el chequeo de Origin, asi que una ruta
+  // de aca que mirara la cookie seria un CSRF.
+  '/api/montaje/worker',
   // La política de privacidad de la extensión. La Chrome Web Store la EXIGE como
   // URL pública y su revisor la abre sin cuenta de MaKo: detrás del login se lee
   // como que no existe, y eso es motivo de rechazo.

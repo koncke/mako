@@ -1963,3 +1963,128 @@ export async function cambiarMuletillasAction(
   await guardarEnHistorial(actualizado);
   return { ok: true, item: actualizado };
 }
+
+// ── El montaje: pegar las tomas y devolver el anuncio ────────────────────────
+// El pipeline corre en un contenedor propio (worker/), no acá: encadena ~15
+// invocaciones de ffmpeg y un render son ~25 s de CPU. Esto sólo encola y
+// consulta.
+
+export type EstadoMontaje =
+  | { fase: 'sin_empezar' }
+  | { fase: 'encolado'; id: number }
+  | { fase: 'montando'; id: number; desde: string | null }
+  | { fase: 'listo'; url: string; segundosAntes?: number; segundosDespues?: number }
+  | { fase: 'error'; error: string; motivo: string };
+
+/**
+ * Encola el montaje de un anuncio con todas sus tomas filmadas.
+ *
+ * ⚠️ IDEMPOTENTE, y no por prolijidad: un doble click o dos pestañas abiertas
+ * encolarían dos montajes del mismo anuncio, y el worker renderizaría dos veces
+ * ~25 s de CPU para escribir los dos en la MISMA ruta. El segundo pisaría al
+ * primero mientras el primero todavía sube: un mp4 a medias, sin ningún error.
+ */
+export async function montarAnuncioAction(
+  planId: string,
+): Promise<{ ok: true; id: number } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  const item = planDe(await leerHistorial(), planId);
+  if (!item) return { ok: false, error: 'Ese anuncio ya no está en el historial.' };
+
+  // Las tomas EN ORDEN. Sin una, no hay anuncio que montar: pegar seis de siete
+  // daría un video que se corta a la mitad de una frase y nadie lo miraría hasta
+  // publicarlo.
+  const clips: string[] = [];
+  for (const c of item.plan.clips) {
+    const url = item.video?.[String(c.n)]?.url;
+    if (!url) return { ok: false, error: `Falta filmar la toma ${c.n}.` };
+    clips.push(url);
+  }
+  if (!clips.length) return { ok: false, error: 'Este anuncio no tiene tomas.' };
+
+  const db = await getTenantDb();
+
+  // ⚠️ SI YA HAY UNO EN VUELO, SE DEVUELVE ÉSE. No se encola otro ni se contesta
+  // un error: quien apretó dos veces quiere el anuncio, no un reto.
+  const { data: vivo } = await db
+    .from('montaje_trabajos')
+    .select('id')
+    .eq('plan_id', planId)
+    .in('estado', ['pendiente', 'tomado'])
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (vivo?.id) return { ok: true, id: Number(vivo.id) };
+
+  const { data, error } = await db
+    .from('montaje_trabajos')
+    .insert({
+      plan_id: planId,
+      pedido: {
+        titulo: item.plan.titulo,
+        clips,
+        // Contra esto se verifica que el corte no se haya comido una palabra.
+        // Es el texto REAL de las tomas, no el guion original: si alguien
+        // corrigió una línea a mano, el anuncio dice la corregida.
+        guion: item.plan.clips.map((c) => c.voz).filter(Boolean).join(' '),
+        segundosPorToma: item.plan.clips.map((c) => c.segundos),
+      },
+    })
+    .select('id')
+    .single();
+
+  if (error || !data?.id) {
+    console.error('[montaje] no se pudo encolar:', error?.message);
+    return { ok: false, error: 'No se pudo empezar el montaje.' };
+  }
+  return { ok: true, id: Number(data.id) };
+}
+
+/** Cómo va el montaje de este anuncio. La pantalla la llama cada pocos segundos. */
+export async function estadoMontajeAction(
+  planId: string,
+): Promise<{ ok: true; estado: EstadoMontaje } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  const db = await getTenantDb();
+  // ⚠️ FILTRADO POR `plan_id` EN SQL, no traer las últimas N y filtrar acá. Es la
+  // lección de `estadoTomaAction`: una ventana global se llena con los trabajos
+  // de otros anuncios y la fila que contesta por éste se cae afuera, sin error.
+  const { data } = await db
+    .from('montaje_trabajos')
+    .select('id, estado, resultado, error, motivo, tomado_at')
+    .eq('plan_id', planId)
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!data) return { ok: true, estado: { fase: 'sin_empezar' } };
+
+  const est = str(data.estado);
+  if (est === 'listo') {
+    const r = obj(data.resultado);
+    const url = str(r.url);
+    // Un `listo` sin url no es un listo: el worker reportó éxito y no dejó nada.
+    // Se dice como error en vez de mostrar un reproductor vacío.
+    if (!url) return { ok: true, estado: { fase: 'error', error: 'El montaje terminó sin dejar el archivo.', motivo: 'interno' } };
+    return {
+      ok: true,
+      estado: {
+        fase: 'listo',
+        url,
+        segundosAntes: typeof r.segundosAntes === 'number' ? r.segundosAntes : undefined,
+        segundosDespues: typeof r.segundosDespues === 'number' ? r.segundosDespues : undefined,
+      },
+    };
+  }
+  if (est === 'fallido') {
+    return { ok: true, estado: { fase: 'error', error: str(data.error) || 'No se pudo montar.', motivo: str(data.motivo) } };
+  }
+  if (est === 'tomado') {
+    return { ok: true, estado: { fase: 'montando', id: Number(data.id), desde: str(data.tomado_at) || null } };
+  }
+  return { ok: true, estado: { fase: 'encolado', id: Number(data.id) } };
+}

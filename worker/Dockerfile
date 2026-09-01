@@ -40,6 +40,7 @@ WORKDIR /app
 # busca— y es condensada y pesada como la que se venia usando, asi que los topes
 # de caracteres del generador de subtitulos siguen valiendo.
 COPY worker/fuentes/ /app/worker/fuentes/
+COPY worker/montar-cola.mjs /app/worker/
 COPY scripts/montar-anuncio-sin-silencios.sh \
      scripts/plan-cortes-anuncio.mjs \
      scripts/gen-filtros-anuncio.mjs \
@@ -80,10 +81,15 @@ RUN set -eu; \
     echo "fuente Anton: verificada en el build"; \
     rm -f p.ass con.png sin.png; rm -rf fuentes
 
-# El trabajo entra por aca: clips, guion y salida.
-VOLUME ["/trabajo"]
+# ⚠️ EL WORKER NO CORRE COMO ROOT. Baja y ejecuta material de terceros —los
+# clips que devuelve Google— con ffmpeg, que es un parser enorme y con historial
+# de CVEs. Root ahi no compra nada y cuesta todo el contenedor.
+RUN useradd -m -u 10001 montaje
+USER montaje
 
-# Sin CMD todavia: el bucle que consume la cola es el paso siguiente. Hoy la
-# imagen se corre a mano contra un directorio de trabajo, que es como se
-# verifica que el pipeline anda antes de darle una cola.
-ENTRYPOINT ["/bin/bash"]
+# El bucle: pide trabajo, monta, sube, reporta. Ver worker/montar-cola.mjs.
+#
+# Sin `MONTAJE_WORKER_TOKEN` el proceso sale con 1 en vez de girar en vano contra
+# una puerta que contesta 404 — un worker que reintenta para siempre contra un
+# 404 se ve igual que uno sin trabajo.
+CMD ["node", "/app/worker/montar-cola.mjs"]
