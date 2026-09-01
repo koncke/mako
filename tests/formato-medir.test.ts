@@ -45,15 +45,31 @@ test('nunca devuelve una duración que Flow no genere', () => {
 
 // ── La densidad, contra los formatos que SÍ están medidos ───────────────────
 
-test('reproduce la densidad de Car Talks a partir de su propio ejemplo', () => {
-  // El ejemplo real de `selfie-movimiento` dura 92 s y su densidad medida es 3,
-  // así que un video así tiene ~276 palabras. La cuenta tiene que cerrar en las
-  // dos direcciones o el número no significa lo que dice.
+test('la cuenta cierra en las dos direcciones (y esto NO es un calibre)', () => {
+  // ⚠️ SE LLAMABA «reproduce la densidad de Car Talks» Y ERA UNA TAUTOLOGÍA:
+  // calculaba `palabras = densidad × duración` y después comprobaba que
+  // `palabras / duración === densidad`. Eso prueba que la división es la inversa
+  // de la multiplicación, no que el número signifique algo.
+  //
+  // Se deja porque el round-trip sí vale la pena fijarlo —el redondeo a dos
+  // decimales podría romperlo— pero con el nombre honesto.
+  //
+  // Un calibre DE VERDAD necesitaría el conteo real de palabras del ejemplo de
+  // Car Talks, que hoy no está en el repo: hay que transcribirlo. Queda dicho
+  // para que nadie crea que este test cubre eso.
   const car = CATALOGO_PUESTAS.find((p) => p.id === 'selfie-movimiento')!;
   const dur = car.ejemplo!.duracionSeg;
-  const palabras = Math.round(car.densidad * dur);
-  const f = formatoDeMedida({ duracion: dur, palabras, cortes: [0, 10, 20, 30, 40, 50, 60] })!;
+  const f = formatoDeMedida({ duracion: dur, palabras: Math.round(car.densidad * dur), cortes: [0, 10, 20] })!;
   assert.equal(f.densidad, car.densidad);
+});
+
+test('⚠️ un locutor rápido se RECHAZA aunque sea un video real y bueno', () => {
+  // La densidad de un video mide a un HUMANO; la de un formato mide cuánto
+  // acepta el MODELO antes de trabarse. No son la misma magnitud. Los ocho
+  // formatos del catálogo van de 2,1 a 3: nadie llega a 3,5.
+  const m = { duracion: 60, palabras: 260, cortes: [0, 10, 20, 30, 40, 50] };
+  const no = porQueNoSirve(m, formatoDeMedida(m)!);
+  assert.ok(no && /se traba/.test(no), no ?? 'aceptó 4,33 palabras por segundo');
 });
 
 test('⚠️ la densidad se mide contra la duración TOTAL, no contra el habla', () => {

@@ -149,8 +149,24 @@ export function porQueNoSirve(m: MedidaVideo, f: FormatoMedido): string | null {
   if (f.densidad < 1.2) {
     return `Se habla muy poco (${f.densidad} palabras por segundo). Si el video tiene música o silencios largos, recorta la parte donde la persona habla.`;
   }
-  if (f.densidad > 5) {
-    return `Se habla demasiado rápido (${f.densidad} palabras por segundo) para que un avatar lo diga sin tartamudear.`;
+  // ⚠️ EL TOPE ES 3,4 Y NO 5, Y LA DIFERENCIA ES CONCEPTUAL.
+  //
+  // La densidad de un video de referencia mide a un HUMANO hablando. La densidad
+  // de un formato mide otra cosa: cuánto texto acepta el MODELO DE VIDEO antes
+  // de tartamudear. No son la misma magnitud, y la del modelo es más baja.
+  //
+  // La evidencia es el catálogo: los ocho formatos van de 2,1 a 3, y ninguno
+  // llega a 3,5 — esos números salieron de probar contra Flow, no de medir
+  // locutores. Un tope de 5 dejaba pasar a cualquiera que hable rápido y le
+  // guardaba una densidad que el modelo no puede sostener; el anuncio sale con
+  // el avatar trabado, que es justo lo que separa «un video con IA» de un
+  // anuncio.
+  //
+  // 3,4 es el máximo del catálogo con un poco de aire. No es un número medido
+  // contra Flow —para eso habría que barrer densidades y mirar los clips— y se
+  // deja dicho: es el techo de lo que ya sabemos que funciona, no el techo real.
+  if (f.densidad > 3.4) {
+    return `Se habla a ${f.densidad} palabras por segundo. El avatar se traba arriba de 3: elige un video donde se hable más pausado, o el anuncio va a salir atropellado.`;
   }
   // ⚠️ Y ÉSTE ES EL QUE MÁS ENGAÑA: un video con 40 cortes no es un formato de
   // anuncio con avatar, es un montaje. Cada corte es un clip de Flow, o sea
