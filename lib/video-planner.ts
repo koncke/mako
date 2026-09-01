@@ -259,8 +259,10 @@ de VOZ y se copia **palabra por palabra**: ni una distinta, ni una de más, ni u
 conector agregado.
 
 Tu trabajo acá es el OTRO: para cada toma, con esa voz ya dada, escribir qué se
-ve y qué hace la cámara. El campo "voz" del JSON lo devuelves copiando la línea
-literal que te dieron.
+ve y qué hace la cámara.
+
+⚠️ NO devuelvas el campo "voz". El texto ya está decidido y lo pone el sistema:
+copiarlo sería devolvernos algo que ya tenemos.
 
 La sección de abajo sobre cómo se escribe el texto hablado **no aplica**: describe
 cómo se escribiría un guion desde cero, y acá no hay que escribir ninguno.
@@ -282,12 +284,11 @@ Escribe el plan completo respetando la cantidad de clips, la duración de cada u
  * — ver `BLOQUE_PROMPT_VIDEO` para el porqué: es el campo más largo de la salida
  * y en ese caso se descarta entero.
  */
-const jsonShape = (conPrompt: boolean): string => `{
+const jsonShape = (conPrompt: boolean, conVoz: boolean): string => `{
   "titulo": "el título del anuncio, corto",
   "clips": [
     {
-      "n": 1,
-      "voz": "lo que se dice en este clip",
+      "n": 1,${conVoz ? '\n      "voz": "lo que se dice en este clip",' : ''}
       "queSeVe": "la acción física de la persona",
       "camara": "qué hace la cámara"${conPrompt ? ',\n      "prompt": "el prompt completo listo para pegar"' : ''}
     }
@@ -557,6 +558,21 @@ export async function generarPlan(ws: number, pedido: PedidoPlan): Promise<Gener
   // uno propio validado — con `selfie-movimiento` se descartaba entero.
   const conPrompt = !tienePromptVideoPropio(puesta.id);
 
+  // ⚠️ ¿HAY QUE PEDIRLE LA VOZ AL MODELO? Con un guion propio que el cliente
+  // pidió NO adaptar, la respuesta es no — y pedírsela igual era la mitad del
+  // «tarda muchísimo».
+  //
+  // `sanearPlan` hace `voz = esCierre ? original : (delModelo || original)`, y
+  // con `adaptarVoz === false` TODAS las tomas son `literales`: o sea que la voz
+  // que escribe el modelo se descarta entera, las siete. Le estábamos pidiendo
+  // que nos devolviera 190 palabras que ya teníamos, y esa es la parte más larga
+  // de la salida — más que `queSeVe` y `camara` juntos.
+  //
+  // Es el mismo hallazgo que el del `prompt`, un campo más allá: al agregar una
+  // precedencia («el guion del cliente le gana al del modelo»), la pregunta que
+  // sigue es si todavía hace falta PEDIR lo que perdió.
+  const conVoz = !reparto || pedido.adaptarVoz !== false;
+
   try {
     const contexto = await briefDelNegocio();
     const system = await brandSystem(renderTemplate(SYSTEM_TEMPLATE, {
@@ -582,7 +598,7 @@ export async function generarPlan(ws: number, pedido: PedidoPlan): Promise<Gener
       // caso se descartaba entero.
       promptDeVideo: conPrompt ? BLOQUE_PROMPT_VIDEO : '',
       salidaPrompt: conPrompt ? ', y el prompt listo para pegar en el modelo de video' : '',
-      estructura: `${estructuraDeClips(puesta, cantidad, segundos, reparto, literales)}\n\nFORMA DEL JSON:\n${jsonShape(conPrompt)}`,
+      estructura: `${estructuraDeClips(puesta, cantidad, segundos, reparto, literales)}\n\nFORMA DEL JSON:\n${jsonShape(conPrompt, conVoz)}`,
     }));
 
     const feedback = pedido.feedback?.trim();
@@ -608,7 +624,17 @@ export async function generarPlan(ws: number, pedido: PedidoPlan): Promise<Gener
       // Car Talks son 1.200 tokens de párrafos en inglés que se descartaban. 12k
       // era el tope del plan CON prompts; sin ellos sobra con la mitad larga, y
       // el plan más grande que este formato admite (12 clips) entra holgado.
-      maxTokens: conPrompt ? 12000 : 5000,
+      // ⚠️ Y EL TOPE BAJA OTRA VEZ CUANDO TAMPOCO VA LA VOZ.
+      //
+      // No es un techo por si acaso: el timeout que la capa barata le concede a
+      // la llamada se calcula con él (`maxTokens * 12`, lib/anthropic.ts), así
+      // que un tope inflado alarga la espera que se le da a algo que iba a
+      // contestar mucho antes.
+      //
+      // Con guion propio sin adaptar y un formato de prompt validado, al modelo
+      // le queda el título, `queSeVe` y `camara` por clip. Doce tomas de eso son
+      // ~1.200 tokens; 2.500 deja el doble de aire.
+      maxTokens: conPrompt ? 12000 : (conVoz ? 5000 : 2500),
       feature: FEATURE_VIDEO_PLANNER,
       motivo: `Planificar anuncio en video (${puesta.nombre})`,
     });
