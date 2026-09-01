@@ -882,3 +882,88 @@ resultado. Los dos midieron −14,05 y −14,03 LUFS.
 ## Nota de cosecha
 
 Esto tiene que quedar escrito en el repo o se pierde. Sugerencia: `docs/hallazgos-video-pipeline.md`, con entrada en `docs/hallazgos.md` en el mismo commit. Los tres hallazgos que más tiempo van a ahorrar después son: (1) el diagnóstico obvio equivocado — SOUNDRAW y Beatoven parecían resolver el caso "entrega a cliente" y son justo al revés; (2) las tres fallas silenciosas (libass cayendo a otra fuente, `deesser` con `i=0` como no-op, `loudnorm` resampleando a 192 kHz); y (3) la regla que gobierna todo lo nuevo: **la licencia de una herramienta nunca licencia un asset, y el canal de obtención (API/portal) es un contrato distinto de la licencia del archivo**.
+---
+
+## §13 — El port a un contenedor: lo que se rompe al salir de una máquina (01/09/2026)
+
+**Vive en:** `scripts/montar-anuncio-sin-silencios.sh` · `scripts/loudnorm-json.mjs` ·
+`scripts/subs-anuncio.mjs` · `scripts/gen-filtros-anuncio.mjs` · `worker/Dockerfile`
+
+El pipeline de §10-§12 se portó a un contenedor. Lo que sigue es lo que sólo se ve al
+sacarlo de la máquina donde se escribió.
+
+### El fallo de la fuente, medido — y es peor que «otra tipografía»
+
+Que libass cae a otra fuente sin avisar ya estaba escrito. Lo que faltaba era **cuánto
+cambia**. Renderizando el MISMO cuadro con y sin `fontsdir`, ffmpeg 9.0:
+
+```
+  con fontsdir=fuentes    11.731 bytes    Anton: condensada, pesada
+  sin fontsdir            22.814 bytes    Arial: fina, ancha
+  exit code 0 en los dos casos
+```
+
+«PRUEBA ANTON» ocupa **230 px** con Anton y **505 px** con la fallback, sobre un lienzo de
+720. O sea que la caída no sólo cambia el look: **desborda**, porque `MAX_CHARS` está
+calibrado para una condensada. Un anuncio con los renglones partidos mal y ningún error.
+
+⚠️ **Y eso no se puede ver leyendo el código.** El único momento en que se detecta es
+renderizando y comparando. Por eso hay dos guardas: el montaje corta si no llegó ninguna
+`.ttf` al directorio de trabajo, y el Dockerfile **compara los dos renders en el build** y
+falla si son idénticos — si lo son, la fuente no se está cargando.
+
+### `fontsdir` va RELATIVO, y la razón es de sintaxis
+
+Un `filter_complex` separa sus opciones con `:`, así que una ruta de Windows (`C:/…`) parte
+el filtro al medio. Como el montaje ya hace `cd "$T"` antes del render, se copia la fuente
+a `$T/fuentes` y se pasa `fontsdir=fuentes`. Funciona igual en los dos sistemas y no hay
+que escapar nada.
+
+### Un campo ausente en un JSON corre todos los argumentos posicionales
+
+Las tres llamadas a `python -c` se reemplazaron por `loudnorm-json.mjs`. Lo que hay que
+cuidar no es el parseo: es qué pasa cuando un campo **no está**. El montaje hace
+
+```sh
+set -- $(… | node loudnorm-json.mjs input_i input_tp input_lra input_thresh)
+```
+
+y si un campo sale como cadena vacía, bash lo colapsa y **corre todo un lugar**:
+`measured_TP` recibe el LRA. Un `loudnorm` con un parámetro corrido **no da error**: da un
+audio con el loudness mal, que es exactamente lo que nadie mira. Por eso el helper sale con
+código 1 nombrando el campo que falta, y cuando no encuentra JSON imprime las últimas
+líneas de ffmpeg — que es donde vive el error de verdad.
+
+### Verificar el handoff por otro camino, y por qué valió la pena
+
+`alimiter=limit=0.7` sobre una señal de −24,1 dB, reproducido de cero:
+
+```
+  entrada                            -24,1 dB
+  alimiter=limit=0.7                 -21,0 dB   ← subió 3,1 sin limitar nada
+  alimiter=limit=0.7:level=disabled  -24,1 dB
+```
+
+El auto-level multiplica por `1/limit`: para 0,7 son **3,098 dB** exactos — el mismo número
+de la corrida original, por otro camino. Confirmado.
+
+**La regla que queda:** cuando recibís un handoff, la afirmación que más peso carga se
+reproduce por un camino distinto antes de construir encima. No porque el otro se equivoque
+—acá no se equivocó— sino porque **reproducirla es lo que te enseña el mecanismo**: hasta
+no medirlo no sabía que el auto-level multiplica por `1/limit`, y ése es el dato que
+permite predecir el error para cualquier otro `limit`, no sólo para 0,7.
+
+### Lo que quedó SIN hacer
+
+- **La cola y el bucle del worker.** El `Dockerfile` no trae `CMD` a propósito. El repo ya
+  tiene el patrón tres veces (`flow_trabajos` es el más cercano) y un precedente de proceso
+  largo con perro guardián en `scripts/cursos-perro.sh`.
+- **Provisionar el contenedor** — necesita la cuenta de Martín.
+- **Epidemic Sound Connect** — trámite comercial. Hoy `MUSICA` vacío es el camino normal, y
+  el paso 4 hace loudnorm sobre la voz sola en vez de saltearse: saltearlo dejaría el
+  entregable sin normalizar, a otro volumen que los que sí tengan música, y eso no aparece
+  en ningún log.
+- **⚠️ Recalibrar los subtítulos para Anton.** `MAX_CHARS=18`, `CUERPO=52` e `Y=950` venían
+  de Segoe UI Black. Anton es más angosta: si esos números salieron de mirar cuadros, los
+  renglones ahora quedan cortos. **Sin verificar** — la sesión que los eligió ya cerró.
+- **`NTOMAS` y `DURVID` por workspace**, hoy defaults del script.
