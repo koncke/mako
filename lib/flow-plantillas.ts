@@ -64,6 +64,16 @@ export const CLASES_UTILES: readonly string[] = Object.freeze(
 );
 
 export type PlantillaEspejo = {
+  /**
+   * true = no se midió, se asumió. La arma `lib/plantilla-fabrica.ts` cuando el
+   * cliente todavía no generó nada a mano.
+   *
+   * ⚠️ Existe para que el que investigue pueda distinguir «esto lo vimos» de
+   * «esto lo asumimos». Sin la marca, una plantilla de fábrica que quedó vieja
+   * porque Google cambió el contrato es indistinguible de una medida — y el
+   * diagnóstico arranca de una premisa falsa.
+   */
+  deFabrica?: boolean;
   clase: string;
   url: string;
   metodo: string;
@@ -207,6 +217,9 @@ export function sanearPlantillas(crudo: unknown): PlantillaEspejo[] {
       headers,
       cuerpo,
       ...(typeof p.credenciales === 'string' ? { credenciales: p.credenciales } : {}),
+      // Se conserva la marca o se pierde en el primer ida y vuelta, y con ella la
+      // única forma de saber que ese pedido nunca se midió.
+      ...(p.deFabrica === true ? { deFabrica: true } : {}),
       cuando: Number(p.cuando) || 0,
     });
   }

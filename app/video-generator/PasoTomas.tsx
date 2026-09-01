@@ -138,7 +138,7 @@ export function PasoTomas({
           <div style={{ padding: 24, textAlign: 'center', color: 'var(--dim)' }}>
             <Icon name="video" size={34} />
             <div style={{ marginTop: 14, fontSize: 'var(--fs-sm)', lineHeight: 1.55 }}>
-              {clip?.voz?.trim() || 'Esta toma todavía no dice nada. Escribí su línea abajo.'}
+              {clip?.voz?.trim() || 'Esta toma todavía no dice nada. Escribe su línea abajo.'}
             </div>
           </div>
         )}
@@ -289,7 +289,7 @@ export function PasoTomas({
                 return r;
               }, false)}
             >
-              Sumar una toma acá
+              Sumar una toma aquí
             </Button>
             <Button size="sm" variant="tertiary" disabled={trabajando || clips.length <= 1}
               icon={<Icon name="trash" size={14} />}
@@ -303,7 +303,7 @@ export function PasoTomas({
             </Button>
           </div>
           <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--faint)', textAlign: 'center' }}>
-            Una toma ya filmada no se puede quitar ni acortar: descartá su clip primero — queda guardado.
+            Una toma ya filmada no se puede quitar ni acortar: descarta su clip primero — queda guardado.
           </div>
         </div>
       </details>

@@ -33,6 +33,7 @@ import {
   KEY_VARIANTE_VIDEO, type MotivoFalla,
 } from '@/lib/flow-protocolo';
 import { EXTENSION_VERSION } from '@/lib/extension-version';
+import { conPlantillaDeFabrica } from '@/lib/plantilla-fabrica';
 
 export const dynamic = 'force-dynamic';
 
@@ -260,6 +261,27 @@ export async function POST(req: NextRequest) {
     const ped = (ult?.pedido && typeof ult.pedido === 'object' ? ult.pedido : {}) as Record<string, unknown>;
     const mediaId = str(ped.operacion);
     if (mediaId) sonda = { mediaId, variantes: [...VARIANTES_MEDIA] };
+  }
+
+  // ⚠️ Y SI NUNCA GENERÓ UNA IMAGEN, SE LE DA LA DE FÁBRICA.
+  //
+  // Sin esto, un cliente nuevo no puede generar hasta hacer una imagen a mano en
+  // Flow con la pestaña abierta. Le costó la tarde a una clienta, y el dueño lo
+  // cortó con la pregunta correcta: «¿por qué hacemos eso cada vez, si tú ya
+  // sabes cómo es?». La FORMA del pedido es universal; lo único suyo es el
+  // `projectId`, y ese viaja en este mismo latido.
+  //
+  // Sólo se suma si le FALTA: una plantilla medida describe lo que Google acepta
+  // hoy en la cuenta de ESE cliente, y la de fábrica lo que aceptaba cuando se
+  // copió. Pisar una medida con ésta sería cambiar un hecho por un recuerdo.
+  //
+  // Se GUARDA además de mandarse, con `cuando: 0`: guardarla es lo que hace que
+  // `caraParcheable()` —que mira lo persistido— sepa que hay dónde poner la cara,
+  // y el cero hace que el primer pedido real la desplace sola.
+  const conFabrica = conPlantillaDeFabrica(guardadas, str(body.projectId));
+  if (conFabrica.length !== guardadas.length) {
+    await runWithWorkspace(ws, () => setSetting(KEY_PLANTILLAS, JSON.stringify(conFabrica)));
+    guardadas = conFabrica;
   }
 
   // Lo que el navegador NO tiene y nosotros sí. Sólo eso vuelve: mandar las diez
