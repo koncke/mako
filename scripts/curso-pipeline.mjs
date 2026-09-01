@@ -35,7 +35,28 @@ const base = dirname(PLAN);
 const plan = JSON.parse(readFileSync(PLAN, 'utf8').replace(/^﻿/, ''));
 const SCRIPTS = dirname(new URL(import.meta.url).pathname.replace(/^\//, ''));
 
-const total = plan.clases.length;
+/**
+ * ⚠️ EL OBJETIVO SON LAS CLASES ALCANZABLES, no las filas del plan.
+ *
+ * Una clase sin `videoId` —o marcada `sinFuente`— no tiene video del otro lado: no se
+ * puede bajar, no se puede transcribir, y contarla en el objetivo lo vuelve inalcanzable.
+ * El curso no dice «completo» jamás, quema el tope de rondas secas en CADA rebobinado de
+ * la cola, y nunca se publica. «Creativos Animados» lleva así desde que entró: 1 de 2, con
+ * la otra sin ningún video que bajar.
+ *
+ * Es la misma correccion que la de las clases MUDAS, un escalon antes: alla el material
+ * existe y no tiene voz, aca no existe. En los dos casos «no hay nada que hacer» no puede
+ * leerse como «falta trabajo».
+ *
+ * Medido antes de cambiarlo: 1 clase de 5.007 en los 77 cursos, y NINGUNA de las excluidas
+ * tiene texto —si alguna lo tuviera, sacarla del total estaria escondiendo trabajo hecho—.
+ */
+const alcanzables = plan.clases.filter((c) => c.videoId && !c.sinFuente);
+const total = alcanzables.length;
+if (alcanzables.length !== plan.clases.length) {
+  const n = plan.clases.length - alcanzables.length;
+  console.log(`  (${n} clase(s) del plan no tienen video en el origen: no cuentan para el objetivo)`);
+}
 const cuenta = (sub, filtro) => {
   const d = join(base, sub);
   if (!existsSync(d)) return 0;
