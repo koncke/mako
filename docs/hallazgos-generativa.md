@@ -3981,6 +3981,38 @@ formatos de otro. Agregué `montaje_trabajos` un rato antes y me olvidé de ést
 un paso siguiente.** Ninguna prueba local lo caza: con un solo workspace, scopear
 y no scopear dan lo mismo.
 
+### El techo de la densidad NO se estima: está escrito y medido
+
+Lo puse en 5, después en 3,4, y las dos veces dejaba pasar la franja que ya
+sabemos que rompe. El número estaba a la vista en el catálogo, en las reglas de
+Car Talks:
+
+> «Un clip de 10 s admite entre 26 y 30 palabras. Menos de 26 tartamudea, **más
+> de 30 no entra**.»
+
+Eso son **3,0 exactos**. Un margen por encima de un techo duro no es prudencia:
+es abrir la puerta al único lado donde ya está medido que falla. Queda en 3,15, y
+ese 0,15 no es comodidad — es el error de la medición misma (el conteo sale de
+una transcripción, la duración se redondea), con un test que fija las dos puntas:
+3,5 se rechaza y 3,08 pasa.
+
+**La regla: antes de elegir un umbral, buscá si el valor ya está escrito en el
+sistema.** Acá estaba, en prosa, en el campo `reglas` del formato — que es
+exactamente donde debía estar y no donde uno mira.
+
+### ⚠️ Y una pregunta de producto que el CHECK no contesta
+
+`camara` ahora está acotada a los cuatro valores. Pero eso decide qué entra a la
+base, no **qué ve la persona cuando su video no encaja en ninguno**: con el CHECK
+el INSERT falla, y sin él era trípode en silencio. Ninguna de las dos es
+abstenerse.
+
+La respuesta tiene que estar en la pantalla, y sale de la regla del dueño —nunca
+un campo libre—: **la cámara se elige de las cuatro, siempre.** MaKo propone la
+más parecida a lo que vio y la persona confirma o cambia. Así «no encaja» no
+existe como estado: existe «se parece más a ésta», que es una decisión que la
+persona puede tomar mirando su propio video.
+
 ### Lo que queda SIN hacer
 
 - **Las pantallas del creador.** Están las piezas (medir, molde, guardas,

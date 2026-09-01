@@ -72,6 +72,23 @@ test('⚠️ un locutor rápido se RECHAZA aunque sea un video real y bueno', ()
   assert.ok(no && /se traba/.test(no), no ?? 'aceptó 4,33 palabras por segundo');
 });
 
+test('⚠️ y JUSTO por encima del techo medido, que es donde estaba el agujero', () => {
+  // El techo no es una estimación: «un clip de 10 s admite entre 26 y 30
+  // palabras… más de 30 no entra» son 3,0 exactos. Las dos primeras versiones de
+  // esta guarda topeaban en 5 y en 3,4, o sea que dejaban pasar justo la franja
+  // que ya sabemos que rompe. Una lectura enérgica de anuncio cae ahí.
+  const m = { duracion: 60, palabras: 210, cortes: [0, 10, 20, 30, 40, 50] }; // 3,5
+  assert.ok(porQueNoSirve(m, formatoDeMedida(m)!), 'dejó pasar 3,5 p/s');
+});
+
+test('pero el ruido de la propia medición NO puede rechazar a Car Talks', () => {
+  // El conteo sale de una transcripción y la duración se redondea: un video que
+  // de verdad mide 3,0 puede dar 3,08. Rechazarlo sería el otro error, y el que
+  // deja a la gente sin poder crear un formato que sí funciona.
+  const m = { duracion: 92, palabras: 283, cortes: [0, 10, 20, 30, 40, 50, 60] }; // 3,08
+  assert.equal(porQueNoSirve(m, formatoDeMedida(m)!), null);
+});
+
 test('⚠️ la densidad se mide contra la duración TOTAL, no contra el habla', () => {
   // `palabrasQueEntran` hace `densidad * segundos` donde `segundos` es lo que
   // dura el CLIP entero —pausas y respiraciones incluidas—. Medirla contra los

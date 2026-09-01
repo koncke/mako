@@ -146,7 +146,10 @@ export function porQueNoSirve(m: MedidaVideo, f: FormatoMedido): string | null {
   if (m.duracion > 600) {
     return 'El video dura más de 10 minutos. Usa un anuncio, no una charla: el ritmo de los dos no se parece.';
   }
-  if (f.densidad < 1.2) {
+  // El piso sale del catálogo: la puesta menos densa es 2,1. Se baja a 1,8 por el
+  // error de la medición misma —el conteo de palabras viene de una transcripción
+  // y la duración se redondea— y no por comodidad.
+  if (f.densidad < 1.8) {
     return `Se habla muy poco (${f.densidad} palabras por segundo). Si el video tiene música o silencios largos, recorta la parte donde la persona habla.`;
   }
   // ⚠️ EL TOPE ES 3,4 Y NO 5, Y LA DIFERENCIA ES CONCEPTUAL.
@@ -162,11 +165,22 @@ export function porQueNoSirve(m: MedidaVideo, f: FormatoMedido): string | null {
   // el avatar trabado, que es justo lo que separa «un video con IA» de un
   // anuncio.
   //
-  // 3,4 es el máximo del catálogo con un poco de aire. No es un número medido
-  // contra Flow —para eso habría que barrer densidades y mirar los clips— y se
-  // deja dicho: es el techo de lo que ya sabemos que funciona, no el techo real.
-  if (f.densidad > 3.4) {
-    return `Se habla a ${f.densidad} palabras por segundo. El avatar se traba arriba de 3: elige un video donde se hable más pausado, o el anuncio va a salir atropellado.`;
+  // ⚠️ EL TECHO ES 3,0 Y ESTÁ MEDIDO. No hay que estimarlo: la regla de Car
+  // Talks lo dice textual en el catálogo —«un clip de 10 s admite entre 26 y 30
+  // palabras. Menos de 26 tartamudea, MÁS DE 30 NO ENTRA»— y eso son exactamente
+  // 3,0 palabras por segundo.
+  //
+  // La primera versión de esta línea topeaba en 5 y la segunda en 3,4, o sea que
+  // las dos dejaban pasar la franja que va JUSTO por encima del techo medido. Un
+  // margen sobre un techo duro no es prudencia: es abrir la puerta al único lado
+  // donde ya sabemos que rompe.
+  //
+  // El 3,15 que queda NO es margen de comodidad: es el error de la MEDICIÓN. El
+  // conteo de palabras sale de una transcripción y la duración se redondea, así
+  // que un video que de verdad mide 3,0 puede dar 3,08. Rechazar a Car Talks por
+  // el ruido de su propia medición sería el otro error.
+  if (f.densidad > 3.15) {
+    return `Se habla a ${f.densidad} palabras por segundo. Medido contra Flow, un clip de 10 segundos no admite más de 30 palabras: arriba de 3 el avatar se traba. Elige un video donde se hable más pausado.`;
   }
   // ⚠️ Y ÉSTE ES EL QUE MÁS ENGAÑA: un video con 40 cortes no es un formato de
   // anuncio con avatar, es un montaje. Cada corte es un clip de Flow, o sea
