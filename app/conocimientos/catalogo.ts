@@ -130,6 +130,7 @@ import { CURSO_DOMINIA_ACADEMY_SKOOL } from './curso-dominia-academy-skool';
 import { CURSO_MASTER_ESCALA_100K } from './curso-master-escala-100k';
 import { CURSO_THE_PERFECT_LAUNCH } from './curso-the-perfect-launch';
 import { CURSO_ACADEMIA_AMAZON_FBA } from './curso-academia-amazon-fba';
+import { CURSO_LIBERTAD_INMOBILIARIA } from './curso-libertad-inmobiliaria';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio.datos';
 import { CURSO_BRANDING } from './BrandingMaKo.datos';
@@ -468,6 +469,10 @@ const CATEGORIA: Record<string, string> = {
   // plataforma. El comentario al lado es la categoría de origen.
   'academia-amazon-fba': 'Orgánico',       // Afiliados
 
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'libertad-inmobiliaria': 'Finanzas',     // Finanzas / Inversiones
+
 };
 
 /**
@@ -710,6 +715,10 @@ const PORTADA: Record<string, string> = {
   // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
   // pero la ficha se había emitido antes de que existiera.
   'academia-amazon-fba': '/cono-portadas/academia-amazon-fba.png',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'libertad-inmobiliaria': '/cono-portadas/libertad-inmobiliaria.png',
 
 };
 
@@ -1077,6 +1086,10 @@ const RESUMEN: Record<string, string> = {
   // del catálogo de la plataforma.
   'academia-amazon-fba': 'Aprende a crear y gestionar un negocio de Amazon FBA desde cero. El curso enseña investigación de productos, selección de proveedores, importación desde China, diseño de packaging.',
 
+  // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
+  // del catálogo de la plataforma.
+  'libertad-inmobiliaria': 'Aprende a construir patrimonio inmobiliario y generar ingresos pasivos a través de la inversión en propiedades para alquilar. El curso enseña cómo identificar oportunidades rentables.',
+
 };
 
 // Sin acentos y en minúsculas, para que «Sofia» no se sume a un título que ya dice
@@ -1412,6 +1425,9 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_ACADEMIA_AMAZON_FBA,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_LIBERTAD_INMOBILIARIA,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
