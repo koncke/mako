@@ -43,9 +43,36 @@ for (const l of readdirSync('C:/cursos').filter((f) => f.endsWith('.log'))) {
     }
   } catch { /* log ilegible */ }
 }
-const tipo = (e) => !e ? 'sin rastro en los logs'
-  : /404/.test(e) ? 'NO ESTÁ en el origen (404)'
-  : /403/.test(e) ? 'sin permiso (403)'
+/**
+ * ⚠️ UN 5xx NO ES TRANSITORIO POR DEFINICIÓN, y darlo por tal mandó a reintentar 16
+ *    clases que el origen no puede servir.
+ *
+ *    «HIT Higt Impact Trainer» tenía 16 sin bajar, todas con HTTP 500. Se leyeron como
+ *    «se cayó el server, se recuperan» —lo razonable— y volvieron a fallar horas después,
+ *    con los tres referers probados y también sin ninguno. Vimeo contesta 500 sobre esos
+ *    videos y punto.
+ *
+ *    Lo que SÍ los separa es la `duracion` del plan. Medido en HIT: de las que la traen
+ *    vacía se bajaron 0 de 15; de las que la traen puesta, 122 de 122. Separación
+ *    perfecta. Y tiene sentido: la duración sale de la ficha de la lección en la
+ *    plataforma de origen, así que vacía significa que el ORIGEN tampoco sabía cuánto
+ *    duraba — la lección está listada y su video no existe del otro lado.
+ *
+ *    (En un barrido anterior sobre otros 7 cursos la separación fue 62,5% contra 2,0%.
+ *    Es un predictor fortísimo, no una ley: por eso decide junto al código HTTP y no solo.)
+ *
+ * ⚠️ El orden importa: la duración se mira ANTES que el código. Un 5xx con duración puesta
+ *    sí es transitorio y se reintenta —así se recuperaron 12 clases el 31/08—; el mismo
+ *    5xx con duración vacía es el origen roto. El mismo error HTTP, dos veredictos.
+ */
+const tipo = (e, sinDuracion) =>
+  // Un 404 y un 403 ya son definitivos por sí solos, y dicen MÁS que «rota»: la duración
+  // no los pisa. Manda sobre los ambiguos —5xx, timeout, sin rastro—, que es justo donde
+  // el código HTTP no alcanza para decidir si vale la pena reintentar.
+  e && /404/.test(e) ? 'NO ESTÁ en el origen (404)'
+  : e && /403/.test(e) ? 'sin permiso (403)'
+  : sinDuracion ? 'ROTA en el origen (sin duración en el plan)'
+  : !e ? 'sin rastro en los logs'
   : /50\d/.test(e) ? 'caída del server (5xx)'
   : /timed out|curl: \(28\)/i.test(e) ? 'timeout'
   : 'otro';
@@ -71,7 +98,8 @@ for (const slug of readFileSync('C:/cursos/_cola.txt', 'utf8').split(/\r?\n/).ma
     if (textos.has(c.archivo)) continue;
     filas.push({
       slug, n: c.n, titulo: String(c.titulo).slice(0, 36),
-      causa: mudas.has(c.archivo) ? 'sin pista de audio (nada que transcribir)' : tipo(errores.get(String(c.videoId))),
+      causa: mudas.has(c.archivo) ? 'sin pista de audio (nada que transcribir)'
+        : tipo(errores.get(String(c.videoId)), !String(c.duracion ?? '').trim()),
     });
   }
 }
@@ -84,5 +112,5 @@ for (const [causa, xs] of Object.entries(por).sort((a, b) => b[1].length - a[1].
   console.log(`  ── ${xs.length} · ${causa}`);
   for (const f of xs) console.log(`       ${f.slug.slice(0, 30).padEnd(32)} n=${String(f.n).padStart(3)}  ${f.titulo}`);
 }
-const perdidas = filas.filter((f) => !/audio|404/.test(f.causa));
+const perdidas = filas.filter((f) => !/audio|404|ROTA/.test(f.causa));
 console.log(`\n  ${filas.length - perdidas.length} sin nada que hacerles · ${perdidas.length} valdría la pena reintentar\n`);
