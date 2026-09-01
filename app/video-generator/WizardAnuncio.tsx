@@ -1133,7 +1133,17 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
   // ⚠️ LA MISMA REGLA QUE EL RENDER, importada. Tenerla escrita dos veces fue
   // exactamente el bug: se actualizó una y la otra quedó vieja.
   const escenaEnCurso = (item.escenas ?? []).find((e) => imagenEnCurso(item.imagenes?.[String(e.n)]));
-  const tomaEnCurso = item.plan.clips.find((c) => {
+  // ⚠️ TODAS LAS QUE ESTÉN EN VUELO, no la primera.
+  //
+  // Era `.find`, o sea que el sondeo seguía UNA sola toma. Con «filmar todas»
+  // —siete tomas lanzadas juntas— las otras seis no se preguntaban hasta que la
+  // primera terminaba: se resolvían EN SERIE aunque Google las estuviera
+  // haciendo en paralelo. El formato admite hasta doce.
+  //
+  // Y no es sólo que se vean tarde: `estadoTomaAction` es quien ENCOLA la
+  // consulta siguiente de cada toma, así que una toma que nadie sondea no
+  // avanza. La cadena de una toma la mueve la pantalla, no la cola.
+  const tomasEnCurso = item.plan.clips.filter((c) => {
     const v = item.video?.[String(c.n)];
     if (!v || v.url) return false;
     // Una marca que sólo guarda clips descartados no tiene nada en vuelo: sin
@@ -1155,23 +1165,52 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
     return true;
   });
 
+  // Las tomas en vuelo, como una clave estable: sin esto el efecto se re-arma en
+  // cada render —`filter` devuelve un array nuevo siempre— y el sondeo no llega
+  // a completar una sola vuelta.
+  const enVuelo = tomasEnCurso.map((c) => c.n).join(',');
+
   useEffect(() => {
-    if (!escenaEnCurso && !tomaEnCurso) return;
+    if (!escenaEnCurso && !enVuelo) return;
     let vivo = true;
-    const t = setInterval(async () => {
-      const r = escenaEnCurso
-        ? await estadoImagenAction(item.id, escenaEnCurso.n).catch(() => null)
-        : await estadoTomaAction(item.id, tomaEnCurso!.n).catch(() => null);
-      // ⚠️ ACÁ ES DONDE MÁS PESA, y por volumen: preguntar cómo va un clip son
-      // 234 de los 348 trabajos medidos en producción, y su espera en la cola
-      // llegaba a un p90 de 357 s. Cada vuelta de este sondeo encola una
-      // consulta; sin el aviso, esa consulta duerme hasta la próxima alarma del
-      // navegador y recién ahí sale.
-      avisarPuente();
-      if (vivo && r?.ok) onCambio(r.item);
-    }, escenaEnCurso ? 4000 : 6000);
+
+    const vuelta = async () => {
+      if (escenaEnCurso) {
+        const r = await estadoImagenAction(item.id, escenaEnCurso.n).catch(() => null);
+        avisarPuente();
+        if (vivo && r?.ok) onCambio(r.item);
+        return;
+      }
+      // ⚠️ EN SERIE, y no con `Promise.all`. Cada `estadoTomaAction` LEE el
+      // historial y lo ESCRIBE: en paralelo, las siete leerían la misma versión
+      // y la última en volver pisaría lo que escribieron las otras seis. Lo que
+      // se perdería es justo lo bueno —la url de un clip que sí llegó— y se
+      // vería como un clip que se generó y desapareció.
+      //
+      // En serie no cuesta lo que parece: cada vuelta son ~7 viajes de ~300 ms
+      // contra un intervalo de 6 s, y las consultas a Google siguen su ritmo
+      // aparte, en la cola.
+      for (const n of enVuelo.split(',')) {
+        if (!vivo) return;
+        const r = await estadoTomaAction(item.id, Number(n)).catch(() => null);
+        // ⚠️ ACÁ ES DONDE MÁS PESA, y por volumen: preguntar cómo va un clip son
+        // 234 de los 348 trabajos medidos en producción, y su espera en la cola
+        // llegaba a un p90 de 357 s. Cada vuelta de este sondeo encola una
+        // consulta; sin el aviso, esa consulta duerme hasta la próxima alarma
+        // del navegador y recién ahí sale.
+        avisarPuente();
+        if (vivo && r?.ok) onCambio(r.item);
+      }
+    };
+
+    // ⚠️ SE PREGUNTA AL ARMARSE, no un período después. El intervalo dispara
+    // recién a los 6 s, así que la primera consulta de cada espera nacía tarde
+    // — y como es la que encola la primera pregunta a Google, ese retraso lo
+    // pagaba entero el cliente mirando el loader.
+    void vuelta();
+    const t = setInterval(() => { void vuelta(); }, escenaEnCurso ? 4000 : 6000);
     return () => { vivo = false; clearInterval(t); };
-  }, [escenaEnCurso, tomaEnCurso, item.id, onCambio]);
+  }, [escenaEnCurso, enVuelo, item.id, onCambio]);
 
   /**
    * Al llegar al paso del lugar SIN escenarios, MaKo los escribe solo.
