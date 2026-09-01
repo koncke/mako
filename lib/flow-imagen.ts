@@ -67,6 +67,8 @@ export type PedidoImagenEscena = {
    * puede escribir bien porque no vio la imagen que salió mal.
    */
   puestaId?: string;
+  /** El prompt que la persona escribió a mano. Gana sobre todo lo demás. */
+  propio?: string;
   seed: number;
   /** El lote. Va uno por escena, como el `batchId` del clip. */
   batchId: string;
@@ -146,8 +148,24 @@ const REALISMO =
  */
 export function promptFinal(
   escena: string,
-  opts: { conCara: boolean; puestaId?: string },
+  opts: {
+    conCara: boolean;
+    puestaId?: string;
+    /**
+     * Lo que la persona escribió a mano para ESTA escena.
+     *
+     * ⚠️ GANA SOBRE TODO, incluso sobre el prompt validado del formato — la misma
+     * precedencia que en el video, y por la misma razón: alguien que abrió el
+     * prompt, lo leyó y lo cambió sabe algo de esta escena que ninguna plantilla
+     * puede saber. Si el sistema le pisara el texto, el paso de editarlo sería un
+     * formulario decorativo.
+     */
+    propio?: string;
+  },
 ): string {
+  const aMano = (opts.propio ?? '').trim();
+  if (aMano) return aMano;
+
   // ⚠️ EL PROMPT DEL FORMATO GANA, ENTERO. No se le concatena nada: ya trae su
   // propia identidad («mantén a la persona totalmente inalterada»), su propia luz
   // y su propio negativo. Pegarle además el bloque genérico sería darle dos
@@ -168,7 +186,7 @@ export function parchesImagenEscena(p: PedidoImagenEscena): Record<string, unkno
     // y el realismo los pone el código. Antes se mandaba `p.prompt` pelado —40 a
     // 70 palabras de composición y nada más— y el resultado era una persona
     // parecida a nadie, con otra ropa y con la luz que el modelo quisiera.
-    'requests.0.structuredPrompt': { parts: [{ text: promptFinal(p.prompt, { conCara: !!p.cara, puestaId: p.puestaId }) }] },
+    'requests.0.structuredPrompt': { parts: [{ text: promptFinal(p.prompt, { conCara: !!p.cara, puestaId: p.puestaId, propio: p.propio }) }] },
     // ⚠️ LA CARA, cuando la persona eligió una. MEDIDO: en el pedido real vive en
     // `requests[0].imageInputs[0].name`, al lado de un `imageInputType` que NO se
     // toca — por eso va por parche y no por cuerpo: `fundir` reemplazaría el array

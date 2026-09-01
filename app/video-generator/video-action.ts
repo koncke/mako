@@ -1198,6 +1198,8 @@ export async function generarImagenAction(
       // todavía no lo tienen— y su `lugar` sigue siendo lo que se lee en
       // pantalla, así que no se pierde nada por mandar las dos cosas.
       puestaId: item.plan.puestaId,
+      // Lo que la persona escribió a mano para esta escena, si escribió algo.
+      propio: item.promptsImagenPropios?.[String(n)],
       seed: semillaDeEscena(planId, n, intento),
       batchId: randomUUID(),
       // La cara elegida, y SÓLO si las dos condiciones se cumplen: que ya esté
@@ -1392,6 +1394,38 @@ export async function descartarTomaAction(
   const sin = { ...marcas(item) };
   sin[String(n)] = archivarToma(marcas(item)[String(n)]);
   const actualizado: PlanGuardado = { ...item, video: sin };
+  await guardarEnHistorial(actualizado);
+  return { ok: true, item: actualizado };
+}
+
+/**
+ * Guarda el prompt que la persona escribió para la IMAGEN de un escenario.
+ *
+ * Gemela de `guardarPromptTomaAction` y con las mismas dos reglas: NO genera
+ * —guardar y gastar son decisiones distintas— y vaciar el campo devuelve el
+ * prompt del formato, que es la forma de deshacer.
+ */
+export async function guardarPromptEscenaAction(
+  planId: string,
+  n: number,
+  prompt: string,
+): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  const item = planDe(await leerHistorial(), planId);
+  if (!item) return { ok: false, error: 'Ese anuncio ya no está en el historial.' };
+  if (!item.escenas?.some((e) => e.n === n)) return { ok: false, error: 'Ese escenario no existe.' };
+
+  const texto = (prompt ?? '').trim().slice(0, 4000);
+  const previos = { ...(item.promptsImagenPropios ?? {}) };
+  if (texto) previos[String(n)] = texto;
+  else delete previos[String(n)];
+
+  const actualizado: PlanGuardado = {
+    ...item,
+    promptsImagenPropios: Object.keys(previos).length ? previos : undefined,
+  };
   await guardarEnHistorial(actualizado);
   return { ok: true, item: actualizado };
 }

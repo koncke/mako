@@ -34,7 +34,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link, { useRouter } from '@/app/_ui/Link';
-import { Button, Tag, Status, TextField, Textarea, Tooltip, MONO } from '@/app/_ui';
+import { Button, Tag, Status, Textarea, Tooltip, MONO } from '@/app/_ui';
 import { Icon } from '../_components/icons';
 import type { PlanGuardado, EstadoContextoVideo } from './video-datos';
 import type { Puesta } from '@/lib/puestas-data';
@@ -42,12 +42,13 @@ import { causaFlow, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
 import { creditosDeClip } from '@/lib/costo-clip';
 import { promptDeClip } from '@/lib/prompts-video';
 import { imagenEnCurso } from './variantes-imagen';
+import { promptFinal } from '@/lib/flow-imagen';
 import { useExtensionInstalada, AvisoExtensionVieja } from './extension-instalada';
 import { Foto, FotoGrande, ModalFotos } from './ElegirFoto';
 import {
-  escribirEscenasAction, corregirEscenaAction, generarImagenAction, estadoImagenAction,
+  escribirEscenasAction, generarImagenAction, estadoImagenAction,
   elegirImagenAction, subirImagenEscenaAction, confirmarEscenaAction,
-  generarTomaAction, estadoTomaAction, descartarTomaAction, restaurarTomaAction, guardarPromptTomaAction, marcarCaraVistaAction,
+  generarTomaAction, estadoTomaAction, descartarTomaAction, restaurarTomaAction, guardarPromptTomaAction, guardarPromptEscenaAction, marcarCaraVistaAction,
   elegirFotoAction, elegirUltimaFotoAction,
   cambiarMuletillasAction,
 } from './video-action';
@@ -233,7 +234,7 @@ type Paso =
    * eso `clave()` lo hace contar como su toma — el indicador de arriba tiene que
    * seguir marcando dónde está el anuncio, no inventar un paso más.
    */
-  | { id: 'prompt'; n: number }
+  | { id: 'prompt'; n: number; de: 'toma' | 'escena' }
   | { id: 'listo' };
 
 /**
@@ -298,9 +299,11 @@ function mapaDe(item: PlanGuardado): string[] {
 }
 
 function clave(p: Paso): string {
-  // El desvío del prompt cuenta como la toma de la que salió: es una decisión
-  // SOBRE esa toma, no un paso más del anuncio.
-  if (p.id === 'prompt') return `toma-${p.n}`;
+  // El desvío del prompt cuenta como el paso del que salió: es una decisión
+  // SOBRE esa toma o ese escenario, no un paso más del anuncio. Y tiene que
+  // mirar `de`: con `toma-` fijo, editar el prompt de una IMAGEN movía el
+  // indicador de arriba a otra parte del recorrido.
+  if (p.id === 'prompt') return `${p.de === 'escena' ? 'escenario' : 'toma'}-${p.n}`;
   return p.id === 'escenario' || p.id === 'toma' ? `${p.id}-${p.n}` : p.id;
 }
 
@@ -1000,8 +1003,6 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
   const [forzado, setForzado] = useState<Paso | null>(null);
   const [ocupado, setOcupado] = useState('');
   const [error, setError] = useState('');
-  const [ajuste, setAjuste] = useState('');
-  const [pidiendo, setPidiendo] = useState(false);
   /** El panel de regenerar, encima de la imagen. Dos salidas y nada más. */
   const [rehacer, setRehacer] = useState(false);
   const [desde, setDesde] = useState(() => Date.now());
@@ -1498,13 +1499,19 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                       <button
                         type="button"
                         className="mk-regen__cerrar"
-                        onClick={() => { setRehacer(false); setPidiendo(false); }}
+                        onClick={() => setRehacer(false)}
                         aria-label="Cerrar"
                       >
                         <Icon name="x" size={15} />
                       </button>
-                      {!pidiendo ? (
-                        <>
+                      {/* ⚠️ ACÁ HABÍA UNA SEGUNDA RAMA —un campo «Qué cambiarle» que le
+                          pedía a MaKo reescribir la escena— y quedó INALCANZABLE al
+                          mudar «Decir qué cambiar» al paso del prompt: nada volvía a
+                          poner `pidiendo` en true. Se borra en vez de dejarla: una
+                          rama muerta se lee como una función que existe.
+                          `corregirEscenaAction` queda sin llamadores; se conserva
+                          porque «que lo arregle MaKo» sigue siendo una opción
+                          razonable, pero hoy no la ofrece nadie. */}
                           {/* Las variantes que ya se generaron, para volver a
                               cualquiera con un click. Van ARRIBA de los botones:
                               «ya tengo una que me servía» es más barato que
@@ -1551,32 +1558,32 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                           >
                             Regenerar
                           </Button>
-                          <Button variant="tertiary" onClick={() => setPidiendo(true)}>
-                            Decir qué cambiar
-                          </Button>
-                        </>
-                      ) : (
-                        <div style={{ width: '100%', display: 'grid', gap: 9 }}>
-                          <TextField
-                            label="Qué cambiarle"
-                            value={ajuste}
-                            onChange={(e) => setAjuste(e.target.value)}
-                          />
+                          {/* ⚠️ LLEVA AL PROMPT, como en el video. Antes abría un
+                              campo para DESCRIBIR el cambio y se lo mandaba a
+                              MaKo para que reescribiera la escena. El dueño lo
+                              igualó al del clip: «si le doy al botón de Decir
+                              qué cambiar me debe mostrar el prompt, como en el
+                              video».
+                              Y es lo correcto por lo mismo que allá: lo que
+                              gobierna esta imagen es UNA instrucción, y la
+                              persona puede leerla y corregirla sin
+                              intermediario — con un modelo en el medio, lo que
+                              escribe se convierte en otra cosa. */}
                           <Button
-                            variant="mako"
-                            loading={ocupado === 'corregir'}
-                            disabled={!ajuste.trim()}
-                            onClick={async () => {
-                              await correr('corregir', () => corregirEscenaAction(item.id, paso.n, ajuste), false);
-                              setAjuste('');
-                              setPidiendo(false);
+                            variant="tertiary"
+                            onClick={() => {
+                              const e = (item.escenas ?? []).find((x) => x.n === paso.n);
+                              setPromptTexto(promptFinal(e?.prompt ?? '', {
+                                conCara: !!item.fotoId,
+                                puestaId: item.plan.puestaId,
+                                propio: item.promptsImagenPropios?.[String(paso.n)],
+                              }));
                               setRehacer(false);
+                              setForzado({ id: 'prompt', n: paso.n, de: 'escena' });
                             }}
                           >
-                            Pedirle el cambio a MaKo
+                            Decir qué cambiar
                           </Button>
-                        </div>
-                      )}
                     </div>
                   )}
                 </Vertical>
@@ -1775,7 +1782,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                             c ? promptDeClip(item.plan.puestaId, c, item.promptsPropios?.['1']) : '',
                           );
                           setRehacerClip(false);
-                          setForzado({ id: 'prompt', n: 1 });
+                          setForzado({ id: 'prompt', n: 1, de: 'toma' });
                         }}
                       >
                         Decir qué cambiar
@@ -1850,14 +1857,24 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
     // puede leerla y corregirla sin intermediario.
     if (paso.id === 'prompt') {
       const n = paso.n;
+      const esImagen = paso.de === 'escena';
+      // El original: lo que el sistema mandaría si nadie lo hubiera tocado. Sale
+      // de la MISMA función que arma el pedido, así que «volver al texto de
+      // MaKo» devuelve exactamente lo que se va a mandar y no una copia parecida.
       const clipDelPaso = item.plan.clips.find((c) => c.n === n);
-      const original = clipDelPaso
-        ? promptDeClip(item.plan.puestaId, clipDelPaso)
-        : '';
+      const escenaDelPaso = (item.escenas ?? []).find((e) => e.n === n);
+      const original = esImagen
+        ? promptFinal(escenaDelPaso?.prompt ?? '', {
+          conCara: !!item.fotoId,
+          puestaId: item.plan.puestaId,
+        })
+        : clipDelPaso
+          ? promptDeClip(item.plan.puestaId, clipDelPaso)
+          : '';
       const cambiado = promptTexto.trim() !== original.trim();
       return {
         ancho: 620,
-        pregunta: `¿Qué le pides a la toma ${n}?`,
+        pregunta: esImagen ? `¿Qué le pides al escenario ${n}?` : `¿Qué le pides a la toma ${n}?`,
         titulo: 'Esto es lo que le llega al modelo, palabra por palabra.',
         cuerpo: (
           // ⚠️ ANCHO FIJO Y NO `100%`, y el número no es de gusto: el paso declara
@@ -1894,13 +1911,20 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
         ),
         // El dueño lo pidió así, y además es lo correcto: se llegó acá desde
         // «Regenerar», y el botón que cierra ese camino tiene que nombrarlo.
-        boton: `Regenerar: Toma ${n}`,
-        consecuencia: costoDeToma(n),
+        boton: esImagen ? `Regenerar: Escenario ${n}` : `Regenerar: Toma ${n}`,
+        // La imagen no cuesta; el clip sí. Es la única diferencia que la persona
+        // tiene que ver entre los dos caminos.
+        consecuencia: esImagen ? textoCosto(0) : costoDeToma(n),
         cargandoBoton: !!ocupado,
         onSiguiente: () => void correr('prompt', async () => {
-          // Guardar y filmar son dos escrituras y van EN ESTE ORDEN: si se
-          // filmara primero, el clip saldría con el prompt viejo y el texto nuevo
+          // Guardar y generar son dos escrituras y van EN ESTE ORDEN: si se
+          // generara primero, saldría con el prompt viejo y el texto nuevo
           // quedaría guardado al lado, describiendo algo que no se pidió.
+          if (esImagen) {
+            const g = await guardarPromptEscenaAction(item.id, n, cambiado ? promptTexto : '');
+            if (!g.ok) return g;
+            return generarImagenAction(item.id, n);
+          }
           const g = await guardarPromptTomaAction(item.id, n, cambiado ? promptTexto : '');
           if (!g.ok) return g;
           const d = await descartarTomaAction(item.id, n);

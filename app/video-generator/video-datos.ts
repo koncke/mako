@@ -186,6 +186,15 @@ export type PlanGuardado = {
    */
   promptsPropios?: Record<string, string>;
   /**
+   * Lo mismo para la IMAGEN de un escenario, por número de escena.
+   *
+   * Aparte de `promptsPropios` a propósito: son dos prompts distintos —uno arma
+   * la foto, el otro la anima— y meterlos en el mismo mapa haría que la clave
+   * `"1"` significara dos cosas según quién la lea. Es la misma razón por la que
+   * `imagenes` y `video` ya viven separados.
+   */
+  promptsImagenPropios?: Record<string, string>;
+  /**
    * Lo generado por ESCENARIO, indexado por su número.
    *
    * ⚠️ Va aparte de `video` a propósito. Son dos preguntas distintas —«¿ya tengo
