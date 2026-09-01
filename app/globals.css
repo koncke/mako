@@ -52,8 +52,30 @@
   --border: #EAECF1;
   --border-strong: #DCE0E7;
   --ink: #12151B;
-  --dim: #5B6472;
-  --faint: #98A0AC;
+  /* ⚠️ LOS TRES NIVELES DE TEXTO PASAN AA, Y ESO SE MIDIO. El 01/09/2026, sobre la
+     app RENDERIZADA (no leyendo el CSS): `--faint` daba **2,46:1** sobre
+     `--surface-2` y 2,64 sobre blanco, contra un minimo de 4,5. Se usa 1.158 veces
+     en 207 archivos, asi que era UN SOLO TOKEN haciendo ilegible la mitad del texto
+     secundario de la app — 1.045 elementos en /crm en una sola pantalla.
+
+     El tono y la saturacion se conservan (el mismo gris azulado frio que pide el
+     comentario de arriba): lo unico que baja es la LUMINOSIDAD.
+
+     Y `--dim` se re-espacio con el mismo criterio. No estaba mal —5,57 pasa— pero
+     con `--faint` en 4,67 los dos quedaban a 0,03 de luminancia: tres niveles que
+     se leen como dos. Con `--dim` en 8,07 la escala vuelve a tener tres escalones
+     distinguibles Y los tres legibles.
+
+     Medido sobre los tres fondos claros (blanco, --surface-2 y --bg):
+         --ink    17,03    (era 17,03)
+         --dim     8,07    (era 5,57)
+         --faint   4,67    (era 2,46  ⛔)
+
+     ⚠️ SI ALGUNO SE ACLARA DE NUEVO, SE MIDE. La formula es la de WCAG y el numero
+     no es opinable; lo que si era opinable —y ya se decidio— es que el texto
+     secundario de un producto que se usa en un telefono al sol tiene que leerse. */
+  --dim: #454C57;
+  --faint: #66707F;
   --sidebar: #14161B;
   --sidebar-2: #1E212A;
   /* La línea que se dibuja SOBRE el fondo oscuro: dos escalones por encima, no un
@@ -252,8 +274,19 @@
   --border-strong: #4A5160;
   --ink: #F3F5F8;
   --on-ink: #22262E;
-  --dim: #A8B0BD;
-  --faint: #7C8492;
+  /* Los mismos tres niveles, medidos contra los fondos de ESTE tema. Fallaban igual
+     que en claro, por el otro lado: `--faint` daba **3,08:1** sobre `--surface-2` y
+     3,56 sobre `--surface`. Aca hay que ACLARAR, no oscurecer.
+
+         --ink    10,63    (era 10,63)
+         --dim     7,03    (era 5,31)
+         --faint   4,63    (era 3,08  ⛔)
+
+     ⚠️ Y ESTE ES EL TEMA DEL /video-generator, que monta `<TemaOscuro/>`. O sea que
+     el texto que dice cuanto dura cada anuncio y de que formato es —lo unico que
+     distingue una tarjeta de otra— venia a 4,02:1. Medido ahi mismo. */
+  --dim: #C4CAD2;
+  --faint: #9EA4AE;
 
   /* El azul de acción de claro (#2F6FED) da 3,3:1 acá: ilegible. Sube. */
   --primary: #7FA6F8;
