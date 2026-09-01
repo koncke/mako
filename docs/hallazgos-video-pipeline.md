@@ -9,6 +9,9 @@
 > la ambición es un SaaS que los genere para terceros. **Son dos preguntas distintas de
 > licencia y casi ninguna fuente contesta sí a las dos.**
 
+> **El pipeline completo, listo para implementar, está en `edicion-video-automatica.md`.**
+> Este documento es el forense (por qué cada número es el que es); aquel es el qué se hace.
+
 ## La regla que gobierna todo lo nuevo de esta área
 
 **La licencia de una HERRAMIENTA nunca licencia un ASSET, y el canal de obtención (API,

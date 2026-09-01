@@ -1,5 +1,8 @@
 # Producir creativos para Mauricio con Flow — guía de trabajo manual
 
+> Esta guía cubre **producir los clips** con Flow. Lo que viene después —clonar la voz,
+> montar, cortar el aire muerto, música y subtítulos— está en `edicion-video-automatica.md`.
+
 Con el plan de Google AI Pro (origen Jio, 18 meses, 1.000 créditos/mes) y el método
 del curso **Creativos UGC Realistas · Avatar Hype**, adaptado a un consultor B2B.
 
