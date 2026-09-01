@@ -321,10 +321,60 @@ export async function leerHistorial(): Promise<PlanGuardado[]> {
   }
 }
 
+/**
+ * Cuántos clips PAGADOS tiene un anuncio. Es lo que decide si se puede tirar.
+ *
+ * No es «cuántas tomas» ni «está terminado»: es cuántos costaron créditos. Un
+ * anuncio a medio filmar con tres clips vale tanto como uno completo a la hora de
+ * decidir si desaparece.
+ */
+function clipsPagados(e: PlanGuardado): number {
+  return Object.values(e.video ?? {}).filter((v) => v?.url).length;
+}
+
 /** Agrega (o reemplaza por id) y recorta al tope. Devuelve el historial nuevo. */
 export async function guardarEnHistorial(item: PlanGuardado): Promise<PlanGuardado[]> {
   const actual = await leerHistorial();
-  const nuevo = [item, ...actual.filter((e) => e.id !== item.id)].slice(0, MAX_HISTORIAL);
+  const todos = [item, ...actual.filter((e) => e.id !== item.id)];
+
+  // ⚠️ EL TOPE SACA PRIMERO LO QUE NO SE PAGÓ, y antes recortaba por fecha a
+  // secas.
+  //
+  // Los .mp4 viven en storage colgados de un `planId` que sólo existía en esta
+  // fila: cuando el tope evictaba un anuncio TERMINADO, sus siete clips quedaban
+  // en el bucket sin nadie que supiera que existen. Ni una pantalla, ni un error,
+  // ni forma de volver — sólo espacio ocupado y ~105 créditos que nadie puede
+  // mirar.
+  //
+  // El orden nuevo: se conservan los que tienen clips pagados (los más recientes
+  // primero) y recién después se llena con los que no costaron nada. Un anuncio
+  // sin un solo clip filmado no le cuesta nada a nadie perderlo: el guion se
+  // vuelve a escribir.
+  //
+  // ⚠️ El que se acaba de guardar NUNCA se cae, tenga clips o no: recortar el
+  // anuncio en el que la persona está trabajando sería el peor momento posible.
+  const nuevo = todos.length <= MAX_HISTORIAL
+    ? todos
+    : [
+      todos[0],
+      ...todos.slice(1).filter((e) => clipsPagados(e) > 0),
+      ...todos.slice(1).filter((e) => clipsPagados(e) === 0),
+    ].slice(0, MAX_HISTORIAL);
+
+  if (todos.length > nuevo.length) {
+    const tirados = todos.filter((e) => !nuevo.some((x) => x.id === e.id));
+    const conClips = tirados.filter((e) => clipsPagados(e) > 0);
+    // Se REGISTRA lo que se tira, y sobre todo si tenía clips: un recorte
+    // silencioso se lee como «no había nada», que es justo lo que no se puede
+    // saber después.
+    if (conClips.length) {
+      console.warn(
+        `[video] el tope de ${MAX_HISTORIAL} tiró ${conClips.length} anuncio(s) CON clips pagados: `
+        + conClips.map((e) => `${e.id} (${clipsPagados(e)})`).join(', '),
+      );
+    }
+  }
+
   await setSetting(KEY_HISTORIAL_VIDEO, JSON.stringify(nuevo));
   return nuevo;
 }

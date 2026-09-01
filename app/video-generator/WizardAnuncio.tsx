@@ -1176,14 +1176,30 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
    * pantalla.
    */
   const escribiendo = useRef(false);
+  /**
+   * Cuántas veces se intentó escribir los escenarios solo.
+   *
+   * ⚠️ EL TOPE ES EL ARREGLO. Sin él, un fallo dejaba el efecto reintentando cada
+   * vez que cambiaba cualquiera de sus dependencias —o sea cada pocos segundos—
+   * contra un modelo que cobra, sin que nada lo contara ni lo dijera. Y la
+   * pantalla no ofrecía ningún botón, así que ni siquiera se veía como un error:
+   * se veía como una pantalla que no terminaba de cargar.
+   *
+   * Dos automáticos y para. De ahí en adelante reintenta la PERSONA, con el botón
+   * que ahora sí existe — que además es información: si hay que apretarlo, algo
+   * está fallando de verdad.
+   */
+  const intentosEscenas = useRef(0);
   useEffect(() => {
     if (paso.id !== 'escenario') return;
     if ((item.escenas?.length ?? 0) > 0 || escribiendo.current || ocupado) return;
+    if (intentosEscenas.current >= 2) return;
+    intentosEscenas.current += 1;
     escribiendo.current = true;
     void (async () => {
       const r = await escribirEscenasAction(item.id).catch(() => null);
-      if (r?.ok) onCambio(r.item);
-      else setError(r?.error || 'MaKo no pudo escribir los escenarios.');
+      if (r?.ok) { intentosEscenas.current = 0; onCambio(r.item); }
+      else setError(r?.error || 'MaKo no pudo escribir los escenarios. Prueba otra vez.');
       escribiendo.current = false;
     })();
   }, [paso, item.id, item.escenas, ocupado, onCambio]);
@@ -1283,7 +1299,12 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
           </Tooltip>
         ),
         cuerpo: (
-          <div style={{ width: '100%', maxWidth: 760, margin: '0 auto' }}>
+          // ⚠️ ANCHO FIJO, no `100%`. La caja de contenido del estudio mide
+          // `declarado - 56`, así que un `100%` dibujaba 704 sobre un `ancho`
+          // declarado de 760 — y el ejemplo del costado, que se ubica con el
+          // DECLARADO, quedaba a 44px del filete en vez de a 16. Lo que se dibuja
+          // tiene que medir lo que se declara.
+          <div style={{ width: 760, margin: '0 auto' }}>
             {item.plan.clips.map((c) => (
               <div
                 key={c.n}
@@ -1674,14 +1695,28 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
         // deben estar en CONTINUAR». Lo que el botón hace de más lo dice la línea
         // de abajo, no su rótulo — y un rótulo distinto por paso obliga a leerlo
         // cada vez para saber si es el mismo botón.
-        boton: sinEscenas ? undefined : txt ? txt.accion : 'Continuar',
+        // ⚠️ EL RÓTULO SALE DEL EFECTO, no de `txt.accion`. Es el mismo defecto
+        // que ya se arregló en el paso de filmar —«un botón que decía "Revisar el
+        // puente" y gastaba 15 créditos»— y seguía vivo en su hermano: el rótulo
+        // venía del texto de la causa y el onClick hacía otra cosa. Acá el efecto
+        // es uno solo y no cuesta nada: generar la imagen.
+        //
+        // Y con las escenas sin escribir el botón REINTENTA en vez de no existir:
+        // una pantalla sin ningún botón deja como única salida abandonar el
+        // anuncio, y el efecto de arriba reintentaba solo, sin tope y sin que
+        // nada lo contara.
+        boton: sinEscenas
+          ? 'Volver a intentar'
+          : txt ? 'Volver a generar la imagen' : 'Continuar',
         // Y sin «Filmar sí gasta»: es texto que nadie pidió, en una pantalla que
         // no filma. La consecuencia dice lo que cuesta APRETAR ESTE botón.
         consecuencia: textoCosto(0),
         cargandoBoton: !!ocupado || generando,
-        onSiguiente: opciones.length
-          ? () => void correr('confirmar', () => confirmarEscenaAction(item.id, paso.n))
-          : () => void correr('imagen', () => generarImagenAction(item.id, paso.n), false),
+        onSiguiente: sinEscenas
+          ? () => { intentosEscenas.current = 0; void correr('escenas', () => escribirEscenasAction(item.id), false); }
+          : opciones.length
+            ? () => void correr('confirmar', () => confirmarEscenaAction(item.id, paso.n))
+            : () => void correr('imagen', () => generarImagenAction(item.id, paso.n), false),
         atras: 'Volver',
         onAtras: () => { setExplicandoParecido(false); setForzado({ id: 'guion-leer' }); },
       };
