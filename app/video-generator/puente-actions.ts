@@ -15,7 +15,9 @@
 import { getRolWsEfectivo, getWorkspaceActual, getWorkspace } from '@/lib/workspace';
 import { crearTokenPuente, encolar, estadoPuente, type Puente } from '@/lib/flow-cola';
 import { estaVivo } from '@/lib/flow-puente-frescura';
+import { randomUUID } from 'node:crypto';
 import { ENDPOINTS } from '@/lib/flow-protocolo';
+import { parchesImagenEscena } from '@/lib/flow-imagen';
 import { getTenantDb } from '@/lib/workspace';
 import { getSetting, setSetting } from '@/lib/settings';
 
@@ -224,7 +226,24 @@ export async function probarImagenAction(
   if (texto.length < 3) return { ok: false, error: 'Escribe qué imagen quieres generar.' };
 
   try {
-    const id = await encolar('generar_imagen', { body: { prompt: texto.slice(0, 500) } });
+    // ⚠️ `path` Y `parches`, NO `body`. Encolaba `{ body: { prompt } }` a secas, y
+    // `extension/background.js` rechaza todo pedido sin un `path` que empiece con
+    // `/v1`: «pedido sin path válido». O sea que este botón encolaba un trabajo,
+    // lo cobraba como intento, y moría con un error que no nombra nada — un
+    // control muerto puesto justo donde alguien va a probar si el puente anda.
+    //
+    // El molde es el call site que SÍ funciona (`video-action.ts`): el projectId
+    // del path es de mentira a propósito —la extensión lo usa sólo para encontrar
+    // la plantilla, de cuyo último tramo sale la clase, y copia la URL real
+    // entera— y el prompt va por PARCHES porque `fundir()` reemplaza arrays: un
+    // `requests` a medias perdería el modelo y la cara.
+    const id = await encolar('generar_imagen', {
+      path: ENDPOINTS.generarImagenes('x'),
+      // La semilla FIJA y el `batchId` propio: es una prueba, no una generación
+      // del anuncio, así que repetirla tiene que dar lo mismo y no puede pisar el
+      // lote de nadie.
+      parches: parchesImagenEscena({ prompt: texto.slice(0, 500), seed: 1, batchId: randomUUID() }),
+    });
     if (id == null) return { ok: false, error: 'No se pudo encolar la prueba.' };
     return { ok: true, trabajoId: id };
   } catch (e) {

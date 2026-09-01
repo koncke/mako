@@ -21,6 +21,7 @@ import { getSetting, setSetting } from '@/lib/settings';
 import {
   sanearPlantillas, soloDelProyecto, fundirPlantillas, faltantes, KEY_PLANTILLAS,
   type PlantillaEspejo,
+  proyectoDePlantilla,
 } from '@/lib/flow-plantillas';
 import { runWithWorkspace, getTenantDb } from '@/lib/workspace';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -278,7 +279,22 @@ export async function POST(req: NextRequest) {
   // Se GUARDA además de mandarse, con `cuando: 0`: guardarla es lo que hace que
   // `caraParcheable()` —que mira lo persistido— sepa que hay dónde poner la cara,
   // y el cero hace que el primer pedido real la desplace sola.
-  const conFabrica = conPlantillaDeFabrica(guardadas, str(body.projectId));
+  // ⚠️ EL `projectId` TAMBIEN SE DERIVA DE LO QUE YA HAY GUARDADO.
+  //
+  // Las tres fabricas arrancan con `if (!ES_UUID.test(proj)) return null`, y el
+  // navegador aprende el projectId de UN solo lugar: la url de las llamadas de
+  // imagen (`/v1/projects/<id>/...`). Un cliente que todavia no hizo ninguna
+  // llega con `projectId: ''`, no se le suma ninguna fabrica, y vuelve a salirle
+  // «Abre Flow, genera UNO a mano» — o sea justo el paso manual que las fabricas
+  // vienen a borrar, degradando EN SILENCIO: sin error y sin log.
+  //
+  // `proyectoDePlantilla` ya sabe sacarlo de la url o del `clientContext.projectId`
+  // del cuerpo, y las plantillas de video lo traen ahi. Con una sola guardada ya
+  // hay de donde. No inventa nada: si no hay ninguna, sigue vacio y las fabricas
+  // se abstienen, que es lo correcto.
+  const proyecto: string = str(body.projectId)
+    || guardadas.map(proyectoDePlantilla).find((x) => !!x) || '';
+  const conFabrica = conPlantillaDeFabrica(guardadas, proyecto);
   if (conFabrica.length !== guardadas.length) {
     await runWithWorkspace(ws, () => setSetting(KEY_PLANTILLAS, JSON.stringify(conFabrica)));
     guardadas = conFabrica;

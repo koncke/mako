@@ -21,6 +21,7 @@ import {
   plantillaClipDeFabrica, plantillaEstadoClipDeFabrica, CLASE_CLIP, CLASE_ESTADO_CLIP,
 } from '../lib/plantilla-fabrica';
 import { parchesEstadoClip } from '../lib/flow-protocolo';
+import { proyectoDePlantilla } from '../lib/flow-plantillas';
 import { fundirPlantillas, sanearPlantillas, tieneCaraParcheable } from '../lib/flow-plantillas';
 
 const PROJ = '9973383e-74eb-4503-80f3-d30fb856781a';
@@ -207,4 +208,33 @@ test('un cliente SIN nada recibe las tres, que es todo lo que hace falta para un
   // que salió (estado). Con las tres, nadie tiene que abrir Flow a generar nada.
   const clases = conPlantillaDeFabrica([], PROJ).map((p) => p.clase).sort();
   assert.deepEqual(clases, [CLASE_IMAGEN, CLASE_CLIP, CLASE_ESTADO_CLIP].sort());
+});
+
+test('⚠️ el projectId se puede DERIVAR de una plantilla ya guardada', () => {
+  // Las tres fábricas se abstienen sin un uuid, y el navegador lo aprende de UN
+  // solo lugar: la url de las llamadas de imagen. Un cliente que todavía no hizo
+  // ninguna llegaba con vacío, no recibía ninguna fábrica, y le volvía a salir
+  // «Abre Flow, genera UNO a mano» — el paso manual que las fábricas borran,
+  // degradando en silencio: sin error y sin log.
+  //
+  // Las de video traen el proyecto adentro del cuerpo, así que con una alcanza.
+  const soloVideo = [{
+    clase: CLASE_CLIP,
+    url: 'https://aisandbox-pa.googleapis.com/v1/video:batchAsyncGenerateVideoReferenceImages',
+    metodo: 'POST', headers: {}, cuando: 7,
+    cuerpo: JSON.stringify({ clientContext: { projectId: PROJ } }),
+  }];
+  assert.equal(proyectoDePlantilla(soloVideo[0]), PROJ);
+
+  // Y con eso —sin que el latido traiga projectId— se pueden sembrar las que faltan.
+  const derivado = soloVideo.map(proyectoDePlantilla).find((x) => !!x) || '';
+  const out = conPlantillaDeFabrica(soloVideo, derivado);
+  assert.ok(out.some((p) => p.clase === CLASE_IMAGEN));
+  assert.ok(out.some((p) => p.clase === CLASE_ESTADO_CLIP));
+});
+
+test('sin NADA de donde derivar, las fábricas se abstienen', () => {
+  // No inventa un uuid: un projectId equivocado manda el pedido al proyecto de
+  // otro, y eso no da error — da una imagen en la grilla que no es de nadie.
+  assert.deepEqual(conPlantillaDeFabrica([], ''), []);
 });
