@@ -3514,3 +3514,46 @@ página» en «una credencial persistente exfiltrable». No es un cruce entre
 workspaces —un script que ya corre en el origen de la víctima tiene su sesión— y
 por eso quedó afuera de este arreglo. Es endurecimiento, y vive en
 `app/video-generator/PuenteEnlace.tsx` y `lib/flow-cola.ts`.
+
+
+## Cerrar la lista de los 11: qué se arregló y qué queda
+
+**Vive en:** `app/video-generator/`, `lib/guion-reparto.ts`, `lib/puestas-data.ts`
+
+Cierre del 01/09/2026, sobre la lista que 12 agentes habían verificado viva.
+Diez arreglados, uno que el rediseño dejó sin efecto, y uno a medias.
+
+### Lo que las une
+
+Casi todas eran **una decisión correcta aplicada mirando sólo a su vecino**:
+
+- El tope del historial recortaba por fecha sin mirar si lo que tiraba estaba
+  pagado.
+- La compactación del guion se negaba a vaciar una toma mirando sólo a la de al
+  lado, en vez de preguntar si había con qué rellenarla más adelante.
+- `elegirFotoAction` escribía el `fotoId` sin mirar lo que esa foto ya había
+  producido.
+- `rehabilitarPuenteAction` borraba todos los fallidos sin mirar el motivo.
+- `caraEnFlow` usaba el mapa cacheado sin mirar si la foto seguía existiendo.
+
+⚠️ **La forma de reconocerlas: un guard que protege UNA cosa y decide mirando
+UNA sola.** Cuando el estado que gobierna la decisión está a dos saltos —la toma
+siguiente, el motivo del fallo, la imagen que produjo el clip—, el guard es
+correcto en su vecindario y equivocado en el sistema.
+
+### Lo que quedó a medias, con su límite nombrado
+
+**El reparto del guion.** De 82 palabras en la última toma a 41, con las siete de
+arriba llenas y sin perder una palabra. Lo que queda es la **granularidad de las
+piezas**: se cortan contra el tope más chico, así que una toma con 6 de lugar no
+puede aceptar una de 12. Partirlas más fino ya se probó **y los tests lo
+frenaron: rompía el CTA**, que es lo único del guion que tiene que llegar entero.
+
+La salida no es más algoritmo: es el editor de clips. Sumar una toma es un click.
+
+### Y uno que se arregló solo
+
+«Volver desde *¿Apruebas este clip?* cae en una toma filmada cuyo botón cobra y
+no hace nada» dejó de ser posible cuando el paso único reemplazó a `cara` y
+`toma`: `pasoDe` ya no los devuelve. **Un rediseño puede cerrar un pendiente sin
+tocarlo** — conviene re-verificar la lista después de uno, y no darla por vigente.
