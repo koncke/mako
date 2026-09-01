@@ -34,7 +34,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link, { useRouter } from '@/app/_ui/Link';
-import { Button, Tag, Status, Textarea, Tooltip, MONO } from '@/app/_ui';
+import { Button, Tag, Status, Textarea, Tooltip, Alert, MONO } from '@/app/_ui';
 import { Icon } from '../_components/icons';
 import type { PlanGuardado, EstadoContextoVideo } from './video-datos';
 import type { Puesta } from '@/lib/puestas-data';
@@ -45,7 +45,7 @@ import { imagenEnCurso } from './variantes-imagen';
 import { nombreDeClip } from './video-pedido';
 import { PasoTomas } from './PasoTomas';
 import { creditosDeClip as creditosDeClipFlow } from '@/lib/costo-clip';
-import { promptFinal } from '@/lib/flow-imagen';
+import { promptFinal, urlDeFlowVencida } from '@/lib/flow-imagen';
 import { useExtensionInstalada, AvisoExtensionVieja } from './extension-instalada';
 import { Foto, FotoGrande, ModalFotos } from './ElegirFoto';
 import {
@@ -1305,6 +1305,21 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
           // DECLARADO, quedaba a 44px del filete en vez de a 16. Lo que se dibuja
           // tiene que medir lo que se declara.
           <div style={{ width: 760, margin: '0 auto' }}>
+            {/* ⚠️ EL AVISO DEL PERFIL, que se calculaba y no lo dibujaba nadie.
+                `video-datos.ts` dice textual que lee el perfil «para poder
+                avisarlo ANTES, en la pantalla, en vez de dejar que el usuario
+                escriba un tema y recién ahí falle» — y `faltanDelPerfil` no tenía
+                un solo lector. Dos consultas por carga cuyo resultado se
+                descartaba, y el aviso que las justificaba sin existir. */}
+            {contexto && !contexto.perfilListo && contexto.faltanDelPerfil.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <Alert tono="warn">
+                  <strong>Tu perfil está incompleto.</strong> Falta {contexto.faltanDelPerfil.join(', ')}.
+                  MaKo escribe el anuncio con eso, así que sin ello sale genérico.{' '}
+                  <Link href="/onboarding">Completarlo</Link>
+                </Alert>
+              </div>
+            )}
             {item.plan.clips.map((c) => (
               <div
                 key={c.n}
@@ -1592,7 +1607,20 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, onCambio, on
                                     border: u === marca?.elegida ? '2px solid var(--primary)' : '1px solid rgba(255,255,255,.35)',
                                   }}
                                 >
-                                  <img src={u} alt="" style={MEDIO} />
+                                  {/* ⚠️ Una variante vieja puede tener la
+                                      dirección vencida (~6 h). Se dibuja su
+                                      número en vez de una imagen rota: lo
+                                      segundo se lee como que la app perdió el
+                                      archivo, y no lo perdió — el `mediaId` no
+                                      vence y filmar sigue funcionando. */}
+                                  {urlDeFlowVencida(u) ? (
+                                    <span style={{
+                                      display: 'grid', placeItems: 'center', width: '100%',
+                                      height: '100%', fontSize: 11, color: 'var(--faint)',
+                                    }}>{opciones.indexOf(u) + 1}</span>
+                                  ) : (
+                                    <img src={u} alt="" style={MEDIO} />
+                                  )}
                                 </button>
                               ))}
                             </div>

@@ -95,3 +95,32 @@ test('sin guion tampoco: no se manda un prompt con las comillas vacías', () => 
   assert.doesNotMatch(promptDeClip('selfie-movimiento', clip('   ')), /Esta persona dice/);
   assert.doesNotMatch(promptDeClip('selfie-movimiento', clip('****')), /Esta persona dice/);
 });
+
+// ── Y las urls firmadas que vencen ──────────────────────────────────────────
+// Las direcciones de Flow vienen firmadas con `Expires` y duran ~6 h. La tira de
+// variantes las conserva para siempre —que es lo correcto: son las versiones que
+// la persona puede querer recuperar— así que al día siguiente se dibujaban ROTAS.
+// Y una imagen rota no se lee como «venció el enlace»: se lee como que la app
+// perdió el archivo. No lo perdió: el `mediaId` no vence y filmar sigue andando.
+
+import { urlDeFlowVencida } from '../lib/flow-imagen';
+
+test('una url con Expires pasado está vencida', () => {
+  const ayer = Math.floor(Date.now() / 1000) - 3600;
+  assert.equal(urlDeFlowVencida(`https://flow-content.google/image/x?Expires=${ayer}`), true);
+});
+
+test('una vigente no', () => {
+  const luego = Math.floor(Date.now() / 1000) + 3600;
+  assert.equal(urlDeFlowVencida(`https://flow-content.google/image/x?Expires=${luego}`), false);
+});
+
+test('sin Expires se considera VIGENTE: no saber cuándo vence no es saber que venció', () => {
+  assert.equal(urlDeFlowVencida('https://flow-content.google/image/x'), false);
+  assert.equal(urlDeFlowVencida(''), false);
+});
+
+test('lee el Expires venga primero o en el medio de la query', () => {
+  const ayer = Math.floor(Date.now() / 1000) - 10;
+  assert.equal(urlDeFlowVencida(`https://x/y?KeyName=k&Expires=${ayer}&Signature=s`), true);
+});

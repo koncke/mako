@@ -146,6 +146,27 @@ const REALISMO =
  * para saber qué se está pidiendo. Un prompt que sólo existe adentro del que lo
  * manda es un prompt que nadie puede revisar.
  */
+/**
+ * ¿La dirección firmada de una imagen de Flow ya venció?
+ *
+ * ⚠️ Las urls de Flow vienen firmadas con `Expires` y duran ~6 h. La tira de
+ * variantes las conserva para siempre —que es lo correcto: son las versiones que
+ * la persona puede querer recuperar— así que al día siguiente esas miniaturas se
+ * dibujan ROTAS. Y una imagen rota no se lee como «venció el enlace»: se lee como
+ * que la app perdió el archivo.
+ *
+ * Lo que NO vence es el `mediaId`, que es con lo que se filma. O sea que el clip
+ * sigue saliendo bien: lo único perdido es poder MIRAR la variante vieja.
+ *
+ * Sin `Expires` se considera vigente: no saber cuándo vence no es saber que
+ * venció.
+ */
+export function urlDeFlowVencida(url: string, ahora = Date.now()): boolean {
+  const m = /[?&]Expires=(\d+)/.exec(url || '');
+  if (!m) return false;
+  return Number(m[1]) * 1000 < ahora;
+}
+
 export function promptFinal(
   escena: string,
   opts: {
