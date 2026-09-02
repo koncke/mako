@@ -2403,6 +2403,23 @@ del fetch deja el panel en nada. Sin error, sin 404 visible, sin nada que lleve 
 
 # Una guarda bloquea sólo lo que se arregla haciendo lo que ella pide
 
+⚠️ **Y vale igual para un AVISO y para el ORDEN de las ramas de un aviso, no sólo
+para un `puedeAvanzar`.** Un paso del onboarding pedía «conecta tu navegador» y no
+dejaba avanzar mientras `estadoDelPuente` dijera que no anda — pero uno de esos
+estados es `marcada`, que es Google pausando la sesión de Flow y no se arregla
+conectando nada. Una clienta con la extensión al día y latiendo hace cuatro
+segundos quedó trabada ahí.
+
+Peor: la pantalla la mandaba a **instalar la extensión que ya tenía**, y el botón
+que sí resuelve —«Ya lo hice, volver a habilitar»— vivía en un componente que esa
+pantalla no dibujaba. El popup de la extensión lo nombraba por su nombre. Ella
+escribió: «no encuentro el Ya lo hice».
+
+**Dos preguntas antes de escribir un guard o un aviso:** ¿todos los estados que
+bloquea se arreglan haciendo lo que pido? Y si nombro un botón, ¿está en ESTA
+pantalla? Un paso que nombra un control que su propia pantalla no tiene es peor que
+uno que no dice nada: la persona busca hasta que se cansa.
+
 Si un chequeo frena por algo que el que empuja no puede resolver —el archivo no existe en
 ningún lado, el dato lo tiene otro equipo, la causa está en otro repo—, deja de ser una
 red y pasa a ser un candado sin llave. Y de un candado sin llave lo único que se aprende es

@@ -4666,3 +4666,207 @@ existe para evitar. Mismo patrón que `landing-an` y `carousels_ensayo`.
   OAuth exige autenticarse en la cuenta de Google. El trámite está convertido en
   un comando (`npm run publicar-extension`) y lo corre Martín.
 - **El worker de montaje sigue sin contenedor**, y Epidemic Sound sin alta.
+
+---
+
+## La voz clonada, y tres formas de leer mal una respuesta (02/09/2026)
+
+**Vive en:** `lib/flow-media.ts` · `lib/elevenlabs.ts` · `lib/elevenlabs-fallo.ts` ·
+`lib/metodo-verificar.ts` · `app/video-generator/video-action.ts` ·
+`app/video-generator/OnboardingVideoGen.tsx` · `app/api/onboarding/voz/route.ts`
+
+### ⚠️ La respuesta de estado de Flow habla de VARIOS medios, y se leía entera
+
+`batchCheckAsyncVideoGenerationStatus` contesta por N medios. La forma exacta,
+sacada de `flow_trabajos.resultado` del trabajo 583:
+
+```
+$.media[0].name = 108dc579…   ← el clip     FAILED · IDENTIFIABLE_PERSON_SAFETY
+$.media[1].name = 68a5ae6c…   ← la IMAGEN   SUCCESSFUL · 4.030.059 bytes
+```
+
+Son **hermanos**, y el segundo —la imagen del escenario desde la que se anima—
+viaja en TODAS las consultas y siempre sale bien. El lector hacía dos cosas sobre
+el JSON completo: un regex de `…_FAILED` y un `buscarCampo` de la url a cualquier
+profundidad.
+
+Las dos leen del medio equivocado y las dos fallan calladas:
+
+- con el clip BIEN y la imagen mal, el clip se marca rechazado — **la pantalla
+  afirma que Google lo rechazó y Google no dijo eso de él**;
+- `buscarCampo` puede devolver la url de la IMAGEN. Eso no da error: da una toma
+  que reproduce una foto fija. **Se ve como un clip.**
+
+**La regla: cuando una respuesta habla de varias cosas, el desambiguador es una
+CLAVE del payload —acá el `name`—, y hay que acotarse a su subárbol antes de leer
+nada.** Y el id vive DOS veces en cada medio (`media[i].name` y
+`media[i].video.operation.name`): el de adentro cuelga de `video`, que no tiene al
+lado ni estado ni url, así que una búsqueda en profundidad entra por él y sale
+vacía — indistinguible de «esta respuesta no lo menciona». Va en ANCHURA.
+
+### El filtro de la cara tiene dos miembros y el detector conocía uno
+
+`PROMINENT_PERSON` es «se parece a alguien famoso». `IDENTIFIABLE_PERSON_SAFETY`
+es «hay una persona real reconocible». **Mismo remedio, distinto motivo** — y sólo
+el primero estaba en el detector, así que el segundo caía al `else` y salía como
+«el filtro de contenido rechazó **cómo está escrito el escenario**… hay que
+reescribirlo».
+
+⚠️ Le pasó a una clienta con dos tomas. Su guion estaba perfecto: la mandamos a
+reescribir durante horas lo único que no era el problema, y **el camino que sí
+destraba —regenerar la imagen del escenario, que es gratis— no se le nombró
+nunca.**
+
+Y la frase tampoco puede ser la del famoso: decirle a alguien que Google lo
+confundió con una celebridad cuando dijo otra cosa es **inventar un hecho sobre su
+propia cara**. Sin motivo reconocido no se elige ninguno.
+
+### ⚠️ Un campo que significa dos cosas según quién lo escribió
+
+En el mismo historial de la misma clienta, a la vez:
+
+```
+toma 1  → errorCrudo = «Todavía no vi a Google Flow generar un video…»   ← una FRASE
+toma 10 → errorCrudo = {"media":[{"name":"108dc579…                      ← 1.600 b de JSON
+```
+
+`falloGuardable` recibe `data.error`, que es la traducción que escribió
+`flow-protocolo.ts`. El sondeo guarda el JSON. Las dos pantallas pasaban ese campo
+a `textoFlow` como «lo que dijo el servidor», que **gana sobre la constante** — y
+así le dibujamos el payload de Google, con el prompt y los ids adentro, centrado
+en el recuadro donde va el video.
+
+Lo que más cuesta ver: **el comentario que eligió ese campo razonaba bien.** Decía
+que `error` guarda el TÍTULO y que devolvérselo lo imprimía dos veces, y que «la
+frase que sirve vive en `errorCrudo`». La primera mitad era cierta; la segunda,
+sólo a veces.
+
+**La regla: si un campo lo escriben dos caminos, escribí qué significa — o son dos
+campos.** Ahora la frase tiene el suyo y el crudo vuelve a ser sólo evidencia. Y
+la guarda va del lado del que MUESTRA (`pareceFraseParaPersona`), porque el
+parámetro ya se usó mal tres veces: arreglar los dos call-sites deja vivo el
+tercero.
+
+### Un default que ACUSA
+
+`PasoTomas` caía a `?? 'contenido'` cuando no había causa guardada, o sea que
+cualquier fallo sin clasificar salía como «el filtro de contenido rechazó cómo
+está escrito el escenario». **Un default no puede ser una acusación**: `desconocida`
+dice lo que se sabe, que es nada, y no manda a arreglar algo que capaz está bien.
+
+---
+
+### ElevenLabs: dos 401 de la misma cuenta que mandan a lugares opuestos
+
+```
+22/08  /v1/voices            → 200 con las cinco voces clonadas
+       /v1/user/subscription → 401 {"type":"payment_required","code":"payment_issue"}
+02/09  /v1/user/subscription → 401 {"status":"missing_permissions"}
+       /v1/models            → 200 CON LA LISTA VACÍA
+```
+
+El primero es una factura impaga y se leyó como «permisos acotados». El segundo es
+un permiso faltante sobre una cuenta al día. **Se clasifica por `detail.code`,
+nunca por el status.**
+
+⚠️ **Y el 200 con lista vacía casi cierra el tema al revés.** Se leyó como «esta
+cuenta no puede hacer voice conversion» y lo que pasaba es que la key no tiene
+`models_read`. Cero resultados es una respuesta, no un hecho.
+
+### ⚠️ Un preflight que ejercita la operación REAL y no gasta nada
+
+El ping viejo miraba `/v1/user` y caía a `/v1/models`: los dos dan verde sobre una
+cuenta que no puede generar un segundo de audio.
+
+**La técnica, medida y reusable para cualquier API: se manda el pedido real a
+propósito SIN cuerpo.** Sin permiso, el servidor contesta 401 antes de mirar el
+cuerpo; con permiso, contesta **422 «Field required»**.
+
+```
+POST /v1/voices/add            (FormData vacío) → 422 «Field required: name, files»
+POST /v1/speech-to-speech/{id} (FormData vacío) → 422 «Field required: audio»
+```
+
+Comprobado contra la cuenta real: las dos pueden. Sin crear una voz, sin consumir
+un carácter de cuota, y sobre la operación que de verdad se va a usar — que es lo
+que la regla de la casa pide y lo que los caminos baratos no dan.
+
+### Cuatro workspaces con la misma key
+
+Medido con `credWs` contra producción:
+
+```
+sk_9161f…734a  →  ws 1 (Mauricio) · ws 4 (Cliente de Diseño) · ws 9 (Martín)
+sk_f17ba…de1d  →  ws 11 (Leila)
+sk_437ba…d3c6  →  el .env local, que no usa nadie porque la fila de la base gana
+```
+
+`credWs(clave)` sin segundo argumento resuelve por el workspace del request, y su
+última línea devuelve `process.env[clave]` cuando ese workspace es `OWNER_WS` —
+que es **un cliente**. Por eso `elevenKey()` va siempre contra `wsSuperAdmin()`, y
+hay un test que falla si esa llamada pierde el segundo argumento.
+
+⚠️ **Y esconder la tarjeta con `soloPlataforma` no borra las filas que ya están.**
+Las tres del mismo valor siguen ahí; sacarlas es una decisión de Martín, no del
+código.
+
+### Lo que decide la calidad de un clon es el MATERIAL
+
+Está medido y es contraintuitivo: un clon hecho con material conversacional sale
+~30 Hz por debajo del tono real y suena a lectura. El barrido de `stability` probó
+0,00 · 0,35 · 0,60 · 0,85 y **ninguno bajó del doble del objetivo**.
+
+⚠️ **Y ninguno de los dos valores que se pelean por ser «el de producción» estuvo
+en ese barrido**: el script usa 0.45/0.85 y el documento 0.55/0.75. Los que viajan
+en `lib/elevenlabs.ts` son los del documento, anotados como NO MEDIDOS.
+
+Por eso el copy del paso pide **90 segundos en registro de anuncio, actuando y con
+CTA**. Pedir «un audio tuyo» produce material conversacional, y eso ya no se
+arregla después.
+
+### Un ternario que marcaba el paso equivocado
+
+`marcarPasoVideoAction(paso === 'cara' ? 'vg_cara' : 'vg_puente')`: cualquier
+pantalla nueva marcaba el PUENTE como hecho. No falla, tipa bien —`vg_puente` es
+un valor válido— y deja a alguien saltando el paso del navegador sin haberlo
+conectado nunca. Ahora es un `Record` completo: agregar un paso sin decidir qué
+cierra **no compila**.
+
+### ⚠️ Un guard que lee el fuente también lee los comentarios
+
+Los cuatro guards nuevos de `tests/elevenlabs-voz.test.ts` fallaron la primera vez
+**contra las citas que explican por qué existen**: el comentario que documenta un
+bug cita el código viejo textual, que es exactamente lo que el guard busca.
+
+Y el mismo test tuvo el otro: `credWs\(([^)]*)\)` corta en el primer cierre —el de
+`wsSuperAdmin(`— y deja afuera justo lo que hay que comprobar. **Con paréntesis
+anidados se mira la línea, no una captura.**
+
+### Lo que quedó SIN hacer, y por qué
+
+- **El STS todavía no corre en ningún lado.** El pipeline de montaje ya CONSUME
+  `sts-N.mp3` (`montar-anuncio-sin-silencios.sh:77`) y **nada en `worker/` los
+  produce**: faltan las etapas acelerar → demux → STS → `words-N.json`. Y no puede
+  correr en Vercel, que no trae ffmpeg. El worker sigue sin contenedor
+  provisionado, así que esto no se puede probar de punta a punta todavía.
+- ⚠️ **Dónde entra el STS ya lo decidió el CÓDIGO, y la evidencia respalda el otro
+  camino.** El pipeline lo aplica POR TOMA; la única medición de desfase (0 ms
+  sobre 100 s) se hizo sobre el montaje COMPLETO. No hay que volver a elegir, pero
+  ese número no cubre esta ruta.
+- ⚠️ **Y el desfase de labios no es determinista**: tres corridas idénticas sobre
+  el mismo audio dieron dos con un tramo corrido 290-310 ms y una limpia. No es una
+  propiedad del STS: es un dato por corrida. Se mide con correlación cruzada de la
+  envolvente de energía, nunca con los timestamps de un transcriptor (dieron 840 ms
+  de desfase falso).
+- **No hay precio de STS ni de clonación en `modelo.ts`**, y sin precio no hay
+  cupo. Con la key de plataforma, lo único que hoy contenía el gasto —que la
+  llamada explota sin key propia— deja de contener.
+- **Los slots de voz de la cuenta son un techo de clientes** (H5), y nadie midió
+  cuántos entran en el plan actual.
+- **`scripts/verificar-corte-anuncio.mjs` está en el Dockerfile y no lo invoca
+  nadie**, así que `palabrasPerdidas` promete un dato que nadie escribe — y un
+  campo siempre null se lee como «no se perdió ninguna palabra».
+- **La única cita de contrato que existe sobre ElevenLabs es la del free tier no
+  comercial.** La prohibición literal de compartir credenciales que el repo cita es
+  de fal.ai y Replicate, no de ElevenLabs. La decisión de que la key sea de la
+  plataforma se sostiene por la regla propia del repo, no por su ToS.
