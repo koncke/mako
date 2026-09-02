@@ -34,6 +34,7 @@ import {
 } from '@/lib/pipeline';
 // Sin 'server-only' a propósito (ver su cabecera): es la fuente única del mapeo
 // etapa→R1/R2, y la usa también este componente de cliente.
+import { useCapaModal } from '@/app/_components/pila-modales';
 import { slotDeReunion } from '@/lib/funnel-etapas';
 import type { EstadoLead, FathomLink } from '@/lib/leads';
 import {
@@ -646,6 +647,16 @@ export function CrmBoard({
   // Nada de listas de etapas armadas a mano acá: `salidasDeEtapa` (lib/pipeline)
   // es la fuente única. Filtra por el hecho ya declarado, así nunca se ofrece un
   // destino que contradiga la asistencia que el usuario acaba de contestar.
+  // ⚠️ ESTOS OVERLAYS ENTRAN A LA PILA DE MODALES. Estaban en `zIndex: 100` y la
+  // pila arranca en `Z_BASE = 130`: abiertos SOBRE un `<Modal>` del kit se
+  // dibujaban DETRAS — con el fondo del otro encima y sin poder tocarlos. No hay
+  // error: se ve como un modal que no responde.
+  //
+  // `useCapaModal` le da a cada uno el z que le toca y lo esconde con
+  // `display:none` cuando deja de ser el de arriba, que es el contrato del kit.
+  const capaQueHacer = useCapaModal(!!queHacer);
+  const capaMeeting = useCapaModal(!!meetingChoice);
+
   const qhEtapaActual = queHacer?.etapa ?? 'agenda';
   const qhCual = queHacer?.cual ?? 'r1';
 
@@ -1472,7 +1483,7 @@ export function CrmBoard({
         // Ya se reagendó: lo único que falta contar es qué pasó con el calendario.
         // El CRM está guardado sí o sí — el resultado de Google no puede leerse
         // como "falló el reagendado".
-        <div onClick={cerrarQueHacer} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div onClick={cerrarQueHacer} style={{ position: 'fixed', inset: 0, zIndex: capaQueHacer.z, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: capaQueHacer.visible ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{ width: '100%', maxWidth: 480, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '22px 24px' }}>
             <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: '.14em', color: 'var(--accent)', marginBottom: 10 }}>✦ MAKO</div>
             <div style={{ fontSize: 15.5, fontWeight: 700, color: reagOut.ok ? 'var(--good)' : 'var(--warn)', marginBottom: 5 }}>
@@ -1842,7 +1853,7 @@ export function CrmBoard({
 
       {/* ¿La reunión ya ocurrió o se va a agendar? Paso previo a Calendly */}
       {meetingChoice && (
-        <div onClick={() => setMeetingChoice(null)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div onClick={() => setMeetingChoice(null)} style={{ position: 'fixed', inset: 0, zIndex: capaMeeting.z, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: capaMeeting.visible ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '22px 24px' }}>
             <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: '.14em', color: 'var(--accent)', marginBottom: 8 }}>✦ MAKO</div>
             <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>Reunión {meetingChoice.which === 'agenda' ? 'R1' : 'R2'} — {meetingChoice.name}</div>
@@ -1972,6 +1983,9 @@ function BulkHigiene({ marcar, equipo, onDone }: {
   const [flash, setFlash] = useState<string | null>(null);
   const [open, setOpen] = useState<{ field: 'setter' | 'closer'; label: string; ids: number[] } | null>(null);
   const [openEmpresa, setOpenEmpresa] = useState(false);
+  // Mismo caso que los dos de CrmBoard: estaba en `zIndex: 100` contra una pila
+  // que arranca en 130.
+  const capaBulk = useCapaModal(!!open);
   const [openIgnorar, setOpenIgnorar] = useState(false);
   const [sel, setSel] = useState('');
   // Confirmación del "asignar en lote": guarda el valor elegido para poder
@@ -2072,7 +2086,7 @@ function BulkHigiene({ marcar, equipo, onDone }: {
       {flash && <div style={{ marginTop: 10, fontSize: 13.5, fontWeight: 600, color: flash.startsWith('✓') ? 'var(--good)' : flash.startsWith('Sin cambios') ? 'var(--dim)' : 'var(--bad)' }}>{flash}</div>}
 
       {open && (
-        <div onClick={() => !pending && setOpen(null)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div onClick={() => !pending && setOpen(null)} style={{ position: 'fixed', inset: 0, zIndex: capaBulk.z, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: capaBulk.visible ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '22px 24px' }}>
             <h3 style={{ fontWeight: 700, fontSize: 18, margin: '0 0 4px', color: 'var(--ink)' }}>Asignar {open.label} a {open.ids.length} lead{open.ids.length === 1 ? '' : 's'}</h3>
             <p style={{ fontSize: 13, color: 'var(--dim)', margin: '0 0 16px', lineHeight: 1.45 }}>

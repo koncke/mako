@@ -131,21 +131,21 @@ export function AudienciaModal({ entidad, item, otros, tareas, onAplicado, onUsa
           </div>
 
           {res?.razon && (
-            <div style={{ fontSize: 13.5, lineHeight: 1.55, color: 'var(--ink-2)', borderLeft: '3px solid var(--mako-ink, var(--primary))', paddingLeft: 12 }}>{res.razon}</div>
+            <div style={{ fontSize: 13.5, lineHeight: 1.55, color: 'var(--dim)', borderLeft: '3px solid var(--mako-ink, var(--primary))', paddingLeft: 12 }}>{res.razon}</div>
           )}
 
           {/* La salida que deja un «no»: la UNA cosa que le haría cambiar de opinión. Sin
               esto el mismo pedido vuelve mañana con las mismas palabras. */}
           {res?.repregunta && (
             <div style={{ background: 'var(--warn-bg, var(--surface-2))', border: '1px solid var(--warn, var(--border-strong))', borderRadius: 12, padding: '13px 15px' }}>
-              <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--ink-3)', marginBottom: 6 }}>Lo que me haría cambiar de opinión</div>
+              <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6 }}>Lo que me haría cambiar de opinión</div>
               <div style={{ fontSize: 14, lineHeight: 1.55, color: 'var(--ink)' }}>{res.repregunta}</div>
             </div>
           )}
 
           {/* Lo que falta, cuando ni siquiera llegó a preguntarle: acá no gastó un token. */}
           {res?.estado === 'falta-prueba' && (
-            <div style={{ fontSize: 13.5, color: 'var(--ink-2)' }}>{res.falta}</div>
+            <div style={{ fontSize: 13.5, color: 'var(--dim)' }}>{res.falta}</div>
           )}
 
           {/* LA CASCADA, ANTES DE ESCRIBIRLA. La consecuencia de lo irreversible va pegada
@@ -159,7 +159,7 @@ export function AudienciaModal({ entidad, item, otros, tareas, onAplicado, onUsa
                 {res?.cascada?.map((m) => (
                   <div key={m.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '8px 14px', borderBottom: '1px solid var(--border)', fontSize: 13, background: m.id === item.id ? 'var(--surface-2)' : 'transparent' }}>
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: m.id === item.id ? 700 : 400, color: 'var(--ink)' }}>{m.nombre}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 12.5, color: 'var(--ink-2)', flex: 'none' }}>{m.antes} → <b style={{ color: 'var(--ink)' }}>{m.despues}</b></span>
+                    <span style={{ fontFamily: MONO, fontSize: 12.5, color: 'var(--dim)', flex: 'none' }}>{m.antes} → <b style={{ color: 'var(--ink)' }}>{m.despues}</b></span>
                   </div>
                 ))}
               </div>
@@ -179,7 +179,7 @@ export function AudienciaModal({ entidad, item, otros, tareas, onAplicado, onUsa
     <div style={{ display: 'grid', gap: 16 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 12 }}>
         <span style={{ fontFamily: MONO, fontSize: 44, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-.02em' }}>{pedido}</span>
-        <span style={{ fontSize: 14, color: 'var(--ink-3)' }}>hoy en {item.score} · {BANDA(pedido)}</span>
+        <span style={{ fontSize: 14, color: 'var(--faint)' }}>hoy en {item.score} · {BANDA(pedido)}</span>
       </div>
       <input type="range" min={1} max={100} value={pedido} onChange={(e) => setPedido(Number(e.target.value))} style={{ width: '100%', accentColor: 'var(--primary)' }} />
       {/* LA EXIGENCIA, EN VIVO. Es la pieza: el precio se ve antes de pagar, no después. */}
@@ -188,7 +188,7 @@ export function AudienciaModal({ entidad, item, otros, tareas, onAplicado, onUsa
         <div style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--ink)' }}>{ex.texto}</div>
       </div>
       {topes.length > 0 && (
-        <div style={{ fontSize: 12.5, color: 'var(--ink-3)', textAlign: 'center' }}>
+        <div style={{ fontSize: 12.5, color: 'var(--faint)', textAlign: 'center' }}>
           Con {pedido} quedaría {pedido > topes[0].score ? 'arriba de todo' : `entre «${topes.filter((t) => t.score > pedido).slice(-1)[0]?.titulo ?? '—'}» y «${topes.find((t) => t.score < pedido)?.titulo ?? '—'}»`}
         </div>
       )}
@@ -227,13 +227,13 @@ export function AudienciaModal({ entidad, item, otros, tareas, onAplicado, onUsa
           valor={pruebas.find((p) => p.clase === 'plata')?.ref ?? ''}
           onSet={(v) => setPruebas((s) => [...s.filter((p) => p.clase !== 'plata'), ...(v ? [{ clase: 'plata' as const, ref: v, etiqueta: `US$ ${v}` }] : [])])} />
       )}
-      {!carga.ok && <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>Falta: {carga.detalle}</div>}
+      {!carga.ok && <div style={{ fontSize: 13, color: 'var(--faint)' }}>Falta: {carga.detalle}</div>}
     </div>
   ) : (
     <div style={{ display: 'grid', gap: 10 }}>
       <textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} autoFocus rows={5}
         placeholder={pedido < item.score ? 'Por qué puede esperar…' : 'Qué pasa si esto no se hace…'} style={textareaStyle} />
-      <div style={{ fontSize: 12.5, color: 'var(--ink-3)', lineHeight: 1.55 }}>
+      <div style={{ fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.55 }}>
         MaKo lee esto contra {otros.length} {entidad === 'proyecto' ? 'proyectos' : 'tareas'} más y decide. Puede decirte que no.
       </div>
     </div>
@@ -271,7 +271,7 @@ function Selector({ titulo, opciones, activos, clase, onPick, vacio }: {
   return (
     <div>
       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>{titulo}</div>
-      {opciones.length === 0 ? <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>{vacio ?? 'No hay de dónde elegir.'}</div> : (
+      {opciones.length === 0 ? <div style={{ fontSize: 13, color: 'var(--faint)' }}>{vacio ?? 'No hay de dónde elegir.'}</div> : (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
           {opciones.map((o) => {
             const on = activos.some((p) => p.clase === clase && p.ref === o.ref);

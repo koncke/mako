@@ -253,7 +253,7 @@ export function PermissionState({ motivo = 'rol', que, accion, secundaria, inlin
     : 'No tienes acceso a esta sección';
   const detalle = motivo === 'plan' ? 'Está construida y funcionando; tu plan actual no la incluye.'
     : motivo === 'ajeno' ? 'El link que abriste es de otro negocio. Entra con la cuenta que corresponde, o sigue con lo tuyo.'
-    : `Tu rol dentro del negocio no incluye ${nombre}. Pedíselo a quien administra la cuenta.`;
+    : `Tu rol dentro del negocio no incluye ${nombre}. Pídeselo a quien administra la cuenta.`;
   return (
     <Marco tono="neutral" ico={IcoCandado} inline={inline}
       titulo={titulo} detalle={detalle} accion={accion} secundaria={secundaria} />
