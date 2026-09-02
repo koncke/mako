@@ -10,6 +10,7 @@
 // grupos y avisos salgan de esta línea dedicada.
 
 import 'server-only';
+import { socketVivo } from './evolution';
 import { setInstanciaVoz, INSTANCIA_VOZ_DEFAULT } from './mako-grupo';
 
 const BASE = (process.env.EVOLUTION_BASE_URL || '').replace(/\/$/, '');
@@ -76,7 +77,10 @@ export async function estadoCanalMaKo(): Promise<CanalInfo> {
     if (r.status === 404) return { estado: 'desconectado', numero: null, perfil: null, esVozActiva: vozActiva };
     return { estado: 'error', numero: null, perfil: null, esVozActiva: vozActiva };
   }
-  const estado = mapEstado((r.body as { instance?: { state?: string } })?.instance?.state);
+  // Igual que en estadoEnVivo: «open» es la fila en la base de Evolution, no la sesión.
+  // Sin esta confirmación el panel dice «conectado» con el socket muerto — medido el 16/08.
+  let estado = mapEstado((r.body as { instance?: { state?: string } })?.instance?.state);
+  if (estado === 'conectado' && !(await socketVivo(INSTANCIA_SUPERADMIN))) estado = 'error';
   let numero: string | null = null, perfil: string | null = null;
   if (estado === 'conectado') {
     const info = await ev(`/instance/fetchInstances?instanceName=${INSTANCIA_SUPERADMIN}`);

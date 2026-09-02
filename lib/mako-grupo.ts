@@ -13,6 +13,7 @@
 // es un participante más del grupo, así que a él sí le NOTIFICA.
 
 import 'server-only';
+import { esSesionCaida } from './evolution';
 import sharp from 'sharp';
 import { getSetting, setSetting } from './settings';
 import { runWithWorkspace, OWNER_WS } from './workspace';
@@ -455,7 +456,20 @@ export async function enviarCodigoVerificacion(
   if (actual?.verificado && soloDigitos(actual.telefono) === num) return { ok: true, yaVerificado: true };
 
   const sync = await setNumeroDuenoYSync(ws, telefono, nombreCliente);
-  if (!sync.ok) return { ok: false, error: `No se pudo preparar tu grupo de WhatsApp: ${sync.error}` };
+  if (!sync.ok) {
+    // ⚠️ DE QUIÉN ES EL PROBLEMA CAMBIA EL MENSAJE ENTERO. Con la sesión de WhatsApp de MaKo
+    // caída, el número del cliente está perfecto y no hay NADA que él pueda hacer. Lo que le
+    // llegaba era un volcado de JSON — «Evolution 500: {"status":500,"error":"Internal Server
+    // Error"…}» — en el paso donde acaba de escribir su teléfono, o sea que se lee como que
+    // lo escribió mal.
+    if (esSesionCaida(sync.error)) {
+      return {
+        ok: false,
+        error: 'MaKo no puede escribir por WhatsApp en este momento, y es de nuestro lado: tu número está bien. Seguí sin verificar por ahora — te queda pendiente y lo resolvés después.',
+      };
+    }
+    return { ok: false, error: `No se pudo preparar tu grupo de WhatsApp: ${sync.error}` };
+  }
 
   const codigo = String(Math.floor(100000 + Math.random() * 900000));
   await guardarVerificacion(ws, { telefono: num, codigo, expira: Date.now() + MINUTOS_EXPIRA_CODIGO * 60_000, verificado: false });

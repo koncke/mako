@@ -236,6 +236,45 @@ export async function conectar(): Promise<{ ok: true; qr: QrData; estado: Estado
   };
 }
 
+/**
+ * ¿El socket de WhatsApp está VIVO? No lo que dice la máquina de estados: lo que contesta
+ * WhatsApp.
+ *
+ * ⚠️ `connectionState` MIENTE, Y ESTE ES EL CASO QUE LO PROBÓ (16/08). La instancia de la
+ * voz de MaKo devolvía `state: "open"` mientras toda operación real fallaba con «Connection
+ * Closed». Medido, endpoint por endpoint:
+ *
+ *   connectionState   -> 200 open      (lee la BASE de Evolution)
+ *   findContacts      -> 200           (lee la BASE de Evolution)
+ *   fetchAllGroups    -> 500 Closed    (habla con WHATSAPP)
+ *   whatsappNumbers   -> 428 Closed    (habla con WHATSAPP)
+ *
+ * O sea: `open` describe la FILA en la base de Evolution, no la sesión. Un `restart` no lo
+ * arregla — se probó y siguió diciendo open con el socket muerto: hace falta re-escanear el
+ * QR. Mientras tanto el panel decía «conectado» y el onboarding intentaba crear un grupo
+ * que nunca iba a existir.
+ *
+ * Es la regla de la casa: un indicador que afirma la mitad verdadera de un proceso de dos
+ * pasos es peor que uno roto, porque nadie lo audita. La pregunta completa no es ¿la
+ * instancia existe? sino ¿WhatsApp le contesta?
+ *
+ * Se usa `fetchAllGroups` con `getParticipants=false` porque es la operación de LECTURA más
+ * barata que igual obliga a hablar con WhatsApp. No manda nada ni toca ningún chat.
+ */
+export async function socketVivo(instance: string): Promise<boolean> {
+  const r = await evFetch(`/group/fetchAllGroups/${encodeURIComponent(instance)}?getParticipants=false`);
+  return r.ok;
+}
+
+/**
+ * Un error de Evolution que significa «la sesión de WhatsApp está caída», no «tu dato está
+ * mal». Los dos llegan como 500 y hay que poder distinguirlos: de quién es el problema
+ * cambia el mensaje entero.
+ */
+export function esSesionCaida(e: string): boolean {
+  return /connection closed|precondition required|\b428\b/i.test(e || '');
+}
+
 // Estado en vivo (para el polling de la UI). Reconcilia la fila en DB.
 export async function estadoEnVivo(): Promise<{ estado: EstadoConexion; numero: string | null; perfil: string | null }> {
   const ws = await wsEstricto();
@@ -246,7 +285,12 @@ export async function estadoEnVivo(): Promise<{ estado: EstadoConexion; numero: 
     if (r.status === 404) return { estado: 'desconectado', numero: null, perfil: null };
     return { estado: 'error', numero: null, perfil: null };
   }
-  const estado = mapEstado(r.data.instance?.state);
+  // ⚠️ «open» NO ALCANZA PARA DECIR «conectado»: la instancia de la voz de MaKo devolvía
+  // exactamente eso mientras WhatsApp contestaba «Connection Closed» a todo. Antes de
+  // pintar el verde se confirma con una lectura que SÍ habla con WhatsApp (`socketVivo`).
+  // Cuesta una llamada más, y es la diferencia entre un panel que informa y uno que miente.
+  let estado = mapEstado(r.data.instance?.state);
+  if (estado === 'conectado' && !(await socketVivo(instance))) estado = 'error';
   let numero: string | null = null;
   let perfil: string | null = null;
   if (estado === 'conectado') {
