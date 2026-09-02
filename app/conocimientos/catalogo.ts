@@ -131,6 +131,7 @@ import { CURSO_MASTER_ESCALA_100K } from './curso-master-escala-100k';
 import { CURSO_THE_PERFECT_LAUNCH } from './curso-the-perfect-launch';
 import { CURSO_ACADEMIA_AMAZON_FBA } from './curso-academia-amazon-fba';
 import { CURSO_LIBERTAD_INMOBILIARIA } from './curso-libertad-inmobiliaria';
+import { CURSO_ARCADIA } from './curso-arcadia';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio.datos';
 import { CURSO_BRANDING } from './BrandingMaKo.datos';
@@ -166,6 +167,11 @@ export const CATEGORIA_PROPIA = 'MaKo';
  * una ni se lo manda a un cajón «Otros».
  */
 const CATEGORIA: Record<string, string> = {
+  // La plataforma lo clasifica «Marca Personal», que no es una categoria de acá. Va a
+  // Orgánico, que es donde están los otros cuatro de marca personal —«Master Marca
+  // Personal» 4.0 y 5.0, «360 Marca Personal» e «Instituto De Marca Personal»—: se sigue
+  // la convención que ya existe en vez de abrir una categoría con un curso adentro.
+  'arcadia': 'Orgánico',
   // Cursos de terceros sobre el negocio digital
   'aumenta-tu-valor-y-atv-advantage': 'Negocios digitales',
   'sell-your-knowledge': 'Negocios digitales',
@@ -495,6 +501,9 @@ const CATEGORIA: Record<string, string> = {
  * Los cursos de la sección MaKo van a propósito SIN miniatura.
  */
 const PORTADA: Record<string, string> = {
+  // La tapa oficial del curso, bajada de su storage. Sin esto quedaba el fallback: un
+  // frame de la primera clase, que acá es una placa de texto.
+  'arcadia': '/cono-portadas/arcadia.jpg',
   'anuncio-ganador': '/cono-portadas/anuncio-ganador.jpg',
   // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
   // pero la ficha se había emitido antes de que existiera.
@@ -891,6 +900,9 @@ const sinAutor = (titulo: string | undefined, slug: string): string | undefined 
  * su cabecera antes de tocarlo.
  */
 const RESUMEN: Record<string, string> = {
+  // Textual de la plataforma (`vip_courses.short_description`). No lo trae el barrido
+  // automático porque ése cruza contra /Catalog y este curso vive en /vip/.
+  'arcadia': 'Programa de marca personal enfocado en posicionamiento, autenticidad y construcción de imagen profesional.',
   // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
   // del catálogo de la plataforma.
   '100m-money-models': 'Programa sobre cómo estructurar ofertas, upsells, downsells y modelos de continuidad para hacer que un negocio genere más dinero por cliente y escale de forma predecible.',
@@ -1443,6 +1455,9 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_LIBERTAD_INMOBILIARIA,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_ARCADIA,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
