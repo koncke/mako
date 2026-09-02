@@ -38,7 +38,7 @@ import { Button, Tag, Status, Textarea, Tooltip, Alert, MONO } from '@/app/_ui';
 import { Icon } from '../_components/icons';
 import type { PlanGuardado, EstadoContextoVideo } from './video-datos';
 import type { Puesta } from '@/lib/puestas-data';
-import { causaFlow, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
+import { causaFlow, textoFlow, accionFiltroDeCara, type CausaFlow } from '@/lib/flow-fallo-texto';
 import { creditosDeClip, notaSaldo } from '@/lib/costo-clip';
 import { promptDeClip } from '@/lib/prompts-video';
 import { imagenEnCurso } from './variantes-imagen';
@@ -2467,6 +2467,87 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
               setExplicandoParecido(true);
               setForzado({ id: 'escenario', n: e?.n ?? 1 });
             }}
+            /**
+             * ⚠️ CADA CAUSA YA DECLARABA SU ACCIÓN, Y NADIE LA CABLEABA.
+             *
+             * `textoFlow` devuelve `accion` para las nueve causas desde que existe, y
+             * la pantalla de la toma dibujaba el título y el detalle y ningún botón.
+             * Martín, viendo el rechazo del filtro de caras: «si sale esto, ofrece ahí
+             * mismo solucionarlo, cambiando la imagen».
+             *
+             * El mapa es explícito y no un `default`: una causa sin arreglo devuelve
+             * `null` y no se dibuja nada, que es lo correcto cuando lo que arregla vive
+             * en otra pieza (el puente tiene su propio aviso, con su propio botón).
+             */
+            arreglo={(causa, n) => {
+              // El escenario que cubre ESTA toma. Es el mismo cálculo que
+              // `onNoSeParece`, y el que `olvidarTomasFallidas` usa del otro lado para
+              // que el rechazo no sobreviva a su propia cura.
+              const escenaDe = () => (item.escenas ?? []).find((x) => n >= x.desde && n <= x.hasta)?.n ?? 1;
+
+              // ⚠️ EL FILTRO DE CARAS NO SE ARREGLA REFILMANDO. El clip se anima desde
+              // la IMAGEN del escenario —no desde la foto—, así que volver a filmar le
+              // manda a Google exactamente la misma cara que ya rechazó y cobra otro
+              // clip por el mismo resultado. Lo que cambia lo que Google mira es una
+              // imagen nueva, y esa es GRATIS.
+              if (causa === 'persona_publica') {
+                // ⚠️ SI LA MISMA IMAGEN YA FILMÓ, NO SE MANDA A REHACERLA.
+                //
+                // Medido el 02/09/2026: 11 tomas, UNA imagen de escenario, las 1 a 9
+                // filmadas y las 10 y 11 rechazadas 17 veces. Esa imagen está probada
+                // nueve veces; mandarla a rehacerla es mandarla a arreglar lo único
+                // que ya funciona. Lo que cambia entre una toma que pasa y una que no
+                // es lo que DICE.
+                const probada = item.video?.[String(n)]?.imagenProbada ?? 0;
+                if (probada >= 1) {
+                  return {
+                    gratis: true,
+                    etiqueta: accionFiltroDeCara(probada),
+                    hacer: () => {
+                      const c = item.plan.clips.find((x) => x.n === n);
+                      setPromptTexto(c ? promptDeClip(item.plan.puestaId, c, item.promptsPropios?.[String(n)]) : '');
+                      setForzado({ id: 'prompt', n, de: 'toma' });
+                    },
+                  };
+                }
+                return {
+                  gratis: true,
+                  etiqueta: accionFiltroDeCara(0),
+                  hacer: () => {
+                    const e = escenaDe();
+                    // Se navega ANTES de esperar: la generación tarda, y el resultado
+                    // aparece en la pantalla del escenario —con su niebla, sus
+                    // variantes y el botón de otro fondo—. Quedarse acá mirando un
+                    // botón quieto se lee como colgado.
+                    setForzado({ id: 'escenario', n: e });
+                    void correr('imagen', () => generarImagenAction(item.id, e), false);
+                  },
+                };
+              }
+
+              // El filtro de CONTENIDO sí es el texto: lo que destraba es leer el
+              // prompt y corregirlo, que es adonde lleva este botón.
+              if (causa === 'contenido') {
+                return {
+                  gratis: true,
+                  hacer: () => {
+                    const c = item.plan.clips.find((x) => x.n === n);
+                    setPromptTexto(c ? promptDeClip(item.plan.puestaId, c, item.promptsPropios?.[String(n)]) : '');
+                    setForzado({ id: 'prompt', n, de: 'toma' });
+                  },
+                };
+              }
+
+              // Sin créditos: no hay nada que apretar acá, se recarga en Google. El
+              // texto ya lleva su link, así que un botón sería una segunda puerta al
+              // mismo lugar.
+              if (causa === 'sin_creditos' || causa === 'puente') return null;
+
+              // Lo que queda —un bache nuestro, la sesión, el ritmo, lo desconocido—
+              // se arregla volviendo a filmar. Y eso CUESTA, así que el botón lo dice
+              // con el número antes del click.
+              return { gratis: false, hacer: () => void correr(`toma-${n}`, () => generarTomaAction(item.id, n), false) };
+            }}
             acciones={{
               generar: (n) => generarTomaAction(item.id, n),
               descartar: (n) => descartarTomaAction(item.id, n),
@@ -2553,7 +2634,11 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
       const causa: CausaFlow | undefined = fallo
         ? ((item.video?.[String(n)]?.errorCausa as CausaFlow) ?? causaFlow(fallo))
         : undefined;
-      const txt = causa ? textoFlow(causa, `la toma ${n}`, item.video?.[String(n)]?.errorAt) : null;
+      // Con la frase del server, igual que las otras dos pantallas: es la que dice
+      // CUAL de los dos filtros de cara contesto, y sin ella sale la generica.
+      const txt = causa
+        ? textoFlow(causa, `la toma ${n}`, item.video?.[String(n)]?.errorAt, undefined, item.video?.[String(n)]?.errorDetalle)
+        : null;
       /** Google rechazó la CARA: refilmar con la misma foto da lo mismo. */
       const caraRechazada = causa === 'persona_publica';
 

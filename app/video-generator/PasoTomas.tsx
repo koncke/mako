@@ -78,7 +78,7 @@ const ROTULO: Record<EstadoToma, string> = {
 };
 
 export function PasoTomas({
-  item, sel, onSel, ocupado, correr, onEditarPrompt, onNoSeParece, acciones,
+  item, sel, onSel, ocupado, correr, onEditarPrompt, onNoSeParece, arreglo, acciones,
 }: {
   item: PlanGuardado;
   sel: number;
@@ -95,6 +95,26 @@ export function PasoTomas({
    * comparación foto/imagen — por eso no hace falta repetirla acá.
    */
   onNoSeParece: (n: number) => void;
+  /**
+   * Qué hace el botón que ARREGLA este fallo. Lo resuelve el padre, que es el que
+   * tiene las actions y sabe qué escenario cubre cada toma.
+   *
+   * ⚠️ EXISTE PORQUE EL MENSAJE DECÍA QUÉ HACER Y NO HABÍA CÓMO HACERLO. Cada
+   * causa de `textoFlow` declara su `accion` desde siempre —«Volver a generar el
+   * escenario», «Decir qué cambiar»— y esta pantalla dibujaba el texto y ningún
+   * botón. Es el antipatrón que el repo ya tiene escrito: escribir la salida no es
+   * ofrecerla.
+   *
+   * Se vio en vivo con el filtro de caras de Google: el mensaje explicaba que lo
+   * que destraba es generar otra vez la imagen del escenario, que además es
+   * gratis, y la persona tenía que deducir sola a qué pantalla ir. Martín: «si
+   * sale esto, ofrece ahí mismo solucionarlo, cambiando la imagen».
+   *
+   * `null` = para esta causa no hay nada que ESTA pantalla pueda ofrecer (el
+   * puente, por ejemplo, se arregla en su propio aviso). Un botón que no
+   * resuelve es peor que ninguno.
+   */
+  arreglo: (causa: CausaFlow, n: number) => { gratis: boolean; hacer: () => void; etiqueta?: string } | null;
   /** Las acciones del server, inyectadas: este componente no importa actions. */
   acciones: {
     generar: (n: number) => Promise<{ ok: boolean; item?: PlanGuardado; error?: string }>;
@@ -146,14 +166,56 @@ export function PasoTomas({
             <div style={{ fontSize: 'var(--fs-meta)', marginTop: 6 }}>Suele tardar entre 1 y 3 minutos.</div>
           </div>
         )}
-        {estado === 'fallada' && txt && (
-          <div style={{ textAlign: 'center', padding: 22 }}>
-            <div style={{ fontSize: 'var(--fs-md)', fontWeight: 650, color: 'var(--ink)' }}>{txt.titulo}</div>
-            <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginTop: 9, lineHeight: 1.5 }}>
-              {txt.detalle}
+        {estado === 'fallada' && txt && (() => {
+          const arr = causa ? arreglo(causa, sel) : null;
+          return (
+            // ⚠️ SCROLLEA POR DENTRO. La caja tiene `overflow: hidden` y un alto
+            // fijo: sin esto, un mensaje largo empuja al botón fuera del recuadro y
+            // desaparece sin dejar rastro — que es peor que no tenerlo, porque el
+            // texto sigue diciendo qué hacer.
+            <div style={{
+              display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center',
+              textAlign: 'center', padding: 22, maxHeight: '100%', overflowY: 'auto',
+            }} className="mk-scroll-y">
+              <div>
+                <div style={{ fontSize: 'var(--fs-md)', fontWeight: 650, color: 'var(--ink)' }}>{txt.titulo}</div>
+                <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', marginTop: 9, lineHeight: 1.5 }}>
+                  {txt.detalle}
+                </div>
+              </div>
+              {arr && (
+                <div style={{ display: 'grid', gap: 5, justifyItems: 'center' }}>
+                  {/* La etiqueta sale de `textoFlow`, que ya la escribió para esta
+                      causa. Una segunda redacción acá sería el mismo texto en dos
+                      lugares, y el que se queda viejo es el que nadie mira. */}
+                  <Button
+                    size="sm"
+                    variant={arr.gratis ? 'mako' : 'secondary'}
+                    disabled={trabajando}
+                    loading={!!ocupado}
+                    onClick={arr.hacer}
+                  >
+                    {/* ⚠️ La etiqueta viaja CON la acción. Cuando el remedio cambia
+                        —la imagen ya probada manda a reescribir la línea, no a
+                        rehacer la imagen— el rótulo tiene que cambiar con él, o el
+                        botón promete una cosa y hace otra. Ya pasó en este archivo
+                        con «Revisar el puente», que gastaba 15 créditos. */}
+                    {arr.etiqueta ?? txt.accion}
+                  </Button>
+                  {/* ⚠️ LA CONSECUENCIA, PEGADA AL BOTÓN. Que el camino que destraba
+                      sea GRATIS es la mitad del mensaje: sin decirlo, alguien que
+                      acaba de ver fallar una toma no aprieta nada por miedo a pagar
+                      otra. Y cuando sí cuesta, el número va antes del click. */}
+                  <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>
+                    {arr.gratis
+                      ? 'No gasta créditos.'
+                      : `Filmar de nuevo cuesta ${creditosDeClip(clip?.segundos ?? 8)} créditos.`}
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
         {(estado === 'pendiente' || estado === 'sin-texto') && (
           // El placeholder NO está vacío: muestra lo que esa toma va a decir. Es
           // lo único que distingue una toma de otra antes de filmarla.
@@ -225,12 +287,44 @@ export function PasoTomas({
             Rehacer
           </Button>
         )}
-        {(estado === 'pendiente' || estado === 'fallada') && (
+        {/* ⚠️ «VOLVER A FILMAR» NO SE OFRECE CUANDO SABEMOS QUE FALLA.
+
+            El filtro de caras de Google no rechaza el prompt: rechaza LA CARA de la
+            imagen del escenario, y refilmar le manda exactamente la misma. Ofrecerlo
+            ahí es ofrecer un botón que ya sabemos que no funciona.
+
+            Medido el 02/09/2026: una clienta lo apretó DIECISIETE veces seguidas
+            —17 consultas de estado consecutivas, todas con `IDENTIFIABLE_PERSON_SAFETY`,
+            sobre la misma imagen— y en toda esa hora no hubo una sola generación de
+            imagen. El camino que destraba estaba a un click, es gratis, y la pantalla
+            le ponía adelante el que no sirve.
+
+            ⚠️ Y LA REGLA YA ESTABA ESCRITA, en el paso `toma` de `WizardAnuncio`:
+            «ofrecer Volver a filmar ahí es ofrecer un botón que ya sabemos que
+            falla». Aplicada en una pantalla de dos — y la que quedó sin aplicarla es
+            la que se dibuja. Una regla en un lugar de dos no está implementada:
+            está documentada.
+
+            Lo que SÍ se ofrece para esa causa es el botón del recuadro de arriba,
+            que genera otra imagen y no cuesta créditos. */}
+        {(estado === 'pendiente' || (estado === 'fallada' && causa !== 'persona_publica')) && (
           <Button size="sm" variant="secondary" disabled={trabajando}
             loading={ocupado === `filmar-${sel}`}
             onClick={() => correr(`filmar-${sel}`, () => acciones.generar(sel), false)}
           >
             {estado === 'fallada' ? 'Volver a filmar' : 'Filmar esta'}
+          </Button>
+        )}
+        {/* La salida para el que igual quiere insistir: existe, y está donde se lee
+            DESPUÉS del camino bueno, no antes. Un camino cerrado del todo es peor
+            que uno desaconsejado — el fallo es intermitente y la misma imagen ya
+            produjo nueve tomas buenas. */}
+        {estado === 'fallada' && causa === 'persona_publica' && (
+          <Button size="sm" variant="tertiary" disabled={trabajando}
+            loading={ocupado === `filmar-${sel}`}
+            onClick={() => correr(`filmar-${sel}`, () => acciones.generar(sel), false)}
+          >
+            Intentar igual con esta imagen
           </Button>
         )}
         <Button size="sm" variant="tertiary" disabled={trabajando} onClick={() => onEditarPrompt(sel)}>

@@ -284,6 +284,37 @@ export type MarcaVideo = {
    * `errorCrudo` la evidencia. Ausente en toda marca anterior, y eso está bien:
    * sin frase del server se muestra la constante, que es genérica y verdadera.
    */
+  /**
+   * Cuántas veces SEGUIDAS falló por el mismo motivo.
+   *
+   * ⚠️ EXISTE PORQUE UNA CLIENTA REFILMÓ 17 VECES. Medido el 02/09/2026: 17
+   * consultas de estado consecutivas, todas con `IDENTIFIABLE_PERSON_SAFETY`,
+   * sobre las mismas dos tomas y con la MISMA imagen de escenario — y ni una sola
+   * generación de imagen en toda esa hora.
+   *
+   * Nada lo contaba, así que la pantalla le decía «suele pasar» en el intento 17
+   * igual que en el primero. Un mensaje que consuela en el primer fallo miente en
+   * el décimo, y el que lo lee no tiene forma de saber que ya no aplica.
+   *
+   * Se resetea solo: `olvidarTomasFallidas` borra la marca entera cuando cambia
+   * la imagen del escenario, que es la entrada que produjo el rechazo.
+   */
+  fallosSeguidos?: number;
+  /**
+   * Cuántas tomas YA filmó bien la misma imagen de escenario.
+   *
+   * ⚠️ ES LO QUE DECIDE ADÓNDE MANDAR A LA PERSONA, y sin él la mandábamos al
+   * lugar equivocado. Medido el 02/09/2026: un anuncio de 11 tomas, UNA sola
+   * imagen de escenario, las tomas 1 a 9 filmadas y las 10 y 11 rechazadas 17
+   * veces seguidas por el filtro de Google.
+   *
+   * O sea que esa imagen **está probada nueve veces**. Decirle «genera otra vez la
+   * imagen» es mandarla a arreglar lo único que ya demostró funcionar; lo que
+   * cambia entre una toma que pasa y una que no es LO QUE DICE.
+   *
+   * `0` o ausente = la imagen no filmó nada todavía, y ahí sí conviene rehacerla.
+   */
+  imagenProbada?: number;
   errorDetalle?: string;
   errorCrudo?: string;
   errorAt?: string;

@@ -186,7 +186,7 @@ export function cuandoPaso(at: string | undefined, ahora: Date): string {
  * depende de cuál de los dos filtros contestó: los dos miran la imagen desde la
  * que se anima, así que lo que hay que cambiar es esa imagen.
  */
-const REMEDIO_CARA = 'No es un problema tuyo ni de MaKo. El video se filma desde la imagen del escenario, así que lo que lo destraba es generar esa imagen otra vez —no cuesta créditos—: sale con la cara un poco distinta y suele pasar. Si insiste, genérala con otra foto tuya: otro ángulo, otra luz, o una donde no mires de frente a la cámara.';
+const REMEDIO_CARA = 'El video se filma desde la imagen del escenario, así que lo que lo destraba es generar esa imagen otra vez —no cuesta créditos—: sale con la cara un poco distinta y suele pasar. Si insiste, genérala con otra foto tuya: otro ángulo, otra luz, o una donde no mires de frente a la cámara.';
 
 /**
  * Por qué Google no animó la cara, según lo que contestó ÉL.
@@ -200,14 +200,83 @@ const REMEDIO_CARA = 'No es un problema tuyo ni de MaKo. El video se filma desde
  *
  * Sin motivo reconocido NO se elige uno: se dice lo único que se sabe.
  */
-export function detalleFiltroDeCara(razon: string): string {
+/**
+ * ⚠️ A PARTIR DEL SEGUNDO RECHAZO SEGUIDO, EL MENSAJE CAMBIA.
+ *
+ * El texto normal dice «sale con la cara un poco distinta y suele pasar». Es
+ * cierto la primera vez y es una MENTIRA en el intento diecisiete — y quien lo
+ * lee no tiene forma de saber que ya no aplica.
+ *
+ * Medido el 02/09/2026 sobre una clienta: 17 consultas seguidas con el mismo
+ * `IDENTIFIABLE_PERSON_SAFETY`, sobre la misma imagen de escenario, y CERO
+ * generaciones de imagen en toda esa hora. Estuvo apretando «Volver a filmar»
+ * —el botón que la pantalla le ofrecía— contra un filtro que no cambia de
+ * opinión, mientras el camino que no había probado estaba a un click y es gratis.
+ *
+ * Y el número se DICE. «Ya van N veces con el mismo motivo» es lo que convierte
+ * «probá otra vez» en una decisión informada; sin él, cada intento se parece al
+ * primero.
+ *
+ * @param probada cuántas tomas YA filmó bien esta misma imagen de escenario.
+ *                Con una sola, mandar a rehacer la imagen es mandar a arreglar
+ *                lo único que ya demostró funcionar.
+ */
+/**
+ * Cómo se rotula el botón que arregla un rechazo de Google, según el estado.
+ *
+ * ⚠️ VIVE ACÁ, CON EL RESTO DEL COPY, y no en la pantalla. `textoFlow` ya trae
+ * un `accion` por causa, pero esta causa tiene DOS remedios según un dato que el
+ * catálogo no conoce —si la imagen ya filmó o no—, y un rótulo escrito en la
+ * pantalla sería el mismo texto en dos lugares.
+ *
+ * ⚠️ Y tiene que moverse JUNTO con la acción: este repo ya pagó un botón que
+ * decía «Revisar el puente» y gastaba 15 créditos, porque la etiqueta salía de la
+ * causa y el `onClick` llamaba siempre a lo mismo. Un botón se rotula por su
+ * EFECTO.
+ */
+export function accionFiltroDeCara(probada = 0): string {
+  return probada >= 1 ? 'Reescribir lo que dice esta toma' : 'Volver a generar el escenario';
+}
+
+export function detalleFiltroDeCara(razon: string, seguidos = 0, probada = 0): string {
   const r = razon || '';
   const porQue = /PROMINENT_PERSON|PROMINENT_PEOPLE/i.test(r)
     ? 'Su filtro de personas públicas cree que la cara se parece a la de alguien famoso y se niega a animarla.'
     : /IDENTIFIABLE_PERSON/i.test(r)
       ? 'Su filtro de personas reconocibles no quiso animar una cara real. Ojo: NO es por lo que dice tu guion — el texto está bien y reescribirlo no cambia nada.'
       : 'Google se negó a animar la cara de esta imagen.';
-  return `${porQue} ${REMEDIO_CARA}`;
+  // ⚠️ EL QUE SE NIEGA ES GOOGLE, Y ESO VA ADELANTE DE TODO.
+  //
+  // Martín: «si el problema NO lo tenemos nosotros, NO asumir la culpa. Incluso
+  // dejar bien en claro quién es el culpable. Si no, los usuarios piensan que MaKo
+  // falló». Es la contracara de la regla que ya está en AGENTS.md, y acá tiene una
+  // prueba: la clienta lo intentó A MANO en su propio Google Flow, con la misma
+  // imagen, y Google la rechazó igual — «esta generación podría infringir nuestras
+  // políticas · prueba con otra petición · no se te ha cobrado».
+  //
+  // Así que el mensaje no empieza por lo que hay que hacer: empieza por quién dijo
+  // que no. Un mensaje que arranca con la instrucción se lee como que algo de acá
+  // se rompió.
+  const DE_QUIEN = 'Esto lo decide el filtro de contenido de GOOGLE, no MaKo: el pedido salió bien de aquí y su modelo se negó a generarlo. Pasa igual generándolo a mano desde Google Flow, y no te cobra nada por el intento.';
+
+  // ⚠️ SI LA IMAGEN YA FILMÓ, EL PROBLEMA NO ES LA IMAGEN.
+  //
+  // Medido el 02/09/2026: 11 tomas, UNA sola imagen de escenario, las 1 a 9
+  // filmadas y las 10 y 11 rechazadas 17 veces seguidas. Esa imagen está probada
+  // nueve veces — mandar a rehacerla es mandar a arreglar lo único que ya
+  // funciona, y es exactamente lo que esta función hacía.
+  //
+  // Lo que cambia entre una toma que pasa y una que no es LO QUE DICE. No se
+  // afirma por qué —eso no lo sabemos— pero sí adónde mirar.
+  if (probada >= 1) {
+    const cuantas = probada === 1 ? 'otra toma' : `otras ${probada} tomas`;
+    const insiste = seguidos >= 2 ? ` Van ${seguidos} intentos seguidos con el mismo motivo.` : '';
+    return `${DE_QUIEN} La MISMA imagen ya filmó ${cuantas} de este anuncio, así que no es tu cara ni la imagen.${insiste} Lo que cambia entre una toma que pasa y una que no es lo que DICE: prueba a reescribir esta línea con otras palabras, sobre todo si pide descargar algo o hacer clic en un enlace.`;
+  }
+  if (seguidos >= 2) {
+    return `${DE_QUIEN} ${porQue} Van ${seguidos} intentos seguidos con el mismo motivo, así que volver a filmar no lo va a destrabar: Google mira la IMAGEN, y esa no cambió. ${REMEDIO_CARA}`;
+  }
+  return `${DE_QUIEN} ${porQue} ${REMEDIO_CARA}`;
 }
 
 export function textoFlow(
@@ -319,7 +388,13 @@ export function textoFlow(
 
     case 'persona_publica':
       return {
-        titulo: `Google no quiso animar esta cara en ${que}`,
+        // ⚠️ EL TITULO NOMBRA A GOOGLE, Y NO AFIRMA QUE SEA LA CARA.
+        //
+        // Decia «no quiso animar esta CARA», y eso es falso cuando la misma imagen
+        // ya filmo otras tomas del mismo anuncio: ahi lo que Google rechaza no es
+        // la cara. El detalle es el que precisa; el titulo dice lo unico que se
+        // sabe siempre — que el que se nego fue Google.
+        titulo: `Google no quiso generar ${que}`,
         // ⚠️ ESTE TEXTO DECÍA «ELEGIR OTRA FOTO» Y ESO SOLO NO ARREGLA NADA.
         //
         // El clip NO se anima desde la foto del perfil: se anima desde la IMAGEN

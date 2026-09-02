@@ -842,13 +842,27 @@ export async function estadoTomaAction(
       // La frase precisa la arma quien SABE qué contestó Google: decir «se parece
       // a alguien famoso» cuando el filtro fue otro es inventar un hecho sobre la
       // cara de alguien.
+      // ⚠️ SE CUENTAN LOS SEGUIDOS, y sólo si el motivo es el MISMO. Dos rechazos
+      // por causas distintas no son insistencia: son dos problemas. Y el contador
+      // es lo único que permite dejar de decir «suele pasar» en el intento 17.
+      const seguidos = (marca.errorCausa === causa ? (marca.fallosSeguidos ?? 0) : 0) + 1;
+      // ⚠️ CUÁNTAS TOMAS YA FILMÓ ESTA MISMA IMAGEN. Es lo que separa «hay que
+      // rehacer la imagen» de «lo que hay que cambiar es lo que dice esta toma»,
+      // y mandarla al lugar equivocado cuesta una hora de reintentos.
+      const esc = (item.escenas ?? []).find((e) => n >= e.desde && n <= e.hasta);
+      const ms = marcas(item);
+      const probada = esc
+        ? item.plan.clips.filter((c) => c.n >= esc.desde && c.n <= esc.hasta && !!ms[String(c.n)]?.url).length
+        : 0;
       const t = deCara
-        ? { detalle: detalleFiltroDeCara(mio.razon) }
+        ? { detalle: detalleFiltroDeCara(mio.razon, seguidos, probada) }
         : textoFlow('contenido', `la toma ${n}`);
       item = await guardarMarca(item, n, {
         error: t.detalle,
         errorCausa: causa,
         errorDetalle: t.detalle,
+        fallosSeguidos: seguidos,
+        imagenProbada: probada,
         // El crudo se guarda para poder diagnosticar sin pedir otra captura: el
         // motivo real de Google vive ahí y no en nuestra traducción.
         errorCrudo: crudoGuardable(texto),

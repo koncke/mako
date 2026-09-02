@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { mediaDeFlow, esFiltroDeCara, pareceFraseParaPersona } from '../lib/flow-media';
-import { detalleFiltroDeCara, textoFlow } from '../lib/flow-fallo-texto';
+import { detalleFiltroDeCara, accionFiltroDeCara, textoFlow } from '../lib/flow-fallo-texto';
 
 // =============================================================================
 // Leer el estado de UN medio dentro de una respuesta de Flow
@@ -195,4 +195,86 @@ test('pero sí respeta la instrucción que escribió el server', () => {
   const frase = 'Todavía no vi a Google Flow generar un video con tu foto. Abre Flow y genera uno a mano.';
   const t = textoFlow('puente', 'la toma 3', undefined, undefined, frase);
   assert.ok(t.detalle.includes(frase), 'tiró la única parte accionable del mensaje');
+});
+
+// ── Cuando el mismo motivo se repite ───────────────────────────────────────
+
+test('en el primer rechazo el mensaje consuela, y está bien', () => {
+  const t = detalleFiltroDeCara('IDENTIFIABLE_PERSON_SAFETY', 1);
+  assert.match(t, /suele pasar/i);
+  assert.doesNotMatch(t, /intentos seguidos/i);
+});
+
+test('⚠️ a partir del segundo deja de consolar y DICE EL NÚMERO', () => {
+  // Medido el 02/09/2026: una clienta acumuló 17 rechazos seguidos con el mismo
+  // motivo, sobre la misma imagen, y la pantalla le decía «suele pasar» en el
+  // intento 17 igual que en el primero. Un mensaje que consuela en el primer fallo
+  // MIENTE en el décimo, y quien lo lee no tiene cómo saber que ya no aplica.
+  const t = detalleFiltroDeCara('IDENTIFIABLE_PERSON_SAFETY', 17);
+  assert.match(t, /17 intentos seguidos/, 'no dice cuántas veces van');
+  assert.match(t, /volver a filmar no lo va a destrabar/i, 'no descarta el camino que no sirve');
+  assert.match(t, /imagen del escenario/, 'no nombra el único camino que queda');
+});
+
+test('y el remedio sigue estando, no se lo come el aviso', () => {
+  // La escalada no puede reemplazar la instrucción: alguien en el intento 17 es
+  // justo quien más necesita leer qué hacer.
+  const t = detalleFiltroDeCara('PROMINENT_PERSON', 9);
+  assert.match(t, /no cuesta créditos/i);
+  assert.match(t, /otra foto tuya/i);
+});
+
+// ── De quién es la culpa ───────────────────────────────────────────────────
+//
+// Martín: «si el problema NO lo tenemos nosotros, NO asumir la culpa. Incluso
+// dejar bien en claro quién es el culpable. Si no, los usuarios piensan que MaKo
+// falló». Y acá está medido de las dos puntas: la clienta reprodujo el rechazo
+// A MANO en su propio Google Flow, con la misma imagen.
+
+test('⚠️ un rechazo de Google NOMBRA a Google, en todas sus variantes', () => {
+  for (const [razon, seguidos, probada] of [
+    ['IDENTIFIABLE_PERSON_SAFETY', 1, 0],
+    ['IDENTIFIABLE_PERSON_SAFETY', 9, 0],
+    ['PROMINENT_PERSON', 1, 4],
+    ['', 3, 0],
+  ] as [string, number, number][]) {
+    const t = detalleFiltroDeCara(razon, seguidos, probada);
+    assert.match(t, /GOOGLE|Google/, `«${razon}» ${seguidos}/${probada} no dice quién se negó`);
+  }
+});
+
+test('y NUNCA se lee como que falló MaKo', () => {
+  // Un mensaje que arranca por la instrucción se lee como que algo de acá se
+  // rompió. El nombre de MaKo sólo puede aparecer para DESCARTARLO.
+  const t = detalleFiltroDeCara('IDENTIFIABLE_PERSON_SAFETY', 1, 0);
+  assert.doesNotMatch(t, /MaKo (no pudo|falló|se equivocó)/i);
+  assert.match(t, /no MaKo|salió bien de aquí/i, 'no deja claro que el pedido salió bien de acá');
+});
+
+test('dice que el intento no se cobra, que es lo que frena el miedo', () => {
+  // Medido de las dos puntas: 26 generaciones y los créditos quedaron en 898, y
+  // el propio Google Flow escribe «no se te ha cobrado por esta generación».
+  assert.match(detalleFiltroDeCara('IDENTIFIABLE_PERSON_SAFETY', 1, 0), /no te cobra/i);
+});
+
+test('⚠️ con la imagen PROBADA no manda a rehacer la imagen', () => {
+  // Es el error que costó una hora: la misma imagen había filmado nueve tomas y
+  // el mensaje mandaba a regenerarla — o sea a arreglar lo único que ya funciona.
+  const t = detalleFiltroDeCara('IDENTIFIABLE_PERSON_SAFETY', 17, 9);
+  assert.match(t, /otras 9 tomas/, 'no dice que la imagen ya está probada');
+  assert.doesNotMatch(t, /generar esa imagen otra vez/i, 'sigue mandando a rehacer la imagen');
+  assert.match(t, /reescribir esta línea/i, 'no nombra lo único que queda por probar');
+});
+
+test('y el BOTÓN cambia con ella: la etiqueta viaja con la acción', () => {
+  // Este repo ya pagó un botón que decía «Revisar el puente» y gastaba 15
+  // créditos, porque el rótulo salía de la causa y el onClick de otro lado.
+  assert.match(accionFiltroDeCara(0), /escenario/i);
+  assert.match(accionFiltroDeCara(9), /reescribir/i);
+  assert.notEqual(accionFiltroDeCara(0), accionFiltroDeCara(9));
+});
+
+test('con UNA sola toma probada el plural no se rompe', () => {
+  assert.match(detalleFiltroDeCara('IDENTIFIABLE_PERSON_SAFETY', 1, 1), /otra toma/);
+  assert.doesNotMatch(detalleFiltroDeCara('IDENTIFIABLE_PERSON_SAFETY', 1, 1), /otras 1/);
 });
