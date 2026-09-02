@@ -5019,3 +5019,106 @@ Se saca el payload REAL de la base —no el que uno cree que se manda— y se ag
 por texto idéntico. Acá esa agrupación puso el hallazgo a la vista en un comando:
 catorce prompts distintos, y los tres últimos grupos sin la línea que todos los
 demás tenían.
+
+---
+
+## Cuatro rechazos de la misma pantalla, y ninguno se veía leyendo el código
+
+**Vive en:** `app/video-generator/OnboardingVideoGen.tsx` ·
+`app/video-generator/WizardAnuncio.tsx` · `scripts/mirar-pantalla.mjs`
+
+El paso «Tus fotos» del onboarding de /video-generator se rehízo **cuatro veces**.
+Las tres primeras se entregaron sin haberlas mirado nunca, y el dueño las rechazó
+sobre capturas que sacó él. La cuarta arrancó con su reclamo textual: *«¿Qué te
+cuesta ir sacando capturas para ver si lo que estás haciendo está bien?»*.
+
+Lo que apareció al mirar, y **ninguno de los cuatro se ve leyendo el archivo**:
+
+### 1. `Estudio` mete a sus hijos en un flex ROW
+
+Su contenedor es `<div style={{ width: "100%", display: "flex", justifyContent:
+"center" }}>{children}</div>` — sin `flexDirection`, o sea **fila**. La generación
+le pasa un único hijo, así que en cinco pantallas eso nunca se notó. El onboarding
+le pasa varios, y **los fragmentos de React no crean DOM**: se aplanan y quedan de
+lado a lado. En pantalla: la foto a la izquierda y el «¿Por qué la foto decide
+todo?» flotando a la altura de su hombro.
+
+**La regla: un contenedor que hoy recibe UN hijo tiene una dirección implícita que
+nadie eligió.** El día que reciba dos, el layout que aparece no es el que alguien
+diseñó — es el default. Y no hay diff que lo muestre: el cambio está en el
+llamador, no en el contenedor.
+
+### 2. Un recorte con margen negativo mostraba el BORDE de la foto
+
+La primera versión de las fotos laterales recortaba con `marginLeft: -204` sobre
+una imagen de 300 px. En un retrato, el borde derecho es **fondo**: la lateral
+izquierda se veía vacía y la derecha se veía bien sólo porque esa foto era clara.
+Una composición coja que se lee como rota. Con `objectFit: cover` centrado, cada
+lateral muestra el medio de su foto —una cara— y las dos pesan igual.
+
+### 3. Una captura tomada «cuando el texto se quedó quieto» no tiene las imágenes
+
+Las fotos vienen de URLs firmadas de Supabase y cargan **mucho** después de que el
+`innerText` deja de cambiar. La captura salió con los huecos vacíos y se leyó como
+«los laterales no se dibujan» sobre una pantalla que los tenía, sólo que todavía
+transparentes. Se estuvo a un paso de «arreglar» algo que funcionaba.
+
+Son **dos** esperas distintas: que el texto se asiente, y que
+`document.images` esté toda con `complete && naturalWidth > 0`.
+
+### 4. Un `:hover` no se verifica leyendo el CSS ni forzando el estilo
+
+Poner `opacity: 1` a mano prueba que el velo **se dibuja**, no que el hover lo
+**dispare** — que es justamente lo que se quería saber. Va un
+`Input.dispatchMouseEvent` de tipo `mouseMoved` sobre el centro del elemento, que
+produce un `:hover` de verdad.
+
+### La herramienta, y sus cinco trampas
+
+`scripts/mirar-pantalla.mjs` levanta un Chrome dedicado por CDP y captura una ruta.
+Cada línea de su cabecera costó una corrida:
+
+1. **Un Chrome DEDICADO**, con su propio `--user-data-dir`. Una pestaña CDP nueva
+   sobre el Chrome de todos los días puede no hidratar nunca.
+2. **Se entra por `/api/auth/dev-login?ws=1`** — ws1 es el único exento del
+   onboarding global, así que es el único donde una tab se puede ver.
+3. **`Emulation.setDeviceMetricsOverride` ANTES de navegar**: sin viewport
+   declarado `innerWidth` es 0 y toda medición devuelve cero, que se lee como «no
+   hay nada».
+4. **No se llama desde Git Bash.** MSYS convierte todo argumento que empiece con
+   `/` en una ruta de Windows antes de que node lo vea: `/video-generator` llega
+   como `C:/Program Files/Git/video-generator`. La primera corrida aterrizó en
+   `/general` y **el diagnóstico obvio —«el `next=` del dev-login no manda»— era el
+   equivocado**; la segunda murió con «Cannot navigate to invalid URL», que es la
+   misma causa gritando más fuerte. Va por PowerShell, y el script se niega a
+   arrancar si la ruta le llega con `:` adentro.
+5. **Lo que se interpola en una expresión de `Runtime.evaluate` lo pone NODE.**
+   Escribir `JSON.stringify(HOVER)` adentro del string lo manda tal cual al
+   navegador, donde esa variable no existe: el selector viaja con la palabra HOVER
+   adentro y contesta null. El síntoma es «no encontré», que se lee como que el
+   elemento no está en la pantalla — y manda a depurar el componente.
+
+⚠️ Y adentro de esa expresión —que es un template literal— **no va ningún**
+**backtick**, ni en un comentario. Rompió dos veces seguidas, la segunda en el
+comentario que advertía sobre los backticks.
+
+### ⚠️ Recorrer el wizard ESCRIBE en el workspace del cliente
+
+ws1 es **Mauricio**, un cliente real. Cada «Siguiente» marca su paso como hecho y
+llegar al final le da el onboarding por cerrado — o sea que **mirar la pantalla la
+haría desaparecer**. Antes de recorrerlo se guarda `app_settings` con
+`key = onboarding.tab.video-generator` del ws1, y después se restaura. Vale para
+cualquier pantalla con estado que se verifique a mano: la verificación no puede
+dejar rastro en los datos de alguien.
+
+### Lo que quedó SIN hacer
+
+- La grilla de acentos del paso 2 desborda el `ancho={520}` de `Estudio` (mide ~900
+  px) y su segunda fila queda desbalanceada a la izquierda. Se ve bien, pero no es
+  una decisión de nadie. Vive en `app/video-generator/OnboardingVideoGen.tsx`.
+- La dirección implícita de `Estudio` sigue ahí: se envolvió en el llamador para no
+  cambiarle el layout a las cinco pantallas de la generación. El día que otra
+  pantalla le pase dos hijos, vuelve a pasar. Vive en
+  `app/video-generator/WizardAnuncio.tsx`.
+
+*Corrida del 02/09/2026.*

@@ -21,7 +21,7 @@ import { OnboardingVideoGen } from './OnboardingVideoGen';
 
 export function PuertaVideoGen({
   fotos, acentoInicial, muletillasIniciales, puente, linea, creditos, anunciosPosibles,
-  descripcionPersona, acentoOrigen, acentoZona, children,
+  acentoOrigen, acentoZona, children,
 }: {
   fotos: { id: string; url: string }[];
   acentoInicial: string;
@@ -33,8 +33,6 @@ export function PuertaVideoGen({
   creditos: number | null;
   /** Guiones × formatos: cuántos anuncios distintos salen de lo que ya cargó. */
   anunciosPosibles: number;
-  /** Lo que MaKo escribió mirando sus fotos. '' = todavía no hay. */
-  descripcionPersona: string;
   /** De dónde salió el acento. Decirlo mal es afirmar una deducción que no ocurrió. */
   acentoOrigen: 'declarado' | 'zona-horaria' | 'default';
   acentoZona: string;
@@ -51,7 +49,6 @@ export function PuertaVideoGen({
       linea={linea}
       creditos={creditos}
       anunciosPosibles={anunciosPosibles}
-      descripcionPersona={descripcionPersona}
       acentoOrigen={acentoOrigen}
       acentoZona={acentoZona}
       alSalir={() => setSalio(true)}

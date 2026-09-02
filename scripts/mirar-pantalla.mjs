@@ -1,75 +1,182 @@
-// Puente CDP contra el Chrome dedicado del 9333. Node 24 trae WebSocket y fetch,
-// asi que no hace falta ninguna dependencia.
-//
-// Uso:  node mirar.mjs <ruta> <archivo-con-el-js-a-evaluar>
-// Ej.:  node mirar.mjs /video-generator medir.js
-//
-// ⚠️ Entra por /api/auth/dev-login?ws=1 — sin `ws` toda ruta contesta 403, y en
-// ws3 el onboarding tapa cualquier tab nueva. ws1 esta exento del wizard.
-// ⚠️ Y NO se evalua sin esperar: navegar y medir 700 ms despues devuelve vacio
-// sobre una pagina a medio pintar, y el vacio se lee como «no hay nada».
+﻿/**
+ * Mirar una pantalla de la app y guardar la captura.
+ *
+ * Los cuatro gotchas que ya costaron una corrida y quedaron escritos en
+ * docs/hallazgos-generativa.md:
+ *
+ *  1. Un Chrome DEDICADO, con su propio --user-data-dir. Una pestaÃ±a CDP nueva
+ *     sobre el Chrome de todos los dÃ­as puede no hidratar nunca.
+ *  2. Se entra por /api/auth/dev-login?ws=1 â€” ws1 es el ÃšNICO exento del
+ *     onboarding global, asÃ­ que es el Ãºnico donde una tab se puede ver.
+ *  3. Emulation.setDeviceMetricsOverride ANTES de navegar: sin viewport
+ *     declarado, innerWidth es 0 y toda mediciÃ³n devuelve cero â€” que se lee como
+ *     Â«no hay nadaÂ», el peor falso negativo.
+ *  4. Se espera a que innerText se quede QUIETO tres vueltas, no a un timeout.
+ *
+ * uso: node _mirar.mjs <ruta> <salida.png> [ancho] [alto]
+ */
+import { spawn } from 'node:child_process';
+import { writeFileSync, mkdtempSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
-import { readFileSync } from 'node:fs';
+const RUTA = process.argv[2] ?? '/video-generator';
+const SALIDA = process.argv[3] ?? 'captura.png';
+const ANCHO = Number(process.argv[4] ?? 1440);
+const ALTO = Number(process.argv[5] ?? 980);
+/**
+ * Opcional: el aria-label del elemento sobre el que pasar el mouse antes de
+ * capturar. Un `:hover` no se puede verificar leyendo el CSS, y forzar el estilo
+ * a mano prueba que el velo se dibuja, NO que el hover lo dispare — que es
+ * justamente lo que se quiere saber. Va un mouseMoved de verdad.
+ */
+const HOVER = process.argv[6] ?? '';
+const PUERTO = 9333;
 
-const ruta = process.argv[2] || '/video-generator';
-const jsFile = process.argv[3];
-const CDP = 'http://127.0.0.1:9333';
+const CHROME = [
+  'C:/Program Files/Google/Chrome/Application/chrome.exe',
+  'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
+].find((p) => existsSync(p));
+if (!CHROME) { console.error('no encontre chrome.exe'); process.exit(1); }
 
-const v = await (await fetch(`${CDP}/json/version`)).json();
-const ws = new WebSocket(v.webSocketDebuggerUrl);
+const perfil = mkdtempSync(join(tmpdir(), 'mako-cdp-'));
+const chrome = spawn(CHROME, [
+  `--remote-debugging-port=${PUERTO}`,
+  `--user-data-dir=${perfil}`,
+  '--headless=new',
+  '--no-first-run',
+  '--no-default-browser-check',
+  '--disable-gpu',
+  `--window-size=${ANCHO},${ALTO}`,
+  'about:blank',
+], { stdio: 'ignore', detached: false });
+
+const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function objetivo() {
+  for (let i = 0; i < 40; i++) {
+    try {
+      const r = await fetch(`http://127.0.0.1:${PUERTO}/json/list`);
+      const j = await r.json();
+      const t = j.find((x) => x.type === 'page');
+      if (t?.webSocketDebuggerUrl) return t.webSocketDebuggerUrl;
+    } catch { /* todavÃ­a no levantÃ³ */ }
+    await dormir(250);
+  }
+  throw new Error('chrome no expuso el puerto de depuraciÃ³n');
+}
+
+const ws = new WebSocket(await objetivo());
 await new Promise((r) => { ws.onopen = r; });
 
 let id = 0;
-const pend = new Map();
-ws.onmessage = (e) => {
-  const m = JSON.parse(e.data);
-  if (m.id && pend.has(m.id)) { pend.get(m.id)(m); pend.delete(m.id); }
+const pendientes = new Map();
+ws.onmessage = (m) => {
+  const d = JSON.parse(m.data);
+  if (d.id && pendientes.has(d.id)) { pendientes.get(d.id)(d); pendientes.delete(d.id); }
 };
-const cmd = (method, params = {}, sessionId) => new Promise((res, rej) => {
+const cdp = (method, params = {}) => new Promise((res, rej) => {
   const n = ++id;
-  pend.set(n, (m) => (m.error ? rej(new Error(method + ': ' + JSON.stringify(m.error))) : res(m.result)));
-  ws.send(JSON.stringify({ id: n, method, params, ...(sessionId ? { sessionId } : {}) }));
+  pendientes.set(n, (d) => (d.error ? rej(new Error(`${method}: ${d.error.message}`)) : res(d.result)));
+  ws.send(JSON.stringify({ id: n, method, params }));
 });
 
-const { targetId } = await cmd('Target.createTarget', { url: 'about:blank' });
-const { sessionId } = await cmd('Target.attachToTarget', { targetId, flatten: true });
-const ev = async (expr) => {
-  const r = await cmd('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true }, sessionId);
-  if (r.exceptionDetails) throw new Error(r.exceptionDetails.text + ' ' + (r.exceptionDetails.exception?.description || ''));
-  return r.result.value;
-};
+await cdp('Page.enable');
+await cdp('Runtime.enable');
+// âš ï¸ ANTES de navegar. Ver gotcha 3.
+await cdp('Emulation.setDeviceMetricsOverride', {
+  width: ANCHO, height: ALTO, deviceScaleFactor: 1, mobile: false,
+});
 
-try {
-  await cmd('Page.enable', {}, sessionId);
-  // El tamaño se fija: una medicion de layout sin viewport declarado no dice nada.
-  await cmd('Emulation.setDeviceMetricsOverride',
-    { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false }, sessionId);
-  await cmd('Page.navigate',
-    { url: `http://localhost:3000/api/auth/dev-login?ws=1&next=${encodeURIComponent(ruta)}` }, sessionId);
-
-  // Se espera a que el texto se quede QUIETO tres vueltas, no a un timeout fijo.
-  let previo = -1, quieto = 0;
-  for (let i = 0; i < 60 && quieto < 3; i++) {
-    await new Promise((r) => setTimeout(r, 500));
-    const n = await ev('document.body ? document.body.innerText.length : 0').catch(() => 0);
-    if (n === previo && n > 0) quieto++; else quieto = 0;
-    previo = n;
-  }
-
-  const hidratado = await ev(
-    "(()=>{const e=document.querySelector('main')||document.body;"
-    + "return !!Object.keys(e).find(k=>k.startsWith('__reactFiber'))})()",
-  );
-  const url = await ev('location.pathname');
-  const vw = await ev('innerWidth');
-  console.error(`[mirar] ${url} · hidratado=${hidratado} · viewport=${vw} · texto=${previo}`);
-  if (!hidratado) console.error('[mirar] ⚠️ NO HIDRATO: lo que salga de acá no vale para nada que sea React.');
-
-  if (jsFile) {
-    const out = await ev(readFileSync(jsFile, 'utf8'));
-    console.log(typeof out === 'string' ? out : JSON.stringify(out, null, 1));
-  }
-} finally {
-  await cmd('Target.closeTarget', { targetId }).catch(() => {});
-  ws.close();
+// âš ï¸ ESTE SCRIPT NO SE LLAMA DESDE GIT BASH. MSYS convierte todo argumento que
+// empiece con `/` en una ruta de Windows ANTES de que node lo vea: `/video-
+// generator` llega como `C:/Program Files/Git/video-generator`. La primera
+// corrida aterrizÃ³ en /general y el diagnÃ³stico obvio â€”Â«el next= del dev-login
+// no mandaÂ»â€” era el equivocado; la segunda muriÃ³ con Â«Cannot navigate to invalid
+// URLÂ», que es la misma causa gritando mÃ¡s fuerte. Va por PowerShell.
+if (RUTA.includes(':') || !RUTA.startsWith('/')) {
+  console.error(`la ruta llegÃ³ mangleada: ${RUTA}
+correlo con PowerShell, no con Git Bash`);
+  process.exit(1);
 }
+
+await cdp('Page.navigate', { url: `http://localhost:3000/api/auth/dev-login?ws=1&next=${encodeURIComponent(RUTA)}` });
+
+// âš ï¸ Se espera a que el texto se quede QUIETO, no a un timeout. Ver gotcha 4.
+let previo = -1, quietas = 0;
+for (let i = 0; i < 80; i++) {
+  await dormir(400);
+  const r = await cdp('Runtime.evaluate', {
+    expression: 'document.body ? document.body.innerText.length : -1',
+    returnByValue: true,
+  }).catch(() => null);
+  const n = r?.result?.value ?? -1;
+  if (n > 0 && n === previo) { quietas += 1; if (quietas >= 3) break; } else quietas = 0;
+  previo = n;
+}
+
+// âš ï¸ Y DESPUÃ‰S SE ESPERA A LAS IMÃGENES, que es otra pregunta.
+//
+// El texto se queda quieto mucho antes de que carguen las fotos â€”vienen de
+// URLs firmadas de Supabaseâ€” y una captura tomada ahÃ­ muestra los huecos
+// vacÃ­os. Ya mintiÃ³ una vez: se leyÃ³ como Â«los laterales no se dibujanÂ» sobre
+// una pantalla que los tenÃ­a, sÃ³lo que todavÃ­a transparentes.
+for (let i = 0; i < 60; i++) {
+  const r = await cdp('Runtime.evaluate', {
+    expression: `(() => {
+      const im = [...document.images];
+      return JSON.stringify({ total: im.length, listas: im.filter((x) => x.complete && x.naturalWidth > 0).length });
+    })()`,
+    returnByValue: true,
+  }).catch(() => null);
+  const v = JSON.parse(r?.result?.value ?? '{"total":0,"listas":0}');
+  if (v.total > 0 && v.listas === v.total) { console.log(`imÃ¡genes: ${v.listas}/${v.total}`); break; }
+  if (i === 59) console.log(`âš  imÃ¡genes: ${v.listas}/${v.total} â€” se captura igual`);
+  await dormir(400);
+}
+
+const info = await cdp('Runtime.evaluate', {
+  expression: `JSON.stringify({
+    url: location.pathname,
+    ancho: innerWidth,
+    texto: document.body.innerText.slice(0, 900),
+    // Sin backticks ni interpolacion: esto vive DENTRO de un template literal
+    // y una comilla invertida de mas lo corta al medio (el gotcha de AGENTS.md).
+    cajas: [...document.querySelectorAll('button[aria-label]')]
+      .map((b) => { const r = b.getBoundingClientRect();
+        return b.getAttribute('aria-label') + ': ' + Math.round(r.x) + ',' + Math.round(r.y) + '  ' + Math.round(r.width) + 'x' + Math.round(r.height); }),
+  })`,
+  returnByValue: true,
+});
+console.log(info.result.value);
+
+if (HOVER) {
+  // ⚠️ EL SELECTOR LO ARMA NODE, NO LA PÁGINA.
+  //
+  // Escribir JSON.stringify(HOVER) adentro de la expresión la manda TAL CUAL al
+  // navegador, donde esa variable no existe: el selector viaja con la palabra
+  // HOVER adentro y contesta null. El síntoma es «no encontré», que se lee como
+  // que el elemento no está en la pantalla — y manda a depurar el componente.
+  const SEL = JSON.stringify(`[aria-label=${JSON.stringify(HOVER)}]`);
+  const c = await cdp('Runtime.evaluate', {
+    expression: `(() => {
+      const el = document.querySelector(${SEL});
+      if (!el) return '';
+      const r = el.getBoundingClientRect();
+      return JSON.stringify({ x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) });
+    })()`,
+    returnByValue: true,
+  });
+  if (!c.result.value) { console.error('no encontre: ' + HOVER); process.exit(1); }
+  const { x, y } = JSON.parse(c.result.value);
+  await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'none', buttons: 0 });
+  await dormir(600);
+  console.log('hover sobre ' + HOVER + ' en ' + x + ',' + y);
+}
+
+const shot = await cdp('Page.captureScreenshot', { format: 'png' });
+writeFileSync(SALIDA, Buffer.from(shot.data, 'base64'));
+console.log(`\ncaptura: ${SALIDA}`);
+
+ws.close();
+chrome.kill();

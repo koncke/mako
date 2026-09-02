@@ -575,7 +575,7 @@ function Salidas({ resumen, children }: { resumen: string; children: React.React
  * ejemplo pasa a acompañar también ese paso — que es lo que el dueño pidió cuando
  * dijo que la previsualización tiene que estar «durante toda la creación».
  */
-export function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia, cargando, onSiguiente, atras, onAtras, onSalir, error, puesta, puente, ahora, alLado, slotRiel, plegado, ancho = 900 }: {
+export function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia, cargando, onSiguiente, atras, onAtras, onSalir, sinSalida, error, puesta, puente, ahora, alLado, slotRiel, plegado, ancho = 900 }: {
   pregunta: string;
   /**
    * El estado del navegador del cliente. ⚠️ ENTRA ACÁ PORQUE EL AVISO NO LLEGABA
@@ -606,6 +606,17 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
   atras?: string;
   onAtras?: () => void;
   onSalir: () => void;
+  /**
+   * Esconde el «Salir». OPCIONAL: sin él, la pantalla se comporta como hasta hoy.
+   *
+   * ⚠️ Lo pide el ONBOARDING de la tab, y va contra lo que dice la skill
+   * `tab-onboarding` —que el recorrido de una tab no bloquea como el global, y
+   * que trabar a alguien en un paso opcional es perderlo—. Es una decisión de
+   * producto del dueño, textual: «elimina el botón de salir, no se debe poder
+   * salir sin completar el onboarding». Queda escrito para que no se «arregle»
+   * de vuelta leyendo la skill.
+   */
+  sinSalida?: boolean;
   error?: string;
   /** El formato elegido. Si trae ejemplo, la pantalla estrena su riel derecho. */
   puesta?: Puesta;
@@ -835,7 +846,10 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
       <div style={{
         display: 'flex', alignItems: 'center', width: '100%', maxWidth: ancho, gap: 16,
       }}>
-        <button type="button" onClick={onSalir} style={salida}>← Salir</button>
+        {/* El onboarding de la tab lo esconde: ahí no se puede salir sin terminar. */}
+        {!sinSalida && (
+          <button type="button" onClick={onSalir} style={salida}>← Salir</button>
+        )}
       </div>
 
       {/* ⚠️ ACÁ HABÍA UNA FILA DE DOS COLUMNAS. Se fue entera: el riel es `fixed`

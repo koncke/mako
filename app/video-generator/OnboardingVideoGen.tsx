@@ -69,30 +69,53 @@ const DONDE: Record<AcentoId, string> = {
   latam: 'Latinoamérica, sin marca de país',
 };
 
-/**
- * La primera línea con contenido de la descripción que escribió MaKo.
- *
- * El texto viene en secciones rotuladas (IDENTIDAD, ROSTRO, …) y la primera es
- * la que se lee de un vistazo. Se saltean los rótulos: son de la ficha completa,
- * que vive en el onboarding del negocio, no de esta pantalla.
- */
-function primeraLinea(txt: string): string {
-  for (const l of (txt || '').split(/\r?\n/)) {
-    const t = l.trim();
-    // Un rótulo es una línea corta EN MAYÚSCULAS. Sin este corte, la pantalla
-    // grande diría «IDENTIDAD».
-    if (!t || (t === t.toUpperCase() && t.length < 24)) continue;
-    return t.length > 160 ? `${t.slice(0, 157)}…` : t;
-  }
-  return '';
-}
 
-/** La flecha de pasar fotos. Redonda, discreta: la protagonista es la foto. */
-const FLECHA: React.CSSProperties = {
-  width: 40, height: 40, borderRadius: 999, flex: 'none', padding: 0,
-  display: 'grid', placeItems: 'center', cursor: 'pointer',
-  border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)',
-};
+/**
+ * Una foto asomando al costado de la central.
+ *
+ * ⚠️ ES UNA TARJETA ANGOSTA, NO UNA TAJADA DE LA FOTO GRANDE.
+ *
+ * La primera versión recortaba con un `marginLeft` negativo, así que la de la
+ * izquierda mostraba el BORDE DERECHO de su foto. En un retrato eso es fondo:
+ * medido en pantalla, la izquierda se veía vacía y la derecha se veía bien sólo
+ * porque esa foto era clara. Quedaba una composición coja que se lee como rota.
+ *
+ * Con `objectFit: cover` centrado, cada lateral muestra el MEDIO de su foto —o
+ * sea una cara— y las dos pesan igual.
+ */
+function LateralFoto({ foto, visible, lado, onClick }: {
+  foto?: { id: string; url: string };
+  visible: boolean;
+  lado: 'izq' | 'der';
+  onClick: () => void;
+}) {
+  if (!visible || !foto) return null;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={lado === 'izq' ? 'Ver la foto anterior' : 'Ver la foto siguiente'}
+      style={{
+        width: 150, height: 340, flex: 'none', padding: 0, cursor: 'pointer',
+        border: 'none', background: 'transparent', overflow: 'hidden',
+        borderRadius: 16,
+        // Se meten DEBAJO de la central, que lleva zIndex 1.
+        marginRight: lado === 'izq' ? -30 : 0,
+        marginLeft: lado === 'der' ? -30 : 0,
+        opacity: 0.5,
+        filter: 'brightness(.75)',
+        transition: 'opacity 160ms ease, filter 160ms ease',
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.opacity = '.8'; e.currentTarget.style.filter = 'brightness(1)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.opacity = '.5'; e.currentTarget.style.filter = 'brightness(.75)'; }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={foto.url} alt="" style={{
+        width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block',
+      }} />
+    </button>
+  );
+}
 
 const ORDEN: AcentoId[] = ['mx-norte', 'mx-neutro', 'mx-cdmx', 'co', 'latam', 'ar', 'es'];
 
@@ -155,7 +178,7 @@ function Contexto({ eyebrow, children }: { eyebrow: string; children: React.Reac
 }
 export function OnboardingVideoGen({
   fotos, acentoInicial, muletillasIniciales, puente: puenteInicial, linea, creditos, anunciosPosibles,
-  descripcionPersona, acentoOrigen, acentoZona, alSalir,
+  acentoOrigen, acentoZona, alSalir,
 }: {
   fotos: { id: string; url: string }[];
   /** El que el server va a usar HOY: declarado si lo hay, inferido si no. */
@@ -171,8 +194,10 @@ export function OnboardingVideoGen({
   creditos: number | null;
   /** Guiones × formatos: cuántos anuncios distintos salen de lo que ya cargó. */
   anunciosPosibles: number;
-  /** Lo que MaKo escribió mirando sus fotos. '' = todavía no hay. */
-  descripcionPersona: string;
+  // ⚠️ `descripcionPersona` se fue de esta pantalla. La escribe MaKo mirando las
+  // fotos y estuvo un rato acá, pero el dueño la sacó: «elimina el texto
+  // innecesario». La cara ya se ve — describirla al lado es contarle a alguien
+  // lo que está mirando. Sigue viva en el onboarding del negocio.
   /** De dónde salió el acento. Ver el porqué en `EstadoContextoVideo`. */
   acentoOrigen: 'declarado' | 'zona-horaria' | 'default';
   acentoZona: string;
@@ -463,6 +488,9 @@ export function OnboardingVideoGen({
         atras={idx === 0 ? undefined : 'Atrás'}
         onAtras={idx === 0 ? undefined : () => setPaso(PASOS[idx - 1])}
         onSalir={alSalir}
+        // El dueño: «no se debe poder salir sin completar el onboarding». Ver el
+        // porqué —y la tensión con la skill— en el prop de `Estudio`.
+        sinSalida
         error={error ?? undefined}
         puente={puente}
         ahora={ahora}
@@ -471,87 +499,109 @@ export function OnboardingVideoGen({
           : undefined}
         ancho={520}
       >
+        {/* ⚠️ UNA SOLA COLUMNA, Y ES OBLIGATORIA.
+
+            `Estudio` mete a sus hijos en un `display: flex` SIN dirección, o sea
+            en FILA. La generación le pasa un único hijo, así que eso nunca se vio;
+            acá cada paso pasa varios y los fragmentos de React no crean DOM, así
+            que se aplanan y quedan de lado a lado. Medido en pantalla: la foto a la
+            izquierda y el «¿Por qué la foto decide todo?» flotando a su derecha, a
+            la altura del hombro.
+
+            Se envuelve acá y no se le cambia la dirección a `Estudio`: eso le
+            cambiaría el layout a las cinco pantallas de la generación para arreglar
+            una que es de este archivo. */}
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'stretch',
+          gap: 20, width: '100%',
+        }}>
       {paso === 'cara' && (
         <>
-          {/* ⚠️ UN MAZO, NO UNA GRILLA NI DOS FOTOS A LA VEZ.
+          {/* ⚠️ LAS OTRAS FOTOS SE VEN A LOS COSTADOS, no apiladas detrás.
 
-              Pasó por tres formas hasta acá y las dos primeras las rechazó el
-              dueño sobre capturas: ocho miniaturas de 96 px («no son la foto: son
-              un selector múltiple donde ninguna se ve»), y después una foto
-              grande en el centro CON otra igual en el aside — «saca las 2 fotos a
-              la vez».
+              Cuarta forma de esta pantalla. El mazo con las de atrás asomando por
+              arriba no se leía: quedaba una foto sola con un borde raro. El dueño
+              mandó la referencia — un rectángulo central y dos parciales a los
+              lados — y es la forma correcta: se ve QUE hay más y para dónde.
 
-              Queda un mazo: la de adelante entera y las demás asomando detrás, que
-              es como se ve un juego de fotos sin desplegarlo. Y el centro no
-              navega: ABRE. «Si aprieto la foto del centro me salta el pop-up para
-              configurar: sacar fotos o agregar nuevas.» */}
-          {misFotos.length > 0 ? (
-            <div style={{ display: 'grid', justifyItems: 'center', gap: 14, width: '100%' }}>
-              <div style={{ position: 'relative', width: 300, height: 400 }}>
-                {/* Las de atrás, dibujadas ANTES para quedar debajo. Sólo dos:
-                    con más, el mazo se lee como un abanico y deja de ser una
-                    foto. */}
-                {[2, 1].map((salto) => {
-                  const f = misFotos[(fotoIdx + salto) % misFotos.length];
-                  if (!f || misFotos.length <= salto) return null;
-                  return (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      key={f.id}
-                      src={f.url}
-                      alt=""
-                      aria-hidden
-                      style={{
-                        position: 'absolute', inset: 0, margin: 'auto',
-                        width: 300 - salto * 26, height: 400 - salto * 34,
-                        objectFit: 'cover', borderRadius: 18,
-                        transform: `translateY(${-salto * 14}px)`,
-                        opacity: salto === 1 ? 0.5 : 0.25,
-                        filter: 'saturate(.7)',
-                        transition: 'all 250ms cubic-bezier(.16,.84,.34,1)',
-                      }}
-                    />
-                  );
-                })}
-                {/* La de adelante. Es un botón: abre el pop-up. */}
+              Y el hover sobre la central dice que se puede editar, con las mismas
+              clases que ya usa la generación (`mk-regen__zona` / `__velo` /
+              `__texto`): un velo que aparece en 160 ms con el texto abajo. No se
+              estrena un gesto nuevo para lo mismo. */}
+          {misFotos.length > 0 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              gap: 0, width: '100%', minHeight: 420,
+            }}>
+              {/* La anterior, asomando. Es un botón: la trae al centro. */}
+              <LateralFoto
+                foto={misFotos[(fotoIdx - 1 + misFotos.length) % misFotos.length]}
+                visible={misFotos.length > 1}
+                lado="izq"
+                onClick={() => setFotoIdx((i) => (i - 1 + misFotos.length) % misFotos.length)}
+              />
+
+              <div style={{
+                position: 'relative', width: 300, height: 400, flex: 'none', zIndex: 1,
+                borderRadius: 18, overflow: 'hidden',
+                boxShadow: '0 18px 50px rgba(0,0,0,.45)',
+              }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  key={misFotos[fotoIdx % misFotos.length]?.id}
+                  src={misFotos[fotoIdx % misFotos.length]?.url}
+                  alt=""
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', animation: 'mkFade 250ms ease' }}
+                />
                 <button
                   type="button"
+                  className="mk-regen__zona"
                   onClick={() => setEligiendoFoto(true)}
-                  aria-label="Configurar tus fotos"
-                  style={{
-                    position: 'absolute', inset: 0, width: 300, height: 400, padding: 0,
-                    border: 'none', background: 'transparent', cursor: 'pointer',
-                    borderRadius: 18, overflow: 'hidden', display: 'block',
-                  }}
+                  aria-label="Cambiar tus fotos"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    key={misFotos[fotoIdx % misFotos.length]?.id}
-                    src={misFotos[fotoIdx % misFotos.length]?.url}
-                    alt=""
-                    style={{
-                      width: '100%', height: '100%', objectFit: 'cover', borderRadius: 18,
-                      animation: 'mkFade 250ms ease', display: 'block',
-                    }}
-                  />
+                  <span className="mk-regen__velo">
+                    <span className="mk-regen__texto">
+                      <Icon name="pen" size={15} />
+                      Cambiar tus fotos
+                    </span>
+                  </span>
                 </button>
               </div>
 
-              {/* Pasar de foto. Debajo y chico: la protagonista es la foto, y
-                  esto es sólo mirar el mazo. */}
-              {misFotos.length > 1 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <button type="button" aria-label="Foto anterior" style={FLECHA}
-                    onClick={() => setFotoIdx((i) => (i - 1 + misFotos.length) % misFotos.length)}
-                  ><Icon name="chevron" size={16} /></button>
-                  <button type="button" aria-label="Foto siguiente" style={{ ...FLECHA, transform: 'rotate(180deg)' }}
-                    onClick={() => setFotoIdx((i) => (i + 1) % misFotos.length)}
-                  ><Icon name="chevron" size={16} /></button>
-                </div>
-              )}
+              {/* La siguiente, asomando del otro lado. */}
+              <LateralFoto
+                foto={misFotos[(fotoIdx + 1) % misFotos.length]}
+                visible={misFotos.length > 1}
+                lado="der"
+                onClick={() => setFotoIdx((i) => (i + 1) % misFotos.length)}
+              />
             </div>
-          ) : (
-            // Sin fotos la pantalla es UN gesto, del mismo tamaño que el mazo.
+          )}
+
+          {/* Dónde estás parado en el mazo. Van los puntos y no un «3 de 8»:
+              el número es un dato que nadie necesita, la posición sí. */}
+          {misFotos.length > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 7 }}>
+              {misFotos.map((f, i) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setFotoIdx(i)}
+                  aria-label={`Ver la foto ${i + 1}`}
+                  aria-current={i === fotoIdx % misFotos.length}
+                  style={{
+                    width: 7, height: 7, padding: 0, borderRadius: '50%', border: 'none',
+                    cursor: 'pointer',
+                    background: i === fotoIdx % misFotos.length ? 'var(--ink)' : 'var(--border-strong)',
+                    transition: 'background 160ms ease',
+                  }}
+                />
+              ))}
+            </div>
+          )}
+
+          {misFotos.length === 0 && (
+            // Sin fotos la pantalla es UN gesto, del mismo tamaño que la central.
             <label style={{
               alignSelf: 'center', width: 300, height: 400, borderRadius: 18,
               border: '1px dashed var(--border-strong)', background: 'var(--surface-2)',
@@ -565,18 +615,6 @@ export function OnboardingVideoGen({
               <input type="file" accept="image/*" multiple disabled={subiendo}
                 onChange={(e) => void subir(e.target.files)} style={{ display: 'none' }} />
             </label>
-          )}
-
-          {/* Lo que MaKo escribió mirando sus fotos. Vivía en el aside, y el aside
-              se fue entero: «elimina todo lo del costado». Acá está al lado de la
-              cara que describe, que es donde significa algo. */}
-          {!!descripcionPersona && (
-            <div style={{
-              fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.5,
-              textAlign: 'center', maxWidth: 360, alignSelf: 'center',
-            }}>
-              {primeraLinea(descripcionPersona)}
-            </div>
           )}
           <Contexto eyebrow="¿Por qué la foto decide todo?">
             El video se genera a partir de una imagen tuya: si no hay foto, no hay identidad y
@@ -940,6 +978,7 @@ export function OnboardingVideoGen({
           </Contexto>
         </>
       )}
+        </div>
       </Estudio>
 
       {/* El pop-up de configurar las fotos: elegir, agregar y sacar. Es el

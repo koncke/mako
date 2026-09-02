@@ -112,7 +112,6 @@ export default async function Page() {
           linea={primeraFrase}
           creditos={saldo.creditos}
           anunciosPosibles={anunciosPosibles}
-          descripcionPersona={contexto.descripcionPersona}
           acentoOrigen={contexto.acento.origen}
           acentoZona={contexto.acento.zona}
         >
