@@ -49,9 +49,16 @@ test('La red de plataforma es solo GRATIS y solo último recurso', () => {
   // eso es una decisión de plata que no toma el código.
   assert.ok(!/'openai'|'anthropic'/.test(cuerpo),
     'entró un proveedor que COBRA a la red de plataforma: eso le factura a la agencia sin que nadie lo decida');
-  for (const p of ['gemini', 'groq', 'cerebras', 'mistral']) {
+  for (const p of ['gemini', 'groq', 'mistral']) {
     assert.ok(cuerpo.includes(`'${p}'`), `la red perdió ${p}`);
   }
+  // ⚠️ CEREBRAS SALIÓ, y tiene que quedar afuera. Medido el 16/08 contra las SIETE keys
+  // cargadas en cinco workspaces distintos: las siete devuelven HTTP 402 «Payment
+  // required». No es una cuenta sin saldo, es que ya no hay tier gratis. Dejarlo en la
+  // red le suma a cada cascada un viaje de ida y vuelta para volver con un 402, y le
+  // ofrece al usuario sacar una key que nunca va a funcionar.
+  assert.ok(!cuerpo.includes(`'cerebras'`),
+    'volvió cerebras a la red: no tiene tier gratis en ninguna cuenta (402 en las 7 medidas)');
 
   // Y solo se usa cuando lo del cliente ya falló.
   const doer = leer('../lib/mako-doer-in.ts');

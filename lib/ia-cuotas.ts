@@ -11,6 +11,7 @@ import 'server-only';
 
 import { getSupabaseServer } from '@/lib/supabase';
 import { getSaldo } from '@/lib/anthropic-usage';
+import { openrouterConCredito } from './openrouter-saldo';
 import { credWs } from '@/lib/credenciales';
 import { clavesDe } from '@/lib/ia-keys';
 import { clavesCargadas } from '@/lib/ia-keys-ws';
@@ -20,10 +21,21 @@ export type LimiteProv = { label: string; rpd?: number; tokensDia?: number; nota
 export const LIMITES_PROVEEDOR: Record<string, LimiteProv> = {
   gemini: { label: 'Gemini', rpd: 250, tokensDia: 250_000, nota: '2.5 Flash free' },
   groq: { label: 'Groq', tokensDia: 500_000, nota: 'plan gratis' },
-  cerebras: { label: 'Cerebras', rpd: 14_400, nota: 'free tier' },
   mistral: { label: 'Mistral', rpd: 500, nota: 'free (Experiment)' },
   openrouter: { label: 'OpenRouter', rpd: 50, nota: 'modelos :free sin créditos' },
 };
+
+/**
+ * OpenRouter cuando el usuario YA cargó créditos. Mismo caso que `GEMINI_PAGO` y por la
+ * misma razón: el tier gratis topea en 50 pedidos por día, y seguir aplicándole ese techo
+ * a una cuenta con saldo la manda al fondo de la cascada TENIENDO PLATA. Pagar para que
+ * te sigan racionando es la peor cara del bug.
+ *
+ * Sin `rpd`: con créditos el límite lo pone el saldo, no un contador diario, y ese saldo
+ * se lee de la API (lib/openrouter-saldo.ts) en vez de cargarse a mano.
+ */
+const OPENROUTER_PAGO: LimiteProv = { label: 'OpenRouter', nota: 'créditos cargados' };
+
 // Límites de Gemini cuando el usuario YA cargó créditos (tier pago): el free tier
 // topea en 250 pedidos/día, pero con billing activo sube muchísimo → no lo saltamos
 // de la rotación y el gauge muestra el margen real del tier pago.
@@ -61,8 +73,18 @@ export async function cuentasDe(prov: string, ws?: number): Promise<number> {
  * El tope sigue siendo por cuenta; el reparto lo muestra `cuotasProveedores`.
  */
 async function limitesEfectivos(): Promise<Record<string, LimiteProv>> {
-  const geminiConCredito = !!(await getSaldo('gemini').catch(() => null));
-  return geminiConCredito ? { ...LIMITES_PROVEEDOR, gemini: GEMINI_PAGO } : LIMITES_PROVEEDOR;
+  // Los dos proveedores que pueden pasar a tier pago, y cada uno se entera distinto:
+  // el de Gemini se carga A MANO porque su API no publica el prepago; el de OpenRouter
+  // se LEE, porque sí lo publica. Un saldo que hay que copiar a mano queda viejo al día
+  // siguiente, así que donde se puede leer, se lee.
+  const [geminiConCredito, orConCredito] = await Promise.all([
+    getSaldo('gemini').then((s) => !!s).catch(() => false),
+    openrouterConCredito().catch(() => false),
+  ]);
+  const out: Record<string, LimiteProv> = { ...LIMITES_PROVEEDOR };
+  if (geminiConCredito) out.gemini = GEMINI_PAGO;
+  if (orConCredito) out.openrouter = OPENROUTER_PAGO;
+  return out;
 }
 
 export type UsoProv = { requests: number; tokens: number };

@@ -188,7 +188,7 @@ export async function provsGratisDePlataforma(): Promise<Array<{ provider: ProvN
   const ws = await wsSuperAdmin().catch(() => null);
   if (ws == null) return [];
   const out: Array<{ provider: ProvName; clave: string }> = [];
-  for (const prov of ['gemini', 'groq', 'cerebras', 'mistral'] as const) {
+  for (const prov of ['gemini', 'groq', 'mistral'] as const) {
     for (const clave of clavesProv(prov)) {
       const k = await credWs(clave, ws).catch(() => null);
       if (k) out.push({ provider: prov, clave });
@@ -214,7 +214,7 @@ export async function sttDisponible(): Promise<boolean> {
 // diferencia de CASCADA_GRATIS, INCLUYE Gemini y lo pone primero: es la IA gratis y
 // generosa que el cliente carga en el onboarding (#4), así que la extracción tiene
 // que poder usarla. Sin esto, un workspace con SOLO key de Gemini extrae vacío.
-export const CASCADA_DOCS: ProvName[] = ['gemini', 'groq', 'cerebras', 'openrouter', 'mistral', 'openai'];
+export const CASCADA_DOCS: ProvName[] = ['gemini', 'groq', 'openrouter', 'mistral', 'openai'];
 // Modelo CAPAZ por proveedor para EXTRAER de documentos. El default barato de cada
 // uno (ej. Groq gpt-oss-20b) es demasiado chico: con un doc real de +10k chars
 // genera JSON malformado/truncado y devuelve 0 campos (probado: 20b falla, 70b saca
@@ -368,7 +368,7 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
  *  queremos caer en el gasto de Claude. Devuelve el texto de la primera que funcione, o ''. */
 // Orden por default: GRATIS primero (Groq, Cerebras, OpenRouter, Mistral) y OpenAI (barato)
 // al final. Claude NUNCA entra acá. Cada uno se usa solo si tiene su key cargada (si no, se salta).
-export const CASCADA_GRATIS: ProvName[] = ['groq', 'cerebras', 'openrouter', 'mistral', 'openai'];
+export const CASCADA_GRATIS: ProvName[] = ['groq', 'openrouter', 'mistral', 'openai'];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EL TECHO DE ENTRADA: por qué la cascada mira cuánto pesa el prompt
@@ -827,7 +827,7 @@ export async function chatCheapTools(
 // AGENTS.md documenta como cerrado —«Claude es el ÚLTIMO recurso, no el segundo»—
 // vivo en la otra mitad del sistema, y con el error más común de todos: el 429 de
 // Gemini. Todos estos proveedores hacen function-calling.
-export const CASCADA_TOOLS: ProvName[] = ['gemini', 'groq', 'cerebras', 'mistral', 'openrouter', 'openai'];
+export const CASCADA_TOOLS: ProvName[] = ['gemini', 'groq', 'mistral', 'openrouter', 'openai'];
 
 /**
  * Corre el loop de herramientas por la cascada gratis: cada CUENTA de cada

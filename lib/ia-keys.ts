@@ -22,14 +22,26 @@
 /** Los proveedores GRATIS que admiten varias cuentas. Anthropic y OpenAI quedan
  *  afuera a propósito: cobran por token, así que una segunda cuenta no suma cuota
  *  gratis — suma otra factura. Rotar entre cuentas pagas esconde el gasto. */
-export const PROVS_MULTIKEY = ['gemini', 'groq', 'cerebras', 'mistral', 'openrouter'] as const;
+/**
+ * Los proveedores que admiten VARIAS cuentas, y que son los que se le ofrecen al usuario
+ * como «IA gratis para conectar».
+ *
+ * ⚠️ CEREBRAS SE FUE, y no por gusto: medido el 16/08 contra las SIETE keys cargadas en
+ * cinco workspaces distintos, las siete devuelven HTTP 402 «Payment required to access
+ * this resource». No es una cuenta sin saldo: es que ya no hay tier gratis. Dejarlo en la
+ * lista le pide al usuario que vaya a sacar una key que NUNCA va a funcionar, y encima
+ * suma un viaje de ida y vuelta a cada cascada para volver con un 402.
+ *
+ * Antes de sacar o agregar uno acá: probá una llamada real con las keys que YA existen en
+ * la base. «Está en la documentación» no es evidencia de nada.
+ */
+export const PROVS_MULTIKEY = ['gemini', 'groq', 'mistral', 'openrouter'] as const;
 export type ProvMultiKey = (typeof PROVS_MULTIKEY)[number];
 
 /** La clave BASE de cada proveedor (la que ya existía y la que leen las libs). */
 export const ENV_BASE: Record<ProvMultiKey, string> = {
   gemini: 'GEMINI_API_KEY',
   groq: 'GROQ_API_KEY',
-  cerebras: 'CEREBRAS_API_KEY',
   mistral: 'MISTRAL_API_KEY',
   openrouter: 'OPENROUTER_API_KEY',
 };

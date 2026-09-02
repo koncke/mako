@@ -12,6 +12,7 @@
 import 'server-only';
 import { OWNER_WS, getWorkspaceActual } from './workspace';
 import { getSupabaseServer } from './supabase';
+import { saldoOpenRouter } from './openrouter-saldo';
 
 // A QUÉ workspace pertenece el saldo/gasto de un proveedor. La regla real no es
 // "qué proveedor es" sino **de quién es la key que lo pagó**:
@@ -158,7 +159,21 @@ type Saldo = { usd: number; setAt: string; cargas?: Array<{ usd: number; at: str
 type Row = { created_at: string; feature: string; motivo: string | null; model: string | null; provider: string | null; cost_usd: number; input_tokens: number; output_tokens: number };
 
 export type UsageItem = { at: string; feature: string; motivo: string | null; model: string | null; provider: string; tokens: number; costUsd: number };
-export type SaldoProveedor = { provider: string; costMesUsd: number; tokens: number; tokensHoy: number; saldo: Saldo | null; restanteUsd: number | null; gratis: boolean };
+export type SaldoProveedor = {
+  provider: string; costMesUsd: number; tokens: number; tokensHoy: number;
+  saldo: Saldo | null; restanteUsd: number | null; gratis: boolean;
+  /**
+   * El reparto por CUENTA, cuando el saldo no es uno solo.
+   *
+   * ⚠️ VA JUNTO AL TOTAL PORQUE EL TOTAL SOLO NO ALCANZA. Dos keys de OpenRouter son dos
+   * billeteras separadas y el crédito NO se trasvasa: con US$5 en una y US$0 en la otra,
+   * «te quedan US$5» es cierto y «tenés con qué seguir» es falso para la mitad de las
+   * llamadas. Es la misma regla que ya se pagó con las cuotas de Gemini: un total solo
+   * se puede sumar si el recurso se puede MOVER DE LUGAR, y si no se puede, se muestra
+   * el reparto.
+   */
+  cuentas?: Array<{ cuenta: number; restanteUsd: number }>;
+};
 export type UsageSummary = {
   saldo: Saldo | null;
   gastadoMesUsd: number;
@@ -173,7 +188,16 @@ export type UsageSummary = {
 // El saldo de Claude es GLOBAL de la agencia (key única, compartida) → OWNER_WS. El
 // del resto es POR-WORKSPACE (BYOK): wsDeProveedor decide dónde vive. La key de
 // Claude conserva su nombre viejo (anthropic_saldo) por compat.
-export const PROVEEDORES = ['anthropic', 'openai', 'groq', 'gemini'] as const;
+/**
+ * Los proveedores que aparecen en el panel de gasto.
+ *
+ * ⚠️ OPENROUTER ES EL ÚNICO CUYO SALDO SE LEE SOLO. El resto se carga a mano porque sus
+ * APIs no publican el prepago; OpenRouter sí lo publica (`/api/v1/credits`), así que
+ * pedirle al usuario que copie ese número sería pedirle que mantenga a mano algo que la
+ * máquina sabe — y que queda viejo al día siguiente, que es el problema de todo saldo
+ * manual. Ver lib/openrouter-saldo.ts.
+ */
+export const PROVEEDORES = ['anthropic', 'openai', 'groq', 'gemini', 'openrouter'] as const;
 export type Proveedor = (typeof PROVEEDORES)[number];
 const keySaldo = (p: string) => (p === 'anthropic' ? 'anthropic_saldo' : `saldo.${p}`);
 
@@ -316,13 +340,35 @@ export async function getUsageSummary(): Promise<UsageSummary> {
     // El SALDO prepago principal es de Claude.
     if (saldo && p === 'anthropic' && r.created_at >= saldo.setAt) gastadoDesdeSaldoUsd += c;
   }
+  // El saldo de OpenRouter no se carga: se pregunta. Si la API no contesta queda [] y el
+  // proveedor se muestra como gratis, que es como se comportaba antes de tener créditos.
+  const saldoOR = await saldoOpenRouter().catch(() => []);
+  const restanteOR = saldoOR.reduce((n, c) => n + c.restante, 0);
+
   const porProveedor: SaldoProveedor[] = PROVEEDORES.map((p) => {
     const pa = prov.get(p) ?? { mes: 0, tokens: 0, hoy: 0, desdeSaldo: 0 };
     const s = saldos[p];
     // Gemini es el caso especial: por defecto es GRATIS (free tier), pero cuando el
     // usuario carga créditos (= aparece su saldo) pasa a comportarse como de PAGO →
     // se muestra con "$ restante" y sus límites de rotación suben (ver ia-cuotas).
-    const gratis = p === 'gemini' ? !s : ['groq', 'cerebras', 'mistral', 'openrouter'].includes(p);
+    // OpenRouter es el caso nuevo y va aparte: su restante NO se calcula con nuestra
+    // contabilidad (saldo cargado − gasto registrado) sino que lo dice ÉL. Su número es
+    // mejor que el nuestro: cuenta el gasto que se hizo por fuera de MaKo, y no se
+    // desfasa si una llamada no llegó a registrarse de este lado.
+    if (p === 'openrouter') {
+      return {
+        provider: p, costMesUsd: pa.mes, tokens: pa.tokens, tokensHoy: pa.hoy,
+        saldo: null,
+        restanteUsd: saldoOR.length ? restanteOR : null,
+        // Con crédito deja de ser «gratis»: es una cuenta paga, y mostrarla como gratis
+        // esconde justamente la plata que hay que mirar.
+        gratis: restanteOR <= 0,
+        cuentas: saldoOR.map((c) => ({ cuenta: c.cuenta, restanteUsd: c.restante })),
+      };
+    }
+    // Gemini es el otro caso especial: por defecto es GRATIS (free tier), pero cuando el
+    // usuario carga créditos (= aparece su saldo) pasa a comportarse como de PAGO.
+    const gratis = p === 'gemini' ? !s : ['groq', 'mistral'].includes(p);
     return { provider: p, costMesUsd: pa.mes, tokens: pa.tokens, tokensHoy: pa.hoy, saldo: s, restanteUsd: s ? s.usd - pa.desdeSaldo : null, gratis };
   });
 
