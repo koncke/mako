@@ -140,6 +140,27 @@ export function tienePromptVideoPropio(puestaId: string): boolean {
  * así que hay exactamente una y es la última. Se toma la última de todos modos:
  * si un prompt viejo tuviera dos, la que se mandó a Flow fue la de abajo.
  */
+/**
+ * El acento del PLAN: el primero que aparezca en cualquiera de sus clips.
+ *
+ * ⚠️ EXISTE PARA LOS CLIPS QUE NACIERON SIN PROMPT. Partir una toma creaba clips
+ * con `prompt: ''`, y `acentoDe` sobre una cadena vacía devuelve vacío: esos
+ * clips salían al modelo sin decir en qué variedad de español se habla, en un
+ * anuncio cuyas otras nueve tomas sí lo decían.
+ *
+ * Es un dato del PLAN y no del clip —todas las tomas de un anuncio se hablan
+ * igual—, así que tomar el de cualquier hermano es correcto por construcción. Y
+ * sigue siendo el acento de CUANDO SE ESCRIBIÓ EL PLAN, que es la regla que
+ * `acentoDe` protege: no se lee del perfil, que hoy puede decir otra cosa.
+ */
+export function acentoDelPlan(clips: { prompt?: string }[]): string {
+  for (const c of clips ?? []) {
+    const a = acentoDe(c.prompt ?? '');
+    if (a) return a;
+  }
+  return '';
+}
+
 export function acentoDe(prompt: string): string {
   const todas = [...(prompt ?? '').matchAll(/Spoken in [^.\n]+\./gi)];
   return todas.length ? todas[todas.length - 1][0] : '';
@@ -230,9 +251,33 @@ export function promptDeClip(
    * llega tiene que traer un `{{voz}}` donde va la línea — se reemplaza abajo.
    */
   delFormato?: string,
+  /**
+   * El acento del plan, para cuando ESTE clip no lo trae.
+   *
+   * ⚠️ Sin esto, un clip nacido de partir una toma sale sin bloque de acento y
+   * nadie se entera: el prompt se ve completo, el texto sale en español igual, y
+   * la única señal es que el modelo no sabe en qué variedad hablarlo. Es la misma
+   * familia que el slot `{{acento}}` que vivió meses sin llenarse.
+   */
+  acentoRespaldo?: string,
 ): string {
   const aMano = (propio ?? '').trim();
-  if (aMano) return aMano;
+  if (aMano) {
+    // ⚠️ EL PROMPT DE LA PERSONA GANA, PERO NO PIERDE EL ACENTO.
+    //
+    // Lo que alguien escribe en esa caja es DIRECCIÓN de la toma; el bloque de
+    // acento es una instrucción de idioma que el repo declara obligatoria, y que
+    // esa persona nunca vio —hasta hoy la pantalla armaba el prompt sin él, así
+    // que no pudo haberlo sacado a propósito—.
+    //
+    // Si escribió SU propio `Spoken in …`, ése manda: `acentoDe` lo encuentra y
+    // esto no toca nada. Es la única forma de respetar la precedencia sin dejar
+    // que una edición de dos palabras borre en silencio en qué idioma se habla.
+    if (acentoDe(aMano)) return aMano;
+    const resp = (acentoRespaldo ?? '').trim();
+    return resp ? `${aMano}
+${resp}` : aMano;
+  }
 
   const plantilla = PROMPT_VIDEO[puestaId] ?? plantillaDelCliente(delFormato);
   const voz = comoSeDice(clip.voz ?? '');
@@ -252,6 +297,7 @@ export function promptDeClip(
   // El formato dijo que no sabe dirigir este clip: gana el del modelo.
   if (!base) return clip.prompt;
 
-  const acento = acentoDe(clip.prompt);
+  // El del clip manda; el del plan es la red para los que nacieron sin prompt.
+  const acento = acentoDe(clip.prompt) || (acentoRespaldo ?? '').trim();
   return acento ? `${base}\n${acento}` : base;
 }

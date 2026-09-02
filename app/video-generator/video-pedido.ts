@@ -13,7 +13,7 @@
 import type { PlanVideo } from '@/lib/video-planner';
 import type { Escena } from '@/lib/escenas-core';
 import { CATALOGO_PUESTAS, puestaPorId, puestasOfrecidas, type Puesta } from '@/lib/puestas-data';
-import { promptDeClip } from '@/lib/prompts-video';
+import { promptDeClip, acentoDelPlan } from '@/lib/prompts-video';
 
 export { CATALOGO_PUESTAS, puestaPorId, puestasOfrecidas };
 
@@ -185,7 +185,7 @@ export function planATexto(
       // pantalla mostrara un prompt y el modelo recibiera otro — y el día que un
       // clip salga raro, el texto que se mira para entender por qué sería el
       // equivocado.
-      promptDeClip(plan.puestaId, c, propios?.[String(c.n)]),
+      promptDeClip(plan.puestaId, c, propios?.[String(c.n)], undefined, acentoDelPlan(plan.clips)),
       '',
     );
   });

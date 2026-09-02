@@ -40,7 +40,10 @@ import type { PlanGuardado, EstadoContextoVideo } from './video-datos';
 import type { Puesta } from '@/lib/puestas-data';
 import { causaFlow, textoFlow, accionFiltroDeCara, type CausaFlow } from '@/lib/flow-fallo-texto';
 import { creditosDeClip, notaSaldo } from '@/lib/costo-clip';
-import { promptDeClip } from '@/lib/prompts-video';
+// ⚠️ Lo que se MUESTRA tiene que ser lo que se MANDA: si la pantalla arma el
+// prompt sin el acento del plan y el server lo arma con él, la persona edita
+// un texto que no es el que sale.
+import { promptDeClip, acentoDelPlan } from '@/lib/prompts-video';
 import { imagenEnCurso } from './variantes-imagen';
 import { nombreDeClip } from './video-pedido';
 import { escenariosYaGeneradosAction, reusarEscenariosAction, elegirEscenarioAction, otroFondoAction } from './video-action';
@@ -2270,7 +2273,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
                         onClick={() => {
                           const c = item.plan.clips.find((x) => x.n === 1);
                           setPromptTexto(
-                            c ? promptDeClip(item.plan.puestaId, c, item.promptsPropios?.['1']) : '',
+                            c ? promptDeClip(item.plan.puestaId, c, item.promptsPropios?.['1'], undefined, acentoDelPlan(item.plan.clips)) : '',
                           );
                           setRehacerClip(false);
                           setForzado({ id: 'prompt', n: 1, de: 'toma' });
@@ -2360,7 +2363,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
           puestaId: item.plan.puestaId,
         })
         : clipDelPaso
-          ? promptDeClip(item.plan.puestaId, clipDelPaso)
+          ? promptDeClip(item.plan.puestaId, clipDelPaso, undefined, undefined, acentoDelPlan(item.plan.clips))
           : '';
       const cambiado = promptTexto.trim() !== original.trim();
       return {
@@ -2459,7 +2462,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
             correr={(e, fn, av) => void correr(e, fn, av)}
             onEditarPrompt={(n) => {
               const c = item.plan.clips.find((x) => x.n === n);
-              setPromptTexto(c ? promptDeClip(item.plan.puestaId, c, item.promptsPropios?.[String(n)]) : '');
+              setPromptTexto(c ? promptDeClip(item.plan.puestaId, c, item.promptsPropios?.[String(n)], undefined, acentoDelPlan(item.plan.clips)) : '');
               setForzado({ id: 'prompt', n, de: 'toma' });
             }}
             onNoSeParece={(n) => {
@@ -2505,7 +2508,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
                     etiqueta: accionFiltroDeCara(probada),
                     hacer: () => {
                       const c = item.plan.clips.find((x) => x.n === n);
-                      setPromptTexto(c ? promptDeClip(item.plan.puestaId, c, item.promptsPropios?.[String(n)]) : '');
+                      setPromptTexto(c ? promptDeClip(item.plan.puestaId, c, item.promptsPropios?.[String(n)], undefined, acentoDelPlan(item.plan.clips)) : '');
                       setForzado({ id: 'prompt', n, de: 'toma' });
                     },
                   };
@@ -2532,7 +2535,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
                   gratis: true,
                   hacer: () => {
                     const c = item.plan.clips.find((x) => x.n === n);
-                    setPromptTexto(c ? promptDeClip(item.plan.puestaId, c, item.promptsPropios?.[String(n)]) : '');
+                    setPromptTexto(c ? promptDeClip(item.plan.puestaId, c, item.promptsPropios?.[String(n)], undefined, acentoDelPlan(item.plan.clips)) : '');
                     setForzado({ id: 'prompt', n, de: 'toma' });
                   },
                 };

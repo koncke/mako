@@ -14,6 +14,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { agregarClip, quitarClip, cambiarDuracion, tomasQueHacenFalta, partirHastaQueEntre, enCuantasQueda } from '../app/video-generator/plan-clips';
+import { acentoDe, acentoDelPlan, promptDeClip } from '../lib/prompts-video';
 import type { PlanGuardado } from '../app/video-generator/video-datos';
 
 const clip = (n: number, segundos = 8, voz = `linea ${n}`) => ({
@@ -391,4 +392,122 @@ test('partir una toma que YA entra no agrega nada', () => {
   assert.ok(r.ok);
   assert.equal(r.item.plan.clips.length, 9);
   assert.equal(enCuantasQueda(p, 9), 1);
+});
+
+// ── El acento, que se perdía al partir una toma ────────────────────────────
+//
+// ⚠️ EL CASO, MEDIDO EL 02/09/2026. El anuncio de una clienta: 11 tomas, las 9
+// originales con `Spoken in Northern Mexican Spanish…` al final del prompt y las
+// DOS nacidas de partir una toma con `prompt: ''`. `promptDeClip` rescata el
+// acento DEL PROMPT VIEJO del clip, así que esas dos salían al modelo sin decir
+// en qué variedad de español se habla.
+//
+// Esas dos son exactamente las que Google rechazó — 24 intentos entre las dos,
+// contra 9 de 9 que pasaron. No prueba la causa, y el bloque de acento es
+// obligatorio por regla del repo de todos modos.
+
+const ACENTO = 'Spoken in Northern Mexican Spanish (Baja California, Sonora, Sinaloa).';
+
+/** Un plan cuyos clips traen el acento al final del prompt, como los de verdad. */
+function planConAcento(): PlanGuardado {
+  const p = plan();
+  return {
+    ...p,
+    plan: {
+      ...p.plan,
+      clips: p.plan.clips.map((c) => ({ ...c, prompt: `prompt ${c.n}\n${ACENTO}` })),
+    },
+  } as PlanGuardado;
+}
+
+test('un clip nuevo NACE con el acento de su vecino', () => {
+  const r = agregarClip(planConAcento(), 2, 10);
+  assert.ok(r.ok);
+  const nuevo = r.item.plan.clips.find((c) => c.n === 3)!;
+  assert.equal(acentoDe(nuevo.prompt ?? ''), ACENTO, 'nació sin acento: sale al modelo sin idioma');
+});
+
+test('pero NO se lleva el resto del prompt del vecino', () => {
+  // El resto dirige la escena de OTRA línea. Copiarlo sería dirigir esta toma
+  // con las instrucciones de la de al lado, que es peor que no tener ninguna.
+  const r = agregarClip(planConAcento(), 2, 10);
+  assert.ok(r.ok);
+  const nuevo = r.item.plan.clips.find((c) => c.n === 3)!;
+  assert.doesNotMatch(nuevo.prompt ?? '', /prompt 2/);
+});
+
+test('partir una toma deja TODAS las partes con acento', () => {
+  // Es el camino exacto por el que nacieron las dos tomas rotas: el botón
+  // «Partirla en N tomas» sobre una línea que no entra en el tope.
+  const base = planConAcento();
+  const largo = {
+    ...base,
+    plan: {
+      ...base.plan,
+      clips: base.plan.clips.map((c) => (c.n === 1 ? { ...c, palabras: 70, tope: 24 } : c)),
+    },
+    video: {},
+  } as PlanGuardado;
+  const r = partirHastaQueEntre(largo, 1);
+  assert.ok(r.ok);
+  assert.ok(r.item.plan.clips.length > base.plan.clips.length, "no partio nada");
+  for (const c of r.item.plan.clips) {
+    assert.equal(acentoDe(c.prompt ?? '') || acentoDelPlan(r.item.plan.clips), ACENTO,
+      `la toma ${c.n} quedó sin acento`);
+  }
+});
+
+test('el acento del PLAN se encuentra en cualquiera de sus clips', () => {
+  const clips = [{ prompt: "" }, { prompt: `algo\n${ACENTO}` }, { prompt: "" }];
+  assert.equal(acentoDelPlan(clips), ACENTO);
+  assert.equal(acentoDelPlan([{ prompt: '' }]), '', 'inventó un acento que nadie eligió');
+  assert.equal(acentoDelPlan([]), "");
+});
+
+test('⚠️ y `promptDeClip` lo usa de respaldo cuando el clip no lo trae', () => {
+  // Es la red para los planes que YA están rotos: los clips nacidos sin prompt
+  // antes de este arreglo siguen existiendo en el historial de la gente.
+  const sinPrompt = {
+    n: 3, segundos: 8, habla: true, voz: 'Descarga el diagnóstico ahora.',
+    queSeVe: '', prompt: '',
+  };
+  const con = promptDeClip('selfie-movimiento', sinPrompt, undefined, undefined, ACENTO);
+  assert.ok(con.endsWith(ACENTO), 'el respaldo no llegó al prompt');
+  const sin = promptDeClip('selfie-movimiento', sinPrompt);
+  assert.ok(!sin.includes('Spoken in'), 'sin respaldo no puede inventar un acento');
+});
+
+test('el acento del propio clip GANA sobre el respaldo del plan', () => {
+  // Un anuncio a medio filmar conserva el acento con el que se escribió, y el del
+  // clip es el más específico de los dos.
+  const suyo = 'Spoken in neutral Mexican Spanish.';
+  const clipConSuyo = {
+    n: 1, segundos: 8, habla: true, voz: 'Hola.', queSeVe: '', prompt: `x\n${suyo}`,
+  };
+  const r = promptDeClip('selfie-movimiento', clipConSuyo, undefined, undefined, ACENTO);
+  assert.ok(r.endsWith(suyo));
+});
+
+test('⚠️ un prompt editado A MANO tampoco pierde el acento', () => {
+  // Es el hueco que quedaba: `promptDeClip` devuelve el texto de la persona ANTES
+  // de tocar el acento. Y esa persona nunca lo vio —hasta el arreglo la pantalla
+  // armaba el prompt sin él—, así que no pudo haberlo sacado a propósito.
+  //
+  // Pasó exactamente así: la toma 10 de la clienta quedó con un prompt propio, sin
+  // acento, y ése ganaba sobre todo lo demás.
+  const suyo = 'la misma persona dice: "Descarga el diagnóstico ahora.", todo natural.';
+  const clipX = { n: 10, segundos: 10, habla: true, voz: 'x', queSeVe: '', prompt: '' };
+  const r = promptDeClip('selfie-movimiento', clipX, suyo, undefined, ACENTO);
+  assert.ok(r.startsWith(suyo), 'le pisó el texto a la persona');
+  assert.ok(r.endsWith(ACENTO), 'se perdió el acento igual');
+});
+
+test('pero si la persona escribió SU acento, ése manda', () => {
+  // La precedencia se respeta: quien escribe un `Spoken in …` propio sabe algo de
+  // esta toma que ninguna plantilla sabe.
+  const suyo = 'dice algo.\nSpoken in Colombian Spanish (Bogotá).';
+  const clipX = { n: 10, segundos: 10, habla: true, voz: 'x', queSeVe: '', prompt: '' };
+  const r = promptDeClip('selfie-movimiento', clipX, suyo, undefined, ACENTO);
+  assert.equal(r, suyo);
+  assert.ok(!r.includes('Northern Mexican'), 'le agregó un segundo acento encima del suyo');
 });

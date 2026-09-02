@@ -24,6 +24,7 @@ import type { PlanGuardado, MarcaVideo } from './video-datos';
 import { DURACIONES_FLOW } from '@/lib/costo-clip';
 import { puestaPorId, palabrasQueEntran } from '@/lib/puestas-data';
 import { repartirGuion } from '@/lib/guion-reparto';
+import { acentoDe } from '@/lib/prompts-video';
 
 export type Edicion =
   | { ok: true; item: PlanGuardado }
@@ -299,7 +300,27 @@ export function agregarClip(item: PlanGuardado, despuesDe: number, segundos: num
       voz: '',
       queSeVe: '',
       camara: '',
-      prompt: '',
+      /**
+       * ⚠️ NACE CON EL ACENTO DE SU VECINO, y antes nacía con la cadena vacía.
+       *
+       * `promptDeClip` rescata el bloque de acento DEL PROMPT VIEJO del clip —lo
+       * hace a propósito, para que cambiar el acento hoy no le cambie la voz a un
+       * anuncio ya filmado a medias—. Pero un clip que nunca tuvo prompt no tiene
+       * de dónde rescatarlo, así que sale al modelo SIN decir en qué variedad de
+       * español se habla.
+       *
+       * Medido el 02/09/2026 sobre el anuncio de una clienta: 11 tomas, las 9
+       * originales con `Spoken in Northern Mexican Spanish…` y las DOS nacidas de
+       * partir una toma sin nada. Esas dos son exactamente las que Google rechazó,
+       * 24 veces entre las dos. No está probado que sea la causa —eso lo contesta
+       * refilmarlas, que no cuesta créditos— pero la correlación es 9 de 9 contra 0
+       * de 24, y el bloque de acento es OBLIGATORIO por regla del repo.
+       *
+       * Se hereda SÓLO el acento y no el prompt entero: el resto describe la
+       * escena de OTRA línea, y copiarlo sería dirigir esta toma con las
+       * instrucciones de la de al lado.
+       */
+      prompt: acentoDe(vecino?.prompt ?? ''),
       palabras: 0,
       tope: 0,
       voseo: [],

@@ -31,7 +31,7 @@ import {
   cuerpoClipReferencias, semillaDeToma, mediaIdDeReferencia, KEY_CARA_FLOW,
 } from '@/lib/flow-clip-referencias';
 import { parchesImagenEscena, imagenesDeRespuesta, semillaDeEscena } from '@/lib/flow-imagen';
-import { promptDeClip } from '@/lib/prompts-video';
+import { promptDeClip, acentoDelPlan } from '@/lib/prompts-video';
 import { escribirEscenas, reescribirEscena } from '@/lib/escenas';
 import { puestaPorId, contarPalabras, marcasDeVoseo, palabrasQueEntran } from '@/lib/puestas-data';
 import { estaVivo } from '@/lib/flow-puente-frescura';
@@ -586,7 +586,18 @@ export async function generarTomaAction(
       // Car Talks lo validó Martín contra Flow; el del modelo describía la toma
       // desde cero y en inglés, compitiendo con la imagen de referencia que ya
       // tiene el auto, la luz y la cara resueltos.
-      { prompt: promptDeClip(item.plan.puestaId, clip, item.promptsPropios?.[String(n)]), mediaId, seed: semillaDeToma(planId, n) },
+      {
+        // ⚠️ CON EL ACENTO DEL PLAN DE RESPALDO. Un clip nacido de partir una toma
+        // no tiene prompt del que rescatarlo, y salía al modelo sin decir en qué
+        // variedad de español se habla — en un anuncio cuyas otras tomas sí lo
+        // decían. Éste es EL call-site que le habla a Google.
+        prompt: promptDeClip(
+          item.plan.puestaId, clip, item.promptsPropios?.[String(n)],
+          undefined, acentoDelPlan(item.plan.clips),
+        ),
+        mediaId,
+        seed: semillaDeToma(planId, n),
+      },
       randomUUID(),
     ),
   });
