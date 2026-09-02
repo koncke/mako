@@ -28,12 +28,12 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { WizardShell } from '../_components/WizardShell';
-import { Button, MONO } from '@/app/_ui';
-import Link from '@/app/_ui/Link';
+import { MONO } from '@/app/_ui';
 import { Icon } from '../_components/icons';
 import { ACENTOS_ES, MULETILLAS, type AcentoId } from '@/lib/acento-workspace';
 import type { Puente } from '@/lib/flow-cola';
-import { estadoDelPuente } from './puente-avisos';
+import { estadoDelPuente, AvisoPuente } from './puente-avisos';
+import { useExtensionInstalada, AvisoExtensionVieja } from './extension-instalada';
 import {
   marcarPasoVideoAction, guardarAcentoAction, guardarMuletillasAction,
 } from './onboarding-actions';
@@ -128,6 +128,9 @@ export function OnboardingVideoGen({
   }, [acento]);
 
   // ── El puente ──
+  // Si la extensión está y con qué versión. Lo mide el propio DOM (el content
+  // script marca `data-mako-puente`), así que es un HECHO y no una inferencia.
+  const instalada = useExtensionInstalada();
   // Estado VIVO, no recordado: se recalcula en cada render con el reloj del
   // server. Un puente que se cayó mientras la persona miraba tiene que dejar de
   // decir «Listo».
@@ -135,9 +138,26 @@ export function OnboardingVideoGen({
 
   const idx = PASOS.indexOf(paso);
 
+  /**
+   * ⚠️ UNA GUARDA BLOQUEA SÓLO LO QUE SE ARREGLA HACIENDO LO QUE ELLA PIDE.
+   *
+   * Este paso pide conectar el navegador, y `estado: 'marcada'` NO se arregla
+   * conectando: es Google el que pausó la sesión de Flow, y la salida es esperar,
+   * limpiar cookies y volver a entrar — nada de eso pasa acá adentro.
+   *
+   * Medido el 02/09/2026 sobre una clienta: puente `marcada` con la extensión al
+   * día y latiendo hace 4 segundos, los tres pasos anteriores cerrados, y este
+   * trabado sin ninguna forma de pasar. El popup de la extensión le decía «toca
+   * Ya lo hice, volver a habilitar en el aviso rojo» y ese botón vive en un
+   * componente que esta pantalla no dibujaba. Escribió: «no encuentro el Ya lo
+   * hice».
+   *
+   * Así que la marca deja pasar. Lo que sigue bloqueando es el único estado que
+   * SÍ se arregla acá: no haber conectado nunca.
+   */
   const puedeAvanzar =
     paso === 'cara' ? misFotos.length > 0
-      : paso === 'puente' ? est.anda
+      : paso === 'puente' ? (est.anda || puente?.estado === 'marcada')
         : true;
 
   /** Sube fotos por el route handler multipart. Una server action topea en 1 MB. */
@@ -348,28 +368,49 @@ export function OnboardingVideoGen({
 
       {paso === 'puente' && (
         <>
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-            padding: '14px 16px', border: '1px solid var(--border)', borderRadius: 12,
-            background: 'var(--surface)',
-          }}>
-            <Icon name={est.anda ? 'check' : 'plug'} size={18} />
-            <div style={{ textAlign: 'left' }}>
-              <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14.5 }}>{est.txt}</div>
-              <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>
-                {est.anda
-                  ? 'Tu navegador está conectado y Google Flow responde.'
-                  : 'Instala la extensión de MaKo y ábrela para conectar tu navegador.'}
+          {/* ⚠️ EL AVISO REAL, NO UNO PROPIO. Acá había una caja escrita a mano que
+              pintaba `est.txt` y, si el puente no andaba, un link a instalar la
+              extensión. Eso convirtió este paso en un callejón para el único estado
+              que no se arregla instalando nada:
+
+              · con `marcada` decía «Google pausó tu sesión de Flow» y ofrecía
+                «Ver cómo instalarla», o sea mandaba a instalar una extensión que la
+                persona ya tiene y que estaba latiendo;
+              · y el botón que SÍ resuelve —«Ya lo hice, volver a habilitar»— vive en
+                `AvisoPuente`, que esta pantalla no dibujaba.
+
+              El popup de la extensión manda a apretar ese botón por su nombre. Un
+              paso que nombra un botón que su propia pantalla no tiene es peor que no
+              decir nada: la persona busca hasta que se cansa. Pasó, y así se
+              reportó: «no encuentro el Ya lo hice».
+
+              `AvisoPuente` ya tiene las cuatro ramas —navegador incompatible, falta
+              la extensión, sesión marcada con su botón, y el puntero al ícono— y es
+              el mismo que ve la tab. Una cosa, un lugar. */}
+          {/* ⚠️ UN AVISO A LA VEZ, del más bloqueante al menos, y `AvisoPuente`
+              SÓLO cuando el puente no anda — es la misma condición que ya tienen
+              los otros dos consumidores (`VideoGeneratorApp` y `WizardAnuncio`).
+              Sin ella, su última rama es un puntero al ícono de la extensión que
+              se dibujaría también con todo funcionando, diciendo «Listo» al lado
+              de la caja que ya lo dice. */}
+          <AvisoExtensionVieja instalada={instalada} />
+          {!est.anda && (
+            <AvisoPuente puente={puente} ahora={ahora} instalada={instalada} />
+          )}
+          {est.anda && (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              padding: '14px 16px', border: '1px solid var(--border)', borderRadius: 12,
+              background: 'var(--surface)',
+            }}>
+              <Icon name="check" size={18} />
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14.5 }}>Listo</div>
+                <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>
+                  Tu navegador está conectado y Google Flow responde.
+                </div>
               </div>
             </div>
-          </div>
-          {!est.anda && (
-            <Link
-              href="/extension/instalar"
-              style={{ alignSelf: 'center', color: 'var(--primary-strong)', fontWeight: 600, fontSize: 14 }}
-            >
-              Ver cómo instalarla →
-            </Link>
           )}
           <Contexto eyebrow="¿Por qué hace falta un navegador?">
             {/* ⚠️ ESTE PASO NO SE CIERRA CON UNA CREDENCIAL GUARDADA: se cierra
@@ -380,9 +421,9 @@ export function OnboardingVideoGen({
             pedírselos por su cuenta: necesita una extensión en tu navegador que haga el pedido
             por ti. Es lo único aburrido de toda la configuración, y es lo último.
             <div style={{ marginTop: 9, paddingTop: 9, borderTop: '1px solid var(--border)' }}>
-              Este paso no avanza hasta que el navegador conteste de verdad. Guardar la extensión
-              y que no esté conectada se ve igual desde aquí, y esa diferencia recién aparecería
-              con el primer video sin generar.
+              {puente?.estado === 'marcada'
+                ? 'Google pausó tu sesión: eso no se arregla desde aquí, así que este paso te deja seguir. Cuando hayas hecho los pasos del aviso rojo, toca su botón y vuelve.'
+                : 'Este paso no avanza hasta que el navegador conteste de verdad. Guardar la extensión y que no esté conectada se ve igual desde aquí, y esa diferencia recién aparecería con el primer video sin generar.'}
             </div>
           </Contexto>
         </>
