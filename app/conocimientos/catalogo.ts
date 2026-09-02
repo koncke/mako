@@ -139,6 +139,7 @@ import { CURSO_METODO_CONTENIDO_IRRESISTIBLE } from './curso-metodo-contenido-ir
 import { CURSO_HOME_STUDIO_AND_VIRAL_VIDEO_BLUEPRINT } from './curso-home-studio-and-viral-video-blueprint';
 import { CURSO_GROWING_CLOSER_AGUSTIN_NIEVAS_SAMUEL_ALBAA } from './curso-growing-closer-agustin-nievas-samuel-albaa';
 import { CURSO_UNIVERSIDAD_DE_YOUTUBE } from './curso-universidad-de-youtube';
+import { CURSO_TIKTOK_100K_JORDI_SEGUES } from './curso-tiktok-100k-jordi-segues';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio.datos';
 import { CURSO_BRANDING } from './BrandingMaKo.datos';
@@ -1506,6 +1507,9 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_UNIVERSIDAD_DE_YOUTUBE,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_TIKTOK_100K_JORDI_SEGUES,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
