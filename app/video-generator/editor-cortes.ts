@@ -35,6 +35,12 @@ function con(segs: Tramo[]): Plan {
  * del clip lo mete adentro del segundo, y eso produce un anuncio que REPITE lo
  * que dice ahí. Sale bien formado y dice otra cosa.
  */
+/**
+ * ⚠️ `duracionClip` ES LA DE **ESA** TOMA. Quien llama tiene el array y saca la
+ * que corresponde: dos tomas del mismo anuncio pueden durar distinto, y acotar
+ * un borde de una toma de 10 s contra los 8 s de otra recorta material pagado sin
+ * decir nada.
+ */
 function topes(segs: Tramo[], i: number, duracionClip: number): { min: number; max: number } {
   const s = segs[i];
   let min = 0;

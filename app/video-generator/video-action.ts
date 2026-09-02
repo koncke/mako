@@ -2147,7 +2147,7 @@ export async function montarAnuncioAction(
   // anuncio sale más corto sin que nada lo diga. Es un render de 25 s de CPU
   // gastado en un archivo mal.
   if (plan) {
-    const malo = porQueNoSirveElPlan(plan, item.plan.clips.length, item.plan.clips[0]?.segundos ?? 10);
+    const malo = porQueNoSirveElPlan(plan, item.plan.clips.length, item.plan.clips.map((c) => c.segundos));
     if (malo) return { ok: false, error: malo };
   }
 

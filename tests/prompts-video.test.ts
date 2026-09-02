@@ -17,7 +17,7 @@ import { promptDeClip, comoSeDice, acentoDe, tienePromptVideoPropio } from '../l
 
 const ACENTO = 'Spoken in Northern Mexican Spanish (Baja California, Sonora, Sinaloa).';
 const clip = (voz: string, habla = true, prompt = `Lo que escribió el modelo.\n${ACENTO}`) =>
-  ({ voz, habla, prompt });
+  ({ voz, habla, prompt, queSeVe: '' });
 
 test('el prompt del formato REEMPLAZA al del modelo, no lo acompaña', () => {
   const p = promptDeClip('selfie-movimiento', clip('Mira, el viernes.'));
@@ -167,4 +167,74 @@ test('las marcas de lectura tampoco llegan al prompt del cliente', () => {
   const p = promptDeClip('ws1-x', clip('una **cosa** importante'), undefined, 'Dice: "{{voz}}".');
   assert.doesNotMatch(p, /\*/);
   assert.match(p, /una cosa importante/);
+});
+
+// ── The Office: el formato que no tenía prompt ──────────────────────────────
+// Era el único sin uno, y es el que más lo necesita: cuatro escenarios, ritmo
+// mixto y acción física adentro de cada toma. Sin prompt propio caía al que
+// escribió el modelo — genérico, en inglés, compitiendo con la imagen de
+// referencia que ya tiene el lugar, la luz y la cara resueltos.
+
+const oficina = (voz: string, habla: boolean, queSeVe: string) =>
+  ({ voz, habla, queSeVe, prompt: `Lo que escribió el modelo.\n${ACENTO}` });
+
+test('OFICINA: la ACCIÓN va adentro del prompt', () => {
+  // Es la regla medida del formato, textual: «La acción se escribe en el prompt.
+  // Si no se escribe, el modelo rellena repitiendo sílabas».
+  const p = promptDeClip('plano-secuencia', oficina('El lunes empieza el incendio.', true, 'Camina por el open space.'));
+  assert.match(p, /camina por el open space/);
+  assert.match(p, /dice: "El lunes empieza el incendio\."/);
+});
+
+test('OFICINA: un clip de VOZ EN OFF recibe la instrucción de NO hablar', () => {
+  // ⚠️ Es el caso que antes NO recibía ninguna dirección: `promptDeClip` se caía
+  // al prompt del modelo apenas `habla` era false. Y son TRES de las ocho tomas
+  // de este formato (ritmo H O H O H O H H). Un clip mudo sin instrucción de
+  // estar mudo es un clip donde el avatar habla encima de la voz en off.
+  const p = promptDeClip('plano-secuencia', oficina('Y ahí es donde se pierde el lunes.', false, 'Se sirve un café.'));
+  assert.match(p, /NO habla/);
+  assert.match(p, /sin mover los labios/);
+  assert.match(p, /se sirve un café/);
+  assert.doesNotMatch(p, /dice: "/, 'en off la persona NO lo está diciendo: afirmarlo es falso');
+  assert.doesNotMatch(p, /Lo que escribió el modelo/);
+});
+
+test('OFICINA: sin `queSeVe` NO se inventa una acción', () => {
+  // Escribir «se sirve un café» cuando el plan no lo dice es dirigir una toma que
+  // nadie pidió, y eso se paga en créditos.
+  const p = promptDeClip('plano-secuencia', oficina('X.', true, ''));
+  assert.match(p, /se mueve por el espacio con naturalidad/);
+  assert.doesNotMatch(p, /café|saluda|escritorio/);
+});
+
+test('OFICINA: NUNCA se describe la cara', () => {
+  // La regla de oro: la identidad la resuelve la foto real. Un bloque de
+  // contra-deriva la SOBREESCRIBE — se defendió seis versiones como corrección
+  // medida y era justo lo que rompía el parecido.
+  for (const habla of [true, false]) {
+    const p = promptDeClip('plano-secuencia', oficina('X.', habla, 'Saluda a un colega.'));
+    assert.doesNotMatch(p, /mentón|mandíbula|jaw|chin|nariz|ojos claros|rasgos/i);
+  }
+});
+
+test('OFICINA: el acento sobrevive en las dos ramas', () => {
+  for (const habla of [true, false]) {
+    assert.match(promptDeClip('plano-secuencia', oficina('X.', habla, 'Camina.')), /Spoken in Northern Mexican Spanish/);
+  }
+});
+
+test('⚠️ CAR TALKS no dirige un clip en off, y por eso el formato DECIDE', () => {
+  // Su plantilla empieza con «Esta persona dice»: en un clip de voz en off es una
+  // afirmación falsa. Devuelve `null` y gana el prompt del modelo — que dirá algo
+  // genérico, pero no algo que no ocurre.
+  const p = promptDeClip('selfie-movimiento', { voz: 'X.', habla: false, queSeVe: '', prompt: 'Lo del modelo.' });
+  assert.equal(p, 'Lo del modelo.');
+});
+
+test('la acción se limpia para que encaje después de «mientras»', () => {
+  // `queSeVe` llega como una oración suelta y con punto. Sin limpiarla quedaba
+  // «mientras Camina por el open space.», que es lo que el modelo lee.
+  const p = promptDeClip('plano-secuencia', oficina('X.', true, 'Camina por el open space.'));
+  assert.match(p, /mientras camina por el open space\./);
+  assert.doesNotMatch(p, /mientras Camina/);
 });

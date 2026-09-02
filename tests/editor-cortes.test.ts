@@ -25,7 +25,7 @@ function plan(): Plan {
 
 /** La invariante del módulo: lo que sale de acá lo acepta el server. */
 function sirve(p: Plan) {
-  assert.equal(porQueNoSirveElPlan(p, 4, DUR), null);
+  assert.equal(porQueNoSirveElPlan(p, 4, [DUR, DUR, DUR, DUR]), null);
 }
 
 test('moverBorde · mueve el final', () => {

@@ -92,7 +92,15 @@ export function EditorAnuncio({
   const planRef = useRef(plan);
   planRef.current = plan;
 
-  const durClip = segundosPorToma[0] ?? 10;
+  /**
+   * Cuanto dura la toma N. ⚠️ ERA `segundosPorToma[0]` PARA TODAS.
+   *
+   * Las tomas de un anuncio no duran todas lo mismo —la pantalla tiene un boton
+   * «Darle 10 segundos» y una fila para elegir la duracion de cada una— asi que
+   * con duraciones mezcladas el arrastre topeaba la toma de 10 s en los 8 s de la
+   * primera, sin decir nada: material pagado que no se podia usar.
+   */
+  const duraLaToma = (n: number) => segundosPorToma[n - 1] ?? 10;
 
   // ── La escala, fija desde el plan de apertura ───────────────────────────
   useEffect(() => {
@@ -188,7 +196,7 @@ export function EditorAnuncio({
     if (!arrastre || !escala) return;
     const mover = (e: PointerEvent) => {
       const d = (e.clientX - arrastre.x0) / escala;
-      setPlan((p) => moverBorde(p, arrastre.i, arrastre.borde, arrastre.v0 + d, durClip));
+      setPlan((p) => moverBorde(p, arrastre.i, arrastre.borde, arrastre.v0 + d, duraLaToma(p.segs[arrastre.i]?.toma ?? 1)));
     };
     const soltar = () => {
       setArrastre(null);
@@ -208,7 +216,7 @@ export function EditorAnuncio({
       window.removeEventListener('pointerup', soltar);
       window.removeEventListener('pointercancel', soltar);
     };
-  }, [arrastre, escala, durClip]);
+  }, [arrastre, escala, segundosPorToma]);
 
   // Mientras se arrastra, el cabezal se pega al borde que se está moviendo: es
   // lo que hace que recortar sea mirar el cuadro y no calcular segundos.

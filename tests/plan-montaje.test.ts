@@ -53,7 +53,7 @@ test('duracionDe · un tramo invertido no RESTA', () => {
 });
 
 test('porQueNoSirveElPlan · acepta un plan sano', () => {
-  assert.equal(porQueNoSirveElPlan(planSano(), 4, 10), null);
+  assert.equal(porQueNoSirveElPlan(planSano(), 4, [10, 10, 10, 10]), null);
 });
 
 test('porQueNoSirveElPlan · rechaza un tramo invertido', () => {
@@ -61,32 +61,32 @@ test('porQueNoSirveElPlan · rechaza un tramo invertido', () => {
   // corto, sin un error en ningún log.
   const p = planSano();
   p.segs[1] = { toma: 2, ini: 6.2, fin: 0.2 };
-  assert.match(String(porQueNoSirveElPlan(p, 4, 10)), /termina antes de empezar/);
+  assert.match(String(porQueNoSirveElPlan(p, 4, [10, 10, 10, 10])), /termina antes de empezar/);
 });
 
 test('porQueNoSirveElPlan · rechaza un tramo de duración cero', () => {
   const p = planSano();
   p.segs[1] = { toma: 2, ini: 3, fin: 3 };
-  assert.match(String(porQueNoSirveElPlan(p, 4, 10)), /termina antes de empezar/);
+  assert.match(String(porQueNoSirveElPlan(p, 4, [10, 10, 10, 10])), /termina antes de empezar/);
 });
 
 test('porQueNoSirveElPlan · rechaza un parpadeo', () => {
   const p = planSano();
   p.segs[1] = { toma: 2, ini: 3, fin: 3.1 };
-  assert.match(String(porQueNoSirveElPlan(p, 4, 10)), /parpadeo/);
+  assert.match(String(porQueNoSirveElPlan(p, 4, [10, 10, 10, 10])), /parpadeo/);
 });
 
 test('porQueNoSirveElPlan · rechaza una toma que no existe', () => {
   const p = planSano();
   p.segs[1] = { toma: 9, ini: 1, fin: 5 };
-  assert.match(String(porQueNoSirveElPlan(p, 4, 10)), /toma 9.*tiene 4/);
+  assert.match(String(porQueNoSirveElPlan(p, 4, [10, 10, 10, 10])), /toma 9.*tiene 4/);
 });
 
 test('porQueNoSirveElPlan · rechaza un tramo que se pasa del final del clip', () => {
   // ⚠️ Tampoco falla: ffmpeg devuelve lo que hay y calla.
   const p = planSano();
   p.segs[1] = { toma: 2, ini: 8, fin: 14 };
-  assert.match(String(porQueNoSirveElPlan(p, 4, 10)), /cada toma dura 10/);
+  assert.match(String(porQueNoSirveElPlan(p, 4, [10, 10, 10, 10])), /esa toma dura 10/);
 });
 
 test('porQueNoSirveElPlan · tolera el redondeo del final exacto', () => {
@@ -95,7 +95,7 @@ test('porQueNoSirveElPlan · tolera el redondeo del final exacto', () => {
   // último cuarto de segundo de cada toma.
   const p = planSano();
   p.segs[1] = { toma: 2, ini: 4, fin: 10.1 };
-  assert.equal(porQueNoSirveElPlan(p, 4, 10), null);
+  assert.equal(porQueNoSirveElPlan(p, 4, [10, 10, 10, 10]), null);
 });
 
 test('porQueNoSirveElPlan · rechaza dos tramos de la misma toma que se pisan', () => {
@@ -108,7 +108,7 @@ test('porQueNoSirveElPlan · rechaza dos tramos de la misma toma que se pisan', 
     { toma: 2, ini: 0.2, fin: 8 },
     { toma: 3, ini: 0.5, fin: 8 },
   ];
-  assert.match(String(porQueNoSirveElPlan(p, 4, 10)), /se pisan/);
+  assert.match(String(porQueNoSirveElPlan(p, 4, [10, 10, 10, 10])), /se pisan/);
 });
 
 test('porQueNoSirveElPlan · acepta dos tramos de la misma toma que NO se pisan', () => {
@@ -121,15 +121,15 @@ test('porQueNoSirveElPlan · acepta dos tramos de la misma toma que NO se pisan'
     { toma: 2, ini: 0.2, fin: 8 },
     { toma: 3, ini: 0.5, fin: 8 },
   ];
-  assert.equal(porQueNoSirveElPlan(p, 4, 10), null);
+  assert.equal(porQueNoSirveElPlan(p, 4, [10, 10, 10, 10]), null);
 });
 
 test('porQueNoSirveElPlan · rechaza un anuncio que quedó demasiado corto', () => {
-  assert.match(String(porQueNoSirveElPlan({ total: 4, segs: [{ toma: 1, ini: 0, fin: 4 }] }, 4, 10)), /demasiado corto/);
+  assert.match(String(porQueNoSirveElPlan({ total: 4, segs: [{ toma: 1, ini: 0, fin: 4 }] }, 4, [10, 10, 10, 10])), /demasiado corto/);
 });
 
 test('porQueNoSirveElPlan · rechaza un plan sin tramos', () => {
-  assert.match(String(porQueNoSirveElPlan({ total: 0, segs: [] }, 4, 10)), /sin ningún tramo/);
+  assert.match(String(porQueNoSirveElPlan({ total: 0, segs: [] }, 4, [10, 10, 10, 10])), /sin ningún tramo/);
 });
 
 test('porQueNoSirveElPlan · el motivo NOMBRA el tramo, para poder ir a arreglarlo', () => {
@@ -137,5 +137,48 @@ test('porQueNoSirveElPlan · el motivo NOMBRA el tramo, para poder ir a arreglar
   // buscarlo a ojo. El número es la mitad del mensaje.
   const p = planSano();
   p.segs[2] = { toma: 3, ini: 6, fin: 1 };
-  assert.match(String(porQueNoSirveElPlan(p, 4, 10)), /tramo 3/);
+  assert.match(String(porQueNoSirveElPlan(p, 4, [10, 10, 10, 10])), /tramo 3/);
+});
+
+// ── Duraciones MEZCLADAS ────────────────────────────────────────────────────
+// Las tomas de un anuncio no duran todas lo mismo: la pantalla tiene un boton
+// «Darle 10 segundos» y una fila para elegir 4/6/8/10 por toma, asi que
+// mezclarlas es el camino normal de arreglar una toma que no entra.
+//
+// El validador recibia UN escalar —`clips[0].segundos`— y lo aplicaba a todas.
+// Medido: el plan reparado de una clienta el 01/09/2026 quedo con tomas de 10, 8
+// y 10 segundos.
+
+test('MEZCLADAS: un tramo legitimo de una toma LARGA no se rechaza', () => {
+  // Con el escalar y la primera toma en 8, este tramo de la toma 2 —que dura 10—
+  // se rechazaba con «esa toma dura 8», una afirmacion falsa sobre el propio
+  // anuncio de la persona.
+  const p: Plan = { total: 15, segs: [{ toma: 1, ini: 0.5, fin: 7 }, { toma: 2, ini: 0.5, fin: 9.5 }] };
+  assert.equal(porQueNoSirveElPlan(p, 2, [8, 10]), null);
+});
+
+test('⚠️ MEZCLADAS: un tramo que se pasa de una toma CORTA SI se rechaza', () => {
+  // El caso inverso y el mas caro: con el escalar y la primera toma en 10, esto
+  // pasaba el control — y ffmpeg devuelve lo que hay y calla, que es el modo de
+  // falla silencioso que este validador existe para cazar.
+  const p: Plan = { total: 15, segs: [{ toma: 1, ini: 0.5, fin: 9.5 }, { toma: 2, ini: 0.5, fin: 9.5 }] };
+  assert.match(String(porQueNoSirveElPlan(p, 2, [10, 6])), /esa toma dura 6/);
+});
+
+test('el mensaje dice ESA toma, no «cada toma»', () => {
+  // Decir «cada» vuelve a afirmar la uniformidad que causaba el bug, y encima
+  // sobre el anuncio de alguien que ve en su pantalla que sus tomas duran cosas
+  // distintas.
+  const p: Plan = { total: 9, segs: [{ toma: 1, ini: 0, fin: 9 }] };
+  const m = String(porQueNoSirveElPlan(p, 1, [6]));
+  assert.match(m, /esa toma dura/);
+  assert.doesNotMatch(m, /cada toma/);
+});
+
+test('una toma sin duracion declarada cae a 10 y no rompe', () => {
+  // Un array mas corto que la cantidad de tomas es un plan viejo o a medio
+  // migrar: se usa el default en vez de tirar, que dejaria el montaje sin poder
+  // encolarse por un dato que falta.
+  const p: Plan = { total: 9, segs: [{ toma: 3, ini: 0, fin: 9 }] };
+  assert.equal(porQueNoSirveElPlan(p, 3, [8]), null);
 });

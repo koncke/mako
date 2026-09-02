@@ -44,11 +44,84 @@ import type { ClipPlan } from './video-planner';
  * la palanca de cambios y de conducir, y en una oficina eso no es un detalle de
  * más, es una instrucción falsa.
  */
-export const PROMPT_VIDEO: Record<string, (voz: string) => string> = {
+export const PROMPT_VIDEO: Record<
+  string,
+  /**
+   * ⚠️ DEVUELVE `null` PARA UN CLIP QUE ESTE FORMATO NO SABE DIRIGIR, y ahí se
+   * usa el del modelo. Lo decide el FORMATO y no un guard global, porque la
+   * respuesta cambia por formato: la plantilla de Car Talks empieza con «Esta
+   * persona dice», y en un clip de voz en OFF eso es literalmente falso — la
+   * persona no lo está diciendo, se escucha encima. The Office, en cambio,
+   * declara `habla: 'mixto'` y tiene una rama escrita para cada caso.
+   */
+  (voz: string, clip: Pick<ClipPlan, 'habla' | 'queSeVe'>) => string | null
+> = {
   // Car Talks. Textual como lo escribió Martín, con el guion de la toma adentro.
-  'selfie-movimiento': (voz) =>
-    `Esta persona dice: "${voz}", con micromovimientos naturales, como gestos con las manos o moviendo la palanca de cambio que no sale en el plano. De vez en cuando mira a la cámara, pero no por mucho tiempo ya que está conduciendo. Todo natural.`,
+  // Sólo dirige clips HABLADOS: su primera frase es «Esta persona dice», que en
+  // un clip de voz en off sería una afirmación falsa. El formato declara
+  // `habla: 'siempre'`, así que en la práctica no hay clips en off — pero un
+  // plan editado a mano puede tenerlos, y ahí el prompt del modelo es más honesto.
+  'selfie-movimiento': (voz, clip) => (clip.habla
+    ? `Esta persona dice: "${voz}", con micromovimientos naturales, como gestos con las manos o moviendo la palanca de cambio que no sale en el plano. De vez en cuando mira a la cámara, pero no por mucho tiempo ya que está conduciendo. Todo natural.`
+    : null),
+
+  // ── The Office (plano secuencia) ──────────────────────────────────────────
+  // ⚠️ ERA EL ÚNICO FORMATO SIN PROMPT, Y ES EL QUE MÁS LO NECESITA.
+  //
+  // Se había dejado así a propósito y con razón: copiarle el de Car Talks le
+  // habría metido «la palanca de cambios» a una oficina, que no es un detalle de
+  // más sino una instrucción falsa. Pero la conclusión correcta no era «ninguno»
+  // — era EL SUYO. Un formato sin prompt cae al que escribió el modelo: genérico,
+  // en inglés, y compitiendo con la imagen de referencia que ya tiene el lugar,
+  // la luz y la cara resueltos.
+  //
+  // Sale ENTERO de reglas ya medidas (`puestas-data.ts` + docs/hallazgos-generativa.md,
+  // del anuncio 4 producido el 24/08/2026). Nada de esto es una preferencia:
+  //
+  // · LA ACCIÓN SE ESCRIBE. Textual del formato: «La acción se escribe en el
+  //   prompt. Si no se escribe, el modelo rellena repitiendo sílabas». Por eso
+  //   `queSeVe` va adentro, y por eso esta función recibe el clip y no sólo la voz.
+  // · NO SE DESCRIBE LA CARA. Nunca. La identidad la resuelve la foto real, y un
+  //   bloque de contra-deriva la SOBREESCRIBE: se defendió seis versiones como
+  //   corrección medida y era justo lo que rompía el parecido.
+  // · EL MOVIMIENTO DE CÁMARA ESTÁ PERMITIDO. La prohibición vieja —«cualquier
+  //   movimiento hace alucinar el fondo»— se midió DENTRO DE UN AUTO: espacio
+  //   chico, fondo corriendo por la ventanilla, el peor caso posible. En un open
+  //   space con luz pareja se midieron nueve clips con movimiento y ninguno hirvió.
+  // · NO SE LE PIDE QUE HABLE MÁS RÁPIDO PARA LLENAR. La densidad de este formato
+  //   ya es 2,1 y no 3 porque la acción ocupa tiempo que el modelo no rellena con
+  //   voz. Eso lo resuelve el planificador al repartir; acá sólo hay que decirle
+  //   que está bien que la acción ocupe su parte.
+  //
+  // ⚠️ Y TIENE DOS RAMAS, porque el formato declara `habla: 'mixto'` con ritmo
+  // `H O H O H O H H`: TRES de sus ocho tomas son VOZ EN OFF. En ésas la persona
+  // «sigue en cuadro: solo no habla» —regla textual del formato— y eran justo las
+  // que no recibían ninguna dirección, porque `promptDeClip` se caía al prompt del
+  // modelo apenas `habla` era false. Un clip mudo sin instrucción de estar mudo es
+  // un clip donde el avatar habla encima de la voz en off.
+  'plano-secuencia': (voz, clip) => (clip.habla
+    ? `Esta persona dice: "${voz}" mientras ${accionDe(clip.queSeVe)}. Habla en tono natural de conversación, sin apurarse: la acción ocupa parte del clip y está bien que así sea. La cámara la acompaña con un movimiento suave y continuo. Micromovimientos naturales, gestos con las manos. Mira a cámara sólo por momentos, como quien cuenta algo mientras hace otra cosa.`
+    : `Esta persona ${accionDe(clip.queSeVe)}. NO habla: mantiene la boca cerrada, sin mover los labios en ningún momento. Sigue en cuadro y sigue actuando con naturalidad. La cámara la acompaña con un movimiento suave y continuo.`
+  ),
 };
+
+/**
+ * La acción física del clip, lista para meter después de «mientras».
+ *
+ * `queSeVe` lo escribe el planificador y llega como una descripción suelta
+ * («Camina por el open space.»). Se le saca el punto y la mayúscula para que no
+ * quede «mientras Camina.».
+ *
+ * ⚠️ Y SI VIENE VACÍO NO SE INVENTA UNA ACCIÓN. Escribir «se sirve un café»
+ * cuando el plan no lo dice es dirigir una toma que nadie pidió, y eso se paga en
+ * créditos. La neutra deja que el modelo resuelva el movimiento sin que le
+ * pongamos un objeto en la mano.
+ */
+function accionDe(queSeVe: string): string {
+  const t = (queSeVe ?? '').trim().replace(/[.;]+$/, '');
+  if (!t) return 'se mueve por el espacio con naturalidad';
+  return t.charAt(0).toLowerCase() + t.slice(1);
+}
 
 /** ¿Este formato tiene prompt de video probado? Lo usa la pantalla para decirlo. */
 export function tienePromptVideoPropio(puestaId: string): boolean {
@@ -138,7 +211,7 @@ function plantillaDelCliente(txt?: string): ((voz: string) => string) | undefine
 
 export function promptDeClip(
   puestaId: string,
-  clip: Pick<ClipPlan, 'voz' | 'habla' | 'prompt'>,
+  clip: Pick<ClipPlan, 'voz' | 'habla' | 'prompt' | 'queSeVe'>,
   /**
    * Lo que escribió la persona a mano, si escribió algo.
    *
@@ -163,9 +236,22 @@ export function promptDeClip(
 
   const plantilla = PROMPT_VIDEO[puestaId] ?? plantillaDelCliente(delFormato);
   const voz = comoSeDice(clip.voz ?? '');
-  if (!plantilla || !clip.habla || !voz) return clip.prompt;
+  if (!plantilla) return clip.prompt;
+
+  // ⚠️ UN CLIP DE VOZ EN OFF TAMBIÉN SE DIRIGE. El guard decía
+  // `if (!plantilla || !clip.habla || !voz)`, así que en cuanto `habla` era false
+  // se caía al prompt del modelo — y en The Office eso son TRES de sus ocho
+  // tomas, justo las que más dirección necesitan: la persona tiene que seguir en
+  // cuadro sin mover los labios, y si nadie se lo dice, habla.
+  //
+  // Lo que sí sigue valiendo es que un clip que HABLA sin línea no se puede
+  // armar: la plantilla interpola la voz y quedaría un `dice: ""`.
+  if (clip.habla && !voz) return clip.prompt;
+
+  const base = plantilla(voz, { habla: !!clip.habla, queSeVe: clip.queSeVe ?? '' });
+  // El formato dijo que no sabe dirigir este clip: gana el del modelo.
+  if (!base) return clip.prompt;
 
   const acento = acentoDe(clip.prompt);
-  const base = plantilla(voz);
   return acento ? `${base}\n${acento}` : base;
 }

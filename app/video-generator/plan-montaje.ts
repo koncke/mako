@@ -62,7 +62,24 @@ export function duracionDe(segs: Tramo[]): number {
  * Cada control existe por un modo de falla SILENCIOSO de ffmpeg: ninguno de
  * éstos da error al renderizar, todos dejan el archivo mal.
  */
-export function porQueNoSirveElPlan(plan: Plan, cuantasTomas: number, segundosPorToma: number): string | null {
+/**
+ * ⚠️ `segundosPorToma` ES UN ARRAY, UNA ENTRADA POR TOMA. Era un escalar y se lo
+ * llamaba con `clips[0].segundos`, o sea que la duracion de la PRIMERA toma se
+ * aplicaba a todas — y las tomas de un anuncio NO duran todas lo mismo: la
+ * pantalla tiene un boton «Darle 10 segundos» y una fila para elegir 4/6/8/10 por
+ * toma, asi que mezclarlas es el camino normal.
+ *
+ * Falla en las dos direcciones y las dos son caras:
+ *  · con la primera mas CORTA, un tramo legitimo de una toma larga se rechaza con
+ *    un mensaje que afirma algo falso sobre el propio anuncio;
+ *  · con la primera mas LARGA, un tramo que se pasa del final de una toma corta
+ *    pasa el control — y ffmpeg devuelve lo que hay y calla, que es justo el modo
+ *    de falla silencioso que este validador existe para cazar.
+ *
+ * Medido: el plan reparado de una clienta el 01/09/2026 quedo con tomas de 10, 8
+ * y 10 segundos. `clips[0].segundos` daba 10 para todas.
+ */
+export function porQueNoSirveElPlan(plan: Plan, cuantasTomas: number, segundosPorToma: number[]): string | null {
   if (!plan.segs.length) return 'El anuncio se quedó sin ningún tramo. Deja al menos uno.';
 
   for (const [i, s] of plan.segs.entries()) {
@@ -79,8 +96,12 @@ export function porQueNoSirveElPlan(plan: Plan, cuantasTomas: number, segundosPo
     }
     // ⚠️ Pasarse del final del clip tampoco falla: ffmpeg devuelve lo que hay.
     // Se tolera un pelo por el redondeo de la duración.
-    if (s.ini < 0 || s.fin > segundosPorToma + 0.2) {
-      return `El tramo ${i + 1} pide de ${s.ini.toFixed(2)} a ${s.fin.toFixed(2)} s, y cada toma dura ${segundosPorToma}.`;
+    const dura = segundosPorToma[s.toma - 1] ?? 10;
+    if (s.ini < 0 || s.fin > dura + 0.2) {
+      // «ESA toma», no «cada toma»: decir «cada» vuelve a afirmar la uniformidad
+      // que causaba el bug, y encima sobre el anuncio de alguien que ve en su
+      // pantalla que sus tomas duran cosas distintas.
+      return `El tramo ${i + 1} pide de ${s.ini.toFixed(2)} a ${s.fin.toFixed(2)} s, y esa toma dura ${dura}.`;
     }
   }
 
