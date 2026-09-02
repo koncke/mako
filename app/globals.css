@@ -531,6 +531,10 @@ textarea.mako-field {
 .mk-momento > *:nth-child(3) { animation-delay: 180ms; }
 .mk-momento > *:nth-child(4) { animation-delay: 270ms; }
 .mk-momento > *:nth-child(5) { animation-delay: 360ms; }
+/* ⚠️ Un momento de UN SOLO hijo también entra a los 450: `only-child` gana por
+   especificidad sobre el `nth-child(1)` de arriba. Sin esto, la pantalla que
+   celebra con una sola cosa la pinta al instante y deja de ser un momento. */
+.mk-momento > *:only-child { animation-delay: 450ms; }
 /* El número cierra a los 600 ms clavados: entra a los 450 y dura 150. */
 .mk-momento > *:nth-child(6) { animation-delay: 450ms; }
 

@@ -84,6 +84,13 @@ function primeraLinea(txt: string): string {
   return '';
 }
 
+/** La flecha de pasar fotos. Redonda, discreta: la protagonista es la foto. */
+const FLECHA: React.CSSProperties = {
+  width: 40, height: 40, borderRadius: 999, flex: 'none', padding: 0,
+  display: 'grid', placeItems: 'center', cursor: 'pointer',
+  border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)',
+};
+
 const ORDEN: AcentoId[] = ['mx-norte', 'mx-neutro', 'mx-cdmx', 'co', 'latam', 'ar', 'es'];
 
 /**
@@ -108,24 +115,41 @@ const CLAVE_DE_PASO: Record<Exclude<Paso, 'acento' | 'muletillas' | 'ensayo'>, P
   puente: 'vg_puente',
 };
 
-/** Caja de contexto del paso (molde de la skill: surface-2 + eyebrow mono). */
+/**
+ * El contexto del paso, PLEGADO.
+ *
+ * ⚠️ ESTABA ABIERTO Y ERA LA MITAD DE CADA PANTALLA. La skill pide que el
+ * contexto vaya al final y explique sin interrumpir; una caja gris de ocho
+ * renglones abierta debajo de la acción interrumpe igual, sólo que abajo.
+ *
+ * El dueño lo rechazó sobre la captura: «quiero que sea lo más minimalista
+ * posible, en EXTREMO… poco texto, en todos lados». Plegado quedan dos cosas
+ * que antes se peleaban: una línea para el que sólo quiere avanzar, y el texto
+ * entero para el que se pregunta por qué.
+ *
+ * El resumen es el eyebrow, que ya estaba escrito como pregunta.
+ */
 function Contexto({ eyebrow, children }: { eyebrow: string; children: React.ReactNode }) {
   return (
-    <div style={{
-      background: 'var(--surface-2)', border: '1px solid var(--border)',
-      borderRadius: 12, padding: '13px 15px', textAlign: 'left',
-    }}>
-      <div style={{
-        fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase',
-        color: 'var(--faint)', marginBottom: 7,
+    <details style={{ width: '100%', textAlign: 'left' }}>
+      <summary style={{
+        cursor: 'pointer', listStyle: 'none', display: 'flex', alignItems: 'center',
+        gap: 7, justifyContent: 'center',
+        fontSize: 'var(--fs-sm)', color: 'var(--faint)',
       }}>
+        <Icon name="help" size={13} />
         {eyebrow}
+      </summary>
+      <div style={{
+        marginTop: 12, padding: '13px 15px', borderRadius: 12,
+        background: 'var(--surface-2)', border: '1px solid var(--border)',
+        fontSize: 13, color: 'var(--dim)', lineHeight: 1.6,
+      }}>
+        {children}
       </div>
-      <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>{children}</div>
-    </div>
+    </details>
   );
 }
-
 export function OnboardingVideoGen({
   fotos, acentoInicial, acentoSeguro, muletillasIniciales, puente: puenteInicial, linea, creditos, anunciosPosibles,
   descripcionPersona, acentoOrigen, acentoZona, alSalir,
@@ -158,6 +182,15 @@ export function OnboardingVideoGen({
   // ── La cara ──
   const [misFotos, setMisFotos] = useState(fotos);
   const [subiendo, setSubiendo] = useState(false);
+  /**
+   * Cuál de sus fotos se está mirando.
+   *
+   * ⚠️ ANTES ERAN LAS OCHO A LA VEZ, en una grilla de miniaturas. El dueño lo
+   * rechazó sobre la captura: «el input gigante en el medio, o la foto». Y ocho
+   * miniaturas no son una foto: son un formulario de selección múltiple donde
+   * ninguna se ve, en la pantalla cuyo trabajo es MIRAR una cara.
+   */
+  const [fotoIdx, setFotoIdx] = useState(0);
 
   // ── La voz ──
   const [acento, setAcento] = useState<AcentoId>(
@@ -280,6 +313,36 @@ export function OnboardingVideoGen({
   const idx = PASOS.indexOf(paso);
 
   /**
+   * La ÚNICA línea de texto del aside, y sólo cuando dice algo que el cuadro no
+   * muestra.
+   *
+   * ⚠️ Acá había cinco renglones con rótulo y valor. Un dato que ya se ve no se
+   * vuelve a escribir: su cara está en el cuadro, su frase está en el cuadro. Lo
+   * que queda es lo que el cuadro NO puede mostrar — que MaKo escribió esa
+   * descripción mirando sus fotos, de dónde salió el acento, cuántos créditos
+   * tiene.
+   */
+  const pieDelAside =
+    paso === 'cara'
+      // El dato más fuerte del recorrido, y estaba en la base sin mostrarse: la
+      // descripción física que MaKo escribió mirando sus fotos. Va acá, al lado
+      // de la cara que describe, y no como un párrafo gigante en el medio.
+      ? (descripcionPersona ? primeraLinea(descripcionPersona) : '')
+      : paso === 'acento'
+        ? (acentoOrigen === 'declarado'
+          ? 'Lo elegiste tú.'
+          : acentoOrigen === 'zona-horaria'
+            ? `Lo deduje de tu zona horaria: ${acentoZona}.`
+            : 'Todavía no lo sé: este es el más común.')
+        : paso === 'muletillas'
+          ? (muletillas.length ? `${muletillas.length} marcadas.` : '')
+          : paso === 'voz'
+            ? (clon ? 'Toca el play: así vas a sonar.' : '')
+            : paso === 'puente'
+              ? (creditos != null ? `${creditos.toLocaleString('es-MX')} créditos en tu cuenta de Google.` : '')
+              : '';
+
+  /**
    * ⚠️ UNA GUARDA BLOQUEA SÓLO LO QUE SE ARREGLA HACIENDO LO QUE ELLA PIDE.
    *
    * Este paso pide conectar el navegador, y `estado: 'marcada'` NO se arregla
@@ -345,7 +408,19 @@ export function OnboardingVideoGen({
 
   return (
     <WizardShell
-      titulo="Generador de video · Configuración"
+      /**
+       * ⚠️ VACÍO A PROPÓSITO: ESE RENGLÓN ES UN KICKER Y ESTÁ PROHIBIDO.
+       *
+       * `WizardShell` lo pinta en monospace, gris, arriba del título
+       * (`WizardShell.tsx:249`), que es exactamente la forma que
+       * `docs/hallazgos-ui.md` prohíbe con cita: «esto es una prohibición, no un
+       * default». Decía «Generador de video · Configuración» sobre una pantalla
+       * que ya se sabe de dónde se abrió.
+       *
+       * No se saca del shell porque lo comparten otras 25 pantallas: sacarlo de
+       * ahí es una decisión de todo el producto, no de este onboarding.
+       */
+      titulo=""
       pasos={PASOS}
       pasoActual={paso}
       pregunta={pregunta}
@@ -381,23 +456,11 @@ export function OnboardingVideoGen({
        */
       escenario={(
         <AnuncioEnConstruccion
-          paso={paso}
           estado={{
-            foto: misFotos[0]?.url ?? '',
-            cuantasFotos: misFotos.length,
-            acento: ETIQUETA_ACENTO[acento],
-            // ⚠️ EL ACENTO SÓLO CUENTA COMO SABIDO CUANDO LO DECLARÓ. Mientras sea
-            // la inferencia de la zona horaria, el renglón se queda en blanco —
-            // un dato adivinado pintado como dato es cómo se cuela un error que
-            // nadie audita, y es exactamente lo que pasaba antes de este paso.
-            //
-            // Se cuenta desde que PASA el paso, no desde que lo mira: pararse en
-            // la pantalla no es elegir.
-            acentoSeguro: acentoSeguro || idx > PASOS.indexOf('acento'),
-            muletillas,
-            voiceId: clon?.voiceId ?? '',
-            creditos,
+            foto: misFotos[Math.min(fotoIdx, Math.max(0, misFotos.length - 1))]?.url ?? '',
             linea,
+            voiceId: clon?.voiceId ?? '',
+            pie: pieDelAside,
           }}
           alEscuchar={linea ? () => escucharMiVozAction(linea) : undefined}
         />
@@ -418,71 +481,77 @@ export function OnboardingVideoGen({
     >
       {paso === 'cara' && (
         <>
-          {misFotos.length > 0 && (
-            <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', justifyContent: 'center' }}>
-              {misFotos.map((f) => (
-                <img
-                  key={f.id}
-                  src={f.url}
-                  alt=""
-                  style={{
-                    width: 96, aspectRatio: '3 / 4', objectFit: 'cover',
-                    borderRadius: 10, border: '1px solid var(--border)',
-                  }}
-                />
-              ))}
+          {/* ⚠️ UNA FOTO, GIGANTE. Acá había una grilla de ocho miniaturas de
+              96 px más un párrafo de tres renglones a 34 px. El dueño lo rechazó
+              sobre la captura: «el input gigante en el medio, o la foto. Poco
+              texto. En todos lados.»
+
+              Y ocho miniaturas no son «la foto»: son un selector múltiple donde
+              ninguna se ve, justo en la pantalla cuyo trabajo es MIRAR una cara.
+              Con flechas se ve una sola y se pasa de largo — y lo que MaKo
+              escribió sobre ella vive en el aside, al lado del anuncio. */}
+          {misFotos.length > 0 ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, alignSelf: 'center' }}>
+              {misFotos.length > 1 && (
+                <button
+                  type="button"
+                  aria-label="Foto anterior"
+                  onClick={() => setFotoIdx((i) => (i - 1 + misFotos.length) % misFotos.length)}
+                  style={FLECHA}
+                ><Icon name="chevron" size={18} /></button>
+              )}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                key={misFotos[fotoIdx % misFotos.length]?.id}
+                src={misFotos[fotoIdx % misFotos.length]?.url}
+                alt=""
+                style={{
+                  width: 268, aspectRatio: '3 / 4', objectFit: 'cover',
+                  borderRadius: 16, border: '1px solid var(--border)',
+                  animation: 'mkFade 250ms ease',
+                }}
+              />
+              {misFotos.length > 1 && (
+                <button
+                  type="button"
+                  aria-label="Foto siguiente"
+                  onClick={() => setFotoIdx((i) => (i + 1) % misFotos.length)}
+                  style={{ ...FLECHA, transform: 'rotate(180deg)' }}
+                ><Icon name="chevron" size={18} /></button>
+              )}
             </div>
+          ) : (
+            // Sin fotos, la pantalla es UN gesto: el área de subir, grande. No hay
+            // nada que elegir todavía, así que no hay nada más que dibujar.
+            <label style={{
+              alignSelf: 'center', width: 268, aspectRatio: '3 / 4', borderRadius: 16,
+              border: '1px dashed var(--border-strong)', background: 'var(--surface-2)',
+              display: 'grid', placeItems: 'center', gap: 10, cursor: 'pointer',
+              color: 'var(--dim)', textAlign: 'center', padding: 20,
+            }}>
+              <Icon name={subiendo ? 'regenerar' : 'perfil'} size={40} />
+              <span style={{ fontSize: 'var(--fs-card)', fontWeight: 600, color: 'var(--ink)' }}>
+                {subiendo ? 'Subiendo…' : 'Sube tus fotos'}
+              </span>
+              <input
+                type="file" accept="image/*" multiple disabled={subiendo}
+                onChange={(e) => void subir(e.target.files)} style={{ display: 'none' }}
+              />
+            </label>
           )}
-          {/* ⚠️ Un `<input type="file">` no se estila, así que va escondido detrás
-              de su propio label — que ES el botón. Con un `<Button>` al lado
-              habría dos controles para una acción. */}
-          <label
-            style={{
-              alignSelf: 'center', display: 'inline-flex', alignItems: 'center', gap: 8,
-              padding: '10px 18px', borderRadius: 'var(--r-md)', cursor: 'pointer',
-              border: '1px solid var(--border-strong)', background: 'var(--surface-2)',
-              color: 'var(--ink)', fontSize: 14, fontWeight: 600,
-            }}
-          >
-            <Icon name={subiendo ? 'regenerar' : 'check'} size={15} />
-            {subiendo ? 'Subiendo…' : misFotos.length ? 'Agregar otra foto' : 'Subir mis fotos'}
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              disabled={subiendo}
-              onChange={(e) => void subir(e.target.files)}
-              style={{ display: 'none' }}
-            />
-          </label>
-          {/* ⚠️ EL DATO MÁS FUERTE DE TODO EL RECORRIDO, Y NO SE MOSTRABA.
 
-              MaKo escribe una descripción física mirando las fotos, y está
-              cargada en los cuatro workspaces vivos con mil y pico de caracteres
-              cada una. `estadoContextoVideo` ya la traía —llama a
-              `personaEstado()`— y tiraba el campo.
-
-              Es lo que convierte la primera pantalla de un formulario en una
-              devolución: la persona abre el onboarding y lo primero que lee es
-              algo que MaKo ya sabía de ella. Y no es coreografía, es contenido:
-              llega en los primeros tres segundos sin animar nada.
-
-              Se muestra la PRIMERA línea con contenido, no el texto entero: son
-              secciones (IDENTIDAD, ROSTRO…) y la primera es la que se lee de un
-              vistazo. El resto vive en el onboarding del negocio. */}
-          {!!descripcionPersona && (
-            <div style={{ display: 'grid', gap: 6, justifyItems: 'center', textAlign: 'center' }}>
-              <div style={{
-                fontSize: 'var(--fs-kpi)', fontWeight: 700, lineHeight: 1.2,
-                color: 'var(--ink)', letterSpacing: '-.02em', maxWidth: 420,
-                textWrap: 'balance',
-              }}>
-                {primeraLinea(descripcionPersona)}
-              </div>
-              <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--faint)' }}>
-                Lo escribí mirando tus {misFotos.length} {misFotos.length === 1 ? 'foto' : 'fotos'}.
-              </div>
-            </div>
+          {misFotos.length > 0 && (
+            <label style={{
+              alignSelf: 'center', display: 'inline-flex', alignItems: 'center', gap: 7,
+              cursor: 'pointer', color: 'var(--dim)', fontSize: 'var(--fs-sm)',
+            }}>
+              <Icon name={subiendo ? 'regenerar' : 'descargar'} size={14} />
+              {subiendo ? 'Subiendo…' : `Agregar otra · ${misFotos.length} ${misFotos.length === 1 ? 'foto' : 'fotos'}`}
+              <input
+                type="file" accept="image/*" multiple disabled={subiendo}
+                onChange={(e) => void subir(e.target.files)} style={{ display: 'none' }}
+              />
+            </label>
           )}
           <Contexto eyebrow="¿Por qué la foto decide todo?">
             El video se genera a partir de una imagen tuya: si no hay foto, no hay identidad y
@@ -781,65 +850,37 @@ export function OnboardingVideoGen({
 
       {paso === 'ensayo' && (
         <>
-          {/* ⚠️ EL ÚNICO MOMENTO DE TODO EL RECORRIDO, Y DURA 600 ms.
+          {/* ⚠️ UNA SOLA COSA, Y ES EL ÚNICO MOMENTO DEL RECORRIDO.
 
-              Cinco renglones entran escalonados —uno por cada paso anterior, cada
-              uno con el dato que esa persona acaba de establecer— y encima cae un
-              número que sale de multiplicarlos. El vocabulario del producto es de
-              tres tiempos y no se mezcla: micro 100 ms, transición 250 ms, momento
-              600 ms. Si todo celebra, nada celebra, así que los otros cinco pasos
-              no tienen ninguno.
+              Acá había cinco renglones con rótulo y valor entrando escalonados y
+              después el número: once elementos de texto. La regla del producto es
+              que la celebración es un DATO, y un dato es UNO — «el premio por
+              terminar son tres tareas y un número, no fuegos artificiales».
 
-              Y la celebración es un DATO: «el premio por terminar son tres tareas
-              y un número, no fuegos artificiales». Nada de partículas, destellos
-              ni conteo animado — el número aparece ya escrito.
-
-              El escalonado vive en `.mk-momento` (globals.css), que además se
-              SALTA AL FINAL con `prefers-reduced-motion` en vez de apagarse: quien
-              pidió menos movimiento ve la pieza entera de una. */}
-          <div className="mk-momento" style={{ display: 'grid', gap: 0, width: '100%' }}>
-            {[
-              ['Tu cara', misFotos.length ? `${misFotos.length} ${misFotos.length === 1 ? 'foto' : 'fotos'}` : '—'],
-              ['Tu acento', ETIQUETA_ACENTO[acento]],
-              ['Tus muletillas', muletillas.length ? `${muletillas.length} marcadas` : 'ninguna'],
-              ['Tu voz', clon ? 'la tuya, clonada' : 'la que genera Google'],
-              ['Tu navegador', creditos != null ? `${creditos.toLocaleString('es-MX')} créditos` : (est.anda ? 'conectado' : '—')],
-            ].map(([k, v]) => (
-              // Cinco cosas del mismo tipo son una LISTA CON FILETE, no cinco
-              // cajas. La regla de la casa: la caja se gana, y apilar tarjetas
-              // iguales es el contenedor perezoso.
-              <div key={k} style={{
-                display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
-                gap: 12, padding: '11px 2px', borderBottom: '1px solid var(--border)',
-              }}>
-                <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--faint)' }}>{k}</span>
-                <span style={{ fontSize: 'var(--fs-md)', color: 'var(--ink)', fontWeight: 600, textAlign: 'right' }}>{v}</span>
-              </div>
-            ))}
-
-            {/* El sexto hijo del momento: el número. Entra a los 450 ms y cierra
-                a los 600. Es un CONTEO —sus guiones por los formatos que
-                existen—, no una proyección: cada par (guion × formato) es un
-                anuncio distinto de verdad. Y el copy dice «filmar», nunca
-                «ganadores». */}
+              El número entra a los 450 ms y cierra a los 600 (`.mk-momento`), que
+              es el único momento de los seis pasos. Y es un CONTEO, no una
+              proyección: sus guiones por los formatos que existen. Cada par
+              (guion × formato) es un anuncio distinto de verdad, y el copy dice
+              «filmar», jamás «ganadores». */}
+          <div className="mk-momento" style={{ display: 'grid', justifyItems: 'center', width: '100%' }}>
             {anunciosPosibles > 0 ? (
-              <div style={{ display: 'grid', gap: 4, justifyItems: 'center', textAlign: 'center', paddingTop: 22 }}>
+              <div style={{ display: 'grid', gap: 6, justifyItems: 'center', textAlign: 'center' }}>
                 <div style={{
-                  fontSize: 'clamp(56px, 12vw, 88px)', fontWeight: 800, lineHeight: 1,
-                  letterSpacing: '-.04em', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums',
+                  fontSize: 'clamp(72px, 15vw, 116px)', fontWeight: 800, lineHeight: 1,
+                  letterSpacing: '-.045em', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums',
                 }}>{anunciosPosibles}</div>
-                <div style={{ fontSize: 'var(--fs-card)', color: 'var(--dim)', lineHeight: 1.4, maxWidth: 330 }}>
-                  anuncios distintos que MaKo puede filmar con lo que ya cargaste.
+                <div style={{ fontSize: 'var(--fs-card)', color: 'var(--dim)', lineHeight: 1.4, maxWidth: 320 }}>
+                  anuncios que MaKo puede filmar con lo que ya tienes.
                 </div>
               </div>
             ) : (
               // Con cero guiones el número sería 0 y la promesa se desinflaría. Lo
               // que falta ahí no es entusiasmo: es un guion, y se dice dónde se
               // escribe.
-              <div style={{ display: 'grid', gap: 8, justifyItems: 'center', textAlign: 'center', paddingTop: 22 }}>
-                <Icon name="video" size={36} />
-                <div style={{ fontSize: 'var(--fs-card)', color: 'var(--dim)', lineHeight: 1.4, maxWidth: 330 }}>
-                  Te falta un guion. MaKo los escribe en Ads Writer, y desde ahí vuelves aquí a filmarlo.
+              <div style={{ display: 'grid', gap: 10, justifyItems: 'center', textAlign: 'center' }}>
+                <Icon name="script" size={40} />
+                <div style={{ fontSize: 'var(--fs-card)', color: 'var(--dim)', lineHeight: 1.4, maxWidth: 320 }}>
+                  Te falta un guion. MaKo los escribe en Ads Writer.
                 </div>
               </div>
             )}

@@ -11,78 +11,63 @@
 // reemplaza por la prueba en el momento exacto en que el cliente aprieta el
 // tilde. Un "ok ✓" no prueba nada.»
 //
-// Esta pieza es esa misma regla llevada a un recorrido de seis pasos: en vez de
-// un tilde por paso, el aside es EL OBJETO que el cliente vino a hacer —un
-// anuncio vertical— y cada paso lo llena con algo suyo. Su cara, su acento, sus
-// muletillas, su voz, sus créditos.
+// Acá esa regla se lleva a un recorrido de seis pasos: el aside es EL OBJETO que
+// el cliente vino a hacer —un anuncio vertical— y cada paso lo llena con algo
+// suyo. Su cara, su acento, su voz, sus créditos.
+//
+// ── Y por qué acá NO va una lista de lo que MaKo sabe ──────────────────────
+//
+// ⚠️ La primera versión tenía cinco renglones con rótulo y valor debajo del
+// cuadro, más un eyebrow. Diez elementos de texto en una columna de 336 px. El
+// dueño lo rechazó sobre la captura: *«así NO se hace un onboarding épico…
+// quiero que sea lo más minimalista posible, en EXTREMO. El input gigante en el
+// medio, o la foto. Poco texto. En todos lados.»*
+//
+// Y tenía razón por una razón concreta: **la lista competía con el cuadro.** El
+// hecho ya estaba adentro del cuadro —es su cara, es su frase— y repetirlo como
+// renglón lo convertía en un formulario con una foto al lado. Queda UNA línea,
+// la del paso en curso, y sólo cuando dice algo.
+//
+// La regla que sale de ahí: *un dato que ya se ve no se vuelve a escribir.*
 //
 // ── La regla que gobierna cada píxel ───────────────────────────────────────
 //
-// `docs/onboarding-nuevo.md` la fija para todo el producto:
-//
 //     «Cada píxel que se mueve transporta un hecho del negocio del cliente.
-//      Si no transporta ninguno, no se mueve.»
+//      Si no transporta ninguno, no se mueve.»  (docs/onboarding-nuevo.md)
 //
-// Y sus corolarios, que acá se cumplen uno por uno:
-//
-//  · **Un nodo que aparece = una cosa que MaKo entendió.** Nada de partículas ni
-//    destellos. El espectáculo es que el dibujo es TUYO.
-//  · **El dorado es un verbo.** Se enciende mientras MaKo hace algo —acá, los
-//    ~2 s en que la voz clonada habla— y se apaga cuando termina.
-//  · **Un solo momento por sesión.** Micro 100 ms, transición 250 ms, momento
-//    600 ms. Acá el único momento es escucharse.
-//  · **La celebración es un dato.** El cierre no es confeti: es cuántos anuncios
-//    distintos puede filmar MaKo con lo que ya cargó.
-//
-// ── Y el peak-end ──────────────────────────────────────────────────────────
-//
-// El primer paso muestra el cuadro VACÍO y el último muestra el mismo cuadro
-// lleno. Es el mismo objeto: por eso se puede volver a mostrar al final, cosa
-// que un splash de marca no puede.
+// El dorado es un verbo: acá se enciende SÓLO mientras la voz clonada habla, y
+// se apaga cuando termina.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { MONO } from '@/app/_ui';
 import { Icon } from '../_components/icons';
 
-/** Un renglón de lo que MaKo ya sabe. `valor` vacío = todavía no lo sabe. */
-type Dato = { k: string; valor: string; paso: string };
-
 export type EstadoDelAnuncio = {
-  /** La foto elegida, firmada. '' = todavía no subió ninguna. */
+  /** La foto que se está mirando, firmada. '' = todavía no subió ninguna. */
   foto: string;
-  cuantasFotos: number;
-  /** Cómo se llama su acento en pantalla. */
-  acento: string;
-  /** `false` = salió de adivinar la zona horaria, y la pantalla lo dice. */
-  acentoSeguro: boolean;
-  muletillas: string[];
-  /** El id del clon en ElevenLabs. '' = todavía no clonó. */
-  voiceId: string;
-  /** Créditos de Flow de su cuenta de Google. `null` = no se sabe. */
-  creditos: number | null;
   /**
    * Una línea REAL de uno de sus guiones, la que se ve como subtítulo.
    *
-   * ⚠️ Es suya y no un ejemplo: el subtítulo de una maqueta con texto inventado
-   * es decoración, y esta pieza no puede tener decoración. Vacío cuando todavía
-   * no escribió ningún guion — y ahí el cuadro no miente: se queda sin subtítulo.
+   * ⚠️ Suya y no un ejemplo: un subtítulo con texto inventado convierte esto en
+   * una maqueta, o sea en decoración. Vacío cuando todavía no escribió ningún
+   * guion — y ahí el cuadro se queda sin subtítulo en vez de mentir.
    */
   linea: string;
+  /** El id del clon en ElevenLabs. '' = todavía no clonó. */
+  voiceId: string;
+  /**
+   * UNA línea sobre el paso en curso, o ''. Es lo único que se escribe fuera del
+   * cuadro, y sólo cuando aporta algo que el cuadro no muestra.
+   */
+  pie: string;
 };
 
-/** Los pasos, en orden. Se usa para saber qué renglón está en curso. */
-const ORDEN = ['cara', 'acento', 'muletillas', 'voz', 'puente', 'ensayo'] as const;
-
 export function AnuncioEnConstruccion({
-  estado, paso, alEscuchar,
+  estado, alEscuchar,
 }: {
   estado: EstadoDelAnuncio;
-  paso: string;
   /**
    * Pide que la voz clonada diga la línea. Devuelve el audio listo para sonar.
-   *
-   * Lo inyecta el padre: esta pieza no importa actions — mismo criterio que
-   * `PasoTomas`, para que se pueda mirar sin levantar un server.
+   * Lo inyecta el padre: esta pieza no importa actions.
    */
   alEscuchar?: () => Promise<{ ok: boolean; audio?: string; error?: string }>;
 }) {
@@ -91,8 +76,8 @@ export function AnuncioEnConstruccion({
   const [fallo, setFallo] = useState('');
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // ⚠️ El audio se para al desmontar. Sin esto, salir del wizard mientras la voz
-  // habla deja el sonido corriendo sobre otra pantalla — y no hay dónde pararlo.
+  // El audio se para al desmontar: salir del wizard mientras la voz habla dejaría
+  // el sonido corriendo sobre otra pantalla, sin dónde pararlo.
   useEffect(() => () => { audioRef.current?.pause(); }, []);
 
   const escuchar = useCallback(async () => {
@@ -107,42 +92,30 @@ export function AnuncioEnConstruccion({
       a.onended = () => setSonando(false);
       a.onerror = () => { setSonando(false); setFallo('El navegador no pudo reproducir el audio.'); };
       setSonando(true);
-      await a.play().catch(() => { setSonando(false); setFallo('El navegador bloqueó el audio. Toca otra vez.'); });
+      await a.play().catch(() => { setSonando(false); setFallo('El navegador bloqueó el audio.'); });
     } finally {
       setPidiendo(false);
     }
   }, [alEscuchar, pidiendo, sonando]);
 
-  const datos: Dato[] = [
-    { k: 'Tu cara', paso: 'cara', valor: estado.cuantasFotos ? `${estado.cuantasFotos} ${estado.cuantasFotos === 1 ? 'foto' : 'fotos'}` : '' },
-    { k: 'Cómo hablas', paso: 'acento', valor: estado.acentoSeguro ? estado.acento : '' },
-    { k: 'Tus muletillas', paso: 'muletillas', valor: estado.muletillas.slice(0, 2).join(' · ') },
-    { k: 'Tu voz', paso: 'voz', valor: estado.voiceId ? 'Clonada' : '' },
-    {
-      k: 'Tu navegador',
-      paso: 'puente',
-      valor: estado.creditos != null ? `${estado.creditos.toLocaleString('es-MX')} créditos` : '',
-    },
-  ];
-
   const puedeEscuchar = !!estado.voiceId && !!estado.linea && !!alEscuchar;
 
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      gap: 20, padding: '26px 22px', height: '100%', overflowY: 'auto',
-    }} className="mk-scroll-oscuro">
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      gap: 16, padding: '28px 22px', height: '100%',
+    }}>
 
-      {/* ── EL CUADRO. Es el objeto que vino a hacer, en el formato en que lo va
-          a publicar. Empieza vacío y termina siendo él. ─────────────────── */}
+      {/* ── EL CUADRO, Y CASI NADA MÁS. Es el objeto que vino a hacer, en el
+          formato en que lo va a publicar. Empieza vacío y termina siendo él. ── */}
       <div
         style={{
-          position: 'relative', width: 196, aspectRatio: '9 / 16', flex: 'none',
-          borderRadius: 14, overflow: 'hidden', background: '#0B0D11',
+          position: 'relative', width: '100%', maxWidth: 268, aspectRatio: '9 / 16',
+          flex: 'none', borderRadius: 16, overflow: 'hidden', background: '#0B0D11',
           display: 'grid', placeItems: 'center',
-          // ⚠️ EL DORADO ES UN VERBO. Sólo mientras la voz está hablando, que es
-          // el único momento en que MaKo está haciendo algo en esta pieza. Un
-          // borde dorado permanente sería decoración, y eso viola la regla.
+          // ⚠️ EL DORADO ES UN VERBO. Sólo mientras la voz habla, que es el único
+          // momento en que MaKo está haciendo algo en esta pieza. Un borde dorado
+          // permanente sería decoración, y eso viola la regla del producto.
           border: sonando ? '2px solid var(--mako)' : '1px solid #23262E',
           boxShadow: sonando ? '0 0 0 6px rgba(242,176,30,.12)' : 'none',
           transition: 'border-color 250ms ease, box-shadow 250ms ease',
@@ -151,106 +124,68 @@ export function AnuncioEnConstruccion({
       >
         {estado.foto ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={estado.foto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img
+            key={estado.foto}
+            src={estado.foto}
+            alt=""
+            style={{ width: '100%', height: '100%', objectFit: 'cover', animation: 'mkFade 250ms ease' }}
+          />
         ) : (
-          // Vacío, y se ve vacío: el trazo punteado dice «esto todavía no está»
-          // sin escribirlo. Es la misma gramática que los nodos `pendiente` del
-          // mapa: un hueco se dibuja como un hueco.
+          // Vacío, y se ve vacío. El trazo punteado dice «esto todavía no está»
+          // sin escribirlo: un hueco se dibuja como un hueco.
           <div style={{
-            width: 'calc(100% - 24px)', height: 'calc(100% - 24px)', borderRadius: 10,
-            border: '1px dashed #2C313B', display: 'grid', placeItems: 'center',
-            color: '#3A414D',
+            width: 'calc(100% - 26px)', height: 'calc(100% - 26px)', borderRadius: 12,
+            border: '1px dashed #2C313B', display: 'grid', placeItems: 'center', color: '#3A414D',
           }}>
-            <Icon name="video" size={30} />
+            <Icon name="video" size={32} />
           </div>
         )}
 
-        {/* El subtítulo: una línea REAL de su guion. Aparece cuando existe, y si
-            no existe el cuadro se queda sin subtítulo en vez de inventar uno. */}
         {!!estado.linea && (
           <div style={{
-            position: 'absolute', left: 0, right: 0, bottom: 0, padding: '26px 12px 12px',
-            background: 'linear-gradient(to top, rgba(0,0,0,.86), rgba(0,0,0,0))',
-            color: '#fff', fontSize: 12.5, lineHeight: 1.35, fontWeight: 700,
+            position: 'absolute', left: 0, right: 0, bottom: 0, padding: '30px 14px 14px',
+            background: 'linear-gradient(to top, rgba(0,0,0,.88), rgba(0,0,0,0))',
+            color: '#fff', fontSize: 13, lineHeight: 1.35, fontWeight: 700,
             textAlign: 'center', textWrap: 'balance',
           }}>
             {estado.linea}
           </div>
         )}
-      </div>
 
-      {/* ── EL MOMENTO. El único de todo el recorrido, y sólo existe cuando hay
-          algo real que oír: su clon diciendo una línea suya. ─────────────── */}
-      {puedeEscuchar && (
-        <div style={{ display: 'grid', gap: 6, justifyItems: 'center', width: '100%' }}>
+        {/* El único momento de la pieza, y sólo existe cuando hay algo real que
+            oír: su clon diciendo una línea suya. Va ENCIMA del cuadro porque lo
+            que suena es ese cuadro, no un control de al lado. */}
+        {puedeEscuchar && (
           <button
             type="button"
             onClick={() => void escuchar()}
             disabled={pidiendo || sonando}
+            aria-label="Escuchar tu voz diciendo esta línea"
             style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8,
-              padding: '9px 16px', borderRadius: 999, cursor: sonando ? 'default' : 'pointer',
-              border: '1px solid var(--mako)', background: 'transparent',
-              color: 'var(--mako)', font: 'inherit', fontSize: 13, fontWeight: 700,
+              position: 'absolute', top: 12, right: 12,
+              width: 44, height: 44, borderRadius: 999, display: 'grid', placeItems: 'center',
+              cursor: sonando ? 'default' : 'pointer', padding: 0,
+              border: '1px solid var(--mako)', background: 'rgba(11,13,17,.72)',
+              color: 'var(--mako)', backdropFilter: 'blur(6px)',
             }}
           >
-            <Icon name={sonando ? 'pausa' : 'play'} size={14} />
-            {pidiendo ? 'Preparando…' : sonando ? 'Escuchando tu voz' : 'Escúchate'}
+            <Icon name={sonando ? 'pausa' : 'play'} size={17} />
           </button>
-          {!!fallo && (
-            <div style={{ fontSize: 11.5, color: 'var(--warn)', textAlign: 'center', lineHeight: 1.4 }}>{fallo}</div>
-          )}
+        )}
+      </div>
+
+      {/* ⚠️ UNA línea, la del paso en curso, y sólo cuando dice algo que el cuadro
+          no muestra. Acá había cinco renglones con rótulo y valor: un formulario
+          al lado de una foto. Un dato que ya se ve no se vuelve a escribir. */}
+      {(!!estado.pie || !!fallo) && (
+        <div style={{
+          fontSize: 12.5, lineHeight: 1.45, textAlign: 'center', maxWidth: 268,
+          color: fallo ? 'var(--warn)' : 'var(--sidebar-text)',
+          animation: 'mkFade 250ms ease',
+        }}>
+          {fallo || estado.pie}
         </div>
       )}
-
-      {/* ── LO QUE MAKO YA SABE. Cada renglón es un DATO suyo, no un tilde: es
-          la diferencia entre «ok ✓» y «898 créditos». ────────────────────── */}
-      <div style={{ width: '100%', display: 'grid', gap: 2 }}>
-        <div style={{
-          fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase',
-          color: 'var(--sidebar-text)', marginBottom: 8, opacity: .75,
-        }}>
-          Lo que MaKo ya sabe de ti
-        </div>
-        {datos.map((d) => {
-          const enCurso = d.paso === paso;
-          const listo = !!d.valor;
-          return (
-            <div
-              key={d.k}
-              style={{
-                display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10,
-                padding: '9px 10px', borderRadius: 8,
-                // El paso en curso se marca con SUPERFICIE, no con dorado: el
-                // dorado dice «MaKo está haciendo algo», y estar parado en un
-                // renglón no es eso.
-                background: enCurso ? 'rgba(255,255,255,.05)' : 'transparent',
-                borderLeft: `2px solid ${enCurso ? 'var(--accent)' : 'transparent'}`,
-                transition: 'background 250ms ease',
-              }}
-            >
-              <span style={{
-                fontSize: 12.5,
-                color: listo ? 'var(--on-sidebar)' : 'var(--sidebar-text)',
-              }}>{d.k}</span>
-              <span style={{
-                fontSize: 12.5, fontWeight: listo ? 700 : 400, textAlign: 'right',
-                color: listo ? 'var(--on-sidebar)' : '#3A414D',
-                // ⚠️ 250 ms y sólo opacidad: es la «transición» del vocabulario,
-                // no el «momento». Un valor que entra con un rebote celebra, y si
-                // todo celebra no celebra nada.
-                animation: listo ? 'mkFade 250ms ease' : undefined,
-              }}>{d.valor || '—'}</span>
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
-}
-
-/** El paso siguiente al que se está mirando, para el aside. Sin lógica de negocio. */
-export function pasoSiguiente(paso: string): string {
-  const i = ORDEN.indexOf(paso as typeof ORDEN[number]);
-  return i >= 0 && i < ORDEN.length - 1 ? ORDEN[i + 1] : paso;
 }
