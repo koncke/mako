@@ -19,7 +19,7 @@
 
 import { readFileSync, existsSync, mkdirSync, statSync, renameSync, unlinkSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 
 const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -80,18 +80,44 @@ if (!pendientes.length) { console.log('  Nada que hacer.\n'); process.exit(0); }
 // resultado DECODIFICA. Un ffmpeg interrumpido deja un .m4a que existe y está roto
 // («moov atom not found»), y el paso siguiente lo da por bueno porque el archivo
 // está. Ya pasó: «existe» no es «está bien».
-const extraer = ({ c, src, salida }) => {
+/**
+ * ⚠️ `Promise.all` SOBRE `spawnSync` NO PARALELIZA NADA.
+ *
+ * `spawnSync` bloquea el unico hilo de node hasta que el proceso termina, asi que
+ * envolverlo en promesas las encola: se ejecutan una despues de otra y el `--paralelo 3`
+ * queda decorativo. No falla ni avisa — simplemente tarda tres veces mas.
+ *
+ * Medido el 02/09/2026 sobre «Growing Content Specialist»: 20 clases de ~1 hora en 3
+ * horas, o sea 9 min cada una, con UN solo ffmpeg vivo y la CPU al 37% de 12 nucleos.
+ * Con 600 clases por delante eso eran dias.
+ *
+ * Va con `spawn` asincronico, que es lo que de verdad deja correr N a la vez. Y aca el
+ * paralelo importa el doble: cada lectura viene de G:, que es un filesystem de red — la
+ * mayor parte del tiempo de una extraccion es ESPERAR bytes, no procesarlos.
+ */
+const correr = (args, maxBuffer = 1 << 26) => new Promise((res) => {
+  const p = spawn(FFMPEG, args, { windowsHide: true });
+  let err = '';
+  // El stderr se lee SIEMPRE: si nadie lo consume y llena el buffer del pipe, el proceso
+  // se cuelga esperando poder escribir. Con `spawnSync` eso lo resolvia node; con `spawn`
+  // es responsabilidad de quien lo llama.
+  p.stderr.on('data', (d) => { if (err.length < maxBuffer) err += d; });
+  p.on('error', (e) => res({ status: -1, stderr: String(e.message) }));
+  p.on('close', (status) => res({ status, stderr: err }));
+});
+
+const extraer = async ({ c, src, salida }) => {
   const parcial = `${salida}.parcial`;
-  const r = spawnSync(FFMPEG, [
+  const r = await correr([
     '-v', 'error', '-y', '-i', src,
     '-vn', '-ac', '1', '-ar', '16000', '-c:a', 'aac', '-b:a', `${KBPS}k`,
     '-f', 'mp4', parcial,
-  ], { encoding: 'utf8', maxBuffer: 1 << 26 });
+  ]);
   if (r.status !== 0 || !existsSync(parcial)) {
     try { unlinkSync(parcial); } catch { /* no estaba */ }
     return { c, err: (r.stderr || '').trim().split('\n').slice(-2).join(' ') || `ffmpeg salió ${r.status}` };
   }
-  const chk = spawnSync(FFMPEG, ['-v', 'error', '-i', parcial, '-f', 'null', '-'], { encoding: 'utf8', maxBuffer: 1 << 24 });
+  const chk = await correr(['-v', 'error', '-i', parcial, '-f', 'null', '-'], 1 << 24);
   if (chk.status !== 0) {
     try { unlinkSync(parcial); } catch { /* nada */ }
     return { c, err: 'el audio no decodifica' };
@@ -106,7 +132,7 @@ const fallos = [];
 // esperando la lectura de G:, que es un filesystem de red y tiene latencia.
 for (let i = 0; i < pendientes.length; i += PARALELO) {
   const lote = pendientes.slice(i, i + PARALELO);
-  const res = await Promise.all(lote.map((p) => Promise.resolve().then(() => extraer(p))));
+  const res = await Promise.all(lote.map((p) => extraer(p)));
   for (const r of res) {
     if (r.err) { fallos.push(r); console.log(`  ✖ ${r.c.archivo} — ${r.err}`); }
     else { ok++; console.log(`  ✓ ${r.c.archivo}  (${r.mb.toFixed(1)} MB)`); }
