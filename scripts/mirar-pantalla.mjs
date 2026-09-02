@@ -31,6 +31,14 @@ const ALTO = Number(process.argv[5] ?? 980);
  * justamente lo que se quiere saber. Va un mouseMoved de verdad.
  */
 const HOVER = process.argv[6] ?? '';
+/**
+ * Cuántas veces apretar «Siguiente» antes de capturar.
+ *
+ * Un wizard no tiene URL por paso, así que la única forma de mirar el paso N es
+ * llegar caminando. ⚠️ Y eso ESCRIBE: cada «Siguiente» llama a la action de su
+ * paso. Antes de usarlo, `scripts/onboarding-vg-respaldo.mts guardar`.
+ */
+const AVANCES = Number(process.argv[7] ?? 0);
 const PUERTO = 9333;
 
 const CHROME = [
@@ -149,6 +157,19 @@ const info = await cdp('Runtime.evaluate', {
   returnByValue: true,
 });
 console.log(info.result.value);
+
+for (let i = 0; i < AVANCES; i++) {
+  const ok = await cdp('Runtime.evaluate', {
+    expression: `(() => {
+      const b = [...document.querySelectorAll('button')].find((x) => x.innerText.trim() === 'Siguiente');
+      if (!b) return false; b.click(); return true;
+    })()`,
+    returnByValue: true,
+  });
+  if (!ok.result.value) { console.error('no encontré el «Siguiente» en el avance ' + (i + 1)); break; }
+  await dormir(2600);
+}
+if (AVANCES) { previo = -1; quietas = 0; for (let i = 0; i < 40; i++) { await dormir(400); const n = await cdp('Runtime.evaluate', { expression: 'document.body.innerText.length', returnByValue: true }).then((r) => r.result.value).catch(() => -1); if (n > 0 && n === previo) { quietas += 1; if (quietas >= 3) break; } else quietas = 0; previo = n; } }
 
 if (HOVER) {
   // ⚠️ EL SELECTOR LO ARMA NODE, NO LA PÁGINA.

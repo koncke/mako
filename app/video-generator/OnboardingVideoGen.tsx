@@ -34,7 +34,7 @@ import { Estudio } from './WizardAnuncio';
 import { ModalFotos } from './ElegirFoto';
 import { Button, Select } from '@/app/_ui';
 import { Icon } from '../_components/icons';
-import { ACENTOS_ES, MULETILLAS, ETIQUETA_ACENTO, ZONA_DEL_ACENTO, acentoDeZona, type AcentoId } from '@/lib/acento-workspace';
+import { ACENTOS_ES, MULETILLAS, ETIQUETA_ACENTO, ZONA_DEL_ACENTO, REGIONES, acentoDeZona, type AcentoId } from '@/lib/acento-workspace';
 import type { Puente } from '@/lib/flow-cola';
 import { estadoDelPuente, AvisoPuente } from './puente-avisos';
 import { estadoPuenteAction } from './puente-actions';
@@ -123,17 +123,101 @@ function GrabadorVoz({ onListo, ocupado }: {
   );
 }
 
+/**
+ * Las regiones del catálogo, repartidas en tres columnas para el desplegable.
+ *
+ * El reparto busca que ninguna columna sea mucho más larga que las otras: si una
+ * mide el doble, el menú vuelve a tener el alto de una lista.
+ */
+const COLUMNAS_ACENTO = [
+  ['México', 'Sin marca de país'],
+  ['Centroamérica y el Caribe', 'España'],
+  ['Sudamérica'],
+].map((titulos) => titulos.map((t) => {
+  const r = REGIONES.find((x) => x.titulo === t);
+  return {
+    title: t,
+    options: (r?.acentos ?? []).map((id) => ({
+      value: id,
+      label: ETIQUETA_ACENTO[id],
+      sub: ZONA_DEL_ACENTO[id],
+    })),
+  };
+}));
+
 /** El ancho de la tarjeta grande, y el paso entre dos tarjetas. */
 const W = 300, H = 400, SALTO = 240;
 
 /**
+ * Una tarjeta del mazo, con su propio estado de carga.
+ *
+ * ⚠️ EL HUECO SE DIBUJA ANTES QUE LA FOTO. Las fotos vienen de URLs firmadas de
+ * Supabase y tardan; sin un fondo propio, la tarjeta que todavía no cargó se veía
+ * como una BANDA FINA cortada al costado de la grande — que no se lee como «está
+ * cargando», se lee como un bug de layout. El dueño lo reportó así: «si no carga,
+ * con el loader, no que aparezca así, como si fuera cortada».
+ *
+ * El marco tiene su tamaño desde el primer frame y la foto entra encima cuando
+ * está lista.
+ */
+function CartaFoto({ url, alt }: { url: string; alt: string }) {
+  const [lista, setLista] = useState(false);
+  return (
+    <span style={{ position: 'absolute', inset: 0, background: 'var(--surface-2)', display: 'block' }}>
+      {!lista && (
+        <span aria-hidden style={{
+          position: 'absolute', inset: 0, display: 'grid', placeItems: 'center',
+          color: 'var(--faint)',
+        }}>
+          {/* ⚠️ GIRA. Un ícono de recargar QUIETO no se lee como «cargando»: se lee
+              como un error o como un hueco roto. El keyframe `spin` ya existe en
+              globals.css y es el mismo que usa el botón en estado loading. */}
+          <span style={{ display: 'grid', animation: 'spin .7s linear infinite' }}>
+            <Icon name="regenerar" size={22} />
+          </span>
+        </span>
+      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={url}
+        alt={alt}
+        onLoad={() => setLista(true)}
+        // Una foto que no carga NO puede dejar el loader girando para siempre:
+        // se muestra el marco vacío, que al menos no miente sobre el progreso.
+        onError={() => setLista(true)}
+        style={{
+          width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center',
+          display: 'block', opacity: lista ? 1 : 0, transition: 'opacity 240ms ease',
+        }}
+      />
+    </span>
+  );
+}
+
+/**
  * El mazo de fotos: una grande al centro y las vecinas asomando a los costados.
  *
- * ⚠️ SIN FOTOS TAMBIÉN SE DIBUJA, con tres marcos vacíos y el gesto de subir en
- * el del medio. El dueño: «en caso de no tener fotos, tiene que aparecer el
- * placeholder y en la principal un mensaje para agregar foto». La forma de la
- * pantalla no puede depender de si ya hay datos: si el vacío es una caja distinta,
- * subir la primera foto reacomoda todo y la persona no reconoce dónde está.
+ * ⚠️ ES UN BUCLE: SIEMPRE hay foto a los dos lados, en la primera y en la última.
+ *
+ * La versión anterior no daba la vuelta, con un argumento que sonaba bien —«que no
+ * haya tarjeta a la izquierda dice que estás en la primera»—. El dueño lo rechazó:
+ * «SIEMPRE debe tener una foto a ambos costados, no importa si es la primera o la
+ * última. Es un bucle». Y tiene razón sobre lo que se ve: un hueco a un costado se
+ * lee como que la pieza está rota, no como una posición.
+ *
+ * Cómo se hace sin perder el desplazamiento: la distancia al centro se calcula en
+ * módulo N y se pliega al rango (-N/2, N/2], así que la vecina de la última es la
+ * primera con distancia +1 y el movimiento sigue siendo un `transform` de un paso.
+ * Las que dan la vuelta por el otro lado SALTAN de posición, pero pasa con
+ * `opacity: 0`, o sea fuera de la vista.
+ *
+ * ⚠️ Y CON POCAS FOTOS SE REPITE LA LISTA. Con dos, el módulo deja un solo vecino
+ * y vuelve el hueco. Se repite hasta llegar a cinco tarjetas —las que la ventana
+ * puede mostrar— para que los dos costados estén siempre ocupados.
+ *
+ * ⚠️ SIN FOTOS TAMBIÉN SE DIBUJA, con tres marcos vacíos y el gesto de subir en el
+ * del medio: si el vacío es una caja distinta, subir la primera foto reacomoda todo
+ * y la persona no reconoce dónde está.
  */
 function Carrusel({ fotos, idx, subiendo, onIr, onAbrir, onSubir }: {
   fotos: { id: string; url: string }[];
@@ -143,110 +227,137 @@ function Carrusel({ fotos, idx, subiendo, onIr, onAbrir, onSubir }: {
   onAbrir: () => void;
   onSubir: (fs: FileList | null) => Promise<void>;
 }) {
-  const vacio = fotos.length === 0;
-  // Con fotos, una tarjeta por foto. Sin fotos, tres marcos: el del medio es el
-  // que sube y los de los costados dicen que van a entrar más.
-  const cartas = vacio ? [-1, 0, 1] : fotos.map((_, i) => i - idx);
+  const n = fotos.length;
+  const vacio = n === 0;
+
+  /**
+   * El mazo se pasa SOLO.
+   *
+   * Un carrusel que sólo se mueve al tocarlo no le dice a nadie que hay más fotos:
+   * la única pista son unos puntos de 7 px. Moviéndose, la pieza se explica en el
+   * primer segundo. El dueño: «el carrusel no se desplaza automáticamente».
+   *
+   * ⚠️ SE PARA CUANDO LA PERSONA ESTÁ MIRANDO. Con el mouse encima o con el foco
+   * adentro no avanza: pasar de foto justo cuando alguien va a hacer clic es
+   * peor que no moverse. Y `prefers-reduced-motion` lo apaga del todo — es
+   * movimiento automático, exactamente lo que esa preferencia pide que no pase.
+   */
+  const [quieto, setQuieto] = useState(false);
+  useEffect(() => {
+    if (n < 2 || quieto) return;
+    let reducido = false;
+    try { reducido = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* sin matchMedia, se mueve */ }
+    if (reducido) return;
+    const t = setInterval(() => onIr((idx + 1) % n), 3800);
+    return () => clearInterval(t);
+    // `idx` entra a propósito: cada paso reinicia el reloj, así que tocar una
+    // foto no deja el siguiente salto a medio camino.
+  }, [n, quieto, idx, onIr]);
+
+  // La lista repetida hasta que la ventana de cinco tenga con qué llenarse.
+  const anillo: { foto: { id: string; url: string }; real: number; clave: string }[] = [];
+  if (n > 0) {
+    const copias = Math.max(1, Math.ceil(5 / n));
+    for (let c = 0; c < copias; c++) {
+      for (let j = 0; j < n; j++) anillo.push({ foto: fotos[j], real: j, clave: `${fotos[j].id}#${c}` });
+    }
+  }
+  const N = anillo.length;
+
+  /** La distancia al centro, plegada para que el anillo cierre por los dos lados. */
+  const distancia = (i: number) => {
+    const bruta = ((i - idx) % N + N) % N;
+    return bruta > N / 2 ? bruta - N : bruta;
+  };
+
+  // Sin fotos: tres marcos, y el del medio sube.
+  const huecos = [-1, 0, 1];
 
   return (
-    <div style={{
-      position: 'relative', width: '100%', height: H + 24,
-      overflow: 'hidden',
-    }}>
-      {cartas.map((d, j) => {
-        const centro = d === 0;
-        const foto = vacio ? undefined : fotos[j];
-        const marco: React.CSSProperties = {
-          position: 'absolute', top: 12, left: '50%',
-          width: W, height: H, flex: 'none', padding: 0,
-          borderRadius: 18,
-          // El recorrido entero vive acá: cambiar `idx` cambia `d`, y con eso
-          // sólo se mueve un transform.
-          transform: `translateX(calc(-50% + ${d * SALTO}px)) scale(${centro ? 1 : 0.8})`,
-          opacity: Math.abs(d) >= 2 ? 0 : centro ? 1 : 0.5,
-          filter: centro ? 'none' : 'brightness(.75)',
-          pointerEvents: Math.abs(d) >= 2 ? 'none' : 'auto',
-          zIndex: centro ? 2 : 1,
-          overflow: 'hidden',
-          transition: 'transform 380ms cubic-bezier(.22,.61,.36,1), opacity 380ms ease, filter 380ms ease',
-        };
-
-        // ── Sin fotos: marcos punteados, y el del medio sube ──────────────
-        if (vacio) {
-          const hueco = {
-            ...marco,
-            border: '1px dashed var(--border-strong)',
-            background: 'var(--surface-2)',
-          };
-          if (!centro) return <div key={d} aria-hidden style={hueco} />;
-          return (
-            <label
-              key={d}
-              style={{
-                ...hueco,
-                display: 'grid', placeItems: 'center', gap: 10, cursor: 'pointer',
-                color: 'var(--dim)', textAlign: 'center', padding: 24,
-              }}
-            >
-              <Icon name={subiendo ? 'regenerar' : 'perfil'} size={44} />
-              <span style={{ fontSize: 'var(--fs-card)', fontWeight: 600, color: 'var(--ink)' }}>
-                {subiendo ? 'Subiendo…' : 'Agrega tu primera foto'}
-              </span>
-              <span style={{ fontSize: 'var(--fs-sm)', lineHeight: 1.45 }}>
-                Sin ella cada toma sale con una cara distinta.
-              </span>
-              <input type="file" accept="image/*" multiple disabled={subiendo}
-                onChange={(e) => void onSubir(e.target.files)} style={{ display: 'none' }} />
-            </label>
-          );
-        }
-
-        // ── Con fotos ─────────────────────────────────────────────────────
-        if (!foto) return null;
-        return (
-          <div
-            key={foto.id}
-            style={{
-              ...marco,
-              boxShadow: centro ? '0 18px 50px rgba(0,0,0,.45)' : 'none',
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={foto.url} alt="" style={{
-              width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center',
-              display: 'block',
-            }} />
-            {/* La del centro ABRE; las de al lado se traen al centro. Un solo
-                gesto por tarjeta, y el de la central lleva el velo que ya usa la
-                generación para decir que se puede editar. */}
-            {centro ? (
-              <button
-                type="button"
-                className="mk-regen__zona"
-                onClick={onAbrir}
-                aria-label="Cambiar tus fotos"
-              >
-                <span className="mk-regen__velo">
-                  <span className="mk-regen__texto">
-                    <Icon name="pen" size={15} />
-                    Cambiar tus fotos
-                  </span>
-                </span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => onIr(j)}
-                aria-label={`Ver la foto ${j + 1}`}
+    <div
+      onMouseEnter={() => setQuieto(true)}
+      onMouseLeave={() => setQuieto(false)}
+      onFocusCapture={() => setQuieto(true)}
+      onBlurCapture={() => setQuieto(false)}
+      style={{ position: 'relative', width: '100%', height: H + 24, overflow: 'hidden' }}
+    >
+      {vacio
+        ? huecos.map((d) => {
+            const centro = d === 0;
+            const marco: React.CSSProperties = {
+              position: 'absolute', top: 12, left: '50%',
+              width: W, height: H, flex: 'none', padding: 0, borderRadius: 18,
+              transform: `translateX(calc(-50% + ${d * SALTO}px)) scale(${centro ? 1 : 0.8})`,
+              opacity: centro ? 1 : 0.5,
+              border: '1px dashed var(--border-strong)',
+              background: 'var(--surface-2)',
+              zIndex: centro ? 2 : 1,
+            };
+            if (!centro) return <div key={d} aria-hidden style={marco} />;
+            return (
+              <label
+                key={d}
                 style={{
-                  position: 'absolute', inset: 0, padding: 0, border: 'none',
-                  background: 'none', cursor: 'pointer',
+                  ...marco,
+                  display: 'grid', placeItems: 'center', gap: 10, cursor: 'pointer',
+                  color: 'var(--dim)', textAlign: 'center', padding: 24,
                 }}
-              />
-            )}
-          </div>
-        );
-      })}
+              >
+                <Icon name={subiendo ? 'regenerar' : 'perfil'} size={44} />
+                <span style={{ fontSize: 'var(--fs-card)', fontWeight: 600, color: 'var(--ink)' }}>
+                  {subiendo ? 'Subiendo…' : 'Agrega tu primera foto'}
+                </span>
+                <input type="file" accept="image/*" multiple disabled={subiendo}
+                  onChange={(e) => void onSubir(e.target.files)} style={{ display: 'none' }} />
+              </label>
+            );
+          })
+        : anillo.map((c, i) => {
+            const d = distancia(i);
+            const centro = d === 0;
+            const lejos = Math.abs(d) >= 2;
+            const marco: React.CSSProperties = {
+              position: 'absolute', top: 12, left: '50%', right: 'auto', bottom: 'auto',
+              width: W, height: H, flex: 'none', padding: 0, borderRadius: 18,
+              border: 'none', overflow: 'hidden',
+              transform: `translateX(calc(-50% + ${d * SALTO}px)) scale(${centro ? 1 : 0.8})`,
+              opacity: lejos ? 0 : centro ? 1 : 0.5,
+              filter: centro ? 'none' : 'brightness(.75)',
+              pointerEvents: lejos ? 'none' : 'auto',
+              zIndex: centro ? 2 : 1,
+              background: 'transparent',
+              boxShadow: centro ? '0 18px 50px rgba(0,0,0,.45)' : 'none',
+              cursor: 'pointer',
+              transition: 'transform 380ms cubic-bezier(.22,.61,.36,1), opacity 380ms ease, filter 380ms ease',
+            };
+            return (
+              <button
+                key={c.clave}
+                type="button"
+                // ⚠️ LA CLASE ES LO QUE DISPARA EL VELO. La regla vive en ui.css como
+                // `.mk-regen__zona:hover .mk-regen__velo`; al reescribir la tarjeta se
+                // perdió la clase y el velo quedó en el DOM sin nadie que lo
+                // encendiera — o sea el gesto que el dueño pidió, mudo. No lo dijo el
+                // compilador: lo dijo la captura con el mouse encima.
+                className={centro ? 'mk-regen__zona' : undefined}
+                style={marco}
+                aria-label={centro ? 'Cambiar tus fotos' : `Ver la foto ${c.real + 1}`}
+                onClick={() => (centro ? onAbrir() : onIr(c.real))}
+              >
+                <CartaFoto url={c.foto.url} alt="" />
+                {/* El velo de «se puede editar» sólo en la del centro, con las
+                    mismas clases que ya usa la generación. */}
+                {centro && (
+                  <span className="mk-regen__velo">
+                    <span className="mk-regen__texto">
+                      <Icon name="pen" size={15} />
+                      Cambiar tus fotos
+                    </span>
+                  </span>
+                )}
+              </button>
+            );
+          })}
     </div>
   );
 }
@@ -807,6 +918,9 @@ export function OnboardingVideoGen({
             fotos={misFotos}
             idx={fotoIdx}
             subiendo={subiendo}
+            // `setFotoIdx` es estable entre renders, así que el efecto del
+            // auto-avance no se reinicia por su culpa. Una función nueva en cada
+            // render dejaría el `setInterval` cancelándose antes de disparar.
             onIr={setFotoIdx}
             onAbrir={() => setEligiendoFoto(true)}
             onSubir={subir}
@@ -857,20 +971,30 @@ export function OnboardingVideoGen({
 
               `Select` abre su propia caja de búsqueda pasadas las 8 opciones, así
               que escribir «chile» llega antes que cualquier scroll. */}
+          {/* ⚠️ EN COLUMNAS Y CON `sub`, NO UNA LISTA CON SCROLL.
+
+              Con `options` planas, 32 variedades abren un menú de scroll infinito
+              y cada renglón mete dos datos en una línea («Mexicano del norte ·
+              Baja California, Sonora, Sinaloa, Monterrey»). El dueño lo reportó
+              sobre la captura: «una barra desplegable súper larga, todo amontonado
+              en el centro».
+
+              `Select` ya tiene las dos salidas y estaban sin usar: `columns` —que
+              existe textual «para listas largas con grupos (evita el scroll
+              infinito)»— y `sub`, que baja la zona a su propio renglón. Se agrupa
+              por región para que buscar sea mirar el continente, no leer 32
+              nombres. */}
           <Select
             ariaLabel="Cómo hablas"
             value={acento}
             onChange={(v) => setAcento(v as AcentoId)}
-            options={ORDEN.map((id) => ({
-              value: id,
-              label: `${ETIQUETA_ACENTO[id]} · ${ZONA_DEL_ACENTO[id]}`,
-            }))}
-            width="100%"
-            // ⚠️ ACÁ HABÍA UN `--campo-alto: 58px` INVENTADO, y no hacía nada: es el
-            // gotcha de siempre —un `var(--token)` inexistente no falla, hereda— y en
-            // la captura el control seguía midiendo lo mismo. `Select` no expone un
-            // tamaño; si hace falta uno grande, se le agrega A LA PRIMITIVE, no se
-            // simula desde acá con un token que nadie lee.
+            columns={COLUMNAS_ACENTO}
+            // ⚠️ Un ancho, no `100%`. El contenido de esta tab llega a ~1000 px, y
+            // un control con una etiqueta de cuatro palabras estirado a todo eso es
+            // una barra. Se acota y queda centrado por el `alignItems` de la
+            // columna del paso.
+            width={460}
+            style={{ alignSelf: 'center' }}
           />
 
           {/* ⚠️ DE DÓNDE SALIÓ, SIEMPRE. Un acento elegido por el sistema y

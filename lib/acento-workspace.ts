@@ -140,6 +140,25 @@ export const ETIQUETA_ACENTO: Record<AcentoId, string> = {
   latam: 'Latino neutro',
 };
 
+/**
+ * Las variedades agrupadas por región, para que el desplegable no sea una lista.
+ *
+ * ⚠️ VIVE ACÁ Y NO EN LA PANTALLA. Es una propiedad del catálogo —de qué región es
+ * cada variedad—, no una decisión de una vista; el día que se agregue una y el
+ * agrupamiento esté escrito en un componente, la variedad nueva no aparece en
+ * ninguna columna y no se puede elegir, sin error y sin síntoma.
+ *
+ * El tipo es a propósito una estructura plana y no la del componente `Dropdown`:
+ * este módulo no importa UI, así que la pantalla la traduce al llegar.
+ */
+export const REGIONES: { titulo: string; acentos: AcentoId[] }[] = [
+  { titulo: 'México', acentos: ['mx-norte', 'mx-cdmx', 'mx-occidente', 'mx-sureste', 'mx-neutro'] },
+  { titulo: 'Centroamérica y el Caribe', acentos: ['gt', 'sv', 'hn', 'ni', 'cr', 'pa', 'cu', 'do', 'pr'] },
+  { titulo: 'Sudamérica', acentos: ['co', 'co-paisa', 'co-costa', 've', 'ec', 'ec-costa', 'pe', 'bo', 'cl', 'py', 'uy', 'ar', 'ar-cordoba'] },
+  { titulo: 'España', acentos: ['es', 'es-andaluz', 'es-canario'] },
+  { titulo: 'Sin marca de país', acentos: ['us', 'latam'] },
+];
+
 /** La zona donde se habla, para que la persona se reconozca por el LUGAR. */
 export const ZONA_DEL_ACENTO: Record<AcentoId, string> = {
   'mx-norte': 'Baja California, Sonora, Sinaloa, Monterrey',
