@@ -2447,3 +2447,157 @@ segundo modo de falla necesita que pase un ciclo del poll. Abrir, esperar más q
 intervalo, y recién ahí mirar.
 
 **Vive en:** `app/video-generator/PuentePanel.tsx`.
+
+### La auditoría UX/UI, y lo que se midió sobre la app renderizada (01/09/2026)
+
+**Vive en:** `app/globals.css` · `tests/puente-panel-copy.test.ts` ·
+`lib/prompts-video.ts` · `app/video-generator/plan-montaje.ts` ·
+`app/video-generator/escenario-reuso.ts` · `scripts/publicar-extension.mjs`
+
+#### ⚠️ Se pudo mirar la app de verdad, y el camino está escrito
+
+Toda la sesión falló al intentarlo: una pestaña CDP nueva no hidrata, y el Chrome
+real **no llega al dev server local** (gotcha ya documentado). El camino que sí
+anda, y que quedó reusable en el scratchpad como `mirar.mjs`:
+
+1. Un Chrome DEDICADO con `--remote-debugging-port=9333` y `--user-data-dir` aparte.
+2. Entrar por `/api/auth/dev-login?ws=1&next=<ruta>` — **`ws=1`, no `ws=3`**: el
+   Cliente de Prueba tiene el onboarding pendiente y tapa cualquier tab nueva.
+3. `Emulation.setDeviceMetricsOverride` **antes** de navegar: sin viewport
+   declarado, `innerWidth` es 0 y toda medición de layout devuelve cero — que se
+   lee como «no hay nada», el peor falso negativo.
+4. Esperar a que `innerText.length` se quede QUIETO tres vueltas, no a un timeout.
+
+**Y lo que eso cambia:** una auditoría de código dice «este color parece flojo»;
+una medición dice «2,46:1 contra un mínimo de 4,5, en 1.045 elementos de /crm».
+De los 8 agentes de la corrida, **ninguno** pudo mirar una pantalla autenticada.
+Los hallazgos que valieron salieron de medir, no de leer.
+
+#### Un token de texto que no pasaba AA, usado 1.158 veces
+
+`--faint: #98A0AC` daba **2,46:1** sobre `--surface-2` y 2,64 sobre blanco. En 207
+archivos. Y fallaba en los DOS temas por caminos opuestos: en oscuro, 3,08.
+
+⚠️ **Y `--dim` se movió aunque NO estaba mal.** Con `--faint` corregido a 4,67 los
+dos quedaban a 0,03 de luminancia: tres niveles que se leen como dos. **Arreglar el
+contraste aplastando la jerarquía es cambiar un problema por otro.**
+
+⚠️ **El escalado proporcional de RGB era la corrección obvia y estaba mal.** El
+azul aporta poca luminancia, así que multiplicar los tres canales dejaba `--faint`
+MÁS OSCURO que `--dim` e invertía la escala. Se descartó midiendo. La corrección
+correcta baja **sólo la luminosidad**, en HSL, conservando tono y saturación.
+
+#### Un guard de copy con un hueco de forma, no de palabra
+
+Escribí un segundo test de voseo y lo borré: ya existía uno repo-wide y bien
+hecho. **Dos guardas para la misma regla es cómo una se queda vieja.**
+
+El hueco del que existía no era el acento: era **el pronombre pegado**. `pedís`
+estaba en el mapa desde siempre; `pedíselo` es otra palabra y el límite Unicode
+—correctamente— no la parte. Por eso `PermissionState` decía «Pedíselo a quien
+administra la cuenta» a todo cliente que choca con un permiso.
+
+**La regla: cuando un detector de formas verbales deja pasar algo, fijate si lo que
+falta es una FAMILIA morfológica y no una palabra.** Agregar `pedíselo` sola habría
+dejado vivos `mandáselo`, `decíle`, `ponéle` y seis más — que es lo que apareció al
+agregar la familia entera.
+
+Y de los nueve que aparecieron, **tres NO eran errores**: son la voz de MaKo
+hablándole a Martín, donde el rioplatense es la regla. Van como excepción declarada
+con su porqué. Corregirlas habría sido «arreglar» la voz del producto para su dueño.
+
+#### ⚠️ Un detector con falsos positivos se apaga, y apagado no detecta nada
+
+El primer intento usaba las formas SIN tilde y daba **1.103 hallazgos**. `sabes`,
+`haces`, `deja`, `mira` y `toca` son español correcto —«tú sabes», «MaKo deja de
+usarlo»—. Con la lista acentuada quedaron **2 en 225 archivos**, y una era real.
+
+La precisión no es prolijidad: es lo que decide si la guarda sobrevive.
+
+#### El formato que más dirección necesitaba era el único sin ninguna
+
+`PROMPT_VIDEO` tenía UNA entrada —Car Talks—, así que The Office caía al prompt que
+escribe el modelo: genérico, en inglés, compitiendo con la imagen de referencia.
+
+Se había dejado así **a propósito y con razón**: copiarle el de Car Talks le habría
+metido «la palanca de cambios» a una oficina, que no es un detalle de más sino una
+instrucción falsa. **Pero la conclusión correcta no era «ninguno»: era el suyo.**
+
+**La regla: cuando se descarta bien una solución mala, el trabajo no terminó —
+descartar no es resolver.** El repo tenía las reglas del formato medidas desde el
+24/08; lo que faltaba era escribirlas como prompt.
+
+⚠️ **Y el formato decide si cubre un clip de voz en off, no un guard global.** Un
+test existente decía —con razón— que para Car Talks «esta persona dice» sobre un
+clip en off es falso. La respuesta CAMBIA por formato: The Office declara
+`habla: 'mixto'` y tiene una rama para cada caso. La plantilla devuelve `null` para
+lo que no sabe dirigir.
+
+Antes de esto, `promptDeClip` se caía al prompt del modelo apenas `habla` era false
+— y en The Office eso son TRES de sus ocho tomas. **Un clip mudo sin instrucción de
+estar mudo es un clip donde el avatar habla encima de la voz en off.**
+
+#### Las tomas de un anuncio no duran todas lo mismo
+
+`porQueNoSirveElPlan` recibía un ESCALAR y se lo llamaba con `clips[0].segundos`.
+Falla en las dos direcciones: con la primera más corta rechaza tramos legítimos con
+un mensaje falso; con la primera más larga **acepta un plan inválido**, y ffmpeg
+devuelve lo que hay y calla.
+
+⚠️ **Y era un bug mío del mismo día, sobre el plan que yo mismo reparé**: el de una
+clienta quedó con tomas de 10, 8 y 10 segundos.
+
+**La regla: antes de colapsar una colección a un escalar, preguntá si la UI deja
+que sus elementos difieran.** Acá había un botón «Darle 10 segundos» y una fila
+para elegir 4/6/8/10 por toma: mezclarlas no es un caso raro, es el camino normal.
+
+Y el mensaje pasa a decir «ESA toma dura N»: decir «cada» vuelve a afirmar la
+uniformidad que causaba el bug, sobre el anuncio de alguien que ve en su pantalla
+que sus tomas duran cosas distintas.
+
+#### Un escenario es del LUGAR, no del formato
+
+Reusar la imagen ya generada ahorra una generación paga y una espera por escenario
+—cuatro en The Office—. Pero el match **no puede ser por formato**: «The Office»
+son cuatro rincones de una oficina y el próximo anuncio puede transcurrir en otros
+cuatro. Reusar por formato pone a la persona en un sitio que su guion no menciona,
+y eso no da error.
+
+Las cuatro que NO se reusan, cada una con su test: lugar distinto, formato distinto
+aunque el lugar coincida, **sin `elegidaId`** (la url vence a las 6 h y el mediaId
+no: una copia sin él se ve perfecta y no se puede filmar) y **sin confirmar**
+(elegir no es confirmar; reusar una no confirmada propaga una decisión que nadie
+tomó).
+
+#### Publicar la extensión: lo que sí se pudo hacer
+
+No puedo subirla —acuñar el token OAuth exige autenticarse en la cuenta de Google—
+pero sí convertir el trámite en un comando: `scripts/publicar-extension.mjs`.
+
+⚠️ **Y no sirven las credenciales de YouTube que ya están en el `.env.local`.** Un
+refresh token está atado a su SCOPE: el de YouTube no puede hablarle a la Chrome
+Web Store aunque el `client_id` sea el mismo. Queda escrito porque es exactamente
+el atajo que uno intenta.
+
+El script **no dice «publicada»**: `status: OK` significa que Google aceptó el
+pedido y lo mandó a REVISIÓN, que tarda días y puede rechazarlo. Y no trata el 200
+como éxito — la tienda contesta 200 con `uploadState: FAILURE` y el motivo adentro
+de `itemError[]`, el mismo modo de falla ya documentado para Meta y Evolution.
+
+#### Lo que quedó SIN hacer
+
+- **El onboarding de la tab `/video-generator`** (persona, clonación de voz,
+  muletillas por país). El contrato está en la skill `tab-onboarding` del repo:
+  tres etapas, lo aburrido AL FINAL, y el ensayo con MaKo haciendo de CLIENTE.
+- **«Escenarios» como paso propio con variaciones de fondo.** El dato ya existe
+  (`item.escenas` con `lugar` + `prompt`, y `variantes-imagen.ts` ya genera
+  variantes); lo que falta es la pantalla que deje pedir otra versión del MISMO
+  lugar sin rehacer el escenario entero.
+- **Los ~40 hallazgos de la auditoría que no se tocaron**, entre ellos tres donde la
+  pantalla afirma un hecho que el código no sabe: el plan celebra la caída de
+  Supabase (`app/plan/page.tsx:56`), el CRM dice «todavía no hay leads» al lado de
+  la cinta roja que dice que no pudo leerlos, y las notas del lead se tragan el
+  error con un `.catch(() => {})` e invitan a escribir una duplicada.
+- **48 pantallas escriben su propio `<main>`** contra 17 que usan `Pagina`, y
+  `Pagina` tiene 88 px de padding lateral fijo que no baja en móvil.
+- **Cero `loading.tsx` en toda la app.**
