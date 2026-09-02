@@ -166,14 +166,38 @@ chrome.webRequest.onBeforeRedirect.addListener(
 // sesión, y si el comportamiento parece automatizado devuelve 403 — que es
 // exactamente lo que tiene que pasar.
 
+// El PATRON para buscar la pestana. Distinto de URL_FLOW, que es la URL a la
+// que se navega: este lleva comodines porque Flow mete el idioma en el path.
+const PATRON_FLOW = 'https://labs.google/fx/*tools/flow*';
+
 async function pestanaDeFlow() {
-  // `discarded: false` importa: Chrome duerme las pestañas que no se miran, y una
-  // pestaña dormida sigue apareciendo en `query` con su URL pero sin ningún script
-  // vivo adentro. Sin este filtro se elige una pestaña muerta habiendo otra sana.
-  const abiertas = await chrome.tabs.query({ url: 'https://labs.google/fx/*tools/flow*', discarded: false });
-  const tab = abiertas.find((t) => t.status === 'complete') || abiertas[0];
-  if (!tab) throw new Error('NO_FLOW_TAB');
-  return tab;
+  // ⚠️ «DORMIDA» NO ES «NO EXISTE», Y CONFUNDIRLAS ES UN CALLEJÓN SIN SALIDA.
+  //
+  // Esto era un solo `query({ url, discarded: false })`. El filtro es correcto
+  // cuando hay varias —una dormida no tiene ningún script vivo adentro, así que
+  // elegirla habiendo otra sana es elegir la muerta—, pero cuando la dormida es
+  // la ÚNICA, el filtro convierte «hay una durmiendo» en «no hay ninguna».
+  //
+  // Y el mensaje que sale de ahí manda a ABRIR Google Flow. La persona la tiene
+  // abierta, la está viendo, la abre otra vez, y el aviso no se va: Chrome duerme
+  // las pestañas que no se miran, y mirar la de MaKo es justamente dejar de mirar
+  // la de Flow. Reportado el 02/09/2026: «ya abrimos Flow y no funcionó, no deja
+  // de salir el botón de abrir Flow».
+  //
+  // Así que primero se pregunta por TODAS y recién después se decide.
+  const todas = await chrome.tabs.query({ url: PATRON_FLOW });
+  const sanas = todas.filter((t) => !t.discarded);
+  const tab = sanas.find((t) => t.status === "complete") || sanas[0];
+  if (tab) return tab;
+
+  // Hay pestaña, pero Chrome la durmió. Se la despierta —`reload` es lo que
+  // revive una descartada— y se avisa que hay que esperar un latido, en vez de
+  // pedir que abran una que ya está abierta.
+  if (todas.length) {
+    try { await chrome.tabs.reload(todas[0].id); } catch { /* si no se puede, lo dice el error */ }
+    throw new Error("FLOW_TAB_DORMIDA");
+  }
+  throw new Error("NO_FLOW_TAB");
 }
 
 /**
@@ -859,7 +883,14 @@ async function ciclo() {
       } catch (e) {
         // Si la pestana esta muda, `estado` y `detalle` ya se escribieron arriba y
         // no se pisan. Lo demas —no poder espiar— no apaga nada.
-        if (String((e && e.message) || e) === 'NO_FLOW_TAB') {
+        const causa = String((e && e.message) || e);
+        if (causa === 'FLOW_TAB_DORMIDA') {
+          // ⚠️ UN MENSAJE QUE PIDE ALGO YA HECHO ENSEÑA A IGNORAR TODOS LOS DEMÁS.
+          // Acá la pestaña existe: lo que hay que decir es que se está
+          // despertando, no que falta abrirla.
+          estado = 'sin_sesion';
+          detalle = 'La pestana de Google Flow estaba dormida. La desperte: espera unos segundos sin cerrarla.';
+        } else if (causa === 'NO_FLOW_TAB') {
           estado = 'sin_sesion';
           detalle = 'No hay ninguna pestana de Google Flow abierta. Abre labs.google/fx/tools/flow y dejala abierta.';
         }
