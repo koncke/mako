@@ -172,3 +172,47 @@ test('GUARDA: el error de IA se dibuja con ErrorIA, no a mano', () => {
     assert.ok(/from '\.\.\/_components\/ErrorIA'/.test(src), `${ruta} dejó de ofrecer la salida cuando la IA falla`);
   }
 });
+
+
+test('un modelo MUERTO no se reporta como saturacion (ni manda a esperar)', () => {
+  // Caso real del 16/08: un cliente con CUATRO proveedores cargados no podia subir un
+  // documento. Los cuatro fallaban por razones DISTINTAS y ninguna era saturacion:
+  //   groq       -> «The model \`llama-3.3-70b-versatile\` does not exist»
+  //   openrouter -> «This model is unavailable for free»
+  //   cerebras   -> HTTP 402 «Payment required» (la cuenta, no el modelo)
+  //   gemini     -> HTTP 429 (cuota de verdad)
+  //
+  // Y la pantalla decia «el proveedor esta saturado, reintenta en un par de minutos»,
+  // porque el clasificador tenia la palabra `unavailable` suelta y matcheaba «unavailable
+  // FOR FREE». Como ese caso corre antes que el de cuota, tapaba el 429 real.
+  //
+  // Las dos mitades importan: un id vencido no se arregla esperando NI conectando otra IA
+  // — se arregla en el catalogo, o sea de nuestro lado.
+  const muerto = motivoDeErroresCascada(['groq: The model llama-3.3-70b-versatile does not exist or you do not have access to it.']);
+  assert.ok(muerto, 'no clasifico un modelo inexistente');
+  assert.doesNotMatch(muerto, /saturado/i, 'un id vencido se reporto como saturacion');
+  assert.doesNotMatch(muerto, /sin cuota/i, 'un id vencido se reporto como cuota');
+  assert.match(muerto, /configuraci/i, 'no dice que el problema es de configuracion nuestra');
+
+  const nofree = motivoDeErroresCascada(['openrouter: This model is unavailable for free. The paid version is available now']);
+  assert.ok(nofree); assert.doesNotMatch(nofree, /saturado/i, 'la palabra «unavailable» volvio a disparar saturacion');
+
+  // Y el 429 REAL deja de quedar tapado cuando viene junto con un modelo muerto.
+  const mezcla = motivoDeErroresCascada([
+    'openrouter: This model is unavailable for free',
+    'gemini: HTTP 429 RESOURCE_EXHAUSTED',
+  ]);
+  assert.ok(mezcla); assert.doesNotMatch(mezcla, /saturado/i, 'sigue ganando saturacion sobre un error de config');
+
+  // La saturacion de verdad (5xx) se sigue reconociendo.
+  assert.match(motivoDeErroresCascada(['gemini: HTTP 503 high demand']) ?? '', /saturado/i);
+});
+
+test('los ids de modelo del catalogo no son los que ya se cayeron', () => {
+  // Cada uno de estos estuvo en el catalogo y dejo de existir en silencio. Un proveedor
+  // con la key cargada y el id vencido se ve IGUAL que uno sano hasta que se lo llama.
+  const ai = readFileSync(new URL('../lib/ai-cheap.ts', import.meta.url), 'utf8');
+  for (const id of ['llama-3.3-70b-versatile', 'nvidia/nemotron-3-nano-30b-a3b:free', 'gemini-2.0-flash', 'gemini-2.5-flash']) {
+    assert.ok(!ai.includes("'" + id + "'"), 'volvio un id de modelo que ya no existe: ' + id);
+  }
+});

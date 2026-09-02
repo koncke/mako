@@ -68,6 +68,15 @@ export function esErrorDeIA(e: string): boolean {
 export function motivoDeErroresCascada(errores: string[]): string | null {
   if (!errores.length) return null;
   const todo = errores.join(' | ').toLowerCase();
+  // ⚠️ UN MODELO QUE YA NO EXISTE NO ES UN PROBLEMA DEL USUARIO, Y VA PRIMERO.
+  // Es config NUESTRA: el id caducó o se cayó del tier gratis. Decirle «reintentá en un par
+  // de minutos» lo manda a esperar algo que no va a cambiar nunca, y decirle «conectá otra
+  // IA» lo manda a cargar keys que tampoco van a servir. Medido el 16/08: un cliente con
+  // CUATRO proveedores cargados no podía subir un documento porque tres tenían el id
+  // vencido — y la pantalla le decía que estaba todo saturado.
+  if (/does not exist|unavailable for free|no longer available|decommissioned|model_not_found|invalid model/.test(todo)) {
+    return 'Hay un problema de configuración de MaKo con ese proveedor de IA: el modelo que teníamos puesto ya no está disponible. No es tu key — avisanos y lo corregimos.';
+  }
   // ⚠️ SATURACIÓN ANTES QUE CUOTA, Y ESE ORDEN ES EL ARREGLO. Un 503 «high demand» es el
   // proveedor caído para todo el mundo: no gastaste nada, tu key está perfecta, y en dos
   // minutos anda. Decirle a alguien «te quedaste sin cuota» lo manda a comprar créditos o
@@ -76,7 +85,13 @@ export function motivoDeErroresCascada(errores: string[]): string | null {
   // Va PRIMERO porque un 503 y un 429 aparecen juntos en la misma tanda —cuatro
   // documentos seguidos contra un proveedor que se está cayendo dan las dos cosas— y el
   // que manda es el que explica la tanda, no el que aparece primero en la lista.
-  if (/\b50[234]\b|unavailable|overloaded|high demand|service_unavailable/.test(todo)) {
+  // ⚠️ Y ACÁ NO PUEDE IR UN `unavailable` SUELTO. Lo había, y matcheaba «This model is
+  // unavailable for free», que no tiene NADA que ver con saturación. Como este caso corre
+  // antes que el de cuota, el 429 REAL de Gemini quedaba tapado por el «unavailable» de
+  // OpenRouter y el usuario leía «esperá un par de minutos» para algo que no se arregla
+  // esperando. La saturación se reconoce por el CÓDIGO (5xx) o por frases que solo
+  // aparecen ahí, nunca por una palabra suelta que otro error puede contener.
+  if (/\b50[234]\b|service_unavailable|temporarily unavailable|overloaded|high demand/.test(todo)) {
     return 'El proveedor de IA está saturado en este momento (no es tu cuota ni tu key). Reintentá en un par de minutos.';
   }
   if (/resource_exhausted|insufficient_quota|quota|\b429\b|rate limit|rate_limit/.test(todo)) {

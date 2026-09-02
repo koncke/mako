@@ -67,12 +67,23 @@ function cfgDe(nombre: ProvName): Omit<Prov, 'key' | 'clave'> {
     case 'mistral': // free tier de La Plateforme. Soporta tools.
       return { nombre, base: 'https://api.mistral.ai/v1', chatModel: process.env.MISTRAL_MODEL || 'mistral-small-latest', sttModel: '' };
     case 'openrouter': // agregador con modelos ":free".
-      // De 410 modelos quedan 19 gratis, y ninguno es el Llama 3.3 que estaba acá.
-      // Se eligió por LATENCIA MEDIDA, no por tamaño: el Nemotron de 120b tarda 25 s en
-      // devolver UN token —o sea se come el timeout de cualquier llamada real— y este
-      // nano de 30b tarda 1,3 s. En una cascada de respaldo, el que tarda 25 s no es un
-      // respaldo: es otra forma de fallar, más lenta.
-      return { nombre, base: 'https://openrouter.ai/api/v1', chatModel: process.env.OPENROUTER_MODEL || 'nvidia/nemotron-3-nano-30b-a3b:free', sttModel: '' };
+      // ⚠️ LOS ID DE ESTE PROVEEDOR CADUCAN, Y CUANDO CADUCAN LA KEY QUEDA MUERTA EN SILENCIO.
+      // Acá ya estuvieron un Llama 3.3 y después un `nvidia/nemotron-3-nano-30b-a3b:free`, y
+      // los dos dejaron de existir. El segundo devolvía, TEXTUAL: «This model is unavailable
+      // for free. The paid version is available now» — o sea que el modelo sigue estando y
+      // solo se cayó del tier gratis, que es el modo más engañoso de romperse.
+      //
+      // Se elige por LATENCIA y por FORMA DE LA SALIDA, las dos medidas contra la key de un
+      // cliente real (16/08): `minimax/minimax-m3:free` contesta en 1,0 s y devuelve el JSON
+      // pelado. Se descartó `nvidia/nemotron-3.5-lightning:free`, que anda y tarda 1,5 s pero
+      // contesta con su razonamiento por delante («Here's a thinking process…») — inútil para
+      // los callers que parsean JSON. Y `google/gemma-4-31b-it:free` y `z-ai/glm-5.2:free`
+      // daban 429 «temporarily rate-limited» en el momento de medir.
+      //
+      // Antes de cambiar este id: pedí la lista real (`GET /api/v1/models`, filtrar por
+      // `:free`) y PROBÁ el candidato con un payload de verdad. Que esté listado no significa
+      // que sirva — esa es la lección que dejó cada uno de los dos anteriores.
+      return { nombre, base: 'https://openrouter.ai/api/v1', chatModel: process.env.OPENROUTER_MODEL || 'minimax/minimax-m3:free', sttModel: '' };
     default:
       return { nombre: 'openai', base: 'https://api.openai.com/v1', chatModel: process.env.CHEAP_MODEL || 'gpt-4o-mini', sttModel: process.env.STT_MODEL || 'whisper-1' };
   }
@@ -238,12 +249,29 @@ function modelosAProbar(prov: ProvName, pedido?: string): Array<string | undefin
   return [pedido, ...respaldos];
 }
 
+/**
+ * El modelo que lee DOCUMENTOS en cada proveedor.
+ *
+ * ⚠️ ESTOS ID CADUCAN Y SE ROMPEN EN SILENCIO. Medido el 16/08 contra la key de un
+ * cliente que tenía CUATRO proveedores cargados y aún así no podía subir un documento:
+ *   · groq       → «The model `llama-3.3-70b-versatile` does not exist» (id muerto)
+ *   · openrouter → «This model is unavailable for free» (se cayó del tier gratis)
+ *   · cerebras   → HTTP 402 «Payment required» (la CUENTA no tiene tier gratis)
+ *   · gemini     → HTTP 429 (cuota de verdad)
+ * O sea: de cuatro respaldos, tres estaban muertos y nadie se había enterado. Un
+ * proveedor con la key cargada y el id vencido se ve EXACTAMENTE igual que uno sano
+ * hasta que se lo llama.
+ *
+ * Los de ahora se eligieron pidiéndole a cada API su lista real y PROBÁNDOLOS con un
+ * payload de verdad: groq `openai/gpt-oss-120b` (1,2 s) y openrouter
+ * `minimax/minimax-m3:free` (1,0 s, JSON pelado).
+ */
 export const MODELO_DOCS: Partial<Record<ProvName, string>> = {
-  groq: process.env.DOCS_MODEL_GROQ || 'llama-3.3-70b-versatile',
+  groq: process.env.DOCS_MODEL_GROQ || 'openai/gpt-oss-120b',
   gemini: process.env.GEMINI_MODEL || 'gemini-flash-latest',
   openai: 'gpt-4o-mini',
   cerebras: 'gpt-oss-120b',
-  openrouter: 'nvidia/nemotron-3-nano-30b-a3b:free',
+  openrouter: 'minimax/minimax-m3:free',
   mistral: 'mistral-small-latest',
 };
 /** ¿Hay alguna IA para leer documentos (Gemini/Groq/OpenAI/…) en este workspace? */
