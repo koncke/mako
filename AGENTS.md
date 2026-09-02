@@ -874,9 +874,27 @@ hacer?**» y «**Tocá** el botón», con los siete prompts pidiendo acento
   (`lib/puestas-data.ts`, sin `server-only` para que se pueda testear) marca el texto y la
   pantalla lo muestra. No corrige —reemplazar formas verbales a mano rompe la prosodia—:
   avisa y se rehace.
-- **Cuando el texto lo va a DECIR una persona, el acento es un campo, no un default.** No
-  se puede adivinar, y equivocarlo no se nota al leer: se nota cuando alguien lo dice en
-  voz alta. Ya costó seis versiones de guion.
+- **Cuando el texto lo va a DECIR una persona, el acento es un campo, no un default.**
+  No se puede adivinar, y equivocarlo no se nota al leer: se nota cuando alguien
+  lo dice en voz alta. Ya costó seis versiones de guion.
+
+  ⚠️ **Y UN VALOR QUE SE RESCATA DE OTRO CAMPO DESAPARECE PARA EL REGISTRO QUE
+  NACE SIN ESE CAMPO.** El bloque de acento se saca del prompt que escribió el
+  modelo (`acentoDe(clip.prompt)`), con un porqué correcto: el acento que vale es
+  el de cuando se escribió el plan, no el del perfil de hoy. Lo que ese
+  razonamiento no contempla es al clip que **nunca tuvo prompt** — los que crea el
+  botón «Partirla en N tomas», que es el camino normal para una línea que no entra
+  en el tope, no un caso raro.
+
+  Medido el 02/09/2026: de las 11 tomas de un anuncio, las 9 originales salieron
+  con `Spoken in …` y las 2 nacidas de partir una toma salieron sin nada, 24 veces.
+  El prompt se ve completo, el texto sale en español igual, y el único síntoma es
+  que el modelo no sabe en qué variedad hablarlo.
+
+  **Antes de derivar un valor de otro campo, preguntá qué pasa con las filas que
+  nacen sin él** — y si la respuesta es «se pierde en silencio», hace falta un
+  respaldo a nivel del conjunto (acá `acentoDelPlan`, que además arregla los planes
+  ya rotos sin tocar un dato).
 
 ⚠️ **Y el detector: `\b` de JavaScript es ASCII, incluso con el flag `u`.** En `tocá` no
 hay borde de palabra entre la `á` y el espacio, así que `\b(tocá)\b` da **cero

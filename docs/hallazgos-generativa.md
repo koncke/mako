@@ -4944,3 +4944,78 @@ efecto depende de un dato, el rótulo también.
 - **Si el rechazo es estable por línea o intermitente.** 17 intentos idénticos
   dicen «estable para ESTA línea», pero la misma imagen pasó nueve veces: el
   filtro no es determinista por imagen. Nadie midió la otra punta.
+
+### Partir una toma le borraba el idioma, y eran justo las dos que Google rechazaba (02/09/2026)
+
+**Vive en:** `lib/prompts-video.ts` · `app/video-generator/plan-clips.ts` ·
+`app/video-generator/video-action.ts` · `app/video-generator/video-pedido.ts`
+
+**Cómo se encontró, que es la parte reusable:** sacando el prompt EXACTO de los 26
+pedidos que salieron a Flow y agrupándolos. Los once prompts del anuncio son
+idénticos salvo la línea entre comillas… menos en una cosa:
+
+```
+los 9 que PASARON   …Todo natural.
+                    Spoken in Northern Mexican Spanish (Baja California, Sonora, Sinaloa).
+
+los 2 que FALLAN    …Todo natural.
+                    (nada)
+```
+
+**24 intentos, 0 con acento.** Nadie lo habría visto leyendo el código: el prompt
+se ve completo, el texto sale en español igual, y lo único que cambia es que el
+modelo no sabe en qué variedad hablarlo.
+
+#### ⚠️ La causa: un dato que se RESCATA de otro campo desaparece para el que nació sin él
+
+`promptDeClip` hace `acentoDe(clip.prompt)` — rescata el bloque de acento del
+prompt que escribió el modelo. Y lo hace **a propósito y con su porqué escrito**:
+el acento que vale es el que estaba elegido cuando se escribió el plan, no el del
+perfil de hoy; leerlo del perfil haría que cambiarlo le cambiara la voz a un
+anuncio ya filmado a medias.
+
+El razonamiento es correcto y **no contempla al clip que nunca tuvo prompt**.
+`agregarClip` los creaba con `prompt: ''`, y `acentoDe('')` devuelve vacío.
+
+**La regla: cuando un valor se deriva de otro campo del mismo registro, preguntá
+qué pasa con los registros que nacen sin ese campo.** Acá los que nacen así son
+los que crea el botón «Partirla en N tomas» — o sea el camino normal para una
+línea que no entra en el tope, no un caso raro.
+
+#### Y el segundo hueco, en el mismo camino
+
+`promptDeClip` devuelve el prompt editado A MANO **antes** de tocar el acento. La
+precedencia es correcta —quien abrió el prompt y lo cambió sabe algo de esa toma—
+pero el acento no es dirección: es una instrucción de idioma que el repo declara
+obligatoria. Y esa persona **nunca la vio**, porque hasta el arreglo la pantalla
+armaba el prompt sin ella.
+
+Lo que quedó: si el texto a mano trae su propio `Spoken in …`, ése manda y no se
+toca. Si no trae ninguno, se le agrega el del plan.
+
+#### Lo que se refutó con datos, y vale anotarlo
+
+La hipótesis del dueño era el «Gratis». **Falsa:** la toma 2 dice «Gratis.», la 8
+«te lo estoy regalando» y la 9 «te lo doy gratis». Las tres pasaron. Tampoco es
+«estrés y ansiedad», que aparece en la 2 y en la 8.
+
+#### ⚠️ Lo que NO está probado
+
+Que la falta del acento sea **la causa** del rechazo. La correlación es 9 de 9
+contra 0 de 24, pero el mecanismo no se conoce — y `failureReasons` dice
+`IDENTIFIABLE_PERSON_SAFETY`, que habla de la persona y no del idioma.
+
+Lo contesta refilmar esas dos tomas con el arreglo puesto, **y no cuesta nada**:
+los créditos quedaron en 898 después de 26 generaciones, y el propio Flow escribe
+«no se te ha cobrado por esta generación». Si vuelve a fallar, el acento no era y
+la siguiente variable es la línea (las dos que fallan son las únicas dos que dan
+una instrucción directa: *descarga esto ahora*, *haz clic en el enlace*).
+
+#### La técnica, para la próxima
+
+Cuando un proveedor rechaza algunos ítems de un lote y otros no, **el diff no es
+entre lo que pediste y lo que esperabas: es entre los que pasaron y los que no.**
+Se saca el payload REAL de la base —no el que uno cree que se manda— y se agrupan
+por texto idéntico. Acá esa agrupación puso el hallazgo a la vista en un comando:
+catorce prompts distintos, y los tres últimos grupos sin la línea que todos los
+demás tenían.
