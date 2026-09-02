@@ -4521,3 +4521,148 @@ uno hace cuando el largo ya está bien y lo que quiere arreglar es DÓNDE cortan
   medido, y no lo tenemos.
 - **Verificar el editor en un navegador hidratado.** Sigue sin verse en pantalla.
 - **El worker de montaje sigue sin contenedor**, y Epidemic Sound sin alta.
+
+---
+
+## El lugar donde se graba, y el acento que nunca se preguntó (02/09/2026)
+
+**Vive en:** `lib/escenarios-data.ts` · `lib/escenas.ts` · `lib/escenas-core.ts` ·
+`lib/acento-workspace.ts` · `lib/tab-onboarding-catalogo.ts` ·
+`app/video-generator/voz-cliente.ts` · `app/video-generator/OnboardingVideoGen.tsx` ·
+`app/video-generator/WizardAnuncio.tsx` · `extension/popup.js` ·
+`app/video-generator/PuenteEnlace.tsx`
+
+### ⚠️ Un parámetro que existe desde el día uno y que ningún llamador usa
+
+`resolverAcento(declarado, zona)` decide con qué variedad de español habla el
+avatar de cada cliente. Sus **dos únicos** llamadores pasaban `declarado = null`
+fijo, así que el acento de TODOS los clientes salía de adivinar su zona horaria,
+el resultado se marcaba `seguro: false`, y no había ninguna pantalla donde
+corregirlo.
+
+El propio módulo lo tenía escrito desde que se creó —«el día que el onboarding de
+la tab pregunte el acento, ese valor gana»—, y eso es justamente lo que lo hace
+difícil de ver: **el comentario describe un futuro y se lee como si describiera el
+presente.**
+
+Y equivocarlo **no se ve al leer**: el guion sale en un español correcto igual. Se
+oye, con el clip ya generado y pagado — el mismo modo de falla que dejó el slot
+`{{acento}}` sin llenar durante meses.
+
+**La regla: un parámetro opcional cuyos llamadores pasan todos el mismo valor no
+es opcional, es muerto.** Un `grep` del nombre y una mirada a los call-sites lo
+contesta en treinta segundos, y es el mismo chequeo que ya está escrito en
+AGENTS.md para los campos de retorno.
+
+### El formato decía CÓMO se filma y también DÓNDE, sin que nadie lo hubiera decidido
+
+El síntoma está en los nombres: «The Office» suena a un lugar y **no lo es** — es
+un plano secuencia caminando, que sirve igual en un depósito, un local o un
+coworking. **Un formato con nombre de lugar es el síntoma de dos preguntas
+colapsadas en una**, y hasta ahora el lugar lo elegía MaKo leyendo el guion.
+
+Ahora son dos: el formato (cámara, ritmo, cuántos escenarios) y el escenario
+(dónde pasa), con su catálogo cerrado de ocho lugares.
+
+⚠️ **Y el escenario elegido le GANA al guion**, con la instrucción arriba del guion
+en el prompt. Si el texto dice «entré al depósito» y la persona eligió la oficina,
+se filma en la oficina: lo que se lee último pesa menos, así que la precedencia va
+donde el modelo la lee primero y dice explícitamente qué hacer con el conflicto.
+
+### ⚠️ «Regenerar» no podía cambiar el fondo, y parecía que sí
+
+Regenerar vuelve a tirar el MISMO prompt: el modelo devuelve una variación de lo
+mismo —el mismo rincón con otra luz—, así que quien no quería ESE fondo podía
+apretarlo diez veces y seguir en el mismo lugar. **Un botón que produce un
+resultado distinto cada vez se lee como que hace lo que uno quiere, aunque no lo
+haga.**
+
+La cura no fue tocar la generación: fue que cada lugar traiga sus rincones
+escritos, y que el botón avance por la lista. Y esos mismos rincones se REPARTEN
+entre los escenarios de un anuncio, porque cuatro tomas en la misma oficina que
+salen en la misma pared se leen como un error del modelo y no como una decisión.
+
+### Un error de la extensión estaba CONGELADO, y su única salida no reintentaba
+
+Tres defectos de la misma familia, sobre una clienta con la extensión al día,
+logueada y con su pestaña abierta, que leía «Inicia sesión en MaKo»:
+
+1. **El `catch` de `PuenteEnlace` adivinaba `'sesion'` para cualquier excepción** —
+   el mismo antipatrón ya arreglado un archivo más allá. La única pista sobre por
+   qué no podía conectar era una afirmación inventada ahí. Ahora sólo el
+   `redirect()` de Next (digest `NEXT_REDIRECT`) habla de la sesión.
+2. **`emparejarError` no caducaba.** Vive en el storage y sólo lo pisa el próximo
+   intento: un fallo de hace media hora —o de la versión anterior de la
+   extensión— se repinta con la misma cara que uno de recién.
+3. **La pantalla de error no reintentaba nunca.** Su único botón era «Abrir MaKo»,
+   que lleva a donde no hay nada que hacer porque el botón de conectar vive en la
+   extensión. **Un callejón con forma de salida.**
+
+**La regla, que es la misma tres veces: el estado se lee vivo, no se recuerda.** Y
+un estado recordado que no puede caducar necesita, como mínimo, una acción que lo
+vuelva a medir.
+
+### Dos guardas del repo atraparon cosas que yo escribí
+
+Vale anotarlo porque es lo que justifica el costo de tenerlas:
+
+- La **guarda de voseo** marcó `mirá` en las muletillas argentinas. Tenía razón:
+  esas palabras se PINTAN como chips, o sea que son interfaz. Se cambió por una
+  sin forma verbal antes que abrirle una excepción al guard y dejar sin revisar un
+  archivo donde también viven las etiquetas de los siete acentos. **Una excepción
+  de archivo apaga el guard para todo el archivo.**
+- La **guarda de tokens** (`var(--fs-*)`) marcó un `--fs-lg` que no existe. Un
+  token inexistente hereda en silencio.
+
+### Tres defectos míos que aparecieron escribiendo lo de arriba
+
+- **`porQueNoSirveElPlan` recibía un escalar** y se lo llamaba con
+  `clips[0].segundos`, sobre un plan cuyas tomas duran 10, 8 y 10.
+- **`correr()` no devolvía si había salido bien.** Es el único camino de la
+  pantalla a una action, y un `.then()` encadenado corría IGUAL después de un
+  fallo: «elige el lugar y avanza» iba a avanzar también cuando el lugar no se
+  pudo guardar, y la pantalla siguiente escribía los escenarios sin él. El error
+  se veía; la elección se perdía en silencio.
+- **La oferta de reusar escenarios se limpiaba con un `setState` síncrono dentro
+  del efecto.** Entre que el efecto corre y que el server contesta había una
+  ventana pintando «ya generaste 3 de 4» sobre un anuncio que no tiene ninguno.
+  La cura no fue mover el `setState`: fue que **la respuesta lleve de QUÉ anuncio
+  es**, con lo que la ventana deja de existir.
+
+### El catálogo de onboardings por tab no lo podía importar ningún test
+
+Vivía adentro de un módulo `server-only`. Y tiene **dos reglas que fallan en
+silencio y que ya se cometieron dos veces**: el prefijo de las keys (un `ensayo`
+pelado marca el del Chat Agent como hecho, vía el registro compartido) y el orden
+de los pasos. Se mudó a `lib/tab-onboarding-catalogo.ts`, mismo criterio que
+`onboarding-orden`.
+
+⚠️ Y al mudarlo, el `export … from` **no crea binding local**: el archivo original
+dejó de compilar aunque el re-export fuera correcto. Es el gotcha que AGENTS.md ya
+tiene escrito, cometido igual.
+
+### El ensayo de una tab no lo cierra un botón
+
+`vg_ensayo` lo marca `confirmarEscenaAction` al aprobar el primer escenario de
+verdad, no el wizard. Un «listo» en la última pantalla diría que la tab quedó
+configurada sin que nada lo haya probado — que es exactamente lo que el ensayo
+existe para evitar. Mismo patrón que `landing-an` y `carousels_ensayo`.
+
+### Lo que quedó SIN hacer
+
+- **La clonación de voz no existe.** ElevenLabs está en el catálogo de
+  integraciones y `lib/metodo-verificar.ts` sabe pingear su key, pero **no hay una
+  sola línea que cree un clon ni que convierta audio**: la voz del clip la pone
+  Flow. El onboarding no la promete, y por eso su paso de voz pide el acento y las
+  muletillas —que sí llegan al guion— en vez de un audio que nadie procesaría.
+- **Los ~40 hallazgos de la auditoría UX del 01/09 que no se tocaron**, entre
+  ellos las tres pantallas que afirman un hecho que el código no sabe:
+  `app/plan/page.tsx:56`, el CRM diciendo «todavía no hay leads» al lado de la
+  cinta roja, y `app/crm/lead-view/NotasCard.tsx:39` con su `.catch(() => {})`.
+- **48 pantallas escriben su propio `<main>`** contra 17 que usan `Pagina`, y
+  `Pagina` tiene 88 px de padding lateral fijo que no baja en móvil. **Cero
+  `loading.tsx` en toda la app.**
+- **La extensión sigue sin publicarse en la Chrome Web Store**: acuñar el token
+  OAuth exige autenticarse en la cuenta de Google. El trámite está convertido en
+  un comando (`npm run publicar-extension`) y lo corre Martín.
+- **El worker de montaje sigue sin contenedor**, y Epidemic Sound sin alta.
