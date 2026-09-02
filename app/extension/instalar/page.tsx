@@ -37,6 +37,7 @@ import { Pagina, Lectura, PageHeader, Alert, Section } from '@/app/_ui';
 import { EXTENSION_VERSION } from '@/lib/extension-version';
 import { EXTENSION_EN_TIENDA, EXTENSION_URL_TIENDA, EXTENSION_URL_ZIP } from '@/lib/extension-tienda';
 import { Pasos } from './Pasos';
+import { Icon } from '@/app/_components/icons';
 
 export const metadata: Metadata = { title: 'Instalar la extensión' };
 
@@ -67,6 +68,19 @@ export default function InstalarExtension() {
             pasos={[
               'Abre la ficha de MaKo en la Chrome Web Store y toca **Añadir a Chrome**.',
               'En la barra de Chrome, toca el ícono de MaKo y después **Conectar**.',
+              // ⚠️ ESTE PASO FALTABA, Y ES EL QUE COSTÓ UNA TARDE.
+              //
+              // El instructivo saltaba de «Conectar» a «Todo listo», y el popup NO
+              // dice «Todo listo» ahí: dice «Abre Google Flow» con su botón. Sin
+              // Flow abierto el puente queda en `sin_sesion` para siempre, o sea
+              // que el tutorial prometía un final que no ocurre.
+              //
+              // Reportado el 02/09/2026 sobre una instalación que había salido
+              // bien: «ya abrimos Flow y no funcionó». Habían llegado al final del
+              // instructivo creyendo que estaba terminado.
+              'En el mismo desplegable, toca **Abrir Google Flow** e inicia sesión si te lo pide.',
+              'Deja esa pestaña abierta. Si la cierras, MaKo no puede filmar: es tu sesión de '
+                + 'Google la que produce los videos.',
               'Cuando el desplegable diga **Todo listo**, terminaste.',
             ]}
             botonTexto="Abrir la Chrome Web Store"
@@ -96,15 +110,45 @@ export default function InstalarExtension() {
                   + 'Arriba a la derecha, enciende **Modo de desarrollador**.',
                 'Toca **Cargar descomprimida** y elige la carpeta **mako-puente**.',
                 'En la barra de Chrome, toca el ícono de MaKo y después **Conectar**.',
+                // ⚠️ ESTE PASO FALTABA, Y ES EL QUE COSTÓ UNA TARDE.
+                //
+                // El instructivo saltaba de «Conectar» a «Todo listo», y el popup NO
+                // dice «Todo listo» ahí: dice «Abre Google Flow», con su botón. Sin
+                // Flow abierto el puente queda en `sin_sesion` para siempre, o sea que
+                // el tutorial prometía un final que no ocurre.
+                //
+                // Reportado el 02/09/2026 sobre una instalación que había salido bien:
+                // «ya abrimos Flow y no funcionó». Habían llegado al final del
+                // instructivo creyendo que ya estaba.
+                'En el mismo desplegable, toca **Abrir Google Flow** e inicia sesión si te lo pide.',
+                'Deja esa pestaña abierta. Es tu sesión de Google la que produce los videos: '
+                  + 'si la cierras, MaKo no puede filmar.',
                 'Cuando el desplegable diga **Todo listo**, terminaste.',
               ]}
             />
           </Section>
 
-          <Section
-            titulo="Actualizar a una versión nueva"
-            nota={`La versión actual es la ${EXTENSION_VERSION}.`}
-          >
+          {/* ⚠️ PLEGADA. Desplegada, la página mostraba DOS instructivos completos
+              uno debajo del otro: quien instala por primera vez —que es casi todo
+              el mundo— leía doce pasos para hacer seis, y los dos empezaban
+              distinto (el de abajo arranca con **Quitar**, que asusta antes de
+              haber descargado nada).
+
+              Sigue estando entera y a un clic: lo que la regla de la casa prohíbe
+              es esconder SIN pista, no plegar. */}
+          <details style={{ marginTop: 26 }}>
+            <summary style={{
+              cursor: 'pointer', listStyle: 'none', padding: '10px 0',
+              fontSize: 'var(--fs-sect)', fontWeight: 650, color: 'var(--ink)',
+              display: 'flex', alignItems: 'center', gap: 9,
+            }}>
+              <Icon name="chevron" size={14} />
+              Ya la tengo instalada y quiero actualizarla
+              <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 400, color: 'var(--dim)' }}>
+                · la versión actual es la {EXTENSION_VERSION}
+              </span>
+            </summary>
+
             {/* ⚠️ ESTE AVISO ES EL QUE MÁS TIEMPO AHORRA. El botón ↻ de
                 chrome://extensions se ve como el botón de actualizar y no lo es:
                 vuelve a leer la MISMA carpeta, así que si los archivos no
@@ -118,6 +162,7 @@ export default function InstalarExtension() {
             <Pasos
               zip={EXTENSION_URL_ZIP}
               version={EXTENSION_VERSION}
+              conBoton={false}
               pasos={[
                 'Copia **chrome://extensions** y pégalo en la barra de direcciones. '
                   + 'En la tarjeta de MaKo, toca **Quitar**. No pierdes nada de tu cuenta: '
@@ -128,10 +173,11 @@ export default function InstalarExtension() {
                 `Toca el ícono de MaKo en la barra de Chrome. Abajo del todo tiene que decir `
                   + `**v${EXTENSION_VERSION}**. Si dice otro número, elegiste otra carpeta: `
                   + `repite el paso anterior con la que acabas de descomprimir.`,
-                'Toca **Conectar**. Cuando diga **Todo listo**, terminaste.',
+                'Toca **Conectar** y después **Abrir Google Flow**. Deja esa pestaña abierta.',
+                'Cuando el desplegable diga **Todo listo**, terminaste.',
               ]}
             />
-          </Section>
+          </details>
         </>
       )}
     </Pagina>
