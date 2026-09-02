@@ -136,6 +136,9 @@ import { CURSO_YOUTUBE_2026 } from './curso-youtube-2026';
 import { CURSO_DOMINA_TUS_REDES_CON_IA } from './curso-domina-tus-redes-con-ia';
 import { CURSO_LINKEDIN_FOR_CEOS } from './curso-linkedin-for-ceos';
 import { CURSO_METODO_CONTENIDO_IRRESISTIBLE } from './curso-metodo-contenido-irresistible';
+import { CURSO_HOME_STUDIO_AND_VIRAL_VIDEO_BLUEPRINT } from './curso-home-studio-and-viral-video-blueprint';
+import { CURSO_GROWING_CLOSER_AGUSTIN_NIEVAS_SAMUEL_ALBAA } from './curso-growing-closer-agustin-nievas-samuel-albaa';
+import { CURSO_UNIVERSIDAD_DE_YOUTUBE } from './curso-universidad-de-youtube';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio.datos';
 import { CURSO_BRANDING } from './BrandingMaKo.datos';
@@ -486,6 +489,10 @@ const CATEGORIA: Record<string, string> = {
   // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
   // plataforma. El comentario al lado es la categoría de origen.
   'domina-tus-redes-con-ia': 'Inteligencia Artificial', // IA
+
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'growing-closer-agustin-nievas-samuel-albaa': 'Ecommerce', // Ecommerce
 
 };
 
@@ -1123,6 +1130,10 @@ const RESUMEN: Record<string, string> = {
   // del catálogo de la plataforma.
   'domina-tus-redes-con-ia': 'aller de 4 días en vivo que enseña a usar IA para escribir guiones que se convierten en reels y videos, crear un avatar digital y clonar tu voz.',
 
+  // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
+  // del catálogo de la plataforma.
+  'growing-closer-agustin-nievas-samuel-albaa': 'Programa paso a paso para convertirte en un appointment setter desde cero, aprender a manejar conversaciones, objeciones y prospectos.',
+
 };
 
 // Sin acentos y en minúsculas, para que «Sofia» no se sume a un título que ya dice
@@ -1486,6 +1497,15 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_METODO_CONTENIDO_IRRESISTIBLE,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_HOME_STUDIO_AND_VIRAL_VIDEO_BLUEPRINT,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_GROWING_CLOSER_AGUSTIN_NIEVAS_SAMUEL_ALBAA,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_UNIVERSIDAD_DE_YOUTUBE,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
