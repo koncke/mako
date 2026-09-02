@@ -20,14 +20,13 @@ import type { Puente } from '@/lib/flow-cola';
 import { OnboardingVideoGen } from './OnboardingVideoGen';
 
 export function PuertaVideoGen({
-  fotos, acentoInicial, acentoSeguro, muletillasIniciales, puente, ahora, children,
+  fotos, acentoInicial, acentoSeguro, muletillasIniciales, puente, children,
 }: {
   fotos: { id: string; url: string }[];
   acentoInicial: string;
   acentoSeguro: boolean;
   muletillasIniciales: string[];
   puente: Puente | null;
-  ahora: number | null;
   children: ReactNode;
 }) {
   const [salio, setSalio] = useState(false);
@@ -39,7 +38,6 @@ export function PuertaVideoGen({
       acentoSeguro={acentoSeguro}
       muletillasIniciales={muletillasIniciales}
       puente={puente}
-      ahora={ahora}
       alSalir={() => setSalio(true)}
     />
   );

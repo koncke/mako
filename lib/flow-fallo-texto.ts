@@ -43,6 +43,8 @@
  * Es un mapa CERRADO: un motivo nuevo devuelve `undefined` y quien llama cae a
  * `causaFlow`, que es adivinar. El compilador no avisa de eso; el test sí.
  */
+import { pareceFraseParaPersona } from './flow-media';
+
 export type CausaFlow =
   /** El pedido que sale de acá está mal armado. No es del cliente. */
   | 'nuestra'
@@ -179,6 +181,35 @@ export function cuandoPaso(at: string | undefined, ahora: Date): string {
  * `que` nombra el objeto: «la imagen del escenario 1», «la toma 3». Un error que
  * no dice sobre qué es obliga a adivinar cuál de las siete filas se rompió.
  */
+/**
+ * Lo que destraba un rechazo por la CARA. Uno solo, porque el remedio no
+ * depende de cuál de los dos filtros contestó: los dos miran la imagen desde la
+ * que se anima, así que lo que hay que cambiar es esa imagen.
+ */
+const REMEDIO_CARA = 'No es un problema tuyo ni de MaKo. El video se filma desde la imagen del escenario, así que lo que lo destraba es generar esa imagen otra vez —no cuesta créditos—: sale con la cara un poco distinta y suele pasar. Si insiste, genérala con otra foto tuya: otro ángulo, otra luz, o una donde no mires de frente a la cámara.';
+
+/**
+ * Por qué Google no animó la cara, según lo que contestó ÉL.
+ *
+ * ⚠️ SON DOS FILTROS DISTINTOS Y DECIR EL EQUIVOCADO ES INVENTAR UN HECHO.
+ *
+ * `PROMINENT_PERSON` es «se parece a alguien famoso». `IDENTIFIABLE_PERSON_SAFETY`
+ * es «hay una persona real reconocible» — y decirle a una clienta que Google la
+ * confundió con una celebridad cuando lo que dijo fue otra cosa es afirmar algo
+ * que nadie midió, sobre su propia cara.
+ *
+ * Sin motivo reconocido NO se elige uno: se dice lo único que se sabe.
+ */
+export function detalleFiltroDeCara(razon: string): string {
+  const r = razon || '';
+  const porQue = /PROMINENT_PERSON|PROMINENT_PEOPLE/i.test(r)
+    ? 'Su filtro de personas públicas cree que la cara se parece a la de alguien famoso y se niega a animarla.'
+    : /IDENTIFIABLE_PERSON/i.test(r)
+      ? 'Su filtro de personas reconocibles no quiso animar una cara real. Ojo: NO es por lo que dice tu guion — el texto está bien y reescribirlo no cambia nada.'
+      : 'Google se negó a animar la cara de esta imagen.';
+  return `${porQue} ${REMEDIO_CARA}`;
+}
+
 export function textoFlow(
   causa: CausaFlow,
   que: string,
@@ -195,7 +226,19 @@ export function textoFlow(
 ): TextoFlow {
   const cuando = cuandoPaso(at, ahora);
   const con = (d: string) => {
-    const base = (delServidor || '').trim() || d;
+    // ⚠️ LO QUE PARECE UN PAYLOAD NO SE PINTA NUNCA, venga de donde venga.
+    //
+    // `delServidor` GANA sobre la constante, y eso es correcto — pero el
+    // parámetro ya se usó mal TRES veces, y la tercera le dibujó a una clienta
+    // 1.600 caracteres del JSON de Google centrados adentro del recuadro donde
+    // va el video: dos pantallas le pasaban `errorCrudo`, que es la respuesta
+    // cruda y no una frase.
+    //
+    // La guarda va del lado del que MUESTRA porque es el único punto por el que
+    // pasan todos los llamadores. Arreglar los dos call-sites deja vivo el
+    // tercero, que es exactamente como llegó acá.
+    const suya = (delServidor || '').trim();
+    const base = (suya && pareceFraseParaPersona(suya)) ? suya : d;
     return cuando ? `${cuando} ${base}` : base;
   };
 
@@ -288,9 +331,10 @@ export function textoFlow(
         // Lo que cambia lo que Google mira es una imagen de escenario NUEVA — y
         // eso además no cuesta créditos. La foto es el segundo paso, para cuando
         // el filtro insiste.
-        detalle: con(
-          'Su filtro de personas públicas cree que la cara se parece a la de alguien famoso y se niega a animarla. No es un problema tuyo ni de MaKo. El video se filma desde la imagen del escenario, así que lo que lo destraba es generar esa imagen otra vez —no cuesta créditos—: sale con la cara un poco distinta y suele pasar. Si insiste, genérala con otra foto tuya: otro ángulo, otra luz, o una donde no mires de frente a la cámara.',
-        ),
+        // ⚠️ El default NO nombra ningún filtro: cuál de los dos fue lo sabe el
+        // server, que vio la respuesta, y lo manda por `delServidor`. Acá afirmar
+        // «alguien famoso» sería inventar un hecho sobre la cara de alguien.
+        detalle: con(detalleFiltroDeCara('')),
         accion: 'Volver a generar el escenario',
       };
 

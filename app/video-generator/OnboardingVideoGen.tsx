@@ -33,6 +33,7 @@ import { Icon } from '../_components/icons';
 import { ACENTOS_ES, MULETILLAS, type AcentoId } from '@/lib/acento-workspace';
 import type { Puente } from '@/lib/flow-cola';
 import { estadoDelPuente, AvisoPuente } from './puente-avisos';
+import { estadoPuenteAction } from './puente-actions';
 import { useExtensionInstalada, AvisoExtensionVieja } from './extension-instalada';
 import {
   marcarPasoVideoAction, guardarAcentoAction, guardarMuletillasAction,
@@ -84,7 +85,7 @@ function Contexto({ eyebrow, children }: { eyebrow: string; children: React.Reac
 }
 
 export function OnboardingVideoGen({
-  fotos, acentoInicial, acentoSeguro, muletillasIniciales, puente, ahora, alSalir,
+  fotos, acentoInicial, acentoSeguro, muletillasIniciales, puente: puenteInicial, alSalir,
 }: {
   fotos: { id: string; url: string }[];
   /** El que el server va a usar HOY: declarado si lo hay, inferido si no. */
@@ -93,7 +94,6 @@ export function OnboardingVideoGen({
   acentoSeguro: boolean;
   muletillasIniciales: string[];
   puente: Puente | null;
-  ahora: number | null;
   /** Salir del wizard sin recargar: el guard del server devolvería lo mismo. */
   alSalir: () => void;
 }) {
@@ -131,9 +131,46 @@ export function OnboardingVideoGen({
   // Si la extensión está y con qué versión. Lo mide el propio DOM (el content
   // script marca `data-mako-puente`), así que es un HECHO y no una inferencia.
   const instalada = useExtensionInstalada();
-  // Estado VIVO, no recordado: se recalcula en cada render con el reloj del
-  // server. Un puente que se cayó mientras la persona miraba tiene que dejar de
-  // decir «Listo».
+
+  /**
+   * ⚠️ EL PUENTE ES ESTADO Y EL RELOJ ES DEL NAVEGADOR, y las dos cosas por lo
+   * mismo: este paso es EXACTAMENTE donde la persona se va a otra pestaña a
+   * instalar la extensión y a conectarla.
+   *
+   * Con el snapshot del server congelado en un prop, volver acá mostraba el
+   * estado de antes de haber conectado y el paso no dejaba avanzar — sobre un
+   * puente que ya estaba andando. Es la regla de la casa: el estado se lee vivo,
+   * no se recuerda.
+   *
+   * Y el reloj arranca en `null` a propósito, igual que en `VideoGeneratorApp`:
+   * decidir una rama con dos relojes distintos —el del server y el del
+   * navegador— durante la hidratación es cómo se pinta «no conectado» sobre uno
+   * sano por un segundo.
+   */
+  const [puente, setPuente] = useState(puenteInicial);
+  const [ahora, setAhora] = useState<number | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    const mirar = () => {
+      if (document.visibilityState !== 'visible') return;
+      setAhora(Date.now());
+      void estadoPuenteAction()
+        .then((p) => { if (vivo && p) setPuente(p); })
+        .catch(() => { /* el estado de antes sigue siendo lo mejor que se sabe */ });
+    };
+    mirar();
+    // El mismo pulso que usa la tab y que late la extensión. Sólo con la
+    // pestaña visible: un poll de fondo sobre una pestaña que nadie mira es
+    // tráfico contra la base por una respuesta que nadie va a leer.
+    const t = window.setInterval(mirar, 15000);
+    document.addEventListener('visibilitychange', mirar);
+    return () => {
+      vivo = false;
+      window.clearInterval(t);
+      document.removeEventListener('visibilitychange', mirar);
+    };
+  }, []);
+
   const est = estadoDelPuente(puente, ahora);
 
   const idx = PASOS.indexOf(paso);

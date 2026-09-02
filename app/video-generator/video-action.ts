@@ -37,7 +37,8 @@ import { puestaPorId, contarPalabras, marcasDeVoseo, palabrasQueEntran } from '@
 import { estaVivo } from '@/lib/flow-puente-frescura';
 import { generarPlanAction } from './actions';
 import { guionesDisponibles } from './guiones-datos';
-import { causaFlow, causaDeMotivo, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
+import { causaFlow, causaDeMotivo, textoFlow, detalleFiltroDeCara, type CausaFlow } from '@/lib/flow-fallo-texto';
+import { mediaDeFlow, esFiltroDeCara } from '@/lib/flow-media';
 import { getSetting, setSetting } from '@/lib/settings';
 import { leerHistorial, guardarEnHistorial, type PlanGuardado, type MarcaVideo, type MarcaImagen } from './video-datos';
 import { sanearPlantillas, tieneCaraParcheable, KEY_PLANTILLAS } from '@/lib/flow-plantillas';
@@ -790,12 +791,20 @@ export async function estadoTomaAction(
   const mias = consultas ?? [];
 
   for (const c of mias.filter((c) => str(c.estado) === 'listo')) {
-    // Se mira la consulta ENTERA y no una ruta: la respuesta del estado tiene la
-    // misma costumbre de mover los campos de lugar. Se comprueba que la operación
-    // sea la nuestra buscando su nombre en cualquier parte del objeto, y recién
-    // ahí se saca la URL.
     const texto = JSON.stringify(c.resultado ?? '');
-    if (!texto.includes(operacion)) continue;
+    // ⚠️ EL MEDIO PROPIO, NO EL JSON ENTERO. Acá se leía todo con un regex y una
+    // búsqueda a cualquier profundidad, y la respuesta contesta por VARIOS medios
+    // a la vez: en la de una clienta venían su clip Y la imagen del escenario
+    // desde la que se anima, hermanos en `media[]`. La imagen está en todas las
+    // consultas y siempre sale SUCCESSFUL.
+    //
+    // Las dos lecturas globales fallaban calladas: con el clip bien y la imagen
+    // mal el clip se marcaba rechazado, y `buscarCampo` podía devolver la url de
+    // la IMAGEN como si fuera el video —una toma que reproduce una foto fija, que
+    // se ve como un clip—. El desambiguador exacto existe y es el `name`.
+    const mio = mediaDeFlow(c.resultado, operacion);
+    // `null` = esta respuesta no habla de este medio. NO es «todavía no».
+    if (!mio) continue;
 
     // ── ⚠️ GOOGLE PUEDE HABERLO RECHAZADO, Y ESO NO ES «TODAVÍA NO» ────────
     //
@@ -816,13 +825,30 @@ export async function estadoTomaAction(
     // «pasó y se murió» se ven iguales si mirás sólo el resultado— y la razón por
     // la que un rechazo TIENE que dejar rastro: sin esto, «Google lo rechazó» y
     // «Google está tardando» son la misma pantalla.
-    if (/MEDIA_GENERATION_STATUS_FAILED/.test(texto)) {
-      const porFamoso = /PROMINENT_PERSON|PROMINENT_PEOPLE/i.test(texto);
-      const causa: CausaFlow = porFamoso ? 'persona_publica' : 'contenido';
-      const t = textoFlow(porFamoso ? 'persona_publica' : 'contenido', `la toma ${n}`);
+    if (mio.estado === 'fallo') {
+      // ⚠️ LA FAMILIA DEL FILTRO DE CARA TIENE DOS MIEMBROS Y ACÁ SE MIRABA UNO.
+      //
+      // Sólo se buscaba `PROMINENT_PERSON`, así que un rechazo por
+      // `IDENTIFIABLE_PERSON_SAFETY` —el filtro de personas reconocibles— caía al
+      // `else` y salía como «el filtro de contenido rechazó cómo está escrito el
+      // escenario… hay que reescribirlo».
+      //
+      // Medido el 02/09/2026: dos tomas de una clienta con ese motivo exacto. Su
+      // guion estaba perfecto. La mandamos a reescribir lo único que no era el
+      // problema, y el camino que SÍ destraba —regenerar la imagen, que es
+      // gratis— no se le nombró nunca.
+      const deCara = esFiltroDeCara(mio.razon);
+      const causa: CausaFlow = deCara ? 'persona_publica' : 'contenido';
+      // La frase precisa la arma quien SABE qué contestó Google: decir «se parece
+      // a alguien famoso» cuando el filtro fue otro es inventar un hecho sobre la
+      // cara de alguien.
+      const t = deCara
+        ? { detalle: detalleFiltroDeCara(mio.razon) }
+        : textoFlow('contenido', `la toma ${n}`);
       item = await guardarMarca(item, n, {
         error: t.detalle,
         errorCausa: causa,
+        errorDetalle: t.detalle,
         // El crudo se guarda para poder diagnosticar sin pedir otra captura: el
         // motivo real de Google vive ahí y no en nuestra traducción.
         errorCrudo: crudoGuardable(texto),
@@ -834,7 +860,9 @@ export async function estadoTomaAction(
     // Los nombres salen del ESQUEMA del bundle de Flow, no de suponer: la respuesta
     // de estado declara `outputUri` y `encodedVideo`, y el medio terminado trae
     // `fifeUrl`. Se buscan todos, en cualquier profundidad.
-    const url = buscarCampo(c.resultado, ['fifeUrl', 'outputUri', 'videoUri', 'servingUrl', 'encodedVideo', 'url']);
+    // Los nombres de campo viven en `lib/flow-media.ts`, y la búsqueda va acotada
+    // al subárbol del medio propio. Ver el porqué arriba.
+    const url = mio.url;
     if (!url) {
       // ⚠️ LA CONSULTA CONTESTÓ Y EL CLIP ESTÁ HECHO: eso NO es «todavía no».
       //
@@ -847,7 +875,7 @@ export async function estadoTomaAction(
       // siempre sobre un video que ya existía. Son dos situaciones distintas y hay
       // que decirlas distinto: esperar no sirve, y volver a filmar tira un clip
       // pagado.
-      if (/MEDIA_GENERATION_STATUS_SUCCESSFUL/.test(texto)) {
+      if (mio.estado === 'ok') {
         // ── EL CLIP ESTÁ HECHO: SE PIDE SU ENLACE Y SE BAJA ────────────────
         //
         // Todo lo de abajo es el porqué de que esto NO sea `marca.url = <url de
@@ -902,7 +930,12 @@ export async function estadoTomaAction(
       }
       continue;
     }
-    const mediaId = extraerMediaId(c.resultado) || buscarCampo(c.resultado, ['mediaId', 'mediaGenerationId']) || operacion;
+    // ⚠️ EL ID SALE DEL MEDIO PROPIO, y antes de dos búsquedas globales sobre una
+    // respuesta que habla de VARIOS. El `mediaId` es con lo que después se pide el
+    // enlace y se baja el archivo, así que agarrar el del hermano —la imagen del
+    // escenario— bajaría una foto fija con nombre de clip. `mio.name` ya está
+    // desambiguado: es el nodo cuyo `name` coincide con la operación pedida.
+    const mediaId = mio.name || operacion;
     // La ceguera se borra sola: si esta consulta contestó, ya no estamos ciegos.
     item = await guardarMarca(item, n, { url, mediaId, ciego: undefined });
     // El clip esta listo: se pregunta el saldo, y la resta contra el de antes da
@@ -1141,6 +1174,11 @@ function falloGuardable(crudo: string, que: string, motivo = '') {
   return {
     error: textoFlow(causa, que, undefined, undefined, crudo).titulo,
     errorCausa: causa,
+    // ⚠️ ACÁ `crudo` ES UNA FRASE, no un payload: llega de `data.error`, que lo
+    // escribió `lib/flow-protocolo.ts` traduciendo la respuesta de Google. Por eso
+    // va también a `errorDetalle` — es exactamente lo que la pantalla tiene que
+    // mostrar, y es la instrucción que dice qué apretar.
+    errorDetalle: crudo,
     errorCrudo: crudo,
     errorAt: new Date().toISOString(),
   };

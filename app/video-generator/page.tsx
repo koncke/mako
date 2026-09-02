@@ -81,7 +81,6 @@ export default async function Page() {
           acentoSeguro={contexto.acento.seguro}
           muletillasIniciales={contexto.acento.muletillas}
           puente={puente}
-          ahora={Date.now()}
         >
           {app}
         </PuertaVideoGen>

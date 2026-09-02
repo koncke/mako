@@ -1723,12 +1723,21 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
       // mano» — la instrucción exacta que la destrababa, guardada en la base y
       // nunca dibujada.
       const txt = causa
-        // ⚠️ `errorCrudo` Y NO `error`. Puse `error` hace una hora y salió el
-        // título DOS VECES: `falloGuardable` guarda en `error` el TÍTULO que ya
-        // produjo `textoFlow` —no la instrucción—, así que pasárselo de vuelta
-        // como «lo que dijo el server» es devolverle su propia salida. La frase
-        // que sirve, la que dice qué apretar, vive en `errorCrudo`.
-        ? textoFlow(causa, `la imagen del escenario ${paso.n}`, marca?.errorAt, undefined, marca?.errorCrudo)
+        // ⚠️ `errorDetalle`, QUE ES EL CAMPO QUE FALTABA. Acá decía `errorCrudo`
+        // con este razonamiento: `error` guarda el TÍTULO, así que devolvérselo a
+        // `textoFlow` lo imprimía dos veces, y «la frase que sirve vive en
+        // `errorCrudo`». La primera mitad era cierta; la segunda, sólo a veces.
+        //
+        // `errorCrudo` significaba DOS cosas según quién lo escribiera: una
+        // instrucción cuando venía de `falloGuardable`, y el JSON crudo de Google
+        // cuando venía del sondeo. Medido el 02/09/2026 en el mismo historial de
+        // una clienta, con los dos casos a la vez — y al segundo le pintamos el
+        // payload centrado en el recuadro del video.
+        //
+        // Ahora la frase tiene su propio campo y el crudo vuelve a ser sólo
+        // evidencia. Las marcas viejas no lo tienen y caen a la constante, que es
+        // genérica y verdadera.
+        ? textoFlow(causa, `la imagen del escenario ${paso.n}`, marca?.errorAt, undefined, marca?.errorDetalle)
         : null;
 
       // La foto con la que se genera: la elegida para ESTE anuncio, y si no hay,

@@ -114,10 +114,18 @@ export function PasoTomas({
   const marca = item.video?.[String(sel)];
   const trabajando = !!ocupado;
 
+  // ⚠️ EL DEFAULT NO PUEDE SER UNA ACUSACIÓN. Era `?? 'contenido'`, o sea que
+  // cualquier fallo sin causa guardada salía como «el filtro de contenido rechazó
+  // cómo está escrito el escenario… hay que reescribirlo» — mandando a reescribir
+  // un guion sobre una causa que nadie determinó. `desconocida` dice lo que se
+  // sabe, que es nada, y no manda a arreglar algo que capaz está bien.
   const causa = marca?.error
-    ? ((marca.errorCausa as CausaFlow) ?? 'contenido')
+    ? ((marca.errorCausa as CausaFlow) ?? 'desconocida')
     : undefined;
-  const txt = causa ? textoFlow(causa, `la toma ${sel}`, marca?.errorAt, undefined, marca?.errorCrudo) : null;
+  // ⚠️ `errorDetalle` Y NO `errorCrudo`. El segundo es la EVIDENCIA —el JSON de
+  // Google— y pasarlo como «lo que dijo el servidor» le dibujó a una clienta 1.600
+  // caracteres de payload centrados en el recuadro donde va el video.
+  const txt = causa ? textoFlow(causa, `la toma ${sel}`, marca?.errorAt, undefined, marca?.errorDetalle) : null;
 
   return (
     <div style={{ display: 'grid', gap: 14, justifyItems: 'center', width: 420 }}>

@@ -103,6 +103,26 @@ export type MarcaImagen = {
   /** De quién fue la culpa: decide qué se muestra y si hay a dónde ir. */
   errorCausa?: CausaFlow;
   /** Lo que dijo Google, tal cual. No se tira: se pliega. */
+  /**
+   * La frase que escribió el SERVER para que la lea una persona.
+   *
+   * ⚠️ EXISTE PORQUE `errorCrudo` SIGNIFICABA DOS COSAS SEGÚN QUIÉN LO ESCRIBIÓ,
+   * y el que lo lee no tenía forma de distinguirlas. Medido el 02/09/2026 en la
+   * misma clienta, en el mismo historial:
+   *
+   *   toma 1  → errorCrudo = «Todavía no vi a Google Flow generar un video con
+   *             tu foto de referencia. Abre Flow…»          ← una instrucción
+   *   toma 10 → errorCrudo = {"media":[{"name":"108dc579…    ← 1.600 b de JSON
+   *
+   * Las dos pantallas pasaban ese campo como «lo que dijo el servidor», así que
+   * a la toma 10 le dibujaron el JSON de Google —con el prompt y los ids
+   * adentro— centrado en el recuadro donde va el video.
+   *
+   * Ahora son dos campos con un significado cada uno: acá la frase, en
+   * `errorCrudo` la evidencia. Ausente en toda marca anterior, y eso está bien:
+   * sin frase del server se muestra la constante, que es genérica y verdadera.
+   */
+  errorDetalle?: string;
   errorCrudo?: string;
   /**
    * ⚠️ Cuándo pasó. Un error guardado sin fecha se lee como si acabara de
@@ -245,6 +265,26 @@ export type MarcaVideo = {
   mediaId?: string;
   error?: string;
   errorCausa?: string;
+  /**
+   * La frase que escribió el SERVER para que la lea una persona.
+   *
+   * ⚠️ EXISTE PORQUE `errorCrudo` SIGNIFICABA DOS COSAS SEGÚN QUIÉN LO ESCRIBIÓ,
+   * y el que lo lee no tenía forma de distinguirlas. Medido el 02/09/2026 en la
+   * misma clienta, en el mismo historial:
+   *
+   *   toma 1  → errorCrudo = «Todavía no vi a Google Flow generar un video con
+   *             tu foto de referencia. Abre Flow…»          ← una instrucción
+   *   toma 10 → errorCrudo = {"media":[{"name":"108dc579…    ← 1.600 b de JSON
+   *
+   * Las dos pantallas pasaban ese campo como «lo que dijo el servidor», así que
+   * a la toma 10 le dibujaron el JSON de Google —con el prompt y los ids
+   * adentro— centrado en el recuadro donde va el video.
+   *
+   * Ahora son dos campos con un significado cada uno: acá la frase, en
+   * `errorCrudo` la evidencia. Ausente en toda marca anterior, y eso está bien:
+   * sin frase del server se muestra la constante, que es genérica y verdadera.
+   */
+  errorDetalle?: string;
   errorCrudo?: string;
   errorAt?: string;
   /** El saldo justo ANTES de generar esta toma. La otra mitad de medir el costo. */
