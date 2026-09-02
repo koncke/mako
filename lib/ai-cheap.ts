@@ -537,7 +537,33 @@ export { motivoDeErroresCascada };
 // cliente o env del dueño). Devuelve el texto crudo del modelo (JSON string) del
 // primero que funcione. Claude queda para el razonamiento fino, no para OCR.
 // ─────────────────────────────────────────────────────────────────────────────
-export const VISION_CASCADE: ProvName[] = ['gemini', 'openai'];
+/**
+ * Quien puede MIRAR una imagen o un PDF escaneado.
+ *
+ * ⚠️ OPENROUTER ENTRA EN EL MEDIO, Y NO ES UN LUJO: era el único paso del onboarding SIN
+ * respaldo real. La lista era `[gemini, openai]`, y OpenAI es el único que COBRA — o sea
+ * que un cliente con las cuatro IA gratis cargadas tenía, para visión, exactamente UNA.
+ * Cuando Gemini se cae, la cara de marca no se puede analizar y el wizard se traba ahí.
+ *
+ * Pasó el 16/08 con el cliente probando: las dos keys de Gemini devolvían 429
+ * «prepayment credits are depleted» y la pantalla no tenía a dónde caer. Medido con la key
+ * del propio cliente, `minimax/minimax-m3:free` describe una imagen en 10 s.
+ *
+ * Groq NO está: se le pidió la lista y no tiene un solo modelo con entrada de imagen.
+ */
+export const VISION_CASCADE: ProvName[] = ['gemini', 'openrouter', 'openai'];
+
+/**
+ * El modelo que MIRA, por proveedor. Va aparte de `MODELO_DOCS` porque no todo modelo de
+ * texto acepta imágenes: de los 19 `:free` de OpenRouter, solo 8 declaran `image` como
+ * modalidad de entrada, y de esos varios devuelven 429 o piden un harness agentico.
+ *
+ * Se eligen PROBÁNDOLOS con una imagen de verdad, no por lo que declara el catálogo.
+ */
+const MODELO_VISION: Partial<Record<ProvName, string>> = {
+  openrouter: process.env.OPENROUTER_VISION_MODEL || 'minimax/minimax-m3:free',
+  openai: process.env.OPENAI_VISION_MODEL || 'gpt-4o',
+};
 
 // dataUrls (plural) es opcional: cuando viene, pisa a dataUrl y manda TODAS esas
 // imágenes en la MISMA llamada de visión — para que el modelo sintetice entre varias
@@ -563,7 +589,7 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
         try {
           const text = prov === 'gemini'
             ? await leerConGemini(inst.key, opts, nroCuenta(inst), model)
-            : await leerConOpenAI(inst.key, opts, nroCuenta(inst));
+            : await leerConOpenAI(inst.key, opts, nroCuenta(inst), prov);
           if (text.trim()) return { text, provider: prov };
           errores.push(`${rotulo(inst)}: respuesta vacía`);
         } catch (e) {
@@ -579,13 +605,20 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
   throw new Error(`No hay ninguna IA con visión configurada. Carga una API key de ${nombres || 'Gemini u OpenAI'} en Integraciones.`);
 }
 
-async function leerConOpenAI(key: string, o: DocOpts, cuenta = 1): Promise<string> {
-  const model = process.env.OPENAI_VISION_MODEL || 'gpt-4o';
+/**
+ * Visión por endpoint OpenAI-compatible. Sirve para CUALQUIER proveedor con ese contrato
+ * — OpenAI y OpenRouter hoy — porque el cuerpo es el mismo; lo único que cambia es a dónde
+ * se apunta y con qué modelo. Estaba clavado a `api.openai.com`, y eso era lo que impedía
+ * usar el respaldo gratis que ya estaba cargado.
+ */
+async function leerConOpenAI(key: string, o: DocOpts, cuenta = 1, prov: ProvName = 'openai'): Promise<string> {
+  const cfg = cfgDe(prov);
+  const model = MODELO_VISION[prov] ?? cfg.chatModel;
   const imagenes = o.dataUrls && o.dataUrls.length ? o.dataUrls : [o.dataUrl];
   const content = o.isPdf
     ? [{ type: 'text', text: o.prompt }, { type: 'file', file: { filename: o.nombreArchivo.toLowerCase().endsWith('.pdf') ? o.nombreArchivo : 'contrato.pdf', file_data: o.dataUrl } }]
     : [{ type: 'text', text: o.prompt }, ...imagenes.map((u) => ({ type: 'image_url', image_url: { url: u, detail: 'high' } }))];
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  const res = await fetch(cfg.base + '/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ model, temperature: 0, ...(o.json ? { response_format: { type: 'json_object' } } : {}), messages: [{ role: 'user', content }] }),
@@ -594,7 +627,7 @@ async function leerConOpenAI(key: string, o: DocOpts, cuenta = 1): Promise<strin
   });
   const j = await res.json().catch(() => ({}));
   if (!res.ok || j.error) throw new Error(j?.error?.message || `HTTP ${res.status}`);
-  void recordUsage(o.feature || 'leer-documento', model, j.usage, o.motivo, 'openai', cuenta);
+  void recordUsage(o.feature || 'leer-documento', model, j.usage, o.motivo, prov, cuenta);
   return j.choices?.[0]?.message?.content ?? '';
 }
 

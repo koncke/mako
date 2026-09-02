@@ -216,3 +216,27 @@ test('los ids de modelo del catalogo no son los que ya se cayeron', () => {
     assert.ok(!ai.includes("'" + id + "'"), 'volvio un id de modelo que ya no existe: ' + id);
   }
 });
+
+
+test('VISION tiene un respaldo GRATIS, no solo el que cobra', () => {
+  // ⚠️ ERA EL UNICO PASO DEL ONBOARDING SIN RESPALDO REAL. La cascada de vision era
+  // [gemini, openai] y OpenAI es el unico que COBRA: un cliente con las cuatro IA gratis
+  // cargadas tenia, para mirar una foto, exactamente UNA. Cuando Gemini se cayo, la cara
+  // de marca no se pudo analizar y el wizard se trabo ahi, con el cliente probando.
+  //
+  // El texto tenia seis proveedores de respaldo y vision uno. Esa asimetria no se ve
+  // leyendo el codigo: hay que preguntarse "que pasa si el primero no esta".
+  const ai = readFileSync(new URL('../lib/ai-cheap.ts', import.meta.url), 'utf8');
+  const m = ai.match(/VISION_CASCADE: ProvName\[\] = \[([^\]]+)\]/);
+  assert.ok(m, 'no encontre VISION_CASCADE');
+  const lista = m[1];
+  assert.ok(/openrouter/.test(lista), 'vision se quedo sin respaldo gratis');
+  // Y el que cobra va ULTIMO: es la regla de la casa para toda la capa barata.
+  assert.ok(lista.indexOf('openai') > lista.indexOf('openrouter'),
+    'el proveedor que cobra dejo de ir ultimo en la cascada de vision');
+
+  // El lector OpenAI-compat no puede volver a estar clavado a un host: es lo que impedia
+  // usar el respaldo gratis que el cliente YA tenia cargado.
+  assert.ok(!/fetch\('https:\/\/api\.openai\.com/.test(ai),
+    'el lector de vision volvio a apuntar fijo a api.openai.com');
+});
