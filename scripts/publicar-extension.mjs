@@ -30,7 +30,7 @@
 // aunque el client_id sea el mismo. Hace falta autorizar el scope
 // `https://www.googleapis.com/auth/chromewebstore` explícitamente.
 
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync, statSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from 'dotenv';
@@ -113,7 +113,9 @@ Las credenciales se sacan UNA sola vez (~3 minutos)
 
      node scripts/publicar-extension.mjs --canjear <EL_CODIGO>
 
-     Guardá lo que imprime en .env.local como CWS_REFRESH_TOKEN.
+     Lo guarda SOLO en .env.local, y no lo imprime: un refresh token en la
+     consola termina en el scrollback o en una captura, y con el se puede
+     publicar en tu cuenta de la tienda.
 
 ──────────────────────────────────────────────────────────────────────────
 Y después
@@ -170,8 +172,34 @@ if (tiene('--canjear')) {
     console.error('o la URL de autorización no llevaba prompt=consent. Ver --ayuda.');
     process.exit(1);
   }
-  console.log('\nCWS_REFRESH_TOKEN=' + d.refresh_token + '\n');
-  console.log('Pégalo en .env.local y vuelve a correr el script sin --canjear.');
+  // ⚠️ EL TOKEN SE ESCRIBE SOLO, Y NO SE IMPRIME.
+  //
+  // Antes se imprimía en pantalla con un «pégalo en .env.local». Dos problemas:
+  // el paso a mano se puede hacer mal —y el error aparece recién al publicar—, y
+  // sobre todo un refresh token en la consola termina en el scrollback, en una
+  // captura, o pegado en un chat. Es la credencial más sensible de todo este
+  // flujo: con ella se puede publicar en la cuenta de la Chrome Web Store.
+  //
+  // Así que lo escribe el script y no lo ve nadie.
+  const ENV = resolve(RAIZ, '.env.local');
+  let env = '';
+  try { env = readFileSync(ENV, 'utf8'); } catch { /* si no existe, se crea */ }
+
+  // ⚠️ Se REEMPLAZA la línea si ya estaba, en vez de agregar otra. Dos
+  // `CWS_REFRESH_TOKEN=` en el mismo archivo dejan al cargador eligiendo uno de
+  // los dos —y el que gana depende de la librería—, así que el token viejo puede
+  // seguir mandando después de haberlo renovado.
+  const linea = `CWS_REFRESH_TOKEN=${d.refresh_token}`;
+  const re = /^CWS_REFRESH_TOKEN=.*$/m;
+  if (re.test(env)) {
+    env = env.replace(re, linea);
+  } else {
+    env = env.replace(/\s*$/, '') + `${env ? '\n' : ''}${linea}\n`;
+  }
+  writeFileSync(ENV, env, 'utf8');
+
+  console.log('\n✓ CWS_REFRESH_TOKEN guardado en .env.local (no se imprime a propósito).');
+  console.log('\nYa podés publicar:  node scripts/publicar-extension.mjs');
   process.exit(0);
 }
 
