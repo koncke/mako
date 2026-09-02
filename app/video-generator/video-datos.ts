@@ -79,6 +79,15 @@ export type MarcaImagen = {
    */
   opcionesId?: string[];
   elegidaId?: string;
+  /**
+   * De qué anuncio anterior salió esta imagen, si se reusó.
+   *
+   * ⚠️ EXISTE PARA QUE LA PANTALLA LO DIGA. Una imagen traída de otro anuncio y
+   * presentada como recién generada es correcta y engañosa a la vez: la persona
+   * no sabe que está mirando algo que ya vio, y no puede decidir si quiere una
+   * nueva. Un dato reusado que no se anuncia es un dato inventado.
+   */
+  reusadaDe?: string;
   /** true = la subió la persona, no la generó Flow. */
   propia?: boolean;
   /**

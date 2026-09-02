@@ -43,6 +43,7 @@ import { leerHistorial, guardarEnHistorial, type PlanGuardado, type MarcaVideo, 
 import { sanearPlantillas, tieneCaraParcheable, KEY_PLANTILLAS } from '@/lib/flow-plantillas';
 import { olvidarTomasFallidas, olvidarImagenesDeLaFoto } from './tomas-invalidar';
 import { agregarClip, quitarClip, cambiarDuracion, partirHastaQueEntre, tomasQueHacenFalta } from './plan-clips';
+import { escenariosReusables, cuantosSeReusan } from './escenario-reuso';
 import { sumarVariantes } from './variantes-imagen';
 import { archivarToma, recuperarToma } from './tomas-archivo';
 import { personaEstado, addPersonaFoto, getPersona } from '@/lib/persona';
@@ -2236,4 +2237,70 @@ export async function estadoMontajeAction(
   const desde = Date.parse(str(data.created_at) || '');
   const esperando = Number.isFinite(desde) ? Math.max(0, Math.floor((Date.now() - desde) / 60000)) : 0;
   return { ok: true, estado: { fase: 'encolado', id: Number(data.id), esperando } };
+}
+
+/**
+ * Cuántos escenarios de este anuncio ya están generados en un anuncio anterior.
+ *
+ * Lo llama la pantalla ANTES de ofrecer nada: la oferta sin el número es una
+ * casilla más que nadie sabe si le conviene.
+ */
+export async function escenariosYaGeneradosAction(
+  planId: string,
+): Promise<{ ok: true; cuantos: number; total: number } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  const historial = await leerHistorial();
+  const item = planDe(historial, planId);
+  if (!item) return { ok: false, error: 'Ese anuncio ya no está en el historial.' };
+
+  return { ok: true, cuantos: cuantosSeReusan(item, historial), total: (item.escenas ?? []).length };
+}
+
+/**
+ * Trae las imágenes de escenario que ya se generaron en otro anuncio.
+ *
+ * ⚠️ SE COPIAN CONFIRMADAS. La persona ya las miró y las aprobó una vez, en el
+ * anuncio de donde salen; volver a pedirle que confirme lo mismo es el paso que
+ * esto viene a sacar. Lo que NO se copia es el historial de variantes (`opciones`):
+ * son intentos de aquel anuncio y traerlos haría que «regenerar» acá compare
+ * contra cosas que esta persona no pidió en esta sesión.
+ *
+ * ⚠️ Y `elegidaId` ES EL CAMPO QUE IMPORTA. La url vence a las ~6 h; el mediaId
+ * no, y es con lo que el clip se anima. Una copia sin él se vería perfecta en la
+ * pantalla y no se podría filmar — que es el modo de falla que este módulo ya
+ * evita del lado de la lectura, y que acá hay que no reintroducir al escribir.
+ */
+export async function reusarEscenariosAction(
+  planId: string,
+): Promise<{ ok: true; item: PlanGuardado; cuantos: number } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  const historial = await leerHistorial();
+  const item = planDe(historial, planId);
+  if (!item) return { ok: false, error: 'Ese anuncio ya no está en el historial.' };
+
+  const reusables = escenariosReusables(item, historial);
+  if (!reusables.length) {
+    return { ok: false, error: 'No encontré escenarios tuyos que sirvan para estos lugares.' };
+  }
+
+  const imagenes = { ...(item.imagenes ?? {}) };
+  for (const r of reusables) {
+    imagenes[String(r.escena)] = {
+      ...(imagenes[String(r.escena)] ?? {}),
+      elegida: r.url,
+      elegidaId: r.mediaId,
+      confirmada: true,
+      // Marca de dónde salió. Es lo que permite que la pantalla lo DIGA en vez
+      // de presentar una imagen vieja como si se acabara de generar.
+      reusadaDe: r.deAnuncio,
+    };
+  }
+
+  const nuevo: PlanGuardado = { ...item, imagenes };
+  await guardarEnHistorial(nuevo);
+  return { ok: true, item: nuevo, cuantos: reusables.length };
 }

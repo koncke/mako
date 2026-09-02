@@ -43,6 +43,7 @@ import { creditosDeClip, notaSaldo } from '@/lib/costo-clip';
 import { promptDeClip } from '@/lib/prompts-video';
 import { imagenEnCurso } from './variantes-imagen';
 import { nombreDeClip } from './video-pedido';
+import { escenariosYaGeneradosAction, reusarEscenariosAction } from './video-action';
 import { enCuantasQueda } from './plan-clips';
 import { PasoTomas } from './PasoTomas';
 import { creditosDeClip as creditosDeClipFlow } from '@/lib/costo-clip';
@@ -617,6 +618,7 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
   // lo único de esta pantalla que puede explicar por qué todo lo demás falla.
   const extensionInstalada = useExtensionInstalada();
 
+
   // `Estudio` se monta UNA vez y en posición estable, así que este estado
   // sobrevive a los siete pasos: el ejemplo no se cierra solo al avanzar.
   // ⚠️ El plegado ya NO es estado de esta pantalla: lo manda quien tiene el
@@ -1096,6 +1098,23 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
   // de la pestaña, y perderlo te deja mirando otra cuenta.
   const router = useRouter();
   const [eligiendoFoto, setEligiendoFoto] = useState(false);
+  /**
+   * Cuántos escenarios de este anuncio ya están generados en uno anterior.
+   *
+   * ⚠️ SE PREGUNTA UNA VEZ POR ANUNCIO, no en cada render del paso. La respuesta
+   * no cambia mientras la persona mira: sólo cambia cuando ELLA reusa, y ahí se
+   * pone en cero desde acá. Preguntarlo por escenario serían cuatro viajes para
+   * la misma respuesta.
+   */
+  const [yaGenerados, setYaGenerados] = useState<{ cuantos: number; total: number } | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    setYaGenerados(null);
+    void escenariosYaGeneradosAction(item.id).then((r) => {
+      if (vivo && r.ok) setYaGenerados({ cuantos: r.cuantos, total: r.total });
+    }).catch(() => { /* la oferta es un atajo: si no se puede saber, no se ofrece */ });
+    return () => { vivo = false; };
+  }, [item.id]);
   /** El panel de salidas encima del CLIP (el gemelo de `rehacer`, que es el de la imagen). */
   const [rehacerClip, setRehacerClip] = useState(false);
   /** Qué toma se está mirando en el paso único. */
@@ -1629,6 +1648,48 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
           display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
           gap: 10, padding: '24px 22px', textAlign: 'left', color: 'var(--dim)',
         }}>
+          {/* ⚠️ EL ATAJO VA ARRIBA DE LA INSTRUCCIÓN, no debajo. Martín: «si ya
+              hice 1 generación, evitamos pasar por tantos pasos». Un atajo que
+              aparece después del camino largo llega tarde: para cuando se lee, la
+              persona ya empezó a hacer lo otro.
+
+              Y sólo se ofrece con el NÚMERO: «tienes 3 de 4» es una decisión,
+              «puedes reusar escenarios» es una casilla que nadie sabe si le
+              conviene. El número sale del server, que es el que sabe qué lugares
+              coinciden — no del formato, porque un escenario es del LUGAR. */}
+          {!!yaGenerados?.cuantos && (
+            <div style={{
+              width: '100%', display: 'grid', gap: 9, marginBottom: 4,
+              padding: '13px 15px', borderRadius: 'var(--r-md)',
+              background: 'var(--mako-bg)', border: '1px solid var(--mako-border)',
+            }}>
+              <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--ink)', lineHeight: 1.5 }}>
+                Ya generaste{' '}
+                <strong>
+                  {yaGenerados.cuantos === 1
+                    ? 'el escenario de este lugar'
+                    : `${yaGenerados.cuantos} de tus ${yaGenerados.total} escenarios`}
+                </strong>{' '}
+                en otro anuncio. Puedes usarlos y saltarte este paso.
+              </div>
+              <Button
+                size="sm"
+                variant="mako"
+                disabled={!!ocupado}
+                loading={ocupado === 'reusar'}
+                icon={<Icon name="regenerar" size={14} />}
+                onClick={() => void correr('reusar', () => reusarEscenariosAction(item.id), false)
+                  .then(() => setYaGenerados(null))}
+              >
+                Usar los que ya tengo
+              </Button>
+              {/* La salida del atajo, dicha: el que quiere uno nuevo no tiene que
+                  deducir que puede seguir de largo. */}
+              <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--dim)' }}>
+                O sigue abajo para generar uno nuevo.
+              </div>
+            </div>
+          )}
           {/* ⚠️ MINIMALISTA, tercera versión. La curva no se leía como flecha; la
               maciza se leía, pero pesaba más que el texto al que acompaña — y
               esto es un rótulo, no un cartel. Una punta abierta de dos trazos
