@@ -59,33 +59,62 @@ const ZIP = resolve(RAIZ, 'public/mako-puente.zip');
 const MANIFEST = resolve(RAIZ, 'extension/manifest.json');
 const TIENDA = resolve(RAIZ, 'lib/extension-tienda.ts');
 
+// ⚠️ ESTE TEXTO ES UN TUTORIAL, Y UN TUTORIAL MIENTE SI NO DICE DÓNDE TERMINA.
+//
+// La versión anterior explicaba sólo cómo conseguir el refresh token, y el modo
+// que la imprime se llama `--ayuda`. El dueño lo corrió esperando que publicara
+// y no pasó nada: imprimió instrucciones y salió. Un comando de ayuda que se
+// ofrece como si fuera la acción es un callejón — así que ahora el texto empieza
+// diciendo cuál es el comando que publica, y numera los pasos hasta el final.
 const AYUDA = `
-Cómo conseguir el CWS_REFRESH_TOKEN (una sola vez, ~3 minutos)
+Publicar la extensión en la Chrome Web Store
 
-  1. En https://console.cloud.google.com/apis/credentials, crea unas credenciales
-     OAuth 2.0 de tipo «Aplicación de escritorio». Copia el ID y el secreto a
+  Si ya tenés las credenciales:   node scripts/publicar-extension.mjs
+  (este comando, el --ayuda, NO publica: sólo imprime esto)
+
+──────────────────────────────────────────────────────────────────────────
+Las credenciales se sacan UNA sola vez (~3 minutos)
+
+  1. En https://console.cloud.google.com/apis/credentials creá credenciales
+     OAuth 2.0 de tipo «Aplicación de escritorio». Copiá el ID y el secreto a
      .env.local como CWS_CLIENT_ID y CWS_CLIENT_SECRET.
 
-     Y habilita la API: https://console.cloud.google.com/apis/library/chromewebstore.googleapis.com
+  2. Habilitá la API:
+     https://console.cloud.google.com/apis/library/chromewebstore.googleapis.com
 
-  2. Abre esta URL en el navegador, con TU CLIENT_ID adentro, y acepta:
+  3. Abrí esta URL en el navegador, con TU CLIENT_ID adentro, y aceptá:
 
      https://accounts.google.com/o/oauth2/auth?response_type=code&scope=https://www.googleapis.com/auth/chromewebstore&client_id=<TU_CLIENT_ID>&redirect_uri=http://localhost&access_type=offline&prompt=consent
 
      Vas a caer en una página que no carga (http://localhost). No importa: el
-     código está en la URL, después de "?code=". Cópialo.
+     código está en la URL, después de "?code=". Copialo.
 
      ⚠️ El "prompt=consent" NO es opcional: sin él Google no devuelve un refresh
      token en las autorizaciones repetidas, y el error que da tres pasos después
      no lo nombra.
 
-  3. Canjéalo por el refresh token (el código vale una sola vez y dura minutos):
+  4. Canjealo (el código vale una sola vez y dura minutos):
 
      node scripts/publicar-extension.mjs --canjear <EL_CODIGO>
 
-     Guarda lo que imprime en .env.local como CWS_REFRESH_TOKEN.
-`;
+     Guardá lo que imprime en .env.local como CWS_REFRESH_TOKEN.
 
+──────────────────────────────────────────────────────────────────────────
+Y después
+
+  5. node scripts/publicar-extension.mjs          sube y manda a revisión
+     node scripts/publicar-extension.mjs --solo-subir   deja un borrador
+
+  6. Google tarda de horas a días. Cuando apruebe:
+
+     node scripts/version-en-tienda.mjs
+
+     lee la ficha PÚBLICA y te dice la línea a pegar en lib/extension-tienda.ts.
+     Con eso el botón de instalar pasa solo a «Añadir a Chrome».
+
+  ⚠️ El --estado de este script NO sirve para eso: lee el BORRADOR, así que se
+     pone al día apenas termina la subida y no cuando Google aprueba.
+`;
 const args = process.argv.slice(2);
 const tiene = (f) => args.includes(f);
 
