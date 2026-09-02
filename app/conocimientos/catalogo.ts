@@ -132,6 +132,10 @@ import { CURSO_THE_PERFECT_LAUNCH } from './curso-the-perfect-launch';
 import { CURSO_ACADEMIA_AMAZON_FBA } from './curso-academia-amazon-fba';
 import { CURSO_LIBERTAD_INMOBILIARIA } from './curso-libertad-inmobiliaria';
 import { CURSO_ARCADIA } from './curso-arcadia';
+import { CURSO_YOUTUBE_2026 } from './curso-youtube-2026';
+import { CURSO_DOMINA_TUS_REDES_CON_IA } from './curso-domina-tus-redes-con-ia';
+import { CURSO_LINKEDIN_FOR_CEOS } from './curso-linkedin-for-ceos';
+import { CURSO_METODO_CONTENIDO_IRRESISTIBLE } from './curso-metodo-contenido-irresistible';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio.datos';
 import { CURSO_BRANDING } from './BrandingMaKo.datos';
@@ -479,6 +483,10 @@ const CATEGORIA: Record<string, string> = {
   // plataforma. El comentario al lado es la categoría de origen.
   'libertad-inmobiliaria': 'Finanzas',     // Finanzas / Inversiones
 
+  // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
+  // plataforma. El comentario al lado es la categoría de origen.
+  'domina-tus-redes-con-ia': 'Inteligencia Artificial', // IA
+
 };
 
 /**
@@ -728,6 +736,10 @@ const PORTADA: Record<string, string> = {
   // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
   // pero la ficha se había emitido antes de que existiera.
   'libertad-inmobiliaria': '/cono-portadas/libertad-inmobiliaria.png',
+
+  // Enganchadas por scripts/curso-categoria-portada.mjs: el archivo estaba en disco
+  // pero la ficha se había emitido antes de que existiera.
+  'youtube-2026': '/cono-portadas/youtube-2026.jpg',
 
 };
 
@@ -1107,6 +1119,10 @@ const RESUMEN: Record<string, string> = {
   // del catálogo de la plataforma.
   'libertad-inmobiliaria': 'Aprende a construir patrimonio inmobiliario y generar ingresos pasivos a través de la inversión en propiedades para alquilar. El curso enseña cómo identificar oportunidades rentables.',
 
+  // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
+  // del catálogo de la plataforma.
+  'domina-tus-redes-con-ia': 'aller de 4 días en vivo que enseña a usar IA para escribir guiones que se convierten en reels y videos, crear un avatar digital y clonar tu voz.',
+
 };
 
 // Sin acentos y en minúsculas, para que «Sofia» no se sume a un título que ya dice
@@ -1458,6 +1474,18 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_ARCADIA,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_YOUTUBE_2026,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_DOMINA_TUS_REDES_CON_IA,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_LINKEDIN_FOR_CEOS,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_METODO_CONTENIDO_IRRESISTIBLE,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
