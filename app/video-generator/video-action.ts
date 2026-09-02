@@ -45,6 +45,7 @@ import { olvidarTomasFallidas, olvidarImagenesDeLaFoto } from './tomas-invalidar
 import { agregarClip, quitarClip, cambiarDuracion, partirHastaQueEntre, tomasQueHacenFalta } from './plan-clips';
 import { escenariosReusables, cuantosSeReusan } from './escenario-reuso';
 import { escenarioPorId, fondoSiguiente } from '@/lib/escenarios-data';
+import { marcarPasoTab } from '@/lib/tab-onboarding-state';
 import { sumarVariantes } from './variantes-imagen';
 import { archivarToma, recuperarToma } from './tomas-archivo';
 import { personaEstado, addPersonaFoto, getPersona } from '@/lib/persona';
@@ -2070,6 +2071,18 @@ export async function cambiarMuletillasAction(
     escenas: undefined, imagenes: {}, video: {},
   };
   await guardarEnHistorial(actualizado);
+  // ⚠️ EL ENSAYO DE LA TAB SE CIERRA ACÁ, y no con un botón del wizard.
+  //
+  // Aprobar el primer escenario es la única prueba de que toda la cadena
+  // funciona: la foto, el acento, el puente y Flow. Un «listo» en el wizard
+  // diría que la tab quedó configurada sin que nada lo haya probado — que es
+  // exactamente lo que el ensayo existe para evitar (regla de la skill
+  // `tab-onboarding`, y el mismo patrón que `landing-an` y `carousels_ensayo`).
+  //
+  // Con `catch`: que el estado del onboarding no se pueda escribir NO puede
+  // tumbar la aprobación del escenario, que es lo que la persona vino a hacer.
+  await marcarPasoTab('video-generator', 'vg_ensayo').catch(() => { /* el escenario ya quedó aprobado */ });
+
   return { ok: true, item: actualizado };
 }
 

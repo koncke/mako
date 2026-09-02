@@ -18,6 +18,7 @@ import { getSetting, setSetting } from '@/lib/settings';
 import type { CausaFlow } from '@/lib/flow-fallo-texto';
 import { getPersona, personaEstado } from '@/lib/persona';
 import { resolverAcento } from '@/lib/acento-workspace';
+import { getVozCliente } from './voz-cliente';
 import { tzDeWorkspace } from '@/lib/timezone';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { getSchema, getAnswers } from '@/lib/onboarding';
@@ -440,7 +441,14 @@ export type EstadoContextoVideo = {
    * acento distinto del que se termina usando. Una previa que difiere del
    * resultado es peor que no tener previa.
    */
-  acento: { etiqueta: string; seguro: boolean };
+  acento: {
+    /** Cuál es, para poder pre-marcarlo en el onboarding sin volver a inferirlo. */
+    id: string;
+    etiqueta: string;
+    seguro: boolean;
+    /** Las que marcó como suyas. Vacío = no eligió ninguna todavía. */
+    muletillas: string[];
+  };
   perfilListo: boolean;
   faltanDelPerfil: string[];
 };
@@ -480,14 +488,18 @@ export async function estadoContextoVideo(): Promise<EstadoContextoVideo> {
   }
 
   const ws = await getWorkspaceActual();
-  const acento = resolverAcento(null, ws != null ? await tzDeWorkspace(ws).catch(() => null) : null);
+  // Con lo declarado, igual que el generador: si acá se resolviera distinto, la
+  // pantalla mostraría un acento y el guion saldría con otro — y una previa que
+  // difiere del resultado es peor que no tener previa.
+  const voz = await getVozCliente().catch(() => ({ acento: '' as const, muletillas: [] as string[] }));
+  const acento = resolverAcento(voz.acento, ws != null ? await tzDeWorkspace(ws).catch(() => null) : null, voz.muletillas);
 
   return {
     tieneFotos: fotos > 0,
     cantidadFotos: fotos,
     fotoUrl,
     fotos: listaFotos,
-    acento: { etiqueta: acento.etiqueta, seguro: acento.seguro },
+    acento: { id: acento.id, etiqueta: acento.etiqueta, seguro: acento.seguro, muletillas: acento.muletillas },
     perfilListo: perfil.listo,
     faltanDelPerfil: perfil.faltan,
   };

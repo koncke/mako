@@ -43,6 +43,12 @@ export type AcentoResuelto = {
   /** Cómo se lo nombra en pantalla. */
   etiqueta: string;
   /**
+   * Las que la persona marcó como suyas, ya filtradas contra las de su variedad.
+   * La pantalla las muestra para que se puedan corregir sin adivinar cuáles
+   * quedaron guardadas.
+   */
+  muletillas: string[];
+  /**
    * `false` cuando salió de una inferencia (la zona horaria) en vez de un dato
    * declarado. La pantalla lo muestra distinto, y con eso alguien lo corrige.
    */
@@ -59,6 +65,37 @@ const ETIQUETA: Record<AcentoId, string> = {
   ar: 'Argentino (rioplatense)',
   es: 'Español de España',
   latam: 'Latino neutro',
+};
+
+/**
+ * Las muletillas típicas de cada variedad, para ELEGIR — nunca para escribir.
+ *
+ * ⚠️ ES UNA LISTA PARA RECONOCERSE, y por eso existe. La gente se describe mal a
+ * sí misma y se reconoce al instante: preguntarle «¿qué muletillas usas?» con un
+ * campo vacío devuelve dos, y las obvias. Mostrarle las de su país y que marque
+ * las suyas devuelve las que de verdad dice. Es el mismo principio que ya usa el
+ * quiz de personalidad.
+ *
+ * ⚠️ Y LA DENSIDAD NO SE DECIDE ACÁ. El repo ya se equivocó una vez
+ * (`lib/curso-avatar.ts`): se hizo la lista de muletillas de un cliente y se
+ * repartieron por el guion hasta llegar a una densidad parecida. El cliente lo
+ * marcó al instante — «exageraste el uso del pues, lo pusiste en lugares que no
+ * tienen sentido». Por eso lo que viaja al modelo es que las usa NATURALMENTE, no
+ * cuántas veces.
+ */
+export const MULETILLAS: Record<AcentoId, string[]> = {
+  'mx-norte': ['pues', 'órale', 'ándale', 'fíjate', 'la neta', 'híjole', 'mira', 'entonces'],
+  'mx-neutro': ['pues', 'o sea', 'la verdad', 'fíjate', 'mira', 'entonces', 'digamos', 'bueno'],
+  'mx-cdmx': ['o sea', 'neta', 'pues', 'la verdad', 'digamos', 'mira', 'entonces', 'básicamente'],
+  co: ['pues', 'o sea', 'listo', 'vea', 'de una', 'la verdad', 'mira', 'entonces'],
+  // ⚠️ Sin `mirá`, y no es un olvido: estas palabras se PINTAN como chips en la
+  // pantalla, así que son interfaz y las gobierna la guarda de voseo del repo.
+  // La lista no tiene que ser exhaustiva —son ocho de las que la persona marca
+  // las suyas—, así que se elige una sin forma verbal antes que abrirle una
+  // excepción al guard y dejar este archivo sin revisar.
+  ar: ['o sea', 'viste', 'digamos', 'la verdad', 'posta', 'entonces', 'obvio', 'bueno'],
+  es: ['o sea', 'vale', 'pues', 'en plan', 'la verdad', 'mira', 'entonces', 'bueno'],
+  latam: ['o sea', 'la verdad', 'digamos', 'mira', 'entonces', 'bueno', 'básicamente', 'justamente'],
 };
 
 /**
@@ -87,11 +124,26 @@ const POR_ZONA: Record<string, AcentoId> = {
   'Europe/Madrid': 'es',
 };
 
-function armar(id: AcentoId, origen: AcentoResuelto['origen']): AcentoResuelto {
+function armar(id: AcentoId, origen: AcentoResuelto['origen'], muletillas: string[] = []): AcentoResuelto {
+  // Sólo las que la persona marcó de SU variedad. Una muletilla de otro país
+  // guardada antes de cambiar de acento sonaría a que el avatar cambió de
+  // nacionalidad a mitad del anuncio — y eso no se ve al leer, se oye.
+  const suyas = muletillas.filter((m) => MULETILLAS[id].includes(m));
   return {
     id,
-    prompt: ACENTOS_ES[id],
+    // ⚠️ LAS MULETILLAS VIAJAN PEGADAS AL ACENTO, y no por un slot nuevo del
+    // template. `renderTemplate` deja literales los slots que no conoce, así que
+    // un `{{muletillas}}` nuevo llegaría CRUDO a todo workspace que ya tenga el
+    // prompt editado a mano — el mismo modo de falla que dejó «{{acento}}» sin
+    // llenar durante meses, y que sólo se nota al oír el resultado.
+    //
+    // Y se dice «naturalmente», sin número: el repo ya se equivocó repartiendo
+    // muletillas por densidad y el cliente lo marcó al instante.
+    prompt: suyas.length
+      ? `${ACENTOS_ES[id]}. The speaker naturally uses these filler words when speaking: ${suyas.map((m) => `"${m}"`).join(', ')}. Use them the way a person does — only where they fall naturally, never forced and never in every sentence.`
+      : ACENTOS_ES[id],
     etiqueta: ETIQUETA[id],
+    muletillas: suyas,
     seguro: origen === 'declarado',
     origen,
   };
@@ -104,14 +156,21 @@ function armar(id: AcentoId, origen: AcentoResuelto['origen']): AcentoResuelto {
  *                  Gana siempre: un dato que alguien escribió le gana a cualquier
  *                  inferencia nuestra por buena que sea.
  * @param zona      su `mako.timezone`, que se resuelve sola contra su calendario.
+ * @param muletillas las que marcó como suyas. Se filtran contra las de SU
+ *                  variedad: una de otro país es ruido, no un dato.
  */
-export function resolverAcento(declarado?: string | null, zona?: string | null): AcentoResuelto {
+export function resolverAcento(
+  declarado?: string | null,
+  zona?: string | null,
+  muletillas?: string[] | null,
+): AcentoResuelto {
+  const m = Array.isArray(muletillas) ? muletillas : [];
   const d = (declarado ?? '').trim();
-  if (d && d in ACENTOS_ES) return armar(d as AcentoId, 'declarado');
+  if (d && d in ACENTOS_ES) return armar(d as AcentoId, 'declarado', m);
 
   const z = (zona ?? '').trim();
-  if (z && POR_ZONA[z]) return armar(POR_ZONA[z], 'zona-horaria');
+  if (z && POR_ZONA[z]) return armar(POR_ZONA[z], 'zona-horaria', m);
 
   // Ni declarado ni reconocido: el neutro, y marcado como lo que es.
-  return armar('latam', 'default');
+  return armar('latam', 'default', m);
 }

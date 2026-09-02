@@ -16,6 +16,8 @@ import { guionesDisponibles } from './guiones-datos';
 import { leerAnuncios } from './anuncios-datos';
 import { leerSaldoGuardado, costoPorClip } from './saldo-datos';
 import { VideoGeneratorApp } from './VideoGeneratorApp';
+import { onboardingTabPendiente } from '@/lib/tab-onboarding-state';
+import { PuertaVideoGen } from './PuertaVideoGen';
 // El interruptor del tema, en el HTML del servidor: corre antes del primer
 // pintado y evita el fogonazo blanco. Ver TemaOscuroScript.
 import { TemaOscuroScript } from '@/app/_components/TemaOscuroScript';
@@ -51,9 +53,13 @@ export default async function Page() {
     costoPorClip().catch(() => ({ creditos: 15, medido: false })),
   ]);
 
-  return (
-    <>
-    <TemaOscuroScript />
+  // La tab abre en su onboarding mientras no esté hecho, pero NO lo reemplaza
+  // para siempre: el wizard tiene su salida («Lo configuro después»), y salir
+  // devuelve la tab entera SIN recargar — un `router.refresh()` volvería a
+  // correr este guard y devolvería el mismo wizard.
+  const faltaOnboarding = await onboardingTabPendiente('video-generator').catch(() => false);
+
+  const app = (
     <VideoGeneratorApp
       historialInicial={historial}
       contexto={contexto}
@@ -63,6 +69,23 @@ export default async function Page() {
       saldo={saldo}
       costoClip={costoClip}
     />
+  );
+
+  return (
+    <>
+      <TemaOscuroScript />
+      {faltaOnboarding ? (
+        <PuertaVideoGen
+          fotos={contexto.fotos}
+          acentoInicial={contexto.acento.id}
+          acentoSeguro={contexto.acento.seguro}
+          muletillasIniciales={contexto.acento.muletillas}
+          puente={puente}
+          ahora={Date.now()}
+        >
+          {app}
+        </PuertaVideoGen>
+      ) : app}
     </>
   );
 }
