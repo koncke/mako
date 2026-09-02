@@ -389,6 +389,33 @@ for (const [i, c] of lote.entries()) {
   if (existsSync(ffprobe)) {
     for (const f of readdirSync(dirVideo)) {
       if (!f.startsWith(`${c.archivo}.`) || f === `${c.archivo}.mp4`) continue;
+      /**
+       * ⚠️ EL PARCIAL DE UN FRAGMENTO SE TIRA; EL PARCIAL DEL ARCHIVO NO.
+       *
+       * Son tres cosas distintas con nombres parecidos:
+       *   `<x>.part`             el parcial del archivo entero. Puede pesar cientos de MB
+       *                          y es la reanudacion legitima. NO se toca.
+       *   `<x>.part-FragN`       un fragmento ya completo. Inofensivo.
+       *   `<x>.part-FragN.part`  el parcial DE UN FRAGMENTO. Este es el que envenena.
+       *
+       * Si ese ultimo quedo corrupto, yt-dlp lo reanuda pidiendo un Range que el server no
+       * puede satisfacer y contesta **HTTP 416** — «Requested Range Not Satisfiable»— con
+       * cinco reintentos y a otra cosa. La clase no se baja NUNCA MAS, y el error no se
+       * parece a lo que es: habla de rangos, no de un archivo roto en disco.
+       *
+       * Medido el 01/09/2026 en ARCADIA clase 16: un `.part-Frag1.part` de 678 bytes tenia
+       * frenada la descarga. Borrandolo, bajo a la primera.
+       *
+       * La asimetria decide, igual que con los videos rotos: tirarlo cuesta re-bajar UN
+       * fragmento —~150 KB— y dejarlo cuesta la clase entera.
+       */
+      if (/\.part-Frag\d+\.part$/i.test(f)) {
+        try {
+          unlinkSync(join(dirVideo, f));
+          console.error(`     ↳ tiré «${f.slice(-42)}»: un fragmento a medias hace que el server conteste 416 para siempre.`);
+        } catch { /* si no se puede borrar, el aviso ya quedó */ }
+        continue;
+      }
       if (/\.part(-Frag\d+)?$/i.test(f)) continue;          // reanudable: no se toca
       if (!/\.(mp4|m4a|webm|mkv)$/i.test(f)) continue;
       const ruta = join(dirVideo, f);
