@@ -43,7 +43,8 @@ import { creditosDeClip, notaSaldo } from '@/lib/costo-clip';
 import { promptDeClip } from '@/lib/prompts-video';
 import { imagenEnCurso } from './variantes-imagen';
 import { nombreDeClip } from './video-pedido';
-import { escenariosYaGeneradosAction, reusarEscenariosAction } from './video-action';
+import { escenariosYaGeneradosAction, reusarEscenariosAction, elegirEscenarioAction, otroFondoAction } from './video-action';
+import { escenariosParaCamara, escenarioPorId, CATALOGO_ESCENARIOS } from '@/lib/escenarios-data';
 import { enCuantasQueda } from './plan-clips';
 import { PasoTomas } from './PasoTomas';
 import { creditosDeClip as creditosDeClipFlow } from '@/lib/costo-clip';
@@ -233,6 +234,20 @@ type Paso =
   // ANTES de todo: «me gustaría que el primer paso de todo sea… el de "Así se
   // verá tu anuncio"». Vive en `VideoGeneratorApp`, entre el catálogo y el guion.
   | { id: 'guion-leer' }
+  /**
+   * DÓNDE se graba. Una pantalla, una decisión.
+   *
+   * ⚠️ NO SE DERIVA DEL DATO, y es la excepción que el resto de este archivo
+   * evita. `pasoDe` no lo devuelve nunca: se entra desde el guion y se sale
+   * eligiendo. Si se derivara de «no tiene `escenarioId`», todo anuncio
+   * empezado antes de que el catálogo existiera volvería acá de golpe — y los
+   * que ya tienen imágenes aprobadas las perderían por una pregunta que nadie
+   * les hizo cuando las aprobaron.
+   *
+   * Lo que sí se deriva es que se pueda VOLVER: está en `mapaDe`, así que el
+   * indicador lo cuenta y el «Atrás» del escenario aterriza acá.
+   */
+  | { id: 'lugar' }
   | { id: 'escenario'; n: number }
   | { id: 'cara' }
   /**
@@ -299,6 +314,10 @@ function pasoAnterior(mapa: string[], actual: string): Paso | null {
   if (i <= 0) return null;
   const clave = mapa[i - 1];
   if (clave === 'guion-leer') return { id: 'guion-leer' };
+  // Sin esto el 'Atras' del primer escenario devolvia null y desaparecia: la
+  // clave estaba en el mapa y aca no, asi que el paso existia para el indicador
+  // de arriba y no para volver.
+  if (clave === 'lugar') return { id: 'lugar' };
   if (clave === 'cara') return { id: 'cara' };
   if (clave === 'listo') return { id: 'listo' };
   const m = /^(escenario|toma)-(\d+)$/.exec(clave);
@@ -312,6 +331,7 @@ function mapaDe(item: PlanGuardado): string[] {
   // RECORRIDO, y filmar dejó de ser N pasos para ser uno.
   return [
     'guion-leer',
+    'lugar',
     ...(escenas.length ? escenas.map((e) => `escenario-${e.n}`) : ['escenario-1']),
     'tomas',
     'listo',
@@ -1106,15 +1126,30 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
    * pone en cero desde acá. Preguntarlo por escenario serían cuatro viajes para
    * la misma respuesta.
    */
-  const [yaGenerados, setYaGenerados] = useState<{ cuantos: number; total: number } | null>(null);
+  /**
+   * ⚠️ LA RESPUESTA LLEVA DE QUÉ ANUNCIO ES, y antes se limpiaba con un
+   * `setYaGenerados(null)` al principio del efecto. Dos cosas mejoran:
+   *
+   * · El número viejo no se puede pintar NUNCA sobre el anuncio nuevo. Con el
+   *   reset había una ventana —entre que el efecto corre y que el server
+   *   contesta— en la que la oferta decía «ya generaste 3 de 4» sobre un
+   *   anuncio que no tiene ninguno. Un atajo que ofrece algo que no existe
+   *   manda a la persona a un botón que después falla.
+   *
+   * · Y deja de ser un `setState` síncrono adentro de un efecto, que es lo que
+   *   marca `react-hooks/set-state-in-effect`: React puede tener que renderizar
+   *   dos veces por cada cambio de anuncio para llegar al mismo estado.
+   */
+  const [yaGenerados, setYaGenerados] = useState<{ de: string; cuantos: number; total: number } | null>(null);
   useEffect(() => {
     let vivo = true;
-    setYaGenerados(null);
     void escenariosYaGeneradosAction(item.id).then((r) => {
-      if (vivo && r.ok) setYaGenerados({ cuantos: r.cuantos, total: r.total });
+      if (vivo && r.ok) setYaGenerados({ de: item.id, cuantos: r.cuantos, total: r.total });
     }).catch(() => { /* la oferta es un atajo: si no se puede saber, no se ofrece */ });
     return () => { vivo = false; };
   }, [item.id]);
+  /** La oferta, sólo si es de ESTE anuncio. Ver el porqué arriba. */
+  const reusables = yaGenerados?.de === item.id ? yaGenerados : null;
   /** El panel de salidas encima del CLIP (el gemelo de `rehacer`, que es el de la imagen). */
   const [rehacerClip, setRehacerClip] = useState(false);
   /** Qué toma se está mirando en el paso único. */
@@ -1162,11 +1197,19 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
     return creditos == null ? '~15 créditos (estimado)' : `${creditos} créditos`;
   }, [item.plan.clips]);
 
+  /**
+   * El único camino de la pantalla a una action.
+   *
+   * ⚠️ DEVUELVE SI SALIÓ BIEN, y antes no devolvía nada. Un `.then()` encadenado
+   * corría IGUAL después de un fallo, así que «elige el lugar y avanza» avanzaba
+   * también cuando el lugar no se había podido guardar — y la pantalla siguiente
+   * escribía los escenarios sin él, silenciando la elección en vez del error.
+   */
   const correr = useCallback(async (
     etiqueta: string,
     fn: () => Promise<{ ok: boolean; item?: PlanGuardado; error?: string }>,
     avanzar = true,
-  ) => {
+  ): Promise<boolean> => {
     setOcupado(etiqueta);
     setError('');
     setDesde(Date.now());
@@ -1206,6 +1249,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
       setError(r.error || 'No se pudo.');
     }
     setOcupado('');
+    return r.ok;
   }, [onCambio]);
 
   // ── El sondeo, uno solo y para las dos esperas ──────────────────────────
@@ -1572,11 +1616,86 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
         // pegada al botón que SÍ gasta, y ahí sigue. Y «Volver al catálogo» es
         // exactamente lo que hace el «Salir» de arriba: el mismo botón dibujado
         // dos veces es el que no se encuentra en ninguno.
-        onSiguiente: () => setForzado({ id: 'escenario', n: 1 }),
+        onSiguiente: () => setForzado({ id: 'lugar' }),
       };
     }
 
-    // ── 2. El lugar ───────────────────────────────────────────────────────
+    // ── 2. Dónde se graba ─────────────────────────────────────────────────
+    //
+    // ⚠️ EL LUGAR NO ES EL FORMATO, y hasta hoy eran la misma pregunta. El
+    // formato dice CÓMO se filma —la cámara, el ritmo, cuántos escenarios—; el
+    // lugar dice DÓNDE pasa, y lo decidía MaKo leyendo el guion sin preguntar.
+    // Martín: «si quiero grabar en la oficina y quiero hacer variaciones del
+    // fondo».
+    if (paso.id === 'lugar') {
+      // Sólo los que funcionan con la cámara de este formato. Ofrecer una
+      // oficina para «Car Talks» —que ES un selfie adentro de un auto— no es dar
+      // una opción más: es ofrecer romper el formato y descubrirlo después.
+      // Sin formato resuelto no se puede filtrar, y ahi se ofrecen todos: una
+      // grilla vacia no protege de nada, deja sin salida.
+      const lugares = puesta ? escenariosParaCamara(puesta.camara) : CATALOGO_ESCENARIOS;
+      const elegido = item.escenarioId;
+      return {
+        pregunta: '¿Dónde se graba?',
+        cuerpo: (
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+            gap: 10, width: '100%',
+          }}>
+            {lugares.map((l) => {
+              const esEste = elegido === l.id;
+              return (
+                <button
+                  key={l.id}
+                  type="button"
+                  disabled={!!ocupado}
+                  onClick={() => void correr(`lugar-${l.id}`, () => elegirEscenarioAction(item.id, l.id), false)
+                    .then((ok) => { if (ok) setForzado({ id: 'escenario', n: 1 }); })}
+                  style={{
+                    display: 'grid', gap: 5, textAlign: 'left', cursor: ocupado ? 'default' : 'pointer',
+                    padding: '15px 16px', borderRadius: 'var(--r-md)',
+                    background: esEste ? 'var(--mako-bg)' : 'var(--surface-2)',
+                    border: `1px solid ${esEste ? 'var(--mako-border)' : 'var(--border)'}`,
+                    opacity: ocupado && ocupado !== `lugar-${l.id}` ? 0.5 : 1,
+                    font: 'inherit', color: 'inherit',
+                  }}
+                >
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 7,
+                    fontSize: 'var(--fs-card)', fontWeight: 600, color: 'var(--ink)',
+                  }}>
+                    {l.nombre}
+                    {ocupado === `lugar-${l.id}` && <Icon name="regenerar" size={14} />}
+                  </div>
+                  <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.5 }}>
+                    {l.descripcion}
+                  </div>
+                  {/* Cuándo conviene, que es lo que ayuda a elegir. La descripción
+                      dice qué ES el lugar; sin esto hay que deducir para qué sirve. */}
+                  <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--faint)', lineHeight: 1.5 }}>
+                    {l.cuando}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        ),
+        // ⚠️ LA SALIDA ES «QUE LO ELIJA MAKO», y tiene que existir: así funcionó
+        // esta tab desde siempre y sigue siendo una respuesta correcta. Un
+        // catálogo cerrado SIN escape convierte una ayuda en un peaje.
+        //
+        // Va como botón secundario y no como una tarjeta más de la grilla:
+        // mezclada entre los lugares se leería como un lugar, que es justo lo
+        // que no es.
+        boton: 'Que lo elija MaKo leyendo mi guion',
+        consecuencia: 'No gasta créditos.',
+        onSiguiente: () => setForzado({ id: 'escenario', n: 1 }),
+        atras: 'Volver al guion',
+        onAtras: () => setForzado({ id: 'guion-leer' }),
+      };
+    }
+
+    // ── 3. El lugar ───────────────────────────────────────────────────────
     if (paso.id === 'escenario') {
       const escena = (item.escenas ?? []).find((e) => e.n === paso.n);
       // Todavía no llegaron los escenarios: MaKo los está escribiendo (el efecto
@@ -1584,6 +1703,9 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
       const sinEscenas = !escena;
       const marca = item.imagenes?.[String(paso.n)];
       const opciones = marca?.opciones ?? [];
+      // Dónde eligió grabar la persona. `null` en todo anuncio anterior al
+      // catálogo, y ahí este paso funciona exactamente como funcionaba.
+      const lugarElegido = escenarioPorId(item.escenarioId);
       // La MISMA función que usa el sondeo: una regla, un lugar.
       const generando = imagenEnCurso(marca);
       const causa: CausaFlow | undefined = marca?.error
@@ -1657,7 +1779,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
               «puedes reusar escenarios» es una casilla que nadie sabe si le
               conviene. El número sale del server, que es el que sabe qué lugares
               coinciden — no del formato, porque un escenario es del LUGAR. */}
-          {!!yaGenerados?.cuantos && (
+          {!!reusables?.cuantos && (
             <div style={{
               width: '100%', display: 'grid', gap: 9, marginBottom: 4,
               padding: '13px 15px', borderRadius: 'var(--r-md)',
@@ -1666,9 +1788,9 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
               <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--ink)', lineHeight: 1.5 }}>
                 Ya generaste{' '}
                 <strong>
-                  {yaGenerados.cuantos === 1
+                  {reusables.cuantos === 1
                     ? 'el escenario de este lugar'
-                    : `${yaGenerados.cuantos} de tus ${yaGenerados.total} escenarios`}
+                    : `${reusables.cuantos} de tus ${reusables.total} escenarios`}
                 </strong>{' '}
                 en otro anuncio. Puedes usarlos y saltarte este paso.
               </div>
@@ -1679,7 +1801,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
                 loading={ocupado === 'reusar'}
                 icon={<Icon name="regenerar" size={14} />}
                 onClick={() => void correr('reusar', () => reusarEscenariosAction(item.id), false)
-                  .then(() => setYaGenerados(null))}
+                  .then((ok) => { if (ok) setYaGenerados(null); })}
               >
                 Usar los que ya tengo
               </Button>
@@ -1851,11 +1973,45 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
                               ))}
                             </div>
                           )}
+                          {/* ⚠️ «OTRO FONDO» NO ES «REGENERAR», y ésa es toda la
+                              diferencia que faltaba. Regenerar vuelve a tirar el
+                              MISMO prompt: el modelo devuelve una variación de lo
+                              mismo —el mismo rincón con otra luz— así que quien no
+                              quiere ESE fondo puede apretarlo diez veces y seguir
+                              en el mismo lugar. Martín lo pidió por su nombre:
+                              «quiero hacer variaciones del fondo».
+
+                              Acá el fondo cambia de verdad porque sale del
+                              catálogo del lugar, no del azar; y va ARRIBA porque
+                              es lo que la persona quiere el 90% de las veces que
+                              abre este panel.
+
+                              Sólo existe con un lugar elegido: sin catálogo no hay
+                              lista de rincones de dónde sacar el siguiente, y un
+                              botón que a veces contesta «primero elige el lugar» es
+                              peor que no estar. */}
+                          {!!lugarElegido?.fondos.length && (
+                            <Button
+                              variant="primary"
+                              size="lg"
+                              icon={<Icon name="regenerar" size={15} />}
+                              onClick={() => {
+                                setRehacer(false);
+                                void correr('fondo', () => otroFondoAction(item.id, paso.n), false);
+                              }}
+                            >
+                              Otro fondo
+                            </Button>
+                          )}
                           {/* El mismo par que abajo: uno pesa y el otro no. Y
                               «Decir qué cambiar» va DEBAJO, que es lo que dice
                               cuál de los dos es el camino. */}
                           <Button
-                            variant="primary"
+                            // Con un lugar elegido, éste deja de ser el camino
+                            // principal: es «el mismo rincón, otra toma». El que
+                            // manda pasa a ser «Otro fondo», y dos botones
+                            // primarios uno encima del otro no dicen cuál es cuál.
+                            variant={lugarElegido?.fondos.length ? 'secondary' : 'primary'}
                             size="lg"
                             icon={<Icon name="regenerar" size={15} />}
                             onClick={() => {

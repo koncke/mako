@@ -32,6 +32,7 @@ import { chatCheapCascade, CASCADA_DOCS } from '@/lib/ai-cheap';
 import { armarEscenas, mencionaCara, validarEscenas, type Escena } from '@/lib/escenas-core';
 import type { PlanVideo } from '@/lib/video-planner';
 import type { Puesta } from '@/lib/puestas-data';
+import { repartirFondos, type Escenario } from '@/lib/escenarios-data';
 
 export type { Escena };
 
@@ -139,6 +140,16 @@ export async function escribirEscenas(
   plan: PlanVideo,
   puesta: Puesta,
   ajuste?: string,
+  /**
+   * Dónde eligió grabar la persona. `null` = no eligió, y entonces el lugar lo
+   * decide MaKo leyendo el guion, que es como funcionaba antes de que el
+   * catálogo existiera.
+   *
+   * ⚠️ Es OPCIONAL a propósito y no un default: los anuncios que ya están a
+   * medio hacer no tienen escenario elegido, y meterles uno de prendas les
+   * cambiaría el lugar sin que nadie lo pidiera.
+   */
+  escenario?: Escenario | null,
 ): Promise<SalidaEscenas> {
   const tomas = plan.clips.length;
   if (!tomas) return { ok: false, motivo: 'ia', detalle: 'el plan no tiene tomas' };
@@ -146,6 +157,9 @@ export async function escribirEscenas(
   // Nunca más escenarios que tomas: dos imágenes para una sola toma es un
   // escenario que el guion no tiene.
   const escenarios = Math.max(1, Math.min(puesta.escenarios || 1, tomas));
+
+  // Los rincones del lugar, uno por escenario y sin repetir mientras alcancen.
+  const fondos = escenario ? repartirFondos(escenario, escenarios) : [];
 
   const user = [
     `FORMATO: ${puesta.nombre} (${puesta.tecnico})`,
@@ -157,6 +171,19 @@ export async function escribirEscenas(
     '',
     `ESCENARIOS A DEVOLVER: ${escenarios}`,
     '',
+    // ⚠️ EL LUGAR ELEGIDO VA ANTES QUE EL GUION, y no es cosmético: cuando el
+    // guion menciona un lugar («entré al depósito y vi…») y la persona eligió
+    // otro, el modelo tiene que obedecer a la persona. Lo que se lee último es
+    // lo que pesa menos, así que la instrucción que manda va arriba y dice
+    // explícitamente qué hacer con el conflicto.
+    ...(escenario ? [
+      `EL CLIENTE ELIGIÓ GRABAR AQUÍ: ${escenario.mundo}`,
+      'Los ' + escenarios + ' escenarios pasan TODOS en ese lugar. Si el guion menciona otro sitio, gana el que eligió el cliente: el guion se filma aquí.',
+      '',
+      'FONDOS — uno por escenario, EN ESTE ORDEN, y cada prompt tiene que describir el suyo:',
+      fondos.map((f, i) => `${i + 1}. ${f}`).join('\n'),
+      '',
+    ] : []),
     'REGLAS DE ESTE FORMATO:',
     puesta.reglas.map((r) => `- ${r}`).join('\n'),
     '',
@@ -194,7 +221,7 @@ export async function escribirEscenas(
       ? { ok: false, motivo: 'filtro', detalle: [...new Set(motivos)].join(' · ') }
       : { ok: false, motivo: 'ia', detalle: 'la respuesta no tuvo la forma esperada' };
   }
-  return { ok: true, escenas: armarEscenas(tomas, escenarios, val) };
+  return { ok: true, escenas: armarEscenas(tomas, escenarios, val, fondos) };
 }
 
 const SYSTEM_UNA = `Eres MaKo, el director de fotografía de este anuncio.

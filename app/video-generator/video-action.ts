@@ -44,6 +44,7 @@ import { sanearPlantillas, tieneCaraParcheable, KEY_PLANTILLAS } from '@/lib/flo
 import { olvidarTomasFallidas, olvidarImagenesDeLaFoto } from './tomas-invalidar';
 import { agregarClip, quitarClip, cambiarDuracion, partirHastaQueEntre, tomasQueHacenFalta } from './plan-clips';
 import { escenariosReusables, cuantosSeReusan } from './escenario-reuso';
+import { escenarioPorId, fondoSiguiente } from '@/lib/escenarios-data';
 import { sumarVariantes } from './variantes-imagen';
 import { archivarToma, recuperarToma } from './tomas-archivo';
 import { personaEstado, addPersonaFoto, getPersona } from '@/lib/persona';
@@ -1192,7 +1193,9 @@ export async function escribirEscenasAction(
   const puesta = puestaPorId(item.plan.puestaId);
   if (!puesta) return { ok: false, error: 'No reconozco el formato de este anuncio.' };
 
-  const salida = await escribirEscenas(item.plan, puesta, ajuste);
+  // El lugar que eligió la persona. `null` en todo anuncio anterior al catálogo,
+  // y ahí MaKo vuelve a decidirlo leyendo el guion.
+  const salida = await escribirEscenas(item.plan, puesta, ajuste, escenarioPorId(item.escenarioId));
   if (!salida.ok) {
     // ⚠️ DOS CAUSAS, DOS FRASES. Antes las dos salían como «revisa tus API keys
     // en /integraciones», y una de ellas es culpa NUESTRA: la IA contestó bien y
@@ -2303,4 +2306,103 @@ export async function reusarEscenariosAction(
   const nuevo: PlanGuardado = { ...item, imagenes };
   await guardarEnHistorial(nuevo);
   return { ok: true, item: nuevo, cuantos: reusables.length };
+}
+
+/**
+ * Elige dónde se graba este anuncio, y reescribe los escenarios con ese lugar.
+ *
+ * ⚠️ ELEGIR Y REESCRIBIR SON UNA SOLA COSA, no dos pasos. Guardar el id sin
+ * rehacer las escenas dejaría al anuncio diciendo «se graba en la oficina» con
+ * los prompts del lugar que MaKo había inventado leyendo el guion — y eso no se
+ * ve como un error: se ve como una imagen del lugar equivocado, que la persona
+ * aprueba porque no tiene con qué compararla.
+ *
+ * Por eso también se borran las imágenes: es la misma regla que ya aplica
+ * `escribirEscenasAction`, y acá pesa más porque el lugar cambió entero.
+ */
+export async function elegirEscenarioAction(
+  planId: string,
+  escenarioId: string,
+): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  const escenario = escenarioPorId(escenarioId);
+  if (!escenario) return { ok: false, error: 'No reconozco ese lugar.' };
+
+  const item = planDe(await leerHistorial(), planId);
+  if (!item) return { ok: false, error: 'Ese anuncio ya no está en el historial.' };
+
+  const puesta = puestaPorId(item.plan.puestaId);
+  if (!puesta) return { ok: false, error: 'No reconozco el formato de este anuncio.' };
+
+  const salida = await escribirEscenas(item.plan, puesta, undefined, escenario);
+  if (!salida.ok) {
+    return {
+      ok: false,
+      error: salida.motivo === 'filtro'
+        ? `MaKo escribió los escenarios pero se los rechacé yo: ${salida.detalle}. No es nada tuyo ni de tus credenciales. Vuelve a intentarlo — sale distinto cada vez.`
+        : 'MaKo no pudo escribir los escenarios de ese lugar. Vuelve a intentarlo; si sigue igual, revisa tus API keys en /integraciones.',
+    };
+  }
+
+  const actualizado: PlanGuardado = { ...item, escenarioId, escenas: salida.escenas, imagenes: {} };
+  await guardarEnHistorial(actualizado);
+  return { ok: true, item: actualizado };
+}
+
+/**
+ * Manda este escenario a OTRO rincón del mismo lugar.
+ *
+ * ⚠️ ES LO QUE «REGENERAR» NO PODÍA HACER, y la diferencia es la que el dueño
+ * pidió: «quiero hacer variaciones del fondo». Regenerar vuelve a tirar el MISMO
+ * prompt y el modelo devuelve una variación de lo mismo —el mismo rincón con
+ * otra luz—, así que alguien que no quiere ESE fondo puede tocarlo diez veces y
+ * seguir en el mismo lugar. Acá el fondo cambia de verdad, porque sale del
+ * catálogo y no del azar.
+ *
+ * Avanza en orden y da la vuelta al final, así tocarlo N veces recorre todos los
+ * rincones del sitio y vuelve al primero: la persona nunca se queda sin saber
+ * cuántos le faltan por ver.
+ */
+export async function otroFondoAction(
+  planId: string,
+  n: number,
+): Promise<{ ok: true; item: PlanGuardado } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+
+  const item = planDe(await leerHistorial(), planId);
+  if (!item?.escenas) return { ok: false, error: 'Este anuncio todavía no tiene escenarios.' };
+
+  const escenario = escenarioPorId(item.escenarioId);
+  if (!escenario) {
+    // Sin lugar elegido no hay lista de rincones de dónde sacar el siguiente. Se
+    // dice qué hacer, que es elegir el lugar — no «no se pudo».
+    return { ok: false, error: 'Primero elige dónde se graba este anuncio y vuelve a intentarlo.' };
+  }
+
+  const escena = item.escenas.find((e) => e.n === n);
+  if (!escena) return { ok: false, error: 'Ese escenario no existe.' };
+
+  const fondo = fondoSiguiente(escenario, escena.fondo);
+  if (!fondo) return { ok: false, error: 'Ese lugar no tiene otros fondos.' };
+
+  const nueva = await reescribirEscena(escena, `Mismo lugar, otro rincón: ${fondo}`);
+  if (!nueva) {
+    return { ok: false, error: 'MaKo no pudo cambiar el fondo. Vuelve a intentarlo.' };
+  }
+
+  const actualizado: PlanGuardado = {
+    ...item,
+    // ⚠️ El `fondo` se pisa DESPUÉS de `reescribirEscena`: esa función conserva
+    // los campos que no toca, así que sin esto la escena quedaría con el prompt
+    // del rincón nuevo y la marca del viejo — y el próximo «otro fondo» daría
+    // vueltas entre los mismos dos para siempre.
+    escenas: item.escenas.map((e) => (e.n === n ? { ...nueva, fondo } : e)),
+    // Sólo la de ESTE escenario, igual que al corregirlo: el fondo cambió acá.
+    imagenes: { ...imgs(item), [String(n)]: {} },
+  };
+  await guardarEnHistorial(actualizado);
+  return { ok: true, item: actualizado };
 }

@@ -20,6 +20,19 @@ export type Escena = {
   lugar: string;
   /** El prompt para Flow: composición, luz, encuadre. En inglés. Nunca la cara. */
   prompt: string;
+  /**
+   * Qué fondo del escenario elegido se está usando, en inglés y tal cual sale
+   * del catálogo.
+   *
+   * ⚠️ SE GUARDA PARA PODER PEDIR OTRO. Sin esto, «otro fondo» tendría que
+   * adivinar cuál es el de ahora leyendo el prompt, y erraría justo cuando la
+   * persona ya editó el prompt a mano — que es cuando más importa no pisarle
+   * lo que escribió.
+   *
+   * Ausente en todo anuncio anterior al catálogo de escenarios, y eso es un
+   * estado válido: significa que el lugar lo escribió MaKo leyendo el guion.
+   */
+  fondo?: string;
 };
 
 /**
@@ -199,6 +212,10 @@ export function armarEscenas(
   tomas: number,
   escenarios: number,
   v: { cortes: number[]; lugares: string[]; prompts: string[] },
+  // Los fondos que le tocan a cada escenario, ya repartidos por
+  // `repartirFondos`. Vacío cuando el anuncio no eligió escenario del catálogo
+  // — que es lo que pasa con todo anuncio anterior a que existiera.
+  fondos: string[] = [],
 ): Escena[] {
   const rangos = escenasDeCortes(tomas, v.cortes) ?? repartirEscenas(tomas, escenarios);
   return rangos.map((r, i) => ({
@@ -207,5 +224,6 @@ export function armarEscenas(
     hasta: r.hasta,
     lugar: v.lugares[i] ?? `Escenario ${i + 1}`,
     prompt: v.prompts[i] ?? '',
+    ...(fondos[i] ? { fondo: fondos[i] } : {}),
   }));
 }

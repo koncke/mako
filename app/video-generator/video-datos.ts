@@ -184,6 +184,19 @@ export type PlanGuardado = {
    */
   escenas?: Escena[];
   /**
+   * Dónde eligió grabar la persona, del catálogo de `lib/escenarios-data.ts`.
+   *
+   * ⚠️ ES DEL ANUNCIO Y NO DEL WORKSPACE, por el mismo motivo que `fotoId`: dos
+   * anuncios del mismo negocio pueden pasar en lugares distintos, y una
+   * preferencia global haría que empezar el segundo le cambiara el lugar al
+   * primero sin avisar.
+   *
+   * Ausente = el lugar lo decidió MaKo leyendo el guion, que es como funcionaba
+   * antes del catálogo. Todo anuncio viejo está así y sigue andando: el paso de
+   * elegir sólo aparece cuando todavía no hay ninguna imagen confirmada.
+   */
+  escenarioId?: string;
+  /**
    * El prompt que la persona escribió a mano para una toma, por número.
    *
    * ⚠️ VIVE EN EL PLAN Y NO EN LA MARCA DE LA TOMA, y la diferencia es la que
