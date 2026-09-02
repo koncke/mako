@@ -831,9 +831,26 @@ Las cuatro reglas, que valen para cualquier error que llegue a un usuario:
 - **Si hay algo que hacer, va el LINK a la pantalla exacta** —con su deep-link, no
   la home— dentro del mismo mensaje.
 - ⚠️ **Y LA CONTRACARA: cuando NO es del usuario, decilo con todas las letras.**
-  Culpar al cliente por un bache ajeno es el mismo error con el signo cambiado y se
-  paga peor, porque lo manda a tocar algo que está bien. `proveedor_caido` dice «no
-  es nada tuyo, tus keys están bien» y **no** lleva link.
+  Culpar al cliente por un bache ajeno es el mismo error con el signo cambiado y
+  se paga peor, porque lo manda a tocar algo que está bien. `proveedor_caido`
+  dice «no es nada tuyo, tus keys están bien» y **no** lleva link.
+
+- ⚠️ **Y CUANDO EL QUE FALLA ES UN TERCERO, SE LO NOMBRA — no alcanza con decir
+  «no es tuyo».** Martín, sobre un rechazo de Google que una clienta leyó como un
+  fallo de MaKo: *«si el problema NO lo tenemos nosotros, NO asumir la culpa.
+  Incluso dejar bien en claro quién es el culpable. Si no, los usuarios piensan
+  que MaKo falló»*.
+
+  Un mensaje que arranca por la instrucción se lee como que algo de acá se rompió,
+  aunque después aclare. **El nombre del que dijo que no va PRIMERO**, y con las
+  tres cosas que lo vuelven verificable: que el pedido salió bien de acá, que pasa
+  igual haciéndolo a mano en la herramienta del tercero, y si cobra o no.
+
+  ⚠️ Pero sólo si está MEDIDO. «Pasa igual a mano» es una afirmación fuerte y
+  falsa el día que no lo sea: acá se pudo escribir porque la clienta lo reprodujo
+  en su propio Google Flow y mandó la captura. Sin esa prueba, se dice quién
+  contestó el error y nada más — echarle la culpa a un tercero sin medirlo es el
+  mismo error otra vez, con el dedo apuntando para afuera.
 
 # La voz de MaKo es rioplatense, y el texto DEL CLIENTE no
 

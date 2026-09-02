@@ -4870,3 +4870,77 @@ anidados se mira la línea, no una captura.**
   comercial.** La prohibición literal de compartir credenciales que el repo cita es
   de fal.ai y Replicate, no de ElevenLabs. La decisión de que la key sea de la
   plataforma se sostiene por la regla propia del repo, no por su ToS.
+
+### La toma que Google rechazó 17 veces, y las tres pantallas que la ayudaron a insistir (02/09/2026)
+
+**Vive en:** `lib/flow-fallo-texto.ts` · `app/video-generator/PasoTomas.tsx` ·
+`app/video-generator/WizardAnuncio.tsx` · `app/video-generator/video-action.ts`
+
+**Lo medido, que es lo que hace útil todo lo demás.** Un anuncio de 11 tomas con
+**UNA sola imagen de escenario**:
+
+```
+OK   1..9    filmadas — con esa MISMA imagen
+NO  10       «Descarga el diagnóstico del cuello de botella ahora, es gratis…»
+NO  11       «Simplemente haz clic en el enlace que te voy a enviar por WhatsApp…»
+```
+
+17 consultas de estado consecutivas, **todas** con `IDENTIFIABLE_PERSON_SAFETY`, y
+en toda esa hora **cero** generaciones de imagen. Créditos: 898 → 898 con 26
+generaciones, o sea que **un rechazo no cobra**.
+
+Y la clienta lo cerró desde afuera: lo intentó **a mano en su propio Google Flow**,
+con la misma imagen, y Google contestó *«esta generación podría infringir nuestras
+políticas · prueba con otra petición · no se te ha cobrado por esta generación»*.
+
+#### ⚠️ Mandábamos a arreglar lo único que estaba probado
+
+El mensaje decía «genera otra vez la imagen del escenario». Esa imagen había
+producido **nueve tomas buenas**. Lo que cambia entre una toma que pasa y una que
+no es **lo que DICE** — y las dos que fallan son las únicas dos que dan una
+instrucción directa: *descarga esto ahora*, *haz clic en el enlace*.
+
+No sabemos por qué, y el copy no lo afirma: dice adónde mirar. Lo que sí es un
+dato es `imagenProbada` —cuántas tomas ya filmó esa misma imagen— y con ≥1 el
+mensaje y el BOTÓN cambian de destino.
+
+**La regla: antes de mandar a rehacer una entrada, contá cuántas salidas buenas
+ya produjo.** Una entrada con nueve éxitos no es la variable sospechosa.
+
+#### Tres pantallas que empujaban a insistir
+
+1. **El mensaje declaraba la acción y no había botón.** Cada causa de `textoFlow`
+   trae su `accion` desde que existe; `PasoTomas` dibujaba título y detalle y nada
+   más. «Escribir la salida no es ofrecerla», otra vez.
+2. **Y ofrecía «Volver a filmar» para cualquier fallo** — incluido el que ya
+   sabemos que falla. ⚠️ **La regla estaba escrita en el paso `toma` de
+   `WizardAnuncio`** («ofrecer Volver a filmar ahí es ofrecer un botón que ya
+   sabemos que falla») **y la pantalla que se dibuja es la otra.** Una regla
+   aplicada en un lugar de dos no está implementada: está documentada.
+3. **Nada contaba los rechazos seguidos**, así que decía «suele pasar» en el
+   intento 17 igual que en el primero. Un mensaje que consuela en el primer fallo
+   **miente en el décimo**, y quien lo lee no tiene cómo saber que ya no aplica.
+
+#### ⚠️ Y el título afirmaba cuál filtro había sido
+
+Decía «Google no quiso animar esta **cara**». Es falso cuando la misma imagen ya
+filmó otras tomas: ahí lo que Google rechaza no es la cara. Pasa a «Google no
+quiso generar la toma N» — nombra al que se negó y no afirma cuál filtro fue. **El
+título dice lo único que se sabe siempre; el detalle es el que precisa.**
+
+#### La etiqueta viaja con la acción, y esto ya se pagó una vez
+
+Con `imagenProbada ≥ 1` el botón deja de llevar a la imagen y lleva al prompt, así
+que su rótulo cambia con él (`accionFiltroDeCara`). El repo ya tuvo un botón que
+decía «Revisar el puente» y gastaba 15 créditos, porque el rótulo salía de la
+causa y el `onClick` de otro lado. **Un botón se rotula por su EFECTO**, y si el
+efecto depende de un dato, el rótulo también.
+
+#### Lo que quedó SIN saber
+
+- **Por qué esas dos tomas y no las otras nueve.** La hipótesis es la forma
+  imperativa + pedir un clic o una descarga; no está medida y el copy no la
+  afirma. Un A/B reescribiendo esas dos líneas lo contestaría en diez minutos.
+- **Si el rechazo es estable por línea o intermitente.** 17 intentos idénticos
+  dicen «estable para ESTA línea», pero la misma imagen pasó nueve veces: el
+  filtro no es determinista por imagen. Nadie midió la otra punta.
