@@ -166,7 +166,7 @@ export function ClientesApp({ clientes, totalClases, whopConectado }: {
       {emitido && (
         <Modal titulo={`El link de ${emitido.nombre}`} onCerrar={() => setEmitido(null)}>
           <p style={{ margin: '0 0 14px', lineHeight: 1.55 }}>
-            Mandáselo por WhatsApp o por mail. Entra sin cuenta y sin contraseña.
+            Mándaselo por WhatsApp o por mail. Entra sin cuenta y sin contraseña.
           </p>
           <div className="cl-token">{emitido.url}</div>
           <p style={{ margin: '12px 0 18px', lineHeight: 1.5, color: 'var(--dim)' }}>

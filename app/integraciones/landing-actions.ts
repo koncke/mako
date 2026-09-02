@@ -102,7 +102,7 @@ export async function getVideosAction(): Promise<VideoLanding[]> {
 export async function guardarVideoAction(video: VideoLanding): Promise<VideosResult> {
   try {
     const nuevos = conVideo(await leerVideos(), video);
-    if (!nuevos) return { ok: false, error: 'Ponele un nombre al video para poder distinguirlo.' };
+    if (!nuevos) return { ok: false, error: 'Ponle un nombre al video para poder distinguirlo.' };
     await setSetting(VIDEOS_KEY, JSON.stringify(nuevos));
     revalidatePath('/integraciones');
     revalidatePath('/crm');

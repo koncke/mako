@@ -931,7 +931,7 @@ function PanelPersona({ nombre, dest, cargandoDest, motivoSinDest, items, labels
         Esto quedó del lado de <b style={{ color: 'var(--ink)' }}>{nombre}</b>{dest?.email ? ` (${dest.email})` : ''}
         {reunion.titulo ? <> en <b style={{ color: 'var(--ink)' }}>{reunion.titulo}</b></> : null}
         {cuandoFue(reunion.fecha) ? <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}> ({cuandoFue(reunion.fecha)})</span> : null}
-        . No entra a tu plan: mandáselo. <LinkGrabacion url={reunion.url} />
+        . No entra a tu plan: mándaselo. <LinkGrabacion url={reunion.url} />
       </div>
 
       {items.map(({ f, i: idx }, i) => (

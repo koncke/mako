@@ -88,6 +88,21 @@ const NEUTRO: Record<string, string> = {
   guardala: 'guárdala', borralo: 'bórralo', borrala: 'bórrala',
   revisalo: 'revísalo', revisala: 'revísala', cambialo: 'cámbialo',
   cambiala: 'cámbiala', movelo: 'muévelo', movela: 'muévela', subilo: 'súbelo',
+  // ⚠️ CON PRONOMBRE INDIRECTO PEGADO. Faltaba toda esta familia, y por eso el
+  // guard —que SI corria sobre `app/_ui/Estados.tsx`, no estaba exceptuado— dejo
+  // pasar «Pedíselo a quien administra la cuenta» dentro de `PermissionState`:
+  // la pantalla que ve TODO cliente que choca con un permiso. Lo encontro una
+  // auditoria el 01/09/2026, no el guard.
+  //
+  // El patron que se escapaba no es el acento: es el pronombre. `pedís` estaba en
+  // la lista desde siempre, pero `pedíselo` es otra palabra y el limite Unicode
+  // —correctamente— no la parte.
+  pediselo: 'pídeselo', pedíselo: 'pídeselo', pedíle: 'pídele',
+  decíle: 'dile', deciles: 'diles', decíles: 'diles',
+  mandále: 'mándale', mandaselo: 'mándaselo', mandáselo: 'mándaselo',
+  ponele: 'ponle', ponéle: 'ponle', dejale: 'déjale', dejále: 'déjale',
+  contale: 'cuéntale', contále: 'cuéntale', avisale: 'avísale', avisále: 'avísale',
+  preguntale: 'pregúntale', preguntále: 'pregúntale',
   subila: 'súbela', apurate: 'apúrate',
   // léxico rioplatense
   acá: 'aquí', aca: 'aquí', laburo: 'trabajo', laburar: 'trabajar', pibe: 'chico',
@@ -150,6 +165,21 @@ const FUERA_DE_ALCANCE: { ruta: string; porque: string }[] = [
   {
     ruta: 'lib/puestas-data.ts',
     porque: 'marcasDeVoseo(): es el detector que marca el voseo en un guion generado',
+  },
+  // ── La voz de MaKo cuando le habla al DUEÑO, que es rioplatense a propósito ──
+  // AGENTS.md: «La voz de MaKo es rioplatense, y el texto DEL CLIENTE no». Estos
+  // tres son del lado del dueño, así que el voseo no es un error: es la regla.
+  {
+    ruta: 'lib/mako-doer-in.ts',
+    porque: 'el prompt del Doer, que le habla a Martín por WhatsApp: su voz ES rioplatense',
+  },
+  {
+    ruta: 'lib/mako-guardian.ts',
+    porque: 'el prompt del Perro, que le contesta a Martín en su propio tablero',
+  },
+  {
+    ruta: 'lib/plan-proyectos-catalogo.ts',
+    porque: 'los NOMBRES de los proyectos del board del dueño: los escribió él y son su etiqueta',
   },
   {
     ruta: 'lib/mako-intencion.ts',

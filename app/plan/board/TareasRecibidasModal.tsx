@@ -773,7 +773,7 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
               style={{ padding: '11px 18px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontWeight: 600, fontSize: 13.5, cursor: guardando ? 'default' : 'pointer', fontFamily: SANS }}>
               {guardando === 'descartar' ? 'Descartando…' : varias ? 'Descartar todo' : 'Descartar'}
             </button>
-          ) : <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>Lo que queda es de otras personas: mandáselo desde la lista.</span>}
+          ) : <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>Lo que queda es de otras personas: mándaselo desde la lista.</span>}
           {hayMias && !cerrado && !personaActiva && (
             <button type="button" onClick={() => void irAPreguntas()} disabled={nIncluidas + nAmpliar === 0 || !!guardando || pensando || cruzando}
               style={{ padding: '12px 24px', borderRadius: 11, border: 'none', background: nIncluidas + nAmpliar ? 'var(--primary)' : 'var(--border)', color: nIncluidas + nAmpliar ? '#fff' : 'var(--faint)', fontSize: 14, fontWeight: 700, cursor: nIncluidas + nAmpliar && !guardando && !pensando ? 'pointer' : 'default', fontFamily: SANS, opacity: pensando ? 0.7 : 1 }}>
