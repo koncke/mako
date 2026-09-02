@@ -2648,3 +2648,40 @@ requests no tenía nada que ver.
 **La prueba que los distingue es reintentar en frío**, horas después y sin carga. Si el
 patrón sobrevive, no era el sistema. Cuesta una corrida y descarta la mitad de las
 hipótesis.
+
+# Verificar una pantalla ESCRIBE, y hay que enumerar dónde
+
+Mirar un wizard en el navegador no es leerlo: para llegar al paso 4 hay que
+apretar «Siguiente» tres veces, y cada «Siguiente» llama a la action de ese paso.
+La verificación deja de ser una lectura y pasa a ser una escritura sobre los datos
+de quien esté logueado — y el único workspace donde una tab se puede ver es el
+**ws1, que es Mauricio, un cliente real**.
+
+El 02/09/2026 costó el acento de su avatar. Se guardó `onboarding.tab.video-generator`
+antes de recorrer y se restauró después, con lo cual el progreso quedó intacto y el
+respaldo se sintió completo. Lo que no estaba en esa clave: el paso del acento
+escribe en `video.voz` con su propia action, así que el recorrido le guardó a un
+cliente de **Baja California** el acento **argentino** que la detección por zona
+horaria había elegido mirando la máquina del que verificaba. Sin error y sin
+síntoma: la pantalla mostraba un acento perfectamente válido, y el siguiente video
+habría salido rioplatense.
+
+- **El respaldo se hace por lo que las ACTIONS tocan, no por el estado que estás
+  mirando.** Antes de recorrer, `grep` de las actions del componente y de la clave
+  que escribe cada una. Un respaldo incompleto es peor que ninguno: te deja
+  restaurar con confianza.
+- **Y si la clave no existía antes, restaurar es BORRARLA**, no dejarla con el valor
+  que puso el recorrido.
+- **Si ya pasó, el valor viejo casi siempre está en otro lado.** Acá salió de los
+  366 trabajos ya mandados a Flow: 22 prompts decían «Northern Mexican Spanish(…)»
+  y ninguno traía bloque de muletillas. **Un dato derivado que quedó escrito en
+  algo ya emitido es un registro del valor que había** — y le gana a reconstruirlo
+  de memoria, que es como se restaura mal con cara de restaurado.
+- **Nunca uses el workspace de un cliente para probar lo que se puede probar en el
+  Cliente de Prueba (ws3).** La única razón por la que acá se usó el ws1 es que es
+  el único exento del onboarding global; si eso cambia, cambia también esto.
+
+⚠️ Y el corolario del que verifica: **una detección automática mide TU máquina.**
+Cualquier cosa que salga de `Intl`, `navigator.language`, la geolocalización o la
+hora local va a dar tu valor y no el del cliente. En una captura eso se lee como un
+dato del cliente, y si además hay un botón que guarda, se convierte en uno.

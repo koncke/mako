@@ -177,6 +177,31 @@ export function ModalFotos({ fotos, elegida, onElegir, onSubida, onBorrar, onCer
       )}
 
       <div className="mk-fotos">
+        {/* Subir: la misma medida que las otras, con borde punteado. El punteado
+            dice «acá falta algo» sin una palabra, y no depende del color.
+
+            ⚠️ VA PRIMERO, no al final. Con ocho fotos, un botón de subir en la
+            última celda queda debajo del pliegue de la grilla y hay que buscarlo;
+            el dueño lo pidió textual: «dentro del pop-up la primera foto tiene que
+            ser el placeholder para subir nuevas». Y con CERO fotos es lo único que
+            hay, así que ponerlo al final es ponerlo en una lista vacía. */}
+        <button
+          type="button"
+          className="mk-fotos__una mk-fotos__una--nueva"
+          onClick={() => entrada.current?.click()}
+          disabled={pct !== null}
+        >
+          {pct === null ? (
+            <span className="mk-fotos__mas"><span aria-hidden>+</span>Subir otra</span>
+          ) : (
+            // El loader: una barra REAL, alimentada por los bytes que salieron.
+            <span className="mk-fotos__subiendo">
+              <span className="mk-fotos__pct">{pct}%</span>
+              <span className="mk-fotos__barra"><i style={{ width: `${pct}%` }} /></span>
+            </span>
+          )}
+        </button>
+
         {fotos.map((f) => (
           <button
             key={f.id}
@@ -218,24 +243,6 @@ export function ModalFotos({ fotos, elegida, onElegir, onSubida, onBorrar, onCer
           )];
         })}
 
-        {/* Subir: la misma medida que las otras, con borde punteado. El punteado
-            dice «acá falta algo» sin una palabra, y no depende del color. */}
-        <button
-          type="button"
-          className="mk-fotos__una mk-fotos__una--nueva"
-          onClick={() => entrada.current?.click()}
-          disabled={pct !== null}
-        >
-          {pct === null ? (
-            <span className="mk-fotos__mas"><span aria-hidden>+</span>Subir otra</span>
-          ) : (
-            // El loader: una barra REAL, alimentada por los bytes que salieron.
-            <span className="mk-fotos__subiendo">
-              <span className="mk-fotos__pct">{pct}%</span>
-              <span className="mk-fotos__barra"><i style={{ width: `${pct}%` }} /></span>
-            </span>
-          )}
-        </button>
       </div>
 
       <input

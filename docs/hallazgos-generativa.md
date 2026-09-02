@@ -5122,3 +5122,91 @@ dejar rastro en los datos de alguien.
   `app/video-generator/WizardAnuncio.tsx`.
 
 *Corrida del 02/09/2026.*
+
+---
+
+## El onboarding de video-gen, segunda vuelta: seis cosas que sólo dijo la pantalla
+
+**Vive en:** `app/video-generator/OnboardingVideoGen.tsx` · `lib/acento-workspace.ts` ·
+`scripts/onboarding-vg-recorrer.mjs` · `scripts/onboarding-vg-respaldo.mts`
+
+### 1. Un array escrito a mano al lado de un catálogo se queda viejo, y no falla
+
+El catálogo de acentos pasó de 7 variedades a 32. Tres lugares lo repetían a mano:
+dos mapas copiados en la pantalla «para no importar del server» —`lib/acento-workspace.ts`
+no tiene `server-only` justamente para que la pantalla lo use— y el array `ORDEN`
+que decide qué se puede elegir. **Una opción que existe y no está en ese array
+simplemente no se puede elegir: sin error y sin síntoma.** Lo único que hizo ruido
+fue que un `Record<AcentoId, string>` incompleto no tipa; el array, que es
+`AcentoId[]`, habría pasado callado. Ahora sale de `Object.keys(ACENTOS_ES)`.
+
+### 2. Mover un paso al principio no mueve su guarda
+
+El paso del puente se mudó al arranque, con un motivo bueno: la extensión hay que
+bajarla e instalarla, así que conviene que eso pase mientras la persona contesta lo
+demás. Su guarda —«no avanzas hasta que el puente responda»— se quedó donde estaba y
+era correcta cuando el paso era el ÚLTIMO. En el primero **convierte el recorrido
+entero en una sola pantalla**, y con el botón de salir removido, en una tab sin
+salida. El síntoma en la captura: los seis pasos dieron el mismo título seis veces.
+
+**La regla: al mover un paso, la guarda se re-lee desde su nueva posición.** Una
+guarda que pide algo con tiempo de espera propio no puede vivir antes de lo que
+estaba esperando.
+
+### 3. `undefined` y `null` no son lo mismo cuando uno de los dos significa «no pregunto»
+
+`Estudio` tiene escrito al lado de su render que `puente === undefined` es «esta
+pantalla no lo pasa» y `null` es «no hay puente», que sigue siendo un dato y sigue
+dibujando el aviso. Pasar `null` para apagarlo no hizo nada — y el arreglo se veía
+perfecto en el diff. Lo dijo la captura: «Falta la extensión de MaKo · Descargar»
+seguía saliendo, y llegó a estar **tres veces en la misma vista** (el aviso de
+arriba, el paso 1 y el `AvisoPuente` del cuerpo), porque los tres describen el mismo
+hecho desde tres componentes distintos.
+
+### 4. Un paso puede delegar TODO su contenido en algo que no se dibuja en el flujo
+
+El paso del puente no tenía nada propio: mostraba `AvisoPuente`, cuya última rama es
+un puntero `position: fixed` a la esquina del navegador. En el estado más común
+—extensión sin instalar— la pantalla quedaba con el título, un plegable y el botón, y
+su único contenido flotando fuera del flujo. Se reportó como «no tiene nada dentro».
+
+### 5. `MediaRecorder` entrega webm, y el server decide por EXTENSIÓN
+
+`familiaDeArchivo` mira la extensión antes que el mime, y `.webm` está en la familia
+VIDEO. Una grabación subida en crudo se rechaza con «no es un audio» — un error que
+culpa al archivo de la persona por una decisión nuestra. Se convierte a mp3 con
+`blobToMp3`, que ya existía para el inbox de WhatsApp, y de paso entra en el tope de
+4 MB del POST.
+
+### 6. Un ícono inventado se dibuja como un punto
+
+`<Icon name="microfono">` no existe (es `mic`) y **el typecheck no dice nada**. Es el
+mismo modo de falla que un `var(--token)` inexistente. La lista real sale de
+`app/_components/icons.tsx`.
+
+### ⚠️ Lo que costó caro: verificar ESCRIBE
+
+Recorrer el wizard para mirarlo le guardó al ws1 —Mauricio, Baja California— el
+acento **argentino**, porque la detección por zona horaria lee la máquina del que
+verifica. El respaldo cubría `onboarding.tab.video-generator` y no `video.voz`, que
+es donde escribe la action de ese paso.
+
+Se recuperó de los datos, no de la memoria: los **366 trabajos** ya mandados a Flow
+traen el prompt con el bloque de acento pegado — 22 decían «Northern Mexican Spanish
+(Baja California, Sonora, Sinaloa)» y ninguno traía bloque de muletillas. **Un valor
+que quedó escrito dentro de algo ya emitido es un registro del valor que había.**
+
+La regla completa quedó en `AGENTS.md` → «Verificar una pantalla ESCRIBE, y hay que
+enumerar dónde».
+
+### Lo que quedó SIN hacer
+
+- Las muletillas propias (las que la persona escribe) viajan al prompt igual que las
+  sugeridas, pero **nadie valida que sean muletillas**: se puede escribir una frase
+  entera y termina entre comillas dentro del prompt de cada toma. Vive en
+  `app/video-generator/OnboardingVideoGen.tsx` → `agregarMuletilla`.
+- La detección por zona horaria cubre 45 zonas IANA. Una que no esté no cae a nada
+  —correcto— pero tampoco se registra, así que no hay forma de saber qué zonas
+  reales están quedando afuera. Vive en `lib/acento-workspace.ts` → `POR_ZONA`.
+
+*Corrida del 02/09/2026.*

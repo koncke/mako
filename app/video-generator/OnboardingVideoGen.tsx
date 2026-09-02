@@ -32,92 +32,277 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 // contenido en una tarjeta y le ponía un kicker arriba.
 import { Estudio } from './WizardAnuncio';
 import { ModalFotos } from './ElegirFoto';
-import { Button } from '@/app/_ui';
+import { Button, Select } from '@/app/_ui';
 import { Icon } from '../_components/icons';
-import { ACENTOS_ES, MULETILLAS, type AcentoId } from '@/lib/acento-workspace';
+import { ACENTOS_ES, MULETILLAS, ETIQUETA_ACENTO, ZONA_DEL_ACENTO, acentoDeZona, type AcentoId } from '@/lib/acento-workspace';
 import type { Puente } from '@/lib/flow-cola';
 import { estadoDelPuente, AvisoPuente } from './puente-avisos';
 import { estadoPuenteAction } from './puente-actions';
 import { useExtensionInstalada, AvisoExtensionVieja } from './extension-instalada';
+import { useVoiceRecorder, VoiceRecorderBar } from '@/app/whatsapp/_shared/VoiceRecorder';
 import {
   marcarPasoVideoAction, guardarAcentoAction, guardarMuletillasAction,
   escucharMiVozAction, type PasoVideoGen,
 } from './onboarding-actions';
 
-const PASOS = ['cara', 'acento', 'muletillas', 'voz', 'puente', 'ensayo'] as const;
+/**
+ * ⚠️ LA EXTENSIÓN VA PRIMERO, y eso contradice a la skill `tab-onboarding`.
+ *
+ * Esa skill dice, en mayúsculas, que «conectar APIs, escanear QR y pegar tokens
+ * va AL FINAL» porque es lo que más gente pierde. Y trae su propia excepción:
+ * «lo que BLOQUEA de verdad al resto del recorrido va antes».
+ *
+ * Acá el puente es exactamente eso. Sin él no se filma NADA —ni siquiera las
+ * imágenes, que son gratis— así que el último paso del recorrido, el ensayo, no
+ * puede ni empezar; y la extensión hay que bajarla, instalarla y conectarla, o
+ * sea que es lo único que tiene un tiempo de espera propio. Pedirla primero deja
+ * que se instale mientras la persona contesta lo demás.
+ *
+ * Lo decidió el dueño, textual: «el primer paso del onboarding debe ser instalar
+ * la extensión». Queda escrito para que nadie lo «arregle» leyendo la skill.
+ */
+const PASOS = ['puente', 'cara', 'acento', 'muletillas', 'voz', 'ensayo'] as const;
 type Paso = (typeof PASOS)[number];
 
-/** Cómo se lo nombra en pantalla. Copiado del server para no importar de ahí. */
-const ETIQUETA_ACENTO: Record<AcentoId, string> = {
-  'mx-norte': 'Mexicano del norte',
-  'mx-neutro': 'Mexicano neutro',
-  'mx-cdmx': 'Mexicano de CDMX',
-  co: 'Colombiano',
-  ar: 'Argentino (rioplatense)',
-  es: 'Español de España',
-  latam: 'Latino neutro',
-};
-
-/** Un ejemplo de dónde se habla así, que es lo que ayuda a reconocerse. */
-const DONDE: Record<AcentoId, string> = {
-  'mx-norte': 'Baja California, Sonora, Sinaloa, Monterrey',
-  'mx-neutro': 'México, sin marca regional',
-  'mx-cdmx': 'Ciudad de México',
-  co: 'Colombia',
-  ar: 'Argentina y Uruguay',
-  es: 'España',
-  latam: 'Latinoamérica, sin marca de país',
-};
-
-
+// ⚠️ ACÁ HABÍA DOS MAPAS COPIADOS A MANO —el rótulo y la zona de cada acento—
+// «para no importar del server». No hacía falta: `lib/acento-workspace.ts` no
+// tiene `server-only` a propósito, justamente para que la pantalla lo use. Las
+// copias ya se habían quedado viejas: decían siete variedades cuando el catálogo
+// pasó a treinta y dos, y un `Record` incompleto es lo único que hizo ruido.
+// Es «una cosa, un lugar»: si hay que copiar la misma tabla en dos archivos, el
+// segundo se queda viejo.
 /**
- * Una foto asomando al costado de la central.
+ * Grabar la voz acá mismo.
  *
- * ⚠️ ES UNA TARJETA ANGOSTA, NO UNA TAJADA DE LA FOTO GRANDE.
- *
- * La primera versión recortaba con un `marginLeft` negativo, así que la de la
- * izquierda mostraba el BORDE DERECHO de su foto. En un retrato eso es fondo:
- * medido en pantalla, la izquierda se veía vacía y la derecha se veía bien sólo
- * porque esa foto era clara. Quedaba una composición coja que se lee como rota.
- *
- * Con `objectFit: cover` centrado, cada lateral muestra el MEDIO de su foto —o
- * sea una cara— y las dos pesan igual.
+ * Envuelve el grabador del inbox de WhatsApp —`useVoiceRecorder` + la barra con
+ * waveform— sin copiarle nada: es el mismo gesto y tiene que verse igual. Lo
+ * único propio es el estado de reposo, que acá es un botón grande y allá es un
+ * ícono en la barra de escribir.
  */
-function LateralFoto({ foto, visible, lado, onClick }: {
-  foto?: { id: string; url: string };
-  visible: boolean;
-  lado: 'izq' | 'der';
-  onClick: () => void;
+function GrabadorVoz({ onListo, ocupado }: {
+  onListo: (blob: Blob, secs: number) => Promise<void>;
+  ocupado: boolean;
 }) {
-  if (!visible || !foto) return null;
+  const [fallo, setFallo] = useState('');
+  const rec = useVoiceRecorder(onListo, setFallo);
+
+  if (rec.recording) {
+    return (
+      <div style={{ alignSelf: 'center' }}>
+        <VoiceRecorderBar
+          paused={rec.paused}
+          secs={rec.secs}
+          sending={ocupado}
+          onCancel={() => rec.stop(true)}
+          onTogglePause={() => (rec.paused ? rec.resume() : rec.pause())}
+          onSend={() => rec.stop(false)}
+        />
+      </div>
+    );
+  }
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={lado === 'izq' ? 'Ver la foto anterior' : 'Ver la foto siguiente'}
-      style={{
-        width: 150, height: 340, flex: 'none', padding: 0, cursor: 'pointer',
-        border: 'none', background: 'transparent', overflow: 'hidden',
-        borderRadius: 16,
-        // Se meten DEBAJO de la central, que lleva zIndex 1.
-        marginRight: lado === 'izq' ? -30 : 0,
-        marginLeft: lado === 'der' ? -30 : 0,
-        opacity: 0.5,
-        filter: 'brightness(.75)',
-        transition: 'opacity 160ms ease, filter 160ms ease',
-      }}
-      onMouseEnter={(e) => { e.currentTarget.style.opacity = '.8'; e.currentTarget.style.filter = 'brightness(1)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.opacity = '.5'; e.currentTarget.style.filter = 'brightness(.75)'; }}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={foto.url} alt="" style={{
-        width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block',
-      }} />
-    </button>
+    <div style={{ display: 'grid', gap: 9, justifyItems: 'center' }}>
+      <Button
+        variant="mako"
+        size="lg"
+        loading={ocupado}
+        disabled={ocupado}
+        icon={<Icon name="mic" size={16} />}
+        onClick={() => { setFallo(''); void rec.start(); }}
+      >
+        {ocupado ? 'Guardando…' : 'Grabar mi voz'}
+      </Button>
+      {/* El fallo del micrófono se dice ACÁ, pegado al botón que lo pidió: es
+          del navegador de la persona y no de MaKo, así que mandarlo al aviso
+          general de la pantalla lo haría parecer nuestro. */}
+      {!!fallo && (
+        <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--bad)', textAlign: 'center' }}>{fallo}</div>
+      )}
+    </div>
   );
 }
 
-const ORDEN: AcentoId[] = ['mx-norte', 'mx-neutro', 'mx-cdmx', 'co', 'latam', 'ar', 'es'];
+/**
+ * Un paso de la instalación, con su estado real al lado.
+ *
+ * El número y el tilde salen de lo MEDIDO —la extensión se detecta por el DOM, la
+ * conexión por el latido del puente—, nunca de haber apretado el botón. Un paso
+ * que se marca solo por haber hecho clic miente en cuanto la instalación falla.
+ */
+function PasoInstalar({ n, titulo, detalle, hecho, accion }: {
+  n: number;
+  titulo: string;
+  detalle: string;
+  hecho: boolean;
+  accion?: { texto: string; onClick: () => void };
+}) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 13, textAlign: 'left',
+      padding: '14px 16px', borderRadius: 'var(--r-md)',
+      background: hecho ? 'var(--mako-bg)' : 'var(--surface-2)',
+      border: `1px solid ${hecho ? 'var(--mako-border)' : 'var(--border)'}`,
+    }}>
+      <span style={{
+        flex: 'none', width: 26, height: 26, borderRadius: 999,
+        display: 'grid', placeItems: 'center',
+        background: hecho ? 'var(--mako)' : 'var(--surface)',
+        border: `1px solid ${hecho ? 'var(--mako)' : 'var(--border-strong)'}`,
+        color: hecho ? '#1a1a1a' : 'var(--dim)',
+        fontSize: 12.5, fontWeight: 700,
+      }}>
+        {hecho ? <Icon name="check" size={13} /> : n}
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)' }}>{titulo}</div>
+        <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>{detalle}</div>
+      </div>
+      {!hecho && !!accion && (
+        <Button variant="secondary" onClick={accion.onClick} icon={<Icon name="descargar" size={14} />}>
+          {accion.texto}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/** El ancho de la tarjeta grande, y el paso entre dos tarjetas. */
+const W = 300, H = 400, SALTO = 240;
+
+/**
+ * El mazo de fotos: una grande al centro y las vecinas asomando a los costados.
+ *
+ * ⚠️ SIN FOTOS TAMBIÉN SE DIBUJA, con tres marcos vacíos y el gesto de subir en
+ * el del medio. El dueño: «en caso de no tener fotos, tiene que aparecer el
+ * placeholder y en la principal un mensaje para agregar foto». La forma de la
+ * pantalla no puede depender de si ya hay datos: si el vacío es una caja distinta,
+ * subir la primera foto reacomoda todo y la persona no reconoce dónde está.
+ */
+function Carrusel({ fotos, idx, subiendo, onIr, onAbrir, onSubir }: {
+  fotos: { id: string; url: string }[];
+  idx: number;
+  subiendo: boolean;
+  onIr: (i: number) => void;
+  onAbrir: () => void;
+  onSubir: (fs: FileList | null) => Promise<void>;
+}) {
+  const vacio = fotos.length === 0;
+  // Con fotos, una tarjeta por foto. Sin fotos, tres marcos: el del medio es el
+  // que sube y los de los costados dicen que van a entrar más.
+  const cartas = vacio ? [-1, 0, 1] : fotos.map((_, i) => i - idx);
+
+  return (
+    <div style={{
+      position: 'relative', width: '100%', height: H + 24,
+      overflow: 'hidden',
+    }}>
+      {cartas.map((d, j) => {
+        const centro = d === 0;
+        const foto = vacio ? undefined : fotos[j];
+        const marco: React.CSSProperties = {
+          position: 'absolute', top: 12, left: '50%',
+          width: W, height: H, flex: 'none', padding: 0,
+          borderRadius: 18,
+          // El recorrido entero vive acá: cambiar `idx` cambia `d`, y con eso
+          // sólo se mueve un transform.
+          transform: `translateX(calc(-50% + ${d * SALTO}px)) scale(${centro ? 1 : 0.8})`,
+          opacity: Math.abs(d) >= 2 ? 0 : centro ? 1 : 0.5,
+          filter: centro ? 'none' : 'brightness(.75)',
+          pointerEvents: Math.abs(d) >= 2 ? 'none' : 'auto',
+          zIndex: centro ? 2 : 1,
+          overflow: 'hidden',
+          transition: 'transform 380ms cubic-bezier(.22,.61,.36,1), opacity 380ms ease, filter 380ms ease',
+        };
+
+        // ── Sin fotos: marcos punteados, y el del medio sube ──────────────
+        if (vacio) {
+          const hueco = {
+            ...marco,
+            border: '1px dashed var(--border-strong)',
+            background: 'var(--surface-2)',
+          };
+          if (!centro) return <div key={d} aria-hidden style={hueco} />;
+          return (
+            <label
+              key={d}
+              style={{
+                ...hueco,
+                display: 'grid', placeItems: 'center', gap: 10, cursor: 'pointer',
+                color: 'var(--dim)', textAlign: 'center', padding: 24,
+              }}
+            >
+              <Icon name={subiendo ? 'regenerar' : 'perfil'} size={44} />
+              <span style={{ fontSize: 'var(--fs-card)', fontWeight: 600, color: 'var(--ink)' }}>
+                {subiendo ? 'Subiendo…' : 'Agrega tu primera foto'}
+              </span>
+              <span style={{ fontSize: 'var(--fs-sm)', lineHeight: 1.45 }}>
+                Sin ella cada toma sale con una cara distinta.
+              </span>
+              <input type="file" accept="image/*" multiple disabled={subiendo}
+                onChange={(e) => void onSubir(e.target.files)} style={{ display: 'none' }} />
+            </label>
+          );
+        }
+
+        // ── Con fotos ─────────────────────────────────────────────────────
+        if (!foto) return null;
+        return (
+          <div
+            key={foto.id}
+            style={{
+              ...marco,
+              boxShadow: centro ? '0 18px 50px rgba(0,0,0,.45)' : 'none',
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={foto.url} alt="" style={{
+              width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center',
+              display: 'block',
+            }} />
+            {/* La del centro ABRE; las de al lado se traen al centro. Un solo
+                gesto por tarjeta, y el de la central lleva el velo que ya usa la
+                generación para decir que se puede editar. */}
+            {centro ? (
+              <button
+                type="button"
+                className="mk-regen__zona"
+                onClick={onAbrir}
+                aria-label="Cambiar tus fotos"
+              >
+                <span className="mk-regen__velo">
+                  <span className="mk-regen__texto">
+                    <Icon name="pen" size={15} />
+                    Cambiar tus fotos
+                  </span>
+                </span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onIr(j)}
+                aria-label={`Ver la foto ${j + 1}`}
+                style={{
+                  position: 'absolute', inset: 0, padding: 0, border: 'none',
+                  background: 'none', cursor: 'pointer',
+                }}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * El orden del desplegable: el del catálogo, que va por región.
+ *
+ * ⚠️ No se lista a mano. La lista escrita acá se quedó vieja el día que el
+ * catálogo pasó de siete variedades a treinta y dos: una opción que existe y no
+ * está en este array simplemente NO SE PUEDE ELEGIR, sin error y sin síntoma.
+ */
+const ORDEN = Object.keys(ACENTOS_ES) as AcentoId[];
 
 /**
  * Qué paso del catálogo cierra cada pantalla.
@@ -204,7 +389,13 @@ export function OnboardingVideoGen({
   /** Salir del wizard sin recargar: el guard del server devolvería lo mismo. */
   alSalir: () => void;
 }) {
-  const [paso, setPaso] = useState<Paso>('cara');
+  // ⚠️ EL PRIMERO DE `PASOS`, NO UNO ESCRITO A MANO.
+  //
+  // Estaba clavado en 'cara', que era el primero cuando se escribió. Al mover el
+  // puente al arranque el recorrido siguió abriendo en la segunda pantalla, con
+  // un «Atrás» a un paso que nadie había visto — y nada falla: `cara` sigue
+  // existiendo, así que ni el compilador ni un test dicen una palabra.
+  const [paso, setPaso] = useState<Paso>(PASOS[0]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -227,7 +418,53 @@ export function OnboardingVideoGen({
   const [acento, setAcento] = useState<AcentoId>(
     (acentoInicial in ACENTOS_ES ? acentoInicial : 'latam') as AcentoId,
   );
-  const [muletillas, setMuletillas] = useState<string[]>(muletillasIniciales);
+
+  /** La zona horaria del APARATO, cuando sirvió para elegir el acento. */
+  const [zonaDetectada, setZonaDetectada] = useState('');
+  /** Lo que se está escribiendo en el campo de agregar muletillas. */
+  const [nuevaMuletilla, setNuevaMuletilla] = useState('');
+
+  /**
+   * Detectar el acento por la ubicación de la persona.
+   *
+   * ⚠️ POR LA ZONA HORARIA DEL NAVEGADOR, NO POR LA API DE GEOLOCALIZACIÓN.
+   * Ésa abre un permiso del navegador, y pedirle a alguien que acepte rastreo
+   * para adivinarle el acento cuesta muchísimo más de lo que resuelve. La zona
+   * del aparato no pide nada, la contesta todo navegador, y es más fiel que la
+   * del workspace: `mako.timezone` sale del calendario conectado, que puede ser
+   * el de otra persona o no estar puesto.
+   *
+   * ⚠️ Y NO PISA UNA DECISIÓN. Si el acento ya está declarado, esto no corre:
+   * una detección que reemplaza lo que alguien eligió a mano no es una ayuda,
+   * es un control que no obedece. Es la regla del repo sobre `localStorage`
+   * —restaurar una PREFERENCIA, nunca pisar una DECISIÓN— con otra fuente.
+   */
+  useEffect(() => {
+    if (acentoOrigen === 'declarado') return;
+    let zona = "";
+    try { zona = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch { return; }
+    const sug = acentoDeZona(zona);
+    if (!sug) return;
+    setAcento(sug);
+    // Se muestra la ciudad, no el identificador: «America/Mexico_City» no es
+    // algo que alguien reconozca como su propia ubicación.
+    setZonaDetectada(zona.split('/').pop()?.replace(/_/g, ' ') ?? zona);
+    // Sólo al abrir: después manda lo que la persona elija.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /**
+   * Sumar una muletilla, venga del campo o de las sugeridas.
+   *
+   * Se normaliza a minúsculas y sin espacios de sobra porque esto viaja al
+   * prompt: «Pues» y «pues » serían dos entradas distintas de la misma palabra.
+   */
+  const agregarMuletilla = useCallback((cruda: string) => {
+    const m = cruda.trim().toLocaleLowerCase('es').replace(/\s+/g, ' ');
+    if (!m) return;
+    setMuletillas((a) => (a.includes(m) ? a : [...a, m]));
+    setNuevaMuletilla('');
+  }, []);  const [muletillas, setMuletillas] = useState<string[]>(muletillasIniciales);
 
   /**
    * ⚠️ CAMBIAR DE ACENTO LIMPIA LAS MULETILLAS QUE YA NO EXISTEN.
@@ -240,7 +477,21 @@ export function OnboardingVideoGen({
    */
   useEffect(() => {
     setMuletillas((antes) => {
-      const validas = antes.filter((m) => MULETILLAS[acento].includes(m));
+      // ⚠️ SE TIRAN LAS DE OTRA VARIEDAD, NO LAS PROPIAS.
+      //
+      // El filtro era `MULETILLAS[acento].includes(m)`, que era correcto mientras
+      // las únicas posibles fueran las ocho sugeridas. Ahora se pueden escribir,
+      // y con ese filtro cambiar de acento le borraba a la persona justo las que
+      // se tomó el trabajo de tipear — en silencio, y sin forma de recuperarlas.
+      //
+      // Lo que hay que sacar es una sugerencia de OTRO país que quedó marcada
+      // («cachai» en un guion mexicano suena a que el avatar cambió de
+      // nacionalidad a mitad del anuncio). Una palabra que no es sugerencia de
+      // nadie es de la persona, y se queda.
+      const deOtra = (m: string) =>
+        !MULETILLAS[acento].includes(m)
+        && ORDEN.some((id) => id !== acento && MULETILLAS[id].includes(m));
+      const validas = antes.filter((m) => !deOtra(m));
       return validas.length === antes.length ? antes : validas;
     });
   }, [acento]);
@@ -305,6 +556,42 @@ export function OnboardingVideoGen({
     finally { setSubiendoVoz(false); }
   }, []);
 
+  /**
+   * Lo que se acaba de grabar, a la biblioteca de muestras.
+   *
+   * ⚠️ SE CONVIERTE A MP3, Y NO ES UN LUJO. `MediaRecorder` entrega webm/opus, y
+   * el server decide qué es un archivo por su EXTENSIÓN antes que por su mime
+   * (`familiaDeArchivo`): `.webm` está en la familia VIDEO, así que una grabación
+   * subida en crudo se rechaza con «no es un audio» — un error que culpa al
+   * archivo de la persona por una decisión nuestra. Y de paso entra en el tope:
+   * 90 s de opus rondan los 900 kB, los mismos en mp3 ~1,1 MB, y el POST corta en
+   * 4 MB.
+   *
+   * El conversor es el MISMO que usa el inbox de WhatsApp. Se importa en el
+   * momento porque arrastra el encoder de mp3, que no tiene por qué viajar en el
+   * bundle de quien nunca va a grabar nada.
+   */
+  const subirGrabacion = useCallback(async (blob: Blob, secs: number) => {
+    // ⚠️ El piso está medido en el propio repo: un clon hecho con poco material
+    // sale plano. Se avisa ANTES de gastar la subida, no después.
+    if (secs < 20) {
+      setError('La grabación quedó muy corta. Necesitamos al menos 20 segundos, y con 90 sale bastante mejor.');
+      return;
+    }
+    setSubiendoVoz(true); setError(null);
+    try {
+      const { blobToMp3 } = await import('@/app/whatsapp/audio');
+      const mp3 = await blobToMp3(blob);
+      const fd = new FormData();
+      fd.append('file', new File([mp3], `grabacion-${Date.now()}.mp3`, { type: 'audio/mpeg' }));
+      const j = (await (await fetch('/api/onboarding/voz', { method: 'POST', body: fd })).json()) as
+        { ok: boolean; error?: string; muestras?: { id: string; nombre: string }[] };
+      if (!j.ok) { setError(j.error || 'No se pudo guardar la grabación.'); return; }
+      setMuestras(j.muestras ?? []);
+    } catch { setError('No se pudo procesar la grabación. Prueba subiendo un archivo.'); }
+    finally { setSubiendoVoz(false); }
+  }, []);
+
   const clonar = useCallback(async () => {
     setClonando(true); setError(null);
     try {
@@ -364,6 +651,21 @@ export function OnboardingVideoGen({
   }, []);
 
   const est = estadoDelPuente(puente, ahora);
+
+  /**
+   * El puente que ve el aviso de arriba, o `null`.
+   *
+   * El aviso sirve en los pasos que NO son del puente: ahí es la única pista de
+   * que algo va a fallar al filmar. En el paso del puente es una tercera copia de
+   * lo que la pantalla ya está diciendo entera — medido: «Falta la extensión de
+   * MaKo · Descargar» aparecía tres veces en la misma vista.
+   * ⚠️ `undefined`, NO `null`. `Estudio` lo tiene escrito al lado de su propio
+   * render: `undefined` es «esta pantalla no lo pasa» y `null` es «no hay puente»,
+   * que sigue siendo un dato y sigue dibujando el aviso. Con `null` el «Falta la
+   * extensión · Descargar» seguía saliendo arriba, o sea que el arreglo no hacía
+   * nada — y la captura fue lo único que lo dijo.
+   */
+  const puenteDelAviso = paso === 'puente' ? undefined : puente;
 
   const idx = PASOS.indexOf(paso);
 
@@ -430,14 +732,7 @@ export function OnboardingVideoGen({
   const loQueFalta =
     paso === 'cara' && misFotos.length === 0
       ? 'Sube al menos una foto tuya: sin ella cada toma sale con una cara distinta.'
-      // ⚠️ UNA GUARDA BLOQUEA SÓLO LO QUE SE ARREGLA HACIENDO LO QUE ELLA PIDE.
-      // `marcada` es Google pausando la sesión de Flow: no se arregla conectando
-      // nada, así que deja pasar. Una clienta quedó trabada acá con la extensión
-      // al día y latiendo hace cuatro segundos.
-      : paso === 'puente' && !est.anda && puente?.estado !== 'marcada'
-        ? 'Conecta tu navegador para poder generar. Sin él no se filma nada, ni siquiera las imágenes, que son gratis.'
-        : '';
-
+      : '';
   const avanzar = useCallback(async () => {
     if (loQueFalta) { setError(loQueFalta); return; }
     setError(null);
@@ -457,7 +752,11 @@ export function OnboardingVideoGen({
       : paso === 'acento' ? 'Cómo hablas'
         : paso === 'muletillas' ? 'Tus muletillas'
         : paso === 'voz' ? 'Tu voz'
-          : paso === 'puente' ? 'Tu navegador con Flow'
+          // ⚠️ EL PASO SE LLAMA POR LA ACCIÓN, no por el concepto. «Tu navegador
+          // con Flow» describe un estado del sistema y no le dice a nadie qué
+          // tiene que hacer; el dueño lo leyó y preguntó si era instalar la
+          // extensión. Si el título hay que adivinarlo, el título está mal.
+          : paso === 'puente' ? 'Instala la extensión de MaKo'
             : 'Tu primer escenario';
 
   return (
@@ -492,8 +791,8 @@ export function OnboardingVideoGen({
         // porqué —y la tensión con la skill— en el prop de `Estudio`.
         sinSalida
         error={error ?? undefined}
-        puente={puente}
-        ahora={ahora}
+        puente={puenteDelAviso}
+        ahora={puenteDelAviso === undefined ? undefined : ahora}
         consecuencia={paso === 'ensayo'
           ? 'Esta configuración la cierra aprobar tu primer escenario, no este botón.'
           : undefined}
@@ -513,7 +812,11 @@ export function OnboardingVideoGen({
             una que es de este archivo. */}
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'stretch',
-          gap: 20, width: '100%',
+          // ⚠️ 28 y no 20. El dueño, mirando las cuatro pantallas: «todos esos
+          // campos están muy pegados, muy agrupado todo… es feo así». Con este
+          // ancho de columna, 20 px deja los bloques leyéndose como un solo
+          // párrafo de controles.
+          gap: 28, width: '100%',
         }}>
       {paso === 'cara' && (
         <>
@@ -528,58 +831,33 @@ export function OnboardingVideoGen({
               clases que ya usa la generación (`mk-regen__zona` / `__velo` /
               `__texto`): un velo que aparece en 160 ms con el texto abajo. No se
               estrena un gesto nuevo para lo mismo. */}
-          {misFotos.length > 0 && (
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              gap: 0, width: '100%', minHeight: 420,
-            }}>
-              {/* La anterior, asomando. Es un botón: la trae al centro. */}
-              <LateralFoto
-                foto={misFotos[(fotoIdx - 1 + misFotos.length) % misFotos.length]}
-                visible={misFotos.length > 1}
-                lado="izq"
-                onClick={() => setFotoIdx((i) => (i - 1 + misFotos.length) % misFotos.length)}
-              />
+          {/* ⚠️ SE DESPLAZA. No es un cambio de src: las tarjetas se MUEVEN.
 
-              <div style={{
-                position: 'relative', width: 300, height: 400, flex: 'none', zIndex: 1,
-                borderRadius: 18, overflow: 'hidden',
-                boxShadow: '0 18px 50px rgba(0,0,0,.45)',
-              }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  key={misFotos[fotoIdx % misFotos.length]?.id}
-                  src={misFotos[fotoIdx % misFotos.length]?.url}
-                  alt=""
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', animation: 'mkFade 250ms ease' }}
-                />
-                <button
-                  type="button"
-                  className="mk-regen__zona"
-                  onClick={() => setEligiendoFoto(true)}
-                  aria-label="Cambiar tus fotos"
-                >
-                  <span className="mk-regen__velo">
-                    <span className="mk-regen__texto">
-                      <Icon name="pen" size={15} />
-                      Cambiar tus fotos
-                    </span>
-                  </span>
-                </button>
-              </div>
+              La versión anterior reemplazaba la imagen del centro y dibujaba dos
+              vecinas nuevas, así que al pasar de foto no se veía ningún recorrido —
+              parpadeaba y ya. El dueño: «el carrusel tiene que funcionar, se tiene
+              que ir desplazando las fotos».
 
-              {/* La siguiente, asomando del otro lado. */}
-              <LateralFoto
-                foto={misFotos[(fotoIdx + 1) % misFotos.length]}
-                visible={misFotos.length > 1}
-                lado="der"
-                onClick={() => setFotoIdx((i) => (i + 1) % misFotos.length)}
-              />
-            </div>
-          )}
+              Están TODAS montadas y cada una se posiciona por su distancia al
+              centro, así que animar es animar un `transform`: el navegador lo hace
+              en el compositor y el recorrido se ve entero. Dibujar sólo tres
+              impediría esto — la que entra no tendría de dónde venir.
 
-          {/* Dónde estás parado en el mazo. Van los puntos y no un «3 de 8»:
-              el número es un dato que nadie necesita, la posición sí. */}
+              Y NO da la vuelta. Con vuelta, pasar de la última a la primera
+              rebobina las ocho de un saque, que se lee como un salto y no como un
+              paso. Sin vuelta, que no haya tarjeta a la izquierda dice «estás en la
+              primera» sin una palabra. */}
+          <Carrusel
+            fotos={misFotos}
+            idx={fotoIdx}
+            subiendo={subiendo}
+            onIr={setFotoIdx}
+            onAbrir={() => setEligiendoFoto(true)}
+            onSubir={subir}
+          />
+
+          {/* Dónde estás parado en el mazo. Van los puntos y no un «3 de 8»: el
+              número es un dato que nadie necesita, la posición sí. */}
           {misFotos.length > 1 && (
             <div style={{ display: 'flex', justifyContent: 'center', gap: 7 }}>
               {misFotos.map((f, i) => (
@@ -588,11 +866,11 @@ export function OnboardingVideoGen({
                   type="button"
                   onClick={() => setFotoIdx(i)}
                   aria-label={`Ver la foto ${i + 1}`}
-                  aria-current={i === fotoIdx % misFotos.length}
+                  aria-current={i === fotoIdx}
                   style={{
                     width: 7, height: 7, padding: 0, borderRadius: '50%', border: 'none',
                     cursor: 'pointer',
-                    background: i === fotoIdx % misFotos.length ? 'var(--ink)' : 'var(--border-strong)',
+                    background: i === fotoIdx ? 'var(--ink)' : 'var(--border-strong)',
                     transition: 'background 160ms ease',
                   }}
                 />
@@ -600,22 +878,6 @@ export function OnboardingVideoGen({
             </div>
           )}
 
-          {misFotos.length === 0 && (
-            // Sin fotos la pantalla es UN gesto, del mismo tamaño que la central.
-            <label style={{
-              alignSelf: 'center', width: 300, height: 400, borderRadius: 18,
-              border: '1px dashed var(--border-strong)', background: 'var(--surface-2)',
-              display: 'grid', placeItems: 'center', gap: 12, cursor: 'pointer',
-              color: 'var(--dim)', textAlign: 'center', padding: 24,
-            }}>
-              <Icon name={subiendo ? 'regenerar' : 'perfil'} size={44} />
-              <span style={{ fontSize: 'var(--fs-card)', fontWeight: 600, color: 'var(--ink)' }}>
-                {subiendo ? 'Subiendo…' : 'Sube tus fotos'}
-              </span>
-              <input type="file" accept="image/*" multiple disabled={subiendo}
-                onChange={(e) => void subir(e.target.files)} style={{ display: 'none' }} />
-            </label>
-          )}
           <Contexto eyebrow="¿Por qué la foto decide todo?">
             El video se genera a partir de una imagen tuya: si no hay foto, no hay identidad y
             el avatar sale siendo otra persona. Con dos o tres alcanza — de frente, con buena
@@ -630,29 +892,42 @@ export function OnboardingVideoGen({
 
       {paso === 'acento' && (
         <>
-          <div style={{
-            display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 9,
-          }}>
-            {ORDEN.map((id) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setAcento(id)}
-                style={{
-                  display: 'grid', gap: 3, textAlign: 'left', cursor: 'pointer',
-                  padding: '13px 15px', borderRadius: 'var(--r-md)', font: 'inherit',
-                  background: acento === id ? 'var(--mako-bg)' : 'var(--surface-2)',
-                  border: `1px solid ${acento === id ? 'var(--mako-border)' : 'var(--border)'}`,
-                  color: 'inherit',
-                }}
-              >
-                <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)' }}>
-                  {ETIQUETA_ACENTO[id]}
-                </div>
-                <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>{DONDE[id]}</div>
-              </button>
-            ))}
-          </div>
+          {/* ⚠️ UN DESPLEGABLE, NO UNA GRILLA DE BOTONES.
+
+              Con siete variedades la grilla entraba. Con treinta y dos son treinta
+              y dos cajas del mismo tamaño, o sea la pantalla más cargada de todo el
+              recorrido justo donde la regla de la casa pide una sola cosa. El dueño:
+              «esto está horrible, tiene que ser un desplegable».
+
+              `Select` abre su propia caja de búsqueda pasadas las 8 opciones, así
+              que escribir «chile» llega antes que cualquier scroll. */}
+          <Select
+            ariaLabel="Cómo hablas"
+            value={acento}
+            onChange={(v) => setAcento(v as AcentoId)}
+            options={ORDEN.map((id) => ({
+              value: id,
+              label: `${ETIQUETA_ACENTO[id]} · ${ZONA_DEL_ACENTO[id]}`,
+            }))}
+            width="100%"
+          />
+
+          {/* ⚠️ DE DÓNDE SALIÓ, SIEMPRE. Un acento elegido por el sistema y
+              presentado sin decirlo es el que nadie corrige — y equivocarlo no se
+              nota leyendo, se nota cuando alguien lo dice en voz alta con el video
+              ya pagado. */}
+          {!!zonaDetectada && acentoOrigen !== "declarado" && (
+            <div style={{
+              display: 'flex', alignItems: 'flex-start', gap: 9, textAlign: 'left',
+              fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.5,
+            }}>
+              <Icon name="check" size={15} />
+              <span>
+                Lo detectamos por tu ubicación (<strong>{zonaDetectada}</strong>).
+                {' '}Cámbialo si no hablas así.
+              </span>
+            </div>
+          )}
           <Contexto eyebrow="¿Por qué te lo preguntamos?">
             {/* ⚠️ SE DICE QUE ESTABA ADIVINADO, y es lo que hace que alguien lo
                 corrija. Hasta hoy el acento salía de la zona horaria y se usaba
@@ -682,27 +957,94 @@ export function OnboardingVideoGen({
 
       {paso === 'muletillas' && (
         <>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-            {MULETILLAS[acento].map((m) => {
-              const puesta = muletillas.includes(m);
-              return (
+          {/* ⚠️ ES UNA LISTA QUE SE ARMA, NO OCHO BOTONES SUELTOS.
+
+              La versión anterior mostraba las ocho sugeridas y nada más: no se podía
+              agregar una propia, y una muletilla es lo más personal que hay — la que
+              de verdad se te escapa casi nunca está en una lista genérica. El dueño:
+              «un lugar para ir agregando… y obvio la opción de agregar nuevas que no
+              estén allí».
+
+              Arriba lo que YA es tuyo (se saca con un toque), abajo el campo para
+              sumar, y al final las sugeridas de tu variedad como atajo. El orden
+              importa: primero lo que hay, después cómo se agrega. */}
+          {muletillas.length > 0 ? (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+              {muletillas.map((m) => (
                 <button
                   key={m}
                   type="button"
-                  onClick={() => setMuletillas((a) => (puesta ? a.filter((x) => x !== m) : [...a, m]))}
+                  onClick={() => setMuletillas((a) => a.filter((x) => x !== m))}
+                  aria-label={`Sacar ${m}`}
                   style={{
-                    padding: '9px 16px', borderRadius: 999, cursor: 'pointer', font: 'inherit',
-                    fontSize: 14.5, fontWeight: 600,
-                    background: puesta ? 'var(--mako-bg)' : 'var(--surface-2)',
-                    border: `1px solid ${puesta ? 'var(--mako-border)' : 'var(--border)'}`,
-                    color: puesta ? 'var(--ink)' : 'var(--dim)',
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    padding: '9px 13px 9px 16px', borderRadius: 999, cursor: 'pointer',
+                    font: 'inherit', fontSize: 14.5, fontWeight: 600,
+                    background: 'var(--mako-bg)', border: '1px solid var(--mako-border)',
+                    color: 'var(--ink)',
                   }}
                 >
                   {m}
+                  <Icon name="x" size={12} />
                 </button>
-              );
-            })}
+              ))}
+            </div>
+          ) : (
+            <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--faint)', textAlign: 'center' }}>
+              Todavía no agregaste ninguna. Si hablas limpio, deja el paso así.
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 8, alignSelf: 'center', width: '100%', maxWidth: 420 }}>
+            <input
+              value={nuevaMuletilla}
+              onChange={(e) => setNuevaMuletilla(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); agregarMuletilla(nuevaMuletilla); } }}
+              placeholder="Escribe una tuya…"
+              aria-label="Agregar una muletilla"
+              style={{
+                flex: 1, padding: '11px 14px', borderRadius: 'var(--r-md)',
+                border: '1px solid var(--border)', background: 'var(--surface-2)',
+                color: 'var(--ink)', font: 'inherit', fontSize: 14.5,
+              }}
+            />
+            <Button
+              variant="secondary"
+              onClick={() => agregarMuletilla(nuevaMuletilla)}
+              disabled={!nuevaMuletilla.trim()}
+            >
+              Agregar
+            </Button>
           </div>
+
+          {/* Las de tu variedad que todavía no marcaste. Es un atajo para
+              reconocerse, no un cuestionario: la gente se describe mal a sí misma
+              y se reconoce al instante. */}
+          {MULETILLAS[acento].some((m) => !muletillas.includes(m)) && (
+            <div style={{ display: 'grid', gap: 9, justifyItems: 'center' }}>
+              <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--faint)' }}>
+                Típicas de {ETIQUETA_ACENTO[acento].toLowerCase()}:
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, justifyContent: 'center' }}>
+                {MULETILLAS[acento].filter((m) => !muletillas.includes(m)).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => agregarMuletilla(m)}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      padding: '8px 14px', borderRadius: 999, cursor: 'pointer',
+                      font: 'inherit', fontSize: 13.5, fontWeight: 600,
+                      background: 'transparent', border: '1px dashed var(--border-strong)',
+                      color: 'var(--dim)',
+                    }}
+                  >
+                    <span aria-hidden>+</span>{m}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <Contexto eyebrow="No marques ninguna si hablas limpio">
             {/* ⚠️ EL PERMISO DE NO MARCAR NADA VA PRIMERO, en el eyebrow. Sin él,
                 una grilla de ocho opciones se lee como que hay que elegir — y una
@@ -773,19 +1115,45 @@ export function OnboardingVideoGen({
                   ))}
                 </div>
               )}
-              {/* El mismo patrón que la foto: el `<input type="file">` no se estila,
-                  así que el label ES el botón.
+              {/* ⚠️ GRABAR ES LA OPCIÓN PRINCIPAL, y subir un archivo la de al lado.
+
+                  Antes lo único que había era «Subir mi audio», sin una sola línea
+                  diciendo un audio DE QUÉ: la explicación vivía plegada abajo, así
+                  que la pantalla pedía un archivo que nadie sabía cómo hacer. El
+                  dueño: «me pide subir un audio de qué? Si no da explicaciones… y la
+                  opción PRINCIPAL debería ser grabarlo allí mismo».
+
+                  El grabador es el MISMO del inbox de WhatsApp —hook + barra con
+                  waveform, pausa y descarte—, no uno nuevo. */}
+              <div style={{
+                display: 'grid', gap: 14, textAlign: 'left', width: '100%',
+                padding: '18px 20px', borderRadius: 'var(--r-md)',
+                background: 'var(--surface-2)', border: '1px solid var(--border)',
+              }}>
+                <div style={{ fontSize: 'var(--fs-card)', fontWeight: 650, color: 'var(--ink)' }}>
+                  Habla como si le estuvieras vendiendo a alguien
+                </div>
+                <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.6 }}>
+                  Habla <strong>90 segundos</strong> de lo que haces y a quién ayudas, con la energía
+                  con la que se lo contarías a un cliente — y termina pidiendo algo:
+                  «escríbeme», «descarga esto». No leas de corrido ni charles tranquilo:
+                  el clon sale como el material que le des.
+                </div>
+              </div>
+
+              <GrabadorVoz onListo={subirGrabacion} ocupado={subiendoVoz} />
+
+              {/* Subir un archivo sigue estando, y en segundo plano: el que ya tiene
+                  una grabación buena no tiene por qué rehacerla.
                   ⚠️ El `accept` NO ofrece wav a propósito: 90 s a 48 kHz son ~8,6 MB
                   y Vercel corta los POST en ~4,5 MB con un 413 que ni llega al
                   handler. En mp3 los mismos 90 s pesan ~1,1 MB. */}
               <label style={{
-                alignSelf: 'center', display: 'inline-flex', alignItems: 'center', gap: 8,
-                padding: '10px 18px', borderRadius: 'var(--r-md)', cursor: 'pointer',
-                border: '1px solid var(--border-strong)', background: 'var(--surface-2)',
-                color: 'var(--ink)', fontSize: 14, fontWeight: 600,
+                alignSelf: 'center', display: 'inline-flex', alignItems: 'center', gap: 7,
+                cursor: 'pointer', color: 'var(--dim)', fontSize: 'var(--fs-sm)',
+                textDecoration: 'underline', textUnderlineOffset: 3,
               }}>
-                <Icon name={subiendoVoz ? 'regenerar' : 'check'} size={15} />
-                {subiendoVoz ? 'Subiendo…' : muestras.length ? 'Agregar otro audio' : 'Subir mi audio'}
+                {subiendoVoz ? 'Subiendo…' : 'o sube un audio que ya tengas'}
                 <input
                   type="file"
                   accept="audio/mpeg,audio/mp4,audio/m4a,.mp3,.m4a"
@@ -795,7 +1163,6 @@ export function OnboardingVideoGen({
                   style={{ display: 'none' }}
                 />
               </label>
-
               {muestras.length > 0 && (
                 <>
                   {/* ⚠️ LA AUTORIZACIÓN ES UN PASO APARTE Y BLOQUEA. Se está creando
@@ -861,6 +1228,34 @@ export function OnboardingVideoGen({
 
       {paso === 'puente' && (
         <>
+          {/* ⚠️ ESTE PASO NO TENÍA NADA ADENTRO, y no era un olvido: delegaba todo
+              en `AvisoPuente`, cuya última rama es un puntero FIJO a la esquina del
+              navegador. O sea que en el estado más común —extensión instalada, Flow
+              sin abrir— la pantalla quedaba con el título, un plegable y el botón, y
+              el único contenido flotando fuera del flujo, arriba a la derecha. El
+              dueño lo reportó así: «primero que no tiene nada dentro».
+
+              Ahora los dos pasos reales están escritos y cada uno dice si ya está.
+              El aviso sigue —es el que trae el botón de rehabilitar y las cuatro
+              ramas—, pero ya no es lo único. */}
+          <div style={{ display: "grid", gap: 10, width: "100%" }}>
+            <PasoInstalar
+              n={1}
+              titulo="Descarga la extensión e instálala en tu navegador"
+              detalle="Es la que produce los videos, con tu propia cuenta de Google Flow."
+              hecho={!!instalada}
+              accion={instalada ? undefined : {
+                texto: "Descargar",
+                onClick: () => { window.location.href = "/extension/instalar"; },
+              }}
+            />
+            <PasoInstalar
+              n={2}
+              titulo="Abre Google Flow desde el ícono de MaKo"
+              detalle="Arriba a la derecha del navegador. Déjala abierta mientras se filma."
+              hecho={est.anda}
+            />
+          </div>
           {/* ⚠️ EL AVISO REAL, NO UNO PROPIO. Acá había una caja escrita a mano que
               pintaba `est.txt` y, si el puente no andaba, un link a instalar la
               extensión. Eso convirtió este paso en un callejón para el único estado
@@ -886,8 +1281,34 @@ export function OnboardingVideoGen({
               Sin ella, su última rama es un puntero al ícono de la extensión que
               se dibujaría también con todo funcionando, diciendo «Listo» al lado
               de la caja que ya lo dice. */}
-          <AvisoExtensionVieja instalada={instalada} />
+          {/* ⚠️ ESTE PASO NO TRABA, Y ES EL MOTIVO POR EL QUE ESTÁ PRIMERO.
+
+              Había una guarda que no dejaba avanzar hasta que el puente respondiera.
+              Era correcta cuando este paso era el ÚLTIMO; al mudarlo al arranque
+              convirtió el recorrido entero en una pantalla sola —medido: los seis
+              pasos capturados dieron el mismo título seis veces— y, sin botón de
+              salir, en una tab sin salida.
+
+              El sentido de pedir la extensión primero es que se instale MIENTRAS la
+              persona contesta lo demás. Una guarda acá anula justo eso. Lo que falta
+              se dice, y el que decide es el ensayo, que es donde se filma. */}
           {!est.anda && (
+            <div style={{
+              fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.55, textAlign: 'center',
+            }}>
+              Puedes seguir mientras se instala. La vas a necesitar recién al filmar tu
+              primer anuncio.
+            </div>
+          )}
+
+          <AvisoExtensionVieja instalada={instalada} />
+          {/* ⚠️ SÓLO SI LA EXTENSIÓN YA ESTÁ. Medido en pantalla: sin esta
+              condición, «Falta la extensión de MaKo · Descargar» se dibujaba TRES
+              veces en la misma vista —el aviso de arriba, el paso 1 y este— porque
+              los tres describen el mismo hecho. Con la extensión puesta el aviso ya
+              no dice eso: dice `marcada`, y ahí trae el «Ya lo hice» que no vive en
+              ninguna otra parte. Se queda por ESO, no por costumbre. */}
+          {!!instalada && !est.anda && (
             <AvisoPuente puente={puente} ahora={ahora} instalada={instalada} />
           )}
           {est.anda && (
