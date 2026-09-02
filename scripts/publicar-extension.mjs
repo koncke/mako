@@ -79,6 +79,22 @@ Las credenciales se sacan UNA sola vez (~3 minutos)
      OAuth 2.0 de tipo «Aplicación de escritorio». Copiá el ID y el secreto a
      .env.local como CWS_CLIENT_ID y CWS_CLIENT_SECRET.
 
+     ⚠️ DE ESCRITORIO, NO DE APLICACIÓN WEB, y no es un detalle:
+
+       · una credencial WEB valida el redirect contra una lista que hay que
+         cargar a mano, y su propia consola avisa que el cambio tarda «de 5
+         minutos a varias horas» en tomar efecto. Mientras tanto el error es
+         redirect_uri_mismatch, que no nombra nada de esto;
+       · una de ESCRITORIO acepta el loopback sin declararlo, así que funciona
+         en el momento;
+       · y NO reuses la credencial del login de la app. La de producción tiene
+         los redirect de hola-mako.com y de Google Calendar: es la que sostiene
+         el «Iniciar sesión con Google» de todos los clientes, y no debería
+         quedar atada al refresh token de una herramienta de consola.
+
+     Pasó el 02/09/2026: se creó una web (que es lo que la consola ofrece
+     primero), se le agregó http://localhost, y siguió fallando por propagación.
+
   2. Habilitá la API:
      https://console.cloud.google.com/apis/library/chromewebstore.googleapis.com
 
