@@ -36,6 +36,23 @@ import { fileURLToPath } from 'node:url';
 import { config } from 'dotenv';
 
 const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+/**
+ * ¿`a` es anterior a `b`? Copia de `lib/version-comparar.ts`.
+ *
+ * ⚠️ Se copia y no se importa porque este script corre con `node` pelado y ese
+ * módulo es TypeScript. La copia es de ocho líneas y `tests/extension-version.test.ts`
+ * ya cruza las otras dos gemelas; si algún día se agrega una tercera al test, esta
+ * es la que falta.
+ */
+function esMasVieja(a, b) {
+  const na = String(a || '').split('.').map((n) => Number(n) || 0);
+  const nb = String(b || '').split('.').map((n) => Number(n) || 0);
+  for (let i = 0; i < Math.max(na.length, nb.length); i++) {
+    if ((na[i] ?? 0) !== (nb[i] ?? 0)) return (na[i] ?? 0) < (nb[i] ?? 0);
+  }
+  return false;
+}
 config({ path: resolve(RAIZ, '.env.local') });
 
 const ZIP = resolve(RAIZ, 'public/mako-puente.zip');
@@ -138,6 +155,27 @@ async function token() {
   return d.access_token;
 }
 
+// ⚠️ ESTA API SE APAGA EL 15 DE OCTUBRE DE 2026. Verificado en la documentación
+// de Google el 02/09/2026: «The Chrome Web Store API (V1) will be supported until
+// October 15th, 2026, after which you will need to migrate to the V2 API».
+//
+// Todo este script habla V1. Sigue funcionando hasta esa fecha, así que publicar
+// hoy con esto es correcto — lo que NO conviene es montar el OAuth de V1 creyendo
+// que es para siempre.
+//
+// La V2, para cuando toque migrar (los tres endpoints, verbatim de la doc):
+//   subir     POST https://chromewebstore.googleapis.com/upload/v2/publishers/{PUBLISHER_ID}/items/{ITEM_ID}:upload
+//   publicar  POST https://chromewebstore.googleapis.com/v2/publishers/{PUBLISHER_ID}/items/{ITEM_ID}:publish
+//   estado    GET  https://chromewebstore.googleapis.com/v2/publishers/{PUBLISHER_ID}/items/{ITEM_ID}:fetchStatus
+//
+// Dos diferencias que cambian el trabajo, no sólo la URL:
+//   · pide un PUBLISHER_ID, que no está en este repo — sale del panel de la CWS;
+//   · acepta SERVICE ACCOUNTS, o sea que se puede dejar de pasear un refresh
+//     token por .env.local. Es el camino recomendado al migrar.
+//
+// No se escribió acá todavía a propósito: sin el publisher id y sin credenciales
+// no se puede ejercitar ni una línea, y un publicador que no se puede probar es
+// peor que uno viejo que sí funciona.
 const API = 'https://www.googleapis.com/chromewebstore/v1.1/items';
 const SUBIDA = 'https://www.googleapis.com/upload/chromewebstore/v1.1/items';
 
@@ -172,11 +210,31 @@ const t = await token();
 // Qué versión hay hoy en la tienda. Se pregunta ANTES de subir para poder decir
 // «no hay nada nuevo» en vez de gastar una revisión de Google en lo mismo.
 const antes = await estado(t);
-const versionEnTienda = antes.cuerpo?.crxVersion || '(no la dice)';
-console.log(`En la tienda hoy: ${versionEnTienda} · estado ${antes.cuerpo?.status?.join(', ') || antes.http}`);
-if (versionEnTienda === version) {
-  console.error(`\n⛔ La tienda YA tiene la ${version}. Subí la versión en extension/manifest.json`);
-  console.error('   y regenerá el zip antes de publicar: node scripts/zip-extension.mjs');
+// ⚠️ ESTO NO ES «LA VERSIÓN QUE LA TIENDA PUBLICA»: es la del BORRADOR.
+//
+// `estado()` pega con `?projection=DRAFT`, así que `crxVersion` se pone al día
+// apenas termina el PUT y NO cuando Google aprueba. Sirve para no gastar una
+// revisión subiendo dos veces lo mismo, y para nada más. La pregunta «¿qué se
+// lleva alguien que instala AHORA?» la contesta `node scripts/version-en-tienda.mjs`,
+// que lee la ficha pública y no necesita credenciales.
+const versionEnBorrador = antes.cuerpo?.crxVersion || '';
+// `uploadState` es el campo que items.get sí devuelve; `status` no existe en esta
+// respuesta y se imprimía siempre vacío.
+const subidaPrevia = antes.cuerpo?.uploadState || '(sin estado)';
+console.log(`En el borrador de la tienda: ${versionEnBorrador || '(no la dice)'} · última subida ${subidaPrevia}`);
+if (!versionEnBorrador) {
+  // Una lectura que no se pudo hacer NO es un permiso: se dice, y se sigue con
+  // la guarda apagada en vez de fingir que pasó.
+  console.log('  (no pude leer la versión del borrador; sigo y que decida Google)');
+} else if (!esMasVieja(versionEnBorrador, version)) {
+  // ⚠️ ORDENADA, no una igualdad. Con `===` se frenaba sólo el caso exacto y
+  // dejaba pasar el que de verdad rompe: subir una versión MENOR que la del
+  // borrador, que la CWS rechaza — con un error de ella, tres pasos después.
+  // Y «0.5.0 vs 0.38.7» es exactamente el par donde comparar como número o como
+  // texto da lo contrario que comparar como versión.
+  console.error(`\n⛔ El borrador de la tienda ya tiene la ${versionEnBorrador}, que no es anterior a la ${version}.`);
+  console.error('   Subí la versión en extension/manifest.json y regenerá el zip:');
+  console.error('   node scripts/zip-extension.mjs');
   process.exit(1);
 }
 
@@ -228,6 +286,8 @@ if (!(rPub.status || []).includes('OK')) {
 console.log(`\n✓ La ${version} entró a REVISIÓN de Google.`);
 console.log('  No está publicada todavía: la revisión tarda de horas a días y puede rechazarla.');
 console.log(`  Cómo va: node scripts/publicar-extension.mjs --estado`);
-console.log('\n  ⚠️ Y cuando salga aprobada, pasá EXTENSION_EN_TIENDA a true en');
+console.log('  Qué se sirve hoy: node scripts/version-en-tienda.mjs');
+console.log('  Cuando Google apruebe, esa medición actualiza VERSION_EN_TIENDA y el',
+  ' camino de instalación pasa solo a la tienda.');
 console.log('     lib/extension-tienda.ts. Hasta que no se toque ese flag, MaKo le sigue');
 console.log('     ofreciendo el ZIP a todo el mundo y la tienda no sirve de nada.');

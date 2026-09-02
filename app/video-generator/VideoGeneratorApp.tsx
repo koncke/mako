@@ -43,7 +43,7 @@ import { descargarComo } from './descargar';
 import { nombreDeAnuncio } from './video-pedido';
 import { AvisoPuente, estadoDelPuente, ID_AVISO_PUENTE } from './puente-avisos';
 import { estadoPuenteAction } from './puente-actions';
-import { useExtensionInstalada, AvisoExtensionVieja, esMasVieja } from './extension-instalada';
+import { useExtensionInstalada, AvisoExtensionVieja, useExtensionVieja } from './extension-instalada';
 import { EXTENSION_VERSION } from '@/lib/extension-version';
 import type { Puente } from '@/lib/flow-cola';
 import { cabidaDeGuion, soloHablado } from '@/lib/puestas-data';
@@ -1424,7 +1424,12 @@ export function VideoGeneratorApp({
   //
   // Sólo con la CERTEZA de una versión: `null` es «todavía no se sabe» y `false`
   // es «no está instalada», que ya tiene su propio aviso.
-  const extensionVieja = typeof instalada === 'string' && esMasVieja(instalada, EXTENSION_VERSION);
+  // ⚠️ SALE DEL HOOK, no de una comparación propia. Escrita acá, esta línea no
+  // sabía si la instalación venía de la Chrome Web Store —donde el repo va
+  // adelante SIEMPRE, porque cada versión pasa por revisión— y daba `true` para
+  // siempre: con eso se le escondía permanentemente el aviso del puente, que es
+  // el único que esa persona sí puede resolver.
+  const extensionVieja = useExtensionVieja(instalada);
 
   // ¿El puente está andando AHORA? Se mira la FRESCURA de la última señal, no su
   // existencia: `ultimoVisto` es un campo con fecha, y usarlo como booleano ya

@@ -59,16 +59,56 @@ export default function Page() {
         contiene datos personales.
       </p>
 
+      {/* ⚠️ ESTA LISTA ES EL CONTRATO PÚBLICO, Y SE MIDIÓ CONTRA EL CÓDIGO.
+
+          Decía «Solo dos cosas, y ninguna es un dato personal» y era falso desde
+          hacía versiones: el latido de `extension/background.js` manda hoy siete
+          campos. La política se escribió cuando eran dos y nadie la volvió a mirar
+          — que es como una política de privacidad se vuelve mentira sin que nadie
+          la toque.
+
+          ⚠️ SI SE AGREGA UN CAMPO AL LATIDO, SE AGREGA ACÁ. La lista sale del
+          `body: JSON.stringify({…})` de `background.js`; si las dos dejan de
+          coincidir, lo que está mal es esta página, no el código. */}
       <H>Qué se envía a MaKo</H>
-      <p>Solo dos cosas, y ninguna es un dato personal:</p>
+      <p>
+        Cada 15 segundos la extensión le cuenta al servidor de MaKo cómo va el trabajo
+        que tú encargaste. Esto es todo lo que viaja, y nada de esto es un dato
+        personal tuyo:
+      </p>
       <ul>
         <li>
           <strong>El resultado de cada generación</strong> que tú encargaste: el
           identificador del video producido, o el mensaje de error si algo falló.
         </li>
         <li>
-          <strong>El estado de la conexión</strong>: si hay una sesión de Flow abierta, para
-          que la aplicación pueda decirte si puede trabajar o no.
+          <strong>El estado de la conexión</strong>: si hay una sesión de Flow abierta,
+          para que la aplicación pueda decirte si puede trabajar o no.
+        </li>
+        <li>
+          <strong>La forma de los pedidos que Flow hace</strong> —las URLs, los
+          encabezados y la estructura del cuerpo—, para que MaKo pueda armar el
+          siguiente pedido igual que lo arma la página. <strong>El encabezado
+          <code>Authorization</code> se quita antes de guardarlo</strong>: tu token de
+          Google no viaja nunca, y se repone fresco en tu propio navegador en cada
+          pedido.
+        </li>
+        <li>
+          <strong>Un recorte de lo que Flow contestó</strong>, para saber de dónde sale
+          el enlace de cada video.
+        </li>
+        <li>
+          <strong>El identificador del proyecto de Flow</strong> en el que se está
+          trabajando.
+        </li>
+        <li>
+          <strong>La versión de la extensión</strong>. No es analítica: es la respuesta
+          a «¿qué código está corriendo en ese navegador?» cuando algo falla, y sin ella
+          cada diagnóstico empieza preguntándolo.
+        </li>
+        <li>
+          <strong>Qué verificaciones de seguridad pidió Google</strong> durante el
+          trabajo, también para diagnóstico.
         </li>
       </ul>
 
@@ -82,7 +122,16 @@ export default function Page() {
         </li>
         <li>No recopila datos de uso, analítica, publicidad ni seguimiento de ningún tipo.</li>
         <li>No vende, comparte ni transfiere información a terceros.</li>
-        <li>No modifica el contenido de las páginas que visitas.</li>
+        {/* ⚠️ Decía «No modifica el contenido de las páginas que visitas», y sobre
+            labs.google eso no es exacto: la extensión inyecta un script ahí para
+            poder mandar los pedidos por vos. No cambia lo que ves, que es lo que la
+            frase quería decir — pero decirlo de más en una política es lo mismo que
+            decirlo mal. */}
+        <li>
+          No cambia lo que ves en ninguna página. En <code>labs.google</code> agrega un
+          script propio para poder hacer, con tu sesión, los mismos pedidos que harías
+          tú a mano; en cualquier otro sitio no hace absolutamente nada.
+        </li>
       </ul>
 
       <H>Por qué pide cada permiso</H>

@@ -27,6 +27,57 @@ import { esMasVieja } from '@/lib/version-comparar';
 export { esMasVieja };
 
 /**
+ * ¿Esta instalación vino de la Chrome Web Store?
+ *
+ * Lo dice el segundo atributo que pone el content script, sacado de
+ * `manifest.update_url` — que sólo existe en un paquete que empaquetó Google.
+ *
+ * ⚠️ AUSENTE NO ES «NO». Un `null` acá es ambiguo: puede ser un zip viejo, o una
+ * instalación de tienda ANTERIOR a que este atributo existiera —que es justo la
+ * gente a la que hoy le llega la 0.5.0—. Por eso quien lo consume trata el `null`
+ * como «no sé» y NO como «no es de la tienda»: equivocarse hacia el otro lado
+ * silencia el aviso a quien sí tiene que verlo.
+ */
+export function useExtensionDeLaTienda(): boolean | null {
+  const [deLaTienda, setDeLaTienda] = useState<boolean | null>(null);
+  useEffect(() => {
+    const mirar = () => document.documentElement.getAttribute('data-mako-puente-tienda');
+    const leer = () => {
+      const v = mirar();
+      setDeLaTienda(v === null ? null : v === '1');
+    };
+    leer();
+    // El content script puede llegar después que React: se mira el atributo
+    // cuando cambie, igual que hace el hook de al lado.
+    const obs = new MutationObserver(leer);
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-mako-puente-tienda'] });
+    return () => obs.disconnect();
+  }, []);
+  return deLaTienda;
+}
+
+/**
+ * ¿La extensión de este navegador quedó vieja Y HAY ALGO QUE HACER?
+ *
+ * ⚠️ ES UNA SOLA PREGUNTA Y VIVE EN UN SOLO LUGAR, a propósito. Estaba escrita
+ * dos veces —el early-return de `AvisoExtensionVieja` y el `extensionVieja` de
+ * `VideoGeneratorApp`— y la segunda no sólo pinta el aviso: SUPRIME el del puente
+ * («un aviso a la vez, del más bloqueante al menos»). O sea que arreglar sólo el
+ * componente dejaba vivo el peor síntoma: a quien instaló desde la tienda se le
+ * escondía para siempre el único aviso accionable que tenía.
+ *
+ * Las dos mitades:
+ *  · va atrás de lo que sirve el zip — `esMasVieja`, ordenada y no una igualdad;
+ *  · y NO vino de la tienda, porque ahí la actualiza Chrome y no la persona.
+ */
+export function useExtensionVieja(instalada: string | false | null): boolean {
+  const deLaTienda = useExtensionDeLaTienda();
+  if (typeof instalada !== 'string') return false;
+  if (deLaTienda === true) return false;
+  return esMasVieja(instalada, EXTENSION_VERSION);
+}
+
+/**
  * ¿Está la extensión instalada en ESTE navegador, y cuál?
  *
  * Lo dice el atributo que su content script pone en `<html>` al cargar la página.
@@ -92,10 +143,12 @@ export function AvisoExtensionVieja({ instalada, compacto = false }: {
   /** En el wizard va como una franja fina: ahí no es la pantalla, es una alerta. */
   compacto?: boolean;
 }) {
-  if (typeof instalada !== 'string') return null;
-  // Si la instalada va ADELANTE —la máquina de desarrollo, los minutos entre el
-  // push y el deploy— no se dice nada: no hay nada que hacer.
-  if (!esMasVieja(instalada, EXTENSION_VERSION)) return null;
+  // ⚠️ La condición NO se escribe acá: sale de `useExtensionVieja`, que es la que
+  // también consume `VideoGeneratorApp` para decidir si tapa el aviso del puente.
+  // Escrita en los dos lugares, se separan — y la que se quedó vieja fue la que
+  // decide qué NO se muestra, o sea la que nadie mira.
+  const vieja = useExtensionVieja(instalada);
+  if (typeof instalada !== 'string' || !vieja) return null;
 
   return (
     // El ancho vive ACÁ y no en un envoltorio del llamador: ese envoltorio se

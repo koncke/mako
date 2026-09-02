@@ -5210,3 +5210,130 @@ enumerar dónde».
   reales están quedando afuera. Vive en `lib/acento-workspace.ts` → `POR_ZONA`.
 
 *Corrida del 02/09/2026.*
+
+---
+
+## La extensión y la Chrome Web Store: por qué «poné el flag en true» era el arreglo equivocado
+
+**Vive en:** `lib/extension-tienda.ts` · `scripts/version-en-tienda.mjs` ·
+`scripts/publicar-extension.mjs` · `app/video-generator/extension-instalada.tsx` ·
+`app/privacidad/extension/page.tsx` · `extension/mako-puente.js`
+
+El pedido era «que la extensión se pueda descargar de Google, y actualizá la
+versión de Google». Parecía un booleano. Una corrida de 46 agentes sobre 5
+frentes, con refutación adversarial de cada hallazgo, devolvió que ese booleano
+era la parte chica.
+
+### El dato que gobernaba la decisión estaba mal, escrito en un comentario
+
+`lib/extension-tienda.ts` decía «la tienda tiene la 0.1.0, o sea la que fallaba
+TODO». **Medido el 02/09/2026: tiene la 0.5.0, publicada el 28/08.** Un hecho
+externo escrito en un comentario envejece sin avisar, y ese comentario era lo
+único que alguien iba a leer antes de mover el flag.
+
+**La regla: si una decisión cuelga de un hecho externo, el hecho se MIDE en el
+momento de decidir.** Y si se puede medir con un comando, el comando va al repo —
+`scripts/version-en-tienda.mjs`.
+
+### Un booleano hay que DESHACERLO; una versión declarada se corrige sola
+
+El flag no era manual por descuido: su comentario explicaba, con razón, que no hay
+forma de preguntarle a Google si ya aprobó. Lo que no contemplaba es que el repo
+avanza en cada push y la tienda sólo cuando alguien publica **y** Google aprueba —
+así que «repo adelante de la tienda» no es una excepción, es el estado normal, y un
+booleano en `true` se vuelve mentira en el push siguiente.
+
+Ahora se declara el HECHO (`VERSION_EN_TIENDA`) y el permiso se DERIVA:
+
+```ts
+export const EXTENSION_EN_TIENDA = !esMasVieja(VERSION_EN_TIENDA, EXTENSION_VERSION);
+```
+
+**El modo de falla por olvido es SEGURO**, y eso es lo que lo hace adoptable: si
+alguien publica y no actualiza la constante, queda en `false` y se sigue ofreciendo
+el zip, que siempre está al día. Desactualizarla sólo puede APAGAR la tienda, nunca
+prenderla de más.
+
+⚠️ Y la comparación NO se reescribió: `esMasVieja` ya existe en
+`lib/version-comparar.ts`, está testeada y tiene gemelas. Acá importaba especialmente,
+porque el par real es **0.5.0 vs 0.38.7**: como número 0.5 es MAYOR que 0.38, como
+texto también, y como versión es MENOR. Las tres formas de comparar dan resultados
+distintos y dos de ellas prenden la tienda con la versión rota.
+
+### `--estado` contesta otra pregunta, y creerle habría causado el daño exacto
+
+`publicar-extension.mjs --estado` pega con `?projection=DRAFT`, así que su
+`crxVersion` es la del BORRADOR: se pone al día apenas termina el PUT, **no cuando
+Google aprueba**. Gatear el flag con ese número lo habría puesto en `true` mientras
+la tienda pública seguía sirviendo la vieja — que es literalmente el daño que el
+gate viene a evitar.
+
+La única fuente que contesta «qué se lleva alguien que instala AHORA» es la ficha
+pública. Y no necesita credenciales, que es la otra razón para preferirla.
+
+⚠️ Al leer esa ficha, **dos trampas**: el HTML trae los manifests de las
+extensiones RECOMENDADAS al pie, así que una regex floja se lleva la versión de
+Adblock Plus con total naturalidad; y la descripción propia aparece DOS veces —
+primero como texto visible, después dentro del manifest—, así que un `indexOf`
+ancla en la visible, que no tiene ninguna versión delante, y la lectura da null
+para siempre. Se leen las dos fuentes y se exige que coincidan.
+
+### Prender la tienda rompía tres cosas, y una escondía el único aviso útil
+
+El aviso de «tu extensión quedó vieja» compara contra la versión del ZIP y no podía
+saber de dónde vino la instalación. Con un install de tienda eso da `true` **para
+siempre** —la ventana repo>tienda es permanente por diseño— así que:
+
+- se le muestra un aviso que no puede resolver (Chrome la actualiza sola), y
+- `VideoGeneratorApp.tsx` usa esa misma condición para SUPRIMIR el aviso del puente
+  («un aviso a la vez»), así que se le esconde permanentemente el único que sí
+  puede resolver.
+
+Arreglar sólo el componente dejaba vivo el segundo. **La pregunta «¿está vieja Y
+puedo hacer algo?» pasó a vivir en un solo lugar** (`useExtensionVieja`) y la
+extensión ahora dice de dónde vino (`data-mako-puente-tienda`, sacado de
+`manifest.update_url`, que sólo existe si el paquete lo armó Google). El service
+worker ya razonaba así; lo que faltaba era decírselo a la web.
+
+⚠️ **Ausente no es «no».** Un atributo que no está es ambiguo —zip viejo, o tienda
+vieja de antes de este cambio— así que el default es MOSTRAR el aviso. Y el arreglo
+sólo llega a la gente dentro del paquete que se publique: por eso la versión subió
+a 0.39.0, porque un arreglo en el content script sin número nuevo no le llega a
+nadie.
+
+### La política de privacidad afirmaba «solo dos cosas» y eran siete
+
+Medido leyendo el `body` del latido en `extension/background.js`: van `token`,
+`projectId`, `estado`, `detalle`, `resultados`, `version`, `accionesCaptcha`,
+`clases`, y —según el caso— `respuestas` y `plantillas`. La política se escribió
+cuando eran dos y nadie la volvió a mirar.
+
+Lo que sí resultó CIERTO al verificarlo: `injected.js` saca el `authorization` sin
+sensibilidad a mayúsculas antes de guardar una plantilla, así que «no envía tu token
+de Google» se sostiene. **Verificar antes de reescribir importó en las dos
+direcciones**: una afirmación era falsa y la de al lado era verdadera.
+
+### La API con la que se publica se apaga en 43 días
+
+Verificado en la documentación de Google: **la Chrome Web Store API v1 se soporta
+hasta el 15 de octubre de 2026.** Todo `publicar-extension.mjs` habla v1. Publicar
+hoy con eso es correcto; montar el OAuth de v1 creyendo que es para siempre, no.
+Los tres endpoints de la v2 quedaron escritos en la cabecera del script — pide un
+`PUBLISHER_ID` que no está en el repo y acepta service accounts.
+
+### Lo que quedó SIN hacer
+
+- **Migrar a la API v2.** No se escribió a ciegas a propósito: sin publisher id ni
+  credenciales no se puede ejercitar una línea, y un publicador que no se puede
+  probar es peor que uno viejo que funciona. Vive en `scripts/publicar-extension.mjs`.
+- **`/extension/instalar` sigue siendo excluyente**: con la tienda prendida, la
+  sección «Actualizar a una versión nueva» desaparece, y es justo a donde apunta el
+  aviso para quien ya tiene la descomprimida. Tiene que ser aditiva.
+- **Ningún test mira `EXTENSION_EN_TIENDA`.** El gate derivado cambia producción sin
+  red. Vive en `tests/redirects-gate.test.ts`.
+- **El salto 0.5.0 → 0.39.0 agrega permisos** (`scripting`, host `hola-mako.com`):
+  Chrome DESHABILITA la extensión a los usuarios de tienda hasta que acepten. Antes
+  de publicar conviene mirar cuántos hay en el panel de la CWS.
+
+*Corrida del 02/09/2026 · 46 agentes, 5 frentes, refutación adversarial · 41
+hallazgos, 31 sobrevivieron.*

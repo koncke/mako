@@ -22,7 +22,22 @@
 // cookie de sesión, y un fetch de extensión muere en el chequeo de Origin del
 // proxy. Lo que se mudó al popup es el DISPARO y el RESULTADO.
 
-document.documentElement.setAttribute('data-mako-puente', chrome.runtime.getManifest().version);
+const manifiesto = chrome.runtime.getManifest();
+document.documentElement.setAttribute('data-mako-puente', manifiesto.version);
+
+// ⚠️ Y DE DÓNDE VINO ESTA INSTALACIÓN, que decide qué se le puede pedir.
+//
+// `update_url` sólo lo pone la Chrome Web Store al empaquetar: si está, Chrome
+// la actualiza sola y pedirle a la persona que «quite la vieja y cargue la
+// nueva» es pedirle algo que no puede hacer —y que además rompería la
+// actualización automática—.
+//
+// La página lo necesita porque compara contra la versión del ZIP, que va
+// adelante de la tienda por diseño: cada versión pasa por revisión, así que sin
+// este dato el aviso de «quedó vieja» se le prende PARA SIEMPRE a todo el que la
+// instaló desde Google. El service worker ya razonaba así (`if (manifest.
+// update_url) return` en background.js); lo que faltaba era decírselo a la web.
+document.documentElement.setAttribute('data-mako-puente-tienda', manifiesto.update_url ? '1' : '0');
 
 /** Cuántos ms se espera a que la página conteste el pedido de token. */
 const ESPERA_MS = 12000;

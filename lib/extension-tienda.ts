@@ -3,50 +3,74 @@
 // =============================================================================
 // SIN `server-only`: lo lee la pantalla del Video Generator, que es un client
 // component.
+
+import { EXTENSION_VERSION } from './extension-version';
+import { esMasVieja } from './version-comparar';
 //
-// Hay dos caminos y el que vale depende de un hecho externo que ningún código
-// puede consultar: si la Chrome Web Store ya aprobó la extensión.
+// Hay dos caminos y el que vale depende de un hecho externo: QUE VERSION tiene
+// publicada la Chrome Web Store.
 //
-//   - APROBADA   → «Añadir a Chrome» desde la tienda. Un clic.
-//   - NO APROBADA → descargar el ZIP e instalarlo en modo desarrollador.
+//   - la tienda esta AL DIA  → «Añadir a Chrome». Un clic, y se actualiza sola.
+//   - la tienda va ATRAS     → el zip, que Vercel sirve siempre al dia.
 //
-// Por eso es un flag a mano y no una detección: el link de la tienda **da 404
-// hasta que la revisión termina**, así que mostrarlo antes de tiempo es mandar
-// al cliente a una página rota. Y no hay forma de preguntarle a Google si ya
-// aprobó sin scrapear su HTML, que se rompería en silencio el día que cambien la
-// página — peor que un booleano que alguien mueve una vez.
+// ⚠️ ACA HABIA UN BOOLEANO QUE ALGUIEN MOVIA A MANO, Y SE PODIA MOVER MAL.
 //
-// Enviada a revisión el 26/08/2026.
+// Su comentario decia «la tienda tiene la 0.1.0». Medido el 02/09/2026: tiene la
+// 0.5.0, publicada el 28/08. O sea que el dato que alguien iba a leer antes de
+// decidir estaba mal — y con el booleano nada lo impedia: ponerlo en true habria
+// mandado a TODO cliente nuevo a instalar un paquete 33 versiones atras, sin
+// dejar ningun camino en la pantalla al zip que si funciona.
+//
+// Y el problema de fondo no era el comentario viejo: es que un booleano hay que
+// DESHACERLO en cada version nueva. El repo avanza en cada push y la tienda sube
+// solo cuando alguien publica Y Google aprueba, asi que la ventana «repo adelante
+// de la tienda» no es una excepcion: es el estado normal.
+//
+// Ahora se declara EL HECHO —que version tiene la tienda— y el permiso se DERIVA.
+// Ofrecerla con una version vieja pasa a ser imposible de escribir.
 
 /** El id que asignó la Chrome Web Store al subir el paquete. No cambia. */
 export const EXTENSION_ID = 'gapbemdaaghomjbnggechglkpmbgplle';
 
 /**
- * ⚠️ EN `false` A PROPÓSITO, aunque la extensión SÍ esté aprobada y pública.
+ * La versión que la Chrome Web Store tiene PUBLICADA hoy.
  *
- * Aprobada el 28/08/2026 (verificado: la ficha devuelve 200 y trae el botón de
- * instalar). Y aun así el camino que se ofrece es el zip, porque **cada versión
- * nueva pasa por revisión** y esto todavía se está descubriendo: en un solo día
- * la extensión fue de 0.1.0 a 0.5.0, y cuatro de esos cinco cambios eran la
- * diferencia entre funcionar y no.
+ * ⚠️ ES UNA MEDICION, NO UN RECUERDO. Se saca corriendo:
  *
- * El zip NO tiene ese problema: `scripts/zip-extension.mjs` lo regenera y el
- * pre-push falla si quedó viejo, así que lo que Vercel sirve es siempre lo último
- * que se pusheó. La tienda, mientras tanto, tiene la versión del día que se
- * aprobó — que hoy es la 0.1.0, o sea la que fallaba TODO.
+ *     node scripts/version-en-tienda.mjs
  *
- * **Cuándo pasarlo a `true`:** cuando una versión aguante unos días sin cambios y
- * se suba ESA a la tienda. La ventaja de la tienda es real (se instala con un
- * clic y se actualiza sola); solo que llega después de la estabilidad, no antes.
+ * que lee la ficha publica y devuelve lo que Google le muestra a cualquiera.
+ *
+ * ⚠️ Y NO SIRVE el `crxVersion` de `publicar-extension.mjs --estado`: ese pega a
+ * `?projection=DRAFT`, o sea que devuelve lo ULTIMO QUE SE SUBIO y se pone al dia
+ * apenas termina el PUT, no cuando Google aprueba. Creerle habria prendido la
+ * tienda mientras la tienda publica seguia sirviendo la version vieja — que es
+ * exactamente el daño que este archivo viene a evitar.
+ *
+ * Medido el 02/09/2026: la ficha declara «Versión 0.5.0 · Fecha de actualización:
+ * 28 de agosto de 2026», y el manifest que trae embebido dice lo mismo.
  */
-export const EXTENSION_EN_TIENDA = false;
+export const VERSION_EN_TIENDA = '0.5.0';
 
 /**
- * La URL canónica, con el slug que le puso Google.
+ * ¿Se le puede ofrecer la tienda a alguien que instala hoy?
  *
- * Sin el slug también resuelve, pero con un redirect de por medio: un link que
- * rebota es un link que a veces no llega. Este es el que muestra la tienda.
+ * Solo si lo que Google publica NO va atras de lo que sirve el zip. Se compara
+ * con `esMasVieja`, que ya existe, esta testeada y tiene una gemela en la propia
+ * extension: escribir otra comparacion acá recrearia la falla que el repo ya pagó
+ * —comparar versiones como TEXTO— y justo en el caso que hay hoy, donde «0.5.0» es
+ * MAYOR que «0.38.7» como número y MENOR como versión.
+ *
+ * ⚠️ EL MODO DE FALLA POR OLVIDO ES SEGURO, y conviene dejarlo escrito para que
+ * nadie lo «arregle» despues: si alguien publica en la tienda y se olvida de
+ * actualizar `VERSION_EN_TIENDA`, esto queda en `false` y se sigue ofreciendo el
+ * zip — que siempre está al día. Desactualizar esta constante solo puede APAGAR la
+ * tienda, nunca prenderla de más.
+ *
+ * Se mantiene el nombre exportado para no tocar a los tres consumidores
+ * (`next.config.ts`, `app/extension/instalar/page.tsx`, `puente-avisos.tsx`).
  */
+export const EXTENSION_EN_TIENDA = !esMasVieja(VERSION_EN_TIENDA, EXTENSION_VERSION);
 export const EXTENSION_URL_TIENDA = `https://chromewebstore.google.com/detail/mako/${EXTENSION_ID}`;
 
 /** El zip que sirve Vercel, para instalar a mano mientras la tienda no esté. */
