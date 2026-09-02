@@ -107,7 +107,6 @@ export default async function Page() {
         <PuertaVideoGen
           fotos={contexto.fotos}
           acentoInicial={contexto.acento.id}
-          acentoSeguro={contexto.acento.seguro}
           muletillasIniciales={contexto.acento.muletillas}
           puente={puente}
           linea={primeraFrase}

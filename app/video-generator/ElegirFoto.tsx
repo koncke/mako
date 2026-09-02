@@ -130,10 +130,21 @@ export function FotoGrande({ url, puedeCambiar, onAbrir, children }: {
 }
 
 /** El elegidor: las fotos que hay, y una para subir. */
-export function ModalFotos({ fotos, elegida, onElegir, onSubida, onCerrar }: {
+export function ModalFotos({ fotos, elegida, onElegir, onSubida, onBorrar, onCerrar }: {
   fotos: FotoElegible[];
   elegida: string;
   onElegir: (id: string) => void;
+  /**
+   * Sacar una foto. OPCIONAL a propósito: sin él, este modal se comporta
+   * exactamente como hasta hoy.
+   *
+   * ⚠️ Lo tiene el onboarding y NO el wizard de generación, y la diferencia es
+   * real: en el onboarding la persona está armando su juego de fotos —«sacar
+   * fotos o agregar nuevas», textual del dueño— mientras que en medio de un
+   * anuncio a medio filmar, borrar la foto de la que salió la imagen de un
+   * escenario ya aprobado es una acción destructiva sin nada que la pida.
+   */
+  onBorrar?: (id: string) => void;
   /** La subida terminó bien: hay que refrescar la lista y quedarse con la nueva. */
   onSubida: () => void;
   onCerrar: () => void;
@@ -179,7 +190,33 @@ export function ModalFotos({ fotos, elegida, onElegir, onSubida, onCerrar }: {
               <span className="mk-fotos__tilde"><Icon name="check" size={13} /></span>
             )}
           </button>
-        ))}
+        )).flatMap((nodo, i) => {
+          const f = fotos[i];
+          if (!onBorrar) return [nodo];
+          // ⚠️ La papelera va COMO ÍCONO sobre la foto y no como un botón de texto
+          // en rojo: la regla de la casa dice que la acción destructiva de un
+          // estado confirmado pesa menos que el estado que acompaña. Acá lo que
+          // importa es la foto; sacarla es un gesto de servicio.
+          return [(
+            <span key={f.id} style={{ position: 'relative', display: 'inline-flex' }}>
+              {nodo}
+              <button
+                type="button"
+                aria-label="Sacar esta foto"
+                title="Sacar esta foto"
+                onClick={(e) => { e.stopPropagation(); onBorrar(f.id); }}
+                style={{
+                  position: 'absolute', top: 6, right: 6, width: 26, height: 26,
+                  borderRadius: 999, display: 'grid', placeItems: 'center', padding: 0,
+                  cursor: 'pointer', border: '1px solid var(--border)',
+                  background: 'var(--surface)', color: 'var(--dim)',
+                }}
+              >
+                <Icon name="trash" size={13} />
+              </button>
+            </span>
+          )];
+        })}
 
         {/* Subir: la misma medida que las otras, con borde punteado. El punteado
             dice «acá falta algo» sin una palabra, y no depende del color. */}

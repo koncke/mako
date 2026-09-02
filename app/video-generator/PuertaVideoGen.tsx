@@ -20,12 +20,11 @@ import type { Puente } from '@/lib/flow-cola';
 import { OnboardingVideoGen } from './OnboardingVideoGen';
 
 export function PuertaVideoGen({
-  fotos, acentoInicial, acentoSeguro, muletillasIniciales, puente, linea, creditos, anunciosPosibles,
+  fotos, acentoInicial, muletillasIniciales, puente, linea, creditos, anunciosPosibles,
   descripcionPersona, acentoOrigen, acentoZona, children,
 }: {
   fotos: { id: string; url: string }[];
   acentoInicial: string;
-  acentoSeguro: boolean;
   muletillasIniciales: string[];
   puente: Puente | null;
   /** Una línea real de su guion, para el subtítulo del anuncio del aside. */
@@ -47,7 +46,6 @@ export function PuertaVideoGen({
     <OnboardingVideoGen
       fotos={fotos}
       acentoInicial={acentoInicial}
-      acentoSeguro={acentoSeguro}
       muletillasIniciales={muletillasIniciales}
       puente={puente}
       linea={linea}

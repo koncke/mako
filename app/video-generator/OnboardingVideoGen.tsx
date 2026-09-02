@@ -26,14 +26,17 @@
 // medido encima: el repo ya se equivocó pidiendo una lista de muletillas y
 // repartiéndolas por densidad, y el cliente lo marcó al instante.
 
-import { useCallback, useEffect, useState } from 'react';
-import { WizardShell } from '../_components/WizardShell';
-import { Button, MONO } from '@/app/_ui';
+import { useCallback, useEffect, useRef, useState } from 'react';
+// ⚠️ `Estudio` y no `WizardShell`: es el lenguaje de pantalla de toda la tab,
+// exportado a propósito para esto. El wizard de formulario encerraba el
+// contenido en una tarjeta y le ponía un kicker arriba.
+import { Estudio } from './WizardAnuncio';
+import { ModalFotos } from './ElegirFoto';
+import { Button } from '@/app/_ui';
 import { Icon } from '../_components/icons';
 import { ACENTOS_ES, MULETILLAS, type AcentoId } from '@/lib/acento-workspace';
 import type { Puente } from '@/lib/flow-cola';
 import { estadoDelPuente, AvisoPuente } from './puente-avisos';
-import { AnuncioEnConstruccion } from './AnuncioEnConstruccion';
 import { estadoPuenteAction } from './puente-actions';
 import { useExtensionInstalada, AvisoExtensionVieja } from './extension-instalada';
 import {
@@ -151,14 +154,15 @@ function Contexto({ eyebrow, children }: { eyebrow: string; children: React.Reac
   );
 }
 export function OnboardingVideoGen({
-  fotos, acentoInicial, acentoSeguro, muletillasIniciales, puente: puenteInicial, linea, creditos, anunciosPosibles,
+  fotos, acentoInicial, muletillasIniciales, puente: puenteInicial, linea, creditos, anunciosPosibles,
   descripcionPersona, acentoOrigen, acentoZona, alSalir,
 }: {
   fotos: { id: string; url: string }[];
   /** El que el server va a usar HOY: declarado si lo hay, inferido si no. */
   acentoInicial: string;
-  /** false = salió de la zona horaria. La pantalla lo dice y con eso se corrige. */
-  acentoSeguro: boolean;
+  // ⚠️ `acentoSeguro` se fue: lo reemplaza `acentoOrigen`, que dice MÁS. Un
+  // booleano colapsaba «lo deduje de tu zona horaria» con «no lo sé y elegí el
+  // más común», que mandan a leer cosas distintas.
   muletillasIniciales: string[];
   puente: Puente | null;
   /** Una línea real de su guion, para el subtítulo del anuncio del aside. */
@@ -191,6 +195,8 @@ export function OnboardingVideoGen({
    * ninguna se ve, en la pantalla cuyo trabajo es MIRAR una cara.
    */
   const [fotoIdx, setFotoIdx] = useState(0);
+  /** El pop-up de configurar las fotos: elegir, agregar y sacar. */
+  const [eligiendoFoto, setEligiendoFoto] = useState(false);
 
   // ── La voz ──
   const [acento, setAcento] = useState<AcentoId>(
@@ -222,6 +228,30 @@ export function OnboardingVideoGen({
   // apretar «Siguiente» pone «Clonando…» en el otro botón.
   const [subiendoVoz, setSubiendoVoz] = useState(false);
   const [clonando, setClonando] = useState(false);
+  const [escuchando, setEscuchando] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  // El audio se para al desmontar: salir del wizard mientras la voz habla dejaria
+  // el sonido corriendo sobre otra pantalla, sin donde pararlo.
+  useEffect(() => () => { audioRef.current?.pause(); }, []);
+
+  const escucharse = useCallback(async () => {
+    if (escuchando || !linea) return;
+    setEscuchando(true);
+    setError(null);
+    try {
+      const r = await escucharMiVozAction(linea);
+      if (!r.ok) { setError(r.error); return; }
+      const a = new Audio(r.audio);
+      audioRef.current = a;
+      a.onended = () => setEscuchando(false);
+      a.onerror = () => { setEscuchando(false); setError('El navegador no pudo reproducir el audio.'); };
+      await a.play().catch(() => { setEscuchando(false); setError('El navegador bloqueo el audio. Toca otra vez.'); });
+      return;
+    } catch {
+      setError('No llego respuesta al generar el audio.');
+    }
+    setEscuchando(false);
+  }, [escuchando, linea]);
 
   useEffect(() => {
     let vivo = true;
@@ -312,57 +342,7 @@ export function OnboardingVideoGen({
 
   const idx = PASOS.indexOf(paso);
 
-  /**
-   * La ÚNICA línea de texto del aside, y sólo cuando dice algo que el cuadro no
-   * muestra.
-   *
-   * ⚠️ Acá había cinco renglones con rótulo y valor. Un dato que ya se ve no se
-   * vuelve a escribir: su cara está en el cuadro, su frase está en el cuadro. Lo
-   * que queda es lo que el cuadro NO puede mostrar — que MaKo escribió esa
-   * descripción mirando sus fotos, de dónde salió el acento, cuántos créditos
-   * tiene.
-   */
-  const pieDelAside =
-    paso === 'cara'
-      // El dato más fuerte del recorrido, y estaba en la base sin mostrarse: la
-      // descripción física que MaKo escribió mirando sus fotos. Va acá, al lado
-      // de la cara que describe, y no como un párrafo gigante en el medio.
-      ? (descripcionPersona ? primeraLinea(descripcionPersona) : '')
-      : paso === 'acento'
-        ? (acentoOrigen === 'declarado'
-          ? 'Lo elegiste tú.'
-          : acentoOrigen === 'zona-horaria'
-            ? `Lo deduje de tu zona horaria: ${acentoZona}.`
-            : 'Todavía no lo sé: este es el más común.')
-        : paso === 'muletillas'
-          ? (muletillas.length ? `${muletillas.length} marcadas.` : '')
-          : paso === 'voz'
-            ? (clon ? 'Toca el play: así vas a sonar.' : '')
-            : paso === 'puente'
-              ? (creditos != null ? `${creditos.toLocaleString('es-MX')} créditos en tu cuenta de Google.` : '')
-              : '';
 
-  /**
-   * ⚠️ UNA GUARDA BLOQUEA SÓLO LO QUE SE ARREGLA HACIENDO LO QUE ELLA PIDE.
-   *
-   * Este paso pide conectar el navegador, y `estado: 'marcada'` NO se arregla
-   * conectando: es Google el que pausó la sesión de Flow, y la salida es esperar,
-   * limpiar cookies y volver a entrar — nada de eso pasa acá adentro.
-   *
-   * Medido el 02/09/2026 sobre una clienta: puente `marcada` con la extensión al
-   * día y latiendo hace 4 segundos, los tres pasos anteriores cerrados, y este
-   * trabado sin ninguna forma de pasar. El popup de la extensión le decía «toca
-   * Ya lo hice, volver a habilitar en el aviso rojo» y ese botón vive en un
-   * componente que esta pantalla no dibujaba. Escribió: «no encuentro el Ya lo
-   * hice».
-   *
-   * Así que la marca deja pasar. Lo que sigue bloqueando es el único estado que
-   * SÍ se arregla acá: no haber conectado nunca.
-   */
-  const puedeAvanzar =
-    paso === 'cara' ? misFotos.length > 0
-      : paso === 'puente' ? (est.anda || puente?.estado === 'marcada')
-        : true;
 
   /** Sube fotos por el route handler multipart. Una server action topea en 1 MB. */
   const subir = useCallback(async (files: FileList | null) => {
@@ -385,7 +365,56 @@ export function OnboardingVideoGen({
     }
   }, []);
 
+  /** Vuelve a leer las fotos del server. La lista la arma ÉL, no el navegador. */
+  const refrescarFotos = useCallback(async () => {
+    try {
+      const j = (await (await fetch('/api/onboarding/persona')).json()) as
+        { ok: boolean; fotos?: { id: string; url: string | null }[] };
+      if (j.ok) setMisFotos((j.fotos ?? []).filter((f) => !!f.url).map((f) => ({ id: f.id, url: f.url as string })));
+    } catch { /* la lista de antes sigue siendo lo mejor que se sabe */ }
+  }, []);
+
+  const borrarFoto = useCallback(async (id: string) => {
+    setError(null);
+    try {
+      const j = (await (await fetch(`/api/onboarding/persona?id=${encodeURIComponent(id)}`, { method: 'DELETE' })).json()) as
+        { ok: boolean; error?: string; fotos?: { id: string; url: string | null }[] };
+      if (!j.ok) { setError(j.error || 'No se pudo sacar la foto.'); return; }
+      const quedan = (j.fotos ?? []).filter((f) => !!f.url).map((f) => ({ id: f.id, url: f.url as string }));
+      setMisFotos(quedan);
+      // ⚠️ El índice se acota DESPUÉS de borrar. Sin esto, sacar la última foto
+      // deja el mazo apuntando a una posición que ya no existe y la pantalla se
+      // queda en blanco sin decir por qué.
+      setFotoIdx((i) => (quedan.length ? Math.min(i, quedan.length - 1) : 0));
+    } catch {
+      setError('No llegó respuesta al sacar la foto. Vuelve a intentarlo.');
+    }
+  }, []);
+
+  /**
+   * Lo que falta para poder avanzar, o ''.
+   *
+   * ⚠️ ESTO ERA UN BOTÓN DESHABILITADO Y CASI SE PIERDE EN LA MUDANZA.
+   * `WizardShell` tenía `puedeAvanzar`; `Estudio` no, así que al cambiar de
+   * chrome el gate se quedó sin quién lo leyera — el compilador no dice nada
+   * porque una constante sin usar es legal.
+   *
+   * Y de paso mejora: un botón apagado no explica qué falta. Ahora el botón
+   * siempre se puede tocar y, si falta algo, lo dice.
+   */
+  const loQueFalta =
+    paso === 'cara' && misFotos.length === 0
+      ? 'Sube al menos una foto tuya: sin ella cada toma sale con una cara distinta.'
+      // ⚠️ UNA GUARDA BLOQUEA SÓLO LO QUE SE ARREGLA HACIENDO LO QUE ELLA PIDE.
+      // `marcada` es Google pausando la sesión de Flow: no se arregla conectando
+      // nada, así que deja pasar. Una clienta quedó trabada acá con la extensión
+      // al día y latiendo hace cuatro segundos.
+      : paso === 'puente' && !est.anda && puente?.estado !== 'marcada'
+        ? 'Conecta tu navegador para poder generar. Sin él no se filma nada, ni siquiera las imágenes, que son gratis.'
+        : '';
+
   const avanzar = useCallback(async () => {
+    if (loQueFalta) { setError(loQueFalta); return; }
     setError(null);
     setBusy(true);
     const r = paso === 'acento'
@@ -396,10 +425,10 @@ export function OnboardingVideoGen({
     setBusy(false);
     if (!r.ok) { setError(r.error); return; }
     setPaso(PASOS[idx + 1]);
-  }, [paso, idx, acento, muletillas]);
+  }, [paso, idx, acento, muletillas, loQueFalta]);
 
   const pregunta =
-    paso === 'cara' ? 'Tu cara'
+    paso === 'cara' ? 'Tus fotos'
       : paso === 'acento' ? 'Cómo hablas'
         : paso === 'muletillas' ? 'Tus muletillas'
         : paso === 'voz' ? 'Tu voz'
@@ -407,151 +436,147 @@ export function OnboardingVideoGen({
             : 'Tu primer escenario';
 
   return (
-    <WizardShell
-      /**
-       * ⚠️ VACÍO A PROPÓSITO: ESE RENGLÓN ES UN KICKER Y ESTÁ PROHIBIDO.
-       *
-       * `WizardShell` lo pinta en monospace, gris, arriba del título
-       * (`WizardShell.tsx:249`), que es exactamente la forma que
-       * `docs/hallazgos-ui.md` prohíbe con cita: «esto es una prohibición, no un
-       * default». Decía «Generador de video · Configuración» sobre una pantalla
-       * que ya se sabe de dónde se abrió.
-       *
-       * No se saca del shell porque lo comparten otras 25 pantallas: sacarlo de
-       * ahí es una decisión de todo el producto, no de este onboarding.
-       */
-      titulo=""
-      pasos={PASOS}
-      pasoActual={paso}
-      pregunta={pregunta}
-      // ⚠️ Subtítulo SÓLO donde el título no se explica solo. La skill lo pide
-      // así, y con razón: un subtítulo de relleno debajo de «Tu cara» es un
-      // renglón que se lee cuatro veces y no dice nada las cuatro.
-      sub={paso === 'ensayo'
-        ? 'Se configura usándola: el primer escenario que apruebes cierra esta configuración.'
-        : undefined}
-      error={error}
-      puedeAvanzar={puedeAvanzar}
-      enUltimo={paso === 'ensayo'}
-      confirmLabel="Empezar mi primer anuncio"
-      pending={busy}
-      atrasLabel={idx === 0 ? 'Salir' : 'Atrás'}
-      onAtras={() => (idx === 0 ? alSalir() : setPaso(PASOS[idx - 1]))}
-      onSiguiente={() => void avanzar()}
-      onConfirmar={alSalir}
-      onClose={alSalir}
-      /**
-       * ⚠️ EL ASIDE ES EL ANUNCIO, y hasta acá este wizard no tenía ninguno.
-       *
-       * Sin `escenario`, `WizardShell` pinta UNA columna de 620 px — o sea que
-       * este onboarding no se parecía a ninguna otra pantalla de conexión del
-       * producto. Con él son 980 px partidos por la misma grilla
-       * (`.mk-svc-modal`) que el modal de /integraciones, el onboarding global y
-       * el panel de activación de cada tab: el cliente reconoce la MISMA pieza
-       * en los cuatro lugares.
-       *
-       * Y lo que va adentro no es un carrusel: es el objeto que vino a hacer,
-       * llenándose con lo suyo. La regla del aside negro ya decía que la promesa
-       * se reemplaza por la prueba; acá pasa seis veces.
-       */
-      escenario={(
-        <AnuncioEnConstruccion
-          estado={{
-            foto: misFotos[Math.min(fotoIdx, Math.max(0, misFotos.length - 1))]?.url ?? '',
-            linea,
-            voiceId: clon?.voiceId ?? '',
-            pie: pieDelAside,
-          }}
-          alEscuchar={linea ? () => escucharMiVozAction(linea) : undefined}
-        />
-      )}
-      fullscreen
-      embebido
-      extraFooter={
-        <button
-          onClick={alSalir}
-          style={{
-            border: 'none', background: 'transparent', color: 'var(--faint)',
-            fontSize: 13, cursor: 'pointer', textDecoration: 'underline', fontFamily: 'inherit',
-          }}
-        >
-          Lo configuro después
-        </button>
-      }
-    >
+    <>
+      {/* ⚠️ EL MISMO LENGUAJE DE PANTALLA QUE LA GENERACIÓN, Y NO UN FORMULARIO.
+
+          Esto usaba `WizardShell`: una tarjeta de 980 px con aside negro, kicker
+          en monospace y el contenido encerrado. El dueño lo rechazó sobre la
+          captura: «saca el contenedor… el diseño del form tiene que ser similar
+          al de la generación, los pasos de arriba son más minimalistas».
+
+          Y `Estudio` está EXPORTADO exactamente por esto — su propio comentario
+          lo dice: «es el lenguaje de pantalla de TODA la tab, no del wizard». Ya
+          hubo un paso que se quedó con el formato viejo y se migró con la misma
+          frase del dueño: «se quedó con el formato de form viejo». Este era el
+          último que faltaba.
+
+          De yapa, `Estudio` trae el aviso del puente en las seis pantallas: el
+          bloqueo ocurre filmando, y un problema que se muestra en un lugar y se
+          cura en otro es, para el que lo mira, un problema sin cura. */}
+      <Estudio
+        pregunta={pregunta}
+        paso={idx + 1}
+        total={PASOS.length}
+        boton={paso === 'ensayo' ? 'Empezar mi primer anuncio' : 'Siguiente'}
+        onSiguiente={paso === 'ensayo' ? alSalir : () => void avanzar()}
+        cargando={busy}
+        atras={idx === 0 ? undefined : 'Atrás'}
+        onAtras={idx === 0 ? undefined : () => setPaso(PASOS[idx - 1])}
+        onSalir={alSalir}
+        error={error ?? undefined}
+        puente={puente}
+        ahora={ahora}
+        consecuencia={paso === 'ensayo'
+          ? 'Esta configuración la cierra aprobar tu primer escenario, no este botón.'
+          : undefined}
+        ancho={520}
+      >
       {paso === 'cara' && (
         <>
-          {/* ⚠️ UNA FOTO, GIGANTE. Acá había una grilla de ocho miniaturas de
-              96 px más un párrafo de tres renglones a 34 px. El dueño lo rechazó
-              sobre la captura: «el input gigante en el medio, o la foto. Poco
-              texto. En todos lados.»
+          {/* ⚠️ UN MAZO, NO UNA GRILLA NI DOS FOTOS A LA VEZ.
 
-              Y ocho miniaturas no son «la foto»: son un selector múltiple donde
-              ninguna se ve, justo en la pantalla cuyo trabajo es MIRAR una cara.
-              Con flechas se ve una sola y se pasa de largo — y lo que MaKo
-              escribió sobre ella vive en el aside, al lado del anuncio. */}
+              Pasó por tres formas hasta acá y las dos primeras las rechazó el
+              dueño sobre capturas: ocho miniaturas de 96 px («no son la foto: son
+              un selector múltiple donde ninguna se ve»), y después una foto
+              grande en el centro CON otra igual en el aside — «saca las 2 fotos a
+              la vez».
+
+              Queda un mazo: la de adelante entera y las demás asomando detrás, que
+              es como se ve un juego de fotos sin desplegarlo. Y el centro no
+              navega: ABRE. «Si aprieto la foto del centro me salta el pop-up para
+              configurar: sacar fotos o agregar nuevas.» */}
           {misFotos.length > 0 ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, alignSelf: 'center' }}>
-              {misFotos.length > 1 && (
+            <div style={{ display: 'grid', justifyItems: 'center', gap: 14, width: '100%' }}>
+              <div style={{ position: 'relative', width: 300, height: 400 }}>
+                {/* Las de atrás, dibujadas ANTES para quedar debajo. Sólo dos:
+                    con más, el mazo se lee como un abanico y deja de ser una
+                    foto. */}
+                {[2, 1].map((salto) => {
+                  const f = misFotos[(fotoIdx + salto) % misFotos.length];
+                  if (!f || misFotos.length <= salto) return null;
+                  return (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={f.id}
+                      src={f.url}
+                      alt=""
+                      aria-hidden
+                      style={{
+                        position: 'absolute', inset: 0, margin: 'auto',
+                        width: 300 - salto * 26, height: 400 - salto * 34,
+                        objectFit: 'cover', borderRadius: 18,
+                        transform: `translateY(${-salto * 14}px)`,
+                        opacity: salto === 1 ? 0.5 : 0.25,
+                        filter: 'saturate(.7)',
+                        transition: 'all 250ms cubic-bezier(.16,.84,.34,1)',
+                      }}
+                    />
+                  );
+                })}
+                {/* La de adelante. Es un botón: abre el pop-up. */}
                 <button
                   type="button"
-                  aria-label="Foto anterior"
-                  onClick={() => setFotoIdx((i) => (i - 1 + misFotos.length) % misFotos.length)}
-                  style={FLECHA}
-                ><Icon name="chevron" size={18} /></button>
-              )}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                key={misFotos[fotoIdx % misFotos.length]?.id}
-                src={misFotos[fotoIdx % misFotos.length]?.url}
-                alt=""
-                style={{
-                  width: 268, aspectRatio: '3 / 4', objectFit: 'cover',
-                  borderRadius: 16, border: '1px solid var(--border)',
-                  animation: 'mkFade 250ms ease',
-                }}
-              />
+                  onClick={() => setEligiendoFoto(true)}
+                  aria-label="Configurar tus fotos"
+                  style={{
+                    position: 'absolute', inset: 0, width: 300, height: 400, padding: 0,
+                    border: 'none', background: 'transparent', cursor: 'pointer',
+                    borderRadius: 18, overflow: 'hidden', display: 'block',
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    key={misFotos[fotoIdx % misFotos.length]?.id}
+                    src={misFotos[fotoIdx % misFotos.length]?.url}
+                    alt=""
+                    style={{
+                      width: '100%', height: '100%', objectFit: 'cover', borderRadius: 18,
+                      animation: 'mkFade 250ms ease', display: 'block',
+                    }}
+                  />
+                </button>
+              </div>
+
+              {/* Pasar de foto. Debajo y chico: la protagonista es la foto, y
+                  esto es sólo mirar el mazo. */}
               {misFotos.length > 1 && (
-                <button
-                  type="button"
-                  aria-label="Foto siguiente"
-                  onClick={() => setFotoIdx((i) => (i + 1) % misFotos.length)}
-                  style={{ ...FLECHA, transform: 'rotate(180deg)' }}
-                ><Icon name="chevron" size={18} /></button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <button type="button" aria-label="Foto anterior" style={FLECHA}
+                    onClick={() => setFotoIdx((i) => (i - 1 + misFotos.length) % misFotos.length)}
+                  ><Icon name="chevron" size={16} /></button>
+                  <button type="button" aria-label="Foto siguiente" style={{ ...FLECHA, transform: 'rotate(180deg)' }}
+                    onClick={() => setFotoIdx((i) => (i + 1) % misFotos.length)}
+                  ><Icon name="chevron" size={16} /></button>
+                </div>
               )}
             </div>
           ) : (
-            // Sin fotos, la pantalla es UN gesto: el área de subir, grande. No hay
-            // nada que elegir todavía, así que no hay nada más que dibujar.
+            // Sin fotos la pantalla es UN gesto, del mismo tamaño que el mazo.
             <label style={{
-              alignSelf: 'center', width: 268, aspectRatio: '3 / 4', borderRadius: 16,
+              alignSelf: 'center', width: 300, height: 400, borderRadius: 18,
               border: '1px dashed var(--border-strong)', background: 'var(--surface-2)',
-              display: 'grid', placeItems: 'center', gap: 10, cursor: 'pointer',
-              color: 'var(--dim)', textAlign: 'center', padding: 20,
+              display: 'grid', placeItems: 'center', gap: 12, cursor: 'pointer',
+              color: 'var(--dim)', textAlign: 'center', padding: 24,
             }}>
-              <Icon name={subiendo ? 'regenerar' : 'perfil'} size={40} />
+              <Icon name={subiendo ? 'regenerar' : 'perfil'} size={44} />
               <span style={{ fontSize: 'var(--fs-card)', fontWeight: 600, color: 'var(--ink)' }}>
                 {subiendo ? 'Subiendo…' : 'Sube tus fotos'}
               </span>
-              <input
-                type="file" accept="image/*" multiple disabled={subiendo}
-                onChange={(e) => void subir(e.target.files)} style={{ display: 'none' }}
-              />
+              <input type="file" accept="image/*" multiple disabled={subiendo}
+                onChange={(e) => void subir(e.target.files)} style={{ display: 'none' }} />
             </label>
           )}
 
-          {misFotos.length > 0 && (
-            <label style={{
-              alignSelf: 'center', display: 'inline-flex', alignItems: 'center', gap: 7,
-              cursor: 'pointer', color: 'var(--dim)', fontSize: 'var(--fs-sm)',
+          {/* Lo que MaKo escribió mirando sus fotos. Vivía en el aside, y el aside
+              se fue entero: «elimina todo lo del costado». Acá está al lado de la
+              cara que describe, que es donde significa algo. */}
+          {!!descripcionPersona && (
+            <div style={{
+              fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.5,
+              textAlign: 'center', maxWidth: 360, alignSelf: 'center',
             }}>
-              <Icon name={subiendo ? 'regenerar' : 'descargar'} size={14} />
-              {subiendo ? 'Subiendo…' : `Agregar otra · ${misFotos.length} ${misFotos.length === 1 ? 'foto' : 'fotos'}`}
-              <input
-                type="file" accept="image/*" multiple disabled={subiendo}
-                onChange={(e) => void subir(e.target.files)} style={{ display: 'none' }}
-              />
-            </label>
+              {primeraLinea(descripcionPersona)}
+            </div>
           )}
           <Contexto eyebrow="¿Por qué la foto decide todo?">
             El video se genera a partir de una imagen tuya: si no hay foto, no hay identidad y
@@ -659,7 +684,9 @@ export function OnboardingVideoGen({
         <>
           {/* Lo primero que se puede tocar. La explicación va abajo: nadie lee un
               párrafo antes de poder hacer algo. */}
-          {clon ? (
+          {/* ⚠️ ESCUCHARSE VIVÍA EN EL ASIDE, Y EL ASIDE SE FUE. Va acá, que es
+              donde estaba su dueño: es la prueba de vida de ESTE paso. */}
+          {clon && (
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
               padding: '14px 16px', border: '1px solid var(--border)', borderRadius: 12,
@@ -673,7 +700,25 @@ export function OnboardingVideoGen({
                 </div>
               </div>
             </div>
-          ) : (
+          )}
+          {clon && !!linea && (
+            // ⚠️ LA PRUEBA DE VIDA DE ESTE PASO. Sin esto se cerraba con un tilde,
+            // y un clon malo se oye en dos segundos pero no se ve en ninguna
+            // pantalla: el repo tiene medido que uno hecho con material
+            // conversacional sale ~30 Hz por debajo del tono real.
+            <Button
+              variant="mako"
+              size="lg"
+              loading={escuchando}
+              disabled={escuchando}
+              icon={<Icon name="play" size={15} />}
+              onClick={() => void escucharse()}
+              style={{ alignSelf: 'center' }}
+            >
+              Escúchate diciendo tu guion
+            </Button>
+          )}
+          {!clon && (
             <>
               {muestras.length > 0 && (
                 <div style={{ display: 'grid', gap: 6, width: '100%' }}>
@@ -895,6 +940,21 @@ export function OnboardingVideoGen({
           </Contexto>
         </>
       )}
-    </WizardShell>
+      </Estudio>
+
+      {/* El pop-up de configurar las fotos: elegir, agregar y sacar. Es el
+          mismo `ModalFotos` que ya usa la generación — con `onBorrar`, que
+          allá no va. */}
+      {eligiendoFoto && (
+        <ModalFotos
+          fotos={misFotos}
+          elegida={misFotos[fotoIdx % Math.max(1, misFotos.length)]?.id ?? ''}
+          onElegir={(id) => setFotoIdx(Math.max(0, misFotos.findIndex((f) => f.id === id)))}
+          onSubida={() => void refrescarFotos()}
+          onBorrar={(id) => void borrarFoto(id)}
+          onCerrar={() => setEligiendoFoto(false)}
+        />
+      )}
+    </>
   );
 }
