@@ -2601,3 +2601,107 @@ de `itemError[]`, el mismo modo de falla ya documentado para Meta y Evolution.
 - **48 pantallas escriben su propio `<main>`** contra 17 que usan `Pagina`, y
   `Pagina` tiene 88 px de padding lateral fijo que no baja en móvil.
 - **Cero `loading.tsx` en toda la app.**
+
+### El onboarding épico: lo épico era el material que ya estaba y no se mostraba (02/09/2026)
+
+**Vive en:** `app/video-generator/AnuncioEnConstruccion.tsx` ·
+`app/video-generator/OnboardingVideoGen.tsx` · `app/video-generator/video-datos.ts` ·
+`app/globals.css` (`.mk-momento`) · `lib/elevenlabs.ts`
+
+#### La regla que decidió todo, y que ya estaba escrita
+
+`docs/onboarding-nuevo.md` la fija para el producto entero:
+
+> «Cada píxel que se mueve transporta un hecho del negocio del cliente. Si no
+> transporta ninguno, no se mueve.»
+
+Con sus tres corolarios operativos: **el dorado es un verbo** (se enciende
+mientras MaKo hace algo, se apaga al terminar), **un solo momento por sesión**
+—micro 100 ms, transición 250 ms, momento 600 ms— y **la celebración es un dato,
+no una animación**.
+
+**Lo que eso cambia al abordar un pedido de «hacelo épico»:** no se busca un
+efecto, se busca el material. Y el material estaba.
+
+#### ⚠️ El dato más fuerte del recorrido existía, se leía, y se tiraba
+
+`estadoContextoVideo()` llamaba a `personaEstado()` —que trae la descripción
+física que MaKo escribió mirando las fotos— y **no copiaba el campo**. Está
+cargada en los cuatro workspaces vivos, con mil y pico de caracteres cada una.
+
+O sea: la primera pantalla del onboarding podía abrir devolviéndole a la persona
+algo que MaKo ya sabía de ella, sin una sola llamada nueva, y abría con un botón
+de subir archivo.
+
+**La regla: antes de diseñar una pantalla nueva, listá lo que la función que ya la
+alimenta está devolviendo y nadie lee.** Un campo que se trae y se descarta es la
+forma más barata de contenido que existe.
+
+#### ⚠️ Y el aside no existía, que es la mitad de la pantalla
+
+`WizardShell` sin `escenario` pinta UNA columna de 620 px. Con él son 980 partidos
+por `.mk-svc-modal`, la misma grilla del modal de /integraciones, del onboarding
+global y del panel de activación de cada tab — los cuatro lugares donde el cliente
+ya aprendió esa pieza. **Es un prop opcional: pasarlo no toca a los otros 25
+call-sites.**
+
+Lo que va adentro no es un carrusel. La regla del aside negro ya estaba escrita en
+`PanelMarketing`: *«sin conexión va la promesa, con conexión van los FACTS de tu
+cuenta … un "ok ✓" no prueba nada»*. Acá esa regla se extiende a un recorrido de
+seis pasos: el aside **es el anuncio que la persona vino a hacer**, y cada paso lo
+llena con algo suyo.
+
+#### El copy afirmaba una deducción que a veces no ocurrió
+
+El paso del acento decía «lo deduje de tu zona horaria» para **todo** acento no
+declarado. `default` no es eso: es que la zona horaria **no está en la tabla** y se
+cayó al neutro.
+
+Medido: **ws13 tiene `America/Buenos_Aires`, que no figura en `POR_ZONA`** — ahí
+está `America/Argentina/Buenos_Aires`. Así que a esa persona le contábamos una
+deducción inventada sobre su propia forma de hablar.
+
+`resolverAcento` devuelve `origen` desde que existe; `estadoContextoVideo` no lo
+copiaba. **Un tercer estado que el server conoce y la pantalla colapsa en dos es
+una mentira esperando a que alguien la lea.**
+
+#### El momento, y por qué va al final
+
+Cinco renglones escalonados a 90 ms y un número que entra a los 450 y cierra a los
+600. Va en el **cierre** y no en el paso 1 —que es donde está el dato más fuerte—
+porque el wow del paso 1 es **contenido**: llega en tres segundos sin animar nada.
+El momento se gasta donde manda el *peak-end*.
+
+⚠️ **`.mk-momento` no se apaga con `prefers-reduced-motion`: se salta al final.**
+Es el patrón de la casa, y acá además es obligatorio por una razón técnica —
+`animation: none` sobre un `both` deja los elementos en su estado inicial, o sea
+**invisibles**. Quien pidió menos movimiento se quedaría sin la pieza entera.
+
+#### La prueba de vida que faltaba: escucharse
+
+El paso de la voz se cerraba con un tilde. La skill del onboarding lo prohíbe con
+todas las letras —un paso de conectar se cierra con **evidencia**— y acá la
+evidencia es oírse: un clon malo se oye en dos segundos y **no se ve en ninguna
+pantalla**. El repo tiene medido que uno hecho con material conversacional sale
+~30 Hz por debajo del tono real.
+
+El permiso de TTS se comprobó con la técnica que ya quedó escrita hoy: **pedido
+real sin cuerpo, 422 = puede**, sin gastar cuota ni crear nada.
+
+Y es el **único dorado de la pieza**: el borde del cuadro se enciende mientras la
+voz habla y se apaga al terminar.
+
+#### Lo que quedó SIN hacer
+
+- **El piso del número.** Hoy es `guiones × formatos` y con cero guiones se ofrece
+  la salida correcta. La dirección propone un escalón intermedio —`razones ×
+  ángulos`, redactado como CAPACIDAD y con la palabra «puede»— para el cliente que
+  tiene razones cargadas y ningún guion. No se construyó: agrega dos lecturas
+  nuevas a una página que hoy no las hace.
+- **La duración de cada muestra de voz.** Es un campo en el upload, y con él el
+  paso tendría un `<Progress>` legítimo («47 de 90 segundos») en vez de una lista
+  de nombres de archivo.
+- **`costoPorClip()` en la pantalla del puente**, para decir «te alcanza para N
+  anuncios». ⚠️ Con su trampa medida: `video-generator.costo-clip` vale **150 en
+  ws1** por un bug del lote, así que hay que leerlo por `costoPorClip()` —que lo
+  descarta— y nunca la key cruda.
