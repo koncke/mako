@@ -186,7 +186,19 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
     key: 'video-generator',
     titulo: 'Configuración del generador de video',
     pasos: [
-      { key: 'vg_cara', label: 'Tu cara' },
+      // ⚠️ EL ORDEN DE ESTA LISTA ES UNA GUARDA, no una preferencia de lectura.
+      //
+      // `marcarPasoTab` no deja marcar un paso si falta uno ANTERIOR de acá, así
+      // que este array y el `PASOS` de la pantalla tienen que decir lo mismo. El
+      // 02/09/2026 se movió el puente al primer lugar en la pantalla y no acá: el
+      // paso 1 quedó pidiendo «antes falta completar Tu cara», que es el paso 2.
+      // Con un cliente delante, y sin forma de avanzar.
+      //
+      // El puente va primero porque hay que bajar e instalar la extensión: es lo
+      // único con espera propia, y ponerlo al arranque deja que se instale
+      // mientras la persona contesta lo demás.
+      { key: 'vg_puente', label: 'Instala la extensión de MaKo' },
+      { key: 'vg_cara', label: 'Tus fotos' },
       { key: 'vg_acento', label: 'Cómo hablas' },
       { key: 'vg_muletillas', label: 'Tus muletillas' },
       // ⚠️ OPCIONAL, y la decisión no es de comodidad. `marcarPasoTab` recalcula
@@ -198,7 +210,6 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
       // monta igual, con la voz que genera Flow. Lo que se pierde es que suene a
       // la persona, no que funcione.
       { key: 'vg_voz', label: 'Tu voz', opcional: true },
-      { key: 'vg_puente', label: 'Tu navegador con Flow' },
       { key: 'vg_ensayo', label: 'Tu primer escenario' },
     ],
   },

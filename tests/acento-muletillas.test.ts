@@ -111,12 +111,23 @@ test('todos sus pasos van con prefijo `vg_`', () => {
   }
 });
 
-test('lo aburrido va anteúltimo, pegado a lo único que bloquea', () => {
-  // La regla de la skill es «lo aburrido AL FINAL, excepto lo que bloquea». El
-  // puente bloquea al ensayo y a nada más, así que va justo antes — y los tres
-  // pasos que se pueden hacer sin él van primero.
+test('la extensión va PRIMERO, y el catálogo dice lo mismo que la pantalla', () => {
+  // ⚠️ ESTO INVIERTE LA REGLA DE LA SKILL, A PROPÓSITO.
+  //
+  // `tab-onboarding` dice «lo aburrido al final, excepto lo que bloquea», y este
+  // test fijaba eso: el puente anteúltimo. El dueño lo movió al primer lugar el
+  // 02/09/2026 —«el primer paso del onboarding debe ser instalar la extensión»— y
+  // el porqué entra por la propia excepción de la skill: bajar e instalar una
+  // extensión es lo ÚNICO con tiempo de espera propio, así que pedirla al arranque
+  // deja que se instale mientras la persona contesta lo demás.
   const keys = TAB_ONBOARDINGS['video-generator'].pasos.map((p) => p.key);
+  assert.equal(keys[0], 'vg_puente');
   assert.equal(keys[keys.length - 1], 'vg_ensayo');
-  assert.equal(keys[keys.length - 2], 'vg_puente');
-  assert.deepEqual(keys.slice(0, 3), ['vg_cara', 'vg_acento', 'vg_muletillas']);
+
+  // ⚠️ Y LA PARTE QUE DE VERDAD PROTEGE: el orden de este catálogo es una GUARDA.
+  // `marcarPasoTab` no deja marcar un paso si falta uno anterior de la lista, así
+  // que si la pantalla y el catálogo se desordenan entre sí, el wizard queda
+  // pidiendo completar un paso que viene DESPUÉS. Pasó el 02/09/2026 con un
+  // cliente delante: el paso 1 decía «antes falta completar Tu cara», que era el 2.
+  assert.deepEqual(keys, ['vg_puente', 'vg_cara', 'vg_acento', 'vg_muletillas', 'vg_voz', 'vg_ensayo']);
 });
