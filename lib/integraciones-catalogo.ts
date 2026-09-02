@@ -34,7 +34,19 @@ export const DEFS: Def[] = [
   { key: 'cerebras', nombre: 'Cerebras', categoria: 'Inteligencia', descripcion: 'IA gratis y MUY rápida (Llama en su chip). Rota cuando Gemini se queda sin cuota.', envs: ['CEREBRAS_API_KEY'] },
   { key: 'mistral', nombre: 'Mistral AI', categoria: 'Inteligencia', descripcion: 'IA europea con free tier, otra gratis para rotar sin gastar.', envs: ['MISTRAL_API_KEY'] },
   { key: 'openrouter', nombre: 'OpenRouter', categoria: 'Inteligencia', descripcion: 'Una key para decenas de modelos, varios gratis (sufijo ":free").', envs: ['OPENROUTER_API_KEY'] },
-  { key: 'elevenlabs', nombre: 'ElevenLabs', categoria: 'IA Generativa', descripcion: 'Voz por IA: locuciones y audio generativo con tu propia key.', envs: ['ELEVENLABS_API_KEY'] },
+  // ⚠️ `soloPlataforma` DESDE QUE EXISTE `lib/elevenlabs.ts`. La voz clonada del
+  // cliente la produce la cuenta de la PLATAFORMA, no la suya: la voz es MEDIOS
+  // —US$0,045/min contra US$0,00067 del texto, 67× y en grupos distintos a
+  // propósito— y el repo ya tiene escrito que cualquier diseño de imagen o video
+  // que asuma la key del cliente está muerto antes de empezar. Encima el plan
+  // gratis de ElevenLabs es NO COMERCIAL, así que una key de cliente en free tier
+  // produce audio que no se puede poner en un anuncio.
+  //
+  // ⚠️ Y ESCONDER LA TARJETA NO BORRA LAS FILAS QUE YA ESTÁN. Medido el
+  // 02/09/2026: hay filas de `ELEVENLABS_API_KEY` en cuatro workspaces, y tres de
+  // ellos —ws1, ws4 y ws9— resuelven a LA MISMA key. `credWs` a secas las sigue
+  // encontrando. Por eso `elevenKey()` resuelve siempre contra `wsSuperAdmin()`.
+  { key: 'elevenlabs', nombre: 'ElevenLabs', categoria: 'IA Generativa', descripcion: 'Voz por IA: clona la voz del cliente y la pisa sobre los clips de Flow.', envs: ['ELEVENLABS_API_KEY'], soloPlataforma: true },
   // OJO: esta lista y la de lib/metodo-catalogo.ts tienen que coincidir EXACTO en los
   // `env`. Si no, credWs() devuelve null en silencio y la integración se ve cargada pero
   // no funciona — es el error clásico que la skill add-provider-integration advierte.

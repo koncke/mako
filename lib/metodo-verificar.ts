@@ -278,28 +278,90 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     }
   },
 
+  /**
+   * ⚠️ EJERCITA LAS DOS OPERACIONES REALES, Y NO GASTA UN SOLO CARÁCTER.
+   *
+   * El ping viejo miraba `/v1/user` y caía a `/v1/models`. Los dos son baratos y
+   * los dos dan VERDE sobre una cuenta que no puede generar ni un segundo de
+   * audio. Medido dos veces sobre la misma cuenta, con dos causas opuestas:
+   *
+   *   22/08/2026 · `/v1/voices` → 200 con las cinco voces clonadas, y
+   *                `/v1/user/subscription` → 401 `payment_issue`. La factura
+   *                estaba impaga: crear un clon SÍ funcionaba, convertir NO.
+   *   02/09/2026 · `/v1/user/subscription` → 401 `missing_permissions`, y
+   *                `/v1/models` → **200 con la lista VACÍA**. La cuenta estaba
+   *                perfecta: la key no tenía esos dos permisos de lectura.
+   *
+   * ⚠️ El segundo es la trampa que casi cierra el tema al revés: 200 con lista
+   * vacía se lee como «esta cuenta no puede hacer voice conversion». Cero
+   * resultados es una respuesta, no un hecho.
+   *
+   * La técnica: se manda el pedido REAL a propósito SIN cuerpo. Si falta el
+   * permiso, ElevenLabs contesta 401 antes de mirar el cuerpo; si está, contesta
+   * **422 «Field required»**. O sea que se comprueba la operación que se va a
+   * usar —la regla de la casa— sin crear una voz ni consumir cuota.
+   */
   async elevenlabs(v) {
-    // ElevenLabs: la key va en el header xi-api-key. /v1/user trae datos lindos (plan +
-    // caracteres) PERO exige el permiso "user_read": una key ACOTADA a solo TTS lo
-    // rechaza con 401 aunque sea perfectamente válida. Por eso, si /v1/user no valida,
-    // caemos a /v1/models (accesible con cualquier key) para no rechazar una key buena.
-    const h = { 'xi-api-key': v.ELEVENLABS_API_KEY, accept: 'application/json' };
-    const u = await fetchJson('https://api.elevenlabs.io/v1/user', { headers: h });
+    const h = { 'xi-api-key': v.ELEVENLABS_API_KEY };
+    const json = { ...h, accept: 'application/json' };
+
+    // Hace falta UNA voz para armar la ruta del speech-to-speech. Sirve cualquiera
+    // de las premade: así la comprobación no depende de que ya exista un clon.
+    const vs = await fetchJson('https://api.elevenlabs.io/v1/voices', { headers: json });
+    if (vs.status === 401) return { ok: false, error: 'API key inválida.' };
+    if (vs.status !== 200) return { ok: false, error: `ElevenLabs respondió ${vs.status} al listar las voces.` };
+    const voces = ((vs.body as { voices?: { voice_id: string; category?: string; name?: string }[] }).voices) ?? [];
+    const alguna = voces[0]?.voice_id;
+    if (!alguna) return { ok: false, error: 'La cuenta de ElevenLabs no tiene ninguna voz.' };
+
+    const sondear = async (url: string) => {
+      const r = await fetch(url, { method: 'POST', headers: h, body: new FormData() });
+      const t = await r.text();
+      let d: Record<string, unknown> = {};
+      try {
+        const j = JSON.parse(t) as { detail?: unknown };
+        if (j.detail && typeof j.detail === 'object' && !Array.isArray(j.detail)) d = j.detail as Record<string, unknown>;
+      } catch { /* la respuesta útil de este sondeo es el STATUS */ }
+      // 422 = «te falta el cuerpo», o sea que el permiso está.
+      return { puede: r.status === 422, status: r.status, code: String(d.code ?? ''), tipo: String(d.type ?? '') };
+    };
+
+    const [clonar, convertir] = await Promise.all([
+      sondear('https://api.elevenlabs.io/v1/voices/add'),
+      sondear(`https://api.elevenlabs.io/v1/speech-to-speech/${alguna}`),
+    ]);
+
+    // ⚠️ SE LEE `detail.code`, NO EL STATUS: los dos 401 de arriba mandan a hacer
+    // cosas opuestas —pagar una factura contra editar los permisos de la key— y
+    // colapsarlos manda a arreglar lo que no era.
+    const impago = [clonar, convertir].find((x) => /payment/i.test(x.code) || /payment/i.test(x.tipo));
+    if (impago) {
+      return { ok: false, error: 'La suscripción de ElevenLabs tiene un pago pendiente: la cuenta puede leer, pero no generar audio.' };
+    }
+    if (!convertir.puede) {
+      return { ok: false, error: `La key no puede convertir voz (Speech to Speech): ElevenLabs respondió ${convertir.status}. Actívale ese permiso en elevenlabs.io.` };
+    }
+    if (!clonar.puede) {
+      return { ok: false, error: `La key no puede crear clones de voz: ElevenLabs respondió ${clonar.status}. Actívale «Voices» con escritura.` };
+    }
+
+    // La recompensa es el dato real de la cuenta, no un tilde. Los clones que ya
+    // están son lo que de verdad importa saber: son el techo del plan.
+    const clonadas = voces.filter((x) => x.category === 'cloned').length;
+    const facts: Fact[] = [
+      { k: 'Puede clonar y convertir', v: 'Sí', c: 'var(--good)' },
+      { k: 'Voces clonadas en la cuenta', v: String(clonadas) },
+    ];
+    const u = await fetchJson('https://api.elevenlabs.io/v1/user/subscription', { headers: json });
     if (u.status === 200) {
-      const sub = u.body.subscription as { tier?: string; character_count?: number; character_limit?: number } | undefined;
-      const facts: Fact[] = [];
-      if (sub?.tier) facts.push({ k: 'Tu plan', v: sub.tier, c: 'var(--good)' });
-      if (sub && typeof sub.character_count === 'number' && typeof sub.character_limit === 'number') {
+      const sub = u.body as { tier?: string; character_count?: number; character_limit?: number };
+      if (sub.tier) facts.push({ k: 'Tu plan', v: sub.tier });
+      if (typeof sub.character_count === 'number' && typeof sub.character_limit === 'number') {
         facts.push({ k: 'Caracteres del mes', v: `${sub.character_count.toLocaleString('es-MX')} / ${sub.character_limit.toLocaleString('es-MX')}` });
       }
-      return { ok: true, detalle: 'Key válida — MaKo puede generar voz con ElevenLabs.', facts };
     }
-    const m = await fetchJson('https://api.elevenlabs.io/v1/models', { headers: h });
-    if (m.status === 200) return { ok: true, detalle: 'Key válida (con permisos acotados) — MaKo puede generar voz.' };
-    if (u.status === 401 || m.status === 401) return { ok: false, error: 'API key inválida.' };
-    return { ok: false, error: `ElevenLabs respondió ${u.status}/${m.status}.` };
+    return { ok: true, detalle: 'Key válida — MaKo puede clonar voces y convertir audio.', facts };
   },
-
   async fathom(v) {
     const { status, body } = await fetchJson('https://api.fathom.ai/external/v1/meetings?limit=1', {
       headers: { 'X-Api-Key': v.FATHOM_API_KEY, accept: 'application/json' },

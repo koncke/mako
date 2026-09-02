@@ -189,6 +189,15 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
       { key: 'vg_cara', label: 'Tu cara' },
       { key: 'vg_acento', label: 'Cómo hablas' },
       { key: 'vg_muletillas', label: 'Tus muletillas' },
+      // ⚠️ OPCIONAL, y la decisión no es de comodidad. `marcarPasoTab` recalcula
+      // el `status` contra el catálogo ACTUAL: agregar un paso NO opcional
+      // devuelve a «pendiente» a todos los que ya tenían la tab cerrada, y les
+      // reabre el wizard encima de un anuncio a medio hacer.
+      //
+      // Y además clonar la voz no puede ser un requisito: sin clon el anuncio se
+      // monta igual, con la voz que genera Flow. Lo que se pierde es que suene a
+      // la persona, no que funcione.
+      { key: 'vg_voz', label: 'Tu voz', opcional: true },
       { key: 'vg_puente', label: 'Tu navegador con Flow' },
       { key: 'vg_ensayo', label: 'Tu primer escenario' },
     ],

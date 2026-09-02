@@ -567,26 +567,32 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     key: 'elevenlabs',
     nombre: 'ElevenLabs',
     categoria: 'IA Generativa',
-    paraQue: 'Voz por IA de alta calidad (text-to-speech y clonación de voz). MaKo la usa para generar locuciones y audio con tu propia cuenta.',
+    // ⚠️ DE LA PLATAFORMA, y por eso el copy de acá abajo cambió entero. Decía
+    // «usando tu propia cuenta de ElevenLabs» y «activa el acceso a Text to
+    // Speech»: las dos cosas dejaron de ser verdad el día que se escribió
+    // `lib/elevenlabs.ts`. Un tutorial que enseña a sacar una key que el producto
+    // ya no usa manda a alguien a hacer un trámite para nada.
+    soloPlataforma: true,
+    paraQue: 'Clona la voz del cliente y la pisa sobre la voz preset que genera Google Flow. Es la cuenta de la PLATAFORMA: los clones de todos los clientes viven aquí.',
     campos: [
-      { env: 'ELEVENLABS_API_KEY', label: 'API key', secreto: true, placeholder: 'sk_…', nota: 'Empieza con sk_. Se saca en elevenlabs.io/app/settings/api-keys → "Create API Key", y se muestra UNA sola vez. Nace restringida: hay que activarle el acceso a "Text to Speech" o MaKo no puede generar audio. Si le pones vencimiento, deja de funcionar ese día sin avisar.' },
+      { env: 'ELEVENLABS_API_KEY', label: 'API key', secreto: true, placeholder: 'sk_…', nota: 'Es la key de la cuenta de la plataforma, no la de un cliente. Necesita DOS permisos: «Voices» con escritura (para crear el clon) y «Speech to Speech» (para convertir). Con sólo «Text to Speech» la key se ve válida y falla al convertir.' },
     ],
     tutorial: {
       url: 'https://elevenlabs.io/app/settings/api-keys',
       urlLabel: 'ElevenLabs → API Keys',
       pasos: [
-        'Para qué sirve: MaKo genera locuciones con voz humana para tus anuncios y tus videos, usando tu propia cuenta de ElevenLabs.',
-        'Lo que vas a conseguir se llama una "API key": una clave larga de letras y números, como una contraseña pero para programas, que le da permiso a MaKo para usar tu cuenta. Se saca una vez y se pega una vez.',
-        'Entra a elevenlabs.io y crea una cuenta, o inicia sesión si ya tienes una.',
-        'Abre el menú de ElevenLabs (en el celular es el botón de las tres rayitas, arriba) y entra a "Developers". Si no lo ves, escribe directo la dirección elevenlabs.io/app/settings/api-keys.',
-        'Abre la pestaña "API Keys".',
-        'Toca "Create API Key". En algunas pantallas el mismo botón aparece como "+ Create Key".',
-        'Ponle un nombre que reconozcas, por ejemplo MaKo.',
-        'Antes de confirmar, mira las opciones de acceso de la key: ElevenLabs la crea restringida y hay que habilitar a mano lo que va a poder hacer. Activa el acceso a "Text to Speech" (convertir texto en voz).',
-        'Si no lo activas, la key queda creada pero MaKo no puede generar audio y te va a decir que no tiene permiso.',
-        'Si te ofrece un vencimiento ("Expire After"), déjalo en "Never". Si le pones fecha, el día que venza MaKo deja de generar audio y no te avisa.',
-        'Copia la key que aparece en la ventana —empieza con sk_— y pégala en el campo "API key". Se muestra UNA sola vez.',
-        'Ojo con el plan: el gratis sí te deja usar la key, pero el audio que generes no se puede usar comercialmente sin nombrar a ElevenLabs. Si lo vas a poner en anuncios o en tus videos de venta, necesitas un plan pago.',
+        'Para qué sirve: Google Flow genera cada clip con una voz preset suya, y su propia documentación dice que no acepta subir audio de referencia. ElevenLabs es lo que convierte esa voz en la del cliente conservando la entonación del clip, así que los labios siguen cerrando.',
+        'Es la cuenta de la PLATAFORMA. Los clones de voz de todos los clientes se crean aquí, y los slots de voz del plan son el techo de cuántos clientes entran.',
+        'Entra a elevenlabs.io/app/settings/api-keys y toca «Create API Key».',
+        'Antes de confirmar, mira los permisos: ElevenLabs crea la key restringida.',
+        'Activa «Voices» con permiso de ESCRITURA. Sin eso no se puede crear un clon.',
+        'Activa «Speech to Speech». Es la operación que convierte el audio, y es la que cuesta cuota.',
+        'Ojo con «User»: si no le das lectura, la key funciona igual para todo lo anterior pero /v1/user/subscription contesta 401 y no se puede leer el plan ni los caracteres consumidos. Conviene activarlo.',
+        'Y ojo con «Models»: sin ese permiso, /v1/models contesta 200 con la lista VACÍA. No es que no haya modelos — es que la key no los ve, y eso se lee como que la cuenta no puede convertir.',
+        'Si te ofrece vencimiento («Expire After»), déjalo en «Never»: el día que venza, los anuncios salen con la voz de Google y nadie se entera.',
+        'Copia la key —empieza con sk_— y pégala. Se muestra UNA sola vez.',
+        'Ojo con el plan: el gratis produce audio que NO se puede usar comercialmente sin nombrar a ElevenLabs. Para anuncios hace falta un plan pago.',
+        'Cómo comprobar que quedó bien sin gastar nada: MaKo manda los dos pedidos reales a propósito SIN cuerpo. Si contestan 422 «Field required», los permisos están. Si contestan 401, falta uno.',
       ],
     },
   },

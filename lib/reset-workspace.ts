@@ -128,6 +128,30 @@ export async function resetearWorkspace(ws: number): Promise<ResultadoReset> {
     avisos.push(`WhatsApp no oficial: no se pudo cerrar la sesión (${msg(e)}). Si el código QR no aparece, desconecta el número manualmente desde la sección de WhatsApp.`);
   }
 
+  // ── 1b. Borrar el clon de voz de la cuenta de ElevenLabs ──
+  //
+  // ⚠️ ANTES DE VACIAR `app_settings`, Y NO DESPUÉS. El `voiceId` vive ahí: si se
+  // borra primero la fila, el clon se queda en la cuenta de la PLATAFORMA para
+  // siempre y sin el id nadie lo puede volver a encontrar. Los slots de voz de un
+  // plan son un techo de cuántos clientes entran, así que cada huérfano se paga.
+  //
+  // Y el `catch` AVISA en vez de callar: un catch mudo acá es exactamente lo que
+  // produce el huérfano — el reset diría «listo» y el slot seguiría ocupado.
+  try {
+    const { runWithWorkspace } = await import('./workspace');
+    const { getVozCliente } = await import('../app/video-generator/voz-cliente');
+    const { borrarVoz } = await import('./elevenlabs');
+    const voz = await runWithWorkspace(ws, () => getVozCliente());
+    if (voz.clon?.voiceId) {
+      const r = await borrarVoz(voz.clon.voiceId);
+      if (!r.ok) {
+        avisos.push(`Voz clonada: no se pudo borrar de ElevenLabs (${r.error}). Queda ocupando un espacio de voz en la cuenta de la plataforma; bórrala a mano — su identificador es ${voz.clon.voiceId}.`);
+      }
+    }
+  } catch (e) {
+    avisos.push(`Voz clonada: no se pudo comprobar si había una (${msg(e)}). Revisa las voces de la cuenta de ElevenLabs por si quedó una huérfana.`);
+  }
+
   // ── 2. Tablas, en pasadas: lo que falla por una FK se reintenta ──
   let pendientes: string[] = [...TABLAS_RESET];
   for (let pasada = 0; pasada < 3 && pendientes.length; pasada++) {

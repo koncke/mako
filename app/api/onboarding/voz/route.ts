@@ -1,0 +1,176 @@
+// =============================================================================
+// /api/onboarding/voz — los audios del cliente y el clon de su voz
+// =============================================================================
+// GET                                → { muestras:[…], clon:…|null, puede:{…} }
+// POST multipart (file)              → sube audios
+// POST json {action:'clonar'}        → crea el clon en ElevenLabs
+// POST json {action:'olvidar'}       → borra el clon (en ElevenLabs y acá)
+// DELETE ?id                         → borra UN audio
+//
+// Molde: `app/api/onboarding/persona/route.ts`, mismo guard y mismo
+// `runWithWorkspace`. Es un route handler y no una server action por la razón de
+// siempre: **una server action topea el cuerpo en 1 MB** y esto sube audio.
+
+import type { NextRequest } from 'next/server';
+import { runWithWorkspace } from '@/lib/workspace';
+import { resolverWsAdmin } from '@/lib/archivero';
+import { familiaDeArchivo } from '@/lib/formatos-archivo';
+import {
+  getVozCliente, subirMuestra, borrarMuestra, leerMuestra, guardarClon, olvidarClon,
+} from '@/app/video-generator/voz-cliente';
+import { clonarVoz, borrarVoz, preflightEleven, verificarVoz } from '@/lib/elevenlabs';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+// Clonar con tres audios de 90 s tarda; el default de 10 s corta a la mitad.
+export const maxDuration = 180;
+
+const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/**
+ * ⚠️ 4 MB, NO 15. Vercel rechaza los POST de más de ~4,5 MB con un 413 que ni
+ * siquiera llega a este archivo, así que un tope declarado por encima de ése no
+ * protege: PROMETE. La ruta de `persona` declara 15 MB sobre el mismo límite
+ * físico, y es el mismo error que este repo ya tiene escrito — «el entorno tiene
+ * un tope y tu código declara otro».
+ *
+ * Con qué alcanza: 90 s de mp3 mono a 96 kbps son ~1,1 MB. Por eso el `accept`
+ * de la pantalla no ofrece wav —90 s a 48 kHz son ~8,6 MB y no entran— y el
+ * mensaje lo dice antes de que alguien lo intente.
+ */
+const MAX_BYTES = 4 * 1024 * 1024;
+
+async function estado() {
+  const v = await getVozCliente();
+  return {
+    muestras: v.muestras.map((m) => ({ id: m.id, nombre: m.nombre, mime: m.mime })),
+    clon: v.clon ? { voiceId: v.clon.voiceId, nombre: v.clon.nombre, creadoAt: v.clon.creadoAt } : null,
+  };
+}
+
+export async function GET() {
+  const ws = await resolverWsAdmin();
+  if (ws == null) return Response.json({ ok: false, error: 'Solo el admin del workspace.' }, { status: 403 });
+  return runWithWorkspace(ws, async () => {
+    try {
+      const e = await estado();
+      // ⚠️ Si hay clon, se comprueba que SIGA EXISTIENDO. Un `voiceId` guardado
+      // puede haberse borrado a mano en el panel de ElevenLabs, y entonces el
+      // fallo aparece recién al convertir — después de gastar el pipeline entero.
+      // Acá cuesta una lectura y la pantalla puede ofrecer rehacerlo.
+      let vivo: boolean | null = null;
+      if (e.clon) vivo = (await verificarVoz(e.clon.voiceId)).ok;
+      return Response.json({ ok: true, ...e, vivo });
+    } catch (err) { return Response.json({ ok: false, error: msg(err) }, { status: 500 }); }
+  });
+}
+
+export async function POST(req: NextRequest) {
+  const ws = await resolverWsAdmin();
+  if (ws == null) return Response.json({ ok: false, error: 'Solo el admin del workspace.' }, { status: 403 });
+  const ct = req.headers.get('content-type') || '';
+
+  return runWithWorkspace(ws, async () => {
+    try {
+      if (ct.includes('application/json')) {
+        const body = (await req.json()) as { action?: string; autorizo?: boolean; nombre?: string };
+
+        if (body.action === 'olvidar') {
+          const v = await getVozCliente();
+          if (v.clon) {
+            const r = await borrarVoz(v.clon.voiceId);
+            // ⚠️ Si ElevenLabs no lo pudo borrar, NO se olvida acá: perder el
+            // `voiceId` deja el clon vivo en la cuenta de la plataforma ocupando
+            // un slot, y sin el id nadie lo puede volver a encontrar.
+            if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 502 });
+          }
+          await olvidarClon();
+          return Response.json({ ok: true, ...(await estado()), vivo: null });
+        }
+
+        if (body.action !== 'clonar') {
+          return Response.json({ ok: false, error: 'Acción desconocida.' }, { status: 400 });
+        }
+
+        // ── Clonar ──
+        // ⚠️ FALLA CERRADO SIN AUTORIZACIÓN. No es un formalismo: se está creando
+        // una copia de la voz de una persona en una cuenta de un tercero.
+        if (body.autorizo !== true) {
+          return Response.json({ ok: false, error: 'Falta tu autorización para clonar la voz.' }, { status: 400 });
+        }
+        const v = await getVozCliente();
+        if (!v.muestras.length) {
+          return Response.json({ ok: false, error: 'Todavía no subiste ningún audio.' }, { status: 400 });
+        }
+
+        // El preflight ANTES de bajar los audios del storage: ejercita las dos
+        // operaciones reales sin gastar cuota, así que un problema de la cuenta se
+        // dice acá y no después de tres descargas.
+        const pre = await preflightEleven();
+        if (!pre.ok) return Response.json({ ok: false, error: pre.error, motivo: pre.motivo }, { status: 502 });
+
+        const buffers = await Promise.all(v.muestras.map(async (m) => {
+          const buf = await leerMuestra(m.path);
+          return buf ? { nombre: m.nombre, mime: m.mime, buf } : null;
+        }));
+        const utiles = buffers.filter((b): b is NonNullable<typeof b> => !!b);
+        if (!utiles.length) {
+          return Response.json({ ok: false, error: 'No pude leer tus audios del almacenamiento.' }, { status: 500 });
+        }
+
+        const nombre = (body.nombre || `MaKo ws${ws}`).slice(0, 100);
+        const r = await clonarVoz(nombre, utiles);
+        if (!r.ok) return Response.json({ ok: false, error: r.error, motivo: r.motivo }, { status: 502 });
+
+        await guardarClon({
+          voiceId: r.valor.voiceId,
+          nombre,
+          creadoAt: new Date().toISOString(),
+          muestras: v.muestras.map((m) => m.path),
+          autorizadoAt: new Date().toISOString(),
+        });
+        return Response.json({ ok: true, ...(await estado()), vivo: true });
+      }
+
+      // ── Multipart: subir audios ──
+      const form = await req.formData();
+      const files = form.getAll('file').filter((f): f is File => f instanceof File && f.size > 0);
+      if (files.length === 0) return Response.json({ ok: false, error: 'No subiste ningún audio.' }, { status: 400 });
+
+      const avisos: string[] = [];
+      let subidas = 0;
+      for (const file of files) {
+        // La familia se decide SERVER-SIDE: el `accept` del input es una comodidad
+        // de la pantalla, no un control — se puede arrastrar cualquier cosa.
+        if (familiaDeArchivo(file.name, file.type) !== 'audio') {
+          avisos.push(`«${file.name}» no es un audio, lo salté.`); continue;
+        }
+        if (file.size > MAX_BYTES) {
+          avisos.push(`«${file.name}» pesa más de 4 MB, lo salté. Grábalo como mp3 y entra de sobra.`); continue;
+        }
+        await subirMuestra(Buffer.from(await file.arrayBuffer()), file.name, file.type || 'audio/mpeg');
+        subidas += 1;
+      }
+      // ⚠️ CERO SUBIDAS ES UN ERROR, y la ruta gemela devuelve 200. Un 200 con la
+      // lista igual que antes se lee como «se subió» y la persona sigue de largo
+      // creyendo que ya está.
+      if (subidas === 0) {
+        return Response.json({ ok: false, error: avisos.join(' ') || 'No se pudo subir ningún audio.' }, { status: 400 });
+      }
+      return Response.json({ ok: true, avisos, ...(await estado()), vivo: null });
+    } catch (e) {
+      return Response.json({ ok: false, error: msg(e) }, { status: 500 });
+    }
+  });
+}
+
+export async function DELETE(req: NextRequest) {
+  const ws = await resolverWsAdmin();
+  if (ws == null) return Response.json({ ok: false, error: 'Solo el admin del workspace.' }, { status: 403 });
+  const id = new URL(req.url).searchParams.get('id');
+  if (!id) return Response.json({ ok: false, error: 'Falta el id del audio.' }, { status: 400 });
+  return runWithWorkspace(ws, async () => {
+    try { await borrarMuestra(id); return Response.json({ ok: true, ...(await estado()), vivo: null }); }
+    catch (e) { return Response.json({ ok: false, error: msg(e) }, { status: 500 }); }
+  });
+}

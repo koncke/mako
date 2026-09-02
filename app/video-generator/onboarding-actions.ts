@@ -46,7 +46,7 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const TAB = 'video-generator';
 
 /** Los pasos que la pantalla puede marcar. `vg_ensayo` no está y es a propósito. */
-export type PasoVideoGen = 'vg_cara' | 'vg_acento' | 'vg_muletillas' | 'vg_puente';
+export type PasoVideoGen = 'vg_cara' | 'vg_acento' | 'vg_muletillas' | 'vg_voz' | 'vg_puente';
 
 /**
  * Marca un paso como hecho.

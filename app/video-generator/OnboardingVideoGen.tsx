@@ -28,7 +28,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { WizardShell } from '../_components/WizardShell';
-import { MONO } from '@/app/_ui';
+import { Button, MONO } from '@/app/_ui';
 import { Icon } from '../_components/icons';
 import { ACENTOS_ES, MULETILLAS, type AcentoId } from '@/lib/acento-workspace';
 import type { Puente } from '@/lib/flow-cola';
@@ -37,9 +37,10 @@ import { estadoPuenteAction } from './puente-actions';
 import { useExtensionInstalada, AvisoExtensionVieja } from './extension-instalada';
 import {
   marcarPasoVideoAction, guardarAcentoAction, guardarMuletillasAction,
+  type PasoVideoGen,
 } from './onboarding-actions';
 
-const PASOS = ['cara', 'acento', 'muletillas', 'puente', 'ensayo'] as const;
+const PASOS = ['cara', 'acento', 'muletillas', 'voz', 'puente', 'ensayo'] as const;
 type Paso = (typeof PASOS)[number];
 
 /** Cómo se lo nombra en pantalla. Copiado del server para no importar de ahí. */
@@ -65,6 +66,28 @@ const DONDE: Record<AcentoId, string> = {
 };
 
 const ORDEN: AcentoId[] = ['mx-norte', 'mx-neutro', 'mx-cdmx', 'co', 'latam', 'ar', 'es'];
+
+/**
+ * Qué paso del catálogo cierra cada pantalla.
+ *
+ * ⚠️ ES UN MAPA COMPLETO Y NO UN TERNARIO, y la diferencia es un bug que el
+ * compilador ahora sí ve. Acá decía:
+ *
+ *     marcarPasoVideoAction(paso === 'cara' ? 'vg_cara' : 'vg_puente')
+ *
+ * o sea que CUALQUIER pantalla nueva que no fuera «cara» marcaba el puente como
+ * hecho. No falla, no tipa mal —`vg_puente` es un valor válido— y el efecto es
+ * que alguien salta el paso del navegador sin haberlo conectado nunca. Justo lo
+ * que ese paso existe para impedir.
+ *
+ * Con el `Record` completo, agregar un paso sin decidir qué cierra no compila.
+ * `ensayo` no está: lo marca aprobar el primer escenario, no este wizard.
+ */
+const CLAVE_DE_PASO: Record<Exclude<Paso, 'acento' | 'muletillas' | 'ensayo'>, PasoVideoGen> = {
+  cara: 'vg_cara',
+  voz: 'vg_voz',
+  puente: 'vg_puente',
+};
 
 /** Caja de contexto del paso (molde de la skill: surface-2 + eyebrow mono). */
 function Contexto({ eyebrow, children }: { eyebrow: string; children: React.ReactNode }) {
@@ -126,6 +149,56 @@ export function OnboardingVideoGen({
       return validas.length === antes.length ? antes : validas;
     });
   }, [acento]);
+
+  // ── La voz ──
+  const [muestras, setMuestras] = useState<{ id: string; nombre: string }[]>([]);
+  const [clon, setClon] = useState<{ voiceId: string; nombre: string } | null>(null);
+  const [autorizo, setAutorizo] = useState(false);
+  // ⚠️ Estado de progreso PROPIO, no el `busy` del pie. Con uno compartido,
+  // apretar «Siguiente» pone «Clonando…» en el otro botón.
+  const [subiendoVoz, setSubiendoVoz] = useState(false);
+  const [clonando, setClonando] = useState(false);
+
+  useEffect(() => {
+    let vivo = true;
+    void fetch('/api/onboarding/voz')
+      .then((r) => r.json())
+      .then((j: { ok: boolean; muestras?: { id: string; nombre: string }[]; clon?: { voiceId: string; nombre: string } | null }) => {
+        if (!vivo || !j.ok) return;
+        setMuestras(j.muestras ?? []);
+        setClon(j.clon ?? null);
+      })
+      .catch(() => { /* sin esto el paso arranca vacío, que es un estado válido */ });
+    return () => { vivo = false; };
+  }, []);
+
+  const subirVoz = useCallback(async (files: FileList | null) => {
+    if (!files?.length) return;
+    setSubiendoVoz(true); setError(null);
+    const fd = new FormData();
+    for (const f of Array.from(files)) fd.append('file', f);
+    try {
+      const j = (await (await fetch('/api/onboarding/voz', { method: 'POST', body: fd })).json()) as
+        { ok: boolean; error?: string; muestras?: { id: string; nombre: string }[] };
+      if (!j.ok) { setError(j.error || 'No se pudieron subir los audios.'); return; }
+      setMuestras(j.muestras ?? []);
+    } catch { setError('No llegó respuesta al subir los audios. Vuelve a intentarlo.'); }
+    finally { setSubiendoVoz(false); }
+  }, []);
+
+  const clonar = useCallback(async () => {
+    setClonando(true); setError(null);
+    try {
+      const j = (await (await fetch('/api/onboarding/voz', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'clonar', autorizo: true }),
+      })).json()) as { ok: boolean; error?: string; clon?: { voiceId: string; nombre: string } | null };
+      if (!j.ok) { setError(j.error || 'No se pudo clonar la voz.'); return; }
+      setClon(j.clon ?? null);
+    } catch { setError('No llegó respuesta al clonar. Vuelve a intentarlo.'); }
+    finally { setClonando(false); }
+  }, []);
 
   // ── El puente ──
   // Si la extensión está y con qué versión. Lo mide el propio DOM (el content
@@ -225,7 +298,7 @@ export function OnboardingVideoGen({
       ? await guardarAcentoAction(acento)
       : paso === 'muletillas'
         ? await guardarMuletillasAction(muletillas)
-        : await marcarPasoVideoAction(paso === 'cara' ? 'vg_cara' : 'vg_puente');
+        : await marcarPasoVideoAction(CLAVE_DE_PASO[paso as keyof typeof CLAVE_DE_PASO]);
     setBusy(false);
     if (!r.ok) { setError(r.error); return; }
     setPaso(PASOS[idx + 1]);
@@ -235,6 +308,7 @@ export function OnboardingVideoGen({
     paso === 'cara' ? 'Tu cara'
       : paso === 'acento' ? 'Cómo hablas'
         : paso === 'muletillas' ? 'Tus muletillas'
+        : paso === 'voz' ? 'Tu voz'
           : paso === 'puente' ? 'Tu navegador con Flow'
             : 'Tu primer escenario';
 
@@ -398,6 +472,127 @@ export function OnboardingVideoGen({
             <div style={{ marginTop: 9, paddingTop: 9, borderTop: '1px solid var(--border)' }}>
               Marca solo las que de verdad dices. Si no estás seguro, deja el paso vacío y
               corrígelo cuando escuches tu primer anuncio.
+            </div>
+          </Contexto>
+        </>
+      )}
+
+      {paso === 'voz' && (
+        <>
+          {/* Lo primero que se puede tocar. La explicación va abajo: nadie lee un
+              párrafo antes de poder hacer algo. */}
+          {clon ? (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              padding: '14px 16px', border: '1px solid var(--border)', borderRadius: 12,
+              background: 'var(--surface)',
+            }}>
+              <Icon name="check" size={18} />
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14.5 }}>Tu voz está clonada</div>
+                <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>
+                  Tus anuncios van a salir con tu voz, no con la de Google.
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              {muestras.length > 0 && (
+                <div style={{ display: 'grid', gap: 6, width: '100%' }}>
+                  {muestras.map((m) => (
+                    <div key={m.id} style={{
+                      display: 'flex', alignItems: 'center', gap: 9, textAlign: 'left',
+                      padding: '10px 13px', borderRadius: 'var(--r-md)',
+                      background: 'var(--surface-2)', border: '1px solid var(--border)',
+                      fontSize: 13.5, color: 'var(--ink)',
+                    }}>
+                      <Icon name="check" size={14} />
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.nombre}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* El mismo patrón que la foto: el `<input type="file">` no se estila,
+                  así que el label ES el botón.
+                  ⚠️ El `accept` NO ofrece wav a propósito: 90 s a 48 kHz son ~8,6 MB
+                  y Vercel corta los POST en ~4,5 MB con un 413 que ni llega al
+                  handler. En mp3 los mismos 90 s pesan ~1,1 MB. */}
+              <label style={{
+                alignSelf: 'center', display: 'inline-flex', alignItems: 'center', gap: 8,
+                padding: '10px 18px', borderRadius: 'var(--r-md)', cursor: 'pointer',
+                border: '1px solid var(--border-strong)', background: 'var(--surface-2)',
+                color: 'var(--ink)', fontSize: 14, fontWeight: 600,
+              }}>
+                <Icon name={subiendoVoz ? 'regenerar' : 'check'} size={15} />
+                {subiendoVoz ? 'Subiendo…' : muestras.length ? 'Agregar otro audio' : 'Subir mi audio'}
+                <input
+                  type="file"
+                  accept="audio/mpeg,audio/mp4,audio/m4a,.mp3,.m4a"
+                  multiple
+                  disabled={subiendoVoz}
+                  onChange={(e) => void subirVoz(e.target.files)}
+                  style={{ display: 'none' }}
+                />
+              </label>
+
+              {muestras.length > 0 && (
+                <>
+                  {/* ⚠️ LA AUTORIZACIÓN ES UN PASO APARTE Y BLOQUEA. Se está creando
+                      una copia de la voz de una persona en la cuenta de un tercero:
+                      eso no se deduce de que haya subido un archivo. El server la
+                      exige otra vez —falla cerrado— porque una casilla del navegador
+                      no es un permiso. */}
+                  <label style={{
+                    display: 'flex', gap: 10, alignItems: 'flex-start', textAlign: 'left',
+                    padding: '12px 14px', borderRadius: 'var(--r-md)', cursor: 'pointer',
+                    background: 'var(--surface-2)', border: '1px solid var(--border)',
+                    fontSize: 13, color: 'var(--dim)', lineHeight: 1.55,
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={autorizo}
+                      onChange={(e) => setAutorizo(e.target.checked)}
+                      style={{ marginTop: 3, width: 16, height: 16, flexShrink: 0 }}
+                    />
+                    <span>
+                      Autorizo a MaKo a crear una copia de mi voz con estos audios, y confirmo
+                      que la voz de las grabaciones es la mía.
+                    </span>
+                  </label>
+                  <Button
+                    variant="mako"
+                    size="lg"
+                    disabled={!autorizo || clonando}
+                    loading={clonando}
+                    icon={<Icon name="regenerar" size={15} />}
+                    onClick={() => void clonar()}
+                    style={{ alignSelf: 'center' }}
+                  >
+                    Clonar mi voz
+                  </Button>
+                </>
+              )}
+            </>
+          )}
+
+          <Contexto eyebrow="Qué grabar, y por qué no da igual">
+            {/* ⚠️ ESTE COPY ES EL PARÁMETRO QUE MÁS PESA, y está medido: un clon hecho
+                con material CONVERSACIONAL sale ~30 Hz por debajo del tono real y
+                suena a lectura. El que gana es el de la persona en registro de
+                anuncio. Pedir «un audio tuyo» produce lo primero. */}
+            Grábate <strong>90 segundos hablando como en un anuncio</strong>: con energía, como
+            si le estuvieras vendiendo a alguien, y termina pidiendo algo («descarga esto»,
+            «escríbeme»). No leas un texto de corrido ni grabes una charla tranquila.
+            <div style={{ marginTop: 9, paddingTop: 9, borderTop: '1px solid var(--border)' }}>
+              De qué depende que suene a ti: <strong>del material, no de los ajustes</strong>. Con
+              una charla relajada el clon sale más grave y plano que tú, y eso ya no se
+              arregla después. Con el celular en una habitación en silencio alcanza — no
+              hace falta micrófono.
+            </div>
+            <div style={{ marginTop: 9, paddingTop: 9, borderTop: '1px solid var(--border)' }}>
+              En mp3 o m4a, hasta 4 MB por archivo. Puedes saltarte este paso: sin clonar,
+              tus anuncios salen con la voz que genera Google, que funciona igual — lo que
+              se pierde es que suene a ti.
             </div>
           </Contexto>
         </>
