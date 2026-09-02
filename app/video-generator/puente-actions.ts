@@ -113,6 +113,11 @@ export async function conectarPuenteAction(etiqueta: string): Promise<ConectarOu
     // diferencia entre un error que se ve y uno que se descubre a los tres días.
     return { ok: true, token, workspace: (await nombreDeWorkspace(ctx.ws)), wsId: ctx.ws };
   } catch (e) {
+    // ⚠️ AL LOG TAMBIÉN. Este `return` viaja por tres saltos —action, evento del
+    // DOM, mensaje de la extensión— y en cada uno se puede perder. Cuando una
+    // clienta no podía conectar, el motivo real no estaba en NINGÚN lado: ni en
+    // su pantalla, ni en la base, ni acá.
+    console.error('[puente] no se pudo acuñar el token:', e);
     return { ok: false, motivo: 'error', error: e instanceof Error ? e.message : String(e) };
   }
 }

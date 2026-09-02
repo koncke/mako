@@ -1337,6 +1337,12 @@ async function finEmparejado(r, tabCreada) {
   await chrome.storage.local.set({
     emparejando: false,
     emparejarError: ok ? '' : String((r && r.motivo) || 'error'),
+    // ⚠️ CUÁNDO. Sin la fecha, un error del emparejado se queda en el storage
+    // PARA SIEMPRE y el popup lo repinta cada vez que se abre: un fallo de hace
+    // media hora se lee exactamente igual que uno de recién, y manda a arreglar
+    // algo que capaz ya está bien. Le paso a una clienta, con un mensaje de la
+    // version anterior de la extension.
+    emparejarCuando: ok ? 0 : Date.now(),
     emparejarEtiqueta: (r && r.etiqueta) || '',
   });
   if (ok) {
@@ -1575,7 +1581,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
   // Un dato que depende de una carrera no es un dato.
   if (msg?.tipo === 'ESTADO') {
     chrome.storage.local.get(
-      ['token', 'bearer', 'apiKey', 'ultimoLatido', 'saldoLocal', 'emparejando', 'emparejandoDesde', 'emparejarError', 'emparejarEtiqueta', 'workspaceNombre', 'versionEsperada'],
+      ['token', 'bearer', 'apiKey', 'ultimoLatido', 'saldoLocal', 'emparejando', 'emparejandoDesde', 'emparejarError', 'emparejarCuando', 'emparejarEtiqueta', 'workspaceNombre', 'versionEsperada'],
       async (v) => {
         let hayFlow = false;
         try { await pestanaDeFlow(); hayFlow = true; } catch { hayFlow = false; }
@@ -1591,6 +1597,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
           emparejando: !!v.emparejando,
           emparejandoDesde: Number(v.emparejandoDesde) || 0,
           emparejarError: v.emparejarError || '',
+          emparejarCuando: Number(v.emparejarCuando) || 0,
           emparejarEtiqueta: v.emparejarEtiqueta || '',
           workspace: v.workspaceNombre || '',
           version: chrome.runtime.getManifest().version,

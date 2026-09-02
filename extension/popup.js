@@ -107,6 +107,12 @@ const POR_QUE = {
 /** El título de la pantalla de fallo. `sin_enlace` no habla de conectar nada. */
 const TITULO_FALLO = {
   sin_enlace: 'Recarga tu pestaña de MaKo',
+  // ⚠️ «No se pudo conectar» y no «Termina de conectar en MaKo»: lo segundo
+  // afirma que falta un paso EN MAKO, y con el catch viejo ese motivo se emitía
+  // para cualquier excepción. Una clienta logueada y con su pestaña abierta leyó
+  // durante horas que le faltaba iniciar sesión.
+  sesion: 'Inicia sesión en MaKo',
+  error: 'No se pudo conectar',
 };
 
 async function pintar() {
@@ -182,7 +188,19 @@ async function pintar() {
     return;
   }
 
-  if (v.emparejarError) {
+  // ⚠️ UN ERROR VIEJO NO ES EL ESTADO DE AHORA. `emparejarError` vive en el
+  // storage y sólo lo pisa el próximo intento: sin este corte, un fallo de hace
+  // media hora —o de la versión anterior de la extensión— se repinta cada vez
+  // que se abre el popup, con la misma cara que uno de recién.
+  //
+  // Pasados diez minutos se muestra el paso que corresponde, y si el problema
+  // sigue vivo vuelve a aparecer en cuanto se toque «Conectar». Es la misma
+  // regla que el resto del popup ya aplica: el estado se lee vivo, no se
+  // recuerda.
+  const errorFresco = !!v.emparejarError
+    && (!v.emparejarCuando || Date.now() - v.emparejarCuando < 600000);
+
+  if (errorFresco) {
     // «Ya hay otro navegador» es el único que no es un error del usuario: es una
     // decisión, y por eso ofrece continuar en vez de mandarlo a otro lado.
     if (v.emparejarError === 'otro_navegador') {
@@ -194,11 +212,33 @@ async function pintar() {
       });
       return;
     }
+    // ⚠️ EL BOTÓN PRINCIPAL SIEMPRE REINTENTA, y antes no lo hacía nunca.
+    //
+    // `emparejarError` vive en el storage y NO se borra solo: lo escribe el
+    // último intento y se queda ahí para siempre. Con «Abrir MaKo» de única
+    // salida, la persona abría MaKo —donde no hay nada que hacer, porque el
+    // botón vive acá—, volvía, y leía el MISMO error de hace media hora sin que
+    // nada lo hubiera vuelto a intentar. Un error congelado se lee igual que un
+    // error de ahora, y manda a arreglar algo que capaz ya está bien.
+    //
+    // `rol` y `sin_ws` son los dos que NO se arreglan reintentando: los contestó
+    // el server sabiendo quién es. Ahí el botón lleva a MaKo, que es donde se
+    // cambia un permiso o se entra a un cliente.
+    const seArreglaReintentando = v.emparejarError !== 'rol' && v.emparejarError !== 'sin_ws';
     pantalla({
-      titulo: TITULO_FALLO[v.emparejarError] || 'Termina de conectar en MaKo',
-      tenue: POR_QUE[v.emparejarError] || POR_QUE.error,
-      boton: v.emparejarError === 'sin_enlace' ? 'Recargar y conectar' : 'Abrir MaKo',
-      accion: v.emparejarError === 'sin_enlace' ? recargarMakoYConectar : abrirMako,
+      titulo: TITULO_FALLO[v.emparejarError] || 'No se pudo conectar',
+      // Con `motivo: 'error'` el server o la página mandaron el detalle REAL: se
+      // muestra ése y no una frase genérica. Es la diferencia entre «vuelve a
+      // intentar» y saber qué pasó.
+      tenue: (v.emparejarError === 'error' && v.emparejarEtiqueta)
+        ? v.emparejarEtiqueta
+        : (POR_QUE[v.emparejarError] || POR_QUE.error),
+      boton: seArreglaReintentando ? 'Volver a intentar' : 'Abrir MaKo',
+      accion: seArreglaReintentando
+        ? (v.emparejarError === 'sin_enlace' ? recargarMakoYConectar : () => void conectar(false))
+        : abrirMako,
+      boton2: seArreglaReintentando ? 'Abrir MaKo' : undefined,
+      accion2: abrirMako,
     });
     return;
   }

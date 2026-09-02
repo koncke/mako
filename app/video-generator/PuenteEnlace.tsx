@@ -55,12 +55,29 @@ export function PuenteEnlace(): null {
               : { id, motivo: out.motivo, etiqueta: out.etiqueta ?? '' },
           },
         ));
-      } catch {
-        // Sin sesión la action redirige y el `await` nunca resuelve limpio. Un
-        // silencio acá deja al popup en «Conectando…» hasta su propio timeout, que
-        // es lo que lo saca — pero decirlo es más rápido y más honesto.
+      } catch (e) {
+        // ⚠️ ANTES ESTO ADIVINABA «sesion» PARA CUALQUIER EXCEPCIÓN, y es el mismo
+        // antipatrón que ya se arregló en `mako-puente.js` un archivo más allá:
+        // «no pude hacer X» convertido en «este dato es falso».
+        //
+        // Medido el 02/09/2026: una clienta con la extensión al día, logueada y
+        // con su pestaña abierta veía «Inicia sesión en MaKo y vuelve a intentar»
+        // — o sea que la única pista que había sobre por qué no podía conectar era
+        // una afirmación inventada acá. El error real no lo sabía nadie.
+        //
+        // Sólo UNA excepción habla de la sesión: el `redirect()` de Next, que
+        // tira un error con `digest` empezando en NEXT_REDIRECT — eso sí es que
+        // el server la mandó al login. Todo lo demás viaja con su mensaje.
+        const digest = String((e as { digest?: unknown })?.digest ?? '');
+        const esRedirect = digest.startsWith('NEXT_REDIRECT');
+        const detalle = e instanceof Error ? e.message : String(e);
+        // Al log del navegador también: es lo único que queda si la persona
+        // cierra el popup antes de leer.
+        console.error('[mako] no se pudo acuñar el token del puente:', e);
         window.dispatchEvent(new CustomEvent('MAKO_PUENTE_TOKEN_ERROR', {
-          detail: { id, motivo: 'sesion' },
+          detail: esRedirect
+            ? { id, motivo: 'sesion' }
+            : { id, motivo: 'error', etiqueta: detalle.slice(0, 160) },
         }));
       } finally {
         enVuelo.current = false;
