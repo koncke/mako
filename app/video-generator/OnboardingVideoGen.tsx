@@ -123,50 +123,6 @@ function GrabadorVoz({ onListo, ocupado }: {
   );
 }
 
-/**
- * Un paso de la instalación, con su estado real al lado.
- *
- * El número y el tilde salen de lo MEDIDO —la extensión se detecta por el DOM, la
- * conexión por el latido del puente—, nunca de haber apretado el botón. Un paso
- * que se marca solo por haber hecho clic miente en cuanto la instalación falla.
- */
-function PasoInstalar({ n, titulo, detalle, hecho, accion }: {
-  n: number;
-  titulo: string;
-  detalle: string;
-  hecho: boolean;
-  accion?: { texto: string; onClick: () => void };
-}) {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 13, textAlign: 'left',
-      padding: '14px 16px', borderRadius: 'var(--r-md)',
-      background: hecho ? 'var(--mako-bg)' : 'var(--surface-2)',
-      border: `1px solid ${hecho ? 'var(--mako-border)' : 'var(--border)'}`,
-    }}>
-      <span style={{
-        flex: 'none', width: 26, height: 26, borderRadius: 999,
-        display: 'grid', placeItems: 'center',
-        background: hecho ? 'var(--mako)' : 'var(--surface)',
-        border: `1px solid ${hecho ? 'var(--mako)' : 'var(--border-strong)'}`,
-        color: hecho ? '#1a1a1a' : 'var(--dim)',
-        fontSize: 12.5, fontWeight: 700,
-      }}>
-        {hecho ? <Icon name="check" size={13} /> : n}
-      </span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)' }}>{titulo}</div>
-        <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>{detalle}</div>
-      </div>
-      {!hecho && !!accion && (
-        <Button variant="secondary" onClick={accion.onClick} icon={<Icon name="descargar" size={14} />}>
-          {accion.texto}
-        </Button>
-      )}
-    </div>
-  );
-}
-
 /** El ancho de la tarjeta grande, y el paso entre dos tarjetas. */
 const W = 300, H = 400, SALTO = 240;
 
@@ -910,6 +866,11 @@ export function OnboardingVideoGen({
               label: `${ETIQUETA_ACENTO[id]} · ${ZONA_DEL_ACENTO[id]}`,
             }))}
             width="100%"
+            // ⚠️ ACÁ HABÍA UN `--campo-alto: 58px` INVENTADO, y no hacía nada: es el
+            // gotcha de siempre —un `var(--token)` inexistente no falla, hereda— y en
+            // la captura el control seguía midiendo lo mismo. `Select` no expone un
+            // tamaño; si hace falta uno grande, se le agrega A LA PRIMITIVE, no se
+            // simula desde acá con un token que nadie lee.
           />
 
           {/* ⚠️ DE DÓNDE SALIÓ, SIEMPRE. Un acento elegido por el sistema y
@@ -968,83 +929,60 @@ export function OnboardingVideoGen({
               Arriba lo que YA es tuyo (se saca con un toque), abajo el campo para
               sumar, y al final las sugeridas de tu variedad como atajo. El orden
               importa: primero lo que hay, después cómo se agrega. */}
-          {muletillas.length > 0 ? (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-              {muletillas.map((m) => (
+          {/* ⚠️ LOS CHIPS PRIMERO Y GRANDES: reconocerse es el gesto, escribir es
+              la excepción. Acá había cuatro grupos y dos líneas de texto sueltas
+              —«Todavía no agregaste ninguna…» y «Típicas de…»— que decían lo mismo
+              que el plegable de abajo. Un rótulo sobre ocho palabras sueltas no
+              agrega nada: se entienden solas. */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9, justifyContent: 'center' }}>
+            {[...muletillas, ...MULETILLAS[acento].filter((m) => !muletillas.includes(m))].map((m) => {
+              const mia = muletillas.includes(m);
+              return (
                 <button
                   key={m}
                   type="button"
-                  onClick={() => setMuletillas((a) => a.filter((x) => x !== m))}
-                  aria-label={`Sacar ${m}`}
+                  onClick={() => (mia
+                    ? setMuletillas((a) => a.filter((x) => x !== m))
+                    : agregarMuletilla(m))}
+                  aria-pressed={mia}
                   style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 8,
-                    padding: '9px 13px 9px 16px', borderRadius: 999, cursor: 'pointer',
-                    font: 'inherit', fontSize: 14.5, fontWeight: 600,
-                    background: 'var(--mako-bg)', border: '1px solid var(--mako-border)',
-                    color: 'var(--ink)',
+                    padding: '12px 20px', borderRadius: 999, cursor: 'pointer',
+                    font: 'inherit', fontSize: 16, fontWeight: 600,
+                    background: mia ? 'var(--mako-bg)' : 'transparent',
+                    border: `1px ${mia ? 'solid var(--mako-border)' : 'dashed var(--border-strong)'}`,
+                    color: mia ? 'var(--ink)' : 'var(--dim)',
+                    transition: 'background 160ms ease, border-color 160ms ease',
                   }}
                 >
                   {m}
-                  <Icon name="x" size={12} />
                 </button>
-              ))}
-            </div>
-          ) : (
-            <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--faint)', textAlign: 'center' }}>
-              Todavía no agregaste ninguna. Si hablas limpio, deja el paso así.
-            </div>
-          )}
+              );
+            })}
+          </div>
 
-          <div style={{ display: 'flex', gap: 8, alignSelf: 'center', width: '100%', maxWidth: 420 }}>
+          {/* Escribir la propia es la salida para la que no está en la lista, y por
+              eso va discreta: si pesa lo mismo que los chips, compite con ellos. */}
+          <div style={{ display: 'flex', gap: 8, alignSelf: 'center', width: '100%', maxWidth: 380 }}>
             <input
               value={nuevaMuletilla}
               onChange={(e) => setNuevaMuletilla(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); agregarMuletilla(nuevaMuletilla); } }}
-              placeholder="Escribe una tuya…"
+              placeholder="¿Dices otra?"
               aria-label="Agregar una muletilla"
               style={{
-                flex: 1, padding: '11px 14px', borderRadius: 'var(--r-md)',
-                border: '1px solid var(--border)', background: 'var(--surface-2)',
-                color: 'var(--ink)', font: 'inherit', fontSize: 14.5,
+                flex: 1, padding: '10px 14px', borderRadius: 'var(--r-md)',
+                border: '1px solid var(--border)', background: 'transparent',
+                color: 'var(--ink)', font: 'inherit', fontSize: 14,
               }}
             />
             <Button
-              variant="secondary"
+              variant="tertiary"
               onClick={() => agregarMuletilla(nuevaMuletilla)}
               disabled={!nuevaMuletilla.trim()}
             >
               Agregar
             </Button>
           </div>
-
-          {/* Las de tu variedad que todavía no marcaste. Es un atajo para
-              reconocerse, no un cuestionario: la gente se describe mal a sí misma
-              y se reconoce al instante. */}
-          {MULETILLAS[acento].some((m) => !muletillas.includes(m)) && (
-            <div style={{ display: 'grid', gap: 9, justifyItems: 'center' }}>
-              <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--faint)' }}>
-                Típicas de {ETIQUETA_ACENTO[acento].toLowerCase()}:
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, justifyContent: 'center' }}>
-                {MULETILLAS[acento].filter((m) => !muletillas.includes(m)).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => agregarMuletilla(m)}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 6,
-                      padding: '8px 14px', borderRadius: 999, cursor: 'pointer',
-                      font: 'inherit', fontSize: 13.5, fontWeight: 600,
-                      background: 'transparent', border: '1px dashed var(--border-strong)',
-                      color: 'var(--dim)',
-                    }}
-                  >
-                    <span aria-hidden>+</span>{m}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
           <Contexto eyebrow="No marques ninguna si hablas limpio">
             {/* ⚠️ EL PERMISO DE NO MARCAR NADA VA PRIMERO, en el eyebrow. Sin él,
                 una grilla de ocho opciones se lee como que hay que elegir — y una
@@ -1125,22 +1063,17 @@ export function OnboardingVideoGen({
 
                   El grabador es el MISMO del inbox de WhatsApp —hook + barra con
                   waveform, pausa y descarte—, no uno nuevo. */}
+              {/* ⚠️ UNA LÍNEA, NO UNA CAJA. Acá había una tarjeta gris con título y
+                  un párrafo de tres renglones: eso es exactamente lo que el plegable
+                  de abajo ya dice, y puesto arriba obliga a leerlo para llegar al
+                  botón. Lo que hace falta a la vista es QUÉ decir, en un renglón; el
+                  porqué —que el clon sale como el material— sigue plegado. */}
               <div style={{
-                display: 'grid', gap: 14, textAlign: 'left', width: '100%',
-                padding: '18px 20px', borderRadius: 'var(--r-md)',
-                background: 'var(--surface-2)', border: '1px solid var(--border)',
+                fontSize: 'var(--fs-card)', color: 'var(--dim)', lineHeight: 1.5,
+                textAlign: 'center',
               }}>
-                <div style={{ fontSize: 'var(--fs-card)', fontWeight: 650, color: 'var(--ink)' }}>
-                  Habla como si le estuvieras vendiendo a alguien
-                </div>
-                <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.6 }}>
-                  Habla <strong>90 segundos</strong> de lo que haces y a quién ayudas, con la energía
-                  con la que se lo contarías a un cliente — y termina pidiendo algo:
-                  «escríbeme», «descarga esto». No leas de corrido ni charles tranquilo:
-                  el clon sale como el material que le des.
-                </div>
+                90 segundos contando lo que haces, con la energía de un anuncio.
               </div>
-
               <GrabadorVoz onListo={subirGrabacion} ocupado={subiendoVoz} />
 
               {/* Subir un archivo sigue estando, y en segundo plano: el que ya tiene
@@ -1238,49 +1171,26 @@ export function OnboardingVideoGen({
               Ahora los dos pasos reales están escritos y cada uno dice si ya está.
               El aviso sigue —es el que trae el botón de rehabilitar y las cuatro
               ramas—, pero ya no es lo único. */}
-          <div style={{ display: "grid", gap: 10, width: "100%" }}>
-            <PasoInstalar
-              n={1}
-              titulo="Descarga la extensión e instálala en tu navegador"
-              detalle="Es la que produce los videos, con tu propia cuenta de Google Flow."
-              hecho={!!instalada}
-              accion={instalada ? undefined : {
-                texto: "Descargar",
-                onClick: () => { window.location.href = "/extension/instalar"; },
-              }}
-            />
-            <PasoInstalar
-              n={2}
-              titulo="Abre Google Flow desde el ícono de MaKo"
-              detalle="Arriba a la derecha del navegador. Déjala abierta mientras se filma."
-              hecho={est.anda}
-            />
-          </div>
-          {/* ⚠️ EL AVISO REAL, NO UNO PROPIO. Acá había una caja escrita a mano que
-              pintaba `est.txt` y, si el puente no andaba, un link a instalar la
-              extensión. Eso convirtió este paso en un callejón para el único estado
-              que no se arregla instalando nada:
+          {/* ⚠️ UN ESTADO A LA VEZ, NO UNA LISTA DE TAREAS.
 
-              · con `marcada` decía «Google pausó tu sesión de Flow» y ofrecía
-                «Ver cómo instalarla», o sea mandaba a instalar una extensión que la
-                persona ya tiene y que estaba latiendo;
-              · y el botón que SÍ resuelve —«Ya lo hice, volver a habilitar»— vive en
-                `AvisoPuente`, que esta pantalla no dibujaba.
+              Acá había dos renglones numerados, cada uno con título, subtítulo y
+              botón: ocho elementos en la pantalla que abre el recorrido. Los dos
+              pasos estaban a la vez aunque el segundo no se puede hacer sin el
+              primero, y los subtítulos explicaban — que es lo que va plegado.
 
-              El popup de la extensión manda a apretar ese botón por su nombre. Un
-              paso que nombra un botón que su propia pantalla no tiene es peor que no
-              decir nada: la persona busca hasta que se cansa. Pasó, y así se
-              reportó: «no encuentro el Ya lo hice».
-
-              `AvisoPuente` ya tiene las cuatro ramas —navegador incompatible, falta
-              la extensión, sesión marcada con su botón, y el puntero al ícono— y es
-              el mismo que ve la tab. Una cosa, un lugar. */}
-          {/* ⚠️ UN AVISO A LA VEZ, del más bloqueante al menos, y `AvisoPuente`
-              SÓLO cuando el puente no anda — es la misma condición que ya tienen
-              los otros dos consumidores (`VideoGeneratorApp` y `WizardAnuncio`).
-              Sin ella, su última rama es un puntero al ícono de la extensión que
-              se dibujaría también con todo funcionando, diciendo «Listo» al lado
-              de la caja que ya lo dice. */}
+              La pantalla tiene tres estados y cada uno es UNA cosa: el botón de
+              descargar, el aviso de abrir Flow, o los créditos de tu cuenta. */}
+          {!instalada && (
+            <Button
+              variant="mako"
+              size="lg"
+              icon={<Icon name="descargar" size={17} />}
+              onClick={() => { window.location.href = '/extension/instalar'; }}
+              style={{ alignSelf: 'center' }}
+            >
+              Descargar la extensión
+            </Button>
+          )}
           {/* ⚠️ ESTE PASO NO TRABA, Y ES EL MOTIVO POR EL QUE ESTÁ PRIMERO.
 
               Había una guarda que no dejaba avanzar hasta que el puente respondiera.
@@ -1296,8 +1206,7 @@ export function OnboardingVideoGen({
             <div style={{
               fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.55, textAlign: 'center',
             }}>
-              Puedes seguir mientras se instala. La vas a necesitar recién al filmar tu
-              primer anuncio.
+              Puedes seguir mientras se instala.
             </div>
           )}
 
