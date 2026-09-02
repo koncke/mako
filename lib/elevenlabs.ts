@@ -70,6 +70,15 @@ const API = 'https://api.elevenlabs.io/v1';
 export const MODELO_STS = 'eleven_multilingual_sts_v2';
 
 /**
+ * El de texto a voz, para que el clon DIGA una línea en el onboarding.
+ *
+ * ⚠️ NO es el mismo que el de conversión y no se pueden intercambiar: los
+ * `_sts_` sólo aceptan audio de entrada. Mandar el de STS a `/text-to-speech`
+ * devuelve un error de modelo que se lee como un problema de la voz.
+ */
+export const MODELO_TTS = 'eleven_multilingual_v2';
+
+/**
  * ⚠️ ESTOS DOS NÚMEROS NO ESTÁN MEDIDOS, y conviene que quede escrito.
  *
  * En el repo conviven tres juegos: el script de producción usa 0.45/0.85, el
@@ -266,6 +275,68 @@ export async function borrarVoz(voiceId: string): Promise<Salida<true>> {
   // Un 404 es el resultado buscado: ya no está.
   if (r.ok || r.status === 404) return { ok: true, valor: true };
   return { ok: false, ...clasificar(r.status, await r.text()) };
+}
+
+// ── Hablar ──────────────────────────────────────────────────────────────────
+
+/**
+ * Que la voz clonada DIGA una línea. Devuelve el mp3.
+ *
+ * ⚠️ ES LA ÚNICA FORMA DE COMPROBAR UN CLON, y por eso existe. Hasta acá el
+ * onboarding decía «tu voz está clonada» con un tilde: una afirmación que nadie
+ * puede desmentir hasta que sale el primer anuncio, tres pasos y varios créditos
+ * después. Escucharse es la prueba, y el repo ya tiene la regla escrita para el
+ * paso de conectar — se cierra con evidencia, no con una credencial guardada.
+ *
+ * Y lo que se oye es representativo: el repo midió el MISMO clon por los dos
+ * motores y dio la misma banda de tono —STS 114-133 Hz, TTS 118-131 Hz—, así que
+ * una línea por texto suena como va a sonar el anuncio, que va por conversión.
+ *
+ * ⚠️ Es TEXT-to-speech y no speech-to-speech: acá no hay audio de entrada que
+ * convertir, hay una frase escrita. Son dos motores distintos del mismo clon.
+ */
+export async function decirConVoz(
+  voiceId: string,
+  texto: string,
+): Promise<Salida<{ mp3: Buffer }>> {
+  const key = await elevenKey();
+  if (!key) return { ok: false, motivo: 'sin_key', error: 'No hay API key de ElevenLabs cargada en la plataforma.' };
+  if (!voiceId) return { ok: false, motivo: 'voz_muerta', error: 'Todavía no clonaste tu voz.' };
+
+  // ⚠️ EL TOPE ES DE CUOTA, NO DE PROLIJIDAD. Esto se cobra por carácter y corre
+  // en un onboarding, o sea en el momento en que más gente lo toca. Una frase de
+  // anuncio son ~120 caracteres; 400 deja aire de sobra y pone un techo a lo que
+  // puede costar un click.
+  const linea = (texto || '').trim().slice(0, 400);
+  if (!linea) return { ok: false, motivo: 'nuestra', error: 'No hay ninguna línea que decir.' };
+
+  const r = await pedir(
+    `/text-to-speech/${encodeURIComponent(voiceId)}?output_format=${FORMATO_STS}`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        text: linea,
+        model_id: MODELO_TTS,
+        voice_settings: AJUSTES_STS,
+      }),
+    },
+    key,
+  );
+  if (!r.ok) return { ok: false, ...clasificar(r.status, await r.text()) };
+
+  const buf = Buffer.from(await r.arrayBuffer());
+  // El mismo guard que la conversión: un 200 puede traer el error adentro, y acá
+  // el cuerpo se convierte en un <audio> que no suena y no dice por qué.
+  if (!pareceAudio(buf.length)) {
+    const asTexto = buf.toString('utf8').slice(0, 300);
+    return {
+      ok: false,
+      motivo: /"detail"/.test(asTexto) ? clasificar(200, asTexto).motivo : 'proveedor',
+      error: `ElevenLabs devolvió ${buf.length} bytes en vez de audio: ${asTexto.slice(0, 160)}`,
+    };
+  }
+  return { ok: true, valor: { mp3: buf } };
 }
 
 // ── Convertir ───────────────────────────────────────────────────────────────

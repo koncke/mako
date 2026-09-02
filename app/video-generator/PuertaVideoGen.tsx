@@ -20,13 +20,25 @@ import type { Puente } from '@/lib/flow-cola';
 import { OnboardingVideoGen } from './OnboardingVideoGen';
 
 export function PuertaVideoGen({
-  fotos, acentoInicial, acentoSeguro, muletillasIniciales, puente, children,
+  fotos, acentoInicial, acentoSeguro, muletillasIniciales, puente, linea, creditos, anunciosPosibles,
+  descripcionPersona, acentoOrigen, acentoZona, children,
 }: {
   fotos: { id: string; url: string }[];
   acentoInicial: string;
   acentoSeguro: boolean;
   muletillasIniciales: string[];
   puente: Puente | null;
+  /** Una línea real de su guion, para el subtítulo del anuncio del aside. */
+  linea: string;
+  /** Créditos de Flow de su cuenta. `null` = todavía no se midieron. */
+  creditos: number | null;
+  /** Guiones × formatos: cuántos anuncios distintos salen de lo que ya cargó. */
+  anunciosPosibles: number;
+  /** Lo que MaKo escribió mirando sus fotos. '' = todavía no hay. */
+  descripcionPersona: string;
+  /** De dónde salió el acento. Decirlo mal es afirmar una deducción que no ocurrió. */
+  acentoOrigen: 'declarado' | 'zona-horaria' | 'default';
+  acentoZona: string;
   children: ReactNode;
 }) {
   const [salio, setSalio] = useState(false);
@@ -38,6 +50,12 @@ export function PuertaVideoGen({
       acentoSeguro={acentoSeguro}
       muletillasIniciales={muletillasIniciales}
       puente={puente}
+      linea={linea}
+      creditos={creditos}
+      anunciosPosibles={anunciosPosibles}
+      descripcionPersona={descripcionPersona}
+      acentoOrigen={acentoOrigen}
+      acentoZona={acentoZona}
       alSalir={() => setSalio(true)}
     />
   );

@@ -511,11 +511,44 @@ textarea.mako-field {
   stroke-dasharray: 3 4;
   animation: mkMarcha 0.9s linear infinite;
 }
+/* ── EL MOMENTO ────────────────────────────────────────────────────────────
+   Un recorrido tiene UNO solo, y dura 600 ms. Cinco renglones que entran
+   escalonados y, encima de ellos, un número.
+
+   El vocabulario de movimiento del producto es de tres tiempos y no se mezcla:
+   micro 100 ms (hover), transición 250 ms (de pantalla a pantalla) y momento
+   600 ms (una vez). Si todo celebra, nada celebra.
+
+   Y lo que entra no es un adorno: cada renglón es un dato que esa persona
+   acaba de establecer, y el número sale de multiplicarlos. La regla del
+   producto es que cada píxel que se mueve transporta un hecho del negocio del
+   cliente; si no transporta ninguno, no se mueve. */
+.mk-momento > * {
+  animation: mkPop 150ms cubic-bezier(.16, .84, .34, 1) both;
+}
+.mk-momento > *:nth-child(1) { animation-delay: 0ms; }
+.mk-momento > *:nth-child(2) { animation-delay: 90ms; }
+.mk-momento > *:nth-child(3) { animation-delay: 180ms; }
+.mk-momento > *:nth-child(4) { animation-delay: 270ms; }
+.mk-momento > *:nth-child(5) { animation-delay: 360ms; }
+/* El número cierra a los 600 ms clavados: entra a los 450 y dura 150. */
+.mk-momento > *:nth-child(6) { animation-delay: 450ms; }
+
 /* Respeta a quien pidió menos movimiento: quedan las líneas punteadas quietas,
    que igual comunican el ida y vuelta. */
 @media (prefers-reduced-motion: reduce) {
   .mk-enlace-linea {
     animation: none;
+  }
+  /* ⚠️ EL MOMENTO NO SE APAGA: SE SALTA AL FINAL. Es el patrón de la casa, y
+     acá significa que quien pidió menos movimiento ve las cinco líneas y el
+     número puestos de una. Nadie se queda sin la pieza — se queda sin los
+     600 ms. Apagarlo con `animation: none` sobre un `both` dejaría los
+     elementos en su estado inicial, o sea invisibles. */
+  .mk-momento > * {
+    animation: none;
+    opacity: 1;
+    transform: none;
   }
 }
 

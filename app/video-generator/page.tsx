@@ -13,6 +13,7 @@ import { getWorkspaceActual } from '@/lib/workspace';
 import { estadoContextoVideo, leerHistorial } from './video-datos';
 import { estadoPuente } from '@/lib/flow-cola';
 import { guionesDisponibles } from './guiones-datos';
+import { puestasOfrecidas } from '@/lib/puestas-data';
 import { leerAnuncios } from './anuncios-datos';
 import { leerSaldoGuardado, costoPorClip } from './saldo-datos';
 import { VideoGeneratorApp } from './VideoGeneratorApp';
@@ -59,6 +60,34 @@ export default async function Page() {
   // correr este guard y devolvería el mismo wizard.
   const faltaOnboarding = await onboardingTabPendiente('video-generator').catch(() => false);
 
+  /**
+   * Una línea REAL de uno de sus guiones, para el subtítulo del aside.
+   *
+   * ⚠️ SUYA Y NO UN EJEMPLO. El aside del onboarding es el anuncio que vino a
+   * hacer, y un subtítulo con texto inventado lo convierte en una maqueta — o
+   * sea en decoración, que es justo lo que la regla del producto prohíbe: cada
+   * píxel que se mueve transporta un hecho de SU negocio.
+   *
+   * Vacío cuando todavía no escribió ningún guion, y ahí el cuadro se queda sin
+   * subtítulo en vez de mentir.
+   */
+  /**
+   * Cuántos anuncios DISTINTOS puede filmar MaKo con lo que ya cargó.
+   *
+   * ⚠️ ES UN CONTEO, NO UNA PROYECCIÓN, y esa es toda la diferencia. Cada par
+   * (guion × formato) es un anuncio distinto de verdad: el mismo texto filmado
+   * como selfie en un auto y como plano secuencia en una oficina son dos piezas,
+   * no dos versiones. El documento del onboarding lo llama «la fábrica» y fija su
+   * regla: el copy dice «escribir/filmar», JAMÁS «ganadores».
+   *
+   * Y cuando da cero se dice otra cosa: una promesa que se desinfla es peor que
+   * ninguna. Con cero guiones lo que falta no es entusiasmo, es un guion.
+   */
+  const anunciosPosibles = guiones.length * puestasOfrecidas().length;
+
+  const primeraFrase = (guiones[0]?.hablado ?? guiones[0]?.texto ?? '')
+    .split(/(?<=[.!?])\s+/)[0]?.trim().slice(0, 120) ?? '';
+
   const app = (
     <VideoGeneratorApp
       historialInicial={historial}
@@ -81,6 +110,12 @@ export default async function Page() {
           acentoSeguro={contexto.acento.seguro}
           muletillasIniciales={contexto.acento.muletillas}
           puente={puente}
+          linea={primeraFrase}
+          creditos={saldo.creditos}
+          anunciosPosibles={anunciosPosibles}
+          descripcionPersona={contexto.descripcionPersona}
+          acentoOrigen={contexto.acento.origen}
+          acentoZona={contexto.acento.zona}
         >
           {app}
         </PuertaVideoGen>

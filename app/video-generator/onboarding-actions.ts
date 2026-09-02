@@ -22,6 +22,7 @@
 import { getEstadoTab, marcarPasoTab } from '@/lib/tab-onboarding-state';
 import { ACENTOS_ES, MULETILLAS, type AcentoId } from '@/lib/acento-workspace';
 import { getVozCliente, setAcentoCliente, setMuletillasCliente, type VozCliente } from './voz-cliente';
+import { decirConVoz } from '@/lib/elevenlabs';
 import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
 
 /**
@@ -130,6 +131,41 @@ export async function leerVozAction(): Promise<
   try {
     const voz = await getVozCliente();
     return { ok: true, voz, opciones: voz.acento ? MULETILLAS[voz.acento] : [] };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+/**
+ * Que la voz clonada del cliente DIGA una línea suya, para que se escuche.
+ *
+ * ⚠️ ES LA PRUEBA DE VIDA DEL PASO DE LA VOZ, y hasta acá ese paso se cerraba
+ * con un tilde. La skill del onboarding lo pide con todas las letras: un paso de
+ * conectar se cierra con EVIDENCIA, no con una credencial guardada — «un mensaje
+ * real que llega al teléfono», «facts de su propia cuenta». Acá la evidencia es
+ * oírse: es lo único que puede desmentir un clon malo antes de gastar un anuncio.
+ *
+ * Y es barato de comprobar caro de omitir: el repo tiene medido que un clon hecho
+ * con material conversacional sale ~30 Hz por debajo del tono real y suena a
+ * lectura. Eso se oye en dos segundos y no se ve en ninguna pantalla.
+ */
+export async function escucharMiVozAction(
+  texto: string,
+): Promise<{ ok: true; audio: string } | { ok: false; error: string }> {
+  const ctx = await ctxAdmin();
+  if (!ctx.ok) return ctx;
+  try {
+    const voz = await getVozCliente();
+    if (!voz.clon?.voiceId) return { ok: false, error: 'Todavía no clonaste tu voz.' };
+
+    const r = await decirConVoz(voz.clon.voiceId, texto);
+    if (!r.ok) return { ok: false, error: r.error };
+
+    // ⚠️ VIAJA COMO data: URI Y NO COMO UNA URL FIRMADA. Es audio de un par de
+    // segundos que se escucha una vez y no se guarda: subirlo al storage dejaría
+    // un archivo por cada click en un bucket que después nadie limpia. Una línea
+    // de anuncio en mp3 pesa ~40 KB, que entra de sobra en una respuesta.
+    return { ok: true, audio: `data:audio/mpeg;base64,${r.valor.mp3.toString('base64')}` };
   } catch (e) {
     return { ok: false, error: msg(e) };
   }

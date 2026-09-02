@@ -512,11 +512,39 @@ export type EstadoContextoVideo = {
    * acento distinto del que se termina usando. Una previa que difiere del
    * resultado es peor que no tener previa.
    */
+  /**
+   * Lo que MaKo escribió MIRANDO SUS FOTOS.
+   *
+   * ⚠️ EXISTÍA Y NO SE MOSTRABA EN NINGÚN LADO DEL WIZARD. `estadoContextoVideo`
+   * ya llamaba a `personaEstado()` —que la trae— y tiraba el campo. Está cargada
+   * en los cuatro workspaces vivos, con mil y pico de caracteres cada una:
+   * «Mujer de apariencia hispana, entre 35 y 45 años…».
+   *
+   * Es el dato más fuerte de todo el recorrido y es contenido, no coreografía:
+   * la persona abre el onboarding y la primera pantalla le devuelve algo que
+   * MaKo ya sabía de ella. Vacío = todavía no hay fotos, o todavía no se generó.
+   */
+  descripcionPersona: string;
   acento: {
     /** Cuál es, para poder pre-marcarlo en el onboarding sin volver a inferirlo. */
     id: string;
     etiqueta: string;
     seguro: boolean;
+    /**
+     * De dónde salió: `declarado`, `zona-horaria` o `default`.
+     *
+     * ⚠️ SIN ESTO LA PANTALLA MIENTE, y mentía. El copy decía «lo deduje de tu
+     * zona horaria» para TODO acento no declarado — y `default` no es eso: es
+     * que la zona horaria no está en la tabla y se cayó al neutro. Medido: el
+     * ws13 tiene `America/Buenos_Aires`, que no está en `POR_ZONA` (ahí figura
+     * `America/Argentina/Buenos_Aires`), así que le afirmábamos una deducción
+     * que nunca ocurrió.
+     *
+     * `resolverAcento` lo devuelve desde que existe; esto sólo lo copia.
+     */
+    origen: 'declarado' | 'zona-horaria' | 'default';
+    /** La zona horaria de la que salió, cuando salió de ahí. '' si no. */
+    zona: string;
     /** Las que marcó como suyas. Vacío = no eligió ninguna todavía. */
     muletillas: string[];
   };
@@ -563,14 +591,25 @@ export async function estadoContextoVideo(): Promise<EstadoContextoVideo> {
   // pantalla mostraría un acento y el guion saldría con otro — y una previa que
   // difiere del resultado es peor que no tener previa.
   const voz = await getVozCliente().catch(() => ({ acento: '' as const, muletillas: [] as string[] }));
-  const acento = resolverAcento(voz.acento, ws != null ? await tzDeWorkspace(ws).catch(() => null) : null, voz.muletillas);
+  const zona = ws != null ? await tzDeWorkspace(ws).catch(() => null) : null;
+  const acento = resolverAcento(voz.acento, zona, voz.muletillas);
 
   return {
     tieneFotos: fotos > 0,
     cantidadFotos: fotos,
     fotoUrl,
     fotos: listaFotos,
-    acento: { id: acento.id, etiqueta: acento.etiqueta, seguro: acento.seguro, muletillas: acento.muletillas },
+    descripcionPersona: (persona?.descripcion ?? '').trim(),
+    acento: {
+      id: acento.id,
+      etiqueta: acento.etiqueta,
+      seguro: acento.seguro,
+      origen: acento.origen,
+      // La zona sólo viaja cuando es de DONDE salió el acento. Mandarla siempre
+      // invita a pintarla en un caso donde no explica nada.
+      zona: acento.origen === 'zona-horaria' ? (zona ?? '') : '',
+      muletillas: acento.muletillas,
+    },
     perfilListo: perfil.listo,
     faltanDelPerfil: perfil.faltan,
   };

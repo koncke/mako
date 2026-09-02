@@ -33,11 +33,12 @@ import { Icon } from '../_components/icons';
 import { ACENTOS_ES, MULETILLAS, type AcentoId } from '@/lib/acento-workspace';
 import type { Puente } from '@/lib/flow-cola';
 import { estadoDelPuente, AvisoPuente } from './puente-avisos';
+import { AnuncioEnConstruccion } from './AnuncioEnConstruccion';
 import { estadoPuenteAction } from './puente-actions';
 import { useExtensionInstalada, AvisoExtensionVieja } from './extension-instalada';
 import {
   marcarPasoVideoAction, guardarAcentoAction, guardarMuletillasAction,
-  type PasoVideoGen,
+  escucharMiVozAction, type PasoVideoGen,
 } from './onboarding-actions';
 
 const PASOS = ['cara', 'acento', 'muletillas', 'voz', 'puente', 'ensayo'] as const;
@@ -64,6 +65,24 @@ const DONDE: Record<AcentoId, string> = {
   es: 'España',
   latam: 'Latinoamérica, sin marca de país',
 };
+
+/**
+ * La primera línea con contenido de la descripción que escribió MaKo.
+ *
+ * El texto viene en secciones rotuladas (IDENTIDAD, ROSTRO, …) y la primera es
+ * la que se lee de un vistazo. Se saltean los rótulos: son de la ficha completa,
+ * que vive en el onboarding del negocio, no de esta pantalla.
+ */
+function primeraLinea(txt: string): string {
+  for (const l of (txt || '').split(/\r?\n/)) {
+    const t = l.trim();
+    // Un rótulo es una línea corta EN MAYÚSCULAS. Sin este corte, la pantalla
+    // grande diría «IDENTIDAD».
+    if (!t || (t === t.toUpperCase() && t.length < 24)) continue;
+    return t.length > 160 ? `${t.slice(0, 157)}…` : t;
+  }
+  return '';
+}
 
 const ORDEN: AcentoId[] = ['mx-norte', 'mx-neutro', 'mx-cdmx', 'co', 'latam', 'ar', 'es'];
 
@@ -108,7 +127,8 @@ function Contexto({ eyebrow, children }: { eyebrow: string; children: React.Reac
 }
 
 export function OnboardingVideoGen({
-  fotos, acentoInicial, acentoSeguro, muletillasIniciales, puente: puenteInicial, alSalir,
+  fotos, acentoInicial, acentoSeguro, muletillasIniciales, puente: puenteInicial, linea, creditos, anunciosPosibles,
+  descripcionPersona, acentoOrigen, acentoZona, alSalir,
 }: {
   fotos: { id: string; url: string }[];
   /** El que el server va a usar HOY: declarado si lo hay, inferido si no. */
@@ -117,6 +137,17 @@ export function OnboardingVideoGen({
   acentoSeguro: boolean;
   muletillasIniciales: string[];
   puente: Puente | null;
+  /** Una línea real de su guion, para el subtítulo del anuncio del aside. */
+  linea: string;
+  /** Créditos de Flow de su cuenta. `null` = todavía no se midieron. */
+  creditos: number | null;
+  /** Guiones × formatos: cuántos anuncios distintos salen de lo que ya cargó. */
+  anunciosPosibles: number;
+  /** Lo que MaKo escribió mirando sus fotos. '' = todavía no hay. */
+  descripcionPersona: string;
+  /** De dónde salió el acento. Ver el porqué en `EstadoContextoVideo`. */
+  acentoOrigen: 'declarado' | 'zona-horaria' | 'default';
+  acentoZona: string;
   /** Salir del wizard sin recargar: el guard del server devolvería lo mismo. */
   alSalir: () => void;
 }) {
@@ -334,6 +365,43 @@ export function OnboardingVideoGen({
       onSiguiente={() => void avanzar()}
       onConfirmar={alSalir}
       onClose={alSalir}
+      /**
+       * ⚠️ EL ASIDE ES EL ANUNCIO, y hasta acá este wizard no tenía ninguno.
+       *
+       * Sin `escenario`, `WizardShell` pinta UNA columna de 620 px — o sea que
+       * este onboarding no se parecía a ninguna otra pantalla de conexión del
+       * producto. Con él son 980 px partidos por la misma grilla
+       * (`.mk-svc-modal`) que el modal de /integraciones, el onboarding global y
+       * el panel de activación de cada tab: el cliente reconoce la MISMA pieza
+       * en los cuatro lugares.
+       *
+       * Y lo que va adentro no es un carrusel: es el objeto que vino a hacer,
+       * llenándose con lo suyo. La regla del aside negro ya decía que la promesa
+       * se reemplaza por la prueba; acá pasa seis veces.
+       */
+      escenario={(
+        <AnuncioEnConstruccion
+          paso={paso}
+          estado={{
+            foto: misFotos[0]?.url ?? '',
+            cuantasFotos: misFotos.length,
+            acento: ETIQUETA_ACENTO[acento],
+            // ⚠️ EL ACENTO SÓLO CUENTA COMO SABIDO CUANDO LO DECLARÓ. Mientras sea
+            // la inferencia de la zona horaria, el renglón se queda en blanco —
+            // un dato adivinado pintado como dato es cómo se cuela un error que
+            // nadie audita, y es exactamente lo que pasaba antes de este paso.
+            //
+            // Se cuenta desde que PASA el paso, no desde que lo mira: pararse en
+            // la pantalla no es elegir.
+            acentoSeguro: acentoSeguro || idx > PASOS.indexOf('acento'),
+            muletillas,
+            voiceId: clon?.voiceId ?? '',
+            creditos,
+            linea,
+          }}
+          alEscuchar={linea ? () => escucharMiVozAction(linea) : undefined}
+        />
+      )}
       fullscreen
       embebido
       extraFooter={
@@ -387,6 +455,35 @@ export function OnboardingVideoGen({
               style={{ display: 'none' }}
             />
           </label>
+          {/* ⚠️ EL DATO MÁS FUERTE DE TODO EL RECORRIDO, Y NO SE MOSTRABA.
+
+              MaKo escribe una descripción física mirando las fotos, y está
+              cargada en los cuatro workspaces vivos con mil y pico de caracteres
+              cada una. `estadoContextoVideo` ya la traía —llama a
+              `personaEstado()`— y tiraba el campo.
+
+              Es lo que convierte la primera pantalla de un formulario en una
+              devolución: la persona abre el onboarding y lo primero que lee es
+              algo que MaKo ya sabía de ella. Y no es coreografía, es contenido:
+              llega en los primeros tres segundos sin animar nada.
+
+              Se muestra la PRIMERA línea con contenido, no el texto entero: son
+              secciones (IDENTIDAD, ROSTRO…) y la primera es la que se lee de un
+              vistazo. El resto vive en el onboarding del negocio. */}
+          {!!descripcionPersona && (
+            <div style={{ display: 'grid', gap: 6, justifyItems: 'center', textAlign: 'center' }}>
+              <div style={{
+                fontSize: 'var(--fs-kpi)', fontWeight: 700, lineHeight: 1.2,
+                color: 'var(--ink)', letterSpacing: '-.02em', maxWidth: 420,
+                textWrap: 'balance',
+              }}>
+                {primeraLinea(descripcionPersona)}
+              </div>
+              <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--faint)' }}>
+                Lo escribí mirando tus {misFotos.length} {misFotos.length === 1 ? 'foto' : 'fotos'}.
+              </div>
+            </div>
+          )}
           <Contexto eyebrow="¿Por qué la foto decide todo?">
             El video se genera a partir de una imagen tuya: si no hay foto, no hay identidad y
             el avatar sale siendo otra persona. Con dos o tres alcanza — de frente, con buena
@@ -428,9 +525,21 @@ export function OnboardingVideoGen({
             {/* ⚠️ SE DICE QUE ESTABA ADIVINADO, y es lo que hace que alguien lo
                 corrija. Hasta hoy el acento salía de la zona horaria y se usaba
                 en silencio: quien no sabía que existía no podía arreglarlo. */}
-            {acentoSeguro
+            {/* ⚠️ ANTES ESTO AFIRMABA UNA DEDUCCIÓN QUE A VECES NO OCURRIÓ.
+
+                Decía «lo deduje de tu zona horaria» para TODO acento no
+                declarado — y `default` no es eso: es que la zona horaria no está
+                en la tabla y se cayó al neutro. Medido: el ws13 tiene
+                `America/Buenos_Aires`, que no figura en `POR_ZONA` (ahí está
+                `America/Argentina/Buenos_Aires`), así que le contábamos una
+                deducción inventada sobre su propia forma de hablar.
+
+                Ahora el origen viaja desde el server y cada caso dice lo suyo. */}
+            {acentoOrigen === 'declarado'
               ? 'Este es el que ya elegiste. Todos tus guiones se escriben así.'
-              : `Lo deduje de tu zona horaria, así que puede estar mal. Es la razón por la que te lo pregunto: hasta ahora tus guiones se escribían en ${ETIQUETA_ACENTO[acento]} sin que nadie lo hubiera confirmado.`}
+              : acentoOrigen === 'zona-horaria'
+                ? `Lo deduje de tu zona horaria (${acentoZona}), así que puede estar mal. Hasta ahora tus guiones se escribían en ${ETIQUETA_ACENTO[acento]} sin que nadie lo hubiera confirmado.`
+                : `Todavía no lo sé: elegí ${ETIQUETA_ACENTO[acento]} porque es el más común, y tus guiones se venían escribiendo así sin que nadie lo confirmara.`}
             <div style={{ marginTop: 9, paddingTop: 9, borderTop: '1px solid var(--border)' }}>
               Equivocarlo no se nota leyendo: el texto sale en un español correcto igual. Se nota
               cuando alguien lo dice en voz alta, con el video ya generado y pagado.
@@ -637,9 +746,18 @@ export function OnboardingVideoGen({
             }}>
               <Icon name="check" size={18} />
               <div style={{ textAlign: 'left' }}>
-                <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14.5 }}>Listo</div>
+                {/* ⚠️ UN NÚMERO REAL LE GANA A UN TILDE. «Listo» no prueba nada;
+                    los créditos de SU cuenta de Google sí — y ya estaban
+                    cargados en la página y descartados para esta pantalla. Es la
+                    misma regla del aside negro: la promesa se reemplaza por la
+                    prueba en el momento en que se conecta. */}
+                <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 'var(--fs-card)' }}>
+                  {creditos != null ? `${creditos.toLocaleString('es-MX')} créditos` : 'Listo'}
+                </div>
                 <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>
-                  Tu navegador está conectado y Google Flow responde.
+                  {creditos != null
+                    ? 'Tu navegador está conectado y Google Flow responde con tu saldo.'
+                    : 'Tu navegador está conectado y Google Flow responde.'}
                 </div>
               </div>
             </div>
@@ -663,27 +781,68 @@ export function OnboardingVideoGen({
 
       {paso === 'ensayo' && (
         <>
-          <div style={{ display: 'grid', gap: 7, textAlign: 'left' }}>
+          {/* ⚠️ EL ÚNICO MOMENTO DE TODO EL RECORRIDO, Y DURA 600 ms.
+
+              Cinco renglones entran escalonados —uno por cada paso anterior, cada
+              uno con el dato que esa persona acaba de establecer— y encima cae un
+              número que sale de multiplicarlos. El vocabulario del producto es de
+              tres tiempos y no se mezcla: micro 100 ms, transición 250 ms, momento
+              600 ms. Si todo celebra, nada celebra, así que los otros cinco pasos
+              no tienen ninguno.
+
+              Y la celebración es un DATO: «el premio por terminar son tres tareas
+              y un número, no fuegos artificiales». Nada de partículas, destellos
+              ni conteo animado — el número aparece ya escrito.
+
+              El escalonado vive en `.mk-momento` (globals.css), que además se
+              SALTA AL FINAL con `prefers-reduced-motion` en vez de apagarse: quien
+              pidió menos movimiento ve la pieza entera de una. */}
+          <div className="mk-momento" style={{ display: 'grid', gap: 0, width: '100%' }}>
             {[
-              ['Eliges un formato', 'La cámara, el ritmo y cuántos escenarios tiene el anuncio.'],
-              ['MaKo escribe el guion', `Con tu negocio, en ${ETIQUETA_ACENTO[acento]}${muletillas.length ? ` y con tus muletillas` : ''}.`],
-              ['Eliges dónde se graba', 'Una oficina, tu auto, tu local. Y pides otro fondo las veces que quieras.'],
-              ['Apruebas el escenario', 'Gratis: las imágenes no gastan créditos. Recién filmar cuesta.'],
-            ].map(([t, d], i) => (
-              <div key={t} style={{
-                display: 'flex', gap: 11, alignItems: 'flex-start',
-                padding: '11px 14px', borderRadius: 'var(--r-md)',
-                background: 'var(--surface-2)', border: '1px solid var(--border)',
+              ['Tu cara', misFotos.length ? `${misFotos.length} ${misFotos.length === 1 ? 'foto' : 'fotos'}` : '—'],
+              ['Tu acento', ETIQUETA_ACENTO[acento]],
+              ['Tus muletillas', muletillas.length ? `${muletillas.length} marcadas` : 'ninguna'],
+              ['Tu voz', clon ? 'la tuya, clonada' : 'la que genera Google'],
+              ['Tu navegador', creditos != null ? `${creditos.toLocaleString('es-MX')} créditos` : (est.anda ? 'conectado' : '—')],
+            ].map(([k, v]) => (
+              // Cinco cosas del mismo tipo son una LISTA CON FILETE, no cinco
+              // cajas. La regla de la casa: la caja se gana, y apilar tarjetas
+              // iguales es el contenedor perezoso.
+              <div key={k} style={{
+                display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+                gap: 12, padding: '11px 2px', borderBottom: '1px solid var(--border)',
               }}>
-                <span style={{
-                  fontFamily: MONO, fontSize: 11, color: 'var(--faint)', paddingTop: 2,
-                }}>{i + 1}</span>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{t}</div>
-                  <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>{d}</div>
-                </div>
+                <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--faint)' }}>{k}</span>
+                <span style={{ fontSize: 'var(--fs-md)', color: 'var(--ink)', fontWeight: 600, textAlign: 'right' }}>{v}</span>
               </div>
             ))}
+
+            {/* El sexto hijo del momento: el número. Entra a los 450 ms y cierra
+                a los 600. Es un CONTEO —sus guiones por los formatos que
+                existen—, no una proyección: cada par (guion × formato) es un
+                anuncio distinto de verdad. Y el copy dice «filmar», nunca
+                «ganadores». */}
+            {anunciosPosibles > 0 ? (
+              <div style={{ display: 'grid', gap: 4, justifyItems: 'center', textAlign: 'center', paddingTop: 22 }}>
+                <div style={{
+                  fontSize: 'clamp(56px, 12vw, 88px)', fontWeight: 800, lineHeight: 1,
+                  letterSpacing: '-.04em', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums',
+                }}>{anunciosPosibles}</div>
+                <div style={{ fontSize: 'var(--fs-card)', color: 'var(--dim)', lineHeight: 1.4, maxWidth: 330 }}>
+                  anuncios distintos que MaKo puede filmar con lo que ya cargaste.
+                </div>
+              </div>
+            ) : (
+              // Con cero guiones el número sería 0 y la promesa se desinflaría. Lo
+              // que falta ahí no es entusiasmo: es un guion, y se dice dónde se
+              // escribe.
+              <div style={{ display: 'grid', gap: 8, justifyItems: 'center', textAlign: 'center', paddingTop: 22 }}>
+                <Icon name="video" size={36} />
+                <div style={{ fontSize: 'var(--fs-card)', color: 'var(--dim)', lineHeight: 1.4, maxWidth: 330 }}>
+                  Te falta un guion. MaKo los escribe en Ads Writer, y desde ahí vuelves aquí a filmarlo.
+                </div>
+              </div>
+            )}
           </div>
           <Contexto eyebrow="Qué falta para terminar">
             {/* ⚠️ EL PASO NO LO CIERRA ESTE BOTÓN: lo cierra aprobar un escenario
