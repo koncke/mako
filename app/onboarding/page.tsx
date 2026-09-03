@@ -13,6 +13,14 @@ import { FunnelEditor } from '../funnel/FunnelEditor';
 import { requireRolWs } from '@/lib/tab-access';
 import { getFunnel } from '@/lib/leads';
 import { getEstadoOnboarding, pasosDeCapaActual } from '@/lib/onboarding-state';
+// El onboarding se pinta OSCURO, sea cual sea el tema que el cliente tenga elegido.
+// Pedido de Martín: «quiero que todo el onboarding sea en black mode». Las dos mitades
+// hacen falta y no son un duplicado: el `<script>` corre antes del primer pintado (sin
+// él hay un fogonazo blanco de pantalla completa) y el componente cliente cubre volver
+// a esta ruta por navegación —donde no hay documento nuevo que parsear— y apagar el
+// atributo al salir, para no dejarle la app oscura a quien no la eligió.
+import { TemaOscuroScript } from '../_components/TemaOscuroScript';
+import { TemaOscuro } from '../_components/TemaOscuro';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -29,7 +37,11 @@ export default async function OnboardingPage() {
   const estado = await getEstadoOnboarding();
   const pasos = await pasosDeCapaActual();
   const done = pasos.length === 0 || estado.status === 'done';
-  if (!done) return <OnboardingWizard />;
+  // ⚠️ El tema oscuro se prende SOLO en la rama del wizard. El hub de abajo es una
+  // tab más de la app y tiene que respetar el tema que el cliente eligió: pintarlo
+  // oscuro «de paso» sería el mismo error que ya se cometió con el laboratorio de
+  // paletas, cuando un tema de prueba terminó aplicado sobre la app de un cliente.
+  if (!done) return <><TemaOscuroScript /><TemaOscuro /><OnboardingWizard /></>;
 
   // Dueño / cliente ya onboardeado → el hub para cargar/editar el negocio.
   const { pipeline, suppressed } = await getFunnel();

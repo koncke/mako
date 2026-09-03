@@ -9,7 +9,7 @@
 // cliente borra sus fotos, el aviso de «sin foto no hay identidad» vuelve solo.
 
 import { requireRolWs } from '@/lib/tab-access';
-import { getWorkspaceActual } from '@/lib/workspace';
+import { getWorkspaceActual, rutaConWs } from '@/lib/workspace';
 import { estadoContextoVideo, leerHistorial } from './video-datos';
 import { estadoPuente } from '@/lib/flow-cola';
 import { guionesDisponibles } from './guiones-datos';
@@ -17,7 +17,8 @@ import { puestasOfrecidas } from '@/lib/puestas-data';
 import { leerAnuncios } from './anuncios-datos';
 import { leerSaldoGuardado, costoPorClip } from './saldo-datos';
 import { VideoGeneratorApp } from './VideoGeneratorApp';
-import { onboardingTabPendiente } from '@/lib/tab-onboarding-state';
+import { onboardingRequeridoPara } from '@/lib/tab-onboarding-state';
+import { redirect } from 'next/navigation';
 import { PuertaVideoGen } from './PuertaVideoGen';
 // El interruptor del tema, en el HTML del servidor: corre antes del primer
 // pintado y evita el fogonazo blanco. Ver TemaOscuroScript.
@@ -58,7 +59,17 @@ export default async function Page() {
   // para siempre: el wizard tiene su salida («Lo configuro después»), y salir
   // devuelve la tab entera SIN recargar — un `router.refresh()` volvería a
   // correr este guard y devolvería el mismo wizard.
-  const faltaOnboarding = await onboardingTabPendiente('video-generator').catch(() => false);
+  // ⚠️ PRIMERO EL GUION, DESPUÉS EL VIDEO. `onboardingRequeridoPara` mira el
+  // REQUISITO antes que el recorrido propio: si el Copy Generator todavía no está
+  // configurado devuelve /ads-writer, y acá se redirige. Sin eso, alguien podía
+  // llegar a esta tab sin un solo guion escrito — y lo que la tab hace es filmar
+  // guiones, así que lo recibía con una lista vacía y ninguna explicación de dónde
+  // salen. Ver lib/tab-onboarding-catalogo.ts → `requiere`.
+  // `rutaConWs` y no el href pelado: un redirect sin `?ws=` pierde la pestaña del
+  // cliente que se está mirando, y eso no falla — te deja en OTRA cuenta.
+  const requerido = await onboardingRequeridoPara('video-generator').catch(() => null);
+  if (requerido && requerido !== '/video-generator') redirect(await rutaConWs(requerido));
+  const faltaOnboarding = requerido === '/video-generator';
 
   /**
    * Una línea REAL de uno de sus guiones, para el subtítulo del aside.

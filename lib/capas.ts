@@ -164,22 +164,40 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     descripcion: 'Todo el producto: ads, CRM, analistas, chats, Retro y Plan.',
     navKeys: null,
     userNavKeys: null,
-    // Orden del onboarding (pedido de Martín):
-    //  1. fase       → el NORTE del negocio (default, sin IA); de ahí cuelga el resto.
-    //  2. gemini     → token de Gemini (IA gratis) que mueve TODO el onboarding con IA.
-    //  3. archivero  → tira los docs, MaKo arma el brief.
-    //  4. entregable → el elemento tangible de la oferta (FOMO); alimenta el copy.
-    //  5. avatares   → los 3 segmentos (el "¿a quién?").
-    //  6. persona    → la cara de marca (fotos + descripción) para los creativos.
-    //  7. personalidad → el quiz de voz del creador (humaniza guiones y copy).
-    //  8. angulos    → la MATRIZ (avatar × razón), la salida de la fábrica.
-    //  9. tabs       → contacto de reportes + verificación de WhatsApp.
-    // 10. integraciones (solo Meta) → AL FINAL (pedido de Mauricio: conectar Meta es lo
-    //     último; antes se ve toda la matriz). 11. retro → valoración/cierre (usa Meta).
-    // 'productos' va justo después del Archivero: para entonces MaKo ya leyó el
-    // brief y los documentos, así que puede ARMAR el catálogo en vez de preguntarlo.
-    // Y va antes del lead magnet y del avatar, que se definen contra la oferta.
-    onboarding: ['fase', 'gemini', 'archivero', 'productos', 'entregable', 'avatares', 'persona', 'personalidad', 'angulos', 'tabs', 'integraciones', 'retro'],
+    // Orden del onboarding:
+    //  1. fase          → el NORTE del negocio (default, sin IA); de ahí cuelga el resto.
+    //  2. gemini        → la key de IA que mueve TODO lo demás.
+    //  3. archivero     → tira los docs, MaKo arma el brief.
+    //  4. productos     → el catálogo. Va justo después del Archivero: para entonces MaKo
+    //                     ya leyó el brief y los documentos, así que lo ARMA en vez de
+    //                     preguntarlo.
+    //  5. tabs          → contacto de reportes + verificación de WhatsApp.
+    //  6. integraciones → Meta, AL FINAL (pedido de Mauricio).
+    //
+    // ⚠️ ESTE ONBOARDING CARGA EL NEGOCIO, NO LA FÁBRICA DE CREATIVOS. Antes tenía cinco
+    // pasos más —entregable, avatares, persona, personalidad, angulos— y esos cinco SON
+    // la fábrica de creativos (avatar × razón → matriz), o sea la configuración de una
+    // tab, no del negocio. Pedirlos acá tenía dos costos y los dos se pagaron:
+    //
+    //   · Alargaba el arranque a ~20 pantallas antes de que el cliente viera NADA. De
+    //     cuatro clientes reales, dos no terminaron el wizard.
+    //   · Y los pedía sin contexto: «Tu matriz de anuncios» no significa nada para
+    //     alguien que todavía no abrió la tab donde esa matriz se usa.
+    //
+    // Ahora viven en el onboarding del **Copy Generator** (lib/tab-onboarding-catalogo.ts
+    // → 'ads-writer'), que es donde se escribe el guion, y el Video Generator depende de
+    // él (`cubre`): primero el guion, después el video. Decisión de Martín, textual:
+    // «primero va el guion y luego el video… Son 2 onboarding diferentes. Y si no está
+    // hecho el primero, no debería dejarte hacer el segundo».
+    //
+    // ⚠️ Y `retro` TAMPOCO está: pasó a ser una OPCIÓN de la pantalla final (Listo.tsx),
+    // no un paso obligatorio. Como paso era una pared más —con un «Seguir sin Retro →»
+    // que ya admitía que no correspondía exigirla—; como opción es lo que alguien elige
+    // si quiere ver su rendimiento de los últimos meses.
+    //
+    // Los pasos que salieron NO se borran de `PASOS_ONBOARDING`: lo que el cliente ya
+    // contestó sigue guardado, y si vuelve a entrar no se le vuelve a preguntar.
+    onboarding: ['fase', 'gemini', 'archivero', 'productos', 'tabs', 'integraciones'],
     // TODOS los grupos: El Archivero no pregunta de a uno, extrae de los docs y
     // muestra el brief entero (oferta + avatar + personaje de marca) editable en
     // UNA pantalla ("esto entendí, corregí"). Ese perfil completo es lo que

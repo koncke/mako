@@ -46,6 +46,7 @@ import { DIAL_DEFAULT, splitTelefono } from '@/lib/paises';
 import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
 import { esPostergable, type PasoOnboarding } from '@/lib/capas';
 import { Bienvenida } from './Bienvenida';
+import { Listo, type Borrador } from './Listo';
 import type { OnboardingStatus, PasoState } from '@/lib/onboarding-contrato';
 
 const MONO = "'Geist Mono', monospace";
@@ -164,6 +165,11 @@ export function OnboardingWizard() {
   // pregunta 3 no la vuelve a mostrar, sin inventar una clave nueva ni usar sessionStorage
   // (que además haría diferir el HTML del server del que hidrata el cliente).
   const [bienvenidaVista, setBienvenidaVista] = useState(false);
+  // El onboarding TERMINÓ. `null` = todavía no; con valor, la pantalla de cierre se
+  // come la vista (y trae el borrador del plan que MaKo acaba de escribir, si salió).
+  // Es estado de CLIENTE y no una navegación: la pantalla de cierre tiene que poder
+  // ofrecer varios caminos, y para eso primero hay que llegar a ella.
+  const [cierre, setCierre] = useState<{ plan: Borrador | null } | null>(null);
   const [pending, setPending] = useState(false);
   // MaKo escribiendo el plan de arranque: tarda decenas de segundos y es lo último
   // que pasa antes de entrar, así que el botón tiene que decir qué está haciendo.
@@ -310,6 +316,15 @@ export function OnboardingWizard() {
     </div>
   ) : undefined;
 
+  // ── Y al final del todo, el cierre ────────────────────────────────────────
+  // Va ACÁ, arriba de todo lo demás y con el mismo criterio que la bienvenida: no es
+  // una pantalla del wizard (no tiene paso que cerrar, ni progreso, ni Atrás), así
+  // que meterla adentro de `pantallas` obligaría al WizardShell a saber dibujarse a
+  // medias — y eso se filtra a todas las otras pantallas.
+  if (cierre) {
+    return <Listo adminBar={barraAgencia} nombre={(data.usuario.nombre || '').split(' ')[0] || undefined} plan={cierre.plan} />;
+  }
+
   if (!bienvenidaVista && data.estado.status === 'pending') {
     return (
       <Bienvenida
@@ -429,24 +444,31 @@ export function OnboardingWizard() {
   };
 
   /**
-   * A dónde se sale cuando un POST de 'paso' dejó el onboarding CERRADO.
+   * Qué pasa cuando un POST de 'paso' dejó el onboarding CERRADO.
    *
    * Está afuera de `avanzar` porque lo comparten los dos caminos de salida. Si viviera
    * adentro, postergar el último paso de la capa cerraría el onboarding y mandaría al
    * cliente al dashboard SIN plan — el único caso en que el plan de arranque no se
    * escribe, y justo el del cliente que ya venía teniendo problemas.
+   *
+   * ⚠️ YA NO DEVUELVE UNA URL: LEVANTA LA PANTALLA DE CIERRE. Antes, terminar el
+   * wizard era un `window.location.href` a /plan (o al borrador), sin una palabra. Y
+   * /plan es un tablero: alguien que acaba de contestar veinte pantallas aterrizaba en
+   * una grilla sin saber si eso era el premio, el próximo paso, o dónde había quedado
+   * todo lo que cargó. Ahora hay un corte que lo dice y ofrece caminos (ver Listo.tsx).
    */
-  const salidaTrasCerrar = async (estadoStatus?: string): Promise<string> => {
-    if (estadoStatus !== 'done') return home;
-    // TERMINÓ EL ONBOARDING → MaKo le escribe SU plan. Recién acá están guardados
-    // el diagnóstico, el archivero, los avatares, las razones y el lead magnet:
-    // es el primer momento en que se puede armar un plan que hable de su negocio
-    // y no una lista igual para todos. Si falla, no pasa nada: el cliente entra
-    // igual y la primera visita a /plan le siembra el piso de siempre.
+  const cerrarOnboarding = async (estadoStatus?: string): Promise<boolean> => {
+    if (estadoStatus !== 'done') return false;
+    // TERMINÓ EL ONBOARDING → MaKo le escribe SU plan. Recién acá están guardados el
+    // diagnóstico, el archivero y el catálogo: es el primer momento en que se puede
+    // armar un plan que hable de su negocio y no una lista igual para todos. Si falla,
+    // no pasa nada: la pantalla de cierre se dibuja igual sin la tarjeta del borrador,
+    // y la primera visita a /plan le siembra el piso de siempre.
     setArmandoPlan(true);
-    const r = await post('/api/onboarding/plan-arranque', {}).catch(() => null) as { ok?: boolean; url?: string } | null;
+    const r = await post('/api/onboarding/plan-arranque', {}).catch(() => null) as { ok?: boolean; url?: string; n?: number } | null;
     setArmandoPlan(false);
-    return r?.ok && r.url ? r.url : home;
+    setCierre({ plan: r?.ok && r.url ? { url: r.url, n: Number(r.n ?? 0) } : null });
+    return true;
   };
 
   const avanzar = async (guardar?: () => Promise<Record<string, unknown> | null>) => {
@@ -459,7 +481,6 @@ export function OnboardingWizard() {
       }
       // Cerrar el paso cuando esta es la última pantalla que le pertenece.
       const ultimaDelPaso = pantallas.filter((x) => x.paso === p.paso).slice(-1)[0]?.key === p.key;
-      let destino = home;
       if (ultimaDelPaso) {
         // Este POST tiene que COMPLETAR antes de navegar: /plan/revisar/[id] llama a
         // guardOnboarding(), y con el estado todavía en 'in_progress' rebota al wizard.
@@ -469,9 +490,13 @@ export function OnboardingWizard() {
         // `estado.status`, así que un 500 dejaba el paso sin marcar y el cliente
         // volvía a aterrizar acá para siempre, sin ver un solo error.
         if (!j || j.ok === false) { setError(String(j?.error ?? 'No se pudo guardar el avance. Prueba de nuevo.')); return; }
-        destino = await salidaTrasCerrar(j.estado?.status);
+        // Cerró el onboarding entero → la pantalla de cierre se come la vista y no
+        // hay a dónde avanzar.
+        if (await cerrarOnboarding(j.estado?.status)) return;
       }
-      if (enUltimo) { window.location.href = destino; return; }
+      // Última pantalla y el onboarding NO quedó cerrado (le falta algún paso de
+      // otra sección): el dashboard es la salida honesta.
+      if (enUltimo) { window.location.href = home; return; }
       setIdx((i) => i + 1);
     } finally { setPending(false); }
   };
@@ -495,7 +520,11 @@ export function OnboardingWizard() {
         { ok?: boolean; error?: string; estado?: { status?: string } } | null;
       if (!j || j.ok === false) { setError(String(j?.error ?? 'No se pudo guardar. Prueba de nuevo.')); return; }
       const siguiente = pantallas.findIndex((x, i) => i > idx && x.paso !== p.paso);
-      if (siguiente < 0) { window.location.href = await salidaTrasCerrar(j.estado?.status); return; }
+      if (siguiente < 0) {
+        if (await cerrarOnboarding(j.estado?.status)) return;
+        window.location.href = home;
+        return;
+      }
       setIdx(siguiente);
     } finally { setPending(false); }
   };
@@ -644,6 +673,13 @@ export function OnboardingWizard() {
       <WizardShell
         fullscreen
         bloqueante
+        // SIN CONTENEDOR, el lenguaje de Content Machine (pedido de Martín). La
+        // tarjeta partida —aside negro a la izquierda, pregunta a la derecha— se
+        // fue con ella, y eso es a propósito: sobre una página oscura ese panel no
+        // se lee como panel sino como un agujero, y lo que tenía adentro era el
+        // carrusel de marketing, o sea promesa. Lo que era PRUEBA (el diagnóstico
+        // de fase) ya tiene su propia pantalla, que es donde se lee entero.
+        desnudo
         titulo={data.capa.nombre}
         pasos={data.pasos}
         pasoActual={p.paso}
@@ -708,6 +744,10 @@ export function OnboardingWizard() {
         onConfirmar={() => avanzar()}
         onClose={() => { /* bloqueante */ }}
         adminBar={barraAgencia}
+        // ⚠️ SE SIGUE PASANDO Y EN MODO `desnudo` NO SE DIBUJA. Queda a propósito:
+        // es la mitad izquierda que tenía el onboarding hasta hoy, y sacarla del
+        // archivo la volvería irrecuperable sin reconstruirla. Volver atrás es
+        // borrar la línea `desnudo` de arriba.
         escenario={
           p.faseQ != null ? (
             <FasePanel modo={p.faseQ >= 0 ? 'quiz' : 'result'} diag={faseDiag} />

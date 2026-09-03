@@ -55,7 +55,7 @@ export function WizardShell({
   puedeAvanzar, enUltimo, confirmLabel, pending = false, cargando = null,
   atrasLabel, onAtras, onSiguiente, onConfirmar, onClose, bloqueante = false, hideAtras = false,
   fullscreen = false, escenario, siguienteLabel = 'Siguiente →', extraFooter, adminBar, hideSiguiente = false,
-  embebido = false, ancho = 560, anchoCuerpo,
+  embebido = false, desnudo = false, ancho = 560, anchoCuerpo,
 }: {
   titulo: string;            // línea mono arriba (ej. "Nutrición manual · Juan")
   pregunta: string; sub?: string;
@@ -102,6 +102,27 @@ export function WizardShell({
    * porque es bloqueante a propósito.
    */
   embebido?: boolean;
+  /**
+   * Solo con `fullscreen`: SIN CONTENEDOR. Ni tarjeta, ni borde, ni pie con fondo
+   * propio — la pregunta se apoya directo sobre la página, y el progreso deja de
+   * ser puntitos para ser una barra de segmentos finos arriba de todo.
+   *
+   * ⚠️ NO ES UNA VARIANTE COSMÉTICA, ES EL LENGUAJE DE CONTENT MACHINE. La tab del
+   * Video Generator ya se había ido de esta pieza justamente por esto: su
+   * `Estudio` (app/video-generator/WizardAnuncio.tsx) dice, textual, que dejó el
+   * WizardShell porque «encerraba el contenido en una tarjeta y le ponía un kicker
+   * arriba». O sea que la pieza compartida estaba empujando a cada pantalla nueva a
+   * salirse de ella, que es la peor forma de tener un componente común.
+   *
+   * Pedido de Martín: «Sin "contenedor", y diferente son los puntos de las slides de
+   * los pasos que quedan». Los segmentos son eso: dicen dónde estás ocupando una
+   * línea de 3 px, sin pedir nada y sin cobrarse una fila entera.
+   *
+   * ⚠️ IGNORA `escenario`. Sin tarjeta partida no hay mitad izquierda donde vivir, y
+   * un panel negro sobre una página oscura no se lee como panel: se lee como un
+   * agujero. Lo que ese panel tenía que decir se dice en el cuerpo o no se dice.
+   */
+  desnudo?: boolean;
   /**
    * Ancho de la tarjeta en modo modal (default 560). Los pasos que muestran una LISTA
    * —elegir proyectos, elegir tareas— necesitan más aire: con 560 los títulos se
@@ -217,6 +238,28 @@ export function WizardShell({
     </div>
   );
 
+  // ── La barra de segmentos del modo `desnudo` ──────────────────────────────
+  // Misma información que los puntitos y las mismas reglas —la posición actual
+  // siempre es verdad, la cola solo se promete cuando se puede contar— con otra
+  // forma: una línea de 3 px, que es lo que usa Content Machine.
+  //
+  // Cuando la cola es desconocida (`futuros < 0`) NO se inventa un largo: se
+  // dibujan los tramos recorridos más el actual y se deja la línea abierta con un
+  // tramo tenue que no termina. Rellenar hasta un número que no conocemos sería la
+  // misma mentira que la pieza viene evitando desde que existe, dibujada más linda.
+  const segmentos = futuros >= 0 ? actual + 1 + futuros : actual + 1;
+  const barra = (
+    <div role="img" aria-label={etiqueta} title={etiqueta}
+      style={{ display: 'flex', gap: 4, width: '100%', maxWidth: 520, alignItems: 'center' }}>
+      {Array.from({ length: segmentos }, (_, i) => (
+        <span key={i} style={{ flex: 1, height: 3, borderRadius: 2, background: i <= actual ? 'var(--ink)' : 'var(--border-strong)', transition: 'background .35s ease' }} />
+      ))}
+      {futuros < 0 && (
+        <span aria-hidden style={{ flex: 1, height: 3, borderRadius: 2, background: 'var(--border)', opacity: 0.6 }} />
+      )}
+    </div>
+  );
+
   const header = (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '16px 20px' }}>
       <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: '.14em', color: 'var(--accent)' }}>✦ MAKO</span>
@@ -282,6 +325,76 @@ export function WizardShell({
       )}
     </div>
   );
+
+  // ===========================================================================
+  // DESNUDO: una sola columna, sobre la página. Sin tarjeta.
+  // ===========================================================================
+  // El lenguaje de Content Machine. Cambia la CAJA, no la lógica: el progreso, el
+  // loader, los estados de los botones y el error son los mismos de arriba — que es
+  // justamente lo que no pasaba mientras cada pantalla nueva se escribía su propio
+  // shell para escaparle a la tarjeta.
+  //
+  // Tres decisiones de forma, y ninguna es de gusto:
+  //   · La pregunta ENORME y arriba de todo. Es la regla del dueño («un solo paso a
+  //     la vez, cosas ENORMES, casi sin texto»): lo que se lee en el primer segundo
+  //     tiene que ser qué se está preguntando, no dónde estás parado.
+  //   · Los botones CENTRADOS y sin pie con fondo. Un footer con borde y superficie
+  //     propia vuelve a dibujar el contenedor por abajo, que es lo que se sacó.
+  //   · El aire lo pone el `gap` de la columna, no un padding por lado: así una
+  //     pantalla que no trae `sub` no deja un hueco donde estaba el subtítulo.
+  if (fullscreen && desnudo) {
+    const contenedor: CSSProperties = embebido
+      ? { flex: 1, minWidth: 0, minHeight: '100vh', background: 'var(--bg)', fontFamily: SANS, display: 'flex', flexDirection: 'column' }
+      : { position: 'fixed', inset: 0, zIndex: 100, background: 'var(--bg)', fontFamily: SANS, display: 'flex', flexDirection: 'column' };
+    return (
+      <div style={contenedor}>
+        {adminBar && <div style={{ flex: 'none' }}>{adminBar}</div>}
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 'clamp(20px,5vh,52px) 20px 44px', position: 'relative' }}>
+          {loader}
+          <div style={{ width: '100%', maxWidth: anchoCuerpo ?? 720, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 26, margin: 'auto 0' }}>
+            {barra}
+
+            <div style={{ textAlign: 'center' }}>
+              <h2 style={{ margin: 0, fontSize: 'clamp(22px, 2.2vw, 31px)', fontWeight: 640, letterSpacing: '-.02em', lineHeight: 1.2, color: 'var(--ink)' }}>{pregunta}</h2>
+              {sub && <p style={{ margin: '10px 0 0', fontSize: 14.5, lineHeight: 1.5, color: 'var(--dim)' }}>{sub}</p>}
+            </div>
+
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20 }}>{children}</div>
+
+            {error && <div style={{ fontSize: 13.5, color: 'var(--bad)', fontWeight: 600, textAlign: 'center' }}>{error}</div>}
+
+            {/* Los dos botones en la MISMA fila y centrados: el par de salidas de un
+                paso se lee junto. `hideAtras` en el primer paso deja el avance solo
+                en el centro, que es donde se lo busca cuando no hay de dónde volver. */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, flexWrap: 'wrap' }}>
+              {!hideAtras && (
+                <button onClick={onAtras} disabled={trabado}
+                  style={{ padding: '11px 20px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: trabado ? 'default' : 'pointer', opacity: trabado ? 0.5 : 1, fontFamily: SANS }}>
+                  ← {atrasLabel}
+                </button>
+              )}
+              {enUltimo ? (
+                <button onClick={onConfirmar} disabled={pending || trabado || !puedeAvanzar}
+                  style={{ padding: '13px 30px', borderRadius: 11, border: 'none', background: avanza ? 'var(--primary)' : 'var(--border)', color: avanza ? '#fff' : 'var(--faint)', fontSize: 15, fontWeight: 700, cursor: avanza && !pending ? 'pointer' : 'default', fontFamily: SANS, opacity: pending ? 0.6 : 1 }}>
+                  {pending ? 'Guardando…' : confirmLabel}
+                </button>
+              ) : hideSiguiente ? null : (
+                <button onClick={onSiguiente} disabled={!avanza || pending}
+                  style={{ padding: '13px 30px', borderRadius: 11, border: 'none', background: avanza ? 'var(--primary)' : 'var(--border)', color: avanza ? '#fff' : 'var(--faint)', fontSize: 15, fontWeight: 700, cursor: avanza ? 'pointer' : 'default', fontFamily: SANS, opacity: pending ? 0.6 : 1 }}>
+                  {pending ? 'Guardando…' : siguienteLabel}
+                </button>
+              )}
+            </div>
+
+            {/* La salida («Seguir sin esto por ahora») va DEBAJO y sola: es una
+                decisión distinta a avanzar, y ponerla al lado la convierte en un
+                tercer botón de la misma familia. */}
+            {extraFooter && <div style={{ display: 'flex', justifyContent: 'center' }}>{extraFooter}</div>}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Fullscreen: dos pantallas. El escenario a la izquierda no es decoración —
   // es lo que MaKo ya sabe del negocio, apareciendo mientras el cliente contesta.

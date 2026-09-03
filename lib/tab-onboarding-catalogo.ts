@@ -38,6 +38,23 @@ export type TabOnboardingDef = {
    * de tres recorridos que piden lo mismo.
    */
   cubre?: string[];
+  /**
+   * La tab que hay que configurar ANTES que esta. Distinto de `cubre`, y la
+   * diferencia importa: `cubre` es «esta tab no tiene recorrido propio, el mío la
+   * cubre»; `requiere` es «los dos tienen recorrido, y el mío va segundo».
+   *
+   * El caso que lo trajo: el Video Generator filma un guion, y el guion se escribe
+   * en el Copy Generator. Alguien que llega al Video Generator sin haber pasado por
+   * el Copy no tiene NADA que filmar — la tab lo recibe con una lista vacía y ningún
+   * cartel que explique de dónde salen los guiones. Decisión de Martín, textual:
+   * «primero va el guion y luego el video… si no está hecho el primero, no debería
+   * dejarte hacer el segundo».
+   *
+   * ⚠️ SE MIRA ANTES QUE EL PROPIO (ver `onboardingRequeridoPara`). Mirarlo después
+   * sería no mirarlo nunca: la tab de atrás siempre tiene su propio onboarding
+   * pendiente también, así que el propio ganaría siempre y el requisito no ataría nada.
+   */
+  requiere?: string;
   /** Href al que se manda (default `/${key}`). */
   href?: string;
 };
@@ -164,6 +181,43 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
     ],
   },
 
+  // ── Copy Generator: la FÁBRICA DE CREATIVOS, que antes vivía en el onboarding global ──
+  //
+  // Estos cinco pasos estaban en `lib/capas.ts` → capa 'completo', o sea que se le
+  // pedían a todo cliente nuevo antes de dejarlo entrar a nada. Salieron de ahí (ver el
+  // comentario largo en ese archivo) y aterrizan acá, que es la tab donde se USAN: la
+  // matriz avatar × razón es literalmente la entrada del Copy Generator.
+  //
+  // ORDEN, y es el encadenamiento de la fábrica, no una preferencia de lectura:
+  //   entregable → qué se ofrece a cambio del contacto (el lead magnet).
+  //   avatares   → A QUIÉN se le habla (los 3 subnichos).
+  //   persona    → la CARA de la marca (fotos + descripción).
+  //   personalidad → CÓMO habla (el quiz de voz del creador).
+  //   angulos    → la MATRIZ, que es el producto de los cuatro anteriores.
+  //
+  // Por eso `angulos` es el ensayo de esta tab y va último: es la única pantalla donde
+  // el cliente VE salir algo, y sale de lo que acaba de contestar. Ninguno es opcional
+  // —cada uno alimenta al siguiente, y la matriz sin avatares es una grilla vacía.
+  //
+  // ⚠️ Keys con prefijo `cg_` a propósito, igual que `vg_` y `carousels_`: las peladas
+  // colisionan vía KEY_PASOS_COMPARTIDOS (gotcha documentado tres veces en este archivo).
+  //
+  // ⚠️ `cg_persona` y `vg_cara` se PARECEN y no son el mismo paso: acá se define la cara
+  // de la marca (quién aparece y cómo se lo describe, que es material de copy); allá se
+  // suben las fotos con las que se arma el avatar del video. No comparten key a
+  // propósito — si mañana se decide fundirlos, es una decisión, no un renombre.
+  'ads-writer': {
+    key: 'ads-writer',
+    titulo: 'Configuración del Copy Generator',
+    pasos: [
+      { key: 'cg_entregable', label: 'Tu lead magnet' },
+      { key: 'cg_avatares', label: 'Tus avatares' },
+      { key: 'cg_persona', label: 'La cara de tu marca' },
+      { key: 'cg_personalidad', label: 'Tu personalidad' },
+      { key: 'cg_angulos', label: 'Tu matriz de anuncios' },
+    ],
+  },
+
   // ── Video Generator: la cara, la voz, el navegador y el primer anuncio ──
   //
   // ORDEN (regla de la skill): lo aburrido AL FINAL, excepto lo que bloquea. Acá
@@ -185,6 +239,9 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
   'video-generator': {
     key: 'video-generator',
     titulo: 'Configuración del generador de video',
+    // PRIMERO EL GUION, DESPUÉS EL VIDEO. Sin el Copy Generator configurado no hay
+    // guiones que filmar, y esta tab abre con una lista vacía que no explica nada.
+    requiere: 'ads-writer',
     pasos: [
       // ⚠️ EL ORDEN DE ESTA LISTA ES UNA GUARDA, no una preferencia de lectura.
       //

@@ -72,9 +72,28 @@ export const tabOnboardingDef = (key: string): TabOnboardingDef | null => TAB_ON
  * está lista. Lo usan las pages en su guard.
  */
 export async function onboardingRequeridoPara(tab: string): Promise<string | null> {
+  const def = tabOnboardingDef(tab);
+
+  // ⚠️ EL REQUISITO VA PRIMERO, ANTES QUE EL PROPIO. Ponerlo después es no ponerlo:
+  // una tab con requisito tiene su propio recorrido pendiente también —si no, no
+  // estaríamos preguntando—, así que el propio ganaría siempre y el requisito no
+  // ataría nada. El caso: el Video Generator no se abre hasta que el Copy Generator
+  // esté listo, porque lo que el video filma es el guion que se escribe allá.
+  //
+  // La cadena se recorre entera (A requiere B, B requiere C), y con tope: un ciclo en
+  // el catálogo colgaría el render de la page, que es el peor lugar donde puede fallar
+  // un dato mal escrito.
+  let req = def?.requiere;
+  for (let saltos = 0; req && saltos < 8; saltos++) {
+    const dReq = tabOnboardingDef(req);
+    if (!dReq) break;
+    if (await onboardingTabPendiente(dReq.key)) return dReq.href ?? `/${dReq.key}`;
+    req = dReq.requiere;
+  }
+
   // Onboarding propio.
-  if (tabOnboardingDef(tab) && (await onboardingTabPendiente(tab))) {
-    return tabOnboardingDef(tab)!.href ?? `/${tab}`;
+  if (def && (await onboardingTabPendiente(tab))) {
+    return def.href ?? `/${tab}`;
   }
   // Onboarding de otra tab que cubre a esta.
   for (const def of Object.values(TAB_ONBOARDINGS)) {
