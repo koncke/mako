@@ -140,6 +140,9 @@ import { CURSO_HOME_STUDIO_AND_VIRAL_VIDEO_BLUEPRINT } from './curso-home-studio
 import { CURSO_GROWING_CLOSER_AGUSTIN_NIEVAS_SAMUEL_ALBAA } from './curso-growing-closer-agustin-nievas-samuel-albaa';
 import { CURSO_UNIVERSIDAD_DE_YOUTUBE } from './curso-universidad-de-youtube';
 import { CURSO_TIKTOK_100K_JORDI_SEGUES } from './curso-tiktok-100k-jordi-segues';
+import { CURSO_GROWING_CONTENT_SPECIALIST } from './curso-growing-content-specialist';
+import { CURSO_AGENCIA_6_CIFRAS_V2 } from './curso-agencia-6-cifras-v2';
+import { CURSO_METOLODOGIA_JADS } from './curso-metolodogia-jads';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio.datos';
 import { CURSO_BRANDING } from './BrandingMaKo.datos';
@@ -1510,6 +1513,15 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_TIKTOK_100K_JORDI_SEGUES,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_GROWING_CONTENT_SPECIALIST,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_AGENCIA_6_CIFRAS_V2,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_METOLODOGIA_JADS,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
