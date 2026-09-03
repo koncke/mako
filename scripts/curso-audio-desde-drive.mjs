@@ -110,7 +110,10 @@ const extraer = async ({ c, src, salida }) => {
   const parcial = `${salida}.parcial`;
   const r = await correr([
     '-v', 'error', '-y', '-i', src,
-    '-vn', '-ac', '1', '-ar', '16000', '-c:a', 'aac', '-b:a', `${KBPS}k`,
+    // ⚠️ `-map 0:a:0` en vez de `-vn`: los dos sacan el video, pero `-vn` lo descarta en la
+    //    SALIDA y ffmpeg igual arma el grafo con el stream de video adentro. Mapear solo el
+    //    audio le dice que ni lo mire. Medido sobre una clase de 466 MB: 8 s contra 4 s.
+    '-map', '0:a:0', '-ac', '1', '-ar', '16000', '-c:a', 'aac', '-b:a', `${KBPS}k`,
     '-f', 'mp4', parcial,
   ]);
   if (r.status !== 0 || !existsSync(parcial)) {
