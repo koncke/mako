@@ -76,7 +76,33 @@ if (!crudos.length) { console.error(`\n  ✖ No hay videos en ${dir}\n`); proces
 //    origen no lo sabe» —y resulto ser el mejor predictor de que una clase no se va a poder
 //    bajar—. Aca el origen es el archivo, asi que se deja vacia: medirla con ffprobe sobre
 //    el montaje de Drive son 600 lecturas de red por curso, y nadie la necesita todavia.
-const limpio = (s) => String(s).replace(/\.[^.]+$/, '').replace(/\s+/g, ' ').trim();
+/**
+ * ⚠️ UN NOMBRE DE ARCHIVO NO ES UN TITULO: trae BASURA DEL NOMBRE DE ARCHIVO.
+ *
+ * Lo que en Drive se llama «Hotmart Club - 4. Configurando mi Facebook y Fanpage -
+ * 1920x1080 934K.mp4» en el portal tiene que decir «4. Configurando mi Facebook y
+ * Fanpage». El prefijo de la plataforma de origen, la resolucion y el bitrate son datos
+ * del ARCHIVO, no de la leccion, y en pantalla se leen como si el curso estuviera mal
+ * armado.
+ *
+ * Medido el 03/09/2026 en «Metodologia JADS»: 97 de 109 clases con el prefijo de la
+ * plataforma y 71 con la resolucion pegada al final.
+ *
+ * ⚠️ NO se toca la numeracion de adelante: ordena, y sacarla deja al lector sin saber
+ *    cual va primero.
+ */
+const limpio = (s) => String(s)
+  .replace(/\.[^.]+$/, '')                                  // la extension
+  .replace(/^(hotmart club|kajabi|teachable|thinkific)\s*[-–—:]\s*/i, '')  // el prefijo del origen
+  // ⚠️ LA RESOLUCION Y EL BITRATE VAN JUNTOS Y AL FINAL: «… - 1920x1080 934K». Sacar
+  //    cualquier «NNNK» suelto convertia «37. Chichito llego a 100K y todo» en «llego a y
+  //    todo»: ese 100K son cien mil seguidores, o sea el TEMA de la clase. Un limpiador
+  //    que borra contenido es peor que no limpiar — el titulo feo se ve feo, el mutilado
+  //    se lee como si el curso estuviera mal armado.
+  .replace(/\s*[-–—]?\s*\d{3,4}x\d{3,4}(\s+\d{2,5}\s?K)?\s*$/gi, '')
+  .replace(/\s*\((?:\d{3,4}p|hd|full ?hd)\)\s*$/gi, '')
+  .replace(/\s*[-–—]\s*$/, '')                               // el guion que queda colgando
+  .replace(/\s+/g, ' ').trim();
 const clases = crudos.map((x, i) => ({
   n: i + 1,
   titulo: limpio(x.archivo),

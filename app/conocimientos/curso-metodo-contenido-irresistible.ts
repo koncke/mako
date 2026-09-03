@@ -235,7 +235,7 @@ export const CURSO_METODO_CONTENIDO_IRRESISTIBLE: Curso = {
       vn: 3,
       grupo: 'Creación de contenido  Productos - Servicios',
       modulo: 4,
-      titulo: '13. Tipos de ganchos - Método Contenido Irresistible · Contenido Irresistible - 1280x720 1500K',
+      titulo: '13. Tipos de ganchos - Método Contenido Irresistible · Contenido Irresistible',
       cardDesc: 'Creación de contenido  Productos - Servicios',
       videoId: '1vjnOZw4_OfjrzNbo4hYpFEQSMcsgF-JK',
       resumen: '',

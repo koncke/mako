@@ -143,6 +143,8 @@ import { CURSO_TIKTOK_100K_JORDI_SEGUES } from './curso-tiktok-100k-jordi-segues
 import { CURSO_GROWING_CONTENT_SPECIALIST } from './curso-growing-content-specialist';
 import { CURSO_AGENCIA_6_CIFRAS_V2 } from './curso-agencia-6-cifras-v2';
 import { CURSO_METOLODOGIA_JADS } from './curso-metolodogia-jads';
+import { CURSO_HIGHER_LEVELS_AE_MASTERY } from './curso-higher-levels-ae-mastery';
+import { CURSO_FORMULA_VENTAS_ILIMITADAS_2024 } from './curso-formula-ventas-ilimitadas-2024';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio.datos';
 import { CURSO_BRANDING } from './BrandingMaKo.datos';
@@ -178,6 +180,22 @@ export const CATEGORIA_PROPIA = 'MaKo';
  * una ni se lo manda a un cajón «Otros».
  */
 const CATEGORIA: Record<string, string> = {
+  // ── Los 13 que se cargaron DESDE DRIVE (nunca pasaron por cursoselite, así que
+  //    `curso-categoria-portada.mjs` no los puede clasificar: no están en su catálogo).
+  //    Asignadas mirando el TEMARIO de cada uno, no el nombre — el porqué queda escrito
+  //    para que revisarlas no obligue a volver a abrir el curso.
+  'linkedin-for-ceos': 'Orgánico',                           // escribir y publicar en LinkedIn: posts virales, perfil, presencia
+  'metodo-contenido-irresistible': 'Orgánico',               // «estrategia de contenido orgánico», ganchos, marca personal
+  'home-studio-and-viral-video-blueprint': 'Edición',        // pre-producción, producción y edición de video corto
+  'growing-closer-agustin-nievas-samuel-albaa': 'Ventas',    // un closer cierra ventas: objeciones, llamadas, mentalidad
+  'universidad-de-youtube': 'Orgánico',                      // canal de YouTube: nicho, automatización, crecimiento
+  'tiktok-100k-jordi-segues': 'Orgánico',                    // TikTok: audiencia, formato, algoritmo
+  'growing-content-specialist': 'Orgánico',                  // estrategia de contenido y filmmaking para redes
+  'agencia-6-cifras-v2': 'Negocios digitales',               // montar y escalar una agencia
+  'metolodogia-jads': 'Anuncios',                            // es Meta Ads de punta a punta: Business Manager, Pixel, objetivos de campaña
+  'higher-levels-ae-mastery': 'Ventas',                      // AE es Account Executive: el curso es el oficio de vender
+  'formula-ventas-ilimitadas-2024': 'Ventas',                // embudos de venta y cómo vender en redes
+  'youtube-2026': 'Orgánico',                                // masterclass de tendencias y funciones de YouTube
   // La plataforma lo clasifica «Marca Personal», que no es una categoria de acá. Va a
   // Orgánico, que es donde están los otros cuatro de marca personal —«Master Marca
   // Personal» 4.0 y 5.0, «360 Marca Personal» e «Instituto De Marca Personal»—: se sigue
@@ -496,7 +514,6 @@ const CATEGORIA: Record<string, string> = {
 
   // Puestas por scripts/curso-categoria-portada.mjs desde el `category` de la
   // plataforma. El comentario al lado es la categoría de origen.
-  'growing-closer-agustin-nievas-samuel-albaa': 'Ecommerce', // Ecommerce
 
 };
 
@@ -1522,6 +1539,12 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_METOLODOGIA_JADS,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_HIGHER_LEVELS_AE_MASTERY,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_FORMULA_VENTAS_ILIMITADAS_2024,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,

@@ -328,7 +328,7 @@ export async function reporteMetricas(opts: {
       : {
         hay_datos: false, filas: 0,
         nota: metaConectado
-          ? 'Meta está conectado pero no hay ni una fila en este rango. O no hubo campañas corriendo, o el backfill nunca llegó hasta acá (el cron diario solo trae el día de ayer).'
+          ? 'Meta está conectado pero no hay ni una fila en este rango. O no hubo campañas corriendo, o el backfill nunca llegó hasta aquí (el cron diario solo trae el día de ayer).'
           : 'Este workspace no tiene Meta conectado, así que no hay inversión ni impresiones que leer. Se conecta en /integraciones.',
       },
     landing: filasLanding > 0
@@ -428,7 +428,7 @@ export async function reporteMetricas(opts: {
   }
   if (totales.j2_programadas > 0 || totales.j1_programadas > 0) {
     advertencias.push(
-      'Las R2 que el sistema no logró cruzar con un lead NO están acá: el webhook nunca crea un lead desde una segunda reunión (quedan en la cola de revisión). El total real de R2 puede ser mayor que el de esta tabla.',
+      'Las R2 que el sistema no logró cruzar con un lead NO están aquí: el webhook nunca crea un lead desde una segunda reunión (quedan en la cola de revisión). El total real de R2 puede ser mayor que el de esta tabla.',
     );
   }
   if (cobertura.meta.hay_datos) {
@@ -451,7 +451,7 @@ export async function reporteMetricas(opts: {
   }
   if (cobertura.vsl.hay_datos) {
     advertencias.push(
-      '`vsl_plays` cuenta solo el arranque del video y excluye los plays que disparó el autoplay del reproductor. No es «cuánta gente lo vio»: para eso está la retención, que vive en su propia pantalla. Y hay una tercera fuente de plays del VSL (Panda, vía el cron diario) que este reporte no mezcla acá.',
+      '`vsl_plays` cuenta solo el arranque del video y excluye los plays que disparó el autoplay del reproductor. No es «cuánta gente lo vio»: para eso está la retención, que vive en su propia pantalla. Y hay una tercera fuente de plays del VSL (Panda, vía el cron diario) que este reporte no mezcla aquí.',
     );
   }
   if (cobertura.landing.hay_datos && cobertura.meta.hay_datos) {
