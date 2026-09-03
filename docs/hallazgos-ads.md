@@ -964,7 +964,7 @@ y no siempre concuerdan. `getMarketingWindow` cuenta por `cerro`; `getTendencias
 ## `listar_campanas_meta` le decía dólares a los pesos, y «reciente» a una ventana que no conocía
 
 **Vive en:** `lib/mako-doer-acciones.ts` (case `listar_campanas_meta`) · **Encontrado:**
-02/09/2026, como corolario de la auditoría de los siete getters de arriba. **Arreglado el
+02/09/2026, como corolario de la auditoría de los ocho getters de arriba. **Arreglado el
 mismo día.**
 
 **Síntoma.** Ninguno visible. La tool contestaba números redondos y creíbles.
@@ -1003,6 +1003,9 @@ el negocio no invirtió.
 tool**, y **un adjetivo de tiempo («reciente», «último») no es un recorte** — si el nombre
 del campo trae uno, la ventana no está definida en ningún lado.
 
-**Lo que NO se tocó:** los siete getters de `lib/queries.ts` de la sección de arriba siguen
-sin paginar; este arreglo cerró el octavo, no esa lista. Y `MarketingWindow.agendamientos`
-sigue contando por `fecha_junta_1`.
+**Lo que quedó de la lista de arriba:** nada, y no por este arreglo. Los ocho getters de
+`lib/queries.ts` los paginó la otra sesión el mismo día (`07c632ee`), y ahí mismo se corrigió
+el veredicto «latente, no vivo» de la sección anterior: **tres de los ocho no tenían filtro de
+fecha ninguno**, así que estaban truncando en producción. `MarketingWindow.agendamientos` pasó
+a `reuniones_en_ventana` en el mismo commit. Esta tool era el **noveno** lector de esa tabla
+que ignoraba el techo, no el octavo.
