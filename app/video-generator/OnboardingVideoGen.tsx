@@ -33,6 +33,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Estudio } from './WizardAnuncio';
 import { ModalFotos } from './ElegirFoto';
 import { Button, Select } from '@/app/_ui';
+// ⚠️ La CUARTA forma de navegar del repo. Un `window.location.href` pelado pierde
+// la pestaña del cliente que se está mirando, y eso no falla: te deja en OTRA cuenta.
+import { conWs } from '@/lib/ws-tab';
+import { useWs } from '@/app/_ui/Link';
 import { Icon } from '../_components/icons';
 import { ACENTOS_ES, MULETILLAS, ETIQUETA_ACENTO, ZONA_DEL_ACENTO, REGIONES, acentoDeZona, type AcentoId } from '@/lib/acento-workspace';
 import type { Puente } from '@/lib/flow-cola';
@@ -490,6 +494,9 @@ export function OnboardingVideoGen({
   const [zonaDetectada, setZonaDetectada] = useState('');
   /** Lo que se está escribiendo en el campo de agregar muletillas. */
   const [nuevaMuletilla, setNuevaMuletilla] = useState('');
+  /** ¿El cliente tiene cargada su key de ElevenLabs? `null` = todavía no se sabe. */
+  const [hayKeyEleven, setHayKeyEleven] = useState<boolean | null>(null);
+  const ws = useWs();
 
   /**
    * Detectar el acento por la ubicación de la persona.
@@ -600,10 +607,14 @@ export function OnboardingVideoGen({
     let vivo = true;
     void fetch('/api/onboarding/voz')
       .then((r) => r.json())
-      .then((j: { ok: boolean; muestras?: { id: string; nombre: string }[]; clon?: { voiceId: string; nombre: string } | null }) => {
+      .then((j: { ok: boolean; muestras?: { id: string; nombre: string }[]; clon?: { voiceId: string; nombre: string } | null; hayKey?: boolean }) => {
         if (!vivo || !j.ok) return;
         setMuestras(j.muestras ?? []);
         setClon(j.clon ?? null);
+        // ⚠️ `?? null` y no `?? false`: «todavía no contestó» y «no tiene key» son
+        // cosas distintas, y pintarlas igual muestra «conectá ElevenLabs» por un
+        // parpadeo a alguien que sí la tiene.
+        setHayKeyEleven(j.hayKey ?? null);
       })
       .catch(() => { /* sin esto el paso arranca vacío, que es un estado válido */ });
     return () => { vivo = false; };
@@ -1160,7 +1171,45 @@ export function OnboardingVideoGen({
               Escúchate diciendo tu guion
             </Button>
           )}
-          {!clon && (
+          {/* ⚠️ SIN KEY NO SE PIDE UNA GRABACIÓN, SE PIDE LA KEY.
+
+              Desde que la voz es BYOK un cliente puede no tener cuenta de
+              ElevenLabs, y la pantalla le pedía NOVENTA SEGUNDOS de grabación para
+              contestarle recién al subirlos que falta la key. Le hacía gastar el
+              trabajo entero para darle una noticia que se sabía antes de empezar.
+
+              El estado viene del GET, así que esto no cuesta una llamada a
+              ElevenLabs: es la presencia de la fila. Y con `null` —todavía no
+              contestó— no se pinta nada, porque mostrar «conectá ElevenLabs» por
+              un parpadeo a alguien que sí la tiene es peor que esperar. */}
+          {hayKeyEleven === false && (
+            <div style={{ display: 'grid', gap: 16, justifyItems: 'center' }}>
+              <div style={{
+                fontSize: 'var(--fs-card)', color: 'var(--dim)', lineHeight: 1.55,
+                textAlign: 'center', maxWidth: 460,
+              }}>
+                La voz clonada se cobra por minuto, así que corre con <strong>tu propia
+                cuenta de ElevenLabs</strong>. Se crea en dos minutos.
+              </div>
+              <Button
+                variant="mako"
+                size="lg"
+                icon={<Icon name="plug" size={16} />}
+                onClick={() => { window.location.href = conWs('/integraciones?abrir=elevenlabs', ws); }}
+              >
+                Conectar ElevenLabs
+              </Button>
+              {/* Que se pueda seguir sin esto es la mitad del diseño: el paso es
+                  opcional y sin clon el anuncio se monta igual, con la voz que
+                  genera Flow. Lo que se pierde es que suene a la persona. */}
+              <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--faint)', textAlign: 'center', maxWidth: 420 }}>
+                Puedes saltar este paso: sin clonar, tus anuncios salen con la voz que
+                genera Google. Lo que se pierde es que suene a ti.
+              </div>
+            </div>
+          )}
+
+          {hayKeyEleven !== false && !clon && (
             <>
               {muestras.length > 0 && (
                 <div style={{ display: 'grid', gap: 6, width: '100%' }}>

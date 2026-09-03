@@ -572,10 +572,9 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     // Speech»: las dos cosas dejaron de ser verdad el día que se escribió
     // `lib/elevenlabs.ts`. Un tutorial que enseña a sacar una key que el producto
     // ya no usa manda a alguien a hacer un trámite para nada.
-    soloPlataforma: true,
     paraQue: 'Clona la voz del cliente y la pisa sobre la voz preset que genera Google Flow. Es la cuenta de la PLATAFORMA: los clones de todos los clientes viven aquí.',
     campos: [
-      { env: 'ELEVENLABS_API_KEY', label: 'API key', secreto: true, placeholder: 'sk_…', nota: 'Es la key de la cuenta de la plataforma, no la de un cliente. Necesita DOS permisos: «Voices» con escritura (para crear el clon) y «Speech to Speech» (para convertir). Con sólo «Text to Speech» la key se ve válida y falla al convertir.' },
+      { env: 'ELEVENLABS_API_KEY', label: 'API key', secreto: true, placeholder: 'sk_…', nota: 'Es TU cuenta de ElevenLabs: la voz se cobra por minuto y corre contra ella. ⚠️ El plan GRATIS de ElevenLabs es de uso NO COMERCIAL, así que para anuncios hace falta un plan pago (el más barato alcanza). Y la key necesita DOS permisos: «Voices» con escritura (para crear el clon) y «Speech to Speech» (para convertir); con sólo «Text to Speech» se ve válida y falla recién al convertir.' },
     ],
     tutorial: {
       url: 'https://elevenlabs.io/app/settings/api-keys',

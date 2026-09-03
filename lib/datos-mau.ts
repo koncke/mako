@@ -690,12 +690,29 @@ export async function completarConDatosDelDueno(ambito: AmbitoKey, destino: numb
 
   // ── Credenciales (integraciones) ──
   if (def.credenciales) {
-    const { credWs, guardarCredencial, IdentificadorOcupadoError } = await import('./credenciales');
+    const { credWs, guardarCredencial, esCredencialDeLaCasa, IdentificadorOcupadoError } = await import('./credenciales');
     for (const s of SERVICIOS_METODO) {
       // Con servicioFiltro (el caso normal: un ámbito = una integración) solo
       // entra ESE servicio. Sin él, el ámbito ("Todas las integraciones") las trae todas.
       if (def.servicioFiltro && s.key !== def.servicioFiltro) continue;
       for (const campo of s.campos) {
+        // ⚠️ LO QUE ES DE LA CASA NO SE COPIA A UN WORKSPACE.
+        //
+        // Este bucle trae las credenciales del ws1 al workspace destino, y el
+        // ws1 es Mauricio: un CLIENTE. Pero `credWs(env, OWNER_WS)` cae al
+        // `process.env` de la plataforma, así que lo que se copiaba no era
+        // siempre una conexión de Mauricio — a veces era la cuenta de MaKo.
+        //
+        // Medido el 02/09/2026: el ws4 tenía la key de ElevenLabs de MaKo
+        // sembrada por acá, idéntica a la del ws1 y a la del super admin.
+        // Borrarla de la base no alcanzaba: el próximo «traer datos de Mau» la
+        // volvía a poner.
+        //
+        // Se pregunta a la MISMA lista que gobierna la migración del entorno,
+        // no a `soloPlataforma`: ese flag se saca cuando una credencial pasa a
+        // BYOK —es justo lo que se hizo con ElevenLabs— así que un filtro
+        // colgado de él se apaga solo en el momento en que más se lo necesita.
+        if (esCredencialDeLaCasa(campo.env)) continue;
         const valor = await credWs(campo.env, OWNER_WS);
         if (!valor) continue;
         try {

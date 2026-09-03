@@ -108,3 +108,77 @@ export function elSondeoDicePuede(status: number): boolean {
 export function pareceAudio(bytes: number): boolean {
   return bytes >= 4000;
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// De quién fue, y qué hacer
+// ─────────────────────────────────────────────────────────────────────────
+
+/** Dónde se carga la key. Un solo lugar: lo usan la tab y el onboarding. */
+export const linkKeyEleven = (base = ''): string => `${base}/integraciones?abrir=elevenlabs`;
+
+export type TextoEleven = {
+  titulo: string;
+  detalle: string;
+  /** A dónde ir a arreglarlo. Ausente cuando NO hay nada que el cliente pueda hacer. */
+  arreglaEn?: string;
+  accion?: string;
+};
+
+/**
+ * Qué se le dice al cliente por cada motivo.
+ *
+ * ⚠️ EL REPARTO DE CULPA ES LO QUE DECIDE SI LLEVA LINK, y desde que la voz es
+ * BYOK cambió de dueño: antes ElevenLabs corría con la cuenta de MaKo, así que
+ * todo fallo era nuestro. Ahora la cuenta es del cliente y la mayoría se arregla
+ * en SU pantalla — mandarlo a esperar es mandarlo a esperar algo que no va a
+ * llegar.
+ *
+ * ⚠️ Y la contracara, que se paga peor: `proveedor` y `nuestra` NO llevan link y
+ * dicen con todas las letras que no es nada suyo. Culpar al cliente por un bache
+ * ajeno lo manda a tocar algo que está bien.
+ *
+ * El mapa es CERRADO sobre `FalloEleven`: un motivo nuevo no compila hasta que
+ * alguien escriba qué decirle a la persona.
+ */
+export function textoEleven(motivo: FalloEleven, base = ''): TextoEleven {
+  const aMiCuenta = { arreglaEn: linkKeyEleven(base), accion: 'Ir a mi cuenta de ElevenLabs' };
+  const mapa: Record<FalloEleven, TextoEleven> = {
+    sin_key: {
+      titulo: 'Falta conectar tu cuenta de ElevenLabs',
+      detalle: 'La voz clonada se cobra por minuto, así que corre con TU cuenta de ElevenLabs. Se crea en dos minutos y la key se pega en Integraciones.',
+      ...aMiCuenta,
+      accion: 'Conectar ElevenLabs',
+    },
+    sin_permiso: {
+      titulo: 'A tu key de ElevenLabs le faltan permisos',
+      detalle: 'Necesita «Voices» con escritura para crear el clon y «Speech to Speech» para convertir. Con sólo «Text to Speech» se ve válida y falla recién al convertir.',
+      ...aMiCuenta,
+    },
+    impago: {
+      titulo: 'ElevenLabs tiene un pago pendiente en tu cuenta',
+      detalle: 'Lo dice ElevenLabs, no MaKo: hasta que se regularice no deja generar audio.',
+      ...aMiCuenta,
+    },
+    cuota: {
+      titulo: 'Se agotó tu cuota de ElevenLabs de este mes',
+      detalle: 'Se repone al empezar el próximo ciclo, o subiendo de plan. Mientras tanto tus anuncios se montan con la voz que genera Flow.',
+      ...aMiCuenta,
+    },
+    voz_muerta: {
+      titulo: 'El clon de tu voz ya no existe en ElevenLabs',
+      detalle: 'Se borró desde el panel de ElevenLabs, o la key es de otra cuenta. Hay que volver a clonarla.',
+      accion: 'Volver a clonar mi voz',
+    },
+    // ⚠️ SIN LINK, y a propósito: no hay nada que el cliente pueda tocar. La regla
+    // del repo es que culpar al cliente por un bache ajeno se paga peor que el bug.
+    proveedor: {
+      titulo: 'ElevenLabs no está respondiendo',
+      detalle: 'No es nada tuyo: tu cuenta y tu key están bien. Es una caída de ellos y se reintenta solo.',
+    },
+    nuestra: {
+      titulo: 'MaKo pidió esto mal',
+      detalle: 'No es nada tuyo ni de tu cuenta de ElevenLabs. Queda registrado de este lado.',
+    },
+  };
+  return mapa[motivo];
+}

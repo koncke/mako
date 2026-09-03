@@ -25,7 +25,9 @@ import 'server-only';
 // vale 1 y el 1 es **Mauricio, un cliente**: leer así entregaría la key de la
 // plataforma dentro del workspace de un cliente sin que nada falle.
 //
-// Por eso `elevenKey()` resuelve SIEMPRE contra `wsSuperAdmin()`, y hay un test
+// ⚠️ ESO CAMBIÓ: desde el 02/09/2026 `elevenKey()` resuelve la key DEL CLIENTE.
+// Lo de abajo queda porque explica por qué NO alcanza con `credWs` a secas.
+// Antes resolvía contra `wsSuperAdmin()`, y hay un test
 // que falla si alguien la llama con un solo argumento.
 //
 // Y la razón de producto, que es la que decide: el repo ya tiene escrito que
@@ -54,7 +56,7 @@ import 'server-only';
 // cuando lo que pasa es que la key no tiene `models_read`. Cero resultados es una
 // respuesta, no un hecho.
 
-import { credWs } from '@/lib/credenciales';
+import { credDelCliente } from '@/lib/credenciales';
 import { clasificarEleven as clasificar, elSondeoDicePuede, pareceAudio, type FalloEleven } from './elevenlabs-fallo';
 import { wsSuperAdmin } from '@/lib/workspace';
 
@@ -109,25 +111,37 @@ export type Salida<T> =
   | { ok: false; motivo: FalloEleven; error: string };
 
 /**
- * La key de la PLATAFORMA. Nunca la del workspace en curso — ver arriba.
+ * La key de ElevenLabs DEL CLIENTE que está mirando.
  *
- * ⚠️ EL SEGUNDO ARGUMENTO ES EL PUNTO. `credWs(clave)` a secas resuelve por el
- * workspace del request, y su última línea devuelve `process.env[clave]` cuando
- * ese workspace es `OWNER_WS` — que es Mauricio, un CLIENTE. Llamarla sin
- * `wsSuperAdmin()` entrega la key de la plataforma adentro del workspace de un
- * cliente, y no falla: funciona.
+ * ⚠️ ERA LA DE LA PLATAFORMA HASTA EL 02/09/2026. El dueño lo dio vuelta porque
+ * la voz no se puede costear para todos: «haz que cada cliente traiga su api de
+ * eleven». Con eso, un cliente sin key no clona — y eso es un estado legítimo:
+ * el paso de voz se salta y el anuncio se monta con la voz que genera Flow.
  *
- * Medido el 02/09/2026: hay filas de `ELEVENLABS_API_KEY` en cuatro workspaces y
- * tres de ellos resuelven a la MISMA key. Hay un test que falla si esta llamada
- * pierde su segundo argumento.
+ * ⚠️ ES `credDelCliente` Y NO `credWs`, Y LA DIFERENCIA ES UNA SOLA LÍNEA SUYA.
+ * `credWs` cae a `process.env[clave]` cuando el workspace es `OWNER_WS`, que es
+ * MAURICIO: un cliente. Usarla acá le entregaría la cuenta de MaKo a él solo,
+ * facturada a la casa, y sin fallar — funcionaría. Hay un test que falla si esta
+ * llamada vuelve a ser `credWs`.
  *
- * `null` cuando no está cargada, que es un estado que la pantalla sabe mostrar:
- * el paso de voz se salta y el anuncio se monta con la voz de Flow.
+ * ⚠️ Y NO HAY FALLBACK a la key de la casa a propósito. Un fallback silencioso es
+ * exactamente «seguimos pagando y nadie lo ve», que es lo que este cambio vino a
+ * cerrar. Sin key se apaga la feature y la pantalla dice cómo encenderla.
  */
-export async function elevenKey(): Promise<string | null> {
-  return credWs('ELEVENLABS_API_KEY', await wsSuperAdmin());
-}
+/**
+ * ⚠️ UNA SOLA VEZ, Y NO SEIS. Este texto estaba escrito a mano en las seis
+ * salidas de «no hay key», y las seis decían «cargada en la plataforma» — que
+ * desde que la voz es BYOK apunta al lugar equivocado: manda a esperar que MaKo
+ * arregle algo que se arregla en la pantalla del propio cliente.
+ *
+ * El texto completo, con el link, vive en `textoEleven('sin_key')`. Esto es el
+ * resumen que viaja en el campo `error` para quien no lo use todavía.
+ */
+const SIN_KEY = 'Falta conectar tu cuenta de ElevenLabs: la voz clonada corre con tu propia key.';
 
+export async function elevenKey(): Promise<string | null> {
+  return credDelCliente('ELEVENLABS_API_KEY');
+}
 async function pedir(ruta: string, init: RequestInit, key: string): Promise<Response> {
   return fetch(`${API}${ruta}`, {
     ...init,
@@ -158,7 +172,7 @@ async function pedir(ruta: string, init: RequestInit, key: string): Promise<Resp
  */
 export async function preflightEleven(): Promise<Salida<{ clonar: boolean; convertir: boolean }>> {
   const key = await elevenKey();
-  if (!key) return { ok: false, motivo: 'sin_key', error: 'No hay API key de ElevenLabs cargada en la plataforma.' };
+  if (!key) return { ok: false, motivo: 'sin_key', error: SIN_KEY };
 
   // Hace falta UNA voz cualquiera para armar la ruta del STS. Sirve una premade:
   // así el preflight no depende de que el clon del cliente ya exista, que es el
@@ -211,7 +225,7 @@ export async function clonarVoz(
   descripcion = '',
 ): Promise<Salida<{ voiceId: string }>> {
   const key = await elevenKey();
-  if (!key) return { ok: false, motivo: 'sin_key', error: 'No hay API key de ElevenLabs cargada en la plataforma.' };
+  if (!key) return { ok: false, motivo: 'sin_key', error: SIN_KEY };
   if (!muestras.length) return { ok: false, motivo: 'nuestra', error: 'No hay ningún audio con el que clonar.' };
 
   const fd = new FormData();
@@ -245,7 +259,7 @@ export async function clonarVoz(
  */
 export async function verificarVoz(voiceId: string): Promise<Salida<{ nombre: string }>> {
   const key = await elevenKey();
-  if (!key) return { ok: false, motivo: 'sin_key', error: 'No hay API key de ElevenLabs cargada en la plataforma.' };
+  if (!key) return { ok: false, motivo: 'sin_key', error: SIN_KEY };
   if (!voiceId) return { ok: false, motivo: 'voz_muerta', error: 'Este workspace no tiene ninguna voz clonada.' };
 
   const r = await pedir(`/voices/${encodeURIComponent(voiceId)}`, { headers: { accept: 'application/json' } }, key);
@@ -269,7 +283,7 @@ export async function verificarVoz(voiceId: string): Promise<Salida<{ nombre: st
  */
 export async function borrarVoz(voiceId: string): Promise<Salida<true>> {
   const key = await elevenKey();
-  if (!key) return { ok: false, motivo: 'sin_key', error: 'No hay API key de ElevenLabs cargada en la plataforma.' };
+  if (!key) return { ok: false, motivo: 'sin_key', error: SIN_KEY };
   if (!voiceId) return { ok: true, valor: true };
   const r = await pedir(`/voices/${encodeURIComponent(voiceId)}`, { method: 'DELETE' }, key);
   // Un 404 es el resultado buscado: ya no está.
@@ -300,7 +314,7 @@ export async function decirConVoz(
   texto: string,
 ): Promise<Salida<{ mp3: Buffer }>> {
   const key = await elevenKey();
-  if (!key) return { ok: false, motivo: 'sin_key', error: 'No hay API key de ElevenLabs cargada en la plataforma.' };
+  if (!key) return { ok: false, motivo: 'sin_key', error: SIN_KEY };
   if (!voiceId) return { ok: false, motivo: 'voz_muerta', error: 'Todavía no clonaste tu voz.' };
 
   // ⚠️ EL TOPE ES DE CUOTA, NO DE PROLIJIDAD. Esto se cobra por carácter y corre
@@ -363,7 +377,7 @@ export async function convertirVoz(
   mime = 'audio/wav',
 ): Promise<Salida<{ mp3: Buffer }>> {
   const key = await elevenKey();
-  if (!key) return { ok: false, motivo: 'sin_key', error: 'No hay API key de ElevenLabs cargada en la plataforma.' };
+  if (!key) return { ok: false, motivo: 'sin_key', error: SIN_KEY };
   if (!voiceId) return { ok: false, motivo: 'voz_muerta', error: 'Este workspace no tiene ninguna voz clonada.' };
 
   const fd = new FormData();

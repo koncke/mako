@@ -18,7 +18,7 @@ import { familiaDeArchivo } from '@/lib/formatos-archivo';
 import {
   getVozCliente, subirMuestra, borrarMuestra, leerMuestra, guardarClon, olvidarClon,
 } from '@/app/video-generator/voz-cliente';
-import { clonarVoz, borrarVoz, preflightEleven, verificarVoz } from '@/lib/elevenlabs';
+import { clonarVoz, borrarVoz, preflightEleven, verificarVoz, elevenKey } from '@/lib/elevenlabs';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -60,7 +60,17 @@ export async function GET() {
       // Acá cuesta una lectura y la pantalla puede ofrecer rehacerlo.
       let vivo: boolean | null = null;
       if (e.clon) vivo = (await verificarVoz(e.clon.voiceId)).ok;
-      return Response.json({ ok: true, ...e, vivo });
+      // ⚠️ SI HAY KEY SE CONTESTA ACÁ, no al final del paso.
+      //
+      // Desde que la voz es BYOK, un cliente puede no tener cuenta de ElevenLabs.
+      // Sin este dato la pantalla le pedía NOVENTA SEGUNDOS de grabación y recién
+      // al subirlos le contestaba que falta la key — o sea, le hacía gastar el
+      // trabajo entero para darle una noticia que se sabía desde el principio.
+      //
+      // Es sólo la presencia de la fila: no se le pega a ElevenLabs para esto,
+      // porque un GET de pantalla no puede depender de que el proveedor conteste.
+      const hayKey = (await elevenKey()) != null;
+      return Response.json({ ok: true, ...e, vivo, hayKey });
     } catch (err) { return Response.json({ ok: false, error: msg(err) }, { status: 500 }); }
   });
 }

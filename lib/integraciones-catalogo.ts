@@ -33,20 +33,23 @@ export const DEFS: Def[] = [
   { key: 'gemini', nombre: 'Google Gemini', categoria: 'Inteligencia', descripcion: 'IA de Google con 1M de contexto (BYOK por cliente).', envs: ['GEMINI_API_KEY'] },
   { key: 'cerebras', nombre: 'Cerebras', categoria: 'Inteligencia', descripcion: 'IA gratis y MUY rápida (Llama en su chip). Rota cuando Gemini se queda sin cuota.', envs: ['CEREBRAS_API_KEY'] },
   { key: 'mistral', nombre: 'Mistral AI', categoria: 'Inteligencia', descripcion: 'IA europea con free tier, otra gratis para rotar sin gastar.', envs: ['MISTRAL_API_KEY'] },
-  { key: 'openrouter', nombre: 'OpenRouter', categoria: 'Inteligencia', descripcion: 'Una key para decenas de modelos, varios gratis (sufijo ":free").', envs: ['OPENROUTER_API_KEY'] },
-  // ⚠️ `soloPlataforma` DESDE QUE EXISTE `lib/elevenlabs.ts`. La voz clonada del
-  // cliente la produce la cuenta de la PLATAFORMA, no la suya: la voz es MEDIOS
-  // —US$0,045/min contra US$0,00067 del texto, 67× y en grupos distintos a
-  // propósito— y el repo ya tiene escrito que cualquier diseño de imagen o video
-  // que asuma la key del cliente está muerto antes de empezar. Encima el plan
-  // gratis de ElevenLabs es NO COMERCIAL, así que una key de cliente en free tier
-  // produce audio que no se puede poner en un anuncio.
+  { key: 'openrouter', nombre: 'OpenRouter', categoria: 'Inteligencia', descripcion: 'Una key para decenas de modelos, varios gratis (sufijo ":free").', envs: ['OPENROUTER_API_KEY'] },  // ⚠️ ES BYOK DESDE EL 02/09/2026: la key la trae el CLIENTE.
   //
-  // ⚠️ Y ESCONDER LA TARJETA NO BORRA LAS FILAS QUE YA ESTÁN. Medido el
-  // 02/09/2026: hay filas de `ELEVENLABS_API_KEY` en cuatro workspaces, y tres de
-  // ellos —ws1, ws4 y ws9— resuelven a LA MISMA key. `credWs` a secas las sigue
-  // encontrando. Por eso `elevenKey()` resuelve siempre contra `wsSuperAdmin()`.
-  { key: 'elevenlabs', nombre: 'ElevenLabs', categoria: 'IA Generativa', descripcion: 'Voz por IA: clona la voz del cliente y la pisa sobre los clips de Flow.', envs: ['ELEVENLABS_API_KEY'], soloPlataforma: true },
+  // Estuvo marcada `soloPlataforma` con un porqué que sigue siendo cierto —la voz
+  // es MEDIOS, US$0,045/min contra US$0,00067 del texto, 67×— y esa misma cifra es
+  // la que lo dio vuelta: el dueño no puede costearla para todos. «Haz que cada
+  // cliente traiga su api de eleven… no podemos nosotros costear eso.»
+  //
+  // ⚠️ Lo que NO deja de ser cierto, y por eso vive en el tutorial del campo: el
+  // plan gratis de ElevenLabs es NO COMERCIAL. Una key en free tier produce audio
+  // que no se puede poner en un anuncio, y eso no falla — sale bien.
+  //
+  // ⚠️ Y sacar el flag NO borra las filas que ya estaban. Medido el 02/09/2026:
+  // ws1 y ws4 tenían cargada LA KEY DE MAKO en su propia fila, así que con BYOK
+  // puesto habrían seguido gastando la cuenta de la casa con cara de conexión
+  // propia. Se borraron a mano, y para que no vuelvan hay dos guardas:
+  // `NO_MIGRAR_A_WS` (el boot) y `esCredencialDeLaCasa` en datos-mau (la copia).
+  { key: 'elevenlabs', nombre: 'ElevenLabs', categoria: 'IA Generativa', descripcion: 'Voz por IA: clona tu voz y la pisa sobre los clips de Flow. Corre con tu cuenta.', envs: ['ELEVENLABS_API_KEY'] },
   // OJO: esta lista y la de lib/metodo-catalogo.ts tienen que coincidir EXACTO en los
   // `env`. Si no, credWs() devuelve null en silencio y la integración se ve cargada pero
   // no funciona — es el error clásico que la skill add-provider-integration advierte.

@@ -126,50 +126,79 @@ test('un JSON de error no se confunde con audio', () => {
 
 // ── De quién es la key ─────────────────────────────────────────────────────
 
-test('⚠️ la key de ElevenLabs NUNCA se resuelve por el workspace en curso', () => {
-  // `credWs(clave)` sin segundo argumento resuelve por el workspace del request,
-  // y devuelve `process.env[clave]` cuando ese workspace es OWNER_WS — que es
-  // Mauricio, un CLIENTE. La llamada no falla: funciona, y entrega la key de la
-  // plataforma adentro del workspace de un cliente.
+test('⚠️ la key de ElevenLabs es la DEL CLIENTE, y nunca cae al entorno', () => {
+  // ⚠️ ESTE TEST ESTABA AL REVÉS HASTA EL 02/09/2026, y se invirtió en vez de
+  // borrarse: fijaba que la voz corriera con la cuenta de la plataforma, y el
+  // dueño lo dio vuelta porque no la puede costear («haz que cada cliente traiga
+  // su api de eleven»). Lo que el test protege es lo mismo de siempre: que la
+  // pregunta «¿de quién es esta key?» no dependa de acordarse de un argumento.
   //
-  // Medido el 02/09/2026: hay filas de esta key en CUATRO workspaces y tres
-  // resuelven a la misma. Por eso el guard mira el código y no la intención.
+  // `credWs` cae a `process.env[clave]` cuando el workspace es OWNER_WS —que es
+  // Mauricio, un CLIENTE—, así que usarla acá le entregaría la cuenta de MaKo a
+  // él solo, facturada a la casa, y sin fallar: funcionaría. Por eso la única
+  // forma permitida es `credDelCliente`, que es `credWs` sin esa línea.
   const src = sinComentarios(readFileSync(join(RAIZ, 'lib/elevenlabs.ts'), 'utf8'));
-  // ⚠️ Se mira la LÍNEA entera y no una captura entre paréntesis: un
-  // `credWs('X', await wsSuperAdmin())` tiene paréntesis anidados, así que una
-  // captura de «todo lo que no sea cierre» corta en el de `wsSuperAdmin(` y deja
-  // afuera justo lo que hay que comprobar. Este test falló así la primera vez.
-  const lineas = src.split('\n').filter((l) => l.includes('credWs('));
-  assert.ok(lineas.length > 0, 'no se encontró ninguna llamada a credWs: ¿se renombró?');
-  for (const l of lineas) {
-    assert.match(
-      l,
-      /wsSuperAdmin\(\)/,
-      `«${l.trim()}» no resuelve contra el workspace de la plataforma`,
-    );
-  }
+
+  assert.doesNotMatch(src, /credWs\(/, 'volvió `credWs`: cae al entorno para OWNER_WS');
+  assert.doesNotMatch(src, /wsSuperAdmin\(/, 'volvió a resolver contra la plataforma: la voz la paga el cliente');
+
+  const lineas = src.split('\n').filter((l) => l.includes('credDelCliente('));
+  assert.equal(lineas.length, 1, 'la key se resuelve en UN solo lugar (elevenKey), no en cada función');
+  assert.match(lineas[0], /ELEVENLABS_API_KEY/);
 });
 
-test('ElevenLabs está declarada como credencial de PLATAFORMA en los DOS catálogos', () => {
-  // Los dos tienen que decir lo mismo, o una UI la esconde y la otra la muestra.
+test('la key de ElevenLabs no se siembra sola en el workspace de nadie', () => {
+  // ⚠️ LA GUARDA QUE MÁS CUESTA VER. Borrar la fila de un cliente no dura: el
+  // boot corre `migrarEnvACredenciales`, que RELLENA HUECOS desde el entorno, y
+  // el `.env.local` apunta a la base de PRODUCCIÓN. O sea que un `npm run dev`
+  // alcanzaba para que la cuenta de MaKo reapareciera dentro del ws1 disfrazada
+  // de conexión propia de Mauricio.
+  //
+  // Medido el 02/09/2026: ws1 y ws4 tenían la key de la casa en su propia fila.
+  const src = readFileSync(join(RAIZ, 'lib/credenciales.ts'), 'utf8');
+  const lista = /NO_MIGRAR_A_WS[^=]*=\s*new Set\(\[([^\]]*)\]\)/.exec(src)?.[1] ?? '';
+  assert.match(lista, /ELEVENLABS_API_KEY/, 'sin esto, el próximo boot re-siembra la key de la casa en el ws1');
+
+  // Y el otro camino por el que volvía: «Datos de Mau» copia las credenciales del
+  // ws1 al workspace destino. Pregunta a la MISMA lista y no a `soloPlataforma`,
+  // que es un flag que se apaga justo cuando una credencial pasa a BYOK.
+  const mau = sinComentarios(readFileSync(join(RAIZ, 'lib/datos-mau.ts'), 'utf8'));
+  assert.match(mau, /esCredencialDeLaCasa\(campo\.env\)/, 'datos-mau vuelve a copiar la cuenta de la casa');
+});
+test('ElevenLabs se le ofrece al CLIENTE en los DOS catálogos', () => {
+  // ⚠️ INVERTIDO el 02/09/2026, con el resto del cambio a BYOK. Antes fijaba
+  // `soloPlataforma: true` en los dos.
+  //
+  // Los dos tienen que decir lo mismo, y no es simetría estética: son flags
+  // distintos que hacen cosas distintas. El de `integraciones-catalogo` decide si
+  // se DIBUJA la tarjeta; el de `metodo-catalogo` lo lee `servicioDelContexto` en
+  // la ruta de credenciales, que es el choke point de guardar, verificar y
+  // revelar. Con uno solo sacado, el cliente ve la tarjeta y al guardar recibe
+  // «servicio inválido» — un mensaje que lo culpa a él por haber elegido bien.
   const tarjeta = DEFS.find((d) => d.key === 'elevenlabs');
   assert.ok(tarjeta, 'desapareció la tarjeta de ElevenLabs');
-  assert.equal(tarjeta.soloPlataforma, true, 'la tarjeta se le sigue ofreciendo a los clientes');
+  assert.ok(!tarjeta.soloPlataforma, 'la tarjeta volvió a esconderse de los clientes');
   const ficha = fichaDe('elevenlabs');
   assert.ok(ficha, 'desapareció la ficha de ElevenLabs');
-  assert.match(ficha, /soloPlataforma: true/, 'la ficha se le sigue ofreciendo a los clientes');
+  assert.doesNotMatch(ficha, /soloPlataforma: true/, 'la ficha volvió a cerrarle la API al cliente');
 });
-
-test('y su tutorial ya no le enseña a un cliente a sacar SU key', () => {
-  // El copy tiene que ser CIERTO: decía «usando tu propia cuenta de ElevenLabs» y
-  // «activa el acceso a Text to Speech». Las dos cosas dejaron de ser verdad, y un
-  // tutorial que enseña un trámite que el producto no usa manda a perder el tiempo.
+test('y su tutorial le enseña a sacar SU key, con la trampa del plan gratis', () => {
+  // ⚠️ TAMBIÉN INVERTIDO: este test PROHIBÍA la frase «tu propia cuenta de
+  // ElevenLabs» porque bajo el modelo viejo era mentira. Con BYOK volvió a ser la
+  // verdad, y lo que hay que fijar es lo que un cliente no puede adivinar solo.
   const texto = fichaDe('elevenlabs');
-  assert.doesNotMatch(texto, /tu propia cuenta de ElevenLabs/i);
-  assert.match(texto, /Speech to Speech/i, 'no nombra el permiso que de verdad hace falta');
+  assert.match(texto, /TU cuenta de ElevenLabs/i, 'el copy sigue hablando de la cuenta de la plataforma');
+
+  // ⚠️ LO MÁS IMPORTANTE DEL TUTORIAL, y no es un permiso: el plan GRATIS de
+  // ElevenLabs es de uso NO COMERCIAL. Una key en free tier produce audio que no
+  // se puede poner en un anuncio — y eso no falla, sale bien. Es la única parte
+  // que el cliente no puede descubrir usando el producto.
+  assert.match(texto, /NO COMERCIAL/i, 'no avisa que el plan gratis no sirve para anuncios');
+
+  // Y los dos permisos, que fallan en momentos distintos.
+  assert.match(texto, /Speech to Speech/i, 'no nombra el permiso que hace falta para convertir');
   assert.match(texto, /«Voices» con/i, 'no nombra el permiso de escritura de voces');
 });
-
 // ── El paso del onboarding ─────────────────────────────────────────────────
 
 test('el paso de voz es OPCIONAL, y de eso depende no re-encerrar a nadie', () => {

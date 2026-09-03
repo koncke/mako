@@ -133,6 +133,27 @@ export async function credWs(clave: string, ws?: number): Promise<string | null>
   return null;
 }
 
+/**
+ * La credencial PROPIA de un workspace. Nunca la de la plataforma.
+ *
+ * ⚠️ ES `credWs` SIN SU ÚLTIMA LÍNEA, Y ESA LÍNEA ES TODO EL PUNTO. `credWs`
+ * cae a `process.env[clave]` cuando el workspace es `OWNER_WS` — que es
+ * MAURICIO, un cliente. Para una credencial BYOK eso significa entregarle la
+ * cuenta de la plataforma a un cliente y facturársela a MaKo, sin que falle:
+ * funciona, y por eso nadie lo mira.
+ *
+ * Va acá y no en cada lib para que sea UN choke point: la pregunta «¿esta
+ * credencial es del cliente o de la casa?» se contesta eligiendo función, y no
+ * acordándose de pasar un segundo argumento.
+ *
+ * `null` cuando el cliente no cargó la suya, que es un estado legítimo: la
+ * feature se apaga y la pantalla lo dice.
+ */
+export async function credDelCliente(clave: string, ws?: number): Promise<string | null> {
+  const w = await wsDefault(ws);
+  const v = await credDeBase(w, clave);
+  return esValorReal(v) ? v : null;
+}
 // ── La barrera de arranque y el resolver de credenciales de PLATAFORMA ───────
 // Problema que resuelven (medido en producción el 2026-08-05):
 // `hidratarCredenciales()` corre en instrumentation.ts, pero Next 16 invoca
@@ -385,7 +406,22 @@ export async function hidratarCredenciales(): Promise<void> {
  * («migrarEnvACredenciales rellena huecos», la trampa anotada en .env.local).
  * En el catálogo la clave sigue: un CLIENTE sí puede pegar la suya (BYOK).
  */
-const NO_MIGRAR_A_WS: ReadonlySet<string> = new Set(['ZERNIO_API_KEY', 'ZERNIO_WEBHOOK_SECRET']);
+/**
+ * ⚠️ `ELEVENLABS_API_KEY` se sumó el 02/09/2026, al pasar la voz a BYOK.
+ *
+ * Sin esto, borrar la fila del ws1 no dura NADA: `migrarEnvACredenciales`
+ * rellena huecos, así que el próximo arranque la vuelve a escribir desde el
+ * entorno — y como el `.env.local` apunta a la base de PRODUCCIÓN, alcanza con
+ * que alguien corra `npm run dev` para que la cuenta de MaKo reaparezca
+ * disfrazada de conexión propia de Mauricio. Es exactamente el caso de Zernio
+ * que ya está contado arriba.
+ */
+const NO_MIGRAR_A_WS: ReadonlySet<string> = new Set(['ZERNIO_API_KEY', 'ZERNIO_WEBHOOK_SECRET', 'ELEVENLABS_API_KEY']);
+
+/** Para que otros módulos pregunten en vez de repetir la lista. */
+export function esCredencialDeLaCasa(clave: string): boolean {
+  return NO_MIGRAR_A_WS.has(clave);
+}
 
 export async function migrarEnvACredenciales(ws: number = OWNER_WS): Promise<number> {
   if (!supabaseConfigurado()) return 0;
