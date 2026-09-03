@@ -954,6 +954,7 @@ export const CURSO_TIKTOK_100K_JORDI_SEGUES: Curso = {
       videoId: '1ZBd6cn-PR9G1e37t-w_B4osHYuAhDMrW',
       resumen: '',
       transcripcion: [],
+      hasTx: true,
       recursoSlugs: [],
       herramientas: [],
     },
