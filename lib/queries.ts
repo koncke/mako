@@ -27,7 +27,34 @@ import { encuentroGrabable } from './encuentro-ws';
 import { adjuntarFathomAutoThrottled } from './fathom-auto';
 import { registrarEtapasDerivadas } from './etapa-historial';
 import { etapaVigenteDe, slotDeReunion } from './funnel-etapas';
-import { leerTodo } from './supabase-paginado';
+import { leerTodo, leerPorPaginas, type OrdenPaginado, type ConsultaPaginada } from './supabase-paginado';
+
+/**
+ * Orden de TODO barrido de `marketing_metrics_daily` en este archivo.
+ *
+ * ⚠️ Las tres columnas son obligatorias y el `id` del final NO es adorno: hay
+ * UNA FILA POR ANUNCIO POR DÍA (level=ad desde la mig 0009), así que ni `fecha`
+ * ni `ad_id` son únicos, ni por separado ni juntos. Un orden con empates deja
+ * que Postgres reparta las filas empatadas distinto en cada request → el
+ * `.range()` de la página 2 se aplica sobre otro orden y salen filas repetidas y
+ * filas salteadas, sin ningún error. Acá eso es spend y conversiones sumados de
+ * más o de menos. Mismo molde que `ORDEN_METRICAS_CRONO` (lib/ads-analyst.ts) y
+ * `ORDEN_META` (lib/metricas-negocio.ts).
+ *
+ * Y el motivo de que TODA lectura de esta tabla pase por el paginado: PostgREST
+ * corta en 1000 filas y NO avisa (ver la cabecera de lib/supabase-paginado.ts).
+ * Medido en prod el 02/09/2026 sobre el ws1: un mes son 334 filas, un trimestre
+ * 838, y el histórico completo 1.614 — así que las tres lecturas SIN filtro de
+ * fecha (`getCACAcumulado`, `listCACMensual`, `getRevenueMensual`) ya venían
+ * cortadas, no era un riesgo futuro. La falla es silenciosa y siempre hacia
+ * abajo: menos spend del real, así que el ROAS y el CAC salen MEJORES de lo que
+ * son. Es la dirección que no hace sospechar; por eso no se descubre leyendo el
+ * código sino preguntando cuántas filas tiene la tabla por unidad de tiempo.
+ */
+const ORDEN_METRICAS: OrdenPaginado = [{ col: 'fecha' }, { col: 'ad_id' }, { col: 'id' }];
+
+/** La tabla de las métricas diarias, que este archivo lee en ocho lugares. */
+const T_METRICAS = 'marketing_metrics_daily';
 
 export type MarketingWindow = {
   // Rango
@@ -39,7 +66,13 @@ export type MarketingWindow = {
   impressions: number;            // Etapa 1 (Meta)
   landing_page_views: number;     // Etapa 2 (Meta Pixel)
   vsl_views: number | null;       // Etapa 3 (YouTube, null si no configurado)
-  agendamientos: number;          // Etapa 4 (count leads con fecha_agenda en rango — vía Calendly)
+  // Etapa 4. ⚠️ Son REUNIONES cuya fecha cae en el período (leads con
+  // `fecha_junta_1` en rango), NO agendamientos: incluye las reservadas antes
+  // del período y las que todavía no ocurrieron. Se llamaba `agendamientos` y su
+  // comentario juraba `fecha_agenda`, columna que no lee ninguna query del repo.
+  // Las dos preguntas son legítimas y distintas («cuántos reservaron en el
+  // período» vs «cuántas reuniones hubo»); ésta contesta la segunda.
+  reuniones_en_ventana: number;
   thanks_views: number | null;    // Etapa 5 (YouTube, video 9-min de intent real)
 
   // Métrica auxiliar (no es etapa del funnel, mide alcance de página Thanks)
@@ -156,27 +189,26 @@ async function _getMarketingWindow(
   const thanks_published_at = isoToFecha(thanksLatest?.raw_payload?.published_at);
   const thanks_prep_published_at = isoToFecha(thanksPrepLatest?.raw_payload?.published_at);
 
-  // Query paralelas: meta + youtube + panda + leads (agendamientos) + cierres
-  const [metaRes, ytRes, pandaRes, leadsRes, cierresRes] = await Promise.all([
-    supabase
-      .from('marketing_metrics_daily')
-      .select('fecha, impressions, landing_page_views, clicks, link_clicks, leads_count, reach, spend')
-      .eq('plataforma', 'meta')
-      .gte('fecha', start)
-      .lte('fecha', end),
-    supabase
-      .from('marketing_metrics_daily')
-      .select('fecha, youtube_video_id, youtube_video_type, youtube_views')
-      .eq('plataforma', 'youtube')
-      .gte('fecha', start)
-      .lte('fecha', end),
+  // Query paralelas: meta + youtube + panda + leads (reuniones) + cierres.
+  // Las tres de métricas van PAGINADAS (ver ORDEN_METRICAS): con una fila por
+  // anuncio por día, un trimestre ya son 838 filas contra el techo de 1000.
+  const enRango = (q: ConsultaPaginada) => q.gte('fecha', start).lte('fecha', end);
+  const [metaRows, ytRows, pandaRows, leadsRes, cierresRes] = await Promise.all([
+    leerTodo<MetaRow>(
+      supabase, T_METRICAS,
+      'id, fecha, ad_id, impressions, landing_page_views, clicks, link_clicks, leads_count, reach, spend',
+      { orden: ORDEN_METRICAS, eq: { plataforma: 'meta' }, filtros: enRango },
+    ),
+    leerTodo<YouTubeRow>(
+      supabase, T_METRICAS,
+      'id, fecha, ad_id, youtube_video_id, youtube_video_type, youtube_views',
+      { orden: ORDEN_METRICAS, eq: { plataforma: 'youtube' }, filtros: enRango },
+    ),
     // Panda Video (Fase 5 v2): la fuente honesta del VSL en el presente
-    supabase
-      .from('marketing_metrics_daily')
-      .select('fecha, video_plays')
-      .eq('plataforma', 'panda')
-      .gte('fecha', start)
-      .lte('fecha', end),
+    leerTodo<{ fecha: string; video_plays: number | null }>(
+      supabase, T_METRICAS, 'id, fecha, ad_id, video_plays',
+      { orden: ORDEN_METRICAS, eq: { plataforma: 'panda' }, filtros: enRango },
+    ),
     supabase
       .from('leads')
       .select('id', { count: 'exact', head: true })
@@ -190,16 +222,10 @@ async function _getMarketingWindow(
       .lte('fecha_cierre', end),
   ]);
 
-  if (metaRes.error) throw new Error(`Query Meta falló: ${metaRes.error.message}`);
-  if (ytRes.error) throw new Error(`Query YouTube falló: ${ytRes.error.message}`);
-  if (pandaRes.error) throw new Error(`Query Panda falló: ${pandaRes.error.message}`);
   if (leadsRes.error) throw new Error(`Query leads falló: ${leadsRes.error.message}`);
   if (cierresRes.error) throw new Error(`Query cierres falló: ${cierresRes.error.message}`);
 
-  const metaRows = (metaRes.data ?? []) as MetaRow[];
-  const ytRows = (ytRes.data ?? []) as YouTubeRow[];
-  const pandaRows = (pandaRes.data ?? []) as Array<{ fecha: string; video_plays: number | null }>;
-  const agendamientos = leadsRes.count ?? 0;
+  const reuniones_en_ventana = leadsRes.count ?? 0;
   const cierres_en_ventana = cierresRes.count ?? 0;
 
   // ── Meta aggregates ──
@@ -264,16 +290,16 @@ async function _getMarketingWindow(
       ? safeDiv(landing_page_views, vsl_views)
       : null;
 
-  // VSL → Agendamientos: solo si tenemos ambos
+  // VSL → Reuniones: solo si tenemos ambos
   const ratio_vsl_agenda =
-    vsl_views !== null && vsl_views > 0 && agendamientos > 0
-      ? safeDiv(vsl_views, agendamientos)
+    vsl_views !== null && vsl_views > 0 && reuniones_en_ventana > 0
+      ? safeDiv(vsl_views, reuniones_en_ventana)
       : null;
 
-  // Agendamientos → Thanks: de los que agendaron, cuántos vieron el video Thanks
+  // Reuniones → Thanks: de los que tienen reunión, cuántos vieron el video Thanks
   const ratio_agenda_thanks =
-    agendamientos > 0 && thanks_views !== null && thanks_views > 0
-      ? safeDiv(agendamientos, thanks_views)
+    reuniones_en_ventana > 0 && thanks_views !== null && thanks_views > 0
+      ? safeDiv(reuniones_en_ventana, thanks_views)
       : null;
 
   return {
@@ -284,7 +310,7 @@ async function _getMarketingWindow(
     impressions,
     landing_page_views,
     vsl_views,
-    agendamientos,
+    reuniones_en_ventana,
     thanks_views,
 
     clicks,
@@ -664,11 +690,19 @@ export const getCACAcumulado = cachedRead('getCACAcumulado', _getCACAcumulado, {
 async function _getCACAcumulado(hastaFecha?: string): Promise<CACAcumulado> {
   const supabase = (await getTenantDb());
 
-  let spendQuery = supabase
-    .from('marketing_metrics_daily')
-    .select('spend')
-    .eq('plataforma', 'meta');
-  if (hastaFecha) spendQuery = spendQuery.lte('fecha', hastaFecha);
+  // ⚠️ Sin filtro de fecha: es TODO el histórico, la lectura más grande que este
+  // archivo le hace a la tabla. Medida el 02/09/2026 en el ws1 son 1.614 filas,
+  // así que sin paginar venía cortada en 1.000 y el CAC acumulado se calculaba
+  // con el 62% del gasto — más barato de lo real, que es la dirección que nadie
+  // sospecha.
+  const spendRowsP = leerTodo<{ spend: number | null }>(
+    supabase, T_METRICAS, 'id, fecha, ad_id, spend',
+    {
+      orden: ORDEN_METRICAS,
+      eq: { plataforma: 'meta' },
+      filtros: (q) => (hastaFecha ? q.lte('fecha', hastaFecha) : q),
+    },
+  );
 
   let cierresQuery = supabase
     .from('leads')
@@ -676,12 +710,11 @@ async function _getCACAcumulado(hastaFecha?: string): Promise<CACAcumulado> {
     .eq('cerro', true);
   if (hastaFecha) cierresQuery = cierresQuery.lte('fecha_cierre', hastaFecha);
 
-  const [spendRes, cierresRes] = await Promise.all([spendQuery, cierresQuery]);
+  const [spendRows, cierresRes] = await Promise.all([spendRowsP, cierresQuery]);
 
-  if (spendRes.error) throw new Error(`Query spend acumulado falló: ${spendRes.error.message}`);
   if (cierresRes.error) throw new Error(`Query cierres acumulado falló: ${cierresRes.error.message}`);
 
-  const spend_total_mxn = (spendRes.data ?? []).reduce(
+  const spend_total_mxn = spendRows.reduce(
     (acc, r) => acc + Number(r.spend ?? 0),
     0,
   );
@@ -1002,28 +1035,32 @@ export type CACMensualEntry = {
 export async function listCACMensual(limit = 12): Promise<CACMensualEntry[]> {
   const supabase = (await getTenantDb());
 
-  // Pull spend Meta + leads con fecha_primer_pago en paralelo
-  const [spendRes, pagosRes] = await Promise.all([
-    supabase
-      .from('marketing_metrics_daily')
-      .select('fecha, spend')
-      .eq('plataforma', 'meta'),
+  // Pull spend Meta + leads con fecha_primer_pago en paralelo.
+  // ⚠️ El spend NO lleva filtro de fecha (la serie cubre todos los meses con
+  // pagos), así que es el histórico entero: paginado obligatorio. Y como de cada
+  // fila sólo sobrevive un acumulador por mes, va con `leerPorPaginas` — juntar
+  // el histórico en un array para terminar con un Map de doce claves es memoria
+  // tirada (la misma razón que en lib/ads-analyst.ts).
+  const spendPorMes = new Map<string, number>();
+  const [, pagosRes] = await Promise.all([
+    leerPorPaginas<{ fecha: string | null; spend: number | null }>(
+      supabase, T_METRICAS, 'id, fecha, ad_id, spend',
+      (filas) => {
+        for (const r of filas) {
+          if (!r.fecha) continue;
+          const ym = r.fecha.slice(0, 7); // YYYY-MM
+          spendPorMes.set(ym, (spendPorMes.get(ym) ?? 0) + Number(r.spend ?? 0));
+        }
+      },
+      { orden: ORDEN_METRICAS, eq: { plataforma: 'meta' } },
+    ),
     supabase
       .from('leads')
       .select('fecha_primer_pago')
       .not('fecha_primer_pago', 'is', null),
   ]);
 
-  if (spendRes.error) throw new Error(`Spend mensual falló: ${spendRes.error.message}`);
   if (pagosRes.error) throw new Error(`Pagos mensual falló: ${pagosRes.error.message}`);
-
-  // Agrupar spend por YYYY-MM (sumamos en MXN, convertimos al final del mes)
-  const spendPorMes = new Map<string, number>();
-  for (const r of spendRes.data ?? []) {
-    if (!r.fecha) continue;
-    const ym = r.fecha.slice(0, 7); // YYYY-MM
-    spendPorMes.set(ym, (spendPorMes.get(ym) ?? 0) + Number(r.spend ?? 0));
-  }
 
   // Contar primeros pagos por YYYY-MM
   const pagosPorMes = new Map<string, number>();
@@ -1082,15 +1119,21 @@ async function _getRevenueMensual(hasta: string, mesesMax = 18): Promise<Revenue
   }
   const start = `${months[0]}-01`;
 
-  const [soldRes, cashRes, spendRes, agendaRes] = await Promise.all([
+  // ⚠️ `mesesMax` son 18 meses por defecto, o sea prácticamente todo el histórico
+  // de la tabla (1.614 filas medidas): paginado. Sin él, este gráfico venía
+  // pintando el spend de los meses que entraran en las primeras 1.000 filas — y
+  // sin ORDER BY, cuáles entraban no estaba ni definido.
+  const [soldRes, cashRes, spendRows, agendaRes] = await Promise.all([
     supabase.from('leads').select('fecha_cierre, monto_cierre_usd').eq('cerro', true).gte('fecha_cierre', start),
     supabase.from('pagos').select('fecha_pago, monto_usd').eq('pagado', true).gte('fecha_pago', start),
-    supabase.from('marketing_metrics_daily').select('fecha, spend').eq('plataforma', 'meta').gte('fecha', start),
+    leerTodo<{ fecha: string | null; spend: number | null }>(
+      supabase, T_METRICAS, 'id, fecha, ad_id, spend',
+      { orden: ORDEN_METRICAS, eq: { plataforma: 'meta' }, filtros: (q) => q.gte('fecha', start) },
+    ),
     supabase.from('leads').select('fecha_junta_1').not('fecha_junta_1', 'is', null).gte('fecha_junta_1', start),
   ]);
   if (soldRes.error) throw new Error(`Revenue mensual (sold): ${soldRes.error.message}`);
   if (cashRes.error) throw new Error(`Revenue mensual (cash): ${cashRes.error.message}`);
-  if (spendRes.error) throw new Error(`Revenue mensual (spend): ${spendRes.error.message}`);
   if (agendaRes.error) throw new Error(`Revenue mensual (agendas): ${agendaRes.error.message}`);
 
   const sold = new Map<string, number>();
@@ -1109,7 +1152,7 @@ async function _getRevenueMensual(hasta: string, mesesMax = 18): Promise<Revenue
     const ym = r.fecha_pago.slice(0, 7);
     cash.set(ym, (cash.get(ym) ?? 0) + Number(r.monto_usd ?? 0));
   }
-  for (const r of (spendRes.data ?? []) as Array<{ fecha: string | null; spend: number | null }>) {
+  for (const r of spendRows) {
     if (!r.fecha) continue;
     const ym = r.fecha.slice(0, 7);
     spendMxn.set(ym, (spendMxn.get(ym) ?? 0) + Number(r.spend ?? 0));
@@ -1243,7 +1286,7 @@ export async function getFunnelEtapas(
       label: 'Formulario → Agenda',
       bloque: 'puente',
       entrada: mkt.leads_count,
-      salida: mkt.agendamientos,
+      salida: mkt.reuniones_en_ventana,
       benchmark: 'Del instant form a agendar la R1 — el puente clave del camino principal. Cruza Meta (forms) y Calendly (agendas): tomalo como tendencia. Subirlo = mejor seguimiento y CTA del VSL.',
       umbral: { rojo: 25, ambar: 45, max: 100 },
       fuenteKey: 'meta_insights',
@@ -1374,19 +1417,19 @@ async function _getFunnelSeries(
   const rangoInicio = inicios[0];
   const rangoFin = restarDiasISO(ultimoLunes, -6); // domingo de la última semana
 
-  const [metaRes, pandaRes, agendaRes, j1Res] = await Promise.all([
-    supabase
-      .from('marketing_metrics_daily')
-      .select('fecha, impressions, link_clicks, landing_page_views, leads_count')
-      .eq('plataforma', 'meta')
-      .gte('fecha', rangoInicio)
-      .lte('fecha', rangoFin),
-    supabase
-      .from('marketing_metrics_daily')
-      .select('fecha, video_plays')
-      .eq('plataforma', 'panda')
-      .gte('fecha', rangoInicio)
-      .lte('fecha', rangoFin),
+  // 12 semanas = 84 días. Medido el 02/09/2026 en el ws1: 767 filas de Meta, a
+  // dos semanas del techo de 1.000. Paginado.
+  const enRango = (q: ConsultaPaginada) => q.gte('fecha', rangoInicio).lte('fecha', rangoFin);
+  const [metaRows, pandaRows, agendaRes, j1Res] = await Promise.all([
+    leerTodo<{ fecha: string; impressions: number | null; link_clicks: number | null; landing_page_views: number | null; leads_count: number | null }>(
+      supabase, T_METRICAS,
+      'id, fecha, ad_id, impressions, link_clicks, landing_page_views, leads_count',
+      { orden: ORDEN_METRICAS, eq: { plataforma: 'meta' }, filtros: enRango },
+    ),
+    leerTodo<{ fecha: string; video_plays: number | null }>(
+      supabase, T_METRICAS, 'id, fecha, ad_id, video_plays',
+      { orden: ORDEN_METRICAS, eq: { plataforma: 'panda' }, filtros: enRango },
+    ),
     supabase
       .from('leads')
       .select('fecha_junta_1')
@@ -1399,7 +1442,7 @@ async function _getFunnelSeries(
       .lte('fecha_junta_1', rangoFin),
   ]);
 
-  for (const r of [metaRes, pandaRes, agendaRes, j1Res]) {
+  for (const r of [agendaRes, j1Res]) {
     if (r.error) throw new Error(`getFunnelSeries falló: ${r.error.message}`);
   }
 
@@ -1415,10 +1458,10 @@ async function _getFunnelSeries(
     if (a) f(a);
   };
 
-  for (const r of (metaRes.data ?? []) as Array<{ fecha: string; impressions: number | null; link_clicks: number | null; landing_page_views: number | null; leads_count: number | null }>) {
+  for (const r of metaRows) {
     add(semanaDe(r.fecha), (a) => { a.imp += r.impressions ?? 0; a.clk += r.link_clicks ?? 0; a.land += r.landing_page_views ?? 0; a.form += r.leads_count ?? 0; });
   }
-  for (const r of (pandaRes.data ?? []) as Array<{ fecha: string; video_plays: number | null }>) {
+  for (const r of pandaRows) {
     add(semanaDe(r.fecha), (a) => { a.vsl += r.video_plays ?? 0; });
   }
   for (const r of (agendaRes.data ?? []) as Array<{ fecha_junta_1: string | null }>) {
@@ -1511,24 +1554,35 @@ async function _getSenalesRecon(
   // Columnas del creativo (migración 0022). Si la migración aún no se aplicó,
   // la query falla con "column ... does not exist" → reintentamos sin ellas para
   // no romper toda la pantalla de Marketing (degradación elegante).
-  const BASE_ADS = 'fecha, ad_id, ad_name, campaign_name, adset_id, adset_name, spend, leads_count, agendas_meta, impressions, link_clicks, video_3s_views, video_thruplay, frequency';
-  const adsQuery = (cols: string) =>
-    supabase
-      .from('marketing_metrics_daily')
-      .select(cols)
-      .eq('plataforma', 'meta')
-      .not('ad_id', 'is', null)
-      .gte('fecha', start)
-      .lte('fecha', end);
+  // Las tres últimas columnas sólo existen si la mig 0022 ya corrió (ver el
+  // reintento de abajo).
+  type AdRow = { fecha: string; ad_id: string; ad_name: string | null; campaign_name: string | null; adset_id: string | null; adset_name: string | null; spend: number | null; leads_count: number | null; agendas_meta: number | null; impressions: number | null; link_clicks: number | null; video_3s_views: number | null; video_thruplay: number | null; frequency: number | null; ad_thumbnail_url: string | null; ad_permalink: string | null; ad_creative_sin_enlace: boolean | null };
 
-  let adsRes = await adsQuery(`${BASE_ADS}, ad_thumbnail_url, ad_permalink, ad_creative_sin_enlace`);
-  if (adsRes.error && /ad_thumbnail_url|ad_permalink|ad_creative_sin_enlace/.test(adsRes.error.message)) {
-    adsRes = await adsQuery(BASE_ADS);
+  // El `id` va en el select porque es la última columna del ORDER BY del paginado.
+  const BASE_ADS = 'id, fecha, ad_id, ad_name, campaign_name, adset_id, adset_name, spend, leads_count, agendas_meta, impressions, link_clicks, video_3s_views, video_thruplay, frequency';
+  const adsQuery = (cols: string) =>
+    leerTodo<AdRow>(supabase, T_METRICAS, cols, {
+      orden: ORDEN_METRICAS,
+      eq: { plataforma: 'meta' },
+      filtros: (q) => q.not('ad_id', 'is', null).gte('fecha', start).lte('fecha', end),
+    });
+
+  // El reintento sin las columnas de la mig 0022 se mantiene, pero ahora la
+  // consulta LANZA en vez de devolver `{ error }`: `leerTodo` no puede seguir
+  // paginando sobre una página que falló. El throw incluye el mensaje de
+  // PostgREST, así que el test de la columna faltante se hace sobre él.
+  let adRows: AdRow[];
+  try {
+    adRows = await adsQuery(`${BASE_ADS}, ad_thumbnail_url, ad_permalink, ad_creative_sin_enlace`);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (!/ad_thumbnail_url|ad_permalink|ad_creative_sin_enlace/.test(msg)) throw e;
+    adRows = await adsQuery(BASE_ADS);
   }
 
   // downByAd solo se consulta para anuncios presentes en el rango → traer SOLO
   // los leads atribuidos a esos ad_id, no el histórico completo de leads con UTM.
-  const adIdsRango = [...new Set(((adsRes.data ?? []) as unknown as Array<{ ad_id: string | null }>).map((r) => r.ad_id).filter((x): x is string => !!x))];
+  const adIdsRango = [...new Set(adRows.map((r) => r.ad_id).filter((x): x is string => !!x))];
 
   const [budgetRes, leadsRes] = await Promise.all([
     supabase
@@ -1541,10 +1595,8 @@ async function _getSenalesRecon(
       .select('meta_ad_id, fecha_junta_1, estado_lead, total_cobrado_usd')
       .in('meta_ad_id', adIdsRango),
   ]);
-  for (const r of [adsRes, budgetRes, leadsRes]) if (r.error) throw new Error(`getSenalesRecon falló: ${r.error.message}`);
+  for (const r of [budgetRes, leadsRes]) if (r.error) throw new Error(`getSenalesRecon falló: ${r.error.message}`);
 
-  type AdRow = { fecha: string; ad_id: string; ad_name: string | null; campaign_name: string | null; adset_id: string | null; adset_name: string | null; spend: number | null; leads_count: number | null; agendas_meta: number | null; impressions: number | null; link_clicks: number | null; video_3s_views: number | null; video_thruplay: number | null; frequency: number | null; ad_thumbnail_url: string | null; ad_permalink: string | null; ad_creative_sin_enlace: boolean | null };
-  const adRows = (adsRes.data ?? []) as unknown as AdRow[];
 
   // Gasto diario por adset (suma de sus anuncios) — para la señal de ritmo.
   const adsetDaySpendMxn = new Map<string, number>(); // key `${adset_id}|${fecha}`
@@ -1878,7 +1930,7 @@ export async function getResumenComparativo(hoy: string): Promise<ResumenCompara
 
   return {
     inversion_usd: mtd(mktAct.spend_usd, mktAnt.spend_usd),
-    agendas: mtd(mktAct.agendamientos, mktAnt.agendamientos),
+    agendas: mtd(mktAct.reuniones_en_ventana, mktAnt.reuniones_en_ventana),
     cash_usd: mtd(revAct.cash_collected_usd, revAnt.cash_collected_usd),
     cierres: mtd(revAct.cierres_en_periodo, revAnt.cierres_en_periodo),
     etiqueta_anterior: c.etiqueta,
@@ -2708,17 +2760,19 @@ async function _getFatigaAdsets(
   const supabase = (await getTenantDb());
   const d28 = restarDiasISO(hoy, 28);
   const d7 = restarDiasISO(hoy, 7);
-  const { data, error } = await supabase
-    .from('marketing_metrics_daily')
-    .select('fecha, adset_id, adset_name, spend, frequency, leads_count')
-    .eq('plataforma', 'meta')
-    .gte('fecha', d28)
-    .lte('fecha', hoy);
-  if (error) throw new Error(`Query fatiga adsets falló: ${error.message}`);
-
   type Row = { fecha: string; adset_id: string | null; adset_name: string | null; spend: number | null; frequency: number | null; leads_count: number | null };
+  const filas = await leerTodo<Row>(
+    supabase, T_METRICAS,
+    'id, fecha, ad_id, adset_id, adset_name, spend, frequency, leads_count',
+    {
+      orden: ORDEN_METRICAS,
+      eq: { plataforma: 'meta' },
+      filtros: (q) => q.gte('fecha', d28).lte('fecha', hoy),
+    },
+  );
+
   const porAdset = new Map<string, Row[]>();
-  for (const r of (data ?? []) as Row[]) {
+  for (const r of filas) {
     const k = r.adset_id ?? r.adset_name ?? 'sin_adset';
     const arr = porAdset.get(k) ?? [];
     arr.push(r);
@@ -2878,28 +2932,45 @@ async function _getTendencias(
   const n = periodos.length;
   const z = () => Array.from({ length: n }, () => 0);
 
-  const [metaRes, pandaRes, ytRes, vslPruebaRes, leadsRes, pagosRes] = await Promise.all([
-    supabase.from('marketing_metrics_daily').select('fecha, impressions, link_clicks, landing_page_views, spend, leads_count').eq('plataforma', 'meta').gte('fecha', rangoInicio).lte('fecha', rangoFin),
-    supabase.from('marketing_metrics_daily').select('fecha, video_plays, video_unique_viewers, video_retention_p50, video_avg_watch_seconds').eq('plataforma', 'panda').gte('fecha', rangoInicio).lte('fecha', rangoFin),
+  // El rango lo elige quien llama y puede ser de meses: las cuatro lecturas de
+  // métricas van paginadas (ver ORDEN_METRICAS).
+  const enRango = (q: ConsultaPaginada) => q.gte('fecha', rangoInicio).lte('fecha', rangoFin);
+  type YtRow = { fecha: string; youtube_views: number | null };
+  const [metaRows, pandaRows, ytRows, vslPruebaRows, leadsRes, pagosRes] = await Promise.all([
+    leerTodo<{ fecha: string; impressions: number | null; link_clicks: number | null; landing_page_views: number | null; spend: number | null; leads_count: number | null }>(
+      supabase, T_METRICAS,
+      'id, fecha, ad_id, impressions, link_clicks, landing_page_views, spend, leads_count',
+      { orden: ORDEN_METRICAS, eq: { plataforma: 'meta' }, filtros: enRango },
+    ),
+    leerTodo<{ fecha: string; video_plays: number | null; video_unique_viewers: number | null; video_retention_p50: number | null; video_avg_watch_seconds: number | null }>(
+      supabase, T_METRICAS,
+      'id, fecha, ad_id, video_plays, video_unique_viewers, video_retention_p50, video_avg_watch_seconds',
+      { orden: ORDEN_METRICAS, eq: { plataforma: 'panda' }, filtros: enRango },
+    ),
     // VSL en YouTube (historia, antes de migrar a Panda) — para que la serie de plays no arranque de cero.
-    supabase.from('marketing_metrics_daily').select('fecha, youtube_views').eq('plataforma', 'youtube').eq('youtube_video_type', 'vsl').gte('fecha', rangoInicio).lte('fecha', rangoFin),
+    leerTodo<YtRow>(
+      supabase, T_METRICAS, 'id, fecha, ad_id, youtube_views',
+      { orden: ORDEN_METRICAS, eq: { plataforma: 'youtube', youtube_video_type: 'vsl' }, filtros: enRango },
+    ),
     // VSL ANTERIOR de prueba (0023): línea propia en Tendencias, NO entra al funnel
     // (youtube_video_type NULL → ignorado por vsl_views y por la serie 'vsl_plays').
-    supabase.from('marketing_metrics_daily').select('fecha, youtube_views').eq('plataforma', 'youtube').eq('youtube_video_id', VSL_PRUEBA_VIDEO_ID).gte('fecha', rangoInicio).lte('fecha', rangoFin),
+    leerTodo<YtRow>(
+      supabase, T_METRICAS, 'id, fecha, ad_id, youtube_views',
+      { orden: ORDEN_METRICAS, eq: { plataforma: 'youtube', youtube_video_id: VSL_PRUEBA_VIDEO_ID }, filtros: enRango },
+    ),
     supabase.from('leads').select('fecha_agenda, fecha_junta_1, asistio_j1, fecha_cierre, estado_lead').or(`fecha_agenda.gte.${rangoInicio},fecha_junta_1.gte.${rangoInicio},fecha_cierre.gte.${rangoInicio}`),
     supabase.from('pagos').select('fecha_pago, monto_usd, pagado').eq('pagado', true).gte('fecha_pago', rangoInicio).lte('fecha_pago', rangoFin),
   ]);
-  for (const r of [metaRes, pandaRes, ytRes, vslPruebaRes, leadsRes, pagosRes]) if (r.error) throw new Error(`getTendencias falló: ${r.error.message}`);
+  for (const r of [leadsRes, pagosRes]) if (r.error) throw new Error(`getTendencias falló: ${r.error.message}`);
 
   const imp = z(), clk = z(), land = z(), spendMxn = z(), leads = z();
-  for (const r of (metaRes.data ?? []) as Array<{ fecha: string; impressions: number | null; link_clicks: number | null; landing_page_views: number | null; spend: number | null; leads_count: number | null }>) {
+  for (const r of metaRows) {
     const i = idxDe(r.fecha); if (i < 0) continue;
     imp[i] += r.impressions ?? 0; clk[i] += r.link_clicks ?? 0; land[i] += r.landing_page_views ?? 0; spendMxn[i] += Number(r.spend ?? 0); leads[i] += r.leads_count ?? 0;
   }
   // VSL — plays por período + resumen (únicos/retención/tiempo) para sus cuadros.
   const vslPlays = z();
   let uniqueTotal = 0, retSum = 0, retN = 0, watchSum = 0, watchN = 0;
-  const pandaRows = (pandaRes.data ?? []) as Array<{ fecha: string; video_plays: number | null; video_unique_viewers: number | null; video_retention_p50: number | null; video_avg_watch_seconds: number | null }>;
   for (const r of pandaRows) {
     const i = idxDe(r.fecha); if (i >= 0) vslPlays[i] += Number(r.video_plays ?? 0);
     uniqueTotal += Number(r.video_unique_viewers ?? 0);
@@ -2907,14 +2978,14 @@ async function _getTendencias(
     if (r.video_avg_watch_seconds != null) { watchSum += Number(r.video_avg_watch_seconds); watchN++; }
   }
   // YouTube (historia del VSL) — se suma a la misma serie de plays.
-  for (const r of (ytRes.data ?? []) as Array<{ fecha: string; youtube_views: number | null }>) {
+  for (const r of ytRows) {
     const i = idxDe(r.fecha); if (i >= 0) vslPlays[i] += Number(r.youtube_views ?? 0);
   }
   // VSL anterior de prueba (0023): se suma a la MISMA línea "Plays del VSL"
   // (visualización histórica de plays a través de las versiones). Sigue FUERA
   // del funnel: vsl_views en getResumenMarketing solo cuenta youtube_video_type='vsl',
   // y este marcador tiene type NULL.
-  for (const r of (vslPruebaRes.data ?? []) as Array<{ fecha: string; youtube_views: number | null }>) {
+  for (const r of vslPruebaRows) {
     const i = idxDe(r.fecha); if (i >= 0) vslPlays[i] += Number(r.youtube_views ?? 0);
   }
   const agendas = z(), asistencias = z(), cierres = z();

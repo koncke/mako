@@ -153,7 +153,7 @@ export async function buildCampaignBrief(prompt: string): Promise<string> {
         const [w, r] = await Promise.all([getMarketingWindow(desde, hasta), getRevenuePeriod(desde, hasta)]);
         return [
           `Ventana ${desde} → ${hasta} (${w.dias_con_datos} días con datos):`,
-          `Gasto: ${usd(w.spend_usd)} USD · Leads: ${w.leads_count} · Agendas: ${w.agendamientos}`,
+          `Gasto: ${usd(w.spend_usd)} USD · Leads: ${w.leads_count} · Agendas: ${w.reuniones_en_ventana}`,
           `CPL: ${usd(w.cpl_global)} · CPM: ${usd(w.cpm_global)} · CPC: ${usd(w.cpc_global)} · CTR: ${w.ctr_global != null ? (w.ctr_global * 100).toFixed(2) + '%' : '—'}`,
           `CAC: ${usd(r.cac_usd)} USD · ROAS (cash): ${r.roas_cash != null ? r.roas_cash.toFixed(2) + 'x' : '—'} · Ticket vendido: ${usd(r.sold_revenue_usd, 0)}`,
         ].join('\n');

@@ -861,53 +861,89 @@ de Página en vez de System User. No se probó con token de Página.
 
 ---
 
-## Siete getters de `/marketing` devuelven un número truncado, y solo se nota si pedís un trimestre
+## Ocho getters de `/marketing` truncan a 1000 filas — y tres ya lo estaban haciendo en producción
 
 **Vive en:** `lib/queries.ts` · **Encontrado:** 02/09/2026, armando el reporte por período
-para el agente. Verificado adversarialmente contra las migraciones y contra producción.
+para el agente. **ARREGLADO el 02/09/2026**: los ocho pasan por `leerTodo`/`leerPorPaginas`
+con `ORDEN_METRICAS` (la constante nueva del propio archivo).
 
-**Síntoma.** Ninguno. Los números de `/marketing` son correctos todos los días.
+**Síntoma.** Ninguno. Por eso vivió meses.
 
 **La causa.** `marketing_metrics_daily` tiene **una fila por ANUNCIO y por DÍA** (level=ad
-desde la mig 0009), y estos siete la leen con un `.select().gte().lte()` pelado:
+desde la mig 0009), y estos ocho la leían con un `.select()` pelado:
 
 `getMarketingWindow` · `getCACAcumulado` · `listCACMensual` · `getRevenueMensual` ·
 `getFunnelSeries` · `getSenalesRecon` · `getFatigaAdsets` · `getTendencias`
 
 PostgREST corta en **1000 filas y no avisa** — no hay error, no hay flag, la respuesta
 viene corta (está documentado en la cabecera de `lib/supabase-paginado.ts`, y `queries.ts`
-**importa `leerTodo` y lo usa más abajo**, así que la casa ya sabía: estos quedaron del lado
-viejo).
+**importaba `leerTodo` y lo usaba más abajo**, así que la casa ya sabía: éstos quedaron del
+lado viejo).
 
-**Por qué no se nota, y cuánto margen queda.** El rango por defecto de `/marketing` son
-30 días, o sea ~280 filas: entra sobrado. **Medido en el ws1 el 02/09/2026, un trimestre
-(jun–ago) son 838 filas** — todavía por debajo del techo, pero al filo: son ~9,3 anuncios
-por día, así que **medio año (~1.700) ya trunca**, y un trimestre con 12 anuncios activos
-también. En total la tabla tiene 1.806 filas de `plataforma='meta'` del 2025-12-08 al
-2026-09-01, repartidas en 4 workspaces (ws1 = 1.614).
+⚠️ **EL PRIMER DIAGNÓSTICO —«está latente, no vivo»— ERA EL EQUIVOCADO, y la medición que
+lo respaldaba estaba bien hecha.** Se midió el trimestre (jun–ago 2026 = 838 filas contra
+1.000) y se concluyó que quedaban 162 filas de margen. Cierto para los cinco getters que
+llevan rango de fechas. Pero **tres de los ocho no tienen filtro de fecha ninguno**:
 
-O sea que hoy el bug está **latente, no vivo**: los números del trimestre que Mauricio pidió
-salen bien por 162 filas de margen. Lo que lo activa no es un cambio de código sino que el
-negocio prenda más anuncios o que alguien pida un rango más largo — y cuando pase, **la
-falla es en silencio y siempre hacia abajo**: la inversión sale menor de la real, así que el
-ROAS y el CAC salen *mejores* de lo que son. Es la dirección que no te hace sospechar.
+| Getter | Qué lee | Filas (ws1, 02/09/2026) |
+|---|---|---|
+| `getCACAcumulado` | todo el histórico | **1.614 → cortaba** |
+| `listCACMensual` | todo el histórico | **1.614 → cortaba** |
+| `getRevenueMensual` | 18 meses (= todo) | **1.614 → cortaba** |
+| `getFunnelSeries` | 84 días | 767 |
+| `getMarketingWindow` | 30 días (default) | 334 |
+| `getSenalesRecon` | 30 días | 334 |
+| `getFatigaAdsets` | 28 días | 316 |
+| `getTendencias` | el rango que le pidan | 334 a 30 días |
 
-**La regla:** el techo de 1000 filas no se descubre mirando el código —se ve bien— sino
-preguntando **cuántas filas tiene esa tabla por unidad de tiempo**. Si la respuesta se
-multiplica por algo (anuncios × días, leads × eventos), cualquier rango grande la pasa. Y
-el orden del paginado va con **tres columnas** (`fecha`, `ad_id`, `id`): ni `fecha` ni
-`ad_id` son únicos, y un orden con empates hace que el `.range()` de la página 2 se aplique
-sobre otro reparto — filas repetidas y salteadas, otra vez sin error. El molde correcto está
-en `lib/ads-analyst.ts` (`ORDEN_METRICAS_CRONO`) y en `lib/metricas-negocio.ts` (`ORDEN_META`),
-que es el único consumidor nuevo que ya lo hace bien.
+O sea: el CAC acumulado del dashboard se venía calculando con **el 62% del gasto**, la serie
+de CAC mensual perdía meses enteros, y el gráfico de ingresos-vs-inversión pintaba el spend
+de los meses que entraran en las primeras 1.000 filas — **sin `ORDER BY`, cuáles entraban ni
+siquiera estaba definido**. Todo hacia abajo: menos inversión de la real, así que el ROAS y
+el CAC salían *mejores*. La dirección que no hace sospechar.
+
+**La regla que queda, y es la que costó:** medir el caso típico contesta por el caso típico.
+**El techo se mide contra la lectura MÁS GRANDE de cada getter, y la más grande casi siempre
+es la que no tiene filtro** — que es justo la que no se ve al escanear el código buscando
+`.gte(`. Un `.select().eq()` sin fechas se lee más inofensivo que uno con rango, y es el
+peligroso. Contá los getters por su FILTRO, no por su forma.
+
+**Y la trampa de al lado:** el orden del paginado va con **tres columnas** (`fecha`,
+`ad_id`, `id`). Ni `fecha` ni `ad_id` son únicos, y un orden con empates hace que el
+`.range()` de la página 2 se aplique sobre otro reparto — filas repetidas y salteadas, otra
+vez sin error. El molde correcto ya estaba en `lib/ads-analyst.ts` (`ORDEN_METRICAS_CRONO`)
+y en `lib/metricas-negocio.ts` (`ORDEN_META`).
+
+**Cómo se midió, para repetirlo:** un script de `count: 'exact', head: true` por getter,
+reproduciendo su filtro exacto contra producción. Cuesta un minuto y contesta lo único que
+importa. **Y el propio script se pisó con el mismo bug**: su primera consulta pedía 5.000
+filas para contar por workspace y devolvió **exactamente 1.000** — el número redondo es la
+firma, y ahí estaba otra vez.
+
+**Lo que quedó SIN hacer** (mismo archivo, mismo defecto, medido el 02/09/2026):
+
+- ⚠️ **`getCampaignNameMap` (:3113) y `getAdNameMap` (:3153) TRUNCAN HOY**: leen la tabla
+  entera sin filtro de fecha (1.614 filas en ws1) para armar el mapa `id → nombre`. No
+  corrompen números —fallan a «Campaña 123 (sin nombre)»—, así que el daño es visible, pero
+  el mapa se usa en las pantallas de leads y del CRM. Van con `leerPorPaginas` + orden
+  `[fecha desc, ad_id, id]` (el first-wins de adentro depende del orden por fecha).
+- `getAgendasComparador` (:1745) y el spend de `getRevenuePeriodo` (:832): rango de fechas,
+  ~334 filas hoy. Latentes de verdad.
+- `getVslSerie` (:1966 y :1973): 56 días de YouTube y Panda, cardinalidad baja (287 y 80
+  filas en un trimestre). El último de la fila.
 
 **Y dos nombres que mienten, en el mismo archivo:**
 
-- `MarketingWindow.agendamientos` está documentado como «count leads con `fecha_agenda` en
+- `MarketingWindow.agendamientos` estaba documentado como «count leads con `fecha_agenda` en
   rango» y la query filtra por **`fecha_junta_1`**. No son agendamientos: son **reuniones
   cuya fecha cae en el período**, incluidas las futuras. Las dos preguntas son legítimas y
   distintas («cuántos reservaron en el trimestre» vs «cuántas reuniones hubo»), y hoy nadie
-  cuenta la primera: `fecha_agenda` no lo usa ninguna query del repo.
+  cuenta la primera: `fecha_agenda` no lo usa ninguna query del repo. **Renombrado a
+  `reuniones_en_ventana` el 02/09/2026** (hace juego con el `cierres_en_ventana` de al lado),
+  junto con sus cinco consumidores. Lo que NO se tocó es la `key: 'agendamientos'` del
+  catálogo de `lib/experimentos.ts`: viaja a la columna `experimentos.metrica` (mig 0047) y
+  renombrarla deja huérfano todo experimento guardado. Sí se corrigió su `desc`, que es lo
+  único que MaKo lee para elegir la métrica y decía «fecha de agenda».
 - `listar_campanas_meta` (`lib/mako-doer-acciones.ts`) sumaba `spend` —que está en **MXN**—
   y lo devolvía en un campo llamado `gasto_reciente_usd`: **17,3× inflado**, en la única tool
   que le da números de Meta a MaKo por WhatsApp. Y su `.limit(600)` sobre filas a nivel anuncio

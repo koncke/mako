@@ -142,7 +142,7 @@ export const METRICAS: MetricaDef[] = [
   { key: 'cpm', label: 'CPM (costo por mil impresiones)', formato: 'usd', mejor: 'bajar',
     desc: 'spend ÷ impresiones × 1000', extraer: (w) => w.cpm_global },
   { key: 'cpa', label: 'Costo por agenda', formato: 'usd', mejor: 'bajar',
-    desc: 'spend ÷ agendas', extraer: (w) => safeDiv(w.spend_usd, w.agendamientos) },
+    desc: 'spend ÷ agendas', extraer: (w) => safeDiv(w.spend_usd, w.reuniones_en_ventana) },
   { key: 'cac', label: 'CAC (costo por cierre)', formato: 'usd', mejor: 'bajar',
     desc: 'spend ÷ cierres en la ventana', extraer: (w) => w.cac },
   { key: 'ctr', label: 'CTR', formato: 'pct', mejor: 'subir',
@@ -152,15 +152,19 @@ export const METRICAS: MetricaDef[] = [
   { key: 'tasa_form', label: 'Tasa clic → formulario', formato: 'pct', mejor: 'subir',
     desc: 'formularios ÷ clics al enlace (%)', extraer: (w) => pct(w.leads_count, w.link_clicks) },
   { key: 'tasa_agenda', label: 'Tasa formulario → agenda', formato: 'pct', mejor: 'subir',
-    desc: 'agendas ÷ formularios (%)', extraer: (w) => pct(w.agendamientos, w.leads_count) },
+    desc: 'agendas ÷ formularios (%)', extraer: (w) => pct(w.reuniones_en_ventana, w.leads_count) },
   { key: 'impressions', label: 'Impresiones', formato: 'num', mejor: 'subir',
     desc: 'impresiones servidas (Meta)', extraer: (w) => w.impressions },
   { key: 'landing_page_views', label: 'Vistas de landing', formato: 'num', mejor: 'subir',
     desc: 'vistas de landing (Meta Pixel)', extraer: (w) => w.landing_page_views },
   { key: 'leads_count', label: 'Formularios completados', formato: 'num', mejor: 'subir',
     desc: 'instant forms completados (Meta)', extraer: (w) => w.leads_count },
+  // ⚠️ La `key` NO se toca: viaja a la columna `experimentos.metrica` (mig 0047)
+  // y renombrarla deja huérfano a todo experimento ya guardado. Lo que sí se
+  // corrigió es la `desc`, que es lo ÚNICO que lee MaKo para decidir: decía
+  // «fecha de agenda» y el número sale de `fecha_junta_1`.
   { key: 'agendamientos', label: 'Agendas', formato: 'num', mejor: 'subir',
-    desc: 'leads con fecha de agenda en la ventana (Calendly)', extraer: (w) => w.agendamientos },
+    desc: 'reuniones con fecha en la ventana (leads con fecha_junta_1 en rango)', extraer: (w) => w.reuniones_en_ventana },
   { key: 'vsl_views', label: 'Vistas de VSL', formato: 'num', mejor: 'subir',
     desc: 'vistas del VSL (YouTube)', extraer: (w) => w.vsl_views },
   { key: 'cierres', label: 'Cierres', formato: 'num', mejor: 'subir',

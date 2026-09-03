@@ -96,7 +96,7 @@ function recortar(nombre: string, max: number): string {
 
 /** ¿Tiene la ventana algún dato útil? (mismo criterio que retro-fuentes). */
 function ventanaTieneDatos(w: MarketingWindow): boolean {
-  return w.impressions > 0 || w.spend_usd > 0 || w.leads_count > 0 || w.landing_page_views > 0 || w.agendamientos > 0;
+  return w.impressions > 0 || w.spend_usd > 0 || w.leads_count > 0 || w.landing_page_views > 0 || w.reuniones_en_ventana > 0;
 }
 
 /** "Fuerza" del guion (misma fórmula que retro-fuentes, sin IA). */
@@ -166,7 +166,7 @@ function chartGraphics(w: MarketingWindow): RetroCharts['graphics'] | null {
     { label: 'Landing', valor: w.landing_page_views, conDato: true },
     { label: 'VSL', valor: w.vsl_views ?? 0, conDato: w.vsl_views !== null },
     { label: 'Formularios', valor: w.leads_count, conDato: true },
-    { label: 'Agendas', valor: w.agendamientos, conDato: true },
+    { label: 'Agendas', valor: w.reuniones_en_ventana, conDato: true },
     { label: 'Cierres', valor: w.cierres_en_ventana, conDato: true },
   ];
 

@@ -81,7 +81,7 @@ function bloque(header: string, lineas: Array<string | null | undefined>): strin
 
 // ¿tiene la ventana algún dato útil? (para omitir el área si está toda vacía)
 function ventanaTieneDatos(w: MarketingWindow): boolean {
-  return w.impressions > 0 || w.spend_usd > 0 || w.leads_count > 0 || w.landing_page_views > 0 || w.agendamientos > 0;
+  return w.impressions > 0 || w.spend_usd > 0 || w.leads_count > 0 || w.landing_page_views > 0 || w.reuniones_en_ventana > 0;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -98,7 +98,7 @@ async function textoAdquisicion(desde: string, hasta: string, prof: Profundidad)
   // Titulares (siempre)
   const titulares: string[] = [
     `- Gasto: ${fmtUSD(w.spend_usd)} · Impresiones: ${fmtNum(w.impressions)} · Alcance: ${fmtNum(w.reach)}`,
-    `- Leads (instant forms): ${fmtNum(w.leads_count)} · Agendas (R1): ${fmtNum(w.agendamientos)}`,
+    `- Leads (instant forms): ${fmtNum(w.leads_count)} · Agendas (R1): ${fmtNum(w.reuniones_en_ventana)}`,
     `- CPL (form): ${w.leads_count > 0 ? usd2(w.spend_usd / w.leads_count) : '—'} · CPC: ${usd2(w.cpc_global)} · CPM: ${usd2(w.cpm_global)} · CTR: ${pct(w.ctr_global, 2)}`,
   ];
 
