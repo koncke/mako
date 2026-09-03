@@ -834,6 +834,29 @@ const TITULO: Record<string, string> = {
    * una de varias, y atribuirle 153 clases enteras sería afirmar de más.
    */
   'certificacion-marketing-digital-ia': 'Certificación en Marketing Digital potenciada por IA - Vilma Núñez (Convierte Más)',
+
+  /**
+   * ── Los cuatro que nacieron de una CARPETA DE DRIVE con el autor mal partido ──
+   *
+   * El generador (`curso-plan-desde-drive.mjs`) saca el autor del nombre de la carpeta
+   * cortando por el ÚLTIMO « - ». Eso falla de tres formas distintas, y las tres están acá:
+   *
+   *   1. La carpeta usa EN-DASH (U+2013) en vez de guion: « – » no matchea « - », así que
+   *      el autor queda vacío aunque esté escrito ahí al lado.
+   *   2. La carpeta termina en un AÑO: «Growing Closer - … - 2024» → autor «2024».
+   *   3. Lo de la derecha no es una persona: en «Higher Levels – AE Mastery», «AE Mastery»
+   *      es el nombre del producto. Ninguna regla posicional puede distinguir eso de un
+   *      autor, así que el generador ahora AVISA en vez de adivinar y la verdad va acá.
+   *
+   * ⚠️ Los dos nombres que no estaban en la carpeta se sacaron del MATERIAL, no de afuera:
+   *    «Eloisa» se nombra en su propia clase, y en Higher Levels el que se nombra es el
+   *    producto («AE Mastery» ×6) bajo la marca («Higher Levels» ×2) — nunca una persona,
+   *    así que firma la marca y no se le inventa un autor.
+   */
+  'growing-closer-agustin-nievas-samuel-albaa': 'Growing Closer - Agustin Nievas + Samuel Albaa',
+  'higher-levels-ae-mastery': 'AE Mastery - Higher Levels',
+  'tiktok-100k-jordi-segues': 'TikTok 100k - Jordi Segués',
+  'youtube-2026': 'YouTube 2026 - Eloisa',
 };
 
 const AUTOR: Record<string, string> = {
@@ -940,6 +963,31 @@ const sinAutor = (titulo: string | undefined, slug: string): string | undefined 
  * su cabecera antes de tocarlo.
  */
 const RESUMEN: Record<string, string> = {
+  /**
+   * ── Los 13 que se cargaron DESDE DRIVE ──────────────────────────────────────────────
+   *
+   * Éstos NUNCA pasaron por cursoselite, así que no tienen `short_description` de origen
+   * que copiar: el barrido que puebla el resto de este mapa cruza contra el catálogo de la
+   * plataforma y estos no están ahí. Sin esta entrada, `cardDescEsGenerado()` detecta el
+   * «N clases en M módulos» de la plantilla y la tarjeta sale SIN descripción.
+   *
+   * ⚠️ Escritas desde el TEMARIO REAL de cada curso —los nombres de los módulos del
+   *    `plan.json`—, no desde el título. Es la única fuente que tenemos acá, y es la que
+   *    corresponde: un resumen inferido del nombre del curso afirma cosas que el material
+   *    puede no tener, que es justo lo que la regla del dato ajeno viene a evitar.
+   */
+  'agencia-6-cifras-v2': 'Montar una agencia de marketing y escalarla: selección de nicho e investigación de mercado, cómo dar resultados al cliente, funnels, campañas de Facebook Ads y el sistema de ventas para sostenerlas.',
+  'formula-ventas-ilimitadas-2024': 'Embudos de venta de punta a punta: la estrategia del embudo, el VSL, los anuncios de Facebook, el cierre por WhatsApp, el escalado y el remarketing.',
+  'growing-content-specialist': 'El puesto de content specialist: estrategia para tener ideas sin quedarse seco, filmmaking a distancia, edición de video y community management.',
+  'higher-levels-ae-mastery': 'El oficio de Account Executive en tech sales: discovery, demo, trial, negociación y cierre, más las objeciones más comunes y la relación con el SDR.',
+  'home-studio-and-viral-video-blueprint': 'Montar un home studio y producir video corto: preproducción, rodaje, edición y publicación, con el armado del set, su iluminación y el kit de apoyo.',
+  'linkedin-for-ceos': 'Construir presencia en LinkedIn como fundador: el perfil, el contenido que se publica y el sistema para sostenerlo.',
+  'metodo-contenido-irresistible': 'Contenido orgánico para productos, servicios y marca personal: la estrategia, los fundamentos del formato, la edición en CapCut y la optimización de lo que ya publicaste.',
+  'metolodogia-jads': 'Meta Ads en cinco fases: preparación de la cuenta, objetivos y segmentación, creativos y guiones, micro-experimentación, métricas y pixel, escalamiento y remarketing.',
+  'tiktok-100k-jordi-segues': 'Crecer en TikTok: elegir nicho y armar el perfil, cómo funciona el algoritmo, los formatos que rinden, de dónde sacar ideas y cómo construir el video, grabando en vivo.',
+  'universidad-de-youtube': 'Un canal de YouTube desde cero: nicho, planificación del contenido, miniaturas y títulos, el algoritmo, los requisitos de monetización y los canales automatizados.',
+  'youtube-2026': 'Masterclass sobre cómo cambió YouTube y qué está funcionando hoy en la plataforma.',
+
   // Textual de la plataforma (`vip_courses.short_description`). No lo trae el barrido
   // automático porque ése cruza contra /Catalog y este curso vive en /vip/.
   'arcadia': 'Programa de marca personal enfocado en posicionamiento, autenticidad y construcción de imagen profesional.',
@@ -1149,7 +1197,9 @@ const RESUMEN: Record<string, string> = {
 
   // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
   // del catálogo de la plataforma.
-  'domina-tus-redes-con-ia': 'aller de 4 días en vivo que enseña a usar IA para escribir guiones que se convierten en reels y videos, crear un avatar digital y clonar tu voz.',
+  // ⚠️ El origen trae el texto MUTILADO: su `short_description` empieza en «aller de 4
+  //    días» — se comió la T. Se corrige acá, que es lo que se publica.
+  'domina-tus-redes-con-ia': 'Taller de 4 días en vivo que enseña a usar IA para escribir guiones que se convierten en reels y videos, crear un avatar digital y clonar tu voz.',
 
   // Puestos por scripts/curso-categoria-portada.mjs desde la `short_description`
   // del catálogo de la plataforma.

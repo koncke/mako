@@ -35,11 +35,29 @@ if (!existsSync(dir)) { console.error(`\n  ✖ No existe ${dir}\n`); process.exi
 const slugDe = (s) => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   .replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase().slice(0, 80);
 
-// La convencion de Drive es «<Curso> - <Autor>». Si no la respeta, el autor queda vacio y
-// se avisa: sin el, la carpeta y el titulo desentonan con los otros 120.
-const corte = CARPETA.lastIndexOf(' - ');
-const CURSO = corte > 0 ? CARPETA.slice(0, corte).trim() : CARPETA.trim();
-const AUTOR = AUTOR_ARG || (corte > 0 ? CARPETA.slice(corte + 3).trim() : '');
+/**
+ * La convencion de Drive es «<Curso> - <Autor>». Partirla con `lastIndexOf(' - ')` falla
+ * de TRES formas distintas, y las tres pasaron de verdad en los 13 primeros cursos:
+ *
+ *   1. La carpeta usa EN-DASH (U+2013) o EM-DASH: « – » no matchea « - », asi que el autor
+ *      queda vacio aunque este escrito ahi al lado («TikTok 100k – Jordi Segues»).
+ *   2. La carpeta termina en un AÑO: «Growing Closer - Agustin Nievas + Samuel Albaa -
+ *      2024» dejaba de autor «2024». Un año no es una persona, y eso SI se puede decidir.
+ *   3. Lo de la derecha no es una persona sino el producto: en «Higher Levels – AE
+ *      Mastery», «AE Mastery» es el nombre del curso y «Higher Levels» la marca.
+ *
+ * ⚠️ El (3) NO se resuelve con otra regla: no hay nada en el string que distinga un autor
+ *    de un subtitulo, y adivinar acá inventa una persona que no existe. Asi que se corta
+ *    con lo que SI es deterministico (el separador y el año) y despues se AVISA para que
+ *    alguien lo mire — un autor equivocado se lee como un dato y nadie lo vuelve a revisar.
+ */
+const SEP = /\s[-–—]\s/g;                            // guion, en-dash o em-dash
+// El año final es del material, no del autor: se saca ANTES de buscar el separador.
+const SIN_ANIO = CARPETA.replace(/\s[-–—]\s(?:19|20)\d{2}\s*$/, '').trim();
+const cortes = [...SIN_ANIO.matchAll(SEP)];
+const corte = cortes.length ? cortes[cortes.length - 1].index : -1;
+const CURSO = corte > 0 ? SIN_ANIO.slice(0, corte).trim() : SIN_ANIO;
+const AUTOR = AUTOR_ARG || (corte > 0 ? SIN_ANIO.slice(corte + 3).trim() : '');
 const SLUG = SLUG_ARG || slugDe(CURSO);
 
 /**
@@ -120,7 +138,14 @@ const clases = crudos.map((x, i) => ({
 console.log(`\n  Curso  : ${CURSO}${AUTOR ? ` — ${AUTOR}` : ''}`);
 console.log(`  Carpeta: ${dir}`);
 console.log(`  Clases : ${clases.length} · módulos: ${new Set(clases.map((c) => c.modulo).filter(Boolean)).size}`);
-if (!AUTOR) console.log(`  ⚠ sin autor: la carpeta no sigue «<Curso> - <Autor>». Pasá --autor si corresponde.`);
+if (!AUTOR) {
+  console.log(`  ⚠ sin autor: la carpeta no sigue «<Curso> - <Autor>». Pasá --autor si corresponde.`);
+} else if (!AUTOR_ARG) {
+  // Se avisa SIEMPRE, aunque haya salido bien: lo que el corte no puede saber es si lo de
+  // la derecha es una persona o la segunda mitad del nombre del producto, y un autor
+  // equivocado se lee como un dato — nadie lo vuelve a revisar. Confirmarlo son 2 segundos.
+  console.log(`  → autor deducido de la carpeta: «${AUTOR}». Si no es una persona, corré con --autor.`);
+}
 
 // ── Los ids de Drive ────────────────────────────────────────────────────────────────
 console.log(`\n  Resolviendo ids de Drive (acotado a la carpeta del curso)…`);

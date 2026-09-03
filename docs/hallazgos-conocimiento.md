@@ -6678,3 +6678,166 @@ catálogo.
 Lo que queda, hasta que el criterio viva en un módulo único: **al tocar qué cuenta como
 "hecho", grepear el nombre de la marca en `scripts/` antes de cerrar.** Son dos segundos y
 es la única red que hoy existe.
+
+## «Este video no se puede ver» lo dijo GOOGLE, no nosotros — y `curl` no lo puede medir
+
+**Vive en:** `scripts/curso-drive-reproducible.mjs`
+
+Martín reportó (03/09/2026) que un curso no se veía, con la captura de Drive diciendo
+«This video file is unplayable» y «This file looks suspicious. It is visible only to the
+owner».
+
+Barrido sobre los **127 cursos** con `drive.json`, 2 videos cada uno (254 en total):
+**126 reproducen, 1 no** — `agencia-6-cifras-v2`, y ahí 7 de 8 muestreados. La causa es
+la segunda frase de la captura: **Google marcó esos archivos como sospechosos**, y a un
+archivo marcado no le genera la versión streameable. No es un bug del portal ni del
+pipeline; es la detección de abuso de Google sobre material pirateado (el propio módulo 00
+del curso se llama «Piratería, bienvenida y avisos importantes»).
+
+⚠️ **Y la hipótesis obvia era la equivocada, dos veces:**
+
+1. **«Son los archivos muy grandes/largos».** El que fallaba primero pesaba 394 MB y duraba
+   2h06, así que la teoría del tamaño se sostenía sola. La refutó el propio barrido: falla
+   un archivo de **26 MB** mientras 240 de todos los tamaños reproducen bien.
+2. **«Es el permiso de compartido».** También falso: probando el `preview` sin sesión,
+   `arcadia` (que reproduce) daba 404 y `agencia-6-cifras-v2` (que no) daba abierto.
+
+⚠️ **ESTO NO SE PUEDE MEDIR CON `curl`.** El `preview` de Drive es una página que arma el
+reproductor con JS: su HTML crudo es igual en los dos casos, y `curl` contestaba «abierto»
+sobre un video que en pantalla decía «unplayable». Hay que abrirla en un navegador de
+verdad, esperar a que monte y leer lo que dice. Y el detector se ata al TEXTO
+(«unplayable» / «Displaying»), nunca a `document.querySelector('video')`: el reproductor de
+Drive no expone un `<video>`, así que preguntar por él da «roto» sobre los 254.
+
+⚠️ **Un indeterminado no es un ok.** La primera corrida dio 12 «no sé», y los 12 eran los
+PRIMEROS del barrido — Chrome todavía calentando la sesión. Re-probados, los 12
+reproducían. Un barrido largo contra un navegador tiene un transitorio al principio, y si el
+indeterminado se colapsa a «bien» ese transitorio se publica como resultado.
+
+## El corte «Curso - Autor» falla de tres formas, y sólo dos se pueden decidir
+
+**Vive en:** `scripts/curso-plan-desde-drive.mjs` · `app/conocimientos/catalogo.ts` (mapa `TITULO`)
+
+El autor de un curso cargado desde Drive sale de partir el nombre de la carpeta por el
+último `' - '`. Sobre los 13 primeros falló en 4:
+
+| Carpeta | Daba | Por qué |
+|---|---|---|
+| `TikTok 100k – Jordi Segués` | *(sin autor)* | usa EN-DASH (U+2013): ` – ` no matchea ` - ` |
+| `Growing Closer - … - 2024` | `2024` | el último separador es el del AÑO |
+| `Higher Levels – AE Mastery` | *(sin autor)* | ahí «AE Mastery» es el PRODUCTO, no una persona |
+| `YouTube 2026 - Masterclass Eloisa` | `Masterclass Eloisa` | «Masterclass» no es parte del nombre |
+
+Los dos primeros **sí** se deciden: aceptar en/em-dash como separador y sacar un ` - AAAA`
+final antes de cortar son reglas deterministas, y el corte pasa de 3/7 a 7/7 sobre los casos
+conocidos. El tercero **no**: no hay nada en el string que distinga un autor de la segunda
+mitad del nombre del producto, y adivinar ahí le inventa una persona a un curso. Así que el
+generador ahora **avisa siempre** qué autor dedujo, y la verdad de los 4 vive en el mapa
+`TITULO` del catálogo.
+
+⚠️ **Los dos nombres que no estaban en la carpeta se sacaron del MATERIAL**, no de afuera:
+«Eloisa» se nombra en su propia clase, y en Higher Levels lo que se nombra es el producto
+(«AE Mastery» x6) bajo la marca («Higher Levels» x2) y nunca una persona — así que firma la
+marca. Es la regla de «lo que un material dice DE SÍ MISMO le gana a la etiqueta», aplicada
+al autor.
+
+⚠️ **Y el transcript de una clase es un array de STRINGS pelados**, no de objetos con
+`.texto`. Leerlo como objetos devuelve la cadena vacía para las 178 clases, sin error — o
+sea «este curso no menciona ningún nombre» sobre 1,9 MB de texto que sí los menciona.
+
+## El contraste elige activamente la peor portada
+
+**Vive en:** `scripts/curso-portada-candidatas.mjs` · `scripts/curso-portada-disenar.py`
+
+`curso-portada-desde-video.mjs` sacaba la portada mirando 4 offsets fijos del PRIMER video y
+quedándose con el de más contraste (`signalstats YDIF`). Martín: «las portadas están
+feas». Lo que produjo, mirado:
+
+- `higher-levels-ae-mastery` → un frame con **«Discord.gg/…» en rojo y gigante**: la marca
+  de agua del que pirateó el curso.
+- `youtube-2026` → una captura de **Zoom**, con la tira de miniaturas de los participantes.
+- `linkedin-for-ceos` → un documento compartido en pantalla, con otra marca de agua encima.
+- `universidad-de-youtube` → una oficina vacía, el autor descentrado y fuera de foco.
+
+**Un slide blanco con texto negro tiene MÁS contraste que una cara**, así que el criterio no
+es que fallara: es que prefiere exactamente lo que no sirve. Y no se arregla con otro
+desempate — «si hay que desempatar, todavía estás adivinando». Ninguna métrica de imagen
+sabe que ese texto rojo es una marca de agua de piratería y no el título del curso. Eso se
+ve MIRANDO, así que el script nuevo no elige: saca 12 candidatas **de videos distintos**
+(salteando el 15% inicial y el 10% final, porque la bienvenida es la clase que menos
+representa al curso) y arma una hoja de contacto numerada para que alguien elija.
+
+⚠️ **Y «foto del autor» vs «diseñarla» NO son dos caminos.** Las 30 portadas buenas del
+portal —las que vienen de la plataforma— son todas lo mismo: fondo oscuro, título grande,
+el autor recortado a un lado, un color de acento. La foto no reemplaza al diseño, **es una
+pieza del diseño**. Con un molde único, el curso que tiene buen plano del autor lo usa de
+mitad derecha y el que no lo tiene queda tipográfico con un monograma — y los dos se leen
+como del mismo portal, que es lo que una grilla de 132 tarjetas necesita.
+
+## Tres trampas del entorno, y la primera diagnosticada mal
+
+**Vive en:** `scripts/curso-portada-candidatas.mjs`
+
+1. **`tile` de ffmpeg TIENE UNA SOLA ENTRADA.** Apila los frames de UN stream en el tiempo;
+   no es un montador de N imágenes. Con N labels da «More input link labels specified for
+   filter 'tile' than it has inputs: 12 > 1». Para una grilla de N imágenes hay que
+   `concat` primero y tilear después — y `concat` exige que coincida también el **SAR**, así
+   que después de un `pad` va `setsar=1` o falla con «parameters do not match» aunque las 12
+   midan 640x360.
+
+   ⚠️ **Esto se diagnosticó primero como un problema de escapado del `fontfile`, y era
+   falso**: la fuente andaba desde el principio. Se probaron tres niveles de barras contra
+   un problema que no existía. La causa: el script mostraba **la ÚLTIMA línea del stderr**,
+   que decía «Error : Invalid argument» —genérico y compartido por las dos causas—, y el
+   mensaje real («More input link labels…») estaba tres líneas más arriba. Es la regla del
+   repo sobre mensajes recortados, pagada de nuevo y en la misma semana.
+
+2. **La consola de Windows es cp1252 y mata el script DESPUÉS de hacer el trabajo.** Un
+   `print` con una flecha o un tilde tira `UnicodeEncodeError` en la última línea, cuando el
+   archivo ya se escribió. El script sale con código 1 y se lee como «no hizo nada», con lo
+   cual la reacción natural —volver a correrlo— es sobre un archivo ya modificado. Va
+   `PYTHONIOENCODING=utf-8` en el entorno, o ASCII en los `print`.
+
+3. **`drawtext` en Windows no tiene fuente por defecto** («Fontconfig error: Cannot load
+   default config file»), y la ruta con letra de unidad necesita escapes dentro de un
+   filtergraph. Se esquiva copiando la fuente al directorio de trabajo y corriendo ffmpeg
+   con `cwd` ahí: sin `:` no hay nada que escapar.
+
+## Un panel de agentes no valida la GEOMETRÍA que vos les describiste: la aplica
+
+**Vive en:** `scripts/curso-portada-disenar.py` (el recorte) · corrida `portadas-elegir-frame`
+
+Para elegir la foto de portada de 13 cursos se lanzaron 13 agentes a mirar una hoja de
+contacto de 12 candidatas cada uno, más un auditor por elección. En el prompt les describí
+cómo usa la portada el fotograma:
+
+> «la portada recorta la MITAD DERECHA del fotograma […] si la persona está pegada al borde
+> izquierdo, no sirve»
+
+**Y la premisa que les di era falsa.** El código toma el **56% CENTRAL** (de x=141 a x=499
+sobre 640) y lo pega a la derecha del lienzo: un sujeto centrado se conserva **entero**.
+Corrida la aritmética del propio diseñador, el centro no es el peor lugar — es el mejor.
+
+El resultado: de 7 fotos elegidas, la auditoría confirmó **3**. Y al menos dos de los cuatro
+rechazos citan textualmente mi premisa —«no sobrevive el recorte a la mitad», «queda justo
+sobre la costura», «queda DEAD CENTER, la cara se parte al medio»—. O sea que **el error no
+se diluyó en 20 agentes: se multiplicó por 20**, y volvió con la forma de una auditoría
+adversarial bien argumentada, que es la evidencia más convincente que existe.
+
+Es la regla de «un agente no puede validar el dato que VOS le pasaste», corrida de los
+DATOS a las REGLAS. Un volcado mal medido produce conclusiones falsas sobre el contenido;
+una regla mal descrita produce **rechazos** — y un rechazo se ve igual de razonable que una
+aceptación, con la diferencia de que nadie lo va a auditar: quedan 13 portadas tipográficas
+y todo parece haber funcionado.
+
+- **Toda restricción geométrica o numérica que se le pasa a un panel se MIDE contra el
+  código antes de escribirla en el prompt.** Acá fueron seis líneas de aritmética sobre las
+  constantes del diseñador, y contestaban la pregunta exactamente.
+- **La firma para detectarlo: cuando casi TODOS rechazan, sospechá del enunciado.** Es la
+  misma señal que «cuando un chequeo marca 118 de 118, el que está mal es el chequeo». Un
+  panel unánime no confirma la regla — confirma que todos leyeron la misma regla.
+- **Y un criterio adversarial amplifica un enunciado equivocado.** «Ante la duda, rechazá»
+  es correcto sobre una premisa correcta; sobre una falsa convierte cada duda en un descarte.
+  El costo de las dos versiones NO es simétrico y hay que decirlo en el prompt: acá una
+  portada tipográfica de más no rompe nada, pero exigir un retrato de estudio a un fotograma
+  de alguien dando clase deja a los 13 cursos sin foto.
