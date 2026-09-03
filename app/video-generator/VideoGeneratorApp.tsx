@@ -622,6 +622,25 @@ export function VideoGeneratorApp({
   // hecho, que es exactamente la trampa que el gate viene a evitar.
   const [puenteVivo, setPuenteVivo] = useState(puente);
   const instalada = useExtensionInstalada();
+  /**
+   * ⚠️ ACÁ ARRIBA Y NO DONDE SE USA, PORQUE ES UN HOOK.
+   *
+   * Vivía a 800 líneas de acá, pegado al `puedeCrear` del catálogo — que es
+   * donde se lee. Eso era correcto cuando la línea era una COMPARACIÓN; al
+   * convertirla en `useExtensionVieja` pasó a ser un hook, y ahí quedó DESPUÉS
+   * de los `return` de las otras vistas.
+   *
+   * O sea: el render del catálogo ejecutaba un hook más que el del anuncio.
+   * React cuenta los hooks por render y aborta la pantalla entera cuando el
+   * número baja — «Minified React error #300», que en producción no dice ni el
+   * componente ni la línea. Reportado el 03/09/2026 sobre /video-generator: la
+   * pantalla se rompía al VOLVER del anuncio al catálogo.
+   *
+   * El lint lo caza (`react-hooks/rules-of-hooks`) y no corre en el pre-push:
+   * `npx eslint app/<carpeta> --rule '{"react-hooks/rules-of-hooks":"error"}'`
+   * lo encuentra en diez segundos, y es lo primero ante cualquier #300.
+   */
+  const extensionVieja = useExtensionVieja(instalada);
 
   // ⚠️ EL LATIDO LO PREGUNTA ESTA PANTALLA. Lo hacia el panel de configuracion,
   // que ya no existe; sin reemplazo, `ahoraTick` sigue corriendo y a los dos
@@ -1429,7 +1448,6 @@ export function VideoGeneratorApp({
   // adelante SIEMPRE, porque cada versión pasa por revisión— y daba `true` para
   // siempre: con eso se le escondía permanentemente el aviso del puente, que es
   // el único que esa persona sí puede resolver.
-  const extensionVieja = useExtensionVieja(instalada);
 
   // ¿El puente está andando AHORA? Se mira la FRESCURA de la última señal, no su
   // existencia: `ultimoVisto` es un campo con fecha, y usarlo como booleano ya
