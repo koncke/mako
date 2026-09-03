@@ -858,3 +858,60 @@ sin video que sube de golpe es la señal de que esto volvió a pasar.
 **No verificado:** por qué se cortó. Las hipótesis abiertas son un cambio de política de
 Meta sobre `source` (el campo viene siendo restringido hace tiempo), o que requiera token
 de Página en vez de System User. No se probó con token de Página.
+
+---
+
+## Siete getters de `/marketing` devuelven un número truncado, y solo se nota si pedís un trimestre
+
+**Vive en:** `lib/queries.ts` · **Encontrado:** 02/09/2026, armando el reporte por período
+para el agente. Verificado adversarialmente contra las migraciones y contra producción.
+
+**Síntoma.** Ninguno. Los números de `/marketing` son correctos todos los días.
+
+**La causa.** `marketing_metrics_daily` tiene **una fila por ANUNCIO y por DÍA** (level=ad
+desde la mig 0009), y estos siete la leen con un `.select().gte().lte()` pelado:
+
+`getMarketingWindow` · `getCACAcumulado` · `listCACMensual` · `getRevenueMensual` ·
+`getFunnelSeries` · `getSenalesRecon` · `getFatigaAdsets` · `getTendencias`
+
+PostgREST corta en **1000 filas y no avisa** — no hay error, no hay flag, la respuesta
+viene corta (está documentado en la cabecera de `lib/supabase-paginado.ts`, y `queries.ts`
+**importa `leerTodo` y lo usa más abajo**, así que la casa ya sabía: estos quedaron del lado
+viejo).
+
+**Por qué no se nota.** El rango por defecto de `/marketing` son 30 días. Con 12 anuncios
+activos eso son ~360 filas y entra sobrado. **Un trimestre son ~1080 y los rompe a todos a
+la vez**, en silencio y **siempre hacia abajo**: la inversión sale menor de la real, así que
+el ROAS y el CAC salen *mejores* de lo que son. Es la dirección que no te hace sospechar.
+
+Medido en producción al 02/09/2026: 1.806 filas de `plataforma='meta'`, del 2025-12-08 al
+2026-09-01, repartidas en 4 workspaces (ws1 = 1.614).
+
+**La regla:** el techo de 1000 filas no se descubre mirando el código —se ve bien— sino
+preguntando **cuántas filas tiene esa tabla por unidad de tiempo**. Si la respuesta se
+multiplica por algo (anuncios × días, leads × eventos), cualquier rango grande la pasa. Y
+el orden del paginado va con **tres columnas** (`fecha`, `ad_id`, `id`): ni `fecha` ni
+`ad_id` son únicos, y un orden con empates hace que el `.range()` de la página 2 se aplique
+sobre otro reparto — filas repetidas y salteadas, otra vez sin error. El molde correcto está
+en `lib/ads-analyst.ts` (`ORDEN_METRICAS_CRONO`) y en `lib/metricas-negocio.ts` (`ORDEN_META`),
+que es el único consumidor nuevo que ya lo hace bien.
+
+**Y dos nombres que mienten, en el mismo archivo:**
+
+- `MarketingWindow.agendamientos` está documentado como «count leads con `fecha_agenda` en
+  rango» y la query filtra por **`fecha_junta_1`**. No son agendamientos: son **reuniones
+  cuya fecha cae en el período**, incluidas las futuras. Las dos preguntas son legítimas y
+  distintas («cuántos reservaron en el trimestre» vs «cuántas reuniones hubo»), y hoy nadie
+  cuenta la primera: `fecha_agenda` no lo usa ninguna query del repo.
+- `listar_campanas_meta` (`lib/mako-doer-acciones.ts`) suma `spend` —que está en **MXN**— y
+  lo devuelve en un campo llamado `gasto_reciente_usd`: **17,3× inflado**, y es la única tool
+  que le da números de Meta a MaKo por WhatsApp. Además su `.limit(600)` sobre filas a nivel
+  anuncio cubre ~50 días con 12 anuncios y 6 días con 100, sin decir que recortó.
+
+**Y el corolario del cierre, que hace que dos pantallas no coincidan:** conviven **tres
+definiciones** de «cerró» (`cerro = true`, `estado_lead = 'ganado'`, `fecha_cierre NOT NULL`)
+y no siempre concuerdan. `getMarketingWindow` cuenta por `cerro`; `getTendencias` y
+`getFunnelEtapas`, por `estado_lead`. Si el motor del CRM movió la etapa y nadie tocó
+`cerro`, el CAC del dashboard y el de la serie discuten entre sí y ninguno avisa.
+`lib/metricas-negocio.ts` usa `cerro = true` a propósito: es la misma que
+`v_cohortes_mensuales`, para reconciliar con /comercial en vez de agregar una cuarta.

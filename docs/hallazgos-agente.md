@@ -139,3 +139,158 @@ pudo salir.
 - **La purga de turnos a los 90 días** se apoya en `purgar_despues` y **no hay nada que
   la corra**. Vive en `supabase/migrations/0124_agente_telemetria.sql`. Hoy la columna
   está escrita y los turnos no se borran solos.
+
+---
+
+## La skill no tenía los números, y la causa no era un olvido: era una decisión ajena
+
+**Vive en:** `lib/agente-contexto.ts` · `lib/cerebro-grafo.ts` · **Encontrado:** 02/09/2026,
+corrida de 47 agentes, a partir de «no creo que esté tomando ABSOLUTAMENTE todos los datos
+de cada cliente».
+
+**Síntoma.** El Claude del cliente sabía su oferta, sus avatares y su voz, y no podía
+contestar cuánto invirtió ni cuántas reuniones se hicieron. Mauricio lo pidió textual:
+«quiero ver un trimestre: inversión en Meta, impresiones, llegadas al landing VSL, juntas
+agendadas, juntas 1 realizadas, j2 realizadas… ¿puedo bajar la data?».
+
+**El diagnóstico obvio era el equivocado.** No faltaba cablear una fuente: **el cable no
+existía**. `construirCerebro()` hace 21 lecturas y las 21 son de onboarding — cero
+referencias a `marketing_metrics_daily`, `spend`, impresiones o leads en sus 988 líneas. Y
+eso **está bien** y está escrito acá al lado: el grafo excluye el volumen a propósito
+(«ni agregados aportan un nodo»), porque un nodo es algo que alguien señala y dice «eso es
+mío».
+
+**La causa real es que la skill colgaba del mismo pozo.** `agente-contexto.ts` reusa los
+getters del cerebro, así que **heredó una restricción de diseño GRÁFICO como si fuera un
+límite de DATOS**. Las siete rutas de `/api/agente/*` no tocaban una sola tabla de métricas.
+
+**La regla que queda:** cuando una capa nueva se construye reusando los getters de otra,
+hereda también sus EXCLUSIONES — y las exclusiones de la primera se decidieron para su
+medio, no para el nuevo. Antes de reusar un ensamblador, preguntá qué dejó afuera **a
+propósito** y si ese propósito aplica acá. Un grafo que no muestra un contador y una API
+que no lo devuelve se ven iguales en el código y son cosas distintas.
+
+**Lo que sí se puede contestar, y sin migración:** las tres fuentes existen, tienen fecha
+por fila y están en `TENANT_TABLES` (o sea que `getTenantDb()` las aísla sola):
+`marketing_metrics_daily` (gasto e impresiones por día), `landing_visits` + `vsl_events`
+(el tráfico propio) y `leads` (`fecha_agenda`, `fecha_junta_1`/`asistio_j1`,
+`fecha_junta_2`/`asistio_j2`, `fecha_cierre`). Vive en `lib/metricas-negocio.ts`.
+
+---
+
+## Cuatro formas de que el reporte de un trimestre salga mal sin dar error
+
+**Vive en:** `lib/metricas-negocio.ts` (las cuatro están implementadas y comentadas ahí).
+
+1. **`asistio_j1` es TRI-ESTADO y el NULL no es un «no vino».** El único camino automático
+   a `true` es que el CRM automático encuentre una **grabación de Fathom**; sin esa
+   integración, `encuentroGrabable()` deja el campo en NULL a propósito. O sea que un
+   negocio que hizo sus 40 reuniones sale con «0 realizadas». Y el funnel del dashboard
+   deriva el no-show como `programadas − realizadas`, que mete a **todos los sin marcar**
+   adentro del no-show: el número es plausible y está inflado. Van tres columnas separadas
+   (`realizadas` / `noshow` / `sin_marcar`), nunca una resta.
+2. **Las fechas de reunión se PISAN al reagendar y se BORRAN al cancelar.** Una R1
+   reservada en enero y movida a abril cuenta en abril y desaparece del primer trimestre;
+   una reunión futura cancelada deja `fecha_junta_1 = NULL` y sale del reporte entera. El
+   número honesto es «reuniones que HOY tienen fecha en este período», y hay que decirlo
+   con esas palabras.
+3. **Hay tráfico que no es tráfico, y son tres fuentes distintas.** La columna `prueba`
+   (mig 0134, el probador de /integraciones), el **preview del editor de Lovable**
+   (`id-preview--*.lovable.app`, `*.lovableproject.com` — hay `esPreviewDeEditor()` en
+   `lib/landing-paginas.ts`, no se copia la regla) y el **autoplay** del VSL (`auto`, mig
+   0136 — se filtra con `not is true`, nunca con `eq false`: `auto` es NULL en todo lo
+   anterior a esa migración y NULL es «no lo sé»).
+4. **Las dos mitades del informe usan CALENDARIOS distintos.** `marketing_metrics_daily.fecha`
+   es día local del workspace (lo escribe `ayerEnTijuana`), y el resto del dashboard corta
+   `created_at` con `.slice(0,10)`, que es **UTC**. Poner las dos series lado a lado corre
+   los eventos propios hasta 8 horas al día siguiente — justo cuando se las compara. Se
+   convierte con `hoyEnTz(zona, …)`, y las columnas `DATE` se cortan directo (una DATE no
+   tiene zona; convertirla sería inventarle una).
+
+**Y la quinta, que no es del dato sino de la moneda:** `spend` viene en la **moneda de la
+cuenta publicitaria** (MXN en la de Mauricio) y `TIPO_DE_CAMBIO_USD_MXN` es una constante
+**escrita a mano** en `lib/config.ts`, sin retroactividad. Un trimestre viejo convertido a
+dólares usa la tasa de hoy. El número primario es el crudo; el USD va como derivado y con
+la tasa a la vista.
+
+---
+
+## Un `null` y un `0` no se dicen igual, y en una planilla la diferencia es una mentira
+
+**Vive en:** `lib/metricas-modelo.ts` (`FilaMetricas`, `celda`).
+
+Un `0` en la columna «inversión» AFIRMA un hecho del negocio («no invertiste»). Un `null`
+dice lo único que sabemos («no tenemos de dónde leerlo» — el workspace no tiene Meta
+conectado). Colapsarlos es la versión numérica de «un verde que cierra la pregunta sobre
+algo que se está perdiendo».
+
+Por eso el reporte lleva un bloque `cobertura` que dice, por fuente, si hay datos y **qué
+mirar si no los hay**; en el CSV un `null` sale como **celda vacía**, nunca como `0` ni
+como la palabra «null»; y en el markdown sale como raya. Hay un test que fija exactamente
+eso, porque es lo primero que se pierde en un refactor: `tests/metricas-modelo.test.ts`.
+
+Y el corolario del rango: **un mes sin una sola fila APARECE igual**, con ceros. Las claves
+salen del rango PEDIDO y no de los datos que volvieron — si se omitiera, el que lee la
+tabla no puede distinguir «no pasó nada» de «no se midió», y esas dos cosas llevan a
+decisiones opuestas.
+
+---
+
+## Exponer las tools de otro módulo: la lista va en POSITIVO, aunque hoy sean todas de lectura
+
+**Vive en:** `lib/agente-consultas.ts` · `app/api/agente/consultar/route.ts`.
+
+`/api/agente/consultar` corre `runMakoTool` —las MISMAS herramientas que MaKo adentro de
+la app— en vez de reimplementar nueve lecturas. Eso es «una cosa, un lugar» y es correcto.
+Lo que **no** se puede hacer es derivar la lista de lo expuesto de `MAKO_TOOLS`: la cabecera
+de ese módulo dice que los «proponer» (escrituras) llegan en la próxima fase, así que una
+lista derivada expone sola la primera que alguien agregue allá. La lista nombra lo que SÍ
+entra, y un test falla cuando `MAKO_TOOLS` crece — obliga a **decidir**, en vez de que la
+decisión la tome el default.
+
+**Y los nombres de los parámetros se sacan del `input_schema`, no de lo que parezca.** Tres
+de los nueve no se llaman como uno esperaría (`buscar_tutorial` pide `tema`,
+`buscar_conocimiento` pide `query`, `reuniones_recientes` no acepta `limite`), y un nombre
+equivocado **no da error**: la lib lee una clave que no llegó y contesta «pasa un texto para
+buscar», como si el agente no hubiera mandado nada. Los cruza `tests/agente-consultas.test.ts`
+contra el fuente de `mako-tools.ts` — se lee del archivo porque ese módulo lleva
+`server-only` y no se puede importar desde un test.
+
+---
+
+## El texto de la skill lo lee el CLIENTE, así que no va en rioplatense
+
+**Vive en:** `lib/agente-skill.ts` · **Lo cazó:** `tests/puente-panel-copy.test.ts`, no una
+revisión.
+
+Al sumarle las secciones nuevas a la skill se colaron un «decile» y un «decilo». La regla ya
+está en AGENTS.md («la voz de MaKo es rioplatense, y el texto DEL CLIENTE no») y aun así se
+escribió, porque el resto del archivo tiene la voz de la casa en los comentarios y la
+frontera no se ve al escribir. **Lo que la hace cumplir es el test, no la regla.** Vale la
+pena recordarlo cada vez que se le agrega una sección a un `.md` generado: el archivo es
+mitad documentación interna y mitad producto.
+
+---
+
+## Lo que quedó sin hacer (métricas del agente)
+
+- **El reporte no tiene grano `trimestre`.** Se pide con `desde`/`hasta` y `grano=mes`, que
+  alcanza, pero «Q1 2026» hay que traducirlo a fechas a mano. Vive en
+  `lib/metricas-modelo.ts` (`GRANOS`).
+- **`reach` y `frequency` no están y no pueden estar sumados** (no son aditivos). El único
+  valor correcto lo da Meta en vivo, y **solo por ANUNCIO o por CAMPAÑA**:
+  `/api/ad-insights` y `/api/entity-insights` devuelven `period.reach`. ⚠️
+  `/api/account-insights` **NO** los devuelve —solo `demograficos`, `plataformas`,
+  `regiones`, y ni siquiera le pide `frequency` a Meta—, así que a nivel CUENTA ese número
+  hoy no existe.
+- **Los plays del VSL tienen TRES fuentes y el reporte usa una** (`vsl_events`). Las otras
+  dos viven en `marketing_metrics_daily` con `plataforma='panda'` (`video_plays`) y la
+  historia de YouTube. No se mezclan porque miden cosas distintas, pero un total «de
+  verdad» las necesitaría.
+- **`curvaRetencion()` e `histogramaAbandono()` (`lib/vsl-retencion.ts`) son código muerto**:
+  sus únicos importadores son los tests. La lógica está escrita y testeada y ninguna
+  pantalla, API ni reporte la llama. Lo mismo `getVslSerie` (`lib/queries.ts`), que además
+  solo acepta «últimos N días terminando hoy».
+- **Las R2 sin match de lead no están en `leads`**: el webhook nunca crea un lead desde una
+  segunda reunión (en Calendly van a `review_queue` como `j2_sin_match`; en Cal.com se
+  pierden con un `console.warn`). El total real de R2 puede ser mayor que el del reporte.
