@@ -38,10 +38,22 @@ import 'server-only';
 // key de cliente en su free tier produce audio que no se puede poner en un
 // anuncio.
 //
-// ⚠️ El costo aceptado: los clones de todos los clientes viven en la cuenta de
-// ElevenLabs de quien pone la key. Los slots de voz son un techo de clientes, y
-// un workspace borrado deja un clon huérfano si nadie lo borra — por eso
-// `borrarVoz` existe y el reset lo llama.
+// ⚠️ ESO SE DIO VUELTA EL 02/09/2026: AHORA ES BYOK.
+//
+// Las dos razones de arriba siguen siendo ciertas, y una de ellas es la que lo
+// invirtió: si la voz cuesta 67 veces el texto, la casa no la puede costear para
+// todos. El dueño: «haz que cada cliente traiga su api de eleven». Así que el
+// costo lo paga quien lo usa, y `elevenKey()` resuelve la key DEL CLIENTE.
+//
+// Lo que NO cambió y por eso sigue escrito arriba: el plan gratis de ElevenLabs
+// es NO COMERCIAL. Ahora es una advertencia PARA EL CLIENTE, y vive en el
+// tutorial del campo — es lo único de todo esto que no se puede descubrir usando
+// el producto, porque no falla: sale bien.
+//
+// ⚠️ Los clones viven en la cuenta de quien pone la key, o sea la del cliente. Un
+// workspace borrado deja un clon huérfano EN SU PROPIA CUENTA si nadie lo borra —
+// por eso `borrarVoz` existe y el reset lo llama. Con BYOK eso pasó de ser un
+// costo nuestro a ser prolijidad en la cuenta ajena, pero se sigue haciendo.
 //
 // ── Medido el 02/09/2026 contra la cuenta real ────────────────────────────
 //
