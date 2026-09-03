@@ -734,3 +734,104 @@ para ver la pantalla en local, cuando el estado que causaba el bug vivía en el 
 dueño. **Un bug que depende del navegador se pide, no se reproduce.**
 
 *Corrida del 16/08/2026 — plan vacío de un cliente.*
+
+---
+
+## El recorte de 12 a 6 pasos (03/09/2026)
+
+Cinco pasos —lead magnet, avatares, cara de marca, personalidad, matriz— eran la
+**fábrica de creativos**, o sea la configuración de una tab, y se le pedían a todo
+cliente nuevo antes de dejarlo entrar a nada. Se mudaron a `/ads-writer` (el Copy
+Generator) y el Video Generator quedó detrás de él con un campo nuevo, `requiere`.
+
+**Vive en:** `lib/capas.ts`, `lib/tab-onboarding-catalogo.ts`, `lib/tab-onboarding-state.ts`,
+`lib/copygen-puente.ts`, `app/ads-writer/`, `app/onboarding/Listo.tsx`.
+
+### Sacar un paso puede dejar huérfano un proceso que nadie más empujaba
+
+**El diagnóstico obvio era el equivocado, y por eso vale la entrada.** Al sacar `retro`
+del recorrido, `integraciones` quedó último. Parece cosmético. Lo que rompió es otra cosa:
+`tickExtraccion()` —que trae el histórico de 365 días de Meta, leads, transcripciones,
+guiones, llamadas y VSL— tenía **un solo call-site en todo el repo**: `loopTicks`, un bucle
+del navegador que vive adentro de `OnboardingWizard.tsx`. O sea que el histórico avanzaba
+únicamente mientras el cliente tuviera el wizard abierto, y **no se podía reanudar nunca**:
+al cerrar el onboarding `status` pasa a `done`, la page deja de renderizar el wizard, y con
+él desaparece el único lugar capaz de llamar al tick. `extraction.status` quedaba en
+`running` para siempre, con el histórico a medias, sin error y sin síntoma.
+
+Lo tapaba un **accidente**: el paso `retro` iba después de conectar Meta y su pantalla era
+literalmente la sala de espera («todavía estoy leyendo tu histórico…», con el botón
+deshabilitado hasta que `meta_metrics` terminara). Retenía al cliente el tiempo suficiente
+para que al menos ese job cerrara. Los otros cinco ya quedaban huérfanos igual.
+
+**La regla que queda.** Antes de sacar un paso de un recorrido, preguntá **qué se apoyaba
+en el TIEMPO que ese paso hacía pasar**, no solo qué datos recogía. Una pantalla puede
+estar sosteniendo un proceso sin que nada en el código lo diga. Y la de fondo, que ya está
+en AGENTS.md: *después de escribir una salida, preguntá quién la llama* — un único
+call-site, en una pantalla que por diseño deja de existir justo cuando el trabajo todavía
+corre, es un proceso sin dueño. Se arregló con `app/api/cron/onboarding-extraccion` (cada
+15 min, sobre los workspaces con Meta). El `leaseAt` que ya tenía `tickExtraccion` contra
+dos pestañas alcanza para que el cron y el navegador convivan.
+
+### Una migración de pasos deja PENDIENTE a quien ya los hizo, y con `requiere` eso EXPULSA
+
+Los cinco pasos pasaron de `steps.entregable…angulos` (onboarding global) a
+`cg_entregable…cg_angulos` (`onboarding.tab.ads-writer`). Estado nuevo, claves nuevas,
+**cero puente**: `getEstadoTab` arranca del esqueleto, así que la tab figuraba pendiente
+en el 100% de los workspaces de producción — incluidos los que la completaron hace meses.
+
+Solo eso ya sería molesto. Con el `requiere` nuevo es una **expulsión**: un cliente que
+ayer filmaba anuncios abre `/video-generator`, `onboardingRequeridoPara` lo manda a
+`/ads-writer`, y ahí lo recibe un wizard de cinco pasos **que no tiene salida a propósito**
+pidiéndole que vuelva a cargar lo que ya cargó.
+
+**La regla.** Toda mudanza de claves de estado necesita su puente ANTES del guard que las
+consulta, y el puente corre en **las dos puertas** (la tab que mudó y la que depende de
+ella) — si no, el cliente igual se come un rebote por algo que ya tenía hecho. Vive en
+`lib/copygen-puente.ts`.
+
+Y la excepción deliberada a «estado vivo, no recordado»: acá el puente lee el **flag** del
+onboarding viejo, no el dato. La pregunta no es «¿este workspace tiene avatares?» sino
+«¿esta persona ya recorrió este paso?» — y un avatar sembrado por `clonar-dueno` contesta
+que sí a la primera y que no a la segunda.
+
+### Forzar un tema descubre los colores que estaban clavados
+
+El onboarding pasó a pintarse oscuro siempre. Con eso, `--primary` sube de luminosidad
+(#2F6FED → #7FA6F8) para poder leerse como texto — y el `color: '#fff'` clavado del botón
+de avance quedó en **2,41:1**, por debajo hasta del 3:1 de texto grande, en el único
+control de avance y en las once pantallas del recorrido.
+
+**La regla.** Un color que existe PARA un fondo se declara al lado de ese fondo, como
+`--on-sidebar` y `--on-ink`. Se agregó `--on-primary`, en las tres paletas que redefinen
+`--primary`. Un `#fff` literal encima de un token es una apuesta a que ese token nunca
+cambie de luminosidad.
+
+### `TemaOscuroScript` desactivaba el cleanup de `TemaOscuro`
+
+`TemaOscuro` decide si sacar `data-tema` al desmontarse mirando si YA estaba puesto al
+montarse — para no apagarle el oscuro a quien lo eligió para toda la app. Correcto, y el
+script lo rompía: como corre ANTES de la hidratación, el atributo **siempre** estaba, así
+que el cleanup no sacaba nada nunca.
+
+Fuga resultante: entrar a `/video-generator` y volver por el sidebar —navegación de
+cliente, sin documento nuevo— dejaba **la app entera** en oscuro, incluido el cliente que
+eligió el tema claro. Es el incidente del laboratorio de paletas por otra puerta.
+
+**La regla.** Cuando una pieza tiene que restaurar un estado previo y otra se lo pisa antes
+de que pueda leerlo, la que pisa tiene que **dejar dicho que fue ella**. El script ahora
+marca `data-tema-prestado` y el cleanup cree esa marca en vez de deducirla. Arregla las
+tres pantallas oscuras de una.
+
+### Lo que quedó SIN hacer
+
+- **El aside del onboarding (`escenario`) ya no se dibuja.** El modo `desnudo` lo ignora, y
+  el prop se sigue pasando en `OnboardingWizard.tsx` a propósito, para que volver atrás sea
+  borrar una línea. Si se decide que no vuelve, hay que sacar `PanelMarketing`, `FasePanel`
+  y `factsDePantalla` de ese archivo.
+- **Las pantallas de los 6 pasos que salieron siguen en `OnboardingWizard.tsx`** y hoy son
+  inalcanzables para toda capa. No están muertas por contrato (una capa futura podría
+  incluirlas), pero nadie las usa.
+- **El detector de voseo no cubre `invertís`, `hablás`, `entregás`, `corregís`, `aprobás`,
+  `lanzás`, `agendás`.** La primera estaba en producción, en la segunda pregunta del
+  diagnóstico, con el test en verde. Vive en `tests/puente-panel-copy.test.ts`.
