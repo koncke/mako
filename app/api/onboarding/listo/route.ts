@@ -83,7 +83,10 @@ export async function GET() {
     for (const def of Object.values(TAB_ONBOARDINGS)) {
       if (!navEnCapa(def.key, capa.id)) continue;
       if (!(await onboardingTabPendiente(def.key).catch(() => false))) continue;
-      config.push({ key: def.key, titulo: def.titulo.replace(/^Configuración (del |de la |de )?/i, ''), href: def.href ?? `/${def.key}` });
+      // El nombre DECLARADO, no uno derivado del título. Recortarle el prefijo al
+      // título con un regex daba «generador de video» y «email» — medido contra el
+      // catálogo real. Ver el campo `nombre` en lib/tab-onboarding-catalogo.ts.
+      config.push({ key: def.key, titulo: def.nombre ?? def.titulo, href: def.href ?? `/${def.key}` });
     }
     const rank = (k: string) => { const i = ORDEN_CONFIG.indexOf(k); return i < 0 ? ORDEN_CONFIG.length : i; };
     config.sort((a, b) => rank(a.key) - rank(b.key));

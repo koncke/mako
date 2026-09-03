@@ -42,6 +42,10 @@ import { AvataresView } from '../onboarding/AvataresView';
 import { PersonaView } from '../onboarding/PersonaView';
 import { PersonalidadView } from '../onboarding/PersonalidadView';
 import { MatrizView } from '../onboarding/MatrizView';
+// El oscuro se prende ACÁ y no en la page: este componente se desmonta al salir del
+// wizard (sin navegar), y su cleanup es lo único que devuelve al cliente el tema que
+// tenía. El porqué largo está en el comentario de page.tsx.
+import { TemaOscuro } from '../_components/TemaOscuro';
 import { marcarPasoCopyAction, type PasoCopyGen } from './onboarding-actions';
 
 const PASOS = ['cg_entregable', 'cg_avatares', 'cg_persona', 'cg_personalidad', 'cg_angulos'] as const;
@@ -100,6 +104,8 @@ export function OnboardingCopyGen({ alSalir }: { alSalir: () => void }) {
   };
 
   return (
+    <>
+    <TemaOscuro />
     <WizardShell
       titulo="Copy Generator · Configuración"
       pasos={PASOS}
@@ -129,7 +135,13 @@ export function OnboardingCopyGen({ alSalir }: { alSalir: () => void }) {
       {paso === 'cg_avatares' && <AvataresView onListo={marcarListo('cg_avatares')} />}
       {paso === 'cg_persona' && <PersonaView onListo={marcarListo('cg_persona')} />}
       {paso === 'cg_personalidad' && <PersonalidadView onListo={marcarListo('cg_personalidad')} />}
-      {paso === 'cg_angulos' && <MatrizView onListo={marcarListo('cg_angulos')} sinCabecera />}
+      {/* ⚠️ SIN `sinCabecera`. Ese flag esconde el «↺ Regenerar», y su propio
+          docstring dice por qué existe: la vista global de Content Machine ya pone
+          ese botón en su shell. Este wizard NO lo pone — así que pasarlo dejaría al
+          cliente mirando una matriz que no le gusta y sin ninguna forma de rehacerla,
+          en el único paso que no puede saltear. */}
+      {paso === 'cg_angulos' && <MatrizView onListo={marcarListo('cg_angulos')} />}
     </WizardShell>
+    </>
   );
 }

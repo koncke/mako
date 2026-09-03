@@ -2,11 +2,6 @@ import { requireRolWs } from '@/lib/tab-access';
 import { onboardingTabPendiente } from '@/lib/tab-onboarding-state';
 import { AdsWriterApp } from './AdsWriterApp';
 import { PuertaCopyGen } from './PuertaCopyGen';
-// El Copy Generator se pinta OSCURO como el resto de Content Machine. Las dos
-// mitades hacen falta: el `<script>` corre antes del primer pintado (sin él hay un
-// fogonazo blanco) y el componente cliente cubre volver por navegación y apagar el
-// atributo al salir. Ver app/_components/TemaOscuro.tsx.
-import { TemaOscuroScript } from '@/app/_components/TemaOscuroScript';
 
 export default async function AdsWriterPage() {
   await requireRolWs([], { nav: 'ads-writer' });
@@ -21,10 +16,21 @@ export default async function AdsWriterPage() {
   const falta = await onboardingTabPendiente('ads-writer').catch(() => false);
   if (!falta) return <AdsWriterApp />;
 
-  return (
-    <>
-      <TemaOscuroScript />
-      <PuertaCopyGen><AdsWriterApp /></PuertaCopyGen>
-    </>
-  );
+  // ⚠️ ACÁ NO VA `TemaOscuroScript`, Y NO ES UN OLVIDO.
+  //
+  // Ese script pone `data-tema="oscuro"` en el <html> antes del primer pintado, y lo
+  // pone PARA SIEMPRE: lo único que lo saca es el cleanup de `TemaOscuro`, que decide
+  // si sacarlo mirando si el atributo YA estaba al montarse. Con el script puesto,
+  // siempre estaba — así que el cleanup no hace nada.
+  //
+  // En /second-brain y /video-generator eso da igual: la pantalla entera es oscura y
+  // solo se sale navegando, y una navegación parsea un documento nuevo sin el atributo.
+  // Acá NO: `PuertaCopyGen` sale del wizard con estado de cliente, sin navegar. El
+  // atributo quedaría pegado, la tab detrás —que es clara— saldría oscura, y de ahí en
+  // adelante toda la app también, incluido el cliente que eligió el tema claro.
+  //
+  // Así que el oscuro lo prende `TemaOscuro` DENTRO de `OnboardingCopyGen`, que se
+  // desmonta al salir y ahí sí restaura lo que el cliente tenía. Se paga un cuadro de
+  // fogonazo en la primera carga; se compra no dejarle la app pintada de otro color.
+  return <PuertaCopyGen><AdsWriterApp /></PuertaCopyGen>;
 }

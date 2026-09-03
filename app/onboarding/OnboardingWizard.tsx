@@ -688,7 +688,10 @@ export function OnboardingWizard() {
         error={error}
         puedeAvanzar={puedeAvanzar}
         enUltimo={enUltimo}
-        confirmLabel={armandoPlan ? 'MaKo está armando tu plan…' : data.pasos.includes('plan') ? 'Crear mi primer proyecto →' : 'Ver mi plan →'}
+        // El último botón ya NO promete una tab: lo que sigue es la pantalla de
+        // cierre, donde el cliente elige. Prometer «Ver mi plan →» y aterrizar en otra
+        // cosa es la clase de mentira chica que hace que nadie lea los botones.
+        confirmLabel={armandoPlan ? 'MaKo está armando tu plan…' : data.pasos.includes('plan') ? 'Crear mi primer proyecto →' : 'Terminar →'}
         siguienteLabel={
           p.key === 'retro' ? 'Seguir sin Retro →'
           : p.faseQ === data.fasePreguntas.length - 1 ? 'Ver mi diagnóstico →'

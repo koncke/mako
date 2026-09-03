@@ -24,6 +24,18 @@ export type TabOnboardingDef = {
   key: string;          // 'setting' — la key del nav
   titulo: string;       // "Dejemos tu setting listo"
   /**
+   * El nombre CORTO de la tab, para cuando hay que nombrarla dentro de una frase
+   * ("Te falta configurar: Copy Generator · Video Generator · WhatsApp").
+   *
+   * ⚠️ EXISTE PORQUE RECORTARLE EL PREFIJO AL `titulo` NO ALCANZA. Se probó con un
+   * regex que sacaba "Configuración del/de la/de" y el resultado, medido contra el
+   * catálogo real, era una lista con dos nombres rotos en minúscula: «generador de
+   * video» y «email». Un nombre de producto no se deriva de una frase — se declara.
+   *
+   * Ausente = se usa el `titulo` tal cual, que es feo pero nunca es incorrecto.
+   */
+  nombre?: string;
+  /**
    * `opcional`: el paso se muestra y se puede hacer, pero NO bloquea la tab. El
    * método oficial de WhatsApp y el email son mejoras, no requisitos — obligar a
    * pasar por ellos dejaba a un cliente con su número ya vinculado sin poder
@@ -72,6 +84,7 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
   whatsapp: {
     key: 'whatsapp',
     titulo: 'Configuración de WhatsApp',
+    nombre: 'WhatsApp',
     pasos: [
       { key: 'wa_no_oficial', label: 'Tu WhatsApp' },
       { key: 'wa_no_oficial_prueba', label: 'Verificación' },
@@ -86,6 +99,7 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
   email: {
     key: 'email',
     titulo: 'Configuración del email',
+    nombre: 'Email',
     // Acá NO son opcionales: son los únicos pasos de la tab. Lo son dentro del
     // Chat Agent, donde el email es una mejora sobre un canal que ya funciona.
     pasos: [
@@ -102,6 +116,7 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
   setting: {
     key: 'setting',
     titulo: 'Configuración del Chat Agent',
+    nombre: 'Chat Agent',
     pasos: [
       { key: 'wa_no_oficial', label: 'Tu WhatsApp' },
       { key: 'wa_no_oficial_prueba', label: 'Verificación' },
@@ -131,6 +146,7 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
   instagram: {
     key: 'instagram',
     titulo: 'Configuración de Instagram',
+    nombre: 'Instagram',
     pasos: [
       { key: 'zernio', label: 'Conexión con Zernio' },
       { key: 'conectar', label: 'Tu cuenta de Instagram' },
@@ -153,6 +169,7 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
   carousels: {
     key: 'carousels',
     titulo: 'Configuración de Carousels',
+    nombre: 'Carousels',
     pasos: [
       { key: 'carousels_instagram', label: 'Tu cuenta de Instagram', opcional: true },
       { key: 'carousels_contexto', label: 'Contexto del negocio' },
@@ -174,6 +191,7 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
   reels: {
     key: 'reels',
     titulo: 'Configuración de Reels',
+    nombre: 'Reels',
     pasos: [
       { key: 'reels_contexto', label: 'Contexto del negocio' },
       { key: 'reels_ensayo', label: 'Tu primer guion' },
@@ -209,6 +227,7 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
   'ads-writer': {
     key: 'ads-writer',
     titulo: 'Configuración del Copy Generator',
+    nombre: 'Copy Generator',
     pasos: [
       { key: 'cg_entregable', label: 'Tu lead magnet' },
       { key: 'cg_avatares', label: 'Tus avatares' },
@@ -239,6 +258,7 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
   'video-generator': {
     key: 'video-generator',
     titulo: 'Configuración del generador de video',
+    nombre: 'Video Generator',
     // PRIMERO EL GUION, DESPUÉS EL VIDEO. Sin el Copy Generator configurado no hay
     // guiones que filmar, y esta tab abre con una lista vacía que no explica nada.
     requiere: 'ads-writer',
@@ -280,6 +300,7 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
   'landing-an': {
     key: 'landing-an',
     titulo: 'Configuración del Landing Analyst',
+    nombre: 'Landing Analyst',
     pasos: [
       { key: 'analizar', label: 'Tu primera página analizada' },
       { key: 'seguimiento', label: 'Seguimiento puesto en la landing', opcional: true },
@@ -291,6 +312,7 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
   'landing-writer': {
     key: 'landing-writer',
     titulo: 'Configuración del Landing Generator',
+    nombre: 'Landing Generator',
     pasos: [
       { key: 'generar', label: 'Tu primera versión escrita' },
       { key: 'guardar', label: 'Una versión guardada', opcional: true },
@@ -313,6 +335,7 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
   stories: {
     key: 'stories',
     titulo: 'Configuración de Stories',
+    nombre: 'Stories',
     pasos: [
       { key: 'conectar', label: 'Tu cuenta de Instagram', opcional: true },
       { key: 'stories_contexto', label: 'Contexto del negocio' },
