@@ -391,6 +391,27 @@ const ORDEN = Object.keys(ACENTOS_ES) as AcentoId[];
  * Con el `Record` completo, agregar un paso sin decidir qué cierra no compila.
  * `ensayo` no está: lo marca aprobar el primer escenario, no este wizard.
  */
+/**
+ * Qué fila del catálogo cierra CADA paso. Completo, y por eso sirve para retomar.
+ *
+ * ⚠️ NO ES LO MISMO QUE `CLAVE_DE_PASO`, y confundirlos ya costó un bug. Aquel es
+ * el subconjunto que ESTE wizard marca con `marcarPasoVideoAction`; tres pasos los
+ * cierran otras actions (el acento y las muletillas los marcan sus propias
+ * `guardarXAction`, y el ensayo lo cierra aprobar el primer escenario).
+ *
+ * Para saber DÓNDE RETOMAR hacen falta los seis: con el subconjunto, un paso sin
+ * clave nunca se cuenta como pendiente, así que a alguien que dejó el acento sin
+ * contestar el wizard lo mandaba más adelante — saltándole justo lo que faltaba.
+ */
+const FILA_DE_PASO: Record<Paso, string> = {
+  puente: 'vg_puente',
+  cara: 'vg_cara',
+  acento: 'vg_acento',
+  muletillas: 'vg_muletillas',
+  voz: 'vg_voz',
+  ensayo: 'vg_ensayo',
+};
+
 const CLAVE_DE_PASO: Record<Exclude<Paso, 'acento' | 'muletillas' | 'ensayo'>, PasoVideoGen> = {
   cara: 'vg_cara',
   voz: 'vg_voz',
@@ -434,7 +455,7 @@ function Contexto({ eyebrow, children }: { eyebrow: string; children: React.Reac
 }
 export function OnboardingVideoGen({
   fotos, acentoInicial, muletillasIniciales, puente: puenteInicial, linea, creditos, anunciosPosibles,
-  acentoOrigen, acentoZona, alSalir,
+  acentoOrigen, acentoZona, hechos, alSalir,
 }: {
   fotos: { id: string; url: string }[];
   /** El que el server va a usar HOY: declarado si lo hay, inferido si no. */
@@ -457,17 +478,36 @@ export function OnboardingVideoGen({
   /** De dónde salió el acento. Ver el porqué en `EstadoContextoVideo`. */
   acentoOrigen: 'declarado' | 'zona-horaria' | 'default';
   acentoZona: string;
+  /** Las claves de los pasos ya cerrados. Se usa para retomar, no para saltear. */
+  hechos: string[];
   /** Salir del wizard sin recargar: el guard del server devolvería lo mismo. */
   alSalir: () => void;
 }) {
-  // ⚠️ EL PRIMERO DE `PASOS`, NO UNO ESCRITO A MANO.
-  //
-  // Estaba clavado en 'cara', que era el primero cuando se escribió. Al mover el
-  // puente al arranque el recorrido siguió abriendo en la segunda pantalla, con
-  // un «Atrás» a un paso que nadie había visto — y nada falla: `cara` sigue
-  // existiendo, así que ni el compilador ni un test dicen una palabra.
-  const [paso, setPaso] = useState<Paso>(PASOS[0]);
-  const [error, setError] = useState<string | null>(null);
+  /**
+   * Se abre donde la persona QUEDÓ, no en el primero.
+   *
+   * ⚠️ Estuvo clavado en el primer paso y el dueño lo reportó tres veces en una
+   * sola sesión acompañando a un cliente: «otra vez te hace repetir todo el
+   * onboarding cuando ya lo dejaste listo. Eso funciona muy mal».
+   *
+   * Y la parte que engaña: el progreso SÍ se guardaba —cada paso escribe su fila al
+   * avanzar— pero nadie lo leía al abrir. Desde afuera «no se guardó» y «no se leyó»
+   * se ven exactamente igual: la persona vuelve a ver la pregunta que ya contestó.
+   * Por eso el reporte fue «no se guarda el borrador», que manda a mirar el lugar
+   * equivocado.
+   *
+   * ⚠️ Es el PRIMERO PENDIENTE y no el último hecho + 1: si alguien completó el 1 y
+   * el 3 y se fue, hay que devolverlo al 2 — que es lo que falta— y no al 4.
+   *
+   * Los opcionales cuentan como hechos para esto: `vg_voz` se puede saltar, y
+   * frenar ahí a alguien que decidió no clonar su voz lo trae de vuelta al mismo
+   * paso cada vez que abre la tab.
+   */
+  const [paso, setPaso] = useState<Paso>(() => {
+    const cerrado = new Set(hechos);
+    const pendiente = PASOS.find((p) => !cerrado.has(FILA_DE_PASO[p]));
+    return pendiente ?? PASOS[0];
+  });  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   // ── La cara ──

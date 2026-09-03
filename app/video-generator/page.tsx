@@ -17,7 +17,7 @@ import { puestasOfrecidas } from '@/lib/puestas-data';
 import { leerAnuncios } from './anuncios-datos';
 import { leerSaldoGuardado, costoPorClip } from './saldo-datos';
 import { VideoGeneratorApp } from './VideoGeneratorApp';
-import { onboardingRequeridoPara } from '@/lib/tab-onboarding-state';
+import { onboardingRequeridoPara, getEstadoTab } from '@/lib/tab-onboarding-state';
 import { puentearPasosCopyGen } from '@/lib/copygen-puente';
 import { redirect } from 'next/navigation';
 import { PuertaVideoGen } from './PuertaVideoGen';
@@ -116,6 +116,25 @@ export default async function Page() {
     />
   );
 
+  /**
+   * Qué pasos del onboarding ya están hechos.
+   *
+   * ⚠️ SIN ESTO EL WIZARD ARRANCA SIEMPRE EN EL PRIMERO, y quien se fue en el paso
+   * 5 vuelve al 1. El dueño lo reportó tres veces en la misma sesión: «no se guarda
+   * el borrador de todo lo que hiciste», «que detecte en qué paso te habías quedado
+   * y te deje seguir ahí», «otra vez te hace repetir todo el onboarding cuando ya lo
+   * dejaste listo, eso funciona muy mal».
+   *
+   * ⚠️ Y NO ES QUE NO SE GUARDABA: cada paso escribe su fila al avanzar. Lo que
+   * faltaba era LEERLA al abrir. Desde afuera las dos fallas se ven idénticas —la
+   * persona vuelve a ver la pregunta que ya contestó— y llevan a arreglar cosas
+   * distintas.
+   */
+  const hechos = faltaOnboarding
+    ? Object.entries((await getEstadoTab('video-generator').catch(() => null))?.steps ?? {})
+        .filter(([, v]) => v?.done).map(([k]) => k)
+    : [];
+
   return (
     <>
       <TemaOscuroScript />
@@ -130,6 +149,7 @@ export default async function Page() {
           anunciosPosibles={anunciosPosibles}
           acentoOrigen={contexto.acento.origen}
           acentoZona={contexto.acento.zona}
+          hechos={hechos}
         >
           {app}
         </PuertaVideoGen>

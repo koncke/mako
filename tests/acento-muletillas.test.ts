@@ -5,6 +5,24 @@ import {
   ACENTOS_ES, MULETILLAS, resolverAcento, type AcentoId,
 } from '../lib/acento-workspace';
 import { TAB_ONBOARDINGS } from '../lib/tab-onboarding-catalogo';
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+/**
+ * El fuente SIN comentarios.
+ *
+ * ⚠️ Hace falta porque los comentarios de este repo CITAN el código que vienen a
+ * explicar —«acá decía `useState<Paso>(PASOS[0])`»— así que una guarda que busca
+ * ese texto se encuentra a sí misma explicada y da verde sobre el bug puesto.
+ */
+function sinComentarios(src: string): string {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+}
 
 // =============================================================================
 // Cómo habla el avatar del cliente — el acento DECLARADO y sus muletillas
@@ -130,4 +148,55 @@ test('la extensión va PRIMERO, y el catálogo dice lo mismo que la pantalla', (
   // pidiendo completar un paso que viene DESPUÉS. Pasó el 02/09/2026 con un
   // cliente delante: el paso 1 decía «antes falta completar Tu cara», que era el 2.
   assert.deepEqual(keys, ['vg_puente', 'vg_cara', 'vg_acento', 'vg_muletillas', 'vg_voz', 'vg_ensayo']);
+});
+
+// ── Retomar donde quedó ────────────────────────────────────────────────────
+
+test('el wizard sabe DÓNDE retomar, y el mapa que usa cubre los seis pasos', () => {
+  // ⚠️ EL BUG QUE ESTE TEST FIJA ES EL DEL MAPA INCOMPLETO, no el de retomar.
+  //
+  // Al escribir «arrancá en el primer paso pendiente» lo natural es usar
+  // `CLAVE_DE_PASO`, que ya existe y parece el mapa de paso→fila. Pero es un
+  // SUBCONJUNTO a propósito: sólo las tres que este wizard marca con
+  // `marcarPasoVideoAction`. Las otras tres las cierran otras actions.
+  //
+  // Con el subconjunto, un paso sin clave nunca cuenta como pendiente: a alguien
+  // que dejó el acento sin contestar el wizard lo manda MÁS ADELANTE, saltándole
+  // justo lo que falta. Y no falla — abre en una pantalla perfectamente válida.
+  const src = readFileSync(join(RAIZ, 'app/video-generator/OnboardingVideoGen.tsx'), 'utf8');
+
+  const mapa = /const FILA_DE_PASO: Record<Paso, string> = \{([^}]*)\}/.exec(src)?.[1] ?? '';
+  assert.ok(mapa, 'desapareció FILA_DE_PASO: ¿se volvió a usar el mapa incompleto?');
+
+  // Los seis pasos del recorrido tienen que estar. Si se agrega uno y no se suma
+  // acá, ese paso deja de poder ser «el pendiente» y el wizard lo saltea.
+  for (const paso of ['puente', 'cara', 'acento', 'muletillas', 'voz', 'ensayo']) {
+    assert.match(mapa, new RegExp(`\\b${paso}:`), `FILA_DE_PASO no cubre «${paso}»`);
+  }
+
+  // Y las filas que nombra tienen que existir en el catálogo de la tab, o el
+  // pendiente se calcula contra una clave que nadie escribe nunca.
+  const delCatalogo = new Set(TAB_ONBOARDINGS['video-generator'].pasos.map((x) => x.key));
+  for (const fila of mapa.match(/'vg_[a-z]+'/g) ?? []) {
+    assert.ok(delCatalogo.has(fila.replaceAll("'", '')), `${fila} no existe en el catálogo`);
+  }
+});
+
+test('y el wizard NO abre siempre en el primer paso', () => {
+  // Estuvo clavado en `PASOS[0]` y el dueño lo reportó tres veces en una sola
+  // sesión con un cliente: «otra vez te hace repetir todo el onboarding cuando ya
+  // lo dejaste listo. Eso funciona muy mal».
+  //
+  // Lo que engaña del reporte: el progreso SÍ se guardaba. Lo que faltaba era
+  // LEERLO al abrir — y desde afuera «no se guardó» y «no se leyó» se ven igual.
+  const src = sinComentarios(readFileSync(join(RAIZ, 'app/video-generator/OnboardingVideoGen.tsx'), 'utf8'));
+  assert.doesNotMatch(src, /useState<Paso>\(PASOS\[0\]\)/, 'volvió a abrir siempre en el primer paso');
+  assert.match(src, /hechos/, 'el wizard ya no recibe qué pasos están hechos');
+
+  // Y la página tiene que pasárselo: escribir el prop y no cablearlo deja el
+  // wizard abriendo en el primero igual, que es el mismo síntoma sin el bug.
+  const page = sinComentarios(readFileSync(join(RAIZ, 'app/video-generator/page.tsx'), 'utf8'));
+  assert.match(page, /hechos=\{hechos\}/, 'la page no le pasa los pasos hechos a la puerta');
+  const puerta = sinComentarios(readFileSync(join(RAIZ, 'app/video-generator/PuertaVideoGen.tsx'), 'utf8'));
+  assert.match(puerta, /hechos=\{hechos\}/, 'la puerta no se los pasa al wizard');
 });
