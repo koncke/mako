@@ -18,6 +18,7 @@ import { leerAnuncios } from './anuncios-datos';
 import { leerSaldoGuardado, costoPorClip } from './saldo-datos';
 import { VideoGeneratorApp } from './VideoGeneratorApp';
 import { onboardingRequeridoPara } from '@/lib/tab-onboarding-state';
+import { puentearPasosCopyGen } from '@/lib/copygen-puente';
 import { redirect } from 'next/navigation';
 import { PuertaVideoGen } from './PuertaVideoGen';
 // El interruptor del tema, en el HTML del servidor: corre antes del primer
@@ -67,6 +68,10 @@ export default async function Page() {
   // salen. Ver lib/tab-onboarding-catalogo.ts → `requiere`.
   // `rutaConWs` y no el href pelado: un redirect sin `?ws=` pierde la pestaña del
   // cliente que se está mirando, y eso no falla — te deja en OTRA cuenta.
+  // El puente ANTES de preguntar: si no, el cliente que ya hizo la fábrica de creativos
+  // en el onboarding viejo rebota a /ads-writer, y recién ahí (en la page de allá) se le
+  // puentea el estado. Funcionaría, pero le cuesta un rebote por algo que ya tenía hecho.
+  await puentearPasosCopyGen();
   const requerido = await onboardingRequeridoPara('video-generator').catch(() => null);
   if (requerido && requerido !== '/video-generator') redirect(await rutaConWs(requerido));
   const faltaOnboarding = requerido === '/video-generator';

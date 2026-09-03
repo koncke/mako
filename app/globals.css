@@ -131,6 +131,16 @@
   --primary-strong: #245FD6;
   --primary-bg: #EAF1FE;
   --primary-weak: #9DBBF5;
+  /* ⚠️ LA TINTA QUE VA ENCIMA DE --primary, Y TIENE QUE SER UN TOKEN.
+     En claro el azul es oscuro y el blanco da 4,55:1; en oscuro el MISMO token sube a
+     #7FA6F8 para poder leerse como texto, y ahí un `#fff` clavado encima da 2,41:1 —
+     por debajo del 3:1 de texto grande, en el único botón de avance del wizard.
+     No se vio nunca porque hasta el 03/09/2026 el onboarding heredaba el tema claro
+     del cliente; el día que se lo forzó a oscuro, el botón se volvió el control menos
+     legible de la pantalla en las once pantallas del recorrido. Es la misma familia
+     que --on-sidebar y --on-ink: un color que EXISTE PARA un fondo se declara al lado
+     de ese fondo, o se queda viejo cuando el fondo cambia. */
+  --on-primary: #FFFFFF;
 
   /* ── MaKo · el dorado maestro ─────────────────────────────────────────
      UN solo hex: #F2B01E, el del logo entregado y el de la landing /vsl.
@@ -293,6 +303,11 @@
   --primary-strong: #9DBBF5;
   --primary-bg: #26324A;
   --primary-weak: #4B6693;
+  /* Y al subir el azul, la tinta de encima se DA VUELTA: blanco sobre #7FA6F8 da
+     2,41:1; el fondo del lienzo da 6,29:1 (medido). Es la regla de esta hoja aplicada
+     al revés — acá lo que sube de luminosidad es la superficie, así que lo que va
+     encima tiene que bajar. */
+  --on-primary: #22262E;
 
   /* En oscuro el dorado LEGIBLE es el dorado. --mako-ink (#8F6709) existe para
      fondo claro y acá da 2,97:1. No se inventa un cuarto dorado: apunta al único. */
@@ -938,6 +953,9 @@ details[open] > summary .chev {
   --sidebar: #2E3440;  --sidebar-2: #262B35;  --sidebar-line: #434C5E;
   --sidebar-text: #ABB9CF;  --on-sidebar: #ECEFF4;
   --primary: #8AB4FA;  --primary-strong: #A3C5FB;  --primary-bg: #33405A;  --primary-weak: #5F89C9;
+  /* Mismo motivo que en el oscuro de la casa: con el azul subido, la tinta de encima
+     baja. Sobre #8AB4FA, #2E3440 da 7,25:1. */
+  --on-primary: #2E3440;
   --mako: #D08770;  --mako-lite: #E0A18A;
   /* nord12 a L71 con S subida a 58: al subir L sin tocar S, el naranja se corre
      hacia el rojo Aurora, que es justo del que tiene que distinguirse. */

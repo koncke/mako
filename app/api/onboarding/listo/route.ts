@@ -91,6 +91,19 @@ export async function GET() {
     const rank = (k: string) => { const i = ORDEN_CONFIG.indexOf(k); return i < 0 ? ORDEN_CONFIG.length : i; };
     config.sort((a, b) => rank(a.key) - rank(b.key));
 
-    return Response.json({ ok: true, tareas, leads, retro, pendientes, config });
+    // ⚠️ QUÉ VE LA CAPA, para las tarjetas FIJAS. `config` ya se filtraba, pero las
+    // otras cuatro opciones estaban escritas a mano en la pantalla — y la capa 'pm'
+    // (navKeys ['todo','mako']) SÍ hace onboarding y SÍ llega a esta pantalla. Sus
+    // links a /ads-writer, /crm, /experimentos y /general rebotan contra `requireCapa`
+    // y lo dejan en /plan: cuatro caminos ofrecidos y ninguno cumple lo que promete,
+    // en la pantalla que existe justamente para ofrecerle caminos.
+    const ve = {
+      creativos: navEnCapa('ads-writer', capa.id),
+      crm: navEnCapa('crm', capa.id),
+      retro: navEnCapa('experimentos', capa.id),
+      general: navEnCapa('general', capa.id),
+      plan: navEnCapa('todo', capa.id),
+    };
+    return Response.json({ ok: true, tareas, leads, retro, pendientes, config, ve });
   });
 }

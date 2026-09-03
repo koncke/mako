@@ -29,13 +29,39 @@
 
 const MARCA = 'data-tema';
 const VALOR = 'oscuro';
+/**
+ * ⚠️ LA MARCA QUE HACE QUE EL CLEANUP PUEDA EXISTIR, y es la mitad que faltaba.
+ *
+ * `TemaOscuro` decide si sacar el atributo al salir mirando si YA estaba puesto al
+ * montarse — para no apagarle el oscuro a quien lo eligió para toda la app. Correcto, y
+ * el script lo rompía: cuando corre, el atributo SIEMPRE está para cuando el efecto
+ * monta, así que `yaEstaba` daba true y el cleanup no sacaba nada NUNCA.
+ *
+ * El resultado es una fuga: entrar a una pantalla oscura y volver al sidebar —que es
+ * navegación de cliente, sin documento nuevo— dejaba la app entera en oscuro, incluido
+ * el cliente que había elegido claro. Es la misma familia del incidente del laboratorio
+ * de paletas: una pantalla que le cambia el tema a toda la app sin decirlo.
+ *
+ * Con esta marca las dos mitades pueden distinguir «se lo prestó el script» de «el
+ * usuario ya lo tenía», que era la pregunta que ninguna de las dos podía contestar sola.
+ */
+const PRESTADO = 'data-tema-prestado';
 
-/** Va en el `page.tsx` (server) de toda pantalla que se pinte oscura. */
+/**
+ * Va en el `page.tsx` (server) de toda pantalla que se pinte oscura, JUNTO con
+ * `<TemaOscuro />` del lado del cliente. Las dos, siempre: el script evita el fogonazo
+ * blanco del primer pintado y el componente devuelve el tema al salir.
+ */
 export function TemaOscuroScript() {
   return (
     <script
       // eslint-disable-next-line react/no-danger
-      dangerouslySetInnerHTML={{ __html: `document.documentElement.setAttribute('${MARCA}','${VALOR}')` }}
+      dangerouslySetInnerHTML={{
+        __html:
+          `(function(){var d=document.documentElement;` +
+          `if(d.getAttribute('${MARCA}')!=='${VALOR}'){` +
+          `d.setAttribute('${PRESTADO}','1');d.setAttribute('${MARCA}','${VALOR}');}})()`,
+      }}
     />
   );
 }

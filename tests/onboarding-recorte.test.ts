@@ -162,6 +162,79 @@ test('el wizard global no promete una tab que ya no es su destino', () => {
     'el botón final volvió a prometer /plan');
 });
 
+test('el botón de avance tiene tinta propia para su fondo, en TODAS las paletas', () => {
+  // ⚠️ El onboarding fuerza el tema oscuro, y ahí `--primary` SUBE de luminosidad para
+  // poder leerse como texto (#2F6FED → #7FA6F8). Un `#fff` clavado encima da 2,41:1 —
+  // por debajo hasta del 3:1 de texto grande— en el ÚNICO control de avance, repetido
+  // en las once pantallas del recorrido. No se vio antes porque hasta el 03/09/2026 el
+  // wizard heredaba el tema claro del cliente.
+  const shell = leer('../app/_components/WizardShell.tsx');
+  assert.ok(!/avanza \? '#fff'/.test(shell),
+    'el botón de avance volvió a clavar #fff sobre --primary: en oscuro eso es 2,41:1');
+  assert.match(shell, /var\(--on-primary\)/, 'el botón de avance dejó de usar --on-primary');
+
+  // El token tiene que existir en toda paleta que redefina --primary: si una lo cambia
+  // y no declara su tinta, hereda la del `:root` — que es la del OTRO fondo.
+  const css = leer('../app/globals.css');
+  const bloques = [...css.matchAll(/--primary:\s*#[0-9A-Fa-f]{6}/g)].length;
+  const tintas = [...css.matchAll(/--on-primary:\s*#[0-9A-Fa-f]{6}/g)].length;
+  assert.ok(tintas >= bloques - 1,
+    `hay ${bloques} definiciones de --primary y solo ${tintas} de --on-primary: alguna paleta hereda la tinta del otro fondo`);
+});
+
+test('el tema prestado se puede devolver', () => {
+  // `TemaOscuro` decide si sacar el atributo mirando si YA estaba al montarse. Con
+  // `TemaOscuroScript` puesto SIEMPRE estaba, así que el cleanup no sacaba nada nunca:
+  // entrar a una pantalla oscura y volver por el sidebar —navegación de cliente, sin
+  // documento nuevo— dejaba la app ENTERA oscura, incluido quien eligió el tema claro.
+  // La marca que deja el script es lo único que distingue «prestado» de «propio».
+  const script = sinComentarios(leer('../app/_components/TemaOscuroScript.tsx'));
+  const comp = sinComentarios(leer('../app/_components/TemaOscuro.tsx'));
+  assert.match(script, /data-tema-prestado/, 'el script dejó de marcar que el oscuro lo puso él');
+  assert.match(comp, /data-tema-prestado/, 'el cleanup volvió a deducir el estado previo del atributo');
+  assert.match(comp, /removeAttribute/, 'el cleanup dejó de devolver el tema');
+});
+
+test('el cliente que ya hizo la fábrica de creativos no la rehace', () => {
+  // Los cinco pasos vivían en el onboarding global con otras claves, así que el estado
+  // nuevo nace vacío y la tab figura pendiente hasta para quien la terminó hace meses.
+  // Con el `requiere`, eso EXPULSA a ese cliente de /video-generator hacia un wizard sin
+  // salida, a recargar lo que ya cargó.
+  const puente = leer('../lib/copygen-puente.ts');
+  for (const viejo of ['entregable', 'avatares', 'persona', 'personalidad', 'angulos']) {
+    assert.ok(new RegExp(`'${viejo}'`).test(puente), `el puente no cubre el paso «${viejo}»`);
+  }
+  // Y las dos puertas lo corren ANTES de preguntar si falta.
+  //
+  // ⚠️ Se comparan las LLAMADAS (`await x(`), no los nombres: los tres símbolos
+  // aparecen primero en sus `import`, así que buscar el nombre pelado compara el orden
+  // de los imports y da un veredicto sobre otra cosa. La primera versión de este test
+  // hacía exactamente eso y fallaba sobre código correcto.
+  for (const p of ['../app/ads-writer/page.tsx', '../app/video-generator/page.tsx']) {
+    const src = sinComentarios(leer(p));
+    const iPuente = src.indexOf('await puentearPasosCopyGen(');
+    const guards = ['await onboardingTabPendiente(', 'await onboardingRequeridoPara(']
+      .map((g) => src.indexOf(g)).filter((i) => i >= 0);
+    assert.ok(iPuente >= 0, `${p}: no llama al puente`);
+    assert.ok(guards.length > 0, `${p}: no encontré la llamada al guard`);
+    assert.ok(iPuente < Math.min(...guards),
+      `${p}: el puente corre DESPUÉS del guard, así que no llega a tiempo`);
+  }
+});
+
+test('la pantalla de cierre no ofrece caminos que la capa no puede abrir', () => {
+  // La capa 'pm' hace onboarding y llega a esta pantalla, pero solo ve el plan y MaKo:
+  // sus links a creativos, CRM, Retro y /general rebotan contra requireCapa y lo dejan
+  // en otro lado sin explicación. Cuatro caminos ofrecidos y ninguno cumple.
+  const route = sinComentarios(leer('../app/api/onboarding/listo/route.ts'));
+  assert.match(route, /const ve = \{/, 'el endpoint dejó de calcular qué ve la capa');
+  assert.match(route, /pendientes, config, ve \}/, 'el endpoint calcula `ve` y no lo devuelve');
+  const listo = sinComentarios(leer('../app/onboarding/Listo.tsx'));
+  for (const k of ['ve.creativos', 've.crm', 've.retro']) {
+    assert.ok(listo.includes(k), `la pantalla de cierre no consulta ${k}`);
+  }
+});
+
 test('la pantalla de cierre no manda a ningún lado sin la pestaña del cliente', () => {
   // La CUARTA forma de navegar. Un link sin `?ws=` no falla: te deja mirando otra cuenta.
   const src = sinComentarios(leer('../app/onboarding/Listo.tsx'));

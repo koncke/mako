@@ -317,11 +317,11 @@ export function WizardShell({
         {extraFooter}
       </div>
       {enUltimo ? (
-        <button onClick={onConfirmar} disabled={pending || trabado || !puedeAvanzar} style={{ padding: '12px 26px', borderRadius: 11, border: 'none', background: avanza ? 'var(--primary)' : 'var(--border)', color: avanza ? '#fff' : 'var(--faint)', fontSize: 14.5, fontWeight: 700, cursor: avanza && !pending ? 'pointer' : 'default', fontFamily: SANS, opacity: pending ? 0.6 : 1 }}>{pending ? 'Guardando…' : confirmLabel}</button>
+        <button onClick={onConfirmar} disabled={pending || trabado || !puedeAvanzar} style={{ padding: '12px 26px', borderRadius: 11, border: 'none', background: avanza ? 'var(--primary)' : 'var(--border)', color: avanza ? 'var(--on-primary)' : 'var(--faint)', fontSize: 14.5, fontWeight: 700, cursor: avanza && !pending ? 'pointer' : 'default', fontFamily: SANS, opacity: pending ? 0.6 : 1 }}>{pending ? 'Guardando…' : confirmLabel}</button>
       ) : hideSiguiente ? (
         <span />
       ) : (
-        <button onClick={onSiguiente} disabled={!avanza || pending} style={{ padding: '12px 26px', borderRadius: 11, border: 'none', background: avanza ? 'var(--primary)' : 'var(--border)', color: avanza ? '#fff' : 'var(--faint)', fontSize: 14.5, fontWeight: 700, cursor: avanza ? 'pointer' : 'default', fontFamily: SANS, opacity: pending ? 0.6 : 1 }}>{pending ? 'Guardando…' : siguienteLabel}</button>
+        <button onClick={onSiguiente} disabled={!avanza || pending} style={{ padding: '12px 26px', borderRadius: 11, border: 'none', background: avanza ? 'var(--primary)' : 'var(--border)', color: avanza ? 'var(--on-primary)' : 'var(--faint)', fontSize: 14.5, fontWeight: 700, cursor: avanza ? 'pointer' : 'default', fontFamily: SANS, opacity: pending ? 0.6 : 1 }}>{pending ? 'Guardando…' : siguienteLabel}</button>
       )}
     </div>
   );
@@ -375,12 +375,12 @@ export function WizardShell({
               )}
               {enUltimo ? (
                 <button onClick={onConfirmar} disabled={pending || trabado || !puedeAvanzar}
-                  style={{ padding: '13px 30px', borderRadius: 11, border: 'none', background: avanza ? 'var(--primary)' : 'var(--border)', color: avanza ? '#fff' : 'var(--faint)', fontSize: 15, fontWeight: 700, cursor: avanza && !pending ? 'pointer' : 'default', fontFamily: SANS, opacity: pending ? 0.6 : 1 }}>
+                  style={{ padding: '13px 30px', borderRadius: 11, border: 'none', background: avanza ? 'var(--primary)' : 'var(--border)', color: avanza ? 'var(--on-primary)' : 'var(--faint)', fontSize: 15, fontWeight: 700, cursor: avanza && !pending ? 'pointer' : 'default', fontFamily: SANS, opacity: pending ? 0.6 : 1 }}>
                   {pending ? 'Guardando…' : confirmLabel}
                 </button>
               ) : hideSiguiente ? null : (
                 <button onClick={onSiguiente} disabled={!avanza || pending}
-                  style={{ padding: '13px 30px', borderRadius: 11, border: 'none', background: avanza ? 'var(--primary)' : 'var(--border)', color: avanza ? '#fff' : 'var(--faint)', fontSize: 15, fontWeight: 700, cursor: avanza ? 'pointer' : 'default', fontFamily: SANS, opacity: pending ? 0.6 : 1 }}>
+                  style={{ padding: '13px 30px', borderRadius: 11, border: 'none', background: avanza ? 'var(--primary)' : 'var(--border)', color: avanza ? 'var(--on-primary)' : 'var(--faint)', fontSize: 15, fontWeight: 700, cursor: avanza ? 'pointer' : 'default', fontFamily: SANS, opacity: pending ? 0.6 : 1 }}>
                   {pending ? 'Guardando…' : siguienteLabel}
                 </button>
               )}

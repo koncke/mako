@@ -29,16 +29,33 @@ import { useEffect } from 'react';
 
 const MARCA = 'data-tema';
 const VALOR = 'oscuro';
+/** La marca que deja `TemaOscuroScript` cuando el oscuro lo puso ÉL y no el usuario.
+ *  Es lo único que le deja al cleanup distinguir «prestado» de «propio». */
+const PRESTADO = 'data-tema-prestado';
 
 export function TemaOscuro() {
   useEffect(() => {
+    const d = document.documentElement;
     // ⚠️ Si el usuario YA eligió modo oscuro para toda la app, esta pantalla no
     // se lo prestó: se lo encontró puesto. Sacarlo al salir le apagaría su
     // preferencia por haber pasado por acá — y desde /second-brain eso se ve
     // como «la app se puso clara sola».
-    const yaEstaba = document.documentElement.getAttribute(MARCA) === VALOR;
-    document.documentElement.setAttribute(MARCA, VALOR);
-    return () => { if (!yaEstaba) document.documentElement.removeAttribute(MARCA); };
+    //
+    // ⚠️ Y NO ALCANZA CON MIRAR EL ATRIBUTO, porque `TemaOscuroScript` corre ANTES
+    // que este efecto: con el script puesto, el atributo siempre está para cuando
+    // llegamos acá, `yaEstaba` daba true y el cleanup no sacaba nada nunca. La fuga
+    // que eso produce es la peor clase: entrar a una pantalla oscura y volver por el
+    // sidebar —navegación de cliente, sin documento nuevo— dejaba la app ENTERA
+    // oscura, incluido el cliente que eligió el tema claro. Por eso el script deja
+    // dicho que fue él (`data-tema-prestado`), y esa marca es la que se cree.
+    const prestado = d.getAttribute(PRESTADO) === '1';
+    const yaEstaba = !prestado && d.getAttribute(MARCA) === VALOR;
+    d.setAttribute(MARCA, VALOR);
+    return () => {
+      if (yaEstaba) return;
+      d.removeAttribute(MARCA);
+      d.removeAttribute(PRESTADO);
+    };
   }, []);
 
   // ⚠️ NO DEVUELVE NADA, y el `<script>` que evita el flash se mudó a

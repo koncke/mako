@@ -40,7 +40,14 @@ const SANS = "'Geist', sans-serif";
 
 type Pendiente = { que: string; donde: string; ruta: string };
 type Config = { key: string; titulo: string; href: string };
-type Datos = { tareas: number; leads: number; retro: boolean; pendientes: Pendiente[]; config: Config[] };
+/** Qué tabs ve la capa que compró el cliente. Lo decide el server con `navEnCapa`. */
+type Ve = { creativos: boolean; crm: boolean; retro: boolean; general: boolean; plan: boolean };
+type Datos = { tareas: number; leads: number; retro: boolean; pendientes: Pendiente[]; config: Config[]; ve: Ve };
+
+/** Fail-closed al revés: sin dato de capa se ofrece todo, que es lo que hacía antes.
+ *  Es la degradación correcta — esconder caminos por una consulta caída es peor que
+ *  ofrecer uno que rebota, y la capa 'completo' (el default) los ve todos igual. */
+const VE_TODO: Ve = { creativos: true, crm: true, retro: true, general: true, plan: true };
 /** El plan que MaKo acaba de escribir: `n` tareas esperando aprobación en `url`. */
 export type Borrador = { url: string; n: number };
 
@@ -87,12 +94,21 @@ export function opcionesDeCierre(d: Datos, plan: Borrador | null = null): Opcion
   // ── 2. Los creativos ─────────────────────────────────────────────────────
   // Va primero de los no-recomendados porque es el que produce algo visible el
   // mismo día, y es lo que el cliente vino a buscar.
-  ops.push({
-    key: 'creativos',
-    titulo: 'Crear tus creativos',
-    detalle: 'MaKo escribe los guiones de tus anuncios con tu matriz, tu oferta y tu voz.',
-    href: '/ads-writer',
-  });
+  //
+  // ⚠️ Todas las tarjetas de acá abajo preguntan si la capa VE esa tab. Ofrecer un
+  // camino que rebota es peor que no ofrecerlo: el cliente hace clic, aterriza en otro
+  // lado sin explicación, y aprende que lo que MaKo le ofrece no lleva a ningún lado —
+  // justo en la pantalla que existe para ofrecerle caminos.
+  const ve = d.ve ?? VE_TODO;
+
+  if (ve.creativos) {
+    ops.push({
+      key: 'creativos',
+      titulo: 'Crear tus creativos',
+      detalle: 'MaKo escribe los guiones de tus anuncios con tu matriz, tu oferta y tu voz.',
+      href: '/ads-writer',
+    });
+  }
 
   // ── 3. El plan ───────────────────────────────────────────────────────────
   //
@@ -119,19 +135,21 @@ export function opcionesDeCierre(d: Datos, plan: Borrador | null = null): Opcion
   });
 
   // ── 4. El CRM ────────────────────────────────────────────────────────────
-  ops.push({
-    key: 'crm',
-    titulo: d.leads > 0 ? `Trabajar tus ${d.leads} leads` : 'Cargar tus leads',
-    detalle: d.leads > 0
-      ? 'MaKo los mueve de etapa solo y te avisa a quién hay que contestarle.'
-      : 'Sube tus contactos y MaKo empieza a seguirlos por ti.',
-    href: '/crm',
-  });
+  if (ve.crm) {
+    ops.push({
+      key: 'crm',
+      titulo: d.leads > 0 ? `Trabajar tus ${d.leads} leads` : 'Cargar tus leads',
+      detalle: d.leads > 0
+        ? 'MaKo los mueve de etapa solo y te avisa a quién hay que contestarle.'
+        : 'Sube tus contactos y MaKo empieza a seguirlos por ti.',
+      href: '/crm',
+    });
+  }
 
   // ── 5. La Retro, SOLO si hay con qué ─────────────────────────────────────
-  // La Retro cruza ads, leads, llamadas y plata. Sin la fuente de los ads no hay
+  // La Retro cruza ads, leads, llamadas y dinero. Sin la fuente de los ads no hay
   // informe: hay una hoja vacía con el nombre de un producto arriba.
-  if (d.retro) {
+  if (d.retro && ve.retro) {
     ops.push({
       key: 'retro',
       titulo: 'Hacer tu primera Retro',
@@ -156,9 +174,9 @@ export function Listo({ adminBar, nombre, plan = null }: { adminBar?: React.Reac
         // Un fallo NO deja la pantalla colgada: se cae al set neutro y las tarjetas
         // salen sin números. El cliente terminó el onboarding — lo último que puede
         // ver es un spinner eterno por una consulta de conteo.
-        setD(j?.ok ? (j as Datos) : { tareas: 0, leads: 0, retro: false, pendientes: [], config: [] });
+        setD(j?.ok ? (j as Datos) : { tareas: 0, leads: 0, retro: false, pendientes: [], config: [], ve: VE_TODO });
       } catch {
-        if (vivo) setD({ tareas: 0, leads: 0, retro: false, pendientes: [], config: [] });
+        if (vivo) setD({ tareas: 0, leads: 0, retro: false, pendientes: [], config: [], ve: VE_TODO });
       }
     })();
     return () => { vivo = false; };
@@ -223,8 +241,11 @@ export function Listo({ adminBar, nombre, plan = null }: { adminBar?: React.Reac
 
           {/* La salida sin elegir nada. Existe a propósito: obligar a elegir un
               camino en la pantalla del final convertiría el cierre en un paso más. */}
+          {/* El destino de la salida también depende de la capa: una que no ve /general
+              (la de Project Manager ve solo el plan y MaKo) rebotaría contra el guard y
+              aterrizaría en otro lado sin decir por qué. */}
           {d !== null && (
-            <a href={conWs('/general', ws)} style={{ fontSize: 13.5, color: 'var(--faint)', textDecoration: 'underline' }}>
+            <a href={conWs((d.ve ?? VE_TODO).general ? '/general' : '/plan', ws)} style={{ fontSize: 13.5, color: 'var(--faint)', textDecoration: 'underline' }}>
               Prefiero mirar solo
             </a>
           )}
