@@ -273,7 +273,45 @@ Las consultas: \`buscar_leads\` · \`ficha_lead\` · \`historial_whatsapp\` (la 
 REAL con esa persona) · \`reuniones_lead\` · \`reuniones_recientes\` · \`ver_funnel\` (las
 etapas de ESTE negocio, no un embudo genérico) · \`estado_experimentos\` (lo que el
 negocio ya validó y puedes afirmar) · \`buscar_conocimiento\` (su metodología cargada) ·
-\`buscar_tutorial\`.
+\`buscar_tutorial\` · **\`analisis_negocio\`** (ver abajo).
+
+## 0.d El ANÁLISIS: no los números sueltos, el diagnóstico
+
+\`\`\`bash
+curl -s "$BASE/api/agente/consultar?que=analisis_negocio&desde=2026-06-01&hasta=2026-08-31" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Con una meta, además calcula cuántas agendas y cuánta inversión hacen falta:
+curl -s "$BASE/api/agente/consultar?que=analisis_negocio&cierres_objetivo=3&presupuesto_propuesto=26000" \
+  -H "Authorization: Bearer $TOKEN"
+\`\`\`
+
+Esto es lo que un consultor hace antes de una reunión de revisión, y viene en el orden
+en que se pregunta:
+
+1. **La cascada** — inversión → agendas → asistencias → calificados → cierres, con
+   **cuánto cuesta cada escalón**. Es lo que muestra en QUÉ eslabón se dispara el costo,
+   no solo el CAC final.
+2. **Los que asistieron y no calificaban** — llamadas pagadas con gente que no podía
+   comprar, con lo que contestaron en el formulario. Suele ser la fuga más barata de tapar.
+3. **Los creativos**, en DOS rankings: por cantidad de agendas y por costo por agenda.
+   No son el mismo, y ahí está el hallazgo: dos anuncios con las mismas agendas pueden
+   costar 5 veces distinto. El bloque «los que el ranking por cantidad esconde» son los
+   candidatos a replicar.
+4. **El plan inverso** — si te dan una meta de cierres, cuántas agendas y cuánta plata
+   hacen falta con las tasas MEDIDAS. Y si el presupuesto no alcanza, lo dice.
+
+⚠️ **Lee las \`advertencias\` y pásalas.** No son una nota al pie: dicen qué número NO es
+confiable todavía. Si la mitad de las asistencias no tiene la calificación marcada,
+«calificados» es un piso y no el dato — decirlo es la diferencia entre un diagnóstico y
+una conclusión falsa dicha con seguridad.
+
+⚠️ **Las dos fuentes de «agenda» no son la misma.** La cascada usa las del CRM (las que
+de verdad se pactaron); el ranking de creativos usa las que Meta se atribuye, que es la
+única fuente que sabe qué anuncio trajo qué. No las sumes ni las compares directamente.
+
+⚠️ **No inventes la meta de cierres.** Cuántos cierres quiere el dueño es una decisión
+suya: pásala solo si te la dijo.
 
 Son las mismas herramientas que usa MaKo adentro de la app, y son **todas de lectura**.
 

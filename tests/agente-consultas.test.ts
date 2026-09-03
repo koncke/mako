@@ -50,7 +50,11 @@ test('LA GUARDA: si MAKO_TOOLS crece, alguien tiene que DECIDIR si la nueva se e
   // No se compara contra un número: se compara contra la lista de las que hoy
   // existen y se sabe que son de lectura. Una tool nueva hace fallar este test, y
   // ese es el punto — la alternativa es que entre sola por una lista derivada.
-  const CONOCIDAS = new Set([...CONSULTAS_AGENTE, 'ver_plan']);
+  // `ver_plan` y `metricas_negocio` NO se exponen por acá y no es un olvido: las
+  // dos ya tienen su propia puerta (`GET /api/agente/plan` y `/api/agente/metricas`),
+  // con el formato que la skill enseña a usar. Dos caminos al mismo dato son dos
+  // formatos que divergen.
+  const CONOCIDAS = new Set([...CONSULTAS_AGENTE, 'ver_plan', 'metricas_negocio']);
   const nuevas = nombresDeTools().filter((n) => !CONOCIDAS.has(n));
   assert.deepEqual(
     nuevas, [],

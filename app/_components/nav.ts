@@ -172,6 +172,12 @@ export const FAMILIAS: NavFamilia[] = [
         // encuentra qué mover». Va primero porque es de donde sale el criterio
         // con el que se leen los otros tres.
         { key: 'second-brain', label: 'Second Brain', href: '/second-brain', icon: 'cerebro', match: starts('/second-brain') },
+        // Va PEGADO al Dashboard y no adentro de los Analysts: el Dashboard
+        // muestra métricas y deja que vos armes la historia; éste ya la arma —
+        // la cascada de costos, la fuga de los que no calificaban y qué replicar,
+        // en el orden en que se pregunta. Son la misma familia de pregunta con
+        // dos niveles de digestión.
+        { key: 'analisis', label: 'Análisis', href: '/analisis', icon: 'analytics', match: starts('/analisis') },
         { key: 'graphics', label: 'Dashboard', href: '/dashboard', icon: 'graphics', match: (p) => starts('/dashboard')(p) || starts('/marketing')(p) || starts('/comercial')(p) },
         // Salió de los Analysts: los otros seis analizan un activo PROPIO (una
         // oferta, un anuncio, una landing); éste vigila lo que hacen los demás.

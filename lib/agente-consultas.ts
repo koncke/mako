@@ -44,6 +44,10 @@ export const CONSULTAS_AGENTE = [
   'estado_experimentos',
   'buscar_conocimiento',
   'buscar_tutorial',
+  // El ANÁLISIS del período: la cascada de costos, la fuga de no calificados y el
+  // ranking de creativos. Entra porque es de lectura pura y porque es justo lo
+  // que un agente necesita para opinar con fundamento en vez de con adjetivos.
+  'analisis_negocio',
 ] as const;
 
 export type ConsultaAgente = (typeof CONSULTAS_AGENTE)[number];
@@ -79,6 +83,12 @@ export const PARAMS_CONSULTA: Record<ConsultaAgente, ReadonlyArray<{ nombre: str
   estado_experimentos: [],
   buscar_conocimiento: [{ nombre: 'query', tipo: 'texto', obligatorio: true }, { nombre: 'area', tipo: 'texto' }],
   buscar_tutorial: [{ nombre: 'tema', tipo: 'texto', obligatorio: true }],
+  analisis_negocio: [
+    { nombre: 'desde', tipo: 'texto' },
+    { nombre: 'hasta', tipo: 'texto' },
+    { nombre: 'cierres_objetivo', tipo: 'numero' },
+    { nombre: 'presupuesto_propuesto', tipo: 'numero' },
+  ],
 };
 
 /**

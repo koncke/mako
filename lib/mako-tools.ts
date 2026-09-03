@@ -26,6 +26,9 @@ import { resumenExperimentos } from './experimentos';
 import { contactoIdPorTelefono, contactoEnInboxWA, getContactMessages } from './chatwoot';
 import { buscarReunionesAutomatico } from './auto-reuniones';
 import { tzActual } from './timezone';
+import { analisisNegocio } from './analisis-negocio';
+import { analisisAMarkdown } from './analisis-modelo';
+import { reporteMetricas, metricasAMarkdown } from './metricas-negocio';
 import { APP_BASE_URL as APP_URL } from './app-url';
 
 // ── helpers de entrada ────────────────────────────────────────────────────────
@@ -142,6 +145,31 @@ export const MAKO_TOOLS: ToolDef[] = [
     input_schema: {
       type: 'object',
       properties: { dias: { type: 'number', description: 'ventana hacia atrás en días (default 21, máx 90).' } },
+    },
+  },
+  {
+    name: 'metricas_negocio',
+    description: 'Los NÚMEROS del negocio por período: inversión e impresiones de Meta, visitas al landing, plays del VSL, leads nuevos, agendas, reuniones 1 y 2 (programadas, realizadas, no-show y sin marcar), cierres e ingreso — agregados por día, semana o mes. Úsalo SIEMPRE que te pregunten cómo va el negocio, si algo mejoró o empeoró, cuánto se invirtió, o te pidan comparar dos períodos. NUNCA contestes de memoria una pregunta sobre resultados: los números están aquí.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        desde: { type: 'string', description: 'YYYY-MM-DD. Si no lo pasas, son los últimos 90 días.' },
+        hasta: { type: 'string', description: 'YYYY-MM-DD. Si no lo pasas, es hoy.' },
+        grano: { type: 'string', enum: ['dia', 'semana', 'mes'], description: 'Cómo agrupar. Default: mes.' },
+      },
+    },
+  },
+  {
+    name: 'analisis_negocio',
+    description: 'EL ANÁLISIS COMPLETO de un período, no solo los números: la cascada de costos (cuánto cuesta una agenda, una asistencia, un calificado y un cliente), las tasas de cada escalón, cuántos de los que asistieron ni siquiera calificaban y qué contestaron, el ranking de creativos por costo y cuáles esconde el ranking por cantidad, y —si le pasas una meta de cierres— cuántas agendas y cuánta inversión hacen falta. Úsalo cuando te pidan un diagnóstico, una revisión del período, «cómo venimos», o antes de recomendar dónde poner el presupuesto. Trae sus propias advertencias: léelas y pásalas, porque dicen qué números NO son confiables todavía.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        desde: { type: 'string', description: 'YYYY-MM-DD. Default: últimos 90 días.' },
+        hasta: { type: 'string', description: 'YYYY-MM-DD. Default: hoy.' },
+        cierres_objetivo: { type: 'number', description: 'Cuántos cierres al mes quiere el dueño. Solo si te lo dijo: es una DECISIÓN suya, no la deduzcas.' },
+        presupuesto_propuesto: { type: 'number', description: 'El presupuesto que se está proponiendo, en la moneda de la cuenta. Sirve para detectar si el plan se contradice.' },
+      },
     },
   },
   {
@@ -276,6 +304,27 @@ export const runMakoTool: ToolRunner = async (name, input) => {
       rs.sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0));
       if (!rs.length) return `No encontré reuniones en los últimos ${dias} días ni en la próxima semana.`;
       return JSON.stringify(rs.slice(0, 15));
+    }
+
+    case 'metricas_negocio': {
+      const r = await reporteMetricas({
+        desde: str(input, 'desde') || null,
+        hasta: str(input, 'hasta') || null,
+        grano: (str(input, 'grano') || 'mes') as 'dia' | 'semana' | 'mes',
+      });
+      // Markdown y no JSON: es lo que el modelo lee mejor y cuesta menos tokens
+      // que las llaves. Y las advertencias viajan con la tabla, que es el punto.
+      return metricasAMarkdown(r);
+    }
+
+    case 'analisis_negocio': {
+      const a = await analisisNegocio({
+        desde: str(input, 'desde') || null,
+        hasta: str(input, 'hasta') || null,
+        cierresObjetivo: num(input, 'cierres_objetivo'),
+        presupuestoPropuesto: num(input, 'presupuesto_propuesto'),
+      });
+      return analisisAMarkdown(a);
     }
 
     case 'ver_plan': {
