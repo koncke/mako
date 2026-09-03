@@ -879,13 +879,18 @@ viene corta (está documentado en la cabecera de `lib/supabase-paginado.ts`, y `
 **importa `leerTodo` y lo usa más abajo**, así que la casa ya sabía: estos quedaron del lado
 viejo).
 
-**Por qué no se nota.** El rango por defecto de `/marketing` son 30 días. Con 12 anuncios
-activos eso son ~360 filas y entra sobrado. **Un trimestre son ~1080 y los rompe a todos a
-la vez**, en silencio y **siempre hacia abajo**: la inversión sale menor de la real, así que
-el ROAS y el CAC salen *mejores* de lo que son. Es la dirección que no te hace sospechar.
-
-Medido en producción al 02/09/2026: 1.806 filas de `plataforma='meta'`, del 2025-12-08 al
+**Por qué no se nota, y cuánto margen queda.** El rango por defecto de `/marketing` son
+30 días, o sea ~280 filas: entra sobrado. **Medido en el ws1 el 02/09/2026, un trimestre
+(jun–ago) son 838 filas** — todavía por debajo del techo, pero al filo: son ~9,3 anuncios
+por día, así que **medio año (~1.700) ya trunca**, y un trimestre con 12 anuncios activos
+también. En total la tabla tiene 1.806 filas de `plataforma='meta'` del 2025-12-08 al
 2026-09-01, repartidas en 4 workspaces (ws1 = 1.614).
+
+O sea que hoy el bug está **latente, no vivo**: los números del trimestre que Mauricio pidió
+salen bien por 162 filas de margen. Lo que lo activa no es un cambio de código sino que el
+negocio prenda más anuncios o que alguien pida un rango más largo — y cuando pase, **la
+falla es en silencio y siempre hacia abajo**: la inversión sale menor de la real, así que el
+ROAS y el CAC salen *mejores* de lo que son. Es la dirección que no te hace sospechar.
 
 **La regla:** el techo de 1000 filas no se descubre mirando el código —se ve bien— sino
 preguntando **cuántas filas tiene esa tabla por unidad de tiempo**. Si la respuesta se
