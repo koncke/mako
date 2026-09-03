@@ -21,7 +21,7 @@ import { esPublica, esPublicaSoloLectura, esPublicaDeEscritura, PUBLICOS_ESCRITU
 
 test('las rutas del agente que hablan por Bearer entran sin sesión', () => {
   // Son las que corren en la máquina del cliente, donde no hay cookie posible.
-  for (const r of ['/api/agente/plan', '/api/agente/contexto', '/api/agente/telemetria', '/api/agente/hook', '/api/agente/skill', '/api/agente/lead']) {
+  for (const r of ['/api/agente/plan', '/api/agente/contexto', '/api/agente/telemetria', '/api/agente/hook', '/api/agente/skill', '/api/agente/lead', '/api/agente/metricas']) {
     assert.equal(esPublica(r), true, r);
   }
   // Y con querystring, que es como las llama la skill de verdad.
@@ -90,4 +90,15 @@ test('meter un lead se puede; el resto de /api/agente/lead no se hereda', () => 
   // chequeo de Origin protegía.
   assert.equal(esPublicaDeEscritura('/api/agente/lead'), true);
   assert.equal(esPublicaDeEscritura('/api/agente/lead/borrar'), false, 'match exacto: nada colgado abajo hereda el POST');
+});
+
+test('los datos vivos son de LECTURA: entran sin sesión pero no pueden escribir', () => {
+  // Las dos devuelven datos del negocio (inversión, visitas, reuniones, leads) y
+  // ninguna tiene POST. Que estén en PUBLICOS y no en PUBLICOS_DE_ESCRITURA es lo
+  // que hace que agregarles un POST mañana falle acá en vez de quedar abierto en
+  // silencio.
+  for (const r of ['/api/agente/metricas', '/api/agente/consultar']) {
+    assert.equal(esPublica(r), true, `${r} tiene que entrar sin sesión`);
+    assert.equal(esPublicaDeEscritura(r), false, `${r} es de solo lectura`);
+  }
 });

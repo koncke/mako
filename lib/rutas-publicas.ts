@@ -91,6 +91,13 @@ export const PUBLICOS = [
   '/api/agente/hook',
   '/api/agente/skill',
   '/api/agente/lead',
+  // `metricas` y `consultar` son las primeras rutas del agente que devuelven DATOS
+  // VIVOS del negocio —inversión de Meta, visitas del landing, reuniones hechas,
+  // leads con su etapa— y no configuración. Entran por el mismo motivo que las
+  // otras (bearer propio, cero cookie) y las dos son de SOLO LECTURA: no tienen
+  // POST, y por eso no están en PUBLICOS_DE_ESCRITURA.
+  '/api/agente/metricas',
+  '/api/agente/consultar',
 ] as const;
 
 /** Los públicos que solo deben responder a LECTURA. El early-return se saltea el

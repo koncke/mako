@@ -2,12 +2,16 @@
 name: mako-plan
 description: >
   El negocio del usuario vive en MaKo: su oferta, su cliente ideal, sus avatares, sus
-  razones de compra, su catálogo, cómo suena su marca y su plan de trabajo. Usar SIEMPRE
-  que haya que escribir, decidir o proponer algo sobre su negocio —un anuncio, un guion,
-  un email, una oferta, un precio, una decisión de marketing— y también al empezar o
-  cerrar un trabajo sustancial. Traete el contexto ANTES de opinar; no le pidas al
-  usuario datos que MaKo ya tiene. Para el plan: NUNCA crear tareas por tu cuenta, se
-  proponen y las puntúa el Perro Guardián.
+  razones de compra, su catálogo, cómo suena su marca, su plan de trabajo Y SUS NÚMEROS
+  REALES —inversión en Meta, impresiones, visitas al landing, leads, reuniones agendadas
+  y realizadas, cierres— además de sus leads uno por uno con su conversación de WhatsApp.
+  Usar SIEMPRE que haya que escribir, decidir o proponer algo sobre su negocio —un
+  anuncio, un guion, un email, una oferta, un precio, una decisión de marketing—, cuando
+  pregunten CÓMO LE ESTÁ YENDO o pidan un reporte o los datos de un período, cuando
+  pregunten por un cliente o lead concreto, y también al empezar o cerrar un trabajo
+  sustancial. Traete el contexto ANTES de opinar y los números antes de juzgar
+  resultados; no le pidas al usuario datos que MaKo ya tiene. Para el plan: NUNCA crear
+  tareas por tu cuenta, se proponen y las puntúa el Perro Guardián.
 ---
 
 ## ¿Te pasaron este archivo suelto, o te lo pegaron en un chat?
@@ -33,16 +37,27 @@ qué le compran, cómo habla y qué tiene pendiente. Esta skill te da acceso a t
 2. **Pedir una sección grande bajo demanda** (`?seccion=razones|panorama|productos`) —
    la matriz de avatares × razones de compra, lo que MaKo entendió de los documentos, o
    el catálogo completo.
-3. **Leer el plan abierto** (`GET /api/agente/plan`).
-4. **Proponer**: tareas nuevas, cierres de lo que ya se hizo, y detalle sobre lo que ya
+3. **Ver los NÚMEROS por período** (`GET /api/agente/metricas`) — inversión e
+   impresiones de Meta, visitas al landing, plays del VSL, leads, reuniones agendadas y
+   realizadas, cierres e ingreso. Por día, semana o mes, y descargable.
+4. **Consultar los datos VIVOS** (`GET /api/agente/consultar`) — leads con su etapa,
+   la conversación real de WhatsApp con uno, sus reuniones y si asistió, el funnel del
+   negocio, lo que los experimentos ya validaron.
+5. **Leer el plan abierto** (`GET /api/agente/plan`).
+6. **Proponer**: tareas nuevas, cierres de lo que ya se hizo, y detalle sobre lo que ya
    está anotado (`POST /api/agente/plan`).
-5. **Proponer un lead para el CRM** (`POST /api/agente/lead`) — un contacto que llegó
+7. **Proponer un lead para el CRM** (`POST /api/agente/lead`) — un contacto que llegó
    por afuera: un formulario, una planilla, una conversación.
 
-⚠️ Los puntos 1 y 2 son de LECTURA y no tienen ninguna ceremonia: usalos sin pedir
-permiso cada vez que vayas a escribir algo del negocio.
+⚠️ Los puntos 1 a 5 son de LECTURA y no tienen ninguna ceremonia: usalos sin pedir
+permiso cada vez que vayas a escribir algo del negocio o a opinar sobre cómo le va.
 
-⚠️ **NADA DE LO QUE MANDES ESCRIBE DIRECTO.** Los puntos 4 y 5 dejan una PROPUESTA y te
+⚠️ **NO OPINES DE RESULTADOS SIN MIRAR LOS NÚMEROS.** Si te preguntan cómo va el negocio,
+si un anuncio funciona, si conviene subir el presupuesto o por qué bajaron las ventas,
+eso se contesta con el punto 3, no de memoria y no con lo que el usuario recuerde. Y si
+te preguntan por una persona concreta —«¿qué pasó con Ana?»— es el punto 4.
+
+⚠️ **NADA DE LO QUE MANDES ESCRIBE DIRECTO.** Los puntos 6 y 7 dejan una PROPUESTA y te
 devuelven un LINK; el dato entra recién cuando el usuario lo confirma en MaKo. Es la
 regla del producto y no tiene excepciones: lo que tú transcribes puede llegar con un
 dígito cambiado, y un teléfono mal escrito no matchea su WhatsApp y nadie se entera hasta
@@ -181,6 +196,70 @@ entendió de sus documentos) y `?seccion=productos` (el catálogo completo).
 
 Si vuelve casi vacío, el cliente todavía no completó su onboarding: **pregúntale a él
 en vez de suponer**, y no des por cierto nada que no esté aquí.
+
+## 0.b Los NÚMEROS: cómo le está yendo, por período
+
+```bash
+# Un trimestre, mes a mes (el default son los últimos 90 días, por mes)
+curl -s "$BASE/api/agente/metricas?desde=2026-01-01&hasta=2026-03-31&grano=mes" \
+  -H "Authorization: Bearer $TOKEN"
+
+# La misma tabla para bajar y abrir en una planilla
+curl -s "$BASE/api/agente/metricas?desde=2026-01-01&hasta=2026-03-31&formato=csv" \
+  -H "Authorization: Bearer $TOKEN" -o metricas.csv
+```
+
+`grano` es `dia`, `semana` o `mes`. `formato` es `md` (default, una tabla que puedes
+leer y pegar), `csv` (para bajar) o `json` (para calcular encima).
+
+Trae, por período: **inversión e impresiones de Meta**, clics, landing page views del
+píxel, formularios; **visitas al landing y plays del VSL** del tracking propio, con sus
+visitantes únicos; y del CRM, **leads nuevos, agendamientos, reuniones 1 y 2 programadas
+y realizadas** (con sus no-shows), cierres e ingreso.
+
+**Cuatro cosas que tienes que entender antes de contestar con estos números**, y las
+cuatro vienen escritas en la respuesta, en `advertencias` — léelas:
+
+- **Una celda VACÍA no es un cero.** Vacío = no hay de dónde leer ese dato (por ejemplo,
+  el negocio no tiene Meta conectado). Cero = la fuente existe y ese mes no hubo nada.
+  El bloque `cobertura` dice cuál es cuál y por qué. **No conviertas un vacío en 0 ni
+  digas «no invirtió» cuando lo que pasa es que no tenemos la fuente.**
+- **«Realizada» es asistencia confirmada.** Una reunión que nadie marcó cae en
+  `j1_sin_marcar`, no en no-show. Si esa columna es alta, el negocio hizo MÁS reuniones
+  de las que dice el número: dilo en vez de leerlo como una caída.
+- **La inversión sale en la moneda de la cuenta publicitaria** (`meta_inversion`). El
+  `meta_inversion_usd` es un derivado con un tipo de cambio fijo del código, así que
+  para un trimestre viejo usa la tasa de hoy. Si el monto en dólares importa de verdad,
+  dile que lo verifique contra el resumen de facturación de Meta.
+- **No es un embudo de cohorte.** Cada fecha se imputa a su período: un lead de enero con
+  reunión en febrero suma en los dos, en columnas distintas. Calcular «tasa de cierre»
+  dividiendo dos columnas del mismo mes es una cuenta que se ve bien y no significa eso.
+
+## 0.c Los datos VIVOS: leads, conversaciones y reuniones
+
+```bash
+# Qué se puede pedir (empieza por aquí: trae el catálogo y qué parámetros lleva cada uno)
+curl -s "$BASE/api/agente/consultar" -H "Authorization: Bearer $TOKEN"
+
+curl -s "$BASE/api/agente/consultar?que=buscar_leads&texto=ana" -H "Authorization: Bearer $TOKEN"
+curl -s "$BASE/api/agente/consultar?que=ficha_lead&leadId=1395"  -H "Authorization: Bearer $TOKEN"
+```
+
+Las consultas: `buscar_leads` · `ficha_lead` · `historial_whatsapp` (la conversación
+REAL con esa persona) · `reuniones_lead` · `reuniones_recientes` · `ver_funnel` (las
+etapas de ESTE negocio, no un embudo genérico) · `estado_experimentos` (lo que el
+negocio ya validó y puedes afirmar) · `buscar_conocimiento` (su metodología cargada) ·
+`buscar_tutorial`.
+
+Son las mismas herramientas que usa MaKo adentro de la app, y son **todas de lectura**.
+
+⚠️ **Empieza por `buscar_leads` para conseguir el `leadId`**: el resto lo pide y no se
+adivina. Y antes de opinar sobre en qué etapa está alguien o cómo debería avanzar, mira
+`ver_funnel`: cada negocio configura las suyas.
+
+⚠️ **Esto es la conversación privada de una persona real.** Úsala para entender qué pasó
+—el tono, la objeción, por qué se enfrió— y nunca la cites textual en algo que salga
+hacia afuera.
 
 ## 1. Mira el plan ANTES de trabajar
 
