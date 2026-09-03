@@ -187,7 +187,7 @@ export async function analisisNegocio(opts: {
 
   // ── Advertencias ────────────────────────────────────────────────────────────
   const advertencias: string[] = [
-    `Todo lo de acá abajo es del rango ${desde} → ${hasta}, calendario ${zona}. Ningún número es un «histórico» sin fecha de inicio: eso fue lo que hizo que en la reunión del 31/07 los costos unitarios salieran 33% abajo.`,
+    `Todos los números de este informe son del rango ${desde} → ${hasta}, calendario ${zona}. Ningún número es un «histórico» sin fecha de inicio: eso fue lo que hizo que en la reunión del 31/07 los costos unitarios salieran 33% abajo.`,
     'La CASCADA usa las agendas del CRM (las que de verdad se pactaron). El RANKING DE CREATIVOS usa las que Meta se atribuye por anuncio, que es la única fuente que sabe qué anuncio trajo qué. Son dos números distintos y no se suman entre sí.',
   ];
   for (const c of chequeos) if (!c.cuadra) advertencias.push(`⚠️ ${c.que}: ${c.nota}`);

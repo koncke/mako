@@ -132,7 +132,7 @@ export function cuadratura(total: number, partes: number[], tolerancia = 1): Cua
     nota: cuadra ? '' :
       `El total declarado (${redondo(total)}) NO coincide con la suma de los períodos (${redondo(suma)}): sobran ${dif}. ` +
       'Casi siempre significa que el total incluye fechas de FUERA del rango pedido — un «histórico» cuya fecha de inicio no se ve. ' +
-      'Todos los costos unitarios calculados con ese total están mal, y siempre para abajo. No uses el total: usá la suma.',
+      'Todos los costos unitarios calculados con ese total están mal, y siempre para abajo. No uses el total: usa la suma.',
   };
 }
 

@@ -446,7 +446,7 @@ export async function reporteMetricas(opts: {
   const programadas = totales.j1_programadas + totales.j2_programadas;
   if (programadas > 0 && sinMarcar / programadas >= 0.5) {
     advertencias.push(
-      `⚠️ ${sinMarcar} de ${programadas} reuniones del período NO tienen asistencia marcada, así que «realizadas» está subestimado y no dice cómo le fue al negocio. La asistencia se marca sola cuando hay una grabación de Fathom; sin esa integración conectada queda en manos de que alguien la cargue a mano en el CRM. Antes de sacar conclusiones de este número, decilo.`,
+      `⚠️ ${sinMarcar} de ${programadas} reuniones del período NO tienen asistencia marcada, así que «realizadas» está subestimado y no dice cómo le fue al negocio. La asistencia se marca sola cuando hay una grabación de Fathom; sin esa integración conectada queda en manos de que alguien la cargue a mano en el CRM. Antes de sacar conclusiones de este número, dilo.`,
     );
   }
   if (cobertura.vsl.hay_datos) {

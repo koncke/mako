@@ -34,7 +34,7 @@ export function VistaAnalisis({ datos, error }: { datos: AnalisisNegocio | null;
     return (
       <Alert tono="bad">
         No se pudo armar el análisis: {error || 'sin datos'}.
-        {/rango|fecha/i.test(error) ? ' Revisá las fechas del filtro.' : ''}
+        {/rango|fecha/i.test(error) ? ' Revisa las fechas del filtro.' : ''}
       </Alert>
     );
   }

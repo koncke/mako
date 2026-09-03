@@ -22,7 +22,7 @@ test('CUADRATURA: caza el «histórico» que arrastraba meses de otro rango', ()
   assert.equal(c.cuadra, false);
   assert.equal(c.suma_partes, 57);
   assert.equal(c.diferencia, 19);
-  assert.match(c.nota, /No uses el total: usá la suma/);
+  assert.match(c.nota, /No uses el total: usa la suma/);
 });
 
 test('CUADRATURA: cuando cuadra, no dice nada', () => {
