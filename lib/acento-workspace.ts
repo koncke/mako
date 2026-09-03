@@ -328,11 +328,44 @@ export function acentoDeZona(zona: string | undefined | null): AcentoId | null {
   return z && POR_ZONA[z] ? POR_ZONA[z] : null;
 }
 
+/**
+ * Las muletillas que SOBREVIVEN a un acento dado.
+ *
+ * ⚠️ ES UNA LISTA NEGRA Y NO UNA BLANCA, y la diferencia es todo. Acá había
+ * cuatro copias de `muletillas.filter((m) => MULETILLAS[id].includes(m))` — o sea
+ * «sólo sobreviven las OCHO que yo sugiero». Eso era correcto mientras las únicas
+ * posibles fueran las sugeridas; desde que la pantalla deja ESCRIBIR la propia,
+ * tira exactamente la que la persona se tomó el trabajo de tipear.
+ *
+ * Y lo hace en silencio: la action contesta `{ ok: true }`, el wizard avanza, los
+ * chips siguen pintados el resto de la sesión, y la pérdida se descubre al
+ * recargar. Es el ÉXITO FALSO que este repo manda sospechar antes que un error
+ * tragado. Medido con un cliente delante: «las muletillas no se guardaron».
+ *
+ * Lo que SÍ hay que tirar es la sugerencia de OTRA variedad, que es el caso real
+ * que la lista blanca venía a cubrir: un «cachai» guardado antes de cambiar a
+ * mexicano suena a que el avatar cambió de nacionalidad a mitad del anuncio, y eso
+ * no se ve al leer — se oye.
+ *
+ * Una palabra que no es sugerencia de NADIE es de la persona, y se queda.
+ *
+ * ⚠️ Sin acento no se filtra nada. `[]` como lista de válidas descartaba TODO, que
+ * es confundir «no puedo decidir» con «no vale ninguna» — y ante la duda, tirar es
+ * la opción destructiva.
+ */
+export function muletillasQueSobreviven(acento: AcentoId | '' | null | undefined, lista: string[]): string[] {
+  const id = acento && acento in MULETILLAS ? (acento as AcentoId) : null;
+  if (!id) return lista;
+  const otras = (Object.keys(MULETILLAS) as AcentoId[]).filter((x) => x !== id);
+  const deOtra = (m: string) => !MULETILLAS[id].includes(m) && otras.some((x) => MULETILLAS[x].includes(m));
+  return lista.filter((m) => !deOtra(m));
+}
 function armar(id: AcentoId, origen: AcentoResuelto['origen'], muletillas: string[] = []): AcentoResuelto {
-  // Sólo las que la persona marcó de SU variedad. Una muletilla de otro país
-  // guardada antes de cambiar de acento sonaría a que el avatar cambió de
-  // nacionalidad a mitad del anuncio — y eso no se ve al leer, se oye.
-  const suyas = muletillas.filter((m) => MULETILLAS[id].includes(m));
+  // ⚠️ ACÁ ESTABA LA COPIA QUE MÁS DOLÍA, porque es la de LECTURA: alimenta los
+  // chips que el wizard vuelve a pintar Y el prompt que ve el modelo. Con la lista
+  // blanca puesta acá, arreglar el guardado no cambiaba NADA visible — la palabra
+  // quedaba en la base y desaparecía igual de la pantalla y del guion.
+  const suyas = muletillasQueSobreviven(id, muletillas);
   return {
     id,
     // ⚠️ LAS MULETILLAS VIAJAN PEGADAS AL ACENTO, y no por un slot nuevo del

@@ -28,7 +28,7 @@ import { randomUUID } from 'node:crypto';
 import { getSetting, setSetting } from '@/lib/settings';
 import { getSupabaseServer } from '@/lib/supabase';
 import { getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
-import { ACENTOS_ES, MULETILLAS, type AcentoId } from '@/lib/acento-workspace';
+import { ACENTOS_ES, MULETILLAS, type AcentoId, muletillasQueSobreviven } from '@/lib/acento-workspace';
 
 const KEY = 'video.voz';
 
@@ -123,7 +123,10 @@ export async function setAcentoCliente(acento: AcentoId): Promise<VozCliente> {
   const nuevo: VozCliente = {
     ...antes,
     acento,
-    muletillas: antes.muletillas.filter((m) => MULETILLAS[acento].includes(m)),
+    // ⚠️ Cambiar de acento NO borra lo que la persona escribió: sólo las
+    // sugerencias de otra variedad. La pantalla ya lo hacía bien y el server no —
+    // y el que decide qué se escribe es el server.
+    muletillas: muletillasQueSobreviven(acento, antes.muletillas),
   };
   await setSetting(KEY, JSON.stringify(nuevo));
   return nuevo;
@@ -132,13 +135,16 @@ export async function setAcentoCliente(acento: AcentoId): Promise<VozCliente> {
 /**
  * Guarda las muletillas marcadas.
  *
- * Se filtran contra las del acento vigente: lo que llega de la pantalla es lo
- * que se tocó, y una lista que incluya algo de otra variedad significa que el
- * acento cambió en otra pestaña. Gana lo guardado.
+ * ⚠️ Se descartan SÓLO las sugerencias de otra variedad —eso sigue significando
+ * que el acento cambió en otra pestaña, y ahí gana lo guardado—. Lo que la
+ * persona ESCRIBIÓ se conserva: no es sugerencia de nadie, así que es suya.
+ *
+ * Antes se filtraba contra una lista blanca y las tipeadas se perdían con un
+ * `{ ok: true }` de vuelta. Ver `muletillasQueSobreviven`.
  */
 export async function setMuletillasCliente(muletillas: string[]): Promise<VozCliente> {
   const antes = await getVozCliente();
-  const validas = antes.acento ? MULETILLAS[antes.acento] : [];
+
   // ⚠️ `...antes` PRIMERO: sin él, guardar las muletillas borraba el clon y las
   // muestras. El objeto se escribe ENTERO en una sola key, así que cada setter
   // que arma el suyo desde cero está tirando lo que no nombra — el mismo modo de
@@ -146,7 +152,7 @@ export async function setMuletillasCliente(muletillas: string[]): Promise<VozCli
   const nuevo: VozCliente = {
     ...antes,
     acento: antes.acento,
-    muletillas: muletillas.filter((m) => validas.includes(m)),
+    muletillas: muletillasQueSobreviven(antes.acento as AcentoId | '', muletillas),
   };
   await setSetting(KEY, JSON.stringify(nuevo));
   return nuevo;

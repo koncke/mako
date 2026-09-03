@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  ACENTOS_ES, MULETILLAS, resolverAcento, type AcentoId,
+  ACENTOS_ES, MULETILLAS, resolverAcento, muletillasQueSobreviven, type AcentoId,
 } from '../lib/acento-workspace';
 import { TAB_ONBOARDINGS } from '../lib/tab-onboarding-catalogo';
 import { readFileSync } from 'node:fs';
@@ -199,4 +199,47 @@ test('y el wizard NO abre siempre en el primer paso', () => {
   assert.match(page, /hechos=\{hechos\}/, 'la page no le pasa los pasos hechos a la puerta');
   const puerta = sinComentarios(readFileSync(join(RAIZ, 'app/video-generator/PuertaVideoGen.tsx'), 'utf8'));
   assert.match(puerta, /hechos=\{hechos\}/, 'la puerta no se los pasa al wizard');
+});
+
+// ── La muletilla que la persona ESCRIBE ────────────────────────────────────
+
+test('una muletilla propia SOBREVIVE, y la de otra variedad no', () => {
+  // ⚠️ EL CASO QUE NINGÚN TEST TENÍA, y por eso el bug vivió.
+  //
+  // Los dos tests de arriba pasan con lista blanca Y con lista negra, porque
+  // TODAS sus entradas son sugerencias de alguna variedad. El caso que las
+  // distingue es una palabra que no sugiere NADIE — o sea, justamente la que la
+  // persona se tomó el trabajo de tipear.
+  //
+  // Con la lista blanca esa palabra se tiraba en CUATRO lugares distintos, y la
+  // action devolvía { ok: true }. Medido con un cliente delante: «las muletillas
+  // no se guardaron».
+
+  // «chamullo» no es sugerencia de ninguna variedad: es de la persona.
+  for (const id of IDS) {
+    assert.ok(!MULETILLAS[id].includes('chamullo'), `'chamullo' se volvió sugerencia de ${id}: elegí otra palabra para este test`);
+  }
+  assert.deepEqual(muletillasQueSobreviven('ar', ['obvio', 'chamullo']), ['obvio', 'chamullo']);
+
+  // «cachai» SÍ es de otra variedad (cl): con acento mexicano se tira, porque un
+  // avatar norteño diciéndola suena a que cambió de nacionalidad a mitad del
+  // anuncio — y eso no se ve al leer, se oye.
+  assert.ok(MULETILLAS.cl.includes('cachai'));
+  assert.deepEqual(muletillasQueSobreviven('mx-norte', ['pues', 'cachai', 'chamullo']), ['pues', 'chamullo']);
+
+  // ⚠️ Sin acento NO se filtra nada. `[]` como lista de válidas descartaba TODO,
+  // que es confundir «no puedo decidir» con «no vale ninguna» — y ante la duda,
+  // tirar es la opción destructiva.
+  assert.deepEqual(muletillasQueSobreviven('', ['lo que sea']), ['lo que sea']);
+  assert.deepEqual(muletillasQueSobreviven(null, ['lo que sea']), ['lo que sea']);
+});
+
+test('y la regla vive en UN solo lugar: nadie la reescribe a mano', () => {
+  // Estuvo copiada en cuatro archivos y las copias DIVERGIERON: la pantalla tenía
+  // la correcta (lista negra) y el server la equivocada (lista blanca), o sea que
+  // se veía bien y no se guardaba — la peor combinación posible.
+  for (const f of ['app/video-generator/voz-cliente.ts', 'app/video-generator/OnboardingVideoGen.tsx']) {
+    const src = sinComentarios(readFileSync(join(RAIZ, f), 'utf8'));
+    assert.doesNotMatch(src, /MULETILLAS\[[a-zA-Z.]+\]\.includes/, `${f} volvió a filtrar muletillas a mano`);
+  }
 });

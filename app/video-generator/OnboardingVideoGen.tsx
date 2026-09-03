@@ -38,7 +38,7 @@ import { Button, Select } from '@/app/_ui';
 import { conWs } from '@/lib/ws-tab';
 import { useWs } from '@/app/_ui/Link';
 import { Icon } from '../_components/icons';
-import { ACENTOS_ES, MULETILLAS, ETIQUETA_ACENTO, ZONA_DEL_ACENTO, REGIONES, acentoDeZona, type AcentoId } from '@/lib/acento-workspace';
+import { ACENTOS_ES, MULETILLAS, ETIQUETA_ACENTO, ZONA_DEL_ACENTO, REGIONES, acentoDeZona, muletillasQueSobreviven, type AcentoId } from '@/lib/acento-workspace';
 import type { Puente } from '@/lib/flow-cola';
 import { estadoDelPuente, AvisoPuente } from './puente-avisos';
 import { estadoPuenteAction } from './puente-actions';
@@ -366,14 +366,6 @@ function Carrusel({ fotos, idx, subiendo, onIr, onAbrir, onSubir }: {
   );
 }
 
-/**
- * El orden del desplegable: el del catálogo, que va por región.
- *
- * ⚠️ No se lista a mano. La lista escrita acá se quedó vieja el día que el
- * catálogo pasó de siete variedades a treinta y dos: una opción que existe y no
- * está en este array simplemente NO SE PUEDE ELEGIR, sin error y sin síntoma.
- */
-const ORDEN = Object.keys(ACENTOS_ES) as AcentoId[];
 
 /**
  * Qué paso del catálogo cierra cada pantalla.
@@ -602,10 +594,11 @@ export function OnboardingVideoGen({
       // («cachai» en un guion mexicano suena a que el avatar cambió de
       // nacionalidad a mitad del anuncio). Una palabra que no es sugerencia de
       // nadie es de la persona, y se queda.
-      const deOtra = (m: string) =>
-        !MULETILLAS[acento].includes(m)
-        && ORDEN.some((id) => id !== acento && MULETILLAS[id].includes(m));
-      const validas = antes.filter((m) => !deOtra(m));
+      // ⚠️ LA MISMA FUNCIÓN QUE EL SERVER, no una copia. Acá vivía la regla
+      // correcta escrita a mano mientras el server tenía la equivocada — o sea
+      // que la pantalla conservaba lo tipeado y el server lo tiraba al guardar,
+      // que es la peor combinación posible: se ve bien y no se guarda.
+      const validas = muletillasQueSobreviven(acento, antes);
       return validas.length === antes.length ? antes : validas;
     });
   }, [acento]);
