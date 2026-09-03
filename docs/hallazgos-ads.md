@@ -908,10 +908,12 @@ que es el único consumidor nuevo que ya lo hace bien.
   cuya fecha cae en el período**, incluidas las futuras. Las dos preguntas son legítimas y
   distintas («cuántos reservaron en el trimestre» vs «cuántas reuniones hubo»), y hoy nadie
   cuenta la primera: `fecha_agenda` no lo usa ninguna query del repo.
-- `listar_campanas_meta` (`lib/mako-doer-acciones.ts`) suma `spend` —que está en **MXN**— y
-  lo devuelve en un campo llamado `gasto_reciente_usd`: **17,3× inflado**, y es la única tool
-  que le da números de Meta a MaKo por WhatsApp. Además su `.limit(600)` sobre filas a nivel
-  anuncio cubre ~50 días con 12 anuncios y 6 días con 100, sin decir que recortó.
+- `listar_campanas_meta` (`lib/mako-doer-acciones.ts`) sumaba `spend` —que está en **MXN**—
+  y lo devolvía en un campo llamado `gasto_reciente_usd`: **17,3× inflado**, en la única tool
+  que le da números de Meta a MaKo por WhatsApp. Y su `.limit(600)` sobre filas a nivel anuncio
+  cubría ~50 días con 12 anuncios y 6 con 100, sin decir que recortó. **Arreglado el 02/09** —
+  tiene sección propia al final de este documento, porque la regla que deja no es la del techo
+  de 1000 sino la de qué sabe un modelo cuando lee el resultado de una tool.
 
 **Y el corolario del cierre, que hace que dos pantallas no coincidan:** conviven **tres
 definiciones** de «cerró» (`cerro = true`, `estado_lead = 'ganado'`, `fecha_cierre NOT NULL`)
@@ -920,3 +922,51 @@ y no siempre concuerdan. `getMarketingWindow` cuenta por `cerro`; `getTendencias
 `cerro`, el CAC del dashboard y el de la serie discuten entre sí y ninguno avisa.
 `lib/metricas-negocio.ts` usa `cerro = true` a propósito: es la misma que
 `v_cohortes_mensuales`, para reconciliar con /comercial en vez de agregar una cuarta.
+
+---
+
+## `listar_campanas_meta` le decía dólares a los pesos, y «reciente» a una ventana que no conocía
+
+**Vive en:** `lib/mako-doer-acciones.ts` (case `listar_campanas_meta`) · **Encontrado:**
+02/09/2026, como corolario de la auditoría de los siete getters de arriba. **Arreglado el
+mismo día.**
+
+**Síntoma.** Ninguno visible. La tool contestaba números redondos y creíbles.
+
+**La causa, dos veces el mismo error de fondo.**
+
+1. **La moneda.** `spend` llega de Meta en la **moneda de la cuenta publicitaria** — MXN en
+   las nuestras. La tool lo sumaba y lo devolvía en un campo llamado `gasto_reciente_usd`:
+   pesos con etiqueta de dólares, **17,3× inflado**. El resto del repo sí divide
+   (`lib/queries.ts`, `lib/ads-analyst.ts`), así que no era un supuesto de la casa: era este
+   call-site.
+2. **La ventana.** `.limit(600)` sin filtro de fecha, ordenado por `fecha` desc, sobre una
+   tabla con **una fila por ANUNCIO por día**. Cuántos días entraban en el «gasto reciente»
+   lo decidía cuántos anuncios estuvieran corriendo: ~50 días con 12 anuncios, **~6 días con
+   100**. La tool no sabía qué período estaba sumando y no avisaba que había recortado.
+
+**Por qué pesa más que un bug de pantalla.** Es la **única** tool que le da números de Meta a
+MaKo por WhatsApp. Una pantalla pone la unidad en el encabezado de la columna y el período en
+el selector de rango; el chat no tiene ni encabezado ni selector, y el que lee es el dueño.
+Un número mal etiquetado ahí no tiene nada al lado que lo contradiga.
+
+**Qué quedó.** La tool devuelve `gasto_mxn` y `gasto_usd` por separado, más un bloque
+`moneda` que dice que el USD es un derivado de un tipo de cambio FIJO de `lib/config.ts` —el
+mismo contrato que ya usaba el reporte de métricas (`lib/metricas-modelo.ts`:
+`meta_inversion` + `meta_inversion_usd` + `moneda`)— y un bloque `ventana` con
+`{ desde, hasta, dias: 30 }` que MaKo tiene instrucción de repetir cuando diga un monto. La
+lectura pasó a `leerPorPaginas` (era el noveno lector de esa tabla que ignoraba el techo de
+1000 de PostgREST), así que la ventana de 30 días entra **entera** por más anuncios que haya.
+
+**Y el vacío no es un cero:** con ventana puesta, «no hay filas» puede ser «no corrió nada» o
+«la sincronización está parada». La respuesta vacía lo dice y le prohíbe a MaKo contestar que
+el negocio no invirtió.
+
+**La regla:** ver «Lo que le devuelve una tool a un modelo es TODO lo que el modelo sabe» en
+`AGENTS.md`. En corto: **la unidad va en el nombre del campo, no en la descripción de la
+tool**, y **un adjetivo de tiempo («reciente», «último») no es un recorte** — si el nombre
+del campo trae uno, la ventana no está definida en ningún lado.
+
+**Lo que NO se tocó:** los siete getters de `lib/queries.ts` de la sección de arriba siguen
+sin paginar; este arreglo cerró el octavo, no esa lista. Y `MarketingWindow.agendamientos`
+sigue contando por `fecha_junta_1`.

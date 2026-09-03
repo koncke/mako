@@ -2685,3 +2685,31 @@ habría salido rioplatense.
 Cualquier cosa que salga de `Intl`, `navigator.language`, la geolocalización o la
 hora local va a dar tu valor y no el del cliente. En una captura eso se lee como un
 dato del cliente, y si además hay un botón que guarda, se convierte en uno.
+
+# Lo que le devuelve una tool a un modelo es TODO lo que el modelo sabe: la unidad y el recorte van ADENTRO
+
+`listar_campanas_meta` (`lib/mako-doer-acciones.ts`) sumaba `spend` —que Meta entrega en la
+**moneda de la cuenta**, MXN en las nuestras— y lo devolvía en un campo llamado
+`gasto_reciente_usd`. Pesos con etiqueta de dólares, **17,3× inflado**, en la única tool que
+le da números de Meta a MaKo por WhatsApp: el número lo leía el dueño en un chat.
+
+Una pantalla pone la unidad en el encabezado de la columna y el período en el selector de
+rango. Un modelo **no ve nada de eso**: lo único que le llega es el JSON de la tool. De ahí
+las tres:
+
+- **La unidad va pegada al número, en el NOMBRE del campo** (`gasto_mxn`), no en la
+  descripción de la tool. La descripción se lee una vez, al elegir la tool; cuando el modelo
+  redacta la respuesta está mirando el resultado, no el catálogo.
+- **Un derivado se declara derivado.** `gasto_usd` sale de un tipo de cambio FIJO escrito a
+  mano en `lib/config.ts`, así que va con su nota en el payload — el mismo contrato que ya
+  usa `lib/metricas-modelo.ts` (`meta_inversion` + `meta_inversion_usd` + bloque `moneda`).
+- **Un adjetivo de tiempo no es un recorte.** El segundo defecto de la misma tool:
+  `.limit(600)` sin filtro de fecha sobre una tabla con una fila por ANUNCIO por día, o sea
+  que cuántos días entraban lo decidía cuántos anuncios estuvieran corriendo (~50 días con
+  12, ~6 con 100) — y el campo se llamaba «reciente». **Si el nombre de un campo trae
+  «reciente», «último» o «actual», la ventana no está definida en ningún lado: definila,
+  leela entera y devolvela** (`{ desde, hasta, dias }`), con una `instruccion` de repetirla
+  al decir el monto.
+
+Es el gemelo de «Una regla en un prompt no es una regla», del otro lado del cable: aquella
+mira lo que el modelo ESCRIBE, ésta lo que el modelo LEE.

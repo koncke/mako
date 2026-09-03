@@ -21,6 +21,9 @@ import { getLead, setPipelineStage, getFunnel, faltantesParaMover, esRequisitosF
 import { eventTypeDeReunion, huecosDisponibles, reservarReunion, linkParaAgendar } from '@/lib/calendly-agenda';
 import type { Step, StepId } from '@/lib/stage-requirements';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
+import { hoyEnTz, diasAntes } from '@/lib/date-utils';
+import { leerPorPaginas } from '@/lib/supabase-paginado';
+import { TIPO_DE_CAMBIO_USD_MXN } from '@/lib/config';
 import { getSecuenciasConStats, setSecuenciaActiva } from '@/lib/nutricion';
 import { metaWrite, type MetaWriteBody } from '@/lib/meta-write';
 import { rutearTareasCliente } from './todo-rutear';
@@ -309,7 +312,7 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
   },
   {
     name: 'listar_campanas_meta',
-    description: 'Lista las campañas de Meta Ads conocidas (id, nombre y gasto reciente), tomadas de las métricas ya sincronizadas. Úsala para conseguir el id de una campaña antes de proponer renombrarla, cambiar su presupuesto o pausarla/activarla.',
+    description: 'Lista las campañas de Meta Ads con datos sincronizados en los ÚLTIMOS 30 DÍAS: id, nombre y gasto de ESE período — en MXN (la moneda de la cuenta publicitaria) y su equivalente en USD a un tipo de cambio fijo del código. La respuesta trae la ventana de fechas exacta que cubre: no es el gasto histórico de la campaña. Úsala para conseguir el id de una campaña antes de proponer renombrarla, cambiar su presupuesto o pausarla/activarla.',
     input_schema: { type: 'object', properties: {} },
   },
   {
@@ -563,26 +566,80 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
       }
 
       case 'listar_campanas_meta': {
-        const campanas = await runWithWorkspace(ws, async () => {
+        // ⚠️ DOS COSAS QUE ESTA TOOL DECÍA MAL (2026-09-02). Pesan porque es la
+        // ÚNICA que le da números de Meta a MaKo por WhatsApp: las leía el dueño,
+        // en un chat, sin ninguna pantalla que lo contradijera.
+        //
+        // 1) LA MONEDA. `spend` viene de Meta en la MONEDA DE LA CUENTA — MXN en
+        //    las cuentas configuradas así, que son las que tenemos. El campo se
+        //    llamaba `gasto_reciente_usd`: pesos etiquetados como dólares, 17,3x
+        //    inflado. Ahora van los DOS números con el nombre que les corresponde,
+        //    que es el contrato que el resto del repo ya usa para lo mismo
+        //    (lib/metricas-modelo.ts: `meta_inversion` + `meta_inversion_usd` +
+        //    bloque `moneda`). El USD es un DERIVADO de un tipo de cambio FIJO
+        //    escrito a mano en lib/config.ts, no lo que cobró Meta.
+        //
+        // 2) LA VENTANA. Era `.limit(600)` sin filtro de fecha: como hay una fila
+        //    por ANUNCIO por día, cuántos días entraban lo decidía cuántos anuncios
+        //    estuvieran corriendo (~50 días con 12 anuncios, ~6 días con 100), y el
+        //    campo se llamaba «reciente» sin decir de cuánto. MaKo sumaba una
+        //    ventana que no conocía y no avisaba que estaba recortada. Ahora la
+        //    ventana es FIJA, se lee ENTERA (paginada: `.limit()` no levanta el
+        //    techo de 1000 filas de PostgREST, corta en silencio) y va DICHA en la
+        //    respuesta para que MaKo la pueda repetir.
+        const DIAS = 30;
+        const hasta = hoyEnTz(await tzDeWorkspace(ws));
+        const desde = diasAntes(hasta, DIAS - 1);
+        const { campanas, omitidas } = await runWithWorkspace(ws, async () => {
           const db = await getTenantDb();
-          const { data } = await db.from('marketing_metrics_daily')
-            .select('campaign_id, campaign_name, spend, fecha')
-            .not('campaign_id', 'is', null)
-            .order('fecha', { ascending: false })
-            .limit(600);
           const map = new Map<string, { id: string; nombre: string; gasto: number }>();
-          for (const r of (data ?? []) as Array<{ campaign_id: string; campaign_name: string | null; spend: number | null }>) {
-            if (!r.campaign_id) continue;
-            const prev = map.get(r.campaign_id) ?? { id: r.campaign_id, nombre: r.campaign_name ?? '(sin nombre)', gasto: 0 };
-            prev.gasto += Number(r.spend ?? 0);
-            if (r.campaign_name) prev.nombre = r.campaign_name;
-            map.set(r.campaign_id, prev);
-          }
-          return [...map.values()].sort((a, b) => b.gasto - a.gasto).slice(0, 40)
-            .map((c) => ({ id: c.id, nombre: c.nombre, gasto_reciente_usd: Math.round(c.gasto) }));
+          await leerPorPaginas<{ campaign_id: string | null; campaign_name: string | null; spend: number | null }>(
+            db, 'marketing_metrics_daily', 'campaign_id, campaign_name, spend, fecha',
+            (filas) => {
+              for (const r of filas) {
+                if (!r.campaign_id) continue;
+                const prev = map.get(r.campaign_id) ?? { id: r.campaign_id, nombre: r.campaign_name ?? '(sin nombre)', gasto: 0 };
+                prev.gasto += Number(r.spend ?? 0);
+                if (r.campaign_name) prev.nombre = r.campaign_name;
+                map.set(r.campaign_id, prev);
+              }
+            },
+            { filtros: (q) => q.not('campaign_id', 'is', null).gte('fecha', desde).lte('fecha', hasta) },
+          );
+          const todas = [...map.values()].sort((a, b) => b.gasto - a.gasto);
+          return {
+            campanas: todas.slice(0, 40).map((c) => ({
+              id: c.id,
+              nombre: c.nombre,
+              gasto_mxn: Math.round(c.gasto),
+              gasto_usd: Math.round(c.gasto / TIPO_DE_CAMBIO_USD_MXN),
+            })),
+            omitidas: Math.max(0, todas.length - 40),
+          };
         });
-        if (!campanas.length) return 'No tengo campañas de Meta sincronizadas todavía.';
-        return JSON.stringify(campanas);
+        const ventana = { desde, hasta, dias: DIAS };
+        // Vacío NO es cero (misma regla que las `advertencias` del reporte de
+        // métricas): con la ventana puesta, "no hay filas" puede ser "no corrió
+        // nada" o "la sincronización está parada", y decir "no invirtió" es
+        // inventar un dato.
+        if (!campanas.length) {
+          return JSON.stringify({
+            ventana,
+            campanas: [],
+            nota: `No hay campañas de Meta con datos sincronizados entre el ${desde} y el ${hasta}. Eso NO significa que el negocio no haya invertido: puede que no haya corrido nada en estos ${DIAS} días, o que la sincronización esté parada. Dilo así y no des un cero por gasto.`,
+          });
+        }
+        return JSON.stringify({
+          ventana,
+          moneda: {
+            gasto: 'MXN — la moneda de la cuenta publicitaria de Meta',
+            tipo_cambio_usd_mxn: TIPO_DE_CAMBIO_USD_MXN,
+            nota: '`gasto_usd` es un DERIVADO con un tipo de cambio FIJO del código, no lo que cobró Meta. Si el monto en dólares importa de verdad, que lo verifiquen contra el resumen de facturación de Meta.',
+          },
+          campanas,
+          ...(omitidas ? { campanas_omitidas: omitidas } : {}),
+          instruccion: `Cuando digas un gasto, di SIEMPRE la moneda y el período ("X MXN entre el ${desde} y el ${hasta}"). Es el gasto de ESA ventana, no el histórico de la campaña.`,
+        });
       }
 
       case 'proponer_lead': {
