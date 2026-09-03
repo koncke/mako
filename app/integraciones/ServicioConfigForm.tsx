@@ -729,8 +729,36 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
                     <IconBtn name="help" title={ayudaAbierta[c.env] ? 'Ocultar la ayuda' : `¿Cómo consigo ${c.label.toLowerCase()}?`}
                       tone={ayudaAbierta[c.env] ? 'primary' : 'dim'}
                       onClick={() => setAyudaAbierta((a) => ({ ...a, [c.env]: !a[c.env] }))} />
+                    {/* ⚠️ CON RÓTULO, NO UN TILDE MUDO.
+
+                        Era un `IconBtn` de check y nada más. Medido acompañando a un
+                        cliente a cargar su primera key: pegó la credencial, buscó cómo
+                        guardarla y dijo «es que no tiene un botón para guardar, Save» —
+                        hubo que decirle por voz cuál era el ✓.
+
+                        El `title` no lo salva: un tooltip hay que ir a buscarlo, y sólo
+                        va a buscarlo quien ya sabe que ahí hay algo. La pantalla YA
+                        avisaba «sin guardar» al lado; lo que faltaba era que el control
+                        que lo resuelve dijera su nombre.
+
+                        Sólo aparece con algo tipeado, así que la fila no se llena de
+                        botones: cuando hay algo que guardar, se ve que se puede. */}
                     {tipeado && (
-                      <IconBtn name="check" title={guardando === c.env ? 'Probando y guardando…' : 'Probar y guardar esta credencial'} tone="good" disabled={ocupada} onClick={() => guardarCampo(c.env)} />
+                      <button
+                        type="button"
+                        disabled={ocupada}
+                        onClick={() => guardarCampo(c.env)}
+                        title="También puedes apretar Enter"
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 6,
+                          padding: '6px 12px', borderRadius: 'var(--r-sm)',
+                          border: 'none', background: ocupada ? 'var(--border-strong)' : 'var(--good)',
+                          color: '#fff', font: 'inherit', fontSize: 12.5, fontWeight: 650,
+                          cursor: ocupada ? 'default' : 'pointer', whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {guardando === c.env ? 'Guardando…' : 'Guardar'}
+                      </button>
                     )}
                   </>
                 )}
