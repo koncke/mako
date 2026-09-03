@@ -409,7 +409,7 @@ export const PREGUNTAS: Pregunta[] = [
     opciones: ['$0 – $3.000 (o todavía nada)', '$3.000 – $10.000', '$10.000 – $30.000', '$30.000 – $80.000', 'Más de $80.000'],
   },
   {
-    id: 'inversion', emoji: '🔥', texto: '¿Cuánto invertís por día en Meta Ads?',
+    id: 'inversion', emoji: '🔥', texto: '¿Cuánto inviertes por día en Meta Ads?',
     opciones: ['Nada o menos de $20', '$20 – $100', '$100 – $300', '$300 – $1.000', 'Más de $1.000'],
   },
   {
