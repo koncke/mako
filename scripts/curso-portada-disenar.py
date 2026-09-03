@@ -159,7 +159,9 @@ if not HAY_FOTO:
 
 # ── El texto ─────────────────────────────────────────────────────────────────────────────
 X = 68
-tope = ANCHO_TEXTO - 40
+# El tope es hasta DONDE PUEDE LLEGAR el texto, y el texto arranca en X: sin restar X, la
+# ultima linea se metia 28 px dentro de la franja del monograma. Se mide desde X.
+tope = ANCHO_TEXTO - X - 24
 
 cejilla = (a.cejilla or '').upper()
 y = 96
