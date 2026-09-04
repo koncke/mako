@@ -3139,3 +3139,48 @@ sesión tenía un error de tipos y el hook —que corre `tsc` sobre el árbol—
 `git worktree add --detach <ruta> main`, un junction a `node_modules` (`New-Item -ItemType
 Junction`), y `git push origin HEAD:main` desde ahí. Se descarta con `git worktree remove
 --force` + `git worktree prune`.
+
+### Y la salida de emergencia tenía su propio peaje: `npm test` era rojo en TODO worktree
+
+**Vive en:** `tests/dev-areas.test.ts` · `app/admin/dev/areas.ts` (`RUTAS_DE_ENTORNO`).
+
+Medido el 03/09/2026, sobre un worktree limpio a la altura de `origin/main` (70f5289b):
+`npm test` daba **1895 pass / 1 fail**, y en el clon principal daba verde. El que fallaba
+era el test que cuida las rutas declaradas en el `vive[]` de cada área de `/admin/dev`,
+con cinco acusaciones: `.vercel/`, `.env.local` y `.git/hooks/pre-push` (ésta en tres
+áreas). La causa es un `existsSync` contra el disco sobre tres rutas que están **fuera de
+git a propósito**: dos son secretos/artefactos locales, y en un worktree `.git` no es una
+carpeta sino un ARCHIVO de 125 bytes que apunta al gitdir.
+
+Lo caro es la combinación con la sección de arriba: **el worktree es justo el lugar al que
+AGENTS.md manda ir cuando el árbol compartido no compila**, así que la guarda estaba roja
+por construcción en el escenario recomendado. Un rojo permanente enseña a ignorar el test
+—éste ya cazó 30 rutas plausibles pero inexistentes—, y con eso se pierde la mitad que sí
+servía.
+
+⚠️ **El diagnóstico obvio era el equivocado, y era tentador: «el worktree no tiene el
+hook, ojo con pushear desde ahí».** Es falso. `git rev-parse --git-path hooks/pre-push`
+devuelve la ruta del **clon principal**: git resuelve `hooks/` contra el git dir COMÚN, así
+que el pre-push corre igual desde un worktree, con sus seis chequeos. Lo que no existe es
+la RUTA RELATIVA, no la guarda. Por eso `existsSync` era la pregunta equivocada — y por eso
+tampoco servía cambiarla por «¿está en git?», que para estas tres también da que no.
+
+La cura es un catálogo de rutas de ENTORNO (`RUTAS_DE_ENTORNO` en `app/admin/dev/areas.ts`,
+que el test importa) exceptuadas del chequeo. Tres decisiones que valen para cualquier
+excepción a un guard:
+
+- **Van EXACTAS, no por prefijo.** Exceptuar `.git/`, `.env` o `.vercel` deja entrar
+  cualquier ruta futura que empiece igual; con la lista exacta, sumar una es una decisión.
+  Siguen exigidas **760 de 765** rutas declaradas.
+- **Aflojar un guard se paga con otro chequeo, no gratis.** El segundo test exige que cada
+  entrada de `RUTAS_DE_ENTORNO` siga declarada en algún `vive[]`: si no, la excepción le
+  sobrevive a su motivo y queda esperando a una ruta futura del mismo nombre para dejarla
+  pasar sin mirar.
+- **Se verifica en los DOS árboles**, que es la lección de la sección de arriba aplicada a
+  su propio remedio: acá, corriendo el mismo `existsSync` contra las dos raíces y
+  comprobando aparte que las tres exceptuadas SÍ existen en un clon configurado. Si alguna
+  no estuviera **ni ahí**, la excepción estaría tapando una ruta realmente inventada.
+
+Es la regla de AGENTS.md «una guarda bloquea sólo lo que se arregla haciendo lo que ella
+pide»: nadie puede crear `.git/hooks/pre-push` adentro de un worktree, ni en un clon nuevo,
+ni en CI.

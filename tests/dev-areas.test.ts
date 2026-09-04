@@ -9,6 +9,13 @@
 //
 // Estos tests son la red. Corren contra el disco: si un archivo se renombra o se
 // borra, el área que lo declaraba falla acá y no en la cara de alguien.
+//
+// Lo que NO se exige son las rutas de entorno (`RUTAS_DE_ENTORNO`): las tiene un clon
+// configurado y ningún checkout limpio, así que en un worktree o en CI este test daba
+// rojo por construcción — justo donde AGENTS.md manda pushear cuando el árbol
+// compartido no compila. Un rojo permanente enseña a ignorar el test, y con eso se
+// pierde la mitad que sí sirve. Se saltean, y a cambio se chequea que la lista no le
+// sobreviva a su motivo (segundo test).
 // =============================================================================
 
 import { test } from 'node:test';
@@ -16,16 +23,20 @@ import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { AREAS, FAMILIAS, areaDe, porGrupo } from '../app/admin/dev/areas';
+import { AREAS, FAMILIAS, RUTAS_DE_ENTORNO, areaDe, porGrupo } from '../app/admin/dev/areas';
 import { REGISTROS_SLUGS, registroDe } from '../app/admin/dev/registros';
 import { ADMIN_NAV } from '../app/_components/nav';
 
 const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
+/** Ver RUTAS_DE_ENTORNO en app/admin/dev/areas.ts: por qué éstas no se exigen. */
+const DE_ENTORNO = new Set(RUTAS_DE_ENTORNO);
+
 test('EL PEDIDO: toda ruta declarada en `vive` existe de verdad', () => {
   const fantasmas: string[] = [];
   for (const a of AREAS) {
     for (const ruta of a.vive) {
+      if (DE_ENTORNO.has(ruta)) continue; // no existe en un worktree ni en CI
       if (!existsSync(resolve(RAIZ, ruta))) fantasmas.push(`${a.slug} → ${ruta}`);
     }
   }
@@ -34,6 +45,19 @@ test('EL PEDIDO: toda ruta declarada en `vive` existe de verdad', () => {
     [],
     `Estas rutas no existen en el disco. O el archivo se movió y hay que actualizar ` +
     `el área, o la ruta se inventó:\n  ${fantasmas.join('\n  ')}`,
+  );
+});
+
+test('la excepción de entorno no le sobrevive a lo que declaraba', () => {
+  const declaradas = new Set(AREAS.flatMap((a) => a.vive));
+  const huerfanas = RUTAS_DE_ENTORNO.filter((r) => !declaradas.has(r));
+  assert.deepEqual(
+    huerfanas,
+    [],
+    `Estas rutas están exceptuadas del chequeo de arriba y ya no las declara ningún ` +
+    `\`vive\`. Sacalas de RUTAS_DE_ENTORNO (app/admin/dev/areas.ts): si no, la ` +
+    `excepción queda esperando a una ruta futura que se llame igual y la deja pasar ` +
+    `sin chequear:\n  ${huerfanas.join('\n  ')}`,
   );
 });
 

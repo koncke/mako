@@ -42,6 +42,31 @@
 // ⚠️ `vive` lo mira `tests/dev-areas.test.ts` contra el disco. Una ruta plausible
 // pero inexistente no rompe nada y no la ve el compilador: manda al próximo agente
 // a leer un archivo que no está, con la confianza de que el registro dice la verdad.
+//
+// La excepción son las rutas de ENTORNO (`RUTAS_DE_ENTORNO`, acá abajo): las tiene un
+// clon configurado y ningún checkout limpio. El test no las exige porque NADIE las
+// puede crear haciendo lo que el test pide — en un worktree `.git` es un ARCHIVO que
+// apunta al gitdir, así que `.git/hooks/pre-push` no puede existir ahí ni queriendo.
+//
+// ⚠️ Y ojo con lo que se concluye de eso: el hook IGUAL CORRE desde un worktree, porque
+// git resuelve `hooks/` contra el git dir COMÚN (`git rev-parse --git-path hooks/pre-push`
+// devuelve el del clon principal). La ruta relativa no existe y la guarda está viva:
+// por eso `existsSync` era la pregunta equivocada, y no que el hook «falte» ahí.
+
+/**
+ * Lo que un clon configurado tiene y un checkout limpio no: fuera de git a propósito.
+ * `tests/dev-areas.test.ts` no exige que existan, pero SÍ exige que cada una siga
+ * declarada en algún `vive` — si no, la excepción le sobrevive a su motivo y termina
+ * tapando una ruta futura que se llame igual.
+ *
+ * Van EXACTAS y no por prefijo: sumar una ruta de entorno tiene que ser una decisión,
+ * no algo que se cuele por empezar con un punto.
+ */
+export const RUTAS_DE_ENTORNO: readonly string[] = [
+  '.git/hooks/pre-push', // el hook no se versiona; AGENTS.md dice cómo recrearlo
+  '.env.local',          // secretos, y apunta a la base de PRODUCCIÓN
+  '.vercel/',            // la deja `vercel link`, es de quien linkeó
+];
 
 export type EstadoArea = 'listo' | 'parcial' | 'por-construir';
 
