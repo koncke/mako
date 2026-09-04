@@ -1097,5 +1097,22 @@ superposición, con los puntos de progreso pintados adentro del grafo.
   ahí se saltea la entrada entera sin que nadie entienda por qué. `opacity:0` esconde,
   `pointer-events:none` desactiva — y hacen falta las dos.
 
+### El signo de una acción se muestra cuando la acción empieza, no cuando se monta la pantalla
+
+El cursor que simula la escritura estaba SIEMPRE en el markup, sin depender de nada. Se veía
+parpadear en el medio de la pantalla **mientras el grafo todavía se estaba apagando**, tres
+segundos antes de que se escribiera la primera letra: le anuncia al ojo que va a pasar algo
+justo donde todavía está pasando otra cosa, y le roba el final a la animación anterior. Es el
+mismo error que un spinner pintado antes de que salga la petición.
+
+⚠️ Y arreglarlo con `setState` **rompe el texto**: el render que dispara se arma con el `cola`
+que hay en el estado en ese momento y PISA la letra que el pintado directo acababa de escribir
+en el DOM. El síntoma es sutil y fácil de no ver: el texto arranca en la segunda letra («Po»
+en vez de «P»).
+
+> **La regla: si un dato se escribe directo al DOM para evitar renders, todo lo que lo
+> acompaña tiene que viajar por el mismo camino.** Mezclar los dos hace que el render pise al
+> DOM, y el que pierde es siempre el que escribió sin pasar por el estado.
+
 *Corrida del 04/09/2026 · 67 agentes en 4 lentes con refutación de 3 escépticos por hallazgo
 · 21 hallazgos, 18 sobrevivieron.*
