@@ -67,7 +67,19 @@ export default function InstalarExtension() {
             version={EXTENSION_VERSION}
             pasos={[
               'Abre la ficha de MaKo en la Chrome Web Store y toca **Añadir a Chrome**.',
-              'En la barra de Chrome, toca el ícono de MaKo y después **Conectar**.',
+              // ⚠️ EL PASO DE ANCLAR, QUE FALTABA EN LOS TRES INSTRUCTIVOS.
+              //
+              // Los tres decían «toca el ícono de MaKo en la barra de Chrome», y recién
+              // instalada NO HAY tal ícono: Chrome mete toda extensión nueva adentro del
+              // menú de la pieza de rompecabezas y sólo aparece en la barra si alguien la
+              // ancla. O sea que el instructivo mandaba a tocar algo que no existe todavía.
+              //
+              // Y falla en silencio, que es lo peor: la persona mira la barra, no ve nada,
+              // y concluye que la instalación salió mal — cuando salió bien. Es el mismo
+              // defecto que el paso de Flow que ya se agregó acá: un paso verificable de
+              // menos convierte un instructivo correcto en uno que no se puede terminar.
+              'Arriba a la derecha, toca el ícono de **pieza de rompecabezas** y, al lado de MaKo, el **alfiler**. El ícono de MaKo queda fijo en la barra.',
+              'Toca el ícono de MaKo y después **Conectar**.',
               // ⚠️ ESTE PASO FALTABA, Y ES EL QUE COSTÓ UNA TARDE.
               //
               // El instructivo saltaba de «Conectar» a «Todo listo», y el popup NO
@@ -109,7 +121,9 @@ export default function InstalarExtension() {
                 'Copia **chrome://extensions** y pégalo en la barra de direcciones de Chrome. '
                   + 'Arriba a la derecha, enciende **Modo de desarrollador**.',
                 'Toca **Cargar descomprimida** y elige la carpeta **mako-puente**.',
-                'En la barra de Chrome, toca el ícono de MaKo y después **Conectar**.',
+                // Ver la nota de arriba: sin anclar, el ícono no está en la barra.
+                'Arriba a la derecha, toca el ícono de **pieza de rompecabezas** y, al lado de MaKo, el **alfiler**. El ícono de MaKo queda fijo en la barra.',
+                'Toca el ícono de MaKo y después **Conectar**.',
                 // ⚠️ ESTE PASO FALTABA, Y ES EL QUE COSTÓ UNA TARDE.
                 //
                 // El instructivo saltaba de «Conectar» a «Todo listo», y el popup NO
@@ -170,6 +184,9 @@ export default function InstalarExtension() {
                 'Vuelve aquí y toca **Descargar la extensión**.',
                 'Descomprime el archivo. Te queda una carpeta llamada **mako-puente**.',
                 'En **chrome://extensions**, toca **Cargar descomprimida** y elige esa carpeta.',
+                // Al reinstalar, el anclado se pierde con el **Quitar** del primer paso:
+                // vuelve a hacer falta, igual que en una instalación nueva.
+                'Arriba a la derecha, toca el ícono de **pieza de rompecabezas** y, al lado de MaKo, el **alfiler**.',
                 `Toca el ícono de MaKo en la barra de Chrome. Abajo del todo tiene que decir `
                   + `**v${EXTENSION_VERSION}**. Si dice otro número, elegiste otra carpeta: `
                   + `repite el paso anterior con la que acabas de descomprimir.`,

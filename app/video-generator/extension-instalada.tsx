@@ -150,6 +150,8 @@ export function useExtensionInstalada(): string | false | null {
   return instalada;
 }
 
+/** El ancla del aviso, para que `resaltarAviso()` lo encuentre. */
+export const ID_AVISO_EXTENSION = 'mk-aviso-extension-vieja';
 /**
  * El aviso de que la extensión quedó vieja. Se dibuja solo cuando lo está.
  *
@@ -183,7 +185,15 @@ export function AvisoExtensionVieja({ instalada, compacto = false }: {
     // dibujaba siempre, y en un contenedor `flex` con `gap` un hijo vacío no
     // cuesta 0 — cuesta el gap. Quien sabe si esto va a existir es este
     // componente, así que el ancho viaja con él.
-    <div style={{ marginBottom: compacto ? 0 : 12, width: '100%', maxWidth: 900 }}>
+    // ⚠️ CON ID Y ENFOCABLE: es el aviso que se muestra cuando la extensión quedó
+    // vieja, y por lo tanto el que hay que resaltar cuando un clic choca contra el
+    // gate del puente. Sin el ancla, `resaltarAviso()` no encontraba nada y el clic
+    // quedaba sin ninguna respuesta.
+    <div
+      id={ID_AVISO_EXTENSION}
+      tabIndex={-1}
+      style={{ marginBottom: compacto ? 0 : 12, width: '100%', maxWidth: 900, outline: 'none' }}
+    >
       {/* ⚠️ LLEVA AL INSTRUCTIVO, no al zip. Y ya no dice «reemplaza los archivos»:
           esa instrucción tiene un paso que quien la ejecuta no puede verificar
           —cuál es «la misma carpeta»— y falló tres veces. Los pasos verificables

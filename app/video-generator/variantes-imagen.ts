@@ -89,7 +89,21 @@ export function imagenEnCurso(m: {
   trabajoListo?: number;
   opciones?: string[];
   error?: string;
+  errorCausa?: string;
 } | undefined): boolean {
-  if (!m?.trabajoId || m.error) return false;
+  if (!m?.trabajoId) return false;
+  // ⚠️ UN ERROR DE PUENTE NO APAGA EL SONDEO — EL MISMO DEFECTO QUE YA SE CURÓ
+  // EN LAS TOMAS, VIVO ACÁ.
+  //
+  // Esto era `|| m.error` a secas: cualquier error dejaba la imagen fuera del
+  // sondeo para siempre. Y el sondeo es quien llama a `estadoImagenAction`, que
+  // es donde vive la cura —borrar un error de puente cuando el puente volvió—,
+  // así que el arreglo quedaba otra vez detrás de la puerta que él mismo tenía
+  // que abrir.
+  //
+  // «El puente no estaba» es la única causa que se arregla sola: el trabajo
+  // sigue encolado del lado del server y lo levanta el próximo latido. El resto
+  // de los errores son de Google y sí terminan la espera.
+  if (m.error) return m.errorCausa === 'puente' && m.trabajoId !== m.trabajoListo;
   return m.trabajoListo ? m.trabajoId !== m.trabajoListo : !m.opciones?.length;
 }

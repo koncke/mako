@@ -1519,6 +1519,22 @@ export async function estadoImagenAction(
   if (yaLlego) {
     return { ok: true, item, estado: { fase: 'listo', opciones: m.opciones ?? [], elegida: m.elegida ?? '' } };
   }
+  // ⚠️ LA CURA DEL ERROR DE PUENTE, IGUAL QUE EN LAS TOMAS.
+  //
+  // Un «el puente no estaba» guardado hace dos minutos es un HECHO VIEJO, y
+  // devolverlo como el estado de ahora es justo lo que la regla de la casa
+  // prohíbe: el estado se lee vivo, no se recuerda. Con el puente sano de nuevo,
+  // el trabajo sigue encolado y lo levanta el próximo latido.
+  //
+  // Se borra sólo si el trabajo NO se resolvió todavía: eso es lo que prueba que
+  // hay algo vivo que rescatar. Sin eso, el error es el estado real.
+  if (m.error && m.errorCausa === 'puente' && m.trabajoId && m.trabajoId !== m.trabajoListo) {
+    const puente = await estadoPuente().catch(() => null);
+    if (puente?.estado === 'listo') {
+      item = await guardarImagen(item, n, { error: '', errorCausa: undefined, errorCrudo: '', errorAt: '' });
+      return { ok: true, item, estado: { fase: 'generando' } };
+    }
+  }
   if (m.error) return { ok: true, item, estado: { fase: 'error', error: m.error } };
   if (!m.trabajoId) return { ok: true, item, estado: { fase: 'sin_empezar' } };
 

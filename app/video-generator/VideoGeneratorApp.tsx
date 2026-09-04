@@ -43,7 +43,7 @@ import { descargarComo } from './descargar';
 import { nombreDeAnuncio } from './video-pedido';
 import { AvisoPuente, estadoDelPuente, ID_AVISO_PUENTE } from './puente-avisos';
 import { estadoPuenteAction } from './puente-actions';
-import { useExtensionInstalada, AvisoExtensionVieja, useExtensionVieja } from './extension-instalada';
+import { useExtensionInstalada, AvisoExtensionVieja, useExtensionVieja, ID_AVISO_EXTENSION } from './extension-instalada';
 import { EXTENSION_VERSION } from '@/lib/extension-version';
 import type { Puente } from '@/lib/flow-cola';
 import { cabidaDeGuion, soloHablado } from '@/lib/puestas-data';
@@ -135,13 +135,18 @@ function Enfasis({ texto }: { texto: string }) {
 // es el botón «Crear» de arriba, que es el único de la pantalla. Con un botón por
 // tarjeta había tres formas de empezar y ninguna se leía como la principal.
 //
-// La descripción no está acá: vive en el detalle. En la tarjeta, el video ya dice
-// cómo se ve y el nombre alcanza para nombrarlo.
+// La descripción no está acá: vive en el detalle. En la tarjeta van el apodo y la
+// TÉCNICA, que es lo que dice qué se está eligiendo — el apodo solo («The Office»,
+// «Dualcast») se entiende recién después de ver el ejemplo, y esta grilla es
+// justamente lo que se mira ANTES.
 
 function Plantilla({
-  nombre, video, poster, elegida, onElegir, onDetalle,
+  nombre, tecnico, video, poster, elegida, onElegir, onDetalle,
 }: {
-  nombre: string; video: string; poster: string;
+  nombre: string;
+  /** El nombre que describe la técnica («Plano secuencia»), debajo del apodo. */
+  tecnico?: string;
+  video: string; poster: string;
   /**
    * ⚠️ Recibe la CAJA del recorte, medida en el handler del click.
    *
@@ -186,6 +191,21 @@ function Plantilla({
             textAlign: 'left',
           }}>
             {nombre}
+            {/* ⚠️ EL NOMBRE SOLO NO DICE QUÉ ES. El catálogo se elige mirando esta
+                grilla, y los rótulos son apodos —«The Office», «Dualcast»— que se
+                entienden después de ver el ejemplo, no antes. El que SÍ describe la
+                técnica es `tecnico` («Plano secuencia», «Voz en off») y sólo aparecía
+                adentro del modal de detalle: o sea, había que abrir las nueve tarjetas
+                una por una para saber qué ofrecía cada una.
+
+                Es el test de la casa sobre nombres —que se entienda solo— aplicado a
+                la pantalla donde se decide. Van los dos: el apodo manda, la técnica
+                aclara. */}
+            {tecnico && (
+              <div style={{
+                fontSize: 'var(--fs-sm)', fontWeight: 400, opacity: .82, marginTop: 2,
+              }}>{tecnico}</div>
+            )}
           </div>
           {elegida && (
             <div style={{
@@ -837,7 +857,19 @@ export function VideoGeneratorApp({
    * opacidad, no.
    */
   function resaltarAviso() {
-    const el = document.getElementById(ID_AVISO_PUENTE);
+    // ⚠️ EL AVISO QUE ESTÉ, NO EL QUE SUPONEMOS.
+    //
+    // Esto buscaba sólo `ID_AVISO_PUENTE`, que lo dibuja `AvisoPuente` — y ese
+    // aviso está detrás de `!extensionVieja`. Con la extensión desactualizada,
+    // que es EXACTAMENTE el estado en el que estuvo el cliente toda la sesión, el
+    // que se muestra es `AvisoExtensionVieja`, que no llevaba id: el
+    // `getElementById` devolvía null y la función salía por el `return` sin hacer
+    // nada.
+    //
+    // O sea que el clic quedaba LITERALMENTE mudo: ni marco, ni tilde, ni botón,
+    // ni pulso, ni scroll. Cero. Una respuesta colgada de un id que puede no estar
+    // renderizado no es una respuesta.
+    const el = document.getElementById(ID_AVISO_PUENTE) ?? document.getElementById(ID_AVISO_EXTENSION);
     if (!el) return;
     // Sólo si hace falta: si ya está a la vista, este scroll es un no-op y el
     // aviso tiene que llegar por otro lado.
@@ -845,7 +877,15 @@ export function VideoGeneratorApp({
     if (caja.top < 0 || caja.bottom > window.innerHeight) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    // ⚠️ CON MOVIMIENTO REDUCIDO TAMPOCO SE SALE SIN HACER NADA. Esta rama era un
+    // `return` pelado, así que quien tiene la preferencia puesta —frecuente en
+    // Windows con «Mostrar animaciones» apagado— se quedaba sin ninguna señal. El
+    // foco no es una animación: sirve igual, y de paso lo anuncia un lector de
+    // pantalla.
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      (el as HTMLElement).focus?.();
+      return;
+    }
     el.animate(
       [
         { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(242,176,30,0)' },
@@ -883,18 +923,32 @@ export function VideoGeneratorApp({
     // momento en que se entró —el desplegable que lo refresca vive en el
     // catálogo—, así que un gate ahí puede trabar a alguien que YA conectó.
     //
-    // Y no se queda mudo: abrir la configuración ES la respuesta al click. Un
-    // control que no hace nada es indistinguible de uno roto.
-    if (!puenteAnda) { resaltarAviso(); return; }
+    // ⚠️ SELECCIONAR Y AVANZAR SON DOS COSAS, Y EL GATE FRENA UNA SOLA.
+    //
+    // El gate estaba ANTES del `setPuestaId`, así que con el puente caído el clic
+    // no encendía nada: ni el marco azul de la tarjeta, ni su tilde, ni el botón
+    // «Crear mi anuncio» —los tres cuelgan de `puestaId`—. La única respuesta era
+    // un pulso sobre un cartel que vive arriba de todo, a media pantalla del
+    // cursor.
+    //
+    // Desde afuera eso es un botón roto, y la persona lo repite. Medido con un
+    // cliente delante: «no le está dando click. No le des doble click, dale un
+    // solo click».
+    //
+    // Ahora la tarjeta se marca SIEMPRE —la respuesta ocurre donde está el
+    // cursor— y lo que el gate frena es entrar al recorrido. El botón sigue
+    // apagado con su motivo, y el aviso pasa a ser la explicación en vez de ser
+    // la única señal de que pasó algo.
     setPuestaId(id);
+    // ⚠️ La caja se mide en el HANDLER DEL CLICK, no después: la tarjeta se
+    // desmonta en el mismo commit en que cambia la vista, así que un
+    // `getBoundingClientRect()` en un efecto llegaría tarde y mediría un
+    // elemento que ya no está.
+    setCajaTarjeta(caja ?? null);
+    if (!puenteAnda) { resaltarAviso(); return; }
     setGuionId('');
     setPaso('guion');
     setError(null);
-    // ⚠️ La caja se mide en el HANDLER DEL CLICK, no después: la tarjeta se
-    // desmonta en el mismo commit en que cambia la vista, así que un
-    // `getBoundingClientRect()` en un efecto llegaría tarde y mediría un elemento
-    // que ya no está.
-    setCajaTarjeta(caja ?? null);
     setVista('ejemplo');
   }, [puenteAnda]);
 
@@ -1521,6 +1575,7 @@ export function VideoGeneratorApp({
           <Plantilla
             key={p.id}
             nombre={p.nombre}
+            tecnico={p.tecnico}
             video={p.ejemplo!.video}
             poster={p.ejemplo!.poster}
             elegida={p.id === puestaId}

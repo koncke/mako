@@ -1906,13 +1906,32 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
                     atención a todas las veces que no se usa. */}
                 <FotoGrande
                   url={fotoElegida}
-                  puedeCambiar={(contexto?.fotos?.length ?? 0) > 0}
+                  // ⚠️ SIEMPRE ABIERTA. Esto era `fotos.length > 0`, o sea que la
+                  // única puerta al modal se CERRABA con cero fotos — justo el
+                  // estado en el que hay que subir una. `FotoGrande` con
+                  // `puedeCambiar` en false devuelve los hijos pelados: sin hover,
+                  // sin ícono y sin click. La pantalla quedaba en un ícono gris de
+                  // perfil sin nada que tocar.
+                  //
+                  // Y el modal ya sabe subir —tiene su propio input y la baldosa de
+                  // subir va primera—, así que abrirlo sin fotos no muestra una
+                  // lista vacía: muestra la forma de empezar.
+                  puedeCambiar
                   onAbrir={() => setEligiendoFoto(true)}
                 >
                   <Vertical ancho={`${CAJA}px`}>
                     {fotoElegida
                       ? <Foto src={fotoElegida} alt="Tu foto" />
-                      : <div style={{ color: 'var(--faint)' }}><Icon name="perfil" size={44} /></div>}
+                      : (
+                        // Sin foto, el hueco DICE qué hacer. Un ícono de perfil gris
+                        // y nada más se lee como «acá va tu foto» pero no como «tocá
+                        // acá»; el hover que lo revelaría no existe en pantallas
+                        // táctiles, que es donde más pasa.
+                        <div style={{ display: 'grid', gap: 8, placeItems: 'center', color: 'var(--faint)' }}>
+                          <Icon name="perfil" size={44} />
+                          <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>Toca para subir tu foto</span>
+                        </div>
+                      )}
                   </Vertical>
                 </FotoGrande>
 
@@ -2077,6 +2096,27 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
                             }}
                           >
                             Decir qué cambiar
+                          </Button>
+                          {/* ⚠️ ESTA SALIDA YA ESTABA ESCRITA Y NO LA OFRECÍA NADIE.
+                              El `<input type="file">` de más abajo existe, su `subir()`
+                              existe y `subirImagenEscenaAction` existe entera del lado
+                              del server — pero NADA llamaba a `archivo.current.click()`,
+                              así que la capacidad estaba completa y era inalcanzable.
+                              Es «escribir la salida no es ofrecerla», la lección que
+                              este archivo ya tiene escrita tres veces.
+
+                              Va acá adentro y no como una cuarta salida suelta: subir la
+                              propia es otra forma de ARREGLAR la imagen, igual que
+                              «Otro fondo» y «Regenerar», y lo que el dueño prohibió fue
+                              un botón de abandonar, no una forma más de acertar.
+
+                              Última porque es la más rara: quien puede, prefiere que la
+                              genere MaKo. */}
+                          <Button
+                            variant="tertiary"
+                            onClick={() => { setRehacer(false); archivo.current?.click(); }}
+                          >
+                            Subir la mía
                           </Button>
                     </div>
                   )}
