@@ -29,16 +29,25 @@
 # ─────────────────────────────────────────────────────────────────────────────────────
 
 REPO="C:/Users/marti/OneDrive/Escritorio/dashboard-marketing-main/dashboard-marketing"
-LOG="C:/cursos/cola.log"
+
+# ⚠️ QUE COLA VIGILA: por defecto la de siempre, y se puede apuntar a otra.
+#    Sin esto habia que duplicar el script entero para vigilar una segunda cola, y una copia
+#    es la garantia de que el proximo arreglo entre en una sola de las dos. Los defaults
+#    dejan la invocacion vieja (`sh scripts/cursos-perro.sh`, sin argumentos) intacta.
+#
+#      sh scripts/cursos-perro.sh cursos-enriquecer C:/cursos/enriquecer.log C:/cursos/_enriquecer.lock
+TAREA="${1:-cursos-cola}"
+LOG="${2:-C:/cursos/cola.log}"
+LOCK="${3:-C:/cursos/_cola.lock}"
 LOG_BAJA="C:/cursos/bajador.log"   # el otro escritor; ver por qué, abajo en MIN
-MIO="C:/cursos/perro.log"
+MIO="C:/cursos/perro-${TAREA}.log"
 SILENCIO=20          # minutos sin escribir = sospechosa (si además no hay procesos, muerta)
 COLGADA=45           # minutos sin escribir = colgada, aunque haya procesos vivos
 
 cd "$REPO" || exit 1
 di() { echo "$(date '+%Y-%m-%d %H:%M') $1" >> "$MIO"; }
 
-[ -f "$LOG" ] || { di "no hay cola.log todavia — no hago nada"; exit 0; }
+[ -f "$LOG" ] || { di "no hay $LOG todavia — no hago nada"; exit 0; }
 
 # ─────────────────────────────────────────────────────────────────────────────────────
 # ⚠️ EL DISCO, QUE ES LO QUE NADIE MIRABA.
@@ -132,12 +141,11 @@ di "   ultima linea: $(echo "$ULTIMA" | cut -c1-90)"
 #    `taskkill /T` mata el árbol. Se filtra por NOMBRE de binario además de por línea de
 #    comandos, por la misma razón de siempre: sin eso, la propia consulta entra en la
 #    lista de lo que hay que matar.
-powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='bash.exe' OR Name='sh.exe'\" | Where-Object { \$_.CommandLine -match 'cursos-cola' } | ForEach-Object { taskkill /PID \$_.ProcessId /T /F }" >/dev/null 2>&1
-schtasks //end //tn "cursos-cola" >/dev/null 2>&1
+powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='bash.exe' OR Name='sh.exe'\" | Where-Object { \$_.CommandLine -match '$TAREA' } | ForEach-Object { taskkill /PID \$_.ProcessId /T /F }" >/dev/null 2>&1
+schtasks //end //tn "$TAREA" >/dev/null 2>&1
 
 # El lock lo suelta la cola al terminar bien; si la matamos recién, queda huérfano. No se
 # borra a ciegas —eso sería anular la guarda—: se borra SOLO si su pid ya no existe.
-LOCK="C:/cursos/_cola.lock"
 if [ -f "$LOCK" ]; then
   P=$(tr -d "\r" < "$LOCK")
   if [ -n "$P" ] && kill -0 "$P" 2>/dev/null; then
@@ -148,5 +156,5 @@ if [ -f "$LOCK" ]; then
   fi
 fi
 
-schtasks //run //tn "cursos-cola" >/dev/null 2>&1
+schtasks //run //tn "$TAREA" >/dev/null 2>&1
 di "   lanzada. Lo bajado no se repite (--download-archive)."

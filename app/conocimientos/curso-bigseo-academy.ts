@@ -4,8 +4,16 @@
 // GENERADO por scripts/curso-a-portal.mjs desde C:\cursos\bigseo-academy\.
 // Regenerable: volver a correr el script sobreescribe este archivo.
 //
-// Va en archivo propio (y NO dentro de curso.ts) porque aquél es auto-generado
-// desde las transcripciones de AVATARHYPE: lo que se escriba ahí se pierde.
+// Va en archivo propio (y NO dentro de curso.ts) porque ESTE script se niega a escribir
+// en aquél: curso.ts es el LEGADO, se mantiene A MANO y todavía tiene varios cursos
+// adentro. Este archivo, en cambio, se reescribe entero en cada corrida.
+//
+// OJO: acá decía «porque aquél es auto-generado desde las transcripciones de
+// AVATARHYPE», y es FALSO. Ningún script escribe curso.ts — medido el 22/08/2026, la
+// única escritura de .ts del repo es la de este generador, y gen-curso.mjs nunca
+// existió en 1755 commits. El mito viajó a 21 de los 24 archivos generados porque
+// vivía en ESTA plantilla: una frase equivocada en un generador no se queda en un
+// archivo, se multiplica por cada corrida.
 //
 // El `resumen` de cada clase son TUS apuntes, tomados del bloque «## Apuntes» de
 // C:\cursos\bigseo-academy\texto\<clase>.md. Escribí ahí y volvé a correr el script.
@@ -16,10 +24,10 @@ import type { Curso } from './curso';
 export const CURSO_BIGSEO_ACADEMY: Curso = {
   slug: 'bigseo-academy',
   categoria: 'Cursos externos',
-  cardDesc: '136 clases en 27 módulos.',
+  cardDesc: '137 clases en 27 módulos.',
   eyebrow: 'Curso externo',
   titulo: 'Bigseo Academy - Romuald Fons',
-  subtitulo: '136 clases, 27 módulos. Video, transcripción y tus apuntes en un solo lugar.',
+  subtitulo: '137 clases, 27 módulos. Video, transcripción y tus apuntes en un solo lugar.',
   volumen: '25,5 h',
   portada: '/cono-portadas/bigseo-academy.webp',
   recursos: [
@@ -2154,6 +2162,20 @@ export const CURSO_BIGSEO_ACADEMY: Curso = {
       titulo: 'Bonus prácticas',
       cardDesc: '07:07 · Modulo 26 - Bonus Practicas',
       videoId: '1rts5K4QPh8xy61VA0rOq5l8rZg-akVHP',
+      resumen: '',
+      transcripcion: [],
+      hasTx: true,
+      recursoSlugs: [],
+      herramientas: [],
+    },
+    {
+      n: 137,
+      vn: 2,
+      grupo: 'Modulo 00 - Bienvenida',
+      modulo: 1,
+      titulo: '01 - 01. Introducción',
+      cardDesc: 'Modulo 00 - Bienvenida',
+      videoId: '1XYAzSVJ_MuU3bZ2y6kH5frC8aruOTsql',
       resumen: '',
       transcripcion: [],
       hasTx: true,
