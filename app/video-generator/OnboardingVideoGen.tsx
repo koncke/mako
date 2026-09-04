@@ -32,6 +32,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 // contenido en una tarjeta y le ponía un kicker arriba.
 import { Estudio } from './WizardAnuncio';
 import { ModalFotos } from './ElegirFoto';
+import { textoEleven, type FalloEleven } from '@/lib/elevenlabs-fallo';
 import ServicioConfigForm from '@/app/integraciones/ServicioConfigForm';
 import { Button, Select } from '@/app/_ui';
 import { Icon } from '../_components/icons';
@@ -497,6 +498,10 @@ export function OnboardingVideoGen({
     const pendiente = PASOS.find((p) => !cerrado.has(FILA_DE_PASO[p]));
     return pendiente ?? PASOS[0];
   });  const [error, setError] = useState<string | null>(null);
+  /**
+   * Qué ofrecer para arreglar el último error. Ver `contarFalloEleven`.
+   */
+  const [errorAccion, setErrorAccion] = useState<{ texto: string; onClick: () => void } | null>(null);
   const [busy, setBusy] = useState(false);
 
   // ── La cara ──
@@ -671,7 +676,7 @@ export function OnboardingVideoGen({
 
   const subirVoz = useCallback(async (files: FileList | null) => {
     if (!files?.length) return;
-    setSubiendoVoz(true); setError(null);
+    setSubiendoVoz(true); setError(null); setErrorAccion(null);
     const fd = new FormData();
     for (const f of Array.from(files)) fd.append('file', f);
     try {
@@ -712,22 +717,53 @@ export function OnboardingVideoGen({
       const fd = new FormData();
       fd.append('file', new File([mp3], `grabacion-${Date.now()}.mp3`, { type: 'audio/mpeg' }));
       const j = (await (await fetch('/api/onboarding/voz', { method: 'POST', body: fd })).json()) as
-        { ok: boolean; error?: string; muestras?: { id: string; nombre: string }[] };
-      if (!j.ok) { setError(j.error || 'No se pudo guardar la grabación.'); return; }
+        { ok: boolean; error?: string; motivo?: string; muestras?: { id: string; nombre: string }[] };
+      if (!j.ok) { contarFalloEleven(j, 'No se pudo guardar la grabación.'); return; }
       setMuestras(j.muestras ?? []);
     } catch { setError('No se pudo procesar la grabación. Prueba subiendo un archivo.'); }
     finally { setSubiendoVoz(false); }
   }, []);
 
+  /**
+   * Traduce lo que contestó ElevenLabs a lo que la persona tiene que leer.
+   *
+   * ⚠️ `textoEleven` ESTABA ESCRITO ENTERO Y NO LO LLAMABA NADIE. Siete motivos,
+   * cada uno con su título, su detalle, de quién es la culpa y si lleva link —
+   * y las dos pantallas que pueden fallar hacían `setError(j.error)`, o sea que
+   * pintaban la frase técnica y tiraban el `motivo` que venía al lado.
+   *
+   * La diferencia no es de estilo. «Unauthorized» y «tu suscripción tiene un pago
+   * pendiente» son el MISMO 401 de ElevenLabs, y el catálogo existe justamente
+   * porque los dos se ven iguales desde afuera. Sin él, a alguien con la factura
+   * impaga se le decía que su key estaba mal.
+   *
+   * Es «escribir la salida no es ofrecerla», que este repo ya tiene escrita cuatro
+   * veces — y la cuarta era, textual, una cura que vivía detrás de la puerta que
+   * ella misma tenía que abrir.
+   */
+  const contarFalloEleven = useCallback((j: { error?: string; motivo?: string }, sino: string) => {
+    const m = j.motivo as FalloEleven | undefined;
+    if (!m) { setError(j.error || sino); setErrorAccion(null); return; }
+    const t = textoEleven(m);
+    setError(`${t.titulo}. ${t.detalle}`);
+    // ⚠️ La acción NO usa `t.arreglaEn`: ese link lleva a /integraciones, y el
+    // formulario de la key ya vive ADENTRO de este paso. Mandar a otra pantalla
+    // por algo que está acá abajo es el viaje que se acaba de sacar — y encima
+    // re-monta el wizard y le hace perder el paso.
+    setErrorAccion(t.arreglaEn
+      ? { texto: t.accion ?? 'Revisar mi cuenta de ElevenLabs', onClick: () => { setConectandoEleven(true); setError(null); setErrorAccion(null); } }
+      : null);
+  }, []);
+
   const clonar = useCallback(async () => {
-    setClonando(true); setError(null);
+    setClonando(true); setError(null); setErrorAccion(null);
     try {
       const j = (await (await fetch('/api/onboarding/voz', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ action: 'clonar', autorizo: true }),
-      })).json()) as { ok: boolean; error?: string; clon?: { voiceId: string; nombre: string } | null };
-      if (!j.ok) { setError(j.error || 'No se pudo clonar la voz.'); return; }
+      })).json()) as { ok: boolean; error?: string; motivo?: string; clon?: { voiceId: string; nombre: string } | null };
+      if (!j.ok) { contarFalloEleven(j, 'No se pudo clonar la voz.'); return; }
       setClon(j.clon ?? null);
     } catch { setError('No llegó respuesta al clonar. Vuelve a intentarlo.'); }
     finally { setClonando(false); }
@@ -918,6 +954,7 @@ export function OnboardingVideoGen({
         // porqué —y la tensión con la skill— en el prop de `Estudio`.
         sinSalida
         error={error ?? undefined}
+        errorAccion={errorAccion ?? undefined}
         puente={puenteDelAviso}
         ahora={puenteDelAviso === undefined ? undefined : ahora}
         consecuencia={paso === 'ensayo'

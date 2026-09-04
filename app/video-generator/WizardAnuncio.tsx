@@ -575,7 +575,7 @@ function Salidas({ resumen, children }: { resumen: string; children: React.React
  * ejemplo pasa a acompañar también ese paso — que es lo que el dueño pidió cuando
  * dijo que la previsualización tiene que estar «durante toda la creación».
  */
-export function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia, cargando, onSiguiente, atras, onAtras, onSalir, sinSalida, error, puesta, puente, ahora, alLado, slotRiel, plegado, ancho = 900 }: {
+export function Estudio({ pregunta, titulo, paso, total, children, boton, consecuencia, cargando, onSiguiente, atras, onAtras, onSalir, sinSalida, error, errorAccion, puesta, puente, ahora, alLado, slotRiel, plegado, ancho = 900 }: {
   pregunta: string;
   /**
    * El estado del navegador del cliente. ⚠️ ENTRA ACÁ PORQUE EL AVISO NO LLEGABA
@@ -618,6 +618,15 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
    */
   sinSalida?: boolean;
   error?: string;
+  /**
+   * Qué se puede APRETAR para arreglar el error.
+   *
+   * ⚠️ Un error que dice qué hacer y no ofrece dónde hacerlo es media
+   * instrucción. La regla de la casa pide las dos: de quién fue, y qué hacer —
+   * y «qué hacer» sin control es una tarea que la persona tiene que ir a buscar.
+   * Ausente cuando de verdad no hay nada que tocar (una caída del proveedor).
+   */
+  errorAccion?: { texto: string; onClick: () => void };
   /** El formato elegido. Si trae ejemplo, la pantalla estrena su riel derecho. */
   puesta?: Puesta;
   /**
@@ -903,10 +912,13 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
       <div ref={lienzo} style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>{children}</div>
 
       {error && (
-        <div style={{
-          fontSize: 'var(--fs-sm)', color: 'var(--bad)', textAlign: 'center', maxWidth: 560,
-        }}>
-          {error}
+        <div style={{ display: 'grid', gap: 10, justifyItems: 'center', maxWidth: 560 }}>
+          <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--bad)', textAlign: 'center' }}>
+            {error}
+          </div>
+          {errorAccion && (
+            <Button variant="secondary" onClick={errorAccion.onClick}>{errorAccion.texto}</Button>
+          )}
         </div>
       )}
 
