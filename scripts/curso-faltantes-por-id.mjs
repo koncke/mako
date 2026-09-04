@@ -22,11 +22,8 @@
 //    contestar. Contar sus 400 videos como «faltantes» sería inventar trabajo, y contarlo
 //    como completo sería taparlo.
 import { readdirSync, existsSync, readFileSync } from 'node:fs';
-import { join, basename } from 'node:path';
-import { dbDeDrive, descendientesDe, esIdReal, DFS_POR_DEFECTO } from './curso-drive-ids.mjs';
-import { tmpdir } from 'node:os';
-import { copyFileSync } from 'node:fs';
-import { DatabaseSync } from 'node:sqlite';
+import { basename, join } from 'node:path';
+import { mapaPorRuta, abrirMetadata } from './curso-drive-ids-por-ruta.mjs';
 
 const arg = (n, d) => { const i = process.argv.indexOf(`--${n}`); return i > -1 && process.argv[i + 1] ? process.argv[i + 1] : d; };
 const SOLO = arg('slug', '');
@@ -34,28 +31,15 @@ const LISTAR = process.argv.includes('--listar');
 const RAIZ = 'C:\\cursos';
 const ES_VIDEO = /\.(mp4|mkv|webm|mov|m4v)$/i;
 
-// Se copia la base igual que `idsDeDrive`: Drive la tiene abierta, y el `-wal` es
-// obligatorio o se lee una foto vieja (ver el comentario largo en curso-drive-ids.mjs).
-const src = dbDeDrive(DFS_POR_DEFECTO);
-if (!src) { console.error('\n  ✖ no encontré la metadata de Drive\n'); process.exit(2); }
-const tmp = join(tmpdir(), `dfs-faltantes-${process.pid}.db`);
-copyFileSync(src, tmp);
-for (const ext of ['-wal', '-shm']) { try { copyFileSync(src + ext, tmp + ext); } catch { /* puede no existir */ } }
-const db = new DatabaseSync(tmp);
+// `abrirMetadata` ya copia la base con su `-wal`, que es obligatorio: sin él se lee una
+// foto vieja (ver el comentario largo en curso-drive-ids.mjs).
+const db = abrirMetadata();
+if (!db) { console.error('\n  ✖ no encontré la metadata de Drive\n'); process.exit(2); }
 
 const slugs = readdirSync(RAIZ, { withFileTypes: true })
   .filter((x) => x.isDirectory() && existsSync(join(RAIZ, x.name, 'drive.json')))
   .map((x) => x.name)
   .filter((s) => !SOLO || s === SOLO);
-
-/**
- * ⚠️ `stable_id` NO es el id de Drive. Es un entero interno de la base local (807), y el id
- *    que usa el portal —el de `drive.json`, el de la URL de preview— vive en la columna
- *    `id` («1jFFHwUnF0bc…»). `descendientesDe` devuelve stable_ids, así que hay que
- *    traducir: comparar los enteros contra los strings anotados da CERO coincidencias sin
- *    ningún error, o sea «este curso no tiene videos» sobre una carpeta llena.
- */
-const ficha = db.prepare('SELECT id, local_title, is_folder, trashed FROM items WHERE stable_id = ?');
 
 const conSueltos = [], sinDatos = [];
 for (const slug of slugs) {
@@ -64,17 +48,17 @@ for (const slug of slugs) {
   const nombreCarpeta = drive.carpeta ? basename(drive.carpeta) : '';
   if (!nombreCarpeta) { sinDatos.push({ slug, nota: 'drive.json sin carpeta' }); continue; }
 
-  const dentro = descendientesDe(db, nombreCarpeta);
-  if (!dentro) { sinDatos.push({ slug, nota: `no encuentro la carpeta «${nombreCarpeta}» en la metadata` }); continue; }
+  // ⚠️ Se usa `mapaPorRuta` y NO `descendientesDe`: aquel fusiona TODAS las carpetas que
+  //    compartan el nombre, y hay cursos duplicados enteros en Drive (dos «TikTok 100k –
+  //    Jordi Segués» vivas). Fusionarlas hace aparecer como «sueltos» los archivos de la
+  //    copia, o sea el doble de trabajo inventado. `mapaPorRuta` se abstiene ahí.
+  const mapa = mapaPorRuta(nombreCarpeta, db);
+  if (!mapa) { sinDatos.push({ slug, nota: `no puedo leer «${nombreCarpeta}» (no está en la metadata, o hay DOS carpetas con ese nombre)` }); continue; }
 
-  // De los descendientes, sólo los VIDEOS que no estén en la papelera.
   const videos = [];
-  for (const sid of dentro) {
-    const r = ficha.get(sid);
-    if (!r || r.is_folder || r.trashed) continue;
-    if (!ES_VIDEO.test(String(r.local_title ?? ''))) continue;
-    if (!esIdReal(r.id)) continue;   // los `local-…` son archivos que Drive todavía no subió
-    videos.push({ id: r.id, nombre: r.local_title });
+  for (const [ruta, id] of mapa) {
+    if (!ES_VIDEO.test(ruta)) continue;
+    videos.push({ id, nombre: ruta });
   }
   if (!videos.length) { sinDatos.push({ slug, nota: `la carpeta «${nombreCarpeta}» no tiene videos en la metadata` }); continue; }
 
