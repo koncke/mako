@@ -976,7 +976,7 @@ const RESUMEN: Record<string, string> = {
    *    corresponde: un resumen inferido del nombre del curso afirma cosas que el material
    *    puede no tener, que es justo lo que la regla del dato ajeno viene a evitar.
    */
-  'agencia-6-cifras-v2': 'Montar una agencia de marketing y escalarla: selección de nicho e investigación de mercado, cómo dar resultados al cliente, funnels, campañas de Facebook Ads y el sistema de ventas para sostenerlas.',
+  'agencia-6-cifras-v2': 'Montar una agencia de marketing y escalarla: selección de nicho, cómo dar resultados al cliente, funnels y campañas de Facebook Ads.',
   'formula-ventas-ilimitadas-2024': 'Embudos de venta de punta a punta: la estrategia del embudo, el VSL, los anuncios de Facebook, el cierre por WhatsApp, el escalado y el remarketing.',
   'growing-content-specialist': 'El puesto de content specialist: estrategia para tener ideas sin quedarse seco, filmmaking a distancia, edición de video y community management.',
   'higher-levels-ae-mastery': 'El oficio de Account Executive en tech sales: discovery, demo, trial, negociación y cierre, más las objeciones más comunes y la relación con el SDR.',
