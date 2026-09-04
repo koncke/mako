@@ -1116,3 +1116,53 @@ en vez de «P»).
 
 *Corrida del 04/09/2026 · 67 agentes en 4 lentes con refutación de 3 escépticos por hallazgo
 · 21 hallazgos, 18 sobrevivieron.*
+
+
+---
+
+## Cuatro trampas más, del rediseño de la pantalla de preguntas (04/09/2026)
+
+### `justify-content: center` recorta por arriba lo que no entra, y el síntoma culpa al contenido
+
+La caja del diálogo centra vertical y scrollea. Cuando el contenido crece —una pregunta con
+widget, o un personaje nuevo arriba— el sobrante se sale por los DOS lados y **el de arriba
+queda recortado e inalcanzable**. Se vio como «el personaje aparece cortado a la mitad», y
+media hora se fue midiendo el SVG: la estructura, el `transform-box`, los ejes de las elipses.
+Todo estaba bien; lo que fallaba era la caja de al lado.
+
+> **La regla: `justify-content: safe center`.** Centra mientras entra y vuelve a alinear
+> arriba cuando no. Y la de diagnóstico: si un elemento se ve mal *sólo en algunas pantallas*,
+> antes de medirlo por dentro hay que mirar quién lo contiene.
+
+### Cuando algo se ve chico en un SVG, mirá la relación de aspecto antes que la escala
+
+El encuadre automático del grafo «no funcionaba»: se aplicaba una escala de 1,695 —medida— y
+el nodo seguía diminuto. El viewBox era 700×700 dentro de una caja de 900×209. Con
+`preserveAspectRatio` por defecto el SVG entra por el lado que MENOS da, usaba 0,30 px por
+unidad y tiraba tres cuartos del ancho. Duplicar la escala sobre eso sigue siendo chico.
+
+> El recorte tiene que tener **la forma de su caja**. El ajuste automático no falla: obedece.
+
+### Un valor por defecto que significa «recién nacido» desplaza todo lo que nadie registró
+
+El motor del grafo aleja a cada nodo de su lugar al nacer y lo trae con un decaimiento, pero
+sólo si alguien anotó cuándo nació su nivel — y eso lo hacía únicamente la bienvenida. En las
+preguntas los nodos quedaban desplazados 260-480 unidades **para siempre**, y el encuadre
+medía el `cx`/`cy` del círculo, o sea la posición donde no estaban.
+
+> **El default de «no sé cuándo nació esto» tiene que ser EN REPOSO, no desplazado.** Un
+> default que significa «en movimiento» convierte cada camino que nadie instrumentó en un
+> defecto visual, y el defecto aparece lejos de su causa.
+
+### Recortar el artefacto dentro del prompt del que lo juzga hace que juzgue la mutilación
+
+Un panel de 3 propuestas × 3 jueces devolvió puntajes bajos y una crítica repetida: «el CSS
+está truncado, no es pegable». Era cierto — pero lo había truncado **el prompt del juez**, con
+un `slice(0, 2600)` puesto para ahorrar tokens. Las hojas originales estaban completas y bien
+cerradas. Sin verificarlo, se habría descartado la mejor propuesta por un defecto inventado
+por el arnés.
+
+> Lo que se le pasa a un evaluador tiene que ser **el artefacto entero o nada**. Si no entra,
+> se evalúa por partes; no se recorta y se pregunta si está bien.
+
+*Rediseño del 04/09/2026 · panel de 24 agentes (3 propuestas × 3 jueces por problema).*
