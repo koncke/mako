@@ -1165,4 +1165,17 @@ por el arnés.
 > Lo que se le pasa a un evaluador tiene que ser **el artefacto entero o nada**. Si no entra,
 > se evalúa por partes; no se recorta y se pregunta si está bien.
 
+### Una instrucción no se muestra una vez: se muestra cada vez que hace falta
+
+«Toca en cualquier lugar» aparecía sólo en el primero de los TRES toques que arman el mapa.
+Después del primero la pantalla se queda muda para siempre, y el que tocó una vez y se quedó
+mirando no tiene cómo saber que faltan dos: lo que ve es una animación que terminó, no una
+que espera.
+
+> **Si el gesto se repite, la pista se re-arma después de cada paso.** El que ya entendió no
+> la vuelve a ver nunca, porque toca antes de que aparezca; el que se trabó la recibe siempre.
+> Y va con token: sin invalidar el reloj del paso anterior, la pista se le enciende a alguien
+> que ya tocó — la misma familia de error que el typewriter escribiéndole a la escena
+> siguiente.
+
 *Rediseño del 04/09/2026 · panel de 24 agentes (3 propuestas × 3 jueces por problema).*
