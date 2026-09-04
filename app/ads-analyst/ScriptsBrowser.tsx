@@ -237,7 +237,7 @@ function buildPatterns(ads: ScriptView[], reliable: ScriptView[]): Pattern[] {
   const leak = vReliable.filter((a) => a.hookRate >= HOOK_MID && hold(a) < HOLD_MID);
   if (leak.length >= 2 && sum(leak, (a) => a.spend) >= 50) {
     out.push({ key: 'gancho-sin-cuerpo', polarity: 'malo', chip: 'Gancho sin cuerpo', big: String(leak.length), bigColor: POL.malo.c, tlabel: 'frenan pero no retienen', priority: 8,
-      stmt: `${leak.length} guiones frenan el scroll (hook ${r(mean(leak, (a) => a.hookRate))}% promedio) pero pierden a la gente antes del CTA (${r(mean(leak, (a) => hold(a)))}%). El problema no es la entrada, es el cuerpo: reescribí el medio.`,
+      stmt: `${leak.length} guiones frenan el scroll (hook ${r(mean(leak, (a) => a.hookRate))}% promedio) pero pierden a la gente antes del CTA (${r(mean(leak, (a) => hold(a)))}%). El problema no es la entrada, es el cuerpo: reescribe el medio.`,
       aLabel: 'hook', aVal: `${r(mean(leak, (a) => a.hookRate))}%`, a: mean(leak, (a) => a.hookRate), bLabel: 'ret. CTA', bVal: `${r(mean(leak, (a) => hold(a)))}%`, b: mean(leak, (a) => hold(a)), max: Math.max(mean(leak, (a) => a.hookRate), 30), ads: bySpend(leak) });
   }
   const fat = ads.filter((a) => a.freq >= 2.4), healthy = ads.filter((a) => a.freq < 1.8);
@@ -263,8 +263,8 @@ function buildPatterns(ads: ScriptView[], reliable: ScriptView[]): Pattern[] {
   }
   const escalables = vReliable.filter((a) => a.hookRate >= HOOK_MID && hold(a) >= HOLD_MID && a.agendas > 0 && a.freq < 2.4);
   if (escalables.length >= 2) {
-    out.push({ key: 'escalar', polarity: 'bueno', chip: 'Escalá esto', big: String(escalables.length), bigColor: POL.bueno.c, tlabel: 'listos para más presupuesto', priority: 7,
-      stmt: `${escalables.length} guiones ya frenan, retienen, agendan y tienen frecuencia sana. Subiles presupuesto — son tus candidatos a escalar ya.`,
+    out.push({ key: 'escalar', polarity: 'bueno', chip: 'Escala esto', big: String(escalables.length), bigColor: POL.bueno.c, tlabel: 'listos para más presupuesto', priority: 7,
+      stmt: `${escalables.length} guiones ya frenan, retienen, agendan y tienen frecuencia sana. Súbeles presupuesto — son tus candidatos a escalar ya.`,
       aLabel: 'listos', aVal: String(escalables.length), a: escalables.length, bLabel: 'confiables', bVal: String(reliable.length), b: reliable.length, max: Math.max(reliable.length, 1), ads: bySpend(escalables) });
   }
   const gH = vReliable.filter((a) => a.hookType === 'resultado' || a.hookType === 'pregunta'), gD = vReliable.filter((a) => a.hookType === 'dolor');
@@ -277,7 +277,7 @@ function buildPatterns(ads: ScriptView[], reliable: ScriptView[]): Pattern[] {
   Object.keys(byAngAll).forEach((k) => { const g = byAngAll[k], sp = sum(g, (x) => x.spend), ag = sum(g, (x) => x.agendas), per1k = sp > 0 ? (ag / sp) * 1000 : 0; if (ag > 0 && (!bestEff || per1k > bestEff.per1k)) bestEff = { k, per1k, g }; });
   if (bestEff) { const be = bestEff as { k: string; per1k: number; g: ScriptView[] };
     out.push({ key: 'eff', polarity: 'bueno', chip: 'Eficiencia $', big: be.per1k.toFixed(1), bigColor: POL.bueno.c, tlabel: `juntas por $1k · ${angleInfo(be.k).label}`, priority: 6,
-      stmt: `El ángulo ${angleInfo(be.k).label} agenda ${be.per1k.toFixed(1)} juntas por cada $1,000 — es tu ángulo más eficiente. Metele más guiones.`,
+      stmt: `El ángulo ${angleInfo(be.k).label} agenda ${be.per1k.toFixed(1)} juntas por cada $1,000 — es tu ángulo más eficiente. Métele más guiones.`,
       aLabel: angleInfo(be.k).label, aVal: be.per1k.toFixed(1), a: be.per1k, bLabel: 'objetivo', bVal: '—', b: 0, max: Math.max(be.per1k, 1), ads: bySpend(be.g) });
   }
   const gLong = vReliable.filter((a) => a.dur >= 44), gShort = vReliable.filter((a) => a.dur < 44);
@@ -708,7 +708,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
             <div style={{ fontSize: 12, color: 'var(--faint)', lineHeight: 1.5, borderTop: '1px solid var(--border)', paddingTop: 11, marginTop: 3 }}>
               {mapMode === 'ads'
                 ? `Cada punto es un anuncio (pasa el cursor para ver cuál); el tamaño = spend y las translúcidas de borde punteado tienen poca muestra. Ejes FIJOS con cortes en gancho ${HOOK_MID}% y retención ${HOLD_MID}% — la posición significa lo mismo siempre. La retención al CTA es baja para casi todos (es estructural del video), por eso la mayoría cae en la banda inferior; ahí lo que manda es el gancho (izq/der) y el spend (tamaño).`
-                : 'Cada burbuja es un ángulo (número = cuántos anuncios), ponderado por spend. Los cortes son fijos. Tocala para ver sus guiones.'}
+                : 'Cada burbuja es un ángulo (número = cuántos anuncios), ponderado por spend. Los cortes son fijos. Tócala para ver sus guiones.'}
             </div>
           </div>
         </div>

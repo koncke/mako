@@ -112,7 +112,7 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
         // el arreglo es de un clic — decirlo, en vez de dejar un error críptico.
         const alt = await pixel(v.META_ACCESS_TOKEN);
         if (!alt.e) {
-          avisos.push('el token de Conversions API que cargaste no llega a tu píxel; quitalo y MaKo usa el token principal, que sí funciona');
+          avisos.push('el token de Conversions API que cargaste no llega a tu píxel; quítalo y MaKo usa el token principal, que sí funciona');
           ({ r, e } = alt);
         }
       }

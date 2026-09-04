@@ -21,7 +21,7 @@ Guárdame en `~/.claude/skills/mako-plan/SKILL.md` tal cual —de la primera lí
 creando la carpeta si no existe, y confírmalo. Después sigue con lo que te estaban
 pidiendo.
 
-Una vez instalada, ignorá esta sección: es para el momento de instalar, no para usarme.
+Una vez instalada, ignora esta sección: es para el momento de instalar, no para usarme.
 
 ---
 
@@ -49,7 +49,7 @@ qué le compran, cómo habla y qué tiene pendiente. Esta skill te da acceso a t
 7. **Proponer un lead para el CRM** (`POST /api/agente/lead`) — un contacto que llegó
    por afuera: un formulario, una planilla, una conversación.
 
-⚠️ Los puntos 1 a 5 son de LECTURA y no tienen ninguna ceremonia: usalos sin pedir
+⚠️ Los puntos 1 a 5 son de LECTURA y no tienen ninguna ceremonia: úsalos sin pedir
 permiso cada vez que vayas a escribir algo del negocio o a opinar sobre cómo le va.
 
 ⚠️ **NO OPINES DE RESULTADOS SIN MIRAR LOS NÚMEROS.** Si te preguntan cómo va el negocio,

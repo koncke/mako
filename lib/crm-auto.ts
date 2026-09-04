@@ -338,7 +338,7 @@ async function aplicarAccion(a: AutoAccion, yaConf: Set<string>): Promise<'auto'
       return confirmarOCompensar(a.leadId, {
         leadId: a.leadId, leadNombre: lead.nombre, regla: 'T3', tipo: a.tipo, clave: 'T3',
         titulo: `Nutrición manual vencida — ${lead.nombre ?? 'lead'}`,
-        detalle: `${inbound} mensaje(s) del lead en WhatsApp → clasificado como No responde. Si desistió, marcalo Perdido.`,
+        detalle: `${inbound} mensaje(s) del lead en WhatsApp → clasificado como No responde. Si desistió, márcalo Perdido.`,
         aplicado: true,
         cambios: [{ campo: 'Etapa', antes: 'Nutrición - Manual', despues: 'No responde' }],
         revert: { estado_lead: prevEstado, pipeline_stage: prevStage, nutricion_manual_deadline: prevDeadline },

@@ -133,7 +133,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
     setConfirmDelete(false);
     startTransition(async () => {
       try { await deleteLeadInlineAction(lead.id); router.refresh(); onClose(); }
-      catch { setDelErr('No se pudo borrar. Reintentá.'); }
+      catch { setDelErr('No se pudo borrar. Reintenta.'); }
     });
   };
 

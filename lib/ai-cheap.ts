@@ -929,10 +929,10 @@ async function sttGemini(p: Prov, base64: string, buf: Buffer, mime: string, opt
   const base = p.base.replace(/\/openai\/?$/, '');
   const idioma = (opts.language || 'es') === 'es' ? 'español' : (opts.language || 'es');
   const instruccion = [
-    `Transcribí este audio en ${idioma}.`,
-    'Devolvé SOLO la transcripción literal de lo que se dice: sin comillas, sin timestamps, sin nombres de hablante, sin comentarios tuyos y sin describir el audio.',
+    `Transcribe este audio en ${idioma}.`,
+    'Devuelve SOLO la transcripción literal de lo que se dice: sin comillas, sin timestamps, sin nombres de hablante, sin comentarios tuyos y sin describir el audio.',
     opts.prompt ? `Contexto (nombres propios y jerga que pueden aparecer): ${opts.prompt}` : '',
-    'Si no se entiende nada o no hay voz, devolvé exactamente: (vacío)',
+    'Si no se entiende nada o no hay voz, devuelve exactamente: (vacío)',
   ].filter(Boolean).join(' ');
   const res = await fetch(`${base}/models/${encodeURIComponent(model)}:generateContent`, {
     method: 'POST',

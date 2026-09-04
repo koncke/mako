@@ -38,7 +38,7 @@ const LEVANTA_MUERTOS: CuratedCurso = {
 Objetivo: reabrir la conversación y aumentar la probabilidad de respuesta, moviendo al prospecto al siguiente paso — no cerrar de golpe si está frío.
 
 LOS 3 PILARES (obligatorios en cada mensaje):
-1. RECONECTAR con el contexto real + el objetivo del prospecto. Retomá exactamente lo que se habló y su problema/beneficio de forma natural. NUNCA escribas "solo te escribo para dar seguimiento".
+1. RECONECTAR con el contexto real + el objetivo del prospecto. Retoma exactamente lo que se habló y su problema/beneficio de forma natural. NUNCA escribas "solo te escribo para dar seguimiento".
 2. APORTAR VALOR TANGIBLE en el mismo mensaje: un beneficio concreto, un caso real, un recurso o un insight. El prospecto debe ganar algo con solo leer, aunque no avance.
 3. CERRAR con UNA sola pregunta clara que permita responder "sí / no / re-agendar" sin presión. Siempre dejar una salida digna.`,
     },
@@ -64,11 +64,11 @@ Las tres comparten los 3 pilares y la C.I.A., pero cada una usa un ángulo difer
 - Cada mensaje cumple los 3 pilares y sigue la C.I.A.
 - Una sola CTA por mensaje, formulada como pregunta abierta.
 - Siempre deja una salida digna: que decir "no" sea tan fácil y libre de culpa como decir "sí".
-- Personalizá con datos reales del negocio y de la conversación previa.
+- Personaliza con datos reales del negocio y de la conversación previa.
 - Usa solo pruebas sociales reales; NUNCA inventes casos, cifras ni testimonios.
 - Adapta longitud y formato al canal (WhatsApp corto + nota de voz máx 40s; email con asunto + cuerpo).
 - Español neutro localizable a MX; tono humano y conversacional.
-- Si el lead no califica o el objetivo es depurar, entregá mensajes de depuración elegante en lugar de venta.
+- Si el lead no califica o el objetivo es depurar, entrega mensajes de depuración elegante en lugar de venta.
 - Si falta un dato crítico (contexto, objeción o activo de valor), pregunta antes de asumir.
 
 PROHIBIDO (no negociable):
@@ -101,7 +101,7 @@ POR QUÉ SE ENFRÍAN: auto-desconfianza ("a mí no me va a funcionar"), escarmie
 OBJECIONES Y CÓMO MANEJARLAS:
 - "Está caro / no me alcanza": no bajes el precio; reencuadra de gasto a inversión y conecta con el costo de seguir igual. Ofrece un paso intermedio. "La pregunta no es si cuesta, es cuánto te está costando seguir otro año en el mismo punto."
 - "Ya tomé un curso y no me funcionó": valida sin atacar al competidor; diferencia por mecanismo (acompañamiento vs información suelta). "La mayoría te da info y te deja solo; ahí es donde casi todos lo dejamos a la mitad."
-- "No tengo tiempo": no discutas el tiempo; reducí el compromiso percibido y anclá en el costo de postergar.
+- "No tengo tiempo": no discutas el tiempo; reduce el compromiso percibido y ancla en el costo de postergar.
 - "No sé si a MÍ me va a funcionar" (la objeción real del sector, es miedo no lógica): baja la promesa, muestra a alguien parecido, reduce el riesgo. "No te voy a prometer magia."
 - "Lo tengo que pensar / lo hablo con mi pareja": respétalo de verdad, dale un activo para pensar mejor y deja salida digna.
 - "¿Y tú quién eres?": ofrece prueba verificable y transparencia, sin defenderte con ego.

@@ -37,14 +37,14 @@ export async function personalidadNegocioTexto(): Promise<string> {
 
 const PERSONALIZAR_SYSTEM = `Eres MaKo, adaptando UNA pregunta de un quiz de personalidad de voz publicitaria al negocio REAL de un cliente. La pregunta muestra frases de anuncio y el dueño elige la que más suena a cómo lo diría ÉL.
 
-Te paso la pregunta con sus opciones genéricas. Reescribí SOLO el texto de cada opción para que hable del negocio real (su oferta, su avatar, su dolor — del contexto), manteniendo EXACTAMENTE:
+Te paso la pregunta con sus opciones genéricas. Reescribe SOLO el texto de cada opción para que hable del negocio real (su oferta, su avatar, su dolor — del contexto), manteniendo EXACTAMENTE:
 - la MISMA cantidad de opciones, en el MISMO orden;
 - el ESPÍRITU de cada una (su energía/registro/rasgo: si la opción 1 es calmada y la 3 explosiva, así se quedan);
 - largo similar (1-2 frases habladas, como línea real de anuncio);
 - español NEUTRO/MEXICANO; el tuteo/usted de cada opción se conserva tal cual.
 La pregunta en sí puedes dejarla igual o ajustarla apenas. NO agregues opciones, NO inventes datos que no estén en el contexto.
 
-Devolvé EXCLUSIVAMENTE este JSON: {"pregunta":"...","opciones":["...","..."]} — "opciones" son SOLO los textos, en orden.`;
+Devuelve EXCLUSIVAMENTE este JSON: {"pregunta":"...","opciones":["...","..."]} — "opciones" son SOLO los textos, en orden.`;
 
 /**
  * La pregunta `idx` del quiz con sus frases PERSONALIZADAS al negocio (misma
@@ -60,10 +60,10 @@ export async function personalizarPregunta(idx: number): Promise<PersonalidadPre
     const user = `CONTEXTO DEL NEGOCIO:\n${brief}\n${panorama.trim() ? `\nPANORAMA:\n${panorama.slice(0, 4000)}\n` : ''}
 PREGUNTA:
 ${base.pregunta}
-OPCIONES (en orden, conservá el espíritu de cada una):
+OPCIONES (en orden, conserva el espíritu de cada una):
 ${base.opciones.map((o, i) => `${i + 1}. ${o.texto} [espíritu: ${o.rasgo}]`).join('\n')}
 
-Adaptá los textos al negocio real. Devolvé solo el JSON.`;
+Adapta los textos al negocio real. Devuelve solo el JSON.`;
     const out = await chatCheapCascade({
       system: PERSONALIZAR_SYSTEM, user, json: true, maxTokens: 700,
       feature: 'personalidad', motivo: `Personalizar pregunta del quiz de voz (${base.key})`,

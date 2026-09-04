@@ -55,8 +55,8 @@ HISTORIA (6-12 min): cómo llegaste tú (o tu cliente) a este problema y qué pa
 MECANISMO (12-19 min): LA pieza que separa este VSL de todos los demás. Explica POR QUE funciona lo que ofreces, con nombre propio y en términos que se entiendan. Una sola idea central, bien explicada, gana a tres a medias. Si el espectador no puede repetirle el mecanismo a un tercero, todavía no está escrito.
 PRUEBA (19-24 min): casos concretos con números y nombres, no adjetivos. Uno detallado vale más que seis en una grilla. Muestra el antes, qué se hizo y el después, y elige casos con los que el avatar se pueda comparar.
 OFERTA (24-28 min): qué es exactamente, qué incluye y qué logra. Precio o el paso para saberlo. Aquí se cae mucha gente y está bien que se caiga: es el filtro. Lo que no puede pasar es que se caiga por no entender qué estás ofreciendo.
-OBJECIONES (28-32 min): las tres o cuatro que de verdad aparecen en tus llamadas ("no tengo tiempo", "ya probé algo así", "es caro", "mi caso es distinto"). Contestalas como si estuvieras en la reunión, sin pelear con el espectador.
-CTA (32-35 min): una sola instrucción, dicha con claridad y repetida. Qué va a pasar cuando haga clic, cuánto dura, con quién habla y qué se lleva. Nada de urgencia inventada: si hay escasez real, decila; si no, no la actúes.`,
+OBJECIONES (28-32 min): las tres o cuatro que de verdad aparecen en tus llamadas ("no tengo tiempo", "ya probé algo así", "es caro", "mi caso es distinto"). Contéstalas como si estuvieras en la reunión, sin pelear con el espectador.
+CTA (32-35 min): una sola instrucción, dicha con claridad y repetida. Qué va a pasar cuando haga clic, cuánto dura, con quién habla y qué se lleva. Nada de urgencia inventada: si hay escasez real, dila; si no, no la actúes.`,
   },
   {
     id: 'vsl-clase-educativa',
@@ -73,7 +73,7 @@ QUIEN SOY (4-7 min): credenciales en función del problema, no un currículum. P
 CLAVE UNO (7-15 min): la primera idea, enseñada completa y aplicable. Que se pueda usar hoy sin comprarte nada.
 CLAVE DOS (15-23 min): la segunda. Idealmente rompe una creencia que el avatar da por cierta.
 CLAVE TRES (23-31 min): la tercera, y la que naturalmente abre la puerta a lo que vendes: la que se puede entender sola pero se ejecuta mucho mejor acompañado.
-TRANSICION (31-34 min): el puente honesto de enseñar a ofrecer. Nombralo en voz alta ("ahora te cuento cómo lo hacemos nosotros, y si no te interesa, ya te llevaste las tres claves"). El espectador ya sabe que viene una oferta: fingir que no es lo que rompe la confianza.
+TRANSICION (31-34 min): el puente honesto de enseñar a ofrecer. Nómbralo en voz alta ("ahora te cuento cómo lo hacemos nosotros, y si no te interesa, ya te llevaste las tres claves"). El espectador ya sabe que viene una oferta: fingir que no es lo que rompe la confianza.
 OFERTA (34-39 min): qué es, para quién, qué incluye y qué logra. Sin inflar: vienes de treinta minutos de credibilidad, no la gastes aquí.
 CTA (39-42 min): una sola instrucción clara y qué pasa después del clic.`,
   },
@@ -89,7 +89,7 @@ CTA (39-42 min): una sola instrucción clara y qué pasa después del clic.`,
     guia: `LEAD (0-2 min): la afirmación contraintuitiva que frena el scroll mental ("el problema no es que no consigas leads"). Tiene que ser algo que el avatar sospecha pero no se animó a decir.
 ENEMIGO (2-6 min): nombra lo que todos hacen y él ya intentó. Sin insultar a nadie: el enemigo es el METODO, nunca la persona que lo siguió — si lo atacas a él, se defiende y se va.
 POR QUE FALLA (6-11 min): la explicación estructural de por qué eso no podía funcionar. Aquí se gana o se pierde el VSL: si el "por qué" convence, todo lo que sigue entra solo.
-CATEGORIA NUEVA (11-15 min): si lo viejo no sirve, ¿qué? Presentá la categoría antes que tu producto. El espectador tiene que querer la categoría primero.
+CATEGORIA NUEVA (11-15 min): si lo viejo no sirve, ¿qué? Presenta la categoría antes que tu producto. El espectador tiene que querer la categoría primero.
 MECANISMO (15-19 min): cómo funciona en concreto, con nombre propio.
 PRUEBA (19-22 min): que alguien como él ya lo hizo. Con números.
 OFERTA (22-25 min): qué es y qué incluye, directo.

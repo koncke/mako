@@ -61,7 +61,7 @@ export const NO_SOPORTADOS: Record<string, string> = {
   zip: 'es un comprimido: no lo abro por seguridad. Mándame los archivos sueltos.',
   rar: 'es un comprimido: no lo abro por seguridad. Mándame los archivos sueltos.',
   '7z': 'es un comprimido: no lo abro por seguridad. Mándame los archivos sueltos.',
-  epub: 'es un libro electrónico y todavía no lo leo. Pasámelo a .pdf.',
+  epub: 'es un libro electrónico y todavía no lo leo. Pásamelo a .pdf.',
   mkv: 'es un contenedor de video que la transcripción no acepta. Pásalo a .mp4.',
   tiff: 'es un formato de imagen que la visión no acepta. Pásalo a .png o .jpg.',
   tif: 'es un formato de imagen que la visión no acepta. Pásalo a .png o .jpg.',

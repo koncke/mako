@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
       // Lo que NO entró se devuelve: un lead que se cae en silencio es peor que un error.
       descartados: errores.length ? errores : undefined,
       url: `${APP_BASE_URL}/crm/revisar/${id}`,
-      mensaje: 'Quedó para confirmar. Pasale el link al usuario: los contactos entran al CRM recién cuando los confirma.',
+      mensaje: 'Quedó para confirmar. Pásale el link al usuario: los contactos entran al CRM recién cuando los confirma.',
     });
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, { status: 500 });

@@ -93,7 +93,7 @@ export function DatosModal({ items, onSetDeadline, onGenChecklist, onAbrir, onIg
                         {st === 'error'
                           ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                               <span style={{ fontSize: 11.5, color: 'var(--bad)' }}>No pudo — </span>
-                              <button type="button" onClick={() => onAbrir(t.id)} style={mkBtn('var(--border-strong)', 'var(--dim)')}>hacela a mano</button>
+                              <button type="button" onClick={() => onAbrir(t.id)} style={mkBtn('var(--border-strong)', 'var(--dim)')}>hazla a mano</button>
                             </span>
                           : <button type="button" disabled={st === 'loading' || batch} onClick={() => void genUna(t.id)}
                               style={mkBtn('var(--primary-weak)', 'var(--primary)', st === 'loading' || batch)}>

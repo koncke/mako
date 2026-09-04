@@ -97,7 +97,7 @@ export async function buildSystemPrompt(opts: { chartKey: string; titulo: string
   // La FASE del negocio (diagnóstico de onboarding): es el Norte. MaKo prioriza
   // y aconseja según la etapa real — no le propone escalar a quien todavía no
   // convierte, ni high-ticket a quien no tiene tráfico.
-  if (faseNegocio) base += `\n\nEN QUÉ FASE ESTÁ EL NEGOCIO (su Norte — priorizá según esto):\n${faseNegocio}`;
+  if (faseNegocio) base += `\n\nEN QUÉ FASE ESTÁ EL NEGOCIO (su Norte — prioriza según esto):\n${faseNegocio}`;
   if (fase) base += `\n\nQUÉ TIENES QUE MIRAR Y HACER EN ESTA SECCIÓN:\n${fase}`;
   const know = formatKnowledge(knowledge);
   if (know) base += `\n\nTU METODOLOGÍA (lo más relevante a esta consulta):\n${know}`;

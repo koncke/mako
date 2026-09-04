@@ -749,7 +749,7 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                 <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '12px 13px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>¿Qué es <span style={{ color: 'var(--accent)' }}>{d.termino}</span>?</div>
                   {d.porque && <div style={{ fontSize: 12, color: 'var(--faint)', lineHeight: 1.45, fontStyle: 'italic' }}>{d.porque}</div>}
-                  <input value={defs[i] ?? ''} onChange={(e) => setDefs((s) => ({ ...s, [i]: e.target.value }))} placeholder={`Definí "${d.termino}" en una frase…`}
+                  <input value={defs[i] ?? ''} onChange={(e) => setDefs((s) => ({ ...s, [i]: e.target.value }))} placeholder={`Define "${d.termino}" en una frase…`}
                     style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none', fontFamily: SANS }} />
                 </div>
               ))}

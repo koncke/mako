@@ -188,7 +188,7 @@ export function validarRango(
 
   const dias = Math.round((Date.parse(`${hasta}T00:00:00Z`) - Date.parse(`${desde}T00:00:00Z`)) / 86_400_000) + 1;
   if (dias > MAX_DIAS) {
-    throw new Error(`el rango pedido son ${dias} días y el tope es ${MAX_DIAS} (5 años). Pedí un tramo más corto.`);
+    throw new Error(`el rango pedido son ${dias} días y el tope es ${MAX_DIAS} (5 años). Pide un tramo más corto.`);
   }
   return { desde, hasta };
 }

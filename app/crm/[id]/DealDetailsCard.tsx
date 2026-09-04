@@ -383,7 +383,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
       {feedback && <div style={bannerStyle(feedback.kind)}>{feedback.msg}</div>}
       {dealIncompleto && (
         <div style={{ ...bannerStyle('warn'), display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <span>Este deal está ganado pero le faltan datos. Completalos con el contrato, el documento fiscal o a mano.</span>
+          <span>Este deal está ganado pero le faltan datos. Complétalos con el contrato, el documento fiscal o a mano.</span>
           {/* Vista: "Completar con IA" abre la edición y corre la extracción sola (ia=1). */}
           <Link href="?edit=1&tab=cobranza&ia=1" style={{ ...primaryBtn, padding: '8px 14px', textDecoration: 'none' }}>✦ Completar con IA</Link>
         </div>
@@ -519,7 +519,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
               </div>
               {montoCierre > 0 && (
                 <div style={{ ...bannerStyle(cuadra ? 'ok' : 'err'), marginTop: 12, fontWeight: cuadra ? 600 : 500 }}>
-                  {cuadra ? `Cuadra: las cuotas suman ${fmtUSD(sumaTodas)} y coinciden con el cierre de ${fmtUSD(montoCierre)}.` : `Las cuotas suman ${fmtUSD(sumaTodas)} y ${diff > 0 ? 'exceden' : 'no alcanzan'} el cierre de ${fmtUSD(montoCierre)} por ${fmtUSD(Math.abs(diff))}. Ajustá los montos.`}
+                  {cuadra ? `Cuadra: las cuotas suman ${fmtUSD(sumaTodas)} y coinciden con el cierre de ${fmtUSD(montoCierre)}.` : `Las cuotas suman ${fmtUSD(sumaTodas)} y ${diff > 0 ? 'exceden' : 'no alcanzan'} el cierre de ${fmtUSD(montoCierre)} por ${fmtUSD(Math.abs(diff))}. Ajusta los montos.`}
                 </div>
               )}
             </>

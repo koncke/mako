@@ -64,7 +64,7 @@ export function CrearProyectoModal({ otros, onCrear, onClose }: { otros: Array<{
           {fase === 'generando'
             ? <div style={{ padding: '34px 0', textAlign: 'center', color: 'var(--dim)', fontSize: 14 }}><div style={{ display: 'flex', justifyContent: 'center' }}><GuardianIcon size={44} /></div><div style={{ marginTop: 12 }}>MaKo está armando el proyecto…</div></div>
             : <>
-                <div style={{ textAlign: 'center', marginBottom: 14 }}><div style={{ display: 'flex', justifyContent: 'center' }}><GuardianIcon size={44} /></div><div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 8, fontFamily: MONO }}>propuesto por MaKo · editá lo que quieras</div></div>
+                <div style={{ textAlign: 'center', marginBottom: 14 }}><div style={{ display: 'flex', justifyContent: 'center' }}><GuardianIcon size={44} /></div><div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 8, fontFamily: MONO }}>propuesto por MaKo · edita lo que quieras</div></div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                   <EmojiPickerMini value={emoji} onPick={setEmoji} />
                   <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre del proyecto" style={{ ...inputStyle, maxWidth: 320, textAlign: 'center', fontWeight: 600 }} />

@@ -63,7 +63,7 @@ Devuelve EXCLUSIVAMENTE un objeto JSON válido (sin markdown):
     const fecha = e.anio || e.mes ? ` · creado: ${e.mes ?? ''} ${e.anio ?? ''}`.trimEnd() : '';
     return `${i + 1}. id=${e.id} · "${e.name}"${padre}${fecha}`;
   }).join('\n');
-  const user = `${noun.toUpperCase()} (${entities.length}):\n${lista}\n\nDevolvé el JSON con las variables completadas por cada id.`;
+  const user = `${noun.toUpperCase()} (${entities.length}):\n${lista}\n\nDevuelve el JSON con las variables completadas por cada id.`;
 
   try {
     let uso: { tokens: number; costUsd: number } | null = null;

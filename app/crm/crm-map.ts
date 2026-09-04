@@ -38,7 +38,7 @@ export function fmtDay(s: string | null): string | null {
 
 export function calendlyDe(l: Lead): { q: string; a: string }[] {
   const pairs: Array<[string, string | null]> = [
-    ['¿A qué te dedicás?', l.respuesta_objetivo],
+    ['¿A qué te dedicas?', l.respuesta_objetivo],
     ['Facturación mensual actual', l.respuesta_facturacion],
     ['Colaboradores', l.respuesta_colaboradores],
     ['¿Cuándo quieres empezar?', l.respuesta_cuando_empezar],

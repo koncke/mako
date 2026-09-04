@@ -41,7 +41,7 @@ export function FlujoEditor({ plantillaId }: { plantillaId: string }) {
   if (!flujo) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>Esta plantilla todavía no tiene un <b>flujo</b> (cuándo dispara + qué pasos ejecuta). Convertila en una automatización:</div>
+        <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>Esta plantilla todavía no tiene un <b>flujo</b> (cuándo dispara + qué pasos ejecuta). Conviértela en una automatización:</div>
         <button style={{ ...btn, alignSelf: 'flex-start' }} onClick={() => guardar(flujoVacio())}>+ Convertir en flujo</button>
       </div>
     );

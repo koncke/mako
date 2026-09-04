@@ -51,12 +51,12 @@ Reescribe la respuesta del cliente incorporando lo que se afinó, se corrigió o
 
 REGLAS
 - No inventes NADA. Si en la sesión no se dio un dato, no lo completes: escribe explícitamente qué falta y quién quedó de conseguirlo.
-- No borres lo que el cliente escribió si sigue siendo cierto. Ampliás, no reemplazás.
-- Si la sesión NO habló de este tema, no fuerces una mejora. Devolvé exactamente SIN_MATERIAL y nada más.
+- No borres lo que el cliente escribió si sigue siendo cierto. Amplías, no reemplazas.
+- Si la sesión NO habló de este tema, no fuerces una mejora. Devuelve exactamente SIN_MATERIAL y nada más.
 - Sin preámbulos, sin «aquí está tu respuesta mejorada», sin cierres. Solo el texto de la respuesta.
 - Voseo, directo, sin lenguaje motivacional y sin signos de exclamación.
 
-Devolvé SOLO el texto de la respuesta reescrita, o SIN_MATERIAL.`;
+Devuelve SOLO el texto de la respuesta reescrita, o SIN_MATERIAL.`;
 
 export const CLAVE_PROMPT = 'cs.bloque.reescritura';
 
@@ -122,7 +122,7 @@ export async function reescribirBloque(input: {
   const salida = await chatCheapCascade({
     feature: 'cs-reescritura',
     system,
-    user: 'Reescribí la respuesta.',
+    user: 'Reescribe la respuesta.',
     maxTokens: 1600,
   }).catch(() => null);
 

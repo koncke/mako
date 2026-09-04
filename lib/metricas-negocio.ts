@@ -433,7 +433,7 @@ export async function reporteMetricas(opts: {
   }
   if (cobertura.meta.hay_datos) {
     advertencias.push(
-      `La inversión sale en la moneda de la cuenta publicitaria. El USD es un derivado con un tipo de cambio FIJO (${TIPO_DE_CAMBIO_USD_MXN}) escrito a mano en lib/config.ts: para un trimestre pasado usa la tasa de hoy, no la de esos meses. Si el número importa en USD, verificalo contra el resumen de facturación de Meta.`,
+      `La inversión sale en la moneda de la cuenta publicitaria. El USD es un derivado con un tipo de cambio FIJO (${TIPO_DE_CAMBIO_USD_MXN}) escrito a mano en lib/config.ts: para un trimestre pasado usa la tasa de hoy, no la de esos meses. Si el número importa en USD, verifícalo contra el resumen de facturación de Meta.`,
     );
   }
   // ⚠️ EL CASO QUE HACE QUE ESTE REPORTE MIENTA FEO, y por eso se dice con nombre

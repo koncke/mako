@@ -244,7 +244,7 @@ export function AudienciaModal({ entidad, item, otros, tareas, onAplicado, onUsa
       titulo={`MaKo · ${item.titulo.slice(0, 40)}`}
       pasos={pasos} pasoActual={paso}
       pregunta={paso === 'A cuánto' ? '¿A cuánto lo quieres?' : paso === 'Con qué' ? '¿Con qué lo sostienes?' : '¿Por qué?'}
-      sub={paso === 'Con qué' ? 'Elegilo de la lista: un nombre escrito a mano no prueba nada.' : undefined}
+      sub={paso === 'Con qué' ? 'Elígelo de la lista: un nombre escrito a mano no prueba nada.' : undefined}
       error={err || null}
       puedeAvanzar={paso === 'A cuánto' ? pedido !== item.score : paso === 'Con qué' ? carga.ok : motivo.trim().length >= 10}
       enUltimo={enUltimo}

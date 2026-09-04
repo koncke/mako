@@ -726,7 +726,7 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
             labels={labels}
             onFila={(i, patch) => setFilas((fs) => fs.map((f, k) => (k === i ? { ...f, ...patch } : f)))}
             reunion={{ titulo: props[0]?.fuenteTitulo ?? '', fecha: props[0]?.fuenteFecha ?? props[0]?.createdAt, url: props[0]?.fuenteUrl ?? null, recordingId: recordingDeRef(props[0]?.ref) }}
-            cabecera="Destildá lo que no vaya. El perro les pone la prioridad final."
+            cabecera="Destilda lo que no vaya. El perro les pone la prioridad final."
             yaCargadas={yaCargadas}
             onAbrirTarea={onAbrirTarea}
             renderTaskCard={renderTaskCard}

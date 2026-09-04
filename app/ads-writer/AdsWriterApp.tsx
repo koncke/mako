@@ -172,7 +172,7 @@ export function AdsWriterApp() {
     <div style={{ maxWidth: 1080, margin: '0 auto', padding: '26px 22px 64px' }}>
       <PageHeader
         titulo="Content Machine"
-        proposito="Qué anuncio grabás después, y con qué texto."
+        proposito="Qué anuncio grabas después, y con qué texto."
         estado={hayMatriz ? (
           // Las unidades tienen que cerrar: conGuion/total cuentan ANUNCIOS y
           // `listos` cuenta GUIONES (una celda puede tener varios aprobados).

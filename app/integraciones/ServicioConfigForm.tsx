@@ -449,7 +449,7 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
       await navigator.clipboard.writeText(valor);
       ponerMsg(env, { ok: true, text: 'Copiada al portapapeles.' });
     } catch {
-      ponerMsg(env, { ok: false, text: 'El navegador no dejó copiar — seleccionala a mano.' });
+      ponerMsg(env, { ok: false, text: 'El navegador no dejó copiar — selecciónala a mano.' });
     }
   };
 

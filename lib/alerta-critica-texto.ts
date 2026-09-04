@@ -67,7 +67,7 @@ const CAUSA: Record<string, { titular: string; queHacer: string }> = {
   },
   'En período de gracia': {
     titular: 'Tu cuenta está *EN PERÍODO DE GRACIA*: se frena en cualquier momento',
-    queHacer: 'Regularizá el pago AHORA, antes de que corte.',
+    queHacer: 'Regulariza el pago AHORA, antes de que corte.',
   },
   'Pendiente de cierre': {
     titular: 'Tu cuenta publicitaria está *POR CERRARSE*',
@@ -165,13 +165,16 @@ export function textoAlerta(i: IncidenteTexto, minAbierto: number, veces: number
 
   if (veces === 0) {
     return parrafos([
-      ['🚨🚨🚨 *PARÁ TODO* 🚨🚨🚨'],
+      // «PARA TODO» es la conjugación correcta de parar y es exactamente por eso
+      // que no sirve: en neutro se lee como la preposición («para todo el mundo»)
+      // y esta es la primera línea de la alerta más grave que manda MaKo.
+      ['🚨🚨🚨 *DETÉN TODO* 🚨🚨🚨'],
       [`⛔ ${titular}.`, consecuencia, motivo],
       i.entregaFrenada
         ? ['💸 *Cada minuto que pasa es plata tirada:*', '❌ No entra *ningún* lead nuevo.', '❌ El día perdido no se recupera.']
         : [],
       queHacer ? [`✅ *QUÉ HACER:* ${queHacer}`] : [],
-      ['👉 *RESOLVELO YA:*', link],
+      ['👉 *RESUÉLVELO YA:*', link],
       ['🔁 Te voy a seguir avisando hasta que esté arreglado. — MaKo'],
     ]);
   }

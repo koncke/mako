@@ -75,7 +75,7 @@ export function motivoDeErroresCascada(errores: string[]): string | null {
   // CUATRO proveedores cargados no podía subir un documento porque tres tenían el id
   // vencido — y la pantalla le decía que estaba todo saturado.
   if (/does not exist|unavailable for free|no longer available|decommissioned|model_not_found|invalid model/.test(todo)) {
-    return 'Hay un problema de configuración de MaKo con ese proveedor de IA: el modelo que teníamos puesto ya no está disponible. No es tu key — avisanos y lo corregimos.';
+    return 'Hay un problema de configuración de MaKo con ese proveedor de IA: el modelo que teníamos puesto ya no está disponible. No es tu key — avísanos y lo corregimos.';
   }
   // ⚠️ SATURACIÓN ANTES QUE CUOTA, Y ESE ORDEN ES EL ARREGLO. Un 503 «high demand» es el
   // proveedor caído para todo el mundo: no gastaste nada, tu key está perfecta, y en dos
@@ -92,7 +92,7 @@ export function motivoDeErroresCascada(errores: string[]): string | null {
   // esperando. La saturación se reconoce por el CÓDIGO (5xx) o por frases que solo
   // aparecen ahí, nunca por una palabra suelta que otro error puede contener.
   if (/\b50[234]\b|service_unavailable|temporarily unavailable|overloaded|high demand/.test(todo)) {
-    return 'El proveedor de IA está saturado en este momento (no es tu cuota ni tu key). Reintentá en un par de minutos.';
+    return 'El proveedor de IA está saturado en este momento (no es tu cuota ni tu key). Reintenta en un par de minutos.';
   }
   if (/resource_exhausted|insufficient_quota|quota|\b429\b|rate limit|rate_limit/.test(todo)) {
     return 'Se quedó sin cuota / límite de uso alcanzado por ahora.';

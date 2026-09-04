@@ -1175,7 +1175,7 @@ export type ImportLeadsResult = { creados: number; omitidos: number; errores: st
 export async function importarLeadsRevisadosAction(filas: FilaImport[]): Promise<ImportLeadsResult> {
   if (!Array.isArray(filas) || !filas.length) return { creados: 0, omitidos: 0, errores: ['No llegó ninguna fila.'] };
   if (filas.length > MAX_FILAS_IMPORT) {
-    return { creados: 0, omitidos: 0, errores: [`Son ${filas.length} filas y el tope por importación es ${MAX_FILAS_IMPORT}. Partí el archivo en dos.`] };
+    return { creados: 0, omitidos: 0, errores: [`Son ${filas.length} filas y el tope por importación es ${MAX_FILAS_IMPORT}. Parte el archivo en dos.`] };
   }
 
   // Sanitizar ANTES de mirar nada: el cliente pudo mandar cualquier cosa en cada

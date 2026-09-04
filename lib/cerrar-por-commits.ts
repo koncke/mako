@@ -100,7 +100,7 @@ export async function proponerCierresPorCommits(opts: { desdeISO?: string; dry?:
 
     const raw = await chatCheapCascade({
       system: SYSTEM,
-      user: `${contenidoNoConfiable(cs, 'commits')}\n\n${contenidoNoConfiable(lista, 'tareas')}\n\n¿Cuáles de esas tareas cierran estos commits? Devolvé el JSON.`,
+      user: `${contenidoNoConfiable(cs, 'commits')}\n\n${contenidoNoConfiable(lista, 'tareas')}\n\n¿Cuáles de esas tareas cierran estos commits? Devuelve el JSON.`,
       json: true,
       // 8000, no 3000: la primera corrida se cortó por largo y devolvió un JSON partido al
       // medio («Expected ',' or ']' after array element»). La salida crece con lo que

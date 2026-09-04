@@ -769,7 +769,7 @@ function DominioSetup({ dom, onUpdate, onClose }: { dom: DomState; onUpdate: (d:
       {confirmNode}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
         <div>
-          <div style={{ fontSize: '19px', fontWeight: 600, color: 'var(--ink)' }}>Configurá tu dominio de envío</div>
+          <div style={{ fontSize: '19px', fontWeight: 600, color: 'var(--ink)' }}>Configura tu dominio de envío</div>
           <div style={{ fontSize: '13.5px', color: 'var(--dim)', marginTop: '4px', lineHeight: 1.5, maxWidth: '560px' }}>
             Para que tus emails salgan a nombre de <strong style={{ color: 'var(--ink)' }}>tu negocio</strong> (y lleguen a la bandeja de entrada, no a spam), hay que verificar tu dominio. Se hace una sola vez.
           </div>

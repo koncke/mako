@@ -113,7 +113,7 @@ export function evaluarPermiso(p: {
   //    existía; los dos caían en el mismo `else` y compraban OPUS.
   const enCatalogo = CATALOGO_MODELOS.find((f) => f.feature === feature);
   if (!enCatalogo) {
-    return { ok: false, razon: `«${feature}» no está en CATALOGO_MODELOS (lib/model-catalogo.ts). Registrala con un \`def\` gratis — una feature sin registrar no compra Opus.` };
+    return { ok: false, razon: `«${feature}» no está en CATALOGO_MODELOS (lib/model-catalogo.ts). Regístrala con un \`def\` gratis — una feature sin registrar no compra Opus.` };
   }
 
   const permiso = CLAUDE_PERMITIDO.find((x) => x.feature === feature);

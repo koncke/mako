@@ -95,7 +95,7 @@ export function limitesDe(formato: FormatoIg) {
 // Cada bloque es TEXTO para el system prompt del writer del formato. La regla
 // transversal va SIEMPRE junto con la del formato (los tres cursos la repiten).
 
-export const METODOLOGIA_TRANSVERSAL = `PRINCIPIOS QUE REPITEN LOS TRES CURSOS DE ORGÁNICO (tratalos como ley):
+export const METODOLOGIA_TRANSVERSAL = `PRINCIPIOS QUE REPITEN LOS TRES CURSOS DE ORGÁNICO (trátalos como ley):
 1) El GANCHO es la variable #1 y se planifica más que el resto de la pieza (80% del esfuerzo).
 2) Lo orgánico le gana a lo producido: cero transiciones, cero efectos, set casero, hablarle a un amigo. Producción alta se lee como anuncio.
 3) Curiosidad sostenida: la respuesta de la promesa se entrega al FINAL, nunca antes.
@@ -119,11 +119,11 @@ export const METODOLOGIA_REEL = `ESTRUCTURA DEL GUION (metodología ViralCopy �
 4) MORALEJA: 10-15 s, la enseñanza resumida en una frase.
 5) CTA: 5-7 s máximo.
 Total óptimo 50-60 s (más largo SOLO si cada segundo aporta — BYF «Retención»).
-Estructura alternativa para reel de NICHO (BYF): Hook → Problema del cliente → Solución realista ligada a lo que se vende → CTA; con caso real de cliente como prueba. Alterná reel viral (gancho amplio) y reel de nicho (gancho específico: menos views, pero views que compran).
+Estructura alternativa para reel de NICHO (BYF): Hook → Problema del cliente → Solución realista ligada a lo que se vende → CTA; con caso real de cliente como prueba. Alterna reel viral (gancho amplio) y reel de nicho (gancho específico: menos views, pero views que compran).
 
 GANCHO — LA REGLA MAESTRA: 80% del esfuerzo va al gancho; el 80% de la gente decide en los primeros 3-5 s. El gancho NO es solo la frase: es TODO lo que pasa en los primeros 3-5 s — frase + encuadre + título en pantalla + elementos visuales. Debe cumplir DOS trabajos: frenar el scroll Y abrir una curiosidad que solo se resuelve al final.
 Reglas duras del gancho (BYF «Anatomía de un gancho» + «Masterclass de Ganchos»):
-- PROHIBIDO abrir segmentando explícito («¿Eres arquitecto?»): así empiezan los anuncios y el cerebro lo descarta. Segmentá IMPLÍCITO por tema.
+- PROHIBIDO abrir segmentando explícito («¿Eres arquitecto?»): así empiezan los anuncios y el cerebro lo descarta. Segmenta IMPLÍCITO por tema.
 - Frase de 5-9 palabras, máxima información en mínimo tiempo. La palabra clave del tema en las posiciones 1-3 de la frase.
 - Que lo entienda alguien de 12 años. Cero jerga, cero regionalismos.
 - Ni un microsegundo de silencio al arrancar. Nunca presentarse, nunca «hoy te voy a contar», nunca intro.
@@ -143,7 +143,7 @@ CAPTION del reel: los cursos NO dan doctrina — el peso está en el guion y el 
 
 ERRORES QUE LOS CURSOS MARCAN: parecer anuncio (segmentar explícito, set profesional, alta producción); prometer exagerado — prometer lo realista (BYF); gancho mejor que el contenido; ser genérico sin ángulo propio; compararse con creadores que ya tienen audiencia; hablar de temas que el negocio no vivió.`;
 
-export const METODOLOGIA_CARRUSEL = `AVISO DE COBERTURA (honesto): los cursos comprados tienen POCO material de carrusel. Lo específico son dos clases de Sell Your Knowledge (Ramiro Cubria) y enseñan UN formato: el carrusel de storytelling estilo cómic/viñetas producido con IA + edición. NO hay doctrina de curso sobre cantidad ideal de slides ni taxonomía educativo/storytelling/venta: para eso aplicá criterio general + las reglas de REEL trasladadas (el carrusel es un reel en slides: portada = gancho, desarrollo = historia con curiosidad sostenida, cierre = moraleja + CTA con palabra clave).
+export const METODOLOGIA_CARRUSEL = `AVISO DE COBERTURA (honesto): los cursos comprados tienen POCO material de carrusel. Lo específico son dos clases de Sell Your Knowledge (Ramiro Cubria) y enseñan UN formato: el carrusel de storytelling estilo cómic/viñetas producido con IA + edición. NO hay doctrina de curso sobre cantidad ideal de slides ni taxonomía educativo/storytelling/venta: para eso aplica criterio general + las reglas de REEL trasladadas (el carrusel es un reel en slides: portada = gancho, desarrollo = historia con curiosidad sostenida, cierre = moraleja + CTA con palabra clave).
 
 LO QUE SÍ SALE DE LOS CURSOS (Sell Your Knowledge):
 - SLIDE 1 = el juego se gana o se pierde aquí: portada llamativa, con gancho, igual que el hook de un reel. El problema VISIBLE en la primera imagen, sin explicarlo. La portada NO revela la solución.

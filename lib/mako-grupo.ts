@@ -465,7 +465,7 @@ export async function enviarCodigoVerificacion(
     if (esSesionCaida(sync.error)) {
       return {
         ok: false,
-        error: 'MaKo no puede escribir por WhatsApp en este momento, y es de nuestro lado: tu número está bien. Seguí sin verificar por ahora — te queda pendiente y lo resolvés después.',
+        error: 'MaKo no puede escribir por WhatsApp en este momento, y es de nuestro lado: tu número está bien. Sigue sin verificar por ahora — te queda pendiente y lo resuelves después.',
       };
     }
     return { ok: false, error: `No se pudo preparar tu grupo de WhatsApp: ${sync.error}` };
@@ -505,7 +505,7 @@ export async function asegurarGrupoSuperAdmin(
   if (!grupoConfigurado()) return { ok: false, error: 'Evolution no configurado' };
   const subject = opts.nombre?.trim() || 'MaKo · SuperAdmin';
   const jid = opts.adoptarJid?.trim() || (await getGrupoSuperAdminJid());
-  if (!jid) return { ok: false, error: 'no hay grupo de SuperAdmin para adoptar (pasá adoptarJid)' };
+  if (!jid) return { ok: false, error: 'no hay grupo de SuperAdmin para adoptar (pasa adoptarJid)' };
   await ponerNombre(jid, subject);
   await ponerDescripcion(jid, DESC_SUPERADMIN);
   await ponerFoto(jid, 'blue');

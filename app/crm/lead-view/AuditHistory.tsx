@@ -259,7 +259,7 @@ export function AuditHistory({ leadId, stages }: { leadId: number; stages?: Stag
         })}
         {rows.length === 0 && (
           <div style={{ fontSize: 13, color: 'var(--faint)', fontStyle: 'italic', padding: '4px 0' }}>
-            {loading ? 'Cargando historial…' : err ? 'No se pudo cargar el historial. Reintentá reabriendo la ficha.' : subTab === 'status' ? 'Sin cambios de status registrados todavía.' : 'Sin cambios de información registrados todavía.'}
+            {loading ? 'Cargando historial…' : err ? 'No se pudo cargar el historial. Reintenta reabriendo la ficha.' : subTab === 'status' ? 'Sin cambios de status registrados todavía.' : 'Sin cambios de información registrados todavía.'}
           </div>
         )}
       </div>

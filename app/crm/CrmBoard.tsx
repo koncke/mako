@@ -1616,7 +1616,7 @@ export function CrmBoard({
             : !reagCal.conectado
               ? 'no hay agenda conectada: solo se actualiza el CRM'
               : !reagCal.puedeMover
-                ? 'no se va a mover: tu permiso es de solo lectura, reconectalo'
+                ? 'no se va a mover: tu permiso es de solo lectura, reconéctalo'
                 : 'se mueve el evento y se le avisa al invitado']);
           if (qhNoShowPrevio) filas.push([`Reunión ${nR} anterior`, 'queda registrado que no se presentó']);
         } else if (qhOpcion === 'nodecide' || qhOpcion === 'sinresp') {
@@ -1625,7 +1625,7 @@ export function CrmBoard({
         } else {
           if (esR) filas.push([`Reunión ${nR}`, qhOpcion === 'hecha' ? 'sí, asistió' : 'no se presentó']);
           filas.push(['Etapa', `${etapaLabel} → ${destinoLabel}`]);
-          if (qhVaACalendly) filas.push(['La reunión', 'te preguntamos si ya ocurrió o la agendás por Calendly']);
+          if (qhVaACalendly) filas.push(['La reunión', 'te preguntamos si ya ocurrió o la agendas por Calendly']);
           if (qhOpcion === 'noshow') filas.push(['La etapa', 'la define tu funnel: se activa la secuencia de recuperación de No Show']);
           if (qhCalificado != null) filas.push(['Calificado', qhCalificado ? 'sí' : 'no']);
           if (qhMotivoFinal) filas.push(['Motivo', qhMotivoFinal]);
@@ -2090,7 +2090,7 @@ function BulkHigiene({ marcar, equipo, onDone }: {
           <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '22px 24px' }}>
             <h3 style={{ fontWeight: 700, fontSize: 18, margin: '0 0 4px', color: 'var(--ink)' }}>Asignar {open.label} a {open.ids.length} lead{open.ids.length === 1 ? '' : 's'}</h3>
             <p style={{ fontSize: 13, color: 'var(--dim)', margin: '0 0 16px', lineHeight: 1.45 }}>
-              {open.field === 'setter' ? 'El que agendó la reunión.' : 'El que corrió la llamada de venta.'} Elegilo de tu equipo. Solo rellena los que están vacíos.
+              {open.field === 'setter' ? 'El que agendó la reunión.' : 'El que corrió la llamada de venta.'} Elígelo de tu equipo. Solo rellena los que están vacíos.
             </p>
             {equipo.length > 0 ? (
               <Dropdown value={sel} options={opts} onChange={setSel} placeholder="Elige del equipo…" width="100%" ariaLabel={open.label} />
@@ -2220,7 +2220,7 @@ function SinMarcar({
             calcular entera. Con una lectura caída la lista también llega vacía, y
             celebrar ahí es el peor final posible: el usuario deja de mirar. */}
         {marcar.length === 0 && (aviso
-          ? <div style={{ padding: 28, textAlign: 'center', color: 'var(--warn)', fontSize: 14.5, fontWeight: 600, lineHeight: 1.5 }}>{aviso}<br /><span style={{ fontWeight: 500, color: 'var(--dim)', fontSize: 13 }}>Recargá en un momento: no se puede afirmar que no haya nada pendiente.</span></div>
+          ? <div style={{ padding: 28, textAlign: 'center', color: 'var(--warn)', fontSize: 14.5, fontWeight: 600, lineHeight: 1.5 }}>{aviso}<br /><span style={{ fontWeight: 500, color: 'var(--dim)', fontSize: 13 }}>Recarga en un momento: no se puede afirmar que no haya nada pendiente.</span></div>
           : <div style={{ padding: 36, textAlign: 'center', color: 'var(--good)', fontSize: 15.5, fontWeight: 600 }}>✓ Todo marcado — datos al día.</div>)}
       </div>
       </div>

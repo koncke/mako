@@ -53,7 +53,7 @@ export default async function GuionesPage() {
         </div>
       ) : data.scripts.length === 0 ? (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: '32px', fontSize: 14, color: 'var(--dim)' }}>
-          Todavía no hay guiones analizados. Sincronizá desde la tab de Ads Analyst.
+          Todavía no hay guiones analizados. Sincroniza desde la tab de Ads Analyst.
         </div>
       ) : (
         <GuionesFull scripts={data.scripts} angles={angles} avatares={avatares} />

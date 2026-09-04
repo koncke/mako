@@ -194,6 +194,6 @@ export function explicarIssueEs(it: Issue): { titulo: string; detalle: string } 
   if (/in review|pending review|being reviewed|under review|in_review/.test(t))
     return { titulo: 'En revisión de Meta', detalle: 'Meta todavía está revisando el anuncio. Empieza a entregar cuando lo apruebe (normalmente en unas horas).' };
   if (/payment|billing|unsettled|funding|pay method|declined/.test(t))
-    return { titulo: 'Problema de pago', detalle: 'Hay un problema de pago o facturación en la cuenta que frena la entrega. Regularizalo en el Administrador de Anuncios.' };
+    return { titulo: 'Problema de pago', detalle: 'Hay un problema de pago o facturación en la cuenta que frena la entrega. Regularízalo en el Administrador de Anuncios.' };
   return { titulo: it.resumen || 'Problema del anuncio', detalle: it.mensaje || 'Meta marcó un problema con este anuncio. Revísalo en el Administrador de Anuncios.' };
 }

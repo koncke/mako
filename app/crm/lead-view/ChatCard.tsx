@@ -108,7 +108,7 @@ export function ChatCard({ leadId }: { leadId: number }) {
         <div style={{ ...sectLabel, marginBottom: 10 }}>Chat de WhatsApp</div>
         <p style={{ fontSize: 14, color: 'var(--faint)', margin: '0 0 14px' }}>
           {estado.fase === 'error'
-            ? 'No se pudo cargar el chat. Reintentá en un momento.'
+            ? 'No se pudo cargar el chat. Reintenta en un momento.'
             : 'Todavía no hay chat de WhatsApp para este número. Abre WhatsApp para escribirle: el hilo aparece aquí.'}
         </p>
         {estado.fase === 'sin-chat' && (

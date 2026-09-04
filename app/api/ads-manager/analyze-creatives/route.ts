@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   const sys = 'Eres un analista de creativos publicitarios. Miras cada imagen (foto del anuncio o frame de un video) y describes, por cada una, QUÉ comunica y su ángulo/gancho. No inventes audio o texto que no ves. Sé breve y concreto.';
   const content: Array<Record<string, unknown>> = [{
     type: 'text',
-    text: `Te paso ${creatives.length} creativo(s), en orden. Por cada uno devolvé {descripcion: 1 frase, angulo: 1-3 palabras}. Respondé EXCLUSIVAMENTE JSON: {"items":[{"descripcion":"…","angulo":"…"}]} con un item por creativo, en el mismo orden.`,
+    text: `Te paso ${creatives.length} creativo(s), en orden. Por cada uno devuelve {descripcion: 1 frase, angulo: 1-3 palabras}. Responde EXCLUSIVAMENTE JSON: {"items":[{"descripcion":"…","angulo":"…"}]} con un item por creativo, en el mismo orden.`,
   }];
   creatives.forEach((c, i) => {
     content.push({ type: 'text', text: `Creativo ${i + 1}${c.media_type === 'video' ? ' (frame de video)' : ''}:` });

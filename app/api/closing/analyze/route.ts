@@ -15,7 +15,7 @@ export const maxDuration = 120;
 
 export async function POST(req: NextRequest) {
   // Fase 1: analizar baja contenido del Fathom global del dueño → solo él.
-  if (!(await integracionConectada('fathom'))) return Response.json({ ok: false, error: 'Fathom no está conectado en este workspace. Conectalo en Configuraciones → Método.' }, { status: 403 });
+  if (!(await integracionConectada('fathom'))) return Response.json({ ok: false, error: 'Fathom no está conectado en este workspace. Conéctalo en Configuraciones → Método.' }, { status: 403 });
   let body: { recording_id?: number | string };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 

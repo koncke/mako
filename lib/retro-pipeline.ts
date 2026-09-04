@@ -178,7 +178,7 @@ async function prioridadesDelPerro(titulos: string[], contexto: string): Promise
         ...abiertas.map((t) => ({ id: `b${t.id}`, titulo: t.titulo, detalle: t.detalle ?? '', avance: t.progreso })),
         ...titulos.map((titulo, i) => ({ id: `n${i}`, titulo, detalle: `Tarea para poder probar: ${contexto}` })),
       ],
-      'Las tareas "n…" son las que la Retro quiere agregar para poder correr un experimento. Puntualas comparándolas contra lo que ya está en el tablero.',
+      'Las tareas "n…" son las que la Retro quiere agregar para poder correr un experimento. Puntúalas comparándolas contra lo que ya está en el tablero.',
       'Retro: prioridad de las tareas del experimento',
     );
     // Solo se usan los scores de las tareas NUEVAS: re-priorizar el tablero entero
@@ -458,7 +458,7 @@ export async function generarRetroV3(
   const pedidas = validas.length ? validas : (Object.keys(AREA_NOMBRE) as AreaId[]);
   const areasEff = Array.from(new Set<AreaId>([...pedidas, 'experimentos']));
   const perspectiva = opts.perspectiva && opts.perspectiva.trim()
-    ? `\nPERSPECTIVA DE MARTÍN (su hipótesis, puede estar equivocada — contrastala con el dato, NO la asumas): "${opts.perspectiva.trim()}"`
+    ? `\nPERSPECTIVA DE MARTÍN (su hipótesis, puede estar equivocada — contrástala con el dato, NO la asumas): "${opts.perspectiva.trim()}"`
     : '';
   const t0 = Date.now();
 

@@ -162,7 +162,7 @@ export function NutricionGenerar({ onAplicado }: { onAplicado?: () => void } = {
         activada = Boolean(act?.ok);
         // El copy ya quedó guardado (idempotente): si la activación falló, se
         // corta con error visible — re-aprobar reintenta solo la activación.
-        if (!activada) throw new Error(`El copy de «${sel.nombre}» se guardó, pero la secuencia NO se pudo activar. Reintentá con Aprobar, o activala desde la lista de secuencias.`);
+        if (!activada) throw new Error(`El copy de «${sel.nombre}» se guardó, pero la secuencia NO se pudo activar. Reintenta con Aprobar, o actívala desde la lista de secuencias.`);
       }
       setSecs((prev) => prev?.map((s) => (s.id === sel.id ? { ...s, pasos: draft, activa: s.activa || activada } : s)) ?? prev);
       onAplicado?.();

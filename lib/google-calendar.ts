@@ -443,7 +443,7 @@ async function leerFallo(res: Response): Promise<{ codigo: CodigoCalendario; mot
     return { codigo: 'sin-permiso', motivo: 'Google rechazó la conexión de la agenda (el permiso venció o se revocó): hay que reconectarla.' };
   }
   if (res.status === 403 && (txt.includes('insufficient') || txt.includes('scope'))) {
-    return { codigo: 'sin-permiso', motivo: 'El permiso de Google es de solo lectura: reconectá la agenda para poder mover reuniones.' };
+    return { codigo: 'sin-permiso', motivo: 'El permiso de Google es de solo lectura: reconecta la agenda para poder mover reuniones.' };
   }
   if (txt.includes('organizer')) {
     return { codigo: 'no-organizador', motivo: 'El evento lo organiza otra cuenta y Google no deja moverlo desde esta agenda.' };
@@ -573,7 +573,7 @@ export async function moverEventoDeReunion(p: PedidoMoverEvento): Promise<Result
     const tk = await tokenGoogle();
     if (!tk) return nada('sin-conexion', 'No hay una agenda de Google conectada a este espacio.');
     if (!puedeEscribir(tk.scopes)) {
-      return nada('sin-permiso', 'El permiso de Google es de solo lectura: reconectá la agenda para poder mover reuniones.');
+      return nada('sin-permiso', 'El permiso de Google es de solo lectura: reconecta la agenda para poder mover reuniones.');
     }
 
     const evento = await buscarEventoDeReunion(tk.access, p);
@@ -854,7 +854,7 @@ export async function horariosLibresDeGoogle(fechaISO: string, opts: OpcionesHor
       // pasó acá (lo que faltó es el permiso de LEER, y mover anda).
       if (f.codigo === 'sin-permiso') {
         return falla('sin-conexion', res.status === 403
-          ? 'El permiso de Google no alcanza para leer tu agenda: reconectala desde Integraciones.'
+          ? 'El permiso de Google no alcanza para leer tu agenda: reconéctala desde Integraciones.'
           : f.motivo);
       }
       // El texto de Google NUNCA va a pantalla: son párrafos en inglés con el id

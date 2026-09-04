@@ -145,7 +145,7 @@ const PALABRAS_CTA = [
   'suscríbete', 'suscribete', 'link en bio', 'linkinbio', 'bio',
   'whatsapp', 'wasap', 'dm', 'mensaje directo', 'inbox',
   'agenda', 'agendar', 'agéndate', 'llamada', 'reunión', 'reunion',
-  'descarga', 'descargar', 'descárgalo', 'descargalo',
+  'descarga', 'descargar', 'descárgalo', 'descárgalo',
   'cupón', 'cupon', 'descuento', 'promoción', 'promocion',
   'comenta', 'comentario', 'escríbeme', 'escribeme', 'contáctame', 'contactame',
   'deja tus datos', 'déjanos tus datos', 'tus datos',

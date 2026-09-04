@@ -110,7 +110,7 @@ export async function descubrirMeta(token: string): Promise<Descubrimiento> {
     id: s(c.id), nombre: s(c.name) || s(c.id), activa: Number(c.account_status) === 1, moneda: s(c.currency) || undefined,
   })).filter((c) => c.id);
   if (ctas.error) avisos.push(`No pudimos listar tus cuentas publicitarias (${ctas.error}).`);
-  else if (!cuentas.length) avisos.push('Tu usuario de sistema no tiene ninguna cuenta publicitaria asignada: agregala en Configuración del negocio → Agregar activos.');
+  else if (!cuentas.length) avisos.push('Tu usuario de sistema no tiene ninguna cuenta publicitaria asignada: agrégala en Configuración del negocio → Agregar activos.');
 
   const paginas: OpcionPagina[] = pags.error ? [] : arr(pags.body).map((p) => ({
     id: s(p.id), nombre: s(p.name) || s(p.id), token: s(p.access_token),

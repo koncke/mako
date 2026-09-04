@@ -67,7 +67,7 @@ function ItemCard({ c, busy, bloqueado, error, onResolve }: { c: MakoConfirmacio
           <button disabled={bloqueado} onClick={() => onResolve(c.id, 'rechazar')} style={{ ...btnBase, background: 'transparent', color: 'var(--bad)', borderColor: 'var(--border-strong)', opacity: off }}>↶ Deshacer</button>
         )}
         {busy && <span style={{ fontSize: 12, color: 'var(--dim)' }}>Aplicando…</span>}
-        {error && <span style={{ fontSize: 12, color: 'var(--bad)', fontWeight: 600 }}>No se pudo, reintentá</span>}
+        {error && <span style={{ fontSize: 12, color: 'var(--bad)', fontWeight: 600 }}>No se pudo, reintenta</span>}
       </div>
     </div>
   );

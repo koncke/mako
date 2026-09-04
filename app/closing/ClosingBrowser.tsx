@@ -1063,7 +1063,7 @@ function EmptyState({ counts, hasError, syncing, onSync }: { counts: ClosingView
       <div style={{ maxWidth: 520, textAlign: 'center' }}>
         <div style={{ fontSize: 22, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>{hasError ? 'Sin datos disponibles' : 'Todavía no hay llamadas de venta analizadas'}</div>
         <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.6, marginBottom: 20 }}>
-          {hasError ? 'No se pudo conectar a la base de datos (en local faltan las claves de Supabase). En producción, sincronizá para traer y analizar las llamadas de Fathom.' : 'Sincronizá para traer las llamadas históricas de Fathom, matchearlas con los leads y analizar las de venta. Las de entrega de servicio se excluyen.'}
+          {hasError ? 'No se pudo conectar a la base de datos (en local faltan las claves de Supabase). En producción, sincroniza para traer y analizar las llamadas de Fathom.' : 'Sincroniza para traer las llamadas históricas de Fathom, matchearlas con los leads y analizar las de venta. Las de entrega de servicio se excluyen.'}
         </div>
         {counts.total > 0 && <div style={{ fontSize: 12.5, color: 'var(--faint)', marginBottom: 20, fontFamily: MONO }}>{counts.total} procesadas · {counts.servicio} servicio · {counts.internas} internas · {counts.test} test</div>}
         <button onClick={onSync} disabled={syncing} style={{ padding: '10px 18px', borderRadius: 11, cursor: syncing ? 'default' : 'pointer', fontFamily: "'Geist', sans-serif", fontSize: 14, fontWeight: 600, border: '1px solid var(--primary)', background: syncing ? 'var(--surface-2)' : 'var(--primary)', color: syncing ? 'var(--dim)' : '#fff' }}>{syncing ? 'Sincronizando…' : '↻ Sincronizar llamadas'}</button>

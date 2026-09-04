@@ -95,7 +95,7 @@ export function EliminarModal({ tipo, nombre, nTareas = 0, task, otras = [], pla
                     de Tailwind pone `svg { display: block }` y a un bloque el text-align no lo
                     mueve — el icono quedaba pegado a la izquierda. */}
                 <div style={{ display: 'flex', justifyContent: 'center' }}><GuardianIcon size={54} /></div>
-                <div style={{ fontSize: 13, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.04em', margin: '12px 0 10px', color: ver.veredicto === 'borrar' ? 'var(--bad)' : 'var(--good)' }}>{ver.veredicto === 'borrar' ? 'Ok, se puede borrar' : 'Mejor conservala'}</div>
+                <div style={{ fontSize: 13, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.04em', margin: '12px 0 10px', color: ver.veredicto === 'borrar' ? 'var(--bad)' : 'var(--good)' }}>{ver.veredicto === 'borrar' ? 'Ok, se puede borrar' : 'Mejor consérvala'}</div>
                 <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.6, textAlign: 'left', background: ver.veredicto === 'borrar' ? 'var(--bad-bg)' : 'var(--good-bg, var(--surface-2))', border: `1px solid ${ver.veredicto === 'borrar' ? 'var(--bad)' : 'var(--good)'}55`, borderRadius: 12, padding: '14px 16px' }}>{ver.respuesta}</div>
               </>}
         </div>

@@ -53,7 +53,7 @@ export function instruccionesTexto(a: AnguloGuion): string {
   const partes: string[] = [];
   if (a.requisitos) partes.push(`Cuando aplica: ${a.requisitos}`);
   partes.push(a.cuerpo);
-  if (a.ejemplosHook.length) partes.push(`Patrones de hook para el bloque de apertura (adaptalos al negocio real, no los copies literal):\n${a.ejemplosHook.map((h) => `- ${h}`).join('\n')}`);
+  if (a.ejemplosHook.length) partes.push(`Patrones de hook para el bloque de apertura (adáptalos al negocio real, no los copies literal):\n${a.ejemplosHook.map((h) => `- ${h}`).join('\n')}`);
   if (a.cta) partes.push(`El CTA bajo este angulo: ${a.cta}`);
   if (a.siempre.length) partes.push(`SIEMPRE:\n${a.siempre.map((s) => `- ${s}`).join('\n')}`);
   if (a.nunca.length) partes.push(`NUNCA:\n${a.nunca.map((s) => `- ${s}`).join('\n')}`);

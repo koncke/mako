@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
   // ── modo lote ──
   const ads = body.ads;
   if (ads.length === 0) return Response.json({ ok: false, error: 'sin anuncios para crear' }, { status: 400 });
-  if (ads.length > 20) return Response.json({ ok: false, error: 'máximo 20 anuncios por lote (dividilo en tandas)' }, { status: 400 });
+  if (ads.length > 20) return Response.json({ ok: false, error: 'máximo 20 anuncios por lote (divídelo en tandas)' }, { status: 400 });
   if (ads.some((a) => !a.creative || typeof a.creative !== 'object')) return Response.json({ ok: false, error: 'cada anuncio necesita su creativo' }, { status: 400 });
   for (const a of ads) {
     const inv = creativoInvalido(a.creative as Creative);

@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
   const fallos: string[] = [];
 
   const DELAY = 250; // "escribiendo…" corto para la demo (anti-ban real en producción)
-  await enviarAGrupoJid(jid, `🧪 *Demo de avisos de MaKo*\n\nAcá te mando TODOS los mensajes que MaKo te puede llegar a mandar (reportes, avisos, acciones y preguntas), con datos de ejemplo. Los agrupo por tipo. Algunos ya funcionan y otros son la voz de lo que viene. — MaKo`, DELAY);
+  await enviarAGrupoJid(jid, `🧪 *Demo de avisos de MaKo*\n\nAquí te mando TODOS los mensajes que MaKo te puede llegar a mandar (reportes, avisos, acciones y preguntas), con datos de ejemplo. Los agrupo por tipo. Algunos ya funcionan y otros son la voz de lo que viene. — MaKo`, DELAY);
   await sleep(500);
 
   for (const cat of ORDEN) {

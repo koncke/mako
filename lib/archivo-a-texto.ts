@@ -31,7 +31,7 @@ export { EXTENSIONES_SOPORTADAS, ACCEPT_IMPORTAR, MAX_ARCHIVO_BYTES, puedeLeerse
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-const LEER_DOC = 'Transcribí TODO el texto legible de este documento, tal cual, sin resumir ni omitir nada. Si es una imagen o captura, describí también lo que se ve. Devolvé solo el texto.';
+const LEER_DOC = 'Transcribe TODO el texto legible de este documento, tal cual, sin resumir ni omitir nada. Si es una imagen o captura, describe también lo que se ve. Devuelve solo el texto.';
 
 export type LecturaArchivo = { texto: string; warning?: string; via: 'texto' | 'docx' | 'pdf' | 'pdf-vision' | 'imagen' | 'audio' | 'planilla' | 'diapositivas' | 'opendocument' | 'no-soportado' };
 

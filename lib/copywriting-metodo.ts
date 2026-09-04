@@ -41,7 +41,7 @@ const METODO: MetodoEntry[] = [
     cuerpo: `Reglas base de toda redacción de MaKo:
 - Claridad antes que ingenio. Si hay que elegir entre sonar creativo y que se entienda, gana entenderse.
 - Voz activa y frases cortas. El lector escanea; escribe para que capte la idea en 3 segundos.
-- Beneficio antes que característica. No "tenemos X"; sino "con esto lográs Y". Traducí siempre feature → resultado para el lector.
+- Beneficio antes que característica. No "tenemos X"; sino "con esto logras Y". Traduce siempre feature → resultado para el lector.
 - Habla en el idioma del cliente, no en jerga interna. Usa las palabras que usa él para nombrar su problema.
 - Una sola idea y un solo objetivo por mensaje. Si el email/WhatsApp quiere hacer tres cosas, no logra ninguna.
 - Especificidad y honestidad. Datos concretos > adjetivos vacíos. Nunca prometas lo que el negocio no puede cumplir.
@@ -53,7 +53,7 @@ const METODO: MetodoEntry[] = [
     cuerpo: `Elige una estructura según el momento del lead. No las mezcles dentro de un mismo mensaje corto:
 - AIDA (Atención → Interés → Deseo → Acción): buena para presentar algo nuevo. Abre con un gancho, sube el interés con relevancia, enciende el deseo con el resultado, cierra con una acción clara.
 - PAS (Problema → Agitación → Solución): la más potente para reactivar. Nombra el problema real, muestra qué pasa si sigue sin resolverse (sin dramatizar de más), y ofrece la salida. Ideal para "no agendó", "no-show", "reactivación".
-- BAB (Antes → Después → Puente): "hoy estás así / imaginá estar así / el puente es esta llamada". Muy útil cuando el resultado es tangible.
+- BAB (Antes → Después → Puente): "hoy estás así / imagina estar así / el puente es esta llamada". Muy útil cuando el resultado es tangible.
 Regla: la estructura es andamiaje, no se nota. El lector siente una conversación, no una fórmula.`,
   },
   {
@@ -62,19 +62,19 @@ Regla: la estructura es andamiaje, no se nota. El lector siente una conversació
     cuerpo: `El asunto tiene un solo trabajo: ganar la apertura. Sin apertura, el mejor cuerpo no existe.
 - 4 a 8 palabras. Que entre completo en el celular.
 - Elige UN ángulo: curiosidad ("Un caso que te va a sonar"), específico/beneficio ("Reagendemos en 30 seg"), o tensión/pregunta ("¿Lo dejamos aquí?").
-- Escribilo en minúsculas o capitalización natural, como un humano. Evitá MAYÚSCULAS, signos de más ($$$, !!!), "GRATIS", "URGENTE" y clickbait vacío: bajan entregabilidad y confianza.
+- Escríbelo en minúsculas o capitalización natural, como un humano. Evita MAYÚSCULAS, signos de más ($$$, !!!), "GRATIS", "URGENTE" y clickbait vacío: bajan entregabilidad y confianza.
 - El preheader (texto de vista previa) COMPLEMENTA, no repite el asunto: es la segunda línea que termina de convencer de abrir. Nunca lo dejes vacío (si no, se cuela el HTML).
-- Prometé en el asunto solo lo que el cuerpo cumple. El clickbait quema la lista.`,
+- Promete en el asunto solo lo que el cuerpo cumple. El clickbait quema la lista.`,
   },
   {
     titulo: 'Psicología de venta: gatillos aplicados con honestidad',
     categoria: 'Psicología',
-    cuerpo: `Gatillos de decisión (Cialdini y afines). Usalos solo cuando son REALES; falsearlos destruye la confianza:
+    cuerpo: `Gatillos de decisión (Cialdini y afines). Úsalos solo cuando son REALES; falsearlos destruye la confianza:
 - Prueba social: casos, cantidad de clientes, resultados de gente parecida al lead. "Alguien en tu misma situación hoy logró…".
-- Aversión a la pérdida: la gente teme perder más que lo que desea ganar. Enmarcá lo que se está perdiendo por no actuar, sin amenazar.
+- Aversión a la pérdida: la gente teme perder más que lo que desea ganar. Enmarca lo que se está perdiendo por no actuar, sin amenazar.
 - Reciprocidad: dar valor primero (un tip, un caso, un diagnóstico) antes de pedir. El primer mensaje idealmente REGALA algo.
 - Autoridad: muestra criterio y especificidad; el que sabe no necesita gritar.
-- Compromiso y consistencia: recordá el paso que el lead YA dio ("dejaste tus datos", "estabas muy cerca de decidir") para que el siguiente sea coherente.
+- Compromiso y consistencia: recuerda el paso que el lead YA dio ("dejaste tus datos", "estabas muy cerca de decidir") para que el siguiente sea coherente.
 - Escasez y urgencia: solo si son verdaderas (cupos, fecha real). La urgencia inventada se nota y espanta.
 Un mensaje suele apoyarse en UN gatillo dominante, no en todos a la vez.`,
   },
@@ -86,8 +86,8 @@ Un mensaje suele apoyarse en UN gatillo dominante, no en todos a la vez.`,
 - Valor primero, pedido después. Los primeros toques dan (caso, tip, empatía); el pedido crece de a poco.
 - Cada toque cambia de ÁNGULO, no repite el anterior con otras palabras: recordatorio → prueba social → salida digna.
 - Cadencia con aire: pronto el primero (horas), después días. Nunca dos mensajes al mismo lead el mismo día.
-- Cada mensaje: una sola CTA y siempre una salida digna ("si no es el momento, avisame y no te escribo más").
-- Adaptá el rol al cohorte: "no agendó" busca la llamada; "no-show" quita fricción para reagendar; "no paga" resuelve la objeción de pago; "reactivación" reabre sin culpa.
+- Cada mensaje: una sola CTA y siempre una salida digna ("si no es el momento, avísame y no te escribo más").
+- Adapta el rol al cohorte: "no agendó" busca la llamada; "no-show" quita fricción para reagendar; "no paga" resuelve la objeción de pago; "reactivación" reabre sin culpa.
 - El tono sube en calidez cuanto más frío está el lead, y baja en presión.`,
   },
   {
@@ -96,7 +96,7 @@ Un mensaje suele apoyarse en UN gatillo dominante, no en todos a la vez.`,
     cuerpo: `El cierre define si el mensaje convierte:
 - Una sola CTA por mensaje. Dos opciones = ninguna acción.
 - Verbo claro + baja fricción: "Agenda aquí" / "Responde este mail y lo vemos". Que el próximo paso cueste 10 segundos.
-- Reducí el riesgo percibido: "llamada corta", "sin compromiso", "en el horario que mejor te venga".
+- Reduce el riesgo percibido: "llamada corta", "sin compromiso", "en el horario que mejor te venga".
 - Salida digna SIEMPRE: dale permiso de decir que no. Paradójicamente sube la respuesta y protege la relación.
 - Cierra como humano, no como sistema: nada de "Saludos cordiales, el equipo". Firma personal, cercana.
 - Los placeholders de acción ([tu link de agenda], [tu link de pago]) NO se inventan: se dejan tal cual para que el sistema los complete.`,
@@ -109,7 +109,7 @@ Un mensaje suele apoyarse en UN gatillo dominante, no en todos a la vez.`,
 - Presionar, culpar o fingir urgencia. Nada de "última oportunidad" si no es verdad.
 - Muros de texto. En WhatsApp, 2-4 líneas; en email, párrafos cortos y aire.
 - Prometer resultados que el negocio no garantiza, inventar casos, precios, plazos o datos.
-- Jerga de marketing y palabras spam ("GRATIS", "GANÁ DINERO", exceso de emojis/signos).
+- Jerga de marketing y palabras spam ("GRATIS", "GANA DINERO", exceso de emojis/signos).
 - Sonar a bot o a plantilla genérica: si el mensaje sirve igual para cualquier negocio, está mal.
 - Copiar el mensaje anterior de la secuencia: cada toque aporta algo nuevo o no se manda.`,
   },

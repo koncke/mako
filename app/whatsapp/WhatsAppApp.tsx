@@ -1312,7 +1312,7 @@ function WhatsAppInner() {
             <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '11px', padding: '4px', gap: '4px' }}>
               <button onClick={() => setSeqTab('secuencias')} style={seqTab === 'secuencias' ? tabActive : tabIdle}>Secuencias</button>
               <button onClick={() => setSeqTab('plantillas')} style={seqTab === 'plantillas' ? tabActive : tabIdle}>Plantillas</button>
-              <button onClick={() => setSeqTab('mako')} style={seqTab === 'mako' ? tabActive : tabIdle}>✨ Preguntá a MaKo</button>
+              <button onClick={() => setSeqTab('mako')} style={seqTab === 'mako' ? tabActive : tabIdle}>✨ Pregunta a MaKo</button>
             </div>
             <NutricionGenerar onAplicado={() => void reloadSecuencias()} />
           </div>
@@ -1425,7 +1425,7 @@ function WhatsAppInner() {
                         );
                       })}
                       <button onClick={addPaso} style={{ width: '100%', padding: '11px', borderRadius: '11px', border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600 }}>+ Agregar paso</button>
-                      <div style={{ fontSize: '12px', color: 'var(--faint)', marginTop: '12px', lineHeight: 1.5 }}>Editás la <strong>demora</strong>, la <strong>plantilla</strong> y el orden de cada paso. El texto sale de la plantilla aprobada de Meta. Variable disponible: <code style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '5px', padding: '1px 5px', fontFamily: "'Geist Mono', monospace" }}>{'{{nombre}}'}</code>.</div>
+                      <div style={{ fontSize: '12px', color: 'var(--faint)', marginTop: '12px', lineHeight: 1.5 }}>Editas la <strong>demora</strong>, la <strong>plantilla</strong> y el orden de cada paso. El texto sale de la plantilla aprobada de Meta. Variable disponible: <code style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '5px', padding: '1px 5px', fontFamily: "'Geist Mono', monospace" }}>{'{{nombre}}'}</code>.</div>
                     </>
                   ) : (
                     <>

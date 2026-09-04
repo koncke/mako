@@ -15,11 +15,11 @@ export const CHART_PROMPT_SALUDO_DEFAULT =
   'Preséntate en 1-2 líneas como MaKo y dime en qué me puedes ayudar con los datos del negocio. Breve, con tu voz.';
 
 export const CHART_TITULO_DEFAULT =
-  'Devolvé SOLO un título corto (3 a 6 palabras, en español, sin comillas ni punto final) que resuma de qué trata esto. Nada más que el título.';
+  'Devuelve SOLO un título corto (3 a 6 palabras, en español, sin comillas ni punto final) que resuma de qué trata esto. Nada más que el título.';
 
 // ── Encuadres del system prompt de MaKo (lib/mako-context.ts) ────────────────
 export const MAKO_CTX_GENERAL_DEFAULT =
-  'CONTEXTO: chat general del dashboard del negocio de Martín. Ayudá con lo que pregunte; si te pega datos, analizalos.';
+  'CONTEXTO: chat general del dashboard del negocio de Martín. Ayuda con lo que pregunte; si te pega datos, analízalos.';
 
 // {{titulo}} = nombre del gráfico · {{contexto}} = datos del gráfico (recortados)
 export const MAKO_CTX_CHART_DEFAULT =

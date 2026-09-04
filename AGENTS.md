@@ -904,6 +904,24 @@ los límites van por Unicode: `(?<!\p{L})(…)(?!\p{L})`. El test que lo caza **
 incluir una palabra terminada en vocal acentuada**: probando solo las que terminan en `s`,
 el bug pasa verde.
 
+⚠️ **Y la lista de formas NO se escribe a mano: se GENERA desde infinitivos.** Enumerarlas
+es lo que dejó «¿Cuánto **invertís** por día en Meta Ads?» en producción con
+`tests/puente-panel-copy.test.ts` en VERDE — una lista escrita a mano cubre lo que ya se
+escribió, nunca el verbo que todavía no usó nadie. La conjugación voseante es regular y sale
+del infinitivo; lo único que se escribe es lo irregular del lado NEUTRO (`tener` → tienes).
+Al ampliarlo aparecieron **224 casos vivos en 96 archivos**. Cuando un chequeo se queda
+corto, la pregunta no es «¿qué le falta a la lista?» sino **«¿por qué hay una lista?»**.
+
+⚠️ **Y ese mismo guard daba verde sobre código que NUNCA MIRÓ.** Un `text/*` —un MIME con
+comodín, adentro de un comentario `//`— abría un bloque `/* … */` que se cerraba 71 líneas
+después, y todo eso quedaba invisible. Vale para cualquier pipeline de `replace`: **si el
+paso B puede consumir lo que el paso A tenía que borrar, es un bug de ORDEN** (acá: los
+comentarios de línea van ANTES que los de bloque), y antes de escribir un parser probá si
+alcanza con reordenar — el scanner que se escribió en el medio salió peor que el regex.
+
+El detalle, con las dos familias de homógrafos que no se pueden marcar y el agujero
+permanente de los imperativos `-ir`, en [docs/hallazgos-copy.md](docs/hallazgos-copy.md).
+
 # Un mensaje que sale solo no puede AFIRMAR lo que no verificó
 
 Un aviso automático llega con la autoridad del sistema: el que lo lee no tiene cómo

@@ -387,7 +387,7 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
     const estrLabel = ESTRATEGIAS.find((e) => e.value === estrategia)?.label ?? estrategia;
     const u = usables();
     const desc = u.map((t, i) => `Creativo ${i + 1} (${t.media_type ?? 'archivo'}${t.kind === 'existing' ? ', ganador' : ''}): ${an[i]?.descripcion || '(sin descripción)'}${an[i]?.angulo ? ` [ángulo: ${an[i].angulo}]` : ''}`).join('\n');
-    return `El usuario ya decidió estos parámetros (NO los cambies, respetalos):
+    return `El usuario ya decidió estos parámetros (NO los cambies, respétalos):
 - Objetivo: ${objLabel}
 - Estrategia/audiencia: ${estrLabel}
 - Inversión: ${budgetUsd} USD/día
@@ -599,7 +599,7 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
                 <p style={{ fontSize: 13.5, color: 'var(--bad)', textAlign: 'center', margin: 0, lineHeight: 1.5, maxWidth: 420 }}>No se pudo leer el estado de Meta: {healthError}. Cierra el pop-up, toca «↻ Actualizar estado» y vuelve a intentar.</p>
               ) : (
                 <ListaEntidades items={health ? health.campaigns.filter(elegible) : null} sel={campSel?.id ?? null} onPick={elegirCampana}
-                  cargando="Cargando las campañas de tu cuenta de Meta…" vacio="No hay campañas en la cuenta. Creala con «Nueva campaña»."
+                  cargando="Cargando las campañas de tu cuenta de Meta…" vacio="No hay campañas en la cuenta. Créala con «Nueva campaña»."
                   extra={(c) => { const n = conjuntosDe(c.id).length; return `${n} conjunto${n === 1 ? '' : 's'}`; }} />
               )}
             </Paso>
@@ -608,7 +608,7 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
           {step === 'conjunto' && (
             <Paso titulo="¿En qué conjunto van?" sub="Los anuncios nuevos heredan el público, la optimización y el destino de conversión de ese conjunto.">
               <ListaEntidades items={campSel ? conjuntosDe(campSel.id) : []} sel={adsetSel?.id ?? null} onPick={elegirConjunto}
-                cargando="Cargando…" vacio="Esta campaña no tiene conjuntos. Agregale uno primero con «+ conjunto» en la tabla."
+                cargando="Cargando…" vacio="Esta campaña no tiene conjuntos. Agrégale uno primero con «+ conjunto» en la tabla."
                 extra={(a) => { const n = (health?.ads ?? []).filter((x) => x.parentId === a.id).length; return `${n} anuncio${n === 1 ? '' : 's'}`; }} />
             </Paso>
           )}
@@ -701,7 +701,7 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
               <p style={ayuda}>
                 {existente
                   ? <>Se {result.ads === 1 ? 'agregó' : 'agregaron'} {result.ads} anuncio{result.ads === 1 ? '' : 's'} a <b>{campSel?.name ?? 'la campaña'}</b>, en <b>PAUSA</b>. La campaña quedó tal cual estaba; activa los anuncios con el toggle de la tabla cuando quieras.</>
-                  : <>Se creó con {result.ads} anuncio{result.ads === 1 ? '' : 's'}, todo en <b>PAUSA</b>. Activala con el toggle de la tabla cuando quieras.</>}
+                  : <>Se creó con {result.ads} anuncio{result.ads === 1 ? '' : 's'}, todo en <b>PAUSA</b>. Actívala con el toggle de la tabla cuando quieras.</>}
               </p>
               {aprobacion && aprobacion.pendientes.length > 0 && (
                 // Sin esto la app canta "listo" y el anuncio nunca entrega: Meta lo
@@ -716,7 +716,7 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
                     style={{ ...btnDark, background: 'var(--warn-fill)', color: '#fff', fontSize: 14, padding: '10px 18px', alignSelf: 'flex-start', textDecoration: 'none' }}>
                     Aprobar en Meta ↗
                   </a>
-                  <p style={{ fontSize: 12, color: 'var(--faint)', margin: 0, lineHeight: 1.5 }}>Te lo mandé también por WhatsApp con el link, por si lo aprobás más tarde.</p>
+                  <p style={{ fontSize: 12, color: 'var(--faint)', margin: 0, lineHeight: 1.5 }}>Te lo mandé también por WhatsApp con el link, por si lo apruebas más tarde.</p>
                   <TutorialAprobacionMeta />
                 </div>
               )}
@@ -1111,7 +1111,7 @@ function ConversionPicker({ pixels, convs, pixelEvents, destino, setDestino }: {
   const activosSet = new Set((pixelEvents ?? []).map((n) => STD_EVENTS[n]?.enum).filter((e): e is string => !!e));
   // Solo las conversiones del pixel elegido (si no, se mezclan las de todos). Fail-open:
   // si a alguna no le pudimos resolver el pixel, la dejamos para no perder una válida.
-  const custom = (convs ?? []).filter((c) => !c.pixel_id || c.pixel_id === pixelId).map((c) => ({ value: `cc:${c.id}`, label: `Tu conversión: ${c.name}`, sub: 'Conversión que ya medís' }));
+  const custom = (convs ?? []).filter((c) => !c.pixel_id || c.pixel_id === pixelId).map((c) => ({ value: `cc:${c.id}`, label: `Tu conversión: ${c.name}`, sub: 'Conversión que ya mides' }));
   // Con detección: mostramos TODOS los eventos estándar como Meta (Active vs Inactive).
   // Activos arriba y habilitados; inactivos abajo, en gris y DESHABILITADOS (Dropdown
   // ya soporta `disabled`), para que el usuario VEA por qué no son opción y no elija

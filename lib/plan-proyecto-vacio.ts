@@ -85,7 +85,7 @@ EL DETALLE de cada tarea sigue este molde:
 
 Español neutro (tuteo), directo, sin adjetivos de más.
 
-Devolvé EXCLUSIVAMENTE un objeto JSON (sin markdown) con esta forma EXACTA:
+Devuelve EXCLUSIVAMENTE un objeto JSON (sin markdown) con esta forma EXACTA:
 { "tareas": [ { "titulo": "<máx 200, un entregable>", "detalle": "<el molde de arriba>" } ], "nota": "<1 frase: qué asumiste sobre este proyecto para proponer esto. Si no entendiste de qué se trata, dilo aquí en vez de inventar tareas.>" }`;
 
 /**
@@ -121,7 +121,7 @@ export async function proponerTareasParaProyecto(projId: string): Promise<{ id: 
       norte ? `EL NEGOCIO, HOY:\n${contenidoNoConfiable(norte, 'negocio')}` : '',
       `EL PROYECTO VACÍO:\n${contenidoNoConfiable(`${nombre}${detalle ? `\n${detalle}` : ''}`, 'proyecto')}`,
       `LO QUE YA ESTÁ EN EL PLAN (muestra, para no repetir):\n${contenidoNoConfiable(muestra.join('\n') || '(el plan está vacío)', 'plan')}`,
-      'Proponé las tareas de ESTE proyecto. JSON.',
+      'Propón las tareas de ESTE proyecto. JSON.',
     ].filter(Boolean).join('\n\n');
 
     // `erroresOut` NO es opcional acá aunque la firma lo permita: abajo se le ESCRIBE UN

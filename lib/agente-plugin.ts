@@ -246,7 +246,7 @@ try {
     process.stdout.write(JSON.stringify({
       decision: 'block',
       reason: [
-        'Antes de cerrar: pasá el plan de MaKo por las tres preguntas (skill mako-plan).',
+        'Antes de cerrar: pasa el plan de MaKo por las tres preguntas (skill mako-plan).',
         '1) ¿Cerraste algo que estaba abierto en el plan? → cerrar, con la evidencia.',
         '2) ¿Aprendiste algo sobre una tarea que YA existe? → enriquece, con su id.',
         '3) ¿Apareció trabajo nuevo, o dejaste deuda? → tareas.',

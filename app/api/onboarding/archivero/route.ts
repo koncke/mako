@@ -36,7 +36,7 @@ const MAX_ARCHIVO_BYTES = 25 * 1024 * 1024;
 // momento" sin más, que sonaba a que ni valía la pena investigar).
 const mensajeSinIA = (nombre: string, motivo?: string) =>
   motivo ? `No pude analizar "${nombre}": ${motivo}` : `Tu IA está conectada pero no pudo analizar "${nombre}" ahora mismo. Prueba de nuevo en un momento.`;
-const LEER_DOC = 'Transcribí TODO el texto legible de este documento, tal cual, sin resumir ni omitir nada. Si es una imagen o captura, describí también lo que se ve. Devolvé solo el texto.';
+const LEER_DOC = 'Transcribe TODO el texto legible de este documento, tal cual, sin resumir ni omitir nada. Si es una imagen o captura, describe también lo que se ve. Devuelve solo el texto.';
 
 async function leerArchivo(file: File): Promise<{ texto: string; warning?: string }> {
   const name = file.name.toLowerCase();
@@ -95,7 +95,7 @@ async function procesarDirecto(ws: number, body: { fileId?: string; path?: strin
     if (!fileId || !path.startsWith(`${ws}/`)) return Response.json({ ok: false, error: 'Datos de archivo inválidos.' }, { status: 400 });
 
     const { data: blob, error: dErr } = await getSupabaseServer().storage.from('archivero').download(path);
-    if (dErr || !blob) return Response.json({ ok: false, error: 'No encontré el archivo subido. Reintentá.' }, { status: 404 });
+    if (dErr || !blob) return Response.json({ ok: false, error: 'No encontré el archivo subido. Reintenta.' }, { status: 404 });
     const buf = Buffer.from(await blob.arrayBuffer());
     const file = new File([new Uint8Array(buf)], nombre, { type: mime });
 

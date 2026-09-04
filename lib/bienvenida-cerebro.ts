@@ -62,7 +62,7 @@ const PILARES: Array<{ id: string; et: string; area: AreaId }> = [
 
 /** Las hojas de cada pilar. Nombres de ficción, plausibles y CORTOS: son etiquetas. */
 const HOJAS: Array<{ padre: string; area: AreaId; ets: string[] }> = [
-  { padre: 'n1:negocio', area: 'panorama', ets: ['Qué vendés', 'En qué fase estás', 'Tu cuello de botella'] },
+  { padre: 'n1:negocio', area: 'panorama', ets: ['Qué vendes', 'En qué fase estás', 'Tu cuello de botella'] },
   { padre: 'n1:negocio', area: 'documentos', ets: ['Tus documentos', 'Tus reuniones'] },
   { padre: 'n1:oferta', area: 'oferta', ets: ['Tu promesa', 'Tu precio', 'Tu garantía'] },
   { padre: 'n1:oferta', area: 'productos', ets: ['Tu catálogo'] },

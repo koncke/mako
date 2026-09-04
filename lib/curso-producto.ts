@@ -34,7 +34,7 @@ El síntoma de que falta onboarding: una tab llena de funcionalidad que nadie us
     cuerpo: `Si el candidato obvio para pedir un dato es un textarea, el paso está mal diseñado. El usuario no quiere escribir: quiere que el producto funcione.
 
 Alternativas, en orden de preferencia:
-- FORCED-CHOICE sobre autodescripción. La gente se describe mal a sí misma pero se reconoce al instante. En vez de "¿cuál es tu tono?", mostrale tres frases concretas y que elija la suya; el dato real viaja OCULTO en la opción elegida.
+- FORCED-CHOICE sobre autodescripción. La gente se describe mal a sí misma pero se reconoce al instante. En vez de "¿cuál es tu tono?", muéstrale tres frases concretas y que elija la suya; el dato real viaja OCULTO en la opción elegida.
 - LA IA PROPONE, EL USUARIO CORRIGE. Nunca una hoja en blanco: todo llega pre-llenado y se edita inline.
 - LAS OPCIONES SE PERSONALIZAN AL NEGOCIO antes de mostrarlas (con su oferta, su avatar, su dolor). Si la IA falla, cae a la versión genérica: el paso nunca se traba.
 - LA PREGUNTA PUEDE SER "SUBE UNA FOTO". Si el dato ya existe en algún lado, se pide el archivo y la IA lo lee. Si el usuario ya declinó una vez, no se le vuelve a pedir.

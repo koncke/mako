@@ -333,7 +333,7 @@ async function jobTranscripts(deadline: number, marcar: Marcar): Promise<boolean
   // la extracción, cortar acá — transcribeAd sin metaToken caería al env del
   // dueño (token ajeno para los ads del cliente).
   const metaToken = await credWs('META_ACCESS_TOKEN');
-  if (!metaToken) throw new Error('META_ACCESS_TOKEN no configurado para este workspace — reconectá Meta en el paso 1.');
+  if (!metaToken) throw new Error('META_ACCESS_TOKEN no configurado para este workspace — reconecta Meta en el paso 1.');
 
   let procesados = 0;
   let exitos = 0;
@@ -373,7 +373,7 @@ async function jobScripts(deadline: number, marcar: Marcar): Promise<boolean> {
     if (r.restantes <= 0) return true;
     // Sin avance (todos errores repetidos) → cerrar el job en vez de loopear.
     if (r.analizados === 0 && r.restantes === prevRestantes) {
-      await marcar((j) => { j.detail = `${r.ya_procesados} analizados · ${r.restantes} con error (reintentá después)`; });
+      await marcar((j) => { j.detail = `${r.ya_procesados} analizados · ${r.restantes} con error (reintenta después)`; });
       return true;
     }
     prevRestantes = r.restantes;
@@ -396,7 +396,7 @@ async function jobFathom(deadline: number, marcar: Marcar): Promise<boolean> {
     await marcar((j) => { j.detail = `${r.analizadas + r.ya_procesadas} llamadas procesadas · ${r.restantes} restantes`; });
     if (r.restantes <= 0) return true;
     if (r.analizadas === 0 && r.restantes === prevRestantes) {
-      await marcar((j) => { j.detail = `${r.ya_procesadas} procesadas · ${r.restantes} con error (reintentá después)`; });
+      await marcar((j) => { j.detail = `${r.ya_procesadas} procesadas · ${r.restantes} con error (reintenta después)`; });
       return true;
     }
     prevRestantes = r.restantes;

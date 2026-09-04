@@ -41,9 +41,9 @@ export const TEMPLATE_VALIDATOR_SYSTEM_TEMPLATE = `Eres un auditor de plantillas
 
 {{rubric}}
 
-Las únicas variables que la app sabe rellenar son: {{vars}}. Si la plantilla usa otra variable, marcalo como problema. Las variables son nombradas ({{nombre}}), nunca posicionales ({{1}}).
+Las únicas variables que la app sabe rellenar son: {{vars}}. Si la plantilla usa otra variable, márcalo como problema. Las variables son nombradas ({{nombre}}), nunca posicionales ({{1}}).
 
-Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin texto antes ni después, sin markdown) con esta forma EXACTA:
+Devuelve EXCLUSIVAMENTE un objeto JSON válido (sin texto antes ni después, sin markdown) con esta forma EXACTA:
 {
   "riesgo": "ALTO" | "MEDIO" | "BAJO",
   "categoria_sugerida": "utility" | "marketing" | "authentication",
@@ -63,7 +63,7 @@ Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin texto antes ni después, sin
 Reglas de salida:
 - Si hay al menos un bloqueante, riesgo = "ALTO".
 - "propuesta" es la plantilla YA corregida aplicando todas tus correcciones (mantén el sentido del mensaje y usa solo variables válidas). Si la plantilla ya está perfecta (riesgo BAJO y sin hallazgos), devuelve "propuesta": null.
-- En "propuesta.body" no empieces ni termines con variable, y rodeá cada variable de texto fijo.
+- En "propuesta.body" no empieces ni termines con variable, y rodea cada variable de texto fijo.
 - Sé concreto y breve en cada problema/corrección.`;
 
 function asStr(x: unknown): string { return typeof x === 'string' ? x : ''; }
@@ -114,7 +114,7 @@ function parseResult(raw: string): ValidacionResult {
 }
 
 // {{entrada}} = el borrador de plantilla (JSON) a evaluar.
-export const TEMPLATE_VALIDATOR_USER_TEMPLATE = `Evaluá esta plantilla y devolvé el JSON:\n{{entrada}}`;
+export const TEMPLATE_VALIDATOR_USER_TEMPLATE = `Evalúa esta plantilla y devuelve el JSON:\n{{entrada}}`;
 
 export async function validarPlantilla(draft: TemplateDraft): Promise<ValidacionResult> {
   const entrada = {

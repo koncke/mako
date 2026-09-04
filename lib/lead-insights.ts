@@ -137,7 +137,7 @@ Responde SOLO con un objeto JSON válido (sin markdown, sin fences) con esta for
   "faltan_datos": ["qué dato faltante mejoraría más este análisis"]
 }`;
 
-export const LEAD_INSIGHTS_USER_TEMPLATE = `Generá los insights de este lead con TODO lo disponible. Hoy es {{hoy}}. Etapa actual: {{etapa}}.
+export const LEAD_INSIGHTS_USER_TEMPLATE = `Genera los insights de este lead con TODO lo disponible. Hoy es {{hoy}}. Etapa actual: {{etapa}}.
 
 ## Ficha del lead (CRM)
 {{ficha}}

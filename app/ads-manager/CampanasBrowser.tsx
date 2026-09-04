@@ -1323,7 +1323,7 @@ function RenameModal({ level, entities, onClose, onApply }: { level: Level; enti
           <>
             <div style={{ padding: '16px 24px', maxHeight: '56vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                <span style={{ fontSize: 13, color: 'var(--dim)' }}>{cambios.length} de {enAlcance.length} cambian. Destildá los que no quieras o editá el nombre generado.</span>
+                <span style={{ fontSize: 13, color: 'var(--dim)' }}>{cambios.length} de {enAlcance.length} cambian. Destilda los que no quieras o edita el nombre generado.</span>
                 {uso && <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)', whiteSpace: 'nowrap' }}>✦ {uso.tokens >= 1000 ? `${(uso.tokens / 1000).toFixed(1)}k` : uso.tokens} tok · ${uso.costUsd >= 1 ? uso.costUsd.toFixed(2) : uso.costUsd.toFixed(3)}</span>}
               </div>
               {enAlcance.map((e) => {

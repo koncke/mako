@@ -271,7 +271,7 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota }: {
                   </ul>
                 )}
                 {nuevo.invitados.some((i) => !i.enviado && i.enlace) && (
-                  <p className="cmp-tip">El acceso ya está creado: pasale ese link por donde quieras y funciona igual.</p>
+                  <p className="cmp-tip">El acceso ya está creado: pásale ese link por donde quieras y funciona igual.</p>
                 )}
               </div>
             )}
@@ -330,7 +330,7 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota }: {
                                   <span className="cmp-persona-e">{i.email}</span>
                                   <span className={`cmp-persona-s${i.enviado_at ? '' : ' warn'}`}>
                                     {!i.enviado_at
-                                      ? 'el mail no le llegó — pasale el link a mano'
+                                      ? 'el mail no le llegó — pásale el link a mano'
                                       : i.visitas > 0
                                         ? `entró ${i.visitas} ${i.visitas === 1 ? 'vez' : 'veces'}${i.ultima_visita ? ` · ${fechaCorta(i.ultima_visita)}` : ''}`
                                         : 'invitado, todavía no entró'}

@@ -32,7 +32,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   // Fase 1: enviar por WhatsApp escribe sobre la integración global del dueño.
-  if (!(await integracionConectada('whatsapp'))) return Response.json({ ok: false, error: 'WhatsApp no está conectado en este workspace. Conectalo en Configuraciones → Método.' }, { status: 403 });
+  if (!(await integracionConectada('whatsapp'))) return Response.json({ ok: false, error: 'WhatsApp no está conectado en este workspace. Conéctalo en Configuraciones → Método.' }, { status: 403 });
   const { id } = await ctx.params;
   const convId = Number(id);
   if (!Number.isFinite(convId)) {

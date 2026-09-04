@@ -157,7 +157,7 @@ export const CATALOGO_AVISOS: AvisoCatalogo[] = [
     id: 'reporte-diario', titulo: 'Reporte diario matutino', categoria: 'reporte',
     prioridad: 'media', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'Cron diario a la mañana temprano (hora local del workspace): semáforo + ads de ayer + wins + pendientes.',
-    ejemplo: `📊 *Reporte del día* — 14/07\n\n🟢 *Cuenta Meta:* activa · saldo $120 · gastado $8.300 MXN\n*Ads (ayer):* $95 · 14 leads · CPL $6,8 · CTR 1,9%\n*Wins:* 3/10 cierres · cash $4.200 del mes\n*Pendientes:* 2 datos sin marcar · 0 cuotas vencidas\n\nArrancá el día con esto. — MaKo`,
+    ejemplo: `📊 *Reporte del día* — 14/07\n\n🟢 *Cuenta Meta:* activa · saldo $120 · gastado $8.300 MXN\n*Ads (ayer):* $95 · 14 leads · CPL $6,8 · CTR 1,9%\n*Wins:* 3/10 cierres · cash $4.200 del mes\n*Pendientes:* 2 datos sin marcar · 0 cuotas vencidas\n\nArranca el día con esto. — MaKo`,
   },
   {
     id: 'reporte-horario', titulo: 'Reporte horario "lo urgente" (8–21h)', categoria: 'reporte',
@@ -169,7 +169,7 @@ export const CATALOGO_AVISOS: AvisoCatalogo[] = [
     id: 'reporte-semanal', titulo: 'Reporte semanal (lunes)', categoria: 'reporte',
     prioridad: 'media', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'Cron los lunes a la mañana (hora local del workspace): ads, cierres, CAC, cash, ritmo a la meta.',
-    ejemplo: `🗓️ *Reporte semanal* — 07/07 al 13/07\n\n*Ads:* $640 · 92 leads · CPL $6,9 · 4 cierres · CAC $160\n*Cash de la semana:* $12.800\n*Objetivo:* 8/12 cierres · ~6 semanas para la meta\n\nVenís bien. — MaKo`,
+    ejemplo: `🗓️ *Reporte semanal* — 07/07 al 13/07\n\n*Ads:* $640 · 92 leads · CPL $6,9 · 4 cierres · CAC $160\n*Cash de la semana:* $12.800\n*Objetivo:* 8/12 cierres · ~6 semanas para la meta\n\nVienes bien. — MaKo`,
   },
   {
     id: 'cierre-mes', titulo: 'Cierre de mes', categoria: 'reporte',
@@ -251,7 +251,7 @@ https://hola-mako.com/integraciones
     id: 'meta-token-vencido', titulo: 'Token de Meta vencido (integración caída)', categoria: 'aviso',
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'no',
     disparador: 'graphGet() code 190 → MetaHealthTokenError.',
-    ejemplo: `🔴 *Se venció tu token de Meta*. Dejé de poder leer tus campañas y el semáforo quedó ciego. Reconectá la integración en /configuraciones para que todo vuelva a funcionar. — MaKo`,
+    ejemplo: `🔴 *Se venció tu token de Meta*. Dejé de poder leer tus campañas y el semáforo quedó ciego. Reconecta la integración en /configuraciones para que todo vuelva a funcionar. — MaKo`,
   },
   {
     id: 'meta-anuncio-rechazado', titulo: 'Anuncio rechazado por políticas de Meta', categoria: 'aviso',
@@ -353,7 +353,7 @@ https://hola-mako.com/integraciones
     // con el número de la recepción, o un número que la operadora recicló. Ahí
     // el segundo se escribe ENCIMA del primero y no queda rastro.
     disparador: 'Al instante: un webhook de Meta o Calendly encuentra un lead existente y lo actualiza en vez de crear uno nuevo.',
-    ejemplo: `🟡 Entró un contacto por *Calendly* y lo sumé a *Marina Olvera*, que ya tenías (mismo teléfono). Si no era la misma persona, avisame y lo separo 👉 https://hola-mako.com/crm/1842 — MaKo`,
+    ejemplo: `🟡 Entró un contacto por *Calendly* y lo sumé a *Marina Olvera*, que ya tenías (mismo teléfono). Si no era la misma persona, avísame y lo separo 👉 https://hola-mako.com/crm/1842 — MaKo`,
   },
   {
     id: 'clarity-grabacion-por-vencer', titulo: 'Una grabación está por borrarse', categoria: 'accion',
@@ -442,7 +442,7 @@ https://hola-mako.com/integraciones
     id: 'leads-caida', titulo: 'Caída de leads vs promedio del día', categoria: 'aviso',
     prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'no',
     disparador: 'Leads acumulados a esta hora muy por debajo del baseline horario.',
-    ejemplo: `🟡 Van *3 leads hoy* y a esta hora solés tener 9. La entrada de leads bajó fuerte. Puede ser saldo, un anuncio caído o el día. Lo estoy mirando y te confirmo la causa. — MaKo`,
+    ejemplo: `🟡 Van *3 leads hoy* y a esta hora sueles tener 9. La entrada de leads bajó fuerte. Puede ser saldo, un anuncio caído o el día. Lo estoy mirando y te confirmo la causa. — MaKo`,
   },
   {
     id: 'capi-cierres-no-reportados', titulo: 'Cierres no reportados a Meta (CAPI)', categoria: 'accion',
@@ -562,7 +562,7 @@ https://hola-mako.com/plan — MaKo`,
     id: 'wa-desconectado', titulo: 'WhatsApp de empresa desconectado', categoria: 'aviso',
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'no',
     disparador: 'Sesión Evolution o inbox Chatwoot caído / QR expirado.',
-    ejemplo: `🔴 *Se cayó tu WhatsApp no oficial* (el número por QR). Dejó de recibir y mandar hace 15 min — los leads que escriben ahora no llegan a nadie. Reconectá escaneando el QR de nuevo. — MaKo`,
+    ejemplo: `🔴 *Se cayó tu WhatsApp no oficial* (el número por QR). Dejó de recibir y mandar hace 15 min — los leads que escriben ahora no llegan a nadie. Reconecta escaneando el QR de nuevo. — MaKo`,
   },
   {
     id: 'wa-sin-responder', titulo: 'Conversaciones sin responder hace X horas', categoria: 'accion',
@@ -626,7 +626,7 @@ https://hola-mako.com/plan — MaKo`,
     id: 'objetivo-en-riesgo', titulo: 'Objetivo/meta en riesgo por ritmo', categoria: 'accion',
     prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: true, yaImplementado: 'no',
     disparador: 'getObjetivoProgreso.semanas_estimadas > objetivo temporal.',
-    ejemplo: `🟡 Al ritmo actual llegás a la meta de cierres en *~9 semanas*, y tu objetivo era 6. Estás corto. ¿Armamos un plan para acelerar (más presupuesto en el ganador o más R1 por semana)? — MaKo`,
+    ejemplo: `🟡 Al ritmo actual llegas a la meta de cierres en *~9 semanas*, y tu objetivo era 6. Estás corto. ¿Armamos un plan para acelerar (más presupuesto en el ganador o más R1 por semana)? — MaKo`,
   },
   {
     id: 'meta-alcanzada', titulo: 'Meta alcanzada (celebración)', categoria: 'aviso',
@@ -670,7 +670,7 @@ https://hola-mako.com/plan — MaKo`,
     id: 'saldo-ia-bajo', titulo: 'Saldo de IA de MaKo bajo', categoria: 'aviso',
     prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'no',
     disparador: 'Saldo prepago de IA bajo (se lleva manual).',
-    ejemplo: `🟡 Tu *saldo de IA* de MaKo está en $4. Cuando se agote dejo de poder generar reportes, nutrición y análisis. Recargá cuando puedas para no cortar el servicio. — MaKo`,
+    ejemplo: `🟡 Tu *saldo de IA* de MaKo está en $4. Cuando se agote dejo de poder generar reportes, nutrición y análisis. Recarga cuando puedas para no cortar el servicio. — MaKo`,
   },
   {
     id: 'accion-confirmada', titulo: 'Confirmación tras ejecutar una acción aprobada', categoria: 'aviso',

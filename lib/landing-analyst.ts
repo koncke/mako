@@ -337,7 +337,7 @@ function comportamientoTexto(c: LandingComportamiento): string {
   }
   l.push(`Agendaron una reunión: ${c.agendas} (${pct(c.agendas, c.visitantes)} de los visitantes)`);
   if (c.visitantes_compartidos) {
-    l.push('OJO: parte de estos visitantes también entró a otras páginas del negocio, así que los datos del video pueden venir de cualquiera de ellas. Tratá la profundidad como aproximada.');
+    l.push('OJO: parte de estos visitantes también entró a otras páginas del negocio, así que los datos del video pueden venir de cualquiera de ellas. Trata la profundidad como aproximada.');
   }
   if (c.top_referrers.length) l.push(`De dónde llegan: ${c.top_referrers.map((r) => `${r.ref} (${r.n})`).join(' · ')}`);
   return l.join('\n');

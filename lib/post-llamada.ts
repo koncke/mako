@@ -57,7 +57,7 @@ LA LLAMADA QUE ACABA DE TERMINAR:
 ANÁLISIS DE LA CHARLA (del Closing Analyst):
 {{analisis}}
 
-Redactá el mensaje de follow-up para mandarle ahora por WhatsApp.`;
+Redacta el mensaje de follow-up para mandarle ahora por WhatsApp.`;
 
 // ── Lectura del análisis de ESTA llamada ─────────────────────────────────────
 

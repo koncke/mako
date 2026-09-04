@@ -71,7 +71,7 @@ CTA (1-2 frases): del alivio a la acción, una sola instrucción.`,
     etiquetas: ['ATENCION', 'INTERES', 'DESEO', 'CTA'],
     guia: `ATENCION (3 segundos, 1 frase): afirmación fuerte, pregunta o dato que corta el scroll — para ESTE avatar, no para cualquiera.
 INTERES (breve): un hecho o verdad de su situación que le importa de verdad y que lo hace quedarse ("la razón por la que X no es la que crees…").
-DESEO (el cuerpo): pintá el resultado que quiere — cómo se ve su negocio/su día cuando esto está resuelto — y conectalo con lo que ofrecés. Beneficios sentidos, no features.
+DESEO (el cuerpo): pinta el resultado que quiere — cómo se ve su negocio/su día cuando esto está resuelto — y conéctalo con lo que ofreces. Beneficios sentidos, no features.
 CTA (1-2 frases): una sola acción concreta, dicha sin vueltas.`,
   },
   {
@@ -88,8 +88,8 @@ CTA (1-2 frases): cruzar el puente = la acción concreta.`,
     cuando: 'Cuando hay PRUEBA real para mostrar (casos, números, resultados del contexto): promesa grande, imagen vívida, evidencia y empujón. Ideal para caso de éxito, testimonio y ofertas.',
     etiquetas: ['PROMESA', 'PINTURA', 'PRUEBA', 'CTA'],
     guia: `PROMESA (el gancho, 1-2 frases): la promesa central específica para este avatar — grande pero defendible con lo que hay en el contexto.
-PINTURA (el cuerpo temprano): pintá vívidamente cómo se ve esa promesa cumplida en SU negocio/su día — narrativo, sensorial, concreto.
-PRUEBA (el cuerpo tardío): la evidencia de que es real — SOLO hechos del contexto del negocio (caso, resultado, mecanismo). Si no hay prueba dura, explicá el porqué lógico; nunca inventes cifras.
+PINTURA (el cuerpo temprano): pinta vívidamente cómo se ve esa promesa cumplida en SU negocio/su día — narrativo, sensorial, concreto.
+PRUEBA (el cuerpo tardío): la evidencia de que es real — SOLO hechos del contexto del negocio (caso, resultado, mecanismo). Si no hay prueba dura, explica el porqué lógico; nunca inventes cifras.
 CTA (el push, 1-2 frases): el empujón final a UNA acción, con confianza y sin presión falsa.`,
   },
 ];

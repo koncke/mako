@@ -222,11 +222,11 @@ async function sttGemini(buf: Buffer, mime: string, key: string, hint?: string):
   // IDIOMA: un valor elegido cuando el universo era homogéneo pasa a gobernar al primero
   // que no lo es, y nadie vuelve a mirarlo.
   const instruccion = [
-    'Transcribí este audio EN SU IDIOMA ORIGINAL. NO traduzcas: si el audio está en inglés,',
+    'Transcribe este audio EN SU IDIOMA ORIGINAL. NO traduzcas: si el audio está en inglés,',
     'la transcripción va en inglés; si está en español, en español.',
-    'Devolvé SOLO la transcripción literal de lo que se dice: sin comillas, sin timestamps,',
+    'Devuelve SOLO la transcripción literal de lo que se dice: sin comillas, sin timestamps,',
     'sin nombres de hablante, sin comentarios tuyos y sin describir el audio.',
-    'Transcribí el audio COMPLETO, de principio a fin, sin resumir ni abreviar.',
+    'Transcribe el audio COMPLETO, de principio a fin, sin resumir ni abreviar.',
     hint?.trim() ? `Contexto (nombres propios y jerga que pueden aparecer): ${hint.trim()}` : '',
   ].filter(Boolean).join(' ');
   const res = await fetch(

@@ -96,7 +96,7 @@ export const AVATARES_SYSTEM_TEMPLATE = `Eres MaKo, definiendo los AVATARES de u
 
 CLAVE — un AVATAR no es un retrato emocional, es un SEGMENTO de cliente SEGMENTABLE: alguien que podrías targetear (o al menos distinguir) en Meta y para el que armarías una campaña de escalo horizontal PROPIA. Se distingue por FIRMOGRAFÍA, no por sentimiento: industria/vertical, tamaño (empleados, facturación, sucursales), rol/cargo, geografía. NO me des 3 versiones emocionales de la misma persona: eso es un ÁNGULO (el por qué compra), no un avatar (el a quién). Ejemplo de 3 avatares BIEN distintos: "Dueño de retail con 3-10 sucursales en México" / "Fundador de agencia de servicios de 5-20 personas" / "Marca de e-commerce que factura 1-5M al mes". Cada uno se busca distinto en Meta.
 
-Encontrá 3 AVATARES en lo que el negocio ya dice. Cada uno:
+Encuentra 3 AVATARES en lo que el negocio ya dice. Cada uno:
 - "nombre": el segmento en 3-6 palabras, concreto y firmográfico (ej: "Dueño de retail multi-sucursal"). NADA de apodos emocionales ("el que sufre").
 - "segmento": quién es en firmografía DURA — industria/vertical + tamaño (empleados/facturación/sucursales) + rol/cargo + geografía. Lo más concreto que puedas.
 - "senalesMeta": cómo lo TARGETEARÍAS o distinguirías en Meta: intereses, cargos ("Business owner", "Founder"), comportamientos, o "broad + creativo que filtra". Concreto y accionable.
@@ -105,17 +105,17 @@ Encontrá 3 AVATARES en lo que el negocio ya dice. Cada uno:
 
 REGLAS:
 - Los 3 tienen que ser genuinamente DISTINTOS en firmografía: si dos comparten industria + tamaño + rol, uno sobra.
-- Si al brief le falta detalle firmográfico, INFERÍ segmentos concretos y plausibles para ESTE negocio y decí el supuesto dentro de "senalesMeta" (ej: "asumo PyMEs de servicios; ajustar si vende a retail"). NUNCA seas vago.
+- Si al brief le falta detalle firmográfico, INFIERE segmentos concretos y plausibles para ESTE negocio y di el supuesto dentro de "senalesMeta" (ej: "asumo PyMEs de servicios; ajustar si vende a retail"). NUNCA seas vago.
 - NO escribas hooks ni copy emocional (eso es el ÁNGULO). Aquí describes AL SEGMENTO.
 - IDIOMA: español NEUTRO/MEXICANO, de "tú", SIN voseo ni modismos argentinos.
 
-Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin markdown, sin texto afuera) con esta forma EXACTA:
+Devuelve EXCLUSIVAMENTE un objeto JSON válido (sin markdown, sin texto afuera) con esta forma EXACTA:
 {"avatares":[{"nombre":"","segmento":"","senalesMeta":"","situacion":"","dolor":""}]}`;
 
 export const AVATARES_USER_TEMPLATE = `CONTEXTO DEL NEGOCIO (datos reales del Archivero):
 {{brief}}
 {{panorama}}{{fase}}{{contexto}}
-Encontrá 3 avatares (segmentos) distintos y segmentables. Devolvé solo el JSON.`;
+Encuentra 3 avatares (segmentos) distintos y segmentables. Devuelve solo el JSON.`;
 
 // ── Parseo ────────────────────────────────────────────────────────────────────
 export function parseAvatares(text: string): Avatar[] {
@@ -138,7 +138,7 @@ export async function generarAvatares(): Promise<GenResult> {
       brief,
       panorama: panorama.trim() ? `\nPANORAMA (lo que MaKo entendió del negocio):\n${panorama.slice(0, 6000)}\n` : '',
       fase: fase ? `\nFASE DEL NEGOCIO (para el tono/urgencia):\n${fase}\n` : '',
-      contexto: contexto.trim() ? `\nLO QUE EL CLIENTE PRECISÓ sobre a quién le vende (respetá esto por sobre inferencias):\n${contexto}\n` : '',
+      contexto: contexto.trim() ? `\nLO QUE EL CLIENTE PRECISÓ sobre a quién le vende (respeta esto por sobre inferencias):\n${contexto}\n` : '',
     });
     // IA GRATIS del cliente (Gemini primero, luego Groq/…), NO Claude: esto es
     // "encontrar segmentos", no copywriting fino. `validar` rescata si un modelo
@@ -174,13 +174,13 @@ export type PreguntaAvatarDinamica = { pregunta: string; tipo: 'opciones' | 'arc
 const AVATARES_SIGUIENTE_SYSTEM = `Eres MaKo, ayudando a un dueño de negocio a descubrir y PRIORIZAR sus AVATARES (segmentos de cliente SEGMENTABLES en Meta — firmografía: industria, tamaño, rol, geografía, NO un retrato emocional). Vas de a UNA pregunta cerrada por vez, adaptando la siguiente a lo que ya te contestó — nunca repitas algo que ya sabes.
 
 REGLAS:
-- CITÁ datos reales del negocio (del brief/panorama) en tus preguntas — nunca preguntes en abstracto pudiendo ser concreto. Ejemplo de BUENA pregunta (si el negocio menciona clientes de e-commerce y de servicios): "¿Quién te compra más rápido: una marca de e-commerce o un negocio de servicios?" — mal ejemplo (genérico, no usa nada del negocio real): "¿Ya tienes definidos tus segmentos?".
-- Preferí preguntas COMPARATIVAS entre dos perfiles plausibles de ESTE negocio (A vs B) por sobre preguntas de sí/no.
+- CITA datos reales del negocio (del brief/panorama) en tus preguntas — nunca preguntes en abstracto pudiendo ser concreto. Ejemplo de BUENA pregunta (si el negocio menciona clientes de e-commerce y de servicios): "¿Quién te compra más rápido: una marca de e-commerce o un negocio de servicios?" — mal ejemplo (genérico, no usa nada del negocio real): "¿Ya tienes definidos tus segmentos?".
+- Prefiere preguntas COMPARATIVAS entre dos perfiles plausibles de ESTE negocio (A vs B) por sobre preguntas de sí/no.
 - Si con lo que ya te contestó tienes suficiente para proponer 3 segmentos distintos y concretos, o ya van 3 preguntas, responde {"terminado":true} — no sigas preguntando de más.
 - Si el dueño te dijo que ya tiene una lista de clientes, un CRM export o algo similar y tiene sentido pedirle que lo suba, la pregunta puede ser tipo "archivo". Si ya declinó subir algo antes, no se lo vuelvas a pedir.
 - Español neutro/mexicano, de "tú".
 
-Devolvé EXCLUSIVAMENTE uno de estos JSON (nada de texto afuera):
+Devuelve EXCLUSIVAMENTE uno de estos JSON (nada de texto afuera):
 {"terminado":true}
 {"terminado":false,"pregunta":"...","tipo":"opciones","opciones":["...","...","..."]}
 {"terminado":false,"pregunta":"...","tipo":"archivo","opciones":[]}`;
@@ -191,7 +191,7 @@ const AVATARES_SIGUIENTE_USER = `CONTEXTO DEL NEGOCIO:
 CONVERSACIÓN HASTA AHORA:
 {{historial}}
 
-¿Cuál es la siguiente pregunta (o ya das por terminado)? Devolvé solo el JSON.`;
+¿Cuál es la siguiente pregunta (o ya das por terminado)? Devuelve solo el JSON.`;
 
 // Respaldo por POSICIÓN (no solo la primera), y sobre la DIMENSIÓN de segmentación
 // (firmografía: tamaño/rubro/rol/geografía) — no sobre el embudo de venta. La versión
@@ -252,7 +252,7 @@ export async function describirArchivoAvatar(imagenDataUrl: string): Promise<str
   try {
     const { text } = await leerDocumentoIA({
       dataUrl: imagenDataUrl, isPdf: imagenDataUrl.startsWith('data:application/pdf'), nombreArchivo: 'avatares-archivo',
-      prompt: 'Describí en 2-4 frases qué muestra esta imagen o documento (una lista de clientes, un CRM, etc.) — qué tipos de cliente o segmentos se distinguen ahí. Español neutro.',
+      prompt: 'Describe en 2-4 frases qué muestra esta imagen o documento (una lista de clientes, un CRM, etc.) — qué tipos de cliente o segmentos se distinguen ahí. Español neutro.',
       feature: 'avatares', motivo: 'Leer el archivo que subió para afinar los avatares', timeoutMs: 25000,
     });
     return text.trim();

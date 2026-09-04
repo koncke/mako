@@ -54,7 +54,7 @@ const SLIDES_TONO: Slide[] = [
   { t: 'Anuncios humanos', d: 'Un guion con tu voz no parece hecho por una IA: parece tuyo. Eso es lo que hace que la gente se quede a verlo.' },
 ];
 const SLIDES_PERSONA: Slide[] = [
-  { t: 'La cara de tus anuncios', d: 'Sube fotos de la persona que aparece en tus creativos y describí su estilo.' },
+  { t: 'La cara de tus anuncios', d: 'Sube fotos de la persona que aparece en tus creativos y describe su estilo.' },
   { t: 'Para generar imágenes', d: 'MaKo usa esas fotos y la descripción para generar las imágenes de tus anuncios con esa persona.' },
 ];
 const SLIDES_AVATARES: Slide[] = [

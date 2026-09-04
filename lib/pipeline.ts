@@ -549,7 +549,7 @@ export const ENTRADAS: Record<EntradaId, EntradaDef> = {
     id: 'chat_saliente', label: 'Le escribes tú primero',
     desc: 'Prospección, una lista, una campaña de mensajes.',
     dejoDatos: false, empieza: 'negocio', objetivoMeta: 'mensajes',
-    quien: 'no lo conocés de ningún lado: te escribe él, de la nada, sin que hayas pedido nada',
+    quien: 'no lo conoces de ningún lado: te escribe él, de la nada, sin que hayas pedido nada',
   },
 };
 

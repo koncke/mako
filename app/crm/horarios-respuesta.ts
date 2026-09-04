@@ -116,7 +116,7 @@ export function motivoLegible(status: number, crudo: string): string {
   if (t.includes('has not been used in project') || t.includes('accessnotconfigured') || t.includes('service_disabled') || t.includes('is disabled')) {
     return 'Falta habilitar la API de Google Calendar en tu proyecto de Google Cloud. Mientras tanto elige la hora a mano: el CRM se actualiza igual.';
   }
-  if (status === 401) return 'Tu conexión con Google venció: reconectala desde Integraciones.';
+  if (status === 401) return 'Tu conexión con Google venció: reconéctala desde Integraciones.';
   if (status === 429 || t.includes('rate limit') || t.includes('quota')) {
     return 'Google está limitando las consultas en este momento. Prueba de nuevo en un rato o elige la hora a mano.';
   }

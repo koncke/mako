@@ -626,7 +626,7 @@ function CostoMaKo({ usage, cuotas, onVerOps, onOpenService }: { usage: Resumen 
         {/* Las 3 de pago (Claude/OpenAI/Gemini) llevan el MISMO link, que abre el
             detalle para cargar/editar el saldo ahí (no inline). */}
         {esIAdePago(p.provider) && (
-          <button onClick={(e) => { stop(e); onOpenService(p.provider); }} style={{ marginTop: 9, background: 'none', border: 'none', padding: 0, fontSize: 12, fontWeight: 600, color: 'var(--primary)', cursor: 'pointer', textAlign: 'left' }}>¿Cargaste créditos? Registralos →</button>
+          <button onClick={(e) => { stop(e); onOpenService(p.provider); }} style={{ marginTop: 9, background: 'none', border: 'none', padding: 0, fontSize: 12, fontWeight: 600, color: 'var(--primary)', cursor: 'pointer', textAlign: 'left' }}>¿Cargaste créditos? Regístralos →</button>
         )}
       </div>
     );

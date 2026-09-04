@@ -405,7 +405,7 @@ async function avisarFusion(canal: 'Meta' | 'Calendly' | 'Cal.com', lead: Lead, 
     const { emitirDelCatalogo } = await import('./avisos');
     const { APP_BASE_URL } = await import('./app-url');
     await emitirDelCatalogo('lead-fusionado', {
-      texto: `Entró un contacto por *${canal}* y lo sumé a *${lead.nombre}*, que ya tenías (${porQue}). Si no era la misma persona, avisame y lo separo 👉 ${APP_BASE_URL}/crm/${lead.id}`,
+      texto: `Entró un contacto por *${canal}* y lo sumé a *${lead.nombre}*, que ya tenías (${porQue}). Si no era la misma persona, avísame y lo separo 👉 ${APP_BASE_URL}/crm/${lead.id}`,
       // Una fusión por hora del mismo canal no son diez avisos: es un patrón, y
       // diez mensajes por el mismo patrón se leen como ruido y se silencian.
       dedupTtlMin: 60,

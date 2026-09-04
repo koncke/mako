@@ -64,7 +64,7 @@ export async function evaluarCalificacion(secuenciaId: number, historial: TurnoS
   // arriba y la calificación no se hacía teniendo otras cuatro IA gratis cargadas.
   const { chatCheapCascade } = await import('./ai-cheap');
   const raw = await chatCheapCascade({
-    system: 'Clasificás si un lead califica según un criterio. Devolvés EXCLUSIVAMENTE un objeto JSON {"califica":"si"|"no"|"no_se","razon":"..."} sin markdown. Ante la duda, "no_se".',
+    system: 'Clasificas si un lead califica según un criterio. Devuelves EXCLUSIVAMENTE un objeto JSON {"califica":"si"|"no"|"no_se","razon":"..."} sin markdown. Ante la duda, "no_se".',
     user: `CRITERIO DEL NEGOCIO
 Califica si: ${est.criterio.califica.join(' · ') || '(sin reglas)'}
 NO califica si: ${est.criterio.descalifica.join(' · ') || '(sin reglas)'}
@@ -72,7 +72,7 @@ NO califica si: ${est.criterio.descalifica.join(' · ') || '(sin reglas)'}
 CONVERSACIÓN
 ${charla}
 
-¿El lead califica? Respondé "no" SOLO si hay evidencia explícita de una regla de descalificación en lo que DIJO el lead. Si no hay evidencia suficiente, "no_se".`,
+¿El lead califica? Responde "no" SOLO si hay evidencia explícita de una regla de descalificación en lo que DIJO el lead. Si no hay evidencia suficiente, "no_se".`,
     json: true, feature: 'setting-calificar', maxTokens: 300,
   });
   try {
@@ -115,7 +115,7 @@ export async function responderSimulador(secuenciaId: number, historial: TurnoSi
     `Secuencia: ${sec.nombre} (etapa del lead: ${sec.etapa}).`,
     est ? `Objetivo: ${est.objetivo}.` : 'Objetivo: mover al lead a la siguiente etapa.',
     est?.objetivo === 'preparar'
-      ? 'PREPARAR es el objetivo más importante: que el lead LLEGUE a la reunión y llegue listo. Confirmá que la tenga anotada y asegurate de que vea el video de preparación — sin el video no hay llamada.'
+      ? 'PREPARAR es el objetivo más importante: que el lead LLEGUE a la reunión y llegue listo. Confirma que la tenga anotada y asegurate de que vea el video de preparación — sin el video no hay llamada.'
       : '',
     est?.gancho ? `Gancho para ofrecer: ${est.gancho}.` : 'Sin gancho definido — no inventes uno.',
     est?.preguntas.length

@@ -68,7 +68,7 @@ REGLAS:
 - Usa SOLO IDs de la biblioteca. Aterriza el "para"/"porque" en el negocio real.
 - IDIOMA: español NEUTRO/MEXICANO, de "tú", SIN voseo argentino.
 
-Devolvé EXCLUSIVAMENTE un objeto JSON válido con esta forma EXACTA:
+Devuelve EXCLUSIVAMENTE un objeto JSON válido con esta forma EXACTA:
 {"recomendaciones":[{"formatoId":"","para":"","porque":""}]}`;
 
 export const FORMATOS_USER_TEMPLATE = `BIBLIOTECA DE FORMATOS (elige SOLO de estos IDs):
@@ -148,7 +148,7 @@ export async function elegirAngulo(celdaId: string, medio: Medio, timeoutMs?: nu
 
     const biblioteca = opciones.map((f) => `- ${f.id} — ${f.nombre}: ${f.descripcion}`).join('\n');
     const sys = `Eres MaKo, eligiendo el MEJOR FORMATO de ${medio === 'imagen' ? 'IMAGEN' : 'VIDEO'} para UN anuncio concreto (metodología de Jan). Tienes una biblioteca FIJA de formatos de ${medio}; elige EXACTAMENTE UNO, el que mejor ejecuta ESTE anuncio para ESTE avatar y ESTA motivación de compra, aprovechando el entregable tangible si aplica. NO inventes formatos.
-Devolvé EXCLUSIVAMENTE un JSON: {"formatoId":"<uno de los ids>","porque":"<1 frase>"}`;
+Devuelve EXCLUSIVAMENTE un JSON: {"formatoId":"<uno de los ids>","porque":"<1 frase>"}`;
     const user = `AVATAR: ${av ? `${av.nombre} — ${av.segmento}. Dolor: ${av.dolor}` : '(sin avatar)'}
 MOTIVACIÓN DE COMPRA: ${celda.nombre} — ${celda.descripcion}
 COPY/HOOK: ${celda.copy || '(sin copy)'}
@@ -156,7 +156,7 @@ ${entregables.length ? `ENTREGABLE TANGIBLE: ${entregablesTexto(entregables)}\n`
 FORMATOS DE ${medio.toUpperCase()} (elige SOLO uno de estos ids):
 ${biblioteca}
 
-Devolvé solo el JSON.`;
+Devuelve solo el JSON.`;
     const leerId = (t: string): string => { try { return str(parseJsonObject(t).formatoId); } catch { return ''; } };
     const text = await chatCheapCascade({
       system: sys, user, json: true, maxTokens: 300, timeoutMs,

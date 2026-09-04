@@ -147,7 +147,7 @@ const SYS_AVISO =
 export async function generarMensajeAviso(id: string, contexto: string): Promise<string> {
   const ref = await referenciaPlantilla(id);
   try {
-    const user = `PLANTILLA DE REFERENCIA:\n${ref || '(sin referencia)'}\n\nDATOS REALES DEL EVENTO:\n${contexto}\n\nEscribí el mensaje.`;
+    const user = `PLANTILLA DE REFERENCIA:\n${ref || '(sin referencia)'}\n\nDATOS REALES DEL EVENTO:\n${contexto}\n\nEscribe el mensaje.`;
     const out = await chatClaude(SYS_AVISO, [{ role: 'user', content: user }], {
       effort: 'low', maxTokens: 700, feature: 'avisos', motivo: `MaKo: aviso ${id}`,
     });

@@ -171,7 +171,7 @@ export default async function GeneralPage() {
     alertas.push({
       nivel: 'rojo',
       titulo: `${n} cuota${n === 1 ? '' : 's'} VENCIDA${n === 1 ? '' : 'S'} — cobrar URGENTE (${fmtUSD(tot)})`,
-      detalle: `Pagos vencidos sin cobrar (ej: ${cuotas.vencidas[0].lead_nombre}, ${Math.abs(cuotas.vencidas[0].dias)}d de atraso). Cobralos cuanto antes.`,
+      detalle: `Pagos vencidos sin cobrar (ej: ${cuotas.vencidas[0].lead_nombre}, ${Math.abs(cuotas.vencidas[0].dias)}d de atraso). Cóbralos cuanto antes.`,
       href: '/comercial', hrefLabel: 'Comercial',
       desglose: { label: 'Cuotas vencidas', value: fmtUSD(tot), color: 'var(--bad)', items: cuotaItems(cuotas.vencidas), emptyText: 'Sin cuotas vencidas.' },
     });
@@ -199,7 +199,7 @@ export default async function GeneralPage() {
     alertas.push({
       nivel: 'ambar',
       titulo: `Posible fatiga de creativo · ${a.adset_name}`,
-      detalle: `Frecuencia 7d ${a.frequency_7d.toFixed(1)} y el costo por lead subió (${fmtUSD(a.cpl_7d_usd)} vs ${fmtUSD(a.cpl_28d_usd)} a 28 días). Rotá el creativo.`,
+      detalle: `Frecuencia 7d ${a.frequency_7d.toFixed(1)} y el costo por lead subió (${fmtUSD(a.cpl_7d_usd)} vs ${fmtUSD(a.cpl_28d_usd)} a 28 días). Rota el creativo.`,
       href: '/marketing', hrefLabel: 'Marketing',
     });
   }
@@ -341,7 +341,7 @@ function HeroGoal({ meta, actual, faltan, cierres30, semanas, cashActual, cashMe
           </DesgloseTrigger>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7, paddingBottom: 8 }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, alignSelf: 'flex-start', fontWeight: 600, fontSize: 14, padding: '6px 13px', borderRadius: 999, background: 'rgba(240,198,10,.14)', color: 'var(--accent-soft)', border: '1px solid rgba(240,198,10,.25)' }}>▲ +{cierres30} en los últimos 30 días</span>
-            <span style={{ fontSize: 15, color: 'var(--sidebar-text)' }}>Faltan <strong style={{ color: 'var(--on-sidebar)' }}>{faltan} cierres</strong>{semanas ? <> · a este ritmo llegás en <strong style={{ color: 'var(--on-sidebar)' }}>~{semanas} semanas</strong></> : null}</span>
+            <span style={{ fontSize: 15, color: 'var(--sidebar-text)' }}>Faltan <strong style={{ color: 'var(--on-sidebar)' }}>{faltan} cierres</strong>{semanas ? <> · a este ritmo llegas en <strong style={{ color: 'var(--on-sidebar)' }}>~{semanas} semanas</strong></> : null}</span>
           </div>
         </div>
 
@@ -441,7 +441,7 @@ function ResumenMes({ c, desgloses }: { c: ResumenComparativo; desgloses: Record
 function Semaforo({ alertas, urgentes, vigilar, enOrden }: { alertas: Alerta[]; urgentes: number; vigilar: number; enOrden: number }) {
   const lampOn: CSSProperties = { width: 48, height: 48, borderRadius: '50%' };
   const veredicto = urgentes > 0
-    ? { title: 'Hay algo urgente que atender', sub: 'Resolvé los focos rojos primero.', color: 'var(--bad)', bg: 'var(--bad-bg)', fill: 'var(--bad)' }
+    ? { title: 'Hay algo urgente que atender', sub: 'Resuelve los focos rojos primero.', color: 'var(--bad)', bg: 'var(--bad-bg)', fill: 'var(--bad)' }
     : vigilar > 0
     ? { title: 'En general bien — hay cosas que vigilar', sub: 'El negocio avanza. Ningún incendio, pero hay focos amarillos que te están costando cierres.', color: 'var(--warn)', bg: 'var(--warn-bg)', fill: 'var(--warn-fill)' }
     : { title: 'El negocio está sano', sub: 'Sin focos activos. Buen momento para empujar volumen.', color: 'var(--good)', bg: 'var(--good-bg)', fill: 'var(--good)' };

@@ -92,7 +92,7 @@ export function LosTemas() {
 
       <Banner tono={activo ? 'mako' : 'info'}>
         {activo
-          ? 'Hay un tema puesto. Salí a navegar la app: el chip de abajo a la izquierda te sigue a todas las pantallas con la salida. El claro/oscuro está en tu perfil, abajo en la barra.'
+          ? 'Hay un tema puesto. Sal a navegar la app: el chip de abajo a la izquierda te sigue a todas las pantallas con la salida. El claro/oscuro está en tu perfil, abajo en la barra.'
           : 'Elige un tema y se aplica a TODA la app, no a una maqueta. Nada de esto es producción: es una herramienta para decidir.'}
       </Banner>
 
@@ -143,7 +143,7 @@ export function LosTemas() {
 
       <ClienteDeDiseno />
 
-      <Section titulo="Salí a probarlo donde duele" nota="una maqueta siempre se ve bien; estas pantallas no perdonan" card>
+      <Section titulo="Sal a probarlo donde duele" nota="una maqueta siempre se ve bien; estas pantallas no perdonan" card>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {PRUEBAS.map((p) => (
             <div

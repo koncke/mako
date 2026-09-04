@@ -141,7 +141,7 @@ function ChatAgentInner() {
       setEmailSecuenciaId((prev) => (prev != null && lista.some((x) => x.id === prev) ? prev : (lista.find((x) => x.pasos.some((p) => p.canal === 'email'))?.id ?? lista[0]?.id ?? null)));
       setError(null);
     } catch {
-      setError('Sin conexión — recargá la página.'); setSecuencias([]);
+      setError('Sin conexión — recarga la página.'); setSecuencias([]);
     }
     // Biblioteca de audios (admin-only: el 403 del setter deja la lista vacía).
     try {

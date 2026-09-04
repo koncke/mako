@@ -129,7 +129,7 @@ const ENTREGABLE_SIGUIENTE_USER = `CONTEXTO DEL NEGOCIO:
 CONVERSACIÓN HASTA AHORA:
 {{historial}}
 
-¿Cuál es la siguiente pregunta (o ya das por terminado)? Devolvé solo el JSON.`;
+¿Cuál es la siguiente pregunta (o ya das por terminado)? Devuelve solo el JSON.`;
 
 // Respaldo por POSICIÓN (no solo la primera): si la IA falla en la pregunta 1 caíamos
 // acá antes bien, pero si volvía a fallar en la 2 la conversación terminaba en
@@ -191,7 +191,7 @@ export async function describirArchivoEntregable(imagenDataUrl: string): Promise
   try {
     const { text } = await leerDocumentoIA({
       dataUrl: imagenDataUrl, isPdf: imagenDataUrl.startsWith('data:application/pdf'), nombreArchivo: 'entregable-archivo',
-      prompt: 'Describí en 2-4 frases qué muestra esta imagen o documento (qué es, qué se ve) — para entender qué ENTREGABLE tangible es, en el contexto del negocio de un cliente. Español neutro.',
+      prompt: 'Describe en 2-4 frases qué muestra esta imagen o documento (qué es, qué se ve) — para entender qué ENTREGABLE tangible es, en el contexto del negocio de un cliente. Español neutro.',
       feature: 'entregable', motivo: 'Leer el archivo que subió para el entregable', timeoutMs: 25000,
     });
     return text.trim();

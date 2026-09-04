@@ -103,7 +103,7 @@ export function OnboardingForm({ embedded = false, onComplete }: { embedded?: bo
       const merged = { ...answers, ...limpio };
       setAnswers(merged);
       if (n > 0) guardar(merged);
-      setExtractMsg({ ok: n > 0, text: n > 0 ? `MaKo completó ${n} campo${n === 1 ? '' : 's'} desde el archivo.` : 'No encontré respuestas claras en el archivo. Completalas a mano.' });
+      setExtractMsg({ ok: n > 0, text: n > 0 ? `MaKo completó ${n} campo${n === 1 ? '' : 's'} desde el archivo.` : 'No encontré respuestas claras en el archivo. Complétalas a mano.' });
     } catch (e) { setExtractMsg({ ok: false, text: String(e) }); }
     finally { setExtrayendo(false); }
   };
@@ -111,7 +111,7 @@ export function OnboardingForm({ embedded = false, onComplete }: { embedded?: bo
   const Cont = embedded ? 'div' : 'main';
   return (
     <Cont style={embedded ? { position: 'relative' } : { flex: 1, minWidth: 0, padding: '34px 44px 60px', minHeight: '100vh', position: 'relative' }}>
-      {intro && <MakoIntro saludo="Bienvenido a" caption="Configurá el perfil de tu negocio" />}
+      {intro && <MakoIntro saludo="Bienvenido a" caption="Configura el perfil de tu negocio" />}
 
       <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
         {!embedded && <MakoLogo size={36} />}
@@ -198,7 +198,7 @@ export function OnboardingForm({ embedded = false, onComplete }: { embedded?: bo
                 )}
               </div>
             ))}
-            {(!group || group.fields.length === 0) && <div style={{ textAlign: 'center', color: 'var(--faint)', fontSize: 13.5 }}>Este grupo no tiene campos. Editalos con el lápiz de arriba.</div>}
+            {(!group || group.fields.length === 0) && <div style={{ textAlign: 'center', color: 'var(--faint)', fontSize: 13.5 }}>Este grupo no tiene campos. Edítalos con el lápiz de arriba.</div>}
           </div>
 
           {!completo && group && group.fields.length > 0 && (

@@ -96,7 +96,7 @@ export async function sugerirProductos(): Promise<SugerirResult> {
   // a mano. El que garantiza que no se pisa es el merge de la ruta (campo a campo);
   // esto es la otra mitad, para que además el modelo no repita lo que ya está.
   const yaHay = existentes.length
-    ? `\nPRODUCTOS QUE YA ESTÁN CARGADOS. Respetá el nombre EXACTO y completá SOLO los campos vacíos (null o ""); lo que ya tiene valor NO se toca ni se reescribe. No los dupliques.\n${
+    ? `\nPRODUCTOS QUE YA ESTÁN CARGADOS. Respeta el nombre EXACTO y completa SOLO los campos vacíos (null o ""); lo que ya tiene valor NO se toca ni se reescribe. No los dupliques.\n${
         existentes.map((p) => `- ${JSON.stringify({
           nombre: p.nombre, tipo: p.tipo, monto_usd: p.monto_usd, suscripcion_meses: p.suscripcion_meses,
           promesa: p.promesa, incluye: p.incluye, garantia: p.garantia, descripcion: p.descripcion,

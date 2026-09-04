@@ -240,7 +240,7 @@ export const PROGRAMA: Modulo[] = [
     id: 'm2', numero: 2, titulo: 'Dónde vive el criterio', fase: 'norte', quien: 'dueño',
     clases: [
       {
-        id: 'm2c1', titulo: 'Si desaparecés dos semanas',
+        id: 'm2c1', titulo: 'Si desapareces dos semanas',
         pregunta: 'Qué se degrada primero, con nombre concreto. No «todo».',
         graba: 'El arranque del ejercicio, y sirve de entrada al siguiente: la respuesta «se cae todo» no es una respuesta. Lo que se busca es el primer nombre concreto.',
         puntos: [
@@ -298,7 +298,7 @@ export const PROGRAMA: Modulo[] = [
       },
       {
         id: 'm2c5', titulo: 'Cuánto estás dispuesto a que baje',
-        pregunta: 'El número que aceptás resistir mientras soltás, y por cuánto tiempo.',
+        pregunta: 'El número que aceptas resistir mientras sueltas, y por cuánto tiempo.',
         graba: 'La conversación incómoda y por eso va sola: soltar tiene un costo de corto plazo y hay que ponerle número y plazo ANTES, no cuando duela.',
         puntos: [
           'Por qué esta clase va sola y arranca incómoda: soltar tiene un costo de corto plazo, siempre, y éste es el único momento del programa en que ese costo se dice ANTES de sentirlo. Conviene nombrarlo así de entrada y no suavizarlo, porque toda la clase depende de que el cliente acepte que el costo existe.',

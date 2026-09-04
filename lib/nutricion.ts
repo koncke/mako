@@ -976,7 +976,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // espera (reintento 24h) a que MaKo lo escriba y alguien lo apruebe.
       if (!opts?.simularApagados && pasoConRelleno(paso)) {
         res.esperando += 1;
-        res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'copy con [relleno] — escribilo con MaKo' });
+        res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'copy con [relleno] — escríbelo con MaKo' });
         await supabase.from('nutricion_inscripciones')
           .update({ proximo_envio_at: enHorasISO(24), updated_at: ahoraISO() }).eq('id', insc.id);
         continue;

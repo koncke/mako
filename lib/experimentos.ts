@@ -585,7 +585,7 @@ DATO MEDIDO:
 - Variación: {{delta}}
 - Serie por tramo: {{serie}}
 
-Dictá el veredicto y el aprendizaje en JSON.`;
+Dicta el veredicto y el aprendizaje en JSON.`;
 
 /** Convierte una hipótesis en lenguaje natural en una propuesta de experimento. */
 export async function sugerirExperimento(hipotesis: string, contexto?: string): Promise<Propuesta> {
@@ -725,7 +725,7 @@ export async function resumenExperimentos(): Promise<string> {
   const partes: string[] = [];
   if (validadas.length) {
     const lineas = validadas.slice(0, 12).map((e) => `- ${e.aprendizaje || e.titulo}`).join('\n');
-    partes.push(`VERDADES VALIDADAS (lo ÚNICO probado con datos en este negocio — citá esto cuando aplique):\n${lineas}`);
+    partes.push(`VERDADES VALIDADAS (lo ÚNICO probado con datos en este negocio — cita esto cuando aplique):\n${lineas}`);
   }
   if (activos.length) {
     const lineas = activos.slice(0, 12).map((e) => `- "${e.titulo}" mide ${e.metrica_label ?? e.metrica} (sin verdad todavía)`).join('\n');

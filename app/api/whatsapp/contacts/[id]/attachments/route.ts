@@ -44,7 +44,7 @@ function mimePermitido(t: string): boolean {
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   // Fase 1: enviar adjuntos escribe sobre la integración de WhatsApp global del dueño.
-  if (!(await integracionConectada('whatsapp'))) return Response.json({ ok: false, error: 'WhatsApp no está conectado en este workspace. Conectalo en Configuraciones → Método.' }, { status: 403 });
+  if (!(await integracionConectada('whatsapp'))) return Response.json({ ok: false, error: 'WhatsApp no está conectado en este workspace. Conéctalo en Configuraciones → Método.' }, { status: 403 });
   const { id } = await ctx.params;
   const contactId = Number(id);
   if (!Number.isFinite(contactId)) {

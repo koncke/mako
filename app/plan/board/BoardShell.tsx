@@ -667,7 +667,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
     if (board.repo?.priorizarNuevas) {
       skipRePrio.current = true;
       try {
-        const r = await board.repo.priorizarNuevas([t.id], proyIds, contexto || '(sin argumento del usuario: puntuala por impacto objetivo contra el resto del plan)');
+        const r = await board.repo.priorizarNuevas([t.id], proyIds, contexto || '(sin argumento del usuario: puntúala por impacto objetivo contra el resto del plan)');
         if (r) board.aplicarPerroServer(r.patches, r.proyectosPatch);
         setTimeout(() => { skipRePrio.current = false; }, 3500);
         const p = r?.patches.find((x) => x.id === t.id);
@@ -677,7 +677,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
       } catch (e) { console.warn('[alta] priorizarNuevas', e); skipRePrio.current = false; }
     } else {
       // Board del cliente (sin Perro server-side): debate client-side, como antes.
-      const argFinal = contexto || '(sin argumento: puntualo por impacto objetivo comparándolo con el resto del plan)';
+      const argFinal = contexto || '(sin argumento: puntúalo por impacto objetivo comparándolo con el resto del plan)';
       try {
         const j = await fetch('/api/mako-guardian', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'debatir', tarea: d.title + (d.detalle ? `\n\n${d.detalle}` : ''), scoreActual: starter, argumento: argFinal, plan: planResumen, uso: 'Nueva tarea' }) }).then((r) => r.json());
         if (j.ok && typeof j.score === 'number') {

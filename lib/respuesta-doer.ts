@@ -50,11 +50,11 @@ const LINK_REVISAR = /\/plan\/revisar\/[A-Za-z0-9_-]+/;
  *
  *  ⚠️ SOLO para turnos que de verdad iban a crear un borrador. Ver `avisoNoPude`. */
 export const AVISO_NO_PUDE =
-  'No pude armar el borrador con eso. Reintentá en un momento y si vuelve a pasar, avisame.';
+  'No pude armar el borrador con eso. Reintenta en un momento y si vuelve a pasar, avísame.';
 
 /** El mismo aviso para un turno que NO tenía nada que ver con el plan. */
 export const AVISO_NO_PUDE_CHARLA =
-  'Se me cayó la conexión con el modelo y no pude contestarte. Reintentá en un momento y si vuelve a pasar, avisame.';
+  'Se me cayó la conexión con el modelo y no pude contestarte. Reintenta en un momento y si vuelve a pasar, avísame.';
 
 /**
  * El aviso de «no pude», ELEGIDO SEGÚN LO QUE EL TURNO ERA.

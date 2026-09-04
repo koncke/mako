@@ -21,7 +21,7 @@ type Msg = { role: 'user' | 'assistant'; content: string };
 export type AdvisorGrupo = { id: string; contacto: string; empresa?: string | null; etapaLabel?: string | null };
 type WaMsgLite = { saliente: boolean; texto: string | null };
 
-const SUGS_CHAT = ['Hacelo más corto', 'Dame una versión con nota de voz', '¿Cómo manejo la objeción de precio?', 'Reescribilo más cálido'];
+const SUGS_CHAT = ['Hazlo más corto', 'Dame una versión con nota de voz', '¿Cómo manejo la objeción de precio?', 'Reescribilo más cálido'];
 
 const ANGULO_LABEL: Record<string, string> = {
   valor: 'Valor', curiosidad: 'Curiosidad', prueba_social: 'Prueba social',

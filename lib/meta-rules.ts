@@ -28,7 +28,7 @@ Meta revisa cada plantilla antes de permitir enviarla (chequeo automático con M
 - Cada variable rodeada de contexto (no "Recordatorio: {{1}}" suelto).
 
 3) CONTENIDO Y TONO:
-- Sin ALL CAPS (gritar), máximo un signo de exclamación, sin urgencia agresiva ni amenazas ("actúa ya o perdés el acceso").
+- Sin ALL CAPS (gritar), máximo un signo de exclamación, sin urgencia agresiva ni amenazas ("actúa ya o pierdes el acceso").
 - Sin pedir datos sensibles (contraseña, PIN, tarjeta completa, datos bancarios, identificación). Derivar a portal seguro; a lo sumo identificadores parciales.
 - Sin claims engañosos ("resultados garantizados", "100% seguro"), sin mencionar competidores/otras marcas.
 - Sin productos prohibidos/restringidos (alcohol, tabaco, armas, drogas, apuestas, contenido adulto, política, préstamos predatorios, MLM).
@@ -58,9 +58,9 @@ SEÑALES FUERTES (cada una suma; 2+ tienden a ALTO):
 - S1: densidad de variables alta (palabras fijas < 3 x nº variables + 1).
 - S2: variables consecutivas sin texto entre medio.
 - S3: variable sin contexto (cuerpo muy corto alrededor de la variable).
-- S4: categoría Utility con señales de marketing (oferta, descuento, % off, "comprá ahora", upsell, CTA promocional) → recategorización o rechazo.
+- S4: categoría Utility con señales de marketing (oferta, descuento, % off, "compra ahora", upsell, CTA promocional) → recategorización o rechazo.
 - S5: URL con acortador (bit.ly/tinyurl) o wa.me en el contenido.
-- S6: lenguaje de urgencia/amenaza ("actúa ya", "última oportunidad", "o perdés el acceso").
+- S6: lenguaje de urgencia/amenaza ("actúa ya", "última oportunidad", "o pierdes el acceso").
 
 SEÑALES MEDIAS (suman menos):
 - M1: ALL CAPS en >=3 palabras o más de un signo de exclamación.

@@ -100,13 +100,13 @@ Y NUNCA se toca en una pasada de des-perfección: hueso, pelo, edad y expresión
 
 Después se corrió otro para la luz. Volvió con la luz bien y sin la ventanilla quemada ni el desenfoque.
 
-No es un bug: el modelo no "conserva" lo que no le mencionás. Re-renderiza con sus defaults todo lo que el prompt no fija.
+No es un bug: el modelo no "conserva" lo que no le mencionas. Re-renderiza con sus defaults todo lo que el prompt no fija.
 
 LA REGLA: en cualquier prompt de cambio sobre una imagen, hay que REPETIR el tratamiento fotográfico completo aunque no lo estés cambiando. Vale para variantes de fondo, cambios de ropa, correcciones de piel y cualquier retoque posterior.
 
 Esto choca de frente con la regla de "un eje por vez" y hay que resolverlo así: se cambia UN eje, pero se DECLARAN todos. El prompt largo no es el problema; el problema es pedir varios cambios a la vez.
 
-PARA MAKO: si el producto ofrece "cambiá el fondo" o "cambiá la ropa" como acción de un clic, el prompt que se manda por debajo tiene que arrastrar el bloque de tratamiento de la imagen original. Guardar ese bloque junto con la imagen, no reconstruirlo.`,
+PARA MAKO: si el producto ofrece "cambia el fondo" o "cambia la ropa" como acción de un clic, el prompt que se manda por debajo tiene que arrastrar el bloque de tratamiento de la imagen original. Guardar ese bloque junto con la imagen, no reconstruirlo.`,
   },
   {
     titulo: 'La sonrisa devuelve los rasgos (y lo descubrió el cliente)',
@@ -121,7 +121,7 @@ LA REGLA: si la persona es de sonrisa fácil, la foto de referencia tiene que se
 
 "He keeps a light, easy smile throughout, the way he naturally speaks — never a neutral or slack expression."
 
-MÁS EN GENERAL: cuando alguien dice "no me parezco", la pregunta útil no es "qué está mal" sino "¿en qué momento del video SÍ te parecés?". Ese momento contiene la respuesta. Es mucho más productivo que pedirle una lista de defectos, porque la gente reconoce su cara pero no la sabe describir.
+MÁS EN GENERAL: cuando alguien dice "no me parezco", la pregunta útil no es "qué está mal" sino "¿en qué momento del video SÍ te pareces?". Ese momento contiene la respuesta. Es mucho más productivo que pedirle una lista de defectos, porque la gente reconoce su cara pero no la sabe describir.
 
 PARA MAKO: en el flujo de feedback, en vez de un campo libre de "qué está mal", ofrecer marcar el SEGUNDO del video donde más se parece y el segundo donde menos. La diferencia entre esos dos frames es el dato.`,
   },
@@ -241,9 +241,9 @@ El clon del material comprimido clava las dos métricas. El del material limpio 
 
 LA CAUSA: en el anuncio la persona está ACTUANDO; en el celular está CONVERSANDO. Son dos registros distintos de la misma voz, y el destino del clon es un anuncio.
 
-REGLA: para clonar una voz de anuncio hay que clonar DE anuncios. Pedir "grabame dos minutos hablando natural" produce un clon que suena a alguien contando algo, no a alguien vendiendo.
+REGLA: para clonar una voz de anuncio hay que clonar DE anuncios. Pedir "grábame dos minutos hablando natural" produce un clon que suena a alguien contando algo, no a alguien vendiendo.
 
-Y HAY UN AGRAVANTE QUE VALE COMO ADVERTENCIA APARTE: ese audio de celular lo grabó a las dos de la madrugada. Su voz estaba cansada y más grave. El clon heredó el cansancio. Cuando pidas audio, pedí también CUÁNDO grabarlo.
+Y HAY UN AGRAVANTE QUE VALE COMO ADVERTENCIA APARTE: ese audio de celular lo grabó a las dos de la madrugada. Su voz estaba cansada y más grave. El clon heredó el cansancio. Cuando pidas audio, pide también CUÁNDO grabarlo.
 
 LO QUE ESTO INVALIDA: la idea de que la compresión del material era el techo del clon. El material limpio da mejor señal y peor registro, y el registro pesó más.
 

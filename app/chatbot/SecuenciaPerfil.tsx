@@ -248,7 +248,7 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
             </div>
             <div>
               <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 6 }}>Preguntas de cualificación — una por línea (el Setter y el simulador las usan en este orden):</div>
-              <textarea value={preguntas} onChange={(e) => setPreguntas(e.target.value)} rows={5} placeholder={'¿Facturás más de …?\n¿Tienes equipo?'} style={{ ...inp, resize: 'vertical', lineHeight: 1.5 }} disabled={!rolAdmin} />
+              <textarea value={preguntas} onChange={(e) => setPreguntas(e.target.value)} rows={5} placeholder={'¿Facturas más de …?\n¿Tienes equipo?'} style={{ ...inp, resize: 'vertical', lineHeight: 1.5 }} disabled={!rolAdmin} />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>

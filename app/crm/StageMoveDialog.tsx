@@ -769,7 +769,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
     }
     case 'calificado':
       pregunta = '¿Era un lead calificado?';
-      sub = 'Este dato entrena las campañas de Meta (CAPI): marcalo siempre.';
+      sub = 'Este dato entrena las campañas de Meta (CAPI): márcalo siempre.';
       cuerpo = boolStep(calificado, setCalificado, 'Sí, calificado', 'No calificado');
       break;
     case 'fathomR1':
@@ -847,7 +847,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       const val = paso === 'setter' ? setter : closer;
       const set = paso === 'setter' ? setSetter : setCloser;
       pregunta = paso === 'setter' ? '¿Quién es el Setter?' : '¿Quién es el Closer?';
-      sub = paso === 'setter' ? 'El que agendó la reunión. Elegilo de tu equipo.' : 'El que corrió la llamada de venta. Elegilo de tu equipo.';
+      sub = paso === 'setter' ? 'El que agendó la reunión. Elígelo de tu equipo.' : 'El que corrió la llamada de venta. Elígelo de tu equipo.';
       // Setter/Closer SIEMPRE un desplegable del equipo del workspace (con foto) —
       // nunca texto libre (dato sensible, vive en Configuraciones › Equipo).
       const opts: DropdownOption[] = [

@@ -166,7 +166,7 @@ OJOS
 Color, forma y tamaño; algo distintivo si lo hay.
 
 CABELLO
-Color exacto (incluí canas o mechones si se ven), largo, textura y peinado; entradas o calvicie si aplica.
+Color exacto (incluye canas o mechones si se ven), largo, textura y peinado; entradas o calvicie si aplica.
 
 COMPLEXIÓN
 Altura aproximada, contextura física y postura.

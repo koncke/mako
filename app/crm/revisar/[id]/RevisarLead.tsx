@@ -97,7 +97,7 @@ export function RevisarLead({ prop }: { prop: Propuesta }) {
       titulo={`Contactos propuestos · ${filas.length} fila${filas.length === 1 ? '' : 's'}`}
       pasos={['Revisar']} pasoActual="Revisar"
       pregunta="¿Está bien lo que va a entrar?"
-      sub={`Lo propuso Claude${origen ? ` desde ${origen}` : ''}. Corregí lo que haga falta y tildá qué se crea.`}
+      sub={`Lo propuso Claude${origen ? ` desde ${origen}` : ''}. Corrige lo que haga falta y tilda qué se crea.`}
       error={err}
       pending={trabajando}
       puedeAvanzar={c.tildadas > 0}

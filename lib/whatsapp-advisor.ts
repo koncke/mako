@@ -95,7 +95,7 @@ export const WA_ADVISOR_TEMPLATE_USER_TEMPLATE = `Objetivo de la plantilla: {{ob
 Etapa del lead a la que apunta: {{etapa}}
 Contexto del negocio: {{contexto}}
 
-Devolvé EXCLUSIVAMENTE un objeto JSON válido con esta forma EXACTA:
+Devuelve EXCLUSIVAMENTE un objeto JSON válido con esta forma EXACTA:
 {
   "name": "nombre_en_minusculas_con_guiones_bajos",
   "category": "utility | marketing",
@@ -199,7 +199,7 @@ export async function chatAdvisor(lead: AdvisorLead, historial: ClaudeMsg[], men
 CONVERSACIÓN ACTUAL CON EL LEAD (${[lead.contacto, lead.empresa].filter(Boolean).join(' · ')} · etapa: ${lead.etapaLabel || 'sin etapa'} · ventana 24h: ${ventanaTexto(lead.ventanaAbierta)}):
 ${contenidoNoConfiable(t, 'conversacion')}
 
-Respondé lo que te pide Martín sobre este lead. Si te pide un mensaje, dalo listo para copiar/pegar. Sé breve.`;
+Responde lo que te pide Martín sobre este lead. Si te pide un mensaje, dalo listo para copiar/pegar. Sé breve.`;
   return chatClaude(system, [...historial, { role: 'user', content: mensaje }], { effort: 'high', maxTokens: 2000, feature: 'wa-advisor-chat' });
 }
 

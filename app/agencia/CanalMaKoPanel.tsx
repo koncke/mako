@@ -84,7 +84,7 @@ export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={qr} alt="QR" style={{ width: 240, height: 240, borderRadius: 12, border: '1px solid var(--border)' }} />
           <div style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', lineHeight: 1.5 }}>
-            WhatsApp del teléfono <b>de MaKo</b> → <b>Dispositivos vinculados</b> → <b>Vincular</b> y escaneá.
+            WhatsApp del teléfono <b>de MaKo</b> → <b>Dispositivos vinculados</b> → <b>Vincular</b> y escanea.
           </div>
         </div>
       )}

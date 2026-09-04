@@ -208,7 +208,7 @@ export function EvolutionConnect() {
               <button onClick={cerrar} title="Cerrar" style={{ background: 'none', border: 'none', fontSize: '20px', color: 'var(--faint)', cursor: 'pointer' }}>✕</button>
             </div>
             <div style={{ fontSize: '13px', color: 'var(--dim)', lineHeight: 1.5, marginBottom: '16px' }}>
-              Número no oficial (por QR). En el celular de la empresa: <strong style={{ color: 'var(--ink)' }}>WhatsApp → Dispositivos vinculados → Vincular dispositivo</strong> y escaneá.
+              Número no oficial (por QR). En el celular de la empresa: <strong style={{ color: 'var(--ink)' }}>WhatsApp → Dispositivos vinculados → Vincular dispositivo</strong> y escanea.
             </div>
 
             {!configurado && <div style={{ padding: '10px', borderRadius: '9px', border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: '12.5px' }}>Evolution API no está configurado en el servidor.</div>}

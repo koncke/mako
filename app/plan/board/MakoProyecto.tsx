@@ -32,7 +32,7 @@ export function MakoProyectoModal({ proj, onApply, onClose }: {
   useEffect(() => {
     let vivo = true;
     (async () => {
-      const desc = `Mejorá y completá este proyecto (nombre más claro si hace falta, y un detalle bien escrito). Nombre actual: ${proj.name}. Detalle actual: ${stripHtml(proj.detalle) || '(vacío)'}`;
+      const desc = `Mejora y completa este proyecto (nombre más claro si hace falta, y un detalle bien escrito). Nombre actual: ${proj.name}. Detalle actual: ${stripHtml(proj.detalle) || '(vacío)'}`;
       const p = await proponer(desc);
       if (!vivo) return;
       setNombre(p.nombre || proj.name); setEmoji(p.emoji || proj.emoji); setDetalle(p.detalle || stripHtml(proj.detalle));
@@ -50,7 +50,7 @@ export function MakoProyectoModal({ proj, onApply, onClose }: {
           {fase === 'generando'
             ? <div style={{ padding: '34px 0', textAlign: 'center', color: 'var(--dim)', fontSize: 14 }}><div style={{ display: 'flex', justifyContent: 'center' }}><GuardianIcon size={44} /></div><div style={{ marginTop: 12 }}>MaKo está mejorando el proyecto…</div></div>
             : <>
-                <div style={{ textAlign: 'center', marginBottom: 14 }}><div style={{ display: 'flex', justifyContent: 'center' }}><GuardianIcon size={44} /></div><div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 8, fontFamily: MONO }}>propuesto por MaKo · editá lo que quieras</div></div>
+                <div style={{ textAlign: 'center', marginBottom: 14 }}><div style={{ display: 'flex', justifyContent: 'center' }}><GuardianIcon size={44} /></div><div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 8, fontFamily: MONO }}>propuesto por MaKo · edita lo que quieras</div></div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                   <EmojiPickerMini value={emoji} onPick={setEmoji} />
                   <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre del proyecto" style={{ ...inputStyle, maxWidth: 320, textAlign: 'center', fontWeight: 600 }} />

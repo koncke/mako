@@ -91,7 +91,7 @@ function BannerCuenta({ account, fetchedAtISO, parcial }: { account: MetaHealth[
           <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--bad)', margin: 0 }}>Las campañas figuran activas, pero la cuenta no está entregando.</p>
           <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: '4px 0 0' }}>
             {account.disableReasonLabel ? `Motivo: ${account.disableReasonLabel}. ` : ''}
-            Regularizá el pago en el Administrador de Anuncios para reanudar la entrega.
+            Regulariza el pago en el Administrador de Anuncios para reanudar la entrega.
           </p>
         </div>
       )}
@@ -106,7 +106,7 @@ function BannerCuenta({ account, fetchedAtISO, parcial }: { account: MetaHealth[
         ))}
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginTop: 14, fontFamily: MONO, fontSize: 11, color: 'var(--faint)', flexWrap: 'wrap' }}>
-        <span>{parcial ? '⚠ Algunos datos de campañas/anuncios no cargaron — reintentá.' : 'Datos completos.'}</span>
+        <span>{parcial ? '⚠ Algunos datos de campañas/anuncios no cargaron — reintenta.' : 'Datos completos.'}</span>
         {hora && <span>actualizado {hora}</span>}
       </div>
     </section>

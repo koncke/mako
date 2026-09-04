@@ -38,13 +38,13 @@ const ghostBtn: CSSProperties = { padding: '9px 14px', borderRadius: 10, border:
  */
 export const GCAL_MSG: Record<string, { kind: 'ok' | 'err'; txt: string }> = {
   ok: { kind: 'ok', txt: 'Google Calendar conectado. Ya se usa como fuente en la búsqueda automática de reuniones y para mover reuniones al reagendarlas.' },
-  csrf: { kind: 'err', txt: 'La conexión falló por seguridad (CSRF). Reintentá.' },
-  'sin-refresh': { kind: 'err', txt: 'Google no devolvió el token. Reintentá (te va a pedir el consentimiento de nuevo).' },
+  csrf: { kind: 'err', txt: 'La conexión falló por seguridad (CSRF). Reintenta.' },
+  'sin-refresh': { kind: 'err', txt: 'Google no devolvió el token. Reintenta (te va a pedir el consentimiento de nuevo).' },
   // «Escribinos» sin decir A DÓNDE es un callejón: el usuario ya sabía que quería
   // escribirnos, lo que no sabe es la dirección. Sale de EMAIL_MAKO para que sea la misma
   // que firma los mails de la plataforma y no dos direcciones que se van separando.
   config: { kind: 'err', txt: `La conexión con Google no está disponible en este momento. Escríbenos a ${EMAIL_MAKO} y lo resolvemos.` },
-  exchange: { kind: 'err', txt: 'No se pudo completar la conexión. Reintentá.' },
+  exchange: { kind: 'err', txt: 'No se pudo completar la conexión. Reintenta.' },
   'no-permitido': { kind: 'err', txt: 'Solo el workspace principal puede conectar Google Calendar.' },
 };
 

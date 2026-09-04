@@ -271,9 +271,9 @@ Si el transcript dice "(sin transcript)": pon has_transcript=false y NO inventes
 Si es VENTA y hay transcript, haz un análisis PROFUNDO, específico y CITADO (nada de frases genéricas). Cada evidencia cita el transcript con su t_seconds real (el número de [Ns]). Puntúas (0-10):
 SPIN (g="spin"): "Situación", "Problema", "Implicación", "Necesidad / beneficio".
 Ejecución (g="exec"): "Presentación de la propuesta", "Manejo de objeciones", "CTA / siguientes pasos".
-En R1 puede no haber propuesta formal: puntuá esa dimensión por cómo encaminó hacia la R2.
+En R1 puede no haber propuesta formal: puntúa esa dimensión por cómo encaminó hacia la R2.
 
-Devolvés EXCLUSIVAMENTE un objeto JSON válido (sin texto fuera del JSON, sin markdown), con este esquema:
+Devuelves EXCLUSIVAMENTE un objeto JSON válido (sin texto fuera del JSON, sin markdown), con este esquema:
 {
   "es_venta": boolean,
   "categoria": "venta" | "entrega_servicio" | "interna" | "otro",

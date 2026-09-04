@@ -360,7 +360,7 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
   const qActual = cur.kind === 'q' ? prop.preguntas[cur.i] : cur.kind === 'dyn' ? dynQs[cur.i] : undefined;
   const sub = cur.kind === 'cerrar' ? 'La tengo en tu tablero abierta, pero encontré esto. Tú decides.'
     : qActual ? ayudaDePregunta(qActual.tipo, qActual.opciones.length > 0)
-    : cur.kind === 'extra' ? 'Destildá lo que no vaya y corregí lo que haga falta. El proyecto y la prioridad los pone el Perro.'
+    : cur.kind === 'extra' ? 'Destilda lo que no vaya y corrige lo que haga falta. El proyecto y la prioridad los pone el Perro.'
     : soloCierres ? 'Las que dijiste que no, quedan abiertas tal cual estaban.'
       : 'El Perro Guardián las prioriza, las describe y les arma la checklist. La revisión final la ves en el plan.';
 
@@ -400,7 +400,7 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
         <DynLoader texto="MaKo está mirando tus respuestas…" />
       ) : extrasLoading ? (
         <DynLoader texto="El Perro está viendo si de tus respuestas sale más trabajo…"
-          sub="Una idea suelta suele ser un proyecto entero: los pasos que faltan recién aparecen cuando contestás." />
+          sub="Una idea suelta suele ser un proyecto entero: los pasos que faltan recién aparecen cuando contestas." />
       ) : busy ? (
         /* El aplicado es LARGO de verdad: crea las tareas y después el Perro las
            puntúa por tandas. Antes acá seguía dibujándose el cuerpo del último paso y

@@ -137,7 +137,7 @@ export function FunnelEditor({
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       const { pipeline: p, suppressed: s } = ref.current;
-      saveFunnelAction(p, s).catch(() => flashToast('No se pudo guardar — aplicá la migración 0025 en Supabase', undo, true));
+      saveFunnelAction(p, s).catch(() => flashToast('No se pudo guardar — aplica la migración 0025 en Supabase', undo, true));
     }, 500);
   }, [flashToast]);
   const persist = useCallback((msg: string, undo?: () => void) => { flashToast(msg, undo); bgSave(undo); }, [flashToast, bgSave]);
