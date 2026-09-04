@@ -5510,3 +5510,91 @@ Dos cosas que costaron una corrida cada una al escribirlo:
 
 *Corrida del 03/09/2026 · dos tandas de agentes con refutación adversarial + una
 sesión en vivo con un cliente · 8 hallazgos que bloqueaban, 7 arreglados.*
+
+---
+
+## Google mudó Flow a su propio dominio, y eso apagó la extensión entera
+
+*04/09/2026 · reportado como «pasa muchísimo esto: abro Flow y la extensión no lo
+detecta», con la captura de las dos pestañas al lado.*
+
+**Vive en:** `extension/manifest.json` · `extension/background.js` (`PATRONES_FLOW`) ·
+`extension/injected.js`
+
+### El hecho, que estaba en la captura
+
+| | |
+|---|---|
+| La pestaña de Flow del cliente | `https://flow.google.com/project/<uuid>` |
+| Lo que buscaba la extensión | `https://labs.google/fx/*tools/flow*` |
+
+No matchean. `chrome.tabs.query` devuelve vacío, `pestanaDeFlow()` tira
+`NO_FLOW_TAB`, `hayFlow` queda en false y el popup dice **«Abre Google Flow»** con
+Flow abierto y cargado en la pestaña de al lado.
+
+### Y se mordía la cola
+
+El botón «Abrir Google Flow» navegaba a `labs.google/fx/tools/flow`. Google deja a la
+persona en el dominio nuevo — y la extensión **pierde de vista la pestaña que ella
+misma acaba de abrir**.
+
+Por eso no fallaba a veces: **fallaba siempre**, y el único control que la pantalla
+ofrecía era exactamente el que garantizaba el fallo.
+
+### ⚠️ Lo más caro: este mismo síntoma ya se había investigado, y se había arreglado bien
+
+El 02/09 se reportó textual: *«ya abrimos Flow y no funcionó, no deja de salir el
+botón de abrir Flow»*. Se encontró una causa **verdadera** —el filtro `discarded`
+convertía «hay una durmiendo» en «no hay ninguna»— y se arregló. Ese arreglo sigue en
+su lugar y sigue siendo correcto.
+
+**Una causa verdadera puede no ser LA causa**, y ésta tapó a la otra durante dos días:
+el síntoma volvía, y el comentario del código —bien escrito, con su caso medido— decía
+que ya estaba explicado.
+
+La señal para reconocerlo: cuando un arreglo correcto no hace desaparecer el síntoma,
+la hipótesis por defecto no es «el arreglo no se desplegó» sino **«hay una segunda
+causa, y la primera me está tapando la vista»**.
+
+### El alcance: nueve sitios clavaban el dominio
+
+`host_permissions`, los dos bloques de `content_scripts`, dos filtros de
+`webRequest`, el patrón del `tabs.query`, la URL del botón, el prefijo tRPC del espejo
+y dos mensajes de error. Ahora hay **una** lista (`PATRONES_FLOW`) y todo deriva de
+ahí; el único lugar donde se repite es el `manifest.json`, que no puede importar nada.
+
+Van **los dos dominios** y no sólo el nuevo: no sabemos si Google migró a todo el
+mundo, y reconocer los dos anda en las dos direcciones.
+
+### Las dos decisiones sobre lo que NO se sabe
+
+La regla de la casa es que un pedido a una API privada de Google **se copia, no se
+reconstruye**. Así que donde no había medición, no se adivinó una ruta:
+
+- **El espejo de `injected.js` reconoce la API de la app por la RUTA (`/api/trpc/`),
+  no por el host.** El script sólo corre DENTRO de una página de Flow, así que «mismo
+  origen + `/api/trpc/`» dice exactamente lo que se quería decir —la API de la app que
+  me hospeda— sin nombrar ningún dominio. La próxima mudanza no lo rompe.
+- **El filtro de `webRequest` nombra el ENDPOINT (`getMediaUrlRedirect`), no el
+  prefijo de ruta**, que en `flow.google.com` no está medido. El nombre del endpoint
+  sale del código de la propia app y no cambió con la mudanza.
+
+### Lo que quedó SIN medir
+
+- **Si `flow.google.com` sirve su tRPC bajo `/fx/api/trpc/` o bajo otro prefijo.** La
+  sonda de diagnóstico del medio arma esa URL con el prefijo viejo; está envuelta en
+  `try/catch` y no es el camino del producto, y el comentario lo dice. Se contesta
+  mirando la pestaña real: qué host y qué path piden las llamadas de la grilla.
+- **Si el bearer y la `apiKey` se siguen viendo.** El filtro de `webRequest` que los
+  captura ya incluía `aisandbox-pa.googleapis.com`, que es un host aparte, así que en
+  principio sí — pero no está comprobado en el dominio nuevo.
+
+### El costo operativo, que no tiene vuelta
+
+**El arreglo vive en la extensión, no en el server: cada cliente TIENE que
+actualizarla.** La 0.39.1 no reconoce el dominio nuevo y no hay nada que se pueda
+hacer desde acá. Lo que sí avisa solo es `versionEsperada`, que viaja en cada latido:
+la app le dice a la extensión que quedó vieja.
+
+*Reportado con captura el 04/09/2026 · diagnosticado leyendo el manifest, sin corrida
+de agentes: el `grep` del dominio dio el mapa completo en una llamada.*
