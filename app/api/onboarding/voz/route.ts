@@ -129,6 +129,19 @@ export async function POST(req: NextRequest) {
         }
 
         const nombre = (body.nombre || `MaKo ws${ws}`).slice(0, 100);
+        // ⚠️ EL CLON VIEJO SE ANOTA ANTES DE CREAR EL NUEVO.
+        //
+        // `clonarVoz` siempre crea una voz NUEVA y `guardarClon` pisa el id
+        // anterior, así que hasta hoy cada re-clonado dejaba una voz colgada en la
+        // cuenta sin nada que la nombrara. Medido: NUEVE huérfanas en la cuenta de
+        // la casa, y las cuentas de ElevenLabs topean la cantidad de voces
+        // personalizadas — o sea que el que vuelve a grabar unas cuantas veces se
+        // queda sin poder clonar, con un error que habla de un límite que él no
+        // sabe que existe.
+        //
+        // Con BYOK ya no es la cuenta de la casa: es la del cliente, y son sus
+        // slots. Dejarlas ahí es ensuciarle su propia cuenta.
+        const anterior = v.clon?.voiceId ?? '';
         const r = await clonarVoz(nombre, utiles);
         if (!r.ok) return Response.json({ ok: false, error: r.error, motivo: r.motivo }, { status: 502 });
 
@@ -139,6 +152,19 @@ export async function POST(req: NextRequest) {
           muestras: v.muestras.map((m) => m.path),
           autorizadoAt: new Date().toISOString(),
         });
+
+        // ⚠️ Y SE BORRA DESPUÉS DE GUARDAR EL NUEVO, nunca antes. Borrando primero,
+        // un clonado que falla deja a la persona SIN voz — pierde la que tenía por
+        // intentar mejorarla. El orden es lo único que separa «quedó una de más» de
+        // «se perdió la única».
+        //
+        // Y no rompe la respuesta: la voz nueva ya está guardada y andando, así que
+        // un fallo acá deja una huérfana —lo que pasaba SIEMPRE hasta ahora— y no
+        // hay ninguna razón para contarle eso a quien acaba de clonar bien.
+        if (anterior && anterior !== r.valor.voiceId) {
+          const b = await borrarVoz(anterior).catch(() => null);
+          if (!b?.ok) console.warn(`[voz] quedó huérfana en ElevenLabs: ${anterior} (ws ${ws})`);
+        }
         return Response.json({ ok: true, ...(await estado()), vivo: true });
       }
 
