@@ -1178,4 +1178,24 @@ que espera.
 > que ya tocó — la misma familia de error que el typewriter escribiéndole a la escena
 > siguiente.
 
+### Un `z-index` puesto para arreglar una cosa lo pone por encima de TODAS las demás
+
+Al mapa se le subió el z-index para que sus nodos volvieran a recibir clics. Con eso quedó
+también por encima de la pista «Toca en cualquier lugar», que apareció **enterrada debajo de
+los nodos**. Y encima estaba anclada al lienzo, un contenedor que termina donde empieza el pie
+—que en esos pasos es invisible pero ocupa lugar—, así que caía a media pantalla, justo sobre
+las etiquetas de abajo del grafo.
+
+> Dos reglas: **un z-index no se elige contra un elemento, se elige contra la pila entera**; y
+> **anclar contra un contenedor que termina antes que la pantalla pone las cosas donde no se
+> ven venir** — sobre todo si lo que lo termina es un elemento invisible que igual ocupa
+> espacio. La pista vive contra el borde de la pantalla, que es el único lugar que el grafo no
+> ocupa nunca (medido: 159 px de aire en el paso 1, 85 px en el paso 2).
+
+⚠️ Y el detalle que hace perder el rato al medirlo: en una pestaña oculta el grupo de un nodo
+computa `opacity: 0` aunque en pantalla se vea, porque lo que lo enciende es una animación que
+está congelada. Filtrar por eso descarta justo lo que se quería medir. Se mide por los
+`circle`/`text` de adentro, y acotando por NIVEL a lo que ese paso revela — si no, el polvo
+que todavía no nació cuenta como visible y da un choque que no existe.
+
 *Rediseño del 04/09/2026 · panel de 24 agentes (3 propuestas × 3 jueces por problema).*
