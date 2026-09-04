@@ -5337,3 +5337,176 @@ Los tres endpoints de la v2 quedaron escritos en la cabecera del script — pide
 
 *Corrida del 02/09/2026 · 46 agentes, 5 frentes, refutación adversarial · 41
 hallazgos, 31 sobrevivieron.*
+
+---
+
+## El clic que no dejaba marca, y cinco salidas escritas que no ofrecía nadie
+
+*03/09/2026 · Video Generator · lo que quedó de acompañar a un cliente en vivo y
+de dos corridas de agentes sobre el módulo.*
+
+El reporte del dueño, con el cliente delante, fue: **«no le está dando click. No
+le des doble click, dale un solo click».** Los seis defectos que salieron de ahí
+comparten una forma, y es la que conviene llevarse: **la app SABÍA lo que había
+que hacer y no lo mostraba.**
+
+### 1. Seleccionar y avanzar eran una sola cosa, y el gate frenaba las dos
+
+**Vive en:** `app/video-generator/VideoGeneratorApp.tsx` (`empezar`)
+
+El gate del puente estaba ANTES del `setPuestaId`:
+
+```ts
+if (!puenteAnda) { resaltarAviso(); return; }
+setPuestaId(id);
+```
+
+Con el puente caído, el clic no encendía **nada**: ni el marco azul de la
+tarjeta, ni su tilde, ni el botón «Crear mi anuncio» — los tres cuelgan de
+`puestaId`. La única respuesta era un pulso sobre un cartel que vive arriba de
+todo, a media pantalla del cursor.
+
+Desde afuera eso es un botón roto, y la persona lo repite.
+
+**La regla:** cuando un gate frena una acción compuesta, partila. Lo que el gate
+tiene derecho a frenar es el efecto caro (entrar al recorrido); el ACUSE de que
+el clic llegó no se puede negociar, y tiene que ocurrir **donde está el cursor**.
+
+### 2. Y la única respuesta que quedaba estaba colgada de un id que no se dibujaba
+
+**Vive en:** `app/video-generator/VideoGeneratorApp.tsx` (`resaltarAviso`) ·
+`app/video-generator/extension-instalada.tsx`
+
+`resaltarAviso()` hacía `getElementById(ID_AVISO_PUENTE)` y ese id lo pone
+`AvisoPuente`, que está detrás de `!extensionVieja`. **Con la extensión vieja
+—que es exactamente el estado en el que estuvo el cliente toda la sesión— el que
+se muestra es `AvisoExtensionVieja`, que no llevaba id.** El `getElementById`
+devolvía null y la función salía por su `return`.
+
+O sea que el clic quedaba **literalmente mudo**: ni marco, ni tilde, ni botón, ni
+pulso, ni scroll. Cero.
+
+Y la segunda rama tenía el mismo defecto: con `prefers-reduced-motion` —frecuente
+en Windows con «Mostrar animaciones» apagado— era un `return` pelado. Ahora va el
+foco, que sirve igual y además lo anuncia un lector de pantalla.
+
+**La regla:** una respuesta colgada de un id que puede no estar renderizado no es
+una respuesta. Si hay dos avisos posibles, se busca **el que esté**, no el que
+suponemos.
+
+⚠️ **Y el corolario de diagnóstico:** los dos defectos juntos explican un síntoma
+que se reporta como «el botón no anda». Antes de buscar el handler, preguntá
+**qué se dibuja cuando el handler corre y no pasa nada**.
+
+### 3. La puerta al modal se cerraba con CERO fotos
+
+**Vive en:** `app/video-generator/WizardAnuncio.tsx` (`FotoGrande`)
+
+`puedeCambiar={(contexto?.fotos?.length ?? 0) > 0}`. Y `FotoGrande` con
+`puedeCambiar` en false devuelve los hijos pelados: sin hover, sin ícono y sin
+click. O sea que **la única entrada al modal se cerraba justo en el estado en el
+que hay que subir una foto**. La pantalla quedaba en un ícono gris de perfil sin
+nada que tocar.
+
+**La regla:** una condición del tipo «habilitá esto cuando haya datos» hay que
+leerla con el conjunto VACÍO en la mano. Si el control es el único camino a
+crear el primer dato, la condición está al revés.
+
+### 4. Tres salidas completas que no ofrecía nadie
+
+Es «escribir la salida no es ofrecerla» —que este repo ya tiene escrita cuatro
+veces— apareciendo otras tres:
+
+| Qué estaba escrito | Por qué no lo alcanzaba nadie |
+|---|---|
+| `<input type=file>` + `subir()` + `subirImagenEscenaAction` entera | nada llamaba a `archivo.current.click()` |
+| `textoEleven()`: siete motivos con título, detalle, culpa y link | las dos pantallas hacían `setError(j.error)` y **tiraban el `motivo`** que la ruta mandaba al lado |
+| `puesta.tecnico` («Plano secuencia», «Voz en off») | sólo se dibujaba adentro del modal de detalle |
+
+El de ElevenLabs es el que más duele: el catálogo existe **precisamente porque
+«unauthorized» y «tu suscripción tiene un pago pendiente» son el MISMO 401** y se
+ven iguales desde afuera. Sin llamarlo, a alguien con la factura impaga se le
+decía que su key estaba mal.
+
+El de `tecnico` es un problema de nombres: el catálogo se elige mirando una
+grilla de apodos —«The Office», «Dualcast»— que se entienden **después** de ver
+el ejemplo. Había que abrir las nueve tarjetas para saber qué ofrecía cada una.
+
+### 5. El sondeo de la imagen se apagaba con la falla que él mismo tenía que curar
+
+**Vive en:** `app/video-generator/variantes-imagen.ts` (`imagenEnCurso`) ·
+`app/video-generator/video-action.ts` (`estadoImagenAction`)
+
+`if (!m?.trabajoId || m.error) return false;` — cualquier error dejaba la imagen
+fuera del sondeo para siempre. Y el sondeo es quien llama a `estadoImagenAction`,
+que es **donde vive la cura** de un error de puente.
+
+**Es el mismo defecto que ya se había curado en las tomas**, con su comentario
+escrito y todo, vivo en su hermana. Un arreglo aplicado en un lugar de dos no
+está implementado: está documentado.
+
+### 6. El instructivo mandaba a tocar un ícono que todavía no existe
+
+**Vive en:** `app/extension/instalar/page.tsx` · `FiguraAnclar.tsx`
+
+Los TRES instructivos decían «toca el ícono de MaKo en la barra de Chrome». Recién
+instalada **no hay tal ícono**: Chrome mete toda extensión nueva adentro del menú
+de la pieza de rompecabezas y sólo aparece en la barra si alguien la ancla.
+
+Falla en silencio, que es lo peor: la persona mira la barra, no ve nada, y
+concluye que la instalación salió mal — cuando salió bien.
+
+Y el paso nuevo **no se puede escribir, hay que dibujarlo**: nombra dos controles
+de Chrome que la mayoría no miró nunca, y el segundo aparece recién al abrir el
+primero. Va como SVG y no como captura por dos razones — una captura de Chrome
+envejece con cada rediseño de Chrome y nadie se entera, y además trae las
+extensiones y los marcadores de quien la sacó.
+
+### 7. Re-clonar la voz abandonaba la anterior en la cuenta
+
+**Vive en:** `app/api/onboarding/voz/route.ts`
+
+`clonarVoz` siempre crea una voz NUEVA y `guardarClon` pisa el id anterior. **Cada
+re-clonado dejaba una voz colgada sin nada que la nombrara: nueve huérfanas
+medidas en la cuenta de la casa.** Importa porque las cuentas de ElevenLabs topean
+la cantidad de voces personalizadas, y con BYOK esos slots son del cliente.
+
+**El orden es lo único que separa «quedó una de más» de «se perdió la única»:** se
+anota el id viejo, se crea el nuevo, se GUARDA, y recién ahí se borra el viejo.
+
+### Lo que quedó SIN hacer
+
+- **El projectId de Flow no se elige: se espía.** Sale de la URL de las llamadas
+  de imagen o de una plantilla ya guardada (`app/api/flow/puente/route.ts`, la
+  constante `proyecto`). Funciona, y significa que nadie eligió con qué proyecto
+  de Flow trabaja su cuenta — que es la otra mitad del pendiente «la sesión de
+  Flow parece estar en la cuenta equivocada».
+- **Las 9 voces huérfanas que ya están** se limpian a mano desde el panel de
+  ElevenLabs. El código ya no crea más.
+- **Con la extensión vieja no se ve el aviso de que falta abrir Flow**
+  (`VideoGeneratorApp.tsx`, `{!extensionVieja && !puenteAnda && …}`). Es
+  deliberado —una rama a la vez, de lo más bloqueante a lo menos— y conviene
+  saberlo: alguien con las dos cosas mal arregla una y recién ahí se entera de la
+  otra.
+
+### Y el guard que salió de todo esto
+
+**Vive en:** `scripts/hooks-en-orden.sh` · `scripts/eslint-hooks.config.mjs`
+
+El «Minified React error #300» del mismo día —`didRenderTooFewHooks`, un
+`useExtensionVieja()` que había quedado detrás de un `return`— **no lo cazaba
+nadie**: llamar un hook es una llamada a función perfectamente tipada, así que el
+typecheck lo deja pasar, y el pre-push no corre los tests. `npm run lint` sí lo
+caza y tarda 3 min 19 s, que es un costo que ningún hook puede pagar.
+
+Dos cosas que costaron una corrida cada una al escribirlo:
+
+- **La config hereda la del repo y le VACÍA las reglas**, en vez de declarar un
+  solo plugin. Con un plugin solo, todo archivo que tenga un `eslint-disable` de
+  otro plugin hace que eslint conteste «Definition for rule … was not found» y
+  salga con error: el guard bloquearía el push por un comentario válido.
+- **Y se le saca `parserOptions.project`.** Con análisis de tipos son 64 s en vez
+  de 15, y `rules-of-hooks` mira la FORMA del código, no los tipos.
+
+*Corrida del 03/09/2026 · dos tandas de agentes con refutación adversarial + una
+sesión en vivo con un cliente · 8 hallazgos que bloqueaban, 7 arreglados.*
