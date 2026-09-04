@@ -5579,6 +5579,59 @@ reconstruye**. Así que donde no había medición, no se adivinó una ruta:
   prefijo de ruta**, que en `flow.google.com` no está medido. El nombre del endpoint
   sale del código de la propia app y no cambió con la mudanza.
 
+### La segunda tanda, con la extensión ya en el dominio nuevo
+
+Con la 0.40.0 puesta, el popup dejó de decir «Abre Google Flow» —la pestaña ya se
+detecta— y pasó a decir otra cosa. Lo que apareció detrás:
+
+**«Inicia sesión en Google Flow» a alguien logueada.** Su pestaña era
+`flow.google.com` con su avatar, su plan y su botón de «Salir» a la vista. El bearer
+se ve al pasar, en el header `Authorization` de una llamada a la API de Flow, y en la
+**portada** —la lista de proyectos— la app no hace ninguna: pide sus cosas con
+cookies. O sea que estar perfectamente logueada y no producir ni un bearer **es el
+estado normal ahí**.
+
+Son dos estados distintos que se mostraban con el mismo cartel, y el que se mostraba
+pedía lo único que ya estaba hecho. `flowEnProyecto` los separa: en la portada dice
+«Abre un proyecto en Flow», que es la precondición real.
+
+**«An unexpected response was received from the server.» en un popup en español.** No
+era nuestro: lo tira el runtime de Next cuando una pestaña abierta desde antes de un
+deploy llama a una server action cuyo id ya no existe. Llegaba CRUDO al popup, y el
+botón que ofrecía era «Volver a intentar» — que sobre una pestaña vieja falla igual
+las veces que se apriete. Ahora se clasifica (`pagina_vieja`) y el botón dice
+«Recargar y conectar».
+
+⚠️ La firma para reconocerlo: **un texto en inglés dentro de una interfaz en español
+es un `e.message` crudo de una capa que no es nuestra.** Si además el remedio que
+ofrece el botón no tiene nada que ver con esa capa, el mensaje no está clasificado.
+
+**Y el décimo sitio que clavaba `labs.google`**: el listener que late apenas carga
+Flow. No rompía nada — sólo hacía que la buena noticia tardara hasta 30 s. Los nueve
+del barrido anterior eran los que rompían; el que no rompe es el que se queda.
+
+### El nombre del archivo lleva la versión
+
+`public/mako-puente-<versión>.zip`, y la URL se DERIVA de `EXTENSION_VERSION`.
+
+Un nombre fijo tiene tres formas de servir bytes viejos, y las tres son silenciosas:
+el caché del navegador, el del CDN, y —la que más muerde— **la carpeta de Descargas**.
+Si ya existe `mako-puente.zip`, Chrome guarda la nueva como `mako-puente (1).zip` y la
+carpeta descomprimida anterior sigue ahí con el mismo nombre. La persona carga la
+vieja y no tiene forma de saberlo. Este repo ya pagó esa exacta: un cliente estuvo
+horas corriendo una copia de dos horas antes.
+
+⚠️ Y el detalle que lo hace valer el doble: **el zip trae los archivos SUELTOS en la
+raíz**, así que la carpeta que queda al descomprimir hereda el nombre del archivo. El
+paso de «elegí la carpeta» —donde más gente se perdió— deja de ser ambiguo solo.
+
+Dos guardas alrededor: el generador **borra la anterior** en la misma corrida (dos
+zips en `public/` son dos candidatos, que es el problema con otro nombre), y
+`/mako-puente.zip` queda como **ruta que redirige** a la vigente y sin cachear, para
+que un link viejo no dé 404 ni entregue algo viejo. El redirect es 307 y no 301 a
+propósito: un permanente lo guarda el navegador para siempre y la próxima versión no
+lo podría mover.
+
 ### Lo que quedó SIN medir
 
 - **Si `flow.google.com` sirve su tRPC bajo `/fx/api/trpc/` o bajo otro prefijo.** La
