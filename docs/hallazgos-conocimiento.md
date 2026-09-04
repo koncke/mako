@@ -6841,3 +6841,62 @@ y todo parece haber funcionado.
   El costo de las dos versiones NO es simétrico y hay que decirlo en el prompt: acá una
   portada tipográfica de más no rompe nada, pero exigir un retrato de estudio a un fotograma
   de alguien dando clase deja a los 13 cursos sin foto.
+
+## TRES chequeos para la misma pregunta, y los tres mintieron distinto
+
+**Vive en:** `scripts/curso-drive-ids-por-ruta.mjs` · `scripts/curso-reparar-ids.mjs` ·
+`scripts/curso-faltantes-por-archivo.mjs`
+
+La pregunta era una sola: **¿qué videos de la carpeta de Drive de un curso no están
+publicados?** Se contestó tres veces, con tres claves distintas, y cada respuesta era
+falsa a su manera. Vale la pena leer las tres seguidas porque el error se corre de lugar,
+no desaparece.
+
+| Se cruzó por | Dijo | Por qué mentía |
+|---|---|---|
+| **TÍTULO** (`curso-drive-vs-portal`) | «JADS: coinciden 11%, dado por cargado y no lo está» | En el portal los títulos están LIMPIOS y en Drive son nombres de archivo. Medía nuestra propia limpieza. Cruzado por id: **109 de 109**. |
+| **NOMBRE DE ARCHIVO** | «bluehacker: 233 sueltos» | Esos 233 se RENOMBRARON en Drive después de subirse. El nombre cambió, el contenido no, y el portal —que reproduce por id— nunca se enteró. |
+| **ID DE DRIVE** | «tiktok: 51 clases con el id equivocado» | Hay **DOS carpetas vivas** llamadas «TikTok 100k – Jordi Segués». El mapa recorrió las dos, cada ruta apareció dos veces con ids distintos, y el `Map.set` se quedó con la última. |
+
+**El id es una clave y el título es un parecido** ya estaba escrito. Lo que faltaba: **el
+nombre de archivo también es un parecido** (dura hasta que alguien renombra), y **la ruta
+tampoco es una clave si el contenedor está duplicado**.
+
+⚠️ **Y la tercera casi rompe producción.** Las 51 «correcciones» de TikTok eran falsas: los
+ids ORIGINALES nombraban exactamente el archivo correcto. Aplicarlas habría dejado 51
+clases reproduciendo el video de otra lección — que abre, reproduce y hasta tiene
+transcripción, o sea el síntoma cero. Lo que lo frenó fue no creerle al chequeo nuevo y
+preguntarle a la metadata **qué nombra el id VIEJO**. Contestó «el archivo correcto», y ahí
+se cayó la teoría.
+
+  **La regla operativa: antes de ESCRIBIR una corrección masiva, verificá qué tenía de malo
+  el valor viejo.** No alcanza con que el valor nuevo parezca bien: si el viejo también
+  estaba bien, lo que hay que arreglar es el chequeo. Son dos consultas y evita el peor
+  resultado posible, que es romper lo que funcionaba con cara de haberlo reparado.
+
+## El id resuelto por NOMBRE dentro del curso: 98 clases con el video de otra
+
+**Vive en:** `scripts/curso-plan-desde-drive.mjs` · `scripts/curso-drive-ids.mjs`
+
+`idsDeDrive` busca cada archivo por NOMBRE acotando a la carpeta del curso. Ese scope se
+agregó para resolver los cinco `recurso-01.pdf` de cursos distintos, y deja vivo el problema
+de adentro: **dentro de un mismo curso el mismo nombre existe en varios módulos.** En
+«Fórmula Ventas Ilimitadas 2024» el archivo «4. Tipos de anuncios para productos.mp4» está
+en los módulos 2, 3 y 4, y las tres clases se quedaron con el id del primero.
+
+Medido sobre los 13 cursos cargados desde Drive: **98 clases en 2 cursos** apuntando a un
+video que no es el suyo (48 en Fórmula, 6 en JADS por pares homónimos, más los que sólo se
+ven cruzando por ruta). Reparadas: 51 ids reasignados.
+
+- **No da NINGÚN síntoma.** La clase abre, reproduce un video de verdad y tiene
+  transcripción; sólo que de otra lección. Ni un 404, ni una imagen rota, ni un log.
+- ⚠️ **Y se lleva puesta una transcripción.** El texto vive en
+  `public/cono-tx/<videoId>.json`, así que dos clases con el mismo id escriben el MISMO
+  archivo y la segunda pisa a la primera. Arreglar los ids obliga a re-transcribir: el
+  reparador lo dice al final con el comando exacto.
+- **La firma para detectarlo en 5 segundos:** contar ids DISTINTOS contra clases. «215
+  clases, 167 ids» es imposible sin duplicados. Pero **subcuenta**: un id puede estar mal
+  sin estar repetido, y eso sólo lo ve el cruce por ruta.
+- **La regla, una capa más adentro de la que ya estaba escrita:** acotar el universo no
+  alcanza si adentro del universo hay repetidos. La clave tiene que ser única EN EL NIVEL
+  DONDE SE CONSULTA, no en el de arriba.
