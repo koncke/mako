@@ -1,7 +1,7 @@
-/**
+﻿/**
  * Recorre los pasos del onboarding de /video-generator y captura cada uno.
- * Mismos gotchas que scripts/mirar-pantalla.mjs, más uno propio: ANTES va
- * `npx tsx --env-file=.env.local _ws1.mts guardar` y DESPUÉS `restaurar`.
+ * Mismos gotchas que scripts/mirar-pantalla.mjs, mÃ¡s uno propio: ANTES va
+ * `npx tsx --env-file=.env.local _ws1.mts guardar` y DESPUÃ‰S `restaurar`.
  * uso (PowerShell, no Git Bash): node _recorrer.mjs <carpeta>
  */
 import { spawn } from 'node:child_process';
@@ -10,6 +10,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const SALIDA = process.argv[2] ?? '.';
+// ⚠️ El puerto de la app se PASA, no se asume. Next arranca en 3001 si otra
+// sesion ya tiene el 3000, y el script aterriza en «localhost rechazo la
+// conexion» — que se lee como que la app esta rota.
+const PUERTO_APP = process.env.MAKO_PUERTO || '3000';
+
 const ANCHO = 1440, ALTO = 1100, PUERTO = 9335;
 mkdirSync(SALIDA, { recursive: true });
 
@@ -29,7 +34,7 @@ async function objetivo() {
       const j = await (await fetch(`http://127.0.0.1:${PUERTO}/json/list`)).json();
       const t = j.find((x) => x.type === 'page');
       if (t?.webSocketDebuggerUrl) return t.webSocketDebuggerUrl;
-    } catch { /* todavía no levantó */ }
+    } catch { /* todavÃ­a no levantÃ³ */ }
     await dormir(250);
   }
   throw new Error('chrome no expuso el puerto');
@@ -49,7 +54,7 @@ const val = async (e) => (await cdp('Runtime.evaluate', { expression: e, returnB
 await cdp('Page.enable');
 await cdp('Runtime.enable');
 await cdp('Emulation.setDeviceMetricsOverride', { width: ANCHO, height: ALTO, deviceScaleFactor: 1, mobile: false });
-await cdp('Page.navigate', { url: 'http://localhost:3000/api/auth/dev-login?ws=1&next=/video-generator' });
+await cdp('Page.navigate', { url: `http://localhost:${PUERTO_APP}/api/auth/dev-login?ws=1&next=/video-generator` });
 
 async function asentarse() {
   let previo = -1, quietas = 0;
@@ -66,19 +71,19 @@ async function asentarse() {
   }
 }
 
-for (let i = 1; i <= 6; i++) {
+for (let i = 1; i <= 9; i++) {
   await asentarse();
   const titulo = await val("(document.querySelector('h2')||{}).innerText || '(sin h2)'");
   const shot = await cdp('Page.captureScreenshot', { format: 'png' });
   const ruta = join(SALIDA, `p${i}.png`);
   writeFileSync(ruta, Buffer.from(shot.data, 'base64'));
-  console.log(`\n── ${i}. «${titulo}» → ${ruta}`);
-  if (i === 6) break;
+  console.log(`\nâ”€â”€ ${i}. Â«${titulo}Â» â†’ ${ruta}`);
+  if (i === 9) break;
   const ok = await val(`(() => {
     const b = [...document.querySelectorAll('button')].find((x) => x.innerText.trim() === 'Siguiente');
     if (!b) return false; b.click(); return true;
   })()`);
-  if (!ok) { console.error('   ⚠ sin «Siguiente»: me quedo acá'); break; }
+  if (!ok) { console.error('   âš  sin Â«SiguienteÂ»: me quedo acÃ¡'); break; }
   await dormir(2600);
 }
 

@@ -39,6 +39,11 @@ const HOVER = process.argv[6] ?? '';
  * paso. Antes de usarlo, `scripts/onboarding-vg-respaldo.mts guardar`.
  */
 const AVANCES = Number(process.argv[7] ?? 0);
+// ⚠️ El puerto de la app se PASA, no se asume. Next arranca en 3001 si otra
+// sesion ya tiene el 3000, y el script aterriza en «localhost rechazo la
+// conexion» — que se lee como que la app esta rota.
+const PUERTO_APP = process.env.MAKO_PUERTO || '3000';
+
 const PUERTO = 9333;
 
 const CHROME = [
@@ -108,7 +113,7 @@ correlo con PowerShell, no con Git Bash`);
   process.exit(1);
 }
 
-await cdp('Page.navigate', { url: `http://localhost:3000/api/auth/dev-login?ws=1&next=${encodeURIComponent(RUTA)}` });
+await cdp('Page.navigate', { url: `http://localhost:${PUERTO_APP}/api/auth/dev-login?ws=1&next=${encodeURIComponent(RUTA)}` });
 
 // âš ï¸ Se espera a que el texto se quede QUIETO, no a un timeout. Ver gotcha 4.
 let previo = -1, quietas = 0;

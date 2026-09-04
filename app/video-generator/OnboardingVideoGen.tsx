@@ -32,11 +32,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 // contenido en una tarjeta y le ponía un kicker arriba.
 import { Estudio } from './WizardAnuncio';
 import { ModalFotos } from './ElegirFoto';
+import ServicioConfigForm from '@/app/integraciones/ServicioConfigForm';
 import { Button, Select } from '@/app/_ui';
-// ⚠️ La CUARTA forma de navegar del repo. Un `window.location.href` pelado pierde
-// la pestaña del cliente que se está mirando, y eso no falla: te deja en OTRA cuenta.
-import { conWs } from '@/lib/ws-tab';
-import { useWs } from '@/app/_ui/Link';
 import { Icon } from '../_components/icons';
 import { ACENTOS_ES, MULETILLAS, ETIQUETA_ACENTO, ZONA_DEL_ACENTO, REGIONES, acentoDeZona, muletillasQueSobreviven, type AcentoId } from '@/lib/acento-workspace';
 import type { Puente } from '@/lib/flow-cola';
@@ -528,7 +525,8 @@ export function OnboardingVideoGen({
   const [nuevaMuletilla, setNuevaMuletilla] = useState('');
   /** ¿El cliente tiene cargada su key de ElevenLabs? `null` = todavía no se sabe. */
   const [hayKeyEleven, setHayKeyEleven] = useState<boolean | null>(null);
-  const ws = useWs();
+  /** El formulario de la key, abierto ahí mismo en vez de mandar a otra pantalla. */
+  const [conectandoEleven, setConectandoEleven] = useState(false);
 
   /**
    * Detectar el acento por la ubicación de la persona.
@@ -636,22 +634,40 @@ export function OnboardingVideoGen({
     setEscuchando(false);
   }, [escuchando, linea]);
 
-  useEffect(() => {
-    let vivo = true;
-    void fetch('/api/onboarding/voz')
-      .then((r) => r.json())
-      .then((j: { ok: boolean; muestras?: { id: string; nombre: string }[]; clon?: { voiceId: string; nombre: string } | null; hayKey?: boolean }) => {
-        if (!vivo || !j.ok) return;
-        setMuestras(j.muestras ?? []);
-        setClon(j.clon ?? null);
-        // ⚠️ `?? null` y no `?? false`: «todavía no contestó» y «no tiene key» son
-        // cosas distintas, y pintarlas igual muestra «conectá ElevenLabs» por un
-        // parpadeo a alguien que sí la tiene.
-        setHayKeyEleven(j.hayKey ?? null);
-      })
-      .catch(() => { /* sin esto el paso arranca vacío, que es un estado válido */ });
-    return () => { vivo = false; };
+  /**
+   * Volver a leer el estado de la voz.
+   *
+   * ⚠️ ERA UN EFECTO DE UNA SOLA VEZ, y por eso «conecté ElevenLabs y me aparece
+   * todavía que lo tengo que conectar» (textual del dueño acompañando a un
+   * cliente). El wizard leía `hayKey` al montarse y nada lo volvía a leer nunca:
+   * la persona iba a cargar su key, volvía, y la pantalla seguía en el estado de
+   * antes hasta un F5.
+   *
+   * Es la misma regla que el puente ya cumplía a dos pantallas de acá: el estado
+   * se lee VIVO, no se recuerda.
+   */
+  const leerVoz = useCallback(async () => {
+    try {
+      const j = (await (await fetch('/api/onboarding/voz')).json()) as
+        { ok: boolean; muestras?: { id: string; nombre: string }[]; clon?: { voiceId: string; nombre: string } | null; hayKey?: boolean };
+      if (!j.ok) return;
+      setMuestras(j.muestras ?? []);
+      setClon(j.clon ?? null);
+      // ⚠️ `?? null` y no `?? false`: «todavía no contestó» y «no tiene key» son
+      // cosas distintas, y pintarlas igual muestra «conectá ElevenLabs» por un
+      // parpadeo a alguien que sí la tiene.
+      setHayKeyEleven(j.hayKey ?? null);
+    } catch { /* el estado de antes sigue siendo lo mejor que se sabe */ }
   }, []);
+
+  useEffect(() => {
+    void leerVoz();
+    // Al volver de otra pestaña: si fue a sacar su key a elevenlabs.io, la
+    // pantalla se entera sola en vez de esperar un F5.
+    const alVolver = () => { if (document.visibilityState === 'visible') void leerVoz(); };
+    document.addEventListener('visibilitychange', alVolver);
+    return () => document.removeEventListener('visibilitychange', alVolver);
+  }, [leerVoz]);
 
   const subirVoz = useCallback(async (files: FileList | null) => {
     if (!files?.length) return;
@@ -1215,23 +1231,48 @@ export function OnboardingVideoGen({
               ElevenLabs: es la presencia de la fila. Y con `null` —todavía no
               contestó— no se pinta nada, porque mostrar «conectá ElevenLabs» por
               un parpadeo a alguien que sí la tiene es peor que esperar. */}
+          {/* ⚠️ LA KEY SE CARGA ACÁ, SIN SALIR DE LA TAB.
+
+              Esto era un `window.location.href` a /integraciones. El dueño, en el
+              momento: «ahora tenés que volver a la app. Lo que voy a hacer es que
+              no te saque de la app, que te redirija automáticamente».
+
+              Y sacarlo de la tab no era sólo un viaje de ida y vuelta: el wizard se
+              re-monta al volver, así que además perdía el paso en el que estaba.
+              Dos fallas del mismo click.
+
+              `ServicioConfigForm` ya se monta fuera de /integraciones en tres
+              pantallas (ConectarIA, PanelActivacion y el onboarding global), así
+              que no hay nada que inventar: es el MISMO formulario, con el mismo
+              tutorial y el mismo ping. */}
           {hayKeyEleven === false && (
-            <div style={{ display: 'grid', gap: 16, justifyItems: 'center' }}>
-              <div style={{
-                fontSize: 'var(--fs-card)', color: 'var(--dim)', lineHeight: 1.55,
-                textAlign: 'center', maxWidth: 460,
-              }}>
-                La voz clonada se cobra por minuto, así que corre con <strong>tu propia
-                cuenta de ElevenLabs</strong>. Se crea en dos minutos.
-              </div>
-              <Button
-                variant="mako"
-                size="lg"
-                icon={<Icon name="plug" size={16} />}
-                onClick={() => { window.location.href = conWs('/integraciones?abrir=elevenlabs', ws); }}
-              >
-                Conectar ElevenLabs
-              </Button>
+            <div style={{ display: 'grid', gap: 16, justifyItems: 'center', width: '100%' }}>
+              {!conectandoEleven ? (
+                <>
+                  <div style={{
+                    fontSize: 'var(--fs-card)', color: 'var(--dim)', lineHeight: 1.55,
+                    textAlign: 'center', maxWidth: 460,
+                  }}>
+                    La voz clonada se cobra por minuto, así que corre con <strong>tu propia
+                    cuenta de ElevenLabs</strong>. Se crea en dos minutos.
+                  </div>
+                  <Button
+                    variant="mako"
+                    size="lg"
+                    icon={<Icon name="plug" size={16} />}
+                    onClick={() => setConectandoEleven(true)}
+                  >
+                    Conectar ElevenLabs
+                  </Button>
+                </>
+              ) : (
+                <div style={{ width: '100%', textAlign: 'left' }}>
+                  <ServicioConfigForm
+                    servicioKey="elevenlabs"
+                    onGuardado={() => { void leerVoz(); }}
+                  />
+                </div>
+              )}
               {/* Que se pueda seguir sin esto es la mitad del diseño: el paso es
                   opcional y sin clon el anuncio se monta igual, con la voz que
                   genera Flow. Lo que se pierde es que suene a la persona. */}
@@ -1241,7 +1282,6 @@ export function OnboardingVideoGen({
               </div>
             </div>
           )}
-
           {hayKeyEleven !== false && !clon && (
             <>
               {muestras.length > 0 && (
