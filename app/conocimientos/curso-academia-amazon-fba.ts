@@ -38,7 +38,7 @@ export const CURSO_ACADEMIA_AMAZON_FBA: Curso = {
       vn: 1,
       grupo: 'MÓDULO 0 - INTRODUCCIÓN',
       modulo: 1,
-      titulo: 'Introducción y bienvenida.mp4',
+      titulo: 'Introducción y bienvenida',
       cardDesc: '03:24 · MÓDULO 0 - INTRODUCCIÓN',
       videoId: '19dag1KdtToVW9i-SVMHVPdennh-C8QyV',
       resumen: '',

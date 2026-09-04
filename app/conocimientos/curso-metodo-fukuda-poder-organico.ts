@@ -515,7 +515,7 @@ export const CURSO_METODO_FUKUDA_PODER_ORGANICO: Curso = {
       vn: 5,
       grupo: 'NiICHO DEL DINERO $ - High ticket',
       modulo: 8,
-      titulo: '5.Cómo vender productos high ticket  por Tiktok',
+      titulo: '5.Cómo vender productos high ticket por Tiktok',
       cardDesc: '34:43 · NiICHO DEL DINERO $ - High ticket',
       videoId: '1dnXZg9czrzsHZFipvBlEg4pzT8bv7w-S',
       resumen: '',

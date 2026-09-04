@@ -284,7 +284,7 @@ export const CURSO_MANYCHAT_MASTER_INSTAGRAM: Curso = {
       vn: 8,
       grupo: 'Módulo 4 - Los Secretos de MI Es',
       modulo: 4,
-      titulo: '8. CRUCIAL -  Dónde mando mis automatizaciones para vender',
+      titulo: '8. CRUCIAL - Dónde mando mis automatizaciones para vender',
       cardDesc: '16:20 · Módulo 4 - Los Secretos de MI Es',
       videoId: '1WYf4lyePetfGQqi9u5Ka9xGZq2z4NyN0',
       resumen: '',

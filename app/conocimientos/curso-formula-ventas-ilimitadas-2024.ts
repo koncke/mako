@@ -2835,7 +2835,7 @@ export const CURSO_FORMULA_VENTAS_ILIMITADAS_2024: Curso = {
       vn: 7,
       grupo: 'Creación de contenido para Marca personal',
       modulo: 23,
-      titulo: '25. Crea contenido con CHAT GPT (Bono) - Método Contenido Irresistible · Contenido Irresistible - 1280x720 2755K - copia',
+      titulo: '25. Crea contenido con CHAT GPT (Bono) - Método Contenido Irresistible · Contenido Irresistible',
       cardDesc: 'Creación de contenido para Marca personal',
       videoId: '1qdw0ETX9Zo-mOmjC_fDczPPB_BiJekrg',
       resumen: '',
