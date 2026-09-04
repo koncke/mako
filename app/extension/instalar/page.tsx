@@ -37,6 +37,7 @@ import { Pagina, Lectura, PageHeader, Alert, Section } from '@/app/_ui';
 import { EXTENSION_VERSION } from '@/lib/extension-version';
 import { EXTENSION_EN_TIENDA, EXTENSION_URL_TIENDA, EXTENSION_URL_ZIP } from '@/lib/extension-tienda';
 import { Pasos } from './Pasos';
+import { FiguraAnclar } from './FiguraAnclar';
 import { Icon } from '@/app/_components/icons';
 
 export const metadata: Metadata = { title: 'Instalar la extensión' };
@@ -78,7 +79,11 @@ export default function InstalarExtension() {
               // y concluye que la instalación salió mal — cuando salió bien. Es el mismo
               // defecto que el paso de Flow que ya se agregó acá: un paso verificable de
               // menos convierte un instructivo correcto en uno que no se puede terminar.
-              'Arriba a la derecha, toca el ícono de **pieza de rompecabezas** y, al lado de MaKo, el **alfiler**. El ícono de MaKo queda fijo en la barra.',
+              {
+                texto: 'Arriba a la derecha, toca el ícono de **pieza de rompecabezas** y, al lado de '
+                  + 'MaKo, el **alfiler**. El ícono de MaKo queda fijo en la barra.',
+                figura: <FiguraAnclar />,
+              },
               'Toca el ícono de MaKo y después **Conectar**.',
               // ⚠️ ESTE PASO FALTABA, Y ES EL QUE COSTÓ UNA TARDE.
               //
@@ -122,7 +127,11 @@ export default function InstalarExtension() {
                   + 'Arriba a la derecha, enciende **Modo de desarrollador**.',
                 'Toca **Cargar descomprimida** y elige la carpeta **mako-puente**.',
                 // Ver la nota de arriba: sin anclar, el ícono no está en la barra.
-                'Arriba a la derecha, toca el ícono de **pieza de rompecabezas** y, al lado de MaKo, el **alfiler**. El ícono de MaKo queda fijo en la barra.',
+                {
+                  texto: 'Arriba a la derecha, toca el ícono de **pieza de rompecabezas** y, al lado de '
+                    + 'MaKo, el **alfiler**. El ícono de MaKo queda fijo en la barra.',
+                  figura: <FiguraAnclar />,
+                },
                 'Toca el ícono de MaKo y después **Conectar**.',
                 // ⚠️ ESTE PASO FALTABA, Y ES EL QUE COSTÓ UNA TARDE.
                 //
@@ -186,7 +195,11 @@ export default function InstalarExtension() {
                 'En **chrome://extensions**, toca **Cargar descomprimida** y elige esa carpeta.',
                 // Al reinstalar, el anclado se pierde con el **Quitar** del primer paso:
                 // vuelve a hacer falta, igual que en una instalación nueva.
-                'Arriba a la derecha, toca el ícono de **pieza de rompecabezas** y, al lado de MaKo, el **alfiler**.',
+                {
+                  texto: 'Arriba a la derecha, toca el ícono de **pieza de rompecabezas** y, al lado de '
+                    + 'MaKo, el **alfiler**.',
+                  figura: <FiguraAnclar />,
+                },
                 `Toca el ícono de MaKo en la barra de Chrome. Abajo del todo tiene que decir `
                   + `**v${EXTENSION_VERSION}**. Si dice otro número, elegiste otra carpeta: `
                   + `repite el paso anterior con la que acabas de descomprimir.`,

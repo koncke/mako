@@ -20,8 +20,17 @@ function conNegritas(t: string) {
   ));
 }
 
+/**
+ * Un paso. Con figura cuando la instrucción nombra algo que hay que RECONOCER.
+ *
+ * ⚠️ La figura viaja PEGADA a su texto y no por índice. Insertar un paso en el
+ * medio —que es exactamente lo que pasó al agregar el de anclar— correría todos
+ * los índices y la figura terminaría ilustrando otra cosa, sin que nada falle.
+ */
+type Paso = string | { texto: string; figura: React.ReactNode };
+
 export function Pasos({ pasos, zip, botonTexto = 'Descargar la extensión', conBoton = true }: {
-  pasos: string[];
+  pasos: Paso[];
   /** A dónde va el botón: el zip, o la ficha de la tienda. */
   zip: string;
   /** La versión, sólo para que el llamador no pueda olvidarse de pasarla. */
@@ -48,10 +57,17 @@ export function Pasos({ pasos, zip, botonTexto = 'Descargar la extensión', conB
       // el que la sigue vuelve a buscar «en cuál iba».
       fontVariantNumeric: 'tabular-nums',
     }}>
-      {pasos.map((p, i) => (
+      {pasos.map((p, i) => {
+        const texto = typeof p === 'string' ? p : p.texto;
+        const figura = typeof p === 'string' ? null : p.figura;
+        return (
         // `display: list-item` repuesto: es lo que la grilla le sacó.
         <li key={i} style={{ display: 'list-item' }}>
-          <div>{conNegritas(p)}</div>
+          <div>{conNegritas(texto)}</div>
+          {/* Debajo del texto y no en lugar de él: la figura dice DÓNDE está el
+              control, y el texto qué hacer con él. Sin el dibujo hay que adivinar
+              cuál de los íconos del rincón es; sin el texto, qué se hace después. */}
+          {figura && <div style={{ marginTop: 10, marginBottom: 2 }}>{figura}</div>}
           {/* El botón vive DENTRO del paso que lo pide, no al final de la lista.
               Un botón al pie obliga a leer los seis pasos antes de poder empezar
               el primero. */}
@@ -71,7 +87,8 @@ export function Pasos({ pasos, zip, botonTexto = 'Descargar la extensión', conB
             </div>
           )}
         </li>
-      ))}
+        );
+      })}
     </ol>
   );
 }
