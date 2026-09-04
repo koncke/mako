@@ -1198,4 +1198,38 @@ está congelada. Filtrar por eso descarta justo lo que se quería medir. Se mide
 `circle`/`text` de adentro, y acotando por NIVEL a lo que ese paso revela — si no, el polvo
 que todavía no nació cuenta como visible y da un choque que no existe.
 
+### Un prototipo que muestra el resultado sin dejar hacer el gesto no se puede probar
+
+El paso de los documentos mostraba tres archivos ya subidos, con su tilde. Se ve bien y no
+sirve: lo que hay que ver funcionar antes de construirlo es justo el gesto de soltarlos.
+Ahora arranca con la zona para soltar, y las opciones («Está bien, sigue», «Corregir algo»)
+**no existen hasta que haya documentos** — antes aparecían ofreciendo aprobar algo que todavía
+no estaba.
+
+> Si el prototipo tiene un estado final bonito y ningún camino para llegar a él, lo que se
+> está mostrando es la pantalla, no la interacción.
+
+### `overflow:hidden` recorta en la caja de PADDING: reservar aire no impide pintar ahí
+
+Se le dio `padding-top` a la banda del mapa para dejarle lugar al contador de preguntas. No
+alcanza: el padding reserva espacio para el CONTENIDO, pero `overflow:hidden` recorta en el
+borde exterior del padding, así que el SVG con `overflow:visible` seguía pintando encima del
+contador. Lo que sí lo resuelve es la **máscara**, que además desvanece en vez de cortar.
+
+### Cuando la geometría no da, el ajuste no es el margen: es aceptar que no entra
+
+El grafo es radial —tan alto como ancho— y la banda es 2:1. El alto manda siempre y el ancho
+sobra, así que meter las 16 piezas adentro deja los nodos de 5 px y los nombres ilegibles.
+Se probaron dos rondas de márgenes y no movió la aguja, porque el problema no eran los
+márgenes.
+
+> **Un piso de escala, y cuando el piso gana el encuadre sigue al último nodo que nació.** Lo
+> que se va por los bordes se va donde la banda ya se desvanece, así que se lee como que el
+> mapa continúa y no como que se cortó. Un mapa ilegible completo vale menos que un pedazo
+> legible.
+
+⚠️ Y al animar un SVG: **rotar un grupo rota todo lo que tiene adentro.** El giro de 90° del
+rombo se veía bien hasta notar que el grupo también contiene los ojos y los dejaba de costado.
+El giro va en la pieza simétrica (el cuerpo); los ojos ni se enteran.
+
 *Rediseño del 04/09/2026 · panel de 24 agentes (3 propuestas × 3 jueces por problema).*
