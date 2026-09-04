@@ -5651,3 +5651,88 @@ la app le dice a la extensión que quedó vieja.
 
 *Reportado con captura el 04/09/2026 · diagnosticado leyendo el manifest, sin corrida
 de agentes: el `grep` del dominio dio el mapa completo en una llamada.*
+
+---
+
+## Google no mudó Flow: lo REESCRIBIÓ. El protocolo del puente ya no existe
+
+*04/09/2026 · medido leyendo el tráfico de una cuenta real, dentro de un proyecto
+cargado, en el navegador de la clienta.*
+
+**Vive en:** todo `extension/` · el mecanismo entero, no un archivo
+
+### La medición
+
+```
+POST https://flow.google.com/_/AiSandboxAngularFrontend/data/batchexecute
+     ?rpcids=<id>&source-path=/project/<uuid>
+     &bl=boq_labs-ai-sandbox-frontend_20260903.13_p0
+```
+
+Eso es **BOQ / batchexecute**, el transporte RPC interno de Google. Dentro de un
+proyecto cargado, con contenido, es lo ÚNICO que la app llama. `rpcids` vistos:
+`xI9TVb`, `UpteDb`, `NfrxTb`, `ve2Lsc`, `DTaVef`.
+
+Y lo que **no** hay, que es lo que importa:
+
+| Lo que el puente captura | En el Flow nuevo |
+|---|---|
+| `Authorization: Bearer ya29.…` | **no existe** — BOQ autentica con cookies |
+| `?key=AIza…` | **no existe** |
+| `/v1/projects/<id>/…` | **no existe** |
+| `aisandbox-pa.googleapis.com` | **cero llamadas** |
+
+O sea que el protocolo entero —capturar el bearer y la apiKey al pasar, y repetir
+después las llamadas REST desde el service worker— **no tiene contraparte**. No falta
+un permiso ni un patrón de host: lo que capturamos ya no se emite.
+
+**Y no hay a dónde volver:** `labs.google/fx/tools/flow` dejó de ser la app. Hoy es
+una landing de marketing con un botón «Create with Google Flow».
+
+### ⚠️ Dos veces en dos días, una causa verdadera tapó a la de abajo
+
+El 03/09 el síntoma era «abro Flow y no lo detecta». Causa encontrada: el filtro
+`discarded`. **Verdadera**, arreglada, y no era la causa.
+
+El 04/09, con eso arreglado: «mudaron el dominio a flow.google.com». **Verdadera**,
+arreglada, y tampoco era la causa — la mudanza vino con una reescritura.
+
+El patrón: cada arreglo correcto destapaba el siguiente y el síntoma seguía igual. La
+señal que había que leer antes es que **el síntoma no se movía**. Cuando un arreglo
+correcto no cambia lo que la persona ve, la hipótesis por defecto no es «falta
+desplegar» ni «falta otro detalle del mismo tipo»: es que **el modelo del problema es
+de la generación anterior del sistema que estamos mirando**.
+
+Lo que lo habría cortado el primer día es la pregunta que finalmente lo resolvió:
+**qué llama la página, leído del tráfico real**. No estaba disponible antes por falta
+de acceso al navegador de un cliente; en cuanto lo hubo, tardó cuatro llamadas.
+
+### Lo que se pudo arreglar hoy: que el producto deje de mentir
+
+Nada de esto arregla la generación. Arregla que la persona sepa qué pasa:
+
+- El popup decía **«Inicia sesión en Google Flow»** a alguien logueada, dentro de su
+  proyecto, con su avatar y su plan a la vista. Ahora dice que Google cambió Flow, que
+  no es nada de su cuenta, y **no ofrece botón de reintentar**: un botón ahí manda a
+  repetir algo que no puede salir bien, y eso es lo que hace que la próxima vez nadie
+  lea el cartel.
+- La pantalla de MaKo decía **«Falta abrir Google Flow»** — la misma mentira en la
+  otra superficie. `estadoDelPuente` tiraba el `detalle` que el navegador manda en
+  cada latido y ponía su frase fija. Ahora el detalle gana.
+
+### Los caminos, con lo que cuesta cada uno
+
+1. **Reimplementar contra `batchexecute`.** Hay que revertir los `rpcids`, la forma
+   del `f.req` y el token `at`. Es el camino que conserva el modelo actual (el
+   navegador del cliente genera con su cuenta). ⚠️ Frágil de una forma nueva: los
+   `rpcids` y el `bl` rotan con cada bundle de Google —el medido es del 03/09—, así
+   que lo que hoy es «se rompió una vez» pasaría a ser mantenimiento continuo.
+2. **Manejar la UI de la página** en vez de la API: escribir el prompt, apretar
+   generar, leer el resultado. Inmune a los cambios de protocolo, frágil a los de
+   layout. Es lo que sobrevive a la próxima reescritura.
+3. **Una API paga.** Ya está evaluado en este documento, con sus precios y sus
+   términos de reventa.
+
+*Medido el 04/09/2026 con acceso al navegador de la clienta · sin corrida de agentes:
+cuatro llamadas al tráfico contestaron lo que dos días de lectura de código no
+podían.*
