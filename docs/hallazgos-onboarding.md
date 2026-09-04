@@ -1296,4 +1296,50 @@ la misma frase de 40 letras), pero eso sólo se pudo medir con la ventana VISIBL
 [[verificar-en-navegador]]: en la pestaña oculta cualquier número de tiempo es el del
 estrangulamiento, no el del código.
 
+### Lo que se rompe al renombrar un flujo entero, y cómo se atrapa
+
+Reescribir los 28 turnos y renombrar todas las escenas dejó **10 regresiones confirmadas** (16
+halladas, 6 refutadas). Casi todas son la misma familia: **una referencia que nadie actualiza
+porque no está escrita como referencia, sino como texto.**
+
+- **El nombre de escena escrito a mano.** `presentarse()` hacía `ir('diagnostico')`, una escena
+  que el renombre borró: `TURNOS['diagnostico']` quedaba `undefined` y el primer turno se
+  dibujaba VACÍO — sin pregunta, sin opciones y sin widget. Ahora deriva del recorrido
+  (`ESCENAS[0]`). **Lo que se puede derivar del recorrido no se escribe aparte.**
+
+- **El estado inicial escrito DOS veces** —el constructor y `reiniciar()`— y las banderas
+  nuevas sólo entraron en uno. `canal` y `wa` sobrevivían al «Volver a empezar», así que la
+  segunda vuelta arrastraba decisiones de la primera **en silencio**: quien postergó la
+  verificación de WhatsApp no volvía a ver nunca el turno del código. Una lista que hay que
+  mantener en dos lugares se desincroniza; no es una posibilidad, es cuestión de cuándo.
+
+- **Una salida que no escribe su propia bandera.** «Seguir sin Meta por ahora» prometía saltear
+  tres pantallas y no salteaba ninguna: nunca ponía `meta = false`. Su gemelo de WhatsApp sí lo
+  hacía, y esa asimetría entre dos cosas que se ven iguales es justo lo que nadie revisa.
+
+- **Citarle al usuario una respuesta que nadie guardó.** «Me dijiste $20 – $100 por día» era
+  texto fijo: si había contestado otra cosa, MaKo le atribuía una respuesta que no dio. Es el
+  mismo pecado que obligó a reordenar todo el paso de Meta — afirmar algo que no pasó.
+
+- **La cámara persiguiendo un nodo que se acaba de apagar.** Al volver atrás, `ultimoNodo`
+  seguía apuntando al nodo recién apagado y el encuadre se iba a un pedazo vacío de la banda.
+
+#### El invariante que ahora lo atrapa solo
+
+Un nodo del grafo **no puede nacer de un padre apagado**: la rama se dibuja desde un punto
+vacío y, como el nodo viaja desde su padre, se lo ve salir volando de la nada. Pasó porque
+`a-voz` cuelga de `p-mensaje`, y a `p-mensaje` sólo lo encendía un turno **salteable**.
+
+`scratchpad/dc/probar-grafo.mjs` lee el componente EMITIDO y el SVG del grafo, deduce qué
+turnos tienen `si:` y prueba **todas las combinaciones** de saltear/no saltear. Dos cosas que
+lo hacen valer:
+
+1. **Se comprobó que falla contra el build anterior**, señalando exactamente el defecto
+   reportado. Una prueba que nunca se vio fallar no prueba nada.
+2. La primera versión daba un **falso positivo**: detectaba `si:` en «los 400 caracteres
+   siguientes» al turno, y encontraba el del turno de al lado — acusaba de rota una rama que no
+   existía. Un detector con ventana fija sobre código estructurado miente; hay que recortar el
+   bloque de verdad.
+
+
 *Rediseño del 04/09/2026 · panel de 24 agentes (3 propuestas × 3 jueces por problema).*
