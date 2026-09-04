@@ -60,6 +60,32 @@ export type ClonDeVoz = {
 export type VozCliente = {
   /** El acento que ELIGIÓ. Vacío = todavía no eligió y se sigue infiriendo. */
   acento: AcentoId | '';
+  /**
+   * DE DÓNDE SALIÓ ESE ACENTO.
+   *
+   * ⚠️ SIN ESTO, «lo eligió el cliente» y «lo adivinó el navegador de quien estaba
+   * mirando» son EL MISMO VALOR, y todos los lectores lo tratan como declarado.
+   *
+   * No es teórico: el 02/09/2026 alguien recorrió este wizard para verificarlo en
+   * el workspace de un cliente de Baja California y le dejó guardado el acento
+   * ARGENTINO, porque el paso lo deduce de la zona horaria DEL APARATO de quien
+   * mira. Sin error y sin síntoma — la pantalla mostraba un acento perfectamente
+   * válido, y el siguiente video habría salido rioplatense.
+   *
+   * Y lo que lo vuelve caro es que después no se puede auditar: ni un barrido por
+   * los diez workspaces puede separar los contaminados de los legítimos. El acento
+   * del ws1 se recuperó de los 366 prompts ya mandados a Flow —22 decían «Spoken in
+   * Northern Mexican Spanish»— y eso fue suerte: el ws10 tiene tres trabajos y
+   * ninguno con ese bloque, así que ahí no habría nada que consultar.
+   *
+   * Ausente = escrito antes de que este campo existiera, y por lo tanto DESCONOCIDO.
+   * No se asume 'elegido': asumir es exactamente lo que produjo el incidente.
+   */
+  acentoOrigen?: 'elegido' | 'sugerido-zona';
+  /** La zona horaria con la que se sugirió, cuando el origen es la sugerencia. */
+  acentoZona?: string;
+  /** Cuándo se escribió el acento. Para poder cruzarlo con quién estaba mirando. */
+  acentoAt?: string;
   /** Las muletillas que marcó como suyas, de las de su variedad. */
   muletillas: string[];
   /** Los audios que subió, para poder rehacer el clon sin volver a pedirlos. */
@@ -118,11 +144,25 @@ export async function getVozCliente(): Promise<VozCliente> {
  * resucite una selección que la persona ya no recuerda haber hecho. El dato
  * guardado tiene que poder leerse solo.
  */
-export async function setAcentoCliente(acento: AcentoId): Promise<VozCliente> {
+/**
+ * ⚠️ `origen` NO TIENE DEFAULT, Y ESE ES TODO EL PUNTO. Con un valor por omisión,
+ * el llamador que no piensa en esto escribe «elegido» sobre una adivinanza — que es
+ * literalmente el incidente. Obligarlo hace que la pregunta se conteste una vez, en
+ * el lugar donde se sabe la respuesta: la pantalla, que es la única que sabe si la
+ * persona tocó el control.
+ */
+export async function setAcentoCliente(
+  acento: AcentoId,
+  origen: 'elegido' | 'sugerido-zona',
+  zona = '',
+): Promise<VozCliente> {
   const antes = await getVozCliente();
   const nuevo: VozCliente = {
     ...antes,
     acento,
+    acentoOrigen: origen,
+    acentoZona: origen === 'sugerido-zona' ? zona : undefined,
+    acentoAt: new Date().toISOString(),
     // ⚠️ Cambiar de acento NO borra lo que la persona escribió: sólo las
     // sugerencias de otra variedad. La pantalla ya lo hacía bien y el server no —
     // y el que decide qué se escribe es el server.

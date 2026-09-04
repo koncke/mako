@@ -31,10 +31,34 @@
 
 import 'server-only';
 import { getEstadoOnboarding } from './onboarding-state';
+import { getSetting, setSetting } from './settings';
 import { getEstadoTab, marcarPasoTab } from './tab-onboarding-state';
 import type { PasoOnboarding } from './capas';
 
 const TAB = 'ads-writer';
+
+/**
+ * La marca de «ya se puenteó», y por qué hace falta.
+ *
+ * ⚠️ ESTA MIGRACIÓN ERA UN BUCLE, Y ANULABA EL ÚNICO RESET BIEN HECHO.
+ *
+ * El puente decidía si tenía trabajo mirando `tab.status !== 'done'`. Eso es
+ * correcto la primera vez y falso siempre después: es indistinguible de «todavía
+ * no migré» el caso «lo reabrieron a propósito».
+ *
+ * O sea que reabrir el Copy Generator era IMPOSIBLE POR DISEÑO. `reabrirOnboardingTab`
+ * limpiaba las dos claves, el script verificaba el estado calculado y contestaba «✓
+ * la tab vuelve a abrir en su onboarding», y la primera carga de /ads-writer o de
+ * /video-generator volvía a marcar los cinco `cg_*` desde los flags del onboarding
+ * global. La tab quedaba cerrada otra vez y no había ningún síntoma: el operador ya
+ * había visto su tilde.
+ *
+ * La marca es una clave PROPIA y no un paso: un paso lo borraría el propio reabrir
+ * —que es justo lo que hay que sobrevivir—, y además diría algo falso, porque el
+ * cliente no recorrió ninguna pantalla nueva. Lo que registra es un hecho del
+ * SISTEMA («esta migración ya corrió para este workspace»), no uno del cliente.
+ */
+const KEY_PUENTEADO = 'onboarding.tab.ads-writer.puenteado';
 
 /**
  * Qué paso viejo cierra cuál nuevo, EN ORDEN.
@@ -61,9 +85,13 @@ const EQUIVALENCIAS: ReadonlyArray<readonly [PasoOnboarding, string]> = [
  */
 export async function puentearPasosCopyGen(): Promise<number> {
   try {
+    // Corre UNA vez por workspace. Ver `KEY_PUENTEADO`: sin esto, reabrir el
+    // Copy Generator se deshace solo en el render siguiente.
+    if (await getSetting(KEY_PUENTEADO)) return 0;
+
     const tab = await getEstadoTab(TAB);
     // Ya está cerrada: no hay nada que puentear y no se toca nada.
-    if (tab.status === 'done') return 0;
+    if (tab.status === 'done') { await setSetting(KEY_PUENTEADO, new Date().toISOString()); return 0; }
 
     const global = await getEstadoOnboarding();
     let n = 0;
@@ -76,6 +104,11 @@ export async function puentearPasosCopyGen(): Promise<number> {
       await marcarPasoTab(TAB, nuevo);
       n++;
     }
+    // ⚠️ SE MARCA AUNQUE HAYA PUENTEADO CERO. Un cliente nuevo no tiene flags
+    // viejos que migrar, y ése es el caso normal — dejar la marca sin poner lo
+    // haría releer el onboarding global en cada carga de dos tabs, para siempre, y
+    // sobre todo dejaría el bucle vivo para el día en que sí haya algo que leer.
+    await setSetting(KEY_PUENTEADO, new Date().toISOString());
     return n;
   } catch {
     return 0;

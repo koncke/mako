@@ -203,7 +203,7 @@ export async function estadoConexionAction(): Promise<{ ok: true; estado: Estado
 
 /** Marca un paso del onboarding (contexto / ensayo). `zernio` y `conectar` se
  *  marcan solos al detectar su señal real — no se cierran a mano sin prueba. */
-export async function marcarPasoIgAction(paso: 'contexto' | 'ensayo'): Promise<{ ok: boolean; error?: string }> {
+export async function marcarPasoIgAction(paso: 'ig_contexto' | 'ig_ensayo'): Promise<{ ok: boolean; error?: string }> {
   const ctx = await ctxAdmin();
   if (!ctx.ok) return ctx;
   try {

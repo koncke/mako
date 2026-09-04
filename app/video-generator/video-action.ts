@@ -2095,7 +2095,40 @@ export async function confirmarEscenaAction(
   if (!imgs(item)[String(n)]?.elegida) {
     return { ok: false, error: 'Todavía no hay una imagen de ese escenario para confirmar.' };
   }
-  return { ok: true, item: await guardarImagen(item, n, { confirmada: true }) };
+  const confirmado = await guardarImagen(item, n, { confirmada: true });
+
+  // ⚠️ EL ENSAYO DE LA TAB SE CIERRA ACÁ, y no con un botón del wizard.
+  //
+  // Aprobar el primer escenario es la única prueba de que toda la cadena
+  // funciona: la foto, el acento, el puente y Flow. Un «listo» en el wizard
+  // diría que la tab quedó configurada sin que nada lo haya probado — que es
+  // exactamente lo que el ensayo existe para evitar (regla de la skill
+  // `tab-onboarding`, y el mismo patrón que `landing-an` y `carousels_ensayo`).
+  //
+  // ⚠️ Y ESTABA EN LA FUNCIÓN EQUIVOCADA: vivía dentro de `cambiarMuletillasAction`,
+  // que reescribe el guion. O sea que el comentario describía una cosa y el código
+  // hacía otra, en las dos direcciones:
+  //
+  //   · aprobar el escenario NO cerraba el paso, así que `vg_ensayo` —el último
+  //     no-opcional del catálogo— nunca se marcaba y la tab NUNCA quedaba `done`:
+  //     el wizard volvía a recibir a la persona en el paso 6 de 6 en CADA carga,
+  //     pidiéndole que apretara «Empezar mi primer anuncio» otra vez;
+  //
+  //   · y «Formatear guion» —que sólo se ofrece MIENTRAS NO HAY NADA FILMADO— sí
+  //     lo cerraba, o sea que daba la tab por probada sin un solo cuadro generado,
+  //     que es justo lo que el ensayo existe para impedir.
+  //
+  // Con `catch`: que el estado del onboarding no se pueda escribir NO puede
+  // tumbar la aprobación del escenario, que es lo que la persona vino a hacer.
+  //
+  // ⚠️ Pero el catch NO se come el motivo. `marcarPasoTab` se niega a cerrar un
+  // paso si falta uno anterior, y ése es un fallo REAL —el onboarding quedaría
+  // abierto para siempre sin que nada lo diga—, no un ruido de red.
+  await marcarPasoTab('video-generator', 'vg_ensayo').catch((e) => {
+    console.warn('[video-generator] el escenario se aprobó y vg_ensayo no cerró:', e?.message ?? e);
+  });
+
+  return { ok: true, item: confirmado };
 }
 
 /**
@@ -2194,18 +2227,6 @@ export async function cambiarMuletillasAction(
     escenas: undefined, imagenes: {}, video: {},
   };
   await guardarEnHistorial(actualizado);
-  // ⚠️ EL ENSAYO DE LA TAB SE CIERRA ACÁ, y no con un botón del wizard.
-  //
-  // Aprobar el primer escenario es la única prueba de que toda la cadena
-  // funciona: la foto, el acento, el puente y Flow. Un «listo» en el wizard
-  // diría que la tab quedó configurada sin que nada lo haya probado — que es
-  // exactamente lo que el ensayo existe para evitar (regla de la skill
-  // `tab-onboarding`, y el mismo patrón que `landing-an` y `carousels_ensayo`).
-  //
-  // Con `catch`: que el estado del onboarding no se pueda escribir NO puede
-  // tumbar la aprobación del escenario, que es lo que la persona vino a hacer.
-  await marcarPasoTab('video-generator', 'vg_ensayo').catch(() => { /* el escenario ya quedó aprobado */ });
-
   return { ok: true, item: actualizado };
 }
 

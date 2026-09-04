@@ -77,14 +77,27 @@ export async function marcarPasoVideoAction(
  * de adivinar su zona horaria y el resultado se marcaba `seguro: false` sin que
  * hubiera forma de arreglarlo. Esta action es esa forma.
  */
+/**
+ * ⚠️ `lloTocó` NO ES UN DETALLE DE UI: es la diferencia entre un dato del cliente y
+ * una medición de la máquina de quien estaba mirando.
+ *
+ * El paso del acento arranca con el desplegable ya puesto en lo que dice la zona
+ * horaria del navegador. Apretar «Siguiente» sin tocar nada guardaba eso como si lo
+ * hubiera elegido la persona — y así fue como un cliente de Baja California quedó
+ * con acento argentino: lo escribió el aparato del que verificaba.
+ *
+ * Ahora la pantalla, que es la única que lo sabe, lo dice.
+ */
 export async function guardarAcentoAction(
   acento: string,
+  loTocó: boolean,
+  zona = '',
 ): Promise<{ ok: true; voz: VozCliente } | { ok: false; error: string }> {
   const ctx = await ctxAdmin();
   if (!ctx.ok) return ctx;
   if (!(acento in ACENTOS_ES)) return { ok: false, error: 'No reconozco esa forma de hablar.' };
   try {
-    const voz = await setAcentoCliente(acento as AcentoId);
+    const voz = await setAcentoCliente(acento as AcentoId, loTocó ? 'elegido' : 'sugerido-zona', zona);
     const tab = await getEstadoTab(TAB);
     if (!tab.steps.vg_acento?.done) await marcarPasoTab(TAB, 'vg_acento');
     return { ok: true, voz };

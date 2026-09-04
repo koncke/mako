@@ -142,13 +142,53 @@ async function main() {
   // ── 5. Reabrir SOLO el paso de la voz ──
   // A mano y no con el endpoint `reabrir`, que resetea la tab ENTERA: eso le
   // haría recaminar la conexión de WhatsApp y el contexto, que están bien.
+  //
+  // ⚠️ Y SON DOS CLAVES, NO UNA. Esto escribía sólo `onboarding.tab.setting` y
+  // acto seguido imprimía «✓ paso voz reabierto» sin haber reabierto nada.
+  //
+  // La otra es el registro COMPARTIDO del workspace, `onboarding.tab.pasos`, donde
+  // `marcarPasoTab` anota todo paso que se cierra para que la misma configuración
+  // cuente desde dos puertas. `getEstadoTab` cruza las dos y RECALCULA el status:
+  // un paso vale si lo marcó esta tab O si figura en el compartido. O sea que
+  // borrarlo de la propia no lo reabre — el compartido lo devuelve `done` y el
+  // `status: 'pendiente'` que se escribe acá lo pisa el recálculo.
+  //
+  // Sin error y sin síntoma: los audios SÍ se borran tres líneas más arriba, así
+  // que el paso queda en verde y sin un solo audio detrás.
+  //
+  // `desmarcarPasoEnTodasLasTabs` es la función que suelta las dos —recorre las
+  // tabs que contienen el paso y llama `marcarPasoTab(tab, paso, false)`, que borra
+  // la propia Y la compartida—, y hace exactamente el recorte que este bloque
+  // quería: un paso, no la tab entera.
   const steps = { ...(tab?.steps ?? {}) };
   delete steps.voz;
   await sql`
     insert into app_settings (workspace_id, key, value, updated_at)
     values (${WS}, 'onboarding.tab.setting', ${JSON.stringify({ ...tab, status: 'pendiente', steps })}, now())
     on conflict (workspace_id, key) do update set value = excluded.value, updated_at = now()`;
-  log('✓ paso `voz` reabierto (conectar WhatsApp y contexto quedan como estaban)');
+
+  // La segunda clave, con SQL como el resto del script (que no corre dentro de
+  // `runWithWorkspace` y por eso no puede llamar a la función del repo).
+  const [compRow] = await sql<{ value: unknown }[]>`
+    select value from app_settings where workspace_id = ${WS} and key = 'onboarding.tab.pasos'`;
+  if (compRow) {
+    const comp = typeof compRow.value === 'string'
+      ? (JSON.parse(compRow.value) as Record<string, string>)
+      : ({ ...(compRow.value as Record<string, string>) });
+    delete comp.voz;
+    await sql`
+      update app_settings set value = ${JSON.stringify(comp)}, updated_at = now()
+      where workspace_id = ${WS} and key = 'onboarding.tab.pasos'`;
+  }
+  log('✓ paso `voz` reabierto en las DOS claves (conectar WhatsApp y contexto quedan como estaban)');
+
+  // ⚠️ SE VERIFICA EL ESTADO QUE LA TAB VA A LEER, no la fila que se escribió. La
+  // fila es lo que uno controla; el cruce es lo que decide. Toda la razón de este
+  // bloque es que las dos cosas se habían separado sin que nadie lo notara.
+  const [ver] = await sql<{ value: unknown }[]>`
+    select value from app_settings where workspace_id = ${WS} and key = 'onboarding.tab.pasos'`;
+  const quedan = ver ? (typeof ver.value === 'string' ? JSON.parse(ver.value) : ver.value) as Record<string, string> : {};
+  if (quedan.voz) throw new Error('El paso `voz` sigue vivo en onboarding.tab.pasos: la tab lo va a dar por hecho igual.');
 
   log('\nListo. Al entrar a /chatbot va a pedirle declarar cómo entra su gente,');
   log('con un link a /funnel. Después de declararlo, le va a pedir 3 audios nuevos:');

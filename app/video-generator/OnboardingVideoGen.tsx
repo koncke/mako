@@ -526,6 +526,19 @@ export function OnboardingVideoGen({
 
   /** La zona horaria del APARATO, cuando sirvió para elegir el acento. */
   const [zonaDetectada, setZonaDetectada] = useState('');
+  /**
+   * Si la persona TOCÓ el desplegable del acento.
+   *
+   * ⚠️ Es lo único que separa un dato del cliente de una medición de MI máquina. El
+   * paso abre con el acento que deduce la zona horaria del navegador, así que un
+   * «Siguiente» sin tocar nada guardaba la deducción como si la hubiera elegido
+   * alguien. Viaja al server y se guarda con el valor; ver `acentoOrigen` en
+   * `VozCliente`.
+   *
+   * Arranca en `true` cuando el acento ya venía DECLARADO: en ese caso no hay
+   * ninguna deducción encima, y lo que se reguarda es lo que ya era del cliente.
+   */
+  const [acentoTocado, setAcentoTocado] = useState(acentoOrigen === 'declarado');
   /** Lo que se está escribiendo en el campo de agregar muletillas. */
   const [nuevaMuletilla, setNuevaMuletilla] = useState('');
   /** ¿El cliente tiene cargada su key de ElevenLabs? `null` = todavía no se sabe. */
@@ -901,14 +914,14 @@ export function OnboardingVideoGen({
     setError(null);
     setBusy(true);
     const r = paso === 'acento'
-      ? await guardarAcentoAction(acento)
+      ? await guardarAcentoAction(acento, acentoTocado, zonaDetectada)
       : paso === 'muletillas'
         ? await guardarMuletillasAction(muletillas)
         : await marcarPasoVideoAction(CLAVE_DE_PASO[paso as keyof typeof CLAVE_DE_PASO]);
     setBusy(false);
     if (!r.ok) { setError(r.error); return; }
     setPaso(PASOS[idx + 1]);
-  }, [paso, idx, acento, muletillas, loQueFalta]);
+  }, [paso, idx, acento, acentoTocado, zonaDetectada, muletillas, loQueFalta]);
 
   const pregunta =
     paso === 'cara' ? 'Tus fotos'
@@ -1084,7 +1097,9 @@ export function OnboardingVideoGen({
           <Select
             ariaLabel="Cómo hablas"
             value={acento}
-            onChange={(v) => setAcento(v as AcentoId)}
+            // ⚠️ Tocarlo es lo que convierte la deducción de la zona horaria en un
+            // dato del cliente. Ver `acentoTocado`.
+            onChange={(v) => { setAcento(v as AcentoId); setAcentoTocado(true); }}
             columns={COLUMNAS_ACENTO}
             // ⚠️ Un ancho, no `100%`. El contenido de esta tab llega a ~1000 px, y
             // un control con una etiqueta de cuatro palabras estirado a todo eso es

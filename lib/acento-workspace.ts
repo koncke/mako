@@ -400,10 +400,28 @@ export function resolverAcento(
   declarado?: string | null,
   zona?: string | null,
   muletillas?: string[] | null,
+  /**
+   * De donde salio el valor guardado, cuando se sabe.
+   *
+   * ⚠️ HASTA HOY EL ORIGEN SE DEDUCIA DE LA MERA PRESENCIA DEL VALOR: si habia algo
+   * guardado, era 'declarado'. Eso es falso para todo acento que escribio la
+   * deteccion por zona horaria sin que nadie tocara el desplegable — que es
+   * exactamente como un cliente de Baja California quedo con acento argentino.
+   *
+   * Con la procedencia guardada, un valor solo SUGERIDO se sigue tratando como lo
+   * que es: la pantalla vuelve a ofrecerlo para confirmar en vez de darlo por
+   * elegido, y `seguro` sigue en false.
+   *
+   * Ausente = escrito antes de que el campo existiera. Se mantiene el
+   * comportamiento viejo para no reabrirle el paso a quien SI lo eligio.
+   */
+  origenGuardado?: 'elegido' | 'sugerido-zona' | null,
 ): AcentoResuelto {
   const m = Array.isArray(muletillas) ? muletillas : [];
   const d = (declarado ?? '').trim();
-  if (d && d in ACENTOS_ES) return armar(d as AcentoId, 'declarado', m);
+  if (d && d in ACENTOS_ES) {
+    return armar(d as AcentoId, origenGuardado === 'sugerido-zona' ? 'zona-horaria' : 'declarado', m);
+  }
 
   const z = (zona ?? '').trim();
   if (z && POR_ZONA[z]) return armar(POR_ZONA[z], 'zona-horaria', m);

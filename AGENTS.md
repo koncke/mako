@@ -1909,6 +1909,72 @@ formulario ✓» y era **cierto** — le faltaba el segundo verbo: llegó ¿y **
 proceso que tiene un paso humano en el medio, el estado sale del paso que **falta**, no del
 que se cumplió.
 
+# Si la misma pregunta se contesta en DOS lugares, el BORRADO va por una función
+
+La regla de arriba autoriza partir un dato en dos claves, y está bien. Lo que no
+dice es lo que se paga después: la misma pregunta queda contestada dos veces, el
+camino de LECTURA las cruza —para eso se hizo— y el de BORRADO casi siempre toca
+una sola. El resultado no es un dato a medias: es un **borrado que no borra**, y
+que además reporta éxito.
+
+El caso, del 03/09/2026. «¿Este paso del onboarding está hecho?» vive en
+`onboarding.tab.<key>` (el estado de la tab) **y** en `onboarding.tab.pasos` (el
+registro compartido del workspace, para que conectar el WhatsApp desde una tab
+cuente en la otra). `getEstadoTab` las cruza y **RECALCULA** el status. Se
+«reseteó» el Video Generator de un cliente borrando la fila propia, se verificó que
+la fila ya no estuviera, y al entrar **la tab abrió normal**: los seis pasos
+seguían vivos en el compartido. Se reportó como «no me salta el onboarding apenas
+entre».
+
+Y no fue la primera vez: `scripts/reset-chatbot-leila.ts` tenía el mismo bug desde
+agosto, escribiendo la clave propia a mano e imprimiendo «✓ paso reabierto».
+
+- **El borrado va por la función que toca las dos**, y los caminos a mano se
+  cierran. Acá ya existían `reabrirOnboardingTab` (la tab entera) y
+  `desmarcarPasoEnTodasLasTabs` (un paso): el bug no fue que faltara la función,
+  fue que había una puerta al costado.
+- **Se verifica el valor CALCULADO, no la fila escrita.** La fila es lo que uno
+  controla; el cruce es lo que el producto lee. Toda la falla vive en la distancia
+  entre las dos, así que comprobar la fila es comprobar la mitad que no falla.
+  Molde: `scripts/reabrir-onboarding-tab.ts`, que relee `getEstadoTab` y tira si
+  sigue diciendo `done`.
+- **Y el respaldo también es de las dos.** Guardar sólo la clave que se está
+  mirando es el mismo error aplicado al respaldo, y deja restaurar con confianza.
+
+⚠️ **Y una MIGRACIÓN que decide si le toca mirando el estado que ella misma
+escribe es un bucle.** `puentearPasosCopyGen` corría cuando la tab no estaba
+`done` — indistinguible de «la reabrieron a propósito»—, así que la primera carga
+después de un reset BIEN hecho volvía a cerrarla. Reabrir esa tab era imposible por
+diseño, sin ningún síntoma: el operador ya había visto su tilde. Una migración de
+una sola vez deja su propia marca (`onboarding.tab.ads-writer.puenteado`) y sale
+temprano; nunca deduce «ya corrí» de un estado que otro puede reabrir.
+
+## Y dos pasos distintos que comparten NOMBRE se marcan solos entre sí
+
+El corolario del registro compartido. Está bien que dos tabs compartan una key
+cuando es la MISMA configuración vista desde dos puertas (el mismo número de
+WhatsApp en `/whatsapp` y en `/chatbot`). Cuando no lo es, el cruce deja de ser una
+comodidad y pasa a ser un **salteo**: la segunda tab da por hecha una pantalla que
+nadie vio.
+
+`lib/tab-onboarding-catalogo.ts` advertía la trampa **cuatro veces en prosa** y aun
+así `instagram` usaba `contexto` y `ensayo` a secas, las mismas dos keys del Chat
+Agent. Medido en dos clientes: en el ws11, `instagram.contexto` tiene el timestamp
+`2026-08-10T20:36:51.948Z` y el `contexto` del Chat Agent `…52.603Z` — 0,6 s
+después. Lo marcó `/chatbot`. Lo caro es el segundo: el ensayo de Instagram
+previsualiza el borrador de un DM, y saltearlo **enciende el auto-respondedor sin
+que nadie haya leído una sola respuesta**.
+
+Lo que faltaba no era otra advertencia: eran **tres tests** que preguntaban «¿esta
+tab respeta su prefijo?», uno por tab. Un test así es estructuralmente incapaz de
+encontrar esta colisión, porque las dos tabs que colisionaban no tenían ninguna
+regla de prefijo que romper. La pregunta correcta es **«¿qué key aparece en más de
+una tab?»** — `tests/onboarding-keys-colision.test.ts`, con una lista blanca
+EXPLÍCITA de las compartidas a propósito, para que compartir una key sea una
+decisión escrita y no un descuido. El test lleva su inverso: una entrada de la
+lista blanca que ya no comparte nadie también falla, porque si no queda permiso
+escrito para una colisión futura.
+
 # Una barra de gráfico se recorta al 100%, siempre
 
 `width: ${pct}%` adentro de un carril NO desborda la barra: **desborda la página**.

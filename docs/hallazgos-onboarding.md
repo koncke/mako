@@ -835,3 +835,174 @@ tres pantallas oscuras de una.
 - **El detector de voseo no cubre `invertís`, `hablás`, `entregás`, `corregís`, `aprobás`,
   `lanzás`, `agendás`.** La primera estaba en producción, en la segunda pregunta del
   diagnóstico, con el test en verde. Vive en `tests/puente-panel-copy.test.ts`.
+
+---
+
+## El reset que no reseteaba, y las cuatro cosas que salieron de tirar de ese hilo
+
+*03/09/2026 · el estado del onboarding por tab · reportado como «estoy en la cuenta
+de Leandro y no me salta el onboarding apenas entre».*
+
+### El síntoma, y por qué el diagnóstico obvio era el equivocado
+
+Se «reseteó» el onboarding del Video Generator de un cliente borrando la fila
+`app_settings` con `key='onboarding.tab.video-generator'`. La fila desapareció, se
+verificó que ya no estuviera, y al entrar **la tab abrió normal**.
+
+La causa no estaba en el gate ni en el wizard: **la pregunta «¿este paso está hecho?»
+tiene la respuesta escrita en DOS claves.**
+
+**Vive en:** `lib/tab-onboarding-state.ts:128-142`
+
+```ts
+const steps = Object.fromEntries(def.pasos.map((p) => {
+  const propio = parsed.steps?.[p.key];
+  if (propio?.done) return [p.key, propio];
+  const at = compartidos[p.key];            // ← onboarding.tab.pasos
+  return [p.key, at ? { done: true, at } : { done: false }];
+}));
+const todo = def.pasos.filter((p) => !p.opcional).every((p) => steps[p.key]?.done);
+// El status se RECALCULA: si otra tab completó lo que faltaba, esta ya está.
+```
+
+El registro compartido `onboarding.tab.pasos` existe por una razón buena —conectar el
+WhatsApp desde `/whatsapp` tiene que contar también en `/chatbot`, que es el mismo
+número visto desde dos puertas— y el cruce es correcto. Lo que estaba mal era el
+BORRADO, que tocaba una clave de las dos.
+
+Medido en el ws10: la clave propia no existía y los **seis** `vg_*` seguían vivos en
+el compartido, así que `getEstadoTab` recalculaba `done` y la tab abría.
+
+**La regla:** el borrado va por la función que toca las dos (`reabrirOnboardingTab`
+para la tab entera, `desmarcarPasoEnTodasLasTabs` para un paso), y se **verifica el
+valor CALCULADO, no la fila escrita**. Toda la falla vive en la distancia entre las
+dos, así que comprobar la fila es comprobar la mitad que no falla. Molde:
+`scripts/reabrir-onboarding-tab.ts`.
+
+⚠️ Y el respaldo también es de las dos. Guardar sólo la clave que uno está mirando es
+el mismo error aplicado al respaldo, y deja restaurar con confianza.
+
+### El mismo bug ya estaba escrito desde agosto
+
+**Vive en:** `scripts/reset-chatbot-leila.ts:145`
+
+Borraba los audios de una clienta, escribía `steps` sin `voz` en la clave propia, y
+acto seguido imprimía **«✓ paso `voz` reabierto»**. Nunca tocó el compartido.
+
+Lo que salva el caso concreto es que en el ws11 los pasos `ensayo` y `aprobar`
+seguían pendientes en agosto, así que la tab abría igual por otro motivo y la clienta
+llegó a regrabar (`voz` tiene timestamp del 12/08, dos días después del reset). O sea
+que **el bug era real y la consecuencia no se materializó por casualidad** — vale
+anotarlo así y no como un incidente, porque la diferencia importa al leer esto
+después.
+
+### Una migración que decide si le toca mirando el estado que ella escribe es un bucle
+
+**Vive en:** `lib/copygen-puente.ts:62`
+
+`puentearPasosCopyGen` corría cuando `tab.status !== 'done'`. Eso es correcto la
+primera vez y falso siempre después: **«todavía no migré» y «la reabrieron a
+propósito» son indistinguibles**.
+
+Así que reabrir el Copy Generator era **imposible por diseño**: `reabrirOnboardingTab`
+limpiaba las dos claves, el script verificaba el estado calculado y contestaba «✓ la
+tab vuelve a abrir en su onboarding», y la primera carga de `/ads-writer` o de
+`/video-generator` volvía a marcar los cinco `cg_*` desde los flags del onboarding
+global. Sin ningún síntoma: el operador ya había visto su tilde.
+
+Una migración de una sola vez deja **su propia marca** y sale temprano. Va como clave
+propia y no como paso: un paso lo borraría el propio reabrir —que es justo lo que hay
+que sobrevivir— y además diría algo falso, porque el cliente no recorrió ninguna
+pantalla nueva. Lo que registra es un hecho del SISTEMA, no del cliente.
+
+### El paso que cierra el onboarding lo marcaba el botón equivocado
+
+**Vive en:** `app/video-generator/video-action.ts` — estaba en `cambiarMuletillasAction`,
+va en `confirmarEscenaAction`.
+
+El bloque tenía su comentario perfecto —«aprobar el primer escenario es la única
+prueba de que toda la cadena funciona»— y estaba **dentro de la función que reescribe
+el guion**. Falla en las dos direcciones:
+
+- aprobar el escenario NO cerraba `vg_ensayo`, el último paso no-opcional, así que la
+  tab **nunca** quedaba `done` y el wizard recibía a la persona en el paso 6 de 6 en
+  cada carga;
+- y «Formatear guion» —que sólo se ofrece mientras no hay nada filmado— sí lo cerraba,
+  o sea daba la tab por probada **sin un solo cuadro generado**, que es exactamente lo
+  que un ensayo existe para impedir.
+
+**Medido en producción: tres clientes (ws1, ws11, ws14) con TODOS los demás pasos
+hechos y sólo `vg_ensayo` pendiente.** Completaron el onboarding entero y la tab los
+seguía recibiendo con el wizard.
+
+⚠️ Y el `.catch(() => {})` se comía el caso real: `marcarPasoTab` se niega a cerrar un
+paso si falta uno anterior, y eso deja el onboarding abierto para siempre sin que nada
+lo diga. Ahora el catch registra el motivo.
+
+### Dos pasos distintos que comparten NOMBRE se marcan solos entre sí
+
+**Vive en:** `lib/tab-onboarding-catalogo.ts:153`
+
+`instagram` usaba `contexto` y `ensayo` a secas — las mismas dos keys del Chat Agent.
+El catálogo advierte esta trampa **cuatro veces en prosa** y `carousels` ya la había
+esquivado con su prefijo; este quedó atrás.
+
+Medido en dos clientes. En el ws11, `instagram.contexto` tiene el timestamp
+`2026-08-10T20:36:51.948Z` y el `contexto` del Chat Agent `…52.603Z`: 0,6 s después.
+Lo marcó `/chatbot`.
+
+Lo caro es el segundo paso: **el ensayo de Instagram previsualiza el borrador de un
+DM, y saltearlo enciende el auto-respondedor sin que nadie haya leído una sola
+respuesta.**
+
+⚠️ **Lo que faltaba no era otra advertencia: eran los TESTS.** Había tres, y los tres
+de la forma «mis pasos empiezan con MI prefijo», uno por tab (`cg_`, `vg_`). Un test
+así es **estructuralmente incapaz** de encontrar esta colisión, porque las dos tabs que
+colisionaban no tenían ninguna regla de prefijo que romper. La pregunta correcta no es
+«¿esta tab respeta su prefijo?» sino **«¿qué key aparece en más de una tab?»** —
+`tests/onboarding-keys-colision.test.ts`, con lista blanca explícita, y con su inverso
+(una entrada que ya no comparte nadie también falla: si no, queda permiso escrito para
+una colisión futura).
+
+### El acento guardado no tenía procedencia
+
+**Vive en:** `app/video-generator/voz-cliente.ts`
+
+`video.voz` guardaba el id del acento y nada más, así que **«lo eligió el cliente» y
+«lo adivinó el navegador de quien estaba mirando» eran el mismo valor**, y todos los
+lectores lo trataban como declarado. Es la otra mitad del incidente del 02/09 (un
+cliente de Baja California con acento argentino porque la detección midió la máquina
+del que verificaba).
+
+Lo que lo vuelve caro es que después **no se puede auditar**: ni un barrido por los
+diez workspaces separa los contaminados de los legítimos. El del ws1 se recuperó de
+los 366 prompts ya mandados a Flow —22 decían «Spoken in Northern Mexican Spanish»— y
+eso fue suerte: **el ws10 tiene tres trabajos y ninguno con ese bloque**, así que ahí
+no habría nada que consultar.
+
+Ahora `VozCliente` lleva `acentoOrigen: 'elegido' | 'sugerido-zona'`, `acentoZona` y
+`acentoAt`; `setAcentoCliente` exige el origen **sin default** —con uno, el llamador
+que no piensa en esto escribe «elegido» sobre una adivinanza, que es literalmente el
+incidente—; la pantalla lo sabe porque marca `acentoTocado` en el `onChange` del
+desplegable; y `resolverAcento` lo propaga en vez de deducirlo de la mera presencia
+del valor.
+
+⚠️ Ausente = escrito antes de que el campo existiera, o sea **desconocido**. No se
+asume `elegido`: asumir es lo que produjo el incidente.
+
+### Lo que quedó SIN hacer
+
+- **La colisión ya escrita en los datos no se migró.** Al renombrar a `ig_contexto` /
+  `ig_ensayo`, los workspaces que tenían `contexto`/`ensayo` marcados por `/chatbot`
+  vuelven a ver los dos pasos de Instagram — que es lo correcto, porque nunca los
+  hicieron. Lo que NO se puede saber es si alguno los hizo de verdad por Instagram, así
+  que no se copió nada. Si aparece un cliente que se queja de rehacerlos, la respuesta
+  es que sí los tenía que hacer.
+- **`marcarPasoTab` congela en el estado propio de la tab lo que leyó del compartido**
+  (se ve en el ws11: `instagram.contexto` con el timestamp exacto del compartido). No
+  hace daño hoy —`getEstadoTab` recorre `def.pasos`, así que una key que ya no existe
+  se ignora— y ensucia cualquier forense sobre quién marcó qué.
+- **Las 9 voces huérfanas** de ElevenLabs siguen ahí (el código ya no crea más).
+
+*Corrida del 03/09/2026 · 119 agentes en 5 dimensiones con refutación adversarial de 3
+lentes · 38 hallazgos, 12 sobrevivieron, 5 bloqueaban.*

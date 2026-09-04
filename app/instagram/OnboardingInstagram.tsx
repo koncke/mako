@@ -156,7 +156,7 @@ export function OnboardingInstagram({ conexionInicial, tutorialZernio: TUTORIAL_
     if (paso === 'conectar') { setPaso('contexto'); return; }
     if (paso === 'contexto') {
       setBusyPaso(true);
-      const r = await marcarPasoIgAction('contexto');
+      const r = await marcarPasoIgAction('ig_contexto');
       setBusyPaso(false);
       if (!r.ok) { setError(r.error ?? 'No se pudo guardar el paso.'); return; }
       setPaso('ensayo');
@@ -166,7 +166,7 @@ export function OnboardingInstagram({ conexionInicial, tutorialZernio: TUTORIAL_
   const confirmar = async () => {
     setError(null);
     setBusyPaso(true);
-    const r = await marcarPasoIgAction('ensayo');
+    const r = await marcarPasoIgAction('ig_ensayo');
     setBusyPaso(false);
     if (!r.ok) { setError(r.error ?? 'No se pudo guardar el paso.'); return; }
     setSalir(true);

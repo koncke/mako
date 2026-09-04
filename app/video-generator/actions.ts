@@ -11,7 +11,7 @@
 import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
 import { generarPlan, reescribirToma } from '@/lib/video-planner';
 import { resolverAcento } from '@/lib/acento-workspace';
-import { getVozCliente } from './voz-cliente';
+import { getVozCliente, type VozCliente } from './voz-cliente';
 import { tzDeWorkspace } from '@/lib/timezone';
 import {
   puestaPorId, cabidaDeGuion, soloHablado, contarPalabras, marcasDeVoseo, palabrasQueEntran,
@@ -74,8 +74,8 @@ export async function generarPlanAction(
     // ⚠️ EL DECLARADO GANA, y hasta hoy este llamador pasaba `null` fijo: el
     // parámetro existía desde que se escribió el módulo y no lo usaba nadie, así
     // que el acento de TODOS los clientes salía de adivinar su zona horaria.
-    const voz = await getVozCliente().catch(() => ({ acento: '' as const, muletillas: [] as string[] }));
-    const acento = resolverAcento(voz.acento, await tzDeWorkspace(ctx.ws), voz.muletillas);
+    const voz = await getVozCliente().catch((): VozCliente => ({ acento: '', muletillas: [], muestras: [] }));
+    const acento = resolverAcento(voz.acento, await tzDeWorkspace(ctx.ws), voz.muletillas, voz.acentoOrigen);
 
     const out = await generarPlan(ctx.ws, {
       puestaId: puesta.id,

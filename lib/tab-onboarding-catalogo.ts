@@ -150,8 +150,28 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
     pasos: [
       { key: 'zernio', label: 'Conexión con Zernio' },
       { key: 'conectar', label: 'Tu cuenta de Instagram' },
-      { key: 'contexto', label: 'Contexto del negocio' },
-      { key: 'ensayo', label: 'Ensayo de respuesta' },
+      // ⚠️ CON PREFIJO `ig_`, Y ESTO ERA UNA COLISIÓN VIVA.
+      //
+      // Eran `contexto` y `ensayo` a secas, las MISMAS keys que usa el Chat
+      // Agent. Y el registro compartido no distingue de qué tab vino un paso: un
+      // workspace que terminaba el onboarding de /chatbot llegaba a /instagram con
+      // los dos ya en verde, sin haber visto ninguna de las dos pantallas.
+      //
+      // Lo caro es el segundo: el ensayo de Instagram previsualiza el borrador de
+      // un DM, y saltearlo enciende el auto-respondedor sin que nadie haya leído
+      // una sola respuesta. Que es exactamente lo que un ensayo existe para
+      // impedir.
+      //
+      // Medido el 03/09/2026: el ws11 tiene `instagram.contexto` con el timestamp
+      // 2026-08-10T20:36:51.948Z, y el `contexto` del Chat Agent con
+      // 2026-08-10T20:36:52.603Z — 0,6 s después. Lo marcó /chatbot. El ws13 está
+      // igual.
+      //
+      // El def de `carousels` de acá abajo ya había esquivado esta trampa y la dejó
+      // escrita; este quedó atrás. Es «una regla aplicada en un lugar de dos no está
+      // implementada, está documentada».
+      { key: 'ig_contexto', label: 'Contexto del negocio' },
+      { key: 'ig_ensayo', label: 'Ensayo de respuesta' },
     ],
   },
 

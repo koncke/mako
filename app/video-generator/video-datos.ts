@@ -18,7 +18,7 @@ import { getSetting, setSetting } from '@/lib/settings';
 import type { CausaFlow } from '@/lib/flow-fallo-texto';
 import { getPersona, personaEstado } from '@/lib/persona';
 import { resolverAcento } from '@/lib/acento-workspace';
-import { getVozCliente } from './voz-cliente';
+import { getVozCliente, type VozCliente } from './voz-cliente';
 import { tzDeWorkspace } from '@/lib/timezone';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { getSchema, getAnswers } from '@/lib/onboarding';
@@ -590,9 +590,9 @@ export async function estadoContextoVideo(): Promise<EstadoContextoVideo> {
   // Con lo declarado, igual que el generador: si acá se resolviera distinto, la
   // pantalla mostraría un acento y el guion saldría con otro — y una previa que
   // difiere del resultado es peor que no tener previa.
-  const voz = await getVozCliente().catch(() => ({ acento: '' as const, muletillas: [] as string[] }));
+  const voz = await getVozCliente().catch((): VozCliente => ({ acento: '', muletillas: [], muestras: [] }));
   const zona = ws != null ? await tzDeWorkspace(ws).catch(() => null) : null;
-  const acento = resolverAcento(voz.acento, zona, voz.muletillas);
+  const acento = resolverAcento(voz.acento, zona, voz.muletillas, voz.acentoOrigen);
 
   return {
     tieneFotos: fotos > 0,
