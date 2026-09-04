@@ -1257,4 +1257,43 @@ componente emitido** y recorre las dos ramas comprobando que ningún paso muestr
 no se consiguió (`scratchpad/dc/probar-orden.mjs`). Una regla de secuencia se prueba mejor
 simulándola que mirándola.
 
+### Un prototipo de un flujo hay que escribirlo LEYENDO el flujo, no recordándolo
+
+El prototipo conversacional se armó de memoria y tenía **5 turnos con una sola pregunta de
+diagnóstico**. El onboarding real tiene **28**. Lo dijo Martín antes que ninguna herramienta:
+«no estás revisando todo lo que hace cada paso… y estoy seguro de que te estás salteando
+cosas».
+
+Lo que faltaba, medido contra el código:
+
+| Lo que el wizard hace | Lo que el prototipo tenía |
+|---|---|
+| 6 preguntas de quiz + 1 de canal que **cambia el enunciado y los tramos de la siguiente** | 1 pregunta |
+| Pantalla de resultado con fase, síntomas, Norte, funnel sugerido, pauta, qué hacer y qué no | nada |
+| Paso entero de la llave de IA — sin ella el Archivero no lee nada | no existía |
+| Devolución del Archivero: **una tarjeta por documento con el razonamiento de la IA**, y el panorama en 6 secciones | tres chips estáticos |
+| Preguntas generadas para los **huecos** que ningún documento resolvió (hasta 11) | nada |
+| Catálogo de productos, email, WhatsApp + código de 6 dígitos | nada |
+| Cascada de Meta: token, descubrimiento, elegir cuenta | un botón «Conectar» |
+
+> **Lo que se recuerda de un flujo es su forma; lo que se saltea es justo el contenido que
+> hace que cada paso valga.** Un paso que pregunta y no devuelve nada convierte el chat en un
+> formulario con globos — y ése era exactamente el reparo.
+
+Tres cosas que el traspaso enseñó, y que no son del prototipo:
+
+- **La espera es un turno, no un spinner.** «Estoy leyendo tus documentos» merece pantalla:
+  el trabajo de MaKo es la mitad del valor, y esconderlo detrás de un cargando lo regala.
+- **Un turno que depende de algo que no pasó no se muestra vacío: no se muestra.** Se modeló
+  como un predicado por turno (`si`) en vez de un `if` cableado a un caso; saltear Meta ahora
+  omite tres turnos y deja 14 piezas de 16, y saltear la verificación omite el código.
+- **Lo que hay que contestar no puede depender de scrollear.** Con una devolución larga —tres
+  documentos con su razonamiento— las opciones quedaban abajo del scroll. Viven fuera de la
+  caja que scrollea, y el contenido se desvanece contra ellas.
+
+⚠️ Y una de medición: **mantener apretado acelera la escritura 3,6×** (4730 ms → 1305 ms para
+la misma frase de 40 letras), pero eso sólo se pudo medir con la ventana VISIBLE. Ver
+[[verificar-en-navegador]]: en la pestaña oculta cualquier número de tiempo es el del
+estrangulamiento, no el del código.
+
 *Rediseño del 04/09/2026 · panel de 24 agentes (3 propuestas × 3 jueces por problema).*
