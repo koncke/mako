@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "MaKo",
-  "version": "0.39.1",
+  "version": "0.40.0",
   "description": "Genera los anuncios de MaKo con tu propia cuenta de Google Flow, desde tu navegador.",
   "permissions": [
     "storage",
@@ -12,6 +12,7 @@
   "host_permissions": [
     "https://hola-mako.com/*",
     "https://labs.google/*",
+    "https://flow.google.com/*",
     "https://aisandbox-pa.googleapis.com/*"
   ],
   "background": {
@@ -21,7 +22,8 @@
     {
       "matches": [
         "https://labs.google/fx/tools/flow*",
-        "https://labs.google/fx/*/tools/flow*"
+        "https://labs.google/fx/*/tools/flow*",
+        "https://flow.google.com/*"
       ],
       "js": [
         "content.js"
@@ -31,7 +33,8 @@
     {
       "matches": [
         "https://labs.google/fx/tools/flow*",
-        "https://labs.google/fx/*/tools/flow*"
+        "https://labs.google/fx/*/tools/flow*",
+        "https://flow.google.com/*"
       ],
       "js": [
         "injected.js"

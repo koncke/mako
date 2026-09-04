@@ -123,7 +123,7 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
       chrome.storage.local.set({ apiKey });
     }
   },
-  { urls: ['https://aisandbox-pa.googleapis.com/*', 'https://labs.google/*'] },
+  { urls: ['https://aisandbox-pa.googleapis.com/*', 'https://labs.google/*', 'https://flow.google.com/*'] },
   ['requestHeaders'],
 );
 
@@ -157,7 +157,15 @@ chrome.webRequest.onBeforeRedirect.addListener(
       chrome.storage.local.set({ ultimoRedirectMedio: JSON.stringify({ mediaId: m[1], url: det.redirectUrl }) });
     } catch { /* mirar nunca puede romper nada */ }
   },
-  { urls: ['https://labs.google/fx/api/trpc/media.getMediaUrlRedirect*'] },
+  // ⚠️ SE NOMBRA EL ENDPOINT, NO LA RUTA. En labs.google el tRPC cuelga de
+  // /fx/api/trpc/; en flow.google.com no lo medimos, y adivinar un prefijo es como
+  // se pierde trafico en silencio. Lo que SI sabemos es como se llama el endpoint,
+  // que sale del codigo de la propia app y no cambio con la mudanza. El handler ya
+  // se guarda solo: sin `name=<hex>` en la url sale sin hacer nada.
+  { urls: [
+    'https://labs.google/fx/api/trpc/media.getMediaUrlRedirect*',
+    'https://flow.google.com/*getMediaUrlRedirect*',
+  ] },
 );
 
 // ── El captcha ───────────────────────────────────────────────────────────────
@@ -166,9 +174,37 @@ chrome.webRequest.onBeforeRedirect.addListener(
 // sesión, y si el comportamiento parece automatizado devuelve 403 — que es
 // exactamente lo que tiene que pasar.
 
-// El PATRON para buscar la pestana. Distinto de URL_FLOW, que es la URL a la
-// que se navega: este lleva comodines porque Flow mete el idioma en el path.
-const PATRON_FLOW = 'https://labs.google/fx/*tools/flow*';
+// ── DONDE VIVE FLOW ─────────────────────────────────────────────────────────
+//
+// ⚠️ GOOGLE MUDO FLOW A SU PROPIO DOMINIO, Y ESO APAGO LA EXTENSION ENTERA.
+//
+// Estaba escrito `https://labs.google/fx/*tools/flow*` y la pestana de un cliente
+// medida el 04/09/2026 es `https://flow.google.com/project/<uuid>`. No matchean, asi
+// que `chrome.tabs.query` devuelve vacio, `hayFlow` queda en false y el popup dice
+// «Abre Google Flow» — con Flow abierto y cargado en la pestana de al lado.
+//
+// Y se muerde la cola: el boton «Abrir Google Flow» navegaba a labs.google, Google
+// deja a la persona en el dominio nuevo, y la extension pierde de vista la pestana
+// que ella misma acaba de abrir. Por eso no fallaba a veces: fallaba SIEMPRE.
+//
+// ⚠️ Y ESTE MISMO SINTOMA YA SE HABIA INVESTIGADO. El 02/09 se reporto textual —«ya
+// abrimos Flow y no funciono, no deja de salir el boton de abrir Flow»— y se
+// encontro una causa VERDADERA: el filtro `discarded` convertia «hay una durmiendo»
+// en «no hay ninguna». Ese arreglo esta abajo y sigue siendo correcto. Pero una
+// causa verdadera puede no ser LA causa, y la de abajo tapo a la de arriba.
+//
+// Van los DOS dominios y no uno: no sabemos si Google migro a todo el mundo, asi
+// que reconocer los dos anda en las dos direcciones. El unico lugar donde esta lista
+// se repite es el manifest, que no puede importar nada.
+const PATRONES_FLOW = [
+  'https://labs.google/fx/*tools/flow*',
+  'https://flow.google.com/*',
+];
+
+/** El origen de una pestana de Flow, para armarle URLs de su MISMO dominio. */
+function origenDeFlow(tab) {
+  try { return new URL(tab.url).origin; } catch { return 'https://flow.google.com'; }
+}
 
 async function pestanaDeFlow() {
   // ⚠️ «DORMIDA» NO ES «NO EXISTE», Y CONFUNDIRLAS ES UN CALLEJÓN SIN SALIDA.
@@ -185,7 +221,7 @@ async function pestanaDeFlow() {
   // de salir el botón de abrir Flow».
   //
   // Así que primero se pregunta por TODAS y recién después se decide.
-  const todas = await chrome.tabs.query({ url: PATRON_FLOW });
+  const todas = await chrome.tabs.query({ url: PATRONES_FLOW });
   const sanas = todas.filter((t) => !t.discarded);
   const tab = sanas.find((t) => t.status === "complete") || sanas[0];
   if (tab) return tab;
@@ -784,7 +820,7 @@ async function ciclo() {
     if (!bearer) {
       // No es un error: es que el usuario todavía no abrió Flow en esta sesión.
       estado = 'sin_sesion';
-      detalle = 'Abre labs.google/fx/tools/flow e inicia sesión.';
+      detalle = 'Abre Google Flow desde el ícono de MaKo e inicia sesión.';
     } else if (!apiKey) {
       // El bearer se ve en la PRIMERA llamada; la `key` también, pero si la
       // sesión venía guardada de antes y el usuario no volvió a navegar Flow,
@@ -892,7 +928,7 @@ async function ciclo() {
           detalle = 'La pestana de Google Flow estaba dormida. La desperte: espera unos segundos sin cerrarla.';
         } else if (causa === 'NO_FLOW_TAB') {
           estado = 'sin_sesion';
-          detalle = 'No hay ninguna pestana de Google Flow abierta. Abre labs.google/fx/tools/flow y dejala abierta.';
+          detalle = 'No hay ninguna pestana de Google Flow abierta. Abrila desde el icono de MaKo y dejala abierta.';
         }
       }
     }
@@ -1037,7 +1073,16 @@ async function ciclo() {
             // tenemos los bytes) y frenando en el (si se puede leer el `Location`,
             // el servidor baja el archivo el mismo y no viaja nada por aca).
             const desdeSW = {};
-            const urlMedio = 'https://labs.google/fx/api/trpc/media.getMediaUrlRedirect?name='
+            // ⚠️ La RUTA es la de labs.google y en flow.google.com NO esta medida: si
+            // alla cuelga de otro prefijo, esta sonda falla — y eso esta bien, porque es
+            // una sonda de diagnostico envuelta en try/catch, no el camino del producto.
+            // El camino real lo copia el espejo de injected.js, que ahora reconoce la API
+            // de la app por la RUTA /api/trpc/ y no por el host.
+            //
+            // Del MISMO origen que la pestana de Flow que encontramos: el endpoint es
+            // de la app, asi que vive donde este servida la app. Clavarlo en
+            // labs.google lo mandaba al dominio del que Google ya movio a la gente.
+            const urlMedio = `${origenDeFlow(tabS)}/fx/api/trpc/media.getMediaUrlRedirect?name=`
               + encodeURIComponent(pedido.mediaId);
             try {
               const rr = await fetch(urlMedio, { credentials: 'include' });
@@ -1236,7 +1281,12 @@ async function ciclo() {
 // leer el saldo.
 
 const URL_MAKO_TAB = `${MAKO}/video-generator`;
-const URL_FLOW = 'https://labs.google/fx/tools/flow';
+// ⚠️ EL DOMINIO NUEVO. Abria `labs.google/fx/tools/flow`, donde Google ya no deja a
+// nadie: la persona terminaba en flow.google.com y la extension no reconocia esa
+// pestana, asi que el boton que abre Flow era el que garantizaba que Flow no se
+// detectara. Si una cuenta todavia no esta migrada, Google la manda a labs.google y
+// `PATRONES_FLOW` la reconoce igual.
+const URL_FLOW = 'https://flow.google.com/';
 
 /**
  * Conectar: el disparo vive aca, el acunado vive en la pagina.

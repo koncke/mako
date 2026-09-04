@@ -281,7 +281,7 @@ async function pintar() {
       tenue: 'Detectó actividad inusual. Reintentar sin hacer esto solo empeora la marca.',
       pasos: [
         'Espera **unos minutos** sin generar nada.',
-        'Borra las cookies de **google.com** y **labs.google**.',
+        'Borra las cookies de **google.com**, **labs.google** y **flow.google.com**.',
         'Vuelve a entrar a Flow e inicia sesión.',
         'En MaKo, toca **Ya lo hice, volver a habilitar** en el aviso rojo.',
       ],

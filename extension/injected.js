@@ -162,8 +162,20 @@
     return ahora - cache.cuando < 120000;
   }
 
-  /** La API propia de la app de Flow, en su mismo dominio. */
-  const TRPC = 'labs.google/fx/api/trpc/';
+  /**
+   * La API propia de la app de Flow, en su mismo dominio.
+   *
+   * ⚠️ SE RECONOCE POR LA RUTA, NO POR EL HOST, y el cambio no es cosmetico.
+   *
+   * Estaba escrito `labs.google/fx/api/trpc/`. Google mudo Flow a flow.google.com y
+   * con eso el espejo dejo de ver la mitad del trafico — justo la mitad de donde sale
+   * el ENLACE de un video.
+   *
+   * Este script solo corre DENTRO de una pagina de Flow, asi que «mismo origen +
+   * /api/trpc/» dice exactamente lo que se queria decir —la API de la app que me
+   * hospeda— sin nombrar ningun dominio. La proxima mudanza no lo rompe.
+   */
+  const esApiDeLaApp = (u) => u.includes('/api/trpc/');
 
   const fetchOriginal = window.fetch;
 
@@ -182,7 +194,7 @@
       // pedia a otro dominio.
       //
       // Es el mismo mecanismo, no uno nuevo: se copia el pedido que hace Flow.
-      if (!url.includes(API) && !url.includes(TRPC)) return promesa;
+      if (!url.includes(API) && !esApiDeLaApp(url)) return promesa;
 
       const clase = claseDe(url);
       const metodo = String((init && init.method) || (esRequest && entrada.method) || 'GET').toUpperCase();
