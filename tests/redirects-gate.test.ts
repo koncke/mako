@@ -31,6 +31,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { esPublica } from '../lib/rutas-publicas';
+import { EXTENSION_URL_ZIP } from '../lib/extension-tienda';
 import nextConfig from '../next.config';
 
 // ── El matcher de verdad, leído de proxy.ts ──────────────────────────────────
@@ -78,8 +79,19 @@ async function destinosEstaticos(): Promise<string[]> {
  * que es público por naturaleza) y que la extensión ya está en la Chrome Web
  * Store, así que abrirlo era viable — y se eligió no hacerlo. El link repartido
  * igual entrega el archivo a quien tiene cuenta, vía el `?next` del login.
+ *
+ * ⚠️ LA CLAVE SE DERIVA, no se escribe. Desde el 04/09/2026 el zip lleva la versión
+ * en el nombre (`/mako-puente-0.42.0.zip`) para que ningún caché ni ninguna carpeta
+ * de Descargas pueda entregar el anterior. Con la ruta escrita a mano acá, este test
+ * fallaría en CADA release — y un guard que falla por algo que no es su tema es un
+ * guard que alguien va a apagar. Se deriva de la misma constante que arma el link.
+ *
+ * La decisión que declara —cerrado— no cambió: sigue siendo la del 30/08.
  */
 const ESPERADO: Record<string, boolean> = {
+  [EXTENSION_URL_ZIP]: false,
+  // El nombre viejo, que hoy es una RUTA que redirige a la versión vigente en vez de
+  // un archivo. Se declara igual: la ruta pasa por el mismo gate.
   '/mako-puente.zip': false,
 };
 

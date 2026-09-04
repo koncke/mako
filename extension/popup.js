@@ -325,6 +325,29 @@ async function pintar() {
     // Medido con una clienta el 04/09/2026: su pestaña era `flow.google.com` con el
     // avatar, el plan y el botón de «Salir» a la vista, y el popup le decía «Inicia
     // sesión». Le pedía lo único que ya estaba hecho.
+    // ⚠️ EL FLOW NUEVO NO PUEDE CONECTARSE, Y DECIR OTRA COSA ES MENTIR.
+    //
+    // Medido el 04/09/2026 dentro de un proyecto cargado de una cuenta real: el Flow
+    // de flow.google.com habla sólo por BOQ/batchexecute y no emite NUNCA un
+    // `Authorization: Bearer`. El protocolo que este puente implementa no tiene
+    // contraparte ahí — no falta un permiso, falta el mecanismo entero.
+    //
+    // Llegar acá con `flowNuevo` significa exactamente ese caso: si el puente pudiera
+    // funcionar habría bearer y esta rama no se ejecutaría.
+    //
+    // Se dice con todas las letras y SIN botón de reintentar: un botón acá manda a
+    // repetir algo que no puede salir bien, y eso es lo que hace que la próxima vez
+    // nadie lea el cartel. La regla de la casa: si la culpa no es del cliente, se
+    // nombra a quién fue y no se le pide nada.
+    if (v.flowNuevo) {
+      pantalla({
+        titulo: 'Google cambió Flow',
+        tenue: 'Google reescribió Google Flow y movió la app a flow.google.com. La forma en que MaKo se conectaba con la versión anterior ya no existe ahí, así que esto no es nada de tu cuenta ni de tu sesión. Estamos trabajando en la conexión nueva.',
+        boton: 'Ir a MaKo',
+        accion: abrirMako,
+      });
+      return;
+    }
     if (v.hayFlow && !v.flowEnProyecto) {
       pantalla({
         titulo: 'Abre un proyecto en Flow',

@@ -214,6 +214,37 @@ function esUrlDeFlow(url) {
 }
 
 /**
+ * Si esa pestana es el Flow NUEVO, el de flow.google.com.
+ *
+ * ⚠️ NO ES EL MISMO PRODUCTO CON OTRA DIRECCION: Google lo reescribio.
+ *
+ * Medido el 04/09/2026 leyendo el trafico de una cuenta real, dentro de un proyecto
+ * cargado. El Flow nuevo habla UNICAMENTE por BOQ/batchexecute:
+ *
+ *   POST https://flow.google.com/_/AiSandboxAngularFrontend/data/batchexecute
+ *        ?rpcids=<id>&source-path=/project/<uuid>
+ *        &bl=boq_labs-ai-sandbox-frontend_20260903.13_p0
+ *
+ * Cero llamadas a `aisandbox-pa.googleapis.com`. Cero `Authorization: Bearer ya29.`.
+ * Cero `?key=AIza…`. Cero `/v1/projects/<id>/`. BOQ autentica con COOKIES.
+ *
+ * O sea que el protocolo entero que implementa este puente —capturar el bearer y la
+ * apiKey al pasar, y despues repetir las llamadas REST desde el service worker— NO
+ * TIENE CONTRAPARTE en el Flow nuevo. No es que falte un permiso ni un patron de
+ * host: lo que capturamos ya no existe.
+ *
+ * Y no hay a donde volver: `labs.google/fx/tools/flow` dejo de ser la app y hoy es
+ * una landing de marketing con un boton «Create with Google Flow».
+ *
+ * Esto NO se usa para decidir si el puente funciona —si funcionara, habria bearer y
+ * no llegariamos a preguntarlo—. Se usa para poder DECIR LA VERDAD en vez de
+ * mandar a iniciar sesion a alguien que ya inicio sesion.
+ */
+function esFlowNuevo(url) {
+  return String(url || "").startsWith("https://flow.google.com/");
+}
+
+/**
  * Si esa pestana esta DENTRO de un proyecto, y no en la portada.
  *
  * ⚠️ ES LA DIFERENCIA ENTRE «no inicio sesion» Y «todavia no abrio un proyecto», y
@@ -848,6 +879,20 @@ async function ciclo() {
       // No es un error: es que el usuario todavía no abrió Flow en esta sesión.
       estado = 'sin_sesion';
       detalle = 'Abre Google Flow desde el ícono de MaKo e inicia sesión.';
+      // ⚠️ SALVO QUE SEA EL FLOW NUEVO, DONDE NO HAY NADA QUE ABRIR NI QUE INICIAR.
+      //
+      // Ver `esFlowNuevo`: en flow.google.com no existe el mecanismo que este puente
+      // captura. Mandar a abrir Flow ahí es mandar a repetir lo que ya está hecho, y
+      // el que lo lee no tiene forma de saber que está persiguiendo algo imposible.
+      //
+      // El detalle viaja al server y de ahí a la pantalla de MaKo, que hasta hoy
+      // decía «Falta abrir Google Flow» — la misma mentira en la otra superficie.
+      try {
+        const tf = await pestanaDeFlow();
+        if (esFlowNuevo(tf.url)) {
+          detalle = 'Google reescribió Flow y lo movió a flow.google.com. La forma en que MaKo se conectaba con la versión anterior ya no existe ahí: no es nada de tu cuenta. Estamos trabajando en la conexión nueva.';
+        }
+      } catch { /* sin pestaña, el detalle de arriba es el correcto */ }
     } else if (!apiKey) {
       // El bearer se ve en la PRIMERA llamada; la `key` también, pero si la
       // sesión venía guardada de antes y el usuario no volvió a navegar Flow,
@@ -1699,10 +1744,12 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
         // un proyecto». Ver `enProyectoDeFlow`: sin la segunda, a alguien logueado se
         // le pide que inicie sesion.
         let flowEnProyecto = false;
+        let flowNuevo = false;
         try {
           const tf = await pestanaDeFlow();
           hayFlow = true;
           flowEnProyecto = enProyectoDeFlow(tf.url);
+          flowNuevo = esFlowNuevo(tf.url);
         } catch { hayFlow = false; }
         responder({
           // Booleanos: el popup no necesita ninguna credencial, y lo que no sale
@@ -1712,6 +1759,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
           apiKey: !!v.apiKey,
           hayFlow,
           flowEnProyecto,
+          flowNuevo,
           ultimoLatido: v.ultimoLatido || null,
           saldo: v.saldoLocal || null,
           emparejando: !!v.emparejando,

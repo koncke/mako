@@ -67,7 +67,20 @@ export function estadoDelPuente(
   const vivo = estaVivo(p.ultimoVisto, ahora);
   if (p.estado === 'marcada') return { tono: 'bad', txt: 'Google pausó tu sesión de Flow', anda: false, vivo };
   if (!vivo) return { tono: 'warn', txt: 'Tu navegador no está conectado', anda: false, vivo };
-  if (p.estado !== 'listo') return { tono: 'warn', txt: 'Falta abrir Google Flow', anda: false, vivo };
+  // ⚠️ EL DETALLE QUE MANDÓ EL PUENTE LE GANA A LA FRASE FIJA.
+  //
+  // «Falta abrir Google Flow» es cierto casi siempre y falso justo cuando más duele:
+  // desde que Google reescribió Flow en flow.google.com, el puente reporta
+  // `sin_sesion` para siempre y no hay ningún Flow que abrir que lo arregle. El que
+  // sabe por qué es el navegador, y lo manda en `detalle` en cada latido — esta
+  // pantalla lo tiraba y ponía su propia frase.
+  //
+  // Se recorta: es un rótulo de estado, no un párrafo. El texto largo vive en el
+  // popup, que es donde la persona va a resolverlo.
+  if (p.estado !== 'listo') {
+    const suyo = (p.detalle || '').trim();
+    return { tono: 'warn', txt: suyo ? suyo.slice(0, 120) : 'Falta abrir Google Flow', anda: false, vivo };
+  }
   return { tono: 'good', txt: 'Listo', anda: true, vivo };
 }
 
