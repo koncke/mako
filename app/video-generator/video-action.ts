@@ -638,6 +638,22 @@ export async function generarTomaAction(
  */
 const ABANDONO_MS = 4 * 60 * 1000;
 
+/**
+ * Qué se escribe cuando nadie levanta un trabajo.
+ *
+ * ⚠️ NO DICE «EL NAVEGADOR DEJÓ DE RESPONDER», y el cambio no es de estilo.
+ *
+ * Medido el 03/09/2026 sobre el trabajo #663 de un cliente: su puente estaba
+ * latiendo cada SIETE segundos con la última versión instalada. El navegador
+ * respondía perfecto; lo que no había era una pestaña de Google Flow abierta, que
+ * es la condición que el server exige para repartir.
+ *
+ * O sea que el mensaje mandaba a revisar lo único que estaba bien. Es la regla de
+ * la casa sobre errores: decir DE QUIÉN fue y QUÉ HACER — y acá lo que hay que
+ * hacer es abrir Flow, no reinstalar nada.
+ */
+const TEXTO_NADIE_TOMO = 'Nadie levantó el trabajo. Suele ser que no hay una pestaña de Google Flow abierta: ábrela desde el ícono de MaKo y déjala abierta.';
+
 export async function estadoTomaAction(
   planId: string,
   n: number,
@@ -720,7 +736,7 @@ export async function estadoTomaAction(
         // más tarde lo toma igual y el cliente paga dos veces la misma toma: la
         // que reintentó y ésta.
         await db.from('flow_trabajos')
-          .update({ estado: 'fallido', motivo: 'puente_ausente', error: 'Nadie tomó el trabajo: el navegador dejó de responder.', listo_at: new Date().toISOString() })
+          .update({ estado: 'fallido', motivo: 'puente_ausente', error: TEXTO_NADIE_TOMO, listo_at: new Date().toISOString() })
           .eq('id', marca.trabajoId)
           .eq('estado', 'pendiente');
         const e = 'Tu navegador nunca tomó esta toma: dejó de responder. Abre la extensión de MaKo, conéctalo, y vuelve a filmarla — no se gastaron créditos.';
@@ -1509,9 +1525,37 @@ export async function estadoImagenAction(
   const db = await getTenantDb();
   const { data } = await db
     .from('flow_trabajos')
-    .select('estado, resultado, error, motivo')
+    .select('estado, resultado, error, motivo, created_at, tomado_at')
     .eq('id', m.trabajoId)
     .maybeSingle();
+
+  // ⚠️ EL MISMO TOPE QUE LAS TOMAS, QUE ACÁ NO ESTABA.
+  //
+  // `estadoTomaAction` cierra el trabajo a los cuatro minutos sin que nadie lo
+  // levante; ésta no tenía nada, así que un `pendiente` que nadie toma devuelve
+  // «generando» PARA SIEMPRE. Y la pantalla del escenario apaga sus dos botones
+  // mientras genera, así que no queda nada que apretar.
+  //
+  // Medido con un cliente delante: «ya se trabó esto… se re trabó», y en Flow no
+  // había aparecido nada — el trabajo nunca salió.
+  //
+  // «Está en la fila» y «no hay nadie atendiendo la fila» se ven idénticos desde
+  // afuera: un spinner.
+  if (str(data?.estado) === 'pendiente') {
+    const nacio = Date.parse(str(data?.created_at) || '');
+    const esperando = Number.isFinite(nacio) ? Date.now() - nacio : 0;
+    if (!str(data?.tomado_at) && esperando > ABANDONO_MS) {
+      // Se CIERRA antes de contestar, por lo mismo que en las tomas: un puente que
+      // despierta más tarde lo tomaría igual y la persona pagaría dos veces.
+      await db.from('flow_trabajos')
+        .update({ estado: 'fallido', motivo: 'puente_ausente', error: TEXTO_NADIE_TOMO, listo_at: new Date().toISOString() })
+        .eq('id', m.trabajoId)
+        .eq('estado', 'pendiente');
+      const fallo = falloGuardable(TEXTO_NADIE_TOMO, `la imagen del escenario ${n}`, "puente_ausente");
+      item = await guardarImagen(item, n, fallo);
+      return { ok: true, item, estado: { fase: 'error', error: fallo.error } };
+    }
+  }
 
   // `fallido`, que es lo que escribe la cola. Con `error` —el nombre que uno
   // supone— un trabajo caído se lee como «todavía no terminó» y la pantalla gira

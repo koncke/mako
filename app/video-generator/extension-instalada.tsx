@@ -100,12 +100,39 @@ export function useExtensionInstalada(): string | false | null {
     const mirar = () => document.documentElement.getAttribute('data-mako-puente');
     const v = mirar();
     if (v) { setInstalada(v); return; }
+    // ⚠️ EL SONDEO SE RINDE, PERO LA VIGILANCIA NO.
+    //
+    // Esto era SÓLO el intervalo: seis vueltas de 250 ms y `setInstalada(false)`
+    // para siempre. Si el content script llegaba a los 1,6 s —o si la persona
+    // instalaba la extensión con la tab ya abierta, que es el camino normal del
+    // onboarding— la pantalla decía «no la tienes» hasta un F5.
+    //
+    // Medido con un cliente delante, textual: «funcionaba mal porque había que
+    // recargar dentro de MaKo y no lo detectaba. Ahora sí funciona. Pero eso es un
+    // error que hay que solucionarlo».
+    //
+    // La cura ya estaba escrita DOS FUNCIONES MÁS ARRIBA, en
+    // `useExtensionDeLaTienda`: un MutationObserver sobre el atributo. El hook
+    // gemelo miraba el mismo DOM del mismo content script y sólo uno de los dos se
+    // enteraba de que llegaba tarde.
     let n = 0;
     const t = window.setInterval(() => {
       const w = mirar();
       if (w) { setInstalada(w); window.clearInterval(t); return; }
+      // A las 6 vueltas se DEJA DE ESPERAR y se pinta «no está», que es lo
+      // honesto con lo que se sabe. Lo que ya no pasa es dejar de MIRAR.
       if (++n >= 6) { setInstalada(false); window.clearInterval(t); }
     }, 250);
+
+    const obs = new MutationObserver(() => {
+      const w = mirar();
+      // Sólo hacia arriba: el atributo aparece cuando el script se inyecta. Que
+      // desaparezca no significa que la desinstalaron —una navegación de cliente
+      // puede reescribir el <html>— y borrar la versión ahí haría parpadear el
+      // aviso de «instalá la extensión» sobre una que está andando.
+      if (w) setInstalada(w);
+    });
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-mako-puente'] });
 
     const alVolver = () => {
       if (document.visibilityState !== 'visible') return;
@@ -115,6 +142,7 @@ export function useExtensionInstalada(): string | false | null {
     document.addEventListener('visibilitychange', alVolver);
     return () => {
       window.clearInterval(t);
+      obs.disconnect();
       document.removeEventListener('visibilitychange', alVolver);
     };
   }, []);
