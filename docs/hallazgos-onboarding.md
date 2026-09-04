@@ -1232,4 +1232,29 @@ márgenes.
 rombo se veía bien hasta notar que el grupo también contiene los ojos y los dejaba de costado.
 El giro va en la pieza simétrica (el cuerpo); los ojos ni se enteran.
 
+### El ORDEN de los pasos es una afirmación, y se contradecía a sí mismo
+
+El paso «Lo que sigue no te lo pregunto: ya lo estoy viendo» —con el gasto de los últimos 30
+días leído de la cuenta de Meta— era el **segundo**. Conectar Meta era el **cuarto**. O sea
+que el recorrido mostraba un dato dos pasos antes de que existiera la cuenta de donde sale.
+
+De dónde salió el error, que es lo que importa: ese paso estaba diseñado como **variante** del
+diagnóstico —«el 2b reemplaza al 2 cuando Meta ya está conectada»— y al armar el recorrido
+lineal se metió como un paso más. **Una alternativa convertida en secuencia miente sobre lo
+que ya pasó**, y la mentira no se ve leyendo el código: se ve recorriéndolo.
+
+> **Un paso que muestra un dato va después del paso que lo consigue. Y si ese paso se puede
+> saltear, el que muestra el dato NO EXISTE.** Ahora saltear Meta saltea también la pantalla
+> que la enseña, y el mapa queda con 14 piezas en vez de 16 — la consecuencia es visible, que
+> es lo que convierte «saltear» en una decisión y no en un atajo gratis.
+
+⚠️ Y el contador tuvo que dejar de contar por índice: con un paso salteable, sumar «todo lo
+anterior a donde estoy» afirma piezas que nunca nacieron. Cuenta lo VISITADO, y volver atrás
+trunca esa lista — así sirve igual para ir y para volver, sin contar dos veces.
+
+Se verifica sin navegador, que además es más determinista: un script lee ESCENAS y SUMA **del
+componente emitido** y recorre las dos ramas comprobando que ningún paso muestre un dato que
+no se consiguió (`scratchpad/dc/probar-orden.mjs`). Una regla de secuencia se prueba mejor
+simulándola que mirándola.
+
 *Rediseño del 04/09/2026 · panel de 24 agentes (3 propuestas × 3 jueces por problema).*
