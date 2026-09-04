@@ -1006,3 +1006,96 @@ asume `elegido`: asumir es lo que produjo el incidente.
 
 *Corrida del 03/09/2026 · 119 agentes en 5 dimensiones con refutación adversarial de 3
 lentes · 38 hallazgos, 12 sobrevivieron, 5 bloqueaban.*
+
+
+---
+
+## El prototipo conversacional: cuatro trampas de escenas y animación (04/09/2026)
+
+Salieron auditando el prototipo del onboarding-como-chat (el canvas de Claude Design), pero
+**ninguna es del prototipo**: son cuatro formas de romper una interfaz por escenas, y las
+cuatro aplican igual al wizard real.
+
+### Mover un elemento en el árbol mata en silencio todo selector que lo alcanzaba
+
+El grafo vivía adentro de cada escena; se lo sacó a una capa propia, hermana de todas. Con
+eso, **las cinco reglas escritas como `.vac .bv-nodo` pasaron a acertar CERO elementos** —
+el mapa ya no era descendiente de la escena. No falla, no avisa, no aparece en ningún log.
+
+Lo que se cayó en cadena, sin que nada lo denunciara:
+- El vaciado dejó de ser en cascada (polvo → áreas → pilares) y pasó a apagarse entero en un
+  frame, porque la única declaración de `transition` vivía en una de las reglas muertas.
+- Los `transition-delay` de 0 / 620 / 1200 ms quedaron inertes.
+- El mapa **achicaba** en vez de recentrarse: con la regla muerta ganaba la de otra escena.
+- Y una espera de 3040 ms presupuestada para «lo que tarda la última ola» pasó a pagar por
+  una animación que ya no corría: **2,1 segundos de pantalla congelada**.
+
+> **La regla: después de mover un elemento en el DOM, hay que ir a buscar quién lo nombraba
+> por descendencia.** El CSS muerto es indistinguible del CSS que no hace falta, y su costo
+> no se ve como un error sino como «la animación quedó fea».
+
+### Un token de cancelación que sólo se renueva al empezar la tarea siguiente no cancela nada
+
+La máquina de escribir se protegía con un token (`serie`): cada corrida guarda su número y
+cada tick se muere si el número cambió. Correcto, pero **el token sólo se incrementaba al
+ARRANCAR la corrida siguiente**. Entre irse de una escena y que la próxima empiece a
+escribir había tres segundos en los que el typewriter viejo seguía vivo — y escribiendo su
+frase adentro del nodo de la escena nueva, que además cae en el mismo lugar de la pantalla.
+
+Se ve como *«el texto nuevo borra el anterior»*, con dos frases que no tienen nada que ver.
+Medido en el DOM del nodo de la escena nueva, muestreando cada 300 ms:
+
+```
+"crecer tu ne" → "crecer tu neg" → "crecer tu nego" → "Po" → "Por"
+```
+
+> **La regla: el cambio de escena CORTA; no espera a que algo nuevo lo pise.** Y cortar una
+> vez no alcanza: un timer viejo puede volver a arrancarlo después, así que todo callback
+> diferido que toque la escena necesita su propia guarda (`if (this.state.escena !== 'bv')
+> return`).
+
+Corolario del mismo caso: **si el pintado busca su destino por selector global
+(`querySelectorAll('[data-cola]')`), no distingue de qué escena es el nodo.** Acotarlo a la
+escena montada es cinturón además de tirantes.
+
+### El eco de una respuesta no es estado que persiste: viaja con la transición
+
+`elegido` guardaba la respuesta elegida para mostrarla arriba de la pregunta siguiente. Lo
+escribía el click en el chip y lo limpiaba únicamente el reinicio. Dos defectos:
+
+- Aparecía **480 ms antes** de cambiar de escena, encima de la pregunta que acabás de
+  contestar, empujando la columna.
+- Los otros caminos de avance (la flecha de la barra, el botón «Conectar» de un widget) no
+  pasaban por el chip, así que **el eco del turno anterior quedaba colgado bajo la pregunta
+  nueva, atribuyéndote una respuesta que no diste**.
+
+> **La regla: un dato que sólo tiene sentido durante una transición se pasa COMO ARGUMENTO de
+> la transición** (`ir(escena, eco)`), no se deja en el estado esperando que alguien lo
+> limpie. Si vive en el estado, hay que limpiarlo en todos los caminos, y siempre falta uno.
+
+⚠️ Y al envolverlo: `siguiente: avanzar` como handler recibe el EVENTO como primer argumento.
+Sin `() => avanzar()`, el objeto del evento termina impreso como si fuera la respuesta.
+
+### Una constante escrita dos veces se desincroniza, y el síntoma aparece sólo en una franja
+
+El alto de la banda del grafo estaba en `height:42vh; min-height:230px`, y el desplazamiento
+del contenido de abajo lo repetía a mano con `top:42vh` + `@media (max-height:700px){
+top:230px }`. **El cruce real de esas dos expresiones no es 700 px sino 548**, así que entre
+548 y 700 px de alto de ventana las dos cajas arrancaban en alturas distintas: hasta 64 px de
+superposición, con los puntos de progreso pintados adentro del grafo.
+
+> **La regla: una sola expresión, `top: max(42vh, 230px)`.** Un breakpoint que replica a mano
+> una fórmula de otra regla es una constante duplicada, y se desincroniza al primer cambio.
+
+### Y dos que no son de código
+
+- **Los chips y el widget se pintaban en el frame 0 del turno**, mientras la pregunta que los
+  presenta tardaba hasta 7,5 s en escribirse: se puede contestar antes de leer qué te
+  preguntaron. Van detrás de una bandera que se prende cuando la frase termina.
+- **El botón invisible seguía siendo clickeable.** «Comenzar» está en `opacity:0` durante
+  todo el revelado, encima de una pantalla cuyo copy dice «toca en cualquier lugar»: un toque
+  ahí se saltea la entrada entera sin que nadie entienda por qué. `opacity:0` esconde,
+  `pointer-events:none` desactiva — y hacen falta las dos.
+
+*Corrida del 04/09/2026 · 67 agentes en 4 lentes con refutación de 3 escépticos por hallazgo
+· 21 hallazgos, 18 sobrevivieron.*
