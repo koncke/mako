@@ -101,6 +101,10 @@ const POR_QUE = {
   // está abierta y la sesión puede estar perfecta: lo que no respondió es el
   // enlace, y eso se arregla recargando.
   sin_enlace: 'Tu pestaña de MaKo no respondió. Se recarga y se vuelve a intentar.',
+  // ⚠️ Su remedio NO es reintentar. La pestaña quedó de antes de un deploy y llama a
+  // una server action que ya no existe; apretar «Volver a intentar» falla igual las
+  // veces que se apriete. Se recarga.
+  pagina_vieja: 'Tu pestaña de MaKo quedó de antes de una actualización. Se recarga y se vuelve a intentar.',
   error: 'Vuelve a intentar en un momento.',
 };
 
@@ -112,6 +116,7 @@ const TITULO_FALLO = {
   // para cualquier excepción. Una clienta logueada y con su pestaña abierta leyó
   // durante horas que le faltaba iniciar sesión.
   sesion: 'Inicia sesión en MaKo',
+  pagina_vieja: 'Recarga tu pestaña de MaKo',
   error: 'No se pudo conectar',
 };
 
@@ -233,9 +238,20 @@ async function pintar() {
       tenue: (v.emparejarError === 'error' && v.emparejarEtiqueta)
         ? v.emparejarEtiqueta
         : (POR_QUE[v.emparejarError] || POR_QUE.error),
-      boton: seArreglaReintentando ? 'Volver a intentar' : 'Abrir MaKo',
+      // ⚠️ EL RÓTULO DICE LO QUE EL BOTÓN HACE. Con `sin_enlace` o `pagina_vieja` lo
+      // que hace es RECARGAR, y llamarlo «Volver a intentar» es el defecto que este
+      // repo ya pagó en el wizard: un rótulo de una fuente y una acción de otra.
+      boton: !seArreglaReintentando
+        ? 'Abrir MaKo'
+        : ((v.emparejarError === 'sin_enlace' || v.emparejarError === 'pagina_vieja')
+            ? 'Recargar y conectar'
+            : 'Volver a intentar'),
       accion: seArreglaReintentando
-        ? (v.emparejarError === 'sin_enlace' ? recargarMakoYConectar : () => void conectar(false))
+        // `pagina_vieja` va con `sin_enlace`: los dos se arreglan recargando la
+        // pestaña, y reintentar sin recargar repite el mismo fallo.
+        ? ((v.emparejarError === 'sin_enlace' || v.emparejarError === 'pagina_vieja')
+            ? recargarMakoYConectar
+            : () => void conectar(false))
         : abrirMako,
       boton2: seArreglaReintentando ? 'Abrir MaKo' : undefined,
       accion2: abrirMako,
@@ -299,6 +315,25 @@ async function pintar() {
     return;
   }
   if (!v.bearer) {
+    // ⚠️ DOS ESTADOS DISTINTOS QUE SE MOSTRABAN IGUAL.
+    //
+    // Sin bearer puede ser que no inició sesión, o que inició sesión y está en la
+    // PORTADA de Flow. En la portada la app pide sus cosas con cookies y no hace
+    // ninguna llamada con `Authorization`, así que no hay bearer que ver — y la
+    // persona está perfectamente logueada.
+    //
+    // Medido con una clienta el 04/09/2026: su pestaña era `flow.google.com` con el
+    // avatar, el plan y el botón de «Salir» a la vista, y el popup le decía «Inicia
+    // sesión». Le pedía lo único que ya estaba hecho.
+    if (v.hayFlow && !v.flowEnProyecto) {
+      pantalla({
+        titulo: 'Abre un proyecto en Flow',
+        tenue: 'MaKo necesita ver una llamada de Flow para conectarse, y en la lista de proyectos todavía no hay ninguna. Entra a cualquier proyecto —o crea uno— y vuelve acá.',
+        boton: 'Ir a Google Flow',
+        accion: abrirFlow,
+      });
+      return;
+    }
     pantalla({ titulo: 'Inicia sesión en Google Flow', boton: 'Ir a Google Flow', accion: abrirFlow });
     return;
   }

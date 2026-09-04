@@ -71,13 +71,32 @@ export function PuenteEnlace(): null {
         const digest = String((e as { digest?: unknown })?.digest ?? '');
         const esRedirect = digest.startsWith('NEXT_REDIRECT');
         const detalle = e instanceof Error ? e.message : String(e);
+        // ⚠️ ESTA PESTAÑA QUEDÓ DE ANTES DE UN DEPLOY, Y NEXT LO DICE EN INGLÉS.
+        //
+        // Cada build cambia el id de las server actions. Una pestaña abierta desde
+        // antes llama a un id que ya no existe, y el runtime de Next tira
+        // «An unexpected response was received from the server.» — que es lo que
+        // llegaba CRUDO al popup: un texto en inglés, en una interfaz en español,
+        // que no dice qué pasó ni qué hacer.
+        //
+        // Medido con una clienta el 04/09/2026, el mismo día en que se desplegó dos
+        // veces. Y el botón que ofrecía era «Volver a intentar», que sobre una
+        // pestaña vieja falla igual las veces que se apriete: el remedio es RECARGAR.
+        //
+        // Se reconoce por el texto porque es lo único que hay —Next no expone un
+        // código—, y si mañana cambia la frase, el `detalle` sigue viajando abajo:
+        // se pierde el título bueno, nunca la información.
+        const esPaginaVieja = /unexpected response was received from the server/i.test(detalle)
+          || /Failed to find Server Action/i.test(detalle);
         // Al log del navegador también: es lo único que queda si la persona
         // cierra el popup antes de leer.
         console.error('[mako] no se pudo acuñar el token del puente:', e);
         window.dispatchEvent(new CustomEvent('MAKO_PUENTE_TOKEN_ERROR', {
           detail: esRedirect
             ? { id, motivo: 'sesion' }
-            : { id, motivo: 'error', etiqueta: detalle.slice(0, 160) },
+            : esPaginaVieja
+              ? { id, motivo: 'pagina_vieja', etiqueta: detalle.slice(0, 160) }
+              : { id, motivo: 'error', etiqueta: detalle.slice(0, 160) },
         }));
       } finally {
         enVuelo.current = false;

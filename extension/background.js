@@ -206,6 +206,33 @@ function origenDeFlow(tab) {
   try { return new URL(tab.url).origin; } catch { return 'https://flow.google.com'; }
 }
 
+/** Si una url es de Flow, con la MISMA lista que usa el `tabs.query`. */
+function esUrlDeFlow(url) {
+  const u = String(url || "");
+  return /^https:\/\/labs\.google\/fx\/.*tools\/flow/.test(u)
+    || u.startsWith("https://flow.google.com/");
+}
+
+/**
+ * Si esa pestana esta DENTRO de un proyecto, y no en la portada.
+ *
+ * ⚠️ ES LA DIFERENCIA ENTRE «no inicio sesion» Y «todavia no abrio un proyecto», y
+ * hasta hoy las dos se mostraban con el mismo cartel.
+ *
+ * El bearer se ve al pasar, en el header `Authorization` de una llamada a la API
+ * de Flow. En la portada —la lista de proyectos— la app no hace ninguna: pide sus
+ * cosas con cookies. Asi que una persona perfectamente logueada, mirando su lista
+ * de proyectos, no produce ni un bearer.
+ *
+ * Medido el 04/09/2026 con una clienta: pestana en `https://flow.google.com`, con su
+ * avatar, su plan y su boton de «Salir» a la vista, y el popup diciendole «Inicia
+ * sesion en Google Flow». Le pedia lo unico que ya estaba hecho — que es la regla de
+ * la casa sobre errores, del reves.
+ */
+function enProyectoDeFlow(url) {
+  return /\/project\//.test(String(url || ""));
+}
+
 async function pestanaDeFlow() {
   // ⚠️ «DORMIDA» NO ES «NO EXISTE», Y CONFUNDIRLAS ES UN CALLEJÓN SIN SALIDA.
   //
@@ -1627,7 +1654,10 @@ chrome.alarms.onAlarm.addListener((a) => { if (a.name === 'ciclo') void ciclo();
 // no hay content script al que preguntarle nada.
 chrome.tabs.onUpdated.addListener((_id, info, tab) => {
   if (info.status !== 'complete') return;
-  if (!/^https:\/\/labs\.google\/fx\/.*tools\/flow/.test(tab.url || '')) return;
+  // ⚠️ EL DECIMO SITIO QUE CLAVABA EL DOMINIO, y el mas silencioso de todos: no
+  // rompe nada, solo hace que la buena noticia tarde hasta 30 s en llegar. Sale de
+  // `PATRONES_FLOW` para que no vuelva a quedarse atras.
+  if (!esUrlDeFlow(tab.url)) return;
   void ciclo();
 });
 
@@ -1665,7 +1695,15 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
       ['token', 'bearer', 'apiKey', 'ultimoLatido', 'saldoLocal', 'emparejando', 'emparejandoDesde', 'emparejarError', 'emparejarCuando', 'emparejarEtiqueta', 'workspaceNombre', 'versionEsperada'],
       async (v) => {
         let hayFlow = false;
-        try { await pestanaDeFlow(); hayFlow = true; } catch { hayFlow = false; }
+        // Dos preguntas y no una: «hay pestana de Flow» y «esa pestana esta dentro de
+        // un proyecto». Ver `enProyectoDeFlow`: sin la segunda, a alguien logueado se
+        // le pide que inicie sesion.
+        let flowEnProyecto = false;
+        try {
+          const tf = await pestanaDeFlow();
+          hayFlow = true;
+          flowEnProyecto = enProyectoDeFlow(tf.url);
+        } catch { hayFlow = false; }
         responder({
           // Booleanos: el popup no necesita ninguna credencial, y lo que no sale
           // de aca no se puede filtrar por una pantalla.
@@ -1673,6 +1711,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
           bearer: !!v.bearer,
           apiKey: !!v.apiKey,
           hayFlow,
+          flowEnProyecto,
           ultimoLatido: v.ultimoLatido || null,
           saldo: v.saldoLocal || null,
           emparejando: !!v.emparejando,

@@ -74,4 +74,16 @@ export const EXTENSION_EN_TIENDA = !esMasVieja(VERSION_EN_TIENDA, EXTENSION_VERS
 export const EXTENSION_URL_TIENDA = `https://chromewebstore.google.com/detail/mako/${EXTENSION_ID}`;
 
 /** El zip que sirve Vercel, para instalar a mano mientras la tienda no esté. */
-export const EXTENSION_URL_ZIP = '/mako-puente.zip';
+/**
+ * ⚠️ LA URL LLEVA LA VERSION, Y SE DERIVA — no se escribe.
+ *
+ * Una URL fija puede servir bytes viejos desde tres caches distintos y, peor, deja
+ * dos archivos con el mismo nombre en la carpeta de Descargas de quien ya bajo una
+ * vez. Con la version adentro, cada release es una direccion nueva: no hay cache que
+ * pueda contestar la anterior, y el archivo dice cual es sin abrirlo.
+ *
+ * Derivada de `EXTENSION_VERSION` y no escrita a mano por lo mismo que esa constante
+ * se genera: un numero copiado se queda viejo el dia que alguien suba el manifest y
+ * no lo toque, y el sintoma seria un 404 en el unico boton que instala el producto.
+ */
+export const EXTENSION_URL_ZIP = `/mako-puente-${EXTENSION_VERSION}.zip`;

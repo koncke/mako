@@ -122,10 +122,20 @@ export default function InstalarExtension() {
               pasos={[
                 'Toca **Descargar la extensión**. Si MaKo te pide iniciar sesión, hazlo: '
                   + 'la descarga sigue sola.',
-                'Descomprime el archivo. Te queda una carpeta llamada **mako-puente**.',
+                // ⚠️ LA CARPETA LLEVA LA VERSION, Y ESO ES EL ARREGLO.
+                //
+                // El zip trae los archivos sueltos en la raiz, asi que la carpeta que
+                // queda al descomprimir hereda el nombre del archivo — y el archivo
+                // ahora se llama `mako-puente-<version>.zip`.
+                //
+                // Antes las dos se llamaban `mako-puente` a secas, asi que quien ya
+                // habia instalado una vez tenia DOS carpetas identicas de nombre y
+                // ninguna forma de saber cual era la nueva. Este repo ya pago eso: un
+                // cliente estuvo horas corriendo una copia de dos horas antes.
+                `Descomprime el archivo. Te queda una carpeta llamada **mako-puente-${EXTENSION_VERSION}**.`,
                 'Copia **chrome://extensions** y pégalo en la barra de direcciones de Chrome. '
                   + 'Arriba a la derecha, enciende **Modo de desarrollador**.',
-                'Toca **Cargar descomprimida** y elige la carpeta **mako-puente**.',
+                `Toca **Cargar descomprimida** y elige la carpeta **mako-puente-${EXTENSION_VERSION}**.`,
                 // Ver la nota de arriba: sin anclar, el ícono no está en la barra.
                 {
                   texto: 'Arriba a la derecha, toca el ícono de **pieza de rompecabezas** y, al lado de '
@@ -191,8 +201,10 @@ export default function InstalarExtension() {
                   + 'En la tarjeta de MaKo, toca **Quitar**. No pierdes nada de tu cuenta: '
                   + 'lo único que hay que rehacer es un clic al final.',
                 'Vuelve aquí y toca **Descargar la extensión**.',
-                'Descomprime el archivo. Te queda una carpeta llamada **mako-puente**.',
-                'En **chrome://extensions**, toca **Cargar descomprimida** y elige esa carpeta.',
+                `Descomprime el archivo. Te queda una carpeta llamada **mako-puente-${EXTENSION_VERSION}**.`,
+                // Con el nombre versionado, «esa carpeta» deja de ser ambiguo aunque
+                // haya varias de instalaciones anteriores.
+                `En **chrome://extensions**, toca **Cargar descomprimida** y elige **mako-puente-${EXTENSION_VERSION}**.`,
                 // Al reinstalar, el anclado se pierde con el **Quitar** del primer paso:
                 // vuelve a hacer falta, igual que en una instalación nueva.
                 {
