@@ -382,49 +382,19 @@ async function soltarGuardia() {
 }
 
 /**
- * La frase de aprendizaje, y el pedazo de ella que ninguna capa puede cambiar.
+ * El catalogo de operaciones: la fuente unica de que sabe hacer el puente.
  *
- * ⚠️ ESTA DUPLICADA A PROPOSITO, y el duplicado es el que decide.
+ * ⚠️ GENERADO de lib/flow-operaciones.ts por scripts/sync-operaciones.mjs, y el
+ * pre-push falla si quedo viejo. Los tokens de aca son el ancla que decide si una
+ * generacion PAGADA se reconoce: desincronizados, al cliente se le cobra un clip y
+ * el puente contesta que no aprendio.
  *
- * `injected.js` tambien la tiene, pero ese archivo corre en el mundo de la PAGINA
- * y se marca con `window.__makoEspejo` — una marca que sobrevive a que la extension
- * se actualice y solo muere con un F5. O sea que en una pestana de Flow ya abierta
- * sigue corriendo el injected.js VIEJO, y todo campo nuevo que ese archivo aprenda
- * a mandar simplemente no llega. Paso el 05/09/2026: se arreglo el campo `sentinela`
- * en injected.js, se desplego, y el sintoma no se movio ni un milimetro.
- *
- * Derivarla ACA —en el service worker, que si se actualiza— la vuelve inmune a eso:
- * anda con el espejo viejo, es retroactiva sobre lo que ya esta en storage, y no
- * cuesta un credito. Un dato que se puede LEER del cuerpo no se pide prestado a
- * otra version.
+ * Vive en el service worker —que SI se actualiza con la extension— y no en
+ * injected.js, que corre en el mundo de la pagina y queda congelado hasta un F5.
+ * Esa distincion ya costo un dia entero: un arreglo correcto en injected.js no se
+ * ejecutaba en la pestana que la persona tenia abierta.
  */
-const SENTINELA_TXT = 'un cubo violeta girando sobre arena mako7f3a9c';
-const SENTINELA_TOKEN = 'mako7f3a9c';
-
-/**
- * Con que codificacion aparece la sentinela en este cuerpo, si aparece.
- *
- * ⚠️ El que DECIDE es el token, no la frase. La frase tiene seis espacios, y un
- * cuerpo `form-urlencoded` —que es como viaja `f.req` en BOQ— los escribe `+`, no
- * `%20`: medido, las seis codificaciones dan CERO sobre un cuerpo real. El token es
- * alfanumerico puro y sobrevive a todas.
- */
-function codificacionSentinela(cuerpo) {
-  if (typeof cuerpo !== 'string' || !cuerpo) return null;
-  const CODS = [
-    ['crudo', (t) => t],
-    ['json', (t) => JSON.stringify(t).slice(1, -1)],
-    ['uri', (t) => encodeURIComponent(t)],
-    ['json+uri', (t) => encodeURIComponent(JSON.stringify(t).slice(1, -1))],
-    ['form', (t) => new URLSearchParams({ x: t }).toString().slice(2)],
-  ];
-  for (const [nombre, cod] of CODS) {
-    try { if (cuerpo.includes(cod(SENTINELA_TXT))) return nombre; } catch { /* sigue */ }
-  }
-  if (cuerpo.includes(SENTINELA_TOKEN)) return 'token';
-  return null;
-}
-
+import { OPERACIONES, A_ENSENAR, operacionDelCuerpo } from './operaciones.js';
 async function guardarPlantillas(tabId) {
   try {
     const r = await chrome.tabs.sendMessage(tabId, { tipo: 'GUARDAR_PLANTILLAS' });
@@ -447,11 +417,20 @@ async function guardarPlantillas(tabId) {
       // Se descubre UNA vez y no cambia. Tres fuentes, de la mas fresca a la mas vieja:
       // lo que mando el espejo, lo que se puede leer del cuerpo acá mismo (que es lo
       // que salva a las pestanas con el injected.js viejo), y lo que ya sabiamos.
-      const sentinela = p.sentinela
-        || codificacionSentinela(p.cuerpo)
-        || (antes && antes.sentinela)
-        || null;
-      mapa[p.clase] = { ...p, sentinela, cuando: Date.now() };
+      // ⚠️ SE ETIQUETA POR OPERACION, NO SOLO «TIENE SENTINELA».
+      //
+      // Con dos operaciones que se aprenden por ancla —generar video y generar
+      // imagen— saber que HAY una sentinela ya no alcanza: hay que saber CUAL. Un
+      // booleano global diria que el puente sabe filmar despues de que la persona
+      // genero una imagen, y eso se descubre cuando el pedido sale y Google
+      // contesta 400, con el trabajo ya encolado.
+      //
+      // Se DERIVA del cuerpo, aca en el worker: es lo que hace que funcione con el
+      // injected.js viejo de una pestana que nadie recargo.
+      const hallado = operacionDelCuerpo(p.cuerpo);
+      const op = p.op || (hallado && hallado.op) || (antes && antes.op) || null;
+      const sentinela = p.sentinela || (hallado && hallado.donde) || (antes && antes.sentinela) || null;
+      mapa[p.clase] = { ...p, op, sentinela, cuando: Date.now() };
     }
     await chrome.storage.local.set({ [CLAVE_PLANTILLAS]: mapa });
   } catch { /* si la pestana no responde, no hay nada que guardar */ }
@@ -2113,7 +2092,11 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
         // del cuerpo capturado; si es `null`, la plantilla existe pero no sabemos
         // dónde va el prompt — que es un estado distinto de «no hay plantilla» y se
         // muestra distinto.
-        let aprendioGenerar = false;
+        // Que operaciones ya sabe hacer, y cual toca ensenar. Reemplaza al booleano:
+        // «aprendio» sin decir QUE no es una respuesta cuando son cinco.
+        let ops = {};
+        let siguiente = null;
+        let aprendioGenerar = false;   // se conserva por las extensiones viejas del server
         let claseAprendida = '';
         // ⚠️ SI LA GUARDIA TUVO QUE DEVOLVER LA PESTAÑA, hay que decirlo. Sin esto,
         // la persona ve que Flow «se movió solo» y no sabe que fue MaKo — que es
@@ -2136,12 +2119,29 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
           //
           // La sentinela solo la puede tener el pedido que llevaba la frase, o sea el de
           // generar. No hace falta saber su rpcid para reconocerlo.
+          // Una entrada por operacion aprendida, con la clase que la trajo. La clase
+          // es un DATO, no la llave: el rpcid rota con el bundle de Google.
+          for (const [clase, p] of Object.entries(guardadas)) {
+            if (!p || !p.op) continue;
+            ops[p.op] = { clase, donde: p.sentinela || null, cuando: p.cuando || 0 };
+          }
+          // Y las que se aprenden mirando trafico se dan por sabidas cuando su clase
+          // esta guardada, aunque no lleven ancla: no hay frase que buscarles.
+          for (const o of A_ENSENAR) {
+            if (o.como !== 'trafico' || ops[o.op]) continue;
+            const hit = Object.entries(guardadas).find(([, p]) => p && p.op === o.op);
+            if (hit) ops[o.op] = { clase: hit[0], donde: null, cuando: hit[1].cuando || 0 };
+          }
+          // La PRIMERA que falta, en el orden del catalogo. Una sola, porque la
+          // pantalla muestra un paso por vez.
+          const falta = A_ENSENAR.find((o) => !ops[o.op]);
+          siguiente = falta ? { op: falta.op, frase: falta.frase, que: falta.que, cuesta: falta.cuesta } : null;
           const conSentinela = Object.entries(guardadas).find(([, p]) => p && p.sentinela);
           aprendioGenerar = !!conSentinela;
           // Y se guarda CUAL fue: el dia que haya que repetir el pedido, no se vuelve a
           // adivinar el rpcid.
           if (conSentinela) claseAprendida = conSentinela[0];
-        } catch { aprendioGenerar = false; }
+        } catch { ops = {}; siguiente = null; aprendioGenerar = false; }
         try {
           const tf = await pestanaDeFlow();
           hayFlow = true;
@@ -2159,6 +2159,11 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
           flowNuevo,
           aprendioGenerar,
           claseAprendida,
+          ops,
+          siguiente,
+          // Cuantas de las que se ensenan ya estan, para el «N de M» de la pantalla.
+          cuantasOps: A_ENSENAR.length,
+          cuantasListas: Object.keys(ops).filter((k) => A_ENSENAR.some((o) => o.op === k)).length,
           volviAlProyecto,
           ultimoLatido: v.ultimoLatido || null,
           saldo: v.saldoLocal || null,

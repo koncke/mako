@@ -54,12 +54,12 @@ test('la sentinela se puede derivar del cuerpo acá, sin depender del espejo', (
   // extensión se actualice, así que un campo nuevo del espejo puede no llegar nunca.
   // El service worker sí se actualiza. Un dato que se puede LEER no se pide prestado.
   assert.ok(
-    /function codificacionSentinela/.test(sinComentarios),
+    /operacionDelCuerpo/.test(sinComentarios),
     'Sin la derivación local, una pestaña con el espejo viejo no aprende nunca — que\n'
     + 'es exactamente por qué el arreglo de v0.49.0 no movió el síntoma.',
   );
   assert.ok(
-    /codificacionSentinela\(p\.cuerpo\)/.test(sinComentarios),
+    /operacionDelCuerpo\(p\.cuerpo\)/.test(sinComentarios),
     'La función existe y nadie la llama al guardar: escribir la salida no es ofrecerla.',
   );
 });
@@ -80,16 +80,21 @@ test('`aprendioGenerar` no cuelga de un rpcid escrito a mano', () => {
   );
 });
 
-test('la clase aprendida se guarda Y se lee', () => {
-  // El campo existe para que el día que haya que REPETIR el pedido no se vuelva a
-  // adivinar el rpcid. Si nadie lo lee, es trabajo muerto — el defecto que este
-  // mismo puente pagó dos veces hoy.
-  assert.ok(/claseAprendida,/.test(src), 'el ESTADO no devuelve claseAprendida');
+test('lo que el ESTADO escribe sobre el aprendizaje, el popup lo lee', () => {
+  // El booleano `aprendioGenerar` murio: con cinco operaciones, «aprendio» sin decir
+  // QUE no es una respuesta. Lo reemplazan `ops` (que sabe) y `siguiente` (que falta).
+  //
+  // Se fija que el consumidor exista, que es el defecto que este puente pago dos veces
+  // en un dia: un campo que viaja y nadie lee no da error, da un estado invisible.
+  assert.ok(/siguiente,/.test(src), 'el ESTADO no devuelve `siguiente`');
+  assert.ok(/ops,/.test(src), 'el ESTADO no devuelve `ops`');
   const popup = readFileSync(
     resolve(import.meta.dirname, '..', 'extension', 'popup.js'), 'utf8',
   );
   assert.ok(
-    /v\.claseAprendida/.test(popup),
-    'El ESTADO la escribe y el popup no la lee: un campo que viaja y nadie consume.',
+    /v\.siguiente/.test(popup),
+    'El ESTADO calcula `siguiente` y el popup no lo lee: la pantalla del aprendizaje\n'
+    + 'quedaría mostrando el estado de otra cosa.',
   );
+  assert.ok(/v\.cuantasOps|v\.cuantasListas/.test(popup), 'el popup no muestra el N de M');
 });

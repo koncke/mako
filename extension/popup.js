@@ -105,7 +105,11 @@ const enviar = (msg) => new Promise((r) => chrome.runtime.sendMessage(msg, (out)
  * persona genera con una frase y el espejo busca otra, así que «no aprendí» sobre
  * una generación que salió bien — y el clip ya se pagó.
  */
-const FRASE_APRENDIZAJE = 'un cubo violeta girando sobre arena mako7f3a9c';
+// ⚠️ LA FRASE NO SE ESCRIBE ACA. Viene del catalogo, que es la fuente unica y la
+// que el pre-push mantiene sincronizada con lib/flow-operaciones.ts. Escrita a mano
+// en dos archivos, una letra de diferencia significa que la persona genera un clip,
+// se le cobra, y el puente contesta que no aprendio.
+import { operacionDe } from './operaciones.js';
 
 const POR_QUE = {
   sesion: 'Inicia sesión en MaKo y vuelve a intentar.',
@@ -398,39 +402,47 @@ async function pintar() {
     //
     // Va acá y no en un instructivo aparte porque es donde la persona está
     // mirando cuando se entera de que no puede generar.
-    if (!v.aprendioGenerar) {
-      // ⚠️ NO LO MANDA A DONDE YA ESTÁ. Con la pestaña de Flow abierta y adentro del
-      // proyecto —que es el único caso en que esta pantalla sirve de algo— «Ir a
-      // Google Flow» es el defecto de siempre: pedirle lo único que ya hizo.
-      // Reportado hoy, textual: «ya estoy en flow y me pide ir a flow».
-      //
-      // Lo que SÍ ayuda es la frase en el portapapeles: hay que escribirla exacta, y
-      // transcribir a mano un token como `mako7f3a9c` es justo donde se pierde el
-      // clip — una letra distinta y el espejo no la encuentra, con la generación ya
-      // pagada.
+    // ⚠️ UNA SOLA PANTALLA, Y LA CONDUCE EL SERVIDOR DE ESTADO.
+    //
+    // Antes habia dos ramas y un booleano `aprendioGenerar`. Con CINCO operaciones
+    // que ensenar —leer creditos, sondear estado, subir imagen, generar video,
+    // generar imagen— un booleano no es una simplificacion: es una afirmacion falsa.
+    // Decia «ya aprendi» despues de la primera y el puente seguia sin saber hacer
+    // las otras cuatro.
+    //
+    // `v.siguiente` es la PRIMERA que falta, en el orden del catalogo. Una sola,
+    // porque la regla de la casa es un paso por pantalla; el «N de M» va como
+    // contexto y no como lista.
+    if (v.siguiente) {
+      const o = operacionDe(v.siguiente.op);
+      const cuantas = v.cuantasOps || 0;
+      const listas = v.cuantasListas || 0;
+      // ⚠️ SE DICE SI CUESTA, ANTES. Lo que sigue puede gastar un credito de Google
+      // de la persona, y eso no se descubre despues de apretar. Las tres gratis lo
+      // dicen tambien: saber que algo NO cuesta es la mitad de la decision.
+      const costo = v.siguiente.cuesta
+        ? 'Esto gasta un credito de tu cuenta de Google. Es una sola vez.'
+        : 'Esto no gasta creditos.';
       pantalla({
-        titulo: 'Ayúdame a aprender',
-        tenue: 'Google reescribió Flow y MaKo todavía no sabe pedirle un video. Genera UNO tú, de 4 segundos, con este texto exacto: «' + FRASE_APRENDIZAJE + '». Con esa sola vez aprendo a hacerlo solo.',
-        boton: v.flowEnProyecto ? 'Copiar la frase' : 'Ir a Google Flow',
-        accion: v.flowEnProyecto ? copiarFrase : abrirFlow,
+        titulo: listas ? 'Falta ensenarme ' + (cuantas - listas) + ' de ' + cuantas : 'Ensename a usar tu Flow',
+        tenue: v.siguiente.que + ' ' + costo
+          + (v.siguiente.frase ? ' La frase exacta: «' + v.siguiente.frase + '».' : ''),
+        // Copiar solo tiene sentido si hay frase Y si esta parado donde pegarla.
+        boton: (v.siguiente.frase && v.flowEnProyecto)
+          ? 'Copiar la frase'
+          : (v.flowEnProyecto ? 'Entendido' : 'Ir a Google Flow'),
+        accion: (v.siguiente.frase && v.flowEnProyecto)
+          ? () => copiarFrase(v.siguiente.frase)
+          : (v.flowEnProyecto ? () => window.close() : abrirFlow),
       });
       return;
     }
-    // ⚠️ SI YA APRENDIÓ, SE DICE. Llegar acá con `aprendioGenerar` significa que la
-    // generación de prueba sirvió y la plantilla quedó guardada — y eso es una buena
-    // noticia que la persona pagó con un clip. Callarla y mostrarle el mismo cartel
-    // de «Google cambió Flow» la deja sin saber si tiene que repetirlo.
+    // ⚠️ NO QUEDA NINGUNA: se dice, y se dice QUE aprendio. Un «listo» pelado se lee
+    // igual este bien o mal, que es como este puente dijo «Todo listo» tres veces
+    // sobre algo que no funcionaba.
     pantalla({
-      titulo: 'Ya aprendí a pedirle un video',
-      // ⚠️ SE NOMBRA LA CLASE APRENDIDA, y no es un adorno: es la unica evidencia
-      // que la persona tiene de QUE se guardo. Un «ya aprendi» pelado se lee igual
-      // esté bien o mal, que es como este puente ya dijo «Todo listo» tres veces
-      // sobre algo que no funcionaba. Y ademas la clase la escribe el ESTADO: si no
-      // se leyera en ningun lado seria un campo muerto, que es el defecto que este
-      // mismo archivo acaba de pagar dos veces.
-      tenue: 'Guardé cómo se arma el pedido en el Flow nuevo'
-        + (v.claseAprendida ? ' (' + v.claseAprendida + ')' : '')
-        + '. Todavía falta que MaKo lo use para filmar solo, pero lo que había que enseñarle ya está: no hace falta que generes de nuevo.',
+      titulo: 'Ya se usar tu Flow',
+      tenue: 'Aprendi las ' + (v.cuantasOps || 0) + ' operaciones que necesito (' + Object.keys(v.ops || {}).join(', ') + '). No hace falta que generes nada mas.',
       boton: 'Ir a MaKo',
       accion: abrirMako,
     });
@@ -673,9 +685,9 @@ function bajarNueva() {
  * salió bien — y el clip ya se pagó, en créditos del cliente. Transcribir a mano un
  * token como `mako7f3a9c` es exactamente donde eso pasa.
  */
-async function copiarFrase() {
+async function copiarFrase(frase) {
   try {
-    await navigator.clipboard.writeText(FRASE_APRENDIZAJE);
+    await navigator.clipboard.writeText(frase);
     pantalla({
       titulo: 'Frase copiada',
       tenue: 'Pégala en «¿Qué quieres crear?» de Flow, ponlo en 4 segundos y genera. Vuelve acá cuando termine.',
@@ -687,7 +699,7 @@ async function copiarFrase() {
     // escribirla a mano, que es peor pero es cierto.
     pantalla({
       titulo: 'No pude copiarla',
-      tenue: 'Escríbela a mano, tal cual: ' + FRASE_APRENDIZAJE,
+      tenue: 'Escríbela a mano, tal cual: ' + frase,
       boton: 'Listo',
       accion: () => window.close(),
     });

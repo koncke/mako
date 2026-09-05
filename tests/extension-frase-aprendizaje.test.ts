@@ -1,65 +1,58 @@
 // =============================================================================
-// La frase de aprendizaje está escrita dos veces y tiene que decir lo mismo
+// La frase de aprendizaje vive en UN lugar, y el fosil de la vieja lo respeta
 // =============================================================================
-// Para que MaKo aprenda a pedirle un video al Flow nuevo hace falta ver UNA
-// generación real hecha con una frase conocida: el prompt viaja escapado adentro de
-// JSON anidado dentro de un `f.req` url-encodeado, y adivinar ese anidado es lo que
-// este repo tiene prohibido. Con la frase, el espejo prueba cada codificación hasta
-// encontrar cuál aparece en el cuerpo, y ya no hay nada que suponer.
+// ⚠️ ESTE TEST CAMBIO DE OBJETO, Y CONVIENE SABER POR QUE.
 //
-// ⚠️ POR QUÉ ESTÁ DUPLICADA Y NO SE PUEDE EVITAR.
+// Antes comparaba la frase entre `injected.js` y `popup.js`, porque estaba escrita
+// a mano en los dos. Ya no: la fuente unica es `lib/flow-operaciones.ts`, de donde
+// se GENERA `extension/operaciones.js`, y el pre-push falla si quedan desfasados.
+// El popup la importa de ahi.
 //
-// Una copia vive en `injected.js`, que corre en el MAIN world de la página de Flow;
-// la otra en `popup.js`, que es quien se la muestra a la persona. Una extensión MV3
-// sin bundler no tiene dónde ponerla una sola vez: los content scripts no importan
-// módulos y el popup no comparte contexto con ellos.
+// Lo que SI queda escrito a mano es la constante `SENTINELA` de `injected.js`, y a
+// proposito: ese archivo corre en el mundo de la PAGINA y se queda congelado hasta
+// que alguien hace F5, asi que una pestana abierta desde ayer sigue usandola. Es un
+// fosil vivo — y un fosil que dice otra cosa que el catalogo hace que una generacion
+// PAGADA no se reconozca.
 //
-// ⚠️ Y EL DESFASE NO ROMPE NADA RUIDOSO, que es lo que lo hace caro. La persona
-// generaría con la frase que le muestra el popup y el espejo buscaría otra: el
-// resultado es «no aprendí» sobre una generación que salió perfecta — y el clip ya
-// se pagó, en créditos de Google del cliente.
-//
-// Por eso el guard es un test y no un comentario: es exactamente la clase de cosa
-// que un comentario no puede impedir.
+// Asi que lo que se fija ahora es que ese fosil siga siendo uno de los tokens del
+// catalogo.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { OPERACIONES } from '../lib/flow-operaciones';
 
-const RAIZ = resolve(import.meta.dirname, '..');
-const leer = (f: string) => readFileSync(resolve(RAIZ, 'extension', f), 'utf8');
+const inj = readFileSync(
+  resolve(import.meta.dirname, '..', 'extension', 'injected.js'), 'utf8',
+);
 
-/** La frase, sacada de una declaración `const X = '…';` por el nombre de la const. */
-function frase(src: string, nombre: string): string | null {
-  const m = new RegExp(`const\\s+${nombre}\\s*=\\s*'([^']*)'`).exec(src);
-  return m ? m[1] : null;
-}
-
-test('la frase de aprendizaje dice lo mismo en injected.js y en popup.js', () => {
-  const enEspejo = frase(leer('injected.js'), 'SENTINELA');
-  const enPopup = frase(leer('popup.js'), 'FRASE_APRENDIZAJE');
-
-  assert.ok(enEspejo, 'no encontré SENTINELA en injected.js — ¿se renombró?');
-  assert.ok(enPopup, 'no encontré FRASE_APRENDIZAJE en popup.js — ¿se renombró?');
-  assert.equal(
-    enPopup, enEspejo,
-    'El popup le pide a la persona una frase y el espejo busca otra.\n'
-    + `  popup.js:    "${enPopup}"\n`
-    + `  injected.js: "${enEspejo}"\n`
-    + 'La generación de prueba saldría bien y MaKo diría que no aprendió, con el clip\n'
-    + 'ya pagado. Si cambiás una, cambiá la otra.',
+test('el fósil `SENTINELA` de injected.js es una frase del catálogo', () => {
+  const m = /const SENTINELA = '([^']+)'/.exec(inj);
+  assert.ok(m, 'no encontré SENTINELA en injected.js');
+  const frases = OPERACIONES.map((o) => o.frase).filter(Boolean);
+  assert.ok(
+    frases.includes(m[1]),
+    'La frase escrita en injected.js no está en el catálogo.\n\n'
+    + 'Ese archivo queda congelado en las pestañas ya abiertas hasta un F5, así que\n'
+    + 'sigue siendo el que mide para mucha gente. Si dice algo que el catálogo no\n'
+    + 'conoce, esa persona genera un clip, se le cobra, y el puente no lo reconoce.\n\n'
+    + 'Frases del catálogo: ' + frases.join(' · '),
   );
 });
 
-test('la frase es lo bastante rara como para no aparecer sola en un pedido', () => {
-  // ⚠️ Si la frase fuera algo común («un gato»), podría aparecer en el cuerpo por
-  // otra razón —otro campo, otra generación anterior de la misma sesión— y el
-  // espejo aprendería una posición equivocada. El token al final es lo que la hace
-  // única, así que se exige que siga estando.
-  const f = frase(leer('injected.js'), 'SENTINELA') ?? '';
-  assert.match(
-    f, /[a-z0-9]{6,}/,
-    'La frase necesita un token raro (letras y números juntos) para no confundirse '
-    + 'con texto que ya esté en el cuerpo por otro motivo.',
+test('el popup NO tiene la frase escrita a mano', () => {
+  // Si vuelve a estar, volvió el desfase que el catálogo vino a cerrar.
+  const pop = readFileSync(
+    resolve(import.meta.dirname, '..', 'extension', 'popup.js'), 'utf8',
   );
+  for (const o of OPERACIONES) {
+    if (!o.frase) continue;
+    assert.ok(
+      !pop.includes(o.frase),
+      'La frase de ' + o.op + ' está escrita a mano en popup.js. Tiene que venir del\n'
+      + 'catálogo (`import { operacionDe } from \'./operaciones.js\'`), o los dos se\n'
+      + 'separan y una letra de diferencia cuesta un clip pagado.',
+    );
+  }
+  assert.ok(pop.includes("from './operaciones.js'"), 'el popup no importa el catálogo');
 });
