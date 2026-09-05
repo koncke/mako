@@ -183,11 +183,35 @@ que decide en qué inquilino se escribe el token de agenda de alguien.
 
 ### ⚠️ El bloqueante real está FUERA del repo, y ningún cambio de código lo toca
 
-La app OAuth sigue en **modo Testing** en Google Cloud. El rastro estaba escrito en
-`docs/hallazgos-infra.md` desde el 06/08/2026 («**Pendiente del dueño:** sacar el aviso
-de Google "Esta app está en prueba"») y nadie lo cruzó con «los clientes van a conectar
-su agenda». En Testing sólo consienten los emails cargados a mano como test users: el
-cliente pasa los gates nuevos **y lo frena Google**.
+**MEDIDO el 05/09/2026 en la consola** (proyecto `MaKo` / `mako-500317`, que es de
+`martinkoncke@gmail.com` — con la cuenta de Leandro la consola contesta «Necesitas acceso
+adicional» y eso se lee como un problema de permisos cuando es de cuenta):
+
+| Qué | Estado |
+|---|---|
+| Publishing status | **Testing** (cap de 100 usuarios de por vida) |
+| Test users | **3**: martinkoncke@, mbustos@elevate.com.mx, tejadomartin@ — **el cliente NO está** |
+| Branding | **INCOMPLETO**: `App name` VACÍO, home page, privacy, terms y authorized domains vacíos |
+| Data Access | **CERO scopes registrados** — ni `calendar.readonly` ni `calendar.events`, en ninguna de las tres tablas |
+| Redirect URIs | **OK**: las dos de `hola-mako.com` (login y agenda) están, y también `localhost:3000` |
+
+El rastro estaba escrito en `docs/hallazgos-infra.md` desde el 06/08/2026
+(«**Pendiente del dueño:** sacar el aviso de Google "Esta app está en prueba"») y nadie lo
+cruzó con «los clientes van a conectar su agenda». En Testing sólo consienten los emails
+cargados a mano: el cliente pasa los gates nuevos **y lo frena Google**.
+
+⚠️ **Y publicar NO es un botón:** la propia pantalla de Audience dice «Your app's OAuth
+configuration is incomplete… visit the Branding page». Con el `App name` vacío el botón
+«Publish app» no procede. O sea que el pendiente escrito en agosto era más grande de lo que
+su redacción sugería — «sacar el aviso» suena a un toggle y son cuatro campos más una
+política de privacidad publicada.
+
+Dos correcciones a lo que decía la doc vieja, las dos medidas:
+- **`localhost:3000` SÍ está registrada** para el callback de la agenda: `hallazgos-infra.md`
+  afirma que conectar desde `npm run dev` falla con Error 400, y eso ya no es cierto.
+- **`www.hola-mako.com` NO está** en ninguna de las 8 redirect URIs ni en los 3 JavaScript
+  origins, y `proxy.ts` deja pasar `www` sin mandarlo al apex: quien entre por ahí come
+  `redirect_uri_mismatch`. Sin reproducir todavía.
 
 Y trae una cola que el código no puede distinguir: en Testing **los refresh_token
 caducan a los 7 días**. `googleCalendarConectado()` mide «el token descifra», no «Google
@@ -206,10 +230,14 @@ quedó conectada la correcta.
 
 ### Lo que quedó SIN hacer
 
-- **Publicar/verificar la app en Google Cloud.** Pide política de privacidad y términos
-  públicos en el dominio, y no existen: `app/privacidad/extension/page.tsx` habla de la
-  extensión de Chrome, no de MaKo ni del uso de datos de Google Calendar. No hay
+- **Completar Branding y publicar la app.** Falta el `App name` (obligatorio, hoy vacío),
+  y para la verificación posterior hacen falta política de privacidad y términos **públicos
+  en el dominio**, que no existen: `app/privacidad/extension/page.tsx` habla de la extensión
+  de Chrome, no de MaKo ni del uso de datos de Google Calendar. No hay
   `app/privacidad/page.tsx` ni `/terminos`.
+- **Declarar los scopes en Data Access.** Hoy la tabla está vacía: `calendar.readonly` y
+  `calendar.events` nunca se cargaron. En Testing no molesta (Google los concede igual a un
+  test user), pero es lo primero que mira la verificación.
 - **`integracionConectada('google')` devuelve `false` para TODOS los workspaces**: el
   token vive en `app_settings` y no en `credenciales`, y `'google'` no está en
   `lib/metodo-catalogo.ts` (sale por el `if (!s) return false` de
