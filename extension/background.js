@@ -914,6 +914,24 @@ async function ciclo() {
     const { token } = await chrome.storage.local.get('token');
     if (!token) { latido.estado = 'sin_token'; return; }
 
+    // ⚠️ EN EL FLOW NUEVO, EL BEARER GUARDADO ES UN RECUERDO Y HAY QUE TIRARLO.
+    //
+    // No se puede refrescar ahí —la app nunca manda `Authorization`—, así que el que
+    // haya en storage es de la época de labs.google. Y mientras siga puesto, todo lo
+    // que pregunta «¿hay bearer?» contesta que sí: el popup mostraba «Todo listo»
+    // sobre un puente que no puede filmar, y este latido reportaba `listo` al server.
+    //
+    // Una credencial que no se puede refrescar en el contexto actual no es una
+    // credencial: es un recuerdo. Y este repo ya tiene la regla —el estado se lee
+    // vivo, no se recuerda—; esto es aplicarla a algo que además abre una puerta.
+    try {
+      const tf = await pestanaDeFlow();
+      if (bearer && esFlowNuevo(tf.url)) {
+        bearer = '';
+        await chrome.storage.local.remove('bearer');
+      }
+    } catch { /* sin pestaña, no hay nada que decidir */ }
+
     let estado = 'listo';
     let detalle = '';
     let respuestasVistas = null;

@@ -357,6 +357,69 @@ async function pintar() {
     });
     return;
   }
+  // ⚠️ EL FLOW NUEVO SE DECIDE ANTES QUE LAS CREDENCIALES, y esto era un «Todo
+  // listo» sobre un puente que no puede filmar.
+  //
+  // `bearer` es un valor GUARDADO. En flow.google.com no se puede refrescar —la app
+  // nunca manda `Authorization`—, así que el que haya en storage es necesariamente
+  // de la época de labs.google y no sirve para nada. Pero el popup preguntaba
+  // `if (!v.bearer)` antes que nada, veía un token viejo, y seguía de largo hasta
+  // «Todo listo».
+  //
+  // O sea que para cualquiera que haya usado el Flow viejo —o sea, todos— la
+  // pantalla del Flow nuevo era INALCANZABLE, y la de aprender también. Reportado
+  // el 05/09/2026: el clip de aprendizaje generado, y el popup diciendo «Todo listo».
+  //
+  // Una credencial que no se puede refrescar en el contexto actual no es una
+  // credencial: es un recuerdo. Y un recuerdo no puede ganarle a lo que se está
+  // mirando ahora.
+  // ⚠️ EL FLOW NUEVO NO PUEDE CONECTARSE, Y DECIR OTRA COSA ES MENTIR.
+  //
+  // Medido el 04/09/2026 dentro de un proyecto cargado de una cuenta real: el Flow
+  // de flow.google.com habla sólo por BOQ/batchexecute y no emite NUNCA un
+  // `Authorization: Bearer`. El protocolo que este puente implementa no tiene
+  // contraparte ahí — no falta un permiso, falta el mecanismo entero.
+  //
+  // Llegar acá con `flowNuevo` significa exactamente ese caso: si el puente pudiera
+  // funcionar habría bearer y esta rama no se ejecutaría.
+  //
+  // Se dice con todas las letras y SIN botón de reintentar: un botón acá manda a
+  // repetir algo que no puede salir bien, y eso es lo que hace que la próxima vez
+  // nadie lea el cartel. La regla de la casa: si la culpa no es del cliente, se
+  // nombra a quién fue y no se le pide nada.
+  if (v.flowNuevo) {
+    // ⚠️ MIENTRAS NO APRENDIÓ, LA PANTALLA PIDE LA ÚNICA COSA QUE DESTRABA TODO.
+    //
+    // Para poder generar con la app nueva hace falta ver UNA generación de
+    // verdad: el pedido lleva el prompt escapado adentro de JSON anidado, y
+    // adivinar ese anidado es lo que este repo tiene prohibido. Con una
+    // generación hecha con una frase conocida, el espejo encuentra dónde cae y
+    // ya no hay nada que suponer.
+    //
+    // Va acá y no en un instructivo aparte porque es donde la persona está
+    // mirando cuando se entera de que no puede generar.
+    if (!v.aprendioGenerar) {
+      pantalla({
+        titulo: 'Ayúdame a aprender',
+        tenue: 'Google reescribió Flow y MaKo todavía no sabe pedirle un video. Genera UNO tú, de 4 segundos, con este texto exacto: «' + FRASE_APRENDIZAJE + '». Con esa sola vez aprendo a hacerlo solo.',
+        boton: 'Ir a Google Flow',
+        accion: abrirFlow,
+      });
+      return;
+    }
+    // ⚠️ SI YA APRENDIÓ, SE DICE. Llegar acá con `aprendioGenerar` significa que la
+    // generación de prueba sirvió y la plantilla quedó guardada — y eso es una buena
+    // noticia que la persona pagó con un clip. Callarla y mostrarle el mismo cartel
+    // de «Google cambió Flow» la deja sin saber si tiene que repetirlo.
+    pantalla({
+      titulo: 'Ya aprendí a pedirle un video',
+      tenue: 'Guardé cómo se arma el pedido en el Flow nuevo. Todavía falta que MaKo lo use para filmar solo, pero lo que había que enseñarle ya está: no hace falta que generes de nuevo.',
+      boton: 'Ir a MaKo',
+      accion: abrirMako,
+    });
+    return;
+  }
+
   if (!v.bearer) {
     // ⚠️ DOS ESTADOS DISTINTOS QUE SE MOSTRABAN IGUAL.
     //
@@ -368,48 +431,6 @@ async function pintar() {
     // Medido con una clienta el 04/09/2026: su pestaña era `flow.google.com` con el
     // avatar, el plan y el botón de «Salir» a la vista, y el popup le decía «Inicia
     // sesión». Le pedía lo único que ya estaba hecho.
-    // ⚠️ EL FLOW NUEVO NO PUEDE CONECTARSE, Y DECIR OTRA COSA ES MENTIR.
-    //
-    // Medido el 04/09/2026 dentro de un proyecto cargado de una cuenta real: el Flow
-    // de flow.google.com habla sólo por BOQ/batchexecute y no emite NUNCA un
-    // `Authorization: Bearer`. El protocolo que este puente implementa no tiene
-    // contraparte ahí — no falta un permiso, falta el mecanismo entero.
-    //
-    // Llegar acá con `flowNuevo` significa exactamente ese caso: si el puente pudiera
-    // funcionar habría bearer y esta rama no se ejecutaría.
-    //
-    // Se dice con todas las letras y SIN botón de reintentar: un botón acá manda a
-    // repetir algo que no puede salir bien, y eso es lo que hace que la próxima vez
-    // nadie lea el cartel. La regla de la casa: si la culpa no es del cliente, se
-    // nombra a quién fue y no se le pide nada.
-    if (v.flowNuevo) {
-      // ⚠️ MIENTRAS NO APRENDIÓ, LA PANTALLA PIDE LA ÚNICA COSA QUE DESTRABA TODO.
-      //
-      // Para poder generar con la app nueva hace falta ver UNA generación de
-      // verdad: el pedido lleva el prompt escapado adentro de JSON anidado, y
-      // adivinar ese anidado es lo que este repo tiene prohibido. Con una
-      // generación hecha con una frase conocida, el espejo encuentra dónde cae y
-      // ya no hay nada que suponer.
-      //
-      // Va acá y no en un instructivo aparte porque es donde la persona está
-      // mirando cuando se entera de que no puede generar.
-      if (!v.aprendioGenerar) {
-        pantalla({
-          titulo: 'Ayúdame a aprender',
-          tenue: 'Google reescribió Flow y MaKo todavía no sabe pedirle un video. Genera UNO tú, de 4 segundos, con este texto exacto: «' + FRASE_APRENDIZAJE + '». Con esa sola vez aprendo a hacerlo solo.',
-          boton: 'Ir a Google Flow',
-          accion: abrirFlow,
-        });
-        return;
-      }
-      pantalla({
-        titulo: 'Google cambió Flow',
-        tenue: 'Google reescribió Google Flow y movió la app a flow.google.com. La forma en que MaKo se conectaba con la versión anterior ya no existe ahí, así que esto no es nada de tu cuenta ni de tu sesión. Estamos trabajando en la conexión nueva.',
-        boton: 'Ir a MaKo',
-        accion: abrirMako,
-      });
-      return;
-    }
     if (v.hayFlow && !v.flowEnProyecto) {
       pantalla({
         titulo: 'Abre un proyecto en Flow',
