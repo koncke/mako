@@ -349,6 +349,38 @@ async function pedirCaptcha(tabId, action, medida) {
 // credencial sin ganar nada.
 const CLAVE_PLANTILLAS = 'plantillas';
 
+/**
+ * La pestana de Flow que MaKo dejo lista, para poder devolverla a su lugar.
+ *
+ * ⚠️ EL PEDIDO DEL DUENO: «si detecta que toco algo de Google Flow, que vuelva a
+ * redireccionar a la posicion correcta, al proyecto, y que le avise que no toque
+ * nada».
+ *
+ * Y no es capricho: si la pestana se va del proyecto, el puente pierde de golpe el
+ * unico lugar donde el trafico que necesita ocurre. Antes eso terminaba en un cartel
+ * pidiendo volver a entrar — o sea, delegando en la persona el arreglo de algo que
+ * ella no sabe que rompio.
+ *
+ * ⚠️ Se guarda la URL EXACTA y no solo el id: la gracia es devolverla al MISMO
+ * proyecto. Con el id solo, «volver» seria adivinar a cual.
+ */
+const CLAVE_CUIDANDO = 'cuidandoFlow';
+
+/**
+ * Cuanto dura la guardia.
+ *
+ * ⚠️ TIENE QUE VENCER, o es una pestana secuestrada. Alguien que abrio Flow con MaKo
+ * hace tres horas y ahora quiere navegar su propio Flow no esta cometiendo un error:
+ * dejo de estar en la tarea. Media hora cubre una sesion de trabajo entera y no
+ * convierte al navegador en algo que pelea con su dueno.
+ */
+const CUIDADO_MS = 30 * 60 * 1000;
+
+/** Deja de cuidar: lo llama todo lo que significa «la tarea termino». */
+async function soltarGuardia() {
+  try { await chrome.storage.local.remove(CLAVE_CUIDANDO); } catch { /* nada que soltar */ }
+}
+
 async function guardarPlantillas(tabId) {
   try {
     const r = await chrome.tabs.sendMessage(tabId, { tipo: 'GUARDAR_PLANTILLAS' });
@@ -1555,6 +1587,13 @@ async function prepararEscenario() {
   // ensena que la app no se entera de lo que hace.
   await ciclo().catch(() => {});
 
+  // ⚠️ QUEDA UNA GUARDIA PUESTA. Ver `CLAVE_CUIDANDO`.
+  if (tabFlow && enProyectoDeFlow(tabFlow.url)) {
+    await chrome.storage.local.set({
+      [CLAVE_CUIDANDO]: { tabId: tabFlow.id, url: tabFlow.url, desde: Date.now() },
+    });
+  }
+
   return { ok: true, pasos, avisoProyecto, flow: !!tabFlow, mako: !!tabMako };
 }
 /**
@@ -1864,6 +1903,39 @@ chrome.alarms.onAlarm.addListener((a) => { if (a.name === 'ciclo') void ciclo();
 // Con esto el lado de la extension pasa a ser inmediato: en cuanto una pestana de
 // Flow termina de cargar, se late. `complete` y no `loading` porque antes de eso
 // no hay content script al que preguntarle nada.
+/**
+ * Si la pestana cuidada se va del proyecto, se la devuelve.
+ *
+ * ⚠️ UNA SOLA VEZ POR SALIDA, y por eso se compara contra la URL guardada: sin eso,
+ * la propia navegacion que hacemos dispararia el listener otra vez y quedaria un
+ * lazo que la persona no puede cortar ni cerrando la pestana.
+ *
+ * Y se suelta la guardia si la persona insiste: `veces` cuenta los rebotes, y al
+ * segundo se deja de pelear. Alguien que vuelve a irse despues de que lo trajimos
+ * de vuelta no se equivoco — quiere estar en otro lado, y el producto no esta para
+ * discutirle.
+ */
+chrome.tabs.onUpdated.addListener((id, info) => {
+  void (async () => {
+    try {
+      if (!info.url) return;
+      const g = (await chrome.storage.local.get(CLAVE_CUIDANDO))[CLAVE_CUIDANDO];
+      if (!g || g.tabId !== id) return;
+      if (Date.now() - Number(g.desde || 0) > CUIDADO_MS) return soltarGuardia();
+      // Sigue en su proyecto: nada que hacer.
+      if (enProyectoDeFlow(info.url)) return;
+      // Se fue de Flow del todo (cerro, o navego a otro sitio): no se lo persigue
+      // fuera de Flow — eso ya no es «tocar algo de Flow», es irse.
+      if (!esUrlDeFlow(info.url)) return soltarGuardia();
+      if (Number(g.veces || 0) >= 1) return soltarGuardia();
+      await chrome.storage.local.set({
+        [CLAVE_CUIDANDO]: { ...g, veces: Number(g.veces || 0) + 1, avisado: true },
+      });
+      await chrome.tabs.update(id, { url: g.url }).catch(() => {});
+    } catch { /* la guardia nunca puede romper la navegacion */ }
+  })();
+});
+
 chrome.tabs.onUpdated.addListener((_id, info, tab) => {
   if (info.status !== 'complete') return;
   // ⚠️ EL DECIMO SITIO QUE CLAVABA EL DOMINIO, y el mas silencioso de todos: no
@@ -1921,6 +1993,14 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
         // dónde va el prompt — que es un estado distinto de «no hay plantilla» y se
         // muestra distinto.
         let aprendioGenerar = false;
+        // ⚠️ SI LA GUARDIA TUVO QUE DEVOLVER LA PESTAÑA, hay que decirlo. Sin esto,
+        // la persona ve que Flow «se movió solo» y no sabe que fue MaKo — que es
+        // peor que no haberla movido: parece que el navegador hace cosas raras.
+        let volviAlProyecto = false;
+        try {
+          const g = (await chrome.storage.local.get(CLAVE_CUIDANDO))[CLAVE_CUIDANDO];
+          volviAlProyecto = !!(g && g.avisado);
+        } catch { volviAlProyecto = false; }
         try {
           const guardadas = (await chrome.storage.local.get(CLAVE_PLANTILLAS))[CLAVE_PLANTILLAS] || {};
           aprendioGenerar = !!(guardadas['boq:YhhmEf'] && guardadas['boq:YhhmEf'].sentinela);
@@ -1941,6 +2021,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
           flowEnProyecto,
           flowNuevo,
           aprendioGenerar,
+          volviAlProyecto,
           ultimoLatido: v.ultimoLatido || null,
           saldo: v.saldoLocal || null,
           emparejando: !!v.emparejando,
@@ -1974,6 +2055,18 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
   if (msg?.tipo === 'CONECTAR') { void conectar(!!msg.forzar).then(responder); return true; }
   if (msg?.tipo === 'RECARGAR_MAKO') { void recargarMako().then(responder); return true; }
   if (msg?.tipo === 'ABRIR_FLOW') { void abrirFlow().then(responder); return true; }
+  // Se limpia el aviso cuando el popup ya lo mostró: es un EVENTO, no un estado, y
+  // dejarlo puesto lo repetiría cada vez que se abre el popup.
+  if (msg?.tipo === 'AVISO_VISTO') {
+    void (async () => {
+      try {
+        const g = (await chrome.storage.local.get(CLAVE_CUIDANDO))[CLAVE_CUIDANDO];
+        if (g) await chrome.storage.local.set({ [CLAVE_CUIDANDO]: { ...g, avisado: false } });
+      } catch { /* nada */ }
+      responder({ ok: true });
+    })();
+    return true;
+  }
   if (msg?.tipo === 'PREPARAR') { void prepararEscenario().then(responder, (e) => responder({ ok: false, error: String((e && e.message) || e) })); return true; }
   if (msg?.tipo === 'RECARGAR_FLOW') { void recargarFlow().then(responder); return true; }
   if (msg?.tipo === 'SALDO') { void saldoLocal(true).then(responder); return true; }

@@ -323,6 +323,20 @@ async function pintar() {
     return;
   }
 
+  // ⚠️ EL REBOTE SE AVISA ANTES QUE NADA. La persona acaba de ver que Flow «se
+  // movió solo»: si el popup le habla de otra cosa, lo que aprende es que el
+  // navegador hace cosas raras por su cuenta.
+  if (v.volviAlProyecto) {
+    await enviar({ tipo: 'AVISO_VISTO' });
+    pantalla({
+      titulo: 'Te devolví a tu proyecto',
+      tenue: 'Fui yo: MaKo necesita esa pestaña justo ahí para poder filmar. No toques nada mientras trabaja — cuando termine, es toda tuya.',
+      boton: 'Entendido',
+      accion: () => window.close(),
+    });
+    return;
+  }
+
   // ── Google Flow (paso 3) ───────────────────────────────────────────────
   if (!v.hayFlow) {
     // ⚠️ EL BOTÓN LO HACE, NO LO PIDE. Antes abría Flow y devolvía a la persona a
@@ -331,10 +345,15 @@ async function pintar() {
     pantalla({
       titulo: 'Preparo todo y empezamos',
       tenue: 'Abro Google Flow, entro a tu proyecto y te dejo en MaKo. No toques nada mientras tanto.',
+      // ⚠️ UN SOLO BOTON. Habia un «Solo abrir Flow» al lado, y el dueno lo saco:
+      // «no deberia decir nunca abrir solo flow, solo el boton de comenzar».
+      //
+      // Tiene razon y es la misma regla que gobierna toda esta pantalla: una segunda
+      // salida que hace MENOS es una invitacion a armar el estado a mano, que es
+      // justo lo que este boton vino a terminar. Y la mitad de la gente aprieta la
+      // opcion mas chica porque suena menos riesgosa.
       boton: 'Empezar',
       accion: prepararTodo,
-      boton2: 'Solo abrir Flow',
-      accion2: abrirFlow,
     });
     return;
   }
