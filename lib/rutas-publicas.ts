@@ -62,6 +62,9 @@ export const PUBLICOS = [
   // URL pública y su revisor la abre sin cuenta de MaKo: detrás del login se lee
   // como que no existe, y eso es motivo de rechazo.
   '/privacidad',
+  // Los términos del servicio. Google los EXIGE junto con la política para
+  // verificar la app OAuth de Calendar, y su revisor los abre sin cuenta.
+  '/terminos',
   '/api/og',
   '/vsl',
   '/vsl-assets',

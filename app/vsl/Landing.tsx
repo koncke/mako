@@ -10,6 +10,8 @@
 // Calendly embebido, reveal on-scroll y autoplay de videos.
 
 import { useEffect, useMemo, useRef } from 'react';
+import { EMAIL_MAKO } from '@/lib/app-url';
+
 import { LANDING_HTML } from './landing-html';
 import { SHOWCASE_BY_SLUG, INJECT_ORDER, OCULTAS } from './showcase';
 
@@ -19,6 +21,12 @@ declare global {
     Calendly?: { initInlineWidget: (opts: { url: string; parentElement: Element }) => void };
   }
 }
+
+// El año del pie. En una constante de módulo y no adentro del render: así el
+// server y el navegador leen el MISMO valor y no hay diferencia de hidratación.
+// (`lib/app-url.ts` no lleva `server-only` a propósito — lo dice su comentario —,
+// así que EMAIL_MAKO se puede importar desde este componente de cliente.)
+const ANIO = new Date().getFullYear();
 
 const CALENDLY_CSS = 'https://assets.calendly.com/assets/external/widget.css';
 const CALENDLY_JS = 'https://assets.calendly.com/assets/external/widget.js';
@@ -379,7 +387,35 @@ export default function Landing() {
     <div className="vsl-root" ref={rootRef}>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       {injectedHtml}
+      <PieLegal />
     </div>
+  );
+}
+
+/**
+ * El pie con los enlaces legales.
+ *
+ * No es decoración: Google EXIGE, para verificar una app que pide scopes
+ * sensibles, que la política de privacidad sea alcanzable desde la página
+ * principal — no alcanza con declararla en la consola. Y esta landing es la
+ * página principal pública de MaKo.
+ *
+ * Va en JSX y no adentro de LANDING_HTML a propósito: ese bloque es HTML
+ * importado del diseño y se regenera; lo que se pegue ahí se pierde en la
+ * próxima importación.
+ */
+function PieLegal() {
+  return (
+    <footer style={{
+      borderTop: '1px solid rgba(0,0,0,.08)', padding: '28px 24px 36px', textAlign: 'center',
+      fontSize: 13.5, color: '#666', display: 'flex', flexWrap: 'wrap',
+      gap: '6px 18px', justifyContent: 'center', alignItems: 'center',
+    }}>
+      <span>© {ANIO} MaKo</span>
+      <a href="/privacidad" style={{ color: '#666', textDecoration: 'underline' }}>Privacidad</a>
+      <a href="/terminos" style={{ color: '#666', textDecoration: 'underline' }}>Términos</a>
+      <a href={`mailto:${EMAIL_MAKO}`} style={{ color: '#666', textDecoration: 'underline' }}>{EMAIL_MAKO}</a>
+    </footer>
   );
 }
 

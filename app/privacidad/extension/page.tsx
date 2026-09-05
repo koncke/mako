@@ -10,6 +10,8 @@
 // Google la abre sin cuenta de MaKo, y una que pide login se lee como que no
 // existe.
 
+import { EMAIL_MAKO } from '@/lib/app-url';
+
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
@@ -116,9 +118,14 @@ export default function Page() {
       <ul>
         <li>No envía tu token de Google a ningún servidor, incluido el de MaKo.</li>
         <li>No lee tu correo, tus contactos, tus archivos ni tu historial de navegación.</li>
+        {/* ⚠️ ESTA LISTA SALE DE `host_permissions` DEL manifest.json, y ya se quedó
+            vieja una vez: Google mudó Flow de labs.google a flow.google.com y acá
+            seguían figurando dos dominios de tres. Una lista de «solo estos sitios»
+            a la que le falta uno es una afirmación falsa, no una desactualización. */}
         <li>
           No accede a ningún sitio fuera de <code>labs.google</code>,{' '}
-          <code>aisandbox-pa.googleapis.com</code> y <code>hola-mako.com</code>.
+          <code>flow.google.com</code>, <code>aisandbox-pa.googleapis.com</code> y{' '}
+          <code>hola-mako.com</code>.
         </li>
         <li>No recopila datos de uso, analítica, publicidad ni seguimiento de ningún tipo.</li>
         <li>No vende, comparte ni transfiere información a terceros.</li>
@@ -128,9 +135,10 @@ export default function Page() {
             frase quería decir — pero decirlo de más en una política es lo mismo que
             decirlo mal. */}
         <li>
-          No cambia lo que ves en ninguna página. En <code>labs.google</code> agrega un
-          script propio para poder hacer, con tu sesión, los mismos pedidos que harías
-          tú a mano; en cualquier otro sitio no hace absolutamente nada.
+          No cambia lo que ves en ninguna página. En Google Flow (<code>labs.google</code> y{' '}
+          <code>flow.google.com</code>) agrega un script propio para poder hacer, con tu
+          sesión, los mismos pedidos que harías tú a mano; en cualquier otro sitio no hace
+          absolutamente nada.
         </li>
       </ul>
 
@@ -150,8 +158,14 @@ export default function Page() {
           Flow no ofrece una API pública con credenciales propias.
         </li>
         <li>
-          <strong>labs.google</strong> y <strong>aisandbox-pa.googleapis.com</strong> —
-          enviar los pedidos de generación a Google Flow.
+          <strong>scripting</strong> — insertar en la página de Google Flow el script que
+          hace los pedidos con tu sesión. Es el mismo trabajo que harías tú a mano en esa
+          pestaña; sin este permiso no hay forma de hacerlo.
+        </li>
+        <li>
+          <strong>labs.google</strong>, <strong>flow.google.com</strong> y{' '}
+          <strong>aisandbox-pa.googleapis.com</strong> — enviar los pedidos de generación a
+          Google Flow.
         </li>
         <li>
           <strong>hola-mako.com</strong> — recibir los pedidos de tu cuenta de MaKo y
@@ -177,7 +191,7 @@ export default function Page() {
       <H>Contacto</H>
       <p>
         Por cualquier consulta sobre esta política:{' '}
-        <a href="mailto:hola@hola-mako.com">hola@hola-mako.com</a>.
+        <a href={`mailto:${EMAIL_MAKO}`}>{EMAIL_MAKO}</a>.
       </p>
     </main>
   );
