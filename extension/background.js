@@ -1675,10 +1675,72 @@ async function recargarFlow() {
  * NO escribe nada en el server: `saldoAction` sigue siendo el unico escritor del
  * saldo guardado, que es lo que alimenta el costo por clip.
  */
+/**
+ * Los creditos, leidos de la respuesta que el Flow NUEVO ya trajo.
+ *
+ * ⚠️ NUNCA SE MOVIERON DE LUGAR: estan en el menu de la cuenta, arriba a la derecha,
+ * como siempre. Lo que cambio es POR DONDE los pide la app.
+ *
+ * Medido el 05/09/2026 con el menu abierto y confirmado en pantalla: el `rpcids=nzlxg`
+ * contesta, textual,
+ *
+ *   ["wrb.fr","nzlxg","[569,1,2,2,null,569]",null,null,null,"generic"]
+ *
+ * y 569 es exactamente el numero que muestra el menu. El primer elemento es el saldo.
+ *
+ * ⚠️ Y ESTO NO PIDE NADA: el espejo ya guarda la respuesta de cada `batchexecute`, asi
+ * que leer los creditos deja de costar una llamada a Google. Es lo que el propio
+ * espejo dice que existe para hacer —«con esto una consulta de creditos no necesita un
+ * pedido nuestro»— y hasta hoy no se usaba en este camino.
+ *
+ * ⚠️ COMO SE ME PASO, que es lo que vale escribir: en la primera medicion busque la
+ * palabra `credit` en las respuestas y no aparecia, asi que reporte que los creditos
+ * ya no existian. El numero 569 ESTABA en esa misma captura, dos veces. Un predicado
+ * mal elegido no devuelve «no se»: devuelve «no», que es indistinguible de un hecho.
+ */
+function creditosDeBoq(texto) {
+  try {
+    const m = /\["wrb\.fr","nzlxg","((?:[^"\\]|\\.)*)"/.exec(String(texto || ''));
+    if (!m) return null;
+    // Doble parseo a proposito: el tercer campo es un JSON guardado DENTRO de un
+    // string JSON, asi que primero se desescapa el string y despues se parsea.
+    const dentro = JSON.parse(JSON.parse('"' + m[1] + '"'));
+    const n = Array.isArray(dentro) ? Number(dentro[0]) : NaN;
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  } catch { return null; }
+}
+
+/**
+ * El saldo del Flow nuevo, sin pedirle nada a Google.
+ *
+ * Devuelve `null` si todavia no se vio pasar un `nzlxg` — que es un estado distinto de
+ * «no hay creditos» y por eso no se confunde con cero.
+ */
+async function saldoDeBoq() {
+  try {
+    const tab = await pestanaDeFlow();
+    if (!esFlowNuevo(tab.url)) return null;
+    if ((await asegurarContentScript(tab.id)) === 'mudo') return null;
+    const r = await chrome.tabs.sendMessage(tab.id, { tipo: 'VER_RESPUESTAS' });
+    const texto = r && r.respuestas && r.respuestas['boq:nzlxg'];
+    const creditos = creditosDeBoq(texto);
+    return creditos == null ? null : { creditos, cuando: Date.now(), tier: '' };
+  } catch { return null; }
+}
 async function saldoLocal(forzar) {
   const { saldoLocal: prev } = await chrome.storage.local.get('saldoLocal');
   // Piso de ritmo: abrir el popup no puede ser un pedido a Google cada vez.
   if (!forzar && prev && Date.now() - prev.cuando < 60000) return prev;
+
+  // ⚠️ EL FLOW NUEVO PRIMERO, Y SIN PEDIR NADA. El camino de abajo llama a
+  // `/v1/credits` con el bearer, que en flow.google.com no existe: ahi falla
+  // SIEMPRE. Este lee el numero de una respuesta que la app ya trajo.
+  const boq = await saldoDeBoq();
+  if (boq) {
+    await chrome.storage.local.set({ saldoLocal: boq });
+    return boq;
+  }
+
   try {
     const tab = await pestanaDeFlow();
     if ((await asegurarContentScript(tab.id)) === 'mudo') {

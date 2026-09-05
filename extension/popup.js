@@ -488,45 +488,32 @@ async function verSaldo() {
     // copiar la hace al CARGAR. Con la pestaña abierta —que es el caso normal,
     // porque sin ella ni se llega hasta acá— «Abrir Google Flow» era un botón que
     // cambiaba de ventana y dejaba todo igual.
-    // ⚠️ EN EL FLOW NUEVO NINGUNA DE LAS RAMAS DE ABAJO ES CIERTA.
+    // ⚠️ EN EL FLOW NUEVO LOS CRÉDITOS SÍ SE PUEDEN LEER, Y NUNCA SE MOVIERON.
     //
-    // Los créditos se piden a `aisandbox-pa.googleapis.com` con el bearer, y en
-    // flow.google.com ese bearer no existe: la app habla por BOQ y autentica con
-    // cookies. O sea que la consulta falla SIEMPRE, y por un motivo que no tiene
-    // nada que ver con la sesión de la persona.
+    // Están en el menú de la cuenta —arriba a la derecha, el avatar— como siempre.
+    // Lo que cambió es por dónde los pide la app: `rpcids=nzlxg` los contesta, y el
+    // espejo ya guarda esa respuesta, así que `saldoDeBoq()` los lee sin pedir nada.
     //
-    // Sin esto, apretar «ver mis créditos» contesta «tu sesión de Flow venció, o
-    // Google la pausó» a alguien con la sesión perfecta, mirando su proyecto —
-    // reportado con captura el 05/09/2026. Es la tercera superficie donde el
-    // mismo error acusa a lo único que está bien.
+    // Llegar acá con `flowNuevo` significa una sola cosa: todavía no vimos pasar ese
+    // pedido en esta sesión. Y eso tiene un remedio de verdad —abrir el menú de la
+    // cuenta, que es lo que lo dispara— en vez de un cartel de disculpa.
     //
-    // Y no ofrece «Recargar»: recargar no puede arreglar esto, y un botón que
-    // invita a repetir algo imposible es lo que hace que la próxima vez nadie lea
-    // el cartel.
-    // El estado se pide acá: `verSaldo` no lo recibe, y decidir esta rama sin él
-    // sería suponer en qué Flow está la persona.
-    const est = await enviar({ tipo: 'ESTADO' });
+    // ⚠️ Y ESTE TEXTO COSTÓ TRES INTENTOS, los tres afirmando de más:
+    //   1. «tu sesión venció» — a alguien con la sesión perfecta;
+    //   2. «míralos arriba a la derecha» — inventado, sin haberlo mirado;
+    //   3. «Google los sacó» — falso: yo busqué la palabra `credit` en las
+    //      respuestas, no aparecía, y reporté ausencia. El número estaba ahí, dos
+    //      veces, en la misma captura.
+    //
+    // Un predicado mal elegido no devuelve «no sé»: devuelve «no», que es
+    // indistinguible de un hecho. Este texto es el primero que se escribió DESPUÉS
+    // de abrir el menú y ver el número.
     if (est && est.flowNuevo) {
       pantalla({
-        titulo: 'Todavía no puedo leer tus créditos',
-        // ⚠️ NO MANDA A MIRAR A NINGÚN LADO, Y ESO ES EL ARREGLO.
-        //
-        // La versión anterior decía «míralos en Flow, arriba a la derecha». Medido el
-        // 05/09/2026 en una cuenta PRO real, con el proyecto abierto: no hay ningún
-        // número de créditos en la pantalla, ni en el menú de la cuenta, ni en una
-        // sola de las respuestas que la app recibe. Google los sacó de ahí.
-        //
-        // O sea que el mensaje mandaba a buscar algo que no existe — el MISMO defecto
-        // que venía a arreglar, movido un renglón: dejaba de acusar a la sesión y
-        // pasaba a inventar un lugar.
-        //
-        // La regla que queda: cuando no se sabe DÓNDE está algo, el mensaje dice qué
-        // pasó y se calla. Una instrucción inventada cuesta más que no dar ninguna,
-        // porque la persona la sigue y llega a la conclusión de que además está
-        // ciega.
-        tenue: 'Google reescribió Flow y la forma en que MaKo los leía ya no existe. No es tu sesión ni tu cuenta. Cuando encontremos dónde quedaron, vuelven acá.',
-        // Sin botón: no hay a dónde mandar a nadie, y un botón que lleva a cualquier
-        // lado se lee como que ahí está la respuesta.
+        titulo: 'Abre el menú de tu cuenta en Flow',
+        tenue: 'Tus créditos están donde siempre: el avatar de arriba a la derecha, en Flow. Ábrelo una vez y MaKo los lee de ahí — no hace falta que vuelvas a abrirlo después.',
+        boton: 'Ir a Google Flow',
+        accion: abrirFlow,
       });
       return;
     }
