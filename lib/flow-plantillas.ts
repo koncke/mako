@@ -80,6 +80,18 @@ export type PlantillaEspejo = {
   headers: Record<string, string>;
   cuerpo: string | null;
   credenciales?: string;
+  /**
+   * Con qué codificación aparece la frase de aprendizaje en este cuerpo.
+   *
+   * ⚠️ Es lo que dice que esta plantilla es la de GENERAR y no la de sondear. Sin
+   * este campo el respaldo devuelve plantillas que el navegador no puede reconocer,
+   * y el popup vuelve a pedir un clip pagado sobre algo que ya sabíamos.
+   *
+   * Faltaba en el tipo Y en el `out.push`. Es el MISMO defecto que ya se pagó hoy en
+   * `extension/injected.js`, una capa más arriba: un objeto armado campo por campo
+   * pierde en silencio todo lo que no esté nombrado.
+   */
+  sentinela?: string | null;
   cuando?: number;
 };
 
@@ -101,6 +113,62 @@ const TOPE_TOTAL = 150_000;
  * en `chrome.storage.local` contra lo que prometía su propio comentario.
  */
 const HEADERS_PROHIBIDOS = new Set(['authorization', 'cookie', 'set-cookie', 'x-goog-authuser']);
+
+/**
+ * Los origenes desde los que una plantilla puede venir.
+ *
+ * ⚠️ SE COMPARA `origin`, NUNCA UN PREFIJO DE LA URL. Un `startsWith` se ve igual de
+ * seguro y no lo es: medido, `https://flow.google.com` como prefijo acepta
+ * `https://flow.google.com.evil.tld`, `https://flow.google.comevil.tld`,
+ * `https://flow.google.com:8443` y —el peor— `https://flow.google.com@evil.tld`, cuyo
+ * origen REAL es `https://evil.tld`. O sea que un pedido nuestro saldria a un tercero,
+ * con las credenciales del cliente, y la url se leeria bien en cualquier listado.
+ *
+ * La linea que habia (`aisandbox-pa.googleapis.com/`) no era explotable de milagro: la
+ * salva la barra final. Eso es suerte del formato, no del metodo — y no sobrevive al
+ * dia que alguien escriba la de al lado sin la barra, que es exactamente lo que este
+ * archivo estaba por hacer.
+ *
+ * `labs.google` queda AFUERA a proposito: hoy no se persiste nada de ese origen. Un
+ * origen se agrega el dia que algo de el se guarda, no antes.
+ */
+const ORIGENES_DE_FLOW: ReadonlySet<string> = Object.freeze(new Set([
+  'https://aisandbox-pa.googleapis.com',  // el protocolo viejo, y el que arma plantilla-fabrica
+  'https://flow.google.com',              // BOQ, el Flow nuevo
+])) as ReadonlySet<string>;
+
+/** Si esta url sale de un origen de Flow. Sin `server-only`: esto se testea. */
+export function esOrigenDeFlow(url: string): boolean {
+  try {
+    const u = new URL(String(url || ""));
+    if (u.protocol !== 'https:') return false;
+    return ORIGENES_DE_FLOW.has(u.origin);
+  } catch {
+    // Una url que ni siquiera parsea no es de Flow. Abstenerse es lo correcto.
+    return false;
+  }
+}
+
+/**
+ * Saca el `at` de un cuerpo `form-urlencoded`.
+ *
+ * ⚠️ ESTA REDACCION FALTABA ENTERA, y sin ella abrir el allowlist a BOQ habria
+ * empezado a guardar una credencial del cliente en nuestra base.
+ *
+ * La redaccion que ya existia hace `JSON.parse(cuerpo)` y, si tira, deja el cuerpo
+ * "como vino" — un default razonable para el protocolo viejo, donde todo era JSON.
+ * El cuerpo de BOQ es `f.req=...&at=...`, o sea que NO parsea: caia en el `catch` y
+ * pasaba intacto. Es la trampa de siempre: el camino de error de una capa se vuelve
+ * el camino normal de la siguiente.
+ *
+ * `at` es el token anti-CSRF de la sesion de Google. `injected.js` ya lo redacta antes
+ * de mandarlo, y aca se redacta OTRA VEZ, por la misma razon escrita arriba para los
+ * headers: el que guarda es el unico que puede garantizar que quedo guardado, y hay
+ * extensiones viejas dando vueltas que mandan lo que mandaba su version.
+ */
+export function sinAtDeBoq(cuerpo: string): string {
+  return cuerpo.replace(/(^|&)at=[^&]*/g, (_m, pre: string) => pre + 'at=__MAKO_AT__');
+}
 
 /**
  * Deja una lista de plantillas lista para guardar, o la descarta.
@@ -183,7 +251,8 @@ export function sanearPlantillas(crudo: unknown): PlantillaEspejo[] {
     const url = String(p.url || '');
     // Sin url no hay nada que copiar, y el origen tiene que ser el de Flow: una
     // plantilla apuntando a otro lado sería un pedido nuestro a un tercero.
-    if (!url.startsWith('https://aisandbox-pa.googleapis.com/')) continue;
+    // Ver `esOrigenDeFlow`: se compara `origin`, nunca un prefijo.
+    if (!esOrigenDeFlow(url)) continue;
 
     const headers: Record<string, string> = {};
     const hs = (p.headers && typeof p.headers === 'object') ? p.headers as Record<string, unknown> : {};
@@ -203,7 +272,14 @@ export function sanearPlantillas(crudo: unknown): PlantillaEspejo[] {
         const rc = ctx?.recaptchaContext as Record<string, unknown> | undefined;
         if (rc && 'token' in rc) delete rc.token;
         cuerpo = JSON.stringify(o);
-      } catch { /* si no era JSON, va como vino: el espejo tampoco lo interpreta */ }
+      } catch {
+        // ⚠️ NO ERA JSON, Y ESO NO SIGNIFICA QUE NO TENGA CREDENCIALES.
+        //
+        // Acá caía el cuerpo de BOQ —`f.req=...&at=...`, form-urlencoded— y salía
+        // intacto, con el `at` adentro. El comentario que había («va como vino») era
+        // cierto y describía justamente el agujero.
+        cuerpo = sinAtDeBoq(cuerpo);
+      }
     }
 
     const tam = url.length + (cuerpo?.length ?? 0) + JSON.stringify(headers).length;
@@ -220,6 +296,9 @@ export function sanearPlantillas(crudo: unknown): PlantillaEspejo[] {
       // Se conserva la marca o se pierde en el primer ida y vuelta, y con ella la
       // única forma de saber que ese pedido nunca se midió.
       ...(p.deFabrica === true ? { deFabrica: true } : {}),
+      // Ver el tipo: sin esto, el respaldo se lleva la plantilla y deja afuera lo
+      // único que dice para qué sirve.
+      ...(typeof p.sentinela === 'string' && p.sentinela ? { sentinela: p.sentinela.slice(0, 40) } : {}),
       cuando: Number(p.cuando) || 0,
     });
   }
