@@ -40,6 +40,63 @@
   window.__makoEspejo = 1;
 
   const API = 'aisandbox-pa.googleapis.com';
+  // ── LO QUE UNA PLANTILLA DE BOQ NO PUEDE LLEVARSE ──────────────────────────
+  //
+  // ⚠️ EL CUERPO DE UN `batchexecute` TRAE EL TOKEN `at`, QUE ES UNA CREDENCIAL.
+  //
+  // Y las plantillas no se quedan acá: `todasLasPlantillas()` las manda al servidor
+  // para poder sembrar un navegador nuevo. O sea que sin esto guardaríamos un token
+  // de sesión de Google de cada cliente en nuestra base — algo que nadie pidió, que
+  // no hace falta, y que si se filtra es la sesión de esa persona.
+  //
+  // Tampoco serviría: el `at` es de ESTA sesión y vence con ella. Una plantilla que
+  // lo llevara adentro fallaría igual al usarse en otro momento, con la diferencia de
+  // que el fallo sería tardío y el riesgo permanente.
+  //
+  // Va un marcador en su lugar: el replay lo repone del tráfico VIVO de la pestaña,
+  // que es la única fuente que puede estar al día. Es la misma regla de la casa que
+  // ya rige el puente: el estado se lee vivo, no se recuerda.
+  const MARCA_AT = '__MAKO_AT__';
+  function sinCredenciales(cuerpo) {
+    if (typeof cuerpo !== 'string' || !cuerpo) return cuerpo;
+    return cuerpo.replace(/(^|&)at=[^&]*/g, (_, pre) => pre + 'at=' + MARCA_AT);
+  }
+
+  // ── LA SENTINELA: cómo se aprende dónde va el prompt ───────────────────────
+  //
+  // Para repetir una generación con OTRO texto hay que saber en qué parte del cuerpo
+  // vive el que escribió la persona. El cuerpo es un `f.req` con JSON anidado adentro
+  // de JSON, url-encodeado — o sea que el prompt aparece escapado, y CUÁNTAS veces
+  // depende de cómo BOQ arme el pedido ese día.
+  //
+  // Adivinar el anidado es exactamente lo que este repo tiene prohibido. Así que no
+  // se adivina: la persona genera UNA vez con una frase conocida, y acá se prueba
+  // cada codificación hasta encontrar cuál de todas aparece en el cuerpo. Esa es la
+  // que se usa después para escribir el prompt de verdad.
+  //
+  // Si NINGUNA aparece, no se marca nada — y eso es información: quiere decir que el
+  // prompt no viaja como texto plano en el cuerpo, y que el camino es otro. Un
+  // `sentinela: null` es una medición, no un fallo silencioso.
+  const SENTINELA = 'un cubo violeta girando sobre arena mako7f3a9c';
+
+  const CODIFICACIONES = [
+    ['crudo', (t) => t],
+    ['json', (t) => JSON.stringify(t).slice(1, -1)],
+    ['uri', (t) => encodeURIComponent(t)],
+    ['json+uri', (t) => encodeURIComponent(JSON.stringify(t).slice(1, -1))],
+    ['json2', (t) => JSON.stringify(JSON.stringify(t).slice(1, -1)).slice(1, -1)],
+    ['json2+uri', (t) => encodeURIComponent(JSON.stringify(JSON.stringify(t).slice(1, -1)).slice(1, -1))],
+  ];
+
+  /** Con qué codificación aparece la sentinela en este cuerpo, si aparece. */
+  function codificacionDeLaSentinela(cuerpo) {
+    if (typeof cuerpo !== 'string' || !cuerpo) return null;
+    for (const [nombre, codificar] of CODIFICACIONES) {
+      try { if (cuerpo.includes(codificar(SENTINELA))) return nombre; } catch { /* sigue */ }
+    }
+    return null;
+  }
+
 
   /** Última plantilla vista por clase de pedido. Solo en memoria. */
   const plantillas = new Map();
@@ -341,11 +398,16 @@
         // la app está por mandar — romper Flow para mirarlo es exactamente lo que
         // este espejo no puede hacer. BOQ manda form-urlencoded, o sea texto.
         const texto = typeof cuerpo === 'string' ? cuerpo : null;
+        // ⚠️ La sentinela se busca sobre el cuerpo ORIGINAL y el `at` se corta
+        // DESPUÉS: al revés, la redacción podría partir la frase que estamos
+        // buscando y daría «no aprendí» sobre una generación que sí servía.
+        const sentinela = codificacionDeLaSentinela(texto);
         plantillas.set(clase, {
           url,
           metodo: this.__makoMetodo || 'POST',
           headers: this.__makoHeaders || {},
-          cuerpo: texto,
+          cuerpo: sinCredenciales(texto),
+          sentinela,
           // XHR manda las cookies del mismo origen solo, y BOQ autentica con
           // cookies: repetir el pedido sin esto sería repetirlo sin sesión.
           credenciales: 'include',

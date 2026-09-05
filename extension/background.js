@@ -1850,6 +1850,19 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
         // le pide que inicie sesion.
         let flowEnProyecto = false;
         let flowNuevo = false;
+        // ⚠️ SI YA APRENDIÓ A GENERAR, y no es un adorno: es lo único que le dice a
+        // la persona si la generación de prueba sirvió. Sin esto genera a ciegas y
+        // no tiene forma de saber si hay que repetirla.
+        //
+        // `sentinela` lo escribe el espejo cuando encuentra la frase conocida dentro
+        // del cuerpo capturado; si es `null`, la plantilla existe pero no sabemos
+        // dónde va el prompt — que es un estado distinto de «no hay plantilla» y se
+        // muestra distinto.
+        let aprendioGenerar = false;
+        try {
+          const guardadas = (await chrome.storage.local.get(CLAVE_PLANTILLAS))[CLAVE_PLANTILLAS] || {};
+          aprendioGenerar = !!(guardadas['boq:YhhmEf'] && guardadas['boq:YhhmEf'].sentinela);
+        } catch { aprendioGenerar = false; }
         try {
           const tf = await pestanaDeFlow();
           hayFlow = true;
@@ -1865,6 +1878,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
           hayFlow,
           flowEnProyecto,
           flowNuevo,
+          aprendioGenerar,
           ultimoLatido: v.ultimoLatido || null,
           saldo: v.saldoLocal || null,
           emparejando: !!v.emparejando,

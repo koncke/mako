@@ -93,6 +93,20 @@ const enviar = (msg) => new Promise((r) => chrome.runtime.sendMessage(msg, (out)
 }));
 
 /** El motivo por el que la página no pudo acuñar, en una frase. */
+/**
+ * La frase con la que se le enseña a generar.
+ *
+ * ⚠️ ESTÁ ESCRITA DOS VECES, Y NO SE PUEDE EVITAR: la otra copia vive en
+ * `injected.js`, que corre en el MAIN world de la página de Flow y no comparte
+ * módulo con el popup — una extensión MV3 sin bundler no tiene dónde ponerla una
+ * sola vez.
+ *
+ * Si se cambia, se cambian LAS DOS. Un desfase acá no rompe nada ruidoso: la
+ * persona genera con una frase y el espejo busca otra, así que «no aprendí» sobre
+ * una generación que salió bien — y el clip ya se pagó.
+ */
+const FRASE_APRENDIZAJE = 'un cubo violeta girando sobre arena mako7f3a9c';
+
 const POR_QUE = {
   sesion: 'Inicia sesión en MaKo y vuelve a intentar.',
   rol: 'Solo quien administra la cuenta puede conectar un navegador.',
@@ -350,6 +364,25 @@ async function pintar() {
     // nadie lea el cartel. La regla de la casa: si la culpa no es del cliente, se
     // nombra a quién fue y no se le pide nada.
     if (v.flowNuevo) {
+      // ⚠️ MIENTRAS NO APRENDIÓ, LA PANTALLA PIDE LA ÚNICA COSA QUE DESTRABA TODO.
+      //
+      // Para poder generar con la app nueva hace falta ver UNA generación de
+      // verdad: el pedido lleva el prompt escapado adentro de JSON anidado, y
+      // adivinar ese anidado es lo que este repo tiene prohibido. Con una
+      // generación hecha con una frase conocida, el espejo encuentra dónde cae y
+      // ya no hay nada que suponer.
+      //
+      // Va acá y no en un instructivo aparte porque es donde la persona está
+      // mirando cuando se entera de que no puede generar.
+      if (!v.aprendioGenerar) {
+        pantalla({
+          titulo: 'Ayúdame a aprender',
+          tenue: 'Google reescribió Flow y MaKo todavía no sabe pedirle un video. Genera UNO tú, de 4 segundos, con este texto exacto: «' + FRASE_APRENDIZAJE + '». Con esa sola vez aprendo a hacerlo solo.',
+          boton: 'Ir a Google Flow',
+          accion: abrirFlow,
+        });
+        return;
+      }
       pantalla({
         titulo: 'Google cambió Flow',
         tenue: 'Google reescribió Google Flow y movió la app a flow.google.com. La forma en que MaKo se conectaba con la versión anterior ya no existe ahí, así que esto no es nada de tu cuenta ni de tu sesión. Estamos trabajando en la conexión nueva.',
@@ -455,6 +488,33 @@ async function verSaldo() {
     // copiar la hace al CARGAR. Con la pestaña abierta —que es el caso normal,
     // porque sin ella ni se llega hasta acá— «Abrir Google Flow» era un botón que
     // cambiaba de ventana y dejaba todo igual.
+    // ⚠️ EN EL FLOW NUEVO NINGUNA DE LAS RAMAS DE ABAJO ES CIERTA.
+    //
+    // Los créditos se piden a `aisandbox-pa.googleapis.com` con el bearer, y en
+    // flow.google.com ese bearer no existe: la app habla por BOQ y autentica con
+    // cookies. O sea que la consulta falla SIEMPRE, y por un motivo que no tiene
+    // nada que ver con la sesión de la persona.
+    //
+    // Sin esto, apretar «ver mis créditos» contesta «tu sesión de Flow venció, o
+    // Google la pausó» a alguien con la sesión perfecta, mirando su proyecto —
+    // reportado con captura el 05/09/2026. Es la tercera superficie donde el
+    // mismo error acusa a lo único que está bien.
+    //
+    // Y no ofrece «Recargar»: recargar no puede arreglar esto, y un botón que
+    // invita a repetir algo imposible es lo que hace que la próxima vez nadie lea
+    // el cartel.
+    // El estado se pide acá: `verSaldo` no lo recibe, y decidir esta rama sin él
+    // sería suponer en qué Flow está la persona.
+    const est = await enviar({ tipo: 'ESTADO' });
+    if (est && est.flowNuevo) {
+      pantalla({
+        titulo: 'Todavía no puedo leer tus créditos',
+        tenue: 'Google reescribió Flow y cambió por dónde se piden. No es tu sesión: míralos en Flow, arriba a la derecha, mientras MaKo aprende el camino nuevo.',
+        boton: 'Ir a Google Flow',
+        accion: abrirFlow,
+      });
+      return;
+    }
     if (e.startsWith('SIN_PLANTILLA')) {
       pantalla({
         titulo: 'Recarga Google Flow',
