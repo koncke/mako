@@ -222,14 +222,37 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
   // Eventos ACTIVOS del pixel elegido (null = sin cargar). Elegir uno inactivo arruina la entrega.
   const [pixelEvents, setPixelEvents] = useState<string[] | null>(null);
   const [creandoPublico, setCreandoPublico] = useState(false);
-  // cache:'no-store' clave: sin esto el navegador cachea la 1ra respuesta (vacía) y
-  // los públicos nunca aparecen aunque existan en la cuenta.
-  const cargarPublicos = () => { setAudiencesAll(null); return fetch('/api/ads-manager/targeting?kind=audiences', { cache: 'no-store' }).then((r) => r.json()).then((j) => { if (j.ok) setAudiencesAll(j.items); else { setAudiencesAll([]); setErr(`No pude traer tus públicos: ${j.error}`); } }).catch((e) => { setAudiencesAll([]); setErr(`No pude traer tus públicos: ${String(e)}`); }); };
+  // Un pedido a /targeting tiene TRES estados, no dos: `null` = todavía preguntando,
+  // `[]` = pregunté y no hay, y DENEGADO = no pude preguntar. Colapsar el tercero en
+  // el segundo (`j.ok ? j.items : []`) hacía que el wizard AFIRMARA "No hay pixel en
+  // la cuenta" sobre una cuenta con pixeles: el 403 del guard se leía como vacío y
+  // mandaba a buscar el problema en Meta, que es el lugar equivocado.
+  const [metaDenegado, setMetaDenegado] = useState<string | null>(null);
+  // Devuelve null cuando NO se pudo preguntar (y deja el porqué en metaDenegado).
+  // Quien lo llama decide qué pintar; lo que no puede es confundirlo con "no hay".
+  async function traerTargeting<T>(qs: string, que: string): Promise<T[] | null> {
+    // cache:'no-store' clave: sin esto el navegador cachea la 1ra respuesta (vacía)
+    // y los públicos nunca aparecen aunque existan en la cuenta.
+    try {
+      const r = await fetch(`/api/ads-manager/targeting?${qs}`, { cache: 'no-store' });
+      const j = await r.json();
+      if (j.ok && Array.isArray(j.items)) return j.items as T[];
+      setMetaDenegado(`No pude traer ${que}: ${j.error || 'error desconocido'}`);
+      return null;
+    } catch (e) {
+      setMetaDenegado(`No pude traer ${que}: ${String(e)}`);
+      return null;
+    }
+  }
+  const cargarPublicos = async () => {
+    setAudiencesAll(null);
+    setAudiencesAll((await traerTargeting<AudienceItem>('kind=audiences', 'tus públicos')) ?? []);
+  };
   useEffect(() => { if (!existente) cargarPublicos(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const pideForm = existente ? !!adsetInfo?.needsForm : objKey === 'lead_form';
-  useEffect(() => { if (pideForm && leadForms === null) fetch('/api/ads-manager/targeting?kind=leadforms', { cache: 'no-store' }).then((r) => r.json()).then((j) => setLeadForms(j.ok ? j.items : [])).catch(() => setLeadForms([])); }, [pideForm, leadForms]);
-  useEffect(() => { if ((objKey === 'lead_web' || objKey === 'sales') && convs === null) fetch('/api/ads-manager/targeting?kind=conversions', { cache: 'no-store' }).then((r) => r.json()).then((j) => setConvs(j.ok ? j.items : [])).catch(() => setConvs([])); }, [objKey, convs]);
-  useEffect(() => { if ((objKey === 'lead_web' || objKey === 'sales') && pixels === null) fetch('/api/ads-manager/targeting?kind=pixels', { cache: 'no-store' }).then((r) => r.json()).then((j) => setPixels(j.ok ? j.items : [])).catch(() => setPixels([])); }, [objKey, pixels]);
+  useEffect(() => { if (pideForm && leadForms === null) traerTargeting<{ id: string; name: string }>('kind=leadforms', 'tus formularios').then((it) => setLeadForms(it ?? [])); }, [pideForm, leadForms]);  
+  useEffect(() => { if ((objKey === 'lead_web' || objKey === 'sales') && convs === null) traerTargeting<{ id: string; name: string; event?: string; pixel_id?: string }>('kind=conversions', 'tus conversiones').then((it) => setConvs(it ?? [])); }, [objKey, convs]);  
+  useEffect(() => { if ((objKey === 'lead_web' || objKey === 'sales') && pixels === null) traerTargeting<{ id: string; name: string }>('kind=pixels', 'tus pixeles').then((it) => setPixels(it ?? [])); }, [objKey, pixels]);  
   // Si hay UN solo pixel, lo elegimos solos (el usuario igual lo ve, pero no tiene que tocar).
   useEffect(() => { if (obj?.needsConv && pixels && pixels.length === 1 && !destino.conv?.pixel_id) setDestino((d) => ({ ...d, conv: { ...d.conv, pixel_id: pixels[0].id } })); }, [obj?.needsConv, pixels, destino.conv?.pixel_id]);
   // Al elegir un pixel, traemos SUS eventos activos (los que Meta recibe de verdad).
@@ -238,11 +261,10 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
     if (!obj?.needsConv || !pixelSel) { setPixelEvents(null); return; }
     setPixelEvents(null);
     let cancel = false;
-    fetch(`/api/ads-manager/targeting?kind=pixelevents&pixel=${encodeURIComponent(pixelSel)}`, { cache: 'no-store' })
-      .then((r) => r.json()).then((j) => { if (!cancel) setPixelEvents(j.ok && Array.isArray(j.items) ? j.items : []); })
-      .catch(() => { if (!cancel) setPixelEvents([]); });
+    traerTargeting<string>(`kind=pixelevents&pixel=${encodeURIComponent(pixelSel)}`, 'los eventos de tu pixel')
+      .then((it) => { if (!cancel) setPixelEvents(it ?? []); });
     return () => { cancel = true; };
-  }, [obj?.needsConv, pixelSel]);
+  }, [obj?.needsConv, pixelSel]);  
 
   // guardar borrador (solo "Nueva campaña"; el modo existente no persiste)
   useEffect(() => {
@@ -671,7 +693,7 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
                   <input value={destino.url ?? ''} onChange={(e) => setDestino((d) => ({ ...d, url: e.target.value }))} placeholder="https://tu-landing/vsl" autoFocus
                     style={{ width: '100%', padding: '14px 16px', borderRadius: 13, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 16, outline: 'none', textAlign: 'center' }} />
                   {pideConv && (
-                    <ConversionPicker pixels={pixels} convs={convs} pixelEvents={pixelEvents} destino={destino} setDestino={setDestino} />
+                    <ConversionPicker pixels={pixels} convs={convs} pixelEvents={pixelEvents} destino={destino} setDestino={setDestino} denegado={metaDenegado} />
                   )}
                 </div>
               )}
@@ -734,6 +756,9 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
               </div>
             )}
             {err && <div style={{ fontSize: 12.5, color: 'var(--bad)', textAlign: 'center', padding: '8px 20px 0', lineHeight: 1.5 }}>{linkify(err)}</div>}
+            {/* El paso 'destino' ya lo dice adentro (ConversionPicker), y repetirlo ahí abajo
+                fue justamente lo que hizo leer un error de PÚBLICOS bajo una pantalla de PIXEL. */}
+            {metaDenegado && step !== 'destino' && <div style={{ fontSize: 12.5, color: 'var(--bad)', textAlign: 'center', padding: '8px 20px 0', lineHeight: 1.5 }}>{linkify(metaDenegado)}</div>}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 20px' }}>
               <button onClick={retroceder} style={btnGhost}>← {idx <= 0 && enWizard ? 'Cancelar' : 'Atrás'}</button>
               {step === 'revision' ? (
@@ -1093,12 +1118,14 @@ function labelDeEnum(enumValue: string): string | undefined {
 // ── conversión: PRIMERO el pixel, DESPUÉS el evento (solo los ACTIVOS de ese pixel) ──
 // Optimizar por un evento inactivo arruina la entrega → solo ofrecemos los que el
 // pixel recibe de verdad (+ tus conversiones personalizadas, que ya son activas).
-function ConversionPicker({ pixels, convs, pixelEvents, destino, setDestino }: {
+function ConversionPicker({ pixels, convs, pixelEvents, destino, setDestino, denegado }: {
   pixels: Array<{ id: string; name: string }> | null;
   convs: Array<{ id: string; name: string; event?: string; pixel_id?: string }> | null;
   pixelEvents: string[] | null;
   destino: Destino;
   setDestino: Dispatch<SetStateAction<Destino>>;
+  /** Por qué NO se pudo leer la cuenta de Meta (403 del guard, red, etc.). Distinto de "no hay". */
+  denegado: string | null;
 }) {
   const pixelId = destino.conv?.pixel_id ?? '';
   const setPixel = (v: string) => setDestino((d) => ({ ...d, conv: { pixel_id: v } })); // cambiar de pixel resetea el evento
@@ -1125,8 +1152,12 @@ function ConversionPicker({ pixels, convs, pixelEvents, destino, setDestino }: {
     eventOpts = [...EVENTOS_CONV.map((e) => ({ value: e.value, label: e.label, sub: 'Verifica que esté activo' })), ...custom];
   }
   const eventValue = destino.conv?.custom_conversion_id ? `cc:${destino.conv.custom_conversion_id}` : (destino.conv?.pixel_event ?? '');
-  const sinPixeles = pixels !== null && pixels.length === 0;
-  const nota = !pixelId
+  // "No pude preguntar" (denegado) NO es "pregunté y no hay". Si se mezclan, la
+  // pantalla afirma un hecho falso sobre la cuenta de Meta del usuario.
+  const sinPixeles = pixels !== null && pixels.length === 0 && !denegado;
+  const nota = denegado
+    ? <span style={{ color: 'var(--bad)' }}>{denegado}</span>
+    : !pixelId
     ? <>Primero elige el <b>pixel</b>; después te muestro <b>sus</b> eventos.</>
     : pixelEvents === null
       ? <>Buscando los eventos <b>activos</b> de tu pixel…</>
@@ -1136,7 +1167,7 @@ function ConversionPicker({ pixels, convs, pixelEvents, destino, setDestino }: {
   return (
     <>
       <Dropdown value={pixelId}
-        placeholder={pixels === null ? 'Cargando tu pixel…' : sinPixeles ? 'No hay pixel en la cuenta' : 'Elige tu pixel (dataset)…'}
+        placeholder={pixels === null ? 'Cargando tu pixel…' : denegado ? 'No pude leer los pixeles de tu cuenta' : sinPixeles ? 'No hay pixel en la cuenta' : 'Elige tu pixel (dataset)…'}
         options={(pixels ?? []).map((p) => ({ value: p.id, label: p.name }))} onChange={setPixel} width="100%" />
       {pixelId && (
         <Dropdown value={eventValue} disabled={pixelEvents === null}

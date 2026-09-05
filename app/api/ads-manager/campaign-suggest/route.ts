@@ -8,6 +8,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
+import { guardAdsDueno } from '@/lib/ads-guard';
 import { chatClaude } from '@/lib/anthropic';
 import { renderPrompt } from '@/lib/prompt-render';
 import {
@@ -22,6 +23,10 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
 export async function POST(req: NextRequest) {
+  // Las hermanas de esta ruta ya exigían esDuenoAdmin, y esta no exigía NADA: dispara
+  // IA cara (contra la key de la PLATAFORMA) para cualquier usuario logueado, aunque no
+  // pueda usar el resto del área. Mismo guard que sus 13 hermanas.
+  const no = await guardAdsDueno(); if (no) return no;
   let body: { mode?: string; prompt?: string; creativos?: string; specActual?: CampaignSpec; instruccion?: string };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 

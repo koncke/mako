@@ -15,10 +15,27 @@ import { esDuenoAdmin } from './workspace';
  * ellos pasaba y llegaba a publicar, pausar, renombrar, cambiar presupuesto y
  * BORRAR campañas con plata puesta. Ahora exige además ser admin (esDuenoAdmin).
  */
+/**
+ * UN solo texto para TODO el área. Antes convivían dos redacciones del MISMO
+ * predicado —esta y la inline de campaign-create/creative-signurl/creative-upload
+ * ("…en el workspace principal por ahora")— y quien depuraba creía estar ante dos
+ * problemas distintos. El texto nombra las DOS vías que lo abren, porque decir solo
+ * una manda a mirar el workspace cuando lo que falta puede ser el rol.
+ *
+ * Y dice por qué, no solo que no: Ads Manager escribe sobre la cuenta de Meta de la
+ * agencia (lib/meta-ads-create.ts está cableado a las env del dueño, tarea #170), así
+ * que hoy no hay una versión "de tu cuenta" que ofrecer todavía.
+ */
 export async function guardAdsDueno(): Promise<Response | null> {
   if (await esDuenoAdmin()) return null;
   return Response.json(
-    { ok: false, error: 'Esta acción solo está disponible para un admin del workspace principal.' },
+    {
+      ok: false,
+      error:
+        'Ads Manager todavía opera sobre la cuenta de Meta de la agencia, así que solo lo usa ' +
+        'el equipo de la agencia o un admin del workspace principal. No es un problema de tu ' +
+        'cuenta de Meta ni de tu pixel.',
+    },
     { status: 403 },
   );
 }

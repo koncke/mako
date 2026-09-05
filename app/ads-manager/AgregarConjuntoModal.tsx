@@ -51,8 +51,10 @@ export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, on
       .then((j) => { if (j.ok) setB(j.campaign); else setLoadErr(j.error || 'No se pudo cargar la campaña'); })
       .catch((e) => setLoadErr(String(e)));
   }, [campaignId]);
-  useEffect(() => { fetch('/api/ads-manager/targeting?kind=audiences', { cache: 'no-store' }).then((r) => r.json()).then((j) => setAudiencesAll(j.ok ? j.items : [])).catch(() => setAudiencesAll([])); }, []);
-  useEffect(() => { if (b?.needsForm && leadForms === null) fetch('/api/ads-manager/targeting?kind=leadforms', { cache: 'no-store' }).then((r) => r.json()).then((j) => setLeadForms(j.ok ? j.items : [])).catch(() => setLeadForms([])); }, [b, leadForms]);
+  // Un fallo de permiso NO es una lista vacía: si se colapsan, la pantalla afirma
+  // "no tenés públicos" sobre una cuenta que sí los tiene. Se muestra el porqué.
+  useEffect(() => { fetch('/api/ads-manager/targeting?kind=audiences', { cache: 'no-store' }).then((r) => r.json()).then((j) => { setAudiencesAll(j.ok ? j.items : []); if (!j.ok) setLoadErr(`No pude traer tus públicos: ${j.error || 'error'}`); }).catch((e) => { setAudiencesAll([]); setLoadErr(`No pude traer tus públicos: ${String(e)}`); }); }, []);
+  useEffect(() => { if (b?.needsForm && leadForms === null) fetch('/api/ads-manager/targeting?kind=leadforms', { cache: 'no-store' }).then((r) => r.json()).then((j) => { setLeadForms(j.ok ? j.items : []); if (!j.ok) setLoadErr(`No pude traer tus formularios: ${j.error || 'error'}`); }).catch((e) => { setLeadForms([]); setLoadErr(`No pude traer tus formularios: ${String(e)}`); }); }, [b, leadForms]);
 
   const opts = (audiencesAll ?? []).filter((a) => !auds.some((x) => x.id === a.id)).map((a) => ({ value: a.id, label: `${a.name ?? a.id}${a.count != null ? ` · ~${a.count.toLocaleString('es-MX')}` : ''}` }));
   const ganadores = [...senales].filter((s) => s.ad_thumbnail_url).sort((a, b2) => b2.leads - a.leads || b2.spend_usd - a.spend_usd).slice(0, 12);

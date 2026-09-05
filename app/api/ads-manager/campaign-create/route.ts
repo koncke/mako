@@ -14,16 +14,15 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { createCampaign, createAdSet, createAdCreative, createAd, deleteEntity, metaErrorEnvelope, adoptarTranscripcionDelCreativo } from '@/lib/meta-ads-create';
 import { type CampaignSpec, objetivoDef } from '@/lib/campaign-types';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { esDuenoAdmin } from '@/lib/workspace';
+import { guardAdsDueno } from '@/lib/ads-guard';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   // Fase 1: crear campañas escribe en la cuenta de Meta global del dueño.
-  if (!(await esDuenoAdmin())) {
-    return Response.json({ ok: false, error: 'Esta acción solo está disponible en el workspace principal por ahora.' }, { status: 403 });
-  }
+  // Mismo predicado que sus 10 hermanas, y ahora también el mismo TEXTO (lib/ads-guard.ts).
+  const no = await guardAdsDueno(); if (no) return no;
 
   let body: { spec?: CampaignSpec; prompt?: string; uso?: unknown };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }

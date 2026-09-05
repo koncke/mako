@@ -41,7 +41,9 @@ export function AgregarAnuncioModal({ adsetId, defaultName, senales, onClose, on
       .then((j) => { if (j.ok) setInfo({ needsForm: !!j.adset.needsForm }); else setLoadErr(j.error || 'No se pudo cargar el conjunto'); })
       .catch((e) => setLoadErr(String(e)));
   }, [adsetId]);
-  useEffect(() => { if (info?.needsForm && leadForms === null) fetch('/api/ads-manager/targeting?kind=leadforms', { cache: 'no-store' }).then((r) => r.json()).then((j) => setLeadForms(j.ok ? j.items : [])).catch(() => setLeadForms([])); }, [info, leadForms]);
+  // Ojo: `j.ok ? j.items : []` convertía un 403 en "no tenés formularios". Un fallo
+  // de permiso se contesta como fallo, nunca con la forma del éxito.
+  useEffect(() => { if (info?.needsForm && leadForms === null) fetch('/api/ads-manager/targeting?kind=leadforms', { cache: 'no-store' }).then((r) => r.json()).then((j) => { setLeadForms(j.ok ? j.items : []); if (!j.ok) setLoadErr(`No pude traer tus formularios: ${j.error || 'error'}`); }).catch((e) => { setLeadForms([]); setLoadErr(`No pude traer tus formularios: ${String(e)}`); }); }, [info, leadForms]);
 
   const ganadores = [...senales].filter((s) => s.ad_thumbnail_url).sort((a, b) => b.leads - a.leads || b.spend_usd - a.spend_usd).slice(0, 12);
 

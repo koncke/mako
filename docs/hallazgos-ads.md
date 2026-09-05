@@ -1009,3 +1009,111 @@ el veredicto «latente, no vivo» de la sección anterior: **tres de los ocho no
 fecha ninguno**, así que estaban truncando en producción. `MarketingWindow.agendamientos` pasó
 a `reuniones_en_ventana` en el mismo commit. Esta tool era el **noveno** lector de esa tabla
 que ignoraba el techo, no el octavo.
+
+---
+
+## La tijera de Ads Manager: la pantalla es de todos, los endpoints son de dos
+
+**Síntoma reportado (05/09/2026):** el wizard «Nueva campaña» en el paso *destino*, con el
+`<select>` de pixel diciendo **«No hay pixel en la cuenta»**, un texto rojo sobre públicos
+debajo de una pantalla de pixel, y **«Siguiente» gris para siempre**. Se reportó como «no me
+deja publicar», que es lo único que se podía ver.
+
+**La causa:** `app/api/ads-manager/targeting/route.ts:20` corre `guardAdsDueno()` **antes** de
+leer `kind` (línea 21), así que un solo 403 tapa los seis kinds — públicos, pixeles,
+conversiones, formularios y eventos. El predicado es `esDuenoAdmin()`: rol GLOBAL `admin`
+(que ni mira el workspace) **o** estar parado en `OWNER_WS`=1 con `rol_ws` admin.
+
+**Medido contra la base de producción**, que es lo que convierte esto en un problema de
+producto y no en un tropiezo de sesión — de 8 usuarios, **pasan 2**:
+
+| Cuenta | rol global | ws | pasa |
+|---|---|---|---|
+| martinkoncke@gmail.com | admin | 9 | **sí** (admin de plataforma) |
+| mbustos@elevate.com.mx | usuario | 1 | **sí** (admin del ws1) |
+| Leila, Código Inmobiliario, P2P, Ananda, Leandro, prueba | usuario | 5·10·11·13·14·3 | **no** |
+
+Los **seis clientes reales** ven la tab, entran, cargan creativos, eligen objetivo,
+presupuesto, estrategia, público y ubicaciones — siete pasos — y recién en el octavo chocan
+con un 403 disfrazado. `app/ads-manager/AdsManagerView.tsx:33` gatea con `requireRolWs([], {
+nav:'ads-manager' })`, y `lib/tab-access.ts:102-104` dice **textual** que `[]` no significa
+«solo la agencia»: el admin-cliente de cada workspace devuelve `'admin'` y pasa.
+`app/_components/nav.ts:139` tampoco tiene `adminOnly` ni `rolesWs`.
+
+### Por qué el diagnóstico obvio era el equivocado
+
+Tres trampas, y las tres cuestan tiempo en direcciones distintas:
+
+1. **La pantalla AFIRMABA un hecho falso sobre la cuenta del cliente.** «No hay pixel en la
+   cuenta» manda a Meta, a revisar el Business Manager, a mirar credenciales — todo el lugar
+   equivocado. La cuenta tiene pixeles.
+2. **«Abrir el guard» no funciona, y además es el arreglo incorrecto.** Hay **tres** candados
+   en serie sobre el mismo cableado: `guardAdsDueno` en targeting, el guard de
+   `campaign-create`, y `assertCuentaDelDueno()` (`lib/meta-ads-create.ts:92-100`, primera
+   línea de `graphPost` y `graphGet`). Aflojar el primero llena el select, habilita
+   «Siguiente» y **mueve la falla al final**, después de que MaKo escribió la campaña entera.
+   Y aflojar los tres sin recablear credenciales pone a un cliente a crear campañas sobre la
+   página y la cuenta de Mauricio, con plata real.
+3. **«Es admin, entonces el guard está roto» se invierte al leer el código.**
+   `getSesionAdmin()` (`lib/auth.ts:76-79`) no mira el workspace, así que un admin de
+   plataforma pasa aunque esté impersonando el ws 10. **Que ese texto aparezca PRUEBA que la
+   sesión no era de admin de plataforma** — el guard funcionó.
+
+### La regla que quedó: tres estados, no dos
+
+`j.ok ? j.items : []` colapsa **«no pude preguntar»** en **«pregunté y no hay»**. De las 9
+llamadas a `/targeting`, **8 lo hacían**: solo la de públicos mostraba el error. Y la regla
+ya estaba escrita **dos veces en este mismo repo** — «un permiso denegado se contesta como
+denegado; devolver la forma del éxito convierte un guard en un placebo» (más arriba, sobre
+`regenerate-transcript`) y el 403 pintado como «0 operaciones» en `hallazgos-ia.md`. Se violó
+igual, porque estaba escrita como anécdota y no como regla de código.
+
+Arreglado: `traerTargeting()` en `NuevaCampanaModal.tsx` devuelve `null` cuando no se pudo
+preguntar y deja el porqué en `metaDenegado`; `sinPixeles` exige además que no haya denegación,
+así que el placeholder ya no miente. Igual en `AgregarConjuntoModal`, `AgregarAnuncioModal` y
+`EditarPublicoModal`. **Esto no habilita el botón** —con el 403 no hay pixeles, se muestre como
+se muestre—: lo que compra es que el próximo diagnóstico arranque en el lugar correcto.
+
+### De paso: tres rutas de IA sin ningún guard
+
+`analyze-creatives`, `campaign-suggest` y `rename-suggest` no tenían **nada**. `campaign-suggest`
+dispara `chatClaude` con thinking y 16k tokens; `analyze-creatives` resuelve la key con
+`envCred('OPENAI_API_KEY')`, o sea **la key de la plataforma**. Cualquier usuario logueado
+quemaba IA por ahí, sin poder usar el resto del área. Cerradas con `guardAdsDueno()`.
+
+Y los tres guards inline (`campaign-create`, `creative-signurl`, `creative-upload`) repetían
+el mismo predicado con **otra redacción** («…en el workspace principal por ahora»), así que
+quien depuraba creía estar ante dos problemas. Unificados en `guardAdsDueno()`, cuyo texto
+ahora nombra las dos vías que lo abren y dice **por qué** — «no es un problema de tu cuenta de
+Meta ni de tu pixel», que es exactamente la conclusión equivocada a la que empujaba.
+
+### Lo que quedó SIN hacer
+
+- **La tijera sigue abierta.** La tab se le ofrece a seis clientes que no la pueden usar.
+  Cerrarla es una decisión de producto: o se gatea la vista con el mismo predicado (choca con
+  «nada es solo para el dueño», más arriba), o se deja visible con un estado explícito y el
+  botón «Nueva campaña» deshabilitado con el porqué. **Vive en:**
+  `app/ads-manager/AdsManagerView.tsx:33`, `app/_components/nav.ts:139`,
+  `app/ads-manager/CampanasBrowser.tsx:552`.
+- **Tarea #170 sigue siendo lo único que abre Ads Manager de verdad.** `getEnv()`
+  (`lib/meta-ads-create.ts:37-47`, `process.env` crudo y síncrono) tiene que pasar a
+  `credWs` asíncrono, como ya hicieron `meta-ads.ts:59`, `meta-health.ts:48` y
+  `meta-write.ts:37`; `META_PAGE_ID` deja de ser literal (`lib/config.ts:46`) en sus 6 usos;
+  se limpian los `process.env.META_PIXEL_ID` sueltos (`meta-ads-create.ts:199` y `:351`,
+  `campaign-create/route.ts:40`) y se keyea por workspace el memo global `_igActorId`.
+  **Recién después** el gate pasa de `esDuenoAdmin()` a `adminDeWorkspaceActual()` — que
+  pregunta «¿administrás ESTE workspace?» en vez de «¿sos la agencia?». Nunca a
+  `esWorkspaceDueno()` a secas ni a sacar el guard: en cuanto sea per-workspace, el rol es lo
+  único que separa a un closer/setter de **borrar campañas con plata**.
+- **`campaign-preview` está gateada y no la llama nadie** (cero fetch en `app/ads-manager/`).
+  Sigue expuesta por HTTP y ejecuta `generatePreviews` contra la cuenta del dueño.
+- **`lib/capas.ts:268-269`**: `tabEnCapa = navEnCapa || userNavEnCapa` anula cualquier
+  `navKeys` restringido cuando `userNavKeys` es null — hoy deja el gate de la capa
+  `superadmin` **inerte**. ⚠️ El arreglo **no** es cambiar el `||` por `&&`: rompe `/perfil`
+  para la capa `pm`.
+
+**Vive en:** lib/ads-guard.ts · app/api/ads-manager/targeting/route.ts:20 ·
+app/ads-manager/NuevaCampanaModal.tsx (traerTargeting, ConversionPicker) ·
+app/ads-manager/{AgregarConjunto,AgregarAnuncio,EditarPublico}Modal.tsx ·
+lib/workspace.ts:149-173 · app/ads-manager/AdsManagerView.tsx:33 · app/_components/nav.ts:139
+· *2026-09-05 ads-manager-403-publicar (144 agentes)*

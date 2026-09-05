@@ -56,7 +56,9 @@ export function EditarPublicoModal({ adsetId, adsetName, onClose, onSaved }: { a
     return () => { cancel = true; };
   }, [adsetId]);
 
-  useEffect(() => { fetch('/api/ads-manager/targeting?kind=audiences', { cache: 'no-store' }).then((r) => r.json()).then((j) => setAudiencesAll(j.ok ? j.items : [])).catch(() => setAudiencesAll([])); }, []);
+  // "No pude preguntar" ≠ "pregunté y no hay": sin esto, un 403 se leía como una
+  // cuenta sin públicos y el usuario iba a buscar el problema a Meta.
+  useEffect(() => { fetch('/api/ads-manager/targeting?kind=audiences', { cache: 'no-store' }).then((r) => r.json()).then((j) => { setAudiencesAll(j.ok ? j.items : []); if (!j.ok) setLoadErr(`No pude traer tus públicos: ${j.error || 'error'}`); }).catch((e) => { setAudiencesAll([]); setLoadErr(`No pude traer tus públicos: ${String(e)}`); }); }, []);
 
   const nameById = useMemo(() => new Map((audiencesAll ?? []).map((a) => [a.id, a.name ?? a.id] as const)), [audiencesAll]);
   const opts = (audiencesAll ?? []).filter((a) => !auds.some((x) => x.id === a.id)).map((a) => ({ value: a.id, label: `${a.name ?? a.id}${a.count != null ? ` · ~${a.count.toLocaleString('es-MX')}` : ''}` }));
