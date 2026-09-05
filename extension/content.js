@@ -102,6 +102,19 @@ chrome.runtime.onMessage.addListener((msg, _sender, responder) => {
     return true;
   }
 
+  // ⚠️ QUE VERSION DEL ESPEJO CORRE ESTA PESTANA.
+  //
+  // Un espejo anterior al versionado NO contesta, y el timeout corto lo dice: la
+  // ausencia de respuesta ES el dato. Por eso son 800 ms y no 5000 — si no contesta
+  // rapido es porque no sabe contestar, no porque este ocupado.
+  if (msg?.tipo === 'VER_VERSION_ESPEJO') {
+    pedirALaPagina('MAKO_VERSION_PIDO', 'MAKO_VERSION_OK', {}, 800, 'SIN_VERSION',
+      (d) => responder({
+        version: (d && d.version) || '',
+        manifest: chrome.runtime.getManifest().version,
+      }));
+    return true;
+  }
   if (msg?.tipo === 'VER_ESPIA') {
     // Qué pedidos vio la página. Es lo que permite diagnosticar sin pedirle otra
     // captura de pantalla a nadie.

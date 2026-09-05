@@ -96,6 +96,27 @@ test('el catálogo de operaciones llega hasta la extensión', async () => {
   assert.ok(cat.A_ENSENAR.length >= 1, 'no hay ninguna operación para enseñar');
 });
 
+test('`VERSION_ESPEJO` es la versión del manifest', async () => {
+  // ⚠️ SI SE SEPARAN, EL DIAGNÓSTICO MIENTE AL REVÉS: reportaría «la pestaña corre
+  // un espejo viejo, hace falta F5» sobre pestañas perfectamente al día, en todos
+  // los clientes a la vez. Y un aviso que sale siempre enseña a ignorar todos los
+  // demás — que es la forma de romper la única señal que este puente tenía.
+  //
+  // Es un número escrito a mano en dos archivos, así que se va a separar solo: la
+  // versión del manifest la sube quien empaqueta y esta constante la sube quien se
+  // acuerda. Este test es el que se acuerda.
+  const { readFileSync } = await import('node:fs');
+  const man = JSON.parse(readFileSync(resolve(EXT, 'manifest.json'), 'utf8'));
+  const inj = readFileSync(resolve(EXT, 'injected.js'), 'utf8');
+  const m = /const VERSION_ESPEJO = '([^']+)'/.exec(inj);
+  assert.ok(m, 'no encontré VERSION_ESPEJO en injected.js');
+  assert.equal(
+    m[1], man.version,
+    `El espejo dice ${m[1]} y el manifest ${man.version}. Con eso, toda pestaña al día\n`
+    + 'se reporta como desfasada y el aviso de «hace falta F5» sale siempre.',
+  );
+});
+
 test('el manifest declara el background como módulo', async () => {
   // Sin `"type": "module"` el worker con `import` no arranca, y el síntoma es el
   // mismo silencio de arriba.

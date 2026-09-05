@@ -18,6 +18,7 @@
 
 import { mediaIdDeReferencia, KEY_CARA_FLOW } from '@/lib/flow-clip-referencias';
 import { getSetting, setSetting } from '@/lib/settings';
+import { sanearDiagnostico, KEY_DIAGNOSTICO } from '@/lib/flow-diagnostico';
 import {
   sanearPlantillas, soloDelProyecto, fundirPlantillas, faltantes, KEY_PLANTILLAS,
   type PlantillaEspejo,
@@ -328,8 +329,28 @@ export async function POST(req: NextRequest) {
   // Lo que el navegador NO tiene y nosotros sí. Sólo eso vuelve: mandar las diez
   // en cada latido serían 150 KB cada quince segundos por nada.
   const clasesQueTiene = Array.isArray(body.clases) ? body.clases.map(String) : [];
+  // Las operaciones que el navegador ya sabe. Una extension vieja no las manda y el
+  // servidor degrada al comportamiento anterior, que es lo correcto: no saber cuales
+  // tiene no autoriza a decidir por el.
+  const opsQueTiene = Array.isArray(body.ops) ? body.ops.map(String) : [];
+
+  // El diagnostico del navegador, saneado. Se guarda SIEMPRE que venga: es el dato
+  // que hasta hoy no existia, y el unico que permite contestar por que un puente no
+  // aprende sin pedirle una captura de pantalla a la persona.
+  //
+  // Si no viene —una extension vieja— NO se pisa lo anterior con vacio: no saber es
+  // distinto de no tener, y un diagnostico vacio se leeria como un puente mudo.
+  const diag = sanearDiagnostico(body.diagnostico);
+  if (diag) {
+    try {
+      await runWithWorkspace(ws, () => setSetting(KEY_DIAGNOSTICO, JSON.stringify(diag)));
+    } catch {
+      // Un diagnostico que no se pudo guardar no puede tumbar el latido: seria
+      // convertir una falta de informacion en una falta de servicio.
+    }
+  }
   const plantillasFaltantes = clasesQueTiene.length
-    ? faltantes(guardadas, clasesQueTiene)
+    ? faltantes(guardadas, clasesQueTiene, opsQueTiene)
     : [];
 
   // ── 3. Y se lleva lo que sigue ────────────────────────────────────────────

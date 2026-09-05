@@ -36,8 +36,33 @@
   //
   // La marca vive en el mundo de la PAGINA y muere con ella, que es exactamente
   // lo que hace falta: sobrevive a un reinicio de la extension y no a un F5.
+  // ⚠️ LA MARCA LLEVA LA VERSION, y no es cosmetico: es el unico dato que delata
+  // que esta pestana quedo con un espejo VIEJO.
+  //
+  // Esta marca vive en el mundo de la PAGINA, asi que sobrevive a que la extension
+  // se actualice y solo muere con un F5. Una pestana abierta desde ayer sigue
+  // corriendo este archivo tal como era ayer, y todo campo nuevo que aprenda a
+  // mandar no llega nunca — con la extension al dia y el codigo correcto.
+  //
+  // Eso costo un dia entero el 05/09/2026: un arreglo bueno, desplegado, que no se
+  // ejecutaba. Y era invisible: no hay error, no hay log, y el popup muestra un
+  // estado perfectamente coherente con «todavia no aprendio».
+  //
+  // NO se recarga la pestana automaticamente al detectarlo: un reload mata las
+  // generaciones en vuelo y tira el `at` vivo. Se REPORTA, y la persona decide.
+  const VERSION_ESPEJO = '0.53.0';
   if (window.__makoEspejo) return;
-  window.__makoEspejo = 1;
+  window.__makoEspejo = VERSION_ESPEJO;
+
+  // Quien pregunte por la version la recibe. Un espejo ANTERIOR a esto no contesta
+  // nada, y esa ausencia es la respuesta: es viejo.
+  window.addEventListener('MAKO_VERSION_PIDO', (ev) => {
+    try {
+      window.dispatchEvent(new CustomEvent('MAKO_VERSION_OK', {
+        detail: { id: ev.detail && ev.detail.id, version: VERSION_ESPEJO },
+      }));
+    } catch { /* nunca romper la pagina */ }
+  });
 
   const API = 'aisandbox-pa.googleapis.com';
   // ── LO QUE UNA PLANTILLA DE BOQ NO PUEDE LLEVARSE ──────────────────────────

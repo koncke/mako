@@ -26,6 +26,7 @@
 // una decisión así necesita test.
 
 import { ENDPOINTS } from './flow-protocolo';
+import { OPERACIONES } from './flow-operaciones';
 
 /** Dónde vive, por workspace. */
 export const KEY_PLANTILLAS = 'flow.plantillas';
@@ -91,6 +92,13 @@ export type PlantillaEspejo = {
    * `extension/injected.js`, una capa más arriba: un objeto armado campo por campo
    * pierde en silencio todo lo que no esté nombrado.
    */
+  /**
+   * Qué operación del catálogo es este pedido (`generar_clip`, `subir_imagen`…).
+   *
+   * ⚠️ ES LA LLAVE REAL. La `clase` de BOQ es `boq:<rpcid>` y el rpcid es de un
+   * bundle de Google: rota. El `op` no.
+   */
+  op?: string;
   sentinela?: string | null;
   cuando?: number;
 };
@@ -113,6 +121,46 @@ const TOPE_TOTAL = 150_000;
  * en `chrome.storage.local` contra lo que prometía su propio comentario.
  */
 const HEADERS_PROHIBIDOS = new Set(['authorization', 'cookie', 'set-cookie', 'x-goog-authuser']);
+
+/**
+ * Las operaciones que vale la pena guardar, DERIVADAS del catálogo.
+ *
+ * ⚠️ Es la respuesta a un problema que el allowlist viejo no podía tener: en el
+ * protocolo viejo cada operación tenía su propio path, así que enumerar paths
+ * alcanzaba. En BOQ **todos** los pedidos van al mismo `/data/batchexecute` y lo
+ * único que los distingue es un `rpcids` que ROTA con cada bundle de Google.
+ *
+ * O sea que no se pueden enumerar los ids, y «todo lo que empiece con boq:» sería
+ * un allowlist por descarte —lo que este repo tiene prohibido— que además guardaría
+ * la telemetría de Google en nuestra base.
+ *
+ * El criterio positivo que NO envejece es el ROL: útil es lo que el navegador pudo
+ * ATAR a una de las operaciones que este sistema sabe repetir. La telemetría no
+ * queda afuera por estar nombrada —imposible, comparte path— sino porque nunca gana
+ * un rol: nadie la mide y nadie la enlaza a un trabajo.
+ */
+const OPS_UTILES: ReadonlySet<string> = Object.freeze(
+  new Set(OPERACIONES.filter((o) => o.como !== 'ninguna').map((o) => o.op)),
+) as ReadonlySet<string>;
+
+/**
+ * La FORMA de una clase de BOQ: `boq:` y hasta cinco rpcids separados por coma.
+ *
+ * Un batchexecute real puede traer varios (`boq:YhhmEf,ngNC2`), así que la coma es
+ * parte del contrato. Y la clase termina siendo llave de un mapa: sin esta forma
+ * entrarían cosas como `boq:` vacío o `boq:../x`.
+ */
+const FORMA_BOQ = /^boq:[A-Za-z0-9_-]{3,24}(?:,[A-Za-z0-9_-]{3,24}){0,4}$/;
+
+/** La llave con la que se identifica una plantilla: el ROL si lo tiene, la clase si no. */
+export function llaveDePlantilla(p: PlantillaEspejo): string {
+  // ⚠️ EL ROL LE GANA A LA CLASE, y por eso el respaldo sobrevive a una rotación de
+  // rpcids. Con la clase como llave, un respaldo guardado hoy re-sembraría mañana un
+  // id muerto: el pedido sale, Google contesta 400, y el puente parece roto cuando
+  // lo que está viejo es la copia. Un respaldo que devuelve basura es PEOR que no
+  // tener respaldo, porque nadie sospecha de él.
+  return p.op ? `op:${p.op}` : p.clase;
+}
 
 /**
  * Los origenes desde los que una plantilla puede venir.
@@ -186,6 +234,20 @@ export function sinAtDeBoq(cuerpo: string): string {
 export function proyectoDePlantilla(p: PlantillaEspejo): string {
   const enUrl = /\/projects\/([0-9a-f-]{36})/i.exec(p.url || '');
   if (enUrl) return enUrl[1];
+  // ⚠️ Y LA TERCERA LECTURA, que es la del Flow nuevo y faltaba entera.
+  //
+  // En BOQ el projectId no está en el path —todos los pedidos van al mismo
+  // /data/batchexecute— sino en el query, como source-path=/project/<uuid>, en
+  // SINGULAR. Y el cuerpo es form-urlencoded, así que el JSON.parse de abajo tira.
+  //
+  // O sea que para toda plantilla de BOQ esta función devolvía '' y soloDelProyecto
+  // la dejaba pasar por abstención. Eso es lo correcto cuando no se sabe, pero deja
+  // SIN GUARDA el caso que la función existe para cubrir: un navegador emparejado
+  // antes con otro cliente manda plantillas con el projectId de aquél, y se guardarían
+  // acá — con el cuerpo de su generación adentro.
+  const enQuery = /[?&]source-path=%2Fproject%2F([0-9a-f-]{36})/i.exec(p.url || '')
+    || /[?&]source-path=\/project\/([0-9a-f-]{36})/i.exec(p.url || '');
+  if (enQuery) return enQuery[1];
   try {
     const o = JSON.parse(p.cuerpo || '{}') as { clientContext?: { projectId?: unknown } };
     const id = String(o?.clientContext?.projectId ?? '');
@@ -247,12 +309,28 @@ export function sanearPlantillas(crudo: unknown): PlantillaEspejo[] {
     if (!it || typeof it !== 'object') continue;
     const p = it as Record<string, unknown>;
     const clase = String(p.clase || '');
-    if (!CLASES_UTILES.includes(clase)) continue;
+    const op = typeof p.op === 'string' ? p.op : '';
+    // ⚠️ DOS RAMAS, LAS DOS POSITIVAS.
+    //
+    // (1) Protocolo viejo: la clase sale del path y se puede enumerar. Sin tocar.
+    // (2) BOQ: todos comparten path, así que lo que decide es que el navegador haya
+    //     podido ATAR el pedido a una operación del catálogo. Se exige la FORMA de la
+    //     clase además del rol, porque la clase es llave de un mapa.
+    const viejoOk = CLASES_UTILES.includes(clase);
+    const boqOk = FORMA_BOQ.test(clase) && OPS_UTILES.has(op);
+    if (!viejoOk && !boqOk) continue;
     const url = String(p.url || '');
     // Sin url no hay nada que copiar, y el origen tiene que ser el de Flow: una
     // plantilla apuntando a otro lado sería un pedido nuestro a un tercero.
     // Ver `esOrigenDeFlow`: se compara `origin`, nunca un prefijo.
     if (!esOrigenDeFlow(url)) continue;
+    // Una clase de BOQ tiene que venir del endpoint de BOQ. Sin esto, cualquier
+    // pedido de flow.google.com con un `op` puesto entraría como plantilla.
+    if (boqOk) {
+      try {
+      if (!new URL(url).pathname.endsWith('/data/batchexecute')) continue;
+      } catch { continue; }
+    }
 
     const headers: Record<string, string> = {};
     const hs = (p.headers && typeof p.headers === 'object') ? p.headers as Record<string, unknown> : {};
@@ -299,6 +377,8 @@ export function sanearPlantillas(crudo: unknown): PlantillaEspejo[] {
       // Ver el tipo: sin esto, el respaldo se lleva la plantilla y deja afuera lo
       // único que dice para qué sirve.
       ...(typeof p.sentinela === 'string' && p.sentinela ? { sentinela: p.sentinela.slice(0, 40) } : {}),
+      // La llave real. Sin esto el respaldo vuelve keyeado por un rpcid que rota.
+      ...(op ? { op } : {}),
       cuando: Number(p.cuando) || 0,
     });
   }
@@ -320,15 +400,27 @@ export function fundirPlantillas(
   nuevas: PlantillaEspejo[],
 ): PlantillaEspejo[] {
   const mapa = new Map<string, PlantillaEspejo>();
-  for (const p of previas) mapa.set(p.clase, p);
+  for (const p of previas) mapa.set(llaveDePlantilla(p), p);
   for (const n of nuevas) {
-    const vieja = mapa.get(n.clase);
-    if (!vieja) { mapa.set(n.clase, n); continue; }
+    const k = llaveDePlantilla(n);
+    const vieja = mapa.get(k);
+    if (!vieja) { mapa.set(k, n); continue; }
     const nSirve = n.cuerpo != null || n.metodo === 'GET' || n.metodo === 'HEAD';
     const vSirve = vieja.cuerpo != null || vieja.metodo === 'GET' || vieja.metodo === 'HEAD';
-    if (nSirve && !vSirve) { mapa.set(n.clase, n); continue; }
-    if (!nSirve && vSirve) continue;
-    if ((n.cuando ?? 0) >= (vieja.cuando ?? 0)) mapa.set(n.clase, n);
+    // ⚠️ GANE QUIEN GANE, `op` y `sentinela` NO SE PIERDEN.
+    //
+    // Se descubren UNA vez y no cambian, así que un pedido posterior que no los trae
+    // no puede borrarlos. Es el mismo defecto que ya se pagó en el navegador: ahí un
+    // `{ ...p }` pisaba con `null` lo que había costado un clip pagado. Fundir el
+    // objeto entero y confiar en que el ganador los traiga es repetirlo acá.
+    const conservar = (g: PlantillaEspejo): PlantillaEspejo => ({
+      ...g,
+      op: g.op || vieja.op || n.op,
+      sentinela: g.sentinela || vieja.sentinela || n.sentinela || null,
+    });
+    if (nSirve && !vSirve) { mapa.set(k, conservar(n)); continue; }
+    if (!nSirve && vSirve) { mapa.set(k, conservar(vieja)); continue; }
+    mapa.set(k, conservar((n.cuando ?? 0) >= (vieja.cuando ?? 0) ? n : vieja));
   }
   return [...mapa.values()];
 }
@@ -365,9 +457,22 @@ export function tieneCaraParcheable(cuerpo: string | null): boolean | null {
 export function faltantes(
   guardadas: PlantillaEspejo[],
   clasesQueTiene: readonly string[],
+  opsQueTiene: readonly string[] = [],
 ): PlantillaEspejo[] {
   const tiene = new Set(clasesQueTiene.map(String));
-  return guardadas.filter((p) => !tiene.has(p.clase));
+  const tieneOp = new Set(opsQueTiene.map(String).filter(Boolean));
+  // ⚠️ SE MIRA LA CLASE **O** EL ROL, y el rol es el que importa en BOQ.
+  //
+  // Mirando sólo la clase, un navegador que ya aprendió `generar_clip` bajo el rpcid
+  // de HOY recibiría de vuelta la plantilla del rpcid de AYER, guardada con otra
+  // clase. Sembrarla no es inocuo: `sembrarPlantillas` no pisa las locales, así que
+  // queda una segunda entrada muerta para la misma operación y el conteo de «N de M»
+  // empieza a mentir.
+  return guardadas.filter((p) => {
+    if (tiene.has(p.clase)) return false;
+    if (p.op && tieneOp.has(p.op)) return false;
+    return true;
+  });
 }
 
 /**

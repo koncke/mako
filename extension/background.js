@@ -437,6 +437,45 @@ async function guardarPlantillas(tabId) {
 }
 
 /**
+ * Lo que este navegador puede contar de si mismo.
+ *
+ * ⚠️ NUNCA TIRA. Un diagnostico que falla y corta el latido convierte una falta de
+ * informacion en una falta de servicio — y este dato existe justamente para los
+ * momentos en que algo anda mal.
+ */
+async function armarDiagnostico(plantillas, estado) {
+  const manifest = chrome.runtime.getManifest().version;
+  let espejo = '';
+  let dominio = '';
+  let enProyecto = false;
+  try {
+    const tab = await pestanaDeFlow();
+    try { dominio = new URL(tab.url).host; } catch { /* sin dominio legible */ }
+    enProyecto = enProyectoDeFlow(tab.url);
+    // La version del espejo de ESTA pestana. Un espejo anterior al versionado no
+    // contesta, y ese '' es la respuesta: quedo viejo y hace falta un F5.
+    try {
+      const r = await chrome.tabs.sendMessage(tab.id, { tipo: 'VER_VERSION_ESPEJO' });
+      espejo = (r && r.version) || '';
+    } catch { /* la pestana no contesta: se reporta vacio */ }
+  } catch { /* sin pestana de Flow, el resto del diagnostico igual sirve */ }
+
+  const ops = plantillas.map((p) => p.op).filter(Boolean);
+  const faltan = A_ENSENAR.filter((o) => !ops.includes(o.op)).map((o) => o.op);
+  return {
+    cuando: Date.now(),
+    manifest,
+    espejo,
+    dominio,
+    enProyecto,
+    clases: plantillas.map((p) => p.clase),
+    ops,
+    faltan,
+    estado: estado || '',
+  };
+}
+
+/**
  * Todo lo guardado, para mandarselo al servidor.
  *
  * Sin esto, lo que el navegador aprendio de Flow muere con el perfil — y la app
@@ -1200,6 +1239,27 @@ async function ciclo() {
         // Que clases tiene ESTE navegador. Es lo unico que el servidor necesita
         // para contestar solo lo que falta en vez de mandarlo todo cada 15 s.
         clases: plantillasLocales.map((p) => p.clase),
+        // ⚠️ Y LOS ROLES. La clase de BOQ lleva un rpcid que rota, asi que sin esto el
+        // servidor devuelve como «faltante» una operacion que este navegador YA sabe,
+        // guardada bajo el rpcid de otro dia. Sembrarla deja una entrada muerta y el
+        // conteo de «N de M» empieza a mentir.
+        ops: plantillasLocales.map((p) => p.op).filter(Boolean),
+        // ⚠️ EL DIAGNOSTICO VIAJA SIEMPRE, PASE LO QUE PASE CON EL ESTADO.
+        //
+        // Es la leccion mas cara del 05/09/2026: todo lo que el navegador contaba de
+        // si mismo —las clases, el espia, el `detalle`— viajaba adentro de un
+        // `if (estado === 'listo')` que en el Flow nuevo es falso SIEMPRE. Asi que el
+        // servidor no recibia NADA con lo que diagnosticar, y no habia forma de
+        // distinguir «el puente no aprendio» de «el puente no pudo contarme nada».
+        //
+        // Se razono a ciegas sobre el navegador de otra persona durante tres rondas y
+        // una auditoria de 191 agentes, por un dato que cuesta esto.
+        //
+        // ⚠️ SIN CUERPOS Y SIN URLS: aca viaja lo que el navegador vio de una sesion
+        // autenticada de Google. Un cuerpo de BOQ trae el `at`; una url trae el
+        // `source-path` con el projectId. Nada de eso hace falta para contestar «que
+        // sabe hacer este puente», que es lo unico que este dato existe para decir.
+        diagnostico: await armarDiagnostico(plantillasLocales, latido.estado || estado),
         // Lo que Flow ya recibio, para saber de donde sale el enlace de un video.
         ...(respuestasVistas ? { respuestas: respuestasVistas } : {}),
         ...(mandarPlantillas ? { plantillas: plantillasLocales } : {}),
