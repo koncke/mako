@@ -2553,3 +2553,63 @@ warn people too much, they stop paying attention»*. Si no se corrige antes de m
 que llegue el envío de verdad la aprobación ya no significa nada.
 
 **Vive en:** app/_ui/Mako.tsx (`ver`) · lib/mako-capacidades.ts · *2026-08-09 mapeo de 8 áreas*
+
+---
+
+## La promesa de «Uso Limitado» de Google choca con la key GRATIS de Gemini
+
+**Vive en:** `lib/model-catalogo.ts:166` (`plan-fathom`) · `lib/plan-fathom.ts:41` ·
+`lib/metodo-catalogo.ts:413` · `lib/google-calendar.ts` (`invitadosDeReunionPorFecha`) ·
+`app/privacidad/page.tsx`
+
+Apareció escribiendo la política de privacidad, que es la primera vez que alguien tuvo que
+poner por escrito **a dónde va cada dato**. Un mapeo de 7 agentes lo levantó y el código lo
+confirma en tres saltos:
+
+1. `invitadosDeReunionPorFecha()` lee de Google Calendar **nombre y correo de cada
+   invitado** a la reunión.
+2. Esos invitados entran, literales, al prompt de `plan-fathom` — el que extrae y reparte
+   las tareas de la reunión (`lib/plan-fathom.ts:62-64`: «emails de los invitados» y «TODOS
+   los invitados con nombre»).
+3. `plan-fathom` está ruteada a `def: GEMINI()` con `fallback: []`
+   (`lib/model-catalogo.ts:166`), y corre con **la key del propio cliente**.
+
+Y el propio catálogo de credenciales ya tenía la advertencia escrita, textual
+(`lib/metodo-catalogo.ts:413`): *«El plan gratis no cobra, pero Google usa tus datos para
+mejorar sus productos (con revisión humana). Para datos de clientes usa una key PAGA…: esa
+NO entrena.»*
+
+**O sea: si el cliente cargó una key gratuita de Gemini, los datos de su Google Calendar
+van a un modelo que Google usa para mejorar sus productos, con revisión humana.** Eso
+contradice de frente el requisito de **Uso Limitado** de la Política de Datos de Usuario de
+las APIs de Google, que prohíbe usar datos obtenidos de esas APIs para entrenar o mejorar
+modelos de IA de uso general — y contradice la cláusula que la política de privacidad
+publicada ya afirma.
+
+**Por qué no lo cazaba nadie:** el flag `pii` del catálogo de modelos **no gatea nada** —es
+una etiqueta que se pinta en `/modelos-ia` y nada más—, y `plan-fathom` ni siquiera la
+tiene. La advertencia vivía en el tutorial de una credencial, que es texto que lee una
+persona al configurar, no un control. Es «una regla en un prompt no es una regla» aplicada
+a una nota de ayuda.
+
+**La regla que queda:** el día que se escribe una promesa hacia afuera —una política, un
+contrato, una cláusula de uso limitado— hay que recorrer el camino REAL del dato hasta el
+último proveedor. La promesa la cumple el eslabón más débil de la cadena, y acá el más débil
+es una key que carga el cliente y que nosotros no elegimos.
+
+### Pendiente, y bloquea pedir la verificación a Google
+
+Tres salidas posibles, ninguna aplicada todavía:
+
+- **Exigir key paga** para cualquier feature que toque datos de Google (y fallar cerrado si
+  no la hay). Es lo más fiel a la promesa y lo que más fricción agrega al onboarding.
+- **Rutear esas features a un proveedor con no-entrenamiento contractual**, sacándolas de la
+  cascada gratis. Cuesta plata y es el criterio que ya usa `fallback: []` para otra cosa.
+- **No mandar los invitados al prompt**: repartir por email es determinístico y podría salir
+  del código, no del modelo. Es el que menos promete y el que más trabajo es.
+
+Y en cualquiera de los tres, que `pii` **deje de ser una etiqueta** y pase a ser un guard
+en el ruteo, o el próximo modelo que se agregue vuelve a abrir el mismo agujero.
+
+*Corrida del 05/09/2026 — 7 agentes mapeando qué datos toca MaKo para escribir la política;
+246 hechos verificados y dos auditores adversariales sobre el mapa.*
