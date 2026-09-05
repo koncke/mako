@@ -46,11 +46,29 @@
   /** Última respuesta vista, por clase. Sirve para no repetir pedidos de lectura. */
   const respuestas = new Map();
 
-  /** La clase de un pedido sale de su path: `/v1/credits` → `credits`. */
+  /**
+   * La clase de un pedido sale de su path: `/v1/credits` → `credits`.
+   *
+   * ⚠️ SALVO EN BOQ, DONDE EL PATH ES SIEMPRE EL MISMO. El Flow nuevo manda TODO
+   * por `/_/AiSandboxAngularFrontend/data/batchexecute` y lo que distingue un pedido
+   * de otro es el `rpcids` del query. Con la regla del path, las seis operaciones
+   * —generar, sondear, leer el proyecto— colapsarían en una sola clase llamada
+   * `batchexecute`, y cada pedido pisaría la plantilla del anterior.
+   *
+   * Y no fallaría ruidoso: fallaría sirviendo la plantilla del SONDEO cuando se pide
+   * generar, que es el modo de falla que este archivo ya tiene escrito —una plantilla
+   * equivocada no se distingue de una sana en ningún punto del camino.
+   *
+   * Medido el 04/09/2026 generando un clip real: `YhhmEf` dispara la generación,
+   * `jwpduf` y `ngNC2` son el sondeo (alternados, cada ~2 s), `as29s` trae el medio
+   * al final, y `DTaVef` / `NfrxTb` / `ve2Lsc` cargan el proyecto.
+   */
   function claseDe(url) {
     try {
-      const p = new URL(url, location.origin).pathname;
-      return p.split('/').filter(Boolean).pop() || '';
+      const u = new URL(url, location.origin);
+      const rpc = u.searchParams.get('rpcids');
+      if (rpc) return 'boq:' + rpc;
+      return u.pathname.split('/').filter(Boolean).pop() || '';
     } catch { return ''; }
   }
 
@@ -175,7 +193,18 @@
    * /api/trpc/» dice exactamente lo que se queria decir —la API de la app que me
    * hospeda— sin nombrar ningun dominio. La proxima mudanza no lo rompe.
    */
-  const esApiDeLaApp = (u) => u.includes('/api/trpc/');
+  // ⚠️ DOS TRANSPORTES, PORQUE HAY DOS APPS.
+  //
+  // `/api/trpc/` es el Flow viejo, el de labs.google. El nuevo —BOQ, en
+  // flow.google.com— manda TODO por `/_/AiSandboxAngularFrontend/data/batchexecute`,
+  // que no tiene nada que ver con esa ruta.
+  //
+  // Se reconocen por la RUTA y no por el host: este script sólo corre dentro de una
+  // página de Flow, así que «mismo origen + una de estas dos rutas» dice exactamente
+  // lo que se quiere decir —la API de la app que me hospeda— sin nombrar ningún
+  // dominio. Es lo que hizo que la mudanza a flow.google.com no rompiera esta línea,
+  // y lo que va a hacer que la próxima tampoco.
+  const esApiDeLaApp = (u) => u.includes('/api/trpc/') || u.includes('/data/batchexecute');
 
   const fetchOriginal = window.fetch;
 
@@ -263,6 +292,74 @@
       }
     } catch { /* NUNCA romper la app de Flow por nuestra captura */ }
     return promesa;
+  };
+
+  // ── EL ESPEJO DE XHR, que es por donde habla el Flow NUEVO ──────────────────
+  //
+  // ⚠️ SIN ESTO EL ESPEJO NO VE NADA EN flow.google.com, Y NO SE QUEJA.
+  //
+  // Todo lo de arriba engancha `window.fetch`. El Flow viejo lo usaba; el nuevo —la
+  // app BOQ de flow.google.com— manda sus `batchexecute` por XMLHttpRequest.
+  //
+  // Medido el 04/09/2026: con el espejo de `fetch` puesto se generó un clip real y
+  // capturó CERO pedidos, con la generación corriendo al 7% en la pantalla de al
+  // lado. El mismo espejo sobre XHR capturó nueve en seis segundos.
+  //
+  // Es la peor forma de fallar que tiene un espejo: no hay error, hay ausencia. Y
+  // «no vi ningún pedido» se lee igual que «la app no pidió nada».
+  //
+  // Alimenta el MISMO mapa de plantillas y con la misma forma, así que todo lo que
+  // ya sabe repetir un pedido calcado sirve sin cambiar una línea. La captura de la
+  // respuesta va en `onloadend` porque XHR no devuelve una promesa que clonar.
+  const XHR_ABRIR = XMLHttpRequest.prototype.open;
+  const XHR_HEADER = XMLHttpRequest.prototype.setRequestHeader;
+  const XHR_MANDAR = XMLHttpRequest.prototype.send;
+
+  XMLHttpRequest.prototype.open = function (metodo, url) {
+    try {
+      this.__makoUrl = String(url || '');
+      this.__makoMetodo = String(metodo || 'GET').toUpperCase();
+      // Los headers se acumulan acá: en XHR se ponen de a uno DESPUÉS de `open()`,
+      // así que no hay un objeto que leer como en `fetch`.
+      this.__makoHeaders = {};
+    } catch { /* nunca romper */ }
+    return XHR_ABRIR.apply(this, arguments);
+  };
+
+  XMLHttpRequest.prototype.setRequestHeader = function (k, v) {
+    try { if (this.__makoHeaders) this.__makoHeaders[String(k)] = String(v); } catch { /* nunca romper */ }
+    return XHR_HEADER.apply(this, arguments);
+  };
+
+  XMLHttpRequest.prototype.send = function (cuerpo) {
+    try {
+      const url = this.__makoUrl || '';
+      if (url.includes(API) || esApiDeLaApp(url)) {
+        const clase = claseDe(url);
+        // ⚠️ El cuerpo se guarda SOLO si es texto. Un `FormData` o un `Blob` no se
+        // pueden serializar acá sin leerlos, y leerlos puede consumir el cuerpo que
+        // la app está por mandar — romper Flow para mirarlo es exactamente lo que
+        // este espejo no puede hacer. BOQ manda form-urlencoded, o sea texto.
+        const texto = typeof cuerpo === 'string' ? cuerpo : null;
+        plantillas.set(clase, {
+          url,
+          metodo: this.__makoMetodo || 'POST',
+          headers: this.__makoHeaders || {},
+          cuerpo: texto,
+          // XHR manda las cookies del mismo origen solo, y BOQ autentica con
+          // cookies: repetir el pedido sin esto sería repetirlo sin sesión.
+          credenciales: 'include',
+          cuando: Date.now(),
+        });
+        this.addEventListener('loadend', () => {
+          try {
+            const t = typeof this.responseText === 'string' ? this.responseText : '';
+            respuestas.set(clase, { status: this.status, texto: t.slice(0, 20000), cuando: Date.now() });
+          } catch { /* una respuesta que no se puede leer no es un error nuestro */ }
+        });
+      }
+    } catch { /* NUNCA romper la app de Flow por nuestra captura */ }
+    return XHR_MANDAR.apply(this, arguments);
   };
 
   // ── reCAPTCHA ─────────────────────────────────────────────────────────────

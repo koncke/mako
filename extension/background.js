@@ -24,6 +24,16 @@ const MAKO = 'https://hola-mako.com';
 const FLOW_BASE = 'https://aisandbox-pa.googleapis.com';
 const SITE_KEY = '6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV';
 
+/**
+ * Un id de proyecto de Flow.
+ *
+ * Se valida antes de meterlo en una URL: el `projectId` sale de mirar el trafico
+ * al pasar, asi que puede venir vacio o a medio leer — y armar
+ * `flow.google.com/project/<basura>` manda a la persona a un 404 que se lee como
+ * que MaKo perdio su proyecto.
+ */
+const ES_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** Lo pisa el server en cada respuesta. Este es solo el arranque. */
 let cooldownMs = 10000;
 let bearer = null;
@@ -1453,6 +1463,101 @@ async function conectar(forzar) {
 }
 
 /**
+ * DEJA EL NAVEGADOR LISTO PARA FILMAR, SIN PEDIRLE NADA A LA PERSONA.
+ *
+ * ⚠️ ESTO EXISTE PORQUE CASI TODO LO QUE FALLABA NO ERA UN BUG: ERA UN ESTADO QUE
+ * LE PEDIAMOS AL USUARIO QUE ARMARA A MANO.
+ *
+ * La lista de lo que se reporto en tres dias, y que era siempre lo mismo:
+ *
+ *   · «no hay ninguna pestana de Flow abierta» — con Flow abierto al lado;
+ *   · «inicia sesion en Google Flow» — logueada, mirando su avatar;
+ *   · «abre un proyecto» — que nadie sabe que hace falta hasta que se lo dicen;
+ *   · y la pestana de Flow DORMIDA, que Chrome descarta justo por mirar la de MaKo.
+ *
+ * Cada uno tuvo su arreglo y su cartel. Pero un cartel que pide armar un estado es
+ * una tarea delegada al que menos contexto tiene, y la unica forma de que deje de
+ * fallar es que no haya que armarlo: lo arma la extension, que es la unica que ve
+ * las pestanas de las dos apps a la vez.
+ *
+ * El dueno lo pidio con esas palabras: «seria mucho mas facil si MaKo manejara las
+ * tabs, para que no tenga que estar haciendo nada, y le decimos No toques nada».
+ *
+ * ── Que hace, en orden y por que ese orden ─────────────────────────────────
+ *
+ * 1. La pestana de FLOW primero. Es la que tarda (carga la app entera) y la que
+ *    puede necesitar login. Arrancarla primero le da tiempo mientras se prepara lo
+ *    demas.
+ * 2. Adentro de un PROYECTO, no en la portada. El bearer y el resto del trafico que
+ *    el puente necesita solo existen dentro de un proyecto — medido: en la lista de
+ *    proyectos la app pide todo con cookies y no emite nada que sirva. Se usa el
+ *    ultimo `projectId` visto; sin ninguno, se abre la portada y se dice que hay que
+ *    entrar a uno, que es lo unico que no se puede hacer por la persona (elegir en
+ *    cual de sus proyectos trabajar es una decision suya).
+ * 3. La pestana de MAKO despues, y queda ACTIVA. Es donde la persona tiene que
+ *    mirar; la de Flow trabaja atras.
+ *
+ * ⚠️ Y la de Flow se abre `active: false` a proposito. Activarla la traeria al
+ * frente y dejaria la de MaKo atras — que es exactamente lo que hace que Chrome la
+ * descarte y que despues no se encuentre. El orden de las pestanas ES parte del
+ * arreglo, no una preferencia estetica.
+ */
+async function prepararEscenario() {
+  const pasos = [];
+  let avisoProyecto = false;
+
+  // ── 1. Flow ───────────────────────────────────────────────────────────────
+  let tabFlow = null;
+  try { tabFlow = await pestanaDeFlow(); } catch { tabFlow = null; }
+
+  if (tabFlow && !enProyectoDeFlow(tabFlow.url)) {
+    // Hay pestana pero esta en la portada: se la lleva al ultimo proyecto visto.
+    const { projectId: guardado } = await chrome.storage.local.get('projectId');
+    if (ES_UUID.test(String(guardado || ''))) {
+      await chrome.tabs.update(tabFlow.id, { url: `${origenDeFlow(tabFlow)}/project/${guardado}` }).catch(() => {});
+      await esperarCarga(tabFlow.id);
+      pasos.push('proyecto');
+    } else {
+      avisoProyecto = true;
+    }
+  } else if (!tabFlow) {
+    const { projectId: guardado } = await chrome.storage.local.get('projectId');
+    const destino = ES_UUID.test(String(guardado || ''))
+      ? `${URL_FLOW}project/${guardado}`
+      : URL_FLOW;
+    // ⚠️ `active: false`: ver el comentario de arriba. La de MaKo tiene que quedar
+    // adelante o Chrome duerme la de Flow.
+    const nueva = await chrome.tabs.create({ url: destino, active: false });
+    await esperarCarga(nueva.id);
+    tabFlow = nueva;
+    pasos.push('flow');
+    if (!ES_UUID.test(String(guardado || ''))) avisoProyecto = true;
+  }
+
+  // ── 2. MaKo, y queda al frente ────────────────────────────────────────────
+  let tabMako = null;
+  try {
+    const tabs = await chrome.tabs.query({ url: `${MAKO}/*` });
+    tabMako = tabs.find((t) => String(t.url || '').includes('/video-generator')) || tabs[0] || null;
+  } catch { tabMako = null; }
+
+  if (!tabMako) {
+    tabMako = await chrome.tabs.create({ url: URL_MAKO_TAB, active: true });
+    await esperarCarga(tabMako.id);
+    pasos.push('mako');
+  } else {
+    await chrome.tabs.update(tabMako.id, { active: true }).catch(() => {});
+    await chrome.windows.update(tabMako.windowId, { focused: true }).catch(() => {});
+  }
+
+  // ── 3. Y se late, para no esperar la proxima alarma ───────────────────────
+  // La persona acaba de apretar un boton: que el estado tarde 15 s en cambiar le
+  // ensena que la app no se entera de lo que hace.
+  await ciclo().catch(() => {});
+
+  return { ok: true, pasos, avisoProyecto, flow: !!tabFlow, mako: !!tabMako };
+}
+/**
  * Recarga la pestana de MaKo que no contesto y espera a que vuelva.
  *
  * Es el remedio de `sin_enlace`, y se hace desde aca porque el popup se cierra en
@@ -1793,6 +1898,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
   if (msg?.tipo === 'CONECTAR') { void conectar(!!msg.forzar).then(responder); return true; }
   if (msg?.tipo === 'RECARGAR_MAKO') { void recargarMako().then(responder); return true; }
   if (msg?.tipo === 'ABRIR_FLOW') { void abrirFlow().then(responder); return true; }
+  if (msg?.tipo === 'PREPARAR') { void prepararEscenario().then(responder, (e) => responder({ ok: false, error: String((e && e.message) || e) })); return true; }
   if (msg?.tipo === 'RECARGAR_FLOW') { void recargarFlow().then(responder); return true; }
   if (msg?.tipo === 'SALDO') { void saldoLocal(true).then(responder); return true; }
   if (msg?.tipo === 'LATIR') { void ciclo().then(() => responder({ ok: true })); return true; }

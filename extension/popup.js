@@ -311,7 +311,17 @@ async function pintar() {
 
   // ── Google Flow (paso 3) ───────────────────────────────────────────────
   if (!v.hayFlow) {
-    pantalla({ titulo: 'Abre Google Flow', boton: 'Abrir Google Flow', accion: abrirFlow });
+    // ⚠️ EL BOTÓN LO HACE, NO LO PIDE. Antes abría Flow y devolvía a la persona a
+    // un popup que seguía diciendo lo mismo hasta que ella acertara el resto del
+    // estado (entrar a un proyecto, no dejar dormir la pestaña, volver a MaKo).
+    pantalla({
+      titulo: 'Preparo todo y empezamos',
+      tenue: 'Abro Google Flow, entro a tu proyecto y te dejo en MaKo. No toques nada mientras tanto.',
+      boton: 'Empezar',
+      accion: prepararTodo,
+      boton2: 'Solo abrir Flow',
+      accion2: abrirFlow,
+    });
     return;
   }
   if (!v.bearer) {
@@ -352,8 +362,10 @@ async function pintar() {
       pantalla({
         titulo: 'Abre un proyecto en Flow',
         tenue: 'MaKo necesita ver una llamada de Flow para conectarse, y en la lista de proyectos todavía no hay ninguna. Entra a cualquier proyecto —o crea uno— y vuelve acá.',
-        boton: 'Ir a Google Flow',
-        accion: abrirFlow,
+        boton: 'Empezar',
+        accion: prepararTodo,
+        boton2: 'Ir a Google Flow',
+        accion2: abrirFlow,
       });
       return;
     }
@@ -514,6 +526,43 @@ async function pestanaDeMako() {
 function bajarNueva() {
   chrome.tabs.create({ url: `${ORIGEN_MAKO}/extension/instalar`, active: true });
   window.close();
+}
+
+/**
+ * DEJA TODO LISTO Y LE PIDE A LA PERSONA QUE NO TOQUE NADA.
+ *
+ * ⚠️ ES EL REEMPLAZO DE CUATRO CARTELES QUE PEDÍAN ARMAR UN ESTADO A MANO.
+ *
+ * «Abre Google Flow», «Inicia sesión», «Abre un proyecto», «Recarga la pestaña»:
+ * los cuatro son tareas delegadas a quien menos contexto tiene, y los cuatro se
+ * reportaron rotos en tres días — casi siempre porque el estado YA estaba bien y el
+ * cartel no sabía verlo.
+ *
+ * La extensión es la única que ve las pestañas de las dos apps a la vez, así que es
+ * la única que puede armarlo. El dueño: «sería mucho más fácil si MaKo manejara las
+ * tabs, para que no tenga que estar haciendo nada, y le decimos No toques nada».
+ *
+ * ⚠️ El popup se CIERRA en cuanto pierde el foco, y abrir pestañas se lo hace
+ * perder. Por eso el trabajo vive en el background y esto sólo lo dispara: hacerlo
+ * acá se cortaría a la mitad, con las pestañas abiertas y nada conectado.
+ */
+async function prepararTodo() {
+  esperando('Preparando todo… no toques nada');
+  const r = await enviar({ tipo: 'PREPARAR' });
+  // ⚠️ Si falta elegir proyecto, se DICE y no se sigue como si nada: es lo único de
+  // toda la secuencia que no se puede hacer por la persona —en cuál de sus
+  // proyectos trabajar es una decisión suya— y callarlo la deja mirando una
+  // pantalla que no avanza.
+  if (r && r.avisoProyecto) {
+    pantalla({
+      titulo: 'Entra a un proyecto en Flow',
+      tenue: 'Ya te dejé Flow abierto. Entra a cualquier proyecto —o crea uno— y vuelve acá: es lo único que no puedo elegir por ti.',
+      boton: 'Ir a Google Flow',
+      accion: abrirFlow,
+    });
+    return;
+  }
+  await pintar();
 }
 
 async function abrirMako() {
