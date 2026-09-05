@@ -949,6 +949,39 @@ alcanza con reordenar — el scanner que se escribió en el medio salió peor qu
 El detalle, con las dos familias de homógrafos que no se pueden marcar y el agujero
 permanente de los imperativos `-ir`, en [docs/hallazgos-copy.md](docs/hallazgos-copy.md).
 
+# Un mensaje HONESTO también puede afirmar de más, y ahí es donde se cuela
+
+La regla de abajo cubre el mensaje que acusa. Ésta cubre al que ya dejó de acusar y
+todavía inventa: **la parte de «qué hacer»**.
+
+Un error bien escrito tiene dos mitades —de quién fue, y qué hacer al respecto— y la
+segunda se escribe de memoria mucho más seguido que la primera. Es la mitad que nadie
+revisa, porque el mensaje ya *suena* honesto.
+
+El caso, del 05/09/2026, en tres pasadas sobre el mismo botón:
+
+1. «Tu sesión de Flow venció, o Google la pausó» — a alguien con la sesión perfecta.
+   Se arregló: dejó de acusar al cliente.
+2. «Google reescribió Flow y cambió por dónde se piden. Míralos en Flow, arriba a la
+   derecha.» Suena honesto y tiene DOS afirmaciones sin medir: que los créditos se
+   movieron, y que están arriba a la derecha.
+3. Medido en una cuenta PRO con el proyecto abierto: **no hay ningún número de
+   créditos en la pantalla, ni en el menú de la cuenta, ni en una sola de las
+   respuestas que la app recibe.** Google los sacó.
+
+O sea que el arreglo del paso 2 movió el defecto un renglón: dejó de culpar a la
+sesión y pasó a **inventar un lugar**. Y esa versión es peor de detectar, porque el
+que la lee ya no siente que lo están culpando — siente que está ciego.
+
+- **Si no sabés DÓNDE está algo, el mensaje dice qué pasó y se calla.** Una
+  instrucción inventada cuesta más que ninguna: la persona la sigue, no encuentra
+  nada, y concluye que el problema es ella.
+- **Y no lleva botón.** Un botón que va a cualquier lado se lee como «ahí está la
+  respuesta». Sin destino verdadero, no hay botón.
+- **El test rápido antes de escribir un remedio:** ¿lo VISTE, o lo estás deduciendo
+  de cómo era antes? Los tres mensajes de este caso salieron de recordar la app
+  vieja.
+
 # Un mensaje que sale solo no puede AFIRMAR lo que no verificó
 
 Un aviso automático llega con la autoridad del sistema: el que lo lee no tiene cómo

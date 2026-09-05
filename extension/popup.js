@@ -509,9 +509,24 @@ async function verSaldo() {
     if (est && est.flowNuevo) {
       pantalla({
         titulo: 'Todavía no puedo leer tus créditos',
-        tenue: 'Google reescribió Flow y cambió por dónde se piden. No es tu sesión: míralos en Flow, arriba a la derecha, mientras MaKo aprende el camino nuevo.',
-        boton: 'Ir a Google Flow',
-        accion: abrirFlow,
+        // ⚠️ NO MANDA A MIRAR A NINGÚN LADO, Y ESO ES EL ARREGLO.
+        //
+        // La versión anterior decía «míralos en Flow, arriba a la derecha». Medido el
+        // 05/09/2026 en una cuenta PRO real, con el proyecto abierto: no hay ningún
+        // número de créditos en la pantalla, ni en el menú de la cuenta, ni en una
+        // sola de las respuestas que la app recibe. Google los sacó de ahí.
+        //
+        // O sea que el mensaje mandaba a buscar algo que no existe — el MISMO defecto
+        // que venía a arreglar, movido un renglón: dejaba de acusar a la sesión y
+        // pasaba a inventar un lugar.
+        //
+        // La regla que queda: cuando no se sabe DÓNDE está algo, el mensaje dice qué
+        // pasó y se calla. Una instrucción inventada cuesta más que no dar ninguna,
+        // porque la persona la sigue y llega a la conclusión de que además está
+        // ciega.
+        tenue: 'Google reescribió Flow y la forma en que MaKo los leía ya no existe. No es tu sesión ni tu cuenta. Cuando encontremos dónde quedaron, vuelven acá.',
+        // Sin botón: no hay a dónde mandar a nadie, y un botón que lleva a cualquier
+        // lado se lee como que ahí está la respuesta.
       });
       return;
     }
