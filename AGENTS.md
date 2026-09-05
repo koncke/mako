@@ -2857,3 +2857,25 @@ las tres:
 
 Es el gemelo de «Una regla en un prompt no es una regla», del otro lado del cable: aquella
 mira lo que el modelo ESCRIBE, ésta lo que el modelo LEE.
+
+# Al volver async algo que se INTERPOLA en un string, borralo: no lo cambies de tipo
+
+Un `await` olvidado no rompe: interpola **`[object Promise]`**. La URL sale mal, el
+proveedor contesta un error que no se parece a la causa, y **ni `tsc` ni el eslint del
+repo lo ven** — no hay `restrict-template-expressions`, así que un `Promise<string>`
+dentro de `` `${…}` `` es código perfectamente válido.
+
+Medido en la tarea #170: de los 60 call-sites de `ver()`/`acct()`/`token()` en
+`lib/meta-ads-create.ts`, **36 vivían dentro de template literals**. Volverlos async
+in-place habría dejado esos 36 compilando en verde y fallando en runtime, en un archivo
+que crea y borra campañas con plata.
+
+**La regla: borrá el identificador viejo y dejá que el compilador te reclame los
+call-sites.** «Cannot find name» los enumera todos, incluidos los del string; cambiarle
+el tipo a la función deja verdes justo los que fallan. Vale para cualquier helper
+sincrónico que se vuelve async: una credencial, un id de tenant, una versión de API.
+
+Y el corolario del rendimiento, que aparece en la misma pasada: si el valor se usa
+adentro de un bucle, **se hoistea afuera**. `credWs` no cachea (un SELECT por llamada),
+así que un sondeo de 37 vueltas pasaba a 74 consultas — y cada una es una chance
+independiente de abortar a mitad de un árbol ya creado.

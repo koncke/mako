@@ -7,14 +7,14 @@
 
 import type { NextRequest } from 'next/server';
 import { generatePreviews, metaErrorEnvelope, PREVIEW_FORMATS } from '@/lib/meta-ads-create';
-import { guardAdsDueno } from '@/lib/ads-guard';
+import { guardAdsWs } from '@/lib/ads-guard';
 import type { Creative } from '@/lib/campaign-types';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  const no = await guardAdsDueno(); if (no) return no;
+  const no = await guardAdsWs(); if (no) return no;
   let body: { creative?: Creative; formats?: string[] };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
   if (!body.creative) return Response.json({ ok: false, error: 'falta el creativo' }, { status: 400 });

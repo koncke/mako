@@ -14,7 +14,7 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { createCampaign, createAdSet, createAdCreative, createAd, deleteEntity, metaErrorEnvelope, adoptarTranscripcionDelCreativo } from '@/lib/meta-ads-create';
 import { type CampaignSpec, objetivoDef } from '@/lib/campaign-types';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { guardAdsDueno } from '@/lib/ads-guard';
+import { guardAdsWs } from '@/lib/ads-guard';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -22,7 +22,7 @@ export const maxDuration = 300;
 export async function POST(req: NextRequest) {
   // Fase 1: crear campañas escribe en la cuenta de Meta global del dueño.
   // Mismo predicado que sus 10 hermanas, y ahora también el mismo TEXTO (lib/ads-guard.ts).
-  const no = await guardAdsDueno(); if (no) return no;
+  const no = await guardAdsWs(); if (no) return no;
 
   let body: { spec?: CampaignSpec; prompt?: string; uso?: unknown };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }

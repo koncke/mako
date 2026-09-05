@@ -10,7 +10,7 @@
 import type { NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
 import { ADS_CREATIVES_BUCKET as BUCKET } from '@/lib/meta-ads-create';
-import { guardAdsDueno } from '@/lib/ads-guard';
+import { guardAdsWs } from '@/lib/ads-guard';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +22,7 @@ function safeName(name: string): string {
 export async function POST(req: NextRequest) {
   // Fase 1: firmar la subida es el primer paso del tooling de creativos que
   // termina empujando a la cuenta de Meta global del dueño.
-  const no = await guardAdsDueno(); if (no) return no;
+  const no = await guardAdsWs(); if (no) return no;
 
   let body: { filename?: string; content_type?: string };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }

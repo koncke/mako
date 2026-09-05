@@ -7,7 +7,7 @@
 
 import type { NextRequest } from 'next/server';
 import { createCustomAudience, type AudienceTipo, metaErrorEnvelope } from '@/lib/meta-ads-create';
-import { guardAdsDueno } from '@/lib/ads-guard';
+import { guardAdsWs } from '@/lib/ads-guard';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -15,7 +15,7 @@ export const maxDuration = 30;
 const TIPOS: AudienceTipo[] = ['page', 'ig', 'video', 'pixel'];
 
 export async function POST(req: NextRequest) {
-  const no = await guardAdsDueno(); if (no) return no;
+  const no = await guardAdsWs(); if (no) return no;
   let body: { tipo?: string; dias?: number; name?: string; evento?: string };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 

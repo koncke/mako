@@ -1117,3 +1117,166 @@ app/ads-manager/NuevaCampanaModal.tsx (traerTargeting, ConversionPicker) ·
 app/ads-manager/{AgregarConjunto,AgregarAnuncio,EditarPublico}Modal.tsx ·
 lib/workspace.ts:149-173 · app/ads-manager/AdsManagerView.tsx:33 · app/_components/nav.ts:139
 · *2026-09-05 ads-manager-403-publicar (144 agentes)*
+
+---
+
+## Tarea #170 CERRADA: Ads Manager escribe sobre la cuenta de CADA cliente
+
+Cierra la tijera de la sección anterior, y por el lado correcto: en vez de esconderle
+la tab a los seis clientes, se recableó el lib para que cada uno cree sobre SU cuenta.
+
+**Lo que cambió:** `lib/meta-ads-create.ts` resolvía token, cuenta, página y pixel de
+`process.env` (más `META_PAGE_ID` como literal de `lib/config.ts`). Ahora salen de
+`credWs(clave, ws)`. El gate pasó de `esDuenoAdmin()` («¿sos la agencia?») a
+`adminDeWorkspaceActual()` («¿administrás ESTE workspace?»).
+
+**El precedente estaba escrito y era exactamente este bug.** El docblock de
+`adminDeWorkspaceActual` (lib/workspace.ts:176-191) dice, textual, que gatear con el
+guard de la agencia «es lo que le devolvía un 403 a todo cliente que apretaba
+"Conectar Google Calendar" (ws13, Código Inmobiliario)». La misma equivocación —una
+acción DEL CLIENTE gateada con el guard DE LA AGENCIA— ya se había encontrado y
+arreglado en otra tab, y en Ads Manager quedó viva. **Cuando encuentres un guard que
+rechaza a alguien que debería pasar, buscá si el predicado correcto ya existe: acá
+estaba escrito, probado en producción y con el porqué al lado.**
+
+### Por qué se BORRAN los wrappers en vez de volverlos async
+
+`ver()`, `acct()` y `token()` no se convirtieron en async: se **borraron**, y el
+typecheck enumeró los 60 call-sites. El motivo es que **36 de ellos viven dentro de
+template literals**. Ahí un `await` olvidado no rompe nada: interpola `[object
+Promise]`, la URL sale mal y Meta contesta un error que no se parece en nada a la
+causa. Ni `tsc` ni el eslint del repo lo agarran — no hay `restrict-template-expressions`.
+Borrando el identificador, los 60 se vuelven «Cannot find name» y no queda ni una mina.
+
+**La regla: cuando una función sincrónica se vuelve async y sus llamadores la
+interpolan en strings, borrala y dejá que el compilador te la reclame. Cambiarle el
+tipo in-place deja verdes exactamente los call-sites que fallan en runtime.**
+
+### Los tres acoplamientos que el candado tapaba
+
+`assertCuentaDelDueno()` gritaba si se llamaba al lib desde otro workspace, así que
+mientras existió, estos tres no podían hacer daño. Sacarlo sin arreglarlos los habría
+convertido de minas dormidas en vivas, y **ninguno de los tres falla ruidoso**:
+
+1. **El memo de Instagram era un `let` de módulo.** `_igActorId` se comparte entre
+   TODOS los workspaces del proceso, y su valor viaja como `instagram_user_id` al
+   crear el creativo. El anuncio del cliente B publicado en el Instagram del A, con
+   Meta aceptándolo y «listo» en la pantalla. Ahora es un `Map` keyeado por
+   `page:acct` — la **identidad resuelta**, no el ws: con `Map<ws,…>`, un cliente que
+   cambia su página desde /integraciones seguiría viendo el IG de la página vieja
+   hasta que Vercel recicle el lambda.
+2. **El pixel salía de `process.env.META_PIXEL_ID`.** Un cliente le habría atribuido
+   SUS conversiones al medidor de Mauricio, y la campaña habría optimizado contra él.
+3. **`buildObjectStorySpec` era síncrona y exportada**, con el `page_id` del dueño
+   adentro. Sus dos llamadores ya estaban en contexto async, así que el costo fue cero
+   — pero es el tipo de función que obliga a elegir entre volver async media cadena o
+   pasar la credencial por parámetro.
+
+### El falso precedente que compila, pasa los tests y no arregla nada
+
+`lib/meta-write.ts:37` usa `envCred('META_ACCESS_TOKEN')` y parece el molde a copiar:
+es del área, es de Meta, y es una escritura. **No lo es.** `envCred` resuelve SIEMPRE
+contra `OWNER_WS` (lib/credenciales.ts:204-215). Copiarla acá habría dejado el archivo
+cableado al dueño **con el candado ya sacado** — el peor estado posible, y con los 1924
+tests en verde. Los precedentes buenos son `lib/meta-ads.ts:59` y `lib/meta-health.ts`.
+
+Y `credWs` va siempre con sus **dos** argumentos: la forma de un argumento pasa por
+`wsDefault` y termina en `?? OWNER_WS`, que es Mauricio, un CLIENTE. Las hermanas la
+usan con uno porque solo LEEN; acá se crea y se borra con plata.
+
+**Verificado antes de tocar nada:** para el ws1, los cinco valores efectivos son
+idénticos leídos por `process.env`/constante o por `credWs(clave, 1)`. El recableado es
+no-op para Mauricio. Ese contraste es el paso que hay que correr **antes** de cualquier
+migración de credenciales, y son diez minutos.
+
+### ⚠️ Cambio de comportamiento para el admin de plataforma
+
+Martín tiene workspace propio (ws9), así que `getWorkspaceActual()` le devuelve 9 y Ads
+Manager le va a resolver las credenciales de ws9 — que no tiene ninguna. **Para operar
+la cuenta de Mauricio ahora hay que entrar al ws1**, como en cualquier otra tab. Es el
+contrato correcto, y es una sorpresa la primera vez. El único `null` que sigue mapeando
+a OWNER_WS es el del admin de agencia SIN workspace propio.
+
+### El arnés, y por qué son asserts sobre el fuente
+
+`tests/ads-manager-credenciales.test.ts`. Los dos libs llevan `server-only`, así que
+ningún test de node:test los puede importar; el precedente del repo es el mismo. Cada
+assert fija una regresión **que compila y pasa los otros 1931 tests**: `credWs` de un
+argumento, `envCred`, un `process.env` que no sea `META_API_VERSION`, el page id del
+dueño sin acotar, un `let` de módulo, el gate volviendo a `esWorkspaceDueno`, y una
+ruta de ads-manager sin guard. Probado por mutación: cada una de las tres mutaciones
+que se intentaron falla **solo** en el test que le corresponde.
+
+### Lo que quedó SIN hacer
+
+- **`lib/meta-write.ts` sigue en `envCred` y su ruta en `esDuenoAdmin`.** Es la tarea
+  GEMELA: encender, pausar, represupuestar, renombrar y BORRAR una campaña. Hoy el
+  cliente puede CREAR su campaña y no puede encenderla. **Vive en:** lib/meta-write.ts:37,
+  app/api/meta-write/route.ts.
+- **`deleteEntity` (lib/meta-ads-create.ts) no mira `body.error`**, y la cabecera del
+  propio archivo documenta que Meta manda errores con HTTP 200. Con credenciales por
+  workspace, el rollback de un árbol a medio crear va a reportar éxito y dejar campañas
+  huérfanas **en la cuenta del cliente**.
+- **El tipo de cambio 17.30 y la moneda.** El presupuesto se pide en MXN y se manda en
+  centavos de la moneda DE LA CUENTA. Para un cliente que no factura en MXN eso ya está
+  mal hoy en el camino de LECTURA (lib/meta-ads.ts y el cron ya corren por workspace).
+  **Vive en:** lib/config.ts:19, app/ads-manager/NuevaCampanaModal.tsx:37, lib/ads-analyst.ts:634.
+- **El geo default `'MX'`** (lib/meta-ads-create.ts) y las fechas en zona de Tijuana
+  (app/ads-manager/AdsManagerView.tsx): un cliente colombiano publica segmentando
+  México sin que nada se lo diga.
+- **Las tres rutas de IA y la transcripción** queman la key de la PLATAFORMA vía
+  `envCred`. Con el gate abierto, el wizard de cada cliente gasta IA de la agencia. Es
+  una decisión de producto (quién paga), no del recableado.
+- **`META_PAGE_ID` y `META_PIXEL_ID` figuran `opcional: true`** en el catálogo BYOK
+  (lib/metodo-catalogo.ts). Para Ads Manager el page id NO es opcional: es la raíz de
+  todo creativo. Un cliente puede ver «Meta Ads conectado» en verde y no poder crear
+  ni un anuncio.
+- **`meta_campaign_drafts` no está en `TENANT_TABLES`** (lib/workspace.ts), así que el
+  borrador completo —copy, targeting, presupuestos— sigue siendo global. Cambiar los
+  escritores a `getTenantDb` SIN agregar la tabla al Set es un **no-op silencioso**: el
+  proxy corta en seco para toda tabla que no esté en el Set.
+
+**Vive en:** lib/meta-ads-create.ts · lib/ads-guard.ts · las 14 rutas de
+app/api/ads-manager/ · tests/ads-manager-credenciales.test.ts ·
+*2026-09-05 tarea-170-meta-por-workspace*
+
+---
+
+## Seis credenciales de Meta compartidas entre workspaces: el guard cubría 1 de 4 claves
+
+Medido contra producción el 05/09/2026, descifrando la tabla `credenciales`:
+
+| Par | Qué comparten |
+|---|---|
+| ws1 (Mauricio) + ws4 (Cliente de Diseño) | token, cuenta publicitaria y pixel |
+| ws13 (Código Inmobiliario) + ws14 (P2P Consulting) | token, cuenta publicitaria y pixel |
+
+**No es una fuga entre personas** — Martín confirmó que ws13 y ws14 son dos negocios
+del MISMO dueño, con una cuenta cada uno en MaKo. Pero sí es un problema de datos: con
+la misma cuenta publicitaria en las dos filas, el General de P2P muestra el gasto y las
+campañas de Código Inmobiliario, y MaKo los presenta como si fueran de cada negocio.
+
+**La causa, y es la parte que vale:** `guardarCredencial` reclama el identificador solo
+para las claves de `ROUTING_CREDS` (lib/webhook-routing.ts), que responde **«¿qué clave
+rutea webhooks entrantes?»**. `META_PAGE_ID` está ahí porque rutea leads; la cuenta
+publicitaria no rutea nada, así que nadie la reclama. Y el bucle de
+`app/api/integraciones/credencial/route.ts:360` guarda campo por campo, cazando el
+`IdentificadorOcupadoError` para que un identificador ajeno «no tumbe TODO el
+descubrimiento» — correcto en intención, y el efecto es que las otras tres pasan.
+
+**La prueba de que ésa es la causa y no una coincidencia: `META_PAGE_ID` es la ÚNICA
+clave sin duplicados en toda la tabla.** El guard funciona; cubre una clave de cuatro.
+
+**La regla: «qué clave rutea webhooks» y «qué clave identifica a un inquilino» son dos
+conjuntos distintos, y usar el primero como si fuera el segundo deja pasar justo lo que
+más importa.** Un identificador de cuenta ajena no hace falta robarlo: son públicos, y
+se pegan sin querer al copiar un token de un workspace a otro.
+
+**Y el corolario del autocompletado:** pegar UN token dispara `descubrirMeta`, que
+escribe cuatro credenciales derivadas. Un solo pegado en el workspace equivocado
+propaga la identidad entera de otro inquilino. Donde un campo autocompleta a otros, el
+guard va sobre **todos** los derivados, no sobre el que se pegó.
+
+**Vive en:** lib/credenciales.ts (guardarCredencial) · lib/webhook-routing.ts
+(ROUTING_CREDS) · app/api/integraciones/credencial/route.ts:360 ·
+*2026-09-05 tarea-170-meta-por-workspace*

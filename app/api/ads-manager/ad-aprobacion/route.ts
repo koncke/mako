@@ -18,7 +18,7 @@
 
 import type { NextRequest } from 'next/server';
 import { getAdsAprobacionPendiente, getAdAccountId, metaErrorEnvelope } from '@/lib/meta-ads-create';
-import { guardAdsDueno } from '@/lib/ads-guard';
+import { guardAdsWs } from '@/lib/ads-guard';
 import { emitirAviso } from '@/lib/avisos';
 import { linkAprobarEnMeta } from '@/lib/meta-health-ui';
 
@@ -26,7 +26,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
-  const no = await guardAdsDueno(); if (no) return no;
+  const no = await guardAdsWs(); if (no) return no;
   const ids = (req.nextUrl.searchParams.get('ids') ?? '').split(',').map((s) => s.trim()).filter(Boolean);
   if (ids.length === 0) return Response.json({ ok: false, error: 'faltan ids' }, { status: 400 });
   if (ids.some((id) => !/^\d+$/.test(id))) return Response.json({ ok: false, error: 'ids inválidos' }, { status: 400 });

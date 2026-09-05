@@ -7,13 +7,13 @@
 
 import type { NextRequest } from 'next/server';
 import { getAdsetTargeting, updateAdsetTargeting, metaErrorEnvelope } from '@/lib/meta-ads-create';
-import { guardAdsDueno } from '@/lib/ads-guard';
+import { guardAdsWs } from '@/lib/ads-guard';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
 export async function GET(req: NextRequest) {
-  const no = await guardAdsDueno(); if (no) return no;
+  const no = await guardAdsWs(); if (no) return no;
   const adsetId = req.nextUrl.searchParams.get('adset_id') ?? '';
   if (!/^\d+$/.test(adsetId)) return Response.json({ ok: false, error: 'adset_id inválido' }, { status: 400 });
   try {
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const no = await guardAdsDueno(); if (no) return no;
+  const no = await guardAdsWs(); if (no) return no;
   let body: { adset_id?: string; targeting?: Record<string, unknown> };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
   const adsetId = String(body.adset_id ?? '');

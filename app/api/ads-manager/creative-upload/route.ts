@@ -13,7 +13,7 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { uploadAdImage, uploadAdVideoByUrl, waitForVideoReady, metaErrorEnvelope, ADS_CREATIVES_BUCKET as BUCKET } from '@/lib/meta-ads-create';
 import type { UploadResult } from '@/lib/campaign-types';
 import { getTenantDb } from '@/lib/workspace';
-import { guardAdsDueno } from '@/lib/ads-guard';
+import { guardAdsWs } from '@/lib/ads-guard';
 import { transcribeMediaBuffer, structureTranscript } from '@/lib/transcribe';
 
 export const dynamic = 'force-dynamic';
@@ -71,7 +71,7 @@ async function guardarTranscripcion(
 
 export async function POST(req: NextRequest) {
   // Fase 1: subir creativos empuja media a la cuenta de Meta global del dueño.
-  const no = await guardAdsDueno(); if (no) return no;
+  const no = await guardAdsWs(); if (no) return no;
 
   let body: { path?: string; content_type?: string; filename?: string };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
