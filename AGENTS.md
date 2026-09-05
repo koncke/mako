@@ -2860,6 +2860,52 @@ las tres:
 Es el gemelo de «Una regla en un prompt no es una regla», del otro lado del cable: aquella
 mira lo que el modelo ESCRIBE, ésta lo que el modelo LEE.
 
+# Un guard de ORIGEN se escribe con `origin`, nunca con un prefijo de la url
+
+Medido con node el 05/09/2026, con el prefijo `https://flow.google.com`:
+
+| url | `startsWith` | `origin` real |
+|---|---|---|
+| `https://flow.google.com.evil.tld/x` | true | `https://flow.google.com.evil.tld` |
+| `https://flow.google.com@evil.tld/x` | true | **`https://evil.tld`** |
+| `https://flow.google.comevil.tld/` | true | `https://flow.google.comevil.tld` |
+| `https://flow.google.com:8443/x` | true | `https://flow.google.com:8443` |
+
+El segundo es el que importa: su origen REAL es `evil.tld`, asi que un pedido nuestro
+sale a un tercero **con las credenciales del cliente** — y la url se lee bien en
+cualquier listado, log o mensaje de error.
+
+⚠️ **La linea que habia en el repo no era explotable de milagro**: comparaba contra
+`https://aisandbox-pa.googleapis.com/` y la salva la BARRA FINAL. Eso es suerte del
+formato, no del metodo — y no sobrevive al dia que alguien escriba la de al lado sin
+la barra, que es exactamente lo que estaba por pasar al sumar un origen.
+
+Va `new URL(u).origin` contra un `Set` congelado, exigiendo `https:`, y con el test que
+enumera los cuatro parecidos (`tests/flow-origenes.test.ts` es el molde). Vale para
+cualquier allowlist de host: un webhook, un redirect, una imagen remota, un CORS.
+
+# Un chequeo de sincronia que compara dos COPIAS no ve que las dos se movieron
+
+El repo tiene cinco scripts de la familia «una cosa, un lugar» que copian un modulo a
+un destino que no puede importarlo (`sync-contrato-detalle`, `sync-gramatica-doc`,
+`generar-plugin`, `zip-extension`, `sync-operaciones`), y el pre-push corre su
+`--check`. Ese chequeo compara el ARCHIVO GENERADO contra lo que la plantilla produce
+hoy — asi que caza «alguien edito el generado» y **no** caza «la plantilla y la fuente
+se movieron juntas».
+
+Y eso ultimo pasa apenas la plantilla tenga algo escrito a mano. `sync-operaciones` se
+desincronizo **el mismo dia en que se escribio**: copia los DATOS del catalogo, pero
+las FUNCIONES estaban tipeadas adentro de su template. Se arreglo `operacionDelCuerpo`
+en el `.ts`, el `.js` siguio con la version vieja, y el `--check` decia «al dia».
+
+**La regla: si la plantilla contiene logica y no solo datos, hace falta ademas un guard
+DIFERENCIAL** — importar las dos implementaciones y comprobar que contestan lo mismo
+sobre una bateria de entradas. Molde: `tests/flow-operaciones-paridad.test.ts`.
+
+Los dos guards son complementarios y ninguno reemplaza al otro. Y hay una salida mejor
+cuando se puede: que la plantilla **no tenga logica**, solo datos. Logica duplicada es
+logica que va a divergir; la unica pregunta es cuando.
+
 # Al volver async algo que se INTERPOLA en un string, borralo: no lo cambies de tipo
 
 Un `await` olvidado no rompe: interpola **`[object Promise]`**. La URL sale mal, el

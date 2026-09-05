@@ -5952,3 +5952,223 @@ Cuatro, y cada uno se verificó **rompiéndolo a propósito** antes de darlo por
 
 *Auditoría del 05/09/2026: 191 agentes, 61 causas propuestas, 46 confirmadas, 5 raíces
 distintas.*
+
+## El puente a BOQ: seis operaciones, y las trampas de reconstruirlo
+
+**Vive en:** `lib/flow-operaciones.ts` · `lib/flow-plantillas.ts` · `lib/flow-boq-patch.ts`
+· `lib/flow-diagnostico.ts` · `extension/background.js` · `extension/injected.js`
+· `scripts/sync-operaciones.mjs` · `scripts/flow-diagnostico.ts` · `scripts/flow-viabilidad-replay.ts`
+
+Sesión del 05/09/2026, después de las cinco causas del aprendizaje (entrada
+anterior). Lo que sigue son las trampas de RECONSTRUIR el puente contra el
+protocolo nuevo, no las de arreglarlo.
+
+### El producto usa SEIS operaciones, y sólo DOS cuestan créditos
+
+El dueño preguntó si había que enseñarle también la generación de imagen, subir
+una foto y descargar. La respuesta no era una:
+
+| | Operaciones | Cómo se aprende |
+|---|---|---|
+| **Gratis** | `creditos` · `estado_clips` · `subir_imagen` | espiando lo que Flow hace igual |
+| **Pagas** | `generar_clip` · `generar_imagen` | una generación cada una |
+| **No se enseña** | `enlace_clip` | no pasa por el espejo |
+
+**La bajada no se enseña y no es una omisión.** El enlace firmado no vive en
+ninguna respuesta: `getMediaUrlRedirect` REDIRIGE al archivo, y ese redirect no se
+puede leer con `fetch` ni desde la página ni desde el service worker —CORS lo corta
+en las dos—. Lo resuelve `webRequest`, que mira el tráfico desde afuera del modelo
+de CORS. **Por eso sobrevivió a que Google reescribiera el protocolo: no depende de
+él.** Cualquier pieza futura que se pueda resolver así hereda esa propiedad.
+
+**Subir una foto es gratis** (está en `SIN_CAPTCHA`), así que se aprende la primera
+vez que la persona sube una, sin pedirle nada extra.
+
+### Un booleano no puede describir N operaciones
+
+`aprendioGenerar` era true/false. Con cinco operaciones que enseñar eso no es una
+simplificación: es una **afirmación falsa** que se descubre cuando el pedido sale y
+Google contesta 400, con el trabajo ya encolado.
+
+> **La regla: un estado que resume N cosas necesita decir CUÁLES.** Y el reemplazo
+> no es una lista: es `siguiente` —la primera que falta, en el orden del catálogo—
+> más el conteo. Un paso por pantalla.
+
+Y el costo se dice ANTES de apretar. Las tres gratis también lo dicen: **saber que
+algo NO cuesta es la mitad de la decisión.**
+
+### Un ancla se elige por lo que ninguna capa puede cambiarle
+
+La frase de aprendizaje tiene seis espacios, y el espacio es justo el carácter que
+cada capa escribe distinto: `encodeURIComponent` lo manda `%20`, un cuerpo
+`form-urlencoded` —como manda BOQ su `f.req`— lo manda `+`. Medido: **cero de seis
+codificaciones** encontraban la frase en un cuerpo real.
+
+`mako7f3a9c` son diez alfanuméricos y sobreviven a todas.
+
+⚠️ **Y el corolario que apareció después, que es el que cuesta ver: esa misma
+propiedad lo vuelve INÚTIL como etiqueta.** Al ser idéntico bajo todas las
+codificaciones, «con qué codificación apareció el token» contesta siempre `crudo`
+— cierto, y no dice nada. Para REPETIR el pedido hace falta saber cómo viajó la
+**frase**, que sí cambia (`form`).
+
+> **La regla: se DETECTA con lo que no cambia y se ETIQUETA con lo que sí.** Son dos
+> preguntas y usar una sola respuesta para las dos deja la mitad muda.
+
+### Cuando todos los pedidos comparten path, el allowlist se hace por ROL
+
+En el protocolo viejo cada operación tenía su path y enumerarlos alcanzaba. En BOQ
+**todos** van a `/data/batchexecute` y lo único que los distingue es un `rpcids`
+que rota con cada bundle de Google.
+
+«Todo lo que empiece con `boq:`» sería un allowlist por descarte —prohibido acá— y
+además guardaría la telemetría de Google en nuestra base.
+
+> **El criterio positivo que no envejece es el ROL:** útil es lo que el navegador
+> pudo ATAR a una operación del catálogo. La telemetría no queda afuera por estar
+> nombrada —imposible, comparte path— sino porque **nunca gana un rol**.
+
+**Y ese rol es también la LLAVE.** Con la clase como llave, un respaldo guardado hoy
+re-siembra mañana un rpcid MUERTO: el pedido sale, Google contesta 400, y el puente
+parece roto cuando lo viejo es la copia. **Un respaldo que devuelve basura es peor
+que no tenerlo, porque nadie sospecha de él.**
+
+### Abrir un allowlist despierta guardas que estaban muertas
+
+Dos aparecieron el mismo día, y las dos sólo importaban una vez abierto:
+
+1. **La redacción del `at` era JSON-only.** Hacía `JSON.parse(cuerpo)` y el `catch`
+   dejaba el cuerpo «como vino» — razonable cuando todo era JSON. El cuerpo de BOQ
+   es `f.req=...&at=...`: caía en el catch y el token anti-CSRF de la sesión de
+   Google del cliente pasaba intacto. **El camino de ERROR de una capa se volvió el
+   camino NORMAL de la siguiente.**
+2. **`proyectoDePlantilla` no leía el projectId de BOQ.** Buscaba `/projects/`
+   (plural) en el path o un cuerpo JSON; en BOQ viaja en el query como
+   `source-path=/project/<uuid>`, en singular. Devolvía `''` siempre, así que
+   `soloDelProyecto` dejaba pasar por abstención — y el respaldo del navegador es
+   UNA clave global: un navegador emparejado antes con otro cliente manda plantillas
+   con el projectId de aquél.
+
+> **La regla: antes de ampliar un allowlist, enumerá qué guardas colgaban de la
+> condición vieja.** Una guarda que nunca disparaba porque su entrada no llegaba se
+> ve idéntica a una que funciona.
+
+### Un `startsWith` de origen no es un guard de origen
+
+Medido con node, con el prefijo `https://flow.google.com`:
+
+| url | `startsWith` | `origin` real |
+|---|---|---|
+| `https://flow.google.com.evil.tld/x` | true | `https://flow.google.com.evil.tld` |
+| `https://flow.google.com@evil.tld/x` | true | **`https://evil.tld`** |
+| `https://flow.google.comevil.tld/` | true | `https://flow.google.comevil.tld` |
+| `https://flow.google.com:8443/x` | true | `https://flow.google.com:8443` |
+
+El segundo es un pedido NUESTRO a un tercero con las credenciales del cliente, y la
+url se lee bien en cualquier listado. **La línea que había (`aisandbox-pa…/`) no era
+explotable de milagro: la salva la barra final** — suerte del formato, no del
+método, y no sobrevive al día que alguien escriba la de al lado sin la barra.
+
+> Se compara `new URL(u).origin` contra un `Set` congelado, y se exige `https:`.
+
+### El mundo MAIN no se actualiza con la extensión
+
+`injected.js` corre en el mundo de la PÁGINA y se marca con `window.__makoEspejo`.
+Esa marca **sobrevive a que la extensión se actualice y sólo muere con un F5**. Una
+pestaña abierta desde ayer sigue corriendo el espejo de ayer, con la extensión al
+día y el código correcto.
+
+Costó un día entero: un arreglo bueno, desplegado, que no se ejecutaba.
+
+> **La regla: todo lo que se pueda DERIVAR en el service worker se deriva ahí.** Un
+> dato que se puede leer del cuerpo no se le pide prestado a otra versión. Eso hizo
+> que la sentinela funcionara con espejos viejos, sin recargar nada y sin gastar un
+> crédito.
+
+**Y NO se recarga la pestaña automáticamente al detectar el desfase:** un reload mata
+generaciones en vuelo y tira el `at` vivo. Se reporta (`diagnostico.espejo`) y la
+persona decide. Un espejo anterior al versionado **no contesta**, y esa ausencia es
+también la respuesta.
+
+### Un chequeo de sincronía que compara dos copias no ve que las dos se movieron
+
+`scripts/sync-operaciones.mjs` genera `extension/operaciones.js` desde
+`lib/flow-operaciones.ts` y el pre-push corre su `--check`. Los DATOS se derivan; las
+FUNCIONES estaban escritas a mano en la plantilla del generador.
+
+**Se desincronizó el mismo día en que se escribió**: se arregló `operacionDelCuerpo`
+en el TS, el JS siguió viejo, y el `--check` decía «al día» — comparaba el archivo
+contra una plantilla que también estaba vieja.
+
+> **La regla: un guard textual y uno DIFERENCIAL cubren cosas distintas.** El textual
+> caza «alguien editó el generado»; el diferencial —preguntarle lo mismo a las dos
+> implementaciones— caza «la plantilla y la fuente se movieron juntas». Los dos, o el
+> segundo agujero queda abierto. `tests/flow-operaciones-paridad.test.ts`.
+
+### Antes de escribir un transporte, medí si se puede escribir
+
+El replay contra BOQ depende de UNA condición: que el espejo vea a Google acuñar el
+token de reCAPTCHA, porque reCAPTCHA Enterprise **ata el token a la acción** y con
+una equivocada contesta 403 «reCAPTCHA evaluation failed» — el mismo cuerpo que
+devuelve un token robado.
+
+Se contesta gratis con datos que ya están en producción
+(`flow_puentes.acciones_captcha`). Corrido: 5 puentes, 1 con acciones vistas.
+
+⚠️ **Y el veredicto obvio era el equivocado.** Esa fila es de la extensión **v0.41.0**,
+o sea del Flow VIEJO, donde acuñar el captcha estaba medido hace meses. El único
+puente de la era BOQ no vio ninguna. Contarla daba **VIABLE** sobre una pregunta que
+nadie contestó.
+
+> Es «una observación verdadera que también vale para los casos buenos no explica
+> nada», aplicada a una decisión de arquitectura. **El discriminador tiene que estar
+> en el script**, o el próximo lo lee y arranca a construir.
+
+`scripts/flow-viabilidad-replay.ts` discrimina por versión (≥ 0.45.0 = era BOQ).
+
+### El patcher no parsea el árbol, y eso es la decisión
+
+El cuerpo de BOQ es un array JSON **anidado y posicional**, sin nombres de campo.
+Caminarlo para encontrar el prompt es adivinar su posición.
+
+Lo que NO es adivinanza: **la frase de aprendizaje la escribió la persona, exacta.**
+Se busca ese string con la codificación con la que viajó, y se reemplaza. No hace
+falta saber en qué posición vive ni cómo se llama.
+
+Dos fallas caras que el test cubre, y ninguna da un error que apunte al patcher:
+
+- una comilla doble sin escapar cierra el string JSON un nivel antes → Google
+  contesta **400** y el error apunta a nuestro cuerpo, no al carácter;
+- el prompt viejo sin reemplazar → el pedido **funciona**, cuesta un crédito, y
+  devuelve un cubo violeta girando sobre arena en vez del anuncio del cliente.
+
+> **La prueba de fondo no es «reemplazó el texto» sino que el cuerpo resultante SIGA
+> PARSEANDO** — se decodifica de vuelta hasta el prompt, que es lo que hace Google
+> del otro lado.
+
+Y el saneo **saca** las comillas en vez de escaparlas: escaparlas bien exige saber
+cuántos niveles de anidado hay, que es justo lo que este módulo evita averiguar. Un
+prompt sin comillas dice lo mismo; uno mal escapado no dice nada.
+
+### Lo que quedó SIN hacer
+
+1. **El transporte del replay.** Bloqueado por la medición de arriba: hace falta UNA
+   generación en `flow.google.com` con la extensión ≥ 0.53.0 y volver a correr
+   `scripts/flow-viabilidad-replay.ts`. **Vive en:** `extension/background.js`
+   (la rama BOQ de `ejecutar`) y `extension/injected.js` (`MAKO_FETCH_PIDO`).
+2. **De dónde sale el `at` fresco.** No medido. El diseño lo saca del tráfico vivo
+   (el último `at=` que el espejo vio pasar), que es defendible porque es el que la
+   app acaba de usar; la fuente canónica de una app BOQ suele ser
+   `window.WIZ_global_data['SNlM0e']`, pero **eso no está medido acá y no se escribe
+   como hecho**. **Vive en:** `lib/flow-boq-patch.ts` → `reponerAt`.
+3. **Si una plantilla de BOQ sobrevive a la rotación del `bl`.** La url congela
+   `bl=boq_labs-ai-sandbox-frontend_<fecha>`; no se sabe si repetir un pedido con un
+   `bl` de hace una semana funciona, da 400, o marca la sesión. Si no sobrevive, el
+   respaldo sirve para el mismo día y no para «entrar desde otra máquina».
+4. **El tamaño real de un `f.req`.** No se sabe si pasa `TOPE_CUERPO` (20.000) ni si
+   varios pasan `TOPE_TOTAL` (150.000). **Vive en:** `lib/flow-plantillas.ts`.
+5. **La UI del diagnóstico.** El dato existe y es consultable con
+   `scripts/flow-diagnostico.ts`, pero no lo pinta ninguna pantalla.
+
+*Sesión del 05/09/2026. Dos corridas de agentes: 191 (las cinco causas) y 16 (el
+diseño de los cuatro frentes).*
