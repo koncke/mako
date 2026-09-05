@@ -6900,3 +6900,36 @@ ven cruzando por ruta). Reparadas: 51 ids reasignados.
 - **La regla, una capa más adentro de la que ya estaba escrita:** acotar el universo no
   alcanza si adentro del universo hay repetidos. La clave tiene que ser única EN EL NIVEL
   DONDE SE CONSULTA, no en el de arriba.
+
+## Terminar en `.mp4` no lo convierte en una clase, y «sin transcripción» era la pista
+
+**Vive en:** `scripts/curso-enriquecer-desde-drive.mjs`
+
+El enriquecedor sumó 5 clases a dos cursos que estaban **completos**. Los nombres las
+delataban, y nadie los miró:
+
+    193 - M1 - Cap 1.fhls-fastly_skyfire-1278.mp4     un formato suelto de yt-dlp, sin mergear
+    077 - Lead #1_ Manejo de Marco y Autoridad.temp.mp4   una descarga a medio terminar
+
+Son **sobras de descarga** que quedaron en la carpeta y se sincronizaron a Drive como
+cualquier otro archivo. El filtro era `\.(mp4|mkv|webm|mov|m4v)$`, y las dos terminan en
+`.mp4`: el marcador va en el MEDIO del nombre, no en la extensión.
+
+⚠️ **El síntoma que lo destapó fue «esas 5 quedaron sin texto», y por poco lo leo al
+revés.** La lectura fácil era «falló la transcripción de 5 clases» — un problema del
+pipeline, que manda a reintentar. La verdadera es que **no había nada que transcribir**: un
+fragmento suelto no tiene pista de audio servible. La misma observación soporta las dos
+conclusiones, y la barata es la equivocada.
+
+  La pregunta que las separa es **¿por qué esa clase y no otra?**. Las 5 sin texto eran
+  exactamente las 5 que yo había agregado, y ninguna de las 350 preexistentes. Cuando un
+  fallo cae ENTERO del lado de lo que acabás de tocar, la causa está en lo que tocaste, no
+  en el paso que lo procesa.
+
+**Y es la tercera vez que este mismo enriquecedor confunde basura con material**, cada vez
+por una razón distinta: los `clips del documento/<hash>.mp4` de AvatarHype (fragmentos), la
+copia entera del curso 1.0 dentro de la carpeta de «Hackeando el Algoritmo» (duplicado), y
+ahora las sobras de yt-dlp. **Un listado de archivos no es un temario.** Lo que las tres
+comparten: pasaron el filtro de extensión, y ninguna era una lección. Por eso el script se
+corre EN SECO y se MIRAN los nombres antes de aplicar — el filtro nuevo cubre las sobras,
+no la próxima forma de basura.

@@ -21,5 +21,14 @@ REM Su log: C:\cursos\perro-cursos-enriquecer.log
 set BASH=C:\Program Files\Git\bin\bash.exe
 set PERRO=C:\Users\marti\OneDrive\Escritorio\dashboard-marketing-main\dashboard-marketing\scripts\cursos-perro.sh
 
+REM ⚠️ EL 4o ARGUMENTO ES EL PATRON PARA MATAR, y NO puede ser el nombre de la tarea: ese
+REM nombre viaja en la PROPIA linea de comandos del perro, asi que el filtro lo encontraba
+REM a EL y `taskkill /T` se lo llevaba puesto antes de liberar el lock y relanzar. El
+REM 04/09/2026 eso dejo una cola muerta desde las 00:06 hasta las 09:00, con el vigilante
+REM corriendo cada 15 minutos y suicidandose en cada corrida.
+REM
+REM ⚠️ Y un REM NO puede ir en el medio de una continuacion `^`: corta el comando y la
+REM linea de abajo se registra sin sus argumentos. Los comentarios van ANTES.
+
 schtasks /create /tn "cursos-enriquecer-perro" /f /sc MINUTE /mo 15 ^
-  /tr "\"%BASH%\" \"%PERRO%\" cursos-enriquecer C:/cursos/enriquecer.log C:/cursos/_enriquecer.lock"
+  /tr "\"%BASH%\" \"%PERRO%\" cursos-enriquecer C:/cursos/enriquecer.log C:/cursos/_enriquecer.lock cursos-enriquecer-cola.sh"

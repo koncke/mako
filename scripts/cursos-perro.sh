@@ -39,6 +39,18 @@ REPO="C:/Users/marti/OneDrive/Escritorio/dashboard-marketing-main/dashboard-mark
 TAREA="${1:-cursos-cola}"
 LOG="${2:-C:/cursos/cola.log}"
 LOCK="${3:-C:/cursos/_cola.lock}"
+# ⚠️ EL PATRON PARA MATAR NO PUEDE SER EL NOMBRE DE LA TAREA, y esto se pago el
+#    04/09/2026: al parametrizar el perro, el nombre pasa como ARGUMENTO, asi que viaja en
+#    la propia linea de comandos del perro (`cursos-perro.sh cursos-enriquecer …`). El
+#    filtro `-match "$TAREA"` lo encontraba a EL, y `taskkill /T` se lo llevaba puesto antes
+#    de liberar el lock y relanzar. El log quedaba en «LA LEVANTO» y no pasaba nada mas:
+#    una cola muerta a las 00:06 seguia muerta a las 09:00, con el vigilante corriendo cada
+#    15 minutos y suicidandose cada vez.
+#
+#    Es la MISMA familia que el bug de su primera corrida —contarse a si mismo como proceso
+#    vivo— con la consecuencia dada vuelta: antes se creia sano, ahora se mata. Un chequeo
+#    que se incluye en su propio universo falla de las dos maneras.
+MATAR="${4:-cursos-cola.sh}"
 LOG_BAJA="C:/cursos/bajador.log"   # el otro escritor; ver por qué, abajo en MIN
 MIO="C:/cursos/perro-${TAREA}.log"
 SILENCIO=20          # minutos sin escribir = sospechosa (si además no hay procesos, muerta)
@@ -141,7 +153,7 @@ di "   ultima linea: $(echo "$ULTIMA" | cut -c1-90)"
 #    `taskkill /T` mata el árbol. Se filtra por NOMBRE de binario además de por línea de
 #    comandos, por la misma razón de siempre: sin eso, la propia consulta entra en la
 #    lista de lo que hay que matar.
-powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='bash.exe' OR Name='sh.exe'\" | Where-Object { \$_.CommandLine -match '$TAREA' } | ForEach-Object { taskkill /PID \$_.ProcessId /T /F }" >/dev/null 2>&1
+powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='bash.exe' OR Name='sh.exe'\" | Where-Object { \$_.CommandLine -match '$MATAR' -and \$_.CommandLine -notmatch 'cursos-perro' } | ForEach-Object { taskkill /PID \$_.ProcessId /T /F }" >/dev/null 2>&1
 schtasks //end //tn "$TAREA" >/dev/null 2>&1
 
 # El lock lo suelta la cola al terminar bien; si la matamos recién, queda huérfano. No se

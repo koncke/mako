@@ -33,6 +33,23 @@ const EXCLUIR = (arg('excluir', '') || '').split('|').map((s) => s.trim()).filte
 const RAIZ = 'C:\\cursos';
 const ES_VIDEO = /\.(mp4|mkv|webm|mov|m4v)$/i;
 
+/**
+ * ⚠️ TERMINAR EN `.mp4` NO LO CONVIERTE EN UNA CLASE.
+ *
+ * yt-dlp deja sobras con nombre de video completo, y esas sobras se sincronizaron a Drive
+ * como cualquier otro archivo. Medido el 04/09/2026: de las 5 clases que este script sumó a
+ * ATV y a Sell Your Knowledge, las 5 eran basura de descarga —
+ *
+ *     193 - M1 - Cap 1.fhls-fastly_skyfire-1278.mp4     (un formato suelto, sin mergear)
+ *     077 - Lead #1_ Manejo de Marco.temp.mp4           (una descarga a medio terminar)
+ *
+ * y los dos cursos estaban COMPLETOS. El síntoma fue que quedaron sin transcripción: no
+ * tienen pista de audio servible. Pero eso se ve DESPUÉS de publicarlas — el filtro va acá.
+ *
+ * Y no alcanza con mirar la extensión: el marcador va en el medio del nombre.
+ */
+const ES_SOBRA = /\.(temp|part|ytdl|f\d{2,4}|fhls-[\w-]+|fdash-[\w-]+)\.[^.]+$/i;
+
 if (!SLUG) { console.error('\n  ✖ Falta --slug\n'); process.exit(1); }
 
 const base = join(RAIZ, SLUG);
@@ -54,7 +71,7 @@ if (!mapa) {
 
 const anotados = new Set((drive.clases ?? []).map((c) => c.videoId).filter(Boolean));
 let sueltos = [...mapa.entries()]
-  .filter(([ruta]) => ES_VIDEO.test(ruta))
+  .filter(([ruta]) => ES_VIDEO.test(ruta) && !ES_SOBRA.test(ruta))
   .filter(([, id]) => !anotados.has(id))
   .map(([ruta, id]) => ({ ruta, id }));
 
