@@ -22,12 +22,6 @@ declare global {
   }
 }
 
-// El año del pie. En una constante de módulo y no adentro del render: así el
-// server y el navegador leen el MISMO valor y no hay diferencia de hidratación.
-// (`lib/app-url.ts` no lleva `server-only` a propósito — lo dice su comentario —,
-// así que EMAIL_MAKO se puede importar desde este componente de cliente.)
-const ANIO = new Date().getFullYear();
-
 const CALENDLY_CSS = 'https://assets.calendly.com/assets/external/widget.css';
 const CALENDLY_JS = 'https://assets.calendly.com/assets/external/widget.js';
 const CALENDLY_URL = 'https://calendly.com/koncke/asesoria';
@@ -392,33 +386,6 @@ export default function Landing() {
   );
 }
 
-/**
- * El pie con los enlaces legales.
- *
- * No es decoración: Google EXIGE, para verificar una app que pide scopes
- * sensibles, que la política de privacidad sea alcanzable desde la página
- * principal — no alcanza con declararla en la consola. Y esta landing es la
- * página principal pública de MaKo.
- *
- * Va en JSX y no adentro de LANDING_HTML a propósito: ese bloque es HTML
- * importado del diseño y se regenera; lo que se pegue ahí se pierde en la
- * próxima importación.
- */
-function PieLegal() {
-  return (
-    <footer style={{
-      borderTop: '1px solid rgba(0,0,0,.08)', padding: '28px 24px 36px', textAlign: 'center',
-      fontSize: 13.5, color: '#666', display: 'flex', flexWrap: 'wrap',
-      gap: '6px 18px', justifyContent: 'center', alignItems: 'center',
-    }}>
-      <span>© {ANIO} MaKo</span>
-      <a href="/privacidad" style={{ color: '#666', textDecoration: 'underline' }}>Privacidad</a>
-      <a href="/terminos" style={{ color: '#666', textDecoration: 'underline' }}>Términos</a>
-      <a href={`mailto:${EMAIL_MAKO}`} style={{ color: '#666', textDecoration: 'underline' }}>{EMAIL_MAKO}</a>
-    </footer>
-  );
-}
-
 // =============================================================================
 // Estilos. Capa fija full-screen (oculta el sidebar de la app sin tocarlo) +
 // el CSS global del diseño, scopeado bajo .vsl-root.
@@ -587,3 +554,37 @@ body:has(.vsl-root) aside { display: none !important; }
   .vsl-root #que-es div[style*="repeat(4,1fr)"] { gap: 8px !important; }
 }
 `;
+
+/**
+ * Los enlaces legales, pegados debajo del pie que trae el diseño.
+ *
+ * POR QUÉ EXISTE: Google EXIGE, para verificar una app que pide scopes sensibles,
+ * que la política de privacidad sea alcanzable DESDE la página principal —
+ * declararla en la consola no alcanza, y esta landing es la página principal
+ * pública de MaKo.
+ *
+ * ⚠️ POR QUÉ EN JSX Y NO INYECTADO EN EL EFECTO, que es como se agrega todo lo
+ * demás acá: lo que se inyecta en el `useEffect` NO está en el HTML servido, y el
+ * verificador de un tercero puede no ejecutar JavaScript. Un enlace que solo
+ * existe después de hidratar es, para quien tiene que encontrarlo, un enlace que
+ * no está.
+ *
+ * ⚠️ Y NO REPITE EL «© 2026»: el diseño ya trae su propio <footer> con el logo y
+ * el copyright. La primera versión de esto era un footer completo y quedaban dos,
+ * uno encima del otro, cada uno con su año. Esto es la segunda mitad de ese pie,
+ * no un pie nuevo.
+ */
+function PieLegal() {
+  const link: React.CSSProperties = { color: '#6B7280', textDecoration: 'underline' };
+  return (
+    <div style={{
+      background: '#FFFFFF', padding: '0 28px 30px', textAlign: 'center',
+      fontFamily: "'Geist', sans-serif", fontSize: 13.5, color: '#6B7280',
+      display: 'flex', flexWrap: 'wrap', gap: '6px 18px', justifyContent: 'center', alignItems: 'center',
+    }}>
+      <a href="/privacidad" style={link}>Privacidad</a>
+      <a href="/terminos" style={link}>Términos</a>
+      <a href={`mailto:${EMAIL_MAKO}`} style={link}>{EMAIL_MAKO}</a>
+    </div>
+  );
+}
