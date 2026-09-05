@@ -42,6 +42,34 @@ export function Ojo({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Dos arreglos que NO son cosmética, los dos medidos sobre la página publicada:
+ *
+ * 1. EL SIDEBAR DE LA APP SE COLABA. Estas rutas cuelgan del layout raíz, así que
+ *    el `<aside>` viaja en el HTML **aunque no haya sesión** — verificado con curl
+ *    contra producción. O sea que un revisor de Google abría el documento legal
+ *    con el chrome de una aplicación alrededor. Se oculta con el mismo truco que
+ *    ya usa la landing (`body:has(.vsl-root) aside`), y por la misma razón: es
+ *    preferible a tocar layout.tsx para tres rutas.
+ *
+ * 2. LAS LISTAS NO TENÍAN VIÑETAS. El reset global deja los `<ul>` sin marca, y
+ *    en una página legal eso importa más que en otras: las enumeraciones —qué
+ *    datos, qué permisos, qué proveedores— son justo lo que alguien viene a
+ *    contar, y sin viñetas se leen como un párrafo corrido. Se veía igual en la
+ *    página de la extensión desde que se publicó.
+ */
+const CSS = `
+body:has(.legal-root) aside { display: none !important; }
+body:has(.legal-root) { background: #fff; }
+.legal-root ul { list-style: disc; padding-left: 24px; margin: 10px 0; }
+.legal-root li { margin: 6px 0; }
+.legal-root a { color: #2F6FED; }
+.legal-root code {
+  background: #f4f5f7; border-radius: 4px; padding: 1px 5px;
+  font-size: 13.5px; font-family: ui-monospace, monospace;
+}
+`;
+
 export function LegalShell({ titulo, actualizado, intro, children }: {
   titulo: string;
   actualizado: string;
@@ -50,14 +78,17 @@ export function LegalShell({ titulo, actualizado, intro, children }: {
   children: ReactNode;
 }) {
   return (
-    <main style={{
-      maxWidth: 720, margin: '0 auto', padding: '48px 24px 80px',
-      fontFamily: 'system-ui, sans-serif', color: '#1a1a1a', lineHeight: 1.7, fontSize: 15.5,
-    }}>
-      <h1 style={{ fontSize: 28, fontWeight: 700, margin: '0 0 6px' }}>{titulo}</h1>
-      <p style={{ color: '#666', fontSize: 14, margin: 0 }}>Actualizada el {actualizado}</p>
-      <p style={{ marginTop: 28 }}>{intro}</p>
-      {children}
-    </main>
+    <div className="legal-root">
+      <style dangerouslySetInnerHTML={{ __html: CSS }} />
+      <main style={{
+        maxWidth: 720, margin: '0 auto', padding: '48px 24px 80px',
+        fontFamily: 'system-ui, sans-serif', color: '#1a1a1a', lineHeight: 1.7, fontSize: 15.5,
+      }}>
+        <h1 style={{ fontSize: 28, fontWeight: 700, margin: '0 0 6px' }}>{titulo}</h1>
+        <p style={{ color: '#666', fontSize: 14, margin: 0 }}>Actualizada el {actualizado}</p>
+        <p style={{ marginTop: 28 }}>{intro}</p>
+        {children}
+      </main>
+    </div>
   );
 }

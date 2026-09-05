@@ -11,6 +11,7 @@
 // existe.
 
 import { EMAIL_MAKO } from '@/lib/app-url';
+import { H, LegalShell } from '@/app/_legal/LegalShell';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,26 +22,17 @@ export const metadata = {
 
 const ACTUALIZADO = '26 de agosto de 2026';
 
-function H({ children }: { children: React.ReactNode }) {
-  return <h2 style={{ fontSize: 19, fontWeight: 650, margin: '32px 0 10px' }}>{children}</h2>;
-}
-
 export default function Page() {
   return (
-    <main style={{
-      maxWidth: 720, margin: '0 auto', padding: '48px 24px 80px',
-      fontFamily: 'system-ui, sans-serif', color: '#1a1a1a', lineHeight: 1.7, fontSize: 15.5,
-    }}>
-      <h1 style={{ fontSize: 28, fontWeight: 700, margin: '0 0 6px' }}>
-        Política de privacidad — Extensión de MaKo
-      </h1>
-      <p style={{ color: '#666', fontSize: 14, margin: 0 }}>Actualizada el {ACTUALIZADO}</p>
-
-      <p style={{ marginTop: 28 }}>
+    <LegalShell
+      titulo="Política de privacidad — Extensión de MaKo"
+      actualizado={ACTUALIZADO}
+      intro={<>
         Esta extensión permite que quien usa MaKo genere sus anuncios en video con{' '}
         <strong>su propia cuenta de Google Flow</strong>, desde su propio navegador. Esta
         política describe exactamente qué datos toca y qué hace con ellos.
-      </p>
+      </>}
+    >
 
       <H>Qué datos usa</H>
       <p>
@@ -193,6 +185,11 @@ export default function Page() {
         Por cualquier consulta sobre esta política:{' '}
         <a href={`mailto:${EMAIL_MAKO}`}>{EMAIL_MAKO}</a>.
       </p>
-    </main>
+      <p style={{ marginTop: 28, fontSize: 14, color: '#666' }}>
+        Esta página cubre solo la extensión de navegador. La política de la plataforma está en{' '}
+        <a href="/privacidad">/privacidad</a>, y los términos del servicio en{' '}
+        <a href="/terminos">/terminos</a>.
+      </p>
+    </LegalShell>
   );
 }
