@@ -44,7 +44,7 @@ Reglas para cualquier agente que trabaje acá:
   cuando haya algo que probar, no después de cada paso interno — lo que se ahorra es el
   deploy entero, nunca segundos.
 
-⚠️ El hook hace SIETE chequeos: los tipos, que las skills tengan el contrato del
+⚠️ El hook hace OCHO chequeos: los tipos, que las skills tengan el contrato del
 `detalle` al día (`node scripts/sync-contrato-detalle.mjs --check`), que el manual de
 marca tenga la gramática de MaKo al día
 (`node --import tsx scripts/sync-gramatica-doc.mjs --check`), que `plugin/` —la copia
@@ -54,7 +54,9 @@ descarga desde /video-generator no haya quedado viejo respecto de `extension/`
 (`node scripts/zip-extension.mjs --check`) y que `app/conocimientos/catalogo.ts` no importe
 fichas que no estén **en git** (`node scripts/curso-catalogo-verificar.mjs`) y que
 ningún hook de React quede detrás de un `return`
-(`sh scripts/hooks-en-orden.sh "$1"`). Si lo recreás, poné los siete.
+(`sh scripts/hooks-en-orden.sh "$1"`) y que el catálogo de operaciones del puente a
+Flow esté al día (`node --import tsx scripts/sync-operaciones.mjs --check`). Si lo
+recreás, poné los ocho.
 
 ⚠️ El último se agregó el 29/08/2026, después de que **producción estuviera 46 minutos en
 la versión vieja sin que nada lo dijera**: un commit subió `catalogo.ts` con 18 imports
