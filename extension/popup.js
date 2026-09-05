@@ -422,7 +422,15 @@ async function pintar() {
     // de «Google cambió Flow» la deja sin saber si tiene que repetirlo.
     pantalla({
       titulo: 'Ya aprendí a pedirle un video',
-      tenue: 'Guardé cómo se arma el pedido en el Flow nuevo. Todavía falta que MaKo lo use para filmar solo, pero lo que había que enseñarle ya está: no hace falta que generes de nuevo.',
+      // ⚠️ SE NOMBRA LA CLASE APRENDIDA, y no es un adorno: es la unica evidencia
+      // que la persona tiene de QUE se guardo. Un «ya aprendi» pelado se lee igual
+      // esté bien o mal, que es como este puente ya dijo «Todo listo» tres veces
+      // sobre algo que no funcionaba. Y ademas la clase la escribe el ESTADO: si no
+      // se leyera en ningun lado seria un campo muerto, que es el defecto que este
+      // mismo archivo acaba de pagar dos veces.
+      tenue: 'Guardé cómo se arma el pedido en el Flow nuevo'
+        + (v.claseAprendida ? ' (' + v.claseAprendida + ')' : '')
+        + '. Todavía falta que MaKo lo use para filmar solo, pero lo que había que enseñarle ya está: no hace falta que generes de nuevo.',
       boton: 'Ir a MaKo',
       accion: abrirMako,
     });

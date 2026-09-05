@@ -88,12 +88,38 @@
     ['json2+uri', (t) => encodeURIComponent(JSON.stringify(JSON.stringify(t).slice(1, -1)).slice(1, -1))],
   ];
 
+  /**
+   * El pedazo de la sentinela que NINGUNA codificación puede cambiar.
+   *
+   * ⚠️ ES LO QUE DECIDE, y la frase entera no puede serlo.
+   *
+   * `SENTINELA` tiene seis espacios, y un espacio es justo el carácter que cada
+   * capa escribe distinto: `encodeURIComponent` lo manda como `%20`, pero un
+   * cuerpo `application/x-www-form-urlencoded` —que es como viaja `f.req` en BOQ—
+   * lo manda como `+`, y ninguna de las seis CODIFICACIONES de acá arriba produce
+   * esa forma. Con eso, una generación perfectamente capturada daría `null`.
+   *
+   * `mako7f3a9c` son diez caracteres alfanuméricos: sobrevive idéntico a
+   * url-encoding, a form-encoding, al escapado de JSON y a los tres anidados.
+   * Por eso el que decide es el TOKEN y las codificaciones quedan solo para
+   * NOMBRAR dónde apareció, que es un dato para escribir el pedido después.
+   *
+   * Es la misma lección que el `\s` del snippet del Pixel: lo que se lee en el
+   * fuente y lo que viaja por el cable no son el mismo texto.
+   */
+  const TOKEN_SENTINELA = 'mako7f3a9c';
+
   /** Con qué codificación aparece la sentinela en este cuerpo, si aparece. */
   function codificacionDeLaSentinela(cuerpo) {
     if (typeof cuerpo !== 'string' || !cuerpo) return null;
     for (const [nombre, codificar] of CODIFICACIONES) {
       try { if (cuerpo.includes(codificar(SENTINELA))) return nombre; } catch { /* sigue */ }
     }
+    // Ninguna de las seis, pero el token está: la frase viajó con los espacios
+    // escritos de una forma que no conocemos. Alcanza para decir que aprendió, y
+    // el nombre dice que la codificación quedó sin identificar — que es un dato
+    // cierto y no un `null` que se lee como «no aprendió».
+    if (cuerpo.includes(TOKEN_SENTINELA)) return 'token';
     return null;
   }
 

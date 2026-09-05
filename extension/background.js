@@ -381,6 +381,50 @@ async function soltarGuardia() {
   try { await chrome.storage.local.remove(CLAVE_CUIDANDO); } catch { /* nada que soltar */ }
 }
 
+/**
+ * La frase de aprendizaje, y el pedazo de ella que ninguna capa puede cambiar.
+ *
+ * ⚠️ ESTA DUPLICADA A PROPOSITO, y el duplicado es el que decide.
+ *
+ * `injected.js` tambien la tiene, pero ese archivo corre en el mundo de la PAGINA
+ * y se marca con `window.__makoEspejo` — una marca que sobrevive a que la extension
+ * se actualice y solo muere con un F5. O sea que en una pestana de Flow ya abierta
+ * sigue corriendo el injected.js VIEJO, y todo campo nuevo que ese archivo aprenda
+ * a mandar simplemente no llega. Paso el 05/09/2026: se arreglo el campo `sentinela`
+ * en injected.js, se desplego, y el sintoma no se movio ni un milimetro.
+ *
+ * Derivarla ACA —en el service worker, que si se actualiza— la vuelve inmune a eso:
+ * anda con el espejo viejo, es retroactiva sobre lo que ya esta en storage, y no
+ * cuesta un credito. Un dato que se puede LEER del cuerpo no se pide prestado a
+ * otra version.
+ */
+const SENTINELA_TXT = 'un cubo violeta girando sobre arena mako7f3a9c';
+const SENTINELA_TOKEN = 'mako7f3a9c';
+
+/**
+ * Con que codificacion aparece la sentinela en este cuerpo, si aparece.
+ *
+ * ⚠️ El que DECIDE es el token, no la frase. La frase tiene seis espacios, y un
+ * cuerpo `form-urlencoded` —que es como viaja `f.req` en BOQ— los escribe `+`, no
+ * `%20`: medido, las seis codificaciones dan CERO sobre un cuerpo real. El token es
+ * alfanumerico puro y sobrevive a todas.
+ */
+function codificacionSentinela(cuerpo) {
+  if (typeof cuerpo !== 'string' || !cuerpo) return null;
+  const CODS = [
+    ['crudo', (t) => t],
+    ['json', (t) => JSON.stringify(t).slice(1, -1)],
+    ['uri', (t) => encodeURIComponent(t)],
+    ['json+uri', (t) => encodeURIComponent(JSON.stringify(t).slice(1, -1))],
+    ['form', (t) => new URLSearchParams({ x: t }).toString().slice(2)],
+  ];
+  for (const [nombre, cod] of CODS) {
+    try { if (cuerpo.includes(cod(SENTINELA_TXT))) return nombre; } catch { /* sigue */ }
+  }
+  if (cuerpo.includes(SENTINELA_TOKEN)) return 'token';
+  return null;
+}
+
 async function guardarPlantillas(tabId) {
   try {
     const r = await chrome.tabs.sendMessage(tabId, { tipo: 'GUARDAR_PLANTILLAS' });
@@ -390,7 +434,25 @@ async function guardarPlantillas(tabId) {
     const mapa = { ...previas };
     // La mas nueva gana. Y una plantilla vieja NO se borra porque hoy no se haya
     // visto: es justo el caso que esto viene a arreglar.
-    for (const p of lista) mapa[p.clase] = { ...p, cuando: Date.now() };
+    for (const p of lista) {
+      const antes = mapa[p.clase];
+      // ⚠️ LA SENTINELA NO SE PISA CON `null`, Y ASI SE DES-APRENDIA SOLA.
+      //
+      // El espejo reescribe la entrada de la clase en CADA pedido, asi que la
+      // siguiente generacion —que no lleva la frase— traia `sentinela: null`, y este
+      // `{ ...p }` reemplaza el objeto ENTERO: el `sentinela` que costo un clip
+      // pagado se borraba en silencio. El comentario de arriba prometia lo contrario,
+      // pero eso solo valia a nivel de CLASE, nunca de campo.
+      //
+      // Se descubre UNA vez y no cambia. Tres fuentes, de la mas fresca a la mas vieja:
+      // lo que mando el espejo, lo que se puede leer del cuerpo acá mismo (que es lo
+      // que salva a las pestanas con el injected.js viejo), y lo que ya sabiamos.
+      const sentinela = p.sentinela
+        || codificacionSentinela(p.cuerpo)
+        || (antes && antes.sentinela)
+        || null;
+      mapa[p.clase] = { ...p, sentinela, cuando: Date.now() };
+    }
     await chrome.storage.local.set({ [CLAVE_PLANTILLAS]: mapa });
   } catch { /* si la pestana no responde, no hay nada que guardar */ }
 }
@@ -911,6 +973,47 @@ async function ciclo() {
   // este ciclo tiene cuatro salidas tempranas.
   let hizoAlgo = false;
   try {
+    // ⚠️ Y TAMPOCO SE GATEA CON TENER TOKEN DE MaKo, que es el gate de aca abajo.
+    //
+    // Mirar lo que Flow hace en la pestana de la persona no necesita NINGUNA
+    // credencial nuestra. Pero `if (!token) return` corta el ciclo entero, asi que
+    // una extension sin emparejar —token perdido, storage limpiado, instalacion
+    // nueva— no aprende nunca, con Flow abierto y el clip ya generado. Mismo sintoma
+    // exacto y ninguna linea de error.
+    //
+    // Va PRIMERO en el ciclo, antes de todo gate: es lo unico que no depende de nada.
+    // ⚠️ APRENDER NO SE GATEA CON PODER TRABAJAR, Y ESTO LO TENIA AL REVES.
+    //
+    // `guardarPlantillas` vivia adentro del `if (estado === 'listo')` de abajo. Es
+    // la unica linea que mueve lo que el espejo capturo desde la MEMORIA de la
+    // pestana —que se vacia con cada F5— hasta el storage, que es de donde lo lee
+    // todo el mundo.
+    //
+    // En el Flow nuevo `estado` NUNCA es `listo`: no hay bearer que capturar, asi
+    // que la rama `if (!bearer)` de arriba escribe `sin_sesion` siempre. O sea que
+    // ese gate hacia el guardado ESTRUCTURALMENTE INALCANZABLE justo ahi — y el
+    // popup pedia generar el clip de prueba de nuevo por mas veces que la persona
+    // pagara, porque lo que aprendia moria en la pestana.
+    //
+    // Reportado tres veces seguidas el 05/09/2026, la ultima con el cubo violeta a
+    // la vista en la grilla y el popup diciendo «Ayudame a aprender».
+    //
+    // ⚠️ Y ES LA TRAMPA QUE ESTE REPO YA TIENE ESCRITA, palabra por palabra: «¿la
+    // condicion que activa a mi arreglo puede ser falsa POR CULPA de lo que el
+    // arreglo viene a arreglar?». Aca la respuesta era si, y en el peor sentido —
+    // el aprendizaje existe PARA salir del estado que lo estaba bloqueando. Peor
+    // aun: el comentario del bloque de abajo ya dice la regla correcta («no poder
+    // MIRAR no es no poder trabajar») y el codigo hacia lo contrario.
+    //
+    // Va afuera, sin gate y con su propio try: fallar mirando no puede apagar nada,
+    // y no tiene una sola via para cambiar `estado`.
+    try {
+      const tabAprender = await pestanaDeFlow();
+      if ((await asegurarContentScript(tabAprender.id)) !== 'mudo') {
+        await guardarPlantillas(tabAprender.id);
+      }
+    } catch { /* sin pestana no hay nada que aprender, y no es un fallo */ }
+
     const { token } = await chrome.storage.local.get('token');
     if (!token) { latido.estado = 'sin_token'; return; }
 
@@ -963,6 +1066,7 @@ async function ciclo() {
       detalle = 'Recarga la pestaña de Google Flow para completar la conexión.';
     }
 
+
     // Qué pedidos vio la página. Viaja en `detalle` para que un fallo se pueda
     // diagnosticar mirando la base, sin pedirle a nadie otra captura de pantalla.
     if (estado === 'listo') {
@@ -987,10 +1091,9 @@ async function ciclo() {
           throw new Error('MUDO');
         }
 
-        // Cada latido guarda lo que la pagina haya visto. Es el momento correcto:
-        // no cuesta nada extra —la pestana ya se esta consultando— y garantiza que
-        // lo que Flow hizo hace un minuto sobreviva al proximo F5.
-        await guardarPlantillas(tab.id);
+        // El guardado de plantillas ya corrio ARRIBA, afuera de este gate. Ver el
+        // bloque «APRENDER NO SE GATEA CON PODER TRABAJAR»: dejarlo aca lo hacia
+        // inalcanzable en el unico caso en que hay algo nuevo que aprender.
         // Lo que Flow ya recibio, por su propio canal. Va aparte del `detalle`
         // porque ese tiene tope de 7500 y las clases que generan se lo comen.
         try {
@@ -2011,6 +2114,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
         // dónde va el prompt — que es un estado distinto de «no hay plantilla» y se
         // muestra distinto.
         let aprendioGenerar = false;
+        let claseAprendida = '';
         // ⚠️ SI LA GUARDIA TUVO QUE DEVOLVER LA PESTAÑA, hay que decirlo. Sin esto,
         // la persona ve que Flow «se movió solo» y no sabe que fue MaKo — que es
         // peor que no haberla movido: parece que el navegador hace cosas raras.
@@ -2021,7 +2125,22 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
         } catch { volviAlProyecto = false; }
         try {
           const guardadas = (await chrome.storage.local.get(CLAVE_PLANTILLAS))[CLAVE_PLANTILLAS] || {};
-          aprendioGenerar = !!(guardadas['boq:YhhmEf'] && guardadas['boq:YhhmEf'].sentinela);
+          // ⚠️ SE PREGUNTA POR LA PROPIEDAD, NO POR LA CLAVE.
+          //
+          // Esto era `guardadas['boq:YhhmEf']`, un rpcid MEDIDO el 04/09 contra el bundle
+          // de ese dia. Dos formas de que la clave no sea esa con la captura perfecta al
+          // lado: Google despliega un bundle nuevo y el rpcid rota, o BOQ manda la
+          // generacion en un batch (`rpcids=YhhmEf,ngNC2`) y la clase es 'boq:YhhmEf,ngNC2'.
+          // En los dos casos el lookup exacto contesta `undefined` — y `undefined` no se
+          // queja, se lee como «no aprendio».
+          //
+          // La sentinela solo la puede tener el pedido que llevaba la frase, o sea el de
+          // generar. No hace falta saber su rpcid para reconocerlo.
+          const conSentinela = Object.entries(guardadas).find(([, p]) => p && p.sentinela);
+          aprendioGenerar = !!conSentinela;
+          // Y se guarda CUAL fue: el dia que haya que repetir el pedido, no se vuelve a
+          // adivinar el rpcid.
+          if (conSentinela) claseAprendida = conSentinela[0];
         } catch { aprendioGenerar = false; }
         try {
           const tf = await pestanaDeFlow();
@@ -2039,6 +2158,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
           flowEnProyecto,
           flowNuevo,
           aprendioGenerar,
+          claseAprendida,
           volviAlProyecto,
           ultimoLatido: v.ultimoLatido || null,
           saldo: v.saldoLocal || null,

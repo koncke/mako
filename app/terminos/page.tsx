@@ -50,7 +50,7 @@ export default function Page() {
       </p>
       <Ojo>
         <strong>MaKo está en beta.</strong> Hay funciones incompletas, cosas que cambian de una
-        semana a otra y errores que todavía no encontramos. Lo decimos acá y no en la letra chica
+        semana a otra y errores que todavía no encontramos. Lo decimos aquí y no en la letra chica
         porque afecta la decisión de usarlo para algo importante.
       </Ojo>
 

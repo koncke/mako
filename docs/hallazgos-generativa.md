@@ -5809,3 +5809,146 @@ eso es una decisión de producto, no técnica.
 *Medido el 04/09/2026 con acceso al navegador de la clienta · sin corrida de agentes:
 cuatro llamadas al tráfico contestaron lo que dos días de lectura de código no
 podían.*
+
+## Un síntoma, CINCO causas: por qué el puente no aprendía a generar en el Flow nuevo
+
+**Vive en:** `extension/injected.js` · `extension/background.js` · `lib/flow-plantillas.ts`
+
+El 05/09/2026 el dueño reportó tres veces seguidas lo mismo: Flow abierto adentro del
+proyecto, el clip de prueba generado —el cubo violeta a la vista en la grilla, dos
+veces— y el popup diciendo **«Ayúdame a aprender»**. Se arregló dos veces, se
+desplegó dos veces, y el síntoma no se movió ni un milímetro.
+
+No era un bug con dos intentos fallidos. Eran **cinco causas independientes en la
+misma cadena**, cada una suficiente por sí sola, y cada arreglo destrabó un eslabón
+para que el siguiente lo volviera a trabar. Las encontró una auditoría de 191 agentes
+que propuso 61 causas; 46 sobrevivieron a la refutación y 11 explicaban el síntoma
+(cinco distintas, el resto solapadas).
+
+**La lección de arriba de todo: cuando un arreglo correcto no mueve el síntoma, la
+hipótesis por defecto no es que el arreglo esté mal — es que hay otro eslabón.** Se
+perdieron dos rondas con el dueño mirando por contar UNA causa donde había cinco.
+
+### ① El espejo del mundo MAIN sobrevive a que la extensión se actualice
+
+`injected.js` corre en el mundo de la PÁGINA y se marca con `window.__makoEspejo`
+para no envolver `fetch` dos veces. Esa marca **vive en la página**: sobrevive a que
+la extensión se recargue o se actualice, y sólo muere con un **F5**.
+
+O sea que en una pestaña de Flow que ya estaba abierta, **el `injected.js` nuevo entra
+y se va en la línea 39**: sigue corriendo el viejo. El content script aislado sí queda
+huérfano y se reinyecta, así que queda un `content.js` NUEVO hablando con los listeners
+del `injected.js` VIEJO — y todo campo nuevo que el espejo aprenda a mandar
+simplemente no llega.
+
+Eso es exactamente por qué el arreglo del campo `sentinela` (v0.49.0) no cambió nada:
+el código estaba bien y no se estaba ejecutando.
+
+> **La regla: un archivo del mundo MAIN no se actualiza con la extensión.** Todo lo
+> que dependa de una versión nueva de ese archivo hay que darlo por ausente. Si el
+> dato se puede **derivar** en el service worker —que sí se actualiza—, se deriva ahí
+> y se deja de depender de que un campo cruce una frontera de versiones.
+
+Es lo que se hizo: `codificacionSentinela()` vive ahora en `background.js` y lee el
+`cuerpo` que el espejo ya mandaba desde la v0.45. Anda con el espejo viejo, es
+retroactivo sobre lo guardado, y no cuesta un crédito.
+
+### ② Aprender estaba gateado detrás de PODER TRABAJAR (dos gates, no uno)
+
+`guardarPlantillas` es la única línea que mueve lo capturado desde la memoria de la
+pestaña —que se vacía con cada F5— hasta el storage. Vivía adentro de
+`if (estado === 'listo')`. Y en `flow.google.com` **`estado` no es `listo` nunca**: no
+hay bearer que capturar, así que la rama `if (!bearer)` escribe `sin_sesion` siempre.
+
+El guardado era **estructuralmente inalcanzable justo en el único caso en que había
+algo nuevo que aprender**. Y un gate más arriba, `if (!token) return` hace lo mismo
+para cualquier extensión sin emparejar.
+
+> **La regla, que este repo ya tenía escrita y volvió a pagar: ¿la condición que
+> activa a mi arreglo puede ser falsa POR CULPA de lo que el arreglo viene a
+> arreglar?** Acá la respuesta era sí y en el peor sentido, porque el aprendizaje
+> existe *para* salir del estado que lo estaba bloqueando.
+
+⚠️ **Y el comentario de ese mismo bloque ya decía la regla correcta** —«no poder MIRAR
+no es no poder trabajar»— mientras el código hacía lo contrario, tres líneas más
+abajo. Un comentario no es un control.
+
+### ③ La sentinela no sobrevivía a cómo VIAJA el cuerpo
+
+Se buscaba la frase entera —`un cubo violeta girando sobre arena mako7f3a9c`—
+probando seis codificaciones. **Ninguna cubre un cuerpo `form-urlencoded`, que es
+justo como BOQ manda `f.req`**: ahí el espacio se escribe `+`, no `%20`, y la frase
+tiene seis espacios. Medido construyendo el cuerpo real: **cero de seis**.
+
+```
+...%5C%22un+cubo+violeta+girando+sobre+arena+mako7f3a9c%5...
+```
+
+> **La regla: no cuelgues una decisión de un carácter que cada capa escribe
+> distinto.** La cura no es una séptima codificación —la próxima capa inventará una
+> octava— sino elegir un ancla que ninguna pueda tocar. `mako7f3a9c` son diez
+> alfanuméricos: sobreviven a url-encoding, form-encoding, el escapado de JSON y los
+> tres anidados.
+
+Misma familia que el `\s` del snippet del Pixel: el fuente y lo que viaja por el cable
+no son el mismo texto.
+
+### ④ Lo aprendido se DES-aprendía solo
+
+El espejo reescribe la entrada de una clase en **cada** pedido, y `guardarPlantillas`
+hacía `mapa[p.clase] = { ...p }` — reemplazo del objeto entero. La siguiente generación
+no lleva la frase, así que trae `sentinela: null`, **y ese null pisaba el valor que
+había costado un clip pagado.**
+
+El comentario de arriba prometía justo lo contrario («una plantilla vieja NO se borra
+porque hoy no se haya visto»), y era cierto — pero **a nivel de CLASE, no de campo**.
+
+> **La regla: un dato que se descubre UNA vez y no cambia se funde, no se pisa.** Si
+> un objeto se reemplaza entero en cada actualización, todo campo que se descubrió
+> antes muere con el próximo evento.
+
+### ⑤ Se preguntaba por un rpcid ADIVINADO
+
+`aprendioGenerar` hacía `guardadas['boq:YhhmEf']`, con un rpcid medido contra el bundle
+de Google de un día concreto. Dos formas de fallar con la captura perfecta al lado:
+Google despliega un bundle nuevo y el id rota, o BOQ batchea (`rpcids=YhhmEf,ngNC2`) y
+la clase pasa a ser otra. En los dos casos el lookup exacto contesta `undefined` — que
+no se queja y **se lee igual que «no aprendió»**.
+
+> **La regla: preguntá por la PROPIEDAD, no por la clave.** La sentinela sólo la puede
+> tener el pedido que llevaba la frase; no hace falta saber su rpcid para reconocerlo.
+> Es «un cruce que no encuentra nada no está diciendo que no esté», aplicado a un
+> `Map`.
+
+### Lo que quedó SIN hacer
+
+**El respaldo al servidor sigue muerto para el Flow nuevo.** `sanearPlantillas()` de
+`lib/flow-plantillas.ts` descarta toda plantilla del Flow nuevo por **dos** condiciones
+independientes: exige `url.startsWith('https://aisandbox-pa.googleapis.com/')` —el
+dominio VIEJO— y filtra por `CLASES_UTILES`, que se deriva de los endpoints viejos vía
+`claseDePath`. Ninguna plantilla BOQ pasa.
+
+No afecta a `aprendioGenerar` (que lee `chrome.storage.local`), pero sí a que lo
+aprendido sobreviva al perfil del navegador y a que `sembrarPlantillas` pueda rellenar
+huecos. **Vive en:** `lib/flow-plantillas.ts:182` y `:186`.
+
+**Y no hay forma de medir el estado real del puente sin pedir una captura de
+pantalla.** Todo lo que sube al servidor —el `detalle` con lo que el espía vio, las
+plantillas— viaja adentro del mismo `if (estado === 'listo')` de la causa ②, así que en
+el Flow nuevo el servidor no recibe **nada** con lo que diagnosticar. Se razonó a
+ciegas durante tres rondas por eso. **Vive en:** `extension/background.js`, el bloque
+del ciclo.
+
+### Los guards que quedaron
+
+Cuatro, y cada uno se verificó **rompiéndolo a propósito** antes de darlo por bueno:
+
+| Test | Qué fija |
+|---|---|
+| `extension-plantilla-campos.test.ts` | todo campo que el espejo captura llega al storage, o está declarado descartado |
+| `extension-aprender-sin-gate.test.ts` | `guardarPlantillas` no vuelve adentro de ningún gate de estado |
+| `extension-sentinela-encoding.test.ts` | el ancla es alfanumérica y sobrevive a form-urlencoded |
+| `extension-sentinela-persiste.test.ts` | la sentinela se funde y no se pisa; nadie vuelve a hardcodear un rpcid |
+
+*Auditoría del 05/09/2026: 191 agentes, 61 causas propuestas, 46 confirmadas, 5 raíces
+distintas.*
