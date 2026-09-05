@@ -5720,6 +5720,79 @@ Nada de esto arregla la generación. Arregla que la persona sepa qué pasa:
   otra superficie. `estadoDelPuente` tiraba el `detalle` que el navegador manda en
   cada latido y ponía su frase fija. Ahora el detalle gana.
 
+### El mapa del protocolo nuevo, medido generando de verdad
+
+*04/09/2026 · se generó un clip real (`x1`, 720p, 8 s) en una cuenta con plan PRO y
+se leyó el tráfico completo del ciclo.*
+
+⚠️ **Por qué hizo falta repetir la medición.** La del día anterior fue navegando: abrir
+la portada y entrar a un proyecto. De ahí se concluyó que el protocolo estaba muerto —
+y la conclusión resultó correcta, pero **la evidencia no la sostenía**: «no hay bearer
+mientras navego» no dice nada sobre lo que pasa al GENERAR, que es justo lo único que
+importaba. El tutorial viejo, de hecho, pedía «generá uno a mano» precisamente porque
+ahí aparecía el bearer.
+
+Conclusión buena sobre evidencia insuficiente es una forma de tener razón que no sirve:
+la próxima vez que el dato contradiga la corazonada, no hay con qué defenderla.
+
+**Lo medido ahora, con la generación de por medio:**
+
+| rpcid | Qué hace |
+|---|---|
+| `YhhmEf` | **dispara la generación** (una sola vez, al apretar) |
+| `jwpduf` + `ngNC2` | el **sondeo**, alternados, cada ~2 s hasta que termina |
+| `WuwhI` | una vez a mitad del ciclo |
+| `as29s` | al final, cuando el medio ya está |
+| `DTaVef`, `NfrxTb`, `ve2Lsc` | carga del proyecto |
+| `xI9TVb`, `UpteDb` | portada / lista de proyectos |
+
+```
+POST https://flow.google.com/_/AiSandboxAngularFrontend/data/batchexecute
+     ?rpcids=<id>&source-path=/project/<uuid>
+     &bl=boq_labs-ai-sandbox-frontend_20260903.13_p1
+     &f.sid=<sesión>&hl=<idioma>&_reqid=<n>&rt=c
+```
+
+Y en el momento de generar, además:
+
+```
+POST https://www.google.com/recaptcha/enterprise/clr
+     ?k=6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV
+```
+
+**Cero llamadas a `aisandbox-pa.googleapis.com` en todo el ciclo**, incluida la
+generación. El analytics lo confirma desde el otro lado (`en=media_generation`,
+`ep.media_generation_type=video`). Queda cerrado: el bearer no aparece nunca.
+
+### La única buena noticia, y no es menor
+
+⚠️ **El site key de reCAPTCHA es EL MISMO que ya tiene la extensión**
+(`6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV`, verificado contra `background.js:25`).
+
+Toda la maquinaria del captcha —acuñar el token desde la PÁGINA con
+`grecaptcha.enterprise.execute`, que es la parte que más costó y la que no se puede
+comprar— **sigue sirviendo tal cual**. Lo que hay que rehacer es el transporte, no la
+autenticación.
+
+Y el `rpcid` de generar es el dato más caro de encontrar de una reescritura contra BOQ.
+Ya está.
+
+### Lo que falta medir para poder reescribir
+
+- **La forma del `f.req`** de `YhhmEf` (el cuerpo que lleva el prompt, la duración, la
+  resolución y el `x1`). Se lee clonando el `Request` en el espejo de `injected.js`,
+  que ya sabe hacerlo.
+- **El token `at`** que BOQ manda en el cuerpo, y de dónde lo saca la página.
+- **Cómo vuelve la URL del medio** en `as29s`.
+
+Las tres salen de una sola generación más con el espejo puesto — no hace falta adivinar
+ninguna.
+
+⚠️ Y el riesgo que hay que declarar antes de empezar: **`rpcids` y `bl` rotan con cada
+bundle de Google.** El `bl` medido cambió de `_p0` a `_p1` entre dos lecturas del mismo
+día. Reescribir contra esto convierte «se rompió una vez» en mantenimiento continuo, y
+eso es una decisión de producto, no técnica.
+
 ### Los caminos, con lo que cuesta cada uno
 
 1. **Reimplementar contra `batchexecute`.** Hay que revertir los `rpcids`, la forma
