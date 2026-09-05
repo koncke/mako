@@ -4,7 +4,8 @@
 // GoogleCalendarPanel — conectar/desconectar Google Calendar (3ra fuente auto)
 // =============================================================================
 // Al conectar, el buscador automático de reuniones cruza Calendly + Fathom +
-// Google Calendar. La conexión es del workspace principal (dueño).
+// Google Calendar. La conexión es DE CADA WORKSPACE: cada cliente conecta su
+// propia agenda (antes era owner-only y el resto comía un 403).
 //
 // Entrar con Google ya pide el scope de la agenda y la conecta sola. Este panel
 // sigue siendo el camino manual para RE-AUTORIZAR sin desloguearse (quien se
@@ -23,6 +24,8 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { getGoogleCalendarStatusAction, disconnectGoogleCalendarAction, type GoogleCalendarStatus } from './gcal-actions';
 import { EMAIL_MAKO } from '@/lib/app-url';
+import { useWs } from '@/app/_ui/Link';
+import { conWs } from '@/lib/ws-tab';
 
 const SANS = "'Geist', sans-serif";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 };
@@ -45,12 +48,17 @@ export const GCAL_MSG: Record<string, { kind: 'ok' | 'err'; txt: string }> = {
   // que firma los mails de la plataforma y no dos direcciones que se van separando.
   config: { kind: 'err', txt: `La conexión con Google no está disponible en este momento. Escríbenos a ${EMAIL_MAKO} y lo resolvemos.` },
   exchange: { kind: 'err', txt: 'No se pudo completar la conexión. Reintenta.' },
-  'no-permitido': { kind: 'err', txt: 'Solo el workspace principal puede conectar Google Calendar.' },
+  // La conexión arrancó con una versión anterior de la app (el destino viaja en
+  // una cookie que dura 10 minutos y cambió de formato). Volver a empezar alcanza.
+  reintentar: { kind: 'err', txt: 'La conexión quedó a medias. Vuelve a apretar "Conectar Google Calendar".' },
+  'no-permitido': { kind: 'err', txt: 'Solo un admin del workspace puede conectar Google Calendar. Pídeselo a quien administre tu cuenta.' },
 };
 
 const mono: CSSProperties = { fontFamily: "'Geist Mono', monospace", fontSize: 12, wordBreak: 'break-all', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', color: 'var(--ink)', display: 'block', marginTop: 6 };
 
 export function GoogleCalendarPanel() {
+  // El OAuth es un redirect de página entera: el `?ws=` no viaja solo.
+  const wsPestana = useWs();
   const sp = useSearchParams();
   const gcal = sp.get('gcal');
   const [estado, setEstado] = useState<GoogleCalendarStatus | null>(null);
@@ -62,7 +70,7 @@ export function GoogleCalendarPanel() {
 
   const desconectar = async () => { setBusy(true); try { await disconnectGoogleCalendarAction(); cargar(); } finally { setBusy(false); } };
 
-  if (estado && !estado.puede) return null; // solo el dueño ve el panel
+  if (estado && !estado.puede) return null; // solo un admin del workspace ve el panel
 
   // «Conectado» = conectado Y con permiso para mover. Un token de solo lectura
   // cuenta como NO conectado (ver la regla de estado arriba): el resto de la UI
@@ -112,11 +120,11 @@ export function GoogleCalendarPanel() {
                 Autorizaste tu calendario cuando solo pedíamos leerlo: tus reuniones se detectan, pero «Reagendar» no puede mover el evento
                 ni avisarle al invitado. Conecta de nuevo y Google te va a pedir el permiso que falta.
               </p>
-              <a href="/api/integraciones/google-calendar" style={primaryBtn}>Conectar Google Calendar</a>
+              <a href={conWs('/api/integraciones/google-calendar', wsPestana)} style={primaryBtn}>Conectar Google Calendar</a>
             </div>
           </div>
         ) : (
-          <a href="/api/integraciones/google-calendar" style={primaryBtn}>Conectar Google Calendar</a>
+          <a href={conWs('/api/integraciones/google-calendar', wsPestana)} style={primaryBtn}>Conectar Google Calendar</a>
         )}
 
         {/* Ayuda para el "Error 400: redirect_uri_mismatch": ese error lo muestra

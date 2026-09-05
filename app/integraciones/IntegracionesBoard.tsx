@@ -15,7 +15,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useRouter } from '@/app/_ui/Link';
+import { useRouter, useWs } from '@/app/_ui/Link';
+import { conWs } from '@/lib/ws-tab';
 import { ConfigClarity } from './ConfigClarity';
 import { snippetDeLandingAction } from './landing-config-actions';
 import { SelectorLanding } from './SelectorLanding';
@@ -32,7 +33,7 @@ import { ModalShell } from '../_components/ModalShell';
 import { Dropdown } from '../components/Dropdown';
 import ServicioConfigForm, { IconBtn } from './ServicioConfigForm';
 import { Icon } from '../_components/icons';
-import { getGoogleCalendarStatusAction, type GoogleCalendarStatus } from '@/app/configuraciones/gcal-actions';
+import { getGoogleCalendarStatusAction, disconnectGoogleCalendarAction, type GoogleCalendarStatus } from '@/app/configuraciones/gcal-actions';
 import { GCAL_MSG } from '@/app/configuraciones/GoogleCalendarPanel';
 import { ProbarTracking } from './ProbarTracking';
 
@@ -231,6 +232,15 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   // nada del permiso y no vamos a degradar el estado por ignorancia.
   const gcalIncompleta = !!gcal?.puede && gcal.conectado && !gcal.puedeMover;
 
+  // Hay token guardado —`gcal` solo se pide cuando el server dice 'conectada'— y
+  // Google LO RECHAZA. El tile lo pintaba VERDE: `googleCalendarConectado()` mide
+  // "el token descifra", no "Google lo acepta", y esas dos cosas se separan cada
+  // vez que se revoca el acceso, se rota la contraseña de la cuenta o —el caso que
+  // viene— caduca a los 7 días, que es lo que le pasa a una app OAuth que sigue en
+  // modo Testing. Sin esto la agenda queda «Cruzando las reuniones de …» para
+  // siempre, sin cruzar ninguna y sin una sola pista de por qué.
+  const gcalRechazada = !!gcal?.puede && !gcal.conectado;
+
   // Cómo salió el último paso por Google. El callback del OAuth vuelve SIEMPRE acá
   // con ?gcal=…, y hasta ahora nadie leía ese parámetro en esta pantalla: si el
   // re-consent fallaba (Google no reemitió el refresh_token, o saltó el CSRF), la
@@ -287,7 +297,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
     // Verde SOLO con el permiso completo. Media conexión se ve igual que ninguna:
     // así el contador "N/M conectados", el medidor y el punto del tile dicen lo
     // mismo que el modal, en vez de dejarlo en una nota al pie que nadie abre.
-    if (i.key === 'google' && gcalIncompleta) return 'warn';
+    if (i.key === 'google' && (gcalIncompleta || gcalRechazada)) return 'warn';
     // Mismo criterio para la landing: el código pegado en su página es de una
     // versión vieja. El tracking anda —los eventos llegan— pero hay algo que
     // hacer, y el verde no sabe decir eso. Degradar a ámbar es el precedente de
@@ -324,6 +334,12 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
       // El motivo dice QUÉ falta (no "Requiere atención", que no orienta a nadie) y
       // el botón dice el verbo que resuelve: volver a pasar por el consentimiento.
       motivo = 'Falta permiso para mover reuniones';
+      accion = 'Conectar';
+    } else if (i.key === 'google' && gcalRechazada) {
+      // Distinto de «falta permiso»: acá el token ya no sirve para NADA. El verbo
+      // es el mismo (volver a pasar por Google), pero el motivo tiene que decir la
+      // verdad o el usuario busca el permiso que no es.
+      motivo = 'Google ya no acepta la agenda — hay que reconectarla';
       accion = 'Conectar';
     }
     atencion.push({ i, sev: s === 'bad' ? 'bad' : 'warn', motivo, accion });
@@ -1248,6 +1264,14 @@ function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota
   gcal: GoogleCalendarStatus | null;
   health: MetaHealth | null; metaError: string | null; usage: Resumen | null; cuota: CuotaProv | null; snippetLanding?: string | null; clarityConectado?: boolean; agenteToken?: string | null; appUrl?: string; onClose: () => void; onCambio: () => void; onRefetchUsage: () => void;
 }) {
+  // El workspace de la pestaña, para que el OAuth de Google sepa a QUIÉN le está
+  // conectando la agenda: es un redirect de página entera y el `?ws=` no viaja solo.
+  const wsPestana = useWs();
+  // Hay token guardado y Google lo rechaza (ver el porqué en el board): acá se
+  // recalcula porque el modal ya recibe `gcal` y pasarlo como prop sería el mismo
+  // dato en dos lugares.
+  const gcalRechazada = !!gcal?.puede && !gcal.conectado;
+  const [desconectando, setDesconectando] = useState(false);
   // La landing que gobierna los pasos 2, 3 y 4 del Pixel.
   const [landingModal, setLandingModal] = useState<string | null>(null);
   const base = sev === 'good' ? { bg: 'var(--good-bg)', fg: 'var(--good)', word: 'Conectada' }
@@ -1274,7 +1298,7 @@ function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota
   // Estado EN VIVO (no descripción): solo Meta tiene algo que decir acá.
   let alerta: string | null = null;
   let facts: Array<{ k: string; v: string; c: string }> = [];
-  const actions: Array<{ label: string; href?: string; primary?: boolean; sameTab?: boolean }> = [];
+  const actions: Array<{ label: string; href?: string; primary?: boolean; sameTab?: boolean; onClick?: () => void }> = [];
   const faltan = i.estado === 'falta' ? i.detalle.replace(/^Falta configurar:\s*/, '') : '';
 
   if (i.key === 'meta' && health) {
@@ -1317,8 +1341,28 @@ function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota
     // "Reconectar" solo cuando la conexión está COMPLETA: con el permiso a medias, el
     // verbo tiene que ser el mismo que vería alguien sin agenda —«Conectar»— porque el
     // estado que mostramos también es el mismo (no conectada).
+    //
+    // El `?ws=` va explícito: es un <a> de página entera, y el paso 1 resuelve el
+    // workspace destino del request. Sin esto, la agencia parada adentro de un
+    // cliente le conectaba la agenda a su PROPIO workspace, sin ningún error.
     const completa = !!gcal?.conectado && gcal.puedeMover;
-    actions.push({ label: completa ? 'Reconectar Google Calendar' : 'Conectar Google Calendar', href: '/api/integraciones/google-calendar', primary: true, sameTab: true });
+    actions.push({ label: completa ? 'Reconectar Google Calendar' : 'Conectar Google Calendar', href: conWs('/api/integraciones/google-calendar', wsPestana), primary: true, sameTab: true });
+    // LA SALIDA. `disconnectGoogleCalendarAction` existía desde el día uno y su
+    // único caller era GoogleCalendarPanel, que no está montado en ninguna página:
+    // o sea que no había forma de soltar una agenda. Mientras conectar era
+    // owner-only eso era un detalle; abierto a los clientes es el arreglo de
+    // "quedó conectada la cuenta de Google equivocada", que es el error más
+    // probable del flujo (Google consiente por CUENTA, no por workspace).
+    if (gcal?.conectado || gcalRechazada) {
+      actions.push({
+        label: desconectando ? 'Quitando…' : 'Quitar esta agenda',
+        onClick: () => {
+          if (desconectando) return;
+          setDesconectando(true);
+          disconnectGoogleCalendarAction().then(onCambio).finally(() => setDesconectando(false));
+        },
+      });
+    }
   }
 
   // La landing no se configura con credenciales: se configura copiando un código.
@@ -1432,9 +1476,17 @@ function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota
           {/* Footer fijo: las acciones no se van con el scroll. */}
           {actions.length > 0 && (
             <div style={{ flex: 'none', display: 'flex', gap: 9, flexWrap: 'wrap', borderTop: '1px solid var(--border)', padding: '16px 26px 22px' }}>
-              {actions.map((a) => (
-                <a key={a.label} href={a.href} target={a.sameTab ? undefined : '_blank'} rel={a.sameTab ? undefined : 'noopener noreferrer'} style={{ border: `1px solid ${a.primary ? 'var(--primary)' : 'var(--border-strong)'}`, borderRadius: 10, background: a.primary ? 'var(--primary)' : 'var(--surface)', color: a.primary ? '#fff' : 'var(--dim)', fontFamily: "'Geist', sans-serif", fontWeight: 600, fontSize: 13.5, padding: '10px 15px', cursor: 'pointer', whiteSpace: 'nowrap', textDecoration: 'none' }}>{a.label}</a>
-              ))}
+              {actions.map((a) => {
+                // Mismo aspecto para las dos etiquetas. Un <button> NO hereda la
+                // tipografía ni es `display:block`, así que la hoja va explícita:
+                // cambiar de etiqueta arrastra estilos que el diff no muestra.
+                const estilo: CSSProperties = { border: `1px solid ${a.primary ? 'var(--primary)' : 'var(--border-strong)'}`, borderRadius: 10, background: a.primary ? 'var(--primary)' : 'var(--surface)', color: a.primary ? '#fff' : 'var(--dim)', fontFamily: "'Geist', sans-serif", fontWeight: 600, fontSize: 13.5, padding: '10px 15px', cursor: 'pointer', whiteSpace: 'nowrap', textDecoration: 'none', display: 'inline-block', textAlign: 'center' };
+                // Una acción que EJECUTA algo es un botón, no un enlace: un <a>
+                // sin href no recibe foco ni responde al teclado.
+                return a.onClick
+                  ? <button key={a.label} type="button" onClick={a.onClick} style={estilo}>{a.label}</button>
+                  : <a key={a.label} href={a.href} target={a.sameTab ? undefined : '_blank'} rel={a.sameTab ? undefined : 'noopener noreferrer'} style={estilo}>{a.label}</a>;
+              })}
             </div>
           )}
         </div>

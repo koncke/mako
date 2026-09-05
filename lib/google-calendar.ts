@@ -2,10 +2,13 @@
 // google-calendar — leer Y MOVER eventos del calendario del dueño
 // =============================================================================
 // OAuth aparte del login (ese es online/openid): acá pedimos los scopes de
-// calendario con access_type=offline para guardar un refresh_token del dueño.
-// Con ese token refrescamos un access_token y consultamos la Calendar API.
-// Fase 1: la conexión es global del dueño (como Chatwoot/Fathom), guardada en
-// app_settings.
+// calendario con access_type=offline para guardar un refresh_token. Con ese
+// token refrescamos un access_token y consultamos la Calendar API.
+//
+// LA CONEXIÓN ES POR WORKSPACE, guardada cifrada en app_settings (que tiene PK
+// compuesta workspace_id+key). Nació global del dueño —como Chatwoot/Fathom— y
+// eso le devolvía un 403 a cada cliente que apretaba «Conectar»; la app OAuth de
+// Google sí es una sola, de la agencia, y se comparte por diseño.
 //
 // Escribir (mover/crear un evento) es lo que hace real el "Reagendar" del CRM:
 // Calendly NO tiene endpoint de reschedule —y menos sobre un evento que ya
@@ -13,7 +16,6 @@
 // invitado se entere es tocar el evento en Google.
 
 import 'server-only';
-import { OWNER_WS } from './auth-session';
 import { cifrarSecreto, descifrarSecreto } from './credenciales';
 import { getSetting, setSetting } from './settings';
 import { esTzValida, TZ_DEFAULT, tzDeWorkspace } from './timezone';
@@ -78,15 +80,32 @@ export function googleRedirectUri(origin: string): string {
 // el MISMO que usa setSetting para elegir la fila. Los dos resuelven por
 // getWorkspaceActual, y el callback del login llama a esto dentro de
 // runWithWorkspace — o sea que ven el mismo workspace.
-async function wsDelSetting(): Promise<number> {
-  return (await getWorkspaceActual()) ?? OWNER_WS;
+// FAIL-CLOSED, y no siempre lo fue: acá caía a OWNER_WS. Mientras conectar era
+// owner-only ese fallback era el mecanismo por el que la agenda del ws1 quedaba
+// conectada; abierto a todos los clientes, es una fuga: el admin de agencia sin
+// workspace resuelto conectaba SU agenda y el refresh_token cifrado terminaba en
+// app_settings del ws1 — o sea que el buscador de reuniones de Mauricio pasaba a
+// leer la agenda de otro, sin error y sin síntoma. Sin workspace no se toca la
+// agenda de nadie.
+//
+// null NO es el caso del cron: sin cookie de sesión resolverDesdeCookies()
+// devuelve OWNER_WS explícito, y todos los caminos sin sesión entran envueltos
+// en runWithWorkspace. Es el admin sin ws resuelto, y ese tiene que rebotar.
+async function wsDelSetting(): Promise<number | null> {
+  return await getWorkspaceActual();
 }
 
 export async function guardarRefreshTokenGoogle(rt: string, email?: string | null): Promise<void> {
-  await setSetting(TOKEN_KEY, cifrarSecreto(rt, await wsDelSetting(), TOKEN_KEY));
+  const ws = await wsDelSetting();
+  if (ws == null) throw new Error('[gcal] sin workspace resuelto: no se guarda el refresh_token');
+  await setSetting(TOKEN_KEY, cifrarSecreto(rt, ws, TOKEN_KEY));
   if (email?.trim()) await setSetting(EMAIL_KEY, email.trim());
 }
 export async function desconectarGoogleCalendar(): Promise<void> {
+  // El más peligroso de los tres: setSetting tiene su PROPIO `?? OWNER_WS`
+  // (lib/settings.ts), así que sin este guard un admin con ws sin resolver
+  // apretaba "Desconectar" y le borraba el token a Mauricio.
+  if ((await wsDelSetting()) == null) throw new Error('[gcal] sin workspace resuelto: no se desconecta nada');
   await setSetting(TOKEN_KEY, '');
   await setSetting(EMAIL_KEY, '');
 }
@@ -154,9 +173,11 @@ export async function googleCalendarConectado(): Promise<boolean> {
 
 // El token en claro, o null si no está o no abre. Único lugar que lo descifra.
 async function refreshTokenGoogle(): Promise<string | null> {
+  const ws = await wsDelSetting();
+  if (ws == null) return null; // fail-closed: nunca leer la agenda del ws1 por defecto
   const guardado = (await getSetting(TOKEN_KEY))?.trim();
   if (!guardado) return null;
-  const rt = descifrarSecreto(guardado, await wsDelSetting(), TOKEN_KEY)?.trim();
+  const rt = descifrarSecreto(guardado, ws, TOKEN_KEY)?.trim();
   return rt || null;
 }
 
@@ -761,7 +782,11 @@ export type ResultadoHorarios = {
 async function tzParaHorarios(pedida?: string): Promise<string> {
   if (pedida && esTzValida(pedida)) return pedida;
   try {
-    return await tzDeWorkspace((await getWorkspaceActual()) ?? OWNER_WS);
+    // Sin workspace resuelto va la zona neutra, no la de Mauricio: armar la
+    // grilla en la zona del ws1 para un request de otro le corre los horarios
+    // varias horas y no da ningún error.
+    const ws = await getWorkspaceActual();
+    return ws == null ? TZ_DEFAULT : await tzDeWorkspace(ws);
   } catch {
     return TZ_DEFAULT;
   }

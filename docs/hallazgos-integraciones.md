@@ -132,3 +132,97 @@ porque la tarjeta todavía no le aparece.
   `lib/elevenlabs-fallo.ts`.
 
 *Corrida del 02/09/2026 — 76 agentes, 61 hallazgos confirmados de 70.*
+
+---
+
+## Google Calendar era owner-only, y el 403 que veía el cliente NO era la parte cara
+
+**Vive en:** `app/api/integraciones/google-calendar/route.ts` ·
+`app/api/integraciones/google-calendar/callback/route.ts` · `lib/google-calendar.ts` ·
+`lib/gcal-estado.ts` · `lib/workspace.ts` · `app/configuraciones/gcal-actions.ts` ·
+`app/integraciones/IntegracionesBoard.tsx` · consola de Google Cloud (cliente `118392241323-j98eq…`)
+
+El cliente del ws13 (Código Inmobiliario) apretó «Conectar Google Calendar» y recibió
+`{"ok":false,"error":"Solo el workspace principal puede conectar Google Calendar."}`.
+
+### El gate estaba puesto con la pregunta equivocada
+
+Las dos patas del OAuth gateaban con `esDuenoAdmin()`, que pregunta **«¿sos la
+agencia?»** y existe para mover PLATA en la cuenta de Meta de la agencia. Conectar
+la agenda propia es otra pregunta: **«¿administrás ESTE workspace?»**. El resto de
+la maquinaria ya era per-workspace desde siempre —`app_settings` tiene PK compuesta,
+el token se cifra con el ws, y el callback del LOGIN ya guardaba con
+`runWithWorkspace(ws, …)`—: la casa estaba entera y quedó una sola puerta cerrada.
+
+El guard correcto ya estaba escrito y comentado en la ruta hermana
+(`app/api/integraciones/credencial/route.ts`): super-admin de agencia **O** admin del
+propio workspace, ws siempre del request, fail-closed. Ahora vive en
+`adminDeWorkspaceActual()` (`lib/workspace.ts`) y lo usan los cuatro puntos.
+
+### Abrir el gate ACTIVA tres fallas que dormían
+
+Ninguna se veía mientras conectar era owner-only, porque el `?? OWNER_WS` era
+justamente el mecanismo por el que la agenda del ws1 quedaba conectada:
+
+1. **`wsDelSetting()` caía a `OWNER_WS`.** Un admin sin ws resuelto conectaba SU
+   agenda y el token cifrado terminaba en `app_settings` del ws1 — el buscador de
+   reuniones de Mauricio pasaba a leer la agenda de otro, sin error y sin síntoma.
+2. **`desconectarGoogleCalendar()` era peor**: llamaba a `setSetting` directo, que
+   tiene su PROPIO `?? OWNER_WS` (`lib/settings.ts`). Un «Desconectar» apretado sin
+   ws resuelto le borraba el token a Mauricio.
+3. **El `?ws=` se perdía en las TRES patas del round-trip.** El `redirect_uri` está
+   registrado FIJO en Google Cloud, así que en la vuelta no hay `?ws=` ni pestaña que
+   leer: el callback resolvía el workspace de **quien tuviera la sesión**. La agencia
+   configurando parado adentro de un cliente le guardaba la agenda a su propio
+   workspace. No falla: **funciona**, con el tile verde en el lugar equivocado.
+
+El workspace destino ahora viaja en la cookie `gcal_state` (`nonce.ws`, httpOnly), que
+escribe el paso 1 —el que ya autorizó— y el callback aplica con `runWithWorkspace`.
+La regla vive en `lib/gcal-estado.ts`, **sin `server-only`**, con test: es la frontera
+que decide en qué inquilino se escribe el token de agenda de alguien.
+
+### ⚠️ El bloqueante real está FUERA del repo, y ningún cambio de código lo toca
+
+La app OAuth sigue en **modo Testing** en Google Cloud. El rastro estaba escrito en
+`docs/hallazgos-infra.md` desde el 06/08/2026 («**Pendiente del dueño:** sacar el aviso
+de Google "Esta app está en prueba"») y nadie lo cruzó con «los clientes van a conectar
+su agenda». En Testing sólo consienten los emails cargados a mano como test users: el
+cliente pasa los gates nuevos **y lo frena Google**.
+
+Y trae una cola que el código no puede distinguir: en Testing **los refresh_token
+caducan a los 7 días**. `googleCalendarConectado()` mide «el token descifra», no «Google
+lo acepta», así que el tile quedaba **VERDE diciendo «Cruzando las reuniones de …»**
+sobre una agenda muerta, para siempre. Peor: `gcalIncompleta` daba `false` con
+`conectado:false`, así que tampoco entraba en «Requiere tu atención». Ahora hay un
+tercer estado (`gcalRechazada`) que degrada a ámbar y dice qué pasó.
+
+**La regla que queda:** cuando una feature pasa de owner-only a per-cliente, el gate es
+la parte barata. Lo caro son (a) los `?? OWNER_WS` que hasta ese día eran el mecanismo
+correcto y pasan a ser una fuga, y (b) **lo que un tercero exige y nadie volvió a mirar
+desde que la feature tenía un solo usuario**. Un consentimiento de OAuth se otorga por
+CUENTA, no por workspace: la agenda del cliente sólo la puede conectar el cliente, y el
+email de la agenda (`EMAIL_KEY`, ya visible en la tarjeta) es la única señal de que
+quedó conectada la correcta.
+
+### Lo que quedó SIN hacer
+
+- **Publicar/verificar la app en Google Cloud.** Pide política de privacidad y términos
+  públicos en el dominio, y no existen: `app/privacidad/extension/page.tsx` habla de la
+  extensión de Chrome, no de MaKo ni del uso de datos de Google Calendar. No hay
+  `app/privacidad/page.tsx` ni `/terminos`.
+- **`integracionConectada('google')` devuelve `false` para TODOS los workspaces**: el
+  token vive en `app_settings` y no en `credenciales`, y `'google'` no está en
+  `lib/metodo-catalogo.ts` (sale por el `if (!s) return false` de
+  `lib/credenciales.ts`). Hoy no muerde porque ningún cron lo usa —
+  `correrPorWorkspace('google', …)` iteraría CERO workspaces y devolvería `ok:true` en
+  silencio. Hay que cerrarlo antes de escribir el primer cron de agenda.
+- **`googleRedirectUri()` lee `NEXT_PUBLIC_APP_URL`, no `APP_BASE_URL`** (que es la que
+  usa el resto vía `lib/app-url.ts`). Si en Vercel está la segunda y no la primera, la
+  URI se deriva del origin — y `proxy.ts` deja pasar `www.hola-mako.com` sin mandarlo al
+  apex, así que quien entre por `www` come `redirect_uri_mismatch`. Sin medir.
+- **`/api/crm/horarios` documenta «SIN CHEQUEO DE ROL» a propósito.** Con los gates
+  abiertos, cualquier closer/setter del workspace pasa a leer el freeBusy de la agenda
+  conectada. Es una decisión que hay que tomar explícita, no heredar.
+
+*Corrida del 05/09/2026 — 9 agentes (5 lentes + síntesis + 3 refutadores); los tres
+refutaron el plan de síntesis y los tres tenían razón: el gate solo no alcanzaba.*

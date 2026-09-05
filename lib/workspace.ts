@@ -172,6 +172,31 @@ export async function esDuenoAdmin(): Promise<boolean> {
   return (await esWorkspaceDueno()) && (await getRolWsEfectivo()) === 'admin';
 }
 
+/**
+ * Guard para lo que CADA CLIENTE hace sobre SU PROPIO workspace: conectar su
+ * agenda de Google. Devuelve el workspace objetivo, o null si esta sesión no
+ * administra ninguno.
+ *
+ * NO es esDuenoAdmin(), y la diferencia no es cosmética: ese pregunta "¿sos la
+ * agencia?" y existe para mover PLATA en la cuenta de Meta de la agencia. Este
+ * pregunta "¿administrás ESTE workspace?". Conectar la agenda propia es lo
+ * segundo, y haberlo gateado con el primero es lo que le devolvía un 403 a todo
+ * cliente que apretaba "Conectar Google Calendar" (ws13, Código Inmobiliario).
+ *
+ * El ws SIEMPRE sale del request (getWorkspaceActual): jamás del body ni del
+ * query, que sería un IDOR. Fail-closed cuando no resuelve — caer a OWNER_WS
+ * ahí escribiría adentro del workspace de Mauricio, que es un CLIENTE y no la
+ * plataforma. Mismo criterio (y mismas dos primeras preguntas) que
+ * resolverContexto() en app/api/integraciones/credencial/route.ts.
+ */
+export async function adminDeWorkspaceActual(): Promise<number | null> {
+  if (!(await getUsuarioActual())) return null;
+  const esSuperAdmin = (await getSesionAdmin()) != null;
+  const esAdminWs = (await getRolWsEfectivo()) === 'admin';
+  if (!esSuperAdmin && !esAdminWs) return null;
+  return await getWorkspaceActual();
+}
+
 /** true si un admin está metido adentro de un cliente, en ESTA pestaña.
  *  Sirve para distinguir "admin viendo su propio panel" de "admin metido en un
  *  cliente": p.ej. el board /plan muestra el PlanBoard del dueño solo si NO impersona,
