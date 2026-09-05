@@ -609,7 +609,24 @@
           cuerpo = JSON.stringify(o);
         } catch { /* si no era JSON, va como vino */ }
       }
-      out.push({ clase, url: p.url, metodo: p.metodo, headers, cuerpo, credenciales: p.credenciales });
+      // ⚠️ `sentinela` VA EN LA LISTA, Y FALTABA.
+      //
+      // Este objeto se arma campo por campo, así que todo lo que no esté nombrado acá
+      // se pierde al guardar — aunque el espejo lo haya capturado bien. `sentinela`
+      // se escribía en la captura y moría en esta línea: `aprendioGenerar` leía
+      // `undefined` siempre, y el popup pedía generar de nuevo por más clips que la
+      // persona pagara.
+      //
+      // Es «escribir la salida no es ofrecerla», la lección que ESTE archivo ya tiene
+      // escrita — cometida en el archivo que la documenta. Y falla del modo más caro:
+      // la captura anda, el guardado anda, y lo único que no llega es el campo que
+      // decide. Nada da error.
+      out.push({
+        clase, url: p.url, metodo: p.metodo, headers, cuerpo,
+        credenciales: p.credenciales,
+        sentinela: p.sentinela ?? null,
+
+      });
     }
     responder('MAKO_GUARDAR_OK', id, { plantillas: out });
   });

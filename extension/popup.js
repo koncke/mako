@@ -399,11 +399,20 @@ async function pintar() {
     // Va acá y no en un instructivo aparte porque es donde la persona está
     // mirando cuando se entera de que no puede generar.
     if (!v.aprendioGenerar) {
+      // ⚠️ NO LO MANDA A DONDE YA ESTÁ. Con la pestaña de Flow abierta y adentro del
+      // proyecto —que es el único caso en que esta pantalla sirve de algo— «Ir a
+      // Google Flow» es el defecto de siempre: pedirle lo único que ya hizo.
+      // Reportado hoy, textual: «ya estoy en flow y me pide ir a flow».
+      //
+      // Lo que SÍ ayuda es la frase en el portapapeles: hay que escribirla exacta, y
+      // transcribir a mano un token como `mako7f3a9c` es justo donde se pierde el
+      // clip — una letra distinta y el espejo no la encuentra, con la generación ya
+      // pagada.
       pantalla({
         titulo: 'Ayúdame a aprender',
         tenue: 'Google reescribió Flow y MaKo todavía no sabe pedirle un video. Genera UNO tú, de 4 segundos, con este texto exacto: «' + FRASE_APRENDIZAJE + '». Con esa sola vez aprendo a hacerlo solo.',
-        boton: 'Ir a Google Flow',
-        accion: abrirFlow,
+        boton: v.flowEnProyecto ? 'Copiar la frase' : 'Ir a Google Flow',
+        accion: v.flowEnProyecto ? copiarFrase : abrirFlow,
       });
       return;
     }
@@ -648,6 +657,35 @@ function bajarNueva() {
  * perder. Por eso el trabajo vive en el background y esto sólo lo dispara: hacerlo
  * acá se cortaría a la mitad, con las pestañas abiertas y nada conectado.
  */
+/**
+ * Deja la frase en el portapapeles.
+ *
+ * ⚠️ Hay que escribirla EXACTA: el espejo la busca literal dentro del cuerpo del
+ * pedido, así que una letra distinta significa «no aprendí» sobre una generación que
+ * salió bien — y el clip ya se pagó, en créditos del cliente. Transcribir a mano un
+ * token como `mako7f3a9c` es exactamente donde eso pasa.
+ */
+async function copiarFrase() {
+  try {
+    await navigator.clipboard.writeText(FRASE_APRENDIZAJE);
+    pantalla({
+      titulo: 'Frase copiada',
+      tenue: 'Pégala en «¿Qué quieres crear?» de Flow, ponlo en 4 segundos y genera. Vuelve acá cuando termine.',
+      boton: 'Listo',
+      accion: () => window.close(),
+    });
+  } catch {
+    // Si el navegador no deja copiar, no se finge que sí: se muestra la frase para
+    // escribirla a mano, que es peor pero es cierto.
+    pantalla({
+      titulo: 'No pude copiarla',
+      tenue: 'Escríbela a mano, tal cual: ' + FRASE_APRENDIZAJE,
+      boton: 'Listo',
+      accion: () => window.close(),
+    });
+  }
+}
+
 async function prepararTodo() {
   esperando('Preparando todo… no toques nada');
   const r = await enviar({ tipo: 'PREPARAR' });

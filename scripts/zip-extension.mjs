@@ -4,7 +4,7 @@
 // función serverless obliga a leer del filesystem, que en el bundle no es
 // confiable). Y por eso mismo puede quedar viejo: `--check` falla si la
 // extensión cambió y nadie regeneró el zip, igual que la guarda de plugin/.
-import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, existsSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { execSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -12,13 +12,16 @@ import JSZip from 'jszip';
 
 const RAIZ = process.cwd();
 const ORIGEN = resolve(RAIZ, 'extension');
-const ZIP = resolve(RAIZ, 'public/mako-puente.zip');
+// ⚠️ La ruta del ZIP no vive acá: cuelga de la version, y la version se lee con
+// `leer()` —que en `--check` lee de HEAD y no del disco—. Está más abajo, apenas
+// después de esa lectura.
 const HUELLA = resolve(RAIZ, 'public/mako-puente.sha');
 // La versión que se está sirviendo, como módulo importable desde la app. Se
 // GENERA acá y no se escribe a mano: copiada, se queda vieja el día que alguien
 // suba el manifest y no la toque, y el síntoma sería un aviso de «hay versión
 // nueva» que no se apaga nunca (o peor: uno que nunca aparece).
 const VERSION_TS = resolve(RAIZ, 'lib/extension-version.ts');
+
 
 const CHEQUEO = process.argv.includes('--check');
 
@@ -47,6 +50,30 @@ const listarHead = () => execSync('git ls-tree HEAD extension/ --name-only', { e
 const leer = (f) => (CHEQUEO ? deHead(`extension/${f}`) : readFileSync(resolve(ORIGEN, f)));
 
 const version = JSON.parse(leer('manifest.json').toString('utf8')).version;
+
+/**
+ * ⚠️ EL NOMBRE DEL ARCHIVO LLEVA LA VERSION, y no es cosmetico.
+ *
+ * Con un nombre fijo, todo lo que hay entre el repo y la carpeta que Chrome carga
+ * puede quedarse viejo sin que nada lo diga: el cache del navegador, el del CDN, y
+ * sobre todo la carpeta de Descargas — si ya existe `mako-puente.zip`, Chrome guarda
+ * la nueva como `mako-puente (1).zip` y la carpeta descomprimida de antes sigue ahi,
+ * con el mismo nombre. La persona carga la vieja y no tiene forma de saberlo.
+ *
+ * Este repo ya pago esa forma exacta: un cliente estuvo horas corriendo una copia de
+ * la extension de dos horas antes.
+ *
+ * Con la version en el nombre las tres se caen solas: cada version es una URL
+ * distinta —asi que ningun cache puede servir la anterior—, el archivo dice cual es
+ * sin abrirlo, y como el zip trae los archivos SUELTOS en la raiz, la carpeta que
+ * queda al descomprimir hereda el nombre: `mako-puente-0.40.0`. El paso de
+ * «elegi la carpeta» deja de ser ambiguo, que es donde mas gente se perdio.
+ *
+ * ⚠️ Y se borra la anterior en la misma corrida: dos zips en `public/` es volver a
+ * tener dos candidatos, que es el problema con otro nombre.
+ */
+const NOMBRE_ZIP = (v) => `mako-puente-${v}.zip`;
+const ZIP = resolve(RAIZ, `public/${NOMBRE_ZIP(version)}`);
 
 const moduloVersion = `// GENERADO por scripts/zip-extension.mjs — no editar a mano.
 //
@@ -99,16 +126,16 @@ if (CHEQUEO) {
   //
   // Es el mismo modo de falla que el catálogo de cursos: un guard que mira el
   // ÁRBOL cuando lo que se publica es el commit.
-  const sinCommitear = execSync('git status --porcelain lib/extension-version.ts public/mako-puente.zip public/mako-puente.sha', { encoding: 'utf8' }).trim();
+  const sinCommitear = execSync('git status --porcelain -- lib/extension-version.ts public/mako-puente*.zip public/mako-puente.sha', { encoding: 'utf8' }).trim();
   if (sinCommitear) {
     console.error('\n  ✖ Lo generado de la extensión NO está en el commit:');
     for (const l of sinCommitear.split('\n')) console.error(`      ${l.trim()}`);
     console.error('\n    Se despliega el COMMIT, no el disco. Agregalos:');
-    console.error('      git add lib/extension-version.ts public/mako-puente.zip public/mako-puente.sha\n');
+    console.error('      git add -A lib/extension-version.ts public/mako-puente.sha public/mako-puente*.zip\n');
     process.exit(1);
   }
 
-  console.log('  ✓ public/mako-puente.zip al día');
+  console.log(`  ✓ public/${NOMBRE_ZIP(version)} al día`);
   process.exit(0);
 }
 
@@ -138,4 +165,10 @@ const buf = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE'
 writeFileSync(ZIP, buf);
 writeFileSync(HUELLA, `${huella}\n`);
 writeFileSync(VERSION_TS, moduloVersion);
-console.log(`✅ public/mako-puente.zip (${archivos.length} archivos, ${(buf.length / 1024).toFixed(1)} KB)`);
+// Las de versiones anteriores se van: dos zips en public/ son dos candidatos.
+for (const viejo of readdirSync(resolve(RAIZ, 'public')).filter((f) => /^mako-puente-.*\.zip$/.test(f))) {
+  if (viejo === NOMBRE_ZIP(version)) continue;
+  rmSync(resolve(RAIZ, 'public', viejo));
+  console.log(`   · borrado public/${viejo}`);
+}
+console.log(`✅ public/${NOMBRE_ZIP(version)} (${archivos.length} archivos, ${(buf.length / 1024).toFixed(1)} KB)`);
