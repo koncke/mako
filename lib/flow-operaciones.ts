@@ -214,8 +214,21 @@ export function dondeAparece(cuerpo: string | null | undefined, ancla: string): 
 export function operacionDelCuerpo(cuerpo: string | null | undefined): { op: string; donde: string } | null {
   for (const o of OPERACIONES) {
     if (!o.token) continue;
-    const donde = dondeAparece(cuerpo, o.token);
-    if (donde) return { op: o.op, donde };
+    // ⚠️ SE DETECTA CON EL TOKEN Y SE ETIQUETA CON LA FRASE, y son dos cosas.
+    //
+    // El token es alfanumérico justamente para que ninguna codificación lo cambie —
+    // por eso encuentra la generación pase lo que pase. Pero eso mismo lo vuelve
+    // INÚTIL como etiqueta: al ser idéntico bajo todas, `dondeAparece` contesta
+    // siempre 'crudo', que es cierto y no dice nada.
+    //
+    // Lo que hace falta para REPETIR el pedido es cómo viajó la FRASE, que sí tiene
+    // espacios y sí cambia: en un cuerpo form-urlencoded es 'form'. Ése es el dato
+    // que dice dónde y cómo hay que escribir el prompt nuevo.
+    //
+    // Medido: token → 'crudo', frase → 'form', sobre el mismo cuerpo.
+    if (!dondeAparece(cuerpo, o.token)) continue;
+    const donde = (o.frase && dondeAparece(cuerpo, o.frase)) || 'token';
+    return { op: o.op, donde };
   }
   return null;
 }

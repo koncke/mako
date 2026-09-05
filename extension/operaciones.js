@@ -112,12 +112,22 @@ export function dondeAparece(cuerpo, ancla) {
   return null;
 }
 
-/** Qué operación es este cuerpo, mirando los tokens del catálogo. */
+/**
+ * Qué operación es este cuerpo, mirando los tokens del catálogo.
+ *
+ * ⚠️ SE DETECTA CON EL TOKEN Y SE ETIQUETA CON LA FRASE, y son dos cosas.
+ * El token es alfanumérico para que ninguna codificación lo cambie — por eso
+ * encuentra la generación pase lo que pase. Y eso mismo lo vuelve inútil como
+ * etiqueta: al ser idéntico bajo todas, contesta siempre 'crudo'.
+ * Lo que hace falta para REPETIR el pedido es cómo viajó la FRASE, que sí tiene
+ * espacios y sí cambia. Medido: token → crudo, frase → form, mismo cuerpo.
+ */
 export function operacionDelCuerpo(cuerpo) {
   for (const o of OPERACIONES) {
     if (!o.token) continue;
-    const donde = dondeAparece(cuerpo, o.token);
-    if (donde) return { op: o.op, donde };
+    if (!dondeAparece(cuerpo, o.token)) continue;
+    const donde = (o.frase && dondeAparece(cuerpo, o.frase)) || 'token';
+    return { op: o.op, donde };
   }
   return null;
 }
