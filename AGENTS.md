@@ -813,11 +813,29 @@ camino de error.
 
 # `res.ok` no es «salió bien»: los proveedores mandan el fallo ADENTRO del 200
 
-Ya mordió en dos, así que no es una rareza de uno:
+Ya mordió en **tres**, así que no es una rareza de uno:
 
 - **Meta** contesta 200 con `body.error` (incl. subcode 4841013, «Permisos»).
 - **Evolution/WhatsApp** contesta 200 con el estado POR PARTICIPANTE adentro:
   `{ "updateParticipants": [ { "status": "403", … } ] }`.
+- **Google BOQ** (el Flow nuevo) contesta 200 con un frame `"er"`. Con `res.ok` el
+  popup le dijo al dueño «Listo, lo verás en tu Flow» sobre un pedido que no creó
+  nada, y fue a buscar un video que nunca se pidió. Lo peor: **el crédito puede
+  haberse gastado igual**, así que el éxito falso no sólo miente, además tapa la
+  única pregunta que importaba.
+
+BOQ agregó dos formas que las otras dos no tenían, y las dos se leen igual que un
+éxito si sólo se busca «¿hay un frame bueno?»:
+
+- **El error y el frame bueno pueden venir en la MISMA respuesta.** Quedarse con el
+  primero que matchea es exactamente cómo se afirma un éxito que no pasó: el frame
+  de error se busca **antes**, siempre.
+- **Un frame con payload vacío (`''`, `null`, `[]`) no es un éxito.** Es la forma en
+  que BOQ dice «te escuché y no hice nada», y es indistinguible de un ok si sólo se
+  mira que el frame exista.
+
+El lector vive en `lib/flow-boq-respuesta.ts`, con test, y se copia a la extensión
+por `scripts/sync-boq-respuesta.mjs` (chequeo de pre-push).
 
 Un cliente reportó «le di a enviar y no pasó nada, ni siquiera un mensaje de error»
 justamente por esto: `agregarParticipanteGrupo` hacía `return r.ok ? { ok: true } : …`,
@@ -2979,3 +2997,73 @@ Y el corolario del rendimiento, que aparece en la misma pasada: si el valor se u
 adentro de un bucle, **se hoistea afuera**. `credWs` no cachea (un SELECT por llamada),
 así que un sondeo de 37 vueltas pasaba a 74 consultas — y cada una es una chance
 independiente de abortar a mitad de un árbol ya creado.
+
+# Un test que no probaste ROMPIÉNDOLO es una afirmación, no una medición
+
+Un test nuevo que sale verde no dice nada: no sabés si mide lo que creés o si mide
+nada. La comprobación es de dos líneas y hay que hacerla **siempre**: rompé a
+propósito lo que el test persigue, corré, mirá que falle, restaurá.
+
+Pasó acá, en el test escrito para cazar un `datos:` donde el server lee `data:`.
+Extraía las claves con `/^\s*(\w+):/gm` —ancla de principio de línea— y el `return`
+que había que cazar estaba escrito en UNA sola línea. Cero claves, cero fallos,
+verde. **El test pasaba sobre el mismísimo bug que existía para cazar.** Lo delató
+romperlo: con `datos:` seguía dando 2 de 2.
+
+La misma pasada tuvo el caso hermano: `tests/extension-worker-carga.test.ts` daba
+verde sobre un worker que no cargaba, porque `tsx` transpila a CJS y ahí el
+`import()` dinámico no exige exports nombrados.
+
+**En el comentario del test va el resultado de la rotura**, con números: «verificado
+quitando el arreglo: 1 fallo, 1 pase». El que lo lea dentro de seis meses no tiene
+por qué creerte, y ese renglón es la diferencia entre un test probado y uno escrito.
+
+# El copy que ve un cliente no relevé un campo LIBRE
+
+Una pantalla que pinta un string que escribe otro proceso convierte en copy de
+producto cualquier cosa que ese proceso ponga adentro, **sin que nadie lo revise**.
+
+`detalle` del puente de Flow es un campo libre que escribe la extensión en cada
+latido, y `/video-generator` lo pintaba tal cual. Salió dos veces a la pantalla del
+dueño: una como un volcado de JSON del espía cortado a la mitad
+(`{"boq:cPZSdc":{"metodo":"POST",…`), y otra como un párrafo nuestro —«Google
+reescribió Flow y lo movió a flow.google.com; la forma en que MaKo se conectaba con
+la versión anterior ya no existe ahí»— a alguien que no sabía qué era Flow.
+
+Recortar a 120 caracteres no arregla nada: **el problema no es el largo**.
+
+- **La pantalla deriva su rótulo de un estado CERRADO**, no de un texto que le
+  mandan. Si hace falta distinguir más casos, se agrega un código al contrato, no
+  una frase (`estadoDelPuente` en `app/video-generator/puente-avisos.tsx`).
+- El campo libre **sigue viajando y sigue guardándose**: es para diagnosticar.
+  Diagnóstico y copy son dos trabajos y no comparten campo.
+- Y lo mismo del otro lado: **nada de lo que nos pasa a nosotros va en el copy.**
+  Ni «aprendí», ni «ya sé usar tu Flow», ni la historia de qué nos rompió Google.
+  Quien abre MaKo no sabe que hay un puente y no tiene nada que hacer con eso. Se
+  dice qué puede hacer ÉL. Lo fija `tests/extension-copy-cliente.test.ts`.
+
+# Una capacidad que se paga entra por el TRABAJO REAL, no por un botón de probar
+
+Un «pedir un video de prueba» parece prudente y es al revés: gasta un crédito del
+cliente para producir algo que no le sirve, y —cuando la herramienta existe
+justamente para que no tenga que usar la de Google a mano— **lo saca del producto
+para mandarlo a hacerlo a mano**. El dueño lo dijo así: *«¿qué es eso de sacarlo de
+MaKo para redireccionarlo a Flow, si JUSTAMENTE estamos creando una herramienta para
+que no tengan que utilizar Flow a mano?»*.
+
+**El primer trabajo de verdad ES la prueba.** Se cablea en la cola real, y si falla,
+el error aparece donde la persona está esperando el resultado. Un botón de probar
+además duplica el camino: el que se prueba no es el que corre.
+
+# Cuando sólo cambian las PALABRAS, las condiciones no se tocan
+
+Reescribir un copy es tentador de hacer de una sentada, y en esa sentada se reescribe
+la condición que estaba abajo. Pasó acá, en la misma pantalla, el mismo día: al
+cambiar los textos del popup el rótulo del botón volvió a depender de «¿hay frase?»
+en vez de «¿dónde está la persona?». Esa es exactamente la condición que ya se había
+reportado **tres veces** —`subir_imagen` no tiene frase, cae por el `else`, y le dice
+«Ir a Google Flow» a alguien parado en Google Flow—.
+
+Lo cazó el test que fija la condición (`tests/extension-boton-donde-estas.test.ts`).
+**Ése es el permiso para tocar el copy:** si la condición está fijada por un test, se
+puede reescribir todo el texto sin miedo; si no lo está, fijala antes de reescribir.

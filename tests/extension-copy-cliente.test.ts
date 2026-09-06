@@ -32,6 +32,18 @@ const popup = readFileSync(
   resolve(import.meta.dirname, '..', 'extension', 'popup.js'), 'utf8',
 );
 
+/** El aviso que MaKo pinta DENTRO de la app, que es la otra superficie de cliente. */
+const aviso = readFileSync(
+  resolve(import.meta.dirname, '..', 'app', 'video-generator', 'puente-avisos.tsx'), 'utf8',
+);
+
+/** Sin comentarios: ahí se explica el porqué y se NOMBRA la jerga a propósito. */
+function sinComentarios(src: string): string {
+  return src
+    .replace(/^[ \t]*\/\/.*$/gm, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '');
+}
+
 /** Sólo el texto que la persona ve: los `titulo`, `tenue` y `boton` de cada pantalla. */
 function copyDelPopup(): { campo: string; texto: string }[] {
   const out: { campo: string; texto: string }[] = [];
@@ -45,6 +57,20 @@ function copyDelPopup(): { campo: string; texto: string }[] {
     }
   }
   return out;
+}
+
+/**
+ * Sólo lo que se VE del aviso de MaKo: el texto del JSX y las frases sueltas.
+ *
+ * «Frase» = tiene un espacio: eso deja afuera los `import`, los `id` y las claves,
+ * que son código aunque vivan entre comillas.
+ */
+function copyDelAviso(): string[] {
+  const vivo = sinComentarios(aviso);
+  const out: string[] = [];
+  for (const m of vivo.matchAll(/>([^<>{}]{4,})</g)) out.push(m[1].replace(/\s+/g, ' ').trim());
+  for (const m of vivo.matchAll(/'((?:[^'\\]|\\.)*)'/g)) if (/ /.test(m[1])) out.push(m[1]);
+  return out.filter(Boolean);
 }
 
 test('ningún texto de pantalla trae un identificador de código', () => {
@@ -113,4 +139,53 @@ test('toda operación tiene un nombre para personas, distinto de su `op`', () =>
       `el nombre de ${o.op} no se puede componer en una frase: «${o.nombre}»`,
     );
   }
+});
+
+test('el aviso de MaKo no relevé el `detalle` que escribe el navegador', () => {
+  // ⚠️ ESTA ES LA CAUSA, NO EL SÍNTOMA. `detalle` es un campo LIBRE que la extensión
+  // manda en cada latido: pintarlo convierte cualquier cosa que se escriba adentro en
+  // copy de producto sin que nadie lo revise.
+  //
+  // Salió dos veces a la pantalla de un cliente. Una como un volcado de JSON del
+  // espía cortado a la mitad. La otra como un párrafo nuestro: «Google reescribió
+  // Flow y lo movió a flow.google.com; la forma en que MaKo se conectaba con la
+  // versión anterior ya no existe ahí» — a alguien que no sabía qué era Flow.
+  //
+  // Recortar a 120 caracteres no arregla nada: el problema no es el largo.
+  const vivo = sinComentarios(aviso);
+  assert.ok(
+    !/\bdetalle\b/.test(vivo),
+    'El aviso de /video-generator vuelve a mostrar `detalle`.\n\n'
+    + 'Es texto libre que escribe el navegador, no copy revisado. Si hace falta\n'
+    + 'distinguir estados en la pantalla, se agrega un CÓDIGO cerrado al puente y\n'
+    + 'se traduce acá — que es lo que hace `estadoDelPuente`.',
+  );
+});
+
+test('ninguna pantalla de cliente cuenta lo que nos pasa a nosotros', () => {
+  // El copy dice qué puede hacer la persona. Cómo hablamos con Google por dentro no
+  // es de nadie más — y contarlo no es transparencia, es ruido: quien abre MaKo no
+  // sabe qué es Flow, no usó la versión anterior y no tiene nada que hacer con eso.
+  //
+  // ⚠️ LOS DOMINIOS NO ESTÁN EN LA LISTA, A PROPÓSITO. «Borra las cookies de
+  // google.com, labs.google y flow.google.com» es jerga que la persona SÍ necesita:
+  // sin el nombre exacto no puede hacer lo que se le pide. La regla es sobre nuestra
+  // maquinaria, no sobre toda palabra técnica.
+  const JERGA = [
+    'BOQ', 'rpcid', 'batchexecute', 'bearer', 'service worker', 'endpoint',
+    'payload', 'protocolo', 'reescribió', 'plantilla', 'JSON', 'form-urlencoded',
+  ];
+  const fallos: string[] = [];
+  const mirar = (donde: string, texto: string) => {
+    for (const j of JERGA) {
+      if (texto.toLowerCase().includes(j.toLowerCase())) fallos.push(`${donde} → «${j}» en «${texto}»`);
+    }
+  };
+  for (const { campo, texto } of copyDelPopup()) mirar(`popup.js (${campo})`, texto);
+  for (const texto of copyDelAviso()) mirar('puente-avisos.tsx', texto);
+  assert.deepEqual(
+    fallos, [],
+    'Jerga nuestra en una pantalla de cliente:\n  ' + fallos.join('\n  ')
+    + '\n\nSe dice qué puede hacer la persona, no qué nos pasó a nosotros.',
+  );
 });

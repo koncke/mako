@@ -6199,3 +6199,135 @@ alguien instala la extension.
 release de la extension toca dos archivos**. Es a proposito: si se separan, el
 diagnostico reporta «hace falta F5» sobre pestanas al dia, en todos los clientes a la
 vez, y un aviso que sale siempre ensena a ignorar todos los demas.
+
+## Le dije que había creado un video en Flow cuando no lo creó (06/09/2026)
+
+**Vive en:** `lib/flow-boq-respuesta.ts` · `extension/boq-respuesta.js` ·
+`extension/background.js` (`repetirEnBoq`, `ejecutar`) · `extension/popup.js` ·
+`app/video-generator/puente-avisos.tsx` · `scripts/sync-boq-respuesta.mjs`
+
+Reporte textual del dueño, tres cosas en un mensaje:
+
+> «¿Qué es eso de pedir un video de prueba? … En el medio lo apreté una vez anterior
+> y dijo "Listo, lo verás en tu Flow", ¿qué es eso de sacarlo de MaKo para
+> redireccionarlos a Flow, si JUSTAMENTE estamos creando una herramienta para que no
+> tengan que utilizar Flow a mano? Lo peor es que me dijo que ya creó algo en Flow
+> cuando no lo creó.»
+
+Las tres son verdad y **ninguna se veía leyendo el código**: el botón hacía lo que
+decía, el pedido salía, y Google contestaba 200.
+
+### ① El éxito falso: `res.ok` sobre BOQ (y era una regla YA escrita)
+
+`repetirEnBoq` decidía con `res.ok`, que es HTTP 200. BOQ manda el fallo **adentro**
+del cuerpo, en un frame `"er"`. La regla estaba en AGENTS.md desde que mordió con
+Meta y con Evolution; éste es el **tercer proveedor**.
+
+Y BOQ trajo dos variantes que las otras dos no tenían:
+
+- **El error y el frame bueno pueden venir en la misma respuesta.** Buscar el primer
+  `wrb.fr` que matchea es literalmente cómo se afirma un éxito que no pasó. El frame
+  de error se busca **antes**.
+- **Un `wrb.fr` con payload vacío (`''` / `null` / `[]`) no es un éxito**: es «te
+  escuché y no hice nada», y se lee igual que un ok si sólo se mira que el frame
+  exista.
+- Se agregó una tercera: **un frame de OTRO `rpcid` tampoco es un éxito.** Significa
+  que se repitió el pedido equivocado — y eso ya gastó un crédito.
+
+⚠️ Y acá el éxito falso es peor que en los otros dos casos, porque **el crédito puede
+haberse gastado igual**: no sólo miente, además tapa la única pregunta accionable
+(«¿me cobraron?»). Por eso `salio` —que se pone JUSTO antes del `await` en el
+espejo— es lo que decide si se reintenta: si el pedido llegó a salir, reintentar es
+cobrarle dos veces el mismo video.
+
+### ② El diagnóstico obvio era el equivocado: no faltaba «probar», sobraba el botón
+
+Todo el diseño anterior era un **botón de probar** que pedía un video de prueba con
+un crédito del cliente. Parecía prudencia y era el error: gastaba plata ajena para
+producir algo que no le sirve a nadie, y encima —en un producto que existe para que
+el cliente NO tenga que usar Flow a mano— lo sacaba de MaKo y lo mandaba a Flow.
+
+El replay tenía que entrar por **la cola real de trabajos** (`ejecutar()`), que ya
+existía y ya estaba conectada a la pantalla donde la persona espera su anuncio. El
+primer anuncio de verdad ES la prueba. El botón, además, duplicaba el camino: el que
+se probaba no era el que corre.
+
+### ③ `datos` no es `data`: el éxito vacío, una capa más abajo
+
+Al cablear el replay en la cola, el resultado se devolvió como `datos: r.payload`. El
+route lee `r.data ?? null`. Con cualquier otro nombre el trabajo se marca **`listo`
+con el resultado en NULL**: la misma familia de mentira que se acababa de sacar del
+popup, sin nadie mirando y sin error en ningún lado.
+
+Lo fija `tests/extension-cola-clave-data.test.ts`, que además lee la clave **del
+consumidor** (`app/api/flow/puente/route.ts`) y no de una constante nuestra: el
+contrato lo fija quien recibe.
+
+### ④ El test que se mintió a sí mismo
+
+Ese mismo test, en su primera versión, extraía las claves con `/^\s*(\w+):/gm` —ancla
+de principio de línea— y el `return` que había que cazar estaba en UNA sola línea.
+Cero claves, cero fallos, **verde sobre el bug que existía para cazar**. Lo delató
+romperlo a propósito: con `datos:` seguía dando 2 de 2.
+
+Es el segundo falso verde de esta misma corrida (el otro fue el de la carga del
+worker, que pasaba porque `tsx` transpila a CJS). La regla quedó en AGENTS.md, y lo
+concreto de acá: **en el comentario del test va el resultado de la rotura, con
+números.**
+
+### ⑤ El aviso de MaKo contaba NUESTRO problema
+
+> «El aviso con la flecha dentro de MaKo, no entiendo por qué aparece… confunde
+> enormemente a un nuevo usuario que NO sabe lo que nosotros estuvimos haciendo aquí.»
+
+La causa no era la flecha: era que `estadoDelPuente` **relevaba `detalle`**, un campo
+libre que escribe la extensión en cada latido. Pintarlo convierte en copy de producto
+cualquier cosa que se escriba adentro. Salió dos veces a la pantalla del dueño —un
+volcado de JSON del espía, y un párrafo nuestro sobre lo que Google nos rompió—.
+
+Lo que quedó:
+
+- La web deriva su rótulo de un **estado cerrado**. Los tres estados que no son
+  «listo» colapsan en la misma frase a propósito: para la persona son el mismo hecho
+  y tienen la misma salida.
+- `detalle` sigue viajando y guardándose: es **diagnóstico**, y ahora se escribe
+  como tal (`FLOW_NUEVO: sin bearer…`), para quien lea la base buscando por qué algo
+  no filma.
+- `AvisoPuente` devuelve `null` si el puente anda. Los tres call-sites lo gateaban
+  por afuera y alcanzaba… hasta el cuarto. **Una flecha que señala un problema
+  inexistente es lo que hace que se ignore la próxima.**
+- Lo fija `tests/extension-copy-cliente.test.ts`: el aviso no puede volver a
+  mencionar `detalle`, y ninguna pantalla de cliente puede traer jerga nuestra.
+  ⚠️ Los **dominios no están en la lista de jerga**, a propósito: «borra las cookies
+  de google.com, labs.google y flow.google.com» es jerga que la persona SÍ necesita,
+  porque sin el nombre exacto no puede hacer lo que se le pide.
+
+### ⑥ Reescribir el copy volvió a romper la condición que costó tres reportes
+
+Al cambiar los textos del popup, el rótulo del botón volvió a depender de «¿hay
+frase?» en vez de «¿dónde está la persona?». Es **exactamente** la condición del bug
+reportado tres veces: `subir_imagen` no tiene frase, cae por el `else`, y le dice «Ir
+a Google Flow» a alguien parado en Google Flow.
+
+Lo cazó `tests/extension-boton-donde-estas.test.ts` en la misma corrida. La lección
+no es «tené cuidado»: es que **el test que fija la condición es el permiso para tocar
+el copy**. Con él, se reescribe todo el texto sin miedo.
+
+### Lo que queda SIN medir (y qué lo destraba)
+
+**La FORMA del payload de generación de BOQ.** Es un array posicional; `mediaDeFlow`
+(`lib/flow-media.ts`) recorre el árbol buscando un nodo con `name` igual al id de la
+operación y campos como `mediaGenerationStatus`. Sobre un array posicional eso
+devuelve `null`. O sea: **el replay puede generar y aun así el trabajo no rendir un
+video**, hasta que se escriba el mapeo.
+
+No se escribió porque nadie vio todavía una respuesta real de generación, y escribir
+el mapeo sin verla es adivinar. **Lo destraba solo:** el espejo ya cachea las
+respuestas por clase (`respuestas` en `injected.js`) y el diagnóstico las trae, así
+que la primera generación de aprendizaje —la que el cliente hace una vez y ya cuesta
+su crédito— deja la forma medida sin gastar uno extra.
+
+Sigue abierto de antes: el `rpcid` de `subir_imagen` no está medido (la operación es
+estructuralmente no detectable, por eso el catálogo tiene `detectable`), y no se sabe
+si el cuerpo de generación de BOQ lleva un token de reCAPTCHA — aparece en la primera
+corrida real.

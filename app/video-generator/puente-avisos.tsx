@@ -35,6 +35,15 @@ import { EXTENSION_EN_TIENDA, EXTENSION_URL_TIENDA } from '@/lib/extension-tiend
 export const ID_AVISO_PUENTE = 'mk-aviso-puente';
 
 /**
+ * El «todavía no» de MaKo, en una frase que se entiende sin contexto.
+ *
+ * Nombra lo que la persona quiere (que MaKo filme) y no la pieza que falta (una
+ * sesión, un token, una pestaña). Quien abre MaKo por primera vez no sabe que hay
+ * un puente, ni una extensión, ni Google Flow, y no le hace falta saberlo.
+ */
+const TODAVIA_NO = 'MaKo todavía no puede filmar tus anuncios';
+
+/**
  * ¿Este navegador puede instalar la extensión?
  *
  * Es una CORAZONADA, no un hecho: no existe ninguna API que lo conteste. Por eso
@@ -50,37 +59,37 @@ function usePuedeInstalar(): PuedeInstalar | null {
 }
 
 /**
- * QUÉ LE PASA AL NAVEGADOR, en una frase. UN solo juicio.
+ * ¿PUEDE MaKo FILMAR AHORA MISMO? Un solo juicio, en el idioma de quien lo lee.
  *
- * ⚠️ Lo miran DOS cosas que se leen juntas —el aviso y el gate que decide si se
+ * ⚠️ ACÁ NO SE CUENTA LO QUE NOS PASA A NOSOTROS. Este texto salió a la pantalla
+ * de un cliente diciendo «Google reescribió Flow y lo movió a flow.google.com; la
+ * forma en que MaKo se conectaba con la versión anterior ya no existe ahí». Eso es
+ * el diario de nuestro problema. El que lo leyó no sabía qué era Flow, no había
+ * usado nunca la versión anterior, y no tenía nada que hacer con esa información.
+ *
+ * ⚠️ Y POR ESO `detalle` NO SE MUESTRA. Es un campo LIBRE que escribe el navegador
+ * en cada latido: pintarlo acá convierte cualquier cosa que la extensión ponga
+ * adentro en copy de producto sin que nadie lo revise. Ya pasó dos veces —una con
+ * ese párrafo, otra con un volcado de JSON del espía cortado a la mitad—. `detalle`
+ * sigue viajando y sigue guardándose: es para DIAGNOSTICAR, no para mostrar.
+ *
+ * ⚠️ Lo miran DOS cosas que se leen juntas —este aviso y el gate que decide si se
  * puede empezar un anuncio— y por eso está acá y no adentro de un render. Medido
  * antes de unificarlo: el aviso decía «tu navegador no está conectado» mientras
- * otra parte de la misma pantalla decía «falta abrir Google Flow». Hablaban del
- * mismo hecho, la segunda tenía razón, y la primera mandaba a reinstalar una
- * extensión que ya estaba puesta.
+ * otra parte de la misma pantalla decía «falta abrir Google Flow».
+ *
+ * Los tres estados que no son «listo» colapsan en la MISMA frase a propósito: para
+ * la persona son el mismo hecho («todavía no») y tienen la misma salida (abrir la
+ * extensión, que es la única pantalla que sabe cuál de los tres es y qué hacer).
  */
 export function estadoDelPuente(
   p: Puente | null,
   ahora: number | null,
 ): { tono: 'good' | 'warn' | 'bad'; txt: string; anda: boolean; vivo: boolean } {
-  if (!p) return { tono: 'warn', txt: 'Sin conectar', anda: false, vivo: false };
+  if (!p) return { tono: 'warn', txt: TODAVIA_NO, anda: false, vivo: false };
   const vivo = estaVivo(p.ultimoVisto, ahora);
   if (p.estado === 'marcada') return { tono: 'bad', txt: 'Google pausó tu sesión de Flow', anda: false, vivo };
-  if (!vivo) return { tono: 'warn', txt: 'Tu navegador no está conectado', anda: false, vivo };
-  // ⚠️ EL DETALLE QUE MANDÓ EL PUENTE LE GANA A LA FRASE FIJA.
-  //
-  // «Falta abrir Google Flow» es cierto casi siempre y falso justo cuando más duele:
-  // desde que Google reescribió Flow en flow.google.com, el puente reporta
-  // `sin_sesion` para siempre y no hay ningún Flow que abrir que lo arregle. El que
-  // sabe por qué es el navegador, y lo manda en `detalle` en cada latido — esta
-  // pantalla lo tiraba y ponía su propia frase.
-  //
-  // Se recorta: es un rótulo de estado, no un párrafo. El texto largo vive en el
-  // popup, que es donde la persona va a resolverlo.
-  if (p.estado !== 'listo') {
-    const suyo = (p.detalle || '').trim();
-    return { tono: 'warn', txt: suyo ? suyo.slice(0, 120) : 'Falta abrir Google Flow', anda: false, vivo };
-  }
+  if (!vivo || p.estado !== 'listo') return { tono: 'warn', txt: TODAVIA_NO, anda: false, vivo };
   return { tono: 'good', txt: 'Listo', anda: true, vivo };
 }
 
@@ -94,8 +103,13 @@ function Caja({ tono, children }: { tono: 'warn' | 'bad'; children: React.ReactN
   return <div id={ID_AVISO_PUENTE}><Alert tono={tono}>{children}</Alert></div>;
 }
 
-/** Dónde se resuelve todo lo que este aviso NO puede resolver. */
-const EN_LA_EXTENSION = 'Ábrela desde el ícono de MaKo.';
+/**
+ * Dónde se resuelve todo lo que este aviso NO puede resolver.
+ *
+ * Dice DÓNDE está el ícono además de nombrarlo: quien nunca instaló una extensión
+ * no sabe que viven arriba a la derecha, y la flecha sola no alcanza para decirlo.
+ */
+const EN_LA_EXTENSION = 'Abre la extensión de MaKo —el ícono de arriba a la derecha— y ahí te dice qué falta.';
 
 export function AvisoPuente({ puente, ahora, instalada, compacto = false }: {
   puente: Puente | null;
@@ -168,7 +182,8 @@ export function AvisoPuente({ puente, ahora, instalada, compacto = false }: {
     return (
       <Caja tono="bad">
         <strong>Google pausó tu sesión de Flow.</strong> Espera un rato, borra las cookies
-        de google.com y labs.google, y vuelve a entrar a Flow. Reintentar sin hacer eso
+        de google.com, labs.google y flow.google.com, y vuelve a entrar a Flow.
+        Reintentar sin hacer eso
         solo empeora la marca.
         <div style={{ marginTop: 9 }}>
           <Button
@@ -190,10 +205,17 @@ export function AvisoPuente({ puente, ahora, instalada, compacto = false }: {
     );
   }
 
+  // ⚠️ SI EL PUENTE ANDA, ACÁ NO VA NADA. Hoy los tres call sites lo gatean por
+  // afuera, y con eso alcanzaba… hasta el cuarto. Sin esta línea, un render sin
+  // gate pinta «Listo. Abre la extensión de MaKo y ahí te dice qué falta» a alguien
+  // a quien no le falta nada — una flecha que señala un problema inexistente es
+  // exactamente lo que hace que se ignore la próxima.
+  const est = estadoDelPuente(puente, ahora);
+  if (est.anda) return null;
+
   // Lo que queda no tiene ningun boton que esta pagina pueda ofrecer: se resuelve
   // en el popup. Asi que en vez de una cinta mas, es un PUNTERO a donde hay que ir.
-  const { txt } = estadoDelPuente(puente, ahora);
-  return <PunteroALaExtension texto={txt} />;
+  return <PunteroALaExtension texto={est.txt} />;
 }
 
 /**

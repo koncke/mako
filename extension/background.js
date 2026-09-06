@@ -396,6 +396,7 @@ async function soltarGuardia() {
  */
 import { OPERACIONES, A_ENSENAR, A_PEDIR, SIN_DETECTAR, operacionDelCuerpo, operacionDeLaClase } from './operaciones.js';
 import { reemplazarEnCuerpo } from './boq-patch.js';
+import { leerRespuestaBoq } from './boq-respuesta.js';
 /**
  * Repite un pedido de generacion contra el Flow nuevo, con OTRO prompt.
  *
@@ -432,21 +433,26 @@ async function repetirEnBoq(op, prompt) {
   const res = await chrome.tabs.sendMessage(tab.id, {
     tipo: 'BOQ_PEDIDO', url: pl.url, cuerpo: r.cuerpo,
   });
-  return { ...res, op, clase: par[0], donde: r.donde, cuantas: r.cuantas };
-}
+  if (!res || res.error) return { ...res, op, clase: par[0] };
 
-/**
- * La prueba de fuego, a pedido: repite UNA generacion y cuenta que paso.
- *
- * ⚠️ GASTA UN CREDITO DE GOOGLE DEL CLIENTE. Por eso no la llama ningun ciclo
- * automatico: sale del boton del popup, con la persona mirando.
- */
-async function probarGeneracionBoq(prompt) {
-  const r = await repetirEnBoq('generar_clip', prompt || 'un globo rojo subiendo sobre un campo verde');
-  try {
-    await chrome.storage.local.set({ ultimaPruebaBoq: JSON.stringify({ ...r, cuando: Date.now() }).slice(0, 4000) });
-  } catch { /* el resultado igual vuelve por el mensaje */ }
-  return r;
+  // ⚠️ UN 200 NO ES UN EXITO, Y DECIRLO ASI YA MINTIO UNA VEZ.
+  //
+  // BOQ contesta 200 con el fallo ADENTRO del cuerpo. Mirando `res.ok` el popup
+  // dijo «Listo, lo veras en tu Flow» sobre un pedido que no creo nada, y la
+  // persona fue a buscar un video que nunca se pidio.
+  //
+  // Es la regla que este repo ya tenia escrita, medida antes con Meta y con
+  // Evolution. Tercera vez, tercer proveedor.
+  const rpcid = (/[?&]rpcids=([^&,]+)/.exec(pl.url || '') || [])[1];
+  const dice = leerRespuestaBoq(res.texto, rpcid);
+  return {
+    ...res,
+    ok: dice.ok,
+    motivo: dice.ok ? null : dice.motivo,
+    porQue: dice.ok ? null : dice.detalle,
+    payload: dice.ok ? dice.payload : null,
+    op, clase: par[0], donde: r.donde, cuantas: r.cuantas,
+  };
 }
 
 async function guardarPlantillas(tabId) {
@@ -807,6 +813,60 @@ async function asegurarContentScript(tabId) {
 }
 
 async function ejecutar(trabajo) {
+  // ── EL FLOW NUEVO: SE REPITE EL PEDIDO QUE LA PERSONA NOS ENSENO ─────────
+  //
+  // Entra por acá, que es la cola REAL, y no por un boton de prueba. La persona
+  // no quiere «un video de prueba»: quiere su anuncio. El primer anuncio de
+  // verdad ES la prueba, y si falla el error lo dice.
+  //
+  // Solo si HAY plantilla de BOQ para este tipo: si no, cae al camino viejo, que
+  // sigue andando para quien todavia este en labs.google.
+  {
+    const cat = OPERACIONES.find((o) => o.tipo === trabajo.tipo);
+    if (cat && cat.frase) {
+      const guardadas = (await chrome.storage.local.get(CLAVE_PLANTILLAS))[CLAVE_PLANTILLAS] || {};
+      const hay = Object.values(guardadas).some((p) => p && p.op === cat.op && p.cuerpo);
+      if (hay) {
+        const prompt = String((trabajo.pedido && (trabajo.pedido.prompt || trabajo.pedido.texto)) || '');
+        if (!prompt) {
+          return {
+            id: trabajo.id, ok: false, motivo: 'permanente',
+            error: 'El trabajo no trae texto para filmar.', reintentable: false,
+          };
+        }
+        const r = await repetirEnBoq(cat.op, prompt);
+        // ⚠️ LA CLAVE ES `data`, NO `datos`. La lee `app/api/flow/puente/route.ts`
+        // (`r.data ?? null`): con cualquier otro nombre el trabajo se resuelve OK y
+        // con el resultado en null, que es un exito vacio — la misma familia de
+        // mentira que acabamos de sacar del popup, una capa mas abajo.
+        //
+        // ⚠️ Y SE PARSEA. `mediaDeFlow` recorre el ARBOL buscando el nodo del medio;
+        // un string JSON sin parsear es una hoja y la busqueda no entra.
+        //
+        // ⚠️ LO QUE TODAVIA NO ESTA MEDIDO: la FORMA del payload de BOQ. Es un array
+        // posicional, no un objeto con `name` y `mediaGenerationStatus` como el REST
+        // viejo, asi que hasta tener UNA respuesta real de generacion en la mano,
+        // `mediaDeFlow` va a devolver null sobre esto. La respuesta la captura el
+        // espejo sola (`respuestas` en injected.js) en cuanto haya una generacion de
+        // verdad: se mide de ahi y recien entonces se escribe el mapeo. Escribirlo
+        // antes seria adivinar la forma de algo que nadie vio.
+        if (r.ok) {
+          let data = r.payload;
+          try { data = JSON.parse(r.payload); } catch { /* se manda crudo */ }
+          return { id: trabajo.id, ok: true, data };
+        }
+        // ⚠️ `salio` DECIDE SI SE PUEDE REINTENTAR. Si el pedido llego a salir, el
+        // credito ya se gasto: reintentar es cobrarle dos veces por un video.
+        return {
+          id: trabajo.id, ok: false,
+          motivo: r.salio ? 'permanente' : 'transitorio',
+          error: r.porQue || r.error || 'Google no lo acepto.',
+          reintentable: !r.salio,
+        };
+      }
+    }
+  }
+
   // ── EL ENLACE FIRMADO NO PASA POR EL ESPEJO ──────────────────────────────
   //
   // Es el unico trabajo asi, y la razon esta medida: el enlace de un clip no vive
@@ -1128,12 +1188,14 @@ async function ciclo() {
       // captura. Mandar a abrir Flow ahí es mandar a repetir lo que ya está hecho, y
       // el que lo lee no tiene forma de saber que está persiguiendo algo imposible.
       //
-      // El detalle viaja al server y de ahí a la pantalla de MaKo, que hasta hoy
-      // decía «Falta abrir Google Flow» — la misma mentira en la otra superficie.
+      // ⚠️ ESTE TEXTO NO ES COPY: ES DIAGNÓSTICO. Llegó a la pantalla de un cliente
+      // como un párrafo sobre lo que Google nos rompió, y el que lo leyó no sabía qué
+      // era Flow. La web ya no relevé `detalle` —ver `estadoDelPuente`—, así que acá
+      // se escribe para quien va a leer la base buscando por qué algo no filma.
       try {
         const tf = await pestanaDeFlow();
         if (esFlowNuevo(tf.url)) {
-          detalle = 'Google reescribió Flow y lo movió a flow.google.com. La forma en que MaKo se conectaba con la versión anterior ya no existe ahí: no es nada de tu cuenta. Estamos trabajando en la conexión nueva.';
+          detalle = 'FLOW_NUEVO: sin bearer y no lo va a haber; la conexion va por BOQ.';
         }
       } catch { /* sin pestaña, el detalle de arriba es el correcto */ }
     } else if (!apiKey) {
@@ -2264,15 +2326,6 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
   // popup despierta al worker en frio: el callback todavia no corrio, `bearer` es
   // null, y el popup pintaba «falta abrir Flow» con Flow perfectamente abierto.
   // Un dato que depende de una carrera no es un dato.
-  // ⚠️ GASTA UN CREDITO. Sale de un boton, nunca de un ciclo.
-  if (msg?.tipo === 'PROBAR_BOQ') {
-    void probarGeneracionBoq(msg.prompt).then(
-      (r) => responder(r),
-      (e) => responder({ error: 'EXCEPCION', detalle: String((e && e.message) || e) }),
-    );
-    return true;
-  }
-
   if (msg?.tipo === 'ESTADO') {
     chrome.storage.local.get(
       ['token', 'bearer', 'apiKey', 'ultimoLatido', 'saldoLocal', 'emparejando', 'emparejandoDesde', 'emparejarError', 'emparejarCuando', 'emparejarEtiqueta', 'workspaceNombre', 'versionEsperada'],

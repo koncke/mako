@@ -413,6 +413,21 @@ async function pintar() {
     // `v.siguiente` es la PRIMERA que falta, en el orden del catalogo. Una sola,
     // porque la regla de la casa es un paso por pantalla; el «N de M» va como
     // contexto y no como lista.
+    // ⚠️ ACA NO SE CUENTA COMO FUNCIONA MaKo POR DENTRO.
+    //
+    // Estas pantallas llegaron a decir «Ensename a usar tu Flow» y «ya se usar tu
+    // Flow», y a ofrecer «un video de prueba». Eso es NUESTRO problema contado en voz
+    // alta: quien abre MaKo no sabe que hay un puente, no sabe que Google cambio nada,
+    // y no quiere un video de prueba — quiere su anuncio.
+    //
+    // Lo unico que necesita saber es si MaKo ya puede hacer sus anuncios y, si todavia
+    // no, que tiene que hacer UNA vez. El resto es nuestro.
+    //
+    // ⚠️ PERO LA ESTRUCTURA NO SE TOCA, Y ESTO SE REESCRIBIO UNA VEZ SIN MIRARLA:
+    // el rotulo sale del CATALOGO y la condicion es DONDE ESTA LA PERSONA, nunca «si
+    // hay frase». `subir_imagen` no tiene frase; con la condicion de la frase cae por
+    // el else y le dice «Ir a Google Flow» a alguien parado en Google Flow. Eso se
+    // reporto tres veces. Cambiar las palabras no es motivo para volver a romperlo.
     if (v.siguiente) {
       const cuantas = v.cuantasOps || 0;
       const listas = v.cuantasListas || 0;
@@ -420,44 +435,33 @@ async function pintar() {
       // de la cuenta de Google de la persona, y eso no se descubre después. Las
       // gratis lo dicen también: saber que algo NO cuesta es la mitad de la decisión.
       const costo = v.siguiente.cuesta
-        ? ' Esto usa un crédito de tu cuenta de Google, una sola vez.'
+        ? ' Usa un crédito de tu cuenta de Google, una sola vez.'
         : ' Esto no gasta créditos.';
       pantalla({
-        titulo: listas ? 'Falta enseñarme ' + (cuantas - listas) + ' de ' + cuantas
-          : 'Enséñame a usar tu Flow',
+        // El «N de M» va en el título y no como lista: la regla de la casa es un paso
+        // por pantalla, y saber cuántos faltan es lo único que hace falta de los otros.
+        titulo: 'Para que MaKo haga tus anuncios'
+          + (cuantas > 1 ? ' (' + (listas + 1) + ' de ' + cuantas + ')' : ''),
         tenue: v.siguiente.que + costo
           + (v.siguiente.frase ? ' La frase exacta: «' + v.siguiente.frase + '».' : ''),
-        // ⚠️ EL RÓTULO SALE DE DÓNDE ESTÁ LA PERSONA, Y ESO SE DECIDE EN UN SOLO
-        // LUGAR. «Ir a Google Flow» se reportó TRES veces estando en Google Flow: las
-        // tres el botón hacía lo correcto y la etiqueta mentía. La cura no fue una
-        // tercera condición sino que el rótulo viva en el catálogo.
         boton: v.flowEnProyecto ? v.siguiente.boton : 'Ir a Google Flow',
-        accion: (v.flowEnProyecto && v.siguiente.frase)
+        // La acción sí puede mirar la frase: copiar algo que no existe no es una
+        // acción. Lo que no puede mirarla es el RÓTULO, que es lo que mintió.
+        accion: v.flowEnProyecto && v.siguiente.frase
           ? () => copiarFrase(v.siguiente.frase)
           : abrirFlow,
       });
       return;
     }
-    // ⚠️ ACÁ NO VAN NOMBRES DE VARIABLES.
-    //
-    // Esta pantalla llegó a decirle a un cliente «Todavía no sé reconocer creditos,
-    // estado_clips, subir_imagen». Son identificadores del código: en la pantalla de
-    // alguien no se leen como una explicación, se leen como que la app está a medio
-    // hacer. Los nombres para personas viven en el catálogo.
-    //
-    // Y lo que falta se dice en UNA línea, sin disculpas: lo único accionable es que
-    // no hay nada que hacer.
+    // ⚠️ Y ACA NO HAY BOTON DE PROBAR. La persona no quiere probar: quiere su anuncio.
+    // El primer anuncio de verdad ES la prueba, y si algo falla el error aparece donde
+    // ella lo está esperando. Un «video de prueba» ademas la sacaba a Flow a mano, que
+    // es exactamente lo que este producto existe para evitarle.
     pantalla({
-      titulo: 'Ya sé usar tu Flow',
-      tenue: 'Puedo probarlo ahora: le pido un video de prueba y te digo qué contestó.'
-        + ' Usa un crédito de tu cuenta de Google.'
-        + ((v.sinDetectar || []).length
-          ? ' Todavía me falta ' + v.sinDetectar.join(' y ') + ', y eso lo resuelvo yo.'
-          : ''),
-      boton: 'Pedirle un video de prueba',
-      accion: probarGeneracion,
-      boton2: 'Ir a MaKo',
-      accion2: abrirMako,
+      titulo: 'MaKo ya puede hacer tus anuncios',
+      tenue: 'Todo listo. Crea tu anuncio en MaKo y él se encarga del resto.',
+      boton: 'Ir a MaKo',
+      accion: abrirMako,
     });
     return;
   }
@@ -698,55 +702,6 @@ function bajarNueva() {
  * salió bien — y el clip ya se pagó, en créditos del cliente. Transcribir a mano un
  * token como `mako7f3a9c` es exactamente donde eso pasa.
  */
-/**
- * Le pide a Flow un video de prueba, repitiendo el pedido que aprendimos.
- *
- * ⚠️ GASTA UN CRÉDITO DE LA CUENTA DE GOOGLE DE LA PERSONA, y por eso sale de un
- * botón y nunca de un ciclo automático. El texto lo dice antes de apretar.
- *
- * Y lo que se muestra es lo que CONTESTÓ Google, no un «listo»: si algo falla, el
- * crédito ya se gastó y la persona tiene derecho a saber en qué.
- */
-async function probarGeneracion() {
-  pantalla({ titulo: 'Se lo estoy pidiendo…', tenue: 'Puede tardar hasta un minuto. No cierres esta ventana.' });
-  let r;
-  try { r = await enviar({ tipo: 'PROBAR_BOQ' }); } catch (e) { r = { error: 'SIN_RESPUESTA' }; }
-
-  if (r && r.ok) {
-    pantalla({
-      titulo: 'Se lo pedí y lo aceptó',
-      tenue: 'Google contestó que sí. El video aparece en tu Flow en un rato.',
-      boton: 'Ir a MaKo',
-      accion: abrirMako,
-    });
-    return;
-  }
-
-  // ⚠️ CADA FALLA DICE DE QUIÉN FUE Y QUÉ HACER — y sobre todo, SI YA COSTÓ.
-  // Un «no se pudo» a secas deja a la persona sin saber si le cobraron.
-  const POR_QUE = {
-    SIN_PLANTILLA: ['Todavía no sé pedirle un video', 'Genera uno tú con la frase que te doy y aprendo.'],
-    SIN_ANCLA: ['No encontré dónde va el texto', 'La plantilla que aprendí ya no sirve: hay que enseñarme de nuevo.'],
-    SIN_AT: ['Tu sesión de Flow no está lista', 'Recarga la pestaña de Google Flow y vuelve a probar.'],
-    NO_FLOW_TAB: ['No tienes Google Flow abierto', 'Ábrelo desde el ícono de MaKo y vuelve a probar.'],
-    PESTANA_MUDA: ['La pestaña de Flow no responde', 'Recárgala (F5) y vuelve a probar.'],
-    BOQ_TIMEOUT: ['Google tardó demasiado', 'El pedido salió, así que puede haberse cobrado. Míralo en tu Flow antes de repetir.'],
-  };
-  const cod = (r && (r.error || (r.status ? 'HTTP_' + r.status : ''))) || 'SIN_RESPUESTA';
-  const t = POR_QUE[cod];
-  // ⚠️ `salio` decide si ya costó. Si el pedido llegó a salir, el crédito se gastó
-  // pase lo que pase después, y repetir es pagar dos veces.
-  const yaCosto = !!(r && r.salio);
-  pantalla({
-    titulo: t ? t[0] : 'Google no lo aceptó',
-    tenue: (t ? t[1]
-      : 'Contestó ' + (r && r.status ? 'con un error ' + r.status : 'algo que no supe leer') + '.')
-      + (yaCosto ? ' El pedido salió, así que revisa tu Flow antes de repetir: puede haberse cobrado.' : ''),
-    boton: 'Ir a MaKo',
-    accion: abrirMako,
-  });
-}
-
 async function copiarFrase(frase) {
   try {
     await navigator.clipboard.writeText(frase);
