@@ -85,6 +85,24 @@ export type Operacion = {
   cuesta: boolean;
   /** Si el pedido lleva token de reCAPTCHA (ver SIN_CAPTCHA en background.js). */
   captcha: boolean;
+  /**
+   * El rótulo del botón cuando la persona YA está parada donde tiene que actuar.
+   *
+   * ⚠️ EXISTE PORQUE «Ir a Google Flow» SE REPORTÓ TRES VECES ESTANDO EN GOOGLE FLOW.
+   *
+   * Las tres veces el botón HACÍA lo correcto —`abrirFlow` enfoca la pestaña, así que
+   * estando ahí sólo cierra el popup y deja Flow adelante— y las tres veces la
+   * ETIQUETA mentía. El defecto no estaba en la acción sino en el rótulo, y por eso
+   * sobrevivió a dos arreglos: cada uno agregaba una condición para SU caso y el
+   * siguiente caía por el `else`.
+   *
+   * Vive acá y no en un `if` del popup para que una operación nueva no pueda nacer sin
+   * su rótulo: el compilador lo exige.
+   *
+   * Nombra su acción y su objeto, nunca un verbo suelto — la regla de la casa de que
+   * ningún botón puede ser «Aceptar» a secas.
+   */
+  boton: string;
   /** Qué tiene que hacer la persona, en una línea, en español neutro. */
   que: string;
 };
@@ -107,6 +125,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     pide: false,
     cuesta: false,
     captcha: false,
+    boton: 'Entendido',
     que: 'Se aprende sola: Flow lee tu saldo cada vez que abres el proyecto.',
   },
   {
@@ -119,6 +138,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     pide: false,
     cuesta: false,
     captcha: false,
+    boton: 'Entendido',
     que: 'Se aprende sola mientras un video tuyo se está generando.',
   },
   {
@@ -133,6 +153,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     captcha: false,
     // Es la que el dueño preguntó por su nombre. Gratis: se aprende la primera vez
     // que la persona sube una foto suya, sin pedirle nada extra.
+    boton: 'Subir la foto',
     que: 'Sube una foto tuya a Flow una vez. Con eso queda aprendida.',
   },
   {
@@ -145,6 +166,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     pide: true,
     cuesta: true,
     captcha: true,
+    boton: 'Copiar la frase',
     que: 'Genera UN video de 4 segundos con la frase exacta que MaKo te da.',
   },
   {
@@ -161,6 +183,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     pide: true,
     cuesta: true,
     captcha: true,
+    boton: 'Copiar la frase',
     que: 'Genera UNA imagen con la frase exacta que MaKo te da.',
   },
   {
@@ -181,6 +204,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     // modelo de CORS.
     //
     // Por eso sobrevive a que Google reescriba el protocolo: no depende de él.
+    boton: 'Entendido',
     que: 'No hace falta enseñarla: MaKo la resuelve mirando el tráfico.',
   },
 ]);

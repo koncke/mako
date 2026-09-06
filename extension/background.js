@@ -2205,7 +2205,10 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
           // las tres que si necesitan a la persona.
           const falta = A_PEDIR.find((o) => !ops[o.op]);
           siguiente = falta
-            ? { op: falta.op, frase: falta.frase, que: falta.que, cuesta: falta.cuesta }
+            ? {
+              op: falta.op, frase: falta.frase, que: falta.que,
+              cuesta: falta.cuesta, boton: falta.boton,
+            }
             : null;
           const conSentinela = Object.entries(guardadas).find(([, p]) => p && p.sentinela);
           aprendioGenerar = !!conSentinela;

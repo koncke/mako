@@ -21,6 +21,7 @@ export const OPERACIONES = Object.freeze([
     "pide": false,
     "cuesta": false,
     "captcha": false,
+    "boton": "Entendido",
     "que": "Se aprende sola: Flow lee tu saldo cada vez que abres el proyecto."
   },
   {
@@ -33,6 +34,7 @@ export const OPERACIONES = Object.freeze([
     "pide": false,
     "cuesta": false,
     "captcha": false,
+    "boton": "Entendido",
     "que": "Se aprende sola mientras un video tuyo se está generando."
   },
   {
@@ -45,6 +47,7 @@ export const OPERACIONES = Object.freeze([
     "pide": true,
     "cuesta": false,
     "captcha": false,
+    "boton": "Subir la foto",
     "que": "Sube una foto tuya a Flow una vez. Con eso queda aprendida."
   },
   {
@@ -57,6 +60,7 @@ export const OPERACIONES = Object.freeze([
     "pide": true,
     "cuesta": true,
     "captcha": true,
+    "boton": "Copiar la frase",
     "que": "Genera UN video de 4 segundos con la frase exacta que MaKo te da."
   },
   {
@@ -69,6 +73,7 @@ export const OPERACIONES = Object.freeze([
     "pide": true,
     "cuesta": true,
     "captcha": true,
+    "boton": "Copiar la frase",
     "que": "Genera UNA imagen con la frase exacta que MaKo te da."
   },
   {
@@ -81,6 +86,7 @@ export const OPERACIONES = Object.freeze([
     "pide": false,
     "cuesta": false,
     "captcha": false,
+    "boton": "Entendido",
     "que": "No hace falta enseñarla: MaKo la resuelve mirando el tráfico."
   }
 ]);

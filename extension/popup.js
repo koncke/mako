@@ -429,17 +429,19 @@ async function pintar() {
         tenue: v.siguiente.que + ' ' + costo
           + (v.siguiente.frase ? ' La frase exacta: «' + v.siguiente.frase + '».' : ''),
         // Copiar solo tiene sentido si hay frase Y si esta parado donde pegarla.
-        // ⚠️ NINGUN BOTON PUEDE NO HACER NADA.
+        // ⚠️ EL ROTULO SALE DE DONDE ESTA LA PERSONA, Y ESO SE DECIDE EN UN SOLO LUGAR.
         //
-        // Habia una rama que mostraba «Entendido» y solo cerraba la ventana. Un boton
-        // que no hace nada no se lee como «no hay nada que hacer»: se lee como que la
-        // app esta rota. Reportado textual: «le doy a Entendido y no hace nada».
+        // «Ir a Google Flow» se reporto TRES veces estando en Google Flow. Las tres el
+        // boton hacia lo correcto —`abrirFlow` enfoca la pestana, asi que estando ahi
+        // solo cierra el popup y deja Flow adelante— y las tres la ETIQUETA mentia.
         //
-        // Ahora hay dos salidas y las dos hacen algo: copiar la frase cuando hay una y
-        // la persona ya esta parada donde pegarla, o llevarla ahi. `subir_imagen` no
-        // tiene frase y tambien pide algo —subir una foto—, asi que cae en la segunda.
-        boton: (v.siguiente.frase && v.flowEnProyecto) ? 'Copiar la frase' : 'Ir a Google Flow',
-        accion: (v.siguiente.frase && v.flowEnProyecto)
+        // Sobrevivio a dos arreglos porque cada uno agregaba una condicion para SU
+        // caso y el siguiente caia por el `else`: primero el que tenia frase, despues
+        // `subir_imagen`, que no tiene. La cura no es una tercera condicion: es que la
+        // pregunta sea UNA —¿esta parada donde tiene que actuar?— y que el rotulo de
+        // cada operacion viva en el catalogo, donde el compilador lo exige.
+        boton: v.flowEnProyecto ? v.siguiente.boton : 'Ir a Google Flow',
+        accion: (v.flowEnProyecto && v.siguiente.frase)
           ? () => copiarFrase(v.siguiente.frase)
           : abrirFlow,
       });
