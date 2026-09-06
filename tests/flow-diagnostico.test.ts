@@ -92,6 +92,21 @@ test('el resumen NOMBRA el desfase del espejo', () => {
   assert.ok(!resumenDiagnostico(sanearDiagnostico(BUENO)).includes('F5'));
 });
 
+test('las listas se deduplican: un conteo inflado se lee como un dato', () => {
+  // ⚠️ MEDIDO EN PRODUCCIÓN: «3 operaciones aprendidas · sabe: generar_imagen,
+  // generar_clip, generar_imagen». Eran DOS. El navegador manda una entrada por
+  // PLANTILLA y dos plantillas pueden resolver a la misma operación.
+  //
+  // Un contador que dice 3 donde hay 2 no se lee como un bug: se lee como un dato,
+  // y quien lo lea concluye que falta una menos de las que faltan.
+  const d = sanearDiagnostico({ ...BUENO, ops: ['a', 'b', 'a', 'b', 'a'], clases: ['x', 'x'] });
+  assert.ok(d);
+  assert.deepEqual(d.ops, ['a', 'b']);
+  assert.deepEqual(d.clases, ['x']);
+  // Y el resumen cuenta sobre la lista ya limpia.
+  assert.match(resumenDiagnostico(d), /^2 operaciones/);
+});
+
 test('sin diagnóstico, el resumen lo dice en vez de inventar', () => {
   assert.match(resumenDiagnostico(null), /todavía no reportó/);
 });

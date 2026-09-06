@@ -61,10 +61,24 @@ function txt(v: unknown, tope: number): string {
   return typeof v === 'string' ? v.slice(0, tope) : '';
 }
 
-/** Una lista de strings cortos, acotada y sin vacíos. */
+/**
+ * Una lista de strings cortos, acotada, sin vacíos y SIN REPETIDOS.
+ *
+ * ⚠️ EL DEDUPE NO ES COSMÉTICO: infla el conteo. Medido en producción hoy —
+ * «3 operaciones aprendidas · sabe: generar_imagen, generar_clip, generar_imagen».
+ * Eran DOS. El navegador manda una entrada por PLANTILLA y dos plantillas distintas
+ * pueden resolver a la misma operación, así que la lista trae repetidos y el número
+ * de arriba se calcula sobre ella.
+ *
+ * Un contador que dice 3 donde hay 2 no se lee como un bug: se lee como un dato. Y
+ * el que lo lea va a concluir que falta una menos de las que faltan.
+ *
+ * Va acá, en el saneo, y no en cada consumidor: es el único punto por el que pasan
+ * todos, que es donde este repo pone los cortes.
+ */
 function lista(v: unknown, tope: number, cuantos: number): string[] {
   if (!Array.isArray(v)) return [];
-  return v.map((x) => txt(x, tope)).filter(Boolean).slice(0, cuantos);
+  return [...new Set(v.map((x) => txt(x, tope)).filter(Boolean))].slice(0, cuantos);
 }
 
 /**
