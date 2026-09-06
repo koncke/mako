@@ -2860,6 +2860,55 @@ las tres:
 Es el gemelo de «Una regla en un prompt no es una regla», del otro lado del cable: aquella
 mira lo que el modelo ESCRIBE, ésta lo que el modelo LEE.
 
+# Un test que comprueba que un MODULO carga tiene que correr en un `node` de verdad
+
+`tsx` transpila los tests a **CommonJS**, y ahi un `import()` dinamico se resuelve con
+interop de CJS: **no exige que los exports nombrados existan**. Un test que hace
+`await import(...)` para comprobar que un modulo carga da VERDE sobre un modulo que no
+carga.
+
+Medido el 05/09/2026 con el service worker de la extension: `background.js` importaba
+`A_PEDIR` del catalogo y el catalogo no lo exportaba. Eso es un error de LINKEO — en
+Chrome, un service worker que no arranca, o sea una extension que aparece instalada y
+no hace nada, sin un solo error visible. El test decia «carga» y `node` de verdad
+contestaba `does not provide an export named A_PEDIR`.
+
+**Y el test existia justamente para cubrir ese fallo.** Un test verde sobre la
+propiedad equivocada es la forma mas cara de estar seguro; cuando ademas es la unica
+red de ese fallo, es peor que no tenerlo.
+
+La cura: escribir un `.mjs` al vuelo y correrlo con `execFileSync(process.execPath, …)`.
+Ahi el linker de modulos ES es el de produccion. Molde:
+`tests/extension-worker-carga.test.ts`.
+
+**Y el corolario que vale para cualquier import:** la lista de nombres que se comprueba
+se LEE del import real (`/import\s*\{([^}]+)\}\s*from/`), nunca se escribe a mano — una
+lista a mano se queda vieja al proximo import y vuelve el mismo agujero.
+
+# Una operacion que no le PIDE nada a la persona no es un paso de un wizard
+
+«Se aprende gratis» y «no le pide nada a nadie» **no son lo mismo**, y confundirlas
+produce una pantalla que pide algo imposible.
+
+El 05/09/2026 el popup del puente mostraba «Ensename a usar tu Flow» con la lectura de
+creditos como paso siguiente —que se aprende sola mirando lo que Flow hace igual— y un
+boton «Entendido» que solo cerraba la ventana. El dueno lo reporto textual: **«le doy a
+Entendido y no hace nada»**. Y no hacia nada porque no habia nada que hacer.
+
+Lo caro no era el boton muerto: dejaba **TRABADO** ahi, sin llegar nunca a los pasos que
+si necesitaban a la persona. Es «una guarda bloquea solo lo que se arregla haciendo lo
+que ella pide», aplicada a un wizard.
+
+- **El catalogo distingue `pide` de `cuesta`.** Subir una foto es gratis y aun asi pide
+  algo; leer el saldo no cuesta y no pide nada. Son dos preguntas.
+- **El wizard sale de lo que se PIDE**, y el «N de M» cuenta eso. Contar lo que se
+  aprende solo hace que el numero no baje haga lo que haga la persona — y un progreso
+  que no se mueve se lee como que esta roto.
+- **Lo que se aprende solo se NOMBRA aparte**, no se calla. Sin esa linea, quien ve
+  menos operaciones de las que el sistema necesita concluye que falta algo que hacer.
+- **Ningun boton puede no hacer nada.** Uno que solo cierra no se lee como «no hay nada
+  que hacer»: se lee como que la app esta rota.
+
 # Un guard de ORIGEN se escribe con `origin`, nunca con un prefijo de la url
 
 Medido con node el 05/09/2026, con el prefijo `https://flow.google.com`:

@@ -6172,3 +6172,30 @@ prompt sin comillas dice lo mismo; uno mal escapado no dice nada.
 
 *Sesión del 05/09/2026. Dos corridas de agentes: 191 (las cinco causas) y 16 (el
 diseño de los cuatro frentes).*
+
+### Addenda del mismo dia: dos verdes que mentian
+
+**Vive en:** `lib/flow-operaciones.ts` · `extension/popup.js` ·
+`tests/extension-worker-carga.test.ts`
+
+Los dos aparecieron al cablear el wizard, y los dos son de la familia «el sistema
+contesta algo coherente sobre una pregunta que nadie hizo bien».
+
+**① El wizard pedia algo imposible.** Ofrecia la lectura de creditos como paso
+siguiente — se aprende sola, no hay accion que tomar — con un boton que solo cerraba.
+Reportado textual: «le doy a Entendido y no hace nada». La regla completa quedo en
+AGENTS.md; lo especifico de aca es que el catalogo ahora separa **`pide`** de
+**`cuesta`**, porque `subir_imagen` es gratis y aun asi pide algo.
+
+**② El test de «el worker carga» daba verde sobre un worker que no cargaba.** `tsx`
+transpila a CJS y ahi el `import()` dinamico no exige exports nombrados. La regla
+tambien quedo en AGENTS.md. Lo que conviene recordar de este caso concreto: el bug lo
+introdujo el mismo commit que agrego `A_PEDIR`, o sea que **el intervalo entre
+escribir un import y romper el worker es de segundos** — y nada lo dice hasta que
+alguien instala la extension.
+
+⚠️ **Y una consecuencia operativa del versionado del espejo:** `VERSION_ESPEJO` en
+`injected.js` tiene que igualar la version del manifest, con test. O sea que **cada
+release de la extension toca dos archivos**. Es a proposito: si se separan, el
+diagnostico reporta «hace falta F5» sobre pestanas al dia, en todos los clientes a la
+vez, y un aviso que sale siempre ensena a ignorar todos los demas.
