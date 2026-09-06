@@ -64,6 +64,24 @@ export type Operacion = {
   /** Lo que la persona escribe en Flow. Contiene el token. */
   frase: string | null;
   /**
+   * Los rpcids de BOQ con los que se vio pasar esta operación.
+   *
+   * ⚠️ SON UNA PISTA MEDIDA, NO UNA LLAVE — y la diferencia es toda la seguridad de
+   * este campo. Un rpcid es del bundle de Google (`bl=boq_…_20260903.13`) y ROTA. Si
+   * fuera la llave, un id viejo podría matchear el pedido equivocado y MaKo repetiría
+   * OTRA operación contra la cuenta del cliente.
+   *
+   * Por eso sólo se usa para operaciones que **no escriben nada**: leer el saldo y
+   * sondear el estado, las dos en `SIN_CAPTCHA`. Si el id rota, lo peor que pasa es
+   * que la operación vuelve a aparecer como no reconocida — visible y honesto.
+   *
+   * Las que GENERAN nunca se reconocen así: para ésas está el ancla, que no puede
+   * confundirse porque el texto lo escribimos nosotros.
+   *
+   * Medidos el 05/09/2026 generando un clip real y leyendo el espía de producción.
+   */
+  rpcids: readonly string[];
+  /**
    * Si HOY el sistema puede reconocer esta operación cuando pasa.
    *
    * ⚠️ SEPARADO DE `pide` A PROPÓSITO, y la diferencia costó un reporte.
@@ -145,7 +163,8 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     como: 'trafico',
     token: null,
     frase: null,
-    detectable: false,
+    rpcids: ['nzlxg'],
+    detectable: true,
     pide: false,
     cuesta: false,
     captcha: false,
@@ -159,7 +178,8 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     como: 'trafico',
     token: null,
     frase: null,
-    detectable: false,
+    rpcids: ['jwpduf', 'ngNC2'],
+    detectable: true,
     pide: false,
     cuesta: false,
     captcha: false,
@@ -173,6 +193,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     como: 'trafico',
     token: null,
     frase: null,
+    rpcids: [],
     detectable: false,
     pide: true,
     cuesta: false,
@@ -189,6 +210,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     como: 'ancla',
     token: 'mako7f3a9c',
     frase: 'un cubo violeta girando sobre arena mako7f3a9c',
+    rpcids: [],
     detectable: true,
     pide: true,
     cuesta: true,
@@ -207,6 +229,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     // se descubre cuando el pedido sale y Google contesta 400.
     token: 'mako4d1c8b',
     frase: 'una esfera naranja flotando sobre nieve mako4d1c8b',
+    rpcids: [],
     detectable: true,
     pide: true,
     cuesta: true,
@@ -221,6 +244,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     como: 'ninguna',
     token: null,
     frase: null,
+    rpcids: [],
     detectable: false,
     pide: false,
     cuesta: false,
@@ -311,6 +335,30 @@ export function dondeAparece(cuerpo: string | null | undefined, ancla: string): 
  * Devuelve `{ op, donde }` o `null`. Es lo que reemplaza al booleano global: con
  * seis operaciones, «aprendió» sin decir QUÉ aprendió no es una respuesta.
  */
+/**
+ * Qué operación es esta CLASE, por su rpcid.
+ *
+ * ⚠️ SOLO PARA LAS QUE NO ESCRIBEN NADA. Un rpcid rota, así que reconocer por id una
+ * operación que GENERA podría hacer que MaKo repita el pedido equivocado contra la
+ * cuenta del cliente. Las que generan se reconocen por su ancla, que no puede
+ * confundirse porque el texto lo escribimos nosotros.
+ *
+ * La clase de un batch trae varios ids separados por coma (`boq:YhhmEf,ngNC2`): se
+ * exige que TODOS los ids del lote pertenezcan a la misma operación, porque un lote
+ * mezclado no es esa operación — es otra cosa que la contiene.
+ */
+export function operacionDeLaClase(clase: string): string | null {
+  const m = /^boq:(.+)$/.exec(String(clase || ''));
+  if (!m) return null;
+  const ids = m[1].split(',').filter(Boolean);
+  if (!ids.length) return null;
+  for (const o of OPERACIONES) {
+    if (!o.rpcids.length) continue;
+    if (ids.every((id) => o.rpcids.includes(id))) return o.op;
+  }
+  return null;
+}
+
 export function operacionDelCuerpo(cuerpo: string | null | undefined): { op: string; donde: string } | null {
   for (const o of OPERACIONES) {
     if (!o.token) continue;

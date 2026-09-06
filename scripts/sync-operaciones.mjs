@@ -113,6 +113,29 @@ export function dondeAparece(cuerpo, ancla) {
  * Lo que hace falta para REPETIR el pedido es cómo viajó la FRASE, que sí tiene
  * espacios y sí cambia. Medido: token → crudo, frase → form, mismo cuerpo.
  */
+/**
+ * Que operacion es esta CLASE, por su rpcid.
+ *
+ * ⚠️ SOLO PARA LAS QUE NO ESCRIBEN NADA: un rpcid rota, y reconocer por id una
+ * operacion que GENERA podria hacer que MaKo repita el pedido equivocado contra la
+ * cuenta del cliente. Las que generan van por su ancla, que no se puede confundir
+ * porque el texto lo escribimos nosotros.
+ *
+ * Un lote (boq:a,b) tiene que tener TODOS sus ids en la misma operacion: un lote
+ * mezclado no es esa operacion, es otra cosa que la contiene.
+ */
+export function operacionDeLaClase(clase) {
+  const m = /^boq:(.+)$/.exec(String(clase || ''));
+  if (!m) return null;
+  const ids = m[1].split(',').filter(Boolean);
+  if (!ids.length) return null;
+  for (const o of OPERACIONES) {
+    if (!o.rpcids || !o.rpcids.length) continue;
+    if (ids.every((id) => o.rpcids.includes(id))) return o.op;
+  }
+  return null;
+}
+
 export function operacionDelCuerpo(cuerpo) {
   for (const o of OPERACIONES) {
     if (!o.token) continue;

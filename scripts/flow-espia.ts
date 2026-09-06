@@ -46,8 +46,39 @@ async function main() {
   if (error) { console.error('No pude leer:', error.message); process.exit(1); }
   if (!data) { console.error(`No hay puente para el ws ${ws}.`); process.exit(1); }
 
+  // ⚠️ EL JSON LLEGA TRUNCADO, Y UN `catch` QUE DEVUELVE `{}` LO CONVIERTE EN «VACIO».
+  //
+  // El `detalle` se corta con `.slice(0, 7500)` antes de mandarse, asi que casi
+  // siempre es JSON invalido — le falta el cierre. La primera version de este script
+  // hacia `catch { visto = {} }` y contestaba «no reporto ningun pedido» sobre 7500
+  // caracteres de datos perfectamente utiles.
+  //
+  // Es «no encontre» != «no esta», cometido en la herramienta que existe para
+  // contestar exactamente esa pregunta. Ahora se RECUPERA lo que se pueda y se DICE
+  // que vino cortado.
+  const crudo = String(data.estado_detalle || '');
   let visto: Record<string, Visto> = {};
-  try { visto = JSON.parse(String(data.estado_detalle || '{}')); } catch { visto = {}; }
+  let truncado = false;
+  try {
+    visto = JSON.parse(crudo || '{}');
+  } catch {
+    truncado = true;
+    // Se cierra el objeto en la ultima entrada COMPLETA. Cada entrada es
+    // `"clase":{…},` — se corta en la ultima llave que cierra a nivel 1.
+    let nivel = 0; let enCadena = false; let escape = false; let corte = -1;
+    for (let i = 0; i < crudo.length; i++) {
+      const c = crudo[i];
+      if (escape) { escape = false; continue; }
+      if (c === '\\') { escape = true; continue; }
+      if (c === '"') { enCadena = !enCadena; continue; }
+      if (enCadena) continue;
+      if (c === '{') nivel++;
+      else if (c === '}') { nivel--; if (nivel === 1) corte = i; }
+    }
+    if (corte > 0) {
+      try { visto = JSON.parse(crudo.slice(0, corte + 1) + '}'); } catch { visto = {}; }
+    }
+  }
   const clases = Object.keys(visto);
 
   if (!clases.length) {
@@ -57,7 +88,14 @@ async function main() {
     return;
   }
 
-  console.log(`ws ${ws} · extensión v${data.version || '—'} · ${clases.length} clases vistas\n`);
+  console.log(`ws ${ws} · extensión v${data.version || '—'} · ${clases.length} clases vistas`);
+  if (truncado) {
+    // Se dice, porque «vi 12 de 12» y «vi 12 y el resto se cortó» son respuestas
+    // distintas y la segunda cambia lo que se puede concluir de un faltante.
+    console.log(`⚠️  el detalle vino CORTADO en ${crudo.length} caracteres (tope 7500):`
+      + ' hay mas clases de las que se ven acá.');
+  }
+  console.log('');
   let mostradas = 0;
   for (const clase of clases.sort()) {
     if (soloClase && clase !== soloClase) continue;

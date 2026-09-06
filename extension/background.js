@@ -394,7 +394,7 @@ async function soltarGuardia() {
  * Esa distincion ya costo un dia entero: un arreglo correcto en injected.js no se
  * ejecutaba en la pestana que la persona tenia abierta.
  */
-import { OPERACIONES, A_ENSENAR, A_PEDIR, SIN_DETECTAR, operacionDelCuerpo } from './operaciones.js';
+import { OPERACIONES, A_ENSENAR, A_PEDIR, SIN_DETECTAR, operacionDelCuerpo, operacionDeLaClase } from './operaciones.js';
 async function guardarPlantillas(tabId) {
   try {
     const r = await chrome.tabs.sendMessage(tabId, { tipo: 'GUARDAR_PLANTILLAS' });
@@ -428,7 +428,15 @@ async function guardarPlantillas(tabId) {
       // Se DERIVA del cuerpo, aca en el worker: es lo que hace que funcione con el
       // injected.js viejo de una pestana que nadie recargo.
       const hallado = operacionDelCuerpo(p.cuerpo);
-      const op = p.op || (hallado && hallado.op) || (antes && antes.op) || null;
+      // ⚠️ Y POR RPCID, para las que no llevan prompt.
+      //
+      // Leer el saldo y sondear el estado no escriben ningun texto nuestro, asi que no
+      // hay ancla que buscarles — y en BOQ todos los pedidos comparten path. Lo unico
+      // que las distingue es su rpcid, que esta MEDIDO.
+      //
+      // Va DESPUES del ancla a proposito: un rpcid rota y el ancla no. Si alguna vez las
+      // dos contestan, gana la que no puede confundirse.
+      const op = p.op || (hallado && hallado.op) || operacionDeLaClase(p.clase) || (antes && antes.op) || null;
       const sentinela = p.sentinela || (hallado && hallado.donde) || (antes && antes.sentinela) || null;
       mapa[p.clase] = { ...p, op, sentinela, cuando: Date.now() };
     }
