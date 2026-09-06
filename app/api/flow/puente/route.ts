@@ -137,7 +137,26 @@ export async function POST(req: NextRequest) {
 
   // ── 2. El puente reporta que está vivo ────────────────────────────────────
   const estado = ESTADOS.includes(str(body.estado) as EstadoPuente) ? (str(body.estado) as EstadoPuente) : 'listo';
-  const detalle = str(body.detalle);
+  // ⚠️ UN VOLCADO DE MAQUINA NO ES UN MENSAJE, Y ESTA COLUMNA SE MUESTRA.
+  //
+  // `estado_detalle` lo pinta la app en la pantalla del cliente. Un JSON ahi no se
+  // lee como un error nuestro: se lee como que la app se rompio. Ya pasó — un
+  // cliente vio `{"boq:cPZSdc":{"metodo":"POST",…` cortado a la mitad.
+  //
+  // El guard va ACA, en el unico punto por el que pasan todos los latidos, y no en
+  // la pantalla: filtrar al pintar deja el dato malo guardado y la proxima pantalla
+  // que lo lea nace con el mismo bug.
+  const detalleCrudo = str(body.detalle);
+  const pareceVolcado = /^\s*[{[]/.test(detalleCrudo);
+  if (pareceVolcado) {
+    // Se REGISTRA, no se descarta en silencio: una politica que rechaza sin dejar
+    // rastro hace indistinguibles «no llego» de «lo tiramos nosotros».
+    console.warn(`[flow] ws ${ws}: detalle descartado por parecer un volcado (${detalleCrudo.length} car)`);
+  }
+  const detalle = pareceVolcado ? '' : detalleCrudo;
+
+  // Lo que vio el espejo, por clase. Es para diagnosticar y no se muestra nunca.
+  const espia = str(body.espia).slice(0, 7500);
   await marcarVisto(ws, str(body.projectId), estado, detalle, str(body.version), str(body.accionesCaptcha));
 
   // ── La cara se APRENDE, no se consulta ───────────────────────────────────
@@ -340,6 +359,12 @@ export async function POST(req: NextRequest) {
   //
   // Si no viene —una extension vieja— NO se pisa lo anterior con vacio: no saber es
   // distinto de no tener, y un diagnostico vacio se leeria como un puente mudo.
+  if (espia) {
+    try {
+      await runWithWorkspace(ws, () => setSetting('flow.espia', espia));
+    } catch { /* no poder guardar el diagnostico no puede tumbar el latido */ }
+  }
+
   const diag = sanearDiagnostico(body.diagnostico);
   if (diag) {
     try {

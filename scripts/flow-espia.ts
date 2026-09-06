@@ -19,6 +19,8 @@ import { resolve } from 'node:path';
 
 config({ path: resolve(process.cwd(), '.env.local') });
 import { getSupabaseServer } from '../lib/supabase';
+import { runWithWorkspace } from '../lib/workspace';
+import { getSetting } from '../lib/settings';
 
 const arg = (n: string) => {
   const i = process.argv.indexOf(n);
@@ -39,7 +41,7 @@ async function main() {
   const db = getSupabaseServer();
   const { data, error } = await db
     .from('flow_puentes')
-    .select('workspace_id, estado_detalle, ultimo_visto, version')
+    .select('workspace_id, ultimo_visto, version')
     .eq('workspace_id', ws)
     .maybeSingle();
 
@@ -56,7 +58,7 @@ async function main() {
   // Es «no encontre» != «no esta», cometido en la herramienta que existe para
   // contestar exactamente esa pregunta. Ahora se RECUPERA lo que se pueda y se DICE
   // que vino cortado.
-  const crudo = String(data.estado_detalle || '');
+  const crudo = String((await runWithWorkspace(ws, () => getSetting('flow.espia'))) || '');
   let visto: Record<string, Visto> = {};
   let truncado = false;
   try {

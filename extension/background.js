@@ -1105,6 +1105,10 @@ async function ciclo() {
     // Efecto: UN solo intento de reponer el puente por vida del worker. Si la primera
     // vez la pestana no estaba lista, `asegurarContentScript` contesta «mudo» para
     // siempre y el espia deja de mirar — sin un error que lo diga.
+    // Lo que vio el espejo, para diagnosticar. NUNCA se muestra: va aparte de
+    // `detalle`, que es lo que lee el cliente.
+    let espia = '';
+
     reparadasEnEstaVuelta.clear();
 
     // Lo ya guardado, para saber que clases YA tienen operacion y mandarlas al final
@@ -1142,7 +1146,18 @@ async function ciclo() {
           || Object.values(guardadasParaOrden).some((p) => p && p.clase === clase && p.op);
         const orden = Object.entries(r.visto)
           .sort((a, b) => (conocida(a[0]) ? 1 : 0) - (conocida(b[0]) ? 1 : 0));
-        detalle = JSON.stringify(Object.fromEntries(orden)).slice(0, 7500);
+        // ⚠️ VA EN SU PROPIO CAMPO, NUNCA EN `detalle`.
+        //
+        // `detalle` es el MENSAJE HUMANO que la app le muestra al cliente en su
+        // pantalla (app/video-generator/puente-avisos.tsx lo pinta tal cual). Al
+        // escribirle encima el JSON del espia, un cliente termino leyendo
+        //   {"boq:cPZSdc":{"metodo":"POST","hayRespuesta":true,"url":"/_/AiSandbox…
+        // en su propia pantalla, cortado a la mitad y pegado a una frase suelta.
+        //
+        // Son dos canales con dos publicos: uno lo lee una persona que quiere saber
+        // que hacer, el otro lo leo yo para diagnosticar. Mezclarlos convierte cada
+        // mejora del diagnostico en una regresion de la pantalla.
+        espia = JSON.stringify(Object.fromEntries(orden)).slice(0, 7500);
       }
     } catch { /* no poder mirar no apaga nada */ }
 
@@ -1318,6 +1333,9 @@ async function ciclo() {
         // `source-path` con el projectId. Nada de eso hace falta para contestar «que
         // sabe hacer este puente», que es lo unico que este dato existe para decir.
         diagnostico: await armarDiagnostico(plantillasLocales, latido.estado || estado),
+        // El detalle por clase de lo que el espejo vio. Es para diagnosticar y NO se
+        // muestra en ninguna pantalla — por eso viaja aparte de `detalle`.
+        espia,
         // Lo que Flow ya recibio, para saber de donde sale el enlace de un video.
         ...(respuestasVistas ? { respuestas: respuestasVistas } : {}),
         ...(mandarPlantillas ? { plantillas: plantillasLocales } : {}),
@@ -2313,7 +2331,10 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
             .map((o) => o.op),
           // Y aparte, cuales de esas es porque todavia no las sabemos reconocer. Es un
           // limite NUESTRO y se dice como tal, no como algo que la persona deba hacer.
-          sinDetectar: SIN_DETECTAR.filter((o) => !ops[o.op]).map((o) => o.op),
+          // ⚠️ VIAJAN LOS NOMBRES PARA PERSONAS, NO LOS `op`. Esto se pinta en la
+          // pantalla de un cliente, y un identificador de codigo ahi se lee como que
+          // la app esta a medio hacer. Ya paso.
+          sinDetectar: SIN_DETECTAR.filter((o) => !ops[o.op]).map((o) => o.nombre),
           volviAlProyecto,
           ultimoLatido: v.ultimoLatido || null,
           saldo: v.saldoLocal || null,

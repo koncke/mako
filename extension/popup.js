@@ -416,29 +416,21 @@ async function pintar() {
     if (v.siguiente) {
       const cuantas = v.cuantasOps || 0;
       const listas = v.cuantasListas || 0;
-      // ⚠️ SE DICE SI CUESTA, ANTES. Lo que sigue puede gastar un credito de Google
-      // de la persona, y eso no se descubre despues de apretar. Las tres gratis lo
-      // dicen tambien: saber que algo NO cuesta es la mitad de la decision.
+      // ⚠️ SE DICE SI CUESTA, ANTES DE APRETAR. Lo que sigue puede gastar un crédito
+      // de la cuenta de Google de la persona, y eso no se descubre después. Las
+      // gratis lo dicen también: saber que algo NO cuesta es la mitad de la decisión.
       const costo = v.siguiente.cuesta
-        ? 'Esto gasta un credito de tu cuenta de Google. Es una sola vez.'
-        : 'Esto no gasta creditos.';
+        ? ' Esto usa un crédito de tu cuenta de Google, una sola vez.'
+        : ' Esto no gasta créditos.';
       pantalla({
-        titulo: listas ? 'Falta ensenarme ' + (cuantas - listas) + ' de ' + cuantas
-          : 'Ensename a usar tu Flow',
-        tenue: v.siguiente.que + ' ' + costo
+        titulo: listas ? 'Falta enseñarme ' + (cuantas - listas) + ' de ' + cuantas
+          : 'Enséñame a usar tu Flow',
+        tenue: v.siguiente.que + costo
           + (v.siguiente.frase ? ' La frase exacta: «' + v.siguiente.frase + '».' : ''),
-        // Copiar solo tiene sentido si hay frase Y si esta parado donde pegarla.
-        // ⚠️ EL ROTULO SALE DE DONDE ESTA LA PERSONA, Y ESO SE DECIDE EN UN SOLO LUGAR.
-        //
-        // «Ir a Google Flow» se reporto TRES veces estando en Google Flow. Las tres el
-        // boton hacia lo correcto —`abrirFlow` enfoca la pestana, asi que estando ahi
-        // solo cierra el popup y deja Flow adelante— y las tres la ETIQUETA mentia.
-        //
-        // Sobrevivio a dos arreglos porque cada uno agregaba una condicion para SU
-        // caso y el siguiente caia por el `else`: primero el que tenia frase, despues
-        // `subir_imagen`, que no tiene. La cura no es una tercera condicion: es que la
-        // pregunta sea UNA —¿esta parada donde tiene que actuar?— y que el rotulo de
-        // cada operacion viva en el catalogo, donde el compilador lo exige.
+        // ⚠️ EL RÓTULO SALE DE DÓNDE ESTÁ LA PERSONA, Y ESO SE DECIDE EN UN SOLO
+        // LUGAR. «Ir a Google Flow» se reportó TRES veces estando en Google Flow: las
+        // tres el botón hacía lo correcto y la etiqueta mentía. La cura no fue una
+        // tercera condición sino que el rótulo viva en el catálogo.
         boton: v.flowEnProyecto ? v.siguiente.boton : 'Ir a Google Flow',
         accion: (v.flowEnProyecto && v.siguiente.frase)
           ? () => copiarFrase(v.siguiente.frase)
@@ -446,29 +438,20 @@ async function pintar() {
       });
       return;
     }
-    // ⚠️ NO QUEDA NINGUNA: se dice, y se dice QUE aprendio. Un «listo» pelado se lee
-    // igual este bien o mal, que es como este puente dijo «Todo listo» tres veces
-    // sobre algo que no funcionaba.
+    // ⚠️ ACÁ NO VAN NOMBRES DE VARIABLES.
+    //
+    // Esta pantalla llegó a decirle a un cliente «Todavía no sé reconocer creditos,
+    // estado_clips, subir_imagen». Son identificadores del código: en la pantalla de
+    // alguien no se leen como una explicación, se leen como que la app está a medio
+    // hacer. Los nombres para personas viven en el catálogo.
+    //
+    // Y lo que falta se dice en UNA línea, sin disculpas: lo único accionable es que
+    // no hay nada que hacer.
     pantalla({
-      titulo: 'Ya se usar tu Flow',
-      // ⚠️ SE NOMBRA LO QUE FALTA APRENDER SOLO, en vez de callarlo. Si alguien mira
-      // el estado y ve menos operaciones de las que el puente necesita, sin esta linea
-      // concluye que falta algo que tiene que hacer — y no hay nada que hacer.
-      // ⚠️ SE DICE QUE FALTA Y POR QUE NO SE PIDE. Son dos motivos distintos y el
-      // segundo es un limite NUESTRO, no una tarea de la persona:
-      //
-      //   · unas se aprenden solas mirando lo que Flow hace igual;
-      //   · otras todavia no las sabemos reconocer (no llevan prompt, y en el Flow
-      //     nuevo todos los pedidos comparten el mismo path).
-      //
-      // Callar la segunda es lo que dejo a alguien subiendo una foto una y otra vez
-      // sin que pasara nada. Decirla no arregla el limite, pero deja de mandar a
-      // hacer algo que no sirve.
-      tenue: 'No necesito que hagas nada mas.'
-        + (Object.keys(v.ops || {}).length ? ' Ya se: ' + Object.keys(v.ops).join(', ') + '.' : '')
+      titulo: 'Ya sé usar tu Flow',
+      tenue: 'No necesito que hagas nada más.'
         + ((v.sinDetectar || []).length
-          ? ' Todavia no se reconocer ' + v.sinDetectar.join(', ') + ' — es un limite mio,'
-            + ' no hay nada que puedas hacer para destrabarlo.'
+          ? ' Todavía me falta ' + v.sinDetectar.join(' y ') + ', y eso lo resuelvo yo.'
           : ''),
       boton: 'Ir a MaKo',
       accion: abrirMako,

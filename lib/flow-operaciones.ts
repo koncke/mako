@@ -142,6 +142,15 @@ export type Operacion = {
    * ningún botón puede ser «Aceptar» a secas.
    */
   boton: string;
+  /**
+   * Cómo se llama esto para una persona.
+   *
+   * ⚠️ `op` es un identificador de código y NUNCA se muestra. El popup llegó a
+   * decirle a un cliente «Todavía no sé reconocer creditos, estado_clips,
+   * subir_imagen» — nombres de variables en su pantalla. Eso no se lee como una
+   * explicación: se lee como que la app está a medio hacer.
+   */
+  nombre: string;
   /** Qué tiene que hacer la persona, en una línea, en español neutro. */
   que: string;
 };
@@ -166,6 +175,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     cuesta: false,
     captcha: false,
     boton: 'Entendido',
+    nombre: 'leer tu saldo',
     que: 'Se aprende sola: Flow lee tu saldo cada vez que abres el proyecto.',
   },
   {
@@ -180,6 +190,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     cuesta: false,
     captcha: false,
     boton: 'Entendido',
+    nombre: 'seguir un video mientras se genera',
     que: 'Se aprende sola mientras un video tuyo se está generando.',
   },
   {
@@ -196,6 +207,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     // Es la que el dueño preguntó por su nombre. Gratis: se aprende la primera vez
     // que la persona sube una foto suya, sin pedirle nada extra.
     boton: 'Subir la foto',
+    nombre: 'reconocer cuándo subes una foto',
     que: 'Sube una foto tuya a Flow una vez. Con eso queda aprendida.',
   },
   {
@@ -210,6 +222,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     cuesta: true,
     captcha: true,
     boton: 'Copiar la frase',
+    nombre: 'pedirle un video',
     que: 'Genera UN video de 4 segundos con la frase exacta que MaKo te da.',
   },
   {
@@ -228,6 +241,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     cuesta: true,
     captcha: true,
     boton: 'Copiar la frase',
+    nombre: 'pedirle una imagen',
     que: 'Genera UNA imagen con la frase exacta que MaKo te da.',
   },
   {
@@ -250,6 +264,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     //
     // Por eso sobrevive a que Google reescriba el protocolo: no depende de él.
     boton: 'Entendido',
+    nombre: 'descargar lo que genera',
     que: 'No hace falta enseñarla: MaKo la resuelve mirando el tráfico.',
   },
 ]);
