@@ -394,7 +394,7 @@ async function soltarGuardia() {
  * Esa distincion ya costo un dia entero: un arreglo correcto en injected.js no se
  * ejecutaba en la pestana que la persona tenia abierta.
  */
-import { OPERACIONES, A_ENSENAR, operacionDelCuerpo } from './operaciones.js';
+import { OPERACIONES, A_ENSENAR, A_PEDIR, operacionDelCuerpo } from './operaciones.js';
 async function guardarPlantillas(tabId) {
   try {
     const r = await chrome.tabs.sendMessage(tabId, { tipo: 'GUARDAR_PLANTILLAS' });
@@ -2192,10 +2192,21 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
             const hit = Object.entries(guardadas).find(([, p]) => p && p.op === o.op);
             if (hit) ops[o.op] = { clase: hit[0], donde: null, cuando: hit[1].cuando || 0 };
           }
-          // La PRIMERA que falta, en el orden del catalogo. Una sola, porque la
-          // pantalla muestra un paso por vez.
-          const falta = A_ENSENAR.find((o) => !ops[o.op]);
-          siguiente = falta ? { op: falta.op, frase: falta.frase, que: falta.que, cuesta: falta.cuesta } : null;
+          // ⚠️ SALE DE `A_PEDIR`, NO DE `A_ENSENAR`, Y LA DIFERENCIA ES UN BUG QUE YA
+          // SE REPORTO.
+          //
+          // `creditos` y `estado_clips` se aprenden solas mirando lo que Flow hace
+          // igual: no hay NINGUNA accion que la persona pueda tomar para que pasen
+          // antes. Ofrecerlas como «el siguiente paso» mostraba una pantalla que pide
+          // algo imposible, con un boton «Entendido» que solo cerraba la ventana.
+          // Reportado textual: «le doy a Entendido y no hace nada».
+          //
+          // Y lo caro no era el boton muerto: dejaba TRABADO ahi, sin llegar nunca a
+          // las tres que si necesitan a la persona.
+          const falta = A_PEDIR.find((o) => !ops[o.op]);
+          siguiente = falta
+            ? { op: falta.op, frase: falta.frase, que: falta.que, cuesta: falta.cuesta }
+            : null;
           const conSentinela = Object.entries(guardadas).find(([, p]) => p && p.sentinela);
           aprendioGenerar = !!conSentinela;
           // Y se guarda CUAL fue: el dia que haya que repetir el pedido, no se vuelve a
@@ -2221,9 +2232,14 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
           claseAprendida,
           ops,
           siguiente,
-          // Cuantas de las que se ensenan ya estan, para el «N de M» de la pantalla.
-          cuantasOps: A_ENSENAR.length,
-          cuantasListas: Object.keys(ops).filter((k) => A_ENSENAR.some((o) => o.op === k)).length,
+          // ⚠️ EL «N de M» CUENTA LO QUE SE PIDE, no todo lo que el puente necesita.
+          // Contar las que se aprenden solas hace que el numero no baje haga lo que
+          // haga la persona — un progreso que no se mueve se lee como que esta roto.
+          cuantasOps: A_PEDIR.length,
+          cuantasListas: A_PEDIR.filter((o) => ops[o.op]).length,
+          // Y lo que se aprende solo se dice aparte, para que no parezca que falta
+          // algo que nadie tiene que hacer.
+          solas: A_ENSENAR.filter((o) => !o.pide && !ops[o.op]).map((o) => o.op),
           volviAlProyecto,
           ultimoLatido: v.ultimoLatido || null,
           saldo: v.saldoLocal || null,

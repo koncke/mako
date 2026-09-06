@@ -424,16 +424,24 @@ async function pintar() {
         ? 'Esto gasta un credito de tu cuenta de Google. Es una sola vez.'
         : 'Esto no gasta creditos.';
       pantalla({
-        titulo: listas ? 'Falta ensenarme ' + (cuantas - listas) + ' de ' + cuantas : 'Ensename a usar tu Flow',
+        titulo: listas ? 'Falta ensenarme ' + (cuantas - listas) + ' de ' + cuantas
+          : 'Ensename a usar tu Flow',
         tenue: v.siguiente.que + ' ' + costo
           + (v.siguiente.frase ? ' La frase exacta: «' + v.siguiente.frase + '».' : ''),
         // Copiar solo tiene sentido si hay frase Y si esta parado donde pegarla.
-        boton: (v.siguiente.frase && v.flowEnProyecto)
-          ? 'Copiar la frase'
-          : (v.flowEnProyecto ? 'Entendido' : 'Ir a Google Flow'),
+        // ⚠️ NINGUN BOTON PUEDE NO HACER NADA.
+        //
+        // Habia una rama que mostraba «Entendido» y solo cerraba la ventana. Un boton
+        // que no hace nada no se lee como «no hay nada que hacer»: se lee como que la
+        // app esta rota. Reportado textual: «le doy a Entendido y no hace nada».
+        //
+        // Ahora hay dos salidas y las dos hacen algo: copiar la frase cuando hay una y
+        // la persona ya esta parada donde pegarla, o llevarla ahi. `subir_imagen` no
+        // tiene frase y tambien pide algo —subir una foto—, asi que cae en la segunda.
+        boton: (v.siguiente.frase && v.flowEnProyecto) ? 'Copiar la frase' : 'Ir a Google Flow',
         accion: (v.siguiente.frase && v.flowEnProyecto)
           ? () => copiarFrase(v.siguiente.frase)
-          : (v.flowEnProyecto ? () => window.close() : abrirFlow),
+          : abrirFlow,
       });
       return;
     }
@@ -442,7 +450,14 @@ async function pintar() {
     // sobre algo que no funcionaba.
     pantalla({
       titulo: 'Ya se usar tu Flow',
-      tenue: 'Aprendi las ' + (v.cuantasOps || 0) + ' operaciones que necesito (' + Object.keys(v.ops || {}).join(', ') + '). No hace falta que generes nada mas.',
+      // ⚠️ SE NOMBRA LO QUE FALTA APRENDER SOLO, en vez de callarlo. Si alguien mira
+      // el estado y ve menos operaciones de las que el puente necesita, sin esta linea
+      // concluye que falta algo que tiene que hacer — y no hay nada que hacer.
+      tenue: 'No necesito que hagas nada mas.'
+        + (Object.keys(v.ops || {}).length ? ' Ya se: ' + Object.keys(v.ops).join(', ') + '.' : '')
+        + ((v.solas || []).length
+          ? ' Y ' + v.solas.join(', ') + ' se aprende sola la proxima vez que Flow la use.'
+          : ''),
       boton: 'Ir a MaKo',
       accion: abrirMako,
     });

@@ -58,6 +58,16 @@ export function operacionDe(op) {
 export const A_ENSENAR = Object.freeze(OPERACIONES.filter((o) => o.como !== 'ninguna'));
 
 /**
+ * Las que se le PIDEN a la persona. Subconjunto de A_ENSENAR.
+ *
+ * Las otras se aprenden solas: mostrarlas como un paso deja a alguien mirando una
+ * pantalla que le pide algo que no puede hacer, con un boton que solo cierra.
+ */
+export const A_PEDIR = Object.freeze(
+  OPERACIONES.filter((o) => o.como !== 'ninguna' && o.pide),
+);
+
+/**
  * Las formas en que un texto puede aparecer dentro del cuerpo de un pedido.
  *
  * ⚠️ \`form\` es la que importa: BOQ manda \`f.req\` como form-urlencoded, donde el

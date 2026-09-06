@@ -63,6 +63,24 @@ export type Operacion = {
   token: string | null;
   /** Lo que la persona escribe en Flow. Contiene el token. */
   frase: string | null;
+  /**
+   * Si esta operación le PIDE algo a la persona.
+   *
+   * ⚠️ NO ES LO MISMO QUE «se aprende gratis». `creditos` y `estado_clips` se
+   * aprenden solas mirando lo que Flow hace igual: no hay ninguna acción que
+   * alguien pueda tomar para que pasen antes. `subir_imagen` también es gratis, y
+   * sin embargo SÍ pide algo — que suba una foto.
+   *
+   * Confundirlas fue un bug reportado el 05/09/2026: el popup mostraba «Enséñame a
+   * usar tu Flow» con `creditos` como paso siguiente y un botón «Entendido» que sólo
+   * cerraba la ventana. El dueño lo reportó textual: «le doy a Entendido y no hace
+   * nada». Y no hacía nada porque no había nada que hacer.
+   *
+   * Peor que el botón muerto: dejaba TRABADO ahí, sin llegar a las dos que sí
+   * necesitan a la persona. Es la regla de la casa —una guarda bloquea sólo lo que
+   * se arregla haciendo lo que ella pide— aplicada a un wizard.
+   */
+  pide: boolean;
   /** Si aprenderla le cuesta créditos de Google al cliente. */
   cuesta: boolean;
   /** Si el pedido lleva token de reCAPTCHA (ver SIN_CAPTCHA en background.js). */
@@ -86,6 +104,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     como: 'trafico',
     token: null,
     frase: null,
+    pide: false,
     cuesta: false,
     captcha: false,
     que: 'Se aprende sola: Flow lee tu saldo cada vez que abres el proyecto.',
@@ -97,6 +116,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     como: 'trafico',
     token: null,
     frase: null,
+    pide: false,
     cuesta: false,
     captcha: false,
     que: 'Se aprende sola mientras un video tuyo se está generando.',
@@ -108,6 +128,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     como: 'trafico',
     token: null,
     frase: null,
+    pide: true,
     cuesta: false,
     captcha: false,
     // Es la que el dueño preguntó por su nombre. Gratis: se aprende la primera vez
@@ -121,6 +142,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     como: 'ancla',
     token: 'mako7f3a9c',
     frase: 'un cubo violeta girando sobre arena mako7f3a9c',
+    pide: true,
     cuesta: true,
     captcha: true,
     que: 'Genera UN video de 4 segundos con la frase exacta que MaKo te da.',
@@ -136,6 +158,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     // se descubre cuando el pedido sale y Google contesta 400.
     token: 'mako4d1c8b',
     frase: 'una esfera naranja flotando sobre nieve mako4d1c8b',
+    pide: true,
     cuesta: true,
     captcha: true,
     que: 'Genera UNA imagen con la frase exacta que MaKo te da.',
@@ -147,6 +170,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     como: 'ninguna',
     token: null,
     frase: null,
+    pide: false,
     cuesta: false,
     captcha: false,
     // ⚠️ LA BAJADA NO SE ENSEÑA, y no es una omisión: es el único trabajo que no
@@ -166,10 +190,23 @@ export function operacionDe(op: string): Operacion | null {
   return OPERACIONES.find((o) => o.op === op) || null;
 }
 
-/** Las que hay que enseñar, en orden. Las de `ninguna` no cuentan. */
+/** Las que el puente necesita saber. Las de `ninguna` no cuentan. */
 export const A_ENSENAR: readonly Operacion[] = Object.freeze(
   OPERACIONES.filter((o) => o.como !== 'ninguna'),
 );
+
+/**
+ * Las que se le PIDEN a la persona, en orden.
+ *
+ * ⚠️ ES LO QUE ALIMENTA EL WIZARD, y es un subconjunto de `A_ENSENAR`. Las otras se
+ * aprenden solas: mostrarlas como un paso deja a alguien mirando una pantalla que le
+ * pide algo que no puede hacer, con un botón que sólo cierra.
+ */
+export const A_PEDIR: readonly Operacion[] = Object.freeze(
+  OPERACIONES.filter((o) => o.como !== 'ninguna' && o.pide),
+);
+
+/** Cuántas generaciones pagadas hacen falta para dejar el puente completo. */
 
 /** Cuántas generaciones pagadas hacen falta para dejar el puente completo. */
 export const CUANTAS_PAGADAS = OPERACIONES.filter((o) => o.cuesta).length;

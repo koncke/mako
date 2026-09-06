@@ -18,6 +18,7 @@ export const OPERACIONES = Object.freeze([
     "como": "trafico",
     "token": null,
     "frase": null,
+    "pide": false,
     "cuesta": false,
     "captcha": false,
     "que": "Se aprende sola: Flow lee tu saldo cada vez que abres el proyecto."
@@ -29,6 +30,7 @@ export const OPERACIONES = Object.freeze([
     "como": "trafico",
     "token": null,
     "frase": null,
+    "pide": false,
     "cuesta": false,
     "captcha": false,
     "que": "Se aprende sola mientras un video tuyo se está generando."
@@ -40,6 +42,7 @@ export const OPERACIONES = Object.freeze([
     "como": "trafico",
     "token": null,
     "frase": null,
+    "pide": true,
     "cuesta": false,
     "captcha": false,
     "que": "Sube una foto tuya a Flow una vez. Con eso queda aprendida."
@@ -51,6 +54,7 @@ export const OPERACIONES = Object.freeze([
     "como": "ancla",
     "token": "mako7f3a9c",
     "frase": "un cubo violeta girando sobre arena mako7f3a9c",
+    "pide": true,
     "cuesta": true,
     "captcha": true,
     "que": "Genera UN video de 4 segundos con la frase exacta que MaKo te da."
@@ -62,6 +66,7 @@ export const OPERACIONES = Object.freeze([
     "como": "ancla",
     "token": "mako4d1c8b",
     "frase": "una esfera naranja flotando sobre nieve mako4d1c8b",
+    "pide": true,
     "cuesta": true,
     "captcha": true,
     "que": "Genera UNA imagen con la frase exacta que MaKo te da."
@@ -73,6 +78,7 @@ export const OPERACIONES = Object.freeze([
     "como": "ninguna",
     "token": null,
     "frase": null,
+    "pide": false,
     "cuesta": false,
     "captcha": false,
     "que": "No hace falta enseñarla: MaKo la resuelve mirando el tráfico."
@@ -86,6 +92,16 @@ export function operacionDe(op) {
 
 /** Las que hay que enseñar, en orden. */
 export const A_ENSENAR = Object.freeze(OPERACIONES.filter((o) => o.como !== 'ninguna'));
+
+/**
+ * Las que se le PIDEN a la persona. Subconjunto de A_ENSENAR.
+ *
+ * Las otras se aprenden solas: mostrarlas como un paso deja a alguien mirando una
+ * pantalla que le pide algo que no puede hacer, con un boton que solo cierra.
+ */
+export const A_PEDIR = Object.freeze(
+  OPERACIONES.filter((o) => o.como !== 'ninguna' && o.pide),
+);
 
 /**
  * Las formas en que un texto puede aparecer dentro del cuerpo de un pedido.
