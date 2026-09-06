@@ -1095,6 +1095,18 @@ async function ciclo() {
 
     // Qué pedidos vio la página. Viaja en `detalle` para que un fallo se pueda
     // diagnosticar mirando la base, sin pedirle a nadie otra captura de pantalla.
+    // ⚠️ SE LIMPIA UNA VEZ POR CICLO, Y ESTABA ADENTRO DEL GATE.
+    //
+    // `reparadasEnEstaVuelta` evita reinyectar el content script dos veces en la
+    // misma vuelta. Su `clear()` vivia adentro del `if (estado === listo)`, que en el
+    // Flow nuevo es falso SIEMPRE — asi que no se limpiaba nunca y el Set duraba toda
+    // la VIDA del service worker.
+    //
+    // Efecto: UN solo intento de reponer el puente por vida del worker. Si la primera
+    // vez la pestana no estaba lista, `asegurarContentScript` contesta «mudo» para
+    // siempre y el espia deja de mirar — sin un error que lo diga.
+    reparadasEnEstaVuelta.clear();
+
     // Lo ya guardado, para saber que clases YA tienen operacion y mandarlas al final
     // del `detalle` — el recorte tiene que gastarse en lo que falta identificar.
     let guardadasParaOrden = {};
@@ -1135,7 +1147,6 @@ async function ciclo() {
     } catch { /* no poder mirar no apaga nada */ }
 
     if (estado === 'listo') {
-      reparadasEnEstaVuelta.clear();
       try {
         const tab = await pestanaDeFlow();
 
@@ -2203,8 +2214,6 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
         // «aprendio» sin decir QUE no es una respuesta cuando son cinco.
         let ops = {};
         let siguiente = null;
-        let aprendioGenerar = false;   // se conserva por las extensiones viejas del server
-        let claseAprendida = '';
         // ⚠️ SI LA GUARDIA TUVO QUE DEVOLVER LA PESTAÑA, hay que decirlo. Sin esto,
         // la persona ve que Flow «se movió solo» y no sabe que fue MaKo — que es
         // peor que no haberla movido: parece que el navegador hace cosas raras.
@@ -2230,14 +2239,21 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
           // es un DATO, no la llave: el rpcid rota con el bundle de Google.
           for (const [clase, p] of Object.entries(guardadas)) {
             if (!p || !p.op) continue;
-            ops[p.op] = { clase, donde: p.sentinela || null, cuando: p.cuando || 0 };
+            // ⚠️ UN SET, NO UN DETALLE. Los seis consumidores preguntan por truthiness
+            // o por las llaves; `clase`, `donde` y `cuando` viajaban y se tiraban.
+            //
+            // Y no era solo ruido: dos plantillas que resuelven a la MISMA operacion
+            // hacian que la segunda pisara a la primera, asi que esos tres campos
+            // terminaban siendo «los de la ultima que itero» — un dato sin dueno, que
+            // es peor que no tenerlo porque alguien lo va a leer creyendo que decide.
+            ops[p.op] = true;
           }
           // Y las que se aprenden mirando trafico se dan por sabidas cuando su clase
           // esta guardada, aunque no lleven ancla: no hay frase que buscarles.
           for (const o of A_ENSENAR) {
             if (o.como !== 'trafico' || ops[o.op]) continue;
             const hit = Object.entries(guardadas).find(([, p]) => p && p.op === o.op);
-            if (hit) ops[o.op] = { clase: hit[0], donde: null, cuando: hit[1].cuando || 0 };
+            if (hit) ops[o.op] = true;
           }
           // ⚠️ SALE DE `A_PEDIR`, NO DE `A_ENSENAR`, Y LA DIFERENCIA ES UN BUG QUE YA
           // SE REPORTO.
@@ -2257,12 +2273,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
               cuesta: falta.cuesta, boton: falta.boton,
             }
             : null;
-          const conSentinela = Object.entries(guardadas).find(([, p]) => p && p.sentinela);
-          aprendioGenerar = !!conSentinela;
-          // Y se guarda CUAL fue: el dia que haya que repetir el pedido, no se vuelve a
-          // adivinar el rpcid.
-          if (conSentinela) claseAprendida = conSentinela[0];
-        } catch { ops = {}; siguiente = null; aprendioGenerar = false; }
+        } catch { ops = {}; siguiente = null; }
         try {
           const tf = await pestanaDeFlow();
           hayFlow = true;
@@ -2278,8 +2289,6 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
           hayFlow,
           flowEnProyecto,
           flowNuevo,
-          aprendioGenerar,
-          claseAprendida,
           ops,
           siguiente,
           // ⚠️ EL «N de M» CUENTA LO QUE SE PIDE, no todo lo que el puente necesita.

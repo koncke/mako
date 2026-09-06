@@ -5,4 +5,4 @@
 // instalada para avisar cuando quedó vieja.
 //
 // Sin `server-only`: la lee un client component.
-export const EXTENSION_VERSION = '0.58.0';
+export const EXTENSION_VERSION = '0.59.0';

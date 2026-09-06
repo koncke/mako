@@ -64,19 +64,26 @@ test('la sentinela se puede derivar del cuerpo acá, sin depender del espejo', (
   );
 });
 
-test('`aprendioGenerar` no cuelga de un rpcid escrito a mano', () => {
-  const bloque = /let aprendioGenerar[\s\S]*?aprendioGenerar\s*=[^\n]*/.exec(sinComentarios);
-  assert.ok(bloque, 'no encontré el cálculo de aprendioGenerar');
+test('el estado de las operaciones no cuelga de un rpcid escrito a mano', () => {
+  // ⚠️ ESTE TEST CAMBIÓ DE SUJETO: el booleano `aprendioGenerar` murió (con cinco
+  // operaciones, «aprendió» sin decir QUÉ no es una respuesta) y lo reemplazó el mapa
+  // `ops`. Pero la invariante que protegía sigue viva y es la misma:
+  //
+  // preguntar por una clave literal `boq:<rpcid>` es preguntar por un id de un bundle
+  // de Google. Ese id ROTA, y un batchexecute con dos rpcids da otra clave. El lookup
+  // exacto contesta `undefined`, que no se queja y se lee igual que «no aprendió».
   assert.ok(
     !/guardadas\[['"]boq:[A-Za-z0-9]+['"]\]/.test(sinComentarios),
-    'Volvió a preguntar por una clave literal `boq:<rpcid>`. Ese id es de un bundle de\n'
-    + 'Google y rota; y un batchexecute con dos rpcids da otra clave. El lookup exacto\n'
-    + 'contesta `undefined`, que se lee igual que «no aprendió».\n\n'
-    + 'Se pregunta por la propiedad: la sentinela solo la tiene el pedido que generó.',
+    'Volvió a preguntar por una clave literal `boq:<rpcid>`.\n\n'
+    + 'Se pregunta por la PROPIEDAD (la sentinela sólo la tiene el pedido que generó)\n'
+    + 'o por el rpcid a través del catálogo, que declara cuáles puede usar y por qué.',
   );
+  // Y el cálculo tiene que mirar de verdad algo de cada plantilla.
+  const bloque = /let ops[\s\S]*?siguiente = falta/.exec(sinComentarios);
+  assert.ok(bloque, 'no encontré el cálculo de `ops`');
   assert.ok(
-    /\.sentinela\)/.test(bloque[0]) || /p\.sentinela/.test(bloque[0]),
-    'El cálculo no mira la sentinela de ninguna plantilla.',
+    /p\.op/.test(bloque[0]),
+    'El cálculo no mira la operación de ninguna plantilla.',
   );
 });
 

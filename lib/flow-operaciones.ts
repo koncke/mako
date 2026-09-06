@@ -48,8 +48,6 @@ export type Operacion = {
   op: string;
   /** El trabajo del producto que esta operación habilita. */
   tipo: TipoTrabajo;
-  /** La clase del protocolo viejo, para el respaldo y los textos ya escritos. */
-  pathClase: string;
   como: ComoSeAprende;
   /**
    * El ancla alfanumérica que se busca dentro del cuerpo capturado.
@@ -159,7 +157,6 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
   {
     op: 'creditos',
     tipo: 'creditos',
-    pathClase: 'credits',
     como: 'trafico',
     token: null,
     frase: null,
@@ -174,7 +171,6 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
   {
     op: 'estado_clips',
     tipo: 'estado_clips',
-    pathClase: 'video:batchCheckAsyncVideoGenerationStatus',
     como: 'trafico',
     token: null,
     frase: null,
@@ -189,7 +185,6 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
   {
     op: 'subir_imagen',
     tipo: 'subir_imagen',
-    pathClase: 'uploadImage',
     como: 'trafico',
     token: null,
     frase: null,
@@ -206,7 +201,6 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
   {
     op: 'generar_clip',
     tipo: 'generar_clip',
-    pathClase: 'video:batchAsyncGenerateVideoStartImage',
     como: 'ancla',
     token: 'mako7f3a9c',
     frase: 'un cubo violeta girando sobre arena mako7f3a9c',
@@ -221,7 +215,6 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
   {
     op: 'generar_imagen',
     tipo: 'generar_imagen',
-    pathClase: 'flowMedia:batchGenerateImages',
     como: 'ancla',
     // ⚠️ Token PROPIO, distinto al del clip. Con un token compartido no se puede
     // saber CUÁL de las dos se aprendió — y el sistema diría que sabe generar video
@@ -240,7 +233,6 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
   {
     op: 'enlace_clip',
     tipo: 'enlace_clip',
-    pathClase: '',
     como: 'ninguna',
     token: null,
     frase: null,

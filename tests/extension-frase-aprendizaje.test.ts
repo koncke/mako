@@ -54,5 +54,11 @@ test('el popup NO tiene la frase escrita a mano', () => {
       + 'separan y una letra de diferencia cuesta un clip pagado.',
     );
   }
-  assert.ok(pop.includes("from './operaciones.js'"), 'el popup no importa el catálogo');
+  // ⚠️ Ya NO se exige que el popup importe el catálogo, y el motivo importa: el
+  // ESTADO le manda la frase y el rótulo ya resueltos, así que el popup no tiene
+  // nada que buscar ahí. Exigir el import obligaba a mantener vivo un import que
+  // no se usaba — el mismo código muerto que este repo caza en todas partes.
+  //
+  // El guard que SÍ sirve es el bucle de arriba: la frase no puede estar escrita a
+  // mano acá, venga de donde venga.
 });

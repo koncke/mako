@@ -14,7 +14,6 @@ export const OPERACIONES = Object.freeze([
   {
     "op": "creditos",
     "tipo": "creditos",
-    "pathClase": "credits",
     "como": "trafico",
     "token": null,
     "frase": null,
@@ -31,7 +30,6 @@ export const OPERACIONES = Object.freeze([
   {
     "op": "estado_clips",
     "tipo": "estado_clips",
-    "pathClase": "video:batchCheckAsyncVideoGenerationStatus",
     "como": "trafico",
     "token": null,
     "frase": null,
@@ -49,7 +47,6 @@ export const OPERACIONES = Object.freeze([
   {
     "op": "subir_imagen",
     "tipo": "subir_imagen",
-    "pathClase": "uploadImage",
     "como": "trafico",
     "token": null,
     "frase": null,
@@ -64,7 +61,6 @@ export const OPERACIONES = Object.freeze([
   {
     "op": "generar_clip",
     "tipo": "generar_clip",
-    "pathClase": "video:batchAsyncGenerateVideoStartImage",
     "como": "ancla",
     "token": "mako7f3a9c",
     "frase": "un cubo violeta girando sobre arena mako7f3a9c",
@@ -79,7 +75,6 @@ export const OPERACIONES = Object.freeze([
   {
     "op": "generar_imagen",
     "tipo": "generar_imagen",
-    "pathClase": "flowMedia:batchGenerateImages",
     "como": "ancla",
     "token": "mako4d1c8b",
     "frase": "una esfera naranja flotando sobre nieve mako4d1c8b",
@@ -94,7 +89,6 @@ export const OPERACIONES = Object.freeze([
   {
     "op": "enlace_clip",
     "tipo": "enlace_clip",
-    "pathClase": "",
     "como": "ninguna",
     "token": null,
     "frase": null,

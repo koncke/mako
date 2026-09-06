@@ -109,7 +109,7 @@ const enviar = (msg) => new Promise((r) => chrome.runtime.sendMessage(msg, (out)
 // que el pre-push mantiene sincronizada con lib/flow-operaciones.ts. Escrita a mano
 // en dos archivos, una letra de diferencia significa que la persona genera un clip,
 // se le cobra, y el puente contesta que no aprendio.
-import { operacionDe } from './operaciones.js';
+// (el catalogo no se importa aca: el ESTADO ya manda el rotulo y la frase)
 
 const POR_QUE = {
   sesion: 'Inicia sesión en MaKo y vuelve a intentar.',
@@ -414,7 +414,6 @@ async function pintar() {
     // porque la regla de la casa es un paso por pantalla; el «N de M» va como
     // contexto y no como lista.
     if (v.siguiente) {
-      const o = operacionDe(v.siguiente.op);
       const cuantas = v.cuantasOps || 0;
       const listas = v.cuantasListas || 0;
       // ⚠️ SE DICE SI CUESTA, ANTES. Lo que sigue puede gastar un credito de Google

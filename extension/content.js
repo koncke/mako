@@ -110,8 +110,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, responder) => {
   if (msg?.tipo === 'VER_VERSION_ESPEJO') {
     pedirALaPagina('MAKO_VERSION_PIDO', 'MAKO_VERSION_OK', {}, 800, 'SIN_VERSION',
       (d) => responder({
+        // Solo la version del ESPEJO. El `manifest` lo tiene el que pregunta —
+        // background.js es un service worker de la MISMA extension— y mandarlo dos
+        // veces invita a comparar dos valores que siempre son iguales, justo en el
+        // contrato que existe para detectar el desfase espejo↔manifest.
         version: (d && d.version) || '',
-        manifest: chrome.runtime.getManifest().version,
       }));
     return true;
   }

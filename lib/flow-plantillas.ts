@@ -55,12 +55,26 @@ export function claseDePath(path: string): string {
  * Flow hace decenas de pedidos por sesión (telemetría, recomendaciones, applets) y
  * ninguno de ésos tiene por qué terminar en nuestra base.
  */
+// ⚠️ EL ID FALSO CON EL QUE SE DERIVA NO PUEDE QUEDAR COMO CLASE.
+//
+// La lista se arma llamando a cada endpoint con `'x'` de projectId. Para casi todos
+// el ultimo tramo es un nombre fijo — pero `media: (id) => /v1/media/${id}` termina EN
+// el parametro, asi que `'x'` entraba al allowlist como una clase valida.
+//
+// Medido: CLASES_UTILES traia [..., 'credits', 'x']. Una plantilla con `clase: 'x'`
+// pasaba el filtro. Es la trampa de derivar un allowlist de datos: el andamio de la
+// derivacion se cuela adentro del resultado.
+const ID_FALSO = 'x';
+
 export const CLASES_UTILES: readonly string[] = Object.freeze(
   [...new Set(
     Object.values(ENDPOINTS)
-      .map((v) => (typeof v === 'function' ? v('x') : v))
+      .map((v) => (typeof v === 'function' ? v(ID_FALSO) : v))
       .map(claseDePath)
-      .filter(Boolean),
+      .filter(Boolean)
+      // Un endpoint que TERMINA en su parametro no aporta una clase: aporta el
+      // andamio. Se saca por identidad con el id falso, no por una lista a mano.
+      .filter((c) => c !== ID_FALSO),
   )],
 );
 
@@ -82,6 +96,13 @@ export type PlantillaEspejo = {
   cuerpo: string | null;
   credenciales?: string;
   /**
+   * Qué operación del catálogo es este pedido (`generar_clip`, `subir_imagen`…).
+   *
+   * ⚠️ ES LA LLAVE REAL. La `clase` de BOQ es `boq:<rpcid>` y el rpcid es de un
+   * bundle de Google: rota. El `op` no.
+   */
+  op?: string;
+  /**
    * Con qué codificación aparece la frase de aprendizaje en este cuerpo.
    *
    * ⚠️ Es lo que dice que esta plantilla es la de GENERAR y no la de sondear. Sin
@@ -92,13 +113,6 @@ export type PlantillaEspejo = {
    * `extension/injected.js`, una capa más arriba: un objeto armado campo por campo
    * pierde en silencio todo lo que no esté nombrado.
    */
-  /**
-   * Qué operación del catálogo es este pedido (`generar_clip`, `subir_imagen`…).
-   *
-   * ⚠️ ES LA LLAVE REAL. La `clase` de BOQ es `boq:<rpcid>` y el rpcid es de un
-   * bundle de Google: rota. El `op` no.
-   */
-  op?: string;
   sentinela?: string | null;
   cuando?: number;
 };
