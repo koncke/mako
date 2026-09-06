@@ -50,7 +50,7 @@
   //
   // NO se recarga la pestana automaticamente al detectarlo: un reload mata las
   // generaciones en vuelo y tira el `at` vivo. Se REPORTA, y la persona decide.
-  const VERSION_ESPEJO = '0.60.0';
+  const VERSION_ESPEJO = '0.61.0';
   if (window.__makoEspejo) return;
   window.__makoEspejo = VERSION_ESPEJO;
 
@@ -452,6 +452,12 @@
         // ⚠️ La sentinela se busca sobre el cuerpo ORIGINAL y el `at` se corta
         // DESPUÉS: al revés, la redacción podría partir la frase que estamos
         // buscando y daría «no aprendí» sobre una generación que sí servía.
+        // El `at` vivo, para poder repetir un pedido. Se guarda SOLO en memoria de
+        // esta pestana y nunca se persiste: es una credencial de la sesion de Google.
+        try {
+          const mAt = /(?:^|&)at=([^&]*)/.exec(texto || '');
+          if (mAt && mAt[1]) ultimoAtVisto = decodeURIComponent(mAt[1]);
+        } catch { /* si no se puede leer, queda el de WIZ_global_data */ }
         const sentinela = codificacionDeLaSentinela(texto);
         plantillas.set(clase, {
           url,
@@ -907,6 +913,92 @@
   });
 
   // ── Nuestro pedido, calcado de la plantilla ───────────────────────────────
+  /**
+   * El `at` VIVO de esta sesion de BOQ.
+   *
+   * ⚠️ MEDIDO el 06/09/2026 en flow.google.com: `window.WIZ_global_data.SNlM0e`
+   * existe, tiene 42 caracteres y contiene `:` — la forma exacta del token que la
+   * app manda en `at=`. Es la ubicacion canonica de una app BOQ.
+   *
+   * No se guarda NUNCA: es una credencial de la sesion de Google del cliente, y por
+   * eso `sinCredenciales` la borra antes de persistir la plantilla. Se lee fresca en
+   * el momento de repetir el pedido, que es la unica forma de que valga.
+   *
+   * Respaldo: el ultimo `at` que el espejo vio pasar. Si la app acaba de usarlo, es
+   * bueno — y si `WIZ_global_data` cambiara de forma, esto sigue andando.
+   */
+  let ultimoAtVisto = null;
+  function atVivo() {
+    try {
+      const w = window.WIZ_global_data;
+      const t = w && typeof w.SNlM0e === 'string' ? w.SNlM0e : '';
+      if (t) return t;
+    } catch { /* sigue al respaldo */ }
+    return ultimoAtVisto;
+  }
+
+  /**
+   * Repite un pedido de BOQ con el cuerpo que arma el service worker.
+   *
+   * ⚠️ SALE DESDE LA PAGINA Y NO DESDE LA EXTENSION, y no es una preferencia: BOQ
+   * autentica por COOKIE con `x-same-domain`. Un fetch de extension manda otro
+   * `Origin` y Google lo rechaza — eso ya esta medido en este repo.
+   *
+   * Lo unico que esta funcion pone de su lado es el `at` fresco. El cuerpo viene
+   * armado y parcheado: quien decide QUE se pide es el service worker, que es donde
+   * vive el catalogo y donde se puede probar.
+   */
+  window.addEventListener('MAKO_BOQ_PIDO', async (ev) => {
+    const { id, url, cuerpo } = ev.detail || {};
+    try {
+      if (typeof url !== 'string' || typeof cuerpo !== 'string' || !url || !cuerpo) {
+        return responder('MAKO_BOQ_OK', id, { error: 'PEDIDO_INCOMPLETO' });
+      }
+      const at = atVivo();
+      // ⚠️ Sin `at` NO se manda. Un pedido sin el token anti-CSRF lo rechaza Google
+      // con un error que se lee como un problema de la cuenta del cliente, y ademas
+      // no hay nada que reintentar: hace falta que la pagina lo tenga.
+      if (!at) return responder('MAKO_BOQ_OK', id, { error: 'SIN_AT' });
+
+      const conAt = cuerpo.replace(/__MAKO_AT__/g, encodeURIComponent(at));
+      if (conAt === cuerpo && !/(^|&)at=/.test(cuerpo)) {
+        // La plantilla no tiene donde poner el `at`. Mandarla asi es gastar un
+        // credito para que Google conteste que no.
+        return responder('MAKO_BOQ_OK', id, { error: 'PLANTILLA_SIN_AT' });
+      }
+
+      // ⚠️ `salio` es el dato que decide si se puede reintentar. Se pone JUSTO antes
+      // del await: todo lo que falle despues de esto ya gasto el credito, y un
+      // reintento ahi es cobrarle dos veces al cliente por un video.
+      let salio = false;
+      let res;
+      try {
+        salio = true;
+        res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/x-www-form-urlencoded;charset=UTF-8',
+            'x-same-domain': '1',
+          },
+          body: conAt,
+          credentials: 'include',
+        });
+      } catch (e) {
+        return responder('MAKO_BOQ_OK', id, { error: 'RED', salio, detalle: String(e && e.message || e) });
+      }
+      const texto = await res.text();
+      return responder('MAKO_BOQ_OK', id, {
+        ok: res.ok,
+        status: res.status,
+        salio,
+        // Recortado: la respuesta de una generacion trae el media entero.
+        texto: String(texto || '').slice(0, 20000),
+      });
+    } catch (e) {
+      return responder('MAKO_BOQ_OK', id, { error: 'EXCEPCION', detalle: String(e && e.message || e) });
+    }
+  });
+
   window.addEventListener('MAKO_FETCH_PIDO', async (ev) => {
     const { id, clase, cuerpo, parches, path, soloLectura, bearer, respaldo } = ev.detail || {};
     try {

@@ -395,6 +395,60 @@ async function soltarGuardia() {
  * ejecutaba en la pestana que la persona tenia abierta.
  */
 import { OPERACIONES, A_ENSENAR, A_PEDIR, SIN_DETECTAR, operacionDelCuerpo, operacionDeLaClase } from './operaciones.js';
+import { reemplazarEnCuerpo } from './boq-patch.js';
+/**
+ * Repite un pedido de generacion contra el Flow nuevo, con OTRO prompt.
+ *
+ * Es el circuito completo: se toma la plantilla que la persona nos enseno generando
+ * un clip, se le cambia el prompt por el que MaKo quiere, y el pedido sale DESDE LA
+ * PAGINA —que es donde estan las cookies y el `at` vivo—.
+ *
+ * ⚠️ NO SE PARSEA EL ARBOL DEL `f.req`. Es posicional y anidado; caminarlo seria
+ * adivinar donde vive el prompt. Lo que NO es adivinanza es la frase de aprendizaje:
+ * la persona la escribio exacta, asi que sabemos el string literal que Flow puso ahi.
+ * Se busca ESE, con la codificacion con la que viajo, y se reemplaza.
+ *
+ * ⚠️ Y FALLA EN VEZ DE ADIVINAR. Si la frase no aparece, se devuelve `SIN_ANCLA` y no
+ * se manda nada: mandar la plantilla sin parchear genera —y le cobra al cliente— un
+ * cubo violeta girando sobre arena en vez de su anuncio.
+ */
+async function repetirEnBoq(op, prompt) {
+  const guardadas = (await chrome.storage.local.get(CLAVE_PLANTILLAS))[CLAVE_PLANTILLAS] || {};
+  const par = Object.entries(guardadas).find(([, p]) => p && p.op === op);
+  if (!par) return { error: 'SIN_PLANTILLA', op };
+  const pl = par[1];
+  if (!pl.cuerpo || !pl.url) return { error: 'PLANTILLA_INCOMPLETA', op, clase: par[0] };
+
+  const cat = OPERACIONES.find((o) => o.op === op);
+  if (!cat || !cat.frase) return { error: 'OPERACION_SIN_ANCLA', op };
+
+  const r = reemplazarEnCuerpo(pl.cuerpo, cat.frase, prompt);
+  if (!r.ok) return { error: r.error, op, clase: par[0] };
+
+  let tab;
+  try { tab = await pestanaDeFlow(); } catch { return { error: 'NO_FLOW_TAB', op }; }
+  if ((await asegurarContentScript(tab.id)) === 'mudo') return { error: 'PESTANA_MUDA', op };
+
+  const res = await chrome.tabs.sendMessage(tab.id, {
+    tipo: 'BOQ_PEDIDO', url: pl.url, cuerpo: r.cuerpo,
+  });
+  return { ...res, op, clase: par[0], donde: r.donde, cuantas: r.cuantas };
+}
+
+/**
+ * La prueba de fuego, a pedido: repite UNA generacion y cuenta que paso.
+ *
+ * ⚠️ GASTA UN CREDITO DE GOOGLE DEL CLIENTE. Por eso no la llama ningun ciclo
+ * automatico: sale del boton del popup, con la persona mirando.
+ */
+async function probarGeneracionBoq(prompt) {
+  const r = await repetirEnBoq('generar_clip', prompt || 'un globo rojo subiendo sobre un campo verde');
+  try {
+    await chrome.storage.local.set({ ultimaPruebaBoq: JSON.stringify({ ...r, cuando: Date.now() }).slice(0, 4000) });
+  } catch { /* el resultado igual vuelve por el mensaje */ }
+  return r;
+}
+
 async function guardarPlantillas(tabId) {
   try {
     const r = await chrome.tabs.sendMessage(tabId, { tipo: 'GUARDAR_PLANTILLAS' });
@@ -2210,6 +2264,15 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
   // popup despierta al worker en frio: el callback todavia no corrio, `bearer` es
   // null, y el popup pintaba «falta abrir Flow» con Flow perfectamente abierto.
   // Un dato que depende de una carrera no es un dato.
+  // ⚠️ GASTA UN CREDITO. Sale de un boton, nunca de un ciclo.
+  if (msg?.tipo === 'PROBAR_BOQ') {
+    void probarGeneracionBoq(msg.prompt).then(
+      (r) => responder(r),
+      (e) => responder({ error: 'EXCEPCION', detalle: String((e && e.message) || e) }),
+    );
+    return true;
+  }
+
   if (msg?.tipo === 'ESTADO') {
     chrome.storage.local.get(
       ['token', 'bearer', 'apiKey', 'ultimoLatido', 'saldoLocal', 'emparejando', 'emparejandoDesde', 'emparejarError', 'emparejarCuando', 'emparejarEtiqueta', 'workspaceNombre', 'versionEsperada'],

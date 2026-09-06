@@ -449,12 +449,15 @@ async function pintar() {
     // no hay nada que hacer.
     pantalla({
       titulo: 'Ya sé usar tu Flow',
-      tenue: 'No necesito que hagas nada más.'
+      tenue: 'Puedo probarlo ahora: le pido un video de prueba y te digo qué contestó.'
+        + ' Usa un crédito de tu cuenta de Google.'
         + ((v.sinDetectar || []).length
           ? ' Todavía me falta ' + v.sinDetectar.join(' y ') + ', y eso lo resuelvo yo.'
           : ''),
-      boton: 'Ir a MaKo',
-      accion: abrirMako,
+      boton: 'Pedirle un video de prueba',
+      accion: probarGeneracion,
+      boton2: 'Ir a MaKo',
+      accion2: abrirMako,
     });
     return;
   }
@@ -695,6 +698,55 @@ function bajarNueva() {
  * salió bien — y el clip ya se pagó, en créditos del cliente. Transcribir a mano un
  * token como `mako7f3a9c` es exactamente donde eso pasa.
  */
+/**
+ * Le pide a Flow un video de prueba, repitiendo el pedido que aprendimos.
+ *
+ * ⚠️ GASTA UN CRÉDITO DE LA CUENTA DE GOOGLE DE LA PERSONA, y por eso sale de un
+ * botón y nunca de un ciclo automático. El texto lo dice antes de apretar.
+ *
+ * Y lo que se muestra es lo que CONTESTÓ Google, no un «listo»: si algo falla, el
+ * crédito ya se gastó y la persona tiene derecho a saber en qué.
+ */
+async function probarGeneracion() {
+  pantalla({ titulo: 'Se lo estoy pidiendo…', tenue: 'Puede tardar hasta un minuto. No cierres esta ventana.' });
+  let r;
+  try { r = await enviar({ tipo: 'PROBAR_BOQ' }); } catch (e) { r = { error: 'SIN_RESPUESTA' }; }
+
+  if (r && r.ok) {
+    pantalla({
+      titulo: 'Se lo pedí y lo aceptó',
+      tenue: 'Google contestó que sí. El video aparece en tu Flow en un rato.',
+      boton: 'Ir a MaKo',
+      accion: abrirMako,
+    });
+    return;
+  }
+
+  // ⚠️ CADA FALLA DICE DE QUIÉN FUE Y QUÉ HACER — y sobre todo, SI YA COSTÓ.
+  // Un «no se pudo» a secas deja a la persona sin saber si le cobraron.
+  const POR_QUE = {
+    SIN_PLANTILLA: ['Todavía no sé pedirle un video', 'Genera uno tú con la frase que te doy y aprendo.'],
+    SIN_ANCLA: ['No encontré dónde va el texto', 'La plantilla que aprendí ya no sirve: hay que enseñarme de nuevo.'],
+    SIN_AT: ['Tu sesión de Flow no está lista', 'Recarga la pestaña de Google Flow y vuelve a probar.'],
+    NO_FLOW_TAB: ['No tienes Google Flow abierto', 'Ábrelo desde el ícono de MaKo y vuelve a probar.'],
+    PESTANA_MUDA: ['La pestaña de Flow no responde', 'Recárgala (F5) y vuelve a probar.'],
+    BOQ_TIMEOUT: ['Google tardó demasiado', 'El pedido salió, así que puede haberse cobrado. Míralo en tu Flow antes de repetir.'],
+  };
+  const cod = (r && (r.error || (r.status ? 'HTTP_' + r.status : ''))) || 'SIN_RESPUESTA';
+  const t = POR_QUE[cod];
+  // ⚠️ `salio` decide si ya costó. Si el pedido llegó a salir, el crédito se gastó
+  // pase lo que pase después, y repetir es pagar dos veces.
+  const yaCosto = !!(r && r.salio);
+  pantalla({
+    titulo: t ? t[0] : 'Google no lo aceptó',
+    tenue: (t ? t[1]
+      : 'Contestó ' + (r && r.status ? 'con un error ' + r.status : 'algo que no supe leer') + '.')
+      + (yaCosto ? ' El pedido salió, así que revisa tu Flow antes de repetir: puede haberse cobrado.' : ''),
+    boton: 'Ir a MaKo',
+    accion: abrirMako,
+  });
+}
+
 async function copiarFrase(frase) {
   try {
     await navigator.clipboard.writeText(frase);

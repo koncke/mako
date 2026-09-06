@@ -107,6 +107,16 @@ chrome.runtime.onMessage.addListener((msg, _sender, responder) => {
   // Un espejo anterior al versionado NO contesta, y el timeout corto lo dice: la
   // ausencia de respuesta ES el dato. Por eso son 800 ms y no 5000 — si no contesta
   // rapido es porque no sabe contestar, no porque este ocupado.
+  // Repetir un pedido de BOQ. El timeout es largo porque una generacion tarda: si
+  // se corta antes, el pedido YA SALIO y el credito ya se gasto — cortar temprano no
+  // ahorra nada y pierde la respuesta.
+  if (msg?.tipo === 'BOQ_PEDIDO') {
+    pedirALaPagina('MAKO_BOQ_PIDO', 'MAKO_BOQ_OK',
+      { url: msg.url, cuerpo: msg.cuerpo }, 120000, 'BOQ_TIMEOUT',
+      (d) => responder(d));
+    return true;
+  }
+
   if (msg?.tipo === 'VER_VERSION_ESPEJO') {
     pedirALaPagina('MAKO_VERSION_PIDO', 'MAKO_VERSION_OK', {}, 800, 'SIN_VERSION',
       (d) => responder({
