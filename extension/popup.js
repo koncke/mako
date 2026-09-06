@@ -455,10 +455,21 @@ async function pintar() {
       // ⚠️ SE NOMBRA LO QUE FALTA APRENDER SOLO, en vez de callarlo. Si alguien mira
       // el estado y ve menos operaciones de las que el puente necesita, sin esta linea
       // concluye que falta algo que tiene que hacer — y no hay nada que hacer.
+      // ⚠️ SE DICE QUE FALTA Y POR QUE NO SE PIDE. Son dos motivos distintos y el
+      // segundo es un limite NUESTRO, no una tarea de la persona:
+      //
+      //   · unas se aprenden solas mirando lo que Flow hace igual;
+      //   · otras todavia no las sabemos reconocer (no llevan prompt, y en el Flow
+      //     nuevo todos los pedidos comparten el mismo path).
+      //
+      // Callar la segunda es lo que dejo a alguien subiendo una foto una y otra vez
+      // sin que pasara nada. Decirla no arregla el limite, pero deja de mandar a
+      // hacer algo que no sirve.
       tenue: 'No necesito que hagas nada mas.'
         + (Object.keys(v.ops || {}).length ? ' Ya se: ' + Object.keys(v.ops).join(', ') + '.' : '')
-        + ((v.solas || []).length
-          ? ' Y ' + v.solas.join(', ') + ' se aprende sola la proxima vez que Flow la use.'
+        + ((v.sinDetectar || []).length
+          ? ' Todavia no se reconocer ' + v.sinDetectar.join(', ') + ' — es un limite mio,'
+            + ' no hay nada que puedas hacer para destrabarlo.'
           : ''),
       boton: 'Ir a MaKo',
       accion: abrirMako,

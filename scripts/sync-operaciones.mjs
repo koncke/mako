@@ -64,7 +64,18 @@ export const A_ENSENAR = Object.freeze(OPERACIONES.filter((o) => o.como !== 'nin
  * pantalla que le pide algo que no puede hacer, con un boton que solo cierra.
  */
 export const A_PEDIR = Object.freeze(
-  OPERACIONES.filter((o) => o.como !== 'ninguna' && o.pide),
+  OPERACIONES.filter((o) => o.como !== 'ninguna' && o.pide && o.detectable),
+);
+
+/**
+ * Las que el puente necesita y todavia NO puede reconocer.
+ *
+ * No son un paso, y tampoco se callan: se muestran como un limite NUESTRO. Callarlas
+ * hace que alguien cuente las operaciones y concluya que falta algo que hacer — y eso
+ * ya dejo a alguien subiendo una foto una y otra vez sin que pasara nada.
+ */
+export const SIN_DETECTAR = Object.freeze(
+  OPERACIONES.filter((o) => o.como !== 'ninguna' && !o.detectable),
 );
 
 /**

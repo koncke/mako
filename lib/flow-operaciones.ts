@@ -64,6 +64,29 @@ export type Operacion = {
   /** Lo que la persona escribe en Flow. Contiene el token. */
   frase: string | null;
   /**
+   * Si HOY el sistema puede reconocer esta operación cuando pasa.
+   *
+   * ⚠️ SEPARADO DE `pide` A PROPÓSITO, y la diferencia costó un reporte.
+   *
+   * `subir_imagen` le pide algo a la persona (que suba una foto) y el espejo la
+   * captura perfecta — pero NO HAY FORMA DE SABER CUÁL de los 39 pedidos capturados
+   * es la subida. Las operaciones con ancla se reconocen por su token; éstas no
+   * llevan prompt, así que no hay ningún texto conocido que buscarles, y en BOQ
+   * todas comparten el mismo path.
+   *
+   * Pedirla igual es pedir algo que no se puede satisfacer: el dueño subió la foto
+   * y el paso siguió ahí. Reportado textual: «ya subi la foto y nada».
+   *
+   * Es la MISMA regla que ya falló dos veces hoy —una guarda bloquea sólo lo que se
+   * arregla haciendo lo que pide— y por tercera vez la respuesta no fue una
+   * condición más: es que el catálogo declare lo que el sistema puede hacer, en vez
+   * de que la pantalla lo suponga.
+   *
+   * Se destraba midiendo el rpcid de cada una contra tráfico real. Mientras tanto se
+   * aprenden igual si aparecen —el espejo no deja de mirar—, pero no se PIDEN.
+   */
+  detectable: boolean;
+  /**
    * Si esta operación le PIDE algo a la persona.
    *
    * ⚠️ NO ES LO MISMO QUE «se aprende gratis». `creditos` y `estado_clips` se
@@ -122,6 +145,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     como: 'trafico',
     token: null,
     frase: null,
+    detectable: false,
     pide: false,
     cuesta: false,
     captcha: false,
@@ -135,6 +159,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     como: 'trafico',
     token: null,
     frase: null,
+    detectable: false,
     pide: false,
     cuesta: false,
     captcha: false,
@@ -148,6 +173,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     como: 'trafico',
     token: null,
     frase: null,
+    detectable: false,
     pide: true,
     cuesta: false,
     captcha: false,
@@ -163,6 +189,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     como: 'ancla',
     token: 'mako7f3a9c',
     frase: 'un cubo violeta girando sobre arena mako7f3a9c',
+    detectable: true,
     pide: true,
     cuesta: true,
     captcha: true,
@@ -180,6 +207,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     // se descubre cuando el pedido sale y Google contesta 400.
     token: 'mako4d1c8b',
     frase: 'una esfera naranja flotando sobre nieve mako4d1c8b',
+    detectable: true,
     pide: true,
     cuesta: true,
     captcha: true,
@@ -193,6 +221,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     como: 'ninguna',
     token: null,
     frase: null,
+    detectable: false,
     pide: false,
     cuesta: false,
     captcha: false,
@@ -227,7 +256,17 @@ export const A_ENSENAR: readonly Operacion[] = Object.freeze(
  * pide algo que no puede hacer, con un botón que sólo cierra.
  */
 export const A_PEDIR: readonly Operacion[] = Object.freeze(
-  OPERACIONES.filter((o) => o.como !== 'ninguna' && o.pide),
+  OPERACIONES.filter((o) => o.como !== 'ninguna' && o.pide && o.detectable),
+);
+
+/**
+ * Las que el puente necesita y todavía NO puede reconocer.
+ *
+ * ⚠️ No son un paso, y tampoco se callan: se muestran como lo que son. Callarlas
+ * haría que alguien cuente las operaciones y concluya que falta algo que hacer.
+ */
+export const SIN_DETECTAR: readonly Operacion[] = Object.freeze(
+  OPERACIONES.filter((o) => o.como !== 'ninguna' && !o.detectable),
 );
 
 /** Cuántas generaciones pagadas hacen falta para dejar el puente completo. */

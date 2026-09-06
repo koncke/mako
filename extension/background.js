@@ -394,7 +394,7 @@ async function soltarGuardia() {
  * Esa distincion ya costo un dia entero: un arreglo correcto en injected.js no se
  * ejecutaba en la pestana que la persona tenia abierta.
  */
-import { OPERACIONES, A_ENSENAR, A_PEDIR, operacionDelCuerpo } from './operaciones.js';
+import { OPERACIONES, A_ENSENAR, A_PEDIR, SIN_DETECTAR, operacionDelCuerpo } from './operaciones.js';
 async function guardarPlantillas(tabId) {
   try {
     const r = await chrome.tabs.sendMessage(tabId, { tipo: 'GUARDAR_PLANTILLAS' });
@@ -1087,6 +1087,25 @@ async function ciclo() {
 
     // Qué pedidos vio la página. Viaja en `detalle` para que un fallo se pueda
     // diagnosticar mirando la base, sin pedirle a nadie otra captura de pantalla.
+    // ⚠️ EL ESPIA TAMBIEN SALE DEL GATE — quedo adentro cuando se saco el guardado,
+    // y por eso `estado_detalle` llegaba VACIO desde el Flow nuevo.
+    //
+    // Es la mitad que faltaba del mismo arreglo: se movio `guardarPlantillas` y no
+    // esto, asi que el servidor seguia sin recibir los CUERPOS. Y los cuerpos son lo
+    // unico que permite identificar una operacion que no lleva prompt —subir una
+    // imagen, leer el saldo— porque en BOQ todas comparten path.
+    //
+    // Un arreglo a medias sobre una causa entendida es peor que ninguno: deja el
+    // sintoma vivo con el diagnostico dado por cerrado.
+    try {
+      const tabE = await pestanaDeFlow();
+      const r = await chrome.tabs.sendMessage(tabE.id, { tipo: 'VER_ESPIA' });
+      if (r && r.visto) {
+        const orden = Object.entries(r.visto);
+        detalle = JSON.stringify(Object.fromEntries(orden)).slice(0, 7500);
+      }
+    } catch { /* no poder mirar no apaga nada */ }
+
     if (estado === 'listo') {
       reparadasEnEstaVuelta.clear();
       try {
@@ -2242,7 +2261,22 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
           cuantasListas: A_PEDIR.filter((o) => ops[o.op]).length,
           // Y lo que se aprende solo se dice aparte, para que no parezca que falta
           // algo que nadie tiene que hacer.
-          solas: A_ENSENAR.filter((o) => !o.pide && !ops[o.op]).map((o) => o.op),
+          // ⚠️ TODO LO QUE FALTA Y NO SE PIDE VIAJA ACA, no solo lo que se aprende
+          // solo. Son dos motivos distintos y los dos terminan en «no te lo pido»:
+          //
+          //   · `creditos` y `estado_clips` se aprenden solas — no hay nada que hacer.
+          //   · `subir_imagen` SI pide algo, pero el sistema todavia no la sabe
+          //     RECONOCER: no lleva prompt, asi que no hay texto que buscarle entre
+          //     los 39 pedidos que la pagina hace. Pedirla seria pedir algo que no se
+          //     puede satisfacer, y eso ya se reporto: «ya subi la foto y nada».
+          //
+          // Se manda igual porque callarlo hace que alguien cuente las operaciones y
+          // concluya que falta algo que hacer.
+          solas: A_ENSENAR.filter((o) => !ops[o.op] && !A_PEDIR.some((x) => x.op === o.op))
+            .map((o) => o.op),
+          // Y aparte, cuales de esas es porque todavia no las sabemos reconocer. Es un
+          // limite NUESTRO y se dice como tal, no como algo que la persona deba hacer.
+          sinDetectar: SIN_DETECTAR.filter((o) => !ops[o.op]).map((o) => o.op),
           volviAlProyecto,
           ultimoLatido: v.ultimoLatido || null,
           saldo: v.saldoLocal || null,

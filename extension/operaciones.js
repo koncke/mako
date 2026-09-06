@@ -18,6 +18,7 @@ export const OPERACIONES = Object.freeze([
     "como": "trafico",
     "token": null,
     "frase": null,
+    "detectable": false,
     "pide": false,
     "cuesta": false,
     "captcha": false,
@@ -31,6 +32,7 @@ export const OPERACIONES = Object.freeze([
     "como": "trafico",
     "token": null,
     "frase": null,
+    "detectable": false,
     "pide": false,
     "cuesta": false,
     "captcha": false,
@@ -44,6 +46,7 @@ export const OPERACIONES = Object.freeze([
     "como": "trafico",
     "token": null,
     "frase": null,
+    "detectable": false,
     "pide": true,
     "cuesta": false,
     "captcha": false,
@@ -57,6 +60,7 @@ export const OPERACIONES = Object.freeze([
     "como": "ancla",
     "token": "mako7f3a9c",
     "frase": "un cubo violeta girando sobre arena mako7f3a9c",
+    "detectable": true,
     "pide": true,
     "cuesta": true,
     "captcha": true,
@@ -70,6 +74,7 @@ export const OPERACIONES = Object.freeze([
     "como": "ancla",
     "token": "mako4d1c8b",
     "frase": "una esfera naranja flotando sobre nieve mako4d1c8b",
+    "detectable": true,
     "pide": true,
     "cuesta": true,
     "captcha": true,
@@ -83,6 +88,7 @@ export const OPERACIONES = Object.freeze([
     "como": "ninguna",
     "token": null,
     "frase": null,
+    "detectable": false,
     "pide": false,
     "cuesta": false,
     "captcha": false,
@@ -106,7 +112,18 @@ export const A_ENSENAR = Object.freeze(OPERACIONES.filter((o) => o.como !== 'nin
  * pantalla que le pide algo que no puede hacer, con un boton que solo cierra.
  */
 export const A_PEDIR = Object.freeze(
-  OPERACIONES.filter((o) => o.como !== 'ninguna' && o.pide),
+  OPERACIONES.filter((o) => o.como !== 'ninguna' && o.pide && o.detectable),
+);
+
+/**
+ * Las que el puente necesita y todavia NO puede reconocer.
+ *
+ * No son un paso, y tampoco se callan: se muestran como un limite NUESTRO. Callarlas
+ * hace que alguien cuente las operaciones y concluya que falta algo que hacer — y eso
+ * ya dejo a alguien subiendo una foto una y otra vez sin que pasara nada.
+ */
+export const SIN_DETECTAR = Object.freeze(
+  OPERACIONES.filter((o) => o.como !== 'ninguna' && !o.detectable),
 );
 
 /**
