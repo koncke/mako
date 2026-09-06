@@ -1095,6 +1095,13 @@ async function ciclo() {
 
     // Qué pedidos vio la página. Viaja en `detalle` para que un fallo se pueda
     // diagnosticar mirando la base, sin pedirle a nadie otra captura de pantalla.
+    // Lo ya guardado, para saber que clases YA tienen operacion y mandarlas al final
+    // del `detalle` — el recorte tiene que gastarse en lo que falta identificar.
+    let guardadasParaOrden = {};
+    try {
+      guardadasParaOrden = (await chrome.storage.local.get(CLAVE_PLANTILLAS))[CLAVE_PLANTILLAS] || {};
+    } catch { guardadasParaOrden = {}; }
+
     // ⚠️ EL ESPIA TAMBIEN SALE DEL GATE — quedo adentro cuando se saco el guardado,
     // y por eso `estado_detalle` llegaba VACIO desde el Flow nuevo.
     //
@@ -1109,7 +1116,20 @@ async function ciclo() {
       const tabE = await pestanaDeFlow();
       const r = await chrome.tabs.sendMessage(tabE.id, { tipo: 'VER_ESPIA' });
       if (r && r.visto) {
-        const orden = Object.entries(r.visto);
+        // ⚠️ EL PRESUPUESTO SE GASTA EN LO QUE NO SE CONOCE.
+        //
+        // El `detalle` se corta en 7500 caracteres, y con ~39 clases eso alcanza para
+        // unas 14. Sin ordenar, las 14 que llegan son las alfabeticamente primeras —
+        // o sea, cualquiera. Y lo unico que hace falta medir es justo lo que el
+        // sistema TODAVIA NO SABE reconocer.
+        //
+        // Medido hoy: llegaron 14 clases y ninguna era la que faltaba identificar.
+        // Un recorte que no prioriza tira exactamente el dato que se estaba buscando,
+        // y no lo dice: se lee como «no estaba».
+        const conocida = (clase) => !!operacionDeLaClase(clase)
+          || Object.values(guardadasParaOrden).some((p) => p && p.clase === clase && p.op);
+        const orden = Object.entries(r.visto)
+          .sort((a, b) => (conocida(a[0]) ? 1 : 0) - (conocida(b[0]) ? 1 : 0));
         detalle = JSON.stringify(Object.fromEntries(orden)).slice(0, 7500);
       }
     } catch { /* no poder mirar no apaga nada */ }
