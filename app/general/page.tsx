@@ -1,16 +1,32 @@
 // =============================================================================
-// /general — Vista General (rediseño Marketing OS)
+// /general — FOCUS: qué hay que hacer ahora, y si vamos bien
 // =============================================================================
-// Hero "Camino a los N cierres" + Resumen del mes + Semáforo + Pendientes.
-// Cableado a las queries existentes (objetivo, comparativo MTD, pendientes,
-// señales para el semáforo).
+// ⚠️ ESTA PANTALLA CAMBIÓ DE TRABAJO, y el orden de los bloques ES el cambio.
+//
+// Antes medía sólo RESULTADOS: el hero «Camino a los N cierres», el resumen del
+// mes, el semáforo y los pendientes. Todo consecuencias — cosas que ya pasaron y
+// sobre las que hoy no se puede actuar. Las seis reglas del Semáforo alertan sobre
+// resultados; ninguna sobre una acción que se cumple o no día a día.
+//
+// Ahora, de arriba abajo:
+//
+//   1. TIRA DEL Q   el norte en UNA línea, con la capacidad instalada al lado
+//   2. AHORA        LA acción prioritaria con sus seis campos y su origen
+//   3. KPIs         lo que se hace o no se hace en el período   ← lo nuevo
+//   4. lo de antes  semáforo, mes y pendientes, plegados
+//
+// Nada se borró: lo que medía resultados sigue entero, un escalón más abajo.
+//
+// La columna vertebral que lo sostiene (Q → Objective → KPI) vive en
+// `lib/objectives*.ts`; la elección de LA acción, en `lib/focus.ts`, que es puro y
+// testeable. Acá sólo se lee y se pinta.
+// =============================================================================
 
 import Link from '@/app/_ui/Link';
 import type { CSSProperties } from 'react';
 import {
   getResumenComparativo,
   getPendientesDeMarcar,
-  getObjetivoProgreso,
   getResumenComercialMaduras,
   getFatigaAdsets,
   getTramoJ1J2Reciente,
@@ -19,7 +35,6 @@ import {
   compareMTD,
   type ResumenComparativo,
   type Pendientes,
-  type ObjetivoProgreso,
   type MetricaMTD,
   type AgendaItem,
   type SenalRecon,
@@ -28,22 +43,33 @@ import { fmtUSD, fmtNum } from '@/lib/format';
 import { DIAS_J1_J2_ALERTA } from '@/lib/config';
 import { getCuotasPendientes, getRevenueBreakdowns, type RevItem, type RevenueBreakdowns } from '@/lib/pagos';
 import { getMetaAccountHealth } from '@/lib/meta-health';
-import { hoyEnTijuana, ayerEnTijuana } from '@/lib/date-utils';
-import { EditarMeta } from './EditarMeta';
+import { getDataSources } from '@/lib/sources';
+import { listTareas } from '@/lib/todo';
+import { getDiagnosticoFase } from '@/lib/fase-store';
+import {
+  quarterActual, listObjectives, avanceDeObjetivo, getTableroKpis, getCapacidad,
+  proponerKpis, migrarSettingsAObjectives, type ObjectiveConAvance, type KpiEnTablero,
+} from '@/lib/objectives';
+import { elegirFoco, type AlertaParaFoco } from '@/lib/focus';
 import { DesgloseTrigger, type DesgloseItem, type DesgloseData } from '../_components/Desglose';
 import { Icon } from '../_components/icons';
 import { requireRolWs } from '@/lib/tab-access';
 import { pendientesOnboarding } from '@/lib/onboarding-pendientes';
+import { TiraQ } from './TiraQ';
+import { Ahora } from './Ahora';
+import { KpisCard, type KpiVista, type CandidatoVista } from './KpisCard';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 const MONO = "'Geist Mono', monospace";
+
 function fmtDMY(iso: string | null): string {
   if (!iso) return '—';
   const [y, m, d] = iso.split('-').map(Number);
   return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
 }
+
 function revItemsToDesglose(items: RevItem[], fechaLabel: string, focus = 'plan-pagos'): DesgloseItem[] {
   return items.map((it) => ({
     nombre: it.nombre,
@@ -59,21 +85,42 @@ type Alerta = { nivel: Nivel; titulo: string; detalle: string; href: string; hre
 
 export default async function GeneralPage() {
   await requireRolWs([], { nav: 'general' });
-  const hoy = hoyEnTijuana();
-  const ayer = ayerEnTijuana();
 
-  const [objR, compR, pendR, madR, fatR, tramoR, cuotasR, saludR] = await Promise.allSettled([
-    getObjetivoProgreso(hoy),
-    getResumenComparativo(ayer),
-    getPendientesDeMarcar(hoy),
-    getResumenComercialMaduras(),
-    getFatigaAdsets(hoy),
-    getTramoJ1J2Reciente(hoy, 60),
-    getCuotasPendientes(hoy),
-    getMetaAccountHealth(),
-  ]);
+  // ⚠️ LA MIGRACIÓN VA PRIMERO Y NO ROMPE NADA SI FALLA. Convierte los tres
+  // settings viejos (`objetivo_cash_usd`, `objetivo_cierres`, `objetivo_desde`) en
+  // los primeros objetivos del Q. Deja su propia marca y sale temprano, así que a
+  // partir de la segunda visita es UNA lectura de setting.
+  //
+  // Corre en el render y no en un cron a propósito: sin objetivos esta pantalla no
+  // tiene nada que decir, y el momento en que hace falta es exactamente cuando
+  // alguien la abre. Va en su propio try porque una migración que falla no puede
+  // dejar la pantalla en blanco.
+  try { await migrarSettingsAObjectives(); } catch { /* la pantalla funciona igual, sin el objetivo migrado */ }
 
-  const objetivo = objR.status === 'fulfilled' ? objR.value : null;
+  const { qt, hoy, progreso } = await quarterActual();
+  const ayer = (() => { const d = new Date(`${hoy}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); })();
+
+  const [objR, kpisR, capR, compR, pendR, madR, fatR, tramoR, cuotasR, saludR, fuentesR, tareasR, faseR] =
+    await Promise.allSettled([
+      listObjectives(qt),
+      getTableroKpis(hoy),
+      getCapacidad(hoy),
+      getResumenComparativo(ayer),
+      getPendientesDeMarcar(hoy),
+      getResumenComercialMaduras(),
+      getFatigaAdsets(hoy),
+      getTramoJ1J2Reciente(hoy, 60),
+      getCuotasPendientes(hoy),
+      getMetaAccountHealth(),
+      getDataSources(),
+      listTareas(),
+      getDiagnosticoFase(),
+    ]);
+
+  const objetivosBase = objR.status === 'fulfilled' ? objR.value : [];
+  const kpis: KpiEnTablero[] = kpisR.status === 'fulfilled' ? kpisR.value : [];
+  const capacidad = capR.status === 'fulfilled' ? capR.value
+    : { cupo: null, activos: 0, libres: null, ocupacionPct: null, mesesEntrega: 4, error: 'no pude leer la capacidad' };
   const comparativo = compR.status === 'fulfilled' ? compR.value : null;
   const pendientes: Pendientes = pendR.status === 'fulfilled' ? pendR.value : { items: [], total: 0, porTipo: { A: 0, B: 0, C: 0, M: 0, R: 0 } };
   const maduras = madR.status === 'fulfilled' ? madR.value : null;
@@ -81,46 +128,46 @@ export default async function GeneralPage() {
   const tramo = tramoR.status === 'fulfilled' ? tramoR.value : { promedio: null, n: 0 };
   const cuotas = cuotasR.status === 'fulfilled' ? cuotasR.value : { vencidas: [], porVencer: [] };
   const saludMeta = saludR.status === 'fulfilled' ? saludR.value : null;
+  const fuentes = fuentesR.status === 'fulfilled' ? fuentesR.value : [];
+  const tareas = tareasR.status === 'fulfilled' ? tareasR.value : [];
+  const fase = faseR.status === 'fulfilled' ? faseR.value : null;
 
-  // Desgloses (una sola ola paralela):
-  //  - Hero del objetivo: breakdowns en [objetivo.desde, hoy] (.sold cierres, .cash pagos).
-  //  - Resumen del mes: misma ventana MTD que getResumenComparativo(ayer).
+  // El avance de cada objetivo se lee de los datos, nunca de una columna guardada.
+  const objetivos: ObjectiveConAvance[] = await Promise.all(
+    objetivosBase.map((o) => avanceDeObjetivo(o, hoy)),
+  ).catch(() => [] as ObjectiveConAvance[]);
+
+  // La propuesta de KPIs sólo se calcula si hace falta: con KPIs cargados es una
+  // pantalla que nadie va a ver, y son dos lecturas (funnel + fase).
+  let candidatos: CandidatoVista[] = [];
+  if (kpis.length === 0) {
+    try {
+      candidatos = (await proponerKpis()).map((c) => ({
+        nombre: c.nombre, porque: c.porque, cadencia: c.cadencia,
+        compromiso: c.compromiso, unidad: c.unidad, fuente: c.fuente,
+      }));
+    } catch { /* sin propuesta, el vacío ofrece crear el primero a mano */ }
+  }
+
+  // Desgloses del bloque plegado, en una sola ola.
   const mtd = compareMTD(ayer);
-  let breakdowns: RevenueBreakdowns = { sold: [], cash: [], outstanding: [] };
   let mtdBreak: RevenueBreakdowns = { sold: [], cash: [], outstanding: [] };
   let agendasMTD: AgendaItem[] = [];
   let senalesMTD: SenalRecon[] = [];
   try {
-    const [objBreak, mtdB, agMTD, senMTD] = await Promise.all([
-      objetivo ? getRevenueBreakdowns(objetivo.desde, hoy) : Promise.resolve(breakdowns),
+    const [mtdB, agMTD, senMTD] = await Promise.all([
       getRevenueBreakdowns(mtd.actualInicio, mtd.actualFin),
       getAgendasBreakdown(mtd.actualInicio, mtd.actualFin),
       getSenalesRecon(mtd.actualInicio, mtd.actualFin),
     ]);
-    breakdowns = objBreak;
-    mtdBreak = mtdB;
-    agendasMTD = agMTD;
-    senalesMTD = senMTD;
+    mtdBreak = mtdB; agendasMTD = agMTD; senalesMTD = senMTD;
   } catch {
-    // degradación elegante: si falla, las cards muestran los números sin desglose.
+    // degradación elegante: las cards muestran los números sin desglose.
   }
 
-  // ── Semáforo: alertas accionables (compacto) ──
+  // ── Semáforo: las mismas seis reglas de siempre ──
   const alertas: Alerta[] = [];
 
-  // Lo que dejó pendiente en el onboarding y TODAVÍA no resolvió. Va primero y va acá
-  // —no en un banner aparte— porque es exactamente lo que el Semáforo dice ser: algo
-  // que hay que hacer, con el lugar donde se hace. Y va en ÁMBAR, no en rojo: el
-  // cliente no se equivocó, eligió una salida que MaKo le ofreció.
-  //
-  // Que aparezca es la mitad que faltaba de la salida del wizard. La otra mitad es que
-  // DESAPARECE solo: `pendientesOnboarding` cruza el flag con la conexión real de hoy,
-  // así que conectar Meta desde /integraciones lo apaga sin tocar nada más.
-  // ⚠️ El catch NO se traga el error en silencio. En el resto de esta pantalla degradar
-  // callado está bien —el número que falta se ve en otra tab—, pero este recordatorio no
-  // existe en ningún otro lado: si la lectura falla y devolvemos una lista vacía, el
-  // cliente ve «no te falta nada» y eso es afirmar lo contrario de lo que sabemos. El
-  // aviso va donde el dueño mira, no a un log que nadie lee.
   const pendArranque = await pendientesOnboarding().then((r) => ({ ok: true as const, r }), () => ({ ok: false as const, r: [] }));
   if (!pendArranque.ok) {
     alertas.push({
@@ -138,8 +185,6 @@ export default async function GeneralPage() {
       href: pend.ruta, hrefLabel: pend.donde,
     });
   }
-  // Salud de la cuenta de Meta (live). UNSETTLED/DISABLED/saldo impago → la cuenta
-  // no entrega aunque las campañas figuren ACTIVAS: urgencia roja al tope.
   if (saludMeta && saludMeta.severidad !== 'verde') {
     const esRojo = saludMeta.severidad === 'rojo';
     const saldo = saludMeta.balanceMxn > 0
@@ -156,7 +201,6 @@ export default async function GeneralPage() {
       href: '/marketing/salud', hrefLabel: 'Estado de Meta',
     });
   }
-  // Desglose de cuotas (lead · monto · vence · días) con botón Editar lead.
   const cuotaItems = (arr: typeof cuotas.vencidas): DesgloseItem[] => arr.map((c) => ({
     nombre: c.lead_nombre,
     valor: fmtUSD(c.monto_usd),
@@ -164,7 +208,6 @@ export default async function GeneralPage() {
     leadId: c.lead_id,
     focus: 'plan-pagos',
   }));
-  // Cuotas vencidas → URGENTE (rojo); por vencer → vigilar (ámbar).
   if (cuotas.vencidas.length > 0) {
     const tot = cuotas.vencidas.reduce((s, c) => s + c.monto_usd, 0);
     const n = cuotas.vencidas.length;
@@ -220,35 +263,66 @@ export default async function GeneralPage() {
       });
     }
   }
+
   const peso: Record<Nivel, number> = { rojo: 0, ambar: 1, verde: 2 };
   alertas.sort((a, b) => peso[a.nivel] - peso[b.nivel]);
   const urgentes = alertas.filter((a) => a.nivel === 'rojo').length;
   const vigilar = alertas.filter((a) => a.nivel === 'ambar').length;
   const enOrden = alertas.filter((a) => a.nivel === 'verde').length;
 
-  const meta = objetivo?.cierres_meta ?? 20;
-  const actual = objetivo?.cierres_actual ?? 0;
-  const faltan = Math.max(meta - actual, 0);
-  const cashActual = objetivo?.cash_actual ?? 0;
-  const cashMeta = objetivo?.cash_meta ?? 0;
-  const cashPct = cashMeta > 0 ? Math.min(100, (cashActual / cashMeta) * 100) : 0;
-  const sold = objetivo?.sold_actual ?? 0;
+  // ⚠️ TAREA #165 — el semáforo no puede certificar la salud de un negocio del que
+  // no sabe nada. Con cero fuentes comerciales conectadas ninguna de las seis
+  // reglas empuja una alerta, y el veredicto caía al verde final: «El negocio está
+  // sano». Es el peor primer contacto posible — luz verde a alguien que todavía no
+  // conectó nada, y eso se lleva puesta la credibilidad del resto del tablero.
+  //
+  // `lib/sources.ts` ya distingue «la fuente no está» de «la fuente dice cero»; lo
+  // único que faltaba era que esta pantalla la mirara.
+  // ⚠️ SE MIRA `lastSync`, NO `status`. Medido el 06/09/2026 sobre un workspace sin
+  // un solo dato: la primera versión de esto preguntaba `status !== 'off'` y el
+  // veredicto salió VERDE igual — el bug que venía a arreglar, otra vez.
+  //
+  // La causa: de las cinco fuentes, `calendly` y `vsl_beacon` devuelven `'stale'`
+  // cuando NUNCA hubo un dato (`lib/sources.ts:101` y `:129`), no `'off'`. O sea que
+  // «conectada pero sin datos recientes» y «nunca entregó nada» comparten valor en
+  // dos de las cinco, y contarlas por el estado daba 2 conectadas sobre un
+  // workspace vacío.
+  //
+  // `lastSync` no tiene esa ambigüedad: es la fecha del último dato real, o null
+  // porque no hubo ninguno. La pregunta que hay que hacer es «¿alguna fuente entregó
+  // algo alguna vez?», y ésa es la columna que la contesta.
+  const conDatos = fuentes.filter((f) => f.lastSync !== null);
+  const sinFuentes = fuentes.length > 0 && conDatos.length === 0;
 
-  // Desgloses del "Resumen del mes": inversión (por anuncio) + cierres/cash/agendas (por lead).
-  const inversionMTDItems: DesgloseItem[] = senalesMTD
-    .filter((s) => s.spend_usd > 0)
-    .sort((a, b) => b.spend_usd - a.spend_usd)
-    .map((s) => ({
-      nombre: s.ad_name,
-      valor: fmtUSD(s.spend_usd),
-      detalle: [s.campana, s.adset_name].filter(Boolean).join(' · ') || undefined,
-    }));
+  // ── LA acción prioritaria ──
+  const tituloObjetivo = new Map(objetivos.map((o) => [o.id, o.titulo]));
+  const foco = elegirFoco({
+    kpis: kpis.map((k) => ({
+      id: k.id, nombre: k.nombre, estado: k.estado, cadencia: k.cadencia,
+      compromiso: k.compromiso, unidad: k.unidad, valor: k.valor,
+      fuente: k.fuente, fuenteId: k.fuenteId,
+      objetivoTitulo: k.objectiveId ? (tituloObjetivo.get(k.objectiveId) ?? null) : null,
+      orden: k.orden,
+    })),
+    alertas: alertas as AlertaParaFoco[],
+    tareas: tareas
+      .filter((t) => t.estado !== 'hecho')
+      .map((t) => ({ titulo: t.titulo, score: t.score, progreso: t.progreso, deadline: t.deadline, haceloEn: null })),
+    objetivos: objetivos.length,
+    cuello: fase?.cuello ?? null,
+    hoy,
+  });
+
   const mtdDesgloses: Record<string, DesgloseData> = {
     'Ad Spend': {
       label: 'Ad Spend del mes · por anuncio',
       value: fmtUSD(senalesMTD.reduce((s, a) => s + a.spend_usd, 0)),
       color: 'var(--ink)',
-      items: inversionMTDItems,
+      items: senalesMTD.filter((s) => s.spend_usd > 0).sort((a, b) => b.spend_usd - a.spend_usd).map((s) => ({
+        nombre: s.ad_name,
+        valor: fmtUSD(s.spend_usd),
+        detalle: [s.campana, s.adset_name].filter(Boolean).join(' · ') || undefined,
+      })),
       emptyText: 'Sin gasto a nivel anuncio este mes.',
     },
     Cierres: {
@@ -270,19 +344,23 @@ export default async function GeneralPage() {
       value: String(agendasMTD.length),
       color: 'var(--ink)',
       items: agendasMTD.map((a) => ({
-        nombre: a.nombre,
-        valor: fmtDMY(a.fecha),
-        detalle: a.empresa ?? undefined,
-        leadId: a.leadId,
-        focus: 'datos-comerciales',
+        nombre: a.nombre, valor: fmtDMY(a.fecha), detalle: a.empresa ?? undefined,
+        leadId: a.leadId, focus: 'datos-comerciales',
       })),
       emptyText: 'Sin agendas este mes.',
     },
   };
 
+  const kpisVista: KpiVista[] = kpis.map((k) => ({
+    id: k.id, nombre: k.nombre, cadencia: k.cadencia, compromiso: k.compromiso,
+    unidad: k.unidad, fuente: k.fuente, fuenteId: k.fuenteId, objectiveId: k.objectiveId,
+    valor: k.valor, error: k.error, estado: k.estado, pct: k.pct,
+    umbralVerde: k.umbralVerde, umbralAmbar: k.umbralAmbar,
+  }));
+
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 30 }}>
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 26 }}>
         <h1 style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 12, fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>
           <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="general" size={34} /></span>
           General
@@ -290,13 +368,41 @@ export default async function GeneralPage() {
       </header>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sect-gap)' }}>
-        <HeroGoal meta={meta} actual={actual} faltan={faltan} cierres30={objetivo?.cierres_30d ?? 0} semanas={objetivo?.semanas_estimadas ?? null} cashActual={cashActual} cashMeta={cashMeta} cashPct={cashPct} sold={sold} cierresMetaRaw={objetivo?.cierres_meta ?? null} cashMetaRaw={objetivo?.cash_meta ?? null} desde={objetivo?.desde ?? ''} cierresItems={revItemsToDesglose(breakdowns.sold, 'cierre')} cashItems={revItemsToDesglose(breakdowns.cash, 'pago')} />
+        <TiraQ progreso={progreso} objetivos={objetivos} capacidad={capacidad} anio={qt.anio} quarter={qt.q} />
 
-        {comparativo && <ResumenMes c={comparativo} desgloses={mtdDesgloses} />}
+        <Ahora foco={foco} />
 
-        <Semaforo alertas={alertas} urgentes={urgentes} vigilar={vigilar} enOrden={enOrden} />
+        <KpisCard
+          kpis={kpisVista}
+          candidatos={candidatos}
+          objetivos={objetivos.map((o) => ({ id: o.id, titulo: o.titulo }))}
+          hoy={hoy}
+          objetivoPrincipalId={objetivos[0]?.id ?? null}
+        />
 
-        <PendientesCard pendientes={pendientes} />
+        <Plegable
+          titulo="Semáforo del negocio"
+          resumen={sinFuentes
+            ? 'todavía no puedo opinar'
+            : `${urgentes} urgente · ${vigilar} vigilar · ${enOrden} en orden`}
+          abiertoPorDefecto={urgentes > 0}
+        >
+          <Semaforo alertas={alertas} urgentes={urgentes} vigilar={vigilar} enOrden={enOrden} sinFuentes={sinFuentes} />
+        </Plegable>
+
+        {comparativo && (
+          <Plegable titulo="El mes en números" resumen="gasto, agendas, cierres y cobranza">
+            <ResumenMes c={comparativo} desgloses={mtdDesgloses} />
+          </Plegable>
+        )}
+
+        <Plegable
+          titulo="Pendientes de marcar"
+          resumen={pendientes.total > 0 ? `${pendientes.total} sin marcar` : 'datos al día'}
+          abiertoPorDefecto={pendientes.total > 0}
+        >
+          <PendientesCard pendientes={pendientes} />
+        </Plegable>
 
         <footer style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', paddingTop: 6 }}>
           Datos automáticos · Meta · Calendly · Cobranza. Montos en USD.
@@ -306,91 +412,45 @@ export default async function GeneralPage() {
   );
 }
 
-function HeroGoal({ meta, actual, faltan, cierres30, semanas, cashActual, cashMeta, cashPct, sold, cierresMetaRaw, cashMetaRaw, desde, cierresItems, cashItems }: {
-  meta: number; actual: number; faltan: number; cierres30: number; semanas: number | null;
-  cashActual: number; cashMeta: number; cashPct: number; sold: number;
-  cierresMetaRaw: number | null; cashMetaRaw: number | null; desde: string;
-  cierresItems: DesgloseItem[]; cashItems: DesgloseItem[];
+// ─────────────────────────────────────────────────────────────────────────────
+// El plegable
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Lo que antes ocupaba la pantalla entera y ahora vive un escalón abajo.
+ *
+ * ⚠️ PLEGADO NO ES ESCONDIDO. La regla de la casa lo dice para la barra lateral y
+ * vale igual acá: lo que se pliega lleva rótulo y una línea de RESUMEN con el dato
+ * que importa, así se sabe si vale la pena abrirlo sin abrirlo. Y lo que tiene algo
+ * urgente adentro nace abierto.
+ *
+ * `<details>` nativo y no un estado de React: funciona sin JS, lo maneja el
+ * teclado solo, y no hay ningún `useState` que se pierda al refrescar.
+ */
+function Plegable({ titulo, resumen, abiertoPorDefecto = false, children }: {
+  titulo: string;
+  resumen: string;
+  abiertoPorDefecto?: boolean;
+  children: React.ReactNode;
 }) {
-  const blocks = Math.min(meta, 40);
   return (
-    <section style={{ position: 'relative', overflow: 'hidden', background: 'var(--sidebar)', border: '1px solid var(--sidebar-2)', borderRadius: 22, padding: '38px 40px', color: 'var(--on-sidebar)' }}>
-      <div style={{ position: 'absolute', top: -140, right: -90, width: 460, height: 460, borderRadius: '50%', background: 'radial-gradient(circle,rgba(240,198,10,.20),transparent 68%)', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', bottom: -180, left: '30%', width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle,rgba(200,135,12,.10),transparent 70%)', pointerEvents: 'none' }} />
-      <div style={{ position: 'relative' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-          <div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: MONO, fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--accent-soft)', marginBottom: 12 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-soft)', boxShadow: '0 0 10px var(--accent-soft)' }} />El norte del negocio
-            </div>
-            <h2 style={{ fontWeight: 700, fontSize: 46, letterSpacing: '-0.03em', lineHeight: 1, margin: 0, color: 'var(--on-sidebar)' }}>Camino a los {meta} cierres</h2>
-          </div>
-          <EditarMeta cierresMeta={cierresMetaRaw} cashMeta={cashMetaRaw} desde={desde} />
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 18, flexWrap: 'wrap', margin: '34px 0 18px' }}>
-          <DesgloseTrigger
-            data={{ label: 'Cierres hacia la meta', value: `${actual} / ${meta}`, color: 'var(--accent)', items: cierresItems, emptyText: 'Aún no hay cierres en este objetivo.' }}
-            style={{ width: 'auto', display: 'inline-block' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-              <span style={{ fontWeight: 700, fontSize: 108, lineHeight: 0.78, letterSpacing: '-0.05em', color: 'var(--accent-soft)', fontVariantNumeric: 'tabular-nums', textShadow: '0 0 40px rgba(240,198,10,.35)' }}>{actual}</span>
-              <span style={{ fontWeight: 600, fontSize: 40, letterSpacing: '-0.03em', color: 'rgba(243,245,248,.45)' }}>/{meta}</span>
-            </div>
-            <span style={{ display: 'block', fontFamily: MONO, fontSize: 11, letterSpacing: '.06em', color: 'var(--accent-soft)', marginTop: 8 }}>ver los {actual} cierres →</span>
-          </DesgloseTrigger>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 7, paddingBottom: 8 }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, alignSelf: 'flex-start', fontWeight: 600, fontSize: 14, padding: '6px 13px', borderRadius: 999, background: 'rgba(240,198,10,.14)', color: 'var(--accent-soft)', border: '1px solid rgba(240,198,10,.25)' }}>▲ +{cierres30} en los últimos 30 días</span>
-            <span style={{ fontSize: 15, color: 'var(--sidebar-text)' }}>Faltan <strong style={{ color: 'var(--on-sidebar)' }}>{faltan} cierres</strong>{semanas ? <> · a este ritmo llegas en <strong style={{ color: 'var(--on-sidebar)' }}>~{semanas} semanas</strong></> : null}</span>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-          {Array.from({ length: blocks }).map((_, i) => {
-            const filled = i < actual;
-            const isFlag = i === blocks - 1;
-            return (
-              <div key={i} style={{
-                flex: 1, height: 46, borderRadius: 6,
-                ...(filled
-                  ? { background: 'linear-gradient(180deg,var(--accent-soft),var(--accent))', boxShadow: '0 0 14px rgba(240,198,10,.30)' }
-                  : { background: 'rgba(243,245,248,.07)', border: '1px solid rgba(243,245,248,.08)' }),
-                ...(isFlag && !filled ? { display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 } : {}),
-              }}>{isFlag && !filled ? '🏁' : ''}</div>
-            );
-          })}
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', color: 'var(--sidebar-text)', marginBottom: 30 }}>
-          <span>1 bloque = 1 cierre</span><span>META · {meta}</span>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14 }}>
-          <DesgloseTrigger
-            data={{ label: 'Cash Collected hacia la meta', value: fmtUSD(cashActual), color: 'var(--good)', items: cashItems, emptyText: 'Aún no hay cash cobrado en este objetivo.' }}
-          >
-            <div style={{ background: 'rgba(243,245,248,.05)', border: '1px solid rgba(243,245,248,.10)', borderRadius: 16, padding: '20px 22px' }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
-                <span style={{ fontWeight: 600, fontSize: 16, color: 'var(--on-sidebar)' }}>Cash Collected hacia la meta</span>
-                <span style={{ fontSize: 13.5, color: 'var(--sidebar-text)', fontVariantNumeric: 'tabular-nums' }}>{fmtUSD(cashActual)} / {fmtUSD(cashMeta)}{cashMeta > 0 ? ` · faltan ${fmtUSD(Math.max(cashMeta - cashActual, 0))}` : ''}</span>
-              </div>
-              <div style={{ width: '100%', height: 12, borderRadius: 999, background: 'rgba(243,245,248,.08)', overflow: 'hidden' }}>
-                <div style={{ width: `${cashPct}%`, height: '100%', borderRadius: 999, background: 'var(--good)', boxShadow: '0 0 12px rgba(28,138,84,.45)' }} />
-              </div>
-              <span style={{ display: 'block', fontFamily: MONO, fontSize: 11, letterSpacing: '.06em', color: 'var(--accent-soft)', marginTop: 12 }}>ver desglose por lead →</span>
-            </div>
-          </DesgloseTrigger>
-          <div style={{ background: 'rgba(243,245,248,.05)', border: '1px solid rgba(243,245,248,.10)', borderRadius: 16, padding: '20px 22px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
-              <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--sidebar-text)' }}>Sold Revenue (firmado)</span>
-              <span style={{ fontWeight: 700, fontSize: 26, color: 'var(--on-sidebar)', fontVariantNumeric: 'tabular-nums' }}>{fmtUSD(sold)}</span>
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--sidebar-text)', opacity: 0.8, marginTop: 6 }}>Comprometido en contratos — aún no cobrado.</div>
-          </div>
-        </div>
-      </div>
-    </section>
+    <details open={abiertoPorDefecto} style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+      <summary style={{
+        cursor: 'pointer', listStyle: 'revert',
+        display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap',
+        padding: '4px 0', color: 'var(--ink)',
+      }}>
+        <span style={{ fontWeight: 600, fontSize: 18, letterSpacing: '-0.01em' }}>{titulo}</span>
+        <span style={{ fontSize: 13.5, color: 'var(--dim)' }}>{resumen}</span>
+      </summary>
+      <div style={{ marginTop: 14 }}>{children}</div>
+    </details>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Los bloques de siempre
+// ─────────────────────────────────────────────────────────────────────────────
 
 function Arrow({ m, invertir = false }: { m: MetricaMTD; invertir?: boolean }) {
   if (m.actual === m.anterior) return <span style={{ color: 'var(--faint)', fontSize: 20 }}>→</span>;
@@ -408,8 +468,7 @@ function ResumenMes({ c, desgloses }: { c: ResumenComparativo; desgloses: Record
   ];
   return (
     <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
-      <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: '0 0 22px', color: 'var(--ink)' }}>Resumen del mes</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 14 }}>
         {items.map((it) => {
           const dg = desgloses[it.label];
           const inner = (
@@ -427,41 +486,46 @@ function ResumenMes({ c, desgloses }: { c: ResumenComparativo; desgloses: Record
             </>
           );
           const cardStyle: CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '18px 20px' };
-          return dg ? (
-            <DesgloseTrigger key={it.label} data={dg} style={cardStyle}>{inner}</DesgloseTrigger>
-          ) : (
-            <div key={it.label} style={cardStyle}>{inner}</div>
-          );
+          return dg
+            ? <DesgloseTrigger key={it.label} data={dg} style={cardStyle}>{inner}</DesgloseTrigger>
+            : <div key={it.label} style={cardStyle}>{inner}</div>;
         })}
       </div>
     </section>
   );
 }
 
-function Semaforo({ alertas, urgentes, vigilar, enOrden }: { alertas: Alerta[]; urgentes: number; vigilar: number; enOrden: number }) {
+function Semaforo({ alertas, urgentes, vigilar, enOrden, sinFuentes }: {
+  alertas: Alerta[]; urgentes: number; vigilar: number; enOrden: number; sinFuentes: boolean;
+}) {
   const lampOn: CSSProperties = { width: 48, height: 48, borderRadius: '50%' };
-  const veredicto = urgentes > 0
+
+  // ⚠️ EL CUARTO ESTADO (#165). Sin ninguna fuente conectada el veredicto NO puede
+  // ser verde: no hay datos que lo sostengan. Va primero, antes que urgentes y que
+  // vigilar, porque cuando no se sabe nada lo demás tampoco vale.
+  const veredicto = sinFuentes
+    ? { title: 'Todavía no puedo opinar de tu negocio', sub: 'No hay ninguna fuente conectada, así que cualquier veredicto sería inventado. Conecta Meta, el calendario o el CRM y esto empieza a tener sentido.', color: 'var(--dim)', bg: 'var(--surface-2)', fill: 'var(--faint)' }
+    : urgentes > 0
     ? { title: 'Hay algo urgente que atender', sub: 'Resuelve los focos rojos primero.', color: 'var(--bad)', bg: 'var(--bad-bg)', fill: 'var(--bad)' }
     : vigilar > 0
     ? { title: 'En general bien — hay cosas que vigilar', sub: 'El negocio avanza. Ningún incendio, pero hay focos amarillos que te están costando cierres.', color: 'var(--warn)', bg: 'var(--warn-bg)', fill: 'var(--warn-fill)' }
     : { title: 'El negocio está sano', sub: 'Sin focos activos. Buen momento para empujar volumen.', color: 'var(--good)', bg: 'var(--good-bg)', fill: 'var(--good)' };
 
+  const verde = !sinFuentes && urgentes === 0 && vigilar === 0;
+
   return (
     <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 24 }}>
-        <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Semáforo del negocio</h2>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--dim)', padding: '6px 11px', borderRadius: 999, background: 'var(--bad-bg)' }}><span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--bad)' }} /><strong style={{ color: 'var(--ink)' }}>{urgentes}</strong> urgente</span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--dim)', padding: '6px 11px', borderRadius: 999, background: 'var(--warn-bg)' }}><span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--warn-fill)' }} /><strong style={{ color: 'var(--ink)' }}>{vigilar}</strong> vigilar</span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--dim)', padding: '6px 11px', borderRadius: 999, background: 'var(--good-bg)' }}><span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--good)' }} /><strong style={{ color: 'var(--ink)' }}>{enOrden}</strong> en orden</span>
-        </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--dim)', padding: '6px 11px', borderRadius: 999, background: 'var(--bad-bg)' }}><span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--bad)' }} /><strong style={{ color: 'var(--ink)' }}>{urgentes}</strong> urgente</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--dim)', padding: '6px 11px', borderRadius: 999, background: 'var(--warn-bg)' }}><span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--warn-fill)' }} /><strong style={{ color: 'var(--ink)' }}>{vigilar}</strong> vigilar</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--dim)', padding: '6px 11px', borderRadius: 999, background: 'var(--good-bg)' }}><span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--good)' }} /><strong style={{ color: 'var(--ink)' }}>{enOrden}</strong> en orden</span>
       </div>
 
       <div style={{ display: 'flex', gap: 24, alignItems: 'stretch', flexWrap: 'wrap' }}>
         <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, background: '#14161B', borderRadius: 20, padding: '18px 16px', width: 88, alignSelf: 'stretch', justifyContent: 'center' }}>
-          <div style={{ ...lampOn, background: 'var(--bad)', ...(urgentes > 0 ? { boxShadow: '0 0 24px 4px rgba(207,78,41,.6)' } : { opacity: 0.18 }) }} />
-          <div style={{ ...lampOn, background: 'var(--warn-fill)', ...(urgentes === 0 && vigilar > 0 ? { boxShadow: '0 0 24px 4px rgba(232,179,11,.6)' } : { opacity: 0.18 }) }} />
-          <div style={{ ...lampOn, background: 'var(--good)', ...(urgentes === 0 && vigilar === 0 ? { boxShadow: '0 0 24px 4px rgba(28,138,84,.6)' } : { opacity: 0.2 }) }} />
+          <div style={{ ...lampOn, background: 'var(--bad)', ...(urgentes > 0 && !sinFuentes ? { boxShadow: '0 0 24px 4px rgba(207,78,41,.6)' } : { opacity: 0.18 }) }} />
+          <div style={{ ...lampOn, background: 'var(--warn-fill)', ...(!sinFuentes && urgentes === 0 && vigilar > 0 ? { boxShadow: '0 0 24px 4px rgba(232,179,11,.6)' } : { opacity: 0.18 }) }} />
+          <div style={{ ...lampOn, background: 'var(--good)', ...(verde ? { boxShadow: '0 0 24px 4px rgba(28,138,84,.6)' } : { opacity: 0.2 }) }} />
         </div>
 
         <div style={{ flex: 1, minWidth: 280, display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -469,8 +533,13 @@ function Semaforo({ alertas, urgentes, vigilar, enOrden }: { alertas: Alerta[]; 
             <h3 style={{ fontWeight: 600, fontSize: 22, letterSpacing: '-0.02em', margin: 0, color: veredicto.color }}>{veredicto.title}</h3>
             <p style={{ fontSize: 14, color: 'var(--dim)', margin: '6px 0 0' }}>{veredicto.sub}</p>
           </div>
+          {sinFuentes && (
+            <Link href="/integraciones" style={{ display: 'inline-flex', alignSelf: 'flex-start', padding: '11px 18px', borderRadius: 11, background: 'var(--primary)', color: '#fff', fontSize: 14.5, fontWeight: 600, textDecoration: 'none' }}>
+              Conectar una fuente →
+            </Link>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {alertas.length === 0 && (
+            {alertas.length === 0 && !sinFuentes && (
               <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderLeft: '4px solid var(--good)', borderRadius: 12, padding: '15px 18px', fontSize: 14, color: 'var(--dim)' }}>Sin alertas activas — todo en orden.</div>
             )}
             {alertas.map((a, i) => {
@@ -486,11 +555,9 @@ function Semaforo({ alertas, urgentes, vigilar, enOrden }: { alertas: Alerta[]; 
                   <span style={{ flex: 'none', color: 'var(--dim)', fontSize: 14 }}>{a.desglose ? 'ver detalle →' : `${a.hrefLabel} →`}</span>
                 </>
               );
-              return a.desglose ? (
-                <DesgloseTrigger key={i} data={a.desglose} style={rowStyle}>{inner}</DesgloseTrigger>
-              ) : (
-                <Link key={i} href={a.href} style={rowStyle}>{inner}</Link>
-              );
+              return a.desglose
+                ? <DesgloseTrigger key={i} data={a.desglose} style={rowStyle}>{inner}</DesgloseTrigger>
+                : <Link key={i} href={a.href} style={rowStyle}>{inner}</Link>;
             })}
           </div>
         </div>
@@ -506,7 +573,7 @@ function PendientesCard({ pendientes }: { pendientes: Pendientes }) {
         <div style={{ flex: 1, minWidth: 280 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
             <span style={{ fontWeight: 700, fontSize: 34, letterSpacing: '-0.03em', color: pendientes.total > 0 ? 'var(--bad)' : 'var(--good)', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{pendientes.total}</span>
-            <h2 style={{ fontWeight: 600, fontSize: 22, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>{pendientes.total > 0 ? 'leads sin marcar bloquean la confiabilidad' : 'datos al día — el tablero es confiable'}</h2>
+            <h3 style={{ fontWeight: 600, fontSize: 22, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>{pendientes.total > 0 ? 'leads sin marcar bloquean la confiabilidad' : 'datos al día — el tablero es confiable'}</h3>
           </div>
         </div>
         {pendientes.total > 0 && (

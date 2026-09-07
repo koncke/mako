@@ -49,9 +49,24 @@ import { diasQuieta, diasAlDeadline, ajusteTemporal } from './envejecer';
 import { ExportarModal } from './ExportarModal';
 import { NotasLista } from './NotasLista';
 import { capacidad } from '@/lib/mako-capacidades';
+import { cuandoDe, quartersElegibles, CUANDO_LABEL, CUANDO_OPS, type Cuando } from './cuando';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
+
+/**
+ * El «hoy» del navegador, `YYYY-MM-DD`.
+ *
+ * ⚠️ ES LA ZONA DE QUIEN MIRA, no la del workspace, y acá está bien: lo único que
+ * decide es qué se ve —en qué ventana cae una tarea y qué Quarters se ofrecen—,
+ * nunca qué se guarda. Lo que se persiste es la clave `2026-Q3`, que no depende de
+ * ninguna zona. Si esto decidiera un valor a escribir, tendría que venir del server:
+ * una detección automática mide TU máquina y no la del cliente.
+ */
+const hoyISO = (): string => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 const VISTAS = ['prioridades', 'kanban', 'proyectos', 'graphics'] as const;
 type Vista = (typeof VISTAS)[number];
@@ -103,6 +118,10 @@ export function BoardShell({ board, scope, vistaInicial }: {
   const [fLabels, setFLabels] = useState<Set<string>>(new Set());
   const [doneFilter, setDoneFilter] = useState<DoneFilter>('all'); // #16: filtrar por estado (kanban)
   const [fOrigen, setFOrigen] = useState<Set<string>>(new Set());  // filtrar por ORIGEN (fuente: WhatsApp/Fathom/…)
+  // CUANDO cae la tarea: hoy / esta semana / este Quarter / sin planificar (tarea #635).
+  // Es un Set y no un valor unico porque «hoy Y esta semana» es una pregunta legitima
+  // —lo urgente mas lo que se viene— y con un radio habria que elegir una.
+  const [fCuando, setFCuando] = useState<Set<Cuando>>(new Set());
   const [sortMode, setSortMode] = useState<'score' | 'creacion'>('score'); // orden de tareas/proyectos
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc'); // dirección: desc = mayor/más nuevo primero
   const [projFilter, setProjFilter] = useState<DoneFilter>('all');  // filtrar por estado (proyectos)
@@ -453,7 +472,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hayWelcome]);
-  const passes = (t: BoardTask) => (idsIA ? idsIA.has(t.id) : (!q || matchTarea(t, q, campos))) && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l))) && (fOrigen.size === 0 || fOrigen.has(fuenteEfectiva(t).tipo)) && pasaEstado(t.progress, doneFilter);
+  const passes = (t: BoardTask) => (idsIA ? idsIA.has(t.id) : (!q || matchTarea(t, q, campos))) && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l))) && (fOrigen.size === 0 || fOrigen.has(fuenteEfectiva(t).tipo)) && (fCuando.size === 0 || fCuando.has(cuandoDe(t, hoyISO()))) && pasaEstado(t.progress, doneFilter);
   const visibles = tasks.filter(passes);
   // ── El header, cuando la ventana se angosta ──────────────────────────────────
   // Es de UNA sola línea a propósito (que nada salte de renglón al cambiar de tab), y eso
@@ -895,7 +914,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
             onLimpiarIA={() => setIa({ pensando: false, ids: null, explico: '' })}
           />
           {view === 'kanban'
-            ? <FilterMenu soloIcono={compacto} labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />
+            ? <FilterMenu soloIcono={compacto} labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} fOrigen={fOrigen} setFOrigen={setFOrigen} fCuando={fCuando} setFCuando={setFCuando} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />
             : <FilterMenu soloIcono={compacto} doneFilter={projFilter} setDoneFilter={setProjFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />}
         </>}
         </div>
@@ -1970,13 +1989,14 @@ const ORIGEN_OPS: Array<[string, string]> = [
   ['whatsapp', '💬 WhatsApp'], ['fathom', '🎙️ Reunión · Fathom'], ['claude-code', '⌨️ Claude Code'],
   ['archivo', '📄 Archivos subidos'], ['mako', '✨ MaKo'], ['manual', '✍️ Manual'],
 ];
-type FiltroVista = 'root' | 'estado' | 'proyecto' | 'origen' | 'orden';
-function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, estadoLabels, fOrigen, setFOrigen, sortMode, setSortMode, sortDir, setSortDir, soloIcono }: {
+type FiltroVista = 'root' | 'estado' | 'proyecto' | 'origen' | 'orden' | 'cuando';
+function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, estadoLabels, fOrigen, setFOrigen, fCuando, setFCuando, sortMode, setSortMode, sortDir, setSortDir, soloIcono }: {
   /** sin lugar: queda el embudo solo (la palabra son ~55px). */
   soloIcono?: boolean;
   labels?: Label[]; fLabels?: Set<string>; setFLabels?: (s: Set<string>) => void;
   doneFilter: DoneFilter; setDoneFilter: (f: DoneFilter) => void; estadoLabels?: Array<[DoneFilter, string]>;
   fOrigen?: Set<string>; setFOrigen?: (s: Set<string>) => void;
+  fCuando?: Set<Cuando>; setFCuando?: (s: Set<Cuando>) => void;
   sortMode?: 'score' | 'creacion'; setSortMode?: (m: 'score' | 'creacion') => void;
   sortDir?: 'desc' | 'asc'; setSortDir?: (d: 'desc' | 'asc') => void;
 }) {
@@ -1986,9 +2006,10 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
   // lugar, con un "‹ volver". Así nunca hay más de una categoría en pantalla a la vez.
   const [vista, setVista] = useState<FiltroVista>('root');
   const cerrar = () => { setOpen(false); setVista('root'); };
-  const n = (fLabels?.size ?? 0) + (fOrigen?.size ?? 0) + (doneFilter !== 'all' ? 1 : 0);
+  const n = (fLabels?.size ?? 0) + (fOrigen?.size ?? 0) + (fCuando?.size ?? 0) + (doneFilter !== 'all' ? 1 : 0);
   const toggle = (id: string) => { if (!fLabels || !setFLabels) return; const c = new Set(fLabels); if (c.has(id)) c.delete(id); else c.add(id); setFLabels(c); };
   const toggleOrigen = (tipo: string) => { if (!fOrigen || !setFOrigen) return; const c = new Set(fOrigen); if (c.has(tipo)) c.delete(tipo); else c.add(tipo); setFOrigen(c); };
+  const toggleCuando = (v: Cuando) => { if (!fCuando || !setFCuando) return; const c = new Set(fCuando); if (c.has(v)) c.delete(v); else c.add(v); setFCuando(c); };
   const ops = estadoLabels ?? ESTADO_OPS;
   const check = (on: boolean): CSSProperties => ({ width: 14, height: 14, borderRadius: 4, border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' });
   const radio = (on: boolean): CSSProperties => ({ width: 13, height: 13, borderRadius: '50%', border: `2px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary)' : 'transparent', flex: 'none', boxShadow: on ? 'inset 0 0 0 2px var(--surface)' : 'none' });
@@ -1998,6 +2019,8 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
   const estadoLabel = ops.find(([v]) => v === doneFilter)?.[1] ?? ops[0][1];
   const proyResumen = fLabels?.size ? `${fLabels.size} elegido${fLabels.size > 1 ? 's' : ''}` : 'Todos';
   const origenResumen = !fOrigen?.size ? 'Todos' : (fOrigen.size === 1 ? (ORIGEN_OPS.find(([t]) => fOrigen.has(t))?.[1].replace(/^\S+\s/, '') ?? '1') : `${fOrigen.size} elegidos`);
+  const cuandoResumen = !fCuando?.size ? 'Todas'
+    : fCuando.size === 1 ? CUANDO_LABEL[[...fCuando][0]] : `${fCuando.size} ventanas`;
   const modeLabel = sortMode === 'creacion' ? 'Por creación' : 'Por prioridad';
   const ordenResumen = `${modeLabel} ${sortDir === 'asc' ? '↑' : '↓'}`;
 
@@ -2005,6 +2028,9 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
   // apliquen (en la vista Proyectos no va "Proyecto", etc.).
   const cats: Array<{ key: FiltroVista; label: string; resumen: string; activo: boolean }> = [];
   if (sortMode && setSortMode) cats.push({ key: 'orden', label: 'Ordenar', resumen: ordenResumen, activo: false });
+  // «Cuando» va ARRIBA de «Estado»: la pregunta de quien abre el tablero a la manana
+  // es que le toca HOY, no en que estado esta cada cosa.
+  if (fCuando && setFCuando) cats.push({ key: 'cuando', label: 'Cuando', resumen: cuandoResumen, activo: !!fCuando.size });
   cats.push({ key: 'estado', label: 'Estado', resumen: estadoLabel, activo: doneFilter !== 'all' });
   if (labels && labels.length > 0) cats.push({ key: 'proyecto', label: 'Proyecto', resumen: proyResumen, activo: !!fLabels?.size });
   if (fOrigen && setFOrigen) cats.push({ key: 'origen', label: 'Origen', resumen: origenResumen, activo: !!fOrigen.size });
@@ -2026,7 +2052,7 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
           // de los de 38x38: tres alturas en la misma fila. La caja es la MISMA siempre.
           height: 38, width: soloIcono ? 38 : undefined, padding: soloIcono ? 0 : '0 13px', flex: 'none', whiteSpace: 'nowrap', background: open ? 'var(--surface-2)' : 'var(--surface)', color: n > 0 ? 'var(--primary)' : 'var(--dim)', borderColor: n > 0 ? 'var(--primary-weak)' : 'var(--border-strong)' }}>
         <FunnelIcon color="var(--primary)" />{!soloIcono && 'Filtrar'}
-        {n > 0 && <span onClick={(e) => { e.stopPropagation(); setFLabels?.(new Set()); setFOrigen?.(new Set()); setDoneFilter('all'); }} title="Limpiar" style={{ position: 'absolute', top: -7, right: -7, minWidth: 18, height: 18, padding: '0 4px', borderRadius: 999, background: 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg)' }}>{n}</span>}
+        {n > 0 && <span onClick={(e) => { e.stopPropagation(); setFLabels?.(new Set()); setFOrigen?.(new Set()); setFCuando?.(new Set()); setDoneFilter('all'); }} title="Limpiar" style={{ position: 'absolute', top: -7, right: -7, minWidth: 18, height: 18, padding: '0 4px', borderRadius: 999, background: 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg)' }}>{n}</span>}
       </button>
       {open && <>
         <span onClick={cerrar} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
@@ -2044,7 +2070,7 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
                 </button>
               ))}
               {n > 0 && (
-                <button onClick={() => { setFLabels?.(new Set()); setFOrigen?.(new Set()); setDoneFilter('all'); }}
+                <button onClick={() => { setFLabels?.(new Set()); setFOrigen?.(new Set()); setFCuando?.(new Set()); setDoneFilter('all'); }}
                   style={{ ...rowBtn, justifyContent: 'center', marginTop: 4, borderTop: '1px solid var(--border)', paddingTop: 10, color: 'var(--primary)', fontWeight: 600 }}>
                   Limpiar filtros ({n})
                 </button>
@@ -2065,6 +2091,12 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
                 <button key={l.id} onClick={() => toggle(l.id)} style={rowBtn}>
                   <span style={check(!!fLabels?.has(l.id))}>{fLabels?.has(l.id) ? '✓' : ''}</span>
                   <span>{l.emoji} {l.name}</span>
+                </button>
+              ))}
+              {vista === 'cuando' && CUANDO_OPS.map((v) => (
+                <button key={v} onClick={() => toggleCuando(v)} style={rowBtn}>
+                  <span style={check(!!fCuando?.has(v))}>{fCuando?.has(v) ? '✓' : ''}</span>
+                  <span>{CUANDO_LABEL[v]}</span>
                 </button>
               ))}
               {vista === 'origen' && ORIGEN_OPS.map(([tipo, label]) => (
@@ -2260,6 +2292,22 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, onDebat
               <input type="date" value={t.deadline} onChange={(e) => board.setDeadline(t.id, e.target.value, t.deadline)} style={selStyle} />
               {t.deadlineRazon && <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4, margin: '6px 0 8px', fontStyle: 'italic' }}>“{t.deadlineRazon}”</div>}
               <button onClick={onDebateFecha} style={{ ...cambiarBtn, marginTop: t.deadlineRazon ? 0 : 8 }}><MakoStar size={15} color="var(--primary)" /> {t.deadline ? 'Cambiar la fecha' : 'Que MaKo le ponga fecha'}</button>
+            </div>
+            {/* EL QUARTER ES OTRA COSA QUE EL DEADLINE, y por eso es otro campo.
+                El deadline dice cuándo VENCE —lo propone el Perro y se le discute—;
+                el Quarter dice cuándo decidiste HACERLO, y eso no lo decide nadie
+                más que vos. Sin fecha todavía, el Quarter alcanza para que la tarea
+                aparezca en «este Quarter» y no se caiga de todas las vistas. */}
+            <div>
+              <label style={rowLabel}>Quarter</label>
+              <select
+                value={t.quarter ?? ''}
+                onChange={(e) => board.setQuarter(t.id, e.target.value, t.quarter ?? '')}
+                style={selStyle}
+              >
+                <option value="">Sin asignar</option>
+                {quartersElegibles(hoyISO()).map((q) => <option key={q.key} value={q.key}>{q.label}</option>)}
+              </select>
             </div>
             <div>
               <label style={rowLabel}>{board.repo.labelPlural}</label>

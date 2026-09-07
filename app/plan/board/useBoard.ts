@@ -212,6 +212,15 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     show(done ? 'Tarea reabierta' : 'Tarea completada', () => replaceTask(snap));
   };
   const setDeadline = (id: string, deadline: string, prev: string) => { if (deadline !== prev) patchLogExplicit(id, 'deadline', deadline, prev, deadline ? `Deadline ${deadline}` : 'Quitó el deadline'); };
+  /**
+   * El Quarter planificado (`2026-Q3`), o vacío para sacarlo.
+   *
+   * Va por `patchLogExplicit` como el deadline —y no por un patch pelado— porque eso
+   * es lo que guarda el valor ANTERIOR en el historial, que es de donde sale el
+   * deshacer. Un campo que se escribe sin `prev` no se puede revertir, y en un
+   * tablero donde la IA también escribe eso no es un lujo.
+   */
+  const setQuarter = (id: string, quarter: string, prev: string) => { if (quarter !== prev) patchLogExplicit(id, 'quarter', quarter || undefined, prev, quarter ? `La planificó para el ${quarter.replace('-', ' ')}` : 'Le sacó el Quarter'); };
   const setTaskLabels = (id: string, next: string[], text: string) => patchLogExplicit(id, 'labels', next, byId(id)?.labels ?? [], text);
 
   // deshacer una entrada del historial: revierte el campo Y borra la entrada
@@ -313,7 +322,7 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     tasks, labels, user, repo, deps, addDep, delDep,
     labelById: (id: string) => labels.find((l) => l.id === id) ?? null,
     create, remove, removeSilent, patch, moveTo, setScore, applyGuardian, aplicarPerroServer, toggleEnPrioridad, setChecklist, replaceTask,
-    setTitle, setDetalle, setProgress, toggleDone, setDeadline, setTaskLabels, undoHist,
+    setTitle, setDetalle, setProgress, toggleDone, setDeadline, setQuarter, setTaskLabels, undoHist,
     createLabel, patchLabel, patchLabelLog, undoLabelHist, deleteLabel, deleteLabelYTareas, reset,
     undo, showUndo: show, clearUndo: clear,
   };

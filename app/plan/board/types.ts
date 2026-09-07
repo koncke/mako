@@ -116,6 +116,15 @@ export type BoardTask = {
   esfuerzo?: number;        // 1-100: cuánto cuesta hacerla (menos esfuerzo = mejor)
   progress: number;         // 0-100
   deadline: string;         // '' | YYYY-MM-DD
+  /**
+   * El Quarter para el que se PLANIFICÓ, formato `2026-Q3`. Vacío = sin asignar.
+   *
+   * ⚠️ NO ES LO MISMO QUE `deadline` Y POR ESO SON DOS CAMPOS. El deadline dice
+   * cuándo VENCE —lo pone el Perro, una reunión o una persona— y el quarter dice
+   * cuándo se decidió HACERLO, que sólo lo pone una persona. Derivar uno del otro
+   * inventa una decisión que nadie tomó (migs 0155 y 0156).
+   */
+  quarter?: string;
   labels: string[];         // ids de Label
   checklist: Check[];
   historial: Hist[];

@@ -38,6 +38,8 @@ export type Tarea = {
   prioridad: Prioridad;
   progreso: number;              // 0-100
   deadline: string | null;       // YYYY-MM-DD
+  /** Quarter planificado, `2026-Q3`. NO se deriva del deadline (mig 0156). */
+  quarter: string | null;
   categorias: number[];          // ids de tarea_categorias
   checklist: ChecklistItem[];    // ítems {id,text,done}
   historial: HistEntry[];        // change history {ts,actor,text} — user|ia
@@ -113,6 +115,15 @@ const origenOk = (o: unknown): OrigenTarea =>
   o === 'mako' || o === 'retro' || o === 'experimento' ? o : 'manual';
 const dateOk = (d: unknown): string | null =>
   typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null;
+/**
+ * El Quarter, `AAAA-QN`. Lo que no matchee entra como null.
+ *
+ * ⚠️ EL SANEO NO ES PROLIJIDAD. Un string libre guardado acá deja la tarea en una
+ * ventana que ninguna vista sabe leer, y el síntoma no es un error: es que la tarea
+ * desaparece de todos los filtros de tiempo sin que nada lo diga.
+ */
+const quarterOk = (q: unknown): string | null =>
+  typeof q === 'string' && /^\d{4}-Q[1-4]$/.test(q.trim()) ? q.trim() : null;
 const catsOk = (c: unknown): number[] =>
   Array.isArray(c) ? c.map(Number).filter((n) => Number.isFinite(n)) : [];
 
@@ -250,7 +261,7 @@ export async function moverTarea(id: number, estado: EstadoTarea, orden?: number
 
 export async function editarTarea(
   id: number,
-  patch: { titulo?: string; detalle?: string | null; prioridad?: Prioridad; progreso?: number; deadline?: string | null; categorias?: number[]; checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number; score_razon?: string | null; fuente?: { tipo: string; etiqueta?: string; url?: string } | null },
+  patch: { titulo?: string; detalle?: string | null; prioridad?: Prioridad; progreso?: number; deadline?: string | null; quarter?: string | null; categorias?: number[]; checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number; score_razon?: string | null; fuente?: { tipo: string; etiqueta?: string; url?: string } | null },
 ): Promise<Tarea> {
   const upd: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.titulo != null) upd.titulo = patch.titulo.trim() || 'Tarea';
@@ -271,6 +282,10 @@ export async function editarTarea(
     }
   }
   if (patch.deadline !== undefined) upd.deadline = dateOk(patch.deadline);
+  // El Quarter se SANEA contra su formato: lo que no sea `AAAA-QN` entra como null.
+  // Guardar un string libre dejaria una tarea en una ventana que ninguna vista sabe
+  // leer, y el sintoma seria que la tarea desaparece de todos los filtros.
+  if (patch.quarter !== undefined) upd.quarter = quarterOk(patch.quarter);
   if (patch.categorias !== undefined) upd.categorias = catsOk(patch.categorias);
   if (patch.checklist !== undefined) upd.checklist = checklistOk(patch.checklist);
   if (patch.historial !== undefined) upd.historial = histOk(patch.historial);

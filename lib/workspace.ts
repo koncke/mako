@@ -87,6 +87,10 @@ const TENANT_TABLES = new Set<string>([
   'chat_agent_handoffs',
   'closing_analyses', 'closing_jobs', 'creative_transcripts', 'cs_clientes', 'cs_respuestas', 'email_broadcast_envios', 'email_broadcasts', 'evolution_contactos', 'evolution_instancias', 'evolution_labels', 'evolution_stage_labels', 'experimento_tareas',
   'experimentos', 'flow_puentes', 'flow_trabajos', 'formatos', 'landing_analyses', 'landing_drafts', 'landing_visits', 'lead_audit', 'leads', 'marketing_metrics_daily', 'montaje_trabajos',
+  // Objectives y KPIs (mig 0155). `kpi_registros` va acá igual que las otras dos
+  // aunque sólo la escriban acciones con sesión: el scope no se decide por quién
+  // escribe hoy, sino por de quién son las filas.
+  'objectives', 'kpis', 'kpi_registros',
   'identidades_fiscales', 'lead_insights', 'lead_respuestas', 'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_buffer', 'mako_doer_conv', 'mako_doer_lock', 'mako_knowledge', 'meta_health_history', 'nutricion_envios', 'nutricion_inscripciones', 'nutricion_secuencias', 'pagos',
   'pipeline_stages', 'plan_dependencias', 'plan_propuestas', 'plan_reprios', 'propuestas', 'plan_proyectos', 'plan_tareas', 'productos', 'retros', 'review_queue', 'script_analyses', 'script_drafts', 'service_incidents', 'setting_audios',
   'tarea_categorias', 'vsl_events', 'wa_bloqueados', 'wa_borradores', 'wa_mensajes', 'wa_ocultos', 'whatsapp_template_drafts', 'workspace_telefonos',

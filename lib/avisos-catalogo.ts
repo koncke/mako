@@ -127,6 +127,9 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'cuota-vencida': 'plata', 'cuota-por-vencer': 'plata',
   'pago-recibido': 'plata', 'cierre-venta': 'plata',
   'objetivo-en-riesgo': 'plata', 'meta-alcanzada': 'plata',
+  // El recordatorio del Q va con el rótulo de PLATA y no de sistema: lo que se
+  // planifica en un Quarter son los objetivos del negocio, no una tarea de la app.
+  'quarter-planificar': 'plata',
 
   'tracking-apagado': 'landing', 'tracking-desactualizado': 'landing', 'lead-de-landing': 'landing',
   'clarity-grabacion-por-vencer': 'landing', 'prueba-grabada': 'landing',
@@ -624,14 +627,28 @@ https://hola-mako.com/plan — MaKo`,
   },
   {
     id: 'objetivo-en-riesgo', titulo: 'Objetivo/meta en riesgo por ritmo', categoria: 'accion',
-    prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: true, yaImplementado: 'no',
-    disparador: 'getObjetivoProgreso.semanas_estimadas > objetivo temporal.',
-    ejemplo: `🟡 Al ritmo actual llegas a la meta de cierres en *~9 semanas*, y tu objetivo era 6. Estás corto. ¿Armamos un plan para acelerar (más presupuesto en el ganador o más R1 por semana)? — MaKo`,
+    prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: true, yaImplementado: 'si',
+    // ⚠️ EL UMBRAL SE MIDE CONTRA EL PERÍODO, no contra un número de semanas suelto.
+    // «Voy en 9 semanas y quería 6» no se puede calcular sin saber cuánto dura el
+    // objetivo, y por eso el disparador viejo nunca se implementó. Ahora salta
+    // cuando lo acumulado está 20% por debajo de lo que corresponde a esta altura
+    // del Q, prorrateado lineal. El 20% deja pasar el ruido de un fin de semana y
+    // caza un mes flojo; los 14 días de gracia evitan avisar el 3 de enero.
+    disparador: 'Cron diario: lo acumulado del objetivo del Q está 20% debajo de lo prorrateado a hoy, con al menos 14 días de período corridos.',
+    ejemplo: `🟡 Vas *20% abajo* de tu objetivo del trimestre: llevas US$8.400 de US$20.000 y a esta altura deberías ir por US$11.000. Quedan 38 días. ¿Armamos un plan para acelerar? — MaKo`,
+  },
+  {
+    id: 'quarter-planificar', titulo: 'Planificar el Quarter que viene', categoria: 'pregunta',
+    prioridad: 'media', semaforo: 'na', requiereRespuesta: true, yaImplementado: 'si',
+    // Los 21 días los eligió el dueño. Es tiempo suficiente para pensar el Q
+    // siguiente sin que el aviso llegue tan temprano que se archive y se olvide.
+    disparador: 'Cron diario: faltan 21 días o menos para que termine el Quarter y el siguiente no tiene ningún objetivo cargado.',
+    ejemplo: `🗓️ Se está terminando el *Q3* — quedan 19 días. Todavía no hay nada cargado para el Q4. ¿Lo planificamos juntos? — MaKo`,
   },
   {
     id: 'meta-alcanzada', titulo: 'Meta alcanzada (celebración)', categoria: 'aviso',
-    prioridad: 'baja', semaforo: 'verde', requiereRespuesta: false, yaImplementado: 'no',
-    disparador: 'Cierres o cash del período cruzan la meta.',
+    prioridad: 'baja', semaforo: 'verde', requiereRespuesta: false, yaImplementado: 'si',
+    disparador: 'Cron diario: lo acumulado del objetivo del Q cruzó su meta.',
     ejemplo: `🏆 *¡Meta cumplida!* Llegaste a los 10 cierres del mes con $23.000 de cash, y 4 días antes de tiempo. Tremendo. ¿Subimos la vara para el mes que viene? — MaKo`,
   },
   {

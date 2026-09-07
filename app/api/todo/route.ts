@@ -31,7 +31,7 @@ export async function GET() {
 
 type TareaBody = {
   titulo?: string; detalle?: string | null; prioridad?: Prioridad; estado?: EstadoTarea;
-  progreso?: number; deadline?: string | null; categorias?: number[];
+  progreso?: number; deadline?: string | null; quarter?: string | null; categorias?: number[];
   checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number; score_razon?: string | null;
   origen?: OrigenTarea; retro_id?: number | null; experimento_id?: number | null;
   // DE DÓNDE SALIÓ la tarea (reunión de Fathom + minuto, archivo, WhatsApp). La tabla
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
       const patch = (body.patch as TareaBody) ?? {};
       return Response.json({ ok: true, tarea: await editarTarea(id, {
         titulo: patch.titulo, detalle: patch.detalle, prioridad: patch.prioridad,
-        progreso: patch.progreso, deadline: patch.deadline, categorias: patch.categorias,
+        progreso: patch.progreso, deadline: patch.deadline, quarter: patch.quarter, categorias: patch.categorias,
         checklist: patch.checklist, historial: patch.historial, en_prioridad: patch.en_prioridad, score: patch.score, score_razon: patch.score_razon,
         fuente: patch.fuente,
       }) });

@@ -1,6 +1,8 @@
 # Objectives, KPIs y la vista General como FOCUS
 
-**Estado:** diseño acordado el 06/09/2026. Nada implementado todavía.
+**Estado:** IMPLEMENTADO el 06-07/09/2026 (F0 a F4). Este documento es el diseño que
+se acordó y se siguió; lo que se aprendió construyéndolo —y lo que quedó sin hacer— vive
+en [hallazgos-objectives.md](hallazgos-objectives.md).
 **Reemplaza a:** nueve tareas sueltas del board que resultaron ser una sola feature.
 
 ---

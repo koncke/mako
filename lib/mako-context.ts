@@ -11,6 +11,7 @@ import { MAKO_NUCLEO, getActivePersona } from './mako-prompts';
 import { getFaseInstruccion } from './mako-fases';
 import { perfilNegocioTexto } from './onboarding';
 import { faseNegocioTexto } from './fase-store';
+import { objetivosContextoTexto } from './objectives';
 import { searchKnowledge, formatKnowledge } from './mako-knowledge';
 import { resumenExperimentos } from './experimentos';
 import { META_RULES_TEXT } from './meta-rules';
@@ -98,6 +99,12 @@ export async function buildSystemPrompt(opts: { chartKey: string; titulo: string
   // y aconseja según la etapa real — no le propone escalar a quien todavía no
   // convierte, ni high-ticket a quien no tiene tráfico.
   if (faseNegocio) base += `\n\nEN QUÉ FASE ESTÁ EL NEGOCIO (su Norte — prioriza según esto):\n${faseNegocio}`;
+  // El objetivo del TRIMESTRE, sus KPIs atrasados y su capacidad instalada. La fase
+  // dice en qué ETAPA está el negocio; esto dice a qué se COMPROMETIÓ estos 90 días.
+  // Son dos cosas distintas y las dos hacen falta: sin el objetivo, MaKo aconseja lo
+  // correcto en general y no lo correcto AHORA.
+  const objetivosTxt = await objetivosContextoTexto().catch(() => '');
+  if (objetivosTxt) base += `\n\nA QUÉ SE COMPROMETIÓ ESTE TRIMESTRE (úsalo para decidir qué es urgente):\n${objetivosTxt}`;
   if (fase) base += `\n\nQUÉ TIENES QUE MIRAR Y HACER EN ESTA SECCIÓN:\n${fase}`;
   const know = formatKnowledge(knowledge);
   if (know) base += `\n\nTU METODOLOGÍA (lo más relevante a esta consulta):\n${know}`;

@@ -120,6 +120,15 @@ export const CAPACIDADES: Capacidad[] = [
     como: ['Entra al Funnel', 'Acomoda las etapas de tu proceso real', 'Eso alimenta al CRM y a la nutrición'],
   },
   {
+    // Es la contraparte de `experimento`: aquél registra si algo funcionó, éste
+    // fija a qué se comprometió el negocio este trimestre. Sin la entrada acá, el
+    // Perro no tiene a dónde mandar una tarea de «definir la meta del Q» y la deja
+    // como deber suelto teniendo la pantalla en la tab de al lado.
+    id: 'objetivo', tab: 'General', ruta: '/general',
+    que: 'Fijar el objetivo del trimestre, elegir los KPIs que lo mueven y marcar cuánto puedes entregar. Es lo que decide qué aparece como prioridad del día.',
+    como: ['Entra a General', 'Toca el objetivo y ponle su meta y su período', 'Elige los KPIs que propone MaKo o escribe los tuyos', 'Los que registras a mano se cargan desde la misma lista'],
+  },
+  {
     id: 'equipo', tab: 'Configuraciones', ruta: '/equipo',
     que: 'Sumar gente al equipo y darle el rol que corresponde (setter, closer, admin).',
     como: ['Entra a Configuraciones → Equipo', 'Invita a la persona', 'Elige su rol: ve solo lo suyo'],

@@ -19,6 +19,7 @@ import { desempatar } from '@/app/plan/board/metodologia';
 import { checklistsParaTareas } from '@/lib/checklist-coach';
 import { CATALOGO_PROYECTOS, delCatalogo, canonNombre, nucleo } from '@/lib/plan-proyectos-catalogo';
 import { faseNegocioTexto } from '@/lib/fase-store';
+import { objetivosContextoTexto } from '@/lib/objectives';
 
 type Row = Record<string, unknown>;
 
@@ -51,7 +52,7 @@ function rowToTask(r: Row): BoardTask {
     deadlineRazon: r.deadline_razon ? str(r.deadline_razon) : undefined, notas: str(r.notas),
     haceloEn: r.hacelo_en ? str(r.hacelo_en) : undefined,
     impacto: optInt(r.impacto), esfuerzo: optInt(r.esfuerzo),
-    progress: int(r.progress), deadline: str(r.deadline),
+    progress: int(r.progress), deadline: str(r.deadline), quarter: r.quarter ? str(r.quarter) : undefined,
     labels: asArr<unknown>(r.labels).map(String), checklist: asArr<Check>(r.checklist),
     historial: sanearHist(r.historial), origen: str(r.origen, 'user') as Actor,
     creadaEn: Date.parse(str(r.created_at)) || undefined,
@@ -66,7 +67,7 @@ function taskToRow(t: BoardTask): Row {
     priority: t.priority, score: int(t.score), score_base: int(t.scoreBase ?? t.score), score_razon: t.scoreRazon ?? null,
     deadline_razon: t.deadlineRazon ?? null, notas: t.notas ?? '', hacelo_en: t.haceloEn ?? null,
     impacto: t.impacto ?? null, esfuerzo: t.esfuerzo ?? null, progress: int(t.progress),
-    deadline: t.deadline || '', labels: t.labels ?? [], checklist: t.checklist ?? [], historial: t.historial ?? [],
+    deadline: t.deadline || '', quarter: t.quarter || null, labels: t.labels ?? [], checklist: t.checklist ?? [], historial: t.historial ?? [],
     origen: t.origen || 'user', fuente: t.fuente ?? null, en_prioridad: !!t.enPrioridad, score_manual: !!t.scoreManual,
     orden: t.num, updated_at: new Date().toISOString(),
   };
@@ -716,8 +717,17 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
     // circular: ordena bien entre sí cosas que quizá no son de esta fase. El
     // diagnóstico dice cuál es el cuello de hoy y qué lo destraba — es lo que distingue
     // "importante" de "importante AHORA".
-    const norte = await faseNegocioTexto().catch(() => '');
-    const brief = [norte, contexto.trim()].filter(Boolean).join('\n\n');
+    // Y con el norte va EL OBJETIVO DEL TRIMESTRE. La fase dice en qué etapa está
+    // el negocio; el objetivo dice a qué se comprometió ESTOS 90 días y cuánto le
+    // falta. Sin eso el Perro puede poner arriba algo importante que no mueve la
+    // aguja de lo que hay que cumplir ahora. La capacidad entra por el mismo lado:
+    // una tarea de conseguir más clientes con el cupo lleno no es prioritaria, es
+    // contraproducente.
+    const [norte, objetivos] = await Promise.all([
+      faseNegocioTexto().catch(() => ''),
+      objetivosContextoTexto().catch(() => ''),
+    ]);
+    const brief = [norte, objetivos, contexto.trim()].filter(Boolean).join('\n\n');
     const db = await getTenantDb();
     const idSet = new Set(ids);
     const projSet = new Set(proyectoIds);
@@ -933,7 +943,14 @@ export async function priorizarProyectosOwner(motivo?: string): Promise<{
     // El norte del negocio primero: sin eso el Perro ordena mirando solo el tablero, que es
     // una referencia circular. El diagnóstico dice cuál es el cuello de HOY, y es lo que
     // distingue «importante» de «importante AHORA».
-    const contexto = await faseNegocioTexto().catch(() => '');
+    // Mismo par que en `priorizarNuevasOwner`: la fase (en qué etapa está) y el
+    // objetivo del Q (a qué se comprometió). Van juntos, o el Perro ordena bien
+    // entre sí cosas que no mueven lo que hay que cumplir este trimestre.
+    const [norteP, objetivosP] = await Promise.all([
+      faseNegocioTexto().catch(() => ''),
+      objetivosContextoTexto().catch(() => ''),
+    ]);
+    const contexto = [norteP, objetivosP].filter(Boolean).join('\n\n');
     const r = await puntuarProyectos(payload, contexto, motivo || 'Priorizar los proyectos del plan');
     if (r.error || !r.proyectos.length) {
       return { movidos: 0, total: proyectos.length, norte: '', error: r.error ?? 'El Perro no devolvió nada.' };

@@ -167,4 +167,7 @@ export const AVISOS_WA_EN_VIVO: AvisoWaDef[] = [
   { id: 'wa-mensaje-entrante', titulo: 'Mensaje de WhatsApp sin responder', sub: 'Un contacto escribe y todavía nadie le contestó.' },
   { id: 'meta-anuncio-espera-aprobacion', titulo: 'Meta retuvo un anuncio', sub: 'Un anuncio publicado necesita aprobación manual para salir.' },
   { id: 'tracking-apagado', titulo: 'La landing dejó de mandar datos', sub: 'Se cortó el seguimiento y las métricas quedan ciegas.' },
+  { id: 'objetivo-en-riesgo', titulo: 'Tu objetivo del trimestre va atrasado', sub: 'Lo acumulado quedó por debajo del ritmo que hace falta para llegar.' },
+  { id: 'meta-alcanzada', titulo: 'Cumpliste un objetivo', sub: 'Un objetivo del trimestre llegó a su meta.' },
+  { id: 'quarter-planificar', titulo: 'Falta planificar el trimestre que viene', sub: 'Se está terminando el Quarter y el siguiente todavía está vacío.' },
 ];

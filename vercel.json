@@ -86,6 +86,10 @@
       "schedule": "40 13 * * *"
     },
     {
+      "path": "/api/cron/objectives-vigilante",
+      "schedule": "45 13 * * *"
+    },
+    {
       "path": "/api/cron/cerrar-por-commits",
       "schedule": "55 13 * * *"
     },

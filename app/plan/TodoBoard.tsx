@@ -19,7 +19,7 @@ const toBoard = (t: Tarea): BoardTask => ({
   id: String(t.id), num: t.id, emoji: '📌', title: t.titulo, detalle: t.detalle ?? '',
   priority: prioFromScore(t.score || scoreFromPrio[t.prioridad]), score: t.score || scoreFromPrio[t.prioridad],
   scoreRazon: t.score_razon ?? undefined,
-  progress: t.progreso, deadline: t.deadline ?? '',
+  progress: t.progreso, deadline: t.deadline ?? '', quarter: t.quarter ?? undefined,
   labels: t.categorias.map(String), checklist: t.checklist, historial: t.historial,
   origen: t.origen === 'manual' ? 'user' : 'ia', enPrioridad: t.en_prioridad,
   // De dónde salió: pinta el mismo chip que en el board del dueño (con link al minuto).
@@ -39,7 +39,7 @@ const editPatch = (d: BoardTask) => ({
   // TEMPORAL de un proyecto recién creado que alguien no esperó — antes se descartaba en
   // silencio y la tarea nacía huérfana. Se sigue filtrando (mandarlo rompería el insert)
   // pero ahora deja rastro en consola en vez de desaparecer sin explicación.
-  deadline: d.deadline || null, categorias: catsNum(d.labels, d.title),
+  deadline: d.deadline || null, quarter: d.quarter || null, categorias: catsNum(d.labels, d.title),
   checklist: d.checklist, historial: d.historial, en_prioridad: d.enPrioridad, score: d.score, score_razon: d.scoreRazon ?? null, fuente: d.fuente ?? null,
 });
 
