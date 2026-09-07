@@ -32,6 +32,12 @@ export type LecturaBoq =
 /** El prefijo anti-JSONP con el que BOQ abre toda respuesta. */
 const PREFIJO = ")]}'";
 
+/** ` · N ms` si la respuesta trae el tiempo del backend (`["af.httprm",N,…]`). */
+function msDelBackend(t: string): string {
+  const m = /\["af\.httprm",(\d+)/.exec(t);
+  return m ? ` · ${m[1]} ms` : '';
+}
+
 /**
  * Qué contestó Google.
  *
@@ -72,7 +78,10 @@ export function leerRespuestaBoq(texto: string, rpcidEsperado?: string): Lectura
     return {
       ok: false,
       motivo: 'ERROR_DE_GOOGLE',
-      detalle: `codigo ${porRpc[2]}${razones.length ? ' · ' + razones.join(' · ') : ''} (${porRpc[1]})`,
+      // `af.httprm` trae cuánto tardó el backend. Distingue un rechazo en la puerta
+      // (código 7 en ~100 ms) de un pedido que se procesó y murió adentro (código 13
+      // a los 21.027 ms, medido): son dos problemas distintos con el mismo `ok: false`.
+      detalle: `codigo ${porRpc[2]}${razones.length ? ' · ' + razones.join(' · ') : ''} (${porRpc[1]})${msDelBackend(t)}`,
     };
   }
 

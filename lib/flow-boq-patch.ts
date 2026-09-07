@@ -186,3 +186,46 @@ export function reponerCaptcha(cuerpo: string, tokenVivo: string): { cuerpo: str
   const nuevo = cuerpo.replace(FORMA_TOKEN_CAPTCHA, () => { cuantos++; return tokenVivo; });
   return { cuerpo: nuevo, cuantos };
 }
+
+/**
+ * Los ids que el CLIENTE genera por pedido, tal como viajan en un cuerpo de BOQ.
+ *
+ * ⚠️ MEDIDO el 07/09/2026 en las dos plantillas reales. En el video (`YhhmEf`): dos
+ * UUID por pedido más uno de lote; en la imagen (`ogiZ0b`): lo mismo. TODOS en
+ * MAYÚSCULAS. El único UUID en minúsculas de los dos cuerpos es el `projectId`,
+ * que sí tiene que repetirse. Es la misma separación que hacía el camino REST,
+ * donde `batchId` y los ids de request salían de `randomUUID()` en CADA pedido.
+ *
+ * Un UUID es `[0-9A-F-]`: viaja idéntico bajo form-urlencoded y JSON anidado, así
+ * que —como el token y la sentinela— se reemplaza con un `replace` plano.
+ */
+export const FORMA_ID_CLIENTE = /[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}/g;
+
+/**
+ * Reemplaza cada id de cliente por uno nuevo, con mapeo consistente: el mismo id
+ * viejo recibe el mismo nuevo en todo el cuerpo (un lote referido dos veces sigue
+ * siendo un solo lote).
+ *
+ * ⚠️ EXISTE PORQUE EL SEGUNDO PEDIDO REAL POR BOQ VOLVIÓ CON CÓDIGO 13 (INTERNAL)
+ * DESPUÉS DE 21 SEGUNDOS. El captcha fresco ya había pasado la puerta (el primero
+ * fue código 7, instantáneo); éste se procesó y murió adentro. Un cuerpo que repite
+ * los ids de lote y de request de la generación con la que se enseñó es la causa
+ * más consistente con «trabajó y falló»: el backend los usa para deduplicar.
+ *
+ * `nuevoId` se inyecta para que el test sea determinista y para que la lib siga
+ * siendo pura; en producción es `crypto.randomUUID().toUpperCase()`.
+ */
+export function renovarIdsDeCliente(
+  cuerpo: string,
+  nuevoId: () => string = () => crypto.randomUUID().toUpperCase(),
+): { cuerpo: string; cuantos: number; mapa: Record<string, string> } {
+  if (!cuerpo) return { cuerpo: cuerpo || '', cuantos: 0, mapa: {} };
+  const mapa: Record<string, string> = {};
+  let cuantos = 0;
+  const nuevo = cuerpo.replace(FORMA_ID_CLIENTE, (viejo) => {
+    if (!mapa[viejo]) mapa[viejo] = nuevoId();
+    cuantos++;
+    return mapa[viejo];
+  });
+  return { cuerpo: nuevo, cuantos, mapa };
+}

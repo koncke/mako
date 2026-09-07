@@ -48,6 +48,8 @@ function sinTipos(ts) {
     .replace(/\(cuerpo: string, viejo: string, nuevo: string\)/g, '(cuerpo, viejo, nuevo)')
     .replace(/\(cuerpo: string, atVivo: string\)/g, '(cuerpo, atVivo)')
     .replace(/\(cuerpo: string, tokenVivo: string\): \{ cuerpo: string; cuantos: number \}/g, '(cuerpo, tokenVivo)')
+    .replace(/export function renovarIdsDeCliente\(\n  cuerpo: string,\n  nuevoId: \(\) => string = \(\) => crypto\.randomUUID\(\)\.toUpperCase\(\),\n\): \{ cuerpo: string; cuantos: number; mapa: Record<string, string> \} \{/g, 'export function renovarIdsDeCliente(cuerpo, nuevoId = () => crypto.randomUUID().toUpperCase()) {')
+    .replace('  const mapa: Record<string, string> = {};', '  const mapa = {};')
     .replace(/\): string \| null \{/g, ') {')
     .replace(/\): string\[\] \{/g, ') {')
     .replace(/\): string \{/g, ') {')

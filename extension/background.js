@@ -411,7 +411,7 @@ async function soltarGuardia() {
  * ejecutaba en la pestana que la persona tenia abierta.
  */
 import { OPERACIONES, A_ENSENAR, A_PEDIR, SIN_DETECTAR, operacionDelCuerpo, operacionDeLaClase } from './operaciones.js';
-import { reemplazarEnCuerpo, reponerCaptcha } from './boq-patch.js';
+import { reemplazarEnCuerpo, reponerCaptcha, renovarIdsDeCliente } from './boq-patch.js';
 import { leerRespuestaBoq } from './boq-respuesta.js';
 import { puedeFilmar, ensayarOperacion, elegirPlantilla } from './puede-filmar.js';
 /**
@@ -440,6 +440,7 @@ function explicarFalloBoq(r) {
   const tecnico = String(r.porQue || r.error || '');
   if (tecnico) console.warn('[mako] BOQ rechazo el pedido:', tecnico);
   if (/UNUSUAL_ACTIVITY/.test(tecnico)) return 'Google rechazó el pedido por seguridad. Espera un momento y vuelve a intentar.';
+  if (/^codigo 13\b/.test(tecnico)) return 'Google empezó a procesarlo y falló a mitad de camino. Vuelve a intentar.';
   if (/UNSAFE_GENERATION/.test(tecnico)) return 'El filtro de contenido de Google rechazó este pedido. Cambia el texto y vuelve a intentar.';
   if (/QUOTA/.test(tecnico)) return 'Se agotaron los créditos de tu cuenta de Google.';
   if (r.error === 'CAPTCHA_FALLO') return 'No se pudo verificar la sesión con Google. Recarga la pestaña de Flow y vuelve a intentar.';
@@ -494,6 +495,16 @@ async function repetirEnBoq(op, prompt) {
     if (!rc.cuantos) console.warn(`[mako] la plantilla de ${op} no traia token de captcha: se manda como vino`);
     cuerpoFinal = rc.cuerpo;
   }
+
+  // ⚠️ IDS DE CLIENTE FRESCOS EN CADA REPLAY. El segundo pedido real volvio con
+  // codigo 13 (INTERNAL) a los 21 segundos: el captcha ya habia pasado y el
+  // backend proceso el pedido y murio adentro. El cuerpo repetia los UUID de lote
+  // y de request de la generacion con la que se enseño — los mismos que el camino
+  // REST regeneraba con randomUUID() en cada pedido. El proyecto (minusculas) no
+  // se toca; los de cliente (MAYUSCULAS, medido en los dos cuerpos reales) si.
+  const ids = renovarIdsDeCliente(cuerpoFinal);
+  if (!ids.cuantos) console.warn(`[mako] la plantilla de ${op} no traia ids de cliente que renovar`);
+  cuerpoFinal = ids.cuerpo;
 
   const res = await chrome.tabs.sendMessage(tab.id, {
     tipo: 'BOQ_PEDIDO', url: pl.url, cuerpo: cuerpoFinal,

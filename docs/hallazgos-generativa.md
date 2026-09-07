@@ -6810,3 +6810,52 @@ que hay que medir para que el video se vea.
 - La forma del payload de generación (video), para `mediaDeFlow`. Se lee de
   `flow.respuestas['op:generar_clip:YhhmEf']` en cuanto haya una generación real.
 - La cara elegida no viaja en el replay de imagen (sólo cambia el texto).
+
+## Segundo pedido real por BOQ: código 13 a los 21 segundos (07/09/2026)
+
+**Vive en:** `lib/flow-boq-patch.ts` (`renovarIdsDeCliente`, `FORMA_ID_CLIENTE`) ·
+`lib/flow-boq-respuesta.ts` (`msDelBackend`) · `extension/background.js` (`repetirEnBoq`)
+
+Con el captcha fresco de la 0.66.0, la respuesta cambió:
+
+    ["wrb.fr","ogiZ0b",null,null,null,[13],"generic"] … ["af.httprm",21027,…]
+
+**Código 13 = INTERNAL, sin motivo, tras 21.027 ms de backend.** El primero (código 7)
+era instantáneo: un rechazo en la puerta. Éste se procesó y murió adentro. Son dos
+problemas distintos con el mismo `ok: false`, y **el tiempo del backend es lo que los
+separa** — por eso el detalle ahora lo trae (`codigo 13 (ogiZ0b) · 21027 ms`).
+
+### Lo que los dos cuerpos reales tienen a la vista
+
+Decodificados enteros (video `YhhmEf`, imagen `ogiZ0b`):
+
+- **Todos los UUID de cliente están en MAYÚSCULAS**: dos por pedido (`AA8FBDD4…`,
+  `3EC04B2D…` / `9EF16AAF…`, `927E85E4…`) más uno de lote al final (`C7A55175…` /
+  `D8231EAE…`). Es la misma separación que hacía el camino REST, donde `batchId` y
+  los ids de request salían de `randomUUID()` en **cada** pedido.
+- **El único UUID en minúsculas es el `projectId`**, en el `clientContext` (que en la
+  imagen aparece dos veces, uno por pedido del batch — igual que el token).
+- El replay mandaba esos ids **repetidos** por segunda y tercera vez. Un backend que
+  dedupe por id de lote o de request hace exactamente «trabajar y fallar».
+
+**Regla que queda:** en un cuerpo repetido, **todo lo que la app generaba por pedido
+se vuelve a generar por replay**: el `at` (ya), el token de reCAPTCHA (0.66.0) y los
+ids de cliente (0.67.0). La regla general del replay es *reponer lo efímero, conservar
+lo estructural*; la lista de lo efímero se mide, no se supone — y hasta hoy se medía
+de a un rechazo por vez.
+
+⚠️ **Es hipótesis, no certeza.** La imagen cuesta 0 créditos: se comprueba con el
+próximo intento leyendo `flow.respuestas['op:generar_imagen:ogiZ0b']`. Si vuelve el
+13, lo que sigue es comparar campo por campo el cuerpo del replay contra uno que la
+app mande **hoy** (el espejo lo captura al generar una imagen a mano).
+
+### Dos cosas que los cuerpos dejaron a la vista y hay que decir
+
+- La plantilla de video es **`abra_t2v_4s_360p`**: texto a video, **sin imagen de
+  referencia**. La de imagen (`GEM_PIX_2`) tampoco lleva cara. El replay reproduce el
+  **tipo** de generación que se enseñó. Para que la cara de Mauricio viaje por BOQ,
+  o se enseña generando **con** referencia (y se mide dónde viaja el `mediaId`), o
+  se aprende el campo. Hoy no es el bloqueo; será el siguiente.
+- La web muestra el `error` del trabajo tal cual (`errorDetalle`): **no** se le puede
+  colgar un `[crudo]` técnico. El canal de medición es `flow.respuestas` por
+  `op:<op>:<rpcid>`, que ya guarda cada respuesta real sin tocar la pantalla.

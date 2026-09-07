@@ -51,6 +51,10 @@ function sinTipos(ts) {
     .replace(
       'export function leerRespuestaBoq(texto: string, rpcidEsperado?: string): LecturaBoq {',
       'export function leerRespuestaBoq(texto, rpcidEsperado) {',
+    )
+    .replace(
+      'function msDelBackend(t: string): string {',
+      'function msDelBackend(t) {',
     );
 }
 
