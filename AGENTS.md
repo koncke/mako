@@ -3145,3 +3145,42 @@ para `ajenas`, veinte líneas más abajo, y el saneador no la cumplía.
 Todo filtro que descarte entradas de un productor externo recibe un colector de
 motivos, y el llamador lo persiste donde se pueda leer sin abrir logs
 (`flow.plantillas_descartes`: `{cuando, llegaron, quedaron, motivos[]}`).
+
+# «No lo mandó» y «mandó vacío» son dos cosas, y `.length` las confunde
+
+Un campo opcional que llega como lista vacía NO es lo mismo que un campo que no
+llegó. `Array.isArray(x)` distingue; `x.length` no.
+
+El route del puente hacía `clasesQueTiene.length ? faltantes(…) : []`, pensado para
+una extensión VIEJA que no manda `clases` («no saber qué tiene no autoriza a decidir
+por él»). Pero un navegador NUEVO —recién instalado, sin nada aprendido— manda
+`clases: []`, y `[].length === 0` cae en la misma rama: no recibía NADA del respaldo,
+y la persona tenía que ir a Flow a generar a mano lo que el respaldo ya tenía. Era
+exactamente el caso para el que existe el respaldo, y era el único que no cubría.
+
+- Si el comportamiento cambia según el emisor sea viejo o nuevo, la pregunta es
+  **«¿mandó el campo?»** (`Array.isArray`, `"x" in body`, `!== undefined`), nunca
+  «¿tiene contenido?».
+- Y escribí el test con la lista vacía y con `undefined` por separado: son los dos
+  casos que la condición tiene que separar.
+
+# El espejo MAIN-world sobrevive a la actualización: el server tolera espejos viejos
+
+Un script inyectado en el mundo de la página vive hasta el F5, no hasta el próximo
+deploy. Con la guarda de idempotencia (`if (window.__makoEspejo) return`) el nuevo ni
+siquiera se instala encima. Medido: `manifest 0.64.0, espejo 0.63.0` en la pestaña
+del dueño, con el popup en verde.
+
+Consecuencia para el código: **todo arreglo del espejo es inerte hasta que la persona
+recargue**, y las pestañas abiertas antes del deploy son la mayoría. Así que:
+
+- Lo que el server RECIBE del espejo se normaliza del lado del server también
+  (la url relativa `/_/…` se resuelve contra flow.google.com aunque el espejo nuevo
+  ya la mande absoluta). Un arreglo que sólo vive en el espejo llega a producción
+  a medida que la gente recarga, o sea nunca del todo.
+- El popup DICE que la pestaña quedó vieja y ofrece recargar (`espejoViejo`), antes
+  de cualquier pantalla de «ya puede». Un espejo que no contesta NO cuenta como
+  viejo: puede ser una pestaña dormida.
+- Y si hay algo que leer del espejo viejo antes de que muera —una respuesta que ya
+  no se puede volver a provocar sin gastar plata—, se lee PRIMERO y se pide el F5
+  DESPUÉS. El orden es parte del arreglo.
