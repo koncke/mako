@@ -265,8 +265,6 @@ export default async function GeneralPage() {
   const peso: Record<Nivel, number> = { rojo: 0, ambar: 1, verde: 2 };
   alertas.sort((a, b) => peso[a.nivel] - peso[b.nivel]);
   const urgentes = alertas.filter((a) => a.nivel === 'rojo').length;
-  const vigilar = alertas.filter((a) => a.nivel === 'ambar').length;
-  const enOrden = alertas.filter((a) => a.nivel === 'verde').length;
 
   // ⚠️ TAREA #165 — el semáforo no puede certificar la salud de un negocio del que
   // no sabe nada. Con cero fuentes comerciales conectadas ninguna de las seis
@@ -310,6 +308,9 @@ export default async function GeneralPage() {
     cuello: fase?.cuello ?? null,
     hoy,
   });
+
+  // Cuántas alertas quedan para el plegado, sacando la que ya es el titular.
+  const restantes = alertas.length - (foco.alertaIdx === null ? 0 : 1);
 
   const mtdDesgloses: Record<string, DesgloseData> = {
     'Ad Spend': {
@@ -377,26 +378,28 @@ export default async function GeneralPage() {
           objetivoPrincipalId={objetivos[0]?.id ?? null}
         />
 
+        {/* ⚠️ EL RESUMEN CUENTA LO QUE SE VA A VER, no todas las alertas. La que ya
+            es el titular no se lista adentro, así que anunciarla acá prometería una
+            fila que no está — y el conteo de un plegable existe justamente para
+            decidir si vale la pena abrirlo. */}
         <Plegable
-          titulo="Semáforo del negocio"
-          resumen={sinFuentes
-            ? 'todavía no puedo opinar'
-            : `${urgentes} urgente · ${vigilar} vigilar · ${enOrden} en orden`}
-          abiertoPorDefecto={urgentes > 0}
+          titulo="Semáforo"
+          resumen={sinFuentes ? 'no puedo opinar todavía' : restantes === 0 ? 'nada más' : `${restantes}`}
+          abiertoPorDefecto={false}
         >
-          <Semaforo alertas={alertas} urgentes={urgentes} vigilar={vigilar} enOrden={enOrden} sinFuentes={sinFuentes} />
+          <Semaforo alertas={alertas} sinFuentes={sinFuentes} saltar={foco.alertaIdx} />
         </Plegable>
 
         {comparativo && (
-          <Plegable titulo="El mes en números" resumen="">
+          <Plegable titulo="El mes" resumen="">
             <ResumenMes c={comparativo} desgloses={mtdDesgloses} />
           </Plegable>
         )}
 
         <Plegable
-          titulo="Pendientes de marcar"
-          resumen={pendientes.total > 0 ? `${pendientes.total} sin marcar` : 'datos al día'}
-          abiertoPorDefecto={pendientes.total > 0}
+          titulo="Pendientes"
+          resumen={pendientes.total > 0 ? `${pendientes.total}` : 'al día'}
+          abiertoPorDefecto={false}
         >
           <PendientesCard pendientes={pendientes} />
         </Plegable>
@@ -450,13 +453,18 @@ function Plegable({ titulo, resumen, abiertoPorDefecto = false, children }: {
 // Los bloques de siempre
 // ─────────────────────────────────────────────────────────────────────────────
 
-function Arrow({ m, invertir = false }: { m: MetricaMTD; invertir?: boolean }) {
-  if (m.actual === m.anterior) return <span style={{ color: 'var(--faint)', fontSize: 20 }}>→</span>;
-  const sube = m.actual > m.anterior;
-  const color = invertir ? 'var(--dim)' : sube ? 'var(--good)' : 'var(--bad)';
-  return <span style={{ color, fontSize: 20 }}>{sube ? '↑' : '↓'}</span>;
-}
-
+/**
+ * El mes, comparado — barras, no tres renglones de texto por métrica.
+ *
+ * ⚠️ CADA TARJETA TENÍA TRES NÚMEROS EN PROSA: el actual, «mismo período de
+ * agosto: X» y «proyección: Y». Doce renglones de texto para cuatro métricas.
+ * Ahora la comparación se VE: dos barras por métrica —este mes y el anterior— a
+ * la misma escala. Cuál subió y cuál bajó se lee sin leer.
+ *
+ * La proyección se fue: es una estimación lineal sobre un mes a medio correr, y
+ * ocupaba el mismo peso visual que un dato medido. Un número inventado no puede
+ * verse igual que uno real.
+ */
 function ResumenMes({ c, desgloses }: { c: ResumenComparativo; desgloses: Record<string, DesgloseData> }) {
   const items: Array<{ label: string; m: MetricaMTD; f: (n: number) => string; invertir?: boolean }> = [
     { label: 'Ad Spend', m: c.inversion_usd, f: fmtUSD, invertir: true },
@@ -465,134 +473,121 @@ function ResumenMes({ c, desgloses }: { c: ResumenComparativo; desgloses: Record
     { label: 'Cash Collected', m: c.cash_usd, f: fmtUSD },
   ];
   return (
-    <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 14 }}>
-        {items.map((it) => {
-          const dg = desgloses[it.label];
-          const inner = (
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>{it.label}</span>
-                {dg && <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>ver detalle →</span>}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontWeight: 600, fontSize: 28, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{it.f(it.m.actual)}</span>
-                <Arrow m={it.m} invertir={it.invertir} />
-              </div>
-              <div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 8 }}>{c.etiqueta_anterior}: {it.f(it.m.anterior)}</div>
-              <div style={{ fontSize: 12.5, color: 'var(--faint)' }}>proyección: {it.f(it.m.proyeccion)}</div>
-            </>
-          );
-          const cardStyle: CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '18px 20px' };
-          return dg
-            ? <DesgloseTrigger key={it.label} data={dg} style={cardStyle}>{inner}</DesgloseTrigger>
-            : <div key={it.label} style={cardStyle}>{inner}</div>;
-        })}
-      </div>
-    </section>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 26 }}>
+      {items.map((it) => {
+        const dg = desgloses[it.label];
+        // La escala la fija el MAYOR de los dos, así las dos barras de una misma
+        // métrica se comparan entre sí. No se comparte escala entre métricas: el
+        // spend y los cierres no viven en el mismo orden de magnitud.
+        const tope = Math.max(it.m.actual, it.m.anterior, 1);
+        const sube = it.m.actual > it.m.anterior;
+        const igual = it.m.actual === it.m.anterior;
+        const color = igual ? 'var(--faint)' : it.invertir ? 'var(--dim)' : sube ? 'var(--good)' : 'var(--bad)';
+        const inner = (
+          <>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10 }}>
+              <span style={{ fontWeight: 600, fontSize: 24, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>{it.f(it.m.actual)}</span>
+              <span style={{ fontSize: 13, color: 'var(--dim)' }}>{it.label}</span>
+            </div>
+            {/* Dos barras: arriba este mes, abajo el anterior en gris. */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={{ display: 'block', height: 8, borderRadius: 999, background: 'var(--surface-2)', overflow: 'hidden' }}>
+                <span style={{ display: 'block', height: '100%', borderRadius: 999, width: `${Math.min(100, (it.m.actual / tope) * 100)}%`, background: color }} />
+              </span>
+              <span style={{ display: 'block', height: 8, borderRadius: 999, background: 'var(--surface-2)', overflow: 'hidden' }}>
+                <span style={{ display: 'block', height: '100%', borderRadius: 999, width: `${Math.min(100, (it.m.anterior / tope) * 100)}%`, background: 'var(--border-strong)' }} />
+              </span>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 7 }}>
+              {c.etiqueta_anterior}: {it.f(it.m.anterior)}
+            </div>
+          </>
+        );
+        return dg
+          ? <DesgloseTrigger key={it.label} data={dg} style={{ cursor: 'pointer' }}>{inner}</DesgloseTrigger>
+          : <div key={it.label}>{inner}</div>;
+      })}
+    </div>
   );
 }
 
-function Semaforo({ alertas, urgentes, vigilar, enOrden, sinFuentes }: {
-  alertas: Alerta[]; urgentes: number; vigilar: number; enOrden: number; sinFuentes: boolean;
+function Semaforo({ alertas, sinFuentes, saltar }: {
+  alertas: Alerta[];
+  sinFuentes: boolean;
+  /** El índice de la alerta que ya es el titular de la pantalla. */
+  saltar: number | null;
 }) {
-  const lampOn: CSSProperties = { width: 48, height: 48, borderRadius: '50%' };
+  // ⚠️ El estado «no puedo opinar» (#165) va ANTES que cualquier alerta: cuando no
+  // hay una sola fuente conectada, lo que sigue no se sostiene.
+  if (sinFuentes) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 15, color: 'var(--dim)' }}>
+          Sin fuentes conectadas no puedo opinar de tu negocio.
+        </span>
+        <Link href="/integraciones" style={{ fontSize: 14, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>
+          Conectar →
+        </Link>
+      </div>
+    );
+  }
 
-  // ⚠️ EL CUARTO ESTADO (#165). Sin ninguna fuente conectada el veredicto NO puede
-  // ser verde: no hay datos que lo sostengan. Va primero, antes que urgentes y que
-  // vigilar, porque cuando no se sabe nada lo demás tampoco vale.
-  const veredicto = sinFuentes
-    ? { title: 'Todavía no puedo opinar de tu negocio', sub: 'No hay ninguna fuente conectada, así que cualquier veredicto sería inventado. Conecta Meta, el calendario o el CRM y esto empieza a tener sentido.', color: 'var(--dim)', bg: 'var(--surface-2)', fill: 'var(--faint)' }
-    : urgentes > 0
-    ? { title: 'Hay algo urgente que atender', sub: 'Resuelve los focos rojos primero.', color: 'var(--bad)', bg: 'var(--bad-bg)', fill: 'var(--bad)' }
-    : vigilar > 0
-    ? { title: 'En general bien — hay cosas que vigilar', sub: 'El negocio avanza. Ningún incendio, pero hay focos amarillos que te están costando cierres.', color: 'var(--warn)', bg: 'var(--warn-bg)', fill: 'var(--warn-fill)' }
-    : { title: 'El negocio está sano', sub: 'Sin focos activos. Buen momento para empujar volumen.', color: 'var(--good)', bg: 'var(--good-bg)', fill: 'var(--good)' };
-
-  const verde = !sinFuentes && urgentes === 0 && vigilar === 0;
+  const visibles = alertas.filter((_, i) => i !== saltar);
+  if (visibles.length === 0) {
+    return <span style={{ fontSize: 15, color: 'var(--dim)' }}>Nada más que atender.</span>;
+  }
 
   return (
-    <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--dim)', padding: '6px 11px', borderRadius: 999, background: 'var(--bad-bg)' }}><span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--bad)' }} /><strong style={{ color: 'var(--ink)' }}>{urgentes}</strong> urgente</span>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--dim)', padding: '6px 11px', borderRadius: 999, background: 'var(--warn-bg)' }}><span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--warn-fill)' }} /><strong style={{ color: 'var(--ink)' }}>{vigilar}</strong> vigilar</span>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--dim)', padding: '6px 11px', borderRadius: 999, background: 'var(--good-bg)' }}><span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--good)' }} /><strong style={{ color: 'var(--ink)' }}>{enOrden}</strong> en orden</span>
-      </div>
-
-      <div style={{ display: 'flex', gap: 24, alignItems: 'stretch', flexWrap: 'wrap' }}>
-        <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, background: '#14161B', borderRadius: 20, padding: '18px 16px', width: 88, alignSelf: 'stretch', justifyContent: 'center' }}>
-          <div style={{ ...lampOn, background: 'var(--bad)', ...(urgentes > 0 && !sinFuentes ? { boxShadow: '0 0 24px 4px rgba(207,78,41,.6)' } : { opacity: 0.18 }) }} />
-          <div style={{ ...lampOn, background: 'var(--warn-fill)', ...(!sinFuentes && urgentes === 0 && vigilar > 0 ? { boxShadow: '0 0 24px 4px rgba(232,179,11,.6)' } : { opacity: 0.18 }) }} />
-          <div style={{ ...lampOn, background: 'var(--good)', ...(verde ? { boxShadow: '0 0 24px 4px rgba(28,138,84,.6)' } : { opacity: 0.2 }) }} />
-        </div>
-
-        <div style={{ flex: 1, minWidth: 280, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ background: veredicto.bg, border: `1px solid ${veredicto.fill}`, borderRadius: 14, padding: '18px 20px' }}>
-            <h3 style={{ fontWeight: 600, fontSize: 22, letterSpacing: '-0.02em', margin: 0, color: veredicto.color }}>{veredicto.title}</h3>
-            <p style={{ fontSize: 14, color: 'var(--dim)', margin: '6px 0 0' }}>{veredicto.sub}</p>
-          </div>
-          {sinFuentes && (
-            <Link href="/integraciones" style={{ display: 'inline-flex', alignSelf: 'flex-start', padding: '11px 18px', borderRadius: 11, background: 'var(--primary)', color: '#fff', fontSize: 14.5, fontWeight: 600, textDecoration: 'none' }}>
-              Conectar una fuente →
-            </Link>
-          )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {alertas.length === 0 && !sinFuentes && (
-              <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '15px 18px', fontSize: 14, color: 'var(--dim)' }}>Sin alertas activas — todo en orden.</div>
-            )}
-            {alertas.map((a, i) => {
-              const c = a.nivel === 'rojo' ? 'var(--bad)' : a.nivel === 'ambar' ? 'var(--warn-fill)' : 'var(--good)';
-              // El nivel lo dice el punto de color de la izquierda, no un filete de 4 px:
-              // «thick colored borders on cards/alerts» es uno de los vetos de la casa.
-              const rowStyle: CSSProperties = { display: 'flex', alignItems: 'center', gap: 14, textDecoration: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '15px 18px' };
-              const inner = (
-                <>
-                  <span style={{ flex: 'none', width: 11, height: 11, borderRadius: '50%', background: c }} />
-                  <span style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ display: 'block', fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>{a.titulo}</span>
-                    <span style={{ display: 'block', fontSize: 13.5, color: 'var(--dim)', marginTop: 2 }}>{a.detalle}</span>
-                  </span>
-                  <span style={{ flex: 'none', color: 'var(--dim)', fontSize: 14 }}>{a.desglose ? 'ver detalle →' : `${a.hrefLabel} →`}</span>
-                </>
-              );
-              return a.desglose
-                ? <DesgloseTrigger key={i} data={a.desglose} style={rowStyle}>{inner}</DesgloseTrigger>
-                : <Link key={i} href={a.href} style={rowStyle}>{inner}</Link>;
-            })}
-          </div>
-        </div>
-      </div>
-    </section>
+    <div>
+      {visibles.map((a, i) => {
+        const c = a.nivel === 'rojo' ? 'var(--bad)' : a.nivel === 'ambar' ? 'var(--warn-fill)' : 'var(--good)';
+        const inner = (
+          <>
+            <span aria-hidden style={{ flex: 'none', width: 9, height: 9, borderRadius: '50%', background: c }} />
+            <span style={{ flex: 1, minWidth: 0, fontSize: 15, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.titulo}</span>
+            <span style={{ flex: 'none', color: 'var(--faint)', fontSize: 14 }}>→</span>
+          </>
+        );
+        const fila: CSSProperties = {
+          display: 'flex', alignItems: 'center', gap: 12, width: '100%',
+          padding: '11px 0', textDecoration: 'none',
+          borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+        };
+        return a.desglose
+          ? <DesgloseTrigger key={i} data={a.desglose} style={fila}>{inner}</DesgloseTrigger>
+          : <Link key={i} href={a.href} style={fila}>{inner}</Link>;
+      })}
+    </div>
   );
 }
 
+/**
+ * Pendientes — una línea.
+ *
+ * ⚠️ Dibujaba CUATRO tarjetas fijas y en la pantalla real tres decían 0. Una
+ * tarjeta que dice cero no informa: ocupa el lugar de la que sí. Se muestran sólo
+ * los tipos con algo adentro, y si no hay ninguno el bloque es una sola frase.
+ */
 function PendientesCard({ pendientes }: { pendientes: Pendientes }) {
+  const tipos = [
+    { n: pendientes.porTipo.A, l: 'sin asistencia a R1' },
+    { n: pendientes.porTipo.B, l: 'sin R2 ni resolución' },
+    { n: pendientes.porTipo.C, l: 'sin asistencia a R2' },
+    { n: pendientes.porTipo.M, l: 'nutrición manual vencida' },
+  ].filter((x) => x.n > 0);
+
+  if (pendientes.total === 0) {
+    return <span style={{ fontSize: 15, color: 'var(--dim)' }}>Todo marcado — el tablero es confiable.</span>;
+  }
+
   return (
-    <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 18, flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: 280 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-            <span style={{ fontWeight: 700, fontSize: 34, letterSpacing: '-0.03em', color: pendientes.total > 0 ? 'var(--bad)' : 'var(--good)', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{pendientes.total}</span>
-            <h3 style={{ fontWeight: 600, fontSize: 22, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>{pendientes.total > 0 ? 'leads sin marcar bloquean la confiabilidad' : 'datos al día — el tablero es confiable'}</h3>
-          </div>
-        </div>
-        {pendientes.total > 0 && (
-          <Link href="/crm" style={{ flex: 'none', alignSelf: 'center', padding: '12px 20px', borderRadius: 11, background: 'var(--bad)', color: '#fff', fontSize: 15, fontWeight: 600, textDecoration: 'none' }}>Marcar pendientes →</Link>
-        )}
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 12, marginTop: 22 }}>
-        {[
-          { n: pendientes.porTipo.A, l: 'sin asistencia a R1' },
-          { n: pendientes.porTipo.B, l: 'sin R2 ni resolución' },
-          { n: pendientes.porTipo.C, l: 'sin asistencia a R2' },
-          { n: pendientes.porTipo.M, l: 'nutrición manual vencida' },
-        ].map((x) => (
-          <div key={x.l} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px' }}>
-            <div style={{ fontWeight: 600, fontSize: 24, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{x.n}</div>
-            <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 3 }}>{x.l}</div>
-          </div>
-        ))}
-      </div>
-    </section>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
+      <span style={{ fontSize: 15, color: 'var(--dim)' }}>
+        {tipos.map((t) => `${t.n} ${t.l}`).join(' · ')}
+      </span>
+      <Link href="/crm" style={{ fontSize: 14, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>
+        Marcar →
+      </Link>
+    </div>
   );
 }

@@ -30,7 +30,7 @@
 
 import { useState, useTransition, useRef, useEffect } from 'react';
 import { useRouter } from '@/app/_ui/Link';
-import { Modal, Button, TextField, Select, Status, EmptyState, Checkbox } from '@/app/_ui';
+import { Modal, Button, TextField, Select, Status, EmptyState } from '@/app/_ui';
 import { TONO } from '@/app/_ui/tokens';
 import { tonoDeSemaforo } from '@/lib/mako-gramatica';
 import {
@@ -241,7 +241,6 @@ function Propuesta({ candidatos, objetivoPrincipalId, onManual }: {
   onManual: () => void;
 }) {
   const router = useRouter();
-  const [elegidos, setElegidos] = useState<Set<string>>(new Set(candidatos.map((c) => c.nombre)));
   const [pendiente, arrancar] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -249,7 +248,7 @@ function Propuesta({ candidatos, objetivoPrincipalId, onManual }: {
     return (
       <EmptyState
         titulo="Todavía no hay KPIs"
-        detalle="Un KPI es lo que mueve tu objetivo: algo que se hace cada semana y se puede dar por cumplido."
+        detalle="Algo que se hace cada semana y se puede dar por cumplido."
         accion={{ label: 'Crear el primero', onClick: onManual }}
       />
     );
@@ -259,7 +258,7 @@ function Propuesta({ candidatos, objetivoPrincipalId, onManual }: {
     setError(null);
     arrancar(async () => {
       try {
-        await sembrarKpisAction([...elegidos], objetivoPrincipalId);
+        await sembrarKpisAction(candidatos.map((c) => c.nombre), objetivoPrincipalId);
         router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
@@ -267,55 +266,48 @@ function Propuesta({ candidatos, objetivoPrincipalId, onManual }: {
     });
   };
 
-  const toggle = (nombre: string) => {
-    setElegidos((prev) => {
-      const s = new Set(prev);
-      if (s.has(nombre)) s.delete(nombre); else s.add(nombre);
-      return s;
-    });
-  };
-
   return (
     <div>
-      <h2 style={{ fontWeight: 600, fontSize: 22, letterSpacing: '-0.02em', margin: '0 0 18px', color: 'var(--ink)' }}>
-        Elige los KPIs que vas a seguir
-      </h2>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16, marginBottom: 20 }}>
+        <h2 style={{ fontWeight: 600, fontSize: 22, letterSpacing: '-0.02em', margin: 0, color: 'var(--ink)' }}>KPIs</h2>
+        <button type="button" onClick={onManual}
+          style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 13.5, color: 'var(--dim)', cursor: 'pointer' }}>
+          escribir el mío
+        </button>
+      </div>
 
-      {/* Fichas, no renglones de prosa. Cada una: nombre + compromiso, nada más. */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(210px,1fr))', gap: 10 }}>
-        {candidatos.map((c) => {
-          const on = elegidos.has(c.nombre);
-          return (
-            <label key={c.nombre} title={c.porque}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 11, cursor: 'pointer',
-                padding: '13px 15px', borderRadius: 12,
-                border: `1px solid ${on ? 'var(--primary-weak)' : 'var(--border)'}`,
-                background: on ? 'var(--primary-bg)' : 'var(--surface)',
-              }}>
-              <Checkbox checked={on} onChange={() => toggle(c.nombre)} label={
-                <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                  <span style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)' }}>{c.nombre}</span>
-                  <span style={{ fontSize: 12.5, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>
-                    {fmt(c.compromiso, c.unidad)} {CADENCIA_LABEL[c.cadencia]}
-                  </span>
-                </span>
-              } />
-            </label>
-          );
-        })}
+      {/* ⚠️ LA PROPUESTA SE VE COMO EL TABLERO, y ése es todo el punto. Antes eran
+          ocho FICHAS con checkbox, nombre, compromiso y una frase de por qué —
+          ocho bloques de texto para una pantalla que después es un gráfico. Ahora
+          son las mismas barras, vacías, con su compromiso como meta: se ve qué vas
+          a seguir sin leer, y al aceptar no cambia nada de lugar.
+          Sacar o cambiar uno se hace DESPUÉS, tocándolo en el tablero — que es
+          donde ya se hace todo lo demás, y evita una pantalla de configuración
+          entera para una decisión que se revisa en cinco segundos. */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, overflowX: 'auto', opacity: 0.55 }} className="mk-scroll-x">
+        {candidatos.map((c) => (
+          <div key={c.nombre} style={{ flex: '1 1 0', minWidth: 78, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>
+              {fmt(c.compromiso, c.unidad)}
+            </span>
+            <span style={{
+              width: '100%', height: ALTO_BARRA, borderRadius: 10,
+              background: 'var(--surface-2)', border: '1px dashed var(--border-strong)',
+            }} />
+            <span style={{
+              fontSize: 11.5, lineHeight: 1.3, color: 'var(--dim)', textAlign: 'center',
+              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+            }}>
+              {c.nombre}
+            </span>
+          </div>
+        ))}
       </div>
 
       {error && <span className="mk-err" role="alert">{error}</span>}
 
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 20, flexWrap: 'wrap' }}>
-        <Button onClick={sembrar} loading={pendiente} disabled={elegidos.size === 0}>
-          Usar {elegidos.size === 1 ? 'este KPI' : `estos ${elegidos.size}`}
-        </Button>
-        <button type="button" onClick={onManual} disabled={pendiente}
-          style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 13.5, color: 'var(--dim)', cursor: 'pointer' }}>
-          Escribir el mío
-        </button>
+      <div style={{ marginTop: 20 }}>
+        <Button onClick={sembrar} loading={pendiente}>Seguir estos {candidatos.length}</Button>
       </div>
     </div>
   );

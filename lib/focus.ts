@@ -53,6 +53,17 @@ export type Foco = {
   /** 6 — Cuándo se vuelve a mirar. */
   siguienteRevision: string;
   origen: OrigenFoco;
+  /**
+   * El indice de la alerta que se convirtio en LA accion, o null.
+   *
+   * ⚠️ EXISTE PARA QUE EL SEMAFORO NO LA REPITA. Medido el 07/09/2026 sobre la
+   * pantalla real: el titular y la primera fila del semaforo eran el MISMO texto
+   * palabra por palabra —titulo y explicacion— o sea ~40 palabras duplicadas en
+   * una pantalla de 304. Se devuelve el indice y no se compara por titulo: dos
+   * alertas pueden llamarse igual, y una igualdad de strings se rompe el dia que
+   * alguien reescribe el copy en un solo lado.
+   */
+  alertaIdx: number | null;
   /** El destino REAL donde se ejecuta. Nunca un href a mano cuando hay catálogo. */
   href: string;
   hrefLabel: string;
@@ -183,6 +194,7 @@ function focoDeKpi(k: KpiParaFoco): Foco {
   const c = CIERRE[k.cadencia];
   const valorTxt = k.valor === null ? '—' : fmt(k.valor, k.unidad);
   return {
+    alertaIdx: null,
     accion: accionDeKpi(k),
     razon: `«${k.nombre}» va ${valorTxt} de ${fmt(k.compromiso, k.unidad)} ${c.periodo}.`,
     resultadoEsperado: k.objetivoTitulo
@@ -234,9 +246,11 @@ export function elegirFoco(e: EntradaFoco): Foco {
   const rojo = peor('rojo');
   if (rojo) return focoDeKpi(rojo);
 
-  const alerta = e.alertas.find((a) => a.nivel === 'rojo');
+  const idxAlerta = e.alertas.findIndex((a) => a.nivel === 'rojo');
+  const alerta = idxAlerta >= 0 ? e.alertas[idxAlerta] : undefined;
   if (alerta) {
     return {
+      alertaIdx: idxAlerta,
       accion: alerta.titulo,
       razon: alerta.detalle,
       resultadoEsperado: 'Deja de perder dinero que ya está comprometido.',
@@ -257,6 +271,7 @@ export function elegirFoco(e: EntradaFoco): Foco {
   if (tarea) {
     const cap = tarea.haceloEn ? capacidad(tarea.haceloEn) : undefined;
     return {
+      alertaIdx: null,
       accion: tarea.titulo,
       razon: 'Es lo más alto que puntuó el Perro Guardián en tu plan, y no hay ningún KPI en rojo.',
       resultadoEsperado: 'Avanza el proyecto que hoy más mueve la aguja.',
@@ -276,6 +291,7 @@ export function elegirFoco(e: EntradaFoco): Foco {
   // el verde mentiroso que este rediseño vino a sacar.
   if (e.objetivos === 0) {
     return {
+      alertaIdx: null,
       accion: 'Define el objetivo de este trimestre.',
       razon: 'Todavía no hay ninguno cargado, así que no puedo decirte si vas bien ni qué mover primero.',
       resultadoEsperado: 'La pantalla pasa a contestar «¿voy bien?» con un número.',
@@ -290,6 +306,7 @@ export function elegirFoco(e: EntradaFoco): Foco {
   }
   if (e.kpis.length === 0) {
     return {
+      alertaIdx: null,
       accion: 'Elige los KPIs que mueven tu objetivo.',
       razon: 'Ya tienes el objetivo, pero nada colgando abajo: sin KPIs no hay nada que seguir día a día.',
       resultadoEsperado: 'Cada semana vas a ver qué se cumplió y qué no, sin preguntarle a nadie.',
@@ -303,6 +320,7 @@ export function elegirFoco(e: EntradaFoco): Foco {
     };
   }
   return {
+    alertaIdx: null,
     accion: 'Vas al día con todo lo que te comprometiste.',
     razon: 'Ningún KPI en rojo ni en ámbar, y no hay alertas urgentes.',
     resultadoEsperado: 'Buen momento para subir un compromiso o sumar un KPI nuevo.',
