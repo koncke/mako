@@ -585,10 +585,18 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'video-generator', titulo: 'Video Generator', familia: 'Content Machine', grupo: 'Ads',
-    estado: 'por-construir', verEnApp: '/video-generator',
-    alcance: 'Generar el video del anuncio a partir del guion. ComingSoon; el guion y el formato de video ya salen de la Matriz.',
-    vive: ['app/video-generator/page.tsx', 'app/admin/dev/ads-writer/bitacora.ts'],
+    estado: 'parcial', verEnApp: '/video-generator',
+    alcance: 'El anuncio en video, de punta a punta: guiones cargados → tomas y montaje → el pedido que sale por el puente a Google Flow → el editor de cortes y la descarga. La GENERACIÓN no pasa por acá: la hace el puente (área «Puente a Google Flow»), que es lo que habla con Flow.',
+    // ⚠️ Este `vive` declaraba `page.tsx` y `app/admin/dev/ads-writer/bitacora.ts`, y
+    // el área tenía 35 archivos. Es la trampa que ya documenta `reels` acá abajo, en
+    // su peor forma: la bitácora de OTRA área es de las más calientes del repo, así
+    // que el Change History derivado se llenaba con los 12 commits de ads-writer y no
+    // había un solo commit de video-generator adentro. No es que faltara historia:
+    // estaba DESPLAZADA por un archivo prestado, y el área figuraba «por-construir»
+    // mientras era la más movida del mes.
+    vive: ['app/video-generator', 'lib/video-planner.ts', 'lib/puestas-data.ts'],
     proyectos: ['Feature: Video Generator'],
+    hallazgos: 'hallazgos-generativa',
   },
   {
     slug: 'reels', titulo: 'Reels', familia: 'Content Machine', grupo: 'Instagram',
@@ -1073,6 +1081,22 @@ export const AREAS: AreaDev[] = [
     estado: 'parcial',
     alcance: 'Fathom, Chatwoot, Meta, Evolution, Resend, Calendly: 6 puertas, un router.',
     vive: ['app/api/webhooks/calendly/route.ts', 'app/api/webhooks/resend/route.ts', 'app/api/webhooks/fathom/route.ts', 'app/api/webhooks/evolution/route.ts', 'supabase/migrations/0090_webhook_routing.sql', '.claude/skills/add-webhook-receiver/'],
+  },
+  {
+    slug: 'puente-flow', titulo: 'Puente a Google Flow', familia: 'Infra', grupo: 'Runtime',
+    estado: 'parcial',
+    alcance: 'La extensión de Chrome que MaKo instala en la máquina del cliente y que le pide a Google Flow la imagen y el video del anuncio: el protocolo (BOQ), la cola, las plantillas, el diagnóstico de por qué un pedido no salió, y la versión que la app exige. Es lo que hace REAL a Video Generator; el wizard y el editor son la otra mitad y viven en esa área.',
+    vive: [
+      'extension',
+      'app/api/flow/puente/route.ts',
+      'lib/flow-protocolo.ts', 'lib/flow-operaciones.ts', 'lib/flow-cola.ts',
+      'lib/flow-plantillas.ts', 'lib/flow-imagen.ts', 'lib/flow-media.ts',
+      'lib/flow-boq-patch.ts', 'lib/flow-boq-respuesta.ts', 'lib/flow-diagnostico.ts',
+      'lib/flow-fallo-texto.ts', 'lib/flow-puede-filmar.ts', 'lib/flow-puente-frescura.ts',
+      'lib/flow-clip-referencias.ts', 'lib/extension-version.ts', 'public/mako-puente.sha',
+    ],
+    hallazgos: 'hallazgos-generativa',
+    nota: 'Es el área más movida del repo desde el 18/08 (89 commits solo sobre extension/manifest.json) y hasta el 07/09 NO EXISTÍA acá: todo su código quedaba fuera de los `vive` de las 122 áreas, así que ni el Change History derivado ni el barrido de «qué se trabajó y no se anotó» la veían. El conocimiento sí está escrito —docs/hallazgos-generativa.md, ~6.900 líneas— pero el registro no lo encontraba. Dos trampas propias que ese documento detalla: el payload de BOQ es POSICIONAL (un campo de más corre todo y Flow acepta el pedido sin devolver imagen), y el token de reCAPTCHA es de un solo uso (repetirlo da rechazo, y se lee como una regresión sin serlo).',
   },
   {
     slug: 'transactional-email', titulo: 'Transactional Email', familia: 'Infra', grupo: 'Runtime',

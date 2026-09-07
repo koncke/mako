@@ -152,6 +152,18 @@ Reglas que salen de eso:
 
 - **Antes de tocar nada, `git status`.** Si hay archivos modificados que no son tuyos,
   son de la otra sesión: dejalos donde están.
+- **Pero un `status` sucio puede no ser de nadie: puede ser el árbol VIEJO.** Si la otra
+  sesión commiteó desde un worktree y este clon se puso al día con **`git reset` sin
+  `--hard`**, HEAD y el índice avanzan y **el árbol de trabajo no se toca**: los archivos
+  de ese commit quedan en disco con el contenido ANTERIOR, y `git status` los muestra como
+  «modificados» — o sea, como un revert exacto disfrazado de trabajo en curso. Pasó el
+  03/09/2026 (`a3c7db19` a las 21:39 desde el worktree, `reset: moving to origin/main` a
+  las 21:46) y duró cuatro días sobre `app/admin/dev/areas.ts`, `tests/dev-areas.test.ts`
+  y `docs/hallazgos-infra.md`. Acá «commiteá por ruta explícita» no salva: **la ruta
+  explícita es justo la envenenada.** Se distingue en dos comandos, y conviene correrlos
+  sobre cualquier modificado que no reconozcas: `git show HEAD:<ruta> | tr -d '\r' |
+  md5sum` contra el archivo (si el disco es el PADRE de un commit reciente, es esto) y
+  `ls -l` (una mtime vieja dice que nadie lo editó). La cura es `git checkout -- <rutas>`.
 - **Nunca `git add -A`.** Commiteá por ruta explícita. El día que coincidan, `add -A` se
   lleva el trabajo a medias de la otra sesión adentro de tu commit y nadie se entera
   hasta que rompe.
@@ -2415,6 +2427,23 @@ migraciones—, no solo los componentes de la pantalla.
 `tests/dev-areas.test.ts` ya chequea contra el disco que cada ruta de `vive[]` exista, y
 cazó 30 rutas plausibles pero inexistentes. Lo que NO puede chequear es la OMISIÓN: una
 ruta que falta no da error, da un punto ciego.
+
+**El barrido que SÍ ve la omisión pregunta por archivos, no por áreas.** «¿Qué área quedó
+sin anotar?» siempre contesta tranquilo, porque un área que falta no se queja y una que
+miente parece completa. La pregunta que encuentra el agujero es **«¿qué archivo caliente
+no lo declara ninguna área?»**, y se contesta cruzando `git log --since=<fecha>
+--name-only --format=''` contra la unión de todos los `vive[]`:
+
+```js
+const cubre = (f) => [...rutas].some((r) => r === f || f.startsWith(r.endsWith('/') ? r : r + '/'));
+```
+
+El 07/09/2026 eso destapó lo más grande: el **puente a Google Flow** —89 commits solo
+sobre `extension/manifest.json` desde el 18/08— no existía como área, y `video-generator`
+figuraba `por-construir` con 35 archivos adentro. Su conocimiento estaba cosechado
+(`docs/hallazgos-generativa.md`, ~6.900 líneas); lo que faltaba era el índice que lo
+encuentra. Cosechar y registrar son dos cosas: se puede escribir todo y que igual no se
+encuentre.
 
 # En Windows, TODO texto que cruza de una herramienta a otra trae `\r`
 

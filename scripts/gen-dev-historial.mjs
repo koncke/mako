@@ -27,18 +27,44 @@ const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const DESTINO = resolve(RAIZ, 'app/admin/dev/_historial.generado.ts');
 const POR_AREA = 12; // los últimos N commits de cada área
 
-/** Lee los slugs y sus rutas de `areas.ts` sin importarlo (es TS). */
+/**
+ * Lee los slugs y sus rutas de `areas.ts` sin importarlo (es TS).
+ *
+ * ⚠️ El cierre del array se busca CARÁCTER POR CARÁCTER, fuera de comillas, y no
+ * con `\[([^\]]*)\]`. Ese regex —el que estaba— corta en el PRIMER `]` del texto,
+ * y las rutas de Next traen uno adentro: `app/crm/[id]/page.tsx`,
+ * `app/compartido/[token]/page.tsx`. Todo lo declarado DESPUÉS de la primera ruta
+ * dinámica se caía en silencio.
+ *
+ * Medido el 07/09/2026 sobre las 122 áreas, antes de arreglarlo: `conocimientos`
+ * cosechaba 8 de sus 34 rutas, `crm` 11 de 27, `contracts-receipts` 1 de 8 y
+ * `shared-links` **0 de 9** — su Change History salía vacío y se leía como un área
+ * que nadie tocó. Cuatro áreas, y las cuatro con un `[segmento]`.
+ *
+ * Por qué no lo cazó nadie: `tests/dev-areas.test.ts` NO usa este parser, importa
+ * `AREAS` de verdad, así que veía las 34 y daba verde. Un guard sobre el dato bueno
+ * no dice nada del parser que lo lee mal, y acá la salida —un historial más corto—
+ * es indistinguible de un área con poca historia. Falla en silencio y hacia abajo.
+ */
 function leerAreas() {
   const src = readFileSync(resolve(RAIZ, 'app/admin/dev/areas.ts'), 'utf8');
-  const areas = [];
-  // Cada entrada arranca con `slug: '…'` y en algún punto trae `vive: [...]`.
-  const re = /slug:\s*'([^']+)'[\s\S]*?vive:\s*\[([^\]]*)\]/g;
-  let m;
-  while ((m = re.exec(src))) {
-    const rutas = [...m[2].matchAll(/'([^']+)'/g)].map((x) => x[1]);
-    areas.push({ slug: m[1], rutas });
-  }
-  return areas;
+  const inicios = [...src.matchAll(/slug:\s*'([^']+)'/g)].map((m) => ({ slug: m[1], at: m.index }));
+  return inicios.map(({ slug, at }, i) => {
+    // Cada área termina donde arranca la siguiente: así el `vive:` que se lee es
+    // el suyo y no el de la de abajo cuando alguna no declara ninguno.
+    const trozo = src.slice(at, i + 1 < inicios.length ? inicios[i + 1].at : src.length);
+    const abre = trozo.indexOf('[', trozo.indexOf('vive:'));
+    if (!trozo.includes('vive:') || abre < 0) return { slug, rutas: [] };
+    const rutas = [];
+    let buf = null;
+    for (let j = abre + 1; j < trozo.length; j++) {
+      const c = trozo[j];
+      if (buf !== null) { if (c === "'") { rutas.push(buf); buf = null; } else buf += c; continue; }
+      if (c === "'") { buf = ''; continue; }
+      if (c === ']') break; // el cierre de verdad: los `]` de las rutas van entre comillas
+    }
+    return { slug, rutas };
+  });
 }
 
 const SEP = '';

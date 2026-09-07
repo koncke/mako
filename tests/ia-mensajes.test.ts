@@ -91,7 +91,27 @@ test('resumirErrores no repite, corta y saca el prefijo redundante', () => {
   assert.match(r, /\+\d+ más/);
 });
 
-/** Todo el código de lib/ y app/ (sin tests), para buscar el literal de verdad. */
+/**
+ * Todo el código de lib/ y app/ (sin tests), para buscar el literal de verdad.
+ *
+ * ⚠️ Los archivos `*.generado.ts` NO son código: son una transcripción de git.
+ * `app/admin/dev/_historial.generado.ts` guarda el título y la primera línea del
+ * cuerpo de cada commit, y un buen mensaje de commit CITA la frase que el commit
+ * arregló — el de c3e583e6 (13/08) cita textual «Conecta tu API key de Gemini».
+ * Adentro de un string, no de un comentario, así que el filtro de comentarios de
+ * más abajo no lo salva y la guarda lo acusa de escribir el mensaje a mano.
+ *
+ * Y lo caro es CUÁNDO se ve: el generado se regenera a mano (`node
+ * scripts/gen-dev-historial.mjs`), así que estuvo un mes viejo y el choque no
+ * existía porque el commit que lo dispara todavía no había entrado. La guarda se
+ * pone roja al DÍA de regenerar, lejísimos del commit culpable. Vale para
+ * cualquier guarda que grepee el árbol: los archivos generados no se acusan.
+ *
+ * La excepción se probó ROMPIÉNDOLA: con `export const _PRUEBA_ROTURA = "Conecta
+ * tu API key de Gemini"` agregado a lib/model-catalogo.ts, la guarda vuelve a
+ * fallar y lo nombra («…van a quedar viejos: lib/model-catalogo.ts»). O sea que
+ * el filtro tapa el generado y NADA más — que es todo lo que se le pide.
+ */
 function fuentes(): Array<{ ruta: string; texto: string }> {
   const raiz = new URL('../', import.meta.url);
   const out: Array<{ ruta: string; texto: string }> = [];
@@ -100,7 +120,7 @@ function fuentes(): Array<{ ruta: string; texto: string }> {
       if (e.name === 'node_modules' || e.name === '.next' || e.name === '.git') continue;
       const hijo = new URL(`${e.name}${e.isDirectory() ? '/' : ''}`, dir);
       if (e.isDirectory()) rec(hijo, `${rel}${e.name}/`);
-      else if (/\.tsx?$/.test(e.name) && !/\.test\.tsx?$/.test(e.name)) {
+      else if (/\.tsx?$/.test(e.name) && !/\.test\.tsx?$/.test(e.name) && !/\.generado\.tsx?$/.test(e.name)) {
         // CRLF normalizado: en Windows, si no, los cortes por '\n' no encuentran nada.
         out.push({ ruta: `${rel}${e.name}`, texto: readFileSync(hijo, 'utf8').replace(/\r\n/g, '\n') });
       }

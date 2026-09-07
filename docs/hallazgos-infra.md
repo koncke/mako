@@ -3184,3 +3184,124 @@ excepción a un guard:
 Es la regla de AGENTS.md «una guarda bloquea sólo lo que se arregla haciendo lo que ella
 pide»: nadie puede crear `.git/hooks/pre-push` adentro de un worktree, ni en un clon nuevo,
 ni en CI.
+
+## Cuatro trampas del REGISTRO de /admin/dev, y tres se veían como «no pasa nada» (07/09/2026)
+
+Contexto: entre el 18/08 y el 07/09 entraron **714 commits** por las dos cuentas. El
+pedido fue «revisá si está todo». Lo que estaba mal no era el código del producto —
+`npm test` daba 2.144 en verde y `origin/main` estaba al día— sino **las cuatro piezas
+que existen justamente para que nada se pierda**. Ninguna de las cuatro grita.
+
+### ① `git reset` a origin/main deja el árbol de trabajo VIEJO, y parece trabajo en curso
+
+`git status` mostraba tres archivos modificados: `app/admin/dev/areas.ts`,
+`tests/dev-areas.test.ts` y `docs/hallazgos-infra.md`. Se leían como una edición a
+medio terminar. No lo eran: el contenido del disco era **byte por byte el padre de
+`a3c7db19`** (mismo md5 normalizando CRLF), o sea un revert exacto y silencioso de ese
+commit. Y las mtimes lo confirmaban — 03/09 21:33, 30/08, 11/08: nadie las había tocado.
+
+El reflog tiene la causa, y es la sección de más arriba mordiéndose la cola:
+
+```
+a3c7db19  03/09 21:39  commit (desde el WORKTREE)
+fc5b9776  03/09 21:46  reset: moving to origin/main   ← en el clon principal
+```
+
+El commit se hizo desde el worktree —la salida de emergencia que recomienda AGENTS.md
+cuando el árbol compartido no compila— y siete minutos después el clon principal se puso
+al día con **`git reset` sin `--hard`**: eso mueve HEAD y el índice y **no toca el árbol
+de trabajo**. Los tres archivos se quedaron con el contenido de las 21:33 y git los
+reportó como «modificados» durante cuatro días.
+
+⚠️ **Lo caro no es el desorden, es que el próximo `git add` de esas rutas revierte el
+commit sin que nadie lo note.** `areas.ts` era una de las tres, y es el archivo que hay
+que tocar para sumar un área: editarla y commitearla ahí hubiera borrado
+`RUTAS_DE_ENTORNO` y devuelto `npm test` a rojo en todo worktree — el bug exacto que
+`a3c7db19` había arreglado. La regla «commiteá por ruta explícita, nunca `git add -A`»
+no alcanza acá: la ruta explícita es justo la envenenada.
+
+**La regla que queda:** después de un `reset` para ponerse al día, `git checkout --` de
+lo que quede modificado, o directamente `git reset --hard` si no había trabajo propio. Y
+al abrir un `git status` sucio que no reconocés, comparar contra HEAD antes de asumir que
+es tuyo: `git show HEAD:<ruta> | md5sum` contra el archivo, y mirar la **mtime** — una
+fecha vieja dice que nadie lo editó y que lo viejo es el disco, no el commit.
+
+### ② El parser del generador cortaba en `[id]`, y cuatro áreas cosechaban de menos
+
+`scripts/gen-dev-historial.mjs` leía las rutas de cada área con
+`vive:\s*\[([^\]]*)\]`. Ese `[^\]]*` corta en el **primer `]` del texto**, y las rutas
+de Next traen uno adentro: `app/crm/[id]/page.tsx`, `app/compartido/[token]/page.tsx`.
+Todo lo declarado después de la primera ruta dinámica se caía en silencio.
+
+Medido sobre las 122 áreas, antes de arreglarlo:
+
+| área | rutas que veía | rutas declaradas | cortaba en |
+|---|---|---|---|
+| `conocimientos` | 8 | 34 | `app/compartido/[token]/CursoCompartido.tsx` |
+| `crm` | 11 | 27 | `app/crm/[id]/page.tsx` |
+| `contracts-receipts` | 1 | 8 | `app/crm/[id]/deal-actions.ts` |
+| `shared-links` | **0** | 9 | `app/compartido/[token]/page.tsx` |
+
+⚠️ **Por qué no lo cazó el test, que existe para esto:** `tests/dev-areas.test.ts` NO
+usa ese parser — importa `AREAS` de verdad, así que veía las 34 rutas y daba verde. Un
+guard sobre el DATO no dice nada del parser que lo lee mal. Y la salida del parser roto
+—un historial más corto— es indistinguible de un área con poca historia: `shared-links`
+mostraba el panel vacío y se leía como un área que nadie tocó nunca.
+
+**La regla que queda:** un archivo generado necesita su propio chequeo, aparte del que
+valida la fuente. Y si algo parsea TypeScript con un regex, el primer caso de prueba es
+una ruta dinámica de Next: `[id]`, `[token]`, `[slug]` están por todo el repo.
+
+### ③ Un generado que se corre a mano se pone viejo, y su vejez ESCONDE un rojo
+
+`_historial.generado.ts` se regenera a mano (`node scripts/gen-dev-historial.mjs`, no
+está en `package.json`), y la última vez había sido el **11/08**: 27 días y ~700 commits
+de atraso. Todas las tabs «Historial» de `/admin/dev` mostraban un mes viejo.
+
+Lo que no se ve venir es el efecto de segundo orden. Al regenerarlo, `npm test` se puso
+**rojo** en `tests/ia-mensajes.test.ts`: la guarda «la frase *Conecta tu API key de
+Gemini* solo puede vivir en `lib/ia-mensajes.ts`» acusó al archivo generado. Y tenía
+razón literal: el generado guarda la primera línea del cuerpo de cada commit, y el de
+`c3e583e6` (13/08) **cita la frase textual** — un buen mensaje de commit cita lo que
+arregló. Adentro de un string, no de un comentario, así que el filtro de comentarios de
+la guarda no lo salvaba.
+
+⚠️ **El generado viejo estaba tapando el rojo**: el commit que lo dispara es del 13/08 y
+la última generación era del 11/08. La guarda se pone roja **el día que alguien
+regenera**, semanas después y lejísimos del commit culpable — y ahí parece que la rompió
+quien regeneró.
+
+La cura es excluir `*.generado.ts` del barrido: no son código, son una transcripción de
+git. Probado rompiéndolo: con la frase plantada en `lib/model-catalogo.ts` la guarda
+vuelve a fallar y lo nombra, o sea que el filtro tapa el generado y nada más.
+
+**La regla que queda:** una guarda que grepea el árbol no acusa a los archivos generados
+— van a citar cualquier frase que el repo prohíba, porque los mensajes de commit citan
+lo que arreglan. Y un generado que no corre en el build acumula deuda que estalla lejos
+de su causa.
+
+### ④ El trabajo más grande del mes no tenía área, y el barrido lo declaraba tranquilo
+
+El puente a Google Flow (la extensión) es lo más movido del repo desde el 18/08 —**89
+commits solo sobre `extension/manifest.json`**— y **no existía como área en
+`/admin/dev`**. Ni `extension/`, ni `lib/flow-*.ts`, ni `app/api/flow/puente/route.ts`
+figuraban en el `vive[]` de ninguna de las 122.
+
+Al lado, `video-generator` declaraba dos rutas —`page.tsx` y
+`app/admin/dev/ads-writer/bitacora.ts`— teniendo 35 archivos, y figuraba
+**`por-construir`** con un alcance que decía «ComingSoon». Es la trampa que ya documenta
+`reels` («un archivo compartido adentro de un `vive` no suma historia: DESPLAZA la
+propia») en su peor forma: la bitácora prestada es de las más calientes del repo, así
+que el Change History se llenaba con los 12 commits de **otra área** y no había un solo
+commit de video-generator adentro.
+
+⚠️ **El conocimiento sí estaba escrito** — `docs/hallazgos-generativa.md` tiene ~6.900
+líneas y se actualizó el mismo 07/09. La cosecha se venía haciendo bien. Lo que falló es
+el ÍNDICE: el registro no encontraba lo cosechado, y un barrido de «qué se trabajó y no
+quedó anotado» daba tranquilo porque preguntaba por áreas, no por commits.
+
+**La regla que queda:** el barrido honesto no es «¿qué área quedó sin anotar?» sino
+**«¿qué archivo caliente no lo declara ninguna área?»** — se contesta cruzando
+`git log --since --name-only` contra la unión de todos los `vive[]`, y es lo único que
+encuentra el trabajo que no tiene dónde anotarse. Un área que falta no se queja; un área
+que miente parece completa.
