@@ -62,8 +62,6 @@ import { KpisCard, type KpiVista, type CandidatoVista } from './KpisCard';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const MONO = "'Geist Mono', monospace";
-
 function fmtDMY(iso: string | null): string {
   if (!iso) return '—';
   const [y, m, d] = iso.split('-').map(Number);
@@ -376,7 +374,6 @@ export default async function GeneralPage() {
           kpis={kpisVista}
           candidatos={candidatos}
           objetivos={objetivos.map((o) => ({ id: o.id, titulo: o.titulo }))}
-          hoy={hoy}
           objetivoPrincipalId={objetivos[0]?.id ?? null}
         />
 
@@ -391,7 +388,7 @@ export default async function GeneralPage() {
         </Plegable>
 
         {comparativo && (
-          <Plegable titulo="El mes en números" resumen="gasto, agendas, cierres y cobranza">
+          <Plegable titulo="El mes en números" resumen="">
             <ResumenMes c={comparativo} desgloses={mtdDesgloses} />
           </Plegable>
         )}
@@ -404,9 +401,6 @@ export default async function GeneralPage() {
           <PendientesCard pendientes={pendientes} />
         </Plegable>
 
-        <footer style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', paddingTop: 6 }}>
-          Datos automáticos · Meta · Calendly · Cobranza. Montos en USD.
-        </footer>
       </div>
     </main>
   );
@@ -440,8 +434,12 @@ function Plegable({ titulo, resumen, abiertoPorDefecto = false, children }: {
         display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap',
         padding: '4px 0', color: 'var(--ink)',
       }}>
-        <span style={{ fontWeight: 600, fontSize: 18, letterSpacing: '-0.01em' }}>{titulo}</span>
-        <span style={{ fontSize: 13.5, color: 'var(--dim)' }}>{resumen}</span>
+        <span style={{ fontWeight: 600, fontSize: 17, letterSpacing: '-0.01em' }}>{titulo}</span>
+        {/* El resumen es un DATO («3 urgentes»), nunca un explicador de qué hay
+            adentro. Un rótulo que parafrasea al título es el subtítulo que la
+            regla de la casa prohíbe, y acá además ocupa el renglón que sirve
+            para saber si vale la pena abrir. */}
+        {resumen && <span style={{ fontSize: 13.5, color: 'var(--dim)' }}>{resumen}</span>}
       </summary>
       <div style={{ marginTop: 14 }}>{children}</div>
     </details>
@@ -474,7 +472,7 @@ function ResumenMes({ c, desgloses }: { c: ResumenComparativo; desgloses: Record
           const inner = (
             <>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>{it.label}</span>
+                <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>{it.label}</span>
                 {dg && <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>ver detalle →</span>}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -540,11 +538,13 @@ function Semaforo({ alertas, urgentes, vigilar, enOrden, sinFuentes }: {
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {alertas.length === 0 && !sinFuentes && (
-              <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderLeft: '4px solid var(--good)', borderRadius: 12, padding: '15px 18px', fontSize: 14, color: 'var(--dim)' }}>Sin alertas activas — todo en orden.</div>
+              <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '15px 18px', fontSize: 14, color: 'var(--dim)' }}>Sin alertas activas — todo en orden.</div>
             )}
             {alertas.map((a, i) => {
               const c = a.nivel === 'rojo' ? 'var(--bad)' : a.nivel === 'ambar' ? 'var(--warn-fill)' : 'var(--good)';
-              const rowStyle: CSSProperties = { display: 'flex', alignItems: 'center', gap: 14, textDecoration: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', borderLeft: `4px solid ${c}`, borderRadius: 12, padding: '15px 18px' };
+              // El nivel lo dice el punto de color de la izquierda, no un filete de 4 px:
+              // «thick colored borders on cards/alerts» es uno de los vetos de la casa.
+              const rowStyle: CSSProperties = { display: 'flex', alignItems: 'center', gap: 14, textDecoration: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '15px 18px' };
               const inner = (
                 <>
                   <span style={{ flex: 'none', width: 11, height: 11, borderRadius: '50%', background: c }} />

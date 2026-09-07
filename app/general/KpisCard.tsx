@@ -1,28 +1,34 @@
 'use client';
 
 // =============================================================================
-// El tablero de KPIs — lo único verdaderamente nuevo de esta pantalla
+// El tablero de KPIs — una fila de barras, no una lista de párrafos
 // =============================================================================
-// Todo lo demás de /general mide RESULTADOS: cierres, cash, cuotas vencidas,
-// fatiga de creativo. Cosas que ya pasaron. Esta lista mide lo que se hace o no
-// se hace en el período, que es lo único sobre lo que se puede actuar hoy.
+// ⚠️ ESTO SE REHIZO ENTERO EL 07/09/2026 Y CONVIENE SABER POR QUÉ, porque la
+// primera versión parecía razonable y era ilegible.
 //
-// Tres reglas de la casa que gobiernan el render:
+// Era una lista: por cada KPI, el nombre + una pastilla «lo mide MaKo» + una
+// frase explicando para qué sirve + el valor a la derecha. Ocho KPIs = ocho
+// párrafos. El dueño lo vio y lo dijo así: *«está horrible, mucho texto… todo
+// tiene que ser MUY gráfico… que de una pasada rápida ya se entienda»*.
 //
-//  · Todo lo que va en una lista es `.mk-fila`, y su estado es `.mk-pill`. No se
-//    inventa un tratamiento nuevo para algo que ya tiene anatomía.
-//  · Adentro de una lista, la barra de progreso es el BORDE de la fila (2 px, a
-//    ancho completo) o no existe. Una barra suelta al lado del texto deja el
-//    hueco muerto que el rediseño vino a sacar.
-//  · El COLOR NUNCA ES EL ÚNICO PORTADOR. Cada fila dice su estado con palabras
-//    («atrasado», «sin datos») además del punto.
+// El test de la casa es literal y esa versión lo reprobaba: **si en UN SEGUNDO
+// no se deduce qué pasa, la pantalla está mal.** Un segundo no alcanza para leer
+// ocho frases, así que la respuesta tiene que estar en la FORMA.
 //
-// ⚠️ Y la que más importa: un KPI en `sin-datos` se ve DISTINTO de uno en cero.
-// «No pude leer la fuente» y «la fuente dice cero» son dos cosas, y confundirlas
-// convierte un timeout de Meta en un reproche.
+// Ahora cada KPI es una BARRA llena hasta su % del compromiso, del color de su
+// estado. Se ve cuál está en rojo sin leer una palabra. Lo que se fue, y no
+// vuelve:
+//   · la frase del «porque»  → es copy de la propuesta, no del tablero
+//   · la pastilla por fila   → metadato del editor; en el tablero es ruido × 8
+//   · el valor repetido      → el número ya está arriba de la barra
+//
+// ⚠️ Y la barra NO es decoración: es EL DATO. El veto de la casa contra
+// «sparklines y anillos de progreso» aplica cuando el gráfico SUSTITUYE al
+// contenido; acá el llenado ES el porcentaje del compromiso, que es exactamente
+// lo que la fila tiene para decir.
 // =============================================================================
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useRef, useEffect } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { Modal, Button, TextField, Select, Status, EmptyState, Checkbox } from '@/app/_ui';
 import { TONO } from '@/app/_ui/tokens';
@@ -33,7 +39,6 @@ import {
 } from '@/lib/objectives-modelo';
 import { guardarKpiAction, apagarKpiAction, registrarKpiAction, sembrarKpisAction } from './actions';
 
-/** Lo que la página serializa y baja. Nunca el catálogo entero: sólo lo que se pinta. */
 export type KpiVista = {
   id: string;
   nombre: string;
@@ -53,36 +58,51 @@ export type KpiVista = {
 
 export type CandidatoVista = { nombre: string; porque: string; cadencia: Cadencia; compromiso: number; unidad: UnidadObjetivo; fuente: 'auto' | 'manual' };
 
+/** Compacto a propósito: `US$2.0k` y no `US$2,000`. Adentro de una barra, cada carácter cuesta. */
 const fmt = (n: number | null, unidad: UnidadObjetivo): string => {
   if (n === null) return '—';
-  return unidad === 'usd' ? `US$${Math.round(n).toLocaleString('es-MX')}` : String(Math.round(n * 100) / 100);
+  if (unidad === 'usd') {
+    return n >= 1000 ? `US$${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k` : `US$${Math.round(n)}`;
+  }
+  return String(Math.round(n * 100) / 100);
 };
 
-export function KpisCard({ kpis, candidatos, objetivos, hoy, objetivoPrincipalId }: {
+const ALTO_BARRA = 132;
+
+export function KpisCard({ kpis, candidatos, objetivos, objetivoPrincipalId }: {
   kpis: KpiVista[];
   candidatos: CandidatoVista[];
   objetivos: Array<{ id: string; titulo: string }>;
-  hoy: string;
   objetivoPrincipalId: string | null;
 }) {
   const [editando, setEditando] = useState<KpiVista | 'nuevo' | null>(null);
 
-  return (
-    <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 6 }}>
-        <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>KPIs</h2>
-        {kpis.length > 0 && (
-          <Button variant="secondary" size="sm" onClick={() => setEditando('nuevo')}>Agregar KPI</Button>
+  if (kpis.length === 0) {
+    return (
+      <section>
+        <Propuesta candidatos={candidatos} objetivoPrincipalId={objetivoPrincipalId} onManual={() => setEditando('nuevo')} />
+        {editando && (
+          <EditorKpi kpi={null} objetivos={objetivos} objetivoPrincipalId={objetivoPrincipalId} onCerrar={() => setEditando(null)} />
         )}
+      </section>
+    );
+  }
+
+  return (
+    <section>
+      {/* Sin tarjeta y sin subtítulo. La regla de la casa: las tarjetas son el
+          contenedor perezoso, y el espacio en blanco separa igual de bien. */}
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16, marginBottom: 20 }}>
+        <h2 style={{ fontWeight: 600, fontSize: 22, letterSpacing: '-0.02em', margin: 0, color: 'var(--ink)' }}>KPIs</h2>
+        <button type="button" onClick={() => setEditando('nuevo')}
+          style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 13.5, color: 'var(--dim)', cursor: 'pointer' }}>
+          + agregar
+        </button>
       </div>
 
-      {kpis.length === 0
-        ? <Propuesta candidatos={candidatos} objetivoPrincipalId={objetivoPrincipalId} onManual={() => setEditando('nuevo')} />
-        : (
-          <div style={{ marginTop: 10 }}>
-            {kpis.map((k) => <Fila key={k.id} k={k} hoy={hoy} onEditar={() => setEditando(k)} />)}
-          </div>
-        )}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, overflowX: 'auto' }} className="mk-scroll-x">
+        {kpis.map((k) => <Barra key={k.id} k={k} onAbrir={() => setEditando(k)} />)}
+      </div>
 
       {editando && (
         <EditorKpi
@@ -97,74 +117,107 @@ export function KpisCard({ kpis, candidatos, objetivos, hoy, objetivoPrincipalId
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Una fila
+// Una barra
 // ─────────────────────────────────────────────────────────────────────────────
 
-function Fila({ k, hoy, onEditar }: { k: KpiVista; hoy: string; onEditar: () => void }) {
+function Barra({ k, onAbrir }: { k: KpiVista; onAbrir: () => void }) {
   const router = useRouter();
   const [pendiente, arrancar] = useTransition();
+  const [editandoValor, setEditandoValor] = useState(false);
   const [valor, setValor] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const tono = tonoDeSemaforo(SEMAFORO_DE_ESTADO[k.estado]);
   const t = TONO[tono];
   const sinDatos = k.estado === 'sin-datos';
+  const alto = sinDatos ? 0 : Math.max(3, Math.round(((k.pct ?? 0) / 100) * ALTO_BARRA));
+
+  useEffect(() => { if (editandoValor) inputRef.current?.focus(); }, [editandoValor]);
 
   const registrar = () => {
-    if (valor === '') return;
+    if (valor === '') { setEditandoValor(false); return; }
     arrancar(async () => {
-      await registrarKpiAction(k.id, k.cadencia, hoy, Number(valor));
-      setValor('');
+      await registrarKpiAction(k.id, k.cadencia, Number(valor));
+      setValor(''); setEditandoValor(false);
       router.refresh();
     });
   };
 
+  // El número de un KPI manual se edita EN EL LUGAR: un click y ya se escribe.
+  // Registrar es la acción de todos los días, así que mandarla a un modal sería
+  // ponerle un paso al camino más recorrido.
+  const editable = k.fuente === 'manual';
+
   return (
-    <div className="mk-fila" style={{ alignItems: 'center' }}>
-      <span aria-hidden style={{ flex: 'none', width: 11, height: 11, borderRadius: '50%', background: t.fill, marginTop: 0 }} />
-
-      <div className="mk-fila__txt">
-        <div className="mk-fila__l1">
-          <button type="button" onClick={onEditar}
-            style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', cursor: 'pointer', textAlign: 'left' }}>
-            <span className="mk-fila__t">{k.nombre}</span>
-          </button>
-          <Status tono={tono}>{ESTADO_LABEL[k.estado]}</Status>
-        </div>
-        <span className="mk-fila__c">
-          {/* ⚠️ Un KPI sin datos NO muestra «0 de 7»: mostraría un incumplimiento
-              que nadie midió. Dice qué pasó y, si es manual, qué falta hacer. */}
-          {sinDatos
-            ? (k.error ?? 'todavía no hay dato para este período')
-            : `${fmt(k.valor, k.unidad)} de ${fmt(k.compromiso, k.unidad)} ${CADENCIA_LABEL[k.cadencia]}`}
-        </span>
-      </div>
-
-      {k.fuente === 'manual' ? (
-        <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <input
-            type="number" min="0" inputMode="decimal" className="mk-input"
-            value={valor} onChange={(e) => setValor(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); registrar(); } }}
-            placeholder={k.valor === null ? '—' : String(k.valor)}
-            aria-label={`Registrar ${k.nombre}`}
-            style={{ width: 84, textAlign: 'right' }}
-          />
-          <Button size="sm" variant="secondary" onClick={registrar} loading={pendiente} disabled={valor === ''}>
-            Registrar
-          </Button>
-        </div>
+    <div style={{ flex: '1 1 0', minWidth: 78, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+      {editandoValor ? (
+        <input
+          ref={inputRef}
+          type="number" min="0" inputMode="decimal"
+          value={valor}
+          onChange={(e) => setValor(e.target.value)}
+          onBlur={registrar}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); registrar(); }
+            if (e.key === 'Escape') { setValor(''); setEditandoValor(false); }
+          }}
+          aria-label={`Registrar ${k.nombre}`}
+          style={{
+            width: '100%', textAlign: 'center', fontSize: 15, fontWeight: 600,
+            border: `1px solid ${t.fill}`, borderRadius: 7, padding: '2px 0',
+            background: 'var(--surface)', color: 'var(--ink)', outline: 'none',
+          }}
+        />
       ) : (
-        <span className="mk-fila__riel" style={{ fontVariantNumeric: 'tabular-nums' }}>
-          {sinDatos ? '—' : `${fmt(k.valor, k.unidad)} / ${fmt(k.compromiso, k.unidad)}`}
-        </span>
+        <button
+          type="button"
+          onClick={() => (editable ? setEditandoValor(true) : onAbrir())}
+          title={editable ? 'Toca para registrar' : k.nombre}
+          style={{
+            background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit',
+            fontSize: 15, fontWeight: 600, color: sinDatos ? 'var(--faint)' : 'var(--ink)',
+            fontVariantNumeric: 'tabular-nums', lineHeight: 1.2,
+          }}
+        >
+          {sinDatos ? '—' : fmt(k.valor, k.unidad)}
+        </button>
       )}
 
-      {/* La barra es el borde de la fila, nunca una barra suelta. Con `sin-datos`
-          NO se dibuja: una barra en cero afirma un incumplimiento que no se midió. */}
-      {!sinDatos && k.pct !== null && (
-        <span className="mk-fila__barra" aria-hidden>
-          <i style={{ width: `${Math.min(100, k.pct)}%`, background: t.fill }} />
-        </span>
-      )}
+      {/* El carril. `overflow: hidden` no es prolijidad: un valor por encima del
+          compromiso llenaría más del 100% y desbordaría la caja — este repo ya
+          pagó una barra de 1468% que se llevó el ancho de la página entera. */}
+      <button
+        type="button"
+        onClick={onAbrir}
+        aria-label={`${k.nombre}: ${sinDatos ? 'sin datos' : `${Math.round(k.pct ?? 0)}% de ${fmt(k.compromiso, k.unidad)}`}`}
+        style={{
+          width: '100%', height: ALTO_BARRA, padding: 0, cursor: 'pointer',
+          display: 'flex', alignItems: 'flex-end',
+          background: 'var(--surface-2)', borderRadius: 10, overflow: 'hidden',
+          // Sin datos NO se pinta relleno: una barra en cero afirma un
+          // incumplimiento que nadie midió. Se marca con el borde punteado, que
+          // se lee como «acá falta algo», no como «esto salió mal».
+          border: sinDatos ? '1px dashed var(--border-strong)' : '1px solid transparent',
+        }}
+      >
+        {!sinDatos && (
+          <span style={{
+            display: 'block', width: '100%', height: alto,
+            background: t.fill, borderRadius: 9,
+            transition: 'height .35s ease-out',
+          }} />
+        )}
+      </button>
+
+      {/* El nombre, y NADA más. Dos renglones como techo: un tercero descuadra la
+          fila entera y ningún nombre de KPI necesita tres. */}
+      <span style={{
+        fontSize: 11.5, lineHeight: 1.3, color: 'var(--dim)', textAlign: 'center',
+        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+      }}>
+        {k.nombre}
+      </span>
+      {pendiente && <span style={{ fontSize: 10, color: 'var(--faint)' }}>guardando…</span>}
     </div>
   );
 }
@@ -174,13 +227,13 @@ function Fila({ k, hoy, onEditar }: { k: KpiVista; hoy: string; onEditar: () => 
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * ⚠️ NUNCA UNA PANTALLA EN BLANCO. Es donde muere toda feature de objetivos: nadie
- * se sienta a inventar sus indicadores desde cero. MaKo propone leyendo el funnel
- * y la fase del negocio, y la persona destilda lo que no le sirve.
+ * ⚠️ ES UN PASO APARTE, NO EL TABLERO — y confundirlos fue la mitad del problema
+ * de la primera versión. Esto es una DECISIÓN de ocho ítems; el tablero es una
+ * lectura. Mezclarlos daba una pantalla que no era ninguna de las dos.
  *
- * Los nombres son lo único que viaja al server: los candidatos se vuelven a
- * resolver allá. Si el objeto entero viajara armado desde el navegador, cualquiera
- * podría sembrar un KPI con la fuente y el compromiso que quisiera.
+ * Igual acá el texto se recortó: los nombres se entienden solos («Cierres»,
+ * «Reuniones agendadas») y ocho justificaciones apiladas son el muro que el dueño
+ * marcó. El porqué de cada uno queda en el `title`, para quien lo busque.
  */
 function Propuesta({ candidatos, objetivoPrincipalId, onManual }: {
   candidatos: CandidatoVista[];
@@ -196,7 +249,7 @@ function Propuesta({ candidatos, objetivoPrincipalId, onManual }: {
     return (
       <EmptyState
         titulo="Todavía no hay KPIs"
-        detalle="Un KPI es lo que mueve tu objetivo: algo que se hace cada día o cada semana y que se puede dar por cumplido."
+        detalle="Un KPI es lo que mueve tu objetivo: algo que se hace cada semana y se puede dar por cumplido."
         accion={{ label: 'Crear el primero', onClick: onManual }}
       />
     );
@@ -223,45 +276,47 @@ function Propuesta({ candidatos, objetivoPrincipalId, onManual }: {
   };
 
   return (
-    <div style={{ marginTop: 12 }}>
-      <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)', margin: '0 0 4px', lineHeight: 1.5 }}>
-        Estos salen de tu funnel y de la fase de tu negocio. Quita los que no te sirvan.
-      </p>
-      <div>
-        {candidatos.map((c) => (
-          <div key={c.nombre} className="mk-fila" style={{ alignItems: 'center' }}>
-            {/* El NOMBRE es el label del checkbox, no un `<span>` al lado con un
-                rótulo escondido: así el área clickeable ES el nombre, y el lector
-                de pantalla anuncia qué se está tildando sin leer el texto dos veces. */}
-            <div className="mk-fila__txt">
-              <div className="mk-fila__l1">
-                <Checkbox
-                  checked={elegidos.has(c.nombre)}
-                  onChange={() => toggle(c.nombre)}
-                  label={<span className="mk-fila__t">{c.nombre}</span>}
-                />
-                <Status tono={c.fuente === 'auto' ? 'info' : 'neutral'}>
-                  {c.fuente === 'auto' ? 'lo mide MaKo' : 'lo registras tú'}
-                </Status>
-              </div>
-              <span className="mk-fila__c">{c.porque}</span>
-            </div>
-            <span className="mk-fila__riel">
-              {fmt(c.compromiso, c.unidad)} {CADENCIA_LABEL[c.cadencia]}
-            </span>
-          </div>
-        ))}
+    <div>
+      <h2 style={{ fontWeight: 600, fontSize: 22, letterSpacing: '-0.02em', margin: '0 0 18px', color: 'var(--ink)' }}>
+        Elige los KPIs que vas a seguir
+      </h2>
+
+      {/* Fichas, no renglones de prosa. Cada una: nombre + compromiso, nada más. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(210px,1fr))', gap: 10 }}>
+        {candidatos.map((c) => {
+          const on = elegidos.has(c.nombre);
+          return (
+            <label key={c.nombre} title={c.porque}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 11, cursor: 'pointer',
+                padding: '13px 15px', borderRadius: 12,
+                border: `1px solid ${on ? 'var(--primary-weak)' : 'var(--border)'}`,
+                background: on ? 'var(--primary-bg)' : 'var(--surface)',
+              }}>
+              <Checkbox checked={on} onChange={() => toggle(c.nombre)} label={
+                <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                  <span style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)' }}>{c.nombre}</span>
+                  <span style={{ fontSize: 12.5, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>
+                    {fmt(c.compromiso, c.unidad)} {CADENCIA_LABEL[c.cadencia]}
+                  </span>
+                </span>
+              } />
+            </label>
+          );
+        })}
       </div>
+
       {error && <span className="mk-err" role="alert">{error}</span>}
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 16, flexWrap: 'wrap' }}>
+
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 20, flexWrap: 'wrap' }}>
         <Button onClick={sembrar} loading={pendiente} disabled={elegidos.size === 0}>
-          Usar {elegidos.size === 1 ? 'este KPI' : `estos ${elegidos.size} KPIs`}
+          Usar {elegidos.size === 1 ? 'este KPI' : `estos ${elegidos.size}`}
         </Button>
-        <Button variant="tertiary" onClick={onManual} disabled={pendiente}>Prefiero escribir el mío</Button>
+        <button type="button" onClick={onManual} disabled={pendiente}
+          style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 13.5, color: 'var(--dim)', cursor: 'pointer' }}>
+          Escribir el mío
+        </button>
       </div>
-      <p style={{ fontSize: 'var(--fs-meta)', color: 'var(--faint)', margin: '10px 0 0' }}>
-        Los compromisos son un punto de partida: se ajustan cuando quieras.
-      </p>
     </div>
   );
 }
@@ -295,16 +350,10 @@ function EditorKpi({ kpi, objetivos, objetivoPrincipalId, onCerrar }: {
     arrancar(async () => {
       try {
         await guardarKpiAction({
-          id: kpi?.id,
-          objectiveId: objectiveId || null,
-          nombre,
-          cadencia,
-          compromiso: Number(compromiso) || 0,
-          unidad,
-          fuente,
+          id: kpi?.id, objectiveId: objectiveId || null, nombre, cadencia,
+          compromiso: Number(compromiso) || 0, unidad, fuente,
           fuenteId: fuente === 'auto' ? fuenteId : null,
-          umbralVerde: kpi?.umbralVerde,
-          umbralAmbar: kpi?.umbralAmbar,
+          umbralVerde: kpi?.umbralVerde, umbralAmbar: kpi?.umbralAmbar,
         });
         onCerrar();
         router.refresh();
@@ -317,13 +366,8 @@ function EditorKpi({ kpi, objetivos, objetivoPrincipalId, onCerrar }: {
   const apagar = () => {
     if (!kpi) return;
     arrancar(async () => {
-      try {
-        await apagarKpiAction(kpi.id);
-        onCerrar();
-        router.refresh();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
-      }
+      try { await apagarKpiAction(kpi.id); onCerrar(); router.refresh(); }
+      catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     });
   };
 
@@ -336,27 +380,37 @@ function EditorKpi({ kpi, objetivos, objetivoPrincipalId, onCerrar }: {
           {kpi && <Button variant="tertiary" onClick={apagar} disabled={pendiente}>Dejar de seguirlo</Button>}
           <span style={{ flex: 1 }} />
           <Button variant="secondary" onClick={onCerrar} disabled={pendiente}>No guardar</Button>
-          <Button onClick={guardar} loading={pendiente} disabled={!nombre.trim()}>Guardar KPI</Button>
+          <Button onClick={guardar} loading={pendiente} disabled={!nombre.trim()}>Guardar</Button>
         </div>
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* El estado de hoy, arriba y como dato: es lo primero que alguien quiere
+            saber al abrir un KPI, y en el tablero la barra no lleva números finos. */}
+        {kpi && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
+              {kpi.valor === null ? '—' : fmt(kpi.valor, kpi.unidad)}
+            </span>
+            <span style={{ fontSize: 14, color: 'var(--dim)' }}>de {fmt(kpi.compromiso, kpi.unidad)} {CADENCIA_LABEL[kpi.cadencia]}</span>
+            <Status tono={tonoDeSemaforo(SEMAFORO_DE_ESTADO[kpi.estado])}>{ESTADO_LABEL[kpi.estado]}</Status>
+            {kpi.error && <span style={{ fontSize: 13, color: 'var(--faint)', width: '100%' }}>{kpi.error}</span>}
+          </div>
+        )}
+
         <TextField label="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)}
           placeholder="Contenido publicado" maxLength={60} />
 
         <Select label="Quién carga el número" value={fuente} onChange={setFuente}
-          options={[
-            { value: 'auto', label: 'MaKo lo mide solo' },
-            { value: 'manual', label: 'Lo registro yo' },
-          ]}
+          options={[{ value: 'auto', label: 'MaKo lo mide solo' }, { value: 'manual', label: 'Lo registro yo' }]}
           hint={fuente === 'auto'
-            ? 'Sale de los datos que ya están en la app. Si un día no puede leerlos, lo dice — no cuenta cero.'
-            : 'Vas a poder cargarlo desde esta misma lista.'} />
+            ? 'Si un día no puede leerlo, lo dice — no cuenta cero.'
+            : 'Lo cargas tocando el número en el tablero.'} />
 
         {fuente === 'auto' && (
-          <Select label="De dónde lo saca" value={fuenteId} onChange={(v) => { setFuenteId(v); const d = FUENTES_KPI.find((f) => f.id === v); if (d) setUnidad(d.unidad); }}
-            options={FUENTES_KPI.map((f) => ({ value: f.id, label: f.label }))}
-            hint={def?.que} />
+          <Select label="De dónde lo saca" value={fuenteId}
+            onChange={(v) => { setFuenteId(v); const d = FUENTES_KPI.find((f) => f.id === v); if (d) setUnidad(d.unidad); }}
+            options={FUENTES_KPI.map((f) => ({ value: f.id, label: f.label }))} hint={def?.que} />
         )}
 
         {fuente === 'manual' && (
@@ -365,21 +419,16 @@ function EditorKpi({ kpi, objetivos, objetivoPrincipalId, onCerrar }: {
         )}
 
         <Select label="Cada cuánto se cuenta" value={cadencia} onChange={setCadencia}
-          options={[
-            { value: 'diaria', label: 'Todos los días' },
-            { value: 'semanal', label: 'Cada semana' },
-          ]} />
+          options={[{ value: 'diaria', label: 'Todos los días' }, { value: 'semanal', label: 'Cada semana' }]} />
 
         <TextField label={cadencia === 'diaria' ? 'Compromiso por día' : 'Compromiso por semana'}
           value={compromiso} onChange={(e) => setCompromiso(e.target.value)}
           type="number" min="0" inputMode="decimal"
-          prefix={(fuente === 'auto' ? def?.unidad : unidad) === 'usd' ? 'US$' : undefined}
-          hint="Es lo que tiene que pasar para que el KPI quede en verde." />
+          prefix={(fuente === 'auto' ? def?.unidad : unidad) === 'usd' ? 'US$' : undefined} />
 
         {objetivos.length > 0 && (
           <Select label="A qué objetivo empuja" value={objectiveId} onChange={setObjectiveId}
-            options={[{ value: '', label: 'A ninguno por ahora' }, ...objetivos.map((o) => ({ value: o.id, label: o.titulo }))]}
-            hint="Sirve para que la pantalla pueda decir qué debería moverse si lo cumples." />
+            options={[{ value: '', label: 'A ninguno por ahora' }, ...objetivos.map((o) => ({ value: o.id, label: o.titulo }))]} />
         )}
 
         {error && <span className="mk-err" role="alert">{error}</span>}

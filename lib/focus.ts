@@ -279,7 +279,7 @@ export function elegirFoco(e: EntradaFoco): Foco {
       accion: 'Define el objetivo de este trimestre.',
       razon: 'Todavía no hay ninguno cargado, así que no puedo decirte si vas bien ni qué mover primero.',
       resultadoEsperado: 'La pantalla pasa a contestar «¿voy bien?» con un número.',
-      responsable: 'Tú, acá mismo',
+      responsable: 'Tú, en esta pantalla',
       progreso: null,
       siguienteRevision: 'Apenas lo cargues',
       origen: 'arranque',

@@ -1,103 +1,117 @@
+'use client';
+
 // =============================================================================
-// AHORA — el bloque que contesta «¿qué es lo más importante que debo hacer?»
+// La acción del día — el único elemento grande de la pantalla
 // =============================================================================
-// Es el que se lleva el espacio grande de la pantalla, y esa inversión es el
-// cambio de fondo: antes el norte era un contador de 108 px y la acción no
-// existía. Ahora el norte es una tira de una línea y esto es lo que se ve.
+// ⚠️ REHECHO EL 07/09/2026. La primera versión tenía, arriba del titular, un
+// rótulo `AHORA` en monospace y una pastilla «sale de: X»; y abajo, una grilla de
+// tres columnas con rótulos en monospace (DEBERÍA MOVER · QUIÉN · SE REVISA).
+// Tres vetos duros del manual de la casa, los tres en el mismo bloque:
 //
-// Los SEIS CAMPOS los fijó el dueño (#523) y se pintan todos: acción, razón,
-// resultado esperado, responsable, progreso y siguiente revisión. Más el ORIGEN,
-// sin el cual la pantalla es una orden sin fundamento.
+//   · «A kicker or eyebrow above a heading. This one is a BAN, not a default:
+//      no brief earns it back. The heading carries its own weight.»
+//   · «Monospace as a costume for "technical" rather than for code, data, or
+//      measurement.»
+//   · «Thick colored borders on cards/alerts.»  ← el filete de 4 px
 //
-// ⚠️ Y el botón va al lugar EXACTO donde se ejecuta, no a la home de la tab. El
-// pedido, textual: «la prioridad no es un texto descriptivo, es una acción con su
-// enlace o botón directo al lugar donde se ejecuta».
+// Los SEIS CAMPOS de la tarea #523 siguen estando —son contrato del dueño— pero
+// visible queda sólo la RAZÓN, que es lo que sostiene la orden. Los otros cuatro
+// se abren. Decisión del dueño, 07/09/2026: cumplir el contrato no puede
+// significar convertir la pantalla de entrada en un formulario.
 //
-// Sin `'use client'`: no tiene estado. Un componente que sólo pinta no necesita
-// viajar al navegador — y este trae adentro el texto del foco, que se calcula en
-// el server.
+// El orden del copy sale de `clarify.md`: hecho esencial → acción → contexto.
+// Por eso arriba está QUÉ HACER y no de dónde salió.
 // =============================================================================
 
+import { useState } from 'react';
 import Link from '@/app/_ui/Link';
 import type { Foco } from '@/lib/focus';
 import { ORIGEN_LABEL } from '@/lib/focus';
 
-const MONO = "'Geist Mono', monospace";
-
-const TONO_BORDE: Record<Foco['nivel'], string> = {
+/**
+ * El nivel se lee en un punto, no en un filete de 4 px ni en un fondo de color.
+ * Es la cualidad «calmada» del documento de rediseño: no convertir cada señal en
+ * una alarma. Lo urgente ya se distingue por ser lo único grande de la pantalla.
+ */
+const COLOR: Record<Foco['nivel'], string> = {
   rojo: 'var(--bad)',
   ambar: 'var(--warn-fill)',
-  neutro: 'var(--border-strong)',
+  neutro: 'var(--good)',
 };
 
-/** Un campo del contrato. El rótulo chico arriba, el contenido abajo, en prosa. */
-function Campo({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div style={{ minWidth: 0 }}>
-      <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 5 }}>
-        {label}
-      </div>
-      <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5 }}>{children}</div>
-    </div>
-  );
-}
-
 export function Ahora({ foco }: { foco: Foco }) {
-  return (
-    <section style={{
-      background: 'var(--surface)',
-      border: '1px solid var(--border)',
-      // El nivel se lee en el filete izquierdo, igual que en el Semáforo: es el
-      // mismo lenguaje en la misma pantalla, no un tratamiento nuevo.
-      borderLeft: `4px solid ${TONO_BORDE[foco.nivel]}`,
-      borderRadius: 18,
-      padding: 'var(--card-pad)',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
-        <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--faint)' }}>
-          Ahora
-        </span>
-        {/* El ORIGEN va acá arriba y no escondido: una orden sin fundamento no se
-            obedece, se ignora. */}
-        <span style={{
-          fontSize: 12, fontWeight: 500, padding: '3px 9px', borderRadius: 999,
-          background: 'var(--surface-2)', border: '1px solid var(--border-strong)', color: 'var(--dim)',
-        }}>
-          sale de: {ORIGEN_LABEL[foco.origen]}
-        </span>
-      </div>
+  const [abierto, setAbierto] = useState(false);
+  const color = COLOR[foco.nivel];
 
+  return (
+    <section style={{ paddingBlock: 4 }}>
       <h2 style={{
-        fontWeight: 600, fontSize: 30, letterSpacing: '-0.02em', lineHeight: 1.2,
-        margin: '0 0 10px', color: 'var(--ink)',
+        display: 'flex', alignItems: 'flex-start', gap: 14,
+        fontWeight: 600,
+        // Grande de verdad: es lo único que tiene que leerse en un segundo.
+        fontSize: 'clamp(26px, 3.2vw, 40px)',
+        letterSpacing: '-0.03em', lineHeight: 1.12,
+        margin: '0 0 12px', color: 'var(--ink)',
       }}>
-        {foco.accion}
+        <span aria-hidden style={{
+          flex: 'none', width: 12, height: 12, borderRadius: '50%',
+          background: color, marginTop: '0.45em',
+        }} />
+        <span>{foco.accion}</span>
       </h2>
 
-      <p style={{ fontSize: 15, color: 'var(--dim)', margin: '0 0 22px', lineHeight: 1.55, maxWidth: '70ch' }}>
+      {/* La razón, y nada más. Es la mitad del contrato que sostiene la orden. */}
+      <p style={{
+        fontSize: 16, color: 'var(--dim)', lineHeight: 1.5,
+        margin: '0 0 22px', maxWidth: '70ch', paddingLeft: 26,
+      }}>
         {foco.razon}
       </p>
 
-      <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 18,
-        paddingTop: 18, borderTop: '1px solid var(--border)',
-      }}>
-        <Campo label="Debería mover">{foco.resultadoEsperado}</Campo>
-        <Campo label="Quién">{foco.responsable}</Campo>
-        {foco.progreso && <Campo label="Progreso">{foco.progreso}</Campo>}
-        <Campo label="Se revisa">{foco.siguienteRevision}</Campo>
-      </div>
-
-      <div style={{ marginTop: 22 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', paddingLeft: 26 }}>
         <Link href={foco.href} style={{
           display: 'inline-flex', alignItems: 'center', gap: 8,
-          padding: '12px 20px', borderRadius: 11,
+          padding: '13px 22px', borderRadius: 11,
           background: 'var(--primary)', color: '#fff',
-          fontSize: 15, fontWeight: 600, textDecoration: 'none',
+          fontSize: 15.5, fontWeight: 600, textDecoration: 'none',
         }}>
-          Ir a {foco.hrefLabel} →
+          {foco.hrefLabel} →
         </Link>
+
+        <button type="button" onClick={() => setAbierto((v) => !v)} aria-expanded={abierto}
+          style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 13.5, color: 'var(--dim)', cursor: 'pointer' }}>
+          {abierto ? 'Ocultar el detalle' : 'Por qué esta y no otra'}
+        </button>
       </div>
+
+      {abierto && (
+        // Los cuatro campos restantes del contrato. En prosa y en un renglón por
+        // campo, sin rótulos en monospace y sin grilla de tres columnas: lo que
+        // hacía que esto se leyera como un formulario era la grilla, no los datos.
+        <dl style={{
+          margin: '20px 0 0 26px', padding: '16px 0 0',
+          borderTop: '1px solid var(--border)',
+          display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '10px 18px',
+          fontSize: 14, lineHeight: 1.5, maxWidth: '70ch',
+        }}>
+          <dt style={{ color: 'var(--faint)' }}>Sale de</dt>
+          <dd style={{ margin: 0, color: 'var(--dim)' }}>{ORIGEN_LABEL[foco.origen]}</dd>
+
+          <dt style={{ color: 'var(--faint)' }}>Debería mover</dt>
+          <dd style={{ margin: 0, color: 'var(--dim)' }}>{foco.resultadoEsperado}</dd>
+
+          <dt style={{ color: 'var(--faint)' }}>Quién</dt>
+          <dd style={{ margin: 0, color: 'var(--dim)' }}>{foco.responsable}</dd>
+
+          {foco.progreso && (<>
+            <dt style={{ color: 'var(--faint)' }}>Progreso</dt>
+            <dd style={{ margin: 0, color: 'var(--dim)' }}>{foco.progreso}</dd>
+          </>)}
+
+          <dt style={{ color: 'var(--faint)' }}>Se revisa</dt>
+          <dd style={{ margin: 0, color: 'var(--dim)' }}>{foco.siguienteRevision}</dd>
+        </dl>
+      )}
     </section>
   );
 }

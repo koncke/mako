@@ -1,39 +1,36 @@
 // =============================================================================
-// La tira del Q — el norte, en UNA línea
+// El norte, en UNA línea
 // =============================================================================
-// ⚠️ ACÁ ESTÁ LA INVERSIÓN QUE DEFINE EL REDISEÑO, y conviene que quede escrita.
+// Dos reescrituras y conviene que las dos queden anotadas, porque el error fue
+// distinto cada vez.
 //
-// Esto reemplaza a `HeroGoal`: un bloque oscuro de 38 px de padding con un
-// contador de 108 px («Camino a los 20 cierres»), cuarenta bloquecitos de «1
-// bloque = 1 cierre» y dos tarjetas abajo. Ocupaba la mitad del alto útil de la
-// pantalla de entrada para decir un número sobre el que nadie puede actuar hoy.
+// v1 era `HeroGoal`: un bloque oscuro de 38 px de padding con un contador de
+// 108 px, cuarenta bloquecitos de «1 bloque = 1 cierre» y dos tarjetas abajo.
+// Ocupaba medio alto útil para decir un número sobre el que nadie puede actuar.
 //
-// Si `/general` es FOCUS, el espacio grande se lo lleva la ACCIÓN. El norte no
-// desaparece —hace falta para saber si vas bien— pero se encoge a esto.
+// v2 lo encogió a una tira, pero la dejó como TARJETA con rótulos en monospace
+// (`CAPACIDAD`). Dos vetos: «cards are the lazy container» y «monospace as a
+// costume». Encoger no alcanzaba: el problema era el chrome, no el tamaño.
 //
-// Y lleva la capacidad instalada al lado, que es la otra mitad de la pregunta:
-// «¿vamos bien?» sin «¿podemos entregarlo?» es cómo se vende lo que después no se
-// puede cumplir.
+// v3 es esto: una línea, sin caja, con una barra que ES el dato. La estructura se
+// siente, no se ve — que es literal de Linear y lo que el documento de rediseño
+// eligió como dirección.
 // =============================================================================
 
 import { EditarObjetivo, EditarCapacidad } from './EditarObjetivo';
-import type { ObjectiveConAvance } from '@/lib/objectives';
-import type { CapacidadLeida } from '@/lib/objectives';
+import type { ObjectiveConAvance, CapacidadLeida } from '@/lib/objectives';
 import type { ProgresoQuarter } from '@/lib/objectives-modelo';
-
-const MONO = "'Geist Mono', monospace";
 
 const fmtValor = (n: number | null, unidad: string): string => {
   if (n === null) return '—';
-  return unidad === 'usd' ? `US$${Math.round(n).toLocaleString('es-MX')}` : String(Math.round(n));
+  if (unidad === 'usd') {
+    return n >= 1000 ? `US$${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k` : `US$${Math.round(n)}`;
+  }
+  return String(Math.round(n));
 };
 
-/** dd/mm/aaaa. Nunca el ISO crudo: nadie lee `2026-11-14` como una fecha. */
-function fmtDMY(iso: string | null): string {
-  if (!iso) return '—';
-  const [y, m, d] = iso.split('-');
-  return `${d}/${m}/${y}`;
-}
+/** Un botón que no se ve como botón: el texto es el control. */
+const invisible = { background: 'none', border: 'none', padding: 0, font: 'inherit', textAlign: 'left' as const, cursor: 'pointer' };
 
 export function TiraQ({ progreso, objetivos, capacidad, anio, quarter }: {
   progreso: ProgresoQuarter;
@@ -43,29 +40,22 @@ export function TiraQ({ progreso, objetivos, capacidad, anio, quarter }: {
   quarter: number;
 }) {
   const principal = objetivos[0] ?? null;
+  const pct = principal?.pct ?? null;
+  const alDia = principal?.ritmo?.alDia ?? true;
 
   return (
     <section style={{
-      background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18,
-      padding: '18px 22px',
-      display: 'flex', alignItems: 'center', gap: 26, flexWrap: 'wrap',
+      display: 'flex', alignItems: 'center', gap: 22, flexWrap: 'wrap',
+      paddingBottom: 20, borderBottom: '1px solid var(--border)',
+      fontSize: 13.5, color: 'var(--dim)',
     }}>
-      {/* ── El período ── */}
-      <div style={{ flex: 'none' }}>
-        <div style={{ fontWeight: 600, fontSize: 17, color: 'var(--ink)', letterSpacing: '-0.01em' }}>
-          Q{quarter} {anio}
-        </div>
-        <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 2 }}>
-          {progreso.diasRestantes === 0
-            ? 'último día'
-            : `faltan ${progreso.diasRestantes} ${progreso.diasRestantes === 1 ? 'día' : 'días'}`}
-        </div>
-      </div>
+      <span style={{ flex: 'none', color: 'var(--ink)', fontWeight: 600 }}>Q{quarter} {anio}</span>
+      <span style={{ flex: 'none' }}>
+        {progreso.diasRestantes === 0 ? 'último día' : `${progreso.diasRestantes} días`}
+      </span>
 
-      <span aria-hidden style={{ flex: 'none', width: 1, alignSelf: 'stretch', background: 'var(--border)' }} />
-
-      {/* ── El objetivo principal ── */}
-      <div style={{ flex: 1, minWidth: 260 }}>
+      {/* El objetivo: la barra es el dato, y el texto al lado es el número exacto. */}
+      <div style={{ flex: '1 1 260px', minWidth: 220, display: 'flex', alignItems: 'center', gap: 12 }}>
         <EditarObjetivo
           objetivo={principal ? {
             id: principal.id, titulo: principal.titulo, metrica: principal.metrica,
@@ -74,86 +64,52 @@ export function TiraQ({ progreso, objetivos, capacidad, anio, quarter }: {
           anio={anio}
           quarter={quarter}
           disparador={
-            <div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-                <span style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)' }}>
-                  {principal ? principal.titulo : 'Define el objetivo del trimestre'}
-                </span>
-                {principal && (
-                  <span style={{ fontSize: 14, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>
-                    {fmtValor(principal.actual, principal.unidad)} / {fmtValor(principal.metaValor, principal.unidad)}
-                    {principal.pct !== null && <> · {Math.round(principal.pct)}%</>}
-                  </span>
-                )}
-              </div>
-
-              {principal && (
+            <span style={{ ...invisible, display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
+              {principal ? (
                 <>
-                  <div style={{ width: '100%', height: 8, borderRadius: 999, background: 'var(--surface-2)', overflow: 'hidden', margin: '8px 0 6px' }}>
-                    {/* ⚠️ La barra se recorta al 100% y el carril tiene overflow
-                        hidden: un `width: 148%` no desborda la barra, desborda la
-                        PÁGINA. Ya pasó en este repo con un gráfico de precios. */}
-                    <div style={{
-                      width: `${Math.min(100, principal.pct ?? 0)}%`, height: '100%', borderRadius: 999,
-                      background: principal.ritmo?.alDia ? 'var(--good)' : 'var(--warn-fill)',
+                  {/* ⚠️ El carril recorta al 100%: un valor por encima de la meta
+                      no desborda la barra, desborda la PÁGINA. Ya pasó acá. */}
+                  <span style={{ flex: 1, minWidth: 90, height: 6, borderRadius: 999, background: 'var(--surface-2)', overflow: 'hidden' }}>
+                    <span style={{
+                      display: 'block', height: '100%', borderRadius: 999,
+                      width: `${Math.min(100, pct ?? 0)}%`,
+                      background: principal.actual === null ? 'var(--faint)' : alDia ? 'var(--good)' : 'var(--warn-fill)',
                     }} />
-                  </div>
-                  <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>
-                    {/* ⚠️ Si la métrica no se pudo leer NO se dice «vas atrasado»:
-                        se dice que no se pudo leer. Un error de lectura no es un
-                        dato del negocio. */}
-                    {principal.actual === null
-                      ? (principal.error ?? 'no pude leer esta métrica')
-                      : principal.ritmo
-                        ? <>A este ritmo llegas el <strong style={{ color: 'var(--ink)' }}>{fmtDMY(principal.ritmo.llegadaEstimada)}</strong>{principal.ritmo.llegadaEstimada === null ? '' : principal.ritmo.alDia ? ' · al día' : ' · atrasado'}</>
-                        : 'sin ritmo todavía'}
-                  </div>
+                  </span>
+                  <span style={{ flex: 'none', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>
+                    {fmtValor(principal.actual, principal.unidad)}<span style={{ color: 'var(--faint)' }}> / {fmtValor(principal.metaValor, principal.unidad)}</span>
+                  </span>
                 </>
-              )}
-            </div>
-          }
-        />
-      </div>
-
-      <span aria-hidden style={{ flex: 'none', width: 1, alignSelf: 'stretch', background: 'var(--border)' }} />
-
-      {/* ── La capacidad ── */}
-      <div style={{ flex: 'none', minWidth: 150 }}>
-        <EditarCapacidad
-          cupo={capacidad.cupo}
-          mesesEntrega={capacidad.mesesEntrega}
-          disparador={
-            <div>
-              <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 4 }}>
-                Capacidad
-              </div>
-              {/* Tres estados, y ninguno miente:
-                  · sin cupo cargado → no se afirma nada, se invita a cargarlo
-                  · no se pudo contar → se dice, en vez de mostrar «0 activos»
-                  · con los dos → el número y cuánto lugar queda */}
-              {capacidad.error ? (
-                <div style={{ fontSize: 13.5, color: 'var(--dim)' }}>No pude contar tus clientes</div>
-              ) : capacidad.cupo === null ? (
-                <div style={{ fontSize: 13.5, color: 'var(--dim)' }}>
-                  {capacidad.activos} {capacidad.activos === 1 ? 'cliente activo' : 'clientes activos'}
-                  <span style={{ display: 'block', color: 'var(--faint)', fontSize: 12.5 }}>define tu cupo →</span>
-                </div>
               ) : (
-                <>
-                  <div style={{ fontWeight: 600, fontSize: 17, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>
-                    {capacidad.activos} / {capacidad.cupo}
-                  </div>
-                  <div style={{ fontSize: 12.5, color: capacidad.libres === 0 ? 'var(--warn)' : 'var(--dim)', marginTop: 2 }}>
-                    {capacidad.libres === 0
-                      ? 'sin lugar libre'
-                      : `lugar para ${capacidad.libres} más`}
-                  </div>
-                </>
+                <span style={{ color: 'var(--primary)', fontWeight: 500 }}>Define el objetivo del trimestre →</span>
               )}
-            </div>
+            </span>
           }
         />
       </div>
+
+      {/* La capacidad. Tres estados y ninguno miente: sin cupo no se afirma nada,
+          sin poder contar se dice, y con los dos va el número. */}
+      <EditarCapacidad
+        cupo={capacidad.cupo}
+        mesesEntrega={capacidad.mesesEntrega}
+        disparador={
+          <span style={{ ...invisible, flex: 'none', display: 'inline-block' }}>
+            {capacidad.error ? (
+              <span style={{ color: 'var(--faint)' }}>clientes: no pude contarlos</span>
+            ) : capacidad.cupo === null ? (
+              <span>{capacidad.activos} clientes · <span style={{ color: 'var(--primary)' }}>define tu cupo →</span></span>
+            ) : (
+              <span style={{ color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>
+                {capacidad.activos}<span style={{ color: 'var(--faint)' }}>/{capacidad.cupo}</span>
+                <span style={{ color: capacidad.libres === 0 ? 'var(--warn)' : 'var(--dim)', fontWeight: 400 }}>
+                  {capacidad.libres === 0 ? ' sin lugar' : ` · ${capacidad.libres} libres`}
+                </span>
+              </span>
+            )}
+          </span>
+        }
+      />
     </section>
   );
 }

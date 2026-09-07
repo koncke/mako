@@ -17,6 +17,7 @@ import { revalidatePath, updateTag } from 'next/cache';
 import { setSetting } from '@/lib/settings';
 import { TAG } from '@/lib/cache';
 import { requireRolWs } from '@/lib/tab-access';
+import { hoyEnWorkspace } from '@/lib/timezone';
 import {
   upsertObjective, cerrarObjective, upsertKpi, apagarKpi, registrarKpi,
   sembrarKpis, proponerKpis, setCapacidad,
@@ -140,15 +141,21 @@ export async function apagarKpiAction(id: string): Promise<void> {
 }
 
 /**
- * Registra el valor de un KPI manual para el período que contiene `fecha`.
+ * Registra el valor de un KPI manual en el período que corre AHORA.
  *
- * La `fecha` llega del server (el «hoy» del workspace) y no del navegador: la zona
- * horaria de quien mira no decide a qué semana pertenece el trabajo de un negocio.
+ * ⚠️ LA FECHA NO ES UN PARÁMETRO, Y ANTES LO ERA. Venía del `hoy` que la página le
+ * había pasado al navegador, así que técnicamente salía del server — pero daba una
+ * vuelta por el cliente, y eso alcanza para romperlo: una pestaña abierta desde
+ * ayer manda la fecha de AYER, y el número se registra en un período que ya cerró.
+ * Sin error, sin síntoma, y el KPI de hoy sigue diciendo «todavía no lo cargaste».
+ *
+ * Se resuelve acá con `hoyEnWorkspace()`, que además es la zona del NEGOCIO y no la
+ * de quien mira: alguien viajando no le cambia la semana al equipo.
  */
-export async function registrarKpiAction(kpiId: string, cadencia: string, fecha: string, valor: number): Promise<void> {
+export async function registrarKpiAction(kpiId: string, cadencia: string, valor: number): Promise<void> {
   await guard();
   const cad: Cadencia = cadencia === 'diaria' ? 'diaria' : 'semanal';
-  await registrarKpi(kpiId, cad, fecha, Math.max(0, Number(valor) || 0));
+  await registrarKpi(kpiId, cad, await hoyEnWorkspace(), Math.max(0, Number(valor) || 0));
   bust();
 }
 
