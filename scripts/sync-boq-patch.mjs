@@ -47,6 +47,7 @@ function sinTipos(ts) {
     .replace(/\(texto: string, tope = 2000\)/g, '(texto, tope = 2000)')
     .replace(/\(cuerpo: string, viejo: string, nuevo: string\)/g, '(cuerpo, viejo, nuevo)')
     .replace(/\(cuerpo: string, atVivo: string\)/g, '(cuerpo, atVivo)')
+    .replace(/\(cuerpo: string, tokenVivo: string\): \{ cuerpo: string; cuantos: number \}/g, '(cuerpo, tokenVivo)')
     .replace(/\): string \| null \{/g, ') {')
     .replace(/\): string\[\] \{/g, ') {')
     .replace(/\): string \{/g, ') {')

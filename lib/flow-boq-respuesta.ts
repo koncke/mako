@@ -58,6 +58,24 @@ export function leerRespuestaBoq(texto: string, rpcidEsperado?: string): Lectura
     };
   }
 
+  // ⚠️ EL ERROR POR-RPC: un `wrb.fr` con payload NULO y el detalle en la sexta
+  // posición. MEDIDO el 06/09/2026 con el primer pedido real de imagen por BOQ:
+  //
+  //   ["wrb.fr","ogiZ0b",null,null,null,[7,null,[["…google.rpc.ErrorInfo",
+  //     ["PUBLIC_ERROR_UNUSUAL_ACTIVITY"]]]],"generic"]
+  //
+  // Código 7 = PERMISSION_DENIED (gRPC). Sin esta rama se leía como «sin frame»,
+  // que es cierto y no dice nada: el motivo estaba en el texto, a la vista.
+  const porRpc = /\["wrb\.fr","([^"]+)",null,null,null,\[(\d+)([\s\S]*?)\]\s*,\s*"generic"\]/.exec(t);
+  if (porRpc) {
+    const razones = [...porRpc[3].matchAll(/"((?:PUBLIC_ERROR|ERROR)_[A-Z0-9_]+)"/g)].map((m) => m[1]);
+    return {
+      ok: false,
+      motivo: 'ERROR_DE_GOOGLE',
+      detalle: `codigo ${porRpc[2]}${razones.length ? ' · ' + razones.join(' · ') : ''} (${porRpc[1]})`,
+    };
+  }
+
   // El frame de datos. El payload es un string JSON escapado adentro del array.
   const frames = [...t.matchAll(/\["wrb\.fr","([^"]+)","((?:[^"\\]|\\.)*)"/g)];
   if (!frames.length) {

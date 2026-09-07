@@ -80,6 +80,19 @@ export type Operacion = {
    */
   rpcids: readonly string[];
   /**
+   * Los rpcids con los que se VIO salir esta operación. Sólo para DESEMPATAR.
+   *
+   * ⚠️ NUNCA RECONOCEN. Una operación que cobra se reconoce por su token de
+   * aprendizaje y por nada más (ver `tests/flow-rpcid-seguridad.test.ts`): un id
+   * que rota no puede decidir que un pedido es una generación. Esto existe para
+   * otra cosa, medida el 06/09/2026: `boq:WuwhI` —un pedido intermedio del ciclo—
+   * también lleva la frase en el cuerpo, así que queda etiquetado `generar_clip`, y
+   * «la más nueva usable» podía elegirlo por sobre `YhhmEf`, que es el que genera.
+   * Entre dos candidatas que YA pasaron el ancla, gana la que se vio generar.
+   * Si el id rotó y ninguna coincide, se cae a la más nueva, como antes.
+   */
+  rpcidsPreferidos: readonly string[];
+  /**
    * Si HOY el sistema puede reconocer esta operación cuando pasa.
    *
    * ⚠️ SEPARADO DE `pide` A PROPÓSITO, y la diferencia costó un reporte.
@@ -170,6 +183,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     token: null,
     frase: null,
     rpcids: ['nzlxg'],
+    rpcidsPreferidos: [],
     detectable: true,
     pide: false,
     cuesta: false,
@@ -185,6 +199,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     token: null,
     frase: null,
     rpcids: ['jwpduf', 'ngNC2'],
+    rpcidsPreferidos: [],
     detectable: true,
     pide: false,
     cuesta: false,
@@ -200,6 +215,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     token: null,
     frase: null,
     rpcids: [],
+    rpcidsPreferidos: [],
     detectable: false,
     pide: true,
     cuesta: false,
@@ -217,6 +233,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     token: 'mako7f3a9c',
     frase: 'un cubo violeta girando sobre arena mako7f3a9c',
     rpcids: [],
+    rpcidsPreferidos: ['YhhmEf'],
     detectable: true,
     pide: true,
     cuesta: true,
@@ -236,6 +253,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     token: 'mako4d1c8b',
     frase: 'una esfera naranja flotando sobre nieve mako4d1c8b',
     rpcids: [],
+    rpcidsPreferidos: ['ogiZ0b'],
     detectable: true,
     pide: true,
     cuesta: true,
@@ -251,6 +269,7 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     token: null,
     frase: null,
     rpcids: [],
+    rpcidsPreferidos: [],
     detectable: false,
     pide: false,
     cuesta: false,

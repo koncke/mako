@@ -6730,3 +6730,83 @@ cara elegida (`requests.0.imageInputs.0.name`, que el camino REST aplicaba por
 parche) **no viaja**: sale la cara que había en la plantilla cuando se enseñó. Es
 fidelidad, no un fallo visible, y se resuelve cuando se mida la forma del `f.req` de
 imagen.
+
+## El primer pedido real por BOQ, y lo que Google contestó (07/09/2026, madrugada)
+
+**Vive en:** `lib/flow-boq-respuesta.ts` · `lib/flow-boq-patch.ts` (`reponerCaptcha`,
+`FORMA_TOKEN_CAPTCHA`) · `lib/flow-puede-filmar.ts` (`elegirPlantilla`) ·
+`lib/flow-operaciones.ts` (`rpcidsPreferidos`) · `lib/flow-plantillas.ts`
+(`seGuardaLaRespuesta`) · `extension/background.js` (`repetirEnBoq`, `explicarFalloBoq`)
+
+Mauricio pidió una imagen desde su Chrome y la pantalla dijo «La respuesta tiene la
+forma de BOQ pero no trae ningún resultado». Reporte textual: *«No entiendo por qué
+no funciona si antes ya habíamos generado muchas veces las imágenes»*.
+
+### El diagnóstico obvio era el equivocado: no es una regresión, es la primera vez
+
+Las «muchas veces» anteriores fueron por el protocolo REST de labs.google. Ésta es la
+**primera imagen que pasa por el replay de BOQ**, y llegó hasta Google. Gracias al
+re-etiquetado por `op` del latido anterior, la respuesta quedó guardada en
+`flow.respuestas`:
+
+    ["wrb.fr","ogiZ0b",null,null,null,[7,null,[["type.googleapis.com/google.rpc.ErrorInfo",
+      ["PUBLIC_ERROR_UNUSUAL_ACTIVITY"]]]],"generic"]
+
+Código 7 = `PERMISSION_DENIED` (gRPC). Motivo: la protección anti-abuso.
+
+### La causa: un token de reCAPTCHA de un solo uso, repetido
+
+El replay reemplazaba la frase de aprendizaje por el prompt y reponía el `at`… y
+mandaba el **token de reCAPTCHA de cuando la persona enseñó**. Un token de
+reCAPTCHA Enterprise es de un solo uso y ata la acción. Era la incógnita declarada
+desde el día uno del puente a BOQ («no se sabe si el cuerpo lleva token de
+reCAPTCHA»); hoy quedó medida, en las dos plantillas reales:
+
+- vive en la misma posición en video (`YhhmEf`) e imagen (`ogiZ0b`):
+  `[null,22,null,null,null,"<projectId>",null,null,null,null,["<TOKEN>"…`
+- empieza en `0cAFcWe`, mide ~2.500 caracteres, y es sólo `[A-Za-z0-9_-]`, o sea
+  **idéntico bajo form-urlencoded, JSON y JSON anidado** — la misma propiedad que
+  hace al token de la sentinela reemplazable con un `replace` plano;
+- en el cuerpo de imagen aparece **dos veces** (dos pedidos en el mismo batch).
+
+La extensión ya sabía acuñar tokens (`GET_CAPTCHA` → `grecaptcha.enterprise.execute`
+en la página) y ya tenía las acciones **medidas del bundle** para el camino REST
+(`VIDEO_GENERATION`, `IMAGE_GENERATION`). El backend es el mismo: se usan ésas. La
+imagen cuesta **0 créditos**, así que la hipótesis se comprueba sin gastar.
+
+⚠️ **`acciones_captcha` del ws 1 está vacío**: el envoltorio de `grecaptcha` del
+espejo no vio ninguna llamada en BOQ (como ya había pasado en REST: «Flow lo llama
+desde un contexto que el espejo no alcanza»). Si las acciones del REST no fueran
+las de BOQ, el síntoma sería el mismo `UNUSUAL_ACTIVITY` — y la salida sigue siendo
+leer el bundle, no adivinar.
+
+### Tres cosas que se arreglaron con la medición en la mano
+
+1. **El lector decía «sin resultado» sobre un error a la vista.** El frame por-RPC
+   con payload nulo y el detalle en la sexta posición no tenía rama. Ahora:
+   `codigo 7 · PUBLIC_ERROR_UNUSUAL_ACTIVITY (ogiZ0b)`.
+2. **El fallo de Google NO pasa por `clasificarFalla` del server.** Ahí
+   `UNUSUAL_ACTIVITY` significa «sesión marcada» y **pausa el puente entero** —
+   correcto para el REST, donde lo dispara el ritmo—. En BOQ la causa más probable
+   es un token nuestro; pausar todo por eso es el diagnóstico equivocado que ya
+   costó un día. La rama BOQ no manda `status`, y un test lo fija.
+3. **`boq:WuwhI` le ganaba a `YhhmEf`.** Es un pedido intermedio del ciclo que
+   también lleva la frase, así que queda etiquetado `generar_clip`, y «la más nueva
+   usable» lo elegía: se habría repetido el RPC equivocado. Los rpcids que se
+   vieron generar van en **`rpcidsPreferidos`**, un campo aparte que sólo
+   **desempata** entre candidatas que ya pasaron el ancla. **Nunca reconoce**: las
+   operaciones que cobran siguen con `rpcids: []`, como exige
+   `tests/flow-rpcid-seguridad.test.ts`. Si el id rota, cae a la más nueva.
+
+Y las respuestas viajan también por `op:<op>:<rpcid>`: con una sola clave por op, la
+que quedaba guardada era la del intermedio (`[]`), no la del que genera — que es la
+que hay que medir para que el video se vea.
+
+### Lo que queda sin medir
+
+- Que las acciones del bundle REST sirvan en BOQ. Se sabe con la próxima imagen
+  (0 créditos): o llega `wrb.fr` con payload, o vuelve `UNUSUAL_ACTIVITY` y hay que
+  leer el bundle nuevo.
+- La forma del payload de generación (video), para `mediaDeFlow`. Se lee de
+  `flow.respuestas['op:generar_clip:YhhmEf']` en cuanto haya una generación real.
+- La cara elegida no viaja en el replay de imagen (sólo cambia el texto).

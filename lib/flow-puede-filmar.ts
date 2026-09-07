@@ -65,6 +65,8 @@ export type OperacionMinima = {
   op: string;
   frase: string | null;
   nombre: string;
+  /** Sólo para desempatar entre candidatas usables. Ver el catálogo. */
+  rpcidsPreferidos?: readonly string[];
 };
 
 export type Ensayo = {
@@ -134,7 +136,16 @@ export function elegirPlantilla(
   // mirada: decir «sin ancla» cuando la que importa estaba incompleta manda a
   // enseñar de nuevo algo que no era el problema.
   let peor = `SIN_PLANTILLA(${cat.op})`;
-  for (const [clase, p] of orden) {
+  // ⚠️ ENTRE LAS USABLES, GANA LA QUE SE VIO GENERAR. `boq:WuwhI` —un pedido
+  // intermedio del ciclo— también lleva la frase, queda etiquetado como la
+  // generación, y siendo más nuevo le ganaba a `YhhmEf`, que es el que genera:
+  // se habría repetido el RPC equivocado con la plantilla buena al lado. Si el id
+  // rotó y ninguna coincide, se cae a la más nueva, como antes.
+  const preferidos = cat.rpcidsPreferidos || [];
+  const rpcidDe = (clase: string) => (/^boq:([^,]+)/.exec(clase) || [])[1] || '';
+  const ordenPreferido = [...orden].sort((a, b) =>
+    Number(preferidos.includes(rpcidDe(b[0]))) - Number(preferidos.includes(rpcidDe(a[0]))));
+  for (const [clase, p] of ordenPreferido) {
     const pl = p as PlantillaGuardada;
     // ⚠️ `url` TAMBIÉN. `repetirEnBoq` la exige (`!pl.cuerpo || !pl.url` →
     // PLANTILLA_INCOMPLETA) y el gate del popup no la miraba: una plantilla a medias

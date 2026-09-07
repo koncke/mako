@@ -411,7 +411,7 @@ async function soltarGuardia() {
  * ejecutaba en la pestana que la persona tenia abierta.
  */
 import { OPERACIONES, A_ENSENAR, A_PEDIR, SIN_DETECTAR, operacionDelCuerpo, operacionDeLaClase } from './operaciones.js';
-import { reemplazarEnCuerpo } from './boq-patch.js';
+import { reemplazarEnCuerpo, reponerCaptcha } from './boq-patch.js';
 import { leerRespuestaBoq } from './boq-respuesta.js';
 import { puedeFilmar, ensayarOperacion, elegirPlantilla } from './puede-filmar.js';
 /**
@@ -430,6 +430,22 @@ import { puedeFilmar, ensayarOperacion, elegirPlantilla } from './puede-filmar.j
  * se manda nada: mandar la plantilla sin parchear genera —y le cobra al cliente— un
  * cubo violeta girando sobre arena en vez de su anuncio.
  */
+/**
+ * Lo que se le dice a la persona cuando Google rechaza un pedido de BOQ.
+ *
+ * El detalle tecnico (`codigo 7 · PUBLIC_ERROR_UNUSUAL_ACTIVITY (ogiZ0b)`) queda en
+ * la consola y en el log del server; a la pantalla va que puede hacer.
+ */
+function explicarFalloBoq(r) {
+  const tecnico = String(r.porQue || r.error || '');
+  if (tecnico) console.warn('[mako] BOQ rechazo el pedido:', tecnico);
+  if (/UNUSUAL_ACTIVITY/.test(tecnico)) return 'Google rechazó el pedido por seguridad. Espera un momento y vuelve a intentar.';
+  if (/UNSAFE_GENERATION/.test(tecnico)) return 'El filtro de contenido de Google rechazó este pedido. Cambia el texto y vuelve a intentar.';
+  if (/QUOTA/.test(tecnico)) return 'Se agotaron los créditos de tu cuenta de Google.';
+  if (r.error === 'CAPTCHA_FALLO') return 'No se pudo verificar la sesión con Google. Recarga la pestaña de Flow y vuelve a intentar.';
+  return tecnico ? 'Google no aceptó el pedido.' : 'Google no aceptó el pedido.';
+}
+
 async function repetirEnBoq(op, prompt) {
   const cat = OPERACIONES.find((o) => o.op === op);
   if (!cat || !cat.frase) return { error: 'OPERACION_SIN_ANCLA', op, salio: false };
@@ -458,8 +474,29 @@ async function repetirEnBoq(op, prompt) {
   try { tab = await pestanaDeFlow(); } catch { return { error: 'NO_FLOW_TAB', op, salio: false }; }
   if ((await asegurarContentScript(tab.id)) === 'mudo') return { error: 'PESTANA_MUDA', op, salio: false };
 
+  // ⚠️ EL TOKEN DE reCAPTCHA SE ACUÑA FRESCO, O GOOGLE RECHAZA. El primer pedido
+  // real por BOQ volvio con codigo 7 · PUBLIC_ERROR_UNUSUAL_ACTIVITY: el cuerpo
+  // llevaba el token de cuando la persona ENSEÑO la frase, y un token de reCAPTCHA
+  // es de un solo uso y ata la accion. Se pide a la pagina uno nuevo con la accion
+  // MEDIDA del bundle (la misma tabla que usa el camino REST) y se repone donde
+  // el cuerpo traia el viejo — su forma esta medida en las dos plantillas reales.
+  //
+  // Si la plantilla no traia ningun token, no se inventa uno: se manda como vino y
+  // se deja escrito en el log, que es lo que hay que leer si Google rechaza.
+  let cuerpoFinal = r.cuerpo;
+  if (cat.captcha) {
+    const accion = ACCION_CAPTCHA[op] || accionDeCaptcha(op, pl.url);
+    let token;
+    try { token = await pedirCaptcha(tab.id, accion, !!ACCION_CAPTCHA[op]); } catch (e) {
+      return { error: 'CAPTCHA_FALLO', detalle: String((e && e.message) || e), op, clase: elegida.clase, salio: false };
+    }
+    const rc = reponerCaptcha(r.cuerpo, token);
+    if (!rc.cuantos) console.warn(`[mako] la plantilla de ${op} no traia token de captcha: se manda como vino`);
+    cuerpoFinal = rc.cuerpo;
+  }
+
   const res = await chrome.tabs.sendMessage(tab.id, {
-    tipo: 'BOQ_PEDIDO', url: pl.url, cuerpo: r.cuerpo,
+    tipo: 'BOQ_PEDIDO', url: pl.url, cuerpo: cuerpoFinal,
   });
   if (!res || res.error) return { ...res, op, clase: elegida.clase };
 
@@ -912,7 +949,12 @@ async function ejecutar(trabajo) {
         return {
           id: trabajo.id, ok: false,
           motivo: r.salio === false ? 'transitorio' : 'permanente',
-          error: r.porQue || r.error || 'Google no lo acepto.',
+          // ⚠️ NO PASA POR `clasificarFalla` DEL SERVER, A PROPOSITO. Ahi
+          // `PUBLIC_ERROR_UNUSUAL_ACTIVITY` significa «sesion marcada» y PAUSA el
+          // puente entero — correcto para el camino REST, donde lo dispara el ritmo.
+          // Aca la causa mas probable es un token nuestro, y pausar todo por eso es
+          // el diagnostico equivocado que ya costo un dia una vez.
+          error: explicarFalloBoq(r),
           reintentable: r.salio === false,
         };
       }
@@ -1394,6 +1436,11 @@ async function ciclo() {
               const op = mapaOps[clase] && mapaOps[clase].op;
               const texto = typeof v === 'string' ? v : (v && typeof v.texto === 'string' ? v.texto : null);
               if (op && texto && !respuestasVistas['op:' + op]) respuestasVistas['op:' + op] = texto;
+              // Y por RPC concreto: una operacion puede tener dos clases (la que genera
+              // y un intermedio que tambien lleva la frase), y con una sola clave la
+              // que quedaba era la del intermedio. La del que genera es la que se mide.
+              const rpcid = (/^boq:([^,]+)/.exec(clase) || [])[1];
+              if (op && texto && rpcid) respuestasVistas['op:' + op + ':' + rpcid] = texto;
             }
           }
           // De donde salen los medios que la pagina esta mostrando.

@@ -619,5 +619,12 @@ const CLAVES_RESPUESTA = new Set<string>([
 
 /** ¿Esta clave de respuesta se guarda? Es el allowlist, en una función. */
 export function seGuardaLaRespuesta(clave: string): boolean {
-  return CLAVES_RESPUESTA.has(clave);
+  if (CLAVES_RESPUESTA.has(clave)) return true;
+  // `op:<op>:<rpcid>`: la respuesta de un RPC concreto de una operación conocida.
+  // Positivo igual: la operación tiene que estar en el catálogo. Existe porque una
+  // operación puede tener DOS clases (`YhhmEf` genera, `WuwhI` es intermedio y
+  // también lleva la frase) y con una sola clave por op la respuesta que se
+  // guardaba era la del intermedio: `[]`. La del que genera es la que hay que medir.
+  const m = /^op:([a-z_]+):[A-Za-z0-9_-]{3,24}$/.exec(clave);
+  return !!m && OPERACIONES.some((o) => o.op === m[1] && o.como !== 'ninguna');
 }

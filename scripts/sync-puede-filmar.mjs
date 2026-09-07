@@ -73,6 +73,7 @@ function sinTipos(ts) {
     .replace('  const orden = [...candidatas].sort((a, b) => Number(b[1]!.cuando || 0) - Number(a[1]!.cuando || 0));',
       '  const orden = [...candidatas].sort((a, b) => Number(b[1].cuando || 0) - Number(a[1].cuando || 0));')
     .replace('    const pl = p as PlantillaGuardada;', '    const pl = p;')
+    .replace('  const rpcidDe = (clase: string) =>', '  const rpcidDe = (clase) =>')
     .replace(
       'export function puedeFilmar(\n'
       + '  plantillas: Record<string, PlantillaGuardada | null | undefined>,\n'

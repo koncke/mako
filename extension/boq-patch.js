@@ -157,3 +157,34 @@ export function reponerAt(cuerpo, atVivo) {
   // seguros. Se codifica igual por si trae algo más.
   return cuerpo.replace(/__MAKO_AT__/g, encodeURIComponent(atVivo));
 }
+
+/**
+ * La forma de un token de reCAPTCHA Enterprise adentro de un cuerpo de BOQ.
+ *
+ * ⚠️ MEDIDO el 06/09/2026 en las dos plantillas reales (video `YhhmEf`, imagen
+ * `ogiZ0b`): empieza en `0cAFcWe`, mide ~2.500 caracteres, y es sólo `[A-Za-z0-9_-]`
+ * — o sea que viaja IDÉNTICO bajo form-urlencoded, JSON y JSON anidado, igual que
+ * el token de la sentinela. Por eso se puede reemplazar con un `replace` plano sin
+ * saber con qué codificación viajó. En el cuerpo de imagen aparece DOS veces (dos
+ * pedidos en el mismo batch): se reemplazan todas.
+ */
+export const FORMA_TOKEN_CAPTCHA = /0c[A-Za-z0-9_-]{200,}/g;
+
+/**
+ * Repone un token de reCAPTCHA fresco donde el cuerpo traía el viejo.
+ *
+ * ⚠️ EXISTE PORQUE EL PRIMER PEDIDO REAL POR BOQ VOLVIÓ CON
+ * `PUBLIC_ERROR_UNUSUAL_ACTIVITY` (código 7). El replay mandaba el token de cuando
+ * la persona enseñó la frase: un token de reCAPTCHA es de UN solo uso y ata la
+ * acción, así que la protección anti-abuso de Google lo rechaza — y el error se lee
+ * como «tu cuenta está marcada» cuando el problema es un token viejo NUESTRO.
+ *
+ * Devuelve cuántos reemplazó: cero significa que la plantilla no traía token, y
+ * quien llama decide si eso es normal para esa operación.
+ */
+export function reponerCaptcha(cuerpo, tokenVivo) {
+  if (!cuerpo || !tokenVivo) return { cuerpo: cuerpo || '', cuantos: 0 };
+  let cuantos = 0;
+  const nuevo = cuerpo.replace(FORMA_TOKEN_CAPTCHA, () => { cuantos++; return tokenVivo; });
+  return { cuerpo: nuevo, cuantos };
+}

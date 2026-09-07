@@ -20,6 +20,7 @@ export const OPERACIONES = Object.freeze([
     "rpcids": [
       "nzlxg"
     ],
+    "rpcidsPreferidos": [],
     "detectable": true,
     "pide": false,
     "cuesta": false,
@@ -38,6 +39,7 @@ export const OPERACIONES = Object.freeze([
       "jwpduf",
       "ngNC2"
     ],
+    "rpcidsPreferidos": [],
     "detectable": true,
     "pide": false,
     "cuesta": false,
@@ -53,6 +55,7 @@ export const OPERACIONES = Object.freeze([
     "token": null,
     "frase": null,
     "rpcids": [],
+    "rpcidsPreferidos": [],
     "detectable": false,
     "pide": true,
     "cuesta": false,
@@ -68,6 +71,9 @@ export const OPERACIONES = Object.freeze([
     "token": "mako7f3a9c",
     "frase": "un cubo violeta girando sobre arena mako7f3a9c",
     "rpcids": [],
+    "rpcidsPreferidos": [
+      "YhhmEf"
+    ],
     "detectable": true,
     "pide": true,
     "cuesta": true,
@@ -83,6 +89,9 @@ export const OPERACIONES = Object.freeze([
     "token": "mako4d1c8b",
     "frase": "una esfera naranja flotando sobre nieve mako4d1c8b",
     "rpcids": [],
+    "rpcidsPreferidos": [
+      "ogiZ0b"
+    ],
     "detectable": true,
     "pide": true,
     "cuesta": true,
@@ -98,6 +107,7 @@ export const OPERACIONES = Object.freeze([
     "token": null,
     "frase": null,
     "rpcids": [],
+    "rpcidsPreferidos": [],
     "detectable": false,
     "pide": false,
     "cuesta": false,
