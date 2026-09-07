@@ -516,6 +516,13 @@ async function guardarPlantillas(tabId) {
       // Se DERIVA del cuerpo, aca en el worker: es lo que hace que funcione con el
       // injected.js viejo de una pestana que nadie recargo.
       const hallado = operacionDelCuerpo(p.cuerpo);
+      // ⚠️ UN CUERPO CON ANCLA NO SE PISA CON UNO SIN ANCLA — tambien aca.
+      //
+      // El espejo ya lo cuida en memoria, pero un injected.js VIEJO (los scripts
+      // de MAIN world sobreviven a la actualizacion de la extension) sigue pisando
+      // en su mapa y manda el cuerpo pisado. Esta es la copia durable: si lo que
+      // hay guardado ensena y lo que llega no, lo que llega no entra.
+      if (antes && antes.cuerpo && operacionDelCuerpo(antes.cuerpo) && !hallado) continue;
       // ⚠️ Y POR RPCID, para las que no llevan prompt.
       //
       // Leer el saldo y sondear el estado no escriben ningun texto nuestro, asi que no
@@ -600,7 +607,13 @@ async function sembrarPlantillas(lista) {
     const mapa = { ...previas };
     let n = 0;
     for (const p of lista) {
-      if (!p || !p.clase || mapa[p.clase]) continue;
+      if (!p || !p.clase) continue;
+      const local = mapa[p.clase];
+      // ⚠️ SI LA LOCAL PERDIO EL ANCLA Y LA DEL SERVER LA TIENE, la del server la
+      // REPARA. «Nunca pisa una local» era la regla, y sigue valiendo para todo lo
+      // demas: pero una local sin ancla es una plantilla que no sirve para
+      // generar, y el respaldo existe exactamente para este caso.
+      if (local && !(operacionDelCuerpo(p.cuerpo) && !operacionDelCuerpo(local.cuerpo))) continue;
       mapa[p.clase] = { ...p, cuando: p.cuando || Date.now(), delServidor: true };
       n++;
     }

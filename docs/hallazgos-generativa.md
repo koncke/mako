@@ -6481,3 +6481,101 @@ concreta, una por vez: base en verde, cada rotura en rojo, restaurado en verde.
 
 Es el mismo aprendizaje de la corrida anterior, con dos casos nuevos: sin la rotura,
 un test es una afirmación.
+
+## El popup pedía enseñarle DE NUEVO, y el respaldo del server estaba vacío (06/09/2026, noche)
+
+**Vive en:** `extension/injected.js` (los dos `plantillas.set`, `absoluta()`, `ANCLAS`) ·
+`extension/background.js` (`guardarPlantillas`, `sembrarPlantillas`) ·
+`lib/flow-plantillas.ts` (`tieneAncla`, `fundirPlantillas`, `sanearPlantillas`,
+`KEY_PLANTILLAS_DESCARTES`) · `app/api/flow/puente/route.ts`
+
+Con la fuente única desplegada, las dos pantallas por fin decían lo mismo: «todavía
+no». Pero el popup pedía «Genera UN video con la frase exacta» a alguien que ya lo
+había hecho —y generado decenas después—. Reporte textual: *«antes ya habíamos
+generado un montón de videos e imágenes, realmente no entiendo qué haces»*.
+
+### Medido en producción, antes de tocar nada
+
+- `flow_puentes.estado_detalle = "FLOW_NUEVO SIN_ANCLA(generar_clip)"`. El ensayo en
+  seco estaba en lo cierto: la plantilla del video **no lleva la frase**.
+- El respaldo del server del ws 1 tiene **cinco plantillas, todas del protocolo
+  viejo** (`aisandbox-pa`, sin `op`, sin sentinela) y **cero de BOQ** — mientras el
+  diagnóstico del navegador lista 20 clases `boq:*` y cuatro operaciones sabidas.
+
+### ① El sentinela sobrevivía; el cuerpo que lo justificaba, no
+
+En las tres capas la regla era «la más nueva gana» **conservando `op` y
+`sentinela`** —los campos que dicen que esta clase ALGUNA VEZ llevó la frase— y
+**reemplazando el `cuerpo`**, que es el único que la lleva de verdad:
+
+| capa | dónde pisaba |
+|---|---|
+| espejo (memoria de la pestaña) | `plantillas.set(clase, {…})` en cada pedido, XHR y fetch |
+| worker (`chrome.storage.local`) | `guardarPlantillas`: `mapa[p.clase] = { ...p, op, sentinela }` |
+| server (`flow.plantillas`) | `fundirPlantillas`: `conservar(n.cuando >= vieja.cuando ? n : vieja)` |
+
+Y `sembrarPlantillas` «nunca pisa una local», así que un respaldo sano tampoco
+reparaba una local rota.
+
+El resultado es una plantilla que **declara saber generar y no se puede parchear**:
+`reemplazarEnCuerpo` busca la frase para poner el prompt real, y la frase ya no está.
+Antes de la fuente única esto se descubría con el botón ya apretado y el trabajo
+tomado (`SIN_ANCLA` del replay); con la fuente única se descubre antes — que es lo
+que Martín vio como «me pide enseñarle otra vez».
+
+**Regla que queda:** un campo que dice «esto se aprendió» no protege el dato que se
+aprendió. Lo caro es el **cuerpo con la frase** —se genera una vez y cuesta un
+crédito— y se protege con la misma regla que ya tenía la sentinela: **un cuerpo con
+ancla no lo pisa uno sin ancla, por nuevo que sea.** En las tres capas, y la siembra
+repara.
+
+⚠️ La entrada con ancla se conserva **entera** (url, headers y cuerpo). Mezclar la url
+de hoy con el cuerpo de ayer arma un pedido que ninguna versión de Flow mandó.
+
+### ② El espejo sólo conocía UNA de las dos anclas
+
+`injected.js` tenía `SENTINELA`/`TOKEN_SENTINELA` (el video) y nada del imagen. La
+plantilla de imagen **nunca llevaba `sentinela`**, así que ninguna regla de «no pisar»
+la podía proteger. El worker sí la reconocía (`operacionDelCuerpo` usa el catálogo),
+por eso el ESTADO decía «sabe generar_imagen» — y por eso nadie lo notó. Ahora hay
+`ANCLAS = [[frase, token]…]`, las dos pineadas al catálogo por test.
+
+### ③ El respaldo del server descartaba SIN RUIDO — y la hipótesis de por qué
+
+`sanearPlantillas` tiraba por **cuatro motivos** distintos (`continue`) sin registrar
+ninguno. `soloDelProyecto` sí registraba sus `ajenas` con un `console.warn`: la regla
+estaba escrita al lado y el saneador no la cumplía.
+
+**Hipótesis principal, todavía no confirmada:** BOQ abre sus XHR con la ruta
+**relativa** (`/_/AiSandboxAngularFrontend/data/batchexecute?…`); el espejo guardaba
+`this.__makoUrl = String(url)` tal cual; y `esOrigenDeFlow` hace `new URL(url)`, que
+sobre una relativa **tira** y devuelve `false`. Al navegador le da igual —repite el
+pedido contra su propio origen—; al respaldo no le llegó nunca ni una.
+
+La alternativa es `soloDelProyecto`: el `project_id` guardado del ws 1 es el del
+protocolo viejo (`9973383e-…`); si el `source-path` de las plantillas de BOQ trae
+otro proyecto, van a `ajenas`.
+
+Las dos se distinguen con el registro nuevo: `flow.plantillas_descartes` guarda, por
+latido que descarte algo, `{cuando, llegaron, quedaron, motivos[]}` con el motivo y la
+url de cada una. **Se lee con `getSetting` en el ws 1 después del primer latido con
+plantillas.** Y el espejo ahora absolutiza (`new URL(u, location.href).href`) en los
+dos caminos, así que la hipótesis principal queda cerrada sea o no la causa.
+
+### Lo que Martín tiene que hacer UNA vez, y por qué no se puede evitar
+
+El cuerpo con la frase **no existe en ningún lado**: pisado en la pestaña, pisado en
+`chrome.storage.local`, y nunca llegado al server. No hay de dónde rescatarlo. Hace
+falta **una** generación más del cubo. Con las cuatro capas protegiendo el cuerpo y
+la url absoluta, esa queda para siempre — y llega al respaldo, así que sobrevive a un
+cambio de perfil o de máquina.
+
+### Las ocho guardas nuevas, probadas rompiéndolas
+
+`fundir` no pisa · `sanear` registra el descarte · el espejo absolutiza · el espejo
+no pisa (XHR) · el espejo mira el token de cada ancla · el worker no pisa · la
+siembra repara · el route persiste los descartes. Base en verde, cada rotura en rojo,
+restaurado en verde. Un test viejo (`extension-sentinela-encoding`) asertaba el
+**nombre de una constante** en el cuerpo del detector y rompió con el cambio a
+`ANCLAS` sin que nada estuviera mal: se cambió a fijar el invariante
+(`cuerpo.includes(token)`), no la forma.

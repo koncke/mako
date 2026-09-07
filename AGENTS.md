@@ -3114,3 +3114,34 @@ se veía era un cartel contradictorio; lo que había debajo era el botón de cre
 cola de la extensión, el reparto del server y el guard de filmar, los cuatro
 cerrados. Y la cura no fue un campo más: con nueve definiciones, la décima es el
 problema. Cambió lo que **significa** la que ya existía.
+
+# Un campo que dice «esto se aprendió» no protege el dato que se aprendió
+
+La bandera es barata y el dato es caro, y la regla que cuida a la bandera tiene que
+cuidar al dato — o queda un sistema que declara saber hacer algo que ya no puede hacer.
+
+El puente a Flow conservaba `op` y `sentinela` («esta clase alguna vez llevó la frase
+de aprendizaje») a través de espejo, worker y server, y dejaba que la siguiente
+generación de la misma clase PISARA el cuerpo que la llevaba. Medido en producción:
+`SIN_ANCLA(generar_clip)` con la sentinela intacta al lado, y el popup pidiéndole a
+Martín que volviera a generar lo que había generado decenas de veces.
+
+- Identificá **cuál es el dato que costó plata o trabajo** (acá: el cuerpo con la
+  frase, un crédito) y aplicale la misma regla de «se descubre una vez y no se pisa»
+  que ya tenga su bandera. En **todas** las capas donde viva una copia.
+- La entrada protegida se conserva **entera**: mezclar la url de hoy con el cuerpo de
+  ayer arma un pedido que ninguna versión del proveedor mandó.
+- Y una siembra/restauración que «nunca pisa lo local» tiene que pisar lo local
+  cuando lo local perdió el dato y la copia remota lo tiene: para eso existe.
+
+# Lo que un saneador DESCARTA queda escrito, con motivo
+
+Un `continue` sin rastro hace indistinguibles «no llegó» de «lo tiramos nosotros». El
+respaldo de plantillas de un workspace estuvo con CERO plantillas del protocolo nuevo
+durante días, con el navegador mandándolas en cada latido: `sanearPlantillas` tiraba
+por cuatro motivos distintos y ninguno dejaba una línea. La regla ya estaba escrita
+para `ajenas`, veinte líneas más abajo, y el saneador no la cumplía.
+
+Todo filtro que descarte entradas de un productor externo recibe un colector de
+motivos, y el llamador lo persiste donde se pueda leer sin abrir logs
+(`flow.plantillas_descartes`: `{cuando, llegaron, quedaron, motivos[]}`).

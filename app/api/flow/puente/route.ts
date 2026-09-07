@@ -23,6 +23,7 @@ import {
   sanearPlantillas, soloDelProyecto, fundirPlantillas, faltantes, KEY_PLANTILLAS,
   type PlantillaEspejo,
   proyectoDePlantilla,  seGuardaLaRespuesta,
+  KEY_PLANTILLAS_DESCARTES,
 } from '@/lib/flow-plantillas';
 import { runWithWorkspace, getTenantDb } from '@/lib/workspace';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -215,10 +216,24 @@ export async function POST(req: NextRequest) {
   // El arreglo de raíz está en la extensión (la clave lleva el token desde la
   // 0.37.0). Éste es el lado que no depende de que el cliente actualice: el
   // `projectId` que el navegador está mirando viaja en ESTE mismo request.
+  const descartes: string[] = [];
   const { quedan: llegan, ajenas } = soloDelProyecto(
-    sanearPlantillas(body.plantillas),
+    sanearPlantillas(body.plantillas, descartes),
     str(body.projectId),
   );
+  for (const a of ajenas) descartes.push(`ajena(${a.clase}) ${proyectoDePlantilla(a)}`);
+  // ⚠️ LO QUE SE TIRA QUEDA ESCRITO, con motivo y con fecha. El respaldo de un
+  // workspace estuvo sin una sola plantilla de BOQ durante días: el navegador las
+  // mandaba, el saneador las descartaba, y lo único visible era un respaldo que
+  // parecía funcionar. Se pisa entero en cada latido que descarta algo; no crece.
+  if (descartes.length && Array.isArray(body.plantillas)) {
+    await runWithWorkspace(ws, () => setSetting(KEY_PLANTILLAS_DESCARTES, JSON.stringify({
+      cuando: new Date().toISOString(),
+      llegaron: (body.plantillas as unknown[]).length,
+      quedaron: llegan.length,
+      motivos: descartes.slice(0, 30),
+    }))).catch(() => { /* registrar nunca puede romper el latido */ });
+  }
   if (ajenas.length) {
     // Se REGISTRA, no se descarta en silencio: una política que rechaza sin dejar
     // rastro hace indistinguibles «no llegó» de «lo tiramos nosotros».

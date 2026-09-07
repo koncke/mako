@@ -50,7 +50,7 @@
   //
   // NO se recarga la pestana automaticamente al detectarlo: un reload mata las
   // generaciones en vuelo y tira el `at` vivo. Se REPORTA, y la persona decide.
-  const VERSION_ESPEJO = '0.63.0';
+  const VERSION_ESPEJO = '0.64.0';
   if (window.__makoEspejo) return;
   window.__makoEspejo = VERSION_ESPEJO;
 
@@ -134,17 +134,39 @@
    */
   const TOKEN_SENTINELA = 'mako7f3a9c';
 
+  // ⚠️ LA SEGUNDA ANCLA, QUE FALTABA. El espejo solo conocia la del video, asi que
+  // la plantilla de IMAGEN nunca llevaba `sentinela` y la regla de «no pisar» de
+  // abajo no podia protegerla. Las dos se pinean al catalogo por test.
+  const SENTINELA_IMAGEN = 'una esfera naranja flotando sobre nieve mako4d1c8b';
+  const TOKEN_IMAGEN = 'mako4d1c8b';
+  const ANCLAS = [[SENTINELA, TOKEN_SENTINELA], [SENTINELA_IMAGEN, TOKEN_IMAGEN]];
+
+  /**
+   * La url como la ve el SERVER, no como la escribio la app.
+   *
+   * ⚠️ BOQ abre sus XHR con la ruta RELATIVA (`/_/AiSandbox…/batchexecute?…`). Al
+   * navegador le da igual —la repite contra su propio origen—, pero el respaldo
+   * del server valida el ORIGEN con `new URL(url)`, que sobre una relativa tira, y
+   * la plantilla desaparece sin ruido. Medido: el respaldo de un workspace tenia
+   * cero plantillas de BOQ con el navegador mandandolas en cada latido.
+   */
+  function absoluta(u) {
+    try { return new URL(String(u || ''), location.href).href; } catch { return String(u || ''); }
+  }
+
   /** Con qué codificación aparece la sentinela en este cuerpo, si aparece. */
   function codificacionDeLaSentinela(cuerpo) {
     if (typeof cuerpo !== 'string' || !cuerpo) return null;
-    for (const [nombre, codificar] of CODIFICACIONES) {
-      try { if (cuerpo.includes(codificar(SENTINELA))) return nombre; } catch { /* sigue */ }
+    for (const [frase, token] of ANCLAS) {
+      for (const [nombre, codificar] of CODIFICACIONES) {
+        try { if (cuerpo.includes(codificar(frase))) return nombre; } catch { /* sigue */ }
+      }
+      if (cuerpo.includes(token)) return 'token';
     }
     // Ninguna de las seis, pero el token está: la frase viajó con los espacios
     // escritos de una forma que no conocemos. Alcanza para decir que aprendió, y
     // el nombre dice que la codificación quedó sin identificar — que es un dato
     // cierto y no un `null` que se lee como «no aprendió».
-    if (cuerpo.includes(TOKEN_SENTINELA)) return 'token';
     return null;
   }
 
@@ -320,7 +342,7 @@
     const promesa = fetchOriginal.apply(this, arguments);
     try {
       const esRequest = typeof Request !== 'undefined' && entrada instanceof Request;
-      const url = esRequest ? entrada.url : String(entrada || '');
+      const url = esRequest ? entrada.url : absoluta(entrada);
       // ⚠️ TAMBIEN LA API PROPIA DE labs.google, y no es una ampliacion menor:
       // es de donde sale el ENLACE de un video.
       //
@@ -360,8 +382,15 @@
       const cuerpo = init && typeof init.body === 'string' ? init.body : null;
 
       const credenciales = (init && init.credentials) || (esRequest && entrada.credentials) || undefined;
-      const plantilla = { url, metodo, headers, cuerpo, credenciales, cuando: Date.now() };
-      plantillas.set(clase, plantilla);
+      const plantilla = {
+        url, metodo, headers, cuerpo, credenciales, cuando: Date.now(),
+        // Antes este camino no calculaba `sentinela`: una plantilla de fetch nunca
+        // podia declarar que ensenaba, ni ser protegida por la regla de abajo.
+        sentinela: codificacionDeLaSentinela(cuerpo),
+      };
+      // Ver el sitio del XHR: la entrada con ancla no se pisa con una sin ancla.
+      const previaF = plantillas.get(clase);
+      if (!(previaF && previaF.sentinela && !plantilla.sentinela)) plantillas.set(clase, plantilla);
 
       // El cuerpo que venia adentro del `Request` se completa cuando llega. Se
       // rellena ESTE objeto y no `plantillas.get(clase)`: si mientras tanto paso
@@ -370,7 +399,7 @@
       if (cuerpo == null && esRequest && entrada.body && !entrada.bodyUsed) {
         try {
           entrada.clone().text().then(
-            (t) => { if (t && plantilla.cuerpo == null) plantilla.cuerpo = t; },
+            (t) => { if (t && plantilla.cuerpo == null) { plantilla.cuerpo = t; plantilla.sentinela = codificacionDeLaSentinela(t); } },
             () => {},
           );
         } catch { /* si no se puede clonar, la plantilla queda como antes */ }
@@ -425,7 +454,7 @@
 
   XMLHttpRequest.prototype.open = function (metodo, url) {
     try {
-      this.__makoUrl = String(url || '');
+      this.__makoUrl = absoluta(url);
       this.__makoMetodo = String(metodo || 'GET').toUpperCase();
       // Los headers se acumulan acá: en XHR se ponen de a uno DESPUÉS de `open()`,
       // así que no hay un objeto que leer como en `fetch`.
@@ -459,6 +488,17 @@
           if (mAt && mAt[1]) ultimoAtVisto = decodeURIComponent(mAt[1]);
         } catch { /* si no se puede leer, queda el de WIZ_global_data */ }
         const sentinela = codificacionDeLaSentinela(texto);
+        // ⚠️ UN CUERPO CON ANCLA NO SE PISA CON UNO SIN ANCLA.
+        //
+        // La frase de aprendizaje se genera UNA vez y cuesta un credito. El pedido
+        // siguiente de la misma clase —cualquier video del cliente— traia otro
+        // cuerpo, lo reemplazaba, y la plantilla quedaba registrada como aprendida y
+        // sin nada que parchear. Medido en produccion: SIN_ANCLA con la sentinela
+        // intacta al lado. La entrada con ancla se queda ENTERA (url, headers y
+        // cuerpo van juntos: mezclar la url de hoy con el cuerpo de ayer es armar
+        // un pedido que ninguna version de Flow mando).
+        const previaX = plantillas.get(clase);
+        if (previaX && previaX.sentinela && !sentinela) { /* se conserva la que ensena */ } else
         plantillas.set(clase, {
           url,
           metodo: this.__makoMetodo || 'POST',

@@ -27,9 +27,22 @@
 
 import { ENDPOINTS } from './flow-protocolo';
 import { OPERACIONES } from './flow-operaciones';
+import { comoViajo } from './flow-boq-patch';
 
 /** Dónde vive, por workspace. */
 export const KEY_PLANTILLAS = 'flow.plantillas';
+
+/**
+ * Lo último que el saneador DESCARTÓ de un latido, y por qué.
+ *
+ * ⚠️ EXISTE PORQUE EL RESPALDO DE UN WORKSPACE TENÍA CERO PLANTILLAS DE BOQ y nada
+ * lo decía. El navegador las mandaba en cada latido, el saneador las tiraba, y las
+ * cinco del protocolo viejo seguían ahí como si el respaldo funcionara. Una
+ * política que rechaza sin dejar rastro hace indistinguibles «no llegó» de «lo
+ * tiramos nosotros» — es la regla que este archivo ya tenía escrita para `ajenas`,
+ * y el saneador, que descarta por CUATRO motivos distintos, no la cumplía.
+ */
+export const KEY_PLANTILLAS_DESCARTES = 'flow.plantillas_descartes';
 
 /**
  * La clase de un pedido: el último tramo del path.
@@ -314,13 +327,21 @@ export function soloDelProyecto(
   return { quedan, ajenas };
 }
 
-export function sanearPlantillas(crudo: unknown): PlantillaEspejo[] {
-  if (!Array.isArray(crudo)) return [];
+/**
+ * @param descartes Si se pasa, recibe UNA línea por plantilla descartada, con el
+ *   motivo. Ver `KEY_PLANTILLAS_DESCARTES`: un descarte sin rastro no se puede
+ *   diagnosticar, y ya costó un respaldo entero vacío sin que nadie lo notara.
+ */
+export function sanearPlantillas(crudo: unknown, descartes?: string[]): PlantillaEspejo[] {
+  if (!Array.isArray(crudo)) { descartes?.push('no_es_lista'); return []; }
   const out: PlantillaEspejo[] = [];
   let total = 0;
+  const tirar = (motivo: string, clase: string, url = '') => {
+    descartes?.push(`${motivo}(${clase || '?'})${url ? ' ' + url.slice(0, 90) : ''}`);
+  };
 
   for (const it of crudo) {
-    if (!it || typeof it !== 'object') continue;
+    if (!it || typeof it !== 'object') { tirar('no_es_objeto', ''); continue; }
     const p = it as Record<string, unknown>;
     const clase = String(p.clase || '');
     const op = typeof p.op === 'string' ? p.op : '';
@@ -332,18 +353,21 @@ export function sanearPlantillas(crudo: unknown): PlantillaEspejo[] {
     //     clase además del rol, porque la clase es llave de un mapa.
     const viejoOk = CLASES_UTILES.includes(clase);
     const boqOk = FORMA_BOQ.test(clase) && OPS_UTILES.has(op);
-    if (!viejoOk && !boqOk) continue;
+    if (!viejoOk && !boqOk) { tirar('sin_rol', clase); continue; }
     const url = String(p.url || '');
     // Sin url no hay nada que copiar, y el origen tiene que ser el de Flow: una
     // plantilla apuntando a otro lado sería un pedido nuestro a un tercero.
     // Ver `esOrigenDeFlow`: se compara `origin`, nunca un prefijo.
-    if (!esOrigenDeFlow(url)) continue;
+    // ⚠️ SE REGISTRA CON LA URL. Una url RELATIVA (`/_/AiSandbox…`) cae acá: `new URL`
+    // tira, `esOrigenDeFlow` contesta false, y la plantilla —perfectamente útil para
+    // el navegador, que la repite contra su propio origen— desaparece del respaldo.
+    if (!esOrigenDeFlow(url)) { tirar('origen', clase, url); continue; }
     // Una clase de BOQ tiene que venir del endpoint de BOQ. Sin esto, cualquier
     // pedido de flow.google.com con un `op` puesto entraría como plantilla.
     if (boqOk) {
       try {
-      if (!new URL(url).pathname.endsWith('/data/batchexecute')) continue;
-      } catch { continue; }
+        if (!new URL(url).pathname.endsWith('/data/batchexecute')) { tirar('no_batchexecute', clase, url); continue; }
+      } catch { tirar('url_no_parsea', clase, url); continue; }
     }
 
     const headers: Record<string, string> = {};
@@ -375,7 +399,7 @@ export function sanearPlantillas(crudo: unknown): PlantillaEspejo[] {
     }
 
     const tam = url.length + (cuerpo?.length ?? 0) + JSON.stringify(headers).length;
-    if (total + tam > TOPE_TOTAL) break;
+    if (total + tam > TOPE_TOTAL) { tirar('tope_total', clase); break; }
     total += tam;
 
     out.push({
@@ -409,6 +433,19 @@ export function sanearPlantillas(crudo: unknown): PlantillaEspejo[] {
  * de una sana en ningún punto del camino. Dejar que pise a una completa es
  * cambiar algo que funciona por algo que falla sin decirlo.
  */
+/**
+ * ¿Este cuerpo todavía lleva la frase de aprendizaje de SU operación?
+ *
+ * Es lo que hace a una plantilla REPETIBLE: `reemplazarEnCuerpo` busca esa frase
+ * para poner el prompt real en su lugar. Sin ella, la plantilla existe, está
+ * completa, tiene `op` y `sentinela`… y no sirve para nada.
+ */
+export function tieneAncla(p: Pick<PlantillaEspejo, 'op' | 'cuerpo'>): boolean {
+  const cat = OPERACIONES.find((o) => o.op === p.op);
+  if (!cat || !cat.frase || !p.cuerpo) return false;
+  return comoViajo(p.cuerpo, cat.frase) != null;
+}
+
 export function fundirPlantillas(
   previas: PlantillaEspejo[],
   nuevas: PlantillaEspejo[],
@@ -434,6 +471,21 @@ export function fundirPlantillas(
     });
     if (nSirve && !vSirve) { mapa.set(k, conservar(n)); continue; }
     if (!nSirve && vSirve) { mapa.set(k, conservar(vieja)); continue; }
+    // ⚠️ UN CUERPO CON ANCLA NO LO PISA UNO SIN ANCLA, POR NUEVO QUE SEA.
+    //
+    // «La más nueva gana» conservaba `op` y `sentinela` —los campos que dicen que
+    // esta clase ALGUNA VEZ llevó la frase— y tiraba el CUERPO que la llevaba. La
+    // siguiente generación de la misma clase (un video cualquiera del cliente) traía
+    // un cuerpo sin la frase, ganaba por fecha, y el respaldo quedaba con una
+    // plantilla que declara saber generar y no se puede parchear. Medido en
+    // producción: `SIN_ANCLA(generar_clip)` con la sentinela intacta al lado.
+    //
+    // La frase se enseña UNA vez y cuesta un crédito: el cuerpo que la trae es el
+    // dato caro, y se protege igual que la sentinela.
+    const aV = tieneAncla(vieja);
+    const aN = tieneAncla(n);
+    if (aV && !aN) { mapa.set(k, conservar(vieja)); continue; }
+    if (aN && !aV) { mapa.set(k, conservar(n)); continue; }
     mapa.set(k, conservar((n.cuando ?? 0) >= (vieja.cuando ?? 0) ? n : vieja));
   }
   return [...mapa.values()];

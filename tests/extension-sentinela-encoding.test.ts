@@ -92,9 +92,18 @@ test('`codificacionDeLaSentinela` cae al token cuando ninguna codificación matc
   // se lee como «no aprendió» sobre una generación buena.
   const cuerpo = /function codificacionDeLaSentinela[\s\S]*?\n  \}/.exec(src);
   assert.ok(cuerpo, 'no encontré la función');
+  // ⚠️ SE FIJA EL INVARIANTE, NO EL NOMBRE DE UNA CONSTANTE. La primera versión de
+  // este test buscaba `TOKEN_SENTINELA` literal en el cuerpo; cuando el detector pasó
+  // a recorrer las DOS anclas (`for (const [frase, token] of ANCLAS)`), el token se
+  // sigue mirando y el test rompía igual. Lo que importa es que exista la caída al
+  // token — y que ese token sea el del catálogo, que lo pinea `ANCLAS`.
   assert.ok(
-    /TOKEN_SENTINELA/.test(cuerpo[0]),
+    /cuerpo\.includes\(token\)/.test(cuerpo[0]),
     'La función no mira el token: volvió a colgar de la frase entera, y con eso un\n'
     + 'cuerpo form-urlencoded da `null` — «no aprendí» sobre un clip ya pagado.',
+  );
+  assert.ok(
+    /const ANCLAS = \[\[SENTINELA, TOKEN_SENTINELA\]/.test(src),
+    'El token del video ya no entra en `ANCLAS`: el detector dejó de mirarlo.',
   );
 });
