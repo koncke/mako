@@ -6859,3 +6859,60 @@ app mande **hoy** (el espejo lo captura al generar una imagen a mano).
 - La web muestra el `error` del trabajo tal cual (`errorDetalle`): **no** se le puede
   colgar un `[crudo]` técnico. El canal de medición es `flow.respuestas` por
   `op:<op>:<rpcid>`, que ya guarda cada respuesta real sin tocar la pantalla.
+
+## La primera imagen real por BOQ salió — y las dos cosas que faltaban (07/09/2026)
+
+**Vive en:** `lib/flow-imagen.ts` (`imagenesDeRespuesta`) · `lib/flow-operaciones.ts`
+(`que` de `generar_clip` y `generar_imagen`)
+
+Con los ids de cliente frescos, **Google generó**: la imagen apareció en la grilla de
+Flow. Tres rechazos, tres mediciones, tres reposiciones (`at`, captcha, ids), y el
+camino nuevo llega hasta el final. Lo que siguió fueron las dos cosas declaradas
+desde el principio como pendientes, ahora con datos.
+
+### ① «Flow aceptó el pedido y no devolvió ninguna imagen» — el payload es posicional
+
+El resultado del trabajo #670, medido:
+
+    [[["<mediaId>",null,"<uuid>",null,null,null,[[null,<seed>,…,"<prompt EN>",25,null,null,"<uuid>",null,
+      "https://flow-content.google/image/<mediaId>?Expires=…&KeyName=labs-flow-prod-cdn-key&Signature=…",2,
+      [null,null,[["<prompt ES>"]]]…
+
+- `[0][0][0]` es el **mediaId**; la url firmada viaja como **string suelto** dentro
+  del anidado, con el mismo uuid en el path. Google además devuelve el prompt
+  traducido al inglés al lado del original.
+- `imagenesDeRespuesta` buscaba campos con **nombre** (`fifeUrl`, `mediaId`…). En
+  un array posicional no hay nombres: cero imágenes, con la misma cara que «Flow no
+  generó nada» — exactamente el modo de falla que su propio comentario preveía.
+- Ahora reconoce el string de url y saca el `mediaId` del path; el camino REST por
+  nombre de campo sigue igual.
+
+⚠️ **La url firmada vence** (`Expires`, ~1 h). Sirve para confirmar en pantalla; para
+volver a mostrarla después hay que pedir un enlace fresco por `mediaId` —
+`getMediaUrlRedirect?name=<id>` devuelve justamente el póster/imagen, el camino que
+ya usan los clips. Pendiente.
+
+⚠️ `flow.respuestas['op:generar_imagen:ogiZ0b']` quedó **vacío** para el éxito (0
+chars) aunque las fallas anteriores sí se guardaron. El canal que sí funciona para
+un éxito es `flow_trabajos.resultado`, que `resolver` guarda parseado. No se
+investigó por qué el espejo devolvió vacío; queda anotado.
+
+### ② La imagen salió con la cara de OTRA persona
+
+La plantilla de imagen se enseñó **sin foto de referencia**, y la de video es
+`abra_t2v_4s_360p` (texto a video). **El replay reproduce el tipo de generación que
+se enseñó**: si se enseña desde texto, genera desde texto. El catálogo pide ahora,
+en la enseñanza, elegir la foto como referencia en Flow antes de generar.
+
+**Lo que NO está medido:** dónde viaja el `mediaId` de la referencia en el cuerpo de
+BOQ. En el cuerpo actual, después del prompt hay `null,null,null` antes de los ids de
+cliente: es el lugar más probable, y **no se adivina**. Se mide con una generación
+de imagen con referencia (0 créditos): la clase es la misma, el cuerpo nuevo también
+lleva la frase, así que reemplaza al viejo (ancla contra ancla gana el más nuevo) y
+llega al respaldo. Recién con eso se parchea por replay con la cara/escena elegida,
+como hacía el REST con `requests.0.imageInputs.0.name`.
+
+**Regla que queda:** cuando una operación se enseña por ejemplo, **el ejemplo tiene
+que tener la forma de lo que después se va a pedir**. Una enseñanza más simple que
+el uso real aprende una plantilla que no sirve para el uso real, y el síntoma
+aparece al final del camino, con Google ya cobrando.

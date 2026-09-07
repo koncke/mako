@@ -80,7 +80,7 @@ export const OPERACIONES = Object.freeze([
     "captcha": true,
     "boton": "Copiar la frase",
     "nombre": "pedirle un video",
-    "que": "Genera UN video de 4 segundos con la frase exacta que MaKo te da."
+    "que": "En Flow, elige tu foto como referencia y genera UN video de 4 segundos con la frase exacta que MaKo te da."
   },
   {
     "op": "generar_imagen",
@@ -98,7 +98,7 @@ export const OPERACIONES = Object.freeze([
     "captcha": true,
     "boton": "Copiar la frase",
     "nombre": "pedirle una imagen",
-    "que": "Genera UNA imagen con la frase exacta que MaKo te da."
+    "que": "En Flow, elige tu foto como referencia y genera UNA imagen con la frase exacta que MaKo te da."
   },
   {
     "op": "enlace_clip",

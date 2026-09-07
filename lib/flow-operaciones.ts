@@ -240,7 +240,11 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     captcha: true,
     boton: 'Copiar la frase',
     nombre: 'pedirle un video',
-    que: 'Genera UN video de 4 segundos con la frase exacta que MaKo te da.',
+    // ⚠️ CON TU FOTO COMO REFERENCIA. Medido el 07/09/2026: la plantilla aprendida
+    // era `abra_t2v` (texto a video, sin imagen), así que el replay generaba una
+    // persona cualquiera. El replay reproduce el TIPO de generación que se enseñó:
+    // si se enseña desde la foto, se filma desde la foto.
+    que: 'En Flow, elige tu foto como referencia y genera UN video de 4 segundos con la frase exacta que MaKo te da.',
   },
   {
     op: 'generar_imagen',
@@ -260,7 +264,9 @@ export const OPERACIONES: readonly Operacion[] = Object.freeze([
     captcha: true,
     boton: 'Copiar la frase',
     nombre: 'pedirle una imagen',
-    que: 'Genera UNA imagen con la frase exacta que MaKo te da.',
+    // Igual que el video: la primera imagen real del replay salió con la cara de
+    // otra persona porque la plantilla se enseñó sin referencia.
+    que: 'En Flow, elige tu foto como referencia y genera UNA imagen con la frase exacta que MaKo te da.',
   },
   {
     op: 'enlace_clip',

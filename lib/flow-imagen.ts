@@ -263,6 +263,23 @@ export function imagenesDeRespuesta(data: unknown): { url: string; mediaId?: str
   // todavía no se midió con una corrida real, y un camino fijo que no acierta
   // devuelve cero imágenes con la misma cara que «Flow no generó nada».
   const recorrer = (v: unknown) => {
+    // ⚠️ EL FLOW NUEVO (BOQ) CONTESTA UN ARRAY POSICIONAL, SIN NOMBRES DE CAMPO.
+    //
+    // Medido el 07/09/2026 con la primera imagen real generada por el replay
+    // (trabajo #670): la url firmada viaja como un string suelto dentro del
+    // anidado —`https://flow-content.google/image/<mediaId>?Expires=…&Signature=…`—
+    // y el `mediaId` es el uuid del path. La búsqueda por nombre de campo de abajo
+    // no la veía, y la pantalla decía «Flow aceptó el pedido y no devolvió ninguna
+    // imagen» sobre una imagen que ya estaba en la grilla de Flow.
+    //
+    // ⚠️ La url firmada VENCE (`Expires`, ~1 h). Alcanza para confirmarla en
+    // pantalla; para volver a mostrarla más tarde hay que pedir un enlace fresco
+    // por `mediaId` (el mismo camino que ya usan los clips).
+    if (typeof v === 'string') {
+      const m = /^https:\/\/[^\s"'<>]+\/image\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:[?#/]|$)/i.exec(v);
+      if (m && !out.some((x) => x.url === v)) out.push({ url: v, mediaId: m[1] });
+      return;
+    }
     if (!v || typeof v !== 'object' || vistos.has(v)) return;
     vistos.add(v);
     if (Array.isArray(v)) { v.forEach(recorrer); return; }
