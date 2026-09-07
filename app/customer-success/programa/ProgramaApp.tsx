@@ -105,8 +105,11 @@ export function ProgramaApp({ modulos, totales, whopConectado, tabInicial, modul
   const enClases = tab === 'clases';
   const enMaterial = tab === 'material';
 
+  // «Tu material» va a ancho COMPLETO: su pieza principal es un mapa de 13
+  // bloques que solo dice algo si puede estirarse, y las filas de una línea
+  // aprovechan el ancho para separar título y acción en vez de apilarlos.
   return (
-    <Pagina ancho={enClases || enMaterial ? 'medida' : modulo ? 'completo' : 'medida'}>
+    <Pagina ancho={enMaterial ? 'completo' : enClases ? 'medida' : modulo ? 'completo' : 'medida'}>
       <PageHeader
         titulo="Program"
         proposito={enMaterial
