@@ -215,12 +215,11 @@ export async function diagnosticoDe(url: string | null | undefined): Promise<str
 // Parseo + coerción del JSON
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function parseJsonObject(text: string): Record<string, unknown> {
-  const c = text.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
-  const a = c.indexOf('{'), b = c.lastIndexOf('}');
-  if (a === -1 || b <= a) throw new Error('respuesta sin JSON');
-  return JSON.parse(c.slice(a, b + 1)) as Record<string, unknown>;
-}
+// ⚠️ DELEGA. Había tres copias idénticas e ingenuas de esto; la tolerante vive en
+// `lib/json-del-modelo.ts` y se prueba ahí. Se conserva el export para no tocar
+// los call sites.
+import { parseJsonObject } from './json-del-modelo';
+export { parseJsonObject };
 
 const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 const strArr = (v: unknown): string[] => (Array.isArray(v) ? v.map(str).filter(Boolean) : []);

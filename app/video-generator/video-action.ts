@@ -30,7 +30,7 @@ import { ENDPOINTS, obj, arr, str, extraerMediaId, parchesEstadoClip, urlDeMedio
 import {
   cuerpoClipReferencias, semillaDeToma, mediaIdDeReferencia, KEY_CARA_FLOW,
 } from '@/lib/flow-clip-referencias';
-import { parchesImagenEscena, imagenesDeRespuesta, semillaDeEscena } from '@/lib/flow-imagen';
+import { parchesImagenEscena, imagenesDeRespuesta, semillaDeEscena, promptFinal } from '@/lib/flow-imagen';
 import { promptDeClip, acentoDelPlan } from '@/lib/prompts-video';
 import { escribirEscenas, reescribirEscena } from '@/lib/escenas';
 import { puestaPorId, contarPalabras, marcasDeVoseo, palabrasQueEntran } from '@/lib/puestas-data';
@@ -583,7 +583,17 @@ export async function generarTomaAction(
   // DOBLE.
   const saldoAntes = (await leerSaldoGuardado()).creditos;
 
+  // ⚠️ EL PROMPT FINAL VIAJA TAMBIÉN AL TOPE DEL PEDIDO. La rama de BOQ de la cola
+  // (el Flow nuevo) reemplaza la frase de aprendizaje por `pedido.prompt`; el
+  // cuerpo REST de abajo lo lleva adentro, donde la extensión no lo busca. Sin
+  // esto, con plantilla de BOQ, el trabajo moría con «El trabajo no trae texto
+  // para filmar» — en la pantalla del cliente, con el dueño mirando.
+  const promptClip = promptDeClip(
+    item.plan.puestaId, clip, item.promptsPropios?.[String(n)],
+    undefined, acentoDelPlan(item.plan.clips),
+  );
   const trabajoId = await encolar('generar_clip', {
+    prompt: promptClip,
     path: ENDPOINTS.clipDesdeReferencias,
     body: cuerpoClipReferencias(
       // ⚠️ EL PROMPT DEL FORMATO GANA sobre el que escribió el modelo. El de
@@ -595,10 +605,7 @@ export async function generarTomaAction(
         // no tiene prompt del que rescatarlo, y salía al modelo sin decir en qué
         // variedad de español se habla — en un anuncio cuyas otras tomas sí lo
         // decían. Éste es EL call-site que le habla a Google.
-        prompt: promptDeClip(
-          item.plan.puestaId, clip, item.promptsPropios?.[String(n)],
-          undefined, acentoDelPlan(item.plan.clips),
-        ),
+        prompt: promptClip,
         mediaId,
         seed: semillaDeToma(planId, n),
       },
@@ -1437,6 +1444,9 @@ export async function generarImagenAction(
     };
   }
   const trabajoId = await encolar('generar_imagen', {
+    // ⚠️ EL MISMO PROMPT FINAL QUE VA EN EL PARCHE, también al tope: es lo que lee
+    // la rama de BOQ de la cola. Ver el clip, más arriba.
+    prompt: promptFinal(escena.prompt, { conCara: !!cara, puestaId: item.plan.puestaId, propio: item.promptsImagenPropios?.[String(n)] }),
     // El projectId de este path es de mentira y no importa: la extensión usa el
     // path SOLO para encontrar la plantilla (de su último tramo sale la clase) y
     // la URL la copia entera del tráfico real de Flow, projectId incluido.

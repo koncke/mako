@@ -3184,3 +3184,39 @@ recargue**, y las pestañas abiertas antes del deploy son la mayoría. Así que:
 - Y si hay algo que leer del espejo viejo antes de que muera —una respuesta que ya
   no se puede volver a provocar sin gastar plata—, se lee PRIMERO y se pide el F5
   DESPUÉS. El orden es parte del arreglo.
+
+# El que encola y el que ejecuta comparten un contrato: el test lo CRUZA
+
+Un productor y un consumidor de la misma cola se escriben en archivos distintos, a
+veces en semanas distintas, y cada uno compila perfecto con su propia idea del
+payload. Nada falla hasta que un trabajo real cruza de uno al otro.
+
+Pasó con el puente a Flow, en la pantalla de un cliente durante una demo: la rama
+de BOQ de `ejecutar()` (extensión) leía `pedido.prompt`; los dos `encolar` del
+server (`video-action.ts`) llevaban el prompt ADENTRO —en `body` el clip, en
+`parches` la imagen— y arriba no había nada. Video e imagen morían con un mensaje
+nuestro: «El trabajo no trae texto para filmar».
+
+- Cuando escribas un consumidor nuevo de una cola, **abrí los `encolar` que la
+  alimentan** y leé el objeto literal. No el tipo: el literal.
+- Y dejá un test que lea LOS DOS ARCHIVOS: el objeto que se encola por tipo y el
+  campo que el ejecutor exige (`tests/cola-prompt-al-tope.test.ts`). Es la única
+  forma de que el contrato no se vuelva a separar sin que nada avise.
+- Si el mismo dato tiene que viajar en dos lugares (arriba para el protocolo nuevo,
+  adentro para el viejo), se calcula UNA vez y se pone en los dos: dos cálculos
+  son dos anuncios distintos según el protocolo.
+
+# El JSON de un modelo se repara SÓLO si el parse directo falla
+
+Los modos de falla son pocos y siempre los mismos —coma que falta, coma que sobra,
+comilla de diálogo sin escapar, salto de línea crudo, cercas y prosa alrededor— y se
+reparan sin ambigüedad caminando el texto con estado de string
+(`lib/json-del-modelo.ts`). Tres reglas:
+
+- **Un JSON válido no se toca.** Toda heurística corre después de que `JSON.parse`
+  falló; sobre texto válido es una oportunidad de romperlo.
+- **Tres escalones, del más barato al más caro:** reparar sin red → pedirle a la
+  cascada barata que COPIE el mismo contenido como JSON válido (no que piense) →
+  tirar con la salida cruda en el log, que es la única evidencia del próximo caso.
+- **No escribas otro `parseJsonObject`.** Había tres copias idénticas e ingenuas;
+  las tres delegan. Importalo.

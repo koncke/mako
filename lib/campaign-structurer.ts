@@ -202,12 +202,11 @@ export async function brandSystem(rendered: string): Promise<string> {
 
 // ── Parseo + coerción del JSON de MaKo → CampaignSpec ──────────────────────────
 
-export function parseJsonObject(text: string): Record<string, unknown> {
-  const c = text.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
-  const a = c.indexOf('{'), b = c.lastIndexOf('}');
-  if (a === -1 || b <= a) throw new Error('respuesta sin JSON');
-  return JSON.parse(c.slice(a, b + 1));
-}
+// ⚠️ DELEGA. Había tres copias idénticas e ingenuas de esto; la tolerante vive en
+// `lib/json-del-modelo.ts` y se prueba ahí. Se conserva el export para no tocar
+// los call sites.
+import { parseJsonObject } from './json-del-modelo';
+export { parseJsonObject };
 
 const OBJ_VALUES = new Set(OBJETIVOS.map((o) => o.value));
 const OPT_VALUES = new Set(['LEAD_GENERATION', 'OFFSITE_CONVERSIONS', 'LANDING_PAGE_VIEWS', 'LINK_CLICKS', 'REACH', 'IMPRESSIONS', 'THRUPLAY', 'POST_ENGAGEMENT']);

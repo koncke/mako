@@ -6663,3 +6663,70 @@ borra: el detalle es el POR QUÉ no puede filmar, y cuando puede no hay por qué
   es la medición.
 
 Nueve guardas nuevas, las nueve probadas rompiéndolas.
+
+## Dos errores en la pantalla del cliente, en una reunión (06/09/2026, noche)
+
+**Vive en:** `lib/json-del-modelo.ts` · `lib/video-planner.ts` (`objetoDelPlan`) ·
+`lib/campaign-structurer.ts` y `lib/landing-writer.ts` (delegan) ·
+`app/video-generator/video-action.ts` (los dos `encolar`) ·
+`extension/background.js` (`ejecutar`, rama BOQ)
+
+El dueño los vio con Mauricio al lado, compartiendo pantalla.
+
+### ① «Expected ',' or ']' after array element in JSON at position 631»
+
+El modelo escribió las diez tomas bien y le faltó **una coma** entre dos elementos
+del array. `JSON.parse` es binario —entra todo o nada— y el error que tira es para
+un programador. Había **tres copias idénticas e ingenuas** de `parseJsonObject`
+(sacar cercas, `slice` al `{…}`, `JSON.parse`), en tres archivos, y ninguna toleraba
+nada.
+
+Los modos de falla del JSON de un modelo son pocos y siempre los mismos, y se
+reparan sin ambigüedad **si se camina el texto sabiendo si se está adentro o afuera
+de un string**: coma que falta entre valores (`} {`, `" "`), coma que sobra antes de
+cerrar, comilla de diálogo sin escapar (`"dijo "hola" y se fue"` — un guion está
+lleno de eso), salto de línea crudo adentro de un string, cercas y prosa alrededor.
+
+⚠️ **La comilla es la trampa.** Adentro de un string, una `"` cierra si lo que sigue
+es lo que sigue a un valor (`,` `}` `]` `:`) o abre el siguiente (`"` `{` `[`). Con `,`
+hay que mirar un paso más: `"hola", dijo` es diálogo (después de la coma viene una
+palabra); `"hola", "otra"` es un array (viene otro valor). Sin ese paso extra, el
+diálogo se parte.
+
+**Regla que queda:** la reparación se aplica **sólo si el parse directo falla**. Una
+heurística sobre JSON válido es una oportunidad de romperlo. Y hay tres escalones,
+del más barato al más caro: reparar sin red (instantáneo) → pedirle a la cascada
+barata que *copie* el mismo contenido como JSON válido (~2 s; no piensa, copia) →
+tirar, **con la salida cruda en el log**, que es la única evidencia para el próximo
+caso. Sin eso se diagnostica a ciegas otra vez.
+
+### ② «El trabajo no trae texto para filmar.» — el texto era MÍO
+
+La rama de BOQ de `ejecutar()` (extensión) reemplaza la frase de aprendizaje por
+`pedido.prompt`. Los dos `encolar` del server llevaban el prompt **adentro** —en
+`body` el clip, en `parches` la imagen— y al tope no había nada. Con plantilla de
+BOQ, **video e imagen** morían con mi mensaje en la pantalla del cliente.
+
+Es un defecto de contrato, no de lógica: el que encola y el que ejecuta se
+escribieron por separado (el ejecutor esta misma semana) y nadie los cruzó. El
+diagnóstico rápido —«la imagen falla»— era el equivocado: el video fallaba igual,
+sólo que Mauricio probó la imagen primero.
+
+**Regla que queda:** un productor y un consumidor de la misma cola comparten un
+contrato, y **el test lo cruza**: lee el objeto que se encola y el campo que el
+ejecutor exige, de los dos archivos, en el mismo test. El prompt FINAL viaja al tope
+**y** adentro, calculado **una vez**: dos prompts para el mismo clip sería un anuncio
+que cambia según el protocolo.
+
+⚠️ Y una consecuencia que no se arregló hoy: el mensaje «El trabajo no trae texto
+para filmar» es diagnóstico y llegó a una pantalla de cliente por el campo `error`
+del trabajo. Ya no se dispara, pero la clase —un `error:` de la cola que la web pinta
+tal cual— sigue existiendo para los demás motivos.
+
+### Lo que NO cubre la rama de BOQ de la imagen (declarado)
+
+El replay de imagen por BOQ **sólo cambia el texto** de la plantilla aprendida. La
+cara elegida (`requests.0.imageInputs.0.name`, que el camino REST aplicaba por
+parche) **no viaja**: sale la cara que había en la plantilla cuando se enseñó. Es
+fidelidad, no un fallo visible, y se resuelve cuando se mida la forma del `f.req` de
+imagen.

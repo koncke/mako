@@ -505,6 +505,54 @@ export type PedidoPlan = {
  * por su cuenta, así que un `ws` distinto planificaría el anuncio de OTRO
  * cliente en silencio. Sin workspace se corta con error, nunca se cae al dueño.
  */
+/**
+ * El objeto que el modelo quiso escribir, aunque haya escrito mal el JSON.
+ *
+ * ⚠️ EL DUEÑO VIO ESTO EN UNA REUNIÓN CON SU CLIENTE: «No se pudo armar el plan:
+ * Expected ',' or ']' after array element in JSON at position 631». Diez tomas
+ * bien escritas y UNA coma menos. Tirar el plan entero por eso —y mostrarle a la
+ * persona un error de parser— no es una opción.
+ *
+ * Tres escalones, del más barato al más caro:
+ *   1. `parseJsonObject` repara los modos de falla conocidos, sin red (instantáneo).
+ *   2. Si no alcanza, la CASCADA BARATA reescribe el mismo contenido como JSON
+ *      válido (~2 s). No se le pide que piense: se le pide que copie bien.
+ *   3. Si tampoco, se tira — con la salida cruda en el log, que es la única
+ *      evidencia para saber qué escribió el modelo. Sin eso el próximo caso se
+ *      diagnostica a ciegas otra vez.
+ */
+async function objetoDelPlan(salida: string): Promise<Record<string, unknown>> {
+  try {
+    return parseJsonObject(salida);
+  } catch (e1) {
+    console.error('[video-planner] JSON inválido del modelo:', e1 instanceof Error ? e1.message : e1);
+    console.error('[video-planner] salida cruda (2000):', String(salida).slice(0, 2000));
+    // ⚠️ `erroresOut` SE PIDE, porque el vacío de la cascada termina en un mensaje
+    // para la persona. Sin esto se pierde la única causa real (qué proveedor falló
+    // y por qué) y queda una frase inventada — es la regla de `lib/ia-mensajes.ts`.
+    const errores: string[] = [];
+    const reparado = await chatCheapCascade({
+      system: 'Recibes un texto que pretende ser un JSON pero tiene errores de sintaxis. Devuelve EXACTAMENTE el mismo contenido como JSON válido: mismas claves, mismos valores, mismo orden. No agregues, no quites, no comentes. Solo el JSON.',
+      user: String(salida).slice(0, 60_000),
+      json: true,
+      maxTokens: 8000,
+      temperature: 0,
+      feature: FEATURE_VIDEO_PLANNER,
+      motivo: 'reparar el JSON del plan',
+      erroresOut: errores,
+      validar: (t: string) => { try { parseJsonObject(t); return true; } catch { return false; } },
+    }).catch((e) => { errores.push(String((e as Error)?.message ?? e)); return ''; });
+    if (reparado) {
+      try { return parseJsonObject(reparado); } catch { /* cae al mensaje de abajo */ }
+    }
+    // Lo técnico va al log; a la persona se le dice qué pasó y qué puede hacer. El
+    // «Expected ',' or ']' after array element» ya llegó una vez a la pantalla de un
+    // cliente en plena reunión.
+    console.error('[video-planner] tampoco se pudo reparar:', (e1 as Error)?.message, '· cascada:', errores.join(' | ') || '(sin detalle)');
+    throw new Error('MaKo escribió el plan pero se cortó al guardarlo. Vuelve a intentar; si se repite, cambia una palabra del pedido.');
+  }
+}
+
 export async function generarPlan(ws: number, pedido: PedidoPlan): Promise<GenerarPlanOut> {
   const puesta = puestaPorId(pedido.puestaId);
   if (!puesta) return { ok: false, error: 'Esa puesta en escena no existe en el catálogo.' };
@@ -639,7 +687,8 @@ export async function generarPlan(ws: number, pedido: PedidoPlan): Promise<Gener
       motivo: `Planificar anuncio en video (${puesta.nombre})`,
     });
 
-    return { ok: true, plan: { ...sanearPlan(parseJsonObject(salida), puesta, segundos, pedido.acentoPrompt, reparto, literales, hablado), anguloId: pedido.anguloId } };
+    const crudo = await objetoDelPlan(salida);
+    return { ok: true, plan: { ...sanearPlan(crudo, puesta, segundos, pedido.acentoPrompt, reparto, literales, hablado), anguloId: pedido.anguloId } };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, error: `No se pudo armar el plan: ${msg}` };
