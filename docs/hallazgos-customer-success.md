@@ -615,3 +615,139 @@ el 0.3 aclare la diferencia entre sus dos preguntas, que si no se contestan igua
 *Corrida del 2026-08-11: 16 agentes mapeando el código para el bucle de entrega, más la
 verificación en vivo contra la cuenta real de Whop. Ampliado el 2026-08-11 con
 ~programa-mauricio-recorte (5 lentes + 24 escépticos) y ~puntos-de-grabacion (12+1).*
+
+---
+
+## Un banco de material temático no es un temario, y el tema es justo lo que engaña
+
+**Vive en:** `lib/banco-skills.ts`, `app/customer-success/programa/` (tab «Tu material»)
+
+**El síntoma:** Mauricio entregó 1,07 GB de material —26 videos, 183 minutos, 35 PDFs—
+organizado en doce carpetas por tema: Propósito y Narrativa, Estrategia y Visión,
+Prioridades y Ejecución, OKRs y Métricas, Juntas y Ritmos… Leído por los títulos, tapa
+casi todo el programa: hay 4DX para el módulo de las MCIs, OKRs para el de objetivos,
+Scaling Up para el de juntas, Sinek y Frankl para el de propósito.
+
+**El diagnóstico obvio, y era el equivocado:** «esto baja mucho las grabaciones que
+faltan». La primera lectura —mía, por los nombres de archivo— dijo que resolvía tres
+huecos enteros. Con las 26 transcripciones y los 35 PDFs leídos, resuelve **dos**.
+
+**La causa real:** los 26 videos tienen todos la misma plantilla —gancho, secciones
+numeradas, «pregunta para reflexionar» al cierre— y **ninguno termina en una tarea**.
+Explican un marco. Las clases del programa, en cambio, terminan todas en un entregable
+que el cliente produce sobre SU negocio: ficha de números con líneas base, organigrama
+real con semáforo, matriz área × MCI, cada palanca con su umbral V/A/R y su evidencia.
+
+Un video que explica «Empieza por el porqué» de Sinek y la clase «El origen» hablan del
+mismo tema. Pero la clase pide que el cliente escriba **el suyo**, y el video no. Son la
+misma materia y distinto objeto.
+
+**La regla que queda:** para decidir si un material reemplaza a una clase **no mires el
+tema: mirá si termina en un entregable del cliente**. El tema coincide casi siempre; el
+entregable casi nunca. Un banco temático se cuelga de los módulos como anexo y no baja
+la lista de grabación — salvo en las dos o tres piezas donde el autor ya escribió el
+procedimiento y no el concepto.
+
+**El corolario, que es lo que hace útil al banco:** las piezas que SÍ sirven como clase
+no son las que llevan el nombre del libro famoso. Son las dos que el autor escribió como
+procedimiento propio: el workbook de accountability (guiones de junta, checklist de
+conversación de integridad, plantilla) y el manual de liderazgo, que trae la fórmula del
+pedido efectivo —«con el fin de A, te pido B para la fecha C, ¿te podés comprometer?»,
+las tres únicas respuestas válidas y el catálogo de falsas promesas—. Eso es exactamente
+la clase «prompts a humanos», que estaba marcada como hueco sin material.
+
+---
+
+## El inventario por nombre contaba 26 videos donde había 25, y el nombre no tenía forma de avisar
+
+**Vive en:** `lib/banco-skills.ts`
+
+**El síntoma:** dos archivos, `SKILL_19_Organizar Agenda en Bloques.mp4` y
+`Time_Blocking__Logro_Diseñado.mp4`, en carpetas distintas, con títulos distintos, los
+dos de 36,0 MB y 7 minutos. Los conté como dos grabaciones y le dije al cliente que el
+módulo de la agenda del director quedaba «casi entero» con dos videos.
+
+**La causa:** son **el mismo archivo**. `md5 = 493af3586047f5e8c49642008394d732` en los
+dos. Las transcripciones salieron palabra por palabra iguales y ni con las dos delante
+lo até: leí la coincidencia como «trata el mismo tema», que es exactamente lo que uno
+espera de un banco temático.
+
+**Y no era el único.** Hasheando el inventario entero aparecieron tres grupos:
+
+| md5 | Archivos | Qué esconde |
+|---|---|---|
+| `fa733a59…` | `SKILL_14_Liderazgo Gerencial.pdf`, `SKILL_15_Conversaciones Difíciles.pdf`, `SKILL_16_Crear Estándares.pdf` | Dos SKILLs **no tienen documento propio**: apuntan al manual del tercero |
+| `493af358…` | `SKILL_19_Organizar Agenda.mp4`, `Time_Blocking__Logro_Diseñado.mp4` | Una grabación contada dos veces |
+| `a6d305d7…` | `Copia de SKILL_20_Roles.pdf`, `SKILL_20_Roles.pdf` | Copia literal |
+
+**La regla que queda:** un inventario de material ajeno se arma **por hash, no por
+nombre**. El nombre lo puso una persona y es justo la capa donde se pierde la
+información: renombrar un archivo no lo convierte en otro, pero lo hace contar como
+otro. Y el error tiene el signo peligroso —**infla** la cobertura—, así que el reporte
+sale optimista y nadie lo audita.
+
+**Corolario para este caso:** el hash caza copias exactas, no el mismo contenido en dos
+formatos. `Arquitectura_del_Pensamiento.mp4` (7 min) y
+`Reaccionamos_primero_y_justificamos_después.m4a` (13 min) son el mismo material de
+Kahneman con md5 distinto. Esa la caza leer, no hashear.
+
+---
+
+## Cuatro PDFs de un banco no tienen texto, y tres de ellos no es porque sean imagen
+
+**Vive en:** `lib/banco-skills.ts`
+
+**El síntoma:** `pdftotext` devolvió menos de 60 palabras en cuatro de los 35 PDFs.
+La lectura fácil es «son PDFs escaneados, hay que pasarles OCR».
+
+**Lo que eran de verdad**, después de mirarlos:
+
+- **Dos sí eran imagen** (`SKILL_04_Arquitectura_Narrativa`, 11,2 MB; el infográfico de
+  Anti-Complex, 6,4 MB). Con OCR salieron completos y son material bueno.
+- **`SKILL_07_Prioridades Covey`** son 7 palabras: un título y **un link de YouTube**.
+  No hay documento.
+- **`SKILL_22_Elévate con SCRUM`** son 38 palabras: las etiquetas sueltas de un diagrama,
+  sin una sola frase.
+
+**La regla que queda:** «el extractor no sacó texto» tiene al menos dos causas con
+arreglos opuestos —falta la capa de texto (→ OCR) o **no hay contenido** (→ el archivo
+está vacío y hay que decirlo)—. Distinguirlas cuesta abrir el archivo una vez; no
+distinguirlas cuesta prometer un OCR que va a devolver un link de YouTube.
+
+**Y el hallazgo incómodo:** un PDF del banco (`SKILL_05_Anti-Complex`) trae pegada la
+interfaz de la herramienta con la que se generó — «Chat», «Studio», «Resumen en audio»,
+y el pedido textual del autor: *«Haz una infografía igual o similar a la que hiciste pero
+en formato vertical»*. El infográfico que lo acompaña lleva el logo de la herramienta en
+las doce páginas. Un material que se va a publicar a clientes necesita una pasada que
+mire **lo que el archivo muestra**, no solo lo que dice el índice.
+
+---
+
+## Material de OTRO cliente adentro de un banco genérico
+
+**Vive en:** `lib/banco-skills.ts` (el listado de piezas con `contaminado: true`)
+
+**El síntoma que no hubo:** ninguno. El banco se iba a publicar tal cual en Whop.
+
+**Lo que hay adentro**, leído:
+
+- **`SKILL_21_Rol del Director Comercial`** describe un puesto concreto de una empresa
+  concreta: B2B industrial de automatización y refacciones, con sus segmentos
+  («maquiladoras, OEMs, integradores»), y **nombra a la persona**: *«rol de Jorge a
+  instalar con el DOS»*, *«lo que hoy parece ser vendedora senior»*.
+- **`SKILL_04_Balanced Scorecard`** y **`SKILL_20_Roles y Responsabilidades`** están
+  escritos en registro de **campaña política**: «resultados electorales», «coordinación
+  territorial», «legitimidad», y el ejemplo de RAPID decide con «Coordinación política»
+  y «Dirección general».
+- **`SKILL_09_SCRUM Personal`** está escrito para una persona con «planeación
+  dominical», «política de membresías» y «seguimiento de exalumnos».
+
+**La regla que queda:** un banco reutilizable se arma **sacando** el caso, no
+renombrándolo. Cuando un entregable de consultoría se recicla como material de curso, lo
+que viaja no es solo el marco: viajan el rubro, el organigrama y los nombres propios del
+cliente anterior. Y el lector siguiente **es otro cliente**, que lo va a leer como si
+fuera para él o —peor— va a reconocer de quién es.
+
+**Cómo se caza:** buscar nombres propios, rubros y unidades de negocio en el cuerpo de
+cada pieza antes de publicarla. No alcanza con revisar títulos: los tres casos tienen
+títulos perfectamente genéricos.

@@ -25,6 +25,7 @@ import { useState, type ReactNode } from 'react';
 import { Pagina, PageHeader, Status, Banner, Button, Tabs, useToast, Toast, MONO } from '@/app/_ui';
 import Link, { useRouter } from '@/app/_ui/Link';
 import { sincronizarWhopAction } from '../actions';
+import { Material } from './Material';
 import type { Campo } from '@/lib/programa-campos';
 
 type Clase = {
@@ -42,6 +43,9 @@ type Modulo = {
 const TABS = [
   { id: 'clases', label: 'Clases' },
   { id: 'tareas', label: 'Tareas' },
+  // Va tercera y no primera a propósito: es una lectura que se hace una vez y se
+  // vuelve a consultar, no la pantalla a la que Mauricio entra a trabajar.
+  { id: 'material', label: 'Tu material' },
 ] as const;
 
 const FASE: Record<string, string> = {
@@ -99,14 +103,17 @@ export function ProgramaApp({ modulos, totales, whopConectado, tabInicial, modul
   };
 
   const enClases = tab === 'clases';
+  const enMaterial = tab === 'material';
 
   return (
-    <Pagina ancho={enClases ? 'medida' : modulo ? 'completo' : 'medida'}>
+    <Pagina ancho={enClases || enMaterial ? 'medida' : modulo ? 'completo' : 'medida'}>
       <PageHeader
         titulo="Program"
-        proposito={enClases
-          ? `${totales.videos} videos por grabar · ${modulos.length} módulos · ${totales.clases} clases`
-          : `${modulos.length} módulos · ${totales.clases} clases · ${totales.campos} preguntas`}
+        proposito={enMaterial
+          ? 'Lo que mandó Mauricio, leído entero y cruzado contra el programa'
+          : enClases
+            ? `${totales.videos} videos por grabar · ${modulos.length} módulos · ${totales.clases} clases`
+            : `${modulos.length} módulos · ${totales.clases} clases · ${totales.campos} preguntas`}
         acciones={whopConectado ? (
           <Button variant="secondary" disabled={sincronizando} onClick={() => void sincronizar()}>
             {sincronizando ? 'Sincronizando…' : 'Sincronizar a Whop'}
@@ -116,13 +123,17 @@ export function ProgramaApp({ modulos, totales, whopConectado, tabInicial, modul
 
       <Tabs tabs={TABS as unknown as { id: string; label: string }[]} activa={tab} onCambio={irA} />
 
-      {!whopConectado ? (
+      {/* El estado de Whop habla del temario cargado. En «Tu material» no aplica:
+          ahí se mira lo que mandó Mauricio, que todavía no es una clase de nada. */}
+      {enMaterial ? null : !whopConectado ? (
         <Banner tono="warn">Whop no está conectado, así que no se puede saber qué clases están cargadas.</Banner>
       ) : faltanEnWhop > 0 ? (
         <Banner tono="warn">{faltanEnWhop} de {totales.clases} clases todavía no están en Whop.</Banner>
       ) : null}
 
-      {enClases ? (
+      {enMaterial ? (
+        <Material />
+      ) : enClases ? (
         <Grabar modulos={modulos} totales={totales} moduloAbierto={moduloEnUrl} claseAbiertaEnUrl={claseEnUrl} />
       ) : !modulo ? (
         <ul className="pg-grid">

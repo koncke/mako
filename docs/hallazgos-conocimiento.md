@@ -6933,3 +6933,103 @@ ahora las sobras de yt-dlp. **Un listado de archivos no es un temario.** Lo que 
 comparten: pasaron el filtro de extensión, y ninguna era una lección. Por eso el script se
 corre EN SECO y se MIRAN los nombres antes de aplicar — el filtro nuevo cubre las sobras,
 no la próxima forma de basura.
+
+---
+
+## «Compartido conmigo» no se monta en `G:`, y los tres caminos obvios fallan antes que el que sirve
+
+**Vive en:** `scripts/curso-drive-ids.mjs` (la sqlite de DriveFS), y cualquier script que
+tenga que leer material que un tercero compartió.
+
+**El síntoma:** la carpeta estaba compartida, se veía en el navegador, y el pipeline del
+repo no la encontraba. `find /g -iname "*Banco Maestro*"` no devolvía nada.
+
+**Por qué:** Drive for Desktop monta **Mi unidad** y las unidades compartidas. **No monta
+«Compartido conmigo».** Un archivo que alguien te compartió existe para el navegador y
+para la API, pero no tiene ruta en `G:` hasta que le creás un acceso directo en tu unidad.
+
+**Los dos caminos que también fallaron, y cuánto cuesta descartarlos:**
+
+1. **Los refresh tokens del `.env.local`.** Hay dos (`CWS_REFRESH_TOKEN`,
+   `YOUTUBE_OAUTH_REFRESH_TOKEN`) y los dos **renuevan bien**, así que parecen
+   utilizables. Pero sus scopes son `chromewebstore` y `yt-analytics.readonly`: contra
+   `drive/v3/files` devuelven **403**. Un token que refresca no es un token que sirve —
+   el scope se chequea pidiéndole el token y mirando el campo `scope`, no asumiendo.
+2. **Bajar por el conector MCP.** `download_file_content` devuelve **base64 al contexto**.
+   Para 1,07 GB no es lento: es inviable.
+
+**Lo que sí funciona, y son dos piezas que se usan juntas:**
+
+- **La metadata local SÍ lista lo compartido.** La sqlite de DriveFS
+  (`%LOCALAPPDATA%\Google\DriveFS\<cuenta>\metadata_sqlite_db`) tiene la fila de cada
+  archivo compartido, con su **`id` real de Drive** en la columna `id`, aunque el archivo
+  no esté materializado en disco. Caminando `stable_parents` desde la carpeta se saca el
+  árbol entero con rutas relativas y tamaños. (Copiar el `-wal` junto al `.db`: si no, se
+  lee una foto vieja.)
+- **El link público baja con `curl`, sin auth.** Si la carpeta está compartida por link,
+  `https://drive.google.com/uc?export=download&id=<ID>` devuelve **200 con los bytes
+  reales**. Verificado: el PDF salió `%PDF` de 1 página y el MP4 salió `ftypmp42`, con
+  soporte de `Range`.
+
+**La regla que queda:** para material compartido por un tercero, **los ids salen de la
+sqlite local y los bytes salen del link público**. Ninguna de las dos piezas alcanza sola:
+la sqlite no tiene los bytes y el link necesita el id.
+
+**La guarda que no es opcional:** para archivos grandes Drive a veces devuelve una
+**página HTML de aviso de antivirus con status 200**. Hay que verificar el **contenido**
+(`%PDF` en el byte 0, `ftyp` en el byte 4), no el status — y si vino HTML, reintentar
+contra `drive.usercontent.google.com/download` con el `confirm=` que trae adentro.
+
+---
+
+## Groq corta por segundos de audio por hora, no por request — y la lista de modelos de Gemini miente
+
+**Vive en:** `lib/ai-cheap.ts` (`transcribirAudio`), `scripts/curso-transcribir*.mjs`
+
+**El síntoma:** 183 minutos de audio en 26 archivos. Los primeros 21 transcribieron
+perfecto con `whisper-large-v3-turbo`; los últimos 5 devolvieron **429** uno atrás del
+otro, sin importar el backoff.
+
+**La causa:** el límite de Groq para audio no es de requests por minuto, es de
+**segundos de audio por hora**. Con archivos de 5-9 minutos se agota a mitad del lote, y
+el backoff exponencial no ayuda: hay que esperar la ventana, no reintentar más lento.
+
+**El respaldo que no estaba:** la cascada cae a OpenAI, y OpenAI devolvió
+`insufficient_quota` — *«You have no credits remaining»*. Un respaldo que nunca se ejercitó
+es un respaldo que no sabés si existe.
+
+**Y la trampa de Gemini:** `GET /v1beta/models` con la key **lista** `gemini-2.5-flash`
+entre los modelos con `generateContent`. Llamarlo devuelve **404**: *«This model is no
+longer available to new users»*. La lista es del catálogo, no de lo que **esta** key puede
+usar.
+
+**La regla que queda:** para un lote de transcripción, el respaldo se cascadea por
+**modelo** además de por proveedor, y se prueba con una llamada real — no con el
+endpoint de modelos. Cascada que funcionó: Groq → Gemini `3.5-flash` →
+`gemini-flash-latest` → `gemini-3-flash-preview`. Los 5 que Groq rechazó salieron con el
+primero de Gemini, y transcribió los 13 minutos de audio de una sola pasada.
+
+---
+
+## El slug que trunca a 90 caracteres se come la extensión, y el glob se saltea los archivos en silencio
+
+**Vive en:** cualquier bajada que renombre a un nombre seguro (`curso-a-drive.mjs`,
+`curso-drive-fusionar.mjs`).
+
+**El síntoma:** el downloader reportó **61/61 bajados**, y el paso siguiente
+(`for f in *.pdf; do pdftotext ...`) procesó **33**. Nadie contó los dos que faltaban
+porque el 61/61 anterior decía que estaba todo.
+
+**La causa:** el slug normalizaba, sacaba caracteres raros y cortaba a 90 caracteres —
+y dos archivos tenían títulos largos de verdad («El mayor riesgo no es equivocarte… es
+creer que puedes anticipar lo que importa\_ Nassim Nicholas Taleb.pdf»). El corte cayó
+**adentro de la extensión**, así que quedaron como `..._Nassim_Nich` y `..._Kandel.p`.
+Existían, estaban completos y eran PDFs válidos: simplemente no matcheaban `*.pdf`.
+
+**La regla que queda:** al truncar un nombre, **truncá la base y volvé a pegar la
+extensión** — nunca el nombre completo. Y el conteo de un paso se verifica contra el
+paso anterior: «61 bajados» y «33 procesados» son dos números que tienen que cuadrar, y
+si el pipeline no los compara, la pérdida es muda.
+
+**El olor que lo delata:** `find . -type f ! -iname "*.pdf" ! -iname "*.mp4"` en la
+carpeta de destino. Si aparece algo, el renombrador está mordiendo la extensión.
