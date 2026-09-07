@@ -378,20 +378,28 @@ export default async function GeneralPage() {
           objetivoPrincipalId={objetivos[0]?.id ?? null}
         />
 
-        {/* ⚠️ EL RESUMEN CUENTA LO QUE SE VA A VER, no todas las alertas. La que ya
-            es el titular no se lista adentro, así que anunciarla acá prometería una
-            fila que no está — y el conteo de un plegable existe justamente para
-            decidir si vale la pena abrirlo. */}
+        {/* ⚠️ ESTOS TRES VAN ABIERTOS, Y CERRARLOS FUE UN ERROR MEDIDO (07/09/2026).
+            La pasada anterior los plegó por defecto buscando quitar texto, y lo que
+            quitó fue INFORMACIÓN: la pantalla quedó con tres renglones muertos
+            («Semáforo 2 · El mes · Pendientes 22») y el dueño lo reportó como «no se
+            ve nada».
+            Destilar es sacar lo redundante y lo decorativo —el semáforo dibujado, el
+            veredicto que repetía las filas, la alerta duplicada del titular—, no
+            esconder el contenido detrás de un click. Plegado ya son dos líneas, una
+            fila de barras y una frase: eso ENTRA. El plegable se queda para poder
+            cerrarlos, que es otra cosa que arrancar cerrados.
+            El resumen igual cuenta lo que se VA A VER: la alerta que ya es el titular
+            no se lista adentro, así que anunciarla acá prometería una fila que no está. */}
         <Plegable
           titulo="Semáforo"
           resumen={sinFuentes ? 'no puedo opinar todavía' : restantes === 0 ? 'nada más' : `${restantes}`}
-          abiertoPorDefecto={false}
+          abiertoPorDefecto
         >
           <Semaforo alertas={alertas} sinFuentes={sinFuentes} saltar={foco.alertaIdx} />
         </Plegable>
 
         {comparativo && (
-          <Plegable titulo="El mes" resumen="">
+          <Plegable titulo="El mes" resumen="" abiertoPorDefecto>
             <ResumenMes c={comparativo} desgloses={mtdDesgloses} />
           </Plegable>
         )}
@@ -399,7 +407,7 @@ export default async function GeneralPage() {
         <Plegable
           titulo="Pendientes"
           resumen={pendientes.total > 0 ? `${pendientes.total}` : 'al día'}
-          abiertoPorDefecto={false}
+          abiertoPorDefecto
         >
           <PendientesCard pendientes={pendientes} />
         </Plegable>

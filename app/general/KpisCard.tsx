@@ -276,31 +276,30 @@ function Propuesta({ candidatos, objetivoPrincipalId, onManual }: {
         </button>
       </div>
 
-      {/* ⚠️ LA PROPUESTA SE VE COMO EL TABLERO, y ése es todo el punto. Antes eran
-          ocho FICHAS con checkbox, nombre, compromiso y una frase de por qué —
-          ocho bloques de texto para una pantalla que después es un gráfico. Ahora
-          son las mismas barras, vacías, con su compromiso como meta: se ve qué vas
-          a seguir sin leer, y al aceptar no cambia nada de lugar.
-          Sacar o cambiar uno se hace DESPUÉS, tocándolo en el tablero — que es
-          donde ya se hace todo lo demás, y evita una pantalla de configuración
-          entera para una decisión que se revisa en cinco segundos. */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, overflowX: 'auto', opacity: 0.55 }} className="mk-scroll-x">
+      {/* ⚠️ ACÁ NO VAN BARRAS, Y EL INTENTO ANTERIOR LO PROBÓ. La pasada previa
+          dibujó la propuesta con los mismos carriles de 132 px del tablero, vacíos,
+          «para que se vea igual». El resultado fueron OCHO CAJAS VACÍAS ocupando
+          media pantalla, y el dueño lo reportó como «no se ve nada».
+          Es la trampa que este repo ya tenía escrita en `.mk-fila__medio`: reservar
+          el lugar de algo evita el salto de layout cuando ese algo llega, y es
+          exactamente al revés cuando se repite ocho veces sobre algo que TODAVÍA NO
+          PUEDE llegar. Eso no es continuidad: es promesa vacía.
+          Un carril sin dato no es un gráfico, es un hueco. Mientras no hay nada que
+          graficar, lo honesto es una lista compacta: nombre y compromiso, un renglón
+          de 34 px. El gráfico aparece cuando aparece el dato. */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
         {candidatos.map((c) => (
-          <div key={c.nombre} style={{ flex: '1 1 0', minWidth: 78, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>
+          <span key={c.nombre} style={{
+            display: 'inline-flex', alignItems: 'baseline', gap: 7,
+            padding: '7px 13px', borderRadius: 999,
+            background: 'var(--surface-2)', border: '1px solid var(--border)',
+            fontSize: 13.5, color: 'var(--ink)', whiteSpace: 'nowrap',
+          }}>
+            {c.nombre}
+            <span style={{ color: 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>
               {fmt(c.compromiso, c.unidad)}
             </span>
-            <span style={{
-              width: '100%', height: ALTO_BARRA, borderRadius: 10,
-              background: 'var(--surface-2)', border: '1px dashed var(--border-strong)',
-            }} />
-            <span style={{
-              fontSize: 11.5, lineHeight: 1.3, color: 'var(--dim)', textAlign: 'center',
-              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-            }}>
-              {c.nombre}
-            </span>
-          </div>
+          </span>
         ))}
       </div>
 
