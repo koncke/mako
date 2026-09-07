@@ -96,6 +96,12 @@ export type Cobertura = {
   piezas: Pieza[];
   /** Los contenidos del módulo que NINGUNA pieza cubre. Es lo que hay que grabar. */
   falta: string[];
+  /**
+   * La acción en tres palabras. NO es un resumen de `tarea`: es lo que el ojo
+   * agarra al escanear las 13 filas sin abrir ninguna. Si no entra en una línea
+   * corta, la fila deja de ser escaneable y la pantalla vuelve a ser un texto.
+   */
+  accion: string;
   /** Qué tiene que hacer Mauricio con este módulo. Una frase, en imperativo. */
   tarea: string;
   /**
@@ -237,6 +243,7 @@ export const COBERTURA: Cobertura[] = [
       'El mapa del viaje',
       'Los cuatro ejercicios de apertura, que no aparecen en ningún material',
     ],
+    accion: 'Grabarlo entero',
     tarea: 'Grabarlo entero. El manual solo aporta la mitad «estándar» de la distinción, no la de «criterio».',
   },
   {
@@ -258,6 +265,7 @@ export const COBERTURA: Cobertura[] = [
       'La paradoja del dueño en una frase',
       'El inventario de datos que todavía no existen',
     ],
+    accion: 'Grabarlo entero',
     tarea: 'Grabarlo entero. Es el módulo que arranca el programa y no tiene nada.',
   },
   {
@@ -287,6 +295,7 @@ export const COBERTURA: Cobertura[] = [
       'Delegaste la tarea, no el criterio',
       'Prompts a humanos: el componente «cómo decidir», que es el que da nombre al módulo',
     ],
+    accion: 'Grabarlo entero',
     tarea: 'Grabarlo entero, las cuatro clases. Es el módulo donde más fácil es creer que el material alcanza, y es donde menos alcanza.',
     ojo:
       'El pedido efectivo del manual enseña a delegar una TAREA con fecha, impecablemente. Este módulo existe porque delegar tareas impecablemente no alcanza: en las 82 KB del manual, «criterio» aparece una sola vez y con otro sentido. Sirve como el ejemplo de lo que el cliente ya hace bien y sigue sin destrabarlo — que es un buen anexo, siempre que se presente así.',
@@ -318,6 +327,7 @@ export const COBERTURA: Cobertura[] = [
       'Qué puestos faltan o no están funcionando',
       'El semáforo por puesto',
     ],
+    accion: 'Grabarlo entero',
     tarea: 'Grabarlo entero y colgar RACI/RAPID como anexo. La distinción talento/competencia es tuya y no está escrita en ningún lado.',
   },
   {
@@ -342,6 +352,7 @@ export const COBERTURA: Cobertura[] = [
       'Que el indicador de la MCI 2 es la agenda del dueño: broncas resueltas al día y horas en operación',
       'El árbol completo MCI → objetivos por área → palancas',
     ],
+    accion: 'Grabarlo entero',
     tarea: 'Grabarlo. 4DX cubre la MCI de resultado; la MCI de criterio, que es la tuya, no está en ningún material.',
   },
   {
@@ -366,6 +377,7 @@ export const COBERTURA: Cobertura[] = [
       'Que el objetivo es el prompt al líder de área',
       'La carta de expectativas, con la sección de lo que el líder puede decidir sin consultar',
     ],
+    accion: 'Grabarlo entero',
     tarea: 'Grabarlo. OKRs da el concepto de objetivo medible; el puente área × MCI y la carta de expectativas son tuyos.',
   },
   {
@@ -385,6 +397,7 @@ export const COBERTURA: Cobertura[] = [
       'La ficha completa de cada palanca',
       'La lectura del sistema: si las palancas están en verde, el objetivo se cumple',
     ],
+    accion: 'Grabarlo entero',
     tarea: 'Grabarlo. El concepto está; el procedimiento para elegir y fichar una palanca no.',
   },
   {
@@ -410,6 +423,7 @@ export const COBERTURA: Cobertura[] = [
       'La evidencia: qué se registra, quién, cuándo y dónde',
       'Cómo arrancar con una hipótesis cuando no hay referencia, y calibrar en dos semanas',
     ],
+    accion: 'Grabarlo — y primero',
     tarea: 'Grabarlo entero, y primero. Es el bloqueo número uno medido en tus clientes, y las palabras «umbral» y «semáforo» no aparecen ni una vez en los 61 archivos.',
     ojo:
       'La escala de OKRs tienta, pero corta por porcentaje de avance y es igual para todo. Tu módulo dice que el umbral lo pone el líder del área, con una referencia y distinto según el tipo de palanca. Colgarla sin esa aclaración instala el corte genérico que el módulo viene a evitar.',
@@ -447,6 +461,7 @@ export const COBERTURA: Cobertura[] = [
       'Valores en acción como conductas observables',
       'Cómo contarlo al equipo',
     ],
+    accion: 'Grabarlo entero',
     tarea: 'Grabarlo. Es el módulo mejor surtido de anexos del banco: cuatro piezas para colgar como lectura previa, y ninguna reemplaza una clase.',
   },
   {
@@ -473,6 +488,7 @@ export const COBERTURA: Cobertura[] = [
       'Subir a una o dos personas de confianza',
       'El lanzamiento con narrativa: el tablero no es control, es el juego del propósito',
     ],
+    accion: 'Grabar en pantalla',
     tarea: 'Grabarlo con captura de pantalla sobre un tablero real, no a cámara. Es el único módulo que no se puede grabar hablando.',
   },
   {
@@ -502,6 +518,7 @@ export const COBERTURA: Cobertura[] = [
       'Que el mapa se arma por flujo de trabajo y no por organigrama',
       'Que todo acuerdo sale con responsable, fecha y qué palanca impacta',
     ],
+    accion: 'Solo las 8 reglas',
     tarea: 'Grabar solo las 8 reglas. El resto del módulo se apoya en tu workbook de accountability, que ya trae los guiones.',
   },
   {
@@ -527,6 +544,7 @@ export const COBERTURA: Cobertura[] = [
       'La ruta de consecuencias con los dos carriles y la tabla «si ves esto, haz esto»',
       'Los candados legales antes de operarla',
     ],
+    accion: 'Nada: va en vivo',
     tarea: 'Nada por ahora: este módulo va en vivo. Pero es el mejor cubierto del banco — si algún día se graba, ya tienes escrito el 70 %.',
   },
   {
@@ -563,6 +581,7 @@ export const COBERTURA: Cobertura[] = [
       'La prueba de las dos semanas en real, como examen de graduación',
       'El cierre del programa y el siguiente horizonte',
     ],
+    accion: 'Grabar 2 clases',
     tarea: 'Grabar dos clases: la del indicador personal y la de graduación. El diseño de agenda ya está cubierto.',
   },
 ];

@@ -83,6 +83,23 @@ test('cada módulo dice qué hacer, incluso los que están cubiertos', () => {
   }
 });
 
+// ⚠️ LA GUARDA QUE IMPIDE QUE LA PANTALLA VUELVA A SER UN MURO DE TEXTO.
+// La primera versión de la tab tenía toda la prosa a la vista y hubo que tirarla.
+// `accion` es la única columna que el ojo lee al escanear 13 filas: en cuanto se
+// convierte en una frase, la fila deja de ser escaneable y la pantalla vuelve a
+// ser un documento — sin que nada falle.
+test('la acción de un módulo entra en una línea', () => {
+  for (const c of COBERTURA) {
+    const palabras = c.accion.trim().split(/\s+/).length;
+    assert.ok(c.accion.trim().length > 0, `módulo ${c.modulo}: no declara acción`);
+    assert.ok(
+      c.accion.length <= 24 && palabras <= 4,
+      `módulo ${c.modulo}: «${c.accion}» tiene ${c.accion.length} caracteres y ${palabras} palabras; el tope es 24 y 4`,
+    );
+    assert.ok(!c.accion.includes('.'), `módulo ${c.modulo}: «${c.accion}» es una frase, no una acción`);
+  }
+});
+
 test('un módulo sin material tiene que decir qué falta', () => {
   for (const c of COBERTURA.filter(x => x.nivel === 'nada')) {
     assert.equal(c.piezas.length, 0, `módulo ${c.modulo}: dice «nada» y lista piezas`);
