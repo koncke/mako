@@ -106,7 +106,7 @@ export function Material() {
           <h3>Lo que sí sirve como clase</h3>
           <p className="p">
             Son {PIEZAS_CLASE.length}, y no son las que llevan el nombre de un libro famoso:
-            son las que escribiste vos como procedimiento y no como concepto.
+            son las que escribiste como procedimiento y no como concepto.
           </p>
           <ul className="mat-piezas destaca">
             {PIEZAS_CLASE.map(p => (
@@ -166,7 +166,7 @@ export function Material() {
       {/* Lo que no cuelga de ningún módulo. Va como propuesta y no como sobrante:
           es de lo mejor grabado del banco y hoy no lo encuentra nadie. */}
       <section className="mat-bloque">
-        <h3>Un curso corto que ya tenés y no está en ningún módulo</h3>
+        <h3>Un curso corto que ya tienes y no está en ningún módulo</h3>
         <div className="mat-suelto">
           <p className="tit">«{MATERIAL_SUELTO.titulo}»</p>
           <p className="fmt">

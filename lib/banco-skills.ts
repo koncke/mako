@@ -229,7 +229,7 @@ export const COBERTURA: Cobertura[] = [
       },
     ],
     ojo:
-      'No cuelgues acá el manual de Liderazgo Gerencial ni el de Soft Skills, aunque los dos hablen de «estándares». En los dos, estándar significa la manera acordada de comportarse —«cómo hacemos las cosas aquí», una escalera de 0 a 5 por habilidad—, que es casi lo contrario de tu definición. El cliente se llevaría la definición equivocada justo en la clase que la instala.',
+      'No cuelgues aquí el manual de Liderazgo Gerencial ni el de Soft Skills, aunque los dos hablen de «estándares». En los dos, estándar significa la manera acordada de comportarse —«cómo hacemos las cosas aquí», una escalera de 0 a 5 por habilidad—, que es casi lo contrario de tu definición. El cliente se llevaría la definición equivocada justo en la clase que la instala.',
     falta: [
       'La distinción madre: estándar es el resultado esperado, criterio es qué se espera + cómo lograrlo + qué hacer cuando no se logra',
       'La prueba de las dos semanas',
@@ -268,7 +268,7 @@ export const COBERTURA: Cobertura[] = [
         archivo: 'SKILL_14_Liderazgo Gerencial.pdf',
         formato: { tipo: 'documento', palabras: 12_777 },
         aporta:
-          'La fórmula del pedido efectivo («con el fin de A, te pido B para la fecha C, ¿te podés comprometer?»), las tres únicas respuestas que se aceptan y el catálogo de falsas promesas. Sirve como caso de contraste de la clase, no como la clase.',
+          'La fórmula del pedido efectivo («con el fin de A, te pido B para la fecha C, ¿te puedes comprometer?»), las tres únicas respuestas que se aceptan y el catálogo de falsas promesas. Sirve como caso de contraste de la clase, no como la clase.',
       },
       {
         archivo: 'SKILL_16_Crear Estándares y Pedidos Efectivos.mp4',
@@ -463,7 +463,7 @@ export const COBERTURA: Cobertura[] = [
         archivo: 'SKILL_13_Accountability Total para Líderes.pdf',
         formato: { tipo: 'documento', palabras: 1_980 },
         aporta:
-          'El paso «Día 3: instalá tableros y métricos» con su plantilla y el semáforo de estado. Es tuyo, y es lo más cerca de una clase que hay para este módulo.',
+          'El paso «Día 3: instala tableros y métricos» con su plantilla y el semáforo de estado. Es tuyo, y es lo más cerca de una clase que hay para este módulo.',
       },
     ],
     falta: [
@@ -527,7 +527,7 @@ export const COBERTURA: Cobertura[] = [
       'La ruta de consecuencias con los dos carriles y la tabla «si ves esto, haz esto»',
       'Los candados legales antes de operarla',
     ],
-    tarea: 'Nada por ahora: este módulo va en vivo. Pero es el mejor cubierto del banco — si algún día se graba, ya tenés escrito el 70 %.',
+    tarea: 'Nada por ahora: este módulo va en vivo. Pero es el mejor cubierto del banco — si algún día se graba, ya tienes escrito el 70 %.',
   },
   {
     modulo: 12,
@@ -572,8 +572,8 @@ export const COBERTURA: Cobertura[] = [
  *
  * Son nueve archivos sobre cómo decide un cerebro (Kahneman, Dobelli, Taleb,
  * Kandel), y la pieza de Kandel dice explícitamente que están pensados como una
- * serie: uno muestra cómo pensás, otro cómo te equivocás, otro cómo te castiga
- * el mundo por eso, y el último por qué lo seguís haciendo igual.
+ * serie: uno muestra cómo piensas, otro cómo te equivocas, otro cómo te castiga
+ * el mundo por eso, y el último por qué lo sigues haciendo igual.
  *
  * O sea: no son nueve archivos sueltos, es un curso corto que ya existe y que el
  * programa de 13 módulos no tiene dónde poner. Se declara como propuesta y no
@@ -585,7 +585,7 @@ export const MATERIAL_SUELTO = {
   minutos: 47,
   /** Por qué es una unidad y no un cajón. Es la cita que lo prueba. */
   porQueEsUnaUnidad:
-    'La pieza de Kandel presenta a los cuatro autores como una secuencia armada: uno explica cómo pensás, otro cómo te equivocás, otro cómo te castiga el mundo por eso, y el último por qué seguís haciéndolo aunque lo sepas.',
+    'La pieza de Kandel presenta a los cuatro autores como una secuencia armada: uno explica cómo piensas, otro cómo te equivocas, otro cómo te castiga el mundo por eso, y el último por qué sigues haciéndolo aunque lo sepas.',
   propuesta:
     'Puede ir de dos maneras: como un módulo extra al final del programa, o como material de bonus abierto desde el arranque. Lo que no conviene es dejarlo suelto en el banco: es de lo mejor grabado que hay y hoy no lo encuentra nadie.',
 } as const;
@@ -643,7 +643,7 @@ export const TAREAS: TareaMauricio[] = [
     id: 't3',
     titulo: 'Grabar Umbrales y evidencia',
     porque:
-      'Es el bloqueo número uno medido en tus clientes, y ninguna de las 61 piezas lo toca. Si grabás una sola cosa, es esta.',
+      'Es el bloqueo número uno medido en tus clientes, y ninguna de las 61 piezas lo toca. Si grabas una sola cosa, es esta.',
     listoCuando: 'Están las cuatro clases del módulo, con los ejemplos de verde, amarillo y rojo por tipo de palanca.',
     peso: 'medio',
   },
