@@ -1238,7 +1238,16 @@ async function ciclo() {
 
     // Una sola consulta de la pestaña para las dos decisiones que dependen de ella.
     let enFlowNuevo = false;
-    try { enFlowNuevo = esFlowNuevo((await pestanaDeFlow()).url); } catch { /* sin pestaña */ }
+    try {
+      const tfl = await pestanaDeFlow();
+      enFlowNuevo = esFlowNuevo(tfl.url);
+      // ⚠️ EL PROYECTO SE APRENDE DE LA URL DE LA PESTAÑA. El unico lugar que lo
+      // aprendia era el webRequest del protocolo viejo (`/v1/projects/<id>/`), que
+      // en flow.google.com no existe: un navegador que empezo directo en el Flow
+      // nuevo no sabia nunca su proyecto, y «Empezar» abria la portada.
+      const mp = /\/project\/([0-9a-f-]{36})/i.exec(tfl.url || '');
+      if (mp && mp[1] !== projectId) { projectId = mp[1]; await chrome.storage.local.set({ projectId }); }
+    } catch { /* sin pestaña */ }
 
     // El bearer guardado en el Flow nuevo es un recuerdo del protocolo viejo: no se
     // puede refrescar ahi, asi que mientras siga puesto todo lo que pregunta «¿hay
@@ -1373,6 +1382,20 @@ async function ciclo() {
         try {
           const r = await chrome.tabs.sendMessage(tab.id, { tipo: 'VER_RESPUESTAS' });
           if (r && r.respuestas) respuestasVistas = r.respuestas;
+          // ⚠️ RE-ETIQUETADAS POR OPERACION. El server guarda respuestas por un
+          // allowlist de claves, y una clase de BOQ (`boq:<rpcid>`) no puede estar
+          // en ninguna lista: el rpcid rota. Con el `op` de la plantilla local, la
+          // respuesta de la generacion viaja como `op:generar_clip` y por fin se
+          // guarda — es lo unico que permite MEDIR la forma del payload sin gastar
+          // otro credito.
+          if (respuestasVistas && typeof respuestasVistas === 'object') {
+            const mapaOps = (await chrome.storage.local.get(CLAVE_PLANTILLAS))[CLAVE_PLANTILLAS] || {};
+            for (const [clase, v] of Object.entries(respuestasVistas)) {
+              const op = mapaOps[clase] && mapaOps[clase].op;
+              const texto = typeof v === 'string' ? v : (v && typeof v.texto === 'string' ? v.texto : null);
+              if (op && texto && !respuestasVistas['op:' + op]) respuestasVistas['op:' + op] = texto;
+            }
+          }
           // De donde salen los medios que la pagina esta mostrando.
           if (r && Array.isArray(r.fuentes) && r.fuentes.length) {
             respuestasVistas = { ...(respuestasVistas || {}), '__fuentes': r.fuentes.join('\n') };
@@ -1661,6 +1684,13 @@ async function ciclo() {
     // Lo que se mando quedo guardado del otro lado: se anota la firma para no
     // volver a mandarlo hasta que cambie.
     if (mandarPlantillas) await chrome.storage.local.set({ firmaPlantillas: firma });
+    // ⚠️ SI EL SERVER PIDE, LA FIRMA SE BORRA Y SE REENVIA EN EL PROXIMO LATIDO. La
+    // firma no incluye la url, asi que un respaldo que descarto por url relativa se
+    // quedaba vacio para siempre con este navegador convencido de haberlo mandado.
+    if (out.pedirPlantillas) await chrome.storage.local.remove('firmaPlantillas');
+    // El proyecto que el server ya conoce: es lo que le permite a un navegador NUEVO
+    // abrir el proyecto correcto sin que la persona lo busque en Flow.
+    if (out.projectId && ES_UUID.test(String(out.projectId))) await chrome.storage.local.set({ projectIdServidor: String(out.projectId) });
 
     // Y lo que falta aca lo repone el servidor. Con esto, un F5, un perfil nuevo
     // o reinstalar la extension dejan de costar «genera uno a mano»: lo que este
@@ -1822,6 +1852,24 @@ const URL_MAKO_TAB = `${MAKO}/video-generator`;
 const URL_FLOW = 'https://flow.google.com/';
 
 /**
+ * El proyecto que se conoce: el que vio este navegador, o el que el server ya sabe.
+ *
+ * ⚠️ El segundo es lo que evita que Mauricio tenga que tocar Flow: su Chrome nuevo
+ * no vio ningun proyecto todavia, pero el workspace ya tiene uno.
+ */
+async function proyectoConocido() {
+  const v = await chrome.storage.local.get(['projectId', 'projectIdServidor']);
+  for (const c of [v.projectId, v.projectIdServidor]) if (ES_UUID.test(String(c || ''))) return String(c);
+  return '';
+}
+
+/** A donde se abre Flow: el proyecto si se conoce, la portada si no. */
+async function destinoDeFlow() {
+  const id = await proyectoConocido();
+  return id ? `${URL_FLOW}project/${id}` : URL_FLOW;
+}
+
+/**
  * Conectar: el disparo vive aca, el acunado vive en la pagina.
  *
  * ⚠️ NO se puede acunar el token desde el service worker, y no es por falta de
@@ -1963,7 +2011,7 @@ async function prepararEscenario() {
 
   if (tabFlow && !enProyectoDeFlow(tabFlow.url)) {
     // Hay pestana pero esta en la portada: se la lleva al ultimo proyecto visto.
-    const { projectId: guardado } = await chrome.storage.local.get('projectId');
+    const guardado = await proyectoConocido();
     if (ES_UUID.test(String(guardado || ''))) {
       await chrome.tabs.update(tabFlow.id, { url: `${origenDeFlow(tabFlow)}/project/${guardado}` }).catch(() => {});
       await esperarCarga(tabFlow.id);
@@ -1972,7 +2020,7 @@ async function prepararEscenario() {
       avisoProyecto = true;
     }
   } else if (!tabFlow) {
-    const { projectId: guardado } = await chrome.storage.local.get('projectId');
+    const guardado = await proyectoConocido();
     const destino = ES_UUID.test(String(guardado || ''))
       ? `${URL_FLOW}project/${guardado}`
       : URL_FLOW;
@@ -2099,7 +2147,7 @@ async function abrirFlow() {
     await chrome.windows.update(t.windowId, { focused: true });
     return { ok: true, creada: false };
   } catch {
-    await chrome.tabs.create({ url: URL_FLOW, active: true });
+    await chrome.tabs.create({ url: await destinoDeFlow(), active: true });
     return { ok: true, creada: true };
   }
 }
@@ -2117,7 +2165,7 @@ async function recargarFlow() {
     await chrome.tabs.reload(t.id);
     return { ok: true };
   } catch {
-    await chrome.tabs.create({ url: URL_FLOW, active: true });
+    await chrome.tabs.create({ url: await destinoDeFlow(), active: true });
     return { ok: true, creada: true };
   }
 }
@@ -2502,11 +2550,21 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
             }
             : null;
         }
+        let espejoViejo = false;
         try {
           const tf = await pestanaDeFlow();
           hayFlow = true;
           flowEnProyecto = enProyectoDeFlow(tf.url);
           flowNuevo = esFlowNuevo(tf.url);
+          // ⚠️ EL ESPEJO SOBREVIVE A LA ACTUALIZACION y nadie lo decia. Medido: manifest
+          // 0.64.0 con espejo 0.63.0 en la pestaña, o sea que la url absoluta y la
+          // proteccion del cuerpo con ancla no corrian ahi, con el popup en verde. Un
+          // espejo que no contesta NO cuenta como viejo: puede ser una pestaña dormida.
+          try {
+            const r = await chrome.tabs.sendMessage(tf.id, { tipo: 'VER_VERSION_ESPEJO' });
+            const e = (r && r.version) || '';
+            espejoViejo = !!e && e !== chrome.runtime.getManifest().version;
+          } catch { /* no contesta: no se afirma nada */ }
         } catch { hayFlow = false; }
         responder({
           // Booleanos: el popup no necesita ninguna credencial, y lo que no sale
@@ -2517,6 +2575,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
           hayFlow,
           flowEnProyecto,
           flowNuevo,
+          espejoViejo,
           ops,
           siguiente,
           // ⚠️ EL «N de M» CUENTA LO QUE SE PIDE, no todo lo que el puente necesita.

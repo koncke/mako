@@ -392,6 +392,19 @@ async function pintar() {
   // nadie lea el cartel. La regla de la casa: si la culpa no es del cliente, se
   // nombra a quién fue y no se le pide nada.
   if (v.flowNuevo) {
+    // ⚠️ PRIMERO, LA PESTAÑA AL DIA. El espejo de la página sobrevive a la
+    // actualización de la extensión y sólo muere con una recarga: mientras sea
+    // viejo, lo que aprenda no se guarda como corresponde. Recargar es lo que
+    // hace la extensión, no la persona; el texto dice qué pasa, no cómo funciona.
+    if (v.espejoViejo) {
+      pantalla({
+        titulo: 'Recarga Google Flow',
+        tenue: 'La pestaña de Flow quedó con una versión anterior de MaKo. Al recargarla queda al día; no toques nada mientras se recarga.',
+        boton: 'Recargar',
+        accion: recargarFlow,
+      });
+      return;
+    }
     // ⚠️ MIENTRAS NO APRENDIÓ, LA PANTALLA PIDE LA ÚNICA COSA QUE DESTRABA TODO.
     //
     // Para poder generar con la app nueva hace falta ver UNA generación de

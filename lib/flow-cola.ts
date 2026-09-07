@@ -175,7 +175,11 @@ export async function marcarVisto(ws: number, projectId: string, estado: EstadoP
     // ⚠️ Contrapartida a saber: `ultimo_visto` se sigue escribiendo en cada
     // latido, así que un `estado_detalle` viejo va a PARECER fresco. Se acepta:
     // hoy el dato se perdía entero cada 15 segundos.
-    ...(detalle ? { estado_detalle: detalle.slice(0, 8000) } : {}),
+    // ⚠️ CON `listo` EL DETALLE SE BORRA. `detalle` es el POR QUÉ no puede filmar;
+    // cuando puede, no hay por qué. Sin esto quedaba `listo` con un
+    // `SIN_ANCLA(generar_clip)` de hace una hora al lado —medido— y quien lee la
+    // base no tiene forma de saber cuál de los dos es el vivo.
+    ...(estado === 'listo' ? { estado_detalle: '' } : detalle ? { estado_detalle: detalle.slice(0, 8000) } : {}),
   };
   if (projectId) patch.project_id = projectId;
   // Solo si vino: una extensión vieja no la manda, y pisar con '' borraría el
@@ -369,6 +373,22 @@ export async function marcarMedioGuardado(ws: number, id: number): Promise<void>
  * Existe porque el que responde el endpoint no puede usar el estado que reportó la
  * extensión: ese lo escribe quien no puede saber que Google lo marcó.
  */
+/**
+ * El proyecto de Flow que este workspace ya usó, o `""`.
+ *
+ * ⚠️ ES LO QUE PERMITE QUE UN NAVEGADOR NUEVO ABRA EL PROYECTO SOLO. La extensión
+ * aprendía el `projectId` de las urls del protocolo viejo (`/v1/projects/<id>/`),
+ * que en flow.google.com no existen: un Chrome recién emparejado no lo sabía
+ * nunca, «Empezar» abría la portada, y el popup le pedía a la persona que entrara
+ * a un proyecto a mano. El server lo sabe desde el primer latido de cualquier
+ * navegador del mismo workspace.
+ */
+export async function proyectoGuardado(ws: number): Promise<string> {
+  const db = await runWithWorkspace(ws, () => getTenantDb());
+  const { data } = await db.from('flow_puentes').select('project_id').eq('workspace_id', ws).maybeSingle();
+  return String(data?.project_id ?? '');
+}
+
 export async function estadoGuardado(ws: number): Promise<EstadoPuente | null> {
   const db = await runWithWorkspace(ws, () => getTenantDb());
   const { data } = await db.from('flow_puentes').select('estado').eq('workspace_id', ws).maybeSingle();

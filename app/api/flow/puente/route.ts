@@ -24,12 +24,14 @@ import {
   type PlantillaEspejo,
   proyectoDePlantilla,  seGuardaLaRespuesta,
   KEY_PLANTILLAS_DESCARTES,
+  queSembrar, opsSinRespaldo,
 } from '@/lib/flow-plantillas';
 import { runWithWorkspace, getTenantDb } from '@/lib/workspace';
 import { NextResponse, type NextRequest } from 'next/server';
 import {
   workspaceDeToken, marcarVisto, tomarTrabajos, resolver, fallar, estadoGuardado,
   type EstadoPuente,
+  proyectoGuardado,
 } from '@/lib/flow-cola';
 import {
   LIMITES, clasificarFalla, clasificarFallaDelNavegador, VARIANTES_MEDIA,
@@ -286,7 +288,9 @@ export async function POST(req: NextRequest) {
       // parejos, la lista de fuentes del DOM llegaba cortada en la mitad de la
       // grilla y el dato que se fue a buscar —el <video> del reproductor— no
       // entraba nunca. Se pidio dos veces y las dos llego truncada.
-      const tope = k.startsWith('__') ? 6000 : 1400;
+      // Las de una OPERACIÓN traen el medio entero: con 1400 no entra ni el primer
+      // frame de BOQ, y son justo las que se guardan para medir su forma.
+      const tope = k.startsWith('__') ? 6000 : k.startsWith('op:') ? 12000 : 1400;
       const t = v.slice(0, tope);
       if (total + t.length > 40_000) break;
       total += t.length;
@@ -396,9 +400,13 @@ export async function POST(req: NextRequest) {
       // convertir una falta de informacion en una falta de servicio.
     }
   }
-  const plantillasFaltantes = clasesQueTiene.length
-    ? faltantes(guardadas, clasesQueTiene, opsQueTiene)
-    : [];
+  // Ver `queSembrar`: «no mandó clases» (extensión vieja) y «mandó cero clases»
+  // (navegador nuevo) son dos cosas, y al segundo hay que mandarle TODO.
+  const plantillasFaltantes = queSembrar(guardadas, body.clases, body.ops);
+  // Y si el navegador sabe algo que el respaldo no tiene con ancla, se le pide que
+  // lo vuelva a mandar: su firma no cambia por una url que ahora sí aceptamos.
+  const pedirPlantillas = opsSinRespaldo(guardadas, opsQueTiene).length > 0;
+  const projectIdGuardado = await proyectoGuardado(ws);
 
   // ── 3. Y se lleva lo que sigue ────────────────────────────────────────────
   // `tomarTrabajos` devuelve vacío si la sesión está MARCADA: ahí hay que parar,
@@ -439,6 +447,10 @@ export async function POST(req: NextRequest) {
     // que nunca dice `marcada`, así que esto era siempre false y el puente jamás
     // se enteraba de que había que parar.
     pausado: guardado === 'marcada',
+    // El navegador borra su firma y reenvía en el próximo latido.
+    ...(pedirPlantillas ? { pedirPlantillas: true } : {}),
+    // Para que un navegador nuevo abra el proyecto correcto sin que nadie lo busque.
+    ...(projectIdGuardado ? { projectId: projectIdGuardado } : {}),
     // ⚠️ LA VERSIÓN QUE DEBERÍA ESTAR CORRIENDO.
     //
     // El latido ya decía la suya desde hace días; lo que faltaba era la vuelta.

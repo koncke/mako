@@ -26,7 +26,7 @@
 // una decisión así necesita test.
 
 import { ENDPOINTS } from './flow-protocolo';
-import { OPERACIONES } from './flow-operaciones';
+import { OPERACIONES, A_PEDIR } from './flow-operaciones';
 import { comoViajo } from './flow-boq-patch';
 
 /** Dónde vive, por workspace. */
@@ -354,7 +354,19 @@ export function sanearPlantillas(crudo: unknown, descartes?: string[]): Plantill
     const viejoOk = CLASES_UTILES.includes(clase);
     const boqOk = FORMA_BOQ.test(clase) && OPS_UTILES.has(op);
     if (!viejoOk && !boqOk) { tirar('sin_rol', clase); continue; }
-    const url = String(p.url || '');
+    let url = String(p.url || '');
+    // ⚠️ BOQ ABRE SUS XHR CON LA RUTA RELATIVA, y un espejo VIEJO la manda tal cual.
+    //
+    // Medido en producción (`flow.plantillas_descartes`): `origen(boq:YhhmEf)
+    // /_/AiSandboxAngularFrontend/data/batchexecute?…`. El navegador la repite
+    // contra su propio origen sin problema; acá `new URL` tira y la plantilla de
+    // generación —la única que cuesta un crédito— no llegaba nunca al respaldo.
+    //
+    // Una ruta que empieza en `/_/` no tiene origen propio: es, por construcción,
+    // del mismo origen que la página que la mandó, que para BOQ es flow.google.com.
+    // Resolverla acá es lo que hace que el respaldo sobreviva a los espejos viejos
+    // que siguen corriendo en pestañas abiertas desde antes de la actualización.
+    if (boqOk && url.startsWith('/_/')) url = 'https://flow.google.com' + url;
     // Sin url no hay nada que copiar, y el origen tiene que ser el de Flow: una
     // plantilla apuntando a otro lado sería un pedido nuestro a un tercero.
     // Ver `esOrigenDeFlow`: se compara `origin`, nunca un prefijo.
@@ -542,6 +554,35 @@ export function faltantes(
 }
 
 /**
+ * Qué se le manda al navegador para sembrar.
+ *
+ * ⚠️ «NO LO MANDÓ» Y «MANDÓ VACÍO» SON DOS COSAS, Y SE CONFUNDÍAN. El route hacía
+ * `clasesQueTiene.length ? faltantes(…) : []`, pensado para una extensión VIEJA que
+ * no manda `clases`. Pero un navegador NUEVO —recién instalado, sin nada aprendido—
+ * manda `clases: []`, que también tiene `.length === 0`: recibía NADA, y la persona
+ * tenía que ir a Flow a generar a mano lo que el respaldo ya tenía. Era exactamente
+ * el caso para el que existe el respaldo.
+ */
+export function queSembrar(guardadas: PlantillaEspejo[], clases: unknown, ops: unknown): PlantillaEspejo[] {
+  if (!Array.isArray(clases)) return [];
+  return faltantes(guardadas, clases.map(String), Array.isArray(ops) ? ops.map(String) : []);
+}
+
+/**
+ * Las operaciones que el navegador SABE y el respaldo NO tiene con ancla.
+ *
+ * Si hay alguna, el server le pide al navegador que vuelva a mandar sus plantillas
+ * (`pedirPlantillas`). Sin esto el navegador sólo manda cuando cambia su firma,
+ * que no incluye la url: un respaldo que descartó por una url relativa se quedaba
+ * vacío para siempre, con el navegador convencido de que ya lo había mandado.
+ */
+export function opsSinRespaldo(guardadas: PlantillaEspejo[], opsQueTiene: readonly string[]): string[] {
+  const conAncla = new Set(guardadas.filter((p) => tieneAncla(p)).map((p) => String(p.op)));
+  const tiene = new Set(opsQueTiene.map(String));
+  return A_PEDIR.map((o) => o.op).filter((op) => tiene.has(op) && !conAncla.has(op));
+}
+
+/**
  * Qué respuestas de Flow se guardan. Allowlist POSITIVO.
  *
  * ⚠️ SE GUARDABA TODO LO QUE MANDARA EL NAVEGADOR. Medido en producción el
@@ -565,6 +606,15 @@ export function faltantes(
 const CLAVES_RESPUESTA = new Set<string>([
   ...CLASES_UTILES,
   '__fuentes', '__sonda', '__sondaSW', '__redirect',
+  // ⚠️ LAS DE BOQ VAN POR OPERACIÓN, no por clase: la clase es `boq:<rpcid>` y el
+  // rpcid rota con cada bundle de Google, así que un allowlist de clases no puede
+  // nombrarlas. El navegador re-etiqueta la respuesta con el `op` de su plantilla
+  // (`op:generar_clip`), y ESO es lo que se guarda.
+  //
+  // Es la única forma de MEDIR la respuesta de una generación sin gastar otro
+  // crédito: hasta hoy `flow.respuestas` no tenía ni una de BOQ, y la forma del
+  // payload —el último eslabón para que el video se vea— seguía sin medirse.
+  ...OPERACIONES.filter((o) => o.como !== 'ninguna').map((o) => 'op:' + o.op),
 ]);
 
 /** ¿Esta clave de respuesta se guarda? Es el allowlist, en una función. */

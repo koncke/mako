@@ -69,14 +69,16 @@ test('con las dos sin ancla, sigue ganando la más nueva', () => {
   assert.equal(fundirPlantillas([a], [b])[0].url, `${BOQ}&v=b`);
 });
 
-test('una url RELATIVA se descarta, y queda escrito POR QUÉ', () => {
-  // Es como BOQ abre sus XHR. Al navegador le sirve igual; al respaldo no le llegaba
-  // nunca, y nada lo decía.
+test('una url relativa que NO es la de BOQ se descarta, y queda escrito POR QUÉ', () => {
+  // ⚠️ La forma `/_/…` —que es como BOQ abre sus XHR— ya NO se descarta: se resuelve
+  // contra flow.google.com (ver `tests/puente-mauricio-sin-flow.test.ts`). Medido en
+  // producción que era la causa de un respaldo sin una sola plantilla de BOQ.
+  // Cualquier OTRA relativa sigue sin origen que se le pueda atribuir, y se registra.
   const descartes: string[] = [];
-  const out = sanearPlantillas([plantilla({ url: '/_/AiSandboxAngularFrontend/data/batchexecute?rpcids=YhhmEf' })], descartes);
+  const out = sanearPlantillas([plantilla({ url: 'batchexecute?rpcids=YhhmEf' })], descartes);
   assert.equal(out.length, 0);
   assert.equal(descartes.length, 1);
-  assert.match(descartes[0], /^origen\(boq:YhhmEf\) \/_\/AiSandbox/);
+  assert.match(descartes[0], /^origen\(boq:YhhmEf\) batchexecute/);
 });
 
 test('cada motivo de descarte se nombra distinto', () => {

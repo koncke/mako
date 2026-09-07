@@ -6579,3 +6579,87 @@ restaurado en verde. Un test viejo (`extension-sentinela-encoding`) asertaba el
 **nombre de una constante** en el cuerpo del detector y rompió con el cambio a
 `ANCLAS` sin que nada estuviera mal: se cambió a fijar el invariante
 (`cuerpo.includes(token)`), no la forma.
+
+## Que Mauricio filme desde su PC sin tocar Flow: lo que lo impedía (06/09/2026, madrugada)
+
+**Vive en:** `lib/flow-plantillas.ts` (`sanearPlantillas`, `queSembrar`, `opsSinRespaldo`,
+`CLAVES_RESPUESTA`) · `lib/flow-cola.ts` (`marcarVisto`, `proyectoGuardado`) ·
+`app/api/flow/puente/route.ts` · `extension/background.js` (latido, ESTADO,
+`proyectoConocido`/`destinoDeFlow`) · `extension/popup.js`
+
+Martín generó el cubo con la 0.64.0 y el popup pasó a «MaKo ya puede hacer tus
+anuncios». Después: *«ahora lo hará Mauricio desde su PC, y no quiero que tenga que
+hacer nada en flow»*. Lo que había que medir era si el aprendizaje llegaba al
+respaldo del server —que es lo único que un Chrome nuevo puede recibir— y qué más
+hacía falta para que ese Chrome arrancara solo.
+
+### La hipótesis de la url relativa quedó CONFIRMADA por el registro
+
+`flow.plantillas_descartes`, primer latido con plantillas tras el deploy:
+
+    llegaron: 68 · quedaron: 5
+    origen(boq:YhhmEf) /_/AiSandboxAngularFrontend/data/batchexecute?rpcids=YhhmEf&source-path=%2Fproject%2F99733…
+    origen(boq:WuwhI)  /_/AiSandbox…   origen(boq:jwpduf) /_/AiSandbox…
+
+BOQ abre sus XHR con la ruta relativa, `esOrigenDeFlow` hace `new URL(url)` y tira.
+**Las cinco que quedaban eran las cinco del protocolo viejo.** Sin el registro esto
+seguía siendo una hipótesis; con él es un hecho con la url adelante.
+
+**Y la cura del espejo (absolutizar) no alcanzaba sola:** el espejo es MAIN world,
+sobrevive a la actualización de la extensión y la guarda de idempotencia respeta al
+viejo. Medido: `manifest: 0.64.0, espejo: 0.63.0` en la pestaña de Martín, o sea que
+las plantillas siguen llegando relativas desde toda pestaña abierta antes de
+actualizar. **El server las resuelve** (`/_/…` → `https://flow.google.com/_/…`, sólo
+para clases de BOQ): una ruta que empieza en `/_/` no tiene origen propio, es del
+mismo origen que la página que la mandó por construcción.
+
+### Cinco cosas que impedían el «sin tocar Flow», y ninguna era la que parecía
+
+1. **Un navegador nuevo no recibía NADA del respaldo.** `plantillasFaltantes =
+   clasesQueTiene.length ? faltantes(…) : []` — pensado para la extensión vieja que
+   no manda `clases`. Un Chrome recién instalado manda `clases: []`, y
+   `[].length === 0` se lee igual. «No lo mandó» y «mandó vacío» son dos cosas:
+   `queSembrar` las distingue con `Array.isArray`. **Era exactamente el caso para
+   el que existe el respaldo, y era el único que no cubría.**
+2. **El `projectId` sólo se aprendía del protocolo viejo** (`/v1/projects/<id>/` en
+   el webRequest). En flow.google.com eso no existe: un Chrome que empieza ahí no
+   sabía su proyecto nunca, «Empezar» abría la portada y el popup pedía «entra a un
+   proyecto». Ahora se aprende de la url de la pestaña, el server lo devuelve
+   (`flow_puentes.project_id`, que ya tenía) y los tres caminos que abren Flow van
+   al proyecto (`destinoDeFlow`).
+3. **El navegador que sí sabía no reenviaba.** Manda plantillas sólo cuando cambia
+   su firma (`clase:len:metodo`), que no incluye la url: un respaldo que descartó por
+   url relativa se quedaba vacío para siempre con el navegador convencido de haberlo
+   mandado. El server ahora pide (`pedirPlantillas`) cuando el navegador reporta una
+   operación que el respaldo no tiene **con ancla**, y el worker borra su firma.
+4. **Nadie decía que el espejo estaba viejo.** El diagnóstico lo reportaba al server
+   y ahí moría. El ESTADO ahora lo expone y el popup ofrece «Recargar» ANTES de la
+   pantalla de «ya puede». Un espejo que no contesta NO cuenta como viejo (puede ser
+   una pestaña dormida): sólo `espejo && espejo !== manifest`.
+5. **Ninguna respuesta de BOQ se persistía.** `CLAVES_RESPUESTA` es un allowlist por
+   clase y la clase de BOQ es `boq:<rpcid>`, que rota: no puede estar en ninguna
+   lista. `flow.respuestas` sólo tenía `__fuentes/__sonda/__sondaSW/__redirect`. El
+   worker re-etiqueta por la operación de su plantilla (`op:generar_clip`) y eso sí
+   se guarda, con tope propio (12000: el medio entero no entra en 1400).
+
+   ⚠️ **Es lo que permite medir la forma del payload sin gastar otro crédito:** la
+   respuesta del cubo sigue en la memoria del espejo viejo de la pestaña de Martín
+   hasta que la recargue. El worker nuevo la pide en su primer latido y la persiste;
+   recién después conviene el F5. El orden importa.
+
+### Y un `listo` con un `SIN_ANCLA` viejo al lado
+
+`marcarVisto` no pisaba `estado_detalle` con vacío (correcto cuando el detalle era el
+espía), así que con `listo` quedaba el motivo de hace una hora. Con `listo` ahora se
+borra: el detalle es el POR QUÉ no puede filmar, y cuando puede no hay por qué.
+
+### Lo que queda sin medir, y cómo se destraba
+
+- La **forma del payload de generación** (para que `mediaDeFlow` lea un array
+  posicional): se lee de `flow.respuestas['op:generar_clip']` después del primer
+  latido de la 0.65.0 en la pestaña de Martín, **antes** del F5.
+- Que Mauricio arranque de verdad sin tocar Flow: sembrado + proyecto + ensayo
+  están cableados y probados por estructura; la primera corrida real en su Chrome
+  es la medición.
+
+Nueve guardas nuevas, las nueve probadas rompiéndolas.
