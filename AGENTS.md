@@ -3067,3 +3067,50 @@ reportado **tres veces** —`subir_imagen` no tiene frase, cae por el `else`, y 
 Lo cazó el test que fija la condición (`tests/extension-boton-donde-estas.test.ts`).
 **Ése es el permiso para tocar el copy:** si la condición está fijada por un test, se
 puede reescribir todo el texto sin miedo; si no lo está, fijala antes de reescribir.
+
+# En lo que gasta plata ajena, el default es NO reintentar
+
+Un reintento después de que el pedido salió le cobra dos veces al cliente. El crédito
+se gasta **cuando el pedido viaja**: que la respuesta no vuelva no lo devuelve.
+
+El puente a Flow tenía `reintentable: !r.salio`, o sea que un `salio` **ausente** se
+leía como «no salió». Y ausente es exactamente lo que mandaban los dos caminos donde
+sí había salido: el timeout de 120 s (`{ error: 'BOQ_TIMEOUT' }` pelado) y el `catch`
+de afuera del espejo, que no veía `salio` **por scope** —estaba declarado adentro del
+`try`— cuando fallaba `await res.text()` con Google ya cobrando. Cinco intentos =
+cinco créditos por un video.
+
+- **Se reintenta sólo con una afirmación explícita** de que el pedido nunca viajó
+  (`salio === false`), nunca con la truthiness de un campo que puede faltar. Lo peor
+  de este default es que alguien tenga que apretar de nuevo; lo peor del otro es
+  cobrarle.
+- **Un dato que decide plata no puede depender del scope de un bloque.** El comentario
+  decía «se pone JUSTO antes del await» y lo hacía; lo que no se vio es que el `catch`
+  de afuera no podía nombrarlo.
+- Y los caminos que **provablemente** no mandaron nada declaran `salio: false`
+  explícito, o el default los deja trabados.
+
+# «El mismo predicado que la ejecución» no vale si son DOS COPIAS del predicado
+
+Un chequeo previo sólo es confiable si es **la misma función** que corre después, no
+una reescritura con las mismas reglas. Dos copias divergen en cuanto una crece.
+
+Medido: el ensayo que decide si el puente puede filmar y el replay que manda el
+pedido hacían cada uno su propio `find(p => p.op === op)` — la primera plantilla por
+orden de inserción. Un navegador que aprendió en labs.google y migró a
+flow.google.com tiene DOS para la misma operación, y la vieja pasa todos los chequeos
+menos el último (no tiene dónde poner el `at`). Verde, y el pedido moría cinco veces
+con la plantilla buena a una clave de distancia. La elección se mudó a una función
+que llaman los dos, y ahí apareció el chequeo que le faltaba a las dos.
+
+# Dos pantallas que se contradicen no son un problema de copy
+
+Cuando dos superficies describen el mismo hecho y dicen lo contrario, el bug no es el
+texto: es que hay **dos definiciones**. Contalas antes de tocar una palabra.
+
+En el puente a Flow había **nueve** —una por superficie, cada una armada con los
+insumos que tenía a mano— y ninguna era alcanzable en el Flow nuevo. El síntoma que
+se veía era un cartel contradictorio; lo que había debajo era el botón de crear, la
+cola de la extensión, el reparto del server y el guard de filmar, los cuatro
+cerrados. Y la cura no fue un campo más: con nueve definiciones, la décima es el
+problema. Cambió lo que **significa** la que ya existía.

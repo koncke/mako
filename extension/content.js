@@ -39,7 +39,11 @@ function pedirALaPagina(evPido, evOk, detalle, ms, errorTimeout, responder) {
     if (cerrado) return;
     cerrado = true;
     window.removeEventListener(evOk, alRecibir);
-    responder({ error: errorTimeout });
+    // ⚠️ EL PAYLOAD DEL TIMEOUT PUEDE SER UN OBJETO, y para BOQ tiene que serlo.
+    // Un timeout de generacion NO significa «no paso nada»: el fetch ya viajo, asi
+    // que el credito puede estar gastado. Mandar solo `{error}` dejaba a quien
+    // decide sin el unico dato que evita cobrar dos veces.
+    responder(typeof errorTimeout === 'string' ? { error: errorTimeout } : { ...errorTimeout });
   }, ms);
 
   window.addEventListener(evOk, alRecibir);
@@ -112,7 +116,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, responder) => {
   // ahorra nada y pierde la respuesta.
   if (msg?.tipo === 'BOQ_PEDIDO') {
     pedirALaPagina('MAKO_BOQ_PIDO', 'MAKO_BOQ_OK',
-      { url: msg.url, cuerpo: msg.cuerpo }, 120000, 'BOQ_TIMEOUT',
+      { url: msg.url, cuerpo: msg.cuerpo }, 120000, { error: 'BOQ_TIMEOUT', salio: true },
       (d) => responder(d));
     return true;
   }

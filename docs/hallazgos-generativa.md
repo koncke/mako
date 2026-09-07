@@ -6331,3 +6331,153 @@ Sigue abierto de antes: el `rpcid` de `subir_imagen` no está medido (la operaci
 estructuralmente no detectable, por eso el catálogo tiene `detectable`), y no se sabe
 si el cuerpo de generación de BOQ lleva un token de reCAPTCHA — aparece en la primera
 corrida real.
+
+## Nueve definiciones de «el puente puede filmar», y ninguna alcanzable (06/09/2026)
+
+**Vive en:** `lib/flow-puede-filmar.ts` · `extension/puede-filmar.js` ·
+`extension/background.js` (el latido, el handler ESTADO, `repetirEnBoq`,
+`pestanaDeFlow`) · `extension/injected.js` · `extension/content.js` ·
+`app/api/flow/puente/route.ts` · `app/video-generator/video-action.ts` ·
+`scripts/sync-puede-filmar.mjs`
+
+El dueño mandó dos capturas del **mismo segundo**: el popup de la extensión decía
+«MaKo ya puede hacer tus anuncios / Todo listo» y el aviso de al lado, dentro de
+MaKo, decía «MaKo todavía no puede filmar tus anuncios».
+
+### El diagnóstico obvio era el equivocado: no era un cartel, era el producto cerrado
+
+La lectura fácil es «hay un texto desalineado». Lo que había abajo:
+
+`estado === 'listo'` significaba **«hay un bearer guardado»**. En flow.google.com
+Google no emite ninguno —la app habla sólo por BOQ, con cookies— y el propio latido
+lo **borra a propósito** al ver el dominio nuevo, dos líneas antes de preguntar por
+él. La condición se negaba a sí misma: `listo` era inalcanzable **por construcción**,
+para siempre, para todos.
+
+Y de ese booleano cuelgan **cuatro compuertas duras**, las cuatro verificadas
+abriendo el archivo:
+
+| dónde | qué corta |
+|---|---|
+| `app/video-generator/VideoGeneratorApp.tsx:1565` | `disabled={!puedeCrear \|\| !puenteAnda}` |
+| `extension/background.js` (la cola) | `if (out.pausado \|\| estado !== 'listo') return;` |
+| `app/api/flow/puente/route.ts` (el reparto) | `estado === 'sin_sesion' ? [] : tomarTrabajos()` |
+| `app/video-generator/video-action.ts` | el guard server-side de filmar |
+
+O sea: **nadie podía hacer un video, por cuatro caminos independientes**, y el
+síntoma que se veía era un cartel contradictorio. Un barrido de 33 agentes contó
+**nueve** definiciones distintas del mismo juicio, cada una armada con los insumos
+que su superficie tenía a mano.
+
+**Regla que queda:** cuando dos pantallas describen el mismo hecho y se contradicen,
+el bug no es el texto — es que hay dos definiciones. Contalas antes de tocar el copy.
+
+### La cura no es un campo más
+
+Con nueve definiciones, la décima es el problema. Lo que cambia es **qué significa
+`listo`**: de «tengo una credencial del protocolo muerto» a «si me dieran un anuncio
+ahora mismo, el pedido saldría», medido con un **ensayo en seco** — el camino de
+`repetirEnBoq` recorrido hasta un paso antes de mandar. No toca la red y no gasta un
+crédito. Un verde no puede mentir porque es literalmente el mismo predicado que la
+ejecución exige.
+
+Eso además arregló las cuatro compuertas de una, sin migración y sin campo nuevo.
+
+⚠️ **Deuda de nombre declarada:** el enum sigue siendo
+`['sin_conectar','listo','sin_sesion','marcada']`, así que «no puede filmar todavía»
+viaja como `sin_sesion`, que ya no describe nada. Cambiarlo es una migración con
+CHECK y un deploy coordinado; se dejó, y se arreglaron los dos mensajes que mentían
+por su culpa.
+
+### Los tres modos en que una plantilla guardada MIENTE
+
+El ensayo los cierra, y los tres estaban vivos:
+
+1. **Sin `cuerpo`** — el popup la contaba como aprendida; el replay la rechaza.
+2. **Sin `url`** — `repetirEnBoq` la exige y ningún gate la miraba.
+3. **Con el cuerpo PISADO** — el guardado conserva el `op` y reemplaza el `cuerpo`.
+   Si la persona generó otra cosa después de enseñarnos, la plantilla queda
+   registrada, completa, y sin el ancla. Indistinguible de una sana si sólo se mira
+   que exista.
+
+### Y el cuarto, que sólo apareció revisando: DOS plantillas para el mismo `op`
+
+Las plantillas se guardan por **clase**, así que un navegador que aprendió en
+labs.google y después migró tiene dos entradas para `generar_clip`: la REST vieja y
+la de BOQ. El ensayo y la ejecución hacían **cada uno su propio**
+`find(p => p.op === op)`, que devuelve la primera por orden de inserción.
+
+La REST tiene `cuerpo`, tiene `url`, y su JSON lleva la frase en texto plano —o sea
+que `comoViajo` la encuentra con la codificación `crudo`—: pasaba los tres chequeos.
+Lo único que no tiene es **dónde poner el `at`**, que es el último control del
+espejo. Verde, cuatro compuertas abiertas, y el pedido muriendo cinco veces con la
+plantilla buena a una clave de distancia.
+
+**Regla:** «el mismo predicado que la ejecución» no alcanza si son **dos copias** del
+predicado. La elección de la plantilla se mudó a `elegirPlantilla()`, que llaman los
+dos — y ahí se le agregó el chequeo del `at`, que faltaba en los dos.
+
+### Y el elector de pestaña no desempataba
+
+`pestanaDeFlow()` consulta con `PATRONES_FLOW`, que cubre **los dos dominios**, y
+elegía `find(status === 'complete') || sanas[0]`: sin preferencia de dominio, sin
+preferencia por la activa. Con una pestaña de cada uno gana la que quede primera por
+orden de ventana — y eso **cambia entre latidos**, porque una pestaña recargando deja
+de ser `complete`.
+
+De esa elección colgaba qué protocolo se juzga. Un navegador ya migrado con una
+pestaña vieja de labs.google abierta caía al camino REST, **no se le borraba el
+bearer fósil**, y reportaba `listo` sin preguntar ni una vez si podía filmar: el
+«listo = hay un bearer» de vuelta, por la puerta de atrás. Ahora gana
+flow.google.com, que es donde vive Flow.
+
+### LA PLATA: tres caminos que cobraban el mismo video dos veces
+
+El crédito se gasta **cuando el pedido viaja**. Lo que pase después no lo devuelve.
+El default era `reintentable: !r.salio` — o sea que un `salio` **ausente** se leía
+como «no salió». Y ausente es justo lo que mandaban los dos caminos donde sí había
+salido:
+
+- **El timeout de 120 s.** `content.js` contestaba `{ error: 'BOQ_TIMEOUT' }` pelado.
+  El fetch ya había viajado.
+- **El `catch` de afuera del espejo**, que no veía `salio` **por scope**: estaba
+  declarado adentro del `try`. El caso concreto es `await res.text()` fallando con la
+  conexión cortada a mitad del cuerpo — Google ya aceptó y ya cobró.
+
+Cinco intentos = **cinco créditos por un video**, y el cliente con cinco clips
+iguales en su Flow.
+
+**Regla que queda: en cualquier cosa que gaste plata ajena, el default es NO
+reintentar.** Se reintenta sólo con una afirmación explícita de que el pedido nunca
+viajó (`salio === false`). Lo peor de este default es que alguien tenga que apretar
+de nuevo; lo peor del otro era cobrarle.
+
+⚠️ Y el corolario que costó encontrarlo: **un dato que decide plata no puede depender
+del scope de un bloque.** El comentario de `injected.js` decía exactamente lo que
+había que hacer —«se pone JUSTO antes del await»— y lo hacía; lo que no se vio es que
+el `catch` de afuera no podía nombrarlo.
+
+### La corrida de refutación murió y eso NO es «no hay hallazgos»
+
+La revisión adversaria del cambio corrió con 38 agentes y **36 murieron por límite de
+sesión**. Sobrevivieron dos revisores y **cero refutadores**, así que el
+`refutantes: 0` de cada hallazgo significaba «nadie lo miró», no «sobrevivió». Los
+cuatro se verificaron a mano leyendo el código, y los cuatro eran reales.
+
+**Regla:** en una corrida multi-agente, un contador de refutaciones en cero se lee
+igual venga de «lo refutaron y no pudieron» o de «los refutadores no corrieron». Hay
+que mirar `agents_error` antes de leer los resultados.
+
+### Once guardas, las once probadas rompiéndolas
+
+Los 11 tests estructurales de este cambio se verificaron inyectando la regresión
+concreta, una por vez: base en verde, cada rotura en rojo, restaurado en verde.
+**Dos de ellos estaban mal escritos y sólo lo dijo la rotura**:
+
+- el que caza `siguiente = null` en un `catch` usaba `[^}]*`, que se frena en la
+  primera llave — la de `ops = {}`, justo antes de lo que buscaba;
+- el que exige el ensayo en el latido buscaba `puedeFilmar(` en **todo el archivo**,
+  y como el handler ESTADO también lo llama, sacarlo del latido dejaba el test verde.
+
+Es el mismo aprendizaje de la corrida anterior, con dos casos nuevos: sin la rotura,
+un test es una afirmación.

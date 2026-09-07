@@ -50,7 +50,7 @@
   //
   // NO se recarga la pestana automaticamente al detectarlo: un reload mata las
   // generaciones en vuelo y tira el `at` vivo. Se REPORTA, y la persona decide.
-  const VERSION_ESPEJO = '0.62.0';
+  const VERSION_ESPEJO = '0.63.0';
   if (window.__makoEspejo) return;
   window.__makoEspejo = VERSION_ESPEJO;
 
@@ -950,6 +950,15 @@
    */
   window.addEventListener('MAKO_BOQ_PIDO', async (ev) => {
     const { id, url, cuerpo } = ev.detail || {};
+    // ⚠️ `salio` SE DECLARA ACA, AFUERA DEL TRY, Y ESO ES LO QUE LO SALVA.
+    //
+    // Vivia adentro del `try`, asi que el `catch` de abajo —el que atrapa todo lo
+    // que no sea el fetch— no lo veia: por scope, no por olvido. El caso concreto
+    // es `await res.text()` fallando con la conexion cortada a mitad del cuerpo:
+    // Google YA acepto el pedido y ya cobro el credito, y la respuesta salia como
+    // `EXCEPCION` sin `salio` — o sea, indistinguible de un pedido que nunca sucedio.
+    // El worker lo reintentaba y el cliente pagaba el mismo video otra vez.
+    let salio = false;
     try {
       if (typeof url !== 'string' || typeof cuerpo !== 'string' || !url || !cuerpo) {
         return responder('MAKO_BOQ_OK', id, { error: 'PEDIDO_INCOMPLETO' });
@@ -970,7 +979,6 @@
       // ⚠️ `salio` es el dato que decide si se puede reintentar. Se pone JUSTO antes
       // del await: todo lo que falle despues de esto ya gasto el credito, y un
       // reintento ahi es cobrarle dos veces al cliente por un video.
-      let salio = false;
       let res;
       try {
         salio = true;
@@ -995,7 +1003,7 @@
         texto: String(texto || '').slice(0, 20000),
       });
     } catch (e) {
-      return responder('MAKO_BOQ_OK', id, { error: 'EXCEPCION', detalle: String(e && e.message || e) });
+      return responder('MAKO_BOQ_OK', id, { error: 'EXCEPCION', salio, detalle: String(e && e.message || e) });
     }
   });
 

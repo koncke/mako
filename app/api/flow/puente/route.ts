@@ -136,7 +136,14 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 2. El puente reporta que está vivo ────────────────────────────────────
-  const estado = ESTADOS.includes(str(body.estado) as EstadoPuente) ? (str(body.estado) as EstadoPuente) : 'listo';
+  // ⚠️ EL DEFAULT NO PUEDE SER `listo`. Un latido sin `estado` —una extension vieja,
+  // un cuerpo recortado, un campo renombrado— se guardaba como LISTO, o sea que la
+  // ausencia de informacion se leia como la mejor noticia posible. De ese booleano
+  // cuelgan el boton de crear, el reparto de trabajos y el guard de filmar.
+  //
+  // `sin_sesion` es el default honesto: «no me consta». Lo unico que cuesta es un
+  // ciclo de 15 s hasta el proximo latido bien formado.
+  const estado = ESTADOS.includes(str(body.estado) as EstadoPuente) ? (str(body.estado) as EstadoPuente) : 'sin_sesion';
   // ⚠️ UN VOLCADO DE MAQUINA NO ES UN MENSAJE, Y ESTA COLUMNA SE MUESTRA.
   //
   // `estado_detalle` lo pinta la app en la pantalla del cliente. Un JSON ahi no se

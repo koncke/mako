@@ -494,7 +494,11 @@ export async function generarTomaAction(
   if (puente.estado === 'sin_sesion') {
     return {
       ok: false,
-      error: 'Tu sesión de Google Flow venció. Abre Flow, inicia sesión, y vuelve a intentar.',
+      // ⚠️ NO DICE «TU SESION VENCIO». En flow.google.com no hay sesion que vencer —
+      // no existe el bearer— y `sin_sesion` hoy significa «el puente no puede filmar
+      // todavia», que puede ser una plantilla incompleta o una pestaña dormida. Decir
+      // «inicia sesion» manda a repetir lo unico que ya estaba hecho.
+      error: 'MaKo todavía no puede filmar. Abre la extensión de MaKo, arriba a la derecha, y ahí te dice qué falta.',
     };
   }
 

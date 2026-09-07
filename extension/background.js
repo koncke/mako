@@ -291,7 +291,23 @@ async function pestanaDeFlow() {
   // Así que primero se pregunta por TODAS y recién después se decide.
   const todas = await chrome.tabs.query({ url: PATRONES_FLOW });
   const sanas = todas.filter((t) => !t.discarded);
-  const tab = sanas.find((t) => t.status === "complete") || sanas[0];
+  // ⚠️ EL DOMINIO DESEMPATA, Y ANTES NO DESEMPATABA NADA.
+  //
+  // `PATRONES_FLOW` cubre los DOS dominios, asi que con una pestaña de cada uno
+  // ganaba la que quedara primera por orden de ventana — y eso cambia entre latidos,
+  // porque una pestaña recargando deja de ser `complete`.
+  //
+  // De esa eleccion cuelga QUE PROTOCOLO se juzga. Con una pestaña vieja de
+  // labs.google abierta, un navegador ya migrado caia al camino REST, no se le
+  // borraba el bearer fosil, y reportaba `listo` sin preguntar ni una vez si podia
+  // filmar: exactamente el «listo = hay un bearer» que se acaba de sacar.
+  //
+  // Gana flow.google.com porque ES Flow: labs.google/fx/tools/flow dejo de ser la
+  // app y hoy es una landing (medido el 04/09). Y ademas el ensayo y el envio pasan
+  // a mirar la MISMA pestaña, que era otra forma de opinar distinto.
+  const nuevas = sanas.filter((t) => esFlowNuevo(t.url));
+  const cola = nuevas.length ? nuevas : sanas;
+  const tab = cola.find((t) => t.status === "complete") || cola[0];
   if (tab) return tab;
 
   // Hay pestaña, pero Chrome la durmió. Se la despierta —`reload` es lo que
@@ -397,6 +413,7 @@ async function soltarGuardia() {
 import { OPERACIONES, A_ENSENAR, A_PEDIR, SIN_DETECTAR, operacionDelCuerpo, operacionDeLaClase } from './operaciones.js';
 import { reemplazarEnCuerpo } from './boq-patch.js';
 import { leerRespuestaBoq } from './boq-respuesta.js';
+import { puedeFilmar, ensayarOperacion, elegirPlantilla } from './puede-filmar.js';
 /**
  * Repite un pedido de generacion contra el Flow nuevo, con OTRO prompt.
  *
@@ -414,26 +431,37 @@ import { leerRespuestaBoq } from './boq-respuesta.js';
  * cubo violeta girando sobre arena en vez de su anuncio.
  */
 async function repetirEnBoq(op, prompt) {
-  const guardadas = (await chrome.storage.local.get(CLAVE_PLANTILLAS))[CLAVE_PLANTILLAS] || {};
-  const par = Object.entries(guardadas).find(([, p]) => p && p.op === op);
-  if (!par) return { error: 'SIN_PLANTILLA', op };
-  const pl = par[1];
-  if (!pl.cuerpo || !pl.url) return { error: 'PLANTILLA_INCOMPLETA', op, clase: par[0] };
-
   const cat = OPERACIONES.find((o) => o.op === op);
-  if (!cat || !cat.frase) return { error: 'OPERACION_SIN_ANCLA', op };
+  if (!cat || !cat.frase) return { error: 'OPERACION_SIN_ANCLA', op, salio: false };
+
+  // ⚠️ LA ELIGE `elegirPlantilla`, LA MISMA QUE USA EL ENSAYO EN SECO.
+  //
+  // Aca habia un `find(p.op === op)` y en el ensayo habia OTRO igual: dos lugares
+  // eligiendo por separado con la misma regla mala —la primera por orden de
+  // insercion—. Un navegador que aprendio en labs.google y despues migro tiene DOS
+  // plantillas para `generar_clip`, y la vieja REST pasa todos los chequeos menos el
+  // ultimo: no tiene donde poner el `at`. El ensayo daba verde, se abrian las cuatro
+  // compuertas, y el pedido moria cinco veces con la plantilla buena a una clave de
+  // distancia.
+  const guardadas = (await chrome.storage.local.get(CLAVE_PLANTILLAS))[CLAVE_PLANTILLAS] || {};
+  const elegida = elegirPlantilla(guardadas, cat);
+  // ⚠️ `salio: false` EXPLICITO. Todo lo que devuelve antes del envio SI puede
+  // reintentarse sin cobrar de nuevo, y hay que decirlo: el default de abajo es no
+  // reintentar, porque lo que no consta es que el credito NO se haya gastado.
+  if (!elegida.clase) return { error: elegida.porQue.replace(/\(.*/, ''), op, salio: false };
+  const pl = elegida.pl;
 
   const r = reemplazarEnCuerpo(pl.cuerpo, cat.frase, prompt);
-  if (!r.ok) return { error: r.error, op, clase: par[0] };
+  if (!r.ok) return { error: r.error, op, clase: elegida.clase, salio: false };
 
   let tab;
-  try { tab = await pestanaDeFlow(); } catch { return { error: 'NO_FLOW_TAB', op }; }
-  if ((await asegurarContentScript(tab.id)) === 'mudo') return { error: 'PESTANA_MUDA', op };
+  try { tab = await pestanaDeFlow(); } catch { return { error: 'NO_FLOW_TAB', op, salio: false }; }
+  if ((await asegurarContentScript(tab.id)) === 'mudo') return { error: 'PESTANA_MUDA', op, salio: false };
 
   const res = await chrome.tabs.sendMessage(tab.id, {
     tipo: 'BOQ_PEDIDO', url: pl.url, cuerpo: r.cuerpo,
   });
-  if (!res || res.error) return { ...res, op, clase: par[0] };
+  if (!res || res.error) return { ...res, op, clase: elegida.clase };
 
   // ⚠️ UN 200 NO ES UN EXITO, Y DECIRLO ASI YA MINTIO UNA VEZ.
   //
@@ -451,7 +479,7 @@ async function repetirEnBoq(op, prompt) {
     motivo: dice.ok ? null : dice.motivo,
     porQue: dice.ok ? null : dice.detalle,
     payload: dice.ok ? dice.payload : null,
-    op, clase: par[0], donde: r.donde, cuantas: r.cuantas,
+    op, clase: elegida.clase, donde: r.donde, cuantas: r.cuantas,
   };
 }
 
@@ -857,11 +885,22 @@ async function ejecutar(trabajo) {
         }
         // ⚠️ `salio` DECIDE SI SE PUEDE REINTENTAR. Si el pedido llego a salir, el
         // credito ya se gasto: reintentar es cobrarle dos veces por un video.
+        // ⚠️ EL DEFAULT ES **NO REINTENTAR**, Y ESA ASIMETRIA ES A PROPOSITO.
+        //
+        // Era `reintentable: !r.salio`, o sea que un `salio` AUSENTE se leia como
+        // «no salio» y se reintentaba. Y ausente es justo lo que mandaban los dos
+        // caminos donde el pedido SI habia salido: el timeout de 120 s y el catch
+        // de afuera del espejo. Cinco intentos = cinco creditos por un video, y el
+        // cliente con cinco clips iguales en su Flow.
+        //
+        // Ahora se reintenta SOLO con un `salio === false` explicito, que es una
+        // afirmacion de que el pedido nunca viajo. Lo peor de este default es que
+        // alguien tenga que apretar de nuevo; lo peor del otro era cobrarle.
         return {
           id: trabajo.id, ok: false,
-          motivo: r.salio ? 'permanente' : 'transitorio',
+          motivo: r.salio === false ? 'transitorio' : 'permanente',
           error: r.porQue || r.error || 'Google no lo acepto.',
-          reintentable: !r.salio,
+          reintentable: r.salio === false,
         };
       }
     }
@@ -1157,53 +1196,68 @@ async function ciclo() {
     const { token } = await chrome.storage.local.get('token');
     if (!token) { latido.estado = 'sin_token'; return; }
 
-    // ⚠️ EN EL FLOW NUEVO, EL BEARER GUARDADO ES UN RECUERDO Y HAY QUE TIRARLO.
+    // ⚠️ ACA SE DECIDE QUE SIGNIFICA `listo`, Y ES EL UNICO LUGAR QUE LO DECIDE.
     //
-    // No se puede refrescar ahí —la app nunca manda `Authorization`—, así que el que
-    // haya en storage es de la época de labs.google. Y mientras siga puesto, todo lo
-    // que pregunta «¿hay bearer?» contesta que sí: el popup mostraba «Todo listo»
-    // sobre un puente que no puede filmar, y este latido reportaba `listo` al server.
+    // De este booleano cuelgan CUATRO compuertas duras: el boton de la web
+    // (`disabled={!puedeCrear || !puenteAnda}`), la cola de esta misma extension
+    // (`if (out.pausado || estado !== 'listo') return`), el reparto del server
+    // (`estado === 'sin_sesion' ? [] : tomarTrabajos()`) y el guard de filmar en
+    // `video-action.ts`. Los cuatro leen lo mismo, asi que este renglon abre o
+    // cierra el producto entero.
     //
-    // Una credencial que no se puede refrescar en el contexto actual no es una
-    // credencial: es un recuerdo. Y este repo ya tiene la regla —el estado se lee
-    // vivo, no se recuerda—; esto es aplicarla a algo que además abre una puerta.
-    try {
-      const tf = await pestanaDeFlow();
-      if (bearer && esFlowNuevo(tf.url)) {
-        bearer = '';
-        await chrome.storage.local.remove('bearer');
-      }
-    } catch { /* sin pestaña, no hay nada que decidir */ }
-
+    // Y estuvo CERRADO PARA SIEMPRE. `listo` significaba «hay un bearer»; en
+    // flow.google.com Google no emite ninguno —la app habla solo por BOQ, con
+    // cookies— y este mismo ciclo lo BORRA a proposito al ver el dominio nuevo. O
+    // sea que la condicion se negaba a si misma dos lineas mas abajo: nadie podia
+    // apretar el boton, nadie repartia el trabajo, nadie lo corria.
+    //
+    // El sintoma que lo delato: el popup decia «MaKo ya puede hacer tus anuncios» y
+    // el aviso de al lado, en la misma pantalla y el mismo segundo, decia «MaKo
+    // todavia no puede filmar tus anuncios». Dos pantallas, el mismo hecho, y NI UN
+    // insumo en comun.
+    //
+    // Ahora `listo` es un ENSAYO EN SECO: el camino de `repetirEnBoq` recorrido
+    // hasta un paso antes de mandar. No gasta un credito, no toca la red, y no
+    // puede mentir — es literalmente el mismo predicado que la ejecucion exige.
     let estado = 'listo';
     let detalle = '';
     let respuestasVistas = null;
-    if (!bearer) {
-      // No es un error: es que el usuario todavía no abrió Flow en esta sesión.
+
+    // Una sola consulta de la pestaña para las dos decisiones que dependen de ella.
+    let enFlowNuevo = false;
+    try { enFlowNuevo = esFlowNuevo((await pestanaDeFlow()).url); } catch { /* sin pestaña */ }
+
+    // El bearer guardado en el Flow nuevo es un recuerdo del protocolo viejo: no se
+    // puede refrescar ahi, asi que mientras siga puesto todo lo que pregunta «¿hay
+    // bearer?» contesta que si. Se tira. (Es la regla de la casa: el estado se lee
+    // vivo, no se recuerda.)
+    if (bearer && enFlowNuevo) {
+      bearer = '';
+      await chrome.storage.local.remove('bearer');
+    }
+
+    if (enFlowNuevo) {
+      const guardadas = (await chrome.storage.local.get(CLAVE_PLANTILLAS))[CLAVE_PLANTILLAS] || {};
+      const ensayo = puedeFilmar(guardadas, A_PEDIR);
+      if (!ensayo.puede) {
+        estado = 'sin_sesion';
+        // ⚠️ DIAGNOSTICO, NO COPY. Termina en la base para quien lea buscando por
+        // que algo no filma; la pantalla del cliente deriva su frase de un estado
+        // cerrado. Este repo ya pago dos veces por pintar un campo libre en la
+        // cara de alguien.
+        detalle = 'FLOW_NUEVO ' + ensayo.porQue;
+      }
+    } else if (!bearer) {
+      // El camino REST, que sigue vivo para quien todavia este en labs.google. Ahi
+      // el bearer y la apiKey SI hacen falta: sin ellos el pedido va sin proyecto
+      // atribuido y Google contesta su pagina de bloqueo.
       estado = 'sin_sesion';
       detalle = 'Abre Google Flow desde el ícono de MaKo e inicia sesión.';
-      // ⚠️ SALVO QUE SEA EL FLOW NUEVO, DONDE NO HAY NADA QUE ABRIR NI QUE INICIAR.
-      //
-      // Ver `esFlowNuevo`: en flow.google.com no existe el mecanismo que este puente
-      // captura. Mandar a abrir Flow ahí es mandar a repetir lo que ya está hecho, y
-      // el que lo lee no tiene forma de saber que está persiguiendo algo imposible.
-      //
-      // ⚠️ ESTE TEXTO NO ES COPY: ES DIAGNÓSTICO. Llegó a la pantalla de un cliente
-      // como un párrafo sobre lo que Google nos rompió, y el que lo leyó no sabía qué
-      // era Flow. La web ya no relevé `detalle` —ver `estadoDelPuente`—, así que acá
-      // se escribe para quien va a leer la base buscando por qué algo no filma.
-      try {
-        const tf = await pestanaDeFlow();
-        if (esFlowNuevo(tf.url)) {
-          detalle = 'FLOW_NUEVO: sin bearer y no lo va a haber; la conexion va por BOQ.';
-        }
-      } catch { /* sin pestaña, el detalle de arriba es el correcto */ }
     } else if (!apiKey) {
-      // El bearer se ve en la PRIMERA llamada; la `key` también, pero si la
-      // sesión venía guardada de antes y el usuario no volvió a navegar Flow,
-      // puede haber bearer sin key. Sin key el pedido llega sin proyecto
-      // atribuido y Google contesta su página de bloqueo — así que esto NO puede
-      // reportarse como «listo»: sería un verde sobre algo que va a fallar.
+      // El bearer se ve en la PRIMERA llamada; la `key` tambien, pero si la sesion
+      // venia guardada y el usuario no volvio a navegar Flow, puede haber bearer sin
+      // key. Sin key el pedido llega sin proyecto atribuido: reportarlo como `listo`
+      // seria un verde sobre algo que va a fallar.
       estado = 'sin_sesion';
       detalle = 'Recarga la pestaña de Google Flow para completar la conexión.';
     }
@@ -2400,14 +2454,41 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
           //
           // Y lo caro no era el boton muerto: dejaba TRABADO ahi, sin llegar nunca a
           // las tres que si necesitan a la persona.
-          const falta = A_PEDIR.find((o) => !ops[o.op]);
+          // ⚠️ Y LAS QUE PIDEN ALGO SE RE-JUZGAN CON EL ENSAYO EN SECO.
+          //
+          // Tener una entrada guardada NO es saber hacerla. El cuerpo puede estar
+          // vacio, faltarle la url, o haber sido PISADO por una generacion posterior
+          // de la misma clase que no llevaba la frase (el guardado conserva el `op` y
+          // reemplaza el `cuerpo`). `ejecutar()` lo iba a descubrir igual, pero con el
+          // boton ya apretado y el trabajo tomado.
+          //
+          // Ademas es lo que hace que `cuantasListas` y `siguiente` no puedan
+          // contradecirse: salen del mismo juicio.
+          for (const o of A_PEDIR) ops[o.op] = ensayarOperacion(guardadas, o).puede;
+          const ensayo = puedeFilmar(guardadas, A_PEDIR);
+          const falta = ensayo.falta ? A_PEDIR.find((o) => o.op === ensayo.falta) : null;
           siguiente = falta
             ? {
               op: falta.op, frase: falta.frase, que: falta.que,
               cuesta: falta.cuesta, boton: falta.boton,
             }
             : null;
-        } catch { ops = {}; siguiente = null; }
+        } catch {
+          // ⚠️ UN `catch` NO PUEDE RESOLVER A «TODO LISTO», Y ESTE RESOLVIA.
+          //
+          // Dejaba `siguiente = null`, que el popup lee como «no falta nada»: un
+          // error de lectura se pintaba como exito, sin dejar nada que investigar.
+          // Ahora cae al PRIMER paso. Lo peor que puede pasar es pedir algo que ya
+          // estaba hecho; lo peor de verdad era afirmar que se puede filmar.
+          ops = {};
+          const primera = A_PEDIR[0];
+          siguiente = primera
+            ? {
+              op: primera.op, frase: primera.frase, que: primera.que,
+              cuesta: primera.cuesta, boton: primera.boton,
+            }
+            : null;
+        }
         try {
           const tf = await pestanaDeFlow();
           hayFlow = true;
