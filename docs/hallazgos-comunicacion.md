@@ -3701,3 +3701,31 @@ PRIMERO y es best-effort: si la vigilancia falla, el resto del cron corre igual.
 
 *Corrida del 08/09/2026 — caída detectada y reproducida en vivo; `vozViva()` devuelve `false`
 sobre la instancia que `connectionState` da por `open`. Typecheck 0 errores, 2162/2162 tests.*
+
+### Addendum: el botón de recuperar estaba roto en su propio caso
+
+Martín fue a reconectar la línea zombi y le salió **«No se pudo generar el QR»**.
+
+Evolution **no emite QR si cree que la instancia ya está conectada**: `/instance/connect/`
+devolvía `{"instance":{"state":"open"}}` —sin `base64` ni `code`— y `conectarCanalMaKo` leía
+`b.base64 ?? null`. **El mismo campo mentiroso que causó la caída bloqueaba la salida de la
+caída.**
+
+Para que vuelva a dar un QR hay que soltar la sesión muerta. Ahora lo hace solo, con dos
+límites que importan:
+
+- **Solo `logout`, nunca `delete`.** `desconectarCanalMaKo` hace logout + DELETE de la
+  instancia + devuelve la voz al default: eso es *desconectar a propósito*, y usarlo para
+  recuperarse de una caída se lleva puesta la instancia y su webhook. Recuperar y desconectar
+  no son la misma operación aunque compartan un paso.
+- ⛔ **Solo con el socket verificablemente muerto** (`socketVivo()` en positivo, jamás el
+  `state`). Un logout sobre una sesión viva desvincula el número y deja a TODOS los clientes
+  sin MaKo — el arreglo sería peor que el bug.
+
+Y cuando aun así no hay QR, el mensaje dice qué pasó en vez de «no se pudo»: si el socket
+está vivo, la respuesta correcta es *«ya está conectada, no hace falta reconectarla»*.
+
+**La regla que queda: un camino de recuperación hay que probarlo EN EL ESTADO DEL QUE
+RECUPERA.** Éste funcionaba con la instancia recién creada o limpiamente desconectada —los
+dos casos en que no hace falta— y fallaba con la instancia zombi, que es el único caso en que
+alguien lo aprieta.

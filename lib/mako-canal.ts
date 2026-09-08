@@ -105,9 +105,51 @@ export async function conectarCanalMaKo(): Promise<{ ok: true; qr: QrCanal; esta
     const q = (r.body as { qrcode?: { base64?: string; code?: string; pairingCode?: string | null } }).qrcode ?? {};
     return { ok: true, estado: 'conectando', qr: { base64: q.base64 ?? null, code: q.code ?? null, pairingCode: q.pairingCode ?? null } };
   }
-  const c = await ev(`/instance/connect/${INSTANCIA_SUPERADMIN}`);
+  // ⚠️ EL BOTÓN DE RECUPERAR ESTABA ROTO JUSTO EN EL CASO PARA EL QUE EXISTE.
+  //
+  // EL CASO (2026-09-08). La línea de voz llevaba seis días ZOMBI: `state: open`
+  // con el socket muerto (428 Connection Closed en cualquier operación real).
+  // Martín fue a reconectar y le salió «No se pudo generar el QR».
+  //
+  // El porqué: Evolution NO emite QR si cree que la instancia ya está conectada.
+  // `/instance/connect/` devolvía `{"instance":{"state":"open"}}` —sin `base64` ni
+  // `code`— y acá se leía `b.base64 ?? null`, o sea null, o sea «no se pudo».
+  // El mismo campo mentiroso que causó la caída bloqueaba la salida de la caída.
+  //
+  // Para que Evolution vuelva a dar un QR hay que soltar la sesión muerta primero.
+  // Se hace SOLO `logout`, nunca `delete`: `desconectarCanalMaKo` borra la
+  // instancia entera (y con ella su webhook) y devuelve la voz al default — eso es
+  // para desconectar a propósito, no para recuperarse de una caída.
+  //
+  // ⛔ Y SOLO SI EL SOCKET ESTÁ VERIFICABLEMENTE MUERTO. Un `logout` sobre una
+  // sesión viva desvincula el número y deja a todos los clientes sin MaKo: el
+  // guard va en positivo sobre `socketVivo()`, que es una operación REAL, jamás
+  // sobre el `state` que ya sabemos que miente en las dos direcciones.
+  let c = await ev(`/instance/connect/${INSTANCIA_SUPERADMIN}`);
+  const sinQr = (b: unknown) => {
+    const x = b as { base64?: string; code?: string } | null;
+    return !x?.base64 && !x?.code;
+  };
+  if (c.ok && sinQr(c.body) && !(await socketVivo(INSTANCIA_SUPERADMIN))) {
+    console.warn('[mako-canal] instancia ZOMBI (dice conectada, socket muerto) → logout y QR nuevo');
+    await ev(`/instance/logout/${INSTANCIA_SUPERADMIN}`, { method: 'DELETE' });
+    // Evolution tarda un instante en soltar la sesión antes de poder ofrecer el QR.
+    await new Promise((r) => setTimeout(r, 1500));
+    c = await ev(`/instance/connect/${INSTANCIA_SUPERADMIN}`);
+  }
   if (!c.ok) return { ok: false, error: `Evolution ${c.status}` };
   const b = c.body as { base64?: string; code?: string; pairingCode?: string | null };
+  if (sinQr(b)) {
+    // Decir QUÉ pasó, no «no se pudo». Si llegamos acá con el socket vivo, la
+    // instancia está sana y no hay nada que reconectar.
+    const viva = await socketVivo(INSTANCIA_SUPERADMIN);
+    return {
+      ok: false,
+      error: viva
+        ? 'La línea ya está conectada y respondiendo: no hace falta reconectarla.'
+        : 'Evolution no devolvió el QR. Reintenta en unos segundos; si sigue igual, desconecta la línea y vuelve a vincularla.',
+    };
+  }
   return { ok: true, estado: 'conectando', qr: { base64: b.base64 ?? null, code: b.code ?? null, pairingCode: b.pairingCode ?? null } };
 }
 
