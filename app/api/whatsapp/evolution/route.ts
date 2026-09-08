@@ -13,7 +13,7 @@ import type { NextRequest } from 'next/server';
 import { getRolWsEfectivo } from '@/lib/workspace';
 import {
   conectar, estadoEnVivo, refrescarQr, desconectar, getInstanciaRow, evolutionConfigurado,
-  sondearSocket,
+  sondearSocket, motivoCaida,
   estadoWebhook, repararWebhook,
 } from '@/lib/evolution';
 import { sincronizarDesdeEvolution, borrarEspejoNoOficial } from '@/lib/evolution-mensajes';
@@ -66,6 +66,13 @@ export async function GET() {
       ? await sondearSocket(row.instance_name, 4000)
       : 'sin_respuesta';
     const medido = sondeo === 'vivo' ? 'conectado' : sondeo === 'muerto' ? 'desconectado' : null;
+    // POR QUE se cayo. Solo se pregunta si esta caida — en el camino feliz seria
+    // una llamada de mas por carga de pantalla. Es lo que convierte «tu WhatsApp
+    // esta desconectado» (que el dueno no cree, porque su TELEFONO anda) en «se
+    // desvinculo el 3 de septiembre» (que puede ir a comprobar).
+    const motivo = medido === 'desconectado' && row
+      ? await motivoCaida(row.instance_name, 4000).catch(() => null)
+      : null;
     return Response.json({
       ok: true,
       configurado: evolutionConfigurado(),
@@ -76,6 +83,7 @@ export async function GET() {
       confirmado: medido != null || row?.estado === 'conectando',
       numero: row?.numero ?? null,
       perfil: row?.perfil_nombre ?? null,
+      caida: motivo,
     });
   } catch (e) {
     console.error(`[api:whatsapp/evolution GET] ${msg(e)}`);

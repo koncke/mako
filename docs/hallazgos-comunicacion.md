@@ -2180,6 +2180,72 @@ quedaron sin arreglar estan listados al final de esta entrada.)*
 - `lib/mako-canal.ts` — confirma el socket en un solo sentido, igual que estaba
   `lib/evolution.ts`. No se toco por ser trabajo en vuelo de la sesion vecina.
 
+## «Desconectado» no le dice nada al dueño: su TELEFONO anda
+
+**Vive en:** `lib/evolution.ts` (`motivoCaida`) · `app/api/whatsapp/evolution/route.ts` ·
+`app/api/chat-agent/secuencias/route.ts` · `app/whatsapp/EvolutionConnect.tsx` ·
+`app/chatbot/ChatAgentApp.tsx`
+
+**Sintoma:** con el aviso ya arreglado y midiendo bien, el dueño contesto: *«no entiendo…
+aca me sigue diciendo que el WhatsApp esta desconectado, pero me voy a la tab de WhatsApp
+de Mauricio y esta perfecto, cargan los ultimos chats, se puede enviar mensajes»*.
+
+**Tenia razon en las tres cosas, y ninguna contradecia el diagnostico:**
+
+1. **Su telefono anda.** La app NO usa su telefono: usa un **dispositivo vinculado** por
+   QR. Ese se cae solo y no se nota desde el telefono — salvo mirando «Dispositivos
+   vinculados», que nadie mira.
+2. **«Cargan los ultimos chats»** es NUESTRO espejo en la base. Se ve igual con la sesion
+   viva o muerta. Los chats que veia eran del 03/09 y anteriores: el espejo congelado.
+3. **«Se puede enviar mensajes»** era el composer, que se dibuja siempre.
+
+**La medicion que lo cierra — el espejo por dia, ws1:**
+
+| dia | entran | salen |
+|---|---|---|
+| 2026-09-01 | 107 | 137 |
+| 2026-09-02 | 66 | 78 |
+| 2026-09-03 | 10 | 9 |
+| 2026-09-04 … 09-08 | **0** | **0** |
+
+Venia capturando 60-180 por dia; el 03/09 alcanzo a agarrar 19 y despues cinco dias en
+cero. Ese numero no pasa cinco dias sin un mensaje.
+
+⚠️ **Y LA PRIMERA VERSION DE ESA TABLA DECIA QUE EL ESPEJO MORIA EL 24/08.** Los conteos
+sumaban **exactamente 1000**: el tope de PostgREST, no un dato. Es la trampa que este
+mismo AGENTS.md documenta («un numero redondo es una hipotesis de truncamiento») y se
+cayo en ella igual, sobre una consulta escrita para probar un diagnostico. Paginando con
+`.range()` el total real es 2799 y la foto cambia por completo.
+
+**LA CAUSA EXACTA, que Evolution guardaba y la app no miraba nunca.**
+`/instance/fetchInstances` trae tres campos que ningun consumidor leia:
+
+    mako_ws1   connectionStatus=connecting  disconnectionReasonCode=403
+               disconnectionAt=2026-09-03T08:42:25.322Z
+    mako_ws11  connectionStatus=open        disconnectionReasonCode=null
+
+El **403 de Baileys es «WhatsApp cerro la sesion»**: el dispositivo fue desvinculado. Por
+eso queda en `connecting` para siempre —un 403 no se reconecta solo— y la unica salida es
+escanear un QR nuevo. La fecha coincide al milisegundo con el `ultimo_evento_at` de
+nuestra fila.
+
+**La regla que queda: un aviso que describe NUESTRO estado no es accionable; uno que
+nombra un HECHO del mundo del usuario, si.** «Tu WhatsApp esta desconectado» lo mando a
+mirar su telefono, encontrarlo bien y descartar el aviso. «WhatsApp cerro la sesion del
+dispositivo vinculado el 3 de septiembre — tu telefono esta bien» nombra algo que puede ir
+a comprobar, y le dice donde.
+
+Y el corolario del dato: **el motivo ya estaba, a una llamada de distancia.** No hubo que
+inventar nada ni agregar una columna — solo mirar el campo que el proveedor ya devolvia.
+Antes de escribir un aviso vago, revisa que trae la respuesta que ya pedis.
+
+⚠️ `motivoCaida` solo se consulta cuando el canal esta CAIDO: en el camino feliz seria una
+llamada de mas en cada carga de pantalla. Y distingue 403/401 («te desvinculo», hay que
+re-escanear) de cualquier otro codigo (un corte, que puede volver solo) — mandar a
+re-escanear sobre un corte tumbaria la sesion que estaba por volver.
+
+*(Corrida del 08/09/2026, a partir del «no entiendo» del dueño.)*
+
 ## Instagram: lo que hay que saber antes de abrir el canal
 
 De la corrida de 21 agentes del 14/08/2026 (evaluación de factibilidad: DM directo vs

@@ -77,6 +77,10 @@ export function EvolutionConnect({ onEstado }: {
   // comprobó no se puede ver igual que uno medido: ese es exactamente el chip
   // que dijo «conectada» sobre una sesión muerta.
   const [confirmado, setConfirmado] = useState(true);
+  // Por qué se cayó, cuando se sabe. Un 403/401 de WhatsApp es «te desvinculé»:
+  // no vuelve sola y hay que escanear de nuevo. Cualquier otro código es un
+  // corte que SÍ puede volver, y ahí mandar a re-escanear seria de más.
+  const [caida, setCaida] = useState<{ codigo: number | null; cuando: string | null; desvinculado: boolean } | null>(null);
   const [numero, setNumero] = useState<string | null>(null);
   const [configurado, setConfigurado] = useState(true);
   const [visible, setVisible] = useState(false); // el admin lo ve; setter/closer no (403)
@@ -94,10 +98,10 @@ export function EvolutionConnect({ onEstado }: {
 
   const load = useCallback(async () => {
     try {
-      const { status, body } = await apiGet<{ ok: boolean; configurado: boolean; estado: Estado; numero: string | null; confirmado?: boolean }>('/api/whatsapp/evolution');
+      const { status, body } = await apiGet<{ ok: boolean; configurado: boolean; estado: Estado; numero: string | null; confirmado?: boolean; caida?: { codigo: number | null; cuando: string | null; desvinculado: boolean } | null }>('/api/whatsapp/evolution');
       if (status === 403) { setVisible(false); return; }      // setter/closer → sin chip
       setVisible(true);                                        // admin (o error): mostrar chip
-      if (body.ok) { setConfigurado(body.configurado); setEstado(body.estado); setNumero(body.numero); setConfirmado(body.confirmado !== false); }
+      if (body.ok) { setConfigurado(body.configurado); setEstado(body.estado); setNumero(body.numero); setConfirmado(body.confirmado !== false); setCaida(body.caida ?? null); }
       setCargado(true);
     } catch {
       setVisible(true); setEstado('error'); setCargado(true); // fallo de red → chip visible, reintentable
@@ -255,6 +259,10 @@ export function EvolutionConnect({ onEstado }: {
       : { ...chipBase, background: 'var(--warn-bg)', border: '1px solid var(--warn)', color: 'var(--warn)' };
 
   const puntoColor = conectado ? 'var(--good)' : (!cargado || estado === 'error') ? 'var(--faint)' : 'var(--warn)';
+  // La fecha en que se desvinculó, dicha como la diría una persona.
+  const fechaCaida = caida?.cuando
+    ? new Date(caida.cuando).toLocaleDateString('es-MX', { day: 'numeric', month: 'long' })
+    : null;
   const rotulo = conectado
     ? (confirmado
       ? `API no Oficial conectada${numero ? ` · ${numero}` : ''}`
@@ -262,7 +270,15 @@ export function EvolutionConnect({ onEstado }: {
     : !cargado ? 'API no Oficial: comprobando…'
       : estado === 'conectando' ? 'API no Oficial: conectando…'
       : estado === 'error' ? 'API no Oficial: no pude comprobarlo'
-        : 'API no Oficial DESCONECTADA — reconectar';
+        : caida?.desvinculado
+          // ⚠️ «DESCONECTADA» describe NUESTRO lado y no le dice nada al que lo
+          // lee. El dueño vio ese cartel, abrió WhatsApp en su teléfono, lo
+          // encontró perfecto y contestó «no entiendo» — y tenía razón: su
+          // TELÉFONO estaba bien. Lo que se cayó es el dispositivo vinculado.
+          // «Se desvinculó el 3 de septiembre» nombra un hecho que puede ir a
+          // comprobar en WhatsApp → Dispositivos vinculados.
+          ? `WhatsApp se desvinculó${fechaCaida ? ` el ${fechaCaida}` : ''} — volver a vincular`
+          : 'API no Oficial DESCONECTADA — reconectar';
 
   return (
     <>
@@ -272,7 +288,9 @@ export function EvolutionConnect({ onEstado }: {
           conectado ? `WhatsApp no oficial conectado${numero ? ` (${numero})` : ''}`
             : !cargado ? 'Comprobando el estado del WhatsApp no oficial…'
             : estado === 'error' ? 'No se pudo comprobar el estado del WhatsApp no oficial — puede estar bien'
-              : 'Tu WhatsApp no oficial está desconectado: las secuencias no envían nada. Toca para volver a vincularlo.'
+              : caida?.desvinculado
+                ? `WhatsApp cerró la sesión del dispositivo vinculado${fechaCaida ? ` el ${fechaCaida}` : ''}. Tu teléfono está bien — lo que hay que volver a vincular es el dispositivo que usa MaKo (WhatsApp → Dispositivos vinculados). Mientras tanto las secuencias no envían nada.`
+                : 'Tu WhatsApp no oficial está desconectado: las secuencias no envían nada. Toca para volver a vincularlo.'
         }>
         <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: puntoColor }} />
         {rotulo}

@@ -123,7 +123,7 @@ function ChatAgentInner() {
   const [preguntarPlan, setPreguntarPlan] = useState(false);
   // Estado del WhatsApp del negocio. Arranca en 'desconocido' a propósito: hasta
   // que la API conteste, la pantalla no afirma que esta conectado NI que no.
-  const [canal, setCanal] = useState<{ estado: string; desde: string | null }>({ estado: 'desconocido', desde: null });
+  const [canal, setCanal] = useState<{ estado: string; desde: string | null; desvinculado?: boolean }>({ estado: 'desconocido', desde: null });
   // Solo estos dos son un hecho negativo comprobado. 'desconocido', 'conectando'
   // y un estado que no conozcamos NO acusan nada: es la misma regla que el paso
   // del WhatsApp en el onboarding, donde afirmar «desconectado» sobre un corte
@@ -325,9 +325,22 @@ function ChatAgentInner() {
             {canal.estado === 'sin_vincular' ? (
               <>Tienes secuencias activas y <strong>todavía no vinculaste tu WhatsApp</strong>. No se está enviando nada.</>
             ) : (
-              <>Tienes secuencias activas y <strong>tu WhatsApp está desconectado</strong>
-                {canal.desde ? <> desde el {new Date(canal.desde).toLocaleDateString('es-MX', { day: 'numeric', month: 'long' })}</> : null}.
-                {' '}No se está enviando nada: cada mensaje falla y se reintenta al día siguiente.</>
+              canal.desvinculado ? (
+                // ⚠️ EL DUEÑO LEYO «tu WhatsApp esta desconectado», ABRIO WHATSAPP
+                // Y LO ENCONTRO PERFECTO. Y era cierto: su TELEFONO anda. Lo que
+                // se cayo es el dispositivo vinculado que usa MaKo, y eso no se
+                // nota desde el telefono salvo mirando «Dispositivos vinculados».
+                // Nombrar el hecho —y decir que su telefono esta bien— es la
+                // diferencia entre un aviso que se cree y uno que se descarta.
+                <>Tienes secuencias activas y <strong>WhatsApp cerró la sesión del dispositivo vinculado</strong>
+                  {canal.desde ? <> el {new Date(canal.desde).toLocaleDateString('es-MX', { day: 'numeric', month: 'long' })}</> : null}.
+                  {' '}Tu teléfono está bien: lo que hay que volver a vincular es el dispositivo que usa MaKo.
+                  {' '}Mientras tanto no se envía nada.</>
+              ) : (
+                <>Tienes secuencias activas y <strong>tu WhatsApp está desconectado</strong>
+                  {canal.desde ? <> desde el {new Date(canal.desde).toLocaleDateString('es-MX', { day: 'numeric', month: 'long' })}</> : null}.
+                  {' '}No se está enviando nada: cada mensaje falla y se reintenta al día siguiente.</>
+              )
             )}
           </div>
           <Link href="/whatsapp" style={{ ...btnDark, textDecoration: 'none', whiteSpace: 'nowrap' }}>Volver a conectarlo</Link>

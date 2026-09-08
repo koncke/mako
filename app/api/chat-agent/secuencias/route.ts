@@ -27,7 +27,7 @@ import { huecosDeSecuencias, archivarSecuencias, desarchivarSecuencia } from '@/
 import { generarVariantes } from '@/lib/secuencias-variantes';
 import { handoffsPendientes, resolverHandoff } from '@/lib/chat-agent-handoff';
 import { getEntregables, setEntregables } from '@/lib/entregable';
-import { getInstanciaRow } from '@/lib/evolution';
+import { getInstanciaRow, motivoCaida } from '@/lib/evolution';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -64,11 +64,24 @@ export async function GET() {
       getInstanciaRow().catch(() => undefined),
     ]);
     // Tres respuestas distintas, no dos: nunca lo vinculó / se cayó / no sé.
+    // POR QUE se cayo, no solo QUE se cayo. «Tu WhatsApp esta desconectado» le
+    // hizo abrir WhatsApp en el telefono, encontrarlo perfecto y contestar «no
+    // entiendo». Su telefono estaba bien: lo que se cayo es el DISPOSITIVO
+    // VINCULADO, y eso solo se ve en «Dispositivos vinculados».
+    const motivo = instancia && instancia.estado !== 'conectado'
+      ? await motivoCaida(instancia.instance_name, 4000).catch(() => null)
+      : null;
     const canal = instancia === undefined
-      ? { estado: 'desconocido' as const, desde: null }
+      ? { estado: 'desconocido' as const, desde: null, desvinculado: false }
       : instancia === null
-        ? { estado: 'sin_vincular' as const, desde: null }
-        : { estado: instancia.estado, desde: instancia.ultima_conexion_at };
+        ? { estado: 'sin_vincular' as const, desde: null, desvinculado: false }
+        : {
+          estado: instancia.estado,
+          // La fecha de la CAIDA le gana a la de la ultima conexion: es la que
+          // el dueno puede cruzar con lo que vio pasar ese dia.
+          desde: motivo?.cuando ?? instancia.ultima_conexion_at,
+          desvinculado: motivo?.desvinculado ?? false,
+        };
     // Etapas elegibles para colgar una secuencia de mensajes: nutrición + pipeline (sin salidas).
     const etapas = (funnel?.stages ?? [])
       .filter((s) => (s.band ?? 'pipeline') !== 'salidas')

@@ -290,6 +290,50 @@ export async function socketVivo(instance: string): Promise<boolean> {
  * había contestado bien con `close`, así que `close` tampoco prueba que no.
  * La única pregunta que se puede contestar es la que se hace HABLANDO.
  */
+/**
+ * POR QUE se cayo la sesion, que Evolution guarda y la app no miraba.
+ *
+ * ⚠️ ESTE ES EL DATO QUE FALTABA PARA QUE EL AVISO SE ENTIENDA. El dueno miro la
+ * pantalla, vio «tu WhatsApp esta desconectado», abrio WhatsApp en su telefono,
+ * lo encontro perfecto, y contesto «no entiendo». Tenia razon: **su telefono
+ * estaba bien**. Lo que se cayo es el DISPOSITIVO VINCULADO por QR, que es lo
+ * unico que usa la app — y eso no se nota desde el telefono, salvo mirando
+ * «Dispositivos vinculados».
+ *
+ * «Desconectado» describe nuestro lado y no le dice nada al que lo lee. «Se
+ * desvinculo el 3 de septiembre» nombra un hecho que puede comprobar.
+ *
+ * Medido el 08/09/2026 sobre las dos instancias vivas del servidor:
+ *   mako_ws1   connectionStatus=connecting  reason=403  at=2026-09-03T08:42:25Z
+ *   mako_ws11  connectionStatus=open        reason=null at=null
+ *
+ * El 403 de Baileys es «WhatsApp cerro la sesion»: no se reconecta sola —por eso
+ * queda en `connecting` para siempre— y la unica salida es escanear un QR nuevo.
+ * Cualquier otro codigo es una caida que SI puede volver sola, y ahi mandar a
+ * re-escanear seria de mas: re-escanear tumba una sesion que estaba por volver.
+ */
+export type MotivoCaida = { codigo: number | null; cuando: string | null; desvinculado: boolean };
+
+type InstanciaResp = {
+  connectionStatus?: string;
+  disconnectionReasonCode?: number | string | null;
+  disconnectionAt?: string | null;
+};
+
+export async function motivoCaida(instance: string, topeMs?: number): Promise<MotivoCaida | null> {
+  const r = await evFetch<InstanciaResp[]>(`/instance/fetchInstances?instanceName=${encodeURIComponent(instance)}`, undefined, topeMs);
+  if (!r.ok || !Array.isArray(r.data) || !r.data[0]) return null;
+  const it = r.data[0];
+  const codigo = it.disconnectionReasonCode == null ? null : Number(it.disconnectionReasonCode);
+  return {
+    codigo: Number.isFinite(codigo) ? codigo : null,
+    cuando: it.disconnectionAt ?? null,
+    // 401 y 403 son las dos formas en que WhatsApp dice «esta sesion ya no
+    // existe». Las demas son cortes, y un corte no se arregla re-escaneando.
+    desvinculado: codigo === 403 || codigo === 401,
+  };
+}
+
 export type Sondeo = 'vivo' | 'muerto' | 'sin_respuesta';
 
 export async function sondearSocket(instance: string, topeMs?: number): Promise<Sondeo> {
