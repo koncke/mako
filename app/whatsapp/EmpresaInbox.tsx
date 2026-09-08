@@ -662,7 +662,7 @@ export function EmpresaInbox() {
                   <button onClick={() => fileInput.current?.click()} disabled={sending} title="Adjuntar archivo" aria-label="Adjuntar archivo" style={iconComposer}><IconClip /></button>
                   <textarea value={draft} onChange={(e) => setDraft(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void enviarComposer(); } }}
-                    placeholder={adjunto ? 'Agregá un texto (opcional)…' : 'Escribí un mensaje… (sale por el número no oficial, con anti-baneo)'} rows={1}
+                    placeholder={adjunto ? 'Agrega un texto (opcional)…' : 'Escribe un mensaje… (sale por el número no oficial, con anti-baneo)'} rows={1}
                     style={{ flex: 1, minHeight: '40px', maxHeight: '120px', resize: 'none', padding: '9px 16px', borderRadius: '21px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '14px', lineHeight: 1.35, outline: 'none' }} />
                   {(draft.trim() || adjunto) ? (
                     <button onClick={() => void enviarComposer()} disabled={sending} title="Enviar" aria-label="Enviar" style={{ flex: 'none', width: '42px', height: '42px', borderRadius: '50%', border: 'none', background: 'var(--wa)', color: '#fff', cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><SendArrow /></button>

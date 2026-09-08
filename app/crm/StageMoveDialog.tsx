@@ -900,7 +900,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
               <input type="file" accept=".pdf,image/*" style={{ display: 'none' }} disabled={dealBusy} onChange={(e) => { const f = e.target.files?.[0]; if (f) void buscarDealAuto(f); }} />
             </label>
           )}
-          <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>O tocá «Siguiente» para cargarlo a mano.</div>
+          <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>O toca «Siguiente» para cargarlo a mano.</div>
         </div>
       );
       break;
@@ -937,7 +937,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       break;
     case 'dealFiscalDoc':
       pregunta = 'Documento fiscal del cliente';
-      sub = 'Subí la constancia/RFC/CUIT (MaKo lee los datos). Si no lo tenés, podés omitirlo.';
+      sub = 'Sube la constancia/RFC/CUIT (MaKo lee los datos). Si no lo tienes, puedes omitirlo.';
       cuerpo = (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
           <label style={{ minWidth: 220, padding: '13px 22px', borderRadius: 12, background: 'var(--ink)', color: '#F3F5F8', fontSize: 14.5, fontWeight: 700, cursor: dealBusy ? 'default' : 'pointer', fontFamily: SANS, textAlign: 'center', opacity: dealBusy ? 0.7 : 1 }}>
@@ -950,7 +950,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       break;
     case 'comprobante':
       pregunta = 'Comprobante de pago';
-      sub = 'El comprobante de cada cuota se sube al marcarla como pagada, en Deal Details. Acá podés omitir el aviso.';
+      sub = 'El comprobante de cada cuota se sube al marcarla como pagada, en Deal Details. Aquí puedes omitir el aviso.';
       cuerpo = (
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <button type="button" onClick={() => setComprobanteOmitido(true)} style={{ padding: '11px 20px', borderRadius: 11, border: '1px solid ' + (comprobanteOmitido ? 'var(--warn-fill)' : 'var(--border-strong)'), background: comprobanteOmitido ? 'var(--warn-bg)' : 'transparent', color: comprobanteOmitido ? 'var(--warn)' : 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>{comprobanteOmitido ? 'Se omite ✓' : 'Omitir por ahora'}</button>
@@ -959,12 +959,12 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       break;
     case 'r2Motivo':
       pregunta = '¿Por qué se agendó la R2 fuera de Calendly?';
-      sub = 'No encontramos las respuestas de Calendly de la R2. Si se agendó por otro lado, contanos por qué (así no lo pedimos más).';
+      sub = 'No encontramos las respuestas de Calendly de la R2. Si se agendó por otro lado, cuéntanos por qué (así no lo pedimos más).';
       cuerpo = <textarea value={r2Motivo} onChange={(e) => setR2Motivo(e.target.value)} placeholder="Ej: se coordinó por WhatsApp, se reprogramó a mano, reunión interna…" autoFocus style={{ ...compInput, minHeight: 90, textAlign: 'left', lineHeight: 1.5 }} />;
       break;
     case 'plan':
       pregunta = '¿Cómo se van a cobrar las cuotas?';
-      sub = `Las cuotas tienen que sumar el monto de cierre (${totalMonto ? '$' + totalMonto.toLocaleString('en-US') : 'definilo en el paso anterior'}). Se toleran diferencias chicas por el cambio USD/MXN. Si es una reserva, cargá el plan completo estimado: la reserva es la primera cuota.`;
+      sub = `Las cuotas tienen que sumar el monto de cierre (${totalMonto ? '$' + totalMonto.toLocaleString('en-US') : 'defínelo en el paso anterior'}). Se toleran diferencias chicas por el cambio USD/MXN. Si es una reserva, carga el plan completo estimado: la reserva es la primera cuota.`;
       cuerpo = (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {cuotas.map((c, i) => (
@@ -1012,7 +1012,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       if (pide('closer')) filas.push(['Closer', closer.trim() || '—']);
       if (pide('empresa')) filas.push(['Empresa', empresa.trim() || '—']);
       if (pide('telefono')) filas.push(['Teléfono', telefono.trim() || '—']);
-      pregunta = filas.length ? 'Revisá y confirmá' : 'Confirmá el movimiento';
+      pregunta = filas.length ? 'Revisa y confirma' : 'Confirma el movimiento';
       cuerpo = filas.length ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           {filas.map(([k, v]) => (

@@ -383,7 +383,32 @@ function sinComentarios(crudo: string): string {
     // un `/*` que vive DENTRO de un `//` abre un bloque que nadie cerró a
     // propósito, y se come el archivo hasta el próximo `*​/`.
     .replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1')
-    .replace(/\/\*[\s\S]*?\*\//g, enBlanco);
+    // ⚠️ Y EL DE BLOQUE NECESITA SU PROPIA PROTECCIÓN, QUE NO TENÍA.
+    //
+    // El arreglo del orden (de arriba) cerró el caso del MIME escrito dentro de
+    // un comentario `//`. No cerró el mismo MIME escrito donde de verdad vive:
+    // un atributo. `app/whatsapp/EmpresaInbox.tsx` tiene
+    //
+    //     accept="image/​*,video/​*,audio/​*,application/pdf,…"
+    //
+    // y ese `/​*` abre un bloque falso que se cierra 17 líneas después. Adentro
+    // quedaban los dos placeholders del composer —«Agregá un texto», «Escribí un
+    // mensaje»— que es copy que ve un cliente MEXICANO, y el guard daba verde.
+    //
+    // MEDIDO antes de arreglarlo, sobre los 1150 archivos en alcance:
+    // **1015 archivos con líneas invisibles y 7851 líneas de código que el guard
+    // nunca miró.** No era un archivo raro: era el caso normal.
+    //
+    // La protección es la misma idea que la del `//`, mirando el carácter de
+    // ANTES: un `/​*` que abre un comentario de verdad nunca viene pegado a una
+    // letra o un dígito. En `image/​*` viene pegado a la `e`. En `text/​*`, a la
+    // `t`. Un `/* …` real está al principio de línea, o después de un espacio,
+    // un `(`, una `,` o un `=`.
+    //
+    // Probado rompiéndolo: con la clase de antes puesta en `[\s\S]` (o sea sin
+    // protección) el guard vuelve a perder las 17 líneas de EmpresaInbox y el
+    // test de abajo que las persigue falla.
+    .replace(/(^|[^A-Za-z0-9_])\/\*[\s\S]*?\*\//g, (_m, antes: string) => antes + enBlanco(_m.slice(antes.length)));
 }
 
 /**
@@ -646,6 +671,40 @@ test('ninguna pantalla del repo le habla al cliente de vos', () => {
       `(un detector de lo que el usuario escribe, un prompt que prohíbe el voseo), ` +
       `va en FUERA_DE_ALCANCE de este test CON el porqué escrito.`,
   );
+});
+
+test('un MIME con comodin en un ATRIBUTO no ciega al guard', () => {
+  // El agujero real, encontrado el 08/09/2026 mirando por que «Agrega un texto»
+  // seguia en voseo con el test en verde: `accept="image/*,video/*"` abria un
+  // bloque de comentario falso y el guard perdia las 17 lineas siguientes — las
+  // del composer, que es copy que ve un cliente mexicano.
+  //
+  // El caso hermano (el MIME dentro de un `//`) ya estaba cubierto por el ORDEN
+  // de los dos replace. Este no: el MIME vive donde de verdad se escribe, que es
+  // un atributo, y ahi el orden no ayuda.
+  //
+  // MEDIDO al encontrarlo: 1015 de 1150 archivos en alcance tenian lineas que el
+  // guard nunca miro, y detras habia 13 formas de voseo en copy de producto
+  // (StageMoveDialog, EmpresaInbox, WhatsAppApp).
+  const fuente = [
+    '<input accept="image/*,video/*,application/pdf" />',
+    "const t = 'Revisá y confirmá';",
+    'const u = 1; /* un comentario de verdad con acá adentro */ const v = 2;',
+  ].join('\n');
+  const visto = soloCopy(fuente);
+
+  // La linea de DESPUES del MIME tiene que seguir visible.
+  assert.match(visto, /Revisá y confirmá/, 'el MIME con comodín volvió a abrir un bloque falso: el guard perdió lo que venía después');
+  // Y el comentario de verdad tiene que seguir borrandose: arreglar la ceguera
+  // no puede costar que el guard empiece a marcar los comentarios del repo,
+  // que estan en rioplatense a proposito.
+  assert.doesNotMatch(visto, /un comentario de verdad/, 'dejó de borrar los comentarios de bloque de verdad');
+  // Cada linea conserva su numero: el mensaje del guard cita archivo:linea.
+  assert.equal(visto.split('\n').length, 3);
+
+  // Probado rompiendolo: con la clase de proteccion sacada del segundo replace,
+  // este test falla en el primer assert (el guard se come «Revisá y confirmá»)
+  // y el guard grande vuelve a dar verde sobre los 13 hallazgos reales.
 });
 
 test('las excepciones del guard de voseo siguen apuntando a algo que existe', () => {
