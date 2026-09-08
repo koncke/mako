@@ -321,6 +321,11 @@ function WhatsAppInner() {
   // del flag lo ve cualquiera (viene en el GET de secuencias); el toggle solo
   // lo tiene el admin (/api/whatsapp/envio responde 403 al resto).
   const [envioWaOn, setEnvioWaOn] = useState<boolean | null>(null);
+  // Estado del número no oficial, que lo sabe el chip de al lado. `null` = no se
+  // sabe todavía, y con `null` acá NO se acusa nada: es la misma regla de tres
+  // estados que ese chip aplica adentro. Ver el ⚠️ del rótulo «Envío real».
+  const [canalNoOficial, setCanalNoOficial] = useState<'desconectado' | 'conectando' | 'conectado' | 'error' | null>(null);
+  const canalCaido = canalNoOficial === 'desconectado';
   const [envioAdmin, setEnvioAdmin] = useState(false);
   const [envioBusy, setEnvioBusy] = useState(false);
   const [envioErr, setEnvioErr] = useState<string | null>(null);
@@ -983,13 +988,27 @@ function WhatsAppInner() {
             <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="whatsapp" size={34} /></span>
             <h1 style={{ fontWeight: 600, fontSize: '40px', letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>WhatsApp</h1>
             <ChatwootWebhookChip />
-            <EvolutionConnect />
+            <EvolutionConnect onEstado={setCanalNoOficial} />
             {envioAdmin && envioWaOn != null && (
               <button onClick={() => void toggleEnvioWa()} disabled={envioBusy} aria-pressed={envioWaOn}
-                title={envioWaOn ? 'El motor manda WhatsApps reales — clic para pausar' : 'Las secuencias no envían: los pasos quedan esperando — clic para activar'}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '5px 11px', borderRadius: '999px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, border: '1px solid ' + (envioWaOn ? 'var(--good)' : 'var(--border-strong)'), background: envioWaOn ? 'var(--good-bg)' : 'var(--surface)', color: envioWaOn ? 'var(--good)' : 'var(--dim)' }}>
-                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: envioWaOn ? 'var(--good)' : 'var(--faint)' }} />
-                Envío real: {envioWaOn ? 'ON' : 'OFF'}
+                title={
+                  !envioWaOn ? 'Las secuencias no envían: los pasos quedan esperando — clic para activar'
+                    : canalCaido ? 'El interruptor está encendido, pero tu WhatsApp no oficial está desconectado: no sale nada. Reconéctalo en el chip de al lado.'
+                      : 'El motor manda WhatsApps reales — clic para pausar'
+                }
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '5px 11px', borderRadius: '999px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, border: '1px solid ' + (envioWaOn ? (canalCaido ? 'var(--warn)' : 'var(--good)') : 'var(--border-strong)'), background: envioWaOn ? (canalCaido ? 'var(--warn-bg)' : 'var(--good-bg)') : 'var(--surface)', color: envioWaOn ? (canalCaido ? 'var(--warn)' : 'var(--good)') : 'var(--dim)' }}>
+                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: envioWaOn ? (canalCaido ? 'var(--warn)' : 'var(--good)') : 'var(--faint)' }} />
+                {/* ⚠️ «Envío real: ON» AFIRMABA LA MITAD BUENA DE UN PROCESO DE DOS
+                    PASOS, que es la regla que este repo ya tiene escrita («llegó el
+                    formulario ✓» sin decir si ENTRÓ). Para que salga un mensaje hacen
+                    falta DOS cosas: el interruptor encendido Y el número conectado. El
+                    chip mostraba sólo la primera, en verde, mientras la segunda estaba
+                    caída hacía cinco días — y el dueño leyó la barra y dijo «acá me
+                    dice que está todo conectado».
+                    Ahora, con el canal caído, el mismo chip dice qué falta. No se
+                    apaga: el interruptor SÍ está en ON, y mentir en la otra dirección
+                    haría que lo prendiera de nuevo sin efecto. */}
+                Envío real: {envioWaOn ? (canalCaido ? 'ON, pero el número está caído' : 'ON') : 'OFF'}
               </button>
             )}
             {envioErr && <span style={{ fontSize: '12px', color: 'var(--bad)' }}>{envioErr}</span>}

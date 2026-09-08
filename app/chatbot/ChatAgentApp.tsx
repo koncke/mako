@@ -367,7 +367,7 @@ function ChatAgentInner() {
           {vista === 'whatsapp' && (
             <SimuladorWhatsApp
               secuencias={secuencias} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa}
-              negocio={negocio} rolAdmin={rolAdmin} audios={audios} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
+              negocio={negocio} rolAdmin={rolAdmin} audios={audios} canalCaido={canalCaido} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
               onWizard={(id) => setWizard(id)} onReload={() => void load()}
             />
           )}

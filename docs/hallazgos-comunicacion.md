@@ -2042,10 +2042,31 @@ espejado por workspace. El ws11 espejo uno el mismo dia; el ws1, hace 5,6 dias. 
 solo workspace ese dato no dice nada — es la regla de «con UN solo valor configurado no se
 puede saber si lo leas del lugar correcto», aplicada a un diagnostico.
 
-⚠️ **Y el chequeo en vivo desde local NO sirve para esto.** `EVOLUTION_BASE_URL` esta
-**presente pero vacia** en `.env.local`, asi que `evolutionConfigurado()` da `false` y
-`estadoEnVivo()` contesta `error` **siempre**, midiendo la maquina del que verifica y no
-produccion. Una env var vacia no es una env var ausente, y el codigo trata a las dos igual.
+⚠️ **CORRECCION (mismo dia, tras el «revisalo» del dueño). Aca arriba decia que
+`EVOLUTION_BASE_URL` estaba «presente pero vacia» en `.env.local` y que por eso no se podia
+medir en vivo desde local. ERA FALSO, y las dos mitades del error valen mas que la
+conclusion:**
+
+1. **`grep -o "^NOMBRE="` IMPRIME SOLO LO QUE MATCHEA, o sea el nombre y el `=`.** El
+   valor nunca entra en la salida. Miré `EVOLUTION_BASE_URL=` y leí «esta vacia» sobre un
+   comando que, por diseño, no puede mostrar un valor. Para preguntar si una env var tiene
+   valor va `grep -c '^NOMBRE=..'` (dos puntos = al menos un caracter despues del `=`), que
+   contesta sin imprimir el secreto.
+2. **El script de chequeo no cargaba `.env.local` en absoluto.** No tenia `dotenv`, asi que
+   `evolutionConfigurado()` daba `false` porque no habia NINGUNA env, no porque faltara una.
+   Un script suelto en `scripts/` no hereda el entorno de Next: `config({ path: '.env.local' })`
+   va **antes** de cualquier import que toque el modulo, porque los modulos leen
+   `process.env` al cargarse.
+
+**Las dos fallan igual: producen un «no configurado» que se lee como una medicion.** Y las
+dos me llevaron a escribir «no se puede medir en vivo» sobre algo que se medía perfecto.
+Con el entorno cargado de verdad, la API viva contesta `socketVivo: false` y
+`estadoEnVivo: 'desconectado'` — o sea que la conclusion aguanto, pero **por casualidad**:
+la fila y la API coincidian. El dia que discrepen, este metodo no lo habria visto.
+
+**La regla: un chequeo que contesta «no configurado» tiene que distinguir «falta el valor»
+de «no cargué el entorno», o no es un chequeo.** Es la misma familia que «"No puedo hacer X
+con este dato" no es "este dato es falso"», aplicada al que verifica.
 
 **Lo que quedo:**
 

@@ -48,9 +48,28 @@ const chipBase: CSSProperties = {
 };
 const MAX_FALLOS = 5; // tras N fallos seguidos del polling, cortar y avisar
 
-export function EvolutionConnect() {
+export function EvolutionConnect({ onEstado }: {
+  /**
+   * Le avisa al padre en qué estado quedó el canal.
+   *
+   * Existe por el chip «Envío real: ON» de al lado, que estaba en VERDE con el
+   * número caído: es verdad sobre el FLAG y falso sobre el SISTEMA. Para que
+   * pueda decir la verdad necesita saber esto, y el estado vive acá.
+   *
+   * `null` = todavía no se sabe. Que el padre reciba `null` y no
+   * 'desconectado' es el punto: no puede afirmar nada mientras no sepa.
+   */
+  onEstado?: (e: Estado | null) => void;
+} = {}) {
   const { confirm, confirmNode } = useConfirm();
   const [estado, setEstado] = useState<Estado>('desconectado');
+  // ⚠️ ANTES DEL PRIMER FETCH NO SABEMOS NADA, y `estado` arranca en
+  // 'desconectado' — o sea que sin esto el chip AFIRMA una desconexión en cada
+  // carga de la pantalla, durante el instante que tarda la request. Con el chip
+  // viejo (gris, «conectar») eso pasaba desapercibido; con el nuevo, que grita
+  // DESCONECTADA en ámbar, sería una falsa alarma en cada F5.
+  // «Todavía no pregunté» es un tercer estado y se dice como tal.
+  const [cargado, setCargado] = useState(false);
   const [numero, setNumero] = useState<string | null>(null);
   const [configurado, setConfigurado] = useState(true);
   const [visible, setVisible] = useState(false); // el admin lo ve; setter/closer no (403)
@@ -72,12 +91,17 @@ export function EvolutionConnect() {
       if (status === 403) { setVisible(false); return; }      // setter/closer → sin chip
       setVisible(true);                                        // admin (o error): mostrar chip
       if (body.ok) { setConfigurado(body.configurado); setEstado(body.estado); setNumero(body.numero); }
+      setCargado(true);
     } catch {
-      setVisible(true); setEstado('error');                   // fallo de red → chip visible, reintentable
+      setVisible(true); setEstado('error'); setCargado(true); // fallo de red → chip visible, reintentable
     }
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  // Un solo lugar avisa al padre: en el efecto y no adentro de cada setEstado,
+  // que son cinco y el próximo se olvidaría.
+  useEffect(() => { onEstado?.(cargado ? estado : null); }, [estado, cargado, onEstado]);
 
   // Polling del estado (3s) + refresh del QR (20s) mientras el modal está abierto
   // sin conectar. Con backoff: tras MAX_FALLOS fallos seguidos corta y avisa.
@@ -187,17 +211,58 @@ export function EvolutionConnect() {
   if (!visible) return null;
 
   const conectado = estado === 'conectado';
+
+  // ⚠️ TRES ESTADOS, NO DOS — Y EL CAÍDO SE TIENE QUE LEER COMO CAÍDO.
+  //
+  // El chip decía «API no Oficial: conectar» con punto gris sobre fondo neutro,
+  // entre «API Oficial» en verde y «Envío real: ON» en verde. El dueño miró esa
+  // barra y dijo, textual, «acá me dice que está todo conectado» — con el número
+  // caído hacía cinco días y la nutrición fallando en silencio.
+  //
+  // Tres cosas fallaban a la vez, y cada una sola ya alcanzaba:
+  //
+  // 1. EL RÓTULO ERA UN INFINITIVO. «conectar» es una invitación, no un estado, y
+  //    al lado de dos chips que sí dicen un estado se lee como uno más de la
+  //    familia. Un estado se nombra: DESCONECTADA.
+  // 2. EL ESTILO ERA NEUTRO. Gris sobre `--surface-2` es el aspecto de «opción
+  //    disponible», no el de «esto está roto». Y como el color era el único que
+  //    intentaba decirlo, la regla de la casa —«el color nunca es el único
+  //    portador»— quedaba violada en las dos puntas: ni el color ni el texto.
+  // 3. «no conectado» TAPABA A «no pude preguntarlo». `estado` arranca en
+  //    'desconectado' antes del primer fetch y cae en 'error' si la red falla,
+  //    así que el chip AFIRMABA una desconexión sobre algo que todavía no sabía.
+  //    Ésa es la regla que este repo ya pagó en el onboarding: 'desconocido' no
+  //    es 'desconectado', y afirmar lo segundo manda a re-escanear un QR que no
+  //    hace falta.
   const chipStyle: CSSProperties = conectado
     ? { ...chipBase, background: 'var(--good-bg)', border: '1px solid var(--good)', color: 'var(--good)' }
-    : { ...chipBase, background: 'var(--surface-2)', border: '1px solid var(--border-strong)', color: 'var(--dim)' };
+    : !cargado || estado === 'error'
+      // No pudimos preguntarlo: ni verde ni rojo. No se afirma nada.
+      ? { ...chipBase, background: 'var(--surface-2)', border: '1px dashed var(--border-strong)', color: 'var(--dim)' }
+      // Desconectado de verdad, o conectando. Ámbar: pide atención sin gritar
+      // como un error del sistema — la sesión se cae sola y es normal.
+      : { ...chipBase, background: 'var(--warn-bg)', border: '1px solid var(--warn)', color: 'var(--warn)' };
+
+  const puntoColor = conectado ? 'var(--good)' : (!cargado || estado === 'error') ? 'var(--faint)' : 'var(--warn)';
+  const rotulo = conectado
+    ? `API no Oficial conectada${numero ? ` · ${numero}` : ''}`
+    : !cargado ? 'API no Oficial: comprobando…'
+      : estado === 'conectando' ? 'API no Oficial: conectando…'
+      : estado === 'error' ? 'API no Oficial: no pude comprobarlo'
+        : 'API no Oficial DESCONECTADA — reconectar';
 
   return (
     <>
       {confirmNode}
       <button onClick={() => { setOpen(true); if (!conectado) void abrir(); }} style={chipStyle}
-        title={conectado ? `WhatsApp no oficial conectado${numero ? ` (${numero})` : ''}` : 'Conectar el WhatsApp no oficial (API no Oficial)'}>
-        <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: conectado ? 'var(--good)' : 'var(--faint)' }} />
-        {conectado ? `API no Oficial conectada${numero ? ` · ${numero}` : ''}` : 'API no Oficial: conectar'}
+        title={
+          conectado ? `WhatsApp no oficial conectado${numero ? ` (${numero})` : ''}`
+            : !cargado ? 'Comprobando el estado del WhatsApp no oficial…'
+            : estado === 'error' ? 'No se pudo comprobar el estado del WhatsApp no oficial — puede estar bien'
+              : 'Tu WhatsApp no oficial está desconectado: las secuencias no envían nada. Toca para volver a vincularlo.'
+        }>
+        <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: puntoColor }} />
+        {rotulo}
       </button>
 
       {open && (

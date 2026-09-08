@@ -62,11 +62,13 @@ async function blobABase64(b: Blob): Promise<string> {
 
 type Paso = { t: 'typing' } | { t: 'msg'; msg: HiloMsg };
 
-export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, onAudioNuevo, onWizard, onReload }: {
+export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onWizard, onReload }: {
   secuencias: SecuenciaDto[];
   objetivos: Opcion[];
   etiquetaEtapa: (key: string) => string;
   negocio: string;
+  /** El WhatsApp del negocio está caído: prender una secuencia no va a enviar nada. */
+  canalCaido: boolean;
   rolAdmin: boolean;
   audios: AudioSetting[];
   onAudioNuevo: (a: AudioSetting) => void;
@@ -276,7 +278,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
       </div>
 
       {detalle && sel ? (
-        <SecuenciaPerfil secuencia={sel} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} rolAdmin={rolAdmin} audios={audios} negocio={negocio} onAudioNuevo={onAudioNuevo}
+        <SecuenciaPerfil secuencia={sel} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} rolAdmin={rolAdmin} audios={audios} negocio={negocio} canalCaido={canalCaido} onAudioNuevo={onAudioNuevo}
           onClose={() => setDetalle(false)} onCambio={onReload} onWizard={() => onWizard(sel.id)} />
       ) : sel ? (
         <ChatHilo

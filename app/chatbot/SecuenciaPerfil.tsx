@@ -53,7 +53,7 @@ const LOGRADO_TXT: Record<string, string> = {
 
 const EMOJI_OBJ: Record<Objetivo, string> = { agendar: '📅', preparar: '🎯', reactivar: '🧲', cualificar: '❓', confirmar_pago: '💳' };
 
-export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin, audios, negocio, onAudioNuevo, onClose, onCambio, onWizard }: {
+export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, onAudioNuevo, onClose, onCambio, onWizard }: {
   secuencia: SecuenciaDto;
   objetivos: Opcion[];
   etiquetaEtapa: (key: string) => string;
@@ -61,6 +61,8 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
   audios: AudioSetting[];
   /** Nombre del negocio: firma cada burbuja, como en el chat de verdad. */
   negocio: string;
+  /** El WhatsApp del negocio está caído. */
+  canalCaido: boolean;
   /** Un audio grabado desde un paso se suma a la biblioteca del padre. */
   onAudioNuevo: (a: AudioSetting) => void;
   onClose: () => void;
@@ -164,7 +166,23 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
     setBusy('toggle'); setErr(null);
     try {
       const r = await (await fetch('/api/whatsapp/secuencias', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: secuencia.id, activa: !activa }) })).json();
-      if (r.ok) { setActiva(!activa); flashOk(!activa ? 'Activada ✓' : 'Pausada ✓'); onCambio(); } else setErr(r.error || 'No se pudo cambiar.');
+      if (r.ok) {
+        setActiva(!activa);
+        // ⚠️ «Activada ✓» ES CIERTO SOBRE LA FILA Y FALSO SOBRE EL RESULTADO.
+        // Prender una secuencia de WhatsApp con el número caído la deja en verde
+        // sin que salga un solo mensaje: cada paso falla y se reprograma +24h,
+        // para siempre y sin síntoma. Pasó cinco días en la cuenta del dueño.
+        // El toggle SÍ hizo su trabajo, así que no se falla — se dice qué falta.
+        const soloWa = pasos.every((p) => p.canal === 'whatsapp');
+        flashOk(
+          !activa
+            ? (canalCaido && soloWa
+              ? 'Activada ✓ — pero tu WhatsApp está desconectado, así que todavía no va a salir nada. Reconéctalo en la tab WhatsApp.'
+              : 'Activada ✓')
+            : 'Pausada ✓',
+        );
+        onCambio();
+      } else setErr(r.error || 'No se pudo cambiar.');
     } catch { setErr('Sin conexión — prueba de nuevo.'); }
     setBusy(null);
   };
