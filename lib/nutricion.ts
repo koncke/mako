@@ -11,6 +11,7 @@
 // histórico del cron simula los canales apagados ('simulado', avanza).
 // =============================================================================
 
+import { FAMILIA_POST_AGENDA, TRIGGER_AGENDA_CONOCIDO, TRIGGER_AGENDA_NUEVO, secuenciasParaElLead } from '@/lib/nutricion-familias';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { getVslEngagementMap } from '@/lib/leads';
 import { pipelineStageOf } from '@/lib/pipeline';
@@ -373,6 +374,32 @@ export async function leadsDeCohorte(triggerTipo: string, etapa?: string | null)
     return ((data ?? []) as Array<{ id: number }>).map((r) => r.id);
   }
 
+  // ── Las DOS MITADES de la post-agenda ──────────────────────────────────────
+  // Quien agenda después de tu bienvenida y quien agenda sin haberte hablado
+  // nunca reciben lo mismo: al primero no se le puede decir «soy Fulano» otra
+  // vez. Antes eran dos PASOS excluyentes de una sola secuencia; ahora son dos
+  // secuencias, que es como el dueño las piensa y como se editan.
+  //
+  // ⚠️ PARTIR EL COHORTE EN DOS NO ALCANZA, Y ACÁ ESTÁ EL DUPLICADO QUE ESTO
+  // EVITA. La condición «¿ya le hablamos?» NO es estable: mandarle el audio de
+  // primer contacto lo convierte en «ya contactado», así que en la corrida
+  // siguiente el mismo lead cae en el cohorte de la secuencia HERMANA y recibe
+  // el segundo audio. Y la deduplicación de `comprometerInscripciones` no lo
+  // ve: filtra por `secuencia_id`, o sea por UNA secuencia, no por la familia.
+  //
+  // Por eso la regla es de familia y no de secuencia: quien ya está inscripto
+  // en CUALQUIERA de las dos queda fuera de las dos. Se decide una vez, al
+  // entrar, y ningún envío posterior la puede dar vuelta.
+  if (triggerTipo === TRIGGER_AGENDA_CONOCIDO || triggerTipo === TRIGGER_AGENDA_NUEVO) {
+    const base = await leadsDeCohorte('agendado_sin_confirmar', etapa);
+    if (base.length === 0) return [];
+    const yaEnLaFamilia = await leadsEnFamiliaPostAgenda(base);
+    const libres = base.filter((id) => !yaEnLaFamilia.has(id));
+    if (libres.length === 0) return [];
+    const yaLesHablamos = await leadsYaContactados(libres);
+    return libres.filter((id) => (triggerTipo === TRIGGER_AGENDA_CONOCIDO ? yaLesHablamos.has(id) : !yaLesHablamos.has(id)));
+  }
+
   if (triggerTipo === 'no_show_j1') {
     // No asistió a J1 (asistio_j1 = false), todavía abierto, J1 reciente.
     const { data, error } = await supabase
@@ -545,6 +572,35 @@ const pasoConRelleno = (p: PasoSecuencia): boolean =>
 // ── Inscripción ──────────────────────────────────────────────────────────────
 export type PlanInscripcion = { secuencia: string; lead_id: number; proximo_envio_at: string };
 
+/**
+ * Leads que YA están inscriptos en alguna secuencia de la familia post-agenda.
+ *
+ * Es lo que mantiene excluyentes a las dos mitades después del primer envío:
+ * sin esto, mandarle el audio a un lead de «primer contacto» lo mueve al
+ * cohorte de «ya contactado» y la corrida siguiente le manda el otro audio.
+ *
+ * Mira TODAS las inscripciones, no solo las activas: una completada o
+ * cancelada también significa que este lead ya pasó por acá, y volver a
+ * meterlo por la otra mitad sería el mismo mensaje repetido.
+ */
+async function leadsEnFamiliaPostAgenda(leadIds: number[]): Promise<Set<number>> {
+  const set = new Set<number>();
+  if (leadIds.length === 0) return set;
+  const supabase = await getTenantDb();
+  const { data: secs } = await supabase
+    .from('nutricion_secuencias').select('id')
+    .in('trigger_tipo', FAMILIA_POST_AGENDA);
+  const ids = ((secs ?? []) as Array<{ id: number }>).map((r) => r.id);
+  if (ids.length === 0) return set;
+  const { data } = await supabase
+    .from('nutricion_inscripciones').select('lead_id')
+    .in('lead_id', leadIds).in('secuencia_id', ids);
+  for (const r of (data ?? []) as Array<{ lead_id: number | null }>) {
+    if (r.lead_id != null) set.add(r.lead_id);
+  }
+  return set;
+}
+
 // Devuelve los leads que se inscribirían (no escribe). Para el dry-run.
 export async function planificarInscripciones(): Promise<PlanInscripcion[]> {
   const supabase = (await getTenantDb());
@@ -636,7 +692,7 @@ export type EventoNutricion = 'lead_nuevo' | 'agenda_nueva';
 // verdad de A QUIÉN le toca: acá solo decidimos QUÉ secuencias mirar ya mismo.
 const TRIGGERS_POR_EVENTO: Record<EventoNutricion, string[]> = {
   lead_nuevo: ['instant_form_sin_agenda', 'vio_vsl_sin_agendar', 'vio_poco_vsl'],
-  agenda_nueva: ['agendado_sin_confirmar'],
+  agenda_nueva: ['agendado_sin_confirmar', TRIGGER_AGENDA_CONOCIDO, TRIGGER_AGENDA_NUEVO],
 };
 
 /**
@@ -650,8 +706,18 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion):
     const supabase = await getTenantDb();
     const claves = TRIGGERS_POR_EVENTO[evento] ?? [];
     if (!claves.length) return 0;
-    const secuencias = (await getSecuenciasActivas()).filter((s) => claves.includes(s.trigger_tipo));
-    if (!secuencias.length) return 0;
+    const todas = (await getSecuenciasActivas()).filter((s) => claves.includes(s.trigger_tipo));
+    if (!todas.length) return 0;
+    // LAS DOS MITADES DE LA POST-AGENDA SON EXCLUYENTES, Y ACÁ ES DONDE MÁS
+    // FÁCIL SE ROMPE: este camino no pasa por `leadsDeCohorte` —enrola en TODAS
+    // las secuencias del evento— así que sin este filtro el mismo lead entraría
+    // a las dos y recibiría los dos audios de apertura, uno presentándose y el
+    // otro retomando una charla. Es exactamente el duplicado que separar las
+    // secuencias vino a evitar.
+    const hayFamilia = todas.filter((s) => FAMILIA_POST_AGENDA.includes(s.trigger_tipo)).length > 1;
+    const secuencias = hayFamilia
+      ? secuenciasParaElLead(todas, (await leadsYaContactados([leadId])).has(leadId))
+      : todas;
 
     const { data: yaInsc } = await supabase
       .from('nutricion_inscripciones')

@@ -242,7 +242,7 @@ export function Cabecera({ objetivo, foco, capacidad, progreso, anio, quarter, d
         <div className="mk-cabecera__b">
           {foco.origen === 'arranque' && foco.hrefLabel === 'Cargar el objetivo' ? (
             <p style={{ margin: 0, fontSize: 'var(--fs-md)', lineHeight: 1.55, color: 'var(--sidebar-text)' }}>
-              Cuando cargues la meta, acá va a aparecer qué hacer hoy.
+              Cuando cargues la meta, aquí va a aparecer qué hacer hoy.
             </p>
           ) : (
             <Ahora foco={foco} />

@@ -201,6 +201,10 @@ export const TRIGGERS: Opcion[] = [
   { value: 'vio_vsl_sin_agendar', label: 'Vio el VSL sin agendar' },
   { value: 'vio_poco_vsl', label: 'Vio poco del VSL' },
   { value: 'agendado_sin_confirmar', label: 'Agendó pero no confirmó' },
+  // Las dos mitades de la post-agenda. Se ofrecen aparte porque no reciben lo
+  // mismo: al que ya te escuchó no se le puede decir «soy Fulano» de nuevo.
+  { value: 'agendado_ya_contactado', label: 'Agendó después de tu bienvenida' },
+  { value: 'agendado_primer_contacto', label: 'Agendó sin haber hablado contigo' },
   { value: 'no_show_j1', label: 'No asistió a R1' },
   { value: 'post_j1_sin_avanzar', label: 'Asistió a R1 pero no avanza' },
   { value: 'post_j1_calificado_sin_j2', label: 'Calificado sin R2' },

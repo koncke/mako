@@ -5,16 +5,25 @@
 // Esto las convierte en las secuencias que de verdad las envían — que es lo que
 // hace que grabarlas sirva para algo.
 //
-// Son DOS secuencias, no tres, y el motivo es el que manda todo el diseño:
+// Son TRES secuencias, una por audio, y cada una tiene su cohorte:
 //
-//   · El audio de BIENVENIDA le llega a quien dejó sus datos y no agendó.
-//     Cohorte propio, secuencia propia.
-//   · Los otros dos le llegan a quien ACABA DE AGENDAR, que es el MISMO cohorte.
-//     La diferencia no está en cuándo entran sino en si ya le hablamos: a quien
-//     recibió tu bienvenida no le podés decir "hola, soy Fulano" otra vez.
-//     Por eso van como dos pasos de apertura mutuamente excluyentes dentro de la
-//     misma secuencia (requiere: 'ya_contactado' / 'primer_contacto'), y el
-//     motor deja salir exactamente uno.
+//   · BIENVENIDA          → dejó sus datos y no agendó.
+//   · AGENDÓ CONOCIÉNDOTE → agendó DESPUÉS de tu bienvenida: ya te escuchó.
+//   · AGENDÓ SIN HABLARTE → agendó sin haber recibido nada tuyo: te presentás.
+//
+// ⚠️ LAS DOS ÚLTIMAS ERAN UNA SOLA SECUENCIA CON DOS PASOS EXCLUYENTES
+// (`requiere: 'ya_contactado' / 'primer_contacto'`), y el motor dejaba salir
+// uno. Funcionaba, y aun así estaba mal para el que la EDITA: la pantalla
+// mostraba dos audios en la misma secuencia y se leía como que salían los dos.
+// El dueño lo reportó así — «no se deben enviar ambos, son situaciones
+// diferentes». Que el motor lo resuelva bien no arregla que la pantalla lo
+// cuente mal.
+//
+// Lo que hace que la separación no traiga el duplicado que evitaba el paso
+// excluyente está en `lib/nutricion.ts`: los dos triggers son una FAMILIA y
+// quien está inscripto en una queda fuera de la otra. Sin eso, mandarle el
+// audio a un lead de «primer contacto» lo convertiría en «ya contactado» y la
+// corrida siguiente le mandaría el otro audio.
 //
 // Nacen PAUSADAS siempre: nada sale a un lead real hasta que el dueño lo prenda.
 
@@ -23,6 +32,7 @@ import 'server-only';
 import { getTenantDb } from './workspace';
 import { getSetting } from './settings';
 import { KEY_AUDIOS_CLAVE, type ClaveAudio } from './audios-paso';
+import { TRIGGER_AGENDA_CONOCIDO, TRIGGER_AGENDA_NUEVO } from './nutricion-familias';
 import type { PasoSecuencia } from './nutricion';
 
 export type SecuenciaArmada = { clave: string; nombre: string; creada: boolean; audios: number };
@@ -87,47 +97,84 @@ export async function armarSecuenciasDeAudios(linkVideo?: string | null): Promis
     '¿Me confirmas por aquí que te queda bien el horario?',
   ].filter(Boolean).join('\n');
 
-  // Los dos de post-agenda comparten secuencia. El orden importa: si el primero
-  // no corresponde, el motor pasa al segundo en la misma corrida.
-  const pasosAgenda: PasoSecuencia[] = [];
-  if (audios.agenda_con_bienvenida) pasosAgenda.push(pasoAudio(1, 1, audios.agenda_con_bienvenida, piePostAgenda, 'ya_contactado'));
-  if (audios.agenda_primer_contacto) pasosAgenda.push(pasoAudio(pasosAgenda.length + 1, 1, audios.agenda_primer_contacto, piePostAgenda, 'primer_contacto'));
-  if (pasosAgenda.length) {
-    // ESPERAR LA CONFIRMACIÓN antes de avanzar no necesita un temporizador
-    // propio: el motor ya pausa la inscripción en cuanto el lead escribe
-    // (pausarPorRespuesta la pasa a 'respondio' y borra el próximo envío). Así
-    // que un segundo paso a 24h le llega SOLO a quien no contestó — que es
-    // exactamente lo pedido. Con `sin_respuesta` queda dicho dos veces, y la
-    // segunda es la que sobrevive si alguien cambia el motor.
-    //
-    // Va como TEXTO y no como audio: repetir la misma nota de voz al día
-    // siguiente se lee como un bot, y acá lo único que falta es la confirmación.
-    // Las variantes existen para no mandar la misma frase palabra por palabra a
-    // cientos de personas (es el patrón que WhatsApp usa para banear).
-    //
-    // OJO CON EL REGISTRO: esto sale al lead, no a la app. Español NEUTRO y
-    // tuteo — el avatar de este negocio está en México, y un "che" o un "decime"
-    // suenan importados al instante. Es lo mismo que ya cuidan los escenarios
-    // del ensayo y el copy de la tab.
-    const recordatorio: PasoSecuencia = {
-      orden: pasosAgenda.length + 1, canal: 'whatsapp', delay_horas: 24,
-      tipo: 'texto', audio_id: null, requiere: 'sin_respuesta',
-      asunto: null,
-      cuerpo: 'Hola {{nombre}}, ¿te sigue quedando bien el horario de la reunión? Con un sí me alcanza.',
-      variantes: [
-        'Hola {{nombre}}, ¿te sigue quedando bien el horario de la reunión? Con un sí me alcanza.',
-        '{{nombre}}, ¿me confirmas la reunión? Si necesitas moverla, dime y lo acomodamos.',
-        'Hola {{nombre}}, ¿queda en pie lo que agendamos? Avísame y quedo tranquilo.',
-      ],
-      proveedor: 'no_oficial', template_wa: null,
-    };
+  // Cada audio de post-agenda, su secuencia. El recordatorio de 24h se repite
+  // en las dos a propósito: es el mismo pedido de confirmación, y como el lead
+  // entra a UNA sola de las dos (la familia lo garantiza), nunca lo recibe dos
+  // veces.
+  //
+  // ESPERAR LA CONFIRMACIÓN antes de avanzar no necesita un temporizador
+  // propio: el motor ya pausa la inscripción en cuanto el lead escribe
+  // (pausarPorRespuesta la pasa a 'respondio' y borra el próximo envío). Así
+  // que el segundo paso a 24h le llega SOLO a quien no contestó — que es
+  // exactamente lo pedido. Con `sin_respuesta` queda dicho dos veces, y la
+  // segunda es la que sobrevive si alguien cambia el motor.
+  //
+  // Va como TEXTO y no como audio: repetir la misma nota de voz al día
+  // siguiente se lee como un bot, y acá lo único que falta es la confirmación.
+  // Las variantes existen para no mandar la misma frase palabra por palabra a
+  // cientos de personas (es el patrón que WhatsApp usa para banear).
+  //
+  // OJO CON EL REGISTRO: esto sale al lead, no a la app. Español NEUTRO y
+  // tuteo — el avatar de este negocio está en México, y un "che" o un "decime"
+  // suenan importados al instante. Es lo mismo que ya cuidan los escenarios
+  // del ensayo y el copy de la tab.
+  const recordatorio = (orden: number): PasoSecuencia => ({
+    orden, canal: 'whatsapp', delay_horas: 24,
+    tipo: 'texto', audio_id: null, requiere: 'sin_respuesta',
+    asunto: null,
+    cuerpo: 'Hola {{nombre}}, ¿te sigue quedando bien el horario de la reunión? Con un sí me alcanza.',
+    variantes: [
+      'Hola {{nombre}}, ¿te sigue quedando bien el horario de la reunión? Con un sí me alcanza.',
+      '{{nombre}}, ¿me confirmas la reunión? Si necesitas moverla, dime y lo acomodamos.',
+      'Hola {{nombre}}, ¿queda en pie lo que agendamos? Avísame y quedo tranquilo.',
+    ],
+    proveedor: 'no_oficial', template_wa: null,
+  });
+
+  // Ya NO llevan `requiere` en el paso: la condición se mudó al cohorte de la
+  // secuencia. Dejarla acá además la haría redundante y engañosa — la pantalla
+  // diría «solo si ya le habías escrito» sobre una secuencia a la que, por
+  // definición, solo entra esa gente.
+  if (audios.agenda_con_bienvenida) {
     planos.push({
-      clave: 'chat-agent-post-agenda',
-      nombre: 'Agendó — confirmación y preparación',
+      clave: 'chat-agent-post-agenda-conocido',
+      nombre: 'Agendó después de tu bienvenida',
       etapa: 'postagenda',
-      trigger: 'agendado_sin_confirmar',
-      pasos: [...pasosAgenda, recordatorio].map((p, i) => ({ ...p, orden: i + 1 })),
+      trigger: TRIGGER_AGENDA_CONOCIDO,
+      pasos: [pasoAudio(1, 1, audios.agenda_con_bienvenida, piePostAgenda), recordatorio(2)],
     });
+  }
+  if (audios.agenda_primer_contacto) {
+    planos.push({
+      clave: 'chat-agent-post-agenda-nuevo',
+      nombre: 'Agendó sin haber hablado contigo',
+      etapa: 'postagenda',
+      trigger: TRIGGER_AGENDA_NUEVO,
+      pasos: [pasoAudio(1, 1, audios.agenda_primer_contacto, piePostAgenda), recordatorio(2)],
+    });
+  }
+
+  // ── La que reemplazan las dos nuevas ───────────────────────────────────────
+  // `chat-agent-post-agenda` era la secuencia ÚNICA de post-agenda, con trigger
+  // `agendado_sin_confirmar`. Las dos que la reemplazan tienen claves nuevas, o
+  // sea que sin esto la vieja sobrevive ACTIVA — y su cohorte se solapa con el
+  // de las dos: el mismo lead entra a la vieja y a la que le toca, y recibe el
+  // audio dos veces. La exclusión de familia no la puede atajar porque su
+  // trigger no es de la familia.
+  //
+  // Se ARCHIVA, no se borra: las inscripciones y los envíos la referencian, y
+  // el historial de lo que ya salió tiene que sobrevivir. Archivada, el motor
+  // no la enrola ni la envía (`getSecuenciasActivas` filtra por
+  // `archivada_at IS NULL`), así que la inscripción que tenga adentro queda
+  // quieta — y el lead vuelve a entrar, ahora por la mitad que le corresponde.
+  //
+  // Solo si de verdad se armó alguna de las dos: archivar la vieja cuando el
+  // dueño todavía no grabó ningún audio de post-agenda lo dejaría sin nada.
+  if (planos.some((p) => p.clave.startsWith('chat-agent-post-agenda-'))) {
+    const { error } = await supabase.from('nutricion_secuencias')
+      .update({ activa: false, archivada_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('clave', 'chat-agent-post-agenda').is('archivada_at', null);
+    if (error) console.error(`[secuencias-audios] no se pudo archivar la post-agenda vieja: ${error.message}`);
   }
 
   for (const plan of planos) {
