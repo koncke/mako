@@ -21,6 +21,7 @@ import { correrPorWorkspace } from '@/lib/cron-workspaces';
 import { getMetaAccountHealth } from '@/lib/meta-health';
 import { registrarEstadoMeta } from '@/lib/meta-health-history';
 import { insistirAlertasCriticas } from '@/lib/alerta-critica';
+import { vigilarVozMaKo } from '@/lib/canal-vigilante';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -30,6 +31,21 @@ export async function GET(request: NextRequest) {
   if (fail) return fail;
 
   const t0 = Date.now();
+
+  // ⚠️ LA VOZ, ANTES QUE NADA. Este cron es «la guardia que no se calla», y el
+  // 8/9/2026 se descubrió que llevaba SEIS DÍAS gritando contra un socket muerto:
+  // la línea de WhatsApp de MaKo informaba «open» y no entraba ni salía un
+  // mensaje. Se generaron avisos, se pagó la IA que los redactó, y ninguno llegó.
+  //
+  // Va primero y por EMAIL (ver lib/canal-vigilante.ts): una alarma sobre el canal
+  // caído no puede viajar por ese canal. Y nunca tira: si la vigilancia falla, el
+  // resto del cron tiene que correr igual.
+  const voz = await vigilarVozMaKo().catch((e) => {
+    console.error(`[cron:alerta-critica] no se pudo vigilar la voz: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  });
+  if (voz && !voz.viva) console.error(`[cron:alerta-critica] ⛔ LA VOZ DE MAKO ESTÁ CAÍDA (aviso: ${voz.aviso})`);
+
   try {
     // Compartido entre las iteraciones: dos workspaces pueden apuntar a la MISMA
     // cuenta de Meta (le pasa al Cliente de Prueba, que tiene copia de las
@@ -53,7 +69,7 @@ export async function GET(request: NextRequest) {
       }
       return res;
     });
-    return Response.json({ ok: true, workspaces, ms: Date.now() - t0 });
+    return Response.json({ ok: true, voz, workspaces, ms: Date.now() - t0 });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[cron:alerta-critica] error: ${message}`);

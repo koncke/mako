@@ -3589,3 +3589,94 @@ que una ruta existe sin disparar su efecto es más barato que deshacer el efecto
   una línea cuando lo decida.
 
 *Corrida del 25/08/2026. Typecheck 0 errores, build OK, 1279/1279 tests.*
+
+---
+
+## La voz de MaKo, seis días muerta diciendo «open»
+
+**Vive en:** `lib/canal-vigilante.ts` · `lib/evolution.ts` · `app/api/cron/alerta-critica/route.ts`
+
+08/09/2026. Martín: *«MaKo en WhatsApp NO está funcionando»*. Lo que lo resolvió fue medir el
+transporte antes que la lógica:
+
+```
+mako_doer_conv, últimas 48 h ............ 0 mensajes
+último entrante de cualquier cliente .... 2026-09-02
+connectionState mako_superadmin ......... "state": "open"
+operación REAL sobre ese socket ......... HTTP 428 · Connection Closed
+```
+
+**Seis días sin entrar NI SALIR un mensaje.** Mauricio y el cliente de Codigo Inmobiliario le
+escribieron a una pared; los avisos que los crons generaron esos días se escribieron, se pagó
+la IA que los redactó, y ninguno llegó.
+
+### Dos hipótesis mías que la medición mató
+
+Vale anotarlas porque las dos eran plausibles y las dos eran falsas:
+
+1. **«La allowlist `mako.doer.grupos` deja afuera a los clientes».** Tiene solo 2 grupos y
+   ninguno es el de Mauricio ni el del cliente — pero el código YA contempla eso: el grupo
+   oficial de un cliente pasa por existir (`grupoOficialDe`), con el comentario que cuenta
+   ese mismo bug de agosto.
+2. **«El webhook descarta por instancia sin workspace».** Hay un early-return exacto para
+   eso… y también un caso especial que devuelve `OWNER_WS` para la línea de SuperAdmin.
+
+Las dos se descartaron leyendo el código con el dato en la mano, no antes.
+
+### El campo de estado miente EN LAS DOS DIRECCIONES
+
+Medido sobre las cuatro instancias del servidor, con una operación viva contra cada una:
+
+| instancia | `state` | operación real |
+|---|---|---|
+| `mako_superadmin` (la VOZ) | `open` | **428 Connection Closed** |
+| `mako_ws1` | `close` | **funciona** |
+| `mako_ws13` | `close` | **funciona** |
+| `mako_ws11` | `open` | funciona |
+
+**`open` no prueba que ande y `close` no prueba que no.** La única pregunta contestable es la
+que se hace hablando con WhatsApp. Y el servidor de Evolution estaba sano: la muerta era una
+sola instancia, justo la que le pone la voz a MaKo.
+
+⚠️ **`restart` y `connect` NO la recuperan** — los dos contestan 200 «open» y el socket sigue
+cerrado. Y **ninguna instancia sana está dentro de los grupos de los clientes**, así que
+mover `mako.voz.instancia` tampoco sirve: los grupos son de la línea de SuperAdmin. La única
+salida es volver a vincular el número (QR).
+
+### Lo que faltaba NO era la detección
+
+`socketVivo()` existe, hace la lectura correcta, y `estadoCanalMaKo()` la usa con este
+comentario escrito el 16/08:
+
+> «"open" es la fila en la base de Evolution, no la sesión. Sin esta confirmación el panel
+> dice "conectado" con el socket muerto.»
+
+Sabíamos exactamente esto. **`estadoCanalMaKo()` tenía UN consumidor: la ruta del panel
+`/agencia`.** Un estado correcto que solo se calcula cuando alguien abre una pantalla no es un
+control, es un dato disponible — y nadie abre un panel que no tiene motivo para abrir.
+
+Es el tercer caso del mismo patrón en este repo (`getPersona()`, `setTimezoneWorkspace()`, y
+ahora éste): **una función correcta que nadie llama desde donde importa.** Cuando encuentres
+una, grepeá sus call-sites antes de darla por cableada.
+
+### ⚠️ La alarma de un canal NO puede viajar por ese canal
+
+Es lo que hace distinto a este aviso: mandar «tu WhatsApp está caído» por WhatsApp es no
+mandar nada. `vigilarVozMaKo()` avisa **por email**, repite cada hora mientras siga caída (es
+una hemorragia, no una noticia) y **sabe decir «ya está»** al recuperarse — una alarma que no
+cierra obliga a adivinar si se arregló o si se rompió el aviso.
+
+Corre en el cron `alerta-critica` (cada pocos minutos, «la guardia que no se calla»), va
+PRIMERO y es best-effort: si la vigilancia falla, el resto del cron corre igual.
+
+### Lo que quedó SIN hacer
+
+- **Recuperar la sesión necesita el QR**, y eso solo lo puede hacer Martín desde el teléfono
+  dueño del número (`/agencia`). No hay camino automático.
+- **Las instancias de los CLIENTES no están vigiladas**: esto mira solo la voz. `mako_ws13`
+  aparece `close` y funciona, así que el mismo campo mentiroso gobierna sus semáforos.
+- **Nada reintenta los avisos que se perdieron** mientras la voz estaba caída. Se generaron,
+  se pagaron y se descartaron; no hay cola.
+
+*Corrida del 08/09/2026 — caída detectada y reproducida en vivo; `vozViva()` devuelve `false`
+sobre la instancia que `connectionState` da por `open`. Typecheck 0 errores, 2162/2162 tests.*
