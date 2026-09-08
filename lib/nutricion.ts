@@ -812,11 +812,26 @@ async function leadsConEnvioReciente(leadIds: number[]): Promise<Set<number>> {
   const supabase = (await getTenantDb());
   const desde = haceHorasISO(HS_MIN_ENTRE_MSGS);
   const desdeCorto = haceHorasISO(HS_MIN_PREPARACION);
-  const [nutri, bcast, enPreparacion] = await Promise.all([
+  const [nutri, bcast, espejo, enPreparacion] = await Promise.all([
     supabase.from('nutricion_envios').select('lead_id, created_at')
       .in('lead_id', leadIds).in('estado', ['enviado', 'simulado']).gte('created_at', desde),
     supabase.from('email_broadcast_envios').select('lead_id')
       .in('lead_id', leadIds).in('estado', ['enviado', 'simulado']).gte('created_at', desde),
+    // LO QUE SALIÓ DE VERDAD, no solo lo que mandó la app. El guard anti-ban
+    // pregunta «¿este lead ya recibió algo hace poco?», y las dos tablas de
+    // arriba solo saben de la nutrición: un mensaje que el dueño escribió a
+    // mano desde su propio teléfono era invisible, así que la máquina le
+    // encimaba el suyo minutos después. Es el mismo punto ciego que
+    // `leadsYaContactados` tenía y que se cerró el 08/09/2026 — estaban a una
+    // función de distancia y solo se arregló una.
+    //
+    // ⚠️ LO QUE ESTO SIGUE SIN VER: el canal OFICIAL. El espejo es de Evolution
+    // (el no oficial); lo que sale por Meta/n8n no toca ninguna de las tres
+    // tablas. Mientras una automatización de afuera le hable a los mismos
+    // leads, ningún guard nuestro puede saberlo. No es un descuido de acá: es
+    // el límite de lo que se puede medir, y por eso está escrito.
+    supabase.from('wa_mensajes').select('lead_id, wa_timestamp')
+      .in('lead_id', leadIds).eq('from_me', true).gte('wa_timestamp', desde),
     // Leads con reunión FUTURA cercana: están en cadencia de preparación.
     supabase.from('leads').select('id, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at').in('id', leadIds),
   ]);
@@ -832,6 +847,15 @@ async function leadsConEnvioReciente(leadIds: number[]): Promise<Set<number>> {
     set.add(r.lead_id);
   }
   for (const r of (bcast.data ?? []) as Array<{ lead_id: number }>) set.add(r.lead_id);
+  // El espejo entra con la MISMA excepción de preparación que la nutrición: con
+  // una reunión encima la cadencia baja a HS_MIN_PREPARACION, y si no valiera
+  // acá, un lead que contestó y al que el dueño le respondió a mano quedaría
+  // congelado 20h justo en los días en que hay que confirmarle la reunión.
+  for (const r of (espejo.data ?? []) as Array<{ lead_id: number | null; wa_timestamp: string | null }>) {
+    if (r.lead_id == null) continue;
+    if (prep.has(r.lead_id) && r.wa_timestamp && r.wa_timestamp < desdeCorto) continue;
+    set.add(r.lead_id);
+  }
   return set;
 }
 
@@ -1211,6 +1235,16 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         destino: paso.canal === 'whatsapp' ? lead?.telefono ?? null : lead?.email ?? null,
         asunto: paso.asunto,
         proveedor_id: proveedorId,
+        // EL MOTIVO SE CALCULABA Y SE TIRABA. Cada rama de arriba llena `nota`
+        // («WhatsApp de empresa no conectado», «el audio del paso ya no existe»,
+        // el error del proveedor) y ninguna llegaba a la fila: la columna
+        // quedaba en null y desde afuera un fallo no se distinguía de otro.
+        // Medido el 08/09/2026 en el ws1, con la secuencia recién prendida: el
+        // PRIMER envío real a un lead de verdad falló, y reconstruir por qué
+        // costó cinco consultas y un chequeo cruzado entre workspaces — cuando
+        // la causa («el número está desconectado desde el 3/09») estaba escrita
+        // en una variable a diez líneas del insert.
+        error: nota ?? null,
       });
 
       if (estado === 'fallo') {

@@ -2015,6 +2015,65 @@ que le faltaba a `saveFunnelAction`; y el gate de Fathom por conexión viva.
 
 ---
 
+## La secuencia decia «Activa» cinco dias con el numero caido, y el motor tiraba el motivo
+
+**Vive en:** `lib/nutricion.ts` (el insert en `nutricion_envios`, `leadsConEnvioReciente`) ·
+`app/api/chat-agent/secuencias/route.ts` · `app/chatbot/ChatAgentApp.tsx`
+
+**Sintoma:** se prendio la secuencia de post-agenda del ws1 y se pregunto si iba a
+**chocar** con la automatizacion oficial de n8n, que ya le escribe a los agendados. La
+tab mostraba la secuencia Activa, con sus tres pasos, sus dos audios y el flag
+`envio_whatsapp_enabled = true`.
+
+**Causa real: no habia choque porque no salia NADA.** La sesion de Evolution del ws1
+(`mako_ws1`) esta en `desconectado` desde el **2026-09-03T04:17**. El unico envio real de
+la secuencia —al unico lead del cohorte, Gerardo Avila, el 08/09 a las 12:00 de Mexico—
+cayo en la rama `!evoConectado`, quedo en `'fallo'` y se reprogramo +24 h. Va a repetir
+ese ciclo para siempre.
+
+**Lo que hizo caro el diagnostico: el motivo se calculaba y se tiraba.** Cada rama del
+envio llena una variable `nota` («WhatsApp de empresa no conectado», «el audio del paso ya
+no existe», el error del proveedor) y el `insert` en `nutricion_envios` **no la escribia**:
+la columna `error` quedaba en `null`. Desde afuera, un numero caido, un audio borrado y un
+rechazo del proveedor son la misma fila. Reconstruirlo costo cinco consultas.
+
+**Como se separo «Evolution caido» de «se cayo la sesion de el»:** el ultimo mensaje
+espejado por workspace. El ws11 espejo uno el mismo dia; el ws1, hace 5,6 dias. Con un
+solo workspace ese dato no dice nada — es la regla de «con UN solo valor configurado no se
+puede saber si lo leas del lugar correcto», aplicada a un diagnostico.
+
+⚠️ **Y el chequeo en vivo desde local NO sirve para esto.** `EVOLUTION_BASE_URL` esta
+**presente pero vacia** en `.env.local`, asi que `evolutionConfigurado()` da `false` y
+`estadoEnVivo()` contesta `error` **siempre**, midiendo la maquina del que verifica y no
+produccion. Una env var vacia no es una env var ausente, y el codigo trata a las dos igual.
+
+**Lo que quedo:**
+
+1. `error: nota ?? null` en el insert. Un fallo que no dice por que es indistinguible de
+   cualquier otro fallo.
+2. **El estado del numero viaja en el GET de la tab y se pinta en la pantalla de
+   TRABAJO.** Antes vivia solo en `OnboardingChatAgent.tsx`, o sea que el dueno dejaba de
+   verlo justo cuando terminaba el onboarding. El aviso solo sale si hay alguna secuencia
+   **activa**: con todo pausado, un numero desconectado no rompe nada.
+3. Tres estados, no dos: `sin_vincular` (nunca lo conecto), `desconectado` (se cayo) y
+   `desconocido` (no pudimos preguntarlo). El tercero **no acusa nada**.
+
+**Y el punto ciego que NO se puede cerrar desde aca.** `leadsConEnvioReciente` —el guard
+anti-ban de 20 h— leia solo `nutricion_envios` y `email_broadcast_envios`, o sea solo lo
+que mando la app. Se le sumo `wa_mensajes` con `from_me = true`, que cierra el caso del
+dueno escribiendo a mano desde su telefono. **Lo que sigue invisible es el canal
+OFICIAL**: lo que sale por Meta/n8n no toca ninguna de las tres tablas, y el espejo es de
+Evolution. Mientras una automatizacion de afuera le hable a los mismos leads, ningun guard
+nuestro puede saberlo — no es un descuido, es el limite de lo que se puede medir, y por eso
+esta escrito en el codigo.
+
+⚠️ **Era el mismo punto ciego que `leadsYaContactados`, una funcion mas arriba, y ese se
+habia arreglado el mismo dia.** Dos funciones vecinas que hacen la misma pregunta a la
+misma base tienen el mismo agujero; arreglar una y no mirar la de al lado es como se paga
+dos veces.
+
+*(Corrida del 08/09/2026, revisando si la post-agenda recien prendida chocaba con n8n.)*
+
 ## Instagram: lo que hay que saber antes de abrir el canal
 
 De la corrida de 21 agentes del 14/08/2026 (evaluación de factibilidad: DM directo vs

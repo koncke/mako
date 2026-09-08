@@ -27,6 +27,7 @@ import { huecosDeSecuencias, archivarSecuencias, desarchivarSecuencia } from '@/
 import { generarVariantes } from '@/lib/secuencias-variantes';
 import { handoffsPendientes, resolverHandoff } from '@/lib/chat-agent-handoff';
 import { getEntregables, setEntregables } from '@/lib/entregable';
+import { getInstanciaRow } from '@/lib/evolution';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -43,7 +44,7 @@ export async function GET() {
     return Response.json({ ok: false, error: 'Sin acceso a Setting en este workspace.' }, { status: 403 });
   }
   try {
-    const [{ secuencias, serie }, funnel, leadMagnets, wsRow, huecos] = await Promise.all([
+    const [{ secuencias, serie }, funnel, leadMagnets, wsRow, huecos, instancia] = await Promise.all([
       getSettingData(),
       getFunnel().catch(() => null),
       getEntregables().catch(() => []),
@@ -51,7 +52,23 @@ export async function GET() {
       // Las etapas de nutrición que quedaron sin secuencia. Reemplaza al seed:
       // antes se creaban solas con copy de relleno; ahora se avisa que faltan.
       huecosDeSecuencias().catch(() => []),
+      // ⚠️ El estado del NÚMERO, que la pantalla de trabajo no miraba nunca.
+      // Vivía solo en el onboarding, así que en cuanto el dueño lo terminaba
+      // dejaba de verlo — y una secuencia en verde sobre un número caído se
+      // lee como que está funcionando. Medido el 08/09/2026 en el ws1: la
+      // sesión se cayó el 3/09, la secuencia decía «Activa» cinco días, y el
+      // único envío real terminó en 'fallo'.
+      // El `undefined` del catch NO es 'desconectado': es «no pudimos
+      // preguntarlo», y la pantalla no puede afirmar lo primero cuando pasó
+      // lo segundo.
+      getInstanciaRow().catch(() => undefined),
     ]);
+    // Tres respuestas distintas, no dos: nunca lo vinculó / se cayó / no sé.
+    const canal = instancia === undefined
+      ? { estado: 'desconocido' as const, desde: null }
+      : instancia === null
+        ? { estado: 'sin_vincular' as const, desde: null }
+        : { estado: instancia.estado, desde: instancia.ultima_conexion_at };
     // Etapas elegibles para colgar una secuencia de mensajes: nutrición + pipeline (sin salidas).
     const etapas = (funnel?.stages ?? [])
       .filter((s) => (s.band ?? 'pipeline') !== 'salidas')
@@ -60,6 +77,7 @@ export async function GET() {
       ok: true, secuencias, serie, rolAdmin: rol === 'admin', objetivos: OBJETIVOS, etapas,
       leadMagnets: leadMagnets.map((l) => ({ id: l.id, nombre: l.nombre })),
       negocio: wsRow?.nombre ?? '', huecos, handoffs: await handoffsPendientes().catch(() => []),
+      canal,
     });
   } catch (e) {
     console.error(`[api:setting/secuencias GET] ${msg(e)}`);

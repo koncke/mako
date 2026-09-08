@@ -18,6 +18,9 @@
 import { Suspense, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Icon } from '@/app/_components/icons';
+// next/link NO: perdería el ?ws= y mandaría al super admin a SU propio WhatsApp
+// en vez del que está mirando.
+import Link from '@/app/_ui/Link';
 import { Dropdown } from '../components/Dropdown';
 import { SecuenciaWizard } from './SecuenciaWizard';
 import { SimuladorWhatsApp, emojiSecuencia } from './SimuladorWhatsApp';
@@ -118,6 +121,14 @@ function ChatAgentInner() {
   // WhatsApp no tiene por qué pasar por el email.
   const [plan, setPlan] = useState<'setting' | 'whatsapp' | 'email' | null>(null);
   const [preguntarPlan, setPreguntarPlan] = useState(false);
+  // Estado del WhatsApp del negocio. Arranca en 'desconocido' a propósito: hasta
+  // que la API conteste, la pantalla no afirma que esta conectado NI que no.
+  const [canal, setCanal] = useState<{ estado: string; desde: string | null }>({ estado: 'desconocido', desde: null });
+  // Solo estos dos son un hecho negativo comprobado. 'desconocido', 'conectando'
+  // y un estado que no conozcamos NO acusan nada: es la misma regla que el paso
+  // del WhatsApp en el onboarding, donde afirmar «desconectado» sobre un corte
+  // momentaneo mandaba a re-escanear un QR que no hacia falta.
+  const canalCaido = canal.estado === 'desconectado' || canal.estado === 'sin_vincular';
 
   // Archiva TODAS las secuencias vigentes: la salida para el dueño que se
   // encontró con las sembradas y quiere arrancar de cero. No borra (las
@@ -148,6 +159,7 @@ function ChatAgentInner() {
       setObjetivos(j.objetivos ?? []); setEtapas(j.etapas ?? []); setLeadMagnets(j.leadMagnets ?? []);
       setHuecos(j.huecos ?? []); setHandoffs(j.handoffs ?? []);
       setNegocio(j.negocio ?? '');
+      setCanal(j.canal ?? { estado: 'desconocido', desde: null });
       setEmailSecuenciaId((prev) => (prev != null && lista.some((x) => x.id === prev) ? prev : (lista.find((x) => x.pasos.some((p) => p.canal === 'email'))?.id ?? lista[0]?.id ?? null)));
       setError(null);
     } catch {
@@ -296,6 +308,32 @@ function ChatAgentInner() {
       {/* Qué etapas de nutrición quedaron sin secuencia. MaKo conoce el funnel
           entero, así que puede decir exactamente qué falta — y eso es más útil
           que lo que hacía antes, que era rellenarlas con secuencias de mentira. */}
+      {/* EL NÚMERO CAÍDO CON LAS SECUENCIAS EN VERDE.
+          Una secuencia dice «Activa» y eso se lee como que está enviando. Si el
+          WhatsApp del negocio está desconectado, no envía nada: cada paso falla
+          y se reintenta al día siguiente, para siempre y sin síntoma. Pasó en la
+          cuenta del dueño — la sesión se cayó el 3/09, la tab siguió en verde, y
+          el primer lead real de la secuencia recién prendida no recibió nada.
+          El estado del número solo se veía en el onboarding, o sea justo hasta
+          que el dueño lo terminaba.
+          Solo se avisa si hay alguna secuencia ACTIVA: con todo pausado, el
+          número desconectado no rompe nada y el aviso sería ruido. */}
+      {canalCaido && (secuencias ?? []).some((s) => s.activa) && (
+        <div style={{ background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '12px 16px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ color: 'var(--bad)', display: 'inline-flex' }}><Icon name="alert" size={17} /></span>
+          <div style={{ fontSize: '13.5px', color: 'var(--ink)', flex: 1, minWidth: 220 }}>
+            {canal.estado === 'sin_vincular' ? (
+              <>Tienes secuencias activas y <strong>todavía no vinculaste tu WhatsApp</strong>. No se está enviando nada.</>
+            ) : (
+              <>Tienes secuencias activas y <strong>tu WhatsApp está desconectado</strong>
+                {canal.desde ? <> desde el {new Date(canal.desde).toLocaleDateString('es-MX', { day: 'numeric', month: 'long' })}</> : null}.
+                {' '}No se está enviando nada: cada mensaje falla y se reintenta al día siguiente.</>
+            )}
+          </div>
+          <Link href="/whatsapp" style={{ ...btnDark, textDecoration: 'none', whiteSpace: 'nowrap' }}>Volver a conectarlo</Link>
+        </div>
+      )}
+
       {rolAdmin && <HandoffsPanel handoffs={handoffs} onCambio={() => void load()} />}
 
       {rolAdmin && huecos.length > 0 && (
