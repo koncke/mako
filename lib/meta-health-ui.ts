@@ -98,6 +98,10 @@ export type MetaAccountHealth = {
   isPrepay: boolean;
   fundingCard: string | null;
   currency: string;
+  /** timezone_name de la cuenta (ej. "America/Argentina/Buenos_Aires"). */
+  timezoneName: string | null;
+  /** ISO-2 del país de la cuenta, o null si no se puede afirmar. Ver lib/meta-pais.ts. */
+  country: string | null;
   severidad: Semaforo;
   entregaFrenada: boolean;
 };

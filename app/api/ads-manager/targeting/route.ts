@@ -4,11 +4,14 @@
 // ?kind=audiences            → públicos personalizados (retargeting incluir/excluir)
 // ?kind=interests&q=<texto>  → intereses con su id real (los que Meta acepta)
 // ?kind=leadforms            → formularios instantáneos existentes (lead ads)
+// ?kind=paises               → países que Meta acepta, con nombre en español
+// ?kind=cuenta               → { currency, country } de la cuenta: lo que la UI
+//                              necesita para no adivinar moneda ni país
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
 import { guardAdsWs } from '@/lib/ads-guard';
-import { listCustomAudiences, searchInterests, listLeadForms, listCustomConversions, listPixels, listPixelEvents, metaErrorEnvelope } from '@/lib/meta-ads-create';
+import { listCustomAudiences, searchInterests, listLeadForms, listCustomConversions, listPixels, listPixelEvents, listCountries, cuentaMeta, metaErrorEnvelope } from '@/lib/meta-ads-create';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -27,7 +30,9 @@ export async function GET(req: NextRequest) {
     if (kind === 'conversions') return Response.json({ ok: true, items: await listCustomConversions() });
     if (kind === 'pixels') return Response.json({ ok: true, items: await listPixels() });
     if (kind === 'pixelevents') return Response.json({ ok: true, items: await listPixelEvents(req.nextUrl.searchParams.get('pixel') ?? '') });
-    return Response.json({ ok: false, error: 'kind inválido (audiences | interests | leadforms | conversions | pixels | pixelevents)' }, { status: 400 });
+    if (kind === 'paises') return Response.json({ ok: true, items: await listCountries() });
+    if (kind === 'cuenta') return Response.json({ ok: true, cuenta: await cuentaMeta() });
+    return Response.json({ ok: false, error: 'kind inválido (audiences | interests | leadforms | conversions | pixels | pixelevents | paises | cuenta)' }, { status: 400 });
   } catch (err) {
     const env = metaErrorEnvelope(err);
     console.error(`[ads-manager:targeting] ${env.message}`);

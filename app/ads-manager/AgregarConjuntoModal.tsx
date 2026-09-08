@@ -16,7 +16,13 @@ import type { SenalRecon } from '@/lib/queries';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
+// Ver el comentario largo en NuevaCampanaModal: el monto viaja a `mxnACentavos`,
+// que hace centavos de la MONEDA DE LA CUENTA. Convertir siempre a pesos mexicanos
+// multiplicaba por 17.3 el presupuesto de toda cuenta que no cobrara en MXN.
 const USD_MXN = 17.3;
+const TASAS_DESDE_USD: Record<string, number> = { USD: 1, MXN: USD_MXN };
+const usdACuenta = (usd: number, currency: string) => Math.round(usd * (TASAS_DESDE_USD[currency] ?? 1));
+const PAISES_FRECUENTES = ['MX', 'AR', 'CO', 'CL', 'PE', 'ES', 'US', 'UY', 'EC'];
 const field: CSSProperties = { width: '100%', boxSizing: 'border-box', padding: '11px 13px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none' };
 const lbl: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6, display: 'block' };
 const btnDark: CSSProperties = { padding: '11px 20px', borderRadius: 12, border: 'none', background: 'var(--ink)', color: 'var(--surface)', fontFamily: SANS, fontSize: 14.5, fontWeight: 600, cursor: 'pointer' };
@@ -38,6 +44,11 @@ export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, on
   const [auds, setAuds] = useState<AudienceRef[]>([]);
   const [placements, setPlacements] = useState<string[] | null>(null);
   const [budgetUsd, setBudgetUsd] = useState<number | null>(50);
+  // País del público. Estaba cableado a ['MX'] y sin ninguna pantalla para cambiarlo:
+  // cualquier conjunto nuevo, de cualquier cliente, se entregaba en México.
+  const [paises, setPaises] = useState<string[]>([]);
+  const [paisesCat, setPaisesCat] = useState<Array<{ code: string; name: string }> | null>(null);
+  const [cuenta, setCuenta] = useState<{ currency: string; country: string | null } | null>(null);
   // anuncio
   const [tray, setTray] = useState<Tray | null>(null);
   const [verGan, setVerGan] = useState(false);
@@ -54,6 +65,16 @@ export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, on
   // Un fallo de permiso NO es una lista vacía: si se colapsan, la pantalla afirma
   // "no tenés públicos" sobre una cuenta que sí los tiene. Se muestra el porqué.
   useEffect(() => { fetch('/api/ads-manager/targeting?kind=audiences', { cache: 'no-store' }).then((r) => r.json()).then((j) => { setAudiencesAll(j.ok ? j.items : []); if (!j.ok) setLoadErr(`No pude traer tus públicos: ${j.error || 'error'}`); }).catch((e) => { setAudiencesAll([]); setLoadErr(`No pude traer tus públicos: ${String(e)}`); }); }, []);
+  useEffect(() => {
+    fetch('/api/ads-manager/targeting?kind=cuenta', { cache: 'no-store' }).then((r) => r.json())
+      .then((j) => { if (j.ok && j.cuenta) setCuenta({ currency: String(j.cuenta.currency ?? 'USD'), country: j.cuenta.country ?? null }); })
+      .catch(() => { /* el selector sigue estando; solo se pierde la precarga */ });
+    fetch('/api/ads-manager/targeting?kind=paises', { cache: 'no-store' }).then((r) => r.json())
+      .then((j) => setPaisesCat(j.ok && Array.isArray(j.items) ? j.items : []))
+      .catch(() => setPaisesCat([]));
+  }, []);
+  // Precarga, no decisión: el país de la cuenta viene marcado y se puede cambiar.
+  useEffect(() => { if (!paises.length && cuenta?.country) setPaises([cuenta.country]); }, [cuenta?.country]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (b?.needsForm && leadForms === null) fetch('/api/ads-manager/targeting?kind=leadforms', { cache: 'no-store' }).then((r) => r.json()).then((j) => { setLeadForms(j.ok ? j.items : []); if (!j.ok) setLoadErr(`No pude traer tus formularios: ${j.error || 'error'}`); }).catch((e) => { setLeadForms([]); setLoadErr(`No pude traer tus formularios: ${String(e)}`); }); }, [b, leadForms]);
 
   const opts = (audiencesAll ?? []).filter((a) => !auds.some((x) => x.id === a.id)).map((a) => ({ value: a.id, label: `${a.name ?? a.id}${a.count != null ? ` · ~${a.count.toLocaleString('es-MX')}` : ''}` }));
@@ -70,7 +91,7 @@ export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, on
   const convFaltante = !!b?.needsConv && !b.conversion;
   const creativoListo = !!tray && !tray.processing && (!!tray.image_hash || !!tray.video_id || !!tray.source_ad_id);
   const adOk = creativoListo && (tray!.kind === 'existing' || (b ? (b.needsForm ? !!leadFormId : !!url.trim()) : false));
-  const puede = !!b && !convFaltante && adOk && (b.budgetLevel === 'campaign' || (!!budgetUsd && budgetUsd > 0));
+  const puede = !!b && !convFaltante && adOk && paises.length > 0 && (b.budgetLevel === 'campaign' || (!!budgetUsd && budgetUsd > 0));
 
   const guardar = async () => {
     if (!b || !tray) return;
@@ -81,9 +102,9 @@ export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, on
       : { source: 'upload', media_type: tray.media_type, image_hash: tray.image_hash ?? null, video_id: tray.video_id ?? null, thumbnail_url: tray.thumbnail_url ?? null, primary_text: primary, headline, cta_type: (cta || (b.needsForm ? 'SIGN_UP' : 'LEARN_MORE')) as Creative['cta_type'], ...(b.needsForm ? { lead_form_id: leadFormId } : { destination_url: url }) };
     const adset: AdSetSpec = {
       name: defaultAdsetName,
-      daily_budget_mxn: b.budgetLevel === 'adset' ? Math.round((budgetUsd ?? 0) * USD_MXN) : null,
+      daily_budget_mxn: b.budgetLevel === 'adset' ? usdACuenta(budgetUsd ?? 0, cuenta?.currency ?? 'USD') : null,
       optimization_goal: b.optimization, billing_event: 'IMPRESSIONS', bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
-      targeting: { geo_locations: { countries: ['MX'] }, custom_audiences: auds.length ? auds.map((a) => ({ id: a.id })) : undefined, publisher_platforms: placements && placements.length ? placements : undefined, advantage_audience: advantage },
+      targeting: { geo_locations: { countries: paises }, custom_audiences: auds.length ? auds.map((a) => ({ id: a.id })) : undefined, publisher_platforms: placements && placements.length ? placements : undefined, advantage_audience: advantage },
       ads: [{ name: `${code}.a Anuncio 1`, creative }],
       conversion: b.needsConv ? b.conversion : undefined,
     };
@@ -112,6 +133,30 @@ export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, on
           {b && !convFaltante && (
             <>
               <div>
+                <span style={lbl}>País del público</span>
+                <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+                  {PAISES_FRECUENTES.concat(cuenta?.country && !PAISES_FRECUENTES.includes(cuenta.country) ? [cuenta.country] : []).map((code) => {
+                    const nombre = (paisesCat ?? []).find((c) => c.code === code)?.name ?? code;
+                    const on = paises.includes(code);
+                    return <button key={code} type="button" onClick={() => setPaises(on ? paises.filter((c) => c !== code) : [...paises, code])} style={chipS(on)}>{nombre}</button>;
+                  })}
+                </div>
+                {paises.some((c) => !PAISES_FRECUENTES.includes(c) && c !== cuenta?.country) && (
+                  <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginTop: 8 }}>
+                    {paises.filter((c) => !PAISES_FRECUENTES.includes(c) && c !== cuenta?.country).map((c) => (
+                      <button key={c} type="button" onClick={() => setPaises(paises.filter((x) => x !== c))} style={chipS(true)}>{(paisesCat ?? []).find((x) => x.code === c)?.name ?? c} ✕</button>
+                    ))}
+                  </div>
+                )}
+                <div style={{ marginTop: 8 }}>
+                  <Dropdown value="" resetAfterSelect width="100%"
+                    placeholder={paisesCat === null ? 'Cargando países…' : 'Otro país…'}
+                    options={(paisesCat ?? []).filter((c) => !paises.includes(c.code)).map((c) => ({ value: c.code, label: c.name }))}
+                    onChange={(v) => { if (v) setPaises([...paises, v]); }} />
+                </div>
+                {paises.length === 0 && <p style={{ fontSize: 12, color: 'var(--warn)', margin: '8px 0 0' }}>Elige al menos un país: es donde Meta va a mostrar los anuncios.</p>}
+              </div>
+              <div>
                 <span style={lbl}>Optimización de audiencia</span>
                 <div style={{ display: 'flex', gap: 8 }}><button type="button" onClick={() => setAdvantage(1)} style={chipS(advantage === 1)}>Amplio (Advantage+)</button><button type="button" onClick={() => setAdvantage(0)} style={chipS(advantage === 0)}>Segmentación fina</button></div>
               </div>
@@ -126,7 +171,7 @@ export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, on
                 {placements !== null && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{PLACEMENTS.map((p) => { const on = placements.includes(p.value); return <button key={p.value} type="button" onClick={() => setPlacements(on ? placements.filter((x) => x !== p.value) : [...placements, p.value])} style={chipS(on)}>{on ? '✓ ' : ''}{p.label}</button>; })}</div>}
               </div>
               {b.budgetLevel === 'adset' && (
-                <div><span style={lbl}>Presupuesto diario (USD)</span><input value={budgetUsd ?? ''} inputMode="numeric" onChange={(e) => { const n = Number(e.target.value.replace(/[^\d]/g, '')); setBudgetUsd(n > 0 ? n : null); }} style={{ ...field, width: 120 }} /></div>
+                <div><span style={lbl}>Presupuesto diario (USD{cuenta && cuenta.currency !== 'USD' ? ` → ${cuenta.currency}` : ''})</span><input value={budgetUsd ?? ''} inputMode="numeric" onChange={(e) => { const n = Number(e.target.value.replace(/[^\d]/g, '')); setBudgetUsd(n > 0 ? n : null); }} style={{ ...field, width: 120 }} /></div>
               )}
 
               <div style={{ borderTop: '1px dashed var(--border)', paddingTop: 14 }}>

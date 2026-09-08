@@ -1280,3 +1280,96 @@ guard va sobre **todos** los derivados, no sobre el que se pegó.
 **Vive en:** lib/credenciales.ts (guardarCredencial) · lib/webhook-routing.ts
 (ROUTING_CREDS) · app/api/integraciones/credencial/route.ts:360 ·
 *2026-09-05 tarea-170-meta-por-workspace*
+
+---
+
+## Tres cosas que Ads Manager afirmaba sin haberlas mirado (08/09)
+
+Las tres tenían la misma forma: **un valor escrito de antemano ocupando el lugar de un
+dato que nunca se pidió.** Ninguna fallaba: las tres entregaban, con la cara del éxito.
+
+### «Analizar (Meta)» leía una forma que Meta no devuelve
+
+**Síntoma:** con el token correcto y la cuenta al día, el modal decía *«Meta no devuelve
+recomendaciones por API… el bloqueo restante suele ser la cuenta restringida por pago
+(account_status=3) y/o la 2FA obligatoria»*. Sobre Código Inmobiliario (ws13), que está
+`account_status=1`, `disable_reason=0` y con `ads_management` + `ads_read` +
+`business_management` concedidos.
+
+**Causa 1 — la forma.** El edge de CUENTA `act_<id>/recommendations` y el campo
+`recommendations` de un NODO (campaña/conjunto/anuncio) se llaman igual y **no devuelven
+lo mismo**. El de nodo trae `title` / `message` / `importance`. El de cuenta trae:
+
+```
+{ "data": [ { "recommendations": [ { "type": "PIXEL_OPTIMIZATION_HIE",
+    "recommendation_content": { "body": "…", "lift_estimate": "Costo por compra 14% más bajo",
+                                "opportunity_score_lift": "8" },
+    "object_ids": [...], "url": "https://adsmanager.facebook.com/…" } ] } ] }
+```
+
+Sin título, sin `message`, sin `importance`, y **anidado un nivel**. El código leía la
+forma de nodo sobre la respuesta de cuenta. Medido contra `act_564003520636790` (ws1) el
+2026-09-08: Meta devolvía **5 recomendaciones reales y opportunity_score 81**, y la
+pantalla pintaba **una tarjeta vacía titulada «Recomendación de Meta»**. Por eso nadie lo
+vio como un bug: no daba cero, daba una fila en blanco.
+
+**Causa 2 — el motivo hardcodeado, y es la peor.** Cuando venía vacío, la respuesta traía
+un párrafo FIJO culpando al token de página, al `account_status=3` y a la 2FA. Eran
+verdades **de la cuenta del dueño en junio**, congeladas en un `reason:` literal. Para
+cualquier otra cuenta el texto era una acusación falsa que mandaba a arreglar una factura
+que no existe. El vacío de ws13 es real y aburrido: **Meta no tiene recomendaciones para
+esa cuenta todavía** (cuenta nueva, poco gasto), y `opportunity_score` ni siquiera viene
+en la respuesta.
+
+**Regla:** *si el motivo no sale de la respuesta que acabás de recibir, es una adivinanza
+con cara de dato.* El motivo ahora se arma con el `account_status` / `disable_reason` que
+Meta contestó en la misma llamada (`app/api/meta-recommendations/route.ts`), y hay tres
+ramas explícitas: cuenta frenada (dice cuál y por qué), cuenta activa (dice que no es un
+problema de configuración) y no-pude-leer (lo admite en vez de rellenar).
+
+**Ojo — el mismo parser mal usado estaba en `lib/meta-health.ts:fetchAccountRecommendations`,**
+que alimenta las recomendaciones del semáforo de `/marketing/salud`. Mismo edge, misma
+lista de tarjetas vacías. El parser correcto vive ahora en `lib/meta-recos-cuenta.ts` y
+acepta las DOS formas; `parseRecosMeta` sigue siendo la de NODO y ahí está bien.
+
+### `{ countries: ['MX'] }` cableado en cuatro archivos
+
+**Síntoma:** un cliente argentino crea una campaña y Meta la segmenta en México. No hay
+pantalla donde cambiarlo.
+
+**Causa:** el país no se preguntaba **en ningún paso del wizard**. Estaba escrito a mano
+en `NuevaCampanaModal` (las TRES ramas de estrategia), en `AgregarConjuntoModal`, en el
+fallback de `buildTargeting` y en el `?? ['MX']` de `coerceTargeting`. Cuatro archivos, un
+solo síntoma, y el fallback **no fallaba: entregaba** — en el país equivocado, en silencio
+y con plata puesta.
+
+**Y el diagnóstico obvio para el default es el equivocado.** Lo natural es sacar el país
+de `business_country_code` de la cuenta. Sobre ws13 eso da **`US`**: la cuenta es
+«P2P Consulting LLC», una LLC estadounidense. Ese campo es el país **fiscal**, no el del
+público. El que acierta es `timezone_name` = `America/Argentina/Buenos_Aires` → `AR`: es
+la zona que se eligió para OPERAR la cuenta. Manda la zona horaria, el país fiscal queda
+de respaldo (`lib/meta-pais.ts`), y **el wizard pregunta igual** — adivinar bien no
+reemplaza a poder editar. El catálogo de países sale de Meta (`search?type=adgeolocation`,
+247 países con nombre en español), no de una lista nuestra.
+
+### Y de paso: el presupuesto se multiplicaba por 17,3 en cuentas que no cobran en pesos
+
+No lo reportó nadie; apareció al tocar el mismo modal. `daily_budget_mxn` termina en
+`mxnACentavos`, que hace **centavos de la moneda de la cuenta, sea cual sea**. Los dos
+modales convertían USD→MXN *siempre*. La cuenta de ws13 cobra **en USD**: escribir «$1/día»
+creaba la campaña con `daily_budget = 1700` = **US$17/día, 17× lo tipeado**. En pausa, sí
+— y lista para gastarlo al primer toggle. Ahora se convierte con la moneda real de la
+cuenta (`usdACuenta`), y para una moneda sin tasa conocida **no se inventa una**: el monto
+va tal cual y la pantalla lo dice.
+
+**Regla que queda, y es la de las tres:** un campo con el nombre de una moneda o de un país
+adentro (`daily_budget_mxn`, `countries: ['MX']`) es una constante disfrazada de dato. Lo
+que decide la moneda y el país es **la cuenta publicitaria**, y hay que ir a preguntárselo:
+`/api/ads-manager/targeting?kind=cuenta` devuelve `{ currency, country }` y
+`kind=paises` el catálogo.
+
+**Sin hacer:** `daily_budget_mxn` sigue llamándose así en `lib/campaign-types.ts` y en el
+JSON que se le pide a MaKo (`CAMPAIGN_JSON_SHAPE`), aunque hace rato signifique «monto en
+la moneda de la cuenta». El nombre es la próxima trampa. Y el selector de país es por
+PAÍS: no hay ciudades ni radios, aunque `Targeting.geo_locations` ya los tipa y
+`cleanGeo` ya los sabe mandar.

@@ -1053,6 +1053,45 @@ lo abrió el cron, lo abrió `app/integraciones/page.tsx` al dibujarse. Un cron 
 siempre y deja log; una escritura colgada de un render depende de que alguien haya
 mirado, así que no queda ningún rastro de por qué empezó ese día y no otro.
 
+# Un DIAGNÓSTICO escrito de antemano deja de ser cierto sin avisar
+
+Un mensaje de error puede explicar la causa. Lo que no puede es **traer la causa
+escrita en el código**. `/api/meta-recommendations` devolvía, cuando Meta contestaba
+vacío, un `reason:` literal que culpaba al token de página, al `account_status=3` y a
+la 2FA. Era verdad — de UNA cuenta, en junio. En septiembre esa cuenta ya estaba al
+día y el párrafo seguía saliendo, palabra por palabra, sobre la cuenta de otro cliente
+que está `account_status=1` y con `ads_management` concedido: una acusación falsa que
+manda a arreglar una factura que no existe.
+
+**La regla:** el motivo de un vacío o de un fallo se arma con lo que la respuesta
+ACABA de decir, en la misma llamada. Si el diagnóstico no sale de un campo que
+recibiste, no lo escribas: decí que no pudiste determinarlo. «No sé por qué» es un
+mensaje útil; «es por X» cuando X no se midió es peor que el silencio, porque manda a
+alguien a buscar donde el problema no está.
+
+Y hay una prueba barata para saber si estás cayendo en esto: **¿el texto cambiaría si
+la respuesta fuera otra?** Si no, es una constante disfrazada de explicación. Lo mismo
+vale para un `catch` que asume la causa (ver «Un `console.warn` no es un control»).
+
+# Un campo con una moneda o un país en el NOMBRE es una constante disfrazada de dato
+
+`daily_budget_mxn`, `{ countries: ['MX'] }`, `usdToMxn(...)`. Los tres describen una
+decisión de negocio de UN cliente, cableada en un tipo o en una constante. Cuando el
+segundo cliente no es de ese país ni cobra en esa moneda, **nada falla**: la campaña se
+crea, se segmenta y se presupuesta — en el país equivocado y por 17 veces el monto que
+la persona tipeó. La falla silenciosa es la que cuesta plata.
+
+**La regla:** la moneda, el país y la zona horaria los define **la cuenta del
+proveedor**, y hay que ir a preguntárselos por API. En Meta:
+`/api/ads-manager/targeting?kind=cuenta` → `{ currency, country }`, y `kind=paises` el
+catálogo (los 247 de Meta, no una lista nuestra). Y aun teniendo el default bien, **la
+pantalla lo pregunta igual**: adivinar bien no reemplaza a poder editar.
+
+⚠️ Y ojo con qué campo se usa para adivinar: `business_country_code` de la cuenta
+publicitaria es el país **fiscal**, no el del público. Una LLC estadounidense que vende
+en Argentina da `US`. El que acierta es `timezone_name`, que es la zona con la que se
+eligió operar la cuenta (`lib/meta-pais.ts`).
+
 # Un umbral es un proxy, y el proxy hay que MEDIRLO contra los datos reales
 
 Un número en una condición (`>= 3 tareas`, `>= 2 destinos`, `>= 15 caracteres`) casi

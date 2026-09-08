@@ -906,7 +906,11 @@ function ColumnsButton({ open, setOpen, configurables, visibleCols, setVisibleCo
 }
 
 // ── modal "Analizar (Meta)" — espejo honesto del edge de recomendaciones ──
-type RecosResp = { ok: boolean; opportunityScore?: number | null; recomendaciones?: Array<{ titulo: string; detalle: string; importancia: string }>; empty?: boolean; reason?: string; message?: string };
+// El edge de CUENTA no manda `title`/`message`/`importance`: manda el texto en
+// `recommendation_content.body`, el gancho en `lift_estimate` y un link al Ads
+// Manager. La forma la normaliza lib/meta-recos-cuenta.ts.
+type RecoUI = { titulo: string; detalle: string; lift?: string | null; importancia: string; entidades?: number; url?: string | null };
+type RecosResp = { ok: boolean; opportunityScore?: number | null; recomendaciones?: RecoUI[]; empty?: boolean; reason?: string; message?: string };
 function RecosModal({ onClose }: { onClose: () => void }) {
   const [data, setData] = useState<RecosResp | null>(null);
   const [loading, setLoading] = useState(true);
@@ -946,10 +950,20 @@ function RecosModal({ onClose }: { onClose: () => void }) {
                   <span style={{ fontSize: 13.5, color: 'var(--dim)' }}>Opportunity Score (Meta)</span>
                 </div>
               )}
+              {(data.recomendaciones ?? []).length === 0 && (
+                <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: 0, lineHeight: 1.5 }}>Meta puntuó tu cuenta pero no listó recomendaciones concretas ahora mismo.</p>
+              )}
               {(data.recomendaciones ?? []).map((r, i) => (
                 <div key={i} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px' }}>
-                  <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)', marginBottom: 3 }}>{r.titulo}</div>
-                  <div style={{ fontSize: 13.5, color: 'var(--dim)' }}>{r.detalle}</div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, flexWrap: 'wrap', marginBottom: 4 }}>
+                    <span style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)' }}>{r.titulo}</span>
+                    {r.lift && <span style={{ fontFamily: MONO, fontSize: 11, padding: '3px 8px', borderRadius: 999, background: 'var(--good-bg)', color: 'var(--good)' }}>{r.lift}</span>}
+                  </div>
+                  <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.5 }}>{r.detalle}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
+                    {r.entidades ? <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{r.entidades} {r.entidades === 1 ? 'entidad' : 'entidades'}</span> : null}
+                    {r.url && <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, color: 'var(--primary-strong)', textDecoration: 'none' }}>Aplicarla en Meta ↗</a>}
+                  </div>
                 </div>
               ))}
             </div>

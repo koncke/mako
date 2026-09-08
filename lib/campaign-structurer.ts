@@ -44,7 +44,7 @@ export const CAMPAIGN_JSON_SHAPE = `Devuelve EXCLUSIVAMENTE un objeto JSON váli
       "daily_budget_mxn": <número en MXN si budget_level=adset, si no null>,
       "optimization_goal": "LEAD_GENERATION | OFFSITE_CONVERSIONS | LANDING_PAGE_VIEWS | LINK_CLICKS | REACH",
       "targeting": {
-        "geo_locations": { "countries": ["MX"] },
+        "geo_locations": { "countries": ["<ISO-2 del país donde vende, ej. AR>"] },  // NO asumas México: mira el país de la cuenta
         "age_min": <13-65>, "age_max": <13-65>,
         "genders": [],                       // [] = todos · [1] = hombres · [2] = mujeres
         "interests": [{ "name": "interés sugerido" }],  // SOLO nombres; el usuario los confirma
@@ -220,7 +220,11 @@ function coerceTargeting(raw: unknown): Targeting {
   const out: Targeting = {};
   const geo = (t.geo_locations && typeof t.geo_locations === 'object' ? t.geo_locations : {}) as Record<string, unknown>;
   const countries = Array.isArray(geo.countries) ? geo.countries.map(String).filter(Boolean) : [];
-  out.geo_locations = { countries: countries.length ? countries : ['MX'] };
+  // Sin país, geo_locations NO se setea. Acá había un `?? ['MX']` que convertía "el
+  // modelo no dijo nada" en "México", y esa mentira viajaba hasta la campaña creada.
+  // Quien construye la campaña ya sabe el país (lo eligió el usuario en el wizard);
+  // el respaldo real es el país DE LA CUENTA, en buildTargeting.
+  if (countries.length) out.geo_locations = { countries };
   const amin = num(t.age_min); if (amin) out.age_min = Math.min(65, Math.max(13, Math.round(amin)));
   const amax = num(t.age_max); if (amax) out.age_max = Math.min(65, Math.max(13, Math.round(amax)));
   if (Array.isArray(t.genders)) { const g = t.genders.map(Number).filter((x) => x === 1 || x === 2); if (g.length) out.genders = g; }

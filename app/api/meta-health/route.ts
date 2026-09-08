@@ -28,6 +28,8 @@ const HEALTH_SIN_CONEXION: MetaHealth = {
     spendCapMxn: null,
     isPrepay: false,
     fundingCard: null,
+    timezoneName: null,
+    country: null,
     currency: 'MXN',
     severidad: 'gris',
     entregaFrenada: false,

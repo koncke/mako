@@ -19,6 +19,7 @@ import 'server-only';
 import { META_PAGE_ID } from './config';
 import { credWs } from './credenciales';
 import { normalizarCuentaMeta } from './meta-cuenta-id';
+import { paisDeCuentaMeta } from './meta-pais';
 import { getWorkspaceActual, OWNER_WS } from './workspace';
 import {
   type CampaignSpec,
@@ -194,12 +195,23 @@ function cleanGeo(g: NonNullable<Targeting['geo_locations']>): Record<string, un
   return out;
 }
 
-/** Construye el targeting de Meta a partir del nuestro (con defaults sanos). */
-export function buildTargeting(t: Targeting): Record<string, unknown> {
+/**
+ * Construye el targeting de Meta a partir del nuestro (con defaults sanos).
+ *
+ * `paisPorDefecto` es la red de contención cuando el spec llega sin geo: ISO-2 del
+ * país DE LA CUENTA (lib/meta-pais.ts), nunca una constante. Acá había un
+ * `{ countries: ['MX'] }` fijo y por eso una cuenta argentina publicaba en México:
+ * el fallback no fallaba, entregaba — en el país equivocado, en silencio y con
+ * plata puesta. Si tampoco hay país de cuenta se LANZA: un error que se lee es
+ * mejor que una campaña que gasta donde nadie compra.
+ */
+export function buildTargeting(t: Targeting, paisPorDefecto?: string | null): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  out.geo_locations = t.geo_locations && (t.geo_locations.countries?.length || t.geo_locations.regions?.length || t.geo_locations.cities?.length)
-    ? cleanGeo(t.geo_locations)
-    : { countries: ['MX'] }; // default: México
+  const tieneGeo = Boolean(t.geo_locations && (t.geo_locations.countries?.length || t.geo_locations.regions?.length || t.geo_locations.cities?.length));
+  if (!tieneGeo && !paisPorDefecto) {
+    throw new MetaWriteError('No sé en qué país mostrar estos anuncios: elige la ubicación antes de publicar.');
+  }
+  out.geo_locations = tieneGeo ? cleanGeo(t.geo_locations!) : { countries: [String(paisPorDefecto).toUpperCase()] };
   if (t.excluded_geo_locations) {
     const eg = cleanGeo(t.excluded_geo_locations);
     if (Object.keys(eg).length) out.excluded_geo_locations = eg;
@@ -317,6 +329,56 @@ export async function listLeadForms(): Promise<Array<{ id: string; name: string;
 }
 
 /** Públicos personalizados de la cuenta (para retargeting: incluir / excluir). */
+/**
+ * Datos de la cuenta publicitaria que la UI necesita para NO adivinar: la moneda
+ * en la que Meta va a cobrar y el país por defecto de la segmentación.
+ *
+ * Sin esto, dos cosas se inventaban del lado del navegador: que la cuenta cobra en
+ * MXN (y se multiplicaba el presupuesto por el tipo de cambio sobre cuentas en
+ * dólares) y que el público está en México.
+ */
+export async function cuentaMeta(): Promise<{ accountId: string; name: string; currency: string; country: string | null; timezoneName: string | null }> {
+  const [apiVersion, adAccountId, tk] = await Promise.all([cred('META_API_VERSION'), cred('META_AD_ACCOUNT_ID'), cred('META_ACCESS_TOKEN')]);
+  const url = new URL(`${GRAPH_BASE}/${apiVersion}/${adAccountId}`);
+  url.searchParams.set('fields', 'name,currency,timezone_name,business_country_code');
+  url.searchParams.set('access_token', tk);
+  const d = await graphGet(url.toString());
+  return {
+    accountId: adAccountId,
+    name: String(d.name ?? ''),
+    currency: String(d.currency ?? 'USD'),
+    country: paisDeCuentaMeta(d),
+    timezoneName: d.timezone_name != null ? String(d.timezone_name) : null,
+  };
+}
+
+/**
+ * Países que Meta acepta en geo_locations, con su nombre en español — los suyos,
+ * no una lista nuestra que se desactualiza. 247 filas, una sola llamada.
+ *
+ * ⚠️ SIN caché de módulo, aunque el catálogo sea el mismo para todos y la tentación
+ * sea obvia. Este lib es per-workspace: un `let` acá lo comparten TODOS los
+ * clientes del proceso, y tests/ads-manager-credenciales.test.ts lo prohíbe de
+ * plano ("sin estado mutable de módulo: cruzaría clientes"). Lo escribí igual y el
+ * test lo cazó — que es exactamente para lo que está.
+ */
+export async function listCountries(): Promise<Array<{ code: string; name: string }>> {
+  const [apiVersion, tk] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
+  const url = new URL(`${GRAPH_BASE}/${apiVersion}/search`);
+  url.searchParams.set('type', 'adgeolocation');
+  url.searchParams.set('location_types', '["country"]');
+  url.searchParams.set('locale', 'es_LA');
+  url.searchParams.set('limit', '300');
+  url.searchParams.set('access_token', tk);
+  const d = await graphGet(url.toString());
+  const arr = Array.isArray(d.data) ? (d.data as Array<Record<string, unknown>>) : [];
+  const items = arr
+    .map((o) => ({ code: String(o.country_code ?? o.key ?? '').toUpperCase(), name: String(o.name ?? '') }))
+    .filter((o) => /^[A-Z]{2}$/.test(o.code) && o.name)
+    .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  return items;
+}
+
 export async function listCustomAudiences(): Promise<Array<{ id: string; name: string; subtype?: string; count?: number | null }>> {
   const [apiVersion, adAccountId, tk] = await Promise.all([cred('META_API_VERSION'), cred('META_AD_ACCOUNT_ID'), cred('META_ACCESS_TOKEN')]);
   const base = `${GRAPH_BASE}/${apiVersion}/${adAccountId}/customaudiences`;
@@ -681,7 +743,7 @@ export async function createAdSet(campaignId: string, spec: CampaignSpec, adset:
     status: 'PAUSED',
     billing_event: adset.billing_event || def.billing_event,
     optimization_goal: optimization,
-    targeting: JSON.stringify(buildTargeting(adset.targeting)),
+    targeting: JSON.stringify(buildTargeting(adset.targeting, (await cuentaMeta()).country)),
   };
   // ABO: presupuesto + estrategia de puja en el conjunto. CBO: viven en la campaña.
   if (spec.budget_level === 'adset') {

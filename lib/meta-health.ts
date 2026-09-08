@@ -19,6 +19,8 @@
 // =============================================================================
 
 import { mxnAUsd, META_BALANCE_ALERTA_MXN } from './config';
+import { parseRecosCuenta } from './meta-recos-cuenta';
+import { paisDeCuentaMeta } from './meta-pais';
 import { credWs } from './credenciales';
 import { cachedRead, TAG } from './cache';
 
@@ -211,6 +213,8 @@ function computeAccountHealth(raw: Record<string, unknown>): MetaAccountHealth {
     isPrepay: Boolean(raw.is_prepay_account),
     fundingCard,
     currency,
+    timezoneName: raw.timezone_name != null ? String(raw.timezone_name) : null,
+    country: paisDeCuentaMeta(raw),
     severidad,
     entregaFrenada: severidad === 'rojo',
   };
@@ -223,7 +227,10 @@ async function fetchAccountRaw(): Promise<Record<string, unknown>> {
   const url = new URL(`${GRAPH_BASE}/${ver}/${acct}`);
   url.searchParams.set(
     'fields',
-    'name,account_status,disable_reason,balance,amount_spent,spend_cap,currency,is_prepay_account,funding_source_details',
+    // timezone_name + business_country_code: de ahí sale el país por defecto de
+    // la segmentación (lib/meta-pais.ts). Antes se cableaba 'MX' a mano y un
+    // cliente argentino publicaba en México sin enterarse.
+    'name,account_status,disable_reason,balance,amount_spent,spend_cap,currency,is_prepay_account,funding_source_details,timezone_name,business_country_code',
   );
   url.searchParams.set('access_token', token);
   const body = await graphGet(url.toString());
@@ -246,9 +253,20 @@ export async function fetchAccountRecommendations(): Promise<Reco[]> {
     const ver = await getEnv('META_API_VERSION');
     const token = await getEnv('META_ACCESS_TOKEN');
     const url = new URL(`${GRAPH_BASE}/${ver}/${acct}/recommendations`);
+    url.searchParams.set('locale', 'es_MX');
     url.searchParams.set('access_token', token);
     const body = await graphGet(url.toString());
-    return parseRecosMeta(body.data);
+    // ⚠️ NO es parseRecosMeta. Ese lee la forma de NODO (title/message/importance);
+    // el edge de CUENTA devuelve data[].recommendations[] y no trae ninguna de las
+    // tres. Pasarle `body.data` daba una lista de tarjetas vacías tituladas
+    // "Recomendación de Meta" sobre cuentas que SÍ tenían recomendaciones reales.
+    return parseRecosCuenta(body).map((r) => ({
+      fuente: 'meta' as const,
+      titulo: traducirReco(r.titulo),
+      detalle: traducirReco([r.lift, r.detalle].filter(Boolean).join(' — ')),
+      prioridad: r.importancia === 'ALTA' ? ('alta' as const) : r.importancia === 'BAJA' ? ('baja' as const) : ('media' as const),
+      semaforo: (r.importancia === 'ALTA' ? 'rojo' : r.importancia === 'BAJA' ? 'gris' : 'ambar') as Semaforo,
+    }));
   } catch {
     return [];
   }
