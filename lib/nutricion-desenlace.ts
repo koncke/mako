@@ -19,7 +19,7 @@
 
 import 'server-only';
 
-import { getTenantDb } from './workspace';
+import { getTenantDb, getWorkspaceActual } from './workspace';
 import { parseEstrategia, hitoYaHecho, type Desenlace } from './setting-estrategia';
 
 export type ResultadoDesenlaces = {
@@ -28,6 +28,8 @@ export type ResultadoDesenlaces = {
   movidos: number;
   /** Cuántos leads arrancaron la secuencia que sigue. */
   encadenados: number;
+  /** Cuántos avisos se le mandaron al dueño para que llame él. */
+  avisados: number;
   detalle: Array<{ leadId: number; secuencia: string; desenlace: 'logrado' | 'fallo'; etapa: string | null; siguiente?: string | null }>;
 };
 
@@ -39,6 +41,16 @@ type FilaInsc = {
 /** Horas transcurridas desde un ISO. El umbral del desenlace se mide acá. */
 const horas = (desde: string): number => (Date.now() - new Date(desde).getTime()) / 3_600_000;
 
+/** La fecha de la reunión del lead, en texto corto para el aviso. */
+function fechaReunion(lead: Record<string, unknown>): string {
+  const raw = [lead.junta_1_at, lead.fecha_junta_1, lead.fecha_agenda].find((x) => typeof x === 'string' && x);
+  if (typeof raw !== 'string') return '';
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T12:00:00-06:00` : raw);
+  if (Number.isNaN(d.getTime())) return '';
+  try {
+    return d.toLocaleString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  } catch { return ''; }
+}
 /** ¿Se cumplió lo que la secuencia buscaba? */
 function seLogro(d: Desenlace, lead: Record<string, unknown>, estado: string): boolean {
   switch (d.logrado) {
@@ -63,7 +75,11 @@ function seLogro(d: Desenlace, lead: Record<string, unknown>, estado: string): b
  */
 export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
   const supabase = await getTenantDb();
-  const res: ResultadoDesenlaces = { logrados: 0, fallidos: 0, movidos: 0, encadenados: 0, detalle: [] };
+  // El workspace, EXPLÍCITO, para los avisos. Sin él `emitirAviso` cae a
+  // OWNER_WS y el lead de un cliente termina sonando en el grupo de la agencia.
+  // Si no hay contexto no se avisa: mejor mudo que en el grupo equivocado.
+  const ws = await getWorkspaceActual().catch(() => null);
+  const res: ResultadoDesenlaces = { logrados: 0, fallidos: 0, movidos: 0, encadenados: 0, avisados: 0, detalle: [] };
 
   const { data: inscData } = await supabase
     .from('nutricion_inscripciones')
@@ -81,7 +97,7 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
   const leadIds = [...new Set(inscs.map((i) => i.lead_id))];
   const { data: leadData } = await supabase
     .from('leads')
-    .select('id, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at, fecha_agenda, fecha_primer_pago, cerro, calificado')
+    .select('id, nombre, telefono, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at, fecha_agenda, fecha_primer_pago, cerro, calificado')
     .in('id', leadIds);
   const leads = new Map(((leadData ?? []) as Array<Record<string, unknown>>).map((l) => [Number(l.id), l]));
 
@@ -190,6 +206,45 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
           try {
             if (await moverLeadAuto(insc.lead_id, d.falloEtapa, { canal: 'Nutrición', motivo: `No respondió a «${sec.nombre}»` })) res.movidos += 1;
           } catch (e) { console.error(`[desenlace] mover lead ${insc.lead_id}:`, e); }
+        }
+        // AVISARLE AL DUEÑO. Es el pedido literal de Mauricio: «si no confirman
+        // antes de 24 hrs entonces me diga para yo marcarles». El momento exacto
+        // es este —la secuencia ya le escribió, ya le insistió y el lead no
+        // contestó ninguna de las dos veces—, no antes: avisar apenas se agenda
+        // sería llamarlo antes de darle la chance de responder solo.
+        //
+        // Se limita al objetivo 'preparar' (que el lead LLEGUE a la reunión y
+        // llegue listo) para no convertir cada secuencia fallida del sistema en un
+        // WhatsApp: una reactivación que no funciona no amerita interrumpir a nadie.
+        if (est.objetivo === 'preparar' && ws != null) {
+          try {
+            const { emitirAviso } = await import('./avisos');
+            const quien = String(lead.nombre ?? '').trim() || 'Un lead';
+            const tel = String(lead.telefono ?? '').trim();
+            const cuando = fechaReunion(lead);
+            await emitirAviso({
+              // `ws` EXPLÍCITO: sin esto cae a OWNER_WS y el lead de un cliente
+              // suena en el grupo de la agencia.
+              ws,
+              tipo: 'lead-no-confirmo',
+              titulo: `${quien} no confirmó la reunión`,
+              categoria: 'accion',
+              semaforo: 'amarillo',
+              // El dedup es POR LEAD: sin `dedupKey` el primero se comería el
+              // aviso de todos los demás durante la ventana.
+              dedupKey: `lead:${insc.lead_id}`,
+              dedupTtlMin: 60 * 24,
+              texto: [
+                `🟡 *${quien}* agendó${cuando ? ` para ${cuando}` : ''} y no confirmó.`,
+                '',
+                'Le mandé el audio y le insistí al día siguiente: no contestó ninguna de las dos veces.',
+                tel ? `Conviene que le marques tú: ${tel}` : 'No tengo su teléfono para pasártelo.',
+                '',
+                '— MaKo',
+              ].join('\n'),
+            });
+            res.avisados += 1;
+          } catch (e) { console.error(`[desenlace] aviso no-confirmó lead ${insc.lead_id}:`, e); }
         }
         const motivo = await encadenar(d.falloSecuencia, insc.lead_id, lead);
         res.detalle.push({ leadId: insc.lead_id, secuencia: sec.nombre, desenlace: 'fallo', etapa: d.falloEtapa, siguiente: motivo ?? d.falloSecuencia });

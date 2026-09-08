@@ -139,6 +139,7 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'plantilla-estado': 'sistema', 'nutricion-frenada': 'sistema',
   'datos-sin-marcar': 'sistema', 'cron-ingesta-fallo': 'sistema',
   'saldo-ia-bajo': 'sistema', 'accion-confirmada': 'sistema',
+  'lead-no-confirmo': 'lead',
 };
 
 export function areaDeAviso(id: string): AreaAviso {
@@ -404,6 +405,17 @@ https://hola-mako.com/integraciones
     // grabación queda mezclada con las de todo el tráfico real de ese día.
     disparador: 'Cron cada 15 minutos: terminó una prueba del Pixel y ya pasó el tiempo de procesamiento de Clarity.',
     ejemplo: `🟢 Ya está la grabación de la prueba que hiciste en *tupagina.com*: puedes ver el video de lo que hiciste y el mapa de calor 👉 https://clarity.microsoft.com/projects/view/abc123/impressions?mko_prueba=… — MaKo`,
+  },
+  {
+    id: 'lead-no-confirmo', titulo: 'Agendó, no confirmó y hay que llamarlo', categoria: 'accion',
+    prioridad: 'alta', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
+    disparador: 'La secuencia de post-agenda le mandó el audio, le insistió a las 24 h y el lead no contestó ninguna de las dos veces. Sale cuando la secuencia se da por fallida (desenlace), no antes: avisar apenas agenda sería llamarlo sin darle la chance de responder solo. Uno por lead cada 24 h.',
+    ejemplo: `🟡 *Oswaldo Iturbide* agendó para el martes 12 de agosto, 20:00 y no confirmó.
+
+Le mandé el audio y le insistí al día siguiente: no contestó ninguna de las dos veces.
+Conviene que le marques tú: +52 55 4874 2149
+
+— MaKo`,
   },
   {
     id: 'lead-de-landing', titulo: 'Alguien dejó sus datos en tu landing', categoria: 'aviso',
