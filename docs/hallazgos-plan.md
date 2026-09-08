@@ -591,6 +591,216 @@ Del mismo hilo: **nada de jerga interna ni tecnicismos** en lo que ve el cliente
 
 ---
 
+## El pipeline de reuniones entrega, y nadie lo recoge
+
+Relevamiento del 2026-09-08, 12 agentes, a propósito de un pedido de Mauricio para reemplazar
+el extractor de reuniones. **El pedido resultó ser el síntoma equivocado**, y lo que apareció
+midiendo el pipeline entero es peor que lo que se venía a discutir. Todo medido contra PROD.
+
+### ⚠️ La tasa de confirmación de los borradores es 1,2%, y nadie la había mirado nunca
+
+`plan_propuestas` del ws 1: **83 borradores, 80 pendientes, 1 aplicado.** El único aplicado es
+del 1/8/2026. Su tablero **no recibe una tarea de Fathom desde el 5/8** — 101 de sus 110 tareas
+se crearon entre el 1 y el 5 de agosto y no hubo ninguna más. En el mismo período se apilaron
+959 tareas extraídas que nadie confirmó. Leila (ws 11): 2 aplicados de 27. Martín (ws 9): 62 de
+113 — el único que usa el flujo es el que lo escribió.
+
+El dueño lo reportó como *«de cada sesión salían 20-30 tareas sin orden y terminaba sin
+usarlas»*. Las dos mitades de esa frase son falsas y la conclusión es cierta:
+
+- **No son 20-30.** Medido sobre sus 83 borradores: **p50 = 9 tareas**, media 12,7, y solo 12 de
+  83 (14%) llegan a 20. El prompt ya dice, doce líneas debajo de la que todos citan, *«NO hay un
+  número que tengas que alcanzar… tres compromisos reales valen más que quince inventados»*
+  (`lib/plan-fathom.ts:279`), y la producción le da la razón a esa línea.
+- **No es «sin orden».** El Perro las puntúa y las agrupa por proyecto «Cliente: X».
+- **Pero «termina sin usarlas» es literal**, y no pasa en la extracción: pasa en `/plan/revisar`.
+
+**Vive en:** lib/plan-propuesta.ts:442 · app/plan/board/BoardShell.tsx:360 · *2026-09-08*
+
+### El techo mudo que explica el 1,2%: el board muestra 8 borradores de 80
+
+`listPropuestasPendientes(limite = 8)` — un default de firma, sin comentario que lo justifique.
+Con 80 borradores pendientes, el badge le muestra los 8 más nuevos: **881 de 959 tareas (92%) no
+aparecen en ninguna pantalla.** No hay «ver todos», no hay contador del resto, no hay error. Es
+exactamente la forma de [[una bandeja que no existe]]: *un aviso es un EVENTO, una bandeja es un
+ESTADO*, y acá el estado se muestra truncado sin decir que está truncado.
+
+**La regla: un `limite = N` en la firma de una función de LISTADO es una decisión de producto
+disfrazada de default.** Si la lista puede crecer, o el número se justifica al lado, o la
+pantalla dice cuántos quedaron afuera. Un tope silencioso se lee como «esto es todo lo que hay».
+
+**Vive en:** lib/plan-propuesta.ts:442 · *2026-09-08*
+
+### La pantalla que el cliente pedía ya existía, y devolvía cero
+
+`cs-cartera.ts` organiza a los clientes por «de quién es la pelota» (tuya / suya / al día), y su
+regla de triage dice textual `if (c.compromisosAbiertos > 0) return { cancha: 'suya', razon:
+'${n} compromisos abiertos de las sesiones' }` (:168-170). El campo se asigna
+**`compromisosAbiertos: 0` en los dos lugares donde se arma la fila** (:247 con el comentario «se
+llena abajo, con una sola consulta para todos», y :265) y no se llena en ninguna parte del
+archivo. La cabecera del módulo afirma que la cartera gira sobre «los compromisos (82 tareas
+abiertas)» — un número que nunca se calculó.
+
+O sea: la rama de triage es código muerto, `/customer-success` contesta «sin nada pendiente»
+para todos, y el cliente que la necesitaba pidió por escrito que se construyera.
+
+**La regla: un campo declarado, con su rama de decisión escrita y su valor hardcodeado en 0, es
+PEOR que un campo que falta.** El que falta rompe el build; este pinta una pantalla que afirma
+algo. Es la misma familia que [[un indicador que afirma la mitad verdadera de un proceso de dos
+pasos]]. Cuando dejes un `campo: 0 // se llena abajo`, el `abajo` va en el mismo commit o va un
+`throw`.
+
+**Vive en:** lib/cs-cartera.ts:168-170, :247, :265 · app/customer-success/page.tsx:39 · *2026-09-08*
+
+### Comparar dos extractores sin correrlos sobre el mismo material no es comparar
+
+El pedido venía con una medición seria detrás (4 iteraciones, 72 extracciones, juez con modelo,
+dos auditorías del propio instrumento). Pero **las 6 llamadas de Fathom que midió y las 7 que
+MaKo procesó no tienen una sola en común** — verificado por `call_id`: las suyas son de la serie
+8xx, las de MaKo de la 7xx. Mismos clientes, sesiones distintas. Nadie corrió los dos extractores
+sobre el mismo transcript contra la misma lista dorada.
+
+Y el titular «pasó de 52 tareas a 13» tampoco compara lo que parece: **52 es la suma exacta de su
+propia corrida v1** (12+8+6+6+4+16 en su bitácora), no la salida de MaKo. La comparación honesta
+que sale de sus propios números —precisión 45%, recall 75%— es que su criterio emite **~1,67
+tarjetas por cada compromiso de su lista**: con 13 esperados, ~22 tarjetas. Contra las 9 que MaKo
+le deja hoy, **su criterio le daría MÁS, no menos.**
+
+**La regla: antes de aceptar «lo tuyo saca de más», mirá si alguien corrió las dos cosas sobre el
+mismo insumo.** Una precisión de 45% y una de 74% medidas contra listas doradas distintas, con
+granularidades distintas, no se restan. Y si la granularidad difiere, hay un techo aritmético:
+con 13 esperados sobre 52 extraídas, el mejor caso posible es 25% de precisión aunque acierte
+todo.
+
+**Vive en:** docs/hallazgos-plan.md (esta entrada) · *2026-09-08*
+
+### El override de PROMPT es por workspace; el de MODELO es global. Uno aísla, el otro no
+
+Asimetría verificada, y decide qué se le puede dar a un solo cliente sin ramas de código:
+
+| | Cómo se resuelve | ¿Se puede por cliente? |
+|---|---|---|
+| Prompt | `getSetting` con `getWorkspaceActual() ?? OWNER_WS` (lib/settings.ts:17) | **SÍ** |
+| Modelo | `runWithWorkspace(OWNER_WS, () => getSetting('mako.modelos'))` (lib/model-registry.ts:30) | **NO** |
+| API key | `credWs('ANTHROPIC_API_KEY')` sin ws → la del workspace EN CURSO | — |
+
+Las tres filas juntas dan el modo de falla: apuntar una feature a un modelo pago «para un
+cliente» la apunta **para todos**, y la llamada de cada cliente se cobra a **su propia key** si
+la tiene cargada (ws 9 y ws 11 la tienen). O sea: un favor a un cliente se factura a otro.
+
+**Y el veto tampoco tiene dimensión de workspace:** `PermisoDeclarado` es `{feature, modelos,
+hasta, porque, pidio}`, sin `ws`. Con `/modelos-ia` ofreciendo los 4 modelos de Claude a toda
+feature sin consultar `modelosPermitidos()` (app/modelos-ia/ModelosIA.tsx:21-25), apuntar
+`plan-fathom` a Sonnet desde la UI **no cobra: lanza**, cada parte falla, `partesFallidas` sube y
+la reunión no se cierra. **Un extractor que tira excepción se ve idéntico a una reunión sin
+compromisos.**
+
+**Vive en:** lib/model-registry.ts:30-31 · lib/settings.ts:17 · lib/veto-claude.ts:62-75, :157-161 · app/modelos-ia/ModelosIA.tsx:21-25 · *2026-09-08*
+
+### «Solo lectura» todavía no se puede prometer: el bearer no tiene alcances
+
+`/api/agente/plan` está en `PUBLICOS` (lib/rutas-publicas.ts:96) y **no** en
+`PUBLICOS_SOLO_LECTURA` (:107, que solo tiene `/compartido` y `/api/compartido`); `proxy.ts` corta
+los métodos no-GET **únicamente** para las de SOLO_LECTURA (:191-196). O sea el mismo token que
+lee habilita `POST /api/agente/plan` y `/api/agente/lead`. **No hay scopes por token en ningún
+lado del repo.** Agravante de higiene: ese token se guarda **en claro** en `app_settings`
+(lib/agente-token.ts:44-49) mientras los otros dos del repo guardan `sha256`.
+
+Y no hay atajo por la base: **`grep 'create policy'` sobre las 167 migraciones devuelve CERO.**
+Nunca existió un rol de Postgres acotado a un workspace; todo el runtime entra con `service_role`,
+que bypassa RLS por diseño. Dar «acceso de solo lectura a la tabla» no tiene versión intermedia:
+o se construye el scope en la API, o se entrega la llave maestra de la plataforma entera.
+
+**Vive en:** lib/rutas-publicas.ts:96, :107, :128 · proxy.ts:191-196 · lib/agente-token.ts:44-49 · supabase/migrations/0118_rls_tablas_abiertas.sql · *2026-09-08*
+
+### La segunda capa del contrato del detalle está escrita y sin enchufar
+
+`loteCumple` (lib/detalle-contrato.ts:170) aparece **una sola vez en todo el repo: su propia
+definición.** Cero call-sites, cero tests. `citaVerificada` (lib/chat-agent-voz.ts:166) tiene un
+único uso, en otro módulo. `evaluarDetalle` se usa en `plan-board` y `respuesta-doer` — nunca en
+`plan-fathom`, que es justamente el que produce el detalle con la cita adentro.
+
+Medido hoy contra prod con la regla de `evaluarDetalle`: en el tablero del cliente (ws 1, n=101
+de fathom) el molde de 4 partes se cumple **93%** y la cita entre « » aparece en **38-40%**;
+p50 = 1095 caracteres. O sea el contrato FUNCIONÓ — el comentario de `detalle-contrato.ts:6-12`
+que dice «0% de 150» describe el estado de **agosto y de otro tablero** (`plan_tareas`, ws 9) y
+nadie lo re-midió desde entonces.
+
+**Dos reglas, y la segunda es la cara:**
+1. **Un número medido dentro de un comentario tiene fecha de vencimiento y no la lleva escrita.**
+   Cuatro agentes construyeron su conclusión sobre ese «0 de 150». Si un comentario trae una
+   medición, va con la fecha, el `n` y **la tabla** — sin eso, se cita para siempre como si fuera
+   el presente.
+2. **La cita llega, pero llega como PROSA.** Por eso no se puede validar, ni filtrar, ni mostrar
+   como columna, ni leer por la API. La diferencia entre «lo pide el prompt» y «es un campo» es
+   exactamente la diferencia entre las dos capas que [[una regla en un prompt no es una regla]]
+   exige — y acá la segunda mitad está escrita y desconectada.
+
+**Vive en:** lib/detalle-contrato.ts:6-12 y :170 · lib/chat-agent-voz.ts:166 · lib/plan-fathom.ts:242 · *2026-09-08*
+
+### Tres listas blancas en serie: editar el prompt no alcanza para agregar un campo
+
+Un campo nuevo que devuelva el modelo muere en el primer filtro y no deja rastro:
+
+1. `coerceCandidatas` copia campo por campo y descarta toda clave fuera de su map (lib/plan-fathom.ts:353-387).
+2. `limpiarTarea` es una segunda lista blanca sobre el borrador (lib/plan-propuesta.ts:145-180).
+3. Al aplicar, `agregarTareasPlanOwner` recibe `{titulo, prioridad, proyecto, deadline, detalle, fuente}` (:807) y `crearTarea` `{titulo, prioridad, deadline, detalle, categorias, origen, fuente}` (:856).
+
+**Editar el prompt desde `/configuraciones` —el camino barato, el que existe para no tocar
+código— atraviesa CERO de las tres.** El precedente está en el propio repo: `dichoPor` se pide en
+el prompt desde siempre y el parser lo tiraba; medido en prod, la unión de TODAS las claves
+guardadas en las 1055 tareas de `plan_propuestas` del ws 1 es exactamente `{detalle, dueno,
+duenoEmail, esDeOtro, incluir, minuto, minutos, prioridad, proyecto, titulo}` — `dichoPor`: 0 de
+1055. `deadline`: 0 de 1055.
+
+**La regla: si un prompt es editable por el usuario, el saneo tiene que ser la ÚNICA lista blanca,
+o la edición es decorativa.** Y `plan-fathom.extraer.system` declara una sola variable
+(`jsonShape`) mientras el call-site pasa dos: quien lo edite puede borrar `{{molde}}` sin que nada
+avise (lib/prompt-registry.ts:896 vs lib/plan-fathom.ts:763).
+
+**Vive en:** lib/plan-fathom.ts:353-387, :763 · lib/plan-propuesta.ts:145-180, :807, :856 · lib/prompt-registry.ts:896 · *2026-09-08*
+
+### El patrón «consultor con sesiones recurrentes» es 2 de 5 clientes, no 1
+
+Descontando los workspaces de prueba (3), de diseño (4, copia de los datos de Mauricio), el
+pausado (5) y la plataforma (9), quedan **5 clientes reales**. Fathom está conectado en 2 —ws 1 y
+ws 11— y **los dos son consultores con sesiones 1 a 1 con terceros**: ws 1 tiene 110 grabaciones
+`entrega_servicio`, ws 11 tiene 9 («Ana Gómez sesión 1 a 1 con Leila», repetida 3 veces). El
+quinto cliente se llama, literalmente, **P2P Consulting**.
+
+Y el dato que da vuelta la sospecha de que «esto solo le sirve a uno»: en `plan_propuestas`,
+**Leila tiene 200 de 298 tareas con `esDeOtro = true` (67%) y 24 de sus 27 borradores pendientes.**
+Mauricio: 454 de 1055 (43%). Martín: 255 de 687 (37%). Son **909 tareas de otra persona congeladas
+en borradores** repartidas en tres workspaces, y ninguna de las dos tablas de tareas tiene columna
+de dueño donde ponerlas.
+
+**La regla, para cualquier «esto es solo de este cliente»: contá los workspaces y mirá los datos
+antes de contestar.** Acá la vista «por dueño» parecía el pedido más personal y es el más
+genérico; la que de verdad es de él —agrupar por *su* cliente de consultoría— ya existe en el
+código y está vacía para todos por una causa medible (exige que la contraparte sea un lead del CRM).
+
+**Vive en:** medido en prod: workspaces, closing_analyses por ws/categoría, plan_propuestas.tareas · *2026-09-08*
+
+### Lo que quedó SIN hacer
+
+- **Nadie corrió los dos extractores sobre el mismo transcript.** Es el experimento que zanja la
+  discusión y no está hecho: 6 transcripts, los dos criterios, el mismo juez, la misma lista dorada.
+- **`compromisosAbiertos` sigue en 0** (lib/cs-cartera.ts:247, :265) — falta una consulta.
+- **`limite = 8`** sigue escondiendo el 92% de los borradores (lib/plan-propuesta.ts:442).
+- **`loteCumple` sigue sin call-sites** (lib/detalle-contrato.ts:170).
+- **`deadline` no lo escribe nadie**: 6 de 101 tareas de Fathom del ws 1 lo tienen, y
+  `priorizarNuevasCliente` escribe score, razón, prioridad, detalle, checklist e historial —
+  nunca deadline (lib/todo-guardian.ts:72-78). Sin eso, «los vencidos arriba» no tiene sobre qué
+  ordenar, y `grep deadline` sobre los 18 crons devuelve cero.
+- **37 grabaciones del ws 1 en `closing_analyses` con estado ERROR y `sin_clasificar`** — una
+  superficie de falla silenciosa sobre las mismas grabaciones de las que se discute el criterio.
+  Y «avisar cuando una junta no quedó grabada» está en el roadmap (app/admin/dev/customer-success/
+  roadmap-cs.ts:155-161) con dos fallas ya documentadas: el 16/7 y el 31/7.
+- **`cs_respuestas` tiene 0 filas en toda la base**: la máquina de estados que parecía el hogar
+  natural de «lo pedí y no me contestaron» nunca se usó.
+- **El glosario del ws 1 tiene 22 términos, todos del 1 al 5 de agosto.** Es el único lugar donde
+  podría vivir el «contexto acumulado de la relación», y está apagado desde entonces.
+
 ## De la reunión a la tarea (Fathom)
 
 ### ⚠️ El prompt no toleraba las tareas inventadas: las PEDÍA
