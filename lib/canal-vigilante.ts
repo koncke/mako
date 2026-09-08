@@ -37,7 +37,7 @@
 // =============================================================================
 
 import 'server-only';
-import { socketVivo } from './evolution';
+import { sondearSocket, type Sondeo } from './evolution';
 import { instanciaVoz } from './mako-grupo';
 import { getSetting, setSetting } from './settings';
 import { runWithWorkspace, wsSuperAdmin, OWNER_WS } from './workspace';
@@ -48,7 +48,7 @@ const KEY_ULTIMO_AVISO = 'mako.canal.caido.avisado';
 /** Cada cuánto se repite el aviso mientras siga caído. */
 const CADA_MIN = 60;
 
-export type EstadoVoz = { instancia: string; viva: boolean };
+export type EstadoVoz = { instancia: string; viva: boolean; sondeo: Sondeo };
 
 /**
  * ¿La voz de MaKo puede hablar AHORA?
@@ -65,7 +65,17 @@ export type EstadoVoz = { instancia: string; viva: boolean };
  */
 export async function vozViva(): Promise<EstadoVoz> {
   const instancia = await instanciaVoz();
-  return { instancia, viva: await socketVivo(instancia).catch(() => false) };
+  // ⚠️ EL `.catch(() => false)` CONVERTÍA «no pude preguntar» EN «está caída».
+  // Y lo que cuelga de ese booleano es un email que AFIRMA que la sesión está
+  // muerta y manda a re-escanear el QR — o sea que un corte de red de dos
+  // segundos disparaba una alarma falsa que instruye una acción DESTRUCTIVA:
+  // re-escanear tumba la sesión que estaba viva.
+  //
+  // `sondearSocket` ya separa los tres casos, y acá se conservan los tres.
+  // `viva` se mantiene para no cambiarle la forma a nadie, pero la decisión de
+  // ALARMAR mira `sondeo`.
+  const sondeo = await sondearSocket(instancia).catch((): Sondeo => 'sin_respuesta');
+  return { instancia, viva: sondeo === 'vivo', sondeo };
 }
 
 /**
@@ -78,7 +88,13 @@ export async function vozViva(): Promise<EstadoVoz> {
  * rompió el aviso.
  */
 export async function vigilarVozMaKo(): Promise<{ viva: boolean; aviso: 'ninguno' | 'caida' | 'recuperada' }> {
-  const { instancia, viva } = await vozViva();
+  const { instancia, viva, sondeo } = await vozViva();
+
+  // No poder preguntar no es una noticia sobre la línea: es una sobre nosotros.
+  // Se sale sin tocar la marca — así, si de verdad está caída, el próximo
+  // sondeo que SÍ conteste avisa igual, sin haber quemado la alarma con un
+  // falso positivo en el medio.
+  if (sondeo === 'sin_respuesta') return { viva: false, aviso: 'ninguno' };
   const ws = await wsSuperAdmin().catch(() => OWNER_WS);
   const marca = await runWithWorkspace(ws, () => getSetting(KEY_ULTIMO_AVISO)).catch(() => null);
 

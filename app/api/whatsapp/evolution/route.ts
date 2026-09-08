@@ -13,6 +13,7 @@ import type { NextRequest } from 'next/server';
 import { getRolWsEfectivo } from '@/lib/workspace';
 import {
   conectar, estadoEnVivo, refrescarQr, desconectar, getInstanciaRow, evolutionConfigurado,
+  sondearSocket,
   estadoWebhook, repararWebhook,
 } from '@/lib/evolution';
 import { sincronizarDesdeEvolution, borrarEspejoNoOficial } from '@/lib/evolution-mensajes';
@@ -35,11 +36,44 @@ export async function GET() {
   const g = await soloAdmin();
   if (g) return g;
   try {
+    // ⚠️ EL VERDE SALIA DE LA FILA, QUE ES EL CAMPO QUE SE SABE QUE MIENTE.
+    //
+    // `evolution_instancias.estado` lo escribe el webhook `connection.update` con
+    // el `state` de Evolution, y este repo tiene MEDIDO que ese campo miente en
+    // las dos direcciones (`lib/canal-vigilante.ts`, 08/09/2026): una instancia
+    // con `open` contesta «Connection Closed» a toda operacion real. O sea que el
+    // chip podia decir «API no Oficial conectada» en verde, con el numero al
+    // lado, sobre una sesion muerta — y de ahi sale `canalCaido`, que es lo que
+    // decide si «Envio real: ON» dice la verdad.
+    //
+    // ⚠️ PERO EL SONDEO NO PUEDE COLGAR LA PANTALLA. El unico chequeo que de
+    // verdad exige el socket es traer los grupos, y en una cuenta con muchos
+    // TARDA: medido el 08/09/2026, `mako_ws11` timeoutea a los 30s. Ponerlo sin
+    // tope en el GET convertiria cada carga de /whatsapp en media minuto de
+    // espera. Va con presupuesto de 4s.
+    //
+    // Y las TRES respuestas se tratan distinto, que es todo el punto:
+    //   vivo   → conectado, medido.
+    //   muerto → desconectado, medido (Evolution contesto «Connection Closed»).
+    //   no contesto a tiempo → NO se afirma nada: se cae a la fila y se marca
+    //     `confirmado: false`, para que el chip diga que no pudo comprobarlo en
+    //     vez de pintar un verde que no midio nadie.
     const row = await getInstanciaRow();
+    // Sin fila no hay instancia creada: nunca lo vinculo. No hay nada que
+    // sondear, y sondear un nombre inventado gastaria 4s para contestar lo que
+    // ya sabemos.
+    const sondeo = row && evolutionConfigurado()
+      ? await sondearSocket(row.instance_name, 4000)
+      : 'sin_respuesta';
+    const medido = sondeo === 'vivo' ? 'conectado' : sondeo === 'muerto' ? 'desconectado' : null;
     return Response.json({
       ok: true,
       configurado: evolutionConfigurado(),
-      estado: row?.estado ?? 'desconectado',
+      // Con la sesion a medio vincular la fila dice 'conectando' y el sondeo
+      // dice 'muerto' — y es cierto: todavia no hay socket. Gana la fila, o el
+      // QR en pantalla se leeria como un fallo.
+      estado: row?.estado === 'conectando' ? 'conectando' : (medido ?? row?.estado ?? 'desconectado'),
+      confirmado: medido != null || row?.estado === 'conectando',
       numero: row?.numero ?? null,
       perfil: row?.perfil_nombre ?? null,
     });

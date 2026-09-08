@@ -40,16 +40,18 @@ export type EstadoConexion = 'desconectado' | 'conectando' | 'conectado' | 'erro
 
 type EvResult<T> = { ok: true; data: T } | { ok: false; error: string; status: number };
 
-async function evFetch<T = unknown>(path: string, init?: RequestInit): Promise<EvResult<T>> {
+async function evFetch<T = unknown>(path: string, init?: RequestInit, topeMs?: number): Promise<EvResult<T>> {
   if (!evolutionConfigurado()) return { ok: false, error: 'Evolution no configurado', status: 0 };
   try {
     const res = await fetch(`${BASE}${path}`, {
       ...init,
       headers: { apikey: KEY, 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
       cache: 'no-store',
-      // Tope de 30s: cubre el 'delay' de tipeo de sendText (~≤11s) y evita que
-      // un Evolution colgado bloquee el cron hasta el maxDuration.
-      signal: AbortSignal.timeout(30000),
+      // Tope de 30s por default: cubre el 'delay' de tipeo de sendText (~<=11s) y
+      // evita que un Evolution colgado bloquee el cron hasta el maxDuration.
+      // `topeMs` lo baja para las llamadas que corren DENTRO de una pantalla:
+      // ahi 30s no es una espera, es una pagina colgada.
+      signal: AbortSignal.timeout(topeMs ?? 30000),
     });
     const text = await res.text();
     let body: unknown = text;
@@ -262,8 +264,47 @@ export async function conectar(): Promise<{ ok: true; qr: QrData; estado: Estado
  * barata que igual obliga a hablar con WhatsApp. No manda nada ni toca ningún chat.
  */
 export async function socketVivo(instance: string): Promise<boolean> {
-  const r = await evFetch(`/group/fetchAllGroups/${encodeURIComponent(instance)}?getParticipants=false`);
-  return r.ok;
+  return (await sondearSocket(instance)) === 'vivo';
+}
+
+/**
+ * Lo que contesta WhatsApp cuando se le habla de verdad. TRES respuestas.
+ *
+ * ⚠️ `socketVivo` devuelve un booleano, y ahí se pierde la distinción que más
+ * caro sale en este repo: **«no pude preguntar» no es «está muerto»**. Las dos
+ * daban `false`, así que un Evolution inalcanzable (DNS, timeout, la API caída)
+ * se leía igual que una sesión cerrada — y con el chip nuevo, que grita
+ * DESCONECTADA en ámbar y ofrece re-escanear, eso manda a re-vincular un número
+ * que puede estar perfecto. Re-escanear TUMBA la sesión viva.
+ *
+ * El discriminador ya estaba y nadie lo miraba: `evFetch` devuelve `status: 0`
+ * cuando ni siquiera llegó a Evolution, y el status HTTP real cuando Evolution
+ * contestó. Un 500 con «Connection Closed» adentro es una MEDICIÓN —la sesión
+ * está cerrada—; un status 0 es la ausencia de una.
+ *
+ * Medido el 08/09/2026 sobre las tres instancias del servidor:
+ *     mako_ws1         connectionState=close  → operación real 500 «Connection Closed»
+ *     mako_ws11        connectionState=open   → operación real 200 (grupos reales)
+ *     mako_superadmin  connectionState=open   → operación real 500 «Connection Closed»
+ * O sea que `open` no prueba que ande. Y ese mismo día la instancia del ws1
+ * había contestado bien con `close`, así que `close` tampoco prueba que no.
+ * La única pregunta que se puede contestar es la que se hace HABLANDO.
+ */
+export type Sondeo = 'vivo' | 'muerto' | 'sin_respuesta';
+
+export async function sondearSocket(instance: string, topeMs?: number): Promise<Sondeo> {
+  // ⚠️ ES CARO, Y NO HAY UNO BARATO QUE SIRVA. Medido el 08/09/2026 buscando
+  // reemplazo: `whatsappNumbers` y `fetchProfile` contestan **200 en la
+  // instancia MUERTA** —el segundo con todos los campos en null, que es el
+  // «200 con el fallo adentro» de siempre— asi que dan vivo sobre una sesion
+  // cerrada. El unico que de verdad exige el socket es traer los grupos, y en
+  // una cuenta con muchos tarda: `mako_ws11` TIMEOUTEO a los 30s.
+  // Por eso quien lo llame desde una pantalla le pasa su propio tope y trata
+  // el `sin_respuesta` como lo que es: no sabemos.
+  const r = await evFetch(`/group/fetchAllGroups/${encodeURIComponent(instance)}?getParticipants=false`, undefined, topeMs);
+  if (r.ok) return 'vivo';
+  // status 0 = no llegamos a Evolution: eso no es un dato sobre la sesión.
+  return r.status === 0 ? 'sin_respuesta' : 'muerto';
 }
 
 /**
@@ -289,8 +330,25 @@ export async function estadoEnVivo(): Promise<{ estado: EstadoConexion; numero: 
   // exactamente eso mientras WhatsApp contestaba «Connection Closed» a todo. Antes de
   // pintar el verde se confirma con una lectura que SÍ habla con WhatsApp (`socketVivo`).
   // Cuesta una llamada más, y es la diferencia entre un panel que informa y uno que miente.
+  //
+  // ⚠️ Y LA CONFIRMACIÓN ERA DE UN SOLO LADO, QUE ES MEDIA CONFIRMACIÓN. Se
+  // confirmaba el `open` y se aceptaba el `close` a ciegas — sobre un campo del
+  // que este mismo repo tiene MEDIDO que miente en las DOS direcciones el
+  // 08/09/2026 (`lib/canal-vigilante.ts`: `mako_ws1 state=close → funciona`).
+  // Un chequeo que sólo desconfía cuando la respuesta le gusta no es un
+  // chequeo: es un sesgo. Y el precio del lado que faltaba es el caro — con el
+  // chip nuevo, un `close` falso le dice al dueño que re-escanee un QR, y
+  // re-escanear TUMBA la sesión que estaba viva.
+  //
+  // Ahora manda el sondeo en los dos sentidos, y `sin_respuesta` no decide
+  // nada: cae en 'error', que es «no pude comprobarlo» y no acusa a nadie.
+  // `conectando` se respeta tal cual — es el QR en pantalla, y ahí la operación
+  // real todavía tiene que fallar.
   let estado = mapEstado(r.data.instance?.state);
-  if (estado === 'conectado' && !(await socketVivo(instance))) estado = 'error';
+  if (estado !== 'conectando') {
+    const sondeo = await sondearSocket(instance);
+    estado = sondeo === 'vivo' ? 'conectado' : sondeo === 'muerto' ? 'desconectado' : 'error';
+  }
   let numero: string | null = null;
   let perfil: string | null = null;
   if (estado === 'conectado') {
@@ -302,12 +360,21 @@ export async function estadoEnVivo(): Promise<{ estado: EstadoConexion; numero: 
       perfil = (it.profileName as string) || (it.profilePicName as string) || null;
     }
   }
-  await upsertInstancia({
-    estado,
-    ...(numero ? { numero } : {}),
-    ...(perfil ? { perfil_nombre: perfil } : {}),
-    ...(estado === 'conectado' ? { ultima_conexion_at: new Date().toISOString() } : {}),
-  });
+  // ⚠️ «NO PUDE PREGUNTAR» NO SE GUARDA COMO ESTADO. La fila la lee el MOTOR
+  // (`procesarEnvios` decide con `estado === 'conectado'`) y la pintan los
+  // paneles, así que escribir 'error' ahí convierte un corte de red de dos
+  // segundos en una desconexión persistida que nadie va a volver a mirar hasta
+  // que alguien abra esta pantalla. Es la regla de la casa: «no poder leer un
+  // dato no es un valor del dato».
+  // Lo que sí se guarda es lo MEDIDO: vivo o muerto.
+  if (estado !== 'error') {
+    await upsertInstancia({
+      estado,
+      ...(numero ? { numero } : {}),
+      ...(perfil ? { perfil_nombre: perfil } : {}),
+      ...(estado === 'conectado' ? { ultima_conexion_at: new Date().toISOString() } : {}),
+    });
+  }
   return { estado, numero, perfil };
 }
 

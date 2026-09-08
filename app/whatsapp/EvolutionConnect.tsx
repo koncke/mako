@@ -70,6 +70,13 @@ export function EvolutionConnect({ onEstado }: {
   // DESCONECTADA en ámbar, sería una falsa alarma en cada F5.
   // «Todavía no pregunté» es un tercer estado y se dice como tal.
   const [cargado, setCargado] = useState(false);
+  // ¿El estado que muestro lo MIDIÓ alguien, o es la fila?
+  // El sondeo real (traer los grupos) tarda demasiado en una cuenta grande —
+  // `mako_ws11` timeoutea a los 30s—, así que el GET le pone 4s de presupuesto y
+  // cuando no llega devuelve la fila con `confirmado: false`. Un verde que nadie
+  // comprobó no se puede ver igual que uno medido: ese es exactamente el chip
+  // que dijo «conectada» sobre una sesión muerta.
+  const [confirmado, setConfirmado] = useState(true);
   const [numero, setNumero] = useState<string | null>(null);
   const [configurado, setConfigurado] = useState(true);
   const [visible, setVisible] = useState(false); // el admin lo ve; setter/closer no (403)
@@ -87,10 +94,10 @@ export function EvolutionConnect({ onEstado }: {
 
   const load = useCallback(async () => {
     try {
-      const { status, body } = await apiGet<{ ok: boolean; configurado: boolean; estado: Estado; numero: string | null }>('/api/whatsapp/evolution');
+      const { status, body } = await apiGet<{ ok: boolean; configurado: boolean; estado: Estado; numero: string | null; confirmado?: boolean }>('/api/whatsapp/evolution');
       if (status === 403) { setVisible(false); return; }      // setter/closer → sin chip
       setVisible(true);                                        // admin (o error): mostrar chip
-      if (body.ok) { setConfigurado(body.configurado); setEstado(body.estado); setNumero(body.numero); }
+      if (body.ok) { setConfigurado(body.configurado); setEstado(body.estado); setNumero(body.numero); setConfirmado(body.confirmado !== false); }
       setCargado(true);
     } catch {
       setVisible(true); setEstado('error'); setCargado(true); // fallo de red → chip visible, reintentable
@@ -235,7 +242,11 @@ export function EvolutionConnect({ onEstado }: {
   //    es 'desconectado', y afirmar lo segundo manda a re-escanear un QR que no
   //    hace falta.
   const chipStyle: CSSProperties = conectado
-    ? { ...chipBase, background: 'var(--good-bg)', border: '1px solid var(--good)', color: 'var(--good)' }
+    ? confirmado
+      ? { ...chipBase, background: 'var(--good-bg)', border: '1px solid var(--good)', color: 'var(--good)' }
+      // Conectado SEGÚN LA FILA, sin confirmar con WhatsApp: borde punteado y
+      // sin el verde pleno. La forma dice que es una lectura de segunda mano.
+      : { ...chipBase, background: 'var(--surface-2)', border: '1px dashed var(--good)', color: 'var(--dim)' }
     : !cargado || estado === 'error'
       // No pudimos preguntarlo: ni verde ni rojo. No se afirma nada.
       ? { ...chipBase, background: 'var(--surface-2)', border: '1px dashed var(--border-strong)', color: 'var(--dim)' }
@@ -245,7 +256,9 @@ export function EvolutionConnect({ onEstado }: {
 
   const puntoColor = conectado ? 'var(--good)' : (!cargado || estado === 'error') ? 'var(--faint)' : 'var(--warn)';
   const rotulo = conectado
-    ? `API no Oficial conectada${numero ? ` · ${numero}` : ''}`
+    ? (confirmado
+      ? `API no Oficial conectada${numero ? ` · ${numero}` : ''}`
+      : 'API no Oficial: conectada según el último registro (sin confirmar)')
     : !cargado ? 'API no Oficial: comprobando…'
       : estado === 'conectando' ? 'API no Oficial: conectando…'
       : estado === 'error' ? 'API no Oficial: no pude comprobarlo'

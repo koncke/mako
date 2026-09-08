@@ -443,9 +443,16 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       // onboarding rompía justo lo que venía a verificar.
       try {
         const j = await evoApi('estado');
-        setEvo(j.ok && j.estado
-          ? { estado: j.estado, numero: j.numero ?? null }
-          : { estado: 'desconocido', numero: null });
+        // ⚠️ Y 'error' TAMBIÉN ES «no pudimos comprobarlo». El guard de acá
+        // arriba cubría solo la EXCEPCIÓN (la llamada que tira), pero la API
+        // devuelve `estado: 'error'` como un valor perfectamente válido cuando
+        // no llegó a preguntarle a WhatsApp — así que `j.ok && j.estado` daba
+        // verdadero y se colaba por el `else` del render, que es justo el que
+        // ofrece generar un QR nuevo. El comentario de arriba describía el bug
+        // y la línea de al lado lo dejaba pasar por la otra puerta.
+        setEvo(!j.ok || !j.estado || j.estado === 'error'
+          ? { estado: 'desconocido', numero: null }
+          : { estado: j.estado, numero: j.numero ?? null });
       }
       catch { setEvo({ estado: 'desconocido', numero: null }); }
       finally { pidiendoEvo.current = false; }
@@ -460,7 +467,9 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       void (async () => {
         try {
           const j = await evoApi('estado');
-          if (j.ok && j.estado) {
+          // Mismo criterio que arriba: mientras se espera el escaneo, un 'error'
+          // pasajero no puede pisar el estado con una afirmación.
+          if (j.ok && j.estado && j.estado !== 'error') {
             setEvo({ estado: j.estado, numero: j.numero ?? null });
             if (j.estado === 'conectado') setQrEvo(null);
           }

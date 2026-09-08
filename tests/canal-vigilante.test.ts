@@ -22,8 +22,27 @@ test('La vigilancia pregunta HABLANDO, no leyendo connectionState', () => {
   //   mako_ws1         close → funciona
   // «open» no prueba que ande y «close» no prueba que no.
   const src = leer('../lib/canal-vigilante.ts');
-  assert.match(src, /socketVivo\(instancia\)/,
+  // ⚠️ LA SONDA SE MUDÓ A `sondearSocket` (08/09/2026), que contesta TRES cosas
+  // en vez de un booleano: vivo / muerto / sin_respuesta. El motivo es de este
+  // mismo archivo: `vozViva` hacía `.catch(() => false)`, o sea que un corte de
+  // red se leía como sesión caída — y de ese booleano cuelga un email que
+  // AFIRMA que está muerta y manda a re-escanear el QR. Re-escanear tumba la
+  // sesión viva, así que la falsa alarma no era ruido: instruía a romperlo.
+  // Lo que este test protege sigue igual: que se pregunte HABLANDO.
+  assert.match(src, /socketVivo\(instancia\)|sondearSocket\(instancia\)/,
     'la vigilancia dejó de hacer una operación real: vuelve a creerle al campo que mintió');
+  // Y que «no pude preguntar» no dispare la alarma.
+  assert.match(src, /sin_respuesta/,
+    'la vigilancia volvió a tratar «no pude preguntar» como «está caída»');
+
+  // ⚠️ REMEDIDO EL 08/09/2026, unas horas después de la medición de acá arriba:
+  //   mako_ws1         connectionState=close → operación real 500 «Connection Closed»
+  //   mako_ws11        connectionState=open  → operación real 200 (grupos reales)
+  //   mako_superadmin  connectionState=open  → operación real 500 «Connection Closed»
+  // O sea que el `close → funciona` del ws1 ya no se reproduce: era el momento
+  // de un bucle de reconexión (`fetchInstances` lo muestra como `connecting`).
+  // La conclusión no cambia y se refuerza — `open` sigue sin probar nada — pero
+  // el ejemplo de la izquierda no se puede citar como si siguiera vivo.
   // Sobre el CÓDIGO: la prosa de arriba nombra `connectionState` justamente para
   // explicar por qué NO se usa. (Cuarta vez en este repo que un test se dispara
   // contra su propio comentario — vale como recordatorio de sacar los DOS tipos.)

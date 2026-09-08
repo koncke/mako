@@ -2095,6 +2095,91 @@ dos veces.
 
 *(Corrida del 08/09/2026, revisando si la post-agenda recien prendida chocaba con n8n.)*
 
+## «Conectado» se pintaba desde la fila, y la confirmacion era de un solo lado
+
+**Vive en:** `lib/evolution.ts` (`sondearSocket`, `estadoEnVivo`) ·
+`app/api/whatsapp/evolution/route.ts` (GET) · `app/whatsapp/EvolutionConnect.tsx` ·
+`app/whatsapp/WhatsAppApp.tsx` · `lib/canal-vigilante.ts` ·
+`app/chatbot/OnboardingChatAgent.tsx`
+
+**Sintoma:** el dueno miro la barra de /whatsapp y dijo «aca me dice que esta todo
+conectado», con el numero caido hacia cinco dias y la nutricion fallando en silencio.
+
+**Lo que la barra decia de verdad — y por que se leia al reves.** Tres chips en fila:
+«API Oficial» VERDE, «API no Oficial: conectar» GRIS, «Envio real: ON» VERDE. El del medio
+significaba desconectado, y fallaba de tres formas a la vez: el rotulo era un INFINITIVO
+(una invitacion, no un estado), el estilo era NEUTRO (gris = «opcion disponible», no «esto
+esta roto») y «no conectado» tapaba a «no pude preguntarlo» — `estado` arranca en
+'desconectado' antes del primer fetch. **El color no era el unico portador: no habia
+ninguno.**
+
+Y «Envio real: ON» afirmaba la MITAD BUENA de un proceso de dos pasos: cierto sobre el
+FLAG, falso sobre el SISTEMA.
+
+⚠️ **Y UN NIVEL MAS ABAJO, EL VERDE SALIA DE LA FILA.** `evolution_instancias.estado` lo
+escribe el webhook con el `state` de Evolution — el campo del que este repo ya tiene medido
+que miente en las dos direcciones. O sea que arreglar el chip del caso desconectado dejaba
+vivo el caso peor: decir «conectada» en verde, con el numero al lado, sobre una sesion
+muerta. Lo encontro una corrida de 152 agentes; era el hallazgo #1 de 23.
+
+**La confirmacion existia y era de un solo lado.** `estadoEnVivo` confirmaba el `open` con
+una operacion real y aceptaba el `close` a ojos cerrados, **sobre el mismo campo que se
+sabe mentiroso en los dos sentidos**. Un chequeo que solo desconfia cuando la respuesta le
+gusta no es un chequeo: es un sesgo. Y el lado que faltaba es el caro — un `close` falso,
+con el chip nuevo, manda a re-escanear un QR, y re-escanear TUMBA la sesion viva.
+
+**No hay sonda barata. Medido el 08/09/2026 buscando reemplazo:**
+
+| endpoint | mako_ws1 (MUERTA) | mako_ws11 (viva) |
+|---|---|---|
+| `connectionState` | 200 `close` | 200 `open` |
+| `fetchInstances` | 200 `connecting` | 200 `open` |
+| `fetchAllGroups` | **500 Connection Closed** | 200 · **TIMEOUT a los 30s** |
+| `whatsappNumbers` | **200** (miente) | 200 |
+| `fetchProfile` | **200 con todo en null** (miente) | 200 con foto |
+
+Los dos candidatos baratos contestan **200 sobre la sesion muerta** — el «200 con el fallo
+adentro» de siempre. El unico que exige el socket es traer los grupos, y en una cuenta con
+muchos grupos no termina. **La respuesta a una sonda cara no es una sonda peor: es un
+presupuesto por llamada.** El GET le da 4s; si no llega, no afirma — devuelve la fila con
+`confirmado: false` y el chip lo dice («conectada segun el ultimo registro, sin
+confirmar»), con borde punteado en vez de verde pleno.
+
+**Y «no pude preguntar» dejo de decidir cosas.** Era un booleano (`socketVivo`) y ahora son
+tres (`sondearSocket`: vivo / muerto / sin_respuesta), porque de ese booleano colgaban tres
+acciones destructivas:
+
+1. `estadoEnVivo` **persistia** 'error' en la fila que lee el MOTOR — un corte de red de
+   dos segundos quedaba escrito como desconexion. Ahora no se guarda lo que no se midio.
+2. `vigilarVozMaKo` mandaba un email AFIRMANDO que la sesion estaba caida y mandando a
+   re-escanear. Ahora `sin_respuesta` sale sin tocar la marca.
+3. El onboarding ofrecia «Generar codigo QR». **Su comentario describia exactamente este
+   bug y la linea de al lado lo dejaba pasar por la otra puerta**: el guard cubria la
+   EXCEPCION, y la API devuelve `estado: 'error'` como valor valido, asi que
+   `j.ok && j.estado` daba verdadero.
+
+**La regla que queda: cuando un booleano decide una accion IRREVERSIBLE, contá cuantos
+estados del mundo colapsa.** Si «no se» cae del mismo lado que «no», la accion se va a
+disparar sobre la duda.
+
+*(Corrida del 08/09/2026, 152 agentes. 23 hallazgos confirmados, 26 refutados; los que
+quedaron sin arreglar estan listados al final de esta entrada.)*
+
+**Lo que quedo SIN hacer, con el archivo:**
+- `app/whatsapp/ChatwootWebhookChip.tsx:94` — el chip «API Oficial» se pinta VERDE cuando
+  `salud === null`, que cubre «no configurado», «fallo el fetch» y «cargando». Es el mismo
+  bug del otro chip, sin arreglar.
+- `lib/setting-metricas.ts:36` · `lib/nutricion.ts:171` · `lib/email-marketing.ts:61` —
+  **ningun contador de la app cuenta los FALLOS**, y los «N enviados» incluyen los
+  simulados. El KPI puede contradecir al banner de al lado.
+- `app/perfil/NotificacionesPanel.tsx:208` — «MaKo puede avisar por WhatsApp» se decide con
+  «hay un telefono cargado»: mide el destino, no el emisor.
+- `app/agencia/PlantillasView.tsx:122` — los ~48 avisos se muestran «Activa» aunque su
+  deteccion no exista, incluido «WhatsApp de empresa desconectado», que es justo el que
+  habria cazado este caso.
+- `lib/mako-canal.ts` — confirma el socket en un solo sentido, igual que estaba
+  `lib/evolution.ts`. No se toco por ser trabajo en vuelo de la sesion vecina.
+
 ## Instagram: lo que hay que saber antes de abrir el canal
 
 De la corrida de 21 agentes del 14/08/2026 (evaluación de factibilidad: DM directo vs
