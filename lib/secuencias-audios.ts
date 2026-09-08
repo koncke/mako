@@ -34,6 +34,10 @@ import { getSetting } from './settings';
 import { KEY_AUDIOS_CLAVE, type ClaveAudio } from './audios-paso';
 import { TRIGGER_AGENDA_CONOCIDO, TRIGGER_AGENDA_NUEVO } from './nutricion-familias';
 import type { PasoSecuencia } from './nutricion';
+import {
+  DESENLACE_VACIO, HORAS_SIN_RESPUESTA,
+  type Desenlace, type Estrategia, type Objetivo,
+} from './setting-estrategia';
 
 export type SecuenciaArmada = { clave: string; nombre: string; creada: boolean; audios: number };
 
@@ -48,6 +52,41 @@ const pasoAudio = (orden: number, delay_horas: number, audioId: number, cuerpo: 
   proveedor: 'no_oficial', template_wa: null,
   ...(requiere ? { requiere } : {}),
 });
+
+/**
+ * La estrategia con la que NACE una secuencia de audios.
+ *
+ * ⚠️ ANTES NACÍAN SIN NINGUNA, y eso no era un detalle cosmético aunque lo
+ * pareciera. La tab las marcaba con un chip «sin estrategia» —las tres, siempre,
+ * apenas el dueño terminaba de grabar— y, peor, sin `desenlace` una secuencia
+ * **no puede terminar ni encadenar**: `evaluarDesenlaces` no tiene con qué
+ * decidir, así que manda sus pasos y se queda. Justo lo que el dueño pidió que
+ * hicieran («las secuencias deberían saber cuándo finalizar, hacer hand-off o
+ * comenzar otra»).
+ *
+ * Los valores no se inventan acá: el umbral de silencio sale de
+ * `HORAS_SIN_RESPUESTA`, que es el catálogo, para que ajustarlo sea un lugar y
+ * no tres. Lo que sí es propio de cada una es el OBJETIVO, que es lo único que
+ * el armador sabe y el catálogo no.
+ */
+function estrategiaDe(objetivo: Objetivo, opts?: { logrado?: Desenlace['logrado']; logradoSecuencia?: string | null }): Estrategia {
+  return {
+    objetivo,
+    gancho: null, lead_magnet_id: null, usa_lead_magnet: false,
+    // Vacíos y no inventados: las preguntas de cualificación y el criterio los
+    // sabe el dueño, y rellenarlos con algo plausible es peor que dejarlos —
+    // MaKo los usaría creyendo que son suyos.
+    preguntas: [], criterio: { califica: [], descalifica: [] }, escenarios: [],
+    desenlace: {
+      ...DESENLACE_VACIO,
+      logrado: opts?.logrado ?? 'respondio',
+      logradoSecuencia: opts?.logradoSecuencia ?? null,
+      falloHoras: HORAS_SIN_RESPUESTA[objetivo],
+    },
+    modo: 'asistido',
+    notas: null, probada_at: null,
+  };
+}
 
 async function mapaAudios(): Promise<Partial<Record<ClaveAudio, number>>> {
   const raw = await getSetting(KEY_AUDIOS_CLAVE);
@@ -75,7 +114,7 @@ export async function armarSecuenciasDeAudios(linkVideo?: string | null): Promis
     ? `Te dejo aquí el video: ${(linkVideo ?? '').trim()}`
     : '';
 
-  const planos: Array<{ clave: string; nombre: string; etapa: string; trigger: string; pasos: PasoSecuencia[] }> = [];
+  const planos: Array<{ clave: string; nombre: string; etapa: string; trigger: string; pasos: PasoSecuencia[]; estrategia: Estrategia }> = [];
 
   if (audios.bienvenida) {
     planos.push({
@@ -83,6 +122,11 @@ export async function armarSecuenciasDeAudios(linkVideo?: string | null): Promis
       nombre: 'Bienvenida — dejó sus datos y no agendó',
       etapa: 'nutri',
       trigger: 'instant_form_sin_agenda',
+      // Se logra cuando AGENDA, no cuando contesta: el trabajo de este audio es
+      // que reserve, y alguien que responde «gracias» no lo cumplió. Al lograrlo
+      // encadena con la post-agenda del que YA te escuchó — que es exactamente
+      // quien acaba de recibir esta bienvenida.
+      estrategia: estrategiaDe('agendar', { logrado: 'agendo', logradoSecuencia: 'chat-agent-post-agenda-conocido' }),
       pasos: [pasoAudio(1, 1, audios.bienvenida, pieBienvenida)],
     });
   }
@@ -141,6 +185,10 @@ export async function armarSecuenciasDeAudios(linkVideo?: string | null): Promis
       nombre: 'Agendó después de tu bienvenida',
       etapa: 'postagenda',
       trigger: TRIGGER_AGENDA_CONOCIDO,
+      // Objetivo `preparar`: que llegue, y que llegue listo. Se logra con que
+      // CONFIRME —o sea, con que responda cualquier cosa— y su fallo es el que
+      // dispara el aviso al dueño de que nadie confirmó.
+      estrategia: estrategiaDe('preparar'),
       pasos: [pasoAudio(1, 1, audios.agenda_con_bienvenida, piePostAgenda), recordatorio(2)],
     });
   }
@@ -150,6 +198,7 @@ export async function armarSecuenciasDeAudios(linkVideo?: string | null): Promis
       nombre: 'Agendó sin haber hablado contigo',
       etapa: 'postagenda',
       trigger: TRIGGER_AGENDA_NUEVO,
+      estrategia: estrategiaDe('preparar'),
       pasos: [pasoAudio(1, 1, audios.agenda_primer_contacto, piePostAgenda), recordatorio(2)],
     });
   }
@@ -179,15 +228,24 @@ export async function armarSecuenciasDeAudios(linkVideo?: string | null): Promis
 
   for (const plan of planos) {
     const { data: existente } = await supabase
-      .from('nutricion_secuencias').select('id').eq('clave', plan.clave).maybeSingle();
-    const fila = existente as { id: number } | null;
+      .from('nutricion_secuencias').select('id, estrategia').eq('clave', plan.clave).maybeSingle();
+    const fila = existente as { id: number; estrategia: unknown } | null;
 
     if (fila) {
       // Re-grabar un audio tiene que actualizar la secuencia que lo manda, o el
       // dueño estaría enviando la versión vieja sin enterarse. Se desarchiva por
       // si la había archivado en la limpieza.
+      //
+      // ⚠️ LA ESTRATEGIA SOLO SE SIEMBRA SI FALTA. Es lo único de acá que el
+      // dueño edita a mano —su objetivo, sus preguntas, su criterio— y volver a
+      // grabar un audio no puede borrarle eso. La regla es la misma que la del
+      // puente a Flow: una siembra pisa lo local únicamente cuando lo local no
+      // tiene nada.
       await supabase.from('nutricion_secuencias')
-        .update({ pasos: plan.pasos, archivada_at: null, updated_at: new Date().toISOString() })
+        .update({
+          pasos: plan.pasos, archivada_at: null, updated_at: new Date().toISOString(),
+          ...(fila.estrategia ? {} : { estrategia: plan.estrategia }),
+        })
         .eq('id', fila.id);
       out.push({ clave: plan.clave, nombre: plan.nombre, creada: false, audios: plan.pasos.length });
       continue;
@@ -196,6 +254,7 @@ export async function armarSecuenciasDeAudios(linkVideo?: string | null): Promis
     const { error } = await supabase.from('nutricion_secuencias').insert({
       clave: plan.clave, nombre: plan.nombre, etapa: plan.etapa,
       trigger_tipo: plan.trigger, activa: false, pasos: plan.pasos,
+      estrategia: plan.estrategia,
     });
     if (error) { console.error(`[secuencias-audios] ${plan.clave}: ${error.message}`); continue; }
     out.push({ clave: plan.clave, nombre: plan.nombre, creada: true, audios: plan.pasos.length });

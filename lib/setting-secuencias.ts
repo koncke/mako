@@ -174,11 +174,35 @@ export async function probarSecuencia(secuenciaId: number): Promise<ResultadoPru
   const [inst, sandbox] = await Promise.all([getInstanciaRow(), remitenteEsSandbox()]);
   const evoConectada = inst?.estado === 'conectado';
 
+  // ⚠️ EL NÚMERO CAÍDO SE CONTESTA ANTES DEL BUCLE, Y UNA SOLA VEZ.
+  // Estaba adentro, así que una secuencia de dos pasos de WhatsApp devolvía la
+  // MISMA frase dos veces pegada («…no se probaron. WhatsApp de empresa sin
+  // conectar: los pasos de WhatsApp no se probaron.»), y ninguna de las dos
+  // decía qué hacer ni dónde. Es la regla de «un mensaje de error dice DE QUIÉN
+  // fue y QUÉ HACER»: la culpa no es de la secuencia ni de MaKo —está bien
+  // armada—, es que la sesión de WhatsApp se cayó, y eso se arregla en un solo
+  // lugar. Sin el link, quien lo lee concluye que el producto está roto.
+  //
+  // Se sale temprano solo si NO hay nada más que probar: una secuencia con un
+  // paso de email sí se puede probar a medias, y frenar eso sería cobrarle al
+  // email un problema del WhatsApp.
+  if (!evoConectada && sec.pasos.every((p) => p.canal === 'whatsapp')) {
+    const desde = inst?.ultima_conexion_at
+      ? ` (se desconectó el ${new Date(inst.ultima_conexion_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'long' })})`
+      : '';
+    return {
+      ok: false,
+      error: inst
+        ? `Tu WhatsApp está desconectado${desde}, así que no se pudo mandar la prueba. La secuencia está bien: vuelve a vincular tu número en Configuración → WhatsApp y prueba de nuevo.`
+        : 'Todavía no vinculaste tu WhatsApp, así que no hay desde dónde mandar la prueba. Conéctalo en Configuración → WhatsApp.',
+    };
+  }
+
   for (const paso of sec.pasos) {
     const cuerpo = `[PRUEBA ${paso.orden}/${total}] ${aplicarVariables(paso.cuerpo, vars)}`;
     if (paso.canal === 'whatsapp') {
       if (!contacto.telefono) { avisos.push(`Paso ${paso.orden}: sin teléfono en Perfil, no se probó.`); continue; }
-      if (!evoConectada) { avisos.push('WhatsApp de empresa sin conectar: los pasos de WhatsApp no se probaron.'); continue; }
+      if (!evoConectada) { avisos.push('Tu WhatsApp está desconectado: esos pasos no se probaron (vuelve a vincularlo en Configuración → WhatsApp).'); continue; }
       // Paso de nota de voz: te llega el audio de verdad, como al lead.
       if (paso.tipo === 'audio' && Number(paso.audio_id) > 0) {
         const audio = await getAudio(Number(paso.audio_id));
@@ -200,7 +224,11 @@ export async function probarSecuencia(secuenciaId: number): Promise<ResultadoPru
   }
 
   if (enviadosWa + enviadosEmail === 0) {
-    return { ok: false, error: `No se pudo enviar ningún paso de prueba. ${avisos.join(' ')}`.trim() };
+    // `[...new Set()]`: los avisos se acumulan POR PASO, así que sin esto una
+    // secuencia de tres pasos con la misma causa devuelve la misma frase tres
+    // veces. Repetir un motivo no lo hace más claro: lo hace parecer tres
+    // problemas distintos.
+    return { ok: false, error: `No se pudo enviar ningún paso de prueba. ${[...new Set(avisos)].join(' ')}`.trim() };
   }
 
   // Registrar la prueba SOLO si la secuencia ya tiene secuencia definida (merge).

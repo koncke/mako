@@ -268,7 +268,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
                   <div style={{ fontSize: 12, color: 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{etiquetaEtapa(j.etapa)} · {snippet.replace(/[*_\n]/g, ' ').slice(0, 34)}</div>
                 </div>
                 <span title={j.activa ? 'Activa' : 'Pausada'} style={{ width: 8, height: 8, borderRadius: '50%', background: j.activa ? 'var(--good)' : 'var(--border-strong)', flex: 'none' }} />
-                {!j.estrategia && <span style={{ flex: 'none', fontFamily: "'Geist Mono', monospace", fontSize: 8.5, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--warn)', border: '1px solid var(--warn)', borderRadius: 5, padding: '1px 4px' }}>sin secuencia</span>}
+                {!j.estrategia && <span style={{ flex: 'none', fontFamily: "'Geist Mono', monospace", fontSize: 8.5, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--warn)', border: '1px solid var(--warn)', borderRadius: 5, padding: '1px 4px' }}>sin estrategia</span>}
               </button>
             );
           })}
@@ -300,7 +300,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
                 <div style={{ width: 38, height: 38, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19 }}>{emojiSecuencia(sel)}</div>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sel.nombre}</div>
-                  <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{etiquetaEtapa(sel.etapa)}{sel.estrategia ? ` · ${objetivos.find((o) => o.value === sel.estrategia!.objetivo)?.label ?? sel.estrategia.objetivo}` : ' · sin secuencia definida'} · toca para {rolAdmin ? 'editar' : 'ver'}</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{etiquetaEtapa(sel.etapa)}{sel.estrategia ? ` · ${objetivos.find((o) => o.value === sel.estrategia!.objetivo)?.label ?? sel.estrategia.objetivo}` : ' · sin estrategia definida'} · toca para {rolAdmin ? 'editar' : 'ver'}</div>
                 </div>
               </button>
               {/* La secuencia ya se reprodujo sola al entrar. Esto es para
