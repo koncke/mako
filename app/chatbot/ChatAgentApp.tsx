@@ -33,6 +33,16 @@ export type PasoSecuenciaDto = {
   asunto: string | null; preheader?: string | null; cuerpo: string;
   proveedor?: 'oficial' | 'no_oficial'; template_wa: string | null; ancla?: 'reunion';
   tipo?: 'texto' | 'audio'; audio_id?: number | null;
+  /**
+   * Condición para que el paso salga. La UI la NECESITA: los dos audios de
+   * apertura de la post-agenda son mutuamente excluyentes y sin mostrarlo la
+   * pantalla se lee como que salen los dos.
+   *
+   * Faltaba solo en el TIPO, no en los datos: el JSON de la API la trae y
+   * JavaScript no borra lo que TypeScript no declara, así que el round-trip
+   * del editor nunca la perdió. Igual conviene nombrarla.
+   */
+  requiere?: 'respondio' | 'sin_respuesta' | 'ya_contactado' | 'primer_contacto';
   /** Formas alternativas de decir lo mismo: el motor sortea una en cada envío. */
   variantes?: string[];
 };

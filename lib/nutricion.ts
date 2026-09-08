@@ -771,14 +771,37 @@ async function enviosUltimas24h(): Promise<number> {
  * Distinguirlo de verdad exigiría rastrear qué secuencia mandó qué, y para la
  * decisión que hay que tomar acá —presentarse o no— no cambia el resultado.
  */
+/**
+ * ¿A este lead YA le hablamos alguna vez?
+ *
+ * Decide cuál de los dos audios de apertura sale en la post-agenda: el que se
+ * presenta («es la primera vez que nos escuchamos») o el que retoma la charla.
+ * Equivocarse acá se nota al instante — presentarse de cero a alguien con quien
+ * venías conversando suena a robot.
+ *
+ * MIRA LAS DOS FUENTES, y la segunda es la que faltaba: antes solo contaba lo
+ * que había mandado la APP por la nutrición, y en una cuenta que recién la
+ * prende esa tabla está vacía. Resultado: todo el mundo era «primer contacto»,
+ * incluidos los leads a los que el dueño ya les había escrito a mano por
+ * WhatsApp. Medido en la cuenta del dueño al prender: 0 envíos de la app y 7
+ * leads con conversación real espejada — los 7 se habrían presentado de cero.
+ */
 async function leadsYaContactados(leadIds: number[]): Promise<Set<number>> {
   const set = new Set<number>();
   if (leadIds.length === 0) return set;
   const supabase = (await getTenantDb());
-  const { data } = await supabase.from('nutricion_envios')
-    .select('lead_id').in('lead_id', leadIds).in('estado', ['enviado', 'simulado']);
-  for (const r of (data ?? []) as Array<{ lead_id: number | null }>) {
-    if (r.lead_id != null) set.add(r.lead_id);
+  const [envios, espejo] = await Promise.all([
+    supabase.from('nutricion_envios')
+      .select('lead_id').in('lead_id', leadIds).in('estado', ['enviado', 'simulado']),
+    // `from_me` = lo mandamos NOSOTROS. Un mensaje entrante no cuenta: que el
+    // lead escriba no significa que le hayamos hablado.
+    supabase.from('wa_mensajes')
+      .select('lead_id').in('lead_id', leadIds).eq('from_me', true),
+  ]);
+  for (const fuente of [envios.data, espejo.data]) {
+    for (const r of (fuente ?? []) as Array<{ lead_id: number | null }>) {
+      if (r.lead_id != null) set.add(r.lead_id);
+    }
   }
   return set;
 }

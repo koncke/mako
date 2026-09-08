@@ -29,6 +29,20 @@ const conVars = (s: string) => s
   .replace(/\{\{?\s*apellido\s*\}?\}/gi, 'Pérez')
   .replace(/\{\{?\s*empresa\s*\}?\}/gi, 'Acme SRL');
 
+/**
+ * La CONDICIÓN del paso, en palabras. Sin esto los dos audios de apertura de
+ * la post-agenda se leen como que salen los dos, cuando el motor manda
+ * exactamente UNO y saltea el otro. El dueño lo reportó mirando esta pantalla:
+ * «veo que estos 2 audios están en una misma secuencia, pero no se deben
+ * enviar ambos».
+ */
+const CONDICION: Record<string, string> = {
+  ya_contactado: 'solo si ya le habías escrito',
+  primer_contacto: 'solo si es la primera vez',
+  sin_respuesta: 'solo si no contestó',
+  respondio: 'solo si contestó',
+};
+
 function fmtTiming(p: { delay_horas: number; ancla?: 'reunion' }): string {
   const h = p.delay_horas;
   if (p.ancla === 'reunion') return h < 24 ? `${h}h antes de la reunión` : `${Math.round(h / 24)} día(s) antes de la reunión`;
@@ -119,9 +133,25 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
       guion.push({
         t: 'msg',
         msg: audio
-          ? { id: `sim-${sel.id}-${p.orden}-${++seq.current}`, fromMe: false, autor: `${negocio || 'Tu negocio'} · ⏱ ${fmtTiming(p)}`, tipo: 'audio', mediaUrl: audio.url, texto: audio.transcript ? `🎙 ${audio.transcript}` : null, fecha: new Date().toISOString() }
-          : { id: `sim-${sel.id}-${p.orden}-${++seq.current}`, fromMe: false, autor: `${negocio || 'Tu negocio'} · ⏱ ${fmtTiming(p)}`, texto: conVars(p.cuerpo), fecha: new Date().toISOString() },
+          ? { id: `sim-${sel.id}-${p.orden}-${++seq.current}`, fromMe: false, autor: `${negocio || 'Tu negocio'} · ⏱ ${fmtTiming(p)}${p.requiere && CONDICION[p.requiere] ? ` · ${CONDICION[p.requiere]}` : ''}`, tipo: 'audio', mediaUrl: audio.url, texto: audio.transcript ? `🎙 ${audio.transcript}` : null, fecha: new Date().toISOString() }
+          : { id: `sim-${sel.id}-${p.orden}-${++seq.current}`, fromMe: false, autor: `${negocio || 'Tu negocio'} · ⏱ ${fmtTiming(p)}${p.requiere && CONDICION[p.requiere] ? ` · ${CONDICION[p.requiere]}` : ''}`, texto: conVars(p.cuerpo), fecha: new Date().toISOString() },
       });
+      // EL PIE DEL AUDIO, que antes no se veía en ningún lado. En un paso de
+      // nota de voz el `texto` de la burbuja se usa para la TRANSCRIPCIÓN, así
+      // que `p.cuerpo` —el mensaje escrito que sale pegado al audio, con el link
+      // del video— quedaba invisible. El dueño lo leyó como que el link faltaba:
+      // «esos audios prometen enviar el video pero no sé cómo agregar ese link».
+      // Ya estaba; no se mostraba. Va como burbuja aparte porque así llega.
+      if (audio && p.cuerpo.trim()) {
+        guion.push({
+          t: 'msg',
+          msg: {
+            id: `sim-${sel.id}-${p.orden}-pie-${++seq.current}`, fromMe: false,
+            autor: `${negocio || 'Tu negocio'} · junto al audio`,
+            texto: conVars(p.cuerpo), fecha: new Date().toISOString(),
+          },
+        });
+      }
     }
     setMensajes([]); setTyping(null);
     const acc0: HiloMsg[] = [];
