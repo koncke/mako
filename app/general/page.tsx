@@ -50,14 +50,27 @@ import {
   quarterActual, listObjectives, avanceDeObjetivo, getTableroKpis, getCapacidad,
   proponerKpis, migrarSettingsAObjectives, type ObjectiveConAvance, type KpiEnTablero,
 } from '@/lib/objectives';
+import { elegirObjetivoPrincipal, ES_PLATA, METRICA_LABEL } from '@/lib/objectives-modelo';
 import { elegirFoco, type AlertaParaFoco } from '@/lib/focus';
 import { DesgloseTrigger, type DesgloseItem, type DesgloseData } from '../_components/Desglose';
 import { Icon } from '../_components/icons';
 import { requireRolWs } from '@/lib/tab-access';
 import { pendientesOnboarding } from '@/lib/onboarding-pendientes';
-import { TiraQ } from './TiraQ';
-import { Ahora } from './Ahora';
+import { Cabecera } from './Cabecera';
 import { KpisCard, type KpiVista, type CandidatoVista } from './KpisCard';
+
+/** La fórmula de una sección de este producto. Literal, y la misma de /comercial y /marketing. */
+const SECCION: CSSProperties = {
+  background: 'var(--surface)',
+  border: '1px solid var(--border)',
+  borderRadius: 18,
+  padding: 'var(--card-pad)',
+};
+
+/** El título de una sección. 25px es el de las vecinas: /general se lee como hermana o no. */
+const H2: CSSProperties = {
+  fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)',
+};
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -290,6 +303,51 @@ export default async function GeneralPage() {
   const conDatos = fuentes.filter((f) => f.lastSync !== null);
   const sinFuentes = fuentes.length > 0 && conDatos.length === 0;
 
+  // ── El objetivo que manda ──
+  // ⚠️ NO es `objetivos[0]`: `listObjectives` mezcla a propósito los ANUALES con los
+  // del Q, así que el primero por `orden` puede ser el del AÑO, y la cabecera estaría
+  // mostrando el número del año arriba de una pantalla que habla del trimestre. La
+  // regla de selección vive en el modelo, para que el hero y los KPIs nuevos elijan
+  // el mismo — si eligen distinto, el compromiso cuelga de otra cosa que la meta.
+  const objetivoPrincipal = elegirObjetivoPrincipal(objetivos);
+
+  // El detalle lead por lead del número grande, y la OTRA métrica de plata del mismo
+  // período. Sólo para objetivos de plata: `getRevenueBreakdowns` devuelve montos, y
+  // colgarlo de un objetivo que cuenta reuniones abriría una lista de dinero debajo
+  // de un número que no lo es. En su propio try: si falla, el hero muestra el número
+  // y esconde el desglose — nunca se cae la pantalla por un detalle.
+  let heroDesglose: DesgloseData | null = null;
+  let heroComplemento: React.ComponentProps<typeof Cabecera>['complemento'] = null;
+  if (objetivoPrincipal && ES_PLATA(objetivoPrincipal.metrica)) {
+    try {
+      const br = await getRevenueBreakdowns(objetivoPrincipal.desde, objetivoPrincipal.hasta);
+      const esCash = objetivoPrincipal.metrica === 'cash_usd';
+      const propios = esCash ? br.cash : br.sold;
+      const otros = esCash ? br.sold : br.cash;
+      heroDesglose = {
+        label: `${METRICA_LABEL[objetivoPrincipal.metrica]} del período`,
+        value: fmtUSD(propios.reduce((s, i) => s + i.monto, 0)),
+        color: esCash ? 'var(--good)' : 'var(--ink)',
+        items: revItemsToDesglose(propios, esCash ? 'pago' : 'cierre', 'plan-pagos'),
+        emptyText: esCash ? 'Todavía no entró un pago en este período.' : 'Todavía no se firmó nada en este período.',
+      };
+      heroComplemento = {
+        label: esCash ? 'Firmado' : 'Cobrado',
+        valor: fmtUSD(otros.reduce((s, i) => s + i.monto, 0)),
+        pie: esCash ? 'comprometido en contratos, aún no cobrado' : 'lo que efectivamente entró',
+        desglose: {
+          label: esCash ? 'Firmado en el período' : 'Cobrado en el período',
+          value: fmtUSD(otros.reduce((s, i) => s + i.monto, 0)),
+          color: esCash ? 'var(--ink)' : 'var(--good)',
+          items: revItemsToDesglose(otros, esCash ? 'cierre' : 'pago', 'plan-pagos'),
+          emptyText: esCash ? 'Sin cierres firmados en el período.' : 'Sin cobros en el período.',
+        },
+      };
+    } catch {
+      // El número grande no depende de esto: se pierde el detalle, no el dato.
+    }
+  }
+
   // ── LA acción prioritaria ──
   const tituloObjetivo = new Map(objetivos.map((o) => [o.id, o.titulo]));
   const foco = elegirFoco({
@@ -306,6 +364,10 @@ export default async function GeneralPage() {
       .map((t) => ({ titulo: t.titulo, score: t.score, progreso: t.progreso, deadline: t.deadline, haceloEn: null })),
     objetivos: objetivos.length,
     cuello: fase?.cuello ?? null,
+    // ⚠️ #165, la otra mitad. La guarda vivía sólo adentro del semáforo, así que con
+    // objetivos y KPIs cargados sobre un workspace sin un solo dato el titular decía
+    // «vas al día con todo lo que te comprometiste». Ahora el que elige también lo sabe.
+    sinFuentes,
     hoy,
   });
 
@@ -366,94 +428,68 @@ export default async function GeneralPage() {
         </h1>
       </header>
 
+      {/* ⚠️ EL ORDEN ES EL DISEÑO, y sale de qué se puede HACER con cada bloque.
+          Arriba lo que se decide hoy —el norte y la acción—; después el compromiso
+          (KPIs); después el diagnóstico (semáforo); y al final la consecuencia (el
+          mes, los pendientes), que describe lo que ya pasó.
+
+          Los cuatro de abajo son SECCIONES EN TARJETA, como el resto del producto.
+          El 07/09 esta pantalla quedó sin una sola superficie —la única de la app— y
+          el dueño lo reportó como «se ve mucho peor, no se ve nada». El veto de la
+          casa es contra apilar sub-tarjetas iguales ADENTRO de una sección, no contra
+          la sección: la caja de afuera es lo que hace que /general se lea como una
+          pantalla del mismo producto que /comercial. */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sect-gap)' }}>
-        <TiraQ progreso={progreso} objetivos={objetivos} capacidad={capacidad} anio={qt.anio} quarter={qt.q} />
-
-        <Ahora foco={foco} />
-
-        <KpisCard
-          kpis={kpisVista}
-          candidatos={candidatos}
-          objetivos={objetivos.map((o) => ({ id: o.id, titulo: o.titulo }))}
-          objetivoPrincipalId={objetivos[0]?.id ?? null}
+        <Cabecera
+          objetivo={objetivoPrincipal}
+          foco={foco}
+          capacidad={capacidad}
+          progreso={progreso}
+          anio={qt.anio}
+          quarter={qt.q}
+          desglose={heroDesglose}
+          complemento={heroComplemento}
         />
 
-        {/* ⚠️ ESTOS TRES VAN ABIERTOS, Y CERRARLOS FUE UN ERROR MEDIDO (07/09/2026).
-            La pasada anterior los plegó por defecto buscando quitar texto, y lo que
-            quitó fue INFORMACIÓN: la pantalla quedó con tres renglones muertos
-            («Semáforo 2 · El mes · Pendientes 22») y el dueño lo reportó como «no se
-            ve nada».
-            Destilar es sacar lo redundante y lo decorativo —el semáforo dibujado, el
-            veredicto que repetía las filas, la alerta duplicada del titular—, no
-            esconder el contenido detrás de un click. Plegado ya son dos líneas, una
-            fila de barras y una frase: eso ENTRA. El plegable se queda para poder
-            cerrarlos, que es otra cosa que arrancar cerrados.
-            El resumen igual cuenta lo que se VA A VER: la alerta que ya es el titular
-            no se lista adentro, así que anunciarla acá prometería una fila que no está. */}
-        <Plegable
-          titulo="Semáforo"
-          resumen={sinFuentes ? 'no puedo opinar todavía' : restantes === 0 ? 'nada más' : `${restantes}`}
-          abiertoPorDefecto
-        >
-          <Semaforo alertas={alertas} sinFuentes={sinFuentes} saltar={foco.alertaIdx} />
-        </Plegable>
+        <section style={SECCION}>
+          <KpisCard
+            kpis={kpisVista}
+            candidatos={candidatos}
+            objetivos={objetivos.map((o) => ({ id: o.id, titulo: o.titulo }))}
+            objetivoPrincipalId={objetivoPrincipal?.id ?? null}
+          />
+        </section>
 
-        {comparativo && (
-          <Plegable titulo="El mes" resumen="" abiertoPorDefecto>
-            <ResumenMes c={comparativo} desgloses={mtdDesgloses} />
-          </Plegable>
-        )}
+        <section style={SECCION}>
+          <h2 style={{ ...H2, marginBottom: 24 }}>Semáforo del negocio</h2>
+          <Semaforo
+            alertas={alertas}
+            sinFuentes={sinFuentes}
+            saltar={foco.alertaIdx}
+            restantes={restantes}
+            // `alDia === false` sólo se afirma cuando el avance se pudo LEER: con
+            // `actual === null` no se sabe si va atrasado, y no saberlo no es ir mal.
+            objetivoAtrasado={objetivoPrincipal?.actual !== null && objetivoPrincipal?.ritmo?.alDia === false}
+          />
+        </section>
 
-        <Plegable
-          titulo="Pendientes"
-          resumen={pendientes.total > 0 ? `${pendientes.total}` : 'al día'}
-          abiertoPorDefecto
-        >
+        <section style={SECCION}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', marginBottom: 22 }}>
+            <h2 style={H2}>El mes</h2>
+            {comparativo && <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--dim)' }}>vs. {comparativo.etiqueta_anterior}</span>}
+          </div>
+          {comparativo
+            ? <ResumenMes c={comparativo} desgloses={mtdDesgloses} />
+            // Esconder la sección escondería el fallo: el mes seguiría existiendo y la
+            // pantalla no diría que no lo pudo leer.
+            : <span style={{ fontSize: 'var(--fs-md)', color: 'var(--dim)' }}>No pude leer el resumen del mes.</span>}
+        </section>
+
+        <section style={SECCION}>
           <PendientesCard pendientes={pendientes} />
-        </Plegable>
-
+        </section>
       </div>
     </main>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// El plegable
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Lo que antes ocupaba la pantalla entera y ahora vive un escalón abajo.
- *
- * ⚠️ PLEGADO NO ES ESCONDIDO. La regla de la casa lo dice para la barra lateral y
- * vale igual acá: lo que se pliega lleva rótulo y una línea de RESUMEN con el dato
- * que importa, así se sabe si vale la pena abrirlo sin abrirlo. Y lo que tiene algo
- * urgente adentro nace abierto.
- *
- * `<details>` nativo y no un estado de React: funciona sin JS, lo maneja el
- * teclado solo, y no hay ningún `useState` que se pierda al refrescar.
- */
-function Plegable({ titulo, resumen, abiertoPorDefecto = false, children }: {
-  titulo: string;
-  resumen: string;
-  abiertoPorDefecto?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <details open={abiertoPorDefecto} style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
-      <summary style={{
-        cursor: 'pointer', listStyle: 'revert',
-        display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap',
-        padding: '4px 0', color: 'var(--ink)',
-      }}>
-        <span style={{ fontWeight: 600, fontSize: 17, letterSpacing: '-0.01em' }}>{titulo}</span>
-        {/* El resumen es un DATO («3 urgentes»), nunca un explicador de qué hay
-            adentro. Un rótulo que parafrasea al título es el subtítulo que la
-            regla de la casa prohíbe, y acá además ocupa el renglón que sirve
-            para saber si vale la pena abrir. */}
-        {resumen && <span style={{ fontSize: 13.5, color: 'var(--dim)' }}>{resumen}</span>}
-      </summary>
-      <div style={{ marginTop: 14 }}>{children}</div>
-    </details>
   );
 }
 
@@ -502,8 +538,13 @@ function ResumenMes({ c, desgloses }: { c: ResumenComparativo; desgloses: Record
               <span style={{ display: 'block', height: 8, borderRadius: 999, background: 'var(--surface-2)', overflow: 'hidden' }}>
                 <span style={{ display: 'block', height: '100%', borderRadius: 999, width: `${Math.min(100, (it.m.actual / tope) * 100)}%`, background: color }} />
               </span>
+              {/* ⚠️ La barra recesiva va en `--faint`, no en `--border-strong`: medido,
+                  --border-strong sobre --surface-2 da 1,23:1 — invisible. --faint da
+                  2,46, que sigue abajo de 3, así que el valor del período anterior
+                  TIENE que estar en texto acá abajo. El color nunca es el único
+                  portador de un dato. */}
               <span style={{ display: 'block', height: 8, borderRadius: 999, background: 'var(--surface-2)', overflow: 'hidden' }}>
-                <span style={{ display: 'block', height: '100%', borderRadius: 999, width: `${Math.min(100, (it.m.anterior / tope) * 100)}%`, background: 'var(--border-strong)' }} />
+                <span style={{ display: 'block', height: '100%', borderRadius: 999, width: `${Math.min(100, (it.m.anterior / tope) * 100)}%`, background: 'var(--faint)' }} />
               </span>
             </div>
             <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 7 }}>
@@ -519,62 +560,153 @@ function ResumenMes({ c, desgloses }: { c: ResumenComparativo; desgloses: Record
   );
 }
 
-function Semaforo({ alertas, sinFuentes, saltar }: {
+/**
+ * El semáforo — las tres lámparas y las alertas.
+ *
+ * ⚠️ LAS LÁMPARAS VOLVIERON EL 08/09/2026, POR PEDIDO DEL DUEÑO: «estaban bien
+ * diseñadas». Son la síntesis gráfica —el nivel del negocio en un vistazo, que es el
+ * test de la casa— y la pasada del 07/09 las sacó junto con lo que sí sobraba.
+ *
+ * ⚠️ Y LAS LÁMPARAS MIRAN `alertas`, LAS FILAS MIRAN `visibles`. Es la sutileza que
+ * hace que esto no reintroduzca la mentira de la #165 por otra puerta: la lámpara
+ * dice el estado del NEGOCIO, y las filas listan lo que queda por leer acá. Con una
+ * sola alerta roja —que además es el titular de la cabecera— la lista queda vacía y
+ * la lámpara tiene que seguir en ROJO: si contara sobre las visibles, saldría verde
+ * mientras arriba dice «3 cuotas VENCIDAS». Por eso, cuando la lista queda corta
+ * porque una subió al titular, se dice.
+ *
+ * Lo que NO volvió del semáforo viejo, y cada cosa por su motivo:
+ *   · el párrafo de veredicto — repite lo que las lámparas ya dicen, y su rama verde
+ *     es TEXTUALMENTE la mentira de la #165 («El negocio está sano») sobre un
+ *     workspace sin un solo dato;
+ *   · las tres píldoras de conteo — el mismo bit en un tercer lugar, al lado de las
+ *     lámparas y de los puntos de cada fila;
+ *   · el `detalle` de cada fila — medido el 07/09: el titular y la primera fila eran
+ *     ~40 palabras idénticas;
+ *   · el filete de 4 px de color por fila — veto duro de la casa, y la cuarta copia
+ *     del mismo bit.
+ */
+function Semaforo({ alertas, sinFuentes, saltar, restantes, objetivoAtrasado }: {
   alertas: Alerta[];
   sinFuentes: boolean;
   /** El índice de la alerta que ya es el titular de la pantalla. */
   saltar: number | null;
+  /** Cuántas alertas quedan para esta lista, sacando la que ya es titular. */
+  restantes: number;
+  /**
+   * El objetivo del trimestre va por debajo de lo esperado a esta altura.
+   *
+   * ⚠️ NO ES UNA ALERTA MÁS —no agrega fila, porque el número ya está arriba en la
+   * cabecera y repetirlo sería la duplicación que esta pantalla viene arrastrando—,
+   * pero SÍ apaga el verde. Medido el 08/09/2026 sobre un workspace real: la cabecera
+   * decía «Vas $15.217 abajo de lo esperado» y dos bloques más abajo la lámpara verde
+   * certificaba que estaba todo bien. Las seis reglas del semáforo miran señales
+   * operativas y ninguna mira el compromiso del trimestre, así que sin esto la
+   * pantalla se contradice a sí misma en el mismo scroll.
+   */
+  objetivoAtrasado: boolean;
 }) {
-  // ⚠️ El estado «no puedo opinar» (#165) va ANTES que cualquier alerta: cuando no
-  // hay una sola fuente conectada, lo que sigue no se sostiene.
-  if (sinFuentes) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 15, color: 'var(--dim)' }}>
-          Sin fuentes conectadas no puedo opinar de tu negocio.
-        </span>
-        <Link href="/integraciones" style={{ fontSize: 14, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>
-          Conectar →
-        </Link>
-      </div>
-    );
-  }
-
+  const urgentes = alertas.filter((a) => a.nivel === 'rojo').length;
+  const vigilar = alertas.filter((a) => a.nivel === 'ambar').length + (objetivoAtrasado ? 1 : 0);
   const visibles = alertas.filter((_, i) => i !== saltar);
-  if (visibles.length === 0) {
-    return <span style={{ fontSize: 15, color: 'var(--dim)' }}>Nada más que atender.</span>;
-  }
 
   return (
-    <div>
-      {visibles.map((a, i) => {
-        const c = a.nivel === 'rojo' ? 'var(--bad)' : a.nivel === 'ambar' ? 'var(--warn-fill)' : 'var(--good)';
-        const inner = (
-          <>
-            <span aria-hidden style={{ flex: 'none', width: 9, height: 9, borderRadius: '50%', background: c }} />
-            <span style={{ flex: 1, minWidth: 0, fontSize: 15, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.titulo}</span>
-            <span style={{ flex: 'none', color: 'var(--faint)', fontSize: 14 }}>→</span>
-          </>
-        );
-        const fila: CSSProperties = {
-          display: 'flex', alignItems: 'center', gap: 12, width: '100%',
-          padding: '11px 0', textDecoration: 'none',
-          borderTop: i === 0 ? 'none' : '1px solid var(--border)',
-        };
-        return a.desglose
-          ? <DesgloseTrigger key={i} data={a.desglose} style={fila}>{inner}</DesgloseTrigger>
-          : <Link key={i} href={a.href} style={fila}>{inner}</Link>;
-      })}
+    <div style={{ display: 'flex', gap: 24, alignItems: 'stretch', flexWrap: 'wrap' }}>
+      {/* Las tres lámparas. `alignSelf: stretch` y NUNCA `height: 100%`: un porcentaje
+          contra un alto indefinido no resuelve, Chrome lo tolera y Safari devuelve
+          CERO — que con `overflow: hidden` es una caja en blanco. */}
+      <div style={{
+        flex: 'none', width: 88, alignSelf: 'stretch',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14,
+        // El token, no el `#14161B` literal que tenía el viejo: la isla oscura de esta
+        // pantalla y la de la cabecera tienen que ser el mismo material.
+        background: 'var(--sidebar)', borderRadius: 18, padding: '18px 16px',
+      }}>
+        <Lampara color="var(--bad)" encendida={!sinFuentes && urgentes > 0} />
+        <Lampara color="var(--warn-fill)" encendida={!sinFuentes && urgentes === 0 && vigilar > 0} />
+        <Lampara color="var(--good)" encendida={!sinFuentes && urgentes === 0 && vigilar === 0} />
+      </div>
+
+      <div style={{ flex: 1, minWidth: 280 }}>
+        {/* ⚠️ El estado «no puedo opinar» (#165) va ANTES que cualquier alerta: cuando
+            ninguna fuente entregó jamás un dato, lo que sigue no se sostiene — y por
+            eso arriba las TRES lámparas quedan apagadas, que es lo único honesto. */}
+        {sinFuentes ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 'var(--fs-card)', color: 'var(--dim)' }}>
+              Sin fuentes conectadas no puedo opinar de tu negocio.
+            </span>
+            <Link href="/integraciones" style={{ fontSize: 'var(--fs-md)', fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>
+              Conectar →
+            </Link>
+          </div>
+        ) : visibles.length === 0 ? (
+          <span style={{ fontSize: 'var(--fs-card)', color: 'var(--dim)' }}>
+            {restantes === 0 && saltar !== null
+              ? 'Lo único que hay que atender ya está arriba.'
+              : objetivoAtrasado
+              ? 'Ninguna señal operativa en rojo, pero el trimestre va por debajo de lo esperado.'
+              : 'Nada más que atender.'}
+          </span>
+        ) : (
+          <div>
+            {visibles.map((a, i) => {
+              const c = a.nivel === 'rojo' ? 'var(--bad)' : a.nivel === 'ambar' ? 'var(--warn-fill)' : 'var(--good)';
+              const inner = (
+                <>
+                  <span aria-hidden style={{ flex: 'none', width: 9, height: 9, borderRadius: '50%', background: c }} />
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--fs-card)', color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.titulo}</span>
+                  <span style={{ flex: 'none', color: 'var(--faint)', fontSize: 'var(--fs-sm)' }}>
+                    {a.desglose ? 'ver detalle →' : `${a.hrefLabel} →`}
+                  </span>
+                </>
+              );
+              const fila: CSSProperties = {
+                display: 'flex', alignItems: 'center', gap: 12, width: '100%',
+                padding: '13px 0', textDecoration: 'none',
+                borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+              };
+              return a.desglose
+                ? <DesgloseTrigger key={i} data={a.desglose} style={fila}>{inner}</DesgloseTrigger>
+                : <Link key={i} href={a.href} style={fila}>{inner}</Link>;
+            })}
+            {saltar !== null && (
+              <p style={{ margin: '14px 0 0', fontSize: 'var(--fs-sm)', color: 'var(--faint)' }}>
+                La más urgente está arriba, en la cabecera.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
+function Lampara({ color, encendida }: { color: string; encendida: boolean }) {
+  return (
+    <span aria-hidden style={{
+      width: 48, height: 48, borderRadius: '50%', background: color,
+      // El halo sale del MISMO token que la lámpara. El viejo escribía tres rgba() a
+      // mano, así que el día que cambie el rojo del sistema quedan dos rojos.
+      ...(encendida
+        ? { boxShadow: `0 0 24px 4px color-mix(in srgb, ${color} 55%, transparent)` }
+        : { opacity: 0.18 }),
+    }} />
+  );
+}
+
 /**
- * Pendientes — una línea.
+ * Pendientes de marcar — el número grande, y sólo los tipos que tienen algo.
  *
- * ⚠️ Dibujaba CUATRO tarjetas fijas y en la pantalla real tres decían 0. Una
- * tarjeta que dice cero no informa: ocupa el lugar de la que sí. Se muestran sólo
- * los tipos con algo adentro, y si no hay ninguno el bloque es una sola frase.
+ * ⚠️ EL VIEJO DIBUJABA CUATRO SUB-TARJETAS FIJAS y en la pantalla real tres decían
+ * 0. Una tarjeta que dice cero no informa: ocupa el lugar de la que sí, y es además
+ * la regla escrita del dueño («estado vacío = mensaje que explica, nunca un cuadro
+ * con los campos vacíos»). La superficie que volvió es la SECCIÓN, que la envuelve;
+ * adentro va una lista con filete, que es lo que la casa pide para un grupo de cosas
+ * del mismo tipo.
+ *
+ * Y el botón NO es el rojo lleno del viejo: el único relleno primario de la pantalla
+ * es la acción del día. Dos primarios compitiendo es que no hay ninguno.
  */
 function PendientesCard({ pendientes }: { pendientes: Pendientes }) {
   const tipos = [
@@ -584,18 +716,51 @@ function PendientesCard({ pendientes }: { pendientes: Pendientes }) {
     { n: pendientes.porTipo.M, l: 'nutrición manual vencida' },
   ].filter((x) => x.n > 0);
 
-  if (pendientes.total === 0) {
-    return <span style={{ fontSize: 15, color: 'var(--dim)' }}>Todo marcado — el tablero es confiable.</span>;
-  }
-
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
-      <span style={{ fontSize: 15, color: 'var(--dim)' }}>
-        {tipos.map((t) => `${t.n} ${t.l}`).join(' · ')}
-      </span>
-      <Link href="/crm" style={{ fontSize: 14, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>
-        Marcar →
-      </Link>
-    </div>
+    <>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 18, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+          {/* El número grande sólo cuando HAY algo que marcar. Un «0» de 34 px al lado
+              de «datos al día» es un titular sobre la nada: el cero ya lo dice la
+              frase, y pintarlo grande le da a lo que no pasó el peso de lo que pasa. */}
+          {pendientes.total > 0 && (
+            <span style={{
+              fontWeight: 700, fontSize: 'var(--fs-kpi)', letterSpacing: '-0.03em', lineHeight: 1,
+              color: 'var(--bad)', fontVariantNumeric: 'tabular-nums',
+            }}>
+              {pendientes.total}
+            </span>
+          )}
+          <h2 style={H2}>
+            {pendientes.total > 0
+              ? 'leads sin marcar bloquean la confiabilidad del tablero'
+              : 'Datos al día — el tablero es confiable'}
+          </h2>
+        </div>
+        {pendientes.total > 0 && (
+          <Link href="/crm" style={{
+            flex: 'none', alignSelf: 'center', padding: '9px 16px', borderRadius: 'var(--r-md)',
+            border: '1px solid var(--border-strong)', background: 'transparent',
+            color: 'var(--dim)', fontSize: 'var(--fs-md)', fontWeight: 500, textDecoration: 'none',
+          }}>
+            Marcar en el CRM →
+          </Link>
+        )}
+      </div>
+
+      {tipos.length > 0 && (
+        <div style={{ marginTop: 18 }}>
+          {tipos.map((t, i) => (
+            <div key={t.l} style={{
+              display: 'flex', alignItems: 'baseline', gap: 12,
+              padding: '11px 0', borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+            }}>
+              <span style={{ fontWeight: 600, fontSize: 18, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{t.n}</span>
+              <span style={{ fontSize: 'var(--fs-md)', color: 'var(--dim)' }}>{t.l}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
   );
 }

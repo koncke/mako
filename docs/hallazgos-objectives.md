@@ -194,6 +194,135 @@ que eso no se rompa:
   `getObjetivoProgreso` para el reporte diario y el semanal. Borrar el origen el mismo día
   que se migra deja sin red al que descubra un error mañana.
 
+## Restaurar un diseño no es restaurar el código: la forma vuelve, los bugs no
+
+**Vive en:** `app/general/Cabecera.tsx` - `app/general/page.tsx` (`Semáforo`) - `lib/focus.ts`
+(`sinFuentes`) - `lib/objectives-modelo.ts` (`elegirObjetivoPrincipal`)
+
+Cuatro commits del 6 y 7/09/2026 (`30a37bdc`, `b3805511`, `ad608da3`, `86478448`) mezclaron
+**la columna vertebral nueva** con **una reescritura visual**, y el dueño rechazó el
+resultado tres veces seguidas. El pedido del 08/09 fue volver al diseño anterior. Restaurar
+`294d8915:app/general/page.tsx` tal cual habría devuelto siete cosas que ese archivo tenía
+adentro, y la peor es la que el rediseño había venido a arreglar.
+
+**Lo que se restaura es la FORMA; el código se escribe de nuevo.** La lista de lo que NO
+puede volver, para el próximo que restaure algo acá:
+
+| Del archivo viejo | Por qué no vuelve |
+|---|---|
+| El `else` del veredicto del semáforo | Es la frase textual de la #165: «El negocio está sano» sobre un workspace sin un solo dato. Depende de que `alertas` esté vacío, no de que haya datos. |
+| `<EditarMeta>` | Escribe los settings legacy. `migrarSettingsAObjectives` ya dejó su marca, así que **editar la meta desde ahí no cambiaría nada en pantalla y no daría error**. |
+| El `actions.ts` viejo | `setObjetivoAction` no tenía guard de rol. |
+| `hoyEnTijuana()` / `ayerEnTijuana()` | Le corre el día —y con él el período del KPI y los días del Q— a todo inquilino fuera de esa zona. |
+| `const meta = objetivo?.cierres_meta ?? 20` | Un número inventado como el texto más grande: «Camino a los 20 cierres - 0/20» a quien nunca cargó una meta. |
+| La `proyección` y «llegas en ~N semanas» | Extrapolación lineal con el mismo peso visual que un dato medido. |
+| Las cuatro sub-tarjetas fijas de Pendientes | En la pantalla real tres decían 0. |
+
+**La regla que queda:** antes de restaurar un archivo viejo, `git log` de los commits que lo
+reemplazaron y hacer la lista de las GUARDAS que agregaron. Un diseño se restaura mirando la
+captura; un archivo se restaura arrastrando todo lo que se arregló desde entonces.
+
+## Una pantalla sin superficies deja de pertenecer al producto
+
+**Vive en:** `app/general/page.tsx` (la constante `SECCION`) - `app/general/KpisCard.tsx`
+
+La pasada del 7/09 sacó **todas** las cajas de `/general` apoyándose en un veto real de la
+casa —*«cards are the lazy container»*— y el dueño lo reportó como «se ve mucho peor, no se
+ve nada». Medido el 08/09 antes de tocar nada: `/comercial` arma **8** bloques con
+`background: var(--surface) + border 1px + borderRadius 18 + var(--card-pad)`, `/marketing`
+**1**, y `/general` **cero**. Era la única pantalla del producto sin una sola superficie.
+
+**El veto es contra apilar sub-tarjetas iguales ADENTRO de una sección, no contra la
+sección.** La caja de afuera es lo que hace que una pantalla se lea como hermana de la de al
+lado; lo que el veto prohíbe es la pila de cajitas de `--surface-2` adentro (las cuatro
+métricas del mes, las N filas del semáforo, las cuatro de pendientes). Adentro va una lista
+con filete de 1 px o una grilla de números sin caja.
+
+Corolario de proceso: **un veto citado sin su contexto se aplica de más.** El de
+`impeccable` habla de «same-size cards of icon plus heading plus text **as the page
+structure**», y se leyó como «ninguna caja nunca».
+
+## Con el hero grande, el verde mentiroso sube al titular
+
+**Vive en:** `lib/focus.ts` (`EntradaFoco.sinFuentes`) - `tests/general-cabecera.test.ts`
+
+La guarda de la #165 —`fuentes.lastSync !== null`, nunca `status`— vivía **sólo adentro del
+Semáforo**. `elegirFoco` no la conocía, así que un workspace con objetivos y KPIs cargados y
+**cero fuentes con datos** caía por el último escalón: todos los KPIs en `sin-datos` (que no
+es rojo ni ámbar), ninguna de las seis reglas empujando una alerta, y el titular diciendo
+«Vas al día con todo lo que te comprometiste».
+
+Con la pantalla vieja eso era un renglón. Con la cabecera restaurada es **el segundo texto
+más grande de la pantalla**. Agrandar un bloque no es neutral: **le sube el precio a
+cualquier mentira que ese bloque pueda decir**, así que un rediseño que agranda algo tiene
+que auditar lo que ese algo afirma.
+
+El escalón nuevo va DESPUÉS de las alertas, los KPIs y el plan: un negocio con una cuota
+vencida tiene algo que hacer hoy, y cambiarle la orden de cobro por «conecta una fuente»
+sería el mismo error al revés.
+
+## La lámpara mira el negocio; la lista, lo que queda por leer
+
+**Vive en:** `app/general/page.tsx` (`Semáforo`)
+
+Al devolver las tres lámparas aparece una pregunta que el semáforo de una sola línea no
+tenía: **¿sobre qué array se calcula el color?** Las dos respuestas obvias mienten:
+
+- sobre `visibles` (las alertas menos la que ya es el titular): con **una sola** alerta roja
+  —que por serlo se convierte en el titular— la lista queda vacía y la lámpara sale **verde**
+  mientras la cabecera grita «3 cuotas VENCIDAS».
+- sobre `alertas`, sin decir nada: la lámpara queda roja sobre una lista vacía, y no hay
+  forma de saber por qué.
+
+Lo que resuelve: la lámpara cuenta **todas** las alertas —es el estado del negocio— y la
+lista, cuando se salteó una, lo dice en una línea («La más urgente está arriba, en la
+cabecera»). Son dos preguntas distintas y por eso son dos conteos distintos.
+
+**Y el caso hermano, medido en producción (ws13):** la cabecera decía «Vas $15.217 abajo de
+lo esperado» y dos bloques más abajo la lámpara **verde** certificaba que estaba todo bien.
+Las seis reglas del semáforo miran señales operativas y **ninguna mira el compromiso del
+trimestre**, así que juntar los dos bloques en una pantalla los hace contradecirse. El
+objetivo atrasado apaga el verde y enciende el ámbar, sin agregar una fila: el número ya está
+arriba y repetirlo sería la duplicación que esta pantalla viene arrastrando.
+
+## «El objetivo principal» no existía, y `objetivos[0]` podía ser el del AÑO
+
+**Vive en:** `lib/objectives-modelo.ts` (`elegirObjetivoPrincipal`) - `lib/objectives.ts`
+(`listObjectives`)
+
+`listObjectives` devuelve **a propósito** los objetivos ANUALES mezclados con los del Q
+(«esconderlo mientras se mira un trimestre haría que la meta de facturación del año
+desaparezca nueve meses al año»), ordenados por `orden`. La pantalla tomaba `objetivos[0]`,
+así que la cabecera podía mostrar el número del **año** arriba de una pantalla que dice «Q3
+- quedan 22 días», sin decirlo en ningún lado.
+
+Y «facturación» tampoco alcanza como criterio: `cash_usd` (lo que entró) y `sold_usd` (lo
+firmado) son **dos objetivos distintos que pueden convivir en el mismo trimestre**. Por eso
+la cabecera lleva una pastilla con el nombre de la métrica —«Cobrado» / «Firmado»— y nunca
+dice «Facturación» a secas.
+
+La regla vive en **una** función exportada, que consumen el hero y el `objetivoPrincipalId`
+de los KPIs nuevos. Con dos copias, un día eligen distinto y el compromiso queda colgando de
+otra cosa que la meta.
+
+## El relleno de una isla oscura se deriva del TEXTO de esa isla
+
+**Vive en:** `app/general/Cabecera.tsx` (`RELLENO`, `RELLENO_LINEA`) - `app/globals.css:916`
+
+Adentro de la isla oscura hacen falta un relleno y una línea elevados, y el repo los venía
+escribiendo a mano como `rgba(255,255,255,.05)`. Eso se rompe donde nadie mira:
+`[data-tema-candidato="true-north"]` redefine `--sidebar` a **#E5E9F0** —un gris casi
+blanco—, y ahí un blanco al 5% desaparece sin dejar rastro.
+
+La salida no es un token nuevo (que habría que redefinir en los dos bloques de tema
+candidato, o sea el mismo problema con otro nombre): es **derivarlo del color del TEXTO de
+esa superficie**, `color-mix(in srgb, var(--on-sidebar) 7%, transparent)`. Sobre fondo claro
+`--on-sidebar` es oscuro, así que el relleno se da vuelta junto con la superficie.
+
+Y la paleta de adentro del hero no se hereda: sobre `--sidebar`, `--ink` mide **1,01:1**,
+`--dim` **2,09** y `--faint` **3,61**. Un solo gris del tema claro heredado ahí adentro deja
+texto ilegible **y no se nota hasta que alguien prueba el otro tema**.
+
 ## Lo que quedó sin hacer
 
 - **`getObjetivoProgreso` y los tres settings siguen alimentando los reportes**
@@ -210,3 +339,20 @@ que eso no se rompa:
   Choca con lo que ya se pagó con el score de proyectos: un número que expresa una PRIORIDAD
   no se deriva con una cuenta, y si lo produce un modelo necesita una segunda capa
   determinista que verifique su propia metodología. Sin decidir.
+
+- **ws13 tiene los objetivos DUPLICADOS**: dos «Facturación del trimestre» (cash_usd, meta
+  20.000) y dos «Cierres del trimestre» (cierres, meta 10) para 2026-Q3, medido el 08/09 con
+  una lectura directa a `objectives`. `elegirObjetivoPrincipal` elige uno y la pantalla no
+  miente, pero nadie los creó a propósito: falta averiguar si los duplicó
+  `migrarSettingsAObjectives`, `sembrarKpisAction` o una doble carga del formulario, y poner
+  la restricción que lo impida. Vive en `lib/objectives.ts`.
+- **`/general` sigue escribiendo su propio `<main style={{ padding: '34px 44px 60px' }}>`**
+  en vez de `<Pagina>`, que es la regla de la casa. No se cambió en esta pasada a propósito:
+  `Pagina` topea en `--pagina-max` (1280) y centra, y `/comercial` y `/marketing` —las dos
+  pantallas con las que `/general` tiene que verse hermana— tampoco lo usan todavía. Migrar
+  una sola la deja más angosta que sus vecinas, que es el problema opuesto al que esta pasada
+  vino a arreglar. Va cuando vayan las tres.
+- **El modal de `Desglose` rotula con monospace en versalitas** (`COBRADO DEL PERÍODO`), que
+  es el «monospace as a costume» que la casa veta. Es del primitivo compartido
+  (`app/_components/Desglose.tsx:59`), así que tocarlo mueve todas las pantallas que lo usan:
+  no entra en un arreglo de `/general`.

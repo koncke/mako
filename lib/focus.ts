@@ -118,6 +118,22 @@ export type EntradaFoco = {
    * tenerlo acá evita que el día que sirva alguien lo vuelva a leer de la base.
    */
   cuello: string | null;
+  /**
+   * `true` cuando el workspace tiene fuentes declaradas y NINGUNA entregó jamás un
+   * dato (`lastSync === null` en todas).
+   *
+   * ⚠️ ESTO ES LA TAREA #165, Y HASTA EL 08/09/2026 LA GUARDA VIVÍA SÓLO ADENTRO DEL
+   * SEMÁFORO. `elegirFoco` no la conocía, así que con objetivos y KPIs cargados sobre
+   * un workspace sin un solo dato todos los KPIs quedaban `sin-datos` —que no es rojo
+   * ni ámbar—, no había ninguna alerta, y el último escalón devolvía «Vas al día con
+   * todo lo que te comprometiste». O sea: el mismo verde mentiroso que la #165 vino a
+   * sacar, por la otra puerta y en el texto MÁS GRANDE de la pantalla.
+   *
+   * Se pregunta por `lastSync` y nunca por `status`: `calendly` y `vsl_beacon`
+   * resuelven a `'stale'` cuando NUNCA hubo un dato (lib/sources.ts:101 y :129), así
+   * que contar por estado da «conectada» sobre cero datos.
+   */
+  sinFuentes: boolean;
   hoy: string;
 };
 
@@ -317,6 +333,27 @@ export function elegirFoco(e: EntradaFoco): Foco {
       href: '/general',
       hrefLabel: 'Elegir KPIs',
       nivel: 'neutro',
+    };
+  }
+  // ⚠️ ESTE ESCALÓN VA ANTES DEL VERDE Y NO ES OPCIONAL (#165). Con cero fuentes que
+  // hayan entregado un dato, los KPIs quedan todos en `sin-datos` —que no participa de
+  // la elección— y ninguna de las seis reglas del semáforo empuja una alerta: sin esto,
+  // el escalón de abajo afirma que el negocio va bien sobre un negocio del que no se
+  // sabe nada. Va DESPUÉS de objetivo y KPIs porque ésos son el primer paso del
+  // arranque; conectar la fuente es lo que hace que el número aparezca solo.
+  if (e.sinFuentes) {
+    return {
+      alertaIdx: null,
+      accion: 'Conecta una fuente de datos.',
+      razon: 'Ninguna de tus fuentes entregó un solo dato todavía, así que no puedo leer tu negocio: los KPIs quedan sin número y el semáforo no puede opinar.',
+      resultadoEsperado: 'El tablero pasa a llenarse solo, sin que cargues nada a mano.',
+      responsable: 'Tú, en Integraciones',
+      progreso: null,
+      siguienteRevision: 'Apenas entre el primer dato',
+      origen: 'arranque',
+      href: '/integraciones',
+      hrefLabel: 'Integraciones',
+      nivel: 'ambar',
     };
   }
   return {

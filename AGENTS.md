@@ -1697,6 +1697,48 @@ Lo que queda:
 El detalle de cada uno, con las citas de las guías, en
 [docs/hallazgos-ui.md](docs/hallazgos-ui.md).
 
+# Restaurar un diseño no es restaurar el código, y un veto sin su contexto se aplica de más
+
+Dos errores de la misma familia, los dos pagados sobre `/general` entre el 6 y el 8/09/2026,
+y los dos con el mismo aire de estar haciendo lo correcto.
+
+**1. La forma se restaura mirando la captura; el código se escribe de nuevo.** Cuando el
+dueño pide volver a un diseño anterior, `git show <sha>:<archivo>` devuelve la forma **y
+todo lo que se arregló desde entonces**. Acá el archivo viejo traía, entre otras: el
+veredicto que afirma «el negocio está sano» sobre un workspace sin un solo dato (la tarea
+#165, que el rediseño había venido a arreglar), un editor que escribe settings que la
+migración ya no lee —o sea un guardado que no hace nada y no da error—, una server action
+sin guard de rol, y el «hoy» clavado a la zona de Tijuana para todo inquilino.
+
+Antes de restaurar un archivo: `git log` de los commits que lo reemplazaron, y la lista de
+las **guardas** que agregaron. Lo que se restaura es el layout, los tamaños y los bloques;
+las condiciones son las de hoy.
+
+**2. Un veto de diseño citado sin su contexto prohíbe de más.** *«Cards are the lazy
+container»* habla de **una pila de tarjetas iguales de ícono + título + texto como
+estructura de página**. Leído como «ninguna caja nunca» dejó a `/general` como la única
+pantalla del producto sin una sola superficie: `/comercial` arma 8 bloques con
+`background: var(--surface)` + borde + radio 18, `/marketing` 1, `/general` cero. El dueño
+lo reportó como «se ve mucho peor, no se ve nada». La caja de afuera es lo que hace que una
+pantalla se lea como hermana de la de al lado; lo prohibido es la pila de sub-tarjetas
+iguales **adentro**.
+
+⚠️ Y el corolario que vale para cualquier rediseño: **agrandar un bloque le sube el precio a
+todo lo que ese bloque pueda mentir.** La guarda de la #165 vivía sólo adentro del semáforo,
+así que el «vas al día con todo lo que te comprometiste» sobre un workspace sin datos era un
+renglón perdido — hasta que la cabecera nueva lo convirtió en el segundo texto más grande de
+la pantalla. Cuando algo pasa a ser lo primero que se lee, se audita lo que ese algo afirma
+en cada estado, incluidos los vacíos.
+
+⚠️ Y cuando dos bloques que antes vivían separados quedan en la misma pantalla, **hay que
+mirar si pueden contradecirse**: la cabecera decía «vas US$15.217 abajo de lo esperado» y dos
+bloques más abajo la lámpara verde del semáforo certificaba que estaba todo bien, porque sus
+seis reglas miran señales operativas y ninguna mira el compromiso del trimestre. Juntarlos no
+es sólo acomodarlos.
+
+El detalle, con la tabla de las siete cosas que no volvieron y por qué, en
+[docs/hallazgos-objectives.md](docs/hallazgos-objectives.md).
+
 # Dos reglas de layout que se rompen solas
 
 **1. El `<main>` de una pantalla es `Pagina`.** Una pantalla no elige su propio ancho.

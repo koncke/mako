@@ -79,21 +79,22 @@ export function KpisCard({ kpis, candidatos, objetivos, objetivoPrincipalId }: {
 
   if (kpis.length === 0) {
     return (
-      <section>
+      <>
         <Propuesta candidatos={candidatos} objetivoPrincipalId={objetivoPrincipalId} onManual={() => setEditando('nuevo')} />
         {editando && (
           <EditorKpi kpi={null} objetivos={objetivos} objetivoPrincipalId={objetivoPrincipalId} onCerrar={() => setEditando(null)} />
         )}
-      </section>
+      </>
     );
   }
 
   return (
-    <section>
-      {/* Sin tarjeta y sin subtítulo. La regla de la casa: las tarjetas son el
-          contenedor perezoso, y el espacio en blanco separa igual de bien. */}
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16, marginBottom: 20 }}>
-        <h2 style={{ fontWeight: 600, fontSize: 22, letterSpacing: '-0.02em', margin: 0, color: 'var(--ink)' }}>KPIs</h2>
+    <>
+      {/* ⚠️ NO ABRE SU PROPIA <section>: la superficie la pone la página, que es la
+          que sabe que este bloque es una sección hermana de las otras tres. Una
+          tarjeta adentro de una tarjeta es el «nested cards» que la casa veta. */}
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16, marginBottom: 22 }}>
+        <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>KPIs</h2>
         <button type="button" onClick={() => setEditando('nuevo')}
           style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 13.5, color: 'var(--dim)', cursor: 'pointer' }}>
           + agregar
@@ -112,7 +113,7 @@ export function KpisCard({ kpis, candidatos, objetivos, objetivoPrincipalId }: {
           onCerrar={() => setEditando(null)}
         />
       )}
-    </section>
+    </>
   );
 }
 
@@ -269,7 +270,7 @@ function Propuesta({ candidatos, objetivoPrincipalId, onManual }: {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16, marginBottom: 20 }}>
-        <h2 style={{ fontWeight: 600, fontSize: 22, letterSpacing: '-0.02em', margin: 0, color: 'var(--ink)' }}>KPIs</h2>
+        <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>KPIs</h2>
         <button type="button" onClick={onManual}
           style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 13.5, color: 'var(--dim)', cursor: 'pointer' }}>
           escribir el mío

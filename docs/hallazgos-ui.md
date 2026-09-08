@@ -14,6 +14,12 @@ están arregladas. El registro de corridas está en [corridas-multiagente.md](co
 
 ## Lo que más muerde acá
 
+- **«Cards are the lazy container» prohíbe la PILA de sub-tarjetas iguales adentro de una
+  sección, no la sección.** Citado sin ese contexto dejó a `/general` como la única pantalla
+  del producto sin una sola superficie —medido: `/comercial` 8 bloques con `var(--surface)` +
+  borde + radio 18, `/marketing` 1, `/general` 0— y el dueño lo reportó como «se ve mucho
+  peor, no se ve nada». La caja de afuera es lo que hace que una pantalla se lea como hermana
+  de la de al lado → [hallazgos-objectives.md](hallazgos-objectives.md#una-pantalla-sin-superficies-deja-de-pertenecer-al-producto).
 - **El dorado no significa «MaKo», significa «destacado»**: en ~25 superficies marca la tab
   activa, un KPI, un avatar sin foto y hasta la burbuja del **humano** en el chat. Por eso
   la marca se siente a IA — si el color no distingue, la chispa queda sola haciendo todo el

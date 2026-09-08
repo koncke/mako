@@ -2080,3 +2080,36 @@
 @media (prefers-reduced-motion: reduce) {
   .mk-estudio, .mk-riel { transition: none }
 }
+
+/* ── La cabecera de /general ──────────────────────────────────────────────
+   Dos zonas adentro de la isla oscura: a la izquierda el número del objetivo
+   del trimestre, a la derecha la acción del día. El split 1.35fr/1fr es el que
+   /comercial y /marketing ya usan adentro de sus secciones, subido al primer
+   nivel de la pantalla.
+
+   ⚠️ VIVE ACÁ Y NO EN UN `style={{}}` PORQUE LLEVA MEDIA QUERY, y la regla de
+   la casa es que ninguna pantalla escribe la suya: los siete `--fs-*` ya suben
+   solos en ≤820 px, y una pantalla que agrega su propio breakpoint es la que
+   después no se entera cuando el sistema cambia el suyo.
+
+   La línea divisoria cambia de eje al apilarse: vertical entre columnas,
+   horizontal entre filas. Un `border-left` que sobrevive al apilado deja una
+   raya colgando al costado de nada. */
+.mk-cabecera {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 34px;
+}
+.mk-cabecera__b {
+  border-left: 1px solid var(--sidebar-line);
+  padding-left: 34px;
+}
+@media (max-width: 900px) {
+  .mk-cabecera { grid-template-columns: 1fr; gap: 26px }
+  .mk-cabecera__b {
+    border-left: none;
+    border-top: 1px solid var(--sidebar-line);
+    padding-left: 0;
+    padding-top: 26px;
+  }
+}

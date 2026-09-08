@@ -39,6 +39,27 @@ export type FuenteKpi = 'auto' | 'manual';
  */
 export type EstadoKpi = 'verde' | 'ambar' | 'rojo' | 'sin-datos';
 
+/**
+ * El nombre corto de cada métrica, para rotular QUÉ se está mostrando.
+ *
+ * ⚠️ «Facturación» a secas no alcanza y por eso esto existe: `cash_usd` (lo que
+ * entró) y `sold_usd` (lo que se firmó) son dos números distintos que pueden
+ * convivir en el mismo trimestre, y un hero que dice «Facturación $127.400» sin
+ * decir cuál de los dos es, miente por omisión. El texto largo de cada una vive en
+ * `METRICAS` de `app/general/EditarObjetivo.tsx`, que es donde se elige.
+ */
+export const METRICA_LABEL: Record<MetricaObjetivo, string> = {
+  cash_usd: 'Cobrado',
+  sold_usd: 'Firmado',
+  cierres: 'Cierres',
+  agendas: 'Reuniones agendadas',
+  leads: 'Leads nuevos',
+  libre: 'Lo mides tú',
+};
+
+/** Las dos métricas que son PLATA. Las únicas que llevan desglose por lead y `US$`. */
+export const ES_PLATA = (m: MetricaObjetivo): boolean => m === 'cash_usd' || m === 'sold_usd';
+
 export type Objective = {
   id: string;
   anio: number;
@@ -53,6 +74,37 @@ export type Objective = {
   estado: 'activo' | 'cerrado';
   origen: string;
 };
+
+/**
+ * Cuál de los objetivos manda: el que ocupa la cabecera de /general y el que
+ * adoptan por defecto los KPIs nuevos.
+ *
+ * ⚠️ ANTES NO EXISTÍA Y ESO ERA EL BUG. La pantalla tomaba `objetivos[0]`, que es el
+ * primero por `orden` — y `listObjectives` mezcla a propósito los ANUALES con los del
+ * Q, así que el primero podía ser el objetivo del AÑO. La cabecera habría mostrado el
+ * número del año arriba de una pantalla cuyo resto es del trimestre, sin decirlo.
+ *
+ * El orden de preferencia, y cada escalón tiene su porqué:
+ *   1. cobrado del Q      la plata que ENTRÓ es la que decide si el trimestre va bien
+ *   2. firmado del Q      si nadie mide lo cobrado, lo firmado es la mejor aproximación
+ *   3. cualquiera del Q   un objetivo de cierres o de agendas también es un norte
+ *   4. lo mismo, anual    recién acá se acepta el año, y la pantalla lo rotula «2026»
+ *
+ * A igualdad de métrica gana SIEMPRE el del trimestre (`quarter !== null`), que es el
+ * período del resto de la pantalla. Devuelve `null` sólo si no hay ni uno.
+ */
+export function elegirObjetivoPrincipal<T extends Objective>(objetivos: T[]): T | null {
+  const delQ = objetivos.filter((o) => o.quarter !== null);
+  const anual = objetivos.filter((o) => o.quarter === null);
+  for (const grupo of [delQ, anual]) {
+    const cobrado = grupo.find((o) => o.metrica === 'cash_usd');
+    if (cobrado) return cobrado;
+    const firmado = grupo.find((o) => o.metrica === 'sold_usd');
+    if (firmado) return firmado;
+    if (grupo.length > 0) return grupo[0];
+  }
+  return null;
+}
 
 export type Kpi = {
   id: string;
