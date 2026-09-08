@@ -12,6 +12,8 @@ import { useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import type { AudioSetting, SecuenciaDto, Opcion, PasoSecuenciaDto } from './ChatAgentApp';
 import { PasoAudioControl } from './PasoAudioControl';
+import { MensajesChat } from './MensajesChat';
+import { EstrategiaWizard } from './EstrategiaWizard';
 import { DESENLACE_VACIO, type Desenlace, type ModoRespuesta, type Objetivo } from '@/lib/setting-estrategia';
 
 const btn: CSSProperties = { padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' };
@@ -37,14 +39,28 @@ async function api(body: unknown): Promise<{ ok: boolean; error?: string; enviad
   try { return await (await fetch('/api/chat-agent/secuencias', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json(); } catch { return { ok: false, error: 'sin conexión' }; }
 }
 
+/** Las líneas no vacías de un textarea multilínea. */
+const lineas = (s: string): string[] => s.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+
+// Cómo se lee el desenlace en el resumen. El valor crudo (`agendo`, `pago`)
+// no le dice nada a nadie: es vocabulario del motor.
+const LOGRADO_TXT: Record<string, string> = {
+  respondio: 'Termina cuando el lead responde cualquier cosa',
+  agendo: 'Termina cuando el lead agenda una reunión',
+  pago: 'Termina cuando el lead paga',
+  ninguno: 'No cierra sola: sigue hasta que la pauses',
+};
+
 const EMOJI_OBJ: Record<Objetivo, string> = { agendar: '📅', preparar: '🎯', reactivar: '🧲', cualificar: '❓', confirmar_pago: '💳' };
 
-export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin, audios, onAudioNuevo, onClose, onCambio, onWizard }: {
+export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin, audios, negocio, onAudioNuevo, onClose, onCambio, onWizard }: {
   secuencia: SecuenciaDto;
   objetivos: Opcion[];
   etiquetaEtapa: (key: string) => string;
   rolAdmin: boolean;
   audios: AudioSetting[];
+  /** Nombre del negocio: firma cada burbuja, como en el chat de verdad. */
+  negocio: string;
   /** Un audio grabado desde un paso se suma a la biblioteca del padre. */
   onAudioNuevo: (a: AudioSetting) => void;
   onClose: () => void;
@@ -71,6 +87,12 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
   const [pasos, setPasos] = useState<PasoSecuenciaDto[]>(secuencia.pasos);
   const [pasoAbierto, setPasoAbierto] = useState(0);
   const [desenlace, setDesenlace] = useState<Desenlace>(est?.desenlace ?? { ...DESENLACE_VACIO });
+  // La estrategia se EDITA en un wizard aparte, un paso por pantalla. La
+  // sub-tab pasa a ser un RESUMEN legible: leer cómo juega la secuencia y
+  // cambiarla son dos trabajos distintos, y el formulario denso servia mal a
+  // los dos — para leerlo había que saltear inputs, y para editarlo había que
+  // decidir siete cosas de una.
+  const [editandoEstrategia, setEditandoEstrategia] = useState(false);
 
   const flashOk = (m: string) => { setFlash(m); setTimeout(() => setFlash(null), 2600); };
 
@@ -105,7 +127,10 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
     setBusy(null);
   };
 
-  const editarPaso = (orden: number, campo: 'cuerpo' | 'asunto', val: string) =>
+  // `delay_horas` entra acá porque en el chat el CUÁNDO se edita en el mismo
+  // lugar que el mensaje: en el acordeón viejo el tiempo no se podía tocar de
+  // ninguna manera — se veía «24 h» y había que salir al wizard para cambiarlo.
+  const editarPaso = (orden: number, campo: 'cuerpo' | 'asunto' | 'delay_horas', val: string | number) =>
     setPasos((prev) => prev.map((p) => (p.orden === orden ? { ...p, [campo]: val } : p)));
 
   const editarVariante = (orden: number, i: number, val: string) =>
@@ -186,6 +211,36 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
   const pasosWa = secuencia.pasos.filter((p) => p.canal === 'whatsapp').length;
   const pasosEmail = secuencia.pasos.filter((p) => p.canal === 'email').length;
 
+  // EL WIZARD REEMPLAZA AL PANEL ENTERO, no vive adentro de la sub-tab: en modo
+  // `desnudo` la pieza trae su propio fondo y `minHeight: 100vh`, asi que
+  // anidarla bajo una topbar y unas tabs deja dos marcos peleando. Es lo mismo
+  // que hace el onboarding de esta tab.
+  if (editandoEstrategia) {
+    return (
+      <EstrategiaWizard
+        nombreSecuencia={secuencia.nombre}
+        objetivos={objetivos}
+        valor={{ objetivo, gancho, preguntas, califica, descalifica, modo, desenlace }}
+        onCambiar={(p) => {
+          if (p.objetivo !== undefined) setObjetivo(p.objetivo);
+          if (p.gancho !== undefined) setGancho(p.gancho);
+          if (p.preguntas !== undefined) setPreguntas(p.preguntas);
+          if (p.califica !== undefined) setCalifica(p.califica);
+          if (p.descalifica !== undefined) setDescalifica(p.descalifica);
+          if (p.modo !== undefined) setModo(p.modo);
+          if (p.desenlace !== undefined) setDesenlace(p.desenlace);
+        }}
+        onSugerirCriterio={() => void sugerirCriterio()}
+        sugiriendo={busy === 'criterio'}
+        guardando={busy === 'save'}
+        error={err}
+        onGuardar={async () => { await guardar(); setEditandoEstrategia(false); }}
+        onSalir={() => setEditandoEstrategia(false)}
+      />
+    );
+  }
+
+
   return (
     <div style={{ height: '100%', width: '100%', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Topbar fija (no scrollea) — patrón TemplateDetalleModal */}
@@ -229,151 +284,79 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
           </div>
 
           {tab === 'estrategia' && (<>
+          {/* ⚠️ ESTA SUB-TAB YA NO ES UN FORMULARIO: es lo que la secuencia HACE,
+              en prosa, y un boton que abre el wizard.
+              Pedia siete decisiones a la vez —objetivo, gancho, preguntas,
+              califica, descalifica, que hacer al responder, cuando se logra,
+              cuando falla— en una columna con dos textareas en grilla y cuatro
+              dropdowns. Servia mal a los dos trabajos que se hacen aca: para
+              LEER como juega habia que saltear inputs, y para EDITARLA habia
+              que decidir todo junto. Se partieron: leer aca, editar en
+              EstrategiaWizard, un paso por pantalla. */}
           <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 10 }}>¿Cómo juega?</div>
           <div style={{ marginBottom: 20 }}>
             <Paso icono="⚡" titulo="Se dispara cuando…" detalle={`El lead está parado en la etapa «${etiquetaEtapa(secuencia.etapa)}» de tu funnel.`} />
             <Flecha />
             <Paso icono="💬" titulo={`MaKo le manda la secuencia (${secuencia.pasos.length} mensajes)`} detalle="Con el anti-ban de siempre; los pasos de WhatsApp oficial esperan la plantilla aprobada por Meta." tono="mako" />
-            {nPreg > 0 && (<><Flecha /><Paso icono="❓" titulo={`Cualifica con ${nPreg} pregunta${nPreg === 1 ? '' : 's'}`} detalle="Sembradas con naturalidad en la charla — y la base del Setter IA." tono="mako" /></>)}
+            {nPreg > 0 && (<><Flecha /><Paso icono="❓" titulo={`Cualifica con ${nPreg} pregunta${nPreg === 1 ? '' : 's'}`} detalle={lineas(preguntas).slice(0, 3).join(' · ')} tono="mako" /></>)}
             <Flecha />
             <Paso icono="✅" titulo={objetivos.find((o) => o.value === objetivo)?.label ?? objetivo} detalle={gancho.trim() ? `Gancho: ${gancho.trim()}` : undefined} tono="dueno" />
+            <Flecha />
+            <Paso
+              icono={desenlace.logrado === 'ninguno' ? '♾️' : '🏁'}
+              titulo={LOGRADO_TXT[desenlace.logrado] ?? 'Termina cuando el lead responde'}
+              detalle={
+                (desenlace.falloHoras > 0
+                  ? `Si pasan ${desenlace.falloHoras < 24 ? `${desenlace.falloHoras} horas` : `${Math.round(desenlace.falloHoras / 24)} día${desenlace.falloHoras >= 48 ? 's' : ''}`} sin respuesta, se da por perdida. `
+                  : 'No se da por perdida nunca: sigue corriendo. ')
+                + (modo === 'asistido' ? 'Si contestan, MaKo te deja el borrador.' : 'Si contestan, se frena y sigues tú.')
+              }
+            />
           </div>
 
-          <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 8 }}>La estrategia</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 14 }}>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <Dropdown value={objetivo} onChange={(v) => setObjetivo(v as Objetivo)} width={230} ariaLabel="Objetivo de la secuencia de mensajes"
-                options={objetivos.map((o) => ({ value: o.value, label: `${EMOJI_OBJ[o.value as Objetivo] ?? ''} ${o.label}` }))} />
-              <input value={gancho} onChange={(e) => setGancho(e.target.value)} placeholder="Gancho (lead magnet / oferta)…" style={{ ...inp, width: 'auto', flex: 1, minWidth: 180 }} disabled={!rolAdmin} />
-            </div>
-            <div>
-              <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 6 }}>Preguntas de cualificación — una por línea (el Setter y el simulador las usan en este orden):</div>
-              <textarea value={preguntas} onChange={(e) => setPreguntas(e.target.value)} rows={5} placeholder={'¿Facturas más de …?\n¿Tienes equipo?'} style={{ ...inp, resize: 'vertical', lineHeight: 1.5 }} disabled={!rolAdmin} />
-            </div>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
-                <span style={{ fontSize: 12, color: 'var(--faint)' }}>Criterio de calificación — decide si la charla termina en llamada o en despedida:</span>
-                {rolAdmin && (
-                  <button onClick={() => void sugerirCriterio()} disabled={busy === 'criterio'} style={{ ...btnGhost, marginLeft: 'auto', padding: '5px 11px', fontSize: 11.5 }}>
-                    {busy === 'criterio' ? 'Deduciendo…' : '✨ Que MaKo lo deduzca del CRM'}
-                  </button>
-                )}
-              </div>
+          {/* El criterio, si esta puesto. Se muestra porque es lo que decide si
+              la charla termina en llamada o en despedida — y no estaba a la
+              vista en ningun lado sin abrir un textarea. */}
+          {(califica.trim() || descalifica.trim()) && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 8 }}>A quién le sirve</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div>
-                  <div style={{ fontSize: 11.5, color: 'var(--good)', fontWeight: 600, marginBottom: 4 }}>✓ Califica si…</div>
-                  <textarea value={califica} onChange={(e) => setCalifica(e.target.value)} rows={4} placeholder={'Tiene equipo a cargo\nQuiere escalar sin depender de él'} style={{ ...inp, resize: 'vertical', lineHeight: 1.5 }} disabled={!rolAdmin} />
-                </div>
-                <div>
-                  <div style={{ fontSize: 11.5, color: 'var(--bad)', fontWeight: 600, marginBottom: 4 }}>✕ No califica si…</div>
-                  <textarea value={descalifica} onChange={(e) => setDescalifica(e.target.value)} rows={4} placeholder={'Recién arranca, sin facturación\nBusca empleo, no consultoría'} style={{ ...inp, resize: 'vertical', lineHeight: 1.5 }} disabled={!rolAdmin} />
-                </div>
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 6 }}>Cuando el lead responde:</div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {([
-                  { v: 'asistido' as const, t: '🙋 Te aviso y te dejo el borrador', d: 'MaKo redacta la respuesta y tú la apruebas con un clic' },
-                  { v: 'automatico' as const, t: '⏸ Solo pausar', d: 'La secuencia se frena y sigues por tu cuenta' },
-                ]).map((o) => (
-                  <button key={o.v} onClick={() => rolAdmin && setModo(o.v)} disabled={!rolAdmin} title={o.d}
-                    style={{ padding: '8px 13px', borderRadius: 10, cursor: rolAdmin ? 'pointer' : 'default', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, border: '1px solid ' + (modo === o.v ? 'var(--ink)' : 'var(--border-strong)'), background: modo === o.v ? 'var(--ink)' : 'var(--surface-2)', color: modo === o.v ? 'var(--on-sidebar)' : 'var(--dim)' }}>
-                    {o.t}
-                  </button>
+                {[{ t: '✓ Sí, si…', c: 'var(--good)', v: califica }, { t: '✕ No, si…', c: 'var(--bad)', v: descalifica }].map((col) => (
+                  <div key={col.t}>
+                    <div style={{ fontSize: 11.5, color: col.c, fontWeight: 600, marginBottom: 5 }}>{col.t}</div>
+                    <ul style={{ margin: 0, padding: '0 0 0 16px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.6 }}>
+                      {lineas(col.v).map((x, i) => <li key={i}>{x}</li>)}
+                      {!col.v.trim() && <li style={{ color: 'var(--faint)', listStyle: 'none', marginLeft: -16 }}>Sin definir</li>}
+                    </ul>
+                  </div>
                 ))}
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Cuándo deja de hacer falta esta secuencia. Sin esto seguía mandando
-              pasos hasta quedarse sin pasos, y no había forma de encadenarla
-              con la siguiente. */}
-          <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', margin: '4px 0 8px' }}>Cuándo termina</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 12, color: 'var(--good)', fontWeight: 600, minWidth: 74 }}>Se logra si</span>
-              <Dropdown value={desenlace.logrado} onChange={(v) => setDesenlace((d) => ({ ...d, logrado: v as Desenlace['logrado'] }))} width={230} ariaLabel="Cuándo se logra"
-                options={[
-                  { value: 'respondio', label: 'Responde cualquier cosa' },
-                  { value: 'agendo', label: 'Agenda una reunión' },
-                  { value: 'pago', label: 'Paga' },
-                  { value: 'ninguno', label: 'No cierra sola' },
-                ]} />
-            </div>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 12, color: 'var(--warn)', fontWeight: 600, minWidth: 74 }}>Falla si</span>
-              {/* En HORAS: no es lo mismo que no conteste en 2 horas a que no
-                  conteste en un mes, y el umbral correcto depende del objetivo. */}
-              <Dropdown value={String(desenlace.falloHoras)} onChange={(v) => setDesenlace((d) => ({ ...d, falloHoras: Number(v) }))} width={230} ariaLabel="Cuándo falla"
-                options={[
-                  { value: '0', label: 'Nunca: la dejo corriendo' },
-                  { value: '2', label: 'Pasan 2 horas sin respuesta' },
-                  { value: '12', label: 'Pasan 12 horas sin respuesta' },
-                  { value: '24', label: 'Pasa 1 día sin respuesta' },
-                  { value: '72', label: 'Pasan 3 días sin respuesta' },
-                  { value: '168', label: 'Pasan 7 días sin respuesta' },
-                  { value: '720', label: 'Pasan 30 días sin respuesta' },
-                ]} />
-            </div>
-          </div>
+          {rolAdmin && (
+            <button onClick={() => { setErr(null); setEditandoEstrategia(true); }} style={{ ...btn, marginBottom: 18 }}>
+              Editar la estrategia
+            </button>
+          )}
           </>)}
 
           {tab === 'mensajes' && (<>
-          {/* Los mensajes: cada paso de WhatsApp puede ser texto o nota de voz */}
-          <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', margin: '4px 0 8px' }}>Los mensajes</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-            {pasos.map((p) => {
-              const audio = p.tipo === 'audio' && p.audio_id ? audios.find((a) => a.id === p.audio_id) : null;
-              const abierto = pasoAbierto === p.orden;
-              return (
-                <div key={p.orden} style={{ borderRadius: 11, background: 'var(--surface-2)', border: '1px solid ' + (abierto ? 'var(--border-strong)' : 'var(--border)'), overflow: 'hidden' }}>
-                  <button type="button" onClick={() => setPasoAbierto(abierto ? 0 : p.orden)}
-                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '11px 13px', background: 'none', border: 0, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
-                    <span style={{ flex: 'none', fontSize: 11.5, color: 'var(--faint)' }}>
-                      {p.canal === 'email' ? '✉️ Email' : audio ? '🎙 Nota de voz' : '💬 WhatsApp'} · {p.orden}
-                    </span>
-                    <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {audio ? audio.titulo : (p.cuerpo.slice(0, 70) || 'Sin texto todavía')}
-                    </span>
-                    {(p.variantes?.length ?? 0) > 0 && (
-                      <span style={{ flex: 'none', fontSize: 10.5, color: 'var(--good)', border: '1px solid var(--good)', borderRadius: 6, padding: '1px 5px' }}>{p.variantes?.length} variantes</span>
-                    )}
-                    <span aria-hidden style={{ flex: 'none', color: 'var(--faint)', fontSize: 11, transform: abierto ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
-                  </button>
-
-                  {abierto && (
-                    <div style={{ padding: '0 13px 13px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-                      {/* Texto o nota de voz, y si es voz se graba acá mismo —
-                          la misma pieza que usa el wizard. */}
-                      {p.canal === 'whatsapp' && rolAdmin && (
-                        <PasoAudioControl
-                          orden={p.orden}
-                          audios={audios}
-                          audioId={audio?.id ?? null}
-                          onElegir={(id) => void setAudioDePaso(p.orden, id)}
-                          onGrabado={onAudioNuevo}
-                          onError={setErr}
-                          disabled={busy != null}
-                        />
-                      )}
-                      {p.canal === 'email' && (
-                        <input value={p.asunto ?? ''} onChange={(e) => editarPaso(p.orden, 'asunto', e.target.value)} placeholder="Asunto" style={{ ...inp, fontWeight: 600 }} disabled={!rolAdmin} />
-                      )}
-                      {/* Con audio, el texto es el PIE: lo que llega por escrito
-                          junto con la nota de voz. */}
-                      <textarea value={p.cuerpo} onChange={(e) => editarPaso(p.orden, 'cuerpo', e.target.value)} rows={p.canal === 'email' ? 6 : audio ? 2 : 4}
-                        placeholder={audio ? 'Opcional: algo por escrito junto al audio (un enlace, por ejemplo)' : 'Qué dice este mensaje…'}
-                        style={{ ...inp, resize: 'vertical', lineHeight: 1.55 }} disabled={!rolAdmin} />
-                      {rolAdmin && pasos.length > 1 && (
-                        <button onClick={() => quitarPaso(p.orden)} style={{ background: 'none', border: 'none', color: 'var(--bad)', fontSize: 12.5, cursor: 'pointer', alignSelf: 'flex-start', padding: 0, fontFamily: 'inherit' }}>Quitar este mensaje</button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            {rolAdmin && <button onClick={agregarPaso} style={{ ...btnGhost, alignSelf: 'flex-start' }}>+ Agregar un mensaje</button>}
+          {/* EL CHAT, no una lista de campos. Un mensaje de WhatsApp se juzga
+              por cómo se ve al llegar; una fila plegada con 70 caracteres y
+              puntos suspensivos no deja juzgar nada. El detalle de por qué la
+              burbuja está copiada y no importada, en MensajesChat.tsx. */}
+          <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', margin: '4px 0 8px' }}>Lo que le llega al lead</div>
+          <div style={{ fontSize: 12.5, color: 'var(--faint)', marginBottom: 10, lineHeight: 1.5 }}>
+            Así, y en este orden. Toca cualquier mensaje para escribirlo, o el renglón gris para cambiar cuándo sale.
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <MensajesChat
+              pasos={pasos} audios={audios} rolAdmin={rolAdmin} negocio={negocio} busy={busy != null}
+              onEditar={editarPaso} onAgregar={agregarPaso} onQuitar={quitarPaso}
+              onAudio={(orden, id) => void setAudioDePaso(orden, id)}
+              onAudioNuevo={onAudioNuevo} onError={setErr}
+            />
           </div>
           </>)}
 
