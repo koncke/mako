@@ -11,6 +11,7 @@ import {
   type CandidatoLead, type Coincidencia, type LeadExistente,
 } from './leads-duplicados';
 import { getTenantDb, getWorkspaceActual } from './workspace';
+import { leerTodo } from './supabase-paginado';
 import { getSupabaseServer } from './supabase';
 import { OWNER_WS } from './auth-session';
 import { getUsuarioActual } from './auth';
@@ -250,12 +251,19 @@ const LISTA_COLS =
 export const listLeads = cachedRead('listLeads', _listLeads, { tags: [TAG.leads], revalidate: TTL.user });
 async function _listLeads(): Promise<Lead[]> {
   const supabase = (await getTenantDb());
-  const { data, error } = await supabase
-    .from('leads')
-    .select(LISTA_COLS)
-    .order('created_at', { ascending: false });
-  if (error) throw new Error(`Error listando leads: ${error.message}`);
-  return (data ?? []) as unknown as Lead[];
+  // PAGINADO OBLIGATORIO. Esto era un `.select()` suelto y PostgREST corta en
+  // 1000 filas sin avisar: devuelve 1000 y un 200, no un error. Con `created_at
+  // desc` los que se caían eran los leads MÁS VIEJOS — o sea los clientes que ya
+  // cerraron. El día que ws1 pasó los 1000 leads (1066), el CRM de Mauricio pasó
+  // a mostrar 4 ganados de 13: US$52.700 de facturación desaparecida del tablero,
+  // sin un solo error en ningún log. Es la lectura más importante de la app.
+  //
+  // El orden de paginado va por `id` (único) y el de presentación se aplica
+  // después, en memoria: ordenar las páginas por `created_at` —que se repite—
+  // reparte los empates distinto en cada página y saltea filas. Ver
+  // docs/hallazgos-infra.md §1.
+  const filas = await leerTodo<Lead>(supabase, 'leads', LISTA_COLS, { orden: 'id' });
+  return filas.sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')));
 }
 
 /**
