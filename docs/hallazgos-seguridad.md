@@ -24,6 +24,7 @@ arregladas, y donde el rescate lo sabía, lo dice.
 - Tres secretos de webhook son de plataforma y se los repartimos a los clientes (Chatwoot se lo escribe adentro de SU panel, Calendly se lo pide el tutorial, Evolution viajaba en un JSON) → [Webhooks y firmas](#webhooks-y-firmas).
 - La migración de cifrado tiene tres verdes que no prueban nada y un paso irreversible cuyo backup está comentado → [Credenciales y cifrado](#credenciales-y-cifrado).
 - Una ruta de API que termina en `.png` queda fuera del gate, y meter un prefijo en `PUBLICOS` saca más cosas de las que parece → [Superficie expuesta](#superficie-expuesta).
+- Un `notFound()` corta el cuerpo y **deja el `<title>` puesto**: el guard funciona y la pantalla igual cuenta que existe → [Superficie expuesta](#notfound-no-tapa-los-metadatos-el-title-se-sirve-igual).
 
 ---
 
@@ -840,3 +841,41 @@ request, sin cookie el contenido servido es el del dueño y va a «funcionar» d
 hasta que un cliente comparta lo suyo.
 
 **Vive en:** app/conocimientos · lib/workspace.ts:75-81 · *decisión 2026-07-27*
+
+### `notFound()` no tapa los METADATOS: el `<title>` se sirve igual
+
+Un `export const metadata = { title: … }` **se resuelve aunque el guard de la página tire
+404**. Los metadatos son un módulo aparte del render, así que el 404 corta el cuerpo y deja
+el `<head>` puesto.
+
+Medido el 2026-09-10 al montar `/analisis/trimestre` (el informe con los números de ws1
+quemados, guardado con `esWorkspaceDueno()`): pidiéndolo con la sesión del **ws13** la
+respuesta no traía **un solo dato del informe** —`grep` de `107,027`, `44,200` y `Mauricio`
+dio 0— y el `<title>` decía, entero, «Trimestre junio–agosto 2026».
+
+Un título no es un dato del negocio y aun así rompe la regla que el 404 viene a cumplir:
+*a quien no le corresponde, no existe*. Ahí decía que la pantalla existe, de qué habla y de
+qué trimestre. Y el modo de falla es el peor de los baratos: **el guard funciona**, así que
+nada invita a mirar el `<head>`.
+
+La cura es mover el título a `generateMetadata()` y correr ahí el MISMO chequeo:
+
+```ts
+export async function generateMetadata() {
+  return (await esWorkspaceDueno()) ? { title: 'Trimestre junio–agosto 2026' } : {};
+}
+```
+
+⚠️ **Y no se comprueba mirando la pantalla.** Un 404 y un 404 con el título puesto se ven
+idénticos en el navegador — la pestaña de una ruta que no renderiza nadie no la mira nunca.
+Se comprueba con `curl -b <cookie-de-otro-ws>` y un `grep '<title>'` sobre el HTML crudo.
+Es la misma familia que [«Un flag de visibilidad protege la PANTALLA; la API hay que
+cerrarla aparte»](../AGENTS.md): el guard cubre lo que dibuja, no todo lo que sale.
+
+**Sin hacer:** la app **no tiene ningún `not-found.tsx`**, así que todo `notFound()` cae en
+el default de Next y sirve, dentro del layout, una pantalla con el avatar y nada más — que
+se lee igual que «se rompió». Son cuatro rutas hoy (`app/crm/[id]`, `app/crm/[id]/resumen`,
+`app/admin/dev/[area]`, `app/analisis/trimestre`). Un `app/not-found.tsx` las cubre a las
+cuatro de una.
+
+**Vive en:** app/analisis/trimestre/page.tsx · lib/workspace.ts (`esWorkspaceDueno`) · *2026-09-10*
