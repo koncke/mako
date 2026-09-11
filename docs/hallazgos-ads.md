@@ -1717,15 +1717,22 @@ exactamente lo que le pedimos.
 `debug_token` y lee los scopes y el vencimiento. El `app_id` también viene en esa respuesta,
 y nadie lo lee: pasa cualquier app.
 
-Medido con `debug_token` el 11/09:
+Medido el 11/09 con `debug_token` + `/me/adaccounts?fields=business` y `/me/accounts?fields=business`:
 
-| Workspace | App que firmó el token | Qué trae |
-|---|---|---|
-| 1, 4 | «Leads - Dashboard MKT (Martin)» (954456647632371), la de MaKo, que cuelga de la cuenta personal de Mauricio | 9 scopes |
-| 11 | «Lidermente_Agent» | 21 scopes, incluidos publicar y mensajería |
-| 13, 14 | «Joan P2P app» (2300908653979362), en modo de desarrollo | **el MISMO token en los dos workspaces** |
+| Workspace | App que firmó el token | Scopes | Activos que ve, y de qué negocio |
+|---|---|---|---|
+| 1, 4 | «Leads - Dashboard MKT (Martin)» (954456647632371), la de MaKo, **Modo: Publicada**, negocio **Elévate** | 10 | `act_564003520636790` + página «Mauricio Bustos Eguia», las dos de **Elévate** (341119389591872). ws4 «Cliente de Diseño» comparte token y activos con ws1 |
+| 11 | «Lidermente_Agent» (1003134039095160) | 22, incluye publicar y mensajería de Instagram | dos cuentas + página, todas de **Leila Negocios** (819927318349061) |
+| 13, 14 | «Joan P2P app» (2300908653979362), en modo de **desarrollo** | 9 | `act_1357728489423123` de **P2P Consulting Portfolio** (1515383529607420) y página «Joan» de **Codigo Inmobiliario** (2062429174256666) — **el MISMO token y los MISMOS activos en los dos workspaces** |
 
 Los cinco son tokens de usuario de sistema que no vencen nunca.
+
+⚠️ **Lo que esa medición decide:** cada token ve **solo activos de SU propio negocio**. La app
+de MaKo nunca operó una cuenta publicitaria ajena, así que **no hay evidencia de que tenga
+acceso avanzado** — y eso es justo lo que el camino «una sola app para todos» necesita.
+
+⚠️ Y explica de paso el rechazo `1885499` de ws13: su cuenta publicitaria vive en un negocio
+(«P2P Consulting Portfolio») y su página en otro («Codigo Inmobiliario»).
 
 **Los riesgos reales** no son una inyección, pero existen:
 - **No controlamos la app.** Si su dueño la pausa, la deja en desarrollo o regenera el
@@ -1741,10 +1748,18 @@ tokens de apps ajenas. Martín ya descartó «verificar la app del cliente al co
 **Sin hacer, en este orden:**
 1. Mudar la app de MaKo fuera de la cuenta personal de Mauricio (#185). Antes de eso, todo
    cliente quedaría colgando de un tercero.
-2. Conexión sin tutorial, con la app de MaKo: *partner sharing* del ad account y la página al
-   Business Manager de MaKo, con su usuario de sistema (no necesita App Review), o Facebook
-   Login for Business, que exige App Review + Business Verification. Los pasos en el panel de
-   Meta los hace una persona.
+2. Conexión sin tutorial, con la app de MaKo — y acá hay un requisito que la nota de julio
+   («el camino de agencia no necesita App Review») daba por resuelto y **no lo está**. La doc
+   de Marketing API es explícita: *«Standard access to the `ads_read` and `ads_management`
+   permissions are sufficient»* solo si la app administra **su propia** cuenta; *«if your app
+   is managing other people's ad accounts, you need advanced access»*. Compartir como socio
+   mueve el activo a nuestro Business Manager, pero la cuenta sigue siendo de otro negocio.
+   ⚠️ **«Modo: Publicada» ≠ acceso avanzado**: publicar solo saca a la app del modo
+   desarrollo. Lo decide UNA pantalla —panel de la app → Revisión → Permisos y funciones—: si
+   `ads_management`, `ads_read` y `leads_retrieval` ya están en **acceso avanzado**, alcanza
+   con compartir como socio y la app que ya tenemos; si están en estándar, hay App Review +
+   Business Verification (2-6 semanas según la investigación de julio, con 1-2 rechazos
+   típicos). Pendiente de mirar.
 3. Recién ahí, rechazar en `descubrirMeta` todo token con `app_id` distinto del de MaKo.
    Hacerlo antes desconecta a ws11, ws13 y ws14 sin darles una salida.
 4. Migrar ws11, ws13 y ws14, y reescribir el tutorial de `lib/metodo-catalogo.ts`.
