@@ -15,7 +15,8 @@ import { runWithWorkspace, getTenantDb, OWNER_WS } from '@/lib/workspace';
 import { jidToNumero } from '@/lib/evolution';
 import { guardarMensajeUpsert } from '@/lib/evolution-mensajes';
 import { manejarEntranteDoer } from '@/lib/mako-doer-in';
-import { INSTANCIA_SUPERADMIN } from '@/lib/mako-canal';
+import { INSTANCIA_SUPERADMIN, esNombreDeCanal, instanciaCanal, usarCanalComoVoz } from '@/lib/mako-canal';
+import { instanciaVoz } from '@/lib/mako-grupo';
 import { upsertContacto } from '@/lib/evolution-contactos';
 import { upsertLabelCatalogo, borrarLabelCatalogo } from '@/lib/evolution-labels';
 
@@ -32,7 +33,14 @@ async function wsDeInstancia(instance: string): Promise<number | null> {
   // La línea de voz de MaKo (canal SuperAdmin) NO vive en evolution_instancias
   // (no es de ningún cliente) → cae al workspace dueño para que el doer "Hola
   // MaKo" pueda correr en sus grupos.
-  if (ws == null && instance === INSTANCIA_SUPERADMIN) return OWNER_WS;
+  //
+  // ⚠️ SE RECONOCE LA INSTANCIA VIGENTE, NO UN NOMBRE FIJO. Cuando Evolution deja
+  // la línea trabada, `conectarCanalMaKo` rota a una nueva (`mako_superadmin_<sufijo>`).
+  // Con el nombre fijo la línea nueva quedaba SORDA: sus mensajes de grupo caían
+  // en «instancia sin workspace». Y solo la vigente: si la vieja revive tras un
+  // reinicio de Evolution, las dos le contestarían al mismo «Hola MaKo».
+  if (ws == null && esNombreDeCanal(instance)
+    && instance === (await instanciaCanal().catch(() => INSTANCIA_SUPERADMIN))) return OWNER_WS;
   return ws;
 }
 
@@ -87,6 +95,20 @@ export async function POST(req: NextRequest) {
     if (evento === 'connection.update') {
       const state = (body.data?.state as string | undefined);
       const estado = mapEstado(state);
+      // La línea de MaKo no tiene fila en evolution_instancias: el update de abajo no la
+      // toca. Al abrir la línea VIGENTE del canal se la fija como voz ACÁ, en el servidor.
+      // Hasta ahora lo hacía solo el panel de /agencia, o sea solo si alguien lo tenía
+      // abierto en el momento justo: tras rotar una línea trabada, cerrar la pestaña
+      // después de escanear dejaba la voz apuntando a la muerta.
+      if (estado === 'conectado' && esNombreDeCanal(instance)) {
+        after(async () => {
+          try {
+            if (instance !== (await instanciaCanal())) return;
+            if ((await instanciaVoz()) === instance) return;
+            await usarCanalComoVoz(true);
+          } catch (e) { console.error(`[webhook:evolution] voz del canal: ${e instanceof Error ? e.message : String(e)}`); }
+        });
+      }
       const patch: Record<string, unknown> = { estado, ultimo_evento_at: nowISO, updated_at: nowISO };
       if (estado === 'conectado') {
         patch.ultima_conexion_at = nowISO;
@@ -141,7 +163,7 @@ export async function POST(req: NextRequest) {
       // 1-a-1 (espejo del inbox del cliente): rápido, sincrónico. La línea SuperAdmin no
       // espeja (sus DMs no se mezclan con los del cliente).
       let errores = 0;
-      if (unoAuno.length && instance !== INSTANCIA_SUPERADMIN) {
+      if (unoAuno.length && !esNombreDeCanal(instance)) {
         await runWithWorkspace(ws, async () => {
           for (const m of unoAuno) {
             try { await guardarMensajeUpsert(instance, m); } catch (e) { errores += 1; console.error(`[webhook:evolution] guardar msg: ${e instanceof Error ? e.message : String(e)}`); }

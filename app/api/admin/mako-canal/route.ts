@@ -11,6 +11,9 @@ import { getSesionAdmin } from '@/lib/auth';
 import { estadoCanalMaKo, conectarCanalMaKo, usarCanalComoVoz, desconectarCanalMaKo } from '@/lib/mako-canal';
 
 export const dynamic = 'force-dynamic';
+// Recuperar una línea trabada encadena sondeo + logout + reintentos + crear una
+// nueva: puede pasar holgado los 15 s. Cortada a mitad, el botón «no hace nada».
+export const maxDuration = 60;
 
 export async function GET() {
   if (!(await getSesionAdmin())) return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });

@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 const MONO = "'Geist Mono', monospace";
 type Estado = 'desconectado' | 'conectando' | 'conectado' | 'error';
 type Info = { estado: Estado; numero: string | null; perfil: string | null; esVozActiva: boolean };
+type Flash = { txt: string; error?: boolean };
 
 const btn: CSSProperties = { padding: '10px 18px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' };
 const btnGhost: CSSProperties = { ...btn, background: 'transparent', color: 'var(--dim)', border: '1px solid var(--border-strong)' };
@@ -21,7 +22,7 @@ export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
   const [info, setInfo] = useState<Info | null>(null);
   const [qr, setQr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [flash, setFlash] = useState<string | null>(null);
+  const [flash, setFlash] = useState<Flash | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoVozRef = useRef(false);
 
@@ -36,7 +37,7 @@ export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
     pollRef.current = setInterval(() => { cargar(); }, 3000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [qr, cargar]);
-  useEffect(() => { if (info?.estado === 'conectado' && qr) { setQr(null); setFlash('¡Conectado! 🎉'); setTimeout(() => setFlash(null), 3000); } }, [info?.estado, qr]);
+  useEffect(() => { if (info?.estado === 'conectado' && qr) { setQr(null); setFlash({ txt: '¡Conectado! 🎉' }); setTimeout(() => setFlash(null), 3000); } }, [info?.estado, qr]);
   // El WhatsApp conectado ES el canal de MaKo: se fija como voz automáticamente
   // (y agrega el número a todos los grupos), sin toggle manual.
   useEffect(() => {
@@ -51,8 +52,12 @@ export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
     setBusy(true); setFlash(null);
     try {
       const j = await (await fetch('/api/admin/mako-canal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'conectar' }) })).json();
-      if (j.ok && j.qr?.base64) setQr(j.qr.base64.startsWith('data:') ? j.qr.base64 : `data:image/png;base64,${j.qr.base64}`);
-      else setFlash(j.error || 'No se pudo generar el QR');
+      if (j.ok && j.qr?.base64) { setQr(j.qr.base64.startsWith('data:') ? j.qr.base64 : `data:image/png;base64,${j.qr.base64}`); await cargar(); }
+      else setFlash({ txt: j.error || 'No se pudo generar el QR', error: true });
+    } catch {
+      // Una respuesta que no es JSON (un timeout de la plataforma) tiraba acá y el
+      // botón volvía a su lugar sin decir nada: el «le di y no pasó nada».
+      setFlash({ txt: 'El servidor no respondió. Reintenta en unos segundos.', error: true });
     } finally { setBusy(false); }
   };
   const desconectar = async () => {
@@ -92,7 +97,7 @@ export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
       <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
         {estado !== 'conectado' && <button style={{ ...btn, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={conectar}>{busy ? 'Generando…' : qr ? 'Regenerar QR' : 'Conectar por QR'}</button>}
         {estado === 'conectado' && <button style={{ ...btnGhost, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={desconectar}>Desconectar</button>}
-        {flash && <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--good)' }}>{flash}</span>}
+        {flash && <span style={{ fontSize: 13, fontWeight: 600, color: flash.error ? 'var(--bad)' : 'var(--good)' }}>{flash.txt}</span>}
       </div>
 
       <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.5 }}>Usa un número <b>exclusivo</b> para MaKo (no tu personal).</div>

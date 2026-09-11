@@ -3880,3 +3880,54 @@ está vivo, la respuesta correcta es *«ya está conectada, no hace falta recone
 RECUPERA.** Éste funcionaba con la instancia recién creada o limpiamente desconectada —los
 dos casos en que no hace falta— y fallaba con la instancia zombi, que es el único caso en que
 alguien lo aprieta.
+
+### Addendum 2 (11/09): Evolution NO suelta la instancia trabada, por ninguna ruta
+
+Con el arreglo de arriba desplegado, el botón pasó a decir *«Evolution no devolvió el QR.
+Reintenta en unos segundos; si sigue igual, desconecta la línea y vuelve a vincularla»*. Los
+dos consejos eran callejones: reintentar daba lo mismo cada vez, y el botón «Desconectar» ni
+aparece con la línea en `error` (el panel lo muestra solo en `conectado`).
+
+Medido en vivo sobre `mako_superadmin`:
+
+| Llamada | Respuesta | Después |
+|---|---|---|
+| `DELETE /instance/logout` | **500** `Error: Connection Closed` | `open`, `ownerJid` intacto, igual a los 15 s |
+| `POST /instance/restart` | 200 `{"state":"open"}` | socket muerto a los 30 s |
+| `GET /instance/connect` ×5 | `{"instance":{"state":"open"}}` | nunca un QR |
+
+**La causa, leída en el código de Evolution 2.3.7:** el estado vive EN MEMORIA y solo lo
+cambia el evento `connection.update` del socket, que está muerto y no emite. `logout` y
+`delete` le avisan a WhatsApp por ese mismo socket y se caen (`delete` hace `logout` adentro);
+`restart` cierra el socket y llama a `connect`, que ve `open` y devuelve el estado. Son 8
+rutas de instancia y ninguna la saca de `open`. Lo único que la libera es reiniciar el
+servidor de Evolution, y desde el repo no hay acceso a Railway.
+
+**El diagnóstico obvio era el equivocado:** «Evolution tarda en soltar la sesión: hay que
+esperar más o reintentar». El código esperaba 1,5 s y reintentaba. No era el tiempo: el
+`logout` devolvía **500** y nadie leía la respuesta.
+
+**La salida:** una línea NUEVA (`mako_superadmin_<sufijo>`), que no pasa por el socket
+muerto. La instancia vigente del canal vive en el setting `mako.canal.instancia`, y lo que
+antes comparaba contra el nombre fijo ahora pregunta `instanciaCanal()`:
+
+- el webhook reconoce SOLO la vigente. Con el nombre fijo la línea nueva quedaba sorda, y si
+  la vieja revive tras un reinicio de Evolution las dos contestarían el mismo mensaje;
+- la voz se muda en el servidor al llegar el `connection.update` `open`, no solo desde el
+  panel abierto;
+- el orden sigue siendo: QR directo → sondeo (`vivo` y `sin_respuesta` no tocan nada) →
+  `logout` leyendo su resultado → recién si no suelta, línea nueva. Nunca `delete`.
+
+**La regla que queda: la salida de un estado trabado no puede pasar por lo que está
+trabado.** Es la de la alarma que no viaja por el canal caído, vista del otro lado: si soltar
+la sesión exige hablarle al socket muerto, soltarla no es un camino.
+
+#### Lo que quedó SIN hacer
+
+- **La instancia vieja sigue en Evolution**, trabada en `open`, hasta que se reinicie el
+  servidor. Conviene sacar ese dispositivo desde el teléfono de MaKo (*Dispositivos
+  vinculados*) para que no reviva con las credenciales viejas.
+- **Las instancias de los CLIENTES tienen la misma trampa** y no tienen la rotación:
+  `conectar()` en `lib/evolution.ts` devuelve `qr.base64: null` sobre una `mako_ws<id>`
+  zombi. Su nombre está atado a `evolution_instancias`, así que rotarla no es copiar esto.
+- **Nadie limpia las instancias rotadas** que queden huérfanas en Evolution.

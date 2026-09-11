@@ -864,6 +864,22 @@ creía que había funcionado.**
 - Y **traducí ese estado a una frase**, no lo pases crudo: `403` no le dice nada a nadie
   (ver `RESULTADO_PARTICIPANTE` en `lib/mako-grupo.ts`).
 
+# La salida de un estado trabado no puede pasar por lo que está trabado
+
+La línea de voz de MaKo quedó con el socket muerto y Evolution diciendo `open`. Para
+volver a dar un QR había que soltar la sesión, y `logout`, `delete` y `restart` **le
+hablan a WhatsApp por ese mismo socket**: los tres fallan o no hacen nada, y ninguna
+ruta de la API la saca de `open` (medido el 11/09/2026). El código hacía `logout`,
+**no leía el 500**, esperaba 1,5 s y le decía al dueño «reintenta». Iba a fallar siempre.
+
+- Antes de dar por buena una recuperación, preguntá **por dónde pasa**. Si depende del
+  componente que se rompió, no es una salida: buscá una que no lo toque (acá, una
+  instancia nueva, `conectarCanalMaKo` en `lib/mako-canal.ts`).
+- El resultado de cada paso de la recuperación **se lee**. Un paso que se da por hecho
+  convierte un callejón sin salida en un «reintenta en unos segundos».
+- Es la regla de la alarma que no viaja por el canal caído (`lib/canal-vigilante.ts`),
+  vista del otro lado.
+
 # Un mensaje de error dice DE QUIÉN fue y QUÉ HACER, o no sirve
 
 Cuando algo falla del lado del usuario —su cuota, su credencial, su configuración—
