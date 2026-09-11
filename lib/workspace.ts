@@ -91,7 +91,7 @@ const TENANT_TABLES = new Set<string>([
   // aunque sólo la escriban acciones con sesión: el scope no se decide por quién
   // escribe hoy, sino por de quién son las filas.
   'objectives', 'kpis', 'kpi_registros',
-  'identidades_fiscales', 'lead_insights', 'lead_respuestas', 'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_buffer', 'mako_doer_conv', 'mako_doer_lock', 'mako_knowledge', 'meta_health_history', 'nutricion_envios', 'nutricion_inscripciones', 'nutricion_secuencias', 'pagos',
+  'identidades_fiscales', 'lead_insights', 'lead_respuestas', 'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_buffer', 'mako_doer_conv', 'mako_doer_lock', 'mako_knowledge', 'meta_campaign_drafts', 'meta_health_history', 'nutricion_envios', 'nutricion_inscripciones', 'nutricion_secuencias', 'pagos',
   'pipeline_stages', 'plan_dependencias', 'plan_propuestas', 'plan_reprios', 'propuestas', 'plan_proyectos', 'plan_tareas', 'productos', 'retros', 'review_queue', 'script_analyses', 'script_drafts', 'service_incidents', 'setting_audios',
   'tarea_categorias', 'vsl_events', 'wa_bloqueados', 'wa_borradores', 'wa_mensajes', 'wa_ocultos', 'whatsapp_template_drafts', 'workspace_telefonos',
   // Canal Instagram vía Zernio (mig 0136). zernio_workspace es el mapeo

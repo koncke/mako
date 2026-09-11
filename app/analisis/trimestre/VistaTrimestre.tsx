@@ -159,7 +159,7 @@ export function VistaTrimestre() {
         />
         <span>
           pesos mexicanos por dólar. Meta cobra en pesos y los contratos se firman en dólares;
-          cambiá el número y se recalcula el informe entero, incluidas las cifras de los párrafos.
+          cambia el número y se recalcula el informe entero, incluidas las cifras de los párrafos.
         </span>
       </div>
 
@@ -562,7 +562,7 @@ export function VistaTrimestre() {
           <li style={{ maxWidth: '78ch' }}>
             <b>No hay etapa de presupuesto en el sistema.</b> El pipeline va de agenda J1 a agenda
             J2 a facturando a ganado, y en la metodología la propuesta se presenta en la Junta 2.
-            Por eso «presupuestos» se lee acá como Junta 2 realizada. La
+            Por eso «presupuestos» se lee aquí como Junta 2 realizada. La
             tabla <Mono>propuestas</Mono> no sirve para esto: es la cola de acciones sugeridas por
             el agente de MaKo y sus 15 registros de agosto son pruebas.
           </li>

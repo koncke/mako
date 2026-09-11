@@ -14,8 +14,21 @@
 
 import type { NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
-import { getAdsetForAdd, addAdToAdset, metaErrorEnvelope } from '@/lib/meta-ads-create';
+import { getAdsetForAdd, addAdToAdset, metaErrorEnvelope, appDelToken } from '@/lib/meta-ads-create';
+import { explicarRechazoPublicacion, SUB_APP_EN_DESARROLLO } from '@/lib/meta-publicar-errores';
+
+/**
+ * El rechazo de Meta explicado (lib/meta-publicar-errores.ts): la misma traducción que
+ * campaign-create. Agregar anuncios a una campaña existente choca con los mismos tres
+ * rechazos — post de otra página, app del token en modo desarrollo, ganador sin formulario.
+ */
+async function mensajeDe(env: { message: string; error_subcode?: number }, creativos: Array<{ source?: string } | undefined>): Promise<string> {
+  const app = env.error_subcode === SUB_APP_EN_DESARROLLO ? await appDelToken().catch(() => null) : null;
+  const reusaGanador = creativos.some((c) => c?.source === 'existing');
+  return explicarRechazoPublicacion(env.error_subcode, { app, reusaGanador }) ?? env.message;
+}
 import { guardAdsWs } from '@/lib/ads-guard';
+import { getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 import type { Creative } from '@/lib/campaign-types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -72,8 +85,8 @@ export async function POST(req: NextRequest) {
       return Response.json({ ok: true, ...r });
     } catch (err) {
       const env = metaErrorEnvelope(err);
-      console.error(`[ads-manager:ad-add POST] ${env.message}`);
-      return Response.json({ ok: false, error: env.message, code: env.code, error_subcode: env.error_subcode }, { status: env.status });
+      console.error(`[ads-manager:ad-add POST] ${env.message} (subcode ${env.error_subcode ?? '-'})`);
+      return Response.json({ ok: false, error: await mensajeDe(env, [body.creative]), code: env.code, error_subcode: env.error_subcode }, { status: env.status });
     }
   }
 
@@ -92,10 +105,16 @@ export async function POST(req: NextRequest) {
   // acá solo se anota QUÉ anuncios le agregó MaKo, vinculados por meta_campaign_id.
   let supabase: SupabaseClient | null = null;
   try { supabase = getSupabaseServer(); } catch { supabase = null; }
+// ⚠️ meta_campaign_drafts es POR CLIENTE (mig 0157) y la columna no tiene default a
+// propósito: se escribe el workspace explícito, el MISMO sobre cuya cuenta de Meta
+// crea lib/meta-ads-create.ts (`getWorkspaceActual() ?? OWNER_WS`). Sin esto el insert
+// falla por not null — y como es best-effort, no quedaría ningún registro.
+  const wsDraft = (await getWorkspaceActual()) ?? OWNER_WS;
   let draftId: number | null = null;
   if (supabase) {
     try {
       const { data } = await supabase.from('meta_campaign_drafts').insert({
+        workspace_id: wsDraft,
         name: `${(body.campaign_name ?? '').trim() || 'Campaña existente'} — +${ads.length} anuncio${ads.length === 1 ? '' : 's'}`,
         status: 'creando',
         // objective real de la campaña destino (si el cliente lo sabe); si no, el default de la tabla
@@ -109,7 +128,7 @@ export async function POST(req: NextRequest) {
   }
   const persist = async (patch: Record<string, unknown>) => {
     if (!supabase || draftId == null) return;
-    try { await supabase.from('meta_campaign_drafts').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', draftId); } catch { /* noop */ }
+    try { await supabase.from('meta_campaign_drafts').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', draftId).eq('workspace_id', wsDraft); } catch { /* noop */ }
   };
 
   const ad_ids: string[] = [];
@@ -126,10 +145,11 @@ export async function POST(req: NextRequest) {
     return Response.json({ ok: true, ad_ids, creative_ids });
   } catch (err) {
     const env = metaErrorEnvelope(err);
-    await persist({ status: 'error', error: `${env.message} (creados ${ad_ids.length}/${ads.length})` });
+    const mensaje = await mensajeDe(env, ads.map((a) => a.creative as { source?: string } | undefined));
+    await persist({ status: 'error', error: `${mensaje} (creados ${ad_ids.length}/${ads.length})` });
     console.error(`[ads-manager:ad-add POST lote] ${env.message} (creados ${ad_ids.length}/${ads.length})`);
     return Response.json(
-      { ok: false, error: env.message, code: env.code, error_subcode: env.error_subcode, created: ad_ids.length, ad_ids, creative_ids },
+      { ok: false, error: mensaje, code: env.code, error_subcode: env.error_subcode, created: ad_ids.length, ad_ids, creative_ids },
       { status: env.status },
     );
   }

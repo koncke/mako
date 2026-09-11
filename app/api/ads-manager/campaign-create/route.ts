@@ -17,6 +17,7 @@ import { explicarRechazoPublicacion, SUB_APP_EN_DESARROLLO } from '@/lib/meta-pu
 import { type CampaignSpec, objetivoDef } from '@/lib/campaign-types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { guardAdsWs } from '@/lib/ads-guard';
+import { getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -61,10 +62,16 @@ export async function POST(req: NextRequest) {
   // Registro local (best-effort): si la DB no está, igual creamos en Meta.
   let supabase: SupabaseClient | null = null;
   try { supabase = getSupabaseServer(); } catch { supabase = null; }
+// ⚠️ meta_campaign_drafts es POR CLIENTE (mig 0157) y la columna no tiene default a
+// propósito: se escribe el workspace explícito, el MISMO sobre cuya cuenta de Meta
+// crea lib/meta-ads-create.ts (`getWorkspaceActual() ?? OWNER_WS`). Sin esto el insert
+// falla por not null — y como es best-effort, no quedaría ningún registro.
+  const wsDraft = (await getWorkspaceActual()) ?? OWNER_WS;
   let draftId: number | null = null;
   if (supabase) {
     try {
       const { data } = await supabase.from('meta_campaign_drafts').insert({
+        workspace_id: wsDraft,
         name: spec.name, objective: spec.objective, status: 'creando',
         spec, rationale: spec.rationale ?? null, prompt: body.prompt ?? null, uso: body.uso ?? null,
       }).select('id').single();
@@ -73,7 +80,7 @@ export async function POST(req: NextRequest) {
   }
   const persist = async (patch: Record<string, unknown>) => {
     if (!supabase || draftId == null) return;
-    try { await supabase.from('meta_campaign_drafts').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', draftId); } catch { /* noop */ }
+    try { await supabase.from('meta_campaign_drafts').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', draftId).eq('workspace_id', wsDraft); } catch { /* noop */ }
   };
 
   let campaignId: string | null = null;

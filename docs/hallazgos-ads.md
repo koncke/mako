@@ -1675,3 +1675,23 @@ byte a byte el de antes.
 - «Agregar conjunto» y «Subir creativos a una campaña» siguen con la página de la credencial.
 - Un ganador reusado sale con la página de SU post, no con la elegida (reusar un post es
   publicar ese post).
+
+## `meta_campaign_drafts`: aplicada, y por cliente (11/09)
+
+La 0045 definía la tabla del registro de publicaciones **sin `workspace_id`** y nunca se aplicó
+(`to_regclass` daba null). Aplicarla tal cual habría mezclado las campañas de todos los clientes.
+Se aplicó la **0157**, que la crea con `workspace_id not null` **sin default**: la plantilla de
+migraciones pone `default 1`, pero el 1 es Mauricio, y un insert que se olvide del workspace le
+habría atribuido a él la campaña de otro cliente. Verificado en la base: un insert sin
+`workspace_id` se rechaza.
+
+`campaign-create` y `ad-add` escriben el workspace explícito (`getWorkspaceActual() ?? OWNER_WS`,
+el mismo sobre el que `meta-ads-create` crea la campaña), el `update` filtra por él, y la tabla
+entró en `TENANT_TABLES`. Ojo con el proxy de `getTenantDb`: estampa `-1` cuando no hay workspace
+actual (el admin de agencia sin impersonar), así que para esta tabla NO alcanzaba con usarlo.
+
+`ad-add` («Subir creativos a una campaña») también explica ahora los rechazos de Meta.
+
+**Vive en:** `supabase/migrations/0157_meta_campaign_drafts_workspace.sql` ·
+`app/api/ads-manager/campaign-create/route.ts` · `app/api/ads-manager/ad-add/route.ts` ·
+`lib/workspace.ts` · `tests/meta-campaign-drafts-workspace.test.ts`.
