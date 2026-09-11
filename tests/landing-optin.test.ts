@@ -1040,8 +1040,30 @@ test('un play AUTOMÁTICO no cuenta como que alguien reprodujo', () => {
   // Panda el player vive en un iframe de otro dominio que no se puede inspeccionar.
   assert.ok(/huboInteraccion = false/.test(lib), 'falta la marca de que alguien tocó la página');
   assert.ok(/\['pointerdown', 'keydown', 'touchstart', 'wheel'\]/.test(lib), 'la interacción se detecta con muy pocas señales');
-  // Los DOS players lo mandan, o la mitad de los clientes mediría distinto que la otra.
-  assert.equal((lib.match(/auto: !huboInteraccion/g) ?? []).length, 2, 'los dos players tienen que marcar el autoplay');
+  // ⚠️ LO MANDAN TODOS LOS PLAYERS, y el número exacto no es el invariante. Este
+  // test contaba DOS apariciones de `auto: !huboInteraccion`, y eso se rompió al
+  // sumar los players alojados afuera (v16): con un iframe de otro dominio el clic
+  // NO llega como pointerdown, así que uno usa el `source` que manda su propio
+  // reproductor y el otro el foco del iframe. Contar una forma de escribirlo
+  // obligaba a elegir entre el número mágico y medir peor.
+  //
+  // El invariante es: cada play que se emite viaja con su `auto`, y ese `auto` se
+  // deriva de la interacción previa. Así entra cualquier player nuevo sin tocar el
+  // test, y sigue fallando si alguien emite un play mudo.
+  //
+  // Probado rompiéndolo (11/09/2026): al sacarle el `auto:` a la emisión de play de
+  // Wistia, falla con «hay 7 emisiones de play y 6 marcas de autoplay»; restaurado,
+  // vuelve a 63/63. O sea que cubre el caso de un player nuevo que se olvida de
+  // marcar el autoplay, que es lo que pasaría al sumar el próximo host.
+  const plays = (lib.match(/tipo_evento: 'play'/g) ?? []).length;
+  const autos = lib.match(/auto: !\(?huboInteraccion[^,]*/g) ?? [];
+  assert.equal(
+    autos.length, plays,
+    `hay ${plays} emisiones de play y ${autos.length} marcas de autoplay: cada play tiene que decir si lo pidió alguien`,
+  );
+  // Y que no se vacíe sin que nadie lo note: si mañana quedan menos players que
+  // los que había al escribir esto, el test dejó de cubrir lo que cree cubrir.
+  assert.ok(plays >= 7, `solo hay ${plays} emisiones de play: si se quitó un player, revisá qué dejó de medirse`);
   // Y el chequeo se parte en dos: uno detecta el player (mitad técnica), el otro
   // pregunta si alguien quiso ver. Solo el segundo pinta verde.
   assert.ok(/const hayPlayManual = eventos\.some\(\(e\) => e\.tipo === 'play' && !e\.auto\)/.test(lib), 'el chequeo no distingue el play a mano');

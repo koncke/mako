@@ -91,7 +91,7 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *       vende por llamada terminaba en «vio el video»; sin lo segundo, «vio 3
  *       minutos» no distinguía a quien miraba de quien lo dejó corriendo.
  */
-export const SNIPPET_VERSION = 15;
+export const SNIPPET_VERSION = 16;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
@@ -121,6 +121,7 @@ export async function snippetDesactualizado(): Promise<{ viejo: boolean; instala
  * andar. Al subir SNIPPET_VERSION, sumá su renglón acá.
  */
 const NOVEDADES: Record<number, string> = {
+  16: 'la medición de los videos que NO están subidos a tu página: Wistia, YouTube y Vimeo. Hasta ahora un VSL alojado ahí no registraba ni una reproducción, y el panel te decía que lo subieras a otro lado; ahora se mide igual, con su curva de retención. Y de los que no se pueden medir —los de Google Drive— al menos queda registrado que la persona los tocó',
   2: 'la captura automática del formulario de tu página: quien lo completa ingresa solo al CRM',
   3: 'una corrección importante: la versión anterior salió sin identificador y dejó de medir y de capturar',
   4: 'la medición de videos cortos: antes, uno de menos de 15 segundos no registraba ningún avance',
@@ -1092,7 +1093,14 @@ export function landingSnippet(token: string, clarityProjectId: string | null = 
   function tituloVsl(id) {
     var f = document.querySelectorAll('iframe');
     for (var i = 0; i < f.length; i++) if (id && (f[i].src || '').indexOf(id) !== -1 && f[i].title) return f[i].title;
-    for (var j = 0; j < f.length; j++) if (/pandavideo/i.test(f[j].src || '') && f[j].title) return f[j].title;
+    // ⚠️ EL NOMBRE DEL PROVEEDOR VA PARTIDO. Escrito entero, este snippet se
+    // delata a si mismo: el analizador de piezas busca esa marca en el JavaScript
+    // propio de la pagina, y toda landing que copie el codigo a un archivo suyo
+    // (como /mako-tracking.js) aparecia con un video que no tiene. Medido el
+    // 11/09/2026 con el analizador real: el snippet servido como archivo daba la
+    // pieza «video de Panda» en una pagina vacia.
+    var MP = 'panda' + 'video';
+    for (var j = 0; j < f.length; j++) if ((f[j].src || '').indexOf(MP) !== -1 && f[j].title) return f[j].title;
     return null;
   }
   // OJO — panda_timeupdate NO trae \`duration\`. Su payload es { message, video,
@@ -1178,7 +1186,18 @@ export function landingSnippet(token: string, clarityProjectId: string | null = 
     for (var i = 0; i < vs.length; i++) {
       var el = vs[i];
       if (el.__mko) continue;   // idempotente: se vuelve a llamar si el DOM cambia
+      // El video que arma el embed inline de «W» lo mide su API (bloque «W», más
+      // abajo). Engancharlo acá también lo contaba DOS veces, con un id interno del
+      // reproductor, una URL blob: que no abre nada y sin el fin de un video con loop.
+      if (esDeW(el)) { el.__mko = true; continue; }
       el.__mko = true;
+      // ⚠️ Un video de luz que aparece ADENTRO de un player que ya se mide por su
+      // host (el bloque de players de más abajo) no se engancha: ese host ya
+      // manda sus eventos, y engancharlo contaba la misma reproducción dos veces
+      // (medido el 11/09/2026 con un host que avisa play y recién después crea
+      // su video). Gana el primero que se registró, igual que entre hosts.
+      for (var pa = el.parentNode; pa && pa.nodeType === 1 && !pa.__mkoH; pa = pa.parentNode) {}
+      if (pa && pa.nodeType === 1) continue;
       (function (el, i) {
         var id = idDeVideo(el, i);
         var e = est(id);
@@ -1242,6 +1261,270 @@ export function landingSnippet(token: string, clarityProjectId: string | null = 
   try {
     new MutationObserver(engancharNativos).observe(document.documentElement, { childList: true, subtree: true });
   } catch (e) {}
+
+  // ── EL REPRODUCTOR COMO ETIQUETA PROPIA (el player nuevo de Wistia) ──────
+  // ⚠️ NI IFRAME, NI postMessage, NI UN ELEMENTO DE VIDEO A LA VISTA. Ese player
+  // es un custom element que guarda su video adentro de un shadow root abierto
+  // (medido el 11/09/2026): document.querySelectorAll no lo encuentra en ningún
+  // momento del ciclo, así que el enganche nativo de arriba no lo mide.
+  //
+  // Los eventos los despacha SOBRE EL ELEMENTO, sin bubbles y sin composed, pero
+  // la fase de CAPTURA pasa por document igual. Un listener por nombre alcanza:
+  // no se recorre el DOM ni ningún shadow root, y agarra también a los players
+  // que se montan después de cargar.
+  //
+  // ⚠️ LÍMITE MEDIDO: si el player vive adentro del shadow root de OTRO
+  // componente, sus eventos no salen de ahí (composed: false) y esto no lo ve.
+  // Un listener puesto en ese shadow root los recibió; el de document, ninguno.
+  //
+  // ⚠️ play y pause se llaman IGUAL que los del video común, y esos también pasan
+  // por acá: sin el filtro por la forma del target, cada play nativo se contaría
+  // dos veces, con dos ids.
+  //
+  // Se lo reconoce por su FORMA (mediaId + percentWatched) y no por el nombre de
+  // la etiqueta: ese nombre es la marca que el analizador de piezas persigue, y
+  // este texto viaja pegado en la página del cliente.
+  function wisHost(t) {
+    try {
+      return (t && typeof t.mediaId === 'string' && t.mediaId && ('percentWatched' in t)) ? t : null;
+    } catch (x) { return null; }
+  }
+  // ⚠️ EL ID SE FIJA LA PRIMERA VEZ QUE SE VE EL ELEMENTO, no se relee en cada
+  // evento. mediaId copia el atributo media-id al instante, pero cambiarle ese
+  // atributo a un player ya cargado NO carga el otro video (medido el 11/09/2026:
+  // 10 s reproduciendo y 8 s en pausa, el mismo contenido con su name y su
+  // duration, y ningún evento de carga). Releerlo le mandaba al id nuevo los
+  // hitos, la escalera, el fin y el título del video que se estaba viendo, sin un
+  // solo play suyo. Si el player sí carga otro media, lo anuncia con api-ready, y
+  // ahí se vuelve a fijar.
+  function wisId(p) {
+    if (!p.__mkoW) p.__mkoW = String(p.mediaId).slice(0, 40);
+    return p.__mkoW;
+  }
+  try {
+    document.addEventListener('api-ready', function (ev) {
+      var p = wisHost(ev.target);
+      if (p) p.__mkoW = String((ev.detail && ev.detail.mediaId) || p.mediaId).slice(0, 40);
+    }, true);
+  } catch (x) {}
+  function wisLeer(p, e) {
+    var t = Number(p.currentTime);
+    if (isFinite(t) && t >= 0) e.segs = t;
+    // duration vale 0 hasta que el player tiene los datos del video (medido): con
+    // el guard > 0 no se divide por cero ni se pisa una duración buena.
+    var d = Number(p.duration);
+    if (d > 0 && isFinite(d)) {
+      e.dur = d;
+      e.pct = Math.min(100, Math.round((e.segs / d) * 100));
+    }
+    if (!e.tit && p.name) e.tit = String(p.name).slice(0, 200);
+  }
+  function wisOir(nombre, fn) {
+    try {
+      document.addEventListener(nombre, function (ev) {
+        var p = wisHost(ev.target);
+        if (!p) return;
+        var id = 'w:' + wisId(p);
+        var e = est(id);
+        try { wisLeer(p, e); fn(p, id, e); } catch (err) {}
+      }, true);
+    } catch (x) {}
+  }
+  function wisAvance(p, id, e) {
+    if (e.dur > 0) {
+      var h = Math.floor(e.pct / 5) * 5;
+      if (h >= 5 && !e.hitos[h]) {
+        e.hitos[h] = true;
+        enviar({ tipo_evento: 'p' + h, porcentaje: e.pct, segundos: e.segs, video_id: id, vsl_titulo: e.tit });
+      }
+    }
+    // La escalera corre TAMBIÉN con duración conocida, por lo mismo que en Panda:
+    // en un video de 11 minutos el primer 5% cae a los 35 segundos.
+    for (var k = 0; k < ESCALERA.length; k++) {
+      var s = ESCALERA[k];
+      if (e.segs >= s && !e.seg[s]) {
+        e.seg[s] = true;
+        enviar({ tipo_evento: 's' + s, segundos: e.segs, video_id: id, vsl_titulo: e.tit });
+      }
+    }
+  }
+  wisOir('play', function (p, id, e) {
+    e.wFin = false;
+    if (e.play) {
+      // Igual que el nativo: el play de un video ya arrancado es RETOMAR.
+      enviar({ tipo_evento: 'retoma', porcentaje: e.dur > 0 ? e.pct : null, segundos: e.segs, video_id: id, vsl_titulo: e.tit });
+      return;
+    }
+    e.play = true;
+    // La URL pública del embed: abre sin login, con el título y el video. Sale del
+    // id FIJADO, no del atributo de hoy, por lo mismo que el id.
+    enviar({ tipo_evento: 'play', porcentaje: 0, segundos: 0, video_id: id, vsl_titulo: e.tit, auto: !huboInteraccion, detalle: 'https://fast.' + 'wistia.net/embed/iframe/' + encodeURIComponent(id.slice(2)) });
+  });
+  wisOir('pause', function (p, id, e) {
+    // La pausa que acompaña al fin no es una pausa.
+    if (!e.play || p.ended || p.state === 'ended') return;
+    enviar({ tipo_evento: 'pausa', porcentaje: e.dur > 0 ? e.pct : null, segundos: e.segs, video_id: id, vsl_titulo: e.tit });
+  });
+  wisOir('time-update', wisAvance);
+  // ⚠️ AL TERMINAR DISPARA DOS EVENTOS, end Y ended, en el mismo instante
+  // (medido, también con el final en reset). Se escuchan los dos y la marca por
+  // ciclo deja pasar uno: sin ella, cada final contaba dos veces. El play
+  // siguiente la baja, así que volver a verlo entero vuelve a mandar su fin,
+  // igual que el video común.
+  function wisFin(p, id, e) {
+    if (e.wFin) return;
+    e.wFin = true;
+    // El último tramo antes del fin: el tick que lo lleva al 100% llega DESPUÉS.
+    wisAvance(p, id, e);
+    enviar({ tipo_evento: 'fin', porcentaje: 100, segundos: e.segs, video_id: id, vsl_titulo: e.tit });
+  }
+  wisOir('end', wisFin);
+  wisOir('ended', wisFin);
+
+  // ── PLAYERS QUE SON UN CUSTOM ELEMENT (el video vive en su shadow root) ────
+  // ⚠️ querySelectorAll('video') NO ENTRA A UN SHADOW ROOT, y los eventos del
+  // video de adentro tampoco salen de ahí: play, pause y timeupdate son
+  // composed:false. Un player armado como web component era invisible entero:
+  // ni el enganche por elemento de arriba ni su MutationObserver lo ven (medido
+  // el 11/09/2026: un nodo agregado adentro de un shadow abierto no aparece en
+  // el observer del documento).
+  //
+  // Lo que SÍ sale es lo que el player re-despacha SOBRE SU HOST, que es lo que
+  // hacen los players que imitan la API de un video. Esos eventos no burbujean,
+  // pero un listener de CAPTURA en document los recibe igual, con target = el
+  // host. Medido con dos players reales —uno despacha composed desde adentro y
+  // llega retargeteado al host; el otro despacha directo en el host, composed
+  // false, y al avance lo llama time-update, con guion— y con custom elements
+  // escritos a mano.
+  //
+  // Por qué así y no recorriendo shadow roots: no hay selector para «tiene
+  // shadow root», así que habría que visitar cada elemento, y el observer no ve
+  // lo que cambia adentro de un shadow: habría que re-recorrer en cada mutación.
+  // Esto no recorre nada: seis listeners y una salida en la primera línea.
+  //
+  // ⚠️ Lo que NO re-despacha sigue sin medirse: un shadow CERRADO mudo, y
+  // también un player que despacha sus eventos SOBRE SU VIDEO DE LUZ en vez de
+  // sobre el host (medido con uno real: ahí gana el enganche por elemento, y el
+  // id sale por POSICIÓN si ese video no tiene id ni src).
+  //
+  // ⚠️ ACÁ NO SE NOMBRA NINGÚN PROVEEDOR, por lo mismo que en el bloque de la
+  // agenda: este texto viaja en la página del cliente y el analizador lo lee.
+  var HOSTS = [];
+  function hostDeMedia(t, n) {
+    // Un no-host se recuerda, pero se vuelve a mirar en cada play: un player que
+    // todavía no terminó de armar su API no puede quedar descartado para siempre.
+    if (t.__mkoH || (t.__mkoH === null && n !== 'play')) return t.__mkoH;
+    var tag = String(t.tagName || '').toLowerCase();
+    // API de media en el host: currentTime y duration numéricos, muted booleano
+    // y play(). El muted deja afuera a lo que «reproduce» algo que no es un
+    // video: un visor 3D tiene play, currentTime y duration, y no tiene audio.
+    var ok = tag.indexOf('-') > 0 && typeof t.currentTime === 'number' && typeof t.duration === 'number' &&
+      typeof t.muted === 'boolean' && typeof t.play === 'function';
+    // ⚠️ SIN DOBLE CONTEO, Y EN LAS DOS DIRECCIONES: gana el primero que se
+    // registra. Un envoltorio con un video de luz adentro ya lo mide el enganche
+    // por elemento. Y un host que CONTIENE a otro ya medido, o que está ADENTRO
+    // de uno ya medido, no se registra. Mirar una sola dirección suponía que el
+    // de adentro despacha primero, y no siempre: un envoltorio que avisa el play
+    // ANTES de pedírselo al player de adentro se contaba dos veces (medido el
+    // 11/09/2026: dos plays, dos pausas, dos fines y dos exits por una sola
+    // reproducción). El caso espejo del video de luz —el que aparece DESPUÉS de
+    // que el host se registró— lo corta el enganche por elemento, que no engancha
+    // un video que vive adentro de un host ya medido (ver la PARTE 2).
+    if (ok && t.querySelector('video')) ok = false;
+    for (var i = 0; ok && i < HOSTS.length; i++) if (HOSTS[i] !== t && (t.contains(HOSTS[i]) || HOSTS[i].contains(t))) ok = false;
+    if (!ok) { t.__mkoH = null; return null; }
+    // El id: lo que identifica AL VIDEO (el atributo de id del player), después
+    // el id del elemento, después su src y recién si no hay nada la posición.
+    // Siempre con la etiqueta adelante: dos players pueden usar la misma clave,
+    // y el id tiene que decir de cuál vino.
+    var clave = null;
+    var attrs = ['media-id', 'playback-id', 'video-id', 'asset-id', 'id'];
+    for (var j = 0; !clave && j < attrs.length; j++) clave = t.getAttribute(attrs[j]);
+    var src = typeof t.src === 'string' ? t.src : (t.getAttribute('src') || '');
+    if (src.indexOf('http') !== 0) src = '';
+    if (!clave && src) clave = src.split('//').slice(1).join('//');
+    if (!clave) clave = 'pos' + Array.prototype.indexOf.call(document.getElementsByTagName(tag), t);
+    // La URL para reconocerlo: el archivo si es uno que se abre (una lista de
+    // reproducción adaptativa no se mira en un navegador de escritorio); si no,
+    // la página con el id del video en el fragmento.
+    var h = {
+      id: (tag + ':' + clave).slice(0, 120),
+      url: (src && !/[.](m3u8|mpd)([?#]|$)/i.test(src)) ? src : location.href.split('#')[0] + '#' + tag + ':' + clave
+    };
+    t.__mkoH = h;
+    HOSTS.push(t);
+    return h;
+  }
+  function alEventoDeHost(ev) {
+    var t = ev.target;
+    // El video de luz ya tiene sus listeners: acá se sale en la primera línea.
+    if (!t || t.nodeType !== 1 || t instanceof HTMLMediaElement) return;
+    var n = ev.type;
+    var h = hostDeMedia(t, n);
+    if (!h) return;
+    var id = h.id, e = est(id);
+    if (!e.tit) e.tit = t.getAttribute('title') || t.getAttribute('aria-label') || t.getAttribute('metadata-video-title') || (typeof t.name === 'string' && t.name) || null;
+    if (n === 'play') {
+      // ⚠️ EL MISMO PLAY PUEDE LLEGAR DOS VECES: despachado composed desde adentro
+      // del shadow Y otra vez sobre el host, con el mismo target. Se sigue la
+      // transición pausado → sonando, que es lo único que un video nativo reporta
+      // como play; sin esto el segundo llegaba como un «retoma» falso.
+      if (e.sonando) return;
+      e.sonando = true;
+      e.finH = false;
+      if (e.play) {
+        enviar({ tipo_evento: 'retoma', porcentaje: e.dur > 0 ? e.pct : null, segundos: e.segs, video_id: id, vsl_titulo: e.tit });
+        return;
+      }
+      e.play = true;
+      enviar({ tipo_evento: 'play', porcentaje: 0, segundos: 0, video_id: id, vsl_titulo: e.tit, auto: !huboInteraccion, detalle: h.url.slice(0, 300) });
+      return;
+    }
+    if (n === 'pause') {
+      if (!e.sonando) return;
+      e.sonando = false;
+      // La pausa que dispara el fin no es una pausa (igual que en el nativo).
+      if (t.ended === true || t.state === 'ended' || !e.play) return;
+      enviar({ tipo_evento: 'pausa', porcentaje: e.dur > 0 ? e.pct : null, segundos: e.segs, video_id: id, vsl_titulo: e.tit });
+      return;
+    }
+    if (n === 'ended' || n === 'end') {
+      // ⚠️ Los dos nombres pueden llegar en el MISMO milisegundo: medido con un
+      // player que manda 'end' y 'ended' juntos al terminar. Un fin por
+      // reproducción, y se rearma con el próximo play.
+      e.sonando = false;
+      if (e.finH) return;
+      e.finH = true;
+      enviar({ tipo_evento: 'fin', porcentaje: 100, segundos: e.segs, video_id: id, vsl_titulo: e.tit });
+      return;
+    }
+    // timeupdate o time-update: el avance se LEE del host; el evento solo avisa.
+    e.segs = Number(t.currentTime) || 0;
+    var dur = Number(t.duration);
+    if (dur > 0 && isFinite(dur)) {
+      e.dur = dur;
+      e.pct = Math.min(100, Math.round((e.segs / e.dur) * 100));
+      var hh = Math.floor(e.pct / 5) * 5;
+      if (hh >= 5 && !e.hitos[hh]) {
+        e.hitos[hh] = true;
+        enviar({ tipo_evento: 'p' + hh, porcentaje: e.pct, segundos: e.segs, video_id: id, vsl_titulo: e.tit });
+      }
+      return;
+    }
+    for (var k = 0; k < ESCALERA.length; k++) {
+      var s = ESCALERA[k];
+      if (e.segs >= s && !e.seg[s]) {
+        e.seg[s] = true;
+        enviar({ tipo_evento: 's' + s, segundos: e.segs, video_id: id, vsl_titulo: e.tit });
+      }
+    }
+  }
+  // Los dos nombres del avance y los dos del fin: hay players que los escriben
+  // distinto. Un nombre de más no duplica nada: el play y la pausa siguen la
+  // transición, el fin se manda una vez por reproducción y los hitos una vez.
+  ['play', 'pause', 'ended', 'end', 'timeupdate', 'time-update'].forEach(function (n) {
+    try { document.addEventListener(n, alEventoDeHost, true); } catch (err) {}
+  });
 
   window.addEventListener('message', function (ev) {
     var d = ev.data;
@@ -1323,6 +1606,548 @@ export function landingSnippet(token: string, clarityProjectId: string | null = 
     }
   });
 
+  // ── YOUTUBE (iframe) ──────────────────────────────────────────────────────
+  // ⚠️ UN IFRAME DE YOUTUBE NO LE DICE NADA A LA PAGINA SI NO SE LO PIDEN, Y SIN
+  // enablejsapi=1 EN SU DIRECCION NO LO DICE NUNCA. Medido el 11/09/2026 con el
+  // codigo que hoy da YouTube para pegar (/embed/ID?si=…) y tambien con el que
+  // pega una landing a mano (/embed/ID?rel=0): cero mensajes durante la carga,
+  // doce pedidos de escucha, el play, la pausa y la retoma. El mismo player con
+  // enablejsapi=1 contesta al primer pedido y manda estado, segundos, duracion y
+  // titulo cada ~266 ms. Por eso el snippet le agrega ese parametro — solo a los
+  // iframes que NO lo traian — y lo hace apenas aparecen, que es el unico momento
+  // en que nadie pudo haberles dado play: cambiar la direccion recarga el iframe,
+  // y reproduciendo, el video vuelve al principio.
+  //
+  // ⚠️ AL QUE YA TRAIA enablejsapi=1 NO SE LE PIDE NADA: SOLO SE LO ESCUCHA. Ese
+  // parametro lo pone quien usa la API del player, y un pedido de escucha nuestro
+  // le rompe la suya en las dos direcciones (medido): si llega despues del suyo,
+  // el player pasa a hablarle a nuestro id y su onStateChange no dispara mas; si
+  // llega antes, su player contesta «ya inicializado», su onReady no dispara nunca
+  // y se queda sin metodos. Lo que el player le manda a esa API pasa igual por
+  // esta ventana, asi que leerlo alcanza.
+  //
+  // El id va con prefijo (yt:) para que no se confunda con uno de Panda o de un
+  // video propio, y el detalle es la direccion de ver el video, no la del embed:
+  // es la que se abre, y no es una marca que busque el analizador de piezas.
+  var YTS = [];
+  var YT_EMBED = /^https?:\\/\\/(www\\.)?youtube(-nocookie)?\\.com\\/embed\\/([A-Za-z0-9_-]{6,20})/;
+  var YT_ORIGEN = /^https:\\/\\/(www\\.)?youtube(-nocookie)?\\.com$/;
+  var YT_ID = 'mko-yt';
+  // Los iframes que ya estaban cuando arranco el snippet se parchan solo si
+  // arranco en los primeros segundos y el foco no esta adentro de ese iframe. Si
+  // el snippet llego tarde, recargar puede cortarle el video a alguien: se deja.
+  var ytTemprano = !(window.performance && performance.now) || performance.now() < 10000;
+
+  function ytOir(y) {
+    if (y.pasivo) return;
+    if (y.timer) clearInterval(y.timer);
+    y.vivo = false;
+    var intentos = 0;
+    y.timer = setInterval(function () {
+      if (y.vivo || ++intentos > 60) { clearInterval(y.timer); y.timer = null; return; }
+      try { y.f.contentWindow.postMessage('{"event":"listening","id":"' + YT_ID + '","channel":"widget"}', '*'); } catch (err) {}
+    }, 250);
+  }
+
+  // ⚠️ SI APARECE OTRA API EN LA MISMA PAGINA, SE LE DEVUELVE EL PLAYER. Que el
+  // iframe no trajera enablejsapi=1 no garantiza que nadie vaya a usar la API
+  // despues: el disparador de video de un gestor de etiquetas le agrega ese
+  // parametro el mismo y engancha su player cuando su contenedor carga, o sea
+  // varios segundos despues que el snippet — y si el snippet ya lo parcho, el
+  // ajeno ni recarga: engancha sobre un player ya inicializado, el player le
+  // contesta «ya inicializado» y esa API queda muerta, sin onReady y sin metodos
+  // (medido). Se reconoce porque el player empieza a contestar con un id que no
+  // es el nuestro. Ahi el snippet deja de pedir para siempre en ese iframe y lo
+  // recarga UNA vez: al recargar, el ajeno vuelve a pedir solo —su propio
+  // listener de load reinicia el sondeo— y esta vez el player le contesta a el,
+  // mientras el snippet sigue midiendo en pasivo lo mismo que le llega a esa API.
+  // Lo que NO se recarga es un video que esta reproduciendo: cortarle el video a
+  // alguien es peor que dejar sin metodos a una API que ya arranco mal.
+  function ytCeder(y) {
+    if (y.pasivo) return;
+    y.pasivo = true;
+    if (y.timer) { clearInterval(y.timer); y.timer = null; }
+    if (y.recargado || y.estado === 1) return;
+    y.recargado = true;
+    try { y.f.src = y.f.src; } catch (err) {}
+  }
+
+  function ytRevisar(f, puedeParchar) {
+    var src = f.src || '';
+    var m = YT_EMBED.exec(src);
+    if (!m) return;
+    var tiene = /[?&]enablejsapi=1(&|#|$)/.test(src);
+    var y = f.__mkoY;
+    if (!y) {
+      y = f.__mkoY = { f: f, estado: null, cual: null, vivo: false, timer: null, pasivo: tiene, recargado: false };
+      YTS.push(y);
+    }
+    y.vid = m[3] === 'videoseries' ? null : m[3];
+    if (!tiene) {
+      if (!puedeParchar) return;
+      var i = src.indexOf('#');
+      var base = i >= 0 ? src.slice(0, i) : src;
+      base = base.replace(/([?&])enablejsapi=[^&]*(&|$)/, '$1').replace(/[?&]$/, '');
+      y.pasivo = false;
+      f.src = base + (base.indexOf('?') >= 0 ? '&' : '?') + 'enablejsapi=1' + (i >= 0 ? src.slice(i) : '');
+      return;
+    }
+    ytOir(y);
+  }
+
+  function ytEnganchar(f, puedeParchar) {
+    if (f.__mkoI) return;
+    f.__mkoI = true;
+    // Si la pagina le cambia el video al mismo iframe (React lo hace al cambiar
+    // una prop), el src vuelve sin el parametro: se lo vuelve a poner en la misma
+    // tarea, y medido con React eso es UNA carga, no dos.
+    try { new MutationObserver(function () { ytRevisar(f, true); }).observe(f, { attributes: true, attributeFilter: ['src'] }); } catch (err) {}
+    try { f.addEventListener('load', function () { if (f.__mkoY && YT_EMBED.test(f.src || '')) ytOir(f.__mkoY); }); } catch (err) {}
+    ytRevisar(f, puedeParchar);
+  }
+
+  function ytBuscar(nodo) {
+    if (!nodo) return;
+    if (nodo.nodeName === 'IFRAME') { ytEnganchar(nodo, true); return; }
+    if (!nodo.getElementsByTagName) return;
+    var l = nodo.getElementsByTagName('iframe');
+    for (var i = 0; i < l.length; i++) ytEnganchar(l[i], true);
+  }
+
+  function ytAvance(e, id) {
+    if (e.dur > 0) {
+      e.pct = Math.min(100, Math.round((e.segs / e.dur) * 100));
+      var h = Math.floor(e.pct / 5) * 5;
+      if (h >= 5 && !e.hitos[h]) {
+        e.hitos[h] = true;
+        enviar({ tipo_evento: 'p' + h, porcentaje: e.pct, segundos: e.segs, video_id: id, vsl_titulo: e.tit });
+      }
+    }
+    // La escalera corre TAMBIEN con duracion conocida, por la misma razon que en
+    // Panda: en un video largo el primer 5% llega tarde.
+    for (var k = 0; k < ESCALERA.length; k++) {
+      var s = ESCALERA[k];
+      if (e.segs >= s && !e.seg[s]) {
+        e.seg[s] = true;
+        enviar({ tipo_evento: 's' + s, segundos: e.segs, video_id: id, vsl_titulo: e.tit });
+      }
+    }
+  }
+
+  // Estados del player: -1 sin empezar, 0 terminado, 1 reproduciendo, 2 pausado,
+  // 3 cargando, 5 listo. Solo cuentan los cambios: 1 despues de 3 es la carga
+  // que termino, no una retoma.
+  function ytEstado(e, id, s) {
+    if (s === 1) {
+      if (!e.play) {
+        e.play = true;
+        e.pausado = false;
+        enviar({ tipo_evento: 'play', porcentaje: 0, segundos: 0, video_id: id, vsl_titulo: e.tit, auto: !huboInteraccion, detalle: 'https://www.youtube.com/watch?v=' + id.slice(3) });
+      } else if (e.pausado) {
+        e.pausado = false;
+        enviar({ tipo_evento: 'retoma', porcentaje: e.dur > 0 ? e.pct : null, segundos: e.segs, video_id: id, vsl_titulo: e.tit });
+      }
+      return;
+    }
+    if (!e.play) return;
+    // Al terminar el player NO pasa por pausado (medido: 1 y despues 0), asi que
+    // no hay una pausa falsa que descartar como con el video nativo.
+    if (s === 2 && !e.pausado) {
+      e.pausado = true;
+      enviar({ tipo_evento: 'pausa', porcentaje: e.dur > 0 ? e.pct : null, segundos: e.segs, video_id: id, vsl_titulo: e.tit });
+    } else if (s === 0) {
+      e.pausado = true;
+      // ⚠️ EL ULTIMO SEGUNDO QUE AVISA EL PLAYER NO LLEGA A LA DURACION, asi que
+      // el hito del 100% no salia nunca: medido, un video que YouTube declara de
+      // 95 s termina avisando 94.30 —el 99%— y el ultimo hito que salia era p95.
+      // El video nativo SI lo manda, porque al terminar su currentTime ES la
+      // duracion. Terminar es el 100% por definicion, y la curva de retencion se
+      // arma con los hitos: sin este, ningun video de YouTube llega al ultimo
+      // corte. Sale ANTES del fin, en el mismo orden que en el nativo.
+      if (e.dur > 0 && !e.hitos[100]) {
+        e.hitos[100] = true;
+        e.pct = 100;
+        enviar({ tipo_evento: 'p100', porcentaje: 100, segundos: e.segs, video_id: id, vsl_titulo: e.tit });
+      }
+      enviar({ tipo_evento: 'fin', porcentaje: 100, segundos: e.segs, video_id: id, vsl_titulo: e.tit });
+    }
+  }
+
+  function ytInfo(y, info) {
+    var vd = info.videoData;
+    var vid = (vd && vd.video_id) || y.vid;
+    if (!vid) return;
+    if (vid !== y.cual) { y.cual = vid; y.estado = null; }
+    var id = 'yt:' + vid;
+    var e = est(id);
+    if (vd && vd.title) e.tit = String(vd.title).slice(0, 200);
+    else if (!e.tit) e.tit = y.f.getAttribute('title') || null;
+    if (info.duration > 0) e.dur = info.duration;
+    var hayTiempo = typeof info.currentTime === 'number';
+    if (hayTiempo) e.segs = info.currentTime;
+    var st = typeof info.playerState === 'number' && info.playerState !== y.estado ? info.playerState : null;
+    if (st !== null) y.estado = st;
+    // play antes que el avance; pausa y fin despues, para que salgan con el
+    // porcentaje del ultimo segundo y el p100 no llegue detras del fin.
+    if (st === 1) ytEstado(e, id, st);
+    if (hayTiempo && e.play) ytAvance(e, id);
+    if (st !== null && st !== 1) ytEstado(e, id, st);
+  }
+
+  window.addEventListener('message', function (ev) {
+    if (!YTS.length || typeof ev.data !== 'string' || !YT_ORIGEN.test(ev.origin || '')) return;
+    var y = null;
+    for (var i = 0; i < YTS.length; i++) if (YTS[i].f.contentWindow === ev.source) { y = YTS[i]; break; }
+    if (!y) return;
+    var d;
+    try { d = JSON.parse(ev.data); } catch (err) { return; }
+    if (!d || !d.event) return;
+    y.vivo = true;
+    // El player le contesta al ultimo que le pidio escuchar: un id ajeno es otra
+    // API enganchada al mismo iframe. Ver ytCeder.
+    if (d.id && d.id !== YT_ID) ytCeder(y);
+    if ((d.event === 'initialDelivery' || d.event === 'infoDelivery') && d.info && typeof d.info === 'object') ytInfo(y, d.info);
+  });
+
+  // ⚠️ UN CLIC ADENTRO DE UN IFRAME NO LO VE ESTA PAGINA: el pointerdown cae en el
+  // documento del player. Sin esto, quien entra y aprieta play directo en el video
+  // queda contado como reproduccion automatica. Lo que si llega (medido) es que la
+  // ventana pierde el foco con el iframe como elemento activo, en el mismo clic.
+  window.addEventListener('blur', function () {
+    try { var a = document.activeElement; if (a && a.tagName === 'IFRAME') huboInteraccion = true; } catch (err) {}
+  });
+
+  (function () {
+    var l = document.getElementsByTagName('iframe');
+    for (var i = 0; i < l.length; i++) ytEnganchar(l[i], ytTemprano && document.activeElement !== l[i]);
+  })();
+  try {
+    new MutationObserver(function (recs) {
+      for (var r = 0; r < recs.length; r++) for (var a = 0; a < recs[r].addedNodes.length; a++) ytBuscar(recs[r].addedNodes[a]);
+    }).observe(document.documentElement, { childList: true, subtree: true });
+  } catch (err) {}
+
+  // ── VIMEO (el reproductor en su iframe) ───────────────────────────────────
+  // ⚠️ SIN ESTO, UN VSL EN VIMEO ERA INVISIBLE, y el panel le decía al cliente que
+  // lo subiera a otro lado. El reproductor vive en un iframe de otro dominio: no
+  // emite eventos del DOM hacia esta página, y por su cuenta solo avisa «listo».
+  // Lo que SÍ hace —sin ningún parámetro en el src, y también con el código de
+  // inserción que entrega Vimeo, con su librería al lado— es contestar el
+  // protocolo de su librería oficial: el padre le manda { method:
+  // 'addEventListener', value: 'play' } y desde ahí recibe { event: 'play',
+  // data: { seconds, percent, duration } }. La duración viaja en CADA evento:
+  // acá no pasa lo de Panda.
+  //
+  // ⚠️ SE RECONOCE POR EL ORIGEN DEL MENSAJE, nunca buscando iframes en cada
+  // mutación del DOM. El «listo» llega solo cuando el iframe carga (y llega como
+  // TEXTO JSON, no como objeto: por eso el parse). Al que ya había cargado antes
+  // que este código —un archivo propio que carga tarde— se le manda un ping UNA
+  // vez al arrancar, y contesta con el id de su video. Suscribirse dos veces no
+  // duplica eventos (medido: timeupdate suscripto 3 veces, 12 en 3 s, 12 valores
+  // distintos).
+  //
+  // ⚠️ Y EL DOMINIO NO SE ESCRIBE ENTERO, por lo mismo que el de las agendas: el
+  // analizador de piezas lo busca en el texto de la página.
+  var VIM = [];
+  var VIM_ORIGEN = /^https:\\/\\/(player\\.)?vimeo\\.com$/;
+  var VIM_VIGIA = 0;
+  function vimeoDe(w) {
+    for (var i = 0; i < VIM.length; i++) if (VIM[i].w === w) return VIM[i];
+    var f = document.getElementsByTagName('iframe');
+    for (var j = 0; j < f.length; j++) {
+      if (f[j].contentWindow !== w) continue;
+      var r = { w: w, el: f[j], origen: null, vid: null, tu: 0 };
+      VIM.push(r);
+      return r;
+    }
+    return null;
+  }
+  function vimeoId(r) {
+    var m = /\\/video\\/(\\d+)/.exec(r.el.getAttribute('src') || '');
+    return 'vimeo:' + (m ? m[1] : 'iframe');
+  }
+  // ⚠️ ANTES DE SUSCRIBIRSE SE PREGUNTA SI YA ESTÁ REPRODUCIENDO. Un video que
+  // arrancó solo (autoplay muted) antes de que cargara este código ya mandó su
+  // play, y a nadie: medido el 11/09/2026 con el archivo propio inyectado a los 5
+  // s, llegaron p10, s3 … p35 sin un solo play, la pausa se descartó por «nunca
+  // arrancó» y el retomar salió como play en el segundo 0 estando en el 14. La
+  // pregunta va PRIMERO para que la respuesta llegue antes que cualquier avance.
+  function vimeoSuscribir(r, origen) {
+    var n = ['getPaused', 'play', 'pause', 'ended', 'timeupdate'];
+    for (var i = 0; i < n.length; i++) {
+      try { r.w.postMessage(i ? { method: 'addEventListener', value: n[i] } : { method: n[i] }, origen); } catch (e) {}
+    }
+  }
+  // Dos trabajos, cada 2 s y solo sobre los iframes que ya hablaron (nunca el DOM):
+  //
+  // ⚠️ 1) UN IFRAME QUE SE SACA DE LA PÁGINA NO AVISA NADA. El video nativo
+  // dispara pause al desmontarse; el iframe muere callado. Medido el 11/09/2026
+  // cerrando y reabriendo un modal con el video corriendo: el nativo mandó pausa
+  // y retoma, y el de Vimeo NADA — ni la pausa, ni el retomar del iframe nuevo.
+  // Si el que se fue era el que estaba reproduciendo, se manda la pausa que el
+  // nativo habría mandado, y el próximo play sale como retoma.
+  //
+  // ⚠️ 2) LA PÁGINA NOS PUEDE APAGAR SIN SABERLO. El reproductor guarda UNA
+  // suscripción por evento para toda la página, no una por quien la pidió: si el
+  // código del cliente usa la librería oficial y hace off('timeupdate'), los
+  // avances dejan de llegarnos a nosotros también (medido: 8 en 2 s, 0 en 4 s con
+  // el video corriendo, 8 en 2 s al re-suscribir). Un video que según nosotros
+  // está reproduciendo y lleva 5 s sin avances se vuelve a suscribir.
+  function vimeoVigia() {
+    var ahora = Date.now();
+    for (var i = VIM.length - 1; i >= 0; i--) {
+      var r = VIM[i], e = r.vid ? V[r.vid] : null;
+      var vivo = !!e && e.play && !e.pausado && !e.fin && e.vel === r.el;
+      if (!document.documentElement.contains(r.el)) {
+        if (vivo) {
+          e.pausado = true;
+          enviar({ tipo_evento: 'pausa', porcentaje: e.dur > 0 ? e.pct : null, segundos: e.segs, video_id: r.vid, vsl_titulo: e.tit });
+        }
+        VIM.splice(i, 1);
+        continue;
+      }
+      if (!vivo || !r.origen || ahora - r.tu < 5000) continue;
+      r.tu = ahora;
+      vimeoSuscribir(r, r.origen);
+    }
+  }
+  try {
+    var fv = document.getElementsByTagName('iframe');
+    for (var q = 0; q < fv.length; q++) {
+      var o = /^https:\\/\\/[^\\/]+/.exec(fv[q].src || '');
+      if (o && VIM_ORIGEN.test(o[0])) fv[q].contentWindow.postMessage({ method: 'ping' }, o[0]);
+    }
+  } catch (e) {}
+  window.addEventListener('message', function (ev) {
+    try {
+      if (!VIM_ORIGEN.test(ev.origin || '')) return;
+      var d = ev.data;
+      if (typeof d === 'string') { try { d = JSON.parse(d); } catch (x) { return; } }
+      if (!d || typeof d !== 'object') return;
+      var r = vimeoDe(ev.source);
+      if (!r) return;
+      r.origen = ev.origin;
+      // ⚠️ EL VIDEO SE FIJA EN EL SALUDO, NO EN CADA MENSAJE. Leer el src en cada
+      // evento parecía cubrir al iframe que cambia de video, y hacía lo contrario:
+      // medido el 11/09/2026 cambiando el src de A a B con A en el segundo 10, los
+      // dos últimos avances de A llegaron DESPUÉS del cambio y salieron como p5,
+      // s3, s5 y s8 de B, un video que nadie había reproducido (y con la duración
+      // de A). El id queda fijo desde el ready —o desde lo que el reproductor
+      // contesta al ping, que es el id de SU video— hasta el próximo ready.
+      if (d.event === 'ready' || d.method === 'ping') {
+        r.vid = d.method === 'ping' && /^\\d+$/.test(String(d.value)) ? 'vimeo:' + d.value : vimeoId(r);
+        vimeoSuscribir(r, ev.origin);
+        if (!VIM_VIGIA) VIM_VIGIA = setInterval(vimeoVigia, 2000);
+        return;
+      }
+      var tipo = d.event;
+      if (d.method === 'getPaused') { if (d.value !== false) return; tipo = 'play'; }
+      if (tipo !== 'play' && tipo !== 'pause' && tipo !== 'ended' && tipo !== 'timeupdate') return;
+      if (!r.vid) r.vid = vimeoId(r);
+      var x = d.data || {};
+      var id = r.vid;
+      var e = est(id);
+      // La respuesta a «¿está pausado?» solo sirve para el que todavía no arrancó:
+      // sobre uno ya contado, un «no» viejo se leería como un retomar.
+      if (d.method === 'getPaused' && e.play) return;
+      var antes = e.vel;
+      e.vel = r.el;
+      r.tu = Date.now();
+      if (!e.tit) e.tit = r.el.getAttribute('title') || null;
+      if (x.duration > 0 && isFinite(x.duration)) e.dur = x.duration;
+      // ⚠️ DESPUÉS DEL FINAL, LA POSICIÓN NO SE MUEVE hasta el próximo play. Con
+      // algunos videos el reproductor se rebobina solo y manda una pausa en 0; si
+      // ese cero pisara los segundos, el exit de quien vio el video entero diría
+      // que se fue en el segundo 0.
+      if (!(e.fin && tipo !== 'play') && typeof x.seconds === 'number' && isFinite(x.seconds)) e.segs = x.seconds;
+      if (e.dur > 0) e.pct = Math.min(100, Math.round((e.segs / e.dur) * 100));
+      if (tipo === 'play') {
+        if (!e.play) {
+          e.play = true;
+          // ⚠️ UN CLICK ADENTRO DEL IFRAME NO LLEGA A ESTA PÁGINA: ni pointerdown
+          // ni ninguno de los que marcan huboInteraccion (medido). Lo que sí queda
+          // es el FOCO: el iframe pasa a ser el elemento activo del documento. Se
+          // pregunta por ESTE iframe y no por cualquiera, para que el autoplay de
+          // otro video no se cuente como querido.
+          enviar({ tipo_evento: 'play', porcentaje: 0, segundos: 0, video_id: id, vsl_titulo: e.tit, auto: !(huboInteraccion || document.activeElement === r.el), detalle: (r.el.src || '').slice(0, 300) });
+        } else if (e.pausado || (antes && antes !== r.el && !document.documentElement.contains(antes))) {
+          // El segundo caso es el modal que se cierra y se reabre antes de que
+          // pase el vigía: el iframe que reproducía ya no está, así que esto
+          // también es un retomar.
+          e.pausado = false;
+          e.fin = false;
+          enviar({ tipo_evento: 'retoma', porcentaje: e.dur > 0 ? e.pct : null, segundos: e.segs, video_id: id, vsl_titulo: e.tit });
+        }
+        return;
+      }
+      if (tipo === 'pause') {
+        if (!e.play || e.pausado || e.fin) return;
+        // La pausa que llega JUSTO ANTES de ended (medido: 45 ms antes, con los
+        // segundos ya en la duración) no es una pausa, igual que en el nativo.
+        if (e.dur > 0 && e.dur - e.segs < 0.5) return;
+        e.pausado = true;
+        enviar({ tipo_evento: 'pausa', porcentaje: e.dur > 0 ? e.pct : null, segundos: e.segs, video_id: id, vsl_titulo: e.tit });
+        return;
+      }
+      if (tipo === 'ended') {
+        if (!e.play || e.fin) return;
+        e.fin = true;
+        e.pausado = true;
+        enviar({ tipo_evento: 'fin', porcentaje: 100, segundos: e.segs, video_id: id, vsl_titulo: e.tit });
+        return;
+      }
+      if (e.dur > 0) {
+        var h = Math.floor(e.pct / 5) * 5;
+        if (h >= 5 && !e.hitos[h]) {
+          e.hitos[h] = true;
+          enviar({ tipo_evento: 'p' + h, porcentaje: e.pct, segundos: e.segs, video_id: id, vsl_titulo: e.tit });
+        }
+      }
+      // La escalera corre también con duración conocida, como en Panda y a
+      // diferencia del nativo: con un VSL largo el primer 5% cae tarde.
+      for (var k = 0; k < ESCALERA.length; k++) {
+        var s = ESCALERA[k];
+        if (e.segs >= s && !e.seg[s]) {
+          e.seg[s] = true;
+          enviar({ tipo_evento: 's' + s, segundos: e.segs, video_id: id, vsl_titulo: e.tit });
+        }
+      }
+    } catch (err) {}
+  });
+
+  // ── VIDEOS QUE NO SE PUEDEN MEDIR (iframes de Drive y de YouTube sin API) ──
+  // Medido el 11/09/2026 en Chrome: un iframe de Drive le manda a la página UN
+  // solo mensaje al cargar, igual en todos los archivos y sin ningún dato. Su
+  // reproductor vive un nivel más adentro, configurado para hablar SOLO con
+  // Drive: le llegan los mensajes de la página y no contesta ninguno, y mientras
+  // tanto le manda 110 a Drive. Un YouTube sin enablejsapi recibe el mismo saludo
+  // que uno con enablejsapi=1 y, a diferencia de ese, no contesta ni obedece. No
+  // hay play, pausa ni avance que escuchar, así que acá NO se inventa ninguno: se
+  // dice que el iframe está y, si alguien lo toca, que lo tocó. Los dos eventos
+  // son de la PÁGINA (ver ES_EVENTO_DE_VIDEO): no entran a la retención.
+  //
+  // ⚠️ «drive:» es un ARCHIVO de Drive, no necesariamente un video: un ZIP o un
+  // PDF embebido usan la misma vista previa con el mismo formato de id. Medido con
+  // un ZIP: salía como toque_video. Que sea un video lo confirma el servidor
+  // bajando esa vista previa, que trae el tipo del archivo; desde acá no se puede
+  // saber, y el iframe tampoco lo dice (los frames internos son 2 en un video, 2
+  // en un PDF y 1 en un ZIP).
+  //
+  // La lista es POSITIVA a propósito: un iframe que no está acá no es un video
+  // (la agenda embebida también recibe clicks y no lo es).
+  function videoAjeno(src) {
+    var m = /^(?:https?:)?\\/\\/([^\\/?#]+)([^?#]*)(\\?[^#]*)?/i.exec(src || '');
+    if (!m) return null;
+    var host = m[1].toLowerCase(), ruta = m[2] || '', q = m[3] || '', id, extra;
+    if (/^(drive|docs)\\.google\\.com$/.test(host)) {
+      id = /^\\/file\\/d\\/([\\w-]{10,})/.exec(ruta);
+      if (id) return { id: 'drive:' + id[1], url: 'https://' + host + '/file/d/' + id[1] + '/view' };
+    }
+    if (/(^|\\.)youtube(-nocookie)?\\.com$/.test(host)) {
+      id = /^\\/embed\\/([\\w-]{6,20})/.exec(ruta);
+      // Con enablejsapi=1 el player SÍ le contesta a la página: ese no es de este bloque.
+      if (!id || /[?&]enablejsapi=1/.test(q)) return null;
+      // ⚠️ «videoseries» y «live_stream» NO son ids de video: son la ruta de una
+      // lista y la de un vivo. Tomados como id, dos listas distintas quedaban con
+      // el MISMO identificador (medido: las dos daban videoseries).
+      if (id[1] === 'videoseries') {
+        extra = /[?&]list=([\\w-]+)/.exec(q);
+        return extra ? { id: 'yt:lista:' + extra[1], url: 'https://www.youtube' + '.com/playlist?list=' + extra[1] } : null;
+      }
+      if (id[1] === 'live_stream') {
+        extra = /[?&]channel=([\\w-]+)/.exec(q);
+        return extra ? { id: 'yt:vivo:' + extra[1], url: 'https://www.youtube' + '.com/channel/' + extra[1] + '/live' } : null;
+      }
+      return { id: 'yt:' + id[1], url: 'https://www.youtube' + '.com/watch?v=' + id[1] };
+    }
+    return null;
+  }
+
+  // (1) QUE EXISTE. Una vez por carga, con la lista en el detalle y SIN video_id:
+  // con video_id cada visita sumaría un «evento» a cada video en la pantalla que
+  // los nombra, sin que nadie lo haya tocado.
+  // ⚠️ Barato a propósito: la colección de iframes es VIVA (no se recorre nada
+  // hasta leerla) y el observer solo agenda una revisión; la revisión mira los
+  // iframes de a uno, sin bajar a shadow roots, como mucho cada 1,5 s.
+  var AJENOS = {}, ajenosPend = 0, ajenosEnvios = 0;
+  var IFRS = document.getElementsByTagName('iframe');
+  function revisarAjenos() {
+    ajenosPend = 0;
+    var nuevos = [];
+    for (var i = 0; i < IFRS.length; i++) {
+      var f = IFRS[i], src = f.getAttribute('src') || '';
+      if (!src || f.__mkoSrc === src) continue;
+      f.__mkoSrc = src;
+      var v = videoAjeno(src);
+      if (!v || AJENOS[v.id]) continue;
+      AJENOS[v.id] = v;
+      nuevos.push(v.id);
+    }
+    if (!nuevos.length || ajenosEnvios >= 3) return;
+    ajenosEnvios++;
+    enviar({ tipo_evento: 'video_ajeno', detalle: nuevos.join(' ').slice(0, 300) });
+  }
+  function programarAjenos() { if (!ajenosPend) ajenosPend = setTimeout(revisarAjenos, 1500); }
+  programarAjenos();
+  try {
+    new MutationObserver(programarAjenos).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['src'] });
+  } catch (e) {}
+
+  // (2) QUE LO TOCARON. Un click adentro de un iframe no le llega a la página,
+  // pero le saca el foco: window dispara blur y document.activeElement pasa a ser
+  // ese iframe. NO pasa en el segundo click ni al saltar de un iframe a otro: eso
+  // lo ve un sondeo de 1 s mientras el foco esté adentro de un iframe.
+  // Lo que NO dice: si fue play, pausa o adelantar, ni si el video llegó a
+  // reproducirse — medido el 11/09/2026, con el tope de Drive para visitantes sin
+  // cuenta el click abre la ayuda de Google en otra pestaña y el toque sale igual.
+  // Por eso es UN evento por video por carga, y no una reproducción.
+  // ⚠️ Un iframe adentro de un shadow root ABIERTO deja como activeElement al HOST
+  // del componente, no al iframe: sin bajar por shadowRoot.activeElement, ese
+  // toque no salía y además se apagaba el sondeo (medido).
+  var ultimoTab = 0, focoEn = null, sondeoFoco = 0, TOQUES = {};
+  window.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Tab' || ev.keyCode === 9) ultimoTab = Date.now();
+  }, true);
+  function focoReal() {
+    var a = document.activeElement;
+    try { while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement; } catch (e) {}
+    return a;
+  }
+  function mirarFoco() {
+    var a = focoReal();
+    if (!a || a.tagName !== 'IFRAME') { focoEn = null; return false; }
+    if (a === focoEn) return true;
+    focoEn = a;
+    // ⚠️ El Tab mete el foco en un iframe con el mismo blur que un click: se
+    // descarta. Ese toque se pierde y no hay con qué recuperarlo — medido: un
+    // click DENTRO de un iframe que ya tenía el foco no le da a la página ningún
+    // evento.
+    if (Date.now() - ultimoTab < 1000) return true;
+    var v = videoAjeno(a.getAttribute('src') || '');
+    if (!v || TOQUES[v.id]) return true;
+    TOQUES[v.id] = true;
+    // ⚠️ SIN video_id, igual que el click. Del lado del servidor, toda fila con
+    // video_id cuenta como un video EN JUEGO (videosDe en lib/leads.ts, que no
+    // mira el tipo): con el toque de un testimonio, la duración única del VSL deja
+    // de aplicarse y el avance de esa persona pasa a «—». El id no se pierde:
+    // viaja adentro de la URL del detalle.
+    enviar({ tipo_evento: 'toque_video', detalle: v.url, vsl_titulo: a.getAttribute('title') || null });
+    return true;
+  }
+  function soltarSondeo() { if (sondeoFoco) { clearInterval(sondeoFoco); sondeoFoco = 0; } }
+  window.addEventListener('blur', function () {
+    setTimeout(function () {
+      if (!mirarFoco()) return;
+      if (!sondeoFoco) sondeoFoco = setInterval(function () { if (!mirarFoco()) soltarSondeo(); }, 1000);
+    }, 0);
+  });
+  window.addEventListener('focus', function () {
+    setTimeout(function () {
+      var a = focoReal();
+      if (!a || a.tagName !== 'IFRAME') { focoEn = null; soltarSondeo(); }
+    }, 0);
+  });
+
   // Punto exacto de abandono
   // Un exit POR VIDEO que se haya reproducido. Con el exit único, de dos videos
   // mirados solo quedaba el punto de abandono del último que hubiera hablado.
@@ -1361,6 +2186,10 @@ export function landingSnippet(token: string, clarityProjectId: string | null = 
       if (!el || !el.tagName) return;
       var tag = el.tagName.toUpperCase();
       if (tag !== 'A' && tag !== 'BUTTON' && el.getAttribute('role') !== 'button') return;
+      // Los controles del embed inline de «W» son botones de SU reproductor: apretar
+      // play no es un clic en un llamado a la acción del negocio (medido: el primer
+      // clic, el del botón grande de play, salía como «boton: » vacío).
+      if (esDeW(el)) return;
       var href = el.getAttribute ? (el.getAttribute('href') || '') : '';
       // El DESTINO manda sobre el texto: «Confirmar por WhatsApp» y «Escribinos»
       // pueden ser el mismo link, y lo que se quiere contar es adónde va la gente.
@@ -1479,6 +2308,223 @@ ${bloqueClarity(clarityProjectId)}
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'hidden') alSalir();
   });
+
+  // ── VIDEO DEL REPRODUCTOR «W» (embed clásico e iframe) ────────────────────
+  // «W» es el proveedor de video de la segunda landing del ws13. Su nombre NO se
+  // escribe entero en este snippet, a propósito, por lo mismo que el otro producto
+  // de agendas: este texto viaja pegado en la página del cliente (o copiado a un
+  // archivo propio, como /mako-tracking.js) y el analizador de piezas persigue sus
+  // marcas. Por eso las cadenas se arman concatenando.
+  //
+  // Dos caminos, uno por forma de embeber, y no se pisan:
+  //   1. IFRAME, con o sin el script del proveedor en la página. El iframe le avisa
+  //      al padre SOLO, sin handshake, con un postMessage por cada cosa que pasa:
+  //      un string JSON {"method":"_trigger","args":[nombre, ...]} con "play" (y de
+  //      dónde vino), "pause", "end", "timechange" (segundos) y "transmit-stats"
+  //      (trae media_duration). Medido el 11/09/2026.
+  //   2. EMBED INLINE (el div con la clase del proveedor + su script). Ahí no hay
+  //      iframe ni mensajes: se usa su cola pública _wq, que acepta que la empuje un
+  //      tercero antes o después de que cargue su script (medido las dos cosas).
+  // ⚠️ NO SE CARGA el script del proveedor para el caso 1. Medido: 153 KB más 25 KB
+  // de un Sentry que instala en la página del cliente, 10 globales, una tarea larga
+  // de ~100 ms, y sobre un iframe sin la clase del proveedor ni siquiera se engancha.
+  // Los mensajes del iframe ya traen todo lo que hace falta.
+  //
+  // ⚠️⚠️ Y EL VIDEO PUEDE CAMBIAR SIN QUE CAMBIE EL LUGAR DONDE VIVE. Las dos formas
+  // de hacerlo están medidas (11/09/2026) y las dos dejaban al segundo video sin
+  // medir o medido como el primero: un carrusel que le cambia el src al MISMO
+  // <iframe> (ventana idéntica) y la API del embed inline reemplazando el video en
+  // el mismo reproductor. Por eso la identidad se revisa en cada documento nuevo
+  // (camino 1) y la marca del camino 2 es el id del video y no un booleano.
+  var WN = 'wis' + 'tia';
+  var W_ORIGEN = {};
+  W_ORIGEN['https://fast.' + WN + '.net'] = true;
+  W_ORIGEN['https://fast.' + WN + '.com'] = true;
+  // La URL pública con la que una persona abre ESE video y lo reconoce (contesta
+  // 200 con el nombre del video en el título).
+  function wUrl(mid) { return 'https://fast.' + WN + '.net/embed/' + 'iframe/' + mid; }
+  // ¿Este elemento es del embed inline del proveedor? Lo usan el enganche nativo y
+  // el de clics. Arma su cadena adentro y no usa WN: engancharNativos corre ANTES de
+  // que este bloque se ejecute, y ahí WN todavía vale undefined.
+  function esDeW(el) {
+    var w = 'wis' + 'tia';
+    if (String((el && el.id) || '').indexOf(w + '_') === 0) return true;
+    for (var p = el && el.parentNode, i = 0; p && i < 15; p = p.parentNode, i++) {
+      if (typeof p.className === 'string' && p.className.indexOf(w + '_embed') !== -1) return true;
+    }
+    return false;
+  }
+  function wPlay(vid, e, info, mid) {
+    // ⚠️ Un clic ADENTRO de un iframe de otro dominio no le llega al padre como
+    // pointerdown (medido: pointerdown 0, blur 1), así que con huboInteraccion solo,
+    // una persona que apretó play quedaba como «automático». El reproductor dice de
+    // dónde vino el play: source 'user-event' o 'non-user-event'.
+    var deUsuario = !!(info && info.source === 'user-event');
+    if (!e.play) {
+      e.play = true; e.pausado = false;
+      enviar({ tipo_evento: 'play', porcentaje: 0, segundos: 0, video_id: vid, vsl_titulo: e.tit, auto: !(huboInteraccion || deUsuario), detalle: wUrl(mid).slice(0, 300) });
+      return;
+    }
+    if (e.pausado) {
+      e.pausado = false;
+      enviar({ tipo_evento: 'retoma', porcentaje: e.dur > 0 ? e.pct : null, segundos: e.segs, video_id: vid, vsl_titulo: e.tit });
+    }
+  }
+  function wPausa(vid, e) {
+    if (!e.play || e.pausado || e.fin) return;
+    // Una pausa pegada al final no es una pausa. El reproductor no la manda hoy
+    // (medido), pero si algún día la manda antes del fin, no se cuenta.
+    if (e.dur > 0 && e.dur - e.segs < 0.5) return;
+    e.pausado = true;
+    enviar({ tipo_evento: 'pausa', porcentaje: e.dur > 0 ? e.pct : null, segundos: e.segs, video_id: vid, vsl_titulo: e.tit });
+  }
+  function wFin(vid, e, seDetuvo) {
+    if (!e.play || e.fin) return;
+    e.fin = true;
+    // Darle play de nuevo a un video que terminó es un retomar, igual que en el nativo.
+    if (seDetuvo) e.pausado = true;
+    enviar({ tipo_evento: 'fin', porcentaje: 100, segundos: e.segs, video_id: vid, vsl_titulo: e.tit });
+  }
+  function wTiempo(vid, e, t) {
+    t = Number(t);
+    if (!(t >= 0)) return;
+    // ⚠️ EL FIN CON LOOP NO AVISA. Un video configurado para repetirse vuelve a 0 sin
+    // 'end', sin 'pause' y sin cambiar de estado (medido en el iframe y en la API):
+    // la única huella es el salto del final al principio.
+    if (e.dur > 0 && e.segs >= e.dur - 1.5 && t < 1) wFin(vid, e, false);
+    if (e.fin && e.dur > 0 && t < e.dur - 2) e.fin = false;
+    e.segs = t;
+    if (e.dur > 0) {
+      e.pct = Math.min(100, Math.round((t / e.dur) * 100));
+      var h = Math.floor(e.pct / 5) * 5;
+      if (h >= 5 && !e.hitos[h]) {
+        e.hitos[h] = true;
+        enviar({ tipo_evento: 'p' + h, porcentaje: e.pct, segundos: t, video_id: vid, vsl_titulo: e.tit });
+      }
+    }
+    // La escalera corre también con duración, por lo mismo que en Panda: con un VSL
+    // de 11 minutos el primer 5% cae a los 35 segundos.
+    for (var i = 0; i < ESCALERA.length; i++) {
+      var s = ESCALERA[i];
+      if (t >= s && !e.seg[s]) {
+        e.seg[s] = true;
+        enviar({ tipo_evento: 's' + s, segundos: t, video_id: vid, vsl_titulo: e.tit });
+      }
+    }
+  }
+
+  // Camino 1: los mensajes del iframe. Qué iframe mandó cada uno se resuelve UNA vez
+  // por documento y queda en W_IFR: no se recorre el DOM por mensaje.
+  var W_IFR = [];
+  // ⚠️ LA VENTANA NO ALCANZA PARA IDENTIFICAR AL VIDEO. Un carrusel que le cambia el
+  // src al MISMO <iframe> —lo que hace React cuando solo cambia esa prop— deja el
+  // contentWindow idéntico (medido: mismaVentana true). Atando la caché solo a la
+  // ventana, todo lo del segundo video salía con el id, el título y la duración del
+  // primero: su play se perdía entero, su pausa se contaba como pausa del primero y
+  // sus 44 segundos se medían contra una duración de 31. Se olvida lo sabido cuando
+  // el reproductor anuncia documento nuevo, y en cada play se revisa el src.
+  function wOlvidar(w) {
+    for (var i = 0; i < W_IFR.length; i++) {
+      if (W_IFR[i].w !== w) continue;
+      // Lo que se estaba mirando ahí se detuvo: si ese mismo video vuelve, es un retomar.
+      var ea = est(WN + ':' + W_IFR[i].mid);
+      if (ea.play && !ea.fin) ea.pausado = true;
+      W_IFR.splice(i, 1);
+      return;
+    }
+  }
+  function wIframe(w, verificar) {
+    for (var i = 0; i < W_IFR.length; i++) {
+      if (W_IFR[i].w !== w) continue;
+      if (verificar && W_IFR[i].f && W_IFR[i].f.src !== W_IFR[i].src) { wOlvidar(w); break; }
+      return W_IFR[i];
+    }
+    var f = document.getElementsByTagName('iframe');
+    for (var j = 0; j < f.length; j++) {
+      if (f[j].contentWindow !== w) continue;
+      // .../embed/iframe/<id>?... : el id es lo que sigue al tipo de embed.
+      var dir = String(f[j].src || '');
+      var trozos = dir.split('?')[0].split('#')[0].split('/embed/');
+      var partes = trozos.length > 1 ? trozos[1].split('/') : [];
+      var it = { w: w, f: f[j], src: dir, mid: partes[1] || ('iframe' + j), tit: f[j].getAttribute('title') || null };
+      W_IFR.push(it);
+      return it;
+    }
+    return null;
+  }
+  window.addEventListener('message', function (ev) {
+    try {
+      // El origen se compara ENTERO: un prefijo deja pasar a cualquier dominio que empiece igual.
+      if (!W_ORIGEN[ev.origin]) return;
+      var d = ev.data;
+      if (typeof d !== 'string') return;
+      // El primer mensaje de CADA documento del reproductor, y lo único que avisa que
+      // ese iframe cambió de video. Medido: llega 144 ms después de cambiarle el src
+      // y ningún mensaje del documento anterior llega después de él.
+      if (d === 'new-' + WN + '-iframe') { wOlvidar(ev.source); return; }
+      if (d.indexOf('_trigger') === -1) return;
+      var m = JSON.parse(d);
+      var n = m && m.method === '_trigger' && m.args ? m.args[0] : null;
+      if (n !== 'play' && n !== 'pause' && n !== 'end' && n !== 'timechange' && n !== 'transmit-stats') return;
+      // En el play se vuelve a mirar el src del iframe: un play no puede venir de un
+      // documento que se está yendo, así que ahí la comprobación no confunde a los dos.
+      var it = wIframe(ev.source, n === 'play');
+      if (!it) return;
+      var vid = WN + ':' + it.mid, e = est(vid);
+      if (!e.tit && it.tit) e.tit = it.tit;
+      if (n === 'transmit-stats') {
+        if (e.dur > 0 && (e.tit || m.signature)) return;
+        var st = JSON.parse(m.args[1]);
+        if (st.media_duration > 0) e.dur = st.media_duration;
+        // ⚠️ page_title es el nombre del video SOLO sin el script del proveedor en la
+        // página. Con él (los mensajes traen signature) el script le pasa al iframe el
+        // título de la página del cliente, y page_title pasa a ser ese (medido).
+        if (!e.tit && !m.signature && st.page_title) e.tit = String(st.page_title).slice(0, 200);
+        return;
+      }
+      if (n === 'play') wPlay(vid, e, m.args[1], it.mid);
+      else if (n === 'pause') wPausa(vid, e);
+      else if (n === 'end') wFin(vid, e, true);
+      else wTiempo(vid, e, m.args[1]);
+    } catch (err) {}
+  });
+
+  // Camino 2: la cola pública del script del proveedor. En una página sin ese script
+  // queda un arreglo con un objeto y no pasa nada más.
+  try {
+    window._wq = window._wq || [];
+    window._wq.push({ id: '_all', onReady: function (video) {
+      try {
+        if (!video) return;
+        var mid = video.hashedId();
+        // ⚠️ LA MARCA ES EL ID DEL VIDEO, NO UN BOOLEANO. Una galería que cambia de
+        // video sin recargar reusa el MISMO objeto del reproductor: onReady vuelve a
+        // disparar con otro id (medido) y los binds de antes dejan de dispararse
+        // (medido con un espía propio: el video nuevo se reprodujo 5 s y no salió
+        // NADA). Con un booleano, ese video no se mide nunca.
+        if (!mid || video.__mko === mid) return;
+        var previo = video.__mko;
+        video.__mko = mid;
+        // El que estaba antes en ese reproductor se detuvo: si vuelve, es un retomar.
+        if (previo) { var ep = est(WN + ':' + previo); if (ep.play && !ep.fin) ep.pausado = true; }
+        var vid = WN + ':' + mid, e = est(vid);
+        try {
+          if (!e.tit) e.tit = video.name() || null;
+          if (!(e.dur > 0)) e.dur = video.duration() || 0;
+        } catch (x) {}
+        // Un iframe ya lo mide el camino 1: de acá solo se le toman el nombre y la
+        // duración, que la API sí sabe. Bindearlo también contaría todo dos veces.
+        if (video.iframe) return;
+        // Los binds viejos hoy no disparan después de un reemplazo, pero si algún día
+        // lo hicieran estarían contando con el id de OTRO video: se apagan solos.
+        var vive = function () { try { return video.hashedId() === mid; } catch (x) { return true; } };
+        video.bind('play', function (info) { if (vive()) wPlay(vid, e, info, mid); });
+        video.bind('pause', function () { if (vive()) wPausa(vid, e); });
+        video.bind('end', function () { if (vive()) wFin(vid, e, true); });
+        video.bind('timechange', function (t) { if (vive()) wTiempo(vid, e, t); });
+      } catch (err) {}
+    } });
+  } catch (err) {}
 
   // ── SALIR DE LA PAGINA, VOLVER, Y CERRAR ──────────────────────────────────
   // Tres cosas distintas que hasta ahora eran una sola. El evento exit de arriba
