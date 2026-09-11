@@ -16,7 +16,7 @@
 
 import type { NextRequest } from 'next/server';
 import { guardAdsWs } from '@/lib/ads-guard';
-import { listCustomAudiences, searchInterests, listLeadForms, listCustomConversions, listPixels, listPixelEvents, searchLugares, alcanceGeo, cuentaMeta, paginasDeGanadores, metaErrorEnvelope } from '@/lib/meta-ads-create';
+import { listCustomAudiences, searchInterests, listLeadForms, listCustomConversions, listPixels, listPixelEvents, searchLugares, alcanceGeo, cuentaMeta, paginasDeGanadores, identidadesMeta, metaErrorEnvelope } from '@/lib/meta-ads-create';
 import { explicarErrorGeo } from '@/lib/meta-geo';
 import { motivosDeVentaPorLlamada } from '@/lib/venta-por-llamada';
 
@@ -33,7 +33,10 @@ export async function GET(req: NextRequest) {
   try {
     if (kind === 'audiences') return Response.json({ ok: true, items: await listCustomAudiences() });
     if (kind === 'interests') return Response.json({ ok: true, items: await searchInterests(q) });
-    if (kind === 'leadforms') return Response.json({ ok: true, items: await listLeadForms() });
+    // `page` = la página elegida en el wizard. Sólo dígitos: el token del workspace
+    // decide qué páginas se pueden leer, esto sólo evita mandar basura a Meta.
+    if (kind === 'leadforms') { const pg = req.nextUrl.searchParams.get('page') ?? ''; return Response.json({ ok: true, items: await listLeadForms(/^\d+$/.test(pg) ? pg : null) }); }
+    if (kind === 'identidades') return Response.json({ ok: true, identidades: await identidadesMeta() });
     if (kind === 'conversions') return Response.json({ ok: true, items: await listCustomConversions() });
     // Por qué este negocio vende por llamada (diagnóstico, funnel, agenda en la landing).
     // Alimenta el aviso de «tu pixel no mide las agendas» del paso de conversión.
@@ -51,7 +54,7 @@ export async function GET(req: NextRequest) {
       return Response.json({ ok: true, alcance: await alcanceGeo(geo as Parameters<typeof alcanceGeo>[0]) });
     }
     if (kind === 'cuenta') return Response.json({ ok: true, cuenta: await cuentaMeta() });
-    return Response.json({ ok: false, error: 'kind inválido (audiences | interests | leadforms | conversions | pixels | pixelevents | lugares | alcance | cuenta | agenda | ganadores)' }, { status: 400 });
+    return Response.json({ ok: false, error: 'kind inválido (audiences | interests | leadforms | conversions | pixels | pixelevents | lugares | alcance | cuenta | agenda | ganadores | identidades)' }, { status: 400 });
   } catch (err) {
     const env = metaErrorEnvelope(err);
     console.error(`[ads-manager:targeting] ${env.message}`);

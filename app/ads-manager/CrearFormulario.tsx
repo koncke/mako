@@ -24,10 +24,12 @@ const SANS = "'Geist', sans-serif";
 
 const hoy = () => new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' });
 
-export function CrearFormulario({ onCreado, onCancelar, compacto = false }: {
+export function CrearFormulario({ onCreado, onCancelar, compacto = false, pageId = null }: {
   onCreado: (f: { id: string; name: string }) => void;
   onCancelar: () => void;
   compacto?: boolean;
+  /** Página donde se crea. null = la de la credencial. */
+  pageId?: string | null;
 }) {
   const [f, setF] = useState<FormularioNuevo>({
     nombre: `Formulario MaKo ${hoy()}`,
@@ -43,7 +45,7 @@ export function CrearFormulario({ onCreado, onCancelar, compacto = false }: {
   // Prellenar la web del botón final con lo que MaKo ya sabe. Si no llega, se escribe.
   useEffect(() => {
     let vivo = true;
-    fetch('/api/ads-manager/formulario-create', { cache: 'no-store' }).then((r) => r.json())
+    fetch(`/api/ads-manager/formulario-create${pageId ? `?page=${pageId}` : ''}`, { cache: 'no-store' }).then((r) => r.json())
       .then((j) => {
         if (!vivo || !j.ok || !j.base) return;
         const sugerido = (Array.isArray(j.base.landings) && j.base.landings[0]) || j.base.sitio || '';
@@ -51,7 +53,7 @@ export function CrearFormulario({ onCreado, onCancelar, compacto = false }: {
       })
       .catch(() => { /* sin prellenado: el campo queda para escribir */ });
     return () => { vivo = false; };
-  }, []);
+  }, [pageId]);
 
   const faltan = erroresFormulario(f);
   const set = (patch: Partial<FormularioNuevo>) => { setF((x) => ({ ...x, ...patch })); setError(null); };
@@ -61,7 +63,7 @@ export function CrearFormulario({ onCreado, onCancelar, compacto = false }: {
     if (faltan.length || creando) return;
     setCreando(true); setError(null);
     try {
-      const r = await fetch('/api/ads-manager/formulario-create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ formulario: f }) });
+      const r = await fetch('/api/ads-manager/formulario-create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ formulario: f, page: pageId }) });
       const j = await r.json();
       if (!j.ok || !j.formulario?.id) throw new Error(j.error || 'Meta no creó el formulario.');
       onCreado({ id: String(j.formulario.id), name: String(j.formulario.name ?? f.nombre) });

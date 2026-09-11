@@ -27,6 +27,7 @@ import { LugarPicker } from './LugarPicker';
 import { CrearFormulario } from './CrearFormulario';
 import { geoSpecDe, lugarPais, lugaresDesdeDraft, resumenLugares, type LugarMeta } from '@/lib/meta-geo';
 import { avisoAgendaSinMedir } from '@/lib/meta-conversiones';
+import { instagramsPara, paginasUsables, type Identidad, type InstagramOpcion, type PaginaOpcion } from '@/lib/meta-identidad';
 import {
   type CampaignSpec, type AdSpec, type Creative, type Targeting, type Objective, type AudienceRef,
   objetivoDef, CTA_OPCIONES,
@@ -61,7 +62,7 @@ const btnGhost: CSSProperties = { padding: '12px 18px', borderRadius: 12, border
 const pregunta: CSSProperties = { fontSize: 25, fontWeight: 600, color: 'var(--ink)', textAlign: 'center', letterSpacing: '-0.02em', lineHeight: 1.2, margin: 0 };
 const ayuda: CSSProperties = { fontSize: 14.5, color: 'var(--dim)', textAlign: 'center', lineHeight: 1.5, margin: '10px 0 0', maxWidth: 440 };
 
-type Step = 'campana' | 'conjunto' | 'creativos' | 'inversion' | 'objetivo' | 'lugar' | 'estrategia' | 'publico' | 'ubicaciones' | 'destino' | 'armando' | 'revision' | 'publicando' | 'listo';
+type Step = 'campana' | 'conjunto' | 'identidad' | 'creativos' | 'inversion' | 'objetivo' | 'lugar' | 'estrategia' | 'publico' | 'ubicaciones' | 'destino' | 'armando' | 'revision' | 'publicando' | 'listo';
 type Estrategia = 'retargeting' | 'frio' | 'intereses';
 type AudTipo = 'page' | 'ig' | 'video' | 'pixel';
 type AudienceItem = AudienceRef & { count?: number | null };
@@ -137,8 +138,8 @@ function makeThumb(file: File): Promise<string | null> {
 
 // ── Borrador local ──
 const DRAFT_KEY = 'mako.nuevaCampana.draft.v2';
-type Draft = { step: Step; tray: TrayItem[]; budgetUsd: number | null; objKey: ObjKey | null; lugares: LugarMeta[]; estrategia: Estrategia | null; audiencias: AudienceRef[]; placements: string[] | null; destino: Destino; analisis: Analisis; spec: CampaignSpec | null; uso: Uso };
-const draftVacio = (): Draft => ({ step: 'creativos', tray: [], budgetUsd: null, objKey: null, lugares: [], estrategia: null, audiencias: [], placements: null, destino: {}, analisis: [], spec: null, uso: null });
+type Draft = { step: Step; tray: TrayItem[]; budgetUsd: number | null; objKey: ObjKey | null; lugares: LugarMeta[]; identidad: Identidad | null; estrategia: Estrategia | null; audiencias: AudienceRef[]; placements: string[] | null; destino: Destino; analisis: Analisis; spec: CampaignSpec | null; uso: Uso };
+const draftVacio = (): Draft => ({ step: 'creativos', tray: [], budgetUsd: null, objKey: null, lugares: [], identidad: null, estrategia: null, audiencias: [], placements: null, destino: {}, analisis: [], spec: null, uso: null });
 function loadDraft(): Draft {
   const vacio = draftVacio();
   if (typeof window === 'undefined') return vacio;
@@ -305,6 +306,26 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
   // Precarga (no decisión): si el borrador no traía país y Meta dice de dónde es la
   // cuenta, arranca por ahí. El usuario lo ve y lo cambia en la misma pantalla.
   useEffect(() => { if (!lugares.length && cuenta?.country) setLugares([lugarPais(cuenta.country)]); }, [cuenta?.country]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Con qué página e Instagram se publica (lib/meta-identidad.ts). Sólo se PREGUNTA si
+  // la conexión tiene más de una opción; con una, el paso no existe y el spec no lleva
+  // identidad: el server publica con la página de la credencial, exactamente como antes.
+  const [identidades, setIdentidades] = useState<{ paginas: PaginaOpcion[]; instagramCuenta: InstagramOpcion[]; porDefecto: Identidad | null; preguntar: boolean } | null>(null);
+  const [identidad, setIdentidad] = useState<Identidad | null>(d0.identidad ?? null);
+  useEffect(() => {
+    if (existente) return;
+    let vivo = true;
+    fetch('/api/ads-manager/targeting?kind=identidades', { cache: 'no-store' }).then((r) => r.json())
+      .then((j) => { if (vivo && j.ok && j.identidades) setIdentidades(j.identidades); })
+      .catch(() => { /* sin la lista se publica con la página de la credencial, como antes */ });
+    return () => { vivo = false; };
+  }, [existente]);
+  useEffect(() => {
+    if (!identidades?.preguntar) return;
+    // Lo que traía el borrador tiene que seguir siendo una opción válida de la conexión.
+    const valida = !!identidad && identidades.paginas.some((p) => p.id === identidad.pageId && p.puedeAnunciar);
+    if (!valida) { setIdentidad(identidades.porDefecto); if (step === 'creativos') setStep('identidad'); }
+  }, [identidades]); // eslint-disable-line react-hooks/exhaustive-deps
+  const paginaElegida = identidades?.preguntar ? identidad?.pageId ?? null : null;
   const pideForm = existente ? !!adsetInfo?.needsForm : objKey === 'lead_form';
   // ⚠️ Esto hacía `setLeadForms(it ?? [])`: un rechazo de Meta se convertía en lista
   // vacía y la pantalla afirmaba «No tienes formularios instantáneos». Código
@@ -312,13 +333,13 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
   // token de usuario. «No pude preguntar» va a su propio estado y se dice.
   useEffect(() => {
     if (!pideForm || leadForms !== null) return;
-    fetch('/api/ads-manager/targeting?kind=leadforms', { cache: 'no-store' }).then((r) => r.json())
+    fetch(`/api/ads-manager/targeting?kind=leadforms${paginaElegida ? `&page=${paginaElegida}` : ''}`, { cache: 'no-store' }).then((r) => r.json())
       .then((j) => {
         if (j.ok && Array.isArray(j.items)) { setLeadForms(j.items); setLeadFormsError(null); }
         else { setLeadForms([]); setLeadFormsError(String(j.error || 'error desconocido')); }
       })
       .catch((e) => { setLeadForms([]); setLeadFormsError(String(e)); });
-  }, [pideForm, leadForms]);  
+  }, [pideForm, leadForms, paginaElegida]);  
   useEffect(() => { if ((objKey === 'lead_web' || objKey === 'sales') && convs === null) traerTargeting<ConvItem>('kind=conversions', 'tus conversiones').then((it) => setConvs(it ?? [])); }, [objKey, convs]);  
   useEffect(() => { if ((objKey === 'lead_web' || objKey === 'sales') && pixels === null) traerTargeting<{ id: string; name: string }>('kind=pixels', 'tus pixeles').then((it) => setPixels(it ?? [])); }, [objKey, pixels]);  
   useEffect(() => {
@@ -344,9 +365,9 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
   useEffect(() => {
     try {
       if (existente || step === 'listo') return;
-      window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ step, tray, budgetUsd, objKey, lugares, estrategia, audiencias, placements, destino, analisis, spec, uso }));
+      window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ step, tray, budgetUsd, objKey, lugares, identidad, estrategia, audiencias, placements, destino, analisis, spec, uso }));
     } catch { /* quota */ }
-  }, [step, tray, budgetUsd, objKey, lugares, estrategia, audiencias, placements, destino, analisis, spec, uso]);
+  }, [step, tray, budgetUsd, objKey, lugares, identidad, estrategia, audiencias, placements, destino, analisis, spec, uso]);
 
   const usables = () => tray.filter((t) => !t.processing && (t.image_hash || t.video_id || t.source_ad_id));
 
@@ -356,10 +377,11 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
   const soloGanadores = existente && usables().length > 0 && usables().every((t) => t.kind === 'existing');
   const flow: Step[] = existente
     ? ['campana', 'conjunto', 'creativos', ...(soloGanadores ? [] : ['destino' as Step])]
-    : ['creativos', 'inversion', 'objetivo', 'lugar', 'estrategia', ...(estrategia === 'retargeting' ? ['publico' as Step] : []), 'ubicaciones', 'destino'];
+    : [...(identidades?.preguntar ? ['identidad' as Step] : []), 'creativos', 'inversion', 'objetivo', 'lugar', 'estrategia', ...(estrategia === 'retargeting' ? ['publico' as Step] : []), 'ubicaciones', 'destino'];
   const idx = flow.indexOf(step);
   const puedeAvanzar = (): boolean => {
     switch (step) {
+      case 'identidad': return !!identidad;
       case 'campana': return !!campSel;
       case 'conjunto': return !!adsetSel;
       // Con una subida a medias NO se avanza: armar() usa solo los creativos listos
@@ -577,7 +599,8 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
       rationale: mako?.rationale ?? '',
     };
     // Nomenclatura SIEMPRE (001 / 001.01 / 001.01.a), sin botón.
-    return aplicarNomenclatura(base, campaignCount + 1);
+    const conNombres = aplicarNomenclatura(base, campaignCount + 1);
+    return identidades?.preguntar && identidad ? { ...conNombres, identidad } : conNombres;
   }
 
   // Spec del modo existente: pseudo-CampaignSpec SOLO para revisar/publicar los
@@ -700,7 +723,7 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
   if (estrategia) resumen.push(ESTRATEGIAS.find((e) => e.value === estrategia)?.label ?? '');
   if (placements && placements.length) resumen.push(`Ubicaciones: ${placements.length}`);
 
-  const enWizard = step === 'campana' || step === 'conjunto' || step === 'creativos' || step === 'inversion' || step === 'objetivo' || step === 'lugar' || step === 'estrategia' || step === 'publico' || step === 'ubicaciones' || step === 'destino';
+  const enWizard = step === 'campana' || step === 'conjunto' || step === 'identidad' || step === 'creativos' || step === 'inversion' || step === 'objetivo' || step === 'lugar' || step === 'estrategia' || step === 'publico' || step === 'ubicaciones' || step === 'destino';
   const pideConv = !existente && !!obj?.needsConv;
 
   // Click en el fondo: nunca mientras MaKo arma/publica (hay un request en vuelo), y
@@ -749,6 +772,41 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
             </Paso>
           )}
 
+          {step === 'identidad' && identidades && (
+            <Paso titulo="¿Con qué página publicas?" sub="Tu conexión de Meta tiene más de una. El anuncio sale a nombre de la que elijas.">
+              <div style={{ width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {paginasUsables(identidades.paginas).map((p) => {
+                  const on = identidad?.pageId === p.id;
+                  const igs = instagramsPara(p, identidades.instagramCuenta);
+                  return (
+                    <button key={p.id} type="button"
+                      onClick={() => {
+                        // Otra página = otros formularios: el elegido de la anterior no sirve.
+                        if (identidad?.pageId !== p.id) { setLeadForms(null); setLeadFormsError(null); setDestino((d) => ({ ...d, lead_form_id: null, lead_form_name: null })); }
+                        setIdentidad({ pageId: p.id, instagramId: igs[0]?.id ?? null });
+                      }}
+                      style={{ textAlign: 'left', padding: '14px 16px', borderRadius: 14, border: `1.5px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'rgba(47,111,237,.08)' : 'var(--surface)', cursor: 'pointer', fontFamily: SANS }}>
+                      <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>{p.nombre}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)', marginTop: 2 }}>Facebook{igs.length ? ` · Instagram @${igs[0].username ?? igs[0].id}` : ' · sin Instagram'}</div>
+                    </button>
+                  );
+                })}
+                {(() => {
+                  const elegida = identidades.paginas.find((x) => x.id === identidad?.pageId) ?? null;
+                  const igs = instagramsPara(elegida, identidades.instagramCuenta);
+                  if (!identidad || igs.length < 2) return null;
+                  const chip = (on: boolean) => ({ padding: '8px 14px', borderRadius: 999, border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'rgba(47,111,237,.10)' : 'var(--surface)', color: on ? 'var(--primary-strong)' : 'var(--dim)', fontFamily: SANS, fontSize: 13.5, cursor: 'pointer' });
+                  return (
+                    <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', justifyContent: 'center', marginTop: 6 }}>
+                      {igs.map((ig) => <button key={ig.id} type="button" onClick={() => setIdentidad({ ...identidad, instagramId: ig.id })} style={chip(identidad.instagramId === ig.id)}>Instagram @{ig.username ?? ig.id}</button>)}
+                      <button type="button" onClick={() => setIdentidad({ ...identidad, instagramId: null })} style={chip(identidad.instagramId === null)}>Solo Facebook</button>
+                    </div>
+                  );
+                })()}
+              </div>
+            </Paso>
+          )}
+
           {step === 'inversion' && (
             <Paso titulo="¿Cuánto quieres invertir por día?" sub={monedaCuenta === 'USD' ? 'En dólares, que es la moneda de tu cuenta de Meta.' : `En dólares. Tu cuenta de Meta cobra en ${monedaCuenta}.`}>
               <Inversion value={budgetUsd} onChange={setBudgetUsd} currency={monedaCuenta} />
@@ -769,7 +827,7 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
 
           {step === 'estrategia' && (
             <Paso titulo="¿Qué quieres hacer con estos creativos?" sub={analisisResumen(analisis)}>
-              <Opciones items={ESTRATEGIAS} value={estrategia} onPick={(v) => { setEstrategia(v as Estrategia); const f: Step[] = ['creativos', 'inversion', 'objetivo', 'lugar', 'estrategia', ...((v as Estrategia) === 'retargeting' ? ['publico' as Step] : []), 'ubicaciones', 'destino']; setStep(f[f.indexOf('estrategia') + 1]); }} />
+              <Opciones items={ESTRATEGIAS} value={estrategia} onPick={(v) => { setEstrategia(v as Estrategia); const f: Step[] = [...(identidades?.preguntar ? ['identidad' as Step] : []), 'creativos', 'inversion', 'objetivo', 'lugar', 'estrategia', ...((v as Estrategia) === 'retargeting' ? ['publico' as Step] : []), 'ubicaciones', 'destino']; setStep(f[f.indexOf('estrategia') + 1]); }} />
             </Paso>
           )}
 
@@ -794,6 +852,7 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
               sub={pideForm ? (creandoForm ? 'Queda en tu página de Facebook, listo para este anuncio.' : 'Elige uno de tu página, o crea uno nuevo aquí mismo.') : pideConv ? 'Tu landing/VSL + por qué conversión del pixel optimizamos (tu agenda, lead, registro…).' : existente ? 'La URL de destino de los anuncios nuevos (tu VSL o landing).' : 'La URL de tu VSL o landing.'}>
               {pideForm ? (creandoForm ? (
                 <CrearFormulario
+                  pageId={paginaElegida}
                   onCancelar={() => setCreandoForm(false)}
                   onCreado={(f) => {
                     // Queda ELEGIDO para este anuncio: crear y después buscarlo en la lista

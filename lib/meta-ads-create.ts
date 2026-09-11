@@ -24,6 +24,7 @@ import { TIPOS_BUSCABLES, lugarDesdeBusqueda, ordenarLugares, type LugarMeta } f
 import { describirRegla, estadoConversion, type EstadoConversion } from './meta-conversiones';
 import { erroresFormulario, paramsFormulario, sitioLimpio, urlValida, type FormularioNuevo } from './meta-formularios';
 import { getSetting } from './settings';
+import { hayQuePreguntar, identidadPorDefecto, type Identidad, type InstagramOpcion, type PaginaOpcion } from './meta-identidad';
 import { getWorkspaceActual, OWNER_WS } from './workspace';
 import {
   type CampaignSpec,
@@ -90,6 +91,11 @@ async function cred(name: string): Promise<string> {
  * (leer de más es feo), acá se escribe y se borra. El fallback es MÁS DÉBIL que el
  * camino feliz: la base gana siempre.
  */
+/** La página con la que sale ESTE anuncio: la elegida en el wizard, o la de la credencial. */
+async function paginaDe(identidad?: Identidad | null): Promise<string> {
+  return identidad?.pageId || pageId();
+}
+
 async function pageId(): Promise<string> {
   const ws = await wsDeLaCuenta();
   const p = (await credWs('META_PAGE_ID', ws)) ?? (ws === OWNER_WS ? META_PAGE_ID : null);
@@ -268,9 +274,9 @@ export function buildTargeting(t: Targeting, paisPorDefecto?: string | null): Re
 }
 
 // promoted_object según el objetivo / meta de optimización / conversión elegida.
-async function buildPromotedObject(objective: Objective, optimizationGoal: string, conversion?: { pixel_event?: string; custom_conversion_id?: string; pixel_id?: string }): Promise<Record<string, string> | null> {
+async function buildPromotedObject(objective: Objective, optimizationGoal: string, conversion?: { pixel_event?: string; custom_conversion_id?: string; pixel_id?: string }, identidad?: Identidad | null): Promise<Record<string, string> | null> {
   if (optimizationGoal === 'LEAD_GENERATION') {
-    return { page_id: await pageId() }; // formulario instantáneo (el form va en el creativo)
+    return { page_id: await paginaDe(identidad) }; // formulario instantáneo (el form va en el creativo)
   }
   if (optimizationGoal === 'OFFSITE_CONVERSIONS') {
     // Conversión personalizada (ej. agenda/"Programaciones") → su id basta.
@@ -291,7 +297,7 @@ async function buildPromotedObject(objective: Objective, optimizationGoal: strin
 // Creativo: nuestro Creative → object_story_spec de Meta
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function buildObjectStorySpec(c: Creative): Promise<Record<string, unknown>> {
+export async function buildObjectStorySpec(c: Creative, identidad?: Identidad | null): Promise<Record<string, unknown>> {
   const hasLeadForm = !!c.lead_form_id;
   const ctaType = c.cta_type && c.cta_type !== 'NO_BUTTON' ? c.cta_type : null;
 
@@ -311,7 +317,7 @@ export async function buildObjectStorySpec(c: Creative): Promise<Record<string, 
     } else if (c.destination_url) {
       video_data.call_to_action = { type: ctaType ?? 'LEARN_MORE', value: { link: c.destination_url } };
     }
-    return { page_id: await pageId(), video_data };
+    return { page_id: await paginaDe(identidad), video_data };
   }
 
   // Imagen (o sin media subida todavía → link puro con la imagen del enlace)
@@ -324,7 +330,7 @@ export async function buildObjectStorySpec(c: Creative): Promise<Record<string, 
   } else if (ctaType && c.destination_url) {
     link_data.call_to_action = { type: ctaType, value: { link: c.destination_url } };
   }
-  return { page_id: await pageId(), link_data };
+  return { page_id: await paginaDe(identidad), link_data };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -382,6 +388,38 @@ export async function paginasDeGanadores(adIds: string[]): Promise<Record<string
   return out;
 }
 
+/**
+ * Con qué páginas e Instagram puede publicar la conexión (lib/meta-identidad.ts).
+ * /me/accounts con `tasks` (sólo las ADVERTISE sirven: sin esa tarea, 1885499) y el
+ * Instagram de cada página, más los de la cuenta publicitaria. Si /me/accounts no
+ * contesta, esto tira y el wizard no pregunta: se publica con la credencial, como antes.
+ */
+export async function identidadesMeta(): Promise<{ paginas: PaginaOpcion[]; instagramCuenta: InstagramOpcion[]; porDefecto: Identidad | null; preguntar: boolean }> {
+  const [apiVersion, tk, adAccountId] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN'), cred('META_AD_ACCOUNT_ID')]);
+  const credPage = await pageId().catch(() => null);
+  const u1 = new URL(`${GRAPH_BASE}/${apiVersion}/me/accounts`);
+  u1.searchParams.set('fields', 'id,name,tasks,instagram_business_account{id,username}');
+  u1.searchParams.set('limit', '200');
+  u1.searchParams.set('access_token', tk);
+  const u2 = new URL(`${GRAPH_BASE}/${apiVersion}/${adAccountId}/instagram_accounts`);
+  u2.searchParams.set('fields', 'id,username');
+  u2.searchParams.set('limit', '50');
+  u2.searchParams.set('access_token', tk);
+  const [cuentas, igs] = await Promise.all([graphGet(u1.toString()), graphGet(u2.toString()).catch(() => ({ data: [] } as Record<string, unknown>))]);
+  const paginas: PaginaOpcion[] = (Array.isArray(cuentas.data) ? (cuentas.data as Array<Record<string, unknown>>) : []).map((p) => {
+    const ig = p.instagram_business_account as { id?: string; username?: string } | undefined;
+    return {
+      id: String(p.id),
+      nombre: String(p.name ?? p.id),
+      puedeAnunciar: Array.isArray(p.tasks) && (p.tasks as unknown[]).includes('ADVERTISE'),
+      instagram: ig?.id ? { id: String(ig.id), username: ig.username ? String(ig.username) : null } : null,
+    };
+  });
+  const instagramCuenta: InstagramOpcion[] = (Array.isArray(igs.data) ? (igs.data as Array<Record<string, unknown>>) : [])
+    .filter((x) => x.id).map((x) => ({ id: String(x.id), username: x.username ? String(x.username) : null }));
+  return { paginas, instagramCuenta, porDefecto: identidadPorDefecto(paginas, instagramCuenta, credPage), preguntar: hayQuePreguntar(paginas, instagramCuenta) };
+}
+
 export async function getObjectStoryId(adId: string): Promise<string | null> {
   const [apiVersion, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
   const url = new URL(`${GRAPH_BASE}/${apiVersion}/${adId}`);
@@ -403,11 +441,16 @@ export async function getObjectStoryId(adId: string): Promise<string | null> {
  * página— pidiendo su `access_token`, sin guardarlo: un `let` de módulo acá
  * cruzaría clientes (tests/ads-manager-credenciales.test.ts).
  */
-async function tokenDePagina(): Promise<string> {
+async function tokenDePagina(otraPagina?: string | null): Promise<string> {
   const ws = await wsDeLaCuenta();
-  const guardado = await credWs('META_PAGE_ACCESS_TOKEN', ws);
+  const credPage = await pageId();
+  // El token guardado es el de la página de la CREDENCIAL: para otra página elegida en
+  // el wizard no sirve, y se deriva igual que cuando falta.
+  const esLaDeLaCredencial = !otraPagina || otraPagina === credPage;
+  const guardado = esLaDeLaCredencial ? await credWs('META_PAGE_ACCESS_TOKEN', ws) : null;
   if (guardado && !guardado.startsWith('PENDING')) return guardado;
-  const [apiVersion, userToken, page] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN'), pageId()]);
+  const [apiVersion, userToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
+  const page = otraPagina || credPage;
   const url = new URL(`${GRAPH_BASE}/${apiVersion}/${page}`);
   url.searchParams.set('fields', 'access_token');
   url.searchParams.set('access_token', userToken);
@@ -426,8 +469,8 @@ async function tokenDePagina(): Promise<string> {
  *
  * Las archivadas y borradas no se ofrecen: Meta no deja usarlas en un anuncio.
  */
-export async function listLeadForms(): Promise<Array<{ id: string; name: string; status?: string }>> {
-  const [apiVersion, token, page] = await Promise.all([cred('META_API_VERSION'), tokenDePagina(), pageId()]);
+export async function listLeadForms(pagina?: string | null): Promise<Array<{ id: string; name: string; status?: string }>> {
+  const [apiVersion, token, page] = await Promise.all([cred('META_API_VERSION'), tokenDePagina(pagina), pagina ? Promise.resolve(pagina) : pageId()]);
   const url = new URL(`${GRAPH_BASE}/${apiVersion}/${page}/leadgen_forms`);
   url.searchParams.set('fields', 'id,name,status');
   url.searchParams.set('limit', '100');
@@ -455,9 +498,10 @@ export async function listLeadForms(): Promise<Array<{ id: string; name: string;
  * negocio ya cargó en MaKo. Todo best-effort: si algo no se puede leer, el campo
  * queda vacío y la persona lo escribe — nunca un valor inventado.
  */
-export async function formularioBase(): Promise<{ sitio: string | null; landings: string[] }> {
-  const [apiVersion, page] = await Promise.all([cred('META_API_VERSION'), pageId()]);
-  const token = await tokenDePagina().catch(() => null);
+export async function formularioBase(pagina?: string | null): Promise<{ sitio: string | null; landings: string[] }> {
+  const apiVersion = await cred('META_API_VERSION');
+  const page = pagina || (await pageId());
+  const token = await tokenDePagina(pagina).catch(() => null);
   let sitio: string | null = null;
   if (token) {
     const url = new URL(`${GRAPH_BASE}/${apiVersion}/${page}`);
@@ -483,10 +527,10 @@ export async function formularioBase(): Promise<{ sitio: string | null; landings
  * nada), NO se reintenta, y si Meta contesta sin id se pide revisar la Biblioteca de
  * formularios antes de volver a intentar — un segundo intento a ciegas deja dos.
  */
-export async function crearFormularioInstantaneo(f: FormularioNuevo): Promise<{ id: string; name: string }> {
+export async function crearFormularioInstantaneo(f: FormularioNuevo, pagina?: string | null): Promise<{ id: string; name: string }> {
   const errores = erroresFormulario(f);
   if (errores.length) throw new MetaWriteError(errores[0]);
-  const [apiVersion, token, page] = await Promise.all([cred('META_API_VERSION'), tokenDePagina(), pageId()]);
+  const [apiVersion, token, page] = await Promise.all([cred('META_API_VERSION'), tokenDePagina(pagina), pagina ? Promise.resolve(pagina) : pageId()]);
   const body = new URLSearchParams(paramsFormulario(f));
   body.set('access_token', token);
   const res = await fetch(`${GRAPH_BASE}/${apiVersion}/${page}/leadgen_forms`, {
@@ -630,7 +674,9 @@ export type AudienceTipo = 'page' | 'ig' | 'video' | 'pixel';
  * tampoco alcanza: si el cliente cambia su página desde /integraciones, seguiría
  * sirviendo el IG de la página vieja hasta que Vercel recicle el lambda. */
 const _igActorId = new Map<string, string | null>(); // key `${page}:${acct}`; ausente = sin resolver
-export async function getInstagramActorId(): Promise<string | null> {
+export async function getInstagramActorId(identidad?: Identidad | null): Promise<string | null> {
+  // Elegido en el wizard: manda, incluido `null` = «sólo Facebook».
+  if (identidad) return identidad.instagramId;
   let page: string, adAccountId: string;
   // Esta función nunca tiró y se preserva: sin credenciales, no hay IG y se sigue.
   try { [page, adAccountId] = await Promise.all([pageId(), cred('META_AD_ACCOUNT_ID')]); }
@@ -994,7 +1040,7 @@ export async function createAdSet(campaignId: string, spec: CampaignSpec, adset:
     if (adset.daily_budget_mxn) params.daily_budget = mxnACentavos(adset.daily_budget_mxn);
     params.bid_strategy = adset.bid_strategy || 'LOWEST_COST_WITHOUT_CAP';
   }
-  const promoted = await buildPromotedObject(spec.objective, optimization, adset.conversion);
+  const promoted = await buildPromotedObject(spec.objective, optimization, adset.conversion, spec.identidad);
   if (promoted) params.promoted_object = JSON.stringify(promoted);
   const data = await graphPost(`${await cred('META_AD_ACCOUNT_ID')}/adsets`, params);
   return String(data.id);
@@ -1005,18 +1051,18 @@ export async function createAdSet(campaignId: string, spec: CampaignSpec, adset:
 export const UTM_TAGS = 'utm_source=facebook&utm_medium=paid_social&utm_campaign={{campaign.name}}&utm_content={{ad.name}}&utm_term={{adset.name}}';
 
 /** Crea el creativo (reusando el post de un ganador o armando uno nuevo). UTMs automáticos. */
-export async function createAdCreative(creative: Creative, adName: string): Promise<string> {
+export async function createAdCreative(creative: Creative, adName: string, identidad?: Identidad | null): Promise<string> {
   if (creative.source === 'existing' && creative.source_ad_id) {
     const storyId = await getObjectStoryId(creative.source_ad_id);
     if (!storyId) throw new MetaWriteError('El anuncio ganador no tiene un post reutilizable (object_story_id). Prueba con otro o sube un creativo.');
     const data = await graphPost(`${await cred('META_AD_ACCOUNT_ID')}/adcreatives`, { name: `${adName} — creativo`, object_story_id: storyId, url_tags: UTM_TAGS });
     return String(data.id);
   }
-  const oss = await buildObjectStorySpec(await withVideoThumb(creative));
+  const oss = await buildObjectStorySpec(await withVideoThumb(creative), identidad);
   // Adjuntamos la cuenta de Instagram conectada → el anuncio corre en IG/Threads.
   // Sin esto Meta solo entrega en Facebook y bloquea la publicación pidiendo IG.
   // graphPost ignora los valores undefined, así que si no hay IG no rompe nada.
-  const igId = await getInstagramActorId();
+  const igId = await getInstagramActorId(identidad);
   const data = await graphPost(`${await cred('META_AD_ACCOUNT_ID')}/adcreatives`, { name: `${adName} — creativo`, object_story_spec: JSON.stringify(oss), instagram_user_id: igId ?? undefined, url_tags: UTM_TAGS });
   return String(data.id);
 }

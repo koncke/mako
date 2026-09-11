@@ -61,7 +61,11 @@ function sinTipos(ts) {
     .replace(/const buscar = codificar\(viejo, donde\);/g, 'const buscar = codificar(viejo, donde);');
 }
 
-const ts = readFileSync(FUENTE, 'utf8');
+// sinCR sobre el FUENTE antes de transformarlo, como sync-boq-respuesta y sync-puede-filmar.
+// sinTipos borra anotaciones con regex que esperan finales de linea LF: en un worktree o un
+// clon nuevo git deja el .ts en CRLF (core.autocrlf) y el --check frenaba el push sobre un
+// archivo identico. Medido el 2026-09-11 en un worktree recien checkouteado.
+const ts = sinCR(readFileSync(FUENTE, 'utf8'));
 const cuerpo = `// =============================================================================
 // GENERADO por scripts/sync-boq-patch.mjs desde ${FUENTE} — NO EDITAR A MANO
 // =============================================================================

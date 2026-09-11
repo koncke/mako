@@ -3305,3 +3305,32 @@ quedó anotado» daba tranquilo porque preguntaba por áreas, no por commits.
 `git log --since --name-only` contra la unión de todos los `vive[]`, y es lo único que
 encuentra el trabajo que no tiene dónde anotarse. Un área que falta no se queja; un área
 que miente parece completa.
+
+---
+
+## La quinta guarda que frenaba el push en un worktree: normalizar la SALIDA no alcanza (11/09)
+
+**Síntoma:** con trabajo ajeno sin compilar en el árbol compartido, se pusheó desde un
+worktree limpio (lo que manda `AGENTS.md`) y el pre-push frenó con «extension/boq-patch.js
+quedó viejo» — sobre un archivo que en el árbol principal daba «✓ al día».
+
+**Causa:** `scripts/sync-boq-patch.mjs` normalizaba los `\r` para COMPARAR (`sinCR` sobre el
+generado y el destino), pero leía el FUENTE crudo y le aplicaba `sinTipos`, que borra
+anotaciones con regex que esperan `;\n`. En un worktree o un clon nuevo, `core.autocrlf` deja
+`lib/flow-boq-patch.ts` en CRLF (231 líneas con `\r`, medido): las regex no calzan, las
+anotaciones quedan, y el generado sale distinto. Sus hermanos `sync-boq-respuesta` y
+`sync-puede-filmar` hacen `sinCR(ts)` ANTES de transformar, y por eso pasaban en el mismo
+worktree. Es la trampa de las cuatro guardas que `AGENTS.md` ya documenta, un paso antes: ahí
+faltaba normalizar al decidir; acá la comparación estaba bien y lo que no estaba normalizado
+era la entrada de la transformación.
+
+**Arreglo:** `const ts = sinCR(readFileSync(FUENTE, 'utf8'))`. Verificado en un worktree
+recién checkouteado: el `--check` pasa, y regenerar desde el fuente CRLF da exactamente el
+archivo commiteado.
+
+⚠️ **Y la trampa de editar ese mismo script:** reescribirlo con `io.open` de Python en modo
+texto (sin `newline=''`) convirtió todo el archivo a CRLF, y el lector de módulos de tsx tiró
+«Parse error» en una línea que se veía perfecta. Para tocar un `.mjs` del pre-push, se
+conservan los bytes (`newline=''`) o se usa la herramienta de edición.
+
+**Vive en:** `scripts/sync-boq-patch.mjs`.

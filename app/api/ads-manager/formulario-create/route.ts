@@ -16,10 +16,11 @@ import { PREGUNTAS_ESTANDAR, type FormularioNuevo, type PreguntaEstandar } from 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const no = await guardAdsWs(); if (no) return no;
   try {
-    return Response.json({ ok: true, base: await formularioBase() });
+    const page = req.nextUrl.searchParams.get('page') ?? '';
+    return Response.json({ ok: true, base: await formularioBase(/^\d+$/.test(page) ? page : null) });
   } catch (err) {
     const env = metaErrorEnvelope(err);
     return Response.json({ ok: false, error: env.message, code: env.code, error_subcode: env.error_subcode }, { status: env.status });
@@ -43,12 +44,12 @@ function sanear(raw: unknown): FormularioNuevo | null {
 
 export async function POST(req: NextRequest) {
   const no = await guardAdsWs(); if (no) return no;
-  let body: { formulario?: unknown };
+  let body: { formulario?: unknown; page?: unknown };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
   const formulario = sanear(body.formulario);
   if (!formulario) return Response.json({ ok: false, error: 'falta el formulario' }, { status: 400 });
   try {
-    return Response.json({ ok: true, formulario: await crearFormularioInstantaneo(formulario) });
+    return Response.json({ ok: true, formulario: await crearFormularioInstantaneo(formulario, typeof body.page === 'string' && /^\d+$/.test(body.page) ? body.page : null) });
   } catch (err) {
     const env = metaErrorEnvelope(err);
     console.error(`[ads-manager:formulario-create] ${env.message}`);

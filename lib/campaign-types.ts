@@ -166,6 +166,12 @@ export type CampaignSpec = {
   daily_budget_mxn?: number | null; // CBO: presupuesto de campaña
   adsets: AdSetSpec[];
   rationale?: string; // explicación de MaKo (NO se manda a Meta)
+  /**
+   * Con qué página de Facebook e Instagram sale (lib/meta-identidad.ts). Sólo viaja si
+   * la conexión tiene más de una opción y la persona eligió; sin esto, la página de la
+   * credencial, como siempre. `instagramId: null` = sólo Facebook.
+   */
+  identidad?: { pageId: string; instagramId: string | null } | null;
 };
 
 // Resultado de subir un creativo (lo devuelve /api/ads-manager/creative-upload).

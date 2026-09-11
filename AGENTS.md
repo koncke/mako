@@ -125,6 +125,12 @@ guarda frena el push sobre un archivo idéntico. Las CUATRO de esta familia lo t
 ')` para DECIDIR si escribir; lo que se
 escribe no se toca.
 
+⚠️ **Y normalizar al COMPARAR no alcanza si antes se TRANSFORMA el fuente.** `sync-boq-patch`
+(la quinta) comparaba con `sinCR` pero pasaba el `.ts` crudo por regex que esperan `
+`: en un
+worktree el fuente llega en CRLF, las regex no calzan y el `--check` frena sobre un archivo
+idéntico (11/09/2026). El `sinCR` va sobre la ENTRADA, antes de cualquier `replace`.
+
 ⚠️ **Y se prueba en un árbol recién checkouteado, no en el tuyo.** Las cuatro daban «✓ al
 día» en el repo, que es el único lugar donde ese bug no puede verse. Comprobar una guarda
 donde no puede fallar es no comprobarla.

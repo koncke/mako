@@ -30,7 +30,7 @@ function cuerpoDe(src: string, firma: string): string {
 test('listLeadForms lee con el token de la página, no con el de usuario', () => {
   const src = sinComentarios(leer('lib/meta-ads-create.ts').replace(/\r/g, ''));
   const lista = cuerpoDe(src, 'export async function listLeadForms(');
-  assert.match(lista, /tokenDePagina\(\)/, 'listLeadForms tiene que pedir con tokenDePagina()');
+  assert.match(lista, /tokenDePagina\(/, 'listLeadForms tiene que pedir con tokenDePagina()');
   assert.doesNotMatch(lista, /cred\('META_ACCESS_TOKEN'\)/, 'con el token de usuario Meta contesta #190');
   // Y el token de página sale de la credencial del workspace, con sus DOS argumentos.
   assert.match(cuerpoDe(src, 'async function tokenDePagina('), /credWs\('META_PAGE_ACCESS_TOKEN', ws\)/);

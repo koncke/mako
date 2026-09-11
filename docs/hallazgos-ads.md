@@ -1640,3 +1640,38 @@ sabe si una app en modo de desarrollo también bloquea crear formularios.
 **Vive en:** `lib/meta-formularios.ts` · `app/ads-manager/CrearFormulario.tsx` ·
 `app/api/ads-manager/formulario-create/route.ts` · `lib/meta-ads-create.ts`
 (`crearFormularioInstantaneo`, `formularioBase`).
+
+## Elegir con qué página e Instagram sale el anuncio (11/09)
+
+**Pedido de Martín:** «un usuario de MaKo en su cuenta de Meta puede tener varios Facebook o
+varios Instagram y no hay un paso para seleccionar en cuál se van a publicar los ads». Hasta
+acá la página salía FIJA de la credencial `META_PAGE_ID`, y el Instagram, del primero que
+devolviera Meta.
+
+**Lo medido antes de construir:** ninguna conexión real tiene hoy más de una opción. ws1, ws4,
+ws11, ws13 y ws14 tienen UNA página cada una (ws13 y ws14 con @joandowd.gm; ws1 sin
+Instagram). Así que el paso existe para cuando aparezca una cuenta con varias, y **en las
+actuales no se ve**: con una sola opción el spec no lleva identidad y el pedido a Meta es
+byte a byte el de antes.
+
+**Cómo funciona:**
+- Las opciones salen de `/me/accounts` con `tasks`: **sólo cuentan las páginas con
+  ADVERTISE** (sin esa tarea Meta rechaza con 1885499, ver la entrada de publicar). Los
+  Instagram, del `instagram_business_account` de cada página más `/{act}/instagram_accounts`.
+- Si hay más de una página usable, o una página con más de un Instagram, el wizard arranca
+  por «¿Con qué página publicas?», con «Solo Facebook» como opción de Instagram.
+- La elección llega a todo lo que publica: el `page_id` del creativo nuevo, el objeto
+  promocionado del formulario, la cuenta de Instagram del creativo, la lista de formularios
+  y el creador de formularios (con el token de ESA página, derivado del de usuario).
+- `campaign-create` valida la elección contra la conexión **antes** de crear nada.
+
+**Vive en:** `lib/meta-identidad.ts` · `lib/meta-ads-create.ts` (`identidadesMeta`,
+`paginaDe`, `tokenDePagina(otraPagina)`) · `app/ads-manager/NuevaCampanaModal.tsx` (paso
+`identidad`) · `app/api/ads-manager/campaign-create/route.ts`.
+
+**Sin hacer:**
+- No se probó contra una conexión con varias páginas: no existe ninguna. La lógica tiene tests
+  con casos armados y guardas sobre el fuente.
+- «Agregar conjunto» y «Subir creativos a una campaña» siguen con la página de la credencial.
+- Un ganador reusado sale con la página de SU post, no con la elegida (reusar un post es
+  publicar ese post).

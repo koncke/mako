@@ -11,7 +11,8 @@
 
 import type { NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
-import { createCampaign, createAdSet, createAdCreative, createAd, deleteEntity, metaErrorEnvelope, adoptarTranscripcionDelCreativo, appDelToken } from '@/lib/meta-ads-create';
+import { createCampaign, createAdSet, createAdCreative, createAd, deleteEntity, metaErrorEnvelope, adoptarTranscripcionDelCreativo, appDelToken, identidadesMeta } from '@/lib/meta-ads-create';
+import { validarIdentidad } from '@/lib/meta-identidad';
 import { explicarRechazoPublicacion, SUB_APP_EN_DESARROLLO } from '@/lib/meta-publicar-errores';
 import { type CampaignSpec, objetivoDef } from '@/lib/campaign-types';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -35,6 +36,19 @@ export async function POST(req: NextRequest) {
   if (spec.adsets.some((a) => !Array.isArray(a.ads) || a.ads.length === 0)) {
     return Response.json({ ok: false, error: 'cada conjunto necesita al menos un anuncio' }, { status: 400 });
   }
+  // La página/Instagram elegidos se validan contra la conexión ANTES de crear nada: una
+  // página donde no es anunciante la rechazaría Meta a mitad del árbol (1885499).
+  if (spec.identidad) {
+    try {
+      const ids = await identidadesMeta();
+      const motivo = validarIdentidad(spec.identidad, ids.paginas, ids.instagramCuenta);
+      if (motivo) return Response.json({ ok: false, error: motivo }, { status: 400 });
+    } catch (err) {
+      const env = metaErrorEnvelope(err);
+      return Response.json({ ok: false, error: `No pude comprobar la página elegida: ${env.message}` }, { status: env.status });
+    }
+  }
+
   // Guarda: las conversiones web necesitan pixel. Sin él Meta rechaza el conjunto y
   // dejaría la campaña huérfana → cortamos antes de crear nada.
   if (!process.env.META_PIXEL_ID) {
@@ -75,7 +89,7 @@ export async function POST(req: NextRequest) {
       const adsetId = await createAdSet(campaignId, spec, adset);
       meta_adset_ids.push(adsetId);
       for (const ad of adset.ads) {
-        const creativeId = await createAdCreative(ad.creative, ad.name);
+        const creativeId = await createAdCreative(ad.creative, ad.name, spec.identidad);
         meta_creative_ids.push(creativeId);
         const adId = await createAd(adsetId, ad, creativeId);
         // La transcripción ya se hizo al subir el video: la adoptamos con el ad_id
