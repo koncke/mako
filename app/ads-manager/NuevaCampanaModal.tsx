@@ -23,6 +23,8 @@ import { MakoStar, MakoWord } from '../_components/MakoBrand';
 import type { SenalRecon } from '@/lib/queries';
 import { colorDeSemaforo, linkAprobarEnMeta, type MetaHealth, type NodoEstado } from '@/lib/meta-health-ui';
 import { TutorialAprobacionMeta } from './TutorialAprobacionMeta';
+import { LugarPicker } from './LugarPicker';
+import { geoSpecDe, lugarPais, lugaresDesdeDraft, resumenLugares, type LugarMeta } from '@/lib/meta-geo';
 import {
   type CampaignSpec, type AdSpec, type Creative, type Targeting, type Objective, type AudienceRef,
   objetivoDef, CTA_OPCIONES,
@@ -130,8 +132,8 @@ function makeThumb(file: File): Promise<string | null> {
 
 // ── Borrador local ──
 const DRAFT_KEY = 'mako.nuevaCampana.draft.v2';
-type Draft = { step: Step; tray: TrayItem[]; budgetUsd: number | null; objKey: ObjKey | null; paises: string[]; estrategia: Estrategia | null; audiencias: AudienceRef[]; placements: string[] | null; destino: Destino; analisis: Analisis; spec: CampaignSpec | null; uso: Uso };
-const draftVacio = (): Draft => ({ step: 'creativos', tray: [], budgetUsd: null, objKey: null, paises: [], estrategia: null, audiencias: [], placements: null, destino: {}, analisis: [], spec: null, uso: null });
+type Draft = { step: Step; tray: TrayItem[]; budgetUsd: number | null; objKey: ObjKey | null; lugares: LugarMeta[]; estrategia: Estrategia | null; audiencias: AudienceRef[]; placements: string[] | null; destino: Destino; analisis: Analisis; spec: CampaignSpec | null; uso: Uso };
+const draftVacio = (): Draft => ({ step: 'creativos', tray: [], budgetUsd: null, objKey: null, lugares: [], estrategia: null, audiencias: [], placements: null, destino: {}, analisis: [], spec: null, uso: null });
 function loadDraft(): Draft {
   const vacio = draftVacio();
   if (typeof window === 'undefined') return vacio;
@@ -140,7 +142,10 @@ function loadDraft(): Draft {
     if (!raw) return vacio;
     const d = JSON.parse(raw) as Partial<Draft>;
     const step = d.spec ? 'revision' : (d.step && d.step !== 'armando' && d.step !== 'publicando' && d.step !== 'listo' ? d.step : 'creativos');
-    return { ...vacio, ...d, step };
+    // `paises: ['AR']` es el borrador de antes de que se pudiera elegir cualquier
+    // lugar: se convierte en vez de tirarlo, así nadie pierde lo que ya eligió.
+    const lugares = lugaresDesdeDraft((d as { lugares?: unknown }).lugares ?? (d as { paises?: unknown }).paises);
+    return { ...vacio, ...d, lugares, step };
   } catch { return vacio; }
 }
 
@@ -209,11 +214,13 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
   const [tray, setTray] = useState<TrayItem[]>(d0.tray);
   const [budgetUsd, setBudgetUsd] = useState<number | null>(d0.budgetUsd);
   const [objKey, setObjKey] = useState<ObjKey | null>(d0.objKey);
-  // Segmentación geográfica: ISO-2. Vacío = todavía no se eligió (NUNCA "México
-  // por defecto": ese era el bug). Se precarga con el país de la cuenta cuando
-  // Meta lo contesta, y el paso 'lugar' siempre lo deja cambiar.
-  const [paises, setPaises] = useState<string[]>(d0.paises);
-  const [paisesCat, setPaisesCat] = useState<Array<{ code: string; name: string }> | null>(null);
+  // Segmentación geográfica: los lugares que Meta acepta (lib/meta-geo.ts). Vacío =
+  // todavía no se eligió — NUNCA "México por defecto", que era el bug. Se precarga
+  // el país de la cuenta y el paso 'lugar' deja buscar provincia, ciudad, barrio,
+  // código postal o dirección, incluir o excluir.
+  const [lugares, setLugares] = useState<LugarMeta[]>(d0.lugares);
+  // Lo que Meta contestó al validar esos lugares: false = los rechaza (no avanza).
+  const [lugarOk, setLugarOk] = useState<boolean | null>(null);
   const [cuenta, setCuenta] = useState<{ currency: string; country: string | null; name: string } | null>(null);
   const [estrategia, setEstrategia] = useState<Estrategia | null>(d0.estrategia);
   const obj = objKey ? OBJ_KEYS[objKey] : null;
@@ -279,10 +286,9 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
       .catch(() => { /* la pantalla de 'lugar' lo dice y el selector sigue estando */ });
     return () => { vivo = false; };
   }, [existente]);
-  useEffect(() => { if (!existente && paisesCat === null) traerTargeting<{ code: string; name: string }>('kind=paises', 'la lista de países').then((it) => setPaisesCat(it ?? [])); }, [existente, paisesCat]); // eslint-disable-line react-hooks/exhaustive-deps
   // Precarga (no decisión): si el borrador no traía país y Meta dice de dónde es la
   // cuenta, arranca por ahí. El usuario lo ve y lo cambia en la misma pantalla.
-  useEffect(() => { if (!paises.length && cuenta?.country) setPaises([cuenta.country]); }, [cuenta?.country]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!lugares.length && cuenta?.country) setLugares([lugarPais(cuenta.country)]); }, [cuenta?.country]); // eslint-disable-line react-hooks/exhaustive-deps
   const pideForm = existente ? !!adsetInfo?.needsForm : objKey === 'lead_form';
   useEffect(() => { if (pideForm && leadForms === null) traerTargeting<{ id: string; name: string }>('kind=leadforms', 'tus formularios').then((it) => setLeadForms(it ?? [])); }, [pideForm, leadForms]);  
   useEffect(() => { if ((objKey === 'lead_web' || objKey === 'sales') && convs === null) traerTargeting<{ id: string; name: string; event?: string; pixel_id?: string }>('kind=conversions', 'tus conversiones').then((it) => setConvs(it ?? [])); }, [objKey, convs]);  
@@ -304,9 +310,9 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
   useEffect(() => {
     try {
       if (existente || step === 'listo') return;
-      window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ step, tray, budgetUsd, objKey, paises, estrategia, audiencias, placements, destino, analisis, spec, uso }));
+      window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ step, tray, budgetUsd, objKey, lugares, estrategia, audiencias, placements, destino, analisis, spec, uso }));
     } catch { /* quota */ }
-  }, [step, tray, budgetUsd, objKey, paises, estrategia, audiencias, placements, destino, analisis, spec, uso]);
+  }, [step, tray, budgetUsd, objKey, lugares, estrategia, audiencias, placements, destino, analisis, spec, uso]);
 
   const usables = () => tray.filter((t) => !t.processing && (t.image_hash || t.video_id || t.source_ad_id));
 
@@ -327,10 +333,12 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
       case 'creativos': return usables().length > 0 && !tray.some((t) => t.processing) && (!existente || !!adsetInfo);
       case 'inversion': return !!budgetUsd && budgetUsd > 0;
       case 'objetivo': return !!objKey;
-      // Sin país no se avanza, a propósito: Meta EXIGE geo_locations y hasta ahora
-      // ese hueco lo tapaba un 'MX' cableado. Preguntar una vez es más barato que
-      // publicar en el país equivocado.
-      case 'lugar': return paises.length > 0;
+      // Sin un lugar incluido no se avanza: Meta EXIGE geo_locations y hasta ahora
+      // ese hueco lo tapaba un 'MX' cableado. Y si Meta ya dijo que la combinación
+      // no va (lugares que se pisan, radio inválido), tampoco: enterarse acá es
+      // gratis, enterarse al publicar deja una campaña a medio crear. `null`
+      // (midiendo, o no se pudo preguntar) NO bloquea.
+      case 'lugar': return lugares.some((l) => !l.excluir) && lugarOk !== false;
       case 'estrategia': return !!estrategia;
       case 'publico': return audiencias.length > 0;
       case 'ubicaciones': return placements === null || placements.length > 0;
@@ -483,9 +491,9 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
     const def = objetivoDef(objective);
     const copies = mako ? mako.adsets.flatMap((s) => s.ads).map((a) => a.creative) : [];
     const u = usables();
-    // El país sale del paso 'lugar'. Estaba cableado a ['MX'] en las TRES ramas:
+    // Los lugares salen del paso 'lugar'. Estaba cableado a ['MX'] en las TRES ramas:
     // eligieras lo que eligieras, la campaña se entregaba en México.
-    const geo_locations = { countries: paises };
+    const { geo_locations, excluded_geo_locations } = geoSpecDe(lugares);
     const targeting: Targeting = estrategia === 'retargeting'
       ? { geo_locations, custom_audiences: audiencias.map((x) => ({ id: x.id, name: x.name })), advantage_audience: 0 }
       : estrategia === 'intereses'
@@ -494,6 +502,7 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
         // Meta optimice el amplio (adv 1).
         ? { geo_locations, advantage_audience: mako?.adsets?.[0]?.targeting?.flexible_spec?.some((g) => g.interests?.length) ? 0 : 1, flexible_spec: mako?.adsets?.[0]?.targeting?.flexible_spec }
         : { geo_locations, advantage_audience: 1 };
+    if (excluded_geo_locations) targeting.excluded_geo_locations = excluded_geo_locations;
     // Ubicaciones: null = automáticas (Advantage+, todas). Array = manuales.
     if (placements && placements.length) targeting.publisher_platforms = placements;
     const ads: AdSpec[] = u.map((t, i) => {
@@ -634,7 +643,9 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
   if (usables().length) resumen.push(`${usables().length} creativo${usables().length === 1 ? '' : 's'}`);
   if (budgetUsd) resumen.push(`$${budgetUsd}/día`);
   if (objKey) resumen.push(OBJETIVO_UI.find((o) => o.value === objKey)?.label ?? '');
-  if (paises.length) resumen.push(`📍 ${nombresPaises(paises, paisesCat)}`);
+  // Solo en su paso. Pedido explícito: el lugar colgando del pie en TODAS las
+  // pantallas (con un 📍) distraía de la pregunta de cada una.
+  if (step === 'lugar' && lugares.length) resumen.push(resumenLugares(lugares));
   if (estrategia) resumen.push(ESTRATEGIAS.find((e) => e.value === estrategia)?.label ?? '');
   if (placements && placements.length) resumen.push(`Ubicaciones: ${placements.length}`);
 
@@ -700,9 +711,8 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
           )}
 
           {step === 'lugar' && (
-            <Paso titulo="¿En qué país está la gente que quieres alcanzar?"
-              sub={cuenta?.country ? `Te dejamos marcado el país de tu cuenta de Meta. Cámbialo si vendes en otro.` : 'Elige uno o varios países.'}>
-              <PaisPicker paises={paises} setPaises={setPaises} catalogo={paisesCat} sugerido={cuenta?.country ?? null} />
+            <Paso titulo="¿Dónde está la gente que quieres alcanzar?" sub="País, provincia, ciudad, barrio, código postal o dirección.">
+              <LugarPicker lugares={lugares} setLugares={setLugares} sugerido={cuenta?.country ?? null} onValidez={setLugarOk} />
             </Paso>
           )}
 
@@ -888,77 +898,6 @@ function ListaEntidades({ items, sel, onPick, extra, cargando, vacio }: { items:
           </button>
         );
       })}
-    </div>
-  );
-}
-
-// ── país / ubicación de la audiencia ──
-// Nombres legibles de los ISO-2 elegidos, para el resumen del pie. Si el catálogo
-// todavía no llegó, se muestra el código: es feo pero es verdad, y es preferible a
-// no mostrar nada en la línea que dice DÓNDE se va a gastar la plata.
-function nombresPaises(codes: string[], catalogo: Array<{ code: string; name: string }> | null): string {
-  const byCode = new Map((catalogo ?? []).map((c) => [c.code, c.name]));
-  const nombres = codes.map((c) => byCode.get(c) ?? c);
-  return nombres.length <= 3 ? nombres.join(', ') : `${nombres.slice(0, 2).join(', ')} +${nombres.length - 2}`;
-}
-
-// Atajos: lo que se elige el 95% de las veces, sin escribir. El resto sale del
-// buscador contra el catálogo REAL de Meta (247 países), no de una lista nuestra.
-const PAISES_FRECUENTES = ['MX', 'AR', 'CO', 'CL', 'PE', 'ES', 'US', 'UY', 'EC'];
-
-function PaisPicker({ paises, setPaises, catalogo, sugerido }: { paises: string[]; setPaises: (v: string[]) => void; catalogo: Array<{ code: string; name: string }> | null; sugerido: string | null }) {
-  const [q, setQ] = useState('');
-  const byCode = new Map((catalogo ?? []).map((c) => [c.code, c.name]));
-  const toggle = (code: string) => setPaises(paises.includes(code) ? paises.filter((c) => c !== code) : [...paises, code]);
-  const norm = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-  const hallados = q.trim().length >= 2 && catalogo
-    ? catalogo.filter((c) => norm(c.name).includes(norm(q)) && !paises.includes(c.code)).slice(0, 8)
-    : [];
-  // Los frecuentes que el catálogo confirma (si no llegó, se muestran igual: el
-  // código ISO-2 es lo que Meta acepta, el nombre es solo para leerlo).
-  const chips = PAISES_FRECUENTES.concat(sugerido && !PAISES_FRECUENTES.includes(sugerido) ? [sugerido] : []);
-  return (
-    <div style={{ width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center' }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-        {chips.map((code) => {
-          const on = paises.includes(code);
-          return (
-            <button key={code} type="button" onClick={() => toggle(code)}
-              style={{ padding: '9px 15px', borderRadius: 999, border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'rgba(47,111,237,.10)' : 'var(--surface)', color: on ? 'var(--primary-strong)' : 'var(--dim)', fontFamily: SANS, fontSize: 14, cursor: 'pointer' }}>
-              {byCode.get(code) ?? code}{code === sugerido ? ' ·' : ''}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Elegidos que no están entre los atajos: se ven y se pueden sacar. */}
-      {paises.some((c) => !chips.includes(c)) && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-          {paises.filter((c) => !chips.includes(c)).map((c) => (
-            <span key={c} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 13px', borderRadius: 999, border: '1px solid var(--primary)', background: 'rgba(47,111,237,.10)', color: 'var(--primary-strong)', fontSize: 13.5 }}>
-              {byCode.get(c) ?? c}
-              <button type="button" onClick={() => toggle(c)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--primary-strong)', fontSize: 13, padding: 0 }}>✕</button>
-            </span>
-          ))}
-        </div>
-      )}
-
-      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={catalogo === null ? 'Cargando países…' : 'Buscar otro país…'} disabled={catalogo === null}
-        style={{ width: '100%', padding: '12px 15px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none', textAlign: 'center' }} />
-      {hallados.length > 0 && (
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 190, overflowY: 'auto' }}>
-          {hallados.map((c) => (
-            <button key={c.code} type="button" onClick={() => { toggle(c.code); setQ(''); }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-              style={{ textAlign: 'left', padding: '9px 13px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--ink)', fontFamily: SANS, fontSize: 14.5, cursor: 'pointer' }}>
-              {c.name} <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>{c.code}</span>
-            </button>
-          ))}
-        </div>
-      )}
-      {catalogo !== null && catalogo.length === 0 && (
-        <p style={{ fontSize: 12.5, color: 'var(--warn)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>No pude traer la lista de países de Meta. Los atajos de arriba siguen funcionando.</p>
-      )}
     </div>
   );
 }

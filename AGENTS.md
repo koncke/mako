@@ -1099,14 +1099,32 @@ la persona tipeó. La falla silenciosa es la que cuesta plata.
 
 **La regla:** la moneda, el país y la zona horaria los define **la cuenta del
 proveedor**, y hay que ir a preguntárselos por API. En Meta:
-`/api/ads-manager/targeting?kind=cuenta` → `{ currency, country }`, y `kind=paises` el
-catálogo (los 247 de Meta, no una lista nuestra). Y aun teniendo el default bien, **la
+`/api/ads-manager/targeting?kind=cuenta` → `{ currency, country }`, y los lugares del
+público salen del buscador de Meta (`kind=lugares`: país, provincia, ciudad, código postal,
+barrio, partido, dirección), no de una lista nuestra. Y aun teniendo el default bien, **la
 pantalla lo pregunta igual**: adivinar bien no reemplaza a poder editar.
 
 ⚠️ Y ojo con qué campo se usa para adivinar: `business_country_code` de la cuenta
 publicitaria es el país **fiscal**, no el del público. Una LLC estadounidense que vende
 en Argentina da `US`. El que acierta es `timezone_name`, que es la zona con la que se
 eligió operar la cuenta (`lib/meta-pais.ts`).
+
+# Un estimador que devuelve CERO no es un validador
+
+Meta tiene dos endpoints que contestan «¿a cuántas personas llega esta segmentación?», y
+contestan distinto a lo que importa. Medido el 11/09/2026 contra la creación real de un
+conjunto con `validate_only`: para lugares que se pisan, un radio fuera de rango y un pin
+de 0,5 km, `delivery_estimate` devuelve **`0–0` personas, sin error**, y `reachestimate`
+devuelve **el mismo subcode con el que la creación rechaza**. 8 de 8.
+
+Un cero es un valor plausible —se lee «público chico»—, así que un validador armado sobre
+el primero dice que todo está bien sobre una campaña que Meta no va a dejar publicar.
+
+**La regla:** para validar algo antes de escribirlo, se usa el endpoint que **falla igual
+que la escritura**, y eso se comprueba dándole a propósito una entrada que se sabe mala.
+Si contesta un número en vez de un error, no valida: estima. Vale para cualquier
+«estimate», «preview» o «dry-run» de un proveedor. Molde: `alcanceGeo` en
+`lib/meta-ads-create.ts`; las mediciones, en `docs/hallazgos-ads.md`.
 
 # Un umbral es un proxy, y el proxy hay que MEDIRLO contra los datos reales
 

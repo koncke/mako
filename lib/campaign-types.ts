@@ -45,10 +45,18 @@ export function objetivoDef(o: Objective) {
 export type BudgetLevel = 'campaign' | 'adset';
 
 // ── Segmentación (todo editable; MaKo sugiere el arranque) ────────────────────
+// Las claves son las de Meta, tal cual (lib/meta-geo.ts tiene la tabla medida).
+export type GeoKey = { key: string; name?: string };
 export type GeoLocations = {
   countries?: string[]; // ISO-2 (ej. "MX", "US")
-  regions?: Array<{ key: string; name?: string }>;
-  cities?: Array<{ key: string; name?: string; radius?: number; distance_unit?: 'mile' | 'kilometer' }>;
+  regions?: GeoKey[]; // provincia / estado
+  cities?: Array<{ key: string; name?: string; radius?: number; distance_unit?: 'mile' | 'kilometer' }>; // sin radio = solo la ciudad
+  zips?: GeoKey[]; // "AR:C1425"
+  neighborhoods?: GeoKey[]; // barrio
+  subcities?: GeoKey[]; // localidad
+  medium_geo_areas?: GeoKey[]; // partido / municipio
+  geo_markets?: GeoKey[]; // DMA (EE.UU.)
+  custom_locations?: Array<{ address_string?: string; latitude?: number; longitude?: number; radius: number; distance_unit: 'mile' | 'kilometer'; name?: string }>;
 };
 
 export type InterestSpec = { id: string; name: string };

@@ -20,6 +20,7 @@ import { META_PAGE_ID } from './config';
 import { credWs } from './credenciales';
 import { normalizarCuentaMeta } from './meta-cuenta-id';
 import { paisDeCuentaMeta } from './meta-pais';
+import { TIPOS_BUSCABLES, lugarDesdeBusqueda, ordenarLugares, type LugarMeta } from './meta-geo';
 import { getWorkspaceActual, OWNER_WS } from './workspace';
 import {
   type CampaignSpec,
@@ -187,11 +188,29 @@ const mxnACentavos = (mxn: number): number => Math.round(mxn * 100);
 
 const clampAge = (n: number): number => Math.min(65, Math.max(13, Math.round(n)));
 
+// Todas las claves de lugar que Meta acepta (medidas con validate_only, ver
+// lib/meta-geo.ts). Una clave que no esté acá NO llega a Meta: antes solo pasaban
+// países, regiones y ciudades, y un código postal se perdía sin error.
 function cleanGeo(g: NonNullable<Targeting['geo_locations']>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
+  const keys = (arr?: Array<{ key: string }>) => (arr ?? []).filter((x) => x?.key).map((x) => ({ key: String(x.key) }));
   if (g.countries?.length) out.countries = g.countries.map((c) => c.toUpperCase());
-  if (g.regions?.length) out.regions = g.regions.map((r) => ({ key: r.key }));
-  if (g.cities?.length) out.cities = g.cities.map((c) => ({ key: c.key, radius: c.radius ?? 17, distance_unit: c.distance_unit ?? 'kilometer' }));
+  if (g.regions?.length) out.regions = keys(g.regions);
+  // Sin radio = solo la ciudad. Acá había `radius: c.radius ?? 17`: toda ciudad
+  // elegida salía con 17 km alrededor, o sea un público más grande que el pedido.
+  if (g.cities?.length) out.cities = g.cities.filter((c) => c?.key).map((c) => (c.radius ? { key: c.key, radius: c.radius, distance_unit: c.distance_unit ?? 'kilometer' } : { key: c.key }));
+  for (const k of ['zips', 'neighborhoods', 'subcities', 'medium_geo_areas', 'geo_markets'] as const) {
+    if (g[k]?.length) out[k] = keys(g[k]);
+  }
+  if (g.custom_locations?.length) {
+    out.custom_locations = g.custom_locations
+      .filter((c) => c && (c.address_string || (c.latitude != null && c.longitude != null)))
+      .map((c) => ({
+        ...(c.address_string ? { address_string: c.address_string } : { latitude: c.latitude, longitude: c.longitude }),
+        radius: c.radius, distance_unit: c.distance_unit ?? 'kilometer',
+      }));
+  }
+  for (const k of Object.keys(out)) if (Array.isArray(out[k]) && !(out[k] as unknown[]).length) delete out[k];
   return out;
 }
 
@@ -207,11 +226,15 @@ function cleanGeo(g: NonNullable<Targeting['geo_locations']>): Record<string, un
  */
 export function buildTargeting(t: Targeting, paisPorDefecto?: string | null): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  const tieneGeo = Boolean(t.geo_locations && (t.geo_locations.countries?.length || t.geo_locations.regions?.length || t.geo_locations.cities?.length));
+  // Cualquier clave de lugar cuenta, no solo país/región/ciudad: con la vieja
+  // condición, una campaña segmentada SOLO por código postal "no tenía geo" y
+  // caía al país de la cuenta — el público entero en vez del barrio pedido.
+  const geoLimpio = t.geo_locations ? cleanGeo(t.geo_locations) : {};
+  const tieneGeo = Object.keys(geoLimpio).length > 0;
   if (!tieneGeo && !paisPorDefecto) {
-    throw new MetaWriteError('No sé en qué país mostrar estos anuncios: elige la ubicación antes de publicar.');
+    throw new MetaWriteError('No sé dónde mostrar estos anuncios: elige al menos un lugar antes de publicar.');
   }
-  out.geo_locations = tieneGeo ? cleanGeo(t.geo_locations!) : { countries: [String(paisPorDefecto).toUpperCase()] };
+  out.geo_locations = tieneGeo ? geoLimpio : { countries: [String(paisPorDefecto).toUpperCase()] };
   if (t.excluded_geo_locations) {
     const eg = cleanGeo(t.excluded_geo_locations);
     if (Object.keys(eg).length) out.excluded_geo_locations = eg;
@@ -353,30 +376,70 @@ export async function cuentaMeta(): Promise<{ accountId: string; name: string; c
 }
 
 /**
- * Países que Meta acepta en geo_locations, con su nombre en español — los suyos,
- * no una lista nuestra que se desactualiza. 247 filas, una sola llamada.
+ * Busca lugares como el buscador de Ads Manager: país, provincia/estado, ciudad,
+ * código postal, barrio, localidad, partido y DMA. Los ids que devuelve son los que
+ * Meta acepta en geo_locations.
  *
- * ⚠️ SIN caché de módulo, aunque el catálogo sea el mismo para todos y la tentación
- * sea obvia. Este lib es per-workspace: un `let` acá lo comparten TODOS los
- * clientes del proceso, y tests/ads-manager-credenciales.test.ts lo prohíbe de
- * plano ("sin estado mutable de módulo: cruzaría clientes"). Lo escribí igual y el
- * test lo cazó — que es exactamente para lo que está.
+ * Son DOS consultas en paralelo — una filtrada por el país de la cuenta y una
+ * mundial — y no una, porque la mundial sola esconde lo local: con «Córdoba» no
+ * trae la Provincia de Córdoba y deja la ciudad 12ª. El porqué medido y el orden
+ * viven en `ordenarLugares` (lib/meta-geo.ts), que se prueba.
  */
-export async function listCountries(): Promise<Array<{ code: string; name: string }>> {
+export async function searchLugares(q: string, pais?: string | null): Promise<LugarMeta[]> {
+  if (q.trim().length < 2) return [];
   const [apiVersion, tk] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
-  const url = new URL(`${GRAPH_BASE}/${apiVersion}/search`);
-  url.searchParams.set('type', 'adgeolocation');
-  url.searchParams.set('location_types', '["country"]');
-  url.searchParams.set('locale', 'es_LA');
-  url.searchParams.set('limit', '300');
-  url.searchParams.set('access_token', tk);
-  const d = await graphGet(url.toString());
-  const arr = Array.isArray(d.data) ? (d.data as Array<Record<string, unknown>>) : [];
-  const items = arr
-    .map((o) => ({ code: String(o.country_code ?? o.key ?? '').toUpperCase(), name: String(o.name ?? '') }))
-    .filter((o) => /^[A-Z]{2}$/.test(o.code) && o.name)
-    .sort((a, b) => a.name.localeCompare(b.name, 'es'));
-  return items;
+  const buscar = async (limit: number, countryCode?: string): Promise<LugarMeta[]> => {
+    const url = new URL(`${GRAPH_BASE}/${apiVersion}/search`);
+    url.searchParams.set('type', 'adgeolocation');
+    url.searchParams.set('location_types', JSON.stringify(TIPOS_BUSCABLES));
+    url.searchParams.set('q', q.trim());
+    url.searchParams.set('locale', 'es_LA');
+    url.searchParams.set('limit', String(limit));
+    if (countryCode) url.searchParams.set('country_code', countryCode);
+    url.searchParams.set('access_token', tk);
+    const d = await graphGet(url.toString());
+    const arr = Array.isArray(d.data) ? (d.data as Array<Record<string, unknown>>) : [];
+    return arr.map(lugarDesdeBusqueda).filter((l): l is LugarMeta => l !== null);
+  };
+  const cc = pais && /^[A-Z]{2}$/.test(pais) ? pais : null;
+  const [locales, mundo] = await Promise.all([cc ? buscar(25, cc) : Promise.resolve([]), buscar(15)]);
+  return ordenarLugares(q, locales, mundo);
+}
+
+/**
+ * Alcance estimado de una segmentación geográfica, y de paso su VALIDACIÓN.
+ *
+ * ⚠️ Es `reachestimate` y no `delivery_estimate` a propósito. Medido el 2026-09-11:
+ * delivery_estimate devuelve `0–0` personas para lugares que se pisan, para un
+ * radio fuera de rango y para un pin de 0,5 km — sin error. reachestimate devuelve
+ * el MISMO rechazo (subcode) que la creación real del conjunto, así que valida sin
+ * necesitar una campaña. Si lo cambiás por el otro, la pantalla muestra "0
+ * personas" sobre una campaña que Meta no va a dejar publicar.
+ *
+ * `frase` es cómo Meta leyó los lugares (targetingsentencelines): para una
+ * dirección es la única confirmación de qué calle geocodificó.
+ */
+export async function alcanceGeo(geo: Pick<Targeting, 'geo_locations' | 'excluded_geo_locations'>): Promise<{ min: number | null; max: number | null; frase: string | null }> {
+  const targeting = buildTargeting({ ...geo, advantage_audience: 1 });
+  const [apiVersion, adAccountId, tk] = await Promise.all([cred('META_API_VERSION'), cred('META_AD_ACCOUNT_ID'), cred('META_ACCESS_TOKEN')]);
+  const url = (edge: string) => {
+    const u = new URL(`${GRAPH_BASE}/${apiVersion}/${adAccountId}/${edge}`);
+    u.searchParams.set('targeting_spec', JSON.stringify(targeting));
+    u.searchParams.set('access_token', tk);
+    return u;
+  };
+  const sl = url('targetingsentencelines');
+  sl.searchParams.set('locale', 'es_LA');
+  // La frase es un extra: si falla, el alcance (que es el que valida) igual sale.
+  const [r, frases] = await Promise.all([graphGet(url('reachestimate').toString()), graphGet(sl.toString()).catch(() => null)]);
+  const data = (r.data ?? {}) as Record<string, unknown>;
+  const num = (v: unknown) => (v == null || !Number.isFinite(Number(v)) ? null : Number(v));
+  const lineas = Array.isArray(frases?.targetingsentencelines) ? (frases!.targetingsentencelines as Array<{ content?: string; children?: string[] }>) : [];
+  const frase = lineas
+    .filter((l) => /^Lugar/i.test(String(l.content ?? '')))
+    .map((l) => `${String(l.content ?? '').replace(/^Lugar\s*-\s*/i, '')} ${(l.children ?? []).join('; ')}`.trim())
+    .join(' · ') || null;
+  return { min: num(data.users_lower_bound), max: num(data.users_upper_bound), frase };
 }
 
 export async function listCustomAudiences(): Promise<Array<{ id: string; name: string; subtype?: string; count?: number | null }>> {

@@ -1373,3 +1373,79 @@ JSON que se le pide a MaKo (`CAMPAIGN_JSON_SHAPE`), aunque hace rato signifique 
 la moneda de la cuenta». El nombre es la próxima trampa. Y el selector de país es por
 PAÍS: no hay ciudades ni radios, aunque `Targeting.geo_locations` ya los tipa y
 `cleanGeo` ya los sabe mandar.
+
+---
+
+## Los lugares de Meta: qué acepta, qué rechaza, y dos endpoints que contestan distinto (11/09)
+
+**Síntoma:** el paso nuevo de país dejaba elegir sólo países. Martín: «debería poder
+seleccionarse lo que sea, provincia, estado, ciudad, localidad o incluso código postal…
+que coincida con Meta». Y el país elegido colgaba del pie del wizard (con un 📍) en todas
+las pantallas.
+
+**Lo que Meta acepta, medido con `execution_options=["validate_only"]` al crear un
+conjunto** (valida sin crear nada) sobre la cuenta del dueño:
+
+| Clave en `geo_locations` | Ejemplo real | |
+|---|---|---|
+| `countries` | `AR` | ✔ |
+| `regions` | `97` Provincia de Buenos Aires | ✔ |
+| `cities` | `84740` Ciudad de Córdoba — sin radio, o 17–80 km | ✔ (5 km ✖ `1487110`) |
+| `zips` | `AR:C1425` | ✔ |
+| `neighborhoods` / `subcities` | `2871807` Alta Córdoba | ✔ |
+| `medium_geo_areas` | `82782` Partido de Morón | ✔ |
+| `geo_markets` | `COMSCORE_MARKET:2017` Miami | ✔ |
+| `custom_locations` | `address_string` + radio ≥ 1 km | ✔ (0,5 km ✖ `1487940`; dirección que no geocodifica ✖ `1487855`) |
+
+**Incluir dos lugares donde uno contiene al otro es un rechazo de la campaña entera**
+(`1487756`, «Some locations conflict»): país+ciudad, provincia+ciudad, país+pin,
+ciudad+código postal. Es el caso de todos los días —el país de la cuenta viene precargado
+y el usuario busca su ciudad—, así que `agregarLugar` saca el más grande y lo dice.
+Excluir adentro de lo incluido sí vale (Argentina menos CABA ✔).
+
+⚠️ **Y lo que parece un choque y NO lo es:** ciudad+barrio y provincia+partido Meta los
+acepta juntos. `contiene()` devuelve false a propósito; sacarle uno al usuario sería
+inventar una regla que Meta no tiene.
+
+### ⚠️ `delivery_estimate` devuelve CERO donde `reachestimate` devuelve el rechazo
+
+El diagnóstico obvio para validar una segmentación sin campaña era `delivery_estimate`.
+Es el equivocado: para el choque país+ciudad, el radio de 5 km y el pin de 0,5 km
+contesta **`0–0` personas, sin error**. Se lee como «público chico». `act_<id>/reachestimate`
+devuelve **el mismo subcode que la creación real**, en los 8 casos medidos, y tampoco
+necesita campaña. Por eso el paso 'lugar' mide el alcance con ése y no avanza si Meta
+rechaza. El único choque que el selector no puede deducir por id —una dirección adentro de
+un país incluido— lo frena ese chequeo antes de publicar.
+
+### ⚠️ La búsqueda mundial esconde lo local
+
+`search?type=adgeolocation` con todos los tipos y `limit=15`, para «Córdoba»: la
+**Provincia de Córdoba no aparece** y la Ciudad de Córdoba sale 12ª, detrás de Colombia y
+España. Para «Morón», el partido no aparece. Subir el límite no lo arregla: el orden de Meta
+**cambia con el límite** (la ciudad es 2ª con 50 y 5ª con 100). Con `country_code=AR` la
+ciudad sale 1ª y el partido 2º. `searchLugares` hace las dos consultas en paralelo y
+`ordenarLugares` las junta: primero lo local, después cuánto se parece el nombre (por
+palabra entera: «Córdoba» no matchea «Cordobesa»), después el tamaño del lugar.
+
+### Y `cleanGeo` tenía dos bugs que la UI de sólo-países tapaba
+
+- **Toda ciudad salía con +17 km** (`radius: c.radius ?? 17`): un público más grande que
+  el elegido, sin preguntar. Sin radio, Meta segmenta la ciudad sola (validate_only ✔).
+- **`tieneGeo` contaba sólo países, regiones y ciudades.** Una campaña segmentada SOLO por
+  código postal «no tenía geo» y caía al país de la cuenta: el país entero en vez del barrio.
+  Las claves que no estaban en `cleanGeo` tampoco llegaban a Meta, sin error.
+
+**Vive en:** `lib/meta-geo.ts` (modelo puro, reglas medidas y orden de búsqueda) ·
+`app/ads-manager/LugarPicker.tsx` · `lib/meta-ads-create.ts` (`cleanGeo`, `searchLugares`,
+`alcanceGeo`) · `app/api/ads-manager/targeting/route.ts` (`kind=lugares`, `kind=alcance`).
+
+**Sin hacer:**
+- **Pin en el mapa** (latitud/longitud): sólo dirección escrita. `cleanGeo` ya sabe mandar
+  lat/long; falta la pantalla.
+- **`EditarPublicoModal` no edita lugares:** re-envía el geo crudo del conjunto, así que se
+  conserva pero no se cambia desde ahí.
+- **Grupos de países** («Latinoamérica»): `location_types=["country_group"]` no devolvió
+  nada en la búsqueda.
+- **`location_types` (vive / estuvo)** no se expone, a propósito: `travel_in` lo rechaza
+  Meta con «All location targeting will now reach people living in or recently in», que es
+  lo que hoy muestra Ads Manager.
