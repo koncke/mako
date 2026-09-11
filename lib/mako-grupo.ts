@@ -15,7 +15,7 @@
 import 'server-only';
 import { esSesionCaida } from './evolution';
 import sharp from 'sharp';
-import { getSetting, setSetting } from './settings';
+import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { runWithWorkspace, OWNER_WS } from './workspace';
 
 const BASE = (process.env.EVOLUTION_BASE_URL || '').replace(/\/$/, '');
@@ -27,9 +27,19 @@ const KEY = process.env.EVOLUTION_API_KEY || '';
 export const INSTANCIA_VOZ_DEFAULT = 'mako_ws1';
 export const KEY_VOZ_INSTANCIA = 'mako.voz.instancia';
 
-/** Instancia que MaKo usa para hablar (grupos + avisos). Configurable en runtime. */
-export async function instanciaVoz(): Promise<string> {
-  return runWithWorkspace(OWNER_WS, async () => (await getSetting(KEY_VOZ_INSTANCIA)) || INSTANCIA_VOZ_DEFAULT);
+/**
+ * Instancia que MaKo usa para hablar (grupos + avisos). Configurable en runtime.
+ *
+ * `estricto`: un error leyendo el setting TIRA en vez de caer al default. El default es la
+ * línea de un CLIENTE (mako_ws1): para mandar un aviso es un mal menor, pero para decidir «la
+ * voz está muerta, mandá la alarma» o «esta línea es de MaKo» es un error con consecuencias
+ * (revisión adversarial del 11/09/2026).
+ */
+export async function instanciaVoz(opts?: { estricto?: boolean }): Promise<string> {
+  return runWithWorkspace(OWNER_WS, async () => {
+    const v = opts?.estricto ? await getSettingEstricto(KEY_VOZ_INSTANCIA) : await getSetting(KEY_VOZ_INSTANCIA);
+    return v || INSTANCIA_VOZ_DEFAULT;
+  });
 }
 /** Fija qué instancia usa la voz de MaKo (ej. al conectar el canal SuperAdmin). */
 export async function setInstanciaVoz(instancia: string): Promise<void> {

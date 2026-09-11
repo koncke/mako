@@ -12,6 +12,12 @@
 import 'server-only';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { APP_BASE_URL } from '@/lib/app-url';
+import { mensajeEvolution, veredictoSondeo, type Sondeo } from './evolution-sonda';
+
+// El veredicto de la sonda y el reconocedor de «sesión caída» viven en lib/evolution-sonda.ts
+// (puros, testeados con respuestas medidas). Se re-exportan para que nadie cambie su import.
+export { esSesionCaida } from './evolution-sonda';
+export type { Sondeo } from './evolution-sonda';
 
 // Workspace del request, ESTRICTO: si es null (admin de agencia sin impersonar)
 // cortamos — nunca operar sobre la instancia del dueño por un fallback silencioso.
@@ -38,7 +44,10 @@ export function instanceNameDeWs(ws: number): string {
 
 export type EstadoConexion = 'desconectado' | 'conectando' | 'conectado' | 'error';
 
-type EvResult<T> = { ok: true; data: T } | { ok: false; error: string; status: number };
+// `detalle`: lo que Evolution dijo de verdad, anidado donde esté (ver `mensajeEvolution`). Va
+// APARTE de `error` a propósito: `error` lo leen pantallas de clientes y conserva su texto de
+// siempre; la sonda necesita el crudo para ver el «Connection Closed».
+type EvResult<T> = { ok: true; data: T } | { ok: false; error: string; status: number; detalle?: string };
 
 async function evFetch<T = unknown>(path: string, init?: RequestInit, topeMs?: number): Promise<EvResult<T>> {
   if (!evolutionConfigurado()) return { ok: false, error: 'Evolution no configurado', status: 0 };
@@ -60,7 +69,11 @@ async function evFetch<T = unknown>(path: string, init?: RequestInit, topeMs?: n
       const msg = typeof body === 'object' && body && 'message' in body
         ? JSON.stringify((body as { message: unknown }).message)
         : (typeof body === 'string' ? body.slice(0, 200) : `Evolution ${res.status}`);
-      return { ok: false, error: msg, status: res.status };
+      // `error` conserva su texto de siempre: lo muestran pantallas de clientes, y el mensaje
+      // crudo de Evolution es un array JSON que no le dice nada a nadie (revisión del 11/09).
+      // `detalle` lleva lo que Evolution dijo de verdad, anidado en `response.message`: sin eso
+      // la sonda nunca veía el «Connection Closed» (ver `mensajeEvolution`).
+      return { ok: false, error: msg, status: res.status, detalle: mensajeEvolution(body, res.status) };
     }
     return { ok: true, data: body as T };
   } catch (err) {
@@ -260,8 +273,9 @@ export async function conectar(): Promise<{ ok: true; qr: QrData; estado: Estado
  * pasos es peor que uno roto, porque nadie lo audita. La pregunta completa no es ¿la
  * instancia existe? sino ¿WhatsApp le contesta?
  *
- * Se usa `fetchAllGroups` con `getParticipants=false` porque es la operación de LECTURA más
- * barata que igual obliga a hablar con WhatsApp. No manda nada ni toca ningún chat.
+ * La operación concreta vive en `sondearSocket` (hoy `fetchBusinessProfile`). Hasta el
+ * 11/09/2026 era `fetchAllGroups`, que en una cuenta con muchos grupos no terminaba nunca y
+ * dejaba al panel en «error» sobre una línea viva: la tabla medida está en esa función.
  */
 export async function socketVivo(instance: string): Promise<boolean> {
   return (await sondearSocket(instance)) === 'vivo';
@@ -334,30 +348,55 @@ export async function motivoCaida(instance: string, topeMs?: number): Promise<Mo
   };
 }
 
-export type Sondeo = 'vivo' | 'muerto' | 'sin_respuesta';
+/** A quién se le pide el perfil de empresa en `sondearSocket`. Cualquier número sirve: lo que
+ *  exige el socket es la PREGUNTA, no la respuesta. Es la línea de MaKo, para no preguntarle
+ *  nunca a WhatsApp por un tercero. */
+const NUMERO_SONDA = '5493764673479';
 
 export async function sondearSocket(instance: string, topeMs?: number): Promise<Sondeo> {
-  // ⚠️ ES CARO, Y NO HAY UNO BARATO QUE SIRVA. Medido el 08/09/2026 buscando
-  // reemplazo: `whatsappNumbers` y `fetchProfile` contestan **200 en la
-  // instancia MUERTA** —el segundo con todos los campos en null, que es el
-  // «200 con el fallo adentro» de siempre— asi que dan vivo sobre una sesion
-  // cerrada. El unico que de verdad exige el socket es traer los grupos, y en
-  // una cuenta con muchos tarda: `mako_ws11` TIMEOUTEO a los 30s.
-  // Por eso quien lo llame desde una pantalla le pasa su propio tope y trata
-  // el `sin_respuesta` como lo que es: no sabemos.
-  const r = await evFetch(`/group/fetchAllGroups/${encodeURIComponent(instance)}?getParticipants=false`, undefined, topeMs);
-  if (r.ok) return 'vivo';
-  // status 0 = no llegamos a Evolution: eso no es un dato sobre la sesión.
-  return r.status === 0 ? 'sin_respuesta' : 'muerto';
+  return (await sondearSocketDetalle(instance, topeMs)).sondeo;
 }
 
-/**
- * Un error de Evolution que significa «la sesión de WhatsApp está caída», no «tu dato está
- * mal». Los dos llegan como 500 y hay que poder distinguirlos: de quién es el problema
- * cambia el mensaje entero.
- */
-export function esSesionCaida(e: string): boolean {
-  return /connection closed|precondition required|\b428\b/i.test(e || '');
+/** La sonda y lo que contestó Evolution: el vigilante lo necesita para decir POR QUÉ no puede
+ *  comprobar (Evolution caído, key rechazada) en vez de callarse (revisión del 11/09/2026). */
+export type SondeoDetalle = { sondeo: Sondeo; status: number; detalle: string | null };
+
+export async function sondearSocketDetalle(instance: string, topeMs?: number): Promise<SondeoDetalle> {
+  // ⚠️ HASTA EL 11/09/2026 ESTO TRAÍA LOS GRUPOS, Y NUNCA PODÍA DECIR «VIVO» EN UNA CUENTA
+  // GRANDE. Martín escaneó el QR de la línea nueva de MaKo, el panel le dijo «WhatsApp
+  // Admin con error» y contestó «no funcionó». Funcionaba: la línea estaba `open` y MaKo ya
+  // había contestado un «Hola?» con 👍 y respuesta. Lo que no terminaba era la sonda:
+  // `fetchAllGroups` sobre esa línea VIVA no respondió ni con 90 s de tope (`mako_ws11`, 30 s
+  // el 08/09). `sin_respuesta` para siempre: panel en error, el vigilante sin poder avisar
+  // que la voz volvió, el chip del cliente sin confirmar. Se había validado solo contra
+  // instancias MUERTAS.
+  //
+  // Medido el 11/09/2026 sobre las cinco instancias del servidor:
+  //
+  //                                zombi (open)  403 (conn.)  nunca vinc.  viva voz   viva ws11
+  //   fetchBusinessProfile         500 Closed    500 Closed   500 Closed   200 280ms  200 220ms
+  //   findGroupInfos (grupo falso) 404 Closed    404 Closed   404 Closed   404 item-not-found
+  //   fetchPrivacySettings         200 ⚠️        ·            ·            200        ·
+  //   fetchProfilePictureUrl       200 ⚠️        ·            ·            200        ·
+  //   fetchAllGroups               500 Closed    ·            ·            TIMEOUT 90 s
+  //
+  // `fetchPrivacySettings` y `fetchProfilePictureUrl` dan 200 IDÉNTICO con el socket muerto,
+  // como `whatsappNumbers` y `fetchProfile` el 08/09. `findGroupInfos` distingue, pero su
+  // «vivo» sería leer el texto de un error. `fetchBusinessProfile` da 200 solo si WhatsApp
+  // contesta, en ~250 ms y sin mandar nada. (Sin `number` también distingue, pero sobre las
+  // vivas devuelve un `isBusiness: true` que no es de nadie: se le pasa uno.)
+  const r = await evFetch(`/chat/fetchBusinessProfile/${encodeURIComponent(instance)}`, {
+    method: 'POST',
+    body: JSON.stringify({ number: NUMERO_SONDA }),
+  }, topeMs);
+  // El veredicto vive en lib/evolution-sonda.ts, puro y testeado con los bodies medidos. La
+  // primera versión de estas líneas leía mal el error y dio `sin_respuesta` sobre las tres
+  // instancias muertas (ver `mensajeEvolution`). De «muerto» cuelga un `logout` en
+  // `conectarCanalMaKo`, y por eso el veredicto es estricto. Decide sobre `detalle` —el
+  // mensaje anidado de Evolution—, no sobre `error`, que conserva el texto para pantallas.
+  if (r.ok) return { sondeo: 'vivo', status: 200, detalle: null };
+  const detalle = r.detalle ?? r.error;
+  return { sondeo: veredictoSondeo({ ok: false, status: r.status, error: detalle }), status: r.status, detalle };
 }
 
 // Estado en vivo (para el polling de la UI). Reconcilia la fila en DB.

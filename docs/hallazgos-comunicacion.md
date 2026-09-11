@@ -3915,8 +3915,12 @@ antes comparaba contra el nombre fijo ahora pregunta `instanciaCanal()`:
   la vieja revive tras un reinicio de Evolution las dos contestarían el mismo mensaje;
 - la voz se muda en el servidor al llegar el `connection.update` `open`, no solo desde el
   panel abierto;
-- el orden sigue siendo: QR directo → sondeo (`vivo` y `sin_respuesta` no tocan nada) →
-  `logout` leyendo su resultado → recién si no suelta, línea nueva. Nunca `delete`.
+- el orden: QR directo → sin `open`, se espera el QR y solo se sigue con un 401/403 →
+  sondeo justo antes de tocar la sesión (`vivo` y `sin_respuesta` no tocan nada) → `logout`
+  leyendo su resultado (si soltó, se espera el QR) → recién si no suelta, línea nueva
+  reservada con compare-and-set. Nunca `delete`. (La primera versión, b25f8e2f, no tenía el
+  corte de `open`: una instancia sin escanear también da «Connection Closed», así que cada
+  clic mientras Evolution armaba el QR abría otra línea.)
 
 **La regla que queda: la salida de un estado trabado no puede pasar por lo que está
 trabado.** Es la de la alarma que no viaja por el canal caído, vista del otro lado: si soltar
@@ -3931,3 +3935,123 @@ la sesión exige hablarle al socket muerto, soltarla no es un camino.
   `conectar()` en `lib/evolution.ts` devuelve `qr.base64: null` sobre una `mako_ws<id>`
   zombi. Su nombre está atado a `evolution_instancias`, así que rotarla no es copiar esto.
 - **Nadie limpia las instancias rotadas** que queden huérfanas en Evolution.
+
+### Addendum 3 (11/09): «Ya lo escaneé y no funcionó». Funcionaba; mentía el panel
+
+Martín escaneó el QR de la línea nueva y el panel le mostró **«WhatsApp Admin con error»**
+con el botón «Conectar por QR». Su conclusión fue la razonable: no funcionó.
+
+Medido cinco minutos después:
+
+- `mako_superadmin_mtxclf3x` en `open`, con el número de MaKo, desde las **20:00:14Z**;
+- la voz de MaKo mudada a esa línea a las **20:00:46Z**, por el `connection.update` del
+  webhook. **Fue ese camino y no el panel:** el panel solo muda la voz si ve `conectado`,
+  y veía `error`;
+- a las 20:06 un «Hola?» en el grupo SuperAdmin: 👍 al segundo y respuesta a los 5 s,
+  las dos guardadas como enviadas en Evolution.
+
+**La causa: la sonda de vida nunca podía decir «vivo» en una cuenta grande.**
+`sondearSocket` traía los grupos (`fetchAllGroups`) y sobre esta línea VIVA no respondió
+**ni con 90 s de tope**. `mako_ws11` ya había timeouteado a los 30 s el 08/09, y el
+comentario lo trataba como un costo aceptable («aunque tarde»). Tres consecuencias con la
+misma raíz: el panel pintaba `error` sobre una línea perfecta, el vigilante no podía mandar
+«MaKo volvió a WhatsApp» (nunca veía `vivo`) y el chip de los clientes quedaba «sin
+confirmar».
+
+La matriz que decidió el reemplazo, sobre las cinco instancias del servidor:
+
+| | zombi (`open`) | 403 | nunca vinculada | viva (voz) | viva (ws11) |
+|---|---|---|---|---|---|
+| `fetchBusinessProfile` | 500 Closed | 500 Closed | 500 Closed | **200** 280 ms | **200** 220 ms |
+| `findGroupInfos` (grupo falso) | 404 Closed | 404 Closed | 404 Closed | 404 item-not-found | 404 item-not-found |
+| `fetchPrivacySettings` | **200** ⚠️ | · | · | 200 | · |
+| `fetchProfilePictureUrl` | **200** ⚠️ | · | · | 200 | · |
+| `fetchAllGroups` | 500 Closed | · | · | **timeout 90 s** | (30 s el 08/09) |
+
+La sonda nueva es `fetchBusinessProfile`: 200 solo si WhatsApp contesta, ~250 ms, no manda
+nada. Y «muerto» sale **solo** con «Connection Closed» o sin instancia (404): de ese veredicto
+cuelga un `logout`, así que un error de otra naturaleza queda en `sin_respuesta`.
+
+**El diagnóstico obvio era el equivocado:** «el escaneo falló, hay que volver a generar el
+QR». Volver a escanear era trabajo inútil sobre una línea que andaba. El guard de
+`sin_respuesta` impidió que el botón la tocara, pero el panel igual invitaba a apretarlo.
+
+**La regla que queda (AGENTS.md):** una sonda se valida contra algo que se SABE muerto y
+algo que se SABE vivo, con reloj. La del 08/09 se validó solo del lado muerto.
+
+#### Lo que quedó SIN hacer
+
+- **Los mensajes que los clientes mandaron con la línea muerta no los contesta nadie.** En
+  «MaKo <> Codigo Inmobiliario» quedaron «¿Seguís vivo?», «¿mako desapareció?» y «Le
+  gastamos los tokens o algo así». No hay reproceso: el webhook nunca los recibió.
+
+### Addendum 4 (11/09): la sonda nueva también mentía, y el aviso no le llegaba a nadie
+
+Tres cosas más, las tres encontradas CORRIENDO el código contra producción antes de
+desplegar, no leyéndolo.
+
+**1. El veredicto leía un error que nunca llegaba.** La sonda nueva, corrida sobre las cinco
+instancias, dio `sin_respuesta` en las TRES muertas. Evolution 2.3.7 anida el mensaje
+(`response.message`) y `evFetch` buscaba solo `body.message`: todo error llegaba como
+«Evolution 500», y «Connection Closed» no lo veía nadie. Los tests por regex pasaban
+(miraban el endpoint, no la respuesta). Desplegado así, la próxima zombi no se rotaba y el
+vigilante no avisaba. Ahora el veredicto vive en `lib/evolution-sonda.ts`, puro, testeado
+sobre los bodies medidos. Y el 404 exige «instance does not exist»: **una ruta inexistente
+también da 404** (`Cannot POST …`, medido), y de «muerto» cuelga un `logout`. Con «todo 404
+es muerto», un upgrade de Evolution que renombre la ruta soltaba la voz viva al primer clic.
+
+**2. El vigilante avisaba a una lista vacía.** Mandaba a los destinatarios del ws SuperAdmin
+(9): `{"telefonos":[],"emails":[]}`. Cada «🚨 MaKo no puede hablar por WhatsApp» terminó en
+un `console.error`, y la marca de «ya avisé» se ponía ANTES de mandar, así que ni reintentaba.
+Ahora va siempre a martinkoncke@gmail.com (pedido de Martín), con el remitente de plataforma
+(`REMITENTE_MAKO`, mudado a lib/app-url.ts para compartirlo con los accesos), y la marca se
+pone solo si el mail salió.
+
+**3. Nadie mira un panel.** Arriba de todas las pantallas de admin aparece una alerta roja de
+64 px (`AlertaVozMaKo`) cuando la voz está caída MEDIDA, con «hace cuánto» y «Reconectar
+ahora». Mide en vivo cada minuto (`/api/admin/voz-alerta`, ~250 ms); `sin_respuesta` no la
+enciende. Comparte el hueco `--barra-agencia` en vez de abrir otro.
+
+**La regla que queda (AGENTS.md):** una sonda se prueba EJECUTÁNDOLA contra los estados
+reales. Leerla —y testearla por regex— no encuentra que la respuesta se lee mal.
+
+### Addendum 5 (11/09): lo que encontró la revisión adversarial antes de desplegar
+
+Una corrida de 15 agentes (5 lentes + un escéptico por hallazgo principal, solo lectura)
+sobre la rotación, la sonda y la alerta. Confirmó doce problemas. Los que importan:
+
+- **Una lectura fallida de la base elegía OTRA línea.** `getSetting` devuelve null ante un
+  5xx, y el `||` lo completaba: el canal pasaba a ser la zombi y la voz la de un cliente
+  (`mako_ws1`, cerrada). De ahí salían una rotación ENCIMA de la línea viva —el guard
+  positivo verificaba bien que la zombi estaba muerta— y barra roja con mail falsos. Ahora
+  se lee con `getSettingEstricto` (tira) el canal, la voz del vigilante y sus marcas.
+- **Dos clics a la vez abrían dos líneas.** Ahora la nueva se reserva con compare-and-set
+  (`cambiarSettingSi`) ANTES de crearla; la request que pierde devuelve el QR de la ganadora.
+- **Evolution caído no avisaba nunca**: un 502 o un 401 dan `sin_respuesta` para siempre.
+  Ahora, a la media hora, sale un mail distinto («no puedo comprobar», sin mandar a
+  re-escanear) y la barra se pone ámbar.
+- **La voz viva quedaba sorda entre la rotación y el escaneo**: el webhook oía solo el canal.
+  Ahora oye canal y voz; el doble recibo lo deduplica `ux_doer_buffer_msg` (mig 0113).
+- **Mi arreglo del lector de errores le mostraba JSON crudo a los clientes.** `evFetch` volvió
+  a su `error` de siempre y el mensaje anidado viaja aparte, en `detalle`, solo para la sonda.
+- Menores: rotaba aunque el logout sí hubiera soltado; soltaba con un 403 viejo sin sondear;
+  la barra tapaba modales (ahora z 55); una sonda por pestaña (memo de 30 s, y las pestañas
+  ocultas no preguntan); el mail salía con una sola medición; la regla de `aside` estiraba
+  cualquier panel lateral; «Reconectar ahora» caía con el panel cerrado (`/agencia?canal=1`);
+  «no pude medir» se pintaba «con error» (ahora «sin confirmar», sin botón de reconectar).
+- **Y tests que pasaban con el bug que dicen cubrir:** un mail literal declarado y sin usar, un
+  `qrConEspera` que cumplía otra rama, un «confirma con el socket» que cumplía otra función, y
+  nada que mirara si el veredicto testeado estaba cableado.
+
+**El diagnóstico obvio era el equivocado, otra vez:** «los tests pasan y lo probé en vivo,
+está listo». Se probó en vivo con la base respondiendo, Evolution arriba y un solo clic. Los
+huecos estaban en la base fallando, en dos clics y en Evolution caído.
+
+#### Lo que quedó SIN hacer
+
+- **«Desconectar» no pide confirmación** y muda la voz a `mako_ws1`, la línea de un cliente
+  (`desconectarCanalMaKo`).
+- **Número distinto al rotar**: si la línea nueva se escanea con OTRO chip, la voz vieja
+  (muerta) no puede agregarlo a los grupos. La voz se muda igual y queda un `console.error`
+  con cuántos faltan, que nadie ve en pantalla.
+- **`instanciaVoz()` sin `estricto`** sigue cayendo a `mako_ws1` para los avisos y el doer.

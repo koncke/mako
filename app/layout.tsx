@@ -4,6 +4,7 @@ import './globals.css';
 import { Sidebar } from './_components/Sidebar';
 import { NotificationsProvider } from './_components/NotificationsProvider';
 import { ImpersonationBanner } from './_components/ImpersonationBanner';
+import { AlertaVozMaKo } from './_components/AlertaVozMaKo';
 import { MakoConfirmGate } from './_components/MakoConfirmGate';
 import { IaUsageToast } from './_components/IaUsageToast';
 import { HideOnPublicLanding } from './_components/PublicRouteGate';
@@ -162,6 +163,9 @@ export default async function RootLayout({
                 <Suspense fallback={null}>
                   <ImpersonationBanner />
                 </Suspense>
+                {/* La voz de MaKo caída, arriba de TODAS las pantallas de admin: un panel que
+                    hay que abrir no avisa (ver AlertaVozMaKo). */}
+                {esAdmin && <AlertaVozMaKo />}
               </HideOnPublicLanding>
               {/* Modal bloqueante: MaKo pide confirmar los cambios automáticos del
                   CRM al entrar a /crm. usePathname (no necesita Suspense). */}

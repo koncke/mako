@@ -992,8 +992,16 @@ details[open] > summary .chev {
    —el perfil— se va abajo del borde. */
 :root { --barra-agencia: 0px; }
 [data-barra-agencia] { --barra-agencia: 50px; }
-[data-barra-agencia] body { padding-top: var(--barra-agencia); }
-[data-barra-agencia] aside {
+/* La alerta de la voz de MaKo caída (AlertaVozMaKo, 64px) se SUMA a este mismo hueco en
+   vez de abrir otro: todo lo que ya descuenta --barra-agencia (sidebar, tablero, rieles)
+   la descuenta solo. Con las dos prendidas, la alerta va debajo de la barra de agencia. */
+[data-alerta-voz] { --barra-agencia: 64px; }
+[data-barra-agencia][data-alerta-voz] { --barra-agencia: 114px; }
+[data-barra-agencia] body, [data-alerta-voz] body { padding-top: var(--barra-agencia); }
+/* Con la alerta sola, SOLO el riel del Sidebar ([data-sidebar]): la regla genérica estiraba
+   al alto de la ventana cualquier <aside> de las pantallas admin mientras la voz estuviera
+   caída (revisión del 11/09/2026). */
+[data-barra-agencia] aside, [data-alerta-voz] aside[data-sidebar] {
   top: var(--barra-agencia) !important;
   height: calc(100vh - var(--barra-agencia)) !important;
 }

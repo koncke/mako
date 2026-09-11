@@ -16,8 +16,8 @@ import { ChatGruposPanel } from './ChatGruposPanel';
 import { CanalMaKoPanel } from './CanalMaKoPanel';
 
 type Canal = { estado: string; numero: string | null; perfil: string | null; esVozActiva: boolean };
-const COLOR: Record<string, string> = { conectado: 'var(--good)', conectando: 'var(--warn)', desconectado: 'var(--faint)', error: 'var(--bad)' };
-const CANAL_LABEL: Record<string, string> = { conectado: 'WhatsApp Admin conectado', conectando: 'WhatsApp Admin conectando…', desconectado: 'WhatsApp Admin desconectado', error: 'WhatsApp Admin con error' };
+const COLOR: Record<string, string> = { conectado: 'var(--good)', conectando: 'var(--warn)', sin_confirmar: 'var(--warn)', desconectado: 'var(--faint)', error: 'var(--bad)' };
+const CANAL_LABEL: Record<string, string> = { conectado: 'WhatsApp Admin conectado', conectando: 'WhatsApp Admin conectando…', sin_confirmar: 'WhatsApp Admin sin confirmar', desconectado: 'WhatsApp Admin desconectado', error: 'WhatsApp Admin con error' };
 
 export function AgenciaTabs() {
   const [canal, setCanal] = useState<Canal | null>(null);
@@ -27,6 +27,13 @@ export function AgenciaTabs() {
     try { const j = await (await fetch('/api/admin/mako-canal')).json(); if (j.ok) setCanal(j as Canal); } catch { /* noop */ }
   }, []);
   useEffect(() => { cargarCanal(); }, [cargarCanal]);
+
+  // `?canal=1` abre el panel de la línea: es a donde llevan la alerta de la voz caída y el
+  // mail del vigilante. Sin esto el botón «Reconectar ahora» caía en una pantalla con el
+  // panel escondido detrás de un chip (revisión del 11/09/2026).
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('canal') === '1') setCanalOpen(true);
+  }, []);
 
   const estado = canal?.estado ?? 'desconectado';
 
@@ -50,7 +57,7 @@ export function AgenciaTabs() {
               </>
             ) : (
               <>
-                <span style={{ width: 9, height: 9, borderRadius: '50%', background: COLOR[estado], flex: 'none' }} />
+                <span style={{ width: 9, height: 9, borderRadius: '50%', background: COLOR[estado] ?? 'var(--faint)', flex: 'none' }} />
                 {CANAL_LABEL[estado] ?? 'WhatsApp Admin'}
               </>
             )}

@@ -1,0 +1,107 @@
+'use client';
+
+// =============================================================================
+// AlertaVozMaKo — la alerta GIGANTE cuando la voz de MaKo se cae
+// =============================================================================
+// 11/09/2026. La línea de WhatsApp de MaKo estuvo nueve días muerta y nadie se enteró: el
+// mail del vigilante no le llegaba a nadie y el panel de /agencia hay que abrirlo. Martín:
+// «sería bueno que haya una alerta gigante en admin cuando eso pase». Va arriba de TODAS las
+// pantallas de admin, que es donde se mira sin tener que ir a buscarla.
+//
+// Dos colores y nada más:
+//   · ROJA con la caída MEDIDA (`caida`). Manda a reconectar.
+//   · ÁMBAR si hace más de media hora que no se puede comprobar (`sinConfirmar`: Evolution
+//     caído, key rechazada). NO manda a re-escanear: re-escanear una línea sana la tumba.
+// Un «no pude comprobarlo» de un minuto no pinta nada: una alerta que aparece por un timeout
+// enseña a ignorarla.
+
+import { useEffect, useState } from 'react';
+
+type Alerta = { tipo: 'caida' | 'sin_confirmar'; instancia: string; desde: string | null; detalle: string | null };
+
+/** Alto fijo: el hueco que abre en la página lo declara globals.css ([data-alerta-voz]). */
+const ALTO = 64;
+
+function hace(desde: string): string {
+  const min = Math.max(1, Math.round((Date.now() - Date.parse(desde)) / 60_000));
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 48) return min % 60 ? `${h} h ${min % 60} min` : `${h} h`;
+  return `${Math.floor(h / 24)} días`;
+}
+
+const unaLinea = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as const;
+
+export function AlertaVozMaKo() {
+  const [alerta, setAlerta] = useState<Alerta | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+    const cargar = () => {
+      // Una pestaña en segundo plano no pregunta: cada pedido termina en una consulta real a
+      // WhatsApp, y Martín trabaja con una pestaña por cliente. Al volver a la pestaña, sí.
+      if (document.visibilityState === 'hidden') return;
+      fetch('/api/admin/voz-alerta')
+        .then((r) => r.json())
+        .then((j) => {
+          // Sin una respuesta válida no se afirma nada: queda lo último que se midió.
+          if (!vivo || !j?.ok) return;
+          const tipo = j.caida ? 'caida' : j.sinConfirmar ? 'sin_confirmar' : null;
+          setAlerta(tipo ? { tipo, instancia: String(j.instancia ?? ''), desde: j.desde ?? null, detalle: j.detalle ?? null } : null);
+        })
+        .catch(() => {});
+    };
+    cargar();
+    // Cada minuto: la alerta tiene que aparecer sin recargar, y desaparecer sola al reconectar.
+    const t = setInterval(cargar, 60_000);
+    document.addEventListener('visibilitychange', cargar);
+    return () => { vivo = false; clearInterval(t); document.removeEventListener('visibilitychange', cargar); };
+  }, []);
+
+  // Abre su hueco por atributo en <html>, el mismo mecanismo que la barra de agencia.
+  // ⚠️ ARRIBA del `return null`: un hook que solo corre en algunos renders rompe la pantalla
+  // entera con el error #310 (ver ImpersonationBanner).
+  useEffect(() => {
+    if (!alerta) return;
+    document.documentElement.setAttribute('data-alerta-voz', '1');
+    return () => document.documentElement.removeAttribute('data-alerta-voz');
+  }, [alerta]);
+
+  if (!alerta) return null;
+  const roja = alerta.tipo === 'caida';
+  const fondo = roja ? '#C0271D' : '#9A5B00';
+
+  return (
+    <div role="alert" style={{
+      position: 'fixed', left: 0, right: 0, height: ALTO,
+      // Debajo de la barra de agencia si está prendida: `--barra-agencia` ya suma esta alerta.
+      top: `calc(var(--barra-agencia) - ${ALTO}px)`,
+      // ⚠️ POR DEBAJO de los modales y wizards a pantalla completa (z ≥ 60). Por encima les
+      // tapaba el encabezado y el botón de cerrar (revisión del 11/09/2026); al cerrarlos, la
+      // alerta sigue ahí.
+      zIndex: 55,
+      display: 'flex', alignItems: 'center', gap: 14, padding: '0 20px',
+      background: fondo, color: '#fff', boxShadow: '0 2px 14px rgba(0,0,0,.28)',
+    }}>
+      <style>{'@keyframes mako-alerta-voz{0%,100%{opacity:1}50%{opacity:.3}}'}</style>
+      <span aria-hidden style={{ fontSize: 26, animation: roja ? 'mako-alerta-voz 1.2s infinite' : undefined }}>{roja ? '🚨' : '⚠️'}</span>
+      <div style={{ flex: 1, minWidth: 0, lineHeight: 1.3 }}>
+        <div style={{ fontWeight: 700, fontSize: 16, ...unaLinea }}>
+          {roja ? 'MaKo no puede hablar por WhatsApp' : 'No puedo comprobar si MaKo puede hablar por WhatsApp'}
+          {alerta.desde ? ` · hace ${hace(alerta.desde)}` : ''}
+        </div>
+        <div style={{ fontSize: 13, opacity: 0.92, ...unaLinea }}>
+          {roja
+            ? `La línea ${alerta.instancia} se desconectó: no entran ni salen mensajes, los clientes le escriben a una pared y los avisos se pierden.`
+            : `Evolution no responde${alerta.detalle ? ` (${alerta.detalle})` : ''}. No re-escanees el QR: revisa el servidor de Evolution.`}
+        </div>
+      </div>
+      <a href="/agencia?canal=1" style={{
+        flex: 'none', padding: '10px 18px', borderRadius: 10, background: '#fff', color: fondo,
+        fontWeight: 700, fontSize: 14, textDecoration: 'none',
+      }}>
+        {roja ? 'Reconectar ahora' : 'Ver estado'}
+      </a>
+    </div>
+  );
+}

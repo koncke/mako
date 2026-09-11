@@ -15,9 +15,9 @@
 // Quien necesite saber «¿esta instancia es el canal?» pregunta `instanciaCanal()`.
 
 import 'server-only';
-import { socketVivo, sondearSocket, motivoCaida, registrarWebhookInstancia, permitirGruposEnInstancia } from './evolution';
-import { setInstanciaVoz, INSTANCIA_VOZ_DEFAULT } from './mako-grupo';
-import { getSetting, setSetting } from './settings';
+import { sondearSocket, motivoCaida, registrarWebhookInstancia, permitirGruposEnInstancia } from './evolution';
+import { instanciaVoz, setInstanciaVoz, INSTANCIA_VOZ_DEFAULT } from './mako-grupo';
+import { getSettingEstricto, cambiarSettingSi } from './settings';
 import { runWithWorkspace, OWNER_WS } from './workspace';
 
 const BASE = (process.env.EVOLUTION_BASE_URL || '').replace(/\/$/, '');
@@ -28,9 +28,21 @@ export const INSTANCIA_SUPERADMIN = 'mako_superadmin';
 /** Qué instancia ES hoy el canal de MaKo. Cambia cuando se rota una trabada. */
 export const KEY_CANAL_INSTANCIA = 'mako.canal.instancia';
 
-/** La instancia vigente del canal de MaKo. */
+/**
+ * El valor CRUDO del setting del canal: null si la fila no existe.
+ *
+ * ⚠️ ESTRICTO: si la base falla, TIRA. Con `getSetting`, un 5xx de Supabase se leía como «no
+ * existe», el `||` de `instanciaCanal` lo completaba con la zombi `mako_superadmin`, y
+ * «Conectar por QR» verificaba —bien— que ESA estaba muerta y rotaba encima de la línea viva,
+ * que quedaba sorda (revisión adversarial del 11/09/2026). Acá «no pude leer» corta todo.
+ */
+async function instanciaCanalCruda(): Promise<string | null> {
+  return runWithWorkspace(OWNER_WS, () => getSettingEstricto(KEY_CANAL_INSTANCIA));
+}
+
+/** La instancia vigente del canal de MaKo. Tira si no se pudo leer (ver `instanciaCanalCruda`). */
 export async function instanciaCanal(): Promise<string> {
-  return runWithWorkspace(OWNER_WS, async () => (await getSetting(KEY_CANAL_INSTANCIA)) || INSTANCIA_SUPERADMIN);
+  return (await instanciaCanalCruda()) || INSTANCIA_SUPERADMIN;
 }
 
 /** ¿Este nombre es una línea del canal de MaKo, la vigente o una rotada? Sin DB. */
@@ -46,10 +58,11 @@ export function canalConfigurado(): boolean {
   return !!BASE && !!KEY;
 }
 
-export type EstadoCanal = 'desconectado' | 'conectando' | 'conectado' | 'error';
+export type EstadoCanal = 'desconectado' | 'conectando' | 'conectado' | 'sin_confirmar' | 'error';
 export type CanalInfo = { estado: EstadoCanal; numero: string | null; perfil: string | null; esVozActiva: boolean };
 export type QrCanal = { base64: string | null; code: string | null; pairingCode: string | null };
-type Conexion = { ok: true; qr: QrCanal; estado: EstadoCanal } | { ok: false; error: string };
+/** `sinCrear`: Evolution contestó que NO creó la línea (no un timeout, donde pudo haberla creado). */
+type Conexion = { ok: true; qr: QrCanal; estado: EstadoCanal } | { ok: false; error: string; sinCrear?: boolean };
 
 type EvOut = { ok: boolean; status: number; body: unknown };
 async function ev(path: string, init?: RequestInit): Promise<EvOut> {
@@ -86,30 +99,47 @@ async function existeInstancia(inst: string): Promise<boolean> {
   );
 }
 
-/** ¿La instancia vigente del canal es la voz activa de MaKo? (setting mako.voz.instancia) */
-async function esVozActiva(inst: string): Promise<boolean> {
-  // Import perezoso para evitar ciclo con mako-grupo en el tope del módulo.
-  const { instanciaVoz } = await import('./mako-grupo');
-  return (await instanciaVoz()) === inst;
+/** La fila de Evolution de una instancia, buscada por NOMBRE (si ignora el filtro, no adopta otra). */
+async function filaDe(inst: string): Promise<Record<string, unknown> | undefined> {
+  const r = await ev(`/instance/fetchInstances?instanceName=${inst}`);
+  return Array.isArray(r.body)
+    ? (r.body as Array<Record<string, unknown>>).find((i) => (i.name ?? i.instanceName) === inst)
+    : undefined;
+}
+
+/** El número vinculado a una instancia (su ownerJid), o null. */
+async function numeroDe(inst: string): Promise<string | null> {
+  const it = await filaDe(inst);
+  return it ? jidNum((it.ownerJid as string) || (it.owner as string) || (it.number as string) || null) : null;
 }
 
 /** Estado en vivo del canal SuperAdmin (para el panel). */
 export async function estadoCanalMaKo(): Promise<CanalInfo> {
-  const inst = await instanciaCanal();
+  let inst: string;
+  try {
+    inst = await instanciaCanal();
+  } catch {
+    // No saber cuál es la línea no es un estado de la línea.
+    return { estado: 'sin_confirmar', numero: null, perfil: null, esVozActiva: false };
+  }
   const r = await ev(`/instance/connectionState/${inst}`);
-  const vozActiva = await esVozActiva(inst);
+  const vozActiva = (await instanciaVoz().catch(() => null)) === inst;
   if (!r.ok) {
     if (r.status === 404) return { estado: 'desconectado', numero: null, perfil: null, esVozActiva: vozActiva };
-    return { estado: 'error', numero: null, perfil: null, esVozActiva: vozActiva };
+    return { estado: r.status === 0 ? 'sin_confirmar' : 'error', numero: null, perfil: null, esVozActiva: vozActiva };
   }
   // Igual que en estadoEnVivo: «open» es la fila en la base de Evolution, no la sesión.
   // Sin esta confirmación el panel dice «conectado» con el socket muerto — medido el 16/08.
+  // ⚠️ Y «no pude medir» NO es «con error» (revisión del 11/09/2026): pintaba rojo, con
+  // «Conectar por QR», sobre una línea que solo tardó en contestar.
   let estado = mapEstado((r.body as { instance?: { state?: string } })?.instance?.state);
-  if (estado === 'conectado' && !(await socketVivo(inst))) estado = 'error';
+  if (estado === 'conectado') {
+    const sondeo = await sondearSocket(inst, 8000);
+    estado = sondeo === 'vivo' ? 'conectado' : sondeo === 'muerto' ? 'error' : 'sin_confirmar';
+  }
   let numero: string | null = null, perfil: string | null = null;
   if (estado === 'conectado') {
-    const info = await ev(`/instance/fetchInstances?instanceName=${inst}`);
-    const it = Array.isArray(info.body) ? (info.body as Array<Record<string, unknown>>)[0] : undefined;
+    const it = await filaDe(inst);
     if (it) {
       numero = jidNum((it.ownerJid as string) || (it.owner as string) || (it.number as string) || null);
       perfil = (it.profileName as string) || (it.profilePicName as string) || null;
@@ -133,6 +163,9 @@ async function qrConEspera(inst: string, intentos: number): Promise<Conexion | n
     await new Promise((r) => setTimeout(r, 1500));
     const c = await ev(`/instance/connect/${inst}`);
     if (c.ok && !sinQr(c.body)) return conQr(c.body);
+    // Si mientras se espera pasó a `open`, no hay QR que esperar. Qué significa ese `open`
+    // (conectó, o es otra zombi) lo decide el sondeo de afuera, no esta espera.
+    if ((c.body as { instance?: { state?: string } } | null)?.instance?.state === 'open') return null;
   }
   return null;
 }
@@ -154,7 +187,13 @@ async function prepararInstancia(inst: string): Promise<{ ok: true } | { ok: fal
 /** Crea (si hace falta) la instancia del canal y devuelve el QR para escanear. */
 export async function conectarCanalMaKo(): Promise<Conexion> {
   if (!canalConfigurado()) return { ok: false, error: 'Evolution no configurado' };
-  const inst = await instanciaCanal();
+  let crudo: string | null;
+  try {
+    crudo = await instanciaCanalCruda();
+  } catch {
+    return { ok: false, error: 'No pude leer cuál es la línea de MaKo (falló la base de datos), así que no toqué nada. Reintenta en unos segundos.' };
+  }
+  const inst = crudo || INSTANCIA_SUPERADMIN;
   if (!(await existeInstancia(inst))) return crearInstanciaCanal(inst);
 
   const prep = await prepararInstancia(inst);
@@ -183,25 +222,30 @@ export async function conectarCanalMaKo(): Promise<Conexion> {
     if (!motivo?.desvinculado) {
       return { ok: false, error: 'Evolution todavía no armó el QR de la línea. Toca «Conectar por QR» otra vez en unos segundos.' };
     }
-  } else {
-    // ⛔ CON `open`, SOLO SE TOCA LA SESIÓN SI ESTÁ VERIFICABLEMENTE MUERTA. Un `logout` sobre
-    // una sesión viva desvincula el número y deja a todos los clientes sin MaKo. El guard va
-    // en positivo sobre una operación REAL, jamás sobre el `state`, que miente en las dos
-    // direcciones. Y «no pude preguntar» NO es «está muerta»: con `sin_respuesta` no se toca nada.
-    const sondeo = await sondearSocket(inst, 15000);
-    if (sondeo === 'vivo') {
-      return { ok: false, error: 'La línea ya está conectada y respondiendo: no hace falta reconectarla.' };
-    }
-    if (sondeo === 'sin_respuesta') {
-      return { ok: false, error: 'WhatsApp no contestó a tiempo y no puedo confirmar que la línea esté caída, así que no toqué nada. Reintenta en un minuto.' };
-    }
+  }
+
+  // ⛔ JUSTO ANTES DE TOCAR LA SESIÓN SE SONDEA, EN LAS DOS RAMAS. Un `logout` sobre una sesión
+  // viva desvincula el número y deja a todos los clientes sin MaKo. El guard va en positivo
+  // sobre una operación REAL, jamás sobre el `state`, que miente en las dos direcciones. Y
+  // «no pude preguntar» NO es «está muerta»: con `sin_respuesta` no se toca nada.
+  // Sin `open` también hace falta: el 401/403 de `motivoCaida` es la ÚLTIMA caída guardada,
+  // no una medición de ahora, y la línea pudo re-escanearse después sobre la misma instancia
+  // (revisión del 11/09/2026).
+  const sondeo = await sondearSocket(inst, 15000);
+  if (sondeo === 'vivo') {
+    return { ok: false, error: 'La línea ya está conectada y respondiendo: no hace falta reconectarla.' };
+  }
+  if (sondeo === 'sin_respuesta') {
+    return { ok: false, error: 'WhatsApp no contestó a tiempo y no puedo confirmar que la línea esté caída, así que no toqué nada. Reintenta en un minuto.' };
   }
 
   // Muerta. Primero se intenta soltarla por las buenas, que conserva la instancia.
   const lo = await ev(`/instance/logout/${inst}`, { method: 'DELETE' });
   if (lo.ok) {
-    const qr = await qrConEspera(inst, 4);
-    if (qr) return qr;
+    // Evolution la soltó: la instancia sirve, se espera su QR. Rotar acá abriría una línea de
+    // más solo porque Evolution tardó en armarlo (revisión del 11/09/2026).
+    return (await qrConEspera(inst, 4))
+      ?? { ok: false, error: 'Solté la sesión muerta y Evolution todavía está armando el QR. Toca «Conectar por QR» otra vez en unos segundos.' };
   }
 
   // ⚠️ Y EVOLUTION PUEDE NO SOLTARLA NUNCA. Medido el 11/09/2026 sobre la instancia trabada:
@@ -220,7 +264,43 @@ export async function conectarCanalMaKo(): Promise<Conexion> {
   // La salida que no pasa por el socket muerto es una línea NUEVA. Nunca `delete` de la
   // vieja: tampoco funciona (hace logout adentro) y, si funcionara, se lleva el historial.
   console.warn(`[mako-canal] ${inst} trabada en Evolution (logout ${lo.status}) → línea nueva`);
-  return crearInstanciaCanal(nombreInstanciaNueva());
+  return rotarCanal(inst, crudo);
+}
+
+/**
+ * Abre una línea NUEVA en reemplazo de `inst`, que Evolution no suelta.
+ *
+ * ⚠️ DOS CLICS A LA VEZ NO PUEDEN ABRIR DOS LÍNEAS (revisión adversarial del 11/09/2026). La
+ * barra roja sale en todas las pestañas y para todos los admins. Cada request veía la zombi,
+ * creaba su línea y pisaba el setting: ganaba la última, y el QR de la otra quedaba huérfano y
+ * sordo. Ahora la línea se RESERVA en la base con compare-and-set ANTES de crearla: una sola
+ * request logra cambiar `mako.canal.instancia` de `inst` a la nueva; la otra ve que cambió y
+ * devuelve el QR de esa.
+ */
+async function rotarCanal(inst: string, crudo: string | null): Promise<Conexion> {
+  const nueva = nombreInstanciaNueva();
+  let gane: boolean;
+  try {
+    gane = await runWithWorkspace(OWNER_WS, () => cambiarSettingSi(KEY_CANAL_INSTANCIA, crudo, nueva));
+  } catch (e) {
+    return { ok: false, error: `No pude reservar la línea nueva (${e instanceof Error ? e.message : String(e)}), así que no toqué nada.` };
+  }
+  if (!gane) {
+    const vigente = await instanciaCanal().catch(() => null);
+    if (!vigente || vigente === inst) {
+      return { ok: false, error: 'Otra pestaña está reconectando la línea. Espera unos segundos y toca «Conectar por QR».' };
+    }
+    return (await qrConEspera(vigente, 4))
+      ?? { ok: false, error: 'Otra pestaña ya abrió la línea nueva y Evolution todavía está armando su QR. Toca «Conectar por QR» en unos segundos.' };
+  }
+  const creada = await crearInstanciaCanal(nueva);
+  if (!creada.ok && creada.sinCrear) {
+    // Evolution contestó que NO la creó: se devuelve la reserva, o el próximo clic buscaría una
+    // línea que no existe. Con un timeout no se devuelve: pudo haberse creado, y el próximo
+    // clic la encuentra y pide su QR.
+    await runWithWorkspace(OWNER_WS, () => cambiarSettingSi(KEY_CANAL_INSTANCIA, nueva, crudo ?? '')).catch(() => {});
+  }
+  return creada;
 }
 
 async function crearInstanciaCanal(nombre: string): Promise<Conexion> {
@@ -229,14 +309,11 @@ async function crearInstanciaCanal(nombre: string): Promise<Conexion> {
     body: JSON.stringify({ instanceName: nombre, integration: 'WHATSAPP-BAILEYS', qrcode: true }),
   });
   if (!r.ok) {
-    return { ok: false, error: `Evolution no pudo crear la línea (${r.status}): ${typeof r.body === 'string' ? r.body : JSON.stringify(r.body).slice(0, 160)}` };
-  }
-  // Desde acá ESTA es la instancia del canal: el panel la sigue y el webhook la reconoce.
-  // La voz recién se muda cuando escanean (ver el `connection.update` del webhook).
-  try {
-    await runWithWorkspace(OWNER_WS, () => setSetting(KEY_CANAL_INSTANCIA, nombre));
-  } catch (e) {
-    return { ok: false, error: `Creé la línea ${nombre} pero no pude guardarla como canal (${e instanceof Error ? e.message : String(e)}).` };
+    return {
+      ok: false,
+      sinCrear: r.status > 0,
+      error: `Evolution no pudo crear la línea (${r.status}): ${typeof r.body === 'string' ? r.body : JSON.stringify(r.body).slice(0, 160)}`,
+    };
   }
   const prep = await prepararInstancia(nombre);
   if (!prep.ok) return prep;
@@ -246,24 +323,35 @@ async function crearInstanciaCanal(nombre: string): Promise<Conexion> {
     ?? { ok: false, error: `La línea nueva (${nombre}) ya existe pero Evolution todavía no armó el QR. Toca «Conectar por QR» otra vez en unos segundos.` };
 }
 
-/** Fija (o saca) la instancia vigente del canal como la voz activa de MaKo. Al fijarla,
- *  agrega el número del canal a TODOS los grupos (con la voz ACTUAL, que es admin),
- *  así la línea nueva puede mandar en cada grupo. */
-export async function usarCanalComoVoz(usar: boolean): Promise<void> {
-  if (usar) {
-    try {
-      const info = await estadoCanalMaKo();
-      if (info.numero) {
-        const { agregarNumeroATodosLosGrupos } = await import('./mako-chat');
-        await agregarNumeroATodosLosGrupos(info.numero);
-      }
-    } catch (e) {
-      console.error('[mako-canal] no se pudo sincronizar el número en los grupos:', e);
-    }
-    await setInstanciaVoz(await instanciaCanal());
-  } else {
+/** Fija (o saca) una línea del canal como la voz activa de MaKo. `instancia`: la que ya se
+ *  verificó (el webhook pasa la que acaba de abrir); sin ella, la vigente. Al fijarla, si es
+ *  OTRO número, lo agrega a todos los grupos con la voz actual. */
+export async function usarCanalComoVoz(usar: boolean, instancia?: string): Promise<void> {
+  if (!usar) {
     await setInstanciaVoz(INSTANCIA_VOZ_DEFAULT);
+    return;
   }
+  const inst = instancia ?? (await instanciaCanal());
+  try {
+    const numero = await numeroDe(inst);
+    const actual = await instanciaVoz();
+    const numeroActual = actual === inst ? numero : await numeroDe(actual);
+    // La misma cuenta (otro dispositivo del mismo número, que es el caso de una rotación) ya
+    // está en todos los grupos. Pedirle a la voz vieja —muerta— que la agregue era una vuelta
+    // de errores por grupo, y el resultado se tiraba (revisión del 11/09/2026).
+    if (numero && numero !== numeroActual) {
+      const { agregarNumeroATodosLosGrupos } = await import('./mako-chat');
+      const r = await agregarNumeroATodosLosGrupos(numero);
+      if (r.ok < r.grupos) {
+        // Se muda igual: quedarse en una voz muerta es MaKo muda en TODOS los grupos. Pero
+        // queda escrito dónde no va a poder hablar.
+        console.error(`[mako-canal] el número +${numero} de la línea ${inst} no quedó en ${r.grupos - r.ok} de ${r.grupos} grupos: hay que agregarlo desde el teléfono admin`);
+      }
+    }
+  } catch (e) {
+    console.error('[mako-canal] no se pudo sincronizar el número en los grupos:', e);
+  }
+  await setInstanciaVoz(inst);
 }
 
 /** Cierra sesión y elimina la instancia del canal. */

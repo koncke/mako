@@ -615,7 +615,7 @@ export function Sidebar() {
   }, [userOpen]);
 
   return (
-    <aside style={{ width: RAIL, flex: 'none', alignSelf: 'stretch', position: 'sticky', top: 0, height: '100vh', overflow: 'visible', zIndex: 60 }}>
+    <aside data-sidebar style={{ width: RAIL, flex: 'none', alignSelf: 'stretch', position: 'sticky', top: 0, height: '100vh', overflow: 'visible', zIndex: 60 }}>
       <div
         ref={panelRef}
         className={enDev ? 'mk-sidebar--dev' : undefined}

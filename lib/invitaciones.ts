@@ -27,7 +27,7 @@
 import 'server-only';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { sendEmail, renderEmailHtml } from './resend';
-import { APP_BASE_URL, EMAIL_MAKO } from './app-url';
+import { APP_BASE_URL, EMAIL_MAKO, REMITENTE_MAKO } from './app-url';
 import { getSupabaseServer } from './supabase';
 import type { RolWorkspace } from './auth-session';
 import type { ResultadoInvitacion } from './invitacion-aviso';
@@ -37,30 +37,10 @@ import type { ResultadoInvitacion } from './invitacion-aviso';
 // el mail no tenga que importar de dos lados.
 export type { ResultadoInvitacion };
 
-/**
- * Quién firma este mail. La dirección sale de `EMAIL_MAKO` (lib/app-url.ts), que es LA
- * dirección de MaKo: la misma que firma, la misma a la que vuelve un «Responder», y la
- * misma que el cuerpo le da a la persona para pedir ayuda. Las tres tienen que coincidir
- * o el mail no sirve, y la única forma de que no diverjan es que salgan de un solo lugar.
- *
- * ⚠️ ACÁ HABÍA UNA TRAMPA QUE NO SE VE PORQUE FUNCIONA DE CASUALIDAD. El único
- * remitente configurado en todo el sistema es el setting `resend_from` del workspace 1,
- * y `OWNER_WS` vale 1 — pero **el 1 es Mauricio, un CLIENTE**; el nombre de la constante
- * engaña y ya se llevó puestas otras cosas. Mandar desde ahí significa que el día que un
- * cliente cambie su remitente a «Elevate <ventas@elevate.com.mx>», TODOS los clientes
- * nuevos de MaKo reciben su acceso firmado por el negocio de otro cliente. Y si carga su
- * propia RESEND_API_KEY, los mails de la plataforma salen por SU cuenta de Resend.
- *
- * Nada de eso rompe nada visible: sale un mail, con un remitente válido, y andá a saber
- * cuándo alguien lo mira. Por eso la identidad de la plataforma se resuelve sola, sin
- * preguntarle a ningún workspace.
- *
- * `EMAIL_MAKO` guarda la dirección PELADA y el remitente se arma acá, en vez de guardar
- * «MaKo <…>» entero: así no hay que parsear nada para saber a dónde se le pide ayuda, y
- * un override mal escrito no puede dejar el cuerpo del mail diciendo «escribinos a
- * MaKo <equipo@…>». El display name es «MaKo» fijo: la marca no es configuración.
- */
-const REMITENTE_MAKO = `MaKo <${EMAIL_MAKO}>`;
+// Quién firma este mail: `REMITENTE_MAKO`, la identidad de la PLATAFORMA. Vive en
+// lib/app-url.ts desde el 11/09/2026, cuando la alarma de la voz caída
+// (lib/canal-vigilante.ts) necesitó la misma firma. El porqué —y la trampa de que
+// `OWNER_WS` sea un cliente— está escrito ahí.
 
 /**
  * Cómo se le dice a cada rol lo que va a encontrar. No es cosmético: a un closer que

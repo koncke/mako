@@ -34,13 +34,22 @@ async function wsDeInstancia(instance: string): Promise<number | null> {
   // (no es de ningún cliente) → cae al workspace dueño para que el doer "Hola
   // MaKo" pueda correr en sus grupos.
   //
-  // ⚠️ SE RECONOCE LA INSTANCIA VIGENTE, NO UN NOMBRE FIJO. Cuando Evolution deja
-  // la línea trabada, `conectarCanalMaKo` rota a una nueva (`mako_superadmin_<sufijo>`).
-  // Con el nombre fijo la línea nueva quedaba SORDA: sus mensajes de grupo caían
-  // en «instancia sin workspace». Y solo la vigente: si la vieja revive tras un
-  // reinicio de Evolution, las dos le contestarían al mismo «Hola MaKo».
-  if (ws == null && esNombreDeCanal(instance)
-    && instance === (await instanciaCanal().catch(() => INSTANCIA_SUPERADMIN))) return OWNER_WS;
+  // ⚠️ SE RECONOCEN LAS LÍNEAS VIGENTES, NO UN NOMBRE FIJO. Cuando Evolution deja la
+  // línea trabada, `conectarCanalMaKo` rota a una nueva (`mako_superadmin_<sufijo>`); con
+  // el nombre fijo la nueva quedaba SORDA («instancia sin workspace»).
+  // Vigentes son DOS: la del canal y la de la voz. Casi siempre son la misma, pero entre
+  // una rotación y el escaneo el canal ya es la nueva y la voz todavía la vieja, y
+  // reconociendo solo el canal la voz VIVA quedaba sorda en ese rato (revisión del 11/09).
+  // Que dos líneas de la misma cuenta reciban el mismo mensaje no contesta dos veces:
+  // `ux_doer_buffer_msg` (mig 0113) deduplica por wa_message_id. Una línea rotada que ya
+  // no es ninguna de las dos se ignora.
+  // Y si no se pudo LEER cuáles son, se acepta cualquier línea del canal por el mismo
+  // motivo: descartar un «Hola MaKo» por un 5xx de la base es perderlo, y Evolution no
+  // reintenta.
+  if (ws == null && esNombreDeCanal(instance)) {
+    const vigentes = await Promise.all([instanciaCanal(), instanciaVoz({ estricto: true })]).catch(() => null);
+    if (!vigentes || vigentes.includes(instance)) return OWNER_WS;
+  }
   return ws;
 }
 
@@ -105,7 +114,7 @@ export async function POST(req: NextRequest) {
           try {
             if (instance !== (await instanciaCanal())) return;
             if ((await instanciaVoz()) === instance) return;
-            await usarCanalComoVoz(true);
+            await usarCanalComoVoz(true, instance);
           } catch (e) { console.error(`[webhook:evolution] voz del canal: ${e instanceof Error ? e.message : String(e)}`); }
         });
       }

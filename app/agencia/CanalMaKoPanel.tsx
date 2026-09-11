@@ -9,14 +9,14 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 
 const MONO = "'Geist Mono', monospace";
-type Estado = 'desconectado' | 'conectando' | 'conectado' | 'error';
+type Estado = 'desconectado' | 'conectando' | 'conectado' | 'sin_confirmar' | 'error';
 type Info = { estado: Estado; numero: string | null; perfil: string | null; esVozActiva: boolean };
 type Flash = { txt: string; error?: boolean };
 
 const btn: CSSProperties = { padding: '10px 18px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' };
 const btnGhost: CSSProperties = { ...btn, background: 'transparent', color: 'var(--dim)', border: '1px solid var(--border-strong)' };
-const COLOR: Record<Estado, string> = { conectado: 'var(--good)', conectando: 'var(--warn)', desconectado: 'var(--faint)', error: 'var(--bad)' };
-const LABEL: Record<Estado, string> = { conectado: 'Conectado', conectando: 'Esperando escaneo…', desconectado: 'Desconectado', error: 'Error' };
+const COLOR: Record<Estado, string> = { conectado: 'var(--good)', conectando: 'var(--warn)', sin_confirmar: 'var(--warn)', desconectado: 'var(--faint)', error: 'var(--bad)' };
+const LABEL: Record<Estado, string> = { conectado: 'Conectado', conectando: 'Esperando escaneo…', sin_confirmar: 'Sin confirmar', desconectado: 'Desconectado', error: 'Error' };
 
 export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
   const [info, setInfo] = useState<Info | null>(null);
@@ -79,10 +79,18 @@ export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style={{ width: 10, height: 10, borderRadius: '50%', background: COLOR[estado], flex: 'none' }} />
-        <span style={{ fontWeight: 600, fontSize: 14.5 }}>{LABEL[estado]}</span>
+        <span style={{ width: 10, height: 10, borderRadius: '50%', background: COLOR[estado] ?? 'var(--faint)', flex: 'none' }} />
+        <span style={{ fontWeight: 600, fontSize: 14.5 }}>{LABEL[estado] ?? estado}</span>
         {info?.numero && <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--dim)' }}>· {info.perfil ? `${info.perfil} · ` : ''}+{info.numero}</span>}
       </div>
+
+      {/* «No pude comprobarlo» no es una caída: no se ofrece reconectar una línea que puede
+          estar perfecta, porque re-escanear la tumba. */}
+      {estado === 'sin_confirmar' && (
+        <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
+          No pude comprobar la línea en este momento: WhatsApp o Evolution no contestaron a tiempo. No hace falta reconectarla.
+        </div>
+      )}
 
       {qr && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
@@ -95,7 +103,8 @@ export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
       )}
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-        {estado !== 'conectado' && <button style={{ ...btn, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={conectar}>{busy ? 'Generando…' : qr ? 'Regenerar QR' : 'Conectar por QR'}</button>}
+        {estado === 'sin_confirmar' && <button style={{ ...btnGhost, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={cargar}>Volver a comprobar</button>}
+        {estado !== 'conectado' && estado !== 'sin_confirmar' && <button style={{ ...btn, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={conectar}>{busy ? 'Generando…' : qr ? 'Regenerar QR' : 'Conectar por QR'}</button>}
         {estado === 'conectado' && <button style={{ ...btnGhost, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={desconectar}>Desconectar</button>}
         {flash && <span style={{ fontSize: 13, fontWeight: 600, color: flash.error ? 'var(--bad)' : 'var(--good)' }}>{flash.txt}</span>}
       </div>

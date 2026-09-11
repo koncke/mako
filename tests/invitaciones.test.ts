@@ -73,9 +73,12 @@ test('la dirección de MaKo es UNA: firma, responde y recibe la ayuda', () => {
   const inv = leer('../lib/invitaciones.ts');
   // La dirección vive en lib/app-url.ts —al lado de la URL base, que contesta la misma
   // pregunta: por dónde nos encuentra alguien de afuera— y no se redeclara acá.
-  assert.ok(/import \{ APP_BASE_URL, EMAIL_MAKO \} from '\.\/app-url'/.test(inv), 'la dirección dejó de salir de la fuente única');
-  assert.ok(!/^const EMAIL_MAKO =/m.test(inv), 'volvió a haber una segunda declaración de la dirección');
-  assert.ok(/const REMITENTE_MAKO = `MaKo <\$\{EMAIL_MAKO\}>`/.test(inv), 'el remitente dejó de derivar de la dirección');
+  assert.ok(/import \{ APP_BASE_URL, EMAIL_MAKO, REMITENTE_MAKO \} from '\.\/app-url'/.test(inv), 'la dirección dejó de salir de la fuente única');
+  assert.ok(!/^const (EMAIL_MAKO|REMITENTE_MAKO) =/m.test(inv), 'volvió a haber una segunda declaración de la dirección o del remitente');
+  // El remitente se mudó a lib/app-url.ts el 11/09/2026: la alarma de la voz caída
+  // (lib/canal-vigilante.ts) firma igual, y dos constantes «que hoy coinciden» es cómo
+  // empieza una divergencia.
+  assert.ok(/export const REMITENTE_MAKO = `MaKo <\$\{EMAIL_MAKO\}>`/.test(leer('../lib/app-url.ts')), 'el remitente dejó de derivar de la dirección');
   assert.ok(/replyTo: EMAIL_MAKO/.test(inv), 'responder ya no vuelve a MaKo');
   assert.ok(/escríbenos a \$\{EMAIL_MAKO\}/.test(inv), 'el contacto de ayuda dejó de ser el de MaKo');
   // Y NO vuelve a ser el de quien dio de alta: lo que falla acá es entrar, y eso lo

@@ -32,6 +32,58 @@ export async function getSetting(key: string): Promise<string | null> {
   return (data?.value as string | undefined) ?? null;
 }
 
+/**
+ * Como `getSetting`, pero un error de lectura TIRA en vez de devolver null.
+ *
+ * ⚠️ `getSetting` convierte «no pude leer» en «no existe», y quien llama lo completa con un
+ * default. Para la línea de WhatsApp de MaKo ese default es OTRA línea: con un 5xx de Supabase,
+ * el canal pasaba a ser la instancia zombi y la voz la de un cliente, y de ahí salían una
+ * rotación encima de la línea viva y alarmas falsas (revisión adversarial del 11/09/2026).
+ * Donde el default decide algo destructivo, se lee con esto.
+ */
+export async function getSettingEstricto(key: string): Promise<string | null> {
+  const supabase = getSupabaseServer();
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('workspace_id', await wsActual())
+    .eq('key', key)
+    .maybeSingle();
+  if (error) throw new Error(`No pude leer el setting ${key}: ${error.message}`);
+  return (data?.value as string | undefined) ?? null;
+}
+
+/**
+ * Cambia una setting SOLO si todavía vale `esperado` (compare-and-set). Devuelve si ganó.
+ * `esperado: null` = solo si la fila no existe.
+ *
+ * Es atómico en la base: de dos requests que compiten por el mismo cambio, gana UNA. Existe
+ * porque dos clics a la vez en «Conectar por QR» abrían dos líneas de WhatsApp y el QR de una
+ * quedaba huérfano (lib/mako-canal.ts, `rotarCanal`).
+ */
+export async function cambiarSettingSi(key: string, esperado: string | null, nuevo: string): Promise<boolean> {
+  const supabase = getSupabaseServer();
+  const ws = await wsActual();
+  const ahora = new Date().toISOString();
+  if (esperado === null) {
+    const { data, error } = await supabase
+      .from('app_settings')
+      .upsert({ workspace_id: ws, key, value: nuevo, updated_at: ahora }, { onConflict: 'workspace_id,key', ignoreDuplicates: true })
+      .select('key');
+    if (error) throw new Error(`Error guardando setting ${key}: ${error.message}`);
+    return (data?.length ?? 0) > 0;
+  }
+  const { data, error } = await supabase
+    .from('app_settings')
+    .update({ value: nuevo, updated_at: ahora })
+    .eq('workspace_id', ws)
+    .eq('key', key)
+    .eq('value', esperado)
+    .select('key');
+  if (error) throw new Error(`Error guardando setting ${key}: ${error.message}`);
+  return (data?.length ?? 0) > 0;
+}
+
 /** Valor numérico tolerante: null si no existe o no parsea (sin romper). */
 export async function getSettingNum(key: string): Promise<number | null> {
   const raw = await getSetting(key);

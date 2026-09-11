@@ -84,6 +84,24 @@ export const EMAIL_MAKO = validarEmailMako(
 );
 
 /**
+ * Quién firma los mails de la PLATAFORMA: los accesos (lib/invitaciones.ts) y las alarmas
+ * (lib/canal-vigilante.ts). La dirección es `EMAIL_MAKO`: la misma que firma, a la que vuelve
+ * un «Responder» y la que el cuerpo le da a la persona para pedir ayuda. Tienen que coincidir,
+ * y la única forma de que no diverjan es que salgan de un solo lugar.
+ *
+ * ⚠️ NUNCA el remitente de un workspace. `sendEmail` sin `from` lee el `resend_from` del
+ * workspace actual, y el único configurado es el del workspace 1 —`OWNER_WS`—, que **es
+ * Mauricio, un CLIENTE**: el día que cambie su remitente, los mails de la plataforma salen
+ * firmados por el negocio de otro. Nada de eso rompe nada visible; por eso la identidad de la
+ * plataforma se resuelve acá, sin preguntarle a ningún workspace.
+ *
+ * `EMAIL_MAKO` va PELADA y el remitente se arma acá: un override mal escrito no puede dejar el
+ * cuerpo de un mail diciendo «escríbenos a MaKo <equipo@…>». «MaKo» es fijo: la marca no es
+ * configuración.
+ */
+export const REMITENTE_MAKO = `MaKo <${EMAIL_MAKO}>`;
+
+/**
  * ⚠️ ESTO NO ES PARANOIA DE FORMATO: es la regla de la casa de que un contrato escrito solo
  * en un comentario no es un contrato. Acá arriba dice «la dirección va PELADA», y con un
  * `MAKO_EMAIL='MaKo <equipo@…>'` el remitente quedaba `MaKo <MaKo <equipo@…>>` y el cuerpo

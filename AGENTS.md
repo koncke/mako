@@ -880,6 +880,29 @@ ruta de la API la saca de `open` (medido el 11/09/2026). El código hacía `logo
 - Es la regla de la alarma que no viaja por el canal caído (`lib/canal-vigilante.ts`),
   vista del otro lado.
 
+# Una sonda se valida en los DOS estados, con reloj
+
+La sonda de vida de WhatsApp (`sondearSocket` en `lib/evolution.ts`) se eligió el 08/09
+comprobando que fallara sobre instancias MUERTAS, y fallaba bien. Nadie la midió contra
+una VIVA grande: ahí `fetchAllGroups` no terminaba ni en 90 s, así que nunca decía
+«vivo». El 11/09 Martín escaneó el QR, la línea anduvo, MaKo contestó un mensaje, y el
+panel le mostró «WhatsApp Admin con error». Su conclusión fue «no funcionó».
+
+- Una sonda se prueba contra algo que SABÉS muerto y algo que SABÉS vivo, y se anota
+  cuánto tarda en cada uno. Una que no puede decir «vivo» miente igual que una que no
+  puede decir «muerto», y cuesta más verla porque parece prudencia.
+- Un 200 idéntico en los dos lados descarta el endpoint: `whatsappNumbers`,
+  `fetchProfile`, `fetchProfilePictureUrl` y `fetchPrivacySettings` contestan 200 con el
+  socket muerto.
+- Y se prueba EJECUTÁNDOLA, no leyéndola. La reescrita del 11/09 pasaba sus tests por regex
+  y daba `sin_respuesta` sobre las tres muertas: Evolution anida el mensaje de error y el
+  lector buscaba otro campo. El veredicto va en un módulo puro con test sobre los bodies
+  medidos (`lib/evolution-sonda.ts`).
+- «No pude leer» tampoco es un valor. `getSetting` convierte un 5xx en null y un `||` lo
+  vuelve un default: así el canal de MaKo pasaba a ser la línea zombi y la voz la de un
+  cliente. Si el default decide algo destructivo (qué línea soltar, a quién alarmar), se lee
+  con `getSettingEstricto` (lib/settings.ts), que tira.
+
 # Un mensaje de error dice DE QUIÉN fue y QUÉ HACER, o no sirve
 
 Cuando algo falla del lado del usuario —su cuota, su credencial, su configuración—

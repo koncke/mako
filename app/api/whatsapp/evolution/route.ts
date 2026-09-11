@@ -46,11 +46,12 @@ export async function GET() {
     // lado, sobre una sesion muerta — y de ahi sale `canalCaido`, que es lo que
     // decide si «Envio real: ON» dice la verdad.
     //
-    // ⚠️ PERO EL SONDEO NO PUEDE COLGAR LA PANTALLA. El unico chequeo que de
-    // verdad exige el socket es traer los grupos, y en una cuenta con muchos
-    // TARDA: medido el 08/09/2026, `mako_ws11` timeoutea a los 30s. Ponerlo sin
-    // tope en el GET convertiria cada carga de /whatsapp en media minuto de
-    // espera. Va con presupuesto de 4s.
+    // ⚠️ PERO EL SONDEO NO PUEDE COLGAR LA PANTALLA: va con presupuesto de 4s.
+    // Hasta el 11/09/2026 la sonda traia los grupos, y en una cuenta con muchos no
+    // terminaba (`mako_ws11` >30s, la voz de MaKo >90s): con este tope el chip
+    // quedaba en «no pude comprobarlo» sobre lineas perfectas. La sonda actual
+    // contesta en ~250ms (ver `sondearSocket`), asi que el tope ya no recorta el
+    // camino normal: solo corta un Evolution colgado.
     //
     // Y las TRES respuestas se tratan distinto, que es todo el punto:
     //   vivo   → conectado, medido.
