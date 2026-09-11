@@ -1766,3 +1766,47 @@ tokens de apps ajenas. Martín ya descartó «verificar la app del cliente al co
 
 **Vive en:** `lib/meta-descubrir.ts` (`descubrirMeta`) · `lib/metodo-catalogo.ts` (tutorial
 de Meta) · `lib/meta-ads-create.ts` (`appDelToken`).
+
+### Qué pide Meta para «una sola app para todos» (leído en el panel el 11/09)
+
+Estado real de la app de MaKo, caso de uso «Captar y administrar clientes»:
+
+| Fila | Estado | Llamadas |
+|---|---|---|
+| Marketing API Access Tier | **Acceso limitado** | 5,8 k |
+| `ads_management` · `ads_read` | **Listo para la prueba** (= estándar, NO avanzado) | 14,5 k cada uno |
+| `business_management` | Listo para la prueba | 12,8 k |
+| `leads_retrieval` · `pages_manage_ads` · `pages_manage_metadata` · `pages_read_engagement` · `pages_show_list` | Listo para la prueba | 295 · 621 · 473 · 696 · 324 |
+
+O sea: **ningún permiso está en acceso avanzado**, y el tier está en el limitado. Son DOS
+pedidos distintos y se piden en la misma pantalla:
+
+- **Acceso avanzado** a los 8 permisos → App Review. Requisitos del envío, textual de la guía:
+  icono de 1024x1024, *«at least one successful API call per requested permission within 30
+  days of submission»* (las 8 filas ya tienen tráfico), Privacy Policy URL, **App Purpose** en
+  *«Clients»*, contacto, una descripción de uso por permiso y **una grabación de pantalla por
+  permiso**. El fallo llega *«within approximately one week»*.
+- **Tier Full** → botón `+Upgrade` de esa fila. No lo decide una persona: pide *«at least 500
+  Marketing API calls in the last 15 days»* y *«error rate of less than 15% in the last 500
+  calls»*, y hay que mantenerlo. Limitado es *«heavily rate-limited per ad account. For
+  development only»*; Full sube a 10 usuarios de sistema y Business Manager API completa.
+- **Verificación del negocio**: se arranca desde la app (Settings → Basic → Verification →
+  *«Start Business Verification»*); *«only someone with an Admin role in the Business will be
+  able to complete»*. Es la que destraba todo lo demás: sin ella *«app users from other
+  Businesses will be unable to grant these apps permissions and all features will be
+  inactive»*.
+
+⚠️ **Las reglas del screencast NO están en la doc pública**: `/docs/app-review/requirements`,
+`/resources/screencast-guidelines`, `/best-practices` y `/tutorial` dan **404** (probados los
+cuatro el 11/09). Viven detrás del link **«Requisitos»** que cada permiso tiene en su fila del
+panel. No se escriben de memoria.
+
+⚠️ **Decisión de Martín (11/09): la app se queda en la cuenta de Mauricio (negocio Elévate) por
+ahora**, y #185 queda diferido. Consecuencia a nombrar cuando se implemente: los clientes van a
+compartir su cuenta publicitaria y su página al Business Manager de **un cliente**, y la
+verificación del negocio va a nombrar a Elévate. Mudar la app de negocio después de aprobada
+puede obligar a repetir la revisión — no está verificado.
+
+Comprobado el mismo día, porque el revisor de Meta lo va a abrir sin sesión:
+`https://hola-mako.com/privacidad` y `/terminos` contestan **200** con el documento entero
+(están en `PUBLICOS` de `lib/rutas-publicas.ts`).
