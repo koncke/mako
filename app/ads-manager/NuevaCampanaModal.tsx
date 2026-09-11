@@ -24,6 +24,7 @@ import type { SenalRecon } from '@/lib/queries';
 import { colorDeSemaforo, linkAprobarEnMeta, type MetaHealth, type NodoEstado } from '@/lib/meta-health-ui';
 import { TutorialAprobacionMeta } from './TutorialAprobacionMeta';
 import { LugarPicker } from './LugarPicker';
+import { CrearFormulario } from './CrearFormulario';
 import { geoSpecDe, lugarPais, lugaresDesdeDraft, resumenLugares, type LugarMeta } from '@/lib/meta-geo';
 import { avisoAgendaSinMedir } from '@/lib/meta-conversiones';
 import {
@@ -250,6 +251,12 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
   const [leadForms, setLeadForms] = useState<Array<{ id: string; name: string }> | null>(null);
   // Por qué NO se pudieron leer los formularios. Distinto de «la página no tiene».
   const [leadFormsError, setLeadFormsError] = useState<string | null>(null);
+  // true = el paso de destino muestra el creador de formularios en vez de la lista.
+  const [creandoForm, setCreandoForm] = useState(false);
+  // ad_id → por qué NO se puede reusar ese ganador (null = todavía no se preguntó).
+  // En ws13 los ganadores activos son de OTRA página, donde la conexión no es
+  // anunciante: reusarlos daba 1885499 recién al publicar (lib/meta-publicar-errores.ts).
+  const [ganadoresBloqueados, setGanadoresBloqueados] = useState<Record<string, string> | null>(null);
   const [convs, setConvs] = useState<Array<ConvItem> | null>(null);
   const [pixels, setPixels] = useState<Array<{ id: string; name: string }> | null>(null);
   // Eventos ACTIVOS del pixel elegido (null = sin cargar). Elegir uno inactivo arruina la entrega.
@@ -370,6 +377,9 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
       case 'publico': return audiencias.length > 0;
       case 'ubicaciones': return placements === null || placements.length > 0;
       case 'destino':
+        // Un post reusado conserva su botón original y no lleva el formulario: en un
+        // conjunto de formulario Meta lo rechaza (1487888, reproducido el 2026-09-11).
+        if (pideForm && usables().some((t) => t.kind === 'existing')) return false;
         if (existente) return adsetInfo ? (adsetInfo.needsForm ? !!destino.lead_form_id : !!destino.url?.trim()) : false;
         if (obj?.needsForm) return !!destino.lead_form_id;
         if (obj?.needsConv) return !!destino.url?.trim() && !!destino.conv?.pixel_id && !!(destino.conv?.pixel_event || destino.conv?.custom_conversion_id);
@@ -426,10 +436,24 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setTray((t) => t.filter((x) => x.id !== id)); }
   }
   function agregarGanador(s: SenalRecon) {
+    if (ganadoresBloqueados?.[s.ad_id]) return;
     if (tray.some((t) => t.source_ad_id === s.ad_id)) return;
     setTray((t) => [...t, { id: `win-${s.ad_id}`, kind: 'existing', source_ad_id: s.ad_id, thumbnail_url: s.ad_thumbnail_url, label: s.ad_name }]);
   }
   const quitar = (id: string) => setTray((t) => t.filter((x) => x.id !== id));
+  useEffect(() => {
+    if (ganadoresBloqueados !== null) return;
+    const ids = senales.filter((x) => x.ad_thumbnail_url).map((x) => x.ad_id).slice(0, 50);
+    if (!ids.length) { setGanadoresBloqueados({}); return; }
+    fetch(`/api/ads-manager/targeting?kind=ganadores&ids=${encodeURIComponent(ids.join(','))}`, { cache: 'no-store' }).then((r) => r.json())
+      .then((j) => {
+        const m: Record<string, string> = {};
+        if (j.ok && j.ganadores) for (const [id, g] of Object.entries(j.ganadores as Record<string, { puede: boolean }>)) if (!g.puede) m[id] = 'Es de otra página de Facebook: tu conexión de Meta no es anunciante en ella.';
+        setGanadoresBloqueados(m);
+      })
+      // No poder preguntar no apaga ganadores: si falla, Meta lo dice al publicar.
+      .catch(() => setGanadoresBloqueados({}));
+  }, [senales, ganadoresBloqueados]);
 
   // ── crear un público personalizado sin salir de la app ──
   async function crearPublico(tipo: AudTipo, dias: number, evento?: string) {
@@ -721,7 +745,7 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
 
           {step === 'creativos' && (
             <Paso titulo="¿Qué vas a promocionar?" sub="Sube tus imágenes o videos, o reusa un anuncio que ya te funciona. Puedes cargar varios.">
-              <CreativosPicker tray={tray} onQuitar={quitar} senales={senales} onGanador={agregarGanador} fileRef={fileRef} />
+              <CreativosPicker tray={tray} onQuitar={quitar} senales={senales} onGanador={agregarGanador} fileRef={fileRef} bloqueados={ganadoresBloqueados ?? {}} />
             </Paso>
           )}
 
@@ -766,22 +790,37 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
           )}
 
           {step === 'destino' && !(existente && !adsetInfo) && (
-            <Paso titulo={pideForm ? '¿Qué formulario instantáneo usas?' : pideConv ? '¿Dónde captas la conversión?' : '¿A qué página llevamos a la gente?'}
-              sub={pideForm ? 'Elige un formulario que ya tengas en la página.' : pideConv ? 'Tu landing/VSL + por qué conversión del pixel optimizamos (tu agenda, lead, registro…).' : existente ? 'La URL de destino de los anuncios nuevos (tu VSL o landing).' : 'La URL de tu VSL o landing.'}>
-              {pideForm ? (
+            <Paso titulo={pideForm ? (creandoForm ? 'Crea tu formulario instantáneo' : '¿Qué formulario instantáneo usas?') : pideConv ? '¿Dónde captas la conversión?' : '¿A qué página llevamos a la gente?'}
+              sub={pideForm ? (creandoForm ? 'Queda en tu página de Facebook, listo para este anuncio.' : 'Elige uno de tu página, o crea uno nuevo aquí mismo.') : pideConv ? 'Tu landing/VSL + por qué conversión del pixel optimizamos (tu agenda, lead, registro…).' : existente ? 'La URL de destino de los anuncios nuevos (tu VSL o landing).' : 'La URL de tu VSL o landing.'}>
+              {pideForm ? (creandoForm ? (
+                <CrearFormulario
+                  onCancelar={() => setCreandoForm(false)}
+                  onCreado={(f) => {
+                    // Queda ELEGIDO para este anuncio: crear y después buscarlo en la lista
+                    // sería pedirle a la persona el mismo paso dos veces.
+                    setLeadForms((l) => [f, ...(l ?? [])]);
+                    setLeadFormsError(null);
+                    setDestino((d) => ({ ...d, lead_form_id: f.id, lead_form_name: f.name }));
+                    setCreandoForm(false);
+                  }} />
+              ) : (
                 <div style={{ width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
                   <Dropdown value={destino.lead_form_id ?? ''} placeholder={leadForms === null ? 'Cargando formularios…' : leadFormsError ? 'No pude leer tus formularios' : leadForms.length ? 'Elige un formulario…' : 'No tienes formularios instantáneos'}
                     options={(leadForms ?? []).map((f) => ({ value: f.id, label: f.name }))} onChange={(v) => setDestino((d) => ({ ...d, lead_form_id: v, lead_form_name: leadForms?.find((f) => f.id === v)?.name ?? null }))} width="100%" />
+                  <button type="button" onClick={() => setCreandoForm(true)} style={{ ...btnGhost, padding: '10px 16px', fontSize: 14, color: 'var(--primary-strong)', fontWeight: 600 }}>+ Crear un formulario nuevo</button>
+                  {usables().some((t) => t.kind === 'existing') && (
+                    <p style={{ fontSize: 12.5, color: 'var(--bad)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>Un ganador reusado conserva su botón original y no puede llevar tu formulario: Meta lo rechaza. Vuelve a <b>Creativos</b>, quítalo y sube el creativo.</p>
+                  )}
                   {leadFormsError && (
                     <p style={{ fontSize: 12.5, color: 'var(--bad)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>{linkify(leadFormsError)}</p>
                   )}
                   {leadForms !== null && leadForms.length === 0 && !leadFormsError && (
                     existente
-                      ? <p style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>El conjunto optimiza por formulario instantáneo pero no encontramos formularios en la página. Crea uno en Meta o elige otro conjunto.</p>
-                      : <p style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>No hay formularios instantáneos en la página. Toca <b>← Atrás</b> y elige <b>“Leads / agendas en tu web”</b> para captar el lead en tu landing.</p>
+                      ? <p style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>El conjunto optimiza por formulario instantáneo y tu página no tiene ninguno. Crea uno aquí mismo, o elige otro conjunto.</p>
+                      : <p style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>Tu página no tiene formularios instantáneos. Crea uno aquí mismo, o toca <b>← Atrás</b> y elige <b>“Leads / agendas en tu web”</b> para captar el lead en tu landing.</p>
                   )}
                 </div>
-              ) : (
+              )) : (
                 <div style={{ width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
                   <input value={destino.url ?? ''} onChange={(e) => setDestino((d) => ({ ...d, url: e.target.value }))} placeholder="https://tu-landing/vsl" autoFocus
                     style={{ width: '100%', padding: '14px 16px', borderRadius: 13, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 16, outline: 'none', textAlign: 'center' }} />
@@ -960,7 +999,7 @@ function Inversion({ value, onChange, currency }: { value: number | null; onChan
 }
 
 // ── creativos ──
-function CreativosPicker({ tray, onQuitar, senales, onGanador, fileRef }: { tray: TrayItem[]; onQuitar: (id: string) => void; senales: SenalRecon[]; onGanador: (s: SenalRecon) => void; fileRef: React.RefObject<HTMLInputElement | null> }) {
+function CreativosPicker({ tray, onQuitar, senales, onGanador, fileRef, bloqueados }: { tray: TrayItem[]; onQuitar: (id: string) => void; senales: SenalRecon[]; onGanador: (s: SenalRecon) => void; fileRef: React.RefObject<HTMLInputElement | null>; bloqueados: Record<string, string> }) {
   const [verGanadores, setVerGanadores] = useState(false);
   const ganadores = [...senales].filter((s) => s.ad_thumbnail_url).sort((a, b) => b.leads - a.leads || b.spend_usd - a.spend_usd).slice(0, 12);
   return (
@@ -994,13 +1033,16 @@ function CreativosPicker({ tray, onQuitar, senales, onGanador, fileRef }: { tray
           {ganadores.length === 0 ? <p style={{ fontSize: 13, color: 'var(--faint)', textAlign: 'center', margin: 0 }}>Sin anuncios con creativo para reusar.</p> : (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', maxHeight: 200, overflowY: 'auto' }}>
               {ganadores.map((s) => (
-                <button key={s.ad_id} type="button" onClick={() => onGanador(s)} title={`${s.ad_name} · ${s.leads} leads`} style={{ position: 'relative', width: 56, height: 74, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', cursor: 'pointer', padding: 0, flex: 'none' }}>
+                <button key={s.ad_id} type="button" disabled={!!bloqueados[s.ad_id]} onClick={() => onGanador(s)} title={bloqueados[s.ad_id] ? `${s.ad_name} — ${bloqueados[s.ad_id]}` : `${s.ad_name} · ${s.leads} leads`} style={{ position: 'relative', width: 56, height: 74, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', cursor: bloqueados[s.ad_id] ? 'not-allowed' : 'pointer', padding: 0, flex: 'none', opacity: bloqueados[s.ad_id] ? 0.35 : 1 }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={s.ad_thumbnail_url!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   <span style={{ position: 'absolute', bottom: 0, left: 0, right: 0, fontSize: 9, fontFamily: MONO, background: 'rgba(18,21,27,.7)', color: '#fff', padding: '1px 2px' }}>{s.leads}L</span>
                 </button>
               ))}
             </div>
+          )}
+          {ganadores.some((s) => bloqueados[s.ad_id]) && (
+            <p style={{ fontSize: 12, color: 'var(--dim)', textAlign: 'center', margin: '10px 0 0', lineHeight: 1.45 }}>Los apagados son de otra página de Facebook: tu conexión de Meta no es anunciante en ella, y Meta no deja publicarlos.</p>
           )}
         </div>
       )}

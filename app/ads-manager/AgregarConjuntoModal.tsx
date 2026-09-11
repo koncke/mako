@@ -14,6 +14,7 @@ import { subirCreativo, makeThumb, type SubidoCreativo } from './creativeUpload'
 import { CTA_OPCIONES, type Creative, type AdSetSpec, type AudienceRef } from '@/lib/campaign-types';
 import type { SenalRecon } from '@/lib/queries';
 import { LugarPicker } from './LugarPicker';
+import { CrearFormulario } from './CrearFormulario';
 import { geoSpecDe, lugarPais, type LugarMeta } from '@/lib/meta-geo';
 
 const MONO = "'Geist Mono', monospace";
@@ -40,6 +41,7 @@ export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, on
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [audiencesAll, setAudiencesAll] = useState<AudItem[] | null>(null);
   const [leadForms, setLeadForms] = useState<Array<{ id: string; name: string }> | null>(null);
+  const [creandoForm, setCreandoForm] = useState(false);
   // público
   const [advantage, setAdvantage] = useState<0 | 1>(1);
   const [auds, setAuds] = useState<AudienceRef[]>([]);
@@ -182,7 +184,10 @@ export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, on
                     <label><span style={lbl}>Texto principal</span><textarea value={primary} onChange={(e) => setPrimary(e.target.value)} rows={3} style={{ ...field, resize: 'vertical', lineHeight: 1.5 }} placeholder="Texto del anuncio…" /></label>
                     <label><span style={lbl}>Título</span><input value={headline} onChange={(e) => setHeadline(e.target.value)} style={field} /></label>
                     <div><span style={lbl}>Botón (CTA)</span><Dropdown value={cta} options={CTA_OPCIONES.map((o) => ({ value: o.value as string, label: o.label }))} onChange={setCta} width="100%" /></div>
-                    {b.needsForm ? <div><span style={lbl}>Formulario</span><Dropdown value={leadFormId} placeholder={leadForms === null ? 'Cargando…' : 'Elige un formulario…'} options={(leadForms ?? []).map((f) => ({ value: f.id, label: f.name }))} onChange={setLeadFormId} width="100%" /></div>
+                    {b.needsForm ? <div><span style={lbl}>Formulario</span>{creandoForm
+                      ? <CrearFormulario compacto onCancelar={() => setCreandoForm(false)} onCreado={(f) => { setLeadForms((l) => [f, ...(l ?? [])]); setLeadFormId(f.id); setCreandoForm(false); }} />
+                      : <><Dropdown value={leadFormId} placeholder={leadForms === null ? 'Cargando…' : leadForms.length ? 'Elige un formulario…' : 'Tu página no tiene formularios'} options={(leadForms ?? []).map((f) => ({ value: f.id, label: f.name }))} onChange={setLeadFormId} width="100%" />
+                        <button type="button" onClick={() => setCreandoForm(true)} style={{ ...btnGhost, marginTop: 8, padding: '8px 14px', fontSize: 13, color: 'var(--primary-strong)', fontWeight: 600 }}>+ Crear un formulario nuevo</button></>}</div>
                       : <label><span style={lbl}>Destino (URL)</span><input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://tu-landing/vsl" style={field} /></label>}
                   </div>
                 )}

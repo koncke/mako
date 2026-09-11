@@ -11,7 +11,8 @@
 
 import type { NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
-import { createCampaign, createAdSet, createAdCreative, createAd, deleteEntity, metaErrorEnvelope, adoptarTranscripcionDelCreativo } from '@/lib/meta-ads-create';
+import { createCampaign, createAdSet, createAdCreative, createAd, deleteEntity, metaErrorEnvelope, adoptarTranscripcionDelCreativo, appDelToken } from '@/lib/meta-ads-create';
+import { explicarRechazoPublicacion, SUB_APP_EN_DESARROLLO } from '@/lib/meta-publicar-errores';
 import { type CampaignSpec, objetivoDef } from '@/lib/campaign-types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { guardAdsWs } from '@/lib/ads-guard';
@@ -89,6 +90,13 @@ export async function POST(req: NextRequest) {
     return Response.json({ ok: true, campaign_id: campaignId, adset_ids: meta_adset_ids, ad_ids: meta_ad_ids, creative_ids: meta_creative_ids });
   } catch (err) {
     const env = metaErrorEnvelope(err);
+    // El texto crudo de Meta («No tienes permiso de anunciante en la página») no dice
+    // de quién es ni qué hacer, y se leía como que MaKo no dejaba publicar. Los tres
+    // rechazos reproducidos en ws13 se explican; el resto queda con el texto de Meta.
+    const reusaGanador = spec.adsets.some((a) => a.ads.some((x) => x.creative?.source === 'existing'));
+    const pideFormulario = spec.adsets.some((a) => (a.optimization_goal || objetivoDef(spec.objective).optimization_goal) === 'LEAD_GENERATION');
+    const app = env.error_subcode === SUB_APP_EN_DESARROLLO ? await appDelToken().catch(() => null) : null;
+    const mensaje = explicarRechazoPublicacion(env.error_subcode, { app, reusaGanador, pideFormulario }) ?? env.message;
     // Rollback best-effort: borrar lo creado (todo en PAUSA, no gastó) para no dejar
     // una campaña huérfana. Borrar la campaña cascadea a conjuntos/anuncios; los
     // creativos son a nivel cuenta, se borran aparte.
@@ -97,10 +105,10 @@ export async function POST(req: NextRequest) {
       try { await deleteEntity(campaignId); for (const cid of meta_creative_ids) { await deleteEntity(cid).catch(() => { /* */ }); } rolledBack = true; }
       catch (e) { console.error('[ads-manager:campaign-create] rollback falló', e); }
     }
-    await persist({ status: 'error', error: env.message + (rolledBack ? ' (revertido)' : ''), meta_campaign_id: campaignId, meta_adset_ids, meta_ad_ids, meta_creative_ids });
-    console.error(`[ads-manager:campaign-create] ${env.message}`);
+    await persist({ status: 'error', error: mensaje + (rolledBack ? ' (revertido)' : ''), meta_campaign_id: campaignId, meta_adset_ids, meta_ad_ids, meta_creative_ids });
+    console.error(`[ads-manager:campaign-create] ${env.message} (subcode ${env.error_subcode ?? '-'})`);
     return Response.json(
-      { ok: false, error: env.message, code: env.code, error_subcode: env.error_subcode, rolledBack },
+      { ok: false, error: mensaje, code: env.code, error_subcode: env.error_subcode, rolledBack },
       { status: env.status },
     );
   }

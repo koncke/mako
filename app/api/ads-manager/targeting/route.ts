@@ -16,7 +16,7 @@
 
 import type { NextRequest } from 'next/server';
 import { guardAdsWs } from '@/lib/ads-guard';
-import { listCustomAudiences, searchInterests, listLeadForms, listCustomConversions, listPixels, listPixelEvents, searchLugares, alcanceGeo, cuentaMeta, metaErrorEnvelope } from '@/lib/meta-ads-create';
+import { listCustomAudiences, searchInterests, listLeadForms, listCustomConversions, listPixels, listPixelEvents, searchLugares, alcanceGeo, cuentaMeta, paginasDeGanadores, metaErrorEnvelope } from '@/lib/meta-ads-create';
 import { explicarErrorGeo } from '@/lib/meta-geo';
 import { motivosDeVentaPorLlamada } from '@/lib/venta-por-llamada';
 
@@ -37,6 +37,8 @@ export async function GET(req: NextRequest) {
     if (kind === 'conversions') return Response.json({ ok: true, items: await listCustomConversions() });
     // Por qué este negocio vende por llamada (diagnóstico, funnel, agenda en la landing).
     // Alimenta el aviso de «tu pixel no mide las agendas» del paso de conversión.
+    // De qué página es cada ganador y si la conexión puede publicar con él (1885499).
+    if (kind === 'ganadores') return Response.json({ ok: true, ganadores: await paginasDeGanadores((req.nextUrl.searchParams.get('ids') ?? '').split(',')) });
     if (kind === 'agenda') return Response.json({ ok: true, motivos: await motivosDeVentaPorLlamada() });
     if (kind === 'pixels') return Response.json({ ok: true, items: await listPixels() });
     if (kind === 'pixelevents') return Response.json({ ok: true, items: await listPixelEvents(req.nextUrl.searchParams.get('pixel') ?? '') });
@@ -49,7 +51,7 @@ export async function GET(req: NextRequest) {
       return Response.json({ ok: true, alcance: await alcanceGeo(geo as Parameters<typeof alcanceGeo>[0]) });
     }
     if (kind === 'cuenta') return Response.json({ ok: true, cuenta: await cuentaMeta() });
-    return Response.json({ ok: false, error: 'kind inválido (audiences | interests | leadforms | conversions | pixels | pixelevents | lugares | alcance | cuenta | agenda)' }, { status: 400 });
+    return Response.json({ ok: false, error: 'kind inválido (audiences | interests | leadforms | conversions | pixels | pixelevents | lugares | alcance | cuenta | agenda | ganadores)' }, { status: 400 });
   } catch (err) {
     const env = metaErrorEnvelope(err);
     console.error(`[ads-manager:targeting] ${env.message}`);

@@ -22,6 +22,8 @@ import { normalizarCuentaMeta } from './meta-cuenta-id';
 import { paisDeCuentaMeta } from './meta-pais';
 import { TIPOS_BUSCABLES, lugarDesdeBusqueda, ordenarLugares, type LugarMeta } from './meta-geo';
 import { describirRegla, estadoConversion, type EstadoConversion } from './meta-conversiones';
+import { erroresFormulario, paramsFormulario, sitioLimpio, urlValida, type FormularioNuevo } from './meta-formularios';
+import { getSetting } from './settings';
 import { getWorkspaceActual, OWNER_WS } from './workspace';
 import {
   type CampaignSpec,
@@ -330,6 +332,56 @@ export async function buildObjectStorySpec(c: Creative): Promise<Record<string, 
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** object_story_id del post de un anuncio existente (para reusar su creativo). */
+/** Nombre de la app de Meta que emitió el token del workspace (para explicar 1885183). */
+export async function appDelToken(): Promise<string | null> {
+  const [apiVersion, tk] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
+  const url = new URL(`${GRAPH_BASE}/${apiVersion}/app`);
+  url.searchParams.set('fields', 'name');
+  url.searchParams.set('access_token', tk);
+  const d = await graphGet(url.toString()).catch(() => ({} as Record<string, unknown>));
+  return typeof d.name === 'string' && d.name ? d.name : null;
+}
+
+/**
+ * De qué página es el post de cada ganador, y si la conexión puede publicar con él.
+ *
+ * ⚠️ Una cuenta publicitaria puede tener anuncios de VARIAS páginas. En ws13 los 10
+ * activos —los que más gastaron, o sea los «ganadores» que ofrece el wizard— son de
+ * una página que la conexión no administra, y reusarlos da 1885499 al crear el
+ * anuncio. `validate_only` sobre el creativo no lo ve (dio success), así que se mira
+ * acá, antes: páginas con la tarea ADVERTISE en /me/accounts contra la página del post.
+ *
+ * Si /me/accounts no contesta, no se bloquea nada: no poder preguntar no autoriza a
+ * apagar un ganador que quizás sirve.
+ */
+export async function paginasDeGanadores(adIds: string[]): Promise<Record<string, { pagina: string | null; puede: boolean }>> {
+  const ids = [...new Set(adIds.filter((x) => /^\d+$/.test(x)))].slice(0, 50);
+  if (!ids.length) return {};
+  const [apiVersion, tk] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
+  const cuentasUrl = new URL(`${GRAPH_BASE}/${apiVersion}/me/accounts`);
+  cuentasUrl.searchParams.set('fields', 'id,tasks');
+  cuentasUrl.searchParams.set('limit', '200');
+  cuentasUrl.searchParams.set('access_token', tk);
+  const cuentas = await graphGet(cuentasUrl.toString()).catch(() => null);
+  const anunciante = new Set<string>();
+  for (const a of (Array.isArray(cuentas?.data) ? cuentas!.data : []) as Array<{ id?: string; tasks?: string[] }>) {
+    if (a.id && Array.isArray(a.tasks) && a.tasks.includes('ADVERTISE')) anunciante.add(String(a.id));
+  }
+  const adsUrl = new URL(`${GRAPH_BASE}/${apiVersion}/`);
+  adsUrl.searchParams.set('ids', ids.join(','));
+  adsUrl.searchParams.set('fields', 'creative{effective_object_story_id,object_story_id}');
+  adsUrl.searchParams.set('access_token', tk);
+  const d = await graphGet(adsUrl.toString()).catch(() => ({} as Record<string, unknown>));
+  const out: Record<string, { pagina: string | null; puede: boolean }> = {};
+  for (const id of ids) {
+    const ad = d[id] as { creative?: { effective_object_story_id?: string; object_story_id?: string } } | undefined;
+    const story = ad?.creative?.effective_object_story_id ?? ad?.creative?.object_story_id ?? '';
+    const pagina = story.includes('_') ? story.split('_')[0] : null;
+    out[id] = { pagina, puede: cuentas === null || !pagina ? true : anunciante.has(pagina) };
+  }
+  return out;
+}
+
 export async function getObjectStoryId(adId: string): Promise<string | null> {
   const [apiVersion, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
   const url = new URL(`${GRAPH_BASE}/${apiVersion}/${adId}`);
@@ -395,6 +447,67 @@ export async function listLeadForms(): Promise<Array<{ id: string; name: string;
   return arr
     .filter((f) => f.status !== 'ARCHIVED' && f.status !== 'DELETED')
     .map((f) => ({ id: String(f.id), name: String(f.name ?? f.id), status: f.status ? String(f.status) : undefined }));
+}
+
+/**
+ * Lo que el creador de formularios puede prellenar sin preguntar: la web de la
+ * página de Facebook (sin el tracking que Meta guarda pegado) y las landings que el
+ * negocio ya cargó en MaKo. Todo best-effort: si algo no se puede leer, el campo
+ * queda vacío y la persona lo escribe — nunca un valor inventado.
+ */
+export async function formularioBase(): Promise<{ sitio: string | null; landings: string[] }> {
+  const [apiVersion, page] = await Promise.all([cred('META_API_VERSION'), pageId()]);
+  const token = await tokenDePagina().catch(() => null);
+  let sitio: string | null = null;
+  if (token) {
+    const url = new URL(`${GRAPH_BASE}/${apiVersion}/${page}`);
+    url.searchParams.set('fields', 'website');
+    url.searchParams.set('access_token', token);
+    const d = await graphGet(url.toString()).catch(() => ({} as Record<string, unknown>));
+    sitio = sitioLimpio(typeof d.website === 'string' ? d.website : null);
+  }
+  let landings: string[] = [];
+  try {
+    const crudo = await getSetting('landing.paginas');
+    const arr = crudo ? JSON.parse(crudo) : [];
+    landings = Array.isArray(arr) ? arr.filter((x): x is string => typeof x === 'string' && urlValida(x)) : [];
+  } catch { landings = []; }
+  return { sitio, landings };
+}
+
+/**
+ * Crea un formulario instantáneo en la página del workspace y devuelve su id.
+ *
+ * ⚠️ Escribe en la página de Facebook del CLIENTE, y un formulario no se borra por
+ * API (sólo se archiva). Por eso: se valida acá de nuevo (la pantalla no protege
+ * nada), NO se reintenta, y si Meta contesta sin id se pide revisar la Biblioteca de
+ * formularios antes de volver a intentar — un segundo intento a ciegas deja dos.
+ */
+export async function crearFormularioInstantaneo(f: FormularioNuevo): Promise<{ id: string; name: string }> {
+  const errores = erroresFormulario(f);
+  if (errores.length) throw new MetaWriteError(errores[0]);
+  const [apiVersion, token, page] = await Promise.all([cred('META_API_VERSION'), tokenDePagina(), pageId()]);
+  const body = new URLSearchParams(paramsFormulario(f));
+  body.set('access_token', token);
+  const res = await fetch(`${GRAPH_BASE}/${apiVersion}/${page}/leadgen_forms`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+    cache: 'no-store',
+  });
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown> & { error?: { code?: number; error_subcode?: number; message?: string; error_user_title?: string; error_user_msg?: string } };
+  if (data.error) {
+    const e = data.error;
+    if (e.code === 200) {
+      throw new MetaWriteError('Meta no deja crear formularios en tu página: a la conexión le falta el permiso «pages_manage_ads». Vuelve a conectar Meta en Integraciones → Meta Ads y acepta todos los permisos.', e.code, e.error_subcode);
+    }
+    const msg = [e.error_user_title, e.error_user_msg].filter(Boolean).join(' — ') || e.message || 'Meta rechazó el formulario';
+    throw new MetaWriteError(`Meta no creó el formulario: ${msg}`, e.code, e.error_subcode);
+  }
+  if (!data.id) {
+    throw new MetaWriteError('Meta no devolvió el formulario creado. Antes de volver a intentar, mira tu Biblioteca de formularios en Meta: puede haberse creado igual.');
+  }
+  return { id: String(data.id), name: f.nombre.trim() };
 }
 
 /** Públicos personalizados de la cuenta (para retargeting: incluir / excluir). */
@@ -853,6 +966,9 @@ export async function createCampaign(spec: CampaignSpec): Promise<string> {
     buying_type: 'AUCTION',
     special_ad_categories: JSON.stringify(spec.special_ad_categories ?? []),
   };
+  // Meta v25 rechaza una campaña SIN presupuesto de campaña si no se dice si los
+  // conjuntos comparten presupuesto (subcode 4834011, medido el 2026-09-11).
+  if (!(spec.budget_level === 'campaign' && spec.daily_budget_mxn)) params.is_adset_budget_sharing_enabled = 'false';
   if (spec.budget_level === 'campaign' && spec.daily_budget_mxn) {
     params.daily_budget = mxnACentavos(spec.daily_budget_mxn);
     params.bid_strategy = 'LOWEST_COST_WITHOUT_CAP'; // CBO exige estrategia a nivel campaña

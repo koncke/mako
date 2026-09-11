@@ -1561,3 +1561,82 @@ crear). Los formularios existentes del dueño muestran la forma: `questions` (EM
 PHONE, CUSTOM…), `context_card`, `thank_you_page` con botón a la web,
 `is_optimized_for_quality` (el tipo «mayor intención»), `locale`. No se construyó: el pedido
 nació del diagnóstico equivocado, y crear escribe en la página del cliente.
+
+---
+
+## Publicar en Código Inmobiliario: tres rechazos de Meta, y ninguno lo veía `validate_only` (11/09)
+
+**Síntoma:** el cliente arma la campaña en el wizard y al «Publicar en pausa» sale, crudo,
+«No tienes permiso de anunciante en la página». Después, subiendo un creativo propio, «La
+publicación con contenido publicitario se creó con una app que se encuentra en modo de
+desarrollo». Martín: «no le deja publicar la campaña… eso está mal».
+
+**Reproducido con una campaña y un conjunto de LEADS de prueba en PAUSA** (anuncios con
+`validate_only`, todo borrado después) sobre `act_1357728489423123`:
+
+| Subcode | Qué lo dispara | De quién es |
+|---|---|---|
+| `1885499` «No tienes permiso de anunciante en la página» | Reusar un **ganador cuyo post es de OTRA página** | Meta / la configuración del negocio |
+| `1885183` «…app en modo de desarrollo» | **Cualquier creativo nuevo** a nombre de la página (subido o reconstruido) | La app del cliente |
+| `1487888` «Se requiere el píxel de seguimiento» | Reusar un post **propio** en un conjunto de **formulario** | MaKo (el wizard lo permitía) |
+
+**Las causas, medidas:**
+- **La cuenta publicitaria tiene anuncios de DOS páginas.** 7 de «Joan» (609876446197646) y
+  10 —todos los ACTIVOS, o sea los que más gastaron y los que el wizard ofrece como
+  «ganadores»— de la página 770269612845316, que la conexión («Código Inmobiliario Wpp»)
+  **no administra**. Reusarlos es publicar en nombre de una página ajena.
+- **El token lo emitió «Joan P2P app»** (2300908653979362), la app propia del cliente, en
+  modo de desarrollo. Con el token del dueño («Leads - Dashboard MKT (Martin)») el mismo
+  creativo nuevo **se crea** (creado y borrado): no es la API ni MaKo, es ESA app. Se
+  arregla pasándola a modo público o sacando el token con una app que ya lo esté.
+- **Un post reusado conserva su botón original**: no lleva el formulario elegido, y en un
+  conjunto `LEAD_GENERATION` Meta lo trata como conversión web sin pixel.
+
+⚠️ **`validate_only` sobre `adcreatives` NO ve ninguno.** El creativo con el post ajeno dio
+`success: true` y se creó de verdad. Los tres rechazos llegan recién al crear el ANUNCIO,
+y validar un anuncio exige un conjunto que ya exista. Para reproducirlos hay que armar
+campaña + conjunto en pausa y borrarlos.
+
+⚠️ **Y la creación de campañas tiene un requisito nuevo de v25:** sin presupuesto de campaña,
+Meta rechaza con `4834011` si falta `is_adset_budget_sharing_enabled`. Apareció armando la
+campaña de prueba; `createCampaign` ahora lo manda en ese caso.
+
+⚠️ **El registro local de publicaciones nunca existió en producción:** `campaign-create` escribe
+en `meta_campaign_drafts` best-effort, y esa tabla **no está en la base** (la migración 0045
+está en el repo, sin aplicar). No queda rastro de ningún intento de publicación, ni fallido
+ni exitoso — por eso esto se tuvo que reproducir en vez de leerse.
+
+**Arreglo:** los tres rechazos se explican nombrando a Meta primero y con la salida
+(`lib/meta-publicar-errores.ts`, con el nombre de la app para el 1885183). Los ganadores de
+páginas donde la conexión no es anunciante salen apagados con el motivo
+(`paginasDeGanadores`, contra `/me/accounts` con tarea ADVERTISE; si no puede preguntar, no
+apaga nada). Y el paso de formulario no avanza con un ganador reusado.
+
+**Vive en:** `lib/meta-publicar-errores.ts` · `lib/meta-ads-create.ts` (`paginasDeGanadores`,
+`appDelToken`, `createCampaign`) · `app/api/ads-manager/campaign-create/route.ts` ·
+`app/ads-manager/NuevaCampanaModal.tsx` (`CreativosPicker`, paso de destino).
+
+**Sin hacer:**
+- **Mientras «Joan P2P app» siga en desarrollo, ws13 no puede publicar ningún creativo nuevo**
+  desde MaKo, sólo reusar posts propios en campañas web con pixel. No se detecta al conectar:
+  la pantalla recién lo dice al publicar.
+- Aplicar la migración 0045 (`meta_campaign_drafts`) o sacar el registro.
+- `ad-add` («Subir creativos a una campaña») no usa todavía la traducción de rechazos.
+
+## Crear formularios instantáneos desde MaKo (11/09)
+
+Pedido por Martín con el wizard abierto. «+ Crear un formulario nuevo» en el paso del
+formulario (y compacto en «Agregar conjunto»): nombre, preguntas (nombre/email/teléfono +
+propias), tipo «mayor intención» / «más volumen», política de privacidad (Meta la exige) y
+la web del botón final, prellenada con la landing cargada en MaKo o la web de la página
+(sin el `?utm…&fbclid` que Meta guarda pegado). Crea con el token de página y queda elegido.
+
+⚠️ **La creación real NO se probó:** escribe en la página del cliente y un formulario no se
+borra por API (sólo se archiva). Lo verificado: la forma del pedido copia la de los
+formularios que Meta devuelve, y un POST con un tipo de pregunta inválido a propósito llega
+hasta la validación de Meta con el token de página de ws13 (rechazo antes de crear). No se
+sabe si una app en modo de desarrollo también bloquea crear formularios.
+
+**Vive en:** `lib/meta-formularios.ts` · `app/ads-manager/CrearFormulario.tsx` ·
+`app/api/ads-manager/formulario-create/route.ts` · `lib/meta-ads-create.ts`
+(`crearFormularioInstantaneo`, `formularioBase`).
