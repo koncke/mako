@@ -34,7 +34,8 @@ test('listLeadForms lee con el token de la página, no con el de usuario', () =>
   assert.doesNotMatch(lista, /cred\('META_ACCESS_TOKEN'\)/, 'con el token de usuario Meta contesta #190');
   // Y el token de página sale de la credencial del workspace, con sus DOS argumentos.
   assert.match(cuerpoDe(src, 'async function tokenDePagina('), /credWs\('META_PAGE_ACCESS_TOKEN', ws\)/);
-  //   ROTO A PROPÓSITO: se completa al medirlo, ver el comentario de abajo.
+  //   ROTO A PROPÓSITO (2026-09-11): volviendo a pedir con cred('META_ACCESS_TOKEN'),
+  //   pass 1 / fail 1 — «listLeadForms tiene que pedir con tokenDePagina()».
 });
 
 test('un error al leer los formularios no se pinta como «no tienes formularios»', () => {
@@ -43,4 +44,6 @@ test('un error al leer los formularios no se pinta como «no tienes formularios�
   assert.match(src, /setLeadFormsError\(/);
   // El texto de «no hay» sólo sale cuando NO hubo error.
   assert.match(src, /leadForms\.length === 0 && !leadFormsError/);
+  //   ROTO A PROPÓSITO (2026-09-11): sacando `&& !leadFormsError` del JSX, pass 1 / fail 1 —
+  //   el «No hay formularios instantáneos» volvía a salir debajo del error real.
 });
