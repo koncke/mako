@@ -248,6 +248,8 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
   // públicos personalizados (retargeting) + formularios — carga perezosa.
   const [audiencesAll, setAudiencesAll] = useState<AudienceItem[] | null>(null);
   const [leadForms, setLeadForms] = useState<Array<{ id: string; name: string }> | null>(null);
+  // Por qué NO se pudieron leer los formularios. Distinto de «la página no tiene».
+  const [leadFormsError, setLeadFormsError] = useState<string | null>(null);
   const [convs, setConvs] = useState<Array<ConvItem> | null>(null);
   const [pixels, setPixels] = useState<Array<{ id: string; name: string }> | null>(null);
   // Eventos ACTIVOS del pixel elegido (null = sin cargar). Elegir uno inactivo arruina la entrega.
@@ -297,7 +299,19 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
   // cuenta, arranca por ahí. El usuario lo ve y lo cambia en la misma pantalla.
   useEffect(() => { if (!lugares.length && cuenta?.country) setLugares([lugarPais(cuenta.country)]); }, [cuenta?.country]); // eslint-disable-line react-hooks/exhaustive-deps
   const pideForm = existente ? !!adsetInfo?.needsForm : objKey === 'lead_form';
-  useEffect(() => { if (pideForm && leadForms === null) traerTargeting<{ id: string; name: string }>('kind=leadforms', 'tus formularios').then((it) => setLeadForms(it ?? [])); }, [pideForm, leadForms]);  
+  // ⚠️ Esto hacía `setLeadForms(it ?? [])`: un rechazo de Meta se convertía en lista
+  // vacía y la pantalla afirmaba «No tienes formularios instantáneos». Código
+  // Inmobiliario (ws13) tiene cuatro; lo que había era un #190 por pedirlos con el
+  // token de usuario. «No pude preguntar» va a su propio estado y se dice.
+  useEffect(() => {
+    if (!pideForm || leadForms !== null) return;
+    fetch('/api/ads-manager/targeting?kind=leadforms', { cache: 'no-store' }).then((r) => r.json())
+      .then((j) => {
+        if (j.ok && Array.isArray(j.items)) { setLeadForms(j.items); setLeadFormsError(null); }
+        else { setLeadForms([]); setLeadFormsError(String(j.error || 'error desconocido')); }
+      })
+      .catch((e) => { setLeadForms([]); setLeadFormsError(String(e)); });
+  }, [pideForm, leadForms]);  
   useEffect(() => { if ((objKey === 'lead_web' || objKey === 'sales') && convs === null) traerTargeting<ConvItem>('kind=conversions', 'tus conversiones').then((it) => setConvs(it ?? [])); }, [objKey, convs]);  
   useEffect(() => { if ((objKey === 'lead_web' || objKey === 'sales') && pixels === null) traerTargeting<{ id: string; name: string }>('kind=pixels', 'tus pixeles').then((it) => setPixels(it ?? [])); }, [objKey, pixels]);  
   useEffect(() => {
@@ -756,9 +770,12 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
               sub={pideForm ? 'Elige un formulario que ya tengas en la página.' : pideConv ? 'Tu landing/VSL + por qué conversión del pixel optimizamos (tu agenda, lead, registro…).' : existente ? 'La URL de destino de los anuncios nuevos (tu VSL o landing).' : 'La URL de tu VSL o landing.'}>
               {pideForm ? (
                 <div style={{ width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
-                  <Dropdown value={destino.lead_form_id ?? ''} placeholder={leadForms === null ? 'Cargando formularios…' : leadForms.length ? 'Elige un formulario…' : 'No tienes formularios instantáneos'}
+                  <Dropdown value={destino.lead_form_id ?? ''} placeholder={leadForms === null ? 'Cargando formularios…' : leadFormsError ? 'No pude leer tus formularios' : leadForms.length ? 'Elige un formulario…' : 'No tienes formularios instantáneos'}
                     options={(leadForms ?? []).map((f) => ({ value: f.id, label: f.name }))} onChange={(v) => setDestino((d) => ({ ...d, lead_form_id: v, lead_form_name: leadForms?.find((f) => f.id === v)?.name ?? null }))} width="100%" />
-                  {leadForms !== null && leadForms.length === 0 && (
+                  {leadFormsError && (
+                    <p style={{ fontSize: 12.5, color: 'var(--bad)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>{linkify(leadFormsError)}</p>
+                  )}
+                  {leadForms !== null && leadForms.length === 0 && !leadFormsError && (
                     existente
                       ? <p style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>El conjunto optimiza por formulario instantáneo pero no encontramos formularios en la página. Crea uno en Meta o elige otro conjunto.</p>
                       : <p style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>No hay formularios instantáneos en la página. Toca <b>← Atrás</b> y elige <b>“Leads / agendas en tu web”</b> para captar el lead en tu landing.</p>

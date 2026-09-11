@@ -341,15 +341,60 @@ export async function getObjectStoryId(adId: string): Promise<string | null> {
 }
 
 /** Formularios instantáneos ya existentes en la página (para lead ads). */
+/**
+ * Token de la PÁGINA del workspace. Leer los formularios instantáneos lo exige:
+ * con el token de usuario Meta contesta #190 «This method must be called with a
+ * Page Access Token» (medido el 2026-09-11 en ws1 y ws13).
+ *
+ * Primero la credencial guardada (la saca /integraciones al conectar Meta). Si no
+ * está, se deriva en el momento del token de usuario —que tiene las tareas de la
+ * página— pidiendo su `access_token`, sin guardarlo: un `let` de módulo acá
+ * cruzaría clientes (tests/ads-manager-credenciales.test.ts).
+ */
+async function tokenDePagina(): Promise<string> {
+  const ws = await wsDeLaCuenta();
+  const guardado = await credWs('META_PAGE_ACCESS_TOKEN', ws);
+  if (guardado && !guardado.startsWith('PENDING')) return guardado;
+  const [apiVersion, userToken, page] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN'), pageId()]);
+  const url = new URL(`${GRAPH_BASE}/${apiVersion}/${page}`);
+  url.searchParams.set('fields', 'access_token');
+  url.searchParams.set('access_token', userToken);
+  const d = await graphGet(url.toString()).catch(() => ({} as Record<string, unknown>));
+  if (typeof d.access_token === 'string' && d.access_token) return d.access_token;
+  throw new MetaWriteError('No tengo el token de tu página de Facebook, y sin él Meta no deja leer tus formularios. Vuelve a conectar Meta en Integraciones → Meta Ads.');
+}
+
+/**
+ * Formularios instantáneos de la página, para elegir en un anuncio de leads.
+ *
+ * ⚠️ Pedía con META_ACCESS_TOKEN (usuario). Meta lo rechaza con #190, el modal
+ * convertía ese error en una lista vacía, y la pantalla decía «No tienes
+ * formularios instantáneos» sobre la página de Código Inmobiliario, que tiene
+ * cuatro. El diagnóstico obvio —«el cliente no creó ninguno»— era el equivocado.
+ *
+ * Las archivadas y borradas no se ofrecen: Meta no deja usarlas en un anuncio.
+ */
 export async function listLeadForms(): Promise<Array<{ id: string; name: string; status?: string }>> {
-  const [apiVersion, accessToken, page] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN'), pageId()]);
+  const [apiVersion, token, page] = await Promise.all([cred('META_API_VERSION'), tokenDePagina(), pageId()]);
   const url = new URL(`${GRAPH_BASE}/${apiVersion}/${page}/leadgen_forms`);
   url.searchParams.set('fields', 'id,name,status');
   url.searchParams.set('limit', '100');
-  url.searchParams.set('access_token', accessToken);
-  const data = await graphGet(url.toString());
+  url.searchParams.set('access_token', token);
+  let data: Record<string, unknown>;
+  try {
+    data = await graphGet(url.toString());
+  } catch (err) {
+    // #200 = al token le falta pages_manage_ads sobre ESA página (medido en ws11).
+    // Es algo que el cliente arregla reconectando: se dice qué y dónde.
+    if (err instanceof MetaWriteError && err.code === 200) {
+      throw new MetaWriteError('Meta no deja leer los formularios de tu página: a la conexión le falta el permiso «pages_manage_ads». Vuelve a conectar Meta en Integraciones → Meta Ads y acepta todos los permisos.', err.code, err.subcode);
+    }
+    throw err;
+  }
   const arr = Array.isArray(data.data) ? (data.data as Array<Record<string, unknown>>) : [];
-  return arr.map((f) => ({ id: String(f.id), name: String(f.name ?? f.id), status: f.status ? String(f.status) : undefined }));
+  return arr
+    .filter((f) => f.status !== 'ARCHIVED' && f.status !== 'DELETED')
+    .map((f) => ({ id: String(f.id), name: String(f.name ?? f.id), status: f.status ? String(f.status) : undefined }));
 }
 
 /** Públicos personalizados de la cuenta (para retargeting: incluir / excluir). */

@@ -1518,3 +1518,46 @@ tendrá llamadas por parte de Meta.»*
 - Los eventos PROPIOS del pixel («agendar llamada 1 arriba») no se ofrecen para optimizar
   ni se mencionan en el aviso. Para usarlos hace falta una conversión personalizada basada
   en ese evento.
+
+---
+
+## «No tienes formularios instantáneos» sobre una página con cuatro (11/09)
+
+**Síntoma:** eligiendo «Leads con formulario de Facebook», el paso de destino de Código
+Inmobiliario (ws13) decía «No tienes formularios instantáneos» y el desplegable «Sin
+opciones». Martín lo leyó primero como «el usuario no creó ningún formulario» y pidió poder
+crearlos desde MaKo. **Ese diagnóstico era el equivocado:** la Biblioteca de formularios de su
+página tiene cuatro activos, uno desde el 01/07/2025.
+
+**Causa, dos bugs encadenados:**
+
+1. **Token equivocado.** `listLeadForms` pedía `/{página}/leadgen_forms` con
+   `META_ACCESS_TOKEN` (usuario). Meta contesta `#190 «This method must be called with a Page
+   Access Token»`. Medido en **ws1 y ws13**: el objetivo de leads con formulario no le listaba
+   formularios a nadie. El mismo pedido con `META_PAGE_ACCESS_TOKEN` trae los 4 y los 5. Casi
+   seguro anduvo mientras el token del dueño era de PÁGINA (lo decía el comentario viejo de
+   `/api/meta-recommendations`), y se rompió en silencio cuando pasó a uno de usuario.
+2. **El error se leía como «no hay».** El modal hacía `setLeadForms(it ?? [])`, exactamente la
+   trampa que el mismo archivo documenta para los públicos («un pedido a /targeting tiene TRES
+   estados»). El #190 llegaba al navegador y se pintaba como página vacía.
+
+**Arreglo:** `tokenDePagina()` usa la credencial guardada y, si falta, la deriva del token de
+usuario pidiendo `/{página}?fields=access_token` (medido en ws13: trae un token con el que
+`leadgen_forms` devuelve los 4). El modal guarda el error aparte y lo muestra; «No tienes
+formularios» sólo sale sin error. Los formularios archivados no se ofrecen.
+
+⚠️ **ws11 tiene otro problema, real:** `#200 Requires pages_manage_ads permission` con los
+DOS tokens. Ahí no alcanza con el token de página: hay que reconectar Meta aceptando ese
+permiso. Ahora la pantalla lo dice en esas palabras en vez de «no tienes formularios».
+
+**Vive en:** `lib/meta-ads-create.ts` → `tokenDePagina`, `listLeadForms` ·
+`app/ads-manager/NuevaCampanaModal.tsx` (carga de formularios y paso de destino) ·
+`tests/ads-formularios.test.ts`.
+
+**Sin hacer — crear formularios desde MaKo:** medido que es viable. Un POST a
+`/{página}/leadgen_forms` con el token de página de ws13 llega hasta la validación de
+parámetros (se probó con un tipo de pregunta inválido a propósito, que Meta rechaza ANTES de
+crear). Los formularios existentes del dueño muestran la forma: `questions` (EMAIL, FULL_NAME,
+PHONE, CUSTOM…), `context_card`, `thank_you_page` con botón a la web,
+`is_optimized_for_quality` (el tipo «mayor intención»), `locale`. No se construyó: el pedido
+nació del diagnóstico equivocado, y crear escribe en la página del cliente.
