@@ -16,6 +16,7 @@
 
 import 'server-only';
 import { sondearSocket, motivoCaida, registrarWebhookInstancia, permitirGruposEnInstancia } from './evolution';
+import { mensajeEvolution } from './evolution-sonda';
 import { instanciaVoz, setInstanciaVoz, INSTANCIA_VOZ_DEFAULT } from './mako-grupo';
 import { getSettingEstricto, cambiarSettingSi } from './settings';
 import { runWithWorkspace, OWNER_WS } from './workspace';
@@ -59,7 +60,8 @@ export function canalConfigurado(): boolean {
 }
 
 export type EstadoCanal = 'desconectado' | 'conectando' | 'conectado' | 'sin_confirmar' | 'error';
-export type CanalInfo = { estado: EstadoCanal; numero: string | null; perfil: string | null; esVozActiva: boolean };
+/** `esVozActiva: null` = no se pudo leer cuál es la voz. No es «no»: no autoriza a escribirla. */
+export type CanalInfo = { estado: EstadoCanal; numero: string | null; perfil: string | null; esVozActiva: boolean | null };
 export type QrCanal = { base64: string | null; code: string | null; pairingCode: string | null };
 /** `sinCrear`: Evolution contestó que NO creó la línea (no un timeout, donde pudo haberla creado). */
 type Conexion = { ok: true; qr: QrCanal; estado: EstadoCanal } | { ok: false; error: string; sinCrear?: boolean };
@@ -120,13 +122,21 @@ export async function estadoCanalMaKo(): Promise<CanalInfo> {
     inst = await instanciaCanal();
   } catch {
     // No saber cuál es la línea no es un estado de la línea.
-    return { estado: 'sin_confirmar', numero: null, perfil: null, esVozActiva: false };
+    return { estado: 'sin_confirmar', numero: null, perfil: null, esVozActiva: null };
   }
   const r = await ev(`/instance/connectionState/${inst}`);
-  const vozActiva = (await instanciaVoz().catch(() => null)) === inst;
+  // La voz se lee ESTRICTA: con la tolerante, un 5xx de la base daba «la voz es mako_ws1»,
+  // esVozActiva:false, y el panel disparaba solo el «usar» sobre la línea de un cliente
+  // (segunda revisión adversarial del 11/09/2026).
+  const voz = await instanciaVoz({ estricto: true }).catch(() => null);
+  const vozActiva = voz === null ? null : voz === inst;
   if (!r.ok) {
-    if (r.status === 404) return { estado: 'desconectado', numero: null, perfil: null, esVozActiva: vozActiva };
-    return { estado: r.status === 0 ? 'sin_confirmar' : 'error', numero: null, perfil: null, esVozActiva: vozActiva };
+    // Misma regla que la sonda: el único error que es un DATO sobre la línea es «la instancia no
+    // existe». Un 401 (key rotada), un 502 (Evolution reiniciando) o un 500 no dicen nada de la
+    // línea, y pintarlos «con error» ofrecía re-escanear justo cuando la alerta ámbar dice que no
+    // (segunda revisión del 11/09/2026).
+    const noExiste = r.status === 404 && /does not exist/i.test(mensajeEvolution(r.body, r.status));
+    return { estado: noExiste ? 'desconectado' : 'sin_confirmar', numero: null, perfil: null, esVozActiva: vozActiva };
   }
   // Igual que en estadoEnVivo: «open» es la fila en la base de Evolution, no la sesión.
   // Sin esta confirmación el panel dice «conectado» con el socket muerto — medido el 16/08.
@@ -274,8 +284,7 @@ export async function conectarCanalMaKo(): Promise<Conexion> {
  * barra roja sale en todas las pestañas y para todos los admins. Cada request veía la zombi,
  * creaba su línea y pisaba el setting: ganaba la última, y el QR de la otra quedaba huérfano y
  * sordo. Ahora la línea se RESERVA en la base con compare-and-set ANTES de crearla: una sola
- * request logra cambiar `mako.canal.instancia` de `inst` a la nueva; la otra ve que cambió y
- * devuelve el QR de esa.
+ * request logra cambiar `mako.canal.instancia` de `inst` a la nueva.
  */
 async function rotarCanal(inst: string, crudo: string | null): Promise<Conexion> {
   const nueva = nombreInstanciaNueva();
@@ -286,12 +295,12 @@ async function rotarCanal(inst: string, crudo: string | null): Promise<Conexion>
     return { ok: false, error: `No pude reservar la línea nueva (${e instanceof Error ? e.message : String(e)}), así que no toqué nada.` };
   }
   if (!gane) {
-    const vigente = await instanciaCanal().catch(() => null);
-    if (!vigente || vigente === inst) {
-      return { ok: false, error: 'Otra pestaña está reconectando la línea. Espera unos segundos y toca «Conectar por QR».' };
-    }
-    return (await qrConEspera(vigente, 4))
-      ?? { ok: false, error: 'Otra pestaña ya abrió la línea nueva y Evolution todavía está armando su QR. Toca «Conectar por QR» en unos segundos.' };
+    // ⚠️ EL QUE PIERDE NO DEVUELVE UN QR (segunda revisión del 11/09/2026). Devolvía el de la
+    // línea ganadora, pero a esa la PREPARA (webhook + grupos) la otra request, y si esa se caía
+    // a mitad de camino quedaba un QR escaneable de una línea sorda: conectaba, el panel decía
+    // «conectado», y MaKo no oía un solo «Hola MaKo». El próximo clic entra por el camino
+    // normal, que sí la prepara.
+    return { ok: false, error: 'Otra pestaña ya está abriendo la línea nueva. Espera unos segundos y toca «Conectar por QR».' };
   }
   const creada = await crearInstanciaCanal(nueva);
   if (!creada.ok && creada.sinCrear) {
@@ -332,14 +341,22 @@ export async function usarCanalComoVoz(usar: boolean, instancia?: string): Promi
     return;
   }
   const inst = instancia ?? (await instanciaCanal());
+  // Red de seguridad: la línea que pasa a ser la voz se PREPARA (webhook + grupos; es
+  // idempotente). Una línea conectada sin webhook habla pero no oye, y ningún otro camino la
+  // repara después (segunda revisión del 11/09/2026). Si falla se muda igual —la línea está
+  // viva—, pero queda escrito.
+  const prep = await prepararInstancia(inst);
+  if (!prep.ok) console.error(`[mako-canal] ${prep.error}`);
   try {
     const numero = await numeroDe(inst);
-    const actual = await instanciaVoz();
-    const numeroActual = actual === inst ? numero : await numeroDe(actual);
+    // La voz actual se lee ESTRICTA: con la tolerante, un 5xx daba «mako_ws1» (un cliente) y se
+    // le pedía a esa línea que agregara el número a los grupos. Si no se puede leer, no se agrega.
+    const actual = await instanciaVoz({ estricto: true }).catch(() => null);
+    const numeroActual = actual === null ? null : actual === inst ? numero : await numeroDe(actual);
     // La misma cuenta (otro dispositivo del mismo número, que es el caso de una rotación) ya
     // está en todos los grupos. Pedirle a la voz vieja —muerta— que la agregue era una vuelta
     // de errores por grupo, y el resultado se tiraba (revisión del 11/09/2026).
-    if (numero && numero !== numeroActual) {
+    if (actual !== null && numero && numero !== numeroActual) {
       const { agregarNumeroATodosLosGrupos } = await import('./mako-chat');
       const r = await agregarNumeroATodosLosGrupos(numero);
       if (r.ok < r.grupos) {

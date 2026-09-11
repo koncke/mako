@@ -7,10 +7,12 @@
 // como voz automáticamente al conectar). Sin toggles: conectar / desconectar.
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { EVENTO_VOZ_CAMBIO } from '../_components/AlertaVozMaKo';
 
 const MONO = "'Geist Mono', monospace";
 type Estado = 'desconectado' | 'conectando' | 'conectado' | 'sin_confirmar' | 'error';
-type Info = { estado: Estado; numero: string | null; perfil: string | null; esVozActiva: boolean };
+/** `esVozActiva: null` = no se pudo leer cuál es la voz. No es «no». */
+type Info = { estado: Estado; numero: string | null; perfil: string | null; esVozActiva: boolean | null };
 type Flash = { txt: string; error?: boolean };
 
 const btn: CSSProperties = { padding: '10px 18px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' };
@@ -18,10 +20,13 @@ const btnGhost: CSSProperties = { ...btn, background: 'transparent', color: 'var
 const COLOR: Record<Estado, string> = { conectado: 'var(--good)', conectando: 'var(--warn)', sin_confirmar: 'var(--warn)', desconectado: 'var(--faint)', error: 'var(--bad)' };
 const LABEL: Record<Estado, string> = { conectado: 'Conectado', conectando: 'Esperando escaneo…', sin_confirmar: 'Sin confirmar', desconectado: 'Desconectado', error: 'Error' };
 
+const avisarCambioDeVoz = () => window.dispatchEvent(new Event(EVENTO_VOZ_CAMBIO));
+
 export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
   const [info, setInfo] = useState<Info | null>(null);
   const [qr, setQr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [comprobando, setComprobando] = useState(false);
   const [flash, setFlash] = useState<Flash | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoVozRef = useRef(false);
@@ -37,13 +42,21 @@ export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
     pollRef.current = setInterval(() => { cargar(); }, 3000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [qr, cargar]);
-  useEffect(() => { if (info?.estado === 'conectado' && qr) { setQr(null); setFlash({ txt: '¡Conectado! 🎉' }); setTimeout(() => setFlash(null), 3000); } }, [info?.estado, qr]);
+  useEffect(() => {
+    if (info?.estado === 'conectado' && qr) {
+      setQr(null); setFlash({ txt: '¡Conectado! 🎉' }); setTimeout(() => setFlash(null), 3000);
+      avisarCambioDeVoz();
+    }
+  }, [info?.estado, qr]);
   // El WhatsApp conectado ES el canal de MaKo: se fija como voz automáticamente
   // (y agrega el número a todos los grupos), sin toggle manual.
+  // ⚠️ Solo con `esVozActiva === false`, nunca con `null`: «no pude leer cuál es la voz» no
+  // autoriza a escribirla (segunda revisión del 11/09/2026).
   useEffect(() => {
-    if (info?.estado === 'conectado' && !info.esVozActiva && !autoVozRef.current) {
+    if (info?.estado === 'conectado' && info.esVozActiva === false && !autoVozRef.current) {
       autoVozRef.current = true;
-      fetch('/api/admin/mako-canal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'usar', usar: true }) }).then(() => cargar());
+      fetch('/api/admin/mako-canal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'usar', usar: true }) })
+        .then(() => { avisarCambioDeVoz(); return cargar(); });
     }
     if (info?.estado !== 'conectado') autoVozRef.current = false;
   }, [info?.estado, info?.esVozActiva, cargar]);
@@ -60,6 +73,22 @@ export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
       setFlash({ txt: 'El servidor no respondió. Reintenta en unos segundos.', error: true });
     } finally { setBusy(false); }
   };
+  // «Volver a comprobar» dice qué pasó: un botón que vuelve al mismo estado sin ninguna señal se
+  // lee como roto (segunda revisión del 11/09/2026).
+  const comprobar = async () => {
+    setComprobando(true); setFlash(null);
+    const antes = info?.estado;
+    try {
+      const j = await (await fetch('/api/admin/mako-canal')).json();
+      if (!j.ok) setFlash({ txt: 'No pude consultar el servidor.', error: true });
+      else {
+        setInfo(j as Info);
+        if (j.estado === antes) setFlash({ txt: `Sigue sin confirmar · ${new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}`, error: true });
+      }
+    } catch {
+      setFlash({ txt: 'No pude consultar el servidor.', error: true });
+    } finally { setComprobando(false); onCambio?.(); }
+  };
   const desconectar = async () => {
     setBusy(true);
     try { await fetch('/api/admin/mako-canal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'desconectar' }) }); setQr(null); await cargar(); }
@@ -75,20 +104,23 @@ export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
     );
   }
   const estado = info.estado;
+  // Con un QR en pantalla, un sondeo que no contestó no cambia nada: se sigue esperando el
+  // escaneo, y «Regenerar QR» tiene que seguir a mano.
+  const sinConfirmar = estado === 'sin_confirmar' && !qr;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style={{ width: 10, height: 10, borderRadius: '50%', background: COLOR[estado] ?? 'var(--faint)', flex: 'none' }} />
-        <span style={{ fontWeight: 600, fontSize: 14.5 }}>{LABEL[estado] ?? estado}</span>
+        <span style={{ fontWeight: 600, fontSize: 14.5 }}>{qr && estado === 'sin_confirmar' ? LABEL.conectando : (LABEL[estado] ?? estado)}</span>
         {info?.numero && <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--dim)' }}>· {info.perfil ? `${info.perfil} · ` : ''}+{info.numero}</span>}
       </div>
 
-      {/* «No pude comprobarlo» no es una caída: no se ofrece reconectar una línea que puede
-          estar perfecta, porque re-escanear la tumba. */}
-      {estado === 'sin_confirmar' && (
+      {/* «No pude comprobarlo» no es una caída, pero tampoco una garantía: no se afirma que la
+          línea esté bien ni se ofrece reconectarla a ciegas, porque re-escanear la tumba. */}
+      {sinConfirmar && (
         <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
-          No pude comprobar la línea en este momento: WhatsApp o Evolution no contestaron a tiempo. No hace falta reconectarla.
+          No pude comprobar la línea en este momento. No sé si está caída: no la reconectes a ciegas; vuelve a comprobar en un minuto.
         </div>
       )}
 
@@ -103,8 +135,8 @@ export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
       )}
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-        {estado === 'sin_confirmar' && <button style={{ ...btnGhost, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={cargar}>Volver a comprobar</button>}
-        {estado !== 'conectado' && estado !== 'sin_confirmar' && <button style={{ ...btn, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={conectar}>{busy ? 'Generando…' : qr ? 'Regenerar QR' : 'Conectar por QR'}</button>}
+        {sinConfirmar && <button style={{ ...btnGhost, opacity: comprobando ? 0.5 : 1 }} disabled={comprobando} onClick={comprobar}>{comprobando ? 'Comprobando…' : 'Volver a comprobar'}</button>}
+        {estado !== 'conectado' && !sinConfirmar && <button style={{ ...btn, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={conectar}>{busy ? 'Generando…' : qr ? 'Regenerar QR' : 'Conectar por QR'}</button>}
         {estado === 'conectado' && <button style={{ ...btnGhost, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={desconectar}>Desconectar</button>}
         {flash && <span style={{ fontSize: 13, fontWeight: 600, color: flash.error ? 'var(--bad)' : 'var(--good)' }}>{flash.txt}</span>}
       </div>

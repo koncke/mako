@@ -21,10 +21,12 @@
 // La salida es una línea NUEVA, y todo lo que comparaba contra el nombre fijo
 // tiene que preguntar cuál es la vigente.
 //
-// Ese mismo día una revisión adversarial le encontró a la rotación cinco huecos:
-// rotaba encima de la línea viva si fallaba la lectura de la base, dos clics abrían
-// dos líneas, soltaba la sesión con un 403 viejo sin sondear, rotaba aunque el logout
-// SÍ hubiera soltado, y la voz viva quedaba sorda entre la rotación y el escaneo.
+// Ese mismo día dos revisiones adversariales le encontraron a la rotación sus huecos:
+// rotaba encima de la línea viva si fallaba la lectura de la base, dos clics abrían dos
+// líneas (y el que perdía devolvía el QR de una línea que quizá nadie preparó), soltaba
+// la sesión con un 403 viejo sin sondear, rotaba aunque el logout SÍ hubiera soltado, la
+// voz viva quedaba sorda entre la rotación y el escaneo, un 401 de Evolution se pintaba
+// «con error», y la agenda del teléfono de MaKo se escribía en los contactos del ws1.
 // Cada uno tiene su test abajo.
 //
 // PROBADO ROMPIÉNDOLO, contra tres versiones de `lib/mako-canal.ts` + el webhook:
@@ -32,8 +34,10 @@
 //     anterior de este archivo (8 tests): fallan 7. Pasa solo «nunca borra la instancia».
 //   · la primera rotación (b25f8e2f, sin el corte de `open`), misma versión: falla 1 de 8,
 //     justo «sin `open` no se toca la sesión», el que evita una línea nueva por clic.
-//   · la rotación desplegada antes de la revisión (2ae26f80), con este archivo: fallan 8
-//     de 10. Pasan «nunca borra la instancia» y «dice QUÉ pasó», que ya cumplía.
+//   · la rotación desplegada antes de la primera revisión (2ae26f80), con la versión de 10
+//     tests: fallan 8. Pasan «nunca borra la instancia» y «dice QUÉ pasó».
+//   · la desplegada antes de la segunda revisión (8167da86), con este archivo: fallan 4 de
+//     13, justo los cuatro que agregó esa revisión.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -119,17 +123,30 @@ test('Si Evolution no suelta la sesión, rota — y SOLO entonces', () => {
   assert.match(crear, /prepararInstancia\(nombre\)/, 'la línea nueva nace sin webhook ni grupos');
 });
 
-test('⛔ Dos clics a la vez no abren dos líneas: la nueva se RESERVA antes de crearla', () => {
+test('⛔ Dos clics a la vez no abren dos líneas, y el que pierde NO devuelve un QR', () => {
   // La barra roja sale en todas las pestañas y para todos los admins. Con un setSetting ciego
   // después del create, cada request creaba su línea y ganaba la última: el QR de la otra
   // quedaba huérfano y sordo.
   const iReserva = cuerpoRotar.indexOf('cambiarSettingSi(KEY_CANAL_INSTANCIA, crudo, nueva)');
   const iCrear = cuerpoRotar.indexOf('crearInstanciaCanal(nueva)');
   assert.ok(iReserva > 0 && iCrear > iReserva, 'la línea nueva se crea sin reservarla antes (compare-and-set)');
-  // El que pierde la carrera no crea nada: devuelve el QR de la que ganó.
-  assert.match(cuerpoRotar, /if \(!gane\) \{[\s\S]*?qrConEspera\(vigente/, 'el que pierde la carrera no devuelve el QR de la ganadora');
   assert.ok(!/setSetting\(KEY_CANAL_INSTANCIA/.test(codigo),
     'volvió un setSetting ciego sobre el canal: gana el último y el otro QR queda huérfano');
+  // El que pierde devolvía el QR de la ganadora, que prepara OTRA request: si esa se caía a
+  // mitad de camino, quedaba un QR escaneable de una línea sin webhook (segunda revisión).
+  assert.match(cuerpoRotar, /if \(!gane\) \{\s*return \{ ok: false/, 'el que pierde la carrera volvió a seguir de largo');
+  assert.ok(!/qrConEspera\(vigente/.test(cuerpoRotar), 'el que pierde volvió a devolver el QR de una línea que no preparó');
+});
+
+test('La línea que pasa a ser la voz se PREPARA antes (webhook + grupos)', () => {
+  // Red de seguridad: una línea conectada sin webhook habla pero no oye, y ningún otro camino
+  // la repara después (segunda revisión del 11/09/2026).
+  const usar = codigo.slice(codigo.indexOf('export async function usarCanalComoVoz'), codigo.indexOf('export async function desconectarCanalMaKo'));
+  const iPrep = usar.indexOf('prepararInstancia(inst)');
+  const iVoz = usar.indexOf('setInstanciaVoz(inst)');
+  assert.ok(iPrep > 0 && iVoz > iPrep, 'la voz se muda a una línea sin asegurar su webhook');
+  // Y la voz actual se lee estricta antes de pedirle que agregue un número a los grupos.
+  assert.match(usar, /instanciaVoz\(\{ estricto: true \}\)/, 'se le puede pedir a la línea de un cliente que agregue a MaKo');
 });
 
 test('⛔ No saber cuál es la línea corta todo: un 5xx de la base no es «es la zombi»', () => {
@@ -144,6 +161,16 @@ test('⛔ No saber cuál es la línea corta todo: un 5xx de la base no es «es l
     'conectar sigue adelante sin saber cuál es la línea');
 });
 
+test('estadoCanalMaKo: un error HTTP de Evolution no es «con error»', () => {
+  // Un 401 (key rotada) o un 502 (Evolution reiniciando) se pintaban «con error» con «Conectar
+  // por QR», justo lo que la alerta ámbar dice que no hay que hacer (segunda revisión).
+  const estado = codigo.slice(codigo.indexOf('export async function estadoCanalMaKo'), codigo.indexOf('const sinQr'));
+  assert.equal((estado.match(/'error'/g) ?? []).length, 1, "apareció otro camino a 'error' además del sondeo muerto");
+  assert.match(estado, /sondeo === 'muerto' \? 'error'/, "'error' dejó de salir SOLO del sondeo muerto");
+  assert.match(estado, /does not exist/, 'solo «la instancia no existe» es un dato; se perdió ese corte');
+  assert.match(estado, /instanciaVoz\(\{ estricto: true \}\)/, 'esVozActiva volvió a leerse con el default de un cliente');
+});
+
 test('Nadie usa el nombre fijo como si fuera la instancia, y el webhook oye las DOS vigentes', () => {
   assert.ok(!/\/\$\{INSTANCIA_SUPERADMIN\}/.test(codigo),
     'mako-canal volvió a llamar a Evolution con el nombre fijo: tras rotar, habla con la muerta');
@@ -154,6 +181,19 @@ test('Nadie usa el nombre fijo como si fuera la instancia, y el webhook oye las 
   // quedaba sorda (revisión del 11/09/2026). El doble recibo lo deduplica ux_doer_buffer_msg.
   assert.match(webhook, /instanciaVoz\(\{ estricto: true \}\)/, 'el webhook dejó de reconocer la línea de la voz');
   assert.match(webhook, /vigentes\.includes\(instance\)/, 'el webhook dejó de aceptar las dos líneas vigentes');
+});
+
+test('⛔ Las líneas de MaKo no escriben contactos, etiquetas ni ticks en el ws1', () => {
+  // `wsDeInstancia` las mapea a OWNER_WS (ws1, Mauricio, un CLIENTE) para que el doer corra.
+  // Medido el 11/09/2026: al escanear la línea rotada entraron 1448 contactos de la agenda
+  // del teléfono de MaKo en el ws1, entre las 20:01 y las 20:33; en las 43 h anteriores, 0.
+  const iUpsert = webhook.indexOf("evento === 'messages.upsert'");
+  const iCorte = webhook.indexOf('if (esNombreDeCanal(instance)) {');
+  const iUpdate = webhook.indexOf("evento === 'messages.update'");
+  const iContactos = webhook.indexOf("evento === 'contacts.upsert'");
+  assert.ok(iUpsert > 0 && iCorte > iUpsert, 'el corte de las líneas de MaKo quedó antes de los mensajes de grupo');
+  assert.ok(iCorte < iUpdate && iCorte < iContactos,
+    'los eventos que no son del doer de las líneas de MaKo volvieron a escribirse en un cliente');
 });
 
 test('La voz se muda en el servidor al conectar, con la línea que abrió', () => {

@@ -15,7 +15,7 @@ import { MakoStar } from '../_components/MakoBrand';
 import { ChatGruposPanel } from './ChatGruposPanel';
 import { CanalMaKoPanel } from './CanalMaKoPanel';
 
-type Canal = { estado: string; numero: string | null; perfil: string | null; esVozActiva: boolean };
+type Canal = { estado: string; numero: string | null; perfil: string | null; esVozActiva: boolean | null };
 const COLOR: Record<string, string> = { conectado: 'var(--good)', conectando: 'var(--warn)', sin_confirmar: 'var(--warn)', desconectado: 'var(--faint)', error: 'var(--bad)' };
 const CANAL_LABEL: Record<string, string> = { conectado: 'WhatsApp Admin conectado', conectando: 'WhatsApp Admin conectando…', sin_confirmar: 'WhatsApp Admin sin confirmar', desconectado: 'WhatsApp Admin desconectado', error: 'WhatsApp Admin con error' };
 

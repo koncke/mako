@@ -16,9 +16,14 @@
 // mails a su dirección; una revisión adversarial le encontró después tres huecos más
 // (una lectura fallida que alarmaba sobre la línea de un cliente, un Evolution caído
 // que no avisaba nunca, un reinicio que mandaba «re-escaneá» y «volvió» seguidos).
+// Una segunda revisión, cuatro más: un «no pude comprobar» que apagaba la roja, un
+// «volvió» mandado sobre una marca heredada, el «no puedo comprobar» sin cierre, y un
+// Resend colgado que dejaba al cron sin correr las alertas de Meta.
 //
-// PROBADO ROMPIÉNDOLO contra la versión desplegada antes de la revisión (2ae26f80):
-// fallan 5 de 9, justo los cinco nuevos; pasan los cuatro que esa versión ya cumplía.
+// PROBADO ROMPIÉNDOLO contra la versión desplegada antes de la primera revisión
+// (2ae26f80): fallan 5 de 9 de la versión anterior de este archivo, justo los nuevos. Y
+// contra la desplegada antes de la segunda (8167da86), con este archivo: fallan 3 de 9, los
+// tres que endureció esa revisión.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -62,12 +67,22 @@ test('⚠️ El aviso NO viaja por el canal que se rompió', () => {
     'el aviso de "WhatsApp caído" volvió a mandarse por WhatsApp');
 });
 
-test('Sabe decir «ya está», no solo «se rompió»', () => {
+test('Sabe decir «ya está», no solo «se rompió» — y solo si antes dijo «se rompió»', () => {
   // Una alarma que no sabe cerrar obliga a adivinar si se arregló o si se rompió
   // el aviso. Mismo criterio que la alerta crítica de Meta.
   const src = leer('../lib/canal-vigilante.ts');
   assert.match(src, /aviso: 'recuperada'/, 'no avisa cuando la voz vuelve');
   assert.match(src, /setSetting\(KEY_ULTIMO_AVISO, ''\)/, 'no limpia la marca al recuperarse');
+  // «Volvió» exige que antes haya salido un «se cayó» (marca Y desde). Una marca sin «desde» es
+  // herencia del código viejo, que la ponía sin mandar nada (segunda revisión del 11/09/2026).
+  const codigo = sinComentarios(src);
+  assert.match(codigo, /const avisada = !!marca && !!desde/, '«volvió» se manda sobre una caída que nadie avisó');
+  const iAvisada = codigo.indexOf('if (avisada)');
+  const iVolvio = codigo.indexOf("'MaKo volvió a WhatsApp'");
+  assert.ok(iAvisada > 0 && iVolvio > iAvisada, 'el «volvió» dejó de depender de que antes se haya avisado la caída');
+  // Y el «no puedo comprobar» también se cierra.
+  assert.match(codigo, /'✅ Ya puedo comprobar la voz de MaKo: está funcionando'/,
+    'el aviso de «no puedo comprobar» quedó sin cierre');
 });
 
 test('Alguien la MIRA: va en un cron, no solo en un panel', () => {
@@ -83,6 +98,11 @@ test('Alguien la MIRA: va en un cron, no solo en un panel', () => {
   const iVoz = cron.indexOf('vigilarVozMaKo');
   const iTry = cron.indexOf('const cuentasYaAvisadas');
   assert.ok(iVoz > 0 && iVoz < iTry, 'la vigilancia de la voz quedó después del resto del cron');
+  // Por eso el envío tiene tope: un Resend colgado no puede dejar sin correr lo de después.
+  const codigo = sinComentarios(leer('../lib/canal-vigilante.ts'));
+  const avisar = codigo.slice(codigo.indexOf('async function avisarPorEmail'));
+  assert.match(avisar, /Promise\.race\(/, 'el envío del aviso perdió el tope: un Resend colgado frena el cron');
+  assert.match(codigo, /TOPE_ENVIO_MS = /, 'se perdió el tope del envío');
 });
 
 test('⚠️ El aviso le LLEGA a alguien, con remitente de plataforma, y se lee si salió', () => {
@@ -138,16 +158,23 @@ test('Un error leyendo la base no se convierte en «la voz es mako_ws1»', () =>
     'las marcas volvieron a leerse tolerantes: una lectura fallida manda el mail dos veces');
 });
 
-test('La caída se ve arriba de TODAS las pantallas de admin, y roja solo si está medida', () => {
+test('La caída se ve arriba de TODAS las pantallas de admin, roja solo con caída medida o sostenida', () => {
   // Martín, 11/09: «sería bueno que haya una alerta gigante en admin cuando eso pase».
   const layout = leer('../app/layout.tsx');
   assert.match(layout, /esAdmin && <AlertaVozMaKo \/>/, 'la alerta dejó de montarse para admin en el layout');
   const codigo = sinComentarios(leer('../lib/canal-vigilante.ts'));
-  // Roja solo con 'muerto': «no pude comprobarlo» enciende a lo sumo la ámbar, y recién a la media hora.
-  assert.match(codigo, /if \(sondeo === 'muerto'\) \{[\s\S]{0,300}?caida: true/, 'la alerta roja dejó de depender de la caída medida');
-  assert.equal((codigo.match(/caida: true/g) ?? []).length, 1, 'apareció otro camino que enciende la alerta roja');
-  // Y no cuesta una consulta a WhatsApp por pestaña (revisión del 11/09/2026).
+  // Dos caminos a la roja, y solo dos: la caída medida ahora, y la sostenida (sin medición
+  // ahora, pero con el «desde» que puso una caída medida por el cron y solo borra un «vivo»).
+  assert.match(codigo, /if \(sondeo === 'muerto'\) \{\s*return \{ caida: true/, 'la roja dejó de salir de la caída medida');
+  assert.match(codigo, /if \(desde\) return \{ caida: true, sinConfirmar: false, medido: false/,
+    'la roja sostenida dejó de exigir una caída medida antes');
+  assert.equal((codigo.match(/caida: true/g) ?? []).length, 2, 'apareció otro camino que enciende la alerta roja');
+  // Y no cuesta una consulta a WhatsApp por pestaña (revisión del 11/09/2026)...
   assert.match(codigo, /MEMO_MS/, 'la alerta volvió a sondear WhatsApp en cada pedido');
+  // ...pero lo NO medido no se memoriza: 30 s de «sin alerta» apagaban la roja en todas las
+  // pestañas (segunda revisión del 11/09/2026).
+  assert.match(codigo, /if \(!v\.medido && memo === entrada\) memo = null/, 'volvió a memorizarse un «no pude comprobar»');
   const alerta = leer('../app/_components/AlertaVozMaKo.tsx');
   assert.match(alerta, /visibilityState === 'hidden'/, 'las pestañas en segundo plano volvieron a sondear');
+  assert.match(alerta, /!tipo && j\.medido === false\) return/, 'un «no pude comprobar» volvió a apagar la alerta que había');
 });

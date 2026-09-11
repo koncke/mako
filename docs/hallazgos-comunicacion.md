@@ -4055,3 +4055,63 @@ huecos estaban en la base fallando, en dos clics y en Evolution caído.
   (muerta) no puede agregarlo a los grupos. La voz se muda igual y queda un `console.error`
   con cuántos faltan, que nadie ve en pantalla.
 - **`instanciaVoz()` sin `estricto`** sigue cayendo a `mako_ws1` para los avisos y el doer.
+
+### Addendum 6 (11/09): la segunda revisión, y la agenda de MaKo escrita en los contactos de un cliente
+
+Una segunda corrida adversarial (9 agentes) sobre los arreglos confirmó cuatro problemas y dejó
+varios menores. El que más pesa no estaba en el código nuevo, sino en uno viejo que el escaneo
+dejó a la vista.
+
+**La agenda del teléfono de MaKo se escribió en los contactos de Mauricio.** `wsDeInstancia`
+mapea la línea de MaKo a `OWNER_WS` para que el doer corra, pero ese workspace lo usan TODOS los
+handlers del webhook, no solo el doer, y `OWNER_WS` es el ws1: Mauricio, un cliente. Al escanear
+la línea rotada, Evolution sincronizó la agenda del teléfono con `contacts.upsert`. Medido en
+`evolution_contactos` del ws1:
+
+| | |
+|---|---|
+| escrituras entre 20:01 y 20:33 UTC (el escaneo fue a las 20:00:14) | **1448** |
+| escrituras en las 43 h anteriores | 0 |
+| contactos nuevos (id mayor al máximo previo) | 10 |
+| contactos que ya existían y se pisaron | **1438** (todos con nombre; 631 con foto) |
+
+`upsertContacto` hace upsert por (workspace, teléfono) y pisa `nombre` y `foto_url`: los nombres
+que el ws1 tenía para esos 1438 números quedaron reemplazados por los de la agenda de MaKo, y la
+tabla no guarda historial. Ahora el webhook corta todo evento que no sea mensaje de grupo para las
+líneas de MaKo (`if (esNombreDeCanal(instance))`, antes de `messages.update`).
+
+Los otros tres confirmados:
+
+- **La request que perdía la carrera de clics devolvía el QR de una línea que quizá nadie
+  preparó** (sin webhook): conectaba y no oía nada. Ahora el perdedor no devuelve QR, y
+  `usarCanalComoVoz` prepara la línea antes de mudar la voz, como red.
+- **Un «no pude comprobar» apagaba la alerta roja** en todas las pestañas, y quedaba 30 s en el
+  memo. Ahora la respuesta trae `medido`: lo no medido no se memoriza ni apaga la alerta, y la
+  roja se sostiene mientras siga puesto el «desde» de una caída medida.
+- **Un 401 o un 502 de Evolution se pintaba «con error»** en el panel, con «Conectar por QR»,
+  justo lo que la alerta ámbar dice que no hay que hacer. Ahora el único error que es un dato es
+  «instance does not exist»; lo demás es «sin confirmar».
+
+Menores ya arreglados: «volvió» mandado sobre una marca heredada del código viejo, el «no puedo
+comprobar» sin mail de cierre, un Resend colgado que frenaba el cron (tope de 15 s), el copy de
+«sin confirmar» que afirmaba lo que no midió, «Volver a comprobar» sin ninguna señal, la ámbar con
+el error crudo en inglés, y el botón de la alerta que recargaba /agencia en medio de un QR.
+
+**La regla que queda (AGENTS.md):** darle un workspace a algo que no es de ningún cliente para UN
+propósito obliga a que los demás handlers corten explícitamente.
+
+#### Lo que quedó SIN hacer
+
+- **Los 1438 nombres pisados del ws1 no están restaurados.** La tabla no tiene historial: solo se
+  recuperan desde un backup de Supabase o volviendo a sincronizar la agenda del propio WhatsApp de
+  Mauricio (su `mako_ws1` está desvinculada, 403). Los 10 contactos nuevos siguen ahí. Nada de esto
+  se toca sin el OK del dueño de los datos.
+- **`accionParticipantes` (lib/mako-chat.ts) cuenta como éxito un 200 con el 403 adentro**, así
+  que el log de «no quedó en N grupos» de `usarCanalComoVoz` puede no saltar.
+- **La reversión de la reserva decide por el status del create**: un create que sí se guardó
+  detrás de un 502 revierte sobre una línea que existe.
+- **Los encabezados `sticky top:0`** (la barra de guardar del lead, /comercial, /marketing) quedan
+  debajo de la alerta mientras está prendida, igual que ya pasaba con la barra de agencia.
+- **El link de la alerta no conserva `?ws=`**.
+- **El fail-open del webhook no salva el mensaje**: con la base fallando, el doer lo descarta como
+  re-entrega.

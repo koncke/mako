@@ -183,6 +183,15 @@ export async function POST(req: NextRequest) {
       return Response.json({ ok: true, guardados: unoAuno.length - errores });
     }
 
+    // ⚠️ DE ACÁ PARA ABAJO NADA ES DEL DOER. Las líneas de MaKo (canal y voz) existen para
+    // los mensajes de grupo; sus ticks, contactos, etiquetas, borrados y ediciones no son de
+    // ningún cliente, y `wsDeInstancia` las mapea a OWNER_WS, que es el ws1: Mauricio, un
+    // CLIENTE. Al escanear una línea rotada, la agenda del teléfono de MaKo se sincronizaba en
+    // los contactos de Mauricio (segunda revisión adversarial del 11/09/2026).
+    if (esNombreDeCanal(instance)) {
+      return Response.json({ ok: true, ignored: 'línea de MaKo: solo mensajes de grupo' });
+    }
+
     if (evento === 'messages.update') {
       // Estado de entrega de nuestros salientes (ticks). data puede ser un update
       // o un array de updates según versión — normalizamos.

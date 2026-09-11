@@ -909,6 +909,18 @@ panel le mostró «WhatsApp Admin con error». Su conclusión fue «no funcionó
   cliente. Si el default decide algo destructivo (qué línea soltar, a quién alarmar), se lee
   con `getSettingEstricto` (lib/settings.ts), que tira.
 
+# Un mapeo a un workspace sirve para UN handler, no para todos
+
+`wsDeInstancia` (app/api/webhooks/evolution/route.ts) mapea la línea de WhatsApp de MaKo a
+`OWNER_WS` para que el doer corra en sus grupos. Pero lo usaban TODOS los handlers del webhook, y
+`OWNER_WS` es el ws1, un cliente: el 11/09/2026, al escanear la línea, la agenda del teléfono de
+MaKo pisó los nombres de 1438 contactos de Mauricio, sin historial para volver atrás.
+
+- Cuando se le da workspace a algo que no es de ningún cliente para UN propósito, los demás
+  caminos que leen ese mapeo tienen que cortar explícitamente, y el corte va con test.
+- Antes de escanear o conectar algo que sincroniza datos (contactos, historial, etiquetas),
+  preguntá a qué workspace van a caer.
+
 # Un mensaje de error dice DE QUIÉN fue y QUÉ HACER, o no sirve
 
 Cuando algo falla del lado del usuario —su cuota, su credencial, su configuración—
