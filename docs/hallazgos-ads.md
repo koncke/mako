@@ -1620,8 +1620,12 @@ apaga nada). Y el paso de formulario no avanza con un ganador reusado.
 - **Mientras «Joan P2P app» siga en desarrollo, ws13 no puede publicar ningún creativo nuevo**
   desde MaKo, sólo reusar posts propios en campañas web con pixel. No se detecta al conectar:
   la pantalla recién lo dice al publicar.
-- Aplicar la migración 0045 (`meta_campaign_drafts`) o sacar el registro.
-- `ad-add` («Subir creativos a una campaña») no usa todavía la traducción de rechazos.
+- ~~Aplicar la migración 0045 (`meta_campaign_drafts`) o sacar el registro.~~ Hecho con la 0157
+  (ver «`meta_campaign_drafts`: aplicada, y por cliente»).
+- ~~`ad-add` («Subir creativos a una campaña») no usa todavía la traducción de rechazos.~~ Hecho
+  en el mismo commit.
+- De fondo, «Joan P2P app» no debería poder estar conectada: ver «Cómo llegó una app ajena a
+  MaKo».
 
 ## Crear formularios instantáneos desde MaKo (11/09)
 
@@ -1695,3 +1699,55 @@ actual (el admin de agencia sin impersonar), así que para esta tabla NO alcanza
 **Vive en:** `supabase/migrations/0157_meta_campaign_drafts_workspace.sql` ·
 `app/api/ads-manager/campaign-create/route.ts` · `app/api/ads-manager/ad-add/route.ts` ·
 `lib/workspace.ts` · `tests/meta-campaign-drafts-workspace.test.ts`.
+
+## Cómo llegó una app ajena a MaKo: la conexión acepta el token de CUALQUIER app (11/09)
+
+**Síntoma.** El rechazo 1885183 nombraba «Joan P2P app», y Martín preguntó cómo un cliente
+había podido «inyectar su propia app» en MaKo si MaKo tiene la suya.
+
+**El diagnóstico obvio era el equivocado: nadie inyectó nada.** Una app de Meta no corre
+adentro de MaKo. Es la firma del token: el token hereda sus permisos y sus límites, y nada
+más. Lo que pasa es que **MaKo no tiene «Iniciar sesión con Facebook»**. Conectar Meta es
+pegar un token, y el tutorial (`lib/metodo-catalogo.ts`) le enseña al cliente a crear SU app
+en SU Business Manager, a crear un usuario de sistema y a generar ahí el token. Así se
+diseñó para esquivar el App Review (ver la memoria `meta-oauth-app-review`). El cliente hizo
+exactamente lo que le pedimos.
+
+**Y nada lo mira al guardar.** `descubrirMeta` (`lib/meta-descubrir.ts`) llama a
+`debug_token` y lee los scopes y el vencimiento. El `app_id` también viene en esa respuesta,
+y nadie lo lee: pasa cualquier app.
+
+Medido con `debug_token` el 11/09:
+
+| Workspace | App que firmó el token | Qué trae |
+|---|---|---|
+| 1, 4 | «Leads - Dashboard MKT (Martin)» (954456647632371), la de MaKo, que cuelga de la cuenta personal de Mauricio | 9 scopes |
+| 11 | «Lidermente_Agent» | 21 scopes, incluidos publicar y mensajería |
+| 13, 14 | «Joan P2P app» (2300908653979362), en modo de desarrollo | **el MISMO token en los dos workspaces** |
+
+Los cinco son tokens de usuario de sistema que no vencen nunca.
+
+**Los riesgos reales** no son una inyección, pero existen:
+- **No controlamos la app.** Si su dueño la pausa, la deja en desarrollo o regenera el
+  token, MaKo se rompe sin aviso. Pasó con ws13: no puede publicar ningún creativo nuevo.
+- **Más permisos de los que MaKo usa, y sin vencimiento.** Un token de 21 scopes guardado
+  para siempre es una superficie más grande de lo necesario. Está cifrado (gcm2 por
+  workspace), pero sigue siendo más de lo que hace falta.
+- **El mismo token en dos workspaces** hace que una rotación en uno rompa al otro.
+
+**Decisión de producto (Martín, 11/09):** el cliente nunca crea una app y MaKo no acepta
+tokens de apps ajenas. Martín ya descartó «verificar la app del cliente al conectar».
+
+**Sin hacer, en este orden:**
+1. Mudar la app de MaKo fuera de la cuenta personal de Mauricio (#185). Antes de eso, todo
+   cliente quedaría colgando de un tercero.
+2. Conexión sin tutorial, con la app de MaKo: *partner sharing* del ad account y la página al
+   Business Manager de MaKo, con su usuario de sistema (no necesita App Review), o Facebook
+   Login for Business, que exige App Review + Business Verification. Los pasos en el panel de
+   Meta los hace una persona.
+3. Recién ahí, rechazar en `descubrirMeta` todo token con `app_id` distinto del de MaKo.
+   Hacerlo antes desconecta a ws11, ws13 y ws14 sin darles una salida.
+4. Migrar ws11, ws13 y ws14, y reescribir el tutorial de `lib/metodo-catalogo.ts`.
+
+**Vive en:** `lib/meta-descubrir.ts` (`descubrirMeta`) · `lib/metodo-catalogo.ts` (tutorial
+de Meta) · `lib/meta-ads-create.ts` (`appDelToken`).
