@@ -15,7 +15,7 @@
 // Quien necesite saber «¿esta instancia es el canal?» pregunta `instanciaCanal()`.
 
 import 'server-only';
-import { socketVivo, sondearSocket, registrarWebhookInstancia, permitirGruposEnInstancia } from './evolution';
+import { socketVivo, sondearSocket, motivoCaida, registrarWebhookInstancia, permitirGruposEnInstancia } from './evolution';
 import { setInstanciaVoz, INSTANCIA_VOZ_DEFAULT } from './mako-grupo';
 import { getSetting, setSetting } from './settings';
 import { runWithWorkspace, OWNER_WS } from './workspace';
@@ -170,16 +170,31 @@ export async function conectarCanalMaKo(): Promise<Conexion> {
   if (!c.ok) return { ok: false, error: `Evolution ${c.status}` };
   if (!sinQr(c.body)) return conQr(c.body);
 
-  // ⛔ SOLO SE TOCA LA SESIÓN SI ESTÁ VERIFICABLEMENTE MUERTA. Un `logout` sobre una sesión
-  // viva desvincula el número y deja a todos los clientes sin MaKo. El guard va en positivo
-  // sobre una operación REAL, jamás sobre el `state`, que miente en las dos direcciones. Y
-  // «no pude preguntar» NO es «está muerta»: con `sin_respuesta` no se toca nada.
-  const sondeo = await sondearSocket(inst, 15000);
-  if (sondeo === 'vivo') {
-    return { ok: false, error: 'La línea ya está conectada y respondiendo: no hace falta reconectarla.' };
-  }
-  if (sondeo === 'sin_respuesta') {
-    return { ok: false, error: 'WhatsApp no contestó a tiempo y no puedo confirmar que la línea esté caída, así que no toqué nada. Reintenta en un minuto.' };
+  const dice = (c.body as { instance?: { state?: string } } | null)?.instance?.state;
+  if (dice !== 'open') {
+    // Sin QR y SIN `open`: casi siempre es lentitud (recién creada, o esperando escaneo), y
+    // eso se espera, no se arregla. ⚠️ Tocar la sesión acá crearía una línea nueva POR CLIC:
+    // una instancia que todavía no conectó también da «Connection Closed» al sondearla.
+    const qr = await qrConEspera(inst, 4);
+    if (qr) return qr;
+    // Salvo que WhatsApp la haya CERRADO (401/403): esa se queda en `connecting` para
+    // siempre y no va a dar QR por más que se espere (medido en mako_ws1 el 08/09).
+    const motivo = await motivoCaida(inst, 10000);
+    if (!motivo?.desvinculado) {
+      return { ok: false, error: 'Evolution todavía no armó el QR de la línea. Toca «Conectar por QR» otra vez en unos segundos.' };
+    }
+  } else {
+    // ⛔ CON `open`, SOLO SE TOCA LA SESIÓN SI ESTÁ VERIFICABLEMENTE MUERTA. Un `logout` sobre
+    // una sesión viva desvincula el número y deja a todos los clientes sin MaKo. El guard va
+    // en positivo sobre una operación REAL, jamás sobre el `state`, que miente en las dos
+    // direcciones. Y «no pude preguntar» NO es «está muerta»: con `sin_respuesta` no se toca nada.
+    const sondeo = await sondearSocket(inst, 15000);
+    if (sondeo === 'vivo') {
+      return { ok: false, error: 'La línea ya está conectada y respondiendo: no hace falta reconectarla.' };
+    }
+    if (sondeo === 'sin_respuesta') {
+      return { ok: false, error: 'WhatsApp no contestó a tiempo y no puedo confirmar que la línea esté caída, así que no toqué nada. Reintenta en un minuto.' };
+    }
   }
 
   // Muerta. Primero se intenta soltarla por las buenas, que conserva la instancia.

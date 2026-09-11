@@ -21,9 +21,11 @@
 // La salida es una línea NUEVA, y todo lo que comparaba contra el nombre fijo
 // tiene que preguntar cuál es la vigente.
 //
-// PROBADO ROMPIÉNDOLO: corrido contra `lib/mako-canal.ts` y el webhook de HEAD
-// (el arreglo del 08/09, el que le dijo «reintenta» a Martín), fallan 6 de 7.
-// El único que pasa es «nunca borra la instancia», que esa versión ya cumplía.
+// PROBADO ROMPIÉNDOLO, contra dos versiones de `lib/mako-canal.ts` + el webhook:
+//   · la del 08/09 (b25f8e2f~1, la que le dijo «reintenta» a Martín): fallan 7 de 8.
+//     Pasa solo «nunca borra la instancia», que esa versión ya cumplía.
+//   · la primera rotación (b25f8e2f, sin el corte de `open`): falla 1 de 8, justo
+//     «sin `open` no se toca la sesión» — el que evita una línea nueva por clic.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -61,6 +63,21 @@ test('⛔ La sesión SOLO se toca con el socket verificablemente muerto', () => 
   assert.ok(iSinRespuesta > iSondeo && iSinRespuesta < iLogout,
     '«no pude preguntar» volvió a seguir de largo hasta el logout');
   assert.ok(iRotar > iLogout, 'la línea nueva se crea sin haber intentado soltar la vieja');
+});
+
+test('Sin `open` no se toca la sesión: se espera el QR (si no, una línea nueva por clic)', () => {
+  // Una instancia recién creada o esperando escaneo TAMPOCO tiene socket: sondearla da
+  // «Connection Closed» igual que a una zombi. La primera versión de la rotación no
+  // miraba esto, así que cada clic mientras Evolution armaba el QR hacía logout y
+  // creaba otra línea. Solo se toca con `open` (la zombi) o con WhatsApp habiéndola
+  // cerrado (401/403, que se queda en `connecting` para siempre).
+  const iDice = cuerpoConectar.indexOf("dice !== 'open'");
+  const iMotivo = cuerpoConectar.indexOf('motivoCaida(inst');
+  const iLogout = cuerpoConectar.indexOf('/instance/logout/');
+  assert.ok(iDice > 0 && iDice < iLogout, 'volvió a sondear y soltar sin mirar si Evolution dice open');
+  assert.ok(iMotivo > iDice && iMotivo < iLogout,
+    'sin `open` se toca la sesión aunque WhatsApp no la haya cerrado');
+  assert.match(cuerpoConectar, /!motivo\?\.desvinculado/, 'se perdió el corte para la instancia que solo va lenta');
 });
 
 test('Si Evolution no suelta la sesión, rota a una línea nueva en vez de rendirse', () => {
