@@ -25,6 +25,7 @@ import { colorDeSemaforo, linkAprobarEnMeta, type MetaHealth, type NodoEstado } 
 import { TutorialAprobacionMeta } from './TutorialAprobacionMeta';
 import { LugarPicker } from './LugarPicker';
 import { geoSpecDe, lugarPais, lugaresDesdeDraft, resumenLugares, type LugarMeta } from '@/lib/meta-geo';
+import { avisoAgendaSinMedir } from '@/lib/meta-conversiones';
 import {
   type CampaignSpec, type AdSpec, type Creative, type Targeting, type Objective, type AudienceRef,
   objetivoDef, CTA_OPCIONES,
@@ -66,6 +67,9 @@ type AudienceItem = AudienceRef & { count?: number | null };
 type Destino = { lead_form_id?: string | null; lead_form_name?: string | null; url?: string; conv?: { pixel_event?: string; custom_conversion_id?: string; label?: string; pixel_id?: string } };
 type Analisis = Array<{ descripcion: string; angulo: string }>;
 type Uso = { tokens: number; costUsd: number } | null;
+// Una conversión personalizada con lo que Meta dice de ella: QUÉ cuenta (su regla, en
+// castellano) y si se DISPARÓ en los últimos 30 días. `estado` null = no se pudo leer.
+type ConvItem = { id: string; name: string; event?: string; pixel_id?: string; regla?: string | null; ultimaVez?: string | null; estado?: 'activa' | 'inactiva' | 'nunca' | null };
 
 type TrayItem = {
   id: string; kind: 'upload' | 'existing'; media_type?: 'image' | 'video';
@@ -244,10 +248,13 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
   // públicos personalizados (retargeting) + formularios — carga perezosa.
   const [audiencesAll, setAudiencesAll] = useState<AudienceItem[] | null>(null);
   const [leadForms, setLeadForms] = useState<Array<{ id: string; name: string }> | null>(null);
-  const [convs, setConvs] = useState<Array<{ id: string; name: string; event?: string; pixel_id?: string }> | null>(null);
+  const [convs, setConvs] = useState<Array<ConvItem> | null>(null);
   const [pixels, setPixels] = useState<Array<{ id: string; name: string }> | null>(null);
   // Eventos ACTIVOS del pixel elegido (null = sin cargar). Elegir uno inactivo arruina la entrega.
   const [pixelEvents, setPixelEvents] = useState<string[] | null>(null);
+  // Por qué este negocio vende por llamada (null = todavía no se preguntó). Si la
+  // consulta falla queda [], y eso NO muestra el aviso: no saber no autoriza a afirmar.
+  const [motivosLlamada, setMotivosLlamada] = useState<string[] | null>(null);
   const [creandoPublico, setCreandoPublico] = useState(false);
   // Un pedido a /targeting tiene TRES estados, no dos: `null` = todavía preguntando,
   // `[]` = pregunté y no hay, y DENEGADO = no pude preguntar. Colapsar el tercero en
@@ -291,8 +298,14 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
   useEffect(() => { if (!lugares.length && cuenta?.country) setLugares([lugarPais(cuenta.country)]); }, [cuenta?.country]); // eslint-disable-line react-hooks/exhaustive-deps
   const pideForm = existente ? !!adsetInfo?.needsForm : objKey === 'lead_form';
   useEffect(() => { if (pideForm && leadForms === null) traerTargeting<{ id: string; name: string }>('kind=leadforms', 'tus formularios').then((it) => setLeadForms(it ?? [])); }, [pideForm, leadForms]);  
-  useEffect(() => { if ((objKey === 'lead_web' || objKey === 'sales') && convs === null) traerTargeting<{ id: string; name: string; event?: string; pixel_id?: string }>('kind=conversions', 'tus conversiones').then((it) => setConvs(it ?? [])); }, [objKey, convs]);  
+  useEffect(() => { if ((objKey === 'lead_web' || objKey === 'sales') && convs === null) traerTargeting<ConvItem>('kind=conversions', 'tus conversiones').then((it) => setConvs(it ?? [])); }, [objKey, convs]);  
   useEffect(() => { if ((objKey === 'lead_web' || objKey === 'sales') && pixels === null) traerTargeting<{ id: string; name: string }>('kind=pixels', 'tus pixeles').then((it) => setPixels(it ?? [])); }, [objKey, pixels]);  
+  useEffect(() => {
+    if (existente || !obj?.needsConv || motivosLlamada !== null) return;
+    fetch('/api/ads-manager/targeting?kind=agenda', { cache: 'no-store' }).then((r) => r.json())
+      .then((j) => setMotivosLlamada(j.ok && Array.isArray(j.motivos) ? j.motivos : []))
+      .catch(() => setMotivosLlamada([]));
+  }, [existente, obj?.needsConv, motivosLlamada]);
   // Si hay UN solo pixel, lo elegimos solos (el usuario igual lo ve, pero no tiene que tocar).
   useEffect(() => { if (obj?.needsConv && pixels && pixels.length === 1 && !destino.conv?.pixel_id) setDestino((d) => ({ ...d, conv: { ...d.conv, pixel_id: pixels[0].id } })); }, [obj?.needsConv, pixels, destino.conv?.pixel_id]);
   // Al elegir un pixel, traemos SUS eventos activos (los que Meta recibe de verdad).
@@ -756,7 +769,7 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
                   <input value={destino.url ?? ''} onChange={(e) => setDestino((d) => ({ ...d, url: e.target.value }))} placeholder="https://tu-landing/vsl" autoFocus
                     style={{ width: '100%', padding: '14px 16px', borderRadius: 13, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 16, outline: 'none', textAlign: 'center' }} />
                   {pideConv && (
-                    <ConversionPicker pixels={pixels} convs={convs} pixelEvents={pixelEvents} destino={destino} setDestino={setDestino} denegado={metaDenegado} />
+                    <ConversionPicker pixels={pixels} convs={convs} pixelEvents={pixelEvents} destino={destino} setDestino={setDestino} denegado={metaDenegado} motivosLlamada={motivosLlamada} />
                   )}
                 </div>
               )}
@@ -1188,16 +1201,22 @@ function labelDeEnum(enumValue: string): string | undefined {
 }
 
 // ── conversión: PRIMERO el pixel, DESPUÉS el evento (solo los ACTIVOS de ese pixel) ──
-// Optimizar por un evento inactivo arruina la entrega → solo ofrecemos los que el
-// pixel recibe de verdad (+ tus conversiones personalizadas, que ya son activas).
-function ConversionPicker({ pixels, convs, pixelEvents, destino, setDestino, denegado }: {
+// Optimizar por un evento inactivo arruina la entrega → solo se ofrecen los que el
+// pixel recibe de verdad. Y las conversiones personalizadas se miden IGUAL: acá decía
+// «tus conversiones personalizadas, que ya son activas», y cada una salía con el
+// rótulo fijo «Conversión que ya mides» sin haber mirado nada. En ws13, «AGENDA» se
+// leía como la medición de las agendas y cuenta VISITAS a una URL con «/gracias»,
+// «name» o «email»; el pixel no había recibido un solo `Schedule` (lib/meta-conversiones.ts).
+function ConversionPicker({ pixels, convs, pixelEvents, destino, setDestino, denegado, motivosLlamada }: {
   pixels: Array<{ id: string; name: string }> | null;
-  convs: Array<{ id: string; name: string; event?: string; pixel_id?: string }> | null;
+  convs: ConvItem[] | null;
   pixelEvents: string[] | null;
   destino: Destino;
   setDestino: Dispatch<SetStateAction<Destino>>;
   /** Por qué NO se pudo leer la cuenta de Meta (403 del guard, red, etc.). Distinto de "no hay". */
   denegado: string | null;
+  /** Por qué MaKo cree que el negocio vende por llamada. Vacío o null = no lo afirma. */
+  motivosLlamada: string[] | null;
 }) {
   const pixelId = destino.conv?.pixel_id ?? '';
   const setPixel = (v: string) => setDestino((d) => ({ ...d, conv: { pixel_id: v } })); // cambiar de pixel resetea el evento
@@ -1208,21 +1227,41 @@ function ConversionPicker({ pixels, convs, pixelEvents, destino, setDestino, den
   const detectados = !!pixelEvents && pixelEvents.length > 0;
   // ENUMs de Meta que el pixel recibió de verdad (mapeados desde el nombre del evento).
   const activosSet = new Set((pixelEvents ?? []).map((n) => STD_EVENTS[n]?.enum).filter((e): e is string => !!e));
+  // Meta manda "2026-09-11T19:29:01+0000", sin los dos puntos del huso.
+  const fechaCorta = (iso: string) => {
+    const d = new Date(iso.replace(/([+-]\d{2})(\d{2})$/, '$1:$2'));
+    return Number.isFinite(d.getTime()) ? d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : iso;
+  };
   // Solo las conversiones del pixel elegido (si no, se mezclan las de todos). Fail-open:
   // si a alguna no le pudimos resolver el pixel, la dejamos para no perder una válida.
-  const custom = (convs ?? []).filter((c) => !c.pixel_id || c.pixel_id === pixelId).map((c) => ({ value: `cc:${c.id}`, label: `Tu conversión: ${c.name}`, sub: 'Conversión que ya mides' }));
+  const delPixel = (convs ?? []).filter((c) => !c.pixel_id || c.pixel_id === pixelId);
+  // El rótulo dice QUÉ cuenta y CUÁNDO se disparó — lo que Meta contestó, no una
+  // promesa. Las que no se dispararon en 30 días van en gris, como los eventos.
+  const opcionDe = (c: ConvItem): { value: string; label: string; sub: string; disabled?: boolean } => {
+    const base = { value: `cc:${c.id}`, label: `Tu conversión: ${c.name}` };
+    const que = c.regla ?? 'Regla propia de tu cuenta';
+    if (c.estado === 'activa') return { ...base, sub: c.ultimaVez ? `${que} · última: ${fechaCorta(c.ultimaVez)}` : que };
+    if (c.estado === 'inactiva') return { ...base, sub: `Inactiva — sin datos en 30 días · ${que}`, disabled: true };
+    if (c.estado === 'nunca') return { ...base, sub: `Nunca registró una conversión · ${que}`, disabled: true };
+    return { ...base, sub: `${que} · verifica que esté activa` };
+  };
+  const customVivas = delPixel.filter((c) => c.estado !== 'inactiva' && c.estado !== 'nunca').map(opcionDe);
+  const customMuertas = delPixel.filter((c) => c.estado === 'inactiva' || c.estado === 'nunca').map(opcionDe);
   // Con detección: mostramos TODOS los eventos estándar como Meta (Active vs Inactive).
-  // Activos arriba y habilitados; inactivos abajo, en gris y DESHABILITADOS (Dropdown
-  // ya soporta `disabled`), para que el usuario VEA por qué no son opción y no elija
-  // uno muerto. Sin detección: todos seleccionables con la advertencia.
+  // Activos arriba y habilitados; inactivos abajo, en gris y DESHABILITADOS, para que el
+  // usuario VEA por qué no son opción y no elija uno muerto. Sin detección: todos
+  // seleccionables con la advertencia.
   let eventOpts: Array<{ value: string; label: string; sub?: string; disabled?: boolean }>;
   if (detectados) {
     const activos = EVENTOS_CONV.filter((e) => activosSet.has(e.value)).map((e) => ({ value: e.value, label: e.label, sub: '✓ Activo en tu pixel' }));
     const inactivos = EVENTOS_CONV.filter((e) => !activosSet.has(e.value)).map((e) => ({ value: e.value, label: e.label, sub: 'Inactivo — sin datos en 30 días', disabled: true }));
-    eventOpts = [...activos, ...custom, ...inactivos];
+    eventOpts = [...activos, ...customVivas, ...inactivos, ...customMuertas];
   } else {
-    eventOpts = [...EVENTOS_CONV.map((e) => ({ value: e.value, label: e.label, sub: 'Verifica que esté activo' })), ...custom];
+    eventOpts = [...EVENTOS_CONV.map((e) => ({ value: e.value, label: e.label, sub: 'Verifica que esté activo' })), ...customVivas, ...customMuertas];
   }
+  // El error que Martín pidió que se diga con todas las letras: vende por llamada y el
+  // pixel no mide la agenda. Solo con el pixel LEÍDO (la función se abstiene si no).
+  const aviso = pixelId && pixelEvents !== null ? avisoAgendaSinMedir(motivosLlamada ?? [], pixelEvents) : null;
   const eventValue = destino.conv?.custom_conversion_id ? `cc:${destino.conv.custom_conversion_id}` : (destino.conv?.pixel_event ?? '');
   // "No pude preguntar" (denegado) NO es "pregunté y no hay". Si se mezclan, la
   // pantalla afirma un hecho falso sobre la cuenta de Meta del usuario.
@@ -1235,12 +1274,20 @@ function ConversionPicker({ pixels, convs, pixelEvents, destino, setDestino, den
       ? <>Buscando los eventos <b>activos</b> de tu pixel…</>
       : detectados
         ? <>Los <b>activos</b> (✓) son los que tu pixel recibió en los últimos 30 días. Los <b>inactivos</b> van en gris y no se pueden elegir: Meta no podría optimizar por ellos.</>
-        : <>No pudimos detectar los eventos activos. Elige tu <b>conversión</b> (las que ya mides) o un evento estándar que sepas <b>activo</b> en tu pixel.</>;
+        : <>No pudimos detectar los eventos activos. Elige una conversión personalizada o un evento estándar que sepas <b>activo</b> en tu pixel.</>;
   return (
     <>
       <Dropdown value={pixelId}
         placeholder={pixels === null ? 'Cargando tu pixel…' : denegado ? 'No pude leer los pixeles de tu cuenta' : sinPixeles ? 'No hay pixel en la cuenta' : 'Elige tu pixel (dataset)…'}
         options={(pixels ?? []).map((p) => ({ value: p.id, label: p.name }))} onChange={setPixel} width="100%" />
+      {aviso && (
+        <div style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '12px 14px', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--bad)' }}>⚠ {aviso.titulo}</div>
+          <p style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5, margin: 0 }}>{aviso.detalle}</p>
+          <a href={`https://eventsmanager.facebook.com/events_manager2/list/dataset/${pixelId}/overview`} target="_blank" rel="noopener noreferrer"
+            style={{ fontSize: 12.5, color: 'var(--primary-strong)', fontWeight: 600, textDecoration: 'none' }}>Abrir tu pixel en el Administrador de eventos ↗</a>
+        </div>
+      )}
       {pixelId && (
         <Dropdown value={eventValue} disabled={pixelEvents === null}
           placeholder={pixelEvents === null ? 'Buscando eventos activos…' : 'Elige la conversión a optimizar…'}

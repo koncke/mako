@@ -1449,3 +1449,72 @@ palabra entera: «Córdoba» no matchea «Cordobesa»), después el tamaño del 
 - **`location_types` (vive / estuvo)** no se expone, a propósito: `travel_in` lo rechaza
   Meta con «All location targeting will now reach people living in or recently in», que es
   lo que hoy muestra Ads Manager.
+
+---
+
+## «Conversión que ya mides» era un texto fijo, y AGENDA no medía agendas (11/09)
+
+**Síntoma:** en el paso «¿Dónde captas la conversión?» del wizard, la cuenta de Código
+Inmobiliario (ws13) ofrecía «Tu conversión: AGENDA — Conversión que ya mides». Martín:
+«no entiendo de dónde sacas eso… no lo estaban midiendo». El evento `Schedule` recién se
+había instalado en la landing ese mismo día.
+
+**Causa — el rótulo no salía de ningún dato.** `ConversionPicker` le pegaba
+`sub: 'Conversión que ya mides'` a TODA conversión personalizada de la cuenta, y el
+comentario de al lado lo justificaba: «tus conversiones personalizadas, que ya son
+activas». Nadie lo midió nunca. `listCustomConversions` ni siquiera pedía `rule` ni
+`last_fired_time`. Los eventos estándar sí se medían (30 días de `/{pixel}/stats`), así
+que en el mismo desplegable convivían opciones medidas y una afirmada de memoria.
+
+**Y lo que AGENDA cuenta, leído de Meta, no es una agenda:**
+
+```
+rule: PageView Y (URL contiene «/gracias» O «name» O «email»)
+custom_event_type: SCHEDULE · 17 disparos en 30 días, 16 el 25/08 (el día que se armó)
+```
+
+Visitas a una página, clasificadas como agenda. Mientras tanto el pixel, en 30 días:
+PageView 152, CompleteRegistration 15, «agendar llamada 1 arriba» 20 (un evento PROPIO, que
+Meta no reconoce como agenda), Lead 2 — **ni un `Schedule`**. El `custom_event_type` de una
+conversión personalizada es una etiqueta que le pone quien la crea; lo que cuenta es la regla.
+
+**Regla que queda:** el rótulo de una conversión dice QUÉ cuenta (la regla, traducida
+por `describirRegla`) y CUÁNDO se disparó (`last_fired_time`), igual que un evento
+estándar dice si está activo. Las que no se dispararon en 30 días van en gris. Si la
+regla tiene algo que no sabemos traducir, dice «regla propia de tu cuenta» — una traducción
+a medias («Cada evento Purchase» sobre una regla de compras mayores a 100) es peor.
+
+### El aviso que pidió Martín: vende por llamada y el pixel no mide la agenda
+
+*«Si el objetivo del dueño es agendar llamadas y MaKo detecta que no se está midiendo ese
+evento en Meta, que le indique que es un error y que si no lo instala en su pixel, jamás
+tendrá llamadas por parte de Meta.»*
+
+- **«Vende por llamada» se CITA, no se afirma.** `motivosVentaPorLlamada` junta tres hechos
+  verificables: el canal que el dueño declaró en su diagnóstico
+  (`negocio.fase.diagnostico.canal === 'llamadas'`), `agenda_sola` en las entradas del
+  funnel, y la pieza `embed-agenda` medida en sus landings (`landing.snapshot`). El aviso
+  los dice: «Es un error: declaraste que vendes por llamada y tus landings … tienen una
+  agenda para reservar, pero tu pixel no recibió ningún evento «Schedule»…».
+- ⚠️ **En ws13 el funnel NO sirve de fuente**: `funnel_config.entradas` está vacío (nunca lo
+  declaró). Lo que dispara el aviso ahí es el diagnóstico + la agenda medida en la landing.
+- ⚠️ **`listPixelEvents` devuelve `[]` también cuando NO PUDO leer las estadísticas** (su
+  `catch` devuelve vacío). Por eso el aviso se abstiene con la lista vacía: «no pude
+  preguntar» no autoriza a acusar que falta un evento. Lo fija un test roto a propósito.
+- **Los eventos de «Probar eventos» no aparecieron en `/{pixel}/stats`** a los 11 minutos
+  (19:44 → 19:55 UTC, ventana de 3 h vacía). No quedó medido si es por ser eventos de prueba
+  o por la demora de ~30 min que Meta avisa. Por eso el aviso dice «se va cuando Meta
+  registre la primera agenda» y no afirma nada sobre las pruebas.
+
+**Vive en:** `lib/meta-conversiones.ts` (regla en castellano, estado, motivos, aviso) ·
+`lib/venta-por-llamada.ts` (junta los tres motivos del workspace) ·
+`lib/meta-ads-create.ts` → `listCustomConversions` · `app/api/ads-manager/targeting/route.ts`
+(`kind=agenda`) · `app/ads-manager/NuevaCampanaModal.tsx` → `ConversionPicker`.
+
+**Sin hacer:**
+- El aviso vive sólo en el paso de conversión del wizard (objetivos «Leads / agendas en tu
+  web» y «Ventas»). No está en `/marketing/salud` ni en el checklist del Pixel de la
+  landing, que es donde se vería sin estar creando una campaña.
+- Los eventos PROPIOS del pixel («agendar llamada 1 arriba») no se ofrecen para optimizar
+  ni se mencionan en el aviso. Para usarlos hace falta una conversión personalizada basada
+  en ese evento.

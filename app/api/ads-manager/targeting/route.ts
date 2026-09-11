@@ -9,6 +9,7 @@
 // ?kind=alcance&geo=<json>   → { min, max, frase } de { geo_locations,
 //                              excluded_geo_locations }. VALIDA: un choque o un
 //                              radio inválido vuelve con rechazoGeo:true
+// ?kind=agenda               → motivos por los que el negocio vende por llamada
 // ?kind=cuenta               → { currency, country } de la cuenta: lo que la UI
 //                              necesita para no adivinar moneda ni país
 // =============================================================================
@@ -17,6 +18,7 @@ import type { NextRequest } from 'next/server';
 import { guardAdsWs } from '@/lib/ads-guard';
 import { listCustomAudiences, searchInterests, listLeadForms, listCustomConversions, listPixels, listPixelEvents, searchLugares, alcanceGeo, cuentaMeta, metaErrorEnvelope } from '@/lib/meta-ads-create';
 import { explicarErrorGeo } from '@/lib/meta-geo';
+import { motivosDeVentaPorLlamada } from '@/lib/venta-por-llamada';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -33,6 +35,9 @@ export async function GET(req: NextRequest) {
     if (kind === 'interests') return Response.json({ ok: true, items: await searchInterests(q) });
     if (kind === 'leadforms') return Response.json({ ok: true, items: await listLeadForms() });
     if (kind === 'conversions') return Response.json({ ok: true, items: await listCustomConversions() });
+    // Por qué este negocio vende por llamada (diagnóstico, funnel, agenda en la landing).
+    // Alimenta el aviso de «tu pixel no mide las agendas» del paso de conversión.
+    if (kind === 'agenda') return Response.json({ ok: true, motivos: await motivosDeVentaPorLlamada() });
     if (kind === 'pixels') return Response.json({ ok: true, items: await listPixels() });
     if (kind === 'pixelevents') return Response.json({ ok: true, items: await listPixelEvents(req.nextUrl.searchParams.get('pixel') ?? '') });
     // `pais` = ISO-2 de la cuenta: sus lugares van primero (ver searchLugares).
@@ -44,7 +49,7 @@ export async function GET(req: NextRequest) {
       return Response.json({ ok: true, alcance: await alcanceGeo(geo as Parameters<typeof alcanceGeo>[0]) });
     }
     if (kind === 'cuenta') return Response.json({ ok: true, cuenta: await cuentaMeta() });
-    return Response.json({ ok: false, error: 'kind inválido (audiences | interests | leadforms | conversions | pixels | pixelevents | lugares | alcance | cuenta)' }, { status: 400 });
+    return Response.json({ ok: false, error: 'kind inválido (audiences | interests | leadforms | conversions | pixels | pixelevents | lugares | alcance | cuenta | agenda)' }, { status: 400 });
   } catch (err) {
     const env = metaErrorEnvelope(err);
     console.error(`[ads-manager:targeting] ${env.message}`);

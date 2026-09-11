@@ -21,6 +21,7 @@ import { credWs } from './credenciales';
 import { normalizarCuentaMeta } from './meta-cuenta-id';
 import { paisDeCuentaMeta } from './meta-pais';
 import { TIPOS_BUSCABLES, lugarDesdeBusqueda, ordenarLugares, type LugarMeta } from './meta-geo';
+import { describirRegla, estadoConversion, type EstadoConversion } from './meta-conversiones';
 import { getWorkspaceActual, OWNER_WS } from './workspace';
 import {
   type CampaignSpec,
@@ -574,24 +575,43 @@ export async function listPixels(): Promise<Array<{ id: string; name: string }>>
   return arr.map((p) => ({ id: String(p.id), name: String(p.name ?? p.id) }));
 }
 
-/** Conversiones personalizadas de la cuenta (ej. "Programaciones"/agenda) para optimizar.
- * Incluye pixel_id (el pixel al que pertenece cada una) para poder filtrar por el pixel
- * elegido — si no, se mezclan las conversiones de TODOS los pixels. */
-export async function listCustomConversions(): Promise<Array<{ id: string; name: string; event?: string; pixel_id?: string }>> {
+/**
+ * Las conversiones personalizadas de la cuenta, con lo que Meta dice de cada una:
+ * QUÉ cuentan (`rule`, traducida por describirRegla) y si se DISPARARON en los
+ * últimos 30 días (`last_fired_time`). Las archivadas no se ofrecen.
+ *
+ * ⚠️ Antes devolvía sólo id/nombre/tipo, y la pantalla le pegaba a cada una el rótulo
+ * fijo «Conversión que ya mides». En ws13 eso presentaba «AGENDA» como la medición
+ * de las agendas cuando cuenta visitas a una URL con «/gracias», y el pixel no había
+ * recibido un solo `Schedule`. Ver lib/meta-conversiones.ts.
+ *
+ * `estado: null` = la versión de API no dio los campos: no se sabe, y la pantalla
+ * lo dice en vez de suponer que está activa.
+ */
+export async function listCustomConversions(): Promise<Array<{ id: string; name: string; event?: string; pixel_id?: string; regla: string | null; ultimaVez: string | null; estado: EstadoConversion | null }>> {
   const [apiVersion, adAccountId, tk] = await Promise.all([cred('META_API_VERSION'), cred('META_AD_ACCOUNT_ID'), cred('META_ACCESS_TOKEN')]);
   const base = `${GRAPH_BASE}/${apiVersion}/${adAccountId}/customconversions`;
   const fetchWith = (fields: string) => { const u = new URL(base); u.searchParams.set('fields', fields); u.searchParams.set('limit', '200'); u.searchParams.set('access_token', tk); return graphGet(u.toString()); };
-  // Si la versión de API no aceptara pixel/data_sources, caemos a lo básico (sin filtrar).
+  // Si la versión de API no aceptara alguno de los campos, caemos a lo básico: la
+  // lista sale igual, sin estado — que es distinto de «activa».
   let data: Record<string, unknown>;
-  try { data = await fetchWith('id,name,custom_event_type,pixel,data_sources'); }
-  catch { data = await fetchWith('id,name,custom_event_type'); }
+  let conEstado = true;
+  try { data = await fetchWith('id,name,custom_event_type,pixel,data_sources,rule,last_fired_time,is_archived'); }
+  catch { data = await fetchWith('id,name,custom_event_type'); conEstado = false; }
   const arr = Array.isArray(data.data) ? (data.data as Array<Record<string, unknown>>) : [];
-  return arr.map((c) => {
+  const ahora = new Date();
+  return arr.filter((c) => c.is_archived !== true).map((c) => {
     const pixel = c.pixel as { id?: string } | undefined;
     // El id de la data source de tipo pixel ES el id del pixel; el campo `pixel` es lo directo.
     const ds = Array.isArray(c.data_sources) ? (c.data_sources as Array<Record<string, unknown>>) : [];
     const pixel_id = pixel?.id ? String(pixel.id) : (ds[0]?.id ? String(ds[0].id) : undefined);
-    return { id: String(c.id), name: String(c.name ?? c.id), event: c.custom_event_type ? String(c.custom_event_type) : undefined, pixel_id };
+    const ultimaVez = c.last_fired_time ? String(c.last_fired_time) : null;
+    return {
+      id: String(c.id), name: String(c.name ?? c.id), event: c.custom_event_type ? String(c.custom_event_type) : undefined, pixel_id,
+      regla: describirRegla(typeof c.rule === 'string' ? c.rule : null),
+      ultimaVez,
+      estado: conEstado ? estadoConversion(ultimaVez, ahora) : null,
+    };
   });
 }
 
