@@ -112,7 +112,10 @@ export async function analizarLandingAction(url: string): Promise<AnalisisResult
     versionPixel: a.versionPixel,
     clarityProjectId: a.clarityProjectId,
     clarityGuardado: landingDe(guardadas, url)?.clarityProjectId ?? null,
-    videos: a.videos.map((v) => ({ id: v.id, url: v.url, tipo: v.tipo })),
+    // `pieza` es la del catálogo de hosts (`video-wistia`, `video-drive`…); viaja
+    // como `tipo` porque es el nombre con el que ya cruzaba al cliente, y ahí solo
+    // se usan el id y la URL.
+    videos: a.videos.map((v) => ({ id: v.id, url: v.url, tipo: v.pieza })),
     cambios,
   };
 }

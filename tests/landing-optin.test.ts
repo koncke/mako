@@ -844,7 +844,23 @@ test('«qué es cada video» es un PASO de la prueba, no un formulario colgado',
   assert.ok(/useState<'inicio' \| 'videos'>\('inicio'\)/.test(panel), 'la prueba necesita el paso previo');
   // «no le he cargado de qué se trata» y «se agregaron nuevos» son EL MISMO
   // estado: hay un video detectado sin respuesta guardada.
-  assert.ok(/const sinNombre = detectadosVideo\.filter/.test(panel), 'falta detectar los videos sin nombre');
+  // ⚠️⚠️ Y LA PUERTA CUENTA LAS DOS FUENTES. `videosDetectados` sale de los
+  // EVENTOS, así que en una página cuyos videos no mandan ninguno —los 16 de
+  // YouTube del ws14, con 163 eventos en su historia y cero `video_id`— la lista
+  // quedaba vacía y esta pantalla no se abría NUNCA: ni sola al apretar «Probar»,
+  // ni por el lápiz, que miraba lo mismo. El analizador sí los ve, y
+  // `NombrarVideos` ya sabía mostrarlos; lo que faltaba era que contaran para
+  // DECIDIR si hay algo que preguntar. El dueño lo reportó como «la funcionalidad
+  // para seleccionar de qué es cada video no me apareció en ningún momento».
+  assert.ok(
+    /const candidatosVideo = \[\.\.\.detectadosVideo, \.\.\.deLaPagina\]/.test(panel),
+    'la puerta tiene que mirar los eventos Y los videos que el analizador ve en la página',
+  );
+  assert.ok(/const sinNombre = candidatosVideo\.filter/.test(panel), 'falta detectar los videos sin nombre');
+  assert.ok(
+    /const hayVideos = candidatosVideo\.length > 0/.test(panel),
+    'el lápiz para corregir la identificación mira la misma lista que la puerta, o se abre una y la otra no',
+  );
   assert.ok(/if \(paso !== 'videos' && sinNombre\.length > 0\) \{ setPaso\('videos'\); return; \}/.test(panel),
     'con videos sin nombre, «Probar» tiene que preguntar ANTES de los pasos');
   // ⚠️ Y «Siguiente» NO exige contestar: un paso que bloquea sobre algo opcional
@@ -1272,7 +1288,7 @@ test('los videos de la pagina salen del HTML, sin esperar a que alguien reproduz
   // Panda: el id es el `v=` del embed, que es el mismo que manda el snippet
   const panda = videosDeHtml(base, '<iframe src="https://player-vz-dd4ad08b-375.tv.pandavideo.com/embed/?v=1b9db76c-6bbb-4837-8274-96896c3d8b47"></iframe>');
   assert.equal(panda[0]?.id, '1b9db76c-6bbb-4837-8274-96896c3d8b47');
-  assert.equal(panda[0]?.tipo, 'panda');
+  assert.equal(panda[0]?.pieza, 'video-panda');
 
   // YouTube y Vimeo: se convierte el embed en el link que un humano puede abrir
   assert.equal(videosDeHtml(base, '<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ"></iframe>')[0]?.url, 'https://www.youtube.com/watch?v=dQw4w9WgXcQ');

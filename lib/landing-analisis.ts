@@ -18,8 +18,124 @@
 // =============================================================================
 
 export type PiezaLanding =
-  | 'video-nativo' | 'video-panda' | 'video-youtube' | 'video-vimeo'
+  | 'video-nativo' | 'video-panda' | 'video-wistia' | 'video-youtube' | 'video-vimeo' | 'video-drive'
   | 'formulario' | 'embed-agenda' | 'link-whatsapp' | 'botones' | 'pixel';
+
+/**
+ * LOS HOSTS DE VIDEO, EN UN SOLO LUGAR.
+ *
+ * ⚠️ ESTA LISTA ESTABA COPIADA EN OCHO LUGARES, y olvidarse de uno fallaba en
+ * silencio y distinto cada vez: sin la copia de `landingDiagnostico` volvía «tu
+ * página no tiene video»; sin la de `landing-snapshot` el aviso no salía aunque la
+ * pieza estuviera en la del cron; sin las de acá un video que no se puede medir
+ * quedaba en «aún sin datos» para siempre. Ahora todo eso se deriva de este
+ * catálogo, y hay un test que recorre las piezas y falla si a una le falta su
+ * registro en algún lado.
+ *
+ * `medible` es lo único que decide qué se le promete al cliente: un video que no
+ * se puede medir tiene que DECIRSE, no esperarse. Está medido host por host, en un
+ * navegador de verdad (11/09/2026), no leído en documentación.
+ *
+ * `prefijo` es el id que manda el snippet para ese host, y tiene que casar con el
+ * que arma `videosDeHtml`: si se separan, el mismo video sale DOS veces en la
+ * pantalla que los nombra —una con eventos y sin URL, otra con URL y sin
+ * actividad— y nombrar una no nombra la otra. Lo cuida `tests/landing-analisis.test.ts`.
+ *
+ * `desde` es la versión del catálogo en la que se agregó el detector. Sirve para no
+ * anunciarle a un cliente «le agregaste un video a tu página» cuando lo que cambió
+ * fue que MaKo aprendió a verlo (ver `aplicarLectura` en lib/landing-snapshot.ts).
+ */
+export type HostVideo = {
+  pieza: PiezaLanding;
+  /** Cómo se lo nombra en pantalla y en los avisos. En minúscula, para frases. */
+  nombre: string;
+  /** El Pixel puede medir su reproducción y su avance. Medido, no supuesto. */
+  medible: boolean;
+  /** El prefijo del `video_id` que emite el snippet para este host. */
+  prefijo: string | null;
+  /** Marca en el HTML servido (ya limpio de <script> y <style>). */
+  reHtml: RegExp;
+  /**
+   * Marca en el JavaScript propio de la página. Solo las que se identifican por un
+   * DOMINIO: en un bundle minificado una etiqueta como `<video` aparece por
+   * cualquier motivo (ver el comentario de `DEL_BUNDLE`).
+   */
+  reBundle: RegExp | null;
+  /** La versión del catálogo en la que este detector empezó a existir. */
+  desde: number;
+};
+
+export const HOSTS_VIDEO: HostVideo[] = [
+  {
+    pieza: 'video-nativo', nombre: 'un video', medible: true, prefijo: 'v:',
+    reHtml: /<video[\s>]/i, reBundle: null, desde: 1,
+  },
+  {
+    pieza: 'video-panda', nombre: 'un video de Panda', medible: true, prefijo: null,
+    reHtml: /pandavideo|player-vz-/i, reBundle: /pandavideo|player-vz-/i, desde: 1,
+  },
+  {
+    // El player nuevo (un custom element) y el embed clásico son dos formas del
+    // mismo proveedor, y las dos se miden desde la v16 — con ids distintos, porque
+    // el snippet las engancha por caminos distintos: el web component por sus
+    // eventos y el iframe por postMessage.
+    pieza: 'video-wistia', nombre: 'un video de Wistia', medible: true, prefijo: 'w:',
+    reHtml: /<wistia-player[\s>]|wistia_async_[a-z0-9]{8,}|wistia_embed|fast\.wistia\.(?:com|net)\/(?:embed|assets)/i,
+    reBundle: /fast\.wistia\.(?:com|net)\//i, desde: 2,
+  },
+  {
+    pieza: 'video-youtube', nombre: 'un video de YouTube', medible: true, prefijo: 'yt:',
+    reHtml: /youtube\.com\/embed|youtube-nocookie\.com\/embed|youtu\.be\//i,
+    reBundle: /youtube\.com\/embed|youtube-nocookie\.com\/embed|youtu\.be\//i, desde: 1,
+  },
+  {
+    pieza: 'video-vimeo', nombre: 'un video de Vimeo', medible: true, prefijo: 'vimeo:',
+    reHtml: /player\.vimeo\.com/i, reBundle: /player\.vimeo\.com/i, desde: 1,
+  },
+  {
+    // ⚠️ NO SE PUEDE MEDIR, y está probado: con un video de Drive REPRODUCIENDO, la
+    // página no recibe un solo mensaje. Su reproductor real es un iframe anidado
+    // configurado para hablarle solo a Drive — recibe lo que se le manda y no
+    // contesta nada (control positivo en la misma página: un YouTube con la API
+    // prendida contestó 31 mensajes y obedeció una pausa). Lo único que queda es
+    // decir que el video está y que alguien lo tocó.
+    pieza: 'video-drive', nombre: 'un video de Google Drive', medible: false, prefijo: 'drive:',
+    reHtml: /(?:drive|docs)\.google\.com\/file\/d\/[\w-]{10,}\/preview/i,
+    reBundle: /(?:drive|docs)\.google\.com\/file\/d\//i, desde: 2,
+  },
+];
+
+/**
+ * La versión del catálogo de detectores.
+ *
+ * ⚠️ SE SUBE AL AGREGAR O CAMBIAR UN DETECTOR, y es lo que distingue «el cliente le
+ * agregó un video a su página» de «MaKo aprendió a ver un video que ya estaba». Sin
+ * esto, el día que se agregó Wistia el cron le hubiera mandado al ws13 dos WhatsApps
+ * diciendo «le agregaste un video, ya lo estoy midiendo» sobre un VSL que tenía
+ * desde el principio — y encima «ya lo estoy midiendo» era falso hasta que
+ * reemplazara su copia del código.
+ */
+export const DETECTORES_VERSION = 2;
+
+const PIEZAS_DE_VIDEO = new Set<string>(HOSTS_VIDEO.map((h) => h.pieza));
+
+export const esPiezaDeVideo = (p: string): boolean => PIEZAS_DE_VIDEO.has(p);
+
+/** El host de una pieza, o null si esa pieza no es de video. */
+export const hostDePieza = (p: string): HostVideo | null =>
+  HOSTS_VIDEO.find((h) => h.pieza === p) ?? null;
+
+/** El host que emite este `video_id`, leído de su prefijo. */
+export const hostDeVideoId = (id: string | null | undefined): HostVideo | null => {
+  const v = (id ?? '').trim().toLowerCase();
+  if (!v) return null;
+  // El más largo primero: `vimeo:` y `v:` empiezan igual.
+  const ordenados = HOSTS_VIDEO.filter((h) => h.prefijo).sort((a, b) => (b.prefijo!.length - a.prefijo!.length));
+  return ordenados.find((h) => v.startsWith(h.prefijo!.toLowerCase())) ?? null;
+};
+
+/** La versión del detector que introdujo esta pieza (1 si no es de video). */
+export const desdeDePieza = (p: string): number => hostDePieza(p)?.desde ?? 1;
 
 /**
  * Un video que está EN la página, con dónde verlo.
@@ -36,7 +152,9 @@ export type VideoEnPagina = {
   id: string;
   /** Dónde se mira. Absoluta. */
   url: string;
-  tipo: 'nativo' | 'panda' | 'youtube' | 'vimeo';
+  /** La pieza del catálogo a la que pertenece. Antes era una lista cerrada de
+   *  cuatro strings, que es la misma lista que estaba copiada en ocho lugares. */
+  pieza: PiezaLanding;
 };
 
 export type AnalisisLanding = {
@@ -110,21 +228,47 @@ export function videosDeHtml(base: string, html: string): VideoEnPagina[] {
     const id = idNativo(atrib(attrs, 'id'), src);
     const url = src ? absoluta(base, src) : null;
     // Sin URL no sirve de nada: el punto entero es poder abrirlo.
-    if (id && url) push({ id, url, tipo: 'nativo' });
+    if (id && url) push({ id, url, pieza: 'video-nativo' });
   }
 
   // ── Panda ──────────────────────────────────────────────────────────────────
-  // El id que manda el snippet es el `v=` del embed, así que casan directo.
+  // El id que manda el snippet es el `v=` del embed, así que casan directo. Es el
+  // único host sin prefijo: su id es un UUID y no se confunde con nada.
   for (const m of html.matchAll(/https?:\/\/[^"'\s]*player-vz-[^"'\s]*[?&]v=([0-9a-fA-F-]{36})/g)) {
-    push({ id: m[1], url: m[0].replace(/&amp;/g, '&'), tipo: 'panda' });
+    push({ id: m[1], url: m[0].replace(/&amp;/g, '&'), pieza: 'video-panda' });
   }
 
-  // ── YouTube y Vimeo ────────────────────────────────────────────────────────
+  // ── Los alojados afuera ────────────────────────────────────────────────────
+  // ⚠️ EL PREFIJO NO ES DECORATIVO: es lo que hace que el video que el analizador
+  // ve en la página y los eventos que manda el snippet sean la MISMA fila en la
+  // pantalla que los nombra. Hasta la v16 estos ids iban pelados y el snippet no
+  // los emitía; ahora los emite con prefijo, así que los dos lados tienen que
+  // derivarlo igual. `tests/landing-analisis.test.ts` corre las dos derivaciones
+  // sobre los mismos casos.
   for (const m of html.matchAll(/https?:\/\/(?:www\.)?youtube(?:-nocookie)?\.com\/embed\/([\w-]{6,20})/g)) {
-    push({ id: m[1], url: `https://www.youtube.com/watch?v=${m[1]}`, tipo: 'youtube' });
+    // `videoseries` y `live_stream` no son ids de video: son la ruta de una lista y
+    // la de un vivo, y tomadas como id dos listas distintas quedaban con el mismo
+    // identificador. Se las deja afuera: lo que importa acá es poder abrir el video.
+    if (m[1] === 'videoseries' || m[1] === 'live_stream') continue;
+    push({ id: `yt:${m[1]}`, url: `https://www.youtube.com/watch?v=${m[1]}`, pieza: 'video-youtube' });
   }
   for (const m of html.matchAll(/https?:\/\/player\.vimeo\.com\/video\/(\d{6,12})/g)) {
-    push({ id: m[1], url: `https://vimeo.com/${m[1]}`, tipo: 'vimeo' });
+    push({ id: `vimeo:${m[1]}`, url: `https://vimeo.com/${m[1]}`, pieza: 'video-vimeo' });
+  }
+  // Wistia, el player nuevo: la etiqueta trae el id del video en un atributo.
+  for (const m of html.matchAll(/<wistia-player\b[^>]*\bmedia-id\s*=\s*["']([a-z0-9]{6,20})["']/gi)) {
+    push({ id: `w:${m[1]}`, url: `https://fast.wistia.net/embed/iframe/${m[1]}`, pieza: 'video-wistia' });
+  }
+  // Wistia, el embed clásico y el iframe. El snippet los mide por otro camino y les
+  // pone otro prefijo, así que el id se arma igual que allá.
+  for (const m of html.matchAll(/fast\.wistia\.(?:com|net)\/embed\/(?:iframe|medias)\/([a-z0-9]{6,20})|wistia_async_([a-z0-9]{6,20})/gi)) {
+    const id = m[1] ?? m[2];
+    if (id) push({ id: `wistia:${id}`, url: `https://fast.wistia.net/embed/iframe/${id}`, pieza: 'video-wistia' });
+  }
+  // Google Drive: no se puede medir, pero se puede ABRIR, y saber que está es lo
+  // que evita decirle al cliente que su página no tiene video.
+  for (const m of html.matchAll(/(?:drive|docs)\.google\.com\/file\/d\/([\w-]{10,})\/preview/gi)) {
+    push({ id: `drive:${m[1]}`, url: `https://drive.google.com/file/d/${m[1]}/view`, pieza: 'video-drive' });
   }
 
   return out;
@@ -155,16 +299,21 @@ export function videosDeHtml(base: string, html: string): VideoEnPagina[] {
  * solo se leen las piezas que se identifican por un DOMINIO, y las que dependen
  * de una etiqueta se siguen leyendo únicamente del HTML.
  */
-const DEL_BUNDLE: Array<[PiezaLanding, RegExp]> = [
+/**
+ * ⚠️ SE EXPORTA para que el test de autodelación lo lea de acá en vez de copiarlo.
+ * La copia a mano que tenía omitía justo `video-panda`, que era la marca que el
+ * snippet sí contenía: el test que existía para cazar esto no podía cazarlo.
+ */
+export const DEL_BUNDLE: Array<[PiezaLanding, RegExp]> = [
   // `app.cal.com/embed` y `data-cal-link` van explícitos: son las marcas que deja
   // @calcom/embed-react, que es como se embebe Cal.com de verdad en una app de
   // React. `cal\.com` a secas las cubre, pero nombrarlas dice DÓNDE mirar cuando
   // esto vuelva a fallar — y ya falló una vez, por el tope de scripts de arriba.
   ['embed-agenda', /calendly\.com|typeform\.com|hubspot\.com\/meetings|savvycal\.com|cal\.com|data-cal-link|cal-inline/i],
   ['link-whatsapp', /wa\.me\/|api\.whatsapp\.com/i],
-  ['video-panda', /pandavideo|player-vz-/i],
-  ['video-youtube', /youtube\.com\/embed|youtu\.be\//i],
-  ['video-vimeo', /player\.vimeo\.com/i],
+  // Las de video salen del catálogo: agregar un host no puede exigir acordarse de
+  // tocar esta lista también.
+  ...HOSTS_VIDEO.filter((h) => h.reBundle).map((h): [PiezaLanding, RegExp] => [h.pieza, h.reBundle!]),
 ];
 
 /**
@@ -212,10 +361,10 @@ export function analizarHtml(url: string, html: string, bundle = ''): AnalisisLa
   // Sobre el HTML LIMPIO: un `<video` escrito adentro de un comentario de
   // JavaScript no es un video de la página. Ver `sinRuido`.
   const limpio = sinRuido(h);
-  if (/<video[\s>]/i.test(limpio)) add('video-nativo');
-  if (/pandavideo|player-vz-/i.test(bajo)) add('video-panda');
-  if (/youtube\.com\/embed|youtu\.be\//i.test(bajo)) add('video-youtube');
-  if (/player\.vimeo\.com/i.test(bajo)) add('video-vimeo');
+  // Del catálogo, en un solo lugar: el día que se suma un host, este bucle ya lo
+  // detecta. `video-nativo` mira el HTML con su capitalización original (busca una
+  // etiqueta); el resto compara contra la versión en minúscula.
+  for (const hv of HOSTS_VIDEO) if (hv.reHtml.test(hv.pieza === 'video-nativo' ? limpio : bajo)) add(hv.pieza);
 
   // ── Cómo capta ─────────────────────────────────────────────────────────────
   if (/<form[\s>]/i.test(limpio)) add('formulario');
@@ -338,21 +487,66 @@ export async function analizarLanding(url: string, fetchImpl: typeof fetch = fet
   }
 }
 
-/** ¿Esta landing tiene algún video que el Pixel pueda medir? */
-export function tieneVideoMedible(a: AnalisisLanding): boolean {
-  return a.piezas.has('video-nativo') || a.piezas.has('video-panda');
+/**
+ * ⚠️ TOMAN PIEZAS, NO UN ANÁLISIS. Estos dos helpers existían desde hacía semanas
+ * SIN UN SOLO LLAMADOR, y el motivo era la firma: pedían un `AnalisisLanding` con
+ * su `Set`, y río abajo las piezas viajan como `string[]` (un `Set` se serializa
+ * como `{}` cruzando un server action). Así que en vez de usarlos, la lógica se
+ * copió a mano en `landingDiagnostico` — y ahí se quedó vieja.
+ */
+export function tieneVideoMedible(piezas: Iterable<string>): boolean {
+  for (const p of piezas) if (hostDePieza(p)?.medible) return true;
+  return false;
 }
 
 /**
  * Los videos que el Pixel NO puede medir, para poder DECIRLO.
  *
- * YouTube y Vimeo no emiten los eventos que escuchamos: sin su API propia, un
- * video ahí es invisible. Callarlo deja al cliente esperando una retención que no
- * va a llegar nunca.
+ * Callarlo deja al cliente esperando una retención que no va a llegar nunca; y
+ * decirle «tu página no tiene video» sobre una que sí lo tiene es peor todavía.
  */
-export function videosNoMedibles(a: AnalisisLanding): string[] {
+export function videosNoMedibles(piezas: Iterable<string>): string[] {
   const out: string[] = [];
-  if (a.piezas.has('video-youtube')) out.push('YouTube');
-  if (a.piezas.has('video-vimeo')) out.push('Vimeo');
+  for (const p of piezas) {
+    const h = hostDePieza(p);
+    if (h && !h.medible && !out.includes(h.nombre)) out.push(h.nombre);
+  }
   return out;
+}
+
+/** Lo que se le puede decir al cliente sobre el video de ESTA página. */
+export type EstadoVideo = {
+  /**
+   * · `medible`      — hay al menos un video que el Pixel mide.
+   * · `no-medible`   — hay video, y desde ese host no se puede medir. Se dice.
+   * · `no-reconocido`— el análisis salió bien y no se reconoció ningún player. NO
+   *                    es «no tiene video»: puede tener uno que todavía no
+   *                    sabemos ver, así que no se afirma que no lo tenga.
+   * · `no-se`        — no hubo análisis (la página no se pudo leer).
+   */
+  estado: 'medible' | 'no-medible' | 'no-reconocido' | 'no-se';
+  /** Los hosts medibles encontrados, para nombrarlos. */
+  medibles: string[];
+  /** Los que hay y no se pueden medir. */
+  noMedibles: string[];
+};
+
+/**
+ * ⚠️ LA CONFUSIÓN QUE ESTO VIENE A CERRAR: «no reconocí ningún reproductor» se
+ * traducía en pantalla como «Tu página no tiene video, así que este paso no
+ * aplica». El cliente del ws13 leyó eso con su VSL a la vista. Son tres estados
+ * distintos y cada uno se dice distinto.
+ */
+export function estadoVideo(piezas: Iterable<string> | null | undefined): EstadoVideo {
+  if (!piezas) return { estado: 'no-se', medibles: [], noMedibles: [] };
+  const medibles: string[] = [];
+  const noMedibles: string[] = [];
+  for (const p of piezas) {
+    const h = hostDePieza(p);
+    if (!h) continue;
+    const donde = h.medible ? medibles : noMedibles;
+    if (!donde.includes(h.nombre)) donde.push(h.nombre);
+  }
+  const estado = medibles.length ? 'medible' : noMedibles.length ? 'no-medible' : 'no-reconocido';
+  return { estado, medibles, noMedibles };
 }

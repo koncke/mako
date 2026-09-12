@@ -28,6 +28,7 @@
 
 import { normalizarUrl } from './landing-paginas';
 import { MAX_LANDINGS } from './landing-config';
+import { DETECTORES_VERSION, HOSTS_VIDEO, desdeDePieza } from './landing-analisis';
 
 export const SNAPSHOT_KEY = 'landing.snapshot';
 
@@ -42,6 +43,20 @@ export type SnapshotLanding = {
    * Es el purgatorio de la regla de los dos tiempos (ver `aplicarLectura`).
    */
   dudosas?: string[];
+  /**
+   * La versión del CATÁLOGO DE DETECTORES con la que se tomó esta foto.
+   *
+   * ⚠️ SIN ESTO, ENSEÑARLE A MaKo UN HOST NUEVO LE MIENTE AL CLIENTE. El snapshot
+   * del ws13 decía `["botones","embed-agenda"]` porque el analizador no sabía ver
+   * Wistia; el día que aprendió, su VSL —que estaba desde el principio— aparecía
+   * como una pieza NUEVA, y el cron le manda «Le agregaste un video a tu página.
+   * Ya lo estoy midiendo»: falso dos veces, porque además no se mide hasta que
+   * reemplace su copia del código. Con dos URLs declaradas para la misma página,
+   * eran dos WhatsApps.
+   *
+   * Ausente = 1 (los snapshots que ya existían, de antes de que esto existiera).
+   */
+  det?: number;
 };
 
 export type Snapshots = Record<string, SnapshotLanding>;
@@ -89,7 +104,12 @@ export function parsearSnapshots(crudo: string | null): Snapshots {
     if (!visto) continue; // sin fecha de lectura buena no es un «antes» utilizable
     const piezas = textos(o.piezas, 20);
     const dudosas = textos(o.dudosas, 20).filter((d) => piezas.includes(d));
-    out[url] = dudosas.length ? { piezas, visto, dudosas } : { piezas, visto };
+    // ⚠️ TODO CAMPO NUEVO HAY QUE CONSERVARLO ACÁ. Este parser reconstruye la fila
+    // campo por campo, así que uno que se agregue al tipo y no se lea acá se pierde
+    // en la lectura siguiente — y un `det` que siempre vuelve ausente hace que el
+    // re-baseline silencioso se repita para siempre (o nunca), según el default.
+    const det = typeof o.det === 'number' && Number.isFinite(o.det) && o.det >= 1 ? Math.floor(o.det) : 1;
+    out[url] = { piezas, visto, det, ...(dudosas.length ? { dudosas } : {}) };
     n++;
   }
   return out;
@@ -127,6 +147,8 @@ export function aplicarLectura(
   previo: SnapshotLanding | null,
   leidas: readonly string[],
   ahora: string,
+  /** La versión del catálogo de detectores con la que se hizo ESTA lectura. */
+  det: number = DETECTORES_VERSION,
 ): { snapshot: SnapshotLanding; cambios: Cambios } {
   const ahoraLimpio = fecha(ahora) || new Date(0).toISOString();
   const hoy = textos([...leidas], 20);
@@ -134,10 +156,19 @@ export function aplicarLectura(
   // Sin un antes no hay diff: se estrena el snapshot y no se anuncia nada. La
   // primera vez que miramos una página, todo lo que tiene es «nuevo» para
   // nosotros y nada de eso es un cambio que el cliente haya hecho.
-  if (!previo) return { snapshot: { piezas: hoy, visto: ahoraLimpio }, cambios: SIN_CAMBIOS };
+  if (!previo) return { snapshot: { piezas: hoy, visto: ahoraLimpio, det }, cambios: SIN_CAMBIOS };
 
   const antesDudosas = previo.dudosas ?? [];
-  const nuevas = hoy.filter((p) => !previo.piezas.includes(p));
+  // ⚠️ LO QUE TRAJO UN DETECTOR NUEVO SE ABSORBE EN SILENCIO. Una pieza que este
+  // catálogo aprendió a ver DESPUÉS de la foto anterior no es un cambio que el
+  // cliente haya hecho en su página: es un cambio nuestro. Anunciarla manda «le
+  // agregaste un video» sobre un VSL que estaba desde el principio (el caso del
+  // ws13 con Wistia). Se incorpora a las piezas, sin aviso, y la próxima vez ya
+  // forma parte del «antes» — así un cambio REAL de esa misma pieza sí se anuncia.
+  const detPrevio = previo.det ?? 1;
+  const aprendida = (p: string): boolean => desdeDePieza(p) > detPrevio;
+  const nuevas = hoy.filter((p) => !previo.piezas.includes(p) && !aprendida(p));
+  const absorbidas = hoy.filter((p) => !previo.piezas.includes(p) && aprendida(p));
   const faltan = previo.piezas.filter((p) => !hoy.includes(p));
 
   // Confirmadas: las que faltan por SEGUNDA vez seguida.
@@ -145,10 +176,11 @@ export function aplicarLectura(
   // En purgatorio: las que faltan por primera vez. Siguen contando como presentes.
   const dudosas = faltan.filter((p) => !antesDudosas.includes(p));
 
-  const piezas = [...previo.piezas.filter((p) => !sacadas.includes(p)), ...nuevas];
-  const snapshot: SnapshotLanding = dudosas.length
-    ? { piezas, visto: ahoraLimpio, dudosas }
-    : { piezas, visto: ahoraLimpio };
+  const piezas = [...previo.piezas.filter((p) => !sacadas.includes(p)), ...nuevas, ...absorbidas];
+  const snapshot: SnapshotLanding = {
+    piezas, visto: ahoraLimpio, det,
+    ...(dudosas.length ? { dudosas } : {}),
+  };
 
   return { snapshot, cambios: { nuevas, sacadas, desde: previo.visto } };
 }
@@ -157,11 +189,12 @@ export function aplicarLectura(
 // Vive acá, con el diff, para que la pantalla y el aviso digan lo mismo. Dos
 // listas de nombres separadas se desincronizan a la primera pieza nueva.
 
+// ⚠️ LOS DE VIDEO SALEN DEL CATÁLOGO. Esta lista era la sexta copia de la misma
+// enumeración, y su falla era muda de una forma particular: `nombresDe` descarta
+// sin decir nada la pieza que no tiene nombre, así que una pieza registrada en el
+// filtro del cron pero no acá NO produce aviso — ni el falso ni el verdadero.
 const NOMBRES: Record<string, string> = {
-  'video-nativo': 'un video',
-  'video-panda': 'un video de Panda',
-  'video-youtube': 'un video de YouTube',
-  'video-vimeo': 'un video de Vimeo',
+  ...Object.fromEntries(HOSTS_VIDEO.map((h) => [h.pieza, h.nombre])),
   formulario: 'un formulario',
   'embed-agenda': 'una agenda para reservar',
   'link-whatsapp': 'un botón de WhatsApp',

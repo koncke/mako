@@ -1758,6 +1758,154 @@ roto se quedaban sin enterarse.
   mirando. `lib/landing-analisis.ts:158-165` **no tiene marca para `drive.google.com`**, así
   que hoy ni siquiera puede decir «tiene un video que no puedo medir».
 
+### ⚠️⚠️ El video alojado AFUERA era invisible, y el panel le decía al cliente que no tenía video
+
+*2026-09-11 — dos reportes del dueño el mismo día: «no funciona la medición de reproducción
+a esta landing que tiene su video alojado en otro lugar» y, sobre otro cliente, «tiene
+muchos vídeos de YT y no está midiendo la RETENCIÓN de cada video».*
+
+**Síntoma 1 (ws13).** Su landing tiene el VSL en **Wistia** y el panel de la prueba decía
+«Tu página no tiene video, así que este paso no aplica», con el video a la vista. No llegaba
+un solo play: 37 eventos en la historia de esa página y **ningún `video_id`**.
+
+**Síntoma 2 (ws14).** 16 testimonios en **YouTube**; 163 eventos en su historia y **ningún
+`video_id`**. Y la pantalla para decir de qué es cada video «no apareció en ningún momento».
+
+**Las dos son la misma causa, en dos capas:** el snippet solo sabía medir Panda y `<video>`
+propio, y el analizador solo sabía RECONOCER esos dos más YouTube y Vimeo — a los que
+además declaraba no medibles. Todo lo que no estuviera en esa lista se traducía en pantalla
+como «no tiene video», que es la confusión «no sé» / «no tiene» otra vez.
+
+#### Qué se midió, host por host, en un navegador de verdad
+
+No está leído en documentación: cada frente se midió con CDP sobre páginas reales y locales,
+y **cada medición la refutó otro agente con medición propia** (4 de 6 volvieron con
+correcciones, todas aplicadas).
+
+| Host | ¿Medible? | Cómo, exactamente |
+|---|---|---|
+| **Wistia Aurora** (`<wistia-player>`) | sí | Es un custom element con su `<video>` en un shadow root **abierto**: `document.querySelectorAll('video')` dio **0 en todo el ciclo** (sonda cada 50 ms + MutationObserver) y no manda postMessage, así que el enganche nativo y el de Panda son ciegos. Despacha `play`/`pause`/`time-update`/`end`/`ended` **sobre el host**, con `bubbles:false` y `composed:false` — y un listener en **fase de captura** en `document` los recibe igual. Cero recorridos de DOM. |
+| **Wistia clásico** (iframe y embed inline) | sí | El iframe de `fast.wistia.net` manda strings JSON `{"method":"_trigger","args":[…]}` **sin que nadie se lo pida y sin cargar su script**: play (con `source`), pause, end, timechange y `transmit-stats` (trae `media_duration`). El embed inline se toma por su cola pública `_wq`. |
+| **YouTube** | sí, con un parámetro | Sin `enablejsapi=1` no le dice **nada** a la página: 0 mensajes en la carga, en 12 pedidos de escucha, en un clic real que sí reprodujo, en la pausa y en la retoma. Con el parámetro contesta estado, segundos, duración y título cada ~266 ms. El snippet se lo agrega solo a los iframes que no lo traían, y apenas aparecen. |
+| **Vimeo** | sí | Contesta el protocolo de su librería oficial **sin parámetros en el src y sin cargar la librería**: `ready` llega como TEXTO JSON, y desde ahí `addEventListener` para play/pause/ended/timeupdate, con la duración en cada evento. |
+| **Google Drive** | **no**, y ahora probado | Con un video **reproduciendo**, la página recibe **cero** mensajes. Su reproductor real es un iframe **anidado** (`youtube.googleapis.com/embed` con `post_message_origin` de Drive): recibió 4 mensajes nuestros y contestó 0, mientras le mandaba 110 a Drive. Con **control positivo** en la misma página: un YouTube con la API prendida contestó 31 y obedeció un `pauseVideo`. |
+| **Players en web component** | parcial | Los eventos nativos de media son `composed:false`: un `<video>` dentro de un shadow root no avisa nada a `document`, y el MutationObserver del documento no ve nodos agregados adentro de un shadow. Lo que SÍ sale es lo que el player **re-despacha sobre su host**. |
+
+**El media del cliente tiene `endVideoBehavior: 'loop'`, así que de ese VSL NUNCA va a llegar
+un `fin`**: al llegar al final hace `seeking` a 0 y sigue en `playing`, sin `end`, sin `ended`
+y sin `pause`. El `p100` sí llega. Prometer el fin de ese video sería prometer algo imposible.
+
+#### El cliente ya lo había intentado, y su intento era código muerto
+
+Su `/mako-tracking.js` no es el snippet puro: trae un bloque agregado a mano —«Conecta el VSL
+alojado en Wistia con el mismo embudo de retención de MaKo»— que se cuelga de `window._wq`.
+Con Aurora eso **nunca dispara**: `player.js` vacía la cola y no llama al `onReady`. Medido
+en su página con un espía y en una página local limpia. **Cuando reemplace el archivo hay que
+sacarle ese bloque.**
+
+#### La lista cerrada estaba copiada en OCHO lugares
+
+«¿Esta página tiene video?» se contestaba en ocho: el union de `PiezaLanding`, los detectores
+de `analizarHtml`, `DEL_BUNDLE`, `videosDeHtml`, `tieneVideoMedible` + `videosNoMedibles` (que
+**no tenían un solo llamador** — su firma pedía un `AnalisisLanding` con un `Set` y río abajo
+las piezas viajan como `string[]`, así que en vez de usarlos se copió la lógica a mano),
+`PIEZAS_DE_VIDEO` en `landingDiagnostico`, `NOMBRES` en el snapshot, `PIEZAS_QUE_IMPORTAN` en
+el cron, y el texto «súbelo a Panda». **Olvidarse de uno falla en silencio y distinto cada
+vez**, y la peor es la del snapshot: `nombresDe` descarta sin decir nada la pieza sin nombre,
+así que una pieza registrada en el filtro del cron y no ahí no produce aviso — **ni el falso
+ni el verdadero**. Ahora todo deriva de `HOSTS_VIDEO`, con un test que recorre el catálogo y
+falla si a una pieza le falta su registro.
+
+#### Cinco trampas que el arreglo tuvo que esquivar, las cinco medidas
+
+1. **Enseñarle a MaKo a ver un host nuevo le MIENTE al cliente.** El snapshot del ws13 decía
+   `["botones","embed-agenda"]`; el día que el analizador aprendiera Wistia, su VSL —que
+   estaba desde el principio— aparecía como pieza NUEVA y el cron mandaba «Le agregaste un
+   video a tu página. Ya lo estoy midiendo»: falso dos veces, porque además no se mide hasta
+   que reemplace su copia del código. Y con dos URLs declaradas para la misma página, **dos
+   WhatsApps**. Lo cierra `SnapshotLanding.det`: la foto guarda con qué versión de detectores
+   se tomó, y lo que un detector nuevo trae se absorbe **en silencio**. Verificado sobre
+   producción: los dos clientes dan `nuevas: (ninguna)` y el `det` pasa de 1 a 2.
+2. **El bloqueo «Primero actualiza el Pixel» era de WORKSPACE.** Subir a v16 dejaba a ws1,
+   ws11, ws13 y ws14 sin poder probar **ninguna** página — incluida una de Panda, a la que la
+   v16 no le cambia nada. Ahora la versión se resuelve **por página** (`verificarPagina`, que
+   lee el `sv` de las visitas de esa URL, y el cron ya la usaba desde el 25/08) tomando el
+   **máximo** con el setting del workspace, y solo frena si esa página tiene un host que la
+   v16 mide. Verificado: ws1 y ws11 dan `codigoViejo: false`, con el renglón «para esta página
+   miden igual, así que no hay apuro».
+3. **El snippet se delataba a sí mismo como «video de Panda».** `tituloVsl` tenía
+   `/pandavideo/i`, así que todo cliente que copie el código a un archivo propio —como este—
+   aparecía con un video de Panda que no tiene. Medido con el analizador real: el snippet
+   servido como archivo daba esa pieza sobre un HTML vacío. **Y el test que existía para
+   cazarlo copiaba `DEL_BUNDLE` a mano y omitía justo `video-panda`**: era estructuralmente
+   incapaz. Ahora importa la lista real, así que un detector nuevo entra solo.
+4. **Los ids del analizador iban pelados** (`S7oZ1L_612c`) y el snippet v16 emite con prefijo
+   (`yt:S7oZ1L_612c`). Si los dos lados no derivan igual, el mismo video sale **dos veces** en
+   la pantalla que los nombra —una con eventos y sin URL, otra con URL y sin actividad— y
+   nombrar una no nombra la otra. Van en el mismo deploy, con test de paridad.
+5. **La duración única de Panda se le prestaba a cualquier host.** Un `<video>` de 11 segundos
+   medido contra los 1.419 de un VSL de Panda da cualquier cosa. `resolverDuracion` ya no se
+   la presta a un id con prefijo de host — y el respaldo no se puede borrar: los 8.071 hitos
+   `sNN` de Panda llegan sin porcentaje.
+
+#### Y dos cosas que cambiaron premisas que veníamos usando
+
+- **`landingvsl.vercel.app` y `v0-joandowd.vercel.app` son la MISMA página**, byte a byte
+  (mismo sha, mismos 8 chunks, mismo `/mako-tracking.js`). No hay que diseñar como si el ws13
+  tuviera «una landing de Drive y otra de Wistia», y todo aviso por página le sale duplicado.
+- **En la ficha de cada lead, los eventos de PÁGINA se mostraban como «Siguió mirando el
+  VSL».** `getTrackingEvents` mandaba a `retencion` todo lo que no era play ni exit, así que
+  `salio`, `volvio`, `cierre`, `click` y `agendo` se disfrazaban de retención. Medido en 7
+  días: ws13 tiene 115 salio, 68 volvio, 50 cierre, 20 click y 6 agendo, y **cero de video**.
+  Es el mismo choke point de `avanceDe`: la regla se aplicó allá y quedó sin aplicar acá.
+
+#### La puerta de «¿qué es cada video?» miraba la fuente equivocada
+
+`NombrarVideos` **ya sabía** mostrar los videos que el analizador ve en la página, sin esperar
+a que nadie los reproduzca (desde el 25/08). Lo que no: las dos puertas para llegar a ella
+—la que se abre sola al apretar «Probar» y el lápiz para corregir— contaban solo
+`videosDetectados`, que sale de los **eventos**. Sin plays, la lista quedaba vacía y la
+pantalla no se abría nunca, aunque el analizador viera 16 videos. Ahora las dos miran las dos
+fuentes.
+
+**Vive en:** `lib/landing-analisis.ts` (`HOSTS_VIDEO`, `DETECTORES_VERSION`, `estadoVideo`,
+`hostDeVideoId`, ids con prefijo) · `lib/landing-token.ts` (el snippet v16: los bloques de
+Wistia, YouTube, Vimeo, los iframes no medibles y los web components; los tres estados de los
+chequeos; la versión por página) · `lib/landing-snapshot.ts` (`det` y el re-baseline
+silencioso) · `app/api/cron/tracking-vigilante/route.ts` · `app/integraciones/ProbarTracking.tsx`
+(la puerta) · `lib/leads.ts` (`resolverDuracion`, `getTrackingEvents`) ·
+`tests/landing-analisis.test.ts`, `tests/landing-snapshot.test.ts`,
+`tests/landing-snippet-emitido.test.ts`, `tests/landing-optin.test.ts`
+
+#### Lo que quedó SIN hacer, con el archivo donde vive
+
+- ⚠️ **El cliente del ws13 tiene el código en un archivo propio (`/mako-tracking.js`), y el
+  tutorial no contempla ese caso.** Lo que se copia empieza con `<script>` y termina con
+  `</script>`; pegarlo tal cual adentro del `.js` lo rompe. `DONDE_PEGAR`
+  (`app/integraciones/IntegracionesBoard.tsx`) nombra Lovable, Framer, Webflow, WordPress y
+  HTML plano: falta el caso «tu código vive en un archivo» con un botón de copiar **sin** las
+  etiquetas. Hasta que exista, a este cliente hay que decírselo a mano.
+- **SSRF en `analizarLanding`** (`lib/landing-analisis.ts:303`): usa `fetch` pelado con
+  `redirect: 'follow'`, sin pasar por `validarDestino()` de `lib/landing-fetch.ts`. No se
+  arregló acá **a propósito**: el camino probado (`bajarHtml`) filtra por content-type HTML y
+  los chunks son `application/javascript`, así que enchufarlo tal cual **apaga el análisis de
+  SPAs** — que es justo lo que hace analizable esta landing. Hace falta un `fetchSeguro` que
+  acepte los dos tipos y pase a `redirect: 'manual'`.
+- **El analizador ahora viaja al navegador.** `lib/landing-snapshot.ts` importa el catálogo, y
+  `ProbarTracking.tsx` es `'use client'`: con eso los 29 KB de `landing-analisis.ts` quedan
+  alcanzables desde el bundle. No hay secretos ahí (no importa nada, no lee env) y los
+  comentarios se van en la minificación, pero **no está medido sobre el bundle**. Si pesa, la
+  salida es que el server mande los NOMBRES ya resueltos en `cambios` y el cliente solo pinte.
+- **La lista positiva de iframes no medibles tiene falsos positivos medidos**: un ZIP salió
+  como `toque_video` y un PDF entró en la lista de videos ajenos. Un `/preview` de Drive no
+  dice si es un video.
+- **`app/api/track/optin/route.ts:124` inserta `visitor_id: 'desconocido'`** como string
+  literal: todos los opt-ins bloqueados de un workspace colapsan en UNA persona.
+- **18 filas falsas en `vsl_events` de producción** (ws1, ws11, ws13 y ws14), de las sondas de
+  la primera corrida: al cerrar una pestaña por CDP se suelta la intercepción y los beacons
+  `keepalive` del `pagehide` salen directo. Backup en el scratchpad; **el borrado espera el OK
+  del dueño**. Lo que lo cierra para el futuro está en la memoria `verificar-en-navegador`.
+
 ---
 
 ## Reglas de la casa que también gobiernan esta área

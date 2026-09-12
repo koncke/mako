@@ -8,23 +8,107 @@
 // Correr: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { analizarHtml, analizarLanding, tieneVideoMedible, videosNoMedibles } from '../lib/landing-analisis';
+import {
+  DETECTORES_VERSION,
+  HOSTS_VIDEO,
+  analizarHtml,
+  analizarLanding,
+  esPiezaDeVideo,
+  estadoVideo,
+  hostDeVideoId,
+  tieneVideoMedible,
+  videosDeHtml,
+  videosNoMedibles,
+} from '../lib/landing-analisis';
 
 const A = (html: string) => analizarHtml('https://x.com', html);
 
-test('detecta las cuatro clases de video, y sabe cuáles puede medir', () => {
+test('detecta los SEIS hosts de video, y sabe cuáles puede medir', () => {
   assert.ok(A('<video controls src="a.mp4"></video>').piezas.has('video-nativo'));
   assert.ok(A('<iframe src="https://player-vz-1.tv.pandavideo.com.br/embed/?v=x"></iframe>').piezas.has('video-panda'));
   assert.ok(A('<iframe src="https://www.youtube.com/embed/abc"></iframe>').piezas.has('video-youtube'));
   assert.ok(A('<iframe src="https://player.vimeo.com/video/1"></iframe>').piezas.has('video-vimeo'));
-  // ⚠️ Solo dos se pueden MEDIR. YouTube y Vimeo no emiten los eventos que
-  // escuchamos: callarlo deja al cliente esperando una retención que no va a
-  // llegar nunca.
-  assert.ok(tieneVideoMedible(A('<video></video>')));
-  assert.ok(tieneVideoMedible(A('<iframe src="pandavideo.com/x"></iframe>')));
-  assert.ok(!tieneVideoMedible(A('<iframe src="youtube.com/embed/x"></iframe>')));
-  assert.deepEqual(videosNoMedibles(A('<iframe src="youtube.com/embed/x"></iframe>')), ['YouTube']);
-  assert.deepEqual(videosNoMedibles(A('<video></video>')), [], 'un video medible no se anuncia como problema');
+  // Wistia, en sus dos formas: el player nuevo es una etiqueta propia y el embed
+  // clásico es un div con su clase, o un iframe.
+  assert.ok(A('<wistia-player media-id="y4reukhgq8"></wistia-player>').piezas.has('video-wistia'));
+  assert.ok(A('<div class="wistia_embed wistia_async_y4reukhgq8"></div>').piezas.has('video-wistia'));
+  assert.ok(A('<iframe src="https://fast.wistia.net/embed/iframe/y4reukhgq8"></iframe>').piezas.has('video-wistia'));
+  assert.ok(A('<iframe src="https://drive.google.com/file/d/1Yf516z3y_5CVurkydHkq/preview"></iframe>').piezas.has('video-drive'));
+
+  // ⚠️ QUÉ SE PUEDE MEDIR CAMBIÓ EN LA v16, y está medido en un navegador de
+  // verdad (11/09/2026), no leído en documentación. Este test decía «solo dos se
+  // pueden medir» y con eso el panel le decía a un cliente con su VSL en YouTube
+  // que lo subiera a otro lado.
+  for (const html of [
+    '<video></video>',
+    '<iframe src="pandavideo.com/x"></iframe>',
+    '<wistia-player media-id="abc123"></wistia-player>',
+    '<iframe src="https://www.youtube.com/embed/x"></iframe>',
+    '<iframe src="https://player.vimeo.com/video/1"></iframe>',
+  ]) {
+    assert.ok(tieneVideoMedible(A(html).piezas), `tendría que medirse: ${html}`);
+  }
+
+  // ⚠️ Y EL QUE NO SE PUEDE MEDIR HAY QUE DECIRLO. Drive no le manda NADA a la
+  // página: con un video reproduciendo, cero mensajes. Su reproductor real es un
+  // iframe anidado que solo le habla a Drive (control positivo en la misma
+  // página: un YouTube con la API prendida contestó 31 mensajes).
+  const drive = A('<iframe src="https://drive.google.com/file/d/1Yf516z3y_5CVurkydHkq/preview"></iframe>');
+  assert.ok(!tieneVideoMedible(drive.piezas), 'un Drive no se puede medir');
+  assert.deepEqual(videosNoMedibles(drive.piezas), ['un video de Google Drive']);
+  assert.deepEqual(videosNoMedibles(A('<video></video>').piezas), [], 'un video medible no se anuncia como problema');
+
+  // Los tres estados que el panel necesita distinguir. El tercero es el que
+  // faltaba: «no reconocí ningún reproductor» NO es «tu página no tiene video».
+  assert.equal(estadoVideo(A('<video src="a.mp4"></video>').piezas).estado, 'medible');
+  assert.equal(estadoVideo(drive.piezas).estado, 'no-medible');
+  assert.equal(estadoVideo(A('<p>sin video</p>').piezas).estado, 'no-reconocido');
+  assert.equal(estadoVideo(null).estado, 'no-se', 'sin análisis no se afirma nada');
+});
+
+test('el id de la página es el MISMO que manda el snippet, prefijo incluido', () => {
+  // ⚠️ SI LOS DOS LADOS NO DERIVAN EL MISMO ID, el video sale DOS VECES en la
+  // pantalla que los nombra: una fila con eventos y sin URL, otra con URL y sin
+  // actividad, y nombrar una no nombra la otra. Los prefijos son los que emite el
+  // snippet v16 (ver los bloques de cada host en lib/landing-token.ts).
+  const id = (html: string) => videosDeHtml('https://x.com', html)[0]?.id;
+  assert.equal(id('<video id="vsl" src="/a.mp4"></video>'), 'v:vsl');
+  assert.equal(id('<wistia-player media-id="y4reukhgq8"></wistia-player>'), 'w:y4reukhgq8');
+  assert.equal(id('<iframe src="https://fast.wistia.net/embed/iframe/y4reukhgq8"></iframe>'), 'wistia:y4reukhgq8');
+  assert.equal(id('<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ"></iframe>'), 'yt:dQw4w9WgXcQ');
+  assert.equal(id('<iframe src="https://player.vimeo.com/video/123456789"></iframe>'), 'vimeo:123456789');
+  assert.equal(id('<iframe src="https://drive.google.com/file/d/1Yf516z3y_5CVurkydHkq/preview"></iframe>'), 'drive:1Yf516z3y_5CVurkydHkq');
+  // Panda es el único sin prefijo: su id es un UUID y no se confunde con nada.
+  assert.equal(id('<iframe src="https://player-vz-1.tv.pandavideo.com.br/embed/?v=1b9db76c-6bbb-4837-8274-96896c3d8b47"></iframe>'), '1b9db76c-6bbb-4837-8274-96896c3d8b47');
+
+  // Y el prefijo del catálogo tiene que ser el que de verdad se emite: sin esto,
+  // agregar un host con el prefijo mal escrito no falla en ningún lado.
+  for (const h of HOSTS_VIDEO) {
+    if (!h.prefijo) continue;
+    assert.ok(h.prefijo.endsWith(':'), `el prefijo de ${h.pieza} tiene que terminar en dos puntos`);
+    assert.equal(hostDeVideoId(`${h.prefijo}abc123`)?.pieza, h.pieza, `hostDeVideoId no reconoce ${h.prefijo}`);
+  }
+  // `vimeo:` y `v:` empiezan igual: el más largo gana, o todo Vimeo se leería
+  // como un video propio de la página.
+  assert.equal(hostDeVideoId('vimeo:123')?.pieza, 'video-vimeo');
+  assert.equal(hostDeVideoId('v:x.mp4')?.pieza, 'video-nativo');
+});
+
+test('el catálogo está completo: ninguna pieza de video sin sus datos', () => {
+  // La pregunta que este test contesta no es «¿este archivo cumple su regla?»
+  // sino «¿qué pieza se olvidó en algún registro?». La lista estaba copiada en
+  // ocho lugares y olvidarse de una fallaba en silencio y distinto cada vez.
+  for (const h of HOSTS_VIDEO) {
+    assert.ok(esPiezaDeVideo(h.pieza), `${h.pieza} no se reconoce como pieza de video`);
+    // El nombre entra en una frase («le agregaste ___ a tu página»), así que
+    // arranca en minúscula y con su artículo.
+    assert.match(h.nombre, /^(un|una|el|la) /, `${h.pieza} sin un nombre que entre en una frase: ${h.nombre}`);
+    assert.ok(h.desde >= 1 && h.desde <= DETECTORES_VERSION, `${h.pieza} tiene un «desde» fuera del rango del catálogo`);
+    // Un detector que matchea un HTML vacío marca la pieza en TODA página.
+    assert.ok(!h.reHtml.test(''), `el detector de ${h.pieza} matchea un HTML vacío`);
+    if (h.reBundle) assert.ok(!h.reBundle.test(''), `el detector de bundle de ${h.pieza} matchea un texto vacío`);
+  }
+  assert.ok(HOSTS_VIDEO.some((h) => !h.medible), 'si todos fueran medibles, el estado «no-medible» quedaría sin probar');
 });
 
 test('detecta cómo capta esa página, que es lo que cambia los pasos', () => {
@@ -58,7 +142,7 @@ test('el caso de Mauricio: agenda embebida y ningún botón propio', () => {
   // Es la landing que destapó todo esto. Con la lista vieja le quedaban dos
   // puntos en rojo para siempre.
   const a = A('<video src="v.mp4"></video><div class="calendly-inline-widget"></div>');
-  assert.ok(tieneVideoMedible(a), 'su video SÍ se mide');
+  assert.ok(tieneVideoMedible(a.piezas), 'su video SÍ se mide');
   assert.ok(a.piezas.has('embed-agenda'), 'su CTA es un embed');
   assert.ok(!a.piezas.has('formulario'), 'no tiene formulario propio');
   assert.ok(!a.piezas.has('botones'), 'ni botones propios');

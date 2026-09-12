@@ -209,10 +209,28 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
   // ponerle un nombre, o sea reconocerlo como propio para poder ignorarlo.
   // Ocultar tiene que ser una respuesta tan válida como nombrar.
   const ocultosVideo = previo?.videosOcultos ?? [];
-  const sinNombre = detectadosVideo.filter(
+  // ⚠️⚠️ LOS VIDEOS DE LA PÁGINA TAMBIÉN ABREN ESTA PUERTA, y no abrirla fue el
+  // reporte del dueño: «la funcionalidad que ya habíamos construido para
+  // seleccionar de qué es cada video no me apareció en ningún momento».
+  //
+  // `videosDetectados` sale de los EVENTOS (los `video_id` que llegaron), así que
+  // en una página cuyos videos no mandan ninguno la lista queda vacía y la pantalla
+  // no se abre NUNCA — ni sola al apretar «Probar», ni por el lápiz, que miraba lo
+  // mismo. Medido en el ws14: el analizador ve sus 16 videos de YouTube, la página
+  // tiene 163 eventos en su historia y CERO `video_id`.
+  //
+  // Y `NombrarVideos` ya sabía mostrarlos: suma las filas de `enLaPagina` desde el
+  // 25/08. Lo único que faltaba era que contaran para DECIDIR si hay algo que
+  // preguntar. La puerta mira las dos fuentes; el orden pone primero lo que tiene
+  // eventos, que es lo que más probablemente sea el VSL.
+  const deLaPagina: VideoDetectado[] = videosPagina
+    .filter((p) => !detectadosVideo.some((d) => d.id === p.id))
+    .map((p) => ({ id: p.id, titulo: null, eventos: 0, url: p.url, pagina: null }));
+  const candidatosVideo = [...detectadosVideo, ...deLaPagina];
+  const sinNombre = candidatosVideo.filter(
     (d) => !videosGuardados.some((v) => v.id === d.id) && !ocultosVideo.includes(d.id),
   );
-  const hayVideos = detectadosVideo.length > 0 || videosGuardados.length > 0;
+  const hayVideos = candidatosVideo.length > 0 || videosGuardados.length > 0;
 
   const aplicar = (r: { paginas: string[]; ocultas: string[] }) => { setPaginas(r.paginas); setOcultas(r.ocultas); };
 
@@ -663,7 +681,7 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
             <span style={{ minWidth: 0, flex: 1, fontSize: 12.5, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {videosGuardados.length > 0
                 ? <>Tus videos: {videosGuardados.map((v) => v.nombre).join(' · ')}</>
-                : <>{detectadosVideo.length} {detectadosVideo.length === 1 ? 'video sin identificar' : 'videos sin identificar'} en tu página</>}
+                : <>{candidatosVideo.length} {candidatosVideo.length === 1 ? 'video sin identificar' : 'videos sin identificar'} en tu página</>}
             </span>
             <IconBtn name="pen" title="Cambiar la identificación de cada video" onClick={() => setPaso('videos')} />
           </div>

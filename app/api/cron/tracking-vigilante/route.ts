@@ -43,6 +43,7 @@ import { APP_BASE_URL } from '@/lib/app-url';
 import { emitirDelCatalogo } from '@/lib/avisos';
 import { mirarLanding } from '@/lib/landing-vigilancia';
 import { enumerar, hayCambios, nombresDe } from '@/lib/landing-snapshot';
+import { esPiezaDeVideo, hostDePieza } from '@/lib/landing-analisis';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -68,8 +69,14 @@ type Estado = { ws: number; ultima: string | null; horas: number | null; aviso: 
  * landing que lo inyecta desde un bundle lo «pierde» en cada lectura. Y la
  * pregunta de verdad —¿siguen llegando mis datos?— ya la contesta el aviso
  * `tracking-apagado`, que la MIDE en vez de inferirla de un HTML.
+ *
+ * ⚠️ LAS DE VIDEO SALEN DEL CATÁLOGO, no de una lista escrita acá. Esta era la
+ * séptima copia de la misma enumeración, y su falla tenía una forma propia: una
+ * pieza de video que no estuviera en esta lista no producía NINGÚN aviso, ni el
+ * falso ni el verdadero, y el silencio no se distingue de «no cambió nada».
  */
-const PIEZAS_QUE_IMPORTAN = ['video-nativo', 'video-panda', 'video-youtube', 'video-vimeo', 'formulario', 'embed-agenda'];
+const esPiezaQueImporta = (p: string): boolean =>
+  esPiezaDeVideo(p) || p === 'formulario' || p === 'embed-agenda';
 
 /**
  * Revisa las páginas del workspace y avisa lo que cambió.
@@ -87,13 +94,29 @@ async function revisarCambios(ws: number, suyas: string[]): Promise<number> {
   for (const url of suyas.slice(0, 8)) {
     const { cambios } = await mirarLanding(url, suyas).catch(() => ({ cambios: null }));
     if (!cambios || !hayCambios(cambios)) continue;
-    const nuevas = nombresDe(cambios.nuevas.filter((p) => PIEZAS_QUE_IMPORTAN.includes(p)));
-    const sacadas = nombresDe(cambios.sacadas.filter((p) => PIEZAS_QUE_IMPORTAN.includes(p)));
+    const piezasNuevas = cambios.nuevas.filter(esPiezaQueImporta);
+    const nuevas = nombresDe(piezasNuevas);
+    const sacadas = nombresDe(cambios.sacadas.filter(esPiezaQueImporta));
     if (!nuevas.length && !sacadas.length) continue;
     n++;
 
     const frases: string[] = [];
-    if (nuevas.length) frases.push(`Le agregaste *${enumerar(nuevas)}* a tu página *${url}*. Ya lo estoy midiendo.`);
+    if (nuevas.length) {
+      // ⚠️ «YA LO ESTOY MIDIENDO» ERA UNA PROMESA QUE NO SIEMPRE SE PODÍA CUMPLIR.
+      // La frase salía para CUALQUIER pieza nueva, incluidas las que el Pixel no
+      // puede medir: a un cliente que sube un video a Google Drive se le
+      // prometía una retención que no va a llegar nunca, y eso es peor que no
+      // avisar. Ahora se dice lo que corresponde según el host.
+      const noMedibles = piezasNuevas
+        .map((p) => hostDePieza(p))
+        .filter((h) => h && !h.medible)
+        .map((h) => h!.nombre);
+      frases.push(
+        noMedibles.length === nuevas.length
+          ? `Le agregaste *${enumerar(nuevas)}* a tu página *${url}*. Te aviso para que lo sepas: desde ahí el reproductor no le avisa nada a la página, así que no puedo medir las reproducciones. Si quieres que se midan, súbelo directo a tu página o a Panda.`
+          : `Le agregaste *${enumerar(nuevas)}* a tu página *${url}*. Ya lo estoy midiendo.`,
+      );
+    }
     // ⚠️ La frase de «sacaste» aclara que lo ya registrado sigue estando. Sacar
     // una pieza no borra lo que produjo, y sin esa aclaración el mensaje se lee
     // como que se perdieron los datos.

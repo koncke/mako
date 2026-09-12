@@ -25,7 +25,7 @@ import { stepsForStage, funnelReqInfo, type Step } from './stage-requirements';
 // ficha (override chequeado contra el funnel vigente): con el override crudo, el
 // validador y la pantalla discrepan justo en los leads con etapas huérfanas.
 import { etapaVigenteDe } from './funnel-etapas';
-import { avanceDe } from './vsl-retencion';
+import { avanceDe, esEventoDeVideo } from './vsl-retencion';
 import { hoyEnTijuana } from './date-utils';
 import { cachedRead, TAG, TTL } from './cache';
 import { actualizarEtiquetaLead } from './evolution-labels';
@@ -1423,12 +1423,27 @@ export async function getDuracionesVsl(): Promise<Map<string, number>> {
  * solo. Si no se sabe de qué video es la duración, se devuelve null y la pantalla
  * muestra «—», que es la verdad.
  */
+/**
+ * Un `video_id` con prefijo de host dice de dónde salió: `v:` un video de la propia
+ * página, `w:`/`wistia:` Wistia, `yt:` YouTube, `vimeo:` Vimeo, `drive:` Drive. Un
+ * UUID pelado es de Panda, y `iframeN` es un player que no se identificó.
+ */
+const ID_CON_HOST = /^[a-z]{1,6}:/i;
+
 function resolverDuracion(videosEnJuego: Set<string>, durs: Map<string, number>): (videoId: string | null | undefined) => number | null {
   const unica = durs.size === 1 ? [...durs.values()][0] : null;
   const hayUnoSolo = videosEnJuego.size <= 1;
   return (videoId) => {
     const v = videoId?.trim();
     if (v && durs.has(v)) return durs.get(v)!;
+    // ⚠️ «LA ÚNICA DURACIÓN CONOCIDA» ES DE PANDA Y NO SE LE PRESTA A OTRO HOST.
+    // El respaldo existe porque los hitos `sNN` de Panda llegan sin porcentaje y
+    // sin él no se podría calcular nada (en ws1 son 8.071 eventos), así que no se
+    // puede borrar. Pero aplicado a un video de otra parte inventa el avance: un
+    // `<video>` de 11 segundos medido contra los 1.419 de un VSL de Panda da
+    // cualquier cosa. Desde la v16 llegan ids de cinco hosts nuevos, así que esto
+    // pasó de ser un riesgo teórico a uno con fecha.
+    if (v && ID_CON_HOST.test(v)) return null;
     return hayUnoSolo ? unica : null;
   };
 }
@@ -1654,6 +1669,19 @@ export async function getTrackingEvents(visitorId: string | null, limit = 120): 
     }
     for (const e of (eventos.data ?? []) as Array<{ created_at: string; tipo_evento: string | null; porcentaje: number | null; event: string | null; video_id: string | null; vsl_titulo: string | null }>) {
       const esPlay = e.tipo_evento === 'play' || e.event === 'vsl_play';
+      // ⚠️ LO QUE NO ES DE VIDEO NO ENTRA. Esta línea de tiempo tiene cuatro tipos
+      // y todo lo que no era play ni exit caía en 'retencion', que la tarjeta del
+      // lead escribe como «Siguió mirando el VSL». Desde la v14 el snippet manda
+      // también el tiempo en la PÁGINA —salio, volvio, cierre— más los clics y los
+      // agendados, así que la ficha afirmaba que la persona seguía mirando un video
+      // del que nunca llegó un evento. Medido en los últimos 7 días: el ws13 tiene
+      // 115 salio, 68 volvio, 50 cierre, 20 click y 6 agendo, y CERO de video.
+      //
+      // Es el mismo choke point de `avanceDe`: la regla se aplicó allá y quedó sin
+      // aplicar acá. Los eventos de página no se pierden —están en la base y en el
+      // panel de la prueba—; lo que no se hace es disfrazarlos de retención. El día
+      // que la tarjeta tenga un renglón propio para ellos, se agregan con su tipo.
+      if (!esPlay && !esEventoDeVideo(e.tipo_evento)) continue;
       const tipo: TrackingEvent['tipo'] = esPlay ? 'play' : e.tipo_evento === 'exit' ? 'exit' : 'retencion';
       out.push({ ts: e.created_at, tipo, porcentaje: e.porcentaje, landing_url: null, referrer: null, video_id: e.video_id, vsl_titulo: e.vsl_titulo });
     }

@@ -97,18 +97,23 @@ test('ningún regex del snippet perdió su barra invertida en el template', () =
   }
 });
 
-test('el snippet no se delata a sí mismo ante el analizador de piezas', () => {
+test('el snippet no se delata a sí mismo ante el analizador de piezas', async () => {
   const gen = snippetEmitido();
   // ⚠️ Las que se leen del BUNDLE son las que no tienen red: `sinRuido` limpia
   // los <script> del HTML, pero al JavaScript propio de la página no lo filtra
   // nadie. Una marca de estas adentro del snippet es un falso positivo para
   // cualquier cliente que lo copie a su código.
-  const DEL_BUNDLE: Array<[string, RegExp]> = [
-    ['embed-agenda', /calendly\.com|typeform\.com|hubspot\.com\/meetings|savvycal\.com|cal\.com|data-cal-link|cal-inline/i],
-    ['link-whatsapp', /wa\.me\/|api\.whatsapp\.com/i],
-    ['video-youtube', /youtube\.com\/embed|youtu\.be\//i],
-    ['video-vimeo', /player\.vimeo\.com/i],
-  ];
+  //
+  // ⚠️⚠️ LA LISTA SE IMPORTA, NO SE COPIA. Acá había una copia a mano de cuatro
+  // entradas de `DEL_BUNDLE`, y omitía justo `video-panda` — que era la única
+  // marca que el snippet sí contenía (`/pandavideo/i` en `tituloVsl`). O sea que
+  // el test escrito para cazar esto era estructuralmente incapaz de cazarlo, y la
+  // landing del ws13, que copia el código a un archivo propio, salía con un
+  // «video de Panda» que no tiene. Medido con el analizador real el 11/09/2026.
+  //
+  // Importándola, un detector nuevo entra solo: el día que se agregó Wistia, esta
+  // guarda ya lo vigilaba sin que nadie tocara el test.
+  const { DEL_BUNDLE } = await import('../lib/landing-analisis');
   for (const [pieza, re] of DEL_BUNDLE) {
     const m = gen.match(re);
     assert.ok(

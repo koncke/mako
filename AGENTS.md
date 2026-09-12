@@ -2557,6 +2557,65 @@ Y si la clave nueva es un mapa keyeado por un dato derivado (una URL normalizada
 cruce falla en silencio y se ve como «esto nunca se analizó» sobre algo que se analiza todos
 los días.
 
+# Enseñarle al sistema a VER algo nuevo no es un cambio del usuario, y el diff no lo sabe
+
+Todo lo que compare «lo que hay hoy» contra «lo que había» —un snapshot, un inventario, una
+lista de features detectadas— tiene DOS fuentes de cambio y las trata igual: que el mundo
+cambie, y que nosotros hayamos aprendido a mirarlo. La segunda no es del usuario, y anunciarla
+como si lo fuera le miente.
+
+Medido el 11/09/2026: el snapshot de una landing decía `["botones","embed-agenda"]` porque el
+analizador no sabía reconocer su reproductor. Al enseñarle, el VSL que ese cliente tenía desde
+el principio aparecía como pieza NUEVA, y el aviso automático decía «Le agregaste un video a tu
+página. Ya lo estoy midiendo» — falso dos veces, porque además no se medía hasta que él
+reemplazara su copia del código. Con dos URLs declaradas para la misma página, dos WhatsApps.
+
+**Regla — el estado guardado lleva la VERSIÓN del detector que lo produjo**, y lo que un
+detector nuevo trae se incorpora **en silencio**: sin aviso, y quedando como parte del «antes»
+para que un cambio real de esa misma pieza sí se anuncie a la vuelta siguiente. Tres cosas que
+lo hacen funcionar:
+
+- **El parser del estado tiene que CONSERVAR el campo.** Si reconstruye la fila campo por
+  campo —lo normal en un saneador— uno nuevo que no se lea ahí vuelve ausente en cada lectura,
+  y entonces el re-baseline se repite para siempre o no ocurre nunca, según el default.
+- **El re-baseline no puede tapar un cambio real del mismo día.** Se absorbe solo lo que el
+  detector nuevo introdujo; lo que ya se sabía ver se anuncia como siempre.
+- **Y el aviso no promete lo que no puede cumplir.** «Ya lo estoy midiendo» salía para
+  cualquier pieza nueva, incluidas las que el sistema NO puede medir: a quien sube un video a
+  un host que no expone nada se le prometía una retención que no iba a llegar nunca.
+
+# Un bloqueo derivado de una versión GLOBAL bloquea a todos, incluidos los que no ganan nada
+
+Un guard que compara «versión instalada» contra «versión actual» y frena, frena a todo el
+mundo el día que la versión sube — sin preguntar si a ese caso la versión nueva le cambia algo.
+Y si el número que lee es de una unidad más grande que la que se está mirando (el workspace en
+vez de la página), además miente en los dos sentidos.
+
+Medido: el setting que guarda la versión del Pixel es del WORKSPACE y es «último evento gana»,
+así que con dos páginas en versiones distintas el veredicto era verdad para una y mentira para
+la otra. Al subir de versión, los cuatro clientes quedaban sin poder probar **ninguna** página,
+incluida una a la que la versión nueva no le cambiaba nada.
+
+**Regla — la condición se evalúa en la unidad que GANA algo, y con la versión de esa unidad.**
+Si la unidad chica tiene su propia fuente (acá: la versión que viaja en cada evento de esa
+página), se usa esa, tomando el **máximo** contra la global — la global puede estar más
+adelantada cuando el cambio ya se hizo y todavía no llegó un evento nuevo. Y cuando la versión
+nueva no le aporta nada a ese caso, el renglón lo **dice** y no frena: mandar a hacer un
+trámite que no va a medir distinto es cómo se aprende a ignorar los avisos.
+
+# Un arnés que no le pasa todas las entradas al código bajo prueba reporta una regresión que no existe
+
+Verificar un cambio llamando a la función con menos insumos de los que recibe en producción
+devuelve una diferencia REAL con el comportamiento anterior, y se lee como que el cambio rompió
+algo. El 11/09/2026 una verificación mostró que una pieza detectada «había desaparecido»: el
+analizador la detecta desde el JavaScript de la página y el arnés solo le pasaba el HTML. Diez
+minutos de buscar un bug que no existía, con el riesgo peor de «arreglarlo».
+
+**Regla — antes de creerle a una diferencia contra el comportamiento anterior, enumerá los
+argumentos que la función recibe en producción y comprobá que el arnés le pase todos.** Y si
+falta uno a propósito, la salida tiene que decirlo, o el próximo que lea ese output concluye lo
+mismo.
+
 # Una ruta que apunta a la nada no rompe nada, y por eso es cara
 
 Las rutas escritas a mano son el enganche de todo el sistema: el `**Vive en:**` de cada

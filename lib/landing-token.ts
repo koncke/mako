@@ -35,6 +35,8 @@ import { clarityProjectId } from './clarity';
 import { catalogoPanda } from './panda';
 import { bloqueClarity } from './clarity';
 import { esEventoDeVideo } from './vsl-retencion';
+import { estadoVideo } from './landing-analisis';
+import { enumerar } from './landing-snapshot';
 
 /** Key en app_settings. setSetting la espeja a webhook_routing('landing', …). */
 export const LANDING_TOKEN_KEY = 'landing_token';
@@ -750,16 +752,38 @@ export async function landingDiagnostico(
   // `Age` de casi 4 h) o no traer nada porque la página se monta por JavaScript.
   // Con esta tercera fuente, el día que el cliente suba su video los chequeos
   // vuelven SOLOS con el primer play, sin que nadie tenga que reanalizar nada.
-  const PIEZAS_DE_VIDEO = ['video-nativo', 'video-panda', 'video-youtube', 'video-vimeo'];
-  const tieneVideo = !piezas || piezas.some((p) => PIEZAS_DE_VIDEO.includes(p)) || tuvoVideoAlgunaVez;
-  // YouTube y Vimeo no emiten los eventos que escuchamos: hay video, y NO se
-  // puede medir. Callarlo deja esperando una retención que no va a llegar nunca.
-  const soloAjeno = !!piezas && !tuvoVideoAlgunaVez
-    && !piezas.includes('video-nativo') && !piezas.includes('video-panda');
-  const videoNoMedible: string | null = !soloAjeno ? null
-    : piezas!.includes('video-youtube') ? 'YouTube'
-    : piezas!.includes('video-vimeo') ? 'Vimeo'
-    : null;
+  // ⚠️ TRES ESTADOS, NO DOS, y el tercero es el que faltaba. Esto era una lista
+  // cerrada de cuatro piezas copiada a mano, y todo lo que no estuviera en ella se
+  // traducía en pantalla como «Tu página no tiene video, así que este paso no
+  // aplica». El cliente del ws13 leyó exactamente eso con su VSL a la vista: el
+  // analizador no sabía ver Wistia, y «no lo reconocí» salió como «no lo tenés».
+  //
+  // Ahora sale del catálogo de hosts (lib/landing-analisis.ts):
+  //   · medible        — hay video y el Pixel lo mide. El paso aplica.
+  //   · no-medible     — hay video y desde ese host no se puede medir. Se DICE,
+  //                      nombrando el host, y el paso no aplica.
+  //   · no-reconocido  — el análisis salió bien y no se reconoció ningún
+  //                      reproductor. NO se afirma que no tenga video.
+  //   · no-se          — no hubo análisis. Se ofrecen TODOS los pasos, como siempre.
+  //
+  // Y un evento de video REAL sigue ganándole a todo esto: si llegó un play, hay
+  // video medible, diga lo que diga el HTML (que puede venir del cache del CDN o
+  // montarse por JavaScript).
+  const vid = estadoVideo(piezas ?? null);
+  const hayVideoMedible = vid.estado === 'medible' || tuvoVideoAlgunaVez;
+  const noSeSiHayVideo = vid.estado === 'no-se';
+  const soloNoMedible = vid.estado === 'no-medible' && !tuvoVideoAlgunaVez;
+  const sinReconocer = vid.estado === 'no-reconocido' && !tuvoVideoAlgunaVez;
+  /** Los pasos de video se piden cuando hay algo que medir, o cuando no sabemos. */
+  const videoAplica = noSeSiHayVideo || hayVideoMedible;
+  // Los dos motivos son distintos y se dicen distinto. El segundo es el que
+  // faltaba: antes cualquier página sin una pieza conocida leía «Tu página no
+  // tiene video», que es afirmar algo que no sabemos.
+  const motivoSinVideo = soloNoMedible
+    ? `Tu video está en ${enumerar(vid.noMedibles)}, y desde ahí el reproductor no le avisa nada a la página: la reproducción no se puede medir. Lo que sí queda registrado es que alguien lo tocó.`
+    : sinReconocer
+      ? 'No reconocí ningún reproductor en tu página. Si tienes un video ahí, puede ser uno que todavía no sabemos medir: escríbenos y lo agregamos.'
+      : 'Este paso no aplica a tu página.';
 
   // ── ¿El formulario entra al CRM? ──────────────────────────────────────────
   // El chequeo que faltaba. El snippet captura el opt-in, pero eso pasa en el
@@ -804,7 +828,39 @@ export async function landingDiagnostico(
   // segundos, así que le decía «tenés el código viejo» para siempre a alguien que
   // lo tenía al día. Ahora la versión viaja de verdad en cada evento (`sv`), y el
   // proxy sobra: se pregunta por el dato.
-  const { viejo: codigoViejo, instalada } = await snippetDesactualizado();
+  // ⚠️ LA VERSION ES DE LA PAGINA, NO DEL WORKSPACE. `landing.snippet_version` es
+  // un solo setting que escribe el ULTIMO evento que llega, venga de donde venga:
+  // con dos landings publicadas en versiones distintas el veredicto era verdad
+  // para una y mentira para la otra, y el bloqueo de «Probar» —que es de
+  // workspace— dejaba sin poder probar justo la que SI estaba al dia.
+  //
+  // `verificarPagina` ya resuelve esto por pagina, leyendo el `sv` de las visitas
+  // de ESA URL, y el cron ya la usa desde el 25/08. La pantalla habia quedado atras.
+  //
+  // Se toma el MAXIMO de las dos fuentes, nunca solo la de la pagina: el setting
+  // puede estar mas adelantado si la visita con la version nueva todavia no llego
+  // (acaban de repegar el codigo), y un «tienes el codigo viejo» sobre una pagina
+  // recien actualizada es el mismo falso positivo, al reves.
+  const { instalada: instaladaDelWs } = await snippetDesactualizado();
+  const svDeLaPagina = urlLanding ? await verificarPagina(urlLanding).catch(() => null) : null;
+  const instalada = svDeLaPagina?.instalada && typeof svDeLaPagina.version === 'number'
+    ? Math.max(svDeLaPagina.version, instaladaDelWs)
+    : instaladaDelWs;
+
+  // ⚠️ Y EL BLOQUEO SOLO FRENA SI ESTA PAGINA GANA ALGO CON LA VERSION NUEVA.
+  // Antes alcanzaba con que el numero fuera menor, asi que al subir a v16 los
+  // cuatro clientes quedaban con el boton bloqueado — incluida una landing de
+  // Panda, a la que la v16 no le cambia nada. Un candado sin llave se saltea, y
+  // con el se pierde la mitad que servia.
+  //
+  // La v16 agrega la medicion de los videos alojados afuera: le sirve a la pagina
+  // que tenga uno de esos hosts. Para el resto el renglon queda informativo — se
+  // dice que hay una version nueva y no se frena nada.
+  //
+  // `!piezas` es «no se»: ahi se frena, como en el resto de los chequeos.
+  const HOSTS_DE_LA_V16 = ['video-wistia', 'video-youtube', 'video-vimeo', 'video-drive'];
+  const ganaConLaNueva = !piezas || piezas.some((p) => HOSTS_DE_LA_V16.includes(p));
+  const codigoViejo = instalada > 0 && instalada < SNIPPET_VERSION && ganaConLaNueva;
 
   // ⚠️ EL ORDEN ES EL DEL EMBUDO, no el de cuándo se escribió cada chequeo.
   // Antes empezaba por «llegan las visitas» y metía el formulario ANTES del video:
@@ -907,6 +963,10 @@ export async function landingDiagnostico(
       estado: instalada === 0 || !hayPageview ? 'falta' : codigoViejo ? 'viejo' : 'ok',
       detalle: instalada === 0 || !hayPageview ? 'Aún no llega ningún evento para saber qué versión del Pixel tienes instalada.'
         : codigoViejo ? `Tienes la versión ${instalada} y la actual es la ${SNIPPET_VERSION}. Copia el código de arriba y reemplázalo para sumar: ${novedadesDesde(instalada)}.`
+        // Hay una version nueva y a ESTA pagina no le cambia nada: se dice, y no se
+        // frena la prueba. Mandar a actualizar algo que va a medir igual es mandar
+        // a hacer un tramite.
+        : instalada < SNIPPET_VERSION ? `Tienes la versión ${instalada} y la actual es la ${SNIPPET_VERSION}. Para esta página miden igual, así que no hay apuro: lo que suma la nueva es medir los videos alojados en otro lugar.`
         : 'Es la última versión.' },
     { id: 'pageview', label: 'Llega a tu página', paso: true,
       estado: hayPageview ? 'ok' : 'falta',
@@ -923,9 +983,9 @@ export async function landingDiagnostico(
       // se detectó (que es la mitad técnica) pero nadie eligió ver el video, que
       // es lo que este punto pregunta. Va como 'falta' con el motivo escrito, no
       // como 'ok': un verde acá se lee «esto ya está» y cierra la pregunta.
-      estado: hayPlayManual ? 'ok' : !tieneVideo ? 'na' : 'falta',
+      estado: hayPlayManual ? 'ok' : videoAplica ? 'falta' : 'na',
       detalle: hayPlayManual ? 'Detectamos tu reproductor de video.'
-        : !tieneVideo ? 'Tu página no tiene video, así que este paso no aplica.'
+        : !videoAplica ? motivoSinVideo
         : hayPlayAuto ? 'Tu video arranca solo, así que el reproductor ya se detectó. Dale play a mano para comprobar que también medimos cuando alguien decide verlo.'
         // ⚠️ EN UNA PRUEBA NO SE DICE «nadie en 24 h». La persona ACABA de apretar
         // play; contestarle con una estadística del día es contestarle otra cosa.
@@ -935,10 +995,13 @@ export async function landingDiagnostico(
       // ⚠️ El ámbar sale de que lleguen eventos DE VIDEO sin avances. Antes salía
       // de `soloVsl`, que contaba clics y cierres: por eso este renglón acusaba un
       // problema de retención en una página sin un solo video.
-      estado: hayProfundidad ? 'ok' : !tieneVideo ? 'na' : videoNoMedible ? 'na' : eventosDeVideo > 0 ? 'viejo' : 'falta',
+      estado: hayProfundidad ? 'ok' : !videoAplica ? 'na' : eventosDeVideo > 0 ? 'viejo' : 'falta',
       detalle: hayProfundidad ? 'Llegan los avances: ya se puede calcular la retención de cada lead.'
-        : !tieneVideo ? 'Tu página no tiene video, así que este paso no aplica.'
-        : videoNoMedible ? `Tu video está en ${videoNoMedible}, y desde ahí no llegan los avances: la retención no se puede medir. Para medirla, súbelo a Panda o directo a tu página.`
+        // ⚠️ SIN EL «súbelo a Panda». Desde la v16 se mide el video alojado en
+        // Wistia, YouTube y Vimeo, así que mandar a mudarlo era hacerle rehacer su
+        // página por un límite que ya no existe. El único que no se puede medir es
+        // el de Drive, y ahí lo que corresponde es decirlo, no pedir una mudanza.
+        : !videoAplica ? motivoSinVideo
         : eventosDeVideo > 0 ? 'Solo llega el inicio, no el avance. Con el Pixel actualizado aparece a los pocos segundos, aunque el video sea corto.'
         : enPrueba ? 'Deja el video reproduciéndose unos segundos.'
         : 'Aún sin datos.' },

@@ -26,7 +26,13 @@ const T3 = '2026-08-22T10:00:00.000Z';
 
 test('la primera lectura no anuncia nada', () => {
   const r = aplicarLectura(null, ['video-nativo', 'formulario'], T1);
-  assert.deepEqual(r.snapshot, { piezas: ['video-nativo', 'formulario'], visto: T1 });
+  assert.deepEqual(r.snapshot.piezas, ['video-nativo', 'formulario']);
+  assert.equal(r.snapshot.visto, T1);
+  // La foto queda marcada con la versión del catálogo de detectores que la tomó:
+  // es lo que después distingue «el cliente agregó un video» de «MaKo aprendió a
+  // ver uno que ya estaba».
+  assert.ok((r.snapshot.det ?? 0) >= 1, 'la foto tiene que decir con qué detectores se tomó');
+  assert.equal(r.snapshot.dudosas, undefined, 'en la primera lectura no hay nada en purgatorio');
   assert.equal(hayCambios(r.cambios), false);
   // Sin «antes», todo lo que la página tiene es nuevo PARA NOSOTROS, y nada de
   // eso es un cambio que el cliente haya hecho. Anunciarlo sería felicitarlo por
@@ -90,6 +96,50 @@ test('sacar y volver a poner: las dos cosas se anuncian, en orden', () => {
   assert.deepEqual(confirmado.cambios.sacadas, ['video-nativo']);
   const repuesto = aplicarLectura(confirmado.snapshot, ['video-nativo'], T3);
   assert.deepEqual(repuesto.cambios.nuevas, ['video-nativo']);
+});
+
+// ── Que MaKo aprenda a ver algo NO es un cambio en la página del cliente ───
+// Es el caso del ws13, medido el 11/09/2026: su snapshot decía
+// ["botones","embed-agenda"] porque el analizador no sabía ver Wistia. El día que
+// aprendió, su VSL —que estaba desde el principio— aparecía como pieza NUEVA, y el
+// cron le manda «Le agregaste un video a tu página. Ya lo estoy midiendo». Falso
+// dos veces: lo tenía, y encima no se mide hasta que reemplace su copia del código.
+// Con dos URLs declaradas para la misma página, eran dos WhatsApps.
+
+test('un detector NUEVO no anuncia lo que la página ya tenía', () => {
+  const antes: SnapshotLanding = { piezas: ['botones', 'embed-agenda'], visto: T1, det: 1 };
+  const r = aplicarLectura(antes, ['botones', 'embed-agenda', 'video-wistia'], T2, 2);
+  assert.deepEqual(r.cambios.nuevas, [], 'lo que MaKo aprendió a ver no es un cambio del cliente');
+  assert.equal(hayCambios(r.cambios), false);
+  assert.ok(r.snapshot.piezas.includes('video-wistia'), 'pero queda incorporado, en silencio');
+  assert.equal(r.snapshot.det, 2, 'y la foto queda marcada con el catálogo nuevo');
+});
+
+test('el re-baseline NO tapa un cambio real del mismo día', () => {
+  // Si silenciara todo, el aviso verdadero se perdería en la misma corrida.
+  const antes: SnapshotLanding = { piezas: ['botones'], visto: T1, det: 1 };
+  const r = aplicarLectura(antes, ['botones', 'formulario', 'video-wistia'], T2, 2);
+  assert.deepEqual(r.cambios.nuevas, ['formulario'], 'el formulario es de un detector viejo: se anuncia');
+  assert.ok(r.snapshot.piezas.includes('video-wistia'), 'y lo aprendido entra igual, sin aviso');
+});
+
+test('y a la vuelta siguiente, un cambio de la pieza aprendida SÍ se anuncia', () => {
+  // Absorber una vez no es dejar de mirarla nunca más: ya forma parte del «antes».
+  const yaSabido: SnapshotLanding = { piezas: ['botones'], visto: T1, det: 2 };
+  const r = aplicarLectura(yaSabido, ['botones', 'video-wistia'], T2, 2);
+  assert.deepEqual(r.cambios.nuevas, ['video-wistia'], 'con el mismo catálogo, esto sí lo agregó el cliente');
+});
+
+test('parsearSnapshots conserva el `det`', () => {
+  // ⚠️ Este parser reconstruye la fila campo por campo: un campo nuevo que no se
+  // lea acá vuelve ausente en cada lectura, y entonces el re-baseline silencioso
+  // se repite para siempre (o no ocurre nunca), según el default.
+  const m = parsearSnapshots(JSON.stringify({ 'https://a.com': { piezas: ['botones'], visto: T1, det: 2 } }));
+  assert.equal(m['https://a.com'].det, 2);
+  // Un snapshot de antes de que esto existiera vale 1: sus piezas se leyeron con
+  // el catálogo viejo, así que todo lo que el catálogo aprendió después se absorbe.
+  const antiguo = parsearSnapshots(JSON.stringify({ 'https://a.com': { piezas: ['botones'], visto: T1 } }));
+  assert.equal(antiguo['https://a.com'].det, 1);
 });
 
 // ── Saneo: un snapshot roto es «no hay antes», no una pantalla rota ─────────
