@@ -1810,3 +1810,46 @@ puede obligar a repetir la revisión — no está verificado.
 Comprobado el mismo día, porque el revisor de Meta lo va a abrir sin sesión:
 `https://hola-mako.com/privacidad` y `/terminos` contestan **200** con el documento entero
 (están en `PUBLICOS` de `lib/rutas-publicas.ts`).
+
+### Y lo que se midió con el token, en vez de leerlo en una pantalla (11/09)
+
+Martín preguntó por qué le pedía capturas teniendo el token. Sondeado con el token de ws1 y
+con token de app (`app_id|META_APP_SECRET`, que está en `.env.local`):
+
+- **La verificación del negocio YA ESTABA HECHA:** `/{341119389591872}?fields=verification_status`
+  → `"verified"`. El paso que le había puesto primero no existía.
+- **En Elévate hay 0 `client_ad_accounts` y 0 `client_pages`** — solo 1 cuenta y 1 página
+  propias, y 2 usuarios de sistema («Dashboard», que es el de MaKo, y «Conexión N8N con
+  Whatsapp»). Nadie compartió activos todavía, así que **la prueba definitiva del camino de
+  socio (leer con nuestro token la cuenta de otro negocio) no se puede correr hasta que un
+  cliente comparta**. Es la única forma de cerrar la pregunta del acceso avanzado midiendo.
+- **La app declara `privacy_policy_url: https://multiplicatusresultados.com/privacidad`** —
+  resuelve 200, pero es otro dominio— y `contact_email: bustoseguia@gmail.com`. Con **App
+  Purpose = «Clients»** eso hace que la política que el revisor lea no sea la de MaKo.
+
+⚠️ **Lo que la Graph API NO contesta, y por eso hay que pedir la captura del panel** (probado
+el 11/09, no deducido): `?fields=access_levels` → *«Tried accessing nonexisting field»*;
+`/{app}/permissions` → `{"data":[]}`; `/{app}/app_review_submissions` y `/{app}/features` →
+*«Unknown path components»*; `?fields=access_verification_status` → nonexisting. **El nivel de
+acceso de cada permiso y el estado de la verificación de acceso viven solo en el dashboard.**
+
+⚠️ **Y el tamaño del icono tampoco se puede medir desde afuera.** `icon_url`/`logo_url` traen
+un recorte del CDN (`stp=…p75x75`), así que bajarlo da 75×75 — que **no** es el archivo subido.
+Pedir la misma URL sin el parámetro da **403 «URL signature mismatch»**: la firma cubre el
+recorte. Se mira en Configuración → Básica.
+
+### La «Verificación de acceso» (Tech Provider) SÍ aplica, y la nota de julio decía lo contrario
+
+`docs/hallazgos-ads.md` heredó de la memoria `meta-oauth-app-review` que *«Tech Provider es de
+WhatsApp/BSP, no aplica a Marketing API»*. **Falso**, y lo refuta el panel de nuestra propia
+app: la sección «Verificación de acceso» dice *«Verifica que tu negocio sea un proveedor de
+tecnología. Este es un paso adicional obligatorio para acceder a los activos comerciales de
+Meta, así como a la información de otros negocios»*. La doc
+(`/docs/development/release/access-verification`) lo confirma: aplica a apps con
+`ads_management`, `business_management` y permisos de páginas; *«Access verification is
+independent of App Review and permission access levels»*; exige la verificación del negocio
+hecha; *«a decision will be made within approximately 5 days»*; y a los **60 días** las
+llamadas a esos endpoints empiezan a fallar si no está.
+
+En la app de MaKo está **pendiente** (botón «Ver detalles»). O sea que los pedidos son **tres,
+no dos**: verificación de acceso, acceso avanzado a los 8 permisos, y el tier Full.
