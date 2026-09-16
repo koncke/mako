@@ -26,7 +26,8 @@ import { capaDef, type CapaId } from '@/lib/capas';
 import { porId, visible, disponiblesEn, type Vista } from './registro';
 import { runnerDe } from './runners';
 import { validarInput } from './validar';
-import { proponerChat, proponerPantallaGenerica } from './acciones';
+import { proponerChat, proponerPantallaGenerica, TTL_PENDIENTE_MIN, RUTA_BANDEJA } from './acciones';
+import { APP_BASE_URL } from '@/lib/app-url';
 import { esAccion, esControl, esLectura, type Ctx, type Resultado } from './tipos';
 
 /** La vista de un contexto: qué tabs tiene la capa del workspace (para `gating.tab`). */
@@ -83,7 +84,14 @@ export async function ejecutarOperacion(
         return { ok: true, tipo: 'control', resultado: texto };
       }
 
-      if (!esAccion(def) || !('preparar' in run)) return { ok: false, status: 500, error: `«${def.id}» no tiene preparar()` };
+      if (!esAccion(def) || !('ejecutar' in run)) return { ok: false, status: 500, error: `«${def.id}» no tiene ejecutar()` };
+
+      // Las heredadas de mako-doer-acciones.ts: la tool vieja valida y deja la
+      // pendiente ella misma; acá solo se traduce su JSON al Resultado.
+      if (def.confirmacion === 'chat' && run.proponerLegado) {
+        const crudo = await run.proponerLegado(v.input, ctx);
+        return traducirLegado(crudo);
+      }
 
       if (def.confirmacion === 'pantalla' && run.proponer) {
         const p = await run.proponer(v.input, ctx);
@@ -91,6 +99,7 @@ export async function ejecutarOperacion(
         return { ok: true, tipo: 'propuesta', propuesta: p };
       }
 
+      if (!run.preparar) return { ok: false, status: 500, error: `«${def.id}» no tiene preparar()` };
       const prep = await run.preparar(v.input, ctx);
       if ('error' in prep) return { ok: false, status: 400, error: prep.error, faltan: prep.faltan, disponibles: prep.disponibles };
 
@@ -112,6 +121,21 @@ export async function ejecutarOperacion(
     if (nuestro) console.error(`[api-mako] ${def.id} (ws ${ctx.ws}, ${ctx.canal}):`, msg);
     return { ok: false, status: nuestro ? 500 : 400, error: msg };
   }
+}
+
+/** El JSON de una tool heredada (`{ ok, pendiente_id, resumen, vence_en_min }` o
+ *  `{ ok:false, error, … }`), traducido al Resultado. Un texto que no es JSON es un
+ *  error legible de la tool vieja: va como 400. */
+function traducirLegado(crudo: string): Resultado {
+  let j: Record<string, unknown> | null = null;
+  try { j = JSON.parse(crudo) as Record<string, unknown>; } catch { j = null; }
+  if (!j || typeof j !== 'object') return { ok: false, status: 400, error: crudo };
+  if (j.ok === true && typeof j.pendiente_id === 'number') {
+    return { ok: true, tipo: 'pendiente', pendiente: { id: j.pendiente_id, resumen: String(j.resumen ?? ''), venceEnMin: Number(j.vence_en_min ?? TTL_PENDIENTE_MIN), url: `${APP_BASE_URL}${RUTA_BANDEJA}` } };
+  }
+  const { ok: _ok, error, faltan, ...resto } = j;
+  void _ok;
+  return { ok: false, status: 400, error: String(error ?? crudo), faltan: Array.isArray(faltan) ? faltan.map(String) : undefined, disponibles: Object.keys(resto).length ? resto : undefined };
 }
 
 /**

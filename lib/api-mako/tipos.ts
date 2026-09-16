@@ -285,8 +285,15 @@ export type LecturaRun = {
 
 export type AccionRun = {
   /** valida el input contra la base (existe el lead en ESTE ws, el hueco sigue
-   *  libre, falta el monto) y arma { payload, resumen }. No escribe nada. */
-  preparar: (input: Record<string, unknown>, ctx: Ctx) => Promise<Preparado>;
+   *  libre, falta el monto) y arma { payload, resumen }. No escribe nada.
+   *  Obligatorio salvo en las heredadas que traen `proponerLegado` o `proponer`. */
+  preparar?: (input: Record<string, unknown>, ctx: Ctx) => Promise<Preparado>;
+  /** SOLO las acciones `chat` heredadas de lib/mako-doer-acciones.ts, hasta que se
+   *  muden: corre la tool vieja ENTERA (valida y deja la pendiente ella misma) y
+   *  devuelve su JSON con `pendiente_id`. Con esto presente, el choke point no llama
+   *  preparar() ni crea la pendiente: parsea ese JSON. `ejecutar` sigue siendo
+   *  obligatorio (corre al confirmar, por `ejecutarAccion`). */
+  proponerLegado?: (input: Record<string, unknown>, ctx: Ctx) => Promise<string>;
   /** la escritura, por el caller ya gateado (setPipelineStage, metaWrite, …). Corre
    *  al confirmar: en WhatsApp, en la bandeja, o por HTTP con `ejecutar`. */
   ejecutar: (payload: Record<string, unknown>, ctx: Ctx) => Promise<Ejecutado>;

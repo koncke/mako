@@ -94,7 +94,7 @@ export async function aplicarPropuestaGenerica(propuestaId: string, payloadEdita
     const opId = String(prop.datos.operacion ?? '');
     const def = porId(opId);
     const run = runnerDe(def?.id ?? '');
-    if (!def || !esAccion(def) || !run || !('ejecutar' in run)) return { ok: false, resumen: `La operación «${opId}» ya no existe.` };
+    if (!def || !esAccion(def) || !run || !('ejecutar' in run) || !run.preparar) return { ok: false, resumen: `La operación «${opId}» ya no existe.` };
     const base = (prop.datos.payload ?? {}) as Record<string, unknown>;
     const entrada = payloadEditado ? { ...base, ...payloadEditado } : base;
     const prep = await run.preparar(entrada, ctx);
