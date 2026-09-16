@@ -1167,6 +1167,28 @@ Si contesta un número en vez de un error, no valida: estima. Vale para cualquie
 «estimate», «preview» o «dry-run» de un proveedor. Molde: `alcanceGeo` en
 `lib/meta-ads-create.ts`; las mediciones, en `docs/hallazgos-ads.md`.
 
+# La conexión de Meta de un cliente son DOS tokens, y el que se olvida sigue mandando
+
+`META_ACCESS_TOKEN` y `META_PAGE_ACCESS_TOKEN` son dos filas de `credenciales`, y el de
+página **guardado le gana al derivado** (`lib/meta-ads-create.ts`:
+`if (guardado && !guardado.startsWith('PENDING')) return guardado;`). Además lo leen, por
+su cuenta, la ingesta de leads (`lib/meta-leads.ts`) y el webhook
+(`app/api/webhooks/meta-leads/route.ts`).
+
+O sea que reconectar Meta cambiando sólo el token de acceso **deja viva la conexión vieja**:
+los anuncios se crean con la nueva y los leads siguen entrando —o dejan de entrar— con la de
+la app anterior, sin un solo error que lo diga. Se vio el 16/09/2026 al planear pasar a
+Código Inmobiliario (ws13) de la app de su cliente a la de MaKo.
+
+**La regla: cambiar la conexión de Meta de un workspace es ESCRIBIR las dos filas en el mismo
+movimiento** — el token de página nuevo también, derivado del de acceso nuevo
+(`GET /{página}?fields=access_token`).
+
+⚠️ **Borrar la fila de página NO alcanza, y rompe.** `tokenDePagina` (privada, en
+`lib/meta-ads-create.ts`) la derivaría, pero los otros dos lectores leen la fila directa y sin
+ella tiran «META_PAGE_ACCESS_TOKEN no configurado»: borrarla corta la entrada de leads. Y por lo
+mismo, código nuevo que necesite el token de página no agrega un cuarto lector de la fila.
+
 # Un umbral es un proxy, y el proxy hay que MEDIRLO contra los datos reales
 
 Un número en una condición (`>= 3 tareas`, `>= 2 destinos`, `>= 15 caracteres`) casi

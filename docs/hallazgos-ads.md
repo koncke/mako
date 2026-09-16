@@ -1853,3 +1853,74 @@ llamadas a esos endpoints empiezan a fallar si no está.
 
 En la app de MaKo está **pendiente** (botón «Ver detalles»). O sea que los pedidos son **tres,
 no dos**: verificación de acceso, acceso avanzado a los 8 permisos, y el tier Full.
+
+## Una app de Meta en desarrollo bloquea lo que ELLA pare, no quién llama (16/09)
+
+**Síntoma.** Con el mensaje del 1885183 ya reescrito, Código Inmobiliario (ws13) seguía sin poder
+publicar, y la restricción de producto es firme: **el cliente no va a publicar ni tocar su app**.
+
+**El diagnóstico obvio era el equivocado.** Se leía como «ese token no sirve para crear
+anuncios». Medido con el mismo token, **en seco** (`execution_options=["validate_only"]` sobre
+`/ads`, que el 11/09 se midió que sí reproduce el 1885183) y **con control**:
+
+| Anuncio en seco sobre un conjunto de ventas web existente | Resultado |
+|---|---|
+| CONTROL: post nuevo (`object_story_spec` con `link_data`) | **1885183** — la sonda ve el error |
+| Creativo nuevo que apunta a un post **propio existente** (`object_story_id`) — lo que hace MaKo al reusar | **PASA** |
+| El **mismo creativo** de un anuncio existente (`creative_id`) | **PASA** |
+
+El rechazo juzga **qué app parió el post**, no quién llama. Un post nacido en el Administrador de
+anuncios o en Business Suite está limpio. Estado de la página «Joan» ese día: 50 publicaciones
+orgánicas, **las 50 sin app** (nacieron a mano); 35 anuncios activos en la cuenta, 5 de la página
+propia creados el 15/09 y 10 de la página ajena 770269612845316.
+
+**Y la salida estaba escondida en la pantalla.** «★ Usar un ganador» ordenaba por leads y gasto y
+cortaba en 12: los que más gastaron son los de la página AJENA (apagados por 1885499), así que los
+únicos publicables quedaban al fondo o afuera. Y sólo `NuevaCampanaModal` apagaba los ajenos: los
+otros dos modales los ofrecían como elegibles.
+
+**Arreglo.** `lib/ganadores-reuso.ts` (usables primero; a Meta se le preguntan los MEJORES 50, no
+los primeros que vengan) y `app/ads-manager/useGanadoresBloqueados.ts` para los tres modales. El
+mensaje del 1885183 ofrece «Usar un ganador» de la página propia **sólo si se sabe que no es de
+formulario** (`pideFormulario === false`): reusar en un conjunto de formulario da 1487888.
+
+⚠️ **Trampas que quedan anotadas para el día que se reconecte Meta:**
+- **El token de página guardado le gana al derivado** — regla en `AGENTS.md`. Cambiar sólo
+  `META_ACCESS_TOKEN` deja a la ingesta de leads y al webhook con la app vieja, y **borrar** la
+  fila de página es peor: esos dos no derivan, tiran «no configurado» y dejan de entrar leads.
+- **Pausar, activar, renombrar y borrar siguen siendo del dueño**: `lib/meta-write.ts` usa
+  `envCred` y `app/api/meta-write/route.ts` contesta «solo está disponible en el workspace
+  principal». Crear anda por workspace; operar, no.
+- **Si la Verificación de acceso (Tech Provider) llegara a morder, el error es código 100
+  «Object with ID … does not exist, cannot be loaded due to missing permissions»**: se lee como
+  un id malo o un activo sin compartir.
+- **Reescribir el tutorial de Meta** (`lib/metodo-catalogo.ts`, `AYUDA_CAMPO.META_ACCESS_TOKEN` y
+  el tutorial del servicio, que ya divergieron) baja `tests/tutoriales-legibles.test.ts`, que pide
+  `literales.length > 300` y hoy mide 314: sacando los ~13 pasos de crear app queda raspando, y
+  cuando caiga va a culpar al extractor.
+
+**Descartado, con motivo** (corrida de 36 agentes del 16/09): pasar a Live la app del cliente
+(restricción de producto); darle más roles al dueño del token (el modo desarrollo recorta por
+AUDIENCIA, y el público de un anuncio no tiene rol); transferirle o compartirle la app de MaKo
+(una app vive en un solo portafolio, y `business_app` es la propia del negocio del usuario de
+sistema); cualquier `object_story_spec` (pare un post nuevo); publicar el post por API con el
+token del cliente (nace de la misma app); subir el Marketing API Access Tier (es otro eje).
+
+**Sin medir, con su experimento:**
+- Si el usuario de sistema «Dashboard» de Elévate cuenta como usuario con rol en la app de MaKo:
+  eso decide si, con los activos compartidos, alcanza el acceso ESTÁNDAR (días) o hace falta el
+  App Review (semanas). `GET /954456647632371/roles`, y en Business Settings → Apps que la app
+  esté asignada a ese usuario con «Administrar app».
+- Las rutas exactas de menús de Business Suite en español para compartir activos: ningún agente
+  las leyó de una fuente de Meta (el Centro de ayuda se arma por JS). Se miran en la pantalla antes
+  de dictarlas.
+
+**Sin hacer:** el botón «Conectar con Facebook» (Facebook Login for Business: `config_id` de una
+configuración con token de usuario de sistema, intercambio del `code` server-side, y guardar las
+DOS filas); la Verificación de acceso; el App Review de acceso avanzado; `meta-write` por
+workspace; el tutorial de Meta.
+
+**Vive en:** `lib/ganadores-reuso.ts` · `app/ads-manager/useGanadoresBloqueados.ts` ·
+`app/ads-manager/NuevaCampanaModal.tsx` · `app/ads-manager/AgregarConjuntoModal.tsx` ·
+`app/ads-manager/AgregarAnuncioModal.tsx` · `lib/meta-publicar-errores.ts` ·
+`tests/ganadores-reuso.test.ts` · `tests/meta-publicar-errores.test.ts`.

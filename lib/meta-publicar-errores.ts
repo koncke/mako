@@ -24,6 +24,13 @@
 // desarrolladores de Meta a cambiarle el modo a una app es pedirle que haga de programador
 // para poder usar MaKo. La salida verdadera es de la agencia (reconectar Meta con una app
 // habilitada), así que el mensaje dice QUÉ pasó, de quién es, y a quién avisar — y nada más.
+// ⚠️ Y SÍ HAY UNA SALIDA QUE EL CLIENTE PUEDE TOMAR HOY, medida el 2026-09-16 con el token de
+// ws13, en seco (validate_only sobre /ads, que sí reproduce el 1885183) y con CONTROL: un post
+// nuevo (object_story_spec) da 1885183; un creativo que apunta a un post PROPIO existente y el
+// mismo creativo de un anuncio existente PASAN. La app en desarrollo sólo bloquea lo que ELLA
+// pare. Por eso el mensaje ofrece «Usar un ganador» de la página propia — pero SÓLO cuando se
+// sabe que no es una campaña de formulario: ahí reusar da 1487888 (medido el 11/09), y
+// ofrecerlo sería mandar al cliente a otro rechazo. `pideFormulario` desconocido = no se ofrece.
 // ⚠️ Por lo mismo ya NO se le pasa el nombre de la app: nombrarla invita justo a lo prohibido.
 // El nombre sigue viajando en el texto crudo de Meta, que se guarda en el borrador y se loguea,
 // así que para diagnosticar no se perdió nada.
@@ -51,7 +58,10 @@ export function explicarRechazoPublicacion(subcode: number | null | undefined, c
     return 'Meta rechazó el anuncio: usa un post de otra página de Facebook, y tu conexión de Meta no es anunciante en esa página. No es un error de MaKo. Elige un ganador de tu propia página, sube el creativo, o dale a tu conexión acceso de anunciante a esa página en la Configuración del negocio de Meta.';
   }
   if (subcode === SUB_APP_EN_DESARROLLO) {
-    return 'Meta rechazó el anuncio: no acepta anuncios nuevos creados con el acceso de Meta que tiene conectado esta cuenta. No es un error de MaKo ni de tu cuenta publicitaria, y no se arregla desde esta pantalla: hay que renovar la conexión con Meta. Escríbenos y lo resolvemos nosotros. Los anuncios que ya están publicados siguen corriendo.';
+    const salida = ctx.pideFormulario === false
+      ? ' Mientras tanto sí puedes publicar: en «Usar un ganador» elige un anuncio de tu propia página de Facebook, en vez de subir un creativo nuevo.'
+      : '';
+    return `Meta rechazó el anuncio: no acepta creativos nuevos creados con la conexión de Meta que tiene esta cuenta. No es un error de MaKo ni de tu cuenta publicitaria, y la conexión la renovamos nosotros: escríbenos.${salida} Los anuncios que ya están publicados siguen corriendo.`;
   }
   if (subcode === SUB_FALTA_ORIGEN_CONVERSION && ctx.reusaGanador && ctx.pideFormulario) {
     return 'Meta rechazó el anuncio: un ganador reusado conserva su botón original y no puede llevar tu formulario instantáneo. Para una campaña de formulario, sube el creativo en vez de reusar el ganador.';

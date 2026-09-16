@@ -13,6 +13,8 @@ import { MakoStar, MakoWord } from '../_components/MakoBrand';
 import { subirCreativo, makeThumb, type SubidoCreativo } from './creativeUpload';
 import { CTA_OPCIONES, type Creative, type AdSetSpec, type AudienceRef } from '@/lib/campaign-types';
 import type { SenalRecon } from '@/lib/queries';
+import { ganadoresParaReusar } from '@/lib/ganadores-reuso';
+import { useGanadoresBloqueados } from './useGanadoresBloqueados';
 import { LugarPicker } from './LugarPicker';
 import { CrearFormulario } from './CrearFormulario';
 import { geoSpecDe, lugarPais, type LugarMeta } from '@/lib/meta-geo';
@@ -59,6 +61,7 @@ export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, on
   const [cta, setCta] = useState('LEARN_MORE'); const [url, setUrl] = useState(''); const [leadFormId, setLeadFormId] = useState('');
   const [saving, setSaving] = useState(false); const [err, setErr] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const ganadoresBloqueados = useGanadoresBloqueados(senales);
 
   useEffect(() => {
     fetch(`/api/ads-manager/adset-add?campaign_id=${encodeURIComponent(campaignId)}`, { cache: 'no-store' }).then((r) => r.json())
@@ -78,7 +81,7 @@ export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, on
   useEffect(() => { if (b?.needsForm && leadForms === null) fetch('/api/ads-manager/targeting?kind=leadforms', { cache: 'no-store' }).then((r) => r.json()).then((j) => { setLeadForms(j.ok ? j.items : []); if (!j.ok) setLoadErr(`No pude traer tus formularios: ${j.error || 'error'}`); }).catch((e) => { setLeadForms([]); setLoadErr(`No pude traer tus formularios: ${String(e)}`); }); }, [b, leadForms]);
 
   const opts = (audiencesAll ?? []).filter((a) => !auds.some((x) => x.id === a.id)).map((a) => ({ value: a.id, label: `${a.name ?? a.id}${a.count != null ? ` · ~${a.count.toLocaleString('es-MX')}` : ''}` }));
-  const ganadores = [...senales].filter((s) => s.ad_thumbnail_url).sort((a, b2) => b2.leads - a.leads || b2.spend_usd - a.spend_usd).slice(0, 12);
+  const ganadores = ganadoresParaReusar(senales, ganadoresBloqueados);
 
   async function subir(file: File) {
     setErr(null);
@@ -172,12 +175,15 @@ export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, on
                 {verGan && (
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', maxHeight: 150, overflowY: 'auto', marginTop: 10 }}>
                     {ganadores.map((s) => (
-                      <button key={s.ad_id} type="button" onClick={() => { setTray({ kind: 'existing', source_ad_id: s.ad_id, thumbnail_url: s.ad_thumbnail_url }); setVerGan(false); }} style={{ width: 50, height: 66, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-strong)', cursor: 'pointer', padding: 0, flex: 'none' }}>
+                      <button key={s.ad_id} type="button" disabled={!!ganadoresBloqueados?.[s.ad_id]} onClick={() => { if (ganadoresBloqueados?.[s.ad_id]) return; setTray({ kind: 'existing', source_ad_id: s.ad_id, thumbnail_url: s.ad_thumbnail_url }); setVerGan(false); }} title={ganadoresBloqueados?.[s.ad_id] ? `${s.ad_name} — ${ganadoresBloqueados[s.ad_id]}` : `${s.ad_name} · ${s.leads} leads`} style={{ width: 50, height: 66, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-strong)', cursor: ganadoresBloqueados?.[s.ad_id] ? 'not-allowed' : 'pointer', padding: 0, flex: 'none', opacity: ganadoresBloqueados?.[s.ad_id] ? 0.35 : 1 }}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={s.ad_thumbnail_url!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       </button>
                     ))}
                   </div>
+                )}
+                {verGan && ganadores.some((s) => ganadoresBloqueados?.[s.ad_id]) && (
+                  <p style={{ fontSize: 12, color: 'var(--dim)', margin: '8px 0 0', lineHeight: 1.45 }}>Los apagados son de otra página de Facebook: tu conexión de Meta no es anunciante en ella, y Meta no deja publicarlos.</p>
                 )}
                 {tray?.kind === 'upload' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>

@@ -34,6 +34,13 @@ test('cada rechazo nombra a Meta primero, dice que no es de MaKo y da la salida'
   assert.doesNotMatch(app, /developers\.facebook|modo p(ú|u)blico|«Live»|publicar (esa|tu) app|modo de desarrollo/i);
   assert.doesNotMatch(app, /app/i, 'ni siquiera nombrarle la app: nombrarla invita a ir a tocarla');
 
+  // La salida medida (reusar un anuncio de la página propia) se ofrece SÓLO cuando se sabe
+  // que no es una campaña de formulario: ahí reusar da 1487888.
+  assert.match(explicarRechazoPublicacion(SUB_APP_EN_DESARROLLO, { pideFormulario: false })!, /«Usar un ganador» elige un anuncio de tu propia página/);
+  assert.doesNotMatch(explicarRechazoPublicacion(SUB_APP_EN_DESARROLLO, { pideFormulario: true })!, /Usar un ganador/);
+  assert.doesNotMatch(app, /Usar un ganador/, 'sin saber si pide formulario, no se promete una salida');
+  //   ROTO A PROPÓSITO (2026-09-16): ofreciendo «Usar un ganador» siempre, pass 1 / fail 1.
+
   // El del pixel sólo se traduce cuando SÍ es el caso medido: ganador + formulario.
   assert.match(explicarRechazoPublicacion(SUB_FALTA_ORIGEN_CONVERSION, { reusaGanador: true, pideFormulario: true })!, /sube el creativo/);
   assert.equal(explicarRechazoPublicacion(SUB_FALTA_ORIGEN_CONVERSION, { reusaGanador: false, pideFormulario: true }), null);

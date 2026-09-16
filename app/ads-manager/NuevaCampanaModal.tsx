@@ -21,6 +21,8 @@ import { useEffect, useId, useRef, useState, type CSSProperties, type Dispatch, 
 import { Dropdown } from '../components/Dropdown';
 import { MakoStar, MakoWord } from '../_components/MakoBrand';
 import type { SenalRecon } from '@/lib/queries';
+import { ganadoresParaReusar } from '@/lib/ganadores-reuso';
+import { useGanadoresBloqueados } from './useGanadoresBloqueados';
 import { colorDeSemaforo, linkAprobarEnMeta, type MetaHealth, type NodoEstado } from '@/lib/meta-health-ui';
 import { TutorialAprobacionMeta } from './TutorialAprobacionMeta';
 import { LugarPicker } from './LugarPicker';
@@ -257,7 +259,7 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
   // ad_id → por qué NO se puede reusar ese ganador (null = todavía no se preguntó).
   // En ws13 los ganadores activos son de OTRA página, donde la conexión no es
   // anunciante: reusarlos daba 1885499 recién al publicar (lib/meta-publicar-errores.ts).
-  const [ganadoresBloqueados, setGanadoresBloqueados] = useState<Record<string, string> | null>(null);
+  const ganadoresBloqueados = useGanadoresBloqueados(senales);
   const [convs, setConvs] = useState<Array<ConvItem> | null>(null);
   const [pixels, setPixels] = useState<Array<{ id: string; name: string }> | null>(null);
   // Eventos ACTIVOS del pixel elegido (null = sin cargar). Elegir uno inactivo arruina la entrega.
@@ -463,19 +465,6 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
     setTray((t) => [...t, { id: `win-${s.ad_id}`, kind: 'existing', source_ad_id: s.ad_id, thumbnail_url: s.ad_thumbnail_url, label: s.ad_name }]);
   }
   const quitar = (id: string) => setTray((t) => t.filter((x) => x.id !== id));
-  useEffect(() => {
-    if (ganadoresBloqueados !== null) return;
-    const ids = senales.filter((x) => x.ad_thumbnail_url).map((x) => x.ad_id).slice(0, 50);
-    if (!ids.length) { setGanadoresBloqueados({}); return; }
-    fetch(`/api/ads-manager/targeting?kind=ganadores&ids=${encodeURIComponent(ids.join(','))}`, { cache: 'no-store' }).then((r) => r.json())
-      .then((j) => {
-        const m: Record<string, string> = {};
-        if (j.ok && j.ganadores) for (const [id, g] of Object.entries(j.ganadores as Record<string, { puede: boolean }>)) if (!g.puede) m[id] = 'Es de otra página de Facebook: tu conexión de Meta no es anunciante en ella.';
-        setGanadoresBloqueados(m);
-      })
-      // No poder preguntar no apaga ganadores: si falla, Meta lo dice al publicar.
-      .catch(() => setGanadoresBloqueados({}));
-  }, [senales, ganadoresBloqueados]);
 
   // ── crear un público personalizado sin salir de la app ──
   async function crearPublico(tipo: AudTipo, dias: number, evento?: string) {
@@ -1060,7 +1049,9 @@ function Inversion({ value, onChange, currency }: { value: number | null; onChan
 // ── creativos ──
 function CreativosPicker({ tray, onQuitar, senales, onGanador, fileRef, bloqueados }: { tray: TrayItem[]; onQuitar: (id: string) => void; senales: SenalRecon[]; onGanador: (s: SenalRecon) => void; fileRef: React.RefObject<HTMLInputElement | null>; bloqueados: Record<string, string> }) {
   const [verGanadores, setVerGanadores] = useState(false);
-  const ganadores = [...senales].filter((s) => s.ad_thumbnail_url).sort((a, b) => b.leads - a.leads || b.spend_usd - a.spend_usd).slice(0, 12);
+  // Los que se pueden reusar van PRIMERO (lib/ganadores-reuso.ts): en ws13 los que más
+  // gastaron son de otra página y tapaban a los únicos publicables.
+  const ganadores = ganadoresParaReusar(senales, bloqueados);
   return (
     <div style={{ width: '100%', maxWidth: 480, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
       {tray.length > 0 && (

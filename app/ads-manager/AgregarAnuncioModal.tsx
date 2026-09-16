@@ -14,6 +14,8 @@ import { MakoStar, MakoWord } from '../_components/MakoBrand';
 import { subirCreativo, makeThumb, type SubidoCreativo } from './creativeUpload';
 import { CTA_OPCIONES, type Creative } from '@/lib/campaign-types';
 import type { SenalRecon } from '@/lib/queries';
+import { ganadoresParaReusar } from '@/lib/ganadores-reuso';
+import { useGanadoresBloqueados } from './useGanadoresBloqueados';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -35,6 +37,7 @@ export function AgregarAnuncioModal({ adsetId, defaultName, senales, onClose, on
   const [leadFormId, setLeadFormId] = useState('');
   const [saving, setSaving] = useState(false); const [err, setErr] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const ganadoresBloqueados = useGanadoresBloqueados(senales);
 
   useEffect(() => {
     fetch(`/api/ads-manager/ad-add?adset_id=${encodeURIComponent(adsetId)}`, { cache: 'no-store' }).then((r) => r.json())
@@ -45,7 +48,7 @@ export function AgregarAnuncioModal({ adsetId, defaultName, senales, onClose, on
   // de permiso se contesta como fallo, nunca con la forma del éxito.
   useEffect(() => { if (info?.needsForm && leadForms === null) fetch('/api/ads-manager/targeting?kind=leadforms', { cache: 'no-store' }).then((r) => r.json()).then((j) => { setLeadForms(j.ok ? j.items : []); if (!j.ok) setLoadErr(`No pude traer tus formularios: ${j.error || 'error'}`); }).catch((e) => { setLeadForms([]); setLoadErr(`No pude traer tus formularios: ${String(e)}`); }); }, [info, leadForms]);
 
-  const ganadores = [...senales].filter((s) => s.ad_thumbnail_url).sort((a, b) => b.leads - a.leads || b.spend_usd - a.spend_usd).slice(0, 12);
+  const ganadores = ganadoresParaReusar(senales, ganadoresBloqueados);
 
   async function subir(file: File) {
     setErr(null);
@@ -110,12 +113,15 @@ export function AgregarAnuncioModal({ adsetId, defaultName, senales, onClose, on
               {verGanadores && (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', maxHeight: 160, overflowY: 'auto' }}>
                   {ganadores.length === 0 ? <p style={{ fontSize: 13, color: 'var(--faint)' }}>Sin anuncios con creativo para reusar.</p> : ganadores.map((s) => (
-                    <button key={s.ad_id} type="button" onClick={() => { setTray({ kind: 'existing', source_ad_id: s.ad_id, thumbnail_url: s.ad_thumbnail_url, label: s.ad_name }); setVerGanadores(false); }} title={`${s.ad_name} · ${s.leads} leads`} style={{ width: 52, height: 68, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-strong)', cursor: 'pointer', padding: 0, flex: 'none' }}>
+                    <button key={s.ad_id} type="button" disabled={!!ganadoresBloqueados?.[s.ad_id]} onClick={() => { if (ganadoresBloqueados?.[s.ad_id]) return; setTray({ kind: 'existing', source_ad_id: s.ad_id, thumbnail_url: s.ad_thumbnail_url, label: s.ad_name }); setVerGanadores(false); }} title={ganadoresBloqueados?.[s.ad_id] ? `${s.ad_name} — ${ganadoresBloqueados[s.ad_id]}` : `${s.ad_name} · ${s.leads} leads`} style={{ width: 52, height: 68, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-strong)', cursor: ganadoresBloqueados?.[s.ad_id] ? 'not-allowed' : 'pointer', padding: 0, flex: 'none', opacity: ganadoresBloqueados?.[s.ad_id] ? 0.35 : 1 }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={s.ad_thumbnail_url!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </button>
                   ))}
                 </div>
+              )}
+              {verGanadores && ganadores.some((s) => ganadoresBloqueados?.[s.ad_id]) && (
+                <p style={{ fontSize: 12, color: 'var(--dim)', margin: 0, lineHeight: 1.45 }}>Los apagados son de otra página de Facebook: tu conexión de Meta no es anunciante en ella, y Meta no deja publicarlos.</p>
               )}
 
               {/* copy — solo si es creativo subido (el ganador reusa su propio copy) */}
