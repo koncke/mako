@@ -36,10 +36,10 @@ export const AGENTE_SKILL_PATH = '~/.claude/skills/mako-plan/SKILL.md';
 /** El nombre con el que se baja el archivo. */
 export const AGENTE_SKILL_ARCHIVO = 'SKILL.md';
 
-/** Dónde guarda el usuario su token cuando la skill es GENÉRICA. Es el mismo archivo
- *  que ya lee el hook de telemetría (`agente-plugin.ts`), a propósito: un solo lugar
- *  donde vive la credencial en la máquina del cliente. */
-export const AGENTE_TOKEN_ARCHIVO = '~/.mako-token';
+// La ruta del archivo del token vive en lib/agente-constantes.ts (sin imports): la
+// pantalla la necesita y un 'use client' no puede importar un valor de ESTE módulo.
+import { AGENTE_TOKEN_ARCHIVO } from './agente-constantes';
+export { AGENTE_TOKEN_ARCHIVO };
 
 /**
  * El SKILL.md. Con `token`, sale la versión PERSONAL —el token adentro— que se baja de

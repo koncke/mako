@@ -25,7 +25,9 @@ import 'server-only';
 import { getTenantDb, runWithWorkspace, getWorkspace } from './workspace';
 import { getSupabaseServer } from './supabase';
 
-export type TipoPropuesta = 'lead';
+/** `accion` = una acción genérica del registro de la API (lib/api-mako) esperando
+ *  confirmación en /mako/revisar/<id>; `datos` = { operacion, payload, resumen, canal }. */
+export type TipoPropuesta = 'lead' | 'accion';
 export type EstadoPropuesta = 'pendiente' | 'aplicada' | 'descartada';
 
 export type Propuesta = {

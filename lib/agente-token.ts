@@ -24,6 +24,9 @@ import { randomBytes } from 'node:crypto';
 import { getSetting, setSetting } from './settings';
 import { runWithWorkspace } from './workspace';
 import { upsertRouting, wsPorIdentificador } from './webhook-routing';
+import { prefijoDeAlcance } from './api-mako/alcance';
+import type { Alcance as AlcanceToken } from './api-mako/tipos';
+export type { AlcanceToken };
 
 /** Key en app_settings (por workspace). */
 export const AGENTE_TOKEN_KEY = 'agente_token';
@@ -41,8 +44,10 @@ export async function getAgenteToken(ws: number): Promise<string | null> {
  * El anterior deja de servir en el acto: `wsPorAgenteToken` valida contra el
  * setting, no contra el índice.
  */
-export async function rotarAgenteToken(ws: number): Promise<string> {
-  const token = `mkoag_${randomBytes(24).toString('hex')}`;
+export async function rotarAgenteToken(ws: number, alcance: AlcanceToken = 'proponer'): Promise<string> {
+  // El alcance viaja en el PREFIJO (lib/api-mako/alcance.ts): rotar el token resetea
+  // el alcance junto con él. Los tokens sin letra —los de antes— son `proponer`.
+  const token = `${prefijoDeAlcance(alcance)}${randomBytes(24).toString('hex')}`;
   await runWithWorkspace(ws, () => setSetting(AGENTE_TOKEN_KEY, token));
   await upsertRouting(AGENTE_SERVICIO, token, ws);
   return token;

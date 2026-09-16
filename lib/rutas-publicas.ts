@@ -101,6 +101,14 @@ export const PUBLICOS = [
   // POST, y por eso no están en PUBLICOS_DE_ESCRITURA.
   '/api/agente/metricas',
   '/api/agente/consultar',
+  // ── La API de MaKo (lib/api-mako, app/api/v1) ─────────────────────────────
+  // Va como PREFIJO, y es la única carpeta que puede: bajo /api/v1 hay UNA ruta
+  // dinámica (`[area]/[operacion]`), el catálogo y la referencia, y las tres se
+  // autentican por bearer sin leer la cookie. La regla «rutas exactas, nunca
+  // prefijo» existe porque en /api/agente conviven bearer y navegador; acá no hay
+  // mezcla POR CONSTRUCCIÓN, y tests/api-mako-registro.test.ts enumera en positivo
+  // los route.ts permitidos bajo esa carpeta y falla si aparece otro.
+  '/api/v1',
 ] as const;
 
 /** Los públicos que solo deben responder a LECTURA. El early-return se saltea el

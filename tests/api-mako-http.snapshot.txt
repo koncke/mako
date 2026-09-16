@@ -1,0 +1,3 @@
+cancelar_accion
+confirmar_accion
+listar_pendientes

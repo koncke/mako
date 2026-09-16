@@ -74,11 +74,52 @@ export async function getPendiente(ws: number, id: number): Promise<Pendiente | 
   });
 }
 
-/** Cierra una pendiente con un estado final + resultado. */
-export async function resolverPendiente(ws: number, id: number, estado: EstadoPendiente, resultado?: string): Promise<void> {
-  await runWithWorkspace(ws, async () => {
+/**
+ * Cierra una pendiente con un estado final + resultado. Devuelve si tocó una fila.
+ * Con `soloSiPendiente`, no pisa una que ya se resolvió (dos cancelaciones, un
+ * cancelar sobre algo que ya se ejecutó).
+ */
+export async function resolverPendiente(ws: number, id: number, estado: EstadoPendiente, resultado?: string, opts?: { soloSiPendiente?: boolean }): Promise<boolean> {
+  return runWithWorkspace(ws, async () => {
     const db = await getTenantDb();
-    await db.from('mako_acciones_pendientes')
+    let q = db.from('mako_acciones_pendientes')
       .update({ estado, resultado: resultado ?? null, resuelto_at: new Date().toISOString() }).eq('id', id);
+    if (opts?.soloSiPendiente) q = q.eq('estado', 'pendiente');
+    const { data } = await q.select('id');
+    return (data ?? []).length > 0;
+  });
+}
+
+/**
+ * RECLAMA una pendiente para ejecutarla: la pasa a 'confirmada' SOLO si sigue
+ * 'pendiente' y vigente. Devuelve false si otra confirmación ya la tomó o venció.
+ *
+ * ⚠️ Es lo que hace que dos «sí» seguidos, dos pestañas o un cliente HTTP que
+ * reintenta ejecuten UNA sola vez. Antes se ejecutaba y recién después se resolvía,
+ * y por WhatsApp lo tapaba el lock del grupo; por la app y por HTTP no lo tapaba
+ * nada. El molde es `marcarAplicada` de lib/propuestas.ts.
+ */
+export async function reclamarPendiente(ws: number, id: number): Promise<boolean> {
+  return runWithWorkspace(ws, async () => {
+    const db = await getTenantDb();
+    const { data } = await db.from('mako_acciones_pendientes')
+      .update({ estado: 'confirmada' })
+      .eq('id', id).eq('estado', 'pendiente').gt('vence_at', new Date().toISOString())
+      .select('id');
+    return (data ?? []).length > 0;
+  });
+}
+
+/** Todas las pendientes VIGENTES del workspace, vengan del canal que vengan. Para la
+ *  bandeja /mako/pendientes, donde una persona logueada confirma o cancela. */
+export async function pendientesDelWorkspace(ws: number): Promise<Pendiente[]> {
+  await vencerExpiradas(ws);
+  return runWithWorkspace(ws, async () => {
+    const db = await getTenantDb();
+    const { data } = await db.from('mako_acciones_pendientes')
+      .select('id, grupo_jid, tipo, payload, resumen, estado, vence_at, origen, created_at')
+      .eq('estado', 'pendiente')
+      .order('created_at', { ascending: false }).limit(200);
+    return ((data ?? []) as Row[]).map(toP);
   });
 }

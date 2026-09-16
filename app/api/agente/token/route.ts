@@ -10,15 +10,20 @@
 import { NextResponse } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
 import { getWorkspaceActual } from '@/lib/workspace';
-import { rotarAgenteToken } from '@/lib/agente-token';
+import { rotarAgenteToken, type AlcanceToken } from '@/lib/agente-token';
+import { esAlcance } from '@/lib/api-mako/alcance';
 import { consentimientoVigente, aceptar, VERSION_CONSENTIMIENTO } from '@/lib/agente-consentimiento';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function POST(req: Request) {
-  let body: { acepto?: unknown } | null = null;
-  try { body = (await req.json()) as { acepto?: unknown }; } catch { /* sin cuerpo: es válido, significa «todavía no acepté» */ }
+  let body: { acepto?: unknown; alcance?: unknown } | null = null;
+  try { body = (await req.json()) as { acepto?: unknown; alcance?: unknown }; } catch { /* sin cuerpo: es válido, significa «todavía no acepté» */ }
+  // El alcance del token (lib/api-mako/alcance.ts). Sin decir nada, `proponer`: es lo
+  // que los tokens siempre hicieron (leer + dejar propuestas). `ejecutar` se pide
+  // explícito desde la pantalla, con el texto de lo que significa a la vista.
+  const alcance: AlcanceToken = esAlcance(body?.alcance) ? body.alcance : 'proponer';
 
   const sesion = await getUsuarioActual();
   if (!sesion) return NextResponse.json({ ok: false, error: 'sin sesión' }, { status: 401 });
@@ -44,7 +49,7 @@ export async function POST(req: Request) {
       }
       await aceptar(ws, sesion.email ?? 'sin-email');
     }
-    return NextResponse.json({ ok: true, token: await rotarAgenteToken(ws) });
+    return NextResponse.json({ ok: true, token: await rotarAgenteToken(ws, alcance), alcance });
   } catch (err) {
     return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }

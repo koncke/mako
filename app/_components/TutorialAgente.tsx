@@ -25,7 +25,7 @@
 // =============================================================================
 
 import { useState, useMemo, type CSSProperties, type ReactNode } from 'react';
-import { AGENTE_TOKEN_ARCHIVO } from '@/lib/agente-skill';
+import { AGENTE_TOKEN_ARCHIVO } from '@/lib/agente-constantes';
 import { TEXTO_CONSENTIMIENTO } from '@/lib/agente-consentimiento-texto';
 
 /** Los dos comandos del método normal. Son CONSTANTES —no dependen del cliente— porque

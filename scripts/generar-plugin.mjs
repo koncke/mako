@@ -36,7 +36,8 @@ const skill = agenteSkillMarkdown(BASE, null);
 
 // ── LA GUARDA ───────────────────────────────────────────────────────────────
 const sospechas = [
-  [/mkoag_[0-9a-f]{8,}/i, 'un token de agente'],
+  // Con o sin la letra del alcance (mkoag_e_…, lib/api-mako/alcance.ts).
+  [/mkoag_(?:[lpe]_)?[0-9a-f]{8,}/i, 'un token de agente'],
   [/sk-ant-[\w-]{8,}/i, 'una API key de Anthropic'],
   [/eyJ[\w-]{20,}\.[\w-]{20,}/, 'un JWT'],
   [/localhost|127\.0\.0\.1/, 'una URL de desarrollo'],

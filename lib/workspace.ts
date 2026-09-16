@@ -82,6 +82,9 @@ const TENANT_TABLES = new Set<string>([
   // el cliente de servicio y sin scope, a propósito: es el único lugar del sistema
   // donde el aislamiento se cruza, y está declarado en la migración 0124.
   'agente_sesiones',
+  // Bitácora de la API de MaKo (mig 0158): una fila por llamada HTTP. Va acá para que
+  // el cliente vea solo las suyas; la escribe lib/api-mako/bitacora.ts con ws explícito.
+  'api_llamadas',
   'archivero_files',
   'ad_transcripts', 'adset_budget_daily', 'anthropic_usage', 'chart_chats', 'chart_sessions',
   'chat_agent_handoffs',
