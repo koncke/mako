@@ -17,6 +17,16 @@
 //           conjunto de formulario: el post conserva su botón original, no lleva el
 //           formulario, y Meta lo trata como conversión web sin pixel.
 //
+// ⚠️ EL 1885183 NO LE PIDE AL CLIENTE QUE PUBLIQUE SU APP, Y ES UNA REGLA, NO UN GUSTO.
+// La versión vieja decía «hay que pasar esa app a modo público en developers.facebook.com».
+// Martín lo cortó el 2026-09-16: «no me menciones más que el cliente tenga que publicar su
+// app, esa no es opción». Y tiene razón como copy: mandar a un dueño de negocio al panel de
+// desarrolladores de Meta a cambiarle el modo a una app es pedirle que haga de programador
+// para poder usar MaKo. La salida verdadera es de la agencia (reconectar Meta con una app
+// habilitada), así que el mensaje dice QUÉ pasó, de quién es, y a quién avisar — y nada más.
+// ⚠️ Por lo mismo ya NO se le pasa el nombre de la app: nombrarla invita justo a lo prohibido.
+// El nombre sigue viajando en el texto crudo de Meta, que se guarda en el borrador y se loguea,
+// así que para diagnosticar no se perdió nada.
 // ⚠️ Los dos primeros NO son de MaKo, y el mensaje lo dice PRIMERO, nombrando a Meta
 // (AGENTS.md: «cuando el que falla es un tercero, se lo nombra»). El texto crudo de
 // Meta no decía de quién era ni qué hacer, y se leía como que MaKo no dejaba publicar.
@@ -29,8 +39,6 @@ export const SUB_APP_EN_DESARROLLO = 1885183;
 export const SUB_FALTA_ORIGEN_CONVERSION = 1487888;
 
 export type ContextoPublicacion = {
-  /** Nombre de la app de Meta que emitió el token (sólo hace falta para 1885183). */
-  app?: string | null;
   /** ¿Algún anuncio reusa un post existente (un ganador)? */
   reusaGanador?: boolean;
   /** ¿Algún conjunto optimiza por formulario instantáneo? */
@@ -43,8 +51,7 @@ export function explicarRechazoPublicacion(subcode: number | null | undefined, c
     return 'Meta rechazó el anuncio: usa un post de otra página de Facebook, y tu conexión de Meta no es anunciante en esa página. No es un error de MaKo. Elige un ganador de tu propia página, sube el creativo, o dale a tu conexión acceso de anunciante a esa página en la Configuración del negocio de Meta.';
   }
   if (subcode === SUB_APP_EN_DESARROLLO) {
-    const app = ctx.app?.trim() ? `«${ctx.app.trim()}»` : 'de tu conexión';
-    return `Meta rechazó el anuncio: no deja crear anuncios nuevos con un token generado por una app en modo de desarrollo, y la app ${app} lo está. No es un error de MaKo. Hay que pasar esa app a modo público («Live») en developers.facebook.com, o reconectar Meta en Integraciones con una app que ya esté en modo público.`;
+    return 'Meta rechazó el anuncio: no acepta anuncios nuevos creados con el acceso de Meta que tiene conectado esta cuenta. No es un error de MaKo ni de tu cuenta publicitaria, y no se arregla desde esta pantalla: hay que renovar la conexión con Meta. Escríbenos y lo resolvemos nosotros. Los anuncios que ya están publicados siguen corriendo.';
   }
   if (subcode === SUB_FALTA_ORIGEN_CONVERSION && ctx.reusaGanador && ctx.pideFormulario) {
     return 'Meta rechazó el anuncio: un ganador reusado conserva su botón original y no puede llevar tu formulario instantáneo. Para una campaña de formulario, sube el creativo en vez de reusar el ganador.';

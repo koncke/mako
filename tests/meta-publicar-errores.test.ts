@@ -23,12 +23,16 @@ test('cada rechazo nombra a Meta primero, dice que no es de MaKo y da la salida'
   //   ROTO A PROPÓSITO (2026-09-11): sin traducir el 1885499 la función devuelve null y
   //   este test cae — pass 1 / fail 1. Quedaba el texto crudo de Meta que vio el cliente.
 
-  const app = explicarRechazoPublicacion(SUB_APP_EN_DESARROLLO, { app: 'Joan P2P app' })!;
-  assert.match(app, /«Joan P2P app»/);
-  assert.match(app, /modo de desarrollo/);
+  // ⚠️ El 1885183 NUNCA le pide al cliente que publique su app (regla de Martín, 16/09):
+  // mandarlo a developers.facebook.com a cambiarle el modo a una app es pedirle que haga de
+  // programador para usar MaKo. Lo que se fija acá es la PROHIBICIÓN, no la redacción.
+  //   ROTO A PROPÓSITO (2026-09-16): devolviendo el copy viejo («pasar esa app a modo
+  //   público en developers.facebook.com»), pass 1 / fail 1.
+  const app = explicarRechazoPublicacion(SUB_APP_EN_DESARROLLO)!;
+  assert.match(app, /^Meta rechazó el anuncio/);
   assert.match(app, /No es un error de MaKo/);
-  // Sin el nombre de la app no se inventa uno.
-  assert.match(explicarRechazoPublicacion(SUB_APP_EN_DESARROLLO, { app: '  ' })!, /la app de tu conexión lo está/);
+  assert.doesNotMatch(app, /developers\.facebook|modo p(ú|u)blico|«Live»|publicar (esa|tu) app|modo de desarrollo/i);
+  assert.doesNotMatch(app, /app/i, 'ni siquiera nombrarle la app: nombrarla invita a ir a tocarla');
 
   // El del pixel sólo se traduce cuando SÍ es el caso medido: ganador + formulario.
   assert.match(explicarRechazoPublicacion(SUB_FALTA_ORIGEN_CONVERSION, { reusaGanador: true, pideFormulario: true })!, /sube el creativo/);

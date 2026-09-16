@@ -14,8 +14,8 @@
 
 import type { NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
-import { getAdsetForAdd, addAdToAdset, metaErrorEnvelope, appDelToken } from '@/lib/meta-ads-create';
-import { explicarRechazoPublicacion, SUB_APP_EN_DESARROLLO } from '@/lib/meta-publicar-errores';
+import { getAdsetForAdd, addAdToAdset, metaErrorEnvelope } from '@/lib/meta-ads-create';
+import { explicarRechazoPublicacion } from '@/lib/meta-publicar-errores';
 
 /**
  * El rechazo de Meta explicado (lib/meta-publicar-errores.ts): la misma traducción que
@@ -23,9 +23,8 @@ import { explicarRechazoPublicacion, SUB_APP_EN_DESARROLLO } from '@/lib/meta-pu
  * rechazos — post de otra página, app del token en modo desarrollo, ganador sin formulario.
  */
 async function mensajeDe(env: { message: string; error_subcode?: number }, creativos: Array<{ source?: string } | undefined>): Promise<string> {
-  const app = env.error_subcode === SUB_APP_EN_DESARROLLO ? await appDelToken().catch(() => null) : null;
   const reusaGanador = creativos.some((c) => c?.source === 'existing');
-  return explicarRechazoPublicacion(env.error_subcode, { app, reusaGanador }) ?? env.message;
+  return explicarRechazoPublicacion(env.error_subcode, { reusaGanador }) ?? env.message;
 }
 import { guardAdsWs } from '@/lib/ads-guard';
 import { getWorkspaceActual, OWNER_WS } from '@/lib/workspace';

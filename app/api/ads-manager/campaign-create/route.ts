@@ -11,9 +11,9 @@
 
 import type { NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
-import { createCampaign, createAdSet, createAdCreative, createAd, deleteEntity, metaErrorEnvelope, adoptarTranscripcionDelCreativo, appDelToken, identidadesMeta } from '@/lib/meta-ads-create';
+import { createCampaign, createAdSet, createAdCreative, createAd, deleteEntity, metaErrorEnvelope, adoptarTranscripcionDelCreativo, identidadesMeta } from '@/lib/meta-ads-create';
 import { validarIdentidad } from '@/lib/meta-identidad';
-import { explicarRechazoPublicacion, SUB_APP_EN_DESARROLLO } from '@/lib/meta-publicar-errores';
+import { explicarRechazoPublicacion } from '@/lib/meta-publicar-errores';
 import { type CampaignSpec, objetivoDef } from '@/lib/campaign-types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { guardAdsWs } from '@/lib/ads-guard';
@@ -116,8 +116,7 @@ export async function POST(req: NextRequest) {
     // rechazos reproducidos en ws13 se explican; el resto queda con el texto de Meta.
     const reusaGanador = spec.adsets.some((a) => a.ads.some((x) => x.creative?.source === 'existing'));
     const pideFormulario = spec.adsets.some((a) => (a.optimization_goal || objetivoDef(spec.objective).optimization_goal) === 'LEAD_GENERATION');
-    const app = env.error_subcode === SUB_APP_EN_DESARROLLO ? await appDelToken().catch(() => null) : null;
-    const mensaje = explicarRechazoPublicacion(env.error_subcode, { app, reusaGanador, pideFormulario }) ?? env.message;
+    const mensaje = explicarRechazoPublicacion(env.error_subcode, { reusaGanador, pideFormulario }) ?? env.message;
     // Rollback best-effort: borrar lo creado (todo en PAUSA, no gastó) para no dejar
     // una campaña huérfana. Borrar la campaña cascadea a conjuntos/anuncios; los
     // creativos son a nivel cuenta, se borran aparte.
