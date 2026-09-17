@@ -186,3 +186,15 @@ Además de los detectores y de los prompts que nombran el voseo para prohibirlo,
 03/09/2026 queda afuera **`app/vsl/`** (32 hallazgos): la landing de venta vende, y la voz de
 ahí es la de Martín, no la del producto que se usa adentro. Es una decisión de producto, no
 una limitación del guard.
+
+**Y lo que le devuelve la API al MODELO también está adentro (16/09/2026).** El guard barre
+todo `git ls-files app lib components`, así que mira los strings de los runners de
+`lib/api-mako/areas/`, incluidas las notas que viajan en el JSON para el modelo y no las ve
+ninguna persona. Una nota de `lib/api-mako/areas/video.run.ts` que explicaba el campo
+`marcas_de_voseo` citando las formas lo hizo fallar. Se nombra el fenómeno («formas
+rioplatenses (el voseo)», `video.run.ts:363`) en vez de citarlas, y **no se abre excepción**:
+`FUERA_DE_ALCANCE` va por archivo (por prefijo de ruta), así que exceptuar una nota apaga el
+guard para todo el runner, con cada string que se le agregue después.
+
+**Vive en:** `tests/puente-panel-copy.test.ts` (`archivosDelRepo`, `FUERA_DE_ALCANCE`) ·
+`lib/api-mako/areas/video.run.ts:363` · *2026-09-16 api-mako-areas*

@@ -44,6 +44,19 @@ la casa, facturada a la casa. **Y no falla: funciona.** Por eso ahora existe
 `credDelCliente`, que es `credWs` sin esa línea: la pregunta «¿de quién es esta
 credencial?» se contesta **eligiendo función**, no acordándose de un argumento.
 
+**Y la PANTALLA pregunta con `credWs`, así que en el ws1 miente para arriba**
+(*2026-09-16 api-mako-areas*). El ws1 ve ElevenLabs, Zernio y OpenRouter «Conectada», y
+«Probar conexión» da verde. Las tres piezas leen con la función equivocada: la tarjeta, con
+`credWs` (`lib/integraciones.ts:175`); el campo, con `estadoCampo`, que sin fila y en
+OWNER_WS cae al env con `origen: 'servidor'` (`lib/credenciales.ts:255-260`); y el ping
+prueba lo que devuelve `credWs` (`lib/metodo-verificar.ts:599`) — o sea, la key de la casa.
+La lib BYOK lee con `credDelCliente` (`lib/elevenlabs.ts:155`) y no la ve. `NO_MIGRAR_A_WS`
+no ayuda: frena la copia del boot, no esta lectura.
+
+**El diagnóstico obvio —«la key está cargada, lo roto es la feature»— es el equivocado:** la
+key que se ve no es del cliente. Para decir «conectada» sobre una credencial BYOK, la
+pregunta tiene que ser la misma que hace quien la consume. Sigue así en las tres libs.
+
 ### 3. Borrar la fila no dura: el boot la vuelve a sembrar
 
 `migrarEnvACredenciales` **rellena huecos** desde el entorno, y `.env.local`
@@ -220,6 +233,21 @@ sobre una agenda muerta, para siempre. Peor: `gcalIncompleta` daba `false` con
 `conectado:false`, así que tampoco entraba en «Requiere tu atención». Ahora hay un
 tercer estado (`gcalRechazada`) que degrada a ámbar y dice qué pasó.
 
+**Y `conectado: false` todavía contesta varias preguntas a la vez** (*2026-09-16
+api-mako-areas*). `googleCalendarConectado` (`lib/google-calendar.ts:170-182`) da `false` si
+el token nunca existió, si se desconectó (setting vacío) y si no descifra — y a diferencia de
+la tabla `credenciales`, no hay estado «ilegible» que avise. `tokenGoogle` (`:195-216`) le
+suma dos causas a su `null`: faltan `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` en el server, o
+el refresh no devolvió token (Google lo rechazó, o no contestó en 8 s). Y
+`permisoCalendarioGoogle` (`:388-395`) devuelve el mismo `conectado: false` desde su `catch`.
+O sea: «Google no respondió» se lee igual que «nunca conectaste tu agenda».
+
+**Regla para quien lo consuma:** si `googleCalendarConectado()` da `true` y
+`permisoCalendarioGoogle()` da `conectado: false`, el token está y Google no lo aceptó o no
+contestó — nunca «no se conectó». Así lo dice la API (`rechazada_o_sin_respuesta`,
+`lib/api-mako/areas/integraciones.run.ts:137`); la lib sigue sin distinguirlo, y esa es la
+deuda, en esas tres funciones.
+
 **La regla que queda:** cuando una feature pasa de owner-only a per-cliente, el gate es
 la parte barata. Lo caro son (a) los `?? OWNER_WS` que hasta ese día eran el mecanismo
 correcto y pasan a ser una fuga, y (b) **lo que un tercero exige y nadie volvió a mirar
@@ -254,3 +282,125 @@ quedó conectada la correcta.
 
 *Corrida del 05/09/2026 — 9 agentes (5 lentes + síntesis + 3 refutadores); los tres
 refutaron el plan de síntesis y los tres tenían razón: el gate solo no alcanzaba.*
+
+---
+
+## ⚠️ `verificarServicio` se escribió para el tilde del formulario, y reusado para contestar «¿anda?» miente
+
+**Vive en:** `lib/metodo-verificar.ts` (`PINGS`, `verificarServicio`) ·
+`lib/api-mako/areas/integraciones.run.ts` (`probar_conexion_integracion`)
+
+El ping corre ANTES de guardar cada campo (es el tercer registro de una integración, en
+AGENTS.md), y varias decisiones correctas para ese momento son mentiras fuera de él. Salió
+al exponerlo como «probar la conexión» en la API de MaKo. La auditoría vieja de los pings
+—«key válida» no es «la integración sirve»— está en [hallazgos-infra.md](hallazgos-infra.md);
+estas cuatro son otras.
+
+### 1. Hay `ok: true` que no le pegaron a nadie
+
+Para no trabar el guardado, varios caminos contestan `ok` sin llamar al proveedor:
+
+| Servicio | Caso | Qué devuelve |
+|---|---|---|
+| Clarity | sin token (`:430`) | `ok: true`, «ID válido. Falta el token…» |
+| Clarity | cuota diaria agotada, 402 (`:438`) | `ok: true`, «Guardado. Hoy ya se usaron las 10 consultas…» |
+| Zernio | sin key propia (`:505-507`) | `ok: true`: el modo normal, con la cuenta de la agencia |
+| Cal.com | sin API key y con secret (`:539-548`) | `ok: true`: el secret no se puede comprobar contra nadie |
+
+Quien lo reuse para decir «anda» tiene que separar los `ok` que no probaron nada. Y el
+«Guardado.» del 402 afirma una acción que, fuera del formulario, no pasó.
+
+### 2. Probar Clarity le gasta al cliente la cuota del día
+
+La Data Export API de Clarity permite 10 consultas por día, y el ping gasta una
+(`project-live-insights`, `:432`). Un «probar» apretado unas cuantas veces deja ese día sin
+resumen de sesiones — y el 402 que sigue sale como `ok`, por el punto 1.
+
+### 3. Los `facts` traen datos personales y plata
+
+Son para la tarjeta del admin, y traen: el número de WhatsApp de la bandeja de Chatwoot
+(`:155`), el email de la cuenta de Calendly (`:491`) y de Cal.com (`:562`), el título de la
+última llamada de Fathom —que suele llevar el nombre de un lead— (`:377-379`) y el uso en USD
+de OpenRouter (`:249`). Nada de eso puede salir por otro canal. Por eso la API devuelve solo
+`anda`, `detalle` y `motivo` (`integraciones.run.ts:118-125`), y así puede ir por HTTP.
+
+### 4. El sondeo de ElevenLabs no tiene timeout
+
+`fetchJson` lleva `AbortSignal.timeout(8000)` (`:22-24`), pero `sondear` (`:317-318`, el POST
+sin cuerpo a `voices/add` y a speech-to-speech) llama a `fetch` directo, sin `signal`. Un
+ElevenLabs lento cuelga la verificación hasta el techo de la función. Sin arreglar.
+
+**La regla:** una función escrita para UN momento trae las decisiones de ese momento adentro
+de sus `ok`. Antes de reusarla para otra pregunta, leé cada rama que devuelve `ok: true` y
+preguntá qué probó.
+
+*Corrida del 16/09/2026 — api-mako-areas.*
+
+---
+
+## Un link a /integraciones: el parámetro es `?abrir=`, y sin `?ws=` puede abrir otro workspace
+
+**Vive en:** `app/integraciones/IntegracionesBoard.tsx:186-210` · `lib/ws-tab.ts:51-61`
+(`conWs`) · `lib/api-mako/areas/integraciones.run.ts:50` (`linkIntegracion`)
+
+### El modal se abre con `?abrir=<key>`, y un key que no está no abre nada
+
+El inventario de la API decía `/integraciones?servicio=<key>`. Ese link abre la página y
+ningún modal, sin error: `IntegracionesBoard` lee `searchParams.get('abrir')` (`:195`) y
+además **ignora en silencio** todo key que no esté entre sus integraciones visibles ni en
+`SYNTHETIC` (`:199`). Un link bien formado a un servicio que ese workspace no ve —por capa, o
+por `soloPlataforma`— aterriza igual frente a la grilla.
+
+**Regla:** el link es `/integraciones?abrir=<key>`, y el key se valida contra `defsVisibles`
+con la capa de ese workspace ANTES de mandarlo; si no, el aviso promete un modal que no se abre.
+
+### Un link absoluto sin `?ws=` abre el workspace de la cookie
+
+Para quien administra varios (la agencia), un link a /integraciones sin `?ws=` abre el
+workspace que tenga en la cookie. En esta pantalla eso no es mirar otra cuenta: es **pegar la
+credencial de un cliente en la fila de otro**. Un link que sale por un chat no pasa por
+ninguna de las cuatro formas de navegar de AGENTS.md, así que nadie le pega el `?ws=`.
+
+⚠️ Y `conWs` no lo arregla tal cual: devuelve intacto todo href que no empiece con `/`
+(`lib/ws-tab.ts:54`), así que sobre un link ya absoluto (`${APP_BASE_URL}/integraciones?…`) no
+hace nada. Hoy ningún link de `lib/api-mako` lleva el `?ws=`. Lo que quedó SIN hacer: armar el
+path relativo con `conWs` y recién después anteponerle la base.
+
+*Corrida del 16/09/2026 — api-mako-areas.*
+
+---
+
+## La lógica de credenciales vive adentro de la ruta, así que un segundo consumidor la tiene que copiar
+
+**Vive en:** `app/api/integraciones/credencial/route.ts` (`envDelContexto` `:155`,
+`servicioDelContexto` `:161`, la rama `elegir` `:395-441`, `borrar` `:443-451`) ·
+`lib/metodo-catalogo.ts:933` (`servicioMetodo`) · `lib/api-mako/areas/integraciones.helpers.ts`
+(`servicioDelWs`)
+
+El guard de plataforma es un choke point bien puesto (ver
+[hallazgos-seguridad.md](hallazgos-seguridad.md) → «el guard cubría 4 de 6 caminos») — pero
+es el choke point **de esa ruta**. `servicioDelContexto` y `envDelContexto` son funciones
+privadas del `route.ts`; lo que está exportado es `servicioMetodo`, el accessor CRUDO, que le
+devuelve la ficha de GitHub (`soloPlataforma`) a cualquiera.
+
+El 16/09/2026 la API de MaKo necesitó la misma pregunta y no tuvo de dónde importarla:
+quedó copiada en `integraciones.helpers.ts` (`servicioDelWs`: `soloPlataforma` y el ws no es
+el de `wsSuperAdmin()` → no existe). Dos copias de un guard de seguridad es «una cosa, un
+lugar» sin cumplir, y la segunda se queda vieja el día que la primera gane un caso.
+
+Es también por qué la API **no** escribe credenciales:
+
+- **Borrar:** el guard (`envDelContexto`) y la llamada a `auditarCredencial` están escritos
+  adentro de la rama `borrar`.
+- **Elegir cuenta, página o píxel de Meta:** la rama `elegir` son ~45 líneas inline que le
+  vuelven a pedir el token de página a Meta (`descubrirMeta`, que además trae los page tokens
+  y el titular) y escriben identificadores de ruteo que otro workspace puede tener reclamados
+  (`IdentificadorOcupadoError`).
+- **Desconectar Google Calendar** es borrar el refresh token, y volver atrás exige el OAuth
+  del dueño de esa agenda: no se deshace desde un chat.
+
+**Lo que quedó SIN hacer:** mudar `servicioDelContexto`, `envDelContexto` y las ramas
+`guardar`, `elegir` y `borrar` a un `lib/integraciones-credencial.ts` que usen la ruta y la
+API. El día que exista, `servicioDelWs` se borra.
+
+*Corrida del 16/09/2026 — api-mako-areas.*

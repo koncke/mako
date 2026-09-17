@@ -238,7 +238,7 @@ decisiones opuestas.
 
 ## Exponer las tools de otro módulo: la lista va en POSITIVO, aunque hoy sean todas de lectura
 
-**Vive en:** `lib/agente-consultas.ts` · `app/api/agente/consultar/route.ts`.
+**Vive en:** `lib/agente-consultas.ts` (`CONSULTAS_AGENTE`, :37-51) · `app/api/agente/consultar/route.ts`.
 
 `/api/agente/consultar` corre `runMakoTool` —las MISMAS herramientas que MaKo adentro de
 la app— en vez de reimplementar nueve lecturas. Eso es «una cosa, un lugar» y es correcto.
@@ -256,6 +256,24 @@ buscar», como si el agente no hubiera mandado nada. Los cruza `tests/agente-con
 contra el fuente de `mako-tools.ts` — se lee del archivo porque ese módulo lleva
 `server-only` y no se puede importar desde un test.
 
+⚠️ **16/09/2026 — esta lista en positivo ya no coincide con la del registro de la API de
+MaKo.** El registro declara sin `'http'` dos de las diez: `historial_whatsapp`
+(`lib/api-mako/areas/whatsapp.def.ts:54-60`, bajo la regla «las conversaciones con
+personas no salen por HTTP») y `reuniones_lead` (`lib/api-mako/areas/crm.def.ts:60-67`,
+porque `fathomR1`/`fathomR2` traen el `share_url` de Fathom — el link público a la
+grabación y la transcripción de una llamada de venta, armado en
+`lib/auto-reuniones.ts:120-138`). Esta puerta vieja las sirve igual por bearer
+(`CONSULTAS_AGENTE`, `lib/agente-consultas.ts:40-41`), y la skill instalada las enseña
+(`lib/agente-skill.ts:317-318`). `tests/api-mako-http.snapshot.txt` no lo ve: mira el
+registro, no `/api/agente/*`. Mientras esas dos entradas existan, la regla no se cumple.
+
+**Pendiente (decisión de producto):** sacarlas de `CONSULTAS_AGENTE` rompe las skills ya
+instaladas; dejarlas es aceptar que la conversación y el link de la grabación salen por
+HTTP. No lo decidió la corrida. El lado del registro está en `docs/hallazgos-api-mako.md`
+→ «Lo que el registro declara sin `'http'` puede salir igual por una puerta vieja». Ojo:
+ahí dice que `reuniones_lead` «ahora es `SIN_HTTP`», y lo es en el registro, no en esta
+puerta. *2026-09-16 api-mako-areas*
+
 ---
 
 ## El texto de la skill lo lee el CLIENTE, así que no va en rioplatense
@@ -269,6 +287,34 @@ escribió, porque el resto del archivo tiene la voz de la casa en los comentario
 frontera no se ve al escribir. **Lo que la hace cumplir es el test, no la regla.** Vale la
 pena recordarlo cada vez que se le agrega una sección a un `.md` generado: el archivo es
 mitad documentación interna y mitad producto.
+
+---
+
+## El pie de `contextoParaAgente` habla en HTTP, y lo leen canales que no tienen esa URL
+
+**Vive en:** `lib/agente-contexto.ts:146-157` · `lib/api-mako/areas/negocio.run.ts:88-97` ·
+**Encontrado:** 16/09/2026, corrida api-mako-areas.
+
+El núcleo termina con «Si necesitas más… `GET /api/agente/contexto?seccion=…`». Está escrito
+para la skill de Claude del cliente, que tiene esa URL. Envuelto en la API de MaKo como
+`contexto_negocio`, lo leen también MaKo por WhatsApp y el chat de la app, que no la tienen
+y no saben que lo que corresponde es volver a llamar la operación con `seccion`. Un modelo
+que lee una instrucción de otro canal intenta cumplirla, o la informa como una capacidad que
+no tiene.
+
+**Cómo está hoy.** El runner lo traduce con un `replace` sobre el texto ya armado
+(`negocio.run.ts:93`: la URL entre backticks pasa a `contexto_negocio con seccion=«razones»`).
+Funciona, y es frágil de la peor forma: la regex copia el formato de una línea de OTRO
+módulo (`agente-contexto.ts:152`) y ningún test la corre. Si alguien cambia los backticks o
+la ruta allá, el `replace` no matchea, no da error, y la URL vuelve a llegar a WhatsApp.
+
+**La regla que queda:** cómo se pide más lo dice el canal que sirve el texto, no el núcleo
+compartido. Un texto compartido que nombra su propio transporte obliga a cada canal nuevo a
+parchearlo por afuera.
+
+**Sin hacer:** que `contextoParaAgente` reciba por parámetro cómo se pide una sección, en vez
+de traerlo escrito. Mientras tanto, un test que corra el runner sobre la salida real y falle
+si queda `/api/agente/contexto` adentro.
 
 ---
 

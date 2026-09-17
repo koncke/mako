@@ -22,8 +22,9 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
   escritos dos veces (en el `.slice()` y en el texto del prompt) → [Topes](#topes).
 - **Un agente que no llama la tool no falla: CONTESTA.** Su prosa salía al WhatsApp del
   dueño sin ningún chequeo, y `toolsUsados > 0` no lo ataja → [El doer](#el-doer).
-- El saldo y el gasto son globales al ws1 aunque las keys ya sean por cliente →
-  [Gasto y saldo](#gasto-y-saldo).
+- El saldo y el gasto eran globales al ws1 aunque las keys ya fueran por cliente. Lo de
+  Gemini se arregló; **el saldo de Claude de un cliente sin key propia todavía se lee y se
+  escribe en el ws1**, que es Mauricio → [Gasto y saldo](#gasto-y-saldo).
 - **Nada corta una llamada por gasto**, y el gasto de Claude no se puede atribuir a un
   cliente: las dos cosas bloquean cualquier límite por plan →
   [Gasto y saldo](#gasto-y-saldo). El análisis completo, con los números reales de
@@ -156,6 +157,25 @@ El error clásico documentado es el inverso —un tag que no existe en el catál
 el override no aplique nunca—; este es el que sí aplica, **al proceso equivocado**.
 
 **Vive en:** lib/retro-gate.ts:126 · *2026-07-22 audit-ia-routing*
+
+### ⚠️ El nombre de la función no dice qué modelo corre: `chatClaude` sobre features que están en Gemini
+
+**Síntoma:** leyendo el call-site se concluye «esto paga Claude». `plantillaDesdePaso`
+(lib/nutricion-plantillas.ts:198, `feature: 'nutri-plantilla'`) y `destilarVoz`
+(lib/nutricion-generator.ts:117-118, `feature: 'nutri-destilar-voz'`) llaman a `chatClaude`.
+Así las marcó el catálogo de la API de MaKo en la corrida del 16/09: costo `dinero`, sobre
+operaciones que no cobran (quedaron en `costo: 'ia'`, lib/api-mako/areas/chatbot.def.ts:442,450).
+
+**Causa:** `chatClaude` es la puerta, no el modelo. Las dos features tienen `def: GEMINI()`
+(lib/model-catalogo.ts:189 y :196); con un ref que no es anthropic, `chatClaude` recorre la
+cascada barata, y si toda la cascada falla el fallback a Sonnet lo corta el veto: ninguna de
+las dos está en `CLAUDE_PERMITIDO` (lib/veto-claude.ts). No cobran nunca.
+
+**Regla:** el costo de una operación se decide mirando `lib/model-catalogo.ts` + el override
+del ws1 + el veto, nunca el nombre de la función que llama al modelo.
+
+**Vive en:** lib/model-catalogo.ts:189, :196 · lib/nutricion-plantillas.ts:198 ·
+lib/nutricion-generator.ts:117-118 · *2026-09-16 api-mako-areas*
 
 ### ⚠️ El override de /modelos-ia no re-rutea nada para las features que corren por la cascada barata
 
@@ -420,6 +440,23 @@ proveedor) · app/api/onboarding/persona/route.ts + lib/persona.ts (caso testigo
 app/api/onboarding/razones/route.ts:51-55 · *2026-07-29 ~audit-onboarding-persona +
 review-onboarding-resto*
 
+**Y `chatCheapCascade` tiene la misma forma, con más multiplicadores** *(2026-09-16
+api-mako-areas)*. El `timeoutMs` llega entero a CADA intento: por proveedor, por cuenta y por
+modelo de respaldo (lib/ai-cheap.ts:437-455). `CASCADA_DOCS` son cinco proveedores
+(lib/ai-cheap.ts:217), así que 25 s para escribir un guion pueden ser 125 s o más. Dos cosas
+que no se ven desde el caller:
+
+- **Sumar los timeouts de una cadena no da un techo.** Sugerir + formato + guion en serie no es
+  «48 s»: cualquier escalón se puede pasar. Lo único que acota es un deadline absoluto que el
+  caller mira antes de arrancar cada paso — y un paso ya arrancado igual se pasa.
+- **Una función que ESCRIBE al final no se corta con `Promise.race`.** Cortar la espera de
+  `generarGuion` o `elegirAngulo` no corta la función: sigue, guarda el guion, y el caller ya lo
+  reportó como fallido. Correr contra un reloj solo es seguro sobre algo que no escribe.
+
+**Sin hacer:** `recomendarFormatos()` (lib/angulos-formatos.ts:99) no acepta `timeoutMs` y
+corre con el default de 30 s por intento. Agregarlo es tocar la firma de una lib compartida; la
+API la corre con una carrera de 45 s, que es segura solo porque esa función no escribe.
+
 ### La letra chica de los free tiers, que no avisa cuando muerde
 
 Research de julio 2026 sobre los proveedores de `lib/ai-cheap.ts`. Cuatro cosas que no están
@@ -590,6 +627,28 @@ keys son distintas y contestan (probadas una por una: 200, 503 transitorio de Go
 El diagnóstico obvio —«las 3 keys son del mismo proyecto de Google y comparten cuota»— era
 el equivocado, y se descartó pingueando cada una por separado. Lo que hacía indiagnosticable
 el caso era el mensaje, no la rotación.
+
+**⚠️ Y el reparto numera las cuentas por CANTIDAD, mientras el uso se registra por SLOT
+(16/09/2026).** `cuotasProveedores` (lib/ia-cuotas.ts:175-176) arma las filas con
+`n = Math.max(1, cuentasDe(provider))` y `Array.from({ length: n })`: cuántas keys hay
+cargadas, con piso 1. Pero `ai-cheap` registra `cuenta = clavesProv(nombre).indexOf(clave) + 1`
+(`nroCuenta`, lib/ai-cheap.ts:149), o sea el slot del catálogo: `GEMINI_API_KEY_3` es la
+cuenta 3 aunque sea la segunda cargada. Con keys en los slots 1 y 3, el panel pinta «cuenta 2:
+0%», el uso real de la 3 no aparece, y como `agotado` exige que lo estén TODAS, la fila 2
+fantasma (siempre libre) hace que el proveedor no se vea agotado nunca. Y un proveedor SIN
+ninguna key sale con «cuenta 1: 0%», que se lee como disponible. `ordenarCuentas` (:226-243)
+sí cruza por slot; el panel no.
+
+La otra punta tiene el error espejo: `ordenarPorCuota` (:202-218) recorre `clavesDe(p).length`
+slots —los 10 de `MAX_KEYS`, cargados o no— y un slot sin uso cuenta como libre. Un proveedor
+multi-key (gemini, groq, mistral, openrouter) no queda «agotado» nunca y nunca baja al final
+de la cascada.
+
+**Regla:** las cuentas se iteran sobre las claves CARGADAS con su slot (`slotDe`,
+lib/ia-keys.ts:97), nunca `1..n` ni `1..MAX_KEYS`; con cero cuentas, `agotado: null` y el
+reparto vacío, no una cuenta inventada. `ver_cuotas_ia` de la API tapa solo el caso de cero
+cuentas (lib/api-mako/areas/integraciones.run.ts:167,169) y su `por_cuenta` sale de la misma
+numeración. **Sin hacer:** las dos funciones de lib/ia-cuotas.ts. *2026-09-16 api-mako-areas*
 
 **Vive en:** lib/ia-cuotas.ts (`usoHoyPorCuenta`, `cuotasProveedores`, `ordenarCuentas`) ·
 lib/anthropic-usage.ts (`cuenta`) · supabase/migrations/0132_uso_por_cuenta.sql ·
@@ -1222,6 +1281,66 @@ no dependas de que el camino feliz los deje en null.
 
 **Vive en:** app/chat-agent/OnboardingChatAgent.tsx:604-613 y :643-645 · *2026-08-02
 ~diagnostico-audio-ensayo-chat-agent*
+
+### ⚠️ Un `tool_result` no tiene tope en Claude, y en la cascada barata tiene uno MUDO
+
+**Síntoma:** una tool que devuelve un blob revienta el turno siguiente del doer. Se vio con el
+snippet del Pixel: 86.387 caracteres (detalle en [hallazgos-landing.md](hallazgos-landing.md)
+→ «El "código que se pega" son 86 mil caracteres»).
+
+**Causa:** los dos bucles de tools hacen cosas distintas con la salida de `runTool`, y ninguna
+salva. `chatClaudeTools` la mete entera en el `tool_result` (lib/anthropic.ts:381-389).
+`chatCheapTools` la corta con `out.slice(0, 12000)` sin decirlo (lib/ai-cheap.ts:813-815): un
+JSON de 86k le llega al modelo como 12k de JSON cortado, sin marca de recorte, y razona sobre
+un pedazo creyendo que es todo. Y el runner del registro de la API devuelve la lectura tal cual
+(lib/api-mako/ejecutar.ts:173).
+
+**Regla:** toda tool que pueda devolver algo grande (un script, un HTML, un volcado) lo recorta
+ella —diciendo que recortó y cuánto medía— o devuelve un link y el largo. El bucle no te salva:
+uno no corta y el otro corta sin avisar.
+
+**Sin hacer:** el `slice` mudo de lib/ai-cheap.ts:815. Si queda un tope, que diga que cortó.
+
+**Vive en:** lib/anthropic.ts:381-389 · lib/ai-cheap.ts:813-815 · lib/api-mako/ejecutar.ts:173 ·
+*2026-09-16 api-mako-areas*
+
+### ⚠️ El RAG lee el conocimiento del ws 1 desde todos los workspaces, y el ws 1 es un cliente
+
+**Síntoma:** no se ve. Una búsqueda sin área de cualquier cliente puede traer términos del
+glosario del negocio de Mauricio. Y sin `OPENAI_API_KEY` de plataforma, la tool contesta «No
+encontré nada relevante en el conocimiento cargado» sobre un conocimiento que está.
+
+**Causa:** `wsParaRag()` (lib/mako-knowledge.ts:49-53) devuelve `[ws, OWNER_WS]` con el
+comentario «método curado de la agencia». Pero `OWNER_WS` es Mauricio, un cliente (AGENTS.md →
+«`OWNER_WS` NO es la plataforma»): todo lo que él cargue en `mako_knowledge` entra en
+`searchKnowledge`, `listActiveKnowledgeByArea` y `listKnowledgeAgencia` de cualquier otro
+workspace. Sin área pedida, `searchKnowledge` saca solo las reservadas
+(`AREAS_RESERVADAS = [ejemplos, producto]`, :39; filtro en :193), y el glosario vive en la
+misma tabla con `area='glosario'` (lib/glosario.ts). Buscan sin área: la tool
+`buscar_conocimiento` (lib/mako-tools.ts:253-258), que sale por WhatsApp, por el chat, por
+`/api/agente/consultar` y por `/api/v1/negocio/buscar_conocimiento`; el contexto de MaKo
+(lib/mako-context.ts:91), y tres writers (lib/campaign-structurer.ts:181,
+lib/ig-writer.ts:208, lib/landing-writer.ts:159). La lectura dedicada al glosario propio
+(`glosarioPropio`, lib/api-mako/areas/negocio.helpers.ts:352, con `getTenantDb`) no tiene el
+problema; la búsqueda general, sí. En las reuniones ya muerde por `listActiveKnowledgeByArea`:
+ver [hallazgos-plan.md](hallazgos-plan.md) → «El glosario del ws 1 entra en las reuniones de
+TODOS los clientes».
+
+**Y dos vacíos que mienten.** Sin la key de OpenAI, `embed` tira (lib/embeddings.ts:25) y el
+`catch { return []; }` de `searchKnowledge` (:198-200) lo vuelve cero resultados; un error de
+lectura de la base también da `[]` (:189). `listActiveKnowledgeByArea` hace lo mismo ante un
+error (:213). En los tres, «no pude buscar» y «no hay» salen iguales. La def de la API lo avisa
+en la descripción de `buscar_conocimiento`; la tool vieja, no.
+
+**Regla:** lo que se comparte entre workspaces se resuelve por `wsSuperAdmin()`, nunca por
+`OWNER_WS`, y por lista BLANCA de áreas, no por lista negra. Un buscador que no pudo buscar lo
+dice.
+
+**Sin hacer:** todo. `wsParaRag` sigue en `[ws, OWNER_WS]` y el filtro sigue siendo de
+exclusión.
+
+**Vive en:** lib/mako-knowledge.ts:39, 49-53, 170-215 · lib/mako-tools.ts:253-258 ·
+lib/mako-context.ts:91 · lib/glosario.ts · lib/embeddings.ts:25 · *2026-09-16 api-mako-areas*
 
 ### Regla: la IA filtra, y si no es concluyente no concluye
 
@@ -2048,6 +2167,37 @@ solo **al leer**, solo para Gemini y solo si hay saldo cargado (`:245-256`).
 
 **Vive en:** lib/anthropic-usage.ts:39-74,245-256 · *2026-08-08 analisis-costos-ia-cobros*
 
+### ⚠️ El resumen de gasto y el gauge de cuota cortan en 1000 filas, y «hoy» se define dos veces
+
+**Síntoma:** ninguno a la vista. Con uso suficiente, el gasto sale corto y el restante del
+saldo, largo. No hay aviso.
+
+**Causa:** `getUsageSummary` pide `.limit(20000)` (lib/anthropic-usage.ts:297), que no levanta
+el techo de 1000 filas de PostgREST (lo explica lib/supabase-paginado.ts). Ordena por
+`created_at` descendente, así que se queda con las 1000 más NUEVAS y lo que pierde es el
+principio de la ventana. Y la ventana arranca en la carga de saldo más vieja (`:272-273`), que
+puede tener meses: lo primero que se cae es justo el gasto «desde que cargaste». Es un piso, no
+un total. `usoHoyPorCuenta` tiene el mismo `.limit(20000)`, y sin orden (lib/ia-cuotas.ts:126):
+un workspace con más de 1000 llamadas en el día ve la cuota más libre de lo que está.
+
+Aparte, la ventana del día: `usoHoyPorCuenta` corta a medianoche de la hora del SERVIDOR
+(`setHours(0,0,0,0)`, lib/ia-cuotas.ts:117) y `getUsageSummary` en UTC (`setUTCHours`,
+lib/anthropic-usage.ts:269). En producción coinciden porque el runtime corre en UTC (el repo no
+fija `TZ`); en local o en un script con otra zona, dos pantallas que dicen «hoy» cortan en
+horas distintas.
+
+**Regla:** «un número redondo es una hipótesis de truncamiento» (AGENTS.md): una suma sobre
+`anthropic_usage` se pagina o no es un total. Y «hoy» se define en un solo lugar. La API de
+MaKo avisa el corte en `ver_gasto_ia` (lib/api-mako/areas/integraciones.run.ts:216); la lib y
+`/api/anthropic-usage`, no.
+
+**Sin hacer:** paginar las dos lecturas. `leerPorPaginas` (lib/supabase-paginado.ts:127) espera
+el cliente de `getTenantDb`, y este archivo lee con el cliente crudo y el filtro de workspace
+explícito: el arreglo tiene que conservar ese filtro.
+
+**Vive en:** lib/anthropic-usage.ts:267-298 · lib/ia-cuotas.ts:116-126 ·
+*2026-09-16 api-mako-areas*
+
 ### ⚠️ El saldo y el gasto de IA son globales a ws1 aunque la key sea BYOK por workspace
 
 **Síntoma:** Mauricio (ws1) ve el saldo de Gemini y el historial de cargas que hizo Martín
@@ -2065,8 +2215,41 @@ pre-BYOK: «una agencia, un pool de keys, dueño = ws1».
 Anthropic puede seguir global mientras sea la única prepaga de la agencia, así que el scoping
 es **por proveedor**, no ciego.
 
+**⚠️ Actualización 16/09/2026: lo de Gemini quedó arreglado; lo de Claude, no, y muerde en las
+TRES direcciones.** Hoy `wsDeProveedor` (lib/anthropic-usage.ts:28-39) manda al workspace del
+request todo lo que no es `anthropic`, y `getUsageSummary` filtra por ese workspace (`:294`).
+Para Claude, en cambio, devuelve el ws del cliente solo si `credWs('ANTHROPIC_API_KEY', ws)` da
+algo; si no, `OWNER_WS`, que es Mauricio, un cliente.
+
+- **Lectura.** `getSaldo('anthropic')` (`:204-207`) lee el `anthropic_saldo` del ws1, y
+  `getUsageSummary` (`:263-264`) se lo devuelve al cliente como `saldo` y `restanteUsd` (saldo
+  del ws1 menos cero, porque el cliente no tiene filas de Claude). `/api/anthropic-usage` se lo
+  sirve a cualquier admin de workspace, y `SaldoMaKo` lo pinta en el menú de perfil. La API de
+  MaKo lo anula en `ver_gasto_ia` salvo `ws === OWNER_WS` o key propia
+  (lib/api-mako/areas/integraciones.run.ts:188,197); la lib y la ruta siguen con la fuga.
+- **Registro.** `insertUsage` (`:104-111`) usa la misma función. El comentario de `:25-26`
+  («sin key propia `chatClaude` ni siquiera puede correr») es cierto para lo que COBRA: sin key
+  del cliente, `credWs` da null y `chatClaude` tira antes del `fetch` (lib/anthropic.ts:170-171,
+  :336-337). Lo que sí se registra es la fila del veto: `registrarBloqueo` (lib/anthropic.ts:50-54)
+  corre ANTES de pedir la key (`:164`, `:330`) con `provider` por default `'anthropic'`, así que
+  el bloqueo de un cliente sin key cae en el ws1, con su motivo. Los dos diagnósticos de la
+  corrida tenían razón. Y el cliente ve Claude en 0 USD y 0 tokens, cuando lo honesto es null.
+- **Escritura.** `setSaldo` (`:227-237`) y `agregarCarga` (`:243-259`) escriben con
+  `wsDeProveedor`: un admin de un cliente sin key de Claude que carga o corrige saldo pisa el
+  `anthropic_saldo` del ws1. La ruta lo facilita: `POST /api/anthropic-usage` convierte en
+  `'anthropic'` cualquier `provider` que no sea anthropic/openai/gemini, o ninguno
+  (app/api/anthropic-usage/route.ts:55). Por eso la API de MaKo no ofrece cargar ni corregir
+  saldo.
+
+**Regla (16/09):** la pregunta no es «qué proveedor» sino «de quién es la key». Para un
+workspace sin key propia, el gasto de Claude es null y el saldo no se lee ni se escribe.
+**Sin hacer:** esa condición, en positivo, en `getSaldo`, `setSaldo`, `agregarCarga` e
+`insertUsage`, y en la ruta, que además tiene que validar `provider` en vez de coercerlo.
+
 **Vive en:** lib/anthropic-usage.ts:65-73, :135-188, :205-213 · lib/ia-cuotas.ts:44-48 ·
-app/integraciones/IntegracionesBoard.tsx:934,1011 · *2026-07-23 trace-gemini-leak-ws*
+app/integraciones/IntegracionesBoard.tsx:934,1011 · *2026-07-23 trace-gemini-leak-ws* ·
+lib/anthropic-usage.ts:28-39, :104-111, :204-259 · lib/anthropic.ts:50-54, :164, :330 ·
+app/api/anthropic-usage/route.ts:55 · *2026-09-16 api-mako-areas*
 
 ### ⚠️ `costFor()` registra a costo cero todo lo que esté en PROVEEDORES_GRATIS
 
@@ -2329,6 +2512,41 @@ id, nunca por posición.
 razones/route.ts:146 · lib/entregable.ts:34,44-50 · *2026-08-06
 ~fabrica-creativos-y-ads-writer-research*
 
+### ⚠️ No poder leer la matriz se escribe como matriz vacía
+
+**Síntoma posible** (sale de leer el código, no se vio en producción): después de «escribir
+un guion» o «elegir formato» desaparecen TODOS los anuncios planteados, con sus guiones.
+
+**Causa:** tres eslabones que por separado parecen prudentes. `getSetting` convierte un error de
+Supabase en `null` (lib/settings.ts:28-31); `getRazones` convierte `null` en `[]`
+(lib/razones.ts:107-114); y `generarGuion` y `elegirAngulo` **releen la matriz después de la
+llamada a la IA** —para no pisar lo que se editó mientras tanto— y escriben
+`setRazones(actuales.map(…))` sin mirar si la celda sigue ahí (lib/razones.ts:531-533,
+lib/angulos-formatos.ts:169-171). Si esa relectura falla, `[].map` da `[]` y se guarda la
+matriz vacía. **La relectura que existe para no perder UNA edición es la que puede perderlas
+TODAS.**
+
+Las escrituras quirúrgicas (`setEstadoGuion`, `borrarGuionDeCelda`, `editarTextoGuion`) no
+caen: hacen `find` de la celda sobre la misma lectura y, con `[]`, contestan «Celda no
+encontrada» sin escribir. Ésa es la guarda que les falta a las dos de arriba.
+
+**Regla:** un read-modify-write de un JSON entero relee en estricto (`getSettingEstricto`, que
+tira) y aborta si lo que iba a modificar ya no está. «No pude leer» nunca es el punto de
+partida de un `set`. El mismo molde está vivo en el historial del Video Generator:
+[hallazgos-generativa.md](hallazgos-generativa.md) → «“No pude leer” sale como “no hay”».
+
+**Sin hacer:** el arreglo de fondo —releer con `getSettingEstricto` dentro de `generarGuion` y
+`elegirAngulo`, abortar si la celda no está, y un test con la lectura en `null`— no se aplicó
+porque vive en libs compartidas. La API solo lo DETECTA después de escribir
+(`verificarGuionNuevo` en lib/api-mako/areas/contenido.run.ts relee y avisa); la tab, ni eso.
+Tampoco hay un `getRazonesEstricto` en lib/razones.ts: la API tiene su copia en
+`contenido.helpers.ts`, con la clave `'mako.razones'` escrita a mano porque `SETTING_KEY`
+(lib/razones.ts:50) no se exporta.
+
+**Vive en:** lib/razones.ts:107-114 (`getRazones`), :531-533 (`generarGuion`) ·
+lib/angulos-formatos.ts:169-171 (`elegirAngulo`) · lib/settings.ts:28-31 · *2026-09-16
+api-mako-areas*
+
 ### ⚠️ El shape de la celda de la matriz está duplicado en cuatro archivos y ya divergió
 
 `RazonCelda` no vive en un solo lugar: se repite como object-literal en la acción 'guardar' del
@@ -2345,6 +2563,12 @@ tipo en vez de re-declararlo.
 **Vive en:** lib/razones.ts:47 (`RazonCelda`) + `normalizarRazon` + `parseRazones` ·
 app/api/onboarding/razones/route.ts (acción 'guardar') · app/onboarding/MatrizView.tsx:37 ·
 app/onboarding/RazonesView.tsx:17 · *2026-07-28 mapear-onboarding-ajustes*
+
+**Y pasó un escalón más abajo, en el guion** *(2026-09-16 api-mako-areas)*. `normalizarGuion`
+(lib/razones.ts:56-71) reconstruye el `GuionItem` campo por campo y no copia `grabadoComo`
+(lib/guion-estado.ts:72). Como toda lectura pasa por ahí, cada escritura de la matriz —desde la
+tab o desde la API— lo borra de TODOS los guiones del negocio. Lo que eso rompe río abajo está
+en [hallazgos-generativa.md](hallazgos-generativa.md) → «¿Este guion ya lo grabé?».
 
 ### ⚠️ El ensayo del onboarding del Chat Agent es de SOLO ESCRITURA: no alimenta nada
 

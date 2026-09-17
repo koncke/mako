@@ -18,6 +18,9 @@ El diseño acordado, con las cinco decisiones del dueño, está en
   [Sin datos no es cero, y cero no es rojo por error](#sin-datos-no-es-cero-y-cero-no-es-rojo-por-error).
 - **La paridad catálogo↔lector no se puede testear** porque el módulo tiene `server-only` →
   [Un guard que no se puede correr no es un guard](#un-guard-que-no-se-puede-correr-no-es-un-guard).
+- **Editar un objetivo desde `/general` puede cambiar cuál es el principal**, porque el upsert
+  resetea el `orden` de una fila que ya existe →
+  [Editar un objetivo o un KPI pisa lo que no viaja](#editar-un-objetivo-o-un-kpi-pisa-lo-que-no-viaja-empezando-por-el-orden).
 
 ---
 
@@ -323,12 +326,90 @@ Y la paleta de adentro del hero no se hereda: sobre `--sidebar`, `--ink` mide **
 `--dim` **2,09** y `--faint` **3,61**. Un solo gris del tema claro heredado ahí adentro deja
 texto ilegible **y no se nota hasta que alguien prueba el otro tema**.
 
+## Editar un objetivo o un KPI pisa lo que no viaja, empezando por el orden
+
+**Vive en:** `lib/objectives.ts` (`upsertObjective` :192-210, `upsertKpi` :252-274) ·
+`lib/objectives-modelo.ts:104` (`elegirObjetivoPrincipal`) · `app/general/actions.ts`
+(`guardarObjectiveAction`, `guardarKpiAction`) · *2026-09-16 api-mako-areas*
+
+**El síntoma:** después de editar un objetivo que no es de cobrado ni de firmado, cambia el
+objetivo principal de la cabecera. Un KPI sembrado que se edita salta al final de la lista y deja
+de figurar como `origen: 'seed'`.
+
+**La causa:** `upsertObjective` y `upsertKpi` escriben la fila ENTERA, y lo que no viaja vuelve a
+su default **también cuando la fila ya existe**: `orden: o.orden ?? Date.now()` y
+`origen: o.origen ?? 'user'` (lib/objectives.ts:204-205 y :269-270). Las dos listas se ordenan por
+`orden`, y `elegirObjetivoPrincipal`, si el grupo no tiene `cash_usd` ni `sold_usd`, se queda con
+`grupo[0]`. **Pasa hoy desde la pantalla:** `guardarObjectiveAction` y `guardarKpiAction` no mandan
+ni `orden` ni `origen`.
+
+**El diagnóstico obvio es el equivocado:** «la lib valida lo que recibe». No valida: guarda lo que
+recibe, y el saneo pone defaults. Las server actions no borran nada más porque el formulario
+reenvía TODOS los valores actuales. Un canal que manda solo lo que cambió —un modelo, una API—
+borra `avance_manual`, descuelga el KPI de su objetivo (`objective_id: null`) y resetea los
+umbrales a 100/70 y la unidad.
+
+**La regla: editar por estas dos funciones parte SIEMPRE de la fila actual.** La API de MaKo relee
+la fila y completa lo que no vino, `orden` y `origen` incluidos (lib/api-mako/areas/general.run.ts).
+
+⚠️ **Deuda:** la cura de fondo es que la lib no pise `orden` ni `origen` cuando la fila ya existe
+(lib/objectives.ts:204-205 y :269-270). No se tocó porque es lib compartida, así que **cada edición
+desde `/general` sigue reordenando**.
+
+## Dos lectores de fuentes devuelven un número plausible y equivocado
+
+**Vive en:** `lib/objectives-fuentes.ts` (`cashUsd` / `soldUsd` :103-137, `finDeDia` :36 y
+`LECTORES`) · `lib/objectives.ts` (`avanceDeObjetivo` :124) · *2026-09-16 api-mako-areas*
+
+«Sin datos no es cero» ataja el `null`. Estos dos no dan `null`: dan un número que se lee como
+medido.
+
+- **`cashUsd` y `soldUsd` no paginan.** PostgREST corta en 1000 filas sin error y la suma sale más
+  chica. El comentario dice «`pagos` tiene una fila por cuota: no llega al tope», y vale para una
+  semana o un trimestre — no para un año, y `avanceDeObjetivo` usa esos mismos lectores para los
+  objetivos ANUALES, con el rango del año entero. La única de las sumas que pagina es
+  `inversionUsd`.
+- **Tres fuentes cortan el día en UTC.** `leads_nuevos`, `vsl_plays` y `contenido_publicado`
+  comparan timestamps contra el `desde` pelado y contra `${hasta}T23:59:59.999Z`, aunque «hoy» sí
+  salga de `hoyEnWorkspace`. En Tijuana (UTC-7) el KPI diario de leads cuenta de las 17:00 de ayer
+  a las 17:00 de hoy.
+
+⚠️ **Deuda:** paginar las dos sumas y armar los bordes del día con la zona del workspace, las dos
+en `lib/objectives-fuentes.ts`. La API de MaKo lo esquiva desde afuera: topea esas dos fuentes a
+92 días y avisa del borde UTC en la salida (lib/api-mako/areas/general.run.ts:127-132). La pantalla
+no tiene ninguna de las dos defensas.
+
+## `objetivosContextoTexto() === ''` no significa «no hay nada cargado»
+
+**Vive en:** `lib/objectives.ts:582-633` (`objetivosContextoTexto`) · *2026-09-16 api-mako-areas*
+
+Devuelve `''` a propósito cuando no hay nada: un bloque vacío en un prompt es ruido. Pero también
+devuelve `''` —o un bloque sin KPIs, o sin capacidad— cuando **no pudo leer**: un `try/catch` que
+envuelve todo y contesta `''`, `getTableroKpis(hoy).catch(() => [])`,
+`getCapacidad(hoy).catch(() => null)`, y la capacidad que se calla si viene con `error`.
+
+Para el prompt está bien: callarse no inventa nada. **Para afirmar «este negocio no tiene
+objetivos, KPIs o cupo» no sirve:** hay que preguntarle a `listObjectives`, `listKpis` y
+`getCapacidad` por separado, que sí distinguen el error (las dos primeras tiran, la tercera lo
+devuelve en `error`).
+
+⚠️ Y pesa sobre lo pendiente de abajo: mudar los reportes de WhatsApp a `objetivosContextoTexto()`
+hereda esta ambigüedad. Un reporte que diga «sin objetivos» sobre una base caída es exactamente lo
+que esa migración no puede permitirse.
+
 ## Lo que quedó sin hacer
 
 - **`getObjetivoProgreso` y los tres settings siguen alimentando los reportes**
   (`lib/reportes.ts:66` y `:174`). Mientras existan, hay dos fuentes para «cuál es la meta»:
   la vieja manda en los reportes por WhatsApp y la nueva en la pantalla. Unificarlo es
   mover esos dos call-sites a `objetivosContextoTexto()`.
+- **Quitar el cupo de capacidad no se puede desde MaKo, y no es de una línea.** Guardar el cupo
+  vacío (`setCapacidad('')`) se relee como **0**: `getSettingNum` hace `Number('')`, que vale 0
+  (lib/settings.ts:88-97). El camino normal lo tolera porque pasa por `capacidadDe`, que trata
+  `!(cupo > 0)` como «sin cupo»; pero la rama de `getCapacidad` para cuando no se pudieron contar
+  los clientes activos devuelve ese `cupo` crudo (lib/objectives.ts:497-499), y la lectura diría
+  «cupo: 0». Por eso la API de MaKo no ofrece quitarlo y lo manda a `/general`. *(2026-09-16
+  api-mako-areas)*
 - **El umbral del 20% de `objetivo-en-riesgo` es un proxy sin medir.** Se eligió para que el
   ruido de un fin de semana no dispare nada; nadie lo corrió todavía contra el histórico de
   ningún workspace. Vive en `app/api/cron/objectives-vigilante/route.ts` (`DESVIO_RIESGO`).

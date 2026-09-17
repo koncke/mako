@@ -162,6 +162,93 @@ Si vas a escribir otro proceso que toque esa tabla, no asumas que el día está 
 
 **Vive en:** lib/meta-ads.ts (upsertMetrics) · *2026-07-19 ~landing-24-features-auditoria*
 
+### ⚠️ Las ventanas de /marketing no son las que dicen: Tendencias estira a períodos completos y la fatiga «7d / 28d» lee 8 y 29 días
+
+**Síntoma:** una tendencia de dos meses suma días anteriores a `desde`, y la barra del
+período en curso ya trae «agendas» de reuniones que todavía no pasaron. Un conjunto
+«fatigado en 7 días» se midió sobre 8.
+
+**Causa — Tendencias.** `_getTendencias` elige la granularidad por el LARGO del rango
+(hasta 31 días diario, hasta 180 semanal, más mensual; `lib/queries.ts:2909-2910`) y arma
+períodos completos: en semanal el primero arranca el lunes anterior a `desde` y el último
+termina el domingo; en mensual van del día 1 al fin de mes (`:2913-2924`). **Todas** las
+lecturas usan ese rango ampliado (`rangoInicio`/`rangoFin`, `:2926-2937`). El recorte a
+«ayer» (`:2898-2899`) mueve `end` ANTES de armar los períodos, así que el último igual se
+estira al domingo o al fin de mes; y «agendas» cuenta leads por `fecha_junta_1` (`:2993`),
+incluidas las reuniones ya agendadas a futuro. Ese «ayer», además, es `ayerEnTijuana()`
+para todo workspace.
+
+**Causa — fatiga.** `getFatigaAdsets` filtra `fecha >= hoy−7` y `fecha >= hoy−28`, los dos
+inclusive (`:2761-2762`, `:2770`, `:2784`): son 8 y 29 días, en campos que se llaman
+`frequency_7d`, `cpl_7d_usd` y `cpl_28d_usd`. Y `hoy` por defecto es la fecha UTC del
+server (`:2758`).
+
+**Regla:** una lectura que agrega por períodos devuelve la ventana que DE VERDAD sumó, y el
+nombre de una ventana dice los días que lee. `Tendencias` no la devuelve (`:2868-2873`), así
+que la API de MaKo la **recalcula copiando la lógica** (`lib/api-mako/areas/metricas.run.ts:262-273`)
+y, si su granularidad no coincide con la de la lib, contesta `ventana_leida: null` en vez de
+inventarla (`:284`, `:292`). La fatiga la expone como `ventana_corta`/`ventana_larga` con
+los días reales (`:315-319`).
+
+**Sin hacer:** que `_getTendencias` devuelva `rangoInicio`/`rangoFin` y el runner deje de
+copiar; hoy, si la lib cambia la granularidad, la copia lo detecta y devuelve null, no lo
+arregla. La fatiga **no** se corrigió en la lib a propósito: pasar a 7 y 28 días cambia el
+semáforo que ya leen `/general` (`app/general/page.tsx:122`), el reporte
+(`lib/reportes.ts:123`), las retros (`lib/retro-datos.ts:454`, `lib/retro-fuentes.ts:135`)
+y el aviso de `lib/avisos-catalogo.ts:277`. Es una decisión pendiente, no un typo.
+
+**Vive en:** lib/queries.ts (`_getTendencias` :2885, `_getFatigaAdsets` :2757) ·
+lib/api-mako/areas/metricas.run.ts (`ver_tendencias`, `detectar_fatiga_adsets`) ·
+*2026-09-16 api-mako-areas*
+
+### ⚠️ `dias_con_datos` cuenta días de YouTube y Panda: con Meta vacío, los ceros se leen «no invertiste» y el CAC sale $0
+
+**Síntoma:** la ventana de marketing de un workspace con Panda sincronizando y Meta sin
+filas devuelve `dias_con_datos > 0`, gasto 0, impresiones 0 y, si hubo cierres, **CAC = 0**.
+
+**Causa:** `_getMarketingWindow` junta en un solo `Set` las fechas de Meta, YouTube y Panda
+(`lib/queries.ts:278-282`) y lo devuelve como `dias_con_datos` (`:308`). Los agregados de
+Meta son `sum()` de una lista vacía: 0, no null (`:232-245`). Y el CAC es
+`cierres > 0 ? safeDiv(spend_usd, cierres) : null` (`:323`); `safeDiv` solo devuelve null
+con denominador 0 (`:144-147`), así que 0 dólares ÷ 3 cierres da un CAC de $0: el mejor CAC
+posible, inventado por la falta de datos.
+
+**Regla:** «¿hay datos de X?» se pregunta contando filas de X, nunca con un contador que
+mezcla fuentes. La API de MaKo lo hace por fuera: cuenta las filas de Meta con un `count`
+exacto y, si da 0, los campos de Meta y el CAC salen `null` con la nota «no hay datos, no
+"no hubo inversión"» (`lib/api-mako/areas/metricas.run.ts:160-173`).
+
+**Sin hacer:** la lib no expone días ni filas por fuente, así que todo consumidor de
+`getMarketingWindow` (las pantallas, los reportes, `lib/experimentos.ts`) hereda la trampa.
+
+**Vive en:** lib/queries.ts (`_getMarketingWindow` :153) · lib/api-mako/areas/metricas.run.ts
+(`resumir_marketing_periodo`) · *2026-09-16 api-mako-areas*
+
+### ⚠️ Los números de /marketing tienen hasta 10 minutos, y cruzar uno cacheado con uno fresco inventa un faltante
+
+**Síntoma:** la API de MaKo avisó «la lista está incompleta (la lectura de leads no
+pagina)» sobre una lista completa.
+
+**Causa:** la mayoría de los getters de `lib/queries.ts` pasan por `cachedRead`
+(`unstable_cache` por workspace, `lib/cache.ts:46-62`) con `TTL = { cron: 600, user: 60 }`
+(`:37`). Van a 10 minutos `getMarketingWindow` (:152), `getCACAcumulado` (:689),
+`getFunnelSeries` (:1406), `getSenalesRecon` (:1548), `getVslSerie` (:1954),
+`getFatigaAdsets` (:2756) y `getTendencias` (:2884); a 1 minuto
+`getResumenComercialMaduras` (:442), `getRevenuePeriod` (:807) y `getRevenueMensual`
+(:1109). Ninguna salida dice su edad. Invalidan antes de tiempo solo las server actions de
+/crm (`app/crm/actions.ts:24`, `app/crm/[id]/deal-actions.ts:25`) y las escrituras de la API
+de MaKo (`lib/api-mako/areas/crm.helpers.ts:37`): un webhook, un cron o la ingesta de Meta
+no. `listar_leads_embudo_maduro` compara `getFunnelMadurasLeads` (sin caché, :550) con
+`getResumenComercialMaduras` (cacheada): cuando un lead cambia por un camino que no
+invalida, los dos totales difieren hasta un minuto, y la nota del runner arranca por el
+truncado (`lib/api-mako/areas/metricas.run.ts:674-676`).
+
+**Regla:** un cruce que deduce «falta algo» compara dos lecturas del mismo lado de la
+caché. Y un número que sale de caché no se presenta como «ahora».
+
+**Vive en:** lib/cache.ts · lib/queries.ts (los `cachedRead` de arriba) ·
+lib/api-mako/areas/metricas.run.ts (`listar_leads_embudo_maduro`) · *2026-09-16 api-mako-areas*
+
 ### Pendiente: el Ads Manager no trae anuncios de imagen, solo videos
 
 La vista de anuncios se quedó en los videos. Los anuncios de imagen de la cuenta no
@@ -236,6 +323,13 @@ ignorando cualquier copy.
 **Regla:** un creativo reusado se muestra en solo-lectura con «reusa su post original», no
 editable. Un campo editable que no viaja es peor que no tenerlo.
 
+**(16/09) Y el tipo promete lo mismo que la pantalla.** `Creative` dice «Copy del anuncio
+(para upload; en 'existing' opcional para override)» (`lib/campaign-types.ts:131`), y
+`createAdCreative` con `source: 'existing'` manda solo `object_story_id` + `url_tags`
+(`lib/meta-ads-create.ts:1055-1059`): `primary_text`, `headline`, `cta_type` y
+`destination_url` no llegan a Meta. Cualquier llamador nuevo que se guíe por el tipo pierde
+los textos en silencio, igual que el wizard.
+
 **Vive en:** app/ads-manager/NuevaCampanaModal.tsx:457-471, :491 y :973-975 · lib/meta-ads-create.ts:631-635 · *2026-07-31 ~review-wizard-campana-existente*
 
 ### ⚠️ `meta_campaign_drafts` se escribe, no la lee nadie, y no está scopeada por workspace
@@ -254,6 +348,43 @@ scope. Es un registro global sin dueño y sin lector.
 `workspace_id` + backfill + alta en TENANT_TABLES.
 
 **Vive en:** supabase/migrations/0045_meta_campaign_drafts.sql · app/api/ads-manager/campaign-create/route.ts:53,62 · app/api/ads-manager/ad-add/route.ts:98,112 · lib/workspace.ts:43-57 · *2026-08-06 senales-de-avance (lo levantó antes la revisión adversarial del 2026-06-30)*
+
+### ⚠️ El árbol de Meta que leen las guardas tiene hasta 2 minutos, y `metaWrite` no lo invalida NUNCA
+
+**Síntoma:** ninguno visible. Una guarda «solo se borra lo pausado» que decida con el árbol
+puede dejar pasar el borrado de algo que se activó hace un minuto, y lo mismo al
+re-preparar en la confirmación, que vuelve a leer la misma caché.
+
+**Causa, y la lectura obvia es la equivocada.** `getMetaHealth` es `cachedRead` con
+`revalidate: 120` (`lib/meta-health.ts:492`). Leyendo `metaWrite` parece que al menos el
+rename invalida: `propagarRename` llama `updateTag(TAG.leads)` y `updateTag(TAG.marketing)`
+(`lib/meta-write.ts:137`). **No invalida nada.** `updateTag` solo corre dentro de una server
+action, y a `metaWrite` la llaman una ruta (`app/api/meta-write/route.ts:29`), el runner de
+la API (`lib/api-mako/areas/ads.run.ts:94`) y el doer (`lib/mako-doer-acciones.ts:162`):
+lanza, el `catch { /* la caché vence sola por TTL */ }` se lo traga, y lo único que corre es
+el TTL. Estado, presupuesto y borrado ni lo intentan. La trampa general de `updateTag`, en
+[hallazgos-api-mako.md](hallazgos-api-mako.md).
+
+**(16/09/2026) Y en el rename SÍ hay síntoma.** `propagarRename` escribe el nombre nuevo en
+`leads` y en `marketing_metrics_daily` ANTES de esa línea, así que la base queda bien y lo que
+no se entera es la caché: la lista de leads (`listLeads`, `TAG.leads`, 60 s) y los nombres
+que salen de las métricas (`getCampaignNameMap`, `getAdNameMap`, `getSenalesRecon`:
+`TAG.marketing` con `TTL.cron`, 10 min; los leen el CRM, /marketing, /general y la ficha del
+anuncio) siguen mostrando el nombre viejo hasta que vencen. Se lee como «el
+rename no se propagó» y no hay nada que re-ingerir: se espera o se invalida bien. El molde fuera
+de una server action ya existe: `invalidar()` en `lib/api-mako/areas/crm.helpers.ts:36-38`.
+
+**Regla:** lo que decide una escritura destructiva se lee EN VIVO justo antes
+(`cache: 'no-store'`, mirando `body.error`), nunca del árbol cacheado. Molde: `estadoVivoMeta`
+(`lib/api-mako/areas/ads.helpers.ts:147-164`), que corre antes del DELETE
+(`ads.run.ts:724-730`); usa `envCred`, o sea la cuenta del ws1, igual que `metaWrite`.
+
+**Sin hacer:** `updateTag` → `revalidateTag(tag, { expire: 0 })` en `lib/meta-write.ts:137`,
+y extenderlo a toda escritura, no solo al rename. Y exportar la lectura viva desde
+`lib/meta-write.ts`: hoy vive en un área.
+
+**Vive en:** lib/meta-health.ts:492 · lib/meta-write.ts:95-97,137 ·
+lib/api-mako/areas/ads.helpers.ts (`estadoVivoMeta`) · *2026-09-16 api-mako-areas*
 
 ### Meta contesta los errores con HTTP 200
 
@@ -285,7 +416,25 @@ conservan»).
 CRUDO del proveedor y superponé solo lo que el editor toca. Así está hoy en
 `getAdsetTargeting`/`updateAdsetTargeting`.
 
-**Vive en:** lib/meta-ads-create.ts (getAdsetTargeting/updateAdsetTargeting ~797-816) + app/ads-manager/EditarPublicoModal.tsx · *2026-06-30 ~auditoria-ads-manager-editar-publico*
+⚠️ **(16/09) Pero la superposición NO vive en la lib ni en la ruta: vive en el navegador.**
+`EditarPublicoModal` arma `{ ...base }` con el crudo y pisa sus campos
+(`app/ads-manager/EditarPublicoModal.tsx:67-88`). `POST /api/ads-manager/adset-targeting`
+acepta cualquier objeto y lo reenvía (`route.ts:34-36`), y `updateAdsetTargeting` también
+(`lib/meta-ads-create.ts:1242-1244`). O sea que **todo llamador de server que mande un
+targeting parcial borra la segmentación**, con la ruta en verde. Por eso la API de MaKo no
+expone «editar público de un conjunto»; y la cabecera de `lib/api-mako/areas/ads.def.ts:35-37`
+dice que «la ruta adset-targeting mergea antes», que es falso: el que lo lea va a creer que
+la ruta lo protege. Tampoco quedaron en la API, por motivos vecinos: crear campaña, subir
+creativos, analizar, sugerir o previsualizar (la orquestación vive solo en
+`app/api/ads-manager/*`, o gasta IA al proponer), ni agregar un conjunto
+(`addAdsetToCampaign`, `lib/meta-ads-create.ts:1303`, sí es reutilizable pero pide un
+`AdSetSpec` entero y falta decidir cómo se declara ese parámetro). La lista está en
+`ads.def.ts:28-37`.
+
+**Sin hacer:** una función en la lib que reciba SOLO los cambios, lea el crudo y superponga
+en el server; recién ahí la ruta y la API pueden aceptar un parámetro parcial.
+
+**Vive en:** lib/meta-ads-create.ts (getAdsetTargeting/updateAdsetTargeting :1231-1244) + app/ads-manager/EditarPublicoModal.tsx:67-88 · app/api/ads-manager/adset-targeting/route.ts · *2026-06-30 ~auditoria-ads-manager-editar-publico · 2026-09-16 api-mako-areas*
 
 ### Reconstruir un creativo de Meta pierde todo lo que Meta no devuelve en `object_story_spec`
 
@@ -405,7 +554,11 @@ Cuatro cosas pedidas y sin cerrar, todas sobre el wizard de campaña y la vista 
 - Públicos personalizados incompletos: faltan los que vieron los anuncios (con % de
   retención, como en Meta) y los que rellenaron el instant form; y permitir más de 180 días,
   «lo máximo posible». Regla del dueño que aplica acá: **no poner límites arbitrarios** — el
-  tope lo pone la API, no nosotros. *(2026-06-30)*
+  tope lo pone la API, no nosotros. *(2026-06-30)* ⚠️ **(16/09) Y el tope de la API es POR
+  TIPO:** `createCustomAudience` topea `dias` en 365 para todos (`lib/meta-ads-create.ts:735`,
+  con el JSDoc de `:732` diciendo todavía «1..180»), pero Meta limita a 180 días la retención
+  de un público de sitio web (tipo `pixel`): ese caso pasa todas nuestras validaciones y
+  falla recién al crear.
 - Conectar Drive para que MaKo tome los creativos del link que manda el dueño y publique la
   campaña en pausa. *(2026-07-14)*
 
@@ -657,6 +810,151 @@ paga el costo de queries del dashboard entero. El hallazgo hermano de esa misma 
 —patrones que disparaban con n=1— SÍ se aplicó: hoy hay floors de muestra ≥2.
 
 **Vive en:** app/script-analyst/ScriptsBrowser.tsx:358 (valorar); lib/script-analyst.ts (rng ~916, buildAccountProfile ~910) · *2026-06-25 ~audit-script-analyst-valorador*
+
+### ⚠️ El presupuesto de tiempo del análisis de guiones no acota una llamada: supone rutas de 300 s
+
+**Síntoma:** corrido síncrono desde la ruta v1 de la API, la función moría después de
+reclamar la pendiente y la dejaba `confirmada` para siempre (lo documenta el runner,
+`lib/api-mako/areas/ads.run.ts:99-110`).
+
+**Causa:** `DEFAULT_TIME_BUDGET_MS = 150_000` con el comentario «maxDuration de las rutas =
+300s; reservamos ~150s para que la ÚLTIMA llamada a Claude (Opus high) termine»
+(`lib/ads-analyst.ts:506-508`). O sea que el número supone una función de 300 s. Y
+`timeBudget` se mira solo antes de ARRANCAR cada análisis (`:568`): acota cuántos se empiezan,
+no cuánto dura el último, y una sola llamada (thinking + effort high) puede tardar hasta
+~150 s. Llamado desde `app/api/v1/[area]/[operacion]/route.ts` (`maxDuration = 60`, `:34`),
+un único análisis ya pasa el tope; pasarle un `timeBudgetMs` chico no cambia nada. Lo que
+salva los datos: `processCandidate` escribe la fila recién al final (`:511-520`), así que
+un corte no deja un análisis a medias.
+
+**Regla:** un presupuesto de tiempo chequeado entre iteraciones no es un timeout; el techo
+real es el `maxDuration` de quien llama, y hay que elegir el tamaño del lote contra ese
+techo. La API de MaKo analiza de a UNO y en `after()` (`lib/api-mako/areas/ads.run.ts:851-863`,
+`enSegundoPlano` :111-116), y el techo sigue siendo el de la función que confirmó — el
+detalle de las pendientes colgadas, en [hallazgos-api-mako.md](hallazgos-api-mako.md).
+
+**Vive en:** lib/ads-analyst.ts (`syncScriptAnalyses` :522-579) · lib/api-mako/areas/ads.run.ts
+(`proponer_sincronizar_guiones`, `proponer_reanalizar_guion`) · *2026-09-16 api-mako-areas*
+
+### ⚠️ Los umbrales del veredicto de un guion viven copiados en tres lugares
+
+**Síntoma:** ninguno todavía. El día que alguien mueva el corte de gancho del 28% en la
+pantalla, el cuadrante de /ads-analyst, el perfil de cuenta con el que Claude valora un
+guion nuevo y lo que contesta la API de MaKo van a clasificar el mismo anuncio distinto.
+
+**Causa:** el veredicto (escalar / reescribir / mejorar / repensar / validar) son
+`verdictFromVals` y `confFromImpr`, funciones PRIVADAS de un componente cliente
+(`app/ads-analyst/ScriptsBrowser.tsx:77`, `:93`, `:99-103`), con 28 / 10 / 8000 / 25000
+escritos ahí. `lib/ads-analyst.ts` repite los números a mano —`HOOK_BENCH = 28, HOLD_BENCH
+= 10; // mismos umbrales que el veredicto de la vista` (`:876`), y 8000 y 25000 adentro de
+`buildAccountProfile` (`:904`, `:935`)— y la API de MaKo los copió una tercera vez
+(`lib/api-mako/areas/ads.run.ts:545-551`). Ninguna importa de otra porque no hay de dónde.
+
+**Regla:** «una cosa, un lugar» (AGENTS.md). El veredicto es una función pura y va en un
+módulo propio **sin `server-only`**: `lib/ads-analyst.ts` lo tiene (`:27`), así que la
+pantalla no podría importarla de ahí.
+
+**Sin hacer:** exportar `veredictoCuadrante` y sus umbrales desde ese módulo, y que lo
+importen los tres. La corrida no lo hizo porque toca la lib y la pantalla, fuera del área.
+
+**Vive en:** app/ads-analyst/ScriptsBrowser.tsx:77-104 · lib/ads-analyst.ts:876,904,935 ·
+lib/api-mako/areas/ads.run.ts (`ver_cuadrante_retencion`) · *2026-09-16 api-mako-areas*
+
+### ⚠️ `counts.sinTranscript` no cuenta anuncios sin transcript
+
+**Causa:** `getScriptAnalystView` lo calcula como los anuncios con métricas de Meta que NO
+tienen fila en `script_analyses` (`lib/ads-analyst.ts:792`): un anuncio con transcript que
+todavía no pasó por el análisis cae ahí. Los que tienen el transcript vacío quedan
+`descartada` con motivo «sin transcript» (`:553-556`), o sea en OTRO contador.
+
+**Regla:** el nombre del campo es lo único que lee un modelo (AGENTS.md → «Lo que le
+devuelve una tool a un modelo»): con este nombre va a decir «no tienen transcript». La API
+de MaKo lo aclara con una nota (`lib/api-mako/areas/ads.run.ts:536`); la lib sigue igual.
+
+**Sin hacer:** renombrarlo (`sinAnalizar`) en la lib y en /ads-analyst.
+
+**Vive en:** lib/ads-analyst.ts:787-795 · *2026-09-16 api-mako-areas*
+
+### ⚠️ `getAngles` devuelve los 5 ángulos de fábrica ante cualquier falla: sirve para mostrar, no para escribir encima
+
+**Causa:** `getAngles` cae a `DEFAULT_ANGLES` en cuatro casos que para quien lee son el
+mismo: no hay fila, la fila queda vacía al sanearla, el JSON está roto, o la lectura falló
+(`lib/script-angles.ts:46-55`) — y `getSetting` ya convierte un error de Supabase en `null`.
+`getAvatares` hace lo mismo con `[]` (`lib/script-avatares.ts:40-48`). Mostrar los de
+fábrica está bien. Editar a partir de ahí, no: el vocabulario se guarda como lista ENTERA,
+así que un «agregar uno» que lea en un mal momento guarda los 5 de fábrica + el nuevo y la
+lista del cliente desaparece sin error. El editor de /ads-analyst parte de esa misma lectura
+(`app/ads-analyst/page.tsx:53-55`, con un `catch` más que también cae a los de fábrica), y
+`TaxonomyManager` postea las DOS listas enteras al guardar
+(`app/components/TaxonomyManager.tsx:57-58`).
+
+**Regla:** para escribir encima de una lista se lee ESTRICTO (`getSettingEstricto`) y, si no
+se pudo leer, no se escribe. Pero la fila vacía-al-sanear sí se trata como los de fábrica,
+porque eso es lo que la pantalla MUESTRA: escribir sobre `[]` reemplazaría los 5 visibles
+por uno. Molde: `vocabularioParaEscribir` (`lib/api-mako/areas/ads.helpers.ts:114-134`).
+
+**Sin hacer:** esa lectura estricta vive en el área y no en `lib/script-angles.ts`; la
+pantalla sigue partiendo de la tolerante.
+
+**Vive en:** lib/script-angles.ts:46-55 · lib/script-avatares.ts:40-48 ·
+app/components/TaxonomyManager.tsx · *2026-09-16 api-mako-areas*
+
+### ⚠️ La biblioteca de ángulos y estructuras de guion de TODOS los clientes vive en los settings de un cliente
+
+**Causa:** `getAngulosGuion` / `setAngulosGuion` / `resetAngulosGuion`
+(`lib/guion-angulos-store.ts:17-38`) y su par de estructuras (`lib/guion-estructuras-store.ts:15-34`)
+leen y escriben el override con `runWithWorkspace(OWNER_WS, …)`. El comentario lo justifica
+«igual que la voz de MaKo (mako.voz.instancia)», pero `OWNER_WS` es el ws1, Mauricio: la
+biblioteca con la que cada cliente escribe guiones (`lib/razones.ts`, `lib/guion-estructurar.ts`,
+el área `contenido` de la API) cuelga de una fila de un inquilino. Y el precedente que cita no
+lo justifica: `instanciaVoz` (`lib/mako-grupo.ts:38-47`) tiene el mismo defecto.
+
+**Y es la trampa de `getAngles`, la entrada de arriba, en la biblioteca global.** `getSetting`
+convierte un error de lectura en `null` y el store cae al catálogo de fábrica sin decirlo. El
+editor de `/admin/guiones` arranca de ese GET y postea la lista ENTERA
+(`app/admin/guiones/GuionesAdminView.tsx:62-78`): guardar después de una lectura caída pisa el
+override con los de fábrica más la edición, y la pantalla contesta «Guardado — ya está vivo
+para todos los clientes».
+
+**Regla:** lo de la plataforma va en `wsSuperAdmin()` (AGENTS.md → «`OWNER_WS` NO es la
+plataforma»), y lo que se lee para escribir encima se lee con `getSettingEstricto`.
+
+**Sin hacer:** mudar `mako.guion_angulos` y `mako.guion_estructuras` al workspace del
+super-admin, migrando el valor actual, y que el GET del editor falle en vez de mostrar los de
+fábrica.
+
+**Vive en:** lib/guion-angulos-store.ts · lib/guion-estructuras-store.ts ·
+app/api/admin/guion-angulos/route.ts · app/api/admin/guion-estructuras/route.ts ·
+app/admin/guiones/GuionesAdminView.tsx · *2026-09-16 api-mako-areas*
+
+### ⚠️ El parser de bloques de un guion está dos veces, y las dos copias YA parten distinto
+
+**Causa:** `parsearSecciones` (una línea sola en MAYÚSCULA es un rótulo) vive en
+`app/components/SeccionCard.tsx`, que es `'use client'`: importarla desde el server da una
+referencia de cliente, no la función (AGENTS.md → «'use client' es una frontera de DATOS»). La
+API de MaKo la necesitaba en el server y copió la regla en `bloquesDeGuion`
+(`lib/api-mako/areas/contenido.helpers.ts:180-206`).
+
+**Lo obvio era «el día que cambie una, se van a desincronizar». Ya lo están**, sobre el mismo
+guion. Las pantallas de guiones llaman `parsearSecciones(texto, undefined, 20)`
+(`app/ads-writer/GuionLector.tsx:50`, `GuionCard.tsx:49`, `app/onboarding/MatrizView.tsx:651`,
+`app/video-generator/VideoGeneratorApp.tsx:290`):
+
+| | La pantalla | La API |
+|---|---|---|
+| Largo máximo de un rótulo | 20 | 48 |
+| Frase corta en mayúscula adentro de un bloque | abre otra tarjeta | no, si se conocen las etiquetas de la estructura |
+| Texto antes del primer rótulo | se tira | bloque «SIN RÓTULO» |
+| Viñeta `-` `•` `·` al principio de una línea | se saca | queda |
+
+O sea que los `bloques` que lee el modelo (`contenido.run.ts:272`) no son las tarjetas que ve la
+persona.
+
+**Sin hacer:** mudar la función a un `.ts` sin `'use client'`, decidir UNA regla para esas
+cuatro filas, y que `SeccionCard` y el helper la importen.
+
+**Vive en:** app/components/SeccionCard.tsx:18-50 · lib/api-mako/areas/contenido.helpers.ts:180-206 ·
+*2026-09-16 api-mako-areas*
 
 ### Una idea rinde muchas piezas por ÁNGULO, no por canal — y los 14 ángulos no son de contenido
 
@@ -931,6 +1229,24 @@ firma, y ahí estaba otra vez.
   ~334 filas hoy. Latentes de verdad.
 - `getVslSerie` (:1966 y :1973): 56 días de YouTube y Panda, cardinalidad baja (287 y 80
   filas en un trimestre). El último de la fila.
+- ⚠️ **(16/09) El paginado del 02/09 cubrió el GASTO, no los leads.** `getTendencias` pagina
+  sus cuatro lecturas de métricas y deja pelada la de leads (`:2961`): un
+  `.or(fecha_agenda.gte, fecha_junta_1.gte, fecha_cierre.gte)` **sin tope superior** (trae
+  también todo lo agendado a futuro), sin orden y sin paginar. Pasadas las 1000 filas,
+  agendas, asistencias, cierres y CAC de Tendencias salen cortos, y qué leads se caen no
+  está definido; pinta igual en /marketing. Los `pagos` de `:2962` van acotados por rango
+  pero pelados. `listCACMensual` lee los leads con `fecha_primer_pago` también pelados
+  (`:1057-1060`). Mientras tanto la API de MaKo cuenta las filas con un `count` exacto y
+  pone la salvedad adentro de la respuesta (`contarFilas` + `avisoRecorte`,
+  `lib/api-mako/areas/metricas.helpers.ts`); la cura es `leerTodo` en la lib. Las otras
+  lecturas de leads y pagos que siguen peladas (el embudo de /marketing, el ciclo y el
+  Outstanding de /comercial, las cuotas de /general) están en
+  [hallazgos-crm.md](hallazgos-crm.md) → «Las lecturas de leads y pagos del embudo, el ciclo y
+  la cobranza no paginan».
+- ⚠️ **Y al revés: `docs/api-mako-inventario.md:1224` todavía dice que `getMarketingWindow`
+  NO pagina.** Pagina desde el 02/09 (`:192-211`). Poner una salvedad de truncado ahí era el
+  diagnóstico obvio y el equivocado: antes de agregar un aviso de recorte, abrí la función;
+  un inventario se queda viejo solo.
 
 **Y dos nombres que mienten, en el mismo archivo:**
 
@@ -958,6 +1274,15 @@ y no siempre concuerdan. `getMarketingWindow` cuenta por `cerro`; `getTendencias
 `cerro`, el CAC del dashboard y el de la serie discuten entre sí y ninguno avisa.
 `lib/metricas-negocio.ts` usa `cerro = true` a propósito: es la misma que
 `v_cohortes_mensuales`, para reconciliar con /comercial en vez de agregar una cuarta.
+
+**(16/09) Y con el CAC pasa lo mismo, tres veces.** `getMarketingWindow` divide el gasto por
+los leads con `cerro` en la ventana (`:323`); `getRevenuePeriod` lo divide por los
+**primeros pagos** del período (`:867-868`) y `listCACMensual` agrupa por mes de
+`fecha_primer_pago`; `getCACAcumulado` divide TODO el gasto histórico por todos los `cerro`
+(`:708-722`). Del lado de `estado_lead = 'ganado'` están `getFunnelEtapas` (`:1248`),
+`getFunnelSeries` (`:1476`), `getTendencias` (`:2995`) y `getMrrActivo` (`:789`). **Si dos
+números de cierres o de CAC no coinciden entre pantallas o entre operaciones de la API, casi
+siempre es esto, no un bug:** antes de depurar, mirá qué definición usa cada uno.
 
 ---
 
@@ -1361,6 +1686,11 @@ creaba la campaña con `daily_budget = 1700` = **US$17/día, 17× lo tipeado**. 
 — y lista para gastarlo al primer toggle. Ahora se convierte con la moneda real de la
 cuenta (`usdACuenta`), y para una moneda sin tasa conocida **no se inventa una**: el monto
 va tal cual y la pantalla lo dice.
+
+⚠️ **(16/09) Y la moneda de la cuenta también tiene su default inventado:** `cuentaMeta()`
+devuelve `currency: 'USD'` cuando Meta no manda el campo (`lib/meta-ads-create.ts:575`).
+Quien la lea no distingue «la cuenta cobra en dólares» de «no sé en qué cobra», y justo esa
+función existe para dejar de adivinar la moneda (su comentario, `:560-564`).
 
 **Regla que queda, y es la de las tres:** un campo con el nombre de una moneda o de un país
 adentro (`daily_budget_mxn`, `countries: ['MX']`) es una constante disfrazada de dato. Lo

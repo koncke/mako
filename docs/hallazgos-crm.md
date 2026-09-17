@@ -6,7 +6,9 @@ etapa. **No es un changelog**: es lo que no se deduce leyendo el código.
 
 **Acá va solo lo que vive en código del CRM** (`app/crm/**`, `app/leads/**`, `lib/leads.ts`,
 `lib/pipeline.ts`, `lib/funnel-etapas.ts`, `lib/stage-requirements.ts`, `lib/queries.ts`,
-`lib/crm-auto.ts`, `lib/google-calendar.ts`, `lib/auto-reuniones.ts`). Lo que se aprendió en
+`lib/crm-auto.ts`, `lib/google-calendar.ts`, `lib/auto-reuniones.ts`, `lib/mako-confirmaciones.ts`,
+`lib/fathom-auto.ts`, y el Closing: `lib/closing.ts`, `lib/post-llamada.ts`; de la API de MaKo,
+`lib/api-mako/areas/crm.*` y `closing.*`). Lo que se aprendió en
 estos frentes pero vive en otro lado está en su documento — ver
 [Lo que vive en otro documento](#lo-que-vive-en-otro-documento). El índice es
 [hallazgos.md](hallazgos.md).
@@ -37,6 +39,9 @@ en [corridas-multiagente.md](corridas-multiagente.md).
   log. → [El funnel es UNO por workspace por construcción, no por convención](#el-funnel-es-uno-por-workspace-por-construcción-no-por-convención)
 - Y el diagnóstico obvio es el equivocado: **el funnel no ubica los leads**, los ubica un
   `switch` con 11 keys fijas. → [El diagnóstico obvio: «el funnel ubica los leads». No los ubica](#el-diagnóstico-obvio-el-funnel-ubica-los-leads-no-los-ubica)
+- **Cargarle una reunión a un lead GANADO le borra el ingreso**, y marcar asistencia o
+  calificado le avisa a Meta sin vuelta atrás: `updateLead` escribe más de lo que le pasás.
+  → [`updateLead` no es un UPDATE](#-updatelead-no-es-un-update-borra-columnas-que-no-le-pasaste-y-le-avisa-a-meta)
 
 ---
 
@@ -519,6 +524,54 @@ gobierna todas las escrituras del repo).
 **Vive en:** `lib/leads.ts:381-383` (regla de coherencia) · `app/crm/CrmBoard.tsx`
 (`qhCalificadoPersiste`) · `app/crm/actions.ts` (`completeStageMoveAction`) ·
 *2026-08-06 ~wizard-que-hacer-ahora-y-horarios-de-google*
+
+*2026-09-16 api-mako-areas:* la regla vive hoy en `lib/leads.ts:532-534`, y muerde fuera del
+wizard también: marcar que no vino a la R1 borra el calificado, y volver a marcar que sí vino
+no lo devuelve. Ver la entrada siguiente.
+
+### ⚠️ `updateLead` no es un UPDATE: borra columnas que no le pasaste y le avisa a Meta
+
+**Síntoma:** un lead GANADO pierde su monto y su fecha de cierre cuando alguien le carga a mano
+la fecha de una reunión vieja. Nadie tocó el ingreso.
+
+**Causa:** `setMeetingManual` reabre todo lead que no esté `abierto` (`lib/leads.ts:849-850`).
+Su comentario dice por qué (:845-848): se pensó para los MOVIMIENTOS del kanban, donde un
+Ganado → R2 sin reabrir «no hace nada». Pero la misma función carga una fecha desde
+`markMeetingManualAction` (`app/crm/actions.ts:1744`) y desde la API, que la ofrece para
+completar datos viejos, y ahí la premisa del comentario ya no vale. El resto lo deriva
+`updateLead` solo:
+
+- `estado_lead: 'abierto'` → `cerro = null` (:513) → `monto_cierre_usd` y `fecha_cierre` en
+  null (:535-537), y `motivo_perdida` en null (:523-525). El monto queda en el historial; la
+  fecha de cierre **no**, porque no está en `AUDIT_FIELDS` (:914-932): esa se pierde.
+- `asistio_j1 !== true` → `calificado = null` (:532-534).
+- Y **después** de guardar dispara Meta CAPI (decide en :552-564, manda en :606-630): `Lead`
+  cuando `calificado` pasa a true, `QualifiedLead` cuando `asistio_j1` y `calificado` quedan
+  los dos en true. Lo manda todo camino que termine en `updateLead`: marcar asistencia,
+  marcar calificado, cargar una reunión con asistencia y la asistencia que marca Fathom
+  (`applyFathomRecording`, :894-896).
+
+**Reversible en el CRM no es reversible en Meta.** Y como el no-show borra el calificado,
+deshacerlo y volver a calificar manda el `Lead` **otra vez**. Ojo con la etiqueta:
+`proponer_cambio_etapa` está declarada `reversible: true` y su propio `escribe` dice que
+«puede mandar la conversión a Meta» (`lib/api-mako/areas/crm.def.ts:288`).
+
+**Regla:** antes de llamar `updateLead` desde un camino nuevo, enumerá lo que DERIVA (cerro,
+motivo, calificado, montos de cierre) y lo que DISPARA (CAPI, y la etiqueta de WhatsApp en
+:634), y decilo antes del «sí». La API lo hace en `preparar` (`crm.run.ts:444-446` y
+`:722-732`) y se niega a cargarle una reunión a un ganado. Es la familia de
+[El revert de MaKo guarda tus intenciones](#el-revert-de-mako-guarda-tus-intenciones-no-el-estado-del-lead):
+lo que se toca de rebote no está en tu patch.
+
+**Lo que quedó SIN hacer:** la pantalla no avisa. `markMeetingManualAction` reabre un ganado
+y le borra el ingreso sin preguntar. La cura va en `setMeetingManual`
+(`lib/leads.ts:849-850`): reabrir solo cuando el que llama es un movimiento, no cuando carga
+una fecha. No se tocó porque la lib es compartida con el kanban.
+
+**Vive en:** `lib/leads.ts` (`updateLead`, `setMeetingManual`, `AUDIT_FIELDS`) ·
+`app/crm/actions.ts` (`markMeetingManualAction`) · `lib/api-mako/areas/crm.run.ts`
+(`marcar_reunion_manual`, `marcar_asistencia_reunion`) · `lib/api-mako/areas/crm.def.ts` ·
+*2026-09-16 api-mako-areas*
 
 ### Desbloquear un contacto no es "volver a abrirlo": machaca el estado real del lead
 
@@ -1144,6 +1197,16 @@ proveedor adentro; el `status` de la tab sigue en verde.
 una llamada ya analizada (porque salió mal) sigue sin camino desde el resumen — existe en
 la tab Insights de la ficha. Vive en `app/crm/[id]/resumen/page.tsx`.
 
+*2026-09-16 api-mako-areas:* por la misma razón —el estado tiene que vivir en la base— la API
+de MaKo **no** ofrece sincronizar las llamadas, re-analizar una ni re-evaluarla con MaKo:
+`syncClosingCalls`, `analyzeOne` y `reviseWithMako` (`lib/closing.ts:780`, `:906`, `:977`)
+pagan IA de forma síncrona y no escriben fila de estado; `closing_jobs` es por lead, no por
+llamada. Se hacen desde `/closing`. Tampoco hay «grabaciones de Fathom sin analizar»:
+`preClassify` (:177) necesita saber quién es del equipo, eso lo resuelve
+`internosDelWorkspace` (:157), que es privada, y sin ella el parámetro cae a `SIN_INTERNOS`
+**sin avisar**: un integrante del equipo invitado cuenta como prospecto externo (:180, :190) y
+la reunión sale candidata a venta, o sea a pagar.
+
 ### «Buscar automáticamente» no mira Fathom: mira una tabla que casi siempre está vacía
 
 **Síntoma, dicho por el dueño del negocio en la llamada del 29/07 (01:22:32):** *«yo no estoy
@@ -1266,6 +1329,39 @@ owner-only" con otra cara.
 
 El webhook ya está cargado en Vercel y en el env local y sigue sin funcionar (*"no entiendo"*,
 15/07). **Vive en:** `app/api/webhooks/fathom/**` · `lib/auto-reuniones.ts`
+
+### ⚠️ El barrido de Fathom engancha R1 y R2 con el lead de antes, y la segunda borra la primera
+
+**Síntoma:** el barrido informa «enganché 2 grabaciones» y en la ficha del lead aparece una.
+
+**Causa:** `adjuntarFathomAuto` recorre `j1` y `j2` con el MISMO objeto `lead`, leído al
+principio de la corrida (`lib/fathom-auto.ts:71-90`). `applyFathomRecording` arma
+`fathom_links = [...lead.fathom_links, nueva]` desde ese objeto (`lib/leads.ts:881-886`) y lo
+escribe entero (:897-899). La segunda llamada no ve el link que la primera acaba de escribir y
+lo pisa. `adjuntados` suma 2 igual (`fathom-auto.ts:88-89`).
+
+Pasa desapercibido porque se cura solo: con menos de 2 links el lead vuelve a ser candidato
+(:61) y la corrida siguiente completa el que falta, mientras la reunión siga dentro de la
+ventana (`diasAtras`, 5 días por defecto). Es el mismo last-write-wins sobre un array que ya
+mordió al revert de MaKo.
+
+Y el contador tampoco distingue «no hay» de «no pude»: si Fathom no contesta, la lectura cae a
+`[]` (:33), y si `applyFathomRecording` tira, cuenta como «no enganchado» (:88). «Revisé 12,
+enganché 0» sale igual en los dos casos.
+
+**Regla:** una función que recibe la fila y escribe un array derivado de ella necesita la fila
+FRESCA en cada llamada. Si se la llama en un bucle sobre el mismo objeto, se relee entre
+llamadas, o la función relee la columna antes de escribir.
+
+**Lo que quedó SIN hacer:** refrescar `lead.fathom_links` entre J1 y J2
+(`lib/fathom-auto.ts:75-90`), o que `applyFathomRecording` relea la columna
+(`lib/leads.ts:881-887`). No se tocó porque las dos libs son compartidas; la operación
+`adjuntar_grabaciones_fathom` de la API lo avisa en su resumen
+(`lib/api-mako/areas/closing.run.ts:516-521`). Marcar asistencia desde acá también manda CAPI:
+ver [`updateLead` no es un UPDATE](#-updatelead-no-es-un-update-borra-columnas-que-no-le-pasaste-y-le-avisa-a-meta).
+
+**Vive en:** `lib/fathom-auto.ts` (`adjuntarFathomAuto`) · `lib/leads.ts`
+(`applyFathomRecording`) · *2026-09-16 api-mako-areas*
 
 ### El eco decía una hora y Enter guardaba otra
 
@@ -1591,6 +1687,123 @@ Con un solo campo está bien —el tutorial ES la ayuda de ese campo—. Con dos
 input. Lo cuida `tests/tutoriales-legibles.test.ts`: un servicio con varios campos no
 puede tenerlos todos sin ayuda propia.
 
+---
+
+## Closing: el análisis de las llamadas y el follow-up
+
+El botón que analiza una llamada, su candado (`closing_jobs`) y la búsqueda automática están
+más arriba, en [Agenda](#agenda-horarios-calendly-y-fathom). Lo del modelo y su costo, en
+[hallazgos-ia.md](hallazgos-ia.md).
+
+### ⚠️ Corregir el desenlace de una llamada le cambia el score, aunque nadie toque un puntaje
+
+**Síntoma:** se marca una llamada como ganada, o se corrige su resumen, y su score cambia. Se
+mueven el panorama, el ranking de closers y la tendencia.
+
+**El diagnóstico obvio era el equivocado:** «alguien editó un puntaje». No. `reviseAnalysis`
+recalcula **siempre** el score como promedio de las dimensiones, llegue o no una dimensión
+corregida (`lib/closing.ts:948-956`). El score guardado es el global del modelo
+(`clampScore(a.score)`, :581), que no es el promedio de sus dimensiones, así que la primera
+edición de **cualquier** campo lo reemplaza. De paso estampa `origen_clasif: 'manual'` (:957)
+aunque solo se haya tocado texto. El `edit_history` sí registra `score_antes` y
+`score_despues` (:965-968): el rastro está, lo que no está es la intención.
+
+Recalcular cuando se corrige un puntaje es a propósito: el pedido fue que corregir las
+valoraciones tenga «efecto sobre el puntaje final» ([hallazgos-ia.md](hallazgos-ia.md)). El
+bug es hacerlo cuando no se tocó ninguno.
+
+La pantalla `/closing` tiene el mismo efecto y no avisa (`app/api/closing/revise/route.ts:46`).
+La API calcula el score nuevo en `preparar` y lo dice antes del «sí»
+(`lib/api-mako/areas/closing.run.ts:390-398`).
+
+**Regla:** una edición recalcula solo lo que depende de lo que se editó.
+
+**Lo que quedó SIN hacer:** recalcular solo si `input.dims` trae algo
+(`lib/closing.ts:948-952`). No se tocó: la lib es compartida y cambia lo que ya muestra
+`/closing`.
+
+**Vive en:** `lib/closing.ts` (`reviseAnalysis`) · `app/api/closing/revise/route.ts` ·
+`lib/api-mako/areas/closing.run.ts` (`marcar_resultado_llamada`, `corregir_puntajes_llamada`) ·
+*2026-09-16 api-mako-areas*
+
+### ⚠️ `lib/closing.ts` lee `closing_analyses` sin paginar: pasadas las 1000 filas, vuelve a pagar lo ya analizado
+
+**Síntoma esperado** (sale de leer el código, no se midió): una llamada ya analizada se vuelve
+a pagar a Claude, y su valoración corregida a mano vuelve a la del modelo.
+En `/closing` la tendencia pierde los primeros meses.
+
+**Causa:** tres `select` pelados que PostgREST corta en 1000 filas sin avisar.
+
+1. **El Paso 0 de `analizarLlamadasDeLead`** (`lib/closing.ts:677-679`), que re-engancha
+   gratis lo ya analizado: no ve las filas de más allá de las 1000.
+2. **`doneByRec`** (:692-695): una grabación analizada que quedó afuera no está en el mapa, así
+   que se corre `analyzeMeeting` otra vez (:727-730) — se paga — y `upsertRow` pisa score,
+   dimensiones y desenlace. Conserva el `edit_history` (:602-611), pero no los números que ese
+   historial describe.
+3. **`getClosingViewData`** (:1047-1054): las ventas vienen por `call_date` descendente, así que
+   se pierden las más viejas. Los contadores (`allRes`) cuentan hasta 1000, y su error ni se
+   mira: solo se chequea el de ventas (:1057). `/closing` queda corta sin enterarse; la API lo
+   compensa con un `count` aparte y una advertencia (`closing.helpers.ts:48-61`).
+
+**Y el Paso 0 le saca la llamada a otro lead sin dejar rastro.** Si coincide el email del
+invitado, re-engancha aunque la fila ya estuviera en otro lead (:680-687, y lo mismo en
+:718-725): un `update` directo a `closing_analyses`, sin historial en ninguno de los dos leads.
+Por eso tampoco hay una operación «re-enganchar esta llamada a este lead»: no existe como
+función, vive inline acá.
+
+**Regla:** toda lectura de `closing_analyses` que decida qué se paga pasa por `leerTodo`
+(`lib/supabase-paginado.ts`), como ya hace `closing.helpers.ts:93`.
+
+**Lo que quedó SIN hacer:** paginar :677, :692 y :1047-1054. El doble pago está mitigado, no
+resuelto, por el candado de `closing_jobs`.
+
+**Y los números de `/closing` se calculan en dos lugares.** Closers, factores, tendencia y
+embudo vivían solo en el `useMemo` `ag` de `app/closing/ClosingBrowser.tsx:129`;
+`lib/api-mako/areas/closing.helpers.ts:128-186` los copia para la API. Si cambia el criterio en
+uno, el otro miente. **Pendiente:** mudarlos a un módulo sin `server-only` que importen los dos.
+
+**Vive en:** `lib/closing.ts` (`analizarLlamadasDeLead`, `upsertRow`, `getClosingViewData`) ·
+`app/closing/ClosingBrowser.tsx` · `lib/api-mako/areas/closing.helpers.ts` ·
+*2026-09-16 api-mako-areas*
+
+### ⚠️ El follow-up post-llamada puede redactarse sobre OTRA llamada, y vuelve a analizar sin candado
+
+**Síntoma:** «sin análisis de la llamada — no redacto a ciegas» sobre una llamada analizada
+hace tres días, o un borrador de WhatsApp sobre la charla equivocada.
+
+**Causa, en dos partes:**
+
+1. **La llamada se elige por un token, con una caída silenciosa.** `analisisDeLaLlamada`
+   (`lib/post-llamada.ts:84-100`) busca por el `embed_token` sacado del `share_url`. Si el link
+   no trae `/share/`, si la fila tiene `embed_token` null o si no encuentra, cae a «la más
+   reciente del lead en las últimas 48 h» (:91-99). Con R1 y R2 en dos días elige la que no
+   era; con la llamada fuera de la ventana, ninguna. El webhook de Fathom pasa el `share_url`
+   del payload tal cual (`app/api/webhooks/fathom/route.ts:157-161`).
+2. **Vuelve a analizar adentro, sin el candado.** `redactarFollowUpPostLlamada` corre
+   `analizarLlamadasDeLead` antes de redactar (:152-156). El candado de `closing_jobs` lo toman
+   la ruta del botón (`app/api/closing/analizar-lead/route.ts:50`) y las dos operaciones de la
+   API (`closing.run.ts:487` y `:574`); **no** lo toman el webhook de Fathom ni
+   `analizarLlamadaLeadAction` (`app/crm/insights-actions.ts:31`). Si coinciden, se paga dos
+   veces la misma grabación.
+
+**Efecto de la mitigación, para no confundirlo con un bug:** la operación de la API toma el
+MISMO candado y lo cierra con el detalle del follow-up (`closing.run.ts:574-589`). Mientras
+tanto, `estado_analisis_lead` y la pantalla de Insights del lead muestran «Revisé las llamadas
+para el follow-up…» en lugar del resumen del último análisis.
+
+**Regla:** una búsqueda por identificador exacto no cae a «la más reciente». Si el id no
+resuelve, se dice. La API ya exige que el token del link coincida con el de la fila antes de
+proponer (`closing.run.ts:554-561`); el webhook sigue con la caída.
+
+**Lo que quedó SIN hacer:** un parámetro en `redactarFollowUpPostLlamada` para no volver a
+analizar cuando la llamada ya está analizada (`lib/post-llamada.ts:152-156`). No se tocó: lib
+compartida con el webhook.
+
+**Vive en:** `lib/post-llamada.ts` (`analisisDeLaLlamada`, `redactarFollowUpPostLlamada`) ·
+`app/api/webhooks/fathom/route.ts` · `app/crm/insights-actions.ts` ·
+`lib/api-mako/areas/closing.run.ts` (`redactar_followup_post_llamada`) ·
+*2026-09-16 api-mako-areas*
+
 ## Historial, deshacer y confirmaciones
 
 ### Deshacer no es historia
@@ -1639,6 +1852,37 @@ destruido pese a que el humano rechazó**), deriva `cerro` del estado nuevo, y e
 **Vive en:** `lib/crm-auto.ts:204-212` (T6), `:229-246` (T1), `:272-298` (T3) ·
 `lib/mako-confirmaciones.ts:94-99` y `:145-150` · `lib/leads.ts:304-325` y `:1341-1343` ·
 *2026-07-05 ~review-adversarial-crm-automatico*
+
+### ⚠️ Resolver una confirmación que ya estaba resuelta no hace nada, y contesta «listo»
+
+**Síntoma:** dos personas —o la pestaña del CRM y MaKo por WhatsApp— resuelven la misma
+confirmación. La segunda recibe éxito y no pasó nada: su «rechazar» no revirtió, porque el
+otro ya había confirmado.
+
+**Causa:** `resolverConfirmacion` hace `if (c.estado !== 'pendiente') return;`
+(`lib/mako-confirmaciones.ts:147`), sin error y sin decir qué encontró. La acción del modal
+devuelve `{ ok: true }` igual (`app/crm/mako-confirm-actions.ts:24-33`). Y el cierre de la
+fila (:196-199) no filtra por `estado = 'pendiente'`: dos resoluciones simultáneas leen las
+dos «pendiente» en :144 y aplican las dos ramas — un rechazo que revierte y una opción que
+mueve de etapa, sobre el mismo lead.
+
+**Regla:** una función que aplica una decisión devuelve **si la aplicó**. Un `return` mudo
+convierte en éxito todo lo que venga después, y ningún caller lo puede distinguir.
+
+La API lo mitiga leyendo el estado antes (`resolver_confirmacion_crm`,
+`lib/api-mako/areas/crm.run.ts:616-619`), con una lectura por id escrita a mano en
+`crm.helpers.ts:42-46` (`estadoConfirmacion`) porque la lib no la exporta. Es leer y después
+actuar: achica la ventana, no la cierra.
+
+**Lo que quedó SIN hacer:** que `resolverConfirmacion` devuelva `{ aplicada, estado }`, que el
+cierre filtre por `estado = 'pendiente'` y cuente las filas, y exportar la lectura por id para
+borrar la copia del helper. ⚠️ **No reclamar ANTES del efecto sin pensarlo:** si
+`setPipelineStage` tira porque falta un dato, la confirmación queda pendiente **a propósito**
+para que el humano la resuelva desde la ficha (:186-189). Un reclamo previo rompe eso.
+
+**Vive en:** `lib/mako-confirmaciones.ts` (`resolverConfirmacion`) ·
+`app/crm/mako-confirm-actions.ts` · `lib/api-mako/areas/crm.helpers.ts`
+(`estadoConfirmacion`) · *2026-09-16 api-mako-areas*
 
 ### "Eliminar los datos de Mau" no devuelve lo que pisó: lo borra
 
@@ -1763,7 +2007,22 @@ campaña o al anuncio (abriendo Ads Manager en la campaña), y los chips no debe
 **02/08** y todavía abierto el **07/08**: *"dimos muchas vueltas con esto, quiero que
 funcione"*.
 
-**Vive en:** `TrackingTimelineCard` · el tracking del VSL (ver también
+**Una causa más, que sale de leer el código (16/09/2026, no medida):** `getTrackingEvents`
+(`lib/leads.ts:1650-1692`) pide `limit` filas **por tabla** (120 por defecto) y **después**
+descarta de `vsl_events` lo que no es de video (:1684). Desde el snippet v14 esa tabla recibe
+también `salio`, `volvio`, `cierre`, `click` y `agendo`, así que a un visitante con muchos
+eventos de página las 120 filas más recientes pueden ser todas de página y el `play` queda
+afuera: la ficha dice que no vio el VSL. El largo del resultado no dice si hubo recorte.
+
+Y el vacío tampoco distingue «no pude»: el `catch` devuelve `[]` (:1690-1692), y los errores
+de las dos queries ni llegan al catch (`data ?? []`, :1667 y :1670), así que una tabla que
+falla deja la línea de tiempo a medias sin aviso. La API lo compensa pidiendo 200 y cortando a
+60, con una nota de «puede ser que falló la lectura» (`lib/api-mako/areas/crm.run.ts:249-259`);
+la ficha (`app/crm/[id]/page.tsx:69`, `app/crm/actions.ts:183`) y `lib/lead-insights.ts:366`
+siguen con 120. **Pendiente:** filtrar los tipos de video EN la query de `vsl_events`, no
+después, y devolver el error en vez de `[]`.
+
+**Vive en:** `TrackingTimelineCard` · `lib/leads.ts` (`getTrackingEvents`) · el tracking del VSL (ver también
 [hallazgos-infra.md](hallazgos-infra.md) y la cadena de identificación del VSL)
 
 ---
@@ -1784,6 +2043,36 @@ saca el CASE de las vistas más un refactor de las queries que hoy filtran serve
 
 **Vive en:** `supabase/migrations/0084_cohortes_workspace.sql:45-46` y `:81-82` ·
 `lib/leads.ts:1019-1020` · `lib/queries.ts:922-923` · *2026-07-16 ~auditoria-env-vars*
+(al 16/09/2026 los umbrales en JS están en `lib/leads.ts:1288-1289` y `lib/queries.ts:997-998`)
+
+### ⚠️ La madurez de una cohorte se mide con el «hoy» de UTC, no con el del workspace
+
+**Síntoma esperado** (sale de leer el código, no se midió): para un workspace al oeste de UTC,
+desde la tarde (las 17:00 en Tijuana con UTC−7) una cohorte ya pasó a `madurando` o `madura` con un día
+de adelanto sobre su calendario. Entra a los KPIs de cohortes maduras de /comercial y /general
+mientras para el cliente todavía está madurando.
+
+**Causa:** tres «hoy», los tres de UTC:
+
+- Las vistas `v_cohortes_semanales` y `v_cohortes_mensuales` calculan `estado_madurez` con
+  `CURRENT_DATE - ultima_j1_cohorte` (`supabase/migrations/0084_cohortes_workspace.sql:43-48` y
+  `:78-84`). `CURRENT_DATE` es la fecha de la sesión de Postgres, que en Supabase es UTC. Y el
+  filtro `.eq('estado_madurez','madura')` corre en SQL (`lib/queries.ts:448` y `:557`), así que
+  la lib no puede corregirlo después.
+- `getDistribucionPipeline` arma `hoyUTC` en JS (`lib/queries.ts:980-999`). Hoy lo lee solo la API.
+- `estadoMadurezLead` → `diasDesdeJ1` (`lib/leads.ts:1281-1303`) hace lo mismo para la madurez de
+  UN lead (`getJuntasProximas`, las tools de MaKo).
+
+**Regla:** todo «hoy» que decide un estado de negocio sale de la zona del workspace
+(`hoyEnWorkspace`, `lib/timezone.ts:139`), también adentro de una vista SQL: se pasa como
+parámetro o la madurez se calcula en la lib.
+
+**Lo que quedó SIN hacer:** las tres. Y va con la entrada de arriba: sacar el CASE de las vistas
+es la misma migración que haría configurable el umbral.
+
+**Vive en:** `supabase/migrations/0084_cohortes_workspace.sql` · `lib/queries.ts`
+(`getDistribucionPipeline`, `getResumenComercialMaduras`) · `lib/leads.ts` (`diasDesdeJ1`) ·
+*2026-09-16 api-mako-areas*
 
 ### ⚠️ El progreso del objetivo arranca en la fecha de Mauricio para cualquier workspace sin la setting
 
@@ -1815,6 +2104,66 @@ comentarios del propio archivo y en ningún doc.
 una demo mostrándola correr**.
 
 **Vive en:** `lib/flujos.ts:7` y `:43` · *2026-07-26 ~catalogo-de-features-de-la-landing*
+
+---
+
+## Lecturas del embudo, el ciclo y la cobranza
+
+### ⚠️ Las lecturas de leads y pagos del embudo, el ciclo y la cobranza no paginan
+
+**Síntoma esperado** (sale de leer el código, no se midió): ninguno visible. Pasadas las 1000
+filas, conteos y totales salen cortos, siempre hacia abajo, y qué filas se caen no está definido.
+
+**Causa:** `.select()` pelados que PostgREST corta en 1000 sin avisar. El paginado del 02/09 cubrió
+`marketing_metrics_daily` ([hallazgos-ads.md](hallazgos-ads.md) → «Ocho getters de `/marketing`
+truncan a 1000 filas»), no `leads` ni `pagos`:
+
+| Lectura | Qué trae | Dónde se ve |
+|---|---|---|
+| `getFunnelEtapas` (`lib/queries.ts:1234-1238`) | leads con R1 en la ventana | el embudo de /marketing |
+| `getSCL` (`lib/queries.ts:912-916`) | leads con agenda y primer pago, sin ventana | /comercial |
+| `getTramosSCL` (`lib/queries.ts:1783-1785`) | **la tabla `leads` entera** | /comercial |
+| `getDistribucionPipeline` (`lib/queries.ts:971-974`) | todo lead que asistió a la R1 | solo la API |
+| `getOutstandingDetalle` (`lib/pagos.ts:409-411`) | **la tabla `pagos` entera**; la ventana de /comercial se aplica DESPUÉS, en JS (`:442-444`) | el Outstanding de /comercial |
+| `getCuotasPendientes` (`lib/pagos.ts:501-506`) | cuotas sin pagar, por vencimiento: si corta, se caen las que vencen más tarde | las alertas de /general y los reportes |
+
+**Lo que no se ve leyendo:** las dos peores son las que no tienen filtro, porque crecen con toda la
+historia del negocio y no con la ventana. Es la misma regla que costó en /marketing: el techo se
+mide contra la lectura más grande, y la más grande es la que no filtra.
+
+**Mientras tanto:** la API de MaKo cuenta las filas con un `count` exacto y pone la salvedad
+adentro de la respuesta (`contarFilas` + `avisoRecorte`, `lib/api-mako/areas/metricas.helpers.ts`;
+usos en `metricas.run.ts:212-214`, `:390-392`, `:427-429`, `:685-687`, `:703-704` y `:724-726`).
+Eso DICE el recorte, no lo arregla: las pantallas siguen cortas y sin aviso.
+
+**Regla:** la cura va en la lib, con `leerTodo`/`leerPorPaginas` (`lib/supabase-paginado.ts`) y un
+orden único que termine en `id`.
+
+**Lo que quedó SIN hacer:** paginar las seis.
+
+**Vive en:** `lib/queries.ts` (`getFunnelEtapas`, `getSCL`, `getTramosSCL`, `getDistribucionPipeline`) ·
+`lib/pagos.ts` (`getOutstandingDetalle`, `getCuotasPendientes`) ·
+`lib/api-mako/areas/metricas.helpers.ts` · *2026-09-16 api-mako-areas*
+
+### ⚠️ `getTramoJ1J2Reciente` cuenta las R2 agendadas a futuro como si ya hubieran pasado
+
+**Síntoma esperado** (sale de leer el código, no se midió): la alerta «los deals se enfrían» de
+/general salta de más, y la Retro informa un tramo R1 → R2 más largo que el real.
+
+**Causa:** filtra la R1 dentro de la ventana y la R2 no nula, pero no acota la R2 a `<= hoy`
+(`lib/queries.ts:2823-2828`). Una R2 agendada para dentro de tres semanas suma esos días al
+promedio. Lo leen el semáforo de /general (`app/general/page.tsx:123`) y la Retro
+(`lib/retro-fuentes.ts:276`), donde el «hoy» es el fin del período. Y no tiene `.range()`: pasadas
+las 1000 filas corta sin error, como las de la entrada de arriba.
+
+**Mientras tanto:** la API de MaKo topea la ventana a 180 días (`lib/api-mako/areas/general.def.ts:116`), avisa en la
+nota que incluye R2 a futuro y agrega una advertencia si los casos llegan a 1000
+(`lib/api-mako/areas/general.run.ts:320-324`).
+
+**Lo que quedó SIN hacer:** `.lte('fecha_junta_2', hoy)` y paginar, en `lib/queries.ts`.
+
+**Vive en:** `lib/queries.ts:2817-2843` (`getTramoJ1J2Reciente`) · `app/general/page.tsx:123` ·
+`lib/retro-fuentes.ts:276` · *2026-09-16 api-mako-areas*
 
 ---
 
@@ -2129,6 +2478,47 @@ aviso `lead-fusionado` con el link al lead resultante, con dedup de 60 min porqu
 por el mismo patrón se leen como ruido y se silencian.
 
 **Vive en:** `lib/leads.ts` (`avisarFusion`, `upsertLeadFromMeta`, `upsertLeadFromCalendly`)
+
+### ⚠️ La llave que evita proponer dos veces el mismo lead se arma en cuatro lugares, con dos formatos
+
+**Síntoma esperado:** la misma persona propuesta por WhatsApp y por Claude deja **dos**
+propuestas en `/crm/revisar`, y el dueño confirma un duplicado creyendo que son dos personas.
+O al revés: un lote nuevo devuelve el link de uno viejo y sus contactos de más no se proponen
+nunca.
+
+**Causa:** `crearPropuesta` deduplica por `ref`, y la `ref` de un lead la arma cada llamador:
+
+| Camino | Dónde | La llave |
+|---|---|---|
+| tool de WhatsApp `proponer_lead` | `lib/mako-doer-acciones.ts:652` | `wa:lead:<solo dígitos>` o el nombre |
+| `proponer_lead` fuera de WhatsApp | `lib/api-mako/areas/crm.run.ts:419` | la misma, copiada |
+| lote de la API | `lib/api-mako/areas/crm.helpers.ts:204` | `lead:<teléfono tal cual o email>,…` |
+| `POST /api/agente/lead` | `app/api/agente/lead/route.ts:104` | la misma que el lote |
+
+Dos formatos que no se cruzan nunca: el prefijo es otro, y uno limpia el teléfono a dígitos y
+el otro lo usa crudo (`+52 664…` y `52664…` son dos llaves). Ninguno compara como compara el
+alta, por los últimos 10 dígitos (ver [No hay un choke point de alta](#-no-hay-un-choke-point-de-alta-hay-tres-inserts-y-cuatro-dedups-que-no-se-hablan)).
+La del lote además se corta a 200 caracteres y choca con otro lote que comparta los primeros
+~15 contactos (el detalle, en [hallazgos-api-mako.md](hallazgos-api-mako.md)).
+
+**Y `nueva: false` no dice cuál de los dos casos es.** `crearPropuesta` devuelve la existente si
+está `pendiente` **o** `aplicada` (`lib/propuestas.ts:94-98`, a propósito: ver
+[hallazgos-landing.md](hallazgos-landing.md) → «Descartar una propuesta encadenaba…»), pero no
+devuelve el estado. La tool de WhatsApp contesta «Ya había una propuesta pendiente»
+(`lib/mako-doer-acciones.ts:663`) sobre un lead que puede estar cargado hace semanas.
+
+**Regla:** una llave de idempotencia es una clave, y una clave la arma UNA función. Si la
+lista no entra en el tope, se hashea: cortarla la convierte en un prefijo.
+
+**Lo que quedó SIN hacer:** una función única para la `ref` de un lead, que normalice el
+teléfono como el dedup de alta, y que `crearPropuesta` devuelva el estado de la existente. Y
+`crm.run.ts:414-425` copia el saneo de la tool vieja para no mentir el origen: si cambia uno,
+hay que cambiar el otro a mano.
+
+**Vive en:** `lib/propuestas.ts` (`crearPropuesta`) · `lib/mako-doer-acciones.ts`
+(`proponer_lead`) · `lib/api-mako/areas/crm.run.ts` (`proponer_lead`) ·
+`lib/api-mako/areas/crm.helpers.ts` (`proponerLote`) · `app/api/agente/lead/route.ts` ·
+*2026-09-16 api-mako-areas*
 
 ### Un bloque de render puesto después del primer `return` es código muerto silencioso
 

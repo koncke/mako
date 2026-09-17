@@ -86,6 +86,16 @@ que llenar, y por lo tanto no hay campo que llenar con el id de otro. Verificado
 **Bonus:** es también un campo menos en el formulario, que es la regla de producto de
 siempre (defaults antes que configuración manual).
 
+⚠️ **El precio de derivarlo (16/09/2026): cualquier LECTURA de Whop puede escribir el ruteo.**
+`whopCompanyId`, con el caché frío (10 minutos por workspace), hace
+`void registrarRuteo(ws, id)` (`lib/whop.ts:94-105`), y lo llaman `listarCursos`,
+`listarExperiencias` y todo lo que necesita `company_id` (:165-175). Es best-effort y
+primer-reclamante-gana, así que no roba nada; pero una consulta que se ofrece como «solo
+lectura» —un listado de cursos pedido desde MaKo— puede dejar una fila nueva en
+`webhook_routing`. La API de MaKo lo aceptó por escrito (`lib/api-mako/areas/cs.run.ts:10-11`).
+**Lo que falta:** una variante de `whopCompanyId` sin registro en `lib/whop.ts`, para los
+caminos que prometen no escribir. *2026-09-16 api-mako-areas*
+
 ---
 
 ## El cron tiraba las reuniones de entrega, y las dos explicaciones eran falsas
@@ -286,6 +296,15 @@ La `cabecera` (el resumen de Fathom más sus action items) ya estaba construida 
 así que devolverla es gratis. La alternativa —volver a pedirle el transcript a Fathom—
 paga el fetch dos veces.
 
+⚠️ **Lo que eso deja afuera (16/09/2026): la cabecera no se guarda en ningún lado.** Vive en
+memoria mientras corre el cron (`lib/reunion-auto.ts:222-283`), así que la reescritura corre
+UNA vez, en la corrida automática, y no se puede volver a pedir —ni desde una pantalla ni desde
+MaKo— sin correr la extracción entera de nuevo. Pedirle la cabecera a un modelo como parámetro
+no es una salida: sería que la transcriba. Por eso `reescribir_bloques_junta` y
+`reescribir_bloque_cliente` quedaron fuera de la API (`lib/api-mako/areas/cs.def.ts:33-37`).
+**Para que existan:** persistir la cabecera junto a la reunión, en `lib/reunion-auto.ts`.
+*2026-09-16 api-mako-areas*
+
 **Las tres reglas del prompt están además en el código**, porque una regla que solo vive
 en la prosa se cumple «casi siempre»:
 
@@ -358,6 +377,67 @@ cinco webhooks al borde del timeout.
 Dos cortes: **si la reconstrucción falló en algún tramo y no mejora lo que ya había, no se
 guarda**; y un freno de 10 minutos por workspace. El freno vive en memoria del proceso a
 propósito: perderlo cuesta una reconstrucción de más, no un dato mal.
+
+⚠️ **Ampliado el 16/09/2026: el corte protege contra Whop, no contra la base, y no le avisa a
+nadie.**
+
+- **Compara contra un mapa previo leído con el lector que no tira.** `previo` sale de
+  `getMapaLecciones` (`lib/cs-avance.ts:88`), que ante un 5xx vale `{}`. Con eso la condición
+  de la línea 90 da falso para cualquier tanda a medias que haya matcheado algo, y **la tanda a
+  medias pisa el mapa bueno**: exactamente lo que el corte venía a impedir.
+- **`reconstruirMapa` no dice que falló.** Si falla `listarCursos` devuelve `{}` sin guardar
+  (:64); si falló un tramo y no mejora, devuelve el previo (:92). El que llama ve «sin
+  cambios» con la key de Whop rota. Comparar tamaños antes y después no es verificar: la
+  bandera de fallo la tiene que devolver la lib.
+- **El freno no se puede compartir**: `reconstruirConFreno` es privada (:110). La API de MaKo
+  tiene el suyo, también de 10 minutos (`lib/api-mako/areas/cs.run.ts:89`), en otra memoria:
+  una reconstrucción pedida desde MaKo no frena la del webhook, ni al revés.
+
+**Lo que quedó SIN hacer**, las tres en `lib/cs-avance.ts`: leer el previo con
+`getSettingEstricto`, que `reconstruirMapa` devuelva `{ mapa, fallo }`, y exportar el freno. No
+se tocaron desde la API porque la lib la comparten la pantalla `/customer-success` y el webhook
+de Whop. *2026-09-16 api-mako-areas*
+
+---
+
+## ⚠️ En Customer Success «no pude leer» sale como «no hay nada», y con esos ceros se decide
+
+**Vive en:** `lib/cs-respuestas.ts:56-71` · `lib/cs-cartera.ts:194-208` · `lib/cs-avance.ts:35-42` ·
+`lib/cs-mensajes.ts:52-69,77-94` · *2026-09-16 api-mako-areas*
+
+**El síntoma:** con la base caída, la cartera muestra 0 cuotas vencidas y 0 links vivos, un
+bloque figura como «el cliente nunca lo tocó», el mapa de lecciones dice «0 mapeadas», y el
+aviso «te dejé las respuestas para aprobar» contesta ok sin haber dejado nada. Ningún error a la
+vista.
+
+**La causa, en cuatro lugares:**
+
+- `getBloque` y `bloquesDeCliente` desestructuran `{ data }` y nunca miran `error`: un fallo de
+  PostgREST sale como `null` o `[]`.
+- `cartera()` pasa cada lectura por el helper `leer`, que devuelve `data ?? []` y además atrapa
+  lo que tire, y `listarShares(...).catch(() => [])`.
+- `getMapaLecciones` lee con `getSetting`, que convierte un 5xx en `null` y de ahí en `{}` (ver
+  [hallazgos-infra.md](hallazgos-infra.md) → `getSetting`).
+- `borradorHayQueAprobar` y `borradorVioYNoContesto` devuelven `ok: true` después de
+  `crearBorrador`, que devuelve `void` y no mira el error del insert
+  (`lib/evolution-envio.ts:116-138`).
+
+**Por qué acá pesa doble:** esos ceros no solo se muestran, **deciden**. La cancha
+(`cancha()`, `lib/cs-cartera.ts:107-128`) se calcula sobre ellos: sin sesiones leídas, el
+cliente pasa a «Cerró hace meses y nunca tuvieron una sesión»; sin shares leídos, a «Todavía no
+tiene su link». Un mapa vacío hace que cada evento del webhook dispare una reconstrucción
+(`lib/cs-avance.ts:133-136`). Y un bloque que vuelve `null` hace que la reescritura de la junta
+lo saltee como si el cliente no hubiera escrito nada (`lib/cs-reescritura.ts:103-107`).
+
+**La regla:** una lectura fallida no es un valor del dato. Si el número gobierna una decisión, el
+error sube hasta quien decide, y quien decide no decide.
+
+**Lo que quedó SIN hacer:** que las cuatro propaguen el error. No se tocaron porque las comparten
+la pantalla `/customer-success` y el webhook de Whop, y cambiar el contrato es cambiarlo para los
+dos. Mientras tanto la API de MaKo tiene sus copias estrictas (`bloqueDe`, `bloquesDe`,
+`mapaLeccionesEstricto` en `lib/api-mako/areas/cs.helpers.ts`) y relee la cola después de crear
+un borrador: son dos implementaciones de la misma lectura, y la de la pantalla sigue diciendo
+cero.
 
 ---
 
@@ -751,3 +831,16 @@ fuera para él o —peor— va a reconocer de quién es.
 **Cómo se caza:** buscar nombres propios, rubros y unidades de negocio en el cuerpo de
 cada pieza antes de publicarla. No alcanza con revisar títulos: los tres casos tienen
 títulos perfectamente genéricos.
+
+⚠️ **Y el temario PROPIO también los trae (16/09/2026).** Los campos `atoro`, `puntos` y `graba`
+de `lib/programa-catalogo.ts` cuentan casos de clientes reales de Mauricio con detalles de su
+negocio: TEXX (:232, :235, :558, :585, :591, :593), HMO (:370, :374, :500, :502), Baja Teriyaki
+(:477, :481, :572, :580) y Patricia (:623, :742, :749). O sea que hay **dos** fuentes con
+nombres propios, no una: quien decida qué sale por un canal externo mirando solo
+`lib/cs-historico.ts` —el que todos saben que nombra clientes— deja pasar la otra, que se lee
+como «el temario». Hoy la API de MaKo manda la estructura del programa por HTTP y esos tres
+campos no (`ctx.canal === 'http'` en `lib/api-mako/areas/cs.run.ts`). Cualquier canal nuevo que
+exponga el temario tiene que hacer el mismo corte.
+
+**Vive en:** `lib/programa-catalogo.ts` (`atoro`, `puntos`, `graba`) · `lib/cs-historico.ts` ·
+*2026-09-16 api-mako-areas*

@@ -488,7 +488,32 @@ gestionar el equipo por `/api/equipo` (exige rol_ws admin). Mismo defecto en
 «no te quedes sin X» tiene que contar los que PUEDEN operar hoy, no los que no están
 suspendidos — `estado === 'activo'`, no `!== 'suspendido'`.
 
-**Vive en:** lib/usuarios.ts:184-190 y :213-219 · app/api/equipo/route.ts · app/api/admin/usuarios/route.ts · *2026-07-02 ~auditoria-acceso-roles*
+Al 16/09/2026 sigue abierto en las dos funciones (`lib/usuarios.ts:195` y `:224`). La
+copia de la API de MaKo ya cuenta bien (`esUltimoAdminActivo`, solo `estado === 'activo'`).
+
+**16/09/2026 — y un `rol_ws` null es admin para la sesión, pero no para el guard.**
+`getRolWsEfectivo` resuelve `sesion.rolWs ?? 'admin'` (`lib/workspace.ts:239`). El guard,
+en cambio, mira el literal por dos lados: `contarAdminsClienteActivos` cuenta
+`.eq('rol_ws','admin')` (`lib/usuarios.ts:221-227`), y las rutas solo lo consultan si
+`objetivo.rol_ws === 'admin'` (`app/api/equipo/route.ts:98`, `:121`, `:129`;
+`dejariaClienteSinAdmin` en `app/api/admin/usuarios/route.ts:96`). Falla para los dos lados:
+
+- **Un miembro con null se puede degradar, suspender o eliminar sin que el guard pregunte
+  nada**, aunque sea el único admin efectivo del cliente. Entra y opera como admin, y el
+  invariante no lo ve.
+- **Degradar a un admin literal cuando el otro admin es null frena** con «Eres el único
+  admin del cliente» sin serlo, porque el null no suma.
+
+La copia de la API ya resuelve igual que la sesión (`esAdminEfectivo`,
+`lib/api-mako/areas/equipo.helpers.ts:42-49`). El mismo literal elige además al dueño en
+`emailDuenoWorkspace` (`lib/usuarios.ts:212`) y la fila del perfil en vista de cliente
+(`lib/perfil.ts:68`): con un null, caen a la primera fila. **Sin medir:** si hoy hay filas
+así (`count usuarios where rol='usuario' and rol_ws is null`). La medición de «Ningún guard
+que mire el eje de workspace…» encontró a los usuarios no-admin con `'admin'` literal, pero
+es anterior. **Regla:** un guard que protege un invariante de rol usa la MISMA resolución
+de rol que la sesión.
+
+**Vive en:** lib/usuarios.ts:192-198 y :221-227 · app/api/equipo/route.ts:98,121,129 · app/api/admin/usuarios/route.ts:88-99 · lib/workspace.ts:239 · lib/perfil.ts:68 · lib/api-mako/areas/equipo.helpers.ts:42-49 · *2026-07-02 ~auditoria-acceso-roles · 2026-09-16 api-mako-areas*
 
 ### Se elimina AUTH_COOKIE_VALUE: el único acceso es login con Google
 

@@ -409,6 +409,129 @@ situaciones distintas»*).
 
 **Vive en:** `lib/metodo-verificar.ts:269-288` · `lib/audios-paso.ts:14-18`
 
+### ⚠️ `buildEstado(true)` reescribe el brief con lo que sabe el Archivero, y borra lo que entró por el wizard
+
+**Síntoma.** El cliente contesta en el wizard su objetivo a 90 días y lo que lo frena; si
+después sube un documento al Archivero o corrige un campo a mano, esas respuestas desaparecen.
+Sin error. *(Leído en el código el 16/09/2026; no medido con datos de clientes.)*
+
+**Causa.** El brief tiene dos puertas y un recálculo que conoce una sola:
+
+- El wizard guarda cada respuesta en `mako.onboarding.answers`, mergeando (`case 'brief'`,
+  `app/api/onboarding/route.ts:235-243`). Eso incluye campos que el Archivero no extrae:
+  `negocio_objetivo`, `negocio_freno`, `marca_*` (los que `esCampoArchivero` no reconoce,
+  `lib/archivero.ts:73-75`).
+- `buildEstado(true)` hace `saveAnswers(computeEffective(files, manual).answers)`
+  (`lib/archivero.ts:172-175`), y `saveAnswers` **reemplaza** la clave entera
+  (`lib/onboarding.ts:67-69`). El efectivo trae solo lo de los documentos y lo manual: lo demás
+  se borra. Lo llaman la subida de un documento (`app/api/onboarding/archivero/route.ts:122`) y
+  la edición manual (`app/api/onboarding/archivero/manual/route.ts:43`).
+- Y el reverso: en `computeEffective` lo manual gana **siempre** (`lib/archivero.ts:147-151`).
+  Un campo que entró por lo manual y después se corrige en el wizard vuelve al valor manual en
+  el próximo `buildEstado(true)`.
+
+**Regla.** Cada campo del brief tiene UNA puerta: los del Archivero (`negocio_que_hace`,
+`oferta_*`, `avatar_*`) van a lo manual; los demás, directo a las answers. Y recalcular es
+quitar **solo las claves que aportaba el efectivo anterior** y mezclar el nuevo encima, nunca
+reescribir la clave entera. Molde: `persistirBrief` y `completarHuecoPerfil` en
+`lib/api-mako/areas/negocio.helpers.ts:131-164`.
+
+**Lo que quedó SIN hacer.** Las dos rutas del Archivero siguen llamando a `buildEstado(true)`; el
+arreglo va en `lib/archivero.ts:172-175`. La API de MaKo no lo tocó porque es la lib que pinta
+la pantalla del Archivero, y lo esquiva por su lado.
+
+**Vive en:** `lib/archivero.ts:73-75,138-153,172-179` · `lib/onboarding.ts:67-69` ·
+`app/api/onboarding/route.ts:235-243` · `app/api/onboarding/archivero/route.ts:122` ·
+`app/api/onboarding/archivero/manual/route.ts:43` · *2026-09-16 api-mako-areas*
+
+### ⚠️ Avatares, lead magnets y cara de marca: si la lectura falla la lista vale `[]`, y «editar uno» la reescribe así
+
+**Síntoma.** Con un 5xx pasajero de Supabase, editar UN avatar, borrar UNA foto o subir una
+nueva deja la lista con un solo elemento —o la cara de marca sin sus fotos ni su descripción— y
+contesta ok.
+
+**Causa.** Los getters leen con `getSetting`, que convierte el error en `null` y de ahí en `[]`,
+`''` o `{}`: `getAvatares` (`lib/avatares.ts:61-68`), `getContextoAvatares` (:77-79),
+`getEntregables` (`lib/entregable.ts:54-61`), `getPersona` (`lib/persona.ts:33-40`),
+`getAnswers` (`lib/onboarding.ts:62-66`). Todo read-modify-write encima pierde lo que había, y
+**ya pasa en la app, sin la API**: `setPersonaDescripcion`, `addPersonaFoto` y
+`deletePersonaFoto` (`lib/persona.ts:83-106`) releen con `getPersona()` y reescriben la clave
+entera, y los llama `app/api/onboarding/persona/route.ts:45,57,72`. «Afinar» los avatares suma
+las respuestas nuevas a un contexto previo que, si no se pudo leer, vale `''`
+(`app/api/onboarding/avatares/route.ts:75-77`): pisa lo que el cliente había precisado.
+
+**El diagnóstico obvio era el equivocado.** «Leer con `getSettingEstricto` antes de escribir» no
+alcanza si después se escribe con la función de la lib, que vuelve a leer por su cuenta (ver
+[hallazgos-infra.md](hallazgos-infra.md) → `getSetting`). Y desde afuera no hay cómo escribir
+sobre la lectura estricta: `normalizarAvatar` (`lib/avatares.ts:48`) y `normalizarEntregable`
+(`lib/entregable.ts:42`) no se exportan, y `setPersona` es privada (`lib/persona.ts:41`).
+
+**Lo que quedó SIN hacer.** Un getter estricto exportado por cada lib (avatares, lead magnets) y
+setters de persona que escriban sobre el valor leído, usados también por las rutas de onboarding:
+hasta entonces la pantalla sigue con el agujero. La API de MaKo lo esquiva con dos parches que
+son deuda: como no puede normalizar, exige que el getter de la lib devuelva la **misma cantidad**
+de ítems que la lectura estricta o no escribe (`listaEstricta`), y para la persona replica
+`getPersona` y escribe `mako.persona` con `setSetting` — si cambia la forma de `PersonaData`, hay
+dos lugares (`lib/api-mako/areas/negocio.helpers.ts`).
+
+**Vive en:** `lib/avatares.ts:48,61-79` · `lib/entregable.ts:42,54-61` · `lib/persona.ts:33-43,83-106` ·
+`app/api/onboarding/persona/route.ts` · `app/api/onboarding/avatares/route.ts:69-79` ·
+*2026-09-16 api-mako-areas*
+
+### ⚠️ «Afinar» los avatares escribe el contexto antes de saber si la IA contestó
+
+**Síntoma.** El contexto de avatares acumula las mismas respuestas repetidas. No hay pantalla
+que lo borre, y entra a todos los prompts de avatares.
+
+**Causa.** `generarAvatares()` no acepta el contexto por parámetro: lo lee de la base
+(`lib/avatares.ts:130-132`). Entonces «afinar» lo escribe primero y recién después genera
+(`app/api/onboarding/avatares/route.ts:75-79`). Si la cascada gratis falla —por ejemplo, con la
+key del cliente agotada— la ruta devuelve 422 con el contexto ya escrito; el cliente
+reintenta con las mismas respuestas y se vuelven a sumar, porque la ruta no desduplica.
+
+**Regla.** Lo que alimenta una generación que puede fallar viaja en memoria, y se persiste recién
+cuando lo generado quedó guardado.
+
+**Lo que quedó SIN hacer.** Un `contextoExtra` en `generarAvatares` (`lib/avatares.ts:130`), y
+mudar a `lib/avatares.ts` el `regenerarAvatares` que hoy vive en
+`lib/api-mako/areas/negocio.helpers.ts:202-231`, con la ruta llamándolo. Como la API no pudo
+cambiar la firma, escribe, genera y **restaura** el valor anterior en un `finally` si la lista no
+se guardó, desduplicando por texto normalizado. Eso deja una ventana en la que otra lectura del
+contexto ve líneas que todavía no valen.
+
+**Vive en:** `lib/avatares.ts:76-82,130-135` · `app/api/onboarding/avatares/route.ts:69-79` ·
+*2026-09-16 api-mako-areas*
+
+### La regla del «brief suficiente» está escrita siete veces, y la lógica de tres pasos vive en las rutas
+
+**Síntoma.** Ninguno todavía. El día que alguien cambie el mínimo en una copia, las otras siguen
+con el viejo: MaKo propone generar sobre un brief que la lib después rechaza. Y en la API de MaKo
+eso cuesta más que un mensaje distinto, porque ahí la precondición se chequea al PROPONER, y una
+propuesta que pasa ese chequeo y falla al confirmar ya no se puede reintentar.
+
+**Causa.** `!brief.trim() || brief.replace(/[—\-·\s]/g, '').length < 20` está copiada en
+`lib/avatares.ts:133` y `:227`, `lib/entregable.ts:163` y `:207`, `lib/personalidad-store.ts:59`
+y `lib/razones.ts:173`. La séptima la sumó la API (`briefSuficiente`,
+`lib/api-mako/areas/negocio.helpers.ts:79`), porque no hay una exportada. Es la misma familia
+que la lógica que vive inline en las rutas y un segundo canal tuvo que copiar
+(`aplicarSugerenciasProductos` de `app/api/onboarding/productos/route.ts`, `tabsPorConfigurar` de
+`app/api/onboarding/listo/route.ts`, `regenerarAvatares` de la de avatares) o directamente no pudo
+ofrecer: `procesarLink` (`app/api/onboarding/archivero/route.ts:170`), por eso agregar una web al
+Archivero no existe en la API.
+
+**Regla.** «Una cosa, un lugar»: la precondición se exporta de `lib/onboarding.ts`, y la lógica de
+un paso vive en `lib/` con la ruta como cáscara. Un segundo canal que encuentra la lógica en una
+ruta la copia o no la ofrece.
+
+**Lo que quedó SIN hacer.** Exportar la regla y que las seis copias de las libs la importen; mudar
+esas tres funciones a `lib/productos.ts`, `lib/onboarding-pendientes.ts` y `lib/avatares.ts`, y
+`procesarLink` a `lib/archivero.ts`. Está anotado en la cabecera de
+`lib/api-mako/areas/negocio.helpers.ts:18-24`.
+
+**Vive en:** `lib/avatares.ts:133,227` · `lib/entregable.ts:163,207` · `lib/personalidad-store.ts:59` ·
+`lib/razones.ts:173` · `app/api/onboarding/{productos,listo,avatares,archivero}/route.ts` ·
+*2026-09-16 api-mako-areas*
+
 ---
 
 ## Decisiones del dueño (8/8/2026)
@@ -794,6 +917,19 @@ Y la excepción deliberada a «estado vivo, no recordado»: acá el puente lee e
 onboarding viejo, no el dato. La pregunta no es «¿este workspace tiene avatares?» sino
 «¿esta persona ya recorrió este paso?» — y un avatar sembrado por `clonar-dueno` contesta
 que sí a la primera y que no a la segunda.
+
+**Y el puente vive en un RENDER, así que solo lo ve quien abre la tab** *(16/09/2026,
+api-mako-areas)*. `puentearPasosCopyGen()` corre —y ESCRIBE— en `app/ads-writer/page.tsx:22`
+y `app/video-generator/page.tsx:74`, y en ningún otro lado. `getEstadoTab('ads-writer')`
+pelado (`lib/tab-onboarding-state.ts:115`) no puentea. Cualquier otro lector —la API de
+MaKo, WhatsApp, un cron— ve pendiente el Ads Writer de un cliente viejo que no abrió
+ninguna de las dos pantallas desde la migración, y con eso el Video Generator figura
+bloqueado. Hoy son tres: `estado_onboarding_contenido` y `estado_onboarding_video`, que lo
+avisan en el payload (`lib/api-mako/areas/contenido.run.ts:446`, `video.run.ts:543`), y
+`tabsPorConfigurar` (`lib/api-mako/areas/negocio.helpers.ts:365-374`), que lo lista «por
+configurar» sin aviso. Una lectura no puede llamar al puente, porque escribe. **Sin hacer:**
+correr el puente una vez por workspace fuera del render (cron o script de una vez), para
+que el estado calculado no dependa de quién miró.
 
 ### Forzar un tema descubre los colores que estaban clavados
 

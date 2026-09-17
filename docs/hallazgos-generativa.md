@@ -1458,6 +1458,16 @@ avisa y se pide rehacer.
 costó seis versiones de guion en este proyecto. El texto de cada opción viaja literal al
 prompt de video (`ACENTOS` en `app/video-generator/video-pedido.ts`).
 
+⚠️ **Y la marca depende de un acento que los planes viejos no saben** *(2026-09-16
+api-mako-areas)*. `ClipPlan.voseo` marca `tenés` en cualquier plan, pero para un cliente
+rioplatense eso no es una filtración: es su idioma. Lo que decide cuál de las dos es
+`plan.acentoEsVoseante` (`lib/video-planner.ts:95-106`), que el server pone al generar
+(`app/video-generator/actions.ts:104`) y es **opcional**: los planes guardados antes no lo
+tienen, y ausente significa «no sé». Quien lea `voseo` sin esa bandera acusa de filtración a un
+cliente argentino. Y el colapso ya está escrito: `reescribirTomaAction` pasa
+`!!item.plan.acentoEsVoseante` (`actions.ts:218`), o sea que «no sé» se vuelve «no es
+voseante». Hoy eso solo decide un `console.warn`; el día que decida algo más, decide mal.
+
 ## `\b` de JavaScript es ASCII: un detector de español pierde todo lo acentuado
 
 **Síntoma:** el detector de voseo encontraba `vos`, `sos`, `sabés` y `podés`, y **no**
@@ -3345,6 +3355,16 @@ generando con una cara que ya no existe, mientras la pantalla muestra otra.
 lee nadie** — dos consultas por página cuyo resultado se descarta, incluido el
 aviso que el propio módulo declara como su razón de leer el perfil.
 
+Y dos de los que sí se leen no dicen lo que parecen *(2026-09-16 api-mako-areas)*.
+`perfilListo` es `faltan.length < schema.length` (`video-datos.ts:555-572`): **«al
+menos un grupo con una respuesta»**, no «cargado». Y para listar las fotos se
+llama a `personaEstado()`, que firma una URL de 6 h **por foto** del bucket
+`archivero` (`lib/persona.ts:125-135`): quien solo necesita el conteo paga N
+llamadas a storage y deja circulando links firmados de la cara. La API no la
+llama por eso y copió el criterio en `contextoVideoSinFirmar`
+(`lib/api-mako/areas/video.helpers.ts`) — deuda: si cambia en `video-datos.ts`, la
+copia no se entera.
+
 ### Y el método, que es lo que se reusa
 
 Los cuatro ángulos se eligieron por **modo de falla**, no por archivo: qué
@@ -4402,6 +4422,29 @@ cinco en cada ciclo.
 extensión REPORTA; sumar en las dos puntas contaría doble y el techo de 5 pasaría
 a 2 o 3 **en silencio**. Las dos ramas son excluyentes —o reporta, o desaparece— y
 cuentan lo mismo: un intento que no produjo resultado.
+
+⚠️ **Y el cierre del cron no llega al historial** *(2026-09-16 api-mako-areas)*.
+`flow-abandono` cierra la fila de `flow_trabajos` (`fallido`, `puente_ausente`) y
+no toca `video-generator.historial`. Las marcas de ahí (`MarcaVideo`,
+`MarcaImagen`) solo avanzan cuando la PANTALLA sondea `estadoTomaAction` y
+`estadoImagenAction` (`video-action.ts:668` y `:1511`). Sin nadie mirando, una
+toma muerta figura «generando» para siempre en el historial — que es lo que lee
+todo lo que no es la pantalla: la API de MaKo, WhatsApp, un resumen.
+
+Y esas dos no se pueden llamar desde una lectura: **parecen consultas de estado y
+escriben**. Encolan otra consulta a Google, bajan el clip al bucket
+(`conseguirEnlace` + `guardarClip`), encolan la lectura de créditos para medir el
+costo y guardan la marca. Por eso la API no expone ni el estado de una toma ni
+refrescar el saldo.
+
+- **Una lectura que informa progreso sin la pantalla cruza la marca con
+  `flow_trabajos` por `trabajoId`** (molde: `leerTrabajosPorId` en
+  `lib/api-mako/areas/video.helpers.ts`). Si el trabajo está `fallido`, la marca
+  miente.
+- ⚠️ **Con `operacion` puesta, ese cruce ya no confirma nada.** El trabajo
+  `generar_clip` quedó `listo` cuando SALIÓ el pedido, no cuando terminó el clip.
+  De ahí en más el avance vive solo en las consultas de estado, y sin pantalla no
+  las hace nadie: lo honesto es «no hay trabajo que lo confirme», no «generando».
 
 #### Una guarda que nadie escribe corre para siempre
 
@@ -6916,3 +6959,129 @@ como hacía el REST con `requests.0.imageInputs.0.name`.
 que tener la forma de lo que después se va a pedir**. Una enseñanza más simple que
 el uso real aprende una plantilla que no sirve para el uso real, y el síntoma
 aparece al final del camino, con Google ya cobrando.
+
+## Leer el Video Generator sin la pantalla abierta (16/09/2026)
+
+**Vive en:** `app/video-generator/video-datos.ts` · `app/video-generator/video-action.ts` ·
+`app/video-generator/guiones-datos.ts` · `app/video-generator/formatos-datos.ts` ·
+`lib/flow-cola.ts` · `lib/razones.ts` · `lib/api-mako/areas/video.helpers.ts`
+
+El módulo se escribió para una pantalla que sondea. Leerlo desde otro lado —la API de
+MaKo, WhatsApp— destapa lo que la pantalla tapaba. Lo del historial que no avanza sin
+pantalla está en «El barrido de pendientes» → «El vigilante y el vigilado eran el mismo».
+
+### ⚠️ «No pude leer» sale como «no hay», y `guardarEnHistorial` lo escribe encima
+
+**Síntoma:** con la base caída, «no tienes anuncios», «el puente no está conectado» y «Tu
+perfil está incompleto. Falta …» con todos los grupos. Ninguno es cierto y ninguno es un
+error.
+
+**Causa, cuatro lecturas con la misma forma:**
+
+| Lectura | Qué hace con el error | Qué afirma |
+|---|---|---|
+| `leerHistorial` (`video-datos.ts:406-416`) | `getSetting` da `null`, y encima un `catch` devuelve `[]` | no hay anuncios |
+| `estadoPuente` (`lib/flow-cola.ts:118-133`) | `select('*')` sin mirar `error` (y se trae el `token_hash` para no devolverlo) | `sin_conectar`, `emparejado: false` |
+| `formatosDelWorkspace` (`formatos-datos.ts:95-110`) | no mira `error`: `data ?? []` | el cliente no tiene formatos propios |
+| `estadoContextoVideo` (`video-datos.ts:555-572`) | `getSchema`/`getAnswers` leen con `getSetting`, que nunca tira: el `catch` que dice «consulta caída ≠ perfil vacío» **no corre nunca** | schema default + respuestas `{}` = le falta todo |
+
+`estadoContextoReels` (`app/reels/reels-datos.ts:80-91`) es la misma función, con el mismo
+`catch` muerto.
+
+**Lo caro es la escritura.** `guardarEnHistorial` (`video-datos.ts:430-473`) lee con
+`leerHistorial` y guarda `[item, ...actual]`. Si esa lectura falla, `actual` es `[]` y se
+guarda un historial de UN anuncio. `guardarMarca` pasa por ahí en cada vuelta del sondeo de
+una toma, así que un error transitorio en medio de una filmación borra los otros nueve
+anuncios — y con ellos el único puntero a sus clips pagados, que quedan huérfanos en el
+bucket. Es el daño del tope de 10 de la Auditoría, sin el `console.warn` que aquél dejó.
+Sale de leer el código, no se vio. El mismo molde, en la matriz de razones:
+[hallazgos-ia.md](hallazgos-ia.md) → «No poder leer la matriz se escribe como matriz vacía».
+
+**Regla:** una lectura que alimenta una escritura va con `getSettingEstricto`
+(`lib/settings.ts`) o mirando `error`, y aborta. Y una lectura que alimenta una pantalla
+distingue «no pude leer» de «no hay»: con el perfil, el puente y el historial, confundirlas
+es mandar a alguien a cargar de nuevo lo que ya cargó.
+
+**Sin hacer:** nada de esto se tocó en `video-datos.ts` ni en `flow-cola.ts`. La API lee con
+copias estrictas en `lib/api-mako/areas/video.helpers.ts` (`leerHistorialEstricto`,
+`leerPuenteEstricto`), y la del historial copia el parseo entero (`esEntrada`,
+`urlInservible`, `limpiarUrlsMuertas`, `MAX_HISTORIAL`: `video-datos.ts:29` y `:357-404`)
+porque no se exporta. Si cambia allá, la copia no se entera. Lo que falta: exportar la
+versión estricta desde `video-datos.ts` y `flow-cola.ts`, y que `guardarEnHistorial` la use.
+*2026-09-16 api-mako-areas*
+
+### ⚠️ `marca.url` no siempre es storage propio: a veces es el enlace firmado de Google
+
+**Síntoma:** el link de una toma «filmada» deja de abrir a las horas, o no abre nunca desde
+MaKo.
+
+**Causa:** `estadoTomaAction` guarda la url por dos ramas. Si la consulta de estado NO trae
+url, pide el enlace y baja el .mp4 al bucket `video-clips` (`conseguirEnlace` +
+`guardarClip`, `video-action.ts:935-945`). Si la trae, la guarda tal cual
+(`video-action.ts:991-992`): un enlace de Google con `Expires`. El comentario de
+`video-action.ts:949-974` explica, medido, por qué una url de Flow no sirve en la página de
+MaKo (401 de tercera parte, 16 bytes de HTML), y la rama de al lado la guarda igual. El
+comentario de `PlanGuardado.video` ya lo decía: «un puntero con fecha de vencimiento». Y
+`limpiarUrlsMuertas` (`video-datos.ts:385-404`) solo limpia las `labs.google/fx/api/trpc/`,
+no éstas.
+
+**Regla:** quien lee `marca.url` no la da por archivo: la clasifica. Propia es la que
+contiene `/storage/v1/object/public/video-clips/`; cualquier otra es un enlace que vence. Es
+la decisión que ya se tomó en una rama, sin aplicar en la otra.
+
+**Sin hacer:** que la rama de `video-action.ts:986-999` baje el clip igual que la de arriba.
+Con BOQ la url también llega firmada (ver «La primera imagen real por BOQ salió»).
+*2026-09-16 api-mako-areas*
+
+### ⚠️ «¿Este guion ya lo grabé?» tiene tres fuentes, y la que no caduca nunca llega
+
+**Síntoma:** un guion grabado fuera de la tab —los primeros anuncios de Mauricio— se ofrece
+como fresco, aunque `guionesDisponibles` tiene código para decir con qué formatos se grabó.
+
+**Causa:** `guionesDisponibles` (`guiones-datos.ts:87-134`) contesta con tres fuentes, y su
+comentario llama a la primera, `grabadoComo`, «el único que no caduca». Pero:
+
+1. **Llega muerta.** Lee la matriz con `getRazones()`, que normaliza cada guion con
+   `normalizarGuion` (`lib/razones.ts:56-71`), y ésa no copia `grabadoComo`: la línea 130 lee
+   un campo que la lectura ya tiró. Peor: toda escritura de la matriz —cambiar un estado,
+   editar un texto, generar un guion, desde la tab o desde la API— guarda lo normalizado, así
+   que **lo borra de la base para todos los guiones del negocio**. Y ningún código del repo lo
+   escribe: el que haya se cargó a mano, y se va en la próxima edición de cualquier guion.
+2. **Aun viva, se queda corta.** `grabadoEn` resuelve cada id con `puestaPorId`, que solo
+   conoce los formatos de fábrica: un guion grabado en un formato propio del cliente (ids
+   `ws…`) figura sin formatos (`guiones-datos.ts:130-132`).
+3. **`estado` y `grabadoComo` contestan lo mismo desde dos lados.** `estado`
+   (`grabado`/`publicado`) lo mueve la persona a mano; `grabadoComo` es el registro de
+   producción. Pueden contradecirse, y ninguna pantalla muestra el segundo.
+
+Y ninguno tiene fecha: `GuionItem` solo trae `creadoEn` (`lib/guion-estado.ts:55-57`), así
+que «¿qué grabé esta semana?» no se puede contestar — un filtro por fecha filtra por
+CREACIÓN. Encima `fechaGuion`/`diaGuion` (`lib/guion-estado.ts:77-91`) sacan el día de la
+zona de quien los corre: la del navegador en la tab, UTC si los llama el server. La API usa
+la del negocio, así que un guion de la noche puede caer en días distintos según quién
+pregunte.
+
+**Regla:** un campo que se agrega a `GuionItem` entra en el mismo commit a `normalizarGuion`,
+o no existe (es la regla del shape duplicado de [hallazgos-ia.md](hallazgos-ia.md), un
+escalón más abajo). Y antes de leer un campo opcional, grep de quién lo ESCRIBE: acá la
+respuesta era nadie.
+
+**Sin hacer:**
+- Copiar `grabadoComo` en `normalizarGuion` (`lib/razones.ts:56-71`). Es una línea; la
+  corrida no podía tocar libs compartidas. La API lo lee del JSON crudo
+  (`leerMatrizEstricta`, `lib/api-mako/areas/contenido.helpers.ts`).
+- Resolver `grabadoComo` también contra los formatos del workspace (`guiones-datos.ts:131`).
+- Un `estadoEn` en `setEstadoGuion` (`lib/razones.ts:414`) para filtrar por cuándo se grabó.
+- `GuionDisponible` no trae `celdaId`, y toda operación sobre un guion pide `celdaId` +
+  `guionId`: quien parte de esta lista tiene que releer `mako.razones` para cruzarlos.
+
+*2026-09-16 api-mako-areas*
+
+### Lo que quedó SIN hacer
+
+- **Editar una toma, un escenario o el acento no se puede fuera de la pantalla.** Las actions
+  validan con `ctxAdmin()`, que lee el rol de la SESIÓN (`getRolWsEfectivo`) y está copiado
+  en tres archivos (`app/video-generator/actions.ts:29`, `onboarding-actions.ts:36`,
+  `puente-actions.ts:27`). Llamadas por HTTP o por WhatsApp contestan «Solo el administrador
+  del workspace…». Falta separar la escritura de su guard de sesión para que un canal que ya
+  resolvió permisos la pueda reusar.

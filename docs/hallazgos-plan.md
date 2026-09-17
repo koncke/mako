@@ -177,7 +177,17 @@ hay forma de saber si el problema sigue vivo, porque la corrección lo vuelve in
 link)`), sin modelo en el medio. La diferencia entre los dos caminos es exactamente la
 lección: **un dato exacto que pasa por las manos de un LLM deja de ser exacto.**
 
-**Vive en:** lib/link-borrador.ts + tests/link-borrador.test.ts (la cura) · lib/mako-doer-in.ts (donde se aplica) · app/plan/revisar/[id]/page.tsx y NoEsTuyo.tsx (la red) · *2026-08-08*
+⚠️ **Otra causa del mismo síntoma, sin modelo en el medio: el link no dice de qué workspace es**
+(16/09/2026). `linkTarea`, `linkProyecto` y `linkBorrador` de la API de MaKo
+(lib/api-mako/areas/plan.helpers.ts:87-89) no llevan `?ws=`. Quien pertenece a varios workspaces
+abre el link en el que tenga activo, y `getPropuesta` no lo encuentra. Ahí la red de arriba empeora
+las cosas: si en ESE workspace hay un solo borrador pendiente, la pantalla abre ése
+(app/plan/revisar/[id]/page.tsx:43-44) — el link correcto muestra otro borrador, que es el caso
+peor de esta entrada. Si no, cae en «es de otra persona» (:55-58). Y agregar el `?ws=` no alcanza
+para todos: `proxy.ts` lo acepta solo de una sesión `admin` (:142-164); para cualquier otro es texto
+decorativo.
+
+**Vive en:** lib/link-borrador.ts + tests/link-borrador.test.ts (la cura) · lib/mako-doer-in.ts (donde se aplica) · app/plan/revisar/[id]/page.tsx y NoEsTuyo.tsx (la red) · lib/api-mako/areas/plan.helpers.ts:87-89 (los links sin `?ws=`) · *2026-08-08 · 2026-09-16 api-mako-areas*
 
 ### ⚠️ El molde del detalle de un PROYECTO existía y el generador no lo conocía
 
@@ -445,7 +455,9 @@ La migración agregó `score_manual` a `plan_proyectos`, `plan_tareas` **y** `ex
 
 **La regla: un upsert de fila entera armada en el cliente escribe TODAS las columnas, incluidas las que ese formulario no muestra.** Si una columna la decide el server, no puede viajar en el payload del navegador — no alcanza con que la UI no la edite.
 
-**Vive en:** lib/plan-board.ts → `guardarPlanProyecto` · *2026-08-22*
+⚠️ **Para las TAREAS sigue vivo (16/09/2026).** `guardarPlanProyecto` ya descarta las columnas del server antes del upsert (lib/plan-board.ts:292), pero `guardarPlanTarea` sigue haciendo `upsert(taskToRow(t))` de la fila entera (:231-237), y es lo que llama el autosave del board (app/api/plan-board/route.ts:92). O sea: lo que MaKo le escriba a una tarea —checklist, avance, historial— lo pisa la próxima autoguardada de cualquier pestaña de `/plan/agencia` abierta con el estado viejo. **Releer la fila justo antes de escribir, como hace la API de MaKo, no protege: la carrera es con el navegador, no con otra escritura del server.** Falta un patch por columna en lib/plan-board.ts.
+
+**Vive en:** lib/plan-board.ts → `guardarPlanProyecto` · `guardarPlanTarea` (:231-237) · app/api/plan-board/route.ts:92 · *2026-08-22 · 2026-09-16 api-mako-areas*
 
 ### El tablero está SATURADO, y eso hace que cualquier ajuste manual corra a todos
 
@@ -511,7 +523,9 @@ El contexto que el dueño contesta (hasta 6 preguntas iniciales más las de prof
 
 Dos cabos sueltos del riel de propuestas, los dos vivos el 7/8/2026. (1) El canal `eliminar` lo producen tres caminos y `aplicarPropuestas` lo sabe ejecutar, pero el wizard de revisión no tiene paso para confirmarlo: su `type Step` es `'cerrar'|'q'|'dyn'|'confirm'` y al aplicar solo manda `cerrarIds` y `aMediasIds`. Se propone y muere ahí. (2) `POST /api/agente/plan` corta con 400 «mandá al menos una tarea en tareas» aunque quince líneas después acepte `cerrar`: Claude Code no puede mandar un lote de puros cierres sin inventarse una tarea de relleno.
 
-**Vive en:** app/plan/revisar/[id]/RevisarPropuesta.tsx:94 y :241-243 · lib/plan-propuesta.ts:668-669,725 · app/api/agente/plan/route.ts:92 vs :110 · *2026-08-06 senales-de-avance*
+**Actualizado el 16/09/2026: lo de (1) no es un paso que falta, es a propósito, y por eso `eliminar` es una promesa falsa.** La regla del dueño es «JAMÁS me debe preguntar si borrar una tarea» (app/plan/revisar/[id]/RevisarPropuesta.tsx:72-75), así que el wizard no va a tener paso de bajas, y `aplicarPropuestas` solo borra con `eliminarIds` explícito y cruzado contra lo propuesto (lib/plan-propuesta.ts:762-767). Toda operación que acepte `eliminar` deja en la base algo que no va a pasar nunca. La API de MaKo lo sacó de `proponer_tareas_plan`; **la tool vieja del doer de WhatsApp todavía lo acepta y su resumen dice «y borrar M»** (lib/mako-doer-acciones.ts, `case 'proponer_tareas_plan'`).
+
+**Vive en:** app/plan/revisar/[id]/RevisarPropuesta.tsx:72-76 · lib/plan-propuesta.ts:668-669,725,762-767 · app/api/agente/plan/route.ts:92 vs :110 · lib/mako-doer-acciones.ts · *2026-08-06 senales-de-avance · 2026-09-16 api-mako-areas*
 
 ### La prioridad y el deadline no se ponen a mano en ningún lado
 
@@ -629,7 +643,13 @@ ESTADO*, y acá el estado se muestra truncado sin decir que está truncado.
 disfrazada de default.** Si la lista puede crecer, o el número se justifica al lado, o la
 pantalla dice cuántos quedaron afuera. Un tope silencioso se lee como «esto es todo lo que hay».
 
-**Vive en:** lib/plan-propuesta.ts:442 · *2026-09-08*
+⚠️ **Y ni siquiera devuelve N** (16/09/2026). El `.limit(limite)` corre en la base y el filtro
+de borradores vacíos —sin tareas ni cierres— corre en JS DESPUÉS (lib/plan-propuesta.ts:445-447):
+con un vacío entre los N más nuevos, vuelven menos de N aunque haya más pendientes detrás. Pedir
+N+1 para calcular «hay más» miente en cuanto aparece un vacío; la API de MaKo pide 10 de más y lo
+avisa en una nota (lib/api-mako/areas/plan.run.ts:335-339). El arreglo es filtrar en la consulta.
+
+**Vive en:** lib/plan-propuesta.ts:442-449 · *2026-09-08 · 2026-09-16 api-mako-areas*
 
 ### La pantalla que el cliente pedía ya existía, y devolvía cero
 
@@ -780,6 +800,55 @@ genérico; la que de verdad es de él —agrupar por *su* cliente de consultorí
 código y está vacía para todos por una causa medible (exige que la contraparte sea un lead del CRM).
 
 **Vive en:** medido en prod: workspaces, closing_analyses por ws/categoría, plan_propuestas.tareas · *2026-09-08*
+
+### ⚠️ Descartar un borrador es definitivo, salvo que venga de una reunión o de un archivo — y se lleva los compromisos de los demás
+
+`crearPropuesta` revive un borrador `descartada` o `fallado` solo cuando llega la MISMA `ref`
+(`fathom:<id>`, `archivo:<sha1>`): volver a extraer esa fuente es el «deshacer»
+(lib/plan-propuesta.ts:277-293). Los borradores de WhatsApp, de la API y de los `proponer_*`
+nacen sin `ref`, y `descartarPropuesta` (:1087-1093) no tiene contraparte: no hay función ni
+pantalla que los devuelva a `pendiente`.
+
+⚠️ **Y en uno de reunión, descartar también borra lo que era de otros.** Los compromisos de otras
+personas (`esDeOtro`) viven SOLO adentro del borrador hasta que se reparten: al aplicar, el
+borrador sigue `pendiente` con esos adentro justamente para no perderlos (:908-928). Descartarlo
+los deja sin ningún lugar donde existir, sin aviso. Con las 909 tareas de otra persona congeladas
+en borradores de la entrada de arriba, no es un caso raro.
+
+**Regla:** toda puerta nueva a «descartar borrador» dice en la confirmación las dos cosas —que no
+vuelve y que saca a los demás del reparto—. La de la API de MaKo va con `reversible: false`.
+
+**Vive en:** lib/plan-propuesta.ts:277-293 (`crearPropuesta`, el revivir por `ref`), :908-928 y
+:1087-1093 (`descartarPropuesta`) · lib/api-mako/areas/plan.def.ts (`descartar_borrador_plan`) ·
+*2026-09-16 api-mako-areas*
+
+### ⚠️ El glosario del ws 1 entra en las reuniones de TODOS los clientes, y guardar un término no avisa si falló
+
+**No hay síntoma, y ése es el problema.** Un chequeo de «¿ya existe este término?» sobre
+`glosarioTexto()` puede contestar que sí con un término de OTRO workspace.
+
+**Causa, del lado de leer:** `glosarioTexto` (lib/glosario.ts:21-25) lee con
+`listActiveKnowledgeByArea`, que usa `getSupabaseServer` y pide `workspace_id in [ws, OWNER_WS]`
+(`wsParaRag`, lib/mako-knowledge.ts:50-53 y :205-214). Trata al ws 1 como «método curado de la
+agencia», pero el ws 1 es Mauricio, **un cliente**: su jerga entra en los prompts de extracción de
+reuniones de cualquier otro (la leen app/api/plan-fathom/route.ts, lib/reunion-auto.ts y
+lib/importar-en-segundo-plano.ts). Y si la lectura falla devuelve `[]`, igual que «no hay glosario».
+
+**Del lado de escribir:** `guardarTermino` (lib/glosario.ts:28-33) hace `.catch(() => null)` sobre
+`createKnowledge`, que inserta SIEMPRE una fila nueva y paga `embedRow` (lib/mako-knowledge.ts:101-115).
+Guardar dos veces el mismo término duplica la fila y paga dos embeddings, y un fallo no deja rastro.
+
+**Regla:** para escribir o verificar el glosario no se usan `glosarioTexto` ni `guardarTermino`.
+Se escribe con `createKnowledge`/`updateKnowledge` (tiran y devuelven la fila) y se buscan
+duplicados con una consulta por `getTenantDb` — hoy `terminosDelGlosario`
+(lib/api-mako/areas/plan.helpers.ts:184).
+
+**Deuda:** esa búsqueda tendría que vivir en lib/glosario.ts, y `guardarTermino` tendría que hacer
+upsert por término y no tragarse el error. El `[ws, OWNER_WS]` no es solo del glosario: es de todo
+el RAG (lib/mako-knowledge.ts:50-53).
+
+**Vive en:** lib/glosario.ts · lib/mako-knowledge.ts:50-53, :101-115, :205-214 ·
+lib/api-mako/areas/plan.helpers.ts (`terminosDelGlosario`) · *2026-09-16 api-mako-areas*
 
 ### Lo que quedó SIN hacer
 
@@ -985,7 +1054,9 @@ El plan obvio era cruzar los participantes de la reunión contra `leads` por ema
 
 `?recording_id=X` en `/meetings` se IGNORA y devuelve las más recientes: para una grabación puntual hay que usar `GET /recordings/{id}/transcript` y `/summary` (no existe `/meetings/{id}`). `recorded_after` también se ignora; el filtro real lo aplica la lib a mano. No hay API para leer ni actualizar los webhooks de Fathom (404 en las 4 variantes): se re-registran a mano en la consola en cada mudanza de dominio, y hay 3 cuentas. Y `closing_analyses.score` es NUMERIC, que PostgREST serializa como STRING ("7.5"): hay que coercionar con `Number()` antes de cualquier promedio, o el KPI sale roto sin error.
 
-**Vive en:** lib/fathom-api.ts (fathomGet) · lib/plan-fathom.ts:131 y :161 · lib/closing.ts · *2026-07-30 fathom-preview-cards*
+⚠️ **Y como el filtro de `recordedAfter` se aplica sobre la página YA traída** (lib/plan-fathom.ts:197), una página puede volver con **cero reuniones y `nextCursor` presente**. «0 reuniones» con cursor no significa que no haya más: hay que seguir pidiendo. Un listado que corta en la primera página vacía se pierde las reuniones de la ventana (16/09/2026).
+
+**Vive en:** lib/fathom-api.ts (fathomGet) · lib/plan-fathom.ts:131, :161 y :166-201 (`listReunionesRecientes`) · lib/closing.ts · *2026-07-30 fathom-preview-cards · 2026-09-16 api-mako-areas*
 
 ### El tope de 25 de listMeetingsPage es un índice mudo: si la reunión no está entre las últimas 25, se cae media extracción
 
@@ -1260,17 +1331,66 @@ El template se arma con el onboarding, el funnel, el diagnóstico y lo que vende
 
 ## Retro y experimentos
 
-### ⚠️ El gate del Perro vive en el modal y `/api/retro` no tiene gate de sesión
+### ⚠️ Los gates de la tab no protegen su API: el de borrar vive en el modal, el de la Retro está inline en la ruta, y ninguna ruta mira el rol
 
 El chequeo de «no te dejo eliminar esto» es 100 % client-side: la API solo devuelve el veredicto y nada lo enforcea. Peor, `/api/retro` no llama a `getUsuarioActual()` (a diferencia de `/api/mako-guardian`, que devuelve 401), así que un `POST {action:'generar'}` saltea cualquier gate que viva en el wizard — y esa ruta son hasta 9 llamadas a Opus con effort xhigh y maxTokens 24000 por corrida. Si se implementa el gate de «terminá lo anterior antes de correr una Retro nueva», tiene que vivir en `generarRetroV3`/el route, no en el modal.
 
-**Vive en:** app/api/retro/route.ts; app/experimentos/EliminarModal.tsx:101-133; lib/retro-pipeline.ts · *2026-07-17 retro-mapa*
+**Actualizado el 16/09/2026.** El gate de «terminá lo anterior» ya se implementó y corre en la ruta, antes de arrancar el stream (app/api/retro/route.ts:83-107). Lo que sigue vivo:
 
-### `experimento_tareas.retro_id` se escribe siempre y no se lee nunca
+- **Está escrito adentro de la ruta, no en una lib.** Ningún otro canal lo puede reusar, y un «deja» del Perro no se guarda: cada `generar` vuelve a debatir con el motivo que traiga ESE request. Por eso la API de MaKo no expone `generar_retro` ni `debatir_gate_retro`: un debate ganado por otro canal no destraba nada. Para exponerlas, primero hay que sacar el gate a lib/retro-gate.ts y persistir el veredicto.
+- **Ni `/api/retro` ni `/api/experimentos` miran sesión ni rol.** El único control de rol del área es `requireRolWs([])` en app/experimentos/page.tsx:33, que solo deja pasar a `admin`. Un closer o un setter no ve la tab, pero las rutas le dejan cerrar experimentos o aceptar ítems de la Retro. **La página no protege la API**: si la tab es solo para admin, la ruta que escribe también tiene que exigirlo.
 
-El join key que haría honesta la rendición de cuentas de la Retro ya se persiste en los dos caminos (tarea plana y chain de experimento), pero un grep repo-wide devuelve solo escrituras, tipos y seeds: cero lecturas. La query que falta es una sola y no necesita migración: `select id,titulo,estado,progreso,hecho_at from experimento_tareas where retro_id = <id>` vía getTenantDb. Tres huecos que sí quedan: la columna no tiene FK ni índice (seq-scan), el link retro→experimento vive enterrado en `experimentos.config->>'retro_id'` (jsonb, no indexable), y `borrarTarea` es hard delete, así que una tarea borrada es indistinguible de una nunca creada.
+**Vive en:** app/api/retro/route.ts:83-107; app/api/experimentos/route.ts; app/experimentos/page.tsx:33; app/experimentos/EliminarModal.tsx:101-133; lib/retro-gate.ts · *2026-07-17 retro-mapa · 2026-09-16 api-mako-areas*
 
-**Vive en:** lib/retro-pipeline.ts:601-607 y :593-598; lib/todo.ts:267; supabase/migrations/0051 · *2026-07-17 retro-mapa*
+### `experimento_tareas.retro_id` ya se lee, pero sin FK ni índice y con el error tragado
+
+El join key que haría honesta la rendición de cuentas de la Retro ya se persiste en los dos caminos (tarea plana y chain de experimento), pero un grep repo-wide devuelve solo escrituras, tipos y seeds: cero lecturas. La query que falta es una sola y no necesita migración: `select id,titulo,estado,progreso,hecho_at from experimento_tareas where retro_id = <id>` vía getTenantDb.
+
+**Corrección del 16/09/2026:** la lectura ya existe. `listTareasDeRetro` (lib/todo.ts:135) la hacen `seguimientoUltimaRetro` y la fase Memoria (lib/retro-pipeline.ts:210 y :227), las dos con `.catch(() => [])` (ver «“No pude leer” sale con cara de dato», más abajo). Tres huecos que sí quedan: la columna no tiene FK ni índice (seq-scan), el link retro→experimento vive enterrado en `experimentos.config->>'retro_id'` (jsonb, no indexable), y `borrarTarea` es hard delete, así que una tarea borrada es indistinguible de una nunca creada.
+
+**Vive en:** lib/retro-pipeline.ts:601-607 y :593-598; lib/todo.ts:267; supabase/migrations/0051 · *2026-07-17 retro-mapa · 2026-09-16 api-mako-areas*
+
+### ⚠️ Aceptar dos ítems de la misma Retro a la vez pierde uno, y re-aceptarlo DUPLICA el experimento
+
+**Síntoma:** dos ítems aceptados casi juntos; uno queda «Sin tocar», y al aceptarlo de nuevo nacen otra vez el experimento y sus tareas.
+
+**Causa:** `aplicarPlan` lee `retros.reporte`, lo muta en memoria y hace `update({ reporte })` del jsonb ENTERO, sin control de versión (lib/retro-pipeline.ts:621-693). La segunda escritura pisa a la primera, y con ella se va `expCreado`, la marca que evita duplicar al re-aceptar (:646). La pantalla lo esquiva sin saberlo: `busyPlanId` apaga los botones mientras hay un ítem en vuelo (app/experimentos/RetroReport.tsx:359). Dos pestañas, o cualquier canal que no sea esa pantalla, no tienen ese candado.
+
+**Regla:** un jsonb con ítems que se editan por separado no se escribe con leer-mutar-escribir sin comparar versión.
+
+⚠️ **Deuda, y la cura obvia no entra:** el compare-and-set «sobre `updated_at`» que se anotó al implementar la API **no se puede escribir tal cual: `retros` no tiene `updated_at`** (mig 0051 crea la tabla con `created_at` y nada más; la 0059 solo agrega `reporte`). Hace falta una columna de versión o comparar el jsonb previo en el `update` de lib/retro-pipeline.ts:691. Mientras tanto, la API de MaKo solo lo DETECTA: relee antes y después y contesta `ok: false` (lib/api-mako/areas/experimentos.run.ts).
+
+**Vive en:** lib/retro-pipeline.ts:621-693 (`aplicarPlan`) · app/experimentos/RetroReport.tsx (`busyPlanId`) · supabase/migrations/0051_experimentos_retro_todo.sql · *2026-09-16 api-mako-areas*
+
+### ⚠️ La deuda de la Retro se borra por tres puertas, y un experimento descartado la traba para siempre
+
+El gate («terminá lo anterior») cuenta como deuda solo lo ACEPTADO: `deudaDeLaRetro` saca «Pospuesta», «Descartada» y «Sin tocar» (lib/retro-seguimiento.ts:71-76). Con eso cuenta mal en las dos direcciones:
+
+- **Tres formas de que algo aceptado deje de ser deuda sin hacerse.** Deshacer borra el `status` (lib/retro-pipeline.ts:631-634). Posponer o descartar un ítem YA aceptado reemplaza el `status` entero y pierde el `experimento_id` (:635-638). Y borrar la última Retro hace que el gate mire la anterior. En las tres, el experimento sigue corriendo.
+- **Y al revés, sin salida.** `seguimientoDeItem` solo da por hecho un experimento `cerrado` (lib/retro-seguimiento.ts:41-50). Uno `descartado` cae al final como «En curso» (:62) y cuenta como pendiente para siempre. Re-aceptar no lo arregla: `aplicarPlan` reusa `expCreado` sin mirar en qué estado quedó el experimento (lib/retro-pipeline.ts:646-648), y `expCreado` sobrevive a deshacer.
+
+La única salida del segundo caso es una de las puertas del primero.
+
+**Deuda:** que `seguimientoDeItem` resuelva un experimento `descartado` en vez de dejarlo «En curso», y que posponer o descartar un ítem aceptado conserve `experimento_id` en vez de pisar el `status`.
+
+**Vive en:** lib/retro-seguimiento.ts:30-76 · lib/retro-pipeline.ts:621-693 · lib/retro-gate.ts:63-80 · *2026-09-16 api-mako-areas*
+
+### ⚠️ En la Retro y los experimentos, «no pude leer» sale con cara de dato: el gate se abre y el experimento cierra «no concluyente»
+
+- **El gate falla abierto, y el rastro que tenía que dejar no se escribe nunca.** `seguimientoUltimaRetro` atrapa cualquier error y devuelve `items: []` (lib/retro-pipeline.ts:199-214), y con `[]` `evaluarGate` da `bloquea: false` (lib/retro-gate.ts:74). La ruta es fail-open a propósito —si el gate tira, deja pasar y loguea «gate no evaluable» (app/api/retro/route.ts:101-106)—, pero ese `catch` no se dispara por una base caída: el error ya se tragó un piso abajo. «No hay deuda» y «no pude leer la deuda» salen idénticos, y sin log.
+- **Una fuente caída CIERRA un experimento.** `medirVentana` devuelve `null` ante cualquier excepción (lib/experimentos.ts:202-212) y `snapshotFunnelTexto` devuelve «sin datos disponibles» (:481-491). `cerrarExperimento` no distingue: con la integración desconectada el resultado llega vacío al prompt, el veredicto que sale (típicamente `no_concluyente`) se guarda con la fila en `cerrado`, y no hay función para reabrirlo (:638-700). Y un experimento `cerrado` cuenta como HECHO en el gate de arriba.
+
+**Regla:** donde un `null` decide algo irreversible —cerrar un experimento, abrir un gate—, el lector devuelve el error aparte, como `LecturaFuente` en lib/objectives-fuentes.ts.
+
+**Vive en:** lib/retro-pipeline.ts:199-214 · lib/retro-gate.ts:63-80 · app/api/retro/route.ts:101-106 · lib/experimentos.ts:202-212, :481-491, :638 (`cerrarExperimento`) · *2026-09-16 api-mako-areas*
+
+### Los reportes de la Retro guardan nombres de personas, aunque se lean como agregados
+
+`retro-fuentes` arma el material de los prompts con nombres propios: el formulario más rezagado con su empresa y la lista «sin nutrir» (lib/retro-fuentes.ts:189-192), las últimas llamadas de venta con el nombre del lead y su resultado (:293-295, solo en profundidad `profunda`) y las cuotas vencidas con nombre y monto (:391). La Retro corre SIEMPRE en `profunda` (lib/retro-pipeline.ts:487), así que entran siempre. Los hallazgos que redacta el modelo pueden citarlos, y quedan persistidos en `retros.reporte`.
+
+**Regla:** antes de sacar un reporte de la Retro por otro canal —WhatsApp, la API, un link compartido—, tratarlo como dato personal y no como métricas.
+
+**Vive en:** lib/retro-fuentes.ts:189-192, :293-295, :391 · lib/retro-pipeline.ts:487 · *2026-09-16 api-mako-areas*
 
 ### Las decisiones de la Retro
 
@@ -1282,6 +1402,7 @@ El join key que haría honesta la rendición de cuentas de la Retro ya se persis
 ### Lo que quedó sin hacer en la Retro
 
 - **Falta el Perro en la Retro**, que se ejecute sola, que tenga fecha de creación/ejecución y que se conecte con Plan y con WhatsApp (2026-07-16).
+- **`medir()` no está exportada, así que medir UN experimento cuesta medir todos** (lib/experimentos.ts:278). La única medición en vivo que se puede llamar es `getExperimentosView`, que mide cada activo con dos ventanas más una serie de hasta 21 tramos: hasta 23 `getMarketingWindow` por experimento, en paralelo. La API de MaKo copió la función con el mismo criterio en lib/api-mako/areas/experimentos.helpers.ts: si cambia la lib, hay que cambiar la copia, y el día que se exporte `medir()` la copia se borra (2026-09-16 api-mako-areas).
 
 ---
 
@@ -1733,12 +1854,18 @@ Y hay un regalo sin usar: **`DebateModal` ya le pregunta al dueño «Desbloquea 
 otras cosas» y le hace elegir una tarea REAL de una lista con ids — y después tira la
 respuesta.** Ese es el mejor punto de entrada que existe.
 
+⚠️ **Un consumidor nuevo del motor pasa TODOS los labels, no `labels[0]`** (16/09/2026).
+`resolverDeps` resuelve las dependencias de proyecto contra cualquier label de la tarea
+(app/plan/board/dependencias.ts:165-169). Normalizar la tarea a un solo `proyectoId` —lo natural
+al armar una vista compacta— hace que una tarea que tiene el proyecto como label SECUNDARIO
+aparezca libre cuando está bloqueada, y sin ningún error.
+
 **Vive en:** app/plan/board/dependencias.ts (el motor puro, sin `server-only`) ·
 app/plan/board/DependenciasBloque.tsx (el bloque del detalle, uno para los dos niveles) ·
 lib/plan-board.ts (`listDependencias`, `agregarDependencia`, `limpiarDependenciasColgadas`) ·
 app/api/plan-board/route.ts (`dep-add` / `dep-del`, con el guard de ciclo server-side) ·
 supabase/migrations/0140_plan_dependencias.sql · tests/dependencias.test.ts (30 tests) ·
-*2026-08-21*
+*2026-08-21 · 2026-09-16 api-mako-areas*
 
 
 ### «30 días sin tocar baja, deadline a menos de 7 sube» — la señal era el problema, no la regla
@@ -1798,6 +1925,18 @@ La regla no puede distinguir *«dejó de importar»* de *«importa y está aband
 mismo dato. Por eso el castigo tiene **tope 20** (a los 50 días toca fondo y no sigue), la
 razón se **muestra** en la tarjeta y en el detalle, y se puede **debatir**: el Perro la vuelve
 a fijar y eso reescribe `score_base`.
+
+⚠️ **`diasAlDeadline` cuenta días UTC, no días del negocio, y el cron corre justo del lado malo**
+(16/09/2026). Compara contra el deadline a las 12:00 UTC con `Math.ceil`
+(app/plan/board/envejecer.ts:80-84): el «0» dura de las 12:00 UTC del día del deadline a las
+12:00 UTC del siguiente. El comentario de la función justifica el mediodía con que «este tablero
+se reparte desde un cron que corre a las 13-14 UTC». **Ese supuesto quedó viejo:**
+`plan-recurvar` corre a las 9:10 UTC (vercel.json), **antes** del mediodía, así que ve cada
+deadline un día más lejos — la tarea vencida
+ayer da 0 y cobra el empuje de «≤3 días» (20) en vez del de vencida (25), y la que vence hoy
+figura para mañana. Cualquier «vencidas» armado encima subcuenta un día. La API de MaKo cuenta
+días de calendario contra `hoyEnWorkspace()` (lib/api-mako/areas/plan.run.ts:242-250); el board
+(BoardShell.tsx:1771 y :1791) y el cron (lib/plan-board.ts:665) siguen con la función vieja.
 
 **Vive en:** app/plan/board/envejecer.ts (las funciones puras, sin `server-only`) ·
 lib/plan-board.ts (`recurvarPlanOwner`) · app/api/cron/plan-recurvar/route.ts · vercel.json ·
@@ -2096,5 +2235,19 @@ directo al tablero con el criterio de Mauricio, sin confirmación ni preguntas, 
 aparte lo que no lo cumple. Al 16/9 no está implementado: espera el documento de criterio actualizado
 de Mauricio.
 
+**El mismo error vivía en MaKo, y se leía como «el plan está vacío».** La tool `ver_plan`
+(lib/mako-tools.ts, la que usan el doer de WhatsApp y la API) elegía el tablero con
+`ws === OWNER_WS` hasta el 16/09: al ws 1 le leía `plan_tareas` y contestaba «El plan del dueño
+está vacío todavía», y al ws 9 le leía `experimento_tareas` con links a `/plan`. El diagnóstico
+obvio —no hay tareas— era el equivocado: estaban en la otra tabla. Ya decide por capa. Si
+aparece otro `ws === OWNER_WS` eligiendo tablero, es este bug.
+
+⚠️ **Y `experimento_tareas` no es solo el plan.** Mezcla las tareas del tablero con las que
+crearon la Retro y los experimentos (`retro_id`, `experimento_id`), y `listTareas` no filtra
+(lib/todo.ts:142-151). El `/plan` del cliente las pinta igual, así que la pantalla y cualquier
+lectura por `listTareas` coinciden; pero un conteo de «tareas del plan» sobre esa función incluye
+las de la Retro.
+
 **Vive en:** app/api/agente/plan/route.ts:33 · lib/plan-propuesta.ts:689 · lib/todo.ts ·
-app/plan/page.tsx:63 · lib/reunion-auto.ts · *2026-09-16*
+app/plan/page.tsx:63 · lib/reunion-auto.ts · lib/mako-tools.ts (`ver_plan`) · *2026-09-16 ·
+2026-09-16 api-mako-areas*

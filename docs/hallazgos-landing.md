@@ -496,6 +496,28 @@ andar.
 **Vive en:** `lib/landing-token.ts` (`NOVEDADES`, `novedadesDesde`) ·
 `app/api/cron/tracking-vigilante/route.ts`
 
+### El «código que se pega» son 86 mil caracteres: no puede salir por un canal que lee un modelo
+
+*2026-09-16 api-mako-areas*
+
+**Síntoma:** una lectura que devuelve el snippet revienta el turno del doer.
+
+**Causa:** suena a unas líneas y son **86.387 caracteres** (medido). `landingSnippet`
+(`lib/landing-token.ts:1093`) embebe el runtime entero del Pixel —Panda, `<video>`, Wistia,
+YouTube, Vimeo, clics, formularios, agendas— y crece con cada host que se aprende a medir. Nada
+en el camino lo corta: el bucle de tools de `lib/anthropic.ts` mete la salida entera en el
+`tool_result` (`:377-389`) y el runner del registro la devuelve tal cual
+(`lib/api-mako/ejecutar.ts:173`). En el doer de WhatsApp eso se come el techo de tokens del
+turno siguiente, y un modelo tampoco lo puede copiar a un mensaje.
+
+**Regla:** nada que devuelva el snippet sale por un canal donde lo lee un modelo. Por chat va lo
+que la persona necesita para actuar —el link a la pantalla donde se copia con un botón, la
+versión y el largo—; el script entero, solo por HTTP (`ver_codigo_pixel`,
+`lib/api-mako/areas/landing.run.ts:184-192`).
+
+**Vive en:** `lib/landing-token.ts` (`landingSnippet`) · `lib/api-mako/areas/landing.run.ts`
+(`ver_codigo_pixel`) · *2026-09-16 api-mako-areas*
+
 ### ⚠️ Los botones de editar y borrar se gateaban en «está guardada», y nadie tenía guardadas
 
 *2026-08-14*
@@ -704,6 +726,40 @@ aplicado a visitas en vez de a cuota.
 está al día?) siguen contando las visitas del preview. Es deliberado —una visita del editor SÍ
 prueba que el código está puesto— pero significa que el panel puede decir «está midiendo» sobre
 una página que todavía no se publicó. Vive en `lib/landing-token.ts` (`landingDiagnostico`).
+
+### ⚠️ Hay dos `normalizarUrl` con contratos opuestos, y la del panel conserva el nombre y el email del lead
+
+*2026-09-16 api-mako-areas*
+
+**Síntoma:** la lista de páginas del probador puede ofrecer
+`…/gracias?name=Codigo+Inmobiliario&email=…`. No es hipotético: esa URL la dejó un agendado
+real del ws13 el 24/08 (lo cuenta el comentario de `lib/landing-token.ts:619-623`) y está en
+`landing_visits.landing_url`.
+
+**Causa:** dos funciones con el mismo nombre, que se importan una por otra sin que nada avise.
+
+| | `lib/landing-paginas.ts:118` | `lib/landing-fetch.ts:69` |
+|---|---|---|
+| El query | lo **conserva**, salvo `PARAMS_DE_MEDICION` (`:134`) | lo **tira** entero |
+| El host | solo exige un punto (`:126`): pasa `169.254.169.254` y cualquier puerto | tampoco lo valida: eso es `validarDestino` |
+| Si no puede | devuelve `null` | tira |
+| La usan | `landing-config`, `landing-snapshot`, `landing-token` (el `urls` de `landingDiagnostico`, `:1062-1066`) | `landing-analyst`, `landing-writer` |
+
+Una redirección de agenda escribe los datos del lead en el query, y el normalizador de
+`landing-paginas` los deja pasar a toda lista que se arme con él. El runner de la API tuvo que
+importar las dos con alias (`normalizarPagina` / `normalizarAnalisis`,
+`lib/api-mako/areas/landing.run.ts:23-25`) para no confundirlas.
+
+**Regla:** antes de mostrar o devolver una URL que escribió el beacon, mirá por qué
+normalizador pasó. Con el de `landing-paginas`, el query del visitante viaja entero.
+
+**Lo que quedó SIN hacer:** sacar del query lo que no identifica la página en
+`lib/landing-paginas.ts:134`, y validar el host en `:126`. No se tocó por ser una lib
+compartida — y ojo: cambiar el query cambia la clave con la que se guardan `landing.config` y
+`landing.snapshot` (las dos derivan con esta función), así que no es un cambio de una línea.
+
+**Vive en:** `lib/landing-paginas.ts` y `lib/landing-fetch.ts` (`normalizarUrl`) ·
+`lib/landing-token.ts` (`landingDiagnostico`) · *2026-09-16 api-mako-areas*
 
 ### Una colección que se ELIGE también hay que MANTENERLA
 
@@ -1177,6 +1233,43 @@ se pierde · todo bien.
 **Vive en:** `lib/landing-token.ts` (`verificarPagina`) ·
 `supabase/migrations/0135_landing_visits_sv.sql` · `app/integraciones/ProbarTracking.tsx`
 
+### ⚠️ Tres lecturas contestan «no pude leer» con la forma de un «no»
+
+*2026-09-16 api-mako-areas*
+
+**Síntoma, latente:** cualquier consumidor que lea los CAMPOS y no la frase le pide al cliente
+que repegue el Pixel por un 5xx de la base. El probador se salva porque pinta el `texto`; un
+modelo que lee `instalada: false` no.
+
+**Causa:** en el camino de error, las tres devuelven exactamente la forma del caso real.
+
+| Función | Si la lectura falla devuelve | Que se lee igual que |
+|---|---|---|
+| `verificarPagina` (`lib/landing-token.ts:460-463`) | `instalada: false`, `visitas: 0` | «el Pixel no está en esa página». Lo único distinto es la frase «No se pudo consultar…» |
+| `landingUltimoEvento` (`:474-477` y `:485-488`) | `recibio: false`, `ultima: null` | «nunca llegó nada». Sin ninguna marca |
+| `catalogoPanda` (`lib/panda.ts:273-328`) | lo leído hasta la página del listado que falló, sin cachear | el catálogo completo |
+
+Y adentro de `catalogoPanda`, `redirigeA: null` quiere decir dos cosas: «no redirige» y «no
+pude leer el detalle». El comentario de la función lo sabe —«deja el redirect en null, que es
+"no sé" y no "no tiene"»— y el tipo que devuelve no tiene dónde decirlo. Encima, un detalle que
+falló **sí** queda cacheado 5 minutos con el resto. **La distinción vivía en la cabeza de quien
+la escribió, no en la salida.**
+
+Y un costo más del mismo archivo: el detalle se pide de a un video y EN SERIE (a propósito,
+contra el 429). Con el caché frío y cientos de videos, pasa de los 60 s de una función.
+
+**Regla:** «no pude leer» es un CAMPO, no una frase — la de AGENTS.md («"No pude leer" es un
+tercer estado») aplicada a tres lecturas que la precedían. Detectar el error por el prefijo del
+texto, que es lo que tuvo que hacer el runner de la API (`lib/api-mako/areas/landing.run.ts:135`),
+se rompe el día que alguien mejore la redacción.
+
+**Lo que quedó SIN hacer:** que las tres expongan `leida: false` (y `catalogoPanda`, además,
+si el mapa está completo), y recién ahí sacar del runner la detección por prefijo. No se hizo
+porque son libs compartidas, fuera de los archivos que la corrida podía tocar.
+
+**Vive en:** `lib/landing-token.ts` (`verificarPagina`, `landingUltimoEvento`) · `lib/panda.ts`
+(`catalogoPanda`) · `lib/api-mako/areas/landing.run.ts` · *2026-09-16 api-mako-areas*
+
 ### Probar algo en otra pestaña es alternar a ciegas
 
 Para verificar que un click se registra hay que hacerlo **en** la landing y mirar el resultado
@@ -1328,6 +1421,13 @@ Lo que quedó:
 **chequeos** siguen saliendo del workspace. Falta que el snippet lleve el `clarityProjectId` de
 la landing elegida y que `landingDiagnostico` filtre por su URL.
 
+*2026-09-16 api-mako-areas:* el snippet ya lleva el id de la landing (`snippetDeLandingAction`)
+y `landingDiagnostico` ya filtra por su URL. **Queda un chequeo del lado del workspace: el de
+Clarity.** `landingDiagnostico` llama a `clarityProjectId()` sin mirar el `clarityProjectId` de
+la landing elegida (`lib/landing-token.ts:696`) y pinta el renglón con eso (`:1028-1032`): una
+landing con Clarity propio en un workspace sin Clarity sale «No lo activaste», al lado de un
+código que sí lo trae.
+
 **Vive en:** `lib/landing-config.ts` · `lib/landing-analisis.ts` ·
 `app/integraciones/SelectorLanding.tsx` · `app/api/cron/tracking-vigilante/route.ts`
 
@@ -1383,6 +1483,14 @@ puede decidir sola qué baja el server ni qué se paga en IA.
 **Fix natural:** parsear `landing_url` en el beacon y exigir que el host coincida con un
 dominio ya declarado del workspace.
 
+**Y su docstring promete un filtro que no hace** (*2026-09-16 api-mako-areas*). Dice «las URLs
+que el beacon vio y que todavía nadie analizó», y devuelve todas: solo descarta los previews del
+editor (`lib/landing-analyst.ts:227-244`). Los dos llamadores de adentro filtran por su cuenta
+contra `yaEstan` (`:750` y `:795`), así que hoy no se nota; el inventario de la API le creyó al
+comentario, y un llamador nuevo que haga lo mismo le ofrece a la persona volver a analizar —y
+pagar— páginas ya analizadas. Un comentario que describe un filtro que vive en los llamadores es
+un contrato que el próximo no va a cumplir.
+
 **Vive en:** `app/api/track/vsl/route.ts:203` · `lib/landing-analyst.ts:227-238` (`urlsDescubiertas`),
 `:745` y `:790` · `lib/landing-token.ts` (`landingSnippet`) · *2026-08-05 review-landing-tabs*
 
@@ -1415,6 +1523,39 @@ el copy sí se puede analizar?**
 **Vive en:** `lib/landing-analyst.ts:128` (`leerTabla`) y el `catch` de `getComportamiento` ·
 el tope vive en `lib/supabase-paginado.ts`, ver [hallazgos-infra.md](hallazgos-infra.md) §1
 («Un tope nuevo es un truncado nuevo»)
+
+### ⚠️ Los dos números de conversión que lee el Analyst miden de más
+
+*2026-09-16 api-mako-areas*
+
+**Síntoma:** ninguno visible, y por eso importa. `plays` y `agendas` entran al prompt del
+Landing Analyst como conversión medida, y la IA razona sobre ellos.
+
+**Causa, en `getComportamiento`:**
+
+- **`plays` cuenta autoplays.** Es `avancePorPersona(...).size`
+  (`lib/landing-analyst.ts:187-188`): toda persona con al menos un evento de video. La consulta
+  (`:181`) ni siquiera trae la columna `auto`, así que un player que arrancó solo pesa lo mismo
+  que alguien que apretó play. Es exactamente la distinción que el snippet manda desde la v11 y
+  que el probador ya respeta
+  ([Un `play` no es una intención…](#un-play-no-es-una-intención-cuando-el-player-arranca-solo)):
+  se aplicó en la pantalla y no en el número que lee la IA.
+- **`agendas` no mira el orden.** Cuenta los leads de esos visitantes con `fecha_junta_1` no
+  nula (`:197-212`), sin compararla con la visita: quien agendó por otro lado y DESPUÉS pasó por
+  la página cuenta como conversión de la página.
+
+**Regla:** un contador que se llama «reprodujo» o «agendó» afirma una intención y un orden. Si
+la consulta no trae el campo que prueba cada una, el nombre miente — y un nombre que miente
+adentro de un prompt sale convertido en conclusión. La API los expone como
+`con_eventos_de_video` y `agendaron`, con la salvedad escrita en la nota
+(`lib/api-mako/areas/landing.run.ts:437-446`); el Analyst los sigue recibiendo tal cual.
+
+**Lo que quedó SIN hacer:** traer `auto` y no contar como play lo que arrancó solo, y comparar
+fechas en `agendas`. Vive en `lib/landing-analyst.ts:178-213`; no se tocó porque es una lib
+compartida, fuera de los archivos de la corrida.
+
+**Vive en:** `lib/landing-analyst.ts` (`getComportamiento`) · `lib/vsl-retencion.ts`
+(`avancePorPersona`) · *2026-09-16 api-mako-areas*
 
 ## El catálogo de features y sus landings
 
@@ -1891,6 +2032,18 @@ silencioso) · `app/api/cron/tracking-vigilante/route.ts` · `app/integraciones/
   los chunks son `application/javascript`, así que enchufarlo tal cual **apaga el análisis de
   SPAs** — que es justo lo que hace analizable esta landing. Hace falta un `fetchSeguro` que
   acepte los dos tipos y pase a `redirect: 'manual'`.
+  - *2026-09-16 api-mako-areas:* **la «severidad acotada» del 25/08 ya no vale.** Descansaba
+    en que lo dispara un usuario con la tab de integraciones, y ahora la API de MaKo declara
+    landings (`guardar_landing`) y pide el análisis (`detectar_piezas_landing`). El runner
+    valida el primer destino con `validarDestino` (DNS incluido) y al guardar rechaza IPs
+    literales y hosts internos, pero `fetch` sigue cada redirect sin mirarlo
+    (`lib/landing-analisis.ts:452-470`; el `redirect: 'follow'` hoy está en `:459`): una
+    landing pública declarada que redirige a `169.254.169.254` pasa entera. **«Solo lo
+    declarado» no es una baranda: corre la puerta**, porque la declaración también entra por
+    la API. Y el normalizador con el que se guarda una landing
+    (`lib/landing-paginas.ts:118-140`) solo exige un punto en el host: acepta IPs literales y
+    cualquier puerto. El arreglo sigue siendo el `fetchSeguro` de arriba, con `validarDestino`
+    en **cada** salto; es de la lib, y por eso la corrida de la API no lo tocó.
 - **El analizador ahora viaja al navegador.** `lib/landing-snapshot.ts` importa el catálogo, y
   `ProbarTracking.tsx` es `'use client'`: con eso los 29 KB de `landing-analisis.ts` quedan
   alcanzables desde el bundle. No hay secretos ahí (no importa nada, no lee env) y los

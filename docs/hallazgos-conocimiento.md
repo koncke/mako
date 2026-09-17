@@ -158,6 +158,12 @@ RAG de MaKo.
 **Regla.** Un archivo bajado no necesita pipeline: necesita **entrar por esa puerta**. Lo
 que falta es solo el paso de *conseguirlo* y el de *achicarlo* (abajo).
 
+⚠️ **Y ojo con DÓNDE aterriza (16/09/2026).** El RAG no lee solo el workspace propio: lee
+`[ws, OWNER_WS]` (`wsParaRag`, `lib/mako-knowledge.ts:49-53`). Lo que se cargue en el ws 1 le
+llega a la IA de todos los clientes, y el ws 1 es Mauricio, un cliente: su glosario entra
+también. El detalle, con todos los consumidores, en [hallazgos-ia.md](hallazgos-ia.md) → «El
+RAG lee el conocimiento del ws 1 desde todos los workspaces».
+
 ⚠️ **El tope de 25 MB rebota TODA clase de curso**, y no tiene troceado en ningún lado
 (`lib/transcribe.ts:13` → status `muy_grande` → HTTP 413; y la cascada barata corta aún
 antes, a 14 MB inline). Un video de 40 minutos pesa cientos de MB. **Hay que extraer el

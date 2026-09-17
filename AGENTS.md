@@ -44,7 +44,7 @@ Reglas para cualquier agente que trabaje acá:
   cuando haya algo que probar, no después de cada paso interno — lo que se ahorra es el
   deploy entero, nunca segundos.
 
-⚠️ El hook hace NUEVE chequeos: los tipos, que las skills tengan el contrato del
+⚠️ El hook hace DOCE chequeos: los tipos, que las skills tengan el contrato del
 `detalle` al día (`node scripts/sync-contrato-detalle.mjs --check`), que el manual de
 marca tenga la gramática de MaKo al día
 (`node --import tsx scripts/sync-gramatica-doc.mjs --check`), que `plugin/` —la copia
@@ -59,7 +59,14 @@ Flow esté al día (`node --import tsx scripts/sync-operaciones.mjs --check`) y 
 parcheador del cuerpo de BOQ esté al día
 (`node --import tsx scripts/sync-boq-patch.mjs --check`) — ése decide el cuerpo de un
 pedido que GASTA CRÉDITOS del cliente, así que la versión que corre tiene que ser la
-que se probó. Si lo recreás, poné los nueve.
+que se probó— y que el lector de respuestas de BOQ y el juicio de puede-filmar de la
+extensión estén al día (`node --import tsx scripts/sync-boq-respuesta.mjs --check` y
+`node --import tsx scripts/sync-puede-filmar.mjs --check`) y que la referencia de la API
+de MaKo (`docs/api-mako.md`) y la lista de lo que sale por HTTP
+(`tests/api-mako-http.snapshot.txt`) digan lo mismo que el registro
+(`node --import tsx scripts/generar-api-doc.mjs --check`, que compara contra HEAD y se
+abstiene si `lib/api-mako` tiene cambios sin commitear, para no frenar a la sesión
+vecina). Si lo recreás, poné los doce.
 
 ⚠️ El último se agregó el 29/08/2026, después de que **producción estuviera 46 minutos en
 la versión vieja sin que nada lo dijera**: un commit subió `catalogo.ts` con 18 imports
@@ -268,6 +275,7 @@ Los que hoy son fuente única:
 | Qué cliente mira ESTA pestaña (`?ws=`) | `lib/ws-tab.ts` + la validación en `proxy.ts` | `getWorkspaceActual`, el `<Link>` de `app/_ui`, el parche de fetch |
 | Cómo se escribe **MaKo** (`corregirMarca`, `REGLA_MARCA`) | `lib/mako-gramatica.ts` | `transcribirAudio` (STT), `limpiarTarea`, `MAKO_NUCLEO`, `docs/branding-mako.md` (generado) |
 | Los tipos de pregunta del Perro, su saneo y el texto que leen los modelos | `lib/preguntas-contrato.ts` (**sin `server-only`**, a propósito) | `plan-propuesta`, `plan-fathom`, `mako-doer-acciones`, `PreguntaCampo` |
+| Lo que un agente puede leer o hacer en MaKo | `lib/api-mako/areas/<área>.def.ts` + `.run.ts`, reunidos en `lib/api-mako/registro.ts` | el doer de WhatsApp, el chat de la app, `/api/v1`, `docs/api-mako.md` (generado), la skill del cliente |
 
 ⚠️ **El rótulo de un estado de MaKo no es un prop.** Sale de `GRAMATICA` y no se puede
 pasar por parámetro, a propósito. El día que se pueda, tres pantallas escriben
@@ -299,6 +307,70 @@ mano el 2026-08-11 y **en la misma sesión** ya decía «el impacto» donde el c
 «el impacto esperado». Ahí el módulo SÍ se puede importar —su única dependencia es un
 `import type`, que tsx borra en runtime—, así que se importa: parsear objetos anidados
 con regex es cómo se cuelan los desfases que el script viene a evitar.
+
+# Una capacidad nueva de MaKo se DECLARA en el registro de la API, no se escribe en una ruta
+
+Todo lo que un agente puede leer o hacer en MaKo —MaKo por WhatsApp, el chat de la app,
+la skill de Claude del cliente, cualquier integración con un bearer— vive en UN registro:
+`lib/api-mako/areas/<área>.def.ts` (qué es, parámetros, por qué canales sale, cómo se
+confirma) y `<área>.run.ts` (el cuerpo). De ahí salen solos los ToolDefs del doer, el
+catálogo y las rutas de `/api/v1`, la referencia `docs/api-mako.md` y lo que enseña la
+skill. El porqué de cada decisión está en [docs/api-mako-diseno.md](docs/api-mako-diseno.md);
+lo que costó, en [docs/hallazgos-api-mako.md](docs/hallazgos-api-mako.md).
+
+**Si agregás una capacidad y no la declarás ahí, existe para la pantalla y no existe para
+nadie más.** Y si la escribís en una ruta aparte, es la segunda implementación de lo mismo.
+
+Lo que una definición tiene que declarar, y por qué no tiene default:
+
+- **`canales`, en positivo.** Declarar `tipo: 'lectura'` no es decidir que salga por HTTP a
+  un token que vive en la máquina de un tercero. Conversaciones de personas, transcripts y
+  links de grabaciones, datos del equipo y costos de IA no llevan `'http'`.
+  `tests/api-mako-http.snapshot.txt` es la lista de lo que sale; exponer algo nuevo es
+  regenerarla y commitearla — decidirlo. Y «no sale por HTTP» se verifica también contra
+  las rutas viejas con bearer (`/api/agente/*`), que el snapshot no ve.
+- **`confirmacion`: `chat` o `pantalla`, nunca «directo».** `chat` deja una pendiente que
+  confirma una PERSONA (un «sí» en WhatsApp o la bandeja `/mako/pendientes`); `pantalla`
+  deja una propuesta con link a una pantalla editable. **Lo que cuesta plata es `pantalla`
+  y `rolMinimo: 'admin'`, sin excepción** (el test lo exige).
+- **`gating.rolMinimo: 'admin'`** en cada operación de un área cuya página hace
+  `requireRolWs([])`. `gating.tab` mira la CAPA del workspace, no a la persona: sin
+  `rolMinimo`, un closer lee o hace por MaKo lo que su pantalla le esconde.
+- **`tipoPendiente`** cuando la acción hereda un slug que ya hay en la base.
+
+Seis cosas que no se ven en el código y ya mordieron:
+
+1. **Por HTTP nadie confirma por su cuenta.** Un bearer que propone y confirma con un
+   `sleep` en el medio es escribir directo con delay. Solo un token acuñado con alcance
+   `ejecutar` ve `confirmar_accion`, y el alcance viaja en el PREFIJO del token
+   (`mkoag_e_…`): rotar lo resetea.
+2. **El gating se mira al PROPONER y al CONFIRMAR.** Entre los dos momentos cambia quién
+   está (el dueño propone por WhatsApp, un closer abre la bandeja). La guarda vive en
+   `lib/api-mako/acciones.ts` (`gatingOk`), no en cada pantalla que confirma.
+3. **Confirmar RECLAMA antes de ejecutar** (`reclamarPendiente`: update con
+   `.eq('estado','pendiente')`). Dos «sí», dos pestañas o un reintento de n8n ejecutaban dos
+   veces; con presupuesto, eso es plata. La contracara: lo reclamado no vuelve a
+   `pendiente`, así que **todo lo que se pueda saber sin escribir falla en `preparar()`**
+   —un candado en `ejecutar()` consume la pendiente aunque rechace— y lo lento no sale por
+   `/api/v1`, que corta a 60 s.
+4. **Una acción de pantalla no tiene gemela de chat.** Si queda una tool vieja en
+   `MAKO_ACCION_TOOLS` con el mismo nombre, el doer de WhatsApp la prefiere y pide un «sí».
+   Al pasar una operación a `pantalla`, se saca la vieja; `confirmarPendiente` cierra sin
+   ejecutar toda pendiente que resuelva a una acción de pantalla.
+5. **Un link que lee un modelo lo escribe el código.** El doer captura los links a
+   `/plan/revisar`, `/crm/revisar` y `/mako/revisar` que devuelve una ACCIÓN y los escribe
+   él; una lectura que devuelva un link así no se captura. Una operación nueva que devuelva
+   un id al azar en un link tiene que entrar en esa captura.
+6. **Una `.def.ts` no importa VALORES de módulos con `server-only`**, ni transitivamente: el
+   generador de la referencia corre en el pre-push bajo `node --import tsx` sin
+   `--conditions react-server` y reventaría el push de las dos cuentas con un error que no
+   nombra la def. Los módulos de datos puros SÍ se importan: copiar su enum a mano es
+   crear uno que se desincroniza. **Y sin `server-only` no es apto para el navegador:**
+   ningún `'use client'` importa un valor del registro.
+
+`/api/v1` es la única carpeta que entra a `PUBLICOS` como PREFIJO: toda ella es bearer por
+construcción, y `tests/api-mako-registro.test.ts` enumera en positivo los `route.ts` que puede
+tener. Una ruta nueva ahí falla ese test hasta que alguien decide que también es bearer.
 
 # Hay CUATRO formas de navegar, y las cuatro llevan el `?ws=`
 
@@ -2095,7 +2167,9 @@ entornos que no tienen nada que ver.
 Y estar en esa lista significa **dos** cosas: que la ruta se hace cargo de su auth, y que
 **no lee la cookie de sesión para nada** — el early-return se saltea el chequeo CSRF de
 Origin. Se listan rutas exactas, nunca un prefijo de carpeta: en `/api/agente` conviven
-las que hablan por bearer y las que exigen navegador.
+las que hablan por bearer y las que exigen navegador. **La única excepción es `/api/v1`**:
+toda la carpeta es bearer por construcción, y `tests/api-mako-registro.test.ts` enumera en
+positivo los `route.ts` que puede tener (ver «Una capacidad nueva de MaKo se DECLARA…»).
 
 El detalle, en [docs/hallazgos-infra.md](docs/hallazgos-infra.md).
 

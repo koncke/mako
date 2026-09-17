@@ -1097,9 +1097,51 @@ Y el control **no se dibuja si no hay pistas**: `hayMusica()` lo gatea. Un selec
 sola opción que dice «Sin música» ocupa el mismo lugar que el que funciona y enseña que
 tocarlo no hace nada.
 
+### ⚠️ El worker usa la duración de la PRIMERA toma para todas, y la pantalla afirma «no se fue una palabra» sin medirlo
+
+**Síntoma:** la pantalla del montaje dice «De 1:10 a 0:58 — Se fue el silencio, no una
+palabra.» (`app/video-generator/PasoMontaje.tsx:144-152`). El primer número es una cuenta, y
+la frase no la verificó nadie.
+
+**Causa, tres piezas:**
+
+1. **`segundosAntes` no sale del log: es `clips × (segundosPorToma[0] ?? 10.005)`**
+   (`worker/montar-cola.mjs:163`). El comentario justo arriba dice lo contrario —«salen
+   del log del montaje… si no se pudieron leer, se devuelven ausentes y la pantalla no inventa
+   ninguno»—. `segundosDespues` sí sale del archivo montado.
+2. **El worker sigue con el bug que `plan-montaje.ts` ya arregló.** `porQueNoSirveElPlan` pasó a
+   recibir un array porque las tomas de un anuncio NO duran todas lo mismo (medido: 10, 8 y 10;
+   `app/video-generator/plan-montaje.ts:66-80`). El worker le pasa al script `DURVID = seg[0]`
+   con un comentario que dice «Todas las tomas de un anuncio duran lo mismo hoy»
+   (`worker/montar-cola.mjs:126-132`), y `scripts/plan-cortes-anuncio.mjs:78` topea cada toma
+   en `min(DURVID, duración del audio)`. **Si una toma dura más que la primera, lo que se dice
+   después de ese tope no entra en ningún tramo.** Sale de leer el código: el worker no tiene
+   contenedor y no se midió contra un montaje real.
+3. **`palabrasPerdidas` no llega nunca.** El route lo acepta
+   (`app/api/montaje/worker/route.ts:43`) y el worker no lo manda: el verificador está en el
+   Dockerfile y no lo invoca nadie (ya anotado en
+   [hallazgos-generativa.md](hallazgos-generativa.md) → «La voz clonada…» → «Lo que quedó SIN
+   hacer, y por qué»). Sumado al punto 2, «no una palabra» es justo lo que el sistema está
+   peor parado para afirmar.
+
+Y un `pendiente` en `montaje_trabajos` no es siempre un trabajo nuevo: un fallo no definitivo
+vuelve a `pendiente` conservando `motivo` y `error` (`route.ts:111-117`); solo `material` y
+`verificacion` son definitivos. Quien lea la cola lo muestra como reintento.
+
+**Regla:** un número que la pantalla pone al lado de una medición se mide igual, o se rotula
+como estimado. Y un arreglo de «un escalar donde van N valores» se busca en TODOS los que
+reciben ese dato —acá el validador y el worker— antes de darlo por cerrado.
+
+**Vive en:** `worker/montar-cola.mjs:126-132, :160-180` · `scripts/plan-cortes-anuncio.mjs:78-79` ·
+`app/api/montaje/worker/route.ts:40-47, :107-117` · `app/video-generator/PasoMontaje.tsx:144-152`
+· *2026-09-16 api-mako-areas*
+
 ### Lo que quedó SIN hacer
 
 - **Mirar el editor en un navegador hidratado**, arriba.
+- **Pasarle al script `segundosPorToma` entero** y que `plan-cortes-anuncio.mjs` tope cada toma
+  con la suya (`worker/montar-cola.mjs:132`, `scripts/plan-cortes-anuncio.mjs:78`); y medir
+  `segundosAntes` del audio real o rotularlo estimado en `PasoMontaje.tsx`.
 - **Deshacer.** No hay `Ctrl+Z`: un arrastre equivocado se arregla arrastrando de vuelta.
   Con las operaciones puras en `editor-cortes.ts`, es una pila de planes en un `useRef`.
 - **La música**, esperando Epidemic. Una fila en `PISTAS` y anda.

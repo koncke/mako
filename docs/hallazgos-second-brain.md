@@ -1082,6 +1082,15 @@ los campos, el contador decía 14 y el mapa seguía mostrando 5, porque `campos`
 en las dependencias del montaje. Un contador que no coincide con lo que se ve es peor que
 no tenerlo.
 
+**⚠️ Deuda (16/09/2026): la búsqueda «por significado» vive entera adentro de la ruta.** El
+prompt (`SYSTEM`) y la lógica —armar la lista de nodos, llamar a la cascada, filtrar los ids
+contra los reales— están inline en `app/api/second-brain/buscar/route.ts`, y el prompt no es
+editable desde /configuraciones. Por eso no pudo sumarse a la API de MaKo:
+`buscar_en_segundo_cerebro_por_significado` quedó afuera, anotado en la cabecera de
+`lib/api-mako/areas/negocio.def.ts`. Un segundo canal que encuentra la lógica en una ruta la
+copia o no la ofrece. Para que exista, primero va a `lib/` con el prompt editable (skill
+`add-editable-prompt`), y la ruta pasa a llamarla.
+
 ## El vault: el segundo cerebro como carpetas y archivos
 
 ### El veredicto del modelo: proyección y exportación, NO almacenamiento

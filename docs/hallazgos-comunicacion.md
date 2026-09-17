@@ -450,6 +450,96 @@ nada», tiene que romper.
 
 **Vive en:** lib/evolution-mensajes.ts · app/api/chat-agent/onboarding/* · *corrida 08/2026*
 
+### ⚠️ El número de empresa compara teléfonos con tres reglas distintas, y la pantalla usa la única que no falla
+
+**Síntoma:** un contacto «bloqueado» sigue recibiendo nutrición, o un «oculto» sigue en el
+inbox. En pantalla no se ve nada raro.
+
+**Causa real, regla por regla:**
+
+- **Igualdad exacta.** `wa_bloqueados` y `wa_ocultos` guardan los dígitos como llegaron
+  (lib/evolution-block.ts:10) y todo compara por `=`: el motor con
+  `estaBloqueado(lead.telefono)` (lib/nutricion.ts:1153), el inbox con `bloq.has` /
+  `ocultos.has` sobre el teléfono del espejo, que sale del jid
+  (lib/evolution-mensajes.ts:377-388). `lead.telefono` y `wa_mensajes.telefono` difieren
+  seguido (52 vs 521, con o sin lada): una sola fila no les sirve a los dos.
+- **Subcadena.** `borrarChat` (:689-694) y `getMensajesDeChat` (:472-485) filtran
+  `telefono LIKE %<últimos 10>%`, que no es un sufijo. La UI pasa siempre el teléfono
+  completo del espejo y no lo sufre; con un número corto o mal transcripto, el DELETE alcanza
+  varias conversaciones y la lectura mezcla personas.
+- **Últimos 10.** Es la clave con la que se agrupa todo lo demás (`claveTel`, :195-198), y
+  por eso la pantalla se ve coherente.
+
+Dos vecinos de la misma familia: el deep link `?chat=<jid>` de `EmpresaInbox` matchea el jid
+EXACTO y, si no está en la lista (otra lada, un lead sin mensajes), abre `convs[0]` sin
+avisar — **el link lleva a la conversación de otra persona**
+(app/whatsapp/EmpresaInbox.tsx:197-206). Y `leads.telefono_normalizado` puede traer el 52 o
+el 521 adelante, así que un `.in()` por últimos 10 no calza: hace falta un OR de `LIKE`.
+
+⚠️ **El deep link muerde a quien ARMA el link, no solo a quien lo abre (16/09/2026).** Un jid
+construido con los dígitos crudos del CRM (`${tel}@s.whatsapp.net`, sin la lada con que lo
+guardó el espejo) casi nunca matchea, así que el link «funciona»: abre `/whatsapp` con el chat
+de OTRA persona al lado del borrador que se quería revisar. **Regla:** el jid de un link no se
+inventa; se resuelve contra el espejo (`chatEmpresaPorUltimos10`,
+lib/api-mako/areas/whatsapp.helpers.ts:140) y, si no hay conversación, el link va sin `chat=`
+(lib/api-mako/areas/whatsapp.run.ts:683-687, lo mismo en cs.run.ts:152-155). **Deuda de la
+pantalla:** con un `chat=` que no existe, abrir la cola vacía en vez de `convs[0]`.
+
+⚠️ **Ojo con la API de MaKo mientras esto siga así:** para que el bloqueo agarre, la
+operación escribe UNA fila por cada formato exacto conocido (el del lead y los del espejo) y
+relee (lib/api-mako/areas/whatsapp.run.ts:769-778). Desbloquear desde /whatsapp borra UNA,
+con `.eq` exacto (app/api/whatsapp/evolution/block/route.ts:44): las otras quedan, y el motor
+sigue salteando al contacto.
+
+**Regla:** en el número de empresa la identidad de una persona son los últimos 10 dígitos, en
+TODAS las comparaciones —guardar, preguntar, borrar— y como sufijo (`LIKE '%<10>'`), nunca
+como subcadena ni como igualdad.
+
+**Deuda:** que `estaBloqueado`, `telefonosBloqueados`, `telefonosOcultos`,
+`desbloquearContacto` y `mostrarContacto` comparen por sufijo de 10
+(lib/evolution-block.ts:22-62), y que `borrarChat` y `getMensajesDeChat` usen sufijo. No se
+hizo porque la corrida no podía tocar libs compartidas: el parche vive en
+`lib/api-mako/areas/whatsapp.helpers.ts` (`registrosPorUltimos10`, `leadsPorUltimos10`,
+`chatEmpresaPorUltimos10`, `contarParaBorrar`) y se borra el día que la lib lo haga.
+
+**Vive en:** lib/evolution-block.ts · lib/nutricion.ts:1153 ·
+lib/evolution-mensajes.ts:195-198, :377-388, :472-485, :689-694 ·
+app/whatsapp/EmpresaInbox.tsx:197-206 · app/api/whatsapp/evolution/block/route.ts:44 ·
+lib/api-mako/areas/whatsapp.helpers.ts · lib/api-mako/areas/whatsapp.run.ts:683-687 ·
+*2026-09-16 api-mako-areas*
+
+### ⚠️ Las bandejas cortan por el lado equivocado: «los últimos N» son los primeros N, e `incluirOcultos` es «solo ocultos»
+
+Cuatro lecturas de bandeja, en los dos canales, que devuelven otra cosa que lo que su nombre
+promete. Ninguna da error.
+
+- **`getMensajesDeChat(jid, 300)`** ordena `wa_timestamp` ASCENDENTE y después aplica el
+  `limit` (lib/evolution-mensajes.ts:479-480): en un chat de más de 300 mensajes devuelve los
+  300 más VIEJOS. Y firma URLs de toda la media (hasta 8 s) aunque el que llama no la use.
+- **`listarMensajes` de /instagram**, igual: `created_at` ascendente + `limit(300)`
+  (app/instagram/ig-datos.ts:227-234). En un hilo largo se cortan justo el último DM del lead
+  y el borrador pendiente.
+- **`listarConversaciones`** cuenta `borradoresPendientes` dentro de los 600 mensajes más
+  recientes de las 100 conversaciones JUNTAS (:196-212). Un borrador de un hilo que quedó
+  afuera de esa ventana cuenta 0, así que un filtro «con borrador pendiente» pierde a los que
+  esperan hace más. El comentario de arriba dice «el límite alcanza», y es cierto para lo que
+  se escribió: el último texto de la vista previa.
+- **`getConversacionesNoOficial(limite, true)`** no es «también los ocultos»: es SOLO los
+  ocultos, y `[]` si no hay ninguno (lib/evolution-mensajes.ts:379-384). La revisión
+  adversarial propuso resolver un chat contra esa llamada: habría fallado con todo chat
+  visible.
+
+**Regla:** `order asc` + `limit` nunca contesta «los últimos N»: va `desc` + `limit` y se da
+vuelta en memoria. Un conteo se hace con su propia consulta, no dentro de la ventana que se
+trajo para otra cosa. Y un booleano que se llama `incluirX` se lee antes de pasarle `true`.
+
+**Deuda:** /whatsapp e /instagram siguen con los dos cortes. La API los esquiva con
+`mensajesEspejoRecientes`, `mensajesRecientesIg` y `borradoresPorConversacionIg` (en
+`lib/api-mako/areas/*.helpers.ts`): lógica duplicada que tiene que volver a la lib.
+
+**Vive en:** lib/evolution-mensajes.ts:379-384, :472-485 · app/instagram/ig-datos.ts:196-212,
+:227-234 · *2026-09-16 api-mako-areas*
+
 ### Decisión: el canal no oficial copia el diseño del oficial, con UNA marca que los distinga
 
 «quiero que sea igual. Lo único es que me gustaría tener algo que los diferencie, para que
@@ -557,8 +647,16 @@ dirección — el filtro nunca se había replicado acá.
 **Regla:** hoy `lead-insights` usa `messageType` explícito, pero el mapeo booleano de
 `lib/chatwoot.ts` sigue igual: **cualquier consumidor nuevo repite el error**.
 
+**Y lo repitió (2026-09-16):** `historial_whatsapp` (lib/mako-tools.ts), la tool con la que
+MaKo lee el WhatsApp oficial de un lead. **El diagnóstico obvio era que estaba bien**, porque
+filtraba `messageType` 0/1/3; pero después rotulaba con `saliente`, así que las plantillas de
+nutrición (3) le llegaban al modelo como mensajes DEL LEAD, y cualquier consejo sacado de ahí
+leía nuestro marketing como objeciones. Hoy rotula por `messageType` (:212-217). **Filtrar
+por el tipo no alcanza si el rótulo sale del booleano.**
+
 **Vive en:** lib/chatwoot.ts (saliente = message_type === 1) · lib/lead-insights.ts
-(bloqueChat) · *2026-07-04 ~auditoria-insights-del-lead*
+(bloqueChat) · lib/mako-tools.ts:211-217 (historial_whatsapp) · *2026-07-04
+~auditoria-insights-del-lead + 2026-09-16 api-mako-areas*
 
 ### `cwFetch` fuerza Content-Type JSON: un adjunto por multipart entra sin archivo y sin error
 
@@ -610,6 +708,48 @@ mandar.
 **Vive en:** app/whatsapp/WhatsAppApp.tsx (onstop → blobToMp3) · app/whatsapp/audio.ts ·
 app/api/whatsapp/contacts/[id]/attachments/route.ts:34-41 (AUDIO_OK) · *2026-06-23
 ~review-inbox-whatsapp*
+
+### ⚠️ El guard del inbox oficial mira UNA conversación, y después se lee todo el contacto
+
+**Síntoma:** el hilo de WhatsApp de un lead (en el inbox y en lo que lee MaKo) trae también
+lo que esa persona escribió por Instagram, email o webchat, y abrirlo marca todo eso leído en
+Chatwoot.
+
+**Causa real:** `contactoEnInboxWA` —el único guard de aislamiento del canal oficial— exige
+que el contacto tenga AL MENOS una conversación en el inbox de WhatsApp
+(lib/chatwoot.ts:350-355). Pasada esa puerta, `getContactMessages` (:407-412) y
+`markContactRead` (:385-389) recorren TODAS las conversaciones de `contactConversaciones`,
+que trae el `inboxId` de cada una (:327-341) y nadie lo mira. Y el número contra el que
+compara la puerta puede ser el `3` inventado de `cfg()` (ver «Sin `CHATWOOT_WA_INBOX_ID`…»).
+
+**Regla:** un guard que habilita porque «existe una fila de X» no autoriza a leer todo lo
+demás. El filtro por inbox va en la LECTURA, no solo en la puerta.
+
+**Deuda:** un filtro `soloInboxWA` en `getContactMessages` y `markContactRead`
+(lib/chatwoot.ts:385-412). Desde la API no se pudo: `contactConversaciones` y `cfg` son
+privados, y reimplementarlo era copiar el cliente de Chatwoot. La API solo avisa en la
+descripción de `hilo_contacto_whatsapp_oficial`.
+
+**Vive en:** lib/chatwoot.ts:327-355, :385-412 · app/api/whatsapp/contacts/[id]/messages/route.ts:42 ·
+app/api/whatsapp/contacts/[id]/read/route.ts:26 · lib/mako-tools.ts:211 (historial_whatsapp) ·
+*2026-09-16 api-mako-areas*
+
+### `unread_count` de Chatwoot vale 0 siempre, y un `can_reply` ausente se lee como ventana abierta
+
+Dos campos de estado de la conversación que no dicen lo que parecen, los dos en `mapConv`:
+
+- `sinLeer: cv.unread_count ?? 0` (lib/chatwoot.ts:220). En esta instalación el campo llega
+  en 0 siempre: lo leído de la app vive en `localStorage`, y marcar leído en Chatwoot no
+  cambia nada visible. **Todo «no leídos» derivado de Chatwoot miente.** La señal real de que
+  hay algo sin contestar es la dirección del último mensaje (`ultimoEntrante`, :221).
+- `puedeResponder: cv.can_reply !== false` (:223). Si Chatwoot no manda el campo, la ventana
+  de 24 h figura ABIERTA — y de eso cuelga toda decisión de texto libre contra plantilla.
+
+**Regla:** un campo del proveedor que falta no es el valor optimista. Es la misma forma que
+el `?? '3'` del inbox.
+
+**Vive en:** lib/chatwoot.ts:218-223 · memoria `chatwoot-unread-count-cero` · *2026-09-16
+api-mako-areas*
 
 ### Lo que sigue sin hacer
 
@@ -699,8 +839,44 @@ actualiza).
 **Regla:** tras el chequeo de `res.ok`/`j.error`, validar explícitamente el campo que necesitás
 para reconciliar y fallar ahí — un id ausente cuesta más que un error.
 
-**Vive en:** lib/meta-templates.ts (submitTemplate + enviarBorradorAMeta + reconcileDrafts) ·
-*2026-06-24 ~review-plantillas-whatsapp-meta*
+**Y la lista puede no reflejarla por otra razón (2026-09-16):** `listMetaTemplates` pide
+`limit=200` a Graph y no sigue `paging.next` (lib/meta-templates.ts:342-349). Con más de 200
+plantillas en el WABA, buscar una por nombre contesta «no existe» sobre una que existe, y
+`reconcileDrafts` deja borradores sin reconciliar sin decir nada. **Deuda:** paginar ahí; la
+API solo aclara en su error cuántas leyó y que Meta corta en 200.
+
+**Vive en:** lib/meta-templates.ts (submitTemplate + enviarBorradorAMeta + reconcileDrafts;
+listMetaTemplates :342-349) · *2026-06-24 ~review-plantillas-whatsapp-meta + 2026-09-16
+api-mako-areas*
+
+### ⚠️ «Mandar a aprobar la plantilla» falla con «ya está en estado pending» mientras Meta dice que no existe
+
+**Síntoma:** `asegurarPlantillaReporte` (la plantilla `reporte_mako` de la apertura diaria)
+contesta siempre `la plantilla ya está en estado "pending"` —o `"approved"`— y Meta dice que
+está rechazada o que no la tiene.
+
+**Causa:** tres piezas correctas por separado. `upsertDraft` no toca `status` al actualizar, a
+propósito (lib/meta-templates.ts:114-142). `enviarBorradorAMeta` solo manda borradores en
+`borrador` o `rejected` (:296-303). Y `asegurarPlantillaReporte` (lib/reporte-template.ts:57-70)
+mira a Meta, ve `rejected`/`ausente`, hace el upsert y llama al envío **sin reconciliar el estado
+local**. Si la plantilla se borró en Meta o el rechazo nunca se reconcilió, la fila local queda
+`pending`/`approved` para siempre y el envío falla igual en cada corrida — la del cron diario
+(app/api/cron/reporte-diario/route.ts:36) y la del botón (app/api/perfil/plantilla/route.ts:19).
+Y sin plantilla aprobada, la apertura diaria no sale nunca (reporte-diario/route.ts:38-39).
+
+⚠️ **Llamar a `reconcileDrafts` (:448) no alcanza:** reconcilia solo lo que Meta SÍ lista
+(`if (!m || !d.id) continue`, :457). Una plantilla borrada en Meta nunca vuelve a `borrador` por
+ahí.
+
+**Regla:** antes de reenviar algo que vive en un tercero, el estado local se confronta contra
+el tercero, incluido el caso «no la tiene». El estado guardado es una foto, no un dato.
+
+**Lo que quedó SIN hacer:** que `asegurarPlantillaReporte` resetee con `setDraftStatus(id,
+'borrador')` cuando Meta dice `rejected` o `ausente`. Hoy solo lo hace el runner de la API de MaKo
+(`asegurar_plantilla_reporte`, lib/api-mako/areas/equipo.run.ts:725-727).
+
+**Vive en:** lib/meta-templates.ts:114-142, :296-308, :448-466 · lib/reporte-template.ts:57-70 ·
+*2026-09-16 api-mako-areas*
 
 ### Un `.catch(() => [])` atrapa el error pero no la lentitud
 
@@ -903,7 +1079,35 @@ salen dos WhatsApp. El guard `borrBusy` de la UI protege un solo navegador, no l
 **Arreglo:** claim atómico
 (`UPDATE ... SET estado='enviando' WHERE id=? AND estado='pendiente' RETURNING ...`).
 
-**Vive en:** lib/evolution-envio.ts:106-117 · *2026-07-09 ~auditoria-envio-evolution-nutricion*
+**Estado al 2026-09-16:** `enviarBorrador` ya reclama así (lib/evolution-envio.ts:171-178).
+Quedaron sin claim sus dos vecinos de la misma cola:
+
+- `descartarBorrador` (:190-193) actualiza por `id` sin `.eq('estado','pendiente')`:
+  descartar no sabe si el borrador ya salió o se está mandando.
+- `crearBorrador` (:116-138) devuelve `void` y no mira el error del insert **ni del upsert**:
+  un borrador que no se guardó es indistinguible de uno que sí. Para saber su id hay que volver
+  a listar, y `listBorradores` (:146-153) trae los 200 MÁS VIEJOS, así que con más de 200
+  pendientes el recién creado tampoco aparece.
+
+**Y los dos se tragan el error hacia arriba (16/09/2026).** `listBorradores` tampoco mira
+`error`: con la base caída la cola vale `[]`. Ordena `created_at` ascendente con `limit(200)`
+porque está pensada para pintar la bandeja, no para buscar — usada para deduplicar, «no
+encuentra» el borrador de hoy justo cuando la cola está llena. Y lo que cuelga de `crearBorrador`
+contesta `ok` sin haber dejado nada: `borradorHayQueAprobar` y `borradorVioYNoContesto`
+(`lib/cs-mensajes.ts:52-69`, `:77-94`) hacen `await crearBorrador(…)` y `return { ok: true }`.
+
+**Regla:** para buscar un borrador puntual se consulta `wa_borradores` filtrado (lead o teléfono,
+`estado='pendiente'`, origen) en orden DESCENDENTE, y después de crear se RELEE: si no está, no
+se dice que quedó. Moldes: `borradorPendienteIgual` (`lib/api-mako/areas/whatsapp.helpers.ts:207`,
+usado en `whatsapp.run.ts:690-696`) y `borradoresMakoDelLead` (`lib/api-mako/areas/cs.helpers.ts:131`).
+
+**Deuda:** `.insert().select('id').single()` que tire (que `crearBorrador` devuelva el id o el
+error), y la condición de estado en el descarte. La API relee antes y después: achica la
+carrera, no la cierra. Los avisos de `lib/cs-mensajes.ts` siguen sin releer.
+
+**Vive en:** lib/evolution-envio.ts:106-117 (hoy :116-193; crearBorrador :116-138,
+listBorradores :146-153) · lib/cs-mensajes.ts:52-94 · *2026-07-09
+~auditoria-envio-evolution-nutricion + 2026-09-16 api-mako-areas*
 
 ### El borrador avanza el paso igual, así que se apilan y descartarlo pierde el toque
 
@@ -920,6 +1124,13 @@ siguiente en cadencia, sin importar si el setter lo mandó. Dos consecuencias si
 
 Aparte: el guard anti-ban de 20 h se evalúa ANTES de ramificar por proveedor, así que difiere
 hasta 20 h la CREACIÓN de un borrador que no manda nada.
+
+**Cómo se ve desde afuera (2026-09-16):** una secuencia de audios «activa» por el número de
+empresa no le manda nada a los leads nuevos y se juntan borradores. No está rota: en la rama
+no_oficial solo `esLeadCliente` recibe envío directo; al resto —texto **o audio**— le queda un
+borrador para el setter (lib/nutricion.ts:1162-1204). El punto 1 de arriba ya está mitigado:
+con un borrador de nutrición pendiente, `tieneBorradorNutriPendiente` no apila otro y corre la
+inscripción 6 h sin avanzar.
 
 **Vive en:** lib/nutricion.ts:610-613, :644-648 y :746-755 · lib/evolution-envio.ts:119-122 ·
 *2026-07-09 ~auditoria-envio-evolution-nutricion*
@@ -938,9 +1149,24 @@ Dos trampas del mismo envío, las dos vivas el 7/8/2026:
    las variables del catálogo vía `valoresVariablesLead`. **Es configuración que el usuario toca
    y no hace nada.**
 
+**Y editar el copy de un paso oficial no cambia lo que recibe el lead (2026-09-16).**
+`setSecuenciaPasos` conserva `template_wa` (lib/nutricion.ts:262), y el motor manda la
+plantilla por NOMBRE: Meta entrega el cuerpo aprobado, no el `paso.cuerpo` nuevo. Las dos
+salidas obvias fallan:
+
+- **Poner `template_wa` en null** deja el paso fallando con «paso sin template_wa», un reintento
+  cada 24 h para siempre (:1211-1214).
+- **Volver a correr `plantillaDesdePaso`** tampoco: es idempotente por NOMBRE
+  (`nombreMetaSafe(clave, orden)`), y si ya hay una en approved/pending/paused la re-vincula
+  sin reenviarla (lib/nutricion-plantillas.ts:160-175). Vuelve a atar el texto viejo.
+
+**Deuda:** hoy no hay camino en la app para que el texto nuevo de un paso oficial llegue al
+lead. La API solo lo avisa en el resumen de `editar_pasos_secuencia_mensajes`.
+
 **Vive en:** lib/nutricion.ts:1129 (content crudo) vs :1158 (aplicarVariables en no_oficial) ·
-lib/nutricion.ts:78 y :264 (template_param) · lib/template-vars.ts:26 · *2026-07-09
-f33-understand*
+lib/nutricion.ts:78 y :264 (template_param) · lib/template-vars.ts:26 · lib/nutricion.ts:262,
+:1211-1214 · lib/nutricion-plantillas.ts:160-175 · *2026-07-09 f33-understand + 2026-09-16
+api-mako-areas*
 
 ### «Viene de un formulario» no es excusa cuando no hay formulario
 
@@ -959,6 +1185,86 @@ garantía para el día que un funnel de cliente se los ponga. Los dos call-sites
 algo no mueve y escribe el porqué en el historial.
 
 **Vive en:** lib/nutricion-desenlace.ts · lib/leads.ts:1725 (moverLeadAuto) · *corrida 08/2026*
+
+### ⚠️ `setSecuenciaPasos` conserva las variantes por POSICIÓN: reescribir un paso del número de empresa deja saliendo el copy viejo
+
+**Síntoma:** se reescribe el texto de un paso de WhatsApp no oficial y parte de los leads sigue
+recibiendo la versión anterior.
+
+**Causa real:** las variantes que MaKo escribe al armar la secuencia no viven en ningún
+formulario, así que `setSecuenciaPasos` las conserva por `orden` cuando quien guarda no las
+manda (lib/nutricion.ts:235-237 y :266-271). `textoDelPaso` sortea entre el cuerpo nuevo y
+esas variantes viejas (:212-218), y la rama no oficial lo usa (:1143). Dos corolarios que salen
+de la misma línea (:269):
+
+- **Mandar `variantes: []` no las borra**: un array vacío cae al merge y vuelven las previas.
+- **Reordenar pasos** le cuelga a cada uno las variantes del que estaba antes en esa posición.
+
+**El diagnóstico obvio, para email, era el equivocado:** la rama de email manda `paso.cuerpo`
+directo (:1271) y no sortea. Las variantes viejas sobreviven en el JSON pero no salen.
+
+**Regla:** reescribir el cuerpo de un paso con variantes es reescribir sus variantes en la
+misma escritura, y hoy la función no tiene forma de vaciarlas. Y el array `pasos` tiene DOS
+escritores en la API con reglas distintas —`editar_pasos_secuencia_mensajes`
+(lib/api-mako/areas/chatbot.def.ts:321) y `editar_pasos_secuencia_email` (email.def.ts:189)—:
+cualquier cambio en el merge mira los dos.
+
+**Vive en:** lib/nutricion.ts:212-218, :235-271, :1143, :1271 ·
+lib/api-mako/areas/chatbot.run.ts:587 (el aviso) · *2026-09-16 api-mako-areas*
+
+### ⚠️ Archivar una secuencia no la pausa: desarchivarla, o re-armar los audios, la revive prendida
+
+**Síntoma:** una secuencia desarchivada, o re-armada desde los audios del onboarding, vuelve a
+mandar mensajes sin que nadie la haya prendido.
+
+**Causa real:** `archivarSecuencias` escribe `archivada_at` y cancela las inscripciones vivas,
+pero deja `activa` como estaba (lib/secuencias-huecos.ts:90-116). El motor la ignora solo por
+el filtro `archivada_at IS NULL` (lib/nutricion.ts:124-131), así que el día que ese campo
+vuelve a null la secuencia está viva otra vez. Dos caminos lo vuelven a null sin tocar
+`activa`:
+
+- `desarchivarSecuencia` (lib/secuencias-huecos.ts:119-123).
+- `armarSecuenciasDeAudios`, que reescribe las `chat-agent-*` existentes con
+  `archivada_at: null` y sus pasos nuevos (lib/secuencias-audios.ts:244-249): una archivada
+  estando prendida vuelve a enrolar, y una activa manda los pasos nuevos en el acto. De paso,
+  pisa el texto y las variantes que se hubieran editado. La única que archiva bien es la
+  post-agenda vieja, con `activa: false` en la misma escritura (:223-225).
+
+**Regla:** archivar y pausar van en la MISMA escritura, y desarchivar devuelve la secuencia
+pausada. Una marca que el motor usa para ignorar algo no reemplaza al interruptor que lo apaga.
+
+**Deuda:** la pantalla de /chatbot tiene el mismo agujero. La API lo resuelve con
+`desarchivarYPausar` (lib/api-mako/areas/chatbot.helpers.ts:56), que tiene que mudarse a
+lib/secuencias-huecos.ts.
+
+**Vive en:** lib/secuencias-huecos.ts:90-123 · lib/secuencias-audios.ts:223-225, :244-249 ·
+lib/nutricion.ts:124-131 · *2026-09-16 api-mako-areas*
+
+### ⚠️ Las lecturas del motor y del bloqueo no paginan: PostgREST corta en 1000 y el número sale corto sin error
+
+Es la regla de AGENTS.md («un número redondo es una hipótesis de truncamiento») con nombre y
+apellido en este dominio:
+
+- **`planificarInscripciones`** busca los ya inscriptos con `.in('lead_id', candidatos)`
+  (lib/nutricion.ts:613-617): con más de 1000 inscriptos en la cohorte, el dry-run lista como
+  pendientes a leads que ya estaban.
+- **`inscripcionesVencidas`** (:772-781) trae las vencidas sin `range` y sin orden.
+- **`getSecuenciasConStats`** trae TODAS las inscripciones y los envíos del workspace para
+  contarlos en JS (:169-182), y `getSettingData` hace lo mismo con 30 días de envíos
+  (lib/setting-secuencias.ts:30-31): entre todas las secuencias, los contadores de la tab no
+  pueden sumar más de 1000.
+- **`telefonosBloqueados` / `telefonosOcultos`** traen el set entero sin `range`
+  (lib/evolution-block.ts:36-39, :59-62): pasados los 1000, un bloqueado o un oculto más no
+  se marca en el inbox.
+- **`leadsDeSegmento`** (email): ver «Dos contadores del mismo segmento que no cuentan lo
+  mismo».
+
+**Regla:** contar va con `count: 'exact', head: true`; listar va paginado con `.range()` y
+orden estable; y una pertenencia puntual («¿está bloqueado X?») se pregunta por X, no trayendo
+el set.
+
+**Vive en:** lib/nutricion.ts:169-182, :613-617, :772-781 · lib/setting-secuencias.ts:25-31 ·
+lib/evolution-block.ts:36-39, :59-62 · *2026-09-16 api-mako-areas*
 
 ### Decisión: las secuencias terminan por OBJETIVO y hacen hand-off a la siguiente
 
@@ -1104,8 +1410,24 @@ error`, el estado terminal se consumía con un envío vacío.
 **Regla:** el contador que ve el usuario y la lista que se envía salen de la MISMA función; y solo
 se marca `'enviado'` cuando `total_destinatarios > 0`.
 
-**Vive en:** lib/email-marketing.ts (contarSegmento / leadsDeSegmento / enviarBroadcast) ·
-*2026-06-30 ~auditoria-email-marketing-resend*
+**Volvió con otra forma (2026-09-16), y ésta no se arregló:** aquel fix cerró el filtro de email
+vacío, no el tope de filas. `leadsDeSegmento` hace un select sin paginar
+(lib/email-marketing.ts:262-270) y PostgREST corta en 1000; `contarSegmento` cuenta exacto
+(:272-278). Síntoma esperado: «1500 destinatarios» en pantalla, 1000 enviados, broadcast
+`'enviado'` y `truncado: false`, sin error — y como ya está `'enviado'`, el guard de reentrada
+deja afuera al resto para siempre. `MAX_DESTINATARIOS = 2000` (:373) es inalcanzable, así que
+`truncado` (:419) no puede dar true nunca.
+
+**Deuda:** paginar con `.range()` hasta `MAX_DESTINATARIOS`, que conteo y lista salgan de la
+misma resolución, y un test con 1001 leads que lo pruebe rompiéndolo. Y exportar
+`leadsDeSegmento(segmento, limite)`: `filtroSegmento` es privado (:245), así que quien necesite
+leer un segmento tiene que copiar el filtro — que es crear el segundo contador otra vez. La API
+se niega a enviar o programar si `contarSegmento` pasa de 1000, pero un broadcast ya programado
+cuyo segmento crezca después sale truncado por el cron.
+
+**Vive en:** lib/email-marketing.ts (contarSegmento / leadsDeSegmento / enviarBroadcast;
+filtroSegmento :245, :262-278, :373, :419) · *2026-06-30 ~auditoria-email-marketing-resend +
+2026-09-16 api-mako-areas*
 
 ### El guard anti-doble-contacto vivía en una tabla y los broadcasts escribían en otra
 
@@ -1136,6 +1458,74 @@ list-lookup ante cualquier 4xx; el `message` es copy del proveedor, no un contra
 
 **Vive en:** lib/resend.ts:303-305 (ya reescrito: 4xx → buscar por nombre) · *2026-07-09
 ~review-canal-email*
+
+### ⚠️ `enviarBroadcast` no reclama el broadcast: dos corridas mandan dos veces, y cancelar no frena al cron
+
+**Síntoma esperado:** el mismo lead recibe el broadcast dos veces, o un broadcast cancelado sale
+igual. No hay error en ningún lado.
+
+**Causa real:**
+
+- `enviarBroadcast` calcula `yaRegistrados` al arrancar (lib/email-marketing.ts:424-427) y pasa
+  a `'enviando'` con un update SIN condición (:432). Solo rechaza `'enviado'` (:407), no
+  `'enviando'` ni `'programado'`. Los registros se escriben de a 100 (:436-455). Dos corridas a
+  la vez —botón o API más cron, o dos reanudaciones— leen el mismo `yaRegistrados` y les mandan
+  a los mismos leads.
+- `procesarBroadcastsProgramados` lee los ids y los manda en serie (:518-532): uno cancelado
+  DESPUÉS de esa lectura sale igual. `actualizarBroadcast` y `eliminarBroadcast` filtran solo
+  por `id` (:336-353).
+- `eliminarBroadcast` borra en cascada `email_broadcast_envios`
+  (supabase/migrations/0046_email_marketing.sql:47), que es justo de donde lee el guard
+  anti-doble-contacto de 20 h (`leadsContactadosRecientemente`, :380-391). Borrar un broadcast
+  recién mandado le abre la puerta a otro correo a esos mismos leads en la misma hora.
+- Y el presupuesto: corta a los 240 s y registra de a 100 (:446-455). Un llamador con menos de
+  300 s de vida que muera antes deja hasta 99 envíos sin registrar, y la reanudación los repite.
+
+**Regla:** una cola que puede correr desde dos lugares se RECLAMA con un update condicional
+(`estado in (...)` + `returning id`), y editar, cancelar y borrar llevan la misma condición.
+
+**Deuda, toda en lib/email-marketing.ts:** el reclamo atómico en `enviarBroadcast`;
+`actualizarBroadcastSi` / `eliminarBroadcastSi`; y que la reanudación de
+`procesarBroadcastsProgramados` reclame con `estado='enviando' and updated_at < now()-10 min`.
+No se hizo porque son escrituras de la lib. La API cierra la carrera contra el cron con
+`enManosDelCron` (no deja tocar un programado a 2 min o menos de su turno si el envío real está
+prendido); sigue abierta la de dos confirmaciones humanas simultáneas.
+
+**Vive en:** lib/email-marketing.ts:336-353, :380-391, :397-513, :518-532 ·
+supabase/migrations/0046_email_marketing.sql:47 · *2026-09-16 api-mako-areas*
+
+### El cron de broadcasts solo corre de 13 a 23 UTC: lo programado para la noche de México sale a la mañana siguiente
+
+`vercel.json:57-58` agenda `/api/cron/email-broadcasts` con `*/30 13-23 * * *`. Todo lo
+programado entre las 00:00 y las 12:59 UTC —la tarde y la noche de México— sale recién a las
+13:00 UTC: un broadcast para las 20:00 de Ciudad de México (02:00 UTC) sale 11 horas tarde.
+Nada en /email lo dice: **la fecha guardada es la pedida, no la real.**
+
+Y por eso «enviar ahora» no se puede resolver como «programarlo para ahora y que lo mande el
+cron»: fuera de la ventana esperaría hasta 13 horas.
+
+**Regla:** si un cron tiene ventana, lo que programa muestra el primer turno REAL. La API ya lo
+calcula (`primerTurnoCron`, lib/api-mako/areas/email.run.ts); la pantalla no. Ampliar la ventana
+es decisión de producto.
+
+**Vive en:** vercel.json:57-58 · app/api/cron/email-broadcasts/route.ts · *2026-09-16
+api-mako-areas*
+
+### «Secuencias de email activas» según `getEmailSecuencias` no es lo que manda el motor
+
+`getEmailSecuencias` exige que TODOS los pasos sean de email (`esSecuenciaEmail`,
+lib/email-marketing.ts:23-25) y no filtra `archivada_at` (:102-107). El motor, en cambio, manda
+email por cualquier paso `canal='email'` de cualquier secuencia activa no archivada
+(`getSecuenciasActivas`, lib/nutricion.ts:124-131, y la rama de :1256). O sea que cuenta
+archivadas que no salen y omite las mixtas que sí. **Cualquier «qué sale si prendo el envío
+real» armado con esta función da otro número.**
+
+**Regla:** lo que va a salir se cuenta con la misma selección que usa el motor. La API lo hace
+con `alcanceEnvioReal` (lib/api-mako/areas/email.helpers.ts), sin paginar a propósito: son
+decenas de secuencias.
+
+**Vive en:** lib/email-marketing.ts:23-25, :102-148 · lib/nutricion.ts:124-131 · *2026-09-16
+api-mako-areas*
 
 ### Decisión: la interfaz de Email se copia de un clon de Gmail, no de WhatsApp
 
@@ -1264,6 +1654,10 @@ igual que uno que nadie contestó todavía.
   en código— pero mientras no exista, cambiar la dirección de la plataforma es un deploy.
 - **Nada reencola un mail que falló.** Si Resend rechaza, queda el botón «Reenviar acceso» y una
   persona que se acuerde. No hay cola ni reintento.
+- **Conectar/desconectar el dominio de envío y generar copy con IA no tienen función de lib**
+  (2026-09-16): viven inline en `app/api/email/dominio/route.ts` (con la consulta de
+  titularidad cross-workspace adentro) y en `app/api/email/generar/route.ts`. Por eso la API de
+  MaKo no los ofrece: hacerlo era duplicar la lógica de la ruta.
 - **Bandeja tipo Gmail dentro de MaKo:** recibir todos los mails ahí, escribir, y elegir con qué
   email se envía — en lugar de crear una casilla nueva (2026-08-06).
 - **Definir a qué email van las notificaciones.** No quiere que lleguen a su correo personal y
@@ -1338,6 +1732,33 @@ asume global cubre uno solo. Sigue vivo.
 **Vive en:** lib/perfil.ts:125-130 (DEFAULT_PREFS) · lib/notify.ts:17,60 · *2026-07-09
 ~mapa-app-doer*
 
+### ⚠️ El reporte horario no distingue «sin alertas» de «no pude mirar»
+
+**Síntoma:** con Meta o la base caídas, el reporte horario dice «Todo tranquilo ✅». En
+producción eso se ve como SILENCIO: el cron solo despacha si hay alertas
+(app/api/cron/reporte-horario/route.ts:39), así que una fuente caída y una hora sin problemas
+mandan lo mismo: nada. El texto verde aparece donde se pide la vista previa (`generar_reporte`
+de la API de MaKo, lib/api-mako/areas/equipo.run.ts:312).
+
+**Causa:** `buildReporteHorario` (lib/reportes.ts:95-151) envuelve cada sección —salud de Meta,
+cuotas, fatiga de adsets, pendientes del CRM— en `catch { /* ignorar */ }` y, si no juntó
+alertas, arma «Todo tranquilo ✅» con título «Todo en orden» (:144-148). El diario sí escribe
+«no disponible» en cada sección, salvo pendientes (`catch { /* opcional */ }`, :74-82); el
+semanal calla igual las cuotas por cobrar (:183-191). La cabecera del módulo lo presenta como
+virtud: «si una fuente falla, el reporte se arma igual sin esa parte» (:5-6). Armarse igual está
+bien; callar que faltó una parte, no.
+
+**Regla:** un reporte que no pudo leer una fuente lo dice en esa sección; «todo tranquilo» solo
+sale si se miró todo.
+
+**Lo que quedó SIN hacer:** que `buildReporte*` devuelva la lista de secciones caídas. La vista
+previa de la API de MaKo avisa que puede haber fallado algo (equipo.run.ts:316-322), pero no
+puede saber QUÉ.
+
+**Vive en:** lib/reportes.ts:95-151 (catch vacíos del horario), :74-82 (pendientes del diario),
+:183-191 (cuotas del semanal) · app/api/cron/reporte-horario/route.ts:39 · *2026-09-16
+api-mako-areas*
+
 ### ⚠️ Tres almacenes de teléfono que parecen uno solo, y cambiar el del grupo no cambia el de los reportes
 
 - `mako.numero_dueno` (app_settings por workspace): crea y sincroniza el **grupo de MaKo**.
@@ -1353,9 +1774,31 @@ usuario que ya terminó el onboarding puede cambiar el número (el wizard es ina
 `status:'done'`), así que borrarla deja al workspace sin grupo y todo aviso falla con un
 `console.error`.
 
+**16/09/2026: quitar el ÚLTIMO teléfono no limpia `mako.numero_dueno`.** Hoy la fuente es la
+lista `notif_telefonos`, y `setDestinatarios` escribe los tres juntos — salvo con la lista
+vacía: escribe `notif_telefonos=[]` y `user_telefono=''` y sale con `'sin_numeros'`
+(lib/notif-destinatarios.ts:148-158) antes de llegar a `setNumeroDuenoYSync`, que es quien
+escribe el singular. Los reportes se cortan, pero la persona sigue en el grupo —quitar a alguien
+no lo echa, a propósito (:121-124)— y `mako.numero_dueno` queda con su número. El único lector
+de esa clave es `getNumeroDueno` (lib/mako-grupo.ts:398): `getDestinatarios` ya no cae a él
+porque `[]` cuenta como lista guardada (notif-destinatarios.ts:81-84), y `setNumeroDuenoYSync`
+lo usa como «anterior», así que volver a cargar ese mismo número da `sin_cambios` y no intenta
+sumarlo al grupo (mako-grupo.ts:416-428).
+
+⚠️ **Y del otro lado: sumar un destinatario es darle un lugar en el grupo, y el grupo es un
+canal de admin.** Cada teléfono después del primero entra como participante
+(lib/notif-destinatarios.ts:184-194). El doer contesta en el grupo oficial del workspace sin
+mirar quién escribe —`key.participant` solo aparece en el tipo (lib/mako-doer-in.ts:122)— y
+corre con `rol: 'admin'` y `alcance: 'ejecutar'` (:830), con las pendientes de confirmación
+del GRUPO a la vista (:808-810). Un contador o una asistente cargados para recibir reportes le
+piden a MaKo lo mismo que el dueño, incluido el «sí» que confirma una acción de chat, y siguen
+pudiendo después de que se los saca de la lista. **Sin hacer:** que el doer resuelva el rol por
+el remitente, o que la pantalla de destinatarios diga que sumar a alguien le da ese acceso.
+
 **Vive en:** lib/mako-grupo.ts:244 (setNumeroDuenoYSync) · lib/perfil.ts:122
 (getContactoReportes) · app/api/cron/reporte-diario/route.ts:27 ·
-app/perfil/NotificacionesPanel.tsx:96 · *2026-08-06 rediseno-notificaciones*
+app/perfil/NotificacionesPanel.tsx:96 · lib/notif-destinatarios.ts:148-158, :184-194 ·
+lib/mako-doer-in.ts:830 · *2026-08-06 rediseno-notificaciones + 2026-09-16 api-mako-areas*
 
 ### ⚠️ Un aviso que pregunta algo que nadie escucha: el momento del disparo era el bug
 
@@ -1477,6 +1920,39 @@ texto fijo (`texto:`), no con `contexto:`.
 
 **Vive en:** lib/avisos.ts (emitirDelCatalogo :158-159 vs emitirAviso :86,:106) +
 lib/plantillas.ts:147-153 · *2026-08-06 mila-ia-nativa*
+
+### ⚠️ `AVISOS_WA_EN_VIVO` no es la lista de lo que se dispara, y su propio comentario jura que sí
+
+**Síntoma:** una lectura (o una pantalla) dice que un aviso «no se dispara» mientras le sigue
+llegando al grupo. Y ese aviso no se puede apagar desde Notificaciones: el panel pinta solo esa
+lista (app/perfil/NotificacionesPanel.tsx:365).
+
+**Causa:** la lista (lib/notif-catalogo.ts:159-173) está escrita a mano y es la curada que
+pinta Configuraciones › Notificaciones. El choke point (`emitirAviso` → `avisoWaActivo`,
+lib/avisos.ts:135) respeta el interruptor de CUALQUIER tipo, y hoy salen avisos que no están en
+ella: `reunion-recordatorio` (lib/reunion-recordatorio.ts:120), `meta-cuenta-frenada` y
+`meta-cuenta-recuperada` (lib/alerta-critica.ts:219, :155), `lead-de-landing`
+(app/api/track/optin/route.ts:198, :259), `lead-fusionado` (lib/leads.ts:415), `landing-cambio`
+y `tracking-desactualizado` (app/api/cron/tracking-vigilante/route.ts:127, :234),
+`clarity-grabacion-por-vencer` (app/api/cron/clarity-vigilante/route.ts:132), entre otros.
+
+**El diagnóstico escrito era el equivocado.** La cabecera del módulo (lib/notif-catalogo.ts:16-26)
+dice que `yaImplementado` miente —cierto— y que «lo único confiable es quién llama de verdad a
+emitirAviso/emitirDelCatalogo, y eso es lo que lista este array» — falso. La misma creencia está
+copiada en docs/api-mako-inventario.md:2091. Y ningún control sabe qué avisos del catálogo no
+tienen emisor: el único test que cruza catálogo contra emisores (tests/alerta-critica.test.ts:40-57)
+mira solo los rojos marcados `'si'`.
+
+**Regla:** qué se emite se deriva de los emisores, no de una lista a mano. La API de MaKo ya lista
+y deja silenciar todo el catálogo de voz, con la marca `en_configuraciones`
+(lib/api-mako/areas/equipo.run.ts:22-27).
+
+**Lo que quedó SIN hacer:** actualizar la lista y su comentario (o renombrarla: el nombre miente),
+y un test en `tests/` que cruce los `emitirDelCatalogo('…')` y los `tipo:` de `emitirAviso`
+contra el catálogo, en las dos direcciones.
+
+**Vive en:** lib/notif-catalogo.ts:16-26, :159-173 · lib/avisos.ts:135 ·
+app/perfil/NotificacionesPanel.tsx:365 · *2026-09-16 api-mako-areas*
 
 ### Decisión: los avisos tienen DOS apagadores, y son maestro/hijo, no una regla duplicada
 
@@ -1753,8 +2229,13 @@ tapa y la llamada sale con el WABA y el token del DUEÑO, sobre la cuenta equivo
 **Regla:** cualquier job de plantillas fija el workspace explícito antes de llamar; el fallback a
 `OWNER_WS` es aceptable solo cuando el caller es un request del propio dueño.
 
+**Y lo que dice «Meta» depende de Chatwoot (2026-09-16).** `submitTemplate`, `listMetaTemplates` y
+el resto de lib/meta-templates.ts sacan token y WABA de `getWabaConfig`, que los lee del
+`provider_config` del inbox de Chatwoot del workspace (lib/chatwoot.ts:584-593). Sin Chatwoot
+conectado no hay plantillas de Meta, aunque la operación declare la integración `meta`.
+
 **Vive en:** lib/chatwoot.ts:585 (getWabaConfig) · lib/meta-templates.ts:275 (enviarBorradorAMeta) ·
-*2026-07-09 f33-understand*
+*2026-07-09 f33-understand + 2026-09-16 api-mako-areas*
 
 ### ⚠️ `FATHOM_WEBHOOK_SECRET` es una clave global que solo se hidrata desde ws1
 
@@ -1944,7 +2425,7 @@ Lo que sí existe y **funciona en cualquier workspace** (guard = admin del ws):
 | Qué | Cómo | Nota |
 |---|---|---|
 | Borrar un audio | `DELETE /api/chat-agent/audios?id=N` (`route.ts:128-145`) | borra fila + binario + la clave del mapa `chat_agent.audios_clave` en un golpe |
-| Archivar todas las secuencias | `POST /api/chat-agent/secuencias {action:'archivar'}` (`route.ts:139-144`) | archiva, no borra; reversible con `desarchivarSecuencia` |
+| Archivar todas las secuencias | `POST /api/chat-agent/secuencias {action:'archivar'}` (`route.ts:139-144`) | archiva, no borra; reversible con `desarchivarSecuencia` — ⚠️ que la devuelve PRENDIDA si lo estaba (ver «Archivar una secuencia no la pausa», en Nutrición) |
 | Reabrir la tab | `POST /api/chat-agent/onboarding {action:'reabrir'}` (`route.ts:57-59`) | resetea la tab **entera**, no un paso, y **no tiene ningún caller en la UI** |
 
 Para volver un paso solo, se escribe `onboarding.tab.setting.steps.<paso>.done = false` en
@@ -1957,6 +2438,46 @@ reset es el último paso.
 
 **Vive en:** `lib/reset-workspace.ts` · `lib/auth-session.ts:73-81` · `app/api/chat-agent/audios/route.ts:128-145` ·
 `app/api/chat-agent/onboarding/route.ts:57-59` · `lib/secuencias-huecos.ts:90-123` · *2026-08-10 ~chatbot-funnel-leila*
+
+### ⚠️ Enseñar un caso desde un hand-off no hace nada si la secuencia ya tiene 30
+
+**Síntoma:** un caso enseñado desde un hand-off no aparece nunca en la estrategia de la
+secuencia, y el hand-off figura resuelto.
+
+**Causa real:** `escenariosDe` corta en 30 al PARSEAR (lib/setting-estrategia.ts:117-128), y
+`resolverHandoff` agrega el caso nuevo AL FINAL sin mirar ese tope
+(lib/chat-agent-handoff.ts:196). Se escribe en la base como el número 31 y la próxima lectura lo
+recorta: se pierde justo el más nuevo. El hand-off se marca resuelto igual (:203-205).
+
+**Regla:** un tope de lectura sin tope de escritura tira lo último que entró. Si hay tope, se
+valida al escribir y se dice.
+
+**Vive en:** lib/setting-estrategia.ts:117-128 · lib/chat-agent-handoff.ts:181-205 · *2026-09-16
+api-mako-areas*
+
+### ⚠️ Dos escritores reemplazan `mako.voz_guia` entera, y el comentario que la cuida solo cubre el caso vacío
+
+**Síntoma:** la guía de voz destilada desde los anuncios desaparece después de contestar una
+pregunta del onboarding, o al revés.
+
+**Causa real:** son dos procesos que derivan el MISMO texto de fuentes distintas y lo escriben
+entero en la misma clave:
+
+- `destilarVoz` la arma desde las transcripciones de anuncios y el perfil de marca
+  (lib/nutricion-generator.ts:103-123 → `setVozGuia`, :94-96).
+- La ruta de contexto del onboarding la recompone desde la evidencia de las charlas y las
+  respuestas manuales con `componerVozGuia`
+  (app/api/chat-agent/onboarding/contexto/route.ts:75-76 y :157-158).
+
+Gana el último que escribe; no hay merge. El comentario de la ruta dice «NUNCA escribir una
+guía vacía: borraría la que destila el generador» — y una NO vacía la borra igual.
+
+**Regla:** dos procesos que derivan el mismo dato escriben en dos claves y se componen al LEER
+(AGENTS.md → «Dos escritores con dos ritmos son dos claves»).
+
+**Vive en:** lib/nutricion-generator.ts:25, :94-123 ·
+app/api/chat-agent/onboarding/contexto/route.ts:75-76, :157-158 ·
+lib/api-mako/areas/chatbot.helpers.ts (el escritor de la API) · *2026-09-16 api-mako-areas*
 
 ### Lo que se hizo (2026-08-10) y lo que quedó a mitad
 
@@ -2012,6 +2533,22 @@ que le faltaba a `saveFunnelAction`; y el gate de Fathom por conexión viva.
 - `generateFunnel` siembra «Reunión excepcional» y «No Show R3» en todo funnel con etapa
   `kind:'pago'` (`lib/pipeline.ts:429-439`), y **no** genera Reactivación salvo que haya
   reunión (`:451`) — que es justo la que más le sirve a quien prospecta en frío.
+- **Varias acciones de la tab del chatbot no tienen función de lib, y por eso no están en la
+  API de MaKo** (2026-09-16). `sugerir()` —gancho, preguntas de calificación, criterio— vive inline en
+  `app/api/chat-agent/secuencias/route.ts:101`; el guion del audio, el ensayo y guardar un caso
+  del ensayo viven inline en `app/api/chat-agent/onboarding/*`. Y `lib/nutricion.ts` no exporta
+  inscribir ni cancelar UN lead en UNA secuencia: `archivarSecuencias` cancela todas y
+  `pausarPorRespuesta` es otra semántica. Sin esa función no hay un camino gateado para
+  ofrecerlo por fuera de la pantalla.
+- **Lecturas laxas de mapas en app_settings** (2026-09-16). `mapaAudios`
+  (lib/secuencias-audios.ts:91-95) lee con `getSetting`, que convierte un error de base en `{}`
+  (ver «getSetting devuelve null…» en hallazgos-infra.md). Y para leer estricto, la API tuvo que
+  repetir dos claves privadas: `mako.entregable` (`SETTING_KEY`, lib/entregable.ts:38) y
+  `mako.chat_agent.voz.manual` (`KEY_MANUAL`, lib/chat-agent-voz.ts:81). Faltan
+  `getEntregablesEstricto` / `getManualEstricto` en esas libs.
+- **La ventana de «últimos 30 días» de las métricas del chatbot es UTC**: `getSettingData`
+  resta 30×24 h desde ahora (lib/setting-secuencias.ts:27), no cuenta días en la zona del
+  workspace (2026-09-16).
 
 ---
 
@@ -2179,6 +2716,11 @@ quedaron sin arreglar estan listados al final de esta entrada.)*
   habria cazado este caso.
 - `lib/mako-canal.ts` — confirma el socket en un solo sentido, igual que estaba
   `lib/evolution.ts`. No se toco por ser trabajo en vuelo de la sesion vecina.
+- `lib/evolution.ts:187-194` — **`getInstanciaRow` no mira el `error` de Supabase** y devuelve
+  `null`. El `.catch(() => undefined)` de `app/api/chat-agent/secuencias/route.ts:64` es codigo
+  muerto: con la base caida la tab dice `sin_vincular` y el tercer estado de la entrada
+  anterior (`desconocido`) nunca sale por ahi. Y `estado` es el ultimo guardado, no una sonda.
+  La API consulta `evolution_instancias` directo por eso. *(2026-09-16 api-mako-areas)*
 
 ## «Desconectado» no le dice nada al dueño: su TELEFONO anda
 
@@ -2650,6 +3192,22 @@ para `OWNER_WS` la caída de `credWs` a env NO cuenta como key propia — ese en
 cuenta de plataforma. Y `estadoZernioIg` LANZA en error de base: un fallo de infra no se
 lee como «sin resolver» ni reabre pasos.
 
+**Y con la decisión tomada, la lectura sigue escribiendo (2026-09-16).** El guard de arriba
+cubre solo «sin resolver». Resuelta, `estadoConexionIg → listAccounts → profileIdEfectivo →
+ensureProfile` hace el upsert de `zernio_workspace` la primera vez, y con BYOK
+(`profile_id: null`) pide `GET /v1/profiles` y llama a `upsertRouting('zernio', …)` en CADA
+lectura (lib/zernio.ts:154-172, :214-222). Cualquier «¿está conectado Instagram?» —incluida la
+operación de la API que sale por HTTP, y el inbox de la API— es una escritura de ruteo del
+webhook más un pedido de más a Zernio. Idempotente, pero no es una lectura. **Deuda:** una
+variante de solo lectura de `listAccounts`. No se hizo desde afuera porque `cfg` y `zFetch` son
+privados de lib/zernio.ts, y reimplementar el cliente duplicaría la resolución de la key BYOK o
+de plataforma, que es justo lo que no puede divergir.
+
+Del mismo camino: `cuentas.find(c => c.isActive !== false) ?? cuentas[0]`
+(app/instagram/ig-datos.ts:131) devuelve una cuenta INACTIVA como «la conectada» si no hay
+ninguna activa. El inbox y el envío usan ese `accountId` y fallan en Zernio con un error que no
+dice «la cuenta está desconectada».
+
 ### KEY_PASOS_COMPARTIDOS comparte pasos que NO son la misma configuración
 
 **Vive en:** `lib/tab-onboarding-state.ts`
@@ -2666,6 +3224,52 @@ Y quedaron DOS criterios conviviendo para el mismo paso: reels/stories comparten
 `conectar` (se refleja solo, la tab nunca lo marca) y carousels creó `carousels_instagram`
 namespaced que nunca se marca — vale unificar en la compartida.
 
+### ⚠️ `generarBorradorIg` no es «redactar»: pisa el borrador corregido, avisa aunque nadie escribió y puede mandar sola
+
+**Síntoma:** rehacer el borrador de un DM —desde un agente o una persona, sin ningún mensaje
+nuevo— le manda al dueño «@x respondió por Instagram» y reemplaza el texto que alguien ya había
+corregido a mano.
+
+**Causa real, las tres en la misma función (lib/ig-chatbot.ts):**
+
+1. **Pisa.** Si la conversación ya tiene un borrador, le hace `update` del texto (:168-184). Lo
+   corregido a mano se pierde. Y como el webhook de Zernio la corre en cada DM entrante, el
+   texto de un borrador puede cambiar entre que alguien lo lee y lo aprueba.
+2. **Avisa siempre.** El aviso al dueño sale al final, dispare quien dispare (:210-220), con la
+   clave `wa-mensaje-entrante` (ver «Lo que quedó SIN hacer»).
+3. **Manda.** Relee `ig_auto_respuesta` y la ventana DESPUÉS de redactar y envía sola si los dos
+   están prendidos (:201-208). No hay un modo «solo redactar»: quien la llama para rehacer tiene
+   que chequear antes, y queda una carrera de los segundos que tarda el modelo.
+
+**Regla:** una función que redacta no manda ni avisa; eso lo decide quien la llama, que sabe si
+entró un DM o si se está rehaciendo.
+
+**Deuda:** `{ noEnviar: true }` (y sin aviso) en lib/ig-chatbot.ts, y no pisar un borrador que
+editó una persona.
+
+**Vive en:** lib/ig-chatbot.ts:74 (generarBorradorIg), :168-220 · app/api/webhooks/zernio/route.ts:258 ·
+*2026-09-16 api-mako-areas*
+
+### ⚠️ «Actualizar» una publicación fallida borra la única explicación del fallo
+
+**Síntoma:** se aprieta «Actualizar» sobre un post que falló y el motivo por plataforma
+desaparece: queda «Instagram rechazó la publicación (ver Zernio para el detalle)», o nada.
+
+**Causa real:** el webhook `post.failed` guarda en `contenido_posts.error` el detalle de cada
+plataforma (app/api/webhooks/zernio/route.ts:317-333). `getPost` no trae ese detalle, y
+`refrescarPublicacionAction` escribe `error` igual: un texto genérico, o `null` si ninguna
+plataforma viene con status `failed` (app/instagram/actions.ts:474-506).
+
+**Regla:** un refresco que no trae un campo no lo escribe. Es la misma que «El upsert del espejo
+borra la media ya guardada…».
+
+**Deuda:** la acción de /instagram sigue pisándolo. La copia de la API
+(`sincronizarPublicacionIg`, lib/api-mako/areas/instagram.helpers.ts) ya conserva el error
+mientras el post siga en fallo — y son dos copias de la misma lógica (ver abajo).
+
+**Vive en:** app/instagram/actions.ts:474-506 · app/api/webhooks/zernio/route.ts:317-333 ·
+*2026-09-16 api-mako-areas*
+
 ### Lo que quedó SIN hacer
 
 - **Vincular lead ↔ conversación IG no existe** (ni UI ni backend). Cuando se haga: por
@@ -2675,7 +3279,15 @@ namespaced que nunca se marca — vale unificar en la compartida.
   autenticado para servirse al navegador); `previewMediaAction`/`firmarPreview` quedaron
   exportadas sin call-site: usar o podar.
 - El aviso al dueño reusa la clave **`wa-mensaje-entrante`** (2 call-sites en
-  `lib/ig-chatbot.ts`) — cambiar cuando el catálogo de avisos gane clave de Instagram.
+  `lib/ig-chatbot.ts`) — cambiar cuando el catálogo de avisos gane clave de Instagram. Mientras
+  tanto, **apagar el aviso de WhatsApp apaga el de Instagram** (2026-09-16).
+- **Las server actions de /instagram no se pueden reusar fuera de la pantalla** (2026-09-16):
+  `ctxAdmin()` lee el rol de la SESIÓN, que por HTTP o por WhatsApp no existe
+  (app/instagram/actions.ts). La API copió cancelar, refrescar, editar y descartar en
+  `lib/api-mako/areas/instagram.helpers.ts` —dos copias que van a divergir; ya divergen en
+  «refrescar», ver arriba— y tienen que mudarse a `lib/ig-chatbot.ts` y a un
+  `lib/ig-publicar.ts` que no existe. **Publicar y programar quedaron fuera de la API** por lo
+  mismo: `crearPublicacionAction` (~100 líneas) no está extraída.
 - `ENSAYO_SYSTEM` hardcodeado en `app/instagram/actions.ts` con TODO «mover a
   prompt-registry» (archivo tomado por sesión paralela el 15/08).
 - Las keys restringidas de Zernio (`zrk_`) sin el resource group `messages` dan **403 en
@@ -2893,6 +3505,15 @@ alguien haya mirado, así que no hay ningún registro de por qué empezó ese d�
 - **Nadie le avisó al cliente que la alerta era falsa.** El motor sabe decir «ya está
   entregando» (`textoRecuperada`) pero no sabe decir «lo que te dije no era cierto». Un
   canal que insiste necesita las dos contracaras, y hoy tiene una.
+- **(16/09/2026) `getIncidentes` devuelve `[]` cuando la lectura FALLA**
+  (`lib/meta-health-history.ts:178-181`: `catch` → `console.error` → `return []`). Es el mismo
+  agujero de esta entrada, del lado de la lectura: un historial vacío por un error de base es
+  indistinguible de «nunca hubo incidentes». Y la pantalla lo afirma: con la lista vacía,
+  `/integraciones` pinta **«Todo en orden.»** (`app/integraciones/IntegracionesBoard.tsx:748-749`).
+  La API de MaKo lo tapa con una nota en `listar_incidentes_meta`
+  (`lib/api-mako/areas/ads.run.ts:483`), pero cualquier consumidor nuevo que tome `[]` como «todo
+  sano» afirma de más. **Regla:** «no pude leer» llega como error o como un campo aparte, nunca
+  como lista vacía. *2026-09-16 api-mako-areas*
 
 *Corrida del 21/08/2026 — incidente #101 cerrado a mano en prod, credencial de ws13
 corregida a `act_…`, mig 0139 aplicada. Typecheck 0 errores, 1030/1030 tests.*
@@ -3448,6 +4069,11 @@ no saber: se guarda, y nadie lo vuelve a mirar.**
 - **Un default que no se pudo verificar NO se guarda.** Guardarlo convierte «no pude
   averiguarlo» en «esta es su zona» y ya no se reintenta nunca. Es la regla de la casa —«no
   poder leer un dato no es un valor del dato»— aplicada acá.
+- **Y con eso `tzDeWorkspace` dejó de ser una lectura (2026-09-16).** Sin zona guardada corre
+  `resolverYGuardarTz` y hace `setSetting` (lib/timezone.ts:39-43). Como caché es inocuo, pero
+  no se puede llamar desde un camino que promete no escribir —el `preparar()` de una operación
+  de la API de MaKo, una consulta—. La lectura pura es `getSetting(KEY_TIMEZONE)` +
+  `esTzValida`, cayendo a UTC y diciéndolo (`tzGuardada`, lib/api-mako/areas/email.helpers.ts:81).
 
 ### Resultado, corrido contra los workspaces reales
 
