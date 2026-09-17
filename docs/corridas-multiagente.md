@@ -23,6 +23,23 @@ Los journals siguen en disco, en
 `~/.claude/projects/<proyecto>/<sesión>/subagents/workflows/<runId>/journal.jsonl`.
 
 
+## 2026-09
+
+| Fecha | Corrida | Agentes | Qué se fue a buscar | |
+|---|---|---|---|---|
+| 2026-09-16 | `reunion-mau-martin-2026-09-08-tareas` | 46 | Todas las tareas de la llamada «Mau <> Martin: CHATBOT» del 8/9: extraer con 11 lentes, fusionar, refutar contra el transcript, ubicar cada una en el código y asignarle un chat por tab | **rescatada** |
+| 2026-09-16 | `reunion-mau-martin-tareas-v2` | 45 | Lo mismo para la continuación del 9/9: la skill de MaKo en el Claude de Mauricio, la oferta grupal evergreen y la reactivación de los leads que no cerraron | **rescatada** |
+
+Lo cosechado está en hallazgos-plan.md («El Plan de Mauricio es la tabla de clientes») y en
+hallazgos-comunicacion.md («La post-agenda del ws 1 quedó prendida y no le llegó un audio a nadie»).
+
+**Lo que costó aprender en estas dos.** Refutar **por tarea**, con tres agentes que leen el
+transcript entero cada uno, son tres lecturas completas por tarea: con 57 y 75 tareas fueron unos 400
+agentes. El límite de sesión cortó las dos corridas en esa fase, dos veces, y se perdieron unos 370.
+La misma verificación **en lotes de 8 tareas por agente** fueron 34 agentes y terminó. Y el paso que
+ubica cada tarea en el repo tiene que leer `git log` en el momento: el prompt decía «después del 11/9
+no hubo commits» y el 16/9 ya había cuatro.
+
 ## 2026-08
 
 | Fecha | Corrida | Agentes | Qué se fue a buscar | |

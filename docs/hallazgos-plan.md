@@ -2062,3 +2062,39 @@ a mirar antes de diagnosticar.
 **Vive en:** app/plan/board/BoardShell.tsx (el efecto de la URL, `FilterMenu`) ·
 app/plan/agencia/page.tsx · app/plan/page.tsx · app/plan/PlanBoard.tsx ·
 app/plan/TodoBoard.tsx · *2026-08-21*
+
+
+## «El Plan de Mauricio» es la tabla de clientes: ni la del dueño ni un JSON
+
+Salió el 2026-09-16, repasando las llamadas con Mauricio del 8 y el 9/9 para repartir sus tareas
+entre los chats.
+
+**Síntoma.** En la llamada del 9/9 a Mauricio se le dijo que MaKo guarda las tareas de cada
+workspace «a través de un JSON». Él quería leer esa base en modo lectura para un curso y se quedó con
+que no había base. En la misma corrida, dos de los agentes que ubicaron las tareas en el código
+mandaron los cambios del tablero de Mauricio a `plan_tareas` y a `NuevaTareaPlan`
+(lib/plan-board.ts).
+
+**Causa real.** El tablero lo decide la **capa** del workspace, no el número. `capa === 'superadmin'`
+(hoy el ws 9) usa `plan_tareas`; cualquier otro, incluido el ws 1, usa `experimento_tareas` vía
+`lib/todo.ts` (app/api/agente/plan/route.ts:33, lib/plan-propuesta.ts:689). El ws 1 fue OWNER_WS
+cuando el dueño no tenía workspace propio, y lo escrito sobre el board del dueño todavía se lee como
+si fuera el de Mauricio. Tampoco hay JSON: el localStorage de `PlanBoard` era del tablero del
+super-admin y migró a la base en julio.
+
+**La regla: antes de tocar «el Plan de X», resolvé la capa de su workspace. Para Mauricio es
+`experimento_tareas`: sus estados son `por_hacer | en_curso | hecho` y no tiene columna de
+responsable.**
+
+**Trampa para quien lo vacíe.** El 8/9 Mauricio pidió sacar todas las tareas y empezar de cero. Si el
+tablero queda sin tareas **y** sin categorías, `app/plan/page.tsx:63` llama a `seedTodoBoardSiVacio()`
+y le vuelve a sembrar el plan de arranque. Hay que conservar las categorías o poner un candado.
+
+**Cómo sigue el 1,2% de más arriba.** Del 8 al 16/9 entraron 17 borradores de reuniones al ws 1 y no
+se aplicó ninguno; el tablero tiene 182 tareas por hacer. En la llamada del 8/9 se decidió cargar
+directo al tablero con el criterio de Mauricio, sin confirmación ni preguntas, y mandar a una columna
+aparte lo que no lo cumple. Al 16/9 no está implementado: espera el documento de criterio actualizado
+de Mauricio.
+
+**Vive en:** app/api/agente/plan/route.ts:33 · lib/plan-propuesta.ts:689 · lib/todo.ts ·
+app/plan/page.tsx:63 · lib/reunion-auto.ts · *2026-09-16*

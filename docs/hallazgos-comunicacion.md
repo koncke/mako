@@ -4115,3 +4115,30 @@ propósito obliga a que los demás handlers corten explícitamente.
 - **El link de la alerta no conserva `?ws=`**.
 - **El fail-open del webhook no salva el mensaje**: con la base fallando, el doer lo descarta como
   re-entrega.
+
+
+## La post-agenda del ws 1 quedó «prendida» el 8/9 y no le llegó un audio a nadie
+
+Medido en producción el 2026-09-16, repasando las llamadas con Mauricio del 8 y el 9/9 para repartir
+sus tareas entre los chats.
+
+- `nutricion_envios` del ws 1 desde el 8/9: **5 filas, las 5 en `fallo`**. Cuatro dicen «WhatsApp de
+  empresa no conectado». La última es del 10/9 y después no hay ningún intento más.
+- `evolution_instancias` del ws 1: `mako_ws1` sigue en `desconectado`, sin cambios desde el 8/9.
+- La memoria del proyecto y el cierre de la sesión del 8/9 decían «prendido». Lo que se prendió fue
+  la secuencia; el envío no ocurrió nunca.
+
+**El diagnóstico obvio era el equivocado, dos veces.** En la llamada del 8/9 la lectura fue «la
+pantalla dice desconectado y es mentira, en /whatsapp figura conectado». d5c26261 midió que no
+mentía: WhatsApp desvinculó el dispositivo el 3/9 (403). Y después, «ya está activo» se leyó del
+interruptor, no de una fila `enviado`.
+
+**La regla: una secuencia está andando cuando hay una fila `enviado` en `nutricion_envios` para un
+lead real. Ni el interruptor, ni la pantalla, ni el estado de la instancia lo prueban.**
+
+**Sin resolver.** Mauricio tiene que volver a vincular `mako_ws1` desde /whatsapp con su teléfono. Al
+hacerlo, hay que mirar que `evolution_instancias.estado` pase a `conectado`, porque el motor decide
+con esa fila (`lib/nutricion.ts:962`) y ese campo ya se midió mintiendo en las dos direcciones
+(60e8bd93). Tampoco se sabe por qué no hubo intentos después del 10/9.
+
+**Vive en:** lib/nutricion.ts:962 · lib/secuencias-audios.ts · app/chatbot/ChatAgentApp.tsx · *2026-09-16*
