@@ -62,9 +62,13 @@ export const RUTA_BANDEJA = '/mako/pendientes';
  * `tipoPendiente`, una pendiente vigente con uno de estos se ejecuta por el camino
  * viejo en vez de morir con «operación desconocida». La lista es cerrada: un tipo
  * que no está acá y tampoco en el registro sí se cierra en error.
+ *
+ * `meta_presupuesto` NO está, a propósito: mueve plata y se confirma en PANTALLA. Si
+ * un día ninguna def declarara ese slug, una pendiente vieja tiene que morir en error,
+ * no caer al camino viejo y cambiar el presupuesto con un «sí» por WhatsApp.
  */
 const TIPOS_HEREDADOS: ReadonlySet<string> = new Set([
-  'lead_etapa', 'nutricion_toggle', 'meta_nombre', 'meta_presupuesto', 'meta_estado', 'tareas_plan', 'agendar_reunion',
+  'lead_etapa', 'nutricion_toggle', 'meta_nombre', 'meta_estado', 'tareas_plan', 'agendar_reunion',
 ]);
 
 const fmtFecha = (iso: string, tz: string): string => {
@@ -216,6 +220,15 @@ export async function confirmarPendiente(ctx: Ctx, id: number | null) {
   const def = porId(p.tipo);
   const run = runnerDe(def?.id ?? '');
   const registrada = !!(def && esAccion(def) && run && 'ejecutar' in run);
+
+  // Lo que se confirma en PANTALLA no se confirma acá, venga de donde venga la
+  // pendiente: una tool vieja con el mismo slug (proponer_presupuesto_campana dejaba
+  // `meta_presupuesto`), una fila de antes del registro. Se cierra sin ejecutar:
+  // dejarla viva invita a un segundo «sí» sobre algo que no se va a hacer.
+  if (registrada && (def as AccionDef).confirmacion === 'pantalla') {
+    await resolverPendiente(ctx.ws, p.id, 'error', 'se confirma en pantalla, no por chat', { soloSiPendiente: true });
+    return { error: 'Esta acción se confirma en su pantalla de revisión, no por el chat: la pendiente quedó cerrada sin ejecutar. Pide la propuesta de nuevo y confírmala en el link.' };
+  }
 
   if (!registrada) {
     // Una heredada que ningún área declaró todavía: se ejecuta por el camino viejo,

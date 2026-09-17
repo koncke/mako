@@ -15,7 +15,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { validarRespuestaDoer, esRutaPlan, mensajeBorrador, AVISO_NO_PUDE } from '../lib/respuesta-doer';
+import { validarRespuestaDoer, esRutaPlan, mensajeBorrador, AVISO_NO_PUDE, conLinksDeAccion } from '../lib/respuesta-doer';
 
 /** El mensaje REAL del 9/8, recortado pero con su forma intacta. */
 const LA_MALA = [
@@ -264,4 +264,27 @@ test('mako-doer-in no está autorizado a pagar Claude, y eso es a propósito', a
   const v = evaluarPermiso({ feature: 'mako-doer-in', model: 'claude-sonnet-5' });
   assert.equal(v.ok, false,
     'mako-doer-in quedó autorizado a pagar Claude: revisá la escalada de lib/mako-doer-in.ts, que se escribió cuando NO lo estaba');
+});
+
+test('el link de una acción de pantalla lo escribe el código, no el modelo', () => {
+  // Probado rompiéndolo (16/9): con `if (intacta || true) return respuesta` falla 1
+  // («el link real tiene que estar»).
+  const real = 'https://hola-mako.com/mako/revisar/propmskimbc4s4b4h';
+  // Bien copiado: no se toca, ni el orden ni la frase del modelo.
+  const bien = `Te dejé el cambio de presupuesto para revisar: ${real}`;
+  assert.equal(conLinksDeAccion(bien, [real]), bien);
+  // Sin propuestas en el turno: tampoco.
+  assert.equal(conLinksDeAccion('Tienes 3 campañas activas.', []), 'Tienes 3 campañas activas.');
+  // Mal copiado (un carácter menos, el caso del borrador del 10/8): se saca y va el real.
+  const mal = conLinksDeAccion('Revísalo aquí: https://hola-mako.com/mako/revisar/propmskimbc4s4b4 y confírmalo.', [real]);
+  assert.ok(mal.includes(real), 'el link real tiene que estar');
+  assert.ok(!mal.includes('propmskimbc4s4b4 '), 'el mal copiado tiene que salir');
+  assert.equal(mal.match(/\/mako\/revisar\//g)?.length, 1, 'un solo link');
+  // Ninguno escrito: se agrega.
+  assert.ok(conLinksDeAccion('Listo, te lo dejé para revisar.', [real]).endsWith(real));
+  // El correcto MÁS uno inventado: sale el inventado, queda uno solo.
+  const doble = conLinksDeAccion(`Aquí: ${real} y también /mako/revisar/propinventado12345`, [real]);
+  assert.equal(doble.match(/\/mako\/revisar\//g)?.length, 1);
+  // Respuesta vacía: solo el link.
+  assert.equal(conLinksDeAccion('', [real]), `Revísalo y confírmalo aquí: ${real}`);
 });

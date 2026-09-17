@@ -48,6 +48,9 @@ qué le compran, cómo habla y qué tiene pendiente. Esta skill te da acceso a t
    está anotado (`POST /api/agente/plan`).
 7. **Proponer un lead para el CRM** (`POST /api/agente/lead`) — un contacto que llegó
    por afuera: un formulario, una planilla, una conversación.
+8. **Todo lo demás, tab por tab** (`/api/v1`) — cada parte de MaKo con sus lecturas y
+   sus acciones: CRM, plan, anuncios, WhatsApp, email, secuencias, métricas, experimentos
+   y más. Empieza por el catálogo; ver «La API de MaKo» más abajo.
 
 ⚠️ Los puntos 1 a 5 son de LECTURA y no tienen ninguna ceremonia: úsalos sin pedir
 permiso cada vez que vayas a escribir algo del negocio o a opinar sobre cómo le va.
@@ -62,6 +65,48 @@ devuelven un LINK; el dato entra recién cuando el usuario lo confirma en MaKo. 
 regla del producto y no tiene excepciones: lo que tú transcribes puede llegar con un
 dígito cambiado, y un teléfono mal escrito no matchea su WhatsApp y nadie se entera hasta
 que falta una conversación. **Tu trabajo termina cuando entregas el link entero.**
+
+## La API de MaKo: todo lo que se puede leer y hacer, en un solo lugar
+
+Además de las rutas de arriba, MaKo expone cada tab con sus lecturas y sus acciones en
+`/api/v1`. **Empieza SIEMPRE por el catálogo**: te dice, para TU token, qué operaciones
+existen, qué parámetros llevan y cómo se confirman. Lo que no aparece ahí no existe para
+tu token: no lo adivines ni pruebes nombres.
+
+```bash
+# El catálogo, por área (crm, plan, ads, whatsapp, email, chatbot, metricas, …)
+curl -s "$BASE/api/v1" -H "Authorization: Bearer $TOKEN"
+
+# La referencia completa en markdown, con un ejemplo por operación
+curl -s "$BASE/api/v1/docs" -H "Authorization: Bearer $TOKEN"
+
+# Una lectura: los parámetros en la URL
+curl -s "$BASE/api/v1/crm/buscar_leads?texto=ana" -H "Authorization: Bearer $TOKEN"
+
+# Una acción: el cuerpo en JSON, SIEMPRE desde un archivo (los acentos inline se rompen)
+curl -s -X POST "$BASE/api/v1/crm/proponer_cambio_etapa" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json; charset=utf-8" \
+  --data-binary @accion.json
+```
+
+Ninguna acción escribe directo. Cómo contesta, y qué haces con cada respuesta:
+
+| Respuesta | Qué significa | Qué haces |
+|---|---|---|
+| `{ ok, propuesta, url }` | Quedó una propuesta para revisar | Pásale el `url` ENTERO al usuario y detente |
+| `{ ok, pendiente: { id, resumen, url } }` | Quedó una acción pendiente; vence en 2 horas | Muéstrale el `resumen` y dile que la confirme en MaKo (`url`) o por WhatsApp |
+| `{ ok: false, error, faltan }` | Faltan datos o están mal | Pídele al usuario lo que dice `faltan`; no lo inventes |
+| 404 | No existe para tu token | Vuelve al catálogo |
+
+⚠️ **No confirmes por tu cuenta.** Si tu token tiene alcance `ejecutar`, el catálogo te
+muestra `POST /api/v1/mako/confirmar_accion` con `{ "id": … }`: úsalo SOLO después de
+mostrarle el resumen al usuario y de que te diga que sí en ESTA conversación. Con
+cualquier otro token, esa operación no existe: la confirma el usuario en MaKo. Lo que
+gasta plata nunca se confirma por la API, siempre va a una pantalla.
+
+⚠️ **Hay datos que no salen por la API** (conversaciones de WhatsApp, transcripciones de
+llamadas, datos del equipo, costos de IA). Si el usuario los necesita, dile que los mire
+en MaKo; no busques otra ruta.
 
 ## El plan: se LEE y se PROPONE, no se escribe
 

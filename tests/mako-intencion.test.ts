@@ -13,7 +13,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { clasificarIntencion, CONTRATO, type Intencion } from '../lib/mako-intencion';
+import { clasificarIntencion, CONTRATO, areasDelMensaje, AREA_KEYWORDS, type Intencion } from '../lib/mako-intencion';
 
 const intencionDe = (t: string, ctx?: { hayPendientes?: boolean; hayMedia?: boolean }) =>
   clasificarIntencion(t, ctx).intencion;
@@ -164,3 +164,19 @@ test('Una clasificación DUDOSA no puede obligar a llamar la herramienta', () =>
     'una intención dudosa volvió a forzar la tool: se le pide al modelo inventar una tarea de cualquier cosa',
   );
 });
+
+test('areasDelMensaje: nombra las áreas del pedido, y un mensaje sin área no suma nada', () => {
+  // Es lo que decide qué herramientas del registro (lib/api-mako) se suman a un turno
+  // del doer. Sin área nombrada, el turno lleva las de siempre y nada más: una
+  // adivinanza no puede sumar capacidades de escritura.
+  assert.deepEqual(areasDelMensaje('hola MaKo, ¿todo bien?'), []);
+  assert.ok(areasDelMensaje('pausá la secuencia de nutrición de los no-show').includes('chatbot'));
+  assert.ok(areasDelMensaje('¿cuánto invertí en Meta este mes?').includes('metricas'));
+  assert.ok(areasDelMensaje('mandá el broadcast del lunes por email').includes('email'));
+  assert.ok(areasDelMensaje('mové a Ana a la etapa de agendados').includes('crm'));
+  assert.ok(areasDelMensaje('¿cómo va el objetivo del trimestre?').includes('general'));
+  // Cada área tiene su patrón: la tabla es exhaustiva (el tipo lo exige) y ninguno
+  // matchea el texto vacío.
+  for (const [area, re] of Object.entries(AREA_KEYWORDS)) assert.ok(!re.test(''), `el patrón de ${area} matchea vacío`);
+});
+

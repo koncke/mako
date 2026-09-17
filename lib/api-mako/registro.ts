@@ -29,6 +29,7 @@ import {
   type Alcance, type Area, type Canal, type OperacionDef,
 } from './tipos';
 import { permite } from './alcance';
+import { tabEnCapa } from '@/lib/capas';
 import { esquemaJson } from './validar';
 
 import { DEFS as general } from './areas/general.def';
@@ -153,9 +154,17 @@ export type FiltroTools = {
   incluirAcciones?: boolean;
   /** solo estos ids (para los turnos acotados por intención) */
   ids?: readonly string[];
+  /** fuera estos nombres (id o alias): las que el consumidor ya trae por otro camino.
+   *  El doer de WhatsApp conserva sus 26 herramientas de siempre y suma las demás. */
+  excluir?: ReadonlySet<string>;
   /** presupuesto de caracteres del esquema para el turno; se corta al llegar y se
    *  avisa por consola qué quedó afuera. Groq corta en 7 k tokens de entrada. */
   maxChars?: number;
+  /** el mensaje del turno: con esto, antes de aplicar el presupuesto, las operaciones
+   *  se ordenan por cuántas palabras del mensaje nombran. Sin esto el tope corta por
+   *  orden de declaración, y en un área de 50 operaciones «pausá la campaña X» se
+   *  quedaba con las primeras 15 lecturas y sin la acción que pidió. */
+  relevanteA?: string;
 };
 
 /** Los ToolDefs para un turno del doer, según el filtro. */
@@ -165,8 +174,9 @@ export function toolsDelRegistro(f: FiltroTools): ToolDef[] {
     .filter((d) => !f.areas || f.areas.includes(d.area))
     .filter((d) => f.incluirAcciones !== false || esLectura(d))
     .filter((d) => visible(d, f.vista))
-    .filter((d) => !ids || ids.has(d.id) || (d.alias ?? []).some((a) => ids.has(a)));
-  const tools = defs.map(aToolDef);
+    .filter((d) => !ids || ids.has(d.id) || (d.alias ?? []).some((a) => ids.has(a)))
+    .filter((d) => !f.excluir || !(f.excluir.has(d.id) || (d.alias ?? []).some((a) => f.excluir!.has(a))));
+  const tools = (f.relevanteA ? ordenarPorRelevancia(defs, f.relevanteA) : defs).map(aToolDef);
   if (!f.maxChars) return tools;
   const out: ToolDef[] = [];
   let usados = 0;
@@ -213,4 +223,57 @@ export function resumenDeOperacion(d: OperacionDef) {
     ...(d.lenta ? { lenta: true } : {}),
     ...(d.gating ? { gating: d.gating } : {}),
   };
+}
+
+// ── Relevancia de una operación para un mensaje ────────────────────────────────
+
+const normalizar = (s: string): string =>
+  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/_/g, ' ');
+
+/** Las raíces de las palabras con contenido de un texto: 4 letras o más, cortadas a 5
+ *  para que «campaña» encuentre «campañas» y «pausá» encuentre «pausar». Burdo a
+ *  propósito: es un orden, no un filtro — lo que no matchea igual entra si hay lugar. */
+export function raices(texto: string): string[] {
+  const vistas = new Set<string>();
+  for (const p of normalizar(texto).split(/[^a-z0-9]+/)) {
+    if (p.length < 4) continue;
+    vistas.add(p.slice(0, 5));
+  }
+  return [...vistas];
+}
+
+/**
+ * Ordena (estable) las operaciones por cuántas raíces del mensaje aparecen en su id,
+ * título y descripción. El id y el título pesan el doble: son lo que la operación ES;
+ * la descripción también nombra lo que necesita antes. Empates: el orden declarado,
+ * que pone las lecturas primero.
+ */
+export function ordenarPorRelevancia<T extends OperacionDef>(defs: readonly T[], mensaje: string): T[] {
+  const rs = raices(mensaje);
+  if (!rs.length) return [...defs];
+  const puntaje = (d: T): number => {
+    const fuerte = normalizar(`${d.id} ${d.titulo}`);
+    const debil = normalizar(d.descripcion);
+    return rs.reduce((n, r) => n + (fuerte.includes(r) ? 2 : debil.includes(r) ? 1 : 0), 0);
+  };
+  return defs
+    .map((d, i) => ({ d, i, p: puntaje(d) }))
+    .sort((a, b) => b.p - a.p || a.i - b.i)
+    .map((x) => x.d);
+}
+
+// ── Qué tabs ve una capa, para el gating ──────────────────────────────────────
+
+/**
+ * Las `gating.tab` del registro que la capa del workspace ve, o null si las ve todas.
+ *
+ * Pregunta con `tabEnCapa`, la MISMA función que usa el gate de las páginas
+ * (requireCapa): une la barra principal y el menú de la foto. La primera versión
+ * miraba solo `navKeys`, y como `integraciones` vive en el menú de la foto, el
+ * super-admin (que ve /integraciones) no veía ninguna operación de esa área: 404.
+ */
+export function tabsDeCapa(capa: string | null | undefined): readonly string[] | null {
+  const todas = [...new Set(REGISTRO.map((d) => d.gating?.tab).filter((t): t is string => !!t))];
+  const vistas = todas.filter((t) => tabEnCapa(t, capa));
+  return vistas.length === todas.length ? null : vistas;
 }

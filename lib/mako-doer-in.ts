@@ -16,7 +16,7 @@
 import 'server-only';
 import { chatClaudeTools, type RichMsg } from '@/lib/anthropic';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
-import { validarRespuestaDoer, esRutaPlan, mensajeBorrador, EJEMPLO_BORRADOR, AVISO_NO_PUDE, avisoNoPude, mensajeLeadPropuesto, EJEMPLO_LEAD } from '@/lib/respuesta-doer';
+import { validarRespuestaDoer, esRutaPlan, mensajeBorrador, EJEMPLO_BORRADOR, AVISO_NO_PUDE, avisoNoPude, mensajeLeadPropuesto, EJEMPLO_LEAD, conLinksDeAccion } from '@/lib/respuesta-doer';
 import { evaluarPermiso } from '@/lib/veto-claude';
 import { causaDelFallo, textoFalloIA, linkKeysIA } from '@/lib/fallo-ia-texto';
 import { LARGO_WHATSAPP } from '@/lib/hechos-mako';
@@ -24,6 +24,10 @@ import { reaccionPara, esSoloEmoji, EMOJI_RECIBIDO } from '@/lib/reaccion-emoji'
 import { clavesCargadas } from '@/lib/ia-keys-ws';
 import { avisoDePuntos, puntosDelMensaje } from '@/lib/puntos-mensaje';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/mako-doer-acciones';
+import { toolsDelRegistro, porId } from '@/lib/api-mako/registro';
+import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
+import { areasDelMensaje } from '@/lib/mako-intencion';
+import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo } from '@/lib/mako-doer-conv';
 import { clasificarIntencion, CONTRATO, avisoDeDuda, type Intencion } from '@/lib/mako-intencion';
@@ -230,7 +234,11 @@ SI NO ENTENDISTE SI TE ESTÁN PIDIENDO ALGO O SOLO CONTÁNDOTE ALGO: contesta co
 
 HERRAMIENTAS DE LECTURA: buscar_leads, ficha_lead, historial_whatsapp, reuniones_lead, buscar_conocimiento, estado_experimentos, ver_funnel, listar_secuencias_nutricion, listar_campanas_meta, listar_horarios_reunion. Úsalas para responder con datos reales; nunca inventes nombres, números ni fechas. Si te preguntan por un lead/reunión/campaña, BÚSCALO con las tools antes de decir que no lo tienes.
 
-CUANDO TE PIDEN ACCIONES (cambiar la etapa de un lead, agendar una reunión, activar/pausar una nutrición, renombrar/pausar/ajustar el presupuesto de una campaña de Meta): NO ejecutas directo. Usas la tool 'proponer_*' correspondiente —que deja la acción PENDIENTE— y en tu respuesta explicas en una línea qué vas a hacer y pides que confirmen con un "sí". Consigue primero los ids con las tools de lectura.
+SEGÚN DE QUÉ TE HABLEN, puedes tener MÁS herramientas que las nombradas acá (lecturas y acciones de cada tab de MaKo: email, chatbot, landing, métricas, experimentos…). Úsalas igual que las demás: una lectura trae el dato; una acción NUNCA ejecuta directo — o deja una acción pendiente (pides el "sí") o te devuelve un LINK para revisar en MaKo (lo pasas tal cual y no pides confirmación por el chat).
+
+CUANDO TE PIDEN ACCIONES (cambiar la etapa de un lead, agendar una reunión, activar/pausar una nutrición, renombrar/pausar una campaña de Meta): NO ejecutas directo. Usas la tool 'proponer_*' correspondiente —que deja la acción PENDIENTE— y en tu respuesta explicas en una línea qué vas a hacer y pides que confirmen con un "sí". Consigue primero los ids con las tools de lectura.
+
+EL PRESUPUESTO de una campaña mueve plata y NUNCA se confirma por el chat: si tienes la tool para proponerlo, te devuelve un link a una pantalla de revisión; pásalo y NO pidas un "sí". Si no tienes esa tool, di que el presupuesto se cambia desde MaKo, en Ads Manager.
 
 CUANDO TE PIDEN CARGAR UNA PERSONA AL CRM ("agrega este lead", "carga a fulano", "me sumas a este contacto"):
 - Si te COMPARTIERON UNA TARJETA DE CONTACTO, los datos ya te llegaron en el mensaje: úsalos, NO los pidas de nuevo.
@@ -812,7 +820,27 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // tokens de INPUT en CADA llamada. Los turnos claros (cargar tareas, confirmar) usan
     // un subset chico → mucho más barato en Claude (y entran mejor en Groq). Los turnos
     // abiertos (dato/acción/razonamiento) mandan todas, para no quedarse sin una tool.
-    const tools = toolsParaIntencion(intencion.intencion, [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS], intencion.dudosa);
+    // LAS DE SIEMPRE + LAS DEL REGISTRO DE LAS ÁREAS QUE EL MENSAJE NOMBRA. Las 26 de
+    // siempre siguen corriendo por sus cuerpos de siempre (mismo texto, misma salida,
+    // mismo post-proceso del link). El registro (lib/api-mako) suma lecturas y acciones
+    // de cada tab, SOLO de las áreas que nombra el mensaje y con un presupuesto de
+    // caracteres: todas juntas pasan el techo de Groq y encarecen cada turno. Y solo
+    // cuando el contrato de la intención deja todas las tools (`tools: null`): capturar,
+    // confirmar y charlar no ganan nada.
+    const ctxApi: CtxApi = { ws: wsData, canal: 'whatsapp', canalKey: jid, alcance: 'ejecutar', rol: 'admin', turnStart: Date.now(), mensajeUsuario: texto };
+    const toolsDeSiempre = [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS];
+    const areasNombradas = CONTRATO[intencion.intencion].tools === null && !intencion.dudosa ? areasDelMensaje(texto) : [];
+    const toolsDelTurno = areasNombradas.length
+      ? toolsDelRegistro({
+          vista: await vistaDe(ctxApi), areas: areasNombradas,
+          incluirAcciones: intencion.intencion === 'actuar',
+          excluir: new Set(toolsDeSiempre.map((t) => t.name)),
+          maxChars: 12_000,
+          relevanteA: texto,
+        })
+      : [];
+    const tools = toolsParaIntencion(intencion.intencion, [...toolsDeSiempre, ...toolsDelTurno], intencion.dudosa);
+    if (toolsDelTurno.length) console.log(`[doer] ws=${wsData} +${toolsDelTurno.length} del registro (${areasNombradas.join(', ')})`);
     // turnStart bloquea el auto-confirm en el mismo turno; el texto del mensaje va para
     // que las acciones puedan negarse a inventar tareas cuando lo único que dijo el
     // dueño es "sí, dale" (ver pareceConfirmacion en mako-doer-acciones).
@@ -834,11 +862,34 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // escribe el CÓDIGO. Ver mensajeLeadPropuesto en lib/respuesta-doer.ts.
     let linkLead: string | null = null;
     let nombreLead = '';
+    // Los links de las acciones que se confirman en PANTALLA (/mako/revisar/<id>).
+    // Mismo motivo que el borrador: el id es azar y el modelo lo copia mal.
+    const linksAccion = new Set<string>();
     let tareasCreadas = 0;
+    // Las tres de pendientes van por el REGISTRO aunque vengan en la lista de siempre:
+    // la confirmación vieja solo sabe ejecutar los siete tipos de ejecutarAccion, y una
+    // pendiente que dejó una acción del registro (otro `tipo`) la cerraría en error. La
+    // del registro ejecuta las dos, reclama antes y vuelve a mirar el gating.
+    const runRegistro = runnerDelRegistro(ctxApi);
+    const PENDIENTES_POR_REGISTRO = new Set(['listar_pendientes', 'confirmar_accion', 'cancelar_accion']);
+    const NOMBRES_DE_SIEMPRE = new Set(MAKO_TOOLS.map((t) => t.name));
     const runTool = async (name: string, input: Record<string, unknown>) => {
-      const out = await (NOMBRES_ACCION.has(name) ? runnerAcciones(name, input) : runMakoTool(name, input));
+      const out = await (PENDIENTES_POR_REGISTRO.has(name) ? runRegistro(name, input)
+        : NOMBRES_ACCION.has(name) ? runnerAcciones(name, input)
+        : NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input)
+        : runRegistro(name, input));
       if (name === 'buscar_tutorial' && typeof out === 'string') textoTutorialSalida = out;
-      if (typeof out === 'string' && out.includes('/plan/revisar/')) {
+      // Solo una ACCIÓN crea un borrador o una propuesta. Una lectura puede devolver un
+      // link a /plan/revisar/ (ver el estado de un borrador viejo) y, sin esta guarda,
+      // el código pisaba la respuesta con «te armé el borrador» sobre uno que ya existía.
+      const esLectura = porId(name)?.tipo === 'lectura';
+      if (!esLectura && typeof out === 'string' && out.includes('/mako/revisar/')) {
+        try {
+          const j = JSON.parse(out) as { url?: unknown };
+          if (typeof j.url === 'string' && j.url.includes('/mako/revisar/')) linksAccion.add(j.url);
+        } catch { /* no era JSON */ }
+      }
+      if (!esLectura && typeof out === 'string' && out.includes('/plan/revisar/')) {
         try {
           const j = JSON.parse(out) as { link?: unknown };
           if (typeof j.link === 'string' && j.link.includes('/plan/revisar/')) linkBorrador = j.link;
@@ -848,7 +899,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
           if (Array.isArray(dadas)) tareasCreadas = dadas.length;
         } catch { /* no era JSON: el link se corrige igual si aparece en el texto */ }
       }
-      if (typeof out === 'string' && out.includes('/crm/revisar/')) {
+      if (!esLectura && typeof out === 'string' && out.includes('/crm/revisar/')) {
         try {
           const j = JSON.parse(out) as { url?: unknown };
           if (typeof j.url === 'string' && j.url.includes('/crm/revisar/')) {
@@ -1217,6 +1268,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       }
       respuesta = mensajeLeadPropuesto(linkLead, nombreLead);
     }
+
+    // Y el de una acción que se confirma en PANTALLA: si el link real no está TAL CUAL
+    // en la respuesta, lo escribe el código. Ver conLinksDeAccion.
+    respuesta = conLinksDeAccion(respuesta, [...linksAccion]);
 
     // LA COMPUERTA. Va acá, pegada al envío, porque es el único punto por el que pasan
     // las DOS ramas —la IA barata y Claude— y las dos tenían el mismo agujero.

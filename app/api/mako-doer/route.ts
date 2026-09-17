@@ -12,6 +12,13 @@ import type { NextRequest } from 'next/server';
 import { chatClaude, chatClaudeTools, type RichMsg } from '@/lib/anthropic';
 import { chatCheapCascade } from '@/lib/ai-cheap';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
+import type { ToolDef, ToolRunner } from '@/lib/anthropic';
+import { getWorkspaceActual, getRolWsEfectivo } from '@/lib/workspace';
+import { toolsDelRegistro } from '@/lib/api-mako/registro';
+import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
+import { canalKeyDe } from '@/lib/api-mako/canal';
+import { areasDelMensaje } from '@/lib/mako-intencion';
+import type { Ctx } from '@/lib/api-mako/tipos';
 import {
   createSession, getSession, listSessions, listAllSessions, getSessionMessages, appendMessage,
   renameSession, setPinned, setArchived, deleteSession, type ChartMsg,
@@ -27,7 +34,7 @@ const CHART_KEY = 'mako-doer';
 // Preámbulo que se suma al system de MaKo para el modo doer: cómo y cuándo usar
 // las herramientas. Inline (no registry) para no acoplar con prompt-registry.
 const DOER_PREAMBLE = `HERRAMIENTAS (modo doer):
-Tienes herramientas para CONSULTAR datos reales del negocio: buscar_leads, ficha_lead, historial_whatsapp, reuniones_lead, buscar_conocimiento y estado_experimentos.
+Tienes herramientas para CONSULTAR datos reales del negocio: buscar_leads, ficha_lead, historial_whatsapp, reuniones_lead, buscar_conocimiento y estado_experimentos. Según de qué te hablen, puedes tener además otras LECTURAS de cada tab de MaKo (email, chatbot, landing, métricas, experimentos…): úsalas igual. Aquí no hay herramientas que escriban: si te piden un cambio, di dónde se hace en MaKo.
 Cuando la respuesta dependa de un dato concreto —un lead puntual, su historial, una reunión, tu método— ÚSALAS en vez de suponer. Flujo típico: buscar_leads para ubicar al lead por nombre → ficha_lead / historial_whatsapp / reuniones_lead para el detalle → buscar_conocimiento para apoyar tu recomendación en el método real.
 Nunca inventes nombres, números, fechas ni mensajes: si una herramienta no lo trae, di explícitamente que no lo tienes. Después de consultar, responde en tu voz de siempre, sin volcar el JSON crudo.`;
 
@@ -44,8 +51,36 @@ async function buildMsgs(history: ChartMsg[], mensaje?: string): Promise<RichMsg
   return msgs;
 }
 
-async function responder(sys: string, msgs: RichMsg[]): Promise<string> {
-  const { text } = await chatClaudeTools(sys, msgs, MAKO_TOOLS, runMakoTool, { feature: 'mako-doer', maxSteps: 8 });
+/**
+ * Las herramientas de un turno del chat de la app: las de siempre (MAKO_TOOLS, por
+ * sus cuerpos de siempre) + las LECTURAS del registro de la API de las áreas que el
+ * mensaje nombra. SOLO LECTURAS, a propósito: este chat no tiene todavía el turno
+ * compartido del doer de WhatsApp (pendientes en el system, `turnStart`, el link del
+ * borrador escrito por el código), y una acción sin eso propone y confirma en el
+ * mismo turno o pega links copiados por el modelo. Ver docs/api-mako-diseno.md §4.2.
+ *
+ * Sin workspace resuelto (la agencia sin entrar a un cliente) queda como estaba.
+ */
+async function herramientasDelTurno(query: string): Promise<{ tools: ToolDef[]; runTool: ToolRunner }> {
+  const ws = await getWorkspaceActual();
+  if (ws == null) return { tools: MAKO_TOOLS, runTool: runMakoTool };
+  const rol = (await getRolWsEfectivo()) === 'admin' ? 'admin' : 'miembro';
+  const ctx: Ctx = { ws, canal: 'app', canalKey: canalKeyDe('app', `ws${ws}`), alcance: 'lectura', rol };
+  const deSiempre = new Set(MAKO_TOOLS.map((t) => t.name));
+  const areas = areasDelMensaje(query);
+  const extra = areas.length
+    ? toolsDelRegistro({ vista: await vistaDe(ctx), areas, incluirAcciones: false, excluir: deSiempre, maxChars: 12_000, relevanteA: query })
+    : [];
+  const runRegistro = runnerDelRegistro(ctx);
+  return {
+    tools: [...MAKO_TOOLS, ...extra],
+    runTool: (name, input) => (deSiempre.has(name) ? runMakoTool(name, input) : runRegistro(name, input)),
+  };
+}
+
+async function responder(sys: string, msgs: RichMsg[], query = ''): Promise<string> {
+  const { tools, runTool } = await herramientasDelTurno(query);
+  const { text } = await chatClaudeTools(sys, msgs, tools, runTool, { feature: 'mako-doer', maxSteps: 8 });
   return text;
 }
 
@@ -123,7 +158,7 @@ export async function POST(req: NextRequest) {
       if (!s) return Response.json({ error: 'sesión inexistente' }, { status: 404 });
       const history = await getSessionMessages(sessionId);
       await appendMessage(sessionId, 'user', mensaje);
-      const resp = await responder(await buildDoerSystem({ titulo: s.titulo ?? 'Chat', query: mensaje }), await buildMsgs(history, mensaje));
+      const resp = await responder(await buildDoerSystem({ titulo: s.titulo ?? 'Chat', query: mensaje }), await buildMsgs(history, mensaje), mensaje);
       await appendMessage(sessionId, 'assistant', resp);
       if (!s.titulo) { const t = await generarTitulo(`${mensaje}\n${resp}`); if (t) await renameSession(sessionId, t); }
       return Response.json({ messages: await getSessionMessages(sessionId) });

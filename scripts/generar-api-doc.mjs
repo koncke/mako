@@ -18,9 +18,14 @@
 // comparación exacta frena el push sobre un archivo idéntico. Ya pasó con las otras
 // guardas de esta familia (AGENTS.md).
 //
-// ⚠️ Y EN --check SE LEE DE HEAD, NO DEL DISCO: una guarda del pre-push contesta
-// sobre lo que se publica. Con dos sesiones sobre el mismo clon, el disco puede
-// tener el trabajo a medias de la otra.
+// ⚠️ EN --check EL ARCHIVO GENERADO SE LEE DE HEAD — PERO EL REGISTRO SE IMPORTA DEL
+// DISCO, y esas dos cosas solo son la misma pregunta si lib/api-mako está limpio.
+// Con definiciones sin commitear en el disco (la otra sesión a medio escribir un
+// área), comparar «lo que el disco genera» contra «lo que HEAD publica» frena el
+// push de alguien que no tocó nada de esto: el candado sin llave que AGENTS.md
+// prohíbe. Así que si lib/api-mako tiene cambios locales, la guarda AVISA, lista qué
+// y se abstiene — igual que hooks-en-orden.sh con los .tsx sin commitear. Si el
+// disco está limpio, el registro del disco ES el de HEAD y la comparación vale.
 // =============================================================================
 
 import fs from 'node:fs';
@@ -31,6 +36,21 @@ import { fileURLToPath } from 'node:url';
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BASE = 'https://hola-mako.com';
 const check = process.argv.includes('--check');
+const sinCR = (s) => s.replace(/\r/g, '');
+
+if (check) {
+  let sucios = '';
+  try {
+    sucios = execFileSync('git', ['status', '--porcelain', '--', 'lib/api-mako'], { cwd: RAIZ, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  } catch { sucios = ''; }
+  const lineas = sinCR(sucios).split('\n').filter(Boolean);
+  if (lineas.length) {
+    console.log(`  · lib/api-mako tiene ${lineas.length} cambio(s) sin commitear: no puedo contestar sobre lo que se publica, así que no frenó nada.`);
+    for (const l of lineas.slice(0, 8)) console.log(`      ${l}`);
+    console.log('    Si son tuyos: commitealos junto con docs/api-mako.md y el snapshot regenerados.');
+    process.exit(0);
+  }
+}
 
 const { referenciaMarkdown } = await import('../lib/api-mako/docs.ts');
 const { REGISTRO } = await import('../lib/api-mako/registro.ts');
@@ -39,7 +59,6 @@ const SALIDAS = [
   ['docs/api-mako.md', referenciaMarkdown(BASE)],
   ['tests/api-mako-http.snapshot.txt', REGISTRO.filter((d) => d.canales.includes('http')).map((d) => d.id).sort().join('\n') + '\n'],
 ];
-const sinCR = (s) => s.replace(/\r/g, '');
 
 let sucio = 0;
 for (const [destino, generado] of SALIDAS) {

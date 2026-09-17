@@ -27,6 +27,7 @@ import Link from '@/app/_ui/Link';
 import { Pagina } from '@/app/_ui';
 import { getUsuarioActual } from '@/lib/auth';
 import { propuestasPendientes, type Propuesta } from '@/lib/propuestas';
+import { rutaDePropuesta } from '@/lib/propuestas-tipos';
 import { rutaConWs } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
@@ -89,7 +90,7 @@ export default async function BandejaPropuestasPage() {
             return (
               <Link
                 key={p.id}
-                href={`/crm/revisar/${p.id}`}
+                href={rutaDePropuesta(p.tipo, p.id)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 14, padding: '14px 17px', textDecoration: 'none',
                   borderTop: i === 0 ? 'none' : '1px solid var(--border)',

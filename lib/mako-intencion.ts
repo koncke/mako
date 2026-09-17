@@ -316,3 +316,44 @@ export function avisoDeDuda(v: VeredictoIntencion): string {
   }
   return '';
 }
+
+// ── De qué ÁREA de MaKo habla un mensaje ────────────────────────────────────────
+// El doer ve siempre sus herramientas de siempre; las del registro de la API
+// (lib/api-mako) se SUMAN solo para las áreas que el mensaje nombra. Mandarlas
+// todas son ~150 esquemas por turno: se pasa del techo de entrada de Groq (7 k
+// tokens) y cada turno de Claude paga miles de tokens de ruido.
+//
+// ⚠️ Es una tabla EN POSITIVO y sin fallback: un mensaje que no nombra ningún área
+// lleva exactamente las herramientas de hoy, nunca «todas las acciones». Una
+// adivinanza no puede sumar capacidades de escritura (es la misma regla que
+// `toolsParaIntencion` aplica a la duda).
+
+import type { Area } from './api-mako/tipos';
+
+export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
+  general: /\b(objetivos?|metas? del (mes|trimestre)|kpis?|sem[aá]foro|c[oó]mo (voy|vamos|va el negocio)|trimestre)/i,
+  crm: /\b(leads?|contactos?|prospectos?|etapas?|funnel|embudo|agend|reuni[oó]n|r1|r2|juntas?|calific|pipeline|ficha)/i,
+  plan: /\b(tareas?|plan\b|tablero|proyectos?|checklist|deadline|perro guardi)/i,
+  ads: /\b(campa[ñn]as?|anuncios?|ads\b|meta ads|presupuesto|adsets?|conjuntos?|creativos?|pauta|cpl|cpm|ctr|guion(es)? de anuncio)/i,
+  whatsapp: /\b(whatsapp|plantillas?|borrador(es)?|conversaci[oó]n|chat con|mensaje a)/i,
+  email: /\b(e-?mails?|correos?|mails?|broadcasts?|newsletter|remitente|dominio de env)/i,
+  chatbot: /\b(secuencias?|nutrici[oó]n|chatbot|bot\b|seguimiento autom|handoff)/i,
+  instagram: /\b(instagram|ig\b|dms?\b)/i,
+  metricas: /\b(m[eé]tricas?|n[uú]meros|inversi[oó]n|gast[oóé]|cac\b|roas|dashboard|ingresos?|facturaci|cu[aá]nto (vend|invert|gast|cobr)|cascada)/i,
+  experimentos: /\b(experimentos?|hip[oó]tesis|retro\b|retrospectiva|conclusi[oó]n)/i,
+  landing: /\b(landing|p[aá]gina|p[ií]xel|pixel|tracking|vsl)/i,
+  closing: /\b(llamadas?|closing|closers?|transcri|fathom|objeci[oó]n)/i,
+  negocio: /\b(avatar(es)?|razon(es)? de compra|ofertas?|productos?|precios?|persona de marca|voz de marca|onboarding|conocimiento|metodolog[ií]a|fase del negocio|tutorial)/i,
+  contenido: /\b(guion(es)?|reels?|carrusel(es)?|carousels?|stor(y|ies)|historias|contenido|copy|ideas? de contenido|youtube|miniatura)/i,
+  video: /\b(videos?|clips?|flow\b|escenas?|montaje)/i,
+  integraciones: /\b(integraci[oó]n(es)?|conectad[oa]|calendly|chatwoot|resend|google calendar|salud de meta|keys? de ia)/i,
+  equipo: /\b(equipo|usuarios?|roles?\b|setters?|notificaci[oó]n(es)?|reportes? (diario|semanal)|zona horaria)/i,
+  cs: /\b(customer success|cartera|programa|alumnos?|clientes? activos?)/i,
+  mako: /\b(pendientes?|propuestas?|qu[eé] (pod[eé]s|puedes) hacer|capacidades)/i,
+};
+
+/** Las áreas que nombra un mensaje, en el orden de la tabla. Vacío = ninguna. */
+export function areasDelMensaje(texto: string): Area[] {
+  const t = (texto || '').slice(0, 4000);
+  return (Object.keys(AREA_KEYWORDS) as Area[]).filter((a) => AREA_KEYWORDS[a].test(t));
+}

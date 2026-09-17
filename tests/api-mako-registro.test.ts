@@ -18,7 +18,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
-import { REGISTRO, porId, aToolDef, toolsDelRegistro, visible, gatingOk, catalogo, PROBLEMAS_DE_CARGA, type Vista } from '../lib/api-mako/registro';
+import { REGISTRO, porId, aToolDef, toolsDelRegistro, visible, gatingOk, catalogo, PROBLEMAS_DE_CARGA, ordenarPorRelevancia, raices, tabsDeCapa, type Vista } from '../lib/api-mako/registro';
 import { AREAS, CANALES, esAccion, esControl, esLectura, alcanceMinimo } from '../lib/api-mako/tipos';
 import { validarInput, esquemaJson } from '../lib/api-mako/validar';
 import { canalKeyDe, canalDeClave, puedeConfirmar } from '../lib/api-mako/canal';
@@ -241,7 +241,9 @@ test('ningún componente cliente importa un VALOR del registro, de las defs ni d
     const s = leer(p);
     if (!/^\s*['"]use client['"]/m.test(s.slice(0, 400))) continue;
     // Con alias Y con ruta relativa: un `../../lib/api-mako/registro` mete lo mismo al bundle.
-    for (const m of s.matchAll(/^import\s+(type\s+)?([^;]*?)\s+from\s+['"](?:@\/|(?:\.\.?\/)+)lib\/(api-mako\/[^'"]+|agente-skill)['"]/gm)) {
+    // `alcance` es la única excepción, y por contenido: son tres textos y una función de
+    // prefijo que el tutorial del token necesita, sin una sola descripción de operación.
+    for (const m of s.matchAll(/^import\s+(type\s+)?([^;]*?)\s+from\s+['"](?:@\/|(?:\.\.?\/)+)lib\/(api-mako\/(?!alcance['"])[^'"]+|agente-skill)['"]/gm)) {
       const soloTipos = !!m[1] || m[2].replace(/[{}]/g, '').split(',').filter((x) => x.trim()).every((x) => /^\s*type\s/.test(x));
       if (!soloTipos) culpables.push(`${p.slice(RAIZ.length)} → ${m[0].slice(0, 90)}`);
     }
@@ -349,3 +351,72 @@ test('la validación: enteros, rangos, carácter nulo y listas obligatorias vac�
   assert.equal((esquemaJson(ps).properties as Record<string, { type: string }>).leadId.type, 'integer');
 });
 
+test('el tope de caracteres corta por RELEVANCIA al mensaje, no por orden de declaración', () => {
+  const base = porId('listar_pendientes')!;
+  const fingidas = [
+    { ...base, id: 'leer_uno', titulo: 'Leer algo del negocio', descripcion: 'Una lectura cualquiera que no tiene nada que ver con el pedido.' },
+    { ...base, id: 'leer_dos', titulo: 'Leer otra cosa', descripcion: 'Otra lectura cualquiera, tampoco relacionada con lo pedido.' },
+    { ...base, id: 'pausar_campana_meta', titulo: 'Pausar una campaña', descripcion: 'Propone pausar una campaña de Meta Ads ya identificada por su id.' },
+  ];
+  const orden = ordenarPorRelevancia(fingidas, 'pausá la campaña de verano').map((d) => d.id);
+  assert.equal(orden[0], 'pausar_campana_meta', 'la que el mensaje nombra va primero');
+  assert.deepEqual(orden.slice(1), ['leer_uno', 'leer_dos'], 'los empates conservan el orden declarado');
+  assert.deepEqual(ordenarPorRelevancia(fingidas, 'hola').map((d) => d.id), ['leer_uno', 'leer_dos', 'pausar_campana_meta'], 'sin palabras con contenido, no reordena');
+  assert.ok(raices('Pausá las campañas').includes('pausa') && raices('Pausá las campañas').includes('campa'), 'las raíces sacan acentos y cortan a 5');
+  // Y con el tope: la que importa entra aunque sea la última declarada.
+  const vista = vistaHttp('ejecutar');
+  const todas = toolsDelRegistro({ vista, areas: ['crm'], relevanteA: 'mové a Ana de etapa', maxChars: 6_000 });
+  if (todas.length) assert.ok(todas.some((t) => /etapa/.test(t.name)), 'con un tope chico, la operación de etapa entra primero');
+});
+
+test('lo que se confirma en PANTALLA no se confirma por chat por ningún camino', () => {
+  // El caso: proponer_presupuesto_campana pasó a `pantalla` en el registro, pero la
+  // tool VIEJA del mismo nombre seguía en MAKO_ACCION_TOOLS dejando pendientes
+  // `meta_presupuesto`. WhatsApp pedía un «sí» y ese «sí» se cerraba en error (o, sin
+  // la guarda del runner de ads, movía plata por chat).
+  // Probado rompiéndolo (16/9), una rotura por vez, 1 fail cada una: meter
+  // meta_presupuesto en TIPOS_HEREDADOS; apagar la guarda de confirmarPendiente;
+  // apagar la del confirmar_accion viejo; volver a dejar proponer('meta_presupuesto');
+  // sacar !esLectura de la captura de /crm/revisar/.
+  const dePantalla = (slug: string) => { const d = porId(slug); return !!d && esAccion(d) && d.confirmacion === 'pantalla'; };
+  const doerViejo = leer(join(RAIZ, 'lib', 'mako-doer-acciones.ts'));
+  // 1) El doer viejo no deja pendientes de chat con el slug de una acción de pantalla.
+  const slugs = [...sinComentarios(doerViejo).matchAll(/proponer\('([a-z_]+)'/g)].map((m) => m[1]);
+  assert.ok(slugs.length >= 5, `leí ${slugs.length} proponer('…') en mako-doer-acciones.ts: cambió la forma y este test ya no mira nada`);
+  for (const s of slugs) assert.ok(!dePantalla(s), `mako-doer-acciones.ts deja pendientes «${s}» por chat, y el registro confirma esa acción en pantalla`);
+  // 2) Ni la lista de tipos que corre por el camino viejo.
+  const acciones = leer(join(RAIZ, 'lib', 'api-mako', 'acciones.ts'));
+  const heredados = [...(/TIPOS_HEREDADOS[^=]*=\s*new Set\(\[([^\]]*)\]/.exec(acciones)?.[1] ?? '').matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
+  assert.ok(heredados.length >= 5, 'no pude leer TIPOS_HEREDADOS');
+  for (const s of heredados) assert.ok(!dePantalla(s), `TIPOS_HEREDADOS tiene «${s}», que se confirma en pantalla`);
+  // 3) Las dos confirmaciones cierran las de pantalla ANTES de reclamar y ejecutar.
+  const antesDeReclamar = (src: string, desde: string, donde: string) => {
+    const limpio = sinComentarios(src);
+    const cuerpo = limpio.slice(limpio.indexOf(desde));
+    const i = cuerpo.indexOf("confirmacion === 'pantalla'");
+    const j = cuerpo.indexOf('reclamarPendiente(');
+    assert.ok(limpio.includes(desde) && i > 0 && j > 0 && i < j, `${donde}: tiene que cerrar las de pantalla antes de reclamar`);
+  };
+  antesDeReclamar(acciones, 'export async function confirmarPendiente', 'confirmarPendiente');
+  antesDeReclamar(doerViejo, "case 'confirmar_accion':", 'el confirmar_accion viejo');
+  // 4) El doer de WhatsApp solo toma el link de un borrador o propuesta de una ACCIÓN.
+  const doerIn = sinComentarios(leer(join(RAIZ, 'lib', 'mako-doer-in.ts')));
+  const capturas = [...doerIn.matchAll(/if \(([^\n]*?)out\.includes\('\/(?:plan|crm|mako)\/revisar\/'\)/g)];
+  assert.equal(capturas.length, 3, 'el doer captura links de /plan, /crm y /mako/revisar');
+  for (const c of capturas) assert.ok(c[1].includes('!esLectura'), `una captura de link no excluye las lecturas: «${c[0]}»`);
+});
+
+test('las tabs de una capa se leen como las lee el gate de las páginas', () => {
+  // `integraciones` vive en el menú de la foto (userNavKeys), no en la barra. Con
+  // solo navKeys el super-admin no veía ninguna operación de esa área.
+  // Probado rompiéndolo (16/9): con `navEnCapa` en vez de `tabEnCapa`, 1 fail: «el super-admin ve /integraciones…».
+  const tabs = new Set(REGISTRO.map((d) => d.gating?.tab).filter(Boolean));
+  assert.ok(tabs.has('integraciones'), 'el registro ya no tiene operaciones con tab integraciones: este test no mira nada');
+  const superadmin = tabsDeCapa('superadmin');
+  assert.ok(superadmin == null || superadmin.includes('integraciones'), 'el super-admin ve /integraciones y tiene que ver sus operaciones');
+  assert.equal(tabsDeCapa('completo'), null, 'la capa completa ve todo');
+  const pm = tabsDeCapa('pm');
+  assert.ok(pm && !pm.includes('integraciones') && !pm.includes('crm'), 'un pm no ve integraciones ni CRM');
+  // Una capa que no existe cae a la de catálogo, nunca a «nada» ni a otra cosa.
+  assert.equal(tabsDeCapa('inventada'), null);
+});

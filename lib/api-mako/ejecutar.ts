@@ -33,7 +33,10 @@ export { vistaDe };
 
 /** ¿El texto de un error huele a infraestructura nuestra? Decide 500 vs 400. */
 const esNuestro = (msg: string): boolean =>
-  /api-mako:|fetch failed|ECONN|timeout|supabase|PGRST|permission denied|relation .* does not exist|column .* does not exist/i.test(msg);
+  /api-mako:|fetch failed|ECONN|timeout|supabase|PGRST|permission denied|relation .* does not exist|column .* does not exist/i.test(msg)
+  // Lo que Postgres dice con sus palabras: las libs lo envuelven en «Query X falló: …»
+  // y sin esto salía como 400 al tercero, con nombres de tablas y columnas adentro.
+  || /invalid input syntax|violates .*constraint|duplicate key|null value in column|syntax error at|operator does not exist|row-level security|^Query .* falló/i.test(msg);
 
 export async function ejecutarOperacion(
   id: string,

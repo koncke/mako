@@ -17,6 +17,8 @@ import { CONTRATO_TIPOS_PREGUNTA } from '@/lib/preguntas-contrato';
 import { REGLA_NOMBRE_PROYECTO, canonNombre } from '@/lib/plan-proyectos-catalogo';
 import { runWithWorkspace, getTenantDb, OWNER_WS } from '@/lib/workspace';
 import { crearPendiente, resolverPendiente, pendientesVigentes, reclamarPendiente } from '@/lib/mako-pendientes';
+import { porId } from '@/lib/api-mako/registro';
+import { esAccion } from '@/lib/api-mako/tipos';
 import { getLead, setPipelineStage, getFunnel, faltantesParaMover, esRequisitosFaltantes, logLeadEvent } from '@/lib/leads';
 import { eventTypeDeReunion, huecosDisponibles, reservarReunion, linkParaAgendar } from '@/lib/calendly-agenda';
 import type { Step, StepId } from '@/lib/stage-requirements';
@@ -407,18 +409,9 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
       required: ['campaignId', 'nombre'],
     },
   },
-  {
-    name: 'proponer_presupuesto_campana',
-    description: 'PROPONE cambiar el presupuesto diario de una campaña de Meta Ads, en pesos MXN (deja la acción pendiente de confirmación; NO la ejecuta). Ojo: tocar el presupuesto afecta el gasto real de la cuenta.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        campaignId: { type: 'string', description: 'id numérico de la campaña (de listar_campanas_meta).' },
-        montoMxn: { type: 'number', description: 'presupuesto diario en pesos MXN.' },
-      },
-      required: ['campaignId', 'montoMxn'],
-    },
-  },
+  // proponer_presupuesto_campana YA NO ESTÁ ACÁ: mueve plata y se confirma en una
+  // PANTALLA (lib/api-mako/areas/ads.def.ts), nunca con un «sí» por el chat. El doer
+  // la recibe del registro, con el mismo nombre, cuando el mensaje habla de ads.
   {
     name: 'proponer_estado_campana',
     description: 'PROPONE pausar o activar una campaña de Meta Ads (deja la acción pendiente de confirmación; NO la ejecuta).',
@@ -787,13 +780,6 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
         return proponer('meta_nombre', { campaignId, nombre }, `Renombrar la campaña ${campaignId} → "${nombre}"`);
       }
 
-      case 'proponer_presupuesto_campana': {
-        const campaignId = str(input, 'campaignId');
-        const montoMxn = num(input, 'montoMxn');
-        if (!/^\d+$/.test(campaignId) || montoMxn == null || montoMxn <= 0) return JSON.stringify({ ok: false, error: 'campaignId (numérico) y montoMxn (> 0) son obligatorios.' });
-        return proponer('meta_presupuesto', { campaignId, montoMxn }, `Poner el presupuesto de la campaña ${campaignId} en $${montoMxn} MXN/día`);
-      }
-
       case 'proponer_estado_campana': {
         const campaignId = str(input, 'campaignId');
         const estado = str(input, 'estado').toUpperCase() === 'ACTIVE' ? 'ACTIVE' : 'PAUSED';
@@ -888,6 +874,13 @@ instruccion: `Armaste un BORRADOR con ${tareas.length} tarea${tareas.length === 
         // RECLAMAR antes de ejecutar. Esta pendiente ahora también se ve en la bandeja
         // de la app (/mako/pendientes): sin esto, un «sí» acá y un click allá sobre la
         // misma fila la ejecutaban dos veces. Una sola confirmación gana.
+        // Lo que el registro manda a PANTALLA (plata) tampoco se confirma por este
+        // camino viejo. Misma guarda que lib/api-mako/acciones.ts#confirmarPendiente.
+        const defReg = porId(target.tipo);
+        if (defReg && esAccion(defReg) && defReg.confirmacion === 'pantalla') {
+          await resolverPendiente(ws, target.id, 'error', 'se confirma en pantalla, no por chat');
+          return 'Esa acción se confirma en su pantalla de revisión, no por el chat: la pendiente quedó cerrada sin ejecutar.';
+        }
         if (!(await reclamarPendiente(ws, target.id))) {
           return 'Esa acción ya se estaba ejecutando o ya venció: no la vuelvo a correr.';
         }

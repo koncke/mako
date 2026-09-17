@@ -205,3 +205,29 @@ export function validarRespuestaDoer(
  */
 export const esRutaPlan = (motivoRuta: string): boolean =>
   /\(plan\)/.test(motivoRuta ?? '') || /→\s*capturar\b/.test(motivoRuta ?? '');
+
+// ── El link de una acción que se confirma en PANTALLA ─────────────────────────
+
+/** Un link a /mako/revisar/<id> escrito en un texto, con o sin dominio. */
+const LINK_ACCION = /(?:https?:\/\/[^\s<>()]*)?\/mako\/revisar\/[A-Za-z0-9_-]+/g;
+
+/**
+ * La respuesta del doer con los links REALES de las acciones de pantalla que se
+ * propusieron en el turno (los devolvió la tool, no los escribió el modelo).
+ *
+ * Si el texto trae exactamente esos links y ningún otro /mako/revisar/, no se toca.
+ * Si no —falta uno, o hay uno que no salió de una tool—, se sacan TODOS los
+ * /mako/revisar/ del texto y se agregan los verdaderos al final. Un id mal copiado
+ * abre «esa propuesta no existe» o, peor, la propuesta de otra cosa: es el mismo caso
+ * que el link del borrador del plan (ver `validarRespuestaDoer`).
+ */
+export function conLinksDeAccion(respuesta: string, links: readonly string[]): string {
+  if (!links.length) return respuesta;
+  const suyo = (respuesta ?? '').trim();
+  const escritos: string[] = suyo.match(LINK_ACCION) ?? [];
+  const reales = new Set(links);
+  const intacta = escritos.every((l) => reales.has(l)) && links.every((l) => escritos.includes(l));
+  if (intacta) return respuesta;
+  const limpio = suyo.replace(LINK_ACCION, '').replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim();
+  return [limpio, ...links.map((l) => `Revísalo y confírmalo aquí: ${l}`)].filter(Boolean).join('\n\n');
+}

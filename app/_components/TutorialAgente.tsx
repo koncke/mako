@@ -26,6 +26,8 @@
 
 import { useState, useMemo, type CSSProperties, type ReactNode } from 'react';
 import { AGENTE_TOKEN_ARCHIVO } from '@/lib/agente-constantes';
+import { TEXTO_ALCANCE, alcanceDeToken } from '@/lib/api-mako/alcance';
+import type { Alcance } from '@/lib/api-mako/tipos';
 import { TEXTO_CONSENTIMIENTO } from '@/lib/agente-consentimiento-texto';
 
 /** Los dos comandos del método normal. Son CONSTANTES —no dependen del cliente— porque
@@ -85,6 +87,10 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
   const [error, setError] = useState<string | null>(null);
   const [copiado, setCopiado] = useState<Copiable | null>(null);
   const [verTrato, setVerTrato] = useState(false);
+  // El alcance del token (lib/api-mako/alcance.ts). Default `proponer`: es lo que
+  // los tokens siempre hicieron. `ejecutar` se elige a propósito, con el texto de lo
+  // que significa a la vista, y viaja en el prefijo del token: rotar lo resetea.
+  const [alcance, setAlcance] = useState<Alcance>(() => (tokenInicial ? alcanceDeToken(tokenInicial) : 'proponer'));
 
 
   const listo = !!token;
@@ -100,8 +106,8 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
     try {
       const r = await fetch('/api/agente/token', {
         method: 'POST',
-        headers: acepto ? { 'content-type': 'application/json' } : undefined,
-        body: acepto ? JSON.stringify({ acepto: true }) : undefined,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(acepto ? { acepto: true, alcance } : { alcance }),
       });
       const j = await r.json();
       if (j?.ok) { setToken(j.token as string); setVerTrato(false); return; }
@@ -148,6 +154,31 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
 
   const codeInline: CSSProperties = { fontFamily: MONO, fontSize: 12, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 6, padding: '1px 6px', color: 'var(--ink)' };
 
+  // Dos opciones y no tres: «solo leer» no se ofrece en la pantalla porque la skill
+  // propone tareas y leads desde el día uno; quien lo necesite lo pide por la API.
+  const elegirAlcance = (
+    <div role="radiogroup" aria-label="Qué puede hacer el agente" style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+      {(['proponer', 'ejecutar'] as const).map((a) => {
+        const activo = alcance === a;
+        return (
+          <button
+            key={a} type="button" role="radio" aria-checked={activo} disabled={generando}
+            onClick={() => setAlcance(a)}
+            style={{
+              textAlign: 'left', padding: '9px 12px', borderRadius: 10, cursor: 'pointer',
+              border: `1px solid ${activo ? 'var(--primary)' : 'var(--border)'}`,
+              background: activo ? 'var(--surface)' : 'var(--surface-2)',
+              fontFamily: "'Geist', sans-serif",
+            }}
+          >
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{TEXTO_ALCANCE[a].titulo}</div>
+            <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.5, marginTop: 2 }}>{TEXTO_ALCANCE[a].que}</div>
+          </button>
+        );
+      })}
+    </div>
+  );
+
   const paso = (n: number, titulo: ReactNode, cuerpo: ReactNode) => (
     <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr', gap: 12, alignItems: 'start' }}>
       <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 999, background: 'var(--ink)', color: 'var(--surface)', fontFamily: MONO, fontSize: 12, fontWeight: 700 }}>{n}</span>
@@ -178,10 +209,15 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
               <button type="button" style={{ ...btnSecundario, color: 'var(--faint)' }} onClick={() => void generar(true)} disabled={generando} title="Genera uno nuevo e invalida el anterior">{generando ? 'Rotando…' : 'Rotar'}</button>
             </div>
             <span style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.5 }}>Es una credencial: identifica tu espacio. Claude lo guarda en {AGENTE_TOKEN_ARCHIVO} y no viaja en la skill. Si lo rotas, el anterior deja de funcionar.</span>
+            <span style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.5 }}>
+              Este token: <strong style={{ color: 'var(--ink)' }}>{TEXTO_ALCANCE[alcanceDeToken(token!)].titulo}</strong>. Para cambiarlo, elige otra opción y rótalo.
+            </span>
+            {elegirAlcance}
           </div>
         ) : (
           verTrato ? trato : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {elegirAlcance}
             <button type="button" style={btnPrimario} onClick={() => void generar()} disabled={generando}>{generando ? 'Generando…' : 'Generar token'}</button>
             <span style={{ fontSize: 12, color: 'var(--faint)' }}>Un click. Claude te lo va a pedir la primera vez que necesite tus datos, y lo guarda en {AGENTE_TOKEN_ARCHIVO}: no vuelve a preguntarlo.</span>
           </div>)

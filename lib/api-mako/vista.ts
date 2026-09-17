@@ -13,16 +13,20 @@
 
 import 'server-only';
 import { getWorkspace } from '@/lib/workspace';
-import { capaDef, type CapaId } from '@/lib/capas';
-import type { Vista } from './registro';
+import { tabsDeCapa, type Vista } from './registro';
 import type { Ctx } from './tipos';
 
 export async function vistaDe(ctx: Ctx): Promise<Vista> {
-  let tabs: readonly string[] | null = null;
+  let tabs: readonly string[] | null;
   try {
     const w = await getWorkspace(ctx.ws);
-    const capa = capaDef((w?.capa ?? 'completo') as CapaId);
-    tabs = capa.navKeys ?? null;
-  } catch { tabs = null; }
+    tabs = tabsDeCapa(w?.capa ?? 'completo');
+  } catch (err) {
+    // FAIL-CLOSED. Antes un error dejaba `tabs = null`, que significa «ve todo»: con
+    // la base lenta, un cliente `pm` veía el CRM y las bandejas de otras capas. Sin
+    // capa no se sabe qué tabs compró, así que no ve ninguna operación con tab.
+    console.error(`[api-mako] no pude leer la capa del ws ${ctx.ws}; la vista queda sin tabs:`, err instanceof Error ? err.message : err);
+    tabs = [];
+  }
   return { canal: ctx.canal, alcance: ctx.alcance, ws: ctx.ws, rol: ctx.rol, tabs };
 }

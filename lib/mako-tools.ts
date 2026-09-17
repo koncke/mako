@@ -14,7 +14,7 @@
 // sumemos escrituras irán por los callers ya gateados, nunca por el send* pelado.
 
 import 'server-only';
-import { getTenantDb, getWorkspaceActual, OWNER_WS } from './workspace';
+import { getTenantDb, getWorkspaceActual, getWorkspace } from './workspace';
 import type { ToolDef, ToolRunner } from './anthropic';
 import { listCategorias, listTareas } from './todo';
 import {
@@ -212,7 +212,9 @@ export const runMakoTool: ToolRunner = async (name, input) => {
         .filter((m) => m.messageType === 0 || m.messageType === 1 || m.messageType === 3)
         .slice(-limite)
         .map((m) => ({
-          de: m.saliente ? 'negocio' : 'lead',
+          // messageType 3 es una PLANTILLA, y la manda el negocio: con `saliente`
+          // (solo el 1) salían como del lead las plantillas de la nutrición.
+          de: m.messageType === 0 ? 'lead' : m.messageType === 3 ? 'negocio (plantilla)' : 'negocio',
           texto: m.texto ?? (m.adjuntos.length ? '(adjunto)' : ''),
           estado: m.status,
         }));
@@ -328,11 +330,15 @@ export const runMakoTool: ToolRunner = async (name, input) => {
     }
 
     case 'ver_plan': {
-      // El dueño (OWNER_WS) tiene el board en localStorage → leemos la FOTO que empuja
-      // PlanBoard, y sus links van a /plan/agencia. Los clientes van a la base (todo.ts)
-      // y sus links a /plan. Incluimos el link armado para que MaKo lo copie tal cual.
+      // El super-admin tiene el board de la agencia (plan_tareas) y sus links van a
+      // /plan/agencia. Los clientes van a la base (todo.ts) y sus links a /plan.
+      // Incluimos el link armado para que MaKo lo copie tal cual.
+      // ⚠️ Se decide por CAPA, no por número: OWNER_WS (1) es Mauricio, un CLIENTE, y
+      // con `ws === OWNER_WS` el ws 1 leía un plan_tareas vacío con links que lo
+      // redirigían, mientras el super-admin (capa 'superadmin', hoy el 9) leía la base
+      // de tareas de cliente.
       const ws = await getWorkspaceActual();
-      const esDueno = ws === OWNER_WS;
+      const esDueno = ws != null && (await getWorkspace(ws))?.capa === 'superadmin';
       const rutaPlan = esDueno ? '/plan/agencia' : '/plan';
       const linkTarea = (id: string) => `${APP_URL}${rutaPlan}?tarea=${id}`;
       const linkProy = (id: string) => `${APP_URL}${rutaPlan}?proyecto=${id}`;
