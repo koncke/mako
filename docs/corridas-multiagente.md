@@ -29,9 +29,11 @@ Los journals siguen en disco, en
 |---|---|---|---|---|
 | 2026-09-16 | `reunion-mau-martin-2026-09-08-tareas` | 46 | Todas las tareas de la llamada «Mau <> Martin: CHATBOT» del 8/9: extraer con 11 lentes, fusionar, refutar contra el transcript, ubicar cada una en el código y asignarle un chat por tab | **rescatada** |
 | 2026-09-16 | `reunion-mau-martin-tareas-v2` | 45 | Lo mismo para la continuación del 9/9: la skill de MaKo en el Claude de Mauricio, la oferta grupal evergreen y la reactivación de los leads que no cerraron | **rescatada** |
+| 2026-09-16 | `deepseek-harness-veredicto-mako` | 24 | ¿Sirve DeepSeek Harness / V4.1-Flash, «gratis», para desarrollar todo MaKo? Producto, costo real, calidad independiente, uso real, privacidad, encaje con las dependencias de Claude Code y opciones híbridas, con verificación por lotes | **rescatada** |
 
-Lo cosechado está en hallazgos-plan.md («El Plan de Mauricio es la tabla de clientes») y en
-hallazgos-comunicacion.md («La post-agenda del ws 1 quedó prendida y no le llegó un audio a nadie»).
+Lo cosechado está en hallazgos-plan.md («El Plan de Mauricio es la tabla de clientes»), en
+hallazgos-comunicacion.md («La post-agenda del ws 1 quedó prendida y no le llegó un audio a nadie») y en
+hallazgos-infra.md («Desarrollar MaKo con DeepSeek: el harness es gratis, el modelo no»).
 
 **Lo que costó aprender en estas dos.** Refutar **por tarea**, con tres agentes que leen el
 transcript entero cada uno, son tres lecturas completas por tarea: con 57 y 75 tareas fueron unos 400

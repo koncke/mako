@@ -51,6 +51,83 @@ explícitamente qué significa ese null — y nunca puede significar «reseteá 
 
 **Vive en:** lib/settings.ts:20 (getSetting) → lib/onboarding-state.ts:104 (getEstadoOnboarding) y :132 (patchEstadoOnboarding) · *2026-07-02 ~auditoria-onboarding*
 
+**Ampliado el 16/09/2026.** La salida ya existe: `getSettingEstricto` (`lib/settings.ts:44`)
+tira en vez de devolver `null`. Hay dos formas de usarla y seguir igual de expuesto:
+
+- **Un `.catch(() => null)` encima de `getSetting` no dispara nunca**, porque `getSetting` no
+  tira. Se lee como manejo de error y no maneja nada. Caso: `getMapaLecciones`
+  (`lib/cs-avance.ts:35-42`) vale `{}` ante un 5xx, y todo lo que cuelga dice «0 mapeadas» o
+  «no está en Whop».
+- ⚠️ **Leer estricto ANTES y escribir con una función que RELEE no protege.** El arreglo
+  obvio —chequear con `getSettingEstricto` y seguir— tira ese valor, y la función de la lib
+  vuelve a leer por su cuenta con `getSetting`. Si esa segunda lectura falla, la lista vale
+  `[]` y «editar UN avatar» o «borrar UNA foto» reescribe la clave con un solo elemento, y
+  contesta ok. Así están `setPersonaDescripcion`, `addPersonaFoto` y `deletePersonaFoto`
+  (`lib/persona.ts:83-106`) y todo read-modify-write sobre `getAvatares`, `getEntregables` o
+  `getAnswers`. El detalle, en [hallazgos-onboarding.md](hallazgos-onboarding.md).
+
+**Regla:** se escribe sobre el MISMO valor que se leyó estricto, nunca sobre una relectura.
+Molde: `jsonEstricto` en `lib/api-mako/areas/chatbot.helpers.ts:162`. Si la lib no exporta
+un getter estricto, la deuda es de la lib: copiar su normalizador afuera es un segundo lugar.
+
+**Vive en:** lib/settings.ts:44 (getSettingEstricto) · lib/cs-avance.ts:35 · lib/persona.ts:83-106 · lib/avatares.ts:61 · lib/entregable.ts:54 · *2026-09-16 api-mako-areas*
+
+**16/09/2026: dónde duele más, y los casos que siguen vivos.** El daño caro es el
+read-modify-write de un mapa o una lista: con la lectura caída, el valor nuevo se arma
+sobre `{}` o `[]`, y agregar UN ítem reescribe la clave con ese ítem solo. Sin error. El
+otro daño es un diagnóstico que afirma ausencia: `estado_email` le decía al dueño «el
+negocio no cargó un dominio» con la base caída. La API ya lee estricto (`estadoEmail` y
+`dominioIdDelWorkspace`, `lib/api-mako/areas/email.helpers.ts:41` y :75); la pantalla no
+(`estadoActual`, `app/api/email/dominio/route.ts:77-78`).
+
+Siguen laxos, todos por la puerta de la pantalla:
+
+- `getEntregables` (`lib/entregable.ts:54`) → `setEntregables([...lista, nuevoLm])` en
+  `app/api/chat-agent/secuencias/route.ts:167-169`: crear un lead magnet con la lectura
+  caída deja la lista con ese solo.
+- `getManual` (`lib/chat-agent-voz.ts:110-113`) → `setManual` en
+  `app/api/chat-agent/onboarding/contexto/route.ts:65-71`: contestar un hueco de la voz
+  borra las respuestas anteriores.
+- `getPorClave` (`app/api/chat-agent/audios/route.ts:35`) → `setSetting` en :127-130:
+  grabar un audio deja el mapa situación → audio con una sola clave. (El `DELETE` de :148
+  no escribe si el mapa vino vacío.)
+- `mapaAudios` (`lib/secuencias-audios.ts:91-95`) no escribe el mapa, pero con `{}`
+  `armarSecuenciasDeAudios` arma cero secuencias, igual que si no hubiera audios grabados.
+
+**Regla:** mapas y listas se leen con `getSettingEstricto`, y un JSON ilegible también
+tira: `{}` no es un valor, es la falla disfrazada.
+
+**Queda sin hacer:** la API de MaKo lee estricto repitiendo las claves privadas de las libs
+(`mako.entregable` y `mako.chat_agent.voz.manual`, en
+`lib/api-mako/areas/chatbot.helpers.ts:243` y :265). Faltan `getEntregablesEstricto` y
+`getManualEstricto` en `lib/entregable.ts` y `lib/chat-agent-voz.ts`, y pasar por ahí las
+tres rutas de arriba. *2026-09-16 api-mako-areas*
+
+### ⚠️ `getSettingNum` lee un setting vacío como 0, no como «no hay»
+
+**Causa:** `getSettingNum` hace `Number(raw)` y solo devuelve `null` si no hay fila o el
+número no es finito (`lib/settings.ts:88-97`). `Number('') === 0`, así que «quitar» un
+setting numérico guardándolo vacío se relee como **0**. Y /general lo guarda vacío:
+`setCapacidadAction` pasa `cupo.trim()` y `mesesEntrega.trim()` tal cual
+(`app/general/actions.ts:189-191`).
+
+**Dos síntomas, los dos con cara de dato:**
+
+- **El cupo.** `capacidadDe` trata el 0 como «sin cupo» (`lib/objectives-modelo.ts:521`),
+  pero la rama de error de `getCapacidad` devuelve el cupo crudo
+  (`lib/objectives.ts:498-499`). Si además no se pudieron contar los activos, la API le
+  dice al modelo «Hay un cupo declarado de 0 clientes»
+  (`lib/api-mako/areas/general.run.ts:169-170`).
+- **La ventana de entrega.** `(await getSettingNum(KEY_MESES_ENTREGA)) ??
+  MESES_ENTREGA_DEFAULT` (`lib/objectives.ts:468`, y otra vez en :499 y :501): un 0 no es
+  nullish, así que el default de 4 meses no entra. Con la ventana en 0, los pagos únicos
+  ya cerrados dejan de contar como activos y el tablero muestra lugar libre que no hay.
+
+**Regla / deuda:** `getSettingNum` tiene que tratar `raw.trim() === ''` como `null`.
+Mientras no se arregle, un `?? default` encima de `getSettingNum` no protege del vacío.
+
+**Vive en:** lib/settings.ts:88-97 · lib/objectives.ts:468, :498-501 · app/general/actions.ts:189-191 · *2026-09-16 api-mako-areas*
+
 ### La página 2 no es la continuación de la página 1 si el orden no es único
 
 **Síntoma:** cuatro pantallas distintas, el mismo error de fondo y ninguna avisa nada.
@@ -274,6 +351,17 @@ pantalla diga "entrá como un cliente". Verificado vivo: /general sigue llamando
 
 **Vive en:** lib/settings.ts:17 · lib/credenciales.ts:110 · app/general/page.tsx:72 · lib/integraciones.ts:122 · *2026-07-02 auditoria-multitenant-ux*
 
+**16/09/2026: `getSetting` no tiene caché, y el fallback sigue vivo.** Consulta la base
+cada vez (`lib/settings.ts:20-33`). `docs/api-mako-inventario.md` dice que `getCapacidad`
+usa «settings cacheados (TAG.settings)», y es falso: `TAG.settings` solo etiqueta
+`getObjetivoProgreso` (`lib/queries.ts:2683`). Lo peligroso sigue siendo el fallback:
+`getSetting`, `getSettingEstricto`, `cambiarSettingSi` y `setSetting` resuelven el ws con
+`wsActual()` (`:17`), así que fuera de `runWithWorkspace` —y también adentro de
+`runWithWorkspace(null, …)`, porque el `null` del store cae al mismo `??`— leen y
+**escriben** en el ws 1 de Mauricio sin error. Toda función que escriba settings hereda eso
+si se la llama por fuera del choke point; `setCapacidad` (`lib/objectives.ts:504-507`) es
+una. *2026-09-16 api-mako-areas*
+
 ### ⚠️ Una credencial copiada entre workspaces es inerte hasta que arreglás la config, y ahí se vuelve ingesta cruzada real
 
 ws3 (Cliente de Prueba) y ws9 tienen `PANDA_API_KEY`, `PANDA_VSL_VIDEO_IDS` y las de YouTube
@@ -324,6 +412,35 @@ control agrupada por `workspace_id`, no leyendo el código del fix.
 
 **Vive en:** lib/workspace.ts:79 · lib/ai-cheap.ts:126,192,216,298 · *2026-07-23 trace-gemini-leak-ws*
 
+**16/09/2026: `after()` NO pierde el workspace, y tres comentarios del repo dicen que sí.**
+`lib/api-mako/areas/ads.run.ts:99-100`, `lib/api-mako/areas/closing.helpers.ts:190-192` y
+`app/api/plan-fathom/route.ts:145-147` afirman que el callback de `after()` corre fuera del
+AsyncLocalStorage. En Next 16.2.6 es al revés: `addCallback` lo envuelve con
+`bindSnapshot` → `AsyncLocalStorage.bind`
+(`node_modules/next/dist/server/after/after-context.js:72-77`), que conserva **todos** los
+stores activos al momento de llamar `after()`, el de `runWithWorkspace` incluido.
+Verificado con node 24: la función pasada por `AsyncLocalStorage.bind` devuelve el store;
+la misma sin bind, `undefined`.
+
+El molde de re-entrar igual se queda, por otra razón: el snapshot es el del momento de la
+llamada. Un `after()` lanzado desde un webhook o un cron que resolvió el ws del payload
+**sin** entrar a `runWithWorkspace` no tiene store que conservar. Adentro,
+`getWorkspaceActual()` va a las cookies, no hay sesión y cae a `OWNER_WS`
+(`lib/workspace.ts:140`).
+
+**Regla:** capturá el `ws` antes y envolvé el trabajo: `after(() => runWithWorkspace(ws,
+trabajo))`. Así no depende de desde dónde se llame. Y dos cosas más:
+
+- **Fuera de un request, `after()` tira** («called outside a request scope»,
+  `node_modules/next/dist/server/after/after.js:13-16`). En un script o un test el trabajo
+  corre en línea: molde `enSegundoPlano` en `lib/api-mako/areas/ads.run.ts:111-116`. El de
+  `closing.helpers.ts:203` no tiene esa salida.
+- **El `try/catch` va adentro y con etiqueta.** Next loguea el error con un mensaje
+  genérico que no dice qué trabajo era (`after-context.js:115`). Y `after()` comparte el
+  `maxDuration` de la invocación que lo lanzó ([hallazgos-api-mako.md](hallazgos-api-mako.md)).
+
+**Vive en:** lib/workspace.ts:72 (runWithWorkspace), :144 (getWorkspaceActual) · lib/api-mako/areas/ads.run.ts:111 · lib/api-mako/areas/closing.helpers.ts:203 · *2026-09-16 api-mako-areas*
+
 ### Crear dos clientes con nombres parecidos tira `duplicate key` en la cara del admin
 
 `crearWorkspace` arma el slug con `slugify(nombre)` (normaliza, reemplaza no-alfanuméricos
@@ -365,6 +482,29 @@ introspección del esquema.
 [Tests y entorno local](#tests-y-entorno-local)).
 
 **Vive en:** lib/reset-workspace.ts:29-60 (TABLAS_RESET) vs lib/workspace.ts:43-60 (TENANT_TABLES) · *2026-08-05 review-landing-tabs*
+
+### ⚠️ `lib/perfil.ts` contesta por DOS personas: el perfil sigue la vista de cliente y las preferencias in-app no
+
+**Síntoma:** un admin de agencia parado adentro de un cliente (`?ws=N`) edita «su» perfil y
+escribe sobre la fila del admin de ese cliente. En la misma pantalla, el pop-up y el sonido
+que ve son los suyos. La misma persona está mirando datos de dos filas distintas.
+
+**Causa:** `getPerfil` y `setPerfil` pasan por `usuarioDelPerfil` (`lib/perfil.ts:52-70`), que
+para un admin parado en otro workspace devuelve el primer usuario de ese workspace con
+`rol_ws = 'admin'`, o el primero por id. `getNotifInApp`/`setNotifInApp` van por `filaPropia`
+(:236-244), por el email de la sesión. Cada decisión está bien sola —la foto es de la cuenta
+que mirás, el sonido es de quien está frente al teclado— y su comentario lo explica; lo que
+ninguno dice es que las dos conviven en el mismo módulo bajo la misma palabra, «perfil». Dos
+bordes más: si la consulta del workspace ajeno falla o no trae filas, cae en silencio a la
+fila propia (:68-69), y la vista de cliente vuelve a editar la tuya sin avisar; y un usuario
+con `rol_ws` null —admin efectivo para `getRolWsEfectivo` (`lib/workspace.ts:239`)— no cuenta
+como admin al elegir la fila (:68).
+
+**Regla:** «¿quién está actuando?» —autoría, quién propuso, quién confirma, de quién es una
+preferencia— se contesta con la sesión (`getUsuarioActual`), nunca con `getPerfil`. `getPerfil`
+contesta otra pregunta: de quién es la cuenta que se está mirando.
+
+**Vive en:** lib/perfil.ts:52-70 (usuarioDelPerfil) · :72-114 (getPerfil/setPerfil) · :236-254 (filaPropia/getNotifInApp) · *2026-09-16 api-mako-areas*
 
 ### Decisiones del modelo multi-inquilino
 
@@ -871,6 +1011,35 @@ actions, así que el fix es `export const maxDuration = 60` en `app/crm/page.tsx
 explícito, o el timeout convierte un éxito en un error visible.
 
 **Vive en:** app/crm/page.tsx · app/crm/actions.ts (reagendarReunionAction → moverEnCalendario) · *2026-08-06 ~wizard-que-hacer-ahora-y-horarios-de-google*
+
+### ⚠️ `updateTag` solo existe adentro de una Server Action; afuera, `revalidateTag(tag, { expire: 0 })`
+
+**Síntoma:** se escribe desde un route handler, `/api/v1` o el doer, y la pantalla sigue
+mostrando lo de antes hasta que vence el TTL. Sin error: la invalidación va en un
+`try/catch` «porque la caché vence sola».
+
+**Causa:** `updateTag` tira fuera de una Server Action. Lo dice la doc
+(`node_modules/next/dist/docs/01-app/03-api-reference/04-functions/updateTag.md:12`) y lo
+hace el código: en un route handler tira aunque haya request, porque el guard mira
+`workStore.page.endsWith('/route')`
+(`node_modules/next/dist/server/web/spec-extension/revalidate.js:52`). El reemplazo que
+parece obvio, `revalidateTag(tag, 'max')`, es stale-while-revalidate (`revalidateTag.md:20`):
+la primera lectura después de escribir sale VIEJA y se lee como «no se guardó». Para que
+expire ya va `revalidateTag(tag, { expire: 0 })` (`revalidateTag.md:136`).
+
+**Regla:** una función que escribe y se llama desde más de un contexto (server action +
+route handler + doer) invalida con `revalidateTag(tag, { expire: 0 })`. Molde:
+`lib/api-mako/areas/general.run.ts:66` y `lib/api-mako/areas/crm.helpers.ts:37`. El caso
+de los runners del registro, en [hallazgos-api-mako.md](hallazgos-api-mako.md).
+
+⚠️ **Sigue vivo fuera del registro:** `propagarRename` (`lib/meta-write.ts:137`) hace
+`updateTag(TAG.leads)` y `updateTag(TAG.marketing)` dentro de un `try/catch` vacío, y
+`metaWrite` se llama desde `app/api/meta-write/route.ts:29`, desde el doer
+(`lib/mako-doer-acciones.ts:162`, que corre dentro del webhook de Evolution) y desde
+`lib/api-mako/areas/ads.run.ts:94`. Renombrar por un route handler deja las lecturas
+cacheadas de leads y marketing con el nombre viejo hasta el TTL.
+
+**Vive en:** lib/api-mako/areas/general.run.ts:15-19 (cabecera, donde se descubrió) · lib/meta-write.ts:137 · *2026-09-16 api-mako-areas*
 
 ### ⚠️ El polling global no chequea `visibilityState`: 24.480 invocaciones por día para recibir `[]`
 
@@ -1556,7 +1725,7 @@ el desfase cae justo adentro de la ventana 9-21 MX, así que nada lo frena.
 
 **Vive en:** lib/nutricion.ts:507 (proximoEnvioDePaso) — mismo riesgo en cualquier lector de fecha_junta_*/fecha_agenda · *2026-07-31 ~review-adversarial-nutricion*
 
-### ⚠️ La zona horaria por workspace es un setting huérfano: siempre sale Tijuana
+### ⚠️ La zona horaria por workspace era un setting huérfano (siempre Tijuana), y hoy leerla la ESCRIBE
 
 `tzDeWorkspace` y `setTimezoneWorkspace` (`lib/timezone.ts`) tienen **cero call-sites** en todo el
 repo: nadie escribe nunca el setting `mako.timezone`, así que la función devuelve siempre
@@ -1575,6 +1744,42 @@ Tijuana, **mostrando la abreviatura** («15:30 PT») para que un default equivoc
 engañar.
 
 **Vive en:** lib/timezone.ts (tzDeWorkspace/setTimezoneWorkspace) + lib/reunion-destinatarios.ts:96-99 · *2026-07-29 reunion-multi-borrador*
+
+**16/09/2026: el segundo escalón de esa cascada no distingue un default de una elección.**
+`getPerfil` (`lib/perfil.ts:88`) completa `timezone` con `DEFAULT_PERFIL.timezone`
+(`America/Tijuana`, :35) cuando la persona nunca eligió zona, y no lo marca. «El admin eligió
+Tijuana» y «nadie eligió nada» devuelven lo mismo, así que la cascada nunca llega a «Tijuana
+por defecto»: llega a un Tijuana que parece dato. Para distinguirlo hay que leer el jsonb
+`perfil` crudo de `usuarios`. (Y el primer escalón ya no es huérfano: `tzDeWorkspace` y
+`setTimezoneWorkspace` tienen call-sites, p. ej. `lib/api-mako/acciones.ts:171`.)
+*2026-09-16 api-mako-areas*
+
+**16/09/2026: leer la zona la ESCRIBE.** `tzDeWorkspace`
+(`lib/timezone.ts:39-43`) lee `mako.timezone` y, si no está, llama a `resolverYGuardarTz`
+(:55), que averigua la zona (Cal.com → Google Calendar → teléfono) y la GUARDA; si no llega
+en 4 s devuelve el default sin guardarlo (:59-72). O sea que una lectura —un resumen, una
+acción del doer, un render— escribe en `app_settings` la primera vez. Quien lo llama desde
+algo que se supone de solo lectura tiene que saberlo: el runner de contenido de la API usa
+`tzSinResolver` (`lib/api-mako/areas/contenido.helpers.ts:211`) justamente para no escribir.
+
+- ⚠️ **Y la lectura es laxa.** `tzDeWorkspace` lee con `getSetting` (:40), que convierte un
+  5xx en `null`. Si la lectura falla y la escritura no, una zona ya guardada —incluida una
+  puesta a mano— se lee como «no hay», se vuelve a averiguar y se **pisa** con lo que
+  conteste Cal.com o Google (:75).
+- ⚠️ **`tzActual()` nunca falla, y eso también es un problema.** Atrapa cualquier error y
+  devuelve `TZ_DEFAULT` sin aviso (:118-125); el `null` de `getSetting` puede llegar al
+  mismo default por el otro camino (re-averiguar, no llegar en 4 s). Si falla la lectura,
+  `hoyEnWorkspace` (:139) —y con él el período de un KPI (`app/general/actions.ts:158`) o
+  el trimestre (`quarterActual`, `lib/objectives.ts:79`)— se calcula con otra zona, y cerca
+  de la medianoche el valor cae en el día vecino sin que nada lo diga. Para algo que decide
+  (cerrar un período, marcar un vencimiento) la zona se lee con una variante que tire.
+  **Esa variante no existe todavía.**
+- **Y los guiones calculan el día sin zona.** `fechaGuion`/`diaGuion`
+  (`lib/guion-estado.ts:77-91`) usan la zona del proceso: la del navegador en la tab, UTC
+  en el server. La API usa la del negocio (`diaEnTz`, `contenido.helpers.ts:220`), así que
+  un guion de la noche cae en días distintos según quién pregunte.
+
+**Vive en:** lib/timezone.ts:39-81 (tzDeWorkspace/resolverYGuardarTz), :118-141 (tzActual/hoyEnWorkspace) · lib/api-mako/areas/contenido.helpers.ts:211 · lib/guion-estado.ts:77-91 · *2026-09-16 api-mako-areas*
 
 ### Display se migra; una clave persistida, no
 
@@ -3334,3 +3539,67 @@ texto (sin `newline=''`) convirtió todo el archivo a CRLF, y el lector de módu
 conservan los bytes (`newline=''`) o se usa la herramienta de edición.
 
 **Vive en:** `scripts/sync-boq-patch.mjs`.
+
+
+## Desarrollar MaKo con DeepSeek: el harness es gratis, el modelo no, y lo que se rompe (16/09/2026)
+
+Martín preguntó si podía usar «lo último de DeepSeek parecido a Claude Code, pero gratis» para
+desarrollar todo MaKo. Lo investigó un workflow de 24 agentes con verificación contra fuentes
+primarias (141 afirmaciones, 75 verificadas: 50 confirmadas, 24 corregidas). Los datos que sostienen
+el veredicto se chequearon además a mano en la documentación oficial de DeepSeek.
+
+**Qué es.** DeepSeek Harness (`dsh`, MIT, github.com/deepseek-ai/deepseek-harness), salió el 13/08.
+Al 16/09 va por 17 prereleases con cambios incompatibles. El modelo más nuevo ya no es V4-Pro-0813
+sino **V4.1-Flash** (`deepseek-flash`, 10/09).
+
+**El diagnóstico obvio era el equivocado: «gratis».** Gratis es el software y los pesos (MIT, ~510 GB,
+no entran en una laptop). La API **no tiene capa gratuita**: descuenta de un saldo cargado. El chat web
+gratis prohíbe el acceso automatizado. Nadie sirve V4.1-Flash gratis en volumen útil. Lo que sí es
+cierto es que es barato: `deepseek-flash` fuera de pico cuesta $0,15 la entrada, $0,003 con caché y
+$0,60 la salida por millón (el pico, lun-vie 01-04 y 06-10 UTC, cuesta el doble), contra $2/$10 de
+Sonnet 5 y $5/$25 de Opus 5 por API.
+
+**Trampas que no se deducen de ningún lado:**
+
+- **DeepSeek documenta cómo correr el mismo Claude Code contra su API**
+  (`ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`). Pero la credencial vale para **toda la
+  sesión**: no se puede dejar el hilo principal en la suscripción y mandar solo los subagentes a
+  DeepSeek. Y con `ANTHROPIC_AUTH_TOKEN` puesto **no se cargan los conectores de claude.ai** (Fathom,
+  Gmail, Drive, Notion, Canva).
+- **Los nombres `claude-opus*` se mapean a `deepseek-v4-pro`**, que en mediciones independientes mide
+  peor que V4.1-Flash y cuesta 3 a 4 veces más. Hay que fijar todos los alias en `deepseek-flash`,
+  como hace la receta oficial.
+- **Los benchmarks del fabricante quedan 16 a 33 puntos arriba de los independientes.**
+  Terminal-Bench 2.1 de V4.1-Flash: 90,6 propio contra 74,5 en Vals. En Artificial Analysis,
+  confiabilidad (qué tanto inventa): V4.1-Flash −5, Opus 5 37. Vercel no midió ningún DeepSeek en
+  sus evals de Next.js.
+- **Harness en esta máquina:** se congela ejecutando pwsh bajo el sandbox en Windows 11 build 26200
+  (Discussion #3155), y la única salida reportada es apagar el sandbox. Tuvo un CVE de 9,4 que
+  dejaba al agente apagar su propio sandbox (arreglado en npm el 30/08).
+- **Datos:** la política de DeepSeek guarda los datos en China. Los términos de la API se rigen por
+  ley china (tribunales de Hangzhou), no dicen si entrenan con lo que llega por API y obligan al
+  desarrollador a informar y pedir consentimiento a los usuarios finales cuyos datos procesa.
+
+**Encontrado de paso, y vale para Claude también.** `~/.claude/settings.json` tiene
+`defaultMode: bypassPermissions` **sin ninguna regla `deny`**, y la carpeta del repo tiene
+`.env.local` más tres backups sin versionar (`.bak-22ago`, `.bak-dominio`, `.bak2`). O sea, cualquier
+agente lee `DATABASE_URL` de producción, con datos personales de leads, sin preguntar. Además, los
+worktrees de `.claude/worktrees` viven dentro de esa misma carpeta.
+
+**La regla: un modelo nuevo no se prueba en la carpeta que tiene los `.env`.** Va en un clon aparte
+sin secretos, con `CLAUDE_CONFIG_DIR` propio, sin bypass y con el push bloqueado
+(`git remote set-url --push origin NO_PUSH`). Y se mide contra una tarea que Claude ya resolvió.
+
+**Veredicto (confianza alta): no sirve para TODO MaKo.** Donde puede tener sentido, pagando y después
+de un piloto, es como desborde cuando se agotan las dos cuentas: el mismo Claude Code apuntado a
+V4.1-Flash (mejor por un proveedor de EE.UU. con retención cero, como Fireworks), solo para código
+sin datos de clientes. Una tarea del tamaño de la del 16/09 (18,5M de tokens de subagentes) costaría
+unos $2 a $5 fuera de pico. Es una estimación: los dos proveedores ignoran `cache_control`.
+
+**Sin hacer y sin verificar:** no se corrió ningún piloto. No está probado que la herramienta Workflow
+y los subagentes funcionen contra un gateway de terceros: la doc solo nombra Anthropic, Bedrock,
+Vertex y Foundry. No se midió cuántos tokens consume MaKo por mes. Y la decisión de mandar código y
+contexto del negocio a DeepSeek directo la tiene que tomar Mauricio.
+
+**Vive en:** ~/.claude/settings.json · .env.local* · AGENTS.md (push desde worktrees) ·
+~/.claude/bitacora-sesion.sh (solo conoce claude1 y claude2) · *2026-09-16 · deepseek-harness-veredicto-mako*
