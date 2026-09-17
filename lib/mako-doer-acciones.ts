@@ -16,7 +16,7 @@ import type { ToolDef, ToolRunner } from '@/lib/anthropic';
 import { CONTRATO_TIPOS_PREGUNTA } from '@/lib/preguntas-contrato';
 import { REGLA_NOMBRE_PROYECTO, canonNombre } from '@/lib/plan-proyectos-catalogo';
 import { runWithWorkspace, getTenantDb, OWNER_WS } from '@/lib/workspace';
-import { crearPendiente, resolverPendiente, pendientesVigentes } from '@/lib/mako-pendientes';
+import { crearPendiente, resolverPendiente, pendientesVigentes, reclamarPendiente } from '@/lib/mako-pendientes';
 import { getLead, setPipelineStage, getFunnel, faltantesParaMover, esRequisitosFaltantes, logLeadEvent } from '@/lib/leads';
 import { eventTypeDeReunion, huecosDisponibles, reservarReunion, linkParaAgendar } from '@/lib/calendly-agenda';
 import type { Step, StepId } from '@/lib/stage-requirements';
@@ -884,6 +884,12 @@ instruccion: `Armaste un BORRADOR con ${tareas.length} tarea${tareas.length === 
         // margen por el skew reloj-app/DB. Bloquea que el modelo proponga Y confirme solo.
         if (turnStart && target.createdAt && Date.parse(target.createdAt) >= turnStart - 1500) {
           return 'Recién propuse esa acción en este mismo mensaje. NO la confirmes tú: frena y espera a que el dueño mande un "sí" aparte.';
+        }
+        // RECLAMAR antes de ejecutar. Esta pendiente ahora también se ve en la bandeja
+        // de la app (/mako/pendientes): sin esto, un «sí» acá y un click allá sobre la
+        // misma fila la ejecutaban dos veces. Una sola confirmación gana.
+        if (!(await reclamarPendiente(ws, target.id))) {
+          return 'Esa acción ya se estaba ejecutando o ya venció: no la vuelvo a correr.';
         }
         const res = await ejecutarAccion(ws, target.tipo, target.payload);
         await resolverPendiente(ws, target.id, res.ok ? 'ejecutada' : 'error', res.resumen);

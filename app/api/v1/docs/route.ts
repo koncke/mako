@@ -9,6 +9,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { referenciaMarkdown } from '@/lib/api-mako/docs';
 import { autenticar, esRespuesta } from '@/lib/api-mako/http';
 import { APP_BASE_URL } from '@/lib/app-url';
+import { registrarLlamada } from '@/lib/api-mako/bitacora';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -16,6 +17,7 @@ export const revalidate = 0;
 export async function GET(req: NextRequest) {
   const auth = await autenticar(req);
   if (esRespuesta(auth)) return auth;
+  registrarLlamada({ ws: auth.ctx.ws, operacion: 'docs', canal: 'http', ok: true, status: 200, ms: 0, req });
   const base = new URL(req.url).origin || APP_BASE_URL;
   return new NextResponse(referenciaMarkdown(base), {
     status: 200,

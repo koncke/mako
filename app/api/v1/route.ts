@@ -12,6 +12,7 @@ import { catalogo } from '@/lib/api-mako/registro';
 import { vistaDe } from '@/lib/api-mako/ejecutar';
 import { autenticar, esRespuesta } from '@/lib/api-mako/http';
 import { TEXTO_ALCANCE } from '@/lib/api-mako/alcance';
+import { registrarLlamada } from '@/lib/api-mako/bitacora';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -20,6 +21,7 @@ export async function GET(req: NextRequest) {
   const auth = await autenticar(req);
   if (esRespuesta(auth)) return auth;
   const vista = await vistaDe(auth.ctx);
+  registrarLlamada({ ws: auth.ctx.ws, operacion: 'catalogo', canal: 'http', ok: true, status: 200, ms: 0, req });
   return NextResponse.json({
     ok: true,
     version: 'v1',

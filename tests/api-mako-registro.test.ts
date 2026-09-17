@@ -18,7 +18,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
-import { REGISTRO, porId, aToolDef, toolsDelRegistro, visible, catalogo, PROBLEMAS_DE_CARGA, type Vista } from '../lib/api-mako/registro';
+import { REGISTRO, porId, aToolDef, toolsDelRegistro, visible, gatingOk, catalogo, PROBLEMAS_DE_CARGA, type Vista } from '../lib/api-mako/registro';
 import { AREAS, CANALES, esAccion, esControl, esLectura, alcanceMinimo } from '../lib/api-mako/tipos';
 import { validarInput, esquemaJson } from '../lib/api-mako/validar';
 import { canalKeyDe, canalDeClave, puedeConfirmar } from '../lib/api-mako/canal';
@@ -27,6 +27,9 @@ import { esPublica } from '../lib/rutas-publicas';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (p: string) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
+/** El fuente sin comentarios. Un chequeo por regex sobre el fuente CRUDO matchea la
+ *  cabecera que explica la regla, y da verde con el código borrado. */
+const sinComentarios = (src: string) => src.replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1').replace(/(^|[^A-Za-z0-9_])\/\*[\s\S]*?\*\//g, '$1');
 
 function archivos(dir: string, out: string[] = []): string[] {
   if (!existsSync(dir)) return out;
@@ -237,7 +240,8 @@ test('ningún componente cliente importa un VALOR del registro, de las defs ni d
   for (const p of [...archivos(join(RAIZ, 'app')), ...archivos(join(RAIZ, 'lib'))]) {
     const s = leer(p);
     if (!/^\s*['"]use client['"]/m.test(s.slice(0, 400))) continue;
-    for (const m of s.matchAll(/^import\s+(type\s+)?([^;]*?)\s+from\s+['"]@\/lib\/(api-mako\/[^'"]+|agente-skill)['"]/gm)) {
+    // Con alias Y con ruta relativa: un `../../lib/api-mako/registro` mete lo mismo al bundle.
+    for (const m of s.matchAll(/^import\s+(type\s+)?([^;]*?)\s+from\s+['"](?:@\/|(?:\.\.?\/)+)lib\/(api-mako\/[^'"]+|agente-skill)['"]/gm)) {
       const soloTipos = !!m[1] || m[2].replace(/[{}]/g, '').split(',').filter((x) => x.trim()).every((x) => /^\s*type\s/.test(x));
       if (!soloTipos) culpables.push(`${p.slice(RAIZ.length)} → ${m[0].slice(0, 90)}`);
     }
@@ -261,9 +265,13 @@ test('bajo app/api/v1 hay EXACTAMENTE las rutas previstas, todas bearer, y /api/
     assert.ok(/autenticar\(/.test(s), `${p.slice(RAIZ.length)} no pasa por autenticar()`);
     assert.ok(!/from ['"]next\/headers['"]/.test(s) && !/getUsuarioActual|getSesionAdmin|cookies\(/.test(s), `${p.slice(RAIZ.length)} lee la sesión`);
   }
-  // Y el choke point hace el wrap del workspace ÉL, y lo comprueba.
-  const ejecutar = leer(join(RAIZ, 'lib', 'api-mako', 'ejecutar.ts'));
-  assert.ok(/runWithWorkspace\(ctx\.ws/.test(ejecutar) && /getWorkspaceActual\(\)/.test(ejecutar), 'ejecutarOperacion tiene que correr dentro de runWithWorkspace(ctx.ws) y comprobarlo');
+  // Y el choke point hace el wrap del workspace ÉL, y lo comprueba. Se mira el CÓDIGO
+  // sin comentarios: la cabecera de ejecutar.ts nombra las dos cosas para explicarlas,
+  // y con el regex sobre el fuente crudo este chequeo dio verde con el wrap BORRADO
+  // (revisión adversarial del 16/09/2026: 14 de 14 en verde sin runWithWorkspace).
+  const ejecutar = sinComentarios(leer(join(RAIZ, 'lib', 'api-mako', 'ejecutar.ts')));
+  assert.match(ejecutar, /return await runWithWorkspace\(ctx\.ws,/, 'ejecutarOperacion tiene que correr el runner dentro de runWithWorkspace(ctx.ws)');
+  assert.match(ejecutar, /if \(enCurso !== ctx\.ws\) throw/, 'ejecutarOperacion tiene que comprobar que el workspace en curso sea el del contexto');
 });
 
 test('la referencia generada está al día con el registro (docs/api-mako.md)', () => {
@@ -273,3 +281,71 @@ test('la referencia generada está al día con el registro (docs/api-mako.md)', 
   assert.equal(enDisco.replace(/\r/g, ''), referenciaMarkdown('https://hola-mako.com').replace(/\r/g, ''),
     'docs/api-mako.md quedó viejo: node --import tsx scripts/generar-api-doc.mjs');
 });
+
+test('el gating se vuelve a mirar al confirmar, y no depende del canal ni del alcance', () => {
+  // Es la guarda que corre en acciones.ts ANTES de reclamar una pendiente o aplicar
+  // una propuesta: entre proponer y confirmar puede cambiar quién está (el dueño
+  // propone por WhatsApp, un closer abre la bandeja) y la capa del workspace.
+  const base = porId('listar_pendientes')!;
+  const conGating = { ...base, gating: { soloWs1: true as const, rolMinimo: 'admin' as const, tab: 'crm' } };
+  assert.equal(gatingOk(conGating, { ws: 1, rol: 'admin', tabs: ['crm'] }), true);
+  assert.equal(gatingOk(conGating, { ws: 1, rol: 'miembro', tabs: ['crm'] }), false, 'un closer en la bandeja no confirma lo que es del admin');
+  assert.equal(gatingOk(conGating, { ws: 9, rol: 'admin', tabs: null }), false, 'soloWs1 fuera del ws 1');
+  assert.equal(gatingOk(conGating, { ws: 1, rol: 'admin', tabs: ['plan'] }), false, 'una capa sin la tab');
+  assert.equal(gatingOk(base, { ws: 9, rol: 'miembro', tabs: [] }), true, 'sin gating, pasa');
+  // CADA GUARDA EN SU PROPIO CASO. Con las tres juntas, `soloWs1` rechaza al miembro
+  // antes de que `rolMinimo` se evalúe, y borrar la guarda del rol daba verde.
+  // Verificado rompiéndolo (16/09/2026): sin la línea de rolMinimo en gatingOk, antes
+  // 17 pass / 0 fail; con estos casos, 1 fail. Sin la de `tab`, 1 fail.
+  const soloAdmin = { ...base, gating: { rolMinimo: 'admin' as const } };
+  assert.equal(gatingOk(soloAdmin, { ws: 9, rol: 'miembro', tabs: null }), false, 'rolMinimo solo: un miembro no pasa');
+  assert.equal(gatingOk(soloAdmin, { ws: 9, rol: 'admin', tabs: null }), true, 'rolMinimo solo: el admin de cualquier ws pasa');
+  const soloTab = { ...base, gating: { tab: 'crm' } };
+  assert.equal(gatingOk(soloTab, { ws: 9, rol: 'admin', tabs: ['plan'] }), false, 'tab sola: una capa sin CRM no pasa');
+  assert.equal(gatingOk(soloTab, { ws: 9, rol: 'admin', tabs: null }), true, 'tab sola: sin capa leída (null) no se inventa un rechazo');
+  const soloWs1 = { ...base, gating: { soloWs1: true as const } };
+  assert.equal(gatingOk(soloWs1, { ws: 1, rol: 'miembro', tabs: null }), false, 'soloWs1 exige además el rol admin');
+  assert.equal(gatingOk(soloWs1, { ws: 1, rol: 'admin', tabs: null }), true);
+  // y visible() es gatingOk() + canal + alcance: nunca menos.
+  assert.equal(visible(conGating, { ...vistaHttp('ejecutar', 1), rol: 'miembro' }), false);
+});
+
+test('toda acción con tipoPendiente resuelve por ese tipo, y los slugs heredados nunca apuntan a otra cosa', () => {
+  // Las pendientes que dejó el doer de WhatsApp tienen `tipo` = el case de
+  // ejecutarAccion. Si un área declara el slug, la confirmación la encuentra; si
+  // ninguna lo declara todavía, acciones.ts la corre por el camino viejo. Lo que no
+  // puede pasar es que el slug resuelva a una operación que NO es una acción.
+  for (const d of REGISTRO) {
+    if (esAccion(d) && d.tipoPendiente) assert.equal(porId(d.tipoPendiente)?.id, d.id, `«${d.id}» declara tipoPendiente «${d.tipoPendiente}» y no resuelve`);
+  }
+  for (const t of ['lead_etapa', 'nutricion_toggle', 'meta_nombre', 'meta_presupuesto', 'meta_estado', 'tareas_plan', 'agendar_reunion']) {
+    const d = porId(t);
+    if (d) assert.ok(esAccion(d), `el slug heredado «${t}» resuelve a «${d.id}», que no es una acción`);
+  }
+});
+
+test('la validación: enteros, rangos, carácter nulo y listas obligatorias vacías', () => {
+  const ps = [
+    { nombre: 'leadId', tipo: 'number', descripcion: 'x', obligatorio: true, entero: true, minimo: 1 },
+    { nombre: 'dias', tipo: 'number', descripcion: 'x', minimo: 1, maximo: 90 },
+    { nombre: 'etiquetas', tipo: 'string[]', descripcion: 'x', obligatorio: true },
+    { nombre: 'nota', tipo: 'string', descripcion: 'x' },
+  ] as const;
+  const ok = { etiquetas: ['a'] };
+  let r = validarInput(ps, { ...ok, leadId: 1.5 }, 'json');
+  assert.ok('error' in r && /entero/.test(r.error), '1.5 no es un leadId');
+  r = validarInput(ps, { ...ok, leadId: -5 }, 'json');
+  assert.ok('error' in r && /al menos 1/.test(r.error), 'un id negativo se rechaza');
+  r = validarInput(ps, { ...ok, leadId: 3, dias: 1e12 }, 'json');
+  assert.ok('error' in r && /como mucho 90/.test(r.error), 'un rango declarado corta');
+  r = validarInput(ps, { ...ok, leadId: 3, nota: 'hola\u0000mundo' }, 'json');
+  assert.ok('error' in r && /nulo/.test(r.error), 'un NUL no llega a la base');
+  r = validarInput(ps, { leadId: 3, etiquetas: [] }, 'json');
+  assert.ok('error' in r && r.faltan?.includes('etiquetas'), 'una lista obligatoria vacía es una lista que no vino');
+  r = validarInput(ps, { leadId: 3, etiquetas: ['', ' '] }, 'json');
+  assert.ok('error' in r && r.faltan?.includes('etiquetas'), 'y también si queda vacía después de limpiar');
+  r = validarInput(ps, { leadId: '7', etiquetas: 'a,b' }, 'query');
+  assert.ok('input' in r && r.input.leadId === 7 && Array.isArray(r.input.etiquetas));
+  assert.equal((esquemaJson(ps).properties as Record<string, { type: string }>).leadId.type, 'integer');
+});
+

@@ -31,4 +31,19 @@ export function registrarLlamada(x: { ws: number; operacion: string; canal: Cana
     .from('api_llamadas')
     .insert({ workspace_id: x.ws, operacion: x.operacion, canal: x.canal, ok: x.ok, status: x.status, ms: x.ms, ip: ipRecortada(clientIp(x.req)) })
     .then(({ error }) => { if (error) console.error('[api-mako] bitácora:', error.message); });
+
+  // RETENCIÓN. Con el tope de 120 pedidos por minuto son hasta ~170 mil filas por día
+  // por workspace, y nada las borraba. Una de cada cien escrituras purga lo de ese
+  // workspace más viejo que RETENCION_DIAS: sin cron nuevo, y el costo cae sobre quien
+  // más escribe, que es quien más acumula.
+  if (Math.random() < 0.01) {
+    const corte = new Date(Date.now() - RETENCION_DIAS * 86_400_000).toISOString();
+    void getSupabaseServer().from('api_llamadas').delete()
+      .eq('workspace_id', x.ws).lt('created_at', corte)
+      .then(({ error }) => { if (error) console.error('[api-mako] purga de bitácora:', error.message); });
+  }
 }
+
+/** Cuánto vive una fila de la bitácora. Un trimestre alcanza para contestar «¿me
+ *  filtraron el token?» sobre cualquier cosa que alguien note en el CRM. */
+export const RETENCION_DIAS = 90;

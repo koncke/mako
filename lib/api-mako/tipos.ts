@@ -122,6 +122,11 @@ export type Parametro = {
    *  el validador aplica 4000 caracteres y 200 ítems: un cuerpo sin tope es un
    *  JSON.parse de megas en una función serverless. */
   max?: number;
+  /** solo `number`: exige un entero (ids, cantidades). Sin esto `1.5` pasa como leadId. */
+  entero?: true;
+  /** solo `number`: el rango permitido, inclusive. */
+  minimo?: number;
+  maximo?: number;
   /** para `object` y `object[]`: sus campos, recursivo */
   campos?: readonly Parametro[];
   ejemplo?: unknown;
@@ -314,7 +319,9 @@ export type Runners = Readonly<Record<string, Run>>;
 
 export type Resultado =
   | { ok: true; tipo: 'lectura'; salida: Salida; formato?: Formato; headers?: Record<string, string>; resultado: string }
-  | { ok: true; tipo: 'pendiente'; pendiente: { id: number; resumen: string; venceEnMin: number; url: string } }
+  /** `crudo` = lo que devolvió la tool HEREDADA, textual: el doer de WhatsApp lo
+   *  recibe tal cual (misma salida que siempre) mientras los cuerpos no se muden. */
+  | { ok: true; tipo: 'pendiente'; pendiente: { id: number; resumen: string; venceEnMin: number; url: string }; crudo?: string }
   | { ok: true; tipo: 'propuesta'; propuesta: { id: string; url: string; nueva: boolean; extra?: Record<string, unknown> } }
   | { ok: true; tipo: 'control'; resultado: string }
   | { ok: false; error: string; faltan?: string[]; disponibles?: unknown; status: 400 | 404 | 500 };

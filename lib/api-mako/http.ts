@@ -105,7 +105,8 @@ export function responder(r: Resultado): NextResponse {
     });
   }
   return NextResponse.json({
-    ok: true, propuesta: r.propuesta.id, nueva: r.propuesta.nueva, url: r.propuesta.url, ...(r.propuesta.extra ?? {}),
+    ...(r.propuesta.extra ?? {}),
+    ok: true, propuesta: r.propuesta.id, nueva: r.propuesta.nueva, url: r.propuesta.url,
     mensaje: r.propuesta.nueva
       ? 'Quedó para confirmar. Pásale el link ENTERO a la persona: entra en MaKo recién cuando lo confirma ahí.'
       : 'Ya había una propuesta pendiente igual y es el mismo link; no se creó otra.',
@@ -117,7 +118,7 @@ export async function bodyJson(req: Request): Promise<Record<string, unknown> | 
   const largo = Number(req.headers.get('content-length') ?? 0);
   if (largo > TOPE_CUERPO_BYTES) return NextResponse.json({ ok: false, error: `cuerpo demasiado grande (tope ${TOPE_CUERPO_BYTES} bytes)` }, { status: 413 });
   const texto = await req.text();
-  if (texto.length > TOPE_CUERPO_BYTES) return NextResponse.json({ ok: false, error: `cuerpo demasiado grande (tope ${TOPE_CUERPO_BYTES} bytes)` }, { status: 413 });
+  if (Buffer.byteLength(texto, 'utf8') > TOPE_CUERPO_BYTES) return NextResponse.json({ ok: false, error: `cuerpo demasiado grande (tope ${TOPE_CUERPO_BYTES} bytes)` }, { status: 413 });
   if (!texto.trim()) return {};
   try {
     const j = JSON.parse(texto);

@@ -77,6 +77,16 @@ const POR_ID = new Map<string, OperacionDef>();
       dueno.set(alias, `alias de ${d.id}`);
       POR_ID.set(alias, d);
     }
+    // El `tipo` con que se persiste una pendiente también resuelve: es lo que lee la
+    // confirmación, y las heredadas usan el slug de ejecutarAccion ('lead_etapa').
+    const tp = esAccion(d) ? d.tipoPendiente : undefined;
+    if (tp && tp !== d.id) {
+      const quien = dueno.get(tp);
+      if (quien === `alias de ${d.id}`) continue;
+      if (quien) { PROBLEMAS_DE_CARGA.push(`el tipoPendiente «${tp}» de «${d.id}» choca con «${quien}»`); continue; }
+      dueno.set(tp, `tipoPendiente de ${d.id}`);
+      POR_ID.set(tp, d);
+    }
   }
   if (PROBLEMAS_DE_CARGA.length) console.error(`[api-mako] registro con problemas:\n  ${PROBLEMAS_DE_CARGA.join('\n  ')}`);
 })();
@@ -103,15 +113,25 @@ export type Vista = {
  *  lib/workspace.ts para que este módulo siga sin server-only. */
 export const WS_PRINCIPAL = 1;
 
-/** ¿Esta operación existe para esta vista? Canal, alcance, gating: todo en positivo. */
-export function visible(def: OperacionDef, v: Vista): boolean {
-  if (!def.canales.includes(v.canal)) return false;
-  if (!permite(v.alcance, def)) return false;
+/**
+ * ¿El gating de esta operación deja pasar a esta vista? Workspace principal, rol y
+ * capa — sin mirar canal ni alcance. Es la pregunta que se vuelve a hacer AL
+ * CONFIRMAR: ahí el canal es el de quien confirma (la bandeja, un grupo) y no el de
+ * quien propuso, y el alcance ya lo decidió `puedeConfirmar`.
+ */
+export function gatingOk(def: OperacionDef, v: Pick<Vista, 'ws' | 'rol' | 'tabs'>): boolean {
   const g = def.gating;
   if (g?.soloWs1 && !(v.ws === WS_PRINCIPAL && v.rol === 'admin')) return false;
   if (g?.rolMinimo === 'admin' && v.rol !== 'admin') return false;
   if (g?.tab && v.tabs && !v.tabs.includes(g.tab)) return false;
   return true;
+}
+
+/** ¿Esta operación existe para esta vista? Canal, alcance y gating: todo en positivo. */
+export function visible(def: OperacionDef, v: Vista): boolean {
+  if (!def.canales.includes(v.canal)) return false;
+  if (!permite(v.alcance, def)) return false;
+  return gatingOk(def, v);
 }
 
 /** El ToolDef que ve Claude, derivado. La `description` es la `descripcion` textual,

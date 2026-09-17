@@ -45,7 +45,11 @@ function propiedadJson(p: Parametro): Json {
   const base: Json = { description: p.descripcion };
   switch (p.tipo) {
     case 'string': return { ...base, type: 'string', ...(p.enum?.length ? { enum: [...p.enum] } : {}) };
-    case 'number': return { ...base, type: 'number' };
+    case 'number': return {
+      ...base, type: p.entero ? 'integer' : 'number',
+      ...(p.minimo != null ? { minimum: p.minimo } : {}),
+      ...(p.maximo != null ? { maximum: p.maximo } : {}),
+    };
     case 'boolean': return { ...base, type: 'boolean' };
     case 'string[]': return { ...base, type: 'array', items: { type: 'string', ...(p.enum?.length ? { enum: [...p.enum] } : {}) } };
     case 'object': return { ...base, ...esquemaJson(p.campos ?? []) };
@@ -83,6 +87,12 @@ export function validarInput(
     }
     const r = coercionar(p, v, origen, ruta);
     if ('error' in r) return r;
+    // Una lista obligatoria que queda vacía (`[]`, o `["", " "]` después de limpiar)
+    // es una lista que no vino: pasarla haría que la lib reciba nada con cara de algo.
+    if (Array.isArray(r.valor) && r.valor.length === 0) {
+      if (p.obligatorio) faltan.push(ruta);
+      continue;
+    }
     input[p.nombre] = r.valor;
   }
   if (faltan.length) {
@@ -106,11 +116,16 @@ function coercionar(p: Parametro, v: unknown, origen: 'query' | 'json', ruta: st
       else if (origen === 'json' && (typeof v === 'number' || typeof v === 'boolean')) s = String(v);
       else return mal('un texto');
       if (s.length > maxStr) return { error: `«${ruta}» supera el tope de ${maxStr} caracteres (llegaron ${s.length})` };
+      // Un NUL no lo tipea nadie, y Postgres lo rechaza con un error crudo de la base.
+      if (s.includes('\u0000')) return { error: `«${ruta}» trae un carácter nulo, que no se puede guardar` };
       return enumOk(p, s, ruta);
     }
     case 'number': {
       const n = typeof v === 'number' ? v : (typeof v === 'string' ? Number(v.trim()) : NaN);
       if (!Number.isFinite(n)) return mal('un número');
+      if (p.entero && !Number.isInteger(n)) return { error: `«${ruta}» tiene que ser un número entero, llegó ${n}` };
+      if (p.minimo != null && n < p.minimo) return { error: `«${ruta}» tiene que ser al menos ${p.minimo}, llegó ${n}` };
+      if (p.maximo != null && n > p.maximo) return { error: `«${ruta}» tiene que ser como mucho ${p.maximo}, llegó ${n}` };
       return { valor: n };
     }
     case 'boolean': {
@@ -131,6 +146,7 @@ function coercionar(p: Parametro, v: unknown, origen: 'query' | 'json', ruta: st
       if (lista.length > maxItems) return { error: `«${ruta}» supera el tope de ${maxItems} ítems (llegaron ${lista.length})` };
       for (const x of lista) {
         if (x.length > MAX_STRING_DEFAULT) return { error: `un ítem de «${ruta}» supera los ${MAX_STRING_DEFAULT} caracteres` };
+        if (x.includes('\u0000')) return { error: `un ítem de «${ruta}» trae un carácter nulo` };
         const e = enumOk(p, x, ruta); if ('error' in e) return e;
       }
       return { valor: lista };
