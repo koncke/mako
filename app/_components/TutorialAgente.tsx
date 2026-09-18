@@ -33,11 +33,16 @@ import { TEXTO_CONSENTIMIENTO } from '@/lib/agente-consentimiento-texto';
 /** Los dos comandos del método normal. Son CONSTANTES —no dependen del cliente— porque
  *  la skill del repo es genérica: el token no viaja en ella, se lo pide al usuario la
  *  primera vez y lo guarda en su máquina. Eso es lo que permite que el repo sea público
- *  y que instalarla sea igual para todos. */
+ *  y que instalarla sea igual para todos.
+ *
+ *  ⚠️ VAN SEPARADOS, y no es cosmético: pegados juntos en un solo mensaje NO corren.
+ *  Pasó en vivo el 9/09/2026 instalándosela al dueño, que usa la app de escritorio:
+ *  copió el bloque entero, no pasó nada, y hubo que decirle «mandalos de a uno». Un
+ *  botón que copia los dos es un botón que arma el error. */
 const COMANDOS_PLUGIN = [
   '/plugin marketplace add mbustos-digital/mako-plugin',
   '/plugin install mako@mako',
-].join(String.fromCharCode(10));
+] as const;
 
 const PEDIDO_APP = 'instala la skill de MaKo desde github.com/mbustos-digital/mako-plugin';
 
@@ -59,7 +64,7 @@ export const CODE = {
 /** Cada cosa que el tutorial deja copiar. Está tipado a propósito: el botón dice
  *  «¡Copiado!» comparando contra este valor, así que un typo en la clave deja un botón
  *  que copia bien y nunca confirma — y eso se lee como que no funcionó. */
-type Copiable = 'token' | 'instruccion';
+type Copiable = 'token' | 'comando-1' | 'comando-2' | 'pedido-app';
 
 export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string | null; appUrl: string }) {
   /**
@@ -87,6 +92,11 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
   const [error, setError] = useState<string | null>(null);
   const [copiado, setCopiado] = useState<Copiable | null>(null);
   const [verTrato, setVerTrato] = useState(false);
+  // Dónde usa Claude esta persona. Los dos caminos existían y el de la app vivía en
+  // letra chica abajo de todo, así que el dueño —que usa la app— siguió el de la
+  // terminal. Se pregunta y se muestra uno solo: son instrucciones distintas, no una
+  // principal y una nota al pie.
+  const [donde, setDonde] = useState<'terminal' | 'app'>('terminal');
   // El alcance del token (lib/api-mako/alcance.ts). Default `proponer`: es lo que
   // los tokens siempre hicieron. `ejecutar` se elige a propósito, con el texto de lo
   // que significa a la vista, y viaja en el prefijo del token: rotar lo resetea.
@@ -219,7 +229,7 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {elegirAlcance}
             <button type="button" style={btnPrimario} onClick={() => void generar()} disabled={generando}>{generando ? 'Generando…' : 'Generar token'}</button>
-            <span style={{ fontSize: 12, color: 'var(--faint)' }}>Un click. Claude te lo va a pedir la primera vez que necesite tus datos, y lo guarda en {AGENTE_TOKEN_ARCHIVO}: no vuelve a preguntarlo.</span>
+            <span style={{ fontSize: 12, color: 'var(--faint)' }}>Un click. La primera vez que Claude necesite tus datos te va a pedir este token y te va a decir la ruta exacta donde pegarlo ({AGENTE_TOKEN_ARCHIVO}): no vuelve a preguntarlo.</span>
           </div>)
         ))}
 
@@ -236,30 +246,71 @@ export function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string 
                 (github.com/mbustos-digital/mako-plugin) y dos comandos. Lo que lo
                 destrabó fue sacarle el token al archivo — la skill del repo es genérica
                 y lo lee de ~/.mako-token, así que se puede publicar. */}
-            <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
-              Pega estos dos comandos en Claude Code, uno por vez:
+            <div role="radiogroup" aria-label="Dónde usas Claude" style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+              {([['terminal', 'En la terminal'], ['app', 'En la app de escritorio']] as const).map(([k, rotulo]) => (
+                <button
+                  key={k} type="button" role="radio" aria-checked={donde === k}
+                  onClick={() => setDonde(k)}
+                  style={{
+                    padding: '7px 12px', borderRadius: 999, cursor: 'pointer', fontSize: 12.5,
+                    fontFamily: "'Geist', sans-serif",
+                    border: `1px solid ${donde === k ? 'var(--primary)' : 'var(--border)'}`,
+                    background: donde === k ? 'var(--surface)' : 'var(--surface-2)',
+                    color: donde === k ? 'var(--ink)' : 'var(--dim)',
+                    fontWeight: donde === k ? 600 : 400,
+                  }}
+                >{rotulo}</button>
+              ))}
             </div>
 
-            <pre style={{
-              margin: 0, padding: '11px 13px', borderRadius: 10, overflowX: 'auto',
-              background: 'var(--surface-2)', border: '1px solid var(--border)',
-              fontFamily: MONO, fontSize: 12, lineHeight: 1.7, color: 'var(--ink)',
-            }}>{COMANDOS_PLUGIN}</pre>
-
-            <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-              <button type="button" style={btnPrimario} onClick={() => copiar('instruccion', COMANDOS_PLUGIN)}>
-                {copiado === 'instruccion' ? '¡Copiados!' : 'Copiar los comandos'}
-              </button>
-            </div>
-
-            {/* La salida para quien no use la terminal. El texto de la skill trae adentro
-                sus propias instrucciones de instalación, así que dárselo alcanza. */}
-            <span style={{ fontSize: 12, color: 'var(--faint)', lineHeight: 1.5 }}>
-              ¿Usas la app de Claude y no la terminal? Pégale esto y lo resuelve solo:{' '}
-              <button type="button" onClick={() => copiar('token', PEDIDO_APP)} style={{ ...codeInline, cursor: 'pointer' }} title="Copiar">
-                {copiado === 'token' ? '¡copiado!' : 'instala la skill de MaKo desde github.com/mbustos-digital/mako-plugin'}
-              </button>
-            </span>
+            {donde === 'terminal' ? (
+              <>
+                <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
+                  Manda estos dos comandos <strong style={{ color: 'var(--ink)' }}>de a uno</strong>: el segundo
+                  cuando el primero haya terminado.
+                </div>
+                {COMANDOS_PLUGIN.map((cmd, i) => {
+                  const clave: Copiable = i === 0 ? 'comando-1' : 'comando-2';
+                  return (
+                    <div key={cmd} style={{ display: 'flex', gap: 9, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{i + 1}</span>
+                      <code style={{
+                        fontFamily: MONO, fontSize: 12, background: 'var(--surface-2)',
+                        border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px',
+                        color: 'var(--ink)', userSelect: 'all', wordBreak: 'break-all', flex: '1 1 220px', minWidth: 0,
+                      }}>{cmd}</code>
+                      <button type="button" style={btnSecundario} onClick={() => copiar(clave, cmd)}>
+                        {copiado === clave ? '¡Copiado!' : 'Copiar'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </>
+            ) : (
+              <>
+                {/* En la app de escritorio los dos «/plugin» pegados juntos no corren, y
+                    fue lo que trabó la instalación en vivo. Pedírselo con palabras sí
+                    funciona: la skill trae adentro sus propias instrucciones. */}
+                <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
+                  Pídeselo con palabras y lo resuelve solo:
+                </div>
+                <div style={{ display: 'flex', gap: 9, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <code style={{
+                    fontFamily: MONO, fontSize: 12, background: 'var(--surface-2)',
+                    border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px',
+                    color: 'var(--ink)', userSelect: 'all', flex: '1 1 220px', minWidth: 0,
+                  }}>{PEDIDO_APP}</code>
+                  <button type="button" style={btnSecundario} onClick={() => copiar('pedido-app', PEDIDO_APP)}>
+                    {copiado === 'pedido-app' ? '¡Copiado!' : 'Copiar'}
+                  </button>
+                </div>
+                <span style={{ fontSize: 12, color: 'var(--faint)', lineHeight: 1.5 }}>
+                  Si prefieres los comandos, van <strong style={{ color: 'var(--ink)' }}>de a uno</strong>, en mensajes
+                  separados: <code style={codeInline}>{COMANDOS_PLUGIN[0]}</code> y después{' '}
+                  <code style={codeInline}>{COMANDOS_PLUGIN[1]}</code>.
+                </span>
+              </>
+            )}
           </div>
         ))}
 

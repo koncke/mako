@@ -177,10 +177,28 @@ ${token ? '' : `
 No viene adentro de este archivo a propósito: esta skill es pública y el token es tuyo.
 Vive en \`${AGENTE_TOKEN_ARCHIVO}\`, el mismo archivo que usa el reporte de sesiones.
 
-**La primera vez que necesites llamar a la API:** lee ese archivo. Si no existe o está
-vacío, pídeselo al usuario —lo saca de **Integraciones → Claude** en MaKo, con un
-click— y guárdalo ahí con permisos \`600\`. No vuelvas a preguntarlo nunca más, y no lo
-escribas en ningún otro lado.
+**La primera vez que necesites llamar a la API:** léelo de ahí. Si existe y trae algo,
+úsalo y no preguntes nada.
+
+**Si no existe o está vacío**, no digas «ponlo ahí»: esa frase, sola, ya dejó a alguien
+buscando una carpeta oculta. Haz los cuatro pasos:
+
+1. **Resuelve la ruta ABSOLUTA** de \`${AGENTE_TOKEN_ARCHIVO}\` y dísela entera (en Windows
+   es \`C:\\Users\\<tu-usuario>\\.mako-token\`; en macOS o Linux, \`/Users/<tu-usuario>/.mako-token\`).
+   Avísale que **empieza con un punto, así que el explorador no lo muestra** hasta que
+   active «ver archivos ocultos» (Windows: Ctrl+Shift+. · macOS: Cmd+Shift+.).
+2. **Dile de dónde sacarlo:** en MaKo, **Integraciones → Conectar con Claude**, botón
+   «Copiar». Es un click.
+3. **Dale el comando ya armado** para que lo corra él, con su token pegado adentro. Así el
+   token no pasa por esta conversación:
+   - Windows (PowerShell): \`Set-Content -NoNewline "$HOME\\.mako-token" 'PEGA-TU-TOKEN'\`
+   - macOS o Linux: \`printf %s 'PEGA-TU-TOKEN' > ~/.mako-token && chmod 600 ~/.mako-token\`
+4. Cuando te diga que ya está, **vuelve a leer el archivo** y sigue con lo que estabas
+   haciendo. No vuelvas a preguntarlo nunca más, y no lo escribas en ningún otro lado.
+
+Si prefiere pegártelo en el chat, escríbelo tú en ese archivo (permisos \`600\`) — pero
+dile primero que de esa forma el token viaja en la conversación, y que si no quiere eso
+puede rotarlo en MaKo cuando termine.
 `}
 
 ## LA REGLA (no negociable)
