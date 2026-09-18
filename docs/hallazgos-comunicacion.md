@@ -1337,6 +1337,13 @@ status de nutrición» (2026-08-02).
   **Vive en:** lib/nutricion.ts (PasoSecuencia, HS_MIN_ENTRE_MSGS, MAX_POR_CORRIDA) ·
   lib/setting-estrategia.ts (lead_magnet_id) · lib/evolution-envio.ts · *2026-08-01
   ~extraccion-reunion-mau-mensajes*
+  **Medido el 17/09:** el audio ya se resolvió (las secuencias de audios de post-agenda). El
+  lead magnet sigue sin entrega, y **hoy no hay nada que entregar**: 0 de 62 secuencias tienen
+  `usa_lead_magnet` o `lead_magnet_id`, y los 13 Entregables de los 5 workspaces que tienen
+  (`app_settings` `mako.entregable`) tienen **0 con `enlace`**. Construir la entrega ahora es
+  construirla contra nada; se destraba cuando exista un Entregable con enlace y una secuencia
+  que lo use. *Sin hacer, y visible:* el wizard (`SecuenciaWizard`, paso `lead_magnet`) deja
+  elegir un Entregable sin enlace, o sea prometer algo que no tiene dónde estar.
 - **Rehacer el editor de flujos de nutrición:** volver al dibujo que había antes (triggers tal
   cual, el mensaje dentro de su paso, lápiz de editar por paso y «nuevo paso» abajo de todo).
   Quedó frenado en «vuelve a como estaba al comienzo» (2026-07-15).
