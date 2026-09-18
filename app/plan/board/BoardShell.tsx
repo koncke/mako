@@ -27,7 +27,7 @@ import { useCapaModal } from '@/app/_components/pila-modales';
 import { ImportarModal } from './ImportarModal';
 import { ReunionExtractModal } from './ReunionExtractModal';
 import { TareasRecibidasModal, type PropuestaPendiente } from './TareasRecibidasModal';
-import { DatosModal, DatosConfirm, type FaltanteItem } from './DatosModal';
+import { DatosModal, type FaltanteItem } from './DatosModal';
 import { TareasCreadasModal } from './TareasCreadasModal';
 import { GraphicsView } from './Graphics';
 import { MakoStar } from '../../_components/MakoBrand';
@@ -135,16 +135,17 @@ export function BoardShell({ board, scope, vistaInicial }: {
   const [reunionArchivo, setReunionArchivo] = useState<File[] | null>(null); // los archivos elegidos en la bandeja → entran al modal de extracción
   const [importar, setImportar] = useState(false);                           // la bandeja de importación
   // "Datos sin marcar" (feedback jul-19): UN modal batch para deadline + checklist, en
-  // vez del gauntlet card-by-card. Ver DatosModal. El 2do pop-up (DatosConfirm) decide
-  // si seguir recordándolo; aparece al CERRARSE este (nunca apilados).
+  // vez del gauntlet card-by-card. Ver DatosModal.
+  // ⚠️ SOLO A PEDIDO, desde el ⚠ del header (08-T46, 17/9). Antes se abría SOLO al entrar
+  // a la tab y, al cerrarlo, salía un segundo pop-up («¿seguir recordándote?»). Mauricio,
+  // en la llamada del 8/9: «me da miedo picarle a Maco» — no entendía qué le pedía ni qué
+  // le preguntaba después, y eligió «recordármelo más tarde» para sacárselo de encima. Es
+  // la regla de la casa: nada de auto-abrir modales al entrar a una pantalla (para avisar
+  // está el badge), y nunca pedir datos en plena operación (AGENTS.md). Cerrar = «más tarde».
   const [datosOpen, setDatosOpen] = useState(false);
-  const [datosAuto, setDatosAuto] = useState(false);   // ¿se abrió solo? (define si al cerrar sale el 2do pop-up)
-  const [datosConfirm, setDatosConfirm] = useState(false);
   const [dlDismiss, setDlDismiss] = useState<Set<string>>(new Set()); // deadline ignorado por tarea
   const [clDismiss, setClDismiss] = useState<Set<string>>(new Set()); // checklist ignorada por tarea
-  const [datosOff, setDatosOff] = useState(false);                    // "no volver a pedir todos"
   const [dlLoaded, setDlLoaded] = useState(false);                    // ya leí localStorage
-  const datosAutoRef = useRef(false);                                 // auto-abrir una sola vez por MONTAJE (no por sesión)
   // "MaKo cargó tareas" (bienvenida): tareas creadas por una FUENTE (WhatsApp/Fathom/MaKo)
   // que el dueño todavía no vio en este device. Se muestran ANTES que el DatosModal.
   const [welcomeTasks, setWelcomeTasks] = useState<BoardTask[]>([]);
@@ -237,7 +238,8 @@ export function BoardShell({ board, scope, vistaInicial }: {
   const topProjectId = objetivoPrincipal?.id ?? null;
   // ── "Datos sin marcar" (feedback jul-19): deadline (opcional) + checklist (la ARMA
   // MaKo), en UN modal batch. Reemplaza al gauntlet card-by-card que auto-popeaba de a
-  // una y pedía los pasos a mano. Persistimos qué se ignoró y el "no volver a pedir". ──
+  // una y pedía los pasos a mano. Persistimos qué se ignoró. (El «no volver a pedir» de
+  // `mako_plan_datos_off` se fue con el auto-open: sin pop-up solo, no hay nada que apagar.) ──
   // Las keys se scopean por workspace (scope): impersonando distintos clientes,
   // las preferencias NO se mezclan en el mismo navegador.
   const dlKey = (base: string) => `${base}${scope ? '_' + scope : ''}`;
@@ -247,14 +249,12 @@ export function BoardShell({ board, scope, vistaInicial }: {
       if (dl) setDlDismiss(new Set(JSON.parse(dl) as string[]));
       const cl = localStorage.getItem(dlKey('mako_plan_cl_dismiss'));
       if (cl) setClDismiss(new Set(JSON.parse(cl) as string[]));
-      setDatosOff(localStorage.getItem(dlKey('mako_plan_datos_off')) === '1');
     } catch { /* localStorage no disponible */ }
     setDlLoaded(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scope]);
   // Bienvenida "MaKo cargó tareas": detectamos UNA vez las tareas con FUENTE recientes que
-  // este device no vio. NO se auto-abren acá: el auto-open (más abajo) ESPERA a que el
-  // DatosModal + su confirm terminen (Datos PRIMERO, pedido de Martín). El botón ✨ del
+  // este device no vio. NO se auto-abren acá: el auto-open está más abajo. El botón ✨ del
   // header las reabre cuando quieras (ya no se pierden al tocar una tarea).
   useEffect(() => {
     if (welcomeDetectRef.current || !dlLoaded || tasks.length === 0) return;
@@ -298,11 +298,9 @@ export function BoardShell({ board, scope, vistaInicial }: {
     }))
     .filter((x) => x.needDl || x.needCl)
     .sort((a, b) => b.task.score - a.task.score);
-  const hayImportante = faltantes.some((x) => x.task.score >= 50); // dispara el auto-open
   const persistSet = (key: string, s: Set<string>) => { try { localStorage.setItem(dlKey(key), JSON.stringify([...s])); } catch { /* ignore */ } };
   const ignorarDl = (id: string) => setDlDismiss((s) => { const n = new Set(s).add(id); persistSet('mako_plan_dl_dismiss', n); return n; });
   const ignorarCl = (id: string) => setClDismiss((s) => { const n = new Set(s).add(id); persistSet('mako_plan_cl_dismiss', n); return n; });
-  const apagarDatos = () => { setDatosOff(true); try { localStorage.setItem(dlKey('mako_plan_datos_off'), '1'); } catch { /* ignore */ } };
   // MaKo ARMA la checklist (sin preguntarle los pasos al usuario; solo si NO puede, se
   // hace a mano). Historial firmado como actor 'ia' (regla: la IA siempre deja rastro).
   const generarChecklist = async (id: string): Promise<boolean> => {
@@ -319,39 +317,22 @@ export function BoardShell({ board, scope, vistaInicial }: {
       return true;
     } catch { return false; }
   };
-  // Cerrar el DatosModal: si se abrió SOLO y todavía faltan datos, disparamos el 2do
-  // pop-up (DESPUÉS de cerrar este → nunca apilados). Si lo abrí yo con el ⚠, no molesta.
-  const cerrarDatos = () => { setDatosOpen(false); if (datosAuto && faltantes.length > 0) setDatosConfirm(true); };
-  // Abrir a mano (⚠) consume el "una vez por montaje" para que el auto-open no reaparezca
-  // después y nague con el 2do pop-up algo que ya revisaste vos.
-  const abrirDatosManual = () => { datosAutoRef.current = true; setDatosAuto(false); setDatosOpen(true); };
-  // Auto-abrir UNA vez por MONTAJE (no por sesión → reaparece al reentrar a la tab, que
-  // es lo que se espera si no apretaste "no volver a pedir"), si hay algo importante y NO
-  // hay ya otro modal abierto (deep-link ?tarea=/?proyecto= → nunca apilar dos).
-  useEffect(() => {
-    if (!dlLoaded || datosAutoRef.current || datosOff || datosOpen || datosConfirm) return;
-    if (openId || openProj || peekProjId) return; // hay un detalle abierto: no apilar
-    if (nPendientes > 0) return;                  // hay tareas tuyas esperando: esas van primero
-    if (hayImportante) {
-      datosAutoRef.current = true;
-      setDatosAuto(true);
-      setDatosOpen(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dlLoaded, hayImportante, datosOff, openId, openProj, peekProjId, nPendientes]);
-  // Auto-abrir la bienvenida UNA vez, DESPUÉS de que la secuencia del DatosModal (deadline +
-  // su "no volver a pedir") termine — y sin apilar sobre un detalle abierto. Datos va PRIMERO.
+  // Cerrar = «más tarde». Sin segundo pop-up: el ⚠ sigue ahí con el número.
+  const cerrarDatos = () => setDatosOpen(false);
+  const abrirDatosManual = () => setDatosOpen(true);
+  // Auto-abrir la bienvenida UNA vez, sin apilar sobre un detalle abierto ni sobre «Datos»
+  // abierto a mano. Antes esperaba a que Datos se abriera solo primero: con el auto-open de
+  // Datos fuera (08-T46), esa espera la habría dejado sin abrirse nunca, de costado.
   useEffect(() => {
     if (!hayWelcome || welcomeAutoRef.current) return;
     if (openId || openProj || peekProjId) return;
     if (nPendientes > 0) return;                  // el borrador por confirmar va primero
-    const datosPendiente = hayImportante && !datosOff && !datosAutoRef.current;
-    if (datosPendiente || datosOpen || datosConfirm) return; // datos (y su confirm) van PRIMERO
+    if (datosOpen) return;
     welcomeAutoRef.current = true;
     marcarWelcomeVisto();
     setWelcomeVisible(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hayWelcome, hayImportante, datosOff, datosOpen, datosConfirm, openId, openProj, peekProjId, nPendientes]);
+  }, [hayWelcome, datosOpen, openId, openProj, peekProjId, nPendientes]);
 
   // Traer los borradores pendientes UNA vez por montaje. No los creó nadie en el board:
   // los dejó el cron de reuniones (MaKo leyó tu reunión) o los mandó otra persona.
@@ -384,7 +365,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
   // tarjeta ya cargada —ahora una grilla de tarjetas clickeables— lo desmontaba.
   // …salvo cuando el borrador se abrió DESDE el selector: ahí va encima de él, para
   // poder volver a la lista al cerrarlo en vez de perder los dos de un saque.
-  const recibidasOculto = !!(openId || openProj || peekProjId || datosOpen || datosConfirm || cargandoBorrador
+  const recibidasOculto = !!(openId || openProj || peekProjId || datosOpen || cargandoBorrador
     || (extraerReunion && !borradorReunion));
 
   // ── el perro guardián re-puntúa el plan (score 1-100 / 1-10) ──
@@ -923,13 +904,14 @@ export function BoardShell({ board, scope, vistaInicial }: {
         {/* El progreso NO se pierde al plegarse: viaja al menú, arriba de todo. Un dato
             que desaparece porque no hay lugar es esconder sin pista. */}
         <BarraAcciones compacto={compacto} progreso={progresoDeLaVista} acciones={[
-          /* ⚠ en TODAS las vistas (no solo kanban) y también con "no volver a pedir todos"
-             activo: es el único modo de REABRIR el modal (lo promete el 2do pop-up). Cuando
-             está apagado no titila (queda gris), para no naguear. */
+          /* ⚠ en TODAS las vistas (no solo kanban): es la ÚNICA puerta al modal, que ya no se
+             abre solo (08-T46). Avisa con el NÚMERO, como el ✨ de al lado, y no titila: un
+             ícono que late en cada entrada es el mismo «picarle» con otra forma. */
           ...(faltantes.length > 0 ? [{ key: 'datos', nodo: (
           <button type="button" onClick={abrirDatosManual} title={`${faltantes.length} tarea${faltantes.length === 1 ? '' : 's'} con datos sin marcar (deadline / checklist)`} aria-label="Datos sin marcar"
-            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', cursor: 'pointer', flex: 'none', padding: 0 }}>
-            <WarnMark title="" size={18} blink={!datosOff} />
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 38, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', cursor: 'pointer', flex: 'none', padding: '0 11px' }}>
+            <WarnMark title="" size={16} blink={false} />
+            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: 'var(--dim)' }}>{faltantes.length}</span>
           </button>
           ), menu: { icono: <WarnMark title="" size={15} blink={false} />, label: 'Datos sin marcar', badge: faltantes.length,
             desc: 'Deadline y checklist que le faltan a tus tareas', onClick: abrirDatosManual } }] : []),
@@ -1163,14 +1145,11 @@ export function BoardShell({ board, scope, vistaInicial }: {
       {datosOpen && <DatosModal items={faltantes}
         onSetDeadline={(id, fecha) => board.setDeadline(id, fecha, '')}
         onGenChecklist={generarChecklist}
-        onAbrir={(id) => { setDatosOpen(false); setDatosConfirm(false); setOpenId(id); }}
+        onAbrir={(id) => { setDatosOpen(false); setOpenId(id); }}
         onIgnorarDl={ignorarDl}
         onIgnorarCl={ignorarCl}
         onClose={cerrarDatos} />}
-      {datosConfirm && <DatosConfirm
-        onNoPreguntar={() => { setDatosConfirm(false); apagarDatos(); }}
-        onLuego={() => setDatosConfirm(false)} />}
-      {/* Bienvenida "MaKo cargó tareas": PRIMERO al entrar (gatea el DatosModal). No se
+      {/* Bienvenida "MaKo cargó tareas": se abre sola UNA vez al entrar (Datos ya no). No se
           apila sobre un detalle abierto por deep-link (?tarea=): ahí espera a que se cierre. */}
       {welcomeVisible && !openId && !openProj && !peekProjId && <TareasCreadasModal tasks={welcomeTasks} projects={welcomeProjects} proyNuevoIds={proyNuevoIds}
         renderTaskCard={(t) => <CardTile t={t} board={board} warn={false} onOpen={setOpenId} onWarn={setOpenId} onOpenProj={setOpenProj} />}

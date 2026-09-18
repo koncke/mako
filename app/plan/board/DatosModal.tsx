@@ -4,9 +4,8 @@
 // Reemplaza al gauntlet card-by-card y unifica DEADLINE + CHECKLIST en UN solo lugar:
 //   · deadline: lo ponés inline (opcional).
 //   · checklist: la ARMA MaKo (no te pregunta los pasos); solo si falla, la hacés a mano.
-// Cada dato se puede ignorar ("no pedir"). Al CERRARSE (si se abrió solo), el padre
-// dispara un 2do pop-up (DatosConfirm) que decide si seguir recordándolo — este modal
-// no lo maneja, para que nunca se vean los dos apilados.
+// Cada dato se puede ignorar ("no pedir"). Se abre SOLO desde el ⚠ del header, y
+// cerrarlo es «más tarde»: sin segundo pop-up (08-T46 — «me da miedo picarle a Maco»).
 
 import { useState, type CSSProperties } from 'react';
 import { MakoStar } from '@/app/_components/MakoBrand';
@@ -54,7 +53,7 @@ export function DatosModal({ items, onSetDeadline, onGenChecklist, onAbrir, onIg
           <span style={{ fontSize: 22, lineHeight: 1 }}>◷</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>Datos sin marcar</div>
-            <div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 1, lineHeight: 1.4 }}>Deadline (opcional) y checklist de tus tareas. La checklist la arma MaKo — no tienes que escribir los pasos. Lo que no quieras, lo ignoras.</div>
+            <div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 1, lineHeight: 1.4 }}>La fecha le dice al Perro qué urge; la checklist, qué falta para terminar la tarea (la arma MaKo, no escribes los pasos). Nada es obligatorio: cerrar es «más tarde».</div>
           </div>
           <button type="button" onClick={onClose} aria-label="Cerrar"
             style={{ flex: 'none', width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', fontSize: 14 }}>✕</button>
@@ -128,23 +127,3 @@ export function DatosModal({ items, onSetDeadline, onGenChecklist, onAbrir, onIg
 const mkBtn = (border: string, color: string, disabled = false): CSSProperties => ({
   display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 8, border: `1px solid ${border}`, background: 'var(--surface)', color, fontSize: 12, fontWeight: 700, cursor: disabled ? 'wait' : 'pointer', fontFamily: SANS, whiteSpace: 'nowrap', opacity: disabled ? 0.7 : 1,
 });
-
-// 2do pop-up (feedback jul-19): aparece DESPUÉS de cerrar el DatosModal (nunca apilado).
-// NO se cierra por afuera ni con Escape — SOLO por uno de sus 2 botones.
-export function DatosConfirm({ onNoPreguntar, onLuego }: { onNoPreguntar: () => void; onLuego: () => void }) {
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 146, background: 'rgba(18,21,27,.55)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: SANS }}>
-      <div role="alertdialog" aria-modal="true"
-        style={{ width: '100%', maxWidth: 400, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 24px 60px rgba(18,21,27,.3)', padding: '22px 24px' }}>
-        <div style={{ fontSize: 15.5, fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>¿Seguir recordándote los datos que faltan?</div>
-        <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 20 }}>Puedes reabrirlo cuando quieras desde el ícono ⚠ del plan.</div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
-          <button type="button" onClick={onNoPreguntar}
-            style={{ padding: '9px 15px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: SANS }}>No volver a pedir todos</button>
-          <button type="button" onClick={onLuego}
-            style={{ padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: SANS }}>Recordármelo más tarde</button>
-        </div>
-      </div>
-    </div>
-  );
-}

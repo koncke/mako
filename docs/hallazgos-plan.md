@@ -2392,3 +2392,27 @@ y guardar la cubeta 2 junto a la reunión. Todo espera la decisión de arriba.
 **Vive en:** lib/plan-criterio-reglas.ts (la cita, el saneo, las plantillas) ·
 lib/plan-criterio-juez.ts · scripts/probar-criterio.mts · tests/plan-criterio-reglas.test.ts ·
 *2026-09-17*
+
+## Los pop-ups del tablero están encadenados: sacar uno puede apagar otro de costado
+
+Salió el 2026-09-17, con 08-T46 (que «Datos sin marcar» no se abra solo).
+
+**La trampa:** en `BoardShell` los pop-ups que se abren solos al entrar hacen cola. La
+bienvenida «MaKo cargó tareas» esperaba a que «Datos» se hubiera abierto SOLO primero
+(`datosPendiente = hayImportante && !datosOff && !datosAutoRef.current`). Sacando únicamente el
+auto-open de Datos, esa condición no se cumplía nunca más y la bienvenida **tampoco se abría,
+sin error**: un cambio en un modal apagaba otro que nadie tocó. Antes de sacar un auto-open,
+buscá quién espera por él.
+
+**La regla que se aplicó** es la de la memoria de UI: nada de auto-abrir modales al entrar a
+una pantalla; para avisar está el badge del botón. El ⚠ ahora lleva el número y no titila, y
+cerrar el modal es «más tarde», sin el segundo pop-up («¿seguir recordándote?») que Mauricio no
+entendía («me da miedo picarle a Maco», 8/9).
+
+**Quedó sin hacer:** la bienvenida «MaKo cargó tareas» (`TareasCreadasModal`) todavía se abre
+sola una vez por device cuando entran tareas de una fuente. Es la misma regla, pero no la pidió
+nadie y Martín no la decidió. Con la carga directa de reuniones (08-T28) se le abriría a
+Mauricio después de cada junta.
+
+**Vive en:** app/plan/board/BoardShell.tsx (el efecto de la bienvenida, el ⚠ del header) ·
+app/plan/board/DatosModal.tsx · *2026-09-17*
