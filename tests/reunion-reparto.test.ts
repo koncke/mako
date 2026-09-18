@@ -28,7 +28,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { emailsConCuenta, repartoDeTarea, cuantasSonMias, resumenDelReparto } from '../lib/reunion-reparto';
+import { emailsConCuenta, repartoDeTarea, cuantasSonMias, resumenDelReparto, tipoDeResponsable } from '../lib/reunion-reparto';
 
 /** Los usuarios reales, tal cual están hoy en la base. */
 const USUARIOS = [
@@ -121,4 +121,29 @@ test('el resumen no dice «y 0 de otras personas», ni pluraliza mal con una sol
   const solaDeOtro = [repartoDeTarea(DE_MAU, CON_CUENTA)];
   assert.equal(resumenDelReparto(solaDeOtro), '1 compromiso de otras personas');
   assert.equal(resumenDelReparto([]), '0 compromisos tuyos');
+});
+
+// ── Tablero único (08-T45): de las que no son mías, ¿cliente o tercero? ──
+// PROBADO ROMPIÉNDOLO (17/9): con `tipoDeResponsable` devolviendo siempre 'cliente' para
+// lo ajeno → 2 de 4 en rojo (el de Martín con cuenta y el de la reunión sin cliente).
+
+test('lo mío es «mío» aunque la reunión sea con un cliente', () => {
+  assert.equal(tipoDeResponsable({ esDeOtro: false }, true), 'mio');
+  assert.equal(tipoDeResponsable({}, false), 'mio');
+});
+
+test('alguien con cuenta en la app es equipo o proveedor: tercero, aunque la reunión sea con un cliente', () => {
+  // Martín en la junta de entrega de Mauricio con su cliente: «me debe Martín», no «me debe el cliente».
+  const t = repartoDeTarea({ dueño: 'Martin', dueñoEmail: 'martin@x.com', esDeOtro: true }, emailsConCuenta([{ email: 'martin@x.com' }]));
+  assert.equal(tipoDeResponsable(t, true), 'tercero');
+});
+
+test('sin cuenta en una reunión CON cliente → del cliente', () => {
+  const t = repartoDeTarea({ dueño: 'Laura (cliente)', dueñoEmail: 'laura@cliente.com', esDeOtro: true }, emailsConCuenta([{ email: 'martin@x.com' }]));
+  assert.equal(tipoDeResponsable(t, true), 'cliente');
+});
+
+test('sin cuenta en una reunión SIN cliente → tercero: no se inventa un cliente que no había', () => {
+  const t = repartoDeTarea({ dueño: 'El contador', esDeOtro: true }, emailsConCuenta([]));
+  assert.equal(tipoDeResponsable(t, false), 'tercero');
 });

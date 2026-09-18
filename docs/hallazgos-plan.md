@@ -2275,9 +2275,43 @@ estado: mover la tarjeta no lo toca, y la API del cliente no lo escribe.
 
 **Quedó sin hacer:** promover una tarea desde `no_cumple` todavía no exige motivo en el server
 (`moverTarea`, lib/todo.ts) — hoy no hay filas en ese estado, así que no hay por dónde entrar. Va con
-la columna de 08-T27. Y la extracción todavía no escribe `responsable`/`cliente_nombre`: las otras dos
-listas que se comen campos (`coerceCandidatas`, `limpiarTarea`, ver «El pipeline de reuniones…»)
-siguen sin copiarlos.
+la columna de 08-T27. Los campos del CRITERIO (`criterio_*`, `cita`, `tema`) todavía no los escribe
+nadie: llegan con la extracción con criterio. Los de QUIÉN sí, desde el tablero único (abajo).
 
 **Vive en:** lib/todo-estados.ts · lib/todo.ts (`estadoOk`, `editarTarea`, `crearTarea`) ·
 supabase/migrations/0159 · app/api/todo/route.ts · *2026-09-17*
+
+## Tablero único: el cliente va en el BORRADOR, y el tipo de responsable se calcula al aplicar
+
+Salió el 2026-09-17, con 08-T45 («las tareas de clientes y terceros van al Plan de Mauricio»).
+
+**El diagnóstico obvio era el equivocado.** Parecía que alcanzaba con sumar `clienteNombre` y
+`responsableTipo` a cada tarea del borrador y copiarlos en `limpiarTarea`. No alcanza: el modal de
+confirmación **autoguarda las tareas del borrador cada 900 ms** con los campos que él conoce
+(`aPayload`, app/plan/board/TareasRecibidasModal.tsx). Un campo por tarea que el modal no conoce se
+borra la primera vez que alguien abre la pantalla, sin error. Es la quinta lista que se come campos, y
+la única que además **escribe** lo que recortó.
+
+**La salida:** el cliente es de la REUNIÓN, así que va en columnas del borrador
+(`plan_propuestas.cliente_nombre`, mig 0160), que ese autoguardado no toca. El tipo
+mío/cliente/tercero no se guarda: se calcula al aplicar con `tipoDeResponsable`
+(lib/reunion-reparto.ts), desde `esDeOtro`, el email con cuenta y si hubo cliente. Así respeta las
+reasignaciones que alguien haga en el modal.
+
+**El interruptor** es que el workspace tenga criterio (`plan.criterio` en app_settings,
+lib/plan-criterio.ts). Sin él, `aplicarPropuestas` hace lo de siempre. ⚠️ No se lee con `getSetting`:
+sin workspace en contexto ese cae al ws 1, que es Mauricio.
+
+⚠️ **No prender el interruptor en el ws 1 hasta que exista la carga directa (08-T28) o el modal sepa
+de este modo.** Con el interruptor prendido, el modal sigue mostrando las tabs «de otra persona» y el
+botón «Agregar N» cuenta solo las mías; el server carga todas. La pantalla diría una cosa y pasaría
+otra.
+
+**Trampa para probar:** el anti-duplicado de `aplicarPropuestas` compara títulos por parecido
+(`mismaTarea`, 0.7). Tres escenarios con títulos como «(prueba A) mía» / «(prueba B) mía» se ven como la
+misma tarea y se AMPLÍAN en vez de crearse: «creó 0» no era el bug, era la prueba. Títulos de temas
+distintos en cada escenario.
+
+**Vive en:** lib/plan-propuesta.ts (`aplicarPropuestas`, `clienteDelBorrador`) · lib/plan-criterio.ts ·
+lib/reunion-reparto.ts (`tipoDeResponsable`) · lib/reunion-auto.ts · supabase/migrations/0160 ·
+*2026-09-17*

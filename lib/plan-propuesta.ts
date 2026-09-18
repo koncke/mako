@@ -16,6 +16,8 @@ import { crearTarea, crearCategoria, listCategorias, borrarTarea, listTareas, ed
 import { priorizarNuevasCliente } from '@/lib/todo-guardian';
 import { mismaTarea, normTitulo } from '@/lib/tareas-dedup';
 import { rutearTareasCliente } from '@/lib/todo-rutear';
+import { criterioDelWorkspace } from '@/lib/plan-criterio';
+import { tipoDeResponsable } from '@/lib/reunion-reparto';
 import { chatCheapCascade } from '@/lib/ai-cheap';
 import { parseJsonObject } from '@/lib/campaign-structurer';
 import { sanearPregunta, avisoSaneo, apuntarSobre, CONTRATO_TIPOS_PREGUNTA, JSON_PREGUNTAS, type Pregunta, type TipoPregunta } from '@/lib/preguntas-contrato';
@@ -120,6 +122,9 @@ export type Propuesta = {
   aplicadas?: PropuestaAplicada[];
   /** cuándo corrió el cruce anti-duplicados (mig 0123). undefined = falta correrlo. */
   cruzadoAt?: string;
+  /** con qué CLIENTE fue la reunión (mig 0160). Es de la reunión, no de cada tarea: por
+   *  eso vive acá y no en `tareas`, que el autoguardado del modal reescribe. */
+  clienteNombre?: string; clienteLeadId?: number;
 };
 
 function limpiarAplicada(a: unknown): PropuestaAplicada | null {
@@ -256,6 +261,8 @@ export type CrearPropuestaDraft = {
   enviadoPor?: string;
   /** reunión/archivo del que salieron, y cuándo ocurrió. */
   fuenteTitulo?: string; fuenteUrl?: string; fuenteFecha?: string;
+  /** el cliente de la reunión, si lo era (resolverClienteDeReunion). */
+  clienteNombre?: string; clienteLeadId?: number;
   /** clave anti-duplicado (fathom:<recordingId>). Si ya existe una con esta ref en el ws, no crea otra. */
   ref?: string;
   /** workspace destino. Por defecto el del request; se pasa explícito para MANDARLE tareas a otra persona. */
@@ -264,6 +271,13 @@ export type CrearPropuestaDraft = {
    *  archivos en segundo plano). No aparece en la lista de pendientes hasta que se llene. */
   estado?: 'pendiente' | 'procesando';
 };
+
+/** El cliente, saneado. leadId 0 es «cliente que es un workspace, no un lead»: no va a la FK. */
+function clienteDelBorrador(d: { clienteNombre?: string; clienteLeadId?: number }): { cliente_nombre: string | null; cliente_lead_id: number | null } {
+  const nombre = d.clienteNombre?.trim().slice(0, 160) || null;
+  const lead = Number(d.clienteLeadId);
+  return { cliente_nombre: nombre, cliente_lead_id: nombre && Number.isInteger(lead) && lead > 0 ? lead : null };
+}
 
 /** Crea el borrador (por defecto en el workspace actual). Devuelve el id (link /plan/revisar/<id>). */
 export async function crearPropuesta(draft: CrearPropuestaDraft): Promise<string> {
@@ -281,9 +295,14 @@ export async function crearPropuesta(draft: CrearPropuestaDraft): Promise<string
     // que `guardarRevision` rechaza escribir (exige 'pendiente') — así que cada
     // corrección que hacía el dueño se tiraba al vacío, en silencio.
     if (ref) {
-      const { data } = await db.from('plan_propuestas').select('id, estado').eq('ref', ref).maybeSingle();
+      const { data } = await db.from('plan_propuestas').select('id, estado, cliente_nombre').eq('ref', ref).maybeSingle();
       if (data) {
         const fila = data as Row;
+        // Un borrador de antes de la 0160 no sabe con qué cliente fue. Si la reunión se
+        // vuelve a leer y ahora sí se sabe, se completa — nunca se pisa uno que ya estaba.
+        if (!fila.cliente_nombre && draft.clienteNombre?.trim()) {
+          await db.from('plan_propuestas').update(clienteDelBorrador(draft)).eq('id', str(fila.id));
+        }
         // 'fallado' también revive: volver a subir el archivo que falló ES el reintento.
         if (str(fila.estado) === 'descartada' || str(fila.estado) === 'fallado') {
           await db.from('plan_propuestas').update({ estado: draft.estado ?? 'pendiente' }).eq('id', str(fila.id));
@@ -299,6 +318,7 @@ export async function crearPropuesta(draft: CrearPropuestaDraft): Promise<string
       ref, enviado_por: draft.enviadoPor?.slice(0, 120) ?? null,
       fuente_titulo: draft.fuenteTitulo?.slice(0, 200) ?? null, fuente_url: draft.fuenteUrl?.slice(0, 500) ?? null,
       fuente_fecha: draft.fuenteFecha ?? null,
+      ...clienteDelBorrador(draft),
     });
     if (error) throw new Error(`crearPropuesta: ${error.message}`);
     return id;
@@ -321,6 +341,8 @@ function rowToPropuesta(r: Row): Propuesta {
     ref: r.ref ? str(r.ref) : undefined,
     aplicadas: asArr<unknown>(r.aplicadas).map(limpiarAplicada).filter((a): a is PropuestaAplicada => !!a),
     cruzadoAt: r.cruzado_at ? str(r.cruzado_at) : undefined,
+    clienteNombre: r.cliente_nombre ? str(r.cliente_nombre) : undefined,
+    clienteLeadId: Number(r.cliente_lead_id) > 0 ? Number(r.cliente_lead_id) : undefined,
   };
 }
 
@@ -687,6 +709,12 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
     // es un CLIENTE y su tablero lee experimento_tareas: lo que confirmaba se escribía en
     // una tabla que su pantalla no mira.
     const usaPlanBoard = (await getWorkspace(ws))?.capa === 'superadmin';
+    // TABLERO ÚNICO (08-T45): con criterio cargado, las tareas de OTRAS personas de la
+    // reunión también entran a este tablero, marcadas con su responsable, en vez de
+    // quedar en el borrador para repartirse. Sin criterio, todo sigue como siempre
+    // (lib/plan-criterio.ts explica por qué es un solo interruptor). Solo el tablero del
+    // cliente: `plan_tareas` no tiene dónde guardar el responsable.
+    const tableroUnico = !usaPlanBoard && !!(await criterioDelWorkspace());
 
     const idsCreadas: string[] = [];
     const proyectosNuevos: string[] = [];
@@ -710,7 +738,12 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
       // Sin edición explícita entran TODAS menos las de OTRA persona: el plan de uno no se
       // llena con los compromisos ajenos que salieron de la misma reunión (esas viajan a
       // SU tablero por su propio camino).
-      const baseCruda = (lote.tareas ?? (prop?.tareas ?? []).filter((t) => !t.esDeOtro)).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
+      // Con tablero único entran TAMBIÉN las de otros — incluidas las que el modal manda
+      // aparte como `restantes`: el modal no sabe de este modo, y decide el server.
+      const baseCruda = (lote.tareas
+        ? [...lote.tareas, ...(tableroUnico ? (lote.restantes ?? []) : [])]
+        : (prop?.tareas ?? []).filter((t) => tableroUnico || !t.esDeOtro)
+      ).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
       // ANTI-DOBLE-ALTA: el borrador que conserva tareas de OTRAS personas queda
       // 'pendiente', así que el guard de estado no alcanza — apretar dos veces (o
       // reintentar tras un corte) volvía a crear las mismas tareas. Lo ya aplicado
@@ -853,7 +886,14 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
                 catId = byName.get(k);
                 if (catId == null) { const c = await crearCategoria(nombre, d.color ?? '#2F6FED'); catId = c.id; byName.set(k, c.id); }
               }
-              const tarea = await crearTarea({ titulo: t.titulo, prioridad: (t.prioridad ?? 'media') as Prioridad, deadline: t.deadline ?? null, detalle: t.detalle ?? null, categorias: catId != null ? [catId] : [], origen: 'mako', fuente: fuenteDe(t) });
+              const tarea = await crearTarea({
+                titulo: t.titulo, prioridad: (t.prioridad ?? 'media') as Prioridad, deadline: t.deadline ?? null, detalle: t.detalle ?? null, categorias: catId != null ? [catId] : [], origen: 'mako', fuente: fuenteDe(t),
+                // QUIÉN (mig 0159). Se escribe en TODOS los clientes, no solo con tablero
+                // único: es dato de la reunión y sin él no hay filtro «míos / me deben».
+                responsable: t.dueno ?? null, responsable_email: t.duenoEmail ?? null,
+                responsable_tipo: tipoDeResponsable(t, !!prop?.clienteNombre),
+                cliente_nombre: prop?.clienteNombre ?? null, cliente_lead_id: prop?.clienteLeadId ?? null,
+              });
               idsCreadas.push(String(tarea.id));
               anotar(t, String(tarea.id));
             } catch (e) { console.error('[plan-propuesta] crearTarea cliente:', e instanceof Error ? e.message : String(e)); }
@@ -881,8 +921,10 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
         }
       }
       if (lote.contexto?.trim()) contextos.push(lote.contexto.trim());
-      // Lo que le queda: por defecto, lo que está marcado como de otra persona.
-      const restantes = (lote.restantes ?? (prop?.tareas ?? []).filter((t) => t.esDeOtro))
+      // Lo que le queda: por defecto, lo que está marcado como de otra persona. Con
+      // tablero único no queda nada: ya entró todo, y un borrador abierto «para repartir»
+      // volvería a ofrecer lo que ya está en el tablero.
+      const restantes = (tableroUnico ? [] : (lote.restantes ?? (prop?.tareas ?? []).filter((t) => t.esDeOtro)))
         .map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
       cierre.set(lote.id, { creadas, restantes });
       aplicados.push(lote.id);

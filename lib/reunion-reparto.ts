@@ -110,3 +110,30 @@ export function resumenDelReparto(rs: RepartoTarea[]): string {
   if (!mias) return `${uno(otras, 'compromiso', 'compromisos')} de otras personas`;
   return `${uno(mias, 'compromiso tuyo', 'compromisos tuyos')} y ${otras} de otras personas`;
 }
+
+/**
+ * La CUARTA pregunta, para el tablero único (08-T45): de las que NO son mías, ¿son del
+ * cliente o de un tercero? Mauricio filtra «míos» contra «me deben», y dentro de «me
+ * deben» quiere distinguir al cliente de su equipo o proveedores.
+ *
+ * Se decide AL APLICAR y no en la extracción, a propósito: el modal de confirmación deja
+ * reasignar una tarea a otra persona, y su autoguardado reescribe las tareas del borrador
+ * con los campos que él conoce. Un tipo guardado por tarea se perdería ahí, o peor, quedaría
+ * viejo después de una reasignación.
+ *
+ * La regla, con lo que sí sabemos:
+ *  · no es de otro → 'mio'. Es la misma clasificación que ya decide la tab «Mías».
+ *  · tiene email de alguien con cuenta en la app → 'tercero'. Es alguien del equipo o un
+ *    proveedor (Martín, Laura), que es exactamente a quien `repartoDeTarea` le deja el email.
+ *  · no tiene cuenta y la reunión ES con un cliente → 'cliente'.
+ *  · no tiene cuenta y la reunión no es con un cliente → 'tercero'. Decir 'cliente' ahí
+ *    sería inventar un cliente que la reunión no tenía.
+ */
+export function tipoDeResponsable(
+  t: { esDeOtro?: boolean; duenoEmail?: string },
+  reunionConCliente: boolean,
+): 'mio' | 'cliente' | 'tercero' {
+  if (!t.esDeOtro) return 'mio';
+  if (norm(t.duenoEmail)) return 'tercero';
+  return reunionConCliente ? 'cliente' : 'tercero';
+}

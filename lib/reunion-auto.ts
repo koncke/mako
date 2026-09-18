@@ -350,6 +350,10 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       const propId = await crearPropuesta({
         ws, ref, tareas: propuestas, preguntas, origen: 'fathom',
         fuenteTitulo: r.titulo, fuenteUrl: r.url ?? undefined, fuenteFecha: r.fecha ?? undefined,
+        // CON QUÉ CLIENTE fue (mig 0160). Antes se usaba para elegir el proyecto y se
+        // tiraba: al confirmar ya no había reunión a la cual preguntarle, y las tareas
+        // llegaban al tablero sin la etiqueta de origen que Mauricio filtra (08-T41).
+        clienteNombre: cliente?.nombre, clienteLeadId: cliente?.leadId,
         // El número que se promete es el de TUS compromisos, no el total: las de otras
         // personas no se crean acá (viajan a su tablero), así que anunciar 34 y crear 13
         // hace que la pantalla y el resultado no coincidan.
