@@ -1423,6 +1423,27 @@ La definición por descarte **crece sola con cada tipo nuevo, y crece en silenci
 agrega el evento no tiene por qué saber que hay un contador definido al revés a tres archivos
 de distancia, y nada falla — solo empieza a contestar otra cosa.
 
+# Un patrón trae CANDIDATOS; quién es quién lo decide una comparación exacta
+
+`ilike` no es «igual sin mayúsculas»: `_` es comodín de un carácter y `%` de cualquier
+cosa, y el `_` es de lo más común en un email. `.ilike('email', email)` con el valor crudo
+hace que `juan_perez@x.com` matchee `juanXperez@x.com`. Lo mismo `ilike '%últimos 10
+dígitos'` sobre un teléfono: un IGSID de Instagram también tiene diez últimos dígitos.
+
+El censo del 17/09/2026 dio seis `.ilike(` en el código, y la diferencia entre el que
+estaba roto y el que no la hace la línea de **después**:
+
+- `leadDeAlumno` (`lib/cs-avance.ts`) tomaba el resultado del `ilike` **como la respuesta**
+  y le anotaba avance de clases a ese lead. Roto: escribe en la ficha de otro cliente.
+- `duplicadosDeLead` (`lib/leads.ts`) hace el mismo `ilike` crudo y después pasa todo por
+  `buscarDuplicados`, que compara `emailComparable(l.email) === email`. Sano: el patrón
+  solo trae de más, y lo de más se descarta.
+
+**La regla: si el resultado decide identidad —a qué lead se le escribe, qué dos fichas se
+funden—, o se escapan `\`, `%` y `_` (molde: `leadDeAlumno`), o el patrón es un prefiltro
+y la decisión la toma una igualdad exacta después.** Y si hay más de un candidato, no se
+elige el primero: se desempata con un dato (el único `ganado`) o no se elige.
+
 # Si hay que desempatar, todavía estás adivinando
 
 Cuando una extracción necesita **scoring** para elegir entre candidatos —frecuencia,

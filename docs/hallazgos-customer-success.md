@@ -923,6 +923,10 @@ cliente». Se escapan los tres comodines. Y con varios leads para un email —pa
 que volvió a entrar por otro formulario— se queda con el único `ganado`; si no hay uno
 solo, no elige.
 
+El censo de los seis `.ilike(` del código, y la regla que quedó para código nuevo, están
+en `AGENTS.md` → «Un patrón trae CANDIDATOS». El único otro con el email crudo
+(`duplicadosDeLead`, `lib/leads.ts`) **no** está roto: compara exacto después.
+
 ## Whop paginaba hasta un tope y devolvía lo cortado como completo
 
 **Vive en:** `lib/whop.ts` (`todas`)
