@@ -7,21 +7,26 @@
 // pendiente, visible y sin bloquear, y MaKo lo pide después. Reemplaza la regla
 // del 21/06 y 03/07 («ninguna blanda») — ver docs/hallazgos-crm.md.
 //
-// Dos cosas que se testean acá:
+// Tres cosas que se testean acá:
 //   1. Las dos señales de Meta que se OFRECEN al mover (senales-meta.ts), que es
 //      lógica pura: cuándo tiene sentido preguntar cada una.
 //   2. El CABLEADO: que ningún camino vuelva a frenar un movimiento por datos.
 //      Son guardas sobre el código fuente, como las de leads-duplicados.test.ts.
+//   3. Que la ficha mueva como el tablero: qué etapa va directo y cuál al wizard.
 //
-// Probado rompiendo cada cosa por separado (13 tests): setLeadStageAction con un
+// Probado rompiendo cada cosa por separado (17 tests): setLeadStageAction con un
 // `return { ok: false }` antes de mover, handleDrop abriendo el wizard otra vez,
-// el wizard sin «Guardar y completar después», y asistenciaImplicita dándole
-// asistencia a una pérdida. Cada rotura: 12 pases y 1 fallo. Restaurado: 13 de 13.
+// el wizard sin «Guardar y completar después», asistenciaImplicita dándole
+// asistencia a una pérdida, la ficha abriendo siempre el wizard, pideWizardAlElegir
+// sin el respaldo para un funnel sin `kind`, y el tablero con su propia copia de
+// los chips. Cada rotura: 16 pases y 1 fallo. Restaurado: 17 de 17.
 // Correr: npm test.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { senalesAOfrecer, asistenciaImplicita, hayAlgoQueOfrecer } from '../app/crm/senales-meta';
+import { pideWizardAlElegir } from '../app/crm/mover-etapa';
+import { DEFAULT_STAGES, generateFunnel, DEFAULT_PIPELINE } from '../lib/pipeline';
 
 const HOY = '2026-09-17';
 const leadR1 = (over: Partial<{ fechaJ1: string | null; asistioJ1: boolean | null; calificado: boolean | null }> = {}) =>
@@ -123,4 +128,42 @@ test('CABLEADO: las cards incompletas no titilan', () => {
   // entraba que tenía un chorro de cosas por contestar.
   const board = leer('../app/crm/CrmBoard.tsx');
   assert.ok(!board.includes('blinkRed'), 'volvió el parpadeo al tablero');
+});
+
+// ── 3. La ficha mueve igual que el tablero ──────────────────────────────────────
+// Elegir otra etapa en la ficha abría SIEMPRE el wizard con sus preguntas. Ahora
+// confirma y mueve (MoverEtapaConfirm), salvo las etapas que encierran una
+// decisión: reunión (¿se agenda o ya ocurrió?) y nutrición manual (el plazo).
+
+test('desde la ficha, Ganado/Perdido/Descalificado se mueven directo', () => {
+  const funnel = generateFunnel(DEFAULT_PIPELINE, []).stages;
+  for (const k of ['ganado', 'facturando', 'perdido', 'descal', 'noshow_r1', 'lead']) {
+    assert.equal(pideWizardAlElegir(funnel, k), false, `${k} no tendría que abrir el wizard`);
+  }
+});
+
+test('las etapas de reunión y la nutrición manual sí abren el wizard', () => {
+  const funnel = generateFunnel(DEFAULT_PIPELINE, []).stages;
+  for (const k of ['agenda', 'agendaj2', 'manual']) assert.equal(pideWizardAlElegir(funnel, k), true, k);
+});
+
+test('con un funnel ilegible (DEFAULT_STAGES, sin kind) la reunión igual va al wizard', () => {
+  // Es lo que recibe la ficha si getPipelineStages falla: sin `kind` no hay forma
+  // de saber qué etapa es reunión, y mover directo a Agenda R1 saltearía la fecha.
+  assert.equal(pideWizardAlElegir(DEFAULT_STAGES, 'agenda'), true);
+  assert.equal(pideWizardAlElegir(DEFAULT_STAGES, 'agendaj2'), true);
+  assert.equal(pideWizardAlElegir(DEFAULT_STAGES, 'ganado'), false);
+});
+
+test('CABLEADO: las dos fichas mueven con MoverEtapaConfirm, no con el wizard', () => {
+  for (const f of ['../app/crm/LeadSheet.tsx', '../app/crm/[id]/LeadDetailBody.tsx']) {
+    const src = leer(f);
+    assert.ok(/pideWizardAlElegir\(stages, (k|key)\)\) setMoveTo\((k|key)\); else setMoverDirecto\((k|key)\)/.test(src),
+      `${f}: elegir etapa tiene que decidir entre wizard y mover directo`);
+    assert.ok(src.includes('<MoverEtapaConfirm'), `${f}: falta la confirmación compartida`);
+  }
+  // Y los toques de Meta viven en UN lugar: el tablero importa la pieza, no la copia.
+  const board = leer('../app/crm/CrmBoard.tsx');
+  assert.ok(!board.includes('function SenalesMetaChips'), 'el tablero volvió a tener su propia copia de los chips');
+  assert.ok(board.includes("import { SenalesMetaChips } from './MoverEtapaConfirm'"));
 });

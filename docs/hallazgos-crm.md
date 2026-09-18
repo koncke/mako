@@ -510,19 +510,35 @@ cards marcan lo pendiente sin parpadear.
 de hacer sin querer) y la lista «Datos sin marcar» como lugar donde está todo lo pendiente.
 Faltar datos sigue sin ser un error; ahora tampoco es un freno.
 
+**La ficha mueve igual que el tablero.** Elegir otra etapa en `LeadSheet` o en
+`[id]/LeadDetailBody` confirma y mueve (`MoverEtapaConfirm`), y si queda algo pendiente
+lo dice con «Completar ahora / Después». Las etapas de reunión y la nutrición manual
+siguen abriendo el wizard, igual que en el tablero: ahí hay una fecha o un plazo que
+decidir (`pideWizardAlElegir`, en `mover-etapa.ts`). Los chips de Meta son UNA pieza
+(`SenalesMetaChips`), que el tablero importa en vez de copiar.
+
+⚠️ **Trampa: un funnel sin `kind` no sabe cuáles son reuniones.** `slotDeReunion` deriva las
+reuniones del `kind: 'reunion'` de cada etapa, y `DEFAULT_STAGES` no lo trae. Es lo que
+recibe la ficha cuando no se pudo leer el funnel (`getLeadFullAction`). Sin respaldo, mover
+a Agenda R1 desde la ficha salteaba la pregunta de la fecha. `pideWizardAlElegir` cae a
+`agenda`/`agendaj2` cuando ninguna etapa trae `kind`.
+
 **Lo que quedó sin hacer:**
 
-- **La ficha todavía abre el wizard al elegir otra etapa** (`LeadSheet.tsx:130`,
-  `[id]/LeadDetailBody.tsx:148`). Ahora tiene salida inmediata («Guardar y completar
-  después», dos clics), pero muestra la primera pregunta. Lo consistente es que mueva como
-  el tablero, con el toast de pendientes — y que esa lógica viva en UN lugar, no copiada en
-  el tablero y en las dos fichas.
+- **Enter sobre un chip de Meta confirma el movimiento sin registrar el toque.** `Confirm`
+  (`app/_ui/Confirm.tsx`) escucha Enter en fase de captura sobre `document`, así que
+  confirma antes de que el botón del chip reciba su click. El daño es acotado: se guarda sin
+  la señal opcional, que es lo mismo que no tocarla, y con mouse o con Espacio anda bien. El
+  arreglo es de `Confirm`, un componente compartido: que Enter no confirme cuando el foco
+  está en otro botón del diálogo.
 - **Que MaKo pida lo pendiente** es 08-T23, otra tarea. Lo pendiente ya es consultable: sale
-  de `faltantesDeLead` / `getPendientesDeMarcar`, igual que antes.
+  de `faltantesDeLead` / `getPendientesDeMarcar`, y cada guardado incompleto deja una línea
+  `Datos pendientes` en `lead_audit`.
 
 **Vive en:** `app/crm/actions.ts` (`registrarPendientes`, `setLeadStageAction`,
 `completeStageMoveAction`) · `app/crm/CrmBoard.tsx` (`handleDrop`, el toast, las cards) ·
-`app/crm/StageMoveDialog.tsx` (la salida) · `app/crm/senales-meta.ts` · `lib/queries.ts`
+`app/crm/StageMoveDialog.tsx` (la salida) · `app/crm/senales-meta.ts` ·
+`app/crm/MoverEtapaConfirm.tsx` + `app/crm/mover-etapa.ts` (la ficha) · `lib/queries.ts`
 (el texto de la lista) · `tests/guardar-sin-bloquear.test.ts`
 
 ### "Se perdió" escribía "asistió a la reunión" sin que nadie lo dijera

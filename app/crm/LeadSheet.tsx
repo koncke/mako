@@ -17,6 +17,8 @@ import { buildJourney } from '@/lib/journey';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { deleteLeadInlineAction, reactivarPendientesAction, type LeadFullData } from './actions';
 import { StageMoveDialog, type MoveLeadInfo } from './StageMoveDialog';
+import { MoverEtapaConfirm } from './MoverEtapaConfirm';
+import { pideWizardAlElegir } from './mover-etapa';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import type { FathomLink } from '@/lib/leads';
 import { JourneyTimeline } from './JourneyTimeline';
@@ -105,8 +107,8 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
     hoyISO: new Date().toISOString().slice(0, 10),
   });
 
-  // Cambiar etapa desde el header (botón a la derecha). Elegir otra etapa abre el
-  // wizard con TODAS las validaciones (Ganado → form completo), igual que el Kanban.
+  // Cambiar etapa desde el header (botón a la derecha). `moveTo` abre el wizard de
+  // datos: solo para las etapas que lo necesitan, y para «Completar ahora».
   const [moveTo, setMoveTo] = useState<string | null>(null);
   const stageOptions: DropdownOption[] = (['pipeline', 'nutricion', 'salidas'] as StageBand[]).flatMap((b) =>
     stages.filter((s) => (s.band ?? 'pipeline') === b).sort((a, c) => (a.col ?? 0) - (c.col ?? 0)).map((s) => ({ value: s.key, label: s.label, sub: BAND_LABEL[b], color: s.dot })),
@@ -127,7 +129,16 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
     dealFiscalOk: !!lead.deal_fiscal?.razon?.trim(),
     dealObligacionesOk: (lead.deal_obligaciones?.cliente?.length ?? 0) > 0 || (lead.deal_obligaciones?.prestador?.length ?? 0) > 0,
   };
-  const pickStage = (k: string) => { if (k && k !== stageKey) setMoveTo(k); };
+  // Elegir otra etapa MUEVE, igual que soltar una card en el tablero (08-T22): se
+  // confirma y se guarda, y lo que falta se avisa después sin frenar. Antes abría
+  // el wizard con todas las preguntas de la etapa, que es lo que hacía abandonar
+  // el CRM. Las etapas de reunión y la nutrición manual sí van al wizard: ahí hay
+  // una fecha o un plazo que decidir (ver pideWizardAlElegir).
+  const [moverDirecto, setMoverDirecto] = useState<string | null>(null);
+  const pickStage = (k: string) => {
+    if (!k || k === stageKey) return;
+    if (pideWizardAlElegir(stages, k)) setMoveTo(k); else setMoverDirecto(k);
+  };
 
   const doDelete = () => {
     setConfirmDelete(false);
@@ -260,6 +271,20 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
           equipo={equipo}
           onClose={() => setMoveTo(null)}
           onDone={() => { setMoveTo(null); router.refresh(); onClose(); }}
+        />
+      )}
+
+      {moverDirecto && (
+        <MoverEtapaConfirm
+          lead={{ id: lead.id, nombre: lead.nombre, fechaJ1: lead.fecha_junta_1, asistioJ1: lead.asistio_j1, calificado: lead.calificado }}
+          desde={sm?.label ?? stageKey}
+          destino={{ key: moverDirecto, label: stageMeta(stages, moverDirecto)?.label ?? moverDirecto }}
+          zIndex={120}
+          onCancel={() => setMoverDirecto(null)}
+          onHecho={() => { setMoverDirecto(null); router.refresh(); }}
+          // «Completar ahora»: el lead YA está en la etapa nueva, así que el wizard
+          // abre sobre ella, a completar — no a mover de nuevo.
+          onCompletar={() => { const k = moverDirecto; setMoverDirecto(null); router.refresh(); setMoveTo(k); }}
         />
       )}
 

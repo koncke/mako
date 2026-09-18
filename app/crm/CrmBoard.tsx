@@ -70,7 +70,9 @@ import type { Step } from '@/lib/stage-requirements';
 import type { MiembroEquipo } from './actions';
 import { WizardShell, wizardInput } from '@/app/_components/WizardShell';
 import { ConfirmDialog } from '@/app/components/ConfirmDialog';
-import { senalesAOfrecer, hayAlgoQueOfrecer, asistenciaImplicita, type SenalesAOfrecer } from './senales-meta';
+import { senalesAOfrecer, hayAlgoQueOfrecer, asistenciaImplicita } from './senales-meta';
+// La misma pieza que usan las fichas: los dos toques de Meta viven en UN lugar.
+import { SenalesMetaChips } from './MoverEtapaConfirm';
 import { coincideBusqueda } from '@/lib/buscar-texto';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import { openCalendlyEn } from './calendly-widget';
@@ -2009,50 +2011,6 @@ export function CrmBoard({
         </div>
       )}
     </main>
-  );
-}
-
-// ── Las dos señales de Meta, ofrecidas en la confirmación de mover (08-T22) ──
-// Mover ya no exige nada; estas dos se OFRECEN porque son las únicas que le
-// llegan a Meta, y postergadas con el resto le llegan una semana tarde o nunca
-// (ver senales-meta.ts). Un toque cada una, las dos opcionales: «Mover» anda sin
-// tocarlas. Tocar de nuevo la opción elegida la desmarca.
-function SenalesMetaChips({ ofrecer, onChange }: {
-  ofrecer: SenalesAOfrecer;
-  onChange: (v: { asistio: boolean | null; calificado: boolean | null }) => void;
-}) {
-  const [asistio, setAsistio] = useState<boolean | null>(null);
-  const [calificado, setCalificado] = useState<boolean | null>(null);
-  const fijar = (a: boolean | null, c: boolean | null) => { setAsistio(a); setCalificado(c); onChange({ asistio: a, calificado: c }); };
-  // «¿Calificado?» solo si asistió: sin asistencia updateLead lo anula, así que
-  // preguntarlo sería pedir un dato que se tira.
-  const asistioEfectiva = asistio ?? ofrecer.asistioConocida;
-  const verCalificado = ofrecer.calificado && asistioEfectiva === true;
-  const chip = (activo: boolean): CSSProperties => ({
-    padding: '6px 14px', borderRadius: 999, fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-    background: activo ? 'var(--ink)' : 'var(--surface)', color: activo ? '#F3F5F8' : 'var(--ink)',
-    border: '1px solid ' + (activo ? 'var(--ink)' : 'var(--border-strong)'),
-  });
-  const fila = (label: string, valor: boolean | null, onSi: () => void, onNo: () => void) => (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-      <span style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: 600 }}>{label}</span>
-      <span style={{ display: 'inline-flex', gap: 6 }}>
-        <button type="button" aria-pressed={valor === true} onClick={onSi} style={chip(valor === true)}>Sí</button>
-        <button type="button" aria-pressed={valor === false} onClick={onNo} style={chip(valor === false)}>No</button>
-      </span>
-    </div>
-  );
-  return (
-    <div style={{ marginTop: 14, padding: '12px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.45 }}>Opcional · Meta lo usa para aprender qué anuncios te traen clientes calificados.</div>
-      {ofrecer.asistio && fila('¿Asistió a la Reunión 1?', asistio,
-        () => fijar(asistio === true ? null : true, calificado),
-        // Si no asistió, la calificación que se haya tocado ya no aplica.
-        () => fijar(asistio === false ? null : false, null))}
-      {verCalificado && fila('¿Era un lead calificado?', calificado,
-        () => fijar(asistio, calificado === true ? null : true),
-        () => fijar(asistio, calificado === false ? null : false))}
-    </div>
   );
 }
 

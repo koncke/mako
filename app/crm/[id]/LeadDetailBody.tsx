@@ -13,7 +13,7 @@ import { useState, useTransition, type CSSProperties, type ReactNode } from 'rea
 import { usePathname } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { reactivarPendientesAction } from '../actions';
-import { deriveStageKey, CHIP, type Stage } from '@/lib/pipeline';
+import { deriveStageKey, stageMetaOpt, CHIP, type Stage } from '@/lib/pipeline';
 import type { Lead, FathomLink } from '@/lib/leads';
 import { hayPasoDeWizard, type Step } from '@/lib/stage-requirements';
 import type { Pago } from '@/lib/pagos';
@@ -23,6 +23,8 @@ import { EditLeadForm } from './EditLeadForm';
 import { LeadTabs, type LeadTabDef } from '../lead-view/LeadTabs';
 import { DatosSinMarcarCard } from '../lead-view/DatosSinMarcarCard';
 import { StageMoveDialog, type MoveLeadInfo } from '../StageMoveDialog';
+import { MoverEtapaConfirm } from '../MoverEtapaConfirm';
+import { pideWizardAlElegir } from '../mover-etapa';
 import { Dropdown } from '@/app/components/Dropdown';
 
 const SANS = "'Geist', sans-serif";
@@ -84,6 +86,7 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
   const [editing, setEditing] = useState(!!initialEdit || (!!initialSolucionar && soloEdit));
   const [tab, setTab] = useState(initialTab && tabs.some((t) => t.key === initialTab) ? initialTab : tabs[0]?.key ?? 'resumen');
   const [moveTo, setMoveTo] = useState<string | null>(initialSolucionar && !soloEdit && faltantes.length > 0 ? currentStage : null);
+  const [moverDirecto, setMoverDirecto] = useState<string | null>(null);
   // Si una navegación pone ?edit=1 (ej. la alarma "Editar y completar" del deal),
   // abrir el modo edición. Patrón prev-prop: reacciona al cambio del prop.
   const [prevInitEdit, setPrevInitEdit] = useState(!!initialEdit);
@@ -145,7 +148,13 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
       align="right"
       width={250}
       ariaLabel="Etapa del lead (elige otra para mover)"
-      onChange={(key) => { if (key && key !== currentStage) setMoveTo(key); }}
+      // Elegir otra etapa MUEVE (08-T22), como soltar una card en el tablero: las
+      // etapas de reunión y la nutrición manual sí abren el wizard (ver
+      // pideWizardAlElegir). Antes toda etapa abría el wizard con sus preguntas.
+      onChange={(key) => {
+        if (!key || key === currentStage) return;
+        if (pideWizardAlElegir(stages, key)) setMoveTo(key); else setMoverDirecto(key);
+      }}
       columns={[
         [{ title: 'Pipeline', options: deBanda('pipeline') }, { title: 'Salida', options: deBanda('salidas') }],
         [{ title: 'Nutrición', options: deBanda('nutricion') }],
@@ -221,6 +230,20 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
           equipo={equipo}
           onClose={() => { setMoveTo(null); if (initialSolucionar) router.replace(pathname); }}
           onDone={() => { setMoveTo(null); if (initialSolucionar) router.replace(pathname); router.refresh(); }}
+        />
+      )}
+
+      {moverDirecto && (
+        <MoverEtapaConfirm
+          lead={{ id: lead.id, nombre: lead.nombre, fechaJ1: lead.fecha_junta_1, asistioJ1: lead.asistio_j1, calificado: lead.calificado }}
+          desde={stageLabel}
+          destino={{ key: moverDirecto, label: stageMetaOpt(stages, moverDirecto)?.label ?? moverDirecto }}
+          onCancel={() => setMoverDirecto(null)}
+          onHecho={() => { setMoverDirecto(null); router.refresh(); }}
+          // «Completar ahora»: el lead YA está en la etapa nueva; el wizard abre a
+          // completar sobre ella (en cuanto el refresh traiga la etapa, cuenta como
+          // «Completar datos»; antes, como un movimiento a la misma etapa: igual sirve).
+          onCompletar={() => { const k = moverDirecto; setMoverDirecto(null); router.refresh(); setMoveTo(k); }}
         />
       )}
     </div>
