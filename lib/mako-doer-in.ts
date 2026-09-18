@@ -36,7 +36,8 @@ import { buildSystemPrompt } from '@/lib/mako-context';
 import { reaccionarMensaje, enviarAGrupoJid, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN } from '@/lib/mako-grupo';
 import { enviarPresencia, fetchMediaBase64EnInstancia } from '@/lib/evolution';
 import { getSetting, setSetting } from '@/lib/settings';
-import { wsSuperAdmin, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
+import { wsSuperAdmin, runWithWorkspace, OWNER_WS, esWorkspaceDueno } from '@/lib/workspace';
+import { informeParaRango } from '@/lib/informe-congelado';
 import { getSupabaseServer } from '@/lib/supabase';
 import { APP_BASE_URL as APP_URL } from '@/lib/app-url';
 import { provsGratisDePlataforma, transcribirAudio, chatCheap, chatCheapTools, cheapDisponible } from '@/lib/ai-cheap';
@@ -858,6 +859,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // modelo llamó bien a `buscar_tutorial` y después escribió «ahí tenés el video
     // paso a paso» SIN EL LINK — se comió los 11 caracteres del id de YouTube.
     let textoTutorialSalida: string | null = null;
+    // Los rangos que pidieron las tools de NÚMEROS. Si cubren un informe ya escrito
+    // (lib/informe-congelado.ts), el link lo agrega el código al final (08-T13).
+    const rangosPedidos: Array<{ desde: string | null; hasta: string | null }> = [];
     // Lo mismo que `linkBorrador` pero para el alta de un lead: el mensaje lo
     // escribe el CÓDIGO. Ver mensajeLeadPropuesto en lib/respuesta-doer.ts.
     let linkLead: string | null = null;
@@ -879,6 +883,12 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
         : NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input)
         : runRegistro(name, input));
       if (name === 'buscar_tutorial' && typeof out === 'string') textoTutorialSalida = out;
+      if (name === 'metricas_negocio' || name === 'analisis_negocio') {
+        rangosPedidos.push({
+          desde: typeof input.desde === 'string' ? input.desde : null,
+          hasta: typeof input.hasta === 'string' ? input.hasta : null,
+        });
+      }
       // Solo una ACCIÓN crea un borrador o una propuesta. Una lectura puede devolver un
       // link a /plan/revisar/ (ver el estado de un borrador viejo) y, sin esta guarda,
       // el código pisaba la respuesta con «te armé el borrador» sobre uno que ya existía.
@@ -1247,6 +1257,16 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       // Si el modelo ya pegó el link, no se duplica.
       const yaTieneLink = suyo.includes('youtu.be/') || suyo.includes('youtube.com/');
       respuesta = yaTieneLink ? suyo : [suyo, textoTutorialSalida].filter(Boolean).join('\n\n');
+    }
+
+    // ⚠️ EL INFORME YA ESCRITO LO OFRECE EL CÓDIGO (08-T13). Mauricio pidió «un reporte de
+    // mis resultados de junio, julio y agosto», y ese informe existe (/analisis/trimestre, en
+    // dólares). Si una tool de números pidió un rango que lo cubre, el link va al final —una
+    // ruta es un dato exacto y no la transporta el modelo— y SOLO en el workspace dueño: los
+    // números son de Mauricio, y para cualquier otro cliente esa pantalla es un 404.
+    const informe = rangosPedidos.map((r) => informeParaRango(r.desde, r.hasta)).find(Boolean) ?? null;
+    if (informe && respuesta.trim() && !respuesta.includes(informe.ruta) && (await esWorkspaceDueno().catch(() => false))) {
+      respuesta = `${respuesta.trim()}\n\n📊 ${informe.titulo}: ${APP_URL}${informe.ruta}`;
     }
 
     if (linkBorrador) {

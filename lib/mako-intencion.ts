@@ -102,16 +102,44 @@ const PEDIDO_ANOTAR = /\b(anota|apunta|anotame|apuntame)\b|\bal plan\b|\ba la li
 // imperativo y su pedido se CAPTURA en vez de ejecutarse. Es el error barato —
 // queda anotado y se destraba con una línea— mientras que el inverso pierde el
 // material. El sesgo es a propósito.
-const IMPERATIVO = new RegExp(
+const IMPERATIVO_VOSEO = new RegExp(
   '\\b(' +
   // a) voseo con tilde
-  'investigá|analizá|revisá|buscá|armá|escribí|redactá|compará|evaluá|calculá|resumí|proponé|sugerí|decí|mostrá|pasá|traé|explicá|ayudá|mandá|mirá|andá|fijate' +
-  ')(?=[\\s,.;:!?]|$)|' +
-  // b) con pronombre pegado — imperativo sí o sí
-  '\\b\\w*(?:decime|contame|mostrame|pasame|dame|buscame|armame|escribime|haceme|revisame|analizame|investigame|traeme|explicame|ayudame|mandame|proponeme|sugerime|calculame|resumime|cuentame|muestrame|dimelo)\\b|' +
-  '\\b(?:investigalo|analizalo|armalo|revisalo|buscalo|escribilo|resumilo|comparalo|hacelo|mostralo|pasalo|mandalo)\\b',
+  'investigá|analizá|revisá|buscá|armá|escribí|redactá|compará|evaluá|calculá|resumí|proponé|sugerí|decí|mostrá|pasá|traé|explicá|ayudá|mandá|mirá|andá|hacé|fijate' +
+  ')(?=[\\s,.;:!?]|$)',
   'i',
 );
+// ⚠️ ESTO SE PRUEBA CONTRA EL TEXTO SIN TILDES, y el voseo de arriba contra el crudo.
+// EL CASO 08-T13 (llamada del 8/9/2026). Mauricio: «A Maco yo le dije, Maco, haz un
+// reporte tal, tal, y ni siquiera me responde». Mauricio es mexicano y escribe en TUTEO:
+// «haz», «hazme», «muéstrame», «mándame». El imperativo de acá solo conocía el voseo, así
+// que «haz un reporte de mis resultados…» caía al default —capturar, dudosa— y MaKo
+// tenía en la mesa SOLO las tres tools del plan: ni un número posible. Y «muéstrame» no
+// matcheaba «muestrame» por la tilde: `\w` no incluye la «é».
+// Entran solo formas que NO son tercera persona: «haz» (la tercera es «hace»), «pon»
+// («pone»), y todo lo que lleva el pronombre pegado. «Revisa», «genera» o «prepara» sin
+// pronombre siguen afuera, por la misma razón que el voseo exige la tilde.
+const IMPERATIVO_TUTEO = new RegExp(
+  // b) con pronombre pegado — imperativo sí o sí (voseo o tuteo)
+  '\\b\\w*(?:decime|contame|mostrame|pasame|dame|buscame|armame|escribime|haceme|hazme|revisame|analizame|investigame|traeme|explicame|ayudame|mandame|enviame|proponeme|sugerime|calculame|resumime|cuentame|muestrame|dimelo|dime|ponme|generame|preparame)\\b|' +
+  '\\b(?:investigalo|analizalo|armalo|revisalo|buscalo|escribilo|resumilo|comparalo|hacelo|hazlo|mostralo|pasalo|mandalo|envialo|ponlo|generalo|preparalo)\\b|' +
+  // c) tuteo irregular de una sílaba: su tercera persona es otra palabra
+  '\\b(?:haz|pon)\\b',
+  'i',
+);
+/** ¿Hay un imperativo dirigido a MaKo? Recibe el texto crudo y normaliza adentro. */
+const IMPERATIVO = { test: (s: string): boolean => IMPERATIVO_VOSEO.test(s) || IMPERATIVO_TUTEO.test(norm(s)) };
+
+/**
+ * Un PEDIDO DE DATOS sin forma de pregunta: «un reporte de mis resultados de junio»,
+ * «quiero ver mis números del mes». Es una consulta —pide lo que MaKo tiene— y tiene que
+ * llegar con las tools de métricas en la mesa. Sin esto caía al default (capturar) y se
+ * guardaba como una idea (08-T13). Se prueba contra el texto sin tildes.
+ */
+// ⚠️ `[^.\n]`, NO `.`: sin cruzar oraciones. Con `.` un volcado de 3060 caracteres del dueño
+// («…reportes. Por ejemplo, ayer estuvimos viendo con Mauricio y este mes…») se leía como
+// un pedido de datos. Medido sobre los 143 mensajes reales de mako_doer_conv.
+const PEDIDO_DATOS = /\b(reportes?|informes?|resumen(es)?|balances?)\b[^.\n]{0,60}\b(resultados?|numeros|metricas|ventas|leads?|cierres?|agendas?|inversion|marketing|campanas?|anuncios?|trimestre|(ultim[oa]s?|este|pasad[oa]) (mes(es)?|semanas?|ano)|mes pasado|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\b|\b(mis|nuestros|los) (resultados|numeros|metricas)\b/;
 // ⚠️ La tilde manda igual acá. Sin ella, «marca», «cambia» y «baja» —que son
 // sustantivos o tercera persona— convertían un volcado de ideas en una orden de
 // escribir sobre la cuenta. Pasó con «SISTEMA DE PUNTAJE.» y con «Estas son las
@@ -255,6 +283,13 @@ export function clasificarIntencion(
   //    esto, cada «decime…» se iba a Opus.
   if (PREGUNTA.test(t) || (pedido && INTERROGATIVO.test(t))) {
     return { intencion: 'consultar', dudosa: false, porque: 'pregunta por un dato' };
+  }
+  // 8-bis) Pedido de datos sin forma de pregunta («un reporte de mis resultados de
+  //        junio»). Va DESPUÉS del dictado (4-6): «Idea: un reporte de resultados para
+  //        clientes» sigue siendo material para guardar. Ver PEDIDO_DATOS.
+  //        Y solo en un mensaje CORTO: pedir un reporte es una línea, no un volcado.
+  if (t.length <= 280 && PEDIDO_DATOS.test(n)) {
+    return { intencion: 'consultar', dudosa: false, porque: 'pide un reporte o sus números' };
   }
 
   // 9) Imperativo dirigido a MaKo, o media adjunta → hacerlo ahora.

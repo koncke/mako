@@ -55,6 +55,42 @@ test('Un pedido de verdad a MaKo NO se captura', () => {
     'un «decime <interrogativo>» es una consulta: mandarlo a pensar lo tarifa como análisis');
 });
 
+test('EL CASO 08-T13: «haz un reporte de mis resultados» es una consulta, no una nota', () => {
+  // Llamada del 8/9/2026. Mauricio: «A Maco yo le dije, Maco, haz un reporte tal, tal, y ni
+  // siquiera me responde». Él escribe en tuteo mexicano, y el imperativo solo conocía el
+  // voseo: «haz un reporte…» caía al default —capturar, dudosa— y MaKo tenía en la mesa
+  // SOLO las tres tools del plan. Medido con el clasificador de entonces: las tres primeras
+  // frases daban `capturar` dudosa. PROBADO ROMPIÉNDOLO: contra el clasificador de HEAD
+  // fallan este test y el del tuteo de abajo. Y comparado viejo contra nuevo sobre los 143
+  // mensajes reales de mako_doer_conv, cambian 2 —«…dime qué piensas…» y «genérame una
+  // junta…»—, los dos pedidos que antes se guardaban como nota.
+  for (const f of [
+    'hacé un reporte de mis resultados de marketing de junio, julio y agosto',
+    'Mako haz un reporte de mis resultados de marketing de junio julio y agosto',
+    'Maco, haz un reporte de mis resultados de junio a agosto',
+    'quiero ver mis resultados de agosto',
+    'necesito el informe de leads del mes pasado',
+    'Mándame el resumen de ventas de julio',
+  ]) {
+    const v = clasificarIntencion(f);
+    assert.equal(v.intencion, 'consultar', `«${f}» se clasificó ${v.intencion}${v.dudosa ? ' (dudosa)' : ''}`);
+  }
+  // consultar llega con TODAS las tools, métricas incluidas.
+  assert.equal(CONTRATO.consultar.tools, null, 'consultar dejó de tener las tools de métricas');
+  // Y un dictado que menciona un reporte sigue siendo material para guardar.
+  assert.equal(intencionDe('Idea:\nUn reporte de resultados semanal para cada cliente'), 'capturar');
+});
+
+test('El tuteo de Mauricio también es un pedido, y la tercera persona sigue sin serlo', () => {
+  assert.equal(intencionDe('hazme el copy del anuncio'), 'pensar');
+  // «muéstrame» con tilde: `\w` no incluye la «é», así que se prueba sin tildes.
+  assert.equal(intencionDe('muéstrame cuántos leads entraron hoy'), 'consultar');
+  assert.equal(intencionDe('dime cuántas reuniones tengo mañana'), 'consultar');
+  // «hace» y «revisa» son tercera persona: una idea dictada no es una orden.
+  assert.equal(intencionDe('hace falta revisar el pixel de la landing'), 'capturar');
+  assert.equal(intencionDe('investiga la competencia'), 'capturar');
+});
+
 test('«Investigar» vs «investigá»: la tilde es la que decide', () => {
   assert.equal(intencionDe('Investigar la competencia'), 'capturar');
   assert.equal(intencionDe('investigá la competencia'), 'pensar');

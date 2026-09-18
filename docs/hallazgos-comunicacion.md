@@ -4768,3 +4768,52 @@ con esa fila (`lib/nutricion.ts:962`) y ese campo ya se midió mintiendo en las 
 (60e8bd93). Tampoco se sabe por qué no hubo intentos después del 10/9.
 
 **Vive en:** lib/nutricion.ts:962 · lib/secuencias-audios.ts · app/chatbot/ChatAgentApp.tsx · *2026-09-16*
+
+## «Maco, haz un reporte» se guardaba como una nota: el clasificador solo hablaba rioplatense (08-T13)
+
+En la llamada del 8/9 Mauricio contó: «A Maco yo le dije, Maco, haz un reporte tal, tal, y ni
+siquiera me responde». Esos días la voz estaba caída (ver arriba), pero con la línea viva el
+pedido tampoco habría funcionado. Medido el 17/9 con el clasificador real:
+
+| frase | intención | tools en la mesa |
+|---|---|---|
+| «Mako haz un reporte de mis resultados de marketing de junio julio y agosto» | capturar (dudosa) | solo las del plan |
+| «¿cómo me fue en el trimestre?» | consultar | todas |
+
+`IMPERATIVO` solo conocía el voseo con tilde («hacé») o con pronombre («haceme»). Mauricio es
+mexicano y escribe en tuteo: «haz», «hazme», «muéstrame». Y «muéstrame» tampoco matcheaba
+«muestrame», porque `\w` no incluye la «é». El pedido caía al default y se guardaba como una
+idea, con el aviso «Lo dejé anotado»: sin `metricas_negocio` en la mesa, no había un número
+posible. Y aunque lo hubiera, nada del doer sabía que el informe de junio a agosto ya existía
+(`/analisis/trimestre`, leído en dólares).
+
+**El diagnóstico obvio era el equivocado:** «la línea estaba caída, y ya se reconectó». La
+línea explica por qué ese día no contestó nada; no explica que, con la línea viva, la respuesta
+habría sido «lo dejé anotado».
+
+El arreglo:
+
+- imperativos de tuteo que no son tercera persona («haz», «pon» y todo lo que lleva el pronombre
+  pegado), comparados contra el texto sin tildes; el voseo sigue exigiendo la tilde;
+- `PEDIDO_DATOS`: «un reporte / informe / resumen de mis resultados, ventas, leads… de junio» es
+  `consultar`, solo en mensajes cortos y sin cruzar oraciones. Con `.` en vez de `[^.\n]`, un
+  volcado de 3060 caracteres («…reportes. Por ejemplo, ayer… este mes…») se leía como pedido;
+- el link del informe lo agrega el CÓDIGO al final de la respuesta cuando una tool de números pidió
+  un rango que cubre al menos la mitad del trimestre, y solo en el workspace dueño
+  (`lib/informe-congelado.ts`; el período sale del propio `datos.ts` del informe).
+
+Comparado el clasificador viejo contra el nuevo sobre los 143 mensajes reales de
+`mako_doer_conv`: cambian 2 clasificaciones, y las dos eran pedidos que se perdían («…dime qué
+piensas…», «genérame una junta…»).
+
+**La regla que queda:** un clasificador por regex se mide contra cómo escribe CADA usuario real,
+no contra cómo escribe quien lo programó. El corpus del test era todo del dueño rioplatense.
+
+#### Lo que quedó SIN hacer
+
+- **No se probó por WhatsApp de punta a punta**: mandar un mensaje de prueba al grupo de Mauricio
+  necesita su OK.
+- **«IDEA de ciberseguridad:» no se detecta como volcado**: `ENCABEZADO_VOLCADO` exige «Idea:»
+  pegado a los dos puntos.
+- `metricas_negocio` suma el `spend` de Meta tal como lo guarda la base (en pesos para Mauricio,
+  según `app/analisis/trimestre/datos.ts`); el informe congelado se lee en dólares.
