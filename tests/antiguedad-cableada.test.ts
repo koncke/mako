@@ -28,7 +28,10 @@ function sinComentarios(src: string): string {
     .replace(/(^|[^:])\/\/.*$/gm, '$1');
 }
 
-const SRC = sinComentarios(readFileSync(new URL('../lib/nutricion.ts', import.meta.url), 'utf8'));
+// Sin `\r`: en un checkout de Windows (autocrlf) el archivo llega con CRLF y el
+// `\n}\n` que cierra cada función no aparece. La primera versión de este test
+// daba 3/3 en el clon donde se editó —que tenía LF— y 0/3 en un worktree limpio.
+const SRC = sinComentarios(readFileSync(new URL('../lib/nutricion.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n'));
 
 /** El cuerpo de una función de primer nivel: de su firma al `}` en columna 0. */
 function cuerpo(nombre: string): string {
