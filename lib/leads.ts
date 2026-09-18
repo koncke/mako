@@ -1976,6 +1976,14 @@ export async function setPipelineStage(
   opts?: {
     monto?: number | null; motivo?: string | null;
     asistio_j1?: boolean | null; asistio_j2?: boolean | null; deadline?: string | null;
+    /**
+     * ¿Era un lead calificado? Viaja con el movimiento porque es una de las DOS
+     * señales que le llegan a Meta (con asistio_j1=true dispara QualifiedLead): se
+     * ofrece como un toque opcional al mover, en vez de esperar a que alguien
+     * complete la ficha una semana después. updateLead lo anula solo si no hubo
+     * asistencia, así que mandarlo de más no ensucia nada.
+     */
+    calificado?: boolean | null;
     /** Quién lo movió. Sin esto se resuelve solo: sesión → persona, sin sesión → MaKo. */
     autor?: string;
     /**
@@ -2028,6 +2036,7 @@ export async function setPipelineStage(
   // A y C), que existen justamente porque asistio_j1/j2 está en null.
   if (opts?.asistio_j1 !== undefined) sync.asistio_j1 = opts.asistio_j1;
   if (opts?.asistio_j2 !== undefined) sync.asistio_j2 = opts.asistio_j2;
+  if (opts?.calificado !== undefined && opts.calificado !== null) sync.calificado = opts.calificado;
   // En etapas de nutrición marcamos la bandera para los pendientes/tab Nutrición.
   if (NUTRI_KEYS.includes(stageKey)) {
     sync.nutricion_realizada = true;

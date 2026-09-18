@@ -1072,8 +1072,19 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       sub={sub || undefined}
       puedeAvanzar={respondido}
       enUltimo={enResumen}
-      confirmLabel="Confirmar y mover"
+      confirmLabel={completarDatos ? 'Guardar' : 'Confirmar y mover'}
       pending={pending}
+      // La salida desde CUALQUIER paso (08-T22): guarda lo que ya se contestó y
+      // deja el resto pendiente. Antes la única salida era Cancelar, que tiraba
+      // todo lo contestado — y un paso que exige respuesta sin otra salida es la
+      // trampa que hacía abandonar el CRM. Los pasos sin responder viajan vacíos
+      // y no pisan nada: cada paso existe porque ese dato falta.
+      extraFooter={!enResumen ? (
+        <button type="button" onClick={confirmar} disabled={pending}
+          style={{ padding: '11px 4px', border: 'none', background: 'none', color: 'var(--dim)', fontSize: 13.5, fontWeight: 600, cursor: pending ? 'default' : 'pointer', fontFamily: SANS, textDecoration: 'underline', textUnderlineOffset: 3, opacity: pending ? 0.5 : 1 }}>
+          Guardar y completar después
+        </button>
+      ) : undefined}
       cargando={busy ? textoCargando : null}
       atrasLabel={visitados.length === 0 ? 'Cancelar' : 'Atrás'}
       onAtras={atras}

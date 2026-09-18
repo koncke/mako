@@ -471,19 +471,59 @@ cron con muchos T2 son N queries de una fila. La salida es memoizar `getFunnel` 
 
 **Vive en:** `lib/leads.ts` (`setPipelineStage`) · `lib/stage-requirements.ts`
 
-### Un lead no cambia de etapa sin los datos que esa etapa exige
+### Guardar nunca se bloquea por datos que faltan (reemplaza «ninguna blanda»)
 
-**Decisión (21/06 y 03/07).** Mover a una etapa que exige información **abre su detalle,
-despliega lo que falta y no deja guardar**; cancelar revierte la etapa. Los datos exigidos
-incluyen cualificación para CAPI, link de Fathom, plan de cuotas, contrato y motivo si se
-agendó fuera de Calendly. **Y todas obligatorias, ninguna blanda.**
+**Decisión vigente (17/09, Martín, tarea 08-T22).** Mover de etapa y cambiar un dato se
+guardan **siempre, Ganado incluido**. Lo que la etapa pide y falta vuelve como
+`pendientes`: se avisa en el toast del movimiento («Queda pendiente: … · Completar
+ahora»), queda marcado en la card y en la ficha, y MaKo lo pide después (08-T23), nunca
+mientras la persona está operando. Queda en el historial como `Datos pendientes`, con
+quién lo guardó así — no es lo mismo que un dato que nadie vio.
 
-**Por qué:** *"si muevo un lead a «Ganado», solo me pide el monto del cierre"* y
-*"Jorge Negrete está en GANADO cuando aún no se han marcado las reuniones"*. La validación
-tiene que forzar la carga **en el momento**, no dejar el dato colgado: esos campos son los que
-después alimentan los mensajes automáticos de WhatsApp/Email.
+**La decisión que reemplaza (21/06 y 03/07):** mover a una etapa que exigía información
+abría el detalle y **no dejaba guardar**; cancelar revertía. «Todas obligatorias, ninguna
+blanda.» Venía de *"si muevo un lead a «Ganado», solo me pide el monto"* y de *"Jorge
+Negrete está en GANADO cuando aún no se han marcado las reuniones"*.
 
-**Vive en:** `lib/stage-requirements.ts` · `app/crm/StageMoveDialog.tsx`
+**Por qué cedió — lo que se midió:**
+
+- Mauricio, 08/09 [34:00]: *«me meto al CRM y me pregunta un chorro de cosas… quiero
+  nomás cambiar este… yo veo esto que me dice define no sé cuántas cosas y ya lo
+  abandono»*. Actualizaba el CRM **una vez por semana**.
+- **La regla no protegía lo que decía proteger.** Se justificaba por Meta, pero a Meta le
+  llegan exactamente DOS datos del CRM, y ninguno depende de mover la etapa:
+  `calificado` → evento `Lead`, y `asistió a la R1` + `calificado` → `QualifiedLead`
+  (`lib/leads.ts`, `updateLead`). **No existe evento de compra: pasar a Ganado no le manda
+  nada a Meta.** Con la regla dura, esos dos datos llegaban una semana tarde o nunca.
+- Por eso son los únicos que se siguen ofreciendo en el momento: dos toques opcionales en la
+  confirmación de mover, solo si faltan y si la R1 ya pasó (`app/crm/senales-meta.ts`).
+
+**El diagnóstico obvio era el equivocado.** El brief suponía que Mauricio había visto el
+wizard de etapa. La grabación dice otra cosa: *«define no sé cuántas cosas»* y *«qué pasó
+con algo de hace una semana»* son el texto literal de la lista «Datos sin marcar»
+(`«La Reunión 1 del X ya pasó… — define qué sigue»`, el único «define» de todo el CRM), más
+cada card incompleta titilando en rojo. Lo que lo espantaba era **la entrada**, no solo el
+movimiento. Por eso el cambio tocó las dos cosas: la lista informa en vez de ordenar, y las
+cards marcan lo pendiente sin parpadear.
+
+**Lo que se mantuvo:** la confirmación al soltar una card (pedido del 07/08: arrastrar es fácil
+de hacer sin querer) y la lista «Datos sin marcar» como lugar donde está todo lo pendiente.
+Faltar datos sigue sin ser un error; ahora tampoco es un freno.
+
+**Lo que quedó sin hacer:**
+
+- **La ficha todavía abre el wizard al elegir otra etapa** (`LeadSheet.tsx:130`,
+  `[id]/LeadDetailBody.tsx:148`). Ahora tiene salida inmediata («Guardar y completar
+  después», dos clics), pero muestra la primera pregunta. Lo consistente es que mueva como
+  el tablero, con el toast de pendientes — y que esa lógica viva en UN lugar, no copiada en
+  el tablero y en las dos fichas.
+- **Que MaKo pida lo pendiente** es 08-T23, otra tarea. Lo pendiente ya es consultable: sale
+  de `faltantesDeLead` / `getPendientesDeMarcar`, igual que antes.
+
+**Vive en:** `app/crm/actions.ts` (`registrarPendientes`, `setLeadStageAction`,
+`completeStageMoveAction`) · `app/crm/CrmBoard.tsx` (`handleDrop`, el toast, las cards) ·
+`app/crm/StageMoveDialog.tsx` (la salida) · `app/crm/senales-meta.ts` · `lib/queries.ts`
+(el texto de la lista) · `tests/guardar-sin-bloquear.test.ts`
 
 ### "Se perdió" escribía "asistió a la reunión" sin que nadie lo dijera
 

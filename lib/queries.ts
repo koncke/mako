@@ -2250,7 +2250,7 @@ async function _getPendientesDeMarcar(
           lead_id: l.id,
           lead_nombre: l.nombre,
           tipo: 'M',
-          mensaje: `Venció hace ${diasVencida} día${diasVencida === 1 ? '' : 's'} (${fmtFechaPendiente(l.nutricion_manual_deadline)}) sin resolverse — define qué hacer ahora`,
+          mensaje: `Venció hace ${diasVencida} día${diasVencida === 1 ? '' : 's'} (${fmtFechaPendiente(l.nutricion_manual_deadline)}) sin resolverse`,
           fecha: l.nutricion_manual_deadline,
           soloEdit: false,
           solTab: 'wizard',
@@ -2310,12 +2310,15 @@ async function _getPendientesDeMarcar(
       const atMs = atReu ? Date.parse(atReu) : NaN;
       const paso = Number.isFinite(atMs) ? Date.now() >= atMs + 60 * 60_000 : !!fechaReu && fechaReu < hoy;
       if (paso && fechaReu) {
-        const detalle = faltan.length ? ` · faltan: ${faltan.map((f) => f.label).join(' · ')}` : '';
+        // Informa, no ordena (08-T22). Decía «— define qué sigue»: la fila le hablaba
+        // a Mauricio en imperativo, y eso es exactamente lo que citó al explicar por
+        // qué abandonaba el CRM («yo veo esto que me dice define no sé cuántas cosas»).
+        const detalle = faltan.length ? ` · pendiente: ${faltan.map((f) => f.label).join(' · ')}` : '';
         items.push({
           lead_id: l.id,
           lead_nombre: l.nombre,
           tipo: 'R',
-          mensaje: `La Reunión ${slot.numero} del ${fmtFechaPendiente(fechaReu)} ya pasó y el lead sigue en esta etapa — define qué sigue${detalle}`,
+          mensaje: `La Reunión ${slot.numero} del ${fmtFechaPendiente(fechaReu)} ya pasó y todavía no se marcó cómo salió${detalle}`,
           fecha: fechaReu,
           soloEdit: false,
           solTab: 'wizard',

@@ -70,8 +70,7 @@ import type { Step } from '@/lib/stage-requirements';
 import type { MiembroEquipo } from './actions';
 import { WizardShell, wizardInput } from '@/app/_components/WizardShell';
 import { ConfirmDialog } from '@/app/components/ConfirmDialog';
-import { sectionForStage } from './edit-logic';
-import { missingForStage, funnelReqInfo } from '@/lib/stage-requirements';
+import { senalesAOfrecer, hayAlgoQueOfrecer, asistenciaImplicita, type SenalesAOfrecer } from './senales-meta';
 import { coincideBusqueda } from '@/lib/buscar-texto';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import { openCalendlyEn } from './calendly-widget';
@@ -320,7 +319,13 @@ export function CrmBoard({
     if (dir !== 0 && autoScrollRaf.current === 0) autoScrollRaf.current = requestAnimationFrame(tickAutoScroll);
   };
   useEffect(() => () => stopAutoScroll(), []);
-  const [undoInfo, setUndoInfo] = useState<{ id: number; name: string; from: string; toLabel: string; monto: number | null; motivo: string | null } | null>(null);
+  // `pendientes`: lo que la etapa pide y todavía falta. Desde el 17/09 eso NO frena
+  // el movimiento (08-T22): se guarda igual y se avisa acá, sin pedir nada.
+  const [undoInfo, setUndoInfo] = useState<{ id: number; name: string; from: string; toLabel: string; monto: number | null; motivo: string | null; pendientes?: string[] } | null>(null);
+  // Los dos toques opcionales de Meta que viajan en la confirmación de mover (ver
+  // senales-meta.ts). Ref y no estado: la confirmación guarda su `onOk` al abrirse,
+  // y tiene que leer lo que se tocó DESPUÉS, al confirmar.
+  const senalesRef = useRef<{ asistio: boolean | null; calificado: boolean | null }>({ asistio: null, calificado: null });
   const [manualNutri, setManualNutri] = useState<{ leadId: number; name: string } | null>(null);
   const [manualMotivo, setManualMotivo] = useState('');
   const [manualDeadline, setManualDeadline] = useState('');
@@ -396,8 +401,12 @@ export function CrmBoard({
   const transitionFor = (from: string, to: string): FunnelTransition | undefined =>
     transitions.find((t) => t.from === from && t.to === to);
 
-  // Movimiento directo (etapas que no piden completar datos). Optimista + revert.
-  const persistStage = (id: number, key: string, from?: string, tr?: FunnelTransition) => {
+  // Movimiento de una card. Optimista + revert solo ante una falla real: faltar
+  // datos YA NO frena (08-T22) — vuelven como `pendientes` y se avisan en el toast.
+  const persistStage = (
+    id: number, key: string, from?: string, tr?: FunnelTransition,
+    senales?: { asistio: boolean | null; calificado: boolean | null },
+  ) => {
     setLocalStage((m) => ({ ...m, [id]: key }));
     const revertir = () => {
       setLocalStage((m) => { const n = { ...m }; if (from) n[id] = from; else delete n[id]; return n; });
@@ -405,10 +414,21 @@ export function CrmBoard({
     };
     startTransition(async () => {
       try {
-        const r = await setLeadStageAction(id, key, { asistio_j1: tr?.asistioJ1, asistio_j2: tr?.asistioJ2 });
-        // El server ve datos faltantes que el board no vio (una edición en otra
-        // pestaña, un funnel que cambió). Antes esto era un throw y la card volvía
-        // sola sin explicación: ahora se revierte y se abre el wizard que los pide.
+        // Lo que la persona tocó gana; si no tocó nada, la asistencia que el paso
+        // implica — salvo que sea una pérdida, que no implica nada (ver
+        // asistenciaImplicita: copiar ese flag escribía "asistió" sin que nadie lo dijera).
+        const r = await setLeadStageAction(id, key, {
+          asistio_j1: senales?.asistio ?? asistenciaImplicita(tr),
+          asistio_j2: tr?.category === 'perdida' ? undefined : tr?.asistioJ2,
+          calificado: senales?.calificado ?? undefined,
+        });
+        if (r.ok && r.pendientes?.length) {
+          const labels = r.pendientes.map((p) => p.label);
+          setUndoInfo((u) => (u && u.id === id ? { ...u, pendientes: labels } : u));
+        }
+        // Red de seguridad: el server de hoy ya no devuelve ok:false por datos
+        // faltantes, pero si algún día lo hiciera, se abre el wizard en vez de
+        // revertir la card en silencio.
         if (!r.ok) {
           revertir();
           const lead = leads.find((l) => l.id === id);
@@ -517,10 +537,12 @@ export function CrmBoard({
     return () => { window.removeEventListener('focus', onVisible); document.removeEventListener('visibilitychange', onVisible); };
   }, [router]);
 
-  // El toast se autodescarta a los 5s.
+  // El toast se autodescarta a los 5s; con datos pendientes, a los 10s — hay algo
+  // más que leer. Si se va sin que nadie toque «Completar ahora», no se pierde
+  // nada: lo pendiente queda marcado en la card y en la ficha.
   useEffect(() => {
     if (!undoInfo) return;
-    const t = setTimeout(() => setUndoInfo(null), 5000);
+    const t = setTimeout(() => setUndoInfo(null), undoInfo.pendientes?.length ? 10000 : 5000);
     return () => clearTimeout(t);
   }, [undoInfo]);
 
@@ -536,18 +558,8 @@ export function CrmBoard({
     setDragId(null); setDragOverCol(null);
   };
 
-  // ¿Mover a `key` exige pasar por la ficha? Sí cuando hay un campo obligatorio
-  // faltante (bloquea) o cuando la etapa tiene una sección que completar (motivo,
-  // plan de pagos, nutrición). El resto de etapas se mueven en silencio.
-  const missingForLead = (l: CrmLead, key: string) => missingForStage(key, {
-    ...funnelReqInfo(stages, key),
-    fechaJ1: l.fechaJ1, fechaJ2: l.fechaJ2,
-    asistioJ1: l.asistioJ1, asistioJ2: l.asistioJ2, calificado: l.calificado,
-    hasFathomUrl: l.fathom.some((f) => f.url?.trim()),
-    monto: l.monto || null, motivo: l.motivo, setter: l.setter,
-    hoyISO: hoy,
-  });
-  const needsFicha = (l: CrmLead, key: string) => missingForLead(l, key).length > 0 || !!sectionForStage(key);
+  // (Acá vivía `needsFicha`: decidía si soltar una card abría el wizard de datos
+  // en vez de moverla. Se fue con 08-T22 — mover ya no depende de los datos.)
 
   // Abrir el pop-up chico de completar movimiento (no la ficha entera).
   const openStageMove = (l: CrmLead, move: StageMoveTarget) => setStageMove({ leadId: l.id, move });
@@ -587,18 +599,30 @@ export function CrmBoard({
     if (esEtapaCalendly(stageKey)) { scheduleViaCalendly(lead, stageKey); return; }
     const from = effStage(lead);
     const tr = transitionFor(from, stageKey);
-    if (needsFicha(lead, stageKey)) { openStageMove(lead, { to: stageKey, asistioJ1: tr?.asistioJ1, asistioJ2: tr?.asistioJ2 }); return; }
-    // Arrastrar una card es el gesto más fácil de hacer sin querer del tablero, y
-    // hasta acá cambiaba la etapa del lead al soltar, sin preguntar nada. Ahora
-    // pasa por la confirmación, que dice el movimiento exacto.
+    // YA NO se abre el wizard de datos al soltar (08-T22). Antes, si la etapa pedía
+    // algo que faltaba, la card no se movía hasta contestarlo todo; Mauricio: «me
+    // pregunta un chorro de cosas… lo abandono». Ahora se mueve, y lo que falta se
+    // avisa en el toast con «Completar ahora» — opcional, nunca en el camino.
+    //
+    // Arrastrar una card es el gesto más fácil de hacer sin querer del tablero: por
+    // eso sigue pasando por la confirmación, que dice el movimiento exacto.
     const destino = findStage(stages, stageKey).label;
     const origen = findStage(stages, from).label;
+    const ofrecer = senalesAOfrecer(lead, { tr, hoyISO: hoy });
+    senalesRef.current = { asistio: null, calificado: null };
     setConfirmacion({
       titulo: `Mover a ${destino} a ${lead.name}`,
-      mensaje: <>Pasa de <b>{origen}</b> a <b>{destino}</b>. Queda registrado en el historial del lead y vas a poder deshacerlo.</>,
+      mensaje: (
+        <>
+          Pasa de <b>{origen}</b> a <b>{destino}</b>. Queda registrado en el historial del lead y vas a poder deshacerlo.
+          {hayAlgoQueOfrecer(ofrecer) && (
+            <SenalesMetaChips ofrecer={ofrecer} onChange={(v) => { senalesRef.current = v; }} />
+          )}
+        </>
+      ),
       confirmLabel: `Mover a ${destino}`,
       tono: 'primary',
-      onOk: () => persistStage(id, stageKey, from, tr),
+      onOk: () => persistStage(id, stageKey, from, tr, senalesRef.current),
     });
   };
 
@@ -1078,24 +1102,22 @@ export function CrmBoard({
       yaRespondido: { calificado: qhCalificado, motivo: qhMotivoFinal || null },
     };
 
-    // Falta algo que este wizard no pregunta (fechas, Fathom, Deal Details): se lo
-    // pasa a StageMoveDialog con TODO lo contestado precargado. El resumen ya lo
-    // anunció con nombre y apellido; no es una sorpresa al confirmar.
-    if (qhHayHandoff) { cerrarQueHacer(); openStageMove(l, move); return; }
-
-    // No falta nada: este wizard TERMINA el trabajo. Es la diferencia con el
-    // "Continuar" de antes, que cerraba y abría otro formulario de 5 preguntas.
+    // Este wizard TERMINA el trabajo siempre. Si falta algo que no pregunta
+    // (fechas, Fathom, Deal Details), antes se lo pasaba a StageMoveDialog: otro
+    // formulario más, justo lo que hacía abandonar el CRM (08-T22). Ahora guarda,
+    // y lo que falta vuelve como pendiente: se avisa en el toast, queda en la
+    // ficha y MaKo lo pide después.
     const from = effStage(l);
     startTransition(async () => {
       try {
         const r = await resolverQueHacerAction(leadId, destino, datos, qhFrase(destinoLabel));
-        // El server ve algo que el resumen no vio (otro usuario editó el lead entre
-        // medio). NO es un error rojo: se abre el diálogo con lo ya contestado.
+        // Red de seguridad: el server ya no devuelve ok:false por datos faltantes.
         if (!r.ok) { cerrarQueHacer(); openStageMove(l, move); return; }
         cerrarQueHacer();
         setLocalStage((m) => ({ ...m, [leadId]: destino }));
         if (from !== destino) {
-          setUndoInfo({ id: leadId, name: l.name, from, toLabel: destinoLabel, monto: l.monto || null, motivo: l.motivo || null });
+          const pendientes = r.pendientes?.map((p) => p.label);
+          setUndoInfo({ id: leadId, name: l.name, from, toLabel: destinoLabel, monto: l.monto || null, motivo: l.motivo || null, pendientes });
         }
         router.refresh();
       } catch (e) {
@@ -1199,13 +1221,18 @@ export function CrmBoard({
                 draggable
                 onDragStart={(ev) => { setDragId(l.id); ev.dataTransfer.effectAllowed = 'move'; }}
                 onDragEnd={() => { setDragId(null); setDragOverCol(null); stopAutoScroll(); }}
-                style={{ background: 'var(--surface-2)', borderTop: '1px solid var(--border)', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', borderLeft: overdueManual ? '3px solid var(--bad)' : waiting ? '3px solid var(--bad)' : '1px solid var(--border)', borderRadius: 11, padding: '13px 14px', cursor: 'grab', transition: 'opacity .15s, transform .15s, box-shadow .15s', opacity: dragId === l.id ? 0.5 : 1, transform: dragId === l.id ? 'scale(0.97)' : 'none', boxShadow: dragId === l.id ? '0 10px 26px rgba(18,21,27,.20)' : 'none' }}
+                style={{ background: 'var(--surface-2)', borderTop: '1px solid var(--border)', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', borderLeft: overdueManual ? '3px solid var(--bad)' : '1px solid var(--border)', borderRadius: 11, padding: '13px 14px', cursor: 'grab', transition: 'opacity .15s, transform .15s, box-shadow .15s', opacity: dragId === l.id ? 0.5 : 1, transform: dragId === l.id ? 'scale(0.97)' : 'none', boxShadow: dragId === l.id ? '0 10px 26px rgba(18,21,27,.20)' : 'none' }}
               >
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                   <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)', lineHeight: 1.25, minWidth: 0 }}>{l.name}</div>
+                  {/* Sin parpadeo (08-T22). Un tablero donde cada card incompleta
+                      titilaba en rojo le decía a Mauricio, apenas entraba, que tenía
+                      un chorro de cosas por contestar — y lo abandonaba. Lo que falta
+                      se marca, sereno; no se reclama. «Vencida» sí es una alerta (una
+                      fecha que pasó) y conserva el rojo, pero tampoco titila. */}
                   {overdueManual
-                    ? <span title="Venció el deadline de la nutrición manual" style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, color: 'var(--bad)', background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 999, padding: '1px 7px', whiteSpace: 'nowrap', animation: 'blinkRed 1.2s infinite' }}><span aria-hidden>🚨</span> Vencida</span>
-                    : waiting && <span title="Faltan datos posibles de conseguir para esta etapa" style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700, color: 'var(--bad)', background: 'var(--bad-bg)', border: '1px solid #EBBFBC', borderRadius: 999, padding: '1px 7px', whiteSpace: 'nowrap' }}><span aria-hidden style={{ width: 7, height: 7, borderRadius: 999, background: 'var(--bad)', animation: 'blinkRed 1.2s infinite' }} /> Datos sin marcar</span>}
+                    ? <span title="Venció el deadline de la nutrición manual" style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, color: 'var(--bad)', background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 999, padding: '1px 7px', whiteSpace: 'nowrap' }}><span aria-hidden>🚨</span> Vencida</span>
+                    : waiting && <span title="Faltan datos de esta etapa. Se pueden completar cuando quieras: MaKo te los pide después." style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 600, color: 'var(--dim)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 999, padding: '1px 7px', whiteSpace: 'nowrap' }}><span aria-hidden style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--warn)' }} /> Datos pendientes</span>}
                 </div>
                 <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.company}</div>
                 <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.03em', color: 'var(--faint)', marginTop: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.origin}</div>
@@ -1599,7 +1626,7 @@ export function CrmBoard({
               : qhMueveEtapa(qhOpcion) && qhFaltan === null
               ? 'Revisando qué datos faltan para esa etapa…'
               : qhHayHandoff
-                ? 'Falta cargar un par de datos: seguimos en el formulario que los pide, con esto ya cargado.'
+                ? 'Se guarda igual. Lo que falta queda pendiente en la ficha y MaKo te lo pide después.'
                 : 'Esto es lo que va a pasar cuando confirmes.',
           },
         };
@@ -1629,18 +1656,18 @@ export function CrmBoard({
           if (qhOpcion === 'noshow') filas.push(['La etapa', 'la define tu funnel: se activa la secuencia de recuperación de No Show']);
           if (qhCalificado != null) filas.push(['Calificado', qhCalificado ? 'sí' : 'no']);
           if (qhMotivoFinal) filas.push(['Motivo', qhMotivoFinal]);
-          if (qhHayHandoff) filas.push(['Falta cargar', (qhFaltan ?? []).map((f) => f.label).join(' · ')]);
+          if (qhHayHandoff) filas.push(['Queda pendiente', (qhFaltan ?? []).map((f) => f.label).join(' · ')]);
         }
 
         // El botón dice el VERBO de lo que hace. "Continuar" a secas era el tell de
         // que el wizard no terminaba el trabajo.
-        const nFaltan = qhFaltan?.length ?? 0;
         const confirmLabel =
           qhOpcion === 'reprog' ? 'Reagendar'
           : qhOpcion === 'nodecide' || qhOpcion === 'sinresp' ? 'Guardar el nuevo plazo'
           : qhVaACalendly ? `Agendar ${destinoLabel} →`
           : qhFaltan === null ? 'Revisando qué datos faltan…'
-          : nFaltan > 0 ? `Continuar: falta${nFaltan === 1 ? '' : 'n'} ${nFaltan} dato${nFaltan === 1 ? '' : 's'} →`
+          // Sin «Continuar: faltan N datos →»: ya no hay otro formulario después
+          // (08-T22). El botón dice lo que hace, y lo que falta queda pendiente.
           : qhOpcion === 'noshow' ? `Marcar el no-show y pasar a ${destinoLabel}`
           : qhDestino === 'perdido' ? 'Dar por perdido'
           : qhDestino === 'descal' ? 'Descalificarlo'
@@ -1960,13 +1987,72 @@ export function CrmBoard({
 
       {/* Toast Deshacer (5s) tras mover una card en el tablero */}
       {undoInfo && (
-        <div style={{ position: 'fixed', left: '50%', bottom: 28, transform: 'translateX(-50%)', zIndex: 70, display: 'flex', alignItems: 'center', gap: 14, background: '#14161B', color: '#F3F5F8', padding: '12px 16px', borderRadius: 12, boxShadow: '0 12px 32px rgba(18,21,27,.35)', fontFamily: SANS, fontSize: 14 }}>
+        <div role="status" style={{ position: 'fixed', left: '50%', bottom: 28, transform: 'translateX(-50%)', zIndex: 70, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px 14px', maxWidth: 'min(640px, calc(100vw - 32px))', background: '#14161B', color: '#F3F5F8', padding: '12px 16px', borderRadius: 12, boxShadow: '0 12px 32px rgba(18,21,27,.35)', fontFamily: SANS, fontSize: 14 }}>
           <span><strong>{undoInfo.name}</strong> → {undoInfo.toLabel}</span>
+          {/* Lo que falta se AVISA, no se pide (08-T22): el movimiento ya está
+              guardado. «Completar ahora» es opcional; si nadie lo toca, queda
+              pendiente en la card y en la ficha, y MaKo lo pide después. */}
+          {!!undoInfo.pendientes?.length && (
+            <>
+              <span style={{ color: 'rgba(243,245,248,.72)', fontSize: 13 }}>
+                Queda pendiente: {undoInfo.pendientes.join(' · ')}
+              </span>
+              <button type="button" onClick={() => {
+                const l = leads.find((x) => x.id === undoInfo.id);
+                setUndoInfo(null);
+                if (l) openStageMove(l, { to: effStage(l) });
+              }} style={{ background: '#F3F5F8', border: 'none', color: '#14161B', fontWeight: 700, fontSize: 13.5, padding: '6px 12px', borderRadius: 9, cursor: 'pointer', fontFamily: SANS }}>Completar ahora</button>
+            </>
+          )}
           <button type="button" onClick={undoMove} style={{ background: 'transparent', border: '1px solid rgba(243,245,248,.35)', color: 'var(--primary-weak)', fontWeight: 600, fontSize: 13.5, padding: '6px 12px', borderRadius: 9, cursor: 'pointer', fontFamily: SANS }}>↶ Deshacer</button>
           <button type="button" onClick={() => setUndoInfo(null)} aria-label="cerrar" style={{ background: 'transparent', border: 'none', color: 'rgba(243,245,248,.6)', fontSize: 16, cursor: 'pointer', lineHeight: 1 }}>✕</button>
         </div>
       )}
     </main>
+  );
+}
+
+// ── Las dos señales de Meta, ofrecidas en la confirmación de mover (08-T22) ──
+// Mover ya no exige nada; estas dos se OFRECEN porque son las únicas que le
+// llegan a Meta, y postergadas con el resto le llegan una semana tarde o nunca
+// (ver senales-meta.ts). Un toque cada una, las dos opcionales: «Mover» anda sin
+// tocarlas. Tocar de nuevo la opción elegida la desmarca.
+function SenalesMetaChips({ ofrecer, onChange }: {
+  ofrecer: SenalesAOfrecer;
+  onChange: (v: { asistio: boolean | null; calificado: boolean | null }) => void;
+}) {
+  const [asistio, setAsistio] = useState<boolean | null>(null);
+  const [calificado, setCalificado] = useState<boolean | null>(null);
+  const fijar = (a: boolean | null, c: boolean | null) => { setAsistio(a); setCalificado(c); onChange({ asistio: a, calificado: c }); };
+  // «¿Calificado?» solo si asistió: sin asistencia updateLead lo anula, así que
+  // preguntarlo sería pedir un dato que se tira.
+  const asistioEfectiva = asistio ?? ofrecer.asistioConocida;
+  const verCalificado = ofrecer.calificado && asistioEfectiva === true;
+  const chip = (activo: boolean): CSSProperties => ({
+    padding: '6px 14px', borderRadius: 999, fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+    background: activo ? 'var(--ink)' : 'var(--surface)', color: activo ? '#F3F5F8' : 'var(--ink)',
+    border: '1px solid ' + (activo ? 'var(--ink)' : 'var(--border-strong)'),
+  });
+  const fila = (label: string, valor: boolean | null, onSi: () => void, onNo: () => void) => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+      <span style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: 600 }}>{label}</span>
+      <span style={{ display: 'inline-flex', gap: 6 }}>
+        <button type="button" aria-pressed={valor === true} onClick={onSi} style={chip(valor === true)}>Sí</button>
+        <button type="button" aria-pressed={valor === false} onClick={onNo} style={chip(valor === false)}>No</button>
+      </span>
+    </div>
+  );
+  return (
+    <div style={{ marginTop: 14, padding: '12px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.45 }}>Opcional · Meta lo usa para aprender qué anuncios te traen clientes calificados.</div>
+      {ofrecer.asistio && fila('¿Asistió a la Reunión 1?', asistio,
+        () => fijar(asistio === true ? null : true, calificado),
+        // Si no asistió, la calificación que se haya tocado ya no aplica.
+        () => fijar(asistio === false ? null : false, null))}
+      {verCalificado && fila('¿Era un lead calificado?', calificado,
+        () => fijar(asistio, calificado === true ? null : true),
+        () => fijar(asistio, calificado === false ? null : false))}
+    </div>
   );
 }
 

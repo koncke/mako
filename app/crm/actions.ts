@@ -363,8 +363,40 @@ export async function requisitosDeEtapaAction(id: number, to: string, d: StageMo
  * cómo salir. Ahora vuelve tipado y el modal lo pinta en español, con los campos.
  */
 export type StageMoveResultado =
-  | { ok: true }
+  | { ok: true; pendientes?: Step[] }
   | { ok: false; faltan: Step[]; mensaje: string };
+
+/**
+ * GUARDAR NUNCA SE BLOQUEA POR DATOS QUE FALTAN (decisión del 17/09, 08-T22).
+ *
+ * Hasta acá mover a una etapa exigía todos sus datos en el momento («ninguna
+ * blanda», 21/06 y 03/07): si faltaba uno, el movimiento no ocurría. El resultado
+ * medido fue el contrario al buscado. Mauricio, 08/09: «me pregunta un chorro de
+ * cosas… quiero nomás cambiar este… lo abandono porque no tengo tiempo de
+ * contestarlo», y actualizaba el CRM una vez por semana. La regla existía sobre
+ * todo por Meta, y a Meta le llegaban los datos una semana tarde — o nunca.
+ *
+ * Ahora el movimiento se guarda siempre, y lo que falta vuelve como `pendientes`:
+ * la UI lo muestra sin bloquear, queda en la ficha como dato por completar y
+ * MaKo lo pide después, fuera del momento en que la persona está operando. Faltar
+ * datos sigue sin ser un error; ahora tampoco es un freno.
+ *
+ * Deja una línea en el historial para que se sepa que se guardó incompleto a
+ * propósito y quién lo hizo — no es lo mismo que un dato que nadie vio.
+ */
+async function registrarPendientes(id: number, faltan: Step[], autor: string): Promise<void> {
+  if (!faltan.length) return;
+  const valor = faltan.map((f) => f.label).join(' · ');
+  try {
+    // Sin duplicar: abrir «Completar ahora» y guardar sin contestar nada volvería
+    // a escribir la misma lista. Si lo pendiente no cambió, no hay nada que contar.
+    const { data } = await (await getTenantDb()).from('lead_audit')
+      .select('valor_nuevo').eq('lead_id', id).eq('campo', 'Datos pendientes')
+      .order('created_at', { ascending: false }).limit(1);
+    if (data?.[0]?.valor_nuevo === valor) return;
+  } catch { /* sin poder comparar, se registra: mejor una línea de más que ninguna */ }
+  await logLeadEvent(id, 'Datos pendientes', valor, autor).catch(() => {});
+}
 
 /**
  * Completa un movimiento de etapa (wizard del Kanban/ficha): guarda los datos
@@ -373,17 +405,11 @@ export type StageMoveResultado =
  */
 export async function completeStageMoveAction(id: number, to: string, d: StageMoveData): Promise<StageMoveResultado> {
   const before = await getLead(id).catch(() => null);
-  const pagosExistentes = to === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
   const [stagesMove, grabable] = await Promise.all([getPipelineStages().catch(() => DEFAULT_STAGES), encuentroGrabable()]);
-  const faltan = stepsForStage(to, valoresDeRequisitos(to, before, pagosExistentes, stagesMove, d, grabable));
-  if (faltan.length) {
-    const etapa = stageMeta(stagesMove, to)?.label ?? to;
-    return {
-      ok: false,
-      faltan,
-      mensaje: `Para pasar a ${etapa} todavía falta cargar: ${faltan.map((f) => f.label).join(', ')}.`,
-    };
-  }
+  // Ya no se corta acá si falta algo (ver registrarPendientes): se guarda lo que
+  // vino y los pendientes se calculan al final, sobre el lead YA guardado — así
+  // no se reclama lo que este mismo guardado completó (el setter que se asigna
+  // solo, las cuotas recién cargadas).
 
   // Excepciones declaradas: evento en el historial (auditable) + flag persistente
   // en el lead — sin el flag, cada re-validación (gate de Insights, backstop de
@@ -507,11 +533,15 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
 
   const after = await getLead(id).catch(() => null);
   await logLeadChanges(id, before, after, autor);
+  // Lo que todavía falta, medido sobre el lead guardado.
+  const pagosDespues = to === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
+  const pendientes = after ? stepsForStage(to, valoresDeRequisitos(to, after, pagosDespues, stagesMove, {}, grabable)) : [];
+  await registrarPendientes(id, pendientes, autor);
   bust(TAG.leads, TAG.pagos);
   revalidatePath('/crm');
   revalidatePath(`/crm/${id}`);
   revalidatePath('/general');
-  return { ok: true };
+  return { ok: true, pendientes };
 }
 
 /**
@@ -672,39 +702,29 @@ export async function deleteLeadInlineAction(id: number): Promise<void> {
 export async function setLeadStageAction(
   id: number,
   stageKey: string,
-  opts?: { monto?: number | null; motivo?: string | null; asistio_j1?: boolean | null; asistio_j2?: boolean | null },
+  opts?: {
+    monto?: number | null; motivo?: string | null;
+    asistio_j1?: boolean | null; asistio_j2?: boolean | null;
+    /** Uno de los dos toques opcionales que se ofrecen al mover (ver setPipelineStage). */
+    calificado?: boolean | null;
+  },
 ): Promise<StageMoveResultado> {
   const before = await getLead(id).catch(() => null);
-  // Backstop server-side: mover a una etapa exige sus datos obligatorios (los
-  // "posibles de conseguir": fechas de reunión, Fathom solo si la reunión ya
-  // pasó, monto para Ganado, motivo para perdidos). La UI ya lo exige; esto lo
-  // garantiza para cualquier caller (MaKo, API). Se evalúa con el MISMO builder
-  // que el wizard (`valoresDeRequisitos`), no con una copia paralela.
+  // Mover se guarda SIEMPRE (ver registrarPendientes). Lo que la etapa pide y
+  // falta se mide igual —con el MISMO builder que el wizard, no una copia— y
+  // vuelve como `pendientes` para que la UI lo muestre sin frenar a nadie.
   const [stagesMove, grabable] = await Promise.all([getPipelineStages().catch(() => DEFAULT_STAGES), encuentroGrabable()]);
-  const pagosExistentes = stageKey === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
-  const faltanMove = stepsForStage(stageKey, valoresDeRequisitos(stageKey, before, pagosExistentes, stagesMove, {
-    asistioJ1: opts?.asistio_j1,
-    asistioJ2: opts?.asistio_j2,
-    monto: opts?.monto,
-    motivo: opts?.motivo,
-  }, grabable));
-  // Faltar datos no es una excepción: el board lo usa para abrir el wizard en vez
-  // de tragarse el error y revertir la card en silencio.
-  if (faltanMove.length) {
-    const etapa = stageMeta(stagesMove, stageKey)?.label ?? stageKey;
-    return {
-      ok: false,
-      faltan: faltanMove,
-      mensaje: `Para pasar a ${etapa} todavía falta cargar: ${faltanMove.map((f) => f.label).join(', ')}.`,
-    };
-  }
-  await setPipelineStage(id, stageKey, opts);
+  const autor = await autorActual();
+  await setPipelineStage(id, stageKey, { ...opts, autor });
   const after = await getLead(id).catch(() => null);
-  await logLeadChanges(id, before, after, await autorActual());
+  await logLeadChanges(id, before, after, autor);
+  const pagosDespues = stageKey === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
+  const pendientes = after ? stepsForStage(stageKey, valoresDeRequisitos(stageKey, after, pagosDespues, stagesMove, {}, grabable)) : [];
+  await registrarPendientes(id, pendientes, autor);
   bust(TAG.leads, TAG.pagos);
   revalidatePath('/crm');
   revalidatePath('/general');
-  return { ok: true };
+  return { ok: true, pendientes };
 }
 
 /**
