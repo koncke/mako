@@ -318,6 +318,50 @@ si queda `/api/agente/contexto` adentro.
 
 ---
 
+## La instalación se probó en vivo y se trabó tres veces: la pantalla tenía DOS caminos y uno estaba en letra chica
+
+**Vive en:** `app/_components/TutorialAgente.tsx` · `lib/agente-skill.ts` ·
+**Encontrado:** 09/09/2026, instalándole la skill al dueño en su Claude, con él mirando.
+
+El dueño **no usa la terminal: usa la app de escritorio**, y la pantalla estaba escrita para
+la terminal con la app como nota al pie. Tres tropiezos, y ninguno es un bug de código:
+
+1. **Dos slash-commands pegados en un solo mensaje NO corren.** El bloque copiaba
+   `/plugin marketplace add …` y `/plugin install …` juntos, con un «uno por vez» escrito
+   arriba que nadie lee cuando hay un botón que dice «Copiar los comandos». Hubo que
+   decírselo por voz. Lo que destrabó fue el bloque alternativo —pedirle la instalación con
+   palabras—, que vivía abajo, en gris y en letra chica.
+2. **«Ponlo ahí» sobre un archivo que empieza con punto es una instrucción imposible.** La
+   skill decía «pídeselo al usuario y guárdalo ahí con permisos 600», sin la ruta absoluta y
+   sin avisar que el explorador de Windows esconde los dotfiles. Textual, del dueño:
+   «Nomás me dice que lo ponga ahí. No dice dónde». Terminó apretando Ctrl+Shift+. para ver
+   la carpeta oculta.
+3. **El botón de copiar decía «¡copiado!» en el bloque equivocado.** Las claves de copiado
+   eran dos para cuatro cosas copiables, y el bloque de la app usaba la del token.
+
+**Las reglas que quedan:**
+
+- **Dos caminos distintos no son uno principal y una nota al pie: se PREGUNTA cuál.** Si la
+  pantalla sabe que hay dos entornos, pregunta en cuál está la persona y muestra uno. Una
+  alternativa en gris abajo de todo la lee quien ya no la necesita.
+- **Un botón que copia dos comandos es un botón que arma el error.** Si hay que mandarlos de
+  a uno, se copian de a uno; el texto que lo aclara no alcanza contra el botón que lo
+  contradice.
+- **Una instrucción sobre un archivo dice la RUTA ABSOLUTA, resuelta**, y si el archivo
+  empieza con punto lo dice y da el atajo para ver ocultos. Un `~/.algo` no es una ruta para
+  quien no vive en una terminal.
+- **Y el dato secreto no viaja por donde no tiene que viajar.** El token vive en un archivo
+  justamente para no pasar por Anthropic, así que la skill da el comando armado para que lo
+  corra la PERSONA en su terminal. Pegarlo en el chat sigue estando, como alternativa
+  explícita y avisando que ahí sí viaja.
+- **Una clave de estado de UI por cosa**, o el «¡copiado!» aparece donde no se apretó nada.
+
+⚠️ Y lo que esto dice del método: **el que instala también escribió la pantalla**, así que
+para él la letra chica no es chica. Lo único que encontró los tres tropiezos fue verlo
+instalar a alguien que no sabe dónde está parado.
+
+---
+
 ## Lo que quedó sin hacer (métricas del agente)
 
 - **El reporte no tiene grano `trimestre`.** Se pide con `desde`/`hasta` y `grano=mes`, que
