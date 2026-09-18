@@ -2924,6 +2924,16 @@ leads, 66 de más de 14 días, con un texto que dice «vi que dejaste tus datos�
 No confundir con `modo: 'automatico'`: ese decide qué pasa cuando el lead CONTESTA; esto,
 qué pasa con lo que SALE.
 
+⚠️ **PRENDER una secuencia no la aplica «de acá en adelante»: la inscribe sobre todo el
+acumulado.** El cron (`comprometerInscripciones`) toma la cohorte entera de `VENTANA_DIAS = 30`,
+y el camino por evento del webhook (el «de acá en adelante») es solo una de las dos entradas.
+El «filtro duro de antigüedad» que Mauricio fijó el 31/07 para la bienvenida —«si pasan días…
+nos van a tratar como extraños»— nunca se había implementado. Medido el 17/09 sobre la 198
+(`instant_form_sin_agenda`): sin tope entran **125**; con 24 h, 5; con 48 h, 11; con 72 h, 15;
+con 7 días, 32. Ahora es `estrategia.antiguedad_max_horas` (de5b4c56), `null` = sin tope. Vale
+en el plan, en el commit y en `enrolarPorEvento`. **Regla: antes de activar una secuencia,
+contar cuántos entran EN LA PRIMERA CORRIDA**, no cuántos van a entrar por día.
+
 ⚠️ **La trampa que casi lo deja muerto al nacer: guardar la estrategia la RECONSTRUYE
 campo por campo.** `app/api/chat-agent/secuencias/route.ts` pasa el body por
 `parseEstrategia`, así que un campo que el cliente no manda vuelve en su default. El perfil
