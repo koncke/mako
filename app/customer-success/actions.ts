@@ -26,6 +26,7 @@ import { getTenantDb, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 import { getPerfil } from '@/lib/perfil';
 import { RECURSO_TAREA, type EstadoCliente } from '@/lib/cs-cartera';
 import { APP_BASE_URL } from '@/lib/app-url';
+import { avancePorClase, vistasSinContestar, type AvanceClase } from '@/lib/cs-avance-clases';
 
 async function wsActual(): Promise<number> {
   return (await getWorkspaceActual()) ?? OWNER_WS;
@@ -139,6 +140,42 @@ export async function sincronizarWhopAction(): Promise<ResultadoSync> {
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo sincronizar.' };
   }
+}
+
+// ── Qué vio y qué contestó, clase por clase ─────────────────────────────────
+
+export type ResultadoAvance =
+  /** `sinContestar` viene calculado de acá y no en la ficha: para calcularlo allá
+   *  habría que importar `cs-avance-clases`, que importa el catálogo entero del
+   *  programa —44 clases con sus guiones— y lo mete en el bundle del navegador.
+   *  Ningún componente cliente de CS lo importa hoy, y por eso `totalClases` viaja
+   *  como número. */
+  | { ok: true; clases: AvanceClase[]; sinContestar: number }
+  | { ok: false; error: string };
+
+/**
+ * Clase por clase, qué vio este cliente y qué hizo con su tarea. La pide la ficha
+ * al abrirse, en vez de viajar dentro de la cartera: son ~44 filas por cliente, y
+ * la grilla no las necesita para pintar las tarjetas.
+ *
+ * ⚠️ UN ERROR DE LECTURA NO ES «NO VIO NADA». `bloquesDeCliente` devuelve `[]`
+ * cuando la consulta falla, y acá eso se pintaría como «todavía no vio ninguna
+ * clase» — la misma pantalla que un cliente que de verdad no entró. Por eso se lee
+ * directo y el error vuelve como error: Mauricio tiene que poder distinguir «no
+ * hay» de «no pude averiguarlo».
+ */
+export async function avanceDelClienteAction(leadId: number): Promise<ResultadoAvance> {
+  const cliente = await clienteDelWorkspace(leadId);
+  if (!cliente) return { ok: false, error: 'Ese cliente no está en tu cartera.' };
+
+  const db = await getTenantDb();
+  const { data, error } = await db.from('cs_respuestas')
+    .select('clase_id, area, estado, visto_at, contestada_at, aprobada_at')
+    .eq('lead_id', leadId);
+  if (error) return { ok: false, error: `No pude leer su avance: ${error.message}` };
+
+  const clases = avancePorClase((data ?? []) as Parameters<typeof avancePorClase>[0]);
+  return { ok: true, clases, sinContestar: vistasSinContestar(clases).length };
 }
 
 // ── El estado del cliente dentro del programa ───────────────────────────────

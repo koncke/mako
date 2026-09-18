@@ -128,6 +128,10 @@ export async function registrarAvanceDeClase(input: {
   ws: number;
   leccionId: string;
   email: string | null;
+  /** Cuándo la completó DE VERDAD. El webhook no lo pasa (se dispara al completar,
+   *  así que «ahora» es esa hora); el backfill SÍ, con el `completed_at` que da
+   *  Whop — si no, estamparía todo lo anterior con la fecha del día del backfill. */
+  vistoAt?: string;
 }): Promise<ResultadoAvance> {
   // 1. Lección → clase, con auto-reparación.
   let mapa = await getMapaLecciones();
@@ -143,20 +147,64 @@ export async function registrarAvanceDeClase(input: {
   if (!leadId) return { ok: false, motivo: 'cliente-desconocido' };
 
   // 3. Solo `visto_at`. El estado lo mueve el cliente al contestar.
+  await anotarVisto(leadId, claseId, input.vistoAt ?? new Date().toISOString());
+  return { ok: true, claseId, leadId };
+}
+
+/**
+ * Anota que un cliente vio una clase, sin retroceder nunca la fecha.
+ *
+ * ⚠️ LA ESCRITURA SE COMPRUEBA, Y SI FALLA SE LANZA. supabase-js NO lanza ante un
+ * error de base: lo devuelve en `{ error }`. Esto hacía el upsert y no lo miraba,
+ * así que `registrarAvanceDeClase` contestaba `{ ok: true, clase, lead }` pasara lo
+ * que pasara — y esa respuesta es exactamente la que se tomó como prueba de que el
+ * camino andaba («probado con un evento real: m7c1, lead 91»). Probaba el CRUCE de
+ * ids, no la escritura. Al ir a verlo el 17/09, `cs_respuestas` tenía cero filas.
+ *
+ * Y el webhook ya estaba preparado para esto: su `catch` devuelve 500 «a propósito:
+ * acá SÍ queremos el reintento de Whop». Pero para llegar al catch hay que lanzar,
+ * y un `{ error }` ignorado no lanza. El camino de reintento existía y estaba muerto.
+ *
+ * ⚠️ Y LA FECHA NO RETROCEDE: «vio la clase» es la PRIMERA vez. Un repaso un mes
+ * después volvía a disparar el webhook y movía la fecha hacia adelante; peor, un
+ * backfill de lo viejo corriendo después de un webhook nuevo la habría pisado con
+ * una más reciente. Se escribe solo si no había fecha o si la nueva es anterior.
+ */
+export async function anotarVisto(leadId: number, claseId: string, vistoAt: string): Promise<'nuevo' | 'antes' | 'igual'> {
   const db = await getTenantDb();
-  const ahora = new Date().toISOString();
-  await db.from('cs_respuestas').upsert(
-    { lead_id: leadId, clase_id: claseId, area: '', visto_at: ahora, updated_at: ahora },
+  const { data: prev, error: errLeer } = await db.from('cs_respuestas')
+    .select('visto_at').eq('lead_id', leadId).eq('clase_id', claseId).eq('area', '').maybeSingle();
+  if (errLeer) throw new Error(`no pude leer cs_respuestas: ${errLeer.message}`);
+
+  const actual = (prev as { visto_at?: string | null } | null)?.visto_at ?? null;
+  if (actual && actual <= vistoAt) return 'igual';
+
+  const { error } = await db.from('cs_respuestas').upsert(
+    { lead_id: leadId, clase_id: claseId, area: '', visto_at: vistoAt, updated_at: new Date().toISOString() },
     { onConflict: 'workspace_id,lead_id,clase_id,area' },
   );
-  return { ok: true, claseId, leadId };
+  if (error) throw new Error(`no pude anotar visto_at: ${error.message}`);
+  return actual ? 'antes' : 'nuevo';
 }
 
 /** El lead de este alumno, o null. Devuelve null en vez de adivinar: adivinar mal
  *  acá le escribe avance a OTRO cliente. */
-async function leadDeAlumno(email: string | null): Promise<number | null> {
+export async function leadDeAlumno(email: string | null): Promise<number | null> {
   if (!email || !email.includes('@')) return null;
   const db = await getTenantDb();
-  const { data } = await db.from('leads').select('id').ilike('email', email.trim()).limit(1).maybeSingle();
-  return (data as { id?: number } | null)?.id ?? null;
+  // ⚠️ `ilike` es un PATRÓN, no una igualdad sin mayúsculas: `_` es «cualquier
+  // carácter» y `%` es «cualquier cosa». Pasado crudo, `juan_perez@x.com` también
+  // matchea `juanXperez@x.com` — y `_` es de lo más común en un email. El comentario
+  // de arriba lo dice: adivinar mal acá le escribe avance a OTRO cliente. Se escapan
+  // los tres comodines (la barra primero, que es el carácter de escape).
+  const literal = email.trim().replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+  const { data } = await db.from('leads').select('id, estado_lead').ilike('email', literal).limit(10);
+  const filas = (data as { id: number; estado_lead: string | null }[] | null) ?? [];
+  if (filas.length === 1) return filas[0].id;
+  // Varios leads con el mismo email pasa —un lead que volvió a entrar por otro
+  // formulario—. El programa lo cursa un CLIENTE, así que si exactamente uno es
+  // `ganado`, es ése. Si no hay ninguno o hay varios, no se elige: es la misma regla
+  // que el mapa de lecciones, y la contraria le carga el avance al primero que salga.
+  const ganados = filas.filter((f) => f.estado_lead === 'ganado');
+  return ganados.length === 1 ? ganados[0].id : null;
 }

@@ -157,7 +157,13 @@ async function todas<T>(path: string, ws?: number, tope = 20): Promise<WhopRes<T
     cursor = r.data.page_info.end_cursor;
     if (!cursor) return { ok: true, data: acc };
   }
-  return { ok: true, data: acc };
+  // ⚠️ SE ACABÓ EL TOPE CON PÁGINAS TODAVÍA POR LEER: esto es un error, no un
+  // resultado. Antes se devolvía `{ ok: true }` con lo acumulado, o sea una lista
+  // CORTADA con la misma cara que una completa — y para las interacciones, que
+  // crecen con clientes × 44 clases, un corte deja clientes enteros «sin haber visto
+  // nada». Es «un número redondo es una hipótesis de truncamiento» (AGENTS.md), pero
+  // del lado que lo puede evitar: el que pagina sabe que cortó, y lo dice.
+  return { ok: false, error: `Whop devolvió más de ${tope} páginas en ${path.split('?')[0]}: la lista quedó incompleta y no la doy por buena.` };
 }
 
 // ── Lectura ──────────────────────────────────────────────────────────────────
@@ -182,15 +188,20 @@ export async function listarLecciones(capituloId: string, ws?: number): Promise<
   return todas<Leccion>(`/course_lessons?chapter_id=${encodeURIComponent(capituloId)}`, ws);
 }
 
+// Estos dos crecen con la cartera —alumnos, y alumnos × clases—, así que llevan un
+// tope de páginas mucho más alto que el de los listados de estructura (cursos,
+// capítulos, lecciones), que son del tamaño del programa y no del de los clientes.
+const TOPE_POR_CLIENTES = 400;
+
 /** Los alumnos de un curso, con su avance. Es la mitad del «quién se quedó». */
 export async function listarAlumnos(cursoId: string, ws?: number): Promise<WhopRes<Alumno[]>> {
-  return todas<Alumno>(`/course_students?course_id=${encodeURIComponent(cursoId)}`, ws);
+  return todas<Alumno>(`/course_students?course_id=${encodeURIComponent(cursoId)}`, ws, TOPE_POR_CLIENTES);
 }
 
 /** Qué lecciones tocó cada alumno. La otra mitad: `listarAlumnos` da el total,
  *  esto da CUÁL, que es lo que decide qué bloque toca en la próxima junta. */
 export async function listarInteracciones(cursoId: string, ws?: number): Promise<WhopRes<Interaccion[]>> {
-  return todas<Interaccion>(`/course_lesson_interactions?course_id=${encodeURIComponent(cursoId)}`, ws);
+  return todas<Interaccion>(`/course_lesson_interactions?course_id=${encodeURIComponent(cursoId)}`, ws, TOPE_POR_CLIENTES);
 }
 
 // ── Escritura ────────────────────────────────────────────────────────────────
