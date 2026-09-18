@@ -2712,6 +2712,25 @@ lo hacen funcionar:
   cualquier pieza nueva, incluidas las que el sistema NO puede medir: a quien sube un video a
   un host que no expone nada se le prometía una retención que no iba a llegar nunca.
 
+# Un campo nuevo en un objeto que se guarda ENTERO se busca en TODOS los que lo escriben
+
+Lo de arriba es el parser. El otro lado son los ESCRITORES: si un JSON se guarda completo
+(la `estrategia` de una secuencia, un setting) y la API lo pasa por su parser, todo campo que
+el cliente no mande vuelve en su default. Un campo nuevo que se agrega al tipo, al parser y a
+UNA pantalla queda vivo hasta que alguien guarda desde OTRA — y ahí se apaga sin decir nada.
+
+Medido el 17/09/2026 con `estrategia.envio_automatico` (si una secuencia le escribe sola a un
+lead que no pagó): el perfil de la secuencia armaba el objeto a mano, así que **cambiar el
+gancho apagaba el auto-envío**; el wizard de redacción, que reescribe la estrategia entera,
+lo mismo. El typecheck no avisó: `{ ...est, x }` y los literales construidos desde otro
+objeto pasan aunque falte el campo en la intención.
+
+**Regla:** al agregar un campo, grepeá quién construye el objeto (`estrategia: {`,
+`parseEstrategia(`, los spreads) y hacé que cada uno lo MANDE — lo edite o lo conserve con
+`existente?.campo ?? default`. Y si el campo decide algo con consecuencias (mandar un
+mensaje, cobrar), el default es el que no las tiene y solo un valor literal lo prende.
+Ver `docs/hallazgos-comunicacion.md`, «La post-agenda "prendida"…».
+
 # Un bloqueo derivado de una versión GLOBAL bloquea a todos, incluidos los que no ganan nada
 
 Un guard que compara «versión instalada» contra «versión actual» y frena, frena a todo el

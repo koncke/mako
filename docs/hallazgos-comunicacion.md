@@ -2908,8 +2908,25 @@ que re-vincular la línea iba a convertir «falla cada 24 h» en «4 borradores 
 **La regla que queda: antes de decir «esto se destraba con X», recorré el camino ENTERO
 hasta el envío.** La primera rama que corta (la línea caída) tapa a la segunda (el
 borrador), y arreglar la primera deja la segunda a la vista recién en producción.
-*Pendiente: decisión de Martín (auto-envío por secuencia vs. borradores en tanda), que es la
-misma de la campaña al residuo (09-T62).*
+**Decidido (Martín, 17/09): excepción POR SECUENCIA, no apagar la regla.** Cada estrategia
+tiene `envio_automatico` (solo un `true` literal lo prende; default `false`, así que lo viejo
+sigue igual). El motor manda solo si `sec.envio_automatico || esLeadCliente(lead)`. Las
+post-agenda de audios nacen con `true`; en ws1 se prendió en 212 y 213 (7c0d1d68). La
+bienvenida (198) quedó sin prender: activarla con auto-envío le escribe a un backlog de 126
+leads, 66 de más de 14 días, con un texto que dice «vi que dejaste tus datos».
+No confundir con `modo: 'automatico'`: ese decide qué pasa cuando el lead CONTESTA; esto,
+qué pasa con lo que SALE.
+
+⚠️ **La trampa que casi lo deja muerto al nacer: guardar la estrategia la RECONSTRUYE
+campo por campo.** `app/api/chat-agent/secuencias/route.ts` pasa el body por
+`parseEstrategia`, así que un campo que el cliente no manda vuelve en su default. El perfil
+de la secuencia armaba el objeto a mano, sin el campo nuevo: **cambiar el gancho APAGABA el
+auto-envío sin decir nada**. Lo mismo el wizard de redacción, que reescribe la estrategia
+entera. **Regla: un campo nuevo de `Estrategia` se busca en TODOS los que la escriben**
+(`SecuenciaPerfil.guardar`, `SecuenciaWizard`, `secuencias-audios.estrategiaDe`, y los que
+hacen spread: `chat-agent-handoff`, `setting-secuencias`, `chatbot.run`). El typecheck no
+avisa: el campo es obligatorio en el tipo, pero `{...est, x}` y los literales parciales
+pasan igual.
 
 **Y de paso, dos bugs del desenlace que sí se arreglaron:**
 
@@ -4918,6 +4935,12 @@ lead real. Ni el interruptor, ni la pantalla, ni el estado de la instancia lo pr
 hacerlo, hay que mirar que `evolution_instancias.estado` pase a `conectado`, porque el motor decide
 con esa fila (`lib/nutricion.ts:962`) y ese campo ya se midió mintiendo en las dos direcciones
 (60e8bd93). Tampoco se sabe por qué no hubo intentos después del 10/9.
+
+**Actualizado el 17/09:** el motor ya no decide con la fila (sonda viva, 31856521), y la línea no
+era el único corte: aunque se re-vinculara, a un agendado sin pago le quedaba un borrador. Los
+intentos se cortaron el 10/9 porque el desenlace mató a las 4 inscripciones por «silencio» sin
+haberles mandado nada. Las dos cosas, en «La post-agenda "prendida" no podía mandar un solo
+audio, ni con la línea conectada».
 
 **Vive en:** lib/nutricion.ts:962 · lib/secuencias-audios.ts · app/chatbot/ChatAgentApp.tsx · *2026-09-16*
 
