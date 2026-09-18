@@ -99,7 +99,39 @@ export const esAmpliarFila = (f: { enriquece?: { id: string }; ampliar?: boolean
 
 /** Fila con la marca de a qué borrador pertenece, para aplicar cada uno por separado. */
 /** `proyectoPropuesto` = el nombre que dijo MaKo, aunque ese proyecto no exista todavía. */
-type FilaConProp = FilaTarea & { propId: string; proyectoPropuesto?: string };
+/** `orig` = la tarea TAL CUAL vino del borrador. Todo lo que el modal manda al server
+ *  parte de ella: lo que la pantalla no edita viaja sin que nadie lo tenga que listar. */
+type FilaConProp = FilaTarea & { propId: string; proyectoPropuesto?: string; orig?: PropTarea };
+
+/**
+ * La fila como la espera el server. UNA sola definición para el autoguardado, el guardado
+ * del cruce y el «Cargar»: si divergen, uno de los tres pierde campos.
+ *
+ * ⚠️ PARTE DE LA TAREA ORIGINAL (`orig`) Y PISA SOLO LO QUE ESTA PANTALLA EDITA. Antes era
+ * una lista de campos, y el autoguardado REESCRIBE el borrador: todo campo que la lista no
+ * nombraba se borraba la primera vez que alguien abría el modal, sin error. `deadline` ya
+ * estaba afuera (medido el 17/9: hoy ningún borrador trae uno, 0 de 2.281 tareas, así que
+ * todavía no se había perdido nada). La primera víctima real iba a ser el veredicto del
+ * criterio de Mauricio. El único filtro de campos es el del server (`limpiarTarea`,
+ * lib/plan-propuesta.ts).
+ *
+ * De quién es SÍ se pisa: una tarea que reasignaste a «Mías» no puede llegar diciendo que
+ * es de otro porque así venía del borrador. `undefined` pisa igual —y JSON lo omite—, que
+ * es justo «ya no es de nadie más».
+ */
+export function filaAlServer(
+  f: Pick<FilaConProp, 'orig' | 'titulo' | 'detalle' | 'prioridad' | 'dueño' | 'dueñoEmail' | 'esDeOtro' | 'minuto' | 'minutos' | 'incluir' | 'enriquece' | 'ampliar' | 'omitir'>,
+  proyecto: string | undefined,
+): Record<string, unknown> {
+  return {
+    ...f.orig,
+    titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad, proyecto,
+    dueno: f.dueño, duenoEmail: f.dueñoEmail, esDeOtro: f.esDeOtro,
+    minuto: f.minuto, minutos: f.minutos, incluir: f.incluir,
+    // El resultado del cruce viaja con la tarea: es lo que evita rehacerlo.
+    enriquece: f.enriquece, ampliar: f.ampliar, omitir: f.omitir,
+  };
+}
 
 import { useCapaModal } from '@/app/_components/pila-modales';
 
@@ -199,6 +231,7 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
     };
     return props.flatMap((p) => p.tareas.map((t) => ({
       propId: p.id,
+      orig: t,
       // El borrador se descartó: la fila se sigue viendo, TACHADA. Que lo que decidiste
       // no hacer desaparezca de la pantalla es peor que verlo: al volver a la reunión no
       // se entiende qué pasó con cada cosa.
@@ -365,11 +398,13 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
         // humana podía dejar la misma tarea escrita dos veces.
         // `enriquece` y `ampliar` van: con el id del cruce el server AMPLÍA esa tarjeta
         // en vez de re-adivinar por título (que es léxico y crea duplicados).
-        .map((f) => ({ titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad, proyecto: nombreProyecto(f.proyectoId) ?? (f.proyectoPropuesto || undefined), minuto: f.minuto, minutos: f.minutos, enriquece: f.enriquece, ampliar: f.ampliar })),
+        // La MISMA forma que el autoguardado (`filaAlServer`): lo que el modal no edita
+        // llega igual, y de quién es lo decide lo que hiciste acá.
+        .map(aPayload),
       // Lo que queda del lado de otras personas (con las reasignaciones que hiciste
       // recién): el borrador NO se cierra mientras haya algo para repartir.
       restantes: filas.filter((f) => f.propId === p.id && f.esDeOtro)
-        .map((f) => ({ titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad, dueno: f.dueño, duenoEmail: f.dueñoEmail, esDeOtro: true, minuto: f.minuto, minutos: f.minutos })),
+        .map((f) => ({ ...aPayload(f), esDeOtro: true })),
     })).filter((l) => l.tareas.length > 0);
     const j = await api({ action: 'aplicar-lote', lotes });
     setGuardando('');
@@ -407,16 +442,8 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
   // AUTOSAVE de la revisión. Reasignar veinte tareas y corregirles el texto es trabajo
   // real; vivía solo en el estado de este modal y un F5 —o cerrar y volver— lo borraba
   // entero. Se guarda con retardo (no en cada tecla) y nunca durante el aplicado.
-  /** La fila como la espera el server. Una sola definición: el autosave y el guardado
-   *  inmediato del cruce mandan lo MISMO — si divergen, uno de los dos pierde campos. */
-  const aPayload = (f: FilaConProp) => ({
-    titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad,
-    proyecto: nombreProyecto(f.proyectoId) ?? (f.proyectoPropuesto || undefined),
-    dueno: f.dueño, duenoEmail: f.dueñoEmail, esDeOtro: f.esDeOtro,
-    minuto: f.minuto, minutos: f.minutos, incluir: f.incluir,
-    // El resultado del cruce viaja con la tarea: es lo que evita rehacerlo.
-    enriquece: f.enriquece, ampliar: f.ampliar, omitir: f.omitir,
-  });
+  /** La fila como la espera el server: ver `filaAlServer`, arriba. */
+  const aPayload = (f: FilaConProp) => filaAlServer(f, nombreProyecto(f.proyectoId) ?? (f.proyectoPropuesto || undefined));
   const primeraRef = useRef(true);
   useEffect(() => {
     if (primeraRef.current) { primeraRef.current = false; return; }

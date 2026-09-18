@@ -2317,6 +2317,13 @@ confirmación **autoguarda las tareas del borrador cada 900 ms** con los campos 
 borra la primera vez que alguien abre la pantalla, sin error. Es la quinta lista que se come campos, y
 la única que además **escribe** lo que recortó.
 
+**Actualización, mismo día:** el modal ya no se come campos. Cada fila guarda la tarea
+original del borrador (`orig`) y `filaAlServer` parte de ella y pisa solo lo que la pantalla
+edita (tests/modal-no-borra-campos.test.ts). El único filtro de campos que queda es el del
+server, `limpiarTarea`: **un campo nuevo por tarea se agrega AHÍ y listo**. `deadline` ya
+estaba afuera de la lista vieja, pero no se perdió nada: medido, 0 de 2.281 tareas de
+borradores traen fecha, porque `reunion-auto` nunca la copia.
+
 **La salida:** el cliente es de la REUNIÓN, así que va en columnas del borrador
 (`plan_propuestas.cliente_nombre`, mig 0160), que ese autoguardado no toca. El tipo
 mío/cliente/tercero no se guarda: se calcula al aplicar con `tipoDeResponsable`
