@@ -844,3 +844,113 @@ exponga el temario tiene que hacer el mismo corte.
 
 **Vive en:** `lib/programa-catalogo.ts` (`atoro`, `puntos`, `graba`) · `lib/cs-historico.ts` ·
 *2026-09-16 api-mako-areas*
+
+---
+
+## La «prueba» de que el webhook andaba era su valor de retorno, no la escritura
+
+**Vive en:** `lib/cs-avance.ts` (`anotarVisto`) · `app/api/webhooks/whop/route.ts`
+
+**El síntoma, el 17/09:** el brief de la tarea 09-T69 daba por probado el camino
+Whop → MaKo «con un evento real: {clase: m7c1, lead: 91}», y pedía verificar la pantalla
+nueva con esa clase. `cs_respuestas` tenía **cero filas**. No las de ese lead: cero en
+total, contra la base correcta (1.463 leads, el 91 existe).
+
+**Lo que había:** `registrarAvanceDeClase` hacía el `upsert` y no miraba su `error`.
+supabase-js **no lanza** ante un error de base: lo devuelve en `{ error }`. Así que la
+función contestaba `{ ok: true, clase, lead }` pasara lo que pasara con la escritura — y
+ese `{ clase, lead }` es literalmente lo que el webhook devuelve en el cuerpo. **La prueba
+probaba el CRUCE de ids (lección → clase, email → lead), no que se hubiera escrito algo.**
+
+**Y el diseño ya estaba preparado para esto, que es lo que más cuesta ver:** el `catch`
+del webhook devuelve 500 con un comentario que dice «a propósito: acá SÍ queremos el
+reintento de Whop». Pero para llegar al `catch` hay que lanzar, y un `{ error }` ignorado
+no lanza. **El camino de reintento existía, estaba pensado y estaba muerto.**
+
+> **La regla: toda escritura de supabase-js mira su `{ error }` y lo convierte en lo que
+> el llamador espera.** Y al revés: el valor que devuelve una función que escribe NO es
+> evidencia de que escribió. Para verificar una escritura se lee la base después — que
+> es exactamente lo que hace `scripts/ensayo-bucle-cs.ts` y por lo que existe.
+
+## Por qué no hay datos: el curso del programa está OCULTO y tiene cero alumnos
+
+**Vive en:** Whop, curso `cors_MChFCUZK1T2e8` · `scripts/cs-backfill-vistos.ts`
+
+Con la escritura arreglada, la tabla vacía podía ser otra cosa: el backfill en simulación
+contra Whop real dio **1 curso, 13 capítulos, 0 alumnos, 0 interacciones**.
+
+⚠️ «0 alumnos» podía ser «no tengo permiso para listarlos» — la API de otras plataformas
+contesta lo mismo en los dos casos. Se descartó leyendo con la MISMA key la estructura
+del curso (13 capítulos, sus lecciones): la key tiene acceso. **El curso está en
+`visibility: hidden` y ningún cliente fue dado de alta en él.** Es la dependencia 09-T56
+(«clientes dados de alta en Whop con el mismo email del CRM»), y hasta que eso pase la
+pantalla clase-por-clase va a mostrar su estado vacío para los 13 clientes.
+
+Cuando se den de alta: `NODE_OPTIONS="--conditions=react-server" npx tsx
+scripts/cs-backfill-vistos.ts` simula; con `--escribir` escribe. La lista de «alumnos de
+Whop que NO son ningún cliente del CRM» que imprime al final es la parte más útil: casi
+siempre es alguien que compró con otro email, y eso no lo puede adivinar el código.
+
+## En los módulos por área, la fila sin área es la marca de «vio», no la tarea
+
+**Vive en:** `lib/cs-avance-clases.ts` · `lib/cs-cartera.ts` (sin arreglar, ver abajo)
+
+`MODULOS_POR_AREA` son **cuatro** (m6, m7, m8, m9), no uno. Ahí el video es el mismo
+para todo el cliente pero la tarea se contesta una vez por área, en su propia fila. El
+webhook escribe `visto_at` en la fila **sin** área, que queda en `pendiente` para
+siempre porque nadie contesta sobre ella.
+
+Leída como si fuera la tarea, una clase contestada y aprobada en todas sus áreas figura
+«sin contestar» — y encima como «la vio y no la contestó». `avancePorClase` toma la tarea
+de las filas por área y hace valer a la clase lo que su área **menos** avanzada.
+
+⚠️ **Y la trampa espejo cayó en mi propio código antes de commitear:** filtraba las
+clases «con señal» mirando la tarea agregada, y como la agregada es la del área menos
+avanzada, una clase con un área APROBADA y otra sin empezar valía «sin contestar» y
+**desaparecía de la lista**. Lo cazó un test (`tests/cs-avance-clases.test.ts`), que
+contra ese código daba `[]`. «Tiene señal» y «su tarea no está en cero» son preguntas
+distintas.
+
+## `ilike` es un patrón, y `_` es de lo más común en un email
+
+**Vive en:** `lib/cs-avance.ts` (`leadDeAlumno`)
+
+El cruce alumno de Whop → cliente del CRM hacía `.ilike('email', email)` con el email
+crudo. `ilike` no es «igual sin mayúsculas»: `_` es un comodín de un carácter y `%` de
+cualquier cosa. `juan_perez@x.com` matcheaba `juanXperez@x.com`, y el comentario de la
+propia función dice por qué importa: «adivinar mal acá le escribe avance a OTRO
+cliente». Se escapan los tres comodines. Y con varios leads para un email —pasa, un lead
+que volvió a entrar por otro formulario— se queda con el único `ganado`; si no hay uno
+solo, no elige.
+
+## Whop paginaba hasta un tope y devolvía lo cortado como completo
+
+**Vive en:** `lib/whop.ts` (`todas`)
+
+Al llegar a 20 páginas con `has_next_page` todavía en `true`, devolvía `{ ok: true }` con
+lo acumulado: una lista cortada con la misma cara que una completa. Ahora es un error.
+
+Para las interacciones (clientes × 44 clases) el corte dejaba clientes enteros «sin haber
+visto nada». Pero **para el sincronizador del programa lo parcial era PEOR que un error**:
+`cs-sync-whop` es idempotente por título, así que una lección que no aparece en la lista
+cortada la vuelve a crear — duplicada, en el Whop de Mauricio. Alumnos e interacciones,
+que crecen con la cartera, suben su tope a 400 páginas.
+
+## Lo que quedó SIN hacer, con el archivo donde vive
+
+- **`cartera()` cuenta «vio y no contestó» mirando solo las filas sin área**
+  (`lib/cs-cartera.ts`, `bs = respuestas.filter(b => !b.area)`). En los módulos por área
+  eso cuenta como «vista sin contestar» una clase contestada en todas sus áreas, y le
+  cambia la cancha al cliente. No se tocó porque el 17/09 otra sesión tenía ese archivo
+  a medio editar (un barrido de paginación con `leerTodo`) y reescribía justo esa
+  lectura. El arreglo es usar `avancePorClase` de `lib/cs-avance-clases.ts` en vez de
+  recalcular: una regla, un lugar.
+- **Dos reglas para la misma pregunta.** `leadDeAlumno` (`lib/cs-avance.ts`) y
+  `ganadosPorEmail` (`lib/api-mako/areas/cs.run.ts`, la acción `ver_avance_whop`) cruzan
+  alumno de Whop con cliente del CRM, y lo hacen distinto: una con `ilike` escapado y
+  desempate por `ganado`, la otra por igualdad exacta en minúsculas. Hoy dan lo mismo
+  con los datos que hay; el día que un email tenga mayúsculas raras o dos leads, van a
+  contestar distinto sobre el mismo alumno.
+- **La vista con filas no se verificó en el navegador**, porque no existe una sola fila
+  que mostrar. Está cubierta por tests; el día que haya alumnos en Whop, abrir la ficha
+  de uno en `/customer-success?ws=1`.
