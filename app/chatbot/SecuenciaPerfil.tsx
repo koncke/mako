@@ -75,6 +75,11 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
   const [gancho, setGancho] = useState(est?.gancho ?? '');
   const [preguntas, setPreguntas] = useState((est?.preguntas ?? []).join('\n'));
   const [modo, setModo] = useState<ModoRespuesta>(est?.modo ?? 'asistido');
+  // ¿Los mensajes salen solos, o quedan como borrador para mandar a mano? Tiene
+  // que viajar en `guardar`: la API reconstruye la estrategia campo por campo, y
+  // un campo que no se manda vuelve en `false` — o sea, guardar cualquier otra
+  // cosa de la estrategia APAGABA el auto-envío sin decir nada.
+  const [envioAuto, setEnvioAuto] = useState<boolean>(est?.envio_automatico ?? false);
   const [califica, setCalifica] = useState((est?.criterio?.califica ?? []).join('\n'));
   const [descalifica, setDescalifica] = useState((est?.criterio?.descalifica ?? []).join('\n'));
   const [activa, setActiva] = useState(secuencia.activa);
@@ -110,6 +115,7 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
           descalifica: descalifica.split('\n').map((s) => s.trim()).filter(Boolean),
         },
         modo, desenlace, escenarios: est?.escenarios ?? [],
+        envio_automatico: envioAuto,
         usa_lead_magnet: est?.usa_lead_magnet ?? Boolean(est?.lead_magnet_id),
         notas: est?.notas ?? null, probada_at: est?.probada_at ?? null,
       },
@@ -238,7 +244,7 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
       <EstrategiaWizard
         nombreSecuencia={secuencia.nombre}
         objetivos={objetivos}
-        valor={{ objetivo, gancho, preguntas, califica, descalifica, modo, desenlace }}
+        valor={{ objetivo, gancho, preguntas, califica, descalifica, modo, desenlace, envioAuto }}
         onCambiar={(p) => {
           if (p.objetivo !== undefined) setObjetivo(p.objetivo);
           if (p.gancho !== undefined) setGancho(p.gancho);
@@ -247,6 +253,7 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
           if (p.descalifica !== undefined) setDescalifica(p.descalifica);
           if (p.modo !== undefined) setModo(p.modo);
           if (p.desenlace !== undefined) setDesenlace(p.desenlace);
+          if (p.envioAuto !== undefined) setEnvioAuto(p.envioAuto);
         }}
         onSugerirCriterio={() => void sugerirCriterio()}
         sugiriendo={busy === 'criterio'}
@@ -316,6 +323,16 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
             <Paso icono="⚡" titulo="Se dispara cuando…" detalle={`El lead está parado en la etapa «${etiquetaEtapa(secuencia.etapa)}» de tu funnel.`} />
             <Flecha />
             <Paso icono="💬" titulo={`MaKo le manda la secuencia (${secuencia.pasos.length} mensajes)`} detalle="Con el anti-ban de siempre; los pasos de WhatsApp oficial esperan la plantilla aprobada por Meta." tono="mako" />
+            <Flecha />
+            {/* Sin esta línea no había forma de saber, mirando la secuencia, si
+                sus mensajes salían o quedaban esperando a que alguien los mande. */}
+            <Paso
+              icono={envioAuto ? '📤' : '📝'}
+              titulo={envioAuto ? 'Salen solos' : 'Quedan como borrador'}
+              detalle={envioAuto
+                ? 'Le llegan al lead sin que tengas que tocar nada, aunque todavía no haya pagado.'
+                : 'A un lead que todavía no pagó, cada mensaje te queda como borrador para que lo mandes tú con un clic.'}
+            />
             {nPreg > 0 && (<><Flecha /><Paso icono="❓" titulo={`Cualifica con ${nPreg} pregunta${nPreg === 1 ? '' : 's'}`} detalle={lineas(preguntas).slice(0, 3).join(' · ')} tono="mako" /></>)}
             <Flecha />
             <Paso icono="✅" titulo={objetivos.find((o) => o.value === objetivo)?.label ?? objetivo} detalle={gancho.trim() ? `Gancho: ${gancho.trim()}` : undefined} tono="dueno" />

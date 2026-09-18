@@ -74,6 +74,8 @@ export type EstrategiaBorrador = {
   objetivo: string; gancho: string; preguntas: string;
   califica: string; descalifica: string;
   modo: ModoRespuesta; desenlace: Desenlace;
+  /** Los mensajes salen solos aunque el lead no haya pagado. */
+  envioAuto: boolean;
 };
 
 export function EstrategiaWizard({ valor, objetivos, nombreSecuencia, guardando, error, onCambiar, onSugerirCriterio, sugiriendo, onGuardar, onSalir }: {
@@ -168,6 +170,21 @@ export function EstrategiaWizard({ valor, objetivos, nombreSecuencia, guardando,
           opciones={[
             { v: 'asistido', e: '🙋', t: 'Te aviso y te dejo el borrador', d: 'MaKo redacta la respuesta y tú la mandas con un clic' },
             { v: 'automatico', e: '⏸', t: 'Solo pausar', d: 'La secuencia se frena y sigues tú por tu cuenta' },
+          ]}
+        />
+      ),
+    },
+    {
+      k: 'envio',
+      q: '¿Los mensajes salen solos?',
+      s: 'A un lead que todavía no pagó, MaKo puede mandarlos por su cuenta o dejártelos como borrador para que los mandes tú.',
+      listo: () => true,
+      cuerpo: (
+        <Opciones
+          valor={v.envioAuto ? 'si' : 'no'} onElegir={(x) => onCambiar({ envioAuto: x === 'si' })}
+          opciones={[
+            { v: 'si', e: '📤', t: 'Que salgan solos', d: 'Con el tope diario y el horario de siempre' },
+            { v: 'no', e: '📝', t: 'Déjamelos como borrador', d: 'Los reviso y los mando yo con un clic' },
           ]}
         />
       ),

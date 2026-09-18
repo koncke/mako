@@ -152,6 +152,24 @@ export type Estrategia = {
   escenarios: EscenarioSecuencia[];
   desenlace: Desenlace;
   modo: ModoRespuesta;
+  /**
+   * Los pasos de esta secuencia SALEN SOLOS aunque el lead no haya pagado.
+   *
+   * ⚠️ SIN ESTO NINGUNA SECUENCIA LE MANDABA NADA A UN LEAD QUE NO PAGÓ. El motor
+   * aplica una regla vieja del PDF —«a leads calientes NUNCA se dispara
+   * automático»— y deja un BORRADOR para que alguien lo mande a mano; solo sale
+   * solo lo que va a quien ya tiene `fecha_primer_pago`. Un agendado, por
+   * definición, no pagó: la post-agenda se prendió el 8/09 y, con la línea
+   * conectada, habría dejado borradores que nadie mira (0 de 4 inscriptos
+   * tenían pago). Martín decidió el 17/09 una excepción POR SECUENCIA, no
+   * apagar la regla: la prende quien decide que esa secuencia sale sola.
+   *
+   * No confundir con `modo: 'automatico'`, que es otra pregunta: qué se hace
+   * cuando el lead CONTESTA. Esto es qué pasa con lo que SALE.
+   *
+   * Default false: una secuencia vieja sin el campo sigue como estaba.
+   */
+  envio_automatico: boolean;
   notas: string | null;
   probada_at: string | null;     // última prueba en vivo OK
 };
@@ -216,6 +234,9 @@ export function parseEstrategia(raw: unknown): Estrategia | null {
     desenlace: parseDesenlace(r.desenlace),
     // Default 'asistido': lo acordado para arrancar es semi-automático.
     modo: r.modo === 'automatico' ? 'automatico' : 'asistido',
+    // Solo `true` literal: un «"true"», un 1 o cualquier otra cosa no prende el
+    // auto-envío. Lo que decide si se le escribe solo a alguien no se adivina.
+    envio_automatico: r.envio_automatico === true,
     notas: typeof r.notas === 'string' && r.notas.trim() ? r.notas.trim() : null,
     probada_at: typeof r.probada_at === 'string' ? r.probada_at : null,
   };

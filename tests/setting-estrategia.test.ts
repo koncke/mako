@@ -35,7 +35,7 @@ test('estrategia: parciales rellenan defaults (modo = asistido, criterio vacío)
     objetivo: 'agendar', gancho: null, lead_magnet_id: null, usa_lead_magnet: false, preguntas: [],
     criterio: { califica: [], descalifica: [] }, escenarios: [],
     desenlace: { logrado: 'respondio', logradoEtapa: null, logradoSecuencia: null, falloHoras: 0, falloEtapa: null, falloSecuencia: null },
-    modo: 'asistido', notas: null, probada_at: null,
+    modo: 'asistido', envio_automatico: false, notas: null, probada_at: null,
   });
 });
 
@@ -52,11 +52,24 @@ test('estrategia: el round-trip no pierde ningún campo', () => {
     criterio: { califica: ['más de 5 empleados'], descalifica: ['todavía no factura'] },
     escenarios: [{ titulo: 'Pregunta el precio', cuando: 'pide el precio de una', comoResponder: 'devolver una pregunta antes de la cifra' }],
     desenlace: { logrado: 'agendo', logradoEtapa: 'agenda', logradoSecuencia: 'chat-agent-cualificacion', falloHoras: 72, falloEtapa: 'reactivacion', falloSecuencia: 'chat-agent-seguimiento' },
-    modo: 'automatico', notas: 'nota', probada_at: '2026-08-02T10:00:00.000Z',
+    modo: 'automatico', envio_automatico: true, notas: 'nota', probada_at: '2026-08-02T10:00:00.000Z',
   };
   const ida = parseEstrategia(completa);
   assert.deepEqual(ida, completa);
   assert.deepEqual(parseEstrategia(ida), ida); // y es idempotente
+});
+
+test('envio_automatico: solo un true literal lo prende', () => {
+  // Decide si a un lead que no pagó le sale un mensaje solo. No se adivina: un
+  // «"true"» o un 1 que llegue de un JSON mal armado no puede mandar mensajes.
+  // Probado rompiéndolo: con `!!r.envio_automatico` en el parser, este test cae
+  // (12 pasan / 1 falla); con `=== true`, 13/13.
+  for (const v of ['true', 1, 'si', {}, null, undefined]) {
+    assert.equal(parseEstrategia({ objetivo: 'agendar', envio_automatico: v })?.envio_automatico, false, String(v));
+  }
+  assert.equal(parseEstrategia({ objetivo: 'agendar', envio_automatico: true })?.envio_automatico, true);
+  // Una secuencia guardada antes de que el campo existiera sigue como estaba.
+  assert.equal(parseEstrategia({ objetivo: 'agendar' })?.envio_automatico, false);
 });
 
 test('desenlace: basura cae a defaults sin romper', () => {

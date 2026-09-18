@@ -84,6 +84,12 @@ function estrategiaDe(objetivo: Objetivo, opts?: { logrado?: Desenlace['logrado'
       falloHoras: HORAS_SIN_RESPUESTA[objetivo],
     },
     modo: 'asistido',
+    // SALEN SOLAS (decisión de Martín, 17/09/2026). Son audios que el dueño
+    // grabó con su voz para que se manden: dejarlos como borrador para que
+    // alguien apriete «enviar» a mano es que la secuencia no exista. Nacen
+    // PAUSADAS igual, así que nada sale hasta que el dueño las prenda — y el
+    // interruptor se apaga desde la estrategia de cada una.
+    envio_automatico: true,
     notas: null, probada_at: null,
   };
 }
