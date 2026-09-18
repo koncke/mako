@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseEstrategia } from '../lib/setting-estrategia';
+import { parseEstrategia, dentroDeAntiguedad } from '../lib/setting-estrategia';
 
 test('estrategia: null/basura/sin objetivo → null', () => {
   assert.equal(parseEstrategia(null), null);
@@ -35,7 +35,7 @@ test('estrategia: parciales rellenan defaults (modo = asistido, criterio vacío)
     objetivo: 'agendar', gancho: null, lead_magnet_id: null, usa_lead_magnet: false, preguntas: [],
     criterio: { califica: [], descalifica: [] }, escenarios: [],
     desenlace: { logrado: 'respondio', logradoEtapa: null, logradoSecuencia: null, falloHoras: 0, falloEtapa: null, falloSecuencia: null },
-    modo: 'asistido', envio_automatico: false, notas: null, probada_at: null,
+    modo: 'asistido', envio_automatico: false, antiguedad_max_horas: null, notas: null, probada_at: null,
   });
 });
 
@@ -52,7 +52,7 @@ test('estrategia: el round-trip no pierde ningún campo', () => {
     criterio: { califica: ['más de 5 empleados'], descalifica: ['todavía no factura'] },
     escenarios: [{ titulo: 'Pregunta el precio', cuando: 'pide el precio de una', comoResponder: 'devolver una pregunta antes de la cifra' }],
     desenlace: { logrado: 'agendo', logradoEtapa: 'agenda', logradoSecuencia: 'chat-agent-cualificacion', falloHoras: 72, falloEtapa: 'reactivacion', falloSecuencia: 'chat-agent-seguimiento' },
-    modo: 'automatico', envio_automatico: true, notas: 'nota', probada_at: '2026-08-02T10:00:00.000Z',
+    modo: 'automatico', envio_automatico: true, antiguedad_max_horas: 48, notas: 'nota', probada_at: '2026-08-02T10:00:00.000Z',
   };
   const ida = parseEstrategia(completa);
   assert.deepEqual(ida, completa);
@@ -70,6 +70,34 @@ test('envio_automatico: solo un true literal lo prende', () => {
   assert.equal(parseEstrategia({ objetivo: 'agendar', envio_automatico: true })?.envio_automatico, true);
   // Una secuencia guardada antes de que el campo existiera sigue como estaba.
   assert.equal(parseEstrategia({ objetivo: 'agendar' })?.envio_automatico, false);
+});
+
+test('antiguedad_max_horas: solo un número positivo es un tope', () => {
+  // Un 0 o un negativo no pueden leerse como «nadie entra» ni como «entran
+  // todos»: son un dato roto y vuelven a la ventana general del motor.
+  // Probado rompiéndolo: con el parser aceptando cualquier `number`, cae este
+  // test (14 pasan / 1 falla); como está, 15/15.
+  for (const v of [0, -5, '48', NaN, Infinity, null, undefined, {}]) {
+    assert.equal(parseEstrategia({ objetivo: 'agendar', antiguedad_max_horas: v })?.antiguedad_max_horas, null, String(v));
+  }
+  assert.equal(parseEstrategia({ objetivo: 'agendar', antiguedad_max_horas: 48 })?.antiguedad_max_horas, 48);
+});
+
+test('dentroDeAntiguedad: el tope deja afuera al acumulado, no al que acaba de llegar', () => {
+  const ahoraMs = Date.parse('2026-09-17T22:00:00.000Z');
+  const hace = (h: number) => new Date(ahoraMs - h * 3_600_000).toISOString();
+  // El caso que lo motivó: la bienvenida de ws1 con 126 leads acumulados.
+  assert.equal(dentroDeAntiguedad({ maxHoras: 48, createdAt: hace(1), ahoraMs }), true, 'recién llegado');
+  assert.equal(dentroDeAntiguedad({ maxHoras: 48, createdAt: hace(48), ahoraMs }), true, 'justo en el borde');
+  assert.equal(dentroDeAntiguedad({ maxHoras: 48, createdAt: hace(49), ahoraMs }), false, 'pasado el tope');
+  assert.equal(dentroDeAntiguedad({ maxHoras: 48, createdAt: hace(24 * 20), ahoraMs }), false, 'de hace 20 días');
+  // Sin tope propio, todos (la ventana general ya la aplicó la cohorte).
+  assert.equal(dentroDeAntiguedad({ maxHoras: null, createdAt: hace(24 * 20), ahoraMs }), true);
+  assert.equal(dentroDeAntiguedad({ maxHoras: null, createdAt: null, ahoraMs }), true);
+  // Con tope y sin fecha legible, NO: ante la duda no se le escribe.
+  // Probado rompiéndolo: devolviendo `true` sin fecha, cae este test (14/1).
+  assert.equal(dentroDeAntiguedad({ maxHoras: 48, createdAt: null, ahoraMs }), false);
+  assert.equal(dentroDeAntiguedad({ maxHoras: 48, createdAt: 'ayer', ahoraMs }), false);
 });
 
 test('desenlace: basura cae a defaults sin romper', () => {

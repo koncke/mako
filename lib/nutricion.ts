@@ -23,7 +23,7 @@ import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, ge
 import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags';
 import { getInstanciaRow, sondearSocket } from '@/lib/evolution';
 import { canalNoOficial } from '@/lib/nutricion-canal';
-import { parseEstrategia } from '@/lib/setting-estrategia';
+import { parseEstrategia, dentroDeAntiguedad } from '@/lib/setting-estrategia';
 import { esLeadCliente, enviarYEspejar, enviarAudioYEspejar, crearBorrador, tieneBorradorNutriPendiente } from '@/lib/evolution-envio';
 import { getAudio, audioBase64 } from '@/lib/setting-audios';
 import { estaBloqueado } from '@/lib/evolution-block';
@@ -93,6 +93,8 @@ export type Secuencia = {
   pasos: PasoSecuencia[];
   /** Sale sola aunque el lead no haya pagado (ver `Estrategia.envio_automatico`). */
   envio_automatico: boolean;
+  /** Solo leads que llegaron hace menos de esto (ver `Estrategia.antiguedad_max_horas`). */
+  antiguedad_max_horas: number | null;
 };
 
 // % de retención del VSL a partir del cual consideramos "lo vio en serio".
@@ -151,6 +153,7 @@ export async function getSecuenciasActivas(): Promise<Secuencia[]> {
     // Por el MISMO parser que la pantalla: la regla de qué cuenta como «sí»
     // (solo `true` literal) vive en un lugar.
     envio_automatico: parseEstrategia(r.estrategia)?.envio_automatico === true,
+    antiguedad_max_horas: parseEstrategia(r.estrategia)?.antiguedad_max_horas ?? null,
   }));
 }
 
@@ -210,6 +213,7 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
     pasos: Array.isArray(r.pasos) ? (r.pasos as PasoSecuencia[]) : [],
     estrategia: r.estrategia ?? null,
     envio_automatico: parseEstrategia(r.estrategia)?.envio_automatico === true,
+    antiguedad_max_horas: parseEstrategia(r.estrategia)?.antiguedad_max_horas ?? null,
     inscriptos: inscMap.get(r.id) ?? 0,
     enviados: envMap.get(r.id) ?? 0,
   }));
@@ -631,13 +635,39 @@ async function leadsEnFamiliaPostAgenda(leadIds: number[]): Promise<Set<number>>
 }
 
 // Devuelve los leads que se inscribirían (no escribe). Para el dry-run.
+/**
+ * Deja solo a los leads que todavía están a tiempo de entrar a ESTA secuencia
+ * (`Estrategia.antiguedad_max_horas`). Sin tope propio devuelve lo mismo, sin
+ * leer nada.
+ *
+ * ⚠️ Va en el plan Y en el commit (y en `enrolarPorEvento`): si el dry-run no
+ * filtrara, la vista previa prometería 126 inscripciones y la corrida haría 5.
+ */
+async function aTiempo(
+  db: Awaited<ReturnType<typeof getTenantDb>>,
+  sec: Pick<Secuencia, 'antiguedad_max_horas'>,
+  ids: number[],
+): Promise<number[]> {
+  if (sec.antiguedad_max_horas == null || ids.length === 0) return ids;
+  const ahoraMs = Date.now();
+  const creado = new Map<number, string | null>();
+  // En tandas y paginado, como todo `.in()` sobre una cohorte (ver filasCohorte).
+  for (const tanda of enTandas(ids, 200)) {
+    const filas = await leerTodo<{ id: number; created_at: string | null }>(db, 'leads', 'id, created_at', {
+      orden: 'id', filtros: (q) => q.in('id', tanda) as ConsultaPaginada,
+    });
+    for (const f of filas) creado.set(f.id, f.created_at);
+  }
+  return ids.filter((id) => dentroDeAntiguedad({ maxHoras: sec.antiguedad_max_horas, createdAt: creado.get(id) ?? null, ahoraMs }));
+}
+
 export async function planificarInscripciones(): Promise<PlanInscripcion[]> {
   const supabase = (await getTenantDb());
   const secuencias = await getSecuenciasActivas();
   const plan: PlanInscripcion[] = [];
 
   for (const sec of secuencias) {
-    const candidatos = await leadsDeCohorte(sec.trigger_tipo, sec.etapa);
+    const candidatos = await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, sec.etapa));
     if (candidatos.length === 0) continue;
     const inscriptos = await inscriptosDe(supabase, candidatos, (q) => q.eq('secuencia_id', sec.id))
       .catch((e: unknown) => { throw new Error(`planificarInscripciones: ${e instanceof Error ? e.message : String(e)}`); });
@@ -680,7 +710,7 @@ export async function comprometerInscripciones(): Promise<number> {
   let creadas = 0;
 
   for (const sec of secuencias) {
-    const candidatos = await leadsDeCohorte(sec.trigger_tipo, sec.etapa);
+    const candidatos = await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, sec.etapa));
     if (candidatos.length === 0) continue;
     // Un error acá LANZA: antes se ignoraba, «nadie inscripto» reinsertaba a todos y
     // el insert moría contra el unique — o sea que igual cortaba, pero con un
@@ -742,9 +772,17 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion):
     // otro retomando una charla. Es exactamente el duplicado que separar las
     // secuencias vino a evitar.
     const hayFamilia = todas.filter((s) => FAMILIA_POST_AGENDA.includes(s.trigger_tipo)).length > 1;
-    const secuencias = hayFamilia
+    const delEvento = hayFamilia
       ? secuenciasParaElLead(todas, (await leadsYaContactados([leadId])).has(leadId))
       : todas;
+    // El tope de antigüedad vale también acá: un evento de un lead viejo (una
+    // agenda nueva, un lead re-importado) no lo mete a una secuencia que no le
+    // escribe a leads de esa edad.
+    const secuencias: Secuencia[] = [];
+    for (const s of delEvento) {
+      if ((await aTiempo(supabase, s, [leadId])).length) secuencias.push(s);
+    }
+    if (!secuencias.length) return 0;
 
     const { data: yaInsc } = await supabase
       .from('nutricion_inscripciones')

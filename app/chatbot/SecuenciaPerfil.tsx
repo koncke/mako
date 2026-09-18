@@ -116,6 +116,9 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
         },
         modo, desenlace, escenarios: est?.escenarios ?? [],
         envio_automatico: envioAuto,
+        // Esta pantalla no lo edita: lo CONSERVA. Sin la línea, guardar cualquier
+        // cosa volvía a abrir la secuencia a todo el acumulado.
+        antiguedad_max_horas: est?.antiguedad_max_horas ?? null,
         usa_lead_magnet: est?.usa_lead_magnet ?? Boolean(est?.lead_magnet_id),
         notas: est?.notas ?? null, probada_at: est?.probada_at ?? null,
       },
@@ -321,6 +324,11 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
           <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 10 }}>¿Cómo juega?</div>
           <div style={{ marginBottom: 20 }}>
             <Paso icono="⚡" titulo="Se dispara cuando…" detalle={`El lead está parado en la etapa «${etiquetaEtapa(secuencia.etapa)}» de tu funnel.`} />
+            {/* Si no se muestra, un lead viejo que no recibe nada no tiene
+                explicación en ninguna pantalla. */}
+            {est?.antiguedad_max_horas != null && (
+              <><Flecha /><Paso icono="⏱️" titulo={`Solo a leads de las últimas ${est.antiguedad_max_horas} horas`} detalle="A uno que llegó antes no le escribe: pasado ese tiempo, un «vi que dejaste tus datos» llega como de un extraño." /></>
+            )}
             <Flecha />
             <Paso icono="💬" titulo={`MaKo le manda la secuencia (${secuencia.pasos.length} mensajes)`} detalle="Con el anti-ban de siempre; los pasos de WhatsApp oficial esperan la plantilla aprobada por Meta." tono="mako" />
             <Flecha />

@@ -90,6 +90,8 @@ function estrategiaDe(objetivo: Objetivo, opts?: { logrado?: Desenlace['logrado'
     // PAUSADAS igual, así que nada sale hasta que el dueño las prenda — y el
     // interruptor se apaga desde la estrategia de cada una.
     envio_automatico: true,
+    // Sin tope propio: la post-agenda entra por la AGENDA, no por la edad del lead.
+    antiguedad_max_horas: null,
     notas: null, probada_at: null,
   };
 }

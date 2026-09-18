@@ -131,6 +131,8 @@ export function SecuenciaWizard({ secuenciaId: secInicial, secuencias, objetivos
     // tenga. Sin esta línea, redactar una secuencia con MaKo le APAGABA el
     // auto-envío en silencio — la estrategia se reescribe entera al guardar.
     envio_automatico: existente?.estrategia?.envio_automatico ?? false,
+    // Tampoco se pregunta acá: se conserva, por lo mismo.
+    antiguedad_max_horas: existente?.estrategia?.antiguedad_max_horas ?? null,
     notas: null,
     probada_at: existente?.estrategia?.probada_at ?? null,
   });

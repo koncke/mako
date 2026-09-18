@@ -170,6 +170,22 @@ export type Estrategia = {
    * Default false: una secuencia vieja sin el campo sigue como estaba.
    */
   envio_automatico: boolean;
+  /**
+   * Solo entran leads que LLEGARON hace menos de estas horas (`leads.created_at`).
+   * null = sin tope propio: vale la ventana general del motor (30 días).
+   *
+   * Es el «filtro duro de antigüedad» que Mauricio fijó el 31/07 para la
+   * bienvenida: al que llena el formulario se le escribe casi al instante,
+   * porque «si pasan días… nos van a tratar como extraños». Nunca se había
+   * implementado, y la ventana general de 30 días hacía que PRENDER una
+   * secuencia barriera el acumulado: medido el 17/09, activar la bienvenida de
+   * ws1 le escribía «vi que dejaste tus datos» a 126 leads, 66 de más de 14 días.
+   *
+   * Vale en los DOS caminos de entrada (el cron y el evento del webhook): la
+   * regla es «esta secuencia no le escribe a un lead más viejo que esto», no
+   * «el cron no lo barre».
+   */
+  antiguedad_max_horas: number | null;
   notas: string | null;
   probada_at: string | null;     // última prueba en vivo OK
 };
@@ -237,6 +253,10 @@ export function parseEstrategia(raw: unknown): Estrategia | null {
     // Solo `true` literal: un «"true"», un 1 o cualquier otra cosa no prende el
     // auto-envío. Lo que decide si se le escribe solo a alguien no se adivina.
     envio_automatico: r.envio_automatico === true,
+    // Número positivo o nada. Un 0, un negativo o un texto no es «nadie entra»
+    // ni «todos entran»: es un dato roto, y vuelve a la ventana general.
+    antiguedad_max_horas: typeof r.antiguedad_max_horas === 'number' && Number.isFinite(r.antiguedad_max_horas) && r.antiguedad_max_horas > 0
+      ? r.antiguedad_max_horas : null,
     notas: typeof r.notas === 'string' && r.notas.trim() ? r.notas.trim() : null,
     probada_at: typeof r.probada_at === 'string' ? r.probada_at : null,
   };
@@ -331,4 +351,24 @@ export function silencioCumplido(p: {
   const t = Date.parse(p.ultimoEnviadoAt);
   if (!Number.isFinite(t)) return false;
   return (p.ahoraMs - t) / 3_600_000 >= p.falloHoras;
+}
+
+/**
+ * ¿Este lead todavía está a tiempo de entrar a la secuencia? Ver
+ * `Estrategia.antiguedad_max_horas`: sin tope propio, siempre sí (la ventana
+ * general ya la aplicó la cohorte).
+ *
+ * Sin `created_at` legible NO entra: esta función decide si se le escribe a
+ * alguien, y ante la duda la respuesta es no. Pura para poder testearla.
+ */
+export function dentroDeAntiguedad(p: {
+  maxHoras: number | null;
+  createdAt: string | null;
+  ahoraMs: number;
+}): boolean {
+  if (p.maxHoras == null) return true;
+  if (!p.createdAt) return false;
+  const t = Date.parse(p.createdAt);
+  if (!Number.isFinite(t)) return false;
+  return (p.ahoraMs - t) / 3_600_000 <= p.maxHoras;
 }
