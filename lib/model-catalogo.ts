@@ -164,6 +164,12 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // diferencia: gemini-flash 74% de precisión y 2 invenciones, mistral-small 46% y 12.
   // Antes que degradar el modelo, la llamada FALLA y el cron reintenta con la cuota repuesta: ni se degrada ni se paga.
   { feature: 'plan-fathom', label: 'Extraer tareas de una reunión (Fathom)', grupo: 'Análisis', def: GEMINI(), fallback: [], nota: 'Lo que se lee mal aquí no se nota: una tarea que no se extrajo no aparece en ninguna pantalla. Por eso NO se degrada de modelo: si Gemini no contesta, la lectura falla y se reintenta sola. 1 vez por reunión (cacheada).' },
+  // El JUEZ del criterio de compromisos de un cliente (lib/plan-criterio-juez.ts). Feature
+  // APARTE de `plan-fathom` a propósito: el criterio de Mauricio pide otro modelo (Sonnet 5)
+  // y así se puede cambiar el del juez sin tocar el del extractor, que comparten todos.
+  // `fallback: []` por lo mismo que la extracción: un juez peor no rompe, clasifica mal, y
+  // una tarea mal descartada no se ve.
+  { feature: 'plan-criterio', label: 'Juzgar las tareas de una reunión con el criterio del cliente', grupo: 'Análisis', def: GEMINI(), fallback: [], nota: 'Solo corre en los workspaces que tienen un criterio de compromisos cargado. Pone cada tarea extraída en su cubeta (compromiso, acuerdo interno, descartado) con la regla y la cita, que se verifica contra la transcripción. 1 vez por reunión.' },
 
   // ── Copywriting / voz de marca → Sonnet por default (bajó de Opus) ──────────
   { feature: 'campaign-suggest', label: 'Estructurar campaña de Meta', grupo: 'Copywriting', def: GEMINI(), nota: 'Estrategia + voz de marca. Sonnet.' },

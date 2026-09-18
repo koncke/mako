@@ -77,6 +77,7 @@ import {
   CHECKLIST_PROPOSE_SYSTEM_TEMPLATE, CHECKLIST_PROPOSE_USER_TEMPLATE,
   PROYECTO_SYSTEM_TEMPLATE, PROYECTO_USER_TEMPLATE,
 } from './checklist-coach';
+import { CRITERIO_JUEZ_SYSTEM_TEMPLATE, CRITERIO_JUEZ_USER_TEMPLATE } from './plan-criterio-reglas';
 import { PLAN_FATHOM_SYSTEM_TEMPLATE, PLAN_FATHOM_USER_TEMPLATE, PLAN_FATHOM_DEDUP_SYSTEM_TEMPLATE, PLAN_FATHOM_DEDUP_USER_TEMPLATE, PLAN_FATHOM_PREGUNTAS_SYSTEM_TEMPLATE, PLAN_FATHOM_PREGUNTAS_USER_TEMPLATE } from './plan-fathom';
 import { GUARDIAN_SYSTEM_TEMPLATE, GUARDIAN_USER_TEMPLATE, GUARDIAN_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_DEBATE_USER_TEMPLATE, GUARDIAN_PROJ_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_PROJ_DEBATE_USER_TEMPLATE, ELIMINAR_SYSTEM_TEMPLATE, ELIMINAR_USER_TEMPLATE, DUP_SYSTEM_TEMPLATE, DUP_USER_TEMPLATE } from './mako-guardian';
 import { CRUCE_SYSTEM_TEMPLATE, CRUCE_USER_TEMPLATE, RUTEAR_SYSTEM_TEMPLATE, RUTEAR_USER_TEMPLATE } from './mako-guardian';
@@ -931,6 +932,22 @@ export const REGISTRY: Group[] = [
         variables: [v('reunion', 'título de la reunión'), v('tareas', 'lista de tareas propias')], scope: 'full', sensitive: false,
         default: PLAN_FATHOM_PREGUNTAS_USER_TEMPLATE,
         context: 'No borres los slots {{reunion}}/{{tareas}}.',
+      },
+      {
+        key: 'plan-criterio.juez.system', source: 'override',
+        label: 'Juzgar con el criterio de compromisos del cliente (system)', kind: 'system', dynamic: true,
+        variables: [v('criterio', 'el criterio de compromisos del workspace (setting plan.criterio)'), v('dueno', 'el dueño del tablero'), v('jsonShape', 'forma EXACTA del JSON de salida')],
+        scope: 'static-only', sensitive: true,
+        default: CRITERIO_JUEZ_SYSTEM_TEMPLATE,
+        context: 'Solo corre en los workspaces con criterio cargado. NO extrae: pone cada tarea ya extraída en su cubeta. El criterio en sí NO se edita aquí: es el setting plan.criterio del workspace. ⚠️ No saques que la cita es obligatoria y literal: el código la verifica contra la transcripción y la que no aparece baja la tarea a descartado.',
+      },
+      {
+        key: 'plan-criterio.juez.user', source: 'override',
+        label: 'Tareas + reunión a juzgar (user)', kind: 'user', dynamic: true,
+        variables: [v('dueno', 'el dueño del tablero'), v('participantes', 'quiénes hablaron'), v('tareas', 'lista numerada de tareas'), v('reunion', 'la transcripción entera')],
+        scope: 'full', sensitive: false,
+        default: CRITERIO_JUEZ_USER_TEMPLATE,
+        context: 'No borres los slots {{dueno}}/{{participantes}}/{{tareas}}/{{reunion}}.',
       },
     ],
   },

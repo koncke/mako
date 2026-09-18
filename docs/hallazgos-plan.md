@@ -2340,3 +2340,48 @@ distintos en cada escenario.
 **Vive en:** lib/plan-propuesta.ts (`aplicarPropuestas`, `clienteDelBorrador`) · lib/plan-criterio.ts ·
 lib/reunion-reparto.ts (`tipoDeResponsable`) · lib/reunion-auto.ts · supabase/migrations/0160 ·
 *2026-09-17*
+
+## El juez del criterio, en seco: el techo lo pone el extractor, y el juez va y viene en la regla 4
+
+Salió el 2026-09-17, corriendo el criterio de Mauricio en seco sobre 6 sesiones suyas
+(`scripts/probar-criterio.mts`: lee de ws1, juzga cobrando en ws9, no escribe nada).
+
+**La vara:** la sesión del anexo de su documento («3 de septiembre, 1h34», 8 compromisos + 6
+acuerdos internos) es la **«Junta Macario Romero» del 3/9 (recording 179438975)**. Las citas
+coinciden palabra por palabra. Es la única sesión con la respuesta correcta escrita por él.
+
+**Lo que se aprendió, y el diagnóstico obvio estaba mal en las tres cosas:**
+1. **Parecía que el juez perdía compromisos. El que los pierde es el extractor.** 4 de sus 8
+   compromisos nunca llegaron a ser tareas de MaKo, justo los de «Mauricio manda» (dos videos, un
+   correo, la ayuda con el Excel). Un juez que solo clasifica no recupera lo que no se extrajo.
+   Por eso el juez devuelve además `faltantes`, con cita obligatoria. Encontró el video del
+   cuadrante 3x3 con la MISMA cita que Mauricio, pero en una corrida sí y en otra no.
+2. **Parecía que el modelo inventaba citas. Eran errores de transcripción.** Su compromiso nº 3
+   se caía a descartado por 2 palabras en 34: «¿sabes qué? A ver» contra «sabes que ver» y
+   «chambear» contra «chandear». Ahora la cita pasa si calza en UN tramo seguido de la
+   transcripción con a lo sumo 1 palabra distinta cada 10, o si cada pedazo entre «...»
+   calza así. Coser dos momentos de la reunión sigue sin pasar. Con eso, 0 citas caídas en 6
+   sesiones.
+3. **Parecía inestabilidad del prompt. Era, en buena parte, otro modelo** (ver
+   hallazgos-ia.md, «Ese respaldo también degrada…»): 18 de 19 juicios corrieron en
+   flash-lite. Entre dos corridas idénticas, la respuesta a «¿es compromiso?» coincide en
+   **84%** (63 de 75), pero en la sesión del anexo solo en **50%**. Esa sesión es la de más
+   acuerdos internos, o sea la frontera de la regla 4. Afilar la regla del acuerdo interno
+   acertó sus 4 acuerdos presentes y a cambio mandó ahí 2 de sus compromisos.
+
+**La regla que queda:** el juez NO se conecta al pipeline con este modelo y una corrida. La
+inestabilidad cae justo donde Mauricio mide, y él mismo lo anticipó: «la estabilidad se mide,
+no se fuerza», por eso pide un modelo mejor y 3 corridas. Antes de conectarlo hay que
+decidir el modelo y las corridas, y volver a correr esta prueba.
+
+**Lo que abarata esa decisión:** `plan-criterio` es una feature APARTE en el catálogo y solo
+corre en workspaces con criterio cargado. Ponerle Sonnet a esa feature no le cambia el modelo a
+nadie más, aunque el override de modelo sea global. Faltaría habilitarla en lib/veto-claude.ts,
+que hoy solo deja `closing`.
+
+**Quedó sin hacer:** conectar el juez a `reunion-auto`, a los borradores y a `aplicarPropuestas`,
+y guardar la cubeta 2 junto a la reunión. Todo espera la decisión de arriba.
+
+**Vive en:** lib/plan-criterio-reglas.ts (la cita, el saneo, las plantillas) ·
+lib/plan-criterio-juez.ts · scripts/probar-criterio.mts · tests/plan-criterio-reglas.test.ts ·
+*2026-09-17*

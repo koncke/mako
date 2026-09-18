@@ -78,7 +78,7 @@ test('el Perro y su coach NUNCA vuelven a un modelo pago por default', () => {
   // Son las dos llamadas que más se disparan del producto: cada lote de tareas las
   // invoca, y un lote son 40 tareas. Y no llevan PII — miran títulos y detalles de
   // tareas del propio negocio, no datos de clientes.
-  for (const feature of ['mako-guardian', 'checklist-coach', 'plan-fathom']) {
+  for (const feature of ['mako-guardian', 'checklist-coach', 'plan-fathom', 'plan-criterio']) {
     const f = CATALOGO_MODELOS.find((x) => x.feature === feature);
     assert.ok(f, `falta la feature ${feature} en el catálogo`);
     assert.ok(
@@ -115,7 +115,7 @@ test('las features cuyo error ESCONDE trabajo no se pueden degradar de modelo', 
   // Extraer los compromisos de una reunión y decidir si dos tareas son la misma son
   // JUICIOS que después nadie revisa: un modelo peor no rompe, contesta mal, y una
   // respuesta mal hecha se ve igual que una bien hecha. Antes que degradar, se paga.
-  for (const f of ['plan-fathom', 'mako-guardian']) {
+  for (const f of ['plan-fathom', 'plan-criterio', 'mako-guardian']) {
     const fila = CATALOGO_MODELOS.find((x) => x.feature === f);
     assert.ok(fila, `desapareció la feature ${f}`);
     assert.deepEqual(fila!.fallback, [], `${f} volvió a poder caerse a cualquier proveedor`);

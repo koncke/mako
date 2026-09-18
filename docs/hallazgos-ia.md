@@ -290,6 +290,37 @@ varios documentos aparecen las dos mezcladas y manda la que explica la tanda.
 `leerDocumentoIA`) · lib/ia-mensajes.ts (`motivoDeErroresCascada`) · tests/ia-mensajes.test.ts
 *— corrida del 16/08/2026*
 
+### ⚠️ Ese respaldo también degrada a las features que el catálogo jura que no se degradan
+
+**Síntoma (17/9, probando el juez del criterio de Mauricio):** el mismo juez, con el mismo
+criterio y la misma reunión, cambiaba de opinión entre corridas: la sesión del anexo dio 6
+compromisos en una y 2 en la siguiente. **Parecía** un problema del prompt. **No era solo
+eso:** `anthropic_usage` dice que **18 de las 19 llamadas corrieron en `gemini-flash-lite`**,
+no en `gemini-flash`. Google estaba dando 503 y la cascada bajó de modelo sin avisar.
+
+**La causa:** `fallback: []` en el catálogo (lib/model-catalogo.ts) frena el eje PROVEEDOR, no
+el eje MODELO. El respaldo a flash-lite de arriba se agregó el 16/08 para leer documentos, pero
+corre en TODA la cascada de chat. Desde entonces le pasa a las dos features cuyo catálogo dice
+«NO se degrada de modelo: si Gemini no contesta, la lectura falla y se reintenta sola». Medido
+en prod, últimos 30 días:
+
+| feature | en flash-lite |
+|---|---|
+| `plan-fathom` (extraer tareas de una reunión, todos los clientes) | **146 de 553 (26%)** |
+| `mako-guardian` (el Perro) | **57 de 148 (39%)**, y 3 más en `openai/gpt-oss-20b` |
+
+El test `las features cuyo error ESCONDE trabajo no se pueden degradar de modelo`
+(tests/model-registry.test.ts) pasa, porque solo mira `fallback`. **Dos intenciones escritas
+chocan:** «antes que degradar, se paga» (el catálogo) contra «un respaldo más flojo es correcto,
+la alternativa es NINGUNA respuesta» (esta sección). Para leer un documento, la segunda tiene
+razón. Para un JUICIO que nadie revisa después (qué tarea existe, qué va primero), gana la
+primera. **Quedó sin decidir** cuál gana en cada feature. Mientras tanto, cualquier número de
+calidad medido sobre `plan-fathom` o `mako-guardian` mezcla dos modelos, y hay que filtrarlo
+por `anthropic_usage.model` antes de creerlo.
+
+**Vive en:** lib/ai-cheap.ts (`MODELOS_RESPALDO`, `modelosAProbar`) · lib/model-catalogo.ts
+(`fallback`) · tests/model-registry.test.ts *— 2026-09-17*
+
 ### ⚠️ El free tier del modelo son VEINTE requests, y un onboarding se los come solo
 
 El error completo, cuando por fin se leyó entero, traía el número:
