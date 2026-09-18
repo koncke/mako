@@ -19,10 +19,15 @@
 // --liberar borra el original LOCAL, y solo el que cumple las CINCO condiciones:
 // está dentro de video/, tiene id de Drive, la copia en G: coincide byte a byte, el
 // propio Drive reporta ese mismo tamaño (o sea: terminó de subir, no solo de
-// registrarse), y YA SE LE EXTRAJO EL AUDIO —el video no es solo un archivo a
-// resguardar, es la ENTRADA de la transcripción—. Cualquier duda = se conserva. Y solo
-// actúa si queda menos de
-// --min-libre-gb libre, así que con espacio de sobra no borra nada.
+// registrarse), y YA DIO LO SUYO —el video no es solo un archivo a resguardar, es la
+// ENTRADA de la transcripción—. Cualquier duda = se conserva. Y solo actúa si queda
+// menos de --min-libre-gb libre, así que con espacio de sobra no borra nada.
+//
+// ⚠️ «Ya dio lo suyo» se cumple con el AUDIO EXTRAÍDO **o** con la TRANSCRIPCIÓN escrita,
+// y la segunda es la evidencia más fuerte: es el producto final de esa cadena. La versión
+// vieja pedía solo el audio, y como el audio es un intermedio que se borra para recuperar
+// disco (~40 GB en 130 cursos), terminaba conservando videos de clases transcriptas hace
+// semanas diciendo «todavía no se le extrajo el audio». Falso, y conservador de más.
 //
 //   node <abs>\scripts\curso-a-drive.mjs --plan C:\cursos\<slug>\plan.json
 //   node <abs>\scripts\curso-a-drive.mjs --plan … --solo-ids   # sin copiar, solo leer ids
@@ -80,6 +85,32 @@ const listarUnNivel = (dir) => !existsSync(dir) ? [] : readdirSync(dir, { withFi
     : [e.name]);
 const videoDeClase = (dirVideo, c) => listarUnNivel(dirVideo)
   .filter((f) => /\.(mp4|mkv|webm|m4v)$/i.test(f) && !esIntermedio(basename(f)) && nDeArchivo(basename(f)) === c.n);
+
+/**
+ * ¿El video trae pista de audio? Mismo criterio que `curso-audio.mjs`, que es quien
+ * decide si vale la pena intentar extraerla. Ante la duda devuelve `true`: «no pude
+ * averiguarlo» nunca puede habilitar un borrado.
+ */
+const videoTieneAudio = (src) => {
+  try {
+    const p = execFileSync('ffmpeg', ['-hide_banner', '-i', src], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    return /Stream #\d+:\d+.*: Audio:/i.test(String(p));
+  } catch (e) {
+    const txt = String(e.stderr ?? '') + String(e.stdout ?? '');
+    if (!/Stream #\d+:\d+/.test(txt)) return true;
+    return /Stream #\d+:\d+.*: Audio:/i.test(txt);
+  }
+};
+
+/** ¿Existe `<raiz>.md` en texto/, esté suelto o dentro de una carpeta de módulo? */
+const hayTx = (dirTexto, raiz) => {
+  if (!raiz || !existsSync(dirTexto)) return false;
+  const objetivo = `${raiz}.md`;
+  const buscar = (d) => readdirSync(d, { withFileTypes: true }).some((e) => (e.isDirectory()
+    ? buscar(join(d, e.name))
+    : e.name === objetivo));
+  try { return buscar(dirTexto); } catch { return false; }
+};
 
 import { idsDeDrive as idsDeDriveBase, esIdReal } from './curso-drive-ids.mjs';
 // El DFS del script se pasa explicito: el modulo tiene su propio default.
@@ -456,8 +487,36 @@ if (LIBERAR) {
       // nombre— pero ata este guard a que eso no cambie nunca.
       const nomLocal = e.src ? basename(e.src) : '';
       const raizAudio = nomLocal.includes('.') ? nomLocal.slice(0, nomLocal.lastIndexOf('.')) : nomLocal;
-      const tieneAudio = !!raizAudio && existsSync(dirAudio) && readdirSync(dirAudio).some((f) =>
+      const audioEnDisco = !!raizAudio && existsSync(dirAudio) && readdirSync(dirAudio).some((f) =>
         f === raizAudio + '.m4a' || f.startsWith(raizAudio + '.parte'));
+
+      // ⚠️ LA TRANSCRIPCIÓN TAMBIÉN SIRVE, Y ES LA EVIDENCIA MÁS FUERTE DE LAS DOS.
+      //
+      // Lo que esta condición quiere saber es «¿el video ya dio lo que tenía que dar?».
+      // El audio existiendo lo sugiere; la transcripción existiendo lo PRUEBA — es el
+      // producto final de esa cadena. Y el audio es un intermedio descartable: una vez
+      // transcripto se borra para recuperar disco (son ~40 GB en 130 cursos), y con eso
+      // este guard pasaba a conservar videos que ya estaban completamente procesados,
+      // diciendo «todavía no se le extrajo el audio» sobre clases transcriptas hace
+      // semanas. El mensaje era falso y la decisión, conservadora de más.
+      //
+      // Se piden las dos formas por separado a propósito: un curso a medio transcribir
+      // conserva sus videos por el audio, y uno terminado los libera por el texto.
+      // ⚠️ El texto/ puede estar ANIDADO por módulo (`curso-organizar.mjs` reordena
+      // algunos cursos), así que buscar solo en la raíz subcuenta: 12 de 140 cursos
+      // tienen sus .md un nivel adentro — UGC SIM tiene 1 en la raíz y 56 anidados. Con
+      // la búsqueda plana, un curso entero transcripto se lee como no transcripto.
+      const tieneTx = !!raizAudio && hayTx(join(base, 'texto'), raizAudio);
+
+      // ⚠️ Y UN VIDEO SIN PISTA DE AUDIO TAMBIÉN «DIO LO SUYO»: no tiene nada que dar.
+      //
+      // Hay cursos con placas mudas —una portada de 11 segundos, un separador de módulo—
+      // que no van a tener audio ni transcripción NUNCA. Sin esta tercera forma, el guard
+      // las conserva para siempre: medido, 4 de los 6 videos que quedaban en disco al
+      // vaciar la máquina eran exactamente eso, 740 MB esperando una transcripción
+      // imposible. Una condición que no se puede cumplir no protege, atasca.
+      const sinPista = !!e.src && existsSync(e.src) && !videoTieneAudio(e.src);
+      const tieneAudio = audioEnDisco || tieneTx || sinPista;
 
       const dentroDelCurso = !!e.src && e.src.startsWith(join(base, 'video') + '\\');
       // esIdReal explícito: un 'local-*' significa que Drive NO subió nada todavía.
@@ -471,7 +530,7 @@ if (LIBERAR) {
       if (!tieneId) razon.push(r?.ambiguo ? 'id ambiguo' : 'sin id de Drive');
       if (!localOk) razon.push('ya no está local');
       if (!copiaOk) razon.push('la copia en G: no coincide en bytes');
-      if (!tieneAudio) razon.push('todavía no se le extrajo el audio');
+      if (!tieneAudio) razon.push('no tiene ni audio extraído ni transcripción: el video todavía no dio lo suyo');
       if (!driveOk && tieneId) razon.push(`Drive reporta ${r.size} B y el local ${tamLocal} B (sigue subiendo)`);
 
       if (dentroDelCurso && tieneId && localOk && copiaOk && driveOk && tieneAudio) {
