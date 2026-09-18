@@ -181,9 +181,12 @@ export type Estrategia = {
    * secuencia barriera el acumulado: medido el 17/09, activar la bienvenida de
    * ws1 le escribía «vi que dejaste tus datos» a 126 leads, 66 de más de 14 días.
    *
-   * Vale en los DOS caminos de entrada (el cron y el evento del webhook): la
-   * regla es «esta secuencia no le escribe a un lead más viejo que esto», no
-   * «el cron no lo barre».
+   * Se mira DOS veces: al inscribir (el cron y el evento del webhook) y otra
+   * vez al mandar el PRIMER paso. La segunda no sobra: una inscripción puede
+   * esperar días —la línea caída, el tope diario— y un lead que entró con 2 h
+   * recibía la bienvenida con 5 días. Si al primer paso ya pasó el tope, la
+   * inscripción se cierra sin mandar; los seguimientos de quien sí recibió la
+   * bienvenida no se tocan.
    */
   antiguedad_max_horas: number | null;
   notas: string | null;

@@ -1125,10 +1125,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     const leadIds = [...new Set(due.map((d) => d.lead_id))];
     const { data: leadsData } = await supabase
       .from('leads')
-      .select('id, nombre, telefono, empresa, email, email_opt_out, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at')
+      .select('id, nombre, telefono, empresa, email, email_opt_out, created_at, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at')
       .in('id', leadIds);
     const leadMap = new Map(
-      ((leadsData ?? []) as Array<{ id: number; nombre: string | null; telefono: string | null; empresa: string | null; email: string | null; email_opt_out: boolean | null } & JuntasLead>).map((l) => [l.id, l]),
+      ((leadsData ?? []) as Array<{ id: number; nombre: string | null; telefono: string | null; empresa: string | null; email: string | null; email_opt_out: boolean | null; created_at: string | null } & JuntasLead>).map((l) => [l.id, l]),
     );
     // Ventana anti-baneo de 20h resuelta en batch (no 2 counts por lead en el loop).
     const conEnvioReciente = await leadsConEnvioReciente(leadIds);
@@ -1171,6 +1171,21 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
             .update({ proximo_envio_at: objetivo, updated_at: ahoraISO() }).eq('id', insc.id);
           continue;
         }
+      }
+
+      // Tope de antigüedad mirado AL MANDAR, no solo al inscribir. Una
+      // inscripción puede quedar esperando días (la línea caída, el canal
+      // apagado, el tope diario) y el tope es sobre cuándo le LLEGA el primer
+      // mensaje: una bienvenida tardía es peor que ninguna, como el
+      // recordatorio de una reunión que ya pasó. Solo el primer paso: los
+      // seguimientos de quien ya recibió la bienvenida siguen su curso.
+      if (insc.paso_actual === 0 && sec.antiguedad_max_horas != null
+          && !dentroDeAntiguedad({ maxHoras: sec.antiguedad_max_horas, createdAt: lead?.created_at ?? null, ahoraMs: Date.now() })) {
+        res.omitidos += 1;
+        res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'omitido', nota: `llegó hace más de ${sec.antiguedad_max_horas} h` });
+        await supabase.from('nutricion_inscripciones')
+          .update({ estado: 'completada', proximo_envio_at: null, updated_at: ahoraISO() }).eq('id', insc.id);
+        continue;
       }
 
       // Los dos pasos de APERTURA de la secuencia post-agenda son mutuamente

@@ -2931,7 +2931,10 @@ El «filtro duro de antigüedad» que Mauricio fijó el 31/07 para la bienvenida
 nos van a tratar como extraños»— nunca se había implementado. Medido el 17/09 sobre la 198
 (`instant_form_sin_agenda`): sin tope entran **125**; con 24 h, 5; con 48 h, 11; con 72 h, 15;
 con 7 días, 32. Ahora es `estrategia.antiguedad_max_horas` (de5b4c56), `null` = sin tope. Vale
-en el plan, en el commit y en `enrolarPorEvento`. **Regla: antes de activar una secuencia,
+en el plan, en el commit y en `enrolarPorEvento` — **y otra vez al mandar el primer paso**, que la
+primera versión no hacía: con la línea caída una inscripción espera días, y un lead que entró con
+2 h recibía la bienvenida con 5 días. Ahí se cierra sin mandar, como el recordatorio de una
+reunión que ya pasó. Cableado cuidado por `tests/antiguedad-cableada.test.ts`. **Regla: antes de activar una secuencia,
 contar cuántos entran EN LA PRIMERA CORRIDA**, no cuántos van a entrar por día.
 
 ⚠️ **La trampa que casi lo deja muerto al nacer: guardar la estrategia la RECONSTRUYE
