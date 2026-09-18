@@ -175,7 +175,9 @@ const tarea = (p: Partial<Tarea>): Tarea => ({
   id: 0, titulo: '', detalle: null, estado: 'por_hacer', prioridad: 'media', progreso: 0,
   deadline: null, quarter: null, categorias: [], checklist: [], historial: [], en_prioridad: false, score: 62, score_razon: null, origen: 'manual', fuente: null,
   experimento_id: null, retro_id: null, orden: 0, hecho_at: null,
-  created_at: '2026-06-20T12:00:00Z', updated_at: '2026-06-20T12:00:00Z', ...p,
+  created_at: '2026-06-20T12:00:00Z', updated_at: '2026-06-20T12:00:00Z',
+  responsable: null, responsable_email: null, responsable_tipo: null, cliente_nombre: null, cliente_lead_id: null, tema: null,
+  criterio_veredicto: null, criterio_regla: null, criterio_razon: null, cita: null, ...p,
 });
 
 export const demoCategorias: Categoria[] = [

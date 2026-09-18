@@ -17,6 +17,7 @@ import 'server-only';
 import { getTenantDb, getWorkspaceActual, getWorkspace } from './workspace';
 import type { ToolDef, ToolRunner } from './anthropic';
 import { listCategorias, listTareas } from './todo';
+import { estaPendiente } from './todo-estados';
 import {
   listLeads, getLead, getLeadRespuestas, estadoMadurezLead, labelMadurez,
   normalizarTelefono, getFunnel, type Lead,
@@ -360,7 +361,7 @@ export const runMakoTool: ToolRunner = async (name, input) => {
       const catById = new Map(cats.map((c) => [c.id, c.nombre]));
       return JSON.stringify({
         proyectos: cats.map((c) => ({ id: String(c.id), nombre: c.nombre, link: linkProy(String(c.id)) })),
-        tareas_abiertas: tareas.filter((t) => t.estado !== 'hecho').slice(0, 300).map((t) => ({ id: String(t.id), titulo: t.titulo, proyecto: catById.get(t.categorias[0]) ?? '', link: linkTarea(String(t.id)) })),
+        tareas_abiertas: tareas.filter((t) => estaPendiente(t.estado)).slice(0, 300).map((t) => ({ id: String(t.id), titulo: t.titulo, proyecto: catById.get(t.categorias[0]) ?? '', link: linkTarea(String(t.id)) })),
       });
     }
 

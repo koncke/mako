@@ -2,15 +2,20 @@
 // todo — tablero kanban de tareas (ruta /todo)
 // =============================================================================
 // Tareas que nacen de una Retro ("hacé esto"), de un experimento, o a mano.
-// AMBOS EJES: columnas de estado (por_hacer|en_curso|hecho) para el drag, y por
+// AMBOS EJES: columnas de estado (lib/todo-estados.ts) para el drag, y por
 // tarjeta: prioridad, avance % (progreso), deadline, categorías (multi) y nota.
 // `orden` (float) ordena dentro de la columna e inserta entre dos sin renumerar.
 // =============================================================================
 
 import 'server-only';
 import { getTenantDb } from './workspace';
+import {
+  esEstado, esResponsableTipo, estadoTrasProgreso,
+  type EstadoTarea, type ResponsableTipo, type CriterioVeredicto,
+} from './todo-estados';
 
-export type EstadoTarea = 'por_hacer' | 'en_curso' | 'hecho';
+export type { EstadoTarea, ResponsableTipo, CriterioVeredicto };
+
 export type Prioridad = 'alta' | 'media' | 'baja' | 'futuro';
 export type OrigenTarea = 'manual' | 'mako' | 'retro' | 'experimento';
 // Espeja app/plan/board/types.ts: 'ia' = MaKo (la IA del producto), 'code' = Claude
@@ -23,12 +28,6 @@ export type HistUndo = { field: string; prev: unknown };
 export type HistEntry = { id: string; ts: number; actor: Actor; text: string; undo?: HistUndo; kind?: 'task' };
 
 const origenActor = (o: OrigenTarea): Actor => (o === 'manual' ? 'user' : 'ia');
-
-export const COLUMNAS: Array<{ key: EstadoTarea; label: string }> = [
-  { key: 'por_hacer', label: 'Por hacer' },
-  { key: 'en_curso', label: 'En curso' },
-  { key: 'hecho', label: 'Hecho' },
-];
 
 export type Tarea = {
   id: number;
@@ -55,7 +54,26 @@ export type Tarea = {
   hecho_at: string | null;
   created_at: string;
   updated_at: string;
+  // ── QUIÉN (mig 0159). null = no se sabe, que NO es lo mismo que «es mía». ──
+  responsable: string | null;
+  responsable_email: string | null;
+  responsable_tipo: ResponsableTipo | null;
+  /** cliente de la reunión de la que salió: la etiqueta de ORIGEN, no el proyecto. */
+  cliente_nombre: string | null;
+  cliente_lead_id: number | null;
+  tema: string | null;
+  // ── EL CRITERIO (mig 0159). Lo escribe el juez; mover la tarjeta NO lo cambia. ──
+  criterio_veredicto: CriterioVeredicto | null;
+  criterio_regla: string | null;
+  criterio_razon: string | null;
+  cita: string | null;
 };
+
+/** Los campos de QUIÉN: los escribe la extracción y los puede corregir una persona. */
+export type CamposResponsable = Partial<Pick<Tarea,
+  'responsable' | 'responsable_email' | 'responsable_tipo' | 'cliente_nombre' | 'cliente_lead_id' | 'tema'>>;
+/** Los del CRITERIO: solo en el alta. Son lo que dijo el juez; una persona no los edita. */
+export type CamposCriterio = Partial<Pick<Tarea, 'criterio_veredicto' | 'criterio_regla' | 'criterio_razon' | 'cita'>>;
 
 export type Categoria = { id: number; nombre: string; color: string; emoji: string; prioridad: number; score_razon: string | null; deadline: string | null; detalle: string; historial: HistEntry[]; created_at: string };
 
@@ -71,11 +89,21 @@ const rowTo = (r: Record<string, unknown>): Tarea => {
   t.en_prioridad = !!r.en_prioridad;
   t.score = Math.max(0, Math.min(100, Math.round(Number(r.score) || 0)));
   t.score_razon = typeof r.score_razon === 'string' && r.score_razon.trim() ? (r.score_razon as string) : null;
+  t.estado = estadoOk(r.estado);
+  t.responsable = txtOk(r.responsable);
+  t.responsable_email = txtOk(r.responsable_email);
+  t.responsable_tipo = esResponsableTipo(r.responsable_tipo) ? r.responsable_tipo : null;
+  t.cliente_nombre = txtOk(r.cliente_nombre);
+  t.cliente_lead_id = leadIdOk(r.cliente_lead_id);
+  t.tema = txtOk(r.tema);
+  t.criterio_veredicto = veredictoOk(r.criterio_veredicto);
+  t.criterio_regla = txtOk(r.criterio_regla);
+  t.criterio_razon = txtOk(r.criterio_razon);
+  t.cita = txtOk(r.cita);
   return t;
 };
 
 // estado derivado del avance: 100→hecho, >0→en_curso, 0→por_hacer.
-const estadoDeProgreso = (p: number): EstadoTarea => (p >= 100 ? 'hecho' : p > 0 ? 'en_curso' : 'por_hacer');
 // score representativo de cada columna, para tareas nuevas (hasta que el guardián puntúe).
 const scoreDePrioridad = (p: Prioridad): number => ({ alta: 85, media: 62, baja: 37, futuro: 12 }[p] ?? 62);
 
@@ -107,8 +135,27 @@ function clampPct(v: unknown): number {
   return Math.max(0, Math.min(100, n));
 }
 
-const estadoOk = (e: unknown): EstadoTarea =>
-  e === 'en_curso' || e === 'hecho' ? e : 'por_hacer';
+const estadoOk = (e: unknown): EstadoTarea => (esEstado(e) ? e : 'por_hacer');
+/** texto con contenido o null: un '' guardado se leería como «hay responsable». */
+const txtOk = (s: unknown): string | null => (typeof s === 'string' && s.trim() ? s.trim() : null);
+/** resolverClienteDeReunion devuelve leadId 0 cuando el cliente es un WORKSPACE, no un
+ *  lead: 0 no es un lead, y guardarlo rompería la FK a leads. */
+const leadIdOk = (n: unknown): number | null => {
+  const v = Number(n);
+  return Number.isInteger(v) && v > 0 ? v : null;
+};
+const veredictoOk = (v: unknown): CriterioVeredicto | null => (v === 'cumple' || v === 'no_cumple' ? v : null);
+/** Los de QUIÉN, saneados, SOLO los que vinieron: `undefined` no toca la columna. */
+function camposResponsableOk(p: CamposResponsable): Record<string, unknown> {
+  const o: Record<string, unknown> = {};
+  if (p.responsable !== undefined) o.responsable = txtOk(p.responsable);
+  if (p.responsable_email !== undefined) o.responsable_email = txtOk(p.responsable_email)?.toLowerCase() ?? null;
+  if (p.responsable_tipo !== undefined) o.responsable_tipo = esResponsableTipo(p.responsable_tipo) ? p.responsable_tipo : null;
+  if (p.cliente_nombre !== undefined) o.cliente_nombre = txtOk(p.cliente_nombre);
+  if (p.cliente_lead_id !== undefined) o.cliente_lead_id = leadIdOk(p.cliente_lead_id);
+  if (p.tema !== undefined) o.tema = txtOk(p.tema);
+  return o;
+}
 const prioridadOk = (p: unknown): Prioridad =>
   p === 'alta' || p === 'baja' || p === 'futuro' ? p : 'media';
 const origenOk = (o: unknown): OrigenTarea =>
@@ -163,7 +210,7 @@ export type NuevaTarea = {
   fuente?: { tipo: string; etiqueta?: string; url?: string } | null;
   experimento_id?: number | null;
   retro_id?: number | null;
-};
+} & CamposResponsable & CamposCriterio;
 
 /** Orden para el tope de una columna (las nuevas entran arriba). */
 async function ordenTope(estado: EstadoTarea): Promise<number> {
@@ -199,6 +246,13 @@ export async function crearTarea(input: NuevaTarea): Promise<Tarea> {
     retro_id: input.retro_id ?? null,
     orden: await ordenTope(estado),
     updated_at: new Date().toISOString(),
+    // ⚠️ Esta lista es una de las TRES que se comían los campos nuevos de la
+    // extracción (docs/hallazgos-plan.md): lo que no se copia acá no llega a la fila.
+    ...camposResponsableOk(input),
+    criterio_veredicto: veredictoOk(input.criterio_veredicto),
+    criterio_regla: txtOk(input.criterio_regla),
+    criterio_razon: txtOk(input.criterio_razon),
+    cita: txtOk(input.cita),
   };
   const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('experimento_tareas').insert(fila).select(COLS).single();
@@ -261,25 +315,26 @@ export async function moverTarea(id: number, estado: EstadoTarea, orden?: number
 
 export async function editarTarea(
   id: number,
-  patch: { titulo?: string; detalle?: string | null; prioridad?: Prioridad; progreso?: number; deadline?: string | null; quarter?: string | null; categorias?: number[]; checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number; score_razon?: string | null; fuente?: { tipo: string; etiqueta?: string; url?: string } | null },
+  patch: { titulo?: string; detalle?: string | null; prioridad?: Prioridad; progreso?: number; deadline?: string | null; quarter?: string | null; categorias?: number[]; checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number; score_razon?: string | null; fuente?: { tipo: string; etiqueta?: string; url?: string } | null } & CamposResponsable,
 ): Promise<Tarea> {
-  const upd: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  const upd: Record<string, unknown> = { updated_at: new Date().toISOString(), ...camposResponsableOk(patch) };
   if (patch.titulo != null) upd.titulo = patch.titulo.trim() || 'Tarea';
   if (patch.detalle !== undefined) upd.detalle = patch.detalle;
   if (patch.prioridad != null) upd.prioridad = prioridadOk(patch.prioridad);
   // El estado se DERIVA del avance (el board /todo ya no muestra "Estado" aparte):
   // 100→hecho, >0→en_curso, 0→por_hacer. hecho_at se sella SOLO en la transición
   // a hecho — si ya estaba hecha, se preserva (no re-sellar en cada edición).
+  // ⚠️ Desde la 0159 la derivación mira DÓNDE ESTÁ la tarea: aplicada a ciegas
+  // sacaba de «No cumplen criterio» a cualquiera que le tocaran el avance, que es
+  // promoverla sin que nadie lo decida (estadoTrasProgreso, lib/todo-estados.ts).
   if (patch.progreso != null) {
     const p = clampPct(patch.progreso);
-    const est = estadoDeProgreso(p);
+    const { data: cur } = await (await getTenantDb()).from('experimento_tareas').select('estado, hecho_at').eq('id', id).single();
+    const actual = cur as { estado?: unknown; hecho_at?: string | null } | null;
+    const est = estadoTrasProgreso(estadoOk(actual?.estado), p);
     upd.progreso = p;
     upd.estado = est;
-    if (est !== 'hecho') upd.hecho_at = null;
-    else {
-      const { data: cur } = await (await getTenantDb()).from('experimento_tareas').select('hecho_at').eq('id', id).single();
-      upd.hecho_at = (cur as { hecho_at?: string } | null)?.hecho_at ?? new Date().toISOString();
-    }
+    upd.hecho_at = est !== 'hecho' ? null : (actual?.hecho_at ?? new Date().toISOString());
   }
   if (patch.deadline !== undefined) upd.deadline = dateOk(patch.deadline);
   // El Quarter se SANEA contra su formato: lo que no sea `AAAA-QN` entra como null.

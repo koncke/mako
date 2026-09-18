@@ -13,6 +13,7 @@
 
 import 'server-only';
 import { listTareas, listCategorias, editarTarea, type Prioridad, type ChecklistItem, type HistEntry } from './todo';
+import { estaPendiente } from './todo-estados';
 import { puntuarNuevas } from './mako-guardian';
 import { checklistsParaTareas } from './checklist-coach';
 import { fusionarDetalle } from './detalle-fusion';
@@ -44,13 +45,15 @@ export async function priorizarNuevasCliente(ids: number[], contexto = ''): Prom
   const nombreCat = new Map(cats.map((c) => [c.id, c.nombre]));
 
   // El proyecto viaja por NOMBRE: el Perro tiene que poder razonar "esto es de Ventas".
-  const nuevas = todas.filter((t) => idSet.has(t.id)).map((t) => ({
+  // Las que el criterio no dejó pasar NO se puntúan: el score del Perro va DESPUÉS del
+  // criterio del cliente (08-T49), y pagar tokens por ordenar lo descartado es tirarlos.
+  const nuevas = todas.filter((t) => idSet.has(t.id) && t.estado !== 'no_cumple').map((t) => ({
     id: String(t.id), titulo: t.titulo, detalle: t.detalle ?? '',
     proyecto: t.categorias[0] != null ? nombreCat.get(t.categorias[0]) : undefined,
   }));
   if (!nuevas.length) return { n: 0, patches: [] };
   const existentes = todas
-    .filter((t) => !idSet.has(t.id) && t.estado !== 'hecho')
+    .filter((t) => !idSet.has(t.id) && estaPendiente(t.estado))
     .map((t) => ({ titulo: t.titulo, score: t.score }));
 
   const [scoreRes, checklistRes] = await Promise.all([

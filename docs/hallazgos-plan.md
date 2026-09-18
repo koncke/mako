@@ -2222,8 +2222,8 @@ si fuera el de Mauricio. Tampoco hay JSON: el localStorage de `PlanBoard` era de
 super-admin y migró a la base en julio.
 
 **La regla: antes de tocar «el Plan de X», resolvé la capa de su workspace. Para Mauricio es
-`experimento_tareas`: sus estados son `por_hacer | en_curso | hecho` y no tiene columna de
-responsable.**
+`experimento_tareas`.** Desde la mig 0159 (17/9) tiene 5 estados con CHECK —ver abajo— y columnas de
+responsable, cliente de origen, tema y veredicto del criterio.
 
 **Trampa para quien lo vacíe.** El 8/9 Mauricio pidió sacar todas las tareas y empezar de cero. Si el
 tablero queda sin tareas **y** sin categorías, `app/plan/page.tsx:63` llama a `seedTodoBoardSiVacio()`
@@ -2251,3 +2251,33 @@ las de la Retro.
 **Vive en:** app/api/agente/plan/route.ts:33 · lib/plan-propuesta.ts:689 · lib/todo.ts ·
 app/plan/page.tsx:63 · lib/reunion-auto.ts · lib/mako-tools.ts (`ver_plan`) · *2026-09-16 ·
 2026-09-16 api-mako-areas*
+
+## Sumar un estado a `experimento_tareas` no es sumarlo al tipo
+
+Salió el 2026-09-17, al agregar `no_cumple` («No cumplen criterio») y `en_seguimiento` para el
+tablero por estados que pidió Mauricio (mig 0159).
+
+**Parecía** un cambio de una línea: el estado era texto libre y el único guardián era el tipo de
+TypeScript. **No lo era**, por dos lectores que nadie iba a mirar:
+
+- **La derivación por avance se come los estados nuevos.** `editarTarea` recalculaba el estado desde
+  el % a ciegas (100→hecho, >0→en_curso, 0→por_hacer). Tocarle el avance a una tarea descartada la
+  sacaba a «En proceso»: promoverla sin que nadie lo decida. Ahora pasa por `estadoTrasProgreso`
+  (lib/todo-estados.ts), que deja quietas a `no_cumple` y `en_seguimiento` salvo al 100%.
+- **«Pendiente» se preguntaba como `estado !== 'hecho'`** en el agente, /general, el conteo del
+  onboarding, `ver_plan` y el Perro del cliente. Con `no_cumple`, eso cuenta lo descartado como
+  trabajo y el Perro lo puntúa pagando tokens.
+
+**La regla:** pendiente se pregunta con `estaPendiente()` (o `NO_PENDIENTES_SQL` en la base), nunca
+con `!== 'hecho'`. Un estado nuevo va en `ESTADOS` **y** en el CHECK de la base, en el mismo commit:
+el test `tests/todo-estados.test.ts` compara los dos. El veredicto del juez (`criterio_*`) no es el
+estado: mover la tarjeta no lo toca, y la API del cliente no lo escribe.
+
+**Quedó sin hacer:** promover una tarea desde `no_cumple` todavía no exige motivo en el server
+(`moverTarea`, lib/todo.ts) — hoy no hay filas en ese estado, así que no hay por dónde entrar. Va con
+la columna de 08-T27. Y la extracción todavía no escribe `responsable`/`cliente_nombre`: las otras dos
+listas que se comen campos (`coerceCandidatas`, `limpiarTarea`, ver «El pipeline de reuniones…»)
+siguen sin copiarlos.
+
+**Vive en:** lib/todo-estados.ts · lib/todo.ts (`estadoOk`, `editarTarea`, `crearTarea`) ·
+supabase/migrations/0159 · app/api/todo/route.ts · *2026-09-17*

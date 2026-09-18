@@ -10,7 +10,7 @@ import type { NextRequest } from 'next/server';
 import {
   listTareas, crearTarea, crearTareasDesde, moverTarea, editarTarea, borrarTarea,
   listCategorias, crearCategoria, editarCategoria, borrarCategoria,
-  type EstadoTarea, type Prioridad, type OrigenTarea, type ChecklistItem, type HistEntry,
+  type EstadoTarea, type Prioridad, type OrigenTarea, type ChecklistItem, type HistEntry, type CamposResponsable,
 } from '@/lib/todo';
 import { priorizarNuevasCliente } from '@/lib/todo-guardian';
 
@@ -39,7 +39,16 @@ type TareaBody = {
   // por eso las tareas del cliente que venían de una reunión perdían el chip de origen
   // y el link al minuto de la grabación, mientras que en el board del dueño sí salían.
   fuente?: { tipo: string; etiqueta?: string; url?: string } | null;
-};
+} & CamposResponsable;
+
+/** Los campos de QUIÉN, tal cual vinieron (lib/todo los sanea). Una persona puede
+ *  corregir el responsable o el cliente; los del CRITERIO no pasan por esta ruta: son
+ *  lo que dijo el juez, y si el cliente los pudiera reescribir dejarían de servir para
+ *  saber en qué se equivocó el criterio. */
+const responsableDe = (t: TareaBody): CamposResponsable => ({
+  responsable: t.responsable, responsable_email: t.responsable_email, responsable_tipo: t.responsable_tipo,
+  cliente_nombre: t.cliente_nombre, cliente_lead_id: t.cliente_lead_id, tema: t.tema,
+});
 
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown>;
@@ -69,6 +78,7 @@ export async function POST(req: NextRequest) {
         // La fuente va EN EL ALTA: si se escribiera en un editar posterior, la tarjeta
         // nace sin chip y el Perro la puntúa sin saber de dónde salió.
         fuente: t.fuente ?? null,
+        ...responsableDe(t),
       }) });
     }
     if (action === 'crear-lote') {
@@ -92,6 +102,7 @@ export async function POST(req: NextRequest) {
         progreso: patch.progreso, deadline: patch.deadline, quarter: patch.quarter, categorias: patch.categorias,
         checklist: patch.checklist, historial: patch.historial, en_prioridad: patch.en_prioridad, score: patch.score, score_razon: patch.score_razon,
         fuente: patch.fuente,
+        ...responsableDe(patch),
       }) });
     }
     if (action === 'borrar') {

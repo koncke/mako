@@ -23,6 +23,7 @@ import { pendientesOnboarding } from '@/lib/onboarding-pendientes';
 import { integracionConectada } from '@/lib/credenciales';
 import { TAB_ONBOARDINGS } from '@/lib/tab-onboarding-catalogo';
 import { onboardingTabPendiente } from '@/lib/tab-onboarding-state';
+import { NO_PENDIENTES_SQL } from '@/lib/todo-estados';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -51,11 +52,12 @@ export async function GET() {
     // exactamente lo que pasa cuando la consulta falla en un workspace recién creado.
     const db = await getTenantDb().catch(() => null);
     // Abiertas = lo que todavía tiene que hacer. Las `hecho` no cuentan: el número
-    // que se le muestra es el trabajo que le espera, no el histórico.
+    // que se le muestra es el trabajo que le espera, no el histórico. Tampoco las que
+    // no pasaron el criterio (`no_cumple`): eso no es trabajo, es lo que se descartó.
     const contarTareas = async (): Promise<number> => {
       if (!db) return 0;
       try {
-        const { count, error } = await db.from('experimento_tareas').select('id', { count: 'exact', head: true }).neq('estado', 'hecho');
+        const { count, error } = await db.from('experimento_tareas').select('id', { count: 'exact', head: true }).not('estado', 'in', NO_PENDIENTES_SQL);
         return error ? 0 : (count ?? 0);
       } catch { return 0; }
     };

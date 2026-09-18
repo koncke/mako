@@ -21,6 +21,7 @@ import { bearerDe, wsPorAgenteToken } from '@/lib/agente-token';
 import { runWithWorkspace, getWorkspace, OWNER_WS } from '@/lib/workspace';
 import { listPlanBoard } from '@/lib/plan-board';
 import { listTareas, listCategorias } from '@/lib/todo';
+import { estaPendiente } from '@/lib/todo-estados';
 import { crearPropuesta } from '@/lib/plan-propuesta';
 import { APP_BASE_URL } from '@/lib/app-url';
 
@@ -71,7 +72,7 @@ export async function GET(req: NextRequest) {
         ok: true,
         board: 'todo',
         tareas: tareas
-          .filter((t) => t.estado !== 'hecho')
+          .filter((t) => estaPendiente(t.estado))
           .map((t) => ({ id: t.id, titulo: t.titulo, score: t.score, prioridad: t.prioridad, estado: t.estado, avance: t.progreso, deadline: t.deadline, proyecto: nombreCat.get(t.categorias[0]) ?? null })),
         proyectos: cats.map((c) => ({ id: c.id, nombre: c.nombre })),
       });

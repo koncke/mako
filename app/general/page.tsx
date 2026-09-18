@@ -45,6 +45,7 @@ import { getCuotasPendientes, getRevenueBreakdowns, type RevItem, type RevenueBr
 import { getMetaAccountHealth } from '@/lib/meta-health';
 import { getDataSources } from '@/lib/sources';
 import { listTareas } from '@/lib/todo';
+import { estaPendiente } from '@/lib/todo-estados';
 import { getDiagnosticoFase } from '@/lib/fase-store';
 import {
   quarterActual, listObjectives, avanceDeObjetivo, getTableroKpis, getCapacidad,
@@ -360,7 +361,7 @@ export default async function GeneralPage() {
     })),
     alertas: alertas as AlertaParaFoco[],
     tareas: tareas
-      .filter((t) => t.estado !== 'hecho')
+      .filter((t) => estaPendiente(t.estado))
       .map((t) => ({ titulo: t.titulo, score: t.score, progreso: t.progreso, deadline: t.deadline, haceloEn: null })),
     objetivos: objetivos.length,
     cuello: fase?.cuello ?? null,
