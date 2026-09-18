@@ -2788,6 +2788,59 @@ re-escanear sobre un corte tumbaria la sesion que estaba por volver.
 
 *(Corrida del 08/09/2026, a partir del «no entiendo» del dueño.)*
 
+## La post-agenda «prendida» no podía mandar un solo audio, ni con la línea conectada
+
+**Vive en:** `lib/nutricion.ts` (la rama del audio: `esLeadCliente` → `crearBorrador`) ·
+`lib/evolution-envio.ts` (`esLeadCliente`) · `lib/nutricion-desenlace.ts` ·
+`lib/setting-estrategia.ts` (`silencioCumplido`) · `lib/nutricion-canal.ts`
+
+**Síntoma:** la secuencia de audios a agendados se prendió el 8/9 en ws1 y al 17/9 no había
+salido un solo audio. El diagnóstico heredado era «la línea de Mauricio está caída: que
+re-vincule el QR y listo».
+
+**⚠️ El diagnóstico era correcto y NO alcanzaba.** Con la línea conectada tampoco iba a salir
+nada: el motor manda automático **solo a quien ya pagó** (`esLeadCliente` exige
+`fecha_primer_pago`); a todos los demás les deja un **borrador** para que alguien lo mande a
+mano. Es una regla vieja del PDF («a leads calientes NUNCA se dispara automático») que se
+cruza con la decisión del 8/9 de que los audios a agendados salgan solos (08-T09). Un
+agendado, por definición, no pagó. Medido: **0 de 4** leads inscriptos tenían pago. O sea
+que re-vincular la línea iba a convertir «falla cada 24 h» en «4 borradores que nadie mira».
+
+**La regla que queda: antes de decir «esto se destraba con X», recorré el camino ENTERO
+hasta el envío.** La primera rama que corta (la línea caída) tapa a la segunda (el
+borrador), y arreglar la primera deja la segunda a la vista recién en producción.
+*Pendiente: decisión de Martín (auto-envío por secuencia vs. borradores en tanda), que es la
+misma de la campaña al residuo (09-T62).*
+
+**Y de paso, dos bugs del desenlace que sí se arreglaron:**
+
+1. **El fallo por silencio solo podía dispararse en el momento equivocado.** Corría con la
+   inscripción `activa` —o sea A MITAD de la secuencia, matando el recordatorio de 24 h con
+   `falloHoras = 12`— y nunca al terminar, porque el motor pasa la inscripción a
+   `completada` justo en el último paso. Sin nada enviado, contaba desde la inscripción:
+   las 4 de ws1 quedaron en `no_responde` con `ultimo_paso_at = null`. El tipo decía
+   «tras el último paso»; la línea hacía otra cosa.
+2. **El aviso al dueño afirmaba lo que no pasó**: «le mandé el audio y le insistí: no
+   contestó» salía siempre, incluso sobre leads a los que no les salió nada. Ahora el texto
+   sale de los envíos con estado `enviado`, y `ultimo_paso_at` no sirve de base porque el
+   motor lo escribe también sobre un borrador.
+
+**El motor dejó de creerle a la fila.** `evoConectado` salía de
+`evolution_instancias.estado`; ahora decide la sonda viva y la fila queda para cuando la
+sonda no contesta (y el fallo lo dice). Una por corrida, ~250 ms.
+
+⚠️ **Un chequeo que pasa mientras lo que mira está apagado no está probado.** El script
+`partir-post-agenda.ts` verificaba «no más de una secuencia viva», pasó el 8/9 con las dos
+mitades pausadas, y el 17/9 —con las dos prendidas, como deben estar— acusó de «solapadas» a
+dos secuencias excluyentes por diseño. Ahora mira triggers repetidos.
+
+⚠️ **Y el `dev-areas` test falla en todo checkout limpio**: el área `local-dev-environment`
+declara `.claude/settings.local.json`, que no está versionado. En el clon donde se trabaja
+existe y pasa; en un worktree —el camino que manda AGENTS.md cuando el árbol compartido no
+compila— falla. *Sin arreglar: vive en `app/admin/dev/areas.ts`.*
+
+*(Corrida del 17/09/2026, tareas 08-T14 y 08-T17 del reparto de las llamadas del 8 y 9/9.)*
+
 ## Instagram: lo que hay que saber antes de abrir el canal
 
 De la corrida de 21 agentes del 14/08/2026 (evaluación de factibilidad: DM directo vs
