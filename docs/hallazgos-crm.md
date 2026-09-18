@@ -523,6 +523,30 @@ recibe la ficha cuando no se pudo leer el funnel (`getLeadFullAction`). Sin resp
 a Agenda R1 desde la ficha salteaba la pregunta de la fecha. `pideWizardAlElegir` cae a
 `agenda`/`agendaj2` cuando ninguna etapa trae `kind`.
 
+**Qué pasa con lo que no se completó — verificado camino por camino (para 08-T23).**
+Todo guardado HACIA ADELANTE que deja algo sin completar escribe una línea en `lead_audit`,
+porque los caminos de la interfaz terminan en dos acciones del server y las dos llaman a
+`registrarPendientes`:
+
+| Camino | Acción del server | Línea en `lead_audit` |
+|---|---|---|
+| Soltar una card en el tablero | `setLeadStageAction` | `Datos pendientes` |
+| Ficha: elegir otra etapa (`MoverEtapaConfirm`) | `setLeadStageAction` | `Datos pendientes` |
+| Wizard: «Guardar y completar después» o «Confirmar» | `completeStageMoveAction` | `Datos pendientes` |
+| «¿Qué hacer ahora?» | `resolverQueHacerAction` → `completeStageMoveAction` | `Datos pendientes` |
+| Movimiento automático (MaKo, crm-auto, nutrición) | `setPipelineStage` con `{ omitir }` | `Etapa sin validar` |
+| Deshacer / Restaurar desde el historial | `undoStageMoveAction` / `revertAuditChangeAction` | ninguna, a propósito: un cambio deshecho no deja historia |
+| Nutrición manual | `markManualNutritionAction` | ninguna: su propio formulario pide el motivo y el plazo |
+
+⚠️ **La trampa para quien haga que MaKo lo pida: la línea es HISTORIA, no la lista viva.**
+Dice quién dejó qué sin completar y cuándo, y **no se borra cuando después alguien lo
+completa**. Lo que falta AHORA sale en vivo de `faltantesDeLead` / `getPendientesDeMarcar`.
+Si MaKo arma sus preguntas desde la línea del historial, va a pedir datos que ya se cargaron,
+que es peor que no preguntar. La línea sirve para saber desde cuándo y quién (por ejemplo,
+para decidir cuándo preguntar); qué preguntar sale de la derivación en vivo. Tampoco alcanza
+con mirar `Datos pendientes`: los movimientos automáticos dejan `Etapa sin validar`.
+Deduplicado: solo se compara contra la última línea del lead; la misma lista no se repite.
+
 **Lo que quedó sin hacer:**
 
 - **Enter sobre un chip de Meta confirma el movimiento sin registrar el toque.** `Confirm`
