@@ -19,7 +19,8 @@ import { sendWhatsappTemplate } from '@/lib/chatwoot';
 import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
 import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, getEmailFrom, displayNameDe } from '@/lib/resend';
 import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags';
-import { getInstanciaRow } from '@/lib/evolution';
+import { getInstanciaRow, sondearSocket } from '@/lib/evolution';
+import { canalNoOficial } from '@/lib/nutricion-canal';
 import { esLeadCliente, enviarYEspejar, enviarAudioYEspejar, crearBorrador, tieneBorradorNutriPendiente } from '@/lib/evolution-envio';
 import { getAudio, audioBase64 } from '@/lib/setting-audios';
 import { estaBloqueado } from '@/lib/evolution-block';
@@ -958,8 +959,22 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   ]);
   // Firma del footer de los emails = display name del remitente DEL WORKSPACE.
   const fromNameWs = displayNameDe(remitente);
-  // ¿El número no oficial (Evolution) está conectado? (para los pasos proveedor='no_oficial')
-  const evoConectado = instEvo?.estado === 'conectado';
+  // ¿El número no oficial (Evolution) puede mandar AHORA?
+  //
+  // ⚠️ DECIDÍA CON LA FILA, que miente en las dos direcciones. Con la línea de
+  // Mauricio caída desde el 3/09, la post-agenda se prendió el 8/09 y los 4 envíos
+  // terminaron en `fallo` — correcto por casualidad: la fila y la sesión
+  // coincidían. El día que discrepen, una fila vieja en «desconectado» apaga un
+  // canal que anda, sin que nada lo diga. Decide la sonda; la fila queda para
+  // cuando la sonda no contesta. El porqué entero, en lib/nutricion-canal.ts.
+  //
+  // UNA sonda por corrida, no por envío (~250 ms). Con tope de 8 s: el cron no
+  // puede quedar colgado de un Evolution que no responde.
+  const sondeoEvo = instEvo
+    ? await sondearSocket(instEvo.instance_name, 8000).catch(() => 'sin_respuesta' as const)
+    : null;
+  const canalEvo = canalNoOficial(sondeoEvo, instEvo?.estado);
+  const evoConectado = canalEvo.listo;
 
   if (!opts?.ignorarVentana && !dentroDeVentana()) {
     return { ...res, saltado: 'fuera-de-ventana-horaria' };
@@ -1149,7 +1164,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         if (!lead?.telefono) {
           estado = 'fallo'; nota = 'lead sin teléfono'; backoffHoras = 24;
         } else if (!evoConectado) {
-          estado = 'fallo'; nota = 'WhatsApp de empresa no conectado'; backoffHoras = 24;
+          estado = 'fallo'; nota = canalEvo.motivo ?? 'WhatsApp de empresa no conectado'; backoffHoras = 24;
         } else if (await estaBloqueado(lead.telefono)) {
           estado = 'omitido'; nota = 'contacto bloqueado'; // no le mandamos por el no oficial
         } else if (esAudio) {

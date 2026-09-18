@@ -20,7 +20,7 @@
 import 'server-only';
 
 import { getTenantDb, getWorkspaceActual } from './workspace';
-import { parseEstrategia, hitoYaHecho, type Desenlace } from './setting-estrategia';
+import { parseEstrategia, hitoYaHecho, silencioCumplido, type Desenlace } from './setting-estrategia';
 
 export type ResultadoDesenlaces = {
   logrados: number;
@@ -39,7 +39,6 @@ type FilaInsc = {
 };
 
 /** Horas transcurridas desde un ISO. El umbral del desenlace se mide acá. */
-const horas = (desde: string): number => (Date.now() - new Date(desde).getTime()) / 3_600_000;
 
 /** La fecha de la reunión del lead, en texto corto para el aviso. */
 function fechaReunion(lead: Record<string, unknown>): string {
@@ -109,6 +108,37 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
   // (antes ese fallo se iba a un console.error que no lee nadie).
   const { moverLeadAuto } = await import('./leads');
   const ahora = new Date().toISOString();
+
+  // Lo que SALIÓ de verdad, por inscripción: cuántos mensajes y cuándo el
+  // último. Es la única base honesta para «no contestó». `ultimo_paso_at` no
+  // sirve: el motor lo escribe también cuando el paso quedó como borrador que
+  // nadie mandó. Ver `silencioCumplido` (lib/setting-estrategia.ts).
+  //
+  // En tandas de 200 inscripciones y paginado dentro de cada una: PostgREST
+  // corta en 1000 filas sin avisar, y a una inscripción a la que le falta su
+  // ÚLTIMO envío el reloj del silencio le arranca antes de tiempo.
+  const enviados = new Map<number, { n: number; ultimo: string }>();
+  {
+    const ids = inscs.map((i) => i.id);
+    for (let t = 0; t < ids.length; t += 200) {
+      const tanda = ids.slice(t, t + 200);
+      for (let desde = 0; ; desde += 1000) {
+        const { data: envData, error: envErr } = await supabase
+          .from('nutricion_envios').select('id, inscripcion_id, created_at')
+          .in('inscripcion_id', tanda).eq('estado', 'enviado')
+          .order('id').range(desde, desde + 999);
+        if (envErr) { console.error('[desenlace] leer envios:', envErr.message); break; }
+        const filas = (envData ?? []) as Array<{ inscripcion_id: number | null; created_at: string }>;
+        for (const e of filas) {
+          if (e.inscripcion_id == null) continue;
+          const prev = enviados.get(e.inscripcion_id);
+          if (!prev) enviados.set(e.inscripcion_id, { n: 1, ultimo: e.created_at });
+          else enviados.set(e.inscripcion_id, { n: prev.n + 1, ultimo: e.created_at > prev.ultimo ? e.created_at : prev.ultimo });
+        }
+        if (filas.length < 1000) break;
+      }
+    }
+  }
 
   // Todas las secuencias del workspace por CLAVE: el encadenamiento apunta a la
   // clave (estable y legible) y no al id (que cambia entre workspaces).
@@ -188,15 +218,15 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
     }
 
     // ── ¿Falló por silencio? ──
-    // El reloj corre desde el ÚLTIMO mensaje enviado y solo mientras la
-    // inscripción sigue activa. Una que quedó pausada o en hand-off no acumula
-    // tiempo: nadie le está escribiendo.
+    // Solo cuando la secuencia YA MANDÓ TODO (completada) y desde el último
+    // mensaje que SALIÓ. La regla entera, y las tres formas en que la versión
+    // inline de acá fallaba, en `silencioCumplido`.
     //
     // En HORAS y no en días: «confirmá la reunión de mañana» y «reactivación
     // de un lead de hace tres meses» no pueden compartir umbral.
-    if (d.falloHoras > 0 && insc.estado === 'activa') {
-      const desde = insc.ultimo_paso_at ?? insc.inscripto_at;
-      if (horas(desde) >= d.falloHoras) {
+    const salio = enviados.get(insc.id) ?? null;
+    {
+      if (silencioCumplido({ falloHoras: d.falloHoras, estado: insc.estado, ultimoEnviadoAt: salio?.ultimo ?? null, ahoraMs: Date.now() })) {
         await supabase.from('nutricion_inscripciones').update({
           desenlace: 'fallo', desenlace_at: ahora, proximo_envio_at: null,
           estado: 'no_responde', updated_at: ahora,
@@ -237,7 +267,13 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
               texto: [
                 `🟡 *${quien}* agendó${cuando ? ` para ${cuando}` : ''} y no confirmó.`,
                 '',
-                'Le mandé el audio y le insistí al día siguiente: no contestó ninguna de las dos veces.',
+                // Lo que dice que se hizo sale de lo que SALIÓ, no de lo que la
+                // secuencia tenía escrito. La versión anterior afirmaba «le mandé
+                // el audio y le insistí» siempre — y llegó a dispararse sobre
+                // leads a los que no les había salido nada.
+                (salio?.n ?? 0) >= 2
+                  ? `Le escribí ${salio!.n} veces (el audio y el recordatorio) y no contestó ninguna.`
+                  : 'Le mandé el audio y no contestó.',
                 tel ? `Conviene que le marques tú: ${tel}` : 'No tengo su teléfono para pasártelo.',
                 '',
                 '— MaKo',

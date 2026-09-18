@@ -62,6 +62,10 @@ export type Desenlace = {
   /**
    * HORAS sin respuesta tras el último paso para darla por fallida. 0 = nunca.
    *
+   * «Tras el último paso» es literal: el reloj arranca cuando la secuencia ya
+   * mandó todo lo que tenía, y cuenta desde el último mensaje que SALIÓ. Lo
+   * decide `silencioCumplido`, más abajo — antes vivía inline y hacía otra cosa.
+   *
    * Estaba en DÍAS y no alcanzaba: no es lo mismo no contestar en 10 minutos
    * que en 24 horas, y «confirmá la reunión de mañana» y «reactivación de un
    * lead de hace tres meses» no pueden compartir umbral. Lo viejo se convierte
@@ -261,4 +265,49 @@ export function parseCriterio(raw: unknown): CriterioCalificacion {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { califica: [], descalifica: [] };
   const r = raw as Record<string, unknown>;
   return { califica: listaStrings(r.califica), descalifica: listaStrings(r.descalifica) };
+}
+
+/**
+ * ¿La secuencia ya se puede dar por perdida porque el lead no contestó?
+ *
+ * ⚠️ LA CONDICIÓN VIEJA SOLO PODÍA DISPARARSE EN EL MOMENTO EQUIVOCADO. Vivía
+ * inline en `evaluarDesenlaces` como `estado === 'activa' && horas(ultimo_paso_at
+ * ?? inscripto_at) >= falloHoras`, y fallaba de las tres formas posibles:
+ *
+ *   1. A MITAD de la secuencia (activa) corría, y la mataba antes del paso que
+ *      seguía. La post-agenda manda el audio y a las 24 h el recordatorio; con
+ *      `falloHoras = 12` (el default de `preparar`) se daba por perdida 12 h
+ *      después del audio y el recordatorio no salía NUNCA.
+ *   2. Al TERMINAR, el motor pasa la inscripción a 'completada', y ahí ya no
+ *      corría nunca — justo cuando debía. El tipo lo dice: «tras el último paso».
+ *   3. Sin NADA enviado caía a `inscripto_at`. Medido el 17/09/2026 en el ws1: las
+ *      4 inscripciones de la post-agenda quedaron en `no_responde` 12-19 h después
+ *      de inscribirse, con `ultimo_paso_at = null` — la línea estaba caída y no
+ *      les había salido un solo mensaje. Y de ese desenlace cuelga un aviso al
+ *      dueño que dice «le mandé el audio y le insistí: no contestó».
+ *
+ * «No contestó» presupone «le escribimos», y «le escribimos» es un envío con
+ * estado 'enviado' — no un borrador que nadie mandó, ni un simulado, ni un
+ * paso que se saltó. Por eso la base del reloj es el último ENVIADO, que el
+ * llamador trae de `nutricion_envios`, y no `ultimo_paso_at`, que el motor
+ * escribe también sobre un borrador.
+ *
+ * Pura y sin `server-only` a propósito: decide si se le avisa al dueño que un
+ * lead no confirmó, y eso no puede quedarse sin test.
+ */
+export function silencioCumplido(p: {
+  falloHoras: number;
+  /** estado de la inscripción: solo 'completada' ya mandó todo lo que tenía. */
+  estado: string;
+  /** cuándo salió el último envío con estado 'enviado'; null = nunca salió nada. */
+  ultimoEnviadoAt: string | null;
+  ahoraMs: number;
+}): boolean {
+  if (!(p.falloHoras > 0)) return false;
+  // Mientras quede algo por mandar, el silencio todavía no dice nada.
+  if (p.estado !== 'completada') return false;
+  if (!p.ultimoEnviadoAt) return false;
+  const t = Date.parse(p.ultimoEnviadoAt);
+  if (!Number.isFinite(t)) return false;
+  return (p.ahoraMs - t) / 3_600_000 >= p.falloHoras;
 }

@@ -73,15 +73,32 @@ async function main() {
 
     // La propiedad, no la fila: dos secuencias vivas con cohortes de
     // post-agenda solapados son el mismo audio dos veces al mismo teléfono.
+    //
+    // ⚠️ «MÁS DE UNA VIVA» ERA LA PREGUNTA EQUIVOCADA, y dio una falsa alarma el
+    // 17/09/2026: las dos mitades de la familia (conocido / primer contacto)
+    // estaban prendidas —como tienen que estar— y el chequeo las acusó de
+    // solaparse. No se solapan: son dos triggers distintos que parten el
+    // cohorte, y la exclusión de familia (lib/nutricion.ts) garantiza que un lead
+    // entre a una sola. Mientras estuvieron pausadas el chequeo pasaba, que es
+    // exactamente cómo se esconde un chequeo mal escrito.
+    //
+    // Lo que SÍ es un solapamiento, y hay que atajar:
+    //   · dos vivas con el MISMO trigger (el mismo lead entra a las dos), o
+    //   · la vieja `agendado_sin_confirmar` viva junto a cualquier mitad: su
+    //     trigger no es de la familia, así que la exclusión no la ve.
     const vivas = despues.filter((s) => s.activa && !s.archivada_at);
-    if (vivas.length > 1) {
-      console.error(`⛔ QUEDARON ${vivas.length} SECUENCIAS VIVAS CON COHORTES SOLAPADOS:`);
-      for (const s of vivas) console.error(`     ${s.clave} → ${s.trigger_tipo}`);
-      console.error('   Un lead que agende va a entrar a todas. Revisar a mano ANTES de prenderlas.');
+    const porTrigger = new Map<string, Fila[]>();
+    for (const s of vivas) porTrigger.set(s.trigger_tipo, [...(porTrigger.get(s.trigger_tipo) ?? []), s]);
+    const repetidas = [...porTrigger.values()].filter((g) => g.length > 1).flat();
+    const viejaConFamilia = porTrigger.has('agendado_sin_confirmar')
+      && vivas.some((s) => FAMILIA_POST_AGENDA.includes(s.trigger_tipo));
+    if (repetidas.length || viejaConFamilia) {
+      console.error('⛔ QUEDARON SECUENCIAS VIVAS CON COHORTES SOLAPADOS:');
+      for (const s of repetidas.length ? repetidas : vivas) console.error(`     ${s.clave} → ${s.trigger_tipo}`);
+      console.error('   Un lead que agende va a entrar a más de una. Revisar a mano.');
       process.exit(1);
     }
-    // Las nuevas nacen PAUSADAS: nada sale hasta que el dueño las prenda.
-    console.log('  ✓ Sin cohortes solapados. Las nuevas nacen pausadas: préndelas desde la tab.\n');
+    console.log(`  ✓ Sin cohortes solapados (${vivas.length} viva${vivas.length === 1 ? '' : 's'}; las mitades de la familia son excluyentes por diseño).\n`);
   });
 }
 

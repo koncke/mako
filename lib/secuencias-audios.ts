@@ -136,10 +136,20 @@ export async function armarSecuenciasDeAudios(linkVideo?: string | null): Promis
   // el pedido de confirmación tienen que ir por escrito, pegados a la nota de
   // voz. Sin esto la secuencia mandaba el audio con el pie VACÍO y nadie
   // confirmaba nada.
-  const piePostAgenda = [
-    (linkVideo ?? '').trim() ? `Te dejo el video para que llegues con contexto: ${(linkVideo ?? '').trim()}` : '',
-    '¿Me confirmas por aquí que te queda bien el horario?',
-  ].filter(Boolean).join('\n');
+  //
+  // LA PREGUNTA VA «A RAÍZ DEL VIDEO» (reunión del 08/09, 20:48). Martín: «la
+  // pregunta por ¿me confirmas que viste el video? O sea, que sea siempre a raíz
+  // del video», y Mauricio: «Sí». Es la misma señal de confirmación —lo que
+  // cuenta es que el lead conteste algo (08-T05), y `pausarPorRespuesta` lo
+  // toma—, pero le pide lo que de verdad le sirve a la reunión: que llegue
+  // habiendo visto el video.
+  //
+  // ⚠️ SOLO SI HAY VIDEO. Sin link no se le puede preguntar por un video que no
+  // se le mandó: ahí queda la pregunta por el horario, que era la de antes.
+  const link = (linkVideo ?? '').trim();
+  const piePostAgenda = link
+    ? `Te dejo el video para que llegues con contexto: ${link}\n¿Me confirmas que viste el video?`
+    : '¿Me confirmas por aquí que te queda bien el horario?';
 
   // Cada audio de post-agenda, su secuencia. El recordatorio de 24h se repite
   // en las dos a propósito: es el mismo pedido de confirmación, y como el lead
@@ -162,18 +172,33 @@ export async function armarSecuenciasDeAudios(linkVideo?: string | null): Promis
   // tuteo — el avatar de este negocio está en México, y un "che" o un "decime"
   // suenan importados al instante. Es lo mismo que ya cuidan los escenarios
   // del ensayo y el copy de la tab.
-  const recordatorio = (orden: number): PasoSecuencia => ({
-    orden, canal: 'whatsapp', delay_horas: 24,
-    tipo: 'texto', audio_id: null, requiere: 'sin_respuesta',
-    asunto: null,
-    cuerpo: 'Hola {{nombre}}, ¿te sigue quedando bien el horario de la reunión? Con un sí me alcanza.',
-    variantes: [
-      'Hola {{nombre}}, ¿te sigue quedando bien el horario de la reunión? Con un sí me alcanza.',
-      '{{nombre}}, ¿me confirmas la reunión? Si necesitas moverla, dime y lo acomodamos.',
-      'Hola {{nombre}}, ¿queda en pie lo que agendamos? Avísame y quedo tranquilo.',
-    ],
-    proveedor: 'no_oficial', template_wa: null,
-  });
+  //
+  // El recordatorio de 24 h sigue la misma regla —«siempre a raíz del video»— y
+  // vuelve a dejar el link: a quien no contestó lo más probable es que no lo
+  // haya abierto, y pedirle que vea algo sin dárselo de nuevo es mandarlo a
+  // buscar un mensaje de ayer. El link lo pone el CÓDIGO en cada variante, nunca
+  // un modelo: es un dato exacto.
+  const recordatorio = (orden: number): PasoSecuencia => {
+    const variantes = link
+      ? [
+        `Hola {{nombre}}, ¿alcanzaste a ver el video? Te lo dejo de nuevo por si acaso: ${link}`,
+        `{{nombre}}, ¿pudiste ver el video antes de la reunión? Aquí lo tienes otra vez: ${link}`,
+        `Hola {{nombre}}, ¿ya viste el video? Con eso aprovechamos mejor la reunión: ${link}`,
+      ]
+      : [
+        'Hola {{nombre}}, ¿te sigue quedando bien el horario de la reunión? Con un sí me alcanza.',
+        '{{nombre}}, ¿me confirmas la reunión? Si necesitas moverla, dime y lo acomodamos.',
+        'Hola {{nombre}}, ¿queda en pie lo que agendamos? Avísame y quedo tranquilo.',
+      ];
+    return {
+      orden, canal: 'whatsapp', delay_horas: 24,
+      tipo: 'texto', audio_id: null, requiere: 'sin_respuesta',
+      asunto: null,
+      cuerpo: variantes[0],
+      variantes,
+      proveedor: 'no_oficial', template_wa: null,
+    };
+  };
 
   // Ya NO llevan `requiere` en el paso: la condición se mudó al cohorte de la
   // secuencia. Dejarla acá además la haría redundante y engañosa — la pantalla
