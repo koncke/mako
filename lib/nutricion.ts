@@ -13,6 +13,8 @@
 
 import { FAMILIA_POST_AGENDA, TRIGGER_AGENDA_CONOCIDO, TRIGGER_AGENDA_NUEVO, secuenciasParaElLead } from '@/lib/nutricion-familias';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
+import { leerTodo, leerPorPaginas, type ConsultaPaginada } from '@/lib/supabase-paginado';
+import { idsConAlMenosUnaFila, enTandas } from '@/lib/ids-con-filas';
 import { getVslEngagementMap } from '@/lib/leads';
 import { pipelineStageOf } from '@/lib/pipeline';
 import { sendWhatsappTemplate } from '@/lib/chatwoot';
@@ -21,6 +23,7 @@ import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, ge
 import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags';
 import { getInstanciaRow, sondearSocket } from '@/lib/evolution';
 import { canalNoOficial } from '@/lib/nutricion-canal';
+import { parseEstrategia } from '@/lib/setting-estrategia';
 import { esLeadCliente, enviarYEspejar, enviarAudioYEspejar, crearBorrador, tieneBorradorNutriPendiente } from '@/lib/evolution-envio';
 import { getAudio, audioBase64 } from '@/lib/setting-audios';
 import { estaBloqueado } from '@/lib/evolution-block';
@@ -88,6 +91,8 @@ export type Secuencia = {
   trigger_tipo: string;
   activa: boolean;
   pasos: PasoSecuencia[];
+  /** Sale sola aunque el lead no haya pagado (ver `Estrategia.envio_automatico`). */
+  envio_automatico: boolean;
 };
 
 // % de retención del VSL a partir del cual consideramos "lo vio en serio".
@@ -126,14 +131,14 @@ export async function getSecuenciasActivas(): Promise<Secuencia[]> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('nutricion_secuencias')
-    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos')
+    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia')
     .eq('activa', true)
     // Archivada nunca enrola ni envía, aunque haya quedado con activa=true.
     .is('archivada_at', null);
   if (error) throw new Error(`getSecuenciasActivas: ${error.message}`);
   const rows = (data ?? []) as Array<{
     id: number; clave: string; nombre: string; etapa: string;
-    trigger_tipo: string; activa: boolean; pasos: unknown;
+    trigger_tipo: string; activa: boolean; pasos: unknown; estrategia: unknown;
   }>;
   return rows.map((r) => ({
     id: r.id,
@@ -143,6 +148,9 @@ export async function getSecuenciasActivas(): Promise<Secuencia[]> {
     trigger_tipo: r.trigger_tipo,
     activa: r.activa,
     pasos: Array.isArray(r.pasos) ? (r.pasos as PasoSecuencia[]) : [],
+    // Por el MISMO parser que la pantalla: la regla de qué cuenta como «sí»
+    // (solo `true` literal) vive en un lugar.
+    envio_automatico: parseEstrategia(r.estrategia)?.envio_automatico === true,
   }));
 }
 
@@ -167,20 +175,30 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
     trigger_tipo: string; activa: boolean; pasos: unknown; estrategia: unknown;
   }>;
 
-  const [insc, env] = await Promise.all([
-    supabase.from('nutricion_inscripciones').select('secuencia_id'),
-    supabase.from('nutricion_envios').select('secuencia_id').in('estado', ['enviado', 'simulado']),
-  ]);
-  const tally = (arr: Array<{ secuencia_id: number | null }> | null): Map<number, number> => {
-    const m = new Map<number, number>();
-    for (const r of arr ?? []) {
+  // Contados PÁGINA POR PÁGINA (se agrega al vuelo, no se materializa). Eran dos
+  // `.select()` sueltos sobre las tablas enteras: nutricion_envios suma hasta 40
+  // filas por día por workspace, así que en menos de un mes pasaba las 1000 y
+  // PostgREST cortaba sin avisar — «inscriptos» y «enviados» por secuencia quedaban
+  // contados sobre una muestra arbitraria, un número plausible y más chico. Un
+  // error de lectura, además, se leía como «0 inscriptos»; ahora lanza.
+  const inscMap = new Map<number, number>();
+  const envMap = new Map<number, number>();
+  const sumar = (m: Map<number, number>) => (filas: Array<{ secuencia_id: number | null }>) => {
+    for (const r of filas) {
       if (r.secuencia_id == null) continue;
       m.set(r.secuencia_id, (m.get(r.secuencia_id) ?? 0) + 1);
     }
-    return m;
   };
-  const inscMap = tally(insc.data as Array<{ secuencia_id: number | null }> | null);
-  const envMap = tally(env.data as Array<{ secuencia_id: number | null }> | null);
+  try {
+    await Promise.all([
+      leerPorPaginas<{ secuencia_id: number | null }>(supabase, 'nutricion_inscripciones', 'id, secuencia_id', sumar(inscMap), { orden: 'id' }),
+      leerPorPaginas<{ secuencia_id: number | null }>(supabase, 'nutricion_envios', 'id, secuencia_id', sumar(envMap), {
+        orden: 'id', filtros: (q) => q.in('estado', ['enviado', 'simulado']) as ConsultaPaginada,
+      }),
+    ]);
+  } catch (e) {
+    throw new Error(`getSecuenciasConStats: ${e instanceof Error ? e.message : String(e)}`);
+  }
 
   return rows.map((r) => ({
     id: r.id,
@@ -191,6 +209,7 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
     activa: r.activa,
     pasos: Array.isArray(r.pasos) ? (r.pasos as PasoSecuencia[]) : [],
     estrategia: r.estrategia ?? null,
+    envio_automatico: parseEstrategia(r.estrategia)?.envio_automatico === true,
     inscriptos: inscMap.get(r.id) ?? 0,
     enviados: envMap.get(r.id) ?? 0,
   }));
@@ -278,6 +297,32 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Pro
   if (error) throw new Error(`setSecuenciaPasos: ${error.message}`);
 }
 
+// Las cohortes se leen PAGINADAS y ordenadas por `id` (lib/supabase-paginado.ts).
+// Eran `.select()` sueltos sobre `leads`: hoy casi todas quedan bajo las 1000
+// filas por su ventana, pero `instant_form_sin_agenda` sin su ventana ya daría 948
+// en ws1 y la tabla crece sola. Pasado el techo, PostgREST devuelve 1000 y un 200, y
+// los leads que caen del corte NUNCA se inscriben — en cada corrida, sin un log.
+// Es exactamente cómo el CRM perdió 66 leads el 17/09.
+async function filasCohorte<T>(
+  db: Awaited<ReturnType<typeof getTenantDb>>,
+  etiqueta: string,
+  cols: string,
+  filtros: (q: ConsultaPaginada) => unknown,
+): Promise<T[]> {
+  try {
+    return await leerTodo<T>(db, 'leads', cols, { orden: 'id', filtros: (q) => filtros(q) as ConsultaPaginada });
+  } catch (e) {
+    throw new Error(`cohorte ${etiqueta}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+async function idsCohorte(
+  db: Awaited<ReturnType<typeof getTenantDb>>,
+  etiqueta: string,
+  filtros: (q: ConsultaPaginada) => unknown,
+): Promise<number[]> {
+  return (await filasCohorte<{ id: number }>(db, etiqueta, 'id', filtros)).map((r) => r.id);
+}
+
 // ── Cohortes: qué leads dispara cada secuencia ───────────────────────────────
 // Los 13 triggers "legacy" consultan columnas del funnel estándar. El trigger
 // 'etapa_actual' es el camino funnel-agnóstico (#34): la secuencia se cuelga de
@@ -295,11 +340,20 @@ export async function leadsDeCohorte(triggerTipo: string, etapa?: string | null)
     // Ventana anti-revival de 90 días sobre el ÚLTIMO HITO del lead (no sobre su
     // edad): un lead viejo con una transición fresca (agendó, tuvo reunión)
     // entra; uno sin actividad en 90 días queda afuera.
-    const { data, error } = await supabase
-      .from('leads')
-      .select('id, estado_lead, pipeline_stage, fecha_agenda, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, nutricion_realizada, created_at')
-      .eq('estado_lead', 'abierto');
-    if (error) throw new Error(`cohorte etapa_actual(${etapa}): ${error.message}`);
+    // Paginado por `id`: los abiertos de ws1 ya son 1032 y el `.select()` suelto
+    // devolvía 1000 sin avisar. El lead que caía del corte NUNCA se inscribía en
+    // su secuencia, en cada pasada del motor, sin un log. El filtro de etapa y de
+    // hito es en memoria (la etapa efectiva se deriva acá, no existe en la base).
+    let data: unknown[];
+    try {
+      data = await leerTodo<unknown>(
+        supabase, 'leads',
+        'id, estado_lead, pipeline_stage, fecha_agenda, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, nutricion_realizada, created_at',
+        { eq: { estado_lead: 'abierto' } },
+      );
+    } catch (e) {
+      throw new Error(`cohorte etapa_actual(${etapa}): ${e instanceof Error ? e.message : String(e)}`);
+    }
     type LeadEtapa = { id: number; estado_lead: 'abierto'; pipeline_stage: string | null; fecha_agenda: string | null; fecha_junta_1: string | null; fecha_junta_2: string | null; asistio_j1: boolean | null; asistio_j2: boolean | null; nutricion_realizada: boolean | null; created_at: string };
     const corte = Date.now() - 90 * 86400 * 1000;
     const ultimoHito = (l: LeadEtapa): number => Math.max(
@@ -309,34 +363,26 @@ export async function leadsDeCohorte(triggerTipo: string, etapa?: string | null)
         .filter((ms) => Number.isFinite(ms)),
       0,
     );
-    return ((data ?? []) as LeadEtapa[])
+    return (data as LeadEtapa[])
       .filter((l) => ultimoHito(l) >= corte)
       .filter((l) => pipelineStageOf({ ...l, nutricion_realizada: l.nutricion_realizada ?? undefined }) === etapa)
       .map((l) => l.id);
   }
 
   if (triggerTipo === 'instant_form_sin_agenda') {
-    const { data, error } = await supabase
-      .from('leads')
-      .select('id')
+    return idsCohorte(supabase, 'form-sin-agenda', (q) => q
       .not('meta_lead_id', 'is', null)
       .is('fecha_agenda', null)
       .eq('estado_lead', 'abierto')
-      .gte('created_at', desde);
-    if (error) throw new Error(`cohorte form-sin-agenda: ${error.message}`);
-    return ((data ?? []) as Array<{ id: number }>).map((r) => r.id);
+      .gte('created_at', desde));
   }
 
   if (triggerTipo === 'vio_vsl_sin_agendar') {
-    const { data, error } = await supabase
-      .from('leads')
-      .select('id, visitor_id')
+    const rows = await filasCohorte<{ id: number; visitor_id: string }>(supabase, 'vio-vsl', 'id, visitor_id', (q) => q
       .not('visitor_id', 'is', null)
       .is('fecha_agenda', null)
       .eq('estado_lead', 'abierto')
-      .gte('created_at', desde);
-    if (error) throw new Error(`cohorte vio-vsl: ${error.message}`);
-    const rows = (data ?? []) as Array<{ id: number; visitor_id: string }>;
+      .gte('created_at', desde));
     const eng = await getVslEngagementMap(rows.map((r) => r.visitor_id));
     return rows
       .filter((r) => (eng.get(r.visitor_id)?.max_pct ?? 0) >= UMBRAL_VSL_PCT)
@@ -346,15 +392,11 @@ export async function leadsDeCohorte(triggerTipo: string, etapa?: string | null)
   if (triggerTipo === 'vio_poco_vsl') {
     // Tiene tracking de visitante (entró a la landing) pero NO alcanzó el umbral
     // de retención del VSL y no agendó. Complemento exacto de vio_vsl_sin_agendar.
-    const { data, error } = await supabase
-      .from('leads')
-      .select('id, visitor_id')
+    const rows = await filasCohorte<{ id: number; visitor_id: string }>(supabase, 'vio-poco-vsl', 'id, visitor_id', (q) => q
       .not('visitor_id', 'is', null)
       .is('fecha_agenda', null)
       .eq('estado_lead', 'abierto')
-      .gte('created_at', desde);
-    if (error) throw new Error(`cohorte vio-poco-vsl: ${error.message}`);
-    const rows = (data ?? []) as Array<{ id: number; visitor_id: string }>;
+      .gte('created_at', desde));
     const eng = await getVslEngagementMap(rows.map((r) => r.visitor_id));
     return rows
       .filter((r) => (eng.get(r.visitor_id)?.max_pct ?? 0) < UMBRAL_VSL_PCT)
@@ -364,15 +406,11 @@ export async function leadsDeCohorte(triggerTipo: string, etapa?: string | null)
   if (triggerTipo === 'agendado_sin_confirmar') {
     // J1 futura y todavía sin asistencia registrada. El modelo no tiene un campo
     // "confirmó asistencia" → usamos la J1 próxima como disparador del recordatorio.
-    const { data, error } = await supabase
-      .from('leads')
-      .select('id')
+    return idsCohorte(supabase, 'agendado-sin-confirmar', (q) => q
       .not('fecha_junta_1', 'is', null)
       .gte('fecha_junta_1', hoy)
       .is('asistio_j1', null)
-      .eq('estado_lead', 'abierto');
-    if (error) throw new Error(`cohorte agendado-sin-confirmar: ${error.message}`);
-    return ((data ?? []) as Array<{ id: number }>).map((r) => r.id);
+      .eq('estado_lead', 'abierto'));
   }
 
   // ── Las DOS MITADES de la post-agenda ──────────────────────────────────────
@@ -403,119 +441,83 @@ export async function leadsDeCohorte(triggerTipo: string, etapa?: string | null)
 
   if (triggerTipo === 'no_show_j1') {
     // No asistió a J1 (asistio_j1 = false), todavía abierto, J1 reciente.
-    const { data, error } = await supabase
-      .from('leads')
-      .select('id')
+    return idsCohorte(supabase, 'no-show-j1', (q) => q
       .eq('asistio_j1', false)
       .eq('estado_lead', 'abierto')
-      .gte('fecha_junta_1', fechaDesde45);
-    if (error) throw new Error(`cohorte no-show-j1: ${error.message}`);
-    return ((data ?? []) as Array<{ id: number }>).map((r) => r.id);
+      .gte('fecha_junta_1', fechaDesde45));
   }
 
   if (triggerTipo === 'post_j1_sin_avanzar') {
     // Asistió a J1 pero sigue sin calificar y sin J2 agendada.
-    const { data, error } = await supabase
-      .from('leads')
-      .select('id')
+    return idsCohorte(supabase, 'post-j1-sin-avanzar', (q) => q
       .eq('asistio_j1', true)
       .is('calificado', null)
       .is('fecha_junta_2', null)
       .eq('estado_lead', 'abierto')
-      .gte('fecha_junta_1', fechaDesde45);
-    if (error) throw new Error(`cohorte post-j1-sin-avanzar: ${error.message}`);
-    return ((data ?? []) as Array<{ id: number }>).map((r) => r.id);
+      .gte('fecha_junta_1', fechaDesde45));
   }
 
   if (triggerTipo === 'post_j1_calificado_sin_j2') {
     // Calificado en J1 pero todavía no agendó la J2.
-    const { data, error } = await supabase
-      .from('leads')
-      .select('id')
+    return idsCohorte(supabase, 'calificado-sin-j2', (q) => q
       .eq('calificado', true)
       .is('fecha_junta_2', null)
       .is('asistio_j2', null)
       .eq('estado_lead', 'abierto')
-      .gte('fecha_junta_1', fechaDesde45);
-    if (error) throw new Error(`cohorte calificado-sin-j2: ${error.message}`);
-    return ((data ?? []) as Array<{ id: number }>).map((r) => r.id);
+      .gte('fecha_junta_1', fechaDesde45));
   }
 
   if (triggerTipo === 'no_show_j2') {
-    const { data, error } = await supabase
-      .from('leads')
-      .select('id')
+    return idsCohorte(supabase, 'no-show-j2', (q) => q
       .eq('asistio_j2', false)
       .eq('estado_lead', 'abierto')
-      .gte('fecha_junta_2', fechaDesde45);
-    if (error) throw new Error(`cohorte no-show-j2: ${error.message}`);
-    return ((data ?? []) as Array<{ id: number }>).map((r) => r.id);
+      .gte('fecha_junta_2', fechaDesde45));
   }
 
   if (triggerTipo === 'post_j2_sin_cerrar') {
     // Asistió a J2 pero todavía no hay cierre.
-    const { data, error } = await supabase
-      .from('leads')
-      .select('id')
+    return idsCohorte(supabase, 'post-j2-sin-cerrar', (q) => q
       .eq('asistio_j2', true)
       .is('cerro', null)
       .is('fecha_cierre', null)
       .eq('estado_lead', 'abierto')
-      .gte('fecha_junta_2', fechaDesde45);
-    if (error) throw new Error(`cohorte post-j2-sin-cerrar: ${error.message}`);
-    return ((data ?? []) as Array<{ id: number }>).map((r) => r.id);
+      .gte('fecha_junta_2', fechaDesde45));
   }
 
   if (triggerTipo === 'confirmado_sin_pago') {
     // Confirmó verbalmente (fecha_confirmacion) pero todavía no registró el primer pago.
-    const { data, error } = await supabase
-      .from('leads')
-      .select('id')
+    return idsCohorte(supabase, 'confirmado-sin-pago', (q) => q
       .not('fecha_confirmacion', 'is', null)
       .is('fecha_primer_pago', null)
       .in('estado_lead', ['abierto', 'ganado'])
-      .gte('fecha_confirmacion', fechaDesde45);
-    if (error) throw new Error(`cohorte confirmado-sin-pago: ${error.message}`);
-    return ((data ?? []) as Array<{ id: number }>).map((r) => r.id);
+      .gte('fecha_confirmacion', fechaDesde45));
   }
 
   if (triggerTipo === 'post_pago') {
     // Registró el primer pago hace poco → bienvenida (una sola vez por dedup de inscripción).
-    const { data, error } = await supabase
-      .from('leads')
-      .select('id')
+    return idsCohorte(supabase, 'post-pago', (q) => q
       .not('fecha_primer_pago', 'is', null)
       .gte('fecha_primer_pago', fechaDesde45)
-      .in('estado_lead', ['abierto', 'ganado']);
-    if (error) throw new Error(`cohorte post-pago: ${error.message}`);
-    return ((data ?? []) as Array<{ id: number }>).map((r) => r.id);
+      .in('estado_lead', ['abierto', 'ganado']));
   }
 
   if (triggerTipo === 'reactivacion_viejo') {
     // Frío: nunca agendó, abierto, creado entre 30 y 90 días atrás.
-    const { data, error } = await supabase
-      .from('leads')
-      .select('id')
+    return idsCohorte(supabase, 'reactivacion-viejo', (q) => q
       .is('fecha_agenda', null)
       .eq('estado_lead', 'abierto')
       .lt('created_at', desde)
-      .gte('created_at', haceDiasISO(90));
-    if (error) throw new Error(`cohorte reactivacion-viejo: ${error.message}`);
-    return ((data ?? []) as Array<{ id: number }>).map((r) => r.id);
+      .gte('created_at', haceDiasISO(90)));
   }
 
   if (triggerTipo === 'ultimo_intento_antes_noresp') {
     // Último intento antes de marcar no-responde: nunca agendó, abierto, creado
     // entre 90 y 365 días atrás (más viejo que la reactivación).
-    const { data, error } = await supabase
-      .from('leads')
-      .select('id')
+    return idsCohorte(supabase, 'ultimo-intento', (q) => q
       .is('fecha_agenda', null)
       .eq('estado_lead', 'abierto')
       .lt('created_at', haceDiasISO(90))
-      .gte('created_at', haceDiasISO(365));
-    if (error) throw new Error(`cohorte ultimo-intento: ${error.message}`);
-    return ((data ?? []) as Array<{ id: number }>).map((r) => r.id);
+      .gte('created_at', haceDiasISO(365)));
   }
 
   // trigger desconocido → sin cohorte (no rompe el cron)
@@ -574,6 +576,34 @@ const pasoConRelleno = (p: PasoSecuencia): boolean =>
 export type PlanInscripcion = { secuencia: string; lead_id: number; proximo_envio_at: string };
 
 /**
+ * De `leadIds`, cuáles ya tienen una inscripción que cumpla `filtro`. En TANDAS de
+ * 200 y cada tanda PAGINADA por `id`.
+ *
+ * Era `.in('lead_id', candidatos)` suelto, con dos formas de fallar en silencio:
+ * con más de 1000 inscripciones que matchean, PostgREST cortaba y los que caían
+ * afuera se tomaban por NO inscriptos → se reinsertaban, chocaban con el
+ * `unique(lead_id, secuencia_id)` y el `throw` cortaba la inscripción ENTERA (de
+ * todas las secuencias que venían después). Y desde que `etapa_actual` pagina
+ * (17/09), la lista de candidatos puede ser de ~1000 ids: una URL de ese tamaño
+ * es la otra forma de romperse.
+ */
+async function inscriptosDe(
+  db: Awaited<ReturnType<typeof getTenantDb>>,
+  leadIds: readonly number[],
+  filtro: (q: ConsultaPaginada) => unknown,
+): Promise<Set<number>> {
+  const out = new Set<number>();
+  for (const tanda of enTandas([...new Set(leadIds)], 200)) {
+    const filas = await leerTodo<{ lead_id: number | null }>(db, 'nutricion_inscripciones', 'id, lead_id', {
+      orden: 'id',
+      filtros: (q) => filtro(q.in('lead_id', tanda) as ConsultaPaginada) as ConsultaPaginada,
+    });
+    for (const r of filas) if (r.lead_id != null) out.add(r.lead_id);
+  }
+  return out;
+}
+
+/**
  * Leads que YA están inscriptos en alguna secuencia de la familia post-agenda.
  *
  * Es lo que mantiene excluyentes a las dos mitades después del primer envío:
@@ -593,12 +623,10 @@ async function leadsEnFamiliaPostAgenda(leadIds: number[]): Promise<Set<number>>
     .in('trigger_tipo', FAMILIA_POST_AGENDA);
   const ids = ((secs ?? []) as Array<{ id: number }>).map((r) => r.id);
   if (ids.length === 0) return set;
-  const { data } = await supabase
-    .from('nutricion_inscripciones').select('lead_id')
-    .in('lead_id', leadIds).in('secuencia_id', ids);
-  for (const r of (data ?? []) as Array<{ lead_id: number | null }>) {
-    if (r.lead_id != null) set.add(r.lead_id);
-  }
+  // En tandas y paginado (ver `inscriptosDe`). Antes era un `.in()` suelto que
+  // además IGNORABA el error: una lectura fallida dejaba a todos «fuera de la
+  // familia» y el mismo lead entraba a las dos secuencias hermanas.
+  for (const id of await inscriptosDe(supabase, leadIds, (q) => q.in('secuencia_id', ids))) set.add(id);
   return set;
 }
 
@@ -611,13 +639,8 @@ export async function planificarInscripciones(): Promise<PlanInscripcion[]> {
   for (const sec of secuencias) {
     const candidatos = await leadsDeCohorte(sec.trigger_tipo, sec.etapa);
     if (candidatos.length === 0) continue;
-    const { data: yaInsc, error } = await supabase
-      .from('nutricion_inscripciones')
-      .select('lead_id')
-      .eq('secuencia_id', sec.id)
-      .in('lead_id', candidatos);
-    if (error) throw new Error(`planificarInscripciones: ${error.message}`);
-    const inscriptos = new Set(((yaInsc ?? []) as Array<{ lead_id: number }>).map((r) => r.lead_id));
+    const inscriptos = await inscriptosDe(supabase, candidatos, (q) => q.eq('secuencia_id', sec.id))
+      .catch((e: unknown) => { throw new Error(`planificarInscripciones: ${e instanceof Error ? e.message : String(e)}`); });
     const pendientes = candidatos.filter((id) => !inscriptos.has(id));
     const horarios = await horariosDeInscripcion(sec.pasos[0], pendientes);
     for (const lead_id of pendientes) {
@@ -637,11 +660,15 @@ async function horariosDeInscripcion(paso0: PasoSecuencia | undefined, pendiente
   let juntasMap = new Map<number, JuntasLead>();
   if (paso0?.ancla === 'reunion' && pendientes.length) {
     const supabase = (await getTenantDb());
-    const { data: jl } = await supabase
-      .from('leads')
-      .select('id, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at')
-      .in('id', pendientes);
-    juntasMap = new Map(((jl ?? []) as Array<{ id: number } & JuntasLead>).map((l) => [l.id, l]));
+    // En tandas y paginado: `pendientes` puede ser la cohorte entera. Con el `.in()`
+    // suelto, un lead que caía del corte se quedaba sin su reunión y el paso
+    // anclado salía con delay relativo — un recordatorio a destiempo.
+    for (const tanda of enTandas(pendientes, 200)) {
+      const jl = await leerTodo<{ id: number } & JuntasLead>(supabase, 'leads', 'id, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at', {
+        orden: 'id', filtros: (q) => q.in('id', tanda) as ConsultaPaginada,
+      });
+      for (const l of jl) juntasMap.set(l.id, l);
+    }
   }
   return new Map(pendientes.map((id) => [id, proximoEnvioDePaso(paso0, juntasMap.get(id))]));
 }
@@ -655,12 +682,11 @@ export async function comprometerInscripciones(): Promise<number> {
   for (const sec of secuencias) {
     const candidatos = await leadsDeCohorte(sec.trigger_tipo, sec.etapa);
     if (candidatos.length === 0) continue;
-    const { data: yaInsc } = await supabase
-      .from('nutricion_inscripciones')
-      .select('lead_id')
-      .eq('secuencia_id', sec.id)
-      .in('lead_id', candidatos);
-    const inscriptos = new Set(((yaInsc ?? []) as Array<{ lead_id: number }>).map((r) => r.lead_id));
+    // Un error acá LANZA: antes se ignoraba, «nadie inscripto» reinsertaba a todos y
+    // el insert moría contra el unique — o sea que igual cortaba, pero con un
+    // mensaje que culpaba al insert y no a la lectura.
+    const inscriptos = await inscriptosDe(supabase, candidatos, (q) => q.eq('secuencia_id', sec.id))
+      .catch((e: unknown) => { throw new Error(`comprometerInscripciones: ${e instanceof Error ? e.message : String(e)}`); });
     const pendientes = candidatos.filter((id) => !inscriptos.has(id));
     const horarios = await horariosDeInscripcion(sec.pasos[0], pendientes);
     const nuevas = pendientes.map((lead_id) => ({
@@ -772,13 +798,16 @@ export type PlanEnvio = {
 
 async function inscripcionesVencidas(): Promise<InscripcionVencida[]> {
   const supabase = (await getTenantDb());
-  const { data, error } = await supabase
-    .from('nutricion_inscripciones')
-    .select('id, lead_id, secuencia_id, paso_actual')
-    .eq('estado', 'activa')
-    .lte('proximo_envio_at', ahoraISO());
-  if (error) throw new Error(`inscripcionesVencidas: ${error.message}`);
-  return (data ?? []) as InscripcionVencida[];
+  // Paginado (vista previa del dry-run): con más de 1000 vencidas, la vista previa
+  // mostraba 1000 y afirmaba que eso era todo lo que salía.
+  const ahora = ahoraISO();
+  try {
+    return await leerTodo<InscripcionVencida>(supabase, 'nutricion_inscripciones', 'id, lead_id, secuencia_id, paso_actual', {
+      orden: 'id', eq: { estado: 'activa' }, filtros: (q) => q.lte('proximo_envio_at', ahora) as ConsultaPaginada,
+    });
+  } catch (e) {
+    throw new Error(`inscripcionesVencidas: ${e instanceof Error ? e.message : String(e)}`);
+  }
 }
 
 // Devuelve qué se enviaría ahora (no escribe). Para el dry-run.
@@ -857,19 +886,22 @@ async function leadsYaContactados(leadIds: number[]): Promise<Set<number>> {
   const set = new Set<number>();
   if (leadIds.length === 0) return set;
   const supabase = (await getTenantDb());
+  // Solo importa SI hay al menos una fila por lead, no cuántas: se pregunta por
+  // exclusión (ver lib/ids-con-filas.ts). El `.in()` suelto de antes sobre
+  // wa_mensajes volvía cortado en 1000 filas — un solo lead de ws1 tiene 1.194
+  // mensajes nuestros — y los leads que no entraban quedaban como «nunca
+  // contactado»: el audio de apertura se presentaba de cero a gente con la que
+  // ya se venía hablando.
   const [envios, espejo] = await Promise.all([
-    supabase.from('nutricion_envios')
-      .select('lead_id').in('lead_id', leadIds).in('estado', ['enviado', 'simulado']),
+    idsConAlMenosUnaFila(leadIds, (pend) => leadIdsDe(supabase.from('nutricion_envios')
+      .select('lead_id').in('lead_id', pend).in('estado', ['enviado', 'simulado']), 'nutricion_envios')),
     // `from_me` = lo mandamos NOSOTROS. Un mensaje entrante no cuenta: que el
     // lead escriba no significa que le hayamos hablado.
-    supabase.from('wa_mensajes')
-      .select('lead_id').in('lead_id', leadIds).eq('from_me', true),
+    idsConAlMenosUnaFila(leadIds, (pend) => leadIdsDe(supabase.from('wa_mensajes')
+      .select('lead_id').in('lead_id', pend).eq('from_me', true), 'wa_mensajes')),
   ]);
-  for (const fuente of [envios.data, espejo.data]) {
-    for (const r of (fuente ?? []) as Array<{ lead_id: number | null }>) {
-      if (r.lead_id != null) set.add(r.lead_id);
-    }
-  }
+  for (const id of envios) set.add(id);
+  for (const id of espejo) set.add(id);
   return set;
 }
 
@@ -879,11 +911,43 @@ async function leadsConEnvioReciente(leadIds: number[]): Promise<Set<number>> {
   const supabase = (await getTenantDb());
   const desde = haceHorasISO(HS_MIN_ENTRE_MSGS);
   const desdeCorto = haceHorasISO(HS_MIN_PREPARACION);
-  const [nutri, bcast, espejo, enPreparacion] = await Promise.all([
-    supabase.from('nutricion_envios').select('lead_id, created_at')
-      .in('lead_id', leadIds).in('estado', ['enviado', 'simulado']).gte('created_at', desde),
-    supabase.from('email_broadcast_envios').select('lead_id')
-      .in('lead_id', leadIds).in('estado', ['enviado', 'simulado']).gte('created_at', desde),
+  // Leads con reunión FUTURA cercana: están en cadencia de preparación. Va
+  // PRIMERO porque parte a los leads en dos ventanas distintas (abajo).
+  const { data: prepData } = await supabase.from('leads')
+    .select('id, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at').in('id', leadIds);
+  const prep = new Set<number>();
+  for (const l of (prepData ?? []) as Array<{ id: number } & JuntasLead>) {
+    const ms = reunionFuturaMs(l);
+    if (ms != null && ms - Date.now() <= HS_REUNION_CERCA * 3600 * 1000) prep.add(l.id);
+  }
+  // Con reunión encima, el guard baja de 20h a HS_MIN_PREPARACION: los toques
+  // de preparación son lo que baja el no-show y no son prospección fría. Antes
+  // se traían todas las filas de la ventana larga y se descartaban en memoria
+  // las viejas de los leads en preparación; ahora cada grupo pregunta con SU
+  // ventana, que es lo mismo pero sin bajar filas de más.
+  const enPrep = leadIds.filter((id) => prep.has(id));
+  const fuera = leadIds.filter((id) => !prep.has(id));
+  // Todas preguntan «¿hay al menos una?» por exclusión (lib/ids-con-filas.ts):
+  // los `.in()` sueltos de antes volvían cortados en 1000 filas sobre
+  // wa_mensajes, y el guard creía que a un lead no le habíamos mandado nada
+  // hace poco cuando sí.
+  const porVentana = (
+    ids: number[],
+    desdeISO: string,
+    q: (pend: number[], desdeISO: string) => PromiseLike<{ data: unknown; error: { message: string } | null }>,
+    tabla: string,
+  ) => (ids.length === 0 ? Promise.resolve(new Set<number>()) : idsConAlMenosUnaFila(ids, (pend) => leadIdsDe(q(pend, desdeISO), tabla)));
+  const qNutri = (pend: number[], d: string) => supabase.from('nutricion_envios').select('lead_id')
+    .in('lead_id', pend).in('estado', ['enviado', 'simulado']).gte('created_at', d);
+  const qEspejo = (pend: number[], d: string) => supabase.from('wa_mensajes').select('lead_id')
+    .in('lead_id', pend).eq('from_me', true).gte('wa_timestamp', d);
+  const resultados = await Promise.all([
+    porVentana(fuera, desde, qNutri, 'nutricion_envios'),
+    porVentana(enPrep, desdeCorto, qNutri, 'nutricion_envios'),
+    // El broadcast no tiene excepción de preparación: un email masivo cuenta
+    // igual con o sin reunión.
+    porVentana(leadIds, desde, (pend, d) => supabase.from('email_broadcast_envios').select('lead_id')
+      .in('lead_id', pend).in('estado', ['enviado', 'simulado']).gte('created_at', d), 'email_broadcast_envios'),
     // LO QUE SALIÓ DE VERDAD, no solo lo que mandó la app. El guard anti-ban
     // pregunta «¿este lead ya recibió algo hace poco?», y las dos tablas de
     // arriba solo saben de la nutrición: un mensaje que el dueño escribió a
@@ -897,33 +961,30 @@ async function leadsConEnvioReciente(leadIds: number[]): Promise<Set<number>> {
     // tablas. Mientras una automatización de afuera le hable a los mismos
     // leads, ningún guard nuestro puede saberlo. No es un descuido de acá: es
     // el límite de lo que se puede medir, y por eso está escrito.
-    supabase.from('wa_mensajes').select('lead_id, wa_timestamp')
-      .in('lead_id', leadIds).eq('from_me', true).gte('wa_timestamp', desde),
-    // Leads con reunión FUTURA cercana: están en cadencia de preparación.
-    supabase.from('leads').select('id, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at').in('id', leadIds),
+    //
+    // El espejo entra con la MISMA excepción de preparación que la nutrición: con
+    // una reunión encima la cadencia baja a HS_MIN_PREPARACION, y si no valiera
+    // acá, un lead que contestó y al que el dueño le respondió a mano quedaría
+    // congelado 20h justo en los días en que hay que confirmarle la reunión.
+    porVentana(fuera, desde, qEspejo, 'wa_mensajes'),
+    porVentana(enPrep, desdeCorto, qEspejo, 'wa_mensajes'),
   ]);
-  const prep = new Set<number>();
-  for (const l of (enPreparacion.data ?? []) as Array<{ id: number } & JuntasLead>) {
-    const ms = reunionFuturaMs(l);
-    if (ms != null && ms - Date.now() <= HS_REUNION_CERCA * 3600 * 1000) prep.add(l.id);
-  }
-  for (const r of (nutri.data ?? []) as Array<{ lead_id: number; created_at: string | null }>) {
-    // Con reunión encima, el guard baja de 20h a HS_MIN_PREPARACION: los toques
-    // de preparación son lo que baja el no-show y no son prospección fría.
-    if (prep.has(r.lead_id) && r.created_at && r.created_at < desdeCorto) continue;
-    set.add(r.lead_id);
-  }
-  for (const r of (bcast.data ?? []) as Array<{ lead_id: number }>) set.add(r.lead_id);
-  // El espejo entra con la MISMA excepción de preparación que la nutrición: con
-  // una reunión encima la cadencia baja a HS_MIN_PREPARACION, y si no valiera
-  // acá, un lead que contestó y al que el dueño le respondió a mano quedaría
-  // congelado 20h justo en los días en que hay que confirmarle la reunión.
-  for (const r of (espejo.data ?? []) as Array<{ lead_id: number | null; wa_timestamp: string | null }>) {
-    if (r.lead_id == null) continue;
-    if (prep.has(r.lead_id) && r.wa_timestamp && r.wa_timestamp < desdeCorto) continue;
-    set.add(r.lead_id);
-  }
+  for (const r of resultados) for (const id of r) set.add(id);
   return set;
+}
+
+/**
+ * Los `lead_id` de una consulta de existencia. Un error LANZA: antes estas
+ * guardas ignoraban el `error` y lo leían como «no hay filas», o sea «nunca le
+ * escribimos», que es la dirección que manda mensajes de más.
+ */
+async function leadIdsDe(
+  q: PromiseLike<{ data: unknown; error: { message: string } | null }>,
+  tabla: string,
+): Promise<Array<number | null>> {
+  const { data, error } = await q;
+  if (error) throw new Error(`guard de envío (${tabla}): ${error.message}`);
+  return ((data ?? []) as Array<{ lead_id: number | null }>).map((r) => r.lead_id);
 }
 
 export type ResultadoProceso = {
@@ -1005,8 +1066,17 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     // Vía rápida de UN lead (enrolamiento por evento): reusa TODO el motor
     // (anti-ban, audio, borradores, gates) sin esperar la corrida del cron.
     if (opts?.soloLeadId) q = q.eq('lead_id', opts.soloLeadId);
+    // LOS YA VISTOS SE EXCLUYEN EN EL SERVER, y el orden desempata por `id`. Antes se
+    // filtraban en memoria después del `.limit(LOTE)`: las filas salteadas por «msg
+    // <20h» no se actualizan, así que la vuelta siguiente releía LAS MISMAS LOTE
+    // filas, todas ya vistas → `due` vacío → el bucle cortaba. Si las más viejas
+    // estaban frenadas por el guard, no salía nada en esa corrida ni en las
+    // siguientes: la cola entera trabada detrás de un puñado. Y `proximo_envio_at`
+    // se repite, así que sin el `id` qué filas entraban al lote no estaba definido.
+    if (vistos.size) q = q.not('id', 'in', `(${[...vistos].join(',')})`);
     const { data: dueRaw, error } = await q
       .order('proximo_envio_at', { ascending: true })
+      .order('id', { ascending: true })
       .limit(LOTE);
     if (error) throw new Error(`procesarEnvios: ${error.message}`);
     const fetched = (dueRaw ?? []) as Array<{ id: number; lead_id: number; secuencia_id: number; paso_actual: number }>;
@@ -1174,7 +1244,12 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
             estado = 'fallo';
             nota = audio ? 'no pude bajar el audio del paso' : 'el audio del paso ya no existe';
             backoffHoras = 24;
-          } else if (await esLeadCliente(lead.id)) {
+          } else if (sec.envio_automatico || await esLeadCliente(lead.id)) {
+            // ⚠️ SIN `envio_automatico` A UN LEAD QUE NO PAGÓ NO LE SALÍA NADA SOLO:
+            // la rama de abajo le deja un borrador. La post-agenda de ws1 se prendió
+            // el 8/09 y, con la línea conectada, habría dejado borradores que nadie
+            // mira — 0 de sus 4 inscriptos tenían pago. La excepción la prende
+            // quien decide que ESA secuencia sale sola (decisión del 17/09/2026).
             const r = await enviarAudioYEspejar({ telefono: lead.telefono, base64: b64, mimetype: audio.media_mime, leadId: lead.id });
             estado = r.ok ? 'enviado' : 'fallo';
             if (!r.ok) nota = r.error;
@@ -1201,7 +1276,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
             });
             estado = 'borrador';
           }
-        } else if (await esLeadCliente(lead.id)) {
+        } else if (sec.envio_automatico || await esLeadCliente(lead.id)) {
+          // Misma excepción que la rama del audio, de arriba.
           const r = await enviarYEspejar({ telefono: lead.telefono, texto: cuerpoNO, leadId: lead.id });
           estado = r.ok ? 'enviado' : 'fallo';
           if (!r.ok) nota = r.error;

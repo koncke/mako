@@ -14,6 +14,7 @@ import { getPromptText } from '@/lib/prompt-render';
 import { diasAntes, ayerEnTijuana } from '@/lib/date-utils';
 import { correrPorWorkspace } from '@/lib/cron-workspaces';
 import { credWs } from '@/lib/credenciales';
+import { leerTodo, leerPorPaginas, type ConsultaPaginada } from '@/lib/supabase-paginado';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -38,15 +39,17 @@ export async function GET(request: NextRequest) {
   const resultados = await correrPorWorkspace('meta', async () => {
     const supabase = await getTenantDb();
 
-    // Anuncios recientes con video potencial
-    const { data: adsData, error: adsErr } = await supabase
-      .from('marketing_metrics_daily')
-      .select('ad_id')
-      .eq('plataforma', 'meta')
-      .not('ad_id', 'is', null)
-      .gte('fecha', desde);
-    if (adsErr) throw new Error(adsErr.message);
-    const adIds = [...new Set((adsData ?? []).map((r) => r.ad_id as string))];
+    // Anuncios recientes con video potencial. Paginado (orden por `id`, única): es
+    // una fila por anuncio POR DÍA, 583 en 45 días en ws1 al 17/09. Pasadas las
+    // 1000, los anuncios que caían del corte nunca entraban a pendientes. Es el
+    // gemelo de jobTranscripts (lib/onboarding-extract.ts), que ya se arregló.
+    const adIdSet = new Set<string>();
+    await leerPorPaginas<{ ad_id: string }>(
+      supabase, 'marketing_metrics_daily', 'id, ad_id',
+      (pag) => { for (const r of pag) adIdSet.add(r.ad_id); },
+      { orden: 'id', eq: { plataforma: 'meta' }, filtros: (q) => q.not('ad_id', 'is', null).gte('fecha', desde) as unknown as ConsultaPaginada },
+    );
+    const adIds = [...adIdSet];
 
     // Ya resueltos → no reprocesar. 'error' NO cuenta como resuelto: la fila se
     // escribe igual cuando la transcripción falla, y si la excluyéramos también a
@@ -59,23 +62,35 @@ export async function GET(request: NextRequest) {
     //
     // 'muy_grande' sí es definitivo (el video excede lo que se puede transcribir):
     // reintentarlo gastaría en cada corrida para volver a fallar igual.
-    const { data: doneData, error: doneErr } = await supabase.from('ad_transcripts').select('ad_id, status');
-    if (doneErr) throw new Error(doneErr.message);
-    const done = new Set((doneData ?? []).filter((r) => r.status !== 'error').map((r) => r.ad_id as string));
+    //
+    // ⚠️ Y ESTA LECTURA ES LA QUE EVITA PAGAR DOS VECES: el set de «ya resueltos».
+    // Era un `.select()` suelto; con más de 1000 transcripciones (108 en ws1 hoy,
+    // crece 1:1 con los anuncios) las que caían del corte volvían a pendientes y se
+    // re-transcribían con OpenAI en cada corrida. Paginado por `ad_id`, que es único
+    // dentro del workspace (unique workspace_id, ad_id). Un error lanza.
+    const doneData = await leerTodo<{ ad_id: string; status: string }>(supabase, 'ad_transcripts', 'ad_id, status', { orden: 'ad_id' });
+    const done = new Set(doneData.filter((r) => r.status !== 'error').map((r) => r.ad_id));
 
     const pendientes = adIds.filter((id) => !done.has(id));
 
     // Thumbnail por anuncio: fuente de imagen para los anuncios sin video.
+    // Solo de los que esta corrida puede procesar (el bucle corta en
+    // MAX_POR_CORRIDA): antes se pedían los de TODOS los pendientes, sin fecha —
+    // 1.863 filas con miniatura en ws1 — ordenados por `fecha`, que se repite, y
+    // el corte de 1000 dejaba sin imagen a los que quedaban afuera. Orden único
+    // (fecha, ad_id, id) ASCENDENTE: cada fila pisa a la anterior, así que queda la
+    // miniatura más reciente de cada anuncio.
     const thumbs = new Map<string, string>();
-    if (pendientes.length > 0) {
-      const { data: thData } = await supabase
-        .from('marketing_metrics_daily')
-        .select('ad_id, ad_thumbnail_url, fecha')
-        .eq('plataforma', 'meta')
-        .in('ad_id', pendientes)
-        .not('ad_thumbnail_url', 'is', null)
-        .order('fecha', { ascending: false });
-      for (const r of thData ?? []) if (!thumbs.has(r.ad_id as string)) thumbs.set(r.ad_id as string, r.ad_thumbnail_url as string);
+    const aProcesar = pendientes.slice(0, MAX_POR_CORRIDA);
+    if (aProcesar.length > 0) {
+      await leerPorPaginas<{ ad_id: string; ad_thumbnail_url: string }>(
+        supabase, 'marketing_metrics_daily', 'id, fecha, ad_id, ad_thumbnail_url',
+        (pag) => { for (const r of pag) thumbs.set(r.ad_id, r.ad_thumbnail_url); },
+        {
+          orden: ['fecha', 'ad_id', 'id'], eq: { plataforma: 'meta' },
+          filtros: (q) => q.in('ad_id', aProcesar).not('ad_thumbnail_url', 'is', null) as unknown as ConsultaPaginada,
+        },
+      );
     }
 
     // Prompts editables de transcripción (override o default), una sola vez por corrida.

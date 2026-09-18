@@ -7,11 +7,12 @@
 
 import 'server-only';
 import {
-  buscarDuplicados, emailComparable, LeadDuplicadoError, nombreComparable, telefonoComparable,
+  buscarDuplicados, emailComparable, LeadDuplicadoError, nombreComparable, patronesDeNombre, telefonoComparable,
   type CandidatoLead, type Coincidencia, type LeadExistente,
 } from './leads-duplicados';
 import { getTenantDb, getWorkspaceActual } from './workspace';
-import { leerTodo } from './supabase-paginado';
+import { leerTodo, type ConsultaPaginada } from './supabase-paginado';
+import { enTandas } from './ids-con-filas';
 import { getSupabaseServer } from './supabase';
 import { OWNER_WS } from './auth-session';
 import { getUsuarioActual } from './auth';
@@ -356,7 +357,27 @@ export async function duplicadosDeLead(cand: CandidatoLead): Promise<Coincidenci
       // El nombre solo se consulta cuando NO hay dato fuerte, igual que la regla
       // de `buscarDuplicados`: pedirlo siempre sería una query por cada alta para
       // un criterio que en ese caso ni se mira.
-      !email && !tel && nombre ? db.from('leads').select(cols).limit(500) : { data: [] },
+      //
+      // ⚠️ Antes era `.limit(500)` SIN filtro: con 1066 leads en ws1 comparaba
+      // contra 500 arbitrarios y el duplicado existía y no se encontraba. Ahora
+      // se filtra en el server por cada palabra del nombre (ver
+      // `patronesDeNombre`), que es un superconjunto de lo que `buscarDuplicados`
+      // acepta, y se lee TODO lo que pasa el filtro. Hubo un paso intermedio con
+      // `.limit(100)` que reintroducía el mismo bug por otra puerta: para «Ana» el
+      // patrón no filtraba nada y el tope volvía a elegir 100 leads al azar.
+      // Ahora las palabras que no filtran se descartan, y si el nombre no tiene
+      // ninguna que filtre se lee la tabla entera: es el caso raro (sin email, sin
+      // teléfono y con un nombre de pila corto) y es la única respuesta correcta.
+      !email && !tel && nombre
+        ? leerTodo<LeadExistente>(db, 'leads', cols, {
+            orden: 'id',
+            filtros: (q) => {
+              let f = q;
+              for (const pat of patronesDeNombre(nombre)) f = f.ilike('nombre', pat) as unknown as ConsultaPaginada;
+              return f;
+            },
+          }).then((data) => ({ data }))
+        : { data: [] },
     ]);
     const todos = [...(porEmail.data ?? []), ...(porTel.data ?? []), ...(porNombre.data ?? [])] as LeadExistente[];
     const unicos = new Map<number, LeadExistente>();
@@ -1529,12 +1550,26 @@ export async function getVslEngagementMap(
   const map = new Map<string, VslEngagement>();
   if (ids.length === 0) return map;
   const supabase = (await getTenantDb());
-  const [{ data, error }, durs] = await Promise.all([
-    supabase.from('vsl_events').select('visitor_id, tipo_evento, porcentaje, event, segundos, video_id').in('visitor_id', ids),
-    getDuracionesVsl(),
-  ]);
-  if (error) {
-    console.error(`[getVslEngagementMap] falló: ${error.message}`);
+  // Paginado por `id` y en tandas de visitantes. Un `.in('visitor_id', ids)`
+  // suelto volvía cortado en 1000 filas: hay visitantes con 540 eventos, así que
+  // con un par de ellos en el lote los del final quedaban como «no vio el VSL»
+  // habiéndolo visto. Las tandas de 200 son para que el `.in()` no reviente la
+  // URL (mismo corte que lib/landing-analyst.ts); el cálculo necesita TODAS las
+  // filas de cada visitante (cuenta plays y toma el máximo), así que no se acota.
+  let data: Array<{ visitor_id: string; tipo_evento: string | null; porcentaje: number | null; event: string | null; segundos: number | null; video_id: string | null }>;
+  let durs: Awaited<ReturnType<typeof getDuracionesVsl>>;
+  try {
+    const [tandas, d] = await Promise.all([
+      Promise.all(enTandas(ids, 200).map((tanda) => leerTodo<{ visitor_id: string; tipo_evento: string | null; porcentaje: number | null; event: string | null; segundos: number | null; video_id: string | null }>(
+        supabase, 'vsl_events', 'id, visitor_id, tipo_evento, porcentaje, event, segundos, video_id',
+        { filtros: (q) => q.in('visitor_id', tanda) },
+      ))),
+      getDuracionesVsl(),
+    ]);
+    data = tandas.flat();
+    durs = d;
+  } catch (e) {
+    console.error(`[getVslEngagementMap] falló: ${e instanceof Error ? e.message : String(e)}`);
     return map;
   }
   type Fila = { tipo_evento: string | null; porcentaje: number | null; event: string | null; segundos: number | null; video_id: string | null };

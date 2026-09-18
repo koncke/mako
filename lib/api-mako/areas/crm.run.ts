@@ -323,7 +323,9 @@ export const RUNNERS: Runners = {
       const [r, habilitado] = await Promise.all([evaluarAutoWorkspace(hoy), crmAutoHabilitado()]);
       const muestra = r.acciones.slice(0, 50);
       const advertencias = ['Las reglas usan keys fijas (lead, nutri, manual, reactivacion): con un funnel de etapas propias pueden no disparar nada aunque haya leads.'];
-      if (r.totalLeads >= 1000) advertencias.push(`Se evaluaron ${r.totalLeads} leads: la lectura corta en 1000 filas, así que puede haber leads sin evaluar.`);
+      // Sin aviso de «la lectura corta en 1000»: evaluarAutoWorkspace pagina desde el
+      // 17/09. El aviso viejo salía SIEMPRE en ws1 (1.108 leads) y afirmaba un recorte
+      // que ya no existía — un aviso falso enseña a ignorar los verdaderos.
       return json({
         simulacion_sin_escribir: true, fecha: hoy, crm_automatico_prendido: habilitado,
         leads_evaluados: r.totalLeads, acciones_totales: r.acciones.length, por_regla: r.porRegla,

@@ -9,6 +9,7 @@
 
 import { listConversations, type ChatwootConversation } from '@/lib/chatwoot';
 import { getTenantDb } from '@/lib/workspace';
+import { leerTodo } from '@/lib/supabase-paginado';
 import { integracionConectada } from '@/lib/credenciales';
 
 export const dynamic = 'force-dynamic';
@@ -53,13 +54,26 @@ export async function GET(req: Request) {
     // Lead por teléfono (best-effort: dígitos completos o últimos 10).
     // getTenantDb() auto-filtra por workspace_id: solo matcheamos contra los leads
     // del workspace del caller (nunca leads de otros clientes).
+    //
+    // PAGINADO: esto era un `.select()` suelto y PostgREST corta en 1000 filas sin
+    // avisar. Al 17/09 ws1 tenía 1.106 leads con teléfono → 106 contactos del
+    // inbox aparecían como desconocidos (sin lead, sin etapa, sin link al CRM).
+    // Orden por `id` ascendente: si dos leads comparten teléfono, el `set` de
+    // abajo deja al MÁS NUEVO, y de forma estable (antes ganaba uno al azar).
     const supabase = await getTenantDb();
-    const { data: leadsData } = await supabase
-      .from('leads')
-      .select('id, nombre, empresa, telefono_normalizado, estado_lead, fecha_agenda, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, calificado, fecha_confirmacion, fecha_primer_pago, cerro, visitor_id, meta_lead_id')
-      .not('telefono_normalizado', 'is', null);
+    const leadsData = await leerTodo<LeadRow>(
+      supabase,
+      'leads',
+      'id, nombre, empresa, telefono_normalizado, estado_lead, fecha_agenda, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, calificado, fecha_confirmacion, fecha_primer_pago, cerro, visitor_id, meta_lead_id',
+      { orden: 'id', filtros: (q) => q.not('telefono_normalizado', 'is', null) },
+    ).catch((e: unknown) => {
+      // Best-effort como antes: sin cruce con el CRM el inbox igual se muestra.
+      // Pero se LOGUEA — antes el error se tragaba y no quedaba rastro.
+      console.error(`[api:whatsapp/conversations] leads por teléfono: ${e instanceof Error ? e.message : String(e)}`);
+      return [] as LeadRow[];
+    });
     const leadByPhone = new Map<string, LeadRow>();
-    for (const l of (leadsData ?? []) as LeadRow[]) {
+    for (const l of leadsData) {
       const d = digits(l.telefono_normalizado);
       if (!d) continue;
       leadByPhone.set(d, l);

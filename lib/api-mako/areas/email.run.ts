@@ -14,12 +14,13 @@
 // todo «simulado», lo marca «enviado» y el guard de re-entrada lo bloquea para
 // siempre. Por eso enviar_broadcast se niega en preparar() Y en ejecutar().
 //
-// ⚠️ UN SEGMENTO DE MÁS DE 1.000 LEADS NO SE PUEDE ENVIAR. leadsDeSegmento (lib)
-// hace un select sin paginar y PostgREST lo corta en 1.000 sin error; contarSegmento
-// cuenta exacto. enviarBroadcast arma los destinatarios con el primero: manda a
-// 1.000, devuelve truncado=false, marca «enviado» y el guard de re-entrada impide
-// mandárselo a los demás. Hasta que la lib pagine, enviar y programar se niegan
-// cuando contarSegmento pasa de TOPE_POSTGREST (deuda: lib/email-marketing.ts).
+// ⚠️ UN SEGMENTO DE MÁS DE MAX_DESTINATARIOS (2.000) LEADS NO SE PUEDE ENVIAR.
+// enviarBroadcast corta ahí (`truncado`), marca «enviado» y el guard de re-entrada
+// impide mandárselo a los demás, así que enviar y programar se niegan cuando
+// contarSegmento pasa de ese tope. El número se IMPORTA de la lib, no se copia.
+// Hasta el 17/09 el tope de acá era 1.000 porque leadsDeSegmento no paginaba; ya
+// pagina (leerTodo), y el guard viejo bloqueaba el envío a los 1.044 «activos» del
+// ws1 por un problema que ya no existía. Si la lib cambia su tope, cambia acá solo.
 //
 // ⚠️ LA LIB NO RECLAMA EL BROADCAST DE FORMA ATÓMICA. actualizarBroadcast y
 // eliminarBroadcast filtran solo por id, y enviarBroadcast pasa a «enviando» sin
@@ -36,13 +37,13 @@ import {
   getEmailKpis, getEmailSecuencias, crearEmailSecuencia, actualizarMetaEmailSecuencia,
   ETAPAS, TRIGGERS, SEGMENTOS, esSegmentoValido, leadsDeSegmento, contarSegmento, contarTodosSegmentos,
   getBroadcasts, crearBroadcast, actualizarBroadcast, eliminarBroadcast, enviarBroadcast, enviarBroadcastPrueba,
-  type EmailSecuencia, type Broadcast,
+  MAX_DESTINATARIOS, type EmailSecuencia, type Broadcast,
 } from '@/lib/email-marketing';
 import { setSecuenciaPasos, type PasoSecuencia } from '@/lib/nutricion';
 import { getEmailFrom, remitenteEsSandbox, emailConectado, displayNameDe, verifyResendDomain, getResendDomain } from '@/lib/resend';
 import { envioEmailHabilitado, setEnvioEmail } from '@/lib/envio-flags';
 import {
-  TOPE_POSTGREST, estadoEmail, tzGuardada, alcanceEnvioReal, dominioIdDelWorkspace, enviosEmailDesde, filasDeSecuencias, filasDeBroadcasts,
+  estadoEmail, tzGuardada, alcanceEnvioReal, dominioIdDelWorkspace,
   secuenciasArchivadas, leadDelWorkspace, historialEmailLead, bajasEmail,
 } from './email.helpers';
 
@@ -79,8 +80,9 @@ const noSecuencia = (id: number) => `No hay una secuencia de email con id ${id} 
 const noBroadcast = (id: number) => `No hay un broadcast con id ${id} en este negocio. Pide la lista con listar_broadcasts.`;
 const EDITABLE = new Set(['borrador', 'programado', 'cancelado']);
 
-/** Un segmento que el envío de hoy no alcanza entero (ver cabecera). */
-const MSG_TOPE_SEGMENTO = (leads: number) => `El segmento tiene ${leads} leads y hoy el envío solo resuelve los primeros ${TOPE_POSTGREST}: se marcaría «enviado» y a los otros ${leads - TOPE_POSTGREST} no les llegaría nunca, sin forma de reenviarlo. No se puede mandar un broadcast a más de ${TOPE_POSTGREST} leads desde MaKo; elige un segmento más chico.`;
+/** Un segmento que el envío no alcanza entero (ver cabecera). */
+const TOPE_ENVIO = MAX_DESTINATARIOS;
+const MSG_TOPE_SEGMENTO = (leads: number) => `El segmento tiene ${leads} leads y un broadcast llega como máximo a ${TOPE_ENVIO}: se marcaría «enviado» y a los otros ${leads - TOPE_ENVIO} no les llegaría nunca, sin forma de reenviarlo. No se puede mandar un broadcast a más de ${TOPE_ENVIO} leads desde MaKo; elige un segmento más chico.`;
 
 /** Margen para no tocar un programado que el cron puede estar tomando (ver cabecera). */
 const MARGEN_CRON_MS = 2 * 60_000;
@@ -138,16 +140,11 @@ export const RUNNERS: Runners = {
       const ahora = new Date();
       const desde30 = new Date(ahora.getTime() - 30 * 86400_000);
       const inicioMes = new Date(ahora); inicioMes.setUTCDate(1); inicioMes.setUTCHours(0, 0, 0, 0);
-      const [kpis, envioOn, filas30, filasMes] = await Promise.all([
-        getEmailKpis(), envioEmailHabilitado(), enviosEmailDesde(desde30.toISOString()), enviosEmailDesde(inicioMes.toISOString()),
-      ]);
+      // Sin advertencia de «se contó sobre los primeros 1000»: desde el 17/09
+      // getEmailKpis CUENTA en el server (count exact), que no tiene techo. Dejarla
+      // habría sido afirmar un recorte que ya no existe.
+      const [kpis, envioOn] = await Promise.all([getEmailKpis(), envioEmailHabilitado()]);
       const advertencias = [AVISO_SIMULADO];
-      if (filas30.nutricion > TOPE_POSTGREST || filas30.broadcasts > TOPE_POSTGREST) {
-        advertencias.push(`Hay más de ${TOPE_POSTGREST} envíos en los últimos 30 días (${filas30.nutricion} de secuencias y ${filas30.broadcasts} de broadcasts): las tasas de apertura y clic se calcularon sobre los primeros ${TOPE_POSTGREST} de cada origen y pueden estar sesgadas.`);
-      }
-      if (filasMes.nutricion > TOPE_POSTGREST || filasMes.broadcasts > TOPE_POSTGREST) {
-        advertencias.push(`Hay más de ${TOPE_POSTGREST} envíos este mes (${filasMes.nutricion} de secuencias y ${filasMes.broadcasts} de broadcasts): «Emails enviados (mes)» se contó sobre los primeros ${TOPE_POSTGREST} de cada origen y queda corto.`);
-      }
       return json({
         ventana_tasas: { desde: desde30.toISOString(), hasta: ahora.toISOString(), dias: 30 },
         ventana_mes: { desde: inicioMes.toISOString(), hasta: ahora.toISOString(), nota: 'mes calendario en UTC' },
@@ -163,10 +160,9 @@ export const RUNNERS: Runners = {
     leer: async () => {
       const secs = await getEmailSecuencias();
       const ids = secs.map((s) => s.id);
-      const [archivadas, filas] = await Promise.all([secuenciasArchivadas(ids), filasDeSecuencias(ids)]);
+      // getEmailSecuencias pagina inscriptos y envíos (17/09): ya no hay recorte que avisar.
+      const archivadas = await secuenciasArchivadas(ids);
       const advertencias = [AVISO_SIMULADO, 'Las estadísticas se alinean por POSICIÓN del paso: si se reordenaron pasos, el histórico quedó en el paso que ocupaba ese lugar.'];
-      if (filas.envios > TOPE_POSTGREST) advertencias.push(`Hay ${filas.envios} envíos de email en estas secuencias y las estadísticas se contaron sobre los primeros ${TOPE_POSTGREST}: quedan cortas.`);
-      if (filas.inscripciones > TOPE_POSTGREST) advertencias.push(`Hay ${filas.inscripciones} inscripciones y los inscriptos se contaron sobre las primeras ${TOPE_POSTGREST}: quedan cortos.`);
       if (!secs.length) return json({ total: 0, secuencias: [], nota: 'No hay secuencias de email (con todos sus pasos por email) en este negocio.' });
       return json({
         total: secs.length,
@@ -188,9 +184,8 @@ export const RUNNERS: Runners = {
       const id = num(input, 'id')!;
       const s = await secuenciaEmail(id);
       if (!s) return errorLectura(noSecuencia(id));
-      const [archivadas, filas] = await Promise.all([secuenciasArchivadas([id]), filasDeSecuencias([id])]);
+      const archivadas = await secuenciasArchivadas([id]);
       const advertencias = [AVISO_SIMULADO];
-      if (filas.envios > TOPE_POSTGREST) advertencias.push(`Esta secuencia tiene ${filas.envios} envíos y las estadísticas se contaron sobre los primeros ${TOPE_POSTGREST}.`);
       return json({
         id: s.id, clave: s.clave, nombre: s.nombre, etapa: s.etapa, trigger: s.trigger_tipo, trigger_label: labelDe(TRIGGERS, s.trigger_tipo),
         activa: s.activa, archivada: archivadas.has(id), inscriptos: s.inscriptos,
@@ -214,10 +209,9 @@ export const RUNNERS: Runners = {
 
   listar_broadcasts: {
     leer: async () => {
+      // getBroadcasts pagina los envíos (17/09): las estadísticas son completas.
       const bs = await getBroadcasts();
-      const filas = await filasDeBroadcasts(bs.map((b) => b.id));
       const advertencias = [AVISO_SIMULADO];
-      if (filas > TOPE_POSTGREST) advertencias.push(`Hay ${filas} envíos registrados de broadcasts y las estadísticas se contaron sobre los primeros ${TOPE_POSTGREST}: quedan cortas.`);
       if (!bs.length) return json({ total: 0, broadcasts: [], nota: 'Este negocio no tiene broadcasts.' });
       return json({
         total: bs.length,
@@ -238,9 +232,7 @@ export const RUNNERS: Runners = {
       const id = num(input, 'id')!;
       const b = await broadcastPorId(id);
       if (!b) return errorLectura(noBroadcast(id));
-      const filas = await filasDeBroadcasts([id]);
       const advertencias = [AVISO_SIMULADO];
-      if (filas > TOPE_POSTGREST) advertencias.push(`Este broadcast tiene ${filas} envíos registrados y las estadísticas se contaron sobre los primeros ${TOPE_POSTGREST}.`);
       return json({
         id: b.id, asunto: b.asunto, preheader: b.preheader, cuerpo: b.cuerpo,
         segmento: b.segmento, segmento_label: labelDe(SEGMENTOS, b.segmento), estado: b.estado,
@@ -256,8 +248,8 @@ export const RUNNERS: Runners = {
     leer: async () => {
       const counts = await contarTodosSegmentos();
       return json({
-        segmentos: SEGMENTOS.map((s) => ({ value: s.value, label: s.label, descripcion: s.descripcion, leads: counts[s.value] ?? 0, se_puede_enviar: (counts[s.value] ?? 0) <= TOPE_POSTGREST })),
-        nota: `Conteo de hoy: leads con email no vacío y sin baja. Hoy un broadcast solo se puede mandar a un segmento de hasta ${TOPE_POSTGREST} leads (se_puede_enviar = false si pasa): el envío resuelve los primeros ${TOPE_POSTGREST} y dejaría al resto afuera para siempre. Además saltea a quien recibió un email en las últimas 20 h, así que el envío real puede ser menor.`,
+        segmentos: SEGMENTOS.map((s) => ({ value: s.value, label: s.label, descripcion: s.descripcion, leads: counts[s.value] ?? 0, se_puede_enviar: (counts[s.value] ?? 0) <= TOPE_ENVIO })),
+        nota: `Conteo de hoy: leads con email no vacío y sin baja. Un broadcast solo se puede mandar a un segmento de hasta ${TOPE_ENVIO} leads (se_puede_enviar = false si pasa): el envío llega a los primeros ${TOPE_ENVIO} y dejaría al resto afuera para siempre. Además saltea a quien recibió un email en las últimas 20 h, así que el envío real puede ser menor.`,
       });
     },
   },
@@ -502,7 +494,7 @@ export const RUNNERS: Runners = {
       const leads = await contarSegmento(segmento);
       return {
         payload: { asunto, preheader: str(input, 'preheader') ?? '', cuerpo, segmento },
-        resumen: `Crear el borrador de broadcast «${recorte(asunto, 80)}» para el segmento «${labelDe(SEGMENTOS, segmento)}» (${leads} leads hoy). No se envía nada.${leads > TOPE_POSTGREST ? ` OJO: con más de ${TOPE_POSTGREST} leads hoy no se va a poder enviar ni programar.` : ''}`,
+        resumen: `Crear el borrador de broadcast «${recorte(asunto, 80)}» para el segmento «${labelDe(SEGMENTOS, segmento)}» (${leads} leads hoy). No se envía nada.${leads > TOPE_ENVIO ? ` OJO: con más de ${TOPE_ENVIO} leads hoy no se va a poder enviar ni programar.` : ''}`,
       };
     },
     ejecutar: async (payload): Promise<Ejecutado> => {
@@ -531,8 +523,8 @@ export const RUNNERS: Runners = {
       if (cuerpo !== undefined) partes.push(`cuerpo nuevo (${cuerpo.length} caracteres)`);
       if (segmento !== undefined) {
         const n = await contarSegmento(segmento);
-        if (b.estado === 'programado' && n > TOPE_POSTGREST) return { error: `${MSG_TOPE_SEGMENTO(n)} El broadcast #${id} está programado: con este segmento saldría a medias.` };
-        partes.push(`segmento ${b.segmento} → ${segmento} (${n} leads hoy${n > TOPE_POSTGREST ? `: con más de ${TOPE_POSTGREST} no se va a poder enviar` : ''})`);
+        if (b.estado === 'programado' && n > TOPE_ENVIO) return { error: `${MSG_TOPE_SEGMENTO(n)} El broadcast #${id} está programado: con este segmento saldría a medias.` };
+        partes.push(`segmento ${b.segmento} → ${segmento} (${n} leads hoy${n > TOPE_ENVIO ? `: con más de ${TOPE_ENVIO} no se va a poder enviar` : ''})`);
       }
       return {
         payload: { id, ...(asunto !== undefined ? { asunto } : {}), ...(preheader !== undefined ? { preheader } : {}), ...(cuerpo !== undefined ? { cuerpo } : {}), ...(segmento !== undefined ? { segmento } : {}) },
@@ -570,7 +562,7 @@ export const RUNNERS: Runners = {
       const [leads, envioOn, sandbox, tzLeida] = await Promise.all([contarSegmento(b.segmento), envioEmailHabilitado(), remitenteEsSandbox(), tzGuardada()]);
       const tz = tzLeida ?? 'UTC';
       if (leads === 0) return { error: `El segmento «${labelDe(SEGMENTOS, b.segmento)}» no tiene leads con email: no hay a quién mandarlo.` };
-      if (leads > TOPE_POSTGREST) return { error: MSG_TOPE_SEGMENTO(leads) };
+      if (leads > TOPE_ENVIO) return { error: MSG_TOPE_SEGMENTO(leads) };
       const iso = new Date(ms).toISOString();
       const turno = primerTurnoCron(ms);
       const avisos = [
@@ -591,7 +583,7 @@ export const RUNNERS: Runners = {
       if (!EDITABLE.has(b.estado)) return { ok: false, resumen: `El broadcast #${id} ya está «${b.estado}»: no se programó.` };
       if (await enManosDelCron(b)) return { ok: false, resumen: msgEnManosDelCron(id) };
       const leads = await contarSegmento(b.segmento);
-      if (leads > TOPE_POSTGREST) return { ok: false, resumen: MSG_TOPE_SEGMENTO(leads) };
+      if (leads > TOPE_ENVIO) return { ok: false, resumen: MSG_TOPE_SEGMENTO(leads) };
       const iso = String(payload.programado_at);
       await actualizarBroadcast(id, { programado_at: iso, estado: 'programado' });
       const turno = new Date(primerTurnoCron(Date.parse(iso))).toISOString();
@@ -611,7 +603,7 @@ export const RUNNERS: Runners = {
       if (!envioOn) return { error: 'El envío real de email está apagado. Enviar así marcaría el broadcast como enviado sin mandar nada, y ya no se podría reenviar. Primero hay que prenderlo (activar_envio_real_email).' };
       if (sandbox) return { error: 'El remitente es el sandbox de Resend, que no entrega a terceros: primero hay que verificar el dominio y fijar un remitente propio en /email.' };
       if (leads === 0) return { error: `El segmento «${labelDe(SEGMENTOS, b.segmento)}» no tiene leads con email.` };
-      if (leads > TOPE_POSTGREST) return { error: MSG_TOPE_SEGMENTO(leads) };
+      if (leads > TOPE_ENVIO) return { error: MSG_TOPE_SEGMENTO(leads) };
       return {
         payload: { id },
         resumen: `Enviar AHORA el broadcast #${id} «${recorte(b.asunto, 80)}» al segmento «${labelDe(SEGMENTOS, b.segmento)}»: ${leads} destinatarios, menos quienes recibieron un email en las últimas 20 h. Es irreversible y gasta cuota de Resend.`,
@@ -628,7 +620,7 @@ export const RUNNERS: Runners = {
       if (!b) return { ok: false, resumen: noBroadcast(id) };
       if (b.estado !== 'borrador' && b.estado !== 'cancelado') return { ok: false, resumen: `El broadcast #${id} está «${b.estado}»: no se envió nada.` };
       const leads = await contarSegmento(b.segmento);
-      if (leads > TOPE_POSTGREST) return { ok: false, resumen: MSG_TOPE_SEGMENTO(leads) };
+      if (leads > TOPE_ENVIO) return { ok: false, resumen: MSG_TOPE_SEGMENTO(leads) };
       const r = await enviarBroadcast(id);
       const conteo = `${r.enviados} enviados, ${r.fallos} con fallo, ${r.saltados} salteados por contacto reciente, de ${r.total}`;
       if (!r.ok) return { ok: false, resumen: `No se envió: ${r.error ?? 'sin detalle'}.`, datos: { ...r } };

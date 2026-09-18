@@ -62,8 +62,9 @@ Al crear uno, sumar su fila acá **en el mismo commit**: un documento que no est
 índice es un documento que nadie va a abrir.
 
 Cuando un hallazgo cruza áreas va **donde vive el código** y se enlaza desde la otra, sin
-copiarlo. El caso vivo es el paginado: la trampa está en `hallazgos-infra.md` y la citan
-CRM, Ads, Landing y Comunicación con su síntoma propio.
+copiarlo. El caso vivo es el paginado: la trampa, el censo de tablas y lo que sigue abierto
+están en `hallazgos-infra.md`, y cada área (CRM, Ads, Landing, Comunicación, Objectives, IA,
+Customer Success, Plan y la API de MaKo) tiene su caso con su síntoma propio.
 
 ## Cómo está armado cada documento
 

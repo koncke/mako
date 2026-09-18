@@ -23,6 +23,7 @@ import { listarShares } from './shares';
 import { bloquesDeCliente, type Bloque } from './cs-respuestas';
 import { TOTAL_CLASES, rotuloDe, PROGRAMA } from './programa-catalogo';
 import { relojDe, promesaDe, type Reloj } from './cs-contrato';
+import { leerTodo } from './supabase-paginado';
 
 export const RECURSO_TAREA = 'tarea-cs';
 
@@ -176,36 +177,54 @@ export async function cartera(): Promise<ClienteCartera[]> {
   const ws = (await getWorkspaceActual()) ?? OWNER_WS;
   const db = await getTenantDb();
 
-  const { data } = await db.from('leads')
-    .select('id, nombre, email, telefono, empresa, fecha_inicio_servicio, fecha_cierre, duracion_meses, deal_servicio, deal_promesa')
-    .eq('estado_lead', 'ganado').order('id');
-  const leads = (data ?? []) as {
+  // Paginado por `id` aunque hoy sean 13: la cartera es la lista de clientes, y
+  // el día que un workspace pase de 1000 ganados un `.select()` suelto los corta
+  // en silencio — los que caen dejan de existir para CS. Si la lectura falla se
+  // muestra vacía, igual que antes (el `data ?? []` de la versión suelta).
+  type LeadGanado = {
     id: number; nombre: string; email: string | null; telefono: string | null;
     empresa: string | null; fecha_inicio_servicio: string | null; fecha_cierre: string | null;
     duracion_meses: number | null; deal_servicio: unknown; deal_promesa: unknown;
-  }[];
+  };
+  const leads = await leerTodo<LeadGanado>(db, 'leads',
+    'id, nombre, email, telefono, empresa, fecha_inicio_servicio, fecha_cierre, duracion_meses, deal_servicio, deal_promesa',
+    { orden: 'id', eq: { estado_lead: 'ganado' } },
+  ).catch(() => [] as LeadGanado[]);
   if (!leads.length) return [];
   const ids = leads.map(l => l.id);
 
   // Todo lo pesado se pide UNA vez para los 13, no uno por cliente: trece
   // clientes eran trece consultas idénticas a las mismas cuatro tablas.
-  type Ses = { lead_id: number; call_date: string | null; title: string | null };
+  //
+  // Todas paginadas: son UNA consulta para toda la cartera, así que su tamaño es
+  // la suma de todos los clientes, no lo de uno. `cs_respuestas` son ~44 bloques
+  // por cliente (más las áreas): con 13 clientes contestando ya roza las 600, y
+  // pasado el corte de 1000 los últimos clientes aparecían «sin contestar nada».
+  // Cada una pagina por su columna ÚNICA (recording_id / id), nunca por fecha.
+  type Ses = { recording_id: number; lead_id: number; call_date: string | null; title: string | null };
   type Cuo = { lead_id: number; fecha_vencimiento: string | null };
-  const leer = async <T,>(q: PromiseLike<{ data: unknown }>): Promise<T[]> => {
-    try { return (((await q) as { data: unknown }).data ?? []) as T[]; } catch { return []; }
-  };
+  const leer = <T,>(tabla: string, cols: string, orden: string, extra?: Parameters<typeof leerTodo>[3]): Promise<T[]> =>
+    leerTodo<T>(db, tabla, cols, { orden, ...extra, filtros: (q) => q.in('lead_id', ids) }).catch(() => [] as T[]);
 
   const [shares, sesiones, cuotas, respuestas, estados] = await Promise.all([
     listarShares(ws, RECURSO_TAREA).catch(() => []),
-    leer<Ses>(db.from('closing_analyses').select('lead_id, call_date, title')
-      .in('lead_id', ids).order('call_date', { ascending: false })),
-    leer<Cuo>(db.from('pagos').select('lead_id, pagado, fecha_vencimiento')
-      .in('lead_id', ids).eq('pagado', false)),
-    leer<Bloque>(db.from('cs_respuestas').select('lead_id, clase_id, area, estado, visto_at, updated_at')
-      .in('lead_id', ids)),
-    leer<{ lead_id: number; estado: EstadoCliente }>(
-      db.from('cs_clientes').select('lead_id, estado').in('lead_id', ids)),
+    leer<Ses>('closing_analyses', 'recording_id, lead_id, call_date, title', 'recording_id'),
+    // ⚠️ `pagos` NO tiene `fecha_vencimiento`: la columna es `fecha_esperada`.
+    // Pedir la inexistente hacía fallar la consulta, el catch la volvía `[]` y la
+    // cartera juraba «0 cuotas vencidas» para todos. Se alias-a para no tocar el
+    // resto del cálculo.
+    leer<Cuo>('pagos', 'lead_id, pagado, fecha_vencimiento:fecha_esperada', 'id', { eq: { pagado: false } }),
+    leer<Bloque>('cs_respuestas', 'id, lead_id, clase_id, area, estado, visto_at, updated_at', 'id'),
+    leer<{ lead_id: number; estado: EstadoCliente }>('cs_clientes', 'id, lead_id, estado', 'id'),
   ]);
+  // La última sesión va primero (`ses[0]`). Se ordena ACÁ y no en la consulta:
+  // `call_date` se repite y admite null, así que no sirve para paginar; y el
+  // `order(call_date desc)` de antes ponía los null PRIMERO (default de Postgres
+  // en DESC), con lo que una grabación sin fecha pasaba por «última sesión».
+  sesiones.sort((a, b) =>
+    (a.call_date == null ? 1 : 0) - (b.call_date == null ? 1 : 0) ||
+    (b.call_date ?? '').localeCompare(a.call_date ?? '') ||
+    b.recording_id - a.recording_id);
 
   const porLead = <T extends { lead_id: number }>(xs: T[]) => {
     const m = new Map<number, T[]>();

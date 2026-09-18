@@ -27,7 +27,7 @@
 // =============================================================================
 
 import { getRolWsEfectivo, getWorkspaceActual, getTenantDb } from '@/lib/workspace';
-import { leerPorPaginas } from '@/lib/supabase-paginado';
+import { leerPorPaginas, leerTodo } from '@/lib/supabase-paginado';
 import { claveTel } from '@/lib/evolution-mensajes';
 import { getNombresContacto, getFotosContacto } from '@/lib/evolution-contactos';
 import { telefonosOcultos } from '@/lib/evolution-block';
@@ -183,9 +183,17 @@ export async function GET(req: Request) {
     // Cruce con el CRM: da el nombre real y, sobre todo, la señal dura de que
     // ese teléfono ES un cliente — que vale más que cualquier clasificación.
     try {
-      const { data: leads } = await supabase.from('leads').select('id, nombre, telefono_normalizado').limit(2000);
+      // PAGINADO: era `.limit(2000)` sin orden, y `.limit()` no levanta el techo
+      // de 1000 de PostgREST. Al 17/09 ws1 tenía 1.108 leads: volvían 1.000
+      // arbitrarios y los clientes que caían afuera se ofrecían como "no sé" (y
+      // hasta se mandaban a clasificar a la IA) en vez de "Está en tu CRM".
+      // Solo los que tienen teléfono: los demás no pueden cruzar.
+      const leads = await leerTodo<{ id: number; nombre: string; telefono_normalizado: string | null }>(
+        supabase, 'leads', 'id, nombre, telefono_normalizado',
+        { orden: 'id', filtros: (q) => q.not('telefono_normalizado', 'is', null) },
+      );
       const porTel = new Map<string, { id: number; nombre: string }>();
-      for (const l of ((leads ?? []) as Array<{ id: number; nombre: string; telefono_normalizado: string | null }>)) {
+      for (const l of leads) {
         const k = ult10(l.telefono_normalizado);
         if (k) porTel.set(k, { id: l.id, nombre: l.nombre });
       }

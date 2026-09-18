@@ -11,6 +11,7 @@
 
 import { getTenantDb } from '@/lib/workspace';
 import { getSupabaseServer } from '@/lib/supabase';
+import { leerTodo, leerPorPaginas, type ConsultaPaginada } from '@/lib/supabase-paginado';
 import type { PasoSecuencia } from '@/lib/nutricion';
 import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
 import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, getEmailFrom, displayNameDe } from '@/lib/resend';
@@ -39,26 +40,33 @@ const DIM = 'var(--dim)';
 
 const pct = (num: number, den: number): number => (den > 0 ? Math.round((num / den) * 1000) / 10 : 0);
 
-// Junta los eventos de email de los dos orígenes (nutrición + broadcasts) en un
-// arreglo común {created_at, estado, abierto_at, clic_at} para los KPIs.
-async function emailEventos(desdeISO?: string): Promise<Array<{ created_at: string; estado: string; abierto_at: string | null; clic_at: string | null }>> {
-  const supabase = (await getTenantDb());
-  let q1 = supabase.from('nutricion_envios')
-    .select('created_at, estado, abierto_at, clic_at')
-    .eq('canal', 'email');
-  let q2 = supabase.from('email_broadcast_envios')
-    .select('created_at, estado, abierto_at, clic_at');
-  if (desdeISO) { q1 = q1.gte('created_at', desdeISO); q2 = q2.gte('created_at', desdeISO); }
-  const [a, b] = await Promise.all([q1, q2]);
-  if (a.error) throw new Error(`emailEventos nutri: ${a.error.message}`);
-  if (b.error) throw new Error(`emailEventos bcast: ${b.error.message}`);
-  return [
-    ...((a.data ?? []) as Array<{ created_at: string; estado: string; abierto_at: string | null; clic_at: string | null }>),
-    ...((b.data ?? []) as Array<{ created_at: string; estado: string; abierto_at: string | null; clic_at: string | null }>),
-  ];
-}
+const ESTADOS_ENVIADO = ['enviado', 'simulado'];
+const esEnviado = (estado: string) => ESTADOS_ENVIADO.includes(estado);
 
-const esEnviado = (estado: string) => estado === 'enviado' || estado === 'simulado';
+// Cuántos emails ENVIADOS (nutrición + broadcasts) desde `desdeISO`; con `marca`,
+// solo los que además tienen abierto_at / clic_at.
+//
+// Se CUENTA en el server (count exact + head) y no se bajan las filas. Antes esto
+// traía {created_at, estado, abierto_at, clic_at} de las dos tablas SIN paginar y
+// contaba en JS: PostgREST corta en 1.000 sin avisar, así que el primer broadcast
+// a un segmento grande (ws1 tiene 1.044 «activos») dejaba el KPI «Emails enviados
+// (mes)» clavado en 1.000 y las tasas de apertura/clic calculadas sobre una
+// muestra arbitraria. Para un número no hacen falta las filas: un conteo no se
+// trunca.
+async function contarEnviosEmail(desdeISO: string, marca?: 'abierto_at' | 'clic_at'): Promise<number> {
+  const supabase = (await getTenantDb());
+  const contar = async (tabla: 'nutricion_envios' | 'email_broadcast_envios'): Promise<number> => {
+    let q = supabase.from(tabla).select('id', { count: 'exact', head: true })
+      .in('estado', ESTADOS_ENVIADO).gte('created_at', desdeISO);
+    if (tabla === 'nutricion_envios') q = q.eq('canal', 'email');
+    if (marca) q = q.not(marca, 'is', null);
+    const { count, error } = await q;
+    if (error) throw new Error(`contarEnviosEmail ${tabla}: ${error.message}`);
+    return count ?? 0;
+  };
+  const [nutri, bcast] = await Promise.all([contar('nutricion_envios'), contar('email_broadcast_envios')]);
+  return nutri + bcast;
+}
 
 export async function getEmailKpis(): Promise<EmailKpi[]> {
   const supabase = (await getTenantDb());
@@ -75,19 +83,20 @@ export async function getEmailKpis(): Promise<EmailKpi[]> {
       .in('estado_lead', ['abierto', 'ganado']).gte('created_at', haceDiasISO(30)),
   ]);
 
-  const ult30 = await emailEventos(haceDiasISO(30));
-  const enviados30 = ult30.filter((e) => esEnviado(e.estado));
-  const abiertos30 = enviados30.filter((e) => e.abierto_at).length;
-  const clics30 = enviados30.filter((e) => e.clic_at).length;
-  const aperturaPct = pct(abiertos30, enviados30.length);
-  const clicPct = pct(clics30, enviados30.length);
-
-  const mes = (await emailEventos(inicioMesISO)).filter((e) => esEnviado(e.estado)).length;
+  const desde30 = haceDiasISO(30);
+  const [enviados30, abiertos30, clics30, mes] = await Promise.all([
+    contarEnviosEmail(desde30),
+    contarEnviosEmail(desde30, 'abierto_at'),
+    contarEnviosEmail(desde30, 'clic_at'),
+    contarEnviosEmail(inicioMesISO),
+  ]);
+  const aperturaPct = pct(abiertos30, enviados30);
+  const clicPct = pct(clics30, enviados30);
 
   return [
     { label: 'Suscriptores activos', value: (suscriptores ?? 0).toLocaleString('en-US'), delta: (nuevos30.count ?? 0) > 0 ? `▲ ${nuevos30.count}` : '—', deltaColor: (nuevos30.count ?? 0) > 0 ? GOOD : DIM },
-    { label: 'Tasa de apertura', value: enviados30.length ? `${aperturaPct}%` : '—', delta: 'últ. 30 días', deltaColor: DIM },
-    { label: 'Tasa de clic', value: enviados30.length ? `${clicPct}%` : '—', delta: 'últ. 30 días', deltaColor: !enviados30.length ? DIM : (clicPct >= 2 ? GOOD : BAD) },
+    { label: 'Tasa de apertura', value: enviados30 ? `${aperturaPct}%` : '—', delta: 'últ. 30 días', deltaColor: DIM },
+    { label: 'Tasa de clic', value: enviados30 ? `${clicPct}%` : '—', delta: 'últ. 30 días', deltaColor: !enviados30 ? DIM : (clicPct >= 2 ? GOOD : BAD) },
     { label: 'Emails enviados (mes)', value: mes.toLocaleString('en-US'), delta: 'este mes', deltaColor: DIM },
   ];
 }
@@ -114,30 +123,52 @@ export async function getEmailSecuencias(): Promise<EmailSecuencia[]> {
   const ids = secuencias.map((s) => s.id);
 
   // Inscriptos por secuencia + envíos de email por (secuencia, paso).
-  const [insc, env] = await Promise.all([
-    ids.length ? supabase.from('nutricion_inscripciones').select('secuencia_id').in('secuencia_id', ids) : Promise.resolve({ data: [], error: null }),
-    ids.length ? supabase.from('nutricion_envios').select('secuencia_id, paso, estado, abierto_at, clic_at').eq('canal', 'email').in('secuencia_id', ids) : Promise.resolve({ data: [], error: null }),
-  ]);
-  if (insc.error) throw new Error(`getEmailSecuencias insc: ${insc.error.message}`);
-  if (env.error) throw new Error(`getEmailSecuencias env: ${env.error.message}`);
-
+  //
+  // Los dos se leen PAGINADOS y se agregan al vuelo (de cada fila sobrevive un
+  // contador). Antes eran `.select()` sueltos: nutricion_envios suma una fila por
+  // cada email que sale y nutricion_inscripciones una por cada lead inscripto, así
+  // que pasadas las 1.000 filas PostgREST cortaba sin avisar y los «inscriptos» y
+  // los «enviados/abiertos/clics por paso» de la tab /email quedaban calculados
+  // sobre una muestra arbitraria — un número plausible, más chico que el real. El
+  // orden es por `id` (PK): paginar sin un orden único repite y saltea filas.
   const inscMap = new Map<number, number>();
-  for (const r of (insc.data ?? []) as Array<{ secuencia_id: number | null }>) {
-    if (r.secuencia_id == null) continue;
-    inscMap.set(r.secuencia_id, (inscMap.get(r.secuencia_id) ?? 0) + 1);
-  }
   // stats[secuencia_id][paso] = {sent, abiertos, clics}
   const statsMap = new Map<number, Map<number, EmailStepStats>>();
-  for (const r of (env.data ?? []) as Array<{ secuencia_id: number | null; paso: number | null; estado: string; abierto_at: string | null; clic_at: string | null }>) {
-    if (r.secuencia_id == null || r.paso == null) continue;
-    if (!esEnviado(r.estado)) continue;
-    let porPaso = statsMap.get(r.secuencia_id);
-    if (!porPaso) { porPaso = new Map(); statsMap.set(r.secuencia_id, porPaso); }
-    const s = porPaso.get(r.paso) ?? { sent: 0, abiertos: 0, clics: 0 };
-    s.sent += 1;
-    if (r.abierto_at) s.abiertos += 1;
-    if (r.clic_at) s.clics += 1;
-    porPaso.set(r.paso, s);
+  if (ids.length) {
+    try {
+      await Promise.all([
+        leerPorPaginas<{ secuencia_id: number | null }>(
+          supabase, 'nutricion_inscripciones', 'id, secuencia_id',
+          (filas) => {
+            for (const r of filas) {
+              if (r.secuencia_id == null) continue;
+              inscMap.set(r.secuencia_id, (inscMap.get(r.secuencia_id) ?? 0) + 1);
+            }
+          },
+          { orden: 'id', filtros: (q) => q.in('secuencia_id', ids) as ConsultaPaginada },
+        ),
+        leerPorPaginas<{ secuencia_id: number | null; paso: number | null; abierto_at: string | null; clic_at: string | null }>(
+          supabase, 'nutricion_envios', 'id, secuencia_id, paso, abierto_at, clic_at',
+          (filas) => {
+            for (const r of filas) {
+              if (r.secuencia_id == null || r.paso == null) continue;
+              let porPaso = statsMap.get(r.secuencia_id);
+              if (!porPaso) { porPaso = new Map(); statsMap.set(r.secuencia_id, porPaso); }
+              const s = porPaso.get(r.paso) ?? { sent: 0, abiertos: 0, clics: 0 };
+              s.sent += 1;
+              if (r.abierto_at) s.abiertos += 1;
+              if (r.clic_at) s.clics += 1;
+              porPaso.set(r.paso, s);
+            }
+          },
+          // Solo los ENVIADOS: el filtro de estado va en el server (antes se bajaban
+          // también los fallidos/saltados para tirarlos en JS).
+          { orden: 'id', eq: { canal: 'email' }, filtros: (q) => q.in('secuencia_id', ids).in('estado', ESTADOS_ENVIADO) as ConsultaPaginada },
+        ),
+      ]);
+    } catch (e) {
+      throw new Error(`getEmailSecuencias: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
 
   return secuencias.map((s) => ({
@@ -261,10 +292,19 @@ function filtroSegmento<T extends LeadFilter>(q: T, segmento: string): T {
 // Resuelve los leads de un segmento (siempre con email y sin opt-out).
 export async function leadsDeSegmento(segmento: string): Promise<LeadDestino[]> {
   const supabase = (await getTenantDb());
-  const q = supabase.from('leads').select('id, nombre, email, empresa');
-  const { data, error } = await filtroSegmento(q as unknown as LeadFilter, segmento as string) as unknown as { data: unknown; error: { message: string } | null };
-  if (error) throw new Error(`leadsDeSegmento: ${error.message}`);
-  return ((data ?? []) as Array<{ id: number; nombre: string | null; email: string | null; empresa: string | null }>)
+  // Paginado por `id`. Es el destinatario de un envío: el segmento "activos" de
+  // ws1 son 1044 leads, el `.select()` suelto devolvía 1000 y el broadcast le
+  // llegaba a 1000 — mientras `contarSegmento` (count exact, que sí cuenta bien)
+  // le prometía 1044 en pantalla. 44 personas sin su email y ningún log.
+  let data: Array<{ id: number; nombre: string | null; email: string | null; empresa: string | null }>;
+  try {
+    data = await leerTodo(supabase, 'leads', 'id, nombre, email, empresa', {
+      filtros: (q) => filtroSegmento(q as unknown as LeadFilter, segmento) as unknown as ConsultaPaginada,
+    });
+  } catch (e) {
+    throw new Error(`leadsDeSegmento: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  return data
     .filter((l) => !!l.email)
     .map((l) => ({ id: l.id, nombre: l.nombre, email: l.email as string, empresa: l.empresa }));
 }
@@ -302,15 +342,25 @@ export async function getBroadcasts(): Promise<Broadcast[]> {
   const ids = rows.map((r) => r.id);
   const statsMap = new Map<number, { enviados: number; abiertos: number; clics: number }>();
   if (ids.length) {
-    const { data: env, error: e2 } = await supabase
-      .from('email_broadcast_envios')
-      .select('broadcast_id, estado, abierto_at, clic_at')
-      .in('broadcast_id', ids);
-    if (e2) throw new Error(`getBroadcasts envios: ${e2.message}`);
-    for (const r of (env ?? []) as Array<{ broadcast_id: number; estado: string; abierto_at: string | null; clic_at: string | null }>) {
-      const s = statsMap.get(r.broadcast_id) ?? { enviados: 0, abiertos: 0, clics: 0 };
-      if (esEnviado(r.estado)) { s.enviados += 1; if (r.abierto_at) s.abiertos += 1; if (r.clic_at) s.clics += 1; }
-      statsMap.set(r.broadcast_id, s);
+    // Paginado y agregado al vuelo. Son UNA fila por destinatario de CADA
+    // broadcast: un solo envío al segmento «activos» de ws1 (1.044) ya pasa el
+    // techo de 1.000 de PostgREST, y el `.select()` suelto de antes cortaba sin
+    // avisar → la lista de broadcasts mostraba menos enviados/abiertos/clics de
+    // los reales. Orden por `id` (PK), que es lo que hace confiable el OFFSET.
+    try {
+      await leerPorPaginas<{ broadcast_id: number; estado: string; abierto_at: string | null; clic_at: string | null }>(
+        supabase, 'email_broadcast_envios', 'id, broadcast_id, estado, abierto_at, clic_at',
+        (filas) => {
+          for (const r of filas) {
+            const s = statsMap.get(r.broadcast_id) ?? { enviados: 0, abiertos: 0, clics: 0 };
+            if (esEnviado(r.estado)) { s.enviados += 1; if (r.abierto_at) s.abiertos += 1; if (r.clic_at) s.clics += 1; }
+            statsMap.set(r.broadcast_id, s);
+          }
+        },
+        { orden: 'id', filtros: (q) => q.in('broadcast_id', ids) as ConsultaPaginada },
+      );
+    } catch (e) {
+      throw new Error(`getBroadcasts envios: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
   return rows.map((r) => ({ ...r, ...(statsMap.get(r.id) ?? { enviados: 0, abiertos: 0, clics: 0 }) }));
@@ -370,23 +420,40 @@ export async function enviarBroadcastPrueba(id: number, emailPrueba: string): Pr
   return r.ok ? { ok: true } : { ok: false, error: r.error };
 }
 
-const MAX_DESTINATARIOS = 2000; // tope de seguridad por broadcast
+// Tope de seguridad por broadcast. EXPORTADO porque la API de MaKo
+// (lib/api-mako/areas/email.run.ts) se niega a enviar/programar por encima: pasado
+// este número el resto se trunca (`truncado`), el broadcast queda «enviado» y no hay
+// forma de mandárselo a los demás. Una cosa, un lugar: el guard lee ESTE número.
+export const MAX_DESTINATARIOS = 2000;
 const GUARD_HORAS = 20;         // no contactar al mismo lead 2 veces en <20h
 
 export type ResultadoBroadcast = { ok: boolean; enviados: number; simulados: number; fallos: number; saltados: number; total: number; truncado?: boolean; error?: string };
 
 // lead_ids que ya recibieron un email (nutrición o broadcast) en las últimas N
 // horas → para no contactarlos de nuevo con un broadcast (guard anti-spam).
+//
+// Paginado, y LANZA si no puede leer. Las dos cosas son la misma guarda:
+//  · Sin paginar, un broadcast grande de hace unas horas (1.044 filas en ws1)
+//    dejaba la ventana de 20h en 1.000 filas → 44 personas que YA recibieron un
+//    email hoy «no habían sido contactadas» y se les mandaba otro.
+//  · Antes el error se ignoraba (`nutri.data ?? []`), así que una lectura caída
+//    devolvía un Set vacío = guard apagado en silencio. «No pude leer» no es
+//    «nadie recibió nada»: el que llama decide no enviar.
 async function leadsContactadosRecientemente(): Promise<Set<number>> {
   const supabase = (await getTenantDb());
   const desde = new Date(Date.now() - GUARD_HORAS * 3600 * 1000).toISOString();
-  const [nutri, bcast] = await Promise.all([
-    supabase.from('nutricion_envios').select('lead_id').eq('canal', 'email').in('estado', ['enviado', 'simulado']).gte('created_at', desde),
-    supabase.from('email_broadcast_envios').select('lead_id').in('estado', ['enviado', 'simulado']).gte('created_at', desde),
-  ]);
   const set = new Set<number>();
-  for (const r of (nutri.data ?? []) as Array<{ lead_id: number | null }>) if (r.lead_id != null) set.add(r.lead_id);
-  for (const r of (bcast.data ?? []) as Array<{ lead_id: number | null }>) if (r.lead_id != null) set.add(r.lead_id);
+  const juntar = (filas: Array<{ lead_id: number | null }>) => { for (const r of filas) if (r.lead_id != null) set.add(r.lead_id); };
+  await Promise.all([
+    leerPorPaginas<{ lead_id: number | null }>(supabase, 'nutricion_envios', 'id, lead_id', juntar, {
+      orden: 'id', eq: { canal: 'email' },
+      filtros: (q) => q.in('estado', ESTADOS_ENVIADO).gte('created_at', desde) as ConsultaPaginada,
+    }),
+    leerPorPaginas<{ lead_id: number | null }>(supabase, 'email_broadcast_envios', 'id, lead_id', juntar, {
+      orden: 'id',
+      filtros: (q) => q.in('estado', ESTADOS_ENVIADO).gte('created_at', desde) as ConsultaPaginada,
+    }),
+  ]);
   return set;
 }
 
@@ -421,12 +488,26 @@ export async function enviarBroadcast(id: number): Promise<ResultadoBroadcast> {
 
   // REANUDABLE: si el broadcast quedó 'enviando' (timeout de una corrida
   // anterior, rate-limit), los leads ya registrados no se re-envían.
-  const { data: yaRows } = await supabase
-    .from('email_broadcast_envios').select('lead_id').eq('broadcast_id', id);
-  const yaRegistrados = new Set(((yaRows ?? []) as Array<{ lead_id: number | null }>).map((r) => r.lead_id).filter((x): x is number => x != null));
+  //
+  // ⚠️ Esta lectura es la que evita mandarle DOS VECES el mismo email a alguien,
+  // así que va paginada y, si falla, NO se envía. Con el `.select()` suelto de
+  // antes, un broadcast de más de 1.000 destinatarios que se reanudaba veía solo
+  // 1.000 ya-registrados y les volvía a mandar a los demás; y un error de lectura
+  // se tragaba (`yaRows ?? []`) y reanudar era reenviarle a TODO el segmento.
+  // Mismo criterio para el guard de 20h: sin poder leerlo, no se manda.
+  const yaRegistrados = new Set<number>();
+  let recientes: Set<number>;
+  try {
+    await leerPorPaginas<{ lead_id: number | null }>(
+      supabase, 'email_broadcast_envios', 'id, lead_id',
+      (filas) => { for (const r of filas) if (r.lead_id != null) yaRegistrados.add(r.lead_id); },
+      { orden: 'id', eq: { broadcast_id: id } },
+    );
+    recientes = await leadsContactadosRecientemente();
+  } catch (e) {
+    return vacio(`no se pudo leer a quién ya se le envió (no se mandó nada para no repetir): ${e instanceof Error ? e.message : String(e)}`);
+  }
   const destinatarios = candidatos.filter((l) => !yaRegistrados.has(l.id));
-
-  const recientes = await leadsContactadosRecientemente();
   const fromNameWs = displayNameDe(await getEmailFrom());
 
   await supabase.from('email_broadcasts').update({ estado: 'enviando', updated_at: ahoraISO() }).eq('id', id);

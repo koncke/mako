@@ -96,6 +96,26 @@ export function nombreComparable(v: unknown): string | null {
 }
 
 /**
+ * Un patrón `ilike` por palabra de un nombre YA comparable (`nombreComparable`:
+ * minúsculas, sin acentos, sin puntuación). Cada lead que `buscarDuplicados`
+ * daría por igual contiene todas esas palabras, pero con los acentos que tenga
+ * guardados: por eso las vocales, la `n` y la `c` van como `_` (un carácter
+ * cualquiera), así «sofia» también encuentra «Sofía» y «nunez» a «Núñez». Trae
+ * de más a propósito; la comparación exacta sigue siendo la de JS.
+ */
+export function patronesDeNombre(nombre: string): string[] {
+  return nombre.split(' ').filter(Boolean)
+    .map((p) => p.replace(/[aeiounc]/g, '_'))
+    // Solo las palabras que FILTRAN. Con las vocales, la `n` y la `c` como comodín,
+    // una palabra corta se vuelve todo comodín: «ana» → `___`, que coincide con
+    // cualquier nombre de tres letras o más (1.107 de 1.108 leads en ws1). Esa
+    // palabra no descarta a nadie; mandarla solo agrega una condición que no sirve.
+    // Dos letras fijas es el mínimo para que el patrón deje afuera a alguien.
+    .filter((p) => p.replace(/_/g, '').length >= 2)
+    .map((p) => `%${p}%`);
+}
+
+/**
  * Los leads que parecen el mismo que el candidato.
  *
  * ⚠️ Devuelve TODAS las coincidencias, no la primera. Con dos parecidos, decir

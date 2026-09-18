@@ -432,6 +432,21 @@ lo saltee como si el cliente no hubiera escrito nada (`lib/cs-reescritura.ts:103
 **La regla:** una lectura fallida no es un valor del dato. Si el número gobierna una decisión, el
 error sube hasta quien decide, y quien decide no decide.
 
+⚠️ **Y uno de esos ceros no necesitaba que se cayera nada (17/09/2026).** La cartera pedía
+`pagos.fecha_vencimiento`, una columna que **nunca existió** (la real es `fecha_esperada`). La
+consulta fallaba SIEMPRE, `leer` la volvía `[]`, y la cartera mostró «0 cuotas vencidas» para
+todos los clientes desde el primer día. Se arregló con el alias
+`fecha_vencimiento:fecha_esperada`, y **cambia la pantalla**: aparecen 2 cuotas vencidas en ws1
+y 2 en ws11 que antes no se veían. Un wrapper que traga errores no distingue «la red se cayó»
+de «la consulta está mal escrita»: el segundo caso es permanente y se ve exactamente igual.
+
+En la misma pasada, las lecturas en lote de la cartera (`closing_analyses`, `pagos`,
+`cs_respuestas`, `cs_clientes` por `.in('lead_id', ids)`) pasaron a `leerTodo`. La que iba a
+cortar primero es `cs_respuestas`: unos 44 bloques por cliente en UNA consulta, así que con
+unos 23 clientes contestando ya pasaba las 1000. Siguen devolviendo vacío si fallan, como antes
+(`lib/cs-cartera.ts:180-228`). Y «última sesión» se ordena en memoria: con
+`.order('call_date', desc)` Postgres ponía primero las sesiones SIN fecha.
+
 **Lo que quedó SIN hacer:** que las cuatro propaguen el error. No se tocaron porque las comparten
 la pantalla `/customer-success` y el webhook de Whop, y cambiar el contrato es cambiarlo para los
 dos. Mientras tanto la API de MaKo tiene sus copias estrictas (`bloqueDe`, `bloquesDe`,

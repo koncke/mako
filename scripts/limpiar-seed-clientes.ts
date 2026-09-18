@@ -37,6 +37,7 @@ import { runWithWorkspace, getTenantDb } from '../lib/workspace';
 import { setSetting } from '../lib/settings';
 import { getDiagnosticoFase } from '../lib/fase-store';
 import { SEED_TAREAS, SEED_CATEGORIAS } from '../lib/todo-seeds-data';
+import { leerTodo } from '../lib/supabase-paginado';
 
 const APLICAR = process.argv.includes('--apply');
 const WSS = [1, 11];
@@ -69,9 +70,11 @@ async function main() {
       const fase = Number(f?.fase ?? 1);
       const cats = catsDeFase(fase);
 
-      const { data: tRows } = await db.from('experimento_tareas').select('*').range(0, 999);
+      // Paginado: era `.range(0, 999)` sin orden. Este script BORRA según lo que lee, y
+      // una tarea que cae del corte no entra en `usados` → su proyecto se toma por vacío
+      // y se borra teniendo tareas. Hoy son 212 en ws1; el techo no avisa cuando llega.
+      const tareas = await leerTodo<Row>(db, 'experimento_tareas', '*', { orden: 'id' });
       const { data: cRows } = await db.from('tarea_categorias').select('*');
-      const tareas = (tRows ?? []) as Row[];
       const proys = (cRows ?? []) as Row[];
 
       const seedPorTitulo = new Map(SEED_TAREAS.map((t) => [t.titulo, t] as const));

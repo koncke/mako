@@ -21,6 +21,7 @@
 import type { NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
 import { getTenantDb } from '@/lib/workspace';
+import { leerTodo } from '@/lib/supabase-paginado';
 import { chatCheapCascade } from '@/lib/ai-cheap';
 import { parseJsonObject } from '@/lib/campaign-structurer';
 
@@ -45,8 +46,10 @@ const str = (v: unknown, d = ''): string => (typeof v === 'string' ? v : v == nu
  * cuando no tiene que atravesar un párrafo por tarea para llegar al siguiente.
  */
 const TOPE_DETALLE = 120;
-/** Techo de tareas en un prompt. Arriba de esto conviene trocear, pero el tablero más
- *  grande hoy tiene 497: si algún día se pasa, esto avisa en el log en vez de mentir. */
+/** Techo de tareas en un prompt. Arriba de esto conviene trocear. El «hoy tiene 497»
+ *  quedó viejo: al 17/09 ws9 tiene 643 (553 abiertas) y YA se pasa. El recorte es un
+ *  presupuesto de prompt a propósito, pero QUÉ tareas quedan afuera tiene que estar
+ *  decidido — ver la lectura en POST. */
 const TOPE_TAREAS = 600;
 
 const SYSTEM = `Eres MaKo, el buscador del tablero de tareas. Te doy la LISTA de tareas y lo que el dueño está buscando, dicho con sus palabras.
@@ -84,15 +87,29 @@ export async function POST(req: NextRequest) {
     const db = await getTenantDb();
     // Los proyectos entran como CONTEXTO: «lo de la landing» se contesta bien solo si se
     // sabe qué tareas cuelgan del proyecto de la landing.
-    const [{ data: tRows }, { data: pRows }] = await Promise.all([
-      db.from('plan_tareas').select('id, num, title, detalle, labels, progress, score').range(0, TOPE_TAREAS - 1),
+    //
+    // Antes: `.range(0, TOPE_TAREAS - 1)` SIN `.order()`. Con 643 tareas en ws9 el
+    // corte ya mordía, y las 43 que quedaban afuera las elegía Postgres al azar —
+    // podía ser la abierta de más prioridad, y el buscador contestaba "ninguna
+    // responde" sobre una tarea que existía. Ahora se lee el tablero entero
+    // (paginado, por `id`) y el recorte se hace en memoria con criterio: primero
+    // las abiertas por score, después las hechas más recientes.
+    const [todas, { data: pRows }] = await Promise.all([
+      leerTodo<Record<string, unknown>>(db, 'plan_tareas', 'id, num, title, detalle, labels, progress, score, updated_at', { orden: 'id' }),
       db.from('plan_proyectos').select('id, name'),
     ]);
 
     const proy = new Map((pRows ?? []).map((p) => [str((p as Record<string, unknown>).id), str((p as Record<string, unknown>).name)]));
-    const tareas = (tRows ?? []) as Array<Record<string, unknown>>;
+    const hecha = (t: Record<string, unknown>) => Number(t.progress ?? 0) >= 100;
+    const tareas = [...todas].sort((a, b) =>
+      Number(hecha(a)) - Number(hecha(b))
+      || (hecha(a)
+        ? str(b.updated_at).localeCompare(str(a.updated_at))
+        : Number(b.score ?? 0) - Number(a.score ?? 0))
+      || str(a.id).localeCompare(str(b.id)),
+    ).slice(0, TOPE_TAREAS);
     if (!tareas.length) return Response.json({ ok: true, ids: [], explico: 'El tablero está vacío.' });
-    if (tareas.length >= TOPE_TAREAS) console.warn(`[plan-buscar] el tablero llegó al tope de ${TOPE_TAREAS}: hay tareas que no entraron`);
+    if (todas.length > TOPE_TAREAS) console.warn(`[plan-buscar] el tablero tiene ${todas.length} tareas y el tope es ${TOPE_TAREAS}: quedaron afuera ${todas.length - TOPE_TAREAS} (las hechas más viejas primero)`);
 
     const lista = tareas.map((t) => {
       const labels = Array.isArray(t.labels) ? (t.labels as unknown[]).map(String) : [];

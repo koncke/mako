@@ -36,6 +36,7 @@ import { parseJsonObject } from './campaign-structurer';
 import { contenidoNoConfiable } from './prompt-render';
 import { crearPropuesta, type PropuestaCerrar } from './plan-propuesta';
 import { commitsDesde, commitParaPrompt } from './github-commits';
+import { leerTodo } from './supabase-paginado';
 
 /** Desde cuándo mirar. Se guarda en el ws del dueño, que es donde vive su tablero. */
 const KEY_ULTIMO = 'mako.cerrar-commits.ultimo';
@@ -83,9 +84,13 @@ export async function proponerCierresPorCommits(opts: { desdeISO?: string; dry?:
 
     const db = await getTenantDb();
     // Solo las ABIERTAS: proponer cerrar algo ya cerrado es ruido puro.
-    const { data, error } = await db.from('plan_tareas').select('id, num, title, detalle, progress').lt('progress', 100).range(0, 599);
-    if (error) throw new Error(`leer plan_tareas: ${error.message}`);
-    const tareas = (data ?? []) as Row[];
+    // Paginado y ordenado por `id`. Antes era `.range(0, 599)` SIN `.order()`: un tope
+    // escondido cuyo recorte elegía Postgres. ws9 ya tiene 553 abiertas (17/09); pasada
+    // la 600, las que caían afuera nunca se proponían para cerrar, sin aviso. Si el
+    // prompt crece, la cascada ya mide su largo y elige el proveedor que lo aguanta.
+    const tareas = await leerTodo<Row>(db, 'plan_tareas', 'id, num, title, detalle, progress', {
+      orden: 'id', filtros: (q) => q.lt('progress', 100),
+    }).catch((e: unknown) => { throw new Error(`leer plan_tareas: ${msg(e)}`); });
     if (!tareas.length) return { propuestas: 0, borradorId: '', motivo: 'no hay tareas abiertas' };
 
     // 260 caracteres de detalle: el «Qué hay que hacer» entero. Con 400 tareas, mandar el

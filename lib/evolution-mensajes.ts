@@ -476,7 +476,14 @@ export async function getMensajesDeChat(chatJid: string, limite = 300): Promise<
     .from('wa_mensajes')
     .select('id, wa_message_id, chat_jid, from_me, tipo, texto, media_path, media_mime, wa_timestamp, status')
     .neq('tipo', 'evento')   // no ensuciamos el hilo con reacciones/protocolo
-    .order('wa_timestamp', { ascending: true })
+    // DESCENDENTE y después se reordena en memoria (el sort del final). Antes
+    // ordenaba ascendente y cortaba en `limite`: un chat con más de 300 mensajes
+    // mostraba los 300 MÁS VIEJOS y escondía todo lo nuevo, incluido el último
+    // mensaje — el que el dueño abrió el hilo para leer. Al 17/09 ya eran 16 chats
+    // (hasta 1.526 mensajes en uno). El tope queda, pero corta lo viejo.
+    // `id` desempata: `wa_timestamp` se repite en ráfagas y en volcados.
+    .order('wa_timestamp', { ascending: false })
+    .order('id', { ascending: false })
     .limit(limite);
   const jidSimple = /^[A-Za-z0-9@._:-]+$/.test(chatJid);
   if (last10.length >= 8 && jidSimple) sel = sel.or(`chat_jid.eq.${chatJid},telefono.like.%${last10}%`);

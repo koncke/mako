@@ -337,7 +337,7 @@ export const RUNNERS: Runners = {
           };
         }),
         ventana: { desde: desde.toISOString().slice(0, 10), hasta: hasta.toISOString().slice(0, 10), dias },
-        nota: 'Los ids se descubren en los 1000 eventos más recientes de la ventana; el conteo de cada uno es exacto. Si la consulta falla la lista sale vacía. iframe0/iframe1 son reproductores que no se identifican: su id depende de la posición en la página.',
+        nota: 'Los ids se descubren sobre TODOS los eventos de la ventana (por exclusión, sin tope de filas) y el conteo de cada uno es exacto. Si la consulta falla la lista sale vacía: vacío no garantiza que no haya videos. iframe0/iframe1 son reproductores que no se identifican: su id depende de la posición en la página.',
       });
     },
   },

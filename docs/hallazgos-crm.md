@@ -22,6 +22,9 @@ en [corridas-multiagente.md](corridas-multiagente.md).
 
 ## Lo que más muerde acá
 
+- **«Se ven 4 ganados de 13»** no era un filtro: `_listLeads` no paginaba y PostgREST cortó en
+  1000 los leads más viejos, que eran los clientes cerrados. La misma lectura estaba copiada
+  en seis lugares más → [`_listLeads` y sus seis copias](#️-_listleads-faltaban-9-de-13-ganados-y-la-misma-lectura-estaba-copiada-seis-veces).
 - **Cal.com no es Calendly**: otra empresa, otra firma, otro payload — y su embed manda dos mensajes
   por la misma reserva → [Cal.com es OTRO producto](#-calcom-es-otro-producto-no-una-variante-de-calendly).
 - Un error de lectura se pinta como **"✓ Todo marcado"**: el peor bug del CRM porque no
@@ -1754,8 +1757,13 @@ función, vive inline acá.
 **Regla:** toda lectura de `closing_analyses` que decida qué se paga pasa por `leerTodo`
 (`lib/supabase-paginado.ts`), como ya hace `closing.helpers.ts:93`.
 
-**Lo que quedó SIN hacer:** paginar :677, :692 y :1047-1054. El doble pago está mitigado, no
-resuelto, por el candado de `closing_jobs`.
+**ARREGLADO el 17/09/2026.** Las tres pasan por `leerClosingAnalyses` (`leerTodo` ordenado por
+`recording_id`, único por inquilino). El orden por `call_date` de `/closing` se hace en memoria,
+con los sin fecha al final: `call_date` se repite y no sirve para paginar. Y el Paso 0 y el set
+«done» **lanzan** si la lectura falla: antes `done.data ?? []` dejaba el set vacío y se volvían a
+pagar todas las llamadas del lead. Lo mismo en `lib/ads-analyst.ts` con `script_analyses`
+(`leerScriptAnalyses`, por `ad_id`). Queda sin paginar `app/crm/insights-actions.ts:56`, que lee
+la tabla entera para contestar «¿este lead tiene llamada?».
 
 **Y los números de `/closing` se calculan en dos lugares.** Closers, factores, tendencia y
 embudo vivían solo en el `useMemo` `ag` de `app/closing/ClosingBrowser.tsx:129`;
@@ -2109,7 +2117,65 @@ una demo mostrándola correr**.
 
 ## Lecturas del embudo, el ciclo y la cobranza
 
+### ⚠️ `_listLeads`: faltaban 9 de 13 ganados, y la misma lectura estaba copiada seis veces
+
+**Síntoma (09/09/2026):** Mauricio veía 4 ganados en el CRM; eran 13. US$52.700 fuera del
+tablero. También faltaban 44 abiertos, 9 perdidos y 4 descalificados.
+
+**El diagnóstico obvio era el equivocado.** Los 13 tenían `etapa_vista='ganado'` y el funnel
+de ws1 tenía la etapa: ni filtro ni etapa. `_listLeads` (`lib/leads.ts`) hacía un `.select()`
+suelto con `.order('created_at', desc)`; ws1 llegó a 1.066 leads y el corte de 1000 dejó
+afuera los 66 más viejos — los que ya habían cerrado. La mecánica y cómo reconocerlo, en
+[hallazgos-infra.md](hallazgos-infra.md) → «El techo de 1000 filas no da error».
+
+**El arreglo tiene dos mitades**, y la segunda es la que se olvida: paginar con `leerTodo` por
+`id` (único) y **después** ordenar por `created_at` en memoria. Paginar ordenando por
+`created_at` reparte los empates distinto en cada página y saltea filas.
+
+**Y no era el único.** La caza del 17/09 encontró el mismo `.select()` sobre `leads`, sin
+paginar, en seis lugares más, todos del mismo workspace y todos truncando ya (ws1: 1.108
+leads; con teléfono 1.106; abiertos 1.032):
+
+| Dónde | Qué se perdía |
+|---|---|
+| `getLeadsByEmail` (`lib/closing.ts`) | el índice email → lead con el que el Closing pega cada reunión a su lead |
+| `evaluarAutoWorkspace` (`lib/crm-auto.ts`) | 66 leads que el CRM automático no evaluaba nunca, y un `totalLeads: 1000` que se mostraba como dato |
+| `_getTramosSCL` (`lib/queries.ts`) | el ciclo de venta se promediaba sobre una muestra arbitraria |
+| `app/api/whatsapp/conversations/route.ts` | 106 contactos del inbox salían como desconocidos, sin link al CRM |
+| `app/api/chat-agent/onboarding/conversaciones/route.ts` | lo mismo, con un `.limit(2000)` que devolvía 1.000 |
+| `leadsDeSegmento` (`lib/email-marketing.ts`) | ver [hallazgos-comunicacion.md](hallazgos-comunicacion.md) |
+
+Las siete pasan hoy por `leerTodo` ordenado por `id`. Efecto visible de eso: cuando dos leads
+comparten email, `getLeadsByEmail` elige ahora siempre el id más bajo, antes era arbitrario.
+
+**Lo que quedó SIN hacer:**
+
+- ⚠️ **Regresión introducida en la misma corrida — `duplicadosDeLead` (`lib/leads.ts:367`).**
+  El `.limit(500)` sin orden se reemplazó por un `ilike` por palabra del nombre
+  (`patronesDeNombre`, `lib/leads-duplicados.ts`) + `.order('id').limit(100)`. El patrón cambia
+  vocales, `n` y `c` por `_` (comodín) para tolerar acentos, y con eso casi no filtra: medido en
+  ws1, «Ana» → `%___%` matchea **1.107 de 1.108**, «Juan» 238, «María» 181. El `limit(100)` deja
+  los 100 más viejos y un duplicado más nuevo entra como lead nuevo, sin aviso. Solo corre
+  cuando el lead no trae email ni teléfono. Arreglo: `leerTodo` del conjunto filtrado, o
+  descartar las palabras cuyo patrón queda casi todo en `_` y avisar si vuelven exactamente 100.
+- `app/crm/insights-actions.ts:56` (`leadTieneLlamadaAction`) lee `closing_analyses` entera sin
+  paginar (428 en ws9): es el mismo patrón que se arregló en `lib/closing.ts`.
+- `lib/leads.ts:2286` (`getVisitasLandingMap`, gemelo de `getVslEngagementMap` sobre
+  `landing_visits`) y las lecturas de UN visitante en `:1482` y `:2264` (hasta 612 eventos de
+  `vsl_events` por visitante, ws13). Y `:1401`: `.limit(400)` de Panda por `fecha`, así que un
+  video viejo pierde su duración.
+- `getVslEngagementMap` ahora hace varias consultas por tandas y un `catch` devuelve el mapa
+  vacío: para la cohorte `vio_poco_vsl` (`lib/nutricion.ts`) vacío significa «nadie vio el VSL»
+  y la inscribe entera. El error tendría que subir.
+
+**Vive en:** lib/leads.ts (`_listLeads`, `duplicadosDeLead`, `getVslEngagementMap`, `getVisitasLandingMap`) · lib/leads-duplicados.ts · lib/closing.ts · lib/crm-auto.ts · lib/queries.ts · app/crm/insights-actions.ts · *2026-09-09 (commit `5e829b5d`) y 2026-09-17 caza de paginado*
+
 ### ⚠️ Las lecturas de leads y pagos del embudo, el ciclo y la cobranza no paginan
+
+**Estado al 17/09/2026:** `getTramosSCL` ya pagina (entrada de arriba). Las otras cinco siguen
+peladas; hoy no truncan porque filtran por columnas ralas (ws1: 120 leads con R1, 61 que
+asistieron, 13 con primer pago, 14 ganados), y las dos sin filtro de `pagos` tienen decenas de
+filas. Siguen siendo deuda.
 
 **Síntoma esperado** (sale de leer el código, no se midió): ninguno visible. Pasadas las 1000
 filas, conteos y totales salen cortos, siempre hacia abajo, y qué filas se caen no está definido.
@@ -2139,7 +2205,7 @@ Eso DICE el recorte, no lo arregla: las pantallas siguen cortas y sin aviso.
 **Regla:** la cura va en la lib, con `leerTodo`/`leerPorPaginas` (`lib/supabase-paginado.ts`) y un
 orden único que termine en `id`.
 
-**Lo que quedó SIN hacer:** paginar las seis.
+**Lo que quedó SIN hacer:** paginar las cinco que quedan (todas menos `getTramosSCL`).
 
 **Vive en:** `lib/queries.ts` (`getFunnelEtapas`, `getSCL`, `getTramosSCL`, `getDistribucionPipeline`) ·
 `lib/pagos.ts` (`getOutstandingDetalle`, `getCuotasPendientes`) ·

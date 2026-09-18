@@ -24,6 +24,7 @@
 import 'server-only';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { getSupabaseServer } from './supabase';
+import { leerTodo } from './supabase-paginado';
 import { credWs } from './credenciales';
 import { esInterno, internosDe, SIN_INTERNOS, type Internos } from './closing-internos';
 import { chatClaude } from './anthropic';
@@ -202,16 +203,44 @@ export function preClassify(m: FathomMeeting, internos: Internos = SIN_INTERNOS)
 /** Trae los leads necesarios para matchear, indexados por email en minúscula. */
 export async function getLeadsByEmail(): Promise<Map<string, LeadMatch>> {
   const supabase = (await getTenantDb());
-  const { data, error } = await supabase
-    .from('leads')
-    .select('id, nombre, empresa, email, closer, estado_lead, fecha_junta_1, fecha_junta_2, fecha_cierre, fecha_inicio_servicio');
-  if (error) throw new Error(`Error trayendo leads para match: ${error.message}`);
+  // Paginado por `id` (único): un `.select()` suelto devolvía 1000 de los 1066
+  // leads de ws1 sin error, y los que caían eran los más viejos — justo los
+  // clientes ya cerrados, cuyas llamadas de Fathom quedaban sin lead. Mismo bug
+  // que _listLeads. Las filas de leads entran de sobra en memoria.
+  let data: LeadMatch[];
+  try {
+    data = await leerTodo<LeadMatch>(
+      supabase, 'leads',
+      'id, nombre, empresa, email, closer, estado_lead, fecha_junta_1, fecha_junta_2, fecha_cierre, fecha_inicio_servicio',
+    );
+  } catch (e) {
+    throw new Error(`Error trayendo leads para match: ${e instanceof Error ? e.message : String(e)}`);
+  }
   const map = new Map<string, LeadMatch>();
-  for (const l of (data ?? []) as LeadMatch[]) {
+  // Con varios leads por email gana el de id MENOR (el primero cargado): antes
+  // el ganador dependía del orden físico, que no está definido.
+  for (const l of data) {
     const e = l.email?.trim().toLowerCase();
     if (e && !map.has(e)) map.set(e, l);
   }
   return map;
+}
+
+/**
+ * Lee `closing_analyses` ENTERA, paginada por `recording_id` (único dentro del
+ * inquilino: UNIQUE workspace_id, recording_id). Una fila por grabación de
+ * Fathom: hoy ~430 por workspace y +75/mes en ws1, así que un `.select()` suelto
+ * cruza el corte de 1000 de PostgREST en meses. Y acá el corte no se nota en la
+ * pantalla sino en la PLATA: el set de "ya procesadas" sale de esta tabla, y una
+ * grabación que cae del corte se re-analiza con Claude en cada sync, sin error.
+ * Nunca paginar por `call_date`: se repite, y un orden con empates saltea filas.
+ */
+async function leerClosingAnalyses<T>(cols: string, eq?: Record<string, string>): Promise<T[]> {
+  try {
+    return await leerTodo<T>(await getTenantDb(), 'closing_analyses', cols, { orden: 'recording_id', eq });
+  } catch (e) {
+    throw new Error(`Error leyendo closing_analyses: ${e instanceof Error ? e.message : String(e)}`);
+  }
 }
 
 /** Matchea una meeting a un lead por el email de algún invitado externo. */
@@ -674,10 +703,13 @@ export async function analizarLlamadasDeLead(leadId: number): Promise<{ encontra
   // Analyst y matchean por email del invitado o por el share_url cargado en el
   // lead, pero están linkeados a otro lead (o a ninguno) → linkearlos a este.
   // Resuelve el caso "la llamada ya está en Closing Analyst pero el insight no la ve".
-  const { data: caRows } = await supabase
-    .from('closing_analyses')
-    .select('recording_id, lead_id, invitee_email, share_url, status');
-  for (const r of ((caRows ?? []) as Array<{ recording_id: number; lead_id: number | null; invitee_email: string | null; share_url: string | null; status: string }>)) {
+  // Entera (no se puede acotar en el servidor: el share_url se compara
+  // normalizado, sin querystring y en minúscula). Antes un error de esta lectura
+  // se tragaba y el re-link no pasaba; ahora corta con el motivo.
+  const caRows = await leerClosingAnalyses<{ recording_id: number; lead_id: number | null; invitee_email: string | null; share_url: string | null; status: string }>(
+    'recording_id, lead_id, invitee_email, share_url, status',
+  );
+  for (const r of caRows) {
     if (r.status === 'error' || r.lead_id === lead.id) continue;
     const emailOk = !!emailNorm && (r.invitee_email ?? '').trim().toLowerCase() === emailNorm;
     const urlOk = !!r.share_url && shareSet.has(normUrl(r.share_url));
@@ -687,12 +719,15 @@ export async function analizarLlamadasDeLead(leadId: number): Promise<{ encontra
     }
   }
 
+  // ⚠️ Antes el error de esta lectura se ignoraba (`done.data ?? []`): con el
+  // set vacío TODAS las llamadas del lead se volvían a analizar con Claude.
+  // Ahora un fallo corta antes de gastar.
   const [meetings, done] = await Promise.all([
     fetchAllMeetings({ includeSummary: false }),
-    supabase.from('closing_analyses').select('recording_id, lead_id, status'),
+    leerClosingAnalyses<{ recording_id: number; lead_id: number | null; status: string }>('recording_id, lead_id, status'),
   ]);
   const doneByRec = new Map<number, { lead_id: number | null; status: string }>();
-  for (const r of ((done.data ?? []) as Array<{ recording_id: number; lead_id: number | null; status: string }>)) doneByRec.set(r.recording_id, { lead_id: r.lead_id, status: r.status });
+  for (const r of done) doneByRec.set(r.recording_id, { lead_id: r.lead_id, status: r.status });
 
   const mias = meetings.filter((m) => {
     if (!m.recording_id) return false;
@@ -795,15 +830,14 @@ export async function syncClosingCalls(opts: { max?: number; deadline?: number; 
     );
   }
 
-  const supabase = (await getTenantDb());
-  const [meetings, leadsByEmail, doneRows] = await Promise.all([
+  const [meetings, leadsByEmail, doneData] = await Promise.all([
     fetchAllMeetings({ includeSummary: false }),
     getLeadsByEmail(),
-    supabase.from('closing_analyses').select('recording_id, status'),
+    // Paginado: es el set de "ya procesadas". Cortado en 1000, lo que cae del
+    // corte se re-analiza con Claude en cada corrida del cron.
+    leerClosingAnalyses<{ recording_id: number; status: string }>('recording_id, status'),
   ]);
 
-  if (doneRows.error) throw new Error(`Error leyendo closing_analyses: ${doneRows.error.message}`);
-  const doneData = (doneRows.data ?? []) as Array<{ recording_id: number; status: string }>;
   // Se reintentan: 'error' (falló) y 'pendiente' (venta sin transcript). El resto
   // ya está resuelto y se saltea.
   const retryable = (s: string) => s === 'error' || s === 'pendiente';
@@ -1043,27 +1077,27 @@ function avg(nums: number[]): number | null {
 
 /** Datos para /closing: las llamadas de venta analizadas + contadores + KPIs. */
 export async function getClosingViewData(): Promise<ClosingViewData> {
-  const supabase = (await getTenantDb());
-  const [ventasRes, allRes] = await Promise.all([
-    supabase
-      .from('closing_analyses')
-      .select(VIEW_COLS)
-      .eq('category', 'venta')
-      .eq('status', 'analizada')        // solo ventas con análisis completo (v2)
-      .order('call_date', { ascending: false, nullsFirst: false }),
-    supabase.from('closing_analyses').select('category, status, updated_at'),
+  const [ventas, todas] = await Promise.all([
+    // Solo ventas con análisis completo (v2).
+    leerClosingAnalyses<ClosingAnalysisRow>(VIEW_COLS, { category: 'venta', status: 'analizada' }),
+    leerClosingAnalyses<{ category: string; status: string; updated_at: string }>('category, status, updated_at'),
   ]);
-
-  if (ventasRes.error) throw new Error(`Error leyendo cierres: ${ventasRes.error.message}`);
+  // La pantalla las quiere de la más nueva a la más vieja. Se ordena en memoria
+  // porque `call_date` se repite y no sirve para paginar (ver leerClosingAnalyses);
+  // sin fecha al final, como el `nullsFirst: false` de antes.
+  ventas.sort((a, b) =>
+    (a.call_date == null ? 1 : 0) - (b.call_date == null ? 1 : 0) ||
+    String(b.call_date ?? '').localeCompare(String(a.call_date ?? '')) ||
+    b.recording_id - a.recording_id);
 
   // PostgREST serializa NUMERIC como STRING (precisión). Coercionamos score a
   // número para que los KPIs (typeof === 'number') y el promedio funcionen.
   const numScore = (v: unknown): number | null => { const n = Number(v); return v != null && Number.isFinite(n) ? n : null; };
-  const calls = ((ventasRes.data ?? []) as unknown as ClosingAnalysisRow[]).map((c) => ({ ...c, score: numScore(c.score) }));
+  const calls = ventas.map((c) => ({ ...c, score: numScore(c.score) }));
 
   const counts = { ventas: 0, servicio: 0, internas: 0, test: 0, errores: 0, pendientes: 0, total: 0 };
   let lastSync: string | null = null;
-  for (const r of (allRes.data ?? []) as Array<{ category: string; status: string; updated_at: string }>) {
+  for (const r of todas) {
     counts.total++;
     if (r.category === 'venta') counts.ventas++;
     else if (r.category === 'entrega_servicio') counts.servicio++;

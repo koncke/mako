@@ -1376,6 +1376,17 @@ con **7**, y eso se leyó como un problema de permisos.
   contradecía una medición previa que se sabía buena. Sin ese segundo número, 1000 pasaba.
   Cuando midas algo grande, medí también una parte por otro camino.
 
+**Y al ESCRIBIR una lectura: si la tabla crece con el uso, pasa por `leerTodo` o
+`leerPorPaginas` (`lib/supabase-paginado.ts`) con un orden que termine en una columna
+ÚNICA.** Un `.select()` suelto anda perfecto hasta el día que la tabla pasa las 1000 filas, y
+desde ahí pierde datos sin un log: el CRM mostró 4 ganados de 13 (US$52.700) porque
+`_listLeads` no paginaba — y era la lectura más importante de la app, que un barrido anterior
+no vio porque buscó lo que paginaba MAL y no lo que no paginaba. `.limit(2000)` no sube el
+techo. El orden de presentación por una columna que se repite (`created_at`, `fecha`) se
+aplica en memoria DESPUÉS de paginar por `id`. Las otras formas de truncar sin parecerlo, y
+qué tablas ya pasaron las 1000, en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «El
+techo de 1000 filas no da error».
+
 # Contar filas no es contar cosas — cruzá por clave
 
 Dos conteos que no coinciden invitan a restar y llamar «faltante» a la diferencia. Casi

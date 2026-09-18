@@ -34,7 +34,7 @@ import { getContactoReportes } from '@/lib/perfil';
 import { getSetting, setSetting } from '@/lib/settings';
 import { getFunnel } from '@/lib/leads';
 import {
-  secuenciaFila, inscripcionesVivas, handoffFila, inscripcionesDeLead, TOPE_INSCRIPCIONES_LEAD, totalesParaTope,
+  secuenciaFila, inscripcionesVivas, handoffFila, inscripcionesDeLead, TOPE_INSCRIPCIONES_LEAD,
   estadoCanalWhatsapp, etapasParaSecuencia, leerObjetivosCustom, esObjetivoDelCatalogo, agregarObjetivoCustom, TOPE_OBJETIVOS_CUSTOM,
   leerAudiosPorClave, asignarAudioAClave, quitarAudioDeClaves, insumosAudios, leerEnsayo, crearLeadMagnet,
   responderHuecosVoz, CLAVES_BLOQUE_VOZ, secuenciasArchivadas, TOPE_ARCHIVADAS, desarchivarYPausar, secuenciasChatAgent,
@@ -49,22 +49,16 @@ const errorLectura = (msg: string): SalidaLectura => ({ content: msg, isError: t
 const num = (input: Record<string, unknown>, k: string): number => Number(input[k]);
 const str = (input: Record<string, unknown>, k: string): string => (typeof input[k] === 'string' ? (input[k] as string).trim() : '');
 
-/** Lo que PostgREST corta sin avisar: getSecuenciasConStats y getSettingData leen sin paginar. */
-const TOPE_POSTGREST = 1000;
+// Hasta el 17/09 acá había un `avisoTope()` que contaba las filas reales y avisaba
+// «los conteos quedan CORTOS» porque getSecuenciasConStats, getSettingData y
+// planificarInscripciones/Envios leían sin paginar. Las cuatro paginan ahora, así
+// que el aviso pasó a ser falso y se sacó: un aviso que miente enseña a ignorar
+// los que no mienten. Si una lectura vuelve a cortar, se arregla la lectura.
 
 const ventana30 = () => {
   const hasta = new Date();
   return { desde: new Date(hasta.getTime() - 30 * 86400 * 1000).toISOString().slice(0, 10), hasta: hasta.toISOString().slice(0, 10), dias: 30 };
 };
-
-async function avisoTope(): Promise<string | null> {
-  const t = await totalesParaTope();
-  const cortos: string[] = [];
-  if (t.inscripciones != null && t.inscripciones > TOPE_POSTGREST) cortos.push(`hay ${t.inscripciones} inscripciones y se leyeron ${TOPE_POSTGREST}`);
-  if (t.envios30d != null && t.envios30d > TOPE_POSTGREST) cortos.push(`hay ${t.envios30d} envíos en 30 días y se leyeron ${TOPE_POSTGREST}`);
-  if (t.enviosHistoricos != null && t.enviosHistoricos > TOPE_POSTGREST) cortos.push(`hay ${t.enviosHistoricos} envíos históricos y se leyeron ${TOPE_POSTGREST} (historico.enviados)`);
-  return cortos.length ? `Los conteos quedan CORTOS: ${cortos.join('; ')}. Dilo al dar los números.` : null;
-}
 
 /** Las situaciones de audio que armarSecuenciasDeAudios (lib/secuencias-audios.ts) convierte en secuencia,
  *  con la clave de la secuencia que arma. Las otras claves del catálogo no las consume. */
@@ -102,7 +96,6 @@ export const RUNNERS: Runners = {
       const { secuencias } = await getSettingData();
       const s = secuencias.find((x) => x.id === id);
       if (!s) return errorLectura(noExiste(id));
-      const aviso = await avisoTope();
       return json({
         id: s.id, clave: s.clave, nombre: s.nombre, etapa: s.etapa, trigger: s.trigger_tipo, activa: s.activa,
         pasos: s.pasos.map((p) => ({
@@ -118,7 +111,6 @@ export const RUNNERS: Runners = {
           'Un paso con sin_terminar=true no sale nunca: el motor lo reprograma cada 24 h.',
           'Los [tu link …] salen literales al lead: nada los reemplaza.',
           'activa=true no garantiza envíos: mira estado_canal_whatsapp_chatbot.',
-          ...(aviso ? [aviso] : []),
         ],
       });
     },
@@ -130,7 +122,6 @@ export const RUNNERS: Runners = {
       const { secuencias, serie } = await getSettingData();
       const elegidas = filtro != null ? secuencias.filter((s) => s.id === filtro) : secuencias;
       if (filtro != null && !elegidas.length) return errorLectura(noExiste(filtro));
-      const aviso = await avisoTope();
       return json({
         ventana: ventana30(),
         por_secuencia: elegidas.map((s) => ({ id: s.id, nombre: s.nombre, activa: s.activa, ...s.metricas })),
@@ -140,7 +131,6 @@ export const RUNNERS: Runners = {
           'aperturas y clics existen solo para email; WhatsApp no informa aperturas.',
           'respuestas = inscripciones pausadas porque el lead contestó (la fecha es la de la pausa).',
           'Los envíos en borrador y simulados no cuentan como enviados.',
-          ...(aviso ? [aviso] : []),
         ],
       });
     },
@@ -288,19 +278,13 @@ export const RUNNERS: Runners = {
     leer: async () => {
       const TOPE = 200;
       const [ins, env] = await Promise.all([planificarInscripciones(), planificarEnvios()]);
-      // planificarInscripciones/planificarEnvios leen sin paginar: PostgREST corta cada consulta en 1000.
-      const porSecuencia = new Map<string, number>();
-      for (const f of ins) porSecuencia.set(f.secuencia, (porSecuencia.get(f.secuencia) ?? 0) + 1);
-      const cortadas = [...porSecuencia].filter(([, n]) => n >= TOPE_POSTGREST).map(([s]) => s);
-      const avisos = [
-        env.length >= TOPE_POSTGREST ? `enviaria.total llegó a ${env.length}: la lectura de envíos vencidos se corta en ${TOPE_POSTGREST} y puede haber más.` : null,
-        cortadas.length ? `inscribiria puede estar cortado o contar como pendientes a leads ya inscriptos en: ${cortadas.join(', ')} (la consulta de inscriptos se corta en ${TOPE_POSTGREST}).` : null,
-      ].filter(Boolean);
+      // planificarInscripciones/planificarEnvios paginan desde el 17/09: `total` es el
+      // real. Los avisos de «se corta en 1000» que había acá se sacaron por falsos.
       return json({
         inscribiria: { total: ins.length, mostrados: Math.min(ins.length, TOPE), filas: ins.slice(0, TOPE) },
         enviaria: { total: env.length, mostrados: Math.min(env.length, TOPE), filas: env.slice(0, TOPE) },
         nota: 'Simulación: no aplica el tope diario configurado, la pausa de 20 h por lead, la ventana de 9 a 21 (hora de México) ni si el envío del canal está habilitado. Lo que sale de verdad puede ser menos.',
-        avisos,
+        avisos: [] as string[],
       });
     },
   },

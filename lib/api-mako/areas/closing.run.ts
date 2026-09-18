@@ -29,7 +29,7 @@ import { getLead, logLeadEvent } from '@/lib/leads';
 import { credWs, integracionConectada } from '@/lib/credenciales';
 import { APP_BASE_URL } from '@/lib/app-url';
 import {
-  DIMS7, leerLlamada, contarAnalisis, avisoRecorteClosing, llamadasConProblemas, leadTieneLlamada,
+  DIMS7, leerLlamada, llamadasConProblemas, leadTieneLlamada,
   hayBorradorPostLlamadaReciente, ultimaLlamadaDelLead, enVentana, closersDe, factoresDe, tendenciaDe, embudoDe,
   enSegundoPlano, r1,
 } from './closing.helpers';
@@ -76,9 +76,8 @@ function ventana(input: Record<string, unknown>): { desde: string | null; hasta:
 async function ventasEnVentana(input: Record<string, unknown>) {
   const v = ventana(input);
   if ('error' in v) return v;
-  const [data, filas] = await Promise.all([getClosingViewData(), contarAnalisis(true)]);
+  const data = await getClosingViewData();
   const calls = enVentana(data.calls, v.desde, v.hasta);
-  const aviso = avisoRecorteClosing(filas, 'el conjunto de llamadas');
   return {
     calls,
     data,
@@ -86,7 +85,6 @@ async function ventasEnVentana(input: Record<string, unknown>) {
       ventana: { desde: v.desde, hasta: v.hasta, criterio: v.desde || v.hasta ? 'fecha de la llamada en hora de Tijuana, inclusive' : 'todo el histórico' },
       base: 'solo llamadas de VENTA con análisis completo (las pendientes sin transcript y las con error no cuentan)',
       llamadas_consideradas: calls.length,
-      ...(aviso ? { advertencia: aviso } : {}),
     },
   };
 }
@@ -106,8 +104,7 @@ export const RUNNERS: Runners = {
   // ── Lecturas agregadas ─────────────────────────────────────────────────────
   panorama_closing: {
     leer: async () => {
-      const [data, total] = await Promise.all([getClosingViewData(), contarAnalisis(false)]);
-      const aviso = avisoRecorteClosing(total, 'los contadores');
+      const data = await getClosingViewData();
       return json({
         kpis: {
           score_promedio_0a10: data.kpis.scorePromedio,
@@ -132,7 +129,6 @@ export const RUNNERS: Runners = {
           'Los promedios son null cuando no hay llamadas con score (null no es 0).',
           'Ventana: todo el histórico. Para acotar por fechas usa metricas_closers, tendencia_score o embudo_closing.',
           ...(data.counts.errores ? ['Hay llamadas con error: llamadas_pendientes_o_con_error dice por qué.'] : []),
-          ...(aviso ? [aviso] : []),
         ],
       });
     },

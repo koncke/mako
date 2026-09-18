@@ -1263,6 +1263,21 @@ apellido en este dominio:
 orden estable; y una pertenencia puntual («¿está bloqueado X?») se pregunta por X, no trayendo
 el set.
 
+**Estado al 17/09/2026:** `planificarInscripciones`, `comprometerInscripciones`,
+`leadsEnFamiliaPostAgenda` y `horariosDeInscripcion` van en tandas de 200 ids, cada tanda
+paginada (`inscriptosDe`), y un error corta con su motivo: antes el corte podía reinsertar
+inscripciones, chocar con `unique(lead_id, secuencia_id)` y el `throw` frenaba la inscripción
+entera. `inscripcionesVencidas`, `getSecuenciasConStats` y `lib/setting-secuencias.ts` paginan.
+Las 13 cohortes de `leadsDeCohorte` pasan por `leerTodo` (la de `etapa_actual` ya daba 1.032
+abiertos en ws1: un lead que caía del corte no se inscribía nunca). **Siguen sin paginar**
+`telefonosBloqueados` / `telefonosOcultos` (0 y 15 filas hoy).
+
+⚠️ **Arreglar la cohorte agrandó lo de abajo.** Antes de paginar, `etapa_actual` devolvía 1000
+ids como máximo; después, todos los abiertos, y esa lista es la que alimenta los `.in()` de
+inscriptos. Por eso esos `.in()` van en tandas: paginar una lectura cambia el tamaño de lo que
+viene después ([hallazgos-infra.md](hallazgos-infra.md) → «Las formas de truncar que no parecen
+truncar»).
+
 **Vive en:** lib/nutricion.ts:169-182, :613-617, :772-781 · lib/setting-secuencias.ts:25-31 ·
 lib/evolution-block.ts:36-39, :59-62 · *2026-09-16 api-mako-areas*
 
@@ -1425,9 +1440,93 @@ leer un segmento tiene que copiar el filtro — que es crear el segundo contador
 se niega a enviar o programar si `contarSegmento` pasa de 1000, pero un broadcast ya programado
 cuyo segmento crezca después sale truncado por el cron.
 
+**ARREGLADO el 17/09/2026, y ya estaba mordiendo:** el segmento «activos» de ws1 tenía 1.044
+destinatarios; la pantalla prometía 1.044 y el broadcast le llegaba a 1.000, sin un log.
+`leadsDeSegmento` pasa por `leerTodo` reusando `filtroSegmento`, así que conteo y lista salen
+del mismo filtro. `MAX_DESTINATARIOS` (2.000) se exporta y es el tope real, por diseño: por
+encima trunca, y la API de MaKo se niega. El guard de la API comparaba contra un `1000` copiado
+a mano y bloqueaba justo el envío a los 1.044 (ver [hallazgos-api-mako.md](hallazgos-api-mako.md)).
+**Sin revisar:** si el botón de la pantalla avisa por encima de 2.000.
+
+Los KPIs de email (`getEmailKpis`) ya no bajan filas para contarlas: son 8 conteos
+`head: true`, que no se pueden cortar.
+
 **Vive en:** lib/email-marketing.ts (contarSegmento / leadsDeSegmento / enviarBroadcast;
 filtroSegmento :245, :262-278, :373, :419) · *2026-06-30 ~auditoria-email-marketing-resend +
 2026-09-16 api-mako-areas*
+
+### ⚠️ Una lectura que protege de mandar dos veces falla ABIERTA de dos maneras
+
+Los guards que deciden «a esta persona ya le escribimos» leen una lista y mandan a todos los
+que no están en ella. Esa lista se puede quedar corta de dos formas, y las dos se leen igual
+que «nadie fue contactado»:
+
+1. **El corte de 1000.** Reanudar un broadcast de más de 1.000 destinatarios veía 1.000 «ya
+   enviados», y el resto podía recibir el email dos veces. `leadsYaContactados` y
+   `leadsConEnvioReciente` (`lib/nutricion.ts`) leían `wa_mensajes` con `.in('lead_id', ids)`
+   sin tope, y **un solo lead de ws1 tiene 1.194 mensajes**: el audio de apertura se le
+   presentaba de cero a alguien con quien ya se hablaba, y el anti-ban de 20 h le encimaba otro
+   mensaje. Las dos fallas se leen como «MaKo suena a robot», nunca como «faltaron filas».
+2. **El error tragado.** `data ?? []` sobre esa lectura: con la base caída, la lista vale `[]`
+   y se le escribe a todo el segmento.
+
+**Regla:** la lectura que protege de un doble envío **lanza** si no puede leer, y quien la
+llama no manda nada y dice por qué (reanudar un broadcast devuelve un resultado de error, no
+tira, para que el cron siga con los demás). Y para «¿este lead tiene al menos un mensaje?» no
+se pagina: se pregunta por exclusión (`idsConAlMenosUnaFila`, `lib/ids-con-filas.ts`), una
+consulta por vuelta que saca de la lista a los ya encontrados.
+
+**Vive en:** lib/email-marketing.ts (`enviarBroadcast`, `leadsContactadosRecientemente`) · lib/nutricion.ts (`leadsYaContactados`, `leadsConEnvioReciente`) · lib/ids-con-filas.ts · *2026-09-17 caza de paginado*
+
+### ⚠️ Una cola leída con `.limit(N)` sin excluir lo visto relee lo mismo para siempre
+
+Dos colas del motor de nutrición tenían la misma forma: traer N pendientes, procesar las que
+se puedan, dejar las otras como estaban. Las que quedan vuelven a salir primeras.
+
+- **`procesarEnvios`** (`lib/nutricion.ts`) ordenaba por `proximo_envio_at` —que se repite—
+  con `.limit(LOTE)` (18). Las saltadas por el guard de 20 h no se actualizan, así que la
+  vuelta siguiente relee las mismas 18: todas en `vistos`, `due` vacío, el bucle corta. Si las
+  18 más viejas están frenadas, no sale nada en esa corrida ni en las siguientes. Ahora excluye
+  en la base lo ya visto (`.not('id','in',…)`) y desempata por `id`.
+- **`evaluarDesenlaces`** (`lib/nutricion-desenlace.ts`) leía `desenlace is null` con
+  `.limit(500)` y sin orden. Ese conjunto no se vacía solo: quedan ahí las secuencias sin
+  estrategia, las que están en hand-off y las completadas sin logro. Pasadas las 500, las
+  mismas 500 bloqueaban a las nuevas en cada corrida. Ahora lee la cola entera ordenada por `id`.
+
+**Y un truncado que adelanta una decisión:** en la misma función, «qué se mandó» a cada
+inscripción era una consulta sin paginar. Cortada, se pierde el mensaje más reciente, el reloj
+de silencio arranca de uno anterior, y la secuencia se marca fallida y el lead cambia de etapa
+**antes de su plazo**. Truncar no solo pierde filas: decide antes de tiempo. Va por
+`lib/nutricion-envios-resumen.ts` (tandas de 200 + `leerPorPaginas`), y si esa lectura falla,
+`evaluarDesenlaces` corta con error en vez de decidir sin datos.
+
+**Lo que quedó SIN hacer:** `procesarEnvios` todavía puede trabarse si hay más de 6 × LOTE
+inscripciones frenadas a la vez por el guard de 20 h.
+
+**Vive en:** lib/nutricion.ts (`procesarEnvios`) · lib/nutricion-desenlace.ts · lib/nutricion-envios-resumen.ts · *2026-09-17 caza de paginado*
+
+### ⚠️ El hilo de WhatsApp mostraba los 300 mensajes más VIEJOS y escondía el último
+
+**Síntoma:** en un chat largo, el inbox no muestra lo que se acaba de hablar.
+
+**Causa:** `getMensajesDeChat` (`lib/evolution-mensajes.ts`) ordenaba `wa_timestamp`
+**ascendente** y cortaba en `.limit(300)`: un tope sobre un orden ascendente se queda con la
+punta vieja. Medido el 17/09/2026: 16 chats pasan los 300 (máximo 1.163 en ws1, 1.526 en ws11).
+El censo de la corrida lo había dado por bueno como «tope deliberado» —el tope lo era, la
+dirección no— y la API de MaKo ya lo sabía: el comentario de `whatsapp.helpers.ts` decía «la lib
+devuelve los MÁS VIEJOS», y el arreglo se había hecho solo en la copia de la API
+(`mensajesEspejoRecientes`).
+
+**Arreglo:** descendente con desempate por `id` para cortar, y se reordena en memoria para
+mostrar. Lo fija `tests/lecturas-sin-corte.test.ts`.
+
+**Regla:** si una capa deja escrito un defecto de otra, el arreglo va en la otra. Una copia
+arreglada deja la original rota con un testigo al lado.
+
+**Lo que quedó SIN hacer:** la búsqueda de leads de todas las conversaciones del inbox
+(`lib/evolution-mensajes.ts`, ~:320) no tiene tope; hoy son 46 ids por workspace.
+
+**Vive en:** lib/evolution-mensajes.ts (`getMensajesDeChat`) · app/api/whatsapp/evolution/mensajes/route.ts · lib/api-mako/areas/whatsapp.helpers.ts · *2026-09-17 caza de paginado*
 
 ### El guard anti-doble-contacto vivía en una tabla y los broadcasts escribían en otra
 

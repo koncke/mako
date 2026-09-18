@@ -105,20 +105,6 @@ export async function inscripcionesDeLead(leadId: number) {
   return filas.map((f) => ({ ...f, secuencia: porId.get(f.secuencia_id) ?? null }));
 }
 
-/** Cuántas filas hay de verdad detrás de las métricas de getSettingData, que
- *  lee sin paginar: PostgREST corta en 1000 en silencio. */
-export async function totalesParaTope(): Promise<{ inscripciones: number | null; envios30d: number | null; enviosHistoricos: number | null }> {
-  const db = await getTenantDb();
-  const desde = new Date(Date.now() - 30 * 86400 * 1000).toISOString();
-  const [i, e, h] = await Promise.all([
-    db.from('nutricion_inscripciones').select('id', { count: 'exact', head: true }),
-    db.from('nutricion_envios').select('id', { count: 'exact', head: true }).gte('created_at', desde),
-    // historico.enviados (getSecuenciasConStats) cuenta enviado/simulado de TODA la historia, sin paginar.
-    db.from('nutricion_envios').select('id', { count: 'exact', head: true }).in('estado', ['enviado', 'simulado']),
-  ]);
-  return { inscripciones: i.error ? null : (i.count ?? 0), envios30d: e.error ? null : (e.count ?? 0), enviosHistoricos: h.error ? null : (h.count ?? 0) };
-}
-
 // ── Canal (app/api/chat-agent/secuencias/route.ts GET) ───────────────────────
 
 /** Tres respuestas distintas, no dos: nunca lo vinculó / se cayó / no se pudo preguntar.

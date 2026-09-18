@@ -24,6 +24,7 @@
 
 import 'server-only';
 import { getSupabaseServer } from './supabase';
+import { leerPorPaginas } from './supabase-paginado';
 import { OWNER_WS } from './auth-session';
 import { SERVICIOS_METODO } from './metodo-catalogo';
 
@@ -583,10 +584,18 @@ async function copiarTabla(t: TablaClon, destino: number, recibo: Recibo, avisos
     origen.forEach((f, i) => { if (ids[i] != null && f.id != null) mapa.set(f.id as string | number, ids[i]); });
     if (!mapa.size) continue;
     try {
-      let qh = sb.from(h.tabla).select('*').eq('workspace_id', OWNER_WS).in(h.fk, [...mapa.keys()]);
-      if (h.limite) qh = qh.limit(h.limite);
-      const { data: dh } = await qh;
-      const hijas = ((dh ?? []) as Array<Record<string, unknown>>)
+      // Paginado por `id`, con el `limite` como corte ESCRITO (devolver false).
+      // Antes era `.limit(h.limite)`, y `lead_respuestas` pide 1200: PostgREST
+      // corta en 1000 sin avisar, así que el tope declarado era mentira.
+      const dh: Array<Record<string, unknown>> = [];
+      const keys = [...mapa.keys()];
+      await leerPorPaginas<Record<string, unknown>>(sb, h.tabla, '*', (pag) => {
+        for (const f of pag) {
+          if (h.limite && dh.length >= h.limite) return false;
+          dh.push(f);
+        }
+      }, { eq: { workspace_id: OWNER_WS }, filtros: (q) => q.in(h.fk, keys) });
+      const hijas = dh
         .map((f) => {
           const o: Record<string, unknown> = { ...f };
           for (const c of h.omitir ?? []) delete o[c];

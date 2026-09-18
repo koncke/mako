@@ -8,6 +8,7 @@ config({ path: resolve(process.cwd(), '.env.local') });
 
 import { runWithWorkspace, getTenantDb } from '../lib/workspace';
 import { getSupabaseServer } from '../lib/supabase';
+import { leerTodo } from '../lib/supabase-paginado';
 
 type H = { id?: string; ts?: number; actor?: string; text?: string; kind?: string };
 const arr = (v: unknown): H[] => (Array.isArray(v) ? (v as H[]) : []);
@@ -21,18 +22,10 @@ async function main() {
 
   await runWithWorkspace(ws.id, async () => {
     const db = await getTenantDb();
-    // paginado (techo de 1000 filas de PostgREST)
-    const page = async (tabla: string, cols: string) => {
-      const out: Record<string, unknown>[] = [];
-      for (let i = 0; ; i += 1000) {
-        const { data, error } = await db.from(tabla).select(cols).range(i, i + 999);
-        if (error) throw new Error(`${tabla}: ${error.message}`);
-        const d = (data ?? []) as unknown as Record<string, unknown>[];
-        out.push(...d);
-        if (d.length < 1000) break;
-      }
-      return out;
-    };
+    // Paginado con el helper y no a mano: el bucle de antes paginaba SIN `.order()`,
+    // así que pasadas las 1000 filas el OFFSET de la página 2 caía sobre otro orden
+    // y repetía/salteaba filas en silencio (el censo de 17/09 lo marcó como B7).
+    const page = (tabla: string, cols: string) => leerTodo<Record<string, unknown>>(db, tabla, cols, { orden: 'id' });
     const P = await page('plan_proyectos', 'id, pid, name, historial');
     const T = await page('plan_tareas', 'id, num, title, historial');
 

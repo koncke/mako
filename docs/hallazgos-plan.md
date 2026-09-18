@@ -283,6 +283,31 @@ fuera del alcance de ese arreglo:
 
 ## El board `/plan`
 
+### ⚠️ `plan_tareas` ya trunca en el buscador y va a truncar en el board: 643 de 1000 en ws9
+
+**Síntoma (17/09/2026):** ninguno visible todavía en el board. En el buscador, sí: el
+`console.warn` de `app/api/plan-buscar/route.ts` ya estaba avisando que se cortaba.
+
+**Causa:** `plan-buscar` y `lib/cerrar-por-commits.ts` leían con `.range(0, 599)` **sin
+`.order()`**. El tope era a propósito (entra en un prompt), pero con 643 tareas en ws9 cuáles
+43 quedaban afuera lo decidía Postgres. Un tope deliberado sin orden no es un tope: es un
+sorteo. Ahora los dos leen el tablero entero con `leerTodo` por `id`, y `plan-buscar` recorta
+en memoria **con criterio** (abiertas por score primero, después las hechas más recientes) y
+dice en el log cuántas quedaron afuera.
+
+**Lo que quedó SIN hacer:** el board mismo. `lib/plan-board.ts:101` (`select('*')` de
+`plan_tareas`, sin paginar) y `:180, 302, 405, 583, 656, 735, 906`, `lib/plan-proyecto-vacio.ts:53,
+107` y `app/admin/dev/roadmap.ts:142`. Al ritmo de +100/mes cruza las 1000 en unos 3,6 meses, y
+el día que cruce el tablero del dueño pierde tareas sin error, como le pasó al CRM
+([hallazgos-crm.md](hallazgos-crm.md) → `_listLeads`). Ojo al arreglar: `:101` ordena por
+`orden` y `num`; se pagina por `id` y ese orden se aplica en memoria. El aviso de
+`lib/api-mako/areas/plan.helpers.ts:16` («no pagina») se saca en el mismo commit.
+`scripts/limpiar-seed-clientes.ts` y `scripts/probe-historial-largos.ts` ya paginan: el
+primero borra proyectos «vacíos» según lo que lee, y un corte le hacía borrar proyectos con
+tareas.
+
+**Vive en:** lib/plan-board.ts · lib/plan-proyecto-vacio.ts · app/api/plan-buscar/route.ts · lib/cerrar-por-commits.ts · app/admin/dev/roadmap.ts · *2026-09-17 caza de paginado*
+
 ### ⚠️ El SEED de `PlanBoard.tsx` es un archivo histórico, y un agente lo lee como documentación
 
 Una corrida de siete agentes reportó como su hallazgo más caro que «el tablero del dueño vive en localStorage con el Repo en no-op, así que el agente que marque tareas completadas no puede escribirle». Suena grave y estaba verificado: la cita es literal y está en `app/plan/PlanBoard.tsx`. **Es falso desde hace meses.** Lo que el agente leyó es el `detalle` de la tarea **#177** dentro del array del SEED — o sea, el texto que alguien escribió describiendo el problema *cuando existía*. Cincuenta líneas más abajo, el `Repo` real (línea 742) llama a `/api/plan-board` en los seis métodos, con el comentario «Ya NO hay localStorage / bandeja / ops / snapshot». La contra-prueba es de un segundo: leer `plan_tareas` en Supabase devuelve las 438 tareas abiertas.

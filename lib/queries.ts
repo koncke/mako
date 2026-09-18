@@ -827,13 +827,14 @@ async function _getRevenuePeriod(
         .lte('fecha_cierre', end),
       getCashCollectedPeriodo(start, end),
       getOutstandingPeriodo(start, end),
-      // Spend Meta del período (MXN)
-      supabase
-        .from('marketing_metrics_daily')
-        .select('spend')
-        .eq('plataforma', 'meta')
-        .gte('fecha', start)
-        .lte('fecha', end),
+      // Spend Meta del período (MXN). PAGINADO: con una fila por anuncio por
+      // día (hasta 28/día en el ws1, medido 17/09/2026) un rango de ~5 meses ya
+      // pasa las 1000 filas, y el `.select()` suelto devolvía el gasto cortado
+      // → CAC y ROAS mejores que los reales, la dirección que nadie sospecha.
+      leerTodo<{ spend: number | null }>(
+        supabase, T_METRICAS, 'id, fecha, ad_id, spend',
+        { orden: ORDEN_METRICAS, eq: { plataforma: 'meta' }, filtros: (q) => q.gte('fecha', start).lte('fecha', end) },
+      ),
       // Count de clientes con primer pago en el período (denominador del CAC real)
       supabase
         .from('leads')
@@ -843,7 +844,6 @@ async function _getRevenuePeriod(
     ]);
 
   if (soldRes.error) throw new Error(`Sold falló: ${soldRes.error.message}`);
-  if (spendRes.error) throw new Error(`Spend falló: ${spendRes.error.message}`);
   if (primerosPagosCountRes.error) {
     throw new Error(`Primeros pagos count falló: ${primerosPagosCountRes.error.message}`);
   }
@@ -854,7 +854,7 @@ async function _getRevenuePeriod(
   );
   // outstanding_usd ya viene de getOutstandingTotal() arriba (Σ cuotas no pagadas)
 
-  const meta_spend_mxn = (spendRes.data ?? []).reduce(
+  const meta_spend_mxn = spendRes.reduce(
     (acc, r) => acc + Number(r.spend ?? 0),
     0,
   );
@@ -1584,18 +1584,31 @@ async function _getSenalesRecon(
   // los leads atribuidos a esos ad_id, no el histórico completo de leads con UTM.
   const adIdsRango = [...new Set(adRows.map((r) => r.ad_id).filter((x): x is string => !!x))];
 
-  const [budgetRes, leadsRes] = await Promise.all([
-    supabase
-      .from('adset_budget_daily')
-      .select('fecha, adset_id, daily_budget_mxn')
-      .gte('fecha', start)
-      .lte('fecha', end),
-    supabase
-      .from('leads')
-      .select('meta_ad_id, fecha_junta_1, estado_lead, total_cobrado_usd')
-      .in('meta_ad_id', adIdsRango),
-  ]);
-  for (const r of [budgetRes, leadsRes]) if (r.error) throw new Error(`getSenalesRecon falló: ${r.error.message}`);
+  // Las dos van PAGINADAS, igual que los anuncios de arriba. Los presupuestos se
+  // habían quedado sueltos en el mismo Promise.all: adset_budget_daily es ~47
+  // filas/día en ws1, así que cualquier rango de ≥22 días volvía con 1000 filas
+  // y la señal de ritmo comparaba el gasto real contra un presupuesto a medias.
+  // Su PK es (fecha, adset_id, workspace_id) y el workspace lo fija el proxy,
+  // así que (fecha, adset_id) ya es un orden único. Los leads por ad_id andaban
+  // en 955/1000 en ws1: se pagina por `id` antes de que crucen.
+  let budgetRows: Array<{ fecha: string; adset_id: string; daily_budget_mxn: number | null }>;
+  let leadRows: Array<{ meta_ad_id: string | null; fecha_junta_1: string | null; estado_lead: string; total_cobrado_usd: number | null }>;
+  try {
+    [budgetRows, leadRows] = await Promise.all([
+      leerTodo<{ fecha: string; adset_id: string; daily_budget_mxn: number | null }>(
+        supabase, 'adset_budget_daily', 'fecha, adset_id, daily_budget_mxn',
+        { orden: ['fecha', 'adset_id'], filtros: (q) => q.gte('fecha', start).lte('fecha', end) },
+      ),
+      adIdsRango.length === 0
+        ? Promise.resolve([])
+        : leerTodo<{ meta_ad_id: string | null; fecha_junta_1: string | null; estado_lead: string; total_cobrado_usd: number | null }>(
+          supabase, 'leads', 'id, meta_ad_id, fecha_junta_1, estado_lead, total_cobrado_usd',
+          { filtros: (q) => q.in('meta_ad_id', adIdsRango) },
+        ),
+    ]);
+  } catch (e) {
+    throw new Error(`getSenalesRecon falló: ${e instanceof Error ? e.message : String(e)}`);
+  }
 
 
   // Gasto diario por adset (suma de sus anuncios) — para la señal de ritmo.
@@ -1608,7 +1621,7 @@ async function _getSenalesRecon(
   // Presupuestos por adset/fecha
   const budgetByAdsetDay = new Map<string, number>();
   const budgetDaysByAdset = new Map<string, string[]>();
-  for (const b of (budgetRes.data ?? []) as Array<{ fecha: string; adset_id: string; daily_budget_mxn: number | null }>) {
+  for (const b of budgetRows) {
     budgetByAdsetDay.set(`${b.adset_id}|${b.fecha}`, Number(b.daily_budget_mxn ?? 0));
     const arr = budgetDaysByAdset.get(b.adset_id) ?? [];
     arr.push(b.fecha);
@@ -1617,7 +1630,7 @@ async function _getSenalesRecon(
 
   // Downstream por ad_id (leads reales matcheados)
   const downByAd = new Map<string, { agendas: number; cierres: number; cash: number }>();
-  for (const l of (leadsRes.data ?? []) as Array<{ meta_ad_id: string | null; fecha_junta_1: string | null; estado_lead: string; total_cobrado_usd: number | null }>) {
+  for (const l of leadRows) {
     if (!l.meta_ad_id) continue;
     const d = downByAd.get(l.meta_ad_id) ?? { agendas: 0, cierres: 0, cash: 0 };
     if (l.fecha_junta_1) d.agendas += 1;
@@ -1740,23 +1753,29 @@ export type AgendasComparador = { meta: number; crm: number };
 
 export async function getAgendasComparador(start: string, end: string): Promise<AgendasComparador> {
   const supabase = (await getTenantDb());
-  const [adsRes, crmRes] = await Promise.all([
-    supabase
-      .from('marketing_metrics_daily')
-      .select('agendas_meta')
-      .eq('plataforma', 'meta')
-      .not('ad_id', 'is', null)
-      .gte('fecha', start)
-      .lte('fecha', end),
+  // Las agendas de Meta se SUMAN sobre una fila por anuncio por día: con 28
+  // filas/día en el ws1 (17/09/2026), un rango de ~5 meses pasa las 1000 y el
+  // `.select()` suelto devolvía la suma cortada — el comparador decía que Meta
+  // atribuía menos agendas de las que atribuye. Paginado con ORDEN_METRICAS.
+  const [adsRows, crmRes] = await Promise.all([
+    leerTodo<{ agendas_meta: number | null }>(
+      supabase, T_METRICAS, 'id, fecha, ad_id, agendas_meta',
+      {
+        orden: ORDEN_METRICAS,
+        eq: { plataforma: 'meta' },
+        filtros: (q) => q.not('ad_id', 'is', null).gte('fecha', start).lte('fecha', end),
+      },
+    ).catch((e: unknown) => {
+      throw new Error(`getAgendasComparador (Meta) falló: ${e instanceof Error ? e.message : String(e)}`);
+    }),
     supabase
       .from('leads')
       .select('id', { count: 'exact', head: true })
       .gte('fecha_junta_1', start)
       .lte('fecha_junta_1', end),
   ]);
-  if (adsRes.error) throw new Error(`getAgendasComparador (Meta) falló: ${adsRes.error.message}`);
   if (crmRes.error) throw new Error(`getAgendasComparador (CRM) falló: ${crmRes.error.message}`);
-  const meta = ((adsRes.data ?? []) as Array<{ agendas_meta: number | null }>).reduce((s, r) => s + Number(r.agendas_meta ?? 0), 0);
+  const meta = adsRows.reduce((s, r) => s + Number(r.agendas_meta ?? 0), 0);
   return { meta, crm: crmRes.count ?? 0 };
 }
 
@@ -1780,10 +1799,19 @@ export type TramosSCL = {
 export const getTramosSCL = cachedRead('getTramosSCL', _getTramosSCL, { tags: [TAG.leads], revalidate: TTL.user });
 async function _getTramosSCL(): Promise<TramosSCL> {
   const supabase = (await getTenantDb());
-  const { data, error } = await supabase
-    .from('leads')
-    .select('created_at, meta_lead_id, fecha_agenda, fecha_junta_1, fecha_junta_2, fecha_confirmacion, fecha_primer_pago');
-  if (error) throw new Error(`Tramos SCL falló: ${error.message}`);
+  // Escaneo de TODOS los leads, paginado por `id`. El `.select()` suelto
+  // devolvía 1000 de 1066 en ws1 sin avisar, y el ciclo de venta se promediaba
+  // sobre una muestra arbitraria (sin ORDER BY caían los más viejos, que son
+  // justo los que completaron el ciclo hasta el pago).
+  let data: unknown[];
+  try {
+    data = await leerTodo<unknown>(
+      supabase, 'leads',
+      'id, created_at, meta_lead_id, fecha_agenda, fecha_junta_1, fecha_junta_2, fecha_confirmacion, fecha_primer_pago',
+    );
+  } catch (e) {
+    throw new Error(`Tramos SCL falló: ${e instanceof Error ? e.message : String(e)}`);
+  }
 
   const dias = (a: string | null, b: string | null): number | null => {
     if (!a || !b) return null;
@@ -1802,7 +1830,7 @@ async function _getTramosSCL(): Promise<TramosSCL> {
     fecha_confirmacion: string | null;
     fecha_primer_pago: string | null;
   };
-  const rows = (data ?? []) as Row[];
+  const rows = data as Row[];
 
   const promedioDe = (vals: number[]) =>
     vals.length > 0 ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
@@ -3109,17 +3137,25 @@ async function _getTendencias(
 export const getCampaignNameMap = cachedRead('getCampaignNameMap', _getCampaignNameMap, { tags: [TAG.marketing], revalidate: TTL.cron });
 async function _getCampaignNameMap(): Promise<Record<string, string>> {
   const supabase = (await getTenantDb());
-  const { data, error } = await supabase
-    .from('marketing_metrics_daily')
-    .select('campaign_id, campaign_name, fecha')
-    .eq('plataforma', 'meta')
-    .not('campaign_id', 'is', null)
-    .not('campaign_name', 'is', null)
-    .order('fecha', { ascending: false });
-  if (error) throw new Error(`getCampaignNameMap falló: ${error.message}`);
+  // Paginado y agregado al vuelo. Sin paginar volvían 1000 de las 1714 filas
+  // meta de ws1, ordenadas por `fecha` desc: la campaña que dejó de correr hace
+  // meses caía del corte y la UI la mostraba "(sin nombre)". Y `fecha` NO es
+  // única (~8 filas/día), así que ordenar solo por ella tampoco sirve para
+  // paginar: va ORDEN_METRICAS (fecha, ad_id, id) ASCENDENTE y el "más
+  // reciente" sale solo — cada fila pisa a la anterior, la última gana.
   const map: Record<string, string> = {};
-  for (const r of (data ?? []) as Array<{ campaign_id: string; campaign_name: string }>) {
-    if (!map[r.campaign_id]) map[r.campaign_id] = r.campaign_name; // orden desc → primera = más reciente
+  try {
+    await leerPorPaginas<{ campaign_id: string; campaign_name: string }>(
+      supabase, T_METRICAS, 'id, fecha, ad_id, campaign_id, campaign_name',
+      (filas) => { for (const r of filas) map[r.campaign_id] = r.campaign_name; },
+      {
+        orden: ORDEN_METRICAS,
+        eq: { plataforma: 'meta' },
+        filtros: (q) => q.not('campaign_id', 'is', null).not('campaign_name', 'is', null),
+      },
+    );
+  } catch (e) {
+    throw new Error(`getCampaignNameMap falló: ${e instanceof Error ? e.message : String(e)}`);
   }
   return map;
 }
@@ -3149,17 +3185,22 @@ export function resolverNombreCampana(
 export const getAdNameMap = cachedRead('getAdNameMap', _getAdNameMap, { tags: [TAG.marketing], revalidate: TTL.cron });
 async function _getAdNameMap(): Promise<Record<string, string>> {
   const supabase = (await getTenantDb());
-  const { data, error } = await supabase
-    .from('marketing_metrics_daily')
-    .select('ad_id, ad_name, fecha')
-    .eq('plataforma', 'meta')
-    .not('ad_id', 'is', null)
-    .not('ad_name', 'is', null)
-    .order('fecha', { ascending: false });
-  if (error) throw new Error(`getAdNameMap falló: ${error.message}`);
+  // Mismo arreglo que getCampaignNameMap: paginado con orden único ascendente,
+  // la última fila de cada ad_id es su nombre más reciente. Sin paginar, un ad
+  // viejo caía del corte y volvía a mostrar el meta_ad_name obsoleto.
   const map: Record<string, string> = {};
-  for (const r of (data ?? []) as Array<{ ad_id: string; ad_name: string }>) {
-    if (!map[r.ad_id]) map[r.ad_id] = r.ad_name; // desc → primera = más reciente
+  try {
+    await leerPorPaginas<{ ad_id: string; ad_name: string }>(
+      supabase, T_METRICAS, 'id, fecha, ad_id, ad_name',
+      (filas) => { for (const r of filas) map[r.ad_id] = r.ad_name; },
+      {
+        orden: ORDEN_METRICAS,
+        eq: { plataforma: 'meta' },
+        filtros: (q) => q.not('ad_id', 'is', null).not('ad_name', 'is', null),
+      },
+    );
+  } catch (e) {
+    throw new Error(`getAdNameMap falló: ${e instanceof Error ? e.message : String(e)}`);
   }
   return map;
 }

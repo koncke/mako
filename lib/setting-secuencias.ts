@@ -9,6 +9,7 @@
 
 import 'server-only';
 import { getTenantDb } from './workspace';
+import { leerTodo, type ConsultaPaginada } from './supabase-paginado';
 import { getSecuenciasConStats, type SecuenciaConStats } from './nutricion';
 import { parseEstrategia, type Estrategia } from './setting-estrategia';
 import { agregarMetricas, serieDiaria, METRICAS_CERO, type FilaEnvio, type FilaInsc, type MetricasSecuencia, type PuntoSerie } from './setting-metricas';
@@ -25,13 +26,18 @@ export type SecuenciaConEstrategia = Omit<SecuenciaConStats, 'estrategia'> & { e
 export async function getSettingData(): Promise<{ secuencias: SecuenciaConEstrategia[]; serie: PuntoSerie[] }> {
   const supabase = await getTenantDb();
   const desde = new Date(Date.now() - 30 * 86400 * 1000).toISOString();
-  const [secs, envios, inscs] = await Promise.all([
+  // Paginado por `id`. Eran dos `.select()` sueltos: nutricion_envios suma hasta
+  // 40 filas por día por workspace, así que la ventana de 30 días cruza las 1000
+  // en semanas, y la tabla de inscripciones se lee ENTERA. Pasado el techo,
+  // PostgREST devuelve 1000 y un 200: las métricas y la serie diaria de /setting
+  // salían calculadas sobre una muestra, sin ningún aviso.
+  const [secs, filasEnvio, filasInsc] = await Promise.all([
     getSecuenciasConStats(),
-    supabase.from('nutricion_envios').select('secuencia_id, canal, estado, abierto_at, clic_at, created_at').gte('created_at', desde),
-    supabase.from('nutricion_inscripciones').select('secuencia_id, estado, updated_at'),
+    leerTodo<FilaEnvio>(supabase, 'nutricion_envios', 'secuencia_id, canal, estado, abierto_at, clic_at, created_at', {
+      orden: 'id', filtros: (q) => q.gte('created_at', desde) as ConsultaPaginada,
+    }),
+    leerTodo<FilaInsc>(supabase, 'nutricion_inscripciones', 'secuencia_id, estado, updated_at', { orden: 'id' }),
   ]);
-  const filasEnvio = (envios.data ?? []) as FilaEnvio[];
-  const filasInsc = (inscs.data ?? []) as FilaInsc[];
   const met = agregarMetricas(filasEnvio, filasInsc);
   const secuencias = secs.map((s) => ({
     ...s,

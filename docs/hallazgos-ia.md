@@ -2191,9 +2191,17 @@ horas distintas.
 MaKo avisa el corte en `ver_gasto_ia` (lib/api-mako/areas/integraciones.run.ts:216); la lib y
 `/api/anthropic-usage`, no.
 
-**Sin hacer:** paginar las dos lecturas. `leerPorPaginas` (lib/supabase-paginado.ts:127) espera
-el cliente de `getTenantDb`, y este archivo lee con el cliente crudo y el filtro de workspace
-explícito: el arreglo tiene que conservar ese filtro.
+**Estado al 17/09/2026:** las dos lecturas paginan (`leerTodo` en `getUsageSummary`,
+`leerPorPaginas` en `usoHoyPorCuenta`), con el cliente crudo y el `eq(workspace_id)` explícito
+conservado. Ya estaba mordiendo: `app/admin/dev/ai-spend-cuotas/bitacora.ts` anotaba «agosto ya
+tenía 997 filas contra el techo», y el reemplazo paginado (`lib/costos-ia.ts`) existía mientras
+`getUsageSummary` seguía vivo y sin paginar. El aviso de la API (`integraciones.run.ts`) se
+corrigió en el mismo cambio.
+
+**Sigue sin hacer:** (1) las dos leen con `getSupabaseServer()` en vez de `getTenantDb()`,
+contra la regla de la casa; pasarlas cambia el comportamiento del fallback de workspace, por eso
+quedó afuera. (2) Un error de lectura en `getUsageSummary` ahora se loguea, pero la pantalla
+sigue mostrando el gasto como si fuera cero. (3) «Hoy» sigue definido dos veces.
 
 **Vive en:** lib/anthropic-usage.ts:267-298 · lib/ia-cuotas.ts:116-126 ·
 *2026-09-16 api-mako-areas*

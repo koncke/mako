@@ -310,6 +310,42 @@ real— al lado de un video con 6489.
 
 **Vive en:** `lib/landing-token.ts` → `videosDetectados()`
 
+**17/09/2026: el `.order()` no alcanzaba.** El arreglo de arriba sumó el orden y dejó el
+`.limit(1000)` sobre 90 días. En ws1, **las 1000 filas más nuevas de `vsl_events` son 25
+horas** (908 eventos por día): un catálogo que decía cubrir 90 días cubría uno, y un video que
+dejó de reproducirse anteayer desaparecía de «videos detectados». Medido con la base: 1 video
+con el código viejo, 2 con el nuevo. Paginar tampoco servía (~80.000 filas en 90 días). Lo que
+se pregunta es «¿qué `video_id` distintos hay?», y eso va **por exclusión**
+(`distintosPorExclusion`, `lib/ids-con-filas.ts`): cada vuelta pide una fila que no sea de los
+ya vistos. La url, la página y el título de cada video salen después, con un `limit(1)` por
+video.
+
+⚠️ **Lo que quedó:** `distintosPorExclusion` tira pasadas las 100 vueltas (100 videos
+distintos), y el `catch` de `videosDetectados` lo convierte en `[]`: la pantalla diría «no se
+detectaron videos» en vez de «falló». Hoy hay como mucho 2 por workspace; el `catch` tendría
+que mostrar el error.
+
+### «El Pixel no está instalado ahí» sobre una página que manda eventos
+
+**Síntoma:** el veredicto de `verificarPagina` decía «No llega ninguna visita de esta página
+desde hace 30 días. El Pixel no está instalado ahí» sobre páginas que sí mandaban.
+
+**Causa:** leía `landing_visits` con `.limit(400)` sobre 30 días y **después** filtraba por URL
+en memoria. En ws1 las 400 visitas más nuevas son 3 días, y en 30 días hay 2.552 URLs distintas:
+para toda página que no fuera la de más tráfico, el filtro recibía cero filas. Un tope chico
+seguido de un filtro en memoria no da un resultado parcial: da un **falso negativo con cara de
+veredicto**, y le manda al cliente a reinstalar algo que funciona.
+
+**Arreglo (17/09/2026):** el servidor filtra por host (`ilike %host%`, un superconjunto seguro)
+y eso se pagina; la coincidencia exacta sigue siendo `normalizarUrl`, y el orden por fecha se
+hace en memoria. El conteo de visitas pasó a ser real y no «400».
+
+**Regla:** si el resultado va a filtrarse, el filtro va en la consulta. Y el superconjunto tiene
+que discriminar de verdad: uno que deja pasar casi todo vuelve a ser el corte mudo (le pasó a
+`duplicadosDeLead`, ver [hallazgos-crm.md](hallazgos-crm.md)).
+
+**Vive en:** `lib/landing-token.ts` → `verificarPagina()` · *2026-09-17 caza de paginado*
+
 ### Un `useEffect` que escribe una dependencia de su propia dependencia no termina nunca
 
 El análisis de la landing se colgó del efecto que ya existía. `piezas` es dependencia de

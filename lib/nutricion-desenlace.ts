@@ -21,6 +21,9 @@ import 'server-only';
 
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { parseEstrategia, hitoYaHecho, silencioCumplido, type Desenlace } from './setting-estrategia';
+import { leerTodo } from './supabase-paginado';
+import { enTandas } from './ids-con-filas';
+import { enviosPorInscripcion } from './nutricion-envios-resumen';
 
 export type ResultadoDesenlaces = {
   logrados: number;
@@ -80,12 +83,16 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
   const ws = await getWorkspaceActual().catch(() => null);
   const res: ResultadoDesenlaces = { logrados: 0, fallidos: 0, movidos: 0, encadenados: 0, avisados: 0, detalle: [] };
 
-  const { data: inscData } = await supabase
-    .from('nutricion_inscripciones')
-    .select('id, lead_id, secuencia_id, estado, ultimo_paso_at, inscripto_at')
-    .is('desenlace', null)
-    .limit(500);
-  const inscs = (inscData ?? []) as FilaInsc[];
+  // La cola ENTERA de inscripciones sin desenlace, paginada por `id`. Antes era
+  // un `.limit(500)` sin ORDER BY: pasadas las 500 pendientes, cuáles entraban
+  // lo decidía el orden físico de Postgres, que tiende a repetir las mismas —
+  // así que las del final podían no evaluarse NUNCA (ni logradas ni fallidas, y
+  // el lead sin moverse de etapa), sin un solo error. Las activas no salen de
+  // la cola hasta que se definen, así que ese tope se llenaba con las mismas.
+  const inscs = await leerTodo<FilaInsc>(
+    supabase, 'nutricion_inscripciones', 'id, lead_id, secuencia_id, estado, ultimo_paso_at, inscripto_at',
+    { orden: 'id', filtros: (q) => q.is('desenlace', null) },
+  );
   if (!inscs.length) return res;
 
   const secIds = [...new Set(inscs.map((i) => i.secuencia_id))];
@@ -93,12 +100,19 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
     .from('nutricion_secuencias').select('id, nombre, estrategia').in('id', secIds);
   const secs = new Map(((secData ?? []) as Array<{ id: number; nombre: string; estrategia: unknown }>).map((s) => [s.id, s]));
 
-  const leadIds = [...new Set(inscs.map((i) => i.lead_id))];
-  const { data: leadData } = await supabase
-    .from('leads')
-    .select('id, nombre, telefono, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at, fecha_agenda, fecha_primer_pago, cerro, calificado')
-    .in('id', leadIds);
-  const leads = new Map(((leadData ?? []) as Array<Record<string, unknown>>).map((l) => [Number(l.id), l]));
+  // Los leads, en tandas de 200 ids: una fila por id, así que cada tanda queda
+  // lejos del techo de 1000 y la URL del `.in()` no crece con la cola.
+  const leads = new Map<number, Record<string, unknown>>();
+  for (const tanda of enTandas([...new Set(inscs.map((i) => i.lead_id))], 200)) {
+    const { data: leadData, error: leadErr } = await supabase
+      .from('leads')
+      .select('id, nombre, telefono, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at, fecha_agenda, fecha_primer_pago, cerro, calificado')
+      .in('id', tanda);
+    // Un lead que no se pudo leer se saltea abajo (`if (!lead) continue`): mejor
+    // no decidir que decidir sin el dato.
+    if (leadErr) console.error('[desenlace] leer leads:', leadErr.message);
+    for (const l of (leadData ?? []) as Array<Record<string, unknown>>) leads.set(Number(l.id), l);
+  }
 
   // `moverLeadAuto` y no `setPipelineStage` pelado: acá no hay formulario ni
   // nadie a quien preguntarle, y `logradoEtapa`/`falloEtapa` las CONFIGURA cada
@@ -114,31 +128,12 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
   // sirve: el motor lo escribe también cuando el paso quedó como borrador que
   // nadie mandó. Ver `silencioCumplido` (lib/setting-estrategia.ts).
   //
-  // En tandas de 200 inscripciones y paginado dentro de cada una: PostgREST
-  // corta en 1000 filas sin avisar, y a una inscripción a la que le falta su
-  // ÚLTIMO envío el reloj del silencio le arranca antes de tiempo.
-  const enviados = new Map<number, { n: number; ultimo: string }>();
-  {
-    const ids = inscs.map((i) => i.id);
-    for (let t = 0; t < ids.length; t += 200) {
-      const tanda = ids.slice(t, t + 200);
-      for (let desde = 0; ; desde += 1000) {
-        const { data: envData, error: envErr } = await supabase
-          .from('nutricion_envios').select('id, inscripcion_id, created_at')
-          .in('inscripcion_id', tanda).eq('estado', 'enviado')
-          .order('id').range(desde, desde + 999);
-        if (envErr) { console.error('[desenlace] leer envios:', envErr.message); break; }
-        const filas = (envData ?? []) as Array<{ inscripcion_id: number | null; created_at: string }>;
-        for (const e of filas) {
-          if (e.inscripcion_id == null) continue;
-          const prev = enviados.get(e.inscripcion_id);
-          if (!prev) enviados.set(e.inscripcion_id, { n: 1, ultimo: e.created_at });
-          else enviados.set(e.inscripcion_id, { n: prev.n + 1, ultimo: e.created_at > prev.ultimo ? e.created_at : prev.ultimo });
-        }
-        if (filas.length < 1000) break;
-      }
-    }
-  }
+  // Paginado y en tandas (ver lib/nutricion-envios-resumen.ts): con la cola
+  // llena son miles de envíos, y un `.in()` suelto cortado en 1000 dejaba a las
+  // últimas inscripciones sin su envío más reciente → el silencio se medía desde
+  // uno anterior y se marcaba FALLO (y se movía al lead) antes de tiempo. Si la
+  // lectura falla, LANZA: decidir fallos sin saber qué salió es justo el daño.
+  const enviados = await enviosPorInscripcion(supabase, inscs.map((i) => i.id));
 
   // Todas las secuencias del workspace por CLAVE: el encadenamiento apunta a la
   // clave (estable y legible) y no al id (que cambia entre workspaces).

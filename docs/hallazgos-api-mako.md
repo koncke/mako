@@ -314,6 +314,39 @@ título o descripción nombran palabras del mensaje. Es un orden, no un filtro.
 
 ---
 
+## ⚠️ Un aviso de «la lib corta en 1000» se vuelve mentira —o candado— el día que la lib pagina
+
+**El caso (17/09/2026):** la API de MaKo no podía arreglar los truncados de las libs, así que
+los DECÍA: contaba las filas reales con `count` exacto y ponía una salvedad en la respuesta
+(`contarFilas` + `avisoRecorte` en `metricas.helpers.ts`, `avisoTope` en chatbot,
+`avisoRecorteClosing` en closing). Honesto mientras la lib no paginaba. Cuando la caza de
+paginado arregló las libs, esos avisos quedaron así:
+
+- **Candado:** `email.run.ts` se negaba a mandar o programar un segmento de más de 1000
+  «porque la lib no pagina». `leadsDeSegmento` ya paginaba, así que el guard **bloqueaba el
+  envío a los 1.044 «activos» de ws1** desde MaKo. Ahora compara contra `MAX_DESTINATARIOS`,
+  importado de `lib/email-marketing.ts`: el tope vive donde vive la lectura.
+- **Mentira permanente:** `crm.run.ts` avisaba «puede haber leads sin evaluar» con
+  `totalLeads >= 1000`. Con 1.108 leads y `evaluarAutoWorkspace` paginando, salía siempre en ws1
+  y siempre era falso. Lo mismo los «se contó sobre los primeros 1000» de email y closing, y
+  los textos de `landing.run.ts` e `integraciones.run.ts`.
+
+**Regla:** un aviso que describe un defecto de OTRA capa se actualiza **en el mismo commit**
+que arregla ese defecto. Antes de cerrar un arreglo de paginado, `grep` del nombre de la
+función en `lib/api-mako/areas/`. Y un número que copia el tope de otra capa se importa, no se
+reescribe.
+
+**Lo que quedó SIN hacer:**
+
+- `comparar_agendas_meta_crm` (`metricas.run.ts`, ~:338) sigue poniendo `avisoRecorte` sobre
+  `agendas_segun_meta`, y `getAgendasComparador` pagina desde el 17/09: con un rango de más de
+  ~5 meses diría que el número está calculado sobre 1000 filas cuando no.
+- Siguen ciertos (las lecturas no se tocaron) y hay que sacarlos cuando se paginen: los de
+  `metricas.run.ts` sobre embudo, Tendencias y `pagos`, `general.run.ts:129` (`cashUsd`/`soldUsd`)
+  y `:323` (`getTramoJ1J2Reciente`), y `plan.helpers.ts:16` (`listPlanBoard`, `listTareas`).
+
+**Vive en:** lib/api-mako/areas/{email,crm,closing,chatbot,landing,integraciones,metricas,general}.run.ts · metricas.helpers.ts · *2026-09-17 caza de paginado*
+
 ## Lo que quedó sin hacer en el núcleo
 
 | Qué | Dónde | Por qué no se hizo |

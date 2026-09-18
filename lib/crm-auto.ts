@@ -22,6 +22,7 @@ import { pipelineStageOf, MAKO_SETTER } from './pipeline';
 import { encuentroGrabable } from './encuentro-ws';
 import { getTenantDb, runWithWorkspace, listarWorkspaces, getWorkspaceActual, OWNER_WS } from './workspace';
 import { hoyEnTijuana } from './date-utils';
+import { leerTodo } from './supabase-paginado';
 import { buscarReunionesAutomatico } from './auto-reuniones';
 import { contactoIdPorTelefono, getContactMessages } from './chatwoot';
 import { crearConfirmacion, type CrearConfirmacionInput } from './mako-confirmaciones';
@@ -66,12 +67,15 @@ async function umbralesDelWorkspace(): Promise<AutoUmbrales> {
 /** Evalúa el CRM automático para el workspace ACTUAL (dry-run puro, no escribe). */
 export async function evaluarAutoWorkspace(hoyISO: string = hoyEnTijuana()): Promise<AutoEvalWs> {
   const supabase = await getTenantDb();
-  const [{ data, error }, umbrales] = await Promise.all([
-    supabase.from('leads').select(AUTO_COLS),
+  // Paginado por `id`: el `.select()` suelto devolvía 1000 de 1066 leads en ws1,
+  // así que el motor nunca evaluaba a los 66 restantes (nunca se les movía la
+  // etapa) y reportaba `totalLeads: 1000` como si fuera el total real.
+  const [leads, umbrales] = await Promise.all([
+    leerTodo<AutoLead>(supabase, 'leads', AUTO_COLS).catch((e: unknown) => {
+      throw new Error(`crm-auto evaluar: ${e instanceof Error ? e.message : String(e)}`);
+    }),
     umbralesDelWorkspace(),
   ]);
-  if (error) throw new Error(`crm-auto evaluar: ${error.message}`);
-  const leads = (data ?? []) as AutoLead[];
   const nowMs = Date.now();
   const acciones = leads.flatMap((l) => planLeadAuto(l, hoyISO, nowMs, umbrales));
   const porRegla = acciones.reduce<Record<string, number>>((a, x) => { a[x.regla] = (a[x.regla] ?? 0) + 1; return a; }, {});

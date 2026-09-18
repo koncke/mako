@@ -10,6 +10,7 @@ import 'server-only';
 // panel de costo. Límites APROXIMADOS y ajustables acá (los free tiers cambian seguido).
 
 import { getSupabaseServer } from '@/lib/supabase';
+import { leerPorPaginas } from '@/lib/supabase-paginado';
 import { getSaldo } from '@/lib/anthropic-usage';
 import { openrouterConCredito } from './openrouter-saldo';
 import { credWs } from '@/lib/credenciales';
@@ -118,13 +119,17 @@ export async function usoHoyPorCuenta(): Promise<Record<string, UsoProv>> {
   const ws = await (async () => { try { return (await getWorkspaceActual()) ?? OWNER_WS; } catch { return OWNER_WS; } })();
   const out: Record<string, UsoProv> = {};
   try {
-    const { data } = await getSupabaseServer()
-      .from('anthropic_usage')
-      .select('provider, cuenta, input_tokens, output_tokens')
-      .eq('workspace_id', ws)
-      .gte('created_at', dayStart.toISOString())
-      .limit(20000);
-    for (const r of (data ?? []) as Array<{ provider: string | null; cuenta: number | null; input_tokens: number | null; output_tokens: number | null }>) {
+    // Paginado y agregado al vuelo. El `.limit(20000)` de antes era una promesa
+    // falsa: PostgREST corta en 1000 igual. Hoy un día son <100 filas por
+    // workspace, pero el gauge que decide si queda cuota no puede depender de
+    // eso — y el número falso invitaba a copiar el patrón.
+    const filas: Array<{ provider: string | null; cuenta: number | null; input_tokens: number | null; output_tokens: number | null }> = [];
+    await leerPorPaginas<(typeof filas)[number]>(
+      getSupabaseServer(), 'anthropic_usage', 'provider, cuenta, input_tokens, output_tokens',
+      (pag) => { filas.push(...pag); },
+      { eq: { workspace_id: ws }, filtros: (q) => q.gte('created_at', dayStart.toISOString()) },
+    );
+    for (const r of filas) {
       const p = r.provider ?? 'anthropic';
       // `cuenta` es NULL en las filas anteriores a la mig 0132: se leen como 1, que
       // es la verdad histórica (antes de multi-key había una sola key por proveedor).

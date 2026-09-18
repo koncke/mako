@@ -1220,16 +1220,35 @@ firma, y ahí estaba otra vez.
 
 **Lo que quedó SIN hacer** (mismo archivo, mismo defecto, medido el 02/09/2026):
 
-- ⚠️ **`getCampaignNameMap` (:3113) y `getAdNameMap` (:3153) TRUNCAN HOY**: leen la tabla
-  entera sin filtro de fecha (1.614 filas en ws1) para armar el mapa `id → nombre`. No
-  corrompen números —fallan a «Campaña 123 (sin nombre)»—, así que el daño es visible, pero
-  el mapa se usa en las pantallas de leads y del CRM. Van con `leerPorPaginas` + orden
-  `[fecha desc, ad_id, id]` (el first-wins de adentro depende del orden por fecha).
-- `getAgendasComparador` (:1745) y el spend de `getRevenuePeriodo` (:832): rango de fechas,
-  ~334 filas hoy. Latentes de verdad.
+- ~~`getCampaignNameMap` y `getAdNameMap` truncan hoy~~ **ARREGLADO el 17/09/2026**, y no
+  como decía esta línea. Ordenaban por `fecha` desc y se quedaban con la PRIMERA fila de cada
+  id: pasado el corte, las campañas y anuncios que dejaron de correr **desaparecían del mapa
+  enteros** y la UI mostraba «Campaña 120210… (sin nombre)» o el `meta_ad_name` viejo. Paginar
+  con `[fecha desc, ad_id, id]` y first-wins habría funcionado, pero ata el resultado al
+  orden. Quedó al revés: `leerPorPaginas` con `ORDEN_METRICAS` **ascendente**, cada fila pisa a
+  la anterior, y la más reciente gana sola.
+- ~~`getAgendasComparador` y el spend de `getRevenuePeriodo`~~ **ARREGLADOS el 17/09/2026**
+  (`leerTodo` + `ORDEN_METRICAS`). No eran tan latentes: ws1 llega a 28 filas por día, así que
+  un rango de más de ~5 meses ya cortaba el spend, y CAC y ROAS salían mejores que la
+  realidad.
+- **`getSenalesRecon` paginaba los anuncios y se olvidó de los presupuestos, en el mismo
+  `Promise.all`.** `adset_budget_daily` tiene 47 adsets × 1 fila por día (4.059 filas en 88
+  días en ws1): todo rango de 22 días o más volvía con 1.000, y la señal de ritmo comparaba
+  gasto real contra un presupuesto incompleto. ARREGLADO el 17/09 con `leerTodo` ordenado por
+  `[fecha, adset_id]`, que es la clave única de la tabla por inquilino. Y la lectura hermana de
+  leads por `meta_ad_id` (955 de 1000 en ws1) también pagina.
+- **Transcripción de anuncios (`app/api/cron/transcribe-ads/route.ts` y `jobTranscripts` en
+  `lib/onboarding-extract.ts`), ARREGLADO el 17/09.** Leían `ad_id` de `marketing_metrics_daily`
+  sin fecha (1.714 filas meta en ws1): los ads que caían del corte **nunca entraban al set de
+  pendientes**, así que nunca se transcribían, y el job igual reportaba «N creativos
+  transcriptos» como terminado. Y `ad_transcripts` es el set de «ya resueltos»: cortado, se
+  vuelve a pagar la transcripción en OpenAI. Los dos paginan, y las miniaturas se piden solo de
+  los anuncios que procesa cada corrida.
 - `getVslSerie` (:1966 y :1973): 56 días de YouTube y Panda, cardinalidad baja (287 y 80
   filas en un trimestre). El último de la fila.
-- ⚠️ **(16/09) El paginado del 02/09 cubrió el GASTO, no los leads.** `getTendencias` pagina
+- ⚠️ **(16/09) El paginado del 02/09 cubrió el GASTO, no los leads.** *(17/09: sigue abierto,
+  hoy en `:2989`; da 52 filas a 90 días y 121 a un año, así que es deuda y no bug vivo.)*
+  `getTendencias` pagina
   sus cuatro lecturas de métricas y deja pelada la de leads (`:2961`): un
   `.or(fecha_agenda.gte, fecha_junta_1.gte, fecha_cierre.gte)` **sin tope superior** (trae
   también todo lo agendado a futuro), sin orden y sin paginar. Pasadas las 1000 filas,

@@ -32,6 +32,8 @@ import { syncClosingCalls, RESERVA_LLAMADA_MS } from './closing';
 import { fetchYouTubeAnalyticsDaily } from './youtube-analytics';
 import { fetchPandaRangeStats } from './panda';
 import { getTenantDb } from './workspace';
+import { leerTodo, leerPorPaginas } from './supabase-paginado';
+import { enTandas } from './ids-con-filas';
 import { credWs, integracionConectada } from './credenciales';
 import { getSetting } from './settings';
 import { ayerEnTijuana, diasAntes } from './date-utils';
@@ -294,17 +296,25 @@ const sinNulos = (s: string | null): string | null => (s == null ? s : s.replace
 async function jobTranscripts(deadline: number, marcar: Marcar): Promise<boolean> {
   const supabase = await getTenantDb();
 
-  const { data: adsData, error: adsErr } = await supabase
-    .from('marketing_metrics_daily')
-    .select('ad_id')
-    .eq('plataforma', 'meta')
-    .not('ad_id', 'is', null);
-  if (adsErr) throw new Error(adsErr.message);
-  const adIds = [...new Set((adsData ?? []).map((r) => r.ad_id as string))];
+  // Los ad_id distintos, juntados página por página. El `.select('ad_id')`
+  // suelto volvía 1000 de las 1714 filas meta de ws1 (una fila por anuncio POR
+  // DÍA): los anuncios que caían del corte nunca entraban a pendientes, nunca se
+  // transcribían, y el job igual reportaba «N creativos transcriptos» como si
+  // hubiera terminado. Orden por `id` (única): el Set no necesita otro.
+  const adIdSet = new Set<string>();
+  await leerPorPaginas<{ ad_id: string }>(
+    supabase, 'marketing_metrics_daily', 'id, ad_id',
+    (pag) => { for (const r of pag) adIdSet.add(r.ad_id); },
+    { eq: { plataforma: 'meta' }, filtros: (q) => q.not('ad_id', 'is', null) },
+  );
+  const adIds = [...adIdSet];
 
-  const { data: doneData, error: doneErr } = await supabase.from('ad_transcripts').select('ad_id, status');
-  if (doneErr) throw new Error(doneErr.message);
-  const filas = new Map((doneData ?? []).map((r) => [r.ad_id as string, r.status as string]));
+  // Una fila por anuncio (141 hoy), pero crece 1:1 con los anuncios: paginado
+  // por `ad_id`, que es único dentro del workspace (unique workspace_id, ad_id).
+  const doneData = await leerTodo<{ ad_id: string; status: string }>(
+    supabase, 'ad_transcripts', 'ad_id, status', { orden: 'ad_id' },
+  );
+  const filas = new Map(doneData.map((r) => [r.ad_id, r.status]));
   const pendientes = adIds.filter((id) => !filas.has(id) || filas.get(id) === 'error');
   const terminados = adIds.length - pendientes.length;
   if (pendientes.length === 0) {
@@ -313,15 +323,28 @@ async function jobTranscripts(deadline: number, marcar: Marcar): Promise<boolean
   }
 
   // Thumbnails (fuente de imagen para ads sin video)
+  // Paginado: sin filtro de fecha, 400 anuncios son muchas más de 1000 filas
+  // (una por día) y los que caían del corte se quedaban sin thumbnail. Orden
+  // único (fecha, ad_id, id) ASCENDENTE: cada fila pisa a la anterior, así que
+  // queda la miniatura más reciente de cada anuncio. Tandas de 200 ids para no
+  // reventar la URL del `.in()`. El tope de 400 anuncios es el de siempre: el
+  // bucle de abajo corta por deadline mucho antes.
   const thumbs = new Map<string, string>();
-  const { data: thData } = await supabase
-    .from('marketing_metrics_daily')
-    .select('ad_id, ad_thumbnail_url, fecha')
-    .eq('plataforma', 'meta')
-    .in('ad_id', pendientes.slice(0, 400))
-    .not('ad_thumbnail_url', 'is', null)
-    .order('fecha', { ascending: false });
-  for (const r of thData ?? []) if (!thumbs.has(r.ad_id as string)) thumbs.set(r.ad_id as string, r.ad_thumbnail_url as string);
+  for (const tanda of enTandas(pendientes.slice(0, 400), 200)) {
+    await leerPorPaginas<{ ad_id: string; ad_thumbnail_url: string }>(
+      supabase, 'marketing_metrics_daily', 'id, fecha, ad_id, ad_thumbnail_url',
+      (pag) => { for (const r of pag) thumbs.set(r.ad_id, r.ad_thumbnail_url); },
+      {
+        orden: ['fecha', 'ad_id', 'id'],
+        eq: { plataforma: 'meta' },
+        filtros: (q) => q.in('ad_id', tanda).not('ad_thumbnail_url', 'is', null),
+      },
+    ).catch((e: unknown) => {
+      // Igual que antes: sin miniatura se transcribe igual (el video manda); se
+      // pierde solo la imagen de respaldo, y no vale tirar el job por eso.
+      console.error('[jobTranscripts] thumbnails:', e instanceof Error ? e.message : e);
+    });
+  }
 
   const [structureSystem, imagePrompt, whisperGlossary] = await Promise.all([
     getPromptText('transcribe.structure.system', STRUCTURE_SYSTEM_BASE),

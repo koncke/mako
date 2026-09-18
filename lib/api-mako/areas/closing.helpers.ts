@@ -22,7 +22,7 @@
 import 'server-only';
 import { after } from 'next/server';
 import { getTenantDb, runWithWorkspace } from '@/lib/workspace';
-import { leerTodo, PAGINA_POSTGREST } from '@/lib/supabase-paginado';
+import { leerTodo } from '@/lib/supabase-paginado';
 import type { ClosingAnalysisRow } from '@/lib/closing';
 
 export const DIMS7 = ['Situación', 'Problema', 'Implicación', 'Necesidad / beneficio', 'Presentación de la propuesta', 'Manejo de objeciones', 'CTA / siguientes pasos'] as const;
@@ -45,20 +45,10 @@ export async function leerLlamada(recordingId: number): Promise<ClosingAnalysisR
   return { ...fila, score: fila.score == null || !Number.isFinite(Number(fila.score)) ? null : Number(fila.score) };
 }
 
-/** Cuántas filas de closing_analyses hay (todas, o ventas analizadas). null = no se pudo contar. */
-export async function contarAnalisis(soloVentasAnalizadas: boolean): Promise<number | null> {
-  let q = (await getTenantDb()).from('closing_analyses').select('recording_id', { count: 'exact', head: true });
-  if (soloVentasAnalizadas) q = q.eq('category', 'venta').eq('status', 'analizada');
-  const { count, error } = await q;
-  return error || typeof count !== 'number' ? null : count;
-}
-
-/** La salvedad cuando getClosingViewData (sin paginar) pudo quedar corta. null = completo. */
-export function avisoRecorteClosing(filas: number | null, que: string): string | null {
-  if (filas == null) return `No se pudo comprobar si ${que} está completo: tómalo como aproximado.`;
-  if (filas > PAGINA_POSTGREST) return `${que} está calculado sobre ${PAGINA_POSTGREST} de ${filas} filas (la lectura no pagina): no lo presentes como exacto.`;
-  return null;
-}
+// Hasta el 17/09 acá vivían contarAnalisis() + avisoRecorteClosing(): contaban las
+// filas reales para avisar que getClosingViewData «no pagina» y quedaba corta.
+// getClosingViewData pagina ahora (leerClosingAnalyses, en lib/closing.ts), así que
+// el aviso pasó a afirmar un recorte que no existe y se sacó junto con el conteo.
 
 export type FilaProblema = { recording_id: number; title: string | null; call_date: string | null; lead_id: number | null; lead_nombre: string | null; category: string; status: string; error: string | null; has_transcript: boolean | null; updated_at: string | null };
 

@@ -12,6 +12,7 @@
 import 'server-only';
 import { OWNER_WS, getWorkspaceActual } from './workspace';
 import { getSupabaseServer } from './supabase';
+import { leerTodo } from './supabase-paginado';
 import { saldoOpenRouter } from './openrouter-saldo';
 
 // A QUÉ workspace pertenece el saldo/gasto de un proveedor. La regla real no es
@@ -289,13 +290,18 @@ export async function getUsageSummary(): Promise<UsageSummary> {
   const cols = 'created_at, feature, motivo, model, provider, cost_usd, input_tokens, output_tokens';
   let rows: Row[] = [];
   try {
-    const { data } = await getSupabaseServer()
-      .from('anthropic_usage').select(cols)
-      .eq('workspace_id', wsActual)
-      .gte('created_at', desde)
-      .order('created_at', { ascending: false })
-      .limit(20000);
-    rows = ((data ?? []) as Row[]).sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0));
+    // Paginado por `id`. El `.limit(20000)` de antes NO levantaba el techo de
+    // PostgREST: volvían 1000 filas y el panel de gasto sumaba sobre esas. La
+    // ventana crece sola (arranca en la carga de saldo más vieja), y ws1 ya tiene
+    // 1868 filas; `lib/costos-ia.ts` —el reemplazo— ya pagina, esta seguía viva
+    // sin paginar. El orden de presentación (más nueva primero) se hace abajo,
+    // en memoria. Y ahora un error de lectura LANZA y cae en el warn, en vez de
+    // leerse como «sin gasto».
+    const data = await leerTodo<Row>(getSupabaseServer(), 'anthropic_usage', cols, {
+      eq: { workspace_id: wsActual },
+      filtros: (q) => q.gte('created_at', desde),
+    });
+    rows = data.sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0));
   } catch (e) {
     console.warn(`[anthropic-usage] no se pudo leer el resumen: ${e instanceof Error ? e.message : String(e)}`);
   }

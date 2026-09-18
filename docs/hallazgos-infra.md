@@ -8,6 +8,7 @@ habilita a darle mejores prompts al otro Claude».
 
 **Lo que más muerde acá:**
 
+- PostgREST corta en 1000 filas **con un 200**: el síntoma no es un error, es un número que BAJA («se ven 4 ganados de 13»), y el diagnóstico obvio —el filtro, la etapa— es el equivocado. La lectura más importante de la app vivió así porque el barrido anterior arregló lo que paginaba mal y **no buscó lo que no paginaba** → [Supabase](#️-el-techo-de-1000-filas-no-da-error-da-un-número-que-baja).
 - Una lectura paginada sin orden **único** repite filas y saltea otras — cuatro pantallas rotas por la misma causa, y el diagnóstico obvio («falta paginar») era el equivocado → [Supabase](#supabase-leer-y-escribir-sin-perder-datos).
 - Lo que no está en `TENANT_TABLES` sale **sin filtro de workspace** y nada avisa → [Aislamiento multi-inquilino](#aislamiento-multi-inquilino).
 - «Se guarda cifrada, se pinta verde y el route lee `process.env`»: la credencial del cliente no se usa nunca → [Credenciales e integraciones](#credenciales-e-integraciones-byok).
@@ -128,6 +129,101 @@ Mientras no se arregle, un `?? default` encima de `getSettingNum` no protege del
 
 **Vive en:** lib/settings.ts:88-97 · lib/objectives.ts:468, :498-501 · app/general/actions.ts:189-191 · *2026-09-16 api-mako-areas*
 
+### ⚠️ El techo de 1000 filas no da error: da un número que BAJA
+
+**Síntoma:** Mauricio vio **4 ganados** en el CRM. Eran 13, todos con monto y fecha de
+cierre: **US$52.700** de facturación fuera del tablero. Lo vio el dueño, no nosotros, y no
+había una sola línea en ningún log.
+
+**El diagnóstico obvio era el equivocado.** «Faltan ganados» manda a mirar el filtro, la
+etapa, el funnel del workspace. Los 13 tenían `etapa_vista='ganado'` y el funnel tenía la
+etapa. Lo roto era el transporte: `_listLeads` (`lib/leads.ts`) hacía un `.select()` suelto
+con `.order('created_at', desc)`. PostgREST corta en 1000 filas y **devuelve 1000 filas y un
+200**. El workspace llegó a 1.066 leads, y los 66 que caían eran los más VIEJOS — o sea los
+clientes que ya habían cerrado. La víctima del corte no es aleatoria: con orden por fecha es
+siempre la punta que no se mira, y con orden físico (sin `ORDER BY`) suele ser la más vieja.
+
+**Así se reporta, para reconocerlo:** no hay error ni pantalla rota. Hay «se ven menos X de
+los que había», un total que dejó de crecer, un número redondo (1000, o un porcentaje que
+sale de dividir por 1000). Antes de tocar un filtro, contá las filas de la tabla con
+`count: 'exact', head: true` para ese workspace: si pasa de 1000 y la lectura no pagina, ya
+está.
+
+**Por qué sobrevivió el barrido anterior:** ese barrido unificó los **seis bucles `.range()`
+que paginaban MAL** (sin orden único, ver la entrada de abajo) y no miró el `.select()` que no
+paginaba **en absoluto**. Arreglar lo que ya tiene forma de paginado encuentra lo que alguien
+pensó; lo peligroso es lo que nadie pensó, y eso no se parece a nada: es una consulta común.
+
+**Regla: una caza de truncados busca lo que NO pagina, no solo lo que pagina mal.** El método
+que funcionó el 17/09/2026 (escáner en el scratchpad de la corrida, `barrido/scan.mjs`):
+
+1. Enumerar **todas** las cadenas `.from(` de `lib/ app/ scripts/ worker/ plugin/` — fueron
+   1.102 — siguiendo la cadena hasta el final, porque el `.limit()` a veces aparece líneas
+   más abajo.
+2. Descartar escrituras, `.single()`/`.maybeSingle()`, `count … head: true` y las que ya
+   pasan por `leerTodo`/`leerPorPaginas`. Quedaron **278 sin tope**, más los `.limit(n)` con
+   n > 1000 o sin `.order()`, y los `.range()` sin `.order()`.
+3. Cruzar cada candidata con el tamaño **real** de su consulta en producción (no el de la
+   tabla: el de ESE filtro, en el workspace más grande). Eso separa el bug vivo de la deuda.
+
+**Y la corrida dejó escrito dónde quedó cada caso**, con su síntoma propio, en el documento
+del área donde vive el código: los leads del CRM en [hallazgos-crm.md](hallazgos-crm.md) →
+«`_listLeads`…», el inbox, el email y la nutrición en
+[hallazgos-comunicacion.md](hallazgos-comunicacion.md), las métricas y los nombres de
+campañas en [hallazgos-ads.md](hallazgos-ads.md), el Pixel en
+[hallazgos-landing.md](hallazgos-landing.md), la inversión de Objectives en
+[hallazgos-objectives.md](hallazgos-objectives.md), el gasto de IA en
+[hallazgos-ia.md](hallazgos-ia.md), la cartera en
+[hallazgos-customer-success.md](hallazgos-customer-success.md), el tablero en
+[hallazgos-plan.md](hallazgos-plan.md) y los avisos de la API en
+[hallazgos-api-mako.md](hallazgos-api-mako.md).
+
+**Vive en:** lib/supabase-paginado.ts (`leerTodo`, `leerPorPaginas`) · lib/leads.ts (`_listLeads`, commit `5e829b5d`) · *2026-09-09 y 2026-09-17 caza de paginado*
+
+### Censo: qué tablas ya pasaron las 1000 filas y cuáles están por pasar
+
+Medido en producción el 17/09/2026. Sirve para saber dónde mirar sin volver a medir; **los
+números envejecen**, así que ante una decisión se re-mide (el censo trae los `SELECT` en
+`q1.mjs`–`q6.mjs` del scratchpad de la corrida, pero la consulta es un `group by
+workspace_id` y se reescribe en un minuto).
+
+**Ya pasaron las 1000 en algún workspace:**
+
+| tabla | máx/ws | crece | lo que importa para leerla |
+|---|---:|---:|---|
+| `vsl_events` | 29.048 (ws1) | +24.000/mes | 30 días = 22.577 filas; **las 1000 más nuevas son 25 horas**. Ninguna ventana la salva |
+| `wa_mensajes` | 24.020 (ws11) | +16.000/mes | **UNA conversación** llega a 1.382 (por `chat_jid`) y a 1.194 (por `lead_id`). Y 28.616 de 33.703 filas tienen `lead_id` NULL: agrupar por lead mira el 15% por otra razón |
+| `landing_visits` | 6.415 (ws1) | +3.850/mes | 30 días = 3.511; las 400 más nuevas son 3 días; 2.552 URLs distintas en 30 días |
+| `evolution_contactos` | 5.956 (ws1) | +490/mes | |
+| `lead_audit` | 5.915 (ws1) | +1.400/mes | por lead son 45 como máximo: seguro por lead, catastrófico por workspace |
+| `adset_budget_daily` | 4.059 (ws1) | +2.600/mes | 47 adsets × 1 fila/día: **todo rango ≥ ~22 días trunca** |
+| `marketing_metrics_daily` | 2.392 (ws1) | +820/mes | 1.714 son `meta`; **toda lectura sin fecha trunca**, 90 días = 1.196 |
+| `anthropic_usage` | 1.868 (ws1) | +1.500/mes | la única que hoy se salva con ventana: 30 días = 609 |
+| `leads` | 1.108 (ws1) | +200/mes | sub-conjuntos que ya pasan solos: abiertos 1.032, con teléfono 1.106, segmento de email «activos» 1.044 |
+
+**Cruzan en meses, no en años** (ritmo de los últimos 30 días sobre el workspace más grande):
+`flow_trabajos` 385 (~1,6 meses) · `mako_doer_conv` 442 (~1,9) · `app_settings` 322 (~2,9;
+la fecha es `updated_at`, el alta real puede ser más lenta) · `closing_analyses` 428 en ws9
+(~3,3) · `plan_tareas` 643 en ws9 (~3,6) · `experimento_tareas` 212 en ws1. Todo lo demás
+está por debajo de 400.
+
+**Vacías hoy y de alta cardinalidad por diseño** — explotan el día que se prenden:
+`ig_mensajes`, `ig_conversaciones`, `email_broadcast_envios` (un solo broadcast a «activos»
+son 1.044 filas), `kpi_registros`, `wa_borradores`, `contenido_posts`, `cs_respuestas`,
+`agente_sesiones`, `chat_agent_handoffs`, `review_queue`.
+
+⚠️ **El corte se aplica a la CONSULTA, no a la tabla.** Tres consecuencias que el conteo por
+workspace no muestra:
+
+- Una tabla «chica» por workspace puede truncar por la forma de leerla: `.in('lead_id', ids)`
+  con 50 visitantes de `vsl_events` ya pasa las 1000 (hasta 612 eventos por visitante).
+- Una ventana de fechas no es un tope: depende de la densidad. 30 días de `adset_budget_daily`
+  ya truncan; 30 días de `anthropic_usage` no.
+- Casi toda la base tiene menos de 90 días de vida, así que «90 días» y «todo» son hoy lo
+  mismo. Una lectura acotada a 90 días que hoy entra deja de entrar sola.
+
+*2026-09-17 caza de paginado*
+
 ### La página 2 no es la continuación de la página 1 si el orden no es único
 
 **Síntoma:** cuatro pantallas distintas, el mismo error de fondo y ninguna avisa nada.
@@ -190,6 +286,51 @@ análisis de landings ([hallazgos-landing.md](hallazgos-landing.md)).
 decisión de degradar se toma por dato ("esto es accesorio") y se muestra ("lista
 parcial"), nunca por omisión.
 
+**Y el mismo agujero sin paginado de por medio (17/09/2026):** `data ?? []` convierte un error
+de lectura en un truncado al 100%. Dónde duele es en los conjuntos que **protegen**:
+
+- **El set de «ya procesados» de un pipeline que paga IA** (`closing_analyses`,
+  `script_analyses`, `ad_transcripts`): vacío por error = se re-analiza todo y se paga otra
+  vez.
+- **El set de «ya enviados» de un envío** (reanudar un broadcast, el anti-spam de 20 h, los
+  guards de nutrición): vacío por error = todos reciben el mensaje de nuevo.
+- **Y los errores de ESQUEMA pasan igual.** `cs-cartera` pedía `pagos.fecha_vencimiento`, una
+  columna que **nunca existió**; el `leer = q => data ?? []` lo convertía en «0 cuotas
+  vencidas» para todos los clientes. Un wrapper que traga errores no distingue «la red se
+  cayó» de «la consulta está mal escrita desde el primer día».
+
+Esas lecturas **lanzan**: prefieren no hacer el trabajo a hacerlo dos veces.
+
+### Las formas de truncar que no parecen truncar
+
+Lo que la caza del 17/09/2026 encontró además del `.select()` suelto. Cada una tiene su caso
+en el documento de su área; acá va la regla.
+
+| Forma | Por qué engaña | Lo que va |
+|---|---|---|
+| `.limit(2000)`, `.limit(20000)`, `.limit(1200)` | Se lee como un tope generoso y el servidor corta en 1000 igual. Apareció **cuatro** veces | `leerTodo`/`leerPorPaginas`; un tope de producto va **explícito** en el callback (`return nro < TOPE`) |
+| `ORDER BY` una columna repetida + «el primero de cada clave gana» | Pasado el corte, las claves VIEJAS desaparecen enteras: una campaña que dejó de correr pierde su nombre (`_getCampaignNameMap`, ordenado por `fecha` desc) | orden único **ascendente** y que la última fila pise a la anterior: la más reciente gana sin depender del corte |
+| Tope sobre un orden **ascendente** | Muestra lo más viejo y esconde lo más nuevo, incluido el último mensaje de un chat (`getMensajesDeChat`, 16 chats) | orden descendente con desempate por `id` para cortar, y se reordena en memoria para mostrar |
+| `.limit(N)` sin `.order()` sobre una COLA | Las filas que no se resuelven vuelven a salir primeras: la cola relee las mismas N para siempre y las de atrás no se evalúan nunca (`procesarEnvios`, `nutricion-desenlace`) | excluir lo ya visto en el servidor (`.not('id','in',…)`) y desempatar por `id` |
+| Tope chico y **después** filtrar en memoria | Falso negativo con cara de veredicto: «el Pixel no está instalado» sobre una página que manda eventos (`verificarPagina`, 400 filas = 3 días de 2.552 URLs) | filtrar en el servidor por un superconjunto seguro (el host) y paginar eso |
+| …con un superconjunto que no discrimina | El filtro deja pasar casi todo y el `limit` de después vuelve a ser el corte mudo: «Ana» como patrón matchea 1.107 de 1.108 leads (`duplicadosDeLead`, **quedó abierto**) | medir cuánto descarta el patrón antes de confiar en él; si vuelve el tope exacto, avisar |
+| Paginar para preguntar «¿tiene al menos una fila?» o «¿qué valores distintos hay?» | Trae 80.000 filas para contestar sí/no | preguntar **por exclusión**: `idsConAlMenosUnaFila` y `distintosPorExclusion` (`lib/ids-con-filas.ts`). Sin OFFSET no hay orden que se corra |
+| Paginar una lectura cuya salida alimenta un `.in()` | La lista crece de golpe (de 1000 a 1.032) y el `.in()` de después es el que ahora trunca, con la URL cerca de su límite | `enTandas` de 200 ids, y cada tanda paginada |
+| Sumar/contar filas que se bajaron solo para eso | Es un truncado esperando | `count: 'exact', head: true` en la base: un conteo no se corta |
+| `.order(col, { ascending: false })` sobre una columna con NULL | Postgres pone los NULL **primero** en DESC: `rows[0]` como «el más reciente» es una fila sin fecha | ordenar en memoria con los null al final, o `nullsFirst: false` |
+
+**Y dos trampas de escribir el arreglo:**
+
+- **TS2589 («excessively deep»).** Encadenar `.not()`/`.gte()`/`.in()` dentro de `filtros` y
+  castear a `ConsultaPaginada` hace que tsc se rinda. Va `as unknown as ConsultaPaginada`, o
+  el callback tipado para devolver `unknown`.
+- **Un aviso «corta en 1000» escrito en otra capa se vuelve mentira el día que la lectura
+  pagina**, y a veces un candado: la API de MaKo se negaba a mandar un email a los 1.044
+  «activos» porque «la lib no pagina», cuando ya paginaba. El aviso se actualiza **en el
+  mismo commit** que el arreglo. El caso, en [hallazgos-api-mako.md](hallazgos-api-mako.md).
+
+*2026-09-17 caza de paginado*
+
 ### Un SELECT que no trae la columna hace que el «merge» la borre en silencio
 
 **Síntoma:** teléfono, cargo y bio del perfil desaparecían sin ningún error.
@@ -245,12 +386,24 @@ Ni horas de agenda, ni ventana de días de un público, ni cantidad de resultado
 limites las horas, que se pueda agendar a la madrugada si quieren» (2026-08-07). Si hay que
 poner un techo por costo o por seguridad, va **con cartel** y a la vista en el call-site.
 
-### ⚠️ Pendiente: los techos mudos que quedaron fuera del barrido
+### ⚠️ Pendiente: los techos mudos que quedaron fuera de la caza del 17/09
 
-| Qué | Dónde | Por qué importa |
+Los de la tabla vieja (los dos scripts con `.range()` a mano, `cerrar-por-commits` y
+`plan-buscar`) se arreglaron el 17/09/2026. Lo que sigue abierto, de más a menos urgente:
+
+| Qué | Dónde | Estado |
 |---|---|---|
-| Bucles `.range()` a mano | `scripts/limpiar-seed-clientes.ts:72`, `scripts/probe-historial-largos.ts:28` | Son scripts one-off, pero tienen el mismo techo mudo |
-| Topes de una sola página | `lib/cerrar-por-commits.ts:86` (600), `app/api/plan-buscar/route.ts:88` | No son bucles rotos: son techos deliberados sin cartel. Si la tabla crece, cortan en silencio |
+| **Regresión:** el patrón por nombre casi no filtra y `.limit(100)` corta | `lib/leads.ts:367` + `lib/leads-duplicados.ts` (`patronesDeNombre`) | trunca hoy para nombres cortos → [hallazgos-crm.md](hallazgos-crm.md) |
+| `closing_analyses` entera, sin paginar | `app/crm/insights-actions.ts:56` | 428 en ws9 |
+| `plan_tareas` sin paginar (el board del super-admin) | `lib/plan-board.ts:101, 180, 302, 405, 583, 656, 735, 906` · `lib/plan-proyecto-vacio.ts:53, 107` · `app/admin/dev/roadmap.ts:142` | 643/1000 en ws9 → [hallazgos-plan.md](hallazgos-plan.md) |
+| `experimento_tareas` sin paginar | `lib/todo.ts:184, 192, 373, 453` | 212 en ws1 |
+| `vsl_events` / `landing_visits` de UN visitante o un lote | `lib/leads.ts:1482, 2264, 2286` (`getVisitasLandingMap`) | 612 por visitante (ws13) |
+| Lecturas de `leads` y `pagos` del embudo y la cobranza | `lib/queries.ts` (`getFunnelEtapas`, `getSCL`, `getTendencias` :2989), `lib/pagos.ts:411, 503` | bajo el techo por columnas ralas → [hallazgos-crm.md](hallazgos-crm.md) |
+| `cashUsd` / `soldUsd` | `lib/objectives-fuentes.ts:109, 127` | 13 cierres; se rompen en un objetivo anual → [hallazgos-objectives.md](hallazgos-objectives.md) |
+| Bloqueados y ocultos del inbox | `lib/evolution-block.ts:36, 59` | 0 y 15 filas |
+| Leads de las conversaciones del inbox | `lib/evolution-mensajes.ts` (~:320) | 46 ids por workspace |
+| Tres lecturas que devuelven VACÍO cuando fallan | el `catch → []` de `videosDetectados` (`lib/landing-token.ts`), `getVslEngagementMap` (`lib/leads.ts`), el `warn` de `getUsageSummary` | no truncan: mienten «no hay» |
+| `anthropic_usage` con `getSupabaseServer()` y el `eq(workspace_id)` a mano | `lib/anthropic-usage.ts`, `lib/ia-cuotas.ts` | paginan, pero contra la regla de la casa |
 
 ### Descartado a propósito (no volver a "arreglarlo")
 

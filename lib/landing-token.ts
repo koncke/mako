@@ -37,6 +37,8 @@ import { bloqueClarity } from './clarity';
 import { esEventoDeVideo } from './vsl-retencion';
 import { estadoVideo } from './landing-analisis';
 import { enumerar } from './landing-snapshot';
+import { leerPorPaginas, type ConsultaPaginada } from './supabase-paginado';
+import { distintosPorExclusion, listaPostgrest } from './ids-con-filas';
 
 /** Key en app_settings. setSetting la espeja a webhook_routing('landing', …). */
 export const LANDING_TOKEN_KEY = 'landing_token';
@@ -330,17 +332,42 @@ export async function videosDetectados(dias = 90): Promise<Array<{ id: string; t
     // la trajera y el botón «Ver este video» no aparecía NUNCA en una página con
     // historial. El síntoma engañaba doble: el texto decía «llega con la versión
     // nueva del Pixel» sobre una página que ya tenía la versión nueva.
-    const { data } = await db
-      .from('vsl_events')
-      .select('video_id, vsl_titulo, detalle, landing_url')
-      .not('video_id', 'is', null)
-      .gte('created_at', desde)
-      .order('created_at', { ascending: false })
-      .limit(1000);
+    //
+    // ⚠️ Y EL `order` SOLO NO ALCANZABA: en ws1 las 1000 filas más nuevas son 25
+    // HORAS de eventos (908/día), así que un catálogo que decía cubrir 90 días
+    // cubría uno, y un video que dejó de reproducirse anteayer no se podía
+    // nombrar. Paginar los 90 días serían ~80.000 filas para quedarse con una
+    // decena de ids: se descubren POR EXCLUSIÓN (lib/ids-con-filas.ts) — cada
+    // vuelta pide las más nuevas de los videos que todavía no aparecieron.
+    type FilaVsl = { video_id: string | null; vsl_titulo: string | null; detalle: string | null; landing_url: string | null };
     const out = new Map<string, { id: string; titulo: string | null; eventos: number; url: string | null; pagina: string | null; redirigeA: string | null }>();
-    for (const r of (data ?? []) as Array<{ video_id: string | null; vsl_titulo: string | null; detalle: string | null; landing_url: string | null }>) {
-      const id = r.video_id?.trim();
-      if (!id) continue;
+    await distintosPorExclusion<FilaVsl, string>(
+      async (excluidos) => {
+        // Tipo mínimo a mano: encadenar `.not()` sobre el builder genérico de
+        // supabase-js revienta el typecheck («excessively deep»).
+        type Q = {
+          not(col: string, op: string, v: unknown): Q;
+          gte(col: string, v: string): Q;
+          order(col: string, o: { ascending: boolean }): Q;
+          limit(n: number): PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>;
+        };
+        let q = (db.from('vsl_events').select('video_id, vsl_titulo, detalle, landing_url') as unknown as Q)
+          .not('video_id', 'is', null)
+          .gte('created_at', desde);
+        if (excluidos.length) q = q.not('video_id', 'in', listaPostgrest(excluidos));
+        const { data, error } = await q
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: false })
+          .limit(1000);
+        if (error) throw new Error(error.message);
+        return (data ?? []) as FilaVsl[];
+      },
+      // Clave CRUDA (sin trim): la exclusión se compara contra el valor tal cual
+      // está en la base.
+      (r) => r.video_id,
+      (r) => {
+        const id = r.video_id?.trim();
+        if (!id) return;
       const e = out.get(id) ?? { id, titulo: null, eventos: 0, url: null, pagina: null, redirigeA: null };
       // En QUÉ página se vio. Es el plan B para verlo: un <video> nativo no está
       // en ningún catálogo, así que si no sabemos su URL igual sabemos dónde
@@ -354,7 +381,8 @@ export async function videosDetectados(dias = 90): Promise<Array<{ id: string; t
       // que llegue en vez de pisarse con null a mitad de camino.
       if (!e.titulo && r.vsl_titulo?.trim()) e.titulo = r.vsl_titulo.trim();
       out.set(id, e);
-    }
+      },
+    );
     // ⚠️ LO QUE PANDA YA SABE NO SE ESPERA A QUE ALGUIEN LO REPRODUZCA. La URL y
     // el título del video viajaban SOLO en el evento `play`, así que para poder
     // nombrar un video había que conseguir primero que alguien lo mirara — la
@@ -372,6 +400,23 @@ export async function videosDetectados(dias = 90): Promise<Array<{ id: string; t
       v.url = p.player;
       v.titulo = p.titulo;
       v.redirigeA = p.redirigeA?.titulo ?? null;
+    }
+
+    // Lo que no vino en las filas de la vuelta en que el video apareció (la URL
+    // viaja solo en el `play`, la página desde la v12) se busca puntual: UNA fila
+    // por dato faltante, la más nueva que lo tenga. Son pocos videos.
+    for (const v of out.values()) {
+      const falta: Array<['url' | 'pagina' | 'titulo', string, (q: ConsultaPaginada) => ConsultaPaginada]> = [];
+      if (!v.url) falta.push(['url', 'detalle', (q) => q.like('detalle', 'http%')]);
+      if (!v.pagina) falta.push(['pagina', 'landing_url', (q) => q.like('landing_url', 'http%')]);
+      if (!v.titulo) falta.push(['titulo', 'vsl_titulo', (q) => q.not('vsl_titulo', 'is', null).neq('vsl_titulo', '')]);
+      for (const [campo, col, filtro] of falta) {
+        const { data } = await filtro(db.from('vsl_events').select(col).eq('video_id', v.id).gte('created_at', desde) as ConsultaPaginada)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        const valor = ((data?.[0] as Record<string, string | null> | undefined)?.[col] ?? '').trim();
+        if (valor) v[campo] = valor;
+      }
     }
 
     // ⚠️ EL CONTEO EXACTO SE PREGUNTA, no se cuenta sobre lo que vino. Contar las
@@ -430,14 +475,26 @@ export async function verificarPagina(urlCruda: string): Promise<VerificacionPag
     // crudo: en la base conviven la URL con barra final, con hash y con los
     // parámetros de cada campaña. Un `eq` diría «no está instalada» sobre una
     // página que manda eventos hace meses.
-    const { data } = await db
-      .from('landing_visits')
-      .select('created_at, landing_url, sv')
-      .gte('created_at', desde)
-      .order('created_at', { ascending: false })
-      .limit(400);
-    const filas = ((data ?? []) as Array<{ created_at: string; landing_url: string | null; sv: number | null }>)
-      .filter((r) => normalizarUrl(r.landing_url ?? '') === url);
+    //
+    // ⚠️ Y SE FILTRA EN EL SERVER por el HOST. Antes era `.limit(400)` sobre los
+    // 30 días y el filtro por URL recién en memoria: en ws1 las 400 más nuevas
+    // son 3 días (con 2.552 URLs distintas), así que a cualquier página que no
+    // fuera la de más tráfico se le decía «el Pixel no está instalado ahí» sobre
+    // una página que manda eventos. El host es un superconjunto seguro de las
+    // variantes (barra, hash, UTM, mayúsculas, el prefijo de deploy de Netlify
+    // que `hostCanonico` colapsa); la comparación exacta sigue siendo la de
+    // `normalizarUrl`. Paginado por `id` porque un host solo ya pasa las 1000.
+    const host = new URL(url).host;
+    type FilaVisita = { created_at: string; landing_url: string | null; sv: number | null };
+    const filas: FilaVisita[] = [];
+    await leerPorPaginas<FilaVisita>(
+      db, 'landing_visits', 'id, created_at, landing_url, sv',
+      (pag) => { for (const r of pag) if (normalizarUrl(r.landing_url ?? '') === url) filas.push(r); },
+      { filtros: (q) => q.gte('created_at', desde).ilike('landing_url', `%${host}%`) },
+    );
+    // El paginado va por `id`; lo que se muestra es por fecha, así que se ordena
+    // acá (la más nueva primero, que es lo que leen `ultima` y la versión).
+    filas.sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0));
     if (!filas.length) {
       return { url, instalada: false, version: null, vieja: false, ultima: null, visitas: 0,
         texto: 'No llega ninguna visita de esta página desde hace 30 días. El Pixel no está instalado ahí, o esa página aún no se publica.' };

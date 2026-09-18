@@ -172,8 +172,9 @@ export async function contarParaBorrar(ult10: string): Promise<{ sufijo: number;
 
 /**
  * Los mensajes MÁS RECIENTES de un chat del espejo, en orden cronológico. Sale de
- * lib/evolution-mensajes.ts#getMensajesDeChat con tres diferencias a propósito: ordena
- * descendente antes de cortar (la lib devuelve los MÁS VIEJOS), coincide por SUFIJO de
+ * lib/evolution-mensajes.ts#getMensajesDeChat con dos diferencias a propósito (la
+ * tercera, ordenar descendente antes de cortar, ya la tiene también la lib desde el
+ * 17/09 — antes devolvía los MÁS VIEJOS): coincide por SUFIJO de
  * 10 dígitos (la lib usa subcadena y mezcla personas) y no firma URLs de media (la lib
  * firma hasta 1000 con un tope de 8 s y el runner las tiraba).
  */

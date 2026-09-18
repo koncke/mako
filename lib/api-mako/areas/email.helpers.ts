@@ -10,9 +10,11 @@
 // porque el implementador del área no toca libs compartidas:
 //   · estadoEmail()       copia estadoActual() de app/api/email/dominio/route.ts.
 //   · historialEmailLead() / bajasEmail() no existen en ninguna lib.
-//   · contar*() existen para AVISAR que las stats de la lib quedaron cortas:
-//     getEmailKpis, getEmailSecuencias y getBroadcasts leen envíos sin paginar y
-//     PostgREST corta en 1000 filas sin error.
+//   · Hasta el 17/09 había acá contar*() para AVISAR que las stats de la lib
+//     quedaban cortas (getEmailKpis, getEmailSecuencias y getBroadcasts leían sin
+//     paginar y PostgREST corta en 1000 sin error). La lib ya cuenta exacto o
+//     pagina, así que esos avisos pasaron a ser mentira y se sacaron junto con sus
+//     helpers. Si vuelven a hacer falta, el arreglo va en la lib, no un aviso acá.
 // =============================================================================
 
 import 'server-only';
@@ -21,9 +23,6 @@ import { getSetting, getSettingEstricto } from '@/lib/settings';
 import { KEY_TIMEZONE, esTzValida } from '@/lib/timezone';
 import { getEmailFrom, emailConectado, remitenteEsSandbox, resendConfigurado, getResendDomain, type ResendDnsRecord } from '@/lib/resend';
 import { envioEmailHabilitado } from '@/lib/envio-flags';
-
-/** El tope silencioso de PostgREST por request. */
-export const TOPE_POSTGREST = 1000;
 
 export type EstadoEmail = {
   conectado: boolean; envio_real_habilitado: boolean; remitente_sandbox: boolean; resend_configurado: boolean;
@@ -113,30 +112,6 @@ async function contar(tabla: string, f: Filtro): Promise<number> {
   const { count, error } = await q;
   if (error) throw new Error(`contar ${tabla}: ${error.message}`);
   return count ?? 0;
-}
-
-/** Envíos de email (nutrición y broadcasts) desde una fecha: si alguno pasa de
- *  1000, los KPIs de getEmailKpis quedaron calculados sobre un recorte. */
-export async function enviosEmailDesde(desdeISO: string): Promise<{ nutricion: number; broadcasts: number }> {
-  const [nutricion, broadcasts] = await Promise.all([
-    contar('nutricion_envios', { eq: { canal: 'email' }, gte: ['created_at', desdeISO] }),
-    contar('email_broadcast_envios', { gte: ['created_at', desdeISO] }),
-  ]);
-  return { nutricion, broadcasts };
-}
-
-export async function filasDeSecuencias(ids: number[]): Promise<{ envios: number; inscripciones: number }> {
-  if (!ids.length) return { envios: 0, inscripciones: 0 };
-  const [envios, inscripciones] = await Promise.all([
-    contar('nutricion_envios', { eq: { canal: 'email' }, in: ['secuencia_id', ids] }),
-    contar('nutricion_inscripciones', { in: ['secuencia_id', ids] }),
-  ]);
-  return { envios, inscripciones };
-}
-
-export async function filasDeBroadcasts(ids: number[]): Promise<number> {
-  if (!ids.length) return 0;
-  return contar('email_broadcast_envios', { in: ['broadcast_id', ids] });
 }
 
 /** getEmailSecuencias no filtra archivadas (getSecuenciasActivas sí): se marcan. */

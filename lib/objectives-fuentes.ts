@@ -23,6 +23,7 @@
 
 import 'server-only';
 import { getTenantDb } from './workspace';
+import { leerPorPaginas } from './supabase-paginado';
 import { mxnAUsd } from './config';
 import type { FuenteDef, FuenteId } from './objectives-modelo';
 import { FUENTES_KPI } from './objectives-modelo';
@@ -76,25 +77,29 @@ async function contar(tabla: string, filtros: Filtro[]): Promise<LecturaFuente> 
  * que devolver una suma que sabemos incompleta.
  */
 export async function inversionUsd(desde: string, hasta: string): Promise<LecturaFuente> {
-  const PAGINA = 1000;
-  const MAX_PAGINAS = 50;
   try {
     const db = await getTenantDb();
     let mxn = 0;
-    for (let pagina = 0; pagina < MAX_PAGINAS; pagina++) {
-      const { data, error } = await db
-        .from('marketing_metrics_daily')
-        .select('spend')
-        .eq('plataforma', 'meta')
-        .gte('fecha', desde)
-        .lte('fecha', hasta)
-        .range(pagina * PAGINA, pagina * PAGINA + PAGINA - 1);
-      if (error) return { valor: null, error: error.message };
-      const filas = (data ?? []) as Array<{ spend: number | null }>;
-      for (const f of filas) mxn += Number(f.spend ?? 0);
-      if (filas.length < PAGINA) return { valor: mxnAUsd(mxn) };
-    }
-    return { valor: null, error: `más de ${MAX_PAGINAS * PAGINA} días-anuncio: no puedo sumarlos sin truncar` };
+    // ⚠️ El bucle `.range()` escrito a mano que había acá paginaba SIN `.order()`.
+    // Sin ORDER BY, el OFFSET de la página 2 se aplica sobre otro orden y salen
+    // filas repetidas y filas salteadas — y como esto es una SUMA, el error va
+    // para cualquier lado: podía dar una inversión MAYOR a la real. Con 1714
+    // filas meta en ws1 ya entraba a la página 2. `leerPorPaginas` ordena por
+    // `id` (única) y agrega al vuelo sin juntar las filas.
+    //
+    // El techo de 50 páginas (50.000 días-anuncio) sigue siendo un cinturón: si
+    // se pasa, `leerPorPaginas` LANZA y acá se devuelve null con el motivo, que
+    // es mejor que una suma que sabemos incompleta.
+    await leerPorPaginas<{ spend: number | null }>(
+      db, 'marketing_metrics_daily', 'id, spend',
+      (filas) => { for (const f of filas) mxn += Number(f.spend ?? 0); },
+      {
+        eq: { plataforma: 'meta' },
+        filtros: (q) => q.gte('fecha', desde).lte('fecha', hasta),
+        maxPaginas: 50,
+      },
+    );
+    return { valor: mxnAUsd(mxn) };
   } catch (e) {
     return fallo(e);
   }

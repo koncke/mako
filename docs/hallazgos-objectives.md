@@ -369,6 +369,14 @@ medido.
   semana o un trimestre — no para un año, y `avanceDeObjetivo` usa esos mismos lectores para los
   objetivos ANUALES, con el rango del año entero. La única de las sumas que pagina es
   `inversionUsd`.
+- ⚠️ **Y `inversionUsd` paginaba MAL, que es peor que no paginar** (17/09/2026). Era un bucle
+  `.range()` a mano **sin `.order()`**, con un comentario arriba que explicaba perfecto por qué
+  había que paginar. Con 1.714 filas meta en ws1 el bucle ya entraba a la página 2, y sin
+  orden el OFFSET se aplica sobre otro reparto: filas repetidas y filas salteadas. Como el
+  resultado es una SUMA, el error va para los dos lados — es la única lectura de la caza que
+  podía dar un número **mayor** al real, y ningún control de «da de menos» la iba a ver.
+  ARREGLADO: `leerPorPaginas` por `id`, `maxPaginas: 50`; si se pasa, devuelve `null` con el
+  motivo, no cero. `cashUsd` y `soldUsd` siguen sin paginar (13 cierres hoy).
 - **Tres fuentes cortan el día en UTC.** `leads_nuevos`, `vsl_plays` y `contenido_publicado`
   comparan timestamps contra el `desde` pelado y contra `${hasta}T23:59:59.999Z`, aunque «hoy» sí
   salga de `hoyEnWorkspace`. En Tijuana (UTC-7) el KPI diario de leads cuenta de las 17:00 de ayer

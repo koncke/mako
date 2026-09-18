@@ -524,16 +524,15 @@ export async function syncScriptAnalyses(opts: { max?: number; timeBudgetMs?: nu
   const max = opts.max ?? DEFAULT_MAX;
   const timeBudget = opts.timeBudgetMs ?? DEFAULT_TIME_BUDGET_MS;
 
-  const supabase = (await getTenantDb());
-  const [transcripts, doneRows, angles, avatares] = await Promise.all([
+  const [transcripts, doneData, angles, avatares] = await Promise.all([
     getVideoTranscripts(),
-    supabase.from('script_analyses').select('ad_id, status'),
+    // Paginado: este es el set de "ya analizados". Si viniera cortado en 1000,
+    // los anuncios que caen del corte se RE-ANALIZAN con Claude en cada sync
+    // (plata) y pisan su fila — sin un solo error.
+    leerScriptAnalyses<{ ad_id: string; status: string }>('ad_id, status'),
     getAngles(),
     getAvatares(),
   ]);
-  if (doneRows.error) throw new Error(`Error leyendo script_analyses: ${doneRows.error.message}`);
-
-  const doneData = (doneRows.data ?? []) as Array<{ ad_id: string; status: string }>;
   // Las imágenes que quedaron 'descartada' de antes (cuando NO se analizaban)
   // ahora SÍ deben analizarse → se reabren. Se detectan por ad_transcripts.tipo
   // (no por es_imagen, que en esas filas viejas quedó en false). Si una imagen no
@@ -715,6 +714,21 @@ async function getAllMetaAdIds(): Promise<Set<string>> {
 // Lectura para la vista
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Lee `script_analyses` ENTERA, paginada por `ad_id`. Una fila por anuncio
+ * analizado, así que crece 1:1 con los anuncios que corren: hoy son 89 en ws1,
+ * pero un `.select()` suelto deja de ver filas en silencio el día que pasen de
+ * 1000 (PostgREST corta y responde 200). `ad_id` es único dentro del inquilino
+ * (UNIQUE workspace_id, ad_id), así que el orden es estable entre páginas.
+ */
+async function leerScriptAnalyses<T>(cols: string, eq?: Record<string, string>): Promise<T[]> {
+  try {
+    return await leerTodo<T>(await getTenantDb(), 'script_analyses', cols, { orden: 'ad_id', eq });
+  } catch (e) {
+    throw new Error(`Error leyendo script_analyses: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
 const VIEW_COLS =
   'ad_id, ad_name, short, angle, angle_override, avatar, avatar_override, es_imagen, hook_type, format, tags, beats, note_title, note_text, suggestion, dur, status, updated_at';
 
@@ -768,11 +782,9 @@ function buildScriptView(r: StoredView, m: AdMetrics, cierres: number): ScriptVi
 /** Datos para /ads-analyst: TODOS los guiones analizados con sus métricas
  *  vivas de todo el histórico (sin filtro de fecha). */
 export async function getScriptAnalystView(): Promise<ScriptAnalystView> {
-  const supabase = (await getTenantDb());
-  const { data: rowsData, error } = await supabase.from('script_analyses').select(VIEW_COLS);
-  if (error) throw new Error(`Error leyendo script_analyses: ${error.message}`);
-
-  const rows = (rowsData ?? []) as unknown as StoredView[];
+  // Paginado: de acá salen los contadores (`total`, `analizadas`, `sinTranscript`)
+  // y la lista de guiones — cortada en 1000, los números cerraban igual y mentían.
+  const rows = await leerScriptAnalyses<StoredView>(VIEW_COLS);
   // Incluye videos con beats Y anuncios de imagen (sin beats de retención).
   const analizadas = rows.filter((r) => r.status === 'analizada' && (r.es_imagen || (r.beats?.length ?? 0) > 0));
   const ids = analizadas.map((r) => r.ad_id);
@@ -836,14 +848,9 @@ export type QuadPoint = {
 
 /** Recalcula los puntos del cuadrante para una ventana (o todo, sin fechas). */
 export async function getQuadrantData(desde?: string, hasta?: string): Promise<QuadPoint[]> {
-  const supabase = (await getTenantDb());
-  const { data, error } = await supabase
-    .from('script_analyses')
-    .select('ad_id, short, angle, angle_override, beats, dur')
-    .eq('status', 'analizada');
-  if (error) throw new Error(`Error leyendo script_analyses: ${error.message}`);
-
-  const rows = (data ?? []) as Array<{ ad_id: string; short: string | null; angle: ScriptAngle | null; angle_override: string | null; beats: StoredBeat[] | null; dur: number | null }>;
+  const rows = await leerScriptAnalyses<{ ad_id: string; short: string | null; angle: ScriptAngle | null; angle_override: string | null; beats: StoredBeat[] | null; dur: number | null }>(
+    'ad_id, short, angle, angle_override, beats, dur', { status: 'analizada' },
+  );
   const withBeats = rows.filter((r) => (r.beats?.length ?? 0) > 0);
   const metrics = await getScriptMetrics(withBeats.map((r) => r.ad_id), desde, hasta);
 

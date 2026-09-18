@@ -213,7 +213,8 @@ export const RUNNERS: Runners = {
         ultima_operacion: u.ultimaOp ? { proceso: u.ultimaOp.feature, gasto_usd: r4(u.ultimaOp.costUsd), tokens: u.ultimaOp.tokens, cuando: u.ultimaOp.at } : null,
         avisos: [
           'Es un PISO: la búsqueda semántica, la transcripción y el análisis de creativos gastan sin registrarse.',
-          'La lectura corta en 1000 llamadas desde el inicio del mes (o desde la carga de saldo más vieja): con más uso, el gasto queda corto y el restante, largo.',
+          // El aviso de «la lectura corta en 1000 llamadas» se sacó el 17/09:
+          // getUsageSummary pagina (leerTodo) y el gasto ya es completo.
           'Las IA gratis (Groq, Mistral, OpenRouter sin créditos, Gemini sin saldo) cuentan 0 USD.',
           'restante_usd de OpenRouter lo informa OpenRouter; si no respondió, queda null.',
         ],
