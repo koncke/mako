@@ -115,7 +115,11 @@ test('CABLEADO: createLead avisa en vez de insertar a ciegas', () => {
   // entrar a nadie» por una consulta caída pierde clientes reales — es el
   // fallback más fuerte que el camino feliz, que este repo ya pagó una vez.
   const i = leads.indexOf('export async function duplicadosDeLead');
-  assert.ok(/catch \(e\) \{[\s\S]{0,400}return \[\]/.test(leads.slice(i, i + 2200)), 'una consulta caída no puede bloquear el alta');
+  // Se mira el CUERPO de la función (hasta el cierre `}` en columna 0), no una
+  // ventana de N caracteres: con `i + 2200` el test se rompía cada vez que alguien
+  // documentaba la consulta, sin que el comportamiento cambiara en nada.
+  const cuerpo = leads.slice(i, leads.indexOf('\n}\n', i) + 3);
+  assert.ok(/catch \(e\) \{[\s\S]{0,400}return \[\]/.test(cuerpo), 'una consulta caída no puede bloquear el alta');
 
   // Y tildar un duplicado en el importador ahora SIRVE: antes se descartaba
   // igual, o sea que la pantalla ofrecía un tilde que no hacía nada.
