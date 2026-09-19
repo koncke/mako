@@ -13,6 +13,7 @@ habilita a darle mejores prompts al otro Claude».
 - Lo que no está en `TENANT_TABLES` sale **sin filtro de workspace** y nada avisa → [Aislamiento multi-inquilino](#aislamiento-multi-inquilino).
 - «Se guarda cifrada, se pinta verde y el route lee `process.env`»: la credencial del cliente no se usa nunca → [Credenciales e integraciones](#credenciales-e-integraciones-byok).
 - Un `200` en un webhook es un **acuse de recibo**: el proveedor no reintenta y el evento se pierde para siempre → [Webhooks](#webhooks-recibir-sin-perder-eventos).
+- Calendly **deshabilita la suscripción** tras días de fallos, no avisa, y no tiene pantalla donde verlo: nueve días sin una sola agenda con todo en verde — y la prueba firmada que parecía desmentir el arreglo estaba mal hecha, porque un evento que no rutea se verifica contra la clave de PLATAFORMA → [Webhooks](#webhooks-recibir-sin-perder-eventos).
 - Un push no es una entrega: el build de Vercel falla, **producción sigue sirviendo la versión vieja** y nadie avisa → [Build, deploy y entrega](#build-deploy-y-entrega).
 - La factura de builds no mide tiempo: mide `ceil(minutos) × vCPU`. Acortar el build **no ahorró nada**, y el comentario que decía lo contrario vivió un mes en el código → [Build, deploy y entrega](#build-deploy-y-entrega).
 - Un comentario que afirma que algo **no pasa por el gate** con una premisa cierta y una conclusión falsa: el destino de un redirect es un request NUEVO, y el link de la extensión cayó en el login durante días → [El comentario decía que el gate «ni se entera»](#el-comentario-decía-que-el-gate-ni-se-entera-y-por-eso-nadie-lo-miró).
@@ -914,6 +915,72 @@ cadena de medición del negocio cuelga de ese evento.
 **Regla:** un campo que el ruteo necesita **no puede estar marcado opcional**.
 
 **Vive en:** app/api/webhooks/calendly/route.ts:60 · lib/webhook-routing.ts:33-35 · lib/metodo-catalogo.ts:594-601 · *2026-07-17 ~metodo-facts-del-ping (reconfirmado el 2026-07-19)*
+
+### ⚠️ Una suscripción de webhook se DESHABILITA sola, y del lado de Calendly no hay pantalla que lo diga (19/09/2026)
+
+**Síntoma:** nueve días sin una sola agenda en el CRM, con la tab en verde, el endpoint
+sano y cero errores en ningún lado. Lo que estaba pasando es que **Calendly había
+deshabilitado la suscripción**: tras días de entregas fallidas la pasa a `disabled`, deja
+de mandar, y **no avisa a nadie**.
+
+Tres trampas del proveedor, las tres medidas ese día:
+
+- **Calendly no tiene UI de webhooks.** No se ven, no se crean y no se arreglan desde su
+  panel: la única puerta es la API v2 con un PAT (`/webhook_subscriptions`). Martín entró a
+  buscarlo y la pantalla que sí existe es la de tokens.
+- **Una suscripción `disabled` no se puede reactivar**: hay que borrarla y crear otra. Y
+  crear otra con la MISMA URL mientras la vieja exista devuelve **409 «Hook with this url
+  already exists»**, aunque la vieja esté muerta. O sea que el orden es parte del arreglo:
+  borrar primero.
+- **La clave de firma se puede FIJAR al crear** (`signing_key` en el POST). Es lo que
+  permite que los dos lados coincidan desde el primer envío en vez de guardar a ciegas lo
+  que Calendly devuelva.
+
+**El diagnóstico obvio era el equivocado, y era MÍO.** La verificación de punta a punta del
+script mandaba un evento inventado, firmado con la clave nueva, esperando el `200 · sin
+ruteo` del route. Contestó **401 «Firma no coincide»** y se leyó como «el arreglo falló».
+El arreglo estaba perfecto: el route **resuelve el workspace ANTES de verificar** y con eso
+elige la clave (`keyWs = ws == null ? null : credWs(...)`; `signingKey = keyWs ?? envCred(...)`),
+así que un evento que no rutea a nadie se compara contra la clave de **plataforma**, no
+contra la del ws que el script acababa de guardar. Medido con el mismo cuerpo llevando el
+nombre del event type: **400 `incomplete_payload`** (la firma validó y el route no tocó un
+dato) y **401** con una clave inventada.
+
+**Regla: una prueba firmada contra un receptor multi-inquilino tiene que RUTEAR.** Si el
+cuerpo no resuelve workspace, no está probando la credencial que se quiere probar — está
+probando el fallback, y contesta lo mismo que una firma mala. El cuerpo bueno es el que
+muere en la validación de datos (400) después de la firma: prueba el camino entero sin
+escribir nada.
+
+**Por qué no se sabe QUÉ la deshabilitó, y qué se descartó.** Los reintentos arrancaron el
+11/09 a las 13:36 UTC y el último lead por Calendly entró el 10/09 a las 04:03 UTC. En esa
+ventana: no hubo ningún deploy que tocara el route, `lib/calendly.ts`, las credenciales, el
+ruteo ni `rutas-publicas` (el único commit del 10/09 fue `/analisis/trimestre`); la env var
+`CALENDLY_WEBHOOK_SIGNING_KEY` de Vercel es del 05/08 y nadie la rotó; los dos
+identificadores de `webhook_routing` siguen coincidiendo palabra por palabra con los nombres
+vivos de los event types; y la cuenta acepta crear suscripciones, así que no es el plan.
+**Lo que queda es que la evidencia caduca**: la API v2 de Calendly no expone los intentos de
+entrega y los logs de Vercel duran minutos. Pasados unos días, de un webhook caído sólo
+queda el efecto.
+
+**Lo que costó, medido contra la API de Calendly y el CRM:** 8 reservas entraron en el
+agujero. Una persona **no existe en el CRM** (agendó para el lunes 21/09), otra sí existe
+pero sin su `fecha_junta_1`, así que el motor la sigue nutriendo como si no hubiera
+agendado; dos reagendas de un mismo lead no figuran, y una reserva la terminó cargando
+Mauricio a mano. `scripts/backfill-calendly.ts` las recupera (idempotente, sólo completa
+campos vacíos).
+
+**Se llevó puesta de paso una deuda de seguridad:** la clave del ws1 era
+`updated_by='migracion-env'`, o sea **la copia de la env de plataforma** — la fila y el
+fallback apuntaban al mismo secreto, que es lo que `docs/estado-del-arte.md` tenía anotado
+como forja cross-tenant abierta. Ahora el ws1 tiene la suya, única. Queda vaciar la env var
+de plataforma (recién después de ver entrar una reserva real) y borrar la copia que
+`datos-mau` dejó en el ws4.
+
+**Lo que falta:** un vigilante. Nada mira si la suscripción sigue `active` ni si hace N días
+que no entra una reserva, y ese silencio es el que costó los nueve días — no la caída.
+
+**Vive en:** scripts/arreglar-webhook-calendly.ts · app/api/webhooks/calendly/route.ts:100-140 · scripts/backfill-calendly.ts · docs/estado-del-arte.md:174 · *2026-09-19 ~calendly-suscripcion-deshabilitada*
 
 ---
 

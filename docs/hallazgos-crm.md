@@ -1619,6 +1619,14 @@ key, que ahora se lee por workspace con `credWs`.
 **Vive en:** `lib/metodo-catalogo.ts:445-447` · `app/api/webhooks/calendly/route.ts` ·
 `lib/tab-activacion.ts:151` · *2026-08-06 ~verificar-tareas-ya-hechas*
 
+**Y hay una segunda forma de que Calendly deje de entrar, sin tocar nada de esto:** que el
+proveedor DESHABILITE la suscripción. Pasó del 10/09 al 19/09/2026 — nueve días sin una sola
+agenda, con la tab en verde y el endpoint sano — y cuesta 8 reservas: una persona que nunca
+existió en el CRM y un lead al que el motor siguió nutriendo porque su `fecha_junta_1` quedó
+vacía. Se recupera con `scripts/backfill-calendly.ts`. El detalle, con las tres trampas de la
+API de Calendly y la prueba firmada que parecía desmentir el arreglo, en
+[hallazgos-infra.md](hallazgos-infra.md) → «Una suscripción de webhook se DESHABILITA sola».
+
 ### Agendar R1 y R2 va siempre por el embed de Calendly
 
 **Decisión (22/06).** Nunca a mano; si no se completa el agendamiento, **el lead no cambia de
