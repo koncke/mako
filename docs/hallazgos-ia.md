@@ -679,11 +679,96 @@ de la cascada.
 lib/ia-keys.ts:97), nunca `1..n` ni `1..MAX_KEYS`; con cero cuentas, `agotado: null` y el
 reparto vacío, no una cuenta inventada. `ver_cuotas_ia` de la API tapa solo el caso de cero
 cuentas (lib/api-mako/areas/integraciones.run.ts:167,169) y su `por_cuenta` sale de la misma
-numeración. **Sin hacer:** las dos funciones de lib/ia-cuotas.ts. *2026-09-16 api-mako-areas*
+numeración. **HECHO el 19/09/2026** (ver la entrada de abajo): las tres funciones iteran los SLOTS
+cargados (`slotsCargados`), no `1..n` ni `1..MAX_KEYS`. Sigue PENDIENTE el `agotado: null`
+para cero cuentas: cambia el tipo `CuotaProv` que leen el board y la API, y hoy un
+proveedor sin ninguna key sigue saliendo con una fila vacía en el slot 1.
+*2026-09-16 api-mako-areas*
 
 **Vive en:** lib/ia-cuotas.ts (`usoHoyPorCuenta`, `cuotasProveedores`, `ordenarCuentas`) ·
 lib/anthropic-usage.ts (`cuenta`) · supabase/migrations/0132_uso_por_cuenta.sql ·
 app/integraciones/IntegracionesBoard.tsx · *2026-08-12 reporte de Leila*
+
+### ⚠️ Conectar la TERCERA key de Gemini empeoraba el mensaje: la fila «cuenta 1» era el TOTAL, y el tope de tokens estaba en la unidad equivocada
+
+**Síntoma.** El dueño, con tres cuentas de Gemini cargadas y funcionando: *«No puede ser
+que tengo 3 API de gemini conectadas y me dice que me quedé sin tokens»*. El panel le decía
+**«Sin cuota hoy — 841,5k / 750,0k tok»**: el numerador por ENCIMA del denominador, que es la
+forma en que este bug se delata y nadie miró.
+
+**Causa 1 — la cuenta 1 y el total compartían casillero.** `claveCuenta(provider, 1)` devolvía
+el nombre PELADO del proveedor (`'gemini'`), que es exactamente la clave donde el plegado
+acumula el agregado de TODAS las cuentas. O sea que la fila «cuenta 1» del reparto mostraba
+la suma de las tres keys medida contra el tope de UNA. **Cuantas más cuentas conectás, más
+agotada se ve la primera** — el panel empeora con cada key que suma el cliente, que es lo
+contrario de lo que el producto le promete.
+
+Y se realimentaba: `ordenarCuentas` ordena por % consumido, así que la cuenta 1 salía siempre
+la más gastada, se probaba ÚLTIMA y no la usó nadie nunca. Medido en ws9: **cero llamadas en
+la cuenta 1 en treinta días**, con las cuentas 2 y 3 haciendo todo el trabajo. El propio
+mecanismo que ocultaba el problema lo sostenía.
+
+**Causa 2 — `tokensDia: 250_000` es el tope por MINUTO.** 250k es el TPM del free tier de
+Gemini 2.5 Flash, cargado como si fuera el del DÍA: **1440 veces más chico**. `pctDe` toma el
+MAYOR de los dos cocientes, así que el lado de los tokens reventaba a diario mientras el de
+los pedidos —el que Gemini SÍ limita por día— nunca pasaba el 58%. Medido contra
+`anthropic_usage`: **veinte días-workspace por encima de ese «tope», del 139% al 469%**
+(ws9 el 05/08: 1.171.928 tokens en 144 pedidos), y Google contestó TODAS esas llamadas.
+
+    ws9  18/09   21 pedidos / 841.511 tok   →  «sin cuota» por tokens,  8% por pedidos
+    ws1  11/09  109 pedidos / 790.013 tok   →  «sin cuota» por tokens, 44% por pedidos
+
+**Un tope que se revienta todos los días sin que el proveedor se queje no es un tope: es un
+número inventado.** Los dos defectos son independientes y cada uno alcanza solo; juntos, el
+panel decía «sin cuota» sobre tres keys sanas.
+
+**⚠️ Y lo que más cuesta ver: esto ES la entrada de arriba, arreglada a medias.** El caso
+de Leila (12/08) dejó de SUMAR las cuotas en el total y agregó el reparto por cuenta —
+correcto, y sigue vigente. Lo que no tocó fue que el casillero de la cuenta 1 siguiera
+siendo el del agregado, así que el mismo error volvió con el signo cambiado: antes el total
+decía «te sobra» mientras una cuenta estaba muerta; ahora una cuenta decía «estoy muerta»
+llevando el total de las otras. **Al des-sumar un indicador, revisá que cada parte tenga su
+propio casillero** — si una comparte clave con el total, no lo des-sumaste.
+
+**El diagnóstico obvio era el equivocado, otra vez.** Las hipótesis naturales —«las tres keys
+son del mismo proyecto de Google», «alguna no descifra», «el clasificador del mensaje matchea
+`exceeded` de más»— se midieron y se cayeron las tres: las 73 credenciales descifran, las tres
+keys contestan HTTP 200, y el mensaje de chat ni siquiera era la superficie que él estaba
+mirando. **Lo roto era el MEDIDOR, no las keys ni el texto.**
+
+**La regla.** Un reparto por ítem no puede usar la misma clave que el total: si `clave(item_1)
+=== clave(total)`, el primer ítem miente por construcción y encima arrastra a cualquier orden
+que se calcule con él. Y todo tope de un tercero lleva su UNIDAD verificada contra el uso real
+— si los datos que ya tenés lo pasan seguido y nadie se queja, el que está mal es el tope.
+
+**Probado rompiéndolo** (`tests/ia-cuotas.test.ts`): con el casillero compartido fallan 3 de 6;
+con el `tokensDia` de vuelta, 2 de 6; con los dos —el estado real de producción hasta hoy—
+**5 de 6**.
+
+**Lo que quedó SIN hacer:**
+- `agotado: null` para un proveedor sin ninguna key (hoy sale fila vacía en el slot 1) —
+  `lib/ia-cuotas.ts` `cuotasProveedores`, y el tipo `CuotaProv` que leen el board y la API.
+- La ventana del contador corta a medianoche del SERVIDOR (UTC) y la cuota de Gemini se repone
+  a medianoche **Pacific**: 7-8 h de desfase — `lib/ia-cuotas.ts:usoHoyPorCuenta`.
+- El uso se registra **sólo en el ÉXITO** (`recordUsage` corre después de la respuesta), así
+  que una key que devuelve 429 en cada llamada figura en 0% y `ordenarCuentas` la sigue
+  poniendo primera — `lib/ai-cheap.ts`. Es el peaje del 429 que la rotación proactiva venía
+  a evitar, vivo por el otro lado.
+- `causaDelFallo` clasifica `'sin_cuota'` si **cualquiera** de los errores de la cascada
+  matchea el regex (`quota|exceeded|insufficient|billing`), aunque las otras cuentas hayan
+  fallado por otra cosa; no existe una causa «saturación» (503) ni «tu key es inválida» —
+  `lib/fallo-ia-texto.ts`.
+- Las keys de Gemini de ws9 son la «red de plataforma» de los clientes y ese consumo se anota
+  en el workspace del CLIENTE con el slot de una key ajena — `lib/ai-cheap.ts:provsGratisDePlataforma`.
+- La misma API key de Gemini está cargada en dos workspaces (tres pares medidos): dos gauges
+  miden medio tanque cada uno y Google cuenta un solo proyecto.
+
+**Vive en:** lib/ia-cuotas-calculo.ts (nuevo: `claveCuenta`, `LIMITES_PROVEEDOR`, `plegarUso`,
+`pctDe`) · lib/ia-cuotas.ts (`slotsCargados`, `cuotasProveedores`, `ordenarPorCuota`,
+`ordenarCuentas`) · lib/fallo-ia-texto.ts (`textoFalloIA` con `keysDelCliente`) ·
+lib/mako-doer-in.ts:719,1229 · app/integraciones/IntegracionesBoard.tsx (`LIMITE_FREE.gemini`) ·
+tests/ia-cuotas.test.ts · scripts/diag-gemini-cuotas.mjs · scripts/diag-gemini-panel.ts ·
+*2026-09-19 gemini-sin-tokens (6 lentes × 2 refutadores, 106 agentes)*
 
 ### «0 operaciones recientes» no era un panel vacío: era un 403 pintado como cero
 

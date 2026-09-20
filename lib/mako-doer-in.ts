@@ -716,10 +716,14 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
         // muy seguido no era suya: el cliente tenía UNA sola key y estaba agotada.
         // Un mensaje que se echa la culpa además NO DICE QUÉ HACER, y la solución
         // estaba a dos clics. Ver lib/fallo-ia-texto.ts.
+        // Las cuentas se cuentan UNA vez: el texto también las necesita, y con dos
+        // llamadas el mensaje podía contradecir a la causa que lo eligió.
+        const nKeysAudio = await contarKeysIA().catch(() => 1);
         const aviso = `Me llegó tu audio pero no lo pude escuchar.\n\n${textoFalloIA(
-          causaDelFallo([detalle], await contarKeysIA()),
+          causaDelFallo([detalle], nKeysAudio),
           linkKeysIA(APP_URL),
           'escuchar tu audio',
+          nKeysAudio,
         )}`;
         const env = await enviarAGrupoJid(jid, aviso);
         if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
@@ -1226,7 +1230,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
           const eraDePlan = esCargaDePlan(texto) || (esRutaPlan(ruta.motivo) && !intencion.dudosa);
           respuesta = causa === 'proveedor_caido'
             ? avisoNoPude(eraDePlan)
-            : textoFalloIA(causa, linkKeysIA(APP_URL), eraDePlan ? 'armar el borrador' : 'contestar');
+            : textoFalloIA(causa, linkKeysIA(APP_URL), eraDePlan ? 'armar el borrador' : 'contestar', nKeys);
           console.error(`[mako-doer-in] ws=${wsData} fallo de IA (${causa}, ${nKeys} keys): ${errsIA.join(' · ').slice(0, 400)}`);
         }
       }

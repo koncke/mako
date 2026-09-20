@@ -1732,6 +1732,37 @@ Y el corolario que se paga aparte: **rotar solo por error es pagar un peaje por 
 Si hay tres cuentas y la primera está muerta, cada llamada gasta un 429 antes de llegar a
 la que tiene nafta. Si el sistema puede saber cuál está gastada, empezá por la que no.
 
+## Y al DES-sumar, cada parte necesita su propio casillero
+
+El arreglo de arriba se hizo y el bug volvió trece meses después con el signo cambiado, en
+la misma pantalla. `claveCuenta(provider, 1)` devolvía el nombre pelado del proveedor —la
+misma clave donde se acumula el TOTAL—, así que la fila «cuenta 1» del reparto mostraba la
+suma de las tres keys contra el tope de una. **Conectar una key más empeoraba el mensaje.**
+
+Y se sostenía solo: el orden de rotación va por % consumido, la cuenta 1 salía siempre la
+más gastada, se probaba última y no la usaba nadie. Medido: cero llamadas en la cuenta 1 en
+treinta días. El mecanismo que escondía el problema era el problema.
+
+**Si `clave(parte_1) === clave(total)`, no des-sumaste nada.** Es la primera línea a mirar
+cuando un indicador por ítem se contradice con su propio total — y la señal en pantalla es
+un numerador por encima del denominador («841,5k / 750,0k»), que se lee como un dato raro
+y es la aritmética delatándose.
+
+## Y un tope de un tercero lleva su UNIDAD verificada contra el uso real
+
+`tokensDia: 250_000` para Gemini es el tope por **minuto** (TPM) cargado como tope del
+**día**: 1440 veces más chico. Nadie lo notó porque el otro eje del mismo cálculo —los 250
+pedidos/día, que sí existen— nunca se acercaba, y el `Math.max` de los dos dejaba mandar
+siempre al inventado.
+
+Lo delata medir contra lo que ya está en la base: **veinte días-workspace pasaron ese
+«tope», del 139% al 469%, y el proveedor contestó todas las llamadas.** Un límite que se
+revienta a diario sin una sola queja del que lo impone no es un límite.
+
+**Antes de escribir un tope ajeno, corrélo contra el uso histórico y contá cuántas veces se
+pasó.** Si se pasa seguido y no hay error del proveedor, el que está mal es el tope — y
+mientras tanto está apagando la rotación y diciéndole al cliente que se quedó sin nada.
+
 ## Y el corolario del tamaño: un tope elegido contra UN proveedor apaga a los demás
 
 La misma trampa, un escalón más abajo. Tres proveedores configurados no son tres

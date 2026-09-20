@@ -60,7 +60,7 @@ type ProvSaldo = { provider: string; costMesUsd: number; tokens: number; tokensH
 // muestra sin denominador de tokens inventado (antes copiaba el 500k de Groq → mal).
 const LIMITE_FREE: Record<string, { tokensDia?: number; cap: string }> = {
   groq: { tokensDia: 500_000, cap: 'tokens · el plan gratis reinicia cada día' },
-  gemini: { cap: 'Gemini free: 250 solicitudes/día · 250k tokens/día · 1M de contexto' },
+  gemini: { cap: 'Gemini free: 250 solicitudes/día · 1M de contexto (no hay tope de tokens/día)' },
   cerebras: { cap: 'Cerebras free: gratis, limitado por rate (pedidos/min), no por dinero' },
   mistral: { cap: 'Mistral free tier (plan Experiment): limitado por rate, sin cargo' },
   openrouter: { cap: 'OpenRouter: los modelos ":free" no cobran (rate diario)' },

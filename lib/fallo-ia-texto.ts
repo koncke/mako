@@ -72,7 +72,12 @@ export type QueIntentaba = 'contestar' | 'escuchar tu audio' | 'armar el borrado
  *   2. Dice QUÉ HACER, con el link a la pantalla exacta.
  *   3. Cuando no es del cliente, lo dice con todas las letras.
  */
-export function textoFalloIA(causa: CausaFalloIA, link: string, que: QueIntentaba = 'contestar'): string {
+export function textoFalloIA(
+  causa: CausaFalloIA,
+  link: string,
+  que: QueIntentaba = 'contestar',
+  keysDelCliente = 1,
+): string {
   switch (causa) {
     case 'sin_keys':
       return [
@@ -82,6 +87,19 @@ export function textoFalloIA(causa: CausaFalloIA, link: string, que: QueIntentab
         link,
       ].join('\n');
     case 'sin_cuota':
+      // ⚠️ CON VARIAS CUENTAS, EL TEXTO DE UNA SOLA ES UN INSULTO. Le pedía
+      // «cargá otra, podés tener varias y las voy rotando» a alguien que ya tenía
+      // TRES cargadas. El dueño lo reportó así: «no puede ser que tengo 3 API de
+      // gemini conectadas y me dice que me quedé sin tokens». Pedirle lo que ya
+      // hizo no es solo redundante: le avisa que el producto no se enteró.
+      if (keysDelCliente >= 2) {
+        return [
+          `⚠️ Probé tus ${keysDelCliente} cuentas de IA y las ${keysDelCliente} llegaron al tope de hoy, por eso no puedo ${que}.`,
+          '',
+          'Se reponen solas mañana. Si lo necesitas *ahora*, una cuenta más lo destraba 👇',
+          link,
+        ].join('\n');
+      }
       return [
         `⚠️ Te quedaste sin cuota de IA, por eso no puedo ${que}.`,
         '',
