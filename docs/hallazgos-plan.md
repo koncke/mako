@@ -2443,3 +2443,52 @@ pertenece a proyectos que él mismo acaba de descartar. El detalle, en
 `dashboard-marketing-main/accionables-mako-20-sep.html`.
 
 **Vive en:** lib/plan-board.ts (`rowToLabel`, `maxPid`) · app/plan/board/BoardShell.tsx (`labelById`, `pendientesPorProy`) · *2026-09-20 ~accionables-mako-20sep*
+
+## Depurar el board: lo que se propone NO se revisa, y «ya se hizo» no es «ya no hace falta» (21/09/2026)
+
+**Síntoma:** el board del super admin llevaba 19 días sin una tarea nueva, con 553 abiertas,
+0 en prioridad y el 63% del trabajo cargado en proyectos que Martín acababa de descartar.
+
+**El diagnóstico obvio era el equivocado.** Parecía que no se estaba cargando nada. Se estaba
+cargando todo: había **51 borradores pendientes desde el 03/08**, con unas 297 tareas
+propuestas y 223 cierres que nadie confirmó. El pipeline propone bien (Fathom, WhatsApp,
+`cerrar-por-commits`); lo que se trabó es la REVISIÓN. Sumar productores a un tablero así no
+lo actualiza: engorda la bandeja. Lo que hay que mirar primero es
+`select count(*) from plan_propuestas where estado = 'pendiente'`.
+
+**Cómo se depuró** (56 agentes): cada tarea abierta contra la sesión del 20/09 y contra el
+código, y **toda baja y todo cierre** refutado por un segundo agente — 283 refutaciones, 41
+no se sostuvieron y esas tareas se conservaron. Resultado: 553 → 439 abiertas (15
+duplicadas fundidas, 44 obsoletas, 55 de proyectos tachados), 50 reubicadas, 118
+enriquecidas, 71 proyectos repriorizados con `score_manual`. Respaldo previo en
+`dashboard-marketing-main/backups/plan-ws9-antes-de-depurar-2026-09-20.json`, y el registro
+de cada cambio con su motivo al lado.
+
+Cuatro trampas que aparecieron haciéndolo:
+
+1. **El clasificador confunde «obsoleta» con «ya se hizo».** 5 de 49 obsoletas decían en su
+   propio motivo que la cosa ya estaba hecha («la línea ya se consiguió», «el reencuadre ya
+   ocurrió»). Son dos veredictos distintos: lo innecesario se borra, lo hecho se CIERRA y
+   deja el registro de que se hizo (`cerrar no es borrar`). Si el motivo trae un verbo en
+   pasado, no es obsoleta.
+2. **`enPlan` cae a `OWNER_WS` — que es el ws 1, Mauricio.** Resuelve el workspace con
+   `getWorkspaceActual() ?? OWNER_WS`, y `getWorkspaceActual()` sin contexto lee la cookie.
+   Desde un script tira «`cookies` was called outside a request scope» (por suerte tira, y
+   no escribió nada); la salida es `runWithWorkspace(<ws del super admin>, …)`. El mismo
+   supuesto viejo vive en `lib/mako-doer-acciones.ts:180`: `if (ws === OWNER_WS)` decide
+   que escribe en `plan_tareas`, o sea que una tarea de Mauricio iría al board del super
+   admin en SU workspace y una de Martín al board de clientes. Hoy no hizo daño (plan_tareas
+   sólo tiene filas del ws 9 y no hay tareas de Martín en `experimento_tareas`), pero la
+   acción `tareas_plan` sigue listada en `lib/api-mako/acciones.ts:71`.
+3. **`crearPropuesta` recorta en silencio**: `cerrar` a 40 y `eliminar` a 30
+   (`.slice(0, 40)`). Un lote grande de cierres hay que partirlo en varios borradores, o se
+   pierde el resto sin aviso.
+4. **`eliminar` en un borrador ya no hace nada.** Desde la regla «jamás preguntar bajas» se
+   sacó el paso que las aplicaba, así que proponer una baja por borrador es escribirla en un
+   campo que nadie lee. Una baja decidida va directa, con respaldo y registro.
+
+**Lo que quedó SIN hacer:** los 51 borradores viejos (tienen compromisos de reuniones que
+Martín quizás no vio, así que no se descartaron sin su OK); el `ws === OWNER_WS` del doer;
+y tres borradores nuevos esperando confirmación (61 tareas de la sesión, 60 cierres).
+
+**Vive en:** lib/plan-board.ts (`enPlan`) · lib/plan-propuesta.ts (`crearPropuesta`) · lib/mako-doer-acciones.ts:180 · lib/api-mako/acciones.ts:71 · *2026-09-21 ~depurar-plan-superadmin*
