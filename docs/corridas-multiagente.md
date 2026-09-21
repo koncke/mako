@@ -27,6 +27,7 @@ Los journals siguen en disco, en
 
 | Fecha | Corrida | Agentes | Qué se fue a buscar | |
 |---|---|---|---|---|
+| 2026-09-20 | `accionables-mako-20sep` | 30 | Las 4 grabaciones del 20/09 (4 h 14 min): sacar los accionables por tramos, unificarlos por significado, medir cada uno contra el repo (archivo, línea, commit) y refutar adversarialmente todo lo que se declaró hecho. 110 accionables, 6 refutados | **cosechada** |
 | 2026-09-16 | `reunion-mau-martin-2026-09-08-tareas` | 46 | Todas las tareas de la llamada «Mau <> Martin: CHATBOT» del 8/9: extraer con 11 lentes, fusionar, refutar contra el transcript, ubicar cada una en el código y asignarle un chat por tab | **rescatada** |
 | 2026-09-16 | `reunion-mau-martin-tareas-v2` | 45 | Lo mismo para la continuación del 9/9: la skill de MaKo en el Claude de Mauricio, la oferta grupal evergreen y la reactivación de los leads que no cerraron | **rescatada** |
 | 2026-09-16 | `deepseek-harness-veredicto-mako` | 24 | ¿Sirve DeepSeek Harness / V4.1-Flash, «gratis», para desarrollar todo MaKo? Producto, costo real, calidad independiente, uso real, privacidad, encaje con las dependencias de Claude Code y opciones híbridas, con verificación por lotes | **rescatada** |

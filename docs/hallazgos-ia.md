@@ -2961,3 +2961,41 @@ en el ruteo, o el próximo modelo que se agregue vuelve a abrir el mismo agujero
 
 *Corrida del 05/09/2026 — 7 agentes mapeando qué datos toca MaKo para escribir la política;
 246 hechos verificados y dos auditores adversariales sobre el mapa.*
+
+## Un transcript largo se mide contra el HABLA, y el trozo final se verifica aparte (20/09/2026)
+
+Cuatro grabaciones de Martín, 4 h 14 min, partidas en 19 trozos de 15 min y transcritas con
+la cascada de siempre (Groq `whisper-large-v3-turbo` → Gemini). Martín pidió asegurar que no
+quedaran **cortadas a la mitad**, que ya había pasado. Lo que se aprendió midiéndolo:
+
+**La métrica no es caracteres por minuto de DURACIÓN, es palabras por minuto de HABLA.** Con
+duración, dos trozos daban 72 y 31 pal/min contra una mediana de 133 y parecían truncados.
+Descontando el silencio (`ffmpeg -af silencedetect=n=-35dB:d=1.5`) resultó que ninguno lo
+estaba: uno era una conversación lenta con pausas largas y el otro la despedida, casi sin
+habla. **Un umbral sobre la duración acusa de truncado a todo lo que tenga silencio**, y
+mandar a re-transcribir 15 minutos de audio por eso no es gratis.
+
+Las otras tres pruebas, en orden de costo:
+
+1. **Continuidad con el vecino.** El trozo N-1 termina en «no no no sé cómo…» y el N arranca
+   «No siento que te pueda dar un consejo…»: encadena. Es gratis y descarta el truncamiento
+   de todos los trozos intermedios de una.
+2. **El trozo final no tiene vecino que lo valide**, así que se le corta la cola con ffmpeg
+   (`-ss dur-75`), se transcribe por separado y se busca ese texto al final del transcript.
+   Si está, llegó hasta el final del audio.
+3. **El mismo trozo con el otro proveedor.** Groq dio 1170 caracteres donde Gemini daba
+   1175: coinciden, o sea que no es el modelo el que corta. Es la más cara y la última.
+
+⚠️ **Whisper alucina sobre el RUIDO, no sólo sobre el silencio.** Los finales traen «Gracias.
+Gracias por ver el video», puntos suspensivos repetidos y un renglón de lo que suena a una
+canción de fondo. No es contenido y no hay que extraer nada de ahí — pero tampoco es una
+señal de truncamiento: es lo que Whisper escribe cuando no hay qué escribir.
+
+⚠️ **El tope de Groq para audio es por SEGUNDOS POR HORA, no por tamaño de archivo.** Con 4
+horas de audio corta a la mitad de la tanda: `Rate limit reached … on seconds of audio per
+hour (ASPH): Limit 7200`. Los trozos que faltaban salieron por Gemini, que acepta hasta 14 MB
+inline. Un trabajo de más de 2 h de audio **necesita los dos proveedores sí o sí**, y conviene
+saberlo antes de empezar: es la misma familia que «un total sólo se puede sumar si el recurso
+se puede mover de lugar», con la cuota medida en segundos de audio.
+
+**Vive en:** lib/transcribe.ts (`STT_CASCADA`, `sttGemini`) · *2026-09-20 ~accionables-mako-20sep*

@@ -2416,3 +2416,30 @@ Mauricio después de cada junta.
 
 **Vive en:** app/plan/board/BoardShell.tsx (el efecto de la bienvenida, el ⚠ del header) ·
 app/plan/board/DatosModal.tsx · *2026-09-17*
+
+## El `pid` de un proyecto (P42) NO es su id: las tareas apuntan al SLUG (20/09/2026)
+
+`plan_proyectos` tiene dos identificadores y son cosas distintas: **`id` es el slug**
+(`crm-automtico-leads`, `arranque-del-cliente`) y **`pid` es el número VISIBLE** (P1, P42),
+el que se le muestra al dueño y que `maxPid()` incrementa al crear uno nuevo. El array
+`labels` de `plan_tareas` guarda el **`id`**, que es lo que `labelById()` y
+`pendientesPorProy` cruzan en `BoardShell`.
+
+Cruzar `labels` contra `pid` da **cero coincidencias sobre 643 tareas**, y eso se lee como
+«ninguna tarea del board tiene proyecto» — un bug enorme, y falso. Cruzado contra `id` da
+**63 de 63 labels y las 553 tareas abiertas bien asociadas**. Se estuvo a un paso de
+reportarlo como hallazgo.
+
+**La regla:** cuando una tabla tiene dos columnas que parecen identificar lo mismo, antes de
+concluir nada con un cruce hay que ir a ver **cuál de las dos escribe el que consume** — acá,
+`rowToLabel` en `lib/plan-board.ts` y el `t.labels.includes(id)` del render. Es la misma
+familia que «contar filas no es contar cosas: cruzá por clave», pero con la trampa corrida un
+lugar: la clave existía, y era la otra.
+
+**Y el dato que sí es real, medido el 20/09 sobre el ws9:** 643 tareas, 553 abiertas, la
+última cargada el **01/09**, 71 proyectos y **cero tareas con `en_prioridad`**. De esas 553,
+sólo 205 caen en los once proyectos que Martín dejó vivos ese día: el 63% del trabajo cargado
+pertenece a proyectos que él mismo acaba de descartar. El detalle, en
+`dashboard-marketing-main/accionables-mako-20-sep.html`.
+
+**Vive en:** lib/plan-board.ts (`rowToLabel`, `maxPid`) · app/plan/board/BoardShell.tsx (`labelById`, `pendientesPorProy`) · *2026-09-20 ~accionables-mako-20sep*
