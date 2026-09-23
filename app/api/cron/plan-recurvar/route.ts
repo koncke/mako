@@ -24,6 +24,7 @@
 import { NextResponse } from 'next/server';
 import { runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
 import { recurvarPlanOwner, limpiarDependenciasColgadas, priorizarProyectosOwner } from '@/lib/plan-board';
+import { avisarVencimientosDelPlan } from '@/lib/plan-avisos';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -41,9 +42,15 @@ export async function GET() {
     // `fallas` viaja en la respuesta a propósito — un cron que audita y se guarda el
     // resultado es un cron que no auditó.
     const p = await runWithWorkspace(ws, () => priorizarProyectosOwner('Repriorización diaria')).catch((e) => ({ movidos: 0, total: 0, norte: '', error: e instanceof Error ? e.message : String(e) } as Awaited<ReturnType<typeof priorizarProyectosOwner>>));
+    // El aviso que faltaba: qué proyecto se vence o ya se venció. UN mensaje con todos
+    // adentro, y solo si cambió algo desde el último — «las notificaciones de WhatsApp son
+    // demasiadas» es la otra mitad del pedido, y un aviso por proyecto sería justo eso.
+    const venc = await runWithWorkspace(ws, () => avisarVencimientosDelPlan(new Date().toISOString().slice(0, 10), ws))
+      .catch((e) => ({ atrasados: 0, porVencer: 0, enviado: false, motivo: e instanceof Error ? e.message : String(e) }));
+    console.log(`[cron plan-recurvar] vencimientos: ${venc.atrasados} atrasados · ${venc.porVencer} por vencer · ${venc.enviado ? 'avisado' : `sin avisar (${venc.motivo ?? '—'})`}`);
     console.log(`[cron plan-recurvar] ws${ws} · ${t.movidas}/${t.total} tareas · ${t.conDeadline} por fecha · ${t.quietas} por quietud · ${t.frenadas} frenadas · proyectos ${p.movidos}/${p.total} · norte «${p.norte}»${p.fallas ? `
 ${p.fallas}` : ''}`);
-    return NextResponse.json({ ok: true, tareas: t, proyectos: p, colgadas });
+    return NextResponse.json({ ok: true, tareas: t, proyectos: p, colgadas, vencimientos: venc });
   } catch (err) {
     // Un cron que falla en silencio es un cron que nadie sabe que dejó de correr.
     console.error('[cron plan-recurvar]', err instanceof Error ? err.message : String(err));

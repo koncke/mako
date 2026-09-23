@@ -163,6 +163,7 @@ export const AVISOS_WA_EN_VIVO: AvisoWaDef[] = [
   { id: 'reunion-ocurrio-fathom', titulo: 'Grabación de reunión lista', sub: 'Termina una reunión y queda la transcripción.' },
   { id: 'reunion-tareas-al-plan', titulo: 'Tareas esperando confirmación', sub: 'De una reunión salieron tareas para revisar en el plan.' },
   { id: 'tareas-autocompletadas', titulo: 'Tareas cerradas automáticamente', sub: 'MaKo dio por hechas tareas que ya estaban resueltas.' },
+  { id: 'plan-proyecto-vence', titulo: 'Proyectos atrasados o por vencer', sub: 'UN mensaje por día con todos juntos, y solo si algo cambió.' },
   { id: 'retro-lista', titulo: 'Retro semanal lista', sub: 'Queda armada la retro de la semana, con su PDF.' },
   { id: 'wa-mensaje-entrante', titulo: 'Mensaje de WhatsApp sin responder', sub: 'Un contacto escribe y todavía nadie le contestó.' },
   { id: 'meta-anuncio-espera-aprobacion', titulo: 'Meta retuvo un anuncio', sub: 'Un anuncio publicado necesita aprobación manual para salir.' },

@@ -33,10 +33,18 @@ export function pasosComoBullets(detalle: string, pasos: string[]): string {
   if (!limpios.length) return d.trim();
   // Lo que ya está escrito no se repite, con o sin viñeta y sin importar acentos.
   const yaEsta = new Set(d.split('\n').map((l) => norm(l.replace(/^\s*[-*·•]\s*/, ''))).filter(Boolean));
+  // Y tampoco se repite lo que la prosa YA DICE. La mitad de las checklists del tablero
+  // eran un resumen de la descripción («Dar acceso a la cuenta publicitaria» debajo de
+  // «Dar acceso a la cuenta publicitaria para que MaKo lea campañas…»): pegarlas abajo
+  // convierte una descripción buena en una descripción que se repite a sí misma.
+  // ⚠️ El piso de 12 caracteres NO es cosmético: sin él, «Probar» o «Avisar» matchean
+  // adentro de cualquier párrafo y el paso desaparece por casualidad.
+  const prosa = norm(d);
   const nuevos: string[] = [];
   for (const p of limpios) {
-    const k = norm(p);
+    const k = norm(p.replace(/^✓\s*/, ''));
     if (!k || yaEsta.has(k)) continue;
+    if (k.length >= 12 && prosa.includes(k)) continue;
     yaEsta.add(k);
     nuevos.push(`- ${p}`);
   }

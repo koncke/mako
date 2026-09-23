@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fusionarDetalle } from '../lib/detalle-fusion';
+import { fusionarDetalle, pasosComoBullets } from '../lib/detalle-fusion';
 import { evaluarDetalle } from '../lib/detalle-contrato';
 
 // ---------------------------------------------------------------------------
@@ -40,4 +40,50 @@ test('…pero un COMPLEMENTO sin molde sí se suma', () => {
   assert.equal(evaluarDetalle(evidencia).conForma, false, 'una evidencia suelta NO es un detalle completo');
   assert.ok(fusionarDetalle(original, evidencia).includes(evidencia));
   assert.ok(fusionarDetalle(original, evidencia).includes('Conectar Meta'), 'lo del dueño no se pierde');
+});
+
+// ---------------------------------------------------------------------------
+// Los pasos, ahora VIÑETAS del detalle (22/09/2026)
+// ---------------------------------------------------------------------------
+// Las checklists salieron del producto y los pasos bajaron al detalle. Lo que hay que
+// cuidar es que no lo ensucien: la mitad de las checklists del tablero eran un resumen
+// de la propia descripción (medido: 1285 ítems en 291 tareas del plan del dueño).
+//
+// ⚠️ PROBADO ROMPIÉNDOLO, con los números: sacando el `prosa.includes(k)` quedan 6 pases
+// y 1 fallo, y el que falla es «un paso que la prosa YA DICE no se repite» — o sea que es
+// el único que mide eso. Bajando el piso de 12 caracteres a 0, otra vez 6 y 1, y el que
+// cae es «un paso corto NO se pierde»: «Probar» matchea adentro de «probar el flujo».
+
+test('los pasos entran como viñetas y respetan lo que ya estaba', () => {
+  const d = 'Mover el email a cuenta propia por cliente.';
+  const r = pasosComoBullets(d, ['Cargar la cuenta de Resend', 'Probar un envío']);
+  assert.ok(r.startsWith(d), 'la descripción no se toca');
+  assert.ok(r.includes('- Cargar la cuenta de Resend'));
+  assert.ok(r.includes('- Probar un envío'));
+});
+
+test('van adentro de «Detalles concretos» cuando el contrato está escrito', () => {
+  const d = '**Qué hay que hacer**\nConectar Meta.\n\n**Detalles concretos**\n- Pedirle el acceso al cliente\n\n**Listo cuando**\nEntra el primer lead.';
+  const r = pasosComoBullets(d, ['Verificar el dominio en Meta']);
+  const iPaso = r.indexOf('- Verificar el dominio en Meta');
+  const iListo = r.indexOf('**Listo cuando**');
+  assert.ok(iPaso > 0 && iPaso < iListo, 'el paso va en su sección, no colgado al final');
+});
+
+test('un paso que la prosa YA DICE no se repite', () => {
+  const d = 'Dar acceso a la cuenta publicitaria para que MaKo lea campañas, gasto y métricas.';
+  const r = pasosComoBullets(d, ['Dar acceso a la cuenta publicitaria', 'Conectar el pixel']);
+  assert.equal(r.includes('- Dar acceso a la cuenta publicitaria'), false, 'ya estaba dicho');
+  assert.ok(r.includes('- Conectar el pixel'), 'lo que NO estaba, sí entra');
+});
+
+test('un paso corto NO se pierde por aparecer adentro de una palabra', () => {
+  const d = 'Hay que probar el flujo entero antes de prenderlo.';
+  const r = pasosComoBullets(d, ['Probar']);
+  assert.ok(r.includes('- Probar'), 'seis caracteres no alcanzan para decidir que ya estaba');
+});
+
+test('sin pasos, el detalle vuelve igual', () => {
+  assert.equal(pasosComoBullets('Nada que agregar.', []), 'Nada que agregar.');
+  assert.equal(pasosComoBullets('', ['Un paso']), '- Un paso');
 });
