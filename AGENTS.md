@@ -578,6 +578,21 @@ Antes de escribir un límite —de tamaño, de progreso, de espaciado— comprob
 el límite real de la capa de abajo. Un número tuyo por encima del suyo no protege:
 promete.
 
+# Sacar un patrón es ENUMERAR dónde está, no arreglarlo donde se vio
+
+Cuando el dueño decide que algo se va —la fricción de un wizard, una checklist, un cartel—,
+el trabajo no es sacarlo de la pantalla que reportó: es hacer la lista de TODOS los lugares
+donde ese patrón vive y sacarlo de todos en la misma pasada.
+
+Medido el 23/09/2026: la fricción del Perro se sacó de la prioridad, después del alta de
+tarea, después del alta de proyecto — y al cuarto reporte seguía apareciendo en «Cambiar
+proyecto», con su pantalla de presentación y un campo obligatorio de justificación. Tres
+tandas de feedback para cuatro instancias del mismo patrón, y la persona que lo reporta
+yendo a buscarlas de a una.
+
+Un `grep` del componente compartido (`WizardShell`, `IntroBody`) las lista en segundos. La
+pregunta al cerrar no es «¿lo saqué de acá?» sino **«¿dónde más está esto?»**.
+
 # Antes de optimizar algo lento, preguntá si el CAMINO es el correcto
 
 «Tarda mucho» casi nunca se arregla acelerando el camino que ya existe. El dictado del plan

@@ -3065,3 +3065,59 @@ aplicó mal: **va pegado al dato que edita**. Ahora es el último elemento de la
 chips, que es donde se lee como «editá esto».
 
 **Vive en:** app/plan/board/dictado-vivo.ts · app/plan/board/CrearTareaModal.tsx · app/plan/board/CrearProyecto.tsx · app/plan/board/BoardShell.tsx · *2026-09-23*
+
+
+## La fricción no se saca de a una pantalla: hay que ENUMERAR todas (23/09/2026)
+
+Se le sacó la fricción a la prioridad, al alta de tarea y al alta de proyecto, en ese orden
+y en tres tandas de feedback. Y al tocar el lápiz de «Cambiar proyecto» seguía saliendo el
+mismo wizard de siempre: *«al darle aún me sigue apareciendo la fricción de antes del perro
+guardián»* — «Hola, soy el Perro Guardián MaKo» con su escudo, la lista, y una
+justificación OBLIGATORIA de por qué movías la tarjeta.
+
+**La regla: cuando se decide sacar un patrón, el trabajo es enumerar DÓNDE está, no
+arreglarlo donde se vio.** Cada tanda tapó el lugar reportado y dejó el siguiente, y la
+persona que lo reporta no tiene por qué ir encontrándolos de a uno.
+
+Lo que se sacó es siempre lo mismo: la pantalla de presentación del Perro, los pasos, y el
+campo obligatorio que pide un porqué. **El historial ya registra QUÉ se movió y QUIÉN lo
+hizo**, que es lo que se necesita para auditar; el porqué, cuando importa, va en las notas.
+
+Lo que NO se saca, porque no es fricción sino utilidad: el buscador, los filtros por familia
+y el orden. Con 70 proyectos una lista plana es un scroll donde encontrar «Feature: Landing
+Analyst» es leer de a uno.
+
+### Un ícono de editar tiene UN lugar, y los otros dos se ven mal
+
+El mismo lápiz se puso en los tres lugares posibles el mismo día:
+
+1. **Colgado del rótulo con un `flex: 1` en el medio** → flota contra el borde de la
+   columna, lejos de lo que edita y alineado con nada.
+2. **En la fila de los chips** → el chip ocupa los 236px de la columna, así que el
+   `flex-wrap` lo baja a un renglón propio, solo, debajo de todo.
+3. **Pegado al rótulo, sin hueco elástico** → «PROYECTOS ✎», que es lo que quedó.
+
+El patrón: un ícono de acción se ancla al TEXTO que nombra lo que edita, no al contenedor.
+Y si el contenido de al lado puede ocupar todo el ancho, no se lo pone en su fila.
+
+### Dos textos generados que nadie leía
+
+*«Elimina todos los textos como "desbloquea: Habilita el escalón 4 al mantener el
+accountability y el seguimiento del plan" o "Es el paso 2 y 5 del bucle de 5 pasos, y
+Mauricio lo necesita para escalar" — eso no tiene sentido.»*
+
+- **`deadlineRazon`**, la frase con la que el Perro justificaba la fecha que propuso.
+  Justificaba una decisión que desde hoy se cambia en el selector sin pedirle permiso a
+  nadie: era la explicación de un debate que ya no existe, ocupando tres renglones.
+- **`desbloquea`**, el renglón de prosa al lado del chip del escalón 5. Un párrafo generado
+  para justificar un chip de tres palabras.
+
+Los dos **siguen en la base**, en el export y en la API: lo que se sacó es el renglón. Y la
+justificación del escalón no se pierde, se mudó al `title` del chip — que es donde vive lo
+que explica sin ocupar lugar.
+
+⚠️ **El costo que queda anotado:** los dos se siguen GENERANDO, o sea que se siguen pagando
+tokens por texto que ya nadie ve. Sacarlos del prompt es otra tarea, y hay que hacerla
+mirando quién más los consume (el export los lleva como columna).
+
+**Vive en:** app/plan/board/AsignarProyecto.tsx · app/plan/board/BoardShell.tsx (`EscalonChip`) · app/plan/board/PrioridadAMano.tsx (`LapizPrioridad`) · *2026-09-23*

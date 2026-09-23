@@ -1,13 +1,27 @@
 'use client';
 
-// AsignarProyectoModal — cambiar el/los proyecto(s) de una tarea (CHECKLIST, multi).
-// Los proyectos ACTUALES vienen marcados con el chip "Actual"; no se puede avanzar si
-// no cambiás nada. La pregunta final es PERSONALIZADA según el cambio (sin proyecto /
-// cambiás de X a Y / agregás A, B, C). El motivo queda en el historial (feedback #19).
+// =============================================================================
+// AsignarProyectoModal — elegís el proyecto y listo
+// =============================================================================
+// Era un wizard de TRES pasos: «Hola, soy el Perro Guardián MaKo» con su escudo y su
+// párrafo, después la lista, y después una justificación OBLIGATORIA de por qué lo movías.
+// El reporte, textual (23/09/2026): «al darle aún me sigue apareciendo la fricción de antes
+// del perro guardián».
+//
+// Es la misma fricción que se sacó de la prioridad, del alta de tarea y del alta de
+// proyecto, sobreviviendo en el último lugar donde quedaba. Quedó en UNA pantalla: buscás,
+// elegís, guardás.
+//
+// Lo que NO se sacó, porque no es fricción sino utilidad: el buscador, los filtros por
+// familia y el orden. Con 70 proyectos, una lista plana es un scroll donde encontrar
+// «Feature: Landing Analyst» es leer de a uno.
+//
+// ⚠️ Y EL MOTIVO ERA OBLIGATORIO. Pedirle a alguien que escriba un párrafo para mover una
+// tarjeta de proyecto es exactamente lo que el dueño viene rechazando desde el 22/09: el
+// historial ya registra QUÉ se movió y QUIÉN lo hizo, que es lo que se necesita para
+// auditarlo. El porqué, cuando importa, se escribe en las notas.
 
-import { useMemo, useState, type CSSProperties } from 'react';
-import { WizardShell } from '@/app/_components/WizardShell';
-import { IntroBody, textareaStyle } from './guardian-form';
+import { useMemo, useState } from 'react';
 import { type BoardTask, type Label } from './types';
 
 const SANS = "'Geist', sans-serif";
@@ -45,33 +59,25 @@ export function AsignarProyectoModal({ task, labels, onAsignar, onClose }: {
   task: BoardTask; labels: Label[];
   onAsignar: (labelIds: string[], motivo: string) => void; onClose: () => void;
 }) {
-  const [idx, setIdx] = useState(0);
   const [sel, setSel] = useState<string[]>(task.labels.slice());
-  const [motivo, setMotivo] = useState('');
   const [busca, setBusca] = useState('');
   const [fam, setFam] = useState<Familia>('todos');
   const [orden, setOrden] = useState<'prioridad' | 'az'>('prioridad');
   const toggle = (id: string) => setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
-  const confirmar = () => { onAsignar(sel, motivo.trim()); onClose(); };
+  // El motivo viaja VACÍO: se pedía obligatorio y era la fricción. `onAsignar` lo sigue
+  // aceptando porque el historial lo sabe escribir, y el día que vuelva a haber una fuente
+  // para él —una reunión, un audio— entra por acá sin tocar nada más.
+  const confirmar = () => { onAsignar(sel, ''); onClose(); };
 
   const actuales = task.labels;
   const mismos = sel.length === actuales.length && sel.every((id) => actuales.includes(id));
   const agregados = sel.filter((id) => !actuales.includes(id));
   const quitados = actuales.filter((id) => !sel.includes(id));
 
-  const chip = (id: string) => { const l = labels.find((x) => x.id === id); return l ? <span key={id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 14, fontWeight: 700, padding: '3px 10px', borderRadius: 999, border: `1px solid ${l.color}59`, background: `${l.color}1f`, color: l.color }}>{l.emoji} {l.name}</span> : null; };
-  // encabezado del cambio, con emojis + chips (se lee más fácil que un texto plano)
-  const cambioHeader = () => {
-    const flecha = <span style={{ color: 'var(--faint)', fontSize: 18, margin: '0 2px' }}>→</span>;
-    if (sel.length === 0) return <div style={cambioBox}><span style={{ color: 'var(--dim)', fontSize: 14 }}>La dejas <b style={{ color: 'var(--ink)' }}>sin proyecto</b>.</span></div>;
-    if (quitados.length === actuales.length && actuales.length > 0 && agregados.length) {
-      if (actuales.length === 1 && sel.length === 1) return <div style={cambioBox}>{chip(actuales[0])}{flecha}{chip(sel[0])}</div>;
-      return <div style={cambioBox}>{sel.map(chip)}</div>;
-    }
-    if (agregados.length && !quitados.length) return <div style={cambioBox}><span style={{ color: 'var(--dim)', fontSize: 13.5 }}>Agregas</span>{agregados.map(chip)}</div>;
-    if (quitados.length && !agregados.length) return <div style={cambioBox}><span style={{ color: 'var(--dim)', fontSize: 13.5 }}>Sacas</span>{quitados.map(chip)}</div>;
-    return <div style={cambioBox}>{sel.map(chip)}</div>;
-  };
+  // ⛔ ACÁ VIVÍAN `chip` y `cambioHeader`, que dibujaban el resumen «de X → a Y» del paso
+  // de confirmación. Ese paso se fue con el wizard: lo que se elige se ve tildado en la
+  // lista, y el pie dice a dónde va. Un resumen de lo que acabás de marcar, en la pantalla
+  // siguiente, es releer lo que ya estás mirando.
 
   // Lo que se ve en la lista: filtrado y ordenado, pero con lo YA ELEGIDO siempre
   // arriba y a salvo de los filtros.
@@ -89,29 +95,22 @@ export function AsignarProyectoModal({ task, labels, onAsignar, onClose }: {
       || sinPrefijo(a.name).localeCompare(sinPrefijo(b.name)));
   }, [labels, busca, fam, orden, sel]);
 
-  const preguntas = ['Hola, soy el Perro Guardián MaKo', '¿En qué proyecto(s) va esta tarea?', sel.length === 0 ? '¿Por qué la dejas sin proyecto?' : '¿Por qué el cambio?'];
-  const subs: (string | undefined)[] = [undefined, 'Puedes elegir más de uno. Tienes que cambiar algo para seguir.', 'Cuéntame tu criterio: así entiendo dónde encaja de verdad.'];
-  const puedeAvanzar = idx === 0 ? true : idx === 1 ? !mismos : motivo.trim() !== '';
+  const puedeGuardar = !mismos;
 
   return (
-    <WizardShell
-      titulo="Cambiar proyecto"
-      total={3} idx={idx}
-      pregunta={preguntas[idx]} sub={subs[idx]}
-      puedeAvanzar={puedeAvanzar}
-      enUltimo={idx === 2} confirmLabel="Guardar →"
-      atrasLabel={idx === 0 ? 'Cancelar' : 'Atrás'}
-      onClose={onClose}
-      onAtras={() => (idx === 0 ? onClose() : setIdx(idx - 1))}
-      onSiguiente={() => setIdx(idx + 1)}
-      onConfirmar={confirmar}
-    >
-      {idx === 0 && <IntroBody que={`mover "${task.title.slice(0, 44)}" de proyecto`} mi="que cada tarea viva donde de verdad corresponde" />}
-      {idx === 1 && (
-        <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 140, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '7vh 20px 20px', fontFamily: SANS }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560, maxHeight: '82vh', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 20px 0', flex: 'none' }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{actuales.length ? 'Cambiar de proyecto' : 'Asignar un proyecto'}</span>
+          <span style={{ flex: 1 }} />
+          <button type="button" onClick={onClose} aria-label="Cerrar" style={{ border: 'none', background: 'transparent', color: 'var(--faint)', fontSize: 20, lineHeight: 1, cursor: 'pointer', padding: '2px 4px' }}>×</button>
+        </div>
+
+        <div style={{ padding: '14px 20px 0', display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0, flex: 1 }}>
           <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Busca el proyecto…"
-            style={{ width: '100%', padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: 14, outline: 'none', fontFamily: SANS }} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            style={{ width: '100%', padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: 14, outline: 'none', fontFamily: SANS, flex: 'none' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', flex: 'none' }}>
             {FAMILIAS.map((f) => {
               const on = fam === f.id;
               const n = f.id === 'todos' ? labels.length : labels.filter((l) => familiaDe(l.name) === f.id).length;
@@ -130,15 +129,15 @@ export function AsignarProyectoModal({ task, labels, onAsignar, onClose }: {
               {orden === 'prioridad' ? '↓ Prioridad' : '↓ A-Z'}
             </button>
           </div>
-          {/* Los ELEGIDOS van siempre arriba y no los filtra nada: si un filtro te
-              escondiera lo que ya marcaste, la pantalla estaría mintiendo sobre lo que
-              vas a guardar. */}
           {visibles.length === 0 && (
             <div style={{ padding: '18px 4px', color: 'var(--faint)', fontSize: 13.5 }}>
               Ningún proyecto coincide con «{busca.trim()}».
             </div>
           )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 340, overflowY: 'auto', overscrollBehavior: 'contain' }}>
+          {/* Los ELEGIDOS van siempre arriba y no los filtra nada: si un filtro te
+              escondiera lo que ya marcaste, la pantalla estaría mintiendo sobre lo que
+              vas a guardar. */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', overscrollBehavior: 'contain', paddingBottom: 4, minHeight: 0 }}>
             {visibles.map((l) => {
               const on = sel.includes(l.id);
               const esActual = actuales.includes(l.id);
@@ -154,10 +153,19 @@ export function AsignarProyectoModal({ task, labels, onAsignar, onClose }: {
             })}
           </div>
         </div>
-      )}
-      {idx === 2 && <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>{cambioHeader()}<textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} autoFocus placeholder="Ej: es parte del núcleo, no de growth…" style={{ ...textareaStyle }} /></div>}
-    </WizardShell>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '14px 20px 18px', flex: 'none' }}>
+          <span style={{ fontSize: 12, color: 'var(--faint)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {sel.length === 0 ? 'La dejas sin proyecto.' : sel.length === 1 ? (labels.find((l) => l.id === sel[0])?.name ?? '') : `${sel.length} proyectos`}
+          </span>
+          <div style={{ display: 'flex', gap: 9, flex: 'none' }}>
+            <button type="button" onClick={onClose} style={{ padding: '10px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
+            <button type="button" onClick={confirmar} disabled={!puedeGuardar}
+              style={{ padding: '10px 20px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: puedeGuardar ? 'pointer' : 'default', opacity: puedeGuardar ? 1 : 0.5, fontFamily: SANS, whiteSpace: 'nowrap' }}>Guardar</button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
-const cambioBox: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 6, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px' };

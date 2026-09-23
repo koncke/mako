@@ -45,17 +45,17 @@ const numStyle: CSSProperties = {
  * tiene sentido». Un ícono suelto al final de una columna no se lee como «editá esto»; al
  * lado del dato que edita, sí.
  */
-export function LapizPrioridad({ onClick, titulo = 'Cambiar la prioridad' }: { onClick: () => void; titulo?: string }) {
+export function LapizPrioridad({ onClick, titulo = 'Cambiar la prioridad', tam = 26 }: { onClick: () => void; titulo?: string; tam?: number }) {
   return (
     <button type="button" onClick={onClick} title={titulo} aria-label={titulo}
       style={{
-        flex: 'none', width: 26, height: 26, borderRadius: 7, border: '1px solid transparent',
+        flex: 'none', width: tam, height: tam, borderRadius: 7, border: '1px solid transparent',
         background: 'transparent', color: 'var(--faint)', cursor: 'pointer',
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0,
       }}
       onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink)'; }}
       onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.color = 'var(--faint)'; }}>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <svg width={Math.round(tam * 0.54)} height={Math.round(tam * 0.54)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
       </svg>
     </button>

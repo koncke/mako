@@ -1958,12 +1958,17 @@ function EscalonChip({ l }: { l: Label }) {
   if (!e) return null;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
-      <span title={e.largo} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--mako-ink, var(--primary))', background: 'color-mix(in srgb, var(--primary) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--primary) 25%, transparent)', borderRadius: 5, padding: '2px 7px' }}>
+      {/* ⛔ AL LADO DEL CHIP IBA «desbloquea: <frase del Perro>», y se fue el 23/09/2026:
+          «eso no tiene sentido». Era un renglón entero de prosa generada para justificar un
+          chip de tres palabras — «Habilita el escalón 4 al mantener el accountability y el
+          seguimiento del plan» — y lo que se leía no era la justificación: era ruido arriba
+          del contenido del proyecto.
+          La justificación NO se pierde, cambia de lugar: va en el `title` del chip, que es
+          donde vive lo que explica sin ocupar un renglón. Y el dato sigue en la base. */}
+      <span title={l.escalon === 5 && l.desbloquea ? `${e.largo} — desbloquea: ${l.desbloquea}` : e.largo}
+        style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--mako-ink, var(--primary))', background: 'color-mix(in srgb, var(--primary) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--primary) 25%, transparent)', borderRadius: 5, padding: '2px 7px' }}>
         💰 {l.escalon} · {e.corto}
       </span>
-      {/* Un escalón 5 solo puede ganarle a los de arriba si dice A CUÁL habilita. Sin esa
-          frase no es una excepción justificada: es «construir» disfrazado de prioridad. */}
-      {l.escalon === 5 && l.desbloquea && <span style={{ fontSize: 11, color: 'var(--dim)' }}>desbloquea: {l.desbloquea}</span>}
     </div>
   );
 }
@@ -2502,7 +2507,14 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
             <div>
               <label style={{ ...rowLabel, display: 'inline-flex', alignItems: 'center', gap: 6 }}>Deadline {!t.deadline && <WarnMark title="Falta el deadline" size={13} />}</label>
               <input type="date" value={t.deadline} onChange={(e) => board.setDeadline(t.id, e.target.value, t.deadline)} style={selStyle} />
-              {t.deadlineRazon && <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4, margin: '6px 0 0', fontStyle: 'italic' }}>“{t.deadlineRazon}”</div>}
+              {/* ⛔ ACÁ SE PINTABA `deadlineRazon`, la frase con la que el Perro justifica la
+                  fecha que propuso («Es el paso 2 y 5 del bucle de 5 pasos, y Mauricio lo
+                  necesita para escalar»). Se fue el 23/09/2026: «eso no tiene sentido».
+                  Y tenía razón — justificaba una fecha que ahora se cambia en el selector
+                  sin pedirle permiso a nadie, así que era una explicación de una decisión
+                  que ya no hay que discutir, ocupando tres renglones arriba del Quarter.
+                  El dato NO se borró: sigue en la base, en el export («Por qué esa fecha»)
+                  y en la API de MaKo. Lo que se sacó es el renglón. */}
               {/* ⛔ ACÁ VIVÍA «Cambiar la fecha», que abría el debate con el Perro. «No tiene
                   sentido el botón si dijimos que ya no hay fricción: solo el desplegable para
                   seleccionar fechas» (23/09/2026). El selector escribe directo, y la fecha la
@@ -2535,7 +2547,16 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
               )}
             </div>
             <div>
-              <label style={rowLabel}>{board.repo.labelPlural}</label>
+              {/* ⚠️ EL LÁPIZ VA PEGADO AL RÓTULO, no al borde ni debajo del chip. Probado
+                  en los dos lugares equivocados el mismo día: colgado del rótulo con un
+                  `flex: 1` en el medio quedaba flotando contra el borde de la columna, y
+                  metido en la fila de los chips se caía a un renglón propio —el chip ocupa
+                  los 236px de ancho, así que el `flex-wrap` lo baja—. Acá es parte del
+                  rótulo: se lee «PROYECTOS ✎», alineado con todo lo demás. */}
+              <label style={{ ...rowLabel, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                {board.repo.labelPlural}
+                <LapizPrioridad tam={20} onClick={onAsignar} titulo={chips.length ? 'Cambiar de proyecto' : 'Asignar un proyecto'} />
+              </label>
               {/* Los chips ya no se sacan con una × acá: cambiar de proyecto pasa por el
                   Perro Guardián (feedback #7). */}
               {/* Chips cuadrados y clickeables (feedback jul-19): mismo diseño que el header
@@ -2555,7 +2576,6 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</span>
                     </button>
                   ))}
-                <LapizPrioridad onClick={onAsignar} titulo={chips.length ? 'Cambiar de proyecto' : 'Asignar un proyecto'} />
               </div>
             </div>
 
