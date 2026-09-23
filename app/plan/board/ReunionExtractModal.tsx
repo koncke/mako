@@ -79,8 +79,15 @@ async function apiFathom(body: Record<string, unknown>): Promise<{ ok: boolean; 
   /** `estado-borrador`: la revisión YA guardada, con el resultado del cruce adentro.
    *  `cruzadoAt` es lo que dice si hay que volver a comparar con el plan o no. */
   cruzadoAt?: string; guardadas?: Array<Pick<FilaTarea, 'titulo' | 'enriquece' | 'incluir' | 'ampliar'>> }> {
-  return fetch('/api/plan-fathom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-    .then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
+  // ⚠️ CON SEÑAL DE CORTE. La ruta topea en 300 s (`maxDuration`), pero un fetch sin
+  // `signal` no topea en nada: si la conexión se cae en el medio, la promesa no resuelve
+  // NUNCA y el modal se queda girando. Se reportó como «elegir una reunión y ver lo que
+  // sacó se queda esperando para siempre».
+  return fetch('/api/plan-fathom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(305_000) })
+    .then((r) => r.json())
+    .catch((e) => ({ ok: false, error: e instanceof Error && e.name === 'TimeoutError'
+      ? 'La lectura tardó demasiado. MaKo la sigue del lado del server: mira la lista de pendientes en un rato.'
+      : String(e) }));
 }
 
 function fmtFecha(iso: string | null): string {
@@ -317,6 +324,11 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
 
   const extraer = async (r: ReunionMeta, reanalizar = false) => {
     setElegida(r); setFase('extrayendo'); setErr(''); setFreno(frenoDeScope(r.tipo));
+    // A los 8 segundos deja de ser «un momento» y pasa a ser «puede tardar». Antes ese
+    // aviso existía SOLO para los archivos subidos, así que al elegir una reunión el
+    // modal giraba hasta 5 minutos sin decir que se podía cerrar sin perder nada.
+    setEnSegundoPlano(false);
+    const avisar = setTimeout(() => setEnSegundoPlano(true), 8000);
     // Los del tablero + los del catálogo que todavía no existen. El id `cat:` le dice
     // al board "este hay que crearlo, y se llama exactamente así".
     const norm = (x: string) => x.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
@@ -328,6 +340,8 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
     // reanalizar: fuerza correr la IA de nuevo (ignora el cache). Sin esto, re-abrir la
     // misma reunión devuelve lo cacheado — NO cobra tokens (feedback jul-19).
     const j = await apiFathom({ action: 'extraer', recordingId: r.recordingId, titulo: r.titulo, proyectos, uso: 'Extraer tareas de reunión', reanalizar });
+    clearTimeout(avisar);
+    setEnSegundoPlano(false);
     if (j.usage) onUsage?.(j.usage);
     if (j.ok && j.tareas) {
       // La lista se entera ACÁ de que esta reunión ya está leída. Antes el mapa
@@ -730,6 +744,13 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                       ? 'Puede tardar un par de minutos. Puedes cerrar: MaKo lo sigue leyendo y te deja el borrador en la lista de pendientes.'
                       : 'Subiendo…'}
                   </div>
+                </div>
+              )}
+              {/* Y lo mismo al leer una REUNIÓN: una transcripción larga son minutos, y un
+                  spinner mudo durante minutos es indistinguible de algo colgado. */}
+              {archivosSubiendo.length === 0 && enSegundoPlano && (
+                <div style={{ fontSize: 12.5, color: 'var(--faint)', textAlign: 'center', marginTop: 12, lineHeight: 1.5, maxWidth: 460, marginInline: 'auto' }}>
+                  Las reuniones largas tardan un par de minutos. Puedes cerrar: MaKo la sigue leyendo y te deja el borrador en la lista de pendientes.
                 </div>
               )}
             </div>

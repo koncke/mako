@@ -461,24 +461,46 @@ export function BoardShell({ board, scope, vistaInicial }: {
   useEffect(() => { try { setDiag(new URLSearchParams(window.location.search).get('diag') === '1'); } catch { /* no-op */ } }, []);
   const nAcciones = (faltantes.length > 0 ? 1 : 0) + (hayWelcome ? 1 : 0) + (repo.fathomExtract ? 2 : 0) + 1;
   const [compacto, setCompacto] = useState(false);
+  // El estado ACTUAL para leerlo adentro del observer sin re-suscribirlo, y el ancho REAL
+  // que ocupan los botones desplegados: sin ese número, volver a desplegarlos es adivinar.
+  const compactoRef = useRef(false);
+  const anchoBotones = useRef(0);
+  useEffect(() => { compactoRef.current = compacto; }, [compacto]);
   useEffect(() => {
     const header = espacioRef.current?.closest('header');
     if (!header) return;
     const grupo = header.querySelector<HTMLElement>('[data-grupo-vista]');
-    // ⚠ NO alcanza con preguntarle al header si desborda: MEDIDO, el header entra
-    // perfecto (946 = 946) mientras el grupo de la vista necesita 237 y tiene 150 — se
-    // le salen 87px de contenido que se dibujan ENCIMA de los botones. Pasa porque ese
-    // grupo es lo único que puede achicarse (`minWidth: 0`): absorbe toda la falta de
-    // lugar sin que el header se entere. Hay que preguntarle a los DOS.
-    const falta = () => (header.scrollWidth - header.clientWidth)
-      + (grupo ? grupo.scrollWidth - grupo.clientWidth : 0);
-    // Para volver: los botones (38+12 c/u) y el chip de progreso. Pide MARGEN
-    // (histéresis): al plegarse sobra lugar de golpe, y sin margen se expandiría, no
-    // entraría y se volvería a plegar — un parpadeo por cada píxel de resize.
-    const necesita = nAcciones * 50 + 260;
-    const medir = () => setCompacto((prev) => (prev
-      ? (espacioRef.current?.getBoundingClientRect().width ?? 0) < necesita
-      : falta() > 1));
+    // ⚠️ LA PREGUNTA NO ES «¿DESBORDA AHORA?», ES «¿CUÁNTO NECESITA DESPLEGADO?».
+    //
+    // Las dos versiones anteriores preguntaban por el estado actual (si el header o el
+    // grupo desbordaban) y comparaban con una fórmula para volver a desplegar. Eso es
+    // circular: al plegarse cambia lo que se mide, así que la respuesta de ida no es la
+    // misma que la de vuelta, y el resultado era un ping-pong que terminaba donde lo
+    // agarrara el último evento. Medido el 23/09/2026 al ir achicando la ventana: a 880
+    // se pasaba 8px, a 860 28px y a 780 108px —con la barra de botones dibujada encima
+    // del filtro—, y entremedio anchos que estaban perfectos. Eso es un empate técnico
+    // entre dos reglas, no un umbral.
+    //
+    // Acá se suma lo que mide CADA hijo por su cuenta (`scrollWidth`, que es su ancho
+    // natural aunque el flex lo esté aplastando) y se compara contra el ancho del header.
+    // Es una función del ancho disponible y nada más: no puede oscilar.
+    const GAP = 12;
+    const medir = () => {
+      // Se busca ADENTRO: al plegarse, ese div se DESMONTA, y una referencia tomada al
+      // montar queda apuntando a un nodo suelto cuyo `scrollWidth` es 0 para siempre.
+      const barra = header.querySelector<HTMLElement>('[data-barra-acciones]');
+      if (barra && !compactoRef.current) anchoBotones.current = Math.max(anchoBotones.current, barra.scrollWidth);
+      const hijos = [...header.children] as HTMLElement[];
+      const suma = hijos.reduce((n, el) => (el === espacioRef.current ? n : n + el.scrollWidth), 0)
+        + GAP * Math.max(0, hijos.length - 1);
+      // Si está plegado, la barra mide un botón: para saber si entraría desplegada hay que
+      // sumarle la diferencia con lo que medía cuando lo estaba.
+      const extra = compactoRef.current && anchoBotones.current
+        ? anchoBotones.current - (hijos.find((el) => el.getAttribute('data-barra-menu') != null)?.scrollWidth ?? 0)
+        : 0;
+      // 24px de margen para no quedar pegado al límite exacto y parpadear con cada píxel.
+      setCompacto(suma + Math.max(0, extra) + 24 > header.clientWidth);
+    };
     const ro = new ResizeObserver(medir);
     ro.observe(header);
     if (grupo) ro.observe(grupo);
@@ -486,7 +508,13 @@ export function BoardShell({ board, scope, vistaInicial }: {
     // Las tipografías llegan DESPUÉS del primer layout y ensanchan todo: medir solo al
     // montar da un veredicto sobre un header que todavía no es el definitivo.
     document.fonts?.ready.then(medir).catch(() => {});
-    return () => ro.disconnect();
+    // Y un frame después, porque el primer layout no es el último.
+    const raf = requestAnimationFrame(medir);
+    // ⚠️ EL ZOOM DEL NAVEGADOR NO SIEMPRE MUEVE EL TAMAÑO DEL HEADER (mide 100% del ancho
+    // en píxeles CSS y el observer puede no disparar), pero SÍ dispara `resize`. Sin esto,
+    // zoomear dejaba la barra rota hasta que se tocara otra cosa.
+    window.addEventListener('resize', medir);
+    return () => { ro.disconnect(); cancelAnimationFrame(raf); window.removeEventListener('resize', medir); };
     // `view` entra porque el grupo cambia de contenido con la vista (el chip de
     // Prioridades es más ancho que el de Kanban, y buscador+filtro solo existen en dos
     // de las cuatro): el header no cambia de tamaño, así que el observer no se entera.
@@ -862,7 +890,13 @@ export function BoardShell({ board, scope, vistaInicial }: {
           se leía como parte del header. Lo que hace que entre: nada crece de más
           (flex:'none' en cada control) y lo único elástico es el buscador, que se
           achica hasta 90px antes que empujar a nadie. */}
-      <header style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 30px 16px', flexWrap: 'nowrap', minWidth: 0 }}>
+      {/* ⚠️ ENVUELVE, NO SE SALE. Achicando la ventana (o con el zoom al 150%, que para la
+          página es lo mismo) llega un punto en que ni plegando los botones entra todo: el
+          logo, las cuatro tabs y el buscador ya no caben en un renglón de 700px. Con
+          `nowrap` eso se dibujaba UNO ENCIMA DEL OTRO —medido: 108px de desborde a 780 y
+          148 a 740—. La regla de la casa para una barra de navegación es que baje de
+          renglón, nunca que scrollee ni que se pise (AGENTS.md). */}
+      <header style={{ display: 'flex', alignItems: 'center', gap: 12, rowGap: 10, padding: '20px 30px 16px', flexWrap: 'wrap', minWidth: 0 }}>
         {/* logo (checklist) + Plan — mismo ícono que la sidebar (feedback #2) */}
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12, flex: 'none' }}>
           <PlanIcon size={38} />
@@ -1279,10 +1313,10 @@ function BarraAcciones({ acciones, compacto, progreso }: {
     return () => document.removeEventListener('keydown', esc);
   }, [abierto]);
 
-  if (!compacto) return <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 'none' }}>{acciones.map((a) => <Fragment key={a.key}>{a.nodo}</Fragment>)}</div>;
+  if (!compacto) return <div data-barra-acciones style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 'none' }}>{acciones.map((a) => <Fragment key={a.key}>{a.nodo}</Fragment>)}</div>;
 
   return (
-    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flex: 'none' }}>
+    <div data-barra-menu style={{ position: 'relative', display: 'flex', alignItems: 'center', flex: 'none' }}>
       <button type="button" onClick={() => setAbierto((v) => !v)}
         aria-label={abierto ? 'Cerrar las acciones' : 'Mas acciones del plan (' + n + ')'} aria-expanded={abierto} aria-haspopup="menu"
         title="Mas acciones del plan"
