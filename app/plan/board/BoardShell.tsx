@@ -1856,8 +1856,9 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, ta
   // navegador. «Al intentar agarrar una tarea del kanban, debería tener la misma animación
   // que tenemos hoy en día en el CRM» (23/09/2026) — y son los mismos tres valores que usa
   // `CrmBoard.tsx`: se atenúa, se achica un poco y se despega con una sombra.
-  const [agarrada, setAgarrada] = useState(false);
-  const enMano = levantada || agarrada;
+  // `oculta` lo decide el Kanban (es el que sabe cuál está en la mano). Antes había además
+  // un `agarrada` local que decía lo mismo, y las dos opacidades se multiplicaban.
+  const enMano = levantada || oculta;
   // A qué proyecto pertenece. El kanban agrupa por PRIORIDAD, así que sin esto una
   // columna es una lista de tareas sueltas y hay que abrir cada una para saber de qué
   // parte del plan es. Va en el lugar del emoji —que ya era el del proyecto, solo que
@@ -1873,20 +1874,13 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, ta
       onPointerDown={(e) => tactil?.alTocar(e, t.id)}
       draggable={!!board.repo.prioridadManual}
       data-card
-      // ⚠️ EL DESVANECIDO VA UN FRAME DESPUÉS, Y NO ES UN DETALLE. El navegador saca la
-      // FOTO de la tarjeta —la miniatura que sigue al cursor— cuando el handler de
-      // `dragstart` termina, así que cambiarle la opacidad acá adentro se la aplica también
-      // a la foto: la tarjeta se desvanece Y lo que arrastrás es un fantasma transparente
-      // encima del original. Se reportó exactamente así: «aún no agarra la tarjeta, es como
-      // que se queda invisible». Con el `setTimeout(0)` la foto se toma con la tarjeta
-      // entera y recién después se atenúa la que queda en su lugar.
-      onDragStart={(e) => {
-        e.dataTransfer.setData('text/plain', t.id);
-        e.dataTransfer.effectAllowed = 'move';
-        setTimeout(() => { setAgarrada(true); onAgarrar?.(t.id); }, 0);
-      }}
-      onDragEnd={() => { setAgarrada(false); onAgarrar?.(null); }}
-      style={{ background: 'var(--surface-2)', border: `1px solid ${enMano ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 11, padding: '12px 14px', cursor: board.repo.prioridadManual ? (agarrada ? 'grabbing' : 'grab') : 'pointer', opacity: (agarrada || oculta) ? 0.4 : done ? 0.62 : 1, height: 138, display: 'flex', flexDirection: 'column', transition: 'border-color .12s, transform .15s, box-shadow .15s, opacity .15s',
+      // ⚠️ IGUAL QUE `CrmBoard.tsx`, LÍNEA POR LÍNEA. «No entiendo por qué en CRM funciona
+      // bien y aquí no» (23/09/2026): la diferencia no estaba acá —el CRM también cambia el
+      // estado adentro del handler— sino en cuánto re-renderiza el tablero MIENTRAS
+      // arrastrás. Ver el `onDragOver` de la columna.
+      onDragStart={(e) => { e.dataTransfer.setData('text/plain', t.id); e.dataTransfer.effectAllowed = 'move'; onAgarrar?.(t.id); }}
+      onDragEnd={() => { onAgarrar?.(null); }}
+      style={{ background: 'var(--surface-2)', border: `1px solid ${enMano ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 11, padding: '12px 14px', cursor: board.repo.prioridadManual ? (oculta ? 'grabbing' : 'grab') : 'pointer', opacity: oculta ? 0.5 : done ? 0.62 : 1, height: 138, display: 'flex', flexDirection: 'column', transition: 'border-color .12s, transform .15s, box-shadow .15s, opacity .15s',
         // `manipulation` saca el retardo del doble-tap sin tocar el scroll. `none` NO va:
         // es CSS, decide antes de que exista el listener y apagaría el scroll de la página
         // sobre cada tarjeta.
@@ -1896,7 +1890,7 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, ta
         // mueve es la miniatura que dibuja el navegador, y la tarjeta de abajo es el hueco
         // que dejó.
         ...(levantada ? { transform: 'scale(1.03)', boxShadow: '0 10px 24px rgba(18,21,27,.22)' }
-          : agarrada ? { transform: 'scale(0.97)', boxShadow: '0 10px 26px rgba(18,21,27,.20)' } : {}) }}
+          : oculta ? { transform: 'scale(0.97)', boxShadow: '0 10px 26px rgba(18,21,27,.20)' } : {}) }}
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
       {/* header: proyecto + #id + [aviso] + prioridad */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7, minWidth: 0 }}>
@@ -2102,6 +2096,28 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, onOpen
   // las tarjetas es la única forma de saber dónde va a caer antes de soltarla.
   const [ins, setIns] = useState<Insercion | null>(null);
   const [arrastrado, setArrastrado] = useState<string | null>(null);
+  /**
+   * El punto MEDIO de cada tarjeta, por columna y en coordenadas de PÁGINA.
+   *
+   * Se mide una sola vez, cuando agarrás la tarjeta, y no se vuelve a leer layout en todo
+   * el gesto. En coordenadas de página porque la página se puede mover mientras arrastrás
+   * y un rectángulo medido contra la ventana deja de valer apenas eso pasa — es la misma
+   * trampa que ya se había pagado en `arrastre-tactil.ts`.
+   */
+  const rects = useRef<Record<string, number[]>>({});
+  const agarrar = useCallback((id: string | null) => {
+    setArrastrado(id);
+    if (!id) { setIns(null); rects.current = {}; return; }
+    const out: Record<string, number[]> = {};
+    for (const col of document.querySelectorAll<HTMLElement>('[data-prio]')) {
+      const prio = col.dataset.prio ?? '';
+      out[prio] = [...col.querySelectorAll<HTMLElement>('[data-card]')].map((el) => {
+        const r = el.getBoundingClientRect();
+        return r.top + r.height / 2 + window.scrollY;
+      });
+    }
+    rects.current = out;
+  }, []);
   // dir = -1 → desc (mayor score / #num más alto = más nuevo, primero); +1 → asc (al revés).
   const dir = sortDir === 'asc' ? 1 : -1;
   // EL ARRASTRE CON EL DEDO. El mouse sigue por HTML5 drag-and-drop (ya funciona y ya está
@@ -2128,26 +2144,33 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, onOpen
             // Soltar una tarjeta acá ABRE EL POP-UP del 1 al 100; la columna solo dice la
             // banda. `preventDefault` en dragOver es lo que habilita el drop (sin él, el
             // navegador lo rechaza y no pasa nada, que se lee como que el arrastre no anda).
+            // ⚠️ ACÁ ESTABA EL BUG, Y NO EN LA TARJETA. «No entiendo por qué en CRM
+            // funciona bien y aquí no»: el CRM re-renderiza cuando cambiás DE COLUMNA —
+            // cuatro veces en todo el arrastre— y esta versión leía el
+            // `getBoundingClientRect` de las 55 tarjetas de «Alta» y volvía a dibujar el
+            // tablero entero (334 tarjetas) en CADA evento de `dragover`, o sea ~60 veces
+            // por segundo. Con el DOM reconstruyéndose así, el arrastre se ve exactamente
+            // como se reportó: la tarjeta «no se agarra» y queda un fantasma congelado.
+            //
+            // La lección ya estaba escrita —y probada— en `arrastre-tactil.ts`: «leer
+            // layout en cada movimiento es lo que hace que un arrastre se sienta
+            // pegajoso». Los rectángulos se miden UNA vez, al empezar, y en coordenadas de
+            // PÁGINA para que sobrevivan al scroll.
             onDragOver={(e) => {
               e.preventDefault();
               e.dataTransfer.dropEffect = 'move';
-              // ⚠️ LA POSICIÓN SE MIDE CONTRA LAS TARJETAS, NO CONTRA EL PUNTERO SUELTO. Se
-              // recorren las cards de ESTA columna y se cuenta cuántas quedan por encima de
-              // la mitad de su alto: ése es el índice donde entra. Leer layout en cada
-              // `dragover` es barato acá (son ≤ 12 nodos por columna) y es lo único que
-              // sobrevive al scroll de la página durante el gesto.
-              const cards = [...e.currentTarget.querySelectorAll<HTMLElement>('[data-card]')];
-              let idx = cards.length;
-              for (let i = 0; i < cards.length; i++) {
-                const r = cards[i].getBoundingClientRect();
-                if (e.clientY < r.top + r.height / 2) { idx = i; break; }
-              }
+              const y = e.clientY + window.scrollY;
+              const medidas = rects.current[p] ?? [];
+              let idx = medidas.length;
+              for (let i = 0; i < medidas.length; i++) { if (y < medidas[i]) { idx = i; break; } }
+              // Y sólo se re-renderiza cuando el DESTINO cambia de verdad.
               setIns((prev) => (prev && prev.destino === p && prev.idx === idx ? prev : { destino: p, idx }));
             }}
             onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setIns((prev) => (prev?.destino === p ? null : prev)); }}
             onDrop={(e) => {
               e.preventDefault();
               const id = e.dataTransfer.getData('text/plain');
+              rects.current = {};
               const idx = ins?.destino === p ? ins.idx : items.length;
               setIns(null);
               setArrastrado(null);
@@ -2172,7 +2195,7 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, onOpen
               {hueco(0)}
               {items.map((t, i) => (
                 <Fragment key={t.id}>
-                  <CardTile t={t} board={board} frenanA={frenanA(t.id)} warn={displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && !t.deadline} onOpen={onOpen} onWarn={onWarn} onOpenProj={onOpenProj} tactil={tactil} onAgarrar={setArrastrado} oculta={arrastrado === t.id} />
+                  <CardTile t={t} board={board} frenanA={frenanA(t.id)} warn={displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && !t.deadline} onOpen={onOpen} onWarn={onWarn} onOpenProj={onOpenProj} tactil={tactil} onAgarrar={agarrar} oculta={arrastrado === t.id} />
                   {hueco(i + 1)}
                 </Fragment>
               ))}

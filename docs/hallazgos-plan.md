@@ -3212,7 +3212,34 @@ una columna vacía, el representativo de la banda, que es lo único que se sabe.
 - ⚠️ **El punto medio se calcula sobre la lista SIN la tarjeta que se está moviendo.** Si se
   la deja adentro, el promedio se hace contra su propio número y la tarjeta «no se mueve».
 
-### ⚠️ Y el que se llevó otra ronda: el navegador saca la FOTO al terminar tu handler
+### ⚠️ Y el que se llevó DOS rondas: no era la tarjeta, era cuánto se redibuja el tablero
+
+*«Sigue igual… No entiendo por qué en CRM funciona bien y aquí no.»* Esa frase era el
+diagnóstico: los dos tableros usan el mismo HTML5 drag-and-drop y el mismo efecto visual,
+así que la diferencia tenía que estar en otro lado. Poniéndolos lado a lado:
+
+| | CRM | Plan (roto) |
+|---|---|---|
+| `dragover` de la columna | `if (dragOverCol !== c.key) setDragOverCol(...)` | `querySelectorAll` + `getBoundingClientRect` de **cada** tarjeta |
+| re-renders en todo el arrastre | **4** (uno por columna) | **~60 por segundo** |
+
+Con 55 tarjetas en «Alta», eso son ~3.300 lecturas de layout por segundo y el tablero
+entero (334 tarjetas) volviéndose a dibujar sin parar. Con el DOM reconstruyéndose así, el
+arrastre se ve exactamente como se reportó: la tarjeta «no se agarra» y queda un fantasma
+congelado donde empezó.
+
+**Y la lección ya estaba escrita en este mismo repo**, en `arrastre-tactil.ts`: *«leer
+layout en cada movimiento es lo que hace que un arrastre se sienta pegajoso»*. Ese archivo
+mide los rectángulos UNA vez, al armarse el gesto, y en coordenadas de PÁGINA para que
+sobrevivan al scroll. El camino del mouse se escribió meses después sin mirarlo.
+
+⚠️ **Cuando el usuario dice «allá funciona y acá no», eso ES el método.** Poner las dos
+implementaciones en dos columnas y listar las diferencias cuesta cinco minutos y contesta;
+seguir teorizando sobre la que está rota puede llevar rondas — acá llevó dos, y la primera
+hipótesis (la foto que el navegador saca al terminar el `dragstart`) era cierta como
+mecánica del navegador y no era la causa, porque el CRM hace exactamente lo mismo y anda.
+
+### El otro que apareció en el camino: el navegador saca la FOTO al terminar tu handler
 
 Con el hueco ya funcionando, la tarjeta seguía sin «agarrarse»: *«aún no agarra la tarjeta,
 es como que se queda invisible»*. En la captura se veía el texto duplicado y borroso encima

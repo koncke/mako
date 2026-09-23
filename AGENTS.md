@@ -598,6 +598,24 @@ CEDE.** Fila con `flex-wrap: nowrap`, lo que menos informa con `flex: 0 1 auto` 
 cualquier ancho y con cualquier zoom, sin depender de una cuenta que acierta hoy y falla
 mañana.
 
+# «Allá funciona y acá no» es el método, no una queja
+
+Cuando el mismo mecanismo anda en una pantalla y no en otra, la respuesta está en las
+DIFERENCIAS entre las dos, no en la que está rota. Poner las dos implementaciones en dos
+columnas y listarlas cuesta cinco minutos.
+
+Medido el 23/09/2026: el arrastre del Kanban del plan «no agarraba la tarjeta» y el del CRM
+sí, con el mismo HTML5 drag-and-drop y el mismo efecto visual. La diferencia no estaba en la
+tarjeta —donde busqué dos rondas— sino en el `dragover` de la columna: el CRM re-renderiza
+cuando cambiás DE COLUMNA (4 veces en todo el gesto) y el plan leía el
+`getBoundingClientRect` de las 55 tarjetas de «Alta» y redibujaba el tablero entero en CADA
+evento, ~60 veces por segundo. Con el DOM reconstruyéndose así, el arrastre se ve roto.
+
+⚠️ **Y una hipótesis puede ser CIERTA y no ser la causa.** La primera fue que el navegador
+saca la foto del arrastre al terminar el handler de `dragstart` — es verdad, está abajo como
+regla propia, y no era esto: el CRM hace lo mismo y funciona. Una explicación que no
+distingue el caso que anda del que no anda, no explica nada.
+
 # En HTML5 drag-and-drop, el navegador saca la FOTO al terminar tu handler
 
 Lo que sigue al cursor mientras arrastrás no es el elemento: es una foto que el navegador
