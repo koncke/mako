@@ -21,7 +21,7 @@ import { CATALOGO_PROYECTOS } from '@/lib/plan-proyectos-catalogo';
 
 /** Pega a la API del board (DB). Devuelve la tarea/proyecto canónico cuando aplica.
  *  Exportada porque la migración one-shot de `PlanBoard` también la usa. */
-export async function apiPlan(body: Record<string, unknown>): Promise<{ ok: boolean; tarea?: BoardTask; proyecto?: Label; error?: string; camino?: string[]; deps?: unknown[]; patches?: GuardPatch[]; proyectosPatch?: GuardProjPatch[]; conteo?: GuardResult | null }> {
+export async function apiPlan(body: Record<string, unknown>): Promise<{ ok: boolean; tarea?: BoardTask; proyecto?: Label; error?: string; camino?: string[]; deps?: unknown[]; patches?: GuardPatch[]; proyectosPatch?: GuardProjPatch[]; conteo?: GuardResult | null; score?: number; movidos?: Array<{ id: string; nombre: string; antes: number; despues: number }> }> {
   return fetch('/api/plan-board', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     .then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
 }
@@ -42,6 +42,18 @@ export function repoPlan(): Repo {
     createLabel: async (l) => { const j = await apiPlan({ action: 'crear-proyecto', proyecto: l }); return j.ok && j.proyecto ? j.proyecto : l; },
     saveLabel: async (l) => { await apiPlan({ action: 'guardar-proyecto', proyecto: l }); },
     deleteLabel: async (id) => { await apiPlan({ action: 'borrar-proyecto', id }); },
+    // La prioridad A MANO (el slider del detalle y el pop-up del arrastre). Vive acá y NO
+    // en el repo del cliente a propósito: `/api/plan-board` es «solo admin» y `score_manual`
+    // (mig 0143) es una columna de `plan_tareas` que `experimento_tareas` no tiene.
+    prioridadManual: async (entidad, id, score) => {
+      const j = await apiPlan({ action: 'prioridad-manual', entidad, id, score });
+      if (!j.ok) throw new Error(j.error || 'no se pudo fijar la prioridad');
+      return { score: Number(j.score) || score, movidos: Array.isArray(j.movidos) ? j.movidos : [] };
+    },
+    prioridadAlPerro: async (entidad, id) => {
+      const j = await apiPlan({ action: 'prioridad-al-perro', entidad, id });
+      if (!j.ok) throw new Error(j.error || 'no se pudo');
+    },
     priorizarNuevas: async (ids, proyectoIds, contexto) => {
       const j = await apiPlan({ action: 'priorizar-nuevas', ids, proyectoIds: proyectoIds ?? [], contexto: contexto ?? '' });
       if (!j.ok) throw new Error(j.error || 'no se pudo priorizar');

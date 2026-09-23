@@ -23,17 +23,12 @@ const MONO = "'Geist Mono', monospace";
 
 export type MovimientoCascada = { id: string; nombre: string; antes: number; despues: number };
 
-const post = async (body: Record<string, unknown>): Promise<Record<string, unknown>> =>
-  fetch('/api/plan-board', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-    .then((r) => r.json())
-    .catch((e) => ({ ok: false, error: String(e) }));
-
-/** El mismo camino que usa el slider, para quien lo necesite desde afuera (el arrastre). */
-export async function fijarPrioridad(entidad: 'proyecto' | 'tarea', id: string, score: number): Promise<{ score: number; movidos: MovimientoCascada[] }> {
-  const j = await post({ action: 'prioridad-manual', entidad, id, score });
-  if (!j?.ok) throw new Error(String(j?.error || 'No se pudo guardar.'));
-  return { score: Number(j.score) || score, movidos: (Array.isArray(j.movidos) ? j.movidos : []) as MovimientoCascada[] };
-}
+// ⚠️ ESTE COMPONENTE NO SABE A QUÉ API PEGARLE, Y ESO ES EL DISEÑO. La escritura entra por
+// `board.repo.prioridadManual`, que sólo implementa el tablero del DUEÑO: `/api/plan-board`
+// contesta 403 «solo admin» y `score_manual` (mig 0143) es una columna que la tabla del
+// cliente no tiene. Con el endpoint hardcodeado adentro, este mismo slider se dibujaba en
+// el board de cada cliente —lo monta el mismo BoardShell— y su única respuesta posible era
+// un 403: un control que existe y no puede funcionar se lee como que la app está rota.
 
 const numStyle: CSSProperties = {
   width: 54, textAlign: 'center', fontFamily: MONO, fontSize: 13, fontWeight: 700,
@@ -103,13 +98,16 @@ export function MoverPrioridadModal({ titulo, score, sugerido, banda, onAplicado
   );
 }
 
-export function PrioridadAMano({ entidad, id, score, scoreManual, color, onAplicado, onSoltado }: {
+export function PrioridadAMano({ entidad, score, scoreManual, color, guardar: guardarEnServer, soltar: soltarEnServer, onAplicado, onSoltado }: {
   entidad: 'proyecto' | 'tarea';
-  id: string;
   score: number;
   /** ya lo fijó una persona: el Perro no lo vuelve a mover hasta que se lo devuelvan */
   scoreManual?: boolean;
   color: string;
+  /** escribe el número (lo trae el Repo del tablero: sólo el del dueño lo tiene) */
+  guardar: (score: number) => Promise<{ score: number; movidos: MovimientoCascada[] }>;
+  /** le devuelve la decisión a MaKo */
+  soltar: () => Promise<void>;
   onAplicado: (score: number, movidos: MovimientoCascada[]) => void;
   onSoltado: () => void;
 }) {
@@ -142,19 +140,21 @@ export function PrioridadAMano({ entidad, id, score, scoreManual, color, onAplic
     ultimo.current = limpio;
     setEstado('guardando');
     setMsg('');
-    const j = await post({ action: 'prioridad-manual', entidad, id, score: limpio });
-    // Una respuesta vieja no pisa a la última: si mientras tanto se pidió otro número, el
-    // que manda es el otro.
-    if (ultimo.current !== limpio) return;
-    if (!j?.ok) {
+    let r: { score: number; movidos: MovimientoCascada[] };
+    try { r = await guardarEnServer(limpio); }
+    catch (e) {
+      if (ultimo.current !== limpio) return;
       confirmado.current = previo;
       setV(previo);
       setEstado('error');
-      setMsg(String(j?.error || 'No se pudo guardar. Prueba de nuevo.'));
+      setMsg(e instanceof Error ? e.message : 'No se pudo guardar. Prueba de nuevo.');
       return;
     }
-    const final = Number(j.score) || limpio;
-    const movidos = (Array.isArray(j.movidos) ? j.movidos : []) as MovimientoCascada[];
+    // Una respuesta vieja no pisa a la última: si mientras tanto se pidió otro número, el
+    // que manda es el otro.
+    if (ultimo.current !== limpio) return;
+    const final = r.score || limpio;
+    const movidos = r.movidos;
     confirmado.current = final;
     ultimo.current = final;
     setV(final);
@@ -169,8 +169,8 @@ export function PrioridadAMano({ entidad, id, score, scoreManual, color, onAplic
   const soltar = async () => {
     setEstado('guardando');
     setMsg('');
-    const j = await post({ action: 'prioridad-al-perro', entidad, id });
-    if (!j?.ok) { setEstado('error'); setMsg(String(j?.error || 'No se pudo.')); return; }
+    try { await soltarEnServer(); }
+    catch (e) { setEstado('error'); setMsg(e instanceof Error ? e.message : 'No se pudo.'); return; }
     setEstado('listo');
     setMsg('Se la devolviste a MaKo');
     onSoltado();

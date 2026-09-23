@@ -10,14 +10,19 @@
 // Nada de `whisper-1` pago: acá se dicta una línea, no se transcribe una clase.
 // =============================================================================
 
-import { getSesionAdmin } from '@/lib/auth';
+import { getUsuarioActual } from '@/lib/auth';
 import { transcribirAudio } from '@/lib/ai-cheap';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
-  if (!(await getSesionAdmin())) return Response.json({ ok: false, error: 'solo admin' }, { status: 403 });
+  // Cualquiera con sesión, no sólo el admin: el mismo botón de dictar vive en el alta del
+  // tablero del CLIENTE, que monta el mismo componente. Un control que se dibuja y contesta
+  // 403 se lee como que la app está rota. El gasto va contra las keys de ESE workspace
+  // (lib/ai-cheap resuelve por inquilino), y sin sesión sigue siendo 401 — mismo gate que
+  // /api/mako-guardian.
+  if (!(await getUsuarioActual())) return Response.json({ ok: false, error: 'No autorizado' }, { status: 401 });
   try {
     const form = await req.formData();
     const file = form.get('audio');

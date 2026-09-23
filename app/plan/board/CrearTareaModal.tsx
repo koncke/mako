@@ -39,8 +39,11 @@ export type CrearData = {
   fijarPrioridad: boolean;
 };
 
-export function CrearTareaModal({ labels, proyectoInicial, prioInicial, onCrear, onDone, onClose }: {
+export function CrearTareaModal({ labels, proyectoInicial, prioInicial, puedeFijarPrioridad = false, onCrear, onDone, onClose }: {
   labels: Label[]; proyectoInicial: string | null; prioInicial: Prio | null;
+  /** ¿este tablero puede FIJAR el número a mano? Sólo el del dueño (ver Repo.prioridadManual).
+   *  Si no puede, la casilla no se dibuja: ofrecer algo que se va a ignorar es un control muerto. */
+  puedeFijarPrioridad?: boolean;
   /** las tareas del plan con su score, para comparar al elegir el número (no se usa hoy) */
   ejemplos?: Array<{ title: string; score: number }>;
   onCrear: (data: CrearData) => Promise<CrearResult>; onDone: (id: string) => void; onClose: () => void;
@@ -51,7 +54,7 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, onCrear,
   const [nuevoProy, setNuevoProy] = useState('');
   const [nuevoEmoji, setNuevoEmoji] = useState('🏷');
   const [deadline, setDeadline] = useState('');
-  const [ponerPrio, setPonerPrio] = useState(prioInicial != null);
+  const [ponerPrio, setPonerPrio] = useState(puedeFijarPrioridad && prioInicial != null);
   const [userScore, setUserScore] = useState<number>(prioInicial ? scoreFromPrio[prioInicial] : 50);
   const [creando, setCreando] = useState(false);
   const [err, setErr] = useState('');
@@ -158,6 +161,7 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, onCrear,
           </div>
 
           {/* PRIORIDAD — opcional, y si la pones GANA */}
+          {puedeFijarPrioridad && (
           <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', fontSize: 13.5, color: 'var(--ink)' }}>
               <input type="checkbox" checked={ponerPrio} onChange={(e) => setPonerPrio(e.target.checked)} style={{ width: 16, height: 16, accentColor: 'var(--primary)', cursor: 'pointer' }} />
@@ -172,6 +176,7 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, onCrear,
               </div>
             )}
           </div>
+          )}
 
           {err && <div style={{ fontSize: 12.5, color: 'var(--bad)', lineHeight: 1.4 }}>{err}</div>}
         </div>

@@ -236,6 +236,19 @@ export type Repo = {
    * de dibujarse y no guardar nada. La lista completa vuelve del server porque el guard
    * de ciclo corre allá.
    */
+  /**
+   * Fijar la prioridad A MANO (el slider del detalle y el pop-up del arrastre).
+   *
+   * ⚠️ OPCIONAL, Y LA AUSENCIA TIENE QUE VERSE. Lo implementa SOLO el board del dueño:
+   * escribe por `/api/plan-board`, que contesta 403 «solo admin» a cualquier cliente, y
+   * usa `score_manual` (mig 0143), una columna que `experimento_tareas` no tiene. Un
+   * board que no lo trae NO dibuja el control: un slider que existe y contesta 403 es
+   * peor que no tenerlo — se lee como que la app está rota, y encima esconderlo no
+   * protege nada porque el que decide es el server.
+   */
+  prioridadManual?(entidad: 'proyecto' | 'tarea', id: string, score: number): Promise<{ score: number; movidos: Array<{ id: string; nombre: string; antes: number; despues: number }> }>;
+  /** Devolverle la decisión a MaKo (saca el candado de la mig 0143). Va de la mano del anterior. */
+  prioridadAlPerro?(entidad: 'proyecto' | 'tarea', id: string): Promise<void>;
   addDep?(d: { entidad: 'tarea' | 'proyecto'; deId: string; aId: string; clase?: 'bloquea' | 'ordena'; razon?: string }): Promise<{ ok: boolean; error?: string; camino?: string[]; deps?: import('./dependencias').Dep[] }>;
   delDep?(entidad: 'tarea' | 'proyecto', deId: string, aId: string): Promise<{ ok: boolean; deps?: import('./dependencias').Dep[] }>;
 };

@@ -7,7 +7,7 @@
 
 import type { NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
-import { puntuarPlan, debatirPrioridad, debatirFecha, debatirProyecto, decidirEliminar, buscarDuplicados, type GuardProjIn, type GuardTaskIn } from '@/lib/mako-guardian';
+import { puntuarPlan, debatirPrioridad, debatirFecha, debatirProyecto, buscarDuplicados, type GuardProjIn, type GuardTaskIn } from '@/lib/mako-guardian';
 import { proponerReprio, aplicarReprio, deshacerReprio, clientesParaPrueba, type Pedido } from '@/lib/plan-reprio';
 
 export const dynamic = 'force-dynamic';
@@ -58,13 +58,6 @@ export async function POST(req: NextRequest) {
       if (!id) return Response.json({ ok: false, error: 'Falta cuál deshacer.' }, { status: 400 });
       const out = await deshacerReprio(id);
       return Response.json({ ok: !out.error, ...out });
-    }
-    if (body.action === 'eliminar') {
-      const que = String(body.que ?? '').trim();
-      const motivo = String(body.motivo ?? '').trim();
-      if (!que || !motivo) return Response.json({ ok: false, error: 'Falta el elemento o el motivo.' }, { status: 400 });
-      const out = await decidirEliminar(String(body.tipo ?? 'tarea'), que, motivo, String(body.plan ?? ''), uso);
-      return Response.json({ ok: true, ...out });
     }
     if (body.action === 'duplicados') {
       const tarea = String(body.tarea ?? '').trim();

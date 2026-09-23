@@ -9,7 +9,7 @@
 // de MaKo + Change history (avatar + deshacer por entrada), editor de proyectos
 // con emoji, y el form bloqueante para tareas Alta sin deadline/checklist.
 
-import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode, useMemo } from 'react';
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { UndoToast } from '../../_components/UndoToast';
 import { ConfirmModal } from '../../_components/ConfirmModal';
@@ -22,7 +22,7 @@ import { CrearProyectoModal } from './CrearProyecto';
 import { EliminarModal } from './EliminarModal';
 import { AsignarProyectoModal } from './AsignarProyecto';
 import { AudienciaModal } from './AudienciaModal';
-import { PrioridadAMano, MoverPrioridadModal, fijarPrioridad } from './PrioridadAMano';
+import { PrioridadAMano, MoverPrioridadModal } from './PrioridadAMano';
 import { MakoProyectoModal } from './MakoProyecto';
 import { useVerMas } from './VerMas';
 import { useCapaModal } from '@/app/_components/pila-modales';
@@ -53,6 +53,7 @@ import { NotasLista } from './NotasLista';
 import { capacidad } from '@/lib/mako-capacidades';
 import { cuandoDe, quartersElegibles, esCuando, CUANDO_LABEL, CUANDO_OPS, type Cuando } from './cuando';
 import { usePref, usePrefSet, esUnoDe, esBool } from './prefs';
+import { useArrastreTactil, type ArrastreTactil } from './arrastre-tactil';
 import { WarnMark, projProgress, fechaConDia, diasHasta, plazoTexto } from './piezas';
 import { TablaProyectos, TablaTareas } from './Tablas';
 
@@ -673,9 +674,9 @@ export function BoardShell({ board, scope, vistaInicial }: {
     // ya puso la prioridad, el Perro no la pisa»: el que la respeta es
     // `priorizarNuevasOwner`, que mira `score_manual` — o sea que el candado tiene que
     // estar puesto cuando la corrida lee la fila, no después.
-    if (d.fijarPrioridad) {
+    if (d.fijarPrioridad && board.repo.prioridadManual) {
       try {
-        const r = await fijarPrioridad('tarea', t.id, starter);
+        const r = await board.repo.prioridadManual('tarea', t.id, starter);
         board.aplicarCascadaManual('tarea', { id: t.id, score: r.score, razon: 'Prioridad fijada a mano', texto: `La creaste con prioridad ${r.score}` }, r.movidos);
       } catch (e) { console.warn('[alta] fijar prioridad', e); }
     }
@@ -1054,12 +1055,12 @@ export function BoardShell({ board, scope, vistaInicial }: {
           titulo={soltadaTask.title} score={soltadaTask.score}
           sugerido={scoreFromPrio[soltada!.destino]} banda={PLABEL[soltada!.destino]}
           onAplicado={async (n) => {
-            const r = await fijarPrioridad('tarea', soltadaTask.id, n);
+            const r = await board.repo.prioridadManual!('tarea', soltadaTask.id, n);
             board.aplicarCascadaManual('tarea', { id: soltadaTask.id, score: r.score, razon: 'Prioridad fijada a mano', texto: `Fijaste la prioridad en ${r.score} a mano` }, r.movidos);
           }}
           onClose={() => setSoltada(null)} />
       )}
-      {nuevaTarea && <CrearTareaModal labels={labels} proyectoInicial={nuevaTareaProj} prioInicial={nuevaTareaPrio} ejemplos={tasks.filter((t) => t.progress < 100).map((t) => ({ title: t.title, score: t.score }))} onCrear={crearConGuardian} onDone={(id) => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); setOpenId(id); setMakoHintId(id); }} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); }} />}
+      {nuevaTarea && <CrearTareaModal labels={labels} proyectoInicial={nuevaTareaProj} prioInicial={nuevaTareaPrio} puedeFijarPrioridad={!!board.repo.prioridadManual} ejemplos={tasks.filter((t) => t.progress < 100).map((t) => ({ title: t.title, score: t.score }))} onCrear={crearConGuardian} onDone={(id) => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); setOpenId(id); setMakoHintId(id); }} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); }} />}
       {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} taskAbierta={!!openTask}
         onBack={welcomeVisible ? () => setOpenProj(null) : undefined} backLabel="Volver"
         onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} onDebatePrio={() => setDebateProjId(openProjLabel.id)} onMako={() => setMakoProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onClose={() => setOpenProj(null)} />}
@@ -1185,14 +1186,14 @@ export function BoardShell({ board, scope, vistaInicial }: {
         existentes={tasks.filter((t) => t.progress < 100).map((t) => ({ id: t.id, titulo: t.title, detalle: t.detalle }))}
         onUsage={(u) => showUsage(u, 'extraer tareas de reunión')} onCrear={crearDesdeReunion} onAmpliar={ampliarDesdeReunion} onClose={() => { setExtraerReunion(false); setReunionArchivo(null); }} />}
       {exportar && <ExportarModal tasks={tasks} labels={labels} titulo={repo.labelPlural === 'Proyectos' ? 'Plan' : repo.labelPlural} onClose={() => setExportar(false)} />}
-      {eliminarTask && <EliminarModal tipo="tarea" nombre={eliminarTask.title} task={{ id: eliminarTask.id, title: eliminarTask.title, detalle: eliminarTask.detalle }}
-        otras={tasks.filter((t) => t.id !== eliminarTask.id && t.progress < 100).map((t) => { const l = board.labelById(t.labels[0]); return { id: t.id, titulo: t.title, detalle: t.detalle, projColor: l?.color, projEmoji: l?.emoji }; })}
-        plan={planResumen} onUsage={(u) => showUsage(u, 'eliminar tarea')}
-        onCompletar={() => board.toggleDone(eliminarTask.id)}
+      {/* Borrar es UNA pregunta con dos botones: ya no se le pide permiso al Perro. La
+          tarea que no está terminada y el motivo, que ahora es opcional, van al historial
+          del proyecto igual que antes. */}
+      {eliminarTask && <EliminarModal tipo="tarea" nombre={eliminarTask.title}
+        onCompletar={eliminarTask.progress >= 100 ? undefined : () => board.toggleDone(eliminarTask.id)}
         onDebate={() => setDebateId(eliminarTask.id)}
         onBorrar={(motivo) => { board.remove(eliminarTask.id, motivo); setOpenId(null); }} onClose={() => setEliminarTaskId(null)} />}
       {eliminarProj && <EliminarModal tipo="proyecto" nombre={eliminarProj.name} nTareas={tasks.filter((t) => t.labels.includes(eliminarProj.id)).length}
-        plan={planResumen} onUsage={(u) => showUsage(u, 'eliminar proyecto')}
         onBorrar={() => { board.deleteLabelYTareas(eliminarProj.id); setOpenProj(null); }} onClose={() => setEliminarProjId(null)} />}
       {asignarTask && <AsignarProyectoModal task={asignarTask} labels={labels}
         onAsignar={(ids, motivo) => { const snap = asignarTask; board.setTaskLabels(asignarTask.id, ids, `${ids.length ? `Asignó a ${ids.map((id) => board.labelById(id)?.name).filter(Boolean).join(', ')}` : 'Quitó el proyecto'}${motivo ? ` — ${motivo.slice(0, 80)}` : ''}`); board.showUndo('Proyecto actualizado', () => board.replaceTask(snap)); }}
@@ -1684,10 +1685,13 @@ const emojiTarea = (board: Board, t: BoardTask): string => board.labelById(t.lab
 // Tarjeta de tarea: ALTURA FIJA para que todas midan igual (feedback jul-18). El
 // título se recorta a 2 líneas; el toggle de completar es compacto (inline), no una
 // píldora que agrandaba unas cards más que otras.
-function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj }: {
+function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, tactil }: {
   t: BoardTask; board: Board; warn: boolean; frenanA?: string[]; onOpen: (id: string) => void; onWarn: (id: string) => void; onOpenProj?: (id: string) => void;
+  /** el arrastre con el dedo (sólo en el Kanban; en el resto de las vistas no existe) */
+  tactil?: ArrastreTactil;
 }) {
   const done = t.progress >= 100;
+  const levantada = tactil?.arrastrando === t.id;
   // A qué proyecto pertenece. El kanban agrupa por PRIORIDAD, así que sin esto una
   // columna es una lista de tareas sueltas y hay que abrir cada una para saber de qué
   // parte del plan es. Va en el lugar del emoji —que ya era el del proyecto, solo que
@@ -1695,10 +1699,20 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj }: 
   // dos líneas. Mismo chip que el detalle (color del proyecto), no un estilo nuevo.
   const proys = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
   return (
-    <div onClick={() => onOpen(t.id)}
-      draggable
+    <div
+      // ⚠️ El click se traga si el gesto anterior fue un arrastre: el navegador sintetiza un
+      // `click` sobre donde empezó el toque, y sin esto se soltaba la tarjeta, salía el
+      // pop-up de la prioridad y DETRÁS se abría el detalle.
+      onClick={() => { if (!tactil?.huboArrastre()) onOpen(t.id); }}
+      onPointerDown={(e) => tactil?.alTocar(e, t.id)}
+      draggable={!!board.repo.prioridadManual}
       onDragStart={(e) => { e.dataTransfer.setData('text/plain', t.id); e.dataTransfer.effectAllowed = 'move'; }}
-      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '12px 14px', cursor: 'pointer', opacity: done ? 0.62 : 1, height: 138, display: 'flex', flexDirection: 'column', transition: 'border-color .12s' }}
+      style={{ background: 'var(--surface-2)', border: `1px solid ${levantada ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 11, padding: '12px 14px', cursor: 'pointer', opacity: done ? 0.62 : 1, height: 138, display: 'flex', flexDirection: 'column', transition: 'border-color .12s, transform .12s, box-shadow .12s',
+        // `manipulation` saca el retardo del doble-tap sin tocar el scroll. `none` NO va:
+        // es CSS, decide antes de que exista el listener y apagaría el scroll de la página
+        // sobre cada tarjeta.
+        touchAction: 'manipulation',
+        ...(levantada ? { transform: 'scale(1.03)', boxShadow: '0 10px 24px rgba(18,21,27,.22)' } : {}) }}
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
       {/* header: proyecto + #id + [aviso] + prioridad */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7, minWidth: 0 }}>
@@ -1874,6 +1888,15 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, onOpen
 }) {
   // dir = -1 → desc (mayor score / #num más alto = más nuevo, primero); +1 → asc (al revés).
   const dir = sortDir === 'asc' ? 1 : -1;
+  // EL ARRASTRE CON EL DEDO. El mouse sigue por HTML5 drag-and-drop (ya funciona y ya está
+  // probado); esto corre sólo cuando el puntero NO es un mouse. Ver arrastre-tactil.ts: ahí
+  // están las cuatro trampas que hacen que un arrastre táctil se pelee con el scroll, con
+  // los clicks de adentro de la tarjeta y con el click fantasma del final.
+  const prioDe = useCallback((id: string) => {
+    const t = tasks.find((x) => x.id === id);
+    return t ? displayPrio(t, topProjectId) : null;
+  }, [tasks, topProjectId]);
+  const tactil = useArrastreTactil(onSoltar, prioDe, !!board.repo.prioridadManual);
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14, padding: '18px 30px 30px', flex: '1 0 auto', alignItems: 'flex-start' }} className="mako-board">
       <style>{`@media (max-width:1000px){.mako-board{grid-template-columns:repeat(2,1fr)!important}}@media (max-width:560px){.mako-board{grid-template-columns:1fr!important}}`}</style>
@@ -1887,14 +1910,17 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, onOpen
             onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; e.currentTarget.style.background = 'var(--surface-2)'; }}
             onDragLeave={(e) => { e.currentTarget.style.background = 'var(--surface)'; }}
             onDrop={(e) => { e.preventDefault(); e.currentTarget.style.background = 'var(--surface)'; const id = e.dataTransfer.getData('text/plain'); if (id) onSoltar(id, p); }}
-            style={{ display: 'flex', flexDirection: 'column', minWidth: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderTop: '3px solid ' + PCOLOR[p], borderRadius: 14, padding: 10, transition: 'background .12s' }}>
+            // `data-prio` es cómo el arrastre táctil sabe dónde está cada columna: al armarse
+            // el gesto mide estos cuatro rectángulos UNA vez y después no vuelve a leer layout.
+            data-prio={p}
+            style={{ display: 'flex', flexDirection: 'column', minWidth: 0, background: tactil.sobre === p ? 'var(--surface-2)' : 'var(--surface)', border: '1px solid ' + (tactil.sobre === p ? PCOLOR[p] : 'var(--border)'), borderTop: '3px solid ' + PCOLOR[p], borderRadius: 14, padding: 10, transition: 'background .12s, border-color .12s' }}>
             <ColHeader p={p} count={items.length} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9, minHeight: 30, paddingRight: 2 }}>
               {/* card gris translúcida para crear (arriba de todo, más bajita que las tarjetas) */}
               <button onClick={() => onNew(p)} style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, border: '1.5px dashed var(--border-strong)', background: 'transparent', borderRadius: 10, padding: '9px 10px', cursor: 'pointer', color: 'var(--faint)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, opacity: 0.8, transition: 'border-color .12s, color .12s' }}
                 onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--faint)'; }}>＋ Nueva tarea</button>
               {items.length === 0 && <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', padding: '10px 0' }}>—</div>}
-              {items.map((t) => <CardTile key={t.id} t={t} board={board} frenanA={frenanA(t.id)} warn={displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && !t.deadline} onOpen={onOpen} onWarn={onWarn} onOpenProj={onOpenProj} />)}
+              {items.map((t) => <CardTile key={t.id} t={t} board={board} frenanA={frenanA(t.id)} warn={displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && !t.deadline} onOpen={onOpen} onWarn={onWarn} onOpenProj={onOpenProj} tactil={tactil} />)}
             </div>
           </section>
         );
@@ -2329,9 +2355,16 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, onDebat
               {/* El número se mueve ACÁ, sin pedirle permiso a nadie. La audiencia con el
                   Perro sigue abajo, como opción: «que siga funcionando normalmente, solo
                   que NO tenga fricción a la hora de cambiar prioridad». */}
-              <PrioridadAMano entidad="tarea" id={t.id} score={t.score} scoreManual={t.scoreManual} color={PCOLOR[prioEfectiva]}
-                onAplicado={(s, movidos) => board.aplicarCascadaManual('tarea', { id: t.id, score: s, razon: 'Prioridad fijada a mano', texto: `Fijaste la prioridad en ${s} a mano` }, movidos)}
-                onSoltado={() => board.soltarCandadoManual('tarea', t.id)} />
+              {/* ⚠️ SOLO SI EL TABLERO PUEDE ESCRIBIRLO. `prioridadManual` lo trae únicamente
+                  el Repo del dueño: en el board de un cliente este slider no tendría más
+                  respuesta posible que el 403 de /api/plan-board. Ahí queda el debate. */}
+              {board.repo.prioridadManual && board.repo.prioridadAlPerro && (
+                <PrioridadAMano entidad="tarea" score={t.score} scoreManual={t.scoreManual} color={PCOLOR[prioEfectiva]}
+                  guardar={(n) => board.repo.prioridadManual!('tarea', t.id, n)}
+                  soltar={() => board.repo.prioridadAlPerro!('tarea', t.id)}
+                  onAplicado={(s, movidos) => board.aplicarCascadaManual('tarea', { id: t.id, score: s, razon: 'Prioridad fijada a mano', texto: `Fijaste la prioridad en ${s} a mano` }, movidos)}
+                  onSoltado={() => board.soltarCandadoManual('tarea', t.id)} />
+              )}
               <RazonPrio razon={t.scoreRazon} />
               {/* El AJUSTE del tiempo va aparte de la razón del Perro, no mezclado: son dos
                   juicios distintos y de dos autores distintos. El del Perro dice cuánto
@@ -2708,9 +2741,13 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, z 
                 <ProjScore score={proj.score} color={proj.color} big />
               </div>
               <EscalonChip l={proj} />
-              <PrioridadAMano entidad="proyecto" id={proj.id} score={proj.score} scoreManual={proj.scoreManual} color={proj.color}
-                onAplicado={(s, movidos) => board.aplicarCascadaManual('proyecto', { id: proj.id, score: s, razon: 'Prioridad fijada a mano', texto: `Fijaste la prioridad en ${s} a mano` }, movidos)}
-                onSoltado={() => board.soltarCandadoManual('proyecto', proj.id)} />
+              {board.repo.prioridadManual && board.repo.prioridadAlPerro && (
+                <PrioridadAMano entidad="proyecto" score={proj.score} scoreManual={proj.scoreManual} color={proj.color}
+                  guardar={(n) => board.repo.prioridadManual!('proyecto', proj.id, n)}
+                  soltar={() => board.repo.prioridadAlPerro!('proyecto', proj.id)}
+                  onAplicado={(s, movidos) => board.aplicarCascadaManual('proyecto', { id: proj.id, score: s, razon: 'Prioridad fijada a mano', texto: `Fijaste la prioridad en ${s} a mano` }, movidos)}
+                  onSoltado={() => board.soltarCandadoManual('proyecto', proj.id)} />
+              )}
               <RazonPrio razon={proj.scoreRazon} />
               {(proj.impacto != null || proj.esfuerzo != null) && (
                 <details style={{ marginBottom: 10 }}>

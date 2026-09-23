@@ -79,7 +79,7 @@ import {
 } from './checklist-coach';
 import { CRITERIO_JUEZ_SYSTEM_TEMPLATE, CRITERIO_JUEZ_USER_TEMPLATE } from './plan-criterio-reglas';
 import { PLAN_FATHOM_SYSTEM_TEMPLATE, PLAN_FATHOM_USER_TEMPLATE, PLAN_FATHOM_DEDUP_SYSTEM_TEMPLATE, PLAN_FATHOM_DEDUP_USER_TEMPLATE, PLAN_FATHOM_PREGUNTAS_SYSTEM_TEMPLATE, PLAN_FATHOM_PREGUNTAS_USER_TEMPLATE } from './plan-fathom';
-import { GUARDIAN_SYSTEM_TEMPLATE, GUARDIAN_USER_TEMPLATE, GUARDIAN_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_DEBATE_USER_TEMPLATE, GUARDIAN_PROJ_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_PROJ_DEBATE_USER_TEMPLATE, ELIMINAR_SYSTEM_TEMPLATE, ELIMINAR_USER_TEMPLATE, DUP_SYSTEM_TEMPLATE, DUP_USER_TEMPLATE } from './mako-guardian';
+import { GUARDIAN_SYSTEM_TEMPLATE, GUARDIAN_USER_TEMPLATE, GUARDIAN_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_DEBATE_USER_TEMPLATE, GUARDIAN_PROJ_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_PROJ_DEBATE_USER_TEMPLATE, DUP_SYSTEM_TEMPLATE, DUP_USER_TEMPLATE } from './mako-guardian';
 import { CRUCE_SYSTEM_TEMPLATE, CRUCE_USER_TEMPLATE, RUTEAR_SYSTEM_TEMPLATE, RUTEAR_USER_TEMPLATE } from './mako-guardian';
 import { GATE_SYSTEM_TEMPLATE, GATE_USER_TEMPLATE } from './retro-gate';
 import {
@@ -807,20 +807,6 @@ export const REGISTRY: Group[] = [
         variables: [v('dias', 'días desde la última Retro'), v('total', 'cuántas aceptaste'), v('hechas', 'cuántas completaste'), v('pendientes', 'cuántas quedaron'), v('pendiente', 'los títulos que quedaron colgados'), v('motivo', 'por qué quieres correr una igual')], scope: 'full', sensitive: false,
         default: GATE_USER_TEMPLATE,
         context: 'Le pasa la deuda real de la Retro anterior y tu motivo. No borres los slots {{dias}}/{{total}}/{{hechas}}/{{pendientes}}/{{pendiente}}/{{motivo}}.',
-      },
-      {
-        key: 'guardian.eliminar.system', source: 'override',
-        label: 'Decidir si borrar (system)', kind: 'system', dynamic: true,
-        variables: [v('tipo', 'tarea | proyecto'), v('jsonShape', 'forma EXACTA del JSON')], scope: 'static-only', sensitive: true,
-        default: ELIMINAR_SYSTEM_TEMPLATE,
-        context: 'Cuando el usuario quiere borrar algo, MaKo decide si vale la pena (borrar es destructivo). No borres los slots {{tipo}}/{{jsonShape}}.',
-      },
-      {
-        key: 'guardian.eliminar.user', source: 'override',
-        label: 'Qué se quiere borrar (user)', kind: 'user', dynamic: true,
-        variables: [v('que', 'el elemento'), v('motivo', 'por qué lo borra'), v('plan', 'resto del plan')], scope: 'full', sensitive: false,
-        default: ELIMINAR_USER_TEMPLATE,
-        context: 'Le pasa el elemento, el motivo y el plan. No borres los slots {{que}}/{{motivo}}/{{plan}}.',
       },
       {
         key: 'guardian.cruce.system', source: 'override',
