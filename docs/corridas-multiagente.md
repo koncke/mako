@@ -27,6 +27,7 @@ Los journals siguen en disco, en
 
 | Fecha | Corrida | Agentes | Qué se fue a buscar | |
 |---|---|---|---|---|
+| 2026-09-23 | `depurar-plan-fase2` | 44 | Segunda poda con el criterio de los audios del 22/09 (tres fases con fecha): clasificar las 436 abiertas, refutar cada baja, y convertir el feedback de producto sobre el Plan y el Perro en tareas grandes. 195 borradas, 64 veredictos corregidos, 12 tareas nuevas | **cosechada** |
 | 2026-09-21 | `depurar-plan-superadmin` | 56 | Depurar el board del super admin contra la sesión del 20/09: clasificar las 553 tareas abiertas contra la sesión y el código, cazar duplicados, cruzar los 110 accionables, refutar cada baja y cada cierre, y ordenar los 71 proyectos. 114 borradas, 50 movidas, 118 enriquecidas | **cosechada** |
 | 2026-09-20 | `accionables-mako-20sep` | 30 | Las 4 grabaciones del 20/09 (4 h 14 min): sacar los accionables por tramos, unificarlos por significado, medir cada uno contra el repo (archivo, línea, commit) y refutar adversarialmente todo lo que se declaró hecho. 110 accionables, 6 refutados | **cosechada** |
 | 2026-09-16 | `reunion-mau-martin-2026-09-08-tareas` | 46 | Todas las tareas de la llamada «Mau <> Martin: CHATBOT» del 8/9: extraer con 11 lentes, fusionar, refutar contra el transcript, ubicar cada una en el código y asignarle un chat por tab | **rescatada** |

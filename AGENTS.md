@@ -3642,3 +3642,37 @@ reparan sin ambigüedad caminando el texto con estado de string
   tirar con la salida cruda en el log, que es la única evidencia del próximo caso.
 - **No escribas otro `parseJsonObject`.** Había tres copias idénticas e ingenuas;
   las tres delegan. Importalo.
+
+# Lo que la IA decide, la persona lo tiene que poder cambiar — y `score_manual` no lo pone una corrida
+
+`score_manual` en `plan_tareas` / `plan_proyectos` significa **«esto lo decidió el dueño,
+discutiéndolo»** (mig 0143): el Perro no lo pisa nunca más. Una corrida automática que lo
+escribe no está guardando una decisión, está poniendo un candado sin llave.
+
+El 20/09 una depuración fijó los **71 proyectos** con `score_manual: true` para preservar el
+orden que el dueño había dictado en una sesión. Dos días después él no podía mover una sola
+prioridad: *«ni siquiera me da la opción de cambiarlo… no hay maleabilidad, me obliga a hacer
+algo que encima ni siquiera está bien»*, y la sesión de revisión se trabó ahí. El acompañante
+lo remató con la versión de producto: *«para los 50 clientes que lo usen puede gestionar mal
+las tareas, y encima cuando quiera modificarlo no lo deje»*.
+
+- **Una corrida automática NO escribe `score_manual`.** Lo pone la persona al debatir una
+  prioridad, y nadie más. Si una corrida quiere conservar un orden, escribe el `score` y la
+  `score_razon`, que es discutible, y se va.
+- **Toda prioridad que pone la IA tiene que poder cambiarse a mano en la pantalla**, sin
+  debate previo y sin fricción. Si el modelo se equivoca —y se va a equivocar— la salida no
+  puede ser «discutilo con el Perro»: es cambiarlo y seguir. El debate es una opción, no un
+  peaje.
+- **Y lo que decide solo se tiene que poder apagar.** El pedido textual: *«permitime
+  desactivarla… o simplemente quitar la fricción: que él te asigne la prioridad y si la
+  asignó mal, que vos la cambies»*. Un automatismo sin interruptor, cuando falla, no se
+  arregla: se abandona, y se lleva puesta la feature entera.
+
+⚠️ **Y el corolario de la priorización: un proyecto se juzga por lo que tiene ADENTRO, no por
+su nombre.** En esa misma corrida «Cliente: Mauricio» quedó primero porque las decisiones
+decían «lo que pide Mauricio va primero» — pero sus tareas abiertas eran el mapa de México,
+descuadres del dashboard y avatares, ninguna de las que él había nombrado. *«Son tareas
+random… no son las prioritarias que habíamos hablado.»* Lo obligatorio de ese cliente vivía
+en otros tres proyectos. Antes de ordenar por un criterio, hay que mirar si las tareas del
+proyecto son las que ese criterio nombra; y lo que van a usar TODOS los clientes es producto
+y va a su tab, aunque lo haya pedido uno (`lib/plan-proyectos-catalogo.ts`).

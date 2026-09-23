@@ -2492,3 +2492,33 @@ Martín quizás no vio, así que no se descartaron sin su OK); el `ws === OWNER_
 y tres borradores nuevos esperando confirmación (61 tareas de la sesión, 60 cierres).
 
 **Vive en:** lib/plan-board.ts (`enPlan`) · lib/plan-propuesta.ts (`crearPropuesta`) · lib/mako-doer-acciones.ts:180 · lib/api-mako/acciones.ts:71 · *2026-09-21 ~depurar-plan-superadmin*
+
+## Podar sin criterio de CORTE deja el tablero igual: hace falta una fecha (23/09/2026)
+
+La poda del 21/09 sacó 114 tareas de 553 con la regla «ante la duda, conservar». Dos días
+después el dueño seguía diciendo *«aún siguen habiendo muchas tareas innecesarias que pueden
+ser eliminadas»* — y tenía razón: la segunda pasada, con un criterio distinto, sacó **195
+más** sobre 436, o sea el 45%.
+
+Lo que cambió no fue el modelo ni el prompt: fue que existía un **corte verificable**. El
+22/09 quedaron escritas tres fases con fecha (todo lo de Mauricio al 27/09; Ads Manager,
+CRM, onboarding y generadores al 07/10; landing, VSL y prospección después), y con eso
+«innecesaria» dejó de ser una opinión: **una tarea sirve si mueve una de las tres fases**.
+Sin esa vara, cualquier tarea se defiende sola y la poda se queda en los duplicados obvios.
+
+- **Antes de podar, pedí el corte.** Si no hay fase ni fecha contra la cual medir, lo que se
+  puede hacer es dedup y cierres; el resto es discusión.
+- **El olor que delata el relleno:** once tareas llamadas «Investigar competencia: <nombre>»,
+  todas con el mismo detalle calcado y cero avance en dos meses. Una plantilla repetida N
+  veces es un proyecto que nadie decidió hacer.
+- Y la contracara, medida: de 286 refutaciones **64 salvaron una tarea** que la poda mandaba
+  a borrar — entre ellas un tablero de seguimiento que había pedido Mauricio en una llamada.
+  El refutador no es prolijidad: es lo que permite cortar fuerte sin llevarse trabajo vivo.
+
+**Lo que el dueño no puede hacer, lo hace igual con fricción, y eso lo cuenta el audio:** no
+podía cambiar una prioridad (ver la regla de `score_manual` en AGENTS.md), no podía agregar
+un proyecto, y el Perro le asignaba fechas y puntajes que no podía discutir. La conclusión
+suya, textual: *«todo lo que hice del Perro Guardián no sirve de nada… mirá la fricción que
+causa»*. Un automatismo sin interruptor no se corrige: se abandona.
+
+**Vive en:** lib/plan-board.ts · app/plan/board/ · backups/plan-ws9-fase2-2026-09-23-registro.json · *2026-09-23 ~depurar-plan-fase2*
