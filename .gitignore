@@ -61,3 +61,7 @@ skills-lock.json
 
 # Cachés de Python de las skills (las genera correr un script de una skill)
 __pycache__/
+
+# Respaldos de datos REALES (scripts/checklists-a-bullets.mts y compañía). Nunca van a
+# git: son filas de clientes, y un respaldo versionado es una fuga con historial.
+backups/
