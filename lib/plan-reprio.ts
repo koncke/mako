@@ -31,7 +31,7 @@
 import 'server-only';
 import { getTenantDb } from '@/lib/workspace';
 import { enPlan, listPlanBoard } from '@/lib/plan-board';
-import type { Label, BoardTask, Hist, Actor } from '@/app/plan/board/types';
+import { prioFromScore, type Label, type BoardTask, type Hist, type Actor } from '@/app/plan/board/types';
 import { fijarYDesempatar, mismoOrdenRelativo, noPisaManuales, respetaElReclamo, sinEmpates, type Falla, type Puntuado } from '@/app/plan/board/metodologia';
 import { exigenciaDe, cumpleLaCarga, preguntaPorFaltante, type Prueba, type Exigencia } from '@/lib/plan-prueba';
 import { dictarAudiencia, type Antecedente } from '@/lib/mako-guardian';
@@ -324,6 +324,43 @@ export async function fijarPrioridadAMano(p: { entidad: 'proyecto' | 'tarea'; it
     const scoreActual = item.score || 0;
     const pedido = Math.max(1, Math.min(100, Math.round(p.score)));
 
+    // Pedir el número que ya tiene, cuando además ya estaba fijado a mano, no es un cambio:
+    // es un click de más. Sin esta salida queda una entrada de historial por cada vez que
+    // alguien toca el slider y lo devuelve a su lugar.
+    if (pedido === scoreActual && item.scoreManual) {
+      return { ok: true as const, score: scoreActual, antes: scoreActual, movidos: [] };
+    }
+
+    // ⚠️ UNA TAREA NO ARRASTRA A NADIE, Y NO ES UN ATAJO: ES LA DIFERENCIA ENTRE LOS DOS
+    // NIVELES. La cascada existe porque los 70 proyectos ocupan 100..2 SIN UN SOLO HUECO y
+    // sin empates —hay un norte, y fijar uno arriba corre a los de abajo—. Las tareas no
+    // funcionan así: medido el 23/09/2026, 241 abiertas ocupan 85 números distintos, o sea
+    // 156 empatadas. Meterlas por el mismo camino tenía dos consecuencias, las dos malas:
+    // `fijarYDesempatar` les reasigna un número único a las 241 (reescribe el tablero
+    // entero para mover una tarjeta), y `sinEmpates` falla SIEMPRE —no entran 241 en 100—,
+    // así que la respuesta habría sido «no cumple las reglas del tablero» cada vez. O sea:
+    // exactamente la fricción que esto vino a sacar, con un mensaje que culpa al tablero.
+    if (!esProy) {
+      const final = pedido;
+      const ahora = new Date().toISOString();
+      const { data: fila } = await db.from('plan_reprios').insert({
+        tablero: 'plan', entidad: 'tarea', item_id: item.id, item_nombre: nombre,
+        score_antes: scoreActual, score_pedido: pedido, motivo: '', pruebas: [], preguntas: [],
+        score_final: final, razon: 'Prioridad fijada a mano', respuesta: '', fallas: '',
+        estado: 'aplicado', aplicado_at: ahora, movidos: 1,
+        ripple: { [item.id]: { nombre, antes: scoreActual, despues: final, manualAntes: !!item.scoreManual } },
+      }).select('id').single();
+      await db.from('plan_tareas').update({
+        score: final, score_base: final, score_manual: true, score_razon: 'Prioridad fijada a mano',
+        priority: prioFromScore(final), // la columna se DERIVA del score, y el umbral vive en types.ts
+        updated_at: ahora,
+      }).eq('id', item.id);
+      await escribirHistorial('tarea', item.id, final === scoreActual
+        ? `Fijaste la prioridad en ${final}: MaKo ya no la mueve sola`
+        : `Fijaste la prioridad en ${final} a mano — antes ${scoreActual}`, 'user');
+      return { ok: true as const, score: final, antes: scoreActual, movidos: [], reprioId: fila?.id };
+    }
+
     // El universo es del MISMO NIVEL, igual que en la audiencia: un proyecto se compara con
     // proyectos y una tarea con tareas abiertas.
     const universo: Puntuado[] = esProy
@@ -391,7 +428,13 @@ export async function fijarPrioridadAMano(p: { entidad: 'proyecto' | 'tarea'; it
     }
 
     const otros = cascada.length - 1;
-    await escribirHistorial(p.entidad, item.id, `Fijaste la prioridad en ${despues[item.id]} a mano — antes ${scoreActual}${otros > 0 ? ` · se corrieron ${otros} más` : ''}`, 'user');
+    const final = despues[item.id];
+    // Fijar el número que ya tenía es una decisión igual: lo que cambia es que MaKo deja
+    // de moverlo. El historial lo dice con todas las letras en vez de «de 6 a 6».
+    const texto = final === scoreActual
+      ? `Fijaste la prioridad en ${final}: MaKo ya no la mueve sola`
+      : `Fijaste la prioridad en ${final} a mano — antes ${scoreActual}${otros > 0 ? ` · se corrieron ${otros} más` : ''}`;
+    await escribirHistorial(p.entidad, item.id, texto, 'user');
     console.log(`[plan-reprio] a mano: «${nombre}» ${scoreActual} → ${despues[item.id]}, ${cascada.length} filas`);
     return { ok: true as const, score: despues[item.id], antes: scoreActual, movidos: cascada.filter((m) => m.id !== item.id), reprioId: fila?.id };
   });

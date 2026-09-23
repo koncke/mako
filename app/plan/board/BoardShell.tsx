@@ -22,7 +22,7 @@ import { CrearProyectoModal } from './CrearProyecto';
 import { EliminarModal } from './EliminarModal';
 import { AsignarProyectoModal } from './AsignarProyecto';
 import { AudienciaModal } from './AudienciaModal';
-import { PrioridadAMano } from './PrioridadAMano';
+import { PrioridadAMano, MoverPrioridadModal, fijarPrioridad } from './PrioridadAMano';
 import { MakoProyectoModal } from './MakoProyecto';
 import { useVerMas } from './VerMas';
 import { useCapaModal } from '@/app/_components/pila-modales';
@@ -40,7 +40,7 @@ import { matchTarea, coincide, CAMPOS_POR_DEFECTO, type CampoBusqueda } from '@/
 import { RichText, stripHtml } from './RichText';
 import type { Board } from './useBoard';
 import { separarRepetidas, textoRepetidas } from '@/lib/tareas-dedup';
-import { type BoardTask, type Label, type Prio, type Check, type Actor, type Fuente, type FuenteTipo, ACTOR_LABEL, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, fechaHora, fuenteEfectiva, prioFromScore, displayPrio } from './types';
+import { type BoardTask, type Label, type Prio, type Check, type Actor, type Fuente, type FuenteTipo, ACTOR_LABEL, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, scoreFromPrio, uid, relTime, fechaHora, fuenteEfectiva, prioFromScore, displayPrio } from './types';
 import { resolverDeps, estaBloqueada, type EstadoDeps, type Dep } from './dependencias';
 import { ESCALERA } from './types';
 import { DependenciasBloque } from './DependenciasBloque';
@@ -138,6 +138,8 @@ export function BoardShell({ board, scope, vistaInicial }: {
   // es otra opción de verlo» — así que el default sigue siendo lo de siempre.
   const [tablaProy, setTablaProy] = usePref<boolean>('proyectos.tabla', false, esBool);
   const [tablaKanban, setTablaKanban] = usePref<boolean>('kanban.tabla', false, esBool);
+  // La tarjeta que acabás de soltar en otra columna: abre el pop-up del 1 al 100.
+  const [soltada, setSoltada] = useState<{ id: string; destino: Prio } | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ msg: string; onOk: () => void } | null>(null);
   const [debateId, setDebateId] = useState<string | null>(null);
@@ -526,6 +528,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
         : undefined;
   const openTask = tasks.find((t) => t.id === openId) ?? null;
   const debateTask = tasks.find((t) => t.id === debateId) ?? null;
+  const soltadaTask = soltada ? tasks.find((t) => t.id === soltada.id) ?? null : null;
   const debateFechaTask = tasks.find((t) => t.id === debateFechaId) ?? null;
   const openProjLabel = labels.find((l) => l.id === openProj) ?? null;
   const peekProj = labels.find((l) => l.id === peekProjId) ?? null;
@@ -619,7 +622,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
 
   // crear una tarea: el usuario propone proyecto(s) + prioridad; el GUARDIÁN la puntúa
   // (arrancando de la sugerencia del usuario) y decide su columna final (#10).
-  const crearConGuardian = async (d: { title: string; detalle: string; labelIds: string[]; userScore: number; motivoNinguno: string; nuevoProyecto: string; nuevoProyEmoji: string; argumento: string }) => {
+  const crearConGuardian = async (d: { title: string; detalle: string; labelIds: string[]; userScore: number; motivoNinguno: string; nuevoProyecto: string; nuevoProyEmoji: string; argumento: string; deadline: string; fijarPrioridad: boolean }) => {
     let labelIds = d.labelIds;
     const proyIds: string[] = [];
     // Si el usuario dijo que el proyecto todavía no existe, lo creamos inline. Nace en 50
@@ -636,6 +639,18 @@ export function BoardShell({ board, scope, vistaInicial }: {
     const starter = d.userScore || 50;
     const t = await board.create(d.title, prioFromScore(starter), labelIds.length ? labelIds : undefined, { detalle: d.detalle });
     if (!t) return null;
+    // La FECHA que puso la persona, antes que nada: el Perro propone una solo si no hay.
+    if (d.deadline) board.setDeadline(t.id, d.deadline, '');
+    // ⚠️ Y SI LA PRIORIDAD LA PUSO ELLA, SE FIJA ANTES DE LLAMAR AL PERRO. «Si el usuario
+    // ya puso la prioridad, el Perro no la pisa»: el que la respeta es
+    // `priorizarNuevasOwner`, que mira `score_manual` — o sea que el candado tiene que
+    // estar puesto cuando la corrida lee la fila, no después.
+    if (d.fijarPrioridad) {
+      try {
+        const r = await fijarPrioridad('tarea', t.id, starter);
+        board.aplicarCascadaManual('tarea', { id: t.id, score: r.score, razon: 'Prioridad fijada a mano', texto: `La creaste con prioridad ${r.score}` }, r.movidos);
+      } catch (e) { console.warn('[alta] fijar prioridad', e); }
+    }
     // Los HECHOS que aportó el usuario (no su número: la prioridad la decide el Perro).
     const partes: string[] = [];
     if (d.argumento) partes.push(d.argumento);
@@ -644,7 +659,9 @@ export function BoardShell({ board, scope, vistaInicial }: {
     // ancla: el Perro tiene que puntuarla contra la pirámide del plan y puede ignorarla
     // por completo. Decírselo explícito es lo que evita que la tome de punto de partida
     // — un modelo al que le mostrás un número tiende a quedarse cerca de ese número.
-    partes.push(`(El dueño SUGIRIÓ ${starter}/100 al crearla. Es una sugerencia, no un dato: puntúala tú contra el resto del plan y, si no se sostiene, corrígela sin problema.)`);
+    partes.push(d.fijarPrioridad
+      ? `(El dueño YA FIJÓ la prioridad en ${starter}/100 a mano: no la discutas ni la cambies. Escríbele la descripción y nada más.)`
+      : `(El dueño SUGIRIÓ ${starter}/100 al crearla. Es una sugerencia, no un dato: puntúala tú contra el resto del plan y, si no se sostiene, corrígela sin problema.)`);
     const contexto = partes.join(' ');
 
     // UNIFICACIÓN: una tarea cargada a mano recibe EXACTAMENTE el mismo trato que una de
@@ -653,16 +670,19 @@ export function BoardShell({ board, scope, vistaInicial }: {
     // el proyecto nuevo. El debate 1-a-1 quedaba de rubber-stamp: su veredicto más duro
     // ("rechaza") dejaba la tarea justo donde el usuario la había puesto.
     if (board.repo?.priorizarNuevas) {
+      // ⚠️ EL PERRO CORRE EN SEGUNDO PLANO, Y ESO ES EL CAMBIO. Antes el modal se quedaba
+      // en «El Perro Guardián está priorizando la tarea…» hasta que volvían TRES llamadas
+      // a un modelo: entre 10 y 20 segundos mirando un cartel para cargar una línea. Se
+      // crea, se cierra, y cuando el Perro contesta el tablero se actualiza solo.
       skipRePrio.current = true;
-      try {
-        const r = await board.repo.priorizarNuevas([t.id], proyIds, contexto || '(sin argumento del usuario: puntúala por impacto objetivo contra el resto del plan)');
-        if (r) board.aplicarPerroServer(r.patches, r.proyectosPatch);
-        setTimeout(() => { skipRePrio.current = false; }, 3500);
-        const p = r?.patches.find((x) => x.id === t.id);
-        if (p?.score != null) {
-          return { id: t.id, score: p.score, razon: p.scoreRazon ?? '', respuesta: p.scoreRazon ?? '', prio: displayPrio({ ...t, score: p.score }, topProjectId) };
-        }
-      } catch (e) { console.warn('[alta] priorizarNuevas', e); skipRePrio.current = false; }
+      void (async () => {
+        try {
+          const r = await board.repo!.priorizarNuevas!([t.id], proyIds, contexto || '(sin argumento del usuario: puntúala por impacto objetivo contra el resto del plan)');
+          if (r) board.aplicarPerroServer(r.patches, r.proyectosPatch);
+        } catch (e) { console.warn('[alta] priorizarNuevas', e); }
+        finally { setTimeout(() => { skipRePrio.current = false; }, 3500); }
+      })();
+      return { id: t.id, score: t.score, razon: '', respuesta: '', prio: displayPrio(t, topProjectId) };
     } else {
       // Board del cliente (sin Perro server-side): debate client-side, como antes.
       const argFinal = contexto || '(sin argumento: puntúalo por impacto objetivo comparándolo con el resto del plan)';
@@ -972,7 +992,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
         {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} bloqueadas={bloqueadasN} onOpen={setOpenId} onOpenProj={setOpenProj} />}
         {view === 'kanban' && (tablaKanban
           ? <div style={{ flex: '1 0 auto', padding: '18px 30px 40px' }}><TablaTareas tareas={visibles} board={board} hoy={hoyISO()} onOpen={setOpenId} onOpenProj={setOpenProj} /></div>
-          : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} frenanA={frenanA} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} />)}
+          : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} frenanA={frenanA} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} onSoltar={(id, destino) => setSoltada({ id, destino })} />)}
         {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={projFilter} q={q} fOrigen={fOrigen} sortMode={sortMode} sortDir={sortDir} tabla={tablaProy} />}
         {view === 'graphics' && <GraphicsView board={board} />}
       </div>
@@ -995,6 +1015,16 @@ export function BoardShell({ board, scope, vistaInicial }: {
         onUsage={(u) => showUsage(u, 'prioridad de tarea')}
         onAplicado={recargarTrasCascada}
         onClose={() => setDebateId(null)} />}
+      {soltadaTask && (
+        <MoverPrioridadModal
+          titulo={soltadaTask.title} score={soltadaTask.score}
+          sugerido={scoreFromPrio[soltada!.destino]} banda={PLABEL[soltada!.destino]}
+          onAplicado={async (n) => {
+            const r = await fijarPrioridad('tarea', soltadaTask.id, n);
+            board.aplicarCascadaManual('tarea', { id: soltadaTask.id, score: r.score, razon: 'Prioridad fijada a mano', texto: `Fijaste la prioridad en ${r.score} a mano` }, r.movidos);
+          }}
+          onClose={() => setSoltada(null)} />
+      )}
       {nuevaTarea && <CrearTareaModal labels={labels} proyectoInicial={nuevaTareaProj} prioInicial={nuevaTareaPrio} ejemplos={tasks.filter((t) => t.progress < 100).map((t) => ({ title: t.title, score: t.score }))} onCrear={crearConGuardian} onDone={(id) => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); setOpenId(id); setMakoHintId(id); }} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); }} />}
       {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} taskAbierta={!!openTask}
         onBack={welcomeVisible ? () => setOpenProj(null) : undefined} backLabel="Volver"
@@ -1632,6 +1662,8 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj }: 
   const proys = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
   return (
     <div onClick={() => onOpen(t.id)}
+      draggable
+      onDragStart={(e) => { e.dataTransfer.setData('text/plain', t.id); e.dataTransfer.effectAllowed = 'move'; }}
       style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '12px 14px', cursor: 'pointer', opacity: done ? 0.62 : 1, height: 138, display: 'flex', flexDirection: 'column', transition: 'border-color .12s' }}
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
       {/* header: proyecto + #id + [aviso] + prioridad */}
@@ -1798,8 +1830,10 @@ function BloqueoChip({ porQue, compacto = false }: { porQue: string[]; compacto?
 }
 
 // ── vista Kanban (4 columnas por prioridad derivada del score; ancho completo) ──
-function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, onOpen, onNew, onWarn, onOpenProj }: {
+function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, onOpen, onNew, onWarn, onOpenProj, onSoltar }: {
   tasks: BoardTask[]; board: Board; topProjectId: string | null; sortMode: 'score' | 'creacion'; sortDir: 'desc' | 'asc'; frenanA: (id: string) => string[]; onOpen: (id: string) => void; onNew: (p?: Prio) => void; onWarn: (id: string) => void; onOpenProj: (id: string) => void;
+  /** soltaste una tarjeta en otra columna: NO se fija sola, se pregunta el número */
+  onSoltar: (id: string, destino: Prio) => void;
 }) {
   // dir = -1 → desc (mayor score / #num más alto = más nuevo, primero); +1 → asc (al revés).
   const dir = sortDir === 'asc' ? 1 : -1;
@@ -1809,7 +1843,14 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, onOpen
       {PRIOS.map((p) => {
         const items = tasks.filter((t) => displayPrio(t, topProjectId) === p).sort((a, b) => (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0) || (sortMode === 'creacion' ? dir * (a.num - b.num) : (dir * (a.score - b.score) || b.num - a.num)));
         return (
-          <section key={p} style={{ display: 'flex', flexDirection: 'column', minWidth: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderTop: '3px solid ' + PCOLOR[p], borderRadius: 14, padding: 10 }}>
+          <section key={p}
+            // Soltar una tarjeta acá ABRE EL POP-UP del 1 al 100; la columna solo dice la
+            // banda. `preventDefault` en dragOver es lo que habilita el drop (sin él, el
+            // navegador lo rechaza y no pasa nada, que se lee como que el arrastre no anda).
+            onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; e.currentTarget.style.background = 'var(--surface-2)'; }}
+            onDragLeave={(e) => { e.currentTarget.style.background = 'var(--surface)'; }}
+            onDrop={(e) => { e.preventDefault(); e.currentTarget.style.background = 'var(--surface)'; const id = e.dataTransfer.getData('text/plain'); if (id) onSoltar(id, p); }}
+            style={{ display: 'flex', flexDirection: 'column', minWidth: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderTop: '3px solid ' + PCOLOR[p], borderRadius: 14, padding: 10, transition: 'background .12s' }}>
             <ColHeader p={p} count={items.length} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9, minHeight: 30, paddingRight: 2 }}>
               {/* card gris translúcida para crear (arriba de todo, más bajita que las tarjetas) */}

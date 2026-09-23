@@ -718,10 +718,10 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
     const idSet = new Set(ids);
     const projSet = new Set(proyectoIds);
     const [tRes, pRes] = await Promise.all([
-      db.from('plan_tareas').select('id, title, detalle, score, progress, labels, historial, deadline'),
+      db.from('plan_tareas').select('id, title, detalle, score, score_manual, progress, labels, historial, deadline'),
       db.from('plan_proyectos').select('id, name, score'),
     ]);
-    const filasT = (tRes.data ?? []) as Array<{ id: string; title: string; detalle: string; score: number; progress: number; labels: unknown; historial: unknown; deadline: string | null }>;
+    const filasT = (tRes.data ?? []) as Array<{ id: string; title: string; detalle: string; score: number; score_manual: boolean; progress: number; labels: unknown; historial: unknown; deadline: string | null }>;
     const filasP = (pRes.data ?? []) as Array<{ id: string; name: string; score: number }>;
     const nombreProy = new Map(filasP.map((p) => [p.id, str(p.name)]));
 
@@ -733,6 +733,9 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
         id: r.id, titulo: str(r.title, 'Tarea'), detalle: str(r.detalle), proyectoId: pid,
         proyecto: pid ? (nombreProy.get(pid) ?? pid) : undefined,
         deadline: str(r.deadline), historial: sanearHist(r.historial),
+        // Si la persona le puso el número al crearla, ESE manda: el Perro le escribe la
+        // descripción igual, pero no le toca la prioridad (mig 0143).
+        scoreManual: !!r.score_manual,
       };
     });
     const existentesT = filasT.filter((r) => !idSet.has(r.id) && int(r.progress) < 100).map((r) => ({ titulo: str(r.title), score: int(r.score), deadline: str(r.deadline) }));
@@ -762,7 +765,7 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
       const enr = checklistRes[n.id];
       const patch: Row = { updated_at: new Date().toISOString() };
       const out: GuardPatch = { id: n.id };
-      if (g) {
+      if (g && !n.scoreManual) {
         const prio = prioFromScore(g.score);
         cuenta[prio]++;
         // `score_base` es EL JUICIO del Perro (mig 0141). `score` se pisa después en el
@@ -811,7 +814,9 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
       if (Object.keys(patch).length <= 1) return Promise.resolve(undefined); // solo updated_at
       // RASTRO: toda pasada de la IA por una tarjeta queda en el historial (regla del
       // dueño). Antes el Perro puntuaba en silencio y la tarjeta no decía quién la movió.
-      const texto = g
+      // El historial dice lo que PASÓ, no lo que el modelo contestó: si la prioridad la
+      // fijó la persona, el Perro no la movió y la entrada no puede decir que sí.
+      const texto = g && !n.scoreManual
         ? `MaKo la priorizó — score ${g.score} (${g.razon || 'sin razón'})`.slice(0, 220)
         : 'MaKo le escribió la descripción';
       const entrada: Hist = { id: genId('h'), ts: ahora, actor: 'ia', text: texto };
