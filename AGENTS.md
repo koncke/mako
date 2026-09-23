@@ -578,6 +578,23 @@ Antes de escribir un límite —de tamaño, de progreso, de espaciado— comprob
 el límite real de la capa de abajo. Un número tuyo por encima del suyo no protege:
 promete.
 
+# Antes de optimizar algo lento, preguntá si el CAMINO es el correcto
+
+«Tarda mucho» casi nunca se arregla acelerando el camino que ya existe. El dictado del plan
+se reportó como transcripción lenta y no era la transcripción: era que **grabar → parar →
+subir → esperar a un modelo** no muestra una sola letra hasta que terminás de hablar. El
+navegador tiene reconocimiento de voz local (`SpeechRecognition`), escribe palabra por
+palabra y no cuesta nada — o sea que lo que había que cambiar no era el proveedor sino la
+forma.
+
+- **Una capacidad del navegador no es un estándar parejo.** `SpeechRecognition` está en
+  Chrome, Edge y Safari (`webkit`) y no en Firefox. El camino viejo no se borra: queda de
+  respaldo, y se elige mirando si la API existe.
+- **Un stream de reconocimiento CORRIGE lo ya dicho.** Acumular cada parcial duplica media
+  frase: se guarda el valor previo del campo y cada parcial lo reescribe entero.
+- **El idioma es un campo, no una deducción** — `navigator.language` es el de la interfaz,
+  no el que la persona habla.
+
 # Lo que vale para TODOS los cambios se escribe donde pasan todos, no en cada uno
 
 «El deshacer tiene que salir en todos los cambios», «todo cambio queda en el historial»,

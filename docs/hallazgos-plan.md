@@ -3009,3 +3009,59 @@ banda, que es el mismo de la columna del Kanban.
   vista: un proyecto al 80% mostraba cuatro tarjetas tachadas arriba de la única que queda.
 
 **Vive en:** app/plan/board/useBoard.ts (`ofrecerDeshacer`) · app/plan/board/Tablas.tsx (`enLote`) · app/plan/board/PrioridadAMano.tsx (`MoverPrioridadModal`) · app/plan/board/BoardShell.tsx · app/plan/board/cuando.ts (`quarterDeFecha`) · app/globals.css (`.mk-det`, scrollbars) · *2026-09-23*
+
+
+## Dictar no era lento: era el CAMINO equivocado (23/09/2026)
+
+*«Se tarda mucho en procesar la transcripción de lo que digo, cuando en otras apps es casi
+que inmediato, le voy dictando y lo va escribiendo.»*
+
+El diagnóstico obvio —la cascada de transcripción está lenta— era el equivocado. Lo lento
+era la forma: **grabar todo → parar → armar un `FormData` → subirlo → esperar a que un
+modelo lo transcriba → pegar el texto**. Con eso no aparece una sola letra hasta que
+terminás de hablar, y recién ahí empiezan la espera de red y la del modelo. Las apps con
+las que lo compara no transcriben en un server: usan el **reconocimiento de voz del
+navegador**, que corre local, escribe palabra por palabra y no cuesta nada.
+
+- **No reemplaza al camino viejo: lo adelanta.** `SpeechRecognition` está en Chrome, Edge y
+  Safari (con prefijo `webkit`) y **no** en Firefox. Si no está, el botón vuelve a grabar y
+  subir, que es más lento y funciona en todos lados.
+- **No se puede saber si hay permiso de micrófono sin pedirlo.** `start()` tira
+  `not-allowed` cuando está bloqueado, así que el mismo respaldo cubre ese caso.
+- ⚠️ **Los parciales CORRIGEN lo ya dicho, no lo continúan.** El reconocedor cambia de
+  opinión a mitad de frase, así que acumular cada parcial duplica media oración. Se guarda
+  el texto que había ANTES de arrancar y cada parcial reescribe el campo entero con
+  `base + loDictado`.
+- ⚠️ **`no-speech` y `aborted` no son errores.** Son «te callaste» y «cortaste vos»:
+  mostrarlos convierte el uso normal en un cartel rojo.
+- **El idioma es un campo, no una deducción.** `navigator.language` es el idioma de la
+  INTERFAZ, no el que la persona habla. Va `es-MX` explícito, que es el de Mauricio y el de
+  sus clientes.
+
+## Dos pantallas que hacen lo mismo dibujadas con dos moldes distintos
+
+*«Revisa el diseño de nuevo proyecto, está mal, en relación al diseño de tarea está feo.»*
+Las dos altas hacen exactamente lo mismo —una pregunta y dos botones— y estaban dibujadas
+con dos moldes: header con borde vs sin borde, textarea con caja vs campo con línea abajo, y
+un pie de dos renglones que aplastaba el botón hasta partirlo en **tres** líneas («Armarlo /
+con / MaKo →»).
+
+La regla, que es la de «una cosa, un lugar» aplicada al layout: **cuando dos pantallas
+responden la misma pregunta, comparten el molde**. Si una se ve peor que la otra, casi nunca
+es que esté mal diseñada: es que son dos diseños.
+
+⚠️ **Y un botón en un pie con `space-between` se parte solo.** El texto de la izquierda
+crece, el botón es lo elástico, y el resultado es una palabra por renglón. Va
+`whiteSpace: nowrap` y el grupo de botones con `flex: 'none'`.
+
+## Un ícono de editar colgado de un rótulo queda flotando contra el borde
+
+*«Mira el botón de editar dónde quedó.»* El lápiz de PROYECTOS se había puesto arriba a la
+derecha del rotulito, con un `flex: 1` en el medio: quedaba pegado al borde de la columna,
+lejos del chip que edita y alineado con nada.
+
+Es la misma regla que ya había quedado escrita para el lápiz de la prioridad y que acá se
+aplicó mal: **va pegado al dato que edita**. Ahora es el último elemento de la fila de
+chips, que es donde se lee como «editá esto».
+
+**Vive en:** app/plan/board/dictado-vivo.ts · app/plan/board/CrearTareaModal.tsx · app/plan/board/CrearProyecto.tsx · app/plan/board/BoardShell.tsx · *2026-09-23*

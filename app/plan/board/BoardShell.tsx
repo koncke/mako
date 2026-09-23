@@ -2535,18 +2535,17 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
               )}
             </div>
             <div>
-              <label style={{ ...rowLabel, display: 'flex', alignItems: 'center', gap: 4 }}>
-                {board.repo.labelPlural}
-                <span style={{ flex: 1 }} />
-                {/* Mismo lápiz que la prioridad, por la misma razón: un botón de ancho
-                    completo para cambiar un chip es más grande que el chip. */}
-                <LapizPrioridad onClick={onAsignar} titulo={chips.length ? 'Cambiar de proyecto' : 'Asignar un proyecto'} />
-              </label>
+              <label style={rowLabel}>{board.repo.labelPlural}</label>
               {/* Los chips ya no se sacan con una × acá: cambiar de proyecto pasa por el
                   Perro Guardián (feedback #7). */}
               {/* Chips cuadrados y clickeables (feedback jul-19): mismo diseño que el header
                   (LabelChip), con ellipsis; al tocarlos abrís el proyecto (y volvés a la tarea). */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
+              {/* ⚠️ EL LÁPIZ VA CON LOS CHIPS, no colgado del rótulo. Puesto arriba a la
+                  derecha del rotulito quedaba flotando contra el borde, lejos de lo que
+                  edita y alineado con nada — «mira el botón de editar dónde quedó»
+                  (23/09/2026). Acá es el último elemento de la misma fila: se lee como
+                  «editá esto». */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 5, marginBottom: 8 }}>
                 {chips.length === 0
                   ? <span style={{ fontSize: 12, color: 'var(--faint)', fontStyle: 'italic' }}>Sin proyecto</span>
                   : chips.map((l) => (
@@ -2556,6 +2555,7 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</span>
                     </button>
                   ))}
+                <LapizPrioridad onClick={onAsignar} titulo={chips.length ? 'Cambiar de proyecto' : 'Asignar un proyecto'} />
               </div>
             </div>
 

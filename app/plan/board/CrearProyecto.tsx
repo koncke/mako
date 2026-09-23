@@ -78,7 +78,7 @@ export function CrearProyectoModal({ onCrear, onClose }: { onCrear: (nombre: str
   if (fase !== 'form') {
     return (
       <Shell onClose={onClose}>
-        <div style={{ padding: '26px 26px 10px' }}>
+        <div style={{ padding: '22px 20px 14px' }}>
           {fase === 'generando'
             ? <div style={{ padding: '34px 0', textAlign: 'center', color: 'var(--dim)', fontSize: 14 }}><div style={{ display: 'flex', justifyContent: 'center' }}><GuardianIcon size={44} /></div><div style={{ marginTop: 12 }}>MaKo está armando el proyecto…</div></div>
             : <>
@@ -91,44 +91,49 @@ export function CrearProyectoModal({ onCrear, onClose }: { onCrear: (nombre: str
               </>}
         </div>
         {fase === 'result' && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '14px 22px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '0 20px 18px' }}>
             <button type="button" onClick={() => setFase('form')} style={ghostBtn}>← Volver</button>
-            <button type="button" onClick={crear} disabled={!nombre.trim()} style={{ ...primaryBtn, opacity: nombre.trim() ? 1 : 0.5 }}>Crear proyecto →</button>
+            <button type="button" onClick={crear} disabled={!nombre.trim()} style={{ ...primaryBtn, whiteSpace: 'nowrap', opacity: nombre.trim() ? 1 : 0.5 }}>Crear proyecto</button>
           </div>
         )}
       </Shell>
     );
   }
 
+  // ⚠️ EL MISMO MOLDE QUE «Nueva tarea», HASTA EL PÍXEL. «Revisa el diseño de nuevo
+  // proyecto, está mal, en relación al diseño de tarea está feo» (23/09/2026). Eran dos
+  // pantallas que hacen exactamente lo mismo —una pregunta y dos botones— dibujadas con dos
+  // moldes distintos: header con borde vs sin borde, textarea con caja vs campo con línea
+  // abajo, y un pie de dos renglones que aplastaba el botón hasta partirlo en TRES líneas
+  // («Armarlo / con / MaKo →»). Mismo header, mismo campo, mismo pie, mismo rótulo.
   return (
     <Shell onClose={onClose}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '15px 20px', borderBottom: '1px solid var(--border)' }}>
-        <GuardianIcon size={22} />
-        <span style={{ fontSize: 15.5, fontWeight: 700, color: 'var(--ink)' }}>Nuevo proyecto</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 20px 0' }}>
+        <GuardianIcon size={20} />
+        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Nuevo proyecto</span>
         <span style={{ flex: 1 }} />
-        <button type="button" onClick={onClose} aria-label="Cerrar" style={{ border: 'none', background: 'transparent', color: 'var(--faint)', fontSize: 21, lineHeight: 1, cursor: 'pointer', padding: '2px 4px' }}>×</button>
+        <button type="button" onClick={onClose} aria-label="Cerrar" style={{ border: 'none', background: 'transparent', color: 'var(--faint)', fontSize: 20, lineHeight: 1, cursor: 'pointer', padding: '2px 4px' }}>×</button>
       </div>
 
-      <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {/* UNA PREGUNTA. Y NADA MÁS: «no quiero la opción de agregar detalles, ni en
-            proyecto ni en tareas» (23/09/2026). Lo que estaba plegado —«por qué importa»—
-            mejoraba lo que MaKo escribe y no hacía falta para empezar; y lo que MaKo
-            escribe se revisa y se edita en la pantalla siguiente, que es donde de verdad
-            se mira. */}
-        <textarea value={desc} onChange={(e) => setDesc(e.target.value)} autoFocus rows={3}
-          onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && desc.trim()) void generar(); }}
+      {/* UNA PREGUNTA. Y NADA MÁS: «no quiero la opción de agregar detalles, ni en proyecto
+          ni en tareas» (23/09/2026). Lo que MaKo escribe se revisa y se edita en la pantalla
+          siguiente, que es donde de verdad se mira. */}
+      <div style={{ padding: '14px 20px 18px' }}>
+        <textarea value={desc} onChange={(e) => setDesc(e.target.value)} autoFocus rows={2}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && desc.trim()) { e.preventDefault(); void generar(); } }}
           placeholder="¿De qué se trata el proyecto?"
-          style={{ ...textareaStyle, minHeight: 92, fontSize: 17, border: 'none', borderBottom: '2px solid var(--border)', borderRadius: 0, padding: '10px 0', background: 'transparent' }} />
-
+          style={{ width: '100%', padding: '11px 0', border: 'none', borderBottom: '2px solid var(--border)', borderRadius: 0, background: 'transparent', color: 'var(--ink)', fontSize: 19, lineHeight: 1.4, outline: 'none', fontFamily: SANS, resize: 'none' }}
+          onFocus={(e) => { e.currentTarget.style.borderBottomColor = 'var(--primary)'; }}
+          onBlur={(e) => { e.currentTarget.style.borderBottomColor = 'var(--border)'; }} />
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '13px 20px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-        <span style={{ fontSize: 12, color: 'var(--faint)' }}>MaKo le pone nombre, emoji, prioridad y detalle. Lo revisas antes de crearlo.</span>
-        <div style={{ display: 'flex', gap: 9 }}>
-          <button type="button" onClick={onClose} style={{ padding: '10px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '0 20px 18px' }}>
+        <span style={{ fontSize: 12, color: 'var(--faint)' }}>MaKo le pone nombre, emoji, prioridad y detalle.</span>
+        <div style={{ display: 'flex', gap: 9, flex: 'none' }}>
+          <button type="button" onClick={onClose} style={ghostBtn}>Cancelar</button>
           <button type="button" onClick={() => void generar()} disabled={!desc.trim()}
-            style={{ padding: '10px 20px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: desc.trim() ? 'pointer' : 'default', opacity: desc.trim() ? 1 : 0.55, fontFamily: SANS }}>
-            Armarlo con MaKo →
+            style={{ ...primaryBtn, whiteSpace: 'nowrap', opacity: desc.trim() ? 1 : 0.55, cursor: desc.trim() ? 'pointer' : 'default' }}>
+            Crear proyecto
           </button>
         </div>
       </div>

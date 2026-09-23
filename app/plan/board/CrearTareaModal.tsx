@@ -26,8 +26,9 @@
 // con el lápiz del panel, que es un click.
 // =============================================================================
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useVoiceRecorder } from '@/app/whatsapp/_shared/VoiceRecorder';
+import { useDictadoVivo, unirDictado } from './dictado-vivo';
 import { GuardianIcon } from './GuardianIcon';
 import { type Prio, scoreFromPrio } from './types';
 
@@ -137,7 +138,7 @@ export function CrearTareaModal({ proyectoInicial, prioInicial, onCrear, onDone,
               style={{ flex: 1, minWidth: 0, padding: '13px 0', border: 'none', borderBottom: '2px solid var(--border)', background: 'transparent', color: 'var(--ink)', fontSize: 19, outline: 'none', fontFamily: SANS }}
               onFocus={(e) => { e.currentTarget.style.borderBottomColor = 'var(--primary)'; }}
               onBlur={(e) => { e.currentTarget.style.borderBottomColor = 'var(--border)'; }} />
-            <BotonDictar titulo="Dictar la tarea" onTexto={(t) => setTitle((v) => (v ? `${v} ${t}` : t))} onError={setErr} />
+            <BotonDictar titulo="Dictar la tarea" valor={title} onValor={setTitle} onError={setErr} />
           </div>
           {err && <div style={{ fontSize: 12.5, color: 'var(--bad)', lineHeight: 1.4, marginTop: 10 }}>{err}</div>}
         </div>
@@ -157,25 +158,49 @@ export function CrearTareaModal({ proyectoInicial, prioInicial, onCrear, onDone,
 }
 
 /**
- * El botón de dictar. Graba, manda el audio a `/api/plan-dictado` y pega el texto.
+ * El botón de dictar. En vivo si el navegador puede; si no, graba y transcribe.
+ *
+ * ⚠️ DOS CAMINOS, Y EL RÁPIDO ES EL DEL NAVEGADOR. «Se tarda mucho en procesar la
+ * transcripción de lo que digo, cuando en otras apps es casi que inmediato» (23/09/2026):
+ * grabar → parar → subir → esperar a un modelo son varios segundos DESPUÉS de terminar de
+ * hablar, y hasta ahí no aparece una sola letra. El reconocimiento del navegador corre
+ * local, escribe mientras hablás y no cuesta nada (`dictado-vivo.ts`).
+ *
+ * El camino viejo queda como respaldo y no es decorativo: Firefox no trae la API, y si el
+ * micrófono está bloqueado el dictado en vivo ni siquiera arranca.
  *
  * ⚠️ El texto se PEGA en el campo, no se usa para crear nada: lo que transcribe un modelo
- * se lee antes de que valga. Es la misma regla de «un canal propone, una persona confirma»,
- * en su versión más barata — acá la persona ya está mirando la pantalla.
+ * —o un reconocedor— se lee antes de que valga. Es «un canal propone, una persona confirma»
+ * en su versión más barata: acá la persona ya está mirando la pantalla.
  */
-function BotonDictar({ titulo, onTexto, onError }: { titulo: string; onTexto: (t: string) => void; onError: (m: string) => void }) {
+function BotonDictar({ titulo, valor, onValor, onError }: {
+  titulo: string;
+  /** lo que hay escrito AHORA: lo dictado se pega atrás, no lo reemplaza */
+  valor: string;
+  onValor: (v: string) => void;
+  onError: (m: string) => void;
+}) {
   const [subiendo, setSubiendo] = useState(false);
+  // El texto que había ANTES de arrancar a dictar. Cada parcial reescribe el campo entero
+  // con `base + loDictado`, porque el reconocedor corrige lo que ya dijo: acumular los
+  // parciales duplicaría media frase cada vez que cambia de opinión.
+  const base = useRef('');
+  const vivo = useDictadoVivo(
+    (texto) => onValor(unirDictado(base.current, texto)),
+    onError,
+  );
+
   const rec = useVoiceRecorder(async (blob) => {
     setSubiendo(true);
     try {
       const fd = new FormData();
       fd.append('audio', blob, 'nota.webm');
-      // ⚠️ CON SEÑAL DE CORTE, que es la regla que quedó escrita hoy mismo en AGENTS.md: un
-      // `fetch` sin `signal` con la conexión caída no resuelve NUNCA, y acá eso dejaba el
-      // botón de dictar deshabilitado para siempre (el `finally` no llega a correr).
+      // ⚠️ CON SEÑAL DE CORTE (AGENTS.md): un `fetch` sin `signal` con la conexión caída no
+      // resuelve NUNCA, y acá eso dejaba el botón deshabilitado para siempre — el `finally`
+      // no llega a correr.
       const j = await fetch('/api/plan-dictado', { method: 'POST', body: fd, signal: AbortSignal.timeout(90_000) }).then((r) => r.json());
       if (!j?.ok) { onError(String(j?.error || 'No pude transcribir el audio.')); return; }
-      if (j.texto) onTexto(String(j.texto));
+      if (j.texto) onValor(unirDictado(valor, String(j.texto)));
     } catch (e) {
       onError(e instanceof Error && e.name === 'TimeoutError'
         ? 'La transcripción tardó demasiado. Escríbelo a mano o prueba de nuevo.'
@@ -184,23 +209,35 @@ function BotonDictar({ titulo, onTexto, onError }: { titulo: string; onTexto: (t
     finally { setSubiendo(false); }
   }, onError);
 
-  const grabando = rec.recording;
+  const escuchando = vivo.soportado ? vivo.escuchando : rec.recording;
+  const alternar = () => {
+    if (vivo.soportado) {
+      if (vivo.escuchando) vivo.parar();
+      else { base.current = valor; vivo.arrancar(); }
+      return;
+    }
+    if (rec.recording) rec.stop(false); else void rec.start();
+  };
+
   return (
     <button type="button"
-      onClick={() => (grabando ? rec.stop(false) : void rec.start())}
+      onClick={alternar}
       disabled={subiendo}
-      title={subiendo ? 'Transcribiendo…' : grabando ? `Listo (${rec.secs}s) — soltar y transcribir` : titulo}
+      title={subiendo ? 'Transcribiendo…' : escuchando ? (vivo.soportado ? 'Te escucho — toca para terminar' : `Listo (${rec.secs}s) — soltar y transcribir`) : titulo}
       aria-label={titulo}
       style={{
         flex: 'none', width: 42, height: 42, borderRadius: 11, cursor: subiendo ? 'wait' : 'pointer',
-        border: `1px solid ${grabando ? 'var(--bad)' : 'var(--border-strong)'}`,
-        background: grabando ? 'var(--bad)' : 'var(--surface)',
-        color: grabando ? '#fff' : 'var(--dim)',
+        border: `1px solid ${escuchando ? 'var(--bad)' : 'var(--border-strong)'}`,
+        background: escuchando ? 'var(--bad)' : 'var(--surface)',
+        color: escuchando ? '#fff' : 'var(--dim)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
+        // Late mientras escucha: es la única señal de que el micrófono está abierto.
+        animation: escuchando ? 'mkEscucha 1.2s ease-in-out infinite' : 'none',
       }}>
+      <style>{'@keyframes mkEscucha{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb, var(--bad) 45%, transparent)}70%{box-shadow:0 0 0 7px transparent}}'}</style>
       {subiendo
         ? <span style={{ fontSize: 11, fontFamily: MONO }}>…</span>
-        : grabando
+        : escuchando && !vivo.soportado
           ? <span style={{ fontSize: 11, fontFamily: MONO, fontWeight: 700 }}>{rec.secs}s</span>
           : <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" y1="19" x2="12" y2="22" /></svg>}
     </button>
