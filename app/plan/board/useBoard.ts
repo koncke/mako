@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useUndoToast } from '../../_components/UndoToast';
+import { quarterDeFecha } from './cuando';
 import { type BoardTask, type Label, type BoardUser, type Repo, type Hist, type Actor, type Fuente, type Prio, type Check, type GuardPatch, type GuardProjPatch, PLABEL, MAX_PRIORIDAD, HIST_CAP, uid, clampPct, clampScore, clampProj, prioFromScore, scoreFromPrio } from './types';
 import { type Dep, type ClaseDep, type EntidadDep, puedeDepender } from './dependencias';
 
@@ -51,12 +52,35 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     const entry = mkEntry(actor, text, field, t[field]);
     setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, [field]: value, historial: [entry, ...x.historial].slice(0, HIST_CAP) } : x)));
     markDirty(id);
+    ofrecerDeshacer(id, entry, actor);
   }
   // igual pero con `prev` explícito (para valores que ya venían editándose en vivo)
   function patchLogExplicit<K extends keyof BoardTask>(id: string, field: K, value: BoardTask[K], prev: unknown, text: string, actor: Actor = 'user') {
     const entry = mkEntry(actor, text, field, prev);
     setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, [field]: value, historial: [entry, ...x.historial].slice(0, HIST_CAP) } : x)));
     markDirty(id);
+    ofrecerDeshacer(id, entry, actor);
+  }
+
+  /**
+   * EL BOTÓN DE ARREPENTIMIENTO, PARA TODOS LOS CAMBIOS.
+   *
+   * «A TODOS los cambios, absolutamente todos, debería saltar el pequeño botón de
+   * arrepentimiento que dura 5 segundos… TODOS los cambios, sea cual sea» (23/09/2026).
+   *
+   * ⚠️ VA EN EL CHOKE POINT, NO EN CADA LLAMADOR. Antes lo pedían tres call sites a mano
+   * (borrar, mover de columna y completar) y los otros ~20 campos —título, detalle, fecha,
+   * quarter, avance, notas, proyecto— cambiaban sin red. Ponerlo en cada uno es la garantía
+   * de que el próximo campo nazca sin él: acá pasan TODOS los cambios logueados de una
+   * tarea, así que un campo nuevo lo hereda sin que nadie se acuerde.
+   *
+   * Sólo para `actor === 'user'`: lo que hizo MaKo no se deshace con un toast —queda en el
+   * historial, que es donde se audita— y un toast por cada tarjeta que toca el Perro sería
+   * un toast permanente.
+   */
+  function ofrecerDeshacer(id: string, entry: Hist, actor: Actor) {
+    if (actor !== 'user' || !entry.undo) return;
+    show(entry.text, () => undoHist(id, entry));
   }
 
   const create = async (title: string, priority: Prio, labelsIn?: string[], meta?: { origen?: Actor; fuente?: Fuente; altaText?: string; detalle?: string }): Promise<BoardTask | null> => {
@@ -120,12 +144,16 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     const entry = mkEntry(actor, text, 'score', t.score);
     setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, score: s, scoreBase: s, priority: prioFromScore(s), scoreRazon: razon ?? x.scoreRazon, historial: [entry, ...x.historial].slice(0, HIST_CAP) } : x)));
     markDirty(id);
+    // El score no pasa por `patchLog` (toca tres campos a la vez), así que pide el
+    // arrepentimiento por su cuenta — la regla es la misma: todo cambio de una persona.
+    ofrecerDeshacer(id, entry, actor);
   };
   const moveTo = (id: string, priority: Prio) => {
     const t = byId(id); if (!t || t.priority === priority) return;
-    const fromScore = t.score, fromPrio = t.priority;
+    // El toast sale de `setScore`, que ya ofrece deshacer (y revierte el score exacto, no
+    // el representativo de la columna). Acá había uno propio y con el arrepentimiento
+    // general salían dos, uno encima del otro.
     setScore(id, scoreFromPrio[priority], `Movió a ${PLABEL[priority]}`);
-    show(`"${t.title.slice(0, 26)}" → ${PLABEL[priority]}`, () => setScore(id, fromScore, `Volvió a ${PLABEL[fromPrio]}`));
   };
   // aplica la puntuación del guardián: score → columna derivada, 1 entrada por tarea.
   const applyGuardian = (tareas: GuardScore[], proyectos: GuardScore[]) => {
@@ -253,9 +281,25 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     } else {
       patchLogExplicit(id, 'progress', done ? 0 : 100, t.progress, done ? 'Reabrió la tarea' : 'Marcó como completada');
     }
-    show(done ? 'Tarea reabierta' : 'Tarea completada', () => replaceTask(snap));
+    // El toast lo dispara `patchLogExplicit`/`setChecklist` por el choke point. Acá había
+    // un `show` propio y desde que el arrepentimiento es general salían DOS.
   };
-  const setDeadline = (id: string, deadline: string, prev: string) => { if (deadline !== prev) patchLogExplicit(id, 'deadline', deadline, prev, deadline ? `Deadline ${deadline}` : 'Quitó el deadline'); };
+  /**
+   * La fecha de vencimiento. Y, si la tarea no tenía Quarter, el Quarter que le corresponde.
+   *
+   * ⚠️ SÓLO CUANDO ESTÁ VACÍO. Si alguien ya eligió un Quarter, esto NO lo pisa: son dos
+   * preguntas distintas —cuándo vence y para cuándo se planificó— y hay casos legítimos en
+   * que no coinciden (una entrega de Q3 que se planificó para Q2). Lo que la pantalla hace
+   * en ese caso es AVISAR, no corregir: «si intento cambiar el quarter o la fecha a otro
+   * fuera de la relación del otro, y no coincide, que me dé un aviso» (23/09/2026).
+   */
+  const setDeadline = (id: string, deadline: string, prev: string) => {
+    if (deadline === prev) return;
+    patchLogExplicit(id, 'deadline', deadline, prev, deadline ? `Deadline ${deadline}` : 'Quitó el deadline');
+    const t = byId(id);
+    const q = quarterDeFecha(deadline);
+    if (q && t && !t.quarter) patchLogExplicit(id, 'quarter', q, undefined, `Quedó en el ${q.replace('-', ' ')} por su fecha`, 'ia');
+  };
   /**
    * El Quarter planificado (`2026-Q3`), o vacío para sacarlo.
    *
@@ -303,15 +347,20 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
   // Guarda el `undo` (snapshot de los campos que cambian) SOLO para cambios del usuario.
   const patchLabelLog = (id: string, fields: Partial<Label>, text: string, actor: Actor = 'user') => {
     let next: Label | null = null;
+    let entradaUsuario: Hist | null = null;
     setLabels((ls) => ls.map((l) => {
       if (l.id !== id) return l;
       const prev: Record<string, unknown> = {};
       for (const k of Object.keys(fields)) prev[k] = (l as unknown as Record<string, unknown>)[k];
       const entry: Hist = { id: uid(), ts: now(), actor, text, ...(actor === 'user' ? { undo: { field: '__label__', prev } } : {}) };
+      entradaUsuario = actor === 'user' ? entry : null;
       next = { ...l, ...fields, historial: [entry, ...l.historial].slice(0, HIST_CAP) };
       return next;
     }));
     if (next) void repo.saveLabel(next).catch((e) => console.error('[board] saveLabel', e));
+    // Mismo arrepentimiento que en una tarea, y por el mismo motivo: acá pasan el rename,
+    // el emoji, el color, el detalle, la fecha y las notas de un proyecto.
+    if (actor === 'user') { const e = entradaUsuario; if (e) show(text, () => undoLabelHist(id, e)); }
   };
   // deshacer una entrada del change history de un proyecto (solo cambios del usuario)
   const undoLabelHist = (labelId: string, entry: Hist) => {

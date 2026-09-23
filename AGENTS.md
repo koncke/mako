@@ -578,6 +578,28 @@ Antes de escribir un límite —de tamaño, de progreso, de espaciado— comprob
 el límite real de la capa de abajo. Un número tuyo por encima del suyo no protege:
 promete.
 
+# Lo que vale para TODOS los cambios se escribe donde pasan todos, no en cada uno
+
+«El deshacer tiene que salir en todos los cambios», «todo cambio queda en el historial»,
+«todo lo que escribe la IA lleva su rastro»: son reglas sobre un CONJUNTO, y puestas en
+cada call site sólo cubren los que existían el día que se escribieron.
+
+Medido el 23/09/2026: el toast de deshacer lo pedían TRES lugares a mano —borrar, mover de
+columna y completar— y los otros ~20 campos de una tarea (título, detalle, fecha, quarter,
+avance, notas, proyecto, score) cambiaban sin red. Se mudó a `patchLog` /
+`patchLogExplicit` / `setScore` / `patchLabelLog`, que es por donde pasan todos los cambios
+logueados: **un campo nuevo lo hereda sin que nadie se acuerde**.
+
+- **Al mudarlo, sacá los que quedaron a mano** o salen dos: `toggleDone` y `moveTo` tenían
+  su propio `show` encima del que ahora dispara el choke point.
+- **Y filtrá por AUTOR.** Lo que hace la IA no se deshace con un toast —queda en el
+  historial, que es donde se audita— y un toast por cada tarjeta que toca el Perro sería un
+  toast permanente.
+- **Una acción en LOTE necesita UN deshacer, no N.** Con el toast en el choke point, una
+  acción sobre 12 tareas dispara 12 toasts y el que queda arriba deshace UNA. El lote toma
+  su propio snapshot y pisa con un toast que revierte todo junto, que es la unidad en la que
+  la persona decidió.
+
 # Un layout que se auto-mide tiene que acertar SIEMPRE; uno fijo no tiene casos
 
 Antes de escribir una medición que decide el layout —«¿pliego los botones?», «¿escondo el

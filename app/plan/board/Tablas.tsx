@@ -188,13 +188,30 @@ export function TablaProyectos({ filas, topProjectId, hoy, onOpen, onDeadline, l
 
 // ── TAREAS ───────────────────────────────────────────────────────────────────────────
 
-export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj }: {
+const btnLote: CSSProperties = {
+  border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)',
+  borderRadius: 8, padding: '6px 11px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS,
+};
+
+export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask }: {
   tareas: BoardTask[];
   board: Board;
   hoy: string;
   onOpen: (id: string) => void;
   onOpenProj?: (id: string) => void;
+  /** confirmar lo irreversible (lo trae el board) */
+  ask: (msg: string, onOk: () => void) => void;
 }) {
+  /**
+   * LO SELECCIONADO. La casilla de la primera columna SELECCIONA, no completa.
+   *
+   * «En la vista de tabla el botón de marcar como completada no debería salir allí, porque
+   * pareciera que es un botón de seleccionar varias» (23/09/2026). Y tenía razón por partida
+   * doble: en una tabla, una casilla en la primera columna ES el control de selección —lo es
+   * en Gmail, en Drive y en cualquier tabla— así que la lectura no era un error de nadie.
+   * Lo que faltaba era que hiciera lo que parecía que hacía.
+   */
+  const [sel, setSel] = useState<ReadonlySet<string>>(new Set());
   const [orden, setOrden] = usePref<OrdenTarea>('kanban.tabla.orden', 'score', esUnoDe('deadline', 'score', 'proyecto', 'num'));
   const [dir, setDir] = usePref<'asc' | 'desc'>('kanban.tabla.dir', 'desc', esUnoDe('asc', 'desc'));
   const [verHechas, setVerHechas] = useState(false);
@@ -223,16 +240,36 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tareas, orden, dir, board.labels]);
 
+  // Sobre lo VISIBLE, nunca sobre el tablero entero: si hay un filtro puesto, «todas» son
+  // las que se ven. Seleccionar lo que no está en pantalla es cómo se borra de más.
+  const visiblesIds = (verHechas ? [...vivas, ...hechas] : vivas).map((t) => t.id);
+  const todasSel = visiblesIds.length > 0 && visiblesIds.every((id) => sel.has(id));
+  const alternar = (id: string) => setSel((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const elegidas = tareas.filter((t) => sel.has(t.id));
+
+  /**
+   * Una acción sobre TODAS las elegidas, con UN solo arrepentimiento.
+   *
+   * ⚠️ Cada cambio individual ofrece su propio deshacer (va en el choke point de
+   * `useBoard`), así que sin esto una acción sobre 12 tareas dispara 12 toasts y el que
+   * queda arriba deshace UNA. Acá se guarda el estado anterior de todas y se pisa con un
+   * toast que las revierte juntas — que es la unidad en la que la persona decidió.
+   */
+  const enLote = (texto: string, aplicar: (t: BoardTask) => void) => {
+    const snaps = elegidas.map((t) => ({ ...t }));
+    elegidas.forEach(aplicar);
+    setSel(new Set());
+    board.showUndo(texto, () => snaps.forEach((snap) => board.replaceTask(snap)));
+  };
+
   const fila = (t: BoardTask, hecha: boolean) => {
     const proy = board.labelById(t.labels[0]);
     const c = PCOLOR[prioFromScore(t.score)];
     return (
       <tr key={t.id} style={{ background: hecha ? 'var(--surface-2)' : undefined }}>
         <td style={{ ...tdBase, width: 34, paddingRight: 0 }}>
-          {/* El check para completar, a la vista y a un click: «las que no están
-              completadas simplemente que aparezca el check para marcarlas». */}
-          <input type="checkbox" checked={hecha} onChange={() => board.toggleDone(t.id)}
-            title={hecha ? 'Reabrir' : 'Marcar como completada'} aria-label={hecha ? `Reabrir «${t.title}»` : `Completar «${t.title}»`}
+          <input type="checkbox" checked={sel.has(t.id)} onChange={() => alternar(t.id)}
+            title="Seleccionar" aria-label={`Seleccionar «${t.title}»`}
             style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)' }} />
         </td>
         <td style={{ ...tdBase, maxWidth: 420 }}>
@@ -266,10 +303,42 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj }: {
 
   return (
     <div style={cajaStyle} className="mk-scroll-x">
+      {elegidas.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '10px 12px', marginBottom: 10, borderRadius: 11, border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)' }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>{elegidas.length} seleccionada{elegidas.length === 1 ? '' : 's'}</span>
+          <span style={{ width: 1, height: 20, background: 'var(--border)' }} />
+          <button type="button" onClick={() => enLote(`${elegidas.length} completada${elegidas.length === 1 ? '' : 's'}`, (t) => { if (t.progress < 100) board.toggleDone(t.id); })} style={btnLote}>✓ Completar</button>
+          <button type="button" onClick={() => enLote(`${elegidas.length} reabierta${elegidas.length === 1 ? '' : 's'}`, (t) => { if (t.progress >= 100) board.toggleDone(t.id); })} style={btnLote}>Reabrir</button>
+          <label style={{ ...btnLote, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            Deadline
+            <input type="date" onChange={(e) => { const v = e.target.value; if (v) enLote(`Deadline ${v} en ${elegidas.length}`, (t) => board.setDeadline(t.id, v, t.deadline)); }}
+              aria-label="Ponerles la misma fecha a todas" style={{ border: 'none', background: 'transparent', font: 'inherit', color: 'var(--ink)', cursor: 'pointer' }} />
+          </label>
+          <select value="" aria-label="Moverlas a un proyecto"
+            onChange={(e) => { const id = e.target.value; if (!id) return; const l = board.labelById(id); enLote(`${elegidas.length} a «${l?.name ?? ''}»`, (t) => board.setTaskLabels(t.id, [id], `Movida a «${l?.name ?? ''}»`)); }}
+            style={{ ...btnLote, maxWidth: 190 }}>
+            <option value="">Mover a un proyecto…</option>
+            {board.labels.map((l) => <option key={l.id} value={l.id}>{l.emoji} {l.name}</option>)}
+          </select>
+          <span style={{ flex: 1 }} />
+          {/* Borrar NO ofrece deshacer en lote y por eso PREGUNTA: restaurar N tareas es
+              volver a crearlas en el server una por una, y a mitad de camino puede fallar
+              dejando la mitad. Un botón que promete deshacer y a veces no puede es peor que
+              uno que avisa antes. */}
+          <button type="button" onClick={() => ask(`¿Eliminar ${elegidas.length} tarea${elegidas.length === 1 ? '' : 's'}? Esto no se puede deshacer en lote.`, () => { elegidas.forEach((t) => board.removeSilent(t.id)); setSel(new Set()); })}
+            style={{ ...btnLote, borderColor: 'var(--bad)', color: 'var(--bad)' }}>Eliminar</button>
+          <button type="button" onClick={() => setSel(new Set())} style={{ ...btnLote, border: 'none', background: 'transparent', color: 'var(--dim)' }}>Quitar selección</button>
+        </div>
+      )}
       <table style={tablaStyle}>
         <thead>
           <tr>
-            <th style={{ ...thBase, width: 34 }} aria-label="Completada" />
+            <th style={{ ...thBase, width: 34 }}>
+              <input type="checkbox" checked={todasSel} ref={(el) => { if (el) el.indeterminate = sel.size > 0 && !todasSel; }}
+                onChange={() => setSel(todasSel ? new Set() : new Set(visiblesIds))}
+                title={todasSel ? 'Quitar la selección' : 'Seleccionar todas'} aria-label="Seleccionar todas"
+                style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)' }} />
+            </th>
             <Th orden="número" activo={orden === 'num'} dir={dir} onSort={() => sortear('num')}>Tarea</Th>
             <Th orden="proyecto" activo={orden === 'proyecto'} dir={dir} onSort={() => sortear('proyecto')} ancho={210}>Proyecto</Th>
             <Th orden="prioridad" activo={orden === 'score'} dir={dir} onSort={() => sortear('score')} ancho={150}>Prioridad</Th>

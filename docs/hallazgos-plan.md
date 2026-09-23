@@ -2929,3 +2929,83 @@ detalle». Un spinner sin objeto a los diez segundos es indistinguible de una pa
 colgada.
 
 **Vive en:** app/plan/board/PrioridadAMano.tsx · app/plan/board/BoardShell.tsx (`BloquePrioridad`, `PerroTrabajando`, `ALIAS_VISTA`) · app/plan/board/CrearTareaModal.tsx · app/plan/board/CrearProyecto.tsx · lib/plan-board.ts (`priorizarNuevasOwner`) · *2026-09-23*
+
+
+## Once correcciones más, y las tres reglas que dejaron (23/09/2026)
+
+Tercera tanda de feedback sobre el mismo tablero, otra vez desde capturas. Lo que vale
+guardar no son las once, son las tres que generalizan.
+
+### El arrepentimiento va en el CHOKE POINT, o el próximo campo nace sin él
+
+*«A TODOS los cambios, absolutamente todos, debería saltar el pequeño botón de
+arrepentimiento que dura 5 segundos… TODOS los cambios, sea cual sea.»*
+
+Lo pedían **tres** call sites a mano —borrar, mover de columna y completar— y los otros
+~20 campos (título, detalle, fecha, quarter, avance, notas, proyecto, score) cambiaban sin
+red. El toast ahora sale de `patchLog` / `patchLogExplicit` / `setScore` / `patchLabelLog`,
+que es por donde pasan TODOS los cambios logueados: un campo nuevo lo hereda sin que nadie
+se acuerde.
+
+⚠️ **Y hay que sacar los que quedaron a mano, o salen dos.** `toggleDone` y `moveTo` tenían
+su propio `show` encima del que ahora dispara el choke point.
+
+⚠️ **Sólo para `actor === 'user'`.** Lo que hace MaKo no se deshace con un toast: queda en
+el historial, que es donde se audita. Un toast por cada tarjeta que toca el Perro sería un
+toast permanente.
+
+### Una casilla en la primera columna de una tabla ES el control de selección
+
+*«En la vista de tabla el botón de marcar como completada no debería salir allí, porque
+pareciera que es un botón de seleccionar varias.»* Y no era un error de lectura: lo es en
+Gmail, en Drive y en cualquier tabla. Lo que faltaba era que hiciera lo que parecía que
+hacía — selección múltiple con acciones en lote (completar, reabrir, un deadline para
+todas, moverlas de proyecto, eliminar).
+
+Tres cosas que costó pensar y no se ven:
+
+- **La selección es sobre lo VISIBLE**, nunca sobre el tablero entero. Con un filtro puesto,
+  «seleccionar todas» son las que se ven. Seleccionar lo que no está en pantalla es cómo se
+  borra de más.
+- **Una acción en lote necesita UN solo deshacer.** Como cada cambio individual ya ofrece el
+  suyo, una acción sobre 12 tareas disparaba 12 toasts y el último deshacía UNA. Se guarda
+  el estado anterior de todas y se pisa con un toast que las revierte juntas — que es la
+  unidad en la que la persona decidió.
+- **Eliminar en lote PREGUNTA y no promete deshacer.** Restaurar N tareas es volver a
+  crearlas en el server una por una, y a mitad de camino puede fallar dejando la mitad. Un
+  botón que promete deshacer y a veces no puede es peor que uno que avisa antes.
+
+### Un número no significa nada solo: el pop-up de prioridad muestra a los vecinos
+
+*«Mientras voy desplazando sería increíble ver ejemplos de otras tareas o proyectos que
+están cercanos a esa prioridad que le estoy poniendo.»* Es la misma regla que gobierna al
+Perro —una razón tiene que comparar contra algo que EXISTE— aplicada a la persona que mueve
+el slider: **un score sólo significa algo comparado con el resto del tablero**. El pop-up
+recalcula los cinco más cercanos con cada movimiento, y la barra se tiñe del color de la
+banda, que es el mismo de la columna del Kanban.
+
+### Lo demás, en una línea cada uno
+
+- **Completar subió al header del modal**, al lugar del chip «✦ MaKo ✓ optimizada», que se
+  fue: decía que la tarjeta había pasado por el Perro, y hoy pasan TODAS al crearse, así que
+  había dejado de distinguir nada.
+- **El marcador de un `<details>` se dibuja FUERA de la caja** (`list-style-position:
+  outside`), así que en una columna con padding queda a ras del borde. Va `.mk-det`, con el
+  chevron como pseudo-elemento en el flujo.
+- **Las barras de scroll** pasan a 9px, sin riel y con el pulgar a 20% de tinta. ⚠️ NO se
+  esconden: `scrollbar-width: none` está prohibido en este repo porque elimina la evidencia
+  de que hay más contenido, no el scroll. Lo que rompía el diseño era la barra nativa de
+  Windows —17px, riel gris cuadrado— adentro de un modal redondeado.
+- **El Quarter se deduce del deadline** cuando está vacío, y cuando NO coincide la pantalla
+  **avisa en vez de corregir**: que la fecha caiga en otro trimestre puede ser un error de
+  tipeo o una decisión, y quién sabe cuál es la persona.
+- **El arrastre con MOUSE no tenía ningún feedback.** `levantada` era del camino táctil; el
+  de mouse es HTML5 drag, que no avisa nada por su cuenta. Van los mismos tres valores del
+  CRM. Con el dedo la tarjeta CRECE (el dedo la tapa); con el mouse se HUNDE (lo que se
+  mueve es la miniatura del navegador, y la tarjeta es el hueco que dejó).
+- **Se fue el botón «Cambiar la fecha»** y con él la pantalla de debate de fechas: la fecha
+  se cambia en el selector. El Perro la sigue PROPONIENDO al crear, que es cuando sirve.
+- **Las tareas terminadas del detalle de un proyecto van plegadas**, con el conteo a la
+  vista: un proyecto al 80% mostraba cuatro tarjetas tachadas arriba de la única que queda.
+
+**Vive en:** app/plan/board/useBoard.ts (`ofrecerDeshacer`) · app/plan/board/Tablas.tsx (`enLote`) · app/plan/board/PrioridadAMano.tsx (`MoverPrioridadModal`) · app/plan/board/BoardShell.tsx · app/plan/board/cuando.ts (`quarterDeFecha`) · app/globals.css (`.mk-det`, scrollbars) · *2026-09-23*

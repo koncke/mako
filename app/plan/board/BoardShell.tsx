@@ -16,7 +16,6 @@ import { ConfirmModal } from '../../_components/ConfirmModal';
 import { EmojiPickerMini } from './EmojiPicker';
 import { MakoChecklistModal } from './MakoChecklist';
 import { pasosComoBullets } from '@/lib/detalle-fusion';
-import { FechaDebateModal } from './FechaDebateModal';
 import { CrearTareaModal } from './CrearTareaModal';
 import { CrearProyectoModal } from './CrearProyecto';
 import { EliminarModal } from './EliminarModal';
@@ -53,7 +52,7 @@ import { diasQuieta, diasAlDeadline, ajusteTemporal } from './envejecer';
 import { ExportarModal } from './ExportarModal';
 import { NotasLista } from './NotasLista';
 import { capacidad } from '@/lib/mako-capacidades';
-import { cuandoDe, quartersElegibles, esCuando, CUANDO_LABEL, CUANDO_OPS, type Cuando } from './cuando';
+import { cuandoDe, quartersElegibles, quarterDeFecha, esCuando, CUANDO_LABEL, CUANDO_OPS, type Cuando } from './cuando';
 import { usePref, usePrefSet, esUnoDe, esBool, setScopePrefs } from './prefs';
 import { useArrastreTactil, type ArrastreTactil } from './arrastre-tactil';
 import { WarnMark, projProgress, fechaConDia, diasHasta, plazoTexto } from './piezas';
@@ -187,7 +186,6 @@ export function BoardShell({ board, scope, vistaInicial }: {
   const [openId, setOpenId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ msg: string; onOk: () => void } | null>(null);
   const [debateId, setDebateId] = useState<string | null>(null);
-  const [debateFechaId, setDebateFechaId] = useState<string | null>(null);
   const [nuevaTarea, setNuevaTarea] = useState(false);
   const [extraerReunion, setExtraerReunion] = useState(false); // G3: extraer de una reunión de Fathom
   const [exportar, setExportar] = useState(false);             // bajarse el tablero (modal de a 1 pregunta)
@@ -553,7 +551,6 @@ export function BoardShell({ board, scope, vistaInicial }: {
         ? (() => { const t = tasks.find((x) => x.id === soltada.id); return t ? { titulo: t.title, score: t.score } : null; })()
         : (() => { const l = labels.find((x) => x.id === soltada.id); return l ? { titulo: l.name, score: l.score } : null; })())
     : null;
-  const debateFechaTask = tasks.find((t) => t.id === debateFechaId) ?? null;
   const openProjLabel = labels.find((l) => l.id === openProj) ?? null;
   const peekProj = labels.find((l) => l.id === peekProjId) ?? null;
 
@@ -1052,13 +1049,13 @@ export function BoardShell({ board, scope, vistaInicial }: {
       <div style={{ minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} bloqueadas={bloqueadasN} onOpen={setOpenId} onOpenProj={setOpenProj} />}
         {view === 'tareas' && (tabla
-          ? <div style={{ flex: '1 0 auto', padding: '18px 30px 40px' }}><TablaTareas tareas={visibles} board={board} hoy={hoyISO()} onOpen={setOpenId} onOpenProj={setOpenProj} /></div>
+          ? <div style={{ flex: '1 0 auto', padding: '18px 30px 40px' }}><TablaTareas tareas={visibles} board={board} hoy={hoyISO()} onOpen={setOpenId} onOpenProj={setOpenProj} ask={ask} /></div>
           : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} frenanA={frenanA} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} onSoltar={(id, destino) => setSoltada({ entidad: 'tarea', id, destino })} />)}
         {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={doneFilter} q={q} fOrigen={fOrigen} sortMode={sortMode} sortDir={sortDir} tabla={tabla} />}
         {view === 'graphics' && <GraphicsView board={board} />}
       </div>
 
-      {openTask && <TaskModal key={openTask.id} t={openTask} board={board} topProjectId={topProjectId} suggestMako={openTask.id === makoHintId} trabajando={trabajandoIA.has(openTask.id)} onDebate={() => setDebateId(openTask.id)} onDebateFecha={() => setDebateFechaId(openTask.id)} onPrioridad={() => setSoltada({ entidad: 'tarea', id: openTask.id })} onDelete={() => setEliminarTaskId(openTask.id)} onAsignar={() => setAsignarTaskId(openTask.id)} onOpenProj={(id) => setPeekProjId(id)} escDisabled={!!peekProjId} ask={ask}
+      {openTask && <TaskModal key={openTask.id} t={openTask} board={board} topProjectId={topProjectId} suggestMako={openTask.id === makoHintId} trabajando={trabajandoIA.has(openTask.id)} onDebate={() => setDebateId(openTask.id)} onPrioridad={() => setSoltada({ entidad: 'tarea', id: openTask.id })} onDelete={() => setEliminarTaskId(openTask.id)} onAsignar={() => setAsignarTaskId(openTask.id)} onOpenProj={(id) => setPeekProjId(id)} escDisabled={!!peekProjId} ask={ask}
         onBack={(openProjLabel || welcomeVisible) ? () => { setOpenId(null); setMakoHintId(null); } : undefined}
         onClose={() => { setOpenId(null); setOpenProj(null); setPeekProjId(null); setMakoHintId(null); }} />}
       {peekProj && openTask && <ProjectDetailModal proj={peekProj} board={board} topProjectId={topProjectId} trabajando={trabajandoIA.has(peekProj.id)} z={130} onBack={() => setPeekProjId(null)}
@@ -1083,7 +1080,9 @@ export function BoardShell({ board, scope, vistaInicial }: {
         <MoverPrioridadModal
           titulo={soltadaItem.titulo} score={soltadaItem.score}
           sugerido={soltada.destino ? scoreFromPrio[soltada.destino] : soltadaItem.score}
-          banda={PLABEL[soltada.destino ?? prioFromScore(soltadaItem.score)]}
+          vecinos={soltada.entidad === 'tarea'
+            ? tasks.filter((x) => x.id !== soltada.id && x.progress < 100).map((x) => ({ id: x.id, titulo: x.title, score: x.score }))
+            : labels.filter((x) => x.id !== soltada.id).map((x) => ({ id: x.id, titulo: x.name, score: x.score }))}
           onDebate={board.repo.debatePrioridad
             ? () => (soltada.entidad === 'tarea' ? setDebateId(soltada.id) : setDebateProjId(soltada.id))
             : undefined}
@@ -1098,16 +1097,10 @@ export function BoardShell({ board, scope, vistaInicial }: {
         onBack={welcomeVisible ? () => setOpenProj(null) : undefined} backLabel="Volver"
         onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} onPrioridad={() => setSoltada({ entidad: 'proyecto', id: openProjLabel.id })} onMako={() => setMakoProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onClose={() => setOpenProj(null)} />}
       {makoProj && <MakoProyectoModal proj={{ name: makoProj.name, emoji: makoProj.emoji, detalle: makoProj.detalle }} onApply={(nombre, emoji, det) => board.patchLabelLog(makoProj.id, { name: nombre, emoji, detalle: det }, 'MaKo mejoró el proyecto', 'ia')} onClose={() => setMakoProjId(null)} />}
-      {debateFechaTask && <FechaDebateModal task={debateFechaTask}
-        otras={tasks.filter((x) => x.id !== debateFechaTask.id && x.deadline && x.progress < 100).map((x) => ({ titulo: x.title, deadline: x.deadline, score: x.score }))}
-        onUsage={(u) => showUsage(u, 'fecha')}
-        onApply={(deadline, razon) => {
-          const snap = debateFechaTask;
-          board.setDeadline(debateFechaTask.id, deadline, debateFechaTask.deadline);
-          board.patch(debateFechaTask.id, { deadlineRazon: razon });
-          board.showUndo(deadline ? `Fecha del #${snap.num} → ${deadline}` : `Le saqué la fecha al #${snap.num}`, () => { board.setDeadline(snap.id, snap.deadline, deadline); board.patch(snap.id, { deadlineRazon: snap.deadlineRazon ?? '' }); });
-        }}
-        onClose={() => setDebateFechaId(null)} />}
+      {/* ⛔ ACÁ SE MONTABA `FechaDebateModal`, y se fue el 23/09/2026 con el botón que lo
+          abría: la fecha se cambia en el selector y listo. El archivo queda en el repo —el
+          Perro sigue PROPONIENDO la fecha al crear la tarjeta, que es cuando sirve— pero ya
+          no hay ninguna pantalla que mande a discutírsela. */}
       {debateProj && <AudienciaModal entidad="proyecto"
         item={{ id: debateProj.id, titulo: debateProj.name, score: debateProj.score, emoji: debateProj.emoji }}
         otros={labels.filter((l) => l.id !== debateProj.id).map((l) => ({ id: l.id, titulo: l.name, score: l.score, emoji: l.emoji }))}
@@ -1721,9 +1714,9 @@ function BloquePrioridad({ etiqueta, chip, color, score, titulo, razon, impacto,
   }
   return (
     <div>
-      <details>
-        <summary style={{ cursor: 'pointer', userSelect: 'none', listStylePosition: 'outside' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, width: 'calc(100% - 4px)', verticalAlign: 'middle' }}
+      <details className="mk-det">
+        <summary style={{ userSelect: 'none' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, width: 'calc(100% - 18px)', verticalAlign: 'middle' }}
             onClick={(e) => { const t = e.target as HTMLElement; if (t.closest('button')) { e.preventDefault(); e.stopPropagation(); } }}>
             {cabecera}
           </span>
@@ -1828,6 +1821,14 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, ta
 }) {
   const done = t.progress >= 100;
   const levantada = tactil?.arrastrando === t.id;
+  // ⚠️ EL ARRASTRE CON MOUSE NO TENÍA NINGÚN FEEDBACK. `levantada` es del camino TÁCTIL
+  // (pointer events); el de mouse es HTML5 drag-and-drop, que no avisa nada por su cuenta:
+  // la tarjeta se quedaba quieta mientras el cursor se llevaba una miniatura fantasma del
+  // navegador. «Al intentar agarrar una tarea del kanban, debería tener la misma animación
+  // que tenemos hoy en día en el CRM» (23/09/2026) — y son los mismos tres valores que usa
+  // `CrmBoard.tsx`: se atenúa, se achica un poco y se despega con una sombra.
+  const [agarrada, setAgarrada] = useState(false);
+  const enMano = levantada || agarrada;
   // A qué proyecto pertenece. El kanban agrupa por PRIORIDAD, así que sin esto una
   // columna es una lista de tareas sueltas y hay que abrir cada una para saber de qué
   // parte del plan es. Va en el lugar del emoji —que ya era el del proyecto, solo que
@@ -1842,13 +1843,19 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, ta
       onClick={() => { if (!tactil?.huboArrastre()) onOpen(t.id); }}
       onPointerDown={(e) => tactil?.alTocar(e, t.id)}
       draggable={!!board.repo.prioridadManual}
-      onDragStart={(e) => { e.dataTransfer.setData('text/plain', t.id); e.dataTransfer.effectAllowed = 'move'; }}
-      style={{ background: 'var(--surface-2)', border: `1px solid ${levantada ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 11, padding: '12px 14px', cursor: 'pointer', opacity: done ? 0.62 : 1, height: 138, display: 'flex', flexDirection: 'column', transition: 'border-color .12s, transform .12s, box-shadow .12s',
+      onDragStart={(e) => { e.dataTransfer.setData('text/plain', t.id); e.dataTransfer.effectAllowed = 'move'; setAgarrada(true); }}
+      onDragEnd={() => setAgarrada(false)}
+      style={{ background: 'var(--surface-2)', border: `1px solid ${enMano ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 11, padding: '12px 14px', cursor: board.repo.prioridadManual ? (agarrada ? 'grabbing' : 'grab') : 'pointer', opacity: agarrada ? 0.5 : done ? 0.62 : 1, height: 138, display: 'flex', flexDirection: 'column', transition: 'border-color .12s, transform .15s, box-shadow .15s, opacity .15s',
         // `manipulation` saca el retardo del doble-tap sin tocar el scroll. `none` NO va:
         // es CSS, decide antes de que exista el listener y apagaría el scroll de la página
         // sobre cada tarjeta.
         touchAction: 'manipulation',
-        ...(levantada ? { transform: 'scale(1.03)', boxShadow: '0 10px 24px rgba(18,21,27,.22)' } : {}) }}
+        // Con el dedo la tarjeta se LEVANTA (crece): el dedo la tapa y hay que verla salir.
+        // Con el mouse se HUNDE (se achica y se atenúa), igual que en el CRM: lo que se
+        // mueve es la miniatura que dibuja el navegador, y la tarjeta de abajo es el hueco
+        // que dejó.
+        ...(levantada ? { transform: 'scale(1.03)', boxShadow: '0 10px 24px rgba(18,21,27,.22)' }
+          : agarrada ? { transform: 'scale(0.97)', boxShadow: '0 10px 26px rgba(18,21,27,.20)' } : {}) }}
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
       {/* header: proyecto + #id + [aviso] + prioridad */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7, minWidth: 0 }}>
@@ -2378,11 +2385,11 @@ function ChangeHistory({ t, board, ask }: { t: BoardTask; board: Board; ask: (ms
 }
 
 // ── modal de detalle ────────────────────────────────────────────────────────────
-export function TaskModal({ t, board, topProjectId, suggestMako = false, trabajando = false, onDebate, onDebateFecha, onPrioridad, onDelete, onAsignar, onOpenProj, ask, onBack, escDisabled = false, onClose }: {
+export function TaskModal({ t, board, topProjectId, suggestMako = false, trabajando = false, onDebate, onPrioridad, onDelete, onAsignar, onOpenProj, ask, onBack, escDisabled = false, onClose }: {
   t: BoardTask; board: Board; topProjectId: string | null; suggestMako?: boolean;
   /** el Perro está trabajando sobre ESTA tarjeta ahora mismo (recién creada) */
   trabajando?: boolean;
-  onDebate: () => void; onDebateFecha: () => void; onPrioridad: () => void; onDelete: () => void; onAsignar: () => void; onOpenProj?: (id: string) => void; ask: (msg: string, onOk: () => void) => void; onBack?: () => void; escDisabled?: boolean; onClose: () => void;
+  onDebate: () => void; onPrioridad: () => void; onDelete: () => void; onAsignar: () => void; onOpenProj?: (id: string) => void; ask: (msg: string, onOk: () => void) => void; onBack?: () => void; escDisabled?: boolean; onClose: () => void;
 }) {
   const prioEfectiva = displayPrio(t, topProjectId);
   const topeada = prioEfectiva !== prioFromScore(t.score);
@@ -2420,10 +2427,17 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
           <LabelChips chips={chips} max={1} cap={230} onOpen={onOpenProj} />
           <FuenteChip fuente={fuenteEfectiva(t)} />
           <span style={{ flex: 1 }} />
-          <button onClick={() => setMako(true)} title={optimizada ? 'Ya optimizada por MaKo — puedes volver a pedirle ayuda' : 'MaKo te ayuda a mejorar el título y el detalle'}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: `1px solid ${optimizada ? 'var(--good)' : 'var(--primary-weak)'}`, background: optimizada ? 'var(--good-bg, var(--surface))' : 'var(--primary-bg)', color: optimizada ? 'var(--good)' : 'var(--primary)', borderRadius: 8, padding: '5px 11px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', boxShadow: suggestMako && !optimizada ? '0 0 0 3px var(--primary-weak)' : 'none', animation: suggestMako && !optimizada ? 'makoPulse 1.4s ease-in-out infinite' : 'none' }}>
-            <style>{`@keyframes makoPulse{0%,100%{box-shadow:0 0 0 2px var(--primary-weak)}50%{box-shadow:0 0 0 5px transparent}}`}</style>
-            {optimizada ? '✦ MaKo ✓ optimizada' : suggestMako ? '✦ Optimizala con MaKo' : '✦ MaKo te ayuda'}
+          {/* ⚠️ COMPLETAR VIVE ACÁ, en el lugar más caro del modal. «Que "Marcar como
+              completada" esté donde hoy está "✦ MaKo ✓ optimizada"» (23/09/2026).
+              Y el chip de MaKo se fue: «ya no tiene sentido». Decía que una tarjeta había
+              pasado por el Perro —que hoy es TODAS, porque pasa en el alta— así que había
+              dejado de distinguir nada. Pedirle ayuda a MaKo sigue estando, en el ✦ de al
+              lado del título, que es donde se edita el texto que MaKo mejora. */}
+          <button onClick={() => board.toggleDone(t.id)}
+            title={t.progress >= 100 ? 'Reabrir la tarea' : 'Marcar como completada'}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: `1px solid ${t.progress >= 100 ? 'var(--good)' : 'var(--border-strong)'}`, background: t.progress >= 100 ? 'var(--good-bg, var(--surface))' : 'var(--surface)', color: t.progress >= 100 ? 'var(--good)' : 'var(--ink)', borderRadius: 9, padding: '6px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, whiteSpace: 'nowrap', flex: 'none' }}>
+            <span style={{ width: 16, height: 16, borderRadius: 5, border: `1.5px solid ${t.progress >= 100 ? 'var(--good)' : 'var(--border-strong)'}`, background: t.progress >= 100 ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{t.progress >= 100 ? '✓' : ''}</span>
+            {t.progress >= 100 ? 'Completada' : 'Marcar completada'}
           </button>
           <button aria-label="Cerrar" onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 22, lineHeight: 1, color: 'var(--faint)', padding: '2px 6px' }}>×</button>
         </div>
@@ -2476,16 +2490,6 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
             <ChangeHistory t={t} board={board} ask={ask} />
           </div>
           <div style={{ width: 236, flex: 'none', borderLeft: '1px solid var(--border)', background: 'var(--surface-2)', padding: '20px 18px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 15 }}>
-            {/* COMPLETAR, ARRIBA DE TODO. «Marcar como completada arriba y a un clic, no
-                al fondo: es re invisible… tan incómodo» (22/09/2026). */}
-            <button onClick={() => board.toggleDone(t.id)}
-              title={t.progress >= 100 ? 'Reabrir la tarea' : 'Marcar como completada'}
-              style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', border: `1px solid ${t.progress >= 100 ? 'var(--good)' : 'var(--border-strong)'}`, background: t.progress >= 100 ? 'var(--good-bg, var(--surface))' : 'var(--surface)', color: t.progress >= 100 ? 'var(--good)' : 'var(--ink)', borderRadius: 10, padding: '10px 13px', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>
-              <span style={{ width: 18, height: 18, borderRadius: 5, border: `1.5px solid ${t.progress >= 100 ? 'var(--good)' : 'var(--border-strong)'}`, background: t.progress >= 100 ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{t.progress >= 100 ? '✓' : ''}</span>
-              {/* UNA línea, siempre: «Marcar como completada» envolvía en dos renglones en una
-                  columna de 236px y el botón quedaba más alto que todo lo de abajo. */}
-              <span style={{ whiteSpace: 'nowrap' }}>{t.progress >= 100 ? 'Completada' : 'Marcar completada'}</span>
-            </button>
             {trabajando && <PerroTrabajando que="tu plan, para ponerle proyecto, prioridad y detalle" />}
             <BloquePrioridad
               etiqueta={PLABEL[prioEfectiva].toUpperCase()} color={PCOLOR[prioEfectiva]} score={t.score} titulo={t.title}
@@ -2498,8 +2502,11 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
             <div>
               <label style={{ ...rowLabel, display: 'inline-flex', alignItems: 'center', gap: 6 }}>Deadline {!t.deadline && <WarnMark title="Falta el deadline" size={13} />}</label>
               <input type="date" value={t.deadline} onChange={(e) => board.setDeadline(t.id, e.target.value, t.deadline)} style={selStyle} />
-              {t.deadlineRazon && <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4, margin: '6px 0 8px', fontStyle: 'italic' }}>“{t.deadlineRazon}”</div>}
-              <button onClick={onDebateFecha} style={{ ...cambiarBtn, marginTop: t.deadlineRazon ? 0 : 8 }}><MakoStar size={15} color="var(--primary)" /> {t.deadline ? 'Cambiar la fecha' : 'Que MaKo le ponga fecha'}</button>
+              {t.deadlineRazon && <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4, margin: '6px 0 0', fontStyle: 'italic' }}>“{t.deadlineRazon}”</div>}
+              {/* ⛔ ACÁ VIVÍA «Cambiar la fecha», que abría el debate con el Perro. «No tiene
+                  sentido el botón si dijimos que ya no hay fricción: solo el desplegable para
+                  seleccionar fechas» (23/09/2026). El selector escribe directo, y la fecha la
+                  sigue proponiendo el Perro al crear la tarjeta — que es cuando sirve. */}
             </div>
             {/* EL QUARTER ES OTRA COSA QUE EL DEADLINE, y por eso es otro campo.
                 El deadline dice cuándo VENCE —lo propone el Perro y se le discute—;
@@ -2516,9 +2523,25 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
                 <option value="">Sin asignar</option>
                 {quartersElegibles(hoyISO()).map((q) => <option key={q.key} value={q.key}>{q.label}</option>)}
               </select>
+              {/* ⚠️ AVISA, NO CORRIGE. Que el deadline caiga en otro trimestre que el
+                  planificado puede ser un error de tipeo o una decisión (una entrega de Q3
+                  que se planificó para Q2). Quien sabe cuál de las dos es, es la persona;
+                  lo único que el código puede afirmar es que no coinciden. */}
+              {t.quarter && t.deadline && quarterDeFecha(t.deadline) !== t.quarter && (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', fontSize: 11.5, color: 'var(--warn, #B4762A)', lineHeight: 1.35, marginTop: 6 }}>
+                  <WarnMark title="El Quarter y la fecha no coinciden" size={13} blink={false} />
+                  <span>La fecha cae en el {quarterDeFecha(t.deadline).replace('-', ' ')}, no en el {t.quarter.replace('-', ' ')}.</span>
+                </div>
+              )}
             </div>
             <div>
-              <label style={rowLabel}>{board.repo.labelPlural}</label>
+              <label style={{ ...rowLabel, display: 'flex', alignItems: 'center', gap: 4 }}>
+                {board.repo.labelPlural}
+                <span style={{ flex: 1 }} />
+                {/* Mismo lápiz que la prioridad, por la misma razón: un botón de ancho
+                    completo para cambiar un chip es más grande que el chip. */}
+                <LapizPrioridad onClick={onAsignar} titulo={chips.length ? 'Cambiar de proyecto' : 'Asignar un proyecto'} />
+              </label>
               {/* Los chips ya no se sacan con una × acá: cambiar de proyecto pasa por el
                   Perro Guardián (feedback #7). */}
               {/* Chips cuadrados y clickeables (feedback jul-19): mismo diseño que el header
@@ -2534,7 +2557,6 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
                     </button>
                   ))}
               </div>
-              <button onClick={onAsignar} style={cambiarBtn}><MakoStar size={15} color="var(--primary)" /> {chips.length ? 'Cambiar proyecto' : 'Asignar proyecto'}</button>
             </div>
 
             <span style={{ flex: 1 }} />
@@ -2679,8 +2701,8 @@ function HistorialDeLaTab({ labels, board }: { labels: Label[]; board: Board }) 
   const n = labels.reduce((acc, l) => acc + (l.historial?.length ?? 0), 0);
   if (!n) return null;
   return (
-    <details style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
-      <summary style={{ cursor: 'pointer', userSelect: 'none', fontFamily: MONO, fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700 }}>
+    <details className="mk-det" style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+      <summary style={{ userSelect: 'none', fontFamily: MONO, fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700 }}>
         Historial · {n} cambio{n === 1 ? '' : 's'}
       </summary>
       <div style={{ marginTop: 12 }}>
@@ -2780,6 +2802,8 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
     document.addEventListener('keydown', onKey); return () => document.removeEventListener('keydown', onKey);
   }, [onClose, taskAbierta]);
   const suyas = board.tasks.filter((t) => t.labels.includes(proj.id)).sort((a, b) => (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0) || b.score - a.score);
+  const abiertas = suyas.filter((t) => t.progress < 100);
+  const hechas = suyas.filter((t) => t.progress >= 100);
   const prog = projProgress(board.tasks, proj.id);
   const isTop = proj.id === topProjectId;
   const rowLabel: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6, display: 'block' };
@@ -2816,13 +2840,18 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
             <span style={{ display: 'block', marginBottom: 20 }}><MiniBar v={prog.pct} /></span>
 
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
-              <label style={{ ...rowLabel, marginBottom: 0 }}>Tareas del proyecto · {suyas.length}</label>
+              <label style={{ ...rowLabel, marginBottom: 0 }}>Tareas del proyecto · {abiertas.length}{hechas.length ? ` + ${hechas.length} hecha${hechas.length === 1 ? '' : 's'}` : ''}</label>
               <span style={{ flex: 1 }} />
               <button onClick={onNewTask} style={{ border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)', color: 'var(--primary)', borderRadius: 9, padding: '6px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>+ Nueva Tarea</button>
             </div>
+            {/* ⚠️ LAS TERMINADAS VAN PLEGADAS. «En proyecto, en el detail, oculta las tareas
+                terminadas con un desplegable» (23/09/2026): un proyecto al 80% mostraba
+                cuatro tarjetas tachadas arriba de la única que queda por hacer. No se
+                esconden sin pista —el desplegable dice cuántas son— porque la lista de lo
+                hecho es la evidencia de que el proyecto avanzó. */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
               {suyas.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic' }}>Sin tareas todavía.</div>}
-              {suyas.map((t) => (
+              {abiertas.map((t) => (
                 <div key={t.id} onClick={() => onOpenTask(t.id)} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '11px 13px', cursor: 'pointer', opacity: t.progress >= 100 ? 0.62 : 1, transition: 'border-color .12s' }}
                   onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
                   {/* Sin % ni barra: el estado es el CHECK, y el deadline es el dato que
@@ -2838,12 +2867,31 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
                   </div>
                 </div>
               ))}
+              {hechas.length > 0 && (
+                <details className="mk-det" style={{ marginTop: 2 }}>
+                  <summary style={{ userSelect: 'none', fontSize: 12.5, color: 'var(--faint)', fontWeight: 600 }}>
+                    {hechas.length} {hechas.length === 1 ? 'tarea terminada' : 'tareas terminadas'}
+                  </summary>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                    {hechas.map((t) => (
+                      <div key={t.id} onClick={() => onOpenTask(t.id)} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '11px 13px', cursor: 'pointer', opacity: 0.62 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                          <button onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }} title="Reabrir"
+                            style={{ width: 16, height: 16, borderRadius: 4, border: '1.5px solid var(--good)', background: 'var(--good)', color: '#fff', fontSize: 10, cursor: 'pointer', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✓</button>
+                          <ScoreBadge score={t.score} />
+                          <span style={{ flex: 1, fontSize: 13.5, fontWeight: 500, color: 'var(--ink)', textDecoration: 'line-through', minWidth: 0 }}>{t.title}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
             </div>
 
             {/* Un proyecto SIN tareas abiertas: lo que le falta es TRABAJO, no prioridad.
                 Va ARRIBA de todo en su detalle porque es la única acción que tiene sentido
                 acá — dejarlo como una fila más entre las notas y el historial es esconderlo. */}
-            {suyas.filter((t) => t.progress < 100).length === 0 && <ProyectoVacioBloque proj={proj} />}
+            {abiertas.length === 0 && <ProyectoVacioBloque proj={proj} />}
 
             {/* Una dependencia de PROYECTO frena todas sus tareas abiertas de un saque: es
                 la escritura de mayor palanca del tablero, y por eso el radio se dice antes

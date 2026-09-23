@@ -114,6 +114,19 @@ export const CUANDO_OPS: Cuando[] = ['hoy', 'semana', 'quarter', 'sin-fecha'];
  * no es una intención posible: si aparece en la lista, alguien lo va a elegir por
  * error y la tarea va a quedar en una ventana que no existe.
  */
+/**
+ * El Quarter al que CAE una fecha. `''` si la fecha no es una fecha.
+ *
+ * «No tiene sentido que no se asigne automáticamente el Quarter si ya está asignado el
+ * deadline, lo debería detectar automáticamente» (23/09/2026). Son dos preguntas distintas
+ * —cuándo VENCE y para cuándo se PLANIFICÓ— pero en el 99% de los casos la respuesta es la
+ * misma, y pedir las dos es pedir dos veces lo mismo.
+ */
+export function quarterDeFecha(iso: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || '')) return '';
+  return quarterKey(quarterDe(iso));
+}
+
 export function quartersElegibles(hoy: string, cuantos = 4): Array<{ key: string; label: string }> {
   const actual = quarterDe(hoy);
   const out: Array<{ key: string; label: string }> = [];

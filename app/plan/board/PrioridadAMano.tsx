@@ -24,7 +24,7 @@
 // ese número, queda el de al lado).
 // =============================================================================
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { MakoStar } from '../../_components/MakoBrand';
 
 const MONO = "'Geist Mono', monospace";
@@ -73,12 +73,41 @@ export function LapizPrioridad({ onClick, titulo = 'Cambiar la prioridad' }: { o
  * a propósito: discutirle el número es una opción de quien ya decidió cambiarlo, no un botón
  * más en el panel. Sin esto, sacar el botón del detalle dejaba la audiencia inalcanzable.
  */
-export function MoverPrioridadModal({ titulo, score, sugerido, banda, onAplicado, onDebate, onClose }: {
+export type Vecino = { id: string; titulo: string; score: number };
+
+/** La banda a la que pertenece un número, y su color. UNA sola definición para el pop-up. */
+const BANDAS: Array<{ min: number; label: string; color: string }> = [
+  { min: 75, label: 'Alta', color: '#D0504A' },
+  { min: 50, label: 'Media', color: '#C8870C' },
+  { min: 25, label: 'Baja', color: '#1E9E57' },
+  { min: 1, label: 'A futuro', color: '#98A0AC' },
+];
+const bandaDe = (n: number) => BANDAS.find((b) => n >= b.min) ?? BANDAS[BANDAS.length - 1];
+
+/**
+ * El pop-up del 1 al 100. Sale al arrastrar una tarjeta Y al tocar el lápiz.
+ *
+ * «Y sí que se pueda arrastrar, pero que siempre salga el pop-up para cambiar la prioridad
+ * del 1 al 100, solo que ahora ya no habrá fricción» (22/09/2026). O sea: soltar no fija el
+ * número por su cuenta. La columna dice la BANDA y el número exacto lo elige la persona.
+ *
+ * ⚠️ Y LOS VECINOS SON EL PUNTO, no un adorno. «Mientras voy desplazando sería increíble ver
+ * ejemplos de otras tareas o proyectos que están cercanos a esa prioridad que le estoy
+ * poniendo» (23/09/2026), y es lo que le falta al número solo: **un score no significa nada
+ * en abstracto, significa algo comparado con el resto del tablero**. Es la misma regla que
+ * gobierna al Perro —una razón tiene que comparar contra algo que EXISTE— aplicada a la
+ * persona que mueve el slider.
+ *
+ * `onDebate` es la única puerta que le queda a la audiencia con el Perro, y es un ÍCONO
+ * arriba a la derecha: discutirle el número es la excepción, no el botón principal.
+ */
+export function MoverPrioridadModal({ titulo, score, sugerido, vecinos = [], onAplicado, onDebate, onClose }: {
   titulo: string;
   score: number;
   /** el número con el que arranca el slider: el de la columna donde la soltaste, o el actual */
   sugerido: number;
-  banda: string;
+  /** el resto del MISMO nivel (tareas con tareas, proyectos con proyectos), para comparar */
+  vecinos?: Vecino[];
   onAplicado: (score: number) => Promise<void> | void;
   /** abrir la audiencia con el Perro. Ausente = este tablero no la tiene. */
   onDebate?: () => void;
@@ -101,32 +130,65 @@ export function MoverPrioridadModal({ titulo, score, sugerido, banda, onAplicado
     catch (e) { setErr(e instanceof Error ? e.message : String(e)); setGuardando(false); }
   };
 
-  const mueve = v !== score;
+  const banda = bandaDe(v);
+  // Los CINCO más cercanos al número que se está eligiendo, mostrados como se ven en el
+  // tablero (de mayor a menor). Se recalculan con cada movimiento del slider: son la
+  // respuesta a «¿al lado de qué lo estoy poniendo?».
+  const cerca = useMemo(() => (
+    vecinos
+      .slice()
+      .sort((a, b) => Math.abs(a.score - v) - Math.abs(b.score - v))
+      .slice(0, 5)
+      .sort((a, b) => b.score - a.score)
+  ), [vecinos, v]);
+
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 150, background: 'rgba(18,21,27,.45)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 430, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.3)', padding: '20px 22px' }}>
-        <div style={{ fontSize: 15.5, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>¿Con qué prioridad?</div>
-        <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.45, marginBottom: 16 }}>
-          «{titulo.slice(0, 80)}{titulo.length > 80 ? '…' : ''}» está en <b>{score}</b>{mueve ? <> y pasa a la banda <b>{banda}</b></> : null}. El número exacto lo eliges tú.
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-          <input type="range" min={1} max={100} value={v} onChange={(e) => setV(Number(e.target.value))} aria-label="Prioridad, del 1 al 100" style={{ flex: 1, accentColor: 'var(--primary)', cursor: 'pointer' }} />
-          {/* Borrar el contenido del input NO es «prioridad 1»: `Number('') || 1` daba 1 y el
-              blur lo guardaba, así que tipear encima del número fijaba un score que nadie
-              eligió. Vacío = se queda como está hasta que haya un número. */}
-          <input type="number" min={1} max={100} value={v} onChange={(e) => { const t = e.target.value.trim(); if (t === '') return; setV(Math.max(1, Math.min(100, Number(t) || v))); }} aria-label="Prioridad, del 1 al 100" style={numStyle} />
-        </div>
-        {err && <div style={{ fontSize: 12, color: 'var(--bad)', marginBottom: 8 }}>{err}</div>}
-        <div style={{ display: 'flex', gap: 9, justifyContent: 'flex-end', alignItems: 'center', marginTop: 14 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 440, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.3)', padding: '18px 20px 16px' }}>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Cambiar prioridad</span>
+          <span style={{ flex: 1 }} />
           {onDebate && (
-            <button type="button" onClick={() => { onClose(); onDebate(); }}
-              style={{ marginRight: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', background: 'transparent', color: 'var(--primary)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', padding: 0, fontFamily: SANS }}>
-              <MakoStar size={14} color="var(--primary)" /> Que lo decida MaKo
+            <button type="button" onClick={() => { onClose(); onDebate(); }} title="Que lo decida MaKo: discútele el número al Perro" aria-label="Que lo decida MaKo"
+              style={{ flex: 'none', width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+              <MakoStar size={15} color="var(--primary)" />
             </button>
           )}
-          <button type="button" onClick={onClose} style={{ border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 10, padding: '9px 15px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Dejarla donde está</button>
-          <button type="button" onClick={() => void aplicar()} disabled={guardando} style={{ border: 'none', background: 'var(--primary)', color: '#fff', borderRadius: 10, padding: '9px 17px', fontSize: 13, fontWeight: 700, cursor: guardando ? 'wait' : 'pointer', opacity: guardando ? 0.75 : 1 }}>
-            {guardando ? 'Fijando…' : `Fijarla en ${v}`}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+          {/* La barra se tiñe de la banda: es el mismo color que la columna del Kanban y el
+              del chip de la tarjeta, así que mover el slider DICE a qué columna va antes de
+              soltarlo. */}
+          <input type="range" min={1} max={100} value={v} onChange={(e) => setV(Number(e.target.value))} aria-label="Prioridad, del 1 al 100"
+            style={{ flex: 1, accentColor: banda.color, cursor: 'pointer' }} />
+          <input type="number" min={1} max={100} value={v}
+            onChange={(e) => { const t = e.target.value.trim(); if (t === '') return; setV(Math.max(1, Math.min(100, Number(t) || v))); }}
+            aria-label="Prioridad, del 1 al 100" style={{ ...numStyle, color: banda.color, borderColor: banda.color + '66' }} />
+        </div>
+        <div style={{ fontSize: 11.5, fontWeight: 700, color: banda.color, textTransform: 'uppercase', letterSpacing: '.06em', minHeight: 16 }}>{banda.label}</div>
+
+        {cerca.length > 0 && (
+          <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+            <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 7 }}>Queda al lado de</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {cerca.map((x) => (
+                <div key={x.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.3 }}>
+                  <span style={{ flex: 'none', width: 30, textAlign: 'right', fontFamily: MONO, fontSize: 11, fontWeight: 700, color: bandaDe(x.score).color }}>{x.score}</span>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{x.titulo}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {err && <div style={{ fontSize: 12, color: 'var(--bad)', marginTop: 10 }}>{err}</div>}
+        <div style={{ display: 'flex', gap: 9, justifyContent: 'flex-end', marginTop: 16 }}>
+          <button type="button" onClick={onClose} style={{ border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 10, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
+          <button type="button" onClick={() => void aplicar()} disabled={guardando || v === score}
+            style={{ border: 'none', background: 'var(--primary)', color: '#fff', borderRadius: 10, padding: '9px 18px', fontSize: 13, fontWeight: 700, cursor: guardando || v === score ? 'default' : 'pointer', opacity: guardando || v === score ? 0.5 : 1, fontFamily: SANS }}>
+            {guardando ? 'Guardando…' : 'Cambiar'}
           </button>
         </div>
       </div>

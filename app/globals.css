@@ -1005,3 +1005,63 @@ details[open] > summary .chev {
   top: var(--barra-agencia) !important;
   height: calc(100vh - var(--barra-agencia)) !important;
 }
+
+/* =============================================================================
+   Barras de scroll: finas, redondeadas y sin riel
+   =============================================================================
+   El reporte (23/09/2026): «elimina las barras de scroll de todos lados. Que sí se
+   pueda scrollear, pero que no tenga eso, que rompe el diseño». Lo que rompe el
+   diseño es la barra NATIVA de Windows: 17px de ancho, riel gris opaco y cuadrado,
+   metida adentro de un modal de esquinas redondeadas.
+
+   ⚠️ NO SE ESCONDEN, Y ESO ES DELIBERADO. `scrollbar-width: none` está prohibido en
+   este repo (AGENTS.md): no elimina el scroll, elimina la EVIDENCIA de que hay más
+   contenido abajo — y el síntoma de que algo se desborda pasa a ser exactamente cero.
+   Acá la barra sigue estando y sigue arrastrándose; lo que se va es el riel y el
+   ancho. 8px, transparente, y el pulgar a 20% de tinta.
+   ============================================================================= */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--ink) 22%, transparent) transparent;
+}
+*::-webkit-scrollbar { width: 9px; height: 9px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-corner { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--ink) 20%, transparent);
+  border-radius: 999px;
+  border: 2.5px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--ink) 38%, transparent);
+  background-clip: padding-box;
+}
+
+/* =============================================================================
+   `.mk-det` — un <details> cuyo triángulo no queda pegado al borde
+   =============================================================================
+   «Fijate la flecha de desplegable de "Prioridad" muy pegada al borde, no queda
+   bien» (23/09/2026). El marcador nativo se dibuja FUERA de la caja del summary
+   (`list-style-position: outside`), así que en una columna con 18px de padding queda
+   a ras del borde y desalineado con todo lo de abajo.
+
+   Acá el marcador nativo se apaga y el chevron es un pseudo-elemento propio, en el
+   flujo: alineado con el texto y girando al abrir.
+   ============================================================================= */
+.mk-det > summary { list-style: none; cursor: pointer; }
+.mk-det > summary::-webkit-details-marker { display: none; }
+.mk-det > summary::before {
+  content: '';
+  display: inline-block;
+  width: 0; height: 0;
+  margin-right: 7px;
+  vertical-align: 1px;
+  border-left: 5px solid currentColor;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  opacity: .5;
+  transition: transform .15s ease, opacity .15s ease;
+}
+.mk-det > summary:hover::before { opacity: .9; }
+.mk-det[open] > summary::before { transform: rotate(90deg); }
