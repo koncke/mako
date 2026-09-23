@@ -3087,6 +3087,26 @@ Lo que NO se saca, porque no es fricción sino utilidad: el buscador, los filtro
 y el orden. Con 70 proyectos una lista plana es un scroll donde encontrar «Feature: Landing
 Analyst» es leer de a uno.
 
+### Un layout que entra con «ALTA» y no con «A FUTURO» está roto, no apretado
+
+El bloque de prioridad ponía «Prioridad:» + la banda + el número + el lápiz en UNA fila,
+dentro de la columna de 236px del panel. Con ALTA, MEDIA y BAJA entraba. Con **A FUTURO**
+—dos palabras— el flex partía la banda en dos renglones («A» arriba, «FUTURO» abajo) y
+empujaba el lápiz fuera de la vista. Se reportó tres veces como «sigue roto lo de
+prioridad», y las dos primeras veces arreglé la POSICIÓN de las piezas sin ver que el
+problema era que no entraban.
+
+**El ancho de la columna es fijo y el del texto lo decide el DATO.** Cualquier layout que
+dependa de que esos dos coincidan funciona con los valores de hoy y se rompe con el
+siguiente — un proyecto que se llame más largo, una traducción, una banda nueva. La versión
+sin casos es la que no los pone en la misma fila: rótulo chico arriba, valor grande abajo,
+que además es el molde que YA usaban DEADLINE, QUARTER y PROYECTOS. Era el único campo del
+panel dibujado distinto.
+
+⚠️ **Y probá con el valor MÁS LARGO del conjunto, no con el primero.** Las cuatro bandas
+están en `PLABEL` y se leen en dos segundos; el bug vivió tres tandas de feedback porque
+las pruebas mentales se hicieron siempre con «ALTA».
+
 ### Un ícono de editar tiene UN lugar, y los otros dos se ven mal
 
 El mismo lápiz se puso en los tres lugares posibles el mismo día:

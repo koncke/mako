@@ -1666,12 +1666,11 @@ function PerroTrabajando({ que }: { que: string }) {
  * proyecto». Eran dos copias del mismo bloque, con dos `<details>` cada una, y ya habían
  * divergido (el de proyectos no mostraba el ajuste por tiempo).
  */
-function BloquePrioridad({ etiqueta, chip, color, score, titulo, razon, impacto, esfuerzo, extra, tiempo, puedeEditar, onEditar }: {
+function BloquePrioridad({ etiqueta, chip, color, titulo, razon, impacto, esfuerzo, extra, tiempo, puedeEditar, onEditar }: {
   /** «BAJA», «ALTA»… Sólo las tareas tienen banda; un proyecto es su número. */
   etiqueta?: string;
   chip: ReactNode;
   color: string;
-  score: number;
   titulo: string;
   razon?: string;
   impacto?: number | null;
@@ -1684,16 +1683,30 @@ function BloquePrioridad({ etiqueta, chip, color, score, titulo, razon, impacto,
   onEditar: () => void;
 }) {
   const hayQueAbrir = !!razon || impacto != null || esfuerzo != null;
+  // ⚠️ DOS RENGLONES, Y NO ES ESTÉTICA: ES QUE NO ENTRA. La versión anterior ponía
+  // «Prioridad:» + la banda + el número + el lápiz en UNA fila, dentro de una columna de
+  // 236px. Con «ALTA» (4 letras) entraba; con «A FUTURO» no, y el flex partía la banda en
+  // dos renglones —«A» arriba, «FUTURO» abajo— empujando el lápiz fuera de la vista. El
+  // ancho de la columna es fijo y el de la palabra lo decide el dato, así que la única
+  // versión que no tiene casos es la que no depende de que entren los dos juntos.
+  //
+  // Y de paso queda igual que DEADLINE, QUARTER y PROYECTOS: rótulo chico arriba, valor
+  // grande abajo. Era el único campo del panel con otro molde.
+  const rotulo: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 400 };
   const cabecera = (
-    <>
-      <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Prioridad:</span>
-      {etiqueta && <span style={{ fontSize: 15, fontWeight: 800, color, letterSpacing: '.01em' }}>{etiqueta}</span>}
-      {chip}
-      <span style={{ flex: 1 }} />
-      {/* ⚠️ `preventDefault` + `stopPropagation`: adentro de un `<summary>`, cualquier click
-          pliega o despliega. Sin esto, tocar el lápiz abría el pop-up Y cerraba el bloque. */}
-      {puedeEditar && <LapizPrioridad onClick={onEditar} titulo={`Cambiar la prioridad de «${titulo.slice(0, 40)}»`} />}
-    </>
+    <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
+        <span style={rotulo}>Prioridad</span>
+        {/* ⚠️ `preventDefault` + `stopPropagation` viven en el contenedor del summary:
+            adentro de un `<summary>` CUALQUIER click pliega, así que sin eso tocar el
+            lápiz abría el pop-up Y cerraba el bloque en el mismo gesto. */}
+        {puedeEditar && <LapizPrioridad tam={20} onClick={onEditar} titulo={`Cambiar la prioridad de «${titulo.slice(0, 40)}»`} />}
+      </span>
+      <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 7, minWidth: 0 }}>
+        {etiqueta && <span style={{ fontSize: 15, fontWeight: 800, color, letterSpacing: '.01em', whiteSpace: 'nowrap' }}>{etiqueta}</span>}
+        {chip}
+      </span>
+    </span>
   );
   const cuerpo = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 9 }}>
@@ -1706,7 +1719,7 @@ function BloquePrioridad({ etiqueta, chip, color, score, titulo, razon, impacto,
   if (!hayQueAbrir) {
     return (
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }} onClick={(e) => e.stopPropagation()}>{cabecera}</div>
+        {cabecera}
         {tiempo}
         {extra}
       </div>
@@ -1714,12 +1727,10 @@ function BloquePrioridad({ etiqueta, chip, color, score, titulo, razon, impacto,
   }
   return (
     <div>
-      <details className="mk-det">
-        <summary style={{ userSelect: 'none' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, width: 'calc(100% - 18px)', verticalAlign: 'middle' }}
-            onClick={(e) => { const t = e.target as HTMLElement; if (t.closest('button')) { e.preventDefault(); e.stopPropagation(); } }}>
-            {cabecera}
-          </span>
+      <details className="mk-det mk-det--prio">
+        <summary style={{ userSelect: 'none', display: 'flex', alignItems: 'flex-start', gap: 0 }}
+          onClick={(e) => { const t = e.target as HTMLElement; if (t.closest('button')) { e.preventDefault(); e.stopPropagation(); } }}>
+          {cabecera}
         </summary>
         {cuerpo}
       </details>
@@ -2497,7 +2508,7 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
           <div style={{ width: 236, flex: 'none', borderLeft: '1px solid var(--border)', background: 'var(--surface-2)', padding: '20px 18px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 15 }}>
             {trabajando && <PerroTrabajando que="tu plan, para ponerle proyecto, prioridad y detalle" />}
             <BloquePrioridad
-              etiqueta={PLABEL[prioEfectiva].toUpperCase()} color={PCOLOR[prioEfectiva]} score={t.score} titulo={t.title}
+              etiqueta={PLABEL[prioEfectiva].toUpperCase()} color={PCOLOR[prioEfectiva]} titulo={t.title}
               chip={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: 15, fontWeight: 700, color: PCOLOR[prioEfectiva] }}><ScoreIcon size={15} color={PCOLOR[prioEfectiva]} />{t.score}</span>}
               razon={t.scoreRazon} impacto={t.impacto} esfuerzo={t.esfuerzo}
               tiempo={<TiempoLinea t={t} />}
@@ -2949,7 +2960,7 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
           <div style={{ width: 236, flex: 'none', borderLeft: '1px solid var(--border)', background: 'var(--surface-2)', padding: '20px 18px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 15 }}>
             {trabajando && <PerroTrabajando que="el resto de tus proyectos, para ubicarlo y describirlo" />}
             <BloquePrioridad
-              color={proj.color} score={proj.score} titulo={proj.name}
+              color={proj.color} titulo={proj.name}
               chip={<ProjScore score={proj.score} color={proj.color} big />}
               razon={proj.scoreRazon} impacto={proj.impacto} esfuerzo={proj.esfuerzo}
               extra={<EscalonChip l={proj} />}

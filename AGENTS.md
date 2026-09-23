@@ -578,6 +578,19 @@ Antes de escribir un límite —de tamaño, de progreso, de espaciado— comprob
 el límite real de la capa de abajo. Un número tuyo por encima del suyo no protege:
 promete.
 
+# Un layout se prueba con el valor MÁS LARGO del conjunto, no con el primero
+
+Si el ancho es fijo y el texto lo decide el dato, «entra» es una propiedad del dato, no del
+layout. El bloque de prioridad del plan ponía rótulo + banda + número + ícono en una fila de
+236px: con `ALTA`, `MEDIA` y `BAJA` entraba, y con **`A FUTURO`** el flex partía la palabra
+en dos renglones y empujaba el ícono fuera de la vista. Se reportó tres veces antes de que
+mirara que el problema no era dónde estaban las piezas sino que no entraban.
+
+- **Los valores posibles casi siempre están enumerados** (`PLABEL`, un enum, un catálogo).
+  Mirar el más largo cuesta dos segundos.
+- **Y si el más largo no entra, no se achica: se apila.** Rótulo chico arriba, valor grande
+  abajo — que además suele ser el molde que ya usan los campos de al lado.
+
 # Sacar un patrón es ENUMERAR dónde está, no arreglarlo donde se vio
 
 Cuando el dueño decide que algo se va —la fricción de un wizard, una checklist, un cartel—,

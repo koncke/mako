@@ -1065,3 +1065,9 @@ details[open] > summary .chev {
 }
 .mk-det > summary:hover::before { opacity: .9; }
 .mk-det[open] > summary::before { transform: rotate(90deg); }
+
+
+/* El <details> de la prioridad tiene DOS renglones adentro del summary (rótulo chico y
+   valor grande), así que su chevron se alinea con el PRIMERO — no centrado contra los dos,
+   que lo deja flotando a media altura entre el rótulo y el número. */
+.mk-det--prio > summary::before { align-self: flex-start; margin-top: 4px; flex: none; }
