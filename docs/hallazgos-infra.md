@@ -980,7 +980,46 @@ de plataforma (recién después de ver entrar una reserva real) y borrar la copi
 **Lo que falta:** un vigilante. Nada mira si la suscripción sigue `active` ni si hace N días
 que no entra una reserva, y ese silencio es el que costó los nueve días — no la caída.
 
-**Vive en:** scripts/arreglar-webhook-calendly.ts · app/api/webhooks/calendly/route.ts:100-140 · scripts/backfill-calendly.ts · docs/estado-del-arte.md:174 · *2026-09-19 ~calendly-suscripcion-deshabilitada*
+### El backfill, cuatro días después: estaba escrito y habría escrito mal (23/09/2026)
+
+Se corrió recién el 23/09, y antes hubo que arreglarle cuatro cosas. Las cuatro comparten
+una forma: **el script y el webhook hacen el mismo trabajo por dos caminos distintos, y el
+del script se quedó en la versión vieja.**
+
+- **Usaba el extractor que el webhook ABANDONÓ.** `extractAnswer` con keywords sueltas
+  devuelve la PRIMERA pregunta que contenga la palabra, y «equipo» matchea «…multiplicar los
+  resultados de tu equipo» (la de inversión) antes que «¿Cuántos colaboradores tienes?». El
+  webhook lo cambió por `extractRespuestaPorFrase` y dejó el porqué escrito al lado; el
+  backfill no se enteró. En un lead que ya existe el daño lo tapa `soloCompletarVacios`; **en
+  uno NUEVO el insert escribe la respuesta cruzada sin ninguna condición**, y el agujero
+  tenía justamente una persona que no existía en el CRM.
+- **No pasaba `junta_1_at`** (la hora exacta), que es lo que mira el «ya pasó» de crm-auto.
+  Ni `respuesta_inversion` ni `respuesta_decisor`, que `lead-resumen` y `analisis-negocio`
+  leen de la COLUMNA: el lead recuperado se habría leído como «no contestó».
+- **El dedup de `lead_respuestas` no matcheaba.** Compara `evento_inicio` con un `.eq`
+  exacto; el webhook manda el DÍA (`2026-09-21`) y el script mandaba el ISO completo. La
+  misma reunión quedaba con dos filas. El comentario del script decía «idempotente por
+  (lead, reunión, evento)» y era falso por un formato.
+- **Y el `--dry` no validaba nada:** hacía `continue` ANTES de consultar la base, así que
+  contestaba «qué trae Calendly», no «qué le va a pasar al CRM» — que es la única pregunta
+  que importa antes de correrlo. Ahora hace los MISMOS dos lookups que la escritura
+  (teléfono normalizado, después email) e imprime CREA / COMPLETA(campos) / NADA por
+  invitee. Es la regla de AGENTS.md sobre los preview: **el que no pasa por el camino de
+  escritura estima, no valida.**
+
+**Lo que salió:** con `--desde=2026-09-05`, el dry anticipó 1 alta, 3 completados y 8 sin
+cambios, y eso pasó. Samuel Bonilla —que agendó el 19/09 para el 21/09— **ahora existe en el
+CRM**, con su `created_at` backdateado al día real y sus respuestas sin cruzar. Otros dos
+recuperaron `junta_1_at` y `respuesta_inversion`.
+
+⚠️ **Y una que hay que saber antes de correr cualquier backfill de leads:**
+`upsertLeadFromCalendly` llama a `avisarFusion` en todo update que escriba, o sea que le
+manda a Mauricio «entró un contacto por Calendly y lo sumé a X» por algo que no entró hoy.
+Hoy sale UNO solo y no cien, pero por casualidad: el dedup de ese aviso es global por tipo
+porque no lleva `dedupKey`. Se apagó el aviso en el ws1 durante la corrida y se volvió a
+prender. **La pregunta antes de un backfill no es sólo qué escribe, sino a quién le avisa.**
+
+**Vive en:** scripts/arreglar-webhook-calendly.ts · app/api/webhooks/calendly/route.ts:100-140 · scripts/backfill-calendly.ts · docs/estado-del-arte.md:174 · *2026-09-19 ~calendly-suscripcion-deshabilitada · corrido 2026-09-23*
 
 ---
 

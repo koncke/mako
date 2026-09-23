@@ -2641,3 +2641,76 @@ vuelve a sonar cuando el atraso empeora de verdad o cuando cambia la lista.
   y no con touch. En tablet el camino es el slider del detalle.
 
 **Vive en:** lib/plan-reprio.ts · lib/plan-vencimientos.ts · lib/plan-avisos.ts · lib/detalle-fusion.ts · app/plan/board/PrioridadAMano.tsx · app/plan/board/Tablas.tsx · app/plan/board/prefs.ts · app/plan/board/BoardShell.tsx · scripts/checklists-a-bullets.mts · *2026-09-23*
+
+## Lo último que quedaba del Perro: borrar, y el control que se dibujaba donde no podía escribir (23/09/2026)
+
+### «Borrar no refresca la lista» no era la lista: el borrado no llegaba a ocurrir
+
+El wizard de eliminar terminaba en *«que el perro decida»* — un POST a `/api/mako-guardian`
+con `effort: 'high'`. Dos cosas, juntas, lo convertían en un callejón:
+
+- **El veredicto «conservar» no tenía salida.** El pie de esa pantalla ofrecía un solo
+  botón, «Ok, la dejo», que llama a `onClose`. No había ningún camino a borrar.
+- **`decidirEliminar` caía a «conservar» cuando el JSON del modelo no parseaba**
+  (`lib/mako-guardian.ts`, la rama del `catch`). O sea que **un parseo fallido cancelaba un
+  borrado**, y el usuario veía exactamente lo que reportó: apretó eliminar y la tarjeta
+  seguía ahí.
+
+La regla que queda: **un guard sobre algo que la persona decidió sólo puede AVISAR, no
+puede ser una puerta.** Si algún día vuelve a hacer falta un juicio antes de borrar, va
+como una línea al costado («ojo: esta tarea la pidió un cliente»), nunca como condición.
+
+Y el corolario de la limpieza: al sacar el wizard quedaban dos **prompts editables desde
+/configuraciones** (`guardian.eliminar.system` y `.user`) que ya no los llamaba nadie. Un
+prompt que se puede editar y no gobierna nada es peor que código muerto: es una pantalla
+que miente. Se fueron con la acción y con la función.
+
+### Un control que se dibuja en dos tableros necesita la CAPACIDAD, no el endpoint adentro
+
+El slider de prioridad se escribió con `fetch('/api/plan-board')` adentro del componente.
+Parecía inofensivo y era un bug para todos los clientes: **el mismo `BoardShell` lo monta
+el tablero del dueño y el de cada cliente** (`app/plan/TodoBoard.tsx`), y esa ruta contesta
+`403 solo admin`. Además `score_manual` (mig 0143) es una columna de `plan_tareas` que
+`experimento_tareas` no tiene: aunque el 403 no existiera, no habría dónde escribirlo.
+
+Lo mismo valía para tres controles más que salieron el mismo día: la casilla «ponerle yo la
+prioridad» del alta, el arrastre del Kanban y el botón de dictar.
+
+**La regla: si un componente compartido escribe, la escritura entra por el `Repo` y el que
+no la implementa NO DIBUJA EL CONTROL.** Un slider que existe y sólo puede contestar 403 se
+lee como que la app está rota — y esconderlo no alcanza como protección (el que decide es
+el server), pero mostrarlo sin poder usarlo es un daño en sí mismo.
+
+⚠️ **Y el caso al revés, que también apareció:** el botón de dictar pegaba a una ruta
+`getSesionAdmin`. Ahí lo correcto NO era esconderlo sino **abrir la ruta**: transcribir unos
+segundos de audio con la cascada gratis es algo que un cliente puede hacer en su propio
+tablero, y el gasto va contra las keys de SU workspace. La pregunta no es «¿lo escondo o lo
+muestro?» sino **«¿quién puede hacer esto de verdad?»**.
+
+### Arrastrar con el dedo: cuatro trampas que el repo ya había pagado en otras pantallas
+
+El Kanban se arrastraba con HTML5 drag-and-drop, que en touch no dispara nunca. Agregar el
+camino por pointer events tiene cuatro minas, y las cuatro estaban escritas en
+`docs/hallazgos-second-brain.md` sobre otra pantalla:
+
+1. **`setPointerCapture` mata los `onClick` de adentro.** Capturar redirige todos los
+   eventos siguientes —incluido el `click`— al elemento que capturó. La tarjeta tiene
+   cuatro clicks adentro (abrir, el chip del proyecto, el aviso, «Completar»): se romperían
+   los cuatro, en silencio. Los listeners van en `window`, armados sólo mientras dura el
+   gesto.
+2. **`touch-action: none` es CSS y decide ANTES de que exista el listener.** Puesto en la
+   tarjeta apaga el scroll de la página sobre cada tarjeta. Lo que frena el scroll una vez
+   armado el gesto es un `touchmove` con `{ passive: false }` registrado a mano — el
+   `onTouchMove` de React 19 se registra pasivo y no puede `preventDefault`.
+3. **Long-press, no umbral.** A ≤560px el tablero colapsa a UNA columna y el scroll
+   vertical es la única navegación: un arrastre que se arme moviendo el dedo se la roba. Se
+   arma a los 300 ms quieto; si el dedo se mueve más de 10 px antes, era un scroll.
+4. **El click fantasma.** Después de un arrastre táctil el navegador sintetiza un `click`
+   sobre donde empezó el toque: se soltaba la tarjeta, salía el pop-up de la prioridad y
+   DETRÁS se abría el detalle.
+
+Más dos guards que no son del gesto sino del producto: soltar en la MISMA columna no abre
+nada (con el dedo, un movimiento de 15 px pasa todo el tiempo) y `pointercancel` limpia —
+sin manejarlo, un scroll que se gana el gesto deja la columna pintada para siempre.
+
+**Vive en:** app/plan/board/arrastre-tactil.ts · app/plan/board/EliminarModal.tsx · app/plan/board/types.ts (Repo.prioridadManual) · app/plan/board/repo-plan.ts · *2026-09-23*

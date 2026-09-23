@@ -5012,3 +5012,68 @@ no contra cómo escribe quien lo programó. El corpus del test era todo del due�
   pegado a los dos puntos.
 - `metricas_negocio` suma el `spend` de Meta tal como lo guarda la base (en pesos para Mauricio,
   según `app/analisis/trimestre/datos.ts`); el informe congelado se lee en dólares.
+
+## Agrupar avisos: la salida barata PIERDE los avisos, y el registro que el motor promete no existe (23/09/2026)
+
+El pedido era simple —*«las notificaciones de WhatsApp son demasiadas»*— y la
+implementación obvia está mal por dos razones que sólo se ven leyendo `lib/avisos.ts`.
+
+### 1. Subir el `dedupTtlMin` no agrupa: descarta
+
+`emitirAviso` chequea el dedup **antes** de escribir nada:
+
+```ts
+if (a.dedupTtlMin && (await avisadoReciente(...))) return { ok: true, feedId: null, wa: false, deduped: true };
+```
+
+Sale por arriba, antes de `crearNotificacion`. Así que «lo junto subiendo el TTL a 1440» no
+junta nada: **tira los avisos 2..N sin dejar rastro de que existieron.** Es «una política
+puede RECHAZAR; no puede no dejar rastro» (AGENTS.md) en su versión más cara, porque el que
+investigue después no puede distinguir «no pasó nada» de «lo tiramos nosotros».
+
+**La regla: posponer es ESCRIBIR primero y decidir el canal después.** La cola es una tabla
+(mig 0161) con una fila por aviso y `enviado_at` como estado entero; y si el insert falla,
+el aviso **sale igual, en el momento**.
+
+### 2. El registro que el motor dice tener no existe en producción
+
+`lib/avisos.ts` afirma, textual: *«Se apaga el WHATSAPP, no el registro: la fila del feed
+queda igual, así que silenciar un aviso no borra la bitácora de que el evento pasó»*. Hoy
+eso es falso: `crearNotificacion` escribe en la tabla `notificaciones` de la mig **0048, que
+nunca se aplicó** — atrapa el error, loguea y devuelve `null`, y `emitirAviso` sigue como si
+nada con `feedId: null`. Se ve en cada corrida:
+
+```
+[notificaciones] crear falló: Could not find the table 'public.notificaciones' in the schema cache
+```
+
+O sea que hasta ahora, **cuando un aviso no salía por WhatsApp no quedaba en ningún lado**:
+ni feed, ni cola, ni turno del doer. Lo único era la clave de dedup en `app_settings`, que
+dice «ya lo dije» y no qué se dijo. `avisos_cola` es, de hecho, el primer registro durable
+de un aviso que existe en este sistema.
+
+### Tres decisiones del diseño que no son obvias
+
+- **La lista de lo que puede esperar va en POSITIVO** (`lib/avisos-agrupables.ts`). Con
+  «todos menos éste», cada aviso que se cablee mañana entra a los pospuestos sin que nadie
+  lo decida — y el día que sea uno urgente, el dueño se entera al otro día.
+- **Un aviso de categoría `accion` o `pregunta` NO se pospone, aunque esté en la lista.**
+  `emitirAviso` guarda el turno del doer sólo cuando el mensaje sale de verdad; si se
+  pospone, el «sí» del dueño de mañana se pega a otra conversación. Ya pasó una vez y
+  duplicó dos tareas.
+- **La cola es del que va a LEER el mensaje, no del que lo generó.** Un aviso `alDueno` sale
+  por el grupo del super-admin aunque lo emita el cron de un cliente. Si se encolara en el
+  workspace del cliente, la preferencia que decide sería la de él y el resumen saldría
+  partido en un mensaje por cliente — exactamente lo que este resumen viene a evitar.
+
+⚠️ **Y dos trampas de implementación que costaron una vuelta cada una:**
+
+- **`emitirDelCatalogo` pagaba el modelo ANTES del gate.** `generarMensajeAviso` es una
+  llamada a la IA y corría siempre: también para un aviso apagado, uno que el dedup iba a
+  descartar, y ahora uno que se resume en una línea. Se paga sólo si el mensaje sale.
+- **Una lectura «sin scope» no devuelve todo: devuelve NADA.** `getTenantDb` scopea toda
+  consulta por el workspace del contexto y sin contexto usa `-1`. La primera versión del
+  cron encolaba bien y veía la cola vacía. Se recorre workspace por workspace, como los
+  otros crons que iteran inquilinos.
+
+**Vive en:** lib/avisos.ts · lib/avisos-agrupables.ts · lib/avisos-cola.ts · app/api/cron/avisos-resumen/route.ts · supabase/migrations/0161_avisos_cola.sql · *2026-09-23*

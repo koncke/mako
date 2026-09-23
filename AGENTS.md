@@ -2376,6 +2376,34 @@ tope fijo necesita las dos cosas:
 
 Vive en `app/admin/dev/pricing/Piezas.tsx` → `Barras`.
 
+# Un componente COMPARTIDO no lleva el endpoint adentro: lleva la capacidad del Repo
+
+Si dos productos distintos montan el mismo componente —en este repo, `BoardShell` es el
+tablero del dueño Y el de cada cliente—, un `fetch('/api/loQueSea')` escrito adentro le
+promete a los dos algo que sólo uno puede cumplir. No falla al compilar, no falla al
+renderizar: falla cuando alguien lo usa, y contesta 403.
+
+Medido el 23/09/2026: el slider de prioridad salió a producción con
+`fetch('/api/plan-board')` adentro. Esa ruta abre con `getSesionAdmin()`, así que **cada
+cliente tenía un control cuya única respuesta posible era «solo admin»** — y además
+`score_manual` (mig 0143) es una columna que la tabla del cliente no tiene, o sea que
+tampoco había dónde escribirlo. Con el mismo molde salieron ese día otros tres: la casilla
+de prioridad del alta, el arrastre del Kanban y el botón de dictar.
+
+**La escritura entra por el `Repo`, y el que no la implementa NO DIBUJA EL CONTROL.** Es
+opcional en el tipo (`prioridadManual?`) justamente para que la ausencia se pueda ver.
+
+- **Esconder el botón no protege nada** —el que decide es el server, y eso ya es regla de
+  esta casa— **pero mostrarlo sin poder usarlo es un daño aparte**: se lee como que la app
+  está rota, que es peor que no tener la función.
+- ⚠️ **Y la pregunta no es «¿lo escondo o lo muestro?» sino «¿QUIÉN PUEDE HACER ESTO DE
+  VERDAD?».** El mismo día, el botón de dictar estaba en el mismo caso y la respuesta fue la
+  opuesta: transcribir diez segundos de audio con la cascada gratis es algo que un cliente
+  SÍ puede hacer en su propio tablero, y el gasto va contra las keys de su workspace. Ahí lo
+  correcto era abrir la ruta, no esconder el botón.
+- **El olor que lo delata:** un componente que importa una constante de ruta, o que tiene
+  `fetch(` y un `action:` adentro. Si además lo monta más de un parent, ya es esto.
+
 # Una medición que CAMBIA lo que mide no puede decidir
 
 Si el veredicto («¿pliego los botones?», «¿muestro el resumen corto?») se toma mirando el
