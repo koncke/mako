@@ -100,6 +100,7 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'reunion-compromisos-tareas': 'plan', 'reunion-tareas-al-plan': 'plan',
   'tareas-autocompletadas': 'plan', 'ads-grabaste': 'plan',
   'plan-proyecto-vence': 'plan',
+  'avisos-resumen': 'reporte',
 
   'lead-formulario-meta': 'lead', 'wa-mensaje-entrante': 'lead',
   'wa-sin-responder': 'lead', 'nutricion-agotada': 'lead',

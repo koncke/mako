@@ -36,12 +36,13 @@ import { DestinatariosModal, type Destinatarios } from './DestinatariosModal';
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 
-type CanalPrefs = { activo: boolean; wa: boolean; email: boolean };
-type Secciones = { semaforo: boolean; ads: boolean; wins: boolean; pendientes: boolean };
-type NotifPrefs = {
-  horario: CanalPrefs; diario: CanalPrefs; semanal: CanalPrefs;
-  secciones: Secciones; avisos: Record<string, boolean>;
-};
+// ⚠️ EL TIPO SE IMPORTA, NO SE COPIA. Acá había una copia a mano de `NotifPrefs`, que es
+// justo la señal que AGENTS.md nombra: «un tipo copiado a mano para no importar del server
+// es la señal de que falta esta frontera». Se quedó vieja al primer campo nuevo, y el
+// compilador no podía decir nada. `import type` se borra en compilación, así que traerlo
+// del módulo con `server-only` no baja una sola línea al navegador.
+import type { NotifPrefs, CanalPrefs } from '@/lib/perfil';
+type Secciones = NotifPrefs['secciones'];
 
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 };
 const labelStyle: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 6, display: 'block' };
@@ -218,6 +219,7 @@ export function NotificacionesPanel() {
     setDraft((d) => (d ? { ...d, [k]: conCanal(d[k], canal, v) } : d));
   const setAviso = (id: string, v: boolean) =>
     setDraft((d) => (d ? { ...d, avisos: { ...d.avisos, [id]: v } } : d));
+  const setResumen = (v: boolean) => setDraft((d) => (d ? { ...d, resumenDiario: v } : d));
   const setItem = (id: string, canal: 'popup' | 'sonido', v: boolean) =>
     setInAppDraft((p) => (p ? { ...p, items: { ...p.items, [id]: { ...(p.items[id] ?? { popup: true, sonido: true }), [canal]: v } } } : p));
 
@@ -362,9 +364,25 @@ export function NotificacionesPanel() {
       {/* ── 3. Avisos sueltos (del negocio) ────────────────────────────────── */}
       <Seccion titulo="Avisos" nota="Cuando pasa algo, en el momento">
         <div style={card}>
+          {/* JUNTARLOS EN UNO POR DÍA. Sale del reporte del dueño: «las notificaciones de
+              WhatsApp son demasiadas». Lo urgente —un lead, una reunión, la cuenta de Meta
+              frenada— sigue llegando en el momento aunque esto esté prendido: la lista de
+              lo que puede esperar está escrita en positivo en lib/avisos-agrupables.ts. */}
+          <Fila
+            primera titulo="Juntar los que no son urgentes en un mensaje por día"
+            sub="Llegan todos juntos a la mañana. Un lead, una reunión o una cuenta frenada siguen llegando en el momento."
+            canales={
+              <CanalToggle
+                icono="whatsapp" label="WhatsApp" fila="Resumen diario"
+                estado={estadoWa(draft.resumenDiario === true)}
+                motivoNoDisponible="No hay ningún número cargado"
+                onChange={setResumen}
+              />
+            }
+          />
           {AVISOS_WA_EN_VIVO.map((a, i) => (
             <Fila
-              key={a.id} primera={i === 0} titulo={a.titulo} sub={a.sub}
+              key={a.id} titulo={a.titulo} sub={a.sub}
               canales={
                 <CanalToggle
                   icono="whatsapp" label="WhatsApp" fila={a.titulo}

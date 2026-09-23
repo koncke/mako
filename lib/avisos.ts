@@ -15,8 +15,10 @@ import { createHash } from 'node:crypto';
 import { crearNotificacion, type NotifSeveridad } from './notificaciones';
 import { enviarAlGrupoSuperAdmin, enviarAlGrupoMaKo, getGrupoJidMaKo, getGrupoSuperAdminJid } from './mako-grupo';
 import { getSetting, setSetting } from './settings';
-import { avisoWaActivo } from './perfil';
-import { runWithWorkspace, getWorkspaceActual, OWNER_WS } from './workspace';
+import { avisoWaActivo, resumenAvisosActivo } from './perfil';
+import { puedeEsperar } from './avisos-agrupables';
+import { encolarAviso } from './avisos-cola';
+import { runWithWorkspace, getWorkspaceActual, wsSuperAdmin, OWNER_WS } from './workspace';
 import type { CategoriaAviso, SemaforoAviso, AvisoCatalogo } from './avisos-catalogo';
 import { CATALOGO_AVISOS, encabezadoAviso } from './avisos-catalogo';
 
@@ -65,6 +67,8 @@ export type EmitirAvisoResult = {
   ok: boolean; feedId: number | null; wa: boolean; deduped: boolean; waError?: string;
   /** el dueño apagó este aviso en Configuraciones › Notificaciones. */
   apagado?: boolean;
+  /** no salió ahora: espera en `avisos_cola` al resumen de la mañana (mig 0161). */
+  agrupado?: boolean;
 };
 
 /**
@@ -136,6 +140,33 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
       return { ok: true, feedId, wa: false, deduped: false, apagado: true };
     }
 
+    // ⚠️ ¿ESTO NECESITABA INTERRUMPIRLO? Si el aviso es de los que aguantan hasta mañana
+    // (lib/avisos-agrupables.ts, lista en POSITIVO) y el workspace pidió juntarlos, se
+    // GUARDA y sale en el resumen de la mañana. Va acá, después del interruptor y antes
+    // del envío, por dos razones: un aviso apagado no tiene que ocupar lugar en la cola, y
+    // lo que se pospone tiene que quedar ESCRITO antes de decidir el canal — la salida
+    // barata («subo el dedupTtlMin y listo») descarta los avisos 2..N sin dejar rastro.
+    //
+    // Si el insert falla, NO se pospone: sigue de largo y sale como siempre. Perder un
+    // aviso por un error de la base sería peor que el problema que esto viene a resolver.
+    // ⚠️ LA COLA ES DE QUIEN LO VA A LEER, NO DE QUIEN LO GENERÓ. Un aviso `alDueno` sale
+    // por el grupo del super-admin aunque se haya emitido adentro del workspace de un
+    // cliente (así lo hacen los crons que iteran inquilinos). Si la cola fuera del cliente,
+    // pasarían dos cosas malas: la preferencia que decide sería la de ÉL y no la del dueño,
+    // y el resumen saldría partido en un mensaje por cliente — que es exactamente lo que
+    // este resumen viene a evitar.
+    const wsCola = a.alDueno === true ? await wsSuperAdmin().catch(() => ws) : ws;
+    if (puedeEsperar(a.tipo, a.categoria) && (await resumenAvisosActivo(wsCola))) {
+      const guardado = await encolarAviso(wsCola, {
+        tipo: a.tipo, titulo: a.titulo, texto: a.texto,
+        categoria: a.categoria, semaforo: a.semaforo, link: a.link, alDueno: a.alDueno === true,
+      });
+      if (guardado) {
+        if (a.dedupTtlMin) await marcarAvisado(ws, a.tipo, a.dedupKey);
+        return { ok: true, feedId, wa: false, deduped: false, agrupado: true };
+      }
+    }
+
     // Ruteo: al grupo del CLIENTE (su "MaKo <> cliente") por default. El grupo de
     // SuperAdmin es SOLO para avisos de agencia (cross-cliente) marcados alDueno.
     // Así los eventos de un cliente (aunque corran en OWNER_WS) NO caen en el grupo
@@ -195,8 +226,16 @@ export async function emitirDelCatalogo(
   if (!cat) return { ok: false, feedId: null, wa: false, deduped: false };
   const { plantillaActiva, referenciaPlantilla, generarMensajeAviso } = await import('./plantillas');
   if (!(await plantillaActiva(id))) return { ok: true, feedId: null, wa: false, deduped: true }; // desactivada → no manda
+  // ⚠️ EL MODELO SE PAGA DESPUÉS DE SABER SI EL MENSAJE VA A SALIR. `generarMensajeAviso`
+  // es una llamada a la IA, y hasta hoy corría SIEMPRE — también para un aviso que el
+  // interruptor tenía apagado o que el dedup iba a descartar. Con el resumen diario eso se
+  // vuelve caro de verdad: se pagaría una redacción por cada aviso que después se resume
+  // en una línea. En la cola entra el título, que es lo que el resumen muestra.
+  const ws = opts.ws ?? (await getWorkspaceActual()) ?? OWNER_WS;
+  const wsPref = opts.alDueno === true ? await wsSuperAdmin().catch(() => ws) : ws;
+  const alResumen = puedeEsperar(cat.id, cat.categoria) && (await resumenAvisosActivo(wsPref));
   const texto = opts.texto
-    ?? (opts.contexto ? await generarMensajeAviso(id, opts.contexto) : await referenciaPlantilla(id));
+    ?? (opts.contexto && !alResumen ? await generarMensajeAviso(id, opts.contexto) : await referenciaPlantilla(id));
   return emitirAviso({
     tipo: cat.id, titulo: cat.titulo, texto,
     categoria: cat.categoria, semaforo: cat.semaforo,

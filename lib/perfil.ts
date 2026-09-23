@@ -158,6 +158,19 @@ export type NotifPrefs = {
    * olvidarse de sumarlo a AVISOS_WA_EN_VIVO no lo silencia.
    */
   avisos: Record<string, boolean>;
+  /**
+   * JUNTAR LOS AVISOS NO URGENTES EN UNO POR DÍA (mig 0161 + lib/avisos-agrupables.ts).
+   *
+   * Sale del reporte del dueño del 22/09/2026: «las notificaciones de WhatsApp son
+   * demasiadas». Con esto prendido, los avisos de la lista de agrupables esperan en
+   * `avisos_cola` y salen juntos a la mañana; los urgentes (un lead, una reunión, la
+   * cuenta de Meta frenada) siguen saliendo en el momento igual.
+   *
+   * ⚠️ El default es FALSE, o sea el comportamiento de hoy. Un campo que decide si un
+   * mensaje sale cuando pasa o 18 horas después no puede cambiarle la vida a 50 clientes
+   * porque alguien agregó una propiedad: el default es el que NO tiene consecuencias.
+   */
+  resumenDiario: boolean;
 };
 
 export const DEFAULT_PREFS: NotifPrefs = {
@@ -166,6 +179,7 @@ export const DEFAULT_PREFS: NotifPrefs = {
   semanal: { activo: true, wa: true, email: true },
   secciones: { semaforo: true, ads: true, wins: true, pendientes: true },
   avisos: {},
+  resumenDiario: false,
 };
 
 const PREFS_KEY = 'notification_prefs';
@@ -204,6 +218,7 @@ export async function getNotifPrefs(): Promise<NotifPrefs> {
       pendientes: sec.pendientes ?? DEFAULT_PREFS.secciones.pendientes,
     },
     avisos,
+    resumenDiario: typeof parsed.resumenDiario === 'boolean' ? parsed.resumenDiario : DEFAULT_PREFS.resumenDiario,
   };
 }
 
@@ -215,6 +230,21 @@ export async function setNotifPrefs(prefs: NotifPrefs): Promise<void> {
  * ¿Este aviso sale por WhatsApp en este workspace? Lo consulta el choke point
  * (lib/avisos.ts) antes de despachar. Ausente = sí: ver el comentario del campo.
  */
+/**
+ * ¿En este workspace los avisos no urgentes esperan al resumen de la mañana?
+ *
+ * Un fallo leyendo la preferencia devuelve FALSE, o sea «que salga ahora»: si no se puede
+ * saber, se prefiere el mensaje de más antes que el mensaje que no llega.
+ */
+export async function resumenAvisosActivo(ws: number): Promise<boolean> {
+  try {
+    const prefs = await runWithWorkspace(ws, () => getNotifPrefs());
+    return prefs.resumenDiario === true;
+  } catch {
+    return false;
+  }
+}
+
 export async function avisoWaActivo(ws: number, tipo: string): Promise<boolean> {
   try {
     const prefs = await runWithWorkspace(ws, () => getNotifPrefs());

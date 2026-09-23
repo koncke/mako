@@ -82,6 +82,9 @@ const TENANT_TABLES = new Set<string>([
   // el cliente de servicio y sin scope, a propósito: es el único lugar del sistema
   // donde el aislamiento se cruza, y está declarado en la migración 0124.
   'agente_sesiones',
+  // La cola del resumen diario de avisos (mig 0161): una fila por aviso pospuesto. Va acá
+  // porque las filas son de un workspace y el cron las manda por el grupo de ESE workspace.
+  'avisos_cola',
   // Bitácora de la API de MaKo (mig 0158): una fila por llamada HTTP. Va acá para que
   // el cliente vea solo las suyas; la escribe lib/api-mako/bitacora.ts con ws explícito.
   'api_llamadas',

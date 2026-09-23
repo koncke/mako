@@ -62,6 +62,10 @@
       "schedule": "10 14 * * *"
     },
     {
+      "path": "/api/cron/avisos-resumen",
+      "schedule": "25 14 * * *"
+    },
+    {
       "path": "/api/cron/reporte-horario",
       "schedule": "0 15-23,0-4 * * *"
     },
