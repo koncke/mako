@@ -15,6 +15,52 @@ const norm = (s: string): string =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]/gi, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
 
 /**
+ * Mete los pasos como VIÑETAS dentro de la descripción.
+ *
+ * Las checklists se sacaron del producto el 22/09/2026 —«que no existan checklists, quitan
+ * mucho tiempo, son incómodas e imprácticas. De última un bullet point»—, y con ellas el %
+ * por tarea: «una tarea se completa o no se completa». Lo que el Perro sí sabía hacer —los
+ * pasos— no se tira: baja un renglón, al `detalle`, que además es lo que un agente lee para
+ * EJECUTAR la tarea (así la usa Leandro: «ejecutá todas las tareas del proyecto X»).
+ *
+ * ⚠️ La conversión vive en el CÓDIGO y no en el prompt. Los prompts se pueden sobreescribir
+ * desde /configuraciones, así que pedirle al modelo que ya no devuelva `items` deja el
+ * cambio colgando de una fila de `app_settings` que nadie va a mirar.
+ */
+export function pasosComoBullets(detalle: string, pasos: string[]): string {
+  const d = (detalle ?? '').replace(/\s+$/, '');
+  const limpios = (pasos ?? []).map((p) => String(p).trim().replace(/^[-*·•]\s*/, '')).filter(Boolean);
+  if (!limpios.length) return d.trim();
+  // Lo que ya está escrito no se repite, con o sin viñeta y sin importar acentos.
+  const yaEsta = new Set(d.split('\n').map((l) => norm(l.replace(/^\s*[-*·•]\s*/, ''))).filter(Boolean));
+  const nuevos: string[] = [];
+  for (const p of limpios) {
+    const k = norm(p);
+    if (!k || yaEsta.has(k)) continue;
+    yaEsta.add(k);
+    nuevos.push(`- ${p}`);
+  }
+  if (!nuevos.length) return d.trim();
+  const bullets = nuevos.join('\n');
+  if (!d.trim()) return bullets;
+  // Si el detalle trae el contrato de cuatro partes, los pasos son «Detalles concretos»
+  // y van adentro de ESA sección, no colgados al final debajo de «Listo cuando».
+  const lineas = d.split('\n');
+  const iSec = lineas.findIndex((l) => /^\s*(\*\*)?\s*Detalles concretos/i.test(l));
+  if (iSec >= 0) {
+    let fin = lineas.length;
+    for (let i = iSec + 1; i < lineas.length; i++) {
+      if (/^\s*\*\*/.test(lineas[i])) { fin = i; break; }
+    }
+    const antes = lineas.slice(0, fin);
+    const despues = lineas.slice(fin);
+    while (antes.length && !antes[antes.length - 1].trim()) antes.pop();
+    return [...antes, bullets, '', ...despues].join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  }
+  return `${d.trim()}\n\n${bullets}`;
+}
+
+/**
  * Devuelve la descripción que hay que guardar.
  * · Si el texto nuevo YA CONTIENE el arranque del viejo, es una ampliación de verdad
  *   → gana el nuevo (si no, quedaría el mismo párrafo dos veces).

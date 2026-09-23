@@ -16,7 +16,7 @@ import { listTareas, listCategorias, editarTarea, type Prioridad, type Checklist
 import { estaPendiente } from './todo-estados';
 import { puntuarNuevas } from './mako-guardian';
 import { checklistsParaTareas } from './checklist-coach';
-import { fusionarDetalle } from './detalle-fusion';
+import { fusionarDetalle, pasosComoBullets } from './detalle-fusion';
 
 /** Columna que le corresponde a un score (misma escala que el board del dueño). */
 const prioridadDeScore = (s: number): Prioridad => (s >= 75 ? 'alta' : s >= 50 ? 'media' : s >= 25 ? 'baja' : 'futuro');
@@ -81,11 +81,14 @@ export async function priorizarNuevasCliente(ids: number[], contexto = ''): Prom
     // LO QUE YA DECÍA NO SE PISA. El detalle de una tarea que salió de una reunión es
     // contenido literal de la llamada, y el de una que editó el cliente es su decisión:
     // el Perro SUMA contexto, nunca reemplaza. (Misma regla que el board del dueño.)
-    const detalleFusionado = enr?.detalle ? fusionarDetalle(actual?.detalle ?? '', enr.detalle) : '';
+    const detalleBase = enr?.detalle ? fusionarDetalle(actual?.detalle ?? '', enr.detalle) : (actual?.detalle ?? '');
+    // Los pasos van como VIÑETAS del detalle, no como checklist: se sacaron del producto
+    // el 22/09/2026 («que no existan checklists… de última un bullet point»), y el board
+    // del cliente sigue la misma regla que el del dueño.
+    const detalleFusionado = pasosComoBullets(detalleBase, enr?.items ?? []);
     if (detalleFusionado && detalleFusionado !== (actual?.detalle ?? '')) patch.detalle = detalleFusionado;
-    if (enr?.items.length) patch.checklist = enr.items.map((text, i): ChecklistItem => ({ id: `c${ahora}${i}`, text, done: false }));
     // Rastro obligatorio: la tarjeta tiene que decir que la tocó MaKo y por qué.
-    const texto = g ? `MaKo la priorizó — score ${g.score} (${g.razon || 'sin razón'})`.slice(0, 220) : 'MaKo le escribió la descripción y la checklist';
+    const texto = g ? `MaKo la priorizó — score ${g.score} (${g.razon || 'sin razón'})`.slice(0, 220) : 'MaKo le escribió la descripción';
     const entrada: HistEntry = { id: `h${ahora}${id}`, ts: ahora, actor: 'ia', text: texto };
     patch.historial = [entrada, ...(actual?.historial ?? [])].slice(0, 40);
     try {
@@ -96,7 +99,6 @@ export async function priorizarNuevasCliente(ids: number[], contexto = ''): Prom
         id: nv.id,
         ...(g ? { score: g.score, scoreRazon: g.razon || '', priority: prioridadDeScore(g.score) } : {}),
         ...(patch.detalle != null ? { detalle: patch.detalle } : {}),
-        ...(patch.checklist ? { checklist: patch.checklist } : {}),
         historialEntry: entrada,
       });
     } catch (e) { console.error('[todo-guardian] editarTarea:', e instanceof Error ? e.message : String(e)); }

@@ -258,9 +258,11 @@ export function relTime(ts: number, nowMs: number): string {
   return `hace ${Math.round(s / 86400)} d`;
 }
 
-// Una tarea Alta (no terminada) está "incompleta" si le falta deadline o checklist.
-// Las tareas al 100% no cuentan (ya están hechas, no tiene sentido pedirles plan).
-export const altaIncompleta = (t: BoardTask) => t.priority === 'alta' && t.progress < 100 && (!t.deadline || t.checklist.length === 0);
+// Una tarea Alta (no terminada) está "incompleta" si le falta el deadline. Las tareas al
+// 100% no cuentan (ya están hechas, no tiene sentido pedirles plan).
+// ⚠️ También miraba la CHECKLIST, hasta que las checklists salieron del producto
+// (22/09/2026). Hoy el único dato que el Perro no puede deducir solo es la fecha.
+export const altaIncompleta = (t: BoardTask) => t.priority === 'alta' && t.progress < 100 && !t.deadline;
 
 // ── Score 1-100 ⇄ columna (el guardián pone el score; la columna se DERIVA) ──
 export const clampScore = (v: number) => Math.max(0, Math.min(100, Math.round(Number.isFinite(v) ? v : 0)));

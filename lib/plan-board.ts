@@ -331,7 +331,7 @@ function desdeDeFuente(f?: Fuente): { actor: Actor; desde: string } {
  * El chequeo es por el arranque normalizado, no por el texto entero: el modelo corrige
  * una tilde o una coma y una comparación exacta diría "no lo absorbió" siempre.
  */
-import { fusionarDetalle } from './detalle-fusion';
+import { fusionarDetalle, pasosComoBullets } from './detalle-fusion';
 import { evaluarDetalle } from './detalle-contrato';
 export { fusionarDetalle };
 
@@ -568,7 +568,6 @@ export type AmpliarTareaPlan = { id: string; titulo?: string; detalle?: string; 
  *
  * Lo que se toca:
  *   · `detalle` → se fusiona (fusionarDetalle: lo viejo primero, nunca se pisa);
- *   · `checklist` → se agregan solo los pasos que todavía no estaban;
  *   · `historial` → queda el rastro con de qué reunión salió lo nuevo.
  * Lo que NO se toca: score, prioridad, deadline, notas y proyecto. Amplíar es agregar
  * contexto, no re-decidir la tarea — para eso está el debate con el Perro.
@@ -584,37 +583,24 @@ export async function ampliarTareasPlanOwner(items: AmpliarTareaPlan[], fuente?:
     const filas = (data ?? []) as Array<{ id: string; title: string; detalle: string; checklist: unknown; historial: unknown; fuente: unknown }>;
     const porId = new Map(filas.map((f) => [f.id, f]));
 
-    // Un paso de checklist no se repite: el mismo texto sin acentos ni signos ya está.
-    const claveCheck = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]/gi, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
-
     const patches: GuardPatch[] = [];
     let n = 0;
     for (const it of validos) {
       const f = porId.get(it.id);
       if (!f) { console.warn(`[plan-board] ampliar: la tarea ${it.id} no existe`); continue; }
       const detalleFinal = fusionarDetalle(str(f.detalle), (it.detalle ?? '').trim());
-      const checkPrevia = asArr<Check>(f.checklist);
-      const vistas = new Set(checkPrevia.map((c) => claveCheck(c.text)));
-      // Pasos nuevos: SOLO las líneas que el texto nuevo trae como viñeta. Si el
-      // detalle es prosa (lo normal en una reunión), la checklist no se toca.
-      const nuevosPasos = (it.detalle ?? '').split('\n')
-        .filter((l) => /^\s*[-*·•]\s+\S/.test(l))
-        .map((l) => l.replace(/^\s*[-*·•]\s+/, '').trim())
-        .filter((l) => l.length > 6 && l.length < 160 && !vistas.has(claveCheck(l)))
-        .filter((l, i, arr) => arr.findIndex((x) => claveCheck(x) === claveCheck(l)) === i);
-      const checklist = nuevosPasos.length
-        ? [...checkPrevia, ...nuevosPasos.map((text): Check => ({ id: genId('c'), text, done: false }))]
-        : checkPrevia;
-
-      if (detalleFinal === str(f.detalle) && checklist.length === checkPrevia.length) continue;
+      // ⚠️ ACÁ SE EXTRAÍAN LAS VIÑETAS DEL TEXTO NUEVO A LA CHECKLIST. Ya no: las viñetas
+      // se quedan donde ya estaban —adentro del detalle fusionado—, que es donde viven los
+      // pasos desde que las checklists salieron del producto (22/09/2026).
+      if (detalleFinal === str(f.detalle)) continue;
       const entrada: Hist = { id: genId('h'), ts: ahora, actor, text: `MaKo le sumó contexto (no la duplicó) — ${desde}`.slice(0, 220) };
       const historial = [entrada, ...sanearHist(f.historial)].slice(0, 40);
       const { error } = await db.from('plan_tareas').update({
-        detalle: detalleFinal.slice(0, 6000), checklist, historial, updated_at: new Date().toISOString(),
+        detalle: detalleFinal.slice(0, 6000), historial, updated_at: new Date().toISOString(),
       }).eq('id', it.id);
       if (error) { console.error(`[plan-board] ampliar ${it.id}: ${error.message}`); continue; }
       n++;
-      patches.push({ id: it.id, detalle: detalleFinal.slice(0, 6000), checklist, historialEntry: entrada });
+      patches.push({ id: it.id, detalle: detalleFinal.slice(0, 6000), historialEntry: entrada });
     }
     return { n, patches };
   });
@@ -812,21 +798,22 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
       // versión decía «en la cuenta de Claude de Mauricio» — lo contrario de lo acordado.
       // Pisar traía de vuelta el bug viejo; concatenar deja la tarjeta diciendo las dos
       // cosas. La salida es no elegir entre dos textos malos: si el detalle que ya está
-      // cumple el contrato, está bien y no hay nada que optimizar. Del coach se toma solo
-      // la CHECKLIST, que es lo que de verdad agrega.
+      // cumple el contrato, está bien y no hay nada que optimizar. Del coach se toman solo
+      // los PASOS, que es lo que de verdad agrega.
+      //
+      // ⚠️ Y esos pasos YA NO SON UNA CHECKLIST: van como viñetas adentro del detalle
+      // (`pasosComoBullets`). Las checklists se sacaron del producto el 22/09/2026 —«que
+      // no existan checklists… de última un bullet point»— y con ellas el % por tarea.
       const yaTieneMolde = evaluarDetalle(n.detalle ?? '').conForma;
-      const detalleFinal = yaTieneMolde ? (n.detalle ?? '') : fusionarDetalle(n.detalle, enr?.detalle ?? '');
+      const base = yaTieneMolde ? (n.detalle ?? '') : fusionarDetalle(n.detalle, enr?.detalle ?? '');
+      const detalleFinal = pasosComoBullets(base, enr?.items ?? []);
       if (detalleFinal && detalleFinal !== n.detalle) { patch.detalle = detalleFinal; out.detalle = detalleFinal; }
-      if (enr?.items.length) {
-        const checklist = enr.items.map((text): Check => ({ id: genId('c'), text, done: false }));
-        patch.checklist = checklist; out.checklist = checklist;
-      }
       if (Object.keys(patch).length <= 1) return Promise.resolve(undefined); // solo updated_at
       // RASTRO: toda pasada de la IA por una tarjeta queda en el historial (regla del
       // dueño). Antes el Perro puntuaba en silencio y la tarjeta no decía quién la movió.
       const texto = g
         ? `MaKo la priorizó — score ${g.score} (${g.razon || 'sin razón'})`.slice(0, 220)
-        : 'MaKo le escribió la descripción y la checklist';
+        : 'MaKo le escribió la descripción';
       const entrada: Hist = { id: genId('h'), ts: ahora, actor: 'ia', text: texto };
       patch.historial = [entrada, ...n.historial].slice(0, 40);
       out.historialEntry = entrada;

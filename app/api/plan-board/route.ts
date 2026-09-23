@@ -19,6 +19,7 @@ import {
 import type { BoardTask, Label, Fuente } from '@/app/plan/board/types';
 import type { EntidadDep, ClaseDep } from '@/app/plan/board/dependencias';
 import { proponerTareasParaProyecto } from '@/lib/plan-proyecto-vacio';
+import { fijarPrioridadAMano, devolverPrioridadAlPerro } from '@/lib/plan-reprio';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -114,6 +115,28 @@ export async function POST(req: NextRequest) {
       if (!id) return NextResponse.json({ ok: false, error: 'id requerido' }, { status: 400 });
       await borrarPlanProyecto(id);
       return NextResponse.json({ ok: true });
+    }
+    // ── LA PRIORIDAD A MANO ──
+    // Antes el único camino al score era la audiencia con el Perro, y eso trabó una sesión
+    // entera («no hay maleabilidad»). El debate sigue existiendo como opción; esto es la
+    // persona decidiendo, que es lo que AGENTS.md pone por encima: la IA propone, la
+    // persona cambia. Escribe el server, por columna, con la misma cascada y las mismas
+    // auditorías — el navegador sigue sin tener un camino a `score`.
+    if (action === 'prioridad-manual') {
+      const entidad = body.entidad === 'proyecto' ? 'proyecto' : 'tarea';
+      const id = String(body.id ?? '');
+      const score = Number(body.score);
+      if (!id) return NextResponse.json({ ok: false, error: 'id requerido' }, { status: 400 });
+      if (!Number.isFinite(score)) return NextResponse.json({ ok: false, error: 'score requerido' }, { status: 400 });
+      const r = await fijarPrioridadAMano({ entidad, itemId: id, score });
+      return NextResponse.json(r.ok ? { ok: true, score: r.score, antes: r.antes, movidos: r.movidos, reprioId: r.reprioId } : { ok: false, error: r.error });
+    }
+    if (action === 'prioridad-al-perro') {
+      const entidad = body.entidad === 'proyecto' ? 'proyecto' : 'tarea';
+      const id = String(body.id ?? '');
+      if (!id) return NextResponse.json({ ok: false, error: 'id requerido' }, { status: 400 });
+      const r = await devolverPrioridadAlPerro(entidad, id);
+      return NextResponse.json(r);
     }
     if (action === 'priorizar-nuevas') {
       // El PERRO GUARDIÁN (server-side, con persistencia) puntúa tareas nuevas ya creadas,

@@ -41,6 +41,9 @@ export const CUANDO_LABEL: Record<Cuando, string> = {
   'sin-fecha': 'Sin planificar',
 };
 
+/** Guarda para lo que vuelve de afuera (el filtro guardado en el navegador). */
+export const esCuando = (v: string): v is Cuando => Object.prototype.hasOwnProperty.call(CUANDO_LABEL, v);
+
 /** Suma días a un ISO `YYYY-MM-DD`, en UTC para no depender de la zona del server. */
 function masDias(iso: string, n: number): string {
   const [y, m, d] = iso.split('-').map(Number);

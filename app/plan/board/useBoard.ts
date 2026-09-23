@@ -170,6 +170,47 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     }
   };
 
+  // La PRIORIDAD A MANO ya la escribió el server (`fijarPrioridadAMano`): columna por
+  // columna, por id, con su cascada. Acá solo se sincroniza la pantalla — sin markDirty y
+  // sin saveLabel, porque volver a guardar desde el navegador es cómo una pestaña con
+  // estado viejo pisa lo que el server acaba de decidir.
+  //
+  // ⚠️ `scoreBase` y `scoreManual` se actualizan TAMBIÉN acá aunque no se vean. Si el
+  // estado local se queda con el viejo, el próximo autosave de esa tarea (cambiarle el
+  // título, tildar algo) upsertea la fila entera y devuelve `score_base` al número de
+  // antes y `score_manual` a false: el candado se abre solo, sin que nadie lo toque.
+  const aplicarCascadaManual = (
+    entidad: 'proyecto' | 'tarea',
+    fijado: { id: string; score: number; razon: string; texto: string },
+    movidos: Array<{ id: string; despues: number }> = [],
+  ) => {
+    const otros = new Map(movidos.filter((m) => m.id !== fijado.id).map((m) => [m.id, m.despues]));
+    const entry: Hist = { id: uid(), ts: now(), actor: 'user', text: fijado.texto };
+    if (entidad === 'tarea') {
+      setTasks((ts) => ts.map((x) => {
+        if (x.id === fijado.id) {
+          const s = clampScore(fijado.score);
+          return { ...x, score: s, scoreBase: s, priority: prioFromScore(s), scoreRazon: fijado.razon, scoreManual: true, historial: [entry, ...x.historial].slice(0, HIST_CAP) };
+        }
+        const s = otros.get(x.id);
+        return s == null ? x : { ...x, score: clampScore(s), priority: prioFromScore(clampScore(s)) };
+      }));
+      return;
+    }
+    setLabels((ls) => ls.map((l) => {
+      if (l.id === fijado.id) return { ...l, score: clampProj(fijado.score), scoreRazon: fijado.razon, scoreManual: true, historial: [entry, ...l.historial].slice(0, HIST_CAP) };
+      const s = otros.get(l.id);
+      return s == null ? l : { ...l, score: clampProj(s) };
+    }));
+  };
+
+  /** El inverso: le devolvés la decisión a MaKo y el candado se saca en pantalla también. */
+  const soltarCandadoManual = (entidad: 'proyecto' | 'tarea', id: string) => {
+    const entry: Hist = { id: uid(), ts: now(), actor: 'user', text: 'Le devolviste la prioridad a MaKo' };
+    if (entidad === 'tarea') setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, scoreManual: false, scoreRazon: undefined, historial: [entry, ...x.historial].slice(0, HIST_CAP) } : x)));
+    else setLabels((ls) => ls.map((l) => (l.id === id ? { ...l, scoreManual: false, scoreRazon: undefined, historial: [entry, ...l.historial].slice(0, HIST_CAP) } : l)));
+  };
+
   // tope de "En prioridad": cuenta solo las NO completadas (consistente con la vista)
   const toggleEnPrioridad = (id: string): boolean => {
     const t = byId(id); if (!t) return false;
@@ -321,7 +362,7 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
   return {
     tasks, labels, user, repo, deps, addDep, delDep,
     labelById: (id: string) => labels.find((l) => l.id === id) ?? null,
-    create, remove, removeSilent, patch, moveTo, setScore, applyGuardian, aplicarPerroServer, toggleEnPrioridad, setChecklist, replaceTask,
+    create, remove, removeSilent, patch, moveTo, setScore, applyGuardian, aplicarPerroServer, aplicarCascadaManual, soltarCandadoManual, toggleEnPrioridad, setChecklist, replaceTask,
     setTitle, setDetalle, setProgress, toggleDone, setDeadline, setQuarter, setTaskLabels, undoHist,
     createLabel, patchLabel, patchLabelLog, undoLabelHist, deleteLabel, deleteLabelYTareas, reset,
     undo, showUndo: show, clearUndo: clear,

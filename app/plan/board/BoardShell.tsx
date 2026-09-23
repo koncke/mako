@@ -15,12 +15,14 @@ import { UndoToast } from '../../_components/UndoToast';
 import { ConfirmModal } from '../../_components/ConfirmModal';
 import { EmojiPickerMini } from './EmojiPicker';
 import { MakoChecklistModal } from './MakoChecklist';
+import { pasosComoBullets } from '@/lib/detalle-fusion';
 import { FechaDebateModal } from './FechaDebateModal';
 import { CrearTareaModal } from './CrearTareaModal';
 import { CrearProyectoModal } from './CrearProyecto';
 import { EliminarModal } from './EliminarModal';
 import { AsignarProyectoModal } from './AsignarProyecto';
 import { AudienciaModal } from './AudienciaModal';
+import { PrioridadAMano } from './PrioridadAMano';
 import { MakoProyectoModal } from './MakoProyecto';
 import { useVerMas } from './VerMas';
 import { useCapaModal } from '@/app/_components/pila-modales';
@@ -49,7 +51,10 @@ import { diasQuieta, diasAlDeadline, ajusteTemporal } from './envejecer';
 import { ExportarModal } from './ExportarModal';
 import { NotasLista } from './NotasLista';
 import { capacidad } from '@/lib/mako-capacidades';
-import { cuandoDe, quartersElegibles, CUANDO_LABEL, CUANDO_OPS, type Cuando } from './cuando';
+import { cuandoDe, quartersElegibles, esCuando, CUANDO_LABEL, CUANDO_OPS, type Cuando } from './cuando';
+import { usePref, usePrefSet, esUnoDe, esBool } from './prefs';
+import { WarnMark, projProgress, fechaConDia, diasHasta, plazoTexto } from './piezas';
+import { TablaProyectos, TablaTareas } from './Tablas';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -115,16 +120,24 @@ export function BoardShell({ board, scope, vistaInicial }: {
     if (!j.ok) { setIa({ pensando: false, ids: null, explico: '' }); alert(j.error || 'No pude buscar.'); return; }
     setIa({ pensando: false, ids: (j.ids ?? []).map(String), explico: String(j.explico ?? '') });
   };
-  const [fLabels, setFLabels] = useState<Set<string>>(new Set());
-  const [doneFilter, setDoneFilter] = useState<DoneFilter>('all'); // #16: filtrar por estado (kanban)
-  const [fOrigen, setFOrigen] = useState<Set<string>>(new Set());  // filtrar por ORIGEN (fuente: WhatsApp/Fathom/…)
+  // ⚠️ LOS FILTROS Y EL ORDEN SE RECUERDAN (usePref): «se resetean al recargar y al cambiar
+  // de pestaña» era el reporte. Lo que NO se recuerda es la BÚSQUEDA (`q`): un texto viejo
+  // restaurado esconde el tablero entero y se lee como que no hay nada cargado.
+  const [fLabels, setFLabels] = usePrefSet('kanban.proyectos');
+  const [doneFilter, setDoneFilter] = usePref<DoneFilter>('kanban.estado', 'all', esUnoDe('all', 'activas', 'comenzadas', 'hechas')); // #16: filtrar por estado (kanban)
+  const [fOrigen, setFOrigen] = usePrefSet('kanban.origen');  // filtrar por ORIGEN (fuente: WhatsApp/Fathom/…)
   // CUANDO cae la tarea: hoy / esta semana / este Quarter / sin planificar (tarea #635).
   // Es un Set y no un valor unico porque «hoy Y esta semana» es una pregunta legitima
   // —lo urgente mas lo que se viene— y con un radio habria que elegir una.
-  const [fCuando, setFCuando] = useState<Set<Cuando>>(new Set());
-  const [sortMode, setSortMode] = useState<'score' | 'creacion'>('score'); // orden de tareas/proyectos
-  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc'); // dirección: desc = mayor/más nuevo primero
-  const [projFilter, setProjFilter] = useState<DoneFilter>('all');  // filtrar por estado (proyectos)
+  const [fCuando, setFCuando] = usePrefSet<Cuando>('kanban.cuando', esCuando);
+  const [sortMode, setSortMode] = usePref<'score' | 'creacion'>('orden.modo', 'score', esUnoDe('score', 'creacion')); // orden de tareas/proyectos
+  const [sortDir, setSortDir] = usePref<'desc' | 'asc'>('orden.dir', 'desc', esUnoDe('desc', 'asc')); // dirección: desc = mayor/más nuevo primero
+  const [projFilter, setProjFilter] = usePref<DoneFilter>('proyectos.estado', 'all', esUnoDe('all', 'activas', 'comenzadas', 'hechas'));  // filtrar por estado (proyectos)
+  // TARJETAS o TABLA, una preferencia por vista. «Sí me parece bien que haya una vista
+  // tabla tanto para proyectos como para el kanban, pero NO reemplaces lo que hay ahora,
+  // es otra opción de verlo» — así que el default sigue siendo lo de siempre.
+  const [tablaProy, setTablaProy] = usePref<boolean>('proyectos.tabla', false, esBool);
+  const [tablaKanban, setTablaKanban] = usePref<boolean>('kanban.tabla', false, esBool);
   const [openId, setOpenId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ msg: string; onOk: () => void } | null>(null);
   const [debateId, setDebateId] = useState<string | null>(null);
@@ -134,7 +147,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
   const [exportar, setExportar] = useState(false);             // bajarse el tablero (modal de a 1 pregunta)
   const [reunionArchivo, setReunionArchivo] = useState<File[] | null>(null); // los archivos elegidos en la bandeja → entran al modal de extracción
   const [importar, setImportar] = useState(false);                           // la bandeja de importación
-  // "Datos sin marcar" (feedback jul-19): UN modal batch para deadline + checklist, en
+  // "Datos sin marcar" (feedback jul-19): UN modal batch para las tareas sin fecha, en
   // vez del gauntlet card-by-card. Ver DatosModal.
   // ⚠️ SOLO A PEDIDO, desde el ⚠ del header (08-T46, 17/9). Antes se abría SOLO al entrar
   // a la tab y, al cerrarlo, salía un segundo pop-up («¿seguir recordándote?»). Mauricio,
@@ -144,7 +157,6 @@ export function BoardShell({ board, scope, vistaInicial }: {
   // está el badge), y nunca pedir datos en plena operación (AGENTS.md). Cerrar = «más tarde».
   const [datosOpen, setDatosOpen] = useState(false);
   const [dlDismiss, setDlDismiss] = useState<Set<string>>(new Set()); // deadline ignorado por tarea
-  const [clDismiss, setClDismiss] = useState<Set<string>>(new Set()); // checklist ignorada por tarea
   const [dlLoaded, setDlLoaded] = useState(false);                    // ya leí localStorage
   // "MaKo cargó tareas" (bienvenida): tareas creadas por una FUENTE (WhatsApp/Fathom/MaKo)
   // que el dueño todavía no vio en este device. Se muestran ANTES que el DatosModal.
@@ -236,9 +248,8 @@ export function BoardShell({ board, scope, vistaInicial }: {
   // otra cosa (que la cadena está trabada), que se ve en los candados.
   const objetivoPrincipal = porScore.find((l) => proyArrancable(l.id)) ?? porScore.find((l) => tienePendientes(l.id)) ?? porScore[0] ?? null;
   const topProjectId = objetivoPrincipal?.id ?? null;
-  // ── "Datos sin marcar" (feedback jul-19): deadline (opcional) + checklist (la ARMA
-  // MaKo), en UN modal batch. Reemplaza al gauntlet card-by-card que auto-popeaba de a
-  // una y pedía los pasos a mano. Persistimos qué se ignoró. (El «no volver a pedir» de
+  // ── "Datos sin marcar" (feedback jul-19): el deadline (opcional), en UN modal batch.
+  // Reemplaza al gauntlet card-by-card que auto-popeaba de a una. Persistimos qué se ignoró. (El «no volver a pedir» de
   // `mako_plan_datos_off` se fue con el auto-open: sin pop-up solo, no hay nada que apagar.) ──
   // Las keys se scopean por workspace (scope): impersonando distintos clientes,
   // las preferencias NO se mezclan en el mismo navegador.
@@ -247,8 +258,6 @@ export function BoardShell({ board, scope, vistaInicial }: {
     try {
       const dl = localStorage.getItem(dlKey('mako_plan_dl_dismiss'));
       if (dl) setDlDismiss(new Set(JSON.parse(dl) as string[]));
-      const cl = localStorage.getItem(dlKey('mako_plan_cl_dismiss'));
-      if (cl) setClDismiss(new Set(JSON.parse(cl) as string[]));
     } catch { /* localStorage no disponible */ }
     setDlLoaded(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -287,36 +296,15 @@ export function BoardShell({ board, scope, vistaInicial }: {
       localStorage.setItem(dlKey('mako_plan_welcome_seen'), JSON.stringify([...seen]));
     } catch { /* ignore */ }
   };
+  // Lo único que queda sin marcar es la FECHA: la checklist se fue del producto el
+  // 22/09/2026 y con ella la mitad de este modal.
   const faltantes: FaltanteItem[] = tasks
     .filter((t) => t.progress < 100)
-    .map((t) => ({
-      task: t,
-      needDl: !t.deadline && !dlDismiss.has(t.id),
-      // Solo ofrecemos armar checklist en tareas SIN empezar: en una tarea con avance
-      // manual (>0%) crear la checklist pisaría el progreso a 0 (lo deriva la checklist).
-      needCl: displayPrio(t, topProjectId) === 'alta' && t.checklist.length === 0 && t.progress === 0 && !clDismiss.has(t.id),
-    }))
-    .filter((x) => x.needDl || x.needCl)
+    .map((t) => ({ task: t, needDl: !t.deadline && !dlDismiss.has(t.id) }))
+    .filter((x) => x.needDl)
     .sort((a, b) => b.task.score - a.task.score);
   const persistSet = (key: string, s: Set<string>) => { try { localStorage.setItem(dlKey(key), JSON.stringify([...s])); } catch { /* ignore */ } };
   const ignorarDl = (id: string) => setDlDismiss((s) => { const n = new Set(s).add(id); persistSet('mako_plan_dl_dismiss', n); return n; });
-  const ignorarCl = (id: string) => setClDismiss((s) => { const n = new Set(s).add(id); persistSet('mako_plan_cl_dismiss', n); return n; });
-  // MaKo ARMA la checklist (sin preguntarle los pasos al usuario; solo si NO puede, se
-  // hace a mano). Historial firmado como actor 'ia' (regla: la IA siempre deja rastro).
-  const generarChecklist = async (id: string): Promise<boolean> => {
-    const t = tasks.find((x) => x.id === id);
-    if (!t) return false;
-    const tarea = (t.title + (t.detalle ? `\n\n${stripHtml(t.detalle)}` : '')).trim();
-    try {
-      const r = await fetch('/api/checklist-coach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'propose', tarea, respuestas: '', uso: 'plan' }) });
-      const j = await r.json();
-      const items: string[] = Array.isArray(j?.items) ? j.items.map((x: { texto?: string } | string) => (typeof x === 'string' ? x : x?.texto || '')).filter(Boolean) : [];
-      if (!items.length) return false;
-      if (j.usage) showUsage(j.usage, 'MaKo arma la checklist');
-      board.setChecklist(id, items.map((text) => ({ id: uid(), text, done: false })), `MaKo armó la checklist (${items.length})`, 'ia');
-      return true;
-    } catch { return false; }
-  };
   // Cerrar = «más tarde». Sin segundo pop-up: el ⚠ sigue ahí con el número.
   const cerrarDatos = () => setDatosOpen(false);
   const abrirDatosManual = () => setDatosOpen(true);
@@ -894,6 +882,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
             onBuscarIA={buscarConIA}
             onLimpiarIA={() => setIa({ pensando: false, ids: null, explico: '' })}
           />
+          <VistaToggle tabla={view === 'kanban' ? tablaKanban : tablaProy} onSet={(v) => (view === 'kanban' ? setTablaKanban(v) : setTablaProy(v))} />
           {view === 'kanban'
             ? <FilterMenu soloIcono={compacto} labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} fOrigen={fOrigen} setFOrigen={setFOrigen} fCuando={fCuando} setFCuando={setFCuando} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />
             : <FilterMenu soloIcono={compacto} doneFilter={projFilter} setDoneFilter={setProjFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />}
@@ -908,13 +897,13 @@ export function BoardShell({ board, scope, vistaInicial }: {
              abre solo (08-T46). Avisa con el NÚMERO, como el ✨ de al lado, y no titila: un
              ícono que late en cada entrada es el mismo «picarle» con otra forma. */
           ...(faltantes.length > 0 ? [{ key: 'datos', nodo: (
-          <button type="button" onClick={abrirDatosManual} title={`${faltantes.length} tarea${faltantes.length === 1 ? '' : 's'} con datos sin marcar (deadline / checklist)`} aria-label="Datos sin marcar"
+          <button type="button" onClick={abrirDatosManual} title={`${faltantes.length} tarea${faltantes.length === 1 ? '' : 's'} sin fecha`} aria-label="Tareas sin fecha"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 38, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', cursor: 'pointer', flex: 'none', padding: '0 11px' }}>
             <WarnMark title="" size={16} blink={false} />
             <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: 'var(--dim)' }}>{faltantes.length}</span>
           </button>
-          ), menu: { icono: <WarnMark title="" size={15} blink={false} />, label: 'Datos sin marcar', badge: faltantes.length,
-            desc: 'Deadline y checklist que le faltan a tus tareas', onClick: abrirDatosManual } }] : []),
+          ), menu: { icono: <WarnMark title="" size={15} blink={false} />, label: 'Tareas sin fecha', badge: faltantes.length,
+            desc: 'Las tareas a las que les falta la fecha', onClick: abrirDatosManual } }] : []),
           ...(hayWelcome ? [{ key: 'welcome', nodo: (
           <button type="button" onClick={() => setWelcomeVisible(true)} title={`${welcomeTasks.length} tarea${welcomeTasks.length === 1 ? '' : 's'} que cargó MaKo — ver`} aria-label="Tareas que cargó MaKo"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 38, borderRadius: 9, border: '1px solid var(--primary-weak)', background: 'var(--surface)', cursor: 'pointer', flex: 'none', padding: '0 11px' }}>
@@ -981,8 +970,10 @@ export function BoardShell({ board, scope, vistaInicial }: {
           con `flex: 1` + `minHeight: 0`. Ninguna vista vuelve a pedir `height: 100%`. */}
       <div style={{ minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} bloqueadas={bloqueadasN} onOpen={setOpenId} onOpenProj={setOpenProj} />}
-        {view === 'kanban' && <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} frenanA={frenanA} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} />}
-        {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={projFilter} q={q} fOrigen={fOrigen} sortMode={sortMode} sortDir={sortDir} />}
+        {view === 'kanban' && (tablaKanban
+          ? <div style={{ flex: '1 0 auto', padding: '18px 30px 40px' }}><TablaTareas tareas={visibles} board={board} hoy={hoyISO()} onOpen={setOpenId} onOpenProj={setOpenProj} /></div>
+          : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} frenanA={frenanA} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} />)}
+        {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={projFilter} q={q} fOrigen={fOrigen} sortMode={sortMode} sortDir={sortDir} tabla={tablaProy} />}
         {view === 'graphics' && <GraphicsView board={board} />}
       </div>
 
@@ -1144,10 +1135,8 @@ export function BoardShell({ board, scope, vistaInicial }: {
         onClose={() => setAsignarTaskId(null)} />}
       {datosOpen && <DatosModal items={faltantes}
         onSetDeadline={(id, fecha) => board.setDeadline(id, fecha, '')}
-        onGenChecklist={generarChecklist}
         onAbrir={(id) => { setDatosOpen(false); setOpenId(id); }}
         onIgnorarDl={ignorarDl}
-        onIgnorarCl={ignorarCl}
         onClose={cerrarDatos} />}
       {/* Bienvenida "MaKo cargó tareas": se abre sola UNA vez al entrar (Datos ya no). No se
           apila sobre un detalle abierto por deep-link (?tarea=): ahí espera a que se cierre. */}
@@ -1417,12 +1406,6 @@ function pasaEstado(progress: number, f: DoneFilter): boolean {
   if (f === 'comenzadas') return progress > 0 && progress < 100;
   return progress < 100; // activas
 }
-// progreso agregado de un proyecto (promedio del avance de sus tareas)
-function projProgress(tasks: BoardTask[], labelId: string): { pct: number; total: number; done: number } {
-  const suyas = tasks.filter((t) => t.labels.includes(labelId));
-  if (!suyas.length) return { pct: 0, total: 0, done: 0 };
-  return { pct: Math.round(suyas.reduce((s, t) => s + t.progress, 0) / suyas.length), total: suyas.length, done: suyas.filter((t) => t.progress >= 100).length };
-}
 
 function AvgChip({ avg, hechas, total, label }: { avg: number; hechas: number; total: number; label: string }) {
   // `flex: 'none'` + `whiteSpace: 'nowrap'`: el chip vive en un contenedor con
@@ -1528,6 +1511,38 @@ function IEMeter({ label, v, color }: { label: string; v: number; color: string 
 function ProjScore({ score, color, big }: { score: number; color: string; big?: boolean }) {
   return <span title="Prioridad del proyecto" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: big ? 15 : 11, fontWeight: 700, color, background: color + '18', border: `1px solid ${color}33`, borderRadius: 6, padding: big ? '3px 10px' : '2px 6px 2px 5px' }}><ScoreIcon size={big ? 15 : 11} color={color} />{score}</span>;
 }
+// TARJETAS o TABLA. Vive al lado de «Filtrar» porque es lo mismo que un filtro: cambia
+// cómo mirás lo que ya está, no lo que hay. Se recuerda por navegador y por vista.
+function VistaToggle({ tabla, onSet }: { tabla: boolean; onSet: (v: boolean) => void }) {
+  const btn = (activo: boolean): CSSProperties => ({
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 30, borderRadius: 7,
+    border: 'none', background: activo ? 'var(--surface)' : 'transparent', color: activo ? 'var(--primary)' : 'var(--faint)',
+    boxShadow: activo ? '0 1px 2px rgba(18,21,27,.08)' : 'none', cursor: 'pointer', flex: 'none',
+  });
+  return (
+    <div style={{ display: 'inline-flex', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, padding: 2 }}>
+      <button type="button" onClick={() => onSet(false)} aria-pressed={!tabla} title="Ver en tarjetas" aria-label="Ver en tarjetas" style={btn(!tabla)}>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>
+      </button>
+      <button type="button" onClick={() => onSet(true)} aria-pressed={tabla} title="Ver en tabla — con deadline, días que faltan y atraso" aria-label="Ver en tabla" style={btn(tabla)}>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
+      </button>
+    </div>
+  );
+}
+// LA RAZÓN DEL NÚMERO, PLEGADA. Estaba suelta arriba de todo en las dos sidebars y son
+// dos o tres renglones de itálica que nadie lee dos veces: «eso está bien que exista, ya
+// que el perro seguirá funcionando, pero es mucho texto suelto, entonces mejor que sea un
+// desplegable» (22/09). Sigue existiendo y sigue a un click.
+function RazonPrio({ razon }: { razon?: string }) {
+  if (!razon) return null;
+  return (
+    <details style={{ marginBottom: 8 }}>
+      <summary style={{ cursor: 'pointer', fontSize: 11.5, color: 'var(--faint)', userSelect: 'none' }}>Por qué este número</summary>
+      <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4, marginTop: 5, fontStyle: 'italic' }}>“{razon}”</div>
+    </details>
+  );
+}
 // score del guardián (1-100), coloreado por la columna que define.
 function ScoreBadge({ score }: { score: number }) {
   const c = PCOLOR[prioFromScore(score)];
@@ -1601,17 +1616,6 @@ function ActorAvatar({ actor, nombre, avatarUrl, size = 24 }: { actor: Actor; no
 // y coherente que un emoji propio por tarea. Sin proyecto → 📌.
 const emojiTarea = (board: Board, t: BoardTask): string => board.labelById(t.labels[0])?.emoji || t.emoji || '📌';
 
-// Aviso rojo tintineante (falta deadline/checklist). En la preview va al lado de la
-// prioridad y es clickeable (abre el wizard); en el detalle, al lado del label.
-function WarnMark({ title, onClick, size = 15, blink = true }: { title: string; onClick?: (e: import('react').MouseEvent) => void; size?: number; blink?: boolean }) {
-  return (
-    <span title={title} aria-label={title} role={onClick ? 'button' : undefined} onClick={onClick}
-      style={{ display: 'inline-flex', flex: 'none', color: blink ? 'var(--bad)' : 'var(--faint)', cursor: onClick ? 'pointer' : 'default', animation: blink ? 'makoWarnBlink 1s ease-in-out infinite' : 'none' }}>
-      <style>{'@keyframes makoWarnBlink{0%,100%{opacity:1}50%{opacity:.2}}'}</style>
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
-    </span>
-  );
-}
 
 // Tarjeta de tarea: ALTURA FIJA para que todas midan igual (feedback jul-18). El
 // título se recorta a 2 líneas; el toggle de completar es compacto (inline), no una
@@ -1620,7 +1624,6 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj }: 
   t: BoardTask; board: Board; warn: boolean; frenanA?: string[]; onOpen: (id: string) => void; onWarn: (id: string) => void; onOpenProj?: (id: string) => void;
 }) {
   const done = t.progress >= 100;
-  const clDone = t.checklist.filter((c) => c.done).length;
   // A qué proyecto pertenece. El kanban agrupa por PRIORIDAD, así que sin esto una
   // columna es una lista de tareas sueltas y hay que abrir cada una para saber de qué
   // parte del plan es. Va en el lugar del emoji —que ya era el del proyecto, solo que
@@ -1647,27 +1650,25 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj }: 
             el detalle, que es donde hay lugar para decirlo entero. */}
         <BloqueoChip porQue={frenanA} compacto />
         <TiempoChip t={t} />
-        {warn && <WarnMark title={`Falta ${!t.deadline ? 'el deadline' : 'la checklist'}`} onClick={(e) => { e.stopPropagation(); onWarn(t.id); }} />}
+        {warn && <WarnMark title="Falta el deadline" onClick={(e) => { e.stopPropagation(); onWarn(t.id); }} />}
         <ScoreBadge score={t.score} />
       </div>
       {/* título a 2 líneas máx (recortado) → todas las cards miden igual */}
       <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.35, color: 'var(--ink)', textDecoration: done ? 'line-through' : 'none', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word' }}>{t.title}</div>
       <span style={{ flex: 1 }} />
-      {/* footer fijo: deadline + (checklist o completar) a la izquierda; % a la derecha */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, minHeight: 16 }}>
+      {/* footer fijo: deadline a la izquierda, el CHECK a la derecha.
+          Sin el % y sin la barra: «una tarea se completa o no se completa», y el check
+          está siempre a la vista porque el estado tenía que verse sin entrar al detalle
+          («no me dice si está terminado o no»). */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 22 }}>
         {t.deadline && <span style={{ fontFamily: MONO, fontSize: 10, color: 'var(--dim)' }}>◷ {t.deadline.slice(5)}</span>}
-        {t.checklist.length > 0
-          ? <span style={{ fontSize: 10.5, color: 'var(--faint)' }}>☑ {clDone}/{t.checklist.length}</span>
-          : <button onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }} title={done ? 'Marcar sin completar' : 'Marcar completada'}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', fontFamily: SANS, fontSize: 10.5, fontWeight: 700, color: done ? 'var(--good)' : 'var(--faint)' }}>
-              <span style={{ width: 13, height: 13, borderRadius: 4, border: `1px solid ${done ? 'var(--good)' : 'var(--border-strong)'}`, background: done ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{done ? '✓' : ''}</span>
-              {done ? 'Hecha' : 'Completar'}
-            </button>}
         <span style={{ flex: 1 }} />
-        <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--dim)' }}>{t.progress}%</span>
+        <button onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }} title={done ? 'Marcar sin completar' : 'Marcar completada'}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', fontFamily: SANS, fontSize: 10.5, fontWeight: 700, color: done ? 'var(--good)' : 'var(--faint)' }}>
+          <span style={{ width: 15, height: 15, borderRadius: 4, border: `1.5px solid ${done ? 'var(--good)' : 'var(--border-strong)'}`, background: done ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{done ? '✓' : ''}</span>
+          {done ? 'Hecha' : 'Completar'}
+        </button>
       </div>
-      {/* avance SIEMPRE derivado (feedback #17): con checklist sale de ella; sin ella, el toggle de arriba */}
-      <MiniBar v={t.progress} />
     </div>
   );
 }
@@ -1815,7 +1816,7 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, onOpen
               <button onClick={() => onNew(p)} style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, border: '1.5px dashed var(--border-strong)', background: 'transparent', borderRadius: 10, padding: '9px 10px', cursor: 'pointer', color: 'var(--faint)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, opacity: 0.8, transition: 'border-color .12s, color .12s' }}
                 onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--faint)'; }}>＋ Nueva tarea</button>
               {items.length === 0 && <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', padding: '10px 0' }}>—</div>}
-              {items.map((t) => <CardTile key={t.id} t={t} board={board} frenanA={frenanA(t.id)} warn={displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && (!t.deadline || t.checklist.length === 0)} onOpen={onOpen} onWarn={onWarn} onOpenProj={onOpenProj} />)}
+              {items.map((t) => <CardTile key={t.id} t={t} board={board} frenanA={frenanA(t.id)} warn={displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && !t.deadline} onOpen={onOpen} onWarn={onWarn} onOpenProj={onOpenProj} />)}
             </div>
           </section>
         );
@@ -1838,8 +1839,6 @@ function ColHeader({ p, count }: { p: Prio; count: number }) {
 // ── vista Prioridades: Objetivo Principal a la IZQUIERDA (alto, clickeable) + las
 // 3 tareas a la DERECHA (feedback #11 y #3). ─────────────────────────────────────
 function Prioridades({ tasks, board, objetivo, bloqueadas = 0, onOpen, onOpenProj }: { tasks: BoardTask[]; board: Board; objetivo: Label | null; bloqueadas?: number; onOpen: (id: string) => void; onOpenProj: (id: string) => void }) {
-  const [expand, setExpand] = useState<Set<string>>(new Set());
-  const toggleExp = (id: string) => setExpand((s) => { const c = new Set(s); if (c.has(id)) c.delete(id); else c.add(id); return c; });
   return (
     // FLUIDA, no de ancho fijo. Antes era `maxWidth: 1060` + una columna clavada en
     // 336px y una media query a 840: con el zoom del navegador (que cambia el ancho en
@@ -1880,8 +1879,6 @@ function Prioridades({ tasks, board, objetivo, bloqueadas = 0, onOpen, onOpenPro
             </div>
           )}
           {tasks.map((t, i) => {
-            const clDone = t.checklist.filter((c) => c.done).length;
-            const open = expand.has(t.id);
             // A qué proyecto pertenece. Antes solo se decía cuando la tarjeta NO era del
             // Objetivo Principal (entraba para completar las 3); ahora se dice siempre,
             // porque saber de qué parte del plan es una tarea no debería depender de
@@ -1902,25 +1899,26 @@ function Prioridades({ tasks, board, objetivo, bloqueadas = 0, onOpen, onOpenPro
                     : <span style={{ fontSize: 22, lineHeight: 1, flex: 'none' }}>{emojiTarea(board, t)}</span>}
                   <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', flex: 'none' }}>#{t.num}</span>
                   <span style={{ flex: 1, minWidth: 0 }} />
-                  {(!t.deadline || t.checklist.length === 0) && <WarnMark title={`Falta ${!t.deadline ? 'el deadline' : 'la checklist'}`} size={16} />}
+                  {!t.deadline && <WarnMark title="Falta el deadline" size={16} />}
                   <ScoreBadge score={t.score} />
                 </div>
                 <div style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: 12 }}>{t.title}</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: t.checklist.length ? 12 : 0 }}>
-                  <span style={{ flex: 1 }}><MiniBar v={t.progress} /></span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--dim)' }}>{t.progress}%</span>
-                  {t.checklist.length > 0 && <button onClick={(e) => { e.stopPropagation(); toggleExp(t.id); }} style={{ border: 'none', background: 'transparent', color: 'var(--dim)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}>{open ? '▾' : '▸'} checklist {clDone}/{t.checklist.length}</button>}
+                {/* El DEADLINE a la vista y el check para completar. Antes acá vivían la
+                    barra de avance, el % y la checklist plegable: los tres se fueron con
+                    la checklist («una tarea se completa o no se completa»), y lo que
+                    faltaba era justamente cuándo vence y cuánto falta. */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                  {t.deadline && (() => {
+                    const p = plazoTexto(diasHasta(t.deadline, hoyISO()));
+                    return <span style={{ fontSize: 13, color: 'var(--dim)' }}>◷ {fechaConDia(t.deadline)} <span style={{ color: p.color, fontWeight: p.fuerte ? 700 : 500 }}>· {p.texto}</span></span>;
+                  })()}
+                  <span style={{ flex: 1 }} />
+                  <button onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }} title="Marcar como completada"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 7, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 9, padding: '6px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>
+                    <span style={{ width: 15, height: 15, borderRadius: 4, border: '1.5px solid var(--border-strong)', flex: 'none' }} />
+                    Completar
+                  </button>
                 </div>
-                {open && t.checklist.length > 0 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
-                    {t.checklist.map((c) => (
-                      <label key={c.id} onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', padding: '3px 0' }}>
-                        <button onClick={(e) => { e.stopPropagation(); board.setChecklist(t.id, t.checklist.map((x) => (x.id === c.id ? { ...x, done: !x.done } : x)), c.done ? undefined : `Completó "${c.text.slice(0, 30)}"`); }} style={{ width: 16, height: 16, borderRadius: 4, border: `1px solid ${c.done ? 'var(--good)' : 'var(--border-strong)'}`, background: c.done ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 11, cursor: 'pointer', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{c.done ? '✓' : ''}</button>
-                        <span style={{ fontSize: 13.5, color: c.done ? 'var(--faint)' : 'var(--ink)', textDecoration: c.done ? 'line-through' : 'none' }}>{c.text}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
               </div>
             );
           })}
@@ -2145,7 +2143,6 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, onDebat
 }) {
   const prioEfectiva = displayPrio(t, topProjectId);
   const topeada = prioEfectiva !== prioFromScore(t.score);
-  const [newItem, setNewItem] = useState('');
   const [mako, setMako] = useState(false);
   const [titleDraft, setTitleDraft] = useState(t.title);
 
@@ -2167,8 +2164,6 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, onDebat
     document.addEventListener('keydown', onKey); return () => document.removeEventListener('keydown', onKey);
   }, [mako, escDisabled, salir]);
   const chips = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
-  const cl = t.checklist; const clDone = cl.filter((c) => c.done).length;
-  const setCl = (next: Check[], log?: string) => board.setChecklist(t.id, next, log);
   const optimizada = t.historial.some((h) => h.text.startsWith('MaKo'));
   const rowLabel: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6, display: 'block' };
 
@@ -2182,7 +2177,7 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, onDebat
           <LabelChips chips={chips} max={1} cap={230} onOpen={onOpenProj} />
           <FuenteChip fuente={fuenteEfectiva(t)} />
           <span style={{ flex: 1 }} />
-          <button onClick={() => setMako(true)} title={optimizada ? 'Ya optimizada por MaKo — puedes volver a pedirle ayuda' : 'MaKo te ayuda a mejorar título, detalle y checklist'}
+          <button onClick={() => setMako(true)} title={optimizada ? 'Ya optimizada por MaKo — puedes volver a pedirle ayuda' : 'MaKo te ayuda a mejorar el título y el detalle'}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: `1px solid ${optimizada ? 'var(--good)' : 'var(--primary-weak)'}`, background: optimizada ? 'var(--good-bg, var(--surface))' : 'var(--primary-bg)', color: optimizada ? 'var(--good)' : 'var(--primary)', borderRadius: 8, padding: '5px 11px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', boxShadow: suggestMako && !optimizada ? '0 0 0 3px var(--primary-weak)' : 'none', animation: suggestMako && !optimizada ? 'makoPulse 1.4s ease-in-out infinite' : 'none' }}>
             <style>{`@keyframes makoPulse{0%,100%{box-shadow:0 0 0 2px var(--primary-weak)}50%{box-shadow:0 0 0 5px transparent}}`}</style>
             {optimizada ? '✦ MaKo ✓ optimizada' : suggestMako ? '✦ Optimizala con MaKo' : '✦ MaKo te ayuda'}
@@ -2191,33 +2186,27 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, onDebat
         </div>
         <div style={{ display: 'flex', minHeight: 0, flex: 1 }}>
           <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', padding: '20px 22px' }}>
-            <textarea value={titleDraft} onChange={(e) => setTitleDraft(e.target.value)} onBlur={() => board.setTitle(t.id, titleDraft, t.title)} rows={2} style={{ width: '100%', border: 'none', outline: 'none', resize: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 22, fontWeight: 600, lineHeight: 1.3, fontFamily: SANS, letterSpacing: '-0.01em', marginBottom: 16 }} />
+            {/* El título SE EDITA, y ahora se nota. Se reportó como «no se puede cambiar
+                el nombre de una tarea»: se podía desde siempre, pero un textarea sin
+                borde ni fondo se lee como un título impreso y nadie le hace click. */}
+            <textarea value={titleDraft} onChange={(e) => setTitleDraft(e.target.value)} onBlur={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; board.setTitle(t.id, titleDraft, t.title); }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.background = 'var(--surface)'; }}
+              onMouseEnter={(e) => { if (document.activeElement !== e.currentTarget) e.currentTarget.style.borderColor = 'var(--border-strong)'; }}
+              onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) e.currentTarget.style.borderColor = 'transparent'; }}
+              title="Edita el título" aria-label="Título de la tarea" placeholder="Título de la tarea…" rows={2}
+              style={{ width: '100%', border: '1px solid transparent', borderRadius: 9, outline: 'none', resize: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 22, fontWeight: 600, lineHeight: 1.3, fontFamily: SANS, letterSpacing: '-0.01em', marginBottom: 16, padding: '4px 8px', marginLeft: -8, transition: 'border-color .12s, background .12s' }} />
             <label style={rowLabel}>Detalle · doc</label>
             <div style={{ marginBottom: 22 }}><RichText value={t.detalle} onChange={(html) => board.setDetalle(t.id, html, t.detalle)} placeholder="El doc de esta tarea…" /></div>
 
-            <Separador />
-            {/* Avance ARRIBA de la checklist (feedback #6). Siempre derivado (#17):
-                con checklist sale de ella; sin checklist, botón Completada (0↔100). */}
-            <label style={rowLabel}>Avance · {t.progress}%{cl.length > 0 ? ' · lo maneja la checklist' : ''}</label>
-            <span style={{ display: 'block', marginBottom: 10 }}><MiniBar v={t.progress} /></span>
-            {cl.length === 0 && (
-              <button onClick={() => board.toggleDone(t.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: `1px solid ${t.progress >= 100 ? 'var(--good)' : 'var(--border-strong)'}`, background: t.progress >= 100 ? 'var(--good-bg, var(--surface))' : 'var(--surface)', color: t.progress >= 100 ? 'var(--good)' : 'var(--dim)', borderRadius: 9, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, marginBottom: 22 }}>
-                <span style={{ width: 16, height: 16, borderRadius: 5, border: `1px solid ${t.progress >= 100 ? 'var(--good)' : 'var(--border-strong)'}`, background: t.progress >= 100 ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{t.progress >= 100 ? '✓' : ''}</span>
-                {t.progress >= 100 ? 'Completada' : 'Marcar como completada'}
-              </button>
-            )}
-
-            <label style={rowLabel}>Checklist {cl.length > 0 && `· ${clDone}/${cl.length} · manda el avance`}</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
-              {cl.map((c) => (
-                <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '5px 2px' }}>
-                  <button onClick={() => setCl(cl.map((x) => (x.id === c.id ? { ...x, done: !x.done } : x)), c.done ? undefined : `Completó "${c.text.slice(0, 30)}"`)} style={{ width: 16, height: 16, borderRadius: 4, border: `1px solid ${c.done ? 'var(--good)' : 'var(--border-strong)'}`, background: c.done ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 11, cursor: 'pointer', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{c.done ? '✓' : ''}</button>
-                  <input value={c.text} onChange={(e) => setCl(cl.map((x) => (x.id === c.id ? { ...x, text: e.target.value } : x)))} style={{ flex: 1, border: 'none', background: 'transparent', color: c.done ? 'var(--faint)' : 'var(--ink)', fontSize: 13.5, outline: 'none', fontFamily: SANS, textDecoration: c.done ? 'line-through' : 'none' }} />
-                  <button aria-label="Quitar" onClick={() => setCl(cl.filter((x) => x.id !== c.id))} style={{ border: 'none', background: 'transparent', color: 'var(--faint)', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>×</button>
-                </div>
-              ))}
-            </div>
-            <input value={newItem} onChange={(e) => setNewItem(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && newItem.trim()) { setCl([...cl, { id: uid(), text: newItem.trim(), done: false }], `Agregó "${newItem.trim().slice(0, 30)}" al checklist`); setNewItem(''); } }} placeholder="+ ítem de checklist (Enter)" style={{ width: '100%', padding: '8px 11px', borderRadius: 8, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--ink)', fontSize: 13, outline: 'none', marginBottom: 24 }} />
+            {/* ⚠️ ACÁ VIVÍAN EL AVANCE Y LA CHECKLIST, y se fueron los dos el 22/09/2026.
+                Textual: «que no existan checklists, quitan mucho tiempo, son incómodas e
+                imprácticas. De última un bullet point». Y con ellas el % por tarea: «una
+                tarea se completa o no se completa».
+                · Los pasos ahora son viñetas del detalle, que es lo que un agente lee
+                  para ejecutar la tarea (lib/detalle-fusion.ts → pasosComoBullets).
+                · El check de completar subió al tope de la barra derecha: «es re
+                  invisible… tan incómodo» era que viviera acá abajo, entre el doc y el
+                  historial. */}
 
             {/* NOTAS y «se hace en MaKo» viven ACÁ, en la columna principal y ARRIBA del
                 historial. Estaban en la barra lateral, apretadas contra la prioridad y
@@ -2244,6 +2233,14 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, onDebat
             <ChangeHistory t={t} board={board} ask={ask} />
           </div>
           <div style={{ width: 236, flex: 'none', borderLeft: '1px solid var(--border)', background: 'var(--surface-2)', padding: '20px 18px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 15 }}>
+            {/* COMPLETAR, ARRIBA DE TODO. «Marcar como completada arriba y a un clic, no
+                al fondo: es re invisible… tan incómodo» (22/09/2026). */}
+            <button onClick={() => board.toggleDone(t.id)}
+              title={t.progress >= 100 ? 'Reabrir la tarea' : 'Marcar como completada'}
+              style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', border: `1px solid ${t.progress >= 100 ? 'var(--good)' : 'var(--border-strong)'}`, background: t.progress >= 100 ? 'var(--good-bg, var(--surface))' : 'var(--surface)', color: t.progress >= 100 ? 'var(--good)' : 'var(--ink)', borderRadius: 10, padding: '10px 13px', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>
+              <span style={{ width: 18, height: 18, borderRadius: 5, border: `1.5px solid ${t.progress >= 100 ? 'var(--good)' : 'var(--border-strong)'}`, background: t.progress >= 100 ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{t.progress >= 100 ? '✓' : ''}</span>
+              {t.progress >= 100 ? 'Completada' : 'Marcar como completada'}
+            </button>
             <div>
               {/* #5: "Prioridad: ALTA — 90" directo y grande, sin subtítulo, con ícono sofisticado */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: t.scoreRazon || topeada ? 8 : 10 }}>
@@ -2251,16 +2248,26 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, onDebat
                 <span style={{ fontSize: 15, fontWeight: 800, color: PCOLOR[prioEfectiva], letterSpacing: '.01em' }}>{PLABEL[prioEfectiva].toUpperCase()}</span>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: 15, fontWeight: 700, color: PCOLOR[prioEfectiva] }}><ScoreIcon size={15} color={PCOLOR[prioEfectiva]} />{t.score}</span>
               </div>
-              {t.scoreRazon && <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4, marginBottom: 8, fontStyle: 'italic' }}>“{t.scoreRazon}”</div>}
+              {/* El número se mueve ACÁ, sin pedirle permiso a nadie. La audiencia con el
+                  Perro sigue abajo, como opción: «que siga funcionando normalmente, solo
+                  que NO tenga fricción a la hora de cambiar prioridad». */}
+              <PrioridadAMano entidad="tarea" id={t.id} score={t.score} scoreManual={t.scoreManual} color={PCOLOR[prioEfectiva]}
+                onAplicado={(s, movidos) => board.aplicarCascadaManual('tarea', { id: t.id, score: s, razon: 'Prioridad fijada a mano', texto: `Fijaste la prioridad en ${s} a mano` }, movidos)}
+                onSoltado={() => board.soltarCandadoManual('tarea', t.id)} />
+              <RazonPrio razon={t.scoreRazon} />
               {/* El AJUSTE del tiempo va aparte de la razón del Perro, no mezclado: son dos
                   juicios distintos y de dos autores distintos. El del Perro dice cuánto
                   vale; éste dice qué le hizo el calendario. */}
               <TiempoLinea t={t} />
+              {/* Plegado, como la razón: «impacto y esfuerzo ocupan demasiado texto». */}
               {(t.impacto != null || t.esfuerzo != null) && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 10 }}>
-                  {t.impacto != null && <IEMeter label="Impacto" v={t.impacto} color="#1E9E57" />}
-                  {t.esfuerzo != null && <IEMeter label="Esfuerzo" v={t.esfuerzo} color="#C8870C" />}
-                </div>
+                <details style={{ marginBottom: 10 }}>
+                  <summary style={{ cursor: 'pointer', fontSize: 11.5, color: 'var(--faint)', userSelect: 'none' }}>Impacto y esfuerzo</summary>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 7 }}>
+                    {t.impacto != null && <IEMeter label="Impacto" v={t.impacto} color="#1E9E57" />}
+                    {t.esfuerzo != null && <IEMeter label="Esfuerzo" v={t.esfuerzo} color="#C8870C" />}
+                  </div>
+                </details>
               )}
               <button onClick={onDebate} style={cambiarBtn}><MakoStar size={15} color="var(--primary)" /> Cambiar prioridad</button>
             </div>
@@ -2315,8 +2322,11 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, onDebat
       </div>
       {mako && <MakoChecklistModal title={t.title} detalle={t.detalle} yaOptimizada={optimizada} onApply={(r) => {
         if (r.titulo) board.setTitle(t.id, r.titulo, t.title);
-        if (r.detalle) board.setDetalle(t.id, r.detalle, t.detalle);
-        if (r.items.length) setCl([...cl, ...r.items.map((x) => ({ id: uid(), text: x, done: false }))], `MaKo optimizó la tarea (+${r.items.length} ítem${r.items.length === 1 ? '' : 's'})`);
+        // Los PASOS entran como viñetas del detalle, no como checklist (se fueron el
+        // 22/09/2026). `pasosComoBullets` no repite lo que ya está escrito.
+        const base = r.detalle || t.detalle;
+        const conPasos = pasosComoBullets(base, r.items);
+        if (conPasos && conPasos !== t.detalle) board.setDetalle(t.id, conPasos, t.detalle);
       }} onClose={() => setMako(false)} />}
     </div>
   );
@@ -2420,7 +2430,7 @@ export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen }:
 }
 
 // ── vista Proyectos (tab): cards ordenadas por prioridad ────────────────────────
-function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOrigen, sortMode, sortDir }: { board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void; projFilter: DoneFilter; q: string; fOrigen: Set<string>; sortMode: 'score' | 'creacion'; sortDir: 'desc' | 'asc' }) {
+function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOrigen, sortMode, sortDir, tabla }: { board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void; projFilter: DoneFilter; q: string; fOrigen: Set<string>; sortMode: 'score' | 'creacion'; sortDir: 'desc' | 'asc'; tabla: boolean }) {
   const { labels, tasks, repo } = board;
   const [verTodos, setVerTodos] = useState(false);
   const TOPE = 6; // feedback jul-18: al arranque, el "+" (cuenta como 1) + 5 proyectos reales; el resto tras "Ver más"
@@ -2454,6 +2464,27 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOri
     .filter(({ prog }) => pasaEstado(prog.pct, projFilter));
   const visibles = (verTodos || needle) ? shown : shown.slice(0, REALES);
   const resto = shown.length - visibles.length;
+  // En TABLA entran todos de una: el «Ver más…» existe porque una tarjeta ocupa media
+  // pantalla, que es justo lo que la tabla viene a resolver.
+  if (tabla) {
+    return (
+      <div style={{ flex: '1 0 auto', display: 'flex', justifyContent: 'center', padding: '18px 30px 40px' }}>
+        <div style={{ width: '100%', maxWidth: 1180, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button onClick={onNew} style={{ border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 9, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>＋ Crear {repo.labelSingular.toLowerCase()}</button>
+          </div>
+          <TablaProyectos
+            filas={shown} topProjectId={topProjectId} hoy={hoyISO()} labelPlural={repo.labelPlural}
+            onOpen={onOpen}
+            onDeadline={(id, v) => board.patchLabelLog(id, { deadline: v }, v ? `Deadline ${v}` : 'Quitó el deadline')} />
+          <div style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 18 }}>
+            <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700, marginBottom: 12 }}>Change history · proyectos</div>
+            <ProjTabHist labels={labels} nombre={board.user.nombre} avatarUrl={board.user.avatarUrl} />
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div style={{ flex: '1 0 auto', display: 'flex', justifyContent: 'center', padding: '18px 30px 40px' }}>
       <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -2539,12 +2570,17 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, z 
               {suyas.map((t) => (
                 <div key={t.id} onClick={() => onOpenTask(t.id)} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '11px 13px', cursor: 'pointer', opacity: t.progress >= 100 ? 0.62 : 1, transition: 'border-color .12s' }}
                   onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 8 }}>
+                  {/* Sin % ni barra: el estado es el CHECK, y el deadline es el dato que
+                      hay que ver sin abrir la tarea. */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                    <button onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }} title={t.progress >= 100 ? 'Reabrir' : 'Marcar como completada'}
+                      style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${t.progress >= 100 ? 'var(--good)' : 'var(--border-strong)'}`, background: t.progress >= 100 ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 10, cursor: 'pointer', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>{t.progress >= 100 ? '✓' : ''}</button>
                     <ScoreBadge score={t.score} />
                     <span style={{ flex: 1, fontSize: 13.5, fontWeight: 500, color: 'var(--ink)', textDecoration: t.progress >= 100 ? 'line-through' : 'none', minWidth: 0 }}>{t.title}</span>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--dim)' }}>{t.progress}%</span>
+                    {t.deadline
+                      ? <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--dim)', flex: 'none' }}>◷ {fechaConDia(t.deadline)}</span>
+                      : t.progress < 100 && <WarnMark title="Falta el deadline" size={13} />}
                   </div>
-                  <MiniBar v={t.progress} />
                 </div>
               ))}
             </div>
@@ -2594,12 +2630,18 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, z 
                 <ProjScore score={proj.score} color={proj.color} big />
               </div>
               <EscalonChip l={proj} />
-              {proj.scoreRazon && <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4, marginBottom: 8, fontStyle: 'italic' }}>“{proj.scoreRazon}”</div>}
+              <PrioridadAMano entidad="proyecto" id={proj.id} score={proj.score} scoreManual={proj.scoreManual} color={proj.color}
+                onAplicado={(s, movidos) => board.aplicarCascadaManual('proyecto', { id: proj.id, score: s, razon: 'Prioridad fijada a mano', texto: `Fijaste la prioridad en ${s} a mano` }, movidos)}
+                onSoltado={() => board.soltarCandadoManual('proyecto', proj.id)} />
+              <RazonPrio razon={proj.scoreRazon} />
               {(proj.impacto != null || proj.esfuerzo != null) && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 10 }}>
-                  {proj.impacto != null && <IEMeter label="Impacto" v={proj.impacto} color="#1E9E57" />}
-                  {proj.esfuerzo != null && <IEMeter label="Esfuerzo" v={proj.esfuerzo} color="#C8870C" />}
-                </div>
+                <details style={{ marginBottom: 10 }}>
+                  <summary style={{ cursor: 'pointer', fontSize: 11.5, color: 'var(--faint)', userSelect: 'none' }}>Impacto y esfuerzo</summary>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 7 }}>
+                    {proj.impacto != null && <IEMeter label="Impacto" v={proj.impacto} color="#1E9E57" />}
+                    {proj.esfuerzo != null && <IEMeter label="Esfuerzo" v={proj.esfuerzo} color="#C8870C" />}
+                  </div>
+                </details>
               )}
               <button onClick={onDebatePrio} style={cambiarBtn}><MakoStar size={15} color="var(--primary)" /> Cambiar prioridad</button>
             </div>

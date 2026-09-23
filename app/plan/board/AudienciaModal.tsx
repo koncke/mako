@@ -252,7 +252,11 @@ export function AudienciaModal({ entidad, item, otros, tareas, onAplicado, onUsa
       pending={fase === 'pensando'}
       cargando={fase === 'pensando' ? 'MaKo lo está pensando…' : null}
       atrasLabel={idx === 0 ? 'Cancelar' : 'Atrás'}
-      onAtras={() => setIdx((i) => Math.max(0, i - 1))}
+      // En el primer paso el botón dice «Cancelar» y hacía `Math.max(0, -1)`, o sea NADA:
+      // se reportó como «el cancelar del modal de prioridad no hace nada», y era literal.
+      // Un botón que no hace nada no se lee como «no hay nada que hacer»: se lee como que
+      // la app está rota.
+      onAtras={() => (idx === 0 ? onClose() : setIdx((i) => i - 1))}
       onSiguiente={() => setIdx((i) => i + 1)}
       onConfirmar={preguntar}
       onClose={onClose}

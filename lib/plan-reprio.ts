@@ -286,6 +286,137 @@ export async function aplicarReprio(reprioId: string): Promise<{ movidos: number
   });
 }
 
+// ── la prioridad A MANO: la decide la persona, sin debate y sin peaje ────────────────
+
+/**
+ * Fija el score de un proyecto o de una tarea porque LO DECIDIÓ LA PERSONA, y corre a los
+ * de abajo para hacerle lugar. Es el paso 3 + 4 de la audiencia sin el paso 2: no hay
+ * juicio del Perro porque no hay nada que juzgar.
+ *
+ * ⚠️ POR QUÉ EXISTE. La audiencia era el ÚNICO camino al score, y el 22/09 eso trabó una
+ * sesión entera: «ni siquiera me da la opción de cambiarlo… no hay maleabilidad, me obliga
+ * a hacer algo que encima ni siquiera está bien». La regla que quedó en AGENTS.md es que la
+ * IA propone la prioridad y la persona la cambia — así que el debate pasa a ser una OPCIÓN
+ * (para cuando querés que te discutan el número), nunca el peaje para mover una tarjeta.
+ *
+ * Lo que NO cambia, y es lo que hace que esto no sea un agujero:
+ *  - La cascada y sus auditorías son las mismas. Mover uno corre a los de abajo; lo que no
+ *    puede pasar es que dos que nadie tocó se crucen entre sí.
+ *  - Escribe el SERVER, columna por columna y por id. El navegador sigue sin tener ningún
+ *    camino a `score`, que es lo que lo hace imposible de olvidar (ver la cabecera).
+ *  - Queda una fila en `plan_reprios` con la cascada adentro, así que `deshacerReprio` la
+ *    revierte igual que a un debate ganado.
+ *
+ * `score_manual` SÍ se marca acá, y es lo correcto: esa columna significa «esto lo decidió
+ * la persona» (mig 0143). Lo que no puede marcarla es una corrida automática.
+ */
+export async function fijarPrioridadAMano(p: { entidad: 'proyecto' | 'tarea'; itemId: string; score: number }): Promise<
+  { ok: true; score: number; antes: number; movidos: Movimiento[]; reprioId?: string } | { ok: false; error: string }
+> {
+  return enPlan(async () => {
+    const db = await getTenantDb();
+    const { proyectos, tareas } = await listPlanBoard();
+    const esProy = p.entidad === 'proyecto';
+    const item = esProy ? proyectos.find((x) => x.id === p.itemId) : tareas.find((x) => x.id === p.itemId);
+    if (!item) return { ok: false as const, error: 'No encontré eso en el tablero.' };
+
+    const nombre = esProy ? (item as Label).name : (item as BoardTask).title;
+    const scoreActual = item.score || 0;
+    const pedido = Math.max(1, Math.min(100, Math.round(p.score)));
+
+    // El universo es del MISMO NIVEL, igual que en la audiencia: un proyecto se compara con
+    // proyectos y una tarea con tareas abiertas.
+    const universo: Puntuado[] = esProy
+      ? proyectos.filter((x) => x.id !== item.id).map((x) => ({ id: x.id, titulo: x.name, score: x.score || 0 }))
+      : tareas.filter((x) => x.id !== item.id && x.progress < 100).map((x) => ({ id: x.id, titulo: x.title, score: x.score || 0 }));
+    const todos: Puntuado[] = [...universo, { id: item.id, titulo: nombre, score: scoreActual }];
+    const manuales = (esProy ? proyectos.filter((x) => x.scoreManual) : tareas.filter((x) => x.scoreManual))
+      .map((x) => x.id).filter((id) => id !== item.id);
+    const despues = fijarYDesempatar(todos, {
+      [item.id]: pedido,
+      ...Object.fromEntries(manuales.map((id) => [id, todos.find((x) => x.id === id)?.score ?? 50])),
+    });
+
+    const duras = [
+      respetaElReclamo({ id: item.id, scorePedido: pedido, scoreActual }, despues),
+      sinEmpates(todos.map((x) => ({ ...x, score: despues[x.id] ?? x.score }))),
+      mismoOrdenRelativo(todos, despues, item.id),
+      noPisaManuales(todos, despues, manuales, item.id),
+    ].filter(Boolean) as Falla[];
+    if (duras.length) {
+      const txt = duras.map((f) => `${f.regla} — ${f.detalle}`).join(' · ');
+      console.error(`[plan-reprio] prioridad a mano rechazada por auditoría: ${txt}`);
+      return { ok: false as const, error: 'Ese número deja el tablero inconsistente, así que no escribí nada.' };
+    }
+
+    const manualSet = new Set(manuales);
+    const nombreDe = (id: string) => todos.find((x) => x.id === id)?.titulo ?? id;
+    const cascada: Movimiento[] = todos
+      .filter((x) => (despues[x.id] ?? x.score) !== x.score)
+      .map((x) => ({ id: x.id, nombre: nombreDe(x.id), antes: x.score, despues: despues[x.id], manualAntes: manualSet.has(x.id) }))
+      .sort((a, b) => b.despues - a.despues);
+    // El ítem entra SIEMPRE, aunque su número no se mueva: lo que cambia igual es el candado
+    // y la razón, y sin él adentro del ripple el deshacer no lo puede reponer.
+    if (!cascada.some((m) => m.id === item.id)) {
+      cascada.unshift({ id: item.id, nombre, antes: scoreActual, despues: despues[item.id] ?? scoreActual, manualAntes: !!item.scoreManual });
+    }
+
+    const razon = 'Prioridad fijada a mano';
+    const ahora = new Date().toISOString();
+    const { data: fila } = await db.from('plan_reprios').insert({
+      tablero: 'plan', entidad: p.entidad, item_id: item.id, item_nombre: nombre,
+      score_antes: scoreActual, score_pedido: pedido, motivo: '', pruebas: [], preguntas: [],
+      // Sin veredicto a propósito: no hubo juicio. Los tres valores del enum son del Perro.
+      score_final: despues[item.id], razon, respuesta: '', fallas: '',
+      estado: 'aplicado', aplicado_at: ahora, movidos: cascada.length,
+      ripple: Object.fromEntries(cascada.map((m) => [m.id, { nombre: m.nombre, antes: m.antes, despues: m.despues, manualAntes: m.manualAntes }])),
+    }).select('id').single();
+
+    const tabla = esProy ? 'plan_proyectos' : 'plan_tareas';
+    const TANDA = 20;
+    for (let i = 0; i < cascada.length; i += TANDA) {
+      await Promise.all(cascada.slice(i, i + TANDA).map((m) => {
+        const patch: Record<string, unknown> = { score: m.despues, updated_at: ahora };
+        // El candado y la razón SOLO al que se tocó. Los que se corrieron por aritmética no
+        // decidió nadie: marcarlos congelaría el tablero entero contra la corrida diaria.
+        if (m.id === item.id) {
+          patch.score_manual = true;
+          patch.score_razon = razon;
+          // El scoreBase es EL JUICIO, separado del número que se muestra (mig 0141). Sin
+          // moverlo, la próxima recurva reconstruye el score desde el juicio viejo.
+          if (!esProy) patch.score_base = m.despues;
+        }
+        return db.from(tabla).update(patch).eq('id', m.id).then(() => undefined);
+      }));
+    }
+
+    const otros = cascada.length - 1;
+    await escribirHistorial(p.entidad, item.id, `Fijaste la prioridad en ${despues[item.id]} a mano — antes ${scoreActual}${otros > 0 ? ` · se corrieron ${otros} más` : ''}`, 'user');
+    console.log(`[plan-reprio] a mano: «${nombre}» ${scoreActual} → ${despues[item.id]}, ${cascada.length} filas`);
+    return { ok: true as const, score: despues[item.id], antes: scoreActual, movidos: cascada.filter((m) => m.id !== item.id), reprioId: fila?.id };
+  });
+}
+
+/**
+ * Le devuelve la decisión a MaKo: saca el candado de la mig 0143 y la razón vieja, así la
+ * próxima corrida vuelve a puntuarlo.
+ *
+ * Existe porque un candado sin llave es lo que originó todo esto. Si fijar a mano congelara
+ * para siempre, «cambiar la prioridad» sería una decisión irreversible tomada con un slider.
+ */
+export async function devolverPrioridadAlPerro(entidad: 'proyecto' | 'tarea', itemId: string): Promise<{ ok: boolean; error?: string }> {
+  return enPlan(async () => {
+    const db = await getTenantDb();
+    const tabla = entidad === 'proyecto' ? 'plan_proyectos' : 'plan_tareas';
+    const { error } = await db.from(tabla)
+      .update({ score_manual: false, score_razon: null, updated_at: new Date().toISOString() })
+      .eq('id', itemId);
+    if (error) return { ok: false, error: error.message };
+    await escribirHistorial(entidad, itemId, 'Le devolviste la prioridad a MaKo: la vuelve a decidir en la próxima corrida', 'user');
+    return { ok: true };
+  });
+}
+
 // ── deshacer ─────────────────────────────────────────────────────────────────────────
 
 /**
