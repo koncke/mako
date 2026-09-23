@@ -1819,7 +1819,10 @@ function TiempoLinea({ t }: { t: BoardTask }) {
   const sube = aj.delta > 0;
   return (
     <div style={{ fontSize: 11.5, color: sube ? 'var(--warn, #B4762A)' : 'var(--dim)', lineHeight: 1.4, marginBottom: 8 }}>
-      {sube ? '◷' : '💤'} {sube ? 'Subió' : 'Bajó'} de prioridad porque {aj.razon}. Si no corresponde, debatila y el Perro la vuelve a fijar.
+      {/* Antes decía «debatila y el Perro la vuelve a fijar», y esa era la única salida.
+          Desde que el número se mueve acá arriba, mandar a debatir es mandar por el camino
+          largo: el debate queda para cuando querés que te discutan el número. */}
+      {sube ? '◷' : '💤'} {sube ? 'Subió' : 'Bajó'} de prioridad porque {aj.razon}. Si no corresponde, cámbiala arriba.
     </div>
   );
 }
