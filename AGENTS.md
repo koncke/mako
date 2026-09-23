@@ -2376,6 +2376,46 @@ tope fijo necesita las dos cosas:
 
 Vive en `app/admin/dev/pricing/Piezas.tsx` → `Barras`.
 
+# Una medición que CAMBIA lo que mide no puede decidir
+
+Si el veredicto («¿pliego los botones?», «¿muestro el resumen corto?») se toma mirando el
+estado ACTUAL, y aplicarlo cambia ese estado, la pregunta de ida y la de vuelta no son la
+misma: queda un ping-pong que termina donde lo agarre el último evento. Y cuando el
+contenedor **no cambia de tamaño** —un header es siempre el 100% del ancho—, el
+`ResizeObserver` no vuelve a disparar y el resultado se congela roto.
+
+La firma para reconocerlo en dos minutos: **el resultado no es monótono**. Medido en el
+header del `/plan` el 23/09/2026, achicando la ventana: a 880 se pasaba 8px, a 860 28 y a
+780 108 —con los botones dibujados encima del filtro— y entremedio anchos perfectos. Eso no
+es un umbral mal elegido: es un empate técnico entre dos reglas.
+
+**La decisión se calcula como función de lo que NO cambia** (acá, el ancho disponible):
+sumar el `scrollWidth` de cada hijo —su ancho natural aunque el flex lo esté aplastando— y
+compararlo con el `clientWidth` del contenedor. Tres corolarios que costaron una vuelta cada
+uno:
+
+- **Lo que se mide se busca ADENTRO de la medición.** Al plegarse, ese nodo se DESMONTA:
+  una referencia tomada al montar mide `scrollWidth: 0` para siempre y el número real no se
+  vuelve a leer nunca.
+- **Hay que re-medir en `window.resize`.** El zoom del navegador es, para la página, un
+  viewport más chico en píxeles CSS: puede no mover el tamaño de nada observado, pero
+  `resize` sí sale.
+- **Y si ni plegando entra, se baja de renglón** (`flex-wrap`), nunca se scrollea de costado
+  ni se dibuja encima — ver la regla de las barras de navegación más arriba.
+
+# Un tope que vive en la RUTA no protege al cliente: el `fetch` va con `signal`
+
+`maxDuration` acota lo que tarda el server. No acota nada del lado del navegador: un `fetch`
+sin `signal` con la conexión caída en el medio **no resuelve nunca**, y lo que se ve es un
+spinner eterno. Pasó en el modal de reuniones del plan y se reportó tal cual: *«elegir una
+reunión y ver lo que sacó se queda esperando para siempre»*.
+
+- El `signal` va con el tope de la ruta + un margen (`AbortSignal.timeout(305_000)` para una
+  ruta de 300 s), y el mensaje del corte dice **dónde quedó el trabajo**, no solo que falló.
+- **Y todo spinner que pueda durar más de ~8 segundos dice cuánto puede tardar y qué pasa si
+  cerrás.** Un spinner mudo durante minutos es indistinguible de algo colgado, y la persona
+  cierra sin saber si perdió lo que estaba haciendo.
+
 # Un color de acento dice algo, y puede decir lo contrario
 
 `tono="bad"` pinta de rojo la barra DESTACADA. Si lo que se destaca es «el único canal

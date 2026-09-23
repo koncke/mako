@@ -2522,3 +2522,122 @@ suya, textual: *«todo lo que hice del Perro Guardián no sirve de nada… mirá
 causa»*. Un automatismo sin interruptor no se corrige: se abandona.
 
 **Vive en:** lib/plan-board.ts · app/plan/board/ · backups/plan-ws9-fase2-2026-09-23-registro.json · *2026-09-23 ~depurar-plan-fase2*
+
+## Sacarle la fricción al Perro: lo que se midió al hacerlo (23/09/2026)
+
+El pedido fue uno solo —*«que siga funcionando normalmente, solo que NO tenga fricción a la
+hora de cambiar prioridad»*— y abajo había cinco cosas que no se ven leyendo el código.
+
+### Una cascada de PROYECTOS no sirve para TAREAS, y el síntoma culpa al tablero
+
+`fijarYDesempatar` + `sinEmpates` existen porque los 70 proyectos ocupan 100..2 **sin un
+solo hueco y sin empates**: hay un norte, y fijar uno arriba corre a los de abajo. Las
+tareas no funcionan así. Medido: **241 abiertas ocupan 85 números distintos, o sea 156
+empatadas**. Meter una tarea por ese camino tiene dos consecuencias y las dos son malas:
+
+- `fijarYDesempatar` le reasigna un número único a las 241 → reescribe el tablero entero
+  para mover una tarjeta;
+- `sinEmpates` **falla siempre** (no entran 241 en 100), así que la respuesta habría sido
+  *«la re-priorización no cumple las reglas del tablero»* cada vez.
+
+O sea: exactamente la fricción que se venía a sacar, con un mensaje que culpa al tablero en
+vez de decir que la regla no aplica. **Una invariante que vale para un nivel no se hereda al
+otro solo porque compartan la columna.** Hoy: proyecto → cascada con auditorías; tarea →
+se escribe su número y nada más (`fijarPrioridadAMano`).
+
+### Deshabilitar el input que tiene el foco dispara OTRO guardado
+
+`disabled` mientras guarda parece prudencia y es un bug: el navegador le saca el foco al
+input deshabilitado, eso dispara `focusout`, y el `onBlur` vuelve a llamar a guardar.
+**Medido: dos POST por cada edición.** Y el segundo llegaba DESPUÉS del «devolvérsela a
+MaKo», así que volvía a poner el candado que se acababa de sacar — un cambio de estado que
+la persona no pidió, producido por un botón que ella ya había apretado.
+
+Lo que lo cierra son dos cosas, no una: el valor confirmado se mueve **antes** de mandar
+(no cuando vuelve), y los inputs no se deshabilitan. Ver `app/plan/board/PrioridadAMano.tsx`.
+
+### Una medición que CAMBIA lo que mide no puede decidir
+
+El header del tablero decidía plegar sus botones preguntando «¿desborda ahora?» y, para
+volver a desplegarlos, comparaba contra una fórmula inventada (`nAcciones * 50 + 260`).
+Al plegarse cambia lo que se mide, así que la pregunta de ida y la de vuelta no son la
+misma: queda un ping-pong que termina donde lo agarre el último evento — y como el header
+**no cambia de tamaño**, el `ResizeObserver` no vuelve a disparar nunca.
+
+Medido achicando la ventana (que para la página es lo mismo que el zoom del navegador):
+**a 880 se pasaba 8px, a 860 28 y a 780 108**, con los botones dibujados encima del filtro,
+y entremedio anchos perfectos. Un resultado no monótono en el ancho es la firma de esto: no
+es un umbral mal elegido, es un empate técnico entre dos reglas.
+
+La cura es hacer la decisión **función del ancho disponible y de nada más**: sumar el
+`scrollWidth` de cada hijo (su ancho natural aunque el flex lo esté aplastando) y comparar
+con el `clientWidth` del header. Y tres detalles que hacían falta igual:
+
+- **la barra se busca ADENTRO de la medición**: al plegarse ese div se DESMONTA, y una
+  referencia tomada al montar mide `scrollWidth: 0` para siempre;
+- **se re-mide en `window.resize`**, que es lo único que el zoom garantiza (el header mide
+  100% del ancho en píxeles CSS, así que su tamaño puede no cambiar);
+- y cuando ni plegado entra, el header **baja de renglón** (`flexWrap: wrap`). Es la regla
+  de la casa: una barra de navegación no scrollea ni se dibuja encima.
+
+### Un `fetch` sin `signal` no tiene tope, aunque la ruta sí lo tenga
+
+`/api/plan-fathom` topea en 300 s (`maxDuration`), pero el `fetch` del modal no tenía
+`signal`: con la conexión caída en el medio, la promesa **no resuelve nunca** y el modal
+gira para siempre. Se reportó como *«elegir una reunión y ver lo que sacó se queda
+esperando para siempre»*. Y la otra mitad: el cartel de «puede tardar un par de minutos,
+podés cerrar» existía SOLO para los archivos subidos, así que al elegir una reunión no
+había nada que dijera que se podía cerrar sin perder el trabajo.
+
+**Todo spinner que pueda durar más de ~8 segundos tiene que decir cuánto puede tardar y qué
+pasa si cerrás.** Un spinner mudo durante minutos es indistinguible de algo colgado.
+
+### Las checklists se fueron: los pasos viven en el detalle
+
+*«Que no existan checklists… de última un bullet point»*, y con ellas el % por tarea
+(*«una tarea se completa o no se completa»*). Lo que el Perro sí sabía hacer —los pasos—
+baja al `detalle` como viñetas (`pasosComoBullets`, en `lib/detalle-fusion.ts`), que además
+es lo que un agente lee para EJECUTAR la tarea.
+
+Tres cosas que se aprendieron mudando las que ya estaban (291 tareas / 1285 ítems en el
+board del dueño, 289 / 1227 en el de los clientes):
+
+- **La conversión vive en el CÓDIGO, no en el prompt.** Los prompts se sobreescriben desde
+  /configuraciones: pedirle al modelo que ya no devuelva `items` deja el cambio colgando de
+  una fila de `app_settings` que nadie va a mirar.
+- **La mitad de las checklists eran un resumen de su propia descripción.** Pegarlas abajo
+  convierte una descripción buena en una que se repite. Se de-duplica contra la PROSA, no
+  solo contra las líneas — con un piso de 12 caracteres, porque sin él «Probar» matchea
+  adentro de cualquier párrafo y el paso desaparece por casualidad.
+- **Sacar algo de la UI sin mudar el dato es perderlo de la peor forma**: sigue en la base y
+  nadie lo ve. El día que la UI dejó de dibujar las checklists, ese texto quedó invisible
+  para los dos tableros a la vez (dibujan con el mismo `BoardShell`).
+
+### El aviso que faltaba, y por qué no puede salir uno por proyecto
+
+*«Las notificaciones de WhatsApp son demasiadas, y ninguna avisa que un proyecto está por
+vencer o atrasado»*: las dos mitades se contradicen si el aviso sale por proyecto — con 70,
+una mañana cualquiera son 13 mensajes. Sale **uno** con todos adentro (`plan-avisos.ts`).
+
+**Y la huella del dedup no puede llevar los días de atraso crudos**: cambiaría sola cada
+mañana (61 → 62 → 63) y el mismo aviso saldría todos los días, que es justo lo que él
+reportó de los otros. Los atrasados entran por TRAMO (pocos días / semana / mes / meses):
+vuelve a sonar cuando el atraso empeora de verdad o cuando cambia la lista.
+
+### Lo que quedó SIN hacer
+
+- **Borrar una tarea sigue pasando por el Perro.** El flujo es: cartel de «frená un
+  segundo» → elegir motivo → escribir una justificación → *«que el perro decida»* (una
+  llamada al modelo, 10-30 s). Es la misma fricción que se le sacó a la prioridad, en otra
+  puerta, y muy probablemente lo que él reportó como «borrar no refresca la lista»: no es
+  que la lista no se refresque —se refresca— es que **el borrado no llega a ocurrir**.
+  Vive en `app/plan/board/EliminarModal.tsx`. No se tocó porque no estaba en la checklist
+  que él validó: es una decisión de producto, no un bug.
+- **Agrupar el RESTO de los avisos de WhatsApp en uno por día.** Hoy cada aviso sale
+  cuando pasa. Lo nuevo (`plan-proyecto-vence`) ya nace agrupado; los demás viven en
+  `lib/avisos.ts` → `emitirAviso`, y agruparlos es tocar el motor que le escribe a TODOS
+  los clientes.
+- **Arrastrar con el dedo.** El arrastre del Kanban es HTML5 drag-and-drop: anda con mouse
+  y no con touch. En tablet el camino es el slider del detalle.
+
+**Vive en:** lib/plan-reprio.ts · lib/plan-vencimientos.ts · lib/plan-avisos.ts · lib/detalle-fusion.ts · app/plan/board/PrioridadAMano.tsx · app/plan/board/Tablas.tsx · app/plan/board/prefs.ts · app/plan/board/BoardShell.tsx · scripts/checklists-a-bullets.mts · *2026-09-23*
