@@ -196,7 +196,6 @@ export function BoardShell({ board, scope, vistaInicial }: {
   // reunión de equipo, o las que te mandó otra persona. Se muestran de a una.
   const [pendientes, setPendientes] = useState<PropuestaPendiente[]>([]);
   /** El hueco elástico del header: es el METRO de cuánto lugar sobra. */
-  const espacioRef = useRef<HTMLSpanElement>(null);
   // Cerrar el modal con la ✕ NO descarta nada: solo lo esconde. Los borradores siguen
   // vivos y el botón de Fathom (que late) los vuelve a abrir.
   // (ya no hace falta un flag de "lo cerré": el modal solo se abre a pedido)
@@ -470,104 +469,29 @@ export function BoardShell({ board, scope, vistaInicial }: {
   }, [hayWelcome]);
   const passes = (t: BoardTask) => (idsIA ? idsIA.has(t.id) : (!q || matchTarea(t, q, campos))) && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l))) && (fOrigen.size === 0 || fOrigen.has(fuenteEfectiva(t).tipo)) && (fCuando.size === 0 || fCuando.has(cuandoDe(t, hoyISO()))) && pasaEstado(t.progress, doneFilter);
   const visibles = tasks.filter(passes);
-  // ── El header, cuando la ventana se angosta ──────────────────────────────────
-  // Es de UNA sola línea a propósito (que nada salte de renglón al cambiar de tab), y eso
-  // tiene un costo: sus botones miden 38px fijos y no se achican, así que en una ventana
-  // angosta terminaban DIBUJÁNDOSE ENCIMA de «Filtrar». Medido: a 700px de ancho el grupo
-  // de la derecha se salía 290px del contenedor.
+  // ── El header: SIEMPRE PLEGADO ───────────────────────────────────────────────
   //
-  // Se mide el HEADER, no un breakpoint de CSS: cuántos botones hay depende del tablero
-  // (el del cliente no tiene Fathom) y del momento (⚠ y ✦ aparecen y desaparecen solos),
-  // así que un `@media` con un número clavado se equivoca siempre en algún caso. Acá se
-  // pregunta lo único que importa: ¿entra o no entra?
-  // `?diag=1`: el tablero cuenta qué midió. Para los bugs que solo pasan en el navegador
-  // de otra persona y que no se pueden reproducir de este lado.
+  // Acá vivían ~90 líneas que medían el header para decidir si plegar los botones, y se
+  // reescribieron TRES veces en dos días. Las tres fallaron con el zoom puesto, y la tercera
+  // —la de `anchoNatural`, que era correcta como medición— falló igual. El pedido, textual
+  // (23/09/2026): «se sigue bugeando cuando tiene zoom, y se pone en doble línea. Haz que
+  // todo se colapse independientemente del zoom que tenga, así evitamos esto. Que siempre
+  // esté colapsado».
+  //
+  // ⚠️ LA LECCIÓN ES LA MEDICIÓN, NO LA FÓRMULA. Un layout que se decide midiéndose a sí
+  // mismo tiene que acertar en TODAS las combinaciones de ancho, zoom, tipografía cargada o
+  // no, cantidad de botones (que cambia sola: ⚠ y ✦ aparecen y desaparecen) y vista abierta.
+  // Cada arreglo tapaba un caso y destapaba otro, y el modo de falla es el peor posible: los
+  // botones bajan a un segundo renglón pegado al borde izquierdo, que se lee como una
+  // pantalla rota. Plegado siempre no tiene ningún caso: es UN renglón, con cualquier zoom,
+  // en cualquier pantalla.
+  //
+  // Lo que se pierde es la palabra «Plan» y el chip de progreso en el header — y el progreso
+  // NO se pierde: viaja arriba de todo en el menú, que es donde ya iba cuando se plegaba.
+  const compacto = true;
+  // `?diag=1`: el tablero contando qué está viendo, en el navegador de quien lo reporta.
   const [diag, setDiag] = useState(false);
   useEffect(() => { try { setDiag(new URLSearchParams(window.location.search).get('diag') === '1'); } catch { /* no-op */ } }, []);
-  const nAcciones = (faltantes.length > 0 ? 1 : 0) + (hayWelcome ? 1 : 0) + (repo.fathomExtract ? 2 : 0) + 1;
-  const [compacto, setCompacto] = useState(false);
-  // El estado ACTUAL para leerlo adentro del observer sin re-suscribirlo, y el ancho REAL
-  // que ocupan los botones desplegados: sin ese número, volver a desplegarlos es adivinar.
-  const compactoRef = useRef(false);
-  const anchoBotones = useRef(0);
-  useEffect(() => { compactoRef.current = compacto; }, [compacto]);
-  useEffect(() => {
-    const header = espacioRef.current?.closest('header');
-    if (!header) return;
-    const grupo = header.querySelector<HTMLElement>('[data-grupo-vista]');
-    // ⚠️ LA PREGUNTA NO ES «¿DESBORDA AHORA?», ES «¿CUÁNTO NECESITA DESPLEGADO?».
-    //
-    // Las dos versiones anteriores preguntaban por el estado actual (si el header o el
-    // grupo desbordaban) y comparaban con una fórmula para volver a desplegar. Eso es
-    // circular: al plegarse cambia lo que se mide, así que la respuesta de ida no es la
-    // misma que la de vuelta, y el resultado era un ping-pong que terminaba donde lo
-    // agarrara el último evento. Medido el 23/09/2026 al ir achicando la ventana: a 880
-    // se pasaba 8px, a 860 28px y a 780 108px —con la barra de botones dibujada encima
-    // del filtro—, y entremedio anchos que estaban perfectos. Eso es un empate técnico
-    // entre dos reglas, no un umbral.
-    //
-    // Acá se suma lo que mide CADA hijo por su cuenta (`scrollWidth`, que es su ancho
-    // natural aunque el flex lo esté aplastando) y se compara contra el ancho del header.
-    // Es una función del ancho disponible y nada más: no puede oscilar.
-    const GAP = 12;
-    // ⚠️ `scrollWidth` NO ES EL ANCHO NATURAL DE UN CONTENEDOR FLEX, Y ACÁ ESTABA EL BUG DEL
-    // ZOOM. Es el ancho natural de un elemento cuyo CONTENIDO DESBORDA; si el flex le achicó
-    // los hijos (el buscador baja de 280 a 150 antes de empujar a nadie), el contenido entra
-    // justo y `scrollWidth` devuelve el ancho YA APLASTADO. O sea que la suma decía que
-    // entraba, exactamente en el caso en que no entraba — y el header, que envuelve, tiraba
-    // los botones a un segundo renglón pegado al borde izquierdo en vez de plegarlos.
-    // Reportado el 23/09/2026 con el zoom puesto, que es cuando primero se nota.
-    //
-    // Acá se pregunta cuánto necesita CADA UNO sin achicarse: un contenedor flex es la suma
-    // de sus hijos más sus gaps, y una hoja es el mayor entre lo que mide, lo que declara
-    // como base y lo que ocupa su contenido. `getBoundingClientRect` y no `offsetWidth`
-    // porque con zoom los anchos son FRACCIONARIOS y redondear para abajo en cada hijo
-    // vuelve a inclinar la balanza hacia «entra».
-    const anchoNatural = (el: HTMLElement): number => {
-      const cs = getComputedStyle(el);
-      const hijos = [...el.children] as HTMLElement[];
-      if (cs.display.includes('flex') && cs.flexWrap === 'nowrap' && hijos.length) {
-        const gap = parseFloat(cs.columnGap) || 0;
-        return hijos.reduce((n, h) => n + anchoNatural(h), 0) + gap * (hijos.length - 1);
-      }
-      const base = parseFloat(cs.flexBasis);
-      return Math.max(el.scrollWidth, el.getBoundingClientRect().width, Number.isFinite(base) ? base : 0);
-    };
-    const medir = () => {
-      // Se busca ADENTRO: al plegarse, ese div se DESMONTA, y una referencia tomada al
-      // montar queda apuntando a un nodo suelto cuyo `scrollWidth` es 0 para siempre.
-      const barra = header.querySelector<HTMLElement>('[data-barra-acciones]');
-      if (barra && !compactoRef.current) anchoBotones.current = Math.max(anchoBotones.current, anchoNatural(barra));
-      const hijos = [...header.children] as HTMLElement[];
-      const suma = hijos.reduce((n, el) => (el === espacioRef.current ? n : n + anchoNatural(el)), 0)
-        + GAP * Math.max(0, hijos.length - 1);
-      // Si está plegado, la barra mide un botón: para saber si entraría desplegada hay que
-      // sumarle la diferencia con lo que medía cuando lo estaba.
-      const menu = hijos.find((el) => el.getAttribute('data-barra-menu') != null);
-      const extra = compactoRef.current && anchoBotones.current
-        ? anchoBotones.current - (menu ? anchoNatural(menu) : 0)
-        : 0;
-      // 24px de margen para no quedar pegado al límite exacto y parpadear con cada píxel.
-      setCompacto(suma + Math.max(0, extra) + 24 > header.clientWidth);
-    };
-    const ro = new ResizeObserver(medir);
-    ro.observe(header);
-    if (grupo) ro.observe(grupo);
-    medir();
-    // Las tipografías llegan DESPUÉS del primer layout y ensanchan todo: medir solo al
-    // montar da un veredicto sobre un header que todavía no es el definitivo.
-    document.fonts?.ready.then(medir).catch(() => {});
-    // Y un frame después, porque el primer layout no es el último.
-    const raf = requestAnimationFrame(medir);
-    // ⚠️ EL ZOOM DEL NAVEGADOR NO SIEMPRE MUEVE EL TAMAÑO DEL HEADER (mide 100% del ancho
-    // en píxeles CSS y el observer puede no disparar), pero SÍ dispara `resize`. Sin esto,
-    // zoomear dejaba la barra rota hasta que se tocara otra cosa.
-    window.addEventListener('resize', medir);
-    return () => { ro.disconnect(); cancelAnimationFrame(raf); window.removeEventListener('resize', medir); };
-    // `view` entra porque el grupo cambia de contenido con la vista (el chip de
-    // Prioridades es más ancho que el de Kanban, y buscador+filtro solo existen en dos
-    // de las cuatro): el header no cambia de tamaño, así que el observer no se entera.
-  }, [nAcciones, view]);
 
   const avg = tasks.length ? Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length) : 0;
   const hechas = tasks.filter((t) => t.progress >= 100).length;
@@ -991,7 +915,9 @@ export function BoardShell({ board, scope, vistaInicial }: {
             el buscador y el filtro y los cuatro botones saltaban 250px a la izquierda. */}
         {/* El hueco elástico. Además de empujar, es el METRO: lo que mida acá es el
             lugar que hay para volver a desplegar los botones. */}
-        <span ref={espacioRef} style={{ flex: 1 }} />
+        {/* El hueco elástico: empuja el grupo de la derecha contra el borde. Tenía un ref
+            porque era el METRO de la medición del header; esa medición ya no existe. */}
+        <span style={{ flex: 1 }} />
         {/* El grupo VARIABLE (progreso + buscador + filtro). Lleva marca porque es el que
             se achica: el header entero puede entrar perfecto y ser ESTE el que se queda
             sin lugar — su contenido se sale y se dibuja encima de los botones. */}

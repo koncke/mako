@@ -2829,7 +2829,29 @@ que edita**, en la misma fila del número. La posición es parte del significado
 ⚠️ Y adentro de un `<summary>`, CUALQUIER click pliega. El lápiz necesita
 `preventDefault` + `stopPropagation` o abre el pop-up y cierra el bloque en el mismo gesto.
 
-### `scrollWidth` NO es el ancho natural de un contenedor flex — y ahí estaba el bug del zoom
+### El header ya no se mide: está SIEMPRE plegado (y ésa es la lección)
+
+La medición se reescribió **tres veces en dos días** y las tres fallaron con el zoom puesto.
+La tercera era correcta *como medición* —abajo está el porqué, que sigue siendo verdad y
+vale para cualquier otro layout— y el header seguía bajando los botones a un segundo
+renglón. El pedido cerró el tema: *«haz que todo se colapse independientemente del zoom que
+tenga, así evitamos esto. Que siempre esté colapsado»*.
+
+**La lección es la medición, no la fórmula.** Un layout que se decide midiéndose a sí mismo
+tiene que acertar en TODAS las combinaciones de ancho, zoom, tipografía cargada o no,
+cantidad de botones (que cambia sola: ⚠ y ✦ aparecen y desaparecen) y vista abierta. Cada
+arreglo tapaba un caso y destapaba otro, y el modo de falla es el peor posible: los botones
+caen a un renglón pegado al borde izquierdo, que se lee como una pantalla rota.
+
+Plegado siempre no tiene ningún caso. Se pierden la palabra «Plan» y el chip de progreso del
+header —el progreso no se pierde: ya viajaba arriba de todo en el menú— y a cambio hay UN
+renglón con cualquier zoom y en cualquier pantalla.
+
+⚠️ **Antes de escribir un layout que se auto-mide, preguntá qué se pierde con la versión
+FIJA.** Si es un rótulo y un chip, la versión fija gana: no hay medición que valga ~90 líneas
+y tres reescrituras.
+
+### Y el porqué de la medición que igual quedó escrito: `scrollWidth` no es el ancho natural de un contenedor flex
 
 El header se mide para decidir si pliega los botones, y la medición sumaba el `scrollWidth`
 de cada hijo «que es su ancho natural aunque el flex lo esté aplastando». **Eso es falso

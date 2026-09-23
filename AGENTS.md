@@ -578,6 +578,24 @@ Antes de escribir un límite —de tamaño, de progreso, de espaciado— comprob
 el límite real de la capa de abajo. Un número tuyo por encima del suyo no protege:
 promete.
 
+# Un layout que se auto-mide tiene que acertar SIEMPRE; uno fijo no tiene casos
+
+Antes de escribir una medición que decide el layout —«¿pliego los botones?», «¿escondo el
+rótulo?»— preguntá qué se pierde con la versión FIJA. Casi siempre es un rótulo y un chip, y
+casi siempre vale menos que el riesgo.
+
+El header del Plan se midió de tres formas distintas en dos días y las tres fallaron con el
+zoom puesto. La tercera era correcta como medición (ver la sección de abajo) y el header
+seguía bajando los botones a un segundo renglón. Lo que lo cerró fue `const compacto = true`:
+plegado siempre, un renglón con cualquier zoom. Se perdieron la palabra «Plan» y un chip de
+progreso que ya viajaba adentro del menú.
+
+**Por qué es tan difícil acertar:** la medición tiene que dar bien en todas las combinaciones
+de ancho, zoom, tipografía cargada o no, cantidad de botones —que cambia sola cuando un aviso
+aparece o desaparece— y vista abierta. Cada arreglo tapa un caso y destapa otro. Y el modo de
+falla es el peor: la barra baja de renglón pegada al borde izquierdo, que se lee como una
+pantalla rota, no como un layout apretado.
+
 # `scrollWidth` no es el ancho NATURAL de un contenedor flex
 
 Es el ancho natural de un elemento cuyo **contenido desborda**. Si el flex ya le achicó los
