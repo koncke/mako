@@ -787,12 +787,50 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
       return `[${p.id}] ${p.nombre}: ${titulos.join('; ') || '(sin tareas)'}`;
     }).join('\n');
 
-    // 3 llamadas al Perro en paralelo (score tareas · checklists · proyectos). Gemini gratis.
-    const [scoreRes, checklistRes, proyRes] = await Promise.all([
+    // ⚠️ LAS QUE NACEN SIN PROYECTO SE RUTEAN ACÁ, y es la MISMA función que usa la carga
+    // de una reunión (`asignarTareasAProyectos`): «es mejor que MaKo - Perro guardián le
+    // asigne la prioridad y el proyecto correspondiente y le escriba la descripción, si eso
+    // ya se hace hoy en día… reutilizar la lógica» (23/09/2026). Hasta hoy el alta manual
+    // era el ÚNICO camino que no ruteaba: la tarea quedaba «sin proyecto» para siempre, o
+    // se le pedía a la persona que eligiera de una lista de 70 antes de escribir el título.
+    //
+    // La lista de destinos es CERRADA (el catálogo + lo que ya existe): es lo que impide
+    // que el Perro abra un proyecto con el nombre que se le ocurra. Acá NO puede crear
+    // ninguno — para eso está el alta de proyecto, que es una decisión.
+    const sinProyecto = nuevas.filter((n) => !n.proyectoId);
+    const destinos = sinProyecto.length
+      ? (() => {
+          const cuentaPorProy = new Map<string, number>();
+          for (const r of filasT) for (const l of asArr<unknown>(r.labels).map(String)) cuentaPorProy.set(l, (cuentaPorProy.get(l) ?? 0) + 1);
+          const yaEnTablero = new Set(filasP.map((p) => nucleo(str(p.name))));
+          return [
+            ...filasP.map((p) => ({ nombre: str(p.name), que: delCatalogo(str(p.name))?.que || '', n: cuentaPorProy.get(p.id) ?? 0 })),
+            ...CATALOGO_PROYECTOS.filter((c) => !yaEnTablero.has(nucleo(c.nombre))).map((c) => ({ nombre: c.nombre, que: c.que })),
+          ];
+        })()
+      : [];
+
+    // 4 llamadas al Perro en paralelo (score tareas · checklists · proyectos · ruteo). Gemini gratis.
+    const [scoreRes, checklistRes, proyRes, ruteoRes] = await Promise.all([
       nuevas.length ? puntuarNuevas(nuevas, existentesT, brief, 'Priorización de tareas nuevas', { conCapacidades: false }) : Promise.resolve({ tareas: [] as { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number; deadline?: string; deadlineRazon?: string; haceloEn?: string }[], faltantes: [] as string[] }),
       nuevas.length ? checklistsParaTareas(nuevas.map((n) => ({ id: n.id, titulo: n.titulo, detalle: n.detalle })), contexto, 'Descripción + checklists de tareas nuevas') : Promise.resolve({} as Record<string, { detalle: string; items: string[] }>),
       proyNuevos.length ? describirProyectosNuevos(proyNuevos, existentesP, tareasPorProy, brief, 'Proyectos nuevos: emoji + detalle + score') : Promise.resolve({ proyectos: [] as { id: string; score: number; emoji: string; detalle: string; razon: string; impacto?: number; esfuerzo?: number }[] }),
+      sinProyecto.length && destinos.length
+        ? asignarTareasAProyectos(sinProyecto.map((n) => ({ titulo: n.titulo, detalle: n.detalle })), destinos, 'Rutear una tarea nueva a su proyecto')
+          .catch((e) => { console.error('[plan-board] rutear alta:', e instanceof Error ? e.message : String(e)); return { asign: [] as Array<{ i: number; destino: string }> }; })
+        : Promise.resolve({ asign: [] as Array<{ i: number; destino: string }> }),
     ]);
+
+    // De vuelta a ids. Sólo lo que resuelve a un proyecto QUE EXISTE: un nombre que no
+    // matchea no abre nada —ese es el bug de los 24 proyectos inventados— y la tarea se
+    // queda sin proyecto, que es un estado honesto y visible.
+    const porNombre = new Map(filasP.map((p) => [nucleo(str(p.name)), p.id]));
+    const ruteado = new Map<string, string>();
+    for (const a of (ruteoRes.asign ?? [])) {
+      const n = sinProyecto[a.i];
+      const pid = n ? porNombre.get(nucleo(str(a.destino))) : undefined;
+      if (n && pid) ruteado.set(n.id, pid);
+    }
 
     const cuenta: Record<Prio, number> = { alta: 0, media: 0, baja: 0, futuro: 0 };
     const byId = new Map(scoreRes.tareas.map((t) => [t.id, t]));
@@ -848,6 +886,8 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
       // ⚠️ Y esos pasos YA NO SON UNA CHECKLIST: van como viñetas adentro del detalle
       // (`pasosComoBullets`). Las checklists se sacaron del producto el 22/09/2026 —«que
       // no existan checklists… de última un bullet point»— y con ellas el % por tarea.
+      const proyRuteado = ruteado.get(n.id);
+      if (proyRuteado) { patch.labels = [proyRuteado]; out.labels = [proyRuteado]; }
       const yaTieneMolde = evaluarDetalle(n.detalle ?? '').conForma;
       const base = yaTieneMolde ? (n.detalle ?? '') : fusionarDetalle(n.detalle, enr?.detalle ?? '');
       const detalleFinal = pasosComoBullets(base, enr?.items ?? []);

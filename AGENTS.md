@@ -578,6 +578,28 @@ Antes de escribir un límite —de tamaño, de progreso, de espaciado— comprob
 el límite real de la capa de abajo. Un número tuyo por encima del suyo no protege:
 promete.
 
+# `scrollWidth` no es el ancho NATURAL de un contenedor flex
+
+Es el ancho natural de un elemento cuyo **contenido desborda**. Si el flex ya le achicó los
+hijos y con eso el contenido entra, `scrollWidth` devuelve el ancho **ya aplastado** — o sea
+que cualquier «¿me entra esto?» construido sobre él contesta que sí exactamente en el caso
+en que no entra.
+
+Medido el 23/09/2026 en el header del Plan: el buscador declara `flex: 0 1 280px` con
+`minWidth: 150`, el flex lo achica a 150 y su contenido entra, así que la suma de los hijos
+daba 130px menos de lo que hacía falta. El header no plegaba sus botones y —como una barra
+de navegación envuelve por regla de la casa— los tiraba a un segundo renglón pegado al borde
+izquierdo. **Se nota primero con el zoom**, que es un viewport más chico en píxeles CSS sin
+que cambie ninguna otra cosa.
+
+La medición correcta es recursiva: un contenedor flex es la suma de sus hijos más sus gaps;
+una hoja es el mayor entre lo que mide, lo que declara como `flex-basis` y su `scrollWidth`.
+Molde: `anchoNatural` en `app/plan/board/BoardShell.tsx`.
+
+⚠️ **Y con zoom los anchos son FRACCIONARIOS**: `offsetWidth`/`scrollWidth` redondean, y
+redondear para abajo en cada hijo vuelve a inclinar la balanza hacia «entra». Va
+`getBoundingClientRect().width`.
+
 # Un tope se aplica ANTES de decidir si hubo cambio, y lo que recorta queda escrito
 
 Cuando algo se agrega al final de un campo con tope —un detalle, un log, una descripción—,
@@ -2427,6 +2449,13 @@ opcional en el tipo (`prioridadManual?`) justamente para que la ausencia se pued
 - **El olor que lo delata:** un componente que importa una constante de ruta, o que tiene
   `fetch(` y un `action:` adentro. Si además lo monta más de un parent, ya es esto.
 
+⚠️ **Y ANTES DE AGREGAR UN CONTROL, CONTÁ LOS QUE YA CONTESTAN ESA MISMA PREGUNTA.** El
+panel del detalle terminó con TRES formas de cambiar la prioridad —un slider inline, un botón
+que abre la audiencia y el pop-up del arrastre—, cada una con su cara y su resultado. Ninguna
+se agregó de más: se agregaron de a una, cada una resolviendo algo real. El reporte fue
+«¿para qué está el deslizable si para eso teníamos el pop-up?». Un control nuevo que contesta
+una pregunta ya contestada no suma una opción, **parte la respuesta en dos**.
+
 ⚠️ **Y AL CERRAR EL CONTROL, ENUMERÁ QUÉ LE QUEDA A CADA TABLERO.** Esconderlo es correcto
 y no es el final del trabajo: al día siguiente se midió que el tablero del cliente había
 quedado sin slider, **sin arrastre** (`draggable={!!repo.prioridadManual}`) y sin la casilla
@@ -3766,6 +3795,14 @@ las tareas, y encima cuando quiera modificarlo no lo deje»*.
   debate previo y sin fricción. Si el modelo se equivoca —y se va a equivocar— la salida no
   puede ser «discutilo con el Perro»: es cambiarlo y seguir. El debate es una opción, no un
   peaje.
+- **Y no se le pide a nadie que puntúe algo que todavía no existe.** Las dos altas —tarea y
+  proyecto— preguntaban la prioridad con un slider del 1 al 100, la de proyecto encima con la
+  lista de los otros 70 al lado para comparar. Es la pregunta que peor se contesta y la que
+  más fricción mete, y el sistema ya sabe contestarla: la pone el Perro en la misma corrida
+  en la que escribe el detalle. **Cuando una pantalla pide un dato que el sistema ya deduce
+  en OTRO camino, el problema no es la pantalla: falta un call site.** (El alta manual era el
+  único camino que no ruteaba la tarea a un proyecto, teniendo `asignarTareasAProyectos`
+  escrita desde agosto.)
 - **Y lo que decide solo se tiene que poder apagar.** El pedido textual: *«permitime
   desactivarla… o simplemente quitar la fricción: que él te asigne la prioridad y si la
   asignó mal, que vos la cambies»*. Un automatismo sin interruptor, cuando falla, no se

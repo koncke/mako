@@ -22,7 +22,7 @@ import { CrearProyectoModal } from './CrearProyecto';
 import { EliminarModal } from './EliminarModal';
 import { AsignarProyectoModal } from './AsignarProyecto';
 import { AudienciaModal } from './AudienciaModal';
-import { PrioridadAMano, MoverPrioridadModal } from './PrioridadAMano';
+import { LapizPrioridad, MoverPrioridadModal } from './PrioridadAMano';
 import { MakoProyectoModal } from './MakoProyecto';
 import { useVerMas } from './VerMas';
 import { useCapaModal } from '@/app/_components/pila-modales';
@@ -74,9 +74,21 @@ const hoyISO = (): string => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-const VISTAS = ['prioridades', 'kanban', 'proyectos', 'graphics'] as const;
+// ⚠️ «tareas», NO «kanban», y la ruta también: «cambia el nombre y la ruta de kanban por
+// tareas, que es más preciso» (23/09/2026). Kanban es CÓMO se dibuja —y desde que existe la
+// vista de tabla ya ni siquiera es siempre un kanban—; lo que hay ahí son las tareas.
+const VISTAS = ['prioridades', 'tareas', 'proyectos', 'graphics'] as const;
 type Vista = (typeof VISTAS)[number];
-const vistaValida = (v: unknown): Vista | null => (VISTAS as readonly string[]).includes(String(v)) ? (v as Vista) : null;
+// ⚠️ `kanban` SIGUE RESOLVIENDO, para siempre. Es el nombre que tuvo la vista hasta el
+// 23/09/2026 y vive en links compartidos, en favoritos y en la barra de direcciones de
+// cualquiera que la haya usado. Renombrar sin redirigir es romperlos en silencio (AGENTS.md:
+// «sacar algo de un catálogo no es borrarlo: hay gente apuntándole»).
+const ALIAS_VISTA: Record<string, Vista> = { kanban: 'tareas' };
+const vistaValida = (v: unknown): Vista | null => {
+  const k = String(v);
+  if ((VISTAS as readonly string[]).includes(k)) return k as Vista;
+  return ALIAS_VISTA[k] ?? null;
+};
 
 export function BoardShell({ board, scope, vistaInicial }: {
   board: Board;
@@ -128,23 +140,31 @@ export function BoardShell({ board, scope, vistaInicial }: {
   // ⚠️ LOS FILTROS Y EL ORDEN SE RECUERDAN (usePref): «se resetean al recargar y al cambiar
   // de pestaña» era el reporte. Lo que NO se recuerda es la BÚSQUEDA (`q`): un texto viejo
   // restaurado esconde el tablero entero y se lee como que no hay nada cargado.
-  const [fLabels, setFLabels] = usePrefSet('kanban.proyectos');
-  const [doneFilter, setDoneFilter] = usePref<DoneFilter>('kanban.estado', 'all', esUnoDe('all', 'activas', 'comenzadas', 'hechas')); // #16: filtrar por estado (kanban)
-  const [fOrigen, setFOrigen] = usePrefSet('kanban.origen');  // filtrar por ORIGEN (fuente: WhatsApp/Fathom/…)
+  const [fLabels, setFLabels] = usePrefSet('tablero.proyectos');
+  // ⚠️ UN SOLO FILTRO DE ESTADO Y UNA SOLA VISTA DE TABLA PARA LAS DOS TABS. «Tanto la vista
+  // de tabla como los filtros, haz que se mantengan igual tanto para la tab de proyectos
+  // como kanban» (23/09/2026). Eran dos pares de preferencias con la misma pregunta adentro
+  // («¿muestro lo hecho?», «¿tabla o tarjetas?»), así que cambiar de tab deshacía lo que
+  // acababas de elegir — y no se leía como dos estados: se leía como que el filtro no
+  // funciona. Los rótulos siguen siendo distintos (Activas/Activos) porque el sustantivo
+  // cambia; la elección es la misma.
+  const [doneFilter, setDoneFilter] = usePref<DoneFilter>('tablero.estado', 'all', esUnoDe('all', 'activas', 'comenzadas', 'hechas'));
+  const [fOrigen, setFOrigen] = usePrefSet('tablero.origen');  // filtrar por ORIGEN (fuente: WhatsApp/Fathom/…)
   // CUANDO cae la tarea: hoy / esta semana / este Quarter / sin planificar (tarea #635).
   // Es un Set y no un valor unico porque «hoy Y esta semana» es una pregunta legitima
   // —lo urgente mas lo que se viene— y con un radio habria que elegir una.
-  const [fCuando, setFCuando] = usePrefSet<Cuando>('kanban.cuando', esCuando);
+  const [fCuando, setFCuando] = usePrefSet<Cuando>('tablero.cuando', esCuando);
   const [sortMode, setSortMode] = usePref<'score' | 'creacion'>('orden.modo', 'score', esUnoDe('score', 'creacion')); // orden de tareas/proyectos
   const [sortDir, setSortDir] = usePref<'desc' | 'asc'>('orden.dir', 'desc', esUnoDe('desc', 'asc')); // dirección: desc = mayor/más nuevo primero
-  const [projFilter, setProjFilter] = usePref<DoneFilter>('proyectos.estado', 'all', esUnoDe('all', 'activas', 'comenzadas', 'hechas'));  // filtrar por estado (proyectos)
   // TARJETAS o TABLA, una preferencia por vista. «Sí me parece bien que haya una vista
   // tabla tanto para proyectos como para el kanban, pero NO reemplaces lo que hay ahora,
   // es otra opción de verlo» — así que el default sigue siendo lo de siempre.
-  const [tablaProy, setTablaProy] = usePref<boolean>('proyectos.tabla', false, esBool);
-  const [tablaKanban, setTablaKanban] = usePref<boolean>('kanban.tabla', false, esBool);
+  const [tabla, setTabla] = usePref<boolean>('tablero.tabla', false, esBool);
   // La tarjeta que acabás de soltar en otra columna: abre el pop-up del 1 al 100.
-  const [soltada, setSoltada] = useState<{ id: string; destino: Prio } | null>(null);
+  // Qué prioridad se está editando, y por qué camino se llegó. UNO para los dos caminos:
+  // el ARRASTRE (que trae la columna de destino) y el LÁPIZ del panel (que no trae ninguna,
+  // porque no se movió de columna). Antes era sólo del arrastre y sólo de tareas.
+  const [soltada, setSoltada] = useState<{ entidad: 'proyecto' | 'tarea'; id: string; destino?: Prio } | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ msg: string; onOk: () => void } | null>(null);
   const [debateId, setDebateId] = useState<string | null>(null);
@@ -490,18 +510,42 @@ export function BoardShell({ board, scope, vistaInicial }: {
     // natural aunque el flex lo esté aplastando) y se compara contra el ancho del header.
     // Es una función del ancho disponible y nada más: no puede oscilar.
     const GAP = 12;
+    // ⚠️ `scrollWidth` NO ES EL ANCHO NATURAL DE UN CONTENEDOR FLEX, Y ACÁ ESTABA EL BUG DEL
+    // ZOOM. Es el ancho natural de un elemento cuyo CONTENIDO DESBORDA; si el flex le achicó
+    // los hijos (el buscador baja de 280 a 150 antes de empujar a nadie), el contenido entra
+    // justo y `scrollWidth` devuelve el ancho YA APLASTADO. O sea que la suma decía que
+    // entraba, exactamente en el caso en que no entraba — y el header, que envuelve, tiraba
+    // los botones a un segundo renglón pegado al borde izquierdo en vez de plegarlos.
+    // Reportado el 23/09/2026 con el zoom puesto, que es cuando primero se nota.
+    //
+    // Acá se pregunta cuánto necesita CADA UNO sin achicarse: un contenedor flex es la suma
+    // de sus hijos más sus gaps, y una hoja es el mayor entre lo que mide, lo que declara
+    // como base y lo que ocupa su contenido. `getBoundingClientRect` y no `offsetWidth`
+    // porque con zoom los anchos son FRACCIONARIOS y redondear para abajo en cada hijo
+    // vuelve a inclinar la balanza hacia «entra».
+    const anchoNatural = (el: HTMLElement): number => {
+      const cs = getComputedStyle(el);
+      const hijos = [...el.children] as HTMLElement[];
+      if (cs.display.includes('flex') && cs.flexWrap === 'nowrap' && hijos.length) {
+        const gap = parseFloat(cs.columnGap) || 0;
+        return hijos.reduce((n, h) => n + anchoNatural(h), 0) + gap * (hijos.length - 1);
+      }
+      const base = parseFloat(cs.flexBasis);
+      return Math.max(el.scrollWidth, el.getBoundingClientRect().width, Number.isFinite(base) ? base : 0);
+    };
     const medir = () => {
       // Se busca ADENTRO: al plegarse, ese div se DESMONTA, y una referencia tomada al
       // montar queda apuntando a un nodo suelto cuyo `scrollWidth` es 0 para siempre.
       const barra = header.querySelector<HTMLElement>('[data-barra-acciones]');
-      if (barra && !compactoRef.current) anchoBotones.current = Math.max(anchoBotones.current, barra.scrollWidth);
+      if (barra && !compactoRef.current) anchoBotones.current = Math.max(anchoBotones.current, anchoNatural(barra));
       const hijos = [...header.children] as HTMLElement[];
-      const suma = hijos.reduce((n, el) => (el === espacioRef.current ? n : n + el.scrollWidth), 0)
+      const suma = hijos.reduce((n, el) => (el === espacioRef.current ? n : n + anchoNatural(el)), 0)
         + GAP * Math.max(0, hijos.length - 1);
       // Si está plegado, la barra mide un botón: para saber si entraría desplegada hay que
       // sumarle la diferencia con lo que medía cuando lo estaba.
+      const menu = hijos.find((el) => el.getAttribute('data-barra-menu') != null);
       const extra = compactoRef.current && anchoBotones.current
-        ? anchoBotones.current - (hijos.find((el) => el.getAttribute('data-barra-menu') != null)?.scrollWidth ?? 0)
+        ? anchoBotones.current - (menu ? anchoNatural(menu) : 0)
         : 0;
       // 24px de margen para no quedar pegado al límite exacto y parpadear con cada píxel.
       setCompacto(suma + Math.max(0, extra) + 24 > header.clientWidth);
@@ -555,13 +599,17 @@ export function BoardShell({ board, scope, vistaInicial }: {
   // El avance de LA VISTA que se está mirando, en un solo lugar. Los tres chips del
   // header lo pintaban cada uno por su lado; cuando el header se pliega, este mismo dato
   // es el que viaja al menú — copiarlo allá era garantizar que uno de los dos mintiera.
-  const progresoDeLaVista = view === 'kanban' ? { pct: avg, hechas, total: tasks.length, label: 'del plan' }
+  const progresoDeLaVista = view === 'tareas' ? { pct: avg, hechas, total: tasks.length, label: 'del plan' }
     : view === 'prioridades' ? { pct: prioAvg, hechas: enPrio.length, total: MAX_PRIORIDAD, label: 'en prioridad' }
       : view === 'proyectos' ? { pct: avgProj, hechas: hechosProj, total: labels.length, label: 'proyectos ✓' }
         : undefined;
   const openTask = tasks.find((t) => t.id === openId) ?? null;
   const debateTask = tasks.find((t) => t.id === debateId) ?? null;
-  const soltadaTask = soltada ? tasks.find((t) => t.id === soltada.id) ?? null : null;
+  const soltadaItem = soltada
+    ? (soltada.entidad === 'tarea'
+        ? (() => { const t = tasks.find((x) => x.id === soltada.id); return t ? { titulo: t.title, score: t.score } : null; })()
+        : (() => { const l = labels.find((x) => x.id === soltada.id); return l ? { titulo: l.name, score: l.score } : null; })())
+    : null;
   const debateFechaTask = tasks.find((t) => t.id === debateFechaId) ?? null;
   const openProjLabel = labels.find((l) => l.id === openProj) ?? null;
   const peekProj = labels.find((l) => l.id === peekProjId) ?? null;
@@ -649,7 +697,27 @@ export function BoardShell({ board, scope, vistaInicial }: {
    * vuelve exactamente a la misma pantalla.
    */
   const recargarTrasCascada = () => window.location.reload();
-  const crearProyecto = (nombre: string, emoji: string, detalle: string, score = 5) => board.createLabel({ id: uid(), emoji: emoji || '🏷', name: nombre, color: SWATCHES[labels.length % SWATCHES.length], score, detalle, historial: [] });
+  /**
+   * Crear un proyecto. El Perro lo PUNTÚA después, no la persona al crearlo.
+   *
+   * El alta preguntaba la prioridad con un slider del 1 al 100 —comparando contra los 70 que
+   * ya hay— y ésa era la mitad de la fricción del wizard. Ahora nace en 50 y la corrida que
+   * ya existe (`priorizarNuevas` con `proyectoIds`) le pone score, razón, emoji y detalle,
+   * exactamente igual que a un proyecto que abre una reunión. Corre en segundo plano: crear
+   * no espera a un modelo.
+   */
+  const crearProyecto = async (nombre: string, emoji: string, detalle: string, score = 50) => {
+    const l = await board.createLabel({ id: uid(), emoji: emoji || '🏷', name: nombre, color: SWATCHES[labels.length % SWATCHES.length], score, detalle, historial: [] });
+    if (board.repo?.priorizarNuevas && l?.id) {
+      void (async () => {
+        try {
+          const r = await board.repo!.priorizarNuevas!([], [l.id], 'Proyecto nuevo creado a mano desde el tablero.');
+          if (r) board.aplicarPerroServer(r.patches, r.proyectosPatch);
+        } catch (e) { console.warn('[alta proyecto] priorizarNuevas', e); }
+      })();
+    }
+    return l;
+  };
   // resumen del plan para que el guardián compare al debatir/crear
   const planResumen = tasks.filter((t) => t.progress < 100).map((t) => `- [${t.score}] ${t.title} (${board.labelById(t.labels[0])?.name ?? 'sin proyecto'})`).join('\n');
 
@@ -930,10 +998,10 @@ export function BoardShell({ board, scope, vistaInicial }: {
         <div data-grupo-vista style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
         {/* El progreso es un DATO, no un control: cuando no entra todo, es lo primero que
             cede el lugar (los botones hacen algo; este solo informa). */}
-        {!compacto && view === 'kanban' && <AvgChip avg={avg} hechas={hechas} total={tasks.length} label="del plan" />}
+        {!compacto && view === 'tareas' && <AvgChip avg={avg} hechas={hechas} total={tasks.length} label="del plan" />}
         {!compacto && view === 'prioridades' && <AvgChip avg={prioAvg} hechas={enPrio.length} total={MAX_PRIORIDAD} label="en prioridad" />}
         {!compacto && view === 'proyectos' && <AvgChip avg={avgProj} hechas={hechosProj} total={labels.length} label="proyectos ✓" />}
-        {(view === 'kanban' || view === 'proyectos') && <>
+        {(view === 'tareas' || view === 'proyectos') && <>
           <BuscadorTareas
             q={q} onQ={setQ}
             campos={campos} onCampos={setCampos}
@@ -941,10 +1009,10 @@ export function BoardShell({ board, scope, vistaInicial }: {
             onBuscarIA={buscarConIA}
             onLimpiarIA={() => setIa({ pensando: false, ids: null, explico: '' })}
           />
-          <VistaToggle tabla={view === 'kanban' ? tablaKanban : tablaProy} onSet={(v) => (view === 'kanban' ? setTablaKanban(v) : setTablaProy(v))} />
-          {view === 'kanban'
+          <VistaToggle tabla={tabla} onSet={setTabla} />
+          {view === 'tareas'
             ? <FilterMenu soloIcono={compacto} labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} fOrigen={fOrigen} setFOrigen={setFOrigen} fCuando={fCuando} setFCuando={setFCuando} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />
-            : <FilterMenu soloIcono={compacto} doneFilter={projFilter} setDoneFilter={setProjFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />}
+            : <FilterMenu soloIcono={compacto} doneFilter={doneFilter} setDoneFilter={setDoneFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />}
         </>}
         </div>
         {/* Los botones de acción, PLEGABLES: cuando no entran se esconden detrás de un
@@ -1029,19 +1097,19 @@ export function BoardShell({ board, scope, vistaInicial }: {
           con `flex: 1` + `minHeight: 0`. Ninguna vista vuelve a pedir `height: 100%`. */}
       <div style={{ minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} bloqueadas={bloqueadasN} onOpen={setOpenId} onOpenProj={setOpenProj} />}
-        {view === 'kanban' && (tablaKanban
+        {view === 'tareas' && (tabla
           ? <div style={{ flex: '1 0 auto', padding: '18px 30px 40px' }}><TablaTareas tareas={visibles} board={board} hoy={hoyISO()} onOpen={setOpenId} onOpenProj={setOpenProj} /></div>
-          : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} frenanA={frenanA} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} onSoltar={(id, destino) => setSoltada({ id, destino })} />)}
-        {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={projFilter} q={q} fOrigen={fOrigen} sortMode={sortMode} sortDir={sortDir} tabla={tablaProy} />}
+          : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} frenanA={frenanA} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} onSoltar={(id, destino) => setSoltada({ entidad: 'tarea', id, destino })} />)}
+        {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={doneFilter} q={q} fOrigen={fOrigen} sortMode={sortMode} sortDir={sortDir} tabla={tabla} />}
         {view === 'graphics' && <GraphicsView board={board} />}
       </div>
 
-      {openTask && <TaskModal key={openTask.id} t={openTask} board={board} topProjectId={topProjectId} suggestMako={openTask.id === makoHintId} onDebate={() => setDebateId(openTask.id)} onDebateFecha={() => setDebateFechaId(openTask.id)} onDelete={() => setEliminarTaskId(openTask.id)} onAsignar={() => setAsignarTaskId(openTask.id)} onOpenProj={(id) => setPeekProjId(id)} escDisabled={!!peekProjId} ask={ask}
+      {openTask && <TaskModal key={openTask.id} t={openTask} board={board} topProjectId={topProjectId} suggestMako={openTask.id === makoHintId} onDebate={() => setDebateId(openTask.id)} onDebateFecha={() => setDebateFechaId(openTask.id)} onPrioridad={() => setSoltada({ entidad: 'tarea', id: openTask.id })} onDelete={() => setEliminarTaskId(openTask.id)} onAsignar={() => setAsignarTaskId(openTask.id)} onOpenProj={(id) => setPeekProjId(id)} escDisabled={!!peekProjId} ask={ask}
         onBack={(openProjLabel || welcomeVisible) ? () => { setOpenId(null); setMakoHintId(null); } : undefined}
         onClose={() => { setOpenId(null); setOpenProj(null); setPeekProjId(null); setMakoHintId(null); }} />}
       {peekProj && openTask && <ProjectDetailModal proj={peekProj} board={board} topProjectId={topProjectId} z={130} onBack={() => setPeekProjId(null)}
         onOpenTask={(id) => { setPeekProjId(null); setOpenId(id); }} onNewTask={() => { setNuevaTareaProj(peekProj.id); setNuevaTarea(true); }}
-        onDebatePrio={() => setDebateProjId(peekProj.id)} onMako={() => setMakoProjId(peekProj.id)} onDelete={() => setEliminarProjId(peekProj.id)}
+        onPrioridad={() => setSoltada({ entidad: 'proyecto', id: peekProj.id })} onMako={() => setMakoProjId(peekProj.id)} onDelete={() => setEliminarProjId(peekProj.id)}
         onClose={() => setPeekProjId(null)} />}
       {/* LA AUDIENCIA. Reemplaza a `DebateModal` en el camino del SCORE (la FECHA se sigue
           debatiendo aparte: es otra pregunta). Tres cosas cambian y las tres importan: la
@@ -1054,20 +1122,27 @@ export function BoardShell({ board, scope, vistaInicial }: {
         onUsage={(u) => showUsage(u, 'prioridad de tarea')}
         onAplicado={recargarTrasCascada}
         onClose={() => setDebateId(null)} />}
-      {soltadaTask && (
+      {/* EL POP-UP DEL 1 AL 100 — la única forma de fijar un número a mano, para los dos
+          caminos (arrastrar y el lápiz del panel) y las dos entidades. «Para eso teníamos
+          el pop-up» (23/09/2026): el slider del panel se fue. */}
+      {soltada && soltadaItem && (
         <MoverPrioridadModal
-          titulo={soltadaTask.title} score={soltadaTask.score}
-          sugerido={scoreFromPrio[soltada!.destino]} banda={PLABEL[soltada!.destino]}
+          titulo={soltadaItem.titulo} score={soltadaItem.score}
+          sugerido={soltada.destino ? scoreFromPrio[soltada.destino] : soltadaItem.score}
+          banda={PLABEL[soltada.destino ?? prioFromScore(soltadaItem.score)]}
+          onDebate={board.repo.debatePrioridad
+            ? () => (soltada.entidad === 'tarea' ? setDebateId(soltada.id) : setDebateProjId(soltada.id))
+            : undefined}
           onAplicado={async (n) => {
-            const r = await board.repo.prioridadManual!('tarea', soltadaTask.id, n);
-            board.aplicarCascadaManual('tarea', { id: soltadaTask.id, score: r.score, razon: 'Prioridad fijada a mano', texto: `Fijaste la prioridad en ${r.score} a mano` }, r.movidos);
+            const r = await board.repo.prioridadManual!(soltada.entidad, soltada.id, n);
+            board.aplicarCascadaManual(soltada.entidad, { id: soltada.id, score: r.score, razon: 'Prioridad fijada a mano', texto: `Fijaste la prioridad en ${r.score} a mano` }, r.movidos);
           }}
           onClose={() => setSoltada(null)} />
       )}
-      {nuevaTarea && <CrearTareaModal labels={labels} proyectoInicial={nuevaTareaProj} prioInicial={nuevaTareaPrio} puedeFijarPrioridad={!!board.repo.prioridadManual} ejemplos={tasks.filter((t) => t.progress < 100).map((t) => ({ title: t.title, score: t.score }))} onCrear={crearConGuardian} onDone={(id) => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); setOpenId(id); setMakoHintId(id); }} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); }} />}
+      {nuevaTarea && <CrearTareaModal labels={labels} proyectoInicial={nuevaTareaProj} prioInicial={nuevaTareaPrio} ejemplos={tasks.filter((t) => t.progress < 100).map((t) => ({ title: t.title, score: t.score }))} onCrear={crearConGuardian} onDone={(id) => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); setOpenId(id); setMakoHintId(id); }} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); }} />}
       {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} taskAbierta={!!openTask}
         onBack={welcomeVisible ? () => setOpenProj(null) : undefined} backLabel="Volver"
-        onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} onDebatePrio={() => setDebateProjId(openProjLabel.id)} onMako={() => setMakoProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onClose={() => setOpenProj(null)} />}
+        onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} onPrioridad={() => setSoltada({ entidad: 'proyecto', id: openProjLabel.id })} onMako={() => setMakoProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onClose={() => setOpenProj(null)} />}
       {makoProj && <MakoProyectoModal proj={{ name: makoProj.name, emoji: makoProj.emoji, detalle: makoProj.detalle }} onApply={(nombre, emoji, det) => board.patchLabelLog(makoProj.id, { name: nombre, emoji, detalle: det }, 'MaKo mejoró el proyecto', 'ia')} onClose={() => setMakoProjId(null)} />}
       {debateFechaTask && <FechaDebateModal task={debateFechaTask}
         otras={tasks.filter((x) => x.id !== debateFechaTask.id && x.deadline && x.progress < 100).map((x) => ({ titulo: x.title, deadline: x.deadline, score: x.score }))}
@@ -1086,7 +1161,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
         onUsage={(u) => showUsage(u, 'prioridad de proyecto')}
         onAplicado={recargarTrasCascada}
         onClose={() => setDebateProjId(null)} />}
-      {nuevoProj && <CrearProyectoModal otros={labels.map((l) => ({ name: l.name, emoji: l.emoji, score: l.score, color: l.color }))} onCrear={crearProyecto} onClose={() => setNuevoProj(false)} />}
+      {nuevoProj && <CrearProyectoModal onCrear={crearProyecto} onClose={() => setNuevoProj(false)} />}
       {/* Lo que MaKo dejó esperando: tareas de una reunión tuya que leyó sola, o que te
           mandó otra persona. Nunca se crearon: se confirman acá. Van DESPUÉS de Datos
           y de la bienvenida para no apilar modales. */}
@@ -1603,6 +1678,84 @@ function VistaToggle({ tabla, onSet }: { tabla: boolean; onSet: (v: boolean) => 
 // dos o tres renglones de itálica que nadie lee dos veces: «eso está bien que exista, ya
 // que el perro seguirá funcionando, pero es mucho texto suelto, entonces mejor que sea un
 // desplegable» (22/09). Sigue existiendo y sigue a un click.
+/**
+ * EL BLOQUE DE PRIORIDAD del panel del detalle. UNO solo para tareas y para proyectos.
+ *
+ * El pedido del 23/09/2026, mirando la pantalla, son cuatro cosas y las cuatro están acá:
+ *  1. Nada de slider ni de botón de ancho completo: «para eso teníamos el pop-up».
+ *  2. Fuera «La fijaste a mano: MaKo ya no la toca. Devolvérsela.».
+ *  3. UN desplegable, en el TÍTULO, que abre todo — no uno por sección. Antes eran dos
+ *     `<details>` anidados en la misma columna («Por qué este número» e «Impacto y
+ *     esfuerzo»), o sea tres clicks para ver tres renglones.
+ *  4. El lápiz, minimalista y PEGADO AL NÚMERO. Un ícono suelto al final de la columna no
+ *     se lee como «editá esto».
+ *
+ * ⚠️ ES COMPARTIDO A PROPÓSITO: «revisá que funcione igualmente para tareas como para
+ * proyecto». Eran dos copias del mismo bloque, con dos `<details>` cada una, y ya habían
+ * divergido (el de proyectos no mostraba el ajuste por tiempo).
+ */
+function BloquePrioridad({ etiqueta, chip, color, score, titulo, razon, impacto, esfuerzo, extra, tiempo, puedeEditar, onEditar }: {
+  /** «BAJA», «ALTA»… Sólo las tareas tienen banda; un proyecto es su número. */
+  etiqueta?: string;
+  chip: ReactNode;
+  color: string;
+  score: number;
+  titulo: string;
+  razon?: string;
+  impacto?: number | null;
+  esfuerzo?: number | null;
+  /** lo propio de cada entidad (el escalón de un proyecto) */
+  extra?: ReactNode;
+  /** el ajuste por tiempo (sólo tareas) */
+  tiempo?: ReactNode;
+  puedeEditar: boolean;
+  onEditar: () => void;
+}) {
+  const hayQueAbrir = !!razon || impacto != null || esfuerzo != null;
+  const cabecera = (
+    <>
+      <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Prioridad:</span>
+      {etiqueta && <span style={{ fontSize: 15, fontWeight: 800, color, letterSpacing: '.01em' }}>{etiqueta}</span>}
+      {chip}
+      <span style={{ flex: 1 }} />
+      {/* ⚠️ `preventDefault` + `stopPropagation`: adentro de un `<summary>`, cualquier click
+          pliega o despliega. Sin esto, tocar el lápiz abría el pop-up Y cerraba el bloque. */}
+      {puedeEditar && <LapizPrioridad onClick={onEditar} titulo={`Cambiar la prioridad de «${titulo.slice(0, 40)}»`} />}
+    </>
+  );
+  const cuerpo = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 9 }}>
+      {razon && <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4, fontStyle: 'italic' }}>“{razon}”</div>}
+      {tiempo}
+      {impacto != null && <IEMeter label="Impacto" v={impacto} color="#1E9E57" />}
+      {esfuerzo != null && <IEMeter label="Esfuerzo" v={esfuerzo} color="#C8870C" />}
+    </div>
+  );
+  if (!hayQueAbrir) {
+    return (
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }} onClick={(e) => e.stopPropagation()}>{cabecera}</div>
+        {tiempo}
+        {extra}
+      </div>
+    );
+  }
+  return (
+    <div>
+      <details>
+        <summary style={{ cursor: 'pointer', userSelect: 'none', listStylePosition: 'outside' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, width: 'calc(100% - 4px)', verticalAlign: 'middle' }}
+            onClick={(e) => { const t = e.target as HTMLElement; if (t.closest('button')) { e.preventDefault(); e.stopPropagation(); } }}>
+            {cabecera}
+          </span>
+        </summary>
+        {cuerpo}
+      </details>
+      {extra}
+    </div>
+  );
+}
+
 function RazonPrio({ razon }: { razon?: string }) {
   if (!razon) return null;
   return (
@@ -2246,8 +2399,8 @@ function ChangeHistory({ t, board, ask }: { t: BoardTask; board: Board; ask: (ms
 }
 
 // ── modal de detalle ────────────────────────────────────────────────────────────
-export function TaskModal({ t, board, topProjectId, suggestMako = false, onDebate, onDebateFecha, onDelete, onAsignar, onOpenProj, ask, onBack, escDisabled = false, onClose }: {
-  t: BoardTask; board: Board; topProjectId: string | null; suggestMako?: boolean; onDebate: () => void; onDebateFecha: () => void; onDelete: () => void; onAsignar: () => void; onOpenProj?: (id: string) => void; ask: (msg: string, onOk: () => void) => void; onBack?: () => void; escDisabled?: boolean; onClose: () => void;
+export function TaskModal({ t, board, topProjectId, suggestMako = false, onDebate, onDebateFecha, onPrioridad, onDelete, onAsignar, onOpenProj, ask, onBack, escDisabled = false, onClose }: {
+  t: BoardTask; board: Board; topProjectId: string | null; suggestMako?: boolean; onDebate: () => void; onDebateFecha: () => void; onPrioridad: () => void; onDelete: () => void; onAsignar: () => void; onOpenProj?: (id: string) => void; ask: (msg: string, onOk: () => void) => void; onBack?: () => void; escDisabled?: boolean; onClose: () => void;
 }) {
   const prioEfectiva = displayPrio(t, topProjectId);
   const topeada = prioEfectiva !== prioFromScore(t.score);
@@ -2347,47 +2500,16 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, onDebat
               title={t.progress >= 100 ? 'Reabrir la tarea' : 'Marcar como completada'}
               style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', border: `1px solid ${t.progress >= 100 ? 'var(--good)' : 'var(--border-strong)'}`, background: t.progress >= 100 ? 'var(--good-bg, var(--surface))' : 'var(--surface)', color: t.progress >= 100 ? 'var(--good)' : 'var(--ink)', borderRadius: 10, padding: '10px 13px', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>
               <span style={{ width: 18, height: 18, borderRadius: 5, border: `1.5px solid ${t.progress >= 100 ? 'var(--good)' : 'var(--border-strong)'}`, background: t.progress >= 100 ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{t.progress >= 100 ? '✓' : ''}</span>
-              {t.progress >= 100 ? 'Completada' : 'Marcar como completada'}
+              {/* UNA línea, siempre: «Marcar como completada» envolvía en dos renglones en una
+                  columna de 236px y el botón quedaba más alto que todo lo de abajo. */}
+              <span style={{ whiteSpace: 'nowrap' }}>{t.progress >= 100 ? 'Completada' : 'Marcar completada'}</span>
             </button>
-            <div>
-              {/* #5: "Prioridad: ALTA — 90" directo y grande, sin subtítulo, con ícono sofisticado */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: t.scoreRazon || topeada ? 8 : 10 }}>
-                <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Prioridad:</span>
-                <span style={{ fontSize: 15, fontWeight: 800, color: PCOLOR[prioEfectiva], letterSpacing: '.01em' }}>{PLABEL[prioEfectiva].toUpperCase()}</span>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: 15, fontWeight: 700, color: PCOLOR[prioEfectiva] }}><ScoreIcon size={15} color={PCOLOR[prioEfectiva]} />{t.score}</span>
-              </div>
-              {/* El número se mueve ACÁ, sin pedirle permiso a nadie. La audiencia con el
-                  Perro sigue abajo, como opción: «que siga funcionando normalmente, solo
-                  que NO tenga fricción a la hora de cambiar prioridad». */}
-              {/* ⚠️ SOLO SI EL TABLERO PUEDE ESCRIBIRLO — y el candado es APARTE. Cada board
-                  trae su `prioridadManual` (el del dueño con cascada y `score_manual`; el del
-                  cliente escribiendo el número por /api/todo). `prioridadAlPerro` sólo existe
-                  donde hay candado que soltar: exigir las dos dejaba al cliente con el número
-                  de MaKo y sin ninguna forma de cambiarlo. */}
-              {board.repo.prioridadManual && (
-                <PrioridadAMano entidad="tarea" score={t.score} scoreManual={t.scoreManual} color={PCOLOR[prioEfectiva]}
-                  guardar={(n) => board.repo.prioridadManual!('tarea', t.id, n)}
-                  soltar={board.repo.prioridadAlPerro ? () => board.repo.prioridadAlPerro!('tarea', t.id) : undefined}
-                  onAplicado={(s, movidos) => board.aplicarCascadaManual('tarea', { id: t.id, score: s, razon: 'Prioridad fijada a mano', texto: `Fijaste la prioridad en ${s} a mano` }, movidos)}
-                  onSoltado={() => board.soltarCandadoManual('tarea', t.id)} />
-              )}
-              <RazonPrio razon={t.scoreRazon} />
-              {/* El AJUSTE del tiempo va aparte de la razón del Perro, no mezclado: son dos
-                  juicios distintos y de dos autores distintos. El del Perro dice cuánto
-                  vale; éste dice qué le hizo el calendario. */}
-              <TiempoLinea t={t} />
-              {/* Plegado, como la razón: «impacto y esfuerzo ocupan demasiado texto». */}
-              {(t.impacto != null || t.esfuerzo != null) && (
-                <details style={{ marginBottom: 10 }}>
-                  <summary style={{ cursor: 'pointer', fontSize: 11.5, color: 'var(--faint)', userSelect: 'none' }}>Impacto y esfuerzo</summary>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 7 }}>
-                    {t.impacto != null && <IEMeter label="Impacto" v={t.impacto} color="#1E9E57" />}
-                    {t.esfuerzo != null && <IEMeter label="Esfuerzo" v={t.esfuerzo} color="#C8870C" />}
-                  </div>
-                </details>
-              )}
-              {board.repo.debatePrioridad && <button onClick={onDebate} style={cambiarBtn}><MakoStar size={15} color="var(--primary)" /> Cambiar prioridad</button>}
-            </div>
+            <BloquePrioridad
+              etiqueta={PLABEL[prioEfectiva].toUpperCase()} color={PCOLOR[prioEfectiva]} score={t.score} titulo={t.title}
+              chip={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: 15, fontWeight: 700, color: PCOLOR[prioEfectiva] }}><ScoreIcon size={15} color={PCOLOR[prioEfectiva]} />{t.score}</span>}
+              razon={t.scoreRazon} impacto={t.impacto} esfuerzo={t.esfuerzo}
+              tiempo={<TiempoLinea t={t} />}
+              puedeEditar={!!board.repo.prioridadManual} onEditar={onPrioridad} />
             {/* La FECHA la decide el Perro igual que la prioridad: la propone al crear la
                 tarea, deja escrito por qué, y para moverla hay que discutírsela. */}
             <div>
@@ -2538,11 +2660,50 @@ export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen }:
       {verDetalle && <EscalonChip l={l} />}
       {verDetalle && l.scoreRazon && <div style={{ fontSize: 11.5, color: 'var(--faint)', fontStyle: 'italic', lineHeight: 1.45 }}>🐕 {l.scoreRazon}</div>}
       <span style={{ flex: 1 }} />
+      {/* EL DEADLINE, EN LA PREVIEW. «Aún no sale el deadline en la preview de las cards de
+          los proyectos» (23/09/2026). Estaba sólo en la tabla y en el detalle, así que la
+          vista por defecto —la de tarjetas— era la única que no decía para cuándo es. Va con
+          el plazo al lado y no sólo la fecha: «12 oct» no dice si ya se venció. */}
+      {l.deadline && (() => {
+        const p = plazoTexto(diasHasta(l.deadline, hoyISO()));
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>
+            <span>◷ {fechaConDia(l.deadline)}</span>
+            <span style={{ color: p.color, fontWeight: p.fuerte ? 700 : 500 }}>· {p.texto}</span>
+          </div>
+        );
+      })()}
       {prog.total > 0 && <span style={{ display: 'block' }}><MiniBar v={prog.pct} /></span>}
       <div style={{ display: 'flex', alignItems: 'center', fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>
         {prog.total ? <><span>{prog.done}/{prog.total}</span><span style={{ flex: 1 }} /><span style={{ fontWeight: 700, color: 'var(--dim)' }}>{prog.pct}%</span></> : <span>sin tareas</span>}
       </div>
     </div>
+  );
+}
+
+/**
+ * El historial de la tab de proyectos, PLEGADO.
+ *
+ * «Revisa la captura de "Change history · proyectos": tiene mucho protagonismo en la tab de
+ * proyecto» (23/09/2026). Y lo tenía: abierto y a ancho completo debajo de las tarjetas, con
+ * diez renglones de «fijaste la prioridad / se la devolviste» que son el rastro de UNA
+ * sesión de ajustes, no lo que alguien viene a ver cuando abre sus proyectos.
+ *
+ * No se borra —es la bitácora de quién movió qué, y sin ella un número que cambió solo no se
+ * puede explicar—: se pliega, con el conteo a la vista para que se sepa que está.
+ */
+function HistorialDeLaTab({ labels, board }: { labels: Label[]; board: Board }) {
+  const n = labels.reduce((acc, l) => acc + (l.historial?.length ?? 0), 0);
+  if (!n) return null;
+  return (
+    <details style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+      <summary style={{ cursor: 'pointer', userSelect: 'none', fontFamily: MONO, fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700 }}>
+        Historial · {n} cambio{n === 1 ? '' : 's'}
+      </summary>
+      <div style={{ marginTop: 12 }}>
+        <ProjTabHist labels={labels} nombre={board.user.nombre} avatarUrl={board.user.avatarUrl} />
+      </div>
+    </details>
   );
 }
 
@@ -2594,10 +2755,7 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOri
             filas={shown} topProjectId={topProjectId} hoy={hoyISO()} labelPlural={repo.labelPlural}
             onOpen={onOpen}
             onDeadline={(id, v) => board.patchLabelLog(id, { deadline: v }, v ? `Deadline ${v}` : 'Quitó el deadline')} />
-          <div style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 18 }}>
-            <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700, marginBottom: 12 }}>Change history · proyectos</div>
-            <ProjTabHist labels={labels} nombre={board.user.nombre} avatarUrl={board.user.avatarUrl} />
-          </div>
+          <HistorialDeLaTab labels={labels} board={board} />
         </div>
       </div>
     );
@@ -2624,17 +2782,14 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOri
             {resto > 0 ? `Ver más… (${resto} ${repo.labelPlural.toLowerCase()} más)` : 'Ver menos'}
           </button>
         )}
-        <div style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 18 }}>
-          <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700, marginBottom: 12 }}>Change history · proyectos</div>
-          <ProjTabHist labels={labels} nombre={board.user.nombre} avatarUrl={board.user.avatarUrl} />
-        </div>
+        <HistorialDeLaTab labels={labels} board={board} />
       </div>
     </div>
   );
 }
 
 // ── detalle de un proyecto — MISMO layout de 2 columnas que la ficha de tarea (#25) ─
-function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, z = 90, onBack, backLabel = 'Volver a la tarea', onOpenTask, onNewTask, onDebatePrio, onMako, onDelete, onClose }: { proj: Label; board: Board; topProjectId: string | null; taskAbierta?: boolean; z?: number; onBack?: () => void; backLabel?: string; onOpenTask: (id: string) => void; onNewTask: () => void; onDebatePrio: () => void; onMako: () => void; onDelete: () => void; onClose: () => void }) {
+function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, z = 90, onBack, backLabel = 'Volver a la tarea', onOpenTask, onNewTask, onPrioridad, onMako, onDelete, onClose }: { proj: Label; board: Board; topProjectId: string | null; taskAbierta?: boolean; z?: number; onBack?: () => void; backLabel?: string; onOpenTask: (id: string) => void; onNewTask: () => void; onPrioridad: () => void; onMako: () => void; onDelete: () => void; onClose: () => void }) {
   const [nameDraft, setNameDraft] = useState(proj.name);
   // No cerrar con Escape cuando hay una tarea abierta ENCIMA (esa maneja su propio Escape).
   useEffect(() => {
@@ -2741,31 +2896,12 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, z 
           </div>
           {/* sidebar */}
           <div style={{ width: 236, flex: 'none', borderLeft: '1px solid var(--border)', background: 'var(--surface-2)', padding: '20px 18px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 15 }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: proj.scoreRazon ? 8 : 10 }}>
-                <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Prioridad</span>
-                <ProjScore score={proj.score} color={proj.color} big />
-              </div>
-              <EscalonChip l={proj} />
-              {board.repo.prioridadManual && (
-                <PrioridadAMano entidad="proyecto" score={proj.score} scoreManual={proj.scoreManual} color={proj.color}
-                  guardar={(n) => board.repo.prioridadManual!('proyecto', proj.id, n)}
-                  soltar={board.repo.prioridadAlPerro ? () => board.repo.prioridadAlPerro!('proyecto', proj.id) : undefined}
-                  onAplicado={(s, movidos) => board.aplicarCascadaManual('proyecto', { id: proj.id, score: s, razon: 'Prioridad fijada a mano', texto: `Fijaste la prioridad en ${s} a mano` }, movidos)}
-                  onSoltado={() => board.soltarCandadoManual('proyecto', proj.id)} />
-              )}
-              <RazonPrio razon={proj.scoreRazon} />
-              {(proj.impacto != null || proj.esfuerzo != null) && (
-                <details style={{ marginBottom: 10 }}>
-                  <summary style={{ cursor: 'pointer', fontSize: 11.5, color: 'var(--faint)', userSelect: 'none' }}>Impacto y esfuerzo</summary>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 7 }}>
-                    {proj.impacto != null && <IEMeter label="Impacto" v={proj.impacto} color="#1E9E57" />}
-                    {proj.esfuerzo != null && <IEMeter label="Esfuerzo" v={proj.esfuerzo} color="#C8870C" />}
-                  </div>
-                </details>
-              )}
-              {board.repo.debatePrioridad && <button onClick={onDebatePrio} style={cambiarBtn}><MakoStar size={15} color="var(--primary)" /> Cambiar prioridad</button>}
-            </div>
+            <BloquePrioridad
+              color={proj.color} score={proj.score} titulo={proj.name}
+              chip={<ProjScore score={proj.score} color={proj.color} big />}
+              razon={proj.scoreRazon} impacto={proj.impacto} esfuerzo={proj.esfuerzo}
+              extra={<EscalonChip l={proj} />}
+              puedeEditar={!!board.repo.prioridadManual} onEditar={onPrioridad} />
             <div><label style={rowLabel}>Deadline</label><input type="date" value={proj.deadline || ''} onChange={(e) => board.patchLabelLog(proj.id, { deadline: e.target.value }, e.target.value ? `Deadline ${e.target.value}` : 'Quitó el deadline')} style={selStyle} /></div>
 
             <div><label style={rowLabel}>Color</label><ColorDropdown color={proj.color} onPick={(c) => board.patchLabel(proj.id, { color: c })} /></div>

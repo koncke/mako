@@ -157,6 +157,9 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
           impacto: p.impacto ?? x.impacto,
           esfuerzo: p.esfuerzo ?? x.esfuerzo,
           detalle: p.detalle || x.detalle,
+          // El proyecto que el Perro ruteó. Sólo viene cuando la tarea nació SIN uno: una
+          // tarjeta que ya tenía proyecto no se le toca ni acá ni en el server.
+          labels: p.labels?.length ? p.labels : x.labels,
           checklist: p.checklist?.length ? p.checklist : x.checklist,
           historial: p.historialEntry ? [p.historialEntry, ...x.historial].slice(0, HIST_CAP) : x.historial,
         };

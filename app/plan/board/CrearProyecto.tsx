@@ -1,13 +1,29 @@
 'use client';
 
-// CrearProyectoModal — crear un proyecto por formulario (de a 1 pregunta). MaKo NO
-// sugiere nada en el medio: primero juntás tus respuestas (de qué se trata, por qué
-// importa, qué prioridad), CONFIRMÁS, y recién ahí MaKo genera nombre + emoji +
-// detalle (editable). Guarda BORRADOR. onCrear(nombre, emoji, detalle, score).
+// =============================================================================
+// CrearProyectoModal — UNA pregunta, y MaKo arma el resto
+// =============================================================================
+// Era un wizard de CINCO pasos: intro, de qué se trata, qué prioridad (un slider del 1 al
+// 100 comparando contra los 70 que ya hay), por qué importa, y una pantalla de confirmación
+// para releer lo que acababas de escribir. El reporte, textual (23/09/2026): «la opción de
+// crear nuevo proyecto sigue con fricción, revisalo».
+//
+// Quedó en una pantalla. Lo único obligatorio es de qué se trata; «por qué importa» está
+// plegado al lado, porque mejora lo que MaKo escribe pero no hace falta para empezar.
+//
+// ⚠️ Y LA PRIORIDAD YA NO SE PREGUNTA. Pedirle a alguien que puntúe del 1 al 100 un proyecto
+// que todavía no existe es la fricción de la que habla el reporte, y encima es la pregunta
+// que peor se contesta: el número sólo significa algo comparado con los otros 70. La pone el
+// Perro en la misma corrida en la que escribe el detalle — y si se equivoca, se cambia con
+// el lápiz del panel.
+//
+// Lo que NO cambió: MaKo propone nombre, emoji y detalle, y esa pantalla es EDITABLE. Un
+// «¿confirmás?» sobre un texto que no se puede tocar obliga a aceptar lo que está mal y
+// arreglarlo después.
+// ==============================================================================
 
 import { useEffect, useState, type CSSProperties } from 'react';
-import { WizardShell } from '@/app/_components/WizardShell';
-import { IntroBody, textareaStyle, inputStyle, ScoreIcon } from './guardian-form';
+import { textareaStyle, inputStyle } from './guardian-form';
 import { GuardianIcon } from './GuardianIcon';
 import { EmojiPickerMini } from './EmojiPicker';
 
@@ -22,11 +38,12 @@ async function proponer(descripcion: string): Promise<{ nombre: string; emoji: s
   } catch { return { nombre: '', emoji: '🏷', detalle: '' }; }
 }
 
-export function CrearProyectoModal({ otros, onCrear, onClose }: { otros: Array<{ name: string; emoji: string; score: number; color: string }>; onCrear: (nombre: string, emoji: string, detalle: string, score: number) => void; onClose: () => void }) {
-  const [idx, setIdx] = useState(0);
+export function CrearProyectoModal({ onCrear, onClose }: { onCrear: (nombre: string, emoji: string, detalle: string, score: number) => void; onClose: () => void }) {
   const [desc, setDesc] = useState('');
   const [porque, setPorque] = useState('');
-  const [score, setScore] = useState(50);
+  // El número lo pone el Perro después de crearlo (ver `crearProyecto` en BoardShell): acá
+  // nace en el medio de la escala para no inventar una posición.
+  const score = 50;
   const [fase, setFase] = useState<'form' | 'generando' | 'result'>('form');
   const [nombre, setNombre] = useState('');
   const [emoji, setEmoji] = useState('🏷');
@@ -35,14 +52,14 @@ export function CrearProyectoModal({ otros, onCrear, onClose }: { otros: Array<{
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    try { const raw = localStorage.getItem(DRAFT_KEY); if (raw) { const d = JSON.parse(raw); setDesc(d.desc || ''); setPorque(d.porque || ''); setScore(d.score || 50); } } catch { /* no-op */ }
+    try { const raw = localStorage.getItem(DRAFT_KEY); if (raw) { const d = JSON.parse(raw) as { desc?: string; porque?: string }; setDesc(d.desc || ''); setPorque(d.porque || ''); } } catch { /* no-op */ }
     setRestored(true);
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!restored) return;
-    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ desc, porque, score })); } catch { /* no-op */ }
-  }, [restored, desc, porque, score]);
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ desc, porque })); } catch { /* no-op */ }
+  }, [restored, desc, porque]);
   const limpiar = () => { try { localStorage.removeItem(DRAFT_KEY); } catch { /* no-op */ } };
 
   const generar = async () => {
@@ -54,7 +71,6 @@ export function CrearProyectoModal({ otros, onCrear, onClose }: { otros: Array<{
   };
   const crear = () => { if (nombre.trim()) onCrear(nombre.trim(), emoji, detalle.trim(), score); limpiar(); onClose(); };
 
-  const ordenados = otros.slice().sort((a, b) => b.score - a.score);
 
   // ── generando / resultado editable ──
   if (fase !== 'form') {
@@ -82,63 +98,45 @@ export function CrearProyectoModal({ otros, onCrear, onClose }: { otros: Array<{
     );
   }
 
-  const banda = score >= 75 ? '#D0504A' : score >= 50 ? '#C8870C' : score >= 25 ? '#1E9E57' : '#98A0AC';
-  const preguntas = ['Hola, soy el Perro Guardián MaKo', '¿De qué se trata el proyecto?', '¿Qué prioridad le pondrías?', '¿Por qué importa? ¿Qué tareas viven aquí?', '¿Mando esto a MaKo?'];
-  const subs: (string | undefined)[] = [undefined, 'Cuéntamelo en tus palabras.', 'Compáralo con los demás. 10 = el Objetivo Principal (solo uno).', 'Con esto MaKo le pone nombre, emoji y detalle. Puedes saltarlo.', 'Revisa tus respuestas; MaKo genera con esto.'];
-  const puedeAvanzar = idx === 1 ? desc.trim() !== '' : true;
   return (
-    <WizardShell
-      titulo="Nuevo proyecto"
-      total={5} idx={idx}
-      pregunta={preguntas[idx]} sub={subs[idx]}
-      puedeAvanzar={puedeAvanzar}
-      enUltimo={idx === 4} confirmLabel="Generar con MaKo →"
-      atrasLabel={idx === 0 ? 'Cancelar' : 'Atrás'}
-      onClose={onClose}
-      onAtras={() => (idx === 0 ? onClose() : setIdx(idx - 1))}
-      onSiguiente={() => setIdx(idx + 1)}
-      onConfirmar={generar}
-    >
-      {idx === 0 && <IntroBody que="crear un proyecto nuevo" mi="agrupar tus tareas por lo que de verdad mueve la aguja" />}
-      {idx === 1 && <textarea value={desc} onChange={(e) => setDesc(e.target.value)} autoFocus placeholder="Ej: todo lo de conseguir y nutrir leads por WhatsApp y email" style={{ ...textareaStyle }} />}
-      {idx === 3 && <textarea value={porque} onChange={(e) => setPorque(e.target.value)} autoFocus placeholder="Ej: es de donde sale la facturación; van tareas de captación, nutrición y reportes" style={{ ...textareaStyle }} />}
-      {idx === 2 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ textAlign: 'center' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: MONO, fontSize: 32, fontWeight: 800, color: banda }}><ScoreIcon size={28} color={banda} />{score}<span style={{ fontSize: 19, color: 'var(--faint)' }}>/100</span></span>
-            {score >= 95 && <div style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 700 }}>sería el Objetivo Principal</div>}
-          </div>
-          <input type="range" min={1} max={100} step={1} value={score} onChange={(e) => setScore(Number(e.target.value))} style={{ width: '100%', accentColor: banda }} />
-          {ordenados.length > 0 && (
-            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, textAlign: 'left' }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 8 }}>Los que ya tienes</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 150, overflowY: 'auto' }}>
-                {ordenados.map((p, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--dim)' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: 11, fontWeight: 700, color: p.color, background: p.color + '18', border: `1px solid ${p.color}33`, borderRadius: 5, padding: '1px 6px 1px 5px' }}><ScoreIcon size={10} color={p.color} />{p.score}</span>
-                    <span>{p.emoji} {p.name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+    <Shell onClose={onClose}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '15px 20px', borderBottom: '1px solid var(--border)' }}>
+        <GuardianIcon size={22} />
+        <span style={{ fontSize: 15.5, fontWeight: 700, color: 'var(--ink)' }}>Nuevo proyecto</span>
+        <span style={{ flex: 1 }} />
+        <button type="button" onClick={onClose} aria-label="Cerrar" style={{ border: 'none', background: 'transparent', color: 'var(--faint)', fontSize: 21, lineHeight: 1, cursor: 'pointer', padding: '2px 4px' }}>×</button>
+      </div>
+
+      <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div>
+          <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>¿De qué se trata?</div>
+          <textarea value={desc} onChange={(e) => setDesc(e.target.value)} autoFocus rows={3}
+            onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && desc.trim()) void generar(); }}
+            placeholder="Ej: todo lo de conseguir y nutrir leads por WhatsApp y email"
+            style={{ ...textareaStyle, minHeight: 84 }} />
         </div>
-      )}
-      {idx === 4 && (
-        <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {[['De qué se trata', desc], ['Por qué importa', porque]].map(([k, v], i) => (
-            <div key={i} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 13px' }}>
-              <div style={{ fontSize: 11.5, color: 'var(--faint)', marginBottom: 3 }}>{k}</div>
-              <div style={{ fontSize: 13.5, color: v ? 'var(--ink)' : 'var(--faint)', fontWeight: 500 }}>{v || '(sin respuesta)'}</div>
-            </div>
-          ))}
-          <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 13px', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ fontSize: 11.5, color: 'var(--faint)', flex: 1 }}>Prioridad</div>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: MONO, fontSize: 18, fontWeight: 800, color: banda }}><ScoreIcon size={17} color={banda} />{score}<span style={{ fontSize: 12, color: 'var(--faint)' }}>/100</span></span>
-          </div>
+
+        <details>
+          <summary style={{ cursor: 'pointer', userSelect: 'none', fontSize: 12.5, color: 'var(--dim)', fontWeight: 600 }}>
+            Agregar detalles <span style={{ color: 'var(--faint)', fontWeight: 400 }}>· por qué importa y qué tareas viven ahí</span>
+          </summary>
+          <textarea value={porque} onChange={(e) => setPorque(e.target.value)} rows={3}
+            placeholder="Ej: es de donde sale la facturación; van tareas de captación, nutrición y reportes"
+            style={{ ...textareaStyle, marginTop: 12 }} />
+        </details>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '13px 20px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+        <span style={{ fontSize: 12, color: 'var(--faint)' }}>MaKo le pone nombre, emoji, prioridad y detalle. Lo revisas antes de crearlo.</span>
+        <div style={{ display: 'flex', gap: 9 }}>
+          <button type="button" onClick={onClose} style={{ padding: '10px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
+          <button type="button" onClick={() => void generar()} disabled={!desc.trim()}
+            style={{ padding: '10px 20px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: desc.trim() ? 'pointer' : 'default', opacity: desc.trim() ? 1 : 0.55, fontFamily: SANS }}>
+            Armarlo con MaKo →
+          </button>
         </div>
-      )}
-    </WizardShell>
+      </div>
+    </Shell>
   );
 }
 

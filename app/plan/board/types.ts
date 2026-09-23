@@ -183,6 +183,8 @@ export type BoardUser = { nombre: string; avatarUrl: string };
 export type GuardPatch = {
   id: string; score?: number; scoreRazon?: string; impacto?: number; esfuerzo?: number; deadline?: string; deadlineRazon?: string; haceloEn?: string;
   priority?: Prio; detalle?: string; checklist?: Check[]; historialEntry?: Hist;
+  /** A qué proyecto la ruteó el Perro. Sólo viaja cuando la tarea nació SIN proyecto. */
+  labels?: string[];
 };
 /** Ídem para un proyecto nuevo (emoji + descripción + score del Perro). */
 export type GuardProjPatch = { id: string; score: number; scoreRazon: string; impacto?: number; esfuerzo?: number; emoji: string; detalle: string };

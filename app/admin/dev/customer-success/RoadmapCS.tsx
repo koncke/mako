@@ -153,10 +153,13 @@ export function RoadmapCS({ tareas, plan, user }: {
         </Section>
       )}
 
-      {/* El modal EXACTO de /plan cuando el paso tiene tarjeta; la ficha corta cuando no. */}
+      {/* El modal EXACTO de /plan cuando el paso tiene tarjeta; la ficha corta cuando no.
+          Los cinco handlers en no-op son a propósito: acá el modal se usa para MIRAR el
+          paso, y los pop-ups que abrirían (debate, fecha, prioridad, borrar, asignar) viven
+          en /plan, que es donde se edita. */}
       {abierto && tareaAbierta && (
         <TaskModal t={tareaAbierta} board={board} topProjectId={null}
-          onDebate={() => {}} onDebateFecha={() => {}} onDelete={() => {}} onAsignar={() => {}}
+          onDebate={() => {}} onDebateFecha={() => {}} onPrioridad={() => {}} onDelete={() => {}} onAsignar={() => {}}
           ask={(_m, ok) => ok()} onClose={() => setAbierto(null)} />
       )}
       {abierto && !tareaAbierta && (

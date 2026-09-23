@@ -12,17 +12,25 @@
 // Así quedó, y cada decisión es de ese párrafo:
 //  · TODO en una pantalla. Lo único obligatorio es el título.
 //  · Se puede DICTAR el título y el detalle (/api/plan-dictado, cascada gratis).
-//  · La FECHA es un campo, no una pregunta: es el único dato que el Perro no puede deducir.
-//  · La PRIORIDAD es opcional y, si la pones, MANDA: se fija a mano (`score_manual`) y la
-//    corrida del Perro no la toca. Si no la pones, la decide él como siempre.
+//
+// ⚠️ Y EL 23/09/2026, MIRANDO LA PANTALLA: «la opción de nueva tarea debe estar con un form
+// modular, como antes… solo que no tenga tanta fricción. Es mejor que MaKo - Perro guardián
+// le asigne la prioridad y el proyecto correspondiente y le escriba la descripción, si eso
+// ya se hace hoy en día: reutilizar la lógica».
+//
+// Así que lo que se ve al abrir es UNA pregunta —¿qué hay que hacer?— y nada más. Proyecto,
+// fecha y detalle viven detrás de «Agregar detalles», plegado: son la excepción, no el
+// formulario. Y LA CASILLA DE PRIORIDAD SE FUE: era un slider en un alta, o sea pedirle a
+// alguien que puntúe del 1 al 100 algo que todavía no escribió. La pone el Perro en la
+// misma corrida en la que escribe el detalle y elige el proyecto; si se equivoca, se cambia
+// con el lápiz del panel, que es un click.
 // =============================================================================
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useVoiceRecorder } from '@/app/whatsapp/_shared/VoiceRecorder';
 import { EmojiPickerMini } from './EmojiPicker';
-import { ScoreIcon } from './guardian-form';
 import { GuardianIcon } from './GuardianIcon';
-import { type Prio, type Label, PLABEL, PCOLOR, prioFromScore, scoreFromPrio } from './types';
+import { type Prio, type Label, scoreFromPrio } from './types';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -39,11 +47,8 @@ export type CrearData = {
   fijarPrioridad: boolean;
 };
 
-export function CrearTareaModal({ labels, proyectoInicial, prioInicial, puedeFijarPrioridad = false, onCrear, onDone, onClose }: {
+export function CrearTareaModal({ labels, proyectoInicial, prioInicial, onCrear, onDone, onClose }: {
   labels: Label[]; proyectoInicial: string | null; prioInicial: Prio | null;
-  /** ¿este tablero puede FIJAR el número a mano? Sólo el del dueño (ver Repo.prioridadManual).
-   *  Si no puede, la casilla no se dibuja: ofrecer algo que se va a ignorar es un control muerto. */
-  puedeFijarPrioridad?: boolean;
   /** las tareas del plan con su score, para comparar al elegir el número (no se usa hoy) */
   ejemplos?: Array<{ title: string; score: number }>;
   onCrear: (data: CrearData) => Promise<CrearResult>; onDone: (id: string) => void; onClose: () => void;
@@ -54,12 +59,10 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, puedeFij
   const [nuevoProy, setNuevoProy] = useState('');
   const [nuevoEmoji, setNuevoEmoji] = useState('🏷');
   const [deadline, setDeadline] = useState('');
-  // ⚠️ NACE APAGADA SIEMPRE. Abrir el alta desde la cabecera de una columna sugiere el
-  // número de esa banda, pero no es elegirlo: con la casilla pre-tildada, crear una tarea
-  // desde «Alta» le clavaba `score_manual` a algo que nadie decidió, y el Perro no la
-  // volvía a mirar nunca.
-  const [ponerPrio, setPonerPrio] = useState(false);
-  const [userScore, setUserScore] = useState<number>(prioInicial ? scoreFromPrio[prioInicial] : 50);
+  // Abrir el alta desde la cabecera de una columna sigue SUGIRIENDO esa banda —es una pista
+  // de dónde la vio quien la está cargando—, pero ya no la fija nadie a mano: viaja como
+  // sugerencia declarada al Perro, que la puntúa contra el resto del plan y puede ignorarla.
+  const sugerido = prioInicial ? scoreFromPrio[prioInicial] : 0;
   const [creando, setCreando] = useState(false);
   const [err, setErr] = useState('');
   const [restored, setRestored] = useState(false);
@@ -92,7 +95,6 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, puedeFij
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const banda = prioFromScore(userScore);
   const puedeCrear = title.trim().length > 0 && (proy !== NUEVO || nuevoProy.trim() !== '');
 
   const crear = async () => {
@@ -102,9 +104,9 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, puedeFij
     const r = await onCrear({
       title: title.trim(), detalle: detalle.trim(),
       labelIds: proy && proy !== NUEVO ? [proy] : [],
-      userScore, motivoNinguno: '',
+      userScore: sugerido, motivoNinguno: '',
       nuevoProyecto: proy === NUEVO ? nuevoProy.trim() : '', nuevoProyEmoji: nuevoEmoji,
-      argumento: '', deadline, fijarPrioridad: ponerPrio,
+      argumento: '', deadline, fijarPrioridad: false,
     }).catch((e) => { setErr(e instanceof Error ? e.message : String(e)); return null; });
     try { localStorage.removeItem(DRAFT_KEY); } catch { /* no-op */ }
     if (!r) { setCreando(false); return; }
@@ -132,61 +134,55 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, puedeFij
             <BotonDictar titulo="Dictar el título" onTexto={(t) => setTitle((v) => (v ? `${v} ${t}` : t))} onError={setErr} />
           </div>
 
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <label style={{ flex: '1 1 220px', minWidth: 0 }}>
-              <span style={rotulo}>Proyecto</span>
-              <select value={proy} onChange={(e) => setProy(e.target.value)} style={campo}>
-                <option value="">Sin proyecto</option>
-                {labels.map((l) => <option key={l.id} value={l.id}>{l.emoji} {l.name}</option>)}
-                <option value={NUEVO}>＋ Proyecto nuevo…</option>
-              </select>
-            </label>
-            <label style={{ flex: '0 1 190px' }}>
-              <span style={rotulo}>Para cuándo</span>
-              <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} style={campo} />
-            </label>
-          </div>
-
-          {proy === NUEVO && (
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <EmojiPickerMini value={nuevoEmoji} onPick={setNuevoEmoji} />
-              <input value={nuevoProy} onChange={(e) => setNuevoProy(e.target.value)} autoFocus placeholder="¿Cómo se llama el proyecto nuevo?"
-                style={{ ...campo, border: '1px solid var(--primary)' }} />
-            </div>
-          )}
-
-          <div>
-            <span style={rotulo}>Detalle <span style={{ textTransform: 'none', letterSpacing: 0, fontFamily: SANS }}>(opcional)</span></span>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-              <textarea value={detalle} onChange={(e) => setDetalle(e.target.value)} rows={3} placeholder="Contexto, alcance, criterio de listo…"
-                style={{ ...campo, resize: 'vertical', lineHeight: 1.5 }} />
-              <BotonDictar titulo="Dictar el detalle" onTexto={(t) => setDetalle((v) => (v ? `${v}\n${t}` : t))} onError={setErr} />
-            </div>
-          </div>
-
-          {/* PRIORIDAD — opcional, y si la pones GANA */}
-          {puedeFijarPrioridad && (
-          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', fontSize: 13.5, color: 'var(--ink)' }}>
-              <input type="checkbox" checked={ponerPrio} onChange={(e) => setPonerPrio(e.target.checked)} style={{ width: 16, height: 16, accentColor: 'var(--primary)', cursor: 'pointer' }} />
-              Ponerle yo la prioridad
-              <span style={{ fontSize: 12, color: 'var(--faint)' }}>{ponerPrio ? '· MaKo no la va a cambiar' : '· la decide MaKo'}</span>
-            </label>
-            {ponerPrio && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
-                <input type="range" min={1} max={100} value={userScore} onChange={(e) => setUserScore(Number(e.target.value))} style={{ flex: 1, accentColor: PCOLOR[banda], cursor: 'pointer' }} aria-label="Prioridad, del 1 al 100" />
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: MONO, fontSize: 15, fontWeight: 800, color: PCOLOR[banda] }}><ScoreIcon size={14} color={PCOLOR[banda]} />{userScore}</span>
-                <span style={{ fontSize: 11.5, fontWeight: 700, color: PCOLOR[banda], textTransform: 'uppercase', letterSpacing: '.05em' }}>{PLABEL[banda]}</span>
+          {/* TODO LO DEMÁS, PLEGADO. Lo que el Perro puede deducir no se pregunta: el
+              proyecto lo rutea contra el catálogo, el detalle lo escribe con el contrato de
+              cuatro partes y la fecha la propone. Esto está acá para cuando YA sabés la
+              respuesta —«va al proyecto X y vence el jueves»—, no para completarlo siempre. */}
+          <details>
+            <summary style={{ cursor: 'pointer', userSelect: 'none', fontSize: 12.5, color: 'var(--dim)', fontWeight: 600 }}>
+              Agregar detalles <span style={{ color: 'var(--faint)', fontWeight: 400 }}>· proyecto, fecha y descripción</span>
+            </summary>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 14 }}>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <label style={{ flex: '1 1 220px', minWidth: 0 }}>
+                  <span style={rotulo}>Proyecto</span>
+                  <select value={proy} onChange={(e) => setProy(e.target.value)} style={campo}>
+                    <option value="">Que lo elija MaKo</option>
+                    {labels.map((l) => <option key={l.id} value={l.id}>{l.emoji} {l.name}</option>)}
+                    <option value={NUEVO}>＋ Proyecto nuevo…</option>
+                  </select>
+                </label>
+                <label style={{ flex: '0 1 190px' }}>
+                  <span style={rotulo}>Para cuándo</span>
+                  <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} style={campo} />
+                </label>
               </div>
-            )}
-          </div>
-          )}
+
+              {proy === NUEVO && (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <EmojiPickerMini value={nuevoEmoji} onPick={setNuevoEmoji} />
+                  <input value={nuevoProy} onChange={(e) => setNuevoProy(e.target.value)} autoFocus placeholder="¿Cómo se llama el proyecto nuevo?"
+                    style={{ ...campo, border: '1px solid var(--primary)' }} />
+                </div>
+              )}
+
+              <div>
+                <span style={rotulo}>Detalle <span style={{ textTransform: 'none', letterSpacing: 0, fontFamily: SANS }}>(opcional)</span></span>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                  <textarea value={detalle} onChange={(e) => setDetalle(e.target.value)} rows={3} placeholder="Contexto, alcance, criterio de listo…"
+                    style={{ ...campo, resize: 'vertical', lineHeight: 1.5 }} />
+                  <BotonDictar titulo="Dictar el detalle" onTexto={(t) => setDetalle((v) => (v ? `${v}
+${t}` : t))} onError={setErr} />
+                </div>
+              </div>
+            </div>
+          </details>
 
           {err && <div style={{ fontSize: 12.5, color: 'var(--bad)', lineHeight: 1.4 }}>{err}</div>}
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '13px 20px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-          <span style={{ fontSize: 12, color: 'var(--faint)' }}>{ponerPrio ? 'MaKo le va a escribir el detalle igual.' : 'MaKo le pone la prioridad y la fecha si no se las pones.'}</span>
+          <span style={{ fontSize: 12, color: 'var(--faint)' }}>MaKo le pone la prioridad, el proyecto y el detalle.</span>
           <div style={{ display: 'flex', gap: 9 }}>
             <button type="button" onClick={onClose} style={ghostBtn}>Cancelar</button>
             <button type="button" onClick={() => void crear()} disabled={!puedeCrear || creando} style={{ ...primaryBtn, opacity: !puedeCrear || creando ? 0.55 : 1, cursor: !puedeCrear || creando ? 'default' : 'pointer' }}>

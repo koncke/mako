@@ -2790,3 +2790,95 @@ alguien lo lee. Cuando no entra nada, se escribe igual: un descarte sin rastro h
 indistinguibles «no llegó» de «lo tiramos nosotros».
 
 **Vive en:** lib/plan-board.ts (`recurvarPlanOwner`, `ampliarTareasPlanOwner`) · lib/detalle-contrato.ts (`TOPE_DETALLE`) · app/plan/TodoBoard.tsx (`prioridadManual`) · app/plan/board/types.ts (`Repo.debatePrioridad`) · app/plan/board/PrioridadAMano.tsx · *2026-09-23*
+
+## El panel de prioridad, el alta y el header: trece cosas que se vieron MIRANDO la pantalla (23/09/2026)
+
+Todas salieron de capturas del tablero en producción, no de leer código. Vale la pena
+anotarlo porque es el patrón: lo que se arregló hoy a la mañana estaba bien *como
+mecanismo* y mal *como pantalla*, y eso no lo encuentra ningún test.
+
+### Dos controles para el mismo número no son «una opción más»: son dos
+
+El panel del detalle terminó con TRES formas de cambiar la prioridad —el slider inline, el
+botón «Cambiar prioridad» (la audiencia) y el pop-up del arrastre—, cada una con su propia
+cara y su propio resultado. El reporte fue literal: *«no tiene más sentido que salga el
+botón o deslizable para cambiar la prioridad allí, si para eso teníamos el pop-up»*.
+
+Quedó UNA: un lápiz pegado al número, que abre el mismo pop-up del arrastre. La audiencia no
+se borró —se movió ADENTRO del pop-up, como un link—: es una opción de quien ya decidió
+cambiar el número, no un botón más en el panel. **Antes de agregar un control nuevo, contá
+los que ya contestan esa misma pregunta.**
+
+### Un desplegable por sección es no tener desplegable
+
+El mismo panel tenía dos `<details>` anidados en 236px de ancho: «Por qué este número» e
+«Impacto y esfuerzo», más el cartel del candado y el botón. Tres clicks para ver tres
+renglones. *«El botón de desplegable tiene que salir en el título y se debe desplegar todo.
+No que cada sección tenga su desplegable.»* Uno solo, en el título del bloque.
+
+⚠️ Y el bloque es AHORA COMPARTIDO entre tareas y proyectos (`BloquePrioridad`), a pedido
+—*«revisá que funcione igualmente para tareas como para proyecto»*—. Eran dos copias del
+mismo bloque y ya habían divergido: el de proyectos no mostraba el ajuste por tiempo.
+
+### Un ícono suelto al final de una columna no se lee como «editá esto»
+
+El pedido incluye el porqué: *«posicionalo donde realmente se vea bien, porque donde está
+ahora si aparece un icono de lápiz flotando no tiene sentido»*. El lápiz va **pegado al dato
+que edita**, en la misma fila del número. La posición es parte del significado del ícono.
+
+⚠️ Y adentro de un `<summary>`, CUALQUIER click pliega. El lápiz necesita
+`preventDefault` + `stopPropagation` o abre el pop-up y cierra el bloque en el mismo gesto.
+
+### `scrollWidth` NO es el ancho natural de un contenedor flex — y ahí estaba el bug del zoom
+
+El header se mide para decidir si pliega los botones, y la medición sumaba el `scrollWidth`
+de cada hijo «que es su ancho natural aunque el flex lo esté aplastando». **Eso es falso
+para un contenedor cuyo contenido ENTRA.** El buscador declara `flex: 0 1 280px` con
+`minWidth: 150`: cuando el flex lo achica a 150, su contenido sigue entrando, así que
+`scrollWidth` devuelve 150 — el ancho YA APLASTADO. La suma decía «entra» exactamente en el
+caso en que no entraba, y el header, que envuelve por regla de la casa, tiraba los botones a
+un segundo renglón pegado al borde izquierdo.
+
+Se nota primero con el zoom porque el zoom achica el viewport en píxeles CSS sin tocar nada
+más. **La medición correcta es recursiva**: un contenedor flex es la suma de sus hijos más
+sus gaps; una hoja es el mayor entre lo que mide, lo que declara como `flex-basis` y lo que
+ocupa su contenido. Y con `getBoundingClientRect`, no `offsetWidth`: con zoom los anchos son
+fraccionarios y redondear para abajo en cada hijo vuelve a inclinar la balanza hacia «entra».
+
+### Un slider en un ALTA es pedir un juicio sobre algo que todavía no existe
+
+Las dos altas —tarea y proyecto— preguntaban la prioridad con un slider del 1 al 100. En el
+alta de proyecto encima venía con la lista de los otros 70 al lado para comparar, dentro de
+un wizard de cinco pasos. *«La opción de nueva tarea debe estar con un form modular, como
+antes… solo que no tenga tanta fricción. Es mejor que MaKo le asigne la prioridad y el
+proyecto correspondiente y le escriba la descripción, si eso ya se hace hoy en día:
+reutilizar la lógica.»*
+
+Las dos quedaron en una pregunta, con el resto plegado detrás de «Agregar detalles». Y lo
+que se reutilizó ya existía y no se estaba usando en este camino:
+
+- **El ruteo a proyecto** (`asignarTareasAProyectos`) lo usaba la carga de una reunión desde
+  agosto. El alta manual era el ÚNICO camino que no ruteaba: o elegías de una lista de 70
+  antes de escribir el título, o la tarea quedaba «sin proyecto» para siempre.
+- **El score de un proyecto nuevo** (`describirProyectosNuevos`) sólo corría para los
+  proyectos que abría una reunión. Uno creado a mano nacía en 50 sin razón.
+
+**Cuando una pantalla pide un dato que el sistema ya sabe deducir en otro camino, el
+problema no es la pantalla: es que falta un call site.**
+
+### Dos preferencias con la misma pregunta adentro se leen como un filtro roto
+
+La vista de tabla y el filtro de estado estaban duplicados —`kanban.tabla` / `proyectos.tabla`,
+`kanban.estado` / `proyectos.estado`—, así que cambiar de tab deshacía lo que acababas de
+elegir. Eso no se lee como dos estados independientes: se lee como que el control no
+funciona. Una sola preferencia para las dos tabs; los rótulos siguen siendo distintos
+(Activas/Activos) porque cambia el sustantivo, no la elección.
+
+### Y la tab se llama «tareas», con su alias
+
+`kanban` describe CÓMO se dibuja —y desde que hay vista de tabla ni siquiera es siempre un
+kanban—; lo que hay ahí son las tareas. El nombre viejo **sigue resolviendo para siempre**
+(`ALIAS_VISTA`): vive en links compartidos y en favoritos, y renombrar sin redirigir es
+romperlos en silencio.
+
+**Vive en:** app/plan/board/PrioridadAMano.tsx · app/plan/board/BoardShell.tsx (`BloquePrioridad`, `anchoNatural`, `ALIAS_VISTA`) · app/plan/board/CrearTareaModal.tsx · app/plan/board/CrearProyecto.tsx · lib/plan-board.ts (`priorizarNuevasOwner`) · *2026-09-23*
