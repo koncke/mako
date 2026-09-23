@@ -8,8 +8,15 @@
 // Uso (el flag --conditions=react-server neutraliza `server-only` fuera de Next):
 //   NODE_OPTIONS="--conditions=react-server" npx tsx scripts/backfill-calendly.ts --dry
 //   NODE_OPTIONS="--conditions=react-server" npx tsx scripts/backfill-calendly.ts
-// Token: usa CALENDLY_API_TOKEN; si no está, cae a CALENDLY_WEBHOOK_SIGNING_KEY
-// (en esta cuenta el mismo PAT sirve para la API REST y para el webhook).
+// Token: CALENDLY_API_TOKEN.
+//
+// ⚠️ YA NO CAE A `CALENDLY_WEBHOOK_SIGNING_KEY`, y el comentario que decía que era el mismo
+// PAT dejó de ser cierto el 19/09/2026: al recrear la suscripción, la signing key pasó a
+// ser 32 bytes aleatorios guardados en la tabla `credenciales`
+// (scripts/arreglar-webhook-calendly.ts:89). Con el fallback puesto, faltar el PAT no daba
+// un error claro: mandaba un hex al azar como Bearer y moría con un 401 en /users/me.
+//
+// Rango: por default desde --desde=YYYY-MM-DD (o 2025-12-01 si no se pasa).
 //
 // Reglas de no-destrucción (vía upsertLeadFromCalendly con soloCompletarVacios):
 //   - Lead existente: solo completa campos VACÍOS. Nunca pisa datos cargados
@@ -24,17 +31,21 @@ import { resolve } from 'node:path';
 
 config({ path: resolve(process.cwd(), '.env.local') });
 
-import { upsertLeadFromCalendly, saveLeadRespuestas } from '../lib/leads';
-import { isoToFechaTijuana, extractAnswer } from '../lib/calendly';
-import { runWithWorkspace, OWNER_WS } from '../lib/workspace';
+import { upsertLeadFromCalendly, saveLeadRespuestas, normalizarTelefono } from '../lib/leads';
+import { isoToFechaTijuana, extractAnswer, extractRespuestaPorFrase } from '../lib/calendly';
+import { runWithWorkspace, OWNER_WS, getTenantDb } from '../lib/workspace';
 
 // R1 vs R2 por el nombre del evento de Calendly (para las respuestas exactas).
 const ES_R2 = /r2|reuni[oó]n 2|junta 2|seguimiento/i;
 
 const API = 'https://api.calendly.com';
-const MIN_START_TIME = '2025-12-01T00:00:00Z';
 const PAUSA_MS = 300;
 const DRY = process.argv.includes('--dry');
+// Desde cuándo mirar. Sin el flag son diez meses de reservas: no es destructivo
+// (soloCompletarVacios) pero escribe en leads históricos y hace ilegible el resumen —
+// «Existentes (revisados)» dice cientos y el agujero que se vino a tapar se pierde ahí.
+const desdeArg = process.argv.find((a) => a.startsWith('--desde='))?.slice(8);
+const MIN_START_TIME = desdeArg ? `${desdeArg}T00:00:00Z` : '2025-12-01T00:00:00Z';
 
 // Emails de PRUEBA que Mauricio borró a propósito en sesiones anteriores
 // (su coach Martin, él mismo probando, y agendas de prueba). No re-importar.
@@ -53,8 +64,8 @@ function sleep(ms: number): Promise<void> {
 }
 
 function token(): string {
-  const t = process.env.CALENDLY_API_TOKEN || process.env.CALENDLY_WEBHOOK_SIGNING_KEY;
-  if (!t) throw new Error('Falta CALENDLY_API_TOKEN (o CALENDLY_WEBHOOK_SIGNING_KEY) en .env.local');
+  const t = process.env.CALENDLY_API_TOKEN;
+  if (!t) throw new Error('Falta CALENDLY_API_TOKEN en .env.local (la signing key del webhook YA NO sirve: desde el 19/09 es una clave aleatoria, no un PAT)');
   return t;
 }
 
@@ -149,18 +160,32 @@ async function main() {
         const telefono = extractAnswer(inv.questions_and_answers, [
           'tel', 'phone', 'celular', 'móvil', 'movil',
         ]);
-        const respuesta_facturacion = extractAnswer(inv.questions_and_answers, [
-          'facturación', 'facturacion', 'presupuesto', 'budget', 'ingreso anual', 'ingresos',
+        // ⚠️ LAS MISMAS FRASES QUE EL WEBHOOK, Y POR LA MISMA RAZÓN. Acá había
+        // `extractAnswer` con keywords sueltas, que es lo que el webhook ABANDONÓ: devuelve
+        // la PRIMERA pregunta que contenga la palabra, y «equipo» matchea «…multiplicar los
+        // resultados de tu equipo» (la de inversión) antes que «¿Cuántos colaboradores
+        // tienes?». En un lead que ya existe el daño lo tapa `soloCompletarVacios`; en uno
+        // NUEVO el insert escribe la respuesta cruzada sin ninguna condición — y el agujero
+        // del 11/09 incluye por lo menos una persona que no existe en el CRM.
+        // Las frases son copia literal de app/api/webhooks/calendly/route.ts:251-268.
+        const qa = inv.questions_and_answers;
+        const respuesta_objetivo = extractRespuestaPorFrase(qa, [
+          'qué quieres lograr', 'que quieres lograr', 'qué querés lograr', 'que queres lograr',
         ]);
-        const respuesta_colaboradores = extractAnswer(inv.questions_and_answers, [
-          'colaborador', 'equipo', 'empleado', 'tamaño', 'tamano', 'cuántas personas', 'cuantas personas',
+        const respuesta_inversion = extractRespuestaPorFrase(qa, [
+          'posibilidad de invertir', 'invertir para superar',
         ]);
-        const respuesta_objetivo = extractAnswer(inv.questions_and_answers, [
-          'objetivo', 'lograr', 'meta', 'qué quieres', 'que quieres', 'qué querés', 'que queres',
+        const respuesta_colaboradores = extractRespuestaPorFrase(qa, [
+          'cuántos colaboradores', 'cuantos colaboradores', 'colaboradores tienes actualmente', 'colaboradores tienes',
         ]);
-        const respuesta_cuando_empezar = extractAnswer(inv.questions_and_answers, [
-          'cuándo empezar', 'cuando empezar', 'cuándo iniciar', 'cuando iniciar',
-          'cuándo te gustaría', 'cuando te gustaria', 'urgencia', 'cuándo comenzar', 'cuando comenzar',
+        const respuesta_facturacion = extractRespuestaPorFrase(qa, [
+          '20 millones', '$20', 'es tu caso',
+        ]);
+        const respuesta_decisor = extractRespuestaPorFrase(qa, [
+          'participar en la decisión', 'participar en la decision', 'alguien más', 'alguien mas',
+        ]);
+        const respuesta_cuando_empezar = extractRespuestaPorFrase(qa, [
+          'cuándo quieres empezar', 'cuando quieres empezar', 'cuándo querés empezar', 'cuando queres empezar',
         ]);
 
         const tk = inv.tracking;
@@ -174,7 +199,33 @@ async function main() {
         const fechaJ1 = isoToFechaTijuana(ev.start_time);
 
         if (DRY) {
-          console.log(`  [dry] ${nombre} <${email}> J1=${fechaJ1} utm=${tk?.utm_campaign ?? '—'} vsl=${visitor_id ? 'sí' : 'no'}`);
+          // ⚠️ EL DRY HACE EL MISMO LOOKUP QUE LA ESCRITURA. Antes imprimía lo que había
+          // devuelto Calendly y seguía de largo, sin tocar la base: o sea contestaba «qué
+          // trae Calendly», no «qué le va a pasar al CRM», que es la única pregunta que
+          // importa antes de correrlo. Es la regla de AGENTS.md: un preview que no pasa por
+          // el camino de escritura ESTIMA, no valida.
+          //
+          // Las dos consultas son copia literal de las de `upsertLeadFromCalendly`
+          // (lib/leads.ts:1166-1183): teléfono normalizado primero, email después.
+          type LeadMinimo = { id: number; nombre: string; fecha_junta_1: string | null; junta_1_at: string | null; respuesta_inversion: string | null };
+          const db = await getTenantDb();
+          const telNorm = normalizarTelefono(telefono);
+          const COLS = 'id, nombre, fecha_junta_1, junta_1_at, respuesta_inversion';
+          let existente: LeadMinimo | null = null;
+          if (telNorm) {
+            const { data } = await db.from('leads').select(COLS).eq('telefono_normalizado', telNorm).maybeSingle();
+            existente = (data as unknown as LeadMinimo | null) ?? null;
+          }
+          if (!existente) {
+            const { data } = await db.from('leads').select(COLS).eq('email', email.trim().toLowerCase()).maybeSingle();
+            existente = (data as unknown as LeadMinimo | null) ?? null;
+          }
+          const faltantes = existente
+            ? [!existente.fecha_junta_1 && 'fecha_junta_1', !existente.junta_1_at && 'junta_1_at', !existente.respuesta_inversion && 'respuesta_inversion'].filter(Boolean)
+            : [];
+          const veredicto = !existente ? 'CREA' : faltantes.length ? `COMPLETA(${faltantes.join(',')})` : 'NADA';
+          console.log(`  [dry] ${veredicto.padEnd(46)} ${nombre} <${email}> J1=${fechaJ1} utm=${tk?.utm_campaign ?? '—'} vsl=${visitor_id ? 'sí' : 'no'}`);
+          if (veredicto === 'CREA') creados++; else if (veredicto.startsWith('COMPLETA')) completados++; else saltados++;
           continue;
         }
 
@@ -194,6 +245,12 @@ async function main() {
             respuesta_colaboradores,
             respuesta_objetivo,
             respuesta_cuando_empezar,
+            respuesta_inversion,
+            respuesta_decisor,
+            // La hora EXACTA, no sólo el día: es lo que mira el «ya pasó» de crm-auto
+            // (lib/crm-auto-plan.ts:85) y lo que el webhook manda con ese mismo comentario.
+            // Sin esto, los leads recuperados quedan con el No Show calculado a ciegas.
+            junta_1_at: ev.start_time,
             visitor_id,
           },
           {
@@ -207,7 +264,11 @@ async function main() {
         // Idempotente por (lead, reunión, evento).
         if (inv.questions_and_answers?.length) {
           const reunion = ES_R2.test(ev.name ?? '') ? 'R2' : 'R1';
-          await saveLeadRespuestas(lead.id, reunion, inv.questions_and_answers, ev.start_time);
+          // ⚠️ `fechaJ1`, NO `ev.start_time`. El dedup de saveLeadRespuestas es un `.eq`
+          // exacto sobre `evento_inicio`, y el webhook le pasa el DÍA («2026-09-21»), no el
+          // ISO completo. Con formatos distintos no matchea y la misma reunión queda con
+          // dos filas de respuestas.
+          await saveLeadRespuestas(lead.id, reunion, inv.questions_and_answers, fechaJ1);
         }
         if (created) {
           creados++;
@@ -226,9 +287,9 @@ async function main() {
 
   console.log('\n──────── RESUMEN ────────');
   console.log(`Eventos leídos       : ${eventos.length}`);
-  console.log(`Leads creados        : ${creados}`);
-  console.log(`Existentes (revisados): ${completados}`);
-  console.log(`Invitees saltados    : ${saltados}`);
+  console.log(`Leads ${DRY ? 'que se crearían' : 'creados        '}: ${creados}`);
+  console.log(`${DRY ? 'Que se completarían  ' : 'Existentes (revisados)'}: ${completados}`);
+  console.log(`${DRY ? 'Sin cambios / saltados' : 'Invitees saltados    '}: ${saltados}`);
   console.log(`Errores              : ${errores.length}`);
   for (const e of errores) console.log(`  - ${e}`);
   process.exit(errores.length > 0 ? 1 : 0);
