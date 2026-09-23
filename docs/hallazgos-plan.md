@@ -2903,4 +2903,29 @@ kanban—; lo que hay ahí son las tareas. El nombre viejo **sigue resolviendo p
 (`ALIAS_VISTA`): vive en links compartidos y en favoritos, y renombrar sin redirigir es
 romperlos en silencio.
 
-**Vive en:** app/plan/board/PrioridadAMano.tsx · app/plan/board/BoardShell.tsx (`BloquePrioridad`, `anchoNatural`, `ALIAS_VISTA`) · app/plan/board/CrearTareaModal.tsx · app/plan/board/CrearProyecto.tsx · lib/plan-board.ts (`priorizarNuevasOwner`) · *2026-09-23*
+### Un plegable con tres campos adentro sigue siendo tres campos
+
+Las dos altas quedaron en una pregunta + «Agregar detalles» plegado. No alcanzó: *«no
+quiero la opción de agregar detalles, ni en proyecto ni en tareas»*. Plegar reduce lo que se
+VE, no lo que hay que decidir — y mientras el control exista, quien lo abre siente que le
+falta completarlo. Si el sistema puede deducir un campo, el campo no se pliega: **se saca**.
+
+Lo que se conservó y NO es un campo: `proyectoInicial` sigue llegando cuando el alta se abre
+desde la cabecera de una columna o desde un proyecto. Eso es un dato del contexto, no una
+pregunta.
+
+### Crear sin esperar al modelo abre una ventana en la que la tarjeta está VACÍA
+
+El alta dejó de esperar al Perro (eran 10-20 segundos mirando un cartel), y eso está bien.
+Lo que faltaba es que ahora la tarjeta nace sin proyecto, sin descripción y con el score de
+fábrica, y durante esos segundos el detalle recién abierto **se lee como que la creación
+salió mal**. *«Cuando se cree un proyecto o tarea me lo tiene que abrir el detail
+inmediatamente… y en el proceso, obvio el loader.»*
+
+Van juntos y son una sola decisión: el detalle se abre en el acto —de la tarea y del
+proyecto, que antes no se abría— y arriba va el estado `analizando` de `GRAMATICA`, que
+**exige nombrar la fuente**: «Revisando · tu plan, para ponerle proyecto, prioridad y
+detalle». Un spinner sin objeto a los diez segundos es indistinguible de una pantalla
+colgada.
+
+**Vive en:** app/plan/board/PrioridadAMano.tsx · app/plan/board/BoardShell.tsx (`BloquePrioridad`, `PerroTrabajando`, `ALIAS_VISTA`) · app/plan/board/CrearTareaModal.tsx · app/plan/board/CrearProyecto.tsx · lib/plan-board.ts (`priorizarNuevasOwner`) · *2026-09-23*

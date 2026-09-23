@@ -28,14 +28,12 @@
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useVoiceRecorder } from '@/app/whatsapp/_shared/VoiceRecorder';
-import { EmojiPickerMini } from './EmojiPicker';
 import { GuardianIcon } from './GuardianIcon';
-import { type Prio, type Label, scoreFromPrio } from './types';
+import { type Prio, scoreFromPrio } from './types';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 const DRAFT_KEY = 'mako_draft_tarea';
-const NUEVO = '__nuevo__';
 
 export type CrearResult = { id: string; score: number; prio: Prio; razon: string; respuesta: string } | null;
 export type CrearData = {
@@ -47,18 +45,19 @@ export type CrearData = {
   fijarPrioridad: boolean;
 };
 
-export function CrearTareaModal({ labels, proyectoInicial, prioInicial, onCrear, onDone, onClose }: {
-  labels: Label[]; proyectoInicial: string | null; prioInicial: Prio | null;
+export function CrearTareaModal({ proyectoInicial, prioInicial, onCrear, onDone, onClose }: {
+  proyectoInicial: string | null; prioInicial: Prio | null;
   /** las tareas del plan con su score, para comparar al elegir el número (no se usa hoy) */
   ejemplos?: Array<{ title: string; score: number }>;
   onCrear: (data: CrearData) => Promise<CrearResult>; onDone: (id: string) => void; onClose: () => void;
 }) {
   const [title, setTitle] = useState('');
-  const [detalle, setDetalle] = useState('');
-  const [proy, setProy] = useState<string>(proyectoInicial ?? '');
-  const [nuevoProy, setNuevoProy] = useState('');
-  const [nuevoEmoji, setNuevoEmoji] = useState('🏷');
-  const [deadline, setDeadline] = useState('');
+  // Lo que el alta ya no pregunta. Viaja vacío y lo resuelve el Perro; `proyectoInicial`
+  // sigue llegando (se abre desde la cabecera de una columna o desde un proyecto) y por eso
+  // se respeta cuando está: es un dato, no una pregunta.
+  const detalle = '';
+  const proy = proyectoInicial ?? '';
+  const deadline = '';
   // Abrir el alta desde la cabecera de una columna sigue SUGIRIENDO esa banda —es una pista
   // de dónde la vio quien la está cargando—, pero ya no la fija nadie a mano: viaja como
   // sugerencia declarada al Perro, que la puntúa contra el resto del plan y puede ignorarla.
@@ -67,7 +66,9 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, onCrear,
   const [err, setErr] = useState('');
   const [restored, setRestored] = useState(false);
 
-  // BORRADOR: lo que escribiste sobrevive a cerrar el modal sin querer.
+  // BORRADOR: lo que escribiste sobrevive a cerrar el modal sin querer. Ahora es UN campo,
+  // así que el borrador es una línea — pero sigue existiendo: cerrar sin querer un modal
+  // donde acabás de dictar treinta segundos de audio es la peor forma de perderlo.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     try {
@@ -75,10 +76,6 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, onCrear,
       if (raw) {
         const d = JSON.parse(raw) as Record<string, unknown>;
         if (typeof d.title === 'string') setTitle(d.title);
-        if (typeof d.detalle === 'string') setDetalle(d.detalle);
-        if (typeof d.nuevoProy === 'string') setNuevoProy(d.nuevoProy);
-        if (typeof d.nuevoEmoji === 'string') setNuevoEmoji(d.nuevoEmoji);
-        if (typeof d.deadline === 'string') setDeadline(d.deadline);
       }
     } catch { /* storage bloqueado */ }
     setRestored(true);
@@ -86,8 +83,8 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, onCrear,
   /* eslint-enable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!restored) return;
-    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, detalle, nuevoProy, nuevoEmoji, deadline })); } catch { /* idem */ }
-  }, [restored, title, detalle, nuevoProy, nuevoEmoji, deadline]);
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ title })); } catch { /* idem */ }
+  }, [restored, title]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -95,7 +92,7 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, onCrear,
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const puedeCrear = title.trim().length > 0 && (proy !== NUEVO || nuevoProy.trim() !== '');
+  const puedeCrear = title.trim().length > 0;
 
   const crear = async () => {
     if (!puedeCrear || creando) return;
@@ -103,9 +100,11 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, onCrear,
     setErr('');
     const r = await onCrear({
       title: title.trim(), detalle: detalle.trim(),
-      labelIds: proy && proy !== NUEVO ? [proy] : [],
+      labelIds: proy ? [proy] : [],
       userScore: sugerido, motivoNinguno: '',
-      nuevoProyecto: proy === NUEVO ? nuevoProy.trim() : '', nuevoProyEmoji: nuevoEmoji,
+      // Un proyecto NUEVO ya no se abre desde acá: tiene su propia alta, que es una
+      // decisión y no un campo de un formulario de tareas.
+      nuevoProyecto: '', nuevoProyEmoji: '🏷',
       argumento: '', deadline, fijarPrioridad: false,
     }).catch((e) => { setErr(e instanceof Error ? e.message : String(e)); return null; });
     try { localStorage.removeItem(DRAFT_KEY); } catch { /* no-op */ }
@@ -117,72 +116,34 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, onCrear,
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 130, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '8vh 20px 20px', fontFamily: SANS }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '15px 20px', borderBottom: '1px solid var(--border)' }}>
-          <GuardianIcon size={22} />
-          <span style={{ fontSize: 15.5, fontWeight: 700, color: 'var(--ink)' }}>Nueva tarea</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 20px 0' }}>
+          <GuardianIcon size={20} />
+          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Nueva tarea</span>
           <span style={{ flex: 1 }} />
-          <button type="button" onClick={onClose} aria-label="Cerrar" style={{ border: 'none', background: 'transparent', color: 'var(--faint)', fontSize: 21, lineHeight: 1, cursor: 'pointer', padding: '2px 4px' }}>×</button>
+          <button type="button" onClick={onClose} aria-label="Cerrar" style={{ border: 'none', background: 'transparent', color: 'var(--faint)', fontSize: 20, lineHeight: 1, cursor: 'pointer', padding: '2px 4px' }}>×</button>
         </div>
 
-        <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {/* TÍTULO — lo único obligatorio */}
+        {/* UNA PREGUNTA. Y NADA MÁS. «No quiero la opción de agregar detalles, ni en
+            proyecto ni en tareas» (23/09/2026). Lo que había detrás de ese plegable
+            —proyecto, fecha y descripción— lo escribe el Perro en la misma corrida: el
+            proyecto lo rutea contra el catálogo cerrado, el detalle lo arma con el contrato
+            de cuatro partes y la fecha la propone. Y si se equivoca, la tarjeta se abre sola
+            acá al lado para corregirlo, que es un click contra los cuatro campos de antes. */}
+        <div style={{ padding: '14px 20px 18px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus
               onKeyDown={(e) => { if (e.key === 'Enter' && puedeCrear) void crear(); }}
               placeholder="¿Qué hay que hacer?"
-              style={{ flex: 1, padding: '12px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 15.5, outline: 'none', fontFamily: SANS }} />
-            <BotonDictar titulo="Dictar el título" onTexto={(t) => setTitle((v) => (v ? `${v} ${t}` : t))} onError={setErr} />
+              style={{ flex: 1, minWidth: 0, padding: '13px 0', border: 'none', borderBottom: '2px solid var(--border)', background: 'transparent', color: 'var(--ink)', fontSize: 19, outline: 'none', fontFamily: SANS }}
+              onFocus={(e) => { e.currentTarget.style.borderBottomColor = 'var(--primary)'; }}
+              onBlur={(e) => { e.currentTarget.style.borderBottomColor = 'var(--border)'; }} />
+            <BotonDictar titulo="Dictar la tarea" onTexto={(t) => setTitle((v) => (v ? `${v} ${t}` : t))} onError={setErr} />
           </div>
-
-          {/* TODO LO DEMÁS, PLEGADO. Lo que el Perro puede deducir no se pregunta: el
-              proyecto lo rutea contra el catálogo, el detalle lo escribe con el contrato de
-              cuatro partes y la fecha la propone. Esto está acá para cuando YA sabés la
-              respuesta —«va al proyecto X y vence el jueves»—, no para completarlo siempre. */}
-          <details>
-            <summary style={{ cursor: 'pointer', userSelect: 'none', fontSize: 12.5, color: 'var(--dim)', fontWeight: 600 }}>
-              Agregar detalles <span style={{ color: 'var(--faint)', fontWeight: 400 }}>· proyecto, fecha y descripción</span>
-            </summary>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 14 }}>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <label style={{ flex: '1 1 220px', minWidth: 0 }}>
-                  <span style={rotulo}>Proyecto</span>
-                  <select value={proy} onChange={(e) => setProy(e.target.value)} style={campo}>
-                    <option value="">Que lo elija MaKo</option>
-                    {labels.map((l) => <option key={l.id} value={l.id}>{l.emoji} {l.name}</option>)}
-                    <option value={NUEVO}>＋ Proyecto nuevo…</option>
-                  </select>
-                </label>
-                <label style={{ flex: '0 1 190px' }}>
-                  <span style={rotulo}>Para cuándo</span>
-                  <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} style={campo} />
-                </label>
-              </div>
-
-              {proy === NUEVO && (
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <EmojiPickerMini value={nuevoEmoji} onPick={setNuevoEmoji} />
-                  <input value={nuevoProy} onChange={(e) => setNuevoProy(e.target.value)} autoFocus placeholder="¿Cómo se llama el proyecto nuevo?"
-                    style={{ ...campo, border: '1px solid var(--primary)' }} />
-                </div>
-              )}
-
-              <div>
-                <span style={rotulo}>Detalle <span style={{ textTransform: 'none', letterSpacing: 0, fontFamily: SANS }}>(opcional)</span></span>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                  <textarea value={detalle} onChange={(e) => setDetalle(e.target.value)} rows={3} placeholder="Contexto, alcance, criterio de listo…"
-                    style={{ ...campo, resize: 'vertical', lineHeight: 1.5 }} />
-                  <BotonDictar titulo="Dictar el detalle" onTexto={(t) => setDetalle((v) => (v ? `${v}
-${t}` : t))} onError={setErr} />
-                </div>
-              </div>
-            </div>
-          </details>
-
-          {err && <div style={{ fontSize: 12.5, color: 'var(--bad)', lineHeight: 1.4 }}>{err}</div>}
+          {err && <div style={{ fontSize: 12.5, color: 'var(--bad)', lineHeight: 1.4, marginTop: 10 }}>{err}</div>}
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '13px 20px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-          <span style={{ fontSize: 12, color: 'var(--faint)' }}>MaKo le pone la prioridad, el proyecto y el detalle.</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '0 20px 18px' }}>
+          <span style={{ fontSize: 12, color: 'var(--faint)' }}>MaKo le pone el proyecto, la prioridad y el detalle.</span>
           <div style={{ display: 'flex', gap: 9 }}>
             <button type="button" onClick={onClose} style={ghostBtn}>Cancelar</button>
             <button type="button" onClick={() => void crear()} disabled={!puedeCrear || creando} style={{ ...primaryBtn, opacity: !puedeCrear || creando ? 0.55 : 1, cursor: !puedeCrear || creando ? 'default' : 'pointer' }}>
@@ -246,7 +207,5 @@ function BotonDictar({ titulo, onTexto, onError }: { titulo: string; onTexto: (t
   );
 }
 
-const rotulo: CSSProperties = { display: 'block', fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 5 };
-const campo: CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 14, outline: 'none', fontFamily: SANS };
 const primaryBtn: CSSProperties = { padding: '10px 20px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: SANS };
 const ghostBtn: CSSProperties = { padding: '10px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: SANS };

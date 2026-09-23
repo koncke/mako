@@ -33,6 +33,8 @@ import { DatosModal, type FaltanteItem } from './DatosModal';
 import { TareasCreadasModal } from './TareasCreadasModal';
 import { GraphicsView } from './Graphics';
 import { MakoStar } from '../../_components/MakoBrand';
+import { GuardianIcon } from './GuardianIcon';
+import { GRAMATICA } from '@/lib/mako-gramatica';
 import { SvcIcon, BrandDefs } from '../../_components/ServicioVisual';
 import { ScoreIcon } from './guardian-form';
 import { BuscadorTareas } from './BuscadorTareas';
@@ -165,6 +167,23 @@ export function BoardShell({ board, scope, vistaInicial }: {
   // el ARRASTRE (que trae la columna de destino) y el LÁPIZ del panel (que no trae ninguna,
   // porque no se movió de columna). Antes era sólo del arrastre y sólo de tareas.
   const [soltada, setSoltada] = useState<{ entidad: 'proyecto' | 'tarea'; id: string; destino?: Prio } | null>(null);
+  /**
+   * SOBRE QUÉ está trabajando el Perro AHORA mismo (ids de tarea o de proyecto).
+   *
+   * «Cuando se cree un proyecto o tarea me lo tiene que abrir el detail inmediatamente… y en
+   * el proceso, obvio el loader» (23/09/2026). Crear ya no espera al modelo —la tarjeta
+   * nace y el detalle se abre— así que hay una ventana de 10-20 segundos en la que la
+   * tarjeta está VACÍA: sin proyecto, sin detalle y con el score de fábrica. Sin decirlo,
+   * eso se lee como que la creación salió mal.
+   */
+  const [trabajandoIA, setTrabajandoIA] = useState<ReadonlySet<string>>(new Set());
+  const marcarTrabajando = useCallback((ids: string[], on: boolean) => {
+    setTrabajandoIA((prev) => {
+      const n = new Set(prev);
+      for (const id of ids) { if (on) n.add(id); else n.delete(id); }
+      return n;
+    });
+  }, []);
   const [openId, setOpenId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ msg: string; onOk: () => void } | null>(null);
   const [debateId, setDebateId] = useState<string | null>(null);
@@ -632,12 +651,17 @@ export function BoardShell({ board, scope, vistaInicial }: {
    */
   const crearProyecto = async (nombre: string, emoji: string, detalle: string, score = 50) => {
     const l = await board.createLabel({ id: uid(), emoji: emoji || '🏷', name: nombre, color: SWATCHES[labels.length % SWATCHES.length], score, detalle, historial: [] });
+    // El detalle se abre EN EL ACTO, como con una tarea: lo que se acaba de crear es lo que
+    // se quiere mirar, y además es donde se ve trabajar al Perro.
+    if (l?.id) setOpenProj(l.id);
     if (board.repo?.priorizarNuevas && l?.id) {
+      marcarTrabajando([l.id], true);
       void (async () => {
         try {
           const r = await board.repo!.priorizarNuevas!([], [l.id], 'Proyecto nuevo creado a mano desde el tablero.');
           if (r) board.aplicarPerroServer(r.patches, r.proyectosPatch);
         } catch (e) { console.warn('[alta proyecto] priorizarNuevas', e); }
+        finally { marcarTrabajando([l.id], false); }
       })();
     }
     return l;
@@ -700,12 +724,16 @@ export function BoardShell({ board, scope, vistaInicial }: {
       // a un modelo: entre 10 y 20 segundos mirando un cartel para cargar una línea. Se
       // crea, se cierra, y cuando el Perro contesta el tablero se actualiza solo.
       skipRePrio.current = true;
+      marcarTrabajando([t.id, ...proyIds], true);
       void (async () => {
         try {
           const r = await board.repo!.priorizarNuevas!([t.id], proyIds, contexto || '(sin argumento del usuario: puntúala por impacto objetivo contra el resto del plan)');
           if (r) board.aplicarPerroServer(r.patches, r.proyectosPatch);
         } catch (e) { console.warn('[alta] priorizarNuevas', e); }
-        finally { setTimeout(() => { skipRePrio.current = false; }, 3500); }
+        finally {
+          marcarTrabajando([t.id, ...proyIds], false);
+          setTimeout(() => { skipRePrio.current = false; }, 3500);
+        }
       })();
       return { id: t.id, score: t.score, razon: '', respuesta: '', prio: displayPrio(t, topProjectId) };
     } else {
@@ -1030,10 +1058,10 @@ export function BoardShell({ board, scope, vistaInicial }: {
         {view === 'graphics' && <GraphicsView board={board} />}
       </div>
 
-      {openTask && <TaskModal key={openTask.id} t={openTask} board={board} topProjectId={topProjectId} suggestMako={openTask.id === makoHintId} onDebate={() => setDebateId(openTask.id)} onDebateFecha={() => setDebateFechaId(openTask.id)} onPrioridad={() => setSoltada({ entidad: 'tarea', id: openTask.id })} onDelete={() => setEliminarTaskId(openTask.id)} onAsignar={() => setAsignarTaskId(openTask.id)} onOpenProj={(id) => setPeekProjId(id)} escDisabled={!!peekProjId} ask={ask}
+      {openTask && <TaskModal key={openTask.id} t={openTask} board={board} topProjectId={topProjectId} suggestMako={openTask.id === makoHintId} trabajando={trabajandoIA.has(openTask.id)} onDebate={() => setDebateId(openTask.id)} onDebateFecha={() => setDebateFechaId(openTask.id)} onPrioridad={() => setSoltada({ entidad: 'tarea', id: openTask.id })} onDelete={() => setEliminarTaskId(openTask.id)} onAsignar={() => setAsignarTaskId(openTask.id)} onOpenProj={(id) => setPeekProjId(id)} escDisabled={!!peekProjId} ask={ask}
         onBack={(openProjLabel || welcomeVisible) ? () => { setOpenId(null); setMakoHintId(null); } : undefined}
         onClose={() => { setOpenId(null); setOpenProj(null); setPeekProjId(null); setMakoHintId(null); }} />}
-      {peekProj && openTask && <ProjectDetailModal proj={peekProj} board={board} topProjectId={topProjectId} z={130} onBack={() => setPeekProjId(null)}
+      {peekProj && openTask && <ProjectDetailModal proj={peekProj} board={board} topProjectId={topProjectId} trabajando={trabajandoIA.has(peekProj.id)} z={130} onBack={() => setPeekProjId(null)}
         onOpenTask={(id) => { setPeekProjId(null); setOpenId(id); }} onNewTask={() => { setNuevaTareaProj(peekProj.id); setNuevaTarea(true); }}
         onPrioridad={() => setSoltada({ entidad: 'proyecto', id: peekProj.id })} onMako={() => setMakoProjId(peekProj.id)} onDelete={() => setEliminarProjId(peekProj.id)}
         onClose={() => setPeekProjId(null)} />}
@@ -1065,8 +1093,8 @@ export function BoardShell({ board, scope, vistaInicial }: {
           }}
           onClose={() => setSoltada(null)} />
       )}
-      {nuevaTarea && <CrearTareaModal labels={labels} proyectoInicial={nuevaTareaProj} prioInicial={nuevaTareaPrio} ejemplos={tasks.filter((t) => t.progress < 100).map((t) => ({ title: t.title, score: t.score }))} onCrear={crearConGuardian} onDone={(id) => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); setOpenId(id); setMakoHintId(id); }} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); }} />}
-      {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} taskAbierta={!!openTask}
+      {nuevaTarea && <CrearTareaModal proyectoInicial={nuevaTareaProj} prioInicial={nuevaTareaPrio} ejemplos={tasks.filter((t) => t.progress < 100).map((t) => ({ title: t.title, score: t.score }))} onCrear={crearConGuardian} onDone={(id) => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); setOpenId(id); setMakoHintId(id); }} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); }} />}
+      {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} taskAbierta={!!openTask} trabajando={trabajandoIA.has(openProjLabel.id)}
         onBack={welcomeVisible ? () => setOpenProj(null) : undefined} backLabel="Volver"
         onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} onPrioridad={() => setSoltada({ entidad: 'proyecto', id: openProjLabel.id })} onMako={() => setMakoProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onClose={() => setOpenProj(null)} />}
       {makoProj && <MakoProyectoModal proj={{ name: makoProj.name, emoji: makoProj.emoji, detalle: makoProj.detalle }} onApply={(nombre, emoji, det) => board.patchLabelLog(makoProj.id, { name: nombre, emoji, detalle: det }, 'MaKo mejoró el proyecto', 'ia')} onClose={() => setMakoProjId(null)} />}
@@ -1604,6 +1632,31 @@ function VistaToggle({ tabla, onSet }: { tabla: boolean; onSet: (v: boolean) => 
 // dos o tres renglones de itálica que nadie lee dos veces: «eso está bien que exista, ya
 // que el perro seguirá funcionando, pero es mucho texto suelto, entonces mejor que sea un
 // desplegable» (22/09). Sigue existiendo y sigue a un click.
+/**
+ * EL PERRO TRABAJANDO sobre esta tarjeta, en el panel abierto.
+ *
+ * Crear ya no espera al modelo: la tarjeta nace, el detalle se abre, y durante 10-20
+ * segundos la tarjeta está VACÍA —sin proyecto, sin descripción y con el score de fábrica—
+ * mientras el Perro la puntúa, la rutea y le escribe el detalle. Sin decirlo, eso se lee
+ * como que la creación salió mal.
+ *
+ * ⚠️ EL RÓTULO SALE DE `GRAMATICA`, NO DE ACÁ (AGENTS.md: «el rótulo de un estado de MaKo no
+ * es un prop»). Y el estado `analizando` EXIGE nombrar la fuente: «no usar animación
+ * decorativa indefinida» — un spinner sin objeto a los diez segundos es indistinguible de
+ * una pantalla colgada.
+ */
+function PerroTrabajando({ que }: { que: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 12px', borderRadius: 10, border: '1px solid var(--mako-weak, var(--border))', background: 'color-mix(in srgb, var(--mako, #C8870C) 8%, transparent)' }}>
+      <span style={{ display: 'inline-flex', flex: 'none', animation: 'mkLatido 1.4s ease-in-out infinite' }}><GuardianIcon size={18} /></span>
+      <span style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.35 }}>
+        <b style={{ fontWeight: 700 }}>{GRAMATICA.analizando.rotulo}</b> · {que}
+      </span>
+      <style>{'@keyframes mkLatido{0%,100%{opacity:.45}50%{opacity:1}}'}</style>
+    </div>
+  );
+}
+
 /**
  * EL BLOQUE DE PRIORIDAD del panel del detalle. UNO solo para tareas y para proyectos.
  *
@@ -2325,8 +2378,11 @@ function ChangeHistory({ t, board, ask }: { t: BoardTask; board: Board; ask: (ms
 }
 
 // ── modal de detalle ────────────────────────────────────────────────────────────
-export function TaskModal({ t, board, topProjectId, suggestMako = false, onDebate, onDebateFecha, onPrioridad, onDelete, onAsignar, onOpenProj, ask, onBack, escDisabled = false, onClose }: {
-  t: BoardTask; board: Board; topProjectId: string | null; suggestMako?: boolean; onDebate: () => void; onDebateFecha: () => void; onPrioridad: () => void; onDelete: () => void; onAsignar: () => void; onOpenProj?: (id: string) => void; ask: (msg: string, onOk: () => void) => void; onBack?: () => void; escDisabled?: boolean; onClose: () => void;
+export function TaskModal({ t, board, topProjectId, suggestMako = false, trabajando = false, onDebate, onDebateFecha, onPrioridad, onDelete, onAsignar, onOpenProj, ask, onBack, escDisabled = false, onClose }: {
+  t: BoardTask; board: Board; topProjectId: string | null; suggestMako?: boolean;
+  /** el Perro está trabajando sobre ESTA tarjeta ahora mismo (recién creada) */
+  trabajando?: boolean;
+  onDebate: () => void; onDebateFecha: () => void; onPrioridad: () => void; onDelete: () => void; onAsignar: () => void; onOpenProj?: (id: string) => void; ask: (msg: string, onOk: () => void) => void; onBack?: () => void; escDisabled?: boolean; onClose: () => void;
 }) {
   const prioEfectiva = displayPrio(t, topProjectId);
   const topeada = prioEfectiva !== prioFromScore(t.score);
@@ -2430,6 +2486,7 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, onDebat
                   columna de 236px y el botón quedaba más alto que todo lo de abajo. */}
               <span style={{ whiteSpace: 'nowrap' }}>{t.progress >= 100 ? 'Completada' : 'Marcar completada'}</span>
             </button>
+            {trabajando && <PerroTrabajando que="tu plan, para ponerle proyecto, prioridad y detalle" />}
             <BloquePrioridad
               etiqueta={PLABEL[prioEfectiva].toUpperCase()} color={PCOLOR[prioEfectiva]} score={t.score} titulo={t.title}
               chip={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: 15, fontWeight: 700, color: PCOLOR[prioEfectiva] }}><ScoreIcon size={15} color={PCOLOR[prioEfectiva]} />{t.score}</span>}
@@ -2715,7 +2772,7 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOri
 }
 
 // ── detalle de un proyecto — MISMO layout de 2 columnas que la ficha de tarea (#25) ─
-function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, z = 90, onBack, backLabel = 'Volver a la tarea', onOpenTask, onNewTask, onPrioridad, onMako, onDelete, onClose }: { proj: Label; board: Board; topProjectId: string | null; taskAbierta?: boolean; z?: number; onBack?: () => void; backLabel?: string; onOpenTask: (id: string) => void; onNewTask: () => void; onPrioridad: () => void; onMako: () => void; onDelete: () => void; onClose: () => void }) {
+function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, trabajando = false, z = 90, onBack, backLabel = 'Volver a la tarea', onOpenTask, onNewTask, onPrioridad, onMako, onDelete, onClose }: { proj: Label; board: Board; topProjectId: string | null; taskAbierta?: boolean; trabajando?: boolean; z?: number; onBack?: () => void; backLabel?: string; onOpenTask: (id: string) => void; onNewTask: () => void; onPrioridad: () => void; onMako: () => void; onDelete: () => void; onClose: () => void }) {
   const [nameDraft, setNameDraft] = useState(proj.name);
   // No cerrar con Escape cuando hay una tarea abierta ENCIMA (esa maneja su propio Escape).
   useEffect(() => {
@@ -2822,6 +2879,7 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, z 
           </div>
           {/* sidebar */}
           <div style={{ width: 236, flex: 'none', borderLeft: '1px solid var(--border)', background: 'var(--surface-2)', padding: '20px 18px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 15 }}>
+            {trabajando && <PerroTrabajando que="el resto de tus proyectos, para ubicarlo y describirlo" />}
             <BloquePrioridad
               color={proj.color} score={proj.score} titulo={proj.name}
               chip={<ProjScore score={proj.score} color={proj.color} big />}

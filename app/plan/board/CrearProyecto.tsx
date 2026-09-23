@@ -40,7 +40,9 @@ async function proponer(descripcion: string): Promise<{ nombre: string; emoji: s
 
 export function CrearProyectoModal({ onCrear, onClose }: { onCrear: (nombre: string, emoji: string, detalle: string, score: number) => void; onClose: () => void }) {
   const [desc, setDesc] = useState('');
-  const [porque, setPorque] = useState('');
+  // Ya no se pregunta, pero el prompt lo sigue aceptando: si algún día vuelve a haber una
+  // fuente para esto (una reunión, un audio), entra por acá sin tocar `generar`.
+  const porque = '';
   // El número lo pone el Perro después de crearlo (ver `crearProyecto` en BoardShell): acá
   // nace en el medio de la escala para no inventar una posición.
   const score = 50;
@@ -52,14 +54,14 @@ export function CrearProyectoModal({ onCrear, onClose }: { onCrear: (nombre: str
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    try { const raw = localStorage.getItem(DRAFT_KEY); if (raw) { const d = JSON.parse(raw) as { desc?: string; porque?: string }; setDesc(d.desc || ''); setPorque(d.porque || ''); } } catch { /* no-op */ }
+    try { const raw = localStorage.getItem(DRAFT_KEY); if (raw) { const d = JSON.parse(raw) as { desc?: string }; setDesc(d.desc || ''); } } catch { /* no-op */ }
     setRestored(true);
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!restored) return;
-    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ desc, porque })); } catch { /* no-op */ }
-  }, [restored, desc, porque]);
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ desc })); } catch { /* no-op */ }
+  }, [restored, desc]);
   const limpiar = () => { try { localStorage.removeItem(DRAFT_KEY); } catch { /* no-op */ } };
 
   const generar = async () => {
@@ -108,22 +110,16 @@ export function CrearProyectoModal({ onCrear, onClose }: { onCrear: (nombre: str
       </div>
 
       <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div>
-          <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>¿De qué se trata?</div>
-          <textarea value={desc} onChange={(e) => setDesc(e.target.value)} autoFocus rows={3}
-            onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && desc.trim()) void generar(); }}
-            placeholder="Ej: todo lo de conseguir y nutrir leads por WhatsApp y email"
-            style={{ ...textareaStyle, minHeight: 84 }} />
-        </div>
+        {/* UNA PREGUNTA. Y NADA MÁS: «no quiero la opción de agregar detalles, ni en
+            proyecto ni en tareas» (23/09/2026). Lo que estaba plegado —«por qué importa»—
+            mejoraba lo que MaKo escribe y no hacía falta para empezar; y lo que MaKo
+            escribe se revisa y se edita en la pantalla siguiente, que es donde de verdad
+            se mira. */}
+        <textarea value={desc} onChange={(e) => setDesc(e.target.value)} autoFocus rows={3}
+          onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && desc.trim()) void generar(); }}
+          placeholder="¿De qué se trata el proyecto?"
+          style={{ ...textareaStyle, minHeight: 92, fontSize: 17, border: 'none', borderBottom: '2px solid var(--border)', borderRadius: 0, padding: '10px 0', background: 'transparent' }} />
 
-        <details>
-          <summary style={{ cursor: 'pointer', userSelect: 'none', fontSize: 12.5, color: 'var(--dim)', fontWeight: 600 }}>
-            Agregar detalles <span style={{ color: 'var(--faint)', fontWeight: 400 }}>· por qué importa y qué tareas viven ahí</span>
-          </summary>
-          <textarea value={porque} onChange={(e) => setPorque(e.target.value)} rows={3}
-            placeholder="Ej: es de donde sale la facturación; van tareas de captación, nutrición y reportes"
-            style={{ ...textareaStyle, marginTop: 12 }} />
-        </details>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '13px 20px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
