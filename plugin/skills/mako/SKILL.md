@@ -441,7 +441,7 @@ Un lote de puros cierres es válido: no hace falta mandar `tareas` para cerrar a
   tarea que queda abierta de más cuesta un clic.
 - Si cubriste **parte**, mándala igual con la evidencia de lo que sí está: existe el
   botón «está a medias», que sube el avance sin cerrarla.
-- **Cerrar NO es borrar.** La tarjeta se queda con su historial y su checklist, y se le
+- **Cerrar NO es borrar.** La tarjeta se queda con su historial y su detalle, y se le
   suma la evidencia. Es la diferencia entre «esto se hizo, mira dónde» y «esto no
   existió nunca».
 
@@ -457,7 +457,7 @@ confianza en todos los demás puntajes.
 
 Corre al aplicar y en una sola pasada define el **score 1-100**, el **deadline y su razón**
 (vacío es respuesta válida; nunca pisa una fecha que ya venía), y **amplía** tu descripción
-con una checklist. Las **notas** de una tarjeta son del usuario: la IA no las toca.
+con su detalle escrito. Las **notas** de una tarjeta son del usuario: la IA no las toca.
 
 ### Las preguntas
 
@@ -563,4 +563,4 @@ Reglas:
 
 La respuesta trae `url`. Pásasela **completa** (nunca un path suelto: no es
 clickeable) o ábrela directamente. El usuario contesta de a una, aplica, y recién
-ahí el Perro puntúa y arma las checklists. **No hagas nada más.**
+ahí el Perro puntúa y escribe el detalle. **No hagas nada más.**

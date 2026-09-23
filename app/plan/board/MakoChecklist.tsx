@@ -107,7 +107,7 @@ export function MakoChecklistModal({ title, detalle, yaOptimizada = false, onApp
               ? <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {prop.titulo && <button type="button" onClick={() => setUseTit((v) => !v)} style={propCard(useTit)}><Check on={useTit} /><span><span style={rowLabel}>Título mejorado</span><span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{prop.titulo}</span></span></button>}
                   {prop.detalle && <button type="button" onClick={() => setUseDet((v) => !v)} style={propCard(useDet)}><Check on={useDet} /><span><span style={rowLabel}>Detalle mejorado</span><span style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5 }}>{prop.detalle}</span></span></button>}
-                  {prop.items.length > 0 && <span style={{ ...rowLabel, marginTop: 8 }}>Checklist</span>}
+                  {prop.items.length > 0 && <span style={{ ...rowLabel, marginTop: 8 }}>Pasos (van como viñetas del detalle)</span>}
                   {prop.items.map((it, i) => (
                     <button key={i} type="button" onClick={() => setSel((s) => { const c = new Set(s); if (c.has(i)) c.delete(i); else c.add(i); return c; })} style={propCard(sel.has(i))}>
                       <Check on={sel.has(i)} />

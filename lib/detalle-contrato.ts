@@ -25,6 +25,20 @@
  *  cambiarlos acá cambia a la vez lo que se pide y lo que se valida. */
 export const PARTES_DETALLE = ['Qué hay que hacer', 'Por qué', 'Detalles concretos', 'Listo cuando'] as const;
 
+/**
+ * Hasta dónde llega un `detalle` guardado. Vive acá porque el que lo escribe, el que lo
+ * amplía y el que lo declara en la API de MaKo tienen que topear en el MISMO número.
+ *
+ * ⚠️ NO ES UN LÍMITE DE LA BASE (la columna es `text`): es una decisión de producto —
+ * más que esto no se lee, y todo lo que se guarda vuelve a entrar en los prompts.
+ *
+ * ⚠️ Y AL LLENARSE NO SE SIGUE ESCRIBIENDO EN SILENCIO. `ampliarTareasPlanOwner` pega lo
+ * nuevo al final, así que una tarjeta en el tope se comía cada ampliación siguiente y el
+ * historial igual decía «MaKo le sumó contexto». Quien recorte por este número tiene que
+ * mirar cuánto quedó AFUERA y dejarlo escrito.
+ */
+export const TOPE_DETALLE = 6000;
+
 /** El contrato largo: va en los prompts de sistema (Fathom, archivo, checklist-coach). */
 export const CONTRATO_DETALLE = `EL DETALLE ES EL CAMPO MÁS IMPORTANTE. El título dice QUÉ hacer; el detalle es lo único que hace que la tarea se pueda ejecutar dentro de tres semanas sin volver a la fuente — y a la fuente no se vuelve nunca.
 

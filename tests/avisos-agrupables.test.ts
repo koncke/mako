@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { puedeEsperar, textoResumen, AVISOS_AGRUPABLES } from '../lib/avisos-agrupables';
+import { puedeEsperar, textoResumen, lineaDeAviso, AVISOS_AGRUPABLES } from '../lib/avisos-agrupables';
 
 // ---------------------------------------------------------------------------
 // Qué aviso puede esperar al resumen de la mañana
@@ -40,6 +40,47 @@ test('un tipo NUEVO sale en el momento hasta que alguien lo agregue a mano', () 
   // entraría a los pospuestos sin que nadie lo decida.
   assert.equal(puedeEsperar('un-aviso-que-no-existe-todavia'), false);
   assert.equal(AVISOS_AGRUPABLES.has('un-aviso-que-no-existe-todavia'), false);
+});
+
+// ---------------------------------------------------------------------------
+// El renglón de cada aviso dice DE QUÉ habla
+// ---------------------------------------------------------------------------
+// ⚠️ PROBADO ROMPIÉNDOLO (3 tests): volviendo `lineaDeAviso` al título pelado (`return
+// titulo`) → 1 pasa (el del título solo, que es justo el caso donde no hay detalle) y 2
+// fallan, el de los tres del mismo tipo y el del link. Y cortando la línea ENTERA a 100
+// —con la URL adentro— → 2 pasan, 1 falla (el del link a medias).
+
+test('tres avisos del MISMO tipo no salen como tres renglones idénticos', () => {
+  // `emitirDelCatalogo` pone siempre el título estático del catálogo, así que si el
+  // resumen sólo imprimiera el título, estos tres serían el mismo renglón tres veces.
+  const items = [
+    { tipo: 'landing-cambio', titulo: 'Cambió tu landing', texto: 'Le sacaron el video a *midominio.com/vsl*.' },
+    { tipo: 'landing-cambio', titulo: 'Cambió tu landing', texto: 'Apareció una agenda en *midominio.com/gracias*.' },
+    { tipo: 'landing-cambio', titulo: 'Cambió tu landing', texto: 'Le sacaron los botones a *midominio.com/oferta*.' },
+  ];
+  const renglones = items.map(lineaDeAviso);
+  assert.equal(new Set(renglones).size, 3, 'los tres renglones tienen que ser distintos');
+  assert.match(renglones[0], /midominio\.com\/vsl/);
+  assert.match(renglones[1], /midominio\.com\/gracias/);
+});
+
+test('el link viaja ENTERO aunque la prosa se recorte', () => {
+  // Un link cortado a la mitad se ve clicable y no lleva a ningún lado.
+  const url = 'https://app.midominio.com/crm/lead-0123456789abcdef';
+  const a = {
+    tipo: 'lead-fusionado', titulo: 'Fusioné un contacto',
+    texto: `Entró un contacto por *Calendly* y lo sumé a *Juan Pérez*, que ya tenías (mismo teléfono, +52 55 1234 5678, y el mismo mail de siempre). Si no era la misma persona, avísame y lo separo 👉 ${url}`,
+  };
+  const linea = lineaDeAviso(a);
+  assert.ok(linea.includes(url), `el link tiene que estar entero: ${linea}`);
+  assert.match(linea, /…/, 'la prosa larga se recorta');
+  assert.ok(!linea.includes('👉 https://app.midominio.com/crm/lead-0123456789ab…'), 'nunca un link a medias');
+});
+
+test('sin texto queda el título, y un detalle que repite el título no se duplica', () => {
+  assert.equal(lineaDeAviso({ tipo: 'retro-lista', titulo: 'Tu retro está lista' }), 'Tu retro está lista');
+  assert.equal(lineaDeAviso({ tipo: 'x', titulo: 'Tu retro está lista', texto: 'Tu retro está lista' }), 'Tu retro está lista');
+  assert.equal(lineaDeAviso({ tipo: 'x', titulo: '' }), 'x', 'sin título queda el tipo');
 });
 
 test('la cola vacía NO produce mensaje, y una larga se corta en 12', () => {

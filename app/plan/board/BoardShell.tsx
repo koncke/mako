@@ -52,7 +52,7 @@ import { ExportarModal } from './ExportarModal';
 import { NotasLista } from './NotasLista';
 import { capacidad } from '@/lib/mako-capacidades';
 import { cuandoDe, quartersElegibles, esCuando, CUANDO_LABEL, CUANDO_OPS, type Cuando } from './cuando';
-import { usePref, usePrefSet, esUnoDe, esBool } from './prefs';
+import { usePref, usePrefSet, esUnoDe, esBool, setScopePrefs } from './prefs';
 import { useArrastreTactil, type ArrastreTactil } from './arrastre-tactil';
 import { WarnMark, projProgress, fechaConDia, diasHasta, plazoTexto } from './piezas';
 import { TablaProyectos, TablaTareas } from './Tablas';
@@ -121,6 +121,10 @@ export function BoardShell({ board, scope, vistaInicial }: {
     if (!j.ok) { setIa({ pensando: false, ids: null, explico: '' }); alert(j.error || 'No pude buscar.'); return; }
     setIa({ pensando: false, ids: (j.ids ?? []).map(String), explico: String(j.explico ?? '') });
   };
+  // El scope va ANTES de cualquier usePref: la lectura ocurre en el primer efecto de cada
+  // hook, y esto corre en el render. Sin esto, las preferencias del tablero del dueño se
+  // aplicaban dentro del tablero de un cliente (ids de proyecto que allá no existen).
+  setScopePrefs(scope);
   // ⚠️ LOS FILTROS Y EL ORDEN SE RECUERDAN (usePref): «se resetean al recargar y al cambiar
   // de pestaña» era el reporte. Lo que NO se recuerda es la BÚSQUEDA (`q`): un texto viejo
   // restaurado esconde el tablero entero y se lee como que no hay nada cargado.
@@ -1191,7 +1195,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
           del proyecto igual que antes. */}
       {eliminarTask && <EliminarModal tipo="tarea" nombre={eliminarTask.title}
         onCompletar={eliminarTask.progress >= 100 ? undefined : () => board.toggleDone(eliminarTask.id)}
-        onDebate={() => setDebateId(eliminarTask.id)}
+        onDebate={board.repo.debatePrioridad ? () => setDebateId(eliminarTask.id) : undefined}
         onBorrar={(motivo) => { board.remove(eliminarTask.id, motivo); setOpenId(null); }} onClose={() => setEliminarTaskId(null)} />}
       {eliminarProj && <EliminarModal tipo="proyecto" nombre={eliminarProj.name} nTareas={tasks.filter((t) => t.labels.includes(eliminarProj.id)).length}
         onBorrar={() => { board.deleteLabelYTareas(eliminarProj.id); setOpenProj(null); }} onClose={() => setEliminarProjId(null)} />}
@@ -2355,13 +2359,15 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, onDebat
               {/* El número se mueve ACÁ, sin pedirle permiso a nadie. La audiencia con el
                   Perro sigue abajo, como opción: «que siga funcionando normalmente, solo
                   que NO tenga fricción a la hora de cambiar prioridad». */}
-              {/* ⚠️ SOLO SI EL TABLERO PUEDE ESCRIBIRLO. `prioridadManual` lo trae únicamente
-                  el Repo del dueño: en el board de un cliente este slider no tendría más
-                  respuesta posible que el 403 de /api/plan-board. Ahí queda el debate. */}
-              {board.repo.prioridadManual && board.repo.prioridadAlPerro && (
+              {/* ⚠️ SOLO SI EL TABLERO PUEDE ESCRIBIRLO — y el candado es APARTE. Cada board
+                  trae su `prioridadManual` (el del dueño con cascada y `score_manual`; el del
+                  cliente escribiendo el número por /api/todo). `prioridadAlPerro` sólo existe
+                  donde hay candado que soltar: exigir las dos dejaba al cliente con el número
+                  de MaKo y sin ninguna forma de cambiarlo. */}
+              {board.repo.prioridadManual && (
                 <PrioridadAMano entidad="tarea" score={t.score} scoreManual={t.scoreManual} color={PCOLOR[prioEfectiva]}
                   guardar={(n) => board.repo.prioridadManual!('tarea', t.id, n)}
-                  soltar={() => board.repo.prioridadAlPerro!('tarea', t.id)}
+                  soltar={board.repo.prioridadAlPerro ? () => board.repo.prioridadAlPerro!('tarea', t.id) : undefined}
                   onAplicado={(s, movidos) => board.aplicarCascadaManual('tarea', { id: t.id, score: s, razon: 'Prioridad fijada a mano', texto: `Fijaste la prioridad en ${s} a mano` }, movidos)}
                   onSoltado={() => board.soltarCandadoManual('tarea', t.id)} />
               )}
@@ -2380,7 +2386,7 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, onDebat
                   </div>
                 </details>
               )}
-              <button onClick={onDebate} style={cambiarBtn}><MakoStar size={15} color="var(--primary)" /> Cambiar prioridad</button>
+              {board.repo.debatePrioridad && <button onClick={onDebate} style={cambiarBtn}><MakoStar size={15} color="var(--primary)" /> Cambiar prioridad</button>}
             </div>
             {/* La FECHA la decide el Perro igual que la prioridad: la propone al crear la
                 tarea, deja escrito por qué, y para moverla hay que discutírsela. */}
@@ -2741,10 +2747,10 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, z 
                 <ProjScore score={proj.score} color={proj.color} big />
               </div>
               <EscalonChip l={proj} />
-              {board.repo.prioridadManual && board.repo.prioridadAlPerro && (
+              {board.repo.prioridadManual && (
                 <PrioridadAMano entidad="proyecto" score={proj.score} scoreManual={proj.scoreManual} color={proj.color}
                   guardar={(n) => board.repo.prioridadManual!('proyecto', proj.id, n)}
-                  soltar={() => board.repo.prioridadAlPerro!('proyecto', proj.id)}
+                  soltar={board.repo.prioridadAlPerro ? () => board.repo.prioridadAlPerro!('proyecto', proj.id) : undefined}
                   onAplicado={(s, movidos) => board.aplicarCascadaManual('proyecto', { id: proj.id, score: s, razon: 'Prioridad fijada a mano', texto: `Fijaste la prioridad en ${s} a mano` }, movidos)}
                   onSoltado={() => board.soltarCandadoManual('proyecto', proj.id)} />
               )}
@@ -2758,7 +2764,7 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, z 
                   </div>
                 </details>
               )}
-              <button onClick={onDebatePrio} style={cambiarBtn}><MakoStar size={15} color="var(--primary)" /> Cambiar prioridad</button>
+              {board.repo.debatePrioridad && <button onClick={onDebatePrio} style={cambiarBtn}><MakoStar size={15} color="var(--primary)" /> Cambiar prioridad</button>}
             </div>
             <div><label style={rowLabel}>Deadline</label><input type="date" value={proj.deadline || ''} onChange={(e) => board.patchLabelLog(proj.id, { deadline: e.target.value }, e.target.value ? `Deadline ${e.target.value}` : 'Quitó el deadline')} style={selStyle} /></div>
 

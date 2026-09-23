@@ -84,7 +84,7 @@ export function MoverPrioridadModal({ titulo, score, sugerido, banda, onAplicado
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
           <input type="range" min={1} max={100} value={v} onChange={(e) => setV(Number(e.target.value))} aria-label="Prioridad, del 1 al 100" style={{ flex: 1, accentColor: 'var(--primary)', cursor: 'pointer' }} />
-          <input type="number" min={1} max={100} value={v} onChange={(e) => setV(Math.max(1, Math.min(100, Number(e.target.value) || 1)))} aria-label="Prioridad, del 1 al 100" style={numStyle} />
+          <input type="number" min={1} max={100} value={v} onChange={(e) => { const t = e.target.value.trim(); if (t === '') return; setV(Math.max(1, Math.min(100, Number(t) || v))); }} aria-label="Prioridad, del 1 al 100" style={numStyle} />
         </div>
         {err && <div style={{ fontSize: 12, color: 'var(--bad)', marginBottom: 8 }}>{err}</div>}
         <div style={{ display: 'flex', gap: 9, justifyContent: 'flex-end', marginTop: 14 }}>
@@ -106,8 +106,15 @@ export function PrioridadAMano({ entidad, score, scoreManual, color, guardar: gu
   color: string;
   /** escribe el número (lo trae el Repo del tablero: sólo el del dueño lo tiene) */
   guardar: (score: number) => Promise<{ score: number; movidos: MovimientoCascada[] }>;
-  /** le devuelve la decisión a MaKo */
-  soltar: () => Promise<void>;
+  /**
+   * Le devuelve la decisión a MaKo (saca el candado de la mig 0143).
+   *
+   * ⚠️ OPCIONAL: el tablero de un cliente NO tiene candado —`experimento_tareas` no tiene
+   * `score_manual` y su Perro no re-puntúa lo que ya existe—, así que ahí no hay nada que
+   * devolver. Sin esto, el slider entero quedaba fuera de ese tablero por una capacidad que
+   * su caso no necesita, y el cliente se quedaba sin forma de cambiar una prioridad.
+   */
+  soltar?: () => Promise<void>;
   onAplicado: (score: number, movidos: MovimientoCascada[]) => void;
   onSoltado: () => void;
 }) {
@@ -167,6 +174,7 @@ export function PrioridadAMano({ entidad, score, scoreManual, color, guardar: gu
   };
 
   const soltar = async () => {
+    if (!soltarEnServer) return;
     setEstado('guardando');
     setMsg('');
     try { await soltarEnServer(); }
@@ -190,7 +198,10 @@ export function PrioridadAMano({ entidad, score, scoreManual, color, guardar: gu
         />
         <input
           type="number" min={1} max={100} value={v}
-          onChange={(e) => setV(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
+          // Borrar el contenido del input NO es «prioridad 1»: `Number('') || 1` daba 1 y el
+          // blur lo guardaba, así que tipear encima del número fijaba un score que nadie
+          // eligió. Vacío = se queda como está hasta que haya un número.
+          onChange={(e) => { const t = e.target.value.trim(); if (t === '') return; setV(Math.max(1, Math.min(100, Number(t) || v))); }}
           onBlur={() => void guardar(v)}
           onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
           aria-label="Prioridad, del 1 al 100"
@@ -200,7 +211,7 @@ export function PrioridadAMano({ entidad, score, scoreManual, color, guardar: gu
       <div style={{ ...notaStyle, color: estado === 'error' ? 'var(--bad)' : 'var(--faint)' }}>
         {guardando ? 'Guardando…' : msg}
       </div>
-      {scoreManual && (
+      {scoreManual && soltarEnServer && (
         <button type="button" onClick={() => void soltar()} disabled={guardando} style={linkStyle}>
           La fijaste a mano: MaKo ya no la toca. Devolvérsela.
         </button>

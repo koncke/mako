@@ -631,7 +631,7 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
             <>
               <div>Cargando {nIncluidas} {nIncluidas === 1 ? 'tarea' : 'tareas'} al plan…</div>
               <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--dim)', lineHeight: 1.5, marginTop: 6, maxWidth: 380 }}>
-                El Perro las está puntuando contra tu plan y armando las checklists. Con muchas tareas puede tardar un par de minutos.
+                El Perro las está puntuando contra tu plan y escribiéndoles el detalle. Con muchas tareas puede tardar un par de minutos.
                 <br /><b>No cierres ni refresques</b> hasta que termine.
               </div>
             </>
@@ -694,7 +694,7 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
               <>
                 <div style={{ position: 'relative', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Cargando {nIncluidas} {nIncluidas === 1 ? 'tarea' : 'tareas'} al plan…</div>
                 <div style={{ position: 'relative', fontSize: 13, color: 'var(--dim)', lineHeight: 1.5, maxWidth: 380 }}>
-                  El Perro las está puntuando contra tu plan y armando las checklists. Con muchas tareas puede tardar un par de minutos.
+                  El Perro las está puntuando contra tu plan y escribiéndoles el detalle. Con muchas tareas puede tardar un par de minutos.
                   <br /><b>No cierres ni refresques</b> hasta que termine.
                 </div>
               </>

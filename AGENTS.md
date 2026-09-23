@@ -578,6 +578,29 @@ Antes de escribir un límite —de tamaño, de progreso, de espaciado— comprob
 el límite real de la capa de abajo. Un número tuyo por encima del suyo no protege:
 promete.
 
+# Un tope se aplica ANTES de decidir si hubo cambio, y lo que recorta queda escrito
+
+Cuando algo se agrega al final de un campo con tope —un detalle, un log, una descripción—,
+la comparación que decide si hay que escribir tiene que hacerse contra el texto **ya
+recortado**. Comparar contra el texto entero es comparar con algo que nunca se va a guardar.
+
+El caso, del 23/09/2026. `ampliarTareasPlanOwner` fusiona el contexto nuevo al FINAL del
+`detalle` y guarda `slice(0, 6000)`. En una tarjeta ya clavada en 6000 caracteres el
+fusionado era distinto → se decidía escribir; el `slice` devolvía exactamente lo que ya
+estaba → se escribía lo mismo; y el historial estampaba **«MaKo le sumó contexto»**. Medido:
+**6 tarjetas del tablero en el tope exacto**, y lo que se perdía era el contenido de una
+reunión, que es justamente lo que no se puede volver a extraer — con la tarjeta afirmando
+que lo había incorporado, así que nadie iba a ir a buscarlo.
+
+- **El tope va en una constante compartida** (`TOPE_DETALLE` en `lib/detalle-contrato.ts`),
+  no repetido en cada `slice`: el que escribe, el que amplía y el que lo declara en la API
+  de MaKo tienen que topear en el MISMO número.
+- **Lo que quedó afuera se escribe donde alguien lo lea**, con el número de caracteres. Si
+  no entró NADA, se escribe igual: un descarte sin rastro hace indistinguibles «no llegó» de
+  «lo tiramos nosotros».
+- **Y si entró a medias, el mensaje lo dice.** «Le sumé contexto» sobre una ampliación
+  truncada es la misma mentira, más difícil de ver.
+
 # Mover una acción a un lugar más accesible cambia sus supuestos de FRECUENCIA
 
 Lo que era seguro porque «nadie lo hace dos veces» deja de serlo el día que pasa a
@@ -2404,6 +2427,18 @@ opcional en el tipo (`prioridadManual?`) justamente para que la ausencia se pued
 - **El olor que lo delata:** un componente que importa una constante de ruta, o que tiene
   `fetch(` y un `action:` adentro. Si además lo monta más de un parent, ya es esto.
 
+⚠️ **Y AL CERRAR EL CONTROL, ENUMERÁ QUÉ LE QUEDA A CADA TABLERO.** Esconderlo es correcto
+y no es el final del trabajo: al día siguiente se midió que el tablero del cliente había
+quedado sin slider, **sin arrastre** (`draggable={!!repo.prioridadManual}`) y sin la casilla
+del alta, o sea con la prioridad que le puso MaKo y ninguna forma de cambiarla — que es
+justo lo que la regla de abajo prohíbe. El único camino que le quedaba, «Cambiar prioridad»,
+era peor: abre la audiencia, que lee y escribe `plan_tareas`, así que arrancaba, **pagaba el
+razonamiento del modelo** y moría en «no encontré eso en el tablero». Si después de cerrar
+no queda ningún camino, el trabajo no es esconder: es **implementar la capacidad donde
+falta**, con la escritura que ESE tablero sí puede hacer. Y no la ates a una capacidad
+vecina: exigir `prioridadManual` **y** `prioridadAlPerro` juntas dejaba el slider fuera de
+todo tablero sin candado, por una columna que su caso no necesita.
+
 # Una medición que CAMBIA lo que mide no puede decidir
 
 Si el veredicto («¿pliego los botones?», «¿muestro el resumen corto?») se toma mirando el
@@ -3735,6 +3770,17 @@ las tareas, y encima cuando quiera modificarlo no lo deje»*.
   desactivarla… o simplemente quitar la fricción: que él te asigne la prioridad y si la
   asignó mal, que vos la cambies»*. Un automatismo sin interruptor, cuando falla, no se
   arregla: se abandona, y se lleva puesta la feature entera.
+
+⚠️ **EL QUE DICE RESPETAR EL CANDADO TIENE QUE MIRARLO — Y EL COMENTARIO NO CUENTA.**
+`recurvarPlanOwner` declaraba, textual, que preservaba «cualquier corrección a mano del
+dueño» y **no leía `score_manual` en ninguna línea**: a una tarjeta fijada en 90 se le sumaba
+el empuje del deadline y el castigo por quietud, y después la curva le reescribía el número.
+O sea que el candado era cierto para los proyectos y mentira para las tareas, mientras la
+pantalla anunciaba «la fijaste a mano: MaKo ya no la toca». **La forma en que falla es la
+peor: el número se mueve solo, de a poco, todos los días**, sin una entrada de historial que
+lo explique. Lo fijado entra al reparto con su número tal cual (para que el resto se ordene
+alrededor) y sale sin que se le escriba nada — y el cron **cuenta cuántas respetó**, porque
+un candado que funciona y uno que nadie disparó se ven iguales si no se cuentan.
 
 ⚠️ **Y el corolario de la priorización: un proyecto se juzga por lo que tiene ADENTRO, no por
 su nombre.** En esa misma corrida «Cliente: Mauricio» quedó primero porque las decisiones

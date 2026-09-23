@@ -80,6 +80,33 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial }
       return toBoard(t);
     },
     saveTask: async (d) => { if (demo) return; await api({ action: 'editar', id: Number(d.id), patch: editPatch(d) }); },
+    /**
+     * LA PRIORIDAD A MANO, TAMBIÉN ACÁ. El slider del detalle, el pop-up del arrastre y la
+     * casilla del alta salen de esta capacidad: sin ella el tablero de un cliente dibuja el
+     * número que puso MaKo y NO LE DA NINGUNA FORMA DE CAMBIARLO. Es la regla de AGENTS.md
+     * escrita el 23/09 con el pedido del dueño adentro: «toda prioridad que pone la IA tiene
+     * que poder cambiarse a mano en la pantalla, sin debate previo y sin fricción».
+     *
+     * ⚠️ NO ES LA MISMA IMPLEMENTACIÓN QUE LA DEL DUEÑO, Y NO PUEDE SERLO. Allá
+     * `/api/plan-board` corre la cascada del método (desempatar, auditar, mover a los
+     * vecinos) y clava `score_manual` (mig 0143). Acá no hay cascada ni candado:
+     * `experimento_tareas` no tiene esa columna y su Perro no re-puntúa lo que ya existe
+     * —sólo lo que NACE—, así que no hay nada de lo que haya que protegerse. Escribir el
+     * número alcanza; inventarle un candado que nada respeta sería peor.
+     */
+    prioridadManual: async (entidad, id, score) => {
+      const n = Math.max(1, Math.min(100, Math.round(score)));
+      if (demo) return { score: n, movidos: [] };
+      // `score_razon` viaja con el número: sin eso, la tarjeta queda mostrando la razón que
+      // escribió MaKo al lado de un score que ya no es el suyo.
+      const j = entidad === 'tarea'
+        ? await api({ action: 'editar', id: Number(id), patch: { score: n, prioridad: prioFromScore(n), score_razon: 'La fijaste a mano' } })
+        : await api({ action: 'categoria-editar', id: Number(id), patch: { prioridad: n, score_razon: 'La fijaste a mano' } });
+      if (!j.ok) throw new Error(j.error || 'No se pudo cambiar la prioridad.');
+      // Sin cascada: `movidos` vacío es la verdad, no un placeholder. El board pinta «Listo»
+      // en vez de «se corrieron N más», que es exactamente lo que pasó.
+      return { score: n, movidos: [] };
+    },
     deleteTask: async (id) => { if (demo) return; await api({ action: 'borrar', id: Number(id) }); },
     createLabel: async (l) => {
       if (demo) return l;

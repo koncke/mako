@@ -22,6 +22,9 @@
 // =============================================================================
 
 import type { OperacionDef } from '../tipos';
+// El tope del `detalle` es UNO: el mismo número que recorta el que escribe (plan-board) y
+// el que lo amplía. Declararlo a mano acá sería la segunda copia, y la que se queda vieja.
+import { TOPE_DETALLE } from '@/lib/detalle-contrato';
 
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 const SIN_HTTP = ['whatsapp', 'app'] as const;
@@ -49,7 +52,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_tarea_plan', area: 'plan', tipo: 'lectura',
     titulo: 'Ficha completa de una tarea',
-    descripcion: 'Todo lo de UNA tarea: título, detalle, score y su razón, deadline y su razón, avance, checklist (con el id de cada paso, que pide tildar_checklist_tarea), historial reciente (quién tocó qué: user, ia = MaKo, code = Claude Code), fuente (reunión, WhatsApp, archivo), notas, quarter y qué la bloquea. Pide por id, o por número visible (#412) en el tablero del super-admin.',
+    descripcion: 'Todo lo de UNA tarea: título, detalle, score y su razón, deadline y su razón, avance, historial reciente (quién tocó qué: user, ia = MaKo, code = Claude Code), fuente (reunión, WhatsApp, archivo), notas, quarter y qué la bloquea. Pide por id, o por número visible (#412) en el tablero del super-admin.',
     parametros: [
       { nombre: 'id', tipo: 'string', descripcion: 'id de la tarea (de listar_tareas_plan o buscar_tareas_plan). También acepta «#412».', max: 80 },
       { nombre: 'num', tipo: 'number', descripcion: 'número visible #N (solo tablero del super-admin). Pasa id o num.', entero: true, minimo: 1 },
@@ -93,18 +96,18 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'listar_tareas_sin_datos', area: 'plan', tipo: 'lectura',
-    titulo: 'Tareas sin deadline o checklist',
-    descripcion: 'Las tareas abiertas a las que les falta fecha límite o checklist: lo que el Perro Guardián no pudo decidir y conviene completar. Devuelve las dos listas por separado con su total. No requiere parámetros.',
+    titulo: 'Tareas sin deadline',
+    descripcion: 'Las tareas abiertas a las que les falta fecha límite: lo que el Perro Guardián no pudo decidir y conviene completar. Devuelve la lista con su total. No requiere parámetros.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
   {
     id: 'buscar_tareas_plan', area: 'plan', tipo: 'lectura',
     titulo: 'Buscar tareas por texto',
-    descripcion: 'Búsqueda literal en el plan: todas las palabras, en cualquier orden, que EMPIEZAN una palabra («CAC» no encuentra «notificaciones»). Por defecto mira solo el título; se pueden sumar detalle, checklist, notas y razones. «#412» busca por número. Para buscar por significado y no por palabras, en WhatsApp o en la app existe cruzar_tareas_con_plan.',
+    descripcion: 'Búsqueda literal en el plan: todas las palabras, en cualquier orden, que EMPIEZAN una palabra («CAC» no encuentra «notificaciones»). Por defecto mira solo el título; se pueden sumar detalle, notas y razones. «#412» busca por número. Para buscar por significado y no por palabras, en WhatsApp o en la app existe cruzar_tareas_con_plan.',
     parametros: [
       { nombre: 'q', tipo: 'string', descripcion: 'el texto a buscar, o #número.', obligatorio: true, max: 200 },
-      { nombre: 'campos', tipo: 'string[]', descripcion: 'dónde buscar (default solo titulo).', enum: ['titulo', 'detalle', 'checklist', 'notas', 'razones'], max: 5 },
+      { nombre: 'campos', tipo: 'string[]', descripcion: 'dónde buscar (default solo titulo).', enum: ['titulo', 'detalle', 'notas', 'razones'], max: 4 },
       { nombre: 'incluirHechas', tipo: 'boolean', descripcion: 'true para buscar también en las tareas terminadas (default false).' },
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
@@ -238,18 +241,14 @@ export const DEFS: readonly OperacionDef[] = [
     escribe: 'plan_propuestas.estado pasa de pendiente a descartada',
     canales: TODOS, costo: 'gratis', gating: TAB,
   },
-  {
-    id: 'tildar_checklist_tarea', area: 'plan', tipo: 'accion', confirmacion: 'chat', reversible: true,
-    titulo: 'Tildar un paso de checklist',
-    descripcion: 'Marca como hecho (o vuelve a abrir) UN paso de la checklist de una tarea y deja rastro en el historial. Aunque queden todos tildados no cierra la tarea: para eso, proponer_cierre_tareas. El id del paso sale de ver_tarea_plan.',
-    parametros: [
-      { nombre: 'id', tipo: 'string', descripcion: 'id de la tarea, o «#412».', obligatorio: true, max: 80 },
-      { nombre: 'itemId', tipo: 'string', descripcion: 'id del paso de la checklist (de ver_tarea_plan).', obligatorio: true, max: 80 },
-      { nombre: 'done', tipo: 'boolean', descripcion: 'true = hecho; false = volver a abrirlo.', obligatorio: true },
-    ],
-    escribe: 'la checklist y el historial de la tarea (plan_tareas o experimento_tareas)',
-    canales: TODOS, costo: 'gratis', gating: TAB,
-  },
+  // ⛔ ACÁ VIVÍA `tildar_checklist_tarea`, y se fue el 23/09/2026. Las checklists salieron
+  // del producto el 22/09 («de última un bullet point») y los pasos se mudaron adentro del
+  // `detalle`; la migración dejó CERO items, medido: 334 tareas del tablero del dueño y 212
+  // del cliente, ninguna con checklist. O sea que la operación seguía publicada —en la
+  // referencia, en la skill del cliente y en las tools del doer— y su ÚNICA respuesta
+  // posible era «la tarea no tiene un paso con id X». Una capacidad que no puede hacer nada
+  // no es código muerto: es una promesa que un agente va a intentar cumplir, gastando un
+  // turno y devolviendo un error que culpa al dato.
   {
     id: 'actualizar_avance_tarea', area: 'plan', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Cambiar el avance de una tarea',
@@ -309,7 +308,7 @@ export const DEFS: readonly OperacionDef[] = [
         nombre: 'tareas', tipo: 'object[]', descripcion: 'las tareas a agregar, con lo deducible resuelto.', obligatorio: true, max: 30,
         campos: [
           { nombre: 'titulo', tipo: 'string', descripcion: 'qué hay que hacer, corto e imperativo.', obligatorio: true, max: 200 },
-          { nombre: 'detalle', tipo: 'string', descripcion: 'EL CAMPO MÁS IMPORTANTE: qué es, por qué, qué sería «listo» y todo el contexto que dio la persona. Lo que no quede aquí se pierde.', max: 6000 },
+          { nombre: 'detalle', tipo: 'string', descripcion: 'EL CAMPO MÁS IMPORTANTE: qué es, por qué, qué sería «listo» y todo el contexto que dio la persona. Lo que no quede aquí se pierde.', max: TOPE_DETALLE },
           { nombre: 'proyecto', tipo: 'string', descripcion: 'NOMBRE legible del proyecto (nunca un id). Si ya existe, el nombre exacto de listar_tareas_plan. Es una propuesta: no le digas a la persona en qué proyecto quedó.', max: 120 },
           { nombre: 'deadline', tipo: 'string', descripcion: 'fecha límite AAAA-MM-DD, solo si la dijeron.', max: 10 },
           { nombre: 'prioridad', tipo: 'string', descripcion: 'se ignora al aplicar: la decide el Perro Guardián.', enum: ['alta', 'media', 'baja', 'futuro'] },
@@ -354,7 +353,7 @@ export const DEFS: readonly OperacionDef[] = [
         nombre: 'items', tipo: 'object[]', descripcion: 'las tareas existentes y lo que se les suma.', obligatorio: true, max: 30,
         campos: [
           { nombre: 'id', tipo: 'string', descripcion: 'id de la tarea existente (de listar_tareas_plan).', obligatorio: true, max: 80 },
-          { nombre: 'detalle', tipo: 'string', descripcion: 'el contexto nuevo a sumar.', obligatorio: true, max: 6000 },
+          { nombre: 'detalle', tipo: 'string', descripcion: 'el contexto nuevo a sumar.', obligatorio: true, max: TOPE_DETALLE },
           { nombre: 'razon', tipo: 'string', descripcion: 'por qué es la misma tarea.', obligatorio: true, max: 400 },
         ],
       },

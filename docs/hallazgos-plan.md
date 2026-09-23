@@ -2714,3 +2714,79 @@ nada (con el dedo, un movimiento de 15 px pasa todo el tiempo) y `pointercancel`
 sin manejarlo, un scroll que se gana el gesto deja la columna pintada para siempre.
 
 **Vive en:** app/plan/board/arrastre-tactil.ts · app/plan/board/EliminarModal.tsx · app/plan/board/types.ts (Repo.prioridadManual) · app/plan/board/repo-plan.ts · *2026-09-23*
+
+## La segunda pasada de la revisión: tres cosas que la pantalla afirmaba y el código no hacía (23/09/2026)
+
+Las tres salieron de refutar los hallazgos de la corrida de revisión sobre el trabajo del
+mismo día. Las tres tienen la misma forma —**el producto ANUNCIA algo que no ocurre**— y en
+las tres el diagnóstico obvio llevaba a otro lado.
+
+### Cerrar un control por capacidad puede dejar al cliente sin NINGÚN camino
+
+El arreglo del día anterior fue correcto: un control que escribe entra por el `Repo` y el
+tablero que no lo implementa no lo dibuja. Lo que no se preguntó es **qué le queda al que
+se quedó sin el control**.
+
+Medido: con `prioridadManual` sólo en el tablero del dueño, el tablero de un cliente quedó
+sin slider, **sin arrastre** (`draggable={!!board.repo.prioridadManual}`) y sin la casilla
+del alta. Y el único camino que le quedaba —el botón «Cambiar prioridad», que abre la
+audiencia con el Perro— es peor todavía: `reprio-proponer` y `reprio-aplicar` leen y
+escriben `plan_tareas`, que en el workspace de un cliente está vacía. O sea que el botón
+arrancaba, **pagaba el razonamiento del modelo** y terminaba en «no encontré eso en el
+tablero».
+
+Resultado neto: en el tablero que van a usar los 50 clientes, **la prioridad la ponía MaKo
+y no había forma de cambiarla** — exactamente lo que AGENTS.md prohíbe con el pedido del
+dueño adentro («toda prioridad que pone la IA tiene que poder cambiarse a mano en la
+pantalla, sin debate previo y sin fricción»).
+
+**La regla: al cerrar un control por capacidad, enumerá qué le queda a cada tablero.** Si
+la respuesta es «nada», el trabajo no es esconder el control: es implementar la capacidad
+donde falta. El tablero del cliente escribe el score por `/api/todo` (sin cascada y sin
+candado, porque `experimento_tareas` no tiene `score_manual` y su Perro no re-puntúa lo que
+ya existe: no hay nada de lo que protegerse). Y `prioridadAlPerro` se separó de
+`prioridadManual`: exigir las dos ataba el slider a un candado que la mitad de los tableros
+no tiene.
+
+### El candado de la mig 0143 era cierto para los proyectos y mentira para las tareas
+
+`recurvarPlanOwner` reparte las tareas abiertas sobre `score_base + tiempo`, y su propio
+comentario decía, textual: *«NO cambia el orden que decidió nadie: preserva el ranking tal
+cual está, incluida cualquier corrección a mano del dueño»*. **No miraba `score_manual` en
+ninguna línea.** Así que a una tarjeta fijada a mano en 90 se le sumaba el empuje del
+deadline y el castigo por quietud, y después la curva le reescribía el número.
+
+La pantalla, mientras tanto, dice «La fijaste a mano: MaKo ya no la toca» y ofrece
+devolvérsela. Las dos cosas no podían ser ciertas a la vez.
+
+⚠️ **Y la forma en que fallaba es la peor de todas: el número se movía SOLO, de a poco,
+todos los días.** No hay un momento en que alguien pueda ver que algo se rompió; hay un
+tablero que un mes después no es el que se decidió, sin una sola entrada de historial que
+lo explique (la recurva no escribe historial por tarjeta, a propósito).
+
+Lo fijado a mano ahora entra al reparto con su número tal cual —para que las otras se
+ordenen ALREDEDOR— y sale sin que se le escriba nada. El cron lo cuenta aparte
+(`fijadas a mano (intactas)`): un candado que funciona y un candado que nadie disparó se
+ven iguales si no se cuentan.
+
+### Una tarjeta llena se comía cada ampliación, y el historial decía que la había sumado
+
+`ampliarTareasPlanOwner` fusiona el contexto nuevo AL FINAL del `detalle` y guarda
+`detalleFinal.slice(0, 6000)`. La comparación que decide si hubo cambio se hacía contra el
+texto **sin recortar**, así que en una tarjeta ya clavada en 6000 caracteres:
+
+1. el fusionado era distinto → se decidía escribir,
+2. el `slice` devolvía exactamente el detalle que ya estaba → se escribía lo mismo,
+3. y el historial estampaba **«MaKo le sumó contexto (no la duplicó)»**.
+
+Medido: **6 tarjetas del tablero en el tope exacto**. Lo que se perdía es el contexto de
+una reunión, que es justo lo que no se puede volver a extraer — y la tarjeta afirmaba
+haberlo incorporado, así que nadie iba a ir a buscarlo.
+
+**Las dos reglas:** el tope se aplica **antes** de decidir si hubo cambio (comparar contra
+el texto sin recortar es comparar con algo que nunca se guardó), y lo que el recorte dejó
+afuera **queda escrito** — con el número de caracteres, en el historial, que es donde
+alguien lo lee. Cuando no entra nada, se escribe igual: un descarte sin rastro hace
+indistinguibles «no llegó» de «lo tiramos nosotros».
+
+**Vive en:** lib/plan-board.ts (`recurvarPlanOwner`, `ampliarTareasPlanOwner`) · lib/detalle-contrato.ts (`TOPE_DETALLE`) · app/plan/TodoBoard.tsx (`prioridadManual`) · app/plan/board/types.ts (`Repo.debatePrioridad`) · app/plan/board/PrioridadAMano.tsx · *2026-09-23*

@@ -3862,3 +3862,34 @@ contexto del negocio a DeepSeek directo la tiene que tomar Mauricio.
 
 **Vive en:** ~/.claude/settings.json · .env.local* · AGENTS.md (push desde worktrees) ·
 ~/.claude/bitacora-sesion.sh (solo conoce claude1 y claude2) · *2026-09-16 · deepseek-harness-veredicto-mako*
+
+## El backfill de Calendly trataba TODA reserva como una primera reunión (23/09/2026)
+
+El webhook rutea R1 vs R2 desde la Fase 10 con `clasificarJunta(scheduled, cfg)` y una regla
+escrita: **«NUNCA crear desde una J2»** — una segunda reunión sólo actualiza `fecha_junta_2`
+de un lead que ya existe. El script de backfill no usaba esa función: tenía **su propio
+regex** (`/r2|reunión 2|junta 2|seguimiento/i`) y, aun cuando acertaba el tipo para
+etiquetar las respuestas, igual mandaba el evento por `upsertLeadFromCalendly` con la fecha
+de la R2 en `fecha_junta_1` y `junta_1_at`.
+
+Consecuencia: una R2 cuyo invitee no matchea ningún lead **creaba un lead nuevo, agendado a
+una primera reunión que nunca existió** — con el No Show de `crm-auto-plan` contando desde
+esa fecha y la cohorte del reporte apuntando al mes equivocado. Y no hay síntoma: el lead se
+ve perfectamente normal.
+
+⚠️ **El regex acertaba de casualidad.** El event type de la R2 se llama «Calificación para
+Programa Directivo - Reunión 2», así que matcheaba por «reunión 2»; el día que alguien lo
+renombre, la clasificación se cae sin que nada avise. Es «el mismo predicado que la
+ejecución» no vale si son DOS COPIAS del predicado: ahora el script carga
+`CALENDLY_EVENT_TYPE_J1/J2` con `credWs` y llama a la misma `clasificarJunta` que el webhook.
+
+Lo que se midió sobre el histórico completo (146 eventos desde diciembre): **137 j1, 1 j2 y
+8 «desconocido»** — un clon del event type y una variante de 30 minutos, que caen al camino
+de R1 igual que en el webhook. La única R2 resuelve al lead #316, que ya tenía su
+`fecha_junta_2` puesta por el webhook y le faltaba `junta_2_at`.
+
+⚠️ **Y el `--dry` tiene que hacer los DOS lookups también en la rama nueva**, o vuelve a ser
+un preview que estima: la rama de la R2 busca el lead por teléfono y por email igual que la
+escritura, y dice `CREA` / `COMPLETA(campos)` / `NADA` / `R2 sin lead` con el id adelante.
+
+**Vive en:** scripts/backfill-calendly.ts · lib/calendly.ts (`clasificarJunta`) · app/api/webhooks/calendly/route.ts · *2026-09-23*

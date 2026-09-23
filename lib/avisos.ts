@@ -234,8 +234,12 @@ export async function emitirDelCatalogo(
   const ws = opts.ws ?? (await getWorkspaceActual()) ?? OWNER_WS;
   const wsPref = opts.alDueno === true ? await wsSuperAdmin().catch(() => ws) : ws;
   const alResumen = puedeEsperar(cat.id, cat.categoria) && (await resumenAvisosActivo(wsPref));
+  // ⚠️ AL RESUMEN VA EL CONTEXTO CRUDO, NO LA PLANTILLA DE REFERENCIA. La referencia es la
+  // MISMA frase para todos los avisos de ese tipo, así que el renglón del resumen no diría
+  // de qué reunión, de qué retro ni de qué objetivo habla — que es la única parte
+  // accionable. El contexto es feo (son notas para el modelo) pero es el dato.
   const texto = opts.texto
-    ?? (opts.contexto && !alResumen ? await generarMensajeAviso(id, opts.contexto) : await referenciaPlantilla(id));
+    ?? (opts.contexto ? (alResumen ? opts.contexto : await generarMensajeAviso(id, opts.contexto)) : await referenciaPlantilla(id));
   return emitirAviso({
     tipo: cat.id, titulo: cat.titulo, texto,
     categoria: cat.categoria, semaforo: cat.semaforo,

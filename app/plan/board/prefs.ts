@@ -23,14 +23,26 @@ import { useEffect, useRef, useState } from 'react';
 
 const PREFIJO = 'plan.pref.';
 
+/**
+ * El WORKSPACE que se está mirando, para que las preferencias no se crucen.
+ *
+ * ⚠️ El super-admin abre cada cliente en su propia pestaña y el board le pasa un `scope`
+ * justamente por esto: sin él, el filtro «solo el proyecto P33» que alguien dejó puesto en
+ * SU tablero viaja al de un cliente, donde ese id no existe — y el Kanban aparece vacío sin
+ * que nada lo explique. El resto del board ya lo hacía con `dlKey`; estas preferencias
+ * nacieron sin eso.
+ */
+let scopeActual = '';
+export function setScopePrefs(scope?: string): void { scopeActual = scope ? '_' + scope : ''; }
+
 function leer(clave: string): unknown {
   try {
-    const crudo = localStorage.getItem(PREFIJO + clave);
+    const crudo = localStorage.getItem(PREFIJO + clave + scopeActual);
     return crudo == null ? undefined : (JSON.parse(crudo) as unknown);
   } catch { return undefined; }
 }
 function escribir(clave: string, v: unknown): void {
-  try { localStorage.setItem(PREFIJO + clave, JSON.stringify(v)); } catch { /* storage bloqueado: la pantalla anda igual */ }
+  try { localStorage.setItem(PREFIJO + clave + scopeActual, JSON.stringify(v)); } catch { /* storage bloqueado: la pantalla anda igual */ }
 }
 
 /**

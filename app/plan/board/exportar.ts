@@ -45,7 +45,12 @@ const pidsDe = (t: BoardTask, labels: Label[]): string =>
  * Se elige en el modal: un CSV con veinte columnas no se lee, y uno sin la
  * justificación de prioridad no sirve para discutir el orden con nadie.
  */
-export type CampoExtra = 'prioridad' | 'detalle' | 'razonScore' | 'deadline' | 'checklist' | 'notas' | 'origen' | 'haceloEn';
+// ⛔ ACÁ VIVÍA `checklist`, y se fue el 23/09/2026 con la tabla vacía: los pasos se mudaron
+// al `detalle` como viñetas el 22/09 y la migración dejó CERO checklists (334 tareas del
+// tablero del dueño y 212 del cliente, medidas). La columna seguía tildada por default, o
+// sea que todo export salía con tres columnas («Pasos», «Hechos», «Checklist») en 0 y vacío
+// — y una columna vacía no se lee como «esto ya no existe», se lee como que faltan datos.
+export type CampoExtra = 'prioridad' | 'detalle' | 'razonScore' | 'deadline' | 'notas' | 'origen' | 'haceloEn';
 
 // ORDEN = lo que más se usa primero. Con los ocho a la vista el paso se leía como una
 // pantalla de configuración; los cuatro de arriba son los que alguien quiere el 90% de
@@ -54,7 +59,6 @@ export const CAMPOS_EXTRA: Array<{ id: CampoExtra; label: string; sub: string }>
   { id: 'detalle', label: 'Descripciones', sub: 'el contexto completo de cada tarea' },
   { id: 'prioridad', label: 'Prioridad y score', sub: 'la columna y el puntaje del Perro' },
   { id: 'deadline', label: 'Fecha y su razón', sub: 'para cuándo y por qué esa fecha' },
-  { id: 'checklist', label: 'Checklist', sub: 'los pasos, con cuáles están hechos' },
   { id: 'razonScore', label: 'Por qué esa prioridad', sub: 'el argumento del Perro, textual' },
   { id: 'notas', label: 'Tus notas', sub: 'el cuaderno tuyo de cada tarjeta' },
   { id: 'origen', label: 'De dónde salió', sub: 'quién la creó y de qué reunión' },
@@ -62,7 +66,7 @@ export const CAMPOS_EXTRA: Array<{ id: CampoExtra; label: string; sub: string }>
 ];
 
 /** Los que vienen tildados y se muestran sin desplegar nada. */
-export const CAMPOS_HABITUALES: CampoExtra[] = ['detalle', 'prioridad', 'deadline', 'checklist'];
+export const CAMPOS_HABITUALES: CampoExtra[] = ['detalle', 'prioridad', 'deadline', 'razonScore'];
 
 export function tareasACSV(tasks: BoardTask[], labels: Label[], campos: CampoExtra[] = CAMPOS_EXTRA.map((c) => c.id)): string {
   const on = new Set(campos);
@@ -71,7 +75,6 @@ export function tareasACSV(tasks: BoardTask[], labels: Label[], campos: CampoExt
   if (on.has('razonScore')) cab.push('Por qué esa prioridad');
   if (on.has('deadline')) cab.push('Deadline', 'Por qué esa fecha');
   if (on.has('detalle')) cab.push('Descripción');
-  if (on.has('checklist')) cab.push('Pasos', 'Hechos', 'Checklist');
   if (on.has('notas')) cab.push('Notas');
   if (on.has('haceloEn')) cab.push('Se hace en');
   if (on.has('origen')) cab.push('Origen', 'Fuente');
@@ -82,7 +85,6 @@ export function tareasACSV(tasks: BoardTask[], labels: Label[], campos: CampoExt
     if (on.has('razonScore')) f.push(t.scoreRazon || '');
     if (on.has('deadline')) f.push(t.deadline || '', t.deadlineRazon || '');
     if (on.has('detalle')) f.push((t.detalle || '').replace(/\r?\n/g, ' '));
-    if (on.has('checklist')) f.push(t.checklist.length, t.checklist.filter((c) => c.done).length, t.checklist.map((c) => `${c.done ? '[x]' : '[ ]'} ${c.text}`).join(' · '));
     if (on.has('notas')) f.push((t.notas || '').replace(/\r?\n/g, ' '));
     if (on.has('haceloEn')) f.push(dondeSeHace(t.haceloEn));
     if (on.has('origen')) f.push(t.origen, t.fuente ? `${t.fuente.tipo}${t.fuente.etiqueta ? `: ${t.fuente.etiqueta}` : ''}` : '');
@@ -162,7 +164,6 @@ function tareaAMarkdown(t: BoardTask, on: Set<CampoExtra>): string[] {
   if (t.notas && on.has('notas')) l.push(`  _Tus notas: ${t.notas}_`);
   if (t.haceloEn && on.has('haceloEn')) l.push(`  _Se hace en: ${dondeSeHace(t.haceloEn)}_`);
   if (on.has('origen') && t.fuente) l.push(`  _De: ${t.fuente.tipo}${t.fuente.etiqueta ? ` · ${t.fuente.etiqueta}` : ''}_`);
-  if (on.has('checklist')) for (const c of t.checklist) l.push(`  - [${c.done ? 'x' : ' '}] ${c.text}`);
   return l;
 }
 

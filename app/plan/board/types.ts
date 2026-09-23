@@ -205,6 +205,21 @@ export type Repo = {
   // super-admin de la agencia (usa la Fathom key de la agencia).
   fathomExtract?: boolean;
   /**
+   * Habilita LA AUDIENCIA: «Cambiar prioridad», donde se le discute el número al Perro.
+   *
+   * ⚠️ MISMA FAMILIA QUE `prioridadManual`, Y SE ESCAPÓ EN EL MISMO BARRIDO. El botón lo
+   * dibujaban los dos boards, pero `reprio-proponer`/`reprio-aplicar` leen y escriben
+   * `plan_tareas`/`plan_proyectos` — las tablas del DUEÑO. En el tablero de un cliente esas
+   * tablas están vacías para su workspace, así que la audiencia arrancaba, cobraba el
+   * razonamiento del modelo y terminaba en «no encontré la tarea»: un botón que se lee como
+   * que la app está rota. Es un booleano y no una función porque lo que falta no es una
+   * escritura del board, es un backend entero.
+   *
+   * ⚠️ Y NO CUBRE A `FechaDebateModal`, que es otra cosa: ahí el modelo sólo OPINA y la
+   * fecha la escribe el board por su propio repo, así que funciona en los dos.
+   */
+  debatePrioridad?: boolean;
+  /**
    * La lista CERRADA de proyectos grandes. Cada tablero trae la suya: el del dueño las
    * tabs del producto (lib/plan-proyectos-catalogo) y el de un cliente las ÁREAS de su
    * marketing (lib/todo-proyectos-catalogo) — sus CLIENTES no van acá, los resuelve el

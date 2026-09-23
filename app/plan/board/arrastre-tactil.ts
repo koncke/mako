@@ -48,6 +48,8 @@ const PASO = 14;
 
 type Gesto = {
   id: string;
+  /** el dedo que empezó: cualquier otro se ignora (ver el guard de `alMover`) */
+  pointerId: number;
   x0: number;
   y0: number;
   armado: boolean;
@@ -65,6 +67,22 @@ export type ArrastreTactil = {
   /** ¿el último gesto fue un arrastre? Sirve para tragarse el click fantasma. */
   huboArrastre: () => boolean;
 };
+
+/**
+ * Qué columna hay bajo el dedo. UNA función para los dos usos (mientras se mueve y al
+ * soltar): eran dos copias del mismo predicado, que es como se arreglan la mitad de las
+ * veces y divergen la otra mitad.
+ *
+ * ⚠️ `clientY + scrollY`: el evento viene en coordenadas de ventana y los rectángulos se
+ * guardaron en coordenadas de página, justamente porque la página se mueve durante el
+ * gesto.
+ */
+function columnaBajoElDedo(g: Gesto, e: PointerEvent): Prio | null {
+  const x = e.clientX + window.scrollX;
+  const y = e.clientY + window.scrollY;
+  const col = g.cols.find((c) => x >= c.left && x <= c.right && y >= c.top && y <= c.bottom);
+  return col ? col.prio : null;
+}
 
 /**
  * @param onSoltar  se llama SÓLO si la tarjeta terminó sobre una columna DISTINTA.
@@ -117,7 +135,10 @@ export function useArrastreTactil(
 
     const alMover = (e: PointerEvent) => {
       const g = gesto.current;
-      if (!g) return;
+      // ⚠️ SÓLO EL DEDO QUE EMPEZÓ. Sin esto, apoyar un segundo dedo en cualquier lado de
+      // la pantalla movía —y soltaba— la tarjeta del primero, en las coordenadas del
+      // segundo. En un celular sostenido con las dos manos eso pasa solo.
+      if (!g || e.pointerId !== g.pointerId) return;
       const dx = e.clientX - g.x0;
       const dy = e.clientY - g.y0;
       if (!g.armado) {
@@ -128,8 +149,7 @@ export function useArrastreTactil(
       // Armado: qué columna hay debajo del dedo, con los rectángulos que se midieron al
       // armar (leer layout en cada movimiento es lo que hace que un arrastre se sienta
       // pegajoso).
-      const col = g.cols.find((c) => e.clientX >= c.left && e.clientX <= c.right && e.clientY >= c.top && e.clientY <= c.bottom);
-      setSobre(col ? col.prio : null);
+      setSobre(columnaBajoElDedo(g, e));
       // Empujar la página cuando el dedo llega al borde. Sin esto, en un celular —donde las
       // cuatro columnas quedan una arriba de otra— la columna de destino está fuera de la
       // pantalla y no hay forma de llegar.
@@ -142,13 +162,12 @@ export function useArrastreTactil(
 
     const alSoltar = (e: PointerEvent) => {
       const g = gesto.current;
-      if (!g) return;
+      if (!g || e.pointerId !== g.pointerId) return;
       if (g.armado) {
         // Medio segundo de gracia para tragarse el `click` que el navegador sintetiza
         // después de un arrastre táctil.
         finArrastre.current = performance.now();
-        const col = g.cols.find((c) => e.clientX >= c.left && e.clientX <= c.right && e.clientY >= c.top && e.clientY <= c.bottom);
-        const destino = col?.prio ?? null;
+        const destino = columnaBajoElDedo(g, e);
         const id = g.id;
         limpiar();
         // Soltarla donde ya estaba no es mover nada: no se abre ningún pop-up.
@@ -161,7 +180,7 @@ export function useArrastreTactil(
     // `pointercancel` no es un detalle: lo manda el navegador cuando el scroll se gana el
     // gesto, cuando entra una llamada o con cualquier gesto del sistema. Sin manejarlo, la
     // columna queda pintada y el ref del arrastre armado para siempre.
-    const alCancelar = () => limpiar();
+    const alCancelar = (e: PointerEvent) => { if (!gesto.current || e.pointerId === gesto.current.pointerId) limpiar(); };
 
     window.addEventListener('pointermove', alMover);
     window.addEventListener('pointerup', alSoltar);
@@ -183,15 +202,26 @@ export function useArrastreTactil(
     const x0 = e.clientX;
     const y0 = e.clientY;
     gesto.current = {
-      id, x0, y0, armado: false, cols: [],
+      id, pointerId: e.pointerId, x0, y0, armado: false, cols: [],
       timer: setTimeout(() => {
         const g = gesto.current;
         if (!g) return;
         // Recién acá se miden las columnas: en el pointerdown la página todavía se puede
         // haber movido, y durante el arrastre no se vuelve a leer layout.
+        // ⚠️ EN COORDENADAS DE PÁGINA, NO DE VIEWPORT. `getBoundingClientRect` devuelve la
+        // posición respecto de la ventana, y este mismo hook EMPUJA el scroll cuando el
+        // dedo llega al borde: después de scrollear 600 px, los rectángulos medidos al
+        // armar apuntan 600 px arriba del dedo. O sea que el auto-scroll rompía el drop
+        // justo cuando hacía su trabajo —traer a la pantalla una columna que no se veía—,
+        // que es la única razón por la que existe. Sumarle el scroll de entonces los hace
+        // válidos para siempre, sin volver a leer layout.
         g.cols = [...document.querySelectorAll<HTMLElement>('[data-prio]')].map((el) => {
           const r = el.getBoundingClientRect();
-          return { prio: el.dataset.prio as Prio, top: r.top, bottom: r.bottom, left: r.left, right: r.right };
+          return {
+            prio: el.dataset.prio as Prio,
+            top: r.top + window.scrollY, bottom: r.bottom + window.scrollY,
+            left: r.left + window.scrollX, right: r.right + window.scrollX,
+          };
         });
         g.armado = true;
         setArrastrando(g.id);

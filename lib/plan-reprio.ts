@@ -367,18 +367,27 @@ export async function fijarPrioridadAMano(p: { entidad: 'proyecto' | 'tarea'; it
       ? proyectos.filter((x) => x.id !== item.id).map((x) => ({ id: x.id, titulo: x.name, score: x.score || 0 }))
       : tareas.filter((x) => x.id !== item.id && x.progress < 100).map((x) => ({ id: x.id, titulo: x.title, score: x.score || 0 }));
     const todos: Puntuado[] = [...universo, { id: item.id, titulo: nombre, score: scoreActual }];
-    const manuales = (esProy ? proyectos.filter((x) => x.scoreManual) : tareas.filter((x) => x.scoreManual))
-      .map((x) => x.id).filter((id) => id !== item.id);
-    const despues = fijarYDesempatar(todos, {
-      [item.id]: pedido,
-      ...Object.fromEntries(manuales.map((id) => [id, todos.find((x) => x.id === id)?.score ?? 50])),
-    });
+    // ⚠️ ACÁ NO SE CLAVAN LOS OTROS `score_manual`, Y ES LO QUE HACE QUE ESTO FUNCIONE.
+    //
+    // La primera versión los fijaba en su número y además corría `noPisaManuales`. Con el
+    // tablero contiguo (los 70 proyectos ocupan 100..2 sin huecos) eso se auto-bloquea:
+    // cada proyecto que alguien fija deja un tope que la cascada siguiente no puede
+    // atravesar, y la auditoría dura aborta la escritura entera. Medido sobre 3000
+    // movimientos hacia arriba: con 1 candado falla el 24% de las veces, con 3 el 47%, con
+    // 5 el 58%. O sea que la feature se rompía sola a medida que se usaba — y el síntoma
+    // habría sido exactamente el que la originó: «no me deja cambiar la prioridad».
+    //
+    // Y no aflojamos ninguna garantía: `score_manual` significa «ninguna CORRIDA AUTOMÁTICA
+    // lo mueve» (mig 0143). Una persona moviendo otro proyecto a mano no es una corrida: lo
+    // que la protege de ella es `mismoOrdenRelativo`, que no deja que dos que nadie tocó se
+    // crucen entre sí. Correrse un número para hacerle lugar al de al lado no es perder una
+    // decisión; cruzarse, sí.
+    const despues = fijarYDesempatar(todos, { [item.id]: pedido });
 
     const duras = [
       respetaElReclamo({ id: item.id, scorePedido: pedido, scoreActual }, despues),
       sinEmpates(todos.map((x) => ({ ...x, score: despues[x.id] ?? x.score }))),
       mismoOrdenRelativo(todos, despues, item.id),
-      noPisaManuales(todos, despues, manuales, item.id),
     ].filter(Boolean) as Falla[];
     if (duras.length) {
       const txt = duras.map((f) => `${f.regla} — ${f.detalle}`).join(' · ');
@@ -386,10 +395,12 @@ export async function fijarPrioridadAMano(p: { entidad: 'proyecto' | 'tarea'; it
       return { ok: false as const, error: 'Ese número deja el tablero inconsistente, así que no escribí nada.' };
     }
 
-    const manualSet = new Set(manuales);
+    const manualSet = new Set(proyectos.filter((x) => x.scoreManual).map((x) => x.id));
     const nombreDe = (id: string) => todos.find((x) => x.id === id)?.titulo ?? id;
     const cascada: Movimiento[] = todos
       .filter((x) => (despues[x.id] ?? x.score) !== x.score)
+      // `manualAntes` viaja igual en el ripple: es lo que el deshacer necesita para no
+      // dejar el candado puesto sobre un número que ya no es el que se decidió.
       .map((x) => ({ id: x.id, nombre: nombreDe(x.id), antes: x.score, despues: despues[x.id], manualAntes: manualSet.has(x.id) }))
       .sort((a, b) => b.despues - a.despues);
     // El ítem entra SIEMPRE, aunque su número no se mueva: lo que cambia igual es el candado

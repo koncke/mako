@@ -56,17 +56,47 @@ export function puedeEsperar(tipo: string, categoria?: string): boolean {
 
 export type AvisoEnCola = { tipo: string; titulo: string; texto?: string; cuando?: string };
 
+/** Cuánto del aviso entra en su renglón del resumen (sin contar el link). */
+const LARGO_DETALLE = 100;
+
+/**
+ * El renglón de UN aviso: qué fue y DE QUÉ.
+ *
+ * ⚠️ EL TÍTULO SOLO NO ALCANZA, y es el defecto con el que esto nació. `emitirDelCatalogo`
+ * pone siempre el título ESTÁTICO del catálogo («Se venció una grabación», «Cambió tu
+ * landing»), así que tres avisos del mismo tipo salían como tres renglones idénticos: el
+ * resumen decía QUÉ pasó y no de qué página, de qué grabación ni de qué proyecto — o sea,
+ * la única parte accionable. El dato concreto vive en el TEXTO, que lo escribe el código.
+ *
+ * ⚠️ Y LA URL NO SE CORTA: se saca del cuerpo, se recorta sólo la prosa y el link se pega
+ * entero al final. Un link cortado a la mitad es peor que ninguno — se ve clicable, y no
+ * lleva a ningún lado.
+ */
+export function lineaDeAviso(a: AvisoEnCola): string {
+  const crudo = (a.texto ?? '').replace(/\r/g, '');
+  const url = crudo.match(/https?:\/\/\S+/)?.[0] ?? '';
+  const detalle = crudo
+    .split('\n')
+    .map((l) => l.replace(/https?:\/\/\S+/g, '').replace(/[*_~`]/g, '').replace(/👉/g, '').replace(/\s+/g, ' ').trim())
+    .find((l) => l.length > 1) ?? '';
+  const titulo = (a.titulo || a.tipo).replace(/\s+/g, ' ').trim();
+  const corto = detalle.length > LARGO_DETALLE ? detalle.slice(0, LARGO_DETALLE - 1).trimEnd() + '…' : detalle;
+  // Sin detalle —o con uno que repite el título— queda el título solo: nunca un renglón que
+  // diga dos veces lo mismo.
+  const cuerpo = !corto || corto === titulo ? titulo : `${titulo} — ${corto}`;
+  return url ? `${cuerpo} 👉 ${url}` : cuerpo;
+}
+
 /**
  * El resumen, en la voz de MaKo. Función pura: se puede mirar sin mandar nada.
  *
- * Una línea por aviso, con el TÍTULO —que es lo que ya dice de qué se trata— y nada más.
- * Pegar los textos completos haría un mensaje de treinta renglones, que es el problema que
- * este resumen viene a resolver, no a mudar de lugar.
+ * Una línea por aviso. Pegar los textos completos haría un mensaje de treinta renglones,
+ * que es el problema que este resumen viene a resolver, no a mudar de lugar.
  */
 export function textoResumen(items: AvisoEnCola[]): { titulo: string; texto: string } | null {
   if (!items.length) return null;
   const lineas = ['📋 *Lo que pasó desde ayer*', ''];
-  for (const a of items.slice(0, 12)) lineas.push(`• ${(a.titulo || a.tipo).slice(0, 120)}`);
+  for (const a of items.slice(0, 12)) lineas.push(`• ${lineaDeAviso(a)}`);
   if (items.length > 12) lineas.push(`• …y ${items.length - 12} más`);
   lineas.push('');
   lineas.push('Nada de esto necesitaba interrumpirte. Si quieres que alguno vuelva a llegar en el momento, se prende en Configuraciones › Notificaciones. — MaKo');

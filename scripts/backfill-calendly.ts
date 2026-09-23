@@ -31,12 +31,10 @@ import { resolve } from 'node:path';
 
 config({ path: resolve(process.cwd(), '.env.local') });
 
-import { upsertLeadFromCalendly, saveLeadRespuestas, normalizarTelefono } from '../lib/leads';
-import { isoToFechaTijuana, extractAnswer, extractRespuestaPorFrase } from '../lib/calendly';
+import { upsertLeadFromCalendly, saveLeadRespuestas, normalizarTelefono, findLeadByContacto, setFechaJunta2 } from '../lib/leads';
+import { isoToFechaTijuana, extractAnswer, extractRespuestaPorFrase, clasificarJunta } from '../lib/calendly';
 import { runWithWorkspace, OWNER_WS, getTenantDb } from '../lib/workspace';
-
-// R1 vs R2 por el nombre del evento de Calendly (para las respuestas exactas).
-const ES_R2 = /r2|reuni[oó]n 2|junta 2|seguimiento/i;
+import { credWs } from '../lib/credenciales';
 
 const API = 'https://api.calendly.com';
 const PAUSA_MS = 300;
@@ -83,6 +81,8 @@ async function calendlyGet<T>(url: string): Promise<T> {
 type ScheduledEvent = {
   uri: string;
   name?: string;
+  /** La URI del event type: es el candidato MÁS fuerte de `clasificarJunta` (el nombre lo puede editar cualquiera). */
+  event_type?: string;
   start_time: string;
   status: string;
 };
@@ -111,6 +111,19 @@ async function main() {
   );
   const org = me.resource.current_organization;
   console.log(`  Organización: ${org}\n`);
+
+  // ⚠️ LA MISMA CONFIG Y LA MISMA FUNCIÓN QUE EL WEBHOOK. Acá había un regex propio
+  // (`/r2|reunión 2|junta 2|seguimiento/`) que era una SEGUNDA copia del predicado: dos
+  // copias del mismo criterio divergen, y ésta divergía ya el día que se escribió — el
+  // event type de la R2 se llama «Calificación para Programa Directivo - Reunión 2», que
+  // ese regex acierta de casualidad por «reunión 2», y una R2 renombrada se habría
+  // importado como si fuera una primera reunión.
+  const cfgJuntas = {
+    j1: await credWs('CALENDLY_EVENT_TYPE_J1', OWNER_WS),
+    j2: await credWs('CALENDLY_EVENT_TYPE_J2', OWNER_WS),
+  };
+  console.log(`  R1: ${cfgJuntas.j1 ?? '— (sin configurar)'}`);
+  console.log(`  R2: ${cfgJuntas.j2 ?? '— (sin configurar)'}\n`);
 
   // b) Listar scheduled_events paginando
   const eventos: ScheduledEvent[] = [];
@@ -198,6 +211,44 @@ async function main() {
           : isoToFechaTijuana(ev.start_time);
         const fechaJ1 = isoToFechaTijuana(ev.start_time);
 
+        // ── Una R2 NUNCA crea un lead, y NUNCA escribe la fecha de la R1 ──────────
+        // El webhook ya lo hace así desde la Fase 10 («NUNCA crear desde una J2»,
+        // app/api/webhooks/calendly/route.ts:185). Este script trataba toda reserva como
+        // una primera reunión: una R2 cuyo invitee no matchea ningún lead creaba un lead
+        // NUEVO con la fecha de la R2 metida en `fecha_junta_1` y `junta_1_at`. O sea una
+        // persona que figura agendada a una primera reunión que nunca existió, con el No
+        // Show de `crm-auto-plan` contando desde esa fecha y la cohorte del reporte
+        // apuntando al mes equivocado.
+        if (clasificarJunta(ev, cfgJuntas) === 'j2') {
+          const lead = await findLeadByContacto(email, telefono);
+          if (!lead) {
+            saltados++;
+            console.log(`  [R2 sin lead] ${nombre} <${email}> R2=${fechaJ1} — no se crea nada (el webhook tampoco)`);
+            continue;
+          }
+          // No destructivo, igual que `soloCompletarVacios`: si ya tiene R2 cargada, se
+          // respeta. Puede ser una reprogramación que alguien corrigió a mano.
+          const faltantes = [!lead.fecha_junta_2 && 'fecha_junta_2', !lead.junta_2_at && 'junta_2_at'].filter(Boolean);
+          const falta = faltantes.length > 0;
+          if (DRY) {
+            console.log(`  [dry] ${(falta ? `COMPLETA(${faltantes.join(',')})` : 'NADA').padEnd(46)} ${nombre} <${email}> R2=${fechaJ1} (lead #${lead.id})`);
+            if (falta) completados++; else saltados++;
+            continue;
+          }
+          if (falta) {
+            await setFechaJunta2(lead.id, lead.fecha_junta_2 ?? fechaJ1, lead.junta_2_at ?? ev.start_time);
+            completados++;
+          } else {
+            saltados++;
+          }
+          // Las respuestas del form de la R2 van con su propia etiqueta: el set de columnas
+          // de `leads` es el de la R1 y pisarlo con las de la R2 sería contestar otra cosa.
+          if (inv.questions_and_answers?.length) {
+            await saveLeadRespuestas(lead.id, 'R2', inv.questions_and_answers, fechaJ1);
+          }
+          continue;
+        }
+
         if (DRY) {
           // ⚠️ EL DRY HACE EL MISMO LOOKUP QUE LA ESCRITURA. Antes imprimía lo que había
           // devuelto Calendly y seguía de largo, sin tocar la base: o sea contestaba «qué
@@ -263,7 +314,8 @@ async function main() {
         // tal cual) en lead_respuestas — así la ficha no cae al fallback canónico.
         // Idempotente por (lead, reunión, evento).
         if (inv.questions_and_answers?.length) {
-          const reunion = ES_R2.test(ev.name ?? '') ? 'R2' : 'R1';
+          // Acá ya es R1: la rama de la R2 salió por `continue` mucho antes.
+          const reunion = 'R1';
           // ⚠️ `fechaJ1`, NO `ev.start_time`. El dedup de saveLeadRespuestas es un `.eq`
           // exacto sobre `evento_inicio`, y el webhook le pasa el DÍA («2026-09-21»), no el
           // ISO completo. Con formatos distintos no matchea y la misma reunión queda con

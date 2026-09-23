@@ -35,7 +35,7 @@ export async function apiPlan(body: Record<string, unknown>): Promise<{ ok: bool
  */
 export function repoPlan(): Repo {
   return {
-    labelMode: 'multi', labelSingular: 'Proyecto', labelPlural: 'Proyectos', fathomExtract: true, catalogo: CATALOGO_PROYECTOS,
+    labelMode: 'multi', labelSingular: 'Proyecto', labelPlural: 'Proyectos', fathomExtract: true, debatePrioridad: true, catalogo: CATALOGO_PROYECTOS,
     createTask: async (d) => { const j = await apiPlan({ action: 'crear-tarea', tarea: d }); if (!j.ok || !j.tarea) throw new Error(j.error || 'no se pudo crear'); return j.tarea; },
     saveTask: async (d) => { await apiPlan({ action: 'guardar-tarea', tarea: d }); },
     deleteTask: async (id) => { await apiPlan({ action: 'borrar-tarea', id }); },

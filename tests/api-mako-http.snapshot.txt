@@ -313,7 +313,6 @@ snapshot_funnel_experimentos
 sugerir_kpis
 sugerir_productos
 tendencia_score
-tildar_checklist_tarea
 tracking_lead
 transiciones_desde_etapa
 variables_plantilla

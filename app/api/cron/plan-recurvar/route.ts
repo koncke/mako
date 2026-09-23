@@ -48,7 +48,7 @@ export async function GET() {
     const venc = await runWithWorkspace(ws, () => avisarVencimientosDelPlan(new Date().toISOString().slice(0, 10), ws))
       .catch((e) => ({ atrasados: 0, porVencer: 0, enviado: false, motivo: e instanceof Error ? e.message : String(e) }));
     console.log(`[cron plan-recurvar] vencimientos: ${venc.atrasados} atrasados · ${venc.porVencer} por vencer · ${venc.enviado ? 'avisado' : `sin avisar (${venc.motivo ?? '—'})`}`);
-    console.log(`[cron plan-recurvar] ws${ws} · ${t.movidas}/${t.total} tareas · ${t.conDeadline} por fecha · ${t.quietas} por quietud · ${t.frenadas} frenadas · proyectos ${p.movidos}/${p.total} · norte «${p.norte}»${p.fallas ? `
+    console.log(`[cron plan-recurvar] ws${ws} · ${t.movidas}/${t.total} tareas · ${t.conDeadline} por fecha · ${t.quietas} por quietud · ${t.frenadas} frenadas · ${t.fijadas} fijadas a mano · proyectos ${p.movidos}/${p.total} · norte «${p.norte}»${p.fallas ? `
 ${p.fallas}` : ''}`);
     return NextResponse.json({ ok: true, tareas: t, proyectos: p, colgadas, vencimientos: venc });
   } catch (err) {

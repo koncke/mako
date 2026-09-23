@@ -54,7 +54,11 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, puedeFij
   const [nuevoProy, setNuevoProy] = useState('');
   const [nuevoEmoji, setNuevoEmoji] = useState('🏷');
   const [deadline, setDeadline] = useState('');
-  const [ponerPrio, setPonerPrio] = useState(puedeFijarPrioridad && prioInicial != null);
+  // ⚠️ NACE APAGADA SIEMPRE. Abrir el alta desde la cabecera de una columna sugiere el
+  // número de esa banda, pero no es elegirlo: con la casilla pre-tildada, crear una tarea
+  // desde «Alta» le clavaba `score_manual` a algo que nadie decidió, y el Perro no la
+  // volvía a mirar nunca.
+  const [ponerPrio, setPonerPrio] = useState(false);
   const [userScore, setUserScore] = useState<number>(prioInicial ? scoreFromPrio[prioInicial] : 50);
   const [creando, setCreando] = useState(false);
   const [err, setErr] = useState('');
@@ -209,10 +213,17 @@ function BotonDictar({ titulo, onTexto, onError }: { titulo: string; onTexto: (t
     try {
       const fd = new FormData();
       fd.append('audio', blob, 'nota.webm');
-      const j = await fetch('/api/plan-dictado', { method: 'POST', body: fd }).then((r) => r.json());
+      // ⚠️ CON SEÑAL DE CORTE, que es la regla que quedó escrita hoy mismo en AGENTS.md: un
+      // `fetch` sin `signal` con la conexión caída no resuelve NUNCA, y acá eso dejaba el
+      // botón de dictar deshabilitado para siempre (el `finally` no llega a correr).
+      const j = await fetch('/api/plan-dictado', { method: 'POST', body: fd, signal: AbortSignal.timeout(90_000) }).then((r) => r.json());
       if (!j?.ok) { onError(String(j?.error || 'No pude transcribir el audio.')); return; }
       if (j.texto) onTexto(String(j.texto));
-    } catch (e) { onError(e instanceof Error ? e.message : String(e)); }
+    } catch (e) {
+      onError(e instanceof Error && e.name === 'TimeoutError'
+        ? 'La transcripción tardó demasiado. Escríbelo a mano o prueba de nuevo.'
+        : e instanceof Error ? e.message : String(e));
+    }
     finally { setSubiendo(false); }
   }, onError);
 

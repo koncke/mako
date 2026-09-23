@@ -273,12 +273,15 @@ export const RUNNERS: Runners = {
       const nombres = nombresDeProyectos(tab);
       const abiertas = tab.tareas.filter(abierta).sort((a, b) => b.score - a.score);
       const sinDeadline = abiertas.filter((t) => !t.deadline);
-      const sinChecklist = abiertas.filter((t) => !t.checklist.length);
+      // ⛔ ACÁ SE DEVOLVÍA TAMBIÉN `sin_checklist`, y desde que las checklists salieron del
+      // producto (22/09/2026) esa lista era TODAS las tareas abiertas: un agente que
+      // preguntaba «¿qué falta completar?» recibía las 241 marcadas como incompletas. Un
+      // contador definido por la ausencia de algo que ya no existe no devuelve cero:
+      // devuelve el universo entero, y con cara de diagnóstico.
       return json({
         board: tab.board,
         sin_deadline: { total: sinDeadline.length, tareas: sinDeadline.slice(0, 100).map((t) => tareaCompacta(t, nombres)) },
-        sin_checklist: { total: sinChecklist.length, tareas: sinChecklist.slice(0, 100).map((t) => tareaCompacta(t, nombres)) },
-        nota: 'cada lista muestra hasta 100, las de mayor score; `total` es el número real.',
+        nota: 'la lista muestra hasta 100, las de mayor score; `total` es el número real.',
         ...aviso(tab),
       });
     },
@@ -539,47 +542,6 @@ export const RUNNERS: Runners = {
       return despues?.estado === 'descartada'
         ? { ok: true, resumen: 'Borrador descartado.' }
         : { ok: false, resumen: 'No se pudo descartar el borrador.' };
-    },
-  },
-
-  tildar_checklist_tarea: {
-    preparar: async (input, ctx) => {
-      const tab = await leerTablero(ctx.ws);
-      const t = buscarTarea(tab, str(input, 'id'), null);
-      if (!t) return { error: `No encuentro la tarea «${str(input, 'id')}» en el plan de este negocio.` };
-      const itemId = str(input, 'itemId');
-      const item = t.checklist.find((c) => c.id === itemId);
-      if (!item) return { error: `La tarea «${t.titulo}» no tiene un paso con id «${itemId}».`, disponibles: t.checklist.map((c) => ({ id: c.id, texto: c.text, hecho: c.done })) };
-      const done = input.done === true;
-      if (item.done === done) return { error: `El paso «${item.text}» ya está ${done ? 'hecho' : 'abierto'}.` };
-      return { payload: { id: t.id, itemId, done }, resumen: `${done ? 'Tildar' : 'Destildar'} «${recortar(item.text, 100)}» en la tarea «${recortar(t.titulo, 100)}»` };
-    },
-    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
-      const id = String(payload.id ?? '');
-      const itemId = String(payload.itemId ?? '');
-      const done = payload.done === true;
-      if (await usaPlanBoard(ctx.ws)) {
-        // Se relee la fila JUSTO antes de guardar: guardarPlanTarea pisa la fila entera.
-        const t = (await listPlanBoard()).tareas.find((x) => x.id === id);
-        const item = t?.checklist.find((c) => c.id === itemId);
-        if (!t || !item) return { ok: false, resumen: 'La tarea o el paso ya no existen.' };
-        const texto = `MaKo ${done ? 'tildó' : 'destildó'} «${item.text}»`.slice(0, 240);
-        await guardarPlanTarea({
-          ...t,
-          checklist: t.checklist.map((c) => (c.id === itemId ? { ...c, done } : c)),
-          historial: [{ id: genHistId(), ts: Date.now(), actor: 'ia' as const, text: texto }, ...(t.historial ?? [])].slice(0, 40),
-        });
-        return { ok: true, resumen: texto };
-      }
-      const t = (await listTareas()).find((x) => x.id === Number(id));
-      const item = t?.checklist.find((c) => c.id === itemId);
-      if (!t || !item) return { ok: false, resumen: 'La tarea o el paso ya no existen.' };
-      const texto = `MaKo ${done ? 'tildó' : 'destildó'} «${item.text}»`.slice(0, 240);
-      await editarTarea(t.id, {
-        checklist: t.checklist.map((c) => (c.id === itemId ? { ...c, done } : c)),
-        historial: [{ id: genHistId(), ts: Date.now(), actor: 'ia' as const, text: texto }, ...t.historial].slice(0, 40),
-      });
-      return { ok: true, resumen: texto };
     },
   },
 

@@ -332,7 +332,7 @@ function desdeDeFuente(f?: Fuente): { actor: Actor; desde: string } {
  * una tilde o una coma y una comparación exacta diría "no lo absorbió" siempre.
  */
 import { fusionarDetalle, pasosComoBullets } from './detalle-fusion';
-import { evaluarDetalle } from './detalle-contrato';
+import { evaluarDetalle, TOPE_DETALLE } from './detalle-contrato';
 export { fusionarDetalle };
 
 /**
@@ -535,7 +535,7 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
       const projId = projDeTarea[i];
       return {
         id: genId('t'), num: start + i, emoji: '📌', title: it.titulo.trim().slice(0, 200),
-        detalle: it.detalle?.slice(0, 6000) ?? '', priority: prio, score: scoreFromPrio[prio], progress: 0,
+        detalle: it.detalle?.slice(0, TOPE_DETALLE) ?? '', priority: prio, score: scoreFromPrio[prio], progress: 0,
         deadline: it.deadline || '', labels: projId ? [projId] : [], checklist: [],
         // Las decisiones de ruteo que NO se ven en el resultado van en el historial DE LA
         // TARJETA, que es donde el dueño las va a leer. En un log de Vercel no las ve
@@ -588,19 +588,45 @@ export async function ampliarTareasPlanOwner(items: AmpliarTareaPlan[], fuente?:
     for (const it of validos) {
       const f = porId.get(it.id);
       if (!f) { console.warn(`[plan-board] ampliar: la tarea ${it.id} no existe`); continue; }
-      const detalleFinal = fusionarDetalle(str(f.detalle), (it.detalle ?? '').trim());
+      const actual = str(f.detalle);
       // ⚠️ ACÁ SE EXTRAÍAN LAS VIÑETAS DEL TEXTO NUEVO A LA CHECKLIST. Ya no: las viñetas
       // se quedan donde ya estaban —adentro del detalle fusionado—, que es donde viven los
       // pasos desde que las checklists salieron del producto (22/09/2026).
-      if (detalleFinal === str(f.detalle)) continue;
-      const entrada: Hist = { id: genId('h'), ts: ahora, actor, text: `MaKo le sumó contexto (no la duplicó) — ${desde}`.slice(0, 220) };
+      const fusionado = fusionarDetalle(actual, (it.detalle ?? '').trim());
+      // ⚠️ EL TOPE SE APLICA ANTES DE DECIDIR, NO DESPUÉS. `fusionarDetalle` pega lo nuevo
+      // AL FINAL, así que en una tarjeta que ya está en el tope el `slice` se lleva puesto
+      // exactamente lo que se venía a agregar: la comparación contra el texto SIN recortar
+      // daba «cambió», se escribía un detalle idéntico al que ya estaba, y el historial
+      // decía «MaKo le sumó contexto». O sea: la reunión se perdía y la tarjeta afirmaba
+      // que la había incorporado. Medido el 23/09/2026: 6 tarjetas del tablero clavadas en
+      // 6000 caracteres, y toda ampliación siguiente moría así, en silencio.
+      const detalleFinal = fusionado.slice(0, TOPE_DETALLE);
+      const afuera = fusionado.length - detalleFinal.length;
+      if (detalleFinal === actual) {
+        // No entró NADA. Si fue por el tope, queda escrito: un descarte sin rastro hace
+        // indistinguibles «no llegó» de «lo tiramos nosotros», y acá lo que se pierde es
+        // el contexto de una reunión que ya no se puede volver a extraer.
+        if (afuera > 0) {
+          const aviso: Hist = { id: genId('h'), ts: ahora, actor, text: `MaKo NO pudo sumar contexto: la tarjeta está en el tope de ${TOPE_DETALLE} caracteres y quedaron ${afuera} afuera. Acorta el detalle y vuelve a cargarla — ${desde}`.slice(0, 220) };
+          const hist = [aviso, ...sanearHist(f.historial)].slice(0, 40);
+          const { error: e2 } = await db.from('plan_tareas').update({ historial: hist, updated_at: new Date().toISOString() }).eq('id', it.id);
+          if (e2) console.error(`[plan-board] ampliar ${it.id} (aviso de tope): ${e2.message}`);
+          else patches.push({ id: it.id, historialEntry: aviso });
+          console.warn(`[plan-board] ampliar ${it.id}: no entró (tope ${TOPE_DETALLE}, ${afuera} caracteres afuera)`);
+        }
+        continue;
+      }
+      // Entró, pero puede haber entrado A MEDIAS: el historial lo dice con el número.
+      const entrada: Hist = { id: genId('h'), ts: ahora, actor, text: (afuera > 0
+        ? `MaKo le sumó contexto y entró INCOMPLETO: quedaron ${afuera} caracteres afuera por el tope de ${TOPE_DETALLE} — ${desde}`
+        : `MaKo le sumó contexto (no la duplicó) — ${desde}`).slice(0, 220) };
       const historial = [entrada, ...sanearHist(f.historial)].slice(0, 40);
       const { error } = await db.from('plan_tareas').update({
-        detalle: detalleFinal.slice(0, 6000), historial, updated_at: new Date().toISOString(),
+        detalle: detalleFinal, historial, updated_at: new Date().toISOString(),
       }).eq('id', it.id);
       if (error) { console.error(`[plan-board] ampliar ${it.id}: ${error.message}`); continue; }
       n++;
-      patches.push({ id: it.id, detalle: detalleFinal.slice(0, 6000), historialEntry: entrada });
+      patches.push({ id: it.id, detalle: detalleFinal, historialEntry: entrada });
     }
     return { n, patches };
   });
@@ -631,15 +657,25 @@ export async function ampliarTareasPlanOwner(items: AmpliarTareaPlan[], fuente?:
  * tarjetas son el mismo trabajo («Mismo trabajo que "Investigar competencia: X"», 5 de
  * ellas en 62). Lo que esto arregla es la DISTRIBUCIÓN: que la pirámide tenga fondo.
  *
- * ⚠️ Y NO cambia el orden que decidió nadie: preserva el ranking tal cual está, incluida
- * cualquier corrección a mano del dueño. Solo mueve la regla de tres.
+ * ⚠️ Y NO cambia el orden que decidió nadie: preserva el ranking tal cual está. Solo mueve
+ * la regla de tres.
+ *
+ * ⚠️ LO FIJADO A MANO NO SE TOCA, Y HASTA EL 23/09/2026 SÍ SE TOCABA. El comentario de
+ * arriba decía «incluida cualquier corrección a mano del dueño» y el código no miraba
+ * `score_manual` (mig 0143) en ningún lado: a una tarjeta que el dueño había fijado en 90
+ * se le sumaba el empuje del deadline y el castigo por quietud, y después la curva le
+ * reescribía el número. O sea que el candado que la pantalla anuncia («la fijaste a mano:
+ * MaKo ya no la toca») era cierto para los proyectos y mentira para las tareas — y la
+ * forma en que fallaba es la peor: el número se movía solo, de a poco, todos los días.
+ * Acá esas tarjetas entran al reparto con su número tal cual (para que las otras se
+ * ordenen ALREDEDOR de ellas) y salen sin que se les escriba nada.
  */
-export async function recurvarPlanOwner(): Promise<{ movidas: number; total: number; conDeadline: number; quietas: number; frenadas: number }> {
+export async function recurvarPlanOwner(): Promise<{ movidas: number; total: number; conDeadline: number; quietas: number; frenadas: number; fijadas: number }> {
   return enPlan(async () => {
     const db = await getTenantDb();
     const ahora = Date.now();
     const [tRes, dRes] = await Promise.all([
-      db.from('plan_tareas').select('id, num, score, score_base, progress, labels, deadline, historial, created_at').order('num', { ascending: true }),
+      db.from('plan_tareas').select('id, num, score, score_base, score_manual, progress, labels, deadline, historial, created_at').order('num', { ascending: true }),
       db.from('plan_dependencias').select('entidad, de_id, a_id, clase, razon, origen, confianza'),
     ]);
     const deps = (dRes.data ?? []).map(sanearDep).filter((x): x is Dep => x != null);
@@ -650,14 +686,18 @@ export async function recurvarPlanOwner(): Promise<{ movidas: number; total: num
       const base = optInt(row.score_base) ?? int(row.score);
       const dl = diasAlDeadline(str(row.deadline) || undefined, ahora);
       const q = diasQuieta(sanearHist(row.historial), str(row.created_at), ahora);
-      const aj = ajusteTemporal({ quieta: q, alDeadline: dl });
+      // Una decisión de una persona no la ajusta el tiempo: el que la fijó ya sabía cuándo
+      // vencía y hace cuánto no se tocaba. Sin este corte, el candado se filtraba igual por
+      // el delta aunque después no se escribiera el número.
+      const manual = row.score_manual === true;
+      const aj = manual ? { delta: 0, razon: '' } : ajusteTemporal({ quieta: q, alDeadline: dl });
       return {
         id: str(row.id), num: int(row.num), score: Math.max(1, Math.min(100, base + aj.delta)),
         progress: int(row.progress), labels: asArr<unknown>(row.labels).map(String),
-        mostrado: int(row.score), dl, quieta: q, razon: aj.razon,
+        mostrado: int(row.score), dl, quieta: q, razon: aj.razon, manual,
       };
     });
-    if (filas.length < 20) return { movidas: 0, total: filas.length, conDeadline: 0, quietas: 0, frenadas: 0 };
+    if (filas.length < 20) return { movidas: 0, total: filas.length, conDeadline: 0, quietas: 0, frenadas: 0, fijadas: 0 };
 
     // El ORDEN lo fija el grafo de dependencias sobre los scores ya ajustados por tiempo, y
     // `curveTaskScores` solo reparte los números sobre ese orden. Importa que sea en este
@@ -665,7 +705,7 @@ export async function recurvarPlanOwner(): Promise<{ movidas: number; total: num
     // de que se venciera un deadline.
     const est = resolverDeps({ tareas: filas, deps });
     const curva = curveTaskScores(est.orden.map((t) => ({ id: t.id, score: est.urgencia[t.id] ?? t.score })));
-    const cambian = filas.filter((t) => curva[t.id] != null && curva[t.id] !== t.mostrado);
+    const cambian = filas.filter((t) => !t.manual && curva[t.id] != null && curva[t.id] !== t.mostrado);
     // De a tandas: 550 updates sueltos en paralelo saturan el pool de conexiones.
     const TANDA = 40;
     for (let i = 0; i < cambian.length; i += TANDA) {
@@ -679,8 +719,9 @@ export async function recurvarPlanOwner(): Promise<{ movidas: number; total: num
     const conDeadline = filas.filter((t) => empujeDeadline(t.dl) > 0).length;
     const quietas = filas.filter((t) => castigoQuietud(t.quieta) > 0).length;
     const frenadas = filas.filter((t) => estaBloqueada(t.id, est)).length;
-    if (cambian.length) console.log(`[plan-board] recurvar: ${cambian.length}/${filas.length} movidas · ${conDeadline} por fecha · ${quietas} por quietud · ${frenadas} frenadas`);
-    return { movidas: cambian.length, total: filas.length, conDeadline, quietas, frenadas };
+    const fijadas = filas.filter((t) => t.manual).length;
+    if (cambian.length || fijadas) console.log(`[plan-board] recurvar: ${cambian.length}/${filas.length} movidas · ${conDeadline} por fecha · ${quietas} por quietud · ${frenadas} frenadas · ${fijadas} fijadas a mano (intactas)`);
+    return { movidas: cambian.length, total: filas.length, conDeadline, quietas, frenadas, fijadas };
   });
 }
 

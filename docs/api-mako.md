@@ -20,7 +20,7 @@
 ## Índice
 
 - **General** (`general`): `leer_resumen_objetivos` · `ver_trimestre_actual` · `listar_objetivos` · `ver_objetivo_principal` · `ver_tablero_kpis` · `listar_kpis` · `sugerir_kpis` · `listar_fuentes_kpi` · `medir_fuente_kpi` · `ver_capacidad_instalada` · `medir_tramo_r1_r2` · `listar_pendientes_arranque` · `registrar_valor_kpi` · `cerrar_objetivo` · `apagar_kpi` · `guardar_capacidad` · `guardar_objetivo` · `guardar_kpi` · `sembrar_kpis_sugeridos`
-- **Plan** (`plan`): `ver_plan` · `listar_tareas_plan` · `ver_tarea_plan` · `ver_proyecto_plan` · `listar_proyectos_plan` · `ver_prioridades_plan` · `listar_tareas_vencidas` · `listar_tareas_sin_datos` · `buscar_tareas_plan` · `listar_dependencias_plan` · `listar_borradores_plan` · `ver_borrador_plan` · `ver_estado_borrador` · `ver_borrador_de_reunion` · `listar_proyectos_vacios` · `ver_senales_negocio` · `descartar_borrador_plan` · `tildar_checklist_tarea` · `actualizar_avance_tarea` · `agregar_dependencia_plan` · `quitar_dependencia_plan` · `guardar_termino_glosario` · `proponer_tareas_plan` · `proponer_cierre_tareas` · `proponer_ampliar_tareas`
+- **Plan** (`plan`): `ver_plan` · `listar_tareas_plan` · `ver_tarea_plan` · `ver_proyecto_plan` · `listar_proyectos_plan` · `ver_prioridades_plan` · `listar_tareas_vencidas` · `listar_tareas_sin_datos` · `buscar_tareas_plan` · `listar_dependencias_plan` · `listar_borradores_plan` · `ver_borrador_plan` · `ver_estado_borrador` · `ver_borrador_de_reunion` · `listar_proyectos_vacios` · `ver_senales_negocio` · `descartar_borrador_plan` · `actualizar_avance_tarea` · `agregar_dependencia_plan` · `quitar_dependencia_plan` · `guardar_termino_glosario` · `proponer_tareas_plan` · `proponer_cierre_tareas` · `proponer_ampliar_tareas`
 - **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `horarios_libres_dia` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads`
 - **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar`
 - **WhatsApp** (`whatsapp`): `listar_plantillas_aprobadas` · `listar_borradores_plantilla` · `estado_plantillas_meta` · `variables_plantilla` · `estado_envio_whatsapp` · `listar_etiquetas_whatsapp` · `etapa_inbox_de_lead` · `lead_insiste_con_lo_mismo` · `crear_contacto_chatwoot_lead` · `borrar_borrador_plantilla` · `reconciliar_plantillas` · `crear_borrador_whatsapp_empresa` · `guardar_borrador_plantilla` · `enviar_plantilla_a_meta` · `editar_plantilla_meta` · `borrar_plantilla_meta`
@@ -414,7 +414,7 @@ curl -s -X POST "https://hola-mako.com/api/v1/general/sembrar_kpis_sugeridos" -H
 
 ## Plan — `plan`
 
-Tab **Plan** (`/plan`). 16 lecturas · 9 acciones.
+Tab **Plan** (`/plan`). 16 lecturas · 8 acciones.
 
 ### `GET /api/v1/plan/ver_plan` — Ver el plan del negocio
 
@@ -448,7 +448,7 @@ curl -s "https://hola-mako.com/api/v1/plan/listar_tareas_plan" -H "Authorization
 
 ### `GET /api/v1/plan/ver_tarea_plan` — Ficha completa de una tarea
 
-Todo lo de UNA tarea: título, detalle, score y su razón, deadline y su razón, avance, checklist (con el id de cada paso, que pide tildar_checklist_tarea), historial reciente (quién tocó qué: user, ia = MaKo, code = Claude Code), fuente (reunión, WhatsApp, archivo), notas, quarter y qué la bloquea. Pide por id, o por número visible (#412) en el tablero del super-admin.
+Todo lo de UNA tarea: título, detalle, score y su razón, deadline y su razón, avance, historial reciente (quién tocó qué: user, ia = MaKo, code = Claude Code), fuente (reunión, WhatsApp, archivo), notas, quarter y qué la bloquea. Pide por id, o por número visible (#412) en el tablero del super-admin.
 
 - **Alcance mínimo del token:** lectura
 - **Devuelve:** json
@@ -531,9 +531,9 @@ Tareas abiertas cuyo deadline ya pasó o cae dentro de los próximos N días, co
 curl -s "https://hola-mako.com/api/v1/plan/listar_tareas_vencidas" -H "Authorization: Bearer $TOKEN"
 ```
 
-### `GET /api/v1/plan/listar_tareas_sin_datos` — Tareas sin deadline o checklist
+### `GET /api/v1/plan/listar_tareas_sin_datos` — Tareas sin deadline
 
-Las tareas abiertas a las que les falta fecha límite o checklist: lo que el Perro Guardián no pudo decidir y conviene completar. Devuelve las dos listas por separado con su total. No requiere parámetros.
+Las tareas abiertas a las que les falta fecha límite: lo que el Perro Guardián no pudo decidir y conviene completar. Devuelve la lista con su total. No requiere parámetros.
 
 - **Alcance mínimo del token:** lectura
 - **Devuelve:** json
@@ -548,7 +548,7 @@ curl -s "https://hola-mako.com/api/v1/plan/listar_tareas_sin_datos" -H "Authoriz
 
 ### `GET /api/v1/plan/buscar_tareas_plan` — Buscar tareas por texto
 
-Búsqueda literal en el plan: todas las palabras, en cualquier orden, que EMPIEZAN una palabra («CAC» no encuentra «notificaciones»). Por defecto mira solo el título; se pueden sumar detalle, checklist, notas y razones. «#412» busca por número. Para buscar por significado y no por palabras, en WhatsApp o en la app existe cruzar_tareas_con_plan.
+Búsqueda literal en el plan: todas las palabras, en cualquier orden, que EMPIEZAN una palabra («CAC» no encuentra «notificaciones»). Por defecto mira solo el título; se pueden sumar detalle, notas y razones. «#412» busca por número. Para buscar por significado y no por palabras, en WhatsApp o en la app existe cruzar_tareas_con_plan.
 
 - **Alcance mínimo del token:** lectura
 - **Devuelve:** json
@@ -558,7 +558,7 @@ Búsqueda literal en el plan: todas las palabras, en cualquier orden, que EMPIEZ
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `q` | string | sí | el texto a buscar, o #número. |
-| `campos` | string[] (titulo \\| detalle \\| checklist \\| notas \\| razones) | no | dónde buscar (default solo titulo). |
+| `campos` | string[] (titulo \\| detalle \\| notas \\| razones) | no | dónde buscar (default solo titulo). |
 | `incluirHechas` | boolean | no | true para buscar también en las tareas terminadas (default false). |
 
 ```bash
@@ -696,28 +696,6 @@ Descarta un borrador PENDIENTE sin crear nada (la persona dijo que no le sirve).
 ```bash
 curl -s -X POST "https://hola-mako.com/api/v1/plan/descartar_borrador_plan" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   --data-binary '{"id":"…"}'
-```
-
-### `POST /api/v1/plan/tildar_checklist_tarea` — Tildar un paso de checklist
-
-Marca como hecho (o vuelve a abrir) UN paso de la checklist de una tarea y deja rastro en el historial. Aunque queden todos tildados no cierra la tarea: para eso, proponer_cierre_tareas. El id del paso sale de ver_tarea_plan.
-
-- **Alcance mínimo del token:** proponer
-- **Confirmación:** queda **pendiente** (vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** la checklist y el historial de la tarea (plan_tareas o experimento_tareas)
-- **Reversible:** sí
-- **Costo:** gratis
-- **Requiere la tab:** todo
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --- | --- | --- | --- |
-| `id` | string | sí | id de la tarea, o «#412». |
-| `itemId` | string | sí | id del paso de la checklist (de ver_tarea_plan). |
-| `done` | boolean | sí | true = hecho; false = volver a abrirlo. |
-
-```bash
-curl -s -X POST "https://hola-mako.com/api/v1/plan/tildar_checklist_tarea" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  --data-binary '{"id":"…","itemId":"…","done":true}'
 ```
 
 ### `POST /api/v1/plan/actualizar_avance_tarea` — Cambiar el avance de una tarea

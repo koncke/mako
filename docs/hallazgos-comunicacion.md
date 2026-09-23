@@ -5077,3 +5077,31 @@ de un aviso que existe en este sistema.
   otros crons que iteran inquilinos.
 
 **Vive en:** lib/avisos.ts · lib/avisos-agrupables.ts · lib/avisos-cola.ts · app/api/cron/avisos-resumen/route.ts · supabase/migrations/0161_avisos_cola.sql · *2026-09-23*
+
+## El resumen decía QUÉ pasó y no de qué: el título de un aviso del catálogo es ESTÁTICO (23/09/2026)
+
+El resumen diario junta los avisos que pueden esperar y manda uno solo. Su primera versión
+imprimía una línea por aviso **con el título y nada más**, con el argumento razonable de que
+el título ya dice de qué se trata.
+
+No lo dice. `emitirDelCatalogo` arma el aviso con `cat.titulo`, que es una constante del
+catálogo («Cambió tu landing», «Se venció una grabación»), así que tres cambios en tres
+páginas distintas salían como **tres renglones idénticos**. Lo concreto —qué página, qué
+grabación, qué proyecto— vive en el TEXTO, que lo escribe el código justamente porque son
+datos exactos que no pueden pasar por un modelo.
+
+Y había una segunda mitad: cuando el aviso se posponía y no traía `texto` propio, lo que se
+guardaba en la cola era `referenciaPlantilla(id)` — **la misma frase de referencia para
+todos los avisos de ese tipo**. Se guardaba lo único que no distingue un evento de otro. Al
+resumen va ahora el `contexto` crudo, que es feo (son notas para el modelo) pero es el dato.
+
+⚠️ **Y la URL no se recorta.** El renglón corta la prosa a 100 caracteres y pega el link
+entero al final: un link cortado a la mitad se ve clicable y no lleva a ningún lado, que es
+peor que no ponerlo. El recorte va sobre el texto, nunca sobre la línea armada.
+
+La regla que queda, y vale para cualquier digest: **un resumen de N eventos del mismo tipo
+se lee bien sólo si cada renglón dice DE QUÉ habla.** Antes de armar una línea con un campo,
+preguntá si ese campo varía entre dos eventos del mismo tipo; si es una constante del
+catálogo, el resumen no resume, enumera.
+
+**Vive en:** lib/avisos-agrupables.ts (`lineaDeAviso`) · lib/avisos.ts (`emitirDelCatalogo`) · tests/avisos-agrupables.test.ts · *2026-09-23*
