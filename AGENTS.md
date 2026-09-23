@@ -598,6 +598,30 @@ CEDE.** Fila con `flex-wrap: nowrap`, lo que menos informa con `flex: 0 1 auto` 
 cualquier ancho y con cualquier zoom, sin depender de una cuenta que acierta hoy y falla
 mañana.
 
+# Un GESTO no se verifica leyendo el handler: se arrastra en un navegador
+
+Al segundo «sigue sin andar» sobre la misma interacción, se abre el navegador. No al cuarto.
+
+El arrastre del Kanban del plan se reportó roto cuatro veces y las tres primeras rondas
+razonaron sobre el código. La cuarta levantó el dev server y lo arrastró con Playwright:
+en diez minutos dio que **el mecanismo ya funcionaba** (hueco, tarjeta atenuada, pop-up al
+soltar) y que lo que faltaba era otra cosa — `document.body.scrollHeight` = **19.630 px**
+contra una ventana de 900, o sea el 4,6% del tablero a la vista, y **sin auto-scroll en el
+camino del mouse**. Agarrás la tarjeta y no la podés llevar a ningún lado.
+
+- **Verificar sale barato**: `npm run dev`, `/api/auth/dev-login?ws=9&next=…` y un script de
+  40 líneas. Playwright se instala FUERA del repo (`npm i` en una carpeta del scratchpad)
+  para no tocar `package.json`.
+- **Lo que hay que medir es el estado DURANTE el gesto**, no el resultado: cuántos elementos
+  se redibujan, qué hay en pantalla a mitad de camino, cuánto scrolleó.
+
+⚠️ **Y durante un arrastre nativo, el navegador congela `requestAnimationFrame` Y los
+timers.** Medido: un auto-scroll sobre rAF movía 0 px en 1,2 s sobre el borde (y su único
+tick llegaba DESPUÉS de soltar), con `setInterval` 0 px, y con `window.scrollBy` adentro del
+`dragover` 306 px. Lo único que el navegador sigue entregando durante el arrastre es
+`dragover`: el auto-scroll va ahí. Y el timer no se deja «por las dudas» — al soltar largaba
+los ticks acumulados, 112 px de scroll con el gesto ya terminado.
+
 # «Allá funciona y acá no» es el método, no una queja
 
 Cuando el mismo mecanismo anda en una pantalla y no en otra, la respuesta está en las

@@ -2105,9 +2105,52 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, onOpen
    * trampa que ya se había pagado en `arrastre-tactil.ts`.
    */
   const rects = useRef<Record<string, number[]>>({});
+
+  /**
+   * EMPUJAR LA PÁGINA MIENTRAS ARRASTRÁS. Sin esto el arrastre sirve para lo que ya se ve.
+   *
+   * Medido el 23/09/2026 con el tablero real: la columna «Media» mide **9.801 px** de alto
+   * (66 tarjetas de 138 px). En una ventana de 1000 px eso es el 10% del contenido a la
+   * vista, así que mover una tarjeta a casi cualquier lado exige scrollear — y con el botón
+   * apretado la rueda es lo único que queda. Se reporta como «no funciona»: agarrás la
+   * tarjeta y no la podés llevar a ningún lado.
+   *
+   * El CRM lo tiene desde siempre (`onBoardDragOver` + `tickAutoScroll`) y el arrastre CON
+   * EL DEDO de este mismo tablero también (`arrastre-tactil.ts`): el camino del mouse era
+   * el único de los tres sin esto. Eje Y y no X porque acá las columnas están fijas y lo
+   * que scrollea es la PÁGINA.
+   *
+   * Los rectángulos cacheados no se invalidan al scrollear porque están en coordenadas de
+   * página — ésa es justamente la razón por la que se guardan así.
+   */
+  const scrollDir = useRef(0);
+  const pararScroll = useCallback(() => { scrollDir.current = 0; }, []);
+  const empujarScroll = useCallback((clientY: number) => {
+    const BORDE = 110;
+    const dir = clientY < BORDE ? -1 : clientY > window.innerHeight - BORDE ? 1 : 0;
+    scrollDir.current = dir;
+    if (!dir) { pararScroll(); return; }
+    // ⚠️ SE SCROLLEA ACÁ ADENTRO, EN EL PROPIO `dragover`. Medido en el navegador el
+    // 23/09/2026, que es lo que había que hacer tres rondas antes: mientras Chrome tiene
+    // activo su bucle NATIVO de drag-and-drop no entrega frames de animación **ni corre los
+    // timers**, así que un auto-scroll montado sobre `requestAnimationFrame` (1,2 s en el
+    // borde = 0 px, y el único tick llegando DESPUÉS de soltar) o sobre `setInterval` (0 px)
+    // no corre justo cuando se lo necesita.
+    //
+    // Lo único que el navegador SÍ sigue entregando durante el arrastre es `dragover`. Así
+    // que el empujón va acá: cada evento mueve la página un poco, y como los eventos llegan
+    // mientras movés el mouse, el scroll acompaña el gesto.
+    window.scrollBy(0, dir * 18);
+    // ⛔ Y ACÁ NO VA NINGÚN TIMER. Se probó con `setInterval` como complemento para el caso
+    // de quedarse quieto en el borde: el navegador lo congela igual durante el arrastre
+    // —aportaba 0 px— y después de soltar largaba los ticks acumulados, o sea 112 px de
+    // scroll cuando el gesto ya había terminado. Una pieza que no hace nada cuando la
+    // necesitás y hace algo cuando no, se saca.
+  }, [pararScroll]);
+  useEffect(() => () => pararScroll(), [pararScroll]);
   const agarrar = useCallback((id: string | null) => {
     setArrastrado(id);
-    if (!id) { setIns(null); rects.current = {}; return; }
+    if (!id) { setIns(null); rects.current = {}; pararScroll(); return; }
     const out: Record<string, number[]> = {};
     for (const col of document.querySelectorAll<HTMLElement>('[data-prio]')) {
       const prio = col.dataset.prio ?? '';
@@ -2117,7 +2160,7 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, onOpen
       });
     }
     rects.current = out;
-  }, []);
+  }, [pararScroll]);
   // dir = -1 → desc (mayor score / #num más alto = más nuevo, primero); +1 → asc (al revés).
   const dir = sortDir === 'asc' ? 1 : -1;
   // EL ARRASTRE CON EL DEDO. El mouse sigue por HTML5 drag-and-drop (ya funciona y ya está
@@ -2159,6 +2202,7 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, onOpen
             onDragOver={(e) => {
               e.preventDefault();
               e.dataTransfer.dropEffect = 'move';
+              empujarScroll(e.clientY);
               const y = e.clientY + window.scrollY;
               const medidas = rects.current[p] ?? [];
               let idx = medidas.length;
@@ -2171,6 +2215,8 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, onOpen
               e.preventDefault();
               const id = e.dataTransfer.getData('text/plain');
               rects.current = {};
+              pararScroll();
+              pararScroll();
               const idx = ins?.destino === p ? ins.idx : items.length;
               setIns(null);
               setArrastrado(null);

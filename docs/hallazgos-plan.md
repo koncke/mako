@@ -3273,3 +3273,65 @@ el Kanban) son lo mismo dicho dos veces, y sus opacidades se estaban multiplican
   caracteres no alcanza para decidir si va arriba o abajo de él.
 
 **Vive en:** app/plan/board/useBoard.ts (`aplicarCascadaManual`) · app/plan/board/BoardShell.tsx (`scoreEntre`, el hueco del Kanban) · app/plan/board/PrioridadAMano.tsx · *2026-09-23*
+
+
+## El arrastre, cuarta ronda: lo que faltaba era ABRIR EL NAVEGADOR (23/09/2026)
+
+Tres rondas de hipótesis sobre el mismo bug, las tres razonando sobre el código. La cuarta
+empezó levantando el dev server y mirando el gesto con Playwright, y en diez minutos dio dos
+datos que ninguna lectura iba a dar.
+
+**Dato 1: el mecanismo YA funcionaba.** Con el arrastre en curso: hueco dibujado en la
+posición correcta, tarjeta de origen atenuada en su lugar, columna destino resaltada, y al
+soltar el pop-up con «Dónde queda». Todo lo que se había escrito en las tres rondas
+anteriores andaba — y yo seguía tocándolo.
+
+**Dato 2, el que explica el reporte: `document.body.scrollHeight` = 19.630 px.** Con 334
+tarjetas de 138 px y una ventana de 900, se ve el **4,6%** del tablero. Mover una tarjeta a
+casi cualquier lado exige scrollear, y con el botón del mouse apretado no hay rueda que
+valga: **no había auto-scroll en el camino del mouse**. Agarrás la tarjeta y no la podés
+llevar a ningún lado. Eso es «no funciona», y no se parece en nada a lo que yo estaba
+buscando.
+
+El CRM lo tiene desde siempre y el arrastre CON EL DEDO de este mismo tablero también
+(`arrastre-tactil.ts` empuja el scroll al llegar al borde). El del mouse era el único de los
+tres sin eso.
+
+### ⚠️ Durante un arrastre nativo, el navegador congela rAF **y** los timers
+
+Y acá el navegador contestó algo que no estaba en ningún lado. Medido, en este orden:
+
+| Implementación del auto-scroll | Scroll tras 1,2 s en el borde |
+|---|---|
+| `requestAnimationFrame` | **0 px** (y el único tick llegó DESPUÉS de soltar) |
+| `setInterval(…, 16)` | **0 px** |
+| `window.scrollBy` dentro del `dragover` | **306 px** |
+
+Mientras Chrome tiene activo su bucle nativo de drag-and-drop no entrega frames de animación
+ni corre los timers. Lo único que sigue entregando es **`dragover`**, así que el empujón va
+adentro de ese handler: cada evento mueve la página un poco, y como los eventos llegan
+mientras movés el mouse, el scroll acompaña el gesto.
+
+⚠️ **Y el timer no se deja «por las dudas».** Se probó como complemento para el caso de
+quedarse quieto en el borde: aportaba 0 px durante el gesto y, al soltar, largaba los ticks
+acumulados — **112 px de scroll cuando el arrastre ya había terminado**. Una pieza que no
+hace nada cuando la necesitás y hace algo cuando no, se saca.
+
+⚠️ **Y el CRM usa rAF y anda**, lo cual confunde: ahí lo que scrollea es un contenedor, el
+gesto es horizontal y corto, y en la práctica nunca se notó que el auto-scroll no corre.
+Copiar de una implementación que «funciona» no garantiza que la pieza copiada funcione —
+garantiza que nadie la vio fallar.
+
+### La lección de método, que es la cara
+
+**Tres rondas equivalen a más tiempo que levantar el dev server una vez.** El costo de
+verificar era: `npm run dev`, un `dev-login`, y un script de 40 líneas con Playwright
+—instalado FUERA del repo para no tocar `package.json`— que arrastra una tarjeta y cuenta
+qué ve. Diez minutos. Las tres rondas anteriores fueron tres deploys, tres mensajes de
+«sigue igual» y un hallazgo escrito que era cierto y no era la causa.
+
+La regla ya estaba en AGENTS.md —«si es texto que alguien tiene que ver, miralo en la
+pantalla»— y la parte que faltaba es que vale igual para los GESTOS: un arrastre no se
+verifica leyendo el handler.
+
+**Vive en:** app/plan/board/BoardShell.tsx (`empujarScroll`) · *2026-09-23*
