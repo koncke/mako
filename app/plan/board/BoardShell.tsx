@@ -1683,29 +1683,38 @@ function BloquePrioridad({ etiqueta, chip, color, titulo, razon, impacto, esfuer
   onEditar: () => void;
 }) {
   const hayQueAbrir = !!razon || impacto != null || esfuerzo != null;
-  // ⚠️ DOS RENGLONES, Y NO ES ESTÉTICA: ES QUE NO ENTRA. La versión anterior ponía
-  // «Prioridad:» + la banda + el número + el lápiz en UNA fila, dentro de una columna de
-  // 236px. Con «ALTA» (4 letras) entraba; con «A FUTURO» no, y el flex partía la banda en
-  // dos renglones —«A» arriba, «FUTURO» abajo— empujando el lápiz fuera de la vista. El
-  // ancho de la columna es fijo y el de la palabra lo decide el dato, así que la única
-  // versión que no tiene casos es la que no depende de que entren los dos juntos.
+  // ⚠️ UNA LÍNEA, Y LO QUE LA HACE ENTRAR NO ES EL TAMAÑO DE LA LETRA: ES QUIÉN CEDE.
   //
-  // Y de paso queda igual que DEADLINE, QUARTER y PROYECTOS: rótulo chico arriba, valor
-  // grande abajo. Era el único campo del panel con otro molde.
-  const rotulo: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 400 };
+  // Esto se reportó roto cuatro veces. La primera versión ponía rótulo + banda + número +
+  // lápiz en una fila y envolvía: con `ALTA` entraba y con `A FUTURO` partía la banda en
+  // dos renglones. La segunda lo apiló en dos líneas y eso tampoco: «se sigue poniendo en
+  // doble línea».
+  //
+  // El error de las dos fue el mismo: tratar de que la suma de los anchos diera menor que
+  // 200px. Esa cuenta depende del dato (una banda de dos palabras), de la fuente cuando
+  // termina de cargar y del zoom, así que acierta hoy y falla mañana — es la misma trampa
+  // que la medición del header, en chico.
+  //
+  // Acá la fila NO ENVUELVE (`nowrap`) y cada pieza declara si puede achicarse:
+  //   · el RÓTULO es lo único elástico y se recorta con «…» — es lo que menos informa;
+  //   · la banda, el número y el lápiz son `flex: 'none'`: no se parten ni se van nunca.
+  // Con cualquier texto, en cualquier ancho, el resultado es una línea con el dato entero.
+  const rotulo: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--faint)' };
   const cabecera = (
-    <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
-        <span style={rotulo}>Prioridad</span>
-        {/* ⚠️ `preventDefault` + `stopPropagation` viven en el contenedor del summary:
-            adentro de un `<summary>` CUALQUIER click pliega, así que sin eso tocar el
-            lápiz abría el pop-up Y cerraba el bloque en el mismo gesto. */}
-        {puedeEditar && <LapizPrioridad tam={20} onClick={onEditar} titulo={`Cambiar la prioridad de «${titulo.slice(0, 40)}»`} />}
-      </span>
-      <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 7, minWidth: 0 }}>
-        {etiqueta && <span style={{ fontSize: 15, fontWeight: 800, color, letterSpacing: '.01em', whiteSpace: 'nowrap' }}>{etiqueta}</span>}
-        {chip}
-      </span>
+    <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'nowrap', minWidth: 0, width: '100%' }}>
+      <span style={{ ...rotulo, flex: '0 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Prioridad</span>
+      {/* ⚠️ 12px, NO 15. «Está ENORME la tipografía de la prioridad» (23/09/2026), y ése
+          era el diagnóstico de fondo de las cuatro veces que este bloque se reportó roto:
+          venía de cuando era un titular con su slider debajo, y quedó de ese tamaño cuando
+          pasó a ser un campo más de la columna. Un valor más grande que el título del panel
+          no se lee como jerarquía: se lee como que algo se desbordó. Ahora está a la escala
+          de DEADLINE y QUARTER, que es lo que es. */}
+      {etiqueta && <span style={{ flex: 'none', fontSize: 12, fontWeight: 800, color, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>{etiqueta}</span>}
+      <span style={{ flex: 'none', display: 'inline-flex', alignItems: 'center' }}>{chip}</span>
+      {/* ⚠️ `preventDefault` + `stopPropagation` viven en el contenedor del summary: adentro
+          de un `<summary>` CUALQUIER click pliega, así que sin eso tocar el lápiz abriría el
+          pop-up Y cerraría el bloque en el mismo gesto. */}
+      {puedeEditar && <LapizPrioridad tam={20} onClick={onEditar} titulo={`Cambiar la prioridad de «${titulo.slice(0, 40)}»`} />}
     </span>
   );
   const cuerpo = (
@@ -1728,7 +1737,7 @@ function BloquePrioridad({ etiqueta, chip, color, titulo, razon, impacto, esfuer
   return (
     <div>
       <details className="mk-det mk-det--prio">
-        <summary style={{ userSelect: 'none', display: 'flex', alignItems: 'flex-start', gap: 0 }}
+        <summary style={{ userSelect: 'none', display: 'flex', alignItems: 'center' }}
           onClick={(e) => { const t = e.target as HTMLElement; if (t.closest('button')) { e.preventDefault(); e.stopPropagation(); } }}>
           {cabecera}
         </summary>
@@ -2509,7 +2518,7 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
             {trabajando && <PerroTrabajando que="tu plan, para ponerle proyecto, prioridad y detalle" />}
             <BloquePrioridad
               etiqueta={PLABEL[prioEfectiva].toUpperCase()} color={PCOLOR[prioEfectiva]} titulo={t.title}
-              chip={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: 15, fontWeight: 700, color: PCOLOR[prioEfectiva] }}><ScoreIcon size={15} color={PCOLOR[prioEfectiva]} />{t.score}</span>}
+              chip={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: 12, fontWeight: 700, color: PCOLOR[prioEfectiva], whiteSpace: 'nowrap' }}><ScoreIcon size={12} color={PCOLOR[prioEfectiva]} />{t.score}</span>}
               razon={t.scoreRazon} impacto={t.impacto} esfuerzo={t.esfuerzo}
               tiempo={<TiempoLinea t={t} />}
               puedeEditar={!!board.repo.prioridadManual} onEditar={onPrioridad} />
@@ -2961,7 +2970,7 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
             {trabajando && <PerroTrabajando que="el resto de tus proyectos, para ubicarlo y describirlo" />}
             <BloquePrioridad
               color={proj.color} titulo={proj.name}
-              chip={<ProjScore score={proj.score} color={proj.color} big />}
+              chip={<ProjScore score={proj.score} color={proj.color} />}
               razon={proj.scoreRazon} impacto={proj.impacto} esfuerzo={proj.esfuerzo}
               extra={<EscalonChip l={proj} />}
               puedeEditar={!!board.repo.prioridadManual} onEditar={onPrioridad} />

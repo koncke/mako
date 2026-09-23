@@ -578,6 +578,26 @@ Antes de escribir un límite —de tamaño, de progreso, de espaciado— comprob
 el límite real de la capa de abajo. Un número tuyo por encima del suyo no protege:
 promete.
 
+# Si algo no entra, preguntá primero si tiene el TAMAÑO que le corresponde
+
+Antes de acomodar las piezas alrededor de lo que se desborda, mirá si lo que se desborda
+está más grande de lo que le toca. El bloque de prioridad del plan se reportó roto CUATRO
+veces —el ícono mal puesto, la banda partida en dos renglones, el apilado— y el diagnóstico
+real llegó en una línea del dueño: «está ENORME la tipografía». Estaba en 15px bold porque
+venía de cuando era un titular con su slider debajo; al volverse un campo más de una columna
+de 236px nadie le bajó la escala. Tres de los cuatro arreglos fueron acomodar cosas
+alrededor de un número que estaba mal.
+
+⚠️ **El olor: un elemento con el tamaño de cuando era OTRA cosa.** Cada vez que algo baja de
+jerarquía —de pantalla a sección, de sección a fila— se le baja la escala en el mismo
+commit, o queda gritando donde ya no manda.
+
+⚠️ **Y cuando igual hay que apretar, no le acertés a la suma de anchos: declará quién
+CEDE.** Fila con `flex-wrap: nowrap`, lo que menos informa con `flex: 0 1 auto` +
+`text-overflow: ellipsis`, y el dato con `flex: none`. Así entra con cualquier texto, en
+cualquier ancho y con cualquier zoom, sin depender de una cuenta que acierta hoy y falla
+mañana.
+
 # Un layout se prueba con el valor MÁS LARGO del conjunto, no con el primero
 
 Si el ancho es fijo y el texto lo decide el dato, «entra» es una propiedad del dato, no del

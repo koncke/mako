@@ -3087,6 +3087,27 @@ Lo que NO se saca, porque no es fricción sino utilidad: el buscador, los filtro
 y el orden. Con 70 proyectos una lista plana es un scroll donde encontrar «Feature: Landing
 Analyst» es leer de a uno.
 
+### Cuatro reportes sobre el mismo bloque, y el diagnóstico real lo dio él en una línea
+
+«Sigue roto lo de prioridad» se reportó **cuatro veces**. Yo arreglé, en orden: dónde estaba
+el lápiz, dónde estaba el lápiz otra vez, que la banda envolvía, y que dos líneas tampoco.
+El quinto mensaje fue *«y es más fácil, está ENORME la tipografía de la prioridad»* — y era
+eso desde el principio.
+
+El valor estaba en **15px bold** porque venía de cuando el bloque era un titular con su
+slider debajo. Al convertirse en un campo más de la columna nadie le bajó el tamaño, así
+que un campo de 236px tenía adentro un texto más grande que el título del panel. De ahí
+salía todo lo demás: no entraba en la fila, envolvía, empujaba el lápiz.
+
+**La regla: cuando algo no entra, la primera pregunta es si tiene el tamaño que le
+corresponde, no cómo acomodar lo que sobra.** Tres de los cuatro arreglos fueron acomodar
+piezas alrededor de un número que estaba mal.
+
+⚠️ **Y el olor que lo delata: un elemento que quedó con el tamaño de cuando era OTRA
+cosa.** El bloque cambió de titular a campo y se llevó su tipografía puesta. Cada vez que
+algo se degrada de jerarquía —de pantalla a sección, de sección a fila— hay que bajarle la
+escala en el mismo commit, o queda gritando en un lugar donde ya no manda.
+
 ### Un layout que entra con «ALTA» y no con «A FUTURO» está roto, no apretado
 
 El bloque de prioridad ponía «Prioridad:» + la banda + el número + el lápiz en UNA fila,
@@ -3098,10 +3119,13 @@ problema era que no entraban.
 
 **El ancho de la columna es fijo y el del texto lo decide el DATO.** Cualquier layout que
 dependa de que esos dos coincidan funciona con los valores de hoy y se rompe con el
-siguiente — un proyecto que se llame más largo, una traducción, una banda nueva. La versión
-sin casos es la que no los pone en la misma fila: rótulo chico arriba, valor grande abajo,
-que además es el molde que YA usaban DEADLINE, QUARTER y PROYECTOS. Era el único campo del
-panel dibujado distinto.
+siguiente — un proyecto que se llame más largo, una traducción, una banda nueva.
+
+Apilarlo en dos renglones tampoco era la salida («se sigue poniendo en doble línea»). Lo
+que lo cierra son dos cosas juntas: el tamaño correcto (arriba) y **una fila que NO envuelve
+donde cada pieza declara si puede achicarse** — el rótulo es lo único elástico y se recorta
+con «…»; la banda, el número y el lápiz van `flex: 'none'` y no se parten ni se van nunca.
+Así no hay que acertarle a ninguna suma de anchos: lo que cede es lo que menos informa.
 
 ⚠️ **Y probá con el valor MÁS LARGO del conjunto, no con el primero.** Las cuatro bandas
 están en `PLABEL` y se leen en dos segundos; el bug vivió tres tandas de feedback porque
