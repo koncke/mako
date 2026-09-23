@@ -655,6 +655,16 @@ avance, notas, proyecto, score) cambiaban sin red. Se mudó a `patchLog` /
 `patchLogExplicit` / `setScore` / `patchLabelLog`, que es por donde pasan todos los cambios
 logueados: **un campo nuevo lo hereda sin que nadie se acuerde**.
 
+- ⚠️ **Y ENUMERÁ LOS CAMINOS QUE NO PASAN POR AHÍ.** Ponerlo en el choke point no cierra el
+  trabajo: al día siguiente se reportó «cambié la prioridad y NO me apareció el deshacer» —
+  `aplicarCascadaManual` muta el score directo (ahí terminan el slider, el lápiz y el
+  arrastre) y era el único camino que no pasaba por `patchLog`. O sea que quedó sin red
+  justo el número que ordena el tablero entero. Un `grep` de quién muta el campo a mano los
+  lista.
+- ⚠️ **Y si el cambio YA se guardó en el server, deshacer tiene que escribir en el server.**
+  Revertir sólo la pantalla es mentir hasta el próximo F5. Acá el deshacer vuelve a llamar
+  al mismo camino con el valor anterior — y restaura también el estado que ese cambio trajo
+  de arrastre (el candado de `score_manual` lo puso el cambio, no la persona).
 - **Al mudarlo, sacá los que quedaron a mano** o salen dos: `toggleDone` y `moveTo` tenían
   su propio `show` encima del que ahora dispara el choke point.
 - **Y filtrá por AUTOR.** Lo que hace la IA no se deshace con un toast —queda en el

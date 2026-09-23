@@ -101,7 +101,7 @@ const bandaDe = (n: number) => BANDAS.find((b) => n >= b.min) ?? BANDAS[BANDAS.l
  * `onDebate` es la única puerta que le queda a la audiencia con el Perro, y es un ÍCONO
  * arriba a la derecha: discutirle el número es la excepción, no el botón principal.
  */
-export function MoverPrioridadModal({ titulo, score, sugerido, vecinos = [], onAplicado, onDebate, onClose }: {
+export function MoverPrioridadModal({ titulo, score, sugerido, vecinos = [], onAplicado, onDebate, onAbrir, onClose }: {
   titulo: string;
   score: number;
   /** el número con el que arranca el slider: el de la columna donde la soltaste, o el actual */
@@ -111,6 +111,8 @@ export function MoverPrioridadModal({ titulo, score, sugerido, vecinos = [], onA
   onAplicado: (score: number) => Promise<void> | void;
   /** abrir la audiencia con el Perro. Ausente = este tablero no la tiene. */
   onDebate?: () => void;
+  /** abrir un vecino. Ausente = la lista es sólo para mirar. */
+  onAbrir?: (id: string) => void;
   onClose: () => void;
 }) {
   const [v, setV] = useState(sugerido);
@@ -131,16 +133,23 @@ export function MoverPrioridadModal({ titulo, score, sugerido, vecinos = [], onA
   };
 
   const banda = bandaDe(v);
-  // Los CINCO más cercanos al número que se está eligiendo, mostrados como se ven en el
-  // tablero (de mayor a menor). Se recalculan con cada movimiento del slider: son la
-  // respuesta a «¿al lado de qué lo estoy poniendo?».
-  const cerca = useMemo(() => (
-    vecinos
-      .slice()
-      .sort((a, b) => Math.abs(a.score - v) - Math.abs(b.score - v))
-      .slice(0, 5)
-      .sort((a, b) => b.score - a.score)
-  ), [vecinos, v]);
+  /**
+   * TRES ARRIBA Y TRES ABAJO, con la propia EN EL MEDIO.
+   *
+   * «Que "Queda al lado de" tiene que ser por arriba y por abajo. Es decir, la que estamos
+   * cambiando debería quedar con el título como en el medio» (23/09/2026). La versión
+   * anterior mostraba las cinco más cercanas en cualquier dirección, así que con un 85
+   * podían salir cinco de 86 y ninguna de abajo: se veía una lista, no una POSICIÓN.
+   *
+   * El orden es el del tablero (de mayor a menor), que es como se van a ver después. Se
+   * recalcula con cada movimiento del slider.
+   */
+  const alrededor = useMemo(() => {
+    const orden = vecinos.slice().sort((x, y) => y.score - x.score);
+    const arriba = orden.filter((x) => x.score > v).slice(-3);
+    const abajo = orden.filter((x) => x.score <= v).slice(0, 3);
+    return [...arriba, { id: '__yo__', titulo, score: v, yo: true }, ...abajo];
+  }, [vecinos, v, titulo]);
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 150, background: 'rgba(18,21,27,.45)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
@@ -169,16 +178,42 @@ export function MoverPrioridadModal({ titulo, score, sugerido, vecinos = [], onA
         </div>
         <div style={{ fontSize: 11.5, fontWeight: 700, color: banda.color, textTransform: 'uppercase', letterSpacing: '.06em', minHeight: 16 }}>{banda.label}</div>
 
-        {cerca.length > 0 && (
+        {vecinos.length > 0 && (
           <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
-            <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 7 }}>Queda al lado de</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {cerca.map((x) => (
-                <div key={x.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.3 }}>
-                  <span style={{ flex: 'none', width: 30, textAlign: 'right', fontFamily: MONO, fontSize: 11, fontWeight: 700, color: bandaDe(x.score).color }}>{x.score}</span>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{x.titulo}</span>
-                </div>
-              ))}
+            <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 7 }}>Dónde queda</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {alrededor.map((x) => {
+                const yo = 'yo' in x && x.yo === true;
+                const c = bandaDe(x.score).color;
+                const fila = (
+                  <>
+                    <span style={{ flex: 'none', width: 30, textAlign: 'right', fontFamily: MONO, fontSize: yo ? 12 : 11, fontWeight: 700, color: c }}>{x.score}</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{x.titulo}</span>
+                  </>
+                );
+                // La propia se DESTACA: fondo, borde del color de su banda y negrita. Sin
+                // eso la lista no dice dónde queda — dice qué hay cerca, que es otra cosa.
+                if (yo) {
+                  return (
+                    <div key="yo" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.3, padding: '6px 8px', margin: '3px 0', borderRadius: 8, background: c + '14', border: `1px solid ${c}55` }}>
+                      {fila}
+                    </div>
+                  );
+                }
+                // Los vecinos se ABREN. «Y que las tareas se puedan abrir desde allí mismo»:
+                // comparar contra una tarjeta cuyo título está cortado a 40 caracteres no
+                // alcanza para decidir si va arriba o abajo de ella.
+                return onAbrir ? (
+                  <button key={x.id} type="button" onClick={() => { onClose(); onAbrir(x.id); }} title={`Abrir «${x.titulo}»`}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', border: 'none', background: 'transparent', padding: '4px 8px', borderRadius: 7, fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.3, cursor: 'pointer', font: 'inherit', fontWeight: 400 }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                    {fila}
+                  </button>
+                ) : (
+                  <div key={x.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.3 }}>{fila}</div>
+                );
+              })}
             </div>
           </div>
         )}

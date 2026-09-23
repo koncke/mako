@@ -165,7 +165,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
   // Qué prioridad se está editando, y por qué camino se llegó. UNO para los dos caminos:
   // el ARRASTRE (que trae la columna de destino) y el LÁPIZ del panel (que no trae ninguna,
   // porque no se movió de columna). Antes era sólo del arrastre y sólo de tareas.
-  const [soltada, setSoltada] = useState<{ entidad: 'proyecto' | 'tarea'; id: string; destino?: Prio } | null>(null);
+  const [soltada, setSoltada] = useState<{ entidad: 'proyecto' | 'tarea'; id: string; destino?: Prio; sugerido?: number } | null>(null);
   /**
    * SOBRE QUÉ está trabajando el Perro AHORA mismo (ids de tarea o de proyecto).
    *
@@ -1050,7 +1050,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
         {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} bloqueadas={bloqueadasN} onOpen={setOpenId} onOpenProj={setOpenProj} />}
         {view === 'tareas' && (tabla
           ? <div style={{ flex: '1 0 auto', padding: '18px 30px 40px' }}><TablaTareas tareas={visibles} board={board} hoy={hoyISO()} onOpen={setOpenId} onOpenProj={setOpenProj} ask={ask} /></div>
-          : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} frenanA={frenanA} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} onSoltar={(id, destino) => setSoltada({ entidad: 'tarea', id, destino })} />)}
+          : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} frenanA={frenanA} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} onSoltar={(id, destino, sugerido) => setSoltada({ entidad: 'tarea', id, destino, sugerido })} />)}
         {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={doneFilter} q={q} fOrigen={fOrigen} sortMode={sortMode} sortDir={sortDir} tabla={tabla} />}
         {view === 'graphics' && <GraphicsView board={board} />}
       </div>
@@ -1075,17 +1075,22 @@ export function BoardShell({ board, scope, vistaInicial }: {
         onClose={() => setDebateId(null)} />}
       {/* EL POP-UP DEL 1 AL 100 — la única forma de fijar un número a mano, para los dos
           caminos (arrastrar y el lápiz del panel) y las dos entidades. «Para eso teníamos
-          el pop-up» (23/09/2026): el slider del panel se fue. */}
+          el pop-up» (23/09/2026): el slider del panel se fue.
+          ⚠️ `sugerido` sale de DÓNDE la soltaste —el punto medio entre la tarjeta de arriba
+          y la de abajo, ver `scoreEntre`—, no del representativo de la banda: soltarla
+          arriba de todo en «Alta» y soltarla al fondo son dos decisiones distintas, y hasta
+          hoy las dos abrían el pop-up en el mismo número. */}
       {soltada && soltadaItem && (
         <MoverPrioridadModal
           titulo={soltadaItem.titulo} score={soltadaItem.score}
-          sugerido={soltada.destino ? scoreFromPrio[soltada.destino] : soltadaItem.score}
+          sugerido={soltada.sugerido ?? (soltada.destino ? scoreFromPrio[soltada.destino] : soltadaItem.score)}
           vecinos={soltada.entidad === 'tarea'
             ? tasks.filter((x) => x.id !== soltada.id && x.progress < 100).map((x) => ({ id: x.id, titulo: x.title, score: x.score }))
             : labels.filter((x) => x.id !== soltada.id).map((x) => ({ id: x.id, titulo: x.name, score: x.score }))}
           onDebate={board.repo.debatePrioridad
             ? () => (soltada.entidad === 'tarea' ? setDebateId(soltada.id) : setDebateProjId(soltada.id))
             : undefined}
+          onAbrir={(id) => (soltada.entidad === 'tarea' ? setOpenId(id) : setOpenProj(id))}
           onAplicado={async (n) => {
             const r = await board.repo.prioridadManual!(soltada.entidad, soltada.id, n);
             board.aplicarCascadaManual(soltada.entidad, { id: soltada.id, score: r.score, razon: 'Prioridad fijada a mano', texto: `Fijaste la prioridad en ${r.score} a mano` }, r.movidos);
@@ -1834,10 +1839,14 @@ const emojiTarea = (board: Board, t: BoardTask): string => board.labelById(t.lab
 // Tarjeta de tarea: ALTURA FIJA para que todas midan igual (feedback jul-18). El
 // título se recorta a 2 líneas; el toggle de completar es compacto (inline), no una
 // píldora que agrandaba unas cards más que otras.
-function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, tactil }: {
+function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, tactil, onAgarrar, oculta = false }: {
   t: BoardTask; board: Board; warn: boolean; frenanA?: string[]; onOpen: (id: string) => void; onWarn: (id: string) => void; onOpenProj?: (id: string) => void;
   /** el arrastre con el dedo (sólo en el Kanban; en el resto de las vistas no existe) */
   tactil?: ArrastreTactil;
+  /** avisa al Kanban qué tarjeta está en la mano (para dibujar el hueco y ocultar ésta) */
+  onAgarrar?: (id: string | null) => void;
+  /** se está arrastrando: la tarjeta se desvanece y el que ocupa su lugar es el HUECO */
+  oculta?: boolean;
 }) {
   const done = t.progress >= 100;
   const levantada = tactil?.arrastrando === t.id;
@@ -1863,9 +1872,10 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, ta
       onClick={() => { if (!tactil?.huboArrastre()) onOpen(t.id); }}
       onPointerDown={(e) => tactil?.alTocar(e, t.id)}
       draggable={!!board.repo.prioridadManual}
-      onDragStart={(e) => { e.dataTransfer.setData('text/plain', t.id); e.dataTransfer.effectAllowed = 'move'; setAgarrada(true); }}
-      onDragEnd={() => setAgarrada(false)}
-      style={{ background: 'var(--surface-2)', border: `1px solid ${enMano ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 11, padding: '12px 14px', cursor: board.repo.prioridadManual ? (agarrada ? 'grabbing' : 'grab') : 'pointer', opacity: agarrada ? 0.5 : done ? 0.62 : 1, height: 138, display: 'flex', flexDirection: 'column', transition: 'border-color .12s, transform .15s, box-shadow .15s, opacity .15s',
+      data-card
+      onDragStart={(e) => { e.dataTransfer.setData('text/plain', t.id); e.dataTransfer.effectAllowed = 'move'; setAgarrada(true); onAgarrar?.(t.id); }}
+      onDragEnd={() => { setAgarrada(false); onAgarrar?.(null); }}
+      style={{ background: 'var(--surface-2)', border: `1px solid ${enMano ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 11, padding: '12px 14px', cursor: board.repo.prioridadManual ? (agarrada ? 'grabbing' : 'grab') : 'pointer', opacity: oculta ? 0.28 : agarrada ? 0.5 : done ? 0.62 : 1, height: 138, display: 'flex', flexDirection: 'column', transition: 'border-color .12s, transform .15s, box-shadow .15s, opacity .15s',
         // `manipulation` saca el retardo del doble-tap sin tocar el scroll. `none` NO va:
         // es CSS, decide antes de que exista el listener y apagaría el scroll de la página
         // sobre cada tarjeta.
@@ -1973,25 +1983,15 @@ function ProyectoVacioBloque({ proj }: { proj: Label }) {
  * Hasta que existió esta columna, el escalón se decidía en cada corrida, se escribía adentro
  * de una frase y ahí moría. Ahora se ve, y por eso se puede discutir.
  */
-function EscalonChip({ l }: { l: Label }) {
-  const e = l.escalon ? ESCALERA[l.escalon] : null;
-  if (!e) return null;
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
-      {/* ⛔ AL LADO DEL CHIP IBA «desbloquea: <frase del Perro>», y se fue el 23/09/2026:
-          «eso no tiene sentido». Era un renglón entero de prosa generada para justificar un
-          chip de tres palabras — «Habilita el escalón 4 al mantener el accountability y el
-          seguimiento del plan» — y lo que se leía no era la justificación: era ruido arriba
-          del contenido del proyecto.
-          La justificación NO se pierde, cambia de lugar: va en el `title` del chip, que es
-          donde vive lo que explica sin ocupar un renglón. Y el dato sigue en la base. */}
-      <span title={l.escalon === 5 && l.desbloquea ? `${e.largo} — desbloquea: ${l.desbloquea}` : e.largo}
-        style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--mako-ink, var(--primary))', background: 'color-mix(in srgb, var(--primary) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--primary) 25%, transparent)', borderRadius: 5, padding: '2px 7px' }}>
-        💰 {l.escalon} · {e.corto}
-      </span>
-    </div>
-  );
-}
+// ⛔ ACÁ VIVÍA `EscalonChip`, el chip «💰 5 · CONSTRUIR» de la escalera del dinero, y se
+// fue el 23/09/2026: «no entiendo ese pin de "construir" en el proyecto, si no sirve,
+// sácalo». Y no servía — no porque el concepto esté mal, sino porque el chip solo no lo
+// transmite: para entender que un proyecto es «escalón 5» hay que conocer la escalera, y la
+// única explicación estaba en un `title` que aparece al pasar el mouse. Un dato que necesita
+// un glosario para significar algo, en una columna de 236px, es ruido con forma de dato.
+//
+// El `escalon` y el `desbloquea` SIGUEN en la base y los sigue usando el Perro para
+// priorizar: lo que se sacó es el chip.
 
 /** La versión larga del `TiempoChip`, para el detalle: acá sí hay lugar para la frase. */
 function TiempoLinea({ t }: { t: BoardTask }) {
@@ -2049,11 +2049,48 @@ function BloqueoChip({ porQue, compacto = false }: { porQue: string[]; compacto?
 }
 
 // ── vista Kanban (4 columnas por prioridad derivada del score; ancho completo) ──
+/**
+ * Dónde se va a insertar la tarjeta que estás arrastrando: qué columna y en qué POSICIÓN.
+ *
+ * «No solo desplazar de columna, sino de fila: puedo moverla abajo o arriba, y se tiene que
+ * ver en la animación que la estoy moviendo un espacio donde estoy por dejar caer a la
+ * tarjeta» (23/09/2026). Hasta acá el arrastre sólo sabía de columnas, así que soltar en
+ * cualquier lado de «Alta» daba siempre el mismo número —el representativo de la banda— y
+ * el pop-up abría en 88 sin importar si la habías dejado arriba de todo o al fondo.
+ */
+type Insercion = { destino: Prio; idx: number };
+
+/**
+ * El número que le corresponde a una tarjeta soltada ENTRE otras dos.
+ *
+ * Es el punto medio entre la de arriba y la de abajo, que es lo que hace que el orden que
+ * dibujaste con la mano sea el orden que queda. Los bordes tienen su caso: arriba de todo
+ * son dos puntos más que la primera, abajo de todo dos menos que la última, y en una columna
+ * vacía el representativo de la banda, que es lo único que se sabe.
+ *
+ * ⚠️ Sale una SUGERENCIA, no el número final: el pop-up siempre pregunta. «Que siempre salga
+ * el pop-up para cambiar la prioridad del 1 al 100» — soltar dice dónde, la persona dice
+ * cuánto.
+ */
+function scoreEntre(items: BoardTask[], idx: number, destino: Prio): number {
+  const arriba = items[idx - 1];
+  const abajo = items[idx];
+  const clamp = (n: number) => Math.max(1, Math.min(100, Math.round(n)));
+  if (arriba && abajo) return clamp((arriba.score + abajo.score) / 2);
+  if (abajo) return clamp(abajo.score + 2);
+  if (arriba) return clamp(arriba.score - 2);
+  return scoreFromPrio[destino];
+}
+
 function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, onOpen, onNew, onWarn, onOpenProj, onSoltar }: {
   tasks: BoardTask[]; board: Board; topProjectId: string | null; sortMode: 'score' | 'creacion'; sortDir: 'desc' | 'asc'; frenanA: (id: string) => string[]; onOpen: (id: string) => void; onNew: (p?: Prio) => void; onWarn: (id: string) => void; onOpenProj: (id: string) => void;
-  /** soltaste una tarjeta en otra columna: NO se fija sola, se pregunta el número */
-  onSoltar: (id: string, destino: Prio) => void;
+  /** soltaste una tarjeta: NO se fija sola, se pregunta el número — con el que sugiere la POSICIÓN */
+  onSoltar: (id: string, destino: Prio, sugerido?: number) => void;
 }) {
+  // Dónde caería si soltaras ahora. Es estado y no un ref porque se DIBUJA: el hueco entre
+  // las tarjetas es la única forma de saber dónde va a caer antes de soltarla.
+  const [ins, setIns] = useState<Insercion | null>(null);
+  const [arrastrado, setArrastrado] = useState<string | null>(null);
   // dir = -1 → desc (mayor score / #num más alto = más nuevo, primero); +1 → asc (al revés).
   const dir = sortDir === 'asc' ? 1 : -1;
   // EL ARRASTRE CON EL DEDO. El mouse sigue por HTML5 drag-and-drop (ya funciona y ya está
@@ -2070,25 +2107,64 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, onOpen
       <style>{`@media (max-width:1000px){.mako-board{grid-template-columns:repeat(2,1fr)!important}}@media (max-width:560px){.mako-board{grid-template-columns:1fr!important}}`}</style>
       {PRIOS.map((p) => {
         const items = tasks.filter((t) => displayPrio(t, topProjectId) === p).sort((a, b) => (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0) || (sortMode === 'creacion' ? dir * (a.num - b.num) : (dir * (a.score - b.score) || b.num - a.num)));
+        // El hueco se dibuja en la posición exacta donde va a caer, y sólo en la columna
+        // sobre la que está el puntero.
+        const hueco = (i: number) => (ins?.destino === p && ins.idx === i
+          ? <div key={`hueco-${i}`} style={{ flex: 'none', height: 64, borderRadius: 10, border: `2px dashed ${PCOLOR[p]}`, background: PCOLOR[p] + '12', transition: 'height .12s' }} />
+          : null);
         return (
           <section key={p}
             // Soltar una tarjeta acá ABRE EL POP-UP del 1 al 100; la columna solo dice la
             // banda. `preventDefault` en dragOver es lo que habilita el drop (sin él, el
             // navegador lo rechaza y no pasa nada, que se lee como que el arrastre no anda).
-            onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; e.currentTarget.style.background = 'var(--surface-2)'; }}
-            onDragLeave={(e) => { e.currentTarget.style.background = 'var(--surface)'; }}
-            onDrop={(e) => { e.preventDefault(); e.currentTarget.style.background = 'var(--surface)'; const id = e.dataTransfer.getData('text/plain'); if (id) onSoltar(id, p); }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+              // ⚠️ LA POSICIÓN SE MIDE CONTRA LAS TARJETAS, NO CONTRA EL PUNTERO SUELTO. Se
+              // recorren las cards de ESTA columna y se cuenta cuántas quedan por encima de
+              // la mitad de su alto: ése es el índice donde entra. Leer layout en cada
+              // `dragover` es barato acá (son ≤ 12 nodos por columna) y es lo único que
+              // sobrevive al scroll de la página durante el gesto.
+              const cards = [...e.currentTarget.querySelectorAll<HTMLElement>('[data-card]')];
+              let idx = cards.length;
+              for (let i = 0; i < cards.length; i++) {
+                const r = cards[i].getBoundingClientRect();
+                if (e.clientY < r.top + r.height / 2) { idx = i; break; }
+              }
+              setIns((prev) => (prev && prev.destino === p && prev.idx === idx ? prev : { destino: p, idx }));
+            }}
+            onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setIns((prev) => (prev?.destino === p ? null : prev)); }}
+            onDrop={(e) => {
+              e.preventDefault();
+              const id = e.dataTransfer.getData('text/plain');
+              const idx = ins?.destino === p ? ins.idx : items.length;
+              setIns(null);
+              setArrastrado(null);
+              // La lista SIN la que se está moviendo: si se la deja adentro, el punto medio
+              // se calcula contra su propio número y la tarjeta «no se mueve».
+              if (id) onSoltar(id, p, scoreEntre(items.filter((t) => t.id !== id), idx, p));
+            }}
             // `data-prio` es cómo el arrastre táctil sabe dónde está cada columna: al armarse
             // el gesto mide estos cuatro rectángulos UNA vez y después no vuelve a leer layout.
             data-prio={p}
-            style={{ display: 'flex', flexDirection: 'column', minWidth: 0, background: tactil.sobre === p ? 'var(--surface-2)' : 'var(--surface)', border: '1px solid ' + (tactil.sobre === p ? PCOLOR[p] : 'var(--border)'), borderTop: '3px solid ' + PCOLOR[p], borderRadius: 14, padding: 10, transition: 'background .12s, border-color .12s' }}>
+            style={{ display: 'flex', flexDirection: 'column', minWidth: 0, background: (tactil.sobre === p || ins?.destino === p) ? 'var(--surface-2)' : 'var(--surface)', border: '1px solid ' + ((tactil.sobre === p || ins?.destino === p) ? PCOLOR[p] : 'var(--border)'), borderTop: '3px solid ' + PCOLOR[p], borderRadius: 14, padding: 10, transition: 'background .12s, border-color .12s' }}>
             <ColHeader p={p} count={items.length} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9, minHeight: 30, paddingRight: 2 }}>
               {/* card gris translúcida para crear (arriba de todo, más bajita que las tarjetas) */}
               <button onClick={() => onNew(p)} style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, border: '1.5px dashed var(--border-strong)', background: 'transparent', borderRadius: 10, padding: '9px 10px', cursor: 'pointer', color: 'var(--faint)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, opacity: 0.8, transition: 'border-color .12s, color .12s' }}
                 onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--faint)'; }}>＋ Nueva tarea</button>
-              {items.length === 0 && <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', padding: '10px 0' }}>—</div>}
-              {items.map((t) => <CardTile key={t.id} t={t} board={board} frenanA={frenanA(t.id)} warn={displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && !t.deadline} onOpen={onOpen} onWarn={onWarn} onOpenProj={onOpenProj} tactil={tactil} />)}
+              {items.length === 0 && !hueco(0) && <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', padding: '10px 0' }}>—</div>}
+              {/* EL HUECO. Es lo que convierte «la estoy soltando en Alta» en «la estoy
+                  soltando ACÁ»: sin él, el número que propone el pop-up sale de una posición
+                  que nadie vio. Tiene el alto de una tarjeta para que lo de abajo se corra
+                  de verdad, como en el CRM. */}
+              {hueco(0)}
+              {items.map((t, i) => (
+                <Fragment key={t.id}>
+                  <CardTile t={t} board={board} frenanA={frenanA(t.id)} warn={displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && !t.deadline} onOpen={onOpen} onWarn={onWarn} onOpenProj={onOpenProj} tactil={tactil} onAgarrar={setArrastrado} oculta={arrastrado === t.id} />
+                  {hueco(i + 1)}
+                </Fragment>
+              ))}
             </div>
           </section>
         );
@@ -2702,7 +2778,6 @@ export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen }:
       <div style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3 }}>{l.name}</div>
       {isTop && <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.1em', textTransform: 'uppercase', color: l.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>}
       {verDetalle && l.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>{stripHtml(l.detalle)}</div>}
-      {verDetalle && <EscalonChip l={l} />}
       {verDetalle && l.scoreRazon && <div style={{ fontSize: 11.5, color: 'var(--faint)', fontStyle: 'italic', lineHeight: 1.45 }}>🐕 {l.scoreRazon}</div>}
       <span style={{ flex: 1 }} />
       {/* EL DEADLINE, EN LA PREVIEW. «Aún no sale el deadline en la preview de las cards de
@@ -2863,7 +2938,10 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
               de proj.fuente o se deriva del autor del alta (Claude Code, MaKo, vos). */}
           <FuenteChip fuente={fuenteEfectiva({ origen: proj.historial[proj.historial.length - 1]?.actor ?? 'user', fuente: proj.fuente })} />
           <span style={{ flex: 1 }} />
-          <button onClick={onMako} title="MaKo te ayuda a mejorar el nombre y el detalle" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)', color: 'var(--primary)', borderRadius: 8, padding: '5px 11px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>✦ MaKo te ayuda</button>
+          {/* ⛔ ACÁ ESTABA «✦ MaKo te ayuda», y se fue el 23/09/2026 a pedido. En una
+              tarea tiene sentido —MaKo reescribe el título y el detalle— pero en un
+              proyecto el detalle ya lo escribe el Perro al crearlo y en cada corrida, así
+              que el botón ofrecía volver a pedir algo que ya pasó solo. */}
           <button aria-label="Cerrar" onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 22, lineHeight: 1, color: 'var(--faint)', padding: '2px 6px' }}>×</button>
         </div>
         <div style={{ display: 'flex', minHeight: 0, flex: 1 }}>
@@ -2972,7 +3050,6 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
               color={proj.color} titulo={proj.name}
               chip={<ProjScore score={proj.score} color={proj.color} />}
               razon={proj.scoreRazon} impacto={proj.impacto} esfuerzo={proj.esfuerzo}
-              extra={<EscalonChip l={proj} />}
               puedeEditar={!!board.repo.prioridadManual} onEditar={onPrioridad} />
             <div><label style={rowLabel}>Deadline</label><input type="date" value={proj.deadline || ''} onChange={(e) => board.patchLabelLog(proj.id, { deadline: e.target.value }, e.target.value ? `Deadline ${e.target.value}` : 'Quitó el deadline')} style={selStyle} /></div>
 

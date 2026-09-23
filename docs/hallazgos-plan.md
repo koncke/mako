@@ -3165,3 +3165,67 @@ tokens por texto que ya nadie ve. Sacarlos del prompt es otra tarea, y hay que h
 mirando quién más los consume (el export los lleva como columna).
 
 **Vive en:** app/plan/board/AsignarProyecto.tsx · app/plan/board/BoardShell.tsx (`EscalonChip`) · app/plan/board/PrioridadAMano.tsx (`LapizPrioridad`) · *2026-09-23*
+
+
+## El deshacer que faltaba era el del camino que NO pasa por el choke point (23/09/2026)
+
+*«Acabo de cambiar la prioridad de una tarea, no recuerdo cuál fue y NO me apareció el botón
+de deshacer.»* El arreglo del día —poner el toast en `patchLog` / `patchLogExplicit` /
+`setScore` / `patchLabelLog`— cubrió los ~20 campos de una tarjeta y dejó afuera justo el
+único que no pasa por ahí: **`aplicarCascadaManual`**, donde terminan el slider, el lápiz y
+el arrastre. O sea que quedó sin red el número que ORDENA el tablero entero.
+
+**La regla que faltaba: poner algo en el choke point no cierra el trabajo — hay que
+enumerar qué caminos NO pasan por él.** Un `grep` de quién muta `score` directo los lista;
+acá era uno solo y era el que importaba.
+
+⚠️ **Y este deshacer tiene que ESCRIBIR EN EL SERVER.** El `undo` de los demás campos es
+local porque el board persiste solo; éste ya se guardó con `repo.prioridadManual`, así que
+revertir sólo la pantalla sería mentir hasta el próximo F5. Se vuelve a llamar al mismo
+camino con el número anterior y —si la tarjeta no estaba fijada a mano antes— se le devuelve
+la decisión al Perro: **el candado lo puso este cambio, no la persona**.
+
+⚠️ **Lo que ya se había perdido hubo que revertirlo a mano.** El #665 pasó de 93 a 85 sin
+red. Se recuperó de `plan_reprios`, que guarda `score_antes` y un `ripple` con
+`manualAntes` — por eso se pudo saber que el candado había que sacarlo. `score_razon` NO se
+restauró con una frase inventada: la del Perro se perdió cuando se escribió «Prioridad
+fijada a mano» encima, así que quedó en null y la próxima corrida la reescribe.
+
+## Un arrastre que sólo sabe de columnas propone siempre el mismo número
+
+*«Si agarro una tarjeta y la arrastro por abajo, el pop-up que me salta con la nueva
+prioridad se debería autocolocar según dónde solté la tarea… no solo desplazar de columna,
+sino de fila.»*
+
+Soltar en cualquier lugar de «Alta» daba el representativo de la banda, así que el pop-up
+abría en 88 tanto si la dejabas arriba de todo como al fondo. Ahora la posición se mide
+contra las TARJETAS —cuántas quedan por encima de la mitad de su alto— y el número que
+propone el slider es el **punto medio entre la de arriba y la de abajo**. Los bordes tienen
+su caso: arriba de todo, dos puntos más que la primera; abajo, dos menos que la última; en
+una columna vacía, el representativo de la banda, que es lo único que se sabe.
+
+- **Sigue siendo una SUGERENCIA.** El pop-up pregunta igual: soltar dice DÓNDE, la persona
+  dice CUÁNTO.
+- **El hueco es lo que hace que la posición exista para quien mira.** Sin él, el número sale
+  de un lugar que nadie vio. Tiene el alto de una tarjeta para que lo de abajo se corra de
+  verdad, como en el CRM.
+- ⚠️ **El punto medio se calcula sobre la lista SIN la tarjeta que se está moviendo.** Si se
+  la deja adentro, el promedio se hace contra su propio número y la tarjeta «no se mueve».
+
+## Tres cosas que se sacaron porque no significaban nada
+
+- **El chip «5 · CONSTRUIR»** del escalón. No porque el concepto esté mal: para entender
+  que un proyecto es «escalón 5» hay que conocer la escalera, y la única explicación vivía
+  en un `title` de hover. **Un dato que necesita un glosario para significar algo, en una
+  columna de 236px, es ruido con forma de dato.** El `escalon` sigue en la base y el Perro
+  lo sigue usando para priorizar.
+- **«MaKo te ayuda» en un proyecto.** En una tarea tiene sentido; en un proyecto el detalle
+  ya lo escribe el Perro al crearlo y en cada corrida, así que el botón ofrecía volver a
+  pedir algo que ya pasó solo.
+- **«Queda al lado de» sin arriba y sin abajo.** Mostraba las cinco más cercanas en
+  cualquier dirección, así que con un 85 podían salir cinco de 86 y ninguna de abajo: se
+  veía una lista, no una POSICIÓN. Ahora son tres arriba, la propia destacada en el medio, y
+  tres abajo — y los vecinos se abren, porque comparar contra un título cortado a 40
+  caracteres no alcanza para decidir si va arriba o abajo de él.
+
+**Vive en:** app/plan/board/useBoard.ts (`aplicarCascadaManual`) · app/plan/board/BoardShell.tsx (`scoreEntre`, el hueco del Kanban) · app/plan/board/PrioridadAMano.tsx · *2026-09-23*

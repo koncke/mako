@@ -217,6 +217,43 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
   ) => {
     const otros = new Map(movidos.filter((m) => m.id !== fijado.id).map((m) => [m.id, m.despues]));
     const entry: Hist = { id: uid(), ts: now(), actor: 'user', text: fijado.texto };
+
+    // ⚠️ ESTE CAMINO NO PASA POR `patchLog`, ASÍ QUE NO HEREDABA EL DESHACER. Y es el único
+    // que escribe el score a mano: el slider, el lápiz y el arrastre terminan todos acá.
+    // Reportado el 23/09/2026 — «acabo de cambiar la prioridad de una tarea, no recuerdo
+    // cuál fue y NO me apareció el botón de deshacer» —, que es el peor caso posible: un
+    // cambio de una persona, sin red, sobre el número que ordena el tablero entero.
+    //
+    // ⚠️ Y DESHACER ACÁ TIENE QUE ESCRIBIR EN EL SERVER. El `undo` de los demás campos es
+    // local porque el board persiste solo; éste ya se guardó por `repo.prioridadManual`, así
+    // que revertir sólo la pantalla sería mentir hasta el próximo F5. Se vuelve a llamar al
+    // mismo camino con el número anterior — y, si la tarjeta NO estaba fijada a mano antes,
+    // se le devuelve la decisión al Perro: el candado lo puso este cambio, no la persona.
+    const previoT = entidad === 'tarea' ? byId(fijado.id) : null;
+    const previoL = entidad === 'proyecto' ? labels.find((l) => l.id === fijado.id) ?? null : null;
+    const scorePrevio = previoT?.score ?? previoL?.score ?? null;
+    const manualPrevio = !!(previoT?.scoreManual ?? previoL?.scoreManual);
+    if (scorePrevio != null && scorePrevio !== clampScore(fijado.score)) {
+      show(`Prioridad ${scorePrevio} → ${clampScore(fijado.score)}`, async () => {
+        try {
+          await repo.prioridadManual?.(entidad, fijado.id, scorePrevio);
+          if (!manualPrevio) await repo.prioridadAlPerro?.(entidad, fijado.id);
+        } catch (e) { console.error('[board] deshacer prioridad', e); }
+        // La pantalla, después de que el server confirmó: el número vuelve, el candado
+        // vuelve a como estaba, y la entrada del historial se va (un cambio deshecho no es
+        // historia, mismo criterio que `undoHist`).
+        if (entidad === 'tarea') {
+          setTasks((ts) => ts.map((x) => (x.id === fijado.id
+            ? { ...x, score: scorePrevio, scoreBase: scorePrevio, priority: prioFromScore(scorePrevio), scoreManual: manualPrevio, scoreRazon: previoT?.scoreRazon, historial: x.historial.filter((h) => h.id !== entry.id) }
+            : x)));
+        } else {
+          setLabels((ls) => ls.map((l) => (l.id === fijado.id
+            ? { ...l, score: clampProj(scorePrevio), scoreManual: manualPrevio, scoreRazon: previoL?.scoreRazon, historial: l.historial.filter((h) => h.id !== entry.id) }
+            : l)));
+        }
+      });
+    }
+
     if (entidad === 'tarea') {
       setTasks((ts) => ts.map((x) => {
         if (x.id === fijado.id) {

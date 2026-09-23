@@ -173,7 +173,7 @@ export function CrearTareaModal({ proyectoInicial, prioInicial, onCrear, onDone,
  * —o un reconocedor— se lee antes de que valga. Es «un canal propone, una persona confirma»
  * en su versión más barata: acá la persona ya está mirando la pantalla.
  */
-function BotonDictar({ titulo, valor, onValor, onError }: {
+export function BotonDictar({ titulo, valor, onValor, onError }: {
   titulo: string;
   /** lo que hay escrito AHORA: lo dictado se pega atrás, no lo reemplaza */
   valor: string;

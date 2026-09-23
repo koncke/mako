@@ -24,6 +24,7 @@
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import { textareaStyle, inputStyle } from './guardian-form';
+import { BotonDictar } from './CrearTareaModal';
 import { GuardianIcon } from './GuardianIcon';
 import { EmojiPickerMini } from './EmojiPicker';
 
@@ -51,6 +52,7 @@ export function CrearProyectoModal({ onCrear, onClose }: { onCrear: (nombre: str
   const [emoji, setEmoji] = useState('🏷');
   const [detalle, setDetalle] = useState('');
   const [restored, setRestored] = useState(false);
+  const [err, setErr] = useState('');
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -119,12 +121,19 @@ export function CrearProyectoModal({ onCrear, onClose }: { onCrear: (nombre: str
           ni en tareas» (23/09/2026). Lo que MaKo escribe se revisa y se edita en la pantalla
           siguiente, que es donde de verdad se mira. */}
       <div style={{ padding: '14px 20px 18px' }}>
-        <textarea value={desc} onChange={(e) => setDesc(e.target.value)} autoFocus rows={2}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && desc.trim()) { e.preventDefault(); void generar(); } }}
-          placeholder="¿De qué se trata el proyecto?"
-          style={{ width: '100%', padding: '11px 0', border: 'none', borderBottom: '2px solid var(--border)', borderRadius: 0, background: 'transparent', color: 'var(--ink)', fontSize: 19, lineHeight: 1.4, outline: 'none', fontFamily: SANS, resize: 'none' }}
-          onFocus={(e) => { e.currentTarget.style.borderBottomColor = 'var(--primary)'; }}
-          onBlur={(e) => { e.currentTarget.style.borderBottomColor = 'var(--border)'; }} />
+        {/* Se dicta igual que una tarea: «falta el botón de grabar audio en la creación del
+            proyecto». Es el MISMO componente, no una copia — si fueran dos, el día que el
+            dictado cambie va a cambiar en uno solo. */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+          <textarea value={desc} onChange={(e) => setDesc(e.target.value)} autoFocus rows={2}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && desc.trim()) { e.preventDefault(); void generar(); } }}
+            placeholder="¿De qué se trata el proyecto?"
+            style={{ flex: 1, minWidth: 0, padding: '11px 0', border: 'none', borderBottom: '2px solid var(--border)', borderRadius: 0, background: 'transparent', color: 'var(--ink)', fontSize: 19, lineHeight: 1.4, outline: 'none', fontFamily: SANS, resize: 'none' }}
+            onFocus={(e) => { e.currentTarget.style.borderBottomColor = 'var(--primary)'; }}
+            onBlur={(e) => { e.currentTarget.style.borderBottomColor = 'var(--border)'; }} />
+          <BotonDictar titulo="Dictar el proyecto" valor={desc} onValor={setDesc} onError={setErr} />
+        </div>
+        {err && <div style={{ fontSize: 12.5, color: 'var(--bad)', lineHeight: 1.4, marginTop: 10 }}>{err}</div>}
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '0 20px 18px' }}>
