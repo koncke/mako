@@ -3212,6 +3212,23 @@ una columna vacía, el representativo de la banda, que es lo único que se sabe.
 - ⚠️ **El punto medio se calcula sobre la lista SIN la tarjeta que se está moviendo.** Si se
   la deja adentro, el promedio se hace contra su propio número y la tarjeta «no se mueve».
 
+### ⚠️ Y el que se llevó otra ronda: el navegador saca la FOTO al terminar tu handler
+
+Con el hueco ya funcionando, la tarjeta seguía sin «agarrarse»: *«aún no agarra la tarjeta,
+es como que se queda invisible»*. En la captura se veía el texto duplicado y borroso encima
+de la tarjeta original.
+
+En HTML5 drag-and-drop, lo que sigue al cursor es una **foto** que el navegador toma del
+elemento **cuando tu handler de `dragstart` termina** — no antes. Así que bajarle la opacidad
+adentro del handler se la aplica también a la foto: la tarjeta se desvanece Y lo que
+arrastrás es un fantasma transparente dibujado encima del original. El efecto que se busca
+—la tarjeta se atenúa en su lugar y la copia viaja entera— necesita que el cambio ocurra
+**después** de ese momento: `setTimeout(..., 0)`.
+
+Y había un segundo error encima: `agarrada` (estado de la tarjeta) y `oculta` (lo que le dice
+el Kanban) son lo mismo dicho dos veces, y sus opacidades se estaban multiplicando hasta
+0.28. Es el mismo olor que «dos campos para el mismo lugar»: uno de los dos sobra.
+
 ## Tres cosas que se sacaron porque no significaban nada
 
 - **El chip «5 · CONSTRUIR»** del escalón. No porque el concepto esté mal: para entender

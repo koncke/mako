@@ -598,6 +598,23 @@ CEDE.** Fila con `flex-wrap: nowrap`, lo que menos informa con `flex: 0 1 auto` 
 cualquier ancho y con cualquier zoom, sin depender de una cuenta que acierta hoy y falla
 mañana.
 
+# En HTML5 drag-and-drop, el navegador saca la FOTO al terminar tu handler
+
+Lo que sigue al cursor mientras arrastrás no es el elemento: es una foto que el navegador
+toma de él **cuando el handler de `dragstart` termina**. Así que todo cambio visual que
+hagas adentro de ese handler —bajarle la opacidad, achicarlo, teñirlo— sale también en la
+foto.
+
+Medido el 23/09/2026 en el Kanban del plan: `setAgarrada(true)` dentro de `dragstart` dejaba
+la tarjeta desvanecida Y la copia que viajaba con el cursor transparente encima del
+original. Se reportó como «no agarra la tarjeta, se queda invisible». Va con
+`setTimeout(fn, 0)`: la foto se toma con el elemento entero y recién después se atenúa el
+que queda en su lugar.
+
+Vale para cualquier feedback visual del arrastre. Si querés una imagen distinta de la del
+elemento, eso es `e.dataTransfer.setDragImage(nodo, x, y)`, y el nodo tiene que estar en el
+documento y visible en ese instante.
+
 # Un layout se prueba con el valor MÁS LARGO del conjunto, no con el primero
 
 Si el ancho es fijo y el texto lo decide el dato, «entra» es una propiedad del dato, no del

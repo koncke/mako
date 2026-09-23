@@ -1873,9 +1873,20 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, ta
       onPointerDown={(e) => tactil?.alTocar(e, t.id)}
       draggable={!!board.repo.prioridadManual}
       data-card
-      onDragStart={(e) => { e.dataTransfer.setData('text/plain', t.id); e.dataTransfer.effectAllowed = 'move'; setAgarrada(true); onAgarrar?.(t.id); }}
+      // ⚠️ EL DESVANECIDO VA UN FRAME DESPUÉS, Y NO ES UN DETALLE. El navegador saca la
+      // FOTO de la tarjeta —la miniatura que sigue al cursor— cuando el handler de
+      // `dragstart` termina, así que cambiarle la opacidad acá adentro se la aplica también
+      // a la foto: la tarjeta se desvanece Y lo que arrastrás es un fantasma transparente
+      // encima del original. Se reportó exactamente así: «aún no agarra la tarjeta, es como
+      // que se queda invisible». Con el `setTimeout(0)` la foto se toma con la tarjeta
+      // entera y recién después se atenúa la que queda en su lugar.
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/plain', t.id);
+        e.dataTransfer.effectAllowed = 'move';
+        setTimeout(() => { setAgarrada(true); onAgarrar?.(t.id); }, 0);
+      }}
       onDragEnd={() => { setAgarrada(false); onAgarrar?.(null); }}
-      style={{ background: 'var(--surface-2)', border: `1px solid ${enMano ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 11, padding: '12px 14px', cursor: board.repo.prioridadManual ? (agarrada ? 'grabbing' : 'grab') : 'pointer', opacity: oculta ? 0.28 : agarrada ? 0.5 : done ? 0.62 : 1, height: 138, display: 'flex', flexDirection: 'column', transition: 'border-color .12s, transform .15s, box-shadow .15s, opacity .15s',
+      style={{ background: 'var(--surface-2)', border: `1px solid ${enMano ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 11, padding: '12px 14px', cursor: board.repo.prioridadManual ? (agarrada ? 'grabbing' : 'grab') : 'pointer', opacity: (agarrada || oculta) ? 0.4 : done ? 0.62 : 1, height: 138, display: 'flex', flexDirection: 'column', transition: 'border-color .12s, transform .15s, box-shadow .15s, opacity .15s',
         // `manipulation` saca el retardo del doble-tap sin tocar el scroll. `none` NO va:
         // es CSS, decide antes de que exista el listener y apagaría el scroll de la página
         // sobre cada tarjeta.
